@@ -153,6 +153,7 @@
 -define(INET_LOPT_NETNS,          38).
 -define(INET_LOPT_TCP_SHOW_ECONNRESET, 39).
 -define(INET_LOPT_LINE_DELIM,     40).
+-define(INET_OPT_TCLASS,          41).
 % Specific SCTP options: separate range:
 -define(SCTP_OPT_RTOINFO,	 	100).
 -define(SCTP_OPT_ASSOCINFO,	 	101).

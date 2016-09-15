@@ -777,6 +777,7 @@ static int is_nonzero(const char *s, size_t n)
 #define INET_LOPT_NETNS             38  /* Network namespace pathname */
 #define INET_LOPT_TCP_SHOW_ECONNRESET 39  /* tell user about incoming RST */
 #define INET_LOPT_LINE_DELIM        40  /* Line delimiting char */
+#define INET_OPT_TCLASS             41  /* IPv6 transport class */
 /* SCTP options: a separate range, from 100: */
 #define SCTP_OPT_RTOINFO		100
 #define SCTP_OPT_ASSOCINFO		101
@@ -1330,6 +1331,7 @@ static ErlDrvTermData am_reuseaddr;
 static ErlDrvTermData am_dontroute;
 static ErlDrvTermData am_priority;
 static ErlDrvTermData am_tos;
+static ErlDrvTermData am_tclass;
 static ErlDrvTermData am_ipv6_v6only;
 static ErlDrvTermData am_netns;
 #endif
@@ -3720,6 +3722,7 @@ static void inet_init_sctp(void) {
     INIT_ATOM(dontroute);
     INIT_ATOM(priority);
     INIT_ATOM(tos);
+    INIT_ATOM(tclass);
     INIT_ATOM(ipv6_v6only);
     INIT_ATOM(netns);
     
@@ -6228,6 +6231,15 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 #else
 	    continue;
 #endif
+#if defined(IPV6_TCLASS) && defined(SOL_IPV6)
+	case INET_OPT_TCLASS:
+	    proto = SOL_IPV6;
+	    type = IPV6_TCLASS;
+	    propagate = 1;
+	    DEBUGF(("inet_set_opts(%ld): s=%d, IPV6_TCLASS=%d\r\n",
+		    (long)desc->port, desc->s, ival));
+	    break;
+#endif
 
 	case TCP_OPT_NODELAY:
 	    proto = IPPROTO_TCP; 
@@ -6660,6 +6672,19 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 #	else
 	    continue; /* Option not supported -- ignore it */
 #	endif
+
+#       if defined(IPV6_TCLASS) && defined(SOL_IPV6)
+	case INET_OPT_TCLASS:
+	{
+	    arg.ival= get_int32 (curr);	  curr += 4;
+	    proto   = SOL_IPV6;
+	    type    = IPV6_TCLASS;
+	    arg_ptr = (char*) (&arg.ival);
+	    arg_sz  = sizeof  ( arg.ival);
+	    break;
+	}
+#	endif
+
 
 	case INET_OPT_IPV6_V6ONLY:
 #       if HAVE_DECL_IPV6_V6ONLY
@@ -7162,6 +7187,15 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    put_int32(0, ptr);
 	    continue;
 #endif
+	case INET_OPT_TCLASS:
+#if defined(IPV6_TCLASS) && defined(SOL_IPV6)
+	    proto = SOL_IPV6;
+	    type = IPV6_TCLASS;
+	    break;
+#else
+	    TRUNCATE_TO(0,ptr);
+	    continue;
+#endif
 	case INET_OPT_REUSEADDR: 
 	    type = SO_REUSEADDR; 
 	    break;
@@ -7556,6 +7590,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	case INET_OPT_DONTROUTE:
 	case INET_OPT_PRIORITY :
 	case INET_OPT_TOS      :
+	case INET_OPT_TCLASS   :
 	case INET_OPT_IPV6_V6ONLY:
 	case SCTP_OPT_AUTOCLOSE:
 	case SCTP_OPT_MAXSEG   :
@@ -7623,6 +7658,19 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 		type   = IP_TOS;
 		is_int = 1;
 		tag    = am_tos;
+		break;
+#	    else
+		/* Not supported -- ignore */
+		continue;
+#	    endif
+	    }
+	    case INET_OPT_TCLASS:
+	    {
+#           if defined(IPV6_TCLASS) && defined(SOL_IPV6)
+		proto  = SOL_IPV6;
+		type   = IPV6_TCLASS;
+		is_int = 1;
+		tag    = am_tclass;
 		break;
 #	    else
 		/* Not supported -- ignore */

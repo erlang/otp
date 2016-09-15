@@ -677,7 +677,7 @@ parse_strict_address(Addr) ->
 %% Return a list of available options
 options() ->
     [
-     tos, priority, reuseaddr, keepalive, dontroute, linger,
+     tos, tclass, priority, reuseaddr, keepalive, dontroute, linger,
      broadcast, sndbuf, recbuf, nodelay, ipv6_v6only,
      buffer, header, active, packet, deliver, mode,
      multicast_if, multicast_ttl, multicast_loop,
@@ -698,7 +698,7 @@ stats() ->
 %% Available options for tcp:connect
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 connect_options() ->
-    [tos, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
+    [tos, tclass, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
      header, active, packet, packet_size, buffer, mode, deliver, line_delimiter,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send, raw,
@@ -766,7 +766,7 @@ con_add(Name, Val, #connect_opts{} = R, Opts, AllOpts) ->
 %% Available options for tcp:listen
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 listen_options() ->
-    [tos, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
+    [tos, tclass, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
      header, active, packet, buffer, mode, deliver, backlog, ipv6_v6only,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send,
@@ -846,7 +846,7 @@ tcp_module_1(Opts, Address) ->
 %% Available options for udp:open
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 udp_options() ->
-    [tos, priority, reuseaddr, sndbuf, recbuf, header, active, buffer, mode, 
+    [tos, tclass, priority, reuseaddr, sndbuf, recbuf, header, active, buffer, mode,
      deliver, ipv6_v6only,
      broadcast, dontroute, multicast_if, multicast_ttl, multicast_loop,
      add_membership, drop_membership, read_packets,raw,
@@ -917,7 +917,7 @@ udp_module(Opts) ->
 %  (*) passing of open FDs ("fdopen") is not supported.
 sctp_options() ->
 [   % The following are generic inet options supported for SCTP sockets:
-    mode, active, buffer, tos, priority, dontroute, reuseaddr, linger, sndbuf,
+    mode, active, buffer, tos, tclass, priority, dontroute, reuseaddr, linger, sndbuf,
     recbuf, ipv6_v6only, high_msgq_watermark, low_msgq_watermark,
 
     % Other options are SCTP-specific (though they may be similar to their
