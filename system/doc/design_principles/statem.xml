@@ -989,7 +989,17 @@ do_unlock() ->
       from your state machine to itself.
     </p>
     <p>
-      One example of using self-generated events can be when you have
+      One example for this is to pre-process incoming data, for example
+      decrypting chunks or collecting characters up to a line break.
+      This could be modelled with a separate state machine that sends
+      the pre-processed events to the main state machine, or to decrease
+      overhead the small pre-processing state machine can be implemented
+      in the common state event handling of the main state machine
+      using a few state data variables and then send the pre-processed
+      events as internal events to the main state machine.
+    </p>
+    <p>
+      Another example of using self-generated events can be when you have
       a state machine specification that uses state entry actions.
       You can code that using a dedicated function
       to do the state transition. But if you want that code to be
@@ -1050,7 +1060,15 @@ enter(Tag, State, Data) ->
       <seealso marker="#state_entry_events">state entry events</seealso>.
       You will have to handle the state entry events in every state.
       If you want state entry code in just a few states the previous
-      example may be more suitable.
+      example may be more suitable, especially to only send internal
+      events when entering just those few states.
+    </p>
+    <p>
+      You can also in the previous example choose to generate
+      events looking just like the events you get from using
+      <seealso marker="#state_entry_events">state entry events</seealso>.
+      This may be confusing, or practical,
+      depending on your point of view.
     </p>
     <code type="erl"><![CDATA[
 ...
