@@ -138,5 +138,7 @@ extern void gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop
 extern Eterm *sweep_literals_nstack(Process *p, Eterm *n_htop, char *area,
 				    Uint area_size);
 extern int nstack_any_heap_ref_ptrs(Process *, char* mod_start, Uint mod_size);
+extern int nstack_any_cps_in_segment(Process *, char* seg_start, Uint seg_size);
+
 
 #endif /* HIPE_STACK_H */

@@ -65,6 +65,7 @@ nstack_walk_init_sdesc(const Process *p, struct nstack_walk_state *state)
     state->sdesc0 = sdesc;
     return sdesc;
 #else
+    state->sdesc0[0].bucket.hvalue = 0; /* for nstack_any_cps_in_segment */
     state->sdesc0[0].fsize = 0;
     state->sdesc0[0].has_exnra = 0;
     state->sdesc0[0].stk_nargs = (p->hipe.narity < NR_ARG_REGS ? 0 :

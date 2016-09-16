@@ -1069,6 +1069,8 @@ check_process_code(Process* rp, Module* modp, int *redsp, int fcalls)
     BeamInstr* start;
     char* mod_start;
     Uint mod_size;
+    void *nat_start = NULL;
+    Uint nat_size = 0;
     Eterm* sp;
 
     *redsp += 1;
@@ -1099,6 +1101,20 @@ check_process_code(Process* rp, Module* modp, int *redsp, int fcalls)
 	}
     }
 
+#ifdef HIPE
+    /*
+     * Check all continuation pointers stored on the native stack if the module
+     * has native code.
+     */
+    if (modp->old.hipe_code) {
+	nat_start = modp->old.hipe_code->text_segment;
+	nat_size = modp->old.hipe_code->text_segment_size;
+	if (nat_size && nstack_any_cps_in_segment(rp, nat_start, nat_size)) {
+	    return am_true;
+	}
+    }
+#endif
+
     /* 
      * Check all continuation pointers stored in stackdump
      * and clear exception stackdump if there is a pointer
@@ -1115,8 +1131,16 @@ check_process_code(Process* rp, Module* modp, int *redsp, int fcalls)
 	    rp->ftrace = NIL;
 	} else {
 	    int i;
+	    char *area_start = mod_start;
+	    Uint area_size = mod_size;
+#ifdef HIPE
+	    if (rp->freason & EXF_NATIVE) {
+		area_start = nat_start;
+		area_size = nat_size;
+	    }
+#endif
 	    for (i = 0;  i < s->depth;  i++) {
-		if (ErtsInArea(s->trace[i], mod_start, mod_size)) {
+		if (ErtsInArea(s->trace[i], area_start, area_size)) {
 		    rp->freason = EXC_NULL;
 		    rp->fvalue = NIL;
 		    rp->ftrace = NIL;
