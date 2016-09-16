@@ -76,6 +76,7 @@
 	     hipe_arm_specific,
 	     hipe_arm_subst,
 	     hipe_bb,
+	     hipe_bb_weights,
 	     hipe_beam_to_icode,
 	     hipe_coalescing_regalloc,
 	     hipe_consttab,
