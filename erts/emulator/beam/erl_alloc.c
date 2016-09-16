@@ -4129,12 +4129,20 @@ debug_free(ErtsAlcType_t n, void *extra, void *ptr)
     ErtsAllocatorFunctions_t *real_af = (ErtsAllocatorFunctions_t *) extra;
     void *dptr;
     Uint size;
+    int free_pattern = n;
 
     ASSERT(ERTS_ALC_N_MIN <= n && n <= ERTS_ALC_N_MAX);
 
     dptr = check_memory_fence(ptr, &size, n, ERTS_ALC_O_FREE);
 
-    sys_memset((void *) dptr, n, size + FENCE_SZ);
+#ifdef ERTS_ALC_A_EXEC
+# if defined(__i386__) || defined(__x86_64__)
+    if (ERTS_ALC_T2A(ERTS_ALC_N2T(n)) == ERTS_ALC_A_EXEC) {
+        free_pattern = 0x0f; /* Illegal instruction */
+    }
+# endif
+#endif
+    sys_memset((void *) dptr, free_pattern, size + FENCE_SZ);
 
     (*real_af->free)(n, real_af->extra, dptr);
 
