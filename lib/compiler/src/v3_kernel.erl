@@ -1350,10 +1350,10 @@ select(T, Cs) -> [ C || C <- Cs, clause_con(C) =:= T ].
 %%  At this point all the clauses have the same constructor, we must
 %%  now separate them according to value.
 
-match_value(Us, T, Cs0, Def, St0) ->
-    Css = group_value(T, Cs0),
+match_value(Us0, T, Cs0, Def, St0) ->
+    UCss = group_value(T, Us0, Cs0),
     %%ok = io:format("match_value ~p ~p~n", [T, Css]),
-    mapfoldl(fun (Cs, St) -> match_clause(Us, Cs, Def, St) end, St0, Css).
+    mapfoldl(fun ({Us,Cs}, St) -> match_clause(Us, Cs, Def, St) end, St0, UCss).
 
 %% group_value([Clause]) -> [[Clause]].
 %%  Group clauses according to value.  Here we know that
@@ -1361,30 +1361,30 @@ match_value(Us, T, Cs0, Def, St0) ->
 %%  2. The clauses in bin_segs cannot be reordered only grouped
 %%  3. Other types are disjoint and can be reordered
 
-group_value(k_cons, Cs) -> [Cs];		%These are single valued
-group_value(k_nil, Cs) -> [Cs];
-group_value(k_binary, Cs) -> [Cs];
-group_value(k_bin_end, Cs) -> [Cs];
-group_value(k_bin_seg, Cs) -> group_bin_seg(Cs);
-group_value(k_bin_int, Cs) -> [Cs];
-group_value(k_map, Cs) -> group_map(Cs);
-group_value(_, Cs) ->
+group_value(k_cons, Us, Cs)    -> [{Us,Cs}];               %These are single valued
+group_value(k_nil, Us, Cs)     -> [{Us,Cs}];
+group_value(k_binary, Us, Cs)  -> [{Us,Cs}];
+group_value(k_bin_end, Us, Cs) -> [{Us,Cs}];
+group_value(k_bin_seg, Us, Cs) -> group_bin_seg(Us,Cs);
+group_value(k_bin_int, Us, Cs) -> [{Us,Cs}];
+group_value(k_map, Us, Cs)     -> group_map(Us,Cs);
+group_value(_, Us, Cs) ->
     %% group_value(Cs).
     Cd = foldl(fun (C, Gcs0) -> dict:append(clause_val(C), C, Gcs0) end,
 	       dict:new(), Cs),
-    dict:fold(fun (_, Vcs, Css) -> [Vcs|Css] end, [], Cd).
+    dict:fold(fun (_, Vcs, Css) -> [{Us,Vcs}|Css] end, [], Cd).
 
-group_bin_seg([C1|Cs]) ->
+group_bin_seg(Us, [C1|Cs]) ->
     V1 = clause_val(C1),
     {More,Rest} = splitwith(fun (C) -> clause_val(C) == V1 end, Cs),
-    [[C1|More]|group_bin_seg(Rest)];
-group_bin_seg([]) -> [].
+    [{Us,[C1|More]}|group_bin_seg(Us,Rest)];
+group_bin_seg(_, []) -> [].
 
-group_map([C1|Cs]) ->
+group_map(Us, [C1|Cs]) ->
     V1 = clause_val(C1),
     {More,Rest} = splitwith(fun (C) -> clause_val(C) =:= V1 end, Cs),
-    [[C1|More]|group_map(Rest)];
-group_map([]) -> [].
+    [{Us,[C1|More]}|group_map(Us,Rest)];
+group_map(_, []) -> [].
 
 %% Profiling shows that this quadratic implementation account for a big amount
 %% of the execution time if there are many values.
