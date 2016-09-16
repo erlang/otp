@@ -22,14 +22,12 @@
 #include "config.h"
 #endif
 #include "sys.h"
+#include "hipe_arch.h"
 #include "hipe_module.h"
 
 void hipe_free_module(HipeModule *mod)
 {
-#ifdef DEBUG
-    sys_memzero(mod->text_segment, mod->text_segment_size);
-#endif
-    /* XXX: erts_free(ERTS_ALC_T_HIPE, mod->text_segment); */
+    hipe_free_code(mod->text_segment, mod->text_segment_size);
     if (mod->data_segment) /* Some modules lack data segments */
 	erts_free(ERTS_ALC_T_HIPE, mod->data_segment);
 

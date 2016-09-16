@@ -130,10 +130,11 @@ void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *
     return alloc_code(nrbytes);
 }
 
-void hipe_free_code(void* code)
+void hipe_free_code(void* code, unsigned int bytes)
 {
     ALLOC_CODE_STATS(--nr_allocs);
-    /*ALLOC_CODE_STATS(total_alloc += alloc_bytes);*/
+    ALLOC_CODE_STATS(total_alloc -= bytes);
+
     erts_free(ERTS_ALC_T_HIPE_EXEC, code);
 }
 

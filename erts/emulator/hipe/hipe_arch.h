@@ -30,8 +30,8 @@ extern void hipe_patch_load_fe(Uint *address, Uint value);
 extern int hipe_patch_insn(void *address, Uint value, Eterm type);
 extern int hipe_patch_call(void *callAddress, void *destAddress, void *trampoline);
 
-extern void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *p);
-extern void  hipe_free_code(void*);
+extern void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, struct process *p);
+extern void  hipe_free_code(void*, unsigned int);
 extern void *hipe_make_native_stub(void *exp, unsigned int beamArity);
 extern void  hipe_free_native_stub(void*);
 

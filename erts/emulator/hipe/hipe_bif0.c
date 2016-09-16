@@ -1743,14 +1743,9 @@ void hipe_purge_module(Module* modp)
                 prevp = &p->next_in_mod;
         }
     }
-    if (modp->old.hipe_code && modp->old.hipe_code->text_segment) {
-#ifdef DEBUG
-        sys_memset(modp->old.hipe_code->text_segment, 0xfe,
-                   modp->old.hipe_code->text_segment_size);
-#endif
-        hipe_free_code(modp->old.hipe_code->text_segment);
-        modp->old.hipe_code->text_segment = NULL;
-        modp->old.hipe_code->text_segment_size = 0;
+    if (modp->old.hipe_code) {
+        hipe_free_module(modp->old.hipe_code);
+        modp->old.hipe_code = NULL;
     }
 }
 
