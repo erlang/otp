@@ -514,7 +514,7 @@ redirect_moved_permanently(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], []}}
 	= httpc:request(head, {URL301, []}, [], []),
 
-    {ok, {{_,301,_}, [_ | _], [_|_]}}
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL301, [],"text/plain", "foobar"},
 			[], []).
 %%-------------------------------------------------------------------------
@@ -533,7 +533,7 @@ redirect_found(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], []}}
 	= httpc:request(head, {URL302, []}, [], []),
 
-    {ok, {{_,302,_}, [_ | _], [_|_]}}
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL302, [],"text/plain", "foobar"},
 			[], []).
 %%-------------------------------------------------------------------------
@@ -570,7 +570,7 @@ redirect_temporary_redirect(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], []}}
 	= httpc:request(head, {URL307, []}, [], []),
 
-    {ok, {{_,307,_}, [_ | _], [_|_]}}
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL307, [],"text/plain", "foobar"},
 			[], []).
 
