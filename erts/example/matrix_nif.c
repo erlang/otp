@@ -22,7 +22,7 @@
  *          for matrix calculations.
  */
 
-#include "erl_nif.h"
+#include <erl_nif.h>
 
 #include <stddef.h>
 #include <assert.h>
