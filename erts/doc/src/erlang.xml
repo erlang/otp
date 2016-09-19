@@ -2598,8 +2598,12 @@ os_prompt%</pre>
           <item>The library did not fulfill the requirements as a NIF
             library of the calling module.
           </item>
-          <tag><c>load | reload | upgrade</c></tag>
+          <tag><c>load | upgrade</c></tag>
           <item>The corresponding library callback was unsuccessful.
+          </item>
+          <tag><c>reload</c></tag>
+          <item>A NIF library is already loaded for this module instance.
+	    The previously deprecated <c>reload</c> feature was removed in OTP 20.
           </item>
           <tag><c>old_code</c></tag>
           <item>The call to <c>load_nif/2</c> was made from the old
