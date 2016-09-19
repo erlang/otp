@@ -121,13 +121,24 @@ module(#c_module{defs=Ds0}=Mod, Opts) ->
 
 function_1({#c_var{name={F,Arity}}=Name,B0}) ->
     try
-	B = expr(B0, value, sub_new()),			%This must be a fun!
+	B = find_fixpoint(fun(Core) ->
+				  %% This must be a fun!
+				  expr(Core, value, sub_new())
+			  end, B0, 20),
 	{Name,B}
     catch
 	Class:Error ->
 	    Stack = erlang:get_stacktrace(),
 	    io:fwrite("Function: ~w/~w\n", [F,Arity]),
 	    erlang:raise(Class, Error, Stack)
+    end.
+
+find_fixpoint(_OptFun, Core, 0) ->
+    Core;
+find_fixpoint(OptFun, Core0, Max) ->
+    case OptFun(Core0) of
+	Core0 -> Core0;
+	Core -> find_fixpoint(OptFun, Core, Max-1)
     end.
 
 %% body(Expr, Sub) -> Expr.
@@ -240,7 +251,7 @@ expr(#c_cons{anno=Anno,hd=H0,tl=T0}=Cons, Ctxt, Sub) ->
     case Ctxt of
 	effect ->
 	    add_warning(Cons, useless_building),
-	    expr(make_effect_seq([H1,T1], Sub), Ctxt, Sub);
+	    make_effect_seq([H1,T1], Sub);
 	value ->
 	    ann_c_cons(Anno, H1, T1)
     end;
@@ -249,7 +260,7 @@ expr(#c_tuple{anno=Anno,es=Es0}=Tuple, Ctxt, Sub) ->
     case Ctxt of
 	effect ->
 	    add_warning(Tuple, useless_building),
-	    expr(make_effect_seq(Es, Sub), Ctxt, Sub);
+	    make_effect_seq(Es, Sub);
 	value ->
 	    ann_c_tuple(Anno, Es)
     end;
@@ -258,7 +269,7 @@ expr(#c_map{anno=Anno,arg=V0,es=Es0}=Map, Ctxt, Sub) ->
     case Ctxt of
 	effect ->
 	    add_warning(Map, useless_building),
-	    expr(make_effect_seq(Es, Sub), Ctxt, Sub);
+	    make_effect_seq(Es, Sub);
 	value ->
 	    V = expr(V0, Ctxt, Sub),
 	    ann_c_map(Anno,V,Es)
@@ -311,7 +322,7 @@ expr(#c_let{}=Let0, Ctxt, Sub) ->
 	Expr ->
 	    %% The let body was successfully moved into the let argument.
 	    %% Now recursively re-process the new expression.
-	    expr(Expr, Ctxt, sub_new_preserve_types(Sub))
+	    Expr
     end;
 expr(#c_letrec{body=#c_var{}}=Letrec, effect, _Sub) ->
     %% This is named fun in an 'effect' context. Warn and ignore.
@@ -365,7 +376,7 @@ expr(#c_case{}=Case0, Ctxt, Sub) ->
                 impossible ->
                     bsm_an(Expr);
                 Other ->
-                    expr(Other, Ctxt, sub_new_preserve_types(Sub))
+		    Other
             end;
 	Other ->
 	    expr(Other, Ctxt, Sub)
@@ -1398,9 +1409,6 @@ sub_new() -> #sub{v=orddict:new(),s=cerl_sets:new(),t=#{}}.
 sub_new(#sub{}=Sub) ->
     Sub#sub{v=orddict:new(),t=#{}}.
 
-sub_new_preserve_types(#sub{}=Sub) ->
-    Sub#sub{v=orddict:new()}.
-
 sub_get_var(#c_var{name=V}=Var, #sub{v=S}) ->
     case orddict:find(V, S) of
 	{ok,Val} -> Val;
@@ -2220,24 +2228,24 @@ inverse_rel_op('=<') -> '>';
 inverse_rel_op(_) -> no.
 
 
-%% opt_bool_case_in_let(LetExpr, Sub) -> Core
+%% opt_bool_case_in_let(LetExpr) -> Core
 
-opt_bool_case_in_let(#c_let{vars=Vs,arg=Arg,body=B}=Let, Sub) ->
-    opt_case_in_let_1(Vs, Arg, B, Let, Sub).
+opt_bool_case_in_let(#c_let{vars=Vs,arg=Arg,body=B}=Let) ->
+    opt_bool_case_in_let_1(Vs, Arg, B, Let).
 
-opt_case_in_let_1([#c_var{name=V}], Arg,
-		  #c_case{arg=#c_var{name=V}}=Case0, Let, Sub) ->
+opt_bool_case_in_let_1([#c_var{name=V}], Arg,
+		  #c_case{arg=#c_var{name=V}}=Case0, Let) ->
     case is_simple_case_arg(Arg) of
 	true ->
 	    Case = opt_bool_case(Case0#c_case{arg=Arg}),
 	    case core_lib:is_var_used(V, Case) of
-		false -> expr(Case, sub_new(Sub));
+		false -> Case;
 		true -> Let
 	    end;
 	false ->
 	    Let
     end;
-opt_case_in_let_1(_, _, _, Let, _) -> Let.
+opt_bool_case_in_let_1(_, _, _, Let) -> Let.
 
 %% is_simple_case_arg(Expr) -> true|false
 %%  Determine whether the Expr is simple enough to be worth
@@ -2645,25 +2653,23 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 		false ->
 		    %% let <Var> = Arg in <OtherVar>  ==>  seq Arg OtherVar
 		    Arg = maybe_suppress_warnings(Arg1, Vs0, PrevBody),
-		    expr(#c_seq{arg=Arg,body=Body}, Ctxt,
-			 sub_new_preserve_types(Sub))
+		    #c_seq{arg=Arg,body=Body}
 	    end;
 	{[],#c_values{es=[]},_} ->
 	    %% No variables left.
 	    Body;
 	{Vs,Arg1,#c_literal{}} ->
 	    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody),
-	    E = case Ctxt of
-		    effect ->
-			%% Throw away the literal body.
-			Arg;
-		    value ->
-			%% Since the variable is not used in the body, we
-			%% can rewrite the let to a sequence.
-			%%  let <Var> = Arg in Literal ==> seq Arg Literal
-			#c_seq{arg=Arg,body=Body}
-		end,
-	    expr(E, Ctxt, sub_new_preserve_types(Sub));
+	    case Ctxt of
+		effect ->
+		    %% Throw away the literal body.
+		    Arg;
+		value ->
+		    %% Since the variable is not used in the body, we
+		    %% can rewrite the let to a sequence.
+		    %%  let <Var> = Arg in Literal ==> seq Arg Literal
+		    #c_seq{arg=Arg,body=Body}
+	    end;
 	{Vs,Arg1,Body} ->
 	    %% If none of the variables are used in the body, we can
 	    %% rewrite the let to a sequence:
@@ -2672,11 +2678,10 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 	    case is_any_var_used(Vs, Body) of
 		false ->
 		    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody),
-		    expr(#c_seq{arg=Arg,body=Body}, Ctxt,
-			 sub_new_preserve_types(Sub));
+		    #c_seq{arg=Arg,body=Body};
 		true ->
 		    Let1 = Let0#c_let{vars=Vs,arg=Arg1,body=Body},
-		    Let2 = opt_bool_case_in_let(Let1, Sub),
+		    Let2 = opt_bool_case_in_let(Let1),
 		    opt_case_in_let_arg(Let2, Ctxt, Sub)
 	    end
     end.
@@ -2834,16 +2839,16 @@ opt_case_in_let_arg(#c_let{arg=#c_case{}=Case}=Let, Ctxt,
 opt_case_in_let_arg(Let, _, _) -> Let.
 
 opt_case_in_let_arg_1(Let0, #c_case{arg=#c_values{es=[]},
-				   clauses=Cs}=Case0, Ctxt, Sub) ->
+				    clauses=Cs}=Case0, _Ctxt, _Sub) ->
     Let = mark_compiler_generated(Let0),
     case Cs of
 	[#c_clause{body=#c_literal{}=BodyA}=Ca0,
 	 #c_clause{body=#c_literal{}=BodyB}=Cb0] ->
 	    Ca = Ca0#c_clause{body=Let#c_let{arg=BodyA}},
 	    Cb = Cb0#c_clause{body=Let#c_let{arg=BodyB}},
-	    Case = Case0#c_case{clauses=[Ca,Cb]},
-	    expr(Case, Ctxt, sub_new_preserve_types(Sub));
-	_ -> Let
+	    Case0#c_case{clauses=[Ca,Cb]};
+	_ ->
+	    Let
     end;
 opt_case_in_let_arg_1(Let, _, _, _) -> Let.
 
