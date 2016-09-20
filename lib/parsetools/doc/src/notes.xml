@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
+<section><title>Parsetools 2.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Yecc generates Dialyzer suppressions to avoid
+	    warnings when operator precedence declarations are used.
+	    </p>
+          <p>
+	    Own Id: OTP-13681</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Parsetools 2.1.2</title>
 
     <section><title>Improvements and New Features</title>

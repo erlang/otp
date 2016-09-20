@@ -31,6 +31,74 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a memory leak when calling
+	    seq_trace:get_system_tracer().</p>
+          <p>
+	    Own Id: OTP-13742</p>
+        </item>
+        <item>
+          <p>
+	    Fix for the problem that when adding the ebin directory
+	    of an application to the code path, the
+	    <c>code:priv_dir/1</c> function returns an incorrect path
+	    to the priv directory of the same application.</p>
+          <p>
+	    Own Id: OTP-13758 Aux Id: ERL-195 </p>
+        </item>
+        <item>
+          <p>
+	    Fix code_server crash when adding code paths of two
+	    levels.</p>
+          <p>
+	    Own Id: OTP-13765 Aux Id: ERL-194 </p>
+        </item>
+        <item>
+          <p>
+	    Respect -proto_dist switch while connection to EPMD</p>
+          <p>
+	    Own Id: OTP-13770 Aux Id: PR-1129 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug where init:stop could deadlock if a process
+	    with infinite shutdown timeout (e.g. a supervisor)
+	    attempted to load code while terminating.</p>
+          <p>
+	    Own Id: OTP-13802</p>
+        </item>
+        <item>
+          <p>
+	    Close stdin of commands run in os:cmd. This is a
+	    backwards compatiblity fix that restores the behaviour of
+	    pre 19.0 os:cmd.</p>
+          <p>
+	    Own Id: OTP-13867 Aux Id: seq13178 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>net_kernel:setopts/2</c> and
+	    <c>net_kernel:getopts/2</c> to control options for
+	    distribution sockets in runtime.</p>
+          <p>
+	    Own Id: OTP-13564</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 5.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

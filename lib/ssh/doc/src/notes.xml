@@ -30,6 +30,68 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Upgrade of an established client connection could crash
+	    because the ssh client supervisors children had wrong
+	    type. This is fixed now.</p>
+          <p>
+	    Own Id: OTP-13782 Aux Id: seq13158 </p>
+        </item>
+        <item>
+          <p>
+	    Partly checks the public key early in public key
+	    authorization</p>
+          <p>
+	    Own Id: OTP-13847 Aux Id:
+	    defensics-ssh3.1.0-190243,205277,219318 </p>
+        </item>
+        <item>
+          <p>
+	    Corrected handling of SHA for ECDSA (Elliptic curve
+	    public keys)</p>
+          <p>
+	    Own Id: OTP-13850 Aux Id: defensics-ssh3.1.0-214168 </p>
+        </item>
+        <item>
+          <p>
+	    Problems found by test suites as well as by
+	    Codenomicon/Defensics fixed: - reduce max random padding
+	    to 15 bytes (Codenomicon/Defensics) - inclomplete pdu
+	    handling (Codenomicon/Defensics) - badmatch in test suite
+	    - non-blocking send fixes deadlock in
+	    ssh_connection_SUITE:interrupted_send</p>
+          <p>
+	    Own Id: OTP-13854</p>
+        </item>
+        <item>
+          <p>
+	    Caller is now notified when a tcp close is received.</p>
+          <p>
+	    Own Id: OTP-13859 Aux Id: seq13177 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Use application:ensure_all_started/2 instead of
+	    hard-coding deps</p>
+          <p>
+	    Own Id: OTP-13843 Aux Id: PR-1147 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

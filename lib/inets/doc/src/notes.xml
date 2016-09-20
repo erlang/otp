@@ -33,7 +33,24 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.3.2</title>
+  <section><title>Inets 6.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The legacy option 'inet6fb4' for inets had stopped
+	    working. This bug has now been corrected. Fix by Edwin
+	    Fine in bugs.erlang.org ERL-200 and Github PR#1132.</p>
+          <p>
+	    Own Id: OTP-13776 Aux Id: ERL-200 PR-1132 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.2</title>
 
     <section><title>Improvements and New Features</title>
       <list>

@@ -31,6 +31,32 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 3.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Crypto has been fixed to work against OpenSSL versions
+	    with disabled DES ciphers. Correct spelling of cipher
+	    algorithm 'des3_cfb' has been introduced; the previous
+	    misspeling still works.</p>
+          <p>
+	    Own Id: OTP-13783 Aux Id: ERL-203 </p>
+        </item>
+        <item>
+          <p>
+	    The size of an internal array in crypto has been fixed to
+	    not segfault when having all possible ciphers. Bug fix by
+	    Duncan Overbruck.</p>
+          <p>
+	    Own Id: OTP-13789 Aux Id: PR-1140 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 3.7</title>
 
     <section><title>Improvements and New Features</title>

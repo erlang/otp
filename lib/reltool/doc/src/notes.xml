@@ -38,7 +38,38 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
-  <section><title>Reltool 0.7.1</title>
+  <section><title>Reltool 0.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Dependencies specified in .app files would earlier only
+	    be followed for applications that are included in a 'rel'
+	    spec in the reltool config. For other applications, only
+	    xref would decide the dependencies.</p>
+          <p>
+	    Some dependency chains would even be missed for
+	    applications that are included in a 'rel' spec in the
+	    reltool config. E.g.</p>
+          <p>
+	    <list> <item>Application x has y as included application,
+	    and y in turn has z as included application. Then z is
+	    not included. </item> <item>Application x has y in its
+	    'applications' tag in the .app file, and y in turn has z
+	    as included application. Then z is not included.</item>
+	    </list></p>
+          <p>
+	    These bugs are now corrected.</p>
+          <p>
+	    Own Id: OTP-11993</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.7.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>

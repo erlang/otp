@@ -32,7 +32,23 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.11.2</title>
+  <section><title>ODBC 2.11.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ODBC build configure has been updated to accept Mac OS X
+	    El Capitan. Fixed by Lee Bannard.</p>
+          <p>
+	    Own Id: OTP-13781</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.11.2</title>
 
     <section><title>Improvements and New Features</title>
       <list>

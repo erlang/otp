@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 4.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Compiling multiple ASN.1 modules in the same directory
+	    with parallel make (make -j) should now be safe.</p>
+          <p>
+	    Own Id: OTP-13624</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 4.0.3</title>
 
     <section><title>Improvements and New Features</title>

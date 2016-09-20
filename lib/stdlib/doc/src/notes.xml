@@ -31,6 +31,66 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <c>zip:unzip/1,2</c> and <c>zip:extract/1,2</c>
+	    functions have been updated to handle directory traversal
+	    exploits. Any element in the zip file that contains a
+	    path that points to a directory above the top level
+	    working directory, <c>cwd</c>, will instead be extracted
+	    in <c>cwd</c>. An error message is printed for any such
+	    element in the zip file during the unzip operation. The
+	    <c>keep_old_files</c> option determines if a file will
+	    overwrite a previous file with the same name within the
+	    zip file.</p>
+          <p>
+	    Own Id: OTP-13633</p>
+        </item>
+        <item>
+	    <p> Correct the contracts for
+	    <c>ets:match_object/1,3</c>. </p>
+          <p>
+	    Own Id: OTP-13721 Aux Id: PR-1113 </p>
+        </item>
+        <item>
+          <p>
+	    Errors in type specification and Emacs template
+	    generation for <c>gen_statem:code_change/4</c> has been
+	    fixed from bugs.erlang.org's Jira cases ERL-172 and
+	    ERL-187.</p>
+          <p>
+	    Own Id: OTP-13746 Aux Id: ERL-172, ERL-187 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    gen_statem has been changed to set the callback mode for
+	    a server to what Module:callback_mode/0 returns. This
+	    facilitates e.g code downgrade since the callback mode
+	    now becomes a property of the currently active code, not
+	    of the server process.</p>
+          <p>
+	    Exception handling from Module:init/1 has also been
+	    improved.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13752</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

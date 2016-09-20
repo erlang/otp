@@ -28,6 +28,45 @@
   <p>This document describes the changes made to the SSL application.</p>
 
 
+<section><title>SSL 8.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correctly formed handshake messages received out of order
+	    will now correctly fail the connection with unexpected
+	    message.</p>
+          <p>
+	    Own Id: OTP-13853</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    ssl application now behaves gracefully also on partially
+	    incorrect input from peer.</p>
+          <p>
+	    Own Id: OTP-13834</p>
+        </item>
+        <item>
+          <p>
+	    Add application environment configuration
+	    bypass_pem_cache. This can be used as a workaround for
+	    the current implementation of the PEM-cache that has
+	    proven to be a bottleneck.</p>
+          <p>
+	    Own Id: OTP-13883</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 8.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

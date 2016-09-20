@@ -1,1 +1,1 @@
-ODBC_VSN = 2.11.2
+ODBC_VSN = 2.11.3
