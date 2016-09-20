@@ -45,6 +45,8 @@
 %% Setup
 -export([start_fsm/8, start_link/7, init/1]).
 
+-export([encode_data/3, encode_alert/3]).
+
 %% State transition handling	 
 -export([next_record/1, next_event/3]).
 
@@ -57,7 +59,7 @@
 -export([send_alert/2, close/5]).
 
 %% Data handling
--export([passive_receive/2, next_record_if_active/1, handle_common_event/4]).
+-export([passive_receive/2, next_record_if_active/1, handle_common_event/4, send/3]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -114,7 +116,7 @@ queue_handshake(Handshake, #state{negotiated_version = Version,
 send_handshake_flight(#state{socket = Socket,
 			     transport_cb = Transport,
 			     flight_buffer = Flight} = State0) ->
-    Transport:send(Socket, Flight),
+    send(Transport, Socket, Flight),
     State0#state{flight_buffer = []}.
 
 queue_change_cipher(Msg, #state{negotiated_version = Version,
@@ -130,8 +132,8 @@ send_alert(Alert, #state{negotiated_version = Version,
 			 transport_cb = Transport,
 			 connection_states = ConnectionStates0} = State0) ->
     {BinMsg, ConnectionStates} =
-	ssl_alert:encode(Alert, Version, ConnectionStates0),
-    Transport:send(Socket, BinMsg),
+	encode_alert(Alert, Version, ConnectionStates0),
+    send(Transport, Socket, BinMsg),
     State0#state{connection_states = ConnectionStates}.
 
 reinit_handshake_data(State) ->
@@ -148,6 +150,18 @@ select_sni_extension(#client_hello{extensions = HelloExtensions}) ->
     HelloExtensions#hello_extensions.sni;
 select_sni_extension(_) ->
     undefined.
+
+encode_data(Data, Version, ConnectionStates0)->
+    tls_record:encode_data(Data, Version, ConnectionStates0).
+
+%%--------------------------------------------------------------------
+-spec encode_alert(#alert{}, ssl_record:ssl_version(), ssl_record:connection_states()) -> 
+		    {iolist(), ssl_record:connection_states()}.
+%%
+%% Description: Encodes an alert
+%%--------------------------------------------------------------------
+encode_alert(#alert{} = Alert, Version, ConnectionStates) ->
+    tls_record:encode_alert_record(Alert, Version, ConnectionStates).
 
 %%====================================================================
 %% tls_connection_sup API
@@ -205,7 +219,7 @@ init({call, From}, {start, Timeout},
     Handshake0 = ssl_handshake:init_handshake_history(),
     {BinMsg, ConnectionStates, Handshake} =
         encode_handshake(Hello,  HelloVersion, ConnectionStates0, Handshake0, V2HComp),
-    Transport:send(Socket, BinMsg),
+    send(Transport, Socket, BinMsg),
     State1 = State0#state{connection_states = ConnectionStates,
 			  negotiated_version = Version, %% Requested version
 			  session =
@@ -450,6 +464,9 @@ handle_common_event(internal, #ssl_tls{type = ?ALERT, fragment = EncAlerts}, Sta
 handle_common_event(internal, #ssl_tls{type = _Unknown}, StateName, State) ->
     {next_state, StateName, State}.
 
+send(Transport, Socket, Data) ->
+   tls_socket:send(Transport, Socket, Data).
+
 %%--------------------------------------------------------------------
 %% gen_statem callbacks
 %%--------------------------------------------------------------------
@@ -476,11 +493,11 @@ encode_handshake(Handshake, Version, ConnectionStates0, Hist0, V2HComp) ->
     Frag = tls_handshake:encode_handshake(Handshake, Version),
     Hist = ssl_handshake:update_handshake_history(Hist0, Frag, V2HComp),
     {Encoded, ConnectionStates} =
-        ssl_record:encode_handshake(Frag, Version, ConnectionStates0),
+        tls_record:encode_handshake(Frag, Version, ConnectionStates0),
     {Encoded, ConnectionStates, Hist}.
 
 encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->
-    ssl_record:encode_change_cipher_spec(Version, ConnectionStates).
+    tls_record:encode_change_cipher_spec(Version, ConnectionStates).
 
 decode_alerts(Bin) ->
     ssl_alert:decode(Bin).
@@ -553,7 +570,7 @@ next_record(#state{protocol_buffers =
 next_record(#state{protocol_buffers = #protocol_buffers{tls_packets = [], tls_cipher_texts = []},
 		   socket = Socket,
 		   transport_cb = Transport} = State) ->
-    ssl_socket:setopts(Transport, Socket, [{active,once}]),
+    tls_socket:setopts(Transport, Socket, [{active,once}]),
     {no_record, State};
 next_record(State) ->
     {no_record, State}.
@@ -622,8 +639,8 @@ renegotiate(#state{role = server,
     Frag = tls_handshake:encode_handshake(HelloRequest, Version),
     Hs0 = ssl_handshake:init_handshake_history(),
     {BinMsg, ConnectionStates} = 
-	ssl_record:encode_handshake(Frag, Version, ConnectionStates0),
-    Transport:send(Socket, BinMsg),
+	tls_record:encode_handshake(Frag, Version, ConnectionStates0),
+    send(Transport, Socket, BinMsg),
     State1 = State0#state{connection_states = 
 			     ConnectionStates,
 			 tls_handshake_history = Hs0},
@@ -642,7 +659,7 @@ handle_alerts([Alert | Alerts], {next_state, StateName, State, _Actions}) ->
 
 %% User closes or recursive call!
 close({close, Timeout}, Socket, Transport = gen_tcp, _,_) ->
-    ssl_socket:setopts(Transport, Socket, [{active, false}]),
+    tls_socket:setopts(Transport, Socket, [{active, false}]),
     Transport:shutdown(Socket, write),
     _ = Transport:recv(Socket, 0, Timeout),
     ok;
@@ -684,7 +701,7 @@ gen_handshake(GenConnection, StateName, Type, Event,
 	    Result
     catch 
 	_:_ ->
-	    ssl_connection:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
+ 	    ssl_connection:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
 						       malformed_handshake_data),
 					    Version, StateName, State)  
     end.

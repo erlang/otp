@@ -32,20 +32,11 @@
 -include("ssl_record.hrl").
 -include("ssl_internal.hrl").
 
--export([encode/3, decode/1, alert_txt/1, reason_code/2]).
+-export([decode/1, alert_txt/1, reason_code/2]).
 
 %%====================================================================
 %% Internal application API
 %%====================================================================
-
-%%--------------------------------------------------------------------
--spec encode(#alert{}, ssl_record:ssl_version(), ssl_record:connection_states()) -> 
-		    {iolist(), ssl_record:connection_states()}.
-%%
-%% Description: Encodes an alert
-%%--------------------------------------------------------------------
-encode(#alert{} = Alert, Version, ConnectionStates) ->
-    ssl_record:encode_alert_record(Alert, Version, ConnectionStates).
 
 %%--------------------------------------------------------------------
 -spec decode(binary()) -> [#alert{}] | #alert{}.

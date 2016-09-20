@@ -101,33 +101,27 @@ connect(Socket, SslOptions0, Timeout) when is_port(Socket),
 					    (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     {Transport,_,_,_} = proplists:get_value(cb_info, SslOptions0,
 					      {gen_tcp, tcp, tcp_closed, tcp_error}),
-    EmulatedOptions = ssl_socket:emulated_options(),
-    {ok, SocketValues} = ssl_socket:getopts(Transport, Socket, EmulatedOptions),
+    EmulatedOptions = tls_socket:emulated_options(),
+    {ok, SocketValues} = tls_socket:getopts(Transport, Socket, EmulatedOptions),
     try handle_options(SslOptions0 ++ SocketValues, client) of
-	{ok, #config{transport_info = CbInfo, ssl = SslOptions, emulated = EmOpts,
-		     connection_cb = ConnectionCb}} ->
-
-	    ok = ssl_socket:setopts(Transport, Socket, ssl_socket:internal_inet_values()),
-	    case ssl_socket:peername(Transport, Socket) of
-		{ok, {Address, Port}} ->
-		    ssl_connection:connect(ConnectionCb, Address, Port, Socket,
-					   {SslOptions, emulated_socket_options(EmOpts, #socket_options{}), undefined},
-					   self(), CbInfo, Timeout);
-		{error, Error} ->
-		    {error, Error}
-	    end
+	{ok, Config} ->
+	    tls_socket:upgrade(Socket, Config, Timeout)
     catch
 	_:{error, Reason} ->
             {error, Reason}
     end;
-
 connect(Host, Port, Options) ->
     connect(Host, Port, Options, infinity).
 
 connect(Host, Port, Options, Timeout) when (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
-    try handle_options(Options, client) of
-	{ok, Config} ->
-	    do_connect(Host,Port,Config,Timeout)
+    try
+	{ok, Config} = handle_options(Options, client),
+	case Config#config.connection_cb of
+	    tls_connection ->
+		tls_socket:connect(Host,Port,Config,Timeout);
+	    dtls_connection ->
+		dtls_socket:connect(Host,Port,Config,Timeout)
+	end
     catch
 	throw:Error ->
 	    Error
@@ -144,17 +138,7 @@ listen(_Port, []) ->
 listen(Port, Options0) ->
     try
 	{ok, Config} = handle_options(Options0, server),
-	ConnectionCb = connection_cb(Options0),
-	#config{transport_info = {Transport, _, _, _}, inet_user = Options, connection_cb = ConnectionCb,
-		ssl = SslOpts, emulated = EmOpts} = Config,
-	case Transport:listen(Port, Options) of
-	    {ok, ListenSocket} ->
-		ok = ssl_socket:setopts(Transport, ListenSocket, ssl_socket:internal_inet_values()),
-		{ok, Tracker} = ssl_socket:inherit_tracker(ListenSocket, EmOpts, SslOpts),
-		{ok, #sslsocket{pid = {ListenSocket, Config#config{emulated = Tracker}}}};
-	    Err = {error, _} ->
-		Err
-	end
+	do_listen(Port, Config, connection_cb(Options0))
     catch
 	Error = {error, _} ->
 	    Error
@@ -171,27 +155,15 @@ transport_accept(ListenSocket) ->
     transport_accept(ListenSocket, infinity).
 
 transport_accept(#sslsocket{pid = {ListenSocket,
-				   #config{transport_info =  {Transport,_,_, _} =CbInfo,
-					   connection_cb = ConnectionCb,
-					   ssl = SslOpts,
-					   emulated = Tracker}}}, Timeout) when (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
-    case Transport:accept(ListenSocket, Timeout) of
-	{ok, Socket} ->
-	    {ok, EmOpts} = ssl_socket:get_emulated_opts(Tracker),
-	    {ok, Port} = ssl_socket:port(Transport, Socket),
-	    ConnArgs = [server, "localhost", Port, Socket,
-			{SslOpts, emulated_socket_options(EmOpts, #socket_options{}), Tracker}, self(), CbInfo],
-	    ConnectionSup = connection_sup(ConnectionCb),
-	    case ConnectionSup:start_child(ConnArgs) of
-		{ok, Pid} ->
-		    ssl_connection:socket_control(ConnectionCb, Socket, Pid, Transport, Tracker);
-		{error, Reason} ->
-		    {error, Reason}
-	    end;
-	{error, Reason} ->
-	    {error, Reason}
+				   #config{connection_cb = ConnectionCb} = Config}}, Timeout) 
+  when (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
+    case ConnectionCb of
+	tls_connection ->
+	    tls_socket:accept(ListenSocket, Config, Timeout);
+	dtls_connection ->
+	    dtls_socket:accept(ListenSocket, Config, Timeout)
     end.
-
+  
 %%--------------------------------------------------------------------
 -spec ssl_accept(#sslsocket{}) -> ok | {error, reason()}.
 -spec ssl_accept(#sslsocket{} | port(), timeout()| [ssl_option()
@@ -214,13 +186,14 @@ ssl_accept(ListenSocket, SslOptions)  when is_port(ListenSocket) ->
     ssl_accept(ListenSocket, SslOptions, infinity).
 
 ssl_accept(#sslsocket{} = Socket, [], Timeout) when (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
-    ssl_accept(#sslsocket{} = Socket, Timeout);
+    ssl_accept(Socket, Timeout);
 ssl_accept(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts0, Timeout) when
       (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
     try
-	{ok, EmOpts, InheritedSslOpts} = ssl_socket:get_all_opts(Tracker),
+	{ok, EmOpts, InheritedSslOpts} = tls_socket:get_all_opts(Tracker),
 	SslOpts = handle_options(SslOpts0, InheritedSslOpts),
-	ssl_connection:handshake(Socket, {SslOpts, emulated_socket_options(EmOpts, #socket_options{})}, Timeout)
+	ssl_connection:handshake(Socket, {SslOpts, 
+					  tls_socket:emulated_socket_options(EmOpts, #socket_options{})}, Timeout)
     catch
 	Error = {error, _Reason} -> Error
     end;
@@ -228,15 +201,16 @@ ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket),
 					     (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     {Transport,_,_,_} =
 	proplists:get_value(cb_info, SslOptions, {gen_tcp, tcp, tcp_closed, tcp_error}),
-    EmulatedOptions = ssl_socket:emulated_options(),
-    {ok, SocketValues} = ssl_socket:getopts(Transport, Socket, EmulatedOptions),
+    EmulatedOptions = tls_socket:emulated_options(),
+    {ok, SocketValues} = tls_socket:getopts(Transport, Socket, EmulatedOptions),
     ConnetionCb = connection_cb(SslOptions),
     try handle_options(SslOptions ++ SocketValues, server) of
 	{ok, #config{transport_info = CbInfo, ssl = SslOpts, emulated = EmOpts}} ->
-	    ok = ssl_socket:setopts(Transport, Socket, ssl_socket:internal_inet_values()),
-	    {ok, Port} = ssl_socket:port(Transport, Socket),
+	    ok = tls_socket:setopts(Transport, Socket, tls_socket:internal_inet_values()),
+	    {ok, Port} = tls_socket:port(Transport, Socket),
 	    ssl_connection:ssl_accept(ConnetionCb, Port, Socket,
-				      {SslOpts, emulated_socket_options(EmOpts, #socket_options{}), undefined},
+				      {SslOpts, 
+				       tls_socket:emulated_socket_options(EmOpts, #socket_options{}), undefined},
 				      self(), CbInfo, Timeout)
     catch
 	Error = {error, _Reason} -> Error
@@ -275,6 +249,8 @@ close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_, _, _}
 %%--------------------------------------------------------------------
 send(#sslsocket{pid = Pid}, Data) when is_pid(Pid) ->
     ssl_connection:send(Pid, Data);
+send(#sslsocket{pid = {_, #config{transport_info={gen_udp, _, _, _}}}}, _) ->
+    {error,enotconn}; %% Emulate connection behaviour
 send(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport, _, _, _}}}}, Data) ->
     Transport:send(ListenSocket, Data). %% {error,enotconn}
 
@@ -358,9 +334,9 @@ connection_info(#sslsocket{} = SSLSocket) ->
 %% Description: same as inet:peername/1.
 %%--------------------------------------------------------------------
 peername(#sslsocket{pid = Pid, fd = {Transport, Socket, _, _}}) when is_pid(Pid)->
-    ssl_socket:peername(Transport, Socket);
+    tls_socket:peername(Transport, Socket);
 peername(#sslsocket{pid = {ListenSocket,  #config{transport_info = {Transport,_,_,_}}}}) ->
-    ssl_socket:peername(Transport, ListenSocket). %% Will return {error, enotconn}
+    tls_socket:peername(Transport, ListenSocket). %% Will return {error, enotconn}
 
 %%--------------------------------------------------------------------
 -spec peercert(#sslsocket{}) ->{ok, DerCert::binary()} | {error, reason()}.
@@ -456,7 +432,7 @@ getopts(#sslsocket{pid = Pid}, OptionTags) when is_pid(Pid), is_list(OptionTags)
     ssl_connection:get_opts(Pid, OptionTags);
 getopts(#sslsocket{pid = {_,  #config{transport_info = {Transport,_,_,_}}}} = ListenSocket,
 	OptionTags) when is_list(OptionTags) ->
-    try ssl_socket:getopts(Transport, ListenSocket, OptionTags) of
+    try tls_socket:getopts(Transport, ListenSocket, OptionTags) of
 	{ok, _} = Result ->
 	    Result;
 	{error, InetError} ->
@@ -484,7 +460,7 @@ setopts(#sslsocket{pid = Pid}, Options0) when is_pid(Pid), is_list(Options0)  ->
     end;
 
 setopts(#sslsocket{pid = {_, #config{transport_info = {Transport,_,_,_}}}} = ListenSocket, Options) when is_list(Options) ->
-    try ssl_socket:setopts(Transport, ListenSocket, Options) of
+    try tls_socket:setopts(Transport, ListenSocket, Options) of
 	ok ->
 	    ok;
 	{error, InetError} ->
@@ -517,10 +493,10 @@ getstat(Socket) ->
 %% Description: Get one or more statistic options for a socket.
 %%--------------------------------------------------------------------
 getstat(#sslsocket{pid = {Listen,  #config{transport_info = {Transport, _, _, _}}}}, Options) when is_port(Listen), is_list(Options) ->
-    ssl_socket:getstat(Transport, Listen, Options);
+    tls_socket:getstat(Transport, Listen, Options);
 
 getstat(#sslsocket{pid = Pid, fd = {Transport, Socket, _, _}}, Options) when is_pid(Pid), is_list(Options) ->
-    ssl_socket:getstat(Transport, Socket, Options).
+    tls_socket:getstat(Transport, Socket, Options).
 
 %%---------------------------------------------------------------
 -spec shutdown(#sslsocket{}, read | write | read_write) ->  ok | {error, reason()}.
@@ -539,10 +515,13 @@ shutdown(#sslsocket{pid = Pid}, How) ->
 %% Description: Same as inet:sockname/1
 %%--------------------------------------------------------------------
 sockname(#sslsocket{pid = {Listen,  #config{transport_info = {Transport, _, _, _}}}}) when is_port(Listen) ->
-    ssl_socket:sockname(Transport, Listen);
-
+    tls_socket:sockname(Transport, Listen);
+sockname(#sslsocket{pid = {udp, #config{udp_handler = {Pid, _}}}}) ->
+    dtls_udp_listener:sockname(Pid);
+sockname(#sslsocket{pid = Pid, fd = {gen_udp= Transport, Socket, _, _}}) when is_pid(Pid) ->
+    dtls_socket:sockname(Transport, Socket);
 sockname(#sslsocket{pid = Pid, fd = {Transport, Socket, _, _}}) when is_pid(Pid) ->
-    ssl_socket:sockname(Transport, Socket).
+    tls_socket:sockname(Transport, Socket).
 
 %%---------------------------------------------------------------
 -spec session_info(#sslsocket{}) -> {ok, list()} | {error, reason()}.
@@ -652,27 +631,12 @@ available_suites(all) ->
     Version = tls_record:highest_protocol_version([]),			  
     ssl_cipher:filter_suites(ssl_cipher:all_suites(Version)).
 
-do_connect(Address, Port,
-	   #config{transport_info = CbInfo, inet_user = UserOpts, ssl = SslOpts,
-		   emulated = EmOpts, inet_ssl = SocketOpts, connection_cb = ConnetionCb},
-	   Timeout) ->
-    {Transport, _, _, _} = CbInfo,
-    try Transport:connect(Address, Port,  SocketOpts, Timeout) of
-	{ok, Socket} ->
-	    ssl_connection:connect(ConnetionCb, Address, Port, Socket, 
-				   {SslOpts, emulated_socket_options(EmOpts, #socket_options{}), undefined},
-				   self(), CbInfo, Timeout);
-	{error, Reason} ->
-	    {error, Reason}
-    catch
-	exit:{function_clause, _} ->
-	    {error, {options, {cb_info, CbInfo}}};
-	exit:badarg ->
-	    {error, {options, {socket_options, UserOpts}}};
-	exit:{badarg, _} ->
-	    {error, {options, {socket_options, UserOpts}}}
-    end.
+do_listen(Port, #config{transport_info = {Transport, _, _, _}} = Config, tls_connection) ->
+    tls_socket:listen(Transport, Port, Config);
 
+do_listen(Port,  #config{transport_info = {Transport, _, _, _}} = Config, dtls_connection) ->
+    dtls_socket:listen(Transport, Port, Config).
+	
 %% Handle extra ssl options given to ssl_accept
 -spec handle_options([any()], #ssl_options{}) -> #ssl_options{}
       ;             ([any()], client | server) -> {ok, #config{}}.
@@ -732,6 +696,8 @@ handle_options(Opts0, Role) ->
 		       [RecordCb:protocol_version(Vsn) || Vsn <- Vsns]
 	       end,
 
+    Protocol = proplists:get_value(protocol, Opts, tls),
+
     SSLOptions = #ssl_options{
 		    versions   = Versions,
 		    verify     = validate_option(verify, Verify),
@@ -759,7 +725,7 @@ handle_options(Opts0, Role) ->
 		    signature_algs = handle_hashsigns_option(proplists:get_value(signature_algs, Opts, 
 									     default_option_role(server, 
 												 tls_v1:default_signature_algs(Versions), Role)),
-							 RecordCb:highest_protocol_version(Versions)), 
+							 tls_version(RecordCb:highest_protocol_version(Versions))), 
 		    %% Server side option
 		    reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
 		    reuse_sessions = handle_option(reuse_sessions, Opts, true),
@@ -789,7 +755,7 @@ handle_options(Opts0, Role) ->
 		    honor_ecc_order = handle_option(honor_ecc_order, Opts,
 						       default_option_role(server, false, Role),
 						       server, Role),
-		    protocol = proplists:get_value(protocol, Opts, tls),
+		    protocol = Protocol, 
 		    padding_check =  proplists:get_value(padding_check, Opts, true),
 		    beast_mitigation = handle_option(beast_mitigation, Opts, one_n_minus_one),
 		    fallback = handle_option(fallback, Opts,
@@ -802,7 +768,7 @@ handle_options(Opts0, Role) ->
 		    v2_hello_compatible = handle_option(v2_hello_compatible, Opts, false)
 		   },
 
-    CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),
+    CbInfo  = proplists:get_value(cb_info, Opts, default_cb_info(Protocol)),
     SslOptions = [protocol, versions, verify, verify_fun, partial_chain,
 		  fail_if_no_peer_cert, verify_client_once,
 		  depth, cert, certfile, key, keyfile,
@@ -820,7 +786,7 @@ handle_options(Opts0, Role) ->
 				   proplists:delete(Key, PropList)
 			   end, Opts, SslOptions),
 
-    {Sock, Emulated} = emulated_options(SockOpts),
+    {Sock, Emulated} = emulated_options(Protocol, SockOpts),
     ConnetionCb = connection_cb(Opts),
 
     {ok, #config{ssl = SSLOptions, emulated = Emulated, inet_ssl = Sock,
@@ -1139,8 +1105,13 @@ ca_cert_default(verify_peer, {Fun,_}, _) when is_function(Fun) ->
 %% some trusted certs.
 ca_cert_default(verify_peer, undefined, _) ->
     "".
-emulated_options(Opts) ->
-    emulated_options(Opts, ssl_socket:internal_inet_values(), ssl_socket:default_inet_values()).
+emulated_options(Protocol, Opts) ->
+    case Protocol of
+	tls ->
+	    emulated_options(Opts, tls_socket:internal_inet_values(), tls_socket:default_inet_values());
+	dtls ->
+	    emulated_options(Opts, dtls_socket:internal_inet_values(), dtls_socket:default_inet_values())
+    end.
 
 emulated_options([{mode, Value} = Opt |Opts], Inet, Emulated) ->
     validate_inet_option(mode, Value),
@@ -1281,11 +1252,6 @@ record_cb(dtls) ->
 record_cb(Opts) ->
     record_cb(proplists:get_value(protocol, Opts, tls)).
 
-connection_sup(tls_connection) ->
-    tls_connection_sup;
-connection_sup(dtls_connection) ->
-    dtls_connection_sup.
-
 binary_filename(FileName) ->
     Enc = file:native_name_encoding(),
     unicode:characters_to_binary(FileName, unicode, Enc).
@@ -1303,20 +1269,6 @@ assert_proplist([inet6 | Rest]) ->
     assert_proplist(Rest);
 assert_proplist([Value | _]) ->
     throw({option_not_a_key_value_tuple, Value}).
-
-emulated_socket_options(InetValues, #socket_options{
-				       mode   = Mode,
-				       header = Header,
-				       active = Active,
-				       packet = Packet,
-				       packet_size = Size}) ->
-    #socket_options{
-       mode   = proplists:get_value(mode, InetValues, Mode),
-       header = proplists:get_value(header, InetValues, Header),
-       active = proplists:get_value(active, InetValues, Active),
-       packet = proplists:get_value(packet, InetValues, Packet),
-       packet_size = proplists:get_value(packet_size, InetValues, Size)
-      }.
 
 new_ssl_options([], #ssl_options{} = Opts, _) -> 
     Opts;
@@ -1390,7 +1342,7 @@ new_ssl_options([{signature_algs, Value} | Rest], #ssl_options{} = Opts, RecordC
     new_ssl_options(Rest, 
 		    Opts#ssl_options{signature_algs = 
 					 handle_hashsigns_option(Value, 
-								 RecordCB:highest_protocol_version())}, 
+								 tls_version(RecordCB:highest_protocol_version()))}, 
 		    RecordCB);
 
 new_ssl_options([{Key, Value} | _Rest], #ssl_options{}, _) -> 
@@ -1454,3 +1406,8 @@ default_option_role(Role, Value, Role) ->
     Value;
 default_option_role(_,_,_) ->
     undefined.
+
+default_cb_info(tls) ->
+    {gen_tcp, tcp, tcp_closed, tcp_error};
+default_cb_info(dtls) ->
+    {gen_udp, udp, udp_closed, udp_error}.

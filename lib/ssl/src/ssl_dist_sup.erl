@@ -85,10 +85,10 @@ proxy_server_child_spec() ->
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
 listen_options_tracker_child_spec() ->
-    Name = ssl_socket_dist,  
+    Name = tls_socket_dist,  
     StartFunc = {ssl_listen_tracker_sup, start_link_dist, []},
     Restart = permanent, 
     Shutdown = 4000,
-    Modules = [ssl_socket],
+    Modules = [tls_socket],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
