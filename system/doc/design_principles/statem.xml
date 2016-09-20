@@ -1010,6 +1010,8 @@ do_unlock() ->
       the state, you must explicitly
       insert the <c>internal</c> event
       or use a state transition function.
+      This is something that can be forgotten, and if you find that
+      annoying please look at the next chapter.
     </p>
     <p>
       The following is an implementation of entry actions
@@ -1058,10 +1060,18 @@ enter(Tag, State, Data) ->
       Here is the same example as the previous but instead using
       the built in
       <seealso marker="#state_entry_events">state entry events</seealso>.
-      You will have to handle the state entry events in every state.
+    </p>
+    <p>
+      Since the state entry events are unconditionally inserted by
+      the <c>gen_statem</c> engine you can not forget to insert them
+      yourself and you will have to handle the state entry events
+      in every state.
+    </p>
+    <p>
       If you want state entry code in just a few states the previous
       example may be more suitable, especially to only send internal
       events when entering just those few states.
+      Note: additional discipline will be required.
     </p>
     <p>
       You can also in the previous example choose to generate
