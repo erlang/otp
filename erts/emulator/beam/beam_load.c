@@ -1126,11 +1126,8 @@ stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
     modp->curr.code_length = size;
     modp->curr.catches = BEAM_CATCHES_NIL; /* Will be filled in later. */
 #if defined(HIPE)
-    DBG_TRACE_MFA(make_atom(modp->module), 0, 0, "insert_new_code new_hipe_refs = %p", modp->new_hipe_refs);
-    modp->curr.first_hipe_ref = modp->new_hipe_refs;
-    modp->curr.first_hipe_sdesc = modp->new_hipe_sdesc;
-    modp->new_hipe_refs = NULL;
-    modp->new_hipe_sdesc = NULL;
+    DBG_TRACE_MFA(make_atom(modp->module), 0, 0, "insert_new_code "
+                  "first_hipe_ref = %p", hipe_code->first_hipe_ref);
     modp->curr.hipe_code = hipe_code;
 #endif
 
@@ -6498,6 +6495,8 @@ erts_make_stub_module(Process* p, Eterm hipe_magic_bin, Eterm Beam, Eterm Info)
     hipe_code->text_segment = hipe_stp->text_segment;
     hipe_code->text_segment_size = hipe_stp->text_segment_size;
     hipe_code->data_segment = hipe_stp->data_segment;
+    hipe_code->first_hipe_ref = hipe_stp->new_hipe_refs;
+    hipe_code->first_hipe_sdesc = hipe_stp->new_hipe_sdesc;
 
     /*
      * Insert the module in the module table.
@@ -6524,6 +6523,8 @@ erts_make_stub_module(Process* p, Eterm hipe_magic_bin, Eterm Beam, Eterm Info)
 	/* Prevent code from being freed */
 	hipe_stp->text_segment = 0;
 	hipe_stp->data_segment = 0;
+        hipe_stp->new_hipe_refs = NULL;
+        hipe_stp->new_hipe_sdesc = NULL;
 
 	erts_free_aligned_binary_bytes(temp_alloc);
 	free_loader_state(magic);

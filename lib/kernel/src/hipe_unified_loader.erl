@@ -189,6 +189,7 @@ load_common(Mod, Bin, Beam, Architecture) ->
       WordSize = word_size(Architecture),
       WriteWord = write_word_fun(WordSize),
       LoaderState = hipe_bifs:alloc_loader_state(Mod),
+      put(hipe_loader_state, LoaderState),
       %% Create data segment
       {ConstAddr,ConstMap2} =
 	create_data_segment(ConstAlign, ConstSize, ConstMap, WriteWord,
@@ -238,6 +239,7 @@ load_common(Mod, Bin, Beam, Architecture) ->
       end,
 
       %% Final clean up.
+      _ = erase(hipe_loader_state),
       _ = erase(hipe_patch_closures),
       _ = erase(hipe_assert_code_area),
       ?debug_msg("****************Loader Finished****************\n", []),
@@ -554,7 +556,8 @@ patch_sdesc(?STACK_DESC(SymExnRA, FSize, Arity, Live),
     end,
   ?ASSERT(assert_local_patch(Address)),
   MFA = address_to_mfa_lth(Address, FunDefs),
-  hipe_bifs:enter_sdesc({Address, ExnRA, FSize, Arity, Live, MFA, get(hipe_patch_closures)}).
+  hipe_bifs:enter_sdesc({Address, ExnRA, FSize, Arity, Live, MFA, get(hipe_patch_closures)},
+		       get(hipe_loader_state)).
 
 
 %%----------------------------------------------------------------
@@ -774,7 +777,9 @@ add_ref(CalleeMFA, Address, FunDefs, RefType, Trampoline, RemoteOrLocal) ->
       {M,_,_} = CalleeMFA,
       {M,_,_} = CallerMFA;
     remote ->
-      hipe_bifs:add_ref(CalleeMFA, {CallerMFA,Address,RefType,Trampoline,get(hipe_patch_closures)})
+      hipe_bifs:add_ref(CalleeMFA, {CallerMFA,Address,RefType,Trampoline,
+				    get(hipe_patch_closures),
+				    get(hipe_loader_state)})
   end,
   ok.
 

@@ -36,6 +36,9 @@ typedef struct hipe_loader_state {
     void *data_segment;
     Uint data_segment_size;
 
+    struct hipe_ref* new_hipe_refs;
+    struct hipe_sdesc* new_hipe_sdesc;
+
 } HipeLoaderState;
 
 extern Binary *hipe_alloc_loader_state(Eterm module);

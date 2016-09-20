@@ -77,8 +77,6 @@ void erts_module_instance_init(struct erl_module_instance* modi)
     modi->num_breakpoints = 0;
     modi->num_traced_exports = 0;
 #ifdef HIPE
-    modi->first_hipe_ref = NULL;
-    modi->first_hipe_sdesc = NULL;
     modi->hipe_code = NULL;
 #endif
 }
@@ -95,8 +93,6 @@ static Module* module_alloc(Module* tmpl)
     obj->on_load = 0;
 #ifdef HIPE
     obj->first_hipe_mfa = NULL;
-    obj->new_hipe_refs = NULL;
-    obj->new_hipe_sdesc = NULL;
 #endif
     DBG_TRACE_MFA(make_atom(obj->module), 0, 0, "module_alloc");
     return obj;
@@ -214,8 +210,6 @@ static ERTS_INLINE void copy_module(Module* dst_mod, Module* src_mod)
     dst_mod->on_load = src_mod->on_load;
 #ifdef HIPE
     dst_mod->first_hipe_mfa = src_mod->first_hipe_mfa;
-    dst_mod->new_hipe_refs  = src_mod->new_hipe_refs;
-    dst_mod->new_hipe_sdesc = src_mod->new_hipe_sdesc;
 #endif
 }
 

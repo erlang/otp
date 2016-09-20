@@ -685,11 +685,16 @@ BIF_RETTYPE hipe_bifs_set_native_address_3(BIF_ALIST_3)
     BIF_RET(am_false);
 }
 
-BIF_RETTYPE hipe_bifs_enter_sdesc_1(BIF_ALIST_1)
+BIF_RETTYPE hipe_bifs_enter_sdesc_2(BIF_ALIST_2)
 {
     struct hipe_sdesc *sdesc;
+    HipeLoaderState* stp;
     Module* modp;
     int do_commit;
+
+    stp = get_loader_state(BIF_ARG_2);
+    if (!stp)
+	BIF_ERROR(BIF_P, BADARG);
 
     sdesc = hipe_decode_sdesc(BIF_ARG_1, &do_commit);
     if (!sdesc) {
@@ -707,12 +712,13 @@ BIF_RETTYPE hipe_bifs_enter_sdesc_1(BIF_ALIST_1)
     modp = erts_put_active_module(make_atom(sdesc->m_aix));
     ASSERT(modp);
     if (do_commit) { /* Direct "hipe-patching" of early loaded module */
-        sdesc->next_in_modi = modp->curr.first_hipe_sdesc;
-        modp->curr.first_hipe_sdesc = sdesc;
+        ASSERT(modp->curr.hipe_code);
+        sdesc->next_in_modi = modp->curr.hipe_code->first_hipe_sdesc;
+        modp->curr.hipe_code->first_hipe_sdesc = sdesc;
     }
     else {           /* Normal module loading/upgrade */
-        sdesc->next_in_modi = modp->new_hipe_sdesc;
-        modp->new_hipe_sdesc = sdesc;
+        sdesc->next_in_modi = stp->new_hipe_sdesc;
+        stp->new_hipe_sdesc = sdesc;
     }
 
     BIF_RET(NIL);
@@ -1491,13 +1497,14 @@ BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
     struct hipe_ref *ref;
     Module* modp;
     int do_commit;
+    HipeLoaderState* stp;
 
     if (!term_to_mfa(BIF_ARG_1, &callee))
 	goto badarg;
     if (is_not_tuple(BIF_ARG_2))
 	goto badarg;
     tuple = tuple_val(BIF_ARG_2);
-    if (tuple[0] != make_arityval(5))
+    if (tuple[0] != make_arityval(6))
 	goto badarg;
     if (!term_to_mfa(tuple[1], &caller))
 	goto badarg;
@@ -1526,6 +1533,10 @@ BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
     case am_false: do_commit = 0; break;
     default: goto badarg;
     }
+    stp = get_loader_state(tuple[6]);
+    if (!stp)
+        goto badarg;
+
     hipe_mfa_info_table_rwlock();
     callee_mfa = hipe_mfa_info_table_put_rwlocked(callee.mod, callee.fun, callee.ari);
 
@@ -1550,12 +1561,13 @@ BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
     modp = erts_put_active_module(caller.mod);
     ASSERT(modp);
     if (do_commit) { /* Direct "hipe-patching" of early loaded module */
-        ref->next_from_modi = modp->curr.first_hipe_ref;
-        modp->curr.first_hipe_ref = ref;
+        ASSERT(modp->curr.hipe_code);
+        ref->next_from_modi = modp->curr.hipe_code->first_hipe_ref;
+        modp->curr.hipe_code->first_hipe_ref = ref;
     }
     else {           /* Normal module loading/upgrade */
-        ref->next_from_modi = modp->new_hipe_refs;
-        modp->new_hipe_refs = ref;
+        ref->next_from_modi = stp->new_hipe_refs;
+        stp->new_hipe_refs = ref;
     }
 
 #if defined(DEBUG)
@@ -1653,9 +1665,12 @@ BIF_RETTYPE hipe_bifs_remove_refs_from_1(BIF_ALIST_1)
 int hipe_purge_need_blocking(Module* modp)
 {
     /* SVERK: Verify if this is really necessary */
-    return (modp->old.first_hipe_ref ||
-            modp->old.first_hipe_sdesc ||
-            (!modp->curr.code_hdr && modp->first_hipe_mfa));
+    if (modp->old.hipe_code) {
+        if (modp->old.hipe_code->first_hipe_ref ||
+            modp->old.hipe_code->first_hipe_sdesc)
+            return 1;
+    }
+    return !modp->curr.code_hdr && modp->first_hipe_mfa;
 }
 
 void hipe_purge_module(Module* modp)
@@ -1667,68 +1682,75 @@ void hipe_purge_module(Module* modp)
 
     DBG_TRACE_MFA(make_atom(modp->module), 0, 0, "hipe_purge_module");
 
-    /*
-     * Remove all hipe_ref's (external calls) from the old module instance
-     */
-    ref = modp->old.first_hipe_ref;
-
-    while (ref) {
-	struct hipe_ref* free_ref = ref;
-
-        ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
-
-	DBG_TRACE_MFA(ref->caller_m, ref->caller_f, ref->caller_a, "PURGE ref at %p to %T:%T/%u", ref,
-		      ref->callee->m, ref->callee->f, ref->callee->a);
-	DBG_TRACE_MFA(ref->callee->m, ref->callee->f, ref->callee->a, "PURGE ref at %p from %T:%T/%u", ref,
-		      ref->caller_m, ref->caller_f, ref->caller_a);
-	ASSERT(ref->caller_m == make_atom(modp->module));
-
+    if (modp->old.hipe_code) {
         /*
-         * Unlink from other refs to same callee
+         * Remove all hipe_ref's (external calls) from the old module instance
          */
-        ASSERT(ref->head.next->prev == &ref->head);
-        ASSERT(ref->head.prev->next == &ref->head);
-        ASSERT(ref->head.next != &ref->head);
-        ASSERT(ref->head.prev != &ref->head);
-        ref->head.next->prev = ref->head.prev;
-        ref->head.prev->next = ref->head.next;
+        ref = modp->old.hipe_code->first_hipe_ref;
 
-        /*
-         * Was this the last ref to that callee?
-         */
-        if (ref->head.next == ref->head.prev) {
-            struct hipe_mfa_info* p = ErtsContainerStruct(ref->head.next, struct hipe_mfa_info, callers);
-            if (p->is_stub) {
-                unlink_mfa_from_mod(p);
-                purge_mfa(p);
-           }
+        while (ref) {
+            struct hipe_ref* free_ref = ref;
+
+            ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+
+            DBG_TRACE_MFA(ref->caller_m, ref->caller_f, ref->caller_a, "PURGE ref at %p to %T:%T/%u", ref,
+                          ref->callee->m, ref->callee->f, ref->callee->a);
+            DBG_TRACE_MFA(ref->callee->m, ref->callee->f, ref->callee->a, "PURGE ref at %p from %T:%T/%u", ref,
+                          ref->caller_m, ref->caller_f, ref->caller_a);
+            ASSERT(ref->caller_m == make_atom(modp->module));
+
+            /*
+             * Unlink from other refs to same callee
+             */
+            ASSERT(ref->head.next->prev == &ref->head);
+            ASSERT(ref->head.prev->next == &ref->head);
+            ASSERT(ref->head.next != &ref->head);
+            ASSERT(ref->head.prev != &ref->head);
+            ref->head.next->prev = ref->head.prev;
+            ref->head.prev->next = ref->head.next;
+
+            /*
+             * Was this the last ref to that callee?
+             */
+            if (ref->head.next == ref->head.prev) {
+                struct hipe_mfa_info* p = ErtsContainerStruct(ref->head.next, struct hipe_mfa_info, callers);
+                if (p->is_stub) {
+                    unlink_mfa_from_mod(p);
+                    purge_mfa(p);
+               }
+            }
+
+            ref = ref->next_from_modi;
+            erts_free(ERTS_ALC_T_HIPE, free_ref);
         }
+        modp->old.hipe_code->first_hipe_ref = NULL;
 
-	ref = ref->next_from_modi;
-	erts_free(ERTS_ALC_T_HIPE, free_ref);
+        /*
+         * Remove all hipe_sdesc's for the old module instance
+         */
+        sdesc = modp->old.hipe_code->first_hipe_sdesc;
+
+        while (sdesc) {
+            struct hipe_sdesc* free_sdesc = sdesc;
+
+            ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+
+            DBG_TRACE_MFA(make_atom(sdesc->m_aix), make_atom(sdesc->f_aix), sdesc->a, "PURGE sdesc at %p", (void*)sdesc->bucket.hvalue);
+            ASSERT(sdesc->m_aix == modp->module);
+
+            sdesc = sdesc->next_in_modi;
+            hipe_destruct_sdesc(free_sdesc);
+        }
+        modp->old.hipe_code->first_hipe_sdesc = NULL;
+
+        hipe_free_module(modp->old.hipe_code);
+        modp->old.hipe_code = NULL;
     }
-    modp->old.first_hipe_ref = NULL;
+
 
     /*
-     * Remove all hipe_sdesc's for the old module instance
-     */
-    sdesc = modp->old.first_hipe_sdesc;
-
-    while (sdesc) {
-	struct hipe_sdesc* free_sdesc = sdesc;
-
-        ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
-
-	DBG_TRACE_MFA(make_atom(sdesc->m_aix), make_atom(sdesc->f_aix), sdesc->a, "PURGE sdesc at %p", (void*)sdesc->bucket.hvalue);
-	ASSERT(sdesc->m_aix == modp->module);
-
-	sdesc = sdesc->next_in_modi;
-        hipe_destruct_sdesc(free_sdesc);
-    }
-    modp->old.first_hipe_sdesc = NULL;
-
-    /*
-     * Remove unreferred hipe_mfa_info's
+     * Remove unreferred hipe_mfa_info's 
+     * when all module instances are removed (like in init:restart) 
      */
     if (modp->curr.code_hdr == NULL) {
         struct hipe_mfa_info** prevp = &modp->first_hipe_mfa;
@@ -1742,10 +1764,6 @@ void hipe_purge_module(Module* modp)
             else
                 prevp = &p->next_in_mod;
         }
-    }
-    if (modp->old.hipe_code) {
-        hipe_free_module(modp->old.hipe_code);
-        modp->old.hipe_code = NULL;
     }
 }
 

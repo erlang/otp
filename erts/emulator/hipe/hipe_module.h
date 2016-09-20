@@ -35,6 +35,9 @@ struct hipe_module {
     void *text_segment;
     Uint text_segment_size;
     void *data_segment;
+
+    struct hipe_ref* first_hipe_ref;  /* all external hipe calls from this module */
+    struct hipe_sdesc* first_hipe_sdesc;  /* all stack descriptors for this module */
 };
 
 extern void hipe_free_module(HipeModule *mod);

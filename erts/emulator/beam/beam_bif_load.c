@@ -1798,7 +1798,6 @@ delete_code(Module* modp)
 
     ASSERT(modp->curr.num_breakpoints == 0);
     ASSERT(modp->curr.num_traced_exports == 0);
-    DBG_TRACE_MFA(make_atom(modp->module), 0, 0, "delete_code old.first_hipe_ref=%p", modp->curr.first_hipe_ref);
     modp->old = modp->curr;
     erts_module_instance_init(&modp->curr);
 }

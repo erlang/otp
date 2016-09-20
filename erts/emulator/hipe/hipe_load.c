@@ -79,6 +79,9 @@ Binary *hipe_alloc_loader_state(Eterm module)
     stp->data_segment = NULL;
     stp->data_segment_size = 0;
 
+    stp->new_hipe_refs = NULL;
+    stp->new_hipe_sdesc = NULL;
+
     return magic;
 }
 

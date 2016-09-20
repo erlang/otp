@@ -1058,8 +1058,8 @@ type(hipe_bifs, enter_code, 3, Xs, Opaques) ->
 			     %% XXX: The tuple below contains integers and
 			     %% is of size same as the length of the MFA list
 			     t_sup(t_nil(), t_binary())]) end, Opaques);
-type(hipe_bifs, enter_sdesc, 1, Xs, Opaques) ->
-  strict(hipe_bifs, enter_sdesc, 1, Xs, fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, enter_sdesc, 2, Xs, Opaques) ->
+  strict(hipe_bifs, enter_sdesc, 2, Xs, fun (_) -> t_nil() end, Opaques);
 type(hipe_bifs, find_na_or_make_stub, 1, Xs, Opaques) ->
   strict(hipe_bifs, find_na_or_make_stub, 1, Xs,
 	 fun (_) -> t_integer() end, Opaques); % address
@@ -2459,7 +2459,9 @@ arg_types(hipe_bifs, add_ref, 2) ->
   [t_mfa(), t_tuple([t_mfa(),
 		     t_integer(),
 		     t_sup(t_atom('call'), t_atom('load_mfa')),
-		     t_trampoline()])];
+		     t_trampoline(),
+		     t_atom(),
+		     t_binary()])];
 arg_types(hipe_bifs, alloc_data, 3) ->
   [t_integer(), t_integer(), t_binary()];
 arg_types(hipe_bifs, array, 2) ->
@@ -2498,8 +2500,9 @@ arg_types(hipe_bifs, check_crc, 1) ->
   [t_crc32()];
 arg_types(hipe_bifs, enter_code, 3) ->
   [t_binary(), t_sup(t_nil(), t_tuple()), t_binary()];
-arg_types(hipe_bifs, enter_sdesc, 1) ->
-  [t_tuple([t_integer(), t_integer(), t_integer(), t_integer(), t_integer(), t_mfa()])];
+arg_types(hipe_bifs, enter_sdesc, 2) ->
+  [t_tuple([t_integer(), t_integer(), t_integer(), t_integer(), t_integer(), t_mfa(), t_atom()]),
+   t_binary()];
 arg_types(hipe_bifs, find_na_or_make_stub, 1) ->
   [t_mfa()];
 arg_types(hipe_bifs, fun_to_address, 1) ->
