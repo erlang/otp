@@ -99,6 +99,12 @@
 #define ErtsContainerStruct(ptr, type, member) \
     ((type *)((char *)(1 ? (ptr) : &((type *)0)->member) - offsetof(type, member)))
 
+/* Use this variant when the member is an array */
+#define ErtsContainerStruct_(ptr, type, memberv) \
+    ((type *)((char *)(1 ? (ptr) : ((type *)0)->memberv) - offsetof(type, memberv)))
+
+#define ErtsSizeofMember(type, member) sizeof(((type *)0)->member)
+
 #if defined (__WIN32__)
 #  include "erl_win_sys.h"
 #else
