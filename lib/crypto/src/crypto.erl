@@ -484,17 +484,17 @@ sign(Alg, Type, Data, Key) when is_binary(Data) ->
     sign(Alg, Type, {digest, hash(Type, Data)}, Key);
 sign(rsa, Type, {digest, Digest}, Key) ->
     case rsa_sign_nif(Type, Digest, map_ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [Type,Digest,Key]);
+	error -> erlang:error(badkey, [rsa, Type, {digest, Digest}, Key]);
 	Sign -> Sign
     end;
 sign(dss, Type, {digest, Digest}, Key) ->
     case dss_sign_nif(Type, Digest, map_ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [Digest, Key]);
+	error -> erlang:error(badkey, [dss, Type, {digest, Digest}, Key]);
 	Sign -> Sign
     end;
 sign(ecdsa, Type, {digest, Digest}, [Key, Curve]) ->
     case ecdsa_sign_nif(Type, Digest, nif_curve_params(Curve), ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [Type,Digest,Key]);
+	error -> erlang:error(badkey, [ecdsa, Type, {digest, Digest}, [Key, Curve]]);
 	Sign -> Sign
     end.
 
@@ -510,7 +510,7 @@ sign(ecdsa, Type, {digest, Digest}, [Key, Curve]) ->
 public_encrypt(rsa, BinMesg, Key, Padding) ->
     case rsa_public_crypt(BinMesg,  map_ensure_int_as_bin(Key), Padding, true) of
 	error ->
-	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
+	    erlang:error(encrypt_failed, [rsa, BinMesg,Key, Padding]);
 	Sign -> Sign
     end.
 
@@ -518,7 +518,7 @@ public_encrypt(rsa, BinMesg, Key, Padding) ->
 private_decrypt(rsa, BinMesg, Key, Padding) ->
     case rsa_private_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, false) of
 	error ->
-	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
+	    erlang:error(decrypt_failed, [rsa, BinMesg,Key, Padding]);
 	Sign -> Sign
     end.
 
@@ -527,7 +527,7 @@ private_decrypt(rsa, BinMesg, Key, Padding) ->
 private_encrypt(rsa, BinMesg, Key, Padding) ->
     case rsa_private_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, true) of
 	error ->
-	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
+	    erlang:error(encrypt_failed, [rsa, BinMesg,Key, Padding]);
 	Sign -> Sign
     end.
 
@@ -535,7 +535,7 @@ private_encrypt(rsa, BinMesg, Key, Padding) ->
 public_decrypt(rsa, BinMesg, Key, Padding) ->
     case rsa_public_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, false) of
 	error ->
-	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
+	    erlang:error(decrypt_failed, [rsa, BinMesg,Key, Padding]);
 	Sign -> Sign
     end.
 
@@ -583,7 +583,7 @@ compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
 			    ensure_int_as_bin(MyPrivateKey),
 			    map_ensure_int_as_bin(DHParameters)) of
 	error -> erlang:error(computation_failed,
-			      [OthersPublicKey,MyPrivateKey,DHParameters]);
+			      [dh,OthersPublicKey,MyPrivateKey,DHParameters]);
 	Ret -> Ret
     end;
 
