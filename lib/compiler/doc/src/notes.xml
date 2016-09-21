@@ -32,6 +32,43 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If the compiler fails to write the BEAM file, it will now
+	    report the reason of the error for the write operation.</p>
+          <p>
+	    Own Id: OTP-13701</p>
+        </item>
+        <item>
+          <p>
+	    Fixed an internal compiler error. (Thanks to Svilen
+	    Ivanov for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-13780 Aux Id: ERL-202 </p>
+        </item>
+        <item>
+          <p>
+	    The compiler could crash when trying to compile a
+	    complicated expression with multiple catches all on one
+	    line . (Thanks to Thomas Arts for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-13804 Aux Id: ERL-209 </p>
+        </item>
+        <item>
+          <p>
+	    Eliminated a few internal compiler failures.</p>
+          <p>
+	    Own Id: OTP-13863</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

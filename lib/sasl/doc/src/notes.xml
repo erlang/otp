@@ -31,6 +31,59 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 3.0.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved dirty scheduler support. A purge of a module can
+	    now be performed without having to wait for completion of
+	    all ongoing dirty NIF calls.</p>
+          <p>
+	    Note that when enabling support for dirty schedulers, a
+	    new purge strategy will as of ERTS version 8.1 be
+	    enabled. This new strategy is not fully backwards
+	    compatible with the strategy used by default. For more
+	    information see the documentation of <seealso
+	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>.</p>
+          <p>
+	    Own Id: OTP-13808 Aux Id: OTP-13833 </p>
+        </item>
+        <item>
+          <p>
+	    A new purge strategy has been introduced. The new
+	    strategy will by default be disabled during the OTP 19
+	    release, but will be the only strategy available as of
+	    the OTP 20 release.</p>
+          <p>
+	    The new strategy is slightly incompatible with the
+	    strategy being used by default in OTP 19. Using the
+	    default strategy, processes holding <c>fun</c>s that
+	    refer to the module being purged either fail a soft
+	    purge, or will be killed during a hard purge. The new
+	    strategy completely ignores <c>fun</c>s. If <c>fun</c>s
+	    referring to the code being purged exist, and are used
+	    after a purge, an exception will be raised upon usage.
+	    That is, the behavior will be exactly the same as the
+	    case when a <c>fun</c> is received by a process after the
+	    purge.</p>
+          <p>
+	    The new strategy can optionally be enabled when building
+	    OTP during OTP 19, and will automatically be enabled if
+	    the runtime system is built with support for dirty
+	    schedulers.</p>
+          <p>
+	    For more information see the documentation of <seealso
+	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>.</p>
+          <p>
+	    Own Id: OTP-13833</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 3.0</title>
 
     <section><title>Improvements and New Features</title>

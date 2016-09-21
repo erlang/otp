@@ -32,6 +32,288 @@
   <p>This document describes the changes made to the ERTS application.</p>
 
 
+<section><title>Erts 8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug for calls from hipe code to BIFs that disable GC
+	    while yielding. Has been causing Dialyzer crashes on ARM
+	    (and presumably all other non-intel platforms).</p>
+          <p>
+	    Own Id: OTP-13724 Aux Id: PR-1116 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a bug where changing the current working directory of
+	    the VM would not change the current working directory of
+	    programs spawned using <c>erlang:open_port({spawn,""},
+	    ...)</c>.</p>
+          <p>
+	    Own Id: OTP-13733 Aux Id: ERL-175 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a bug where disabling tracing from a process that had
+	    return_to tracing enabled and was tracing on
+	    <c>erlang:trace/3</c> would cause a segmentation fault.</p>
+          <p>
+	    Own Id: OTP-13734</p>
+        </item>
+        <item>
+          <p>
+	    Update all erts documentation to use simpler English, use
+	    consistent terminology and be easier to navigate.</p>
+          <p>
+	    Own Id: OTP-13740</p>
+        </item>
+        <item>
+          <p>
+	    Add dirty schedulers to the microstate accounting
+	    statistics.</p>
+          <p>
+	    Own Id: OTP-13744</p>
+        </item>
+        <item>
+          <p>
+	    Fixed dirty scheduler build support on 32-bit windows.</p>
+          <p>
+	    Own Id: OTP-13759</p>
+        </item>
+        <item>
+          <p>
+	    inet:getstat(Socket) on an SCTP socket returned 0 for
+	    send stats. This bug has now been corrected. Reported by
+	    systra as issue ERL-102 on bugs.erlang.org.</p>
+          <p>
+	    Own Id: OTP-13773 Aux Id: ERL-102 </p>
+        </item>
+        <item>
+          <p>
+	    AF_UNSPEC and unknown address families were misread by
+	    UDP receive in prim_inet resulting in an exception. This
+	    bug has now been corrected.</p>
+          <p>
+	    Own Id: OTP-13775</p>
+        </item>
+        <item>
+          <p>
+	    Sweep HiPE stack for literals during code purge.</p>
+          <p>
+	    Own Id: OTP-13777 Aux Id: PR-1122 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in run_erl for OpenBSD that could cause it on
+	    rare occations to exit without starting the program (erl)
+	    at all.</p>
+          <p>
+	    Own Id: OTP-13795</p>
+        </item>
+        <item>
+          <p>
+	    Update build scripts to not make assumtions about where
+	    env, cp and perl are located.</p>
+          <p>
+	    Own Id: OTP-13800</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug where init:stop could deadlock if a process
+	    with infinite shutdown timeout (e.g. a supervisor)
+	    attempted to load code while terminating.</p>
+          <p>
+	    Own Id: OTP-13802</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a segmentation fault on sparc CPUs when free'ing a
+	    tracer module's state.</p>
+          <p>
+	    Own Id: OTP-13803</p>
+        </item>
+        <item>
+          <p>
+	    <c>fun</c>s was not properly handled during purge of a
+	    module. This could cause a crash of the VM after a purge
+	    of a module.</p>
+          <p>
+	    Own Id: OTP-13809</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a memory leak when the process monitoring a port
+	    crashed.</p>
+          <p>
+	    Own Id: OTP-13818</p>
+        </item>
+        <item>
+          <p>
+	    Fixed multiple dirty scheduler related tracing bugs.</p>
+          <p>
+	    Own Id: OTP-13822</p>
+        </item>
+        <item>
+          <p>
+	    Fix error handling in beam code runtime loader for a
+	    number of cases when index and size fields got corrupted
+	    (negative) values.</p>
+          <p>
+	    Own Id: OTP-13848 Aux Id: ERL-216 </p>
+        </item>
+        <item>
+          <p>
+	    Minor fix of dirty scheduler implementation.</p>
+          <p>
+	    Own Id: OTP-13852</p>
+        </item>
+        <item>
+          <p>
+	    Calls to <c>erl_drv_send_term()</c> or
+	    <c>erl_drv_output_term()</c> from a non-scheduler thread
+	    while the corresponding port was invalid caused the
+	    emulator to enter an inconsistent state which eventually
+	    caused an emulator crash.</p>
+          <p>
+	    Own Id: OTP-13866</p>
+        </item>
+        <item>
+          <p>
+	    Fix a rare race condition in <c>erlang:open_port({spawn,
+	    ""}, ...)</c> that would result in the erl_child_setup
+	    program aborting and cause the emulator to exit.</p>
+          <p>
+	    Own Id: OTP-13868</p>
+        </item>
+        <item>
+	    <p>Driver and NIF operations accessing processes or ports
+	    could cause an emulator crash when used from
+	    non-scheduler threads. Those operations are:</p> <list>
+	    <item><c>erl_drv_send_term()</c></item>
+	    <item><c>driver_send_term()</c></item>
+	    <item><c>erl_drv_output_term()</c></item>
+	    <item><c>driver_output_term()</c></item>
+	    <item><c>enif_send()</c></item>
+	    <item><c>enif_port_command()</c></item> </list>
+          <p>
+	    Own Id: OTP-13869</p>
+        </item>
+        <item>
+          <p>
+	    Fix start scripts generation dependency in Makefile</p>
+          <p>
+	    Own Id: OTP-13871 Aux Id: ERL-241 </p>
+        </item>
+        <item>
+          <p>
+	    The VM could crash if <c>erlang:get_stacktrace()</c> was
+	    called after a rescheduled NIF had thrown an exception.</p>
+          <p>
+	    Own Id: OTP-13877</p>
+        </item>
+        <item>
+	    <p>Calling <c>code:delete/1</c> before a loading a module
+	    with an on_load function, the old code would be
+	    overwritten, causing a memory or a crash if NIFs were
+	    involved. (Thanks to vans163 for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-13893 Aux Id: ERL-240 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved accuracy of timeouts on MacOS X. This by setting
+	    premature timeouts followed by a short actual timeout
+	    during scheduler wait.</p>
+          <p>
+	    Own Id: OTP-13698</p>
+        </item>
+        <item>
+	    <p>Added the following symbolic time unit representations
+	    to the <seealso
+	    marker="erlang#type-time_unit"><c>erlang:time_unit()</c></seealso>
+	    type:</p> <list> <item><c>second</c></item>
+	    <item><c>millisecond</c></item>
+	    <item><c>microsecond</c></item>
+	    <item><c>nanosecond</c></item> </list> <p>The following
+	    symbolic time unit representations are now
+	    <em>deprecated</em>, but still part of the
+	    <c>erlang:time_unit()</c> type:</p> <list>
+	    <item><c>seconds</c></item>
+	    <item><c>milli_seconds</c></item>
+	    <item><c>micro_seconds</c></item>
+	    <item><c>nano_seconds</c></item> </list>
+          <p>
+	    Own Id: OTP-13735</p>
+        </item>
+        <item>
+          <p>
+	    Fix maps hashing entropy of maps with maps keys.</p>
+          <p>
+	    Own Id: OTP-13763 Aux Id: ERL-199 </p>
+        </item>
+        <item>
+          <p>
+	    Improved dirty scheduler support. A purge of a module can
+	    now be performed without having to wait for completion of
+	    all ongoing dirty NIF calls.</p>
+          <p>
+	    Note that when enabling support for dirty schedulers, a
+	    new purge strategy will as of ERTS version 8.1 be
+	    enabled. This new strategy is not fully backwards
+	    compatible with the strategy used by default. For more
+	    information see the documentation of <seealso
+	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>.</p>
+          <p>
+	    Own Id: OTP-13808 Aux Id: OTP-13833 </p>
+        </item>
+        <item>
+          <p>
+	    A new purge strategy has been introduced. The new
+	    strategy will by default be disabled during the OTP 19
+	    release, but will be the only strategy available as of
+	    the OTP 20 release.</p>
+          <p>
+	    The new strategy is slightly incompatible with the
+	    strategy being used by default in OTP 19. Using the
+	    default strategy, processes holding <c>fun</c>s that
+	    refer to the module being purged either fail a soft
+	    purge, or will be killed during a hard purge. The new
+	    strategy completely ignores <c>fun</c>s. If <c>fun</c>s
+	    referring to the code being purged exist, and are used
+	    after a purge, an exception will be raised upon usage.
+	    That is, the behavior will be exactly the same as the
+	    case when a <c>fun</c> is received by a process after the
+	    purge.</p>
+          <p>
+	    The new strategy can optionally be enabled when building
+	    OTP during OTP 19, and will automatically be enabled if
+	    the runtime system is built with support for dirty
+	    schedulers.</p>
+          <p>
+	    For more information see the documentation of <seealso
+	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>.</p>
+          <p>
+	    Own Id: OTP-13833</p>
+        </item>
+        <item>
+          <p>
+	    Fixed unnecessary overestimation of heap size need during
+	    garbage collection.</p>
+          <p>
+	    Own Id: OTP-13851</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 8.0.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

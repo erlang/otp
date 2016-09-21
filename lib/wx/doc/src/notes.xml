@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Increased the stacksize for the wx thread. The default
+	    stacksize on Windows is 1MB which is not enough if the
+	    user created many nested dialogs.</p>
+          <p>
+	    Own Id: OTP-13816</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

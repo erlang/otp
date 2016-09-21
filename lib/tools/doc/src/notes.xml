@@ -31,6 +31,38 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.8.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Errors in type specification and Emacs template
+	    generation for <c>gen_statem:code_change/4</c> has been
+	    fixed from bugs.erlang.org's Jira cases ERL-172 and
+	    ERL-187.</p>
+          <p>
+	    Own Id: OTP-13746 Aux Id: ERL-172, ERL-187 </p>
+        </item>
+        <item>
+          <p>
+	    Fix gc_start/gc_end in fprof tags when parsing old trace
+	    logs.</p>
+          <p>
+	    Own Id: OTP-13778 Aux Id: PR-1136 </p>
+        </item>
+        <item>
+	    <p><c>make</c> (tools) and <c>ct_make</c> (common_test)
+	    would crash if an Erlang source file contained a
+	    <c>-warning()</c> directive.</p>
+          <p>
+	    Own Id: OTP-13855</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.8.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

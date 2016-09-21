@@ -34,7 +34,35 @@
   </header>
 
 
-  <section><title>SNMP 5.2.3</title>
+  <section><title>SNMP 5.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Correct bugs when path to mib or idl spec files
+	    contains UTF-8 characters. </p>
+          <p>
+	    Own Id: OTP-13718 Aux Id: ERL-179 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Solves snmp config string handling as reported by ERL-164
+	    and solved by PR-1100</p>
+          <p>
+	    Own Id: OTP-13706</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.2.3</title>
 
     <section><title>Improvements and New Features</title>
       <list>

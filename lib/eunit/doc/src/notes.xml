@@ -33,6 +33,23 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When asserts were moved out to a separate header file,
+	    the automatic enabling of asserts when testing is enabled
+	    stopped working.</p>
+          <p>
+	    Own Id: OTP-13892</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.3</title>
 
     <section><title>Improvements and New Features</title>
