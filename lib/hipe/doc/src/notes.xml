@@ -31,6 +31,46 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.15.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed various hipe compiler backend bugs affecting mostly
+	    ARM and SPARC.</p>
+          <p>
+	    Own Id: OTP-13846 Aux Id: PR-1146 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed some Dialyzer warnings and code cleanup for the
+	    Sparc compiler backend.</p>
+          <p>
+	    Own Id: OTP-13861 Aux Id: PR-1148 </p>
+        </item>
+        <item>
+	    <p> Fix erl_bif_types opaque bug. </p>
+          <p>
+	    Own Id: OTP-13878 Aux Id: PR-1161, ERL-249 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix erl_types opaque match order</p>
+          <p>
+	    Own Id: OTP-13876</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.15.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

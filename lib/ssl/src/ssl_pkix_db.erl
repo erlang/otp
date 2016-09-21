@@ -29,10 +29,11 @@
 -include_lib("kernel/include/file.hrl").
 
 -export([create/0, add_crls/3, remove_crls/2, remove/1, add_trusted_certs/3, 
+	 extract_trusted_certs/1,
 	 remove_trusted_certs/2, insert/3, remove/2, clear/1, db_size/1,
 	 ref_count/3, lookup_trusted_cert/4, foldl/3, select_cert_by_issuer/2,
 	 lookup_cached_pem/2, cache_pem_file/2, cache_pem_file/3,
-	 lookup/2]).
+	 decode_pem_file/1, lookup/2]).
 
 %%====================================================================
 %% Internal application API
@@ -82,12 +83,22 @@ remove(Dbs) ->
 %% <SerialNumber, Issuer>. Ref is used as it is specified  
 %% for each connection which certificates are trusted.
 %%--------------------------------------------------------------------
-lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
+lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) when is_reference(Ref) ->
     case lookup({Ref, SerialNumber, Issuer}, DbHandle) of
 	undefined ->
 	    undefined;
 	[Certs] ->
 	    {ok, Certs}
+    end;
+lookup_trusted_cert(_DbHandle, {extracted,Certs}, SerialNumber, Issuer) ->
+    try
+	[throw(Cert)
+	 || {decoded, {{_Ref,CertSerial,CertIssuer}, Cert}} <- Certs,
+	    CertSerial =:= SerialNumber, CertIssuer =:= Issuer],
+	undefined
+    catch
+	Cert ->
+	    {ok, Cert}
     end.
 
 lookup_cached_pem([_, _, PemChache | _], File) ->
@@ -103,6 +114,9 @@ lookup_cached_pem(PemChache, File) ->
 %% runtime database. Returns Ref that should be handed to lookup_trusted_cert
 %% together with the cert serialnumber and issuer.
 %%--------------------------------------------------------------------
+add_trusted_certs(_Pid, {extracted, _} = Certs, _) ->
+    {ok, Certs};
+
 add_trusted_certs(_Pid, {der, DerList}, [CertDb, _,_ | _]) ->
     NewRef = make_ref(),
     add_certs_from_der(DerList, NewRef, CertDb),
@@ -122,6 +136,21 @@ add_trusted_certs(_Pid, File, [CertsDb, RefDb, PemChache | _] = Db) ->
 	undefined ->
 	    new_trusted_cert_entry(File, Db)
     end.
+
+extract_trusted_certs({der, DerList}) ->
+    {ok, {extracted, certs_from_der(DerList)}};
+extract_trusted_certs(File) ->
+    case file:read_file(File) of
+        {ok, PemBin} ->
+            Content = public_key:pem_decode(PemBin),
+            DerList = [Cert || {'Certificate', Cert, not_encrypted} <- Content],
+            {ok, {extracted, certs_from_der(DerList)}};
+        Error ->
+            %% Have to simulate a failure happening in a server for
+            %% external handlers.
+            {error, {badmatch, Error}}
+    end.
+
 %%--------------------------------------------------------------------
 %%
 %% Description: Cache file as binary in DB
@@ -140,6 +169,18 @@ cache_pem_file(Ref, File, [_CertsDb, _RefDb, PemChache| _]) ->
     Content = public_key:pem_decode(PemBin),
     insert(File, {Content, Ref}, PemChache),
     {ok, Content}.
+
+-spec decode_pem_file(binary()) -> {ok, term()}.
+decode_pem_file(File) ->
+    case file:read_file(File) of
+        {ok, PemBin} ->
+            Content = public_key:pem_decode(PemBin),
+            {ok, Content};
+        Error ->
+            %% Have to simulate a failure happening in a server for
+            %% external handlers.
+            {error, {badmatch, Error}}
+    end.
 
 %%--------------------------------------------------------------------
 -spec remove_trusted_certs(reference(), db_handle()) -> ok.
@@ -203,6 +244,8 @@ select_cert_by_issuer(Cache, Issuer) ->
 %%
 %% Description: Updates a reference counter in a <Db>.
 %%--------------------------------------------------------------------
+ref_count({extracted, _}, _Db, _N) ->
+    not_cached;
 ref_count(Key, Db, N) ->
     ets:update_counter(Db,Key,N).
 
@@ -248,23 +291,39 @@ add_certs_from_der(DerList, Ref, CertsDb) ->
     [Add(Cert) || Cert <- DerList],
     ok.
 
+certs_from_der(DerList) ->
+    Ref = make_ref(),
+    [Decoded || Cert <- DerList,
+		Decoded <- [decode_certs(Ref, Cert)],
+		Decoded =/= undefined].
+
 add_certs_from_pem(PemEntries, Ref, CertsDb) ->
     Add = fun(Cert) -> add_certs(Cert, Ref, CertsDb) end,
     [Add(Cert) || {'Certificate', Cert, not_encrypted} <- PemEntries],
     ok.
 
 add_certs(Cert, Ref, CertsDb) ->
+    try
+	 {decoded, {Key, Val}} = decode_certs(Ref, Cert),
+	 insert(Key, Val, CertsDb)
+    catch
+	error:_ ->
+	    ok
+    end.
+
+decode_certs(Ref, Cert) ->
     try  ErlCert = public_key:pkix_decode_cert(Cert, otp),
 	 TBSCertificate = ErlCert#'OTPCertificate'.tbsCertificate,
 	 SerialNumber = TBSCertificate#'OTPTBSCertificate'.serialNumber,
 	 Issuer = public_key:pkix_normalize_name(
 		    TBSCertificate#'OTPTBSCertificate'.issuer),
-	 insert({Ref, SerialNumber, Issuer}, {Cert,ErlCert}, CertsDb)
+	 {decoded, {{Ref, SerialNumber, Issuer}, {Cert, ErlCert}}}
     catch
 	error:_ ->
 	    Report = io_lib:format("SSL WARNING: Ignoring a CA cert as "
 				   "it could not be correctly decoded.~n", []),
-	    error_logger:info_report(Report)
+	    error_logger:info_report(Report),
+	    undefined
     end.
 
 new_trusted_cert_entry(File, [CertsDb, RefDb, _ | _] = Db) ->

@@ -813,6 +813,9 @@ trace_send(Process *p, Eterm to, Eterm msg)
     ErtsTracerNif *tnif = NULL;
     ErtsTracingEvent* te;
     Eterm pam_result;
+#ifdef ERTS_SMP
+    ErtsThrPrgrDelayHandle dhndl;
+#endif
 
     ASSERT(ARE_TRACE_FLAGS_ON(p, F_TRACE_SEND));
 
@@ -837,6 +840,10 @@ trace_send(Process *p, Eterm to, Eterm msg)
     } else
         pam_result = am_true;
 
+#ifdef ERTS_SMP
+    dhndl = erts_thr_progress_unmanaged_delay();
+#endif
+
     if (is_internal_pid(to)) {
 	if (!erts_proc_lookup(to))
 	    goto send_to_non_existing_process;
@@ -852,6 +859,11 @@ trace_send(Process *p, Eterm to, Eterm msg)
         send_to_tracer_nif(p, &p->common, p->common.id, tnif, TRACE_FUN_T_SEND,
                            operation, msg, to, pam_result);
     }
+
+#ifdef ERTS_SMP
+    erts_thr_progress_unmanaged_continue(dhndl);
+#endif
+
     erts_match_set_release_result_trace(p, pam_result);
 }
 
@@ -1166,6 +1178,8 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
     ErtsTracerNif *tnif = NULL;
     Eterm transformed_args[MAX_ARG];
     ErtsTracer pre_ms_tracer = erts_tracer_nil;
+
+    ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(p) & ERTS_PROC_LOCK_MAIN);
 
     ASSERT(tracer);
     if (ERTS_TRACER_COMPARE(*tracer, erts_tracer_true)) {
@@ -3108,6 +3122,7 @@ erts_tracer_update(ErtsTracer *tracer, const ErtsTracer new_tracer)
     if (is_not_nil(*tracer)) {
         Uint offs = 2;
         UWord size = 2 * sizeof(Eterm) + sizeof(ErtsThrPrgrLaterOp);
+        ErtsThrPrgrLaterOp *lop;
         ASSERT(is_list(*tracer));
         if (is_not_immed(ERTS_TRACER_STATE(*tracer))) {
             hf = (void*)(((char*)(ptr_val(*tracer)) - offsetof(ErlHeapFragment, mem)));
@@ -3115,6 +3130,16 @@ erts_tracer_update(ErtsTracer *tracer, const ErtsTracer new_tracer)
             size = hf->alloc_size * sizeof(Eterm) + sizeof(ErlHeapFragment);
             ASSERT(offs == size_object(*tracer));
         }
+
+        /* sparc assumes that all structs are double word aligned, so we
+           have to align the ErtsThrPrgrLaterOp struct otherwise it may
+           segfault.*/
+        if ((UWord)(ptr_val(*tracer) + offs) % (sizeof(UWord)*2) == sizeof(UWord))
+            offs += 1;
+
+        lop = (ErtsThrPrgrLaterOp*)(ptr_val(*tracer) + offs);
+        ASSERT((UWord)lop % (sizeof(UWord)*2) == 0);
+
         /* We schedule the free:ing of the tracer until after a thread progress
            has been made so that we know that no schedulers have any references
            to it. Because we do this, it is possible to release all locks of a
@@ -3122,9 +3147,7 @@ erts_tracer_update(ErtsTracer *tracer, const ErtsTracer new_tracer)
            without having to worry if it is free'd.
         */
         erts_schedule_thr_prgr_later_cleanup_op(
-            free_tracer, (void*)(*tracer),
-            (ErtsThrPrgrLaterOp*)(ptr_val(*tracer) + offs),
-            size);
+            free_tracer, (void*)(*tracer), lop, size);
     }
 
     if (is_nil(new_tracer)) {
@@ -3134,16 +3157,17 @@ erts_tracer_update(ErtsTracer *tracer, const ErtsTracer new_tracer)
            Not sure if it is worth it, we save 4 words (sizeof(ErlHeapFragment))
            per tracer. */
         Eterm *hp = erts_alloc(ERTS_ALC_T_HEAP_FRAG,
-                               2*sizeof(Eterm) + sizeof(ErtsThrPrgrLaterOp));
+                               3*sizeof(Eterm) + sizeof(ErtsThrPrgrLaterOp));
         *tracer = CONS(hp, ERTS_TRACER_MODULE(new_tracer),
                        ERTS_TRACER_STATE(new_tracer));
     } else {
         Eterm *hp, tracer_state = ERTS_TRACER_STATE(new_tracer),
             tracer_module = ERTS_TRACER_MODULE(new_tracer);
         Uint sz = size_object(tracer_state);
-        hf = new_message_buffer(sz + 2  /* cons cell */ + (sizeof(ErtsThrPrgrLaterOp)+sizeof(Eterm)-1)/sizeof(Eterm));
+        hf = new_message_buffer(sz + 2  /* cons cell */ +
+                                (sizeof(ErtsThrPrgrLaterOp)+sizeof(Eterm)-1)/sizeof(Eterm) + 1);
         hp = hf->mem + 2;
-        hf->used_size -= (sizeof(ErtsThrPrgrLaterOp)+sizeof(Eterm)-1)/sizeof(Eterm);
+        hf->used_size -= (sizeof(ErtsThrPrgrLaterOp)+sizeof(Eterm)-1)/sizeof(Eterm) + 1;
         *tracer = copy_struct(tracer_state, sz, &hp, &hf->off_heap);
         *tracer = CONS(hf->mem, tracer_module, *tracer);
         ASSERT((void*)(((char*)(ptr_val(*tracer)) - offsetof(ErlHeapFragment, mem))) == hf);

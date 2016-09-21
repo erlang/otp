@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Look for .erlang.cookie in windows system directory if
+	    HOMEDRIVE and HOMEPATH is not set. The same behaviour as
+	    the VM.</p>
+          <p>
+	    Own Id: OTP-13849</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

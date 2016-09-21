@@ -48,6 +48,21 @@ parse_error_test_() ->
                    f(merl:quote("{")))
     ].
 
+transform_parse_error_test_() ->
+    [?_assertEqual("merl:quote(\"{\")",
+                   f(merl_transform:parse_transform(
+                       [?Q("merl:quote(\"{\")")], []))),
+     ?_assertEqual("merl:quote(2, \"{\")",
+                   f(merl_transform:parse_transform(
+                       [?Q("merl:quote(2, \"{\")")], []))),
+     ?_assertEqual("merl:qquote(\"{\", [{var, V}])",
+                   f(merl_transform:parse_transform(
+                       [?Q("merl:qquote(\"{\", [{var, V}])")], []))),
+     ?_assertEqual("merl:qquote(2, \"{\", [{var, V}])",
+                   f(merl_transform:parse_transform(
+                       [?Q("merl:qquote(2, \"{\", [{var, V}])")], [])))
+    ].
+
 term_test_() ->
     [?_assertEqual(tuple, erl_syntax:type(merl:term({}))),
      ?_assertEqual("{foo, 42}", f(merl:term({foo, 42})))

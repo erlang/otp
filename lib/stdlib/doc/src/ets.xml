@@ -369,7 +369,7 @@
           variable that in turn is passed to the function.</p>
         <p>The parse transform is provided in the <c>ms_transform</c>
           module and the source <em>must</em> include
-          file <c>ms_transform.hrl</c> in <c>STDLIB</c> for this
+          file <c>ms_transform.hrl</c> in STDLIB for this
           pseudo function to work. Failing to include the hrl file in
           the source results in a runtime error, not a compile
           time error. The include file is easiest included by adding line
@@ -1458,7 +1458,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
         specification returned <c>true</c>.</fsummary>
       <desc>
         <p>Matches the objects in table <c><anno>Tab</anno></c> using a
-          <seealso marker="#match_spec">match specificationc</seealso>. If the
+          <seealso marker="#match_spec">match specification</seealso>. If the
           match specification returns <c>true</c> for an object, that object
           considered a match and is counted. For any other result from
           the match specification the object is not considered a match and is
@@ -1644,7 +1644,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
         </taglist>
         <p>Whenever option <c>extended_info</c> is used, it
           results in a file not readable by versions of ETS before
-          that in <c>STDLIB</c> 1.15.1</p>
+          that in STDLIB 1.15.1</p>
         <p>If option <c>sync</c> is set to <c>true</c>, it ensures that
           the content of the file is written to the disk before
           <c>tab2file</c> returns. Defaults to <c>{sync, false}</c>.</p>
@@ -1725,7 +1725,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
             <p>A tuple <c>{<anno>Major</anno>,<anno>Minor</anno>}</c>
               containing the major and
               minor version of the file format for ETS table dumps. This
-              version field was added beginning with <c>STDLIB</c> 1.5.1.
+              version field was added beginning with STDLIB 1.5.1.
               Files dumped with older versions return <c>{0,0}</c> in this
               field.</p>
           </item>

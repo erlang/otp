@@ -32,38 +32,38 @@
     <rev>C</rev>
     <file>Mnesia_chap1.xml</file>
   </header>
-  <p>The <c>Mnesia</c> application provides a heavy duty real-time
+  <p>The Mnesia application provides a heavy duty real-time
     distributed database.</p>
 
     <section>
       <title>Scope</title>
       <p>This User's Guide describes how to
-        build <c>Mnesia</c> database applications, and how to integrate
-        and use the <c>Mnesia</c> database management system with
+        build Mnesia database applications, and how to integrate
+        and use the Mnesia database management system with
         OTP. Programming constructs are described, and numerous
         programming examples are included to illustrate the use of
-        <c>Mnesia</c>.</p>
+        Mnesia.</p>
       <p>This User's Guide is organized as follows:</p>
       <list type="bulleted">
         <item><seealso marker="Mnesia_overview">Mnesia</seealso>
 	provides an introduction to
-	<c>Mnesia</c>.
+	Mnesia.
         </item>
         <item><seealso marker="Mnesia_chap2">Getting Started</seealso>
-        introduces <c>Mnesia</c> with an example database. Examples
+        introduces Mnesia with an example database. Examples
         are included how to start an Erlang session, specify a
-        <c>Mnesia</c> database directory, initialize a database
-        schema, start <c>Mnesia</c>, and create tables. Initial
+        Mnesia database directory, initialize a database
+        schema, start Mnesia, and create tables. Initial
         prototyping of record definitions is also discussed.
         </item>
         <item><seealso marker="Mnesia_chap3">Build a Mnesia
         Database</seealso> more formally describes the steps
-        introduced in the previous section, namely the <c>Mnesia</c>
-        functions that define a database schema, start <c>Mnesia</c>,
+        introduced in the previous section, namely the Mnesia
+        functions that define a database schema, start Mnesia,
         and create the required tables.
         </item>
         <item><seealso marker="Mnesia_chap4">Transactions and Other Access Contexts</seealso>
-         describes the transactions properties that make <c>Mnesia</c> into
+         describes the transactions properties that make Mnesia into
          a fault tolerant, real-time distributed database management
          system. This section also describes the concept of locking
          to ensure consistency in tables, and "dirty
@@ -76,16 +76,16 @@
         features include indexing, checkpoints, distribution and fault
         tolerance, disc-less nodes, replication manipulation, local
         content tables, concurrency, and object-based programming in
-        <c>Mnesia</c>.
+        Mnesia.
         </item>
         <item><seealso marker="Mnesia_chap7">Mnesia System
         Information</seealso> describes the files contained in the
-        <c>Mnesia</c> database directory, database configuration data,
+        Mnesia database directory, database configuration data,
         core and table dumps, as well as the important subject of
         backup, fall-back, and disaster recovery principles.
         </item>
         <item><seealso marker="Mnesia_chap8">Combine Mnesia with
-        SNMP</seealso> is a short section that outlines <c>Mnesia</c>
+        SNMP</seealso> is a short section that outlines Mnesia
         integrated with SNMP.
         </item>
         <item><seealso marker="Mnesia_App_A">Appendix A: Backup

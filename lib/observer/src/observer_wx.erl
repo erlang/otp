@@ -21,7 +21,7 @@
 -behaviour(wx_object).
 
 -export([start/0, stop/0]).
--export([create_menus/2, get_attrib/1, get_tracer/0, get_active_node/0,
+-export([create_menus/2, get_attrib/1, get_tracer/0, get_active_node/0, get_menubar/0,
 	 set_status/1, create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
 
 -export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
@@ -93,6 +93,9 @@ get_tracer() ->
 
 get_active_node() ->
     wx_object:call(observer, get_active_node).
+
+get_menubar() ->
+    wx_object:call(observer, get_menubar).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -390,6 +393,9 @@ handle_call(get_tracer, _From, State=#state{trace_panel=TraceP}) ->
 
 handle_call(get_active_node, _From, State=#state{node=Node}) ->
     {reply, Node, State};
+
+handle_call(get_menubar, _From, State=#state{menubar=MenuBar}) ->
+    {reply, MenuBar, State};
 
 handle_call(stop, From, State) ->
     stop_servers(State),

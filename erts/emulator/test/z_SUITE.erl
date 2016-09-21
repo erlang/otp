@@ -191,7 +191,13 @@ node_container_refc_check(Config) when is_list(Config) ->
     ok.
 
 long_timers(Config) when is_list(Config) ->
-    ok = long_timers_test:check_result().
+    case long_timers_test:check_result() of
+	ok -> ok;
+	high_cpu -> {comment, "Ignored failures due to high CPU utilization"};
+	missing_cpu_info -> {comment, "Ignored failures due to missing CPU utilization information"};
+	Fail -> ct:fail(Fail)
+    end.
+	    
 
 pollset_size(Config) when is_list(Config) ->
     Name = pollset_size_testcase_initial_state_holder,

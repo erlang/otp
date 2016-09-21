@@ -51,7 +51,9 @@
 %% note that the main switch used within this file is NOTEST; however,
 %% both TEST and EUNIT may be used to check whether testing is enabled
 -ifndef(NOTEST).
--undef(NOASSERT).    % testing requires that assertions are enabled
+-ifndef(ASSERT).
+-define(ASSERT, true).  % testing requires that assertions are enabled
+-endif.
 -ifndef(TEST).
 -define(TEST, true).
 -endif.

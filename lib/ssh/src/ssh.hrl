@@ -127,7 +127,7 @@
 	  recv_sequence = 0,
 	  keyex_key,
 	  keyex_info,
-	  random_length_padding = 255, % From RFC 4253 section 6.
+	  random_length_padding = 15, % From RFC 4253 section 6.
 	  
 	  %% User auth
 	  user,

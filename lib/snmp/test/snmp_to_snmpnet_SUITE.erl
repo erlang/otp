@@ -121,14 +121,14 @@ init_per_group(_, Config) ->
     Config.
 
 init_per_group_ipv6(Families, Config) ->
+    {ok, Hostname0} = inet:gethostname(),
     case ct:require(ipv6_hosts) of
 	ok ->
-	    case gen_udp:open(0, [inet6]) of
-		{ok, S} ->
-		    ok = gen_udp:close(S),
+	    case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts)) of
+		true ->
 		    init_per_group_ip(Families, Config);
-		{error, _} ->
-		    {skip, "Host seems to not support IPv6"}
+		false ->
+		    {skip, "Host does not support IPv6"}
 	    end;
 	_ ->
 	    {skip, "Test config ipv6_hosts is missing"}

@@ -135,10 +135,14 @@ split_paths([], _S, Path, Paths) ->
 
 -spec call(term()) -> term().
 call(Req) ->
+    Ref = erlang:monitor(process, ?MODULE),
     ?MODULE ! {code_call, self(), Req},
     receive 
 	{?MODULE, Reply} ->
-	    Reply
+            erlang:demonitor(Ref,[flush]),
+	    Reply;
+        {'DOWN',Ref,process,_,_} ->
+            exit({'DOWN',code_server,Req})
     end.
 
 reply(Pid, Res) ->
@@ -807,7 +811,13 @@ clear_namedb([], _) ->
 %% Dir must be a complete pathname (not only a name).
 insert_dir(Dir, Db) ->
     Splitted = filename:split(Dir),
-    Name = get_name_from_splitted(Splitted),
+    case get_name_from_splitted(Splitted) of
+	Name when Name /= "ebin", Name /= "." ->
+	    Name;
+	_ ->
+	    SplittedAbsName = filename:split(absname(Dir)),
+	    Name = get_name_from_splitted(SplittedAbsName)
+    end,
     AppDir = filename:join(del_ebin_1(Splitted)),
     do_insert_name(Name, AppDir, Db).
 
@@ -933,15 +943,25 @@ del_ebin(Dir) ->
     filename:join(del_ebin_1(filename:split(Dir))).
 
 del_ebin_1([Parent,App,"ebin"]) ->
-    Ext = archive_extension(),
-    case filename:basename(Parent, Ext) of
-	Parent ->
-	    %% Plain directory.
+    case filename:basename(Parent) of
+	[] ->
+	    %% Parent is the root directory
 	    [Parent,App];
-	Archive ->
-	    %% Archive.
-	    [Archive]
+	_ ->
+	    Ext = archive_extension(),
+	    case filename:basename(Parent, Ext) of
+		Parent ->
+		    %% Plain directory.
+		    [Parent,App];
+		Archive ->
+		    %% Archive.
+		    [Archive]
+	    end
     end;
+del_ebin_1(Path = [_App,"ebin"]) ->
+    del_ebin_1(filename:split(absname(filename:join(Path))));
+del_ebin_1(["ebin"]) ->
+    del_ebin_1(filename:split(absname("ebin")));
 del_ebin_1([H|T]) ->
     [H|del_ebin_1(T)];
 del_ebin_1([]) ->
@@ -1372,11 +1392,10 @@ finish_on_load(PidRef, OnLoadRes, #state{on_load=OnLoad0}=St0) ->
 
 finish_on_load_1(Mod, OnLoadRes, Waiting, St) ->
     Keep = OnLoadRes =:= ok,
-    erlang:finish_after_on_load(Mod, Keep),
+    erts_code_purger:finish_after_on_load(Mod, Keep),
     Res = case Keep of
 	      false ->
 		  _ = finish_on_load_report(Mod, OnLoadRes),
-		  _ = erts_code_purger:purge(Mod),
 		  {error,on_load_failure};
 	      true ->
 		  {module,Mod}

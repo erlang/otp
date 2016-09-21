@@ -334,8 +334,6 @@ unload(#wx_ref{type=ThisT,ref=ThisRef},Filename)
   <<ThisRef:32/?UI,(byte_size(Filename_UC)):32/?UI,(Filename_UC)/binary, 0:(((8- ((0+byte_size(Filename_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 
-%% @spec (Window::wxWindow:wxWindow(),Name::string(), Type::atom()) -> wx:wxObject()
-
 %% @doc Looks up a control with Name in a window created with XML
 %% resources. You can use it to set/get values from controls.
 %% The object is type casted to <b>Type</b>.
@@ -345,6 +343,10 @@ unload(#wx_ref{type=ThisT,ref=ThisRef},Filename)
 %%  true = wxXmlResource:loadDialog(Xrc, Dlg, Frame, "controls_dialog"), <br />
 %%  LCtrl = xrcctrl(Dlg, "controls_listctrl", wxListCtrl), <br />
 %%  wxListCtrl:insertColumn(LCtrl, 0, "Name", [{width, 200}]), <br />
+-spec xrcctrl(Window, Name, Type) -> wx:wx_object() when
+      Window::wxWindow:wxWindow(),
+      Name::string(),
+      Type::atom().
 
 xrcctrl(Window = #wx_ref{}, Name, Type) when is_list(Name), is_atom(Type) ->
     %% Func Id ?wxXmlResource_xrcctrl 

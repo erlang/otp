@@ -129,11 +129,15 @@ do_runtime_update(0) ->
     {comment,"Never close enough"};
 do_runtime_update(N) ->
     {T1,Diff0} = statistics(runtime),
-    spawn_link(fun cpu_heavy/0),
+    {CPUHog, CPUHogMon} = spawn_opt(fun cpu_heavy/0,[link,monitor]),
     receive after 1000 -> ok end,
     {T2,Diff} = statistics(runtime),
+    unlink(CPUHog),
+    exit(CPUHog, kill),
+    
     true = is_integer(T1+T2+Diff0+Diff),
     io:format("T1 = ~p, T2 = ~p, Diff = ~p, T2-T1 = ~p", [T1,T2,Diff,T2-T1]),
+    receive {'DOWN',CPUHogMon,process,CPUHog,_} -> ok end,
     if
         T2 - T1 =:= Diff, 900 =< Diff, Diff =< 1500 -> ok;
         true -> do_runtime_update(N-1)
@@ -311,8 +315,17 @@ scheduler_wall_time(Config) when is_list(Config) ->
            true -> exit({fullload, FullLoad})
         end,
 
-        [exit(Pid, kill) || Pid <- [P1|HalfHogs++LastHogs]],
+	KillHog = fun (HP) ->
+			  HPM = erlang:monitor(process, HP),
+			  exit(HP, kill),
+			  receive
+			      {'DOWN', HPM, process, HP, killed} ->
+				  ok
+			  end
+		  end,
+        [KillHog(Pid) || Pid <- [P1|HalfHogs++LastHogs]],
         AfterLoad = get_load(),
+	io:format("AfterLoad=~p~n", [AfterLoad]),
         {false,_} = {lists:any(fun(Load) -> Load > 25 end, AfterLoad),AfterLoad},
         true = erlang:system_flag(scheduler_wall_time, false)
     after

@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.3.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a number of broken links in the xmerl
+	    documentation. </p>
+          <p>
+	    Own Id: OTP-13880</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.3.11</title>
 
     <section><title>Improvements and New Features</title>

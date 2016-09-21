@@ -104,6 +104,7 @@
     mon_port_name_demonitor/1,
     mon_port_named/1,
     mon_port_origin_dies/1,
+    mon_port_owner_dies/1,
     mon_port_pid_demonitor/1,
     mon_port_remote_on_remote/1,
     mon_port_driver_die/1,
@@ -173,6 +174,7 @@ all() ->
      mon_port_remote_on_remote,
      mon_port_bad_remote_on_local,
      mon_port_origin_dies,
+     mon_port_owner_dies,
      mon_port_named,
      mon_port_bad_named,
      mon_port_pid_demonitor,
@@ -1984,7 +1986,7 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
     Parent = self(),
     io:format("SleepSecs = ~p~n", [SleepSecs]),
     PortProg = "sleep " ++ integer_to_list(SleepSecs),
-    Start = erlang:monotonic_time(micro_seconds),
+    Start = erlang:monotonic_time(microsecond),
     NoProcs = case NoSchedsOnln of
                   NProcs when NProcs < ?EXIT_STATUS_MSB_MAX_PROCS ->
                       NProcs;
@@ -2058,12 +2060,12 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
                              receive {P, started, SIds} -> SIds end
                      end,
                      Procs),
-    StartedTime = (erlang:monotonic_time(micro_seconds) - Start)/1000000,
+    StartedTime = (erlang:monotonic_time(microsecond) - Start)/1000000,
     io:format("StartedTime = ~p~n", [StartedTime]),
     true = StartedTime < SleepSecs,
     erlang:system_flag(multi_scheduling, block),
     lists:foreach(fun (P) -> receive {P, done} -> ok end end, Procs),
-    DoneTime = (erlang:monotonic_time(micro_seconds) - Start)/1000000,
+    DoneTime = (erlang:monotonic_time(microsecond) - Start)/1000000,
     io:format("DoneTime = ~p~n", [DoneTime]),
     true = DoneTime > SleepSecs,
     ok = verify_multi_scheduling_blocked(),
@@ -2635,6 +2637,29 @@ mon_port_origin_dies(Config) ->
     ?assertMatch({proc_monitors, false, port_monitored_by, false},
                  port_is_monitored(Proc5, Port5)),
     Port5 ! {self(), {command, <<"1">>}}, % make port quit
+    ok.
+
+%% Port and Monitor owner dies before port is closed
+%% This testcase checks for a regression memory leak in erts
+%% when the controlling and monitoring process is the same process
+%% and the process dies
+mon_port_owner_dies(Config) ->
+    Self = self(),
+    Proc = spawn(fun() ->
+                         Port = create_port(Config, ["-h1", "-q"]),
+                         Self ! {test_started, Port},
+                         erlang:monitor(port, Port),
+                         receive stop -> ok end
+                  end),
+    erlang:monitor(process, Proc), % we want to sync with its death
+    Port = receive {test_started,P} -> P
+    after 1000 -> ?assert(false) end,
+    ?assertMatch({proc_monitors, true, port_monitored_by, true},
+                 port_is_monitored(Proc, Port)),
+    Proc ! stop,
+    %% receive from monitor
+    receive ExitP5 -> ?assertMatch({'DOWN', _, process, Proc, _}, ExitP5)
+    after 1000 -> ?assert(false) end,
     ok.
 
 %% Monitor a named port

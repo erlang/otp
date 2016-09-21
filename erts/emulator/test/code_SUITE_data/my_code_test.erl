@@ -24,5 +24,3 @@
 
 make_fun(A) ->
     fun(X) -> A + X end.
-
-	    

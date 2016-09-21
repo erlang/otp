@@ -40,6 +40,7 @@
 -define(SLEEP, 500).
 -define(RENEGOTIATION_DISABLE_TIME, 12000).
 -define(CLEAN_SESSION_DB, 60000).
+-define(SEC_RENEGOTIATION_TIMEOUT, 30).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -249,7 +250,7 @@ init_per_suite(Config0) ->
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
-	    ssl:start(),
+	    ssl_test_lib:clean_start(),
 	    %% make rsa certs using oppenssl
 	    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config0),
 				     proplists:get_value(priv_dir, Config0)),
@@ -306,6 +307,7 @@ init_per_testcase(protocol_versions, Config)  ->
 init_per_testcase(reuse_session_expired, Config)  ->
     ssl:stop(),
     application:load(ssl),
+    ssl_test_lib:clean_env(),
     application:set_env(ssl, session_lifetime, ?EXPIRE),
     application:set_env(ssl, session_delay_cleanup_time, 500),
     ssl:start(),
@@ -315,6 +317,7 @@ init_per_testcase(reuse_session_expired, Config)  ->
 init_per_testcase(empty_protocol_versions, Config)  ->
     ssl:stop(),
     application:load(ssl),
+    ssl_test_lib:clean_env(),
     application:set_env(ssl, protocol_version, []),
     ssl:start(),
     ct:timetrap({seconds, 5}),
@@ -340,7 +343,7 @@ init_per_testcase(TestCase, Config) when TestCase == client_renegotiate;
 					 TestCase == renegotiate_dos_mitigate_passive;
 					 TestCase == renegotiate_dos_mitigate_absolute ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:timetrap({seconds, 30}),
+    ct:timetrap({seconds, ?SEC_RENEGOTIATION_TIMEOUT + 5}),
     Config;
 
 init_per_testcase(TestCase, Config) when TestCase == psk_cipher_suites;
@@ -350,6 +353,11 @@ init_per_testcase(TestCase, Config) when TestCase == psk_cipher_suites;
 					 TestCase == ciphers_dsa_signed_certs;
 					 TestCase == ciphers_dsa_signed_certs_openssl_names;
 					 TestCase == anonymous_cipher_suites;
+					 TestCase == ciphers_ecdsa_signed_certs;
+					 TestCase == ciphers_ecdsa_signed_certs_openssl_names;
+					 TestCase == anonymous_cipher_suites;
+					 TestCase == psk_anon_cipher_suites;
+					 TestCase == psk_anon_with_hint_cipher_suites;
 					 TestCase == versions_option,
 					 TestCase == tls_tcp_connect_big ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
@@ -435,7 +443,9 @@ init_per_testcase(accept_pool, Config) ->
 	    ssl_test_lib:ct_log_supported_protocol_versions(Config),
 	    Config
     end;
-
+init_per_testcase(controller_dies, Config) ->
+    ct:timetrap({seconds, 10}),
+    Config;
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 5}),
@@ -444,6 +454,11 @@ init_per_testcase(_TestCase, Config) ->
 end_per_testcase(reuse_session_expired, Config) ->
     application:unset_env(ssl, session_lifetime),
     application:unset_env(ssl, session_delay_cleanup_time),
+    end_per_testcase(default_action, Config);
+
+end_per_testcase(Case, Config) when Case == protocol_versions;
+				    Case == empty_protocol_versions->
+    application:unset_env(ssl, protocol_versions),
     end_per_testcase(default_action, Config);
 
 end_per_testcase(_TestCase, Config) ->
@@ -4293,7 +4308,7 @@ erlang_ssl_receive(Socket, Data) ->
 	    erlang_ssl_receive(Socket, tl(Data));
 	Other ->
 	    ct:fail({unexpected_message, Other})
-    after ?SLEEP * 3 *  test_server:timetrap_scale_factor() ->
+    after timer:seconds(?SEC_RENEGOTIATION_TIMEOUT) * test_server:timetrap_scale_factor() ->
 	    ct:fail({did_not_get, Data})
     end.
 

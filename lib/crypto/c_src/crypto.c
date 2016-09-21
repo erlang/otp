@@ -37,7 +37,9 @@
 #include <openssl/opensslconf.h>
 
 #include <openssl/crypto.h>
+#ifndef OPENSSL_NO_DES
 #include <openssl/des.h>
+#endif /* #ifndef OPENSSL_NO_DES */
 /* #include <openssl/idea.h> This is not supported on the openssl OTP requires */
 #include <openssl/dsa.h>
 #include <openssl/rsa.h>
@@ -458,16 +460,29 @@ struct cipher_type_t {
     const size_t key_len;      /* != 0 to also match on key_len */
 };
 
+#ifdef OPENSSL_NO_DES
+#define COND_NO_DES_PTR(Ptr) (NULL)
+#else
+#define COND_NO_DES_PTR(Ptr) (Ptr)
+#endif
+
 struct cipher_type_t cipher_types[] =
 {
     {{"rc2_cbc"}, {&EVP_rc2_cbc}},
-    {{"des_cbc"}, {&EVP_des_cbc}},
-    {{"des_cfb"}, {&EVP_des_cfb8}},
-    {{"des_ecb"}, {&EVP_des_ecb}},
-    {{"des_ede3_cbc"}, {&EVP_des_ede3_cbc}},
-    {{"des_ede3_cbf"},
+    {{"des_cbc"}, {COND_NO_DES_PTR(&EVP_des_cbc)}},
+    {{"des_cfb"}, {COND_NO_DES_PTR(&EVP_des_cfb8)}},
+    {{"des_ecb"}, {COND_NO_DES_PTR(&EVP_des_ecb)}},
+    {{"des_ede3_cbc"}, {COND_NO_DES_PTR(&EVP_des_ede3_cbc)}},
+    {{"des_ede3_cbf"}, /* Misspelled, retained */
 #ifdef HAVE_DES_ede3_cfb_encrypt
-     {&EVP_des_ede3_cfb8}
+     {COND_NO_DES_PTR(&EVP_des_ede3_cfb8)}
+#else
+     {NULL}
+#endif
+    },
+    {{"des_ede3_cfb"},
+#ifdef HAVE_DES_ede3_cfb_encrypt
+     {COND_NO_DES_PTR(&EVP_des_ede3_cfb8)}
 #else
      {NULL}
 #endif
@@ -749,7 +764,7 @@ static ERL_NIF_TERM algo_hash[8];   /* increase when extending the list */
 static int algo_pubkey_cnt;
 static ERL_NIF_TERM algo_pubkey[7]; /* increase when extending the list */
 static int algo_cipher_cnt;
-static ERL_NIF_TERM algo_cipher[20]; /* increase when extending the list */
+static ERL_NIF_TERM algo_cipher[23]; /* increase when extending the list */
 
 static void init_algorithms_types(ErlNifEnv* env)
 {
@@ -785,10 +800,13 @@ static void init_algorithms_types(ErlNifEnv* env)
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "srp");
 
     algo_cipher_cnt = 0;
+#ifndef OPENSSL_NO_DES
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cbc");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des_ede3");
 #ifdef HAVE_DES_ede3_cfb_encrypt
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cbf");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cfb");
+#endif
 #endif
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc128");
@@ -800,8 +818,11 @@ static void init_algorithms_types(ErlNifEnv* env)
 #ifdef HAVE_AES_IGE
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_ige256");
 #endif
+#ifndef OPENSSL_NO_DES
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"des_cbc");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"des_cfb");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"des_ecb");
+#endif
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_cbc");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_cfb64");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_ofb64");
@@ -2141,7 +2162,7 @@ static ERL_NIF_TERM dss_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     DSA *dsa;
     int i;
 
-    if (!argv[0] == atom_sha
+    if (argv[0] != atom_sha
         || !enif_inspect_binary(env, argv[1], &digest_bin)
         || digest_bin.size != SHA_DIGEST_LENGTH
         || !enif_inspect_binary(env, argv[2], &sign_bin)
@@ -2467,7 +2488,7 @@ static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     DSA* dsa;
     int i;
 
-    if (!argv[0] == atom_sha
+    if (argv[0] != atom_sha
         || !enif_inspect_binary(env, argv[1], &digest_bin)
         || digest_bin.size != SHA_DIGEST_LENGTH) {
 	return enif_make_badarg(env);

@@ -44,7 +44,9 @@ PRE_LOADED_ERL_MODULES = \
 	erts_code_purger \
 	erlang \
 	erts_internal \
-	erl_tracer
+	erl_tracer \
+	erts_literal_area_collector \
+	erts_dirty_process_code_checker
 
 PRE_LOADED_BEAM_MODULES = \
 	prim_eval

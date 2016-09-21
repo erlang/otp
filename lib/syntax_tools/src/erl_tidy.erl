@@ -210,7 +210,7 @@ file__defaults() ->
      {verbose, false}].
 
 default_printer() ->
-    fun (Tree, Options) -> erl_prettypr:format(Tree, Options) end.
+    fun erl_prettypr:format/2.
 
 %% =====================================================================
 %% @spec file(Name) -> ok
@@ -257,7 +257,7 @@ file(Name) ->
 %%
 %%   <dt>{printer, Function}</dt>
 %%       <dd><ul>
-%%         <li>`Function = (syntaxTree()) -> string()'</li>
+%%         <li>`Function = (syntaxTree(), [term()]) -> string()'</li>
 %%       </ul>
 %%
 %%       Specifies a function for prettyprinting Erlang syntax trees.

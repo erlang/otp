@@ -105,7 +105,7 @@ typedef struct {
  */
 
 typedef struct genop {
-    int op;			/* Opcode. */
+    unsigned int op;		/* Opcode. */
     int arity;			/* Number of arguments. */
     GenOpArg def_args[MAX_OPARGS]; /* Default buffer for arguments. */
     GenOpArg* a;		/* The arguments. */
@@ -283,8 +283,8 @@ typedef struct LoaderState {
     byte* code_start;		/* Start of code file. */
     unsigned code_size;		/* Size of code file. */
     int specific_op;		/* Specific opcode (-1 if not found). */
-    int num_functions;		/* Number of functions in module. */
-    int num_labels;		/* Number of labels. */
+    unsigned int num_functions; /* Number of functions in module. */
+    unsigned int num_labels;	/* Number of labels. */
     BeamCodeHeader* hdr;	/* Loaded code header */
     BeamInstr* codev;	        /* Loaded code buffer */
     int        codev_size;      /* Size of code buffer in words. */
@@ -303,13 +303,13 @@ typedef struct LoaderState {
      * Atom table.
      */
 
-    int num_atoms;		/* Number of atoms in atom table. */
+    unsigned int num_atoms;	/* Number of atoms in atom table. */
     Eterm* atom;		/* Atom table. */
 
-    int num_exps;		/* Number of exports. */
+    unsigned int num_exps;	/* Number of exports. */
     ExportEntry* export;	/* Pointer to export table. */
 
-    int num_imports;		/* Number of imports. */
+    unsigned int num_imports;   /* Number of imports. */
     ImportEntry* import;	/* Import entry (translated information). */
 
     /*
@@ -323,8 +323,8 @@ typedef struct LoaderState {
      * Lambda table.
      */
 
-    int num_lambdas;		/* Number of lambdas in table. */
-    int lambdas_allocated;	/* Size of allocated lambda table. */
+    unsigned int num_lambdas;	/* Number of lambdas in table. */
+    unsigned int lambdas_allocated; /* Size of allocated lambda table. */
     Lambda* lambdas;		/* Pointer to lambdas. */
     Lambda def_lambdas[16];	/* Default storage for lambda table. */
     char* lambda_error;		/* Delayed missing 'FunT' error. */
@@ -333,8 +333,8 @@ typedef struct LoaderState {
      * Literals (constant pool).
      */
 
-    int num_literals;		/* Number of literals in table. */
-    int allocated_literals;	/* Number of literal entries allocated. */
+    unsigned int num_literals;	/* Number of literals in table. */
+    unsigned int allocated_literals; /* Number of literal entries allocated. */
     Literal* literals;		/* Array of literals. */
     LiteralPatch* literal_patches; /* Operands that need to be patched. */
     Uint total_literal_size;	/* Total heap size for all literals. */
@@ -343,13 +343,13 @@ typedef struct LoaderState {
      * Line table.
      */
     BeamInstr* line_item;	/* Line items from the BEAM file. */
-    int num_line_items;		/* Number of line items. */
+    unsigned int num_line_items;/* Number of line items. */
     LineInstr* line_instr;	/* Line instructions */
-    int num_line_instrs;	/* Maximum number of line instructions */
-    int current_li;		/* Current line instruction */
-    int* func_line;		/* Mapping from function to first line instr */
+    unsigned int num_line_instrs; /* Maximum number of line instructions */
+    unsigned int current_li;	/* Current line instruction */
+    unsigned int* func_line;	/* Mapping from function to first line instr */
     Eterm* fname;		/* List of file names */
-    int num_fnames;		/* Number of filenames in fname table */
+    unsigned int num_fnames;	/* Number of filenames in fname table */
     int loc_size;		/* Size of location info in bytes (2/4) */
 } LoaderState;
 
@@ -663,7 +663,7 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
     stp->hdr->compile_ptr = NULL;
     stp->hdr->compile_size = 0;
     stp->hdr->compile_size_on_heap = 0;
-    stp->hdr->literals_start = NULL;
+    stp->hdr->literal_area = NULL;
     stp->hdr->md5_ptr = NULL;
 
     /*
@@ -833,11 +833,20 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
     size = stp->loaded_size;
     erts_total_code_size += size;
-    if (stp->on_load) {
-	inst_p = &mod_tab_p->old;
-    } else {
+
+    if (!stp->on_load) {
 	inst_p = &mod_tab_p->curr;
+    } else {
+	mod_tab_p->on_load =
+	    (struct erl_module_instance *)
+	    erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+		       sizeof(struct erl_module_instance));
+	inst_p = mod_tab_p->on_load;
+	inst_p->nif = 0;
+        inst_p->num_breakpoints = 0;
+        inst_p->num_traced_exports = 0;
     }
+
     inst_p->code_hdr = stp->hdr;
     inst_p->code_length = size;
 
@@ -1005,8 +1014,9 @@ loader_state_dtor(Binary* magic)
 	stp->bin = 0;
     }
     if (stp->hdr != 0) {
-        if (stp->hdr->literals_start) {
-            erts_free(ERTS_ALC_T_LITERAL, stp->hdr->literals_start);
+        if (stp->hdr->literal_area) {
+	    erts_release_literal_area(stp->hdr->literal_area);
+	    stp->hdr->literal_area = NULL;
         }
 	erts_free(ERTS_ALC_T_CODE, stp->hdr);
 	stp->hdr = 0;
@@ -1330,7 +1340,7 @@ verify_chunks(LoaderState* stp)
 static int
 load_atom_table(LoaderState* stp)
 {
-    int i;
+    unsigned int i;
 
     GetInt(stp, 4, stp->num_atoms);
     stp->num_atoms++;
@@ -1375,13 +1385,13 @@ load_atom_table(LoaderState* stp)
 static int
 load_import_table(LoaderState* stp)
 {
-    int i;
+    unsigned int i;
 
     GetInt(stp, 4, stp->num_imports);
     stp->import = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 			     stp->num_imports * sizeof(ImportEntry));
     for (i = 0; i < stp->num_imports; i++) {
-	int n;
+	unsigned int n;
 	Eterm mod;
 	Eterm func;
 	Uint arity;
@@ -1389,17 +1399,17 @@ load_import_table(LoaderState* stp)
 
 	GetInt(stp, 4, n);
 	if (n >= stp->num_atoms) {
-	    LoadError2(stp, "import entry %d: invalid atom number %d", i, n);
+	    LoadError2(stp, "import entry %u: invalid atom number %u", i, n);
 	}
 	mod = stp->import[i].module = stp->atom[n];
 	GetInt(stp, 4, n);
 	if (n >= stp->num_atoms) {
-	    LoadError2(stp, "import entry %d: invalid atom number %d", i, n);
+	    LoadError2(stp, "import entry %u: invalid atom number %u", i, n);
 	}
 	func = stp->import[i].function = stp->atom[n];
 	GetInt(stp, 4, arity);
 	if (arity > MAX_REG) {
-	    LoadError2(stp, "import entry %d: invalid arity %d", i, arity);
+	    LoadError2(stp, "import entry %u: invalid arity %d", i, arity);
 	}
 	stp->import[i].arity = arity;
 	stp->import[i].patches = 0;
@@ -1427,12 +1437,12 @@ load_import_table(LoaderState* stp)
 static int
 read_export_table(LoaderState* stp)
 {
-    int i;
+    unsigned int i;
     BeamInstr* address;
 
     GetInt(stp, 4, stp->num_exps);
     if (stp->num_exps > stp->num_functions) {
-	LoadError2(stp, "%d functions exported; only %d functions defined",
+	LoadError2(stp, "%u functions exported; only %u functions defined",
 		   stp->num_exps, stp->num_functions);
     }
     stp->export
@@ -1450,16 +1460,16 @@ read_export_table(LoaderState* stp)
 	stp->export[i].function = func;
 	GetInt(stp, 4, arity);
 	if (arity > MAX_REG) {
-	    LoadError2(stp, "export table entry %d: absurdly high arity %d", i, arity);
+	    LoadError2(stp, "export table entry %u: absurdly high arity %u", i, arity);
 	}
 	stp->export[i].arity = arity;
 	GetInt(stp, 4, n);
 	if (n >= stp->num_labels) {
-	    LoadError3(stp, "export table entry %d: invalid label %d (highest defined label is %d)", i, n, stp->num_labels);
+	    LoadError3(stp, "export table entry %u: invalid label %u (highest defined label is %u)", i, n, stp->num_labels);
 	}
 	value = stp->labels[n].value;
 	if (value == 0) {
-	    LoadError2(stp, "export table entry %d: label %d not resolved", i, n);
+	    LoadError2(stp, "export table entry %u: label %u not resolved", i, n);
 	}
 	stp->export[i].address = address = stp->codev + value;
 
@@ -1520,7 +1530,7 @@ is_bif(Eterm mod, Eterm func, unsigned arity)
 static int
 read_lambda_table(LoaderState* stp)
 {
-    int i;
+    unsigned int i;
 
     GetInt(stp, 4, stp->num_lambdas);
     if (stp->num_lambdas > stp->lambdas_allocated) {
@@ -1540,12 +1550,12 @@ read_lambda_table(LoaderState* stp)
 	GetAtom(stp, n, stp->lambdas[i].function);
 	GetInt(stp, 4, arity);
 	if (arity > MAX_REG) {
-	    LoadError2(stp, "lambda entry %d: absurdly high arity %d", i, arity);
+	    LoadError2(stp, "lambda entry %u: absurdly high arity %u", i, arity);
 	}
 	stp->lambdas[i].arity = arity;
 	GetInt(stp, 4, n);
 	if (n >= stp->num_labels) {
-	    LoadError3(stp, "lambda entry %d: invalid label %d (highest defined label is %d)",
+	    LoadError3(stp, "lambda entry %u: invalid label %u (highest defined label is %u)",
 		       i, n, stp->num_labels);
 	}
 	stp->lambdas[i].label = n;
@@ -1566,7 +1576,7 @@ read_lambda_table(LoaderState* stp)
 static int
 read_literal_table(LoaderState* stp)
 {
-    int i;
+    unsigned int i;
     uLongf uncompressed_sz;
     byte* uncompressed = 0;
 
@@ -1588,7 +1598,7 @@ read_literal_table(LoaderState* stp)
     }
 
     for (i = 0; i < stp->num_literals; i++) {
-	int sz;
+	Uint sz;
 	Sint heap_size;
 	byte* p;
 	Eterm val;
@@ -1597,7 +1607,7 @@ read_literal_table(LoaderState* stp)
 	GetInt(stp, 4, sz);	/* Size of external term format. */
 	GetString(stp, p, sz);
 	if ((heap_size = erts_decode_ext_size(p, sz)) < 0) {
-	    LoadError1(stp, "literal %d: bad external format", i);
+	    LoadError1(stp, "literal %u: bad external format", i);
 	}
 
         if (heap_size > 0) {
@@ -1607,7 +1617,7 @@ read_literal_table(LoaderState* stp)
             val = erts_decode_ext(&factory, &p, 0);
 
             if (is_non_value(val)) {
-                LoadError1(stp, "literal %d: bad external format", i);
+                LoadError1(stp, "literal %u: bad external format", i);
             }
             erts_factory_close(&factory);
             stp->literals[i].heap_frags = factory.heap_frags;
@@ -1617,7 +1627,7 @@ read_literal_table(LoaderState* stp)
             erts_factory_dummy_init(&factory);
             val = erts_decode_ext(&factory, &p, 0);
             if (is_non_value(val)) {
-                LoadError1(stp, "literal %d: bad external format", i);
+                LoadError1(stp, "literal %u: bad external format", i);
             }
             ASSERT(is_immed(val));
             stp->literals[i].heap_frags = NULL;
@@ -1640,9 +1650,9 @@ read_line_table(LoaderState* stp)
 {
     unsigned version;
     ERTS_DECLARE_DUMMY(unsigned flags);
-    int num_line_items;
+    unsigned int num_line_items;
     BeamInstr* lp;
-    int i;
+    unsigned int i;
     BeamInstr fname_index;
     BeamInstr tag;
 
@@ -1721,7 +1731,7 @@ read_line_table(LoaderState* stp)
 	    }
 	} else if (tag == TAG_a) {
 	    if (val > stp->num_fnames) {
-		LoadError2(stp, "file index overflow (%d/%d)",
+		LoadError2(stp, "file index overflow (%u/%u)",
 			   val, stp->num_fnames);
 	    }
 	    fname_index = val;
@@ -1757,9 +1767,9 @@ read_line_table(LoaderState* stp)
 					       stp->num_line_instrs *
 					       sizeof(LineInstr));
     stp->current_li = 0;
-    stp->func_line = (int *)  erts_alloc(ERTS_ALC_T_PREPARED_CODE,
-					 stp->num_functions *
-					 sizeof(int));
+    stp->func_line = (unsigned int *)  erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+						  stp->num_functions *
+						  sizeof(int));
 
     return 1;
 
@@ -1783,6 +1793,10 @@ read_code_header(LoaderState* stp)
      */
 
     GetInt(stp, 4, head_size);
+    if (head_size > stp->file_left) {
+	LoadError2(stp, "invalid code header size %u; bytes left %u",
+		   head_size, stp->file_left);
+    }
     stp->code_start = stp->file_p + head_size;
     stp->code_size = stp->file_left - head_size;
     stp->file_left = head_size;
@@ -1887,7 +1901,7 @@ load_code(LoaderState* stp)
     ci = stp->ci;
 
     for (;;) {
-	int new_op;
+	unsigned int new_op;
 	GenOp* tmp_op;
 
 	ASSERT(ci <= codev_size);
@@ -1895,10 +1909,10 @@ load_code(LoaderState* stp)
     get_next_instr:
 	GetByte(stp, new_op);
 	if (new_op >= NUM_GENERIC_OPS) {
-	    LoadError1(stp, "invalid opcode %d", new_op);
+	    LoadError1(stp, "invalid opcode %u", new_op);
 	}
 	if (gen_opc[new_op].name[0] == '\0') {
-	    LoadError1(stp, "invalid opcode %d", new_op);
+	    LoadError1(stp, "invalid opcode %u", new_op);
 	}
 				       
 
@@ -2368,7 +2382,7 @@ load_code(LoaderState* stp)
 		VerifyTag(stp, tag, TAG_u);
 		last_label = tmp_op->a[arg].val;
 		if (!(0 < last_label && last_label < stp->num_labels)) {
-		    LoadError2(stp, "invalid label num %d (0 < label < %d)",
+		    LoadError2(stp, "invalid label num %u (0 < label < %u)",
 			       tmp_op->a[arg].val, stp->num_labels);
 		}
 		if (stp->labels[last_label].value != 0) {
@@ -2512,7 +2526,7 @@ load_code(LoaderState* stp)
 	    {
 		Sint offset;
 		if (function_number >= stp->num_functions) {
-		    LoadError1(stp, "too many functions in module (header said %d)",
+		    LoadError1(stp, "too many functions in module (header said %u)",
 			       stp->num_functions); 
 		}
 
@@ -2591,14 +2605,14 @@ load_code(LoaderState* stp)
 	    if (stp->line_item) {
 		BeamInstr item = code[ci-1];
 		BeamInstr loc;
-		int li;
+		unsigned int li;
 		if (item >= stp->num_line_items) {
-		    LoadError2(stp, "line instruction index overflow (%d/%d)",
+		    LoadError2(stp, "line instruction index overflow (%u/%u)",
 			       item, stp->num_line_items);
 		}
 		li = stp->current_li;
 		if (li >= stp->num_line_instrs) {
-		    LoadError2(stp, "line instruction table overflow (%d/%d)",
+		    LoadError2(stp, "line instruction table overflow (%u/%u)",
 			       li, stp->num_line_instrs);
 		}
 		loc = stp->line_item[item];
@@ -2630,6 +2644,10 @@ load_code(LoaderState* stp)
 	     * End of code found.
 	     */
 	case op_int_code_end:
+	    if (function_number != stp->num_functions) {
+		LoadError2(stp, "too few functions (%u) in module (header said %u)",
+			   function_number, stp->num_functions);
+	    }
 	    stp->codev_size = codev_size;
 	    stp->ci = ci;
 	    stp->function = THE_NON_VALUE;
@@ -4560,13 +4578,16 @@ freeze_code(LoaderState* stp)
 	Eterm* ptr;
 	LiteralPatch* lp;
         ErlOffHeap code_off_heap;
+	ErtsLiteralArea *literal_area;
+	Uint lit_asize;
 
         ERTS_INIT_OFF_HEAP(&code_off_heap);
 
-        ptr = (Eterm*)erts_alloc(ERTS_ALC_T_LITERAL,
-                                 stp->total_literal_size*sizeof(Eterm));
-	code_hdr->literals_start = ptr;
-	code_hdr->literals_end = ptr + stp->total_literal_size;
+	lit_asize = ERTS_LITERAL_AREA_ALLOC_SIZE(stp->total_literal_size);
+	literal_area = erts_alloc(ERTS_ALC_T_LITERAL, lit_asize);
+	ptr = &literal_area->start[0];
+	literal_area->end = ptr + stp->total_literal_size;
+
 	for (i = 0; i < stp->num_literals; i++) {
             if (is_not_immed(stp->literals[i].term)) {
                 erts_move_multi_frags(&ptr, &code_off_heap,
@@ -4576,7 +4597,7 @@ freeze_code(LoaderState* stp)
 				       ptr_val(stp->literals[i].term)));
             }
 	}
-	code_hdr->literals_off_heap = code_off_heap.first;
+	literal_area->off_heap = code_off_heap.first;
 	lp = stp->literal_patches;
 	while (lp != 0) {
 	    BeamInstr* op_ptr;
@@ -4587,6 +4608,7 @@ freeze_code(LoaderState* stp)
 	    op_ptr[0] = lit->term;
 	    lp = lp->next;
 	}
+	code_hdr->literal_area = literal_area;
     }
     CHKBLK(ERTS_ALC_T_CODE,code);
 
@@ -4598,8 +4620,8 @@ freeze_code(LoaderState* stp)
 	str_table = (byte *) (codev + stp->ci);
     } else {
 	BeamCodeLineTab* const line_tab = (BeamCodeLineTab *) (codev+stp->ci);
-	const int ftab_size = stp->num_functions;
-        const int num_instrs = stp->current_li;
+	const unsigned int ftab_size = stp->num_functions;
+        const unsigned int num_instrs = stp->current_li;
         const BeamInstr** const line_items =
             (const BeamInstr**) &line_tab->func_tab[ftab_size + 1];
 
@@ -4759,7 +4781,7 @@ freeze_code(LoaderState* stp)
 static void
 final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 {
-    int i;
+    unsigned int i;
     int on_load = stp->on_load;
     unsigned catches;
     Uint index;
@@ -5431,7 +5453,7 @@ new_genop(LoaderState* stp)
 static int
 new_label(LoaderState* stp)
 {
-    int num = stp->num_labels;
+    unsigned int num = stp->num_labels;
 
     stp->num_labels++;
     stp->labels = (Label *) erts_realloc(ERTS_ALC_T_PREPARED_CODE,
@@ -5640,6 +5662,28 @@ has_native(BeamCodeHeader *code_hdr)
     }
 #endif
     return result;
+}
+
+void
+erts_release_literal_area(ErtsLiteralArea* literal_area)
+{
+    struct erl_off_heap_header* oh;
+
+    if (!literal_area)
+	return;
+
+    oh = literal_area->off_heap;
+	
+    while (oh) {
+	Binary* bptr;
+	ASSERT(thing_subtag(oh->thing_word) == REFC_BINARY_SUBTAG);
+	bptr = ((ProcBin*)oh)->val;
+	if (erts_refc_dectest(&bptr->refc, 0) == 0) {
+	    erts_bin_free(bptr);
+	}
+	oh = oh->next;
+    }
+    erts_free(ERTS_ALC_T_LITERAL, literal_area);
 }
 
 int
@@ -6029,11 +6073,11 @@ stub_copy_info(LoaderState* stp,
 static int
 stub_read_export_table(LoaderState* stp)
 {
-    int i;
+    unsigned int i;
 
     GetInt(stp, 4, stp->num_exps);
     if (stp->num_exps > stp->num_functions) {
-	LoadError2(stp, "%d functions exported; only %d functions defined",
+	LoadError2(stp, "%u functions exported; only %u functions defined",
 		   stp->num_exps, stp->num_functions);
     }
     stp->export
@@ -6047,7 +6091,7 @@ stub_read_export_table(LoaderState* stp)
 	GetAtom(stp, n, stp->export[i].function);
 	GetInt(stp, 4, n);
 	if (n > MAX_REG) {
-	    LoadError2(stp, "export table entry %d: absurdly high arity %d", i, n);
+	    LoadError2(stp, "export table entry %u: absurdly high arity %u", i, n);
 	}
 	stp->export[i].arity = n;
 	GetInt(stp, 4, n);	/* Ignore label */
@@ -6061,8 +6105,8 @@ stub_read_export_table(LoaderState* stp)
 static void
 stub_final_touch(LoaderState* stp, BeamInstr* fp)
 {
-    int i;
-    int n = stp->num_exps;
+    unsigned int i;
+    unsigned int n = stp->num_exps;
     Eterm mod = fp[2];
     Eterm function = fp[3];
     int arity = fp[4];
@@ -6373,9 +6417,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     code_hdr->compile_ptr = NULL;
     code_hdr->compile_size = 0;
     code_hdr->compile_size_on_heap = 0;
-    code_hdr->literals_start = NULL;
-    code_hdr->literals_end = NULL;
-    code_hdr->literals_off_heap = 0;
+    code_hdr->literal_area = NULL;
     code_hdr->on_load_function_ptr = NULL;
     code_hdr->line_table = NULL;
     code_hdr->md5_ptr = NULL;

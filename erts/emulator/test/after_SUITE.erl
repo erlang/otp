@@ -223,7 +223,7 @@ recv_after_32bit(_, _) ->
 blaster() ->
     receive
 	{go, TimeoutTime} ->
-	    Tmo = TimeoutTime - erlang:monotonic_time(milli_seconds),
+	    Tmo = TimeoutTime - erlang:monotonic_time(millisecond),
 	    receive after Tmo -> ok end
     end.
 
@@ -234,7 +234,7 @@ spawn_blasters(N) ->
 
 receive_after_blast(Config) when is_list(Config) ->
     PMs = spawn_blasters(10000),
-    TimeoutTime = erlang:monotonic_time(milli_seconds) + 5000,
+    TimeoutTime = erlang:monotonic_time(millisecond) + 5000,
     lists:foreach(fun ({P, _}) -> P ! {go, TimeoutTime} end, PMs),
     lists:foreach(fun ({P, M}) ->
                           receive

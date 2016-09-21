@@ -38,13 +38,13 @@
       command-line flag <c>-loader inet</c>. All hosts specified
       with command-line flag <c>-hosts Host</c> must have one
       instance of this server running.</p>
-    <p>This server can be started with the <c>Kernel</c> configuration
+    <p>This server can be started with the Kernel configuration
       parameter <c>start_boot_server</c>.</p>
     <p>The <c>erl_boot_server</c> can read regular files and
       files in archives. See <seealso marker="code"><c>code(3)</c></seealso>
       and
     <seealso marker="erts:erl_prim_loader"><c>erl_prim_loader(3)</c></seealso>
-    in <c>ERTS</c>.</p>
+    in ERTS.</p>
     <warning><p>The support for loading code from archive files is
      experimental. It is released before it is ready
      to obtain early feedback. The file format, semantics,

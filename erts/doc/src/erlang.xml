@@ -84,22 +84,22 @@
             <p>Time unit expressed in parts per second. That is,
               the time unit equals <c>1/PartsPerSecond</c> second.</p>
           </item>
-          <tag><c>seconds</c></tag>
+          <tag><c>second</c></tag>
           <item>
             <p>Symbolic representation of the time unit
               represented by the integer <c>1</c>.</p>
           </item>
-          <tag><c>milli_seconds</c></tag>
+          <tag><c>millisecond</c></tag>
           <item>
             <p>Symbolic representation of the time unit
               represented by the integer <c>1000</c>.</p>
           </item>
-          <tag><c>micro_seconds</c></tag>
+          <tag><c>microsecond</c></tag>
           <item>
             <p>Symbolic representation of the time unit
               represented by the integer <c>1000000</c>.</p>
           </item>
-          <tag><c>nano_seconds</c></tag>
+          <tag><c>nanosecond</c></tag>
           <item>
             <p>Symbolic representation of the time unit
               represented by the integer <c>1000000000</c>.</p>
@@ -119,7 +119,7 @@
             <p>One can get an approximation of the <c>native</c>
               time unit by calling
               <seealso marker="erlang:convert_time_unit/3">
-              <c>erlang:convert_time_unit(1, seconds, native)</c></seealso>.
+              <c>erlang:convert_time_unit(1, second, native)</c></seealso>.
               The result equals the number
               of whole <c>native</c> time units per second. If
               the number of <c>native</c> time units per second does not
@@ -149,11 +149,36 @@
               <seealso marker="kernel:os#perf_counter/0">
               <c>os:perf_counter/0</c></seealso>.</p>
           </item>
+	  <tag><seealso marker="#type_deprecated_time_unit"><c>deprecated_time_unit()</c></seealso></tag>
+	  <item><p>
+	    Deprecated symbolic representations kept for backwards-compatibility.
+	  </p></item>
         </taglist>
         <p>The <c>time_unit/0</c> type can be extended.
           To convert time values between time units, use
           <seealso marker="#convert_time_unit/3">
           <c>erlang:convert_time_unit/3</c></seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="deprecated_time_unit"></name>
+      <desc><marker id="type_deprecated_time_unit"/>
+	<p>The <seealso marker="#type_time_unit"><c>time_unit()</c></seealso>
+	type also consist of the following <em>deprecated</em> symbolic
+	time units:</p>
+	<taglist>
+	  <tag><c>seconds</c></tag>
+	  <item><p>Same as <seealso marker="#type_time_unit"><c>second</c></seealso>.</p></item>
+
+	  <tag><c>milli_seconds</c></tag>
+	  <item><p>Same as <seealso marker="#type_time_unit"><c>millisecond</c></seealso>.</p></item>
+
+	  <tag><c>micro_seconds</c></tag>
+	  <item><p>Same as <seealso marker="#type_time_unit"><c>microsecond</c></seealso>.</p></item>
+
+	  <tag><c>nano_seconds</c></tag>
+	  <item><p>Same as <seealso marker="#type_time_unit"><c>nanosecond</c></seealso>.</p></item>
+	</taglist>
       </desc>
     </datatype>
   </datatypes>
@@ -352,7 +377,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
 2> binary_part(Bin,{0,2}).
 &lt;&lt;1,2&gt;&gt;</code>
       <p>For details about the <c><anno>PosLen</anno></c> semantics, see
-        <seealso marker="stdlib:binary"><c>stdlib:binary(3)</c></seealso>.</p>
+        <seealso marker="stdlib:binary"><c>binary(3)</c></seealso>.</p>
       <p>Allowed in guard tests.</p>
       </desc>
     </func>
@@ -479,7 +504,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
             this function is deprecated.</em> New code is to use
             <seealso marker="stdlib:binary#bin_to_list/3">
             <c>binary:bin_to_list/3</c></seealso>
-            in <c>STDLIB</c> instead. All functions in module
+            in STDLIB instead. All functions in module
             <c>binary</c> consistently use zero-based indexing.</p>
         </note>
       </desc>
@@ -699,7 +724,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
         <p>Returns <c>true</c> if <c><anno>Module</anno></c> has old code,
           otherwise <c>false</c>.</p>
         <p>See also <seealso marker="kernel:code">
-          <c>kernel:code(3)</c></seealso>.</p>
+          <c>code(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -776,8 +801,31 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
             by passing option <c>{allow_gc, false}</c>.</p>
           </item>
         </taglist>
+	<note>
+	<p>
+	  Up until ERTS version 8.*, the check process code operation
+	  checks for all types of references to the old code. That is,
+	  direct references (e.g. return addresses on the process
+	  stack), indirect references (<c>fun</c>s in process
+	  context), and references to literals in the code.
+	</p>
+	<p>
+	  As of ERTS version 9.0, the check process code operation
+	  only checks for direct references to the code. Indirect
+	  references via <c>fun</c>s will be ignored. If such
+	  <c>fun</c>s exist and are used after a purge of the old
+	  code, an exception will be raised upon usage (same as
+	  the case when the <c>fun</c> is received by the process
+	  after the purge). Literals will be taken care of (copied)
+	  at a  later stage. This behavior can as of ERTS version
+	  8.1 be enabled when
+	  <seealso marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring">building OTP</seealso>,
+	  and will automatically be enabled if dirty scheduler
+	  support is enabled.
+	</p>
+	</note>
         <p>See also <seealso marker="kernel:code">
-          <c>kernel:code(3)</c></seealso>.</p>
+          <c>code(3)</c></seealso>.</p>
         <p>Failures:</p>
         <taglist>
           <tag><c>badarg</c></tag>
@@ -1003,7 +1051,7 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
           otherwise <c>true</c>.</p>
         <warning>
           <p>This BIF is intended for the code server (see
-            <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>)
+            <seealso marker="kernel:code"><c>code(3)</c></seealso>)
             and is not to be used elsewhere.</p>
         </warning>
         <p>Failure: <c>badarg</c> if there already is an old version of
@@ -2471,7 +2519,7 @@ os_prompt%</pre>
         </taglist>
         <warning>
           <p>This BIF is intended for the code server (see
-            <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>)
+            <seealso marker="kernel:code"><c>code(3)</c></seealso>)
             and is not to be used elsewhere.</p>
         </warning>
       </desc>
@@ -2536,7 +2584,7 @@ os_prompt%</pre>
         <p>Returns a list of all loaded Erlang modules (current and
           old code), including preloaded modules.</p>
         <p>See also <seealso marker="kernel:code">
-          <c>kernel:code(3)</c></seealso>.</p>
+          <c>code(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -2641,7 +2689,7 @@ os_prompt%</pre>
           to the last occurrence is used. Example:</p>
         <pre>
 > <input>erlang:make_tuple(5, [], [{2,ignored},{5,zz},{2,aa}]).</input>
-{{[],aa,[],[],zz}</pre>
+{[],aa,[],[],zz}</pre>
       </desc>
     </func>
 
@@ -2816,7 +2864,7 @@ os_prompt%</pre>
           </item>
           <tag><c>ets</c></tag>
           <item>
-            <p>The total amount of memory currently allocated for <c>ets</c>
+            <p>The total amount of memory currently allocated for ETS
               tables. This memory is part of the memory presented as
               <c>system</c> memory.</p>
           </item>
@@ -2837,7 +2885,7 @@ os_prompt%</pre>
             <p>For information on how to run the emulator with
               instrumentation, see
               <seealso marker="tools:instrument">
-              <c>tools:instrument(3)</c></seealso>
+              <c>instrument(3)</c></seealso>
               and/or <seealso marker="erl"><c>erl(1)</c></seealso>.</p>
           </item>
         </taglist>
@@ -2885,7 +2933,7 @@ RealSystem = system + MissedSystem</code>
             memory blocks.</p>
         </note>
         <note>
-          <p>As from <c>ERTS</c> 5.6.4, <c>erlang:memory/0</c> requires that
+          <p>As from ERTS 5.6.4, <c>erlang:memory/0</c> requires that
             all <seealso marker="erts:erts_alloc"><c>erts_alloc(3)</c></seealso>
             allocators are enabled (default behavior).</p>
         </note>
@@ -2906,7 +2954,7 @@ RealSystem = system + MissedSystem</code>
           of <c>memory_type()</c> atoms, in which case a corresponding list of
           <c>{memory_type(), Size :: integer >= 0}</c> tuples is returned.</p>
         <note>
-          <p>As from <c>ERTS</c> 5.6.4,
+          <p>As from ERTS 5.6.4,
             <c>erlang:memory/1</c> requires that
             all <seealso marker="erts_alloc"><c>erts_alloc(3)</c></seealso>
             allocators are enabled (default behavior).</p>
@@ -2954,7 +3002,7 @@ RealSystem = system + MissedSystem</code>
           the module.</p>
         <warning>
           <p>This BIF is intended for the code server (see
-            <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>)
+            <seealso marker="kernel:code"><c>code(3)</c></seealso>)
             and is not to be used elsewhere.</p>
         </warning>
       </desc>
@@ -3177,13 +3225,13 @@ RealSystem = system + MissedSystem</code>
           time-out for the <em>monitored node</em> to connect itself,
           even if it cannot be actively connected from this node
           (that is, it is blocked). The state where this can be useful
-          can only be achieved by using the <c>Kernel</c> option
+          can only be achieved by using the Kernel option
           <c>dist_auto_connect once</c>. If that option is not
           used, option <c>allow_passive_connect</c> has no effect.</p>
         <note>
           <p>Option <c>allow_passive_connect</c> is used
             internally and is seldom needed in applications where the
-            network topology and the <c>Kernel</c> options in effect
+            network topology and the Kernel options in effect
             are known in advance.</p>
         </note>
         <p>Failure: <c>badarg</c> if the local node is not alive or the
@@ -3249,9 +3297,9 @@ RealSystem = system + MissedSystem</code>
       <desc>
         <p>Works exactly like
          <seealso marker="#error/1"><c>error/1</c></seealso>, but
-         <c>Dialyzer</c> thinks that this BIF will return an arbitrary
+         Dialyzer thinks that this BIF will return an arbitrary
          term. When used in a stub function for a NIF to generate an
-         exception when the NIF library is not loaded, <c>Dialyzer</c>
+         exception when the NIF library is not loaded, Dialyzer
          does not generate false warnings.</p>
       </desc>
     </func>
@@ -3262,9 +3310,9 @@ RealSystem = system + MissedSystem</code>
       <desc>
         <p>Works exactly like
           <seealso marker="#error/2"><c>error/2</c></seealso>, but
-          <c>Dialyzer</c> thinks that this BIF will return an arbitrary
+          Dialyzer thinks that this BIF will return an arbitrary
           term. When used in a stub function for a NIF to generate an
-          exception when the NIF library is not loaded, <c>Dialyzer</c>
+          exception when the NIF library is not loaded, Dialyzer
           does not generate false warnings.</p>
       </desc>
     </func>
@@ -3387,9 +3435,9 @@ RealSystem = system + MissedSystem</code>
           translation or to force, for example UTF-8, supply the executable
           and/or arguments as a binary in the correct
           encoding. For details, see the module
-          <seealso marker="kernel:file"><c>kernel:file(3)</c></seealso>, the
+          <seealso marker="kernel:file"><c>file(3)</c></seealso>, the
           function <seealso marker="kernel:file#native_name_encoding/0">
-          <c>file:native_name_encoding/0</c></seealso> in <c>Kernel</c>, and
+          <c>file:native_name_encoding/0</c></seealso> in Kernel, and
           the <seealso marker="stdlib:unicode_usage">
           <c>Using Unicode in Erlang</c></seealso> User's Guide.</p>
         <note>
@@ -3701,7 +3749,7 @@ RealSystem = system + MissedSystem</code>
           the owning process using signals of the form
           <c>{'EXIT', Port, PosixCode}</c>. For the possible values of
           <c>PosixCode</c>, see
-          <seealso marker="kernel:file"><c>kernel:file(3)</c></seealso>.</p>
+          <seealso marker="kernel:file"><c>file(3)</c></seealso>.</p>
         <p>The maximum number of ports that can be open at the same
           time can be configured by passing command-line flag
           <seealso marker="erl#max_ports"><c>+Q</c></seealso> to
@@ -3716,7 +3764,7 @@ RealSystem = system + MissedSystem</code>
       <desc>
         <p>Portable hash function that gives the same hash for
           the same Erlang term regardless of machine architecture and
-          <c>ERTS</c> version (the BIF was introduced in <c>ERTS</c> 4.9.1.1).
+          ERTS version (the BIF was introduced in ERTS 4.9.1.1).
           The function returns a hash value for
           <c><anno>Term</anno></c> within the range
           <c>1..<anno>Range</anno></c>. The maximum value for
@@ -3736,7 +3784,7 @@ RealSystem = system + MissedSystem</code>
       <desc>
         <p>Portable hash function that gives the same hash for
           the same Erlang term regardless of machine architecture and
-          <c>ERTS</c> version (the BIF was introduced in <c>ERTS</c> 5.2).
+          ERTS version (the BIF was introduced in ERTS 5.2).
           The function returns a hash value for
           <c><anno>Term</anno></c> within the range
           <c>0..<anno>Range</anno>-1</c>. The maximum value for
@@ -4299,7 +4347,7 @@ RealSystem = system + MissedSystem</code>
       <fsummary>Information about the queue size of a port.</fsummary>
       <desc>
         <p><c><anno>Bytes</anno></c> is the total number
-          of bytes queued by the port using the <c>ERTS</c> driver queue
+          of bytes queued by the port using the ERTS driver queue
           implementation.</p>
         <p>If the port identified by <c><anno>Port</anno></c> is not open,
           <c>undefined</c> is returned. If the port is closed and the
@@ -4407,12 +4455,12 @@ RealSystem = system + MissedSystem</code>
       </desc>
     </func>
 
-    <marker id="process_flag_min_heap_size"/>
     <func>
       <name name="process_flag" arity="2" clause_i="3"/>
       <fsummary>Set process flag min_heap_size for the calling process.
       </fsummary>
       <desc>
+        <marker id="process_flag_min_heap_size"/>
         <p>Changes the minimum heap size for the calling process.</p>
         <p>Returns the old value of the flag.</p>
       </desc>
@@ -4429,13 +4477,13 @@ RealSystem = system + MissedSystem</code>
       </desc>
     </func>
 
-    <marker id="process_flag_max_heap_size"/>
     <func>
       <name name="process_flag" arity="2" clause_i="5"/>
       <fsummary>Set process flag max_heap_size for the calling process.
       </fsummary>
       <type name="max_heap_size"/>
       <desc>
+        <marker id="process_flag_max_heap_size"/>
         <p>This flag sets the maximum heap size for the calling process.
           If <c><anno>MaxHeapSize</anno></c> is an integer, the system default
           values for <c>kill</c> and <c>error_logger</c> are used.
@@ -4503,13 +4551,13 @@ RealSystem = system + MissedSystem</code>
       </desc>
     </func>
 
-    <marker id="process_flag_message_queue_data"/>
     <func>
       <name name="process_flag" arity="2" clause_i="6"/>
       <fsummary>Set process flag message_queue_data for the calling process.
       </fsummary>
       <type name="message_queue_data"/>
       <desc>
+        <marker id="process_flag_message_queue_data"/>
         <p>This flag determines how messages in the message queue
           are stored, as follows:</p>
         <taglist>
@@ -4525,7 +4573,7 @@ RealSystem = system + MissedSystem</code>
             <p>All messages in the message queue will eventually be
               placed on heap. They can however temporarily be stored
               off heap. This is how messages always have been stored
-              up until <c>ERTS</c> 8.0.</p>
+              up until ERTS 8.0.</p>
           </item>
         </taglist>
         <p>The default <c>message_queue_data</c> process flag is determined
@@ -5105,11 +5153,11 @@ RealSystem = system + MissedSystem</code>
           that no processes execute old code in the module.</p>
         <warning>
           <p>This BIF is intended for the code server (see
-            <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>)
+            <seealso marker="kernel:code"><c>code(3)</c></seealso>)
             and is not to be used elsewhere.</p>
         </warning>
         <note>
-          <p>As from <c>ERTS</c> 8.0 (Erlang/OTP 19), any lingering processes
+          <p>As from ERTS 8.0 (Erlang/OTP 19), any lingering processes
             that still execute the old code is killed by this function.
             In earlier versions, such incorrect use could cause much
             more fatal failures, like emulator crash.</p>
@@ -6008,7 +6056,7 @@ true</pre>
         <p>If <c><anno>Dest</anno></c> is a <c>pid()</c>, the timer is
           automatically canceled if the process referred to by the
           <c>pid()</c> is not alive, or if the process exits. This
-          feature was introduced in <c>ERTS</c> 5.4.11. Notice that
+          feature was introduced in ERTS 5.4.11. Notice that
           timers are not automatically canceled when
           <c><anno>Dest</anno></c> is an <c>atom()</c>.</p>
         <p>See also
@@ -6109,7 +6157,7 @@ true</pre>
           system flag <seealso marker="#system_flag_microstate_accounting">
           <c>microstate_accounting</c></seealso>.</p>
         <p><c>statistics(microstate_accounting)</c> returns a list of maps
-          representing some of the OS threads within <c>ERTS</c>. Each map
+          representing some of the OS threads within ERTS. Each map
           contains <c>type</c> and <c>id</c> fields that can be used to
           identify what
           thread it is, and also a counters field that contains data about how
@@ -6201,7 +6249,7 @@ lists:map(
             <c>scheduler_wall_time</c> fraction. Without extra states this
             time is part of the <c>other</c> state.</item>
           <tag><c>ets</c></tag>
-          <item>Time spent executing <c>ets</c> BIFs. Without extra states
+          <item>Time spent executing ETS BIFs. Without extra states
             this time is part of the <c>emulator</c> state.</item>
           <tag><c>gc_full</c></tag>
           <item>Time spent doing fullsweep garbage collection. Without extra
@@ -6217,7 +6265,7 @@ lists:map(
             part of the <c>other</c> state.</item>
         </taglist>
         <p>The utility module
-          <seealso marker="runtime_tools:msacc"><c>runtime_tools:msacc(3)</c></seealso>
+          <seealso marker="runtime_tools:msacc"><c>msacc(3)</c></seealso>
           can be used to more easily analyse these statistics.</p>
         <p>Returns <c>undefined</c> if system flag
           <seealso marker="#system_flag_microstate_accounting">
@@ -6240,7 +6288,7 @@ lists:map(
         <pre>
 > <input>statistics(reductions).</input>
 {2046,11}</pre>
-        <note><p>As from <c>ERTS</c> 5.5 (Erlang/OTP R11B),
+        <note><p>As from ERTS 5.5 (Erlang/OTP R11B),
           this value does not include reductions performed in current
           time slices of currently scheduled processes. If an
           exact value is wanted, use
@@ -6697,12 +6745,12 @@ ok
       </desc>
     </func>
 
-    <marker id="system_flag_max_heap_size"></marker>
     <func>
       <name name="system_flag" arity="2" clause_i="8"/>
       <fsummary>Set system flag max_heap_size.</fsummary>
       <type name="max_heap_size"/>
       <desc>
+        <marker id="system_flag_max_heap_size"></marker>
         <p>
           Sets the default maximum heap size settings for processes.
           The size is specified in words. The new <c>max_heap_size</c>
@@ -7059,7 +7107,7 @@ ok
           <item>
             <marker id="system_info_alloc_util_allocators"></marker>
             <p>Returns a list of the names of all allocators using
-              the <c>ERTS</c> internal <c>alloc_util</c> framework
+              the ERTS internal <c>alloc_util</c> framework
               as atoms. For more information, see section
               <seealso marker="erts:erts_alloc#alloc_util">The
               alloc_util framework</seealso>
@@ -7069,7 +7117,7 @@ ok
           <item>
             <marker id="system_info_allocator_tuple"></marker>
             <p>Returns information about the specified allocator.
-              As from <c>ERTS</c> 5.6.1, the return value is a list
+              As from ERTS 5.6.1, the return value is a list
               of <c>{instance, InstanceNo, InstanceInfo}</c> tuples,
               where <c>InstanceInfo</c> contains information about
               a specific instance of the allocator.
@@ -7086,8 +7134,8 @@ ok
             <p>The recognized allocators are listed in
               <seealso marker="erts:erts_alloc"><c>erts_alloc(3)</c></seealso>.
               Information about super carriers can be obtained from
-              <c>ERTS</c> 8.0 with <c>{allocator, erts_mmap}</c> or from
-              <c>ERTS</c> 5.10.4; the returned list when calling with
+              ERTS 8.0 with <c>{allocator, erts_mmap}</c> or from
+              ERTS 5.10.4; the returned list when calling with
               <c>{allocator, mseg_alloc}</c> also includes an
               <c>{erts_mmap, _}</c> tuple as one element in the list.</p>
             <p>After reading the <c>erts_alloc(3)</c> documentation,
@@ -7571,7 +7619,7 @@ ok
               (for example, <c>./configure --with-dynamic-trace=dtrace</c>).
               For more information about dynamic tracing, see
               <seealso marker="runtime_tools:dyntrace">
-              <c>runtime_tools:dyntrace(3)</c></seealso> manual page and the
+              <c>dyntrace(3)</c></seealso> manual page and the
               <c>README.dtrace</c>/<c>README.systemtap</c> files in the
               Erlang source code top directory.</p>
           </item>
@@ -7611,7 +7659,7 @@ ok
           </item>
           <tag><c>ets_limit</c></tag>
           <item>
-            <p>Returns the maximum number of <c>ets</c> tables allowed. This
+            <p>Returns the maximum number of ETS tables allowed. This
               limit can be increased at startup by passing
               command-line flag
               <seealso marker="erts:erl#+e"><c>+e</c></seealso> to
@@ -7799,7 +7847,7 @@ ok
           <item>
             <marker id="system_info_otp_release"></marker>
             <p>Returns a string containing the OTP release number of the
-              OTP release that the currently executing <c>ERTS</c> application
+              OTP release that the currently executing ERTS application
               is part of.</p>
             <p>As from Erlang/OTP 17, the OTP release number corresponds to
               the major OTP version number. No
@@ -8174,7 +8222,7 @@ ok
           <tag><c>tolerant_timeofday</c></tag>
           <item>
             <marker id="system_info_tolerant_timeofday"></marker>
-            <p>Returns whether a pre <c>ERTS</c> 7.0 backwards compatible
+            <p>Returns whether a pre ERTS 7.0 backwards compatible
               compensation for sudden changes of system time is <c>enabled</c>
               or <c>disabled</c>. Such compensation is <c>enabled</c> when the
               <seealso marker="#system_info_time_offset">time offset</seealso>
@@ -8242,8 +8290,8 @@ ok
           <p>Argument <c>scheduler</c> has changed name to
             <c>scheduler_id</c> to avoid mix up with argument
             <c>schedulers</c>. Argument <c>scheduler</c> was
-            introduced in <c>ERTS</c> 5.5 and renamed in
-            <c>ERTS</c> 5.5.1.</p>
+            introduced in ERTS 5.5 and renamed in
+            ERTS 5.5.1.</p>
         </note>
       </desc>
     </func>
@@ -8451,7 +8499,7 @@ ok
               <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
               monotonic time</seealso>. The time stamp (Ts) has the same
               format and value as produced by
-              <c>erlang:monotonic_time(nano_seconds)</c>.</p>
+              <c>erlang:monotonic_time(nanosecond)</c>.</p>
           </item>
           <tag><c>runnable_procs</c></tag>
           <item>
@@ -8479,7 +8527,7 @@ ok
               <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
               monotonic time</seealso> and a monotonically increasing
               integer. The time stamp (Ts) has the same format and value
-              as produced by <c>{erlang:monotonic_time(nano_seconds),
+              as produced by <c>{erlang:monotonic_time(nanosecond),
               erlang:unique_integer([monotonic])}</c>.</p>
           </item>
           <tag><c>timestamp</c></tag>
@@ -8709,7 +8757,7 @@ ok
         <p>The <c>erlang:timestamp()</c> BIF is equivalent to:</p>
 <code type="none">
 timestamp() ->
-    ErlangSystemTime = erlang:system_time(micro_seconds),
+    ErlangSystemTime = erlang:system_time(microsecond),
     MegaSecs = ErlangSystemTime div 1000000000000,
     Secs = ErlangSystemTime div 1000000 - MegaSecs*1000000,
     MicroSecs = ErlangSystemTime rem 1000000,
@@ -8990,7 +9038,7 @@ timestamp() ->
               monotonic time</seealso> time stamp in all trace messages. The
               time stamp (Ts) has the same format and value as produced by
               <seealso marker="#monotonic_time-1">
-              <c>erlang:monotonic_time(nano_seconds)</c></seealso>.
+              <c>erlang:monotonic_time(nanosecond)</c></seealso>.
               This flag overrides flag <c>cpu_timestamp</c>.</p>
           </item>
           <tag><c>strict_monotonic_timestamp</c></tag>
@@ -9001,7 +9049,7 @@ timestamp() ->
               integer in all trace messages. The time stamp (Ts) has the
               same format and value as produced by <c>{</c>
               <seealso marker="#monotonic_time-1">
-              <c>erlang:monotonic_time(nano_seconds)</c></seealso><c>,</c>
+              <c>erlang:monotonic_time(nanosecond)</c></seealso><c>,</c>
               <seealso marker="#unique_integer-1">
               <c>erlang:unique_integer([monotonic])</c></seealso><c>}</c>.
               This flag overrides flag <c>cpu_timestamp</c>.</p>
@@ -9403,7 +9451,7 @@ timestamp() ->
       <desc>
         <p>The delivery of trace messages (generated by
           <seealso marker="#trace/3"><c>erlang:trace/3</c></seealso>,
-          <seealso marker="kernel:seq_trace"><c>kernel:seq_trace(3)</c></seealso>,
+          <seealso marker="kernel:seq_trace"><c>seq_trace(3)</c></seealso>,
           or <seealso marker="#system_profile/2">
           <c>erlang:system_profile/2</c></seealso>)
           is dislocated on the time-line

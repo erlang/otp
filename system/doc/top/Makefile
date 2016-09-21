@@ -35,7 +35,7 @@ RELSYSDIR = "$(RELEASE_PATH)/doc"
 
 GIF_FILES = 
 
-INFO_FILES = ../../README ../../COPYRIGHT PR.template
+INFO_FILES = ../../../README.md ../../COPYRIGHT PR.template
 
 TOPDOCDIR=.
 

@@ -790,20 +790,7 @@ header() ->
     ("%% -------------------------------------------------------------------\n"
      "%% This is a generated file.\n"
      "%% -------------------------------------------------------------------\n"
-     "\n"
-     "%%\n"
-     "%% Copyright (c) Ericsson AB. All rights reserved.\n"
-     "%%\n"
-     "%% The information in this document is the property of Ericsson.\n"
-     "%%\n"
-     "%% Except as specifically authorized in writing by Ericsson, the\n"
-     "%% receiver of this document shall keep the information contained\n"
-     "%% herein confidential and shall protect the same in whole or in\n"
-     "%% part from disclosure and dissemination to third parties.\n"
-     "%%\n"
-     "%% Disclosure and disseminations to the receivers employees shall\n"
-     "%% only be made on a strict need to know basis.\n"
-     "%%\n\n").
+     "\n").
 
 hrl_header(Name) ->
     header() ++ "-hrl_name('" ++ ?S(Name) ++ ".hrl').\n".

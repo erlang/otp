@@ -39,7 +39,7 @@
     <p>The Erlang crash dump had a major facelift in Erlang/OTP R9C. The
       information in this section is therefore not directly applicable for
       older dumps. However, if you use <seealso marker="observer:crashdump_viewer">
-      <c>observer:crashdump_viewer(3)</c></seealso> on older dumps,
+      <c>crashdump_viewer(3)</c></seealso> on older dumps,
       the crash dumps are translated into a format similar to this.</p>
   </note>
 
@@ -57,7 +57,7 @@
     cause is external limitations, such as running out of memory. A
     crash dump caused by an internal error can be caused by the system
     reaching limits in the emulator itself (like the number of atoms
-    in the system, or too many simultaneous <c>ets</c> tables). Usually the
+    in the system, or too many simultaneous ETS tables). Usually the
     emulator or the operating system can be reconfigured to avoid the
     crash, which is why interpreting the crash dump correctly is
     important.</p>
@@ -133,7 +133,7 @@ Slogan: &lt;reason&gt;</pre>
           &lt;Name&gt;:&lt;Name&gt;/1 <c><![CDATA[|]]></c> No function
           &lt;Name&gt;:start/2</em></tag>
         <item>
-          <p>The <c>Kernel</c>/<c>STDLIB</c> applications are
+          <p>The Kernel/STDLIB applications are
             damaged or the start script is damaged.</p>
         </item>
         <tag><em>Driver_select called with too large file descriptor
@@ -199,7 +199,7 @@ Slogan: &lt;reason&gt;</pre>
         are still connected to an application failure. There is much
         more information available, so a thorough reading of the
         crash dump can reveal the crash reason. The size of processes,
-        the number of <c>ets</c> tables, and the Erlang data on each process
+        the number of ETS tables, and the Erlang data on each process
         stack can be useful to find the problem.</p>
     </section>
 
@@ -481,7 +481,7 @@ Slogan: &lt;reason&gt;</pre>
   <section>
     <marker id="ets_tables"></marker>
     <title>ETS Tables</title>
-    <p>This section contains information about all the <c>ets</c> tables in
+    <p>This section contains information about all the ETS tables in
       the system. The following fields are of interest for each table:</p>
 
     <taglist>

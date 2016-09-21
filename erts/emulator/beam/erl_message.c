@@ -1842,3 +1842,20 @@ void erts_factory_undo(ErtsHeapFactory* factory)
     factory->heap_frags = NULL;
 #endif
 }
+
+Uint
+erts_mbuf_size(Process *p)
+{
+    Uint sz = 0;
+    ErlHeapFragment* bp;
+    ErtsMessage* mp;
+
+    for (bp = p->mbuf; bp; bp = bp->next)
+	sz += bp->used_size;
+
+    for (mp = p->msg_frag; mp; mp = mp->next)
+	for (bp = erts_message_to_heap_frag(mp); bp; bp = bp->next)
+	    sz += bp->used_size;
+
+    return sz;
+}

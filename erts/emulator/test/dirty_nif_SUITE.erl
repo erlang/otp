@@ -33,7 +33,8 @@
 	 dirty_nif_exception/1, call_dirty_nif_exception/1,
 	 dirty_scheduler_exit/1, dirty_call_while_terminated/1,
 	 dirty_heap_access/1, dirty_process_info/1,
-	 dirty_process_register/1, dirty_process_trace/1]).
+	 dirty_process_register/1, dirty_process_trace/1,
+	 code_purge/1, dirty_nif_send_traced/1]).
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
@@ -48,7 +49,9 @@ all() ->
      dirty_heap_access,
      dirty_process_info,
      dirty_process_register,
-     dirty_process_trace].
+     dirty_process_trace,
+     code_purge,
+     dirty_nif_send_traced].
 
 init_per_suite(Config) ->
     try erlang:system_info(dirty_cpu_schedulers) of
@@ -145,9 +148,9 @@ dirty_scheduler_exit(Config) when is_list(Config) ->
     [ok] = mcall(Node,
                  [fun() ->
                           ok = erlang:load_nif(NifLib, []),
-			  Start = erlang:monotonic_time(milli_seconds),
+			  Start = erlang:monotonic_time(millisecond),
                           ok = test_dirty_scheduler_exit(),
-			  End = erlang:monotonic_time(milli_seconds),
+			  End = erlang:monotonic_time(millisecond),
 			  io:format("Time=~p ms~n", [End-Start]),
 			  ok
                   end]),
@@ -230,7 +233,11 @@ dirty_call_while_terminated(Config) when is_list(Config) ->
 							  process_info(self(),
 								       binary))),
     process_flag(trap_exit, OT),
-    ok.
+    try
+	blipp:blupp(Bin)
+    catch
+	_ : _ -> ok
+    end.
 
 dirty_heap_access(Config) when is_list(Config) ->
     {ok, Node} = start_node(Config),
@@ -349,6 +356,103 @@ dirty_process_trace(Config) when is_list(Config) ->
 	      ok
       end).
 
+dirty_code_test_code() ->
+    "
+-module(dirty_code_test).
+
+-export([func/1]).
+
+func(Fun) ->
+  Fun(),
+  blipp:blapp().
+
+".
+
+code_purge(Config) when is_list(Config) ->
+    Path = ?config(data_dir, Config),
+    File = filename:join(Path, "dirty_code_test.erl"),
+    ok = file:write_file(File, dirty_code_test_code()),
+    {ok, dirty_code_test, Bin} = compile:file(File, [binary]),
+    {module, dirty_code_test} = erlang:load_module(dirty_code_test, Bin),
+    Start = erlang:monotonic_time(),
+    {Pid1, Mon1} = spawn_monitor(fun () ->
+				       dirty_code_test:func(fun () ->
+								    %% Sleep for 6 seconds
+								    %% in dirty nif...
+								    dirty_sleeper()
+							    end)
+			       end),
+    {module, dirty_code_test} = erlang:load_module(dirty_code_test, Bin),
+    {Pid2, Mon2} = spawn_monitor(fun () ->
+				       dirty_code_test:func(fun () ->
+								    %% Sleep for 6 seconds
+								    %% in dirty nif...
+								    dirty_sleeper()
+							    end)
+				 end),
+    receive
+	{'DOWN', Mon1, process, Pid1, _} ->
+	    ct:fail(premature_death)
+    after 100 ->
+	    ok
+    end,
+    true = erlang:purge_module(dirty_code_test),
+    receive
+	{'DOWN', Mon1, process, Pid1, Reason1} ->
+	    killed = Reason1
+    end,
+    receive
+	{'DOWN', Mon2, process, Pid2, _} ->
+	    ct:fail(premature_death)
+    after 100 ->
+	    ok
+    end,
+    true = erlang:delete_module(dirty_code_test),
+    receive
+	{'DOWN', Mon2, process, Pid2, _} ->
+	    ct:fail(premature_death)
+    after 100 ->
+	    ok
+    end,
+    true = erlang:purge_module(dirty_code_test),
+    receive
+	{'DOWN', Mon2, process, Pid2, Reason2} ->
+	    killed = Reason2
+    end,
+    End = erlang:monotonic_time(),
+    Time = erlang:convert_time_unit(End-Start, native, milli_seconds),
+    io:format("Time=~p~n", [Time]),
+    true = Time =< 1000,
+    ok.
+
+dirty_nif_send_traced(Config) when is_list(Config) ->
+    Parent = self(),
+    Rcvr = spawn_link(fun() ->
+			      Self = self(),
+			      receive {ok, Self} -> ok end,
+			      Parent ! {Self, received}
+		      end),
+    Sndr = spawn_link(fun () ->
+			      receive {Parent, go} -> ok end,
+			      {ok, Rcvr} = send_wait_from_dirty_nif(Rcvr),
+			      Parent ! {self(), sent}
+		      end),
+    1 = erlang:trace(Sndr, true, [send]),
+    Start = erlang:monotonic_time(),
+    Sndr ! {self(), go},
+    receive {trace, Sndr, send, {ok, Rcvr}, Rcvr} -> ok end,
+    receive {Rcvr, received} -> ok end,
+    End1 = erlang:monotonic_time(),
+    Time1 = erlang:convert_time_unit(End1-Start, native, 1000),
+    io:format("Time1: ~p milliseconds~n", [Time1]),
+    true = Time1 < 500,
+    receive {Sndr, sent} -> ok end,
+    End2 = erlang:monotonic_time(),
+    Time2 = erlang:convert_time_unit(End2-Start, native, 1000),
+    io:format("Time2: ~p milliseconds~n", [Time2]),
+    true = Time2 >= 1900,
+    ok.
+
 %%
 %% Internal...
 %%
@@ -400,7 +504,7 @@ start_node(Config, Args) when is_list(Config) ->
 			++ "-"
 			++ atom_to_list(proplists:get_value(testcase, Config))
 			++ "-"
-			++ integer_to_list(erlang:system_time(seconds))
+			++ integer_to_list(erlang:system_time(second))
 			++ "-"
 			++ integer_to_list(erlang:unique_integer([positive]))),
     test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
@@ -431,6 +535,7 @@ mcall(Node, Funs) ->
 lib_loaded() -> false.
 call_dirty_nif(_,_,_) -> ?nif_stub.
 send_from_dirty_nif(_) -> ?nif_stub.
+send_wait_from_dirty_nif(_) -> ?nif_stub.
 call_dirty_nif_exception(_) -> ?nif_stub.
 call_dirty_nif_zero_args() -> ?nif_stub.
 dirty_call_while_terminated_nif(_) -> ?nif_stub.

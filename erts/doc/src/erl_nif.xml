@@ -474,7 +474,7 @@ return term;</code>
               register/unregister its name, and so on.</p>
             <p>Termination of a process executing a dirty NIF can only be
               completed up to a certain point while it executes the dirty NIF.
-              All Erlang resources, such as its registered name and its <c>ets</c>
+              All Erlang resources, such as its registered name and its ETS
               tables, are released. All links and monitors are triggered. The
               execution of the NIF is, however, <em>not</em> stopped. The NIF
               can safely continue execution, allocate heap memory, and so on,
@@ -488,18 +488,6 @@ return term;</code>
               sending process is not alive. Deallocation of certain internal
               resources, such as process heap and process control block, is
               delayed until the dirty NIF has completed.</p>
-            <p>Known issue that are planned to be fixed:</p>
-            <list type="bulleted">
-              <item>
-                <p>As purging of a module might need to garbage
-                  collect a process to determine if it has
-                  references to the module, a process executing a dirty
-                  NIF can delay purging for a very long time. Delaying
-                  a purge operation implies delaying <em>all</em> code
-                  loading operations, which can cause severe problems for
-                  the system as a whole.</p>
-              </item>
-            </list>
           </item>
         </taglist>
       </item>
@@ -1585,7 +1573,7 @@ typedef enum {
           <seealso marker="#enif_raise_exception">
           <c>enif_raise_exception</c></seealso>.</p>
         <note>
-          <p>Before <c>ERTS</c> 7.0 (Erlang/OTP 18), the return value
+          <p>Before ERTS 7.0 (Erlang/OTP 18), the return value
             from <c>enif_make_badarg</c> had to be returned from the NIF. This
             requirement is now lifted as the return value from the NIF is
             ignored if <c>enif_make_badarg</c> has been invoked.</p>
@@ -2573,7 +2561,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           thread.</p>
         <note>
           <p>Passing <c>msg_env</c> as <c>NULL</c> is only supported as from
-            <c>ERTS</c> 8.0 (Erlang/OTP 19).</p>
+            ERTS 8.0 (Erlang/OTP 19).</p>
         </note>
       </desc>
     </func>

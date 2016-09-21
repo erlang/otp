@@ -33,7 +33,7 @@
   <p>
     This section is to be read with the
     <seealso marker="stdlib:gen_statem"><c>gen_statem(3)</c></seealso>
-    manual page in <c>STDLIB</c>, where all interface functions and callback
+    manual page in STDLIB, where all interface functions and callback
     functions are described in detail.
   </p>
   <note>
@@ -52,7 +52,7 @@
   <section>
     <title>Event-Driven State Machines</title>
     <p>
-      Established Automata theory does not deal much with
+      Established Automata Theory does not deal much with
       how a state transition is triggered,
       but assumes that the output is a function
       of the input (and the state) and that they are
@@ -226,11 +226,10 @@ handle_event(EventType, EventContent, State, Data) ->
 -module(code_lock).
 -behaviour(gen_statem).
 -define(NAME, code_lock).
--define(CALLBACK_MODE, state_functions).
 
 -export([start_link/1]).
 -export([button/1]).
--export([init/1,terminate/3,code_change/4]).
+-export([init/1,callback_mode/0,terminate/3,code_change/4]).
 -export([locked/3,open/3]).
 
 start_link(Code) ->
@@ -242,7 +241,10 @@ button(Digit) ->
 init(Code) ->
     do_lock(),
     Data = #{code => Code, remaining => Code},
-    {?CALLBACK_MODE,locked,Data}.
+    {ok,locked,Data}.
+
+callback_mode() ->
+    state_functions.
 
 locked(
   cast, {button,Digit},
@@ -273,7 +275,7 @@ terminate(_Reason, State, _Data) ->
     State =/= locked andalso do_lock(),
     ok.
 code_change(_Vsn, State, Data, _Extra) ->
-    {?CALLBACK_MODE,State,Data}.
+    {ok,State,Data}.
     ]]></code>
     <p>The code is explained in the next sections.</p>
   </section>
@@ -308,7 +310,7 @@ start_link(Code) ->
           as <c>{global,Name}</c>, then the <c>gen_statem</c> is
           registered using
           <seealso marker="kernel:global#register_name/2"><c>global:register_name/2</c></seealso>
-          in <c>Kernel</c>.
+          in Kernel.
         </p>
       </item>
       <item>
@@ -343,14 +345,8 @@ start_link(Code) ->
     <p>
       If name registration succeeds, the new <c>gen_statem</c> process
       calls callback function <c>code_lock:init(Code)</c>.
-      This function is expected to return <c>{CallbackMode,State,Data}</c>,
-      where
-      <seealso marker="#callback_modes"><c>CallbackMode</c></seealso>
-      selects callback module state function mode, in this case
-      <seealso marker="stdlib:gen_statem#type-callback_mode"><c>state_functions</c></seealso>
-      through macro <c>?CALLBACK_MODE</c>. That is, each state
-      has got its own handler function.
-      <c>State</c> is the initial state of the <c>gen_statem</c>,
+      This function is expected to return <c>{ok,State,Data}</c>,
+      where <c>State</c> is the initial state of the <c>gen_statem</c>,
       in this case <c>locked</c>; assuming that the door is locked to begin
       with. <c>Data</c> is the internal server data of the <c>gen_statem</c>.
       Here the server data is a <seealso marker="stdlib:maps">map</seealso>
@@ -359,11 +355,12 @@ start_link(Code) ->
       that stores the remaining correct button sequence
       (the same as the <c>code</c> to begin with).
     </p>
+
     <code type="erl"><![CDATA[
 init(Code) ->
     do_lock(),
     Data = #{code => Code, remaining => Code},
-    {?CALLBACK_MODE,locked,Data}.
+    {ok,locked,Data}.
     ]]></code>
     <p>Function
       <seealso marker="stdlib:gen_statem#start_link/3"><c>gen_statem:start_link</c></seealso>
@@ -380,6 +377,21 @@ init(Code) ->
       can be used to start a standalone <c>gen_statem</c>, that is,
       a <c>gen_statem</c> that is not part of a supervision tree.
     </p>
+
+    <code type="erl"><![CDATA[
+callback_mode() ->
+    state_functions.
+    ]]></code>
+    <p>
+      Function
+      <seealso marker="stdlib:gen_statem#Module:callback_mode/0"><c>Module:callback_mode/0</c></seealso>
+      selects the
+      <seealso marker="#callback_modes"><c>CallbackMode</c></seealso>
+      for the callback module, in this case
+      <seealso marker="stdlib:gen_statem#type-callback_mode"><c>state_functions</c></seealso>.
+      That is, each state has got its own handler function.
+    </p>
+
   </section>
 
 <!-- =================================================================== -->
@@ -533,12 +545,11 @@ handle_event({call,From}, code_length, #{code := Code} = Data) ->
     </p>
     <code type="erl"><![CDATA[
 ...
--define(CALLBACK_MODE, handle_event_function).
-
-...
 -export([handle_event/4]).
 
 ...
+callback_mode() ->
+    handle_event_function.
 
 handle_event(cast, {button,Digit}, State, #{code := Code} = Data) ->
     case State of
@@ -597,7 +608,7 @@ init(Args) ->
 	callback function <c>terminate(shutdown, State, Data)</c>.
       </p>
       <p>
-	In the following example, function <c>terminate/3</c>
+	In this example, function <c>terminate/3</c>
 	locks the door if it is open, so we do not accidentally leave the door
 	open when the supervision tree terminates:
       </p>
@@ -962,16 +973,13 @@ do_unlock() ->
     </p>
     <code type="erl"><![CDATA[
 ...
--define(CALLBACK_MODE, state_functions).
-
-...
-
 init(Code) ->
     process_flag(trap_exit, true),
     Data = #{code => Code},
-    enter(?CALLBACK_MODE, locked, Data).
+    enter(ok, locked, Data).
 
-...
+callback_mode() ->
+    state_functions.
 
 locked(internal, enter, _Data) ->
     do_lock(),
@@ -1027,11 +1035,10 @@ enter(Tag, State, Data) ->
 -module(code_lock).
 -behaviour(gen_statem).
 -define(NAME, code_lock_2).
--define(CALLBACK_MODE, state_functions).
 
 -export([start_link/1,stop/0]).
 -export([button/1,code_length/0]).
--export([init/1,terminate/3,code_change/4]).
+-export([init/1,callback_mode/0,terminate/3,code_change/4]).
 -export([locked/3,open/3]).
 
 start_link(Code) ->
@@ -1047,7 +1054,10 @@ code_length() ->
 init(Code) ->
     process_flag(trap_exit, true),
     Data = #{code => Code},
-    enter(?CALLBACK_MODE, locked, Data).
+    enter(ok, locked, Data).
+
+callback_mode() ->
+    state_functions.
 
 locked(internal, enter, #{code := Code} = Data) ->
     do_lock(),
@@ -1091,7 +1101,7 @@ terminate(_Reason, State, _Data) ->
     State =/= locked andalso do_lock(),
     ok.
 code_change(_Vsn, State, Data, _Extra) ->
-    {?CALLBACK_MODE,State,Data}.
+    {ok,State,Data}.
       ]]></code>
     </section>
 
@@ -1106,12 +1116,11 @@ code_change(_Vsn, State, Data, _Extra) ->
       </p>
       <code type="erl"><![CDATA[
 ...
--define(CALLBACK_MODE, handle_event_function).
-
-...
 -export([handle_event/4]).
 
 ...
+callback_mode() ->
+    handle_event_function.
 
 %% State: locked
 handle_event(internal, enter, locked, #{code := Code} = Data) ->
@@ -1208,7 +1217,8 @@ format_status(Opt, [_PDict,State,Data]) ->
       <seealso marker="stdlib:gen_statem#Module:format_status/2"><c>Module:format_status/2</c></seealso>
       function. If you do not, a default implementation is used that
       does the same as this example function without filtering
-      the <c>Data</c> term, that is, <c>StateData = {State,Data}</c>.
+      the <c>Data</c> term, that is, <c>StateData = {State,Data}</c>,
+      in this example containing sensitive information.
     </p>
   </section>
 
@@ -1273,11 +1283,10 @@ format_status(Opt, [_PDict,State,Data]) ->
 -module(code_lock).
 -behaviour(gen_statem).
 -define(NAME, code_lock_3).
--define(CALLBACK_MODE, handle_event_function).
 
 -export([start_link/2,stop/0]).
 -export([button/1,code_length/0,set_lock_button/1]).
--export([init/1,terminate/3,code_change/4,format_status/2]).
+-export([init/1,callback_mode/0,terminate/3,code_change/4,format_status/2]).
 -export([handle_event/4]).
 
 start_link(Code, LockButton) ->
@@ -1296,7 +1305,10 @@ set_lock_button(LockButton) ->
 init({Code,LockButton}) ->
     process_flag(trap_exit, true),
     Data = #{code => Code, remaining => undefined, timer => undefined},
-    enter(?CALLBACK_MODE, {locked,LockButton}, Data, []).
+    enter(ok, {locked,LockButton}, Data, []).
+
+callback_mode() ->
+    handle_event_function.
 
 handle_event(
   {call,From}, {set_lock_button,NewLockButton},
@@ -1366,7 +1378,7 @@ terminate(_Reason, State, _Data) ->
     State =/= locked andalso do_lock(),
     ok.
 code_change(_Vsn, State, Data, _Extra) ->
-    {?CALLBACK_MODE,State,Data}.
+    {ok,State,Data}.
 format_status(Opt, [_PDict,State,Data]) ->
     StateData =
 	{State,

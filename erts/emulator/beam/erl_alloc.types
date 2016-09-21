@@ -279,6 +279,7 @@ type    TRACER_NIF      LONG_LIVED      SYSTEM          tracer_nif
 type    TRACE_MSG_QUEUE SHORT_LIVED     SYSTEM          trace_message_queue
 type    SCHED_ASYNC_JOB SHORT_LIVED     SYSTEM          async_calls
 type    DIRTY_START     STANDARD	PROCESSES       dirty_start
+type    DIRTY_SL	SHORT_LIVED	SYSTEM		dirty_short_lived
 
 +if threads_no_smp
 # Need thread safe allocs, but std_alloc and fix_alloc are not;
@@ -313,6 +314,7 @@ type	RUNQ_BLNS	LONG_LIVED	SYSTEM		run_queue_balancing
 type	THR_PRGR_IDATA	LONG_LIVED	SYSTEM		thr_prgr_internal_data
 type	THR_PRGR_DATA	LONG_LIVED	SYSTEM		thr_prgr_data
 type	T_THR_PRGR_DATA	SHORT_LIVED	SYSTEM		temp_thr_prgr_data
+type	RELEASE_LAREA	SHORT_LIVED	SYSTEM		release_literal_area
 +endif
 
 #
@@ -367,6 +369,8 @@ type	MONITOR_LH	STANDARD	PROCESSES	monitor_lh
 type	NLINK_LH	STANDARD	PROCESSES	nlink_lh
 type	CODE		LONG_LIVED	CODE		code
 type	LITERAL		LITERAL 	CODE		literal
+type	LITERAL_REF	SHORT_LIVED	CODE		literal_area_ref
+type	PURGE_DATA	SHORT_LIVED	CODE		purge_data
 type	DB_HEIR_DATA	STANDARD	ETS		db_heir_data
 type	DB_MS_PSDO_PROC	LONG_LIVED	ETS		db_match_pseudo_proc
 type	SCHDLR_DATA	LONG_LIVED	SYSTEM		scheduler_data

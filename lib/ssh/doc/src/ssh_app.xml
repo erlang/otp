@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>2012</year><year>2015</year>
+      <year>2012</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -203,7 +203,7 @@
   <section>
     <title>Unicode support</title>
     <p>Unicode filenames are supported if the emulator and the underlaying OS support it. See section DESCRIPTION in the
-      <seealso marker="kernel:file">file</seealso> manual page in <c>kernel</c> for information about this subject.
+      <seealso marker="kernel:file">file</seealso> manual page in Kernel for information about this subject.
     </p>
     <p>The shell and the cli both support unicode.
     </p>

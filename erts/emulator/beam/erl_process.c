@@ -448,6 +448,9 @@ int erts_system_profile_ts_type = ERTS_TRACE_FLG_NOW_TIMESTAMP;
 typedef enum {
     ERTS_PSTT_GC,	/* Garbage Collect */
     ERTS_PSTT_CPC,	/* Check Process Code */
+#ifdef ERTS_NEW_PURGE_STRATEGY
+    ERTS_PSTT_CLA,	/* Copy Literal Area */
+#endif
     ERTS_PSTT_COHMQ,    /* Change off heap message queue */
     ERTS_PSTT_FTMQ      /* Flush trace msg queue */
 } ErtsProcSysTaskType;
@@ -6671,14 +6674,24 @@ erts_schedule_process(Process *p, erts_aint32_t state, ErtsProcLocks locks)
 }
 
 static int
-schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st)
+schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st,
+			  erts_aint32_t *fail_state_p)
 {
     int res;
     int locked;
     ErtsProcSysTaskQs *stqs, *free_stqs;
-    erts_aint32_t state, a, n, enq_prio;
+    erts_aint32_t fail_state, state, a, n, enq_prio;
     int enqueue; /* < 0 -> use proxy */
     unsigned int prof_runnable_procs;
+    int strict_fail_state;
+
+    fail_state = *fail_state_p;
+    /*
+     * If fail state something other than just exiting process,
+     * ensure that the task wont be scheduled when the 
+     * receiver is in the failure state.
+     */
+    strict_fail_state = fail_state != ERTS_PSFLG_EXITING;
 
     res = 1; /* prepare for success */
     st->next = st->prev = st; /* Prep for empty prio queue */
@@ -6705,7 +6718,8 @@ schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st)
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
 
 	state = erts_smp_atomic32_read_nob(&p->state);
-	if (state & ERTS_PSFLG_EXITING) {
+	if (state & fail_state) {
+	    *fail_state_p = (state & fail_state);
 	    free_stqs = stqs;
 	    res = 0;
 	    goto cleanup;
@@ -6759,7 +6773,7 @@ schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st)
     /* Status lock prevents out of order "runnable proc" trace msgs */
     ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p));
 
-    if (!prof_runnable_procs) {
+    if (!prof_runnable_procs && !strict_fail_state) {
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 	locked = 0;
     }
@@ -6769,6 +6783,11 @@ schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st)
     while (1) {
 	erts_aint32_t e;
 	n = e = a;
+
+	if (strict_fail_state && (a & fail_state)) {
+	    *fail_state_p = (a & fail_state);
+	    goto cleanup;
+	}
 
 	if (a & ERTS_PSFLG_FREE)
 	    goto cleanup; /* We don't want to schedule free processes... */
@@ -9092,6 +9111,27 @@ resume_process_1(BIF_ALIST_1)
     BIF_ERROR(BIF_P, BADARG);
 }
 
+BIF_RETTYPE
+erts_internal_is_process_executing_dirty_1(BIF_ALIST_1)
+{
+    if (is_not_internal_pid(BIF_ARG_1))
+	BIF_ERROR(BIF_P, BADARG);
+#ifdef ERTS_DIRTY_SCHEDULERS
+    else {
+	Process *rp = erts_proc_lookup(BIF_ARG_1);
+	if (rp) {
+	    erts_aint32_t state = erts_smp_atomic32_read_nob(&rp->state);
+	    if (state & (ERTS_PSFLG_DIRTY_RUNNING
+			 |ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+		BIF_RET(am_true);
+	    }
+	}
+    }
+#endif
+    BIF_RET(am_false);
+}
+
+
 Uint
 erts_run_queues_len(Uint *qlen, int atomic_queues_read, int incl_active_sched)
 {
@@ -9368,6 +9408,14 @@ erts_set_process_priority(Process *p, Eterm value)
     }
 }
 
+#ifdef __WIN32__
+Sint64
+erts_time2reds(ErtsMonotonicTime start, ErtsMonotonicTime end)
+{
+    return ERTS_TIME2REDS_IMPL__(start, end);
+}
+#endif
+
 static int
 scheduler_gc_proc(Process *c_p, int reds_left)
 {
@@ -9498,15 +9546,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	p->reds += actual_reds;
 
-#ifdef ERTS_SMP
-	erts_smp_proc_lock(p, ERTS_PROC_LOCK_TRACE);
-        if (p->trace_msg_q) {
-            erts_smp_proc_unlock(p, ERTS_PROC_LOCK_TRACE);
-            erts_schedule_flush_trace_messages(p->common.id);
-        } else
-            erts_smp_proc_unlock(p, ERTS_PROC_LOCK_TRACE);
-#endif
-
 	state = erts_smp_atomic32_read_nob(&p->state);
 
 	if (IS_TRACED(p)) {
@@ -9526,7 +9565,15 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    }
 	}
 
-	erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+	erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+
+#ifdef ERTS_SMP
+        if (p->trace_msg_q) {
+	    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+            erts_schedule_flush_trace_messages(p, 1);
+	    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+	}
+#endif
 
         /* have to re-read state after taking lock */
         state = erts_smp_atomic32_read_nob(&p->state);
@@ -9534,9 +9581,11 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 #ifdef ERTS_SMP
 	if (is_normal_sched && (state & ERTS_PSFLG_PENDING_EXIT))
 	    erts_handle_pending_exit(p, (ERTS_PROC_LOCK_MAIN
+					 | ERTS_PROC_LOCK_TRACE
 					 | ERTS_PROC_LOCK_STATUS));
 	if (p->pending_suspenders) 
 	    handle_pending_suspend(p, (ERTS_PROC_LOCK_MAIN
+				       | ERTS_PROC_LOCK_TRACE
 				       | ERTS_PROC_LOCK_STATUS));
 #endif
 
@@ -9556,7 +9605,9 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	p->scheduler_data = NULL;
 #endif
 
-	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
+	erts_smp_proc_unlock(p, (ERTS_PROC_LOCK_MAIN
+				 | ERTS_PROC_LOCK_STATUS
+				 | ERTS_PROC_LOCK_TRACE));
 
         ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_OTHER);
 
@@ -9984,6 +10035,11 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    if (state & (ERTS_PSFLG_ACTIVE_SYS
 			 | ERTS_PSFLG_PENDING_EXIT
 			 | ERTS_PSFLG_EXITING)) {
+		/*
+		 * IMPORTANT! We need to take care of
+		 * scheduled check-process-code requests
+		 * before continuing with dirty execution!
+		 */
 		/* Migrate to normal scheduler... */
 		goto sunlock_sched_out_proc;
 	    }
@@ -10393,6 +10449,27 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    }
 	    break;
         }
+#ifdef ERTS_NEW_PURGE_STRATEGY
+	case ERTS_PSTT_CLA: {
+	    int fcalls;
+            int cla_reds = 0;
+	    if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
+		fcalls = reds;
+	    else
+		fcalls = reds - CONTEXT_REDS;
+	    st_res = erts_proc_copy_literal_area(c_p,
+						 &cla_reds,
+						 fcalls,
+						 st->arg[0] == am_true);
+            reds -= cla_reds;
+	    if (is_non_value(st_res)) {
+		/* Needed gc, but gc was disabled */
+		save_gc_task(c_p, st, st_prio);
+		st = NULL;
+	    }
+	    break;
+        }
+#endif
 	case ERTS_PSTT_COHMQ:
 	    reds -= erts_complete_off_heap_message_queue_change(c_p);
 	    st_res = am_true;
@@ -10443,14 +10520,15 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 
 	switch (st->type) {
 	case ERTS_PSTT_GC:
-	    st_res = am_false;
-	    break;
 	case ERTS_PSTT_CPC:
-	    st_res = am_false;
-	    break;
 	case ERTS_PSTT_COHMQ:
 	    st_res = am_false;
 	    break;
+#ifdef ERTS_NEW_PURGE_STRATEGY
+	case ERTS_PSTT_CLA:
+	    st_res = am_ok;
+	    break;
+#endif
 #ifdef ERTS_SMP
         case ERTS_PSTT_FTMQ:
 	    reds -= erts_flush_trace_messages(c_p, ERTS_PROC_LOCK_MAIN);
@@ -10471,22 +10549,83 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
     return reds;
 }
 
-BIF_RETTYPE
-erts_internal_request_system_task_3(BIF_ALIST_3)
+#ifdef ERTS_DIRTY_SCHEDULERS
+
+static BIF_RETTYPE
+dispatch_system_task(Process *c_p, erts_aint_t fail_state,
+		     ErtsProcSysTask *st, Eterm target,
+		     Eterm prio, Eterm operation)
 {
-    Process *rp = erts_proc_lookup(BIF_ARG_1);
+    Process *rp;
+    ErtsProcLocks rp_locks = 0;
+    ErlOffHeap *ohp;
+    ErtsMessage *mp;
+    Eterm *hp, msg;
+    Uint hsz, osz;
+    BIF_RETTYPE ret;
+
+    switch (st->type) {
+    case ERTS_PSTT_CPC:
+	rp = erts_dirty_process_code_checker;
+	ASSERT(fail_state & (ERTS_PSFLG_DIRTY_RUNNING
+			     | ERTS_PSFLG_DIRTY_RUNNING_SYS));
+	if (c_p == rp) {
+	    ERTS_BIF_PREP_RET(ret, am_dirty_execution);
+	    return ret;
+	}
+	break;
+    default:
+	rp = NULL;
+	ERTS_INTERNAL_ERROR("Non-dispatchable system task");
+	break;
+    }
+	
+    ERTS_BIF_PREP_RET(ret, am_ok);
+
+    /*
+     * Send message on the form: {Requester, Target, Operation}
+     */
+
+    ASSERT(is_immed(st->requester));
+    ASSERT(is_immed(target));
+    ASSERT(is_immed(prio));
+
+    osz = size_object(operation);
+    hsz = 5 /* 4-tuple */ + osz;
+
+    mp = erts_alloc_message_heap(rp, &rp_locks, hsz, &hp, &ohp);
+
+    msg = copy_struct(operation, osz, &hp, ohp);
+    msg = TUPLE4(hp, st->requester, target, prio, msg);
+
+    erts_queue_message(rp, rp_locks, mp, msg, st->requester);
+
+    if (rp_locks)
+	erts_smp_proc_unlock(rp, rp_locks);
+
+    return ret;
+}
+
+#endif
+
+static BIF_RETTYPE
+request_system_task(Process *c_p, Eterm requester, Eterm target,
+		    Eterm priority, Eterm operation)
+{
+    BIF_RETTYPE ret;
+    Process *rp = erts_proc_lookup(target);
     ErtsProcSysTask *st = NULL;
-    erts_aint32_t prio;
+    erts_aint32_t prio, fail_state = ERTS_PSFLG_EXITING;
     Eterm noproc_res, req_type;
 
-    if (!rp && !is_internal_pid(BIF_ARG_1)) {
-	if (!is_external_pid(BIF_ARG_1))
+    if (!rp && !is_internal_pid(target)) {
+	if (!is_external_pid(target))
 	    goto badarg;
-	if (external_pid_dist_entry(BIF_ARG_1) != erts_this_dist_entry)
+	if (external_pid_dist_entry(target) != erts_this_dist_entry)
 	    goto badarg;
     }
 
-    switch (BIF_ARG_2) {
+    switch (priority) {
     case am_max:	prio = PRIORITY_MAX;	break;
     case am_high:	prio = PRIORITY_HIGH;	break;
     case am_normal:	prio = PRIORITY_NORMAL;	break;
@@ -10494,11 +10633,11 @@ erts_internal_request_system_task_3(BIF_ALIST_3)
     default: goto badarg;
     }
 
-    if (is_not_tuple(BIF_ARG_3))
+    if (is_not_tuple(operation))
 	goto badarg;
     else {
 	int i;
-	Eterm *tp = tuple_val(BIF_ARG_3);
+	Eterm *tp = tuple_val(operation);
 	Uint arity = arityval(*tp);
 	Eterm req_id;
 	Uint req_id_sz;
@@ -10536,7 +10675,7 @@ erts_internal_request_system_task_3(BIF_ALIST_3)
 	ERTS_INIT_OFF_HEAP(&st->off_heap);
 	hp = &st->heap[0];
 
-	st->requester = BIF_P->common.id;
+	st->requester = requester;
 	st->reply_tag = req_type;
 	st->req_id_sz = req_id_sz;
 	st->req_id = req_id_sz == 0 ? req_id : copy_struct(req_id,
@@ -10570,26 +10709,85 @@ erts_internal_request_system_task_3(BIF_ALIST_3)
 	st->type = ERTS_PSTT_CPC;
 	if (!rp)
 	    goto noproc;
+#ifdef ERTS_DIRTY_SCHEDULERS
+	/*
+	 * If the process should start executing dirty
+	 * code it is important that this task is
+	 * aborted. Therefore this strict fail state...
+	 */
+	fail_state |= (ERTS_PSFLG_DIRTY_RUNNING
+		       | ERTS_PSFLG_DIRTY_RUNNING_SYS);
+#endif
 	break;
+
+#ifdef ERTS_NEW_PURGE_STRATEGY
+    case am_copy_literals:
+	if (st->arg[0] != am_true && st->arg[0] != am_false)
+	    goto badarg;
+	st->type = ERTS_PSTT_CLA;
+	noproc_res = am_ok;
+	if (!rp)
+	    goto noproc;
+	break;
+#endif
 
     default:
 	goto badarg;
     }
 
-    if (!schedule_process_sys_task(rp, prio, st)) {
-    noproc:
-	notify_sys_task_executed(BIF_P, st, noproc_res);
+    if (!schedule_process_sys_task(rp, prio, st, &fail_state)) {
+	Eterm failure;
+	if (fail_state & ERTS_PSFLG_EXITING) {
+	noproc:
+	    failure = noproc_res;
+	}
+#ifdef ERTS_DIRTY_SCHEDULERS
+	else if (fail_state & (ERTS_PSFLG_DIRTY_RUNNING
+			       | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+	    ret = dispatch_system_task(c_p, fail_state, st,
+				       target, priority, operation);
+	    goto cleanup_return;
+	}
+#endif
+	else {
+	    ERTS_INTERNAL_ERROR("Unknown failure schedule_process_sys_task()");
+	    failure = am_internal_error;
+	}
+	notify_sys_task_executed(c_p, st, failure);
     }
 
-    BIF_RET(am_ok);
+    ERTS_BIF_PREP_RET(ret, am_ok);
+
+    return ret;
 
 badarg:
+
+    ERTS_BIF_PREP_ERROR(ret, c_p, BADARG);
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+cleanup_return:
+#endif
 
     if (st) {
 	erts_cleanup_offheap(&st->off_heap);
 	erts_free(ERTS_ALC_T_PROC_SYS_TSK, st);
     }
-    BIF_ERROR(BIF_P, BADARG);
+
+    return ret;
+}
+
+BIF_RETTYPE
+erts_internal_request_system_task_3(BIF_ALIST_3)
+{
+    return request_system_task(BIF_P, BIF_P->common.id,
+			       BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+}
+
+BIF_RETTYPE
+erts_internal_request_system_task_4(BIF_ALIST_4)
+{
+    return request_system_task(BIF_P, BIF_ARG_1,
+			       BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
 }
 
 static void
@@ -10598,7 +10796,7 @@ erts_schedule_generic_sys_task(Eterm pid, ErtsProcSysTaskType type)
     Process *rp = erts_proc_lookup(pid);
     if (rp) {
 	ErtsProcSysTask *st;
-	erts_aint32_t state;
+	erts_aint32_t state, fail_state;
 	int i;
 
 	st = erts_alloc(ERTS_ALC_T_PROC_SYS_TSK,
@@ -10613,10 +10811,14 @@ erts_schedule_generic_sys_task(Eterm pid, ErtsProcSysTaskType type)
 	ERTS_INIT_OFF_HEAP(&st->off_heap);
 	state = erts_smp_atomic32_read_nob(&rp->state);
 
-	if (!schedule_process_sys_task(rp, ERTS_PSFLGS_GET_USR_PRIO(state), st))
+	fail_state = ERTS_PSFLG_EXITING;
+
+	if (!schedule_process_sys_task(rp, ERTS_PSFLGS_GET_USR_PRIO(state),
+				       st, &fail_state))
 	    erts_free(ERTS_ALC_T_PROC_SYS_TSK, st);
     }
 }
+
 
 void
 erts_schedule_complete_off_heap_message_queue_change(Eterm pid)
@@ -10624,10 +10826,88 @@ erts_schedule_complete_off_heap_message_queue_change(Eterm pid)
     erts_schedule_generic_sys_task(pid, ERTS_PSTT_COHMQ);
 }
 
-void
-erts_schedule_flush_trace_messages(Eterm pid)
+#ifdef ERTS_DIRTY_SCHEDULERS
+
+static void
+flush_dirty_trace_messages(void *vpid)
 {
+    Process *proc;
+    Eterm pid;
+#ifdef ARCH_64
+    pid = (Eterm) vpid;
+#else
+    pid = *((Eterm *) vpid);
+    erts_free(ERTS_ALC_T_DIRTY_SL, vpid);
+#endif
+
+    proc = erts_proc_lookup(pid);
+    if (proc)
+	(void) erts_flush_trace_messages(proc, 0);
+}
+
+#endif /* ERTS_DIRTY_SCHEDULERS */
+
+void
+erts_schedule_flush_trace_messages(Process *proc, int force_on_proc)
+{
+#ifdef ERTS_SMP
+    ErtsThrPrgrDelayHandle dhndl;
+#endif
+    Eterm pid = proc->common.id;
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+    erts_aint32_t state;
+
+    if (!force_on_proc) {
+	state = erts_smp_atomic32_read_nob(&proc->state);
+	if (state & (ERTS_PSFLG_DIRTY_RUNNING
+		     | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+	    goto sched_flush_dirty;
+	}
+    }
+#endif
+
+#ifdef ERTS_SMP
+    dhndl = erts_thr_progress_unmanaged_delay();
+#endif
+
     erts_schedule_generic_sys_task(pid, ERTS_PSTT_FTMQ);
+
+#ifdef ERTS_SMP
+    erts_thr_progress_unmanaged_continue(dhndl);
+#endif
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+    if (!force_on_proc) {
+	state = erts_smp_atomic32_read_mb(&proc->state);
+	if (state & (ERTS_PSFLG_DIRTY_RUNNING
+		     | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+	    void *vargp;
+
+	sched_flush_dirty:
+	    /*
+	     * We traced 'proc' from another thread than
+	     * it is executing on, and it is executing
+	     * on a dirty scheduler. It might take a
+	     * significant amount of time before it is
+	     * scheduled out (where it gets opportunity
+	     * to flush messages). We therefore schedule
+	     * the flush on the first ordinary scheduler.
+	     */
+
+#ifdef ARCH_64
+	    vargp = (void *) pid;
+#else
+	    {
+		Eterm *argp = erts_alloc(ERTS_ALC_T_DIRTY_SL, sizeof(Eterm));
+		*argp = pid;
+		vargp = (void *) argp;
+	    }
+#endif
+	    erts_schedule_misc_aux_work(1, flush_dirty_trace_messages, vargp);
+	}
+    }
+#endif
 }
 
 static void
@@ -12276,7 +12556,6 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
                 erts_port_demonitor(pcontext->p,
                                     ERTS_PORT_DEMONITOR_ORIGIN_ON_DEATHBED,
                                     prt, mon->ref, NULL);
-                return; /* let erts_port_demonitor do the deletion */
             } else { /* remote by pid */
 		ASSERT(is_external_pid(mon->pid));
 		dep = external_pid_dist_entry(mon->pid);

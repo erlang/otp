@@ -807,22 +807,24 @@ send_selected_port(_,_,_) ->
 rsa_suites(CounterPart) ->
     ECC = is_sane_ecc(CounterPart),
     FIPS = is_fips(CounterPart),
+    CryptoSupport = crypto:supports(),
+    Ciphers = proplists:get_value(ciphers, CryptoSupport),
     lists:filter(fun({rsa, des_cbc, sha}) when FIPS == true ->
 			 false;
 		    ({dhe_rsa, des_cbc, sha}) when FIPS == true ->
 			 false;
-		    ({rsa, _, _}) ->
-			 true;
-		    ({dhe_rsa, _, _}) ->
-			 true;
-		    ({ecdhe_rsa, _, _}) when ECC == true ->
-			 true;
-		    ({rsa, _, _, _}) ->
-			 true;
-		    ({dhe_rsa, _, _,_}) ->
-			 true;
-		    ({ecdhe_rsa, _, _,_}) when ECC == true ->
-			 true;
+		    ({rsa, Cipher, _}) ->
+			 lists:member(Cipher, Ciphers);
+		    ({dhe_rsa, Cipher, _}) ->
+			 lists:member(Cipher, Ciphers);
+		    ({ecdhe_rsa, Cipher, _}) when ECC == true ->
+			 lists:member(Cipher, Ciphers);
+		    ({rsa, Cipher, _, _}) ->
+			 lists:member(Cipher, Ciphers);
+		    ({dhe_rsa, Cipher, _,_}) ->
+			 lists:member(Cipher, Ciphers);
+		    ({ecdhe_rsa, Cipher, _,_}) when ECC == true ->
+			 lists:member(Cipher, Ciphers);
 		    (_) ->
 			 false
 		 end,
@@ -1353,3 +1355,19 @@ ct_log_supported_protocol_versions(Config) ->
 	_ ->
 	    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()])
     end.
+
+clean_env() ->
+    application:unset_env(ssl, protocol_version),
+    application:unset_env(ssl, session_lifetime),
+    application:unset_env(ssl, session_cb),
+    application:unset_env(ssl, session_cb_init_args),
+    application:unset_env(ssl, session_cache_client_max),
+    application:unset_env(ssl, session_cache_server_max),
+    application:unset_env(ssl, ssl_pem_cache_clean),
+    application:unset_env(ssl, alert_timeout).
+
+clean_start() ->
+    ssl:stop(),
+    application:load(ssl),
+    clean_env(),
+    ssl:start().

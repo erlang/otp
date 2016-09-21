@@ -139,7 +139,7 @@
 	enters the <c>ssh_channel</c> process receive loop and become an
 	<c>ssh_channel process</c>. The process must have been started using
 	one of the start functions in <c>proc_lib</c>, see the <seealso
-	marker="stdlib:proc_lib">proc_lib(3)</seealso> manual page in <c>stdlib</c>.
+	marker="stdlib:proc_lib">proc_lib(3)</seealso> manual page in STDLIB.
 	The user is responsible for any initialization of the process
 	and must call <seealso marker = "#init-1">ssh_channel:init/1</seealso>.
 	</p>

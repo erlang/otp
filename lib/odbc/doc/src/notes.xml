@@ -32,7 +32,23 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.11.2</title>
+  <section><title>ODBC 2.11.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ODBC build configure has been updated to accept Mac OS X
+	    El Capitan. Fixed by Lee Bannard.</p>
+          <p>
+	    Own Id: OTP-13781</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.11.2</title>
 
     <section><title>Improvements and New Features</title>
       <list>
@@ -585,7 +601,7 @@
 	    also been extended. </item><item> The <c>configure</c>
 	    scripts of <c>erl_interface</c> and <c>odbc</c> now
 	    search for thread libraries and thread library quirks the
-	    same way as <c>erts</c> do. </item><item> The
+	    same way as ERTS do. </item><item> The
 	    <c>configure</c> script of the <c>odbc</c> application
 	    now also looks for odbc libraries in <c>lib64</c> and
 	    <c>lib/64</c> directories when building on a 64-bit

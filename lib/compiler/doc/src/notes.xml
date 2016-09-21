@@ -32,6 +32,60 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If the compiler fails to write the BEAM file, it will now
+	    report the reason of the error for the write operation.</p>
+          <p>
+	    Own Id: OTP-13701</p>
+        </item>
+        <item>
+          <p>
+	    Fixed an internal compiler error. (Thanks to Svilen
+	    Ivanov for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-13780 Aux Id: ERL-202 </p>
+        </item>
+        <item>
+          <p>
+	    The compiler could crash when trying to compile a
+	    complicated expression with multiple catches all on one
+	    line . (Thanks to Thomas Arts for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-13804 Aux Id: ERL-209 </p>
+        </item>
+        <item>
+          <p>
+	    Eliminated a few internal compiler failures.</p>
+          <p>
+	    Own Id: OTP-13863</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A literal binary matching regression was introduced in
+	    19.0 where a match could fail to resolve to the right
+	    clause. This has now been fixed.</p>
+          <p>
+	    Own Id: OTP-13738</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -263,7 +317,7 @@
         <item>
           <p>
 	    The <c>cerl</c> and <c>cerl_trees</c> modules in the
-	    <c>compiler</c> application are now documented.</p>
+	    Compiler application are now documented.</p>
           <p>
 	    Own Id: OTP-11978</p>
         </item>
@@ -1965,7 +2019,7 @@
 	    <c>RightExpr</c> or vice versa. The evaluation order is
 	    only important if the expressions contains and/or depends
 	    on operations with side-effects, such as message passing
-	    or <c>ets</c> operations.</p>
+	    or ETS operations.</p>
           <p>
 	    Own Id: OTP-7206</p>
         </item>

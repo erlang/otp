@@ -700,6 +700,7 @@ leader_update(ErtsThrPrgrData *tpd)
 	    tpd->leader_state.chk_next_ix = no_managed;
 	    erts_atomic32_set_nob(&intrnl->misc.data.umrefc_ix.current,
 				  (erts_aint32_t) new_umrefc_ix);
+	    tpd->leader_state.umrefc_ix.current = new_umrefc_ix;
 	    ETHR_MEMBAR(ETHR_StoreLoad);
 	    refc = erts_atomic_read_nob(&intrnl->umrefc[umrefc_ix].refc);
 	    ASSERT(refc >= 0);
@@ -969,8 +970,10 @@ erts_thr_progress_unmanaged_continue__(ErtsThrPrgrDelayHandle handle)
 #ifdef ERTS_ENABLE_LOCK_CHECK
     ErtsThrPrgrData *tpd = perhaps_thr_prgr_data(NULL);
     ERTS_LC_ASSERT(tpd && tpd->is_delaying);
-    tpd->is_delaying = 0;
-    return_tmp_thr_prgr_data(tpd);
+    tpd->is_delaying--;
+    ASSERT(tpd->is_delaying >= 0);
+    if (!tpd->is_delaying)
+	return_tmp_thr_prgr_data(tpd);
 #endif
     ASSERT(!erts_thr_progress_is_managed_thread());
 
@@ -995,7 +998,7 @@ erts_thr_progress_unmanaged_delay__(void)
 #ifdef ERTS_ENABLE_LOCK_CHECK
     {
 	ErtsThrPrgrData *tpd = tmp_thr_prgr_data(NULL);
-	tpd->is_delaying = 1;
+	tpd->is_delaying++;
     }
 #endif
     return (ErtsThrPrgrDelayHandle) umrefc_ix;

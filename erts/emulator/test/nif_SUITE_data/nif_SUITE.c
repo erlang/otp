@@ -38,10 +38,10 @@ static ERL_NIF_TERM atom_self;
 static ERL_NIF_TERM atom_ok;
 static ERL_NIF_TERM atom_join;
 static ERL_NIF_TERM atom_binary_resource_type;
-static ERL_NIF_TERM atom_seconds;
-static ERL_NIF_TERM atom_milli_seconds;
-static ERL_NIF_TERM atom_micro_seconds;
-static ERL_NIF_TERM atom_nano_seconds;
+static ERL_NIF_TERM atom_second;
+static ERL_NIF_TERM atom_millisecond;
+static ERL_NIF_TERM atom_microsecond;
+static ERL_NIF_TERM atom_nanosecond;
 
 
 typedef struct
@@ -147,10 +147,10 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_ok = enif_make_atom(env,"ok");
     atom_join = enif_make_atom(env,"join");
     atom_binary_resource_type = enif_make_atom(env,"binary_resource_type");
-    atom_seconds = enif_make_atom(env,"seconds");
-    atom_milli_seconds = enif_make_atom(env,"milli_seconds");
-    atom_micro_seconds = enif_make_atom(env,"micro_seconds");
-    atom_nano_seconds = enif_make_atom(env,"nano_seconds");
+    atom_second = enif_make_atom(env,"second");
+    atom_millisecond = enif_make_atom(env,"millisecond");
+    atom_microsecond = enif_make_atom(env,"microsecond");
+    atom_nanosecond = enif_make_atom(env,"nanosecond");
 
     *priv_data = data;
     return 0;
@@ -1808,13 +1808,13 @@ static ERL_NIF_TERM monotonic_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     if (argc != 1)
 	return atom_false;
 
-    if (enif_compare(argv[0], atom_seconds) == 0)
+    if (enif_compare(argv[0], atom_second) == 0)
 	time_unit = ERL_NIF_SEC;
-    else if (enif_compare(argv[0], atom_milli_seconds) == 0)
+    else if (enif_compare(argv[0], atom_millisecond) == 0)
 	time_unit = ERL_NIF_MSEC;
-    else if (enif_compare(argv[0], atom_micro_seconds) == 0)
+    else if (enif_compare(argv[0], atom_microsecond) == 0)
 	time_unit = ERL_NIF_USEC;
-    else if (enif_compare(argv[0], atom_nano_seconds) == 0)
+    else if (enif_compare(argv[0], atom_nanosecond) == 0)
 	time_unit = ERL_NIF_NSEC;
     else
 	time_unit = 4711; /* invalid time unit */
@@ -1829,13 +1829,13 @@ static ERL_NIF_TERM time_offset(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     if (argc != 1)
 	return atom_false;
 
-    if (enif_compare(argv[0], atom_seconds) == 0)
+    if (enif_compare(argv[0], atom_second) == 0)
 	time_unit = ERL_NIF_SEC;
-    else if (enif_compare(argv[0], atom_milli_seconds) == 0)
+    else if (enif_compare(argv[0], atom_millisecond) == 0)
 	time_unit = ERL_NIF_MSEC;
-    else if (enif_compare(argv[0], atom_micro_seconds) == 0)
+    else if (enif_compare(argv[0], atom_microsecond) == 0)
 	time_unit = ERL_NIF_USEC;
-    else if (enif_compare(argv[0], atom_nano_seconds) == 0)
+    else if (enif_compare(argv[0], atom_nanosecond) == 0)
 	time_unit = ERL_NIF_NSEC;
     else
 	time_unit = 4711; /* invalid time unit */
@@ -1856,24 +1856,24 @@ static ERL_NIF_TERM convert_time_unit(ErlNifEnv* env, int argc, const ERL_NIF_TE
 
     val = (ErlNifTime) i64;
 
-    if (enif_compare(argv[1], atom_seconds) == 0)
+    if (enif_compare(argv[1], atom_second) == 0)
 	from = ERL_NIF_SEC;
-    else if (enif_compare(argv[1], atom_milli_seconds) == 0)
+    else if (enif_compare(argv[1], atom_millisecond) == 0)
 	from = ERL_NIF_MSEC;
-    else if (enif_compare(argv[1], atom_micro_seconds) == 0)
+    else if (enif_compare(argv[1], atom_microsecond) == 0)
 	from = ERL_NIF_USEC;
-    else if (enif_compare(argv[1], atom_nano_seconds) == 0)
+    else if (enif_compare(argv[1], atom_nanosecond) == 0)
 	from = ERL_NIF_NSEC;
     else
 	from = 4711; /* invalid time unit */
 
-    if (enif_compare(argv[2], atom_seconds) == 0)
+    if (enif_compare(argv[2], atom_second) == 0)
 	to = ERL_NIF_SEC;
-    else if (enif_compare(argv[2], atom_milli_seconds) == 0)
+    else if (enif_compare(argv[2], atom_millisecond) == 0)
 	to = ERL_NIF_MSEC;
-    else if (enif_compare(argv[2], atom_micro_seconds) == 0)
+    else if (enif_compare(argv[2], atom_microsecond) == 0)
 	to = ERL_NIF_USEC;
-    else if (enif_compare(argv[2], atom_nano_seconds) == 0)
+    else if (enif_compare(argv[2], atom_nanosecond) == 0)
 	to = ERL_NIF_NSEC;
     else
 	to = 4711; /* invalid time unit */

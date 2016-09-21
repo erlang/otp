@@ -65,6 +65,7 @@ atom undefined_lambda
 atom DOWN='DOWN'
 atom UP='UP'
 atom EXIT='EXIT'
+atom abort
 atom aborted
 atom abs_path
 atom absoluteURI
@@ -165,6 +166,7 @@ atom commandv
 atom compact
 atom compat_rel
 atom compile
+atom complete
 atom compressed
 atom config_h
 atom convert_time_unit
@@ -176,6 +178,7 @@ atom const
 atom context_switches
 atom control
 atom copy
+atom copy_literals
 atom counters
 atom cpu
 atom cpu_timestamp
@@ -195,6 +198,7 @@ atom dgroup_leader
 atom dictionary
 atom dirty_cpu
 atom dirty_cpu_schedulers_online
+atom dirty_execution
 atom dirty_io
 atom disable_trace
 atom disabled
@@ -235,6 +239,7 @@ atom erlang
 atom ERROR='ERROR'
 atom error_handler
 atom error_logger
+atom erts_code_purger
 atom erts_internal
 atom ets
 atom ETS_TRANSFER='ETS-TRANSFER'
@@ -384,8 +389,10 @@ atom merge_trap
 atom meta
 atom meta_match_spec
 atom micro_seconds
+atom microsecond
 atom microstate_accounting
 atom milli_seconds
+atom millisecond
 atom min_heap_size
 atom min_bin_vheap_size
 atom minor_version
@@ -402,11 +409,13 @@ atom more
 atom multi_scheduling
 atom multiline
 atom nano_seconds
+atom nanosecond
 atom name
 atom named_table
 atom namelist
 atom native
 atom native_addresses
+atom need_gc
 atom Neq='=/='
 atom Neqeq='/='
 atom net_kernel
@@ -485,6 +494,7 @@ atom pause
 atom pending
 atom pending_driver
 atom pending_process
+atom pending_purge_lambda
 atom pending_reload
 atom permanent
 atom pid
@@ -494,6 +504,8 @@ atom port_count
 atom port_limit
 atom port_op
 atom positive
+atom prepare
+atom prepare_on_load
 atom print
 atom priority
 atom private
@@ -554,6 +566,7 @@ atom schedulers_online
 atom scheme
 atom scientific
 atom scope
+atom second
 atom seconds
 atom send_to_non_existing_process
 atom sensitive

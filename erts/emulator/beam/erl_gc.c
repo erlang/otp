@@ -150,6 +150,7 @@ static void move_msgq_to_heap(Process *p);
 static int reached_max_heap_size(Process *p, Uint total_heap_size,
                                  Uint extra_heap_size, Uint extra_old_heap_size);
 static void init_gc_info(ErtsGCInfo *gcip);
+static Uint64 next_vheap_size(Process* p, Uint64 vheap, Uint64 vheap_sz);
 
 #ifdef HARDDEBUG
 static void disallow_heap_frag_ref_in_heap(Process* p);
@@ -387,6 +388,11 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 	return result;
     }
 
+    if (!p->mbuf) {
+	/* Must have GC:d in BIF call... invalidate live_hf_end */
+	live_hf_end = ERTS_INVALID_HFRAG_PTR;
+    }
+
     if (is_non_value(result)) {
 	if (p->freason == TRAP) {
 	  #if HIPE
@@ -517,6 +523,8 @@ delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need, int
 	erts_proc_sched_data((p))->virtual_reds += vreds;
     }
 
+    ERTS_CHK_MBUF_SZ(p);
+
     ASSERT(CONTEXT_REDS >= erts_proc_sched_data(p)->virtual_reds);
     return reds_left;
 }
@@ -527,13 +535,25 @@ young_gen_usage(Process *p)
     Uint hsz;
     Eterm *aheap;
 
+    ERTS_CHK_MBUF_SZ(p);
+
     hsz = p->mbuf_sz;
 
     if (p->flags & F_ON_HEAP_MSGQ) {
 	ErtsMessage *mp;
-	for (mp = p->msg.first; mp; mp = mp->next)
+	for (mp = p->msg.first; mp; mp = mp->next) {
+	    /*
+	     * We leave not yet decoded distribution messages
+	     * as they are in the queue since it is not
+	     * possible to determine a maximum size until
+	     * actual decoding. However, we use their estimated
+	     * size when calculating need, and by this making
+	     * it more likely that they will fit on the heap
+	     * when actually decoded.
+	     */
 	    if (mp->data.attached)
 		hsz += erts_msg_attached_data_size(mp);
+	}
     }
 
     aheap = p->abandoned_heap;
@@ -589,6 +609,8 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 #endif
+
+    ERTS_CHK_MBUF_SZ(p);
 
     ASSERT(CONTEXT_REDS - ERTS_REDS_LEFT(p, fcalls)
 	   >= erts_proc_sched_data(p)->virtual_reds);
@@ -741,6 +763,9 @@ do_major_collection:
     p->last_old_htop = p->old_htop;
 #endif
 
+    ASSERT(!p->mbuf);
+    ASSERT(!ERTS_IS_GC_DESIRED(p));
+
     return reds;
 }
 
@@ -885,6 +910,58 @@ erts_garbage_collect_hibernate(Process* p)
 }
 
 
+/*
+ * HiPE native code stack scanning procedures:
+ * - fullsweep_nstack()
+ * - gensweep_nstack()
+ * - offset_nstack()
+ * - sweep_literals_nstack()
+ */
+#if defined(HIPE)
+
+#define GENSWEEP_NSTACK(p,old_htop,n_htop)				\
+	do {								\
+		Eterm *tmp_old_htop = old_htop;				\
+		Eterm *tmp_n_htop = n_htop;				\
+		gensweep_nstack((p), &tmp_old_htop, &tmp_n_htop);	\
+		old_htop = tmp_old_htop;				\
+		n_htop = tmp_n_htop;					\
+	} while(0)
+
+/*
+ * offset_nstack() can ignore the descriptor-based traversal the other
+ * nstack procedures use and simply call offset_heap_ptr() instead.
+ * This relies on two facts:
+ * 1. The only live non-Erlang terms on an nstack are return addresses,
+ *    and they will be skipped thanks to the low/high range check.
+ * 2. Dead values, even if mistaken for pointers into the low/high area,
+ *    can be offset safely since they won't be dereferenced.
+ *
+ * XXX: WARNING: If HiPE starts storing other non-Erlang values on the
+ * nstack, such as floats, then this will have to be changed.
+ */
+static ERTS_INLINE void offset_nstack(Process* p, Sint offs,
+				      char* area, Uint area_size)
+{
+    if (p->hipe.nstack) {
+	ASSERT(p->hipe.nsp && p->hipe.nstend);
+	offset_heap_ptr(hipe_nstack_start(p), hipe_nstack_used(p),
+			offs, area, area_size);
+    }
+    else {
+	ASSERT(!p->hipe.nsp && !p->hipe.nstend);
+    }
+}
+
+#else /* !HIPE */
+
+#define fullsweep_nstack(p,n_htop)		        	(n_htop)
+#define GENSWEEP_NSTACK(p,old_htop,n_htop)	        	do{}while(0)
+#define offset_nstack(p,offs,area,area_size)	        	do{}while(0)
+#define sweep_literals_nstack(p,old_htop,area,area_size)	(old_htop)
+
+#endif /* HIPE */
+
 void
 erts_garbage_collect_literals(Process* p, Eterm* literals,
 			      Uint byte_lit_size,
@@ -947,7 +1024,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     area_size = byte_lit_size;
     n = setup_rootset(p, p->arg_reg, p->arity, &rootset);
     roots = rootset.roots;
-    old_htop = p->old_htop;
+    old_htop = sweep_literals_nstack(p, p->old_htop, area, area_size);
     while (n--) {
         Eterm* g_ptr = roots->v;
         Uint g_sz = roots->sz;
@@ -1213,56 +1290,6 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
      */
     return -1;
 }
-
-/*
- * HiPE native code stack scanning procedures:
- * - fullsweep_nstack()
- * - gensweep_nstack()
- * - offset_nstack()
- */
-#if defined(HIPE)
-
-#define GENSWEEP_NSTACK(p,old_htop,n_htop)				\
-	do {								\
-		Eterm *tmp_old_htop = old_htop;				\
-		Eterm *tmp_n_htop = n_htop;				\
-		gensweep_nstack((p), &tmp_old_htop, &tmp_n_htop);	\
-		old_htop = tmp_old_htop;				\
-		n_htop = tmp_n_htop;					\
-	} while(0)
-
-/*
- * offset_nstack() can ignore the descriptor-based traversal the other
- * nstack procedures use and simply call offset_heap_ptr() instead.
- * This relies on two facts:
- * 1. The only live non-Erlang terms on an nstack are return addresses,
- *    and they will be skipped thanks to the low/high range check.
- * 2. Dead values, even if mistaken for pointers into the low/high area,
- *    can be offset safely since they won't be dereferenced.
- *
- * XXX: WARNING: If HiPE starts storing other non-Erlang values on the
- * nstack, such as floats, then this will have to be changed.
- */
-static ERTS_INLINE void offset_nstack(Process* p, Sint offs,
-				      char* area, Uint area_size)
-{
-    if (p->hipe.nstack) {
-	ASSERT(p->hipe.nsp && p->hipe.nstend);
-	offset_heap_ptr(hipe_nstack_start(p), hipe_nstack_used(p),
-			offs, area, area_size);
-    }
-    else {
-	ASSERT(!p->hipe.nsp && !p->hipe.nstend);
-    }
-}
-
-#else /* !HIPE */
-
-#define fullsweep_nstack(p,n_htop)		(n_htop)
-#define GENSWEEP_NSTACK(p,old_htop,n_htop)	do{}while(0)
-#define offset_nstack(p,offs,area,area_size)	do{}while(0)
-
-#endif /* HIPE */
 
 static void
 do_minor(Process *p, ErlHeapFragment *live_hf_end,
@@ -2243,44 +2270,31 @@ copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 static void
 move_msgq_to_heap(Process *p)
 {
+    
     ErtsMessage **mpp = &p->msg.first;
+    Uint64 pre_oh = MSO(p).overhead;
 
     while (*mpp) {
 	ErtsMessage *mp = *mpp;
 
 	if (mp->data.attached) {
 	    ErlHeapFragment *bp;
-	    ErtsHeapFactory factory;
 
-	    erts_factory_proc_prealloc_init(&factory, p,
-					    erts_msg_attached_data_size(mp));
-
-	    if (is_non_value(ERL_MESSAGE_TERM(mp))) {
-		if (mp->data.dist_ext) {
-		    ASSERT(mp->data.dist_ext->heap_size >= 0);
-		    if (is_not_nil(ERL_MESSAGE_TOKEN(mp))) {
-			bp = erts_dist_ext_trailer(mp->data.dist_ext);
-			ERL_MESSAGE_TOKEN(mp) = copy_struct(ERL_MESSAGE_TOKEN(mp),
-							    bp->used_size,
-							    &factory.hp,
-							    factory.off_heap);
-			erts_cleanup_offheap(&bp->off_heap);
-		    }
-		    ERL_MESSAGE_TERM(mp) = erts_decode_dist_ext(&factory,
-								mp->data.dist_ext);
-		    erts_free_dist_ext_copy(mp->data.dist_ext);
-		    mp->data.dist_ext = NULL;
-		}
-	    }
-	    else {
+	    /*
+	     * We leave not yet decoded distribution messages
+	     * as they are in the queue since it is not
+	     * possible to determine a maximum size until
+	     * actual decoding...
+	     */
+	    if (is_value(ERL_MESSAGE_TERM(mp))) {
 
                 bp = erts_message_to_heap_frag(mp);
 
 		if (bp->next)
-		    erts_move_multi_frags(&factory.hp, factory.off_heap, bp,
+		    erts_move_multi_frags(&p->htop, &p->off_heap, bp,
 					  mp->m, ERL_MESSAGE_REF_ARRAY_SZ, 0);
 		else
-		    copy_one_frag(&factory.hp, factory.off_heap, bp,
+		    copy_one_frag(&p->htop, &p->off_heap, bp,
 				  mp->m, ERL_MESSAGE_REF_ARRAY_SZ);
 
 		if (mp->data.attached != ERTS_MSG_COMBINED_HFRAG) {
@@ -2297,11 +2311,14 @@ move_msgq_to_heap(Process *p)
 		    mp = new_mp;
 		}
 	    }
-
-	    erts_factory_close(&factory);
 	}
 
 	mpp = &(*mpp)->next;
+    }
+
+    if (pre_oh != MSO(p).overhead) {
+	/* Got new binaries; update vheap size... */
+	BIN_VHEAP_SZ(p) = next_vheap_size(p, MSO(p).overhead, BIN_VHEAP_SZ(p));
     }
 }
 

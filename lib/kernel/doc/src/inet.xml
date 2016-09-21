@@ -36,7 +36,7 @@
       <seealso marker="erts:inet_cfg">ERTS User's Guide:
       Inet Configuration</seealso> for more information about how to
       configure an Erlang runtime system for IP communication.</p>
-    <p>The following two <c>Kernel</c> configuration parameters affect the
+    <p>The following two Kernel configuration parameters affect the
       behavior of all sockets opened on an Erlang node:</p>
     <list type="bulleted">
       <item><p><c>inet_default_connect_options</c> can contain a list of
@@ -48,7 +48,7 @@
     <p>When <c>accept</c> is issued, the values of the listening socket options
       are inherited. No such application variable is therefore needed for
       <c>accept</c>.</p>
-    <p>Using the <c>Kernel</c> configuration parameters above, one
+    <p>Using the Kernel configuration parameters above, one
       can set default options for all TCP sockets on a node, but use this
       with care. Options such as <c>{delay_send,true}</c> can be
       specified in this way. The following is an example of starting an Erlang
@@ -95,7 +95,7 @@ fe80::204:acff:fe17:bf38
     <datatype>
       <name name="hostent"/>
       <desc>
-        <p>The record is defined in the <c>Kernel</c> include file
+        <p>The record is defined in the Kernel include file
           <c>"inet.hrl"</c>.</p>
         <p>Add the following directive to the module:</p>
         <code>
@@ -149,6 +149,12 @@ fe80::204:acff:fe17:bf38
     </datatype>
     <datatype>
       <name name="socket_address"/>
+    </datatype>
+    <datatype>
+      <name name="socket_getopt"/>
+    </datatype>
+    <datatype>
+      <name name="socket_setopt"/>
     </datatype>
     <datatype>
       <name name="returned_non_ip_address"/>
@@ -327,8 +333,6 @@ fe80::204:acff:fe17:bf38
     <func>
       <name name="getopts" arity="2"/>
       <fsummary>Get one or more options for a socket.</fsummary>
-      <type name="socket_getopt"/>
-      <type name="socket_setopt"/>
       <desc>
         <p>Gets one or more options for a socket. For a list of available
           options, see
@@ -387,7 +391,7 @@ get_tcpi_sacked(Sock) ->
     <<_:28/binary,TcpiSacked:32/native,_/binary>> = Info,
     TcpiSacked.]]></code>
         <p>Preferably, you would check the machine type, the operating system,
-          and the <c>Kernel</c> version before executing anything similar to
+          and the Kernel version before executing anything similar to
           this code.</p>
       </desc>
     </func>
@@ -580,7 +584,6 @@ get_tcpi_sacked(Sock) ->
     <func>
       <name name="setopts" arity="2"/>
       <fsummary>Set one or more options for a socket.</fsummary>
-      <type name="socket_setopt"/>
       <desc>
         <p>Sets one or more options for a socket.</p>
         <p>The following options are available:</p>
@@ -658,7 +661,7 @@ get_tcpi_sacked(Sock) ->
             <p>The size of the user-level software buffer used by
               the driver. Not to be confused with options <c>sndbuf</c>
               and <c>recbuf</c>, which correspond to the
-              <c>Kernel</c> socket buffers. It is recommended
+              Kernel socket buffers. It is recommended
               to have <c>val(buffer) &gt;= max(val(sndbuf),val(recbuf))</c> to
               avoid performance issues because of unnecessary copying.
               <c>val(buffer)</c> is automatically set to the above
@@ -717,7 +720,7 @@ get_tcpi_sacked(Sock) ->
 	    <p>The socket message queue is set to a busy
 	      state when the amount of data on the message
 	      queue reaches this limit. Notice that this limit only
-	      concerns data that has not yet reached the <c>ERTS</c> internal
+	      concerns data that has not yet reached the ERTS internal
 	      socket implementation. Defaults to 8 kB.</p>
 	    <p>Senders of data to the socket are suspended if
 	      either the socket message queue is busy or the socket
@@ -733,7 +736,7 @@ get_tcpi_sacked(Sock) ->
           <tag><c>{high_watermark, Size}</c> (TCP/IP sockets)</tag>
           <item>
 	    <p>The socket is set to a busy state when the amount
-	      of data queued internally by the <c>ERTS</c> socket implementation
+	      of data queued internally by the ERTS socket implementation
 	      reaches this limit. Defaults to 8 kB.</p>
 	    <p>Senders of data to the socket are suspended if
 	      either the socket message queue is busy or the socket
@@ -813,7 +816,7 @@ get_tcpi_sacked(Sock) ->
 	      socket message queue is set in a not busy state when
 	      the amount of data queued in the message queue falls
 	      below this limit. Notice that this limit only concerns data
-	      that has not yet reached the <c>ERTS</c> internal socket
+	      that has not yet reached the ERTS internal socket
 	      implementation. Defaults to 4 kB.</p>
 	    <p>Senders that are suspended because of either a
 	      busy message queue or a busy socket are resumed
@@ -831,7 +834,7 @@ get_tcpi_sacked(Sock) ->
           <item>
 	    <p>If the socket is in a busy state, the socket is
 	      set in a not busy state when the amount of data
-	      queued internally by the <c>ERTS</c> socket implementation
+	      queued internally by the ERTS socket implementation
 	      falls below this limit. Defaults to 4 kB.</p>
 	    <p>Senders that are suspended because of a
 	      busy message queue or a busy socket are resumed
@@ -951,7 +954,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
                  are returned with the format according to <c>HttpPacket</c>
                  described in
                  <seealso marker="erts:erlang#decode_packet/3">
-                 <c>erlang:decode_packet/3</c></seealso> in <c>ERTS</c>.
+                 <c>erlang:decode_packet/3</c></seealso> in ERTS.
                  A socket in passive
                  mode returns <c>{ok, HttpPacket}</c> from <c>gen_tcp:recv</c>
                  while an active socket sends messages like
@@ -1089,6 +1092,15 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
               The option is ignored on platforms where it is not
               implemented. Use with caution.</p>
           </item>
+          <tag><c>{tclass, Integer}</c></tag>
+          <item>
+            <p>
+	      Sets <c>IPV6_TCLASS IP</c> level options on platforms
+	      where this is implemented. The behavior and allowed range
+	      varies between different systems.
+              The option is ignored on platforms where it is not
+              implemented. Use with caution.</p>
+          </item>
         </taglist>
         <p>In addition to these options, <em>raw</em>
           option specifications can be used. The raw options are
@@ -1127,7 +1139,7 @@ inet:setopts(Sock,[{raw,6,8,<<30:32/native>>}]),]]></code>
           can respond differently to this kind of option
           manipulation. Use with care.</p>
         <p>Notice that the default options for TCP/IP sockets can be
-          changed with the <c>Kernel</c> configuration parameters mentioned in
+          changed with the Kernel configuration parameters mentioned in
           the beginning of this manual page.</p>
       </desc>
     </func>

@@ -120,8 +120,10 @@ execution_state(ErlNifEnv *env, Process **c_pp, int *schedp)
 	else {
 	    Process *c_p = env->proc;
 
-	    if (!(c_p->static_flags & ERTS_STC_FLG_SHADOW_PROC))
-		ASSERT(is_scheduler() > 0);
+	    if (!(c_p->static_flags & ERTS_STC_FLG_SHADOW_PROC)) {
+		ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p)
+				   & ERTS_PROC_LOCK_MAIN);
+	    }
 	    else {
 		c_p = env->proc->next;
 		ASSERT(is_scheduler() < 0);
@@ -154,7 +156,9 @@ static Eterm* alloc_heap_heavy(ErlNifEnv* env, size_t need, Eterm* hp)
 	HEAP_TOP(env->proc) = env->hp;
     }
     else {
-	env->heap_frag->used_size = hp - env->heap_frag->mem;
+	Uint usz = env->hp - env->heap_frag->mem;
+	env->proc->mbuf_sz += usz - env->heap_frag->used_size;
+	env->heap_frag->used_size = usz;
 	ASSERT(env->heap_frag->used_size <= env->heap_frag->alloc_size);
     }
     hp = erts_heap_alloc(env->proc, need, MIN_HEAP_FRAG_SZ);
@@ -208,11 +212,16 @@ void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif,
 #endif
 }
 
-void erts_pre_dirty_nif(ErtsSchedulerData *esdp,
-			ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif,
-			Process* tracee)
-{
+static void full_cache_env(ErlNifEnv *env);
+static void cache_env(ErlNifEnv* env);
+static void full_flush_env(ErlNifEnv *env);
+static void flush_env(ErlNifEnv* env);
+
 #ifdef ERTS_DIRTY_SCHEDULERS
+void erts_pre_dirty_nif(ErtsSchedulerData *esdp,
+			ErlNifEnv* env, Process* p,
+			struct erl_module_nif* mod_nif)
+{
     Process *sproc;
 #ifdef DEBUG
     erts_aint32_t state = erts_smp_atomic32_read_nob(&p->state);
@@ -223,7 +232,7 @@ void erts_pre_dirty_nif(ErtsSchedulerData *esdp,
     ASSERT(esdp);
 #endif
 
-    erts_pre_nif(env, p, mod_nif, tracee);
+    erts_pre_nif(env, p, mod_nif, NULL);
 
     sproc = esdp->dirty_shadow_process;
     ASSERT(sproc);
@@ -235,22 +244,10 @@ void erts_pre_dirty_nif(ErtsSchedulerData *esdp,
 
     sproc->next = p;
     sproc->common.id = p->common.id;
-    sproc->htop = p->htop;
-    sproc->stop = p->stop;
-    sproc->hend = p->hend;
-    sproc->heap = p->heap;
-    sproc->abandoned_heap = p->abandoned_heap;
-    sproc->heap_sz = p->heap_sz;
-    sproc->high_water = p->high_water;
-    sproc->old_hend = p->old_hend;
-    sproc->old_htop = p->old_htop;
-    sproc->old_heap = p->old_heap;
-    sproc->mbuf = NULL;
-    sproc->mbuf_sz = 0;
-    ERTS_INIT_OFF_HEAP(&sproc->off_heap);
     env->proc = sproc;
-#endif
+    full_cache_env(env);
 }
+#endif
 
 /* Temporary object header, auto-deallocated when NIF returns
  * or when independent environment is cleared.
@@ -274,32 +271,37 @@ static ERTS_INLINE void free_tmp_objs(ErlNifEnv* env)
 void erts_post_nif(ErlNifEnv* env)
 {
     erts_unblock_fpe(env->fpe_was_unmasked);
+    full_flush_env(env);
+    free_tmp_objs(env);
+    env->exiting = ERTS_PROC_IS_EXITING(env->proc);
+}
 
 #ifdef ERTS_DIRTY_SCHEDULERS
-    if (!(env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC))
+void erts_post_dirty_nif(ErlNifEnv* env)
+{
+    Process *c_p;
+    ASSERT(env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC);
+    ASSERT(env->proc->next);
+    erts_unblock_fpe(env->fpe_was_unmasked);
+    full_flush_env(env);
+    free_tmp_objs(env);
+    c_p = env->proc->next;
+    env->exiting = ERTS_PROC_IS_EXITING(c_p);
+    ERTS_VBUMP_ALL_REDS(c_p);
+}
 #endif
-    {
-	ASSERT(is_scheduler() > 0);
-	if (env->heap_frag == NULL) {
-	    ASSERT(env->hp_end == HEAP_LIMIT(env->proc));
-	    ASSERT(env->hp >= HEAP_TOP(env->proc));
-	    ASSERT(env->hp <= HEAP_LIMIT(env->proc));	
-	    HEAP_TOP(env->proc) = env->hp;
-	}
-	else {
-	    ASSERT(env->hp_end != HEAP_LIMIT(env->proc));
-	    ASSERT(env->hp_end - env->hp <= env->heap_frag->alloc_size);
-	    env->heap_frag->used_size = env->hp - env->heap_frag->mem;
-	    ASSERT(env->heap_frag->used_size <= env->heap_frag->alloc_size);
-	}
-	env->exiting = ERTS_PROC_IS_EXITING(env->proc);
-    }
+
+static void full_flush_env(ErlNifEnv* env)
+{
 #ifdef ERTS_DIRTY_SCHEDULERS
-    else { /* Dirty nif call using shadow process struct */
+    if (env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC) {
+	/* Dirty nif call using shadow process struct */
 	Process *c_p = env->proc->next;
 
 	ASSERT(is_scheduler() < 0);
 	ASSERT(env->proc->common.id == c_p->common.id);
+	ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p)
+			   & ERTS_PROC_LOCK_MAIN);
 
 	if (!env->heap_frag) {
 	    ASSERT(env->hp_end == HEAP_LIMIT(c_p));
@@ -308,11 +310,14 @@ void erts_post_nif(ErlNifEnv* env)
 	    HEAP_TOP(c_p) = env->hp;
 	}
 	else {
+	    Uint usz;
 	    ASSERT(env->hp_end != HEAP_LIMIT(c_p));
 	    ASSERT(env->hp_end - env->hp <= env->heap_frag->alloc_size);
 
 	    HEAP_TOP(c_p) = HEAP_TOP(env->proc);
-	    env->heap_frag->used_size = env->hp - env->heap_frag->mem;
+	    usz = env->hp - env->heap_frag->mem;
+	    env->proc->mbuf_sz += usz - env->heap_frag->used_size;
+	    env->heap_frag->used_size = usz;
 
 	    ASSERT(env->heap_frag->used_size <= env->heap_frag->alloc_size);
 
@@ -339,11 +344,48 @@ void erts_post_nif(ErlNifEnv* env)
 	}
 	c_p->off_heap.overhead += env->proc->off_heap.overhead;
 
-	env->exiting = ERTS_PROC_IS_EXITING(c_p);
-	BUMP_ALL_REDS(c_p);
+	return;
     }
 #endif
-    free_tmp_objs(env);
+
+    flush_env(env);
+}
+
+static void full_cache_env(ErlNifEnv* env)
+{    
+#ifdef ERTS_DIRTY_SCHEDULERS
+    if (env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC) {
+	/* Dirty nif call using shadow process struct */
+	Process *sproc = env->proc;
+	Process *c_p = sproc->next;
+	ASSERT(c_p);
+	ASSERT(is_scheduler() < 0);
+	ASSERT(env->proc->common.id == c_p->common.id);
+	ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p)
+			   & ERTS_PROC_LOCK_MAIN);
+
+	sproc->htop = c_p->htop;
+	sproc->stop = c_p->stop;
+	sproc->hend = c_p->hend;
+	sproc->heap = c_p->heap;
+	sproc->abandoned_heap = c_p->abandoned_heap;
+	sproc->heap_sz = c_p->heap_sz;
+	sproc->high_water = c_p->high_water;
+	sproc->old_hend = c_p->old_hend;
+	sproc->old_htop = c_p->old_htop;
+	sproc->old_heap = c_p->old_heap;
+	sproc->mbuf = NULL;
+	sproc->mbuf_sz = 0;
+	ERTS_INIT_OFF_HEAP(&sproc->off_heap);
+
+	env->hp_end = HEAP_LIMIT(c_p);
+	env->hp = HEAP_TOP(c_p);
+	env->heap_frag = NULL;
+	return;
+    }
+#endif
+
+    cache_env(env);
 }
 
 /* Flush out our cached heap pointers to allow an ordinary HAlloc
@@ -357,9 +399,12 @@ static void flush_env(ErlNifEnv* env)
 	HEAP_TOP(env->proc) = env->hp;
     }
     else {
+	Uint usz;
 	ASSERT(env->hp_end != HEAP_LIMIT(env->proc));
 	ASSERT(env->hp_end - env->hp <= env->heap_frag->alloc_size);
-	env->heap_frag->used_size = env->hp - env->heap_frag->mem;
+	usz = env->hp - env->heap_frag->mem;
+	env->proc->mbuf_sz += usz - env->heap_frag->used_size;
+	env->heap_frag->used_size = usz;
 	ASSERT(env->heap_frag->used_size <= env->heap_frag->alloc_size);
     }
 }
@@ -600,17 +645,32 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 
     if (scheduler > 0) { /* Normal scheduler */
 	rp = erts_proc_lookup(receiver);
-	if (c_p == rp)
-	    rp_locks = ERTS_PROC_LOCK_MAIN;
+	if (!rp)
+	    return 0;
     }
     else {
-	if (c_p && ERTS_PROC_IS_EXITING(c_p))
-	    return 0;
-	rp = erts_pid2proc_opt(c_p, 0, receiver, rp_locks,
+	if (c_p) {
+	    ASSERT(scheduler < 0); /* Dirty scheduler */
+	    if (ERTS_PROC_IS_EXITING(c_p))
+		return 0;
+
+	    if (env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC) {
+		erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+	    }
+	}
+
+	rp = erts_pid2proc_opt(c_p, ERTS_PROC_LOCK_MAIN,
+			       receiver, rp_locks,
 			       ERTS_P2P_FLG_INC_REFC);
+	if (!rp) {
+	    if (c_p && (env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC))
+		erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+	    return 0;
+	}
     }
-    if (rp == NULL)
-	return 0;
+
+    if (c_p == rp)
+	rp_locks = ERTS_PROC_LOCK_MAIN;
 
     if (menv) {
         flush_env(msg_env);
@@ -631,9 +691,9 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 	ErlOffHeap *ohp;
         Eterm *hp;
 	if (env && !env->tracee) {
-	    flush_env(env);
+	    full_flush_env(env);
 	    mp = erts_alloc_message_heap(rp, &rp_locks, sz, &hp, &ohp);
-	    cache_env(env);
+	    full_cache_env(env);
 	}
 	else {
 	    erts_aint_t state = erts_smp_atomic32_read_nob(&rp->state);
@@ -656,8 +716,11 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 
     if (!env || !env->tracee) {
 
-        if (c_p && IS_TRACED_FL(c_p, F_TRACE_SEND))
+        if (c_p && IS_TRACED_FL(c_p, F_TRACE_SEND)) {
+	    full_flush_env(env);
             trace_send(c_p, receiver, msg);
+	    full_cache_env(env);
+	}
     }
 #ifdef ERTS_SMP
     else {
@@ -690,10 +753,6 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
             erts_smp_proc_trylock(rp, ERTS_PROC_LOCK_MSGQ) == EBUSY) {
 
             if (!msgq) {
-#ifdef ERTS_SMP
-                ErtsThrPrgrDelayHandle dhndl;
-#endif
-
                 msgq = erts_alloc(ERTS_ALC_T_TRACE_MSG_QUEUE,
                                   sizeof(ErlTraceMessageQueue));
                 msgq->receiver = receiver;
@@ -707,15 +766,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 
                 erts_smp_proc_unlock(t_p, ERTS_PROC_LOCK_TRACE);
 
-#ifdef ERTS_SMP
-                if (!scheduler)
-                    dhndl = erts_thr_progress_unmanaged_delay();
-#endif
-                erts_schedule_flush_trace_messages(t_p->common.id);
-#ifdef ERTS_SMP
-                if (!scheduler)
-                    erts_thr_progress_unmanaged_continue(dhndl);
-#endif
+		erts_schedule_flush_trace_messages(t_p, 0);
             } else {
                 msgq->len++;
                 *msgq->last = mp;
@@ -740,6 +791,8 @@ done:
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
     if (rp_locks & ~lc_locks)
 	erts_smp_proc_unlock(rp, rp_locks & ~lc_locks);
+    if (c_p && (env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC))
+	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
 #endif
     if (scheduler <= 0)
 	erts_proc_dec_refc(rp);
@@ -2215,7 +2268,7 @@ int enif_consume_timeslice(ErlNifEnv* env, int percent)
  * NIF exports need a few more items than the Export struct provides,
  * including the erl_module_nif* and a NIF function pointer, so the
  * NifExport below adds those. The Export member must be first in the
- * struct. The saved_mfa, exception_thrown, saved_argc, rootset_extra, and
+ * struct. The saved_current, exception_thrown, saved_argc, rootset_extra, and
  * rootset members are used to track the MFA, any pending exception, and
  * arguments of the top NIF in case a chain of one or more
  * enif_schedule_nif() calls results in an exception, since in that case
@@ -2229,7 +2282,7 @@ typedef struct {
     Export exp;
     struct erl_module_nif* m;
     NativeFunPtr fp;
-    Eterm saved_mfa[3];
+    BeamInstr *saved_current;
     int exception_thrown;
     int saved_argc;
     int rootset_extra;
@@ -2340,9 +2393,8 @@ init_nif_sched_data(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirec
 	reg[i] = (Eterm) argv[i];
     }
     if (need_save) {
-	ep->saved_mfa[0] = proc->current[0];
-	ep->saved_mfa[1] = proc->current[1];
-	ep->saved_mfa[2] = proc->current[2];
+	ASSERT(proc->current);
+	ep->saved_current = proc->current;
 	ep->saved_argc = argc;
     }
     proc->i = (BeamInstr*) ep->exp.addressv[0];
@@ -2365,21 +2417,21 @@ static void
 restore_nif_mfa(Process* proc, NifExport* ep, int exception)
 {
     int i;
-    Eterm* reg = erts_proc_sched_data(proc)->x_reg_array;
 
     ERTS_SMP_LC_ASSERT(!(proc->static_flags
 			 & ERTS_STC_FLG_SHADOW_PROC));
     ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(proc)
 		       & ERTS_PROC_LOCK_MAIN);
 
-    proc->current[0] = ep->saved_mfa[0];
-    proc->current[1] = ep->saved_mfa[1];
-    proc->current[2] = ep->saved_mfa[2];
-    if (exception)
+    ASSERT(ep->saved_current != &ep->exp.code[0]);
+    proc->current = ep->saved_current;
+    ep->saved_current = NULL;
+    if (exception) {
+	Eterm* reg = erts_proc_sched_data(proc)->x_reg_array;
 	for (i = 0; i < ep->saved_argc; i++)
 	    reg[i] = ep->rootset[i+1];
+    }
     ep->saved_argc = 0;
-    ep->saved_mfa[0] = THE_NON_VALUE;
 }
 
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -2454,6 +2506,7 @@ execute_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
      */
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
     ASSERT(ep && fp);
+
     ep->fp = NULL;
     erts_smp_atomic32_read_band_mb(&proc->state, ~(ERTS_PSFLG_DIRTY_CPU_PROC
 						   | ERTS_PSFLG_DIRTY_IO_PROC));
@@ -2538,7 +2591,7 @@ schedule_dirty_nif(ErlNifEnv* env, int flags, int argc, const ERL_NIF_TERM argv[
     }
 
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
-    need_save = (ep == NULL || is_non_value(ep->saved_mfa[0]));
+    need_save = (ep == NULL || !ep->saved_current);
     result = init_nif_sched_data(env, execute_dirty_nif, fp, need_save, argc, argv);
     if (scheduler <= 0)
 	erts_smp_proc_unlock(proc, ERTS_PROC_LOCK_MAIN);
@@ -2616,7 +2669,7 @@ enif_schedule_nif(ErlNifEnv* env, const char* fun_name, int flags,
     }
 
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
-    need_save = (ep == NULL || is_non_value(ep->saved_mfa[0]));
+    need_save = (ep == NULL || !ep->saved_current);
 
     if (flags) {
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -3150,18 +3203,20 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     if (init_func != NULL)
       handle = init_func;
 
+    this_mi = &module_p->curr;
+    prev_mi = &module_p->old;
     if (in_area(caller, module_p->old.code_hdr, module_p->old.code_length)) {
-	if (module_p->old.code_hdr->on_load_function_ptr) {
-	    this_mi = &module_p->old;
+	ret = load_nif_error(BIF_P, "old_code", "Calling load_nif from old "
+			     "module '%T' not allowed", mod_atom);
+	goto error;
+    } else if (module_p->on_load) {
+	ASSERT(module_p->on_load->code_hdr->on_load_function_ptr);
+	if (module_p->curr.code_hdr) {
 	    prev_mi = &module_p->curr;
 	} else {
-	    ret = load_nif_error(BIF_P, "old_code", "Calling load_nif from old "
-				 "module '%T' not allowed", mod_atom);
-	    goto error;
+	    prev_mi = &module_p->old;
 	}
-    } else {
-	this_mi = &module_p->curr;
-	prev_mi = &module_p->old;
+	this_mi = module_p->on_load;
     }
 
     if (init_func == NULL &&

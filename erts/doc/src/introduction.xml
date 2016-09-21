@@ -34,7 +34,7 @@
   </header>
   <section>
     <title>Scope</title>
-    <p>The Erlang Runtime System Application, <c>ERTS</c>, contains
+    <p>The Erlang Runtime System Application, ERTS, contains
       functionality necessary to run the Erlang system.</p>
     <note>
       <p>By default, <c><![CDATA[ERTS]]></c> is only guaranteed to be

@@ -50,7 +50,7 @@
     pass the information on. The event handlers are Erlang modules
     implemented by the <c>Common Test</c> user according to the <c>gen_event</c> 
     behavior (for details, see module
-    <seealso marker="stdlib:gen_event"><c>stdlib:gen_event</c></seealso> and
+    <seealso marker="stdlib:gen_event"><c>gen_event</c></seealso> and
     section
     <seealso marker="doc/design_principles:events"><c>gen_event Behaviour</c></seealso>
     in OTP Design Principles in the System Documentation).
@@ -69,8 +69,8 @@
     manager, either by telling <c>Common Test</c> to install them before the test
     run (described later), or by adding the handlers dynamically during the test
     run using
-    <seealso marker="stdlib:gen_event#add_handler-3"><c>stdlib:gen_event:add_handler/3</c></seealso> or 
-    <seealso marker="stdlib:gen_event#add_sup_handler-3"><c>stdlib:gen_event:add_sup_handler/3</c></seealso>.
+    <seealso marker="stdlib:gen_event#add_handler-3"><c>gen_event:add_handler/3</c></seealso> or
+    <seealso marker="stdlib:gen_event#add_sup_handler-3"><c>gen_event:add_sup_handler/3</c></seealso>.
     In the latter scenario, the reference of the <c>Common Test</c> event manager is
     required. To get it, call 
     <seealso marker="ct#get_event_mgr_ref-0"><c>ct:get_event_mgr_ref/0</c></seealso> 

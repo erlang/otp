@@ -107,7 +107,7 @@ case :"$TARGET" in
 	    if [ -f $file ]; then
 		name=`echo $file | sed 's/\.[^.]*$//'`
 		sec=`echo $file | sed 's/.*\.//'`
-		/usr/bin/groff -Tascii -mandoc $ERL_ROOT/man/man$sec/$file \
+		/usr/bin/groff -Tutf8 -mandoc $ERL_ROOT/man/man$sec/$file \
 			> $ERL_ROOT/man/cat$sec/$file
 	    fi
 	done

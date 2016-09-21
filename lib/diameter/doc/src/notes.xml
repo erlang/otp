@@ -43,6 +43,31 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.12.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Close diameter_tcp/sctp listening sockets at
+	    diameter:stop_service/1.</p>
+          <p>
+	    Broken by OTP-13611.</p>
+          <p>
+	    Own Id: OTP-13787 Aux Id: OTP-13611 </p>
+        </item>
+        <item>
+          <p>
+	    Update build scripts to not make assumtions about where
+	    env, cp and perl are located.</p>
+          <p>
+	    Own Id: OTP-13800</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

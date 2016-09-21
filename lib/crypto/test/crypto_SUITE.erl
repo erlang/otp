@@ -50,6 +50,7 @@ all() ->
      {group, des_cfb},
      {group, des3_cbc},
      {group, des3_cbf},
+     {group, des3_cfb},
      {group, des_ede3},
      {group, blowfish_cbc},
      {group, blowfish_ecb},
@@ -94,6 +95,7 @@ groups() ->
      {des3_cbc,[], [block]},
      {des_ede3,[], [block]},
      {des3_cbf,[], [block]},
+     {des3_cfb,[], [block]},
      {rc2_cbc,[], [block]},
      {aes_cbc128,[], [block]},
      {aes_cfb8,[], [block]},
@@ -381,11 +383,8 @@ block_cipher({Type, Key, IV, PlainText, CipherText}) ->
 	    ct:fail({{crypto, block_decrypt, [Type, Key, IV, CipherText]}, {expected, Plain}, {got, Other1}})
     end.
 
-block_cipher_increment({Type, Key, IV, PlainTexts}) when Type == des_cbc;
-							 Type == des3_cbc;
-							 Type == aes_cbc; 
-							 Type == des_cbf
-							 ->
+block_cipher_increment({Type, Key, IV, PlainTexts})
+  when Type == des_cbc; Type == aes_cbc; Type == des3_cbc ->
     block_cipher_increment(Type, Key, IV, IV, PlainTexts, iolist_to_binary(PlainTexts), []);
 block_cipher_increment({Type, Key, IV, PlainTexts, _CipherText}) when Type == aes_cbc ->
     Plain = iolist_to_binary(PlainTexts),
@@ -581,6 +580,8 @@ do_block_iolistify({des_cbc = Type, Key, IV, PlainText}) ->
 do_block_iolistify({des3_cbc = Type, Key, IV, PlainText}) ->
     {Type, Key, IV, des_iolistify(PlainText)};
 do_block_iolistify({des3_cbf = Type, Key, IV, PlainText}) ->
+    {Type, Key, IV, des_iolistify(PlainText)};
+do_block_iolistify({des3_cfb = Type, Key, IV, PlainText}) ->
     {Type, Key, IV, des_iolistify(PlainText)};
 do_block_iolistify({des_ede3 = Type, Key, IV, PlainText}) ->
     {Type, Key, IV, des_iolistify(PlainText)};
@@ -791,6 +792,9 @@ group_config(des3_cbc, Config) ->
     [{block, Block} | Config];
 group_config(des3_cbf, Config) ->
     Block = des3_cbf(),
+    [{block, Block} | Config];
+group_config(des3_cfb, Config) ->
+    Block = des3_cfb(),
     [{block, Block} | Config];
 group_config(des_ede3, Config) ->
     Block = des_ede3(),
@@ -1193,7 +1197,16 @@ des_ede3() ->
 
 des3_cbf() ->
     [{des3_cbf,
-     [hexstr2bin("0123456789abcdef"), 
+     [hexstr2bin("0123456789abcdef"),
+      hexstr2bin("fedcba9876543210"),
+      hexstr2bin("0f2d4b6987a5c3e1")],
+     hexstr2bin("1234567890abcdef"),
+     <<"Now is the time for all ">>
+     }].
+
+des3_cfb() ->
+    [{des3_cfb,
+     [hexstr2bin("0123456789abcdef"),
       hexstr2bin("fedcba9876543210"),
       hexstr2bin("0f2d4b6987a5c3e1")],
      hexstr2bin("1234567890abcdef"),

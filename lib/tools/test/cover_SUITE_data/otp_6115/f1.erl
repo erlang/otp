@@ -1,13 +1,6 @@
 -module(f1).
--export([start_a/0, start_b/0]).
+-export([non_tail_call_f2_wait/0]).
 
-start_a() ->
-    f2:start(fun() -> 
-		     ok
-	     end).
-
-start_b() ->
-    f2:start(fun fun1/0).
-
-fun1() ->
-    ok.
+non_tail_call_f2_wait() ->
+    f2:wait(),
+    im_back.

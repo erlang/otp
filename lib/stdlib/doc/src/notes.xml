@@ -31,6 +31,81 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <c>zip:unzip/1,2</c> and <c>zip:extract/1,2</c>
+	    functions have been updated to handle directory traversal
+	    exploits. Any element in the zip file that contains a
+	    path that points to a directory above the top level
+	    working directory, <c>cwd</c>, will instead be extracted
+	    in <c>cwd</c>. An error message is printed for any such
+	    element in the zip file during the unzip operation. The
+	    <c>keep_old_files</c> option determines if a file will
+	    overwrite a previous file with the same name within the
+	    zip file.</p>
+          <p>
+	    Own Id: OTP-13633</p>
+        </item>
+        <item>
+	    <p> Correct the contracts for
+	    <c>ets:match_object/1,3</c>. </p>
+          <p>
+	    Own Id: OTP-13721 Aux Id: PR-1113 </p>
+        </item>
+        <item>
+          <p>
+	    Errors in type specification and Emacs template
+	    generation for <c>gen_statem:code_change/4</c> has been
+	    fixed from bugs.erlang.org's Jira cases ERL-172 and
+	    ERL-187.</p>
+          <p>
+	    Own Id: OTP-13746 Aux Id: ERL-172, ERL-187 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    gen_statem has been changed to set the callback mode for
+	    a server to what Module:callback_mode/0 returns. This
+	    facilitates e.g code downgrade since the callback mode
+	    now becomes a property of the currently active code, not
+	    of the server process.</p>
+          <p>
+	    Exception handling from Module:init/1 has also been
+	    improved.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13752</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 3.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Correct a bug regarding typed records in the Erlang
+	    shell. The bug was introduced in OTP-19.0. </p>
+          <p>
+	    Own Id: OTP-13719 Aux Id: ERL-182 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -511,7 +586,7 @@
         </item>
         <item>
           <p>
-	    The <c>stdlib</c> reference manual is updated to show
+	    The STDLIB reference manual is updated to show
 	    correct information about the return value of
 	    <c>gen_fsm:reply/2</c>.</p>
           <p>
@@ -6221,7 +6296,7 @@
             documentation for <c>compile</c> on how to provide the key
             for encrypting, and the documentation for <c>beam_lib</c>
             on how to provide the key for decryption so that tools such
-            as the Debugger, <c>xref</c>, or <c>cover</c> can be used.</p>
+            as the Debugger, Xref, or Cover can be used.</p>
           <p>The <c>beam_lib:chunks/2</c> functions now accepts an
             additional chunk type <c>compile_info</c> to retrieve
             the compilation information directly as a term. (Thanks

@@ -38,7 +38,7 @@
     <p>The Report Browser (RB) tool is used to browse and
       format error reports written by the error logger handler
       <seealso marker="stdlib:log_mf_h"><c>log_mf_h</c></seealso>
-      in <c>STDLIB</c>.</p>
+      in STDLIB.</p>
   </description>
 
   <funcs>
@@ -62,7 +62,7 @@
           reports that match that filter.</p>
         <p>The reports are matched using the
           <seealso marker="stdlib:proplists"><c>proplists</c></seealso>
-          module in <c>STDLIB</c>. The report must be a proplist
+          module in STDLIB. The report must be a proplist
           to be matched against any of the filters.</p>
         <p>If the filter has the form <c>{Key, RegExp, re}</c>, the
           report must contain an element with key equal to <c>Key</c> and
@@ -102,7 +102,7 @@
         </list>
         <p>For a definition of valid regular expressions and options, see
           the <seealso marker="stdlib:re"><c>re</c></seealso> module in
-          <c>STDLIB</c> and in particular function <c>re:run/3</c>.</p>
+          STDLIB and in particular function <c>re:run/3</c>.</p>
 	  <p>For details about data type <c>mp()</c>, see 
 	<seealso marker="stdlib:re#type-mp"><c>re:mp()</c></seealso>.</p>
       </desc>

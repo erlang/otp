@@ -55,7 +55,9 @@ groups() ->
 basic_tests() ->
     [basic_erlang_client_openssl_server,
      basic_erlang_server_openssl_client,
-     expired_session].
+     expired_session,
+     ssl2_erlang_server_openssl_client_comp
+    ].
 
 all_versions_tests() ->
     [
@@ -74,7 +76,8 @@ all_versions_tests() ->
      ciphers_dsa_signed_certs,
      erlang_client_bad_openssl_server,
      expired_session,
-     ssl2_erlang_server_openssl_client].
+     ssl2_erlang_server_openssl_client
+    ].
 
 alpn_tests() ->
     [erlang_client_alpn_openssl_server_alpn,
@@ -116,7 +119,7 @@ init_per_suite(Config0) ->
 	    catch crypto:stop(),
 	    try crypto:start() of
 		ok ->
-		    ssl:start(),
+		    ssl_test_lib:clean_start(),
 		    {ok,  _} = make_certs:all(proplists:get_value(data_dir, Config0),
 					      proplists:get_value(priv_dir, Config0)),
 		    Config1 = ssl_test_lib:make_dsa_cert(Config0),
@@ -180,7 +183,8 @@ special_init(TestCase, Config)
     {ok, Version} = application:get_env(ssl, protocol_version),
     check_sane_openssl_renegotaite(Config, Version);
 
-special_init(ssl2_erlang_server_openssl_client, Config) ->
+special_init(Case, Config) when Case == ssl2_erlang_server_openssl_client;
+				Case == ssl2_erlang_server_openssl_client_comp ->
     case ssl_test_lib:supports_ssl_tls_version(sslv2) of
 	true ->
 	     Config;
@@ -954,8 +958,52 @@ ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
     Data = "From openssl to erlang",
 
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
+					      {from, self()}, 
+					      {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    Exe = "openssl",
+    Args = ["s_client", "-connect", "localhost:" ++ integer_to_list(Port), 
+	"-ssl2", "-msg"],
+    
+    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),  
+    true = port_command(OpenSslPort, Data),
+    
+    ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]), 
+    receive
+	{'EXIT', OpenSslPort, _} = Exit ->
+	    ct:log("Received: ~p ~n", [Exit]),
+	    ok
+    end,
+    receive 
+	{'EXIT', _, _} = UnkownExit ->
+	    Msg = lists:flatten(io_lib:format("Received: ~p ~n", [UnkownExit])),
+	    ct:log(Msg),
+	    ct:comment(Msg),
+	    ok
+    after 0 ->
+	    ok
+    end,		
+    ssl_test_lib:check_result(Server, {error, {tls_alert, "handshake failure"}}),
+    process_flag(trap_exit, false).
+%%--------------------------------------------------------------------
+ssl2_erlang_server_openssl_client_comp() ->
+    [{doc,"Test that ssl v2 clients are rejected"}].
+
+ssl2_erlang_server_openssl_client_comp(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    V2Compat = proplists:get_value(v2_hello_compatible, Config), 
+
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    
+    Data = "From openssl to erlang",
+
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
-			   {options, ServerOpts}]),
+			   {options, [{v2_hello_compatible, V2Compat} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     
     Exe = "openssl",
@@ -1264,7 +1312,7 @@ client_check_result(Port, DataExpected, DataReceived) ->
                 _ ->
                     client_check_result(Port, DataExpected, NewData)
             end
-    after 3000 ->
+    after 20000 ->
 	    ct:fail({"Time out on openSSL Client", {expected, DataExpected},
 		     {got, DataReceived}})   
     end.

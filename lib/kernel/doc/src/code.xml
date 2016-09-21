@@ -86,11 +86,11 @@
       an <c>ebin</c> directory are ignored.</p>
     <p>All application directories found in the additional directories
       appears before the standard OTP applications, except for the
-      <c>Kernel</c> and <c>STDLIB</c> applications, which are placed before
+      Kernel and STDLIB applications, which are placed before
       any additional applications. In other words, modules found in any
       of the additional library directories override modules with
-      the same name in OTP, except for modules in <c>Kernel</c> and
-      <c>STDLIB</c>.</p>
+      the same name in OTP, except for modules in Kernel and
+      STDLIB.</p>
     <p>Environment variable <c>ERL_LIBS</c> (if defined) is to contain
       a colon-separated (for Unix-like systems) or semicolon-separated
       (for Windows) list of additional libraries.</p>
@@ -151,7 +151,7 @@ zip:create("mnesia-4.4.7.ez",
      <c>$OTPROOT/lib/mnesia.ez/mnesia/ebin</c> or
      <c>$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.</p>
 
-    <p>The code server uses module <c>erl_prim_loader</c> in <c>ERTS</c>
+    <p>The code server uses module <c>erl_prim_loader</c> in ERTS
      (possibly through <c>erl_boot_server</c>) to read code files from
      archives. However, the functions in <c>erl_prim_loader</c> can also be
      used by other applications to read files from archives. For
@@ -651,6 +651,11 @@ ok = code:finish_loading(Prepared),
         <p>Purges the code for <c><anno>Module</anno></c>, that is, removes code
           marked as old. If some processes still linger in the old code,
           these processes are killed before the code is removed.</p>
+	<note><p>As of ERTS version 9.0, a process is only considered
+	to be lingering in the code if it has direct references to the code.
+	For more information see documentation of
+	<seealso marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>,
+	which is used in order to determine this.</p></note>
         <p>Returns <c>true</c> if successful and any process is needed to
           be killed, otherwise <c>false</c>.</p>
       </desc>
@@ -661,6 +666,11 @@ ok = code:finish_loading(Prepared),
       <desc>
         <p>Purges the code for <c><anno>Module</anno></c>, that is, removes code
           marked as old, but only if no processes linger in it.</p>
+	<note><p>As of ERTS version 9.0, a process is only considered
+	to be lingering in the code if it has direct references to the code.
+	For more information see documentation of
+	<seealso marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>,
+	which is used in order to determine this.</p></note>
         <p>Returns <c>false</c> if the module cannot be purged because
           of processes lingering in old code, otherwise <c>true</c>.</p>
       </desc>
@@ -678,9 +688,9 @@ ok = code:finish_loading(Prepared),
         <p>Normally, <c><anno>Loaded</anno></c> is the absolute filename
           <c>Filename</c> from which the code is obtained. If the module
           is preloaded (see
-          <seealso marker="sasl:script"><c>sasl:script(4)</c></seealso>),
+          <seealso marker="sasl:script"><c>script(4)</c></seealso>),
           <c>Loaded==preloaded</c>. If the module is Cover-compiled (see
-          <seealso marker="tools:cover"><c>tools:cover(3)</c></seealso>),
+          <seealso marker="tools:cover"><c>cover(3)</c></seealso>),
           <c>Loaded==cover_compiled</c>.</p>
       </desc>
     </func>

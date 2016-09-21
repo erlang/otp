@@ -156,7 +156,7 @@
 	<seealso marker="erts:erl#max_processes"><c>+P</c></seealso>
 	command-line flag in the
 	<seealso marker="erts:erl"><c>erl(1)</c></seealso>
-	manual page in <c>erts</c>.</cell>
+	manual page in ERTS.</cell>
       </row>
       <row>
 	<cell>Known nodes</cell>
@@ -236,7 +236,7 @@
 	<seealso marker="erts:erl#max_ports"><c>+Q</c></seealso>
 	command-line flag in the
 	<seealso marker="erts:erl"><c>erl(1)</c></seealso> manual page
-	in <c>erts</c>.</cell>
+	in ERTS.</cell>
       </row>
       <row>
 	<cell><marker id="files_sockets"></marker>Open files and

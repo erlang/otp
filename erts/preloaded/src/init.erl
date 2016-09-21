@@ -423,9 +423,6 @@ loop(State) ->
 	    Loaded = State#state.loaded, %% boot_loop but is handled here 
 	    From ! {init,Loaded},        %% anyway.
 	    loop(State);
-	{From, {ensure_loaded, _}} ->
-	    From ! {init, not_allowed},
-	    loop(State);
 	Msg ->
 	    loop(handle_msg(Msg,State))
     end.
@@ -465,6 +462,8 @@ do_handle_msg(Msg,State) ->
 		    From ! {init,ok},
 		    {new_state,State#state{subscribed = [Pid|Subscribed]}}
 	    end;
+	{From, {ensure_loaded, _}} ->
+	    From ! {init, not_allowed};
 	X ->
 	    case whereis(user) of
 		undefined ->
@@ -670,9 +669,9 @@ unload(_) ->
     do_unload(sub([heart|erlang:pre_loaded()],erlang:loaded())).
 
 do_unload([M|Mods]) ->
-    catch erts_internal:purge_module(M),
+    catch erlang:purge_module(M),
     catch erlang:delete_module(M),
-    catch erts_internal:purge_module(M),
+    catch erlang:purge_module(M),
     do_unload(Mods);
 do_unload([]) ->
     purge_all_hipe_refs(),

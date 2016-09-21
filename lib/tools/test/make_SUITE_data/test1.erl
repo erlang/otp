@@ -3,6 +3,8 @@
 -vsn('$Revision: /main/release/2 $').
 -compile(export_all).
 
+-warning("a warning").
+
 f1() ->
     true.
 

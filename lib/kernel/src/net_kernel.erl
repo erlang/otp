@@ -59,6 +59,8 @@
 	 connect_node/1,
 	 monitor_nodes/1,
 	 monitor_nodes/2,
+	 setopts/2,
+	 getopts/2,
 	 start/1,
 	 stop/0]).
 
@@ -111,7 +113,7 @@
 	 }).
 
 -record(listen, {
-		 listen,     %% listen pid
+		 listen,     %% listen socket
 		 accept,     %% accepting pid
 		 address,    %% #net_address
 		 module      %% proto module
@@ -384,7 +386,7 @@ init({Name, LongOrShortNames, TickT, CleanHalt}) ->
 			connections =
 			ets:new(sys_dist,[named_table,
 					  protected,
-					  {keypos, 2}]),
+					  {keypos, #connection.node}]),
 			listen = Listeners,
 			allowed = [],
 			verbose = 0
@@ -553,6 +555,38 @@ handle_call({new_ticktime,_T,_TP},
 	    From,
 	    #state{tick = #tick_change{time = T}} = State) ->
     async_reply({reply, {ongoing_change_to, T}, State}, From);
+
+handle_call({setopts, new, Opts}, From, State) ->
+    Ret = setopts_new(Opts, State),
+    async_reply({reply, Ret, State}, From);
+
+handle_call({setopts, Node, Opts}, From, State) ->
+    Return =
+	case ets:lookup(sys_dist, Node) of
+	    [Conn] when Conn#connection.state =:= up ->
+		case call_owner(Conn#connection.owner, {setopts, Opts}) of
+		    {ok, Ret} -> Ret;
+		    _ -> {error, noconnection}
+		end;
+
+	    _ ->
+		{error, noconnection}
+    end,
+    async_reply({reply, Return, State}, From);
+
+handle_call({getopts, Node, Opts}, From, State) ->
+    Return =
+	case ets:lookup(sys_dist, Node) of
+	    [Conn] when Conn#connection.state =:= up ->
+		case call_owner(Conn#connection.owner, {getopts, Opts}) of
+		    {ok, Ret} -> Ret;
+		    _ -> {error, noconnection}
+		end;
+
+	    _ ->
+		{error, noconnection}
+    end,
+    async_reply({reply, Return, State}, From);
 
 handle_call(_Msg, _From, State) ->
     {noreply, State}.
@@ -1608,3 +1642,93 @@ async_gen_server_reply(From, Msg) ->
         {'EXIT', _} ->
             ok
     end.
+
+call_owner(Owner, Msg) ->
+    Mref = monitor(process, Owner),
+    Owner ! {self(), Mref, Msg},
+    receive
+	{Mref, Reply} ->
+	    erlang:demonitor(Mref, [flush]),
+	    {ok, Reply};
+	{'DOWN', Mref, _, _, _} ->
+	    error
+    end.
+
+
+-spec setopts(Node, Options) -> ok | {error, Reason} | ignored when
+      Node :: node() | new,
+      Options :: [inet:socket_setopt()],
+      Reason :: inet:posix() | noconnection.
+
+setopts(Node, Opts) when is_atom(Node), is_list(Opts) ->
+    request({setopts, Node, Opts}).
+
+setopts_new(Opts, State) ->
+    %% First try setopts on listening socket(s)
+    %% Bail out on failure.
+    %% If successful, we are pretty sure Opts are ok
+    %% and we continue with config params and pending connections.
+    case setopts_on_listen(Opts, State#state.listen) of
+	ok ->
+	    setopts_new_1(Opts);
+	Fail -> Fail
+    end.
+
+setopts_on_listen(_, []) -> ok;
+setopts_on_listen(Opts, [#listen {listen = LSocket, module = Mod} | T]) ->
+    try Mod:setopts(LSocket, Opts) of
+	ok ->
+	    setopts_on_listen(Opts, T);
+	Fail -> Fail
+    catch
+	error:undef -> {error, enotsup}
+    end.
+
+setopts_new_1(Opts) ->
+    ConnectOpts = case application:get_env(kernel, inet_dist_connect_options) of
+		      {ok, CO} -> CO;
+		      _ -> []
+		  end,
+    application:set_env(kernel, inet_dist_connect_options,
+			merge_opts(Opts,ConnectOpts)),
+    ListenOpts = case application:get_env(kernel, inet_dist_listen_options) of
+		     {ok, LO} -> LO;
+		     _ -> []
+		 end,
+    application:set_env(kernel, inet_dist_listen_options,
+			merge_opts(Opts, ListenOpts)),
+    case lists:keyfind(nodelay, 1, Opts) of
+	{nodelay, ND} when is_boolean(ND) ->
+	    application:set_env(kernel, dist_nodelay, ND);
+	_ -> ignore
+    end,
+
+    %% Update any pending connections
+    PendingConns = ets:select(sys_dist, [{'_',
+					  [{'=/=',{element,#connection.state,'$_'},up}],
+					  ['$_']}]),
+    lists:foreach(fun(#connection{state = pending, owner = Owner}) ->
+			  call_owner(Owner, {setopts, Opts});
+		     (#connection{state = up_pending, pending_owner = Owner}) ->
+			  call_owner(Owner, {setopts, Opts});
+		     (_) -> ignore
+		  end, PendingConns),
+    ok.
+
+merge_opts([], B) ->
+    B;
+merge_opts([H|T], B0) ->
+    {Key, _} = H,
+    B1 = lists:filter(fun({K,_}) -> K =/= Key end, B0),
+    merge_opts(T, [H | B1]).
+
+-spec getopts(Node, Options) ->
+	{'ok', OptionValues} | {'error', Reason} | ignored when
+      Node :: node(),
+      Options :: [inet:socket_getopt()],
+      OptionValues :: [inet:socket_setopt()],
+      Reason :: inet:posix() | noconnection.
+
+getopts(Node, Opts) when is_atom(Node), is_list(Opts) ->
+    request({getopts, Node, Opts}).
+

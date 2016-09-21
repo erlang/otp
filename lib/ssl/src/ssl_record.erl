@@ -30,8 +30,7 @@
 -include("ssl_alert.hrl").
 
 %% Connection state handling
--export([init_connection_states/2,
-	 current_connection_state/2, pending_connection_state/2,
+-export([initial_security_params/1, current_connection_state/2, pending_connection_state/2,
 	 activate_pending_connection_state/2,
 	 set_security_params/3,
          set_mac_secret/4,
@@ -39,7 +38,8 @@
          set_pending_cipher_state/4,
 	 set_renegotiation_flag/2,
 	 set_client_verify_data/3,
-	 set_server_verify_data/3]).
+	 set_server_verify_data/3,
+	 empty_connection_state/2, initial_connection_state/2, record_protocol_role/1]).
 
 %% Encoding records
 -export([encode_handshake/3, encode_alert_record/3,
@@ -52,122 +52,92 @@
 -export([cipher/4, decipher/4, is_correct_mac/2,
 	 cipher_aead/4, decipher_aead/4]).
 
--export_type([ssl_version/0, ssl_atom_version/0]).
+-export_type([ssl_version/0, ssl_atom_version/0, connection_states/0, connection_state/0]).
 
 -type ssl_version()       :: {integer(), integer()}.
 -type ssl_atom_version() :: tls_record:tls_atom_version().
-
+-type connection_states() :: term(). %% Map
+-type connection_state() :: term(). %% Map
 %%====================================================================
 %% Internal application API
 %%====================================================================
 
-%%--------------------------------------------------------------------
--spec init_connection_states(client | server, one_n_minus_one | zero_n | disabled ) ->
-				      #connection_states{}.
-%%
-%% Description: Creates a connection_states record with appropriate
-%% values for the initial SSL connection setup.
-%%--------------------------------------------------------------------
-init_connection_states(Role, BeastMitigation) ->
-    ConnectionEnd = record_protocol_role(Role),
-    Current = initial_connection_state(ConnectionEnd, BeastMitigation),
-    Pending = empty_connection_state(ConnectionEnd, BeastMitigation),
-    #connection_states{dtls_write_msg_seq = 1, % only used by dtls
-		       current_read = Current,
-		       pending_read = Pending,
-		       current_write = Current,
-		       pending_write = Pending
-                      }.
 
 %%--------------------------------------------------------------------
--spec current_connection_state(#connection_states{}, read | write) ->
-				      #connection_state{}.
+-spec current_connection_state(connection_states(), read | write) ->
+				      connection_state().
 %%
-%% Description: Returns the instance of the connection_state record
+%% Description: Returns the instance of the connection_state map
 %% that is currently defined as the current conection state.
 %%--------------------------------------------------------------------
-current_connection_state(#connection_states{current_read = Current},
-			 read) ->
-    Current;
-current_connection_state(#connection_states{current_write = Current},
-			 write) ->
-    Current.
+current_connection_state(ConnectionStates, read) ->
+    maps:get(current_read, ConnectionStates);
+current_connection_state(ConnectionStates, write) ->
+    maps:get(current_write, ConnectionStates).
 
 %%--------------------------------------------------------------------
--spec pending_connection_state(#connection_states{}, read | write) ->
-				      term().
+-spec pending_connection_state(connection_states(), read | write) ->
+				      connection_state().
 %%
-%% Description: Returns the instance of the connection_state record
-%% that is currently defined as the pending conection state.
+%% Description: Returns the instance of the connection_state map
+%% that is pendingly defined as the pending conection state.
 %%--------------------------------------------------------------------
-pending_connection_state(#connection_states{pending_read = Pending},
-			 read) ->
-    Pending;
-pending_connection_state(#connection_states{pending_write = Pending},
-			 write) ->
-    Pending.
-
+pending_connection_state(ConnectionStates, read) ->
+    maps:get(pending_read, ConnectionStates);
+pending_connection_state(ConnectionStates, write) ->
+    maps:get(pending_write, ConnectionStates).
 
 %%--------------------------------------------------------------------
--spec activate_pending_connection_state(#connection_states{}, read | write) ->
-					       #connection_states{}.
+-spec activate_pending_connection_state(connection_states(), read | write) ->
+					       connection_states().
 %%
 %% Description: Creates a new instance of the connection_states record
 %% where the pending state of <Type> has been activated.
 %%--------------------------------------------------------------------
-activate_pending_connection_state(States =
-                                  #connection_states{current_read = Current,
-						     pending_read = Pending},
+activate_pending_connection_state(#{current_read := Current,
+				    pending_read := Pending} = States,
                                   read) ->
-    NewCurrent = Pending#connection_state{epoch = dtls_next_epoch(Current),
-					  sequence_number = 0},
-    BeastMitigation = Pending#connection_state.beast_mitigation,
-    SecParams = Pending#connection_state.security_parameters,
+    #{secure_renegotiation := SecureRenegotation} = Current,
+    #{beast_mitigation := BeastMitigation,
+      security_parameters := SecParams} = Pending,
+    NewCurrent = Pending#{sequence_number => 0},
     ConnectionEnd = SecParams#security_parameters.connection_end,
     EmptyPending = empty_connection_state(ConnectionEnd, BeastMitigation),
-    SecureRenegotation = NewCurrent#connection_state.secure_renegotiation,
-    NewPending = EmptyPending#connection_state{secure_renegotiation = SecureRenegotation},
-    States#connection_states{current_read = NewCurrent,
-                             pending_read = NewPending
-                            };
+    NewPending = EmptyPending#{secure_renegotiation => SecureRenegotation},
+    States#{current_read => NewCurrent,
+	    pending_read => NewPending
+	   };
 
-activate_pending_connection_state(States =
-                                  #connection_states{current_write = Current,
-						     pending_write = Pending},
+activate_pending_connection_state(#{current_write := Current,
+				    pending_write := Pending} = States,
                                   write) ->
-    NewCurrent = Pending#connection_state{epoch = dtls_next_epoch(Current),
-					  sequence_number = 0},
-    BeastMitigation = Pending#connection_state.beast_mitigation,
-    SecParams = Pending#connection_state.security_parameters,
+    NewCurrent = Pending#{sequence_number => 0},
+    #{secure_renegotiation := SecureRenegotation} = Current,
+    #{beast_mitigation := BeastMitigation,
+      security_parameters := SecParams} = Pending,
     ConnectionEnd = SecParams#security_parameters.connection_end,
     EmptyPending = empty_connection_state(ConnectionEnd, BeastMitigation),
-    SecureRenegotation = NewCurrent#connection_state.secure_renegotiation,
-    NewPending = EmptyPending#connection_state{secure_renegotiation = SecureRenegotation},
-    States#connection_states{current_write = NewCurrent,
-                             pending_write = NewPending
-                            }.
-
+    NewPending = EmptyPending#{secure_renegotiation => SecureRenegotation},
+    States#{current_write => NewCurrent,
+	    pending_write => NewPending
+	   }.
 
 %%--------------------------------------------------------------------
 -spec set_security_params(#security_parameters{}, #security_parameters{},
-			     #connection_states{}) -> #connection_states{}.
+			  connection_states()) -> connection_states().
 %%
 %% Description: Creates a new instance of the connection_states record
 %% where the pending states gets its security parameters updated.
 %%--------------------------------------------------------------------
-set_security_params(ReadParams, WriteParams, States =
-		       #connection_states{pending_read = Read,
-					  pending_write = Write}) ->
-    States#connection_states{pending_read =
-                             Read#connection_state{security_parameters =
-                                                   ReadParams},
-                             pending_write =
-                             Write#connection_state{security_parameters =
-                                                    WriteParams}
-                            }.
+set_security_params(ReadParams, WriteParams, 
+		    #{pending_read := Read,
+		      pending_write := Write} = States) ->
+    States#{pending_read  => Read#{security_parameters => ReadParams},
+	    pending_write => Write#{security_parameters => WriteParams}
+	   }.
 %%--------------------------------------------------------------------
 -spec set_mac_secret(binary(), binary(), client | server,
-			#connection_states{}) -> #connection_states{}.
+		     connection_states()) -> connection_states().
 %%
 %% Description: update the mac_secret field in pending connection states
 %%--------------------------------------------------------------------
@@ -177,152 +147,145 @@ set_mac_secret(ClientWriteMacSecret, ServerWriteMacSecret, server, States) ->
     set_mac_secret(ClientWriteMacSecret, ServerWriteMacSecret, States).
 
 set_mac_secret(ReadMacSecret, WriteMacSecret,
-	       States = #connection_states{pending_read = Read,
-					   pending_write = Write}) ->
-    States#connection_states{
-      pending_read = Read#connection_state{mac_secret = ReadMacSecret},
-      pending_write = Write#connection_state{mac_secret = WriteMacSecret}
+	       States = #{pending_read := Read,
+			  pending_write := Write}) ->
+    States#{pending_read => Read#{mac_secret => ReadMacSecret},
+	    pending_write => Write#{mac_secret => WriteMacSecret}
      }.
 
 
 %%--------------------------------------------------------------------
--spec set_master_secret(binary(), #connection_states{}) -> #connection_states{}.
+-spec set_master_secret(binary(), connection_states()) -> connection_states().
 %%
 %% Description: Set master_secret in pending connection states
 %%--------------------------------------------------------------------
 set_master_secret(MasterSecret,
-                  States = #connection_states{pending_read = Read,
-                                              pending_write = Write}) ->
-    ReadSecPar = Read#connection_state.security_parameters,
-    Read1 = Read#connection_state{
-              security_parameters = ReadSecPar#security_parameters{
-                                      master_secret = MasterSecret}},
-    WriteSecPar = Write#connection_state.security_parameters,
-    Write1 = Write#connection_state{
-               security_parameters = WriteSecPar#security_parameters{
-                                       master_secret = MasterSecret}},
-    States#connection_states{pending_read = Read1, pending_write = Write1}.
+                  States = #{pending_read := Read = #{security_parameters := ReadSecPar},
+			     pending_write := Write = #{security_parameters := WriteSecPar}}) ->
+    Read1 = Read#{security_parameters => ReadSecPar#security_parameters{
+					   master_secret = MasterSecret}},
+    Write1 = Write#{security_parameters => WriteSecPar#security_parameters{
+					     master_secret = MasterSecret}},
+    States#{pending_read => Read1, pending_write => Write1}.
 
 %%--------------------------------------------------------------------
--spec set_renegotiation_flag(boolean(), #connection_states{}) -> #connection_states{}.
+-spec set_renegotiation_flag(boolean(), connection_states()) -> connection_states().
 %%
 %% Description: Set secure_renegotiation in pending connection states
 %%--------------------------------------------------------------------
-set_renegotiation_flag(Flag, #connection_states{
-			 current_read = CurrentRead0,
-			 current_write = CurrentWrite0,
-			 pending_read = PendingRead0,
-			 pending_write = PendingWrite0}
+set_renegotiation_flag(Flag, #{current_read := CurrentRead0,
+			       current_write := CurrentWrite0,
+			       pending_read := PendingRead0,
+			       pending_write := PendingWrite0}
 		       = ConnectionStates) ->
-    CurrentRead = CurrentRead0#connection_state{secure_renegotiation = Flag},
-    CurrentWrite = CurrentWrite0#connection_state{secure_renegotiation = Flag},
-    PendingRead = PendingRead0#connection_state{secure_renegotiation = Flag},
-    PendingWrite = PendingWrite0#connection_state{secure_renegotiation = Flag},
-    ConnectionStates#connection_states{current_read = CurrentRead,
-				       current_write = CurrentWrite,
-				       pending_read = PendingRead,
-				       pending_write = PendingWrite}.
+    CurrentRead = CurrentRead0#{secure_renegotiation => Flag},
+    CurrentWrite = CurrentWrite0#{secure_renegotiation => Flag},
+    PendingRead = PendingRead0#{secure_renegotiation => Flag},
+    PendingWrite = PendingWrite0#{secure_renegotiation => Flag},
+    ConnectionStates#{current_read => CurrentRead,
+		      current_write => CurrentWrite,
+		      pending_read => PendingRead,
+		      pending_write => PendingWrite}.
 
 %%--------------------------------------------------------------------
 -spec set_client_verify_data(current_read | current_write | current_both,
-			     binary(), #connection_states{})->
-				    #connection_states{}.
+			     binary(), connection_states())->
+				    connection_states().
 %%
 %% Description: Set verify data in connection states.
 %%--------------------------------------------------------------------
 set_client_verify_data(current_read, Data,
-		       #connection_states{current_read = CurrentRead0,
-					  pending_write = PendingWrite0}
+		       #{current_read := CurrentRead0,
+			 pending_write := PendingWrite0}
 		       = ConnectionStates) ->
-    CurrentRead = CurrentRead0#connection_state{client_verify_data = Data},
-    PendingWrite = PendingWrite0#connection_state{client_verify_data = Data},
-    ConnectionStates#connection_states{current_read = CurrentRead,
-				       pending_write = PendingWrite};
+    CurrentRead = CurrentRead0#{client_verify_data => Data},
+    PendingWrite = PendingWrite0#{client_verify_data => Data},
+    ConnectionStates#{current_read => CurrentRead,
+		      pending_write => PendingWrite};
 set_client_verify_data(current_write, Data,
-		       #connection_states{pending_read = PendingRead0,
-					  current_write = CurrentWrite0}
+		       #{pending_read := PendingRead0,
+			 current_write := CurrentWrite0}
 		       = ConnectionStates) ->
-    PendingRead = PendingRead0#connection_state{client_verify_data = Data},
-    CurrentWrite = CurrentWrite0#connection_state{client_verify_data = Data},
-    ConnectionStates#connection_states{pending_read = PendingRead,
-				       current_write = CurrentWrite};
+    PendingRead = PendingRead0#{client_verify_data => Data},
+    CurrentWrite = CurrentWrite0#{client_verify_data => Data},
+    ConnectionStates#{pending_read => PendingRead,
+		      current_write => CurrentWrite};
 set_client_verify_data(current_both, Data,
-		       #connection_states{current_read = CurrentRead0,
-					  current_write = CurrentWrite0}
+		       #{current_read := CurrentRead0,
+			 current_write := CurrentWrite0}
 		       = ConnectionStates) ->
-    CurrentRead = CurrentRead0#connection_state{client_verify_data = Data},
-    CurrentWrite = CurrentWrite0#connection_state{client_verify_data = Data},
-    ConnectionStates#connection_states{current_read = CurrentRead,
-				       current_write = CurrentWrite}.
+    CurrentRead = CurrentRead0#{client_verify_data => Data},
+    CurrentWrite = CurrentWrite0#{client_verify_data => Data},
+    ConnectionStates#{current_read => CurrentRead,
+		      current_write => CurrentWrite}.
 %%--------------------------------------------------------------------
 -spec set_server_verify_data(current_read | current_write | current_both,
-			     binary(), #connection_states{})->
-				    #connection_states{}.
+			     binary(), connection_states())->
+				    connection_states().
 %%
 %% Description: Set verify data in pending connection states.
 %%--------------------------------------------------------------------
 set_server_verify_data(current_write, Data,
-		       #connection_states{pending_read = PendingRead0,
-					  current_write = CurrentWrite0}
+		       #{pending_read := PendingRead0,
+			 current_write := CurrentWrite0}
 		       = ConnectionStates) ->
-    PendingRead = PendingRead0#connection_state{server_verify_data = Data},
-    CurrentWrite = CurrentWrite0#connection_state{server_verify_data = Data},
-    ConnectionStates#connection_states{pending_read = PendingRead,
-				       current_write = CurrentWrite};
+    PendingRead = PendingRead0#{server_verify_data => Data},
+    CurrentWrite = CurrentWrite0#{server_verify_data => Data},
+    ConnectionStates#{pending_read => PendingRead,
+		      current_write => CurrentWrite};
 
 set_server_verify_data(current_read, Data,
-		       #connection_states{current_read = CurrentRead0,
-					  pending_write = PendingWrite0}
+		       #{current_read := CurrentRead0,
+			 pending_write := PendingWrite0}
 		       = ConnectionStates) ->
-    CurrentRead = CurrentRead0#connection_state{server_verify_data = Data},
-    PendingWrite = PendingWrite0#connection_state{server_verify_data = Data},
-    ConnectionStates#connection_states{current_read = CurrentRead,
-				       pending_write = PendingWrite};
+    CurrentRead = CurrentRead0#{server_verify_data => Data},
+    PendingWrite = PendingWrite0#{server_verify_data => Data},
+    ConnectionStates#{current_read => CurrentRead,
+				       pending_write => PendingWrite};
 
 set_server_verify_data(current_both, Data,
-		       #connection_states{current_read = CurrentRead0,
-					  current_write = CurrentWrite0}
+		       #{current_read := CurrentRead0,
+			 current_write := CurrentWrite0}
 		       = ConnectionStates) ->
-    CurrentRead = CurrentRead0#connection_state{server_verify_data = Data},
-    CurrentWrite = CurrentWrite0#connection_state{server_verify_data = Data},
-    ConnectionStates#connection_states{current_read = CurrentRead,
-				       current_write = CurrentWrite}.
+    CurrentRead = CurrentRead0#{server_verify_data => Data},
+    CurrentWrite = CurrentWrite0#{server_verify_data => Data},
+    ConnectionStates#{current_read => CurrentRead,
+		      current_write => CurrentWrite}.
 %%--------------------------------------------------------------------
--spec set_pending_cipher_state(#connection_states{}, #cipher_state{},
+-spec set_pending_cipher_state(connection_states(), #cipher_state{},
 			       #cipher_state{}, client | server) ->
-				      #connection_states{}.
+				      connection_states().
 %%
 %% Description: Set the cipher state in the specified pending connection state.
 %%--------------------------------------------------------------------
-set_pending_cipher_state(#connection_states{pending_read = Read,
-                                            pending_write = Write} = States,
+set_pending_cipher_state(#{pending_read := Read,
+			   pending_write := Write} = States,
                          ClientState, ServerState, server) ->
-    States#connection_states{
-        pending_read = Read#connection_state{cipher_state = ClientState},
-        pending_write = Write#connection_state{cipher_state = ServerState}};
+    States#{
+      pending_read => Read#{cipher_state => ClientState},
+      pending_write => Write#{cipher_state => ServerState}};
 
-set_pending_cipher_state(#connection_states{pending_read = Read,
-                                            pending_write = Write} = States,
+set_pending_cipher_state(#{pending_read := Read,
+			   pending_write := Write} = States,
                          ClientState, ServerState, client) ->
-    States#connection_states{
-        pending_read = Read#connection_state{cipher_state = ServerState},
-        pending_write = Write#connection_state{cipher_state = ClientState}}.
+    States#{
+      pending_read => Read#{cipher_state => ServerState},
+      pending_write => Write#{cipher_state => ClientState}}.
 
 
 %%--------------------------------------------------------------------
--spec encode_handshake(iolist(), ssl_version(), #connection_states{}) ->
-			      {iolist(), #connection_states{}}.
+-spec encode_handshake(iolist(), ssl_version(), connection_states()) ->
+			      {iolist(), connection_states()}.
 %%
 %% Description: Encodes a handshake message to send on the ssl-socket.
 %%--------------------------------------------------------------------
 encode_handshake(Frag, Version, 
-		 #connection_states{current_write = 
-					#connection_state{
-					   beast_mitigation = BeastMitigation,
-					   security_parameters =
-					       #security_parameters{bulk_cipher_algorithm = BCA}}} = 
+		 #{current_write :=
+		       #{beast_mitigation := BeastMitigation,
+			  security_parameters :=
+			     #security_parameters{bulk_cipher_algorithm = BCA}}} = 
 		     ConnectionStates)
-when is_list(Frag) ->
+  when is_list(Frag) ->
     case iolist_size(Frag) of
 	N  when N > ?MAX_PLAIN_TEXT_LENGTH ->
 	    Data = split_bin(iolist_to_binary(Frag), ?MAX_PLAIN_TEXT_LENGTH, Version, BCA, BeastMitigation),
@@ -341,8 +304,8 @@ encode_handshake(Frag, Version, ConnectionStates) ->
     encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates).
 
 %%--------------------------------------------------------------------
--spec encode_alert_record(#alert{}, ssl_version(), #connection_states{}) ->
-				 {iolist(), #connection_states{}}.
+-spec encode_alert_record(#alert{}, ssl_version(), connection_states()) ->
+				 {iolist(), connection_states()}.
 %%
 %% Description: Encodes an alert message to send on the ssl-socket.
 %%--------------------------------------------------------------------
@@ -352,8 +315,8 @@ encode_alert_record(#alert{level = Level, description = Description},
 		      ConnectionStates).
 
 %%--------------------------------------------------------------------
--spec encode_change_cipher_spec(ssl_version(), #connection_states{}) ->
-				       {iolist(), #connection_states{}}.
+-spec encode_change_cipher_spec(ssl_version(), connection_states()) ->
+				       {iolist(), connection_states()}.
 %%
 %% Description: Encodes a change_cipher_spec-message to send on the ssl socket.
 %%--------------------------------------------------------------------
@@ -361,15 +324,14 @@ encode_change_cipher_spec(Version, ConnectionStates) ->
     encode_plain_text(?CHANGE_CIPHER_SPEC, Version, <<1:8>>, ConnectionStates).
 
 %%--------------------------------------------------------------------
--spec encode_data(binary(), ssl_version(), #connection_states{}) ->
-			 {iolist(), #connection_states{}}.
+-spec encode_data(binary(), ssl_version(), connection_states()) ->
+			 {iolist(), connection_states()}.
 %%
 %% Description: Encodes data to send on the ssl-socket.
 %%--------------------------------------------------------------------
 encode_data(Frag, Version,
-	    #connection_states{current_write = #connection_state{
-				 beast_mitigation = BeastMitigation,
-				 security_parameters =
+	    #{current_write := #{beast_mitigation := BeastMitigation,
+				 security_parameters :=
 				     #security_parameters{bulk_cipher_algorithm = BCA}}} =
 		ConnectionStates) ->
     Data = split_bin(Frag, ?MAX_PLAIN_TEXT_LENGTH, Version, BCA, BeastMitigation),
@@ -390,73 +352,74 @@ compressions() ->
     [?byte(?NULL)].
 
 %%--------------------------------------------------------------------
--spec cipher(ssl_version(), iodata(), #connection_state{}, MacHash::binary()) ->
-		    {CipherFragment::binary(), #connection_state{}}.
+-spec cipher(ssl_version(), iodata(), connection_state(), MacHash::binary()) ->
+		    {CipherFragment::binary(), connection_state()}.
 %%
 %% Description: Payload encryption
 %%--------------------------------------------------------------------
 cipher(Version, Fragment,
-       #connection_state{cipher_state = CipherS0,
-			 security_parameters=
-			     #security_parameters{bulk_cipher_algorithm =
-						      BulkCipherAlgo}
-			} = WriteState0, MacHash) ->
-
+       #{cipher_state := CipherS0,
+	 security_parameters :=
+	     #security_parameters{bulk_cipher_algorithm =
+				      BulkCipherAlgo}
+	} = WriteState0, MacHash) ->
+    
     {CipherFragment, CipherS1} =
 	ssl_cipher:cipher(BulkCipherAlgo, CipherS0, MacHash, Fragment, Version),
-    {CipherFragment,  WriteState0#connection_state{cipher_state = CipherS1}}.
+    {CipherFragment,  WriteState0#{cipher_state => CipherS1}}.
 %%--------------------------------------------------------------------
--spec cipher_aead(ssl_version(), iodata(), #connection_state{}, MacHash::binary()) ->
-			 {CipherFragment::binary(), #connection_state{}}.
+-spec cipher_aead(ssl_version(), iodata(), connection_state(), MacHash::binary()) ->
+			 {CipherFragment::binary(), connection_state()}.
 %%
 %% Description: Payload encryption
 %%--------------------------------------------------------------------
 cipher_aead(Version, Fragment,
-       #connection_state{cipher_state = CipherS0,
-			 sequence_number = SeqNo,
-			 security_parameters=
-			     #security_parameters{bulk_cipher_algorithm =
-						      BulkCipherAlgo}
-			} = WriteState0, AAD) ->
-
+	    #{cipher_state := CipherS0,
+	      sequence_number := SeqNo,
+	      security_parameters :=
+		  #security_parameters{bulk_cipher_algorithm =
+					   BulkCipherAlgo}
+	     } = WriteState0, AAD) ->
+    
     {CipherFragment, CipherS1} =
 	ssl_cipher:cipher_aead(BulkCipherAlgo, CipherS0, SeqNo, AAD, Fragment, Version),
-    {CipherFragment,  WriteState0#connection_state{cipher_state = CipherS1}}.
+    {CipherFragment,  WriteState0#{cipher_state => CipherS1}}.
 
 %%--------------------------------------------------------------------
--spec decipher(ssl_version(), binary(), #connection_state{}, boolean()) -> {binary(), binary(), #connection_state{}} | #alert{}.
+-spec decipher(ssl_version(), binary(), connection_state(), boolean()) -> {binary(), binary(), connection_state} | #alert{}.
 %%
 %% Description: Payload decryption
 %%--------------------------------------------------------------------
 decipher(Version, CipherFragment,
-	 #connection_state{security_parameters =
-			       #security_parameters{bulk_cipher_algorithm =
-							BulkCipherAlgo,
-						    hash_size = HashSz},
-			   cipher_state = CipherS0
-			  } = ReadState, PaddingCheck) ->
+	 #{security_parameters :=
+	       #security_parameters{bulk_cipher_algorithm =
+					BulkCipherAlgo,
+				    hash_size = HashSz},
+	   cipher_state := CipherS0
+	  } = ReadState, PaddingCheck) ->
     case ssl_cipher:decipher(BulkCipherAlgo, HashSz, CipherS0, CipherFragment, Version, PaddingCheck) of
 	{PlainFragment, Mac, CipherS1} ->
-	    CS1 = ReadState#connection_state{cipher_state = CipherS1},
+	    CS1 = ReadState#{cipher_state => CipherS1},
 	    {PlainFragment, Mac, CS1};
 	#alert{} = Alert ->
 	    Alert
     end.
 %%--------------------------------------------------------------------
--spec decipher_aead(ssl_version(), binary(), #connection_state{}, binary()) -> {binary(), binary(), #connection_state{}} | #alert{}.
+-spec decipher_aead(ssl_version(), binary(), connection_state(), binary()) -> 
+			   {binary(), binary(), connection_state()} | #alert{}.
 %%
 %% Description: Payload decryption
 %%--------------------------------------------------------------------
 decipher_aead(Version, CipherFragment,
-	 #connection_state{sequence_number = SeqNo,
-			   security_parameters =
-			       #security_parameters{bulk_cipher_algorithm =
-							BulkCipherAlgo},
-			   cipher_state = CipherS0
-			  } = ReadState, AAD) ->
+	      #{sequence_number := SeqNo,
+		security_parameters :=
+		    #security_parameters{bulk_cipher_algorithm =
+					     BulkCipherAlgo},
+		cipher_state := CipherS0
+	       } = ReadState, AAD) ->
     case ssl_cipher:decipher_aead(BulkCipherAlgo, CipherS0, SeqNo, AAD, CipherFragment, Version) of
 	{PlainFragment, CipherS1} ->
-	    CS1 = ReadState#connection_state{cipher_state = CipherS1},
+	    CS1 = ReadState#{cipher_state => CipherS1},
 	    {PlainFragment, CS1};
 	#alert{} = Alert ->
 	    Alert
@@ -466,8 +429,15 @@ decipher_aead(Version, CipherFragment,
 %%--------------------------------------------------------------------
 empty_connection_state(ConnectionEnd, BeastMitigation) ->
     SecParams = empty_security_params(ConnectionEnd),
-    #connection_state{security_parameters = SecParams,
-                      beast_mitigation = BeastMitigation}.
+    #{security_parameters => SecParams,
+      beast_mitigation => BeastMitigation,
+      compression_state  => undefined,
+      cipher_state  => undefined,
+      mac_secret  => undefined,
+      secure_renegotiation => undefined,
+      client_verify_data => undefined,
+      server_verify_data => undefined
+     }.
 
 empty_security_params(ConnectionEnd = ?CLIENT) ->
     #security_parameters{connection_end = ConnectionEnd,
@@ -481,10 +451,10 @@ random() ->
     Random_28_bytes = ssl_cipher:random_bytes(28),
     <<?UINT32(Secs_since_1970), Random_28_bytes/binary>>.
 
-dtls_next_epoch(#connection_state{epoch = undefined}) -> %% SSL/TLS
-    undefined;
-dtls_next_epoch(#connection_state{epoch = Epoch}) -> %% DTLS
-    Epoch + 1.
+%% dtls_next_epoch(#connection_state{epoch = undefined}) -> %% SSL/TLS
+%%     undefined;
+%% dtls_next_epoch(#connection_state{epoch = Epoch}) -> %% DTLS
+%%     Epoch + 1.
 
 is_correct_mac(Mac, Mac) ->
     true;
@@ -497,11 +467,17 @@ record_protocol_role(server) ->
     ?SERVER.
 
 initial_connection_state(ConnectionEnd, BeastMitigation) ->
-    #connection_state{security_parameters =
-			  initial_security_params(ConnectionEnd),
-                      sequence_number = 0,
-                      beast_mitigation = BeastMitigation
-                     }.
+    #{security_parameters =>
+	  initial_security_params(ConnectionEnd),
+      sequence_number => 0,
+      beast_mitigation => BeastMitigation,
+      compression_state  => undefined,
+      cipher_state  => undefined,
+      mac_secret  => undefined,
+      secure_renegotiation => undefined,
+      client_verify_data => undefined,
+      server_verify_data => undefined
+     }.
 
 initial_security_params(ConnectionEnd) ->
     SecParams = #security_parameters{connection_end = ConnectionEnd,

@@ -72,7 +72,7 @@ init_per_suite(Config) ->
 		false ->
 		    {skip, io_lib:format("Bad openssl version: ~p",[OpenSSL_version])};
 		_ ->
-		    catch crypto:stop(),
+		    end_per_suite(Config),
 		    try crypto:start() of
 			ok ->
 			    {ok, Hostname0} = inet:gethostname(),
@@ -136,7 +136,7 @@ init_per_testcase(Case, Config0) ->
 	true ->
 	    end_per_testcase(Case, Config0),
 	    inets:start(),
-	    ssl:start(),
+	    ssl_test_lib:clean_start(),
 	    ServerRoot = make_dir_path([proplists:get_value(priv_dir, Config0), idp_crl, tmp]),
 	    %% start a HTTP server to serve the CRLs
 	    {ok, Httpd} = inets:start(httpd, [{ipfamily, proplists:get_value(ipfamily, Config0)},
@@ -155,7 +155,7 @@ init_per_testcase(Case, Config0) ->
 	    [{cert_dir, CertDir} | Config];
 	false ->
 	    end_per_testcase(Case, Config0),
-	    ssl:start(),
+	    ssl_test_lib:clean_start(),
 	    Config0
     end.
 

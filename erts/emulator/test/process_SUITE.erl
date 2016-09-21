@@ -372,7 +372,7 @@ eat_high(Low) ->
     process_flag(priority, high),
     receive after 1000 -> ok end,
     exit(Low, {you, are, dead}),
-    loop(erlang:monotonic_time() + erlang:convert_time_unit(5,seconds,native)).
+    loop(erlang:monotonic_time() + erlang:convert_time_unit(5,second,native)).
 
 %% Busy loop for 5 seconds.
 
@@ -2376,7 +2376,7 @@ no_priority_inversion2(Config) when is_list(Config) ->
 				       [{priority, max}, monitor, link])
 		     end,
 		     lists:seq(1, 2*erlang:system_info(schedulers))),
-    receive after 500 -> ok end,
+    receive after 2000 -> ok end,
     {PL, ML} = spawn_opt(fun () ->
 			       tok_loop()
 		       end,
@@ -2567,7 +2567,7 @@ start_node(Config, Args) when is_list(Config) ->
 			      ++ "-"
 			      ++ atom_to_list(proplists:get_value(testcase, Config))
 			      ++ "-"
-			      ++ integer_to_list(erlang:system_time(seconds))
+			      ++ integer_to_list(erlang:system_time(second))
 			      ++ "-"
 			      ++ integer_to_list(erlang:unique_integer([positive]))),
     test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).

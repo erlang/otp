@@ -41,7 +41,7 @@ init_per_suite(Config0) ->
     catch crypto:stop(),
     try crypto:start() of
         ok ->
-            ssl:start(),
+            ssl_test_lib:clean_start(),
 	    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config0),
 				     proplists:get_value(priv_dir, Config0)),
             ssl_test_lib:cert_options(Config0)

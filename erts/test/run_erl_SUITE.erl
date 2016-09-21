@@ -22,6 +22,7 @@
 
 -export([all/0, suite/0]).
 -export([basic/1,heavy/1,heavier/1,defunct/1]).
+-export([sleepy_child/1]).
 -export([ping_me_back/1]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -31,17 +32,17 @@ suite() ->
      {timetrap, {minutes, 2}}].
 
 all() -> 
-    [basic, heavy, heavier, defunct].
+    [basic, sleepy_child, heavy, heavier, defunct].
 
 
 basic(Config) when is_list(Config) ->
     case os:type() of
-	{unix,_} -> basic_1(Config);
+	{unix,_} -> basic_1(Config, "basic", "");
 	_ -> {skip,"Not Unix"}
     end.
 
-basic_1(Config) ->
-    {Node,Pipe} = do_run_erl(Config, "basic"),
+basic_1(Config, Case, Opt) ->
+    {Node,Pipe} = do_run_erl(Config, Case, Opt),
 
     ToErl = open_port({spawn,"to_erl "++Pipe}, []),
     erlang:port_command(ToErl, "halt().\r\n"),
@@ -54,6 +55,12 @@ basic_1(Config) ->
     end,
 
     ok.
+
+sleepy_child(Config) when is_list(Config) ->
+    case os:type() of
+	{unix,_} -> basic_1(Config, "sleepy_child", "-sleepy-child ");
+	_ -> {skip,"Not Unix"}
+    end.
 
 heavy(Config) when is_list(Config) ->
     case os:type() of
@@ -233,12 +240,14 @@ defunct_2(Config, Perl) ->
 %%% Utilities.
 
 do_run_erl(Config, Case) ->
+    do_run_erl(Config, Case, "").
+do_run_erl(Config, Case, Opt) ->
     Priv = proplists:get_value(priv_dir, Config),
     LogDir = filename:join(Priv, Case),
     ok = file:make_dir(LogDir),
     Pipe = LogDir ++ "/",
     NodeName = "run_erl_node_" ++ Case,
-    Cmd = "run_erl "++Pipe++" "++LogDir++" \"erl -sname " ++ NodeName ++
+    Cmd = "run_erl "++Opt++Pipe++" "++LogDir++" \"erl -sname " ++ NodeName ++
 	" -pa " ++ filename:dirname(code:which(?MODULE)) ++
 	" -s " ++ ?MODULE_STRING ++ " ping_me_back " ++
 	atom_to_list(node()) ++ "\"",

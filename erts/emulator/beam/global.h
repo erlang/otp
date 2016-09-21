@@ -61,9 +61,12 @@ struct enif_environment_t /* ErlNifEnv */
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*, Process* tracee);
 extern void erts_post_nif(struct enif_environment_t* env);
+#ifdef ERTS_DIRTY_SCHEDULERS
 extern void erts_pre_dirty_nif(ErtsSchedulerData *,
 			       struct enif_environment_t*, Process*,
-			       struct erl_module_nif*, Process* tracee);
+			       struct erl_module_nif*);
+extern void erts_post_dirty_nif(struct enif_environment_t* env);
+#endif
 extern Eterm erts_nif_taints(Process* p);
 extern void erts_print_nif_taints(int to, void* to_arg);
 void erts_unload_nif(struct erl_module_nif* nif);
@@ -998,17 +1001,33 @@ Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 
 /* beam_bif_load.c */
 #define ERTS_CPC_ALLOW_GC      (1 << 0)
-#define ERTS_CPC_COPY_LITERALS (1 << 1)
-#define ERTS_CPC_ALL           (ERTS_CPC_ALLOW_GC | ERTS_CPC_COPY_LITERALS)
+#define ERTS_CPC_ALL           ERTS_CPC_ALLOW_GC
 Eterm erts_check_process_code(Process *c_p, Eterm module, Uint flags, int *redsp, int fcalls);
+#ifdef ERTS_NEW_PURGE_STRATEGY
+Eterm erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed);
+#endif
 
-typedef struct {
-    Eterm *ptr;
-    Uint   sz;
-    Eterm pid;
-} copy_literals_t;
+typedef struct ErtsLiteralArea_ {
+    struct erl_off_heap_header *off_heap;
+    Eterm *end;
+    Eterm start[1]; /* beginning of area */
+} ErtsLiteralArea;
 
-extern copy_literals_t erts_clrange;
+#define ERTS_LITERAL_AREA_ALLOC_SIZE(N) \
+    (sizeof(ErtsLiteralArea) + sizeof(Eterm)*((N) - 1))
+
+extern erts_smp_atomic_t erts_copy_literal_area__;
+#define ERTS_COPY_LITERAL_AREA()					\
+    ((ErtsLiteralArea *) erts_smp_atomic_read_nob(&erts_copy_literal_area__))
+
+#ifdef ERTS_NEW_PURGE_STRATEGY
+extern Process *erts_literal_area_collector;
+#endif
+#ifdef ERTS_DIRTY_SCHEDULERS
+extern Process *erts_dirty_process_code_checker;
+#endif
+
+extern Process *erts_code_purger;
 
 /* beam_load.c */
 typedef struct {
@@ -1091,12 +1110,19 @@ typedef struct {
 
 #define INITIALIZE_SHCOPY(info)                         \
 do {                                                    \
+    ErtsLiteralArea *larea__ = ERTS_COPY_LITERAL_AREA();\
     info.queue_start = info.queue_default;              \
     info.bitstore_start = info.bitstore_default;        \
     info.shtable_start = info.shtable_default;          \
     info.literal_size = 0;                              \
-    info.range_ptr = erts_clrange.ptr;                  \
-    info.range_sz  = erts_clrange.sz;                   \
+    if (larea__) {					\
+	info.range_ptr = &larea__->start[0];		\
+	info.range_sz = larea__->end - info.range_ptr;	\
+    }							\
+    else {						\
+	info.range_ptr = NULL;				\
+	info.range_sz = 0;				\
+    }							\
 } while(0)
 
 #define DESTROY_SHCOPY(info)                                            \

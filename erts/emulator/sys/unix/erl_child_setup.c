@@ -348,7 +348,7 @@ child_error:
  * for posterity. */
 
 static void handle_sigchld(int sig) {
-    int buff[2], res;
+    int buff[2], res, __preverrno = errno;
 
     sys_sigblock(SIGCHLD);
 
@@ -362,6 +362,16 @@ static void handle_sigchld(int sig) {
     }
 
     sys_sigrelease(SIGCHLD);
+
+    /* We save and restore the original errno as otherwise
+       the thread we are running in may end up with an
+       unexpected errno. An example of when this happened
+       was when the select in main had gotten an EINTR but
+       before the errno was checked the signal handler
+       was called and set errno to ECHILD from waitpid
+       which caused erl_child_setup to abort as it does
+       not expect ECHILD to be set after select */
+    errno = __preverrno;
 }
 
 #if defined(__ANDROID__)
@@ -423,7 +433,7 @@ main(int argc, char *argv[])
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
     if (sigaction(SIGCHLD, &sa, 0) == -1) {
-        perror(0);
+        perror(NULL);
         exit(1);
     }
 

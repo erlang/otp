@@ -1960,6 +1960,8 @@ void process_main(void)
      ErtsMessage* msgp;
      PROCESS_MAIN_CHK_LOCKS(c_p);
 
+     ERTS_CHK_MBUF_SZ(c_p);
+
      PreFetch(0, next);
      msgp = PEEK_MESSAGE(c_p);
 
@@ -2047,6 +2049,7 @@ void process_main(void)
      }
 
      ERTS_DBG_CHK_REDS(c_p, FCALLS);
+     ERTS_CHK_MBUF_SZ(c_p);
 
      ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
      PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2161,7 +2164,10 @@ void process_main(void)
 	     c_p->i = (BeamInstr *) Arg(0); /* L1 */
 	     SWAPOUT;
 	     c_p->arity = 0;
-	     erts_smp_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_ACTIVE);
+
+	     if (!ERTS_PTMR_IS_TIMED_OUT(c_p))
+		 erts_smp_atomic32_read_band_relb(&c_p->state,
+						  ~ERTS_PSFLG_ACTIVE);
 	     ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	     c_p->current = NULL;
@@ -2580,7 +2586,9 @@ do {						\
 	c_p->fcalls = FCALLS;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, tmp_reg);
+	ERTS_CHK_MBUF_SZ(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2611,7 +2619,9 @@ do {						\
 	c_p->fcalls = FCALLS;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, tmp_reg);
+	ERTS_CHK_MBUF_SZ(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2641,7 +2651,9 @@ do {						\
 	SWAPOUT;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, reg, live);
+	ERTS_CHK_MBUF_SZ(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2682,7 +2694,9 @@ do {						\
 	SWAPOUT;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, reg, live);
+	ERTS_CHK_MBUF_SZ(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2725,7 +2739,9 @@ do {						\
 	SWAPOUT;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, reg, live);
+	ERTS_CHK_MBUF_SZ(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2763,7 +2779,9 @@ do {						\
 	c_p->fcalls = FCALLS;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, tmp_reg);
+	ERTS_CHK_MBUF_SZ(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2790,7 +2808,9 @@ do {						\
 	bf = (BifFunction) Arg(0);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, tmp_reg);
+	ERTS_CHK_MBUF_SZ(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2840,7 +2860,9 @@ do {						\
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	live_hf_end = c_p->mbuf;
+	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, reg, I);
+	ERTS_CHK_MBUF_SZ(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_HOLE_CHECK(c_p);
@@ -3026,6 +3048,7 @@ do {						\
 		 if (i == 0) {
 		     StoreBifResult(4, Op1);
 		 }
+		 ires = big_size(Op1);
 		 goto big_shift;
 	     }
 	 } else if (is_big(Op2)) {
@@ -3041,7 +3064,6 @@ do {						\
      
      OpCase(i_bsl_jIssd):
          GetArg2(2, Op1, Op2);
-
  do_bsl:
 	 if (is_small(Op2)) {
 	     i = signed_val(Op2);
@@ -3067,16 +3089,12 @@ do {						\
 			 StoreBifResult(4, Op1);
 		     }
 		 }
-		 Op1 = small_to_big(ires, tmp_big);
-#ifdef TAG_LITERAL_PTR
-		 Op1 |= TAG_LITERAL_PTR;
-#endif
+		 ires = 1; /* big_size(small_to_big(Op1)) */
 
 	     big_shift:
 		 if (i > 0) {	/* Left shift. */
-		     ires = big_size(Op1) + (i / D_EXP);
+		     ires += (i / D_EXP);
 		 } else {	/* Right shift. */
-		     ires = big_size(Op1);
 		     if (ires <= (-i / D_EXP))
 			 ires = 3; /* ??? */
 		     else
@@ -3095,6 +3113,9 @@ do {						\
 			 goto lb_Cl_error;
 		     }
 		     TestHeapPreserve(ires+1, Arg(1), Op1);
+		     if (is_small(Op1)) {
+			 Op1 = small_to_big(signed_val(Op1), tmp_big);
+		     }
 		     bigp = HTOP;
 		     Op1 = big_lshift(Op1, i, bigp);
 		     if (is_big(Op1)) {
@@ -3117,6 +3138,7 @@ do {						\
 		 if (i == 0) {
 		     StoreBifResult(4, Op1);
 		 }
+		 ires = big_size(Op1);
 		 goto big_shift;
 	     }
 	 } else if (is_big(Op2)) {
@@ -3553,11 +3575,13 @@ do {						\
 		ASSERT(c_p->scheduler_data);
 #endif
 		live_hf_end = c_p->mbuf;
+		ERTS_CHK_MBUF_SZ(c_p);
 		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2], NULL);
 		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
 		if (env.exception_thrown)
 		    nif_bif_result = THE_NON_VALUE;
 		erts_post_nif(&env);
+		ERTS_CHK_MBUF_SZ(c_p);
 
 		PROCESS_MAIN_CHK_LOCKS(c_p);
 		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
@@ -3609,7 +3633,9 @@ do {						\
 		Eterm (*bf)(Process*, Eterm*, BeamInstr*) = vbf;
 		ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 		live_hf_end = c_p->mbuf;
+		ERTS_CHK_MBUF_SZ(c_p);
 		nif_bif_result = (*bf)(c_p, reg, I);
+		ERTS_CHK_MBUF_SZ(c_p);
 		ASSERT(!ERTS_PROC_IS_EXITING(c_p) ||
 		       is_non_value(nif_bif_result));
 		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
@@ -5249,19 +5275,14 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	else {
 	    /*
 	     * Dirty CPU scheduler:
-	     *   Currently two reductions consumed per
-	     *   micro second spent in the dirty NIF.
+	     *   Reductions based on time consumed by
+	     *   the dirty NIF.
 	     */
-	    ErtsMonotonicTime time;
-	    time = erts_get_monotonic_time(esdp);
-	    time -= start_time;
-	    time = ERTS_MONOTONIC_TO_USEC(time);
-	    time *= (CONTEXT_REDS-1)/1000 + 1;
-	    ASSERT(time >= 0);
-	    if (time == 0)
-		time = 1; /* At least one reduction */
-	    time += esdp->virtual_reds;
-	    reds_used = time > INT_MAX ? INT_MAX : (int) time;
+	    Sint64 treds;
+	    treds = erts_time2reds(start_time,
+				   erts_get_monotonic_time(esdp));
+	    treds += esdp->virtual_reds;
+	    reds_used = treds > INT_MAX ? INT_MAX : (int) treds;
 	}
 
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -5379,7 +5400,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 		ASSERT(!c_p->scheduler_data);
 
 		erts_pre_dirty_nif(esdp, &env, c_p,
-				   (struct erl_module_nif*)I[2], NULL);
+				   (struct erl_module_nif*)I[2]);
 
 #ifdef DEBUG
 		result =
@@ -5388,7 +5409,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 #endif
 		    (*fp)(&env, arity, reg);
 
-		erts_post_nif(&env);
+		erts_post_dirty_nif(&env);
 
 		ASSERT(!is_value(result));
 		ASSERT(c_p->freason == TRAP);
@@ -6523,34 +6544,49 @@ call_fun(Process* p,		/* Current process. */
 		 * representation (the module has never been loaded),
 		 * or the module defining the fun has been unloaded.
 		 */
-		module = fe->module;
-		if ((modp = erts_get_module(module, code_ix)) != NULL
-		    && modp->curr.code_hdr != NULL) {
-		    /*
-		     * There is a module loaded, but obviously the fun is not
-		     * defined in it. We must not call the error_handler
-		     * (or we will get into an infinite loop).
-		     */
-		    goto badfun;
-		}
-		
-		/*
-		 * No current code for this module. Call the error_handler module
-		 * to attempt loading the module.
-		 */
 
-		ep = erts_find_function(erts_proc_get_error_handler(p),
-					am_undefined_lambda, 3, code_ix);
-		if (ep == NULL) {	/* No error handler */
-		    p->current = NULL;
-		    p->freason = EXC_UNDEF;
-		    return NULL;
+		module = fe->module;
+
+		ERTS_SMP_READ_MEMORY_BARRIER;
+		if (fe->pend_purge_address) {
+		    /*
+		     * The system is currently trying to purge the
+		     * module containing this fun. Suspend the process
+		     * and let it try again when the purge operation is
+		     * done (may succeed or not).
+		     */
+		    ep = erts_suspend_process_on_pending_purge_lambda(p);
+		    ASSERT(ep);
+		}
+		else {
+		    if ((modp = erts_get_module(module, code_ix)) != NULL
+			&& modp->curr.code_hdr != NULL) {
+			/*
+			 * There is a module loaded, but obviously the fun is not
+			 * defined in it. We must not call the error_handler
+			 * (or we will get into an infinite loop).
+			 */
+			goto badfun;
+		    }
+		
+		    /*
+		     * No current code for this module. Call the error_handler module
+		     * to attempt loading the module.
+		     */
+
+		    ep = erts_find_function(erts_proc_get_error_handler(p),
+					    am_undefined_lambda, 3, code_ix);
+		    if (ep == NULL) {	/* No error handler */
+			p->current = NULL;
+			p->freason = EXC_UNDEF;
+			return NULL;
+		    }
 		}
 		reg[0] = module;
 		reg[1] = fun;
 		reg[2] = args;
 		reg[3] = NIL;
-		return ep->addressv[erts_active_code_ix()];
+		return ep->addressv[code_ix];
 	    }
 	}
     } else if (is_export_header(hdr)) {

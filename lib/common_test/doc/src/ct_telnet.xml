@@ -198,7 +198,7 @@
       <item><marker id="type-prompt_regexp"/>
         <p>Regular expression matching all possible prompts for a specific
           target type. <c>regexp</c> must not have any groups, that is, when
-          matching, <c>re:run/3</c> (in <c>STDLIB</c>) must return a list with
+          matching, <c>re:run/3</c> (in STDLIB) must return a list with
           one single element.</p></item>
     </taglist>
   </section>

@@ -1328,10 +1328,13 @@ ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp);
 ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp)
 {
     ErlHeapFragment* hf = MBUF(p);
+    Uint sz;
 
     ASSERT(hf!=NULL && (hp - hf->mem < hf->alloc_size));
 
-    hf->used_size = hp - hf->mem;
+    sz = hp - hf->mem;
+    p->mbuf_sz -= hf->used_size - sz;
+    hf->used_size = sz;
 }	
 #endif /* inline */
 
@@ -1549,9 +1552,9 @@ extern int erts_system_profile_ts_type;
 #define ERTS_SCHEDULER_IS_DIRTY(ESDP)					\
   ((ESDP)->dirty_no.s.num != 0)
 #define ERTS_SCHEDULER_IS_DIRTY_CPU(ESDP)				\
-    ((ESDP)->dirty_no.s.type == 0)
+    (ERTS_SCHEDULER_IS_DIRTY((ESDP)) & ((ESDP)->dirty_no.s.type == 0))
 #define ERTS_SCHEDULER_IS_DIRTY_IO(ESDP)				\
-    ((ESDP)->dirty_no.s.type == 1)
+    (ERTS_SCHEDULER_IS_DIRTY((ESDP)) & ((ESDP)->dirty_no.s.type == 1))
 #else
 #define ERTS_SCHEDULER_IS_DIRTY(ESDP) 0
 #define ERTS_SCHEDULER_IS_DIRTY_CPU(ESDP) 0
@@ -1767,7 +1770,7 @@ void erts_schedule_thr_prgr_later_cleanup_op(void (*)(void *),
 					     ErtsThrPrgrLaterOp *,
 					     UWord);
 void erts_schedule_complete_off_heap_message_queue_change(Eterm pid);
-void erts_schedule_flush_trace_messages(Eterm pid);
+void erts_schedule_flush_trace_messages(Process *proc, int force_on_proc);
 int erts_flush_trace_messages(Process *c_p, ErtsProcLocks locks);
 
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
@@ -2470,6 +2473,35 @@ erts_get_atom_cache_map(Process *c_p)
 			       : erts_get_scheduler_data());
     ASSERT(esdp);
     return &esdp->atom_cache_map;
+}
+#endif
+
+#ifdef __WIN32__
+/*
+ * Don't want erts_time2reds() inlined in beam_emu.c on windows since
+ * it is compiled with gcc which fails on it. Implementation is in
+ * erl_process.c on windows.
+ */
+#  define ERTS_TIME2REDS_IMPL__ erts_time2reds__
+#else
+#  define ERTS_TIME2REDS_IMPL__ erts_time2reds
+#endif
+
+ERTS_GLB_INLINE Sint64 ERTS_TIME2REDS_IMPL__(ErtsMonotonicTime start,
+					     ErtsMonotonicTime end);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE Sint64
+ERTS_TIME2REDS_IMPL__(ErtsMonotonicTime start, ErtsMonotonicTime end)
+{
+    ErtsMonotonicTime time = end - start;
+    ASSERT(time >= 0);
+    time = ERTS_MONOTONIC_TO_USEC(time);
+    if (time == 0)
+	return (Sint64) 1; /* At least one reduction */
+    /* Currently two reductions per micro second */
+    time *= (CONTEXT_REDS-1)/1000 + 1;
+    return (Sint64) time;
 }
 #endif
 

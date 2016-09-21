@@ -299,8 +299,28 @@ spawn_opts(server, Opts) ->
 spawn_opts(worker, Opts) ->
     opts(5000, Opts).
 
-opts(HeapSize, Opts) ->
-    [{min_heap_size, HeapSize} | lists:keydelete(min_heap_size, 1, Opts)].
+%% These setting are historical rather than useful. In particular, the
+%% server setting can bloat many processes unnecessarily. Let them be
+%% disabled with -diameter min_heap_size false.
+
+opts(Def, Opts) ->
+    Key = min_heap_size,
+    case getenv(Key, Def) of
+        N when is_integer(N), 0 =< N ->
+            [{Key, N} | lists:keydelete(Key, 1, Opts)];
+        _ ->
+            Opts
+    end.
+
+%% getenv/1
+
+getenv(Key, Def) ->
+    case application:get_env(Key) of
+        {ok, T} ->
+            T;
+        undefined ->
+            Def
+    end.
 
 %% ---------------------------------------------------------------------------
 %% # wait/1

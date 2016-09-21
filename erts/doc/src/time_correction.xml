@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2015</year>
+      <year>1999</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,7 +35,7 @@
 
   <section>
     <title>New Extended Time Functionality</title>
-    <note><p>As from Erlang/OTP 18 (<c>ERTS</c> 7.0) the time functionality
+    <note><p>As from Erlang/OTP 18 (ERTS 7.0) the time functionality
     has been extended. This includes a
     <seealso marker="#The_New_Time_API">new API</seealso>
     for time and
@@ -247,7 +247,7 @@
       everything that has anything to do with time. All timers,
       regardless of it is a <c>receive ... after</c> timer, BIF timer,
       or a timer in the
-      <seealso marker="stdlib:timer"><c>stdlib:timer(3)</c></seealso>
+      <seealso marker="stdlib:timer"><c>timer(3)</c></seealso>
       module, are triggered relative Erlang monotonic time. Even
       <seealso marker="#Erlang_System_Time">Erlang system
       time</seealso> is based on Erlang monotonic time.
@@ -408,7 +408,7 @@
       and does not change later. This is the default behavior, but
       not because it is the best mode (which it is not). It is
       default <em>only</em> because this is how the runtime system
-      behaved until <c>ERTS</c> 7.0.
+      behaved until ERTS 7.0.
       Ensure that your Erlang code that can execute during a time
       warp is <seealso marker="#Time_Warp_Safe_Code">time warp
       safe</seealso> before enabling other modes.</p>
@@ -663,7 +663,7 @@
     <marker id="The_New_Erlang_Monotonic_Time"/>
     <section>
       <title>New Erlang Monotonic Time</title>
-      <p>Erlang monotonic time as such is new as from <c>ERTS</c> 7.0.
+      <p>Erlang monotonic time as such is new as from ERTS 7.0.
       It is introduced to detach time measurements, such as elapsed
       time from calendar time. In many use cases there is a need to
       measure elapsed time or specify a time relative to another point

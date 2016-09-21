@@ -750,13 +750,25 @@ xaluop_commutes(XAluOp) ->
 
 xaluop_is_shift(XAluOp) ->
   case XAluOp of
+    'add' -> false;
+    'addcc' -> false;
+    'and' -> false;
+    'andcc' -> false;
+    'cmpcc' -> false;
+    'ldsb' -> false;
+    'ldub' -> false;
+    'lduw' -> false;
+    'or' -> false;
     'sll' -> true;
-    'srl' -> true;
+    %% 'sllx' -> true;
+    'smul' -> false;
     'sra' -> true;
-    'sllx' -> true;
-    'srlx' -> true;
-    'srax' -> true;
-    _ -> false
+    %% 'srax' -> true;
+    'srl' -> true;
+    %% 'srlx' -> true;
+    'sub' -> false;
+    'subcc' -> false;
+    'xor' -> false
   end.
 
 %%% Convert an extended SPARC AluOp back to a plain AluOp.
@@ -764,9 +776,23 @@ xaluop_is_shift(XAluOp) ->
 
 xaluop_normalise(XAluOp) ->
   case XAluOp of
-    'cmp' -> 'sub';
+    'add' -> 'add';
+    'addcc' -> 'addcc';
+    'and' -> 'and';
+    'andcc' -> 'andcc';
+    %% 'cmp' -> 'sub';
     'cmpcc' -> 'subcc';
-    _ -> XAluOp
+    'ldsb' -> 'ldsb';
+    'ldub' -> 'ldub';
+    'lduw' -> 'lduw';
+    'or' -> 'or';
+    'sll' -> 'sll';
+    'smul' -> 'smul';
+    'sra' -> 'sra';
+    'srl' -> 'srl';
+    'sub' -> 'sub';
+    'subcc' -> 'subcc';
+    'xor' -> 'xor'
   end.
 
 %%% Convert an RTL condition code.

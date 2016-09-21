@@ -32,6 +32,29 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 3.0.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The translation of forms to types is improved for
+	    opaque types in a few cases. </p>
+          <p>
+	    Own Id: OTP-13682</p>
+        </item>
+        <item>
+	    <p> Add warning suppression to compiler-generated case
+	    statements. Warnings about clauses that cannot match and
+	    are also compiler generated are suppressed unless none of
+	    the clauses return. </p>
+          <p>
+	    Own Id: OTP-13723 Aux Id: ERL-159, PR-1121 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 3.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
