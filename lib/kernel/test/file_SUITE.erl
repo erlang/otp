@@ -493,22 +493,13 @@ read_write_file(Config) when is_list(Config) ->
 
     %% Try writing and reading back some term
     SomeTerm = {"This term",{will,be},[written,$t,$o],1,file,[]},
-    ok = ?FILE_MODULE:write_file(Name,term_to_binary(SomeTerm)),
-    {ok,Bin1} = ?FILE_MODULE:read_file(Name),
-    SomeTerm = binary_to_term(Bin1),
+    Bin1 = term_to_binary(SomeTerm),
+    ok = do_read_write_file(Name, Bin1),
 
     %% Try a "null" term
     NullTerm = [],
-    ok = ?FILE_MODULE:write_file(Name,term_to_binary(NullTerm)),
-    {ok,Bin2} = ?FILE_MODULE:read_file(Name),
-    NullTerm = binary_to_term(Bin2),
-
-    %% Try some "complicated" types
-    BigNum = 123456789012345678901234567890,
-    ComplTerm = {self(),make_ref(),BigNum,3.14159},
-    ok = ?FILE_MODULE:write_file(Name,term_to_binary(ComplTerm)),
-    {ok,Bin3} = ?FILE_MODULE:read_file(Name),
-    ComplTerm = binary_to_term(Bin3),
+    Bin2 = term_to_binary(NullTerm),
+    ok = do_read_write_file(Name, Bin2),
 
     %% Try reading a nonexistent file
     Name2 = filename:join(RootDir,
@@ -519,24 +510,41 @@ read_write_file(Config) when is_list(Config) ->
     {error, enoent} = ?FILE_MODULE:read_file(''),
 
     %% Try writing to a bad filename
-    {error, enoent} =
-	?FILE_MODULE:write_file("",term_to_binary(NullTerm)),
+    {error, enoent} = do_read_write_file("", Bin2),
 
     %% Try writing something else than a binary
-    {error, badarg} = ?FILE_MODULE:write_file(Name,{1,2,3}),
-    {error, badarg} = ?FILE_MODULE:write_file(Name,self()),
+    {error, badarg} = do_read_write_file(Name, {1,2,3}),
+    {error, badarg} = do_read_write_file(Name, self()),
 
     %% Some non-term binaries
-    ok = ?FILE_MODULE:write_file(Name,[]),
-    {ok,Bin4} = ?FILE_MODULE:read_file(Name),
-    0 = byte_size(Bin4),
+    ok = do_read_write_file(Name, []),
 
-    ok = ?FILE_MODULE:write_file(Name,[Bin1,[],[[Bin2]]]),
-    {ok,Bin5} = ?FILE_MODULE:read_file(Name),
-    {Bin1,Bin2} = split_binary(Bin5,byte_size(Bin1)),
+    %% Write some iolists
+    ok = do_read_write_file(Name, [Bin1,[],[[Bin2]]]),
+    ok = do_read_write_file(Name, ["string",<<"binary">>]),
+    ok = do_read_write_file(Name, "pure string"),
 
     [] = flush(),
     ok.
+
+do_read_write_file(Name, Data) ->
+    case ?FILE_MODULE:write_file(Name, Data) of
+	ok ->
+	    BinData = iolist_to_binary(Data),
+	    {ok,BinData} = ?FILE_MODULE:read_file(Name),
+
+	    ok = ?FILE_MODULE:write_file(Name, Data, []),
+	    {ok,BinData} = ?FILE_MODULE:read_file(Name),
+
+	    ok = ?FILE_MODULE:write_file(Name, Data, [raw]),
+	    {ok,BinData} = ?FILE_MODULE:read_file(Name),
+
+	    ok;
+	{error,_}=Res ->
+	    Res = ?FILE_MODULE:write_file(Name, Data, []),
+	    Res = ?FILE_MODULE:write_file(Name, Data, [raw]),
+	    Res
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
