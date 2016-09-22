@@ -49,7 +49,7 @@
   <funcs>
     <func>
       <name>run_erl [-daemon] pipe_dir/ log_dir "exec command
-        [command_arguments]"</name>
+        arg1 arg2 ..."</name>
       <fsummary>Start the Erlang emulator without attached terminal.</fsummary>
       <desc>
         <p>Arguments:</p>
@@ -92,11 +92,10 @@
               </item>
             </list>
           </item>
-          <tag><c>"exec command [command_arguments]"</c></tag>
+          <tag><c>"exec command arg1 arg2 ..."</c></tag>
           <item>
-            <p>In the third argument, <c><![CDATA[command]]></c> is the
-              executable to execute where everything written to <c>stdin</c>
-              and <c>stdout</c> is logged to <c><![CDATA[log_dir]]></c>.</p>
+	    <p>A space-separated string specifying the program to be executed.
+	      The second field is typically a command name such as <c>erl</c>.</p>
           </item>
         </taglist>
       </desc>
@@ -105,7 +104,7 @@
 
   <section>
     <title>Notes concerning the Log Files</title>
-    <p>While running, <c>run_erl</c> (as stated earlier) sends all output,
+    <p>While running, <c>run_erl</c> sends all output,
       uninterpreted, to a log file. The file is named
       <c><![CDATA[erlang.log.N]]></c>, where <c>N</c> is an integer. When the
       log is "full" (default log size is 100 KB), <c>run_erl</c> starts to log
