@@ -875,6 +875,22 @@ dnl for now that is the way we do it.
 USER_LD=$LD
 USER_LDFLAGS="$LDFLAGS"
 LD='$(CC)'
+case $host_os in
+     darwin*)
+	saved_LDFLAGS="$LDFLAGS"
+	LDFLAGS="$LDFLAGS -Wl,-no_weak_imports"
+	AC_TRY_LINK([],[],
+		[
+			LD_MAY_BE_WEAK=no
+		],
+		[
+			LD_MAY_BE_WEAK=yes
+			LDFLAGS="$saved_LDFLAGS"
+		]);;
+    *)
+	LD_MAY_BE_WEAK=no;;
+esac
+
 AC_SUBST(LD)
 
 LDFLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
@@ -1964,7 +1980,7 @@ getaddrinfo("","",NULL,NULL);
 if test $have_getaddrinfo = yes; then
         AC_MSG_RESULT([yes])
         AC_MSG_CHECKING([whether getaddrinfo accepts enough flags])
-        AC_TRY_COMPILE([
+        AC_TRY_LINK([
 #include <stdlib.h>
 #include <string.h>
 #ifdef HAVE_WINSOCK2_H
@@ -2221,7 +2237,7 @@ dnl Checks for features/quirks in the system that affects Erlang.
 dnl ----------------------------------------------------------------------
 
 AC_MSG_CHECKING([for sched_getaffinity/sched_setaffinity])
-AC_TRY_COMPILE([#include <sched.h>],
+AC_TRY_LINK([#include <sched.h>],
 [
 #ifndef CPU_SETSIZE
 #error no CPU_SETSIZE
@@ -2244,7 +2260,7 @@ fi
 
 
 AC_MSG_CHECKING([for pset functionality])
-AC_TRY_COMPILE([#include <sys/pset.h>],
+AC_TRY_LINK([#include <sys/pset.h>],
 [
 	int res;
 	psetid_t id = PS_MYID;
@@ -2262,7 +2278,7 @@ if test $pset_functionality = yes; then
 fi
 
 AC_MSG_CHECKING([for processor_bind functionality])
-AC_TRY_COMPILE([
+AC_TRY_LINK([
 #include <sys/types.h>
 #include <sys/processor.h>
 #include <sys/procset.h>
@@ -2278,7 +2294,7 @@ if test $processor_bind_functionality = yes; then
 fi
 
 AC_MSG_CHECKING([for cpuset_getaffinity/cpuset_setaffinity])
-AC_TRY_COMPILE([
+AC_TRY_LINK([
 #include <sys/param.h>
 #include <sys/cpuset.h>
 ],
@@ -2477,7 +2493,7 @@ if test "x$ac_cv_func_sbrk" = "xyes"; then
 	for rtype in $ret_types; do
 	    for atype in $arg_types; do
 		IFS=$save_ifs
-		AC_TRY_COMPILE([#include <sys/types.h>
+		AC_TRY_LINK([#include <sys/types.h>
 				#include <unistd.h>],
 				[$rtype sbrk($atype incr);],
 				[erts_cv_sbrk_ret_arg_types="$rtype,$atype"])
@@ -2514,7 +2530,7 @@ if test $ac_cv_func_brk = yes; then
 	for rtype in $ret_types; do
 	    for atype in $arg_types; do
 		IFS=$save_ifs
-		AC_TRY_COMPILE([#include <sys/types.h>
+		AC_TRY_LINK([#include <sys/types.h>
 				#include <unistd.h>],
 				[$rtype brk($atype endds);],
 				[erts_cv_brk_ret_arg_types="$rtype,$atype"])
@@ -3536,7 +3552,7 @@ fi
 #
 if test $have_kernel_poll = epoll; then
 	AC_MSG_CHECKING([whether epoll is level triggered])
-	AC_TRY_COMPILE([#include <sys/epoll.h>],[
+	AC_TRY_LINK([#include <sys/epoll.h>],[
 			#ifdef EPOLLET
 			/* Edge triggered option exist, assume level triggered
 			   is default */
