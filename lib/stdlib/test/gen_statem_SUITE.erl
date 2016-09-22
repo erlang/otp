@@ -37,7 +37,7 @@ all() ->
      {group, stop_handle_event},
      {group, abnormal},
      {group, abnormal_handle_event},
-     shutdown, stop_and_reply, enter_events, event_order, code_change,
+     shutdown, stop_and_reply, state_enter, event_order, code_change,
      {group, sys},
      hibernate, enter_loop].
 
@@ -582,7 +582,7 @@ stop_and_reply(_Config) ->
 
 
 
-enter_events(_Config) ->
+state_enter(_Config) ->
     process_flag(trap_exit, true),
     Self = self(),
 
@@ -615,7 +615,7 @@ enter_events(_Config) ->
 	      end},
     {ok,STM} =
 	gen_statem:start_link(
-	  ?MODULE, {map_statem,Machine,[state_entry_events]}, []),
+	  ?MODULE, {map_statem,Machine,[state_enter]}, []),
 
     [{enter,start,start,1}] = flush(),
     {echo,start,2} = gen_statem:call(STM, echo),

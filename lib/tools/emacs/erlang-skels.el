@@ -904,7 +904,7 @@ Please see the function `tempo-define-template'.")
     "%% @doc" n
     "%% Define the callback_mode() for this callback module." n
     (erlang-skel-separator-end 2)
-    "-spec callback_mode() -> gen_statem:callback_mode()." n
+    "-spec callback_mode() -> gen_statem:callback_mode_result()." n
     "callback_mode() -> state_functions." n
     n
     (erlang-skel-separator-start 2)
@@ -936,6 +936,10 @@ Please see the function `tempo-define-template'.")
     "%%       instead of StateName/3 functions like this!" n
     (erlang-skel-separator-end 2)
     "-spec state_name(" n>
+    "'enter', OldState :: gen_statem:state_name()," n>
+    "Data :: term()) ->" n>
+    "gen_statem:state_function_enter_result();" n
+    "                (" n>
     "gen_statem:event_type(), Msg :: term()," n>
     "Data :: term()) ->" n>
     "gen_statem:state_function_result()." n
@@ -1015,7 +1019,7 @@ Please see the function `tempo-define-template'.")
     "%% @doc" n
     "%% Define the callback_mode() for this callback module." n
     (erlang-skel-separator-end 2)
-    "-spec callback_mode() -> gen_statem:callback_mode()." n
+    "-spec callback_mode() -> gen_statem:callback_mode_result()." n
     "callback_mode() -> handle_event_function." n
     n
     (erlang-skel-separator-start 2)
@@ -1044,6 +1048,10 @@ Please see the function `tempo-define-template'.")
     "%%       StateName/3 functions are called instead!" n
     (erlang-skel-separator-end 2)
     "-spec handle_event(" n>
+    "'enter', OldState :: term()," n>
+    "State :: term(), Data :: term()) ->" n>
+    "gen_statem:handle_event_enter_result();" n
+    "                  (" n>
     "gen_statem:event_type(), Msg :: term()," n>
     "State :: term(), Data :: term()) ->" n>
     "gen_statem:handle_event_result()." n
