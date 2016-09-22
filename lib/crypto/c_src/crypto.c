@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "erl_nif.h"
+#include <erl_nif.h>
 
 #define OPENSSL_THREAD_DEFINES
 #include <openssl/opensslconf.h>

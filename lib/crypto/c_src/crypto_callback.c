@@ -22,7 +22,7 @@
 #include <string.h>
 #include <openssl/opensslconf.h>
 
-#include "erl_nif.h"
+#include <erl_nif.h>
 #include "crypto_callback.h"
 
 #ifdef DEBUG

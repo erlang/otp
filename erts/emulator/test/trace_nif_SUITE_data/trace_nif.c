@@ -1,4 +1,4 @@
-#include "erl_nif.h"
+#include <erl_nif.h>
 
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)

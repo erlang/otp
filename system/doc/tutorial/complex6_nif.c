@@ -1,4 +1,4 @@
-#include "erl_nif.h"
+#include <erl_nif.h>
 
 extern int foo(int x);
 extern int bar(int y);

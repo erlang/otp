@@ -80,7 +80,7 @@
 
     <code type="none">
 /* niftest.c */
-#include "erl_nif.h"
+#include &lt;erl_nif.h&gt;
 
 static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {

@@ -24,7 +24,7 @@
 
 
 
-#include "erl_nif.h"
+#include <erl_nif.h>
 #include "config.h"
 #include "sys.h"
 #include "dtrace-wrapper.h"
