@@ -2079,7 +2079,7 @@ int main(void) {
 		 fi]);;
 esac
 
-if test $have_posix_memalign = yes; then
+if test "$have_posix_memalign" = "yes"; then
    AC_DEFINE(HAVE_POSIX_MEMALIGN,[1],
 	     [Define to 1 if you have the `posix_memalign' function.])
 fi
