@@ -48,6 +48,7 @@
           socket_options        :: #socket_options{},
           connection_states     :: ssl_record:connection_states() | secret_printout(),
 	  protocol_buffers      :: term() | secret_printout() , %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hrl
+	  unprocessed_handshake_events = 0    :: integer(),
           tls_handshake_history :: ssl_handshake:ssl_handshake_history() | secret_printout()
                                  | 'undefined',
 	  cert_db               :: reference() | 'undefined',
