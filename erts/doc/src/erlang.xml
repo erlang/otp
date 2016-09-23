@@ -2562,13 +2562,6 @@ os_prompt%</pre>
       <name name="load_nif" arity="2"/>
       <fsummary>Load NIF library.</fsummary>
       <desc>
-        <note>
-          <p>Before Erlang/OTP R14B, NIFs were an
-            experimental feature. Versions before Erlang/OTP R14B can
-            have different and possibly incompatible NIF semantics and
-            interfaces. For example, in Erlang/OTP R13B03 the return value on
-            failure was <c>{error,Reason,Text}</c>.</p>
-        </note>
         <p>Loads and links a dynamic library containing native
           implemented functions (NIFs) for a module. <c><anno>Path</anno></c>
           is a file path to the shareable object/dynamic library file minus
@@ -2598,8 +2591,12 @@ os_prompt%</pre>
           <item>The library did not fulfill the requirements as a NIF
             library of the calling module.
           </item>
-          <tag><c>load | reload | upgrade</c></tag>
+          <tag><c>load | upgrade</c></tag>
           <item>The corresponding library callback was unsuccessful.
+          </item>
+          <tag><c>reload</c></tag>
+          <item>A NIF library is already loaded for this module instance.
+	    The previously deprecated <c>reload</c> feature was removed in OTP 20.
           </item>
           <tag><c>old_code</c></tag>
           <item>The call to <c>load_nif/2</c> was made from the old
