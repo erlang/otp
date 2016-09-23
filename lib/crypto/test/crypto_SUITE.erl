@@ -385,7 +385,20 @@ aead() ->
 aead(Config) when is_list(Config) ->
     AEADs = lazy_eval(proplists:get_value(aead, Config)),
 
-    lists:foreach(fun aead_cipher/1, AEADs).
+    FilteredAEADs =
+	case proplists:get_bool(fips, Config) of
+	    false ->
+		AEADs;
+	    true ->
+		%% In FIPS mode, the IV length must be at least 12 bytes.
+		lists:filter(
+		  fun(Tuple) ->
+			  IVLen = byte_size(element(4, Tuple)),
+			  IVLen >= 12
+		  end, AEADs)
+	end,
+
+    lists:foreach(fun aead_cipher/1, FilteredAEADs).
 
 %%-------------------------------------------------------------------- 
 sign_verify() ->
