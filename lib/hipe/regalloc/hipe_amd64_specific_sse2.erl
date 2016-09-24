@@ -60,6 +60,9 @@
 	 update_bb/4,
 	 subst_temps/3]).
 
+%% callbacks for hipe_bb_weights
+-export([branch_preds/2]).
+
 %%----------------------------------------------------------------------------
 
 -include("../flow/cfg.hrl").
@@ -155,6 +158,9 @@ bb(CFG, L, _) ->
 
 update_bb(CFG,L,BB,_) ->
   hipe_x86_cfg:bb_add(CFG,L,BB).
+
+branch_preds(Instr,_) ->
+  hipe_x86_cfg:branch_preds(Instr).
 
 %% AMD64 stuff
 

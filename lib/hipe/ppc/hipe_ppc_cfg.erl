@@ -22,6 +22,7 @@
 -export([postorder/1]).
 -export([linearise/1, params/1, reverse_postorder/1]).
 -export([redirect_jmp/3, arity/1]).
+-export([branch_preds/1]).
 
 %%% these tell cfg.inc what to define (ugly as hell)
 -define(BREADTH_ORDER,true).
@@ -72,6 +73,26 @@ branch_successors(Branch) ->
 	_ -> [ContLab,ExnLab]
       end;
     #pseudo_tailcall{} -> []
+  end.
+
+branch_preds(Branch) ->
+  case Branch of
+    #bctr{labels=Labels} ->
+      Prob = 1.0/length(Labels),
+      [{L, Prob} || L <- Labels];
+    #pseudo_bc{true_label=TrueLab,false_label=FalseLab,pred=Pred} ->
+      [{FalseLab, 1.0-Pred}, {TrueLab, Pred}];
+    #pseudo_call{contlab=ContLab, sdesc=#ppc_sdesc{exnlab=[]}} ->
+      %% A function can still cause an exception, even if we won't catch it
+      [{ContLab, 1.0-hipe_bb_weights:call_exn_pred()}];
+    #pseudo_call{contlab=ContLab, sdesc=#ppc_sdesc{exnlab=ExnLab}} ->
+      CallExnPred = hipe_bb_weights:call_exn_pred(),
+      [{ContLab, 1.0-CallExnPred}, {ExnLab, CallExnPred}];
+    _ ->
+      case branch_successors(Branch) of
+	[] -> [];
+	[Single] -> [{Single, 1.0}]
+      end
   end.
 
 -ifdef(REMOVE_TRIVIAL_BBS_NEEDED).

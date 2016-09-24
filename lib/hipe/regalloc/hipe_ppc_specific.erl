@@ -56,6 +56,9 @@
 	 update_bb/4,
 	 subst_temps/3]).
 
+%% callbacks for hipe_bb_weights
+-export([branch_preds/2]).
+
 check_and_rewrite(CFG, Coloring, _) ->
   hipe_ppc_ra_postconditions:check_and_rewrite(CFG, Coloring, 'normal').
 
@@ -118,6 +121,9 @@ bb(CFG,L,_) ->
 
 update_bb(CFG,L,BB,_) ->
   hipe_ppc_cfg:bb_add(CFG,L,BB).
+
+branch_preds(Instr,_) ->
+  hipe_ppc_cfg:branch_preds(Instr).
 
 %% PowerPC stuff
 

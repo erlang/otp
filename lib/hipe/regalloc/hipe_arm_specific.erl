@@ -56,6 +56,9 @@
 	 update_bb/4,
 	 subst_temps/3]).
 
+%% callbacks for hipe_bb_weights, hipe_range_split
+-export([branch_preds/2]).
+
 check_and_rewrite(CFG, Coloring, no_context) ->
   hipe_arm_ra_postconditions:check_and_rewrite(CFG, Coloring, 'normal').
 
@@ -118,6 +121,9 @@ bb(CFG,L,_) ->
 
 update_bb(CFG,L,BB,_) ->
   hipe_arm_cfg:bb_add(CFG,L,BB).
+
+branch_preds(Branch,_) ->
+  hipe_arm_cfg:branch_preds(Branch).
 
 %% ARM stuff
 

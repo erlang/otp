@@ -23,7 +23,7 @@
 -export([linearise/1]).
 -export([params/1]).
 -export([arity/1]). % for linear scan
--export([redirect_jmp/3]).
+-export([redirect_jmp/3, branch_preds/1]).
 
 -define(SPARC_CFG, true).     % needed for cfg.inc
 
@@ -76,6 +76,26 @@ branch_successors(Branch) ->
       end;
     #pseudo_ret{} -> [];
     #pseudo_tailcall{} -> []
+  end.
+
+branch_preds(Branch) ->
+  case Branch of
+    #jmp{labels=Labels} ->
+      Prob = 1.0/length(Labels),
+      [{L, Prob} || L <- Labels];
+    #pseudo_bp{true_label=TrueLab,false_label=FalseLab,pred=Pred} ->
+      [{FalseLab, 1.0-Pred}, {TrueLab, Pred}];
+    #pseudo_call{contlab=ContLab, sdesc=#sparc_sdesc{exnlab=[]}} ->
+      %% A function can still cause an exception, even if we won't catch it
+      [{ContLab, 1.0-hipe_bb_weights:call_exn_pred()}];
+    #pseudo_call{contlab=ContLab, sdesc=#sparc_sdesc{exnlab=ExnLab}} ->
+      CallExnPred = hipe_bb_weights:call_exn_pred(),
+      [{ContLab, 1.0-CallExnPred}, {ExnLab, CallExnPred}];
+    _ ->
+      case branch_successors(Branch) of
+	[] -> [];
+	[Single] -> [{Single, 1.0}]
+      end
   end.
 
 -ifdef(REMOVE_TRIVIAL_BBS_NEEDED).
