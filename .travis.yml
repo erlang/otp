@@ -1,7 +1,4 @@
-language: erlang
-
-otp_release:
-  - 18.0
+language: c
 
 sudo: false
 
@@ -26,7 +23,6 @@ before_script:
   - export PATH=$ERL_TOP/bin:$PATH
   - export ERL_LIBS=''
   - export MAKEFLAGS=-j6
-  - kerl_deactivate
 
 script:
   - ./otp_build all -a
