@@ -81,7 +81,7 @@
           expecting_next_protocol_negotiation = false ::boolean(),
 	  expecting_finished =                  false ::boolean(),
           negotiated_protocol = undefined             :: undefined | binary(),
-	  client_ecc,          % {Curves, PointFmt}
+	  client_ecc           :: {#elliptic_curves{}, #ec_point_formats{}},
 	  tracker              :: pid() | 'undefined', %% Tracker process for listen socket
 	  sni_hostname = undefined,
 	  downgrade,

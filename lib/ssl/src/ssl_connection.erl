@@ -1845,7 +1845,7 @@ cipher_role(server, Data, Session,  #state{connection_states = ConnectionStates0
     {Record, State} = prepare_connection(State1, Connection),
     Connection:next_event(connection, Record, State).
 
-select_curve(#state{client_ecc = {[Curve|_], _}}) ->
+select_curve(#state{client_ecc = {#elliptic_curves{elliptic_curve_list = [Curve|_]}, _}}) ->
     {namedCurve, Curve};
 select_curve(_) ->
     {namedCurve, ?secp256r1}.
