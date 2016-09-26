@@ -22,7 +22,7 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 get_map_elements/1,otp_7345/1,move_opt_across_gc_bif/1,
-	 erl_202/1]).
+	 erl_202/1,repro/1]).
 
 %% The only test for the following functions is that
 %% the code compiles and is accepted by beam_validator.
@@ -39,7 +39,8 @@ groups() ->
       [get_map_elements,
        otp_7345,
        move_opt_across_gc_bif,
-       erl_202
+       erl_202,
+       repro
       ]}].
 
 init_per_suite(Config) ->
@@ -157,6 +158,27 @@ erl_202({{_, _},X}, _) ->
     X;
 erl_202({_, _}, #erl_202_r1{y=R2}) ->
     {R2#erl_202_r2.x}.
+
+%% See https://bugs.erlang.org/browse/ERL-266.
+%% Instructions with failure labels are not safe to include
+%% in a block. Including get_map_elements in a block would
+%% lead to unsafe code.
+
+repro(_Config) ->
+    [] = maps:to_list(repro([], #{}, #{})),
+    [{tmp1,n}] = maps:to_list(repro([{tmp1,0}], #{}, #{})),
+    [{tmp1,name}] = maps:to_list(repro([{tmp1,0}], #{}, #{0=>name})),
+    ok.
+
+repro([], TempNames, _Slots) ->
+    TempNames;
+repro([{Temp, Slot}|Xs], TempNames, Slots0) ->
+    {Name, Slots} =
+	case Slots0 of
+	    #{Slot := Name0} -> {Name0, Slots0};
+	    #{} ->              {n,     Slots0#{Slot => n}}
+	end,
+    repro(Xs, TempNames#{Temp => Name}, Slots).
 
 %%%
 %%% The only test of the following code is that it compiles.

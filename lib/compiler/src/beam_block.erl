@@ -58,13 +58,6 @@ blockify(Is) ->
 blockify([{loop_rec,{f,Fail},{x,0}},{loop_rec_end,_Lbl},{label,Fail}|Is], Acc) ->
     %% Useless instruction sequence.
     blockify(Is, Acc);
-blockify([{get_map_elements,F,S,{list,Gets}}|Is0], Acc) ->
-    %% A get_map_elements instruction is only safe at the beginning of
-    %% a block because of the failure label.
-    {Ss,Ds} = beam_utils:split_even(Gets),
-    I = {set,Ds,[S|Ss],{get_map_elements,F}},
-    {Block,Is} = collect_block(Is0, [I]),
-    blockify(Is, [{block,Block}|Acc]);
 blockify([I|Is0]=IsAll, Acc) ->
     case collect(I) of
 	error -> blockify(Is0, [I|Acc]);
@@ -220,7 +213,6 @@ move_allocates_1([], Acc) -> Acc.
 
 alloc_may_pass({set,_,_,{alloc,_,_}}) -> false;
 alloc_may_pass({set,_,_,{set_tuple_element,_}}) -> false;
-alloc_may_pass({set,_,_,{get_map_elements,_}}) -> false;
 alloc_may_pass({set,_,_,put_list}) -> false;
 alloc_may_pass({set,_,_,put}) -> false;
 alloc_may_pass({set,_,_,_}) -> true.
@@ -235,8 +227,6 @@ opt([{set,_,_,{line,_}}=Line1,
      {set,[D2],[{integer,Idx2},Reg],{bif,element,{f,0}}}=I2|Is])
   when Idx1 < Idx2, D1 =/= D2, D1 =/= Reg, D2 =/= Reg ->
     opt([Line2,I2,Line1,I1|Is]);
-opt([{set,[_|_],_Ss,{get_map_elements,_F}}=I|Is]) ->
-    [I|opt(Is)];
 opt([{set,Ds0,Ss,Op}|Is0]) ->
     {Ds,Is} = opt_moves(Ds0, Is0),
     [{set,Ds,Ss,Op}|opt(Is)];

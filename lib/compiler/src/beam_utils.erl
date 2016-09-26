@@ -26,7 +26,7 @@
 	 empty_label_index/0,index_label/3,index_labels/1,
 	 code_at/2,bif_to_test/3,is_pure_test/1,
 	 live_opt/1,delete_live_annos/1,combine_heap_needs/2,
-	 join_even/2,split_even/1]).
+	 split_even/1]).
 
 -import(lists, [member/2,sort/1,reverse/1,splitwith/2]).
 
@@ -233,11 +233,6 @@ combine_heap_needs(H1, H2) when is_integer(H1), is_integer(H2) ->
 
 split_even(Rs) -> split_even(Rs, [], []).
 
-%% join_even/1
-%% {[1,3,5],[2,4,6]} -> [1,2,3,4,5,6]
-
-join_even([], []) -> [];
-join_even([S|Ss], [D|Ds]) -> [S,D|join_even(Ss, Ds)].
 
 %%%
 %%% Local functions.
@@ -753,6 +748,11 @@ live_opt([timeout=I|Is], _, D, Acc) ->
     live_opt(Is, 0, D, [I|Acc]);
 live_opt([{wait,_}=I|Is], _, D, Acc) ->
     live_opt(Is, 0, D, [I|Acc]);
+live_opt([{get_map_elements,Fail,Src,{list,List}}=I|Is], Regs0, D, Acc) ->
+    {Ss,Ds} = split_even(List),
+    Regs1 = x_live([Src|Ss], x_dead(Ds, Regs0)),
+    Regs = live_join_label(Fail, D, Regs1),
+    live_opt(Is, Regs, D, [I|Acc]);
 
 %% Transparent instructions - they neither use nor modify x registers.
 live_opt([{deallocate,_}=I|Is], Regs, D, Acc) ->
