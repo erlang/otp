@@ -122,7 +122,7 @@ static char *erts_msacc_states[] = {
     "sleep",
     "timers"
 #ifdef ERTS_MSACC_EXTENDED_BIFS
-#define BIF_LIST(Mod,Func,Arity,FuncAddr,Num)   \
+#define BIF_LIST(Mod,Func,Arity,BifFuncAddr,FuncAddr,Num)	\
         ,"bif_" #Mod "_" #Func "_" #Arity
 #include "erl_bif_list.h"
 #undef BIF_LIST

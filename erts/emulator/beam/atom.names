@@ -76,6 +76,7 @@ atom ac
 atom accessor
 atom active
 atom active_tasks
+atom alive
 atom all
 atom all_but_first
 atom all_names
@@ -199,10 +200,15 @@ atom dexit
 atom depth
 atom dgroup_leader
 atom dictionary
+atom dirty_bif_exception
+atom dirty_bif_result
+atom dirty_bif_trap
 atom dirty_cpu
 atom dirty_cpu_schedulers_online
 atom dirty_execution
 atom dirty_io
+atom dirty_nif_exception
+atom dirty_nif_finalizer
 atom disable_trace
 atom disabled
 atom discard
@@ -243,6 +249,7 @@ atom ERROR='ERROR'
 atom error_handler
 atom error_logger
 atom erts_code_purger
+atom erts_debug
 atom erts_internal
 atom ets
 atom ETS_TRANSFER='ETS-TRANSFER'
@@ -573,6 +580,7 @@ atom scientific
 atom scope
 atom second
 atom seconds
+atom send
 atom send_to_non_existing_process
 atom sensitive
 atom sequential_tracer
@@ -665,6 +673,7 @@ atom value
 atom values
 atom version
 atom visible
+atom wait
 atom waiting
 atom wall_clock
 atom warning

@@ -30,9 +30,9 @@ include(`hipe/hipe_arm_asm.m4')
 	.arm
 
 `#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
-#  define CALL_BIF(F)	ldr r14, =F; str r14, [r0, #P_BIF_CALLEE]; bl hipe_debug_bif_wrapper
+#  define CALL_BIF(F)	ldr r14, =nbif_impl_##F; str r14, [r0, #P_BIF_CALLEE]; bl hipe_debug_bif_wrapper
 #else
-#  define CALL_BIF(F)	bl	F
+#  define CALL_BIF(F)	bl	nbif_impl_##F
 #endif'
 
 define(TEST_GOT_MBUF,`ldr r1, [P, #P_MBUF]	/* `TEST_GOT_MBUF' */

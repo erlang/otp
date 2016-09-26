@@ -36,6 +36,7 @@
 #include "erl_nif.h"
 #include "erl_bits.h"
 #include "erl_thr_progress.h"
+#include "erl_nfunc_sched.h"
 #ifdef HIPE
 #  include "hipe_bif0.h"
 #  define IF_HIPE(X) (X)
@@ -1100,6 +1101,11 @@ check_process_code(Process* rp, Module* modp, int *redsp, int fcalls)
 	return am_true;
     }
  
+    *redsp += 1;
+
+    if (erts_check_nif_export_in_area(rp, mod_start, mod_size))
+	return am_true;
+
     *redsp += 1;
 
     if (erts_check_nif_export_in_area(rp, mod_start, mod_size))

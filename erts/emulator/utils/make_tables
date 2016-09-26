@@ -36,6 +36,9 @@ use File::Basename;
 #    <-src>/erl_am.c
 #    <-src>/erl_bif_table.c
 #    <-src>/erl_bif_wrap.c
+#    <-src>/erl_dirty_bif_wrap.c
+#    <-src>/hipe_nbif_impl.c
+#    <-include>/hipe_nbif_impl.h
 #    <-include>/erl_atom_table.h
 #    <-include>/erl_bif_table.h
 #
@@ -51,9 +54,13 @@ my %atom;
 my %atom_alias;
 my %aliases;
 my $auto_alias_num = 0;
+my %dirty_bif_tab;
 
 my @bif;
-my @bif_type;
+my @bif_info;
+my $dirty_schedulers = 'no';
+my $dirty_schedulers_test = 'no';
+my $hipe = 'no';
 
 while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
     my $opt = shift;
@@ -65,6 +72,18 @@ while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
 	$include = shift;
 	die "No directory for -include argument specified"
 	    unless defined $include;
+    } elsif($opt eq '-ds') {
+	$dirty_schedulers = shift;
+	die "No -ds argument specified"
+	    unless defined $dirty_schedulers;
+    } elsif($opt eq '-dst') {
+	$dirty_schedulers_test = shift;
+	die "No -dst argument specified"
+	    unless defined $dirty_schedulers_test;
+    } elsif($opt eq '-hipe') {
+	$hipe = shift;
+	die "No -hipe argument specified"
+	    unless defined $hipe;
     } else {
 	usage("bad option: $opt");
     }
@@ -84,12 +103,31 @@ while (<>) {
 	my($bif,$alias) = (@args);
 	$bif =~ m@^([a-z_.'0-9]+):(.*)/(\d)$@ or error("invalid BIF");
 	my($mod,$name,$arity) = ($1,$2,$3);
+	my $mfa = "$mod:$name/$arity";
 	save_atoms($mod, $name);
 	unless (defined $alias) {
 	    $alias = "";
 	    $alias = "${mod}_" unless $mod eq 'erlang';
 	    $alias .= "${name}_$arity";
 	}
+	my $sched_type;
+	my $alias3 = $alias;
+
+	$sched_type = $dirty_bif_tab{$mfa};
+
+	if (!$sched_type or ($type eq 'ubif')) {
+	    $sched_type = 'normal';
+	}
+	elsif ($sched_type eq 'dirty_cpu') {
+	    $alias3 = "schedule_dirty_cpu_$alias"
+	}
+	elsif ($sched_type eq 'dirty_io') {
+	    $alias3 = "schedule_dirty_io_$alias"
+	}
+	else {
+	    error("invalid sched_type: $sched_type");
+	}
+
 	my $wrapper;
 	if ($type eq 'bif') {
 	    $wrapper = "wrap_$alias";
@@ -97,8 +135,25 @@ while (<>) {
 	    $wrapper = $alias;
 	}
 	push(@bif, ["am_$atom_alias{$mod}","am_$atom_alias{$name}",$arity,
-		    $alias,$wrapper]);
-	push(@bif_type, $type);
+		    $alias3,$wrapper,$alias]);
+	push(@bif_info, [$type, $sched_type, $alias3, $alias]);
+    } elsif ($type eq 'dirty-cpu' or $type eq 'dirty-io'
+	     or $type eq 'dirty-cpu-test' or $type eq 'dirty-io-test') {
+	if ($dirty_schedulers eq 'yes') {
+	    my($bif,$other) = (@args);
+	    $bif =~ m@^([a-z_.'0-9]+):(.*)/(\d)$@ or error("invalid BIF");
+	    my($mod,$name,$arity) = ($1,$2,$3);
+	    my $mfa = "$mod:$name/$arity";
+	    if (($type eq 'dirty-cpu')
+		or (($dirty_schedulers_test eq 'yes')
+		    and ($type eq 'dirty-cpu-test'))) {
+		$dirty_bif_tab{$mfa} = 'dirty_cpu';
+	    } elsif (($type eq 'dirty-io')
+		or (($dirty_schedulers_test eq 'yes')
+		    and ($type eq 'dirty-io-test'))) {
+		$dirty_bif_tab{$mfa} = 'dirty_io';
+	    }
+	}
     } else {
 	error("invalid line");
     }
@@ -147,7 +202,7 @@ open_file("$include/erl_bif_list.h");
 my $i;
 for ($i = 0; $i < @bif; $i++) {
     # module atom, function atom, arity, C function, table index
-    print "BIF_LIST($bif[$i]->[0],$bif[$i]->[1],$bif[$i]->[2],$bif[$i]->[3],$i)\n";
+    print "BIF_LIST($bif[$i]->[0],$bif[$i]->[1],$bif[$i]->[2],$bif[$i]->[3],$bif[$i]->[5],$i)\n";
 }
 
 #
@@ -167,6 +222,7 @@ typedef struct bif_entry {
     int arity;
     BifFunction f;
     BifFunction traced;
+    BifFunction impl;
 } BifEntry;
 
 typedef struct erts_gc_bif {
@@ -184,21 +240,28 @@ EOF
 
 my $i;
 for ($i = 0; $i < @bif; $i++) {
-    print "#define BIF_$bif[$i]->[3] $i\n";
+    print "#define BIF_$bif_info[$i]->[3] $i\n";
 }
 
 print "\n";
 
 for ($i = 0; $i < @bif; $i++) {
-    my $args = join(', ', 'Process*', 'Eterm*');
-    my $name = $bif[$i]->[3];
+    my $args = join(', ', 'Process*', 'Eterm*', 'UWord*');
+    my $name = $bif_info[$i]->[3];
     print "Eterm $name($args);\n";
-    print "Eterm wrap_$name($args, UWord *I);\n";
+    print "Eterm wrap_$name($args);\n";
     print "Eterm erts_gc_$name(Process* p, Eterm* reg, Uint live);\n"
-	if $bif_type[$i] eq 'gcbif';
+	if $bif_info[$i]->[0] eq 'gcbif';
+    print "Eterm $bif_info[$i]->[2]($args);\n"
+	unless $bif_info[$i]->[1] eq 'normal';
     print "\n";
 }
-print "#endif\n";
+
+if ($hipe eq 'yes') {
+    print "\n#include \"hipe_nbif_impl.h\"\n";
+}
+
+print "\n#endif\n";
 
 #
 # Generate the bif table file.
@@ -229,7 +292,7 @@ includes("export.h", "sys.h", "erl_vm.h", "global.h", "erl_process.h", "bif.h",
 for ($i = 0; $i < @bif; $i++) {
     next if $bif[$i]->[3] eq $bif[$i]->[4]; # Skip unwrapped bifs
     my $arity = $bif[$i]->[2];
-    my $func = $bif[$i]->[3];
+    my $func = $bif_info[$i]->[3];
     print "Eterm\n";
     print "wrap_$func(Process* p, Eterm* args, UWord* I)\n";
     print "{\n";
@@ -247,13 +310,87 @@ includes("export.h", "sys.h", "erl_vm.h", "global.h", "erl_process.h", "bif.h",
 	 "erl_bif_table.h");
 print "const ErtsGcBif erts_gc_bifs[] = {\n";
 for ($i = 0; $i < @bif; $i++) {
-    next unless $bif_type[$i] eq 'gcbif';
+    next unless $bif_info[$i]->[0] eq 'gcbif';
     my $arity = $bif[$i]->[2];
     my $func = $bif[$i]->[3];
     print "  {$func, erts_gc_$func},\n";
 }
 print "  {0, 0}\n";
 print "};\n";
+
+#
+# Generate the dirty bif wrappers file.
+#
+
+open_file("$src/erl_dirty_bif_wrap.c");
+my $i;
+includes("erl_process.h", "erl_nfunc_sched.h", "erl_bif_table.h", "erl_atom_table.h");
+for ($i = 0; $i < @bif_info; $i++) {
+    next if $bif_info[$i]->[1] eq 'normal';
+    my $dtype;
+    if ($bif_info[$i]->[1] eq 'dirty_cpu') {
+	$dtype = "ERTS_SCHED_DIRTY_CPU";
+    }
+    else {
+	$dtype = "ERTS_SCHED_DIRTY_IO";
+    }
+print <<EOF;
+Eterm $bif_info[$i]->[2](Process *c_p, Eterm *regs, BeamInstr *I)
+{
+    return erts_reschedule_bif(c_p, regs, I, $bif_info[$i]->[3], $dtype);
+}
+
+EOF
+
+}
+
+if ($hipe eq 'yes') {
+
+    #
+    # Generate the nbif_impl bif wrappers file.
+    #
+
+    open_file("$src/hipe_nbif_impl.h");
+    print <<EOF;
+
+#ifndef HIPE_NBIF_IMPL_H__
+#define HIPE_NBIF_IMPL_H__
+
+EOF
+
+    my $i;
+    for ($i = 0; $i < @bif; $i++) {
+	print <<EOF;
+Eterm nbif_impl_$bif[$i]->[5](Process *c_p, Eterm *regs);
+EOF
+   }
+
+   print <<EOF;
+
+#endif /* ERL_HIPE_NBIF_IMPL_H__ */
+
+EOF
+
+    #
+    # Generate the nbif_impl bif wrappers file.
+    #
+
+    open_file("$src/hipe_nbif_impl.c");
+    my $i;
+    includes("erl_process.h", "erl_nfunc_sched.h", "erl_bif_table.h", "erl_atom_table.h");
+    for ($i = 0; $i < @bif; $i++) {
+
+	print <<EOF;
+Eterm nbif_impl_$bif[$i]->[5](Process *c_p, Eterm *regs)
+{
+    return $bif[$i]->[3](c_p, regs, (UWord *) bif_export\[BIF_$bif[$i]->[5]\]);
+}
+
+EOF
+
+   }
+
+} # hipe
 
 #
 # Utilities follow.

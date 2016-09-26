@@ -732,7 +732,7 @@ struct nbif {
 };
 
 static struct nbif nbifs[BIF_SIZE] = {
-#define BIF_LIST(MOD,FUN,ARY,CFUN,IX)	\
+#define BIF_LIST(MOD,FUN,ARY,BIF,CFUN,IX)	\
 	{ {0,0}, MOD, FUN, ARY, &nbif_##CFUN },
 #include "erl_bif_list.h"
 #undef BIF_LIST
@@ -905,7 +905,8 @@ BIF_RETTYPE hipe_bifs_term_to_word_1(BIF_ALIST_1)
 }
 
 /* XXX: this is really a primop, not a BIF */
-BIF_RETTYPE hipe_conv_big_to_float(BIF_ALIST_1)
+/* Called via standard_bif_interface_1 */
+BIF_RETTYPE nbif_impl_hipe_conv_big_to_float(NBIF_ALIST_1)
 {
     Eterm res;
     Eterm *hp;
@@ -1432,7 +1433,8 @@ void *hipe_get_remote_na(Eterm m, Eterm f, unsigned int a)
 }
 
 /* primop, but called like a BIF for error handling purposes */
-BIF_RETTYPE hipe_find_na_or_make_stub(BIF_ALIST_3)
+/* Called via standard_bif_interface_3 */
+BIF_RETTYPE nbif_impl_hipe_find_na_or_make_stub(NBIF_ALIST_3)
 {
     Uint arity;
     void *address;
@@ -1457,7 +1459,8 @@ BIF_RETTYPE hipe_bifs_find_na_or_make_stub_1(BIF_ALIST_1)
 }
 
 /* primop, but called like a BIF for error handling purposes */
-BIF_RETTYPE hipe_nonclosure_address(BIF_ALIST_2)
+/* Called via standard_bif_interface_2 */
+BIF_RETTYPE nbif_impl_hipe_nonclosure_address(NBIF_ALIST_2)
 {
     Eterm hdr, m, f;
     void *address;

@@ -48,6 +48,7 @@
 #include "erl_bif_unique.h"
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
+#include "erl_nfunc_sched.h"
 
 #define ERTS_CHECK_TIME_REDS CONTEXT_REDS
 #define ERTS_DELAYED_WAKEUP_INFINITY (~(Uint64) 0)
@@ -192,12 +193,6 @@ static ErtsAuxWorkData *aux_thread_aux_work_data;
 #define ERTS_SCHDLR_SSPND_CHNG_MSB		(((erts_aint32_t) 1) << 1)
 #define ERTS_SCHDLR_SSPND_CHNG_ONLN		(((erts_aint32_t) 1) << 2)
 #define ERTS_SCHDLR_SSPND_CHNG_DCPU_ONLN	(((erts_aint32_t) 1) << 3)
-
-typedef enum {
-    ERTS_SCHED_NORMAL,
-    ERTS_SCHED_DIRTY_CPU,
-    ERTS_SCHED_DIRTY_IO
-} ErtsSchedType;
 
 typedef struct {
     int ongoing;
@@ -10102,9 +10097,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 		goto sunlock_sched_out_proc;
 	    }
 
-	    ASSERT((state & ERTS_PSFLG_DIRTY_ACTIVE_SYS)
-		   || *p->i == (BeamInstr) em_call_nif);
-
 	    ASSERT(rq == ERTS_DIRTY_CPU_RUNQ
 		   ? (state & (ERTS_PSFLG_DIRTY_CPU_PROC
 			       | ERTS_PSFLG_DIRTY_ACTIVE_SYS))
@@ -11976,7 +11968,6 @@ delete_process(Process* p)
     ErtsPSD *psd;
     struct saved_calls *scb;
     process_breakpoint_time_t *pbt;
-    void *nif_export;
 
     VERBOSE(DEBUG_PROCESSES, ("Removing process: %T\n",p->common.id));
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] delete process: %p %p %p %p\n", p->common.id,
@@ -11993,9 +11984,7 @@ delete_process(Process* p)
     if (pbt)
         erts_free(ERTS_ALC_T_BPD, (void *) pbt);
 
-    nif_export = ERTS_PROC_SET_NIF_TRAP_EXPORT(p, NULL);
-    if (nif_export)
-	erts_destroy_nif_export(nif_export);
+    erts_destroy_nif_export(p);
 
     /* Cleanup psd */
 
@@ -13563,6 +13552,9 @@ erts_dbg_check_halloc_lock(Process *p)
 {
     ErtsSchedulerData *esdp;
     if (ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(p))
+	return 1;
+    if ((p->static_flags & ERTS_STC_FLG_SHADOW_PROC)
+	&& ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()))
 	return 1;
     if (p->common.id == ERTS_INVALID_PID)
 	return 1;
