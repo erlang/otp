@@ -500,10 +500,11 @@ redirect_multiple_choises(Config) when is_list(Config) ->
 	httpc:request(get, {URL300, []}, [{autoredirect, false}], []).
 %%-------------------------------------------------------------------------
 redirect_moved_permanently() ->
-    [{doc, "If the 301 status code is received in response to a request other "
-      "than GET or HEAD, the user agent MUST NOT automatically redirect the request "
-      "unless it can be confirmed by the user, since this might change "
-      "the conditions under which the request was issued."}].
+    [{doc, "The server SHOULD generate a Location header field in the response "
+      "containing a preferred URI reference for the new permanent URI.  The user "
+      "agent MAY use the Location field value for automatic redirection.  The server's " 
+      "response payload usually contains a short hypertext note with a "
+      "hyperlink to the new URI(s)."}].
 redirect_moved_permanently(Config) when is_list(Config) ->
 
     URL301 = url(group_name(Config), "/301.html", Config),
@@ -519,10 +520,11 @@ redirect_moved_permanently(Config) when is_list(Config) ->
 			[], []).
 %%-------------------------------------------------------------------------
 redirect_found() ->
-    [{doc," If the 302 status code is received in response to a request other "
-      "than GET or HEAD, the user agent MUST NOT automatically redirect the "
-      "request unless it can be confirmed by the user, since this might change "
-      "the conditions under which the request was issued."}].
+    [{doc, "The server SHOULD generate a Location header field in the response "
+      "containing a URI reference for the different URI.  The user agent MAY "
+      "use the Location field value for automatic redirection.  The server's "
+      "response payload usually contains a short hypertext note with a "
+      "hyperlink to the different URI(s)."}].
 redirect_found(Config) when is_list(Config) ->
 
     URL302 = url(group_name(Config), "/302.html", Config),
@@ -540,7 +542,7 @@ redirect_found(Config) when is_list(Config) ->
 redirect_see_other() ->
     [{doc, "The different URI SHOULD be given by the Location field in the response. "
       "Unless the request method was HEAD, the entity of the response SHOULD contain a short "
-      "hypertext note with a hyperlink to the new URI(s). "}].
+      "hypertext note with a hyperlink to the new URI(s)."}].
 redirect_see_other(Config) when is_list(Config) ->
 
     URL303 =  url(group_name(Config), "/303.html", Config),
@@ -556,10 +558,11 @@ redirect_see_other(Config) when is_list(Config) ->
 			[], []).
 %%-------------------------------------------------------------------------
 redirect_temporary_redirect() ->
-    [{doc," If the 307 status code is received in response to a request other "
-      "than GET or HEAD, the user agent MUST NOT automatically redirect the request "
-      "unless it can be confirmed by the user, since this might change "
-      "the conditions under which the request was issued."}].
+    [{doc, "The server SHOULD generate a Location header field in the response "
+      "containing a URI reference for the different URI.  The user agent MAY "
+      "use the Location field value for automatic redirection.  The server's "
+      "response payload usually contains a short hypertext note with a "
+      "hyperlink to the different URI(s)."}].
 redirect_temporary_redirect(Config) when is_list(Config) ->
 
     URL307 =  url(group_name(Config), "/307.html", Config),
