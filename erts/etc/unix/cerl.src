@@ -399,19 +399,29 @@ elif [ "x$GDB" = "xdump" ]; then
     cmdfile="/tmp/.cerlgdb.$$"
     case "x$core" in
 	x/*)
-	    gdbcmd="$EMU_NAME ${core}"
 	    ;;
 	*)
 	    dir=`pwd`
-	    gdbcmd="$EMU_NAME ${dir}/${core}"
+	    core="${dir}/${core}"
 	    ;;
     esac
-    echo "set width 0
+    case `uname` in
+        Darwin)
+            echo "
+thread backtrace all
+quit
+" > $cmdfile
+            exec lldb -s $cmdfile -c ${core} $EMU_NAME
+            ;;
+        *)
+	    echo "set width 0
 set height 0
 set verbose off
 
 source $ROOTDIR/erts/etc/unix/etp-commands
 thread apply all bt
 " > $cmdfile
-    exec gdb --batch --command=$cmdfile $gdbcmd
+	    exec gdb --batch --command=$cmdfile $EMU_NAME $core
+	    ;;
+    esac
 fi
