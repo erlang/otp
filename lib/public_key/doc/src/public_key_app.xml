@@ -61,7 +61,7 @@
   <section>
     <title>DEPENDENCIES</title>
     <p>The <c>public_key</c> application uses the 
-    Crypto application to preform cryptographic operations and the
+    Crypto application to perform cryptographic operations and the
     ASN-1 application to handle PKIX-ASN-1 specifications, hence
     these applications must be loaded for the <c>public_key</c> application to work. 
     In an embedded environment this means they must be started with
@@ -72,7 +72,7 @@
   <section>
     <title>ERROR LOGGER AND EVENT HANDLERS</title>
     <p> The <c>public_key</c> application is a library application
-    and does not use the error logger. The functions will either sucssed
+    and does not use the error logger. The functions will either succeed
     or fail with a runtime error.
     </p>
   </section>
