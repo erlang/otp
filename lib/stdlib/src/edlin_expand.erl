@@ -118,7 +118,7 @@ format_col([A|T], Width, Len, Acc0) ->
 	    {H1, _} -> H1;
  	    H2 -> H2
  	end,
-    Acc = [io_lib:format("~-*s", [Width,H]) | Acc0],
+    Acc = [io_lib:format("~-*ts", [Width,H]) | Acc0],
     format_col(T, Width, Len+Width, Acc);
 format_col([], _, _, Acc) ->
     lists:reverse(Acc, "\n").
