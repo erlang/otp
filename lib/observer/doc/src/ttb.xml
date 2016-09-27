@@ -114,7 +114,8 @@ ttb:p(all, call).</input></pre>
         <v>Opt = {file,Client} | {handler, FormatHandler} | {process_info,PI} |
           shell | {shell, ShellSpec} | {timer, TimerSpec} |
 	  {overload_check, {MSec, Module, Function}} |
-	{flush, MSec} | resume | {resume, FetchTimeout}</v>
+	{flush, MSec} | resume | {resume, FetchTimeout} |
+	{queue_size, QueueSize}</v>
         <v>TimerSpec = MSec | {MSec, StopOpts}</v>
         <v>MSec = FetchTimeout = integer()</v>
         <v>Module = Function = atom() </v>
@@ -126,6 +127,7 @@ ttb:p(all, call).</input></pre>
         <v>FormatHandler = See format/2</v>
         <v>PI = true | false </v>
         <v>ShellSpec = true | false | only</v>
+	<v>QueueSize = non_neg_integer()</v>
       </type>
       <desc>
         <p>Starts a file trace port on all specified nodes
@@ -147,6 +149,18 @@ ttb:p(all, call).</input></pre>
           <c>Client</c> must be <c>{local, File}</c>. All
           trace information is then sent to the trace control node where
           it is written to file.</p></item>
+       <tag><c>queue_size</c></tag>
+       <item><p>When tracing to shell or <c>{local,File}</c>, an ip
+	  trace driver is used internally. The ip trace driver has a
+	  queue of maximum <c>QueueSize</c> messages waiting to be
+	  delivered. If the driver cannot deliver messages as fast as
+	  they are produced, the queue size might be exceeded and
+	  messages are dropped. This parameter is optional, and is
+	  only useful if many <c>{drop,N}</c> trace messages are
+	  received by the trace handler. It has no meaning if shell
+	  or <c>{local,File}</c> is not used. See
+	  <seealso marker="runtime_tools:dbg#trace_port/2">dbg:trace_port/2</seealso>
+	  for more information about the ip trace driver.</p></item>
        <tag><c>process_info</c></tag>
        <item><p>Indicates if process
           information is to be collected. If <c>PI = true</c> (which is
