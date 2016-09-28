@@ -408,12 +408,12 @@ unicode(Config) when is_list(Config) ->
     Ts = [{unicode_1, 
 	   <<"%% -*- coding: utf-8 -*-\n"
 	     "Definitions.\n"
-	     "RTLarrow    = (←)\n"
+	     "RTLarrow    = (â)\n"
 	     "Rules.\n"
-	     "{RTLarrow}  : {token,{'<-',TokenLine}}.\n"
+	     "{RTLarrow}  : {token,{\"â\",TokenLine}}.\n"
 	     "Erlang code.\n"
 	     "-export([t/0]).\n"
-	     "t() -> {ok, [{'<-', 1}], 1} = string(\"←\"), ok.">>,
+	     "t() -> {ok, [{\"â\", 1}], 1} = string(\"â\"), ok.">>,
            default,
            ok}],
 
@@ -1137,7 +1137,7 @@ run_test(Config, Def, Pre) ->
     XrlFile = filename:join(DataDir, DefFile),
     ErlFile = filename:join(DataDir, Filename),
     Opts = [return, warn_unused_vars,{outdir,DataDir}],
-    ok = file:write_file(XrlFile, Def, [{encoding, unicode}]),
+    ok = file:write_file(XrlFile, Def),
     LOpts = [return, {report, false} | 
              case Pre of
                  default ->
