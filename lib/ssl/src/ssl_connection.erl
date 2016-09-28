@@ -1430,13 +1430,14 @@ key_exchange(#state{role = server, private_key = Key, key_algorithm = Algo} = St
 key_exchange(#state{role = server, key_algorithm = Algo,
 		    hashsign_algorithm = HashSignAlgo,
 		    private_key = PrivateKey,
+		    session = #session{ecc = ECCCurve},
 		    connection_states = ConnectionStates0,
 		    negotiated_version = Version
 		   } = State0, Connection)
   when Algo == ecdhe_ecdsa; Algo == ecdhe_rsa;
        Algo == ecdh_anon ->
 
-    ECDHKeys = public_key:generate_key(select_curve(State0)),
+    ECDHKeys = public_key:generate_key(ECCCurve),
     #{security_parameters := SecParams} = 
 	ssl_record:pending_connection_state(ConnectionStates0, read),
     #security_parameters{client_random = ClientRandom,
@@ -1844,11 +1845,6 @@ cipher_role(server, Data, Session,  #state{connection_states = ConnectionStates0
 					session = Session}, cipher, Connection),
     {Record, State} = prepare_connection(State1, Connection),
     Connection:next_event(connection, Record, State).
-
-select_curve(#state{client_ecc = {[Curve|_], _}}) ->
-    {namedCurve, Curve};
-select_curve(_) ->
-    {namedCurve, ?secp256r1}.
 
 is_anonymous(Algo) when Algo == dh_anon;
 			Algo == ecdh_anon;
