@@ -3905,7 +3905,7 @@ dnl use "PATH/include" and "PATH/lib".
 AC_SUBST(SSL_INCLUDE)
 AC_SUBST(SSL_INCDIR)
 AC_SUBST(SSL_LIBDIR)
-AC_SUBST(SSL_DEFINE)
+AC_SUBST(SSL_FLAGS)
 AC_SUBST(SSL_CRYPTO_LIBNAME)
 AC_SUBST(SSL_SSL_LIBNAME)
 AC_SUBST(SSL_CC_RUNTIME_LIBRARY_PATH)
@@ -4611,13 +4611,13 @@ if test "x$enable_fips_support" = "xyes" && test "$CRYPTO_APP" != ""; then
    LDFLAGS="$LDFLAGS $SSL_LD_RUNTIME_LIBRARY_PATH -L$SSL_LIBDIR"
    LIBS="-lcrypto"
    AC_CHECK_FUNC([FIPS_mode_set],
-   [SSL_DEFINE="-DFIPS_SUPPORT"],
-   [SSL_DEFINE=])
+   [SSL_FLAGS="-DFIPS_SUPPORT"],
+   [SSL_FLAGS=])
    CFLAGS="$saveCFLAGS"
    LDFLAGS="$saveLDFLAGS"
    LIBS="$saveLIBS"
 else
-   SSL_DEFINE=
+   SSL_FLAGS=
 fi
 
 #--------------------------------------------------------------------
