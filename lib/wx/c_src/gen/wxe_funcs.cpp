@@ -32049,6 +32049,28 @@ case wxDCOverlay_Clear: { // wxDCOverlay::Clear
  This->Clear();
  break;
 }
+case wxDropFilesEvent_GetPosition: { // wxDropFilesEvent::GetPosition
+ wxDropFilesEvent *This = (wxDropFilesEvent *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxPoint Result = This->GetPosition();
+ rt.add(Result);
+ break;
+}
+case wxDropFilesEvent_GetNumberOfFiles: { // wxDropFilesEvent::GetNumberOfFiles
+ wxDropFilesEvent *This = (wxDropFilesEvent *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ int Result = This->GetNumberOfFiles();
+ rt.addInt(Result);
+ break;
+}
+case wxDropFilesEvent_GetFiles: { // wxDropFilesEvent::GetFiles
+ wxDropFilesEvent *This = (wxDropFilesEvent *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxString * Result = (wxString*)This->GetFiles();
+ wxArrayString tmpArrayStr(This->m_noFiles, Result);
+ rt.add(tmpArrayStr);
+ break;
+}
   default: {
     wxeReturn error = wxeReturn(WXE_DRV_PORT, Ecmd.caller, false);    error.addAtom("_wxe_error_");
     error.addInt((int) op);

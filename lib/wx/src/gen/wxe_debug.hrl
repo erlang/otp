@@ -3372,6 +3372,9 @@ wxdebug_table() ->
  {3592, {wxDCOverlay, new_2, 2}},
  {3593, {wxDCOverlay, destruct, 0}},
  {3594, {wxDCOverlay, clear, 0}},
+ {3595, {wxDropFilesEvent, getPosition, 0}},
+ {3596, {wxDropFilesEvent, getNumberOfFiles, 0}},
+ {3597, {wxDropFilesEvent, getFiles, 0}},
  {-1, {mod, func, -1}}
 ].
 

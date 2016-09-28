@@ -271,33 +271,31 @@ parse_attr1([{{attr,_}, #xmlElement{content=C, attributes=Attrs}}|R], AttrList0,
 	#param{where=nowhere} ->
 	    parse_attr1(R,AttrList0,Opts,Res);
 	_ ->
-	    case keysearch(prot, #xmlAttribute.name, Attrs) of
-		{value, #xmlAttribute{value = "public"}} ->
-		    {Acc,AttrList} = attr_acc(Param0, AttrList0),
-		    parse_attr1(R,AttrList,Opts,
-				[Param0#param{in=false,prot=public,acc=Acc}|Res]);
-		{value, #xmlAttribute{value = "protected"}} ->
-		    {Acc,AttrList} = attr_acc(Param0, AttrList0),
-		    parse_attr1(R,AttrList,Opts,
-				[Param0#param{in=false,prot=protected,acc=Acc}|Res]);
-		{value, #xmlAttribute{value = "private"}} ->
-		    {Acc,AttrList} = attr_acc(Param0, AttrList0),
-		    parse_attr1(R,AttrList,Opts,
-				[Param0#param{in=false,prot=private,acc=Acc}|Res])
-	    end
+	    {value, #xmlAttribute{value=Type}} =
+                keysearch(prot, #xmlAttribute.name, Attrs),
+            {Param,AttrList} = attr_acc(Param0, list_to_atom(Type), AttrList0),
+            parse_attr1(R,AttrList,Opts,[Param|Res])
     end;
 parse_attr1([{_Id,_}|R],AttrList,Info, Res) ->
     parse_attr1(R,AttrList,Info, Res);
 parse_attr1([],Left,_, Res) ->
     {reverse(Res), Left}.
 
-attr_acc(#param{name=N}, List) ->
+attr_acc(#param{name=N}=P, Type, List) ->
     Name = list_to_atom(N),
     case get_value(Name, List, undefined) of
-	undefined -> {undefined, List};
-	Val -> {Val, lists:keydelete(Name,1,List)}
+	undefined -> {P#param{in=false,prot=Type,acc=undefined}, List};
+	Val when is_list(Val), is_integer(hd(Val)) ->
+            %% Function String
+            {P#param{in=false,prot=Type,acc=Val}, lists:keydelete(Name,1,List)};
+        OptList when is_list(OptList) ->
+            Param = foldl(fun handle_param_opt/2,P,OptList),
+            {Param#param{in=false,prot=Type,acc=undefined},
+             lists:keydelete(Name,1,List)};
+        Val ->
+            {P#param{in=false,prot=Type,acc=Val}, lists:keydelete(Name,1,List)}
     end.
-	        
+
 load_members(FileName, Class, Defs, Tab, Type,Opts) ->
     File = filename:join(["wx_xml",FileName ++ ".xml"]),
     put({loaded, FileName}, true),

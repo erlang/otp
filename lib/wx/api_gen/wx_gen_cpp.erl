@@ -1079,6 +1079,13 @@ build_ret(Name,_,#type{base=string,single=true}) ->
     w(" rt.add(~s);~n",[Name]);
 build_ret(Name,_,#type{name="wxArrayString", single=array}) ->
     w(" rt.add(~s);~n", [Name]);
+build_ret(Name,_,#type{name="wxString", single={list,Variable}}) ->
+    Obj = case Name of
+              "ev->" ++ _ -> "ev";
+              _ -> "This"
+          end,
+    w(" wxArrayString tmpArrayStr(~s->~s, ~s);~n", [Obj,Variable,Name]),
+    w(" rt.add(tmpArrayStr);~n", []);
 build_ret(Name,In,T) ->
     ?error({nyi, Name,In, T}).
 

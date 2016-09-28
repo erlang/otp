@@ -3421,5 +3421,8 @@
 #define wxDCOverlay_new_2 3592
 #define wxDCOverlay_destruct 3593
 #define wxDCOverlay_Clear 3594
+#define wxDropFilesEvent_GetPosition 3595
+#define wxDropFilesEvent_GetNumberOfFiles 3596
+#define wxDropFilesEvent_GetFiles 3597
 
 
