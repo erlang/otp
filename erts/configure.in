@@ -2798,7 +2798,7 @@ if test X${enable_fp_exceptions} != Xyes ; then
     FPE=unreliable
 else
 
-    AC_MSG_CHECKING([for unreliable floating point execptions])
+    AC_MSG_CHECKING([for unreliable floating point exceptions])
 
 
     AC_TRY_RUN([
