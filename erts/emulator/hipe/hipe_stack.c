@@ -143,7 +143,7 @@ void hipe_init_sdesc_table(struct hipe_sdesc *sdesc)
  * representation. If different representations are needed in
  * the future, this code has to be made target dependent.
  */
-struct hipe_sdesc *hipe_decode_sdesc(Eterm arg, int* do_commitp)
+struct hipe_sdesc *hipe_decode_sdesc(Eterm arg)
 {
     Uint ra, exnra;
     Eterm *live;
@@ -158,7 +158,7 @@ struct hipe_sdesc *hipe_decode_sdesc(Eterm arg, int* do_commitp)
         return 0;
 
     tp = tuple_val(arg);
-    if (tp[0] != make_arityval(7) ||
+    if (tp[0] != make_arityval(6) ||
         term_to_Uint(tp[1], &ra) == 0 ||
 	term_to_Uint(tp[2], &exnra) == 0 ||
 	is_not_small(tp[3]) ||
@@ -189,12 +189,6 @@ struct hipe_sdesc *hipe_decode_sdesc(Eterm arg, int* do_commitp)
 	    (off = unsigned_val(live[i]), off >= nslots) ||
 	    off == fsize)
 	    return 0;
-    }
-
-    switch(tp[7]) {
-    case am_true: *do_commitp = 1; break;
-    case am_false: *do_commitp = 0; break;
-    default: return 0;
     }
 
     /* Calculate number of words for the live bitmap. */

@@ -6540,6 +6540,45 @@ erts_make_stub_module(Process* p, Eterm hipe_magic_bin, Eterm Beam, Eterm Info)
     BIF_ERROR(p, BADARG);
 }
 
+int erts_commit_hipe_patch_load(Eterm hipe_magic_bin)
+{
+    Binary* hipe_magic;
+    HipeLoaderState* hipe_stp;
+    HipeModule *hipe_code;
+    Module* modp;
+
+    if (!ERTS_TERM_IS_MAGIC_BINARY(hipe_magic_bin) ||
+	!(hipe_magic = ((ProcBin*)binary_val(hipe_magic_bin))->val,
+	  hipe_stp = hipe_get_loader_state(hipe_magic)) ||
+	hipe_stp->module == NIL || hipe_stp->text_segment == 0) {
+	return 0;
+    }
+
+    modp = erts_get_module(hipe_stp->module, erts_active_code_ix());
+    if (!modp)
+	return 0;
+
+    /*
+     * Initialise HiPE module
+     */
+    hipe_code = erts_alloc(ERTS_ALC_T_HIPE, sizeof(*hipe_code));
+    hipe_code->text_segment = hipe_stp->text_segment;
+    hipe_code->text_segment_size = hipe_stp->text_segment_size;
+    hipe_code->data_segment = hipe_stp->data_segment;
+    hipe_code->first_hipe_ref = hipe_stp->new_hipe_refs;
+    hipe_code->first_hipe_sdesc = hipe_stp->new_hipe_sdesc;
+
+    modp->curr.hipe_code = hipe_code;
+
+    /* Prevent code from being freed */
+    hipe_stp->text_segment = 0;
+    hipe_stp->data_segment = 0;
+    hipe_stp->new_hipe_refs = NULL;
+    hipe_stp->new_hipe_sdesc = NULL;
+
+    return 1;
+}
+
 #undef WORDS_PER_FUNCTION
 
 static int safe_mul(UWord a, UWord b, UWord* resp)

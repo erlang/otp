@@ -1048,6 +1048,7 @@ void erts_set_current_function(FunctionInfo* fi, BeamInstr* current);
 Eterm erts_module_info_0(Process* p, Eterm module);
 Eterm erts_module_info_1(Process* p, Eterm module, Eterm what);
 Eterm erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info);
+int erts_commit_hipe_patch_load(Eterm hipe_magic_bin);
 
 /* beam_ranges.c */
 void erts_init_ranges(void);

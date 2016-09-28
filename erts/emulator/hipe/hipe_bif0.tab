@@ -50,6 +50,7 @@ bif hipe_bifs:constants_size/0
 bif hipe_bifs:merge_term/1
 
 bif hipe_bifs:fun_to_address/1
+bif hipe_bifs:commit_patch_load/1
 bif hipe_bifs:set_native_address/3
 #bif hipe_bifs:address_to_fun/1
 

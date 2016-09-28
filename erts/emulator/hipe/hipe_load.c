@@ -57,6 +57,11 @@ hipe_loader_state_dtor(Binary* magic)
     stp->data_segment_size = 0;
 
     stp->module = NIL;
+
+    ASSERT(!stp->new_hipe_refs && !stp->new_hipe_sdesc);
+    /* ToDO: Purge lists 'new_hipe_refs' and 'new_hipe_sdesc'
+     *       if this is a failed load.
+     */
 }
 
 Binary *hipe_alloc_loader_state(Eterm module)

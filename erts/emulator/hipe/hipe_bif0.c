@@ -649,6 +649,14 @@ BIF_RETTYPE hipe_bifs_fun_to_address_1(BIF_ALIST_1)
     BIF_RET(address_to_term(pc, BIF_P));
 }
 
+BIF_RETTYPE hipe_bifs_commit_patch_load_1(BIF_ALIST_1)
+{
+    if (!erts_commit_hipe_patch_load(BIF_ARG_1))
+        BIF_ERROR(BIF_P, BADARG);
+
+    BIF_RET(am_ok);
+}
+
 BIF_RETTYPE hipe_bifs_set_native_address_3(BIF_ALIST_3)
 {
     Eterm *pc;
@@ -689,14 +697,12 @@ BIF_RETTYPE hipe_bifs_enter_sdesc_2(BIF_ALIST_2)
 {
     struct hipe_sdesc *sdesc;
     HipeLoaderState* stp;
-    Module* modp;
-    int do_commit;
 
     stp = get_loader_state(BIF_ARG_2);
     if (!stp)
 	BIF_ERROR(BIF_P, BADARG);
 
-    sdesc = hipe_decode_sdesc(BIF_ARG_1, &do_commit);
+    sdesc = hipe_decode_sdesc(BIF_ARG_1);
     if (!sdesc) {
 	fprintf(stderr, "%s: bad sdesc!\r\n", __FUNCTION__);
 	BIF_ERROR(BIF_P, BADARG);
@@ -709,17 +715,8 @@ BIF_RETTYPE hipe_bifs_enter_sdesc_2(BIF_ALIST_2)
     /*
      * Link into list of sdesc's in same module instance
      */
-    modp = erts_put_active_module(make_atom(sdesc->m_aix));
-    ASSERT(modp);
-    if (do_commit) { /* Direct "hipe-patching" of early loaded module */
-        ASSERT(modp->curr.hipe_code);
-        sdesc->next_in_modi = modp->curr.hipe_code->first_hipe_sdesc;
-        modp->curr.hipe_code->first_hipe_sdesc = sdesc;
-    }
-    else {           /* Normal module loading/upgrade */
-        sdesc->next_in_modi = stp->new_hipe_sdesc;
-        stp->new_hipe_sdesc = sdesc;
-    }
+    sdesc->next_in_modi = stp->new_hipe_sdesc;
+    stp->new_hipe_sdesc = sdesc;
 
     BIF_RET(NIL);
 }
@@ -1483,7 +1480,7 @@ int hipe_find_mfa_from_ra(const void *ra, Eterm *m, Eterm *f, unsigned int *a)
 }
 
 
-/* add_ref(CalleeMFA, {CallerMFA,Address,'call'|'load_mfa',Trampoline,DoCommit})
+/* add_ref(CalleeMFA, {CallerMFA,Address,'call'|'load_mfa',Trampoline,LoaderState})
  */
 BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
 {
@@ -1495,8 +1492,6 @@ BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
     unsigned int flags;
     struct hipe_mfa_info *callee_mfa;
     struct hipe_ref *ref;
-    Module* modp;
-    int do_commit;
     HipeLoaderState* stp;
 
     if (!term_to_mfa(BIF_ARG_1, &callee))
@@ -1504,7 +1499,7 @@ BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
     if (is_not_tuple(BIF_ARG_2))
 	goto badarg;
     tuple = tuple_val(BIF_ARG_2);
-    if (tuple[0] != make_arityval(6))
+    if (tuple[0] != make_arityval(5))
 	goto badarg;
     if (!term_to_mfa(tuple[1], &caller))
 	goto badarg;
@@ -1528,12 +1523,7 @@ BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
 	if (!trampoline)
 	    goto badarg;
     }
-    switch (tuple[5]) {
-    case am_true: do_commit = 1; break;
-    case am_false: do_commit = 0; break;
-    default: goto badarg;
-    }
-    stp = get_loader_state(tuple[6]);
+    stp = get_loader_state(tuple[5]);
     if (!stp)
         goto badarg;
 
@@ -1558,17 +1548,8 @@ BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
     /*
      * Link into list of refs from same module instance
      */
-    modp = erts_put_active_module(caller.mod);
-    ASSERT(modp);
-    if (do_commit) { /* Direct "hipe-patching" of early loaded module */
-        ASSERT(modp->curr.hipe_code);
-        ref->next_from_modi = modp->curr.hipe_code->first_hipe_ref;
-        modp->curr.hipe_code->first_hipe_ref = ref;
-    }
-    else {           /* Normal module loading/upgrade */
-        ref->next_from_modi = stp->new_hipe_refs;
-        stp->new_hipe_refs = ref;
-    }
+    ref->next_from_modi = stp->new_hipe_refs;
+    stp->new_hipe_refs = ref;
 
 #if defined(DEBUG)
     ref->callee = callee_mfa;
@@ -1578,10 +1559,10 @@ BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
 #endif
     hipe_mfa_info_table_rwunlock();
 
-    DBG_TRACE_MFA(caller.mod, caller.fun, caller.ari, "add_ref at %p TO %T:%T/%u (from %p) do_commit=%d",
-		  ref, callee.mod, callee.fun, callee.ari, ref->address, do_commit);
-    DBG_TRACE_MFA(callee.mod, callee.fun, callee.ari, "add_ref at %p FROM %T:%T/%u (from %p) do_commit=%d",
-		  ref, caller.mod, caller.fun, caller.ari, ref->address, do_commit);
+    DBG_TRACE_MFA(caller.mod, caller.fun, caller.ari, "add_ref at %p TO %T:%T/%u (from %p)",
+		  ref, callee.mod, callee.fun, callee.ari, ref->address);
+    DBG_TRACE_MFA(callee.mod, callee.fun, callee.ari, "add_ref at %p FROM %T:%T/%u (from %p)",
+		  ref, caller.mod, caller.fun, caller.ari, ref->address);
     BIF_RET(NIL);
 
  badarg:

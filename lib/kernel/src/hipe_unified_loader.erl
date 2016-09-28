@@ -225,6 +225,7 @@ load_common(Mod, Bin, Beam, Architecture) ->
 	  lists:foreach(fun({FE, DestAddress}) ->
 			    hipe_bifs:set_native_address_in_fe(FE, DestAddress)
 			end, erase(closures_to_patch)),
+          ok = hipe_bifs:commit_patch_load(LoaderState),
 	  set_beam_call_traps(FunDefs),
 	  ok;
 	BeamBinary when is_binary(BeamBinary) ->
@@ -556,7 +557,7 @@ patch_sdesc(?STACK_DESC(SymExnRA, FSize, Arity, Live),
     end,
   ?ASSERT(assert_local_patch(Address)),
   MFA = address_to_mfa_lth(Address, FunDefs),
-  hipe_bifs:enter_sdesc({Address, ExnRA, FSize, Arity, Live, MFA, get(hipe_patch_closures)},
+  hipe_bifs:enter_sdesc({Address, ExnRA, FSize, Arity, Live, MFA},
 		       get(hipe_loader_state)).
 
 
@@ -778,7 +779,6 @@ add_ref(CalleeMFA, Address, FunDefs, RefType, Trampoline, RemoteOrLocal) ->
       {M,_,_} = CallerMFA;
     remote ->
       hipe_bifs:add_ref(CalleeMFA, {CallerMFA,Address,RefType,Trampoline,
-				    get(hipe_patch_closures),
 				    get(hipe_loader_state)})
   end,
   ok.
