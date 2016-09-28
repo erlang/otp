@@ -315,6 +315,15 @@ case wxWindow_Disable: { // wxWindow::Disable
  rt.addBool(Result);
  break;
 }
+#if wxCHECK_VERSION(2,8,10)
+case wxWindow_DragAcceptFiles: { // wxWindow::DragAcceptFiles
+ wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ bool * accept = (bool *) bp; bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->DragAcceptFiles(*accept);
+ break;
+}
+#endif
 case wxWindow_Enable: { // wxWindow::Enable
  bool enable=true;
  wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
