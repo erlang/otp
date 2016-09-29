@@ -236,7 +236,6 @@ erts_fun_purge_abort_prepare(ErlFunEntry **funs, Uint no)
 	ErlFunEntry *fe = funs[ix];
 	if (fe->address == unloaded_fun)
 	    fe->address = fe->pend_purge_address;
-	fe->pend_purge_address = NULL;
     }
 }
 
