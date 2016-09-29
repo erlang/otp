@@ -124,11 +124,11 @@ $ <input>make</input>
     <p>In FIPS mode non-validated algorithms are disabled. This may
     cause some unexpected problems in application relying on
     crypto.</p>
-    <warn><p>Do not try to work around these problems by using
+    <warning><p>Do not try to work around these problems by using
     alternative implementations of the missing algorithms! An
     application can only claim to be using a FIPS 140-2 validated
     cryptographic module if it uses it exclusively for every
-    cryptographic operation.</p></warn>
+    cryptographic operation.</p></warning>
 
     <section>
       <title>Restrictions on key sizes</title>
