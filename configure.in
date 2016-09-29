@@ -105,7 +105,6 @@ else
 fi
 AC_SUBST(CROSS_COMPILING)
 
-
 AC_ARG_ENABLE(bootstrap-only,
 AS_HELP_STRING([--enable-bootstrap-only],
                [enable bootstrap only configuration]),
@@ -368,6 +367,49 @@ if test X${enable_native_libs} = Xyes -a X${enable_hipe} != Xno; then
 fi
 AC_SUBST(NATIVE_LIBS_ENABLED)
 
+if test $CROSS_COMPILING = no; then
+   case $host_os in
+   	darwin*)
+	   macosx_version=`sw_vers -productVersion`
+	   test $? -eq 0 || {
+	   	AC_MSG_ERROR([Failed to execute 'sw_vers'; please provide it in PATH])
+	   }
+	   [case "$macosx_version" in
+	       [1-9][0-9].[0-9])
+	          int_macosx_version=`echo $macosx_version | sed 's|\([^\.]*\)\.\([^\.]*\)|\1\2|'`;;
+	       [1-9][0-9].[0-9].[0-9])
+	          int_macosx_version=`echo $macosx_version | sed 's|\([^\.]*\)\.\([^\.]*\)\.\([^\.]*\)|\1\2\3|'`;;
+	       [1-9][0-9].[1-9][0-9])
+	          int_macosx_version=`echo $macosx_version | sed 's|\([^\.]*\)\.\([^\.]*\)|\1\200|'`;;
+	       [1-9][0-9].[1-9][0-9].[0-9])
+	          int_macosx_version=`echo $macosx_version | sed 's|\([^\.]*\)\.\([^\.]*\)\.\([^\.]*\)|\1\20\3|'`;;
+	       [1-9][0-9].[1-9][0-9].[1-9][0-9])
+	          int_macosx_version=`echo $macosx_version | sed 's|\([^\.]*\)\.\([^\.]*\)\.\([^\.]*\)|\1\2\3|'`;;
+	       *)
+		  int_macosx_version=unexpected;;
+	   esac]
+	   test $int_macosx_version != unexpected || {
+	   	AC_MSG_ERROR([Unexpected MacOSX version ($macosx_version) returned by 'sw_vers -productVersion'; this configure script probably needs to be updated])
+	   }
+	   AC_TRY_COMPILE([
+#if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ > $int_macosx_version
+#error Compiling for a newer MacOSX version...
+#endif
+		], [;],
+		[],
+		[AC_MSG_ERROR([
+
+  You are natively building Erlang/OTP for a later version of MacOSX
+  than current version ($macosx_version). You either need to
+  cross-build Erlang/OTP, or set the environment variable
+  MACOSX_DEPLOYMENT_TARGET to $macosx_version (or a lower version).
+
+])])
+	   ;;
+	*)
+	   ;;
+   esac
+fi
 
 rm -f $ERL_TOP/lib/SKIP-APPLICATIONS
 for app in `cd lib && ls -d *`; do
