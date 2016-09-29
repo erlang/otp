@@ -3749,7 +3749,6 @@ dec_term_atom_common:
 		if (funp->fe->native_address == NULL) {
 		    hipe_set_closure_stub(funp->fe, num_free);
 		}
-		funp->native_address = funp->fe->native_address;
 #endif
 		hp = factory->hp;
 
@@ -3821,9 +3820,6 @@ dec_term_atom_common:
 
 		funp->fe = erts_put_fun_entry(module, old_uniq, old_index);
 		funp->arity = funp->fe->address[-1] - num_free;
-#ifdef HIPE
-		funp->native_address = funp->fe->native_address;
-#endif
 		hp = factory->hp;
 
 		/* Environment */

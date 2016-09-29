@@ -68,9 +68,7 @@
 -include("hipe_rtl.hrl").
 -include("hipe_literals.hrl").
 
--ifdef(EFT_NATIVE_ADDRESS).
 -export([if_fun_get_arity_and_address/5]).
--endif.
 
 -undef(TAG_PRIMARY_BOXED).
 -undef(TAG_IMMED2_MASK).
@@ -282,7 +280,6 @@ test_ref(X, TrueLab, FalseLab, Pred) ->
 		      TrueLab, FalseLab, Pred)
   ].
 
--ifdef(EFT_NATIVE_ADDRESS).
 test_closure(X, TrueLab, FalseLab, Pred) ->
   Tmp = hipe_rtl:mk_new_reg_gcsafe(),
   HalfTrueLab = hipe_rtl:mk_new_label(),
@@ -291,7 +288,6 @@ test_closure(X, TrueLab, FalseLab, Pred) ->
    get_header(Tmp, X),
    mask_and_compare(Tmp, ?TAG_HEADER_MASK, ?TAG_HEADER_FUN,
 		    TrueLab, FalseLab, Pred)].
--endif.
 
 test_fun(X, TrueLab, FalseLab, Pred) ->
   Hdr = hipe_rtl:mk_new_reg_gcsafe(),
@@ -781,10 +777,9 @@ tag_fun(Res, X) ->
 %% untag_fun(Res, X) ->
 %%   hipe_rtl:mk_alu(Res, X, 'sub', hipe_rtl:mk_imm(?TAG_PRIMARY_BOXED)).
 
--ifdef(EFT_NATIVE_ADDRESS).
 if_fun_get_arity_and_address(ArityReg, AddressReg, FunP, BadFunLab, Pred) ->
   %% EmuAddressPtrReg = hipe_rtl:mk_new_reg(),
-  %% FEPtrReg = hipe_rtl:mk_new_reg(),
+  FEPtrReg = hipe_rtl:mk_new_reg(),
   %% ArityReg = hipe_rtl:mk_new_reg(),
   %% NumFreeReg = hipe_rtl:mk_new_reg(),
   %% RealArityReg = hipe_rtl:mk_new_reg(),
@@ -797,11 +792,12 @@ if_fun_get_arity_and_address(ArityReg, AddressReg, FunP, BadFunLab, Pred) ->
      hipe_rtl:mk_load(ArityReg, FunP,
 		      hipe_rtl:mk_imm(-(?TAG_PRIMARY_BOXED)+
 				      ?EFT_ARITY)),
-     hipe_rtl:mk_load(AddressReg, FunP,
+     hipe_rtl:mk_load(FEPtrReg, FunP,
 		      hipe_rtl:mk_imm(-(?TAG_PRIMARY_BOXED)+
-				      ?EFT_NATIVE_ADDRESS))],
+				      ?EFT_FE)),
+     hipe_rtl:mk_load(AddressReg, FEPtrReg,
+		      hipe_rtl:mk_imm(?EFE_NATIVE_ADDRESS))],
   IsFunCode ++ GetArityCode.
--endif.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
