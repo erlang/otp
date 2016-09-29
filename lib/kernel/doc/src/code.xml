@@ -382,9 +382,14 @@ zip:create("mnesia-4.4.7.ez",
       <name name="add_pathsa" arity="1"/>
       <fsummary>Add directories to the beginning of the code path.</fsummary>
       <desc>
-        <p>Adds the directories in <c><anno>Dirs</anno></c> to the beginning of
-          the code path. If a <c><anno>Dir</anno></c> exists, it is removed
-          from the old position in the code path.</p>
+	<p>Traverses <c><anno>Dirs</anno></c> and adds
+	  each <c><anno>Dir</anno></c> to the beginning of the code
+	  path. This means that the order of <c><anno>Dirs</anno></c>
+	  is reversed in the resulting code path. For example, if you
+	  add <c>[Dir1,Dir2]</c>, the resulting path will
+	  be <c>[Dir2,Dir1|OldCodePath]</c>.</p>
+	<p>If a <c><anno>Dir</anno></c> already exists in the code
+	  path, it is removed from the old position.</p>
 	<p>Always returns <c>ok</c>, regardless of the validity of each
           individual <c><anno>Dir</anno></c>.</p>
       </desc>
