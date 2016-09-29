@@ -283,6 +283,9 @@ coverage(_Config) ->
 
     {'EXIT',{function_clause,_}} = (catch town(overall, {{abc},alcohol})),
 
+    self() ! junk_message,
+    {"url",#{true:="url"}} = appointment(#{"resolution" => "url"}),
+
     ok.
 
 %% Cover check_liveness/3.
@@ -352,6 +355,9 @@ yellow(Hill) ->
     Hill,
     id(42).
 
+do(A, B) -> {A,B}.
+appointment(#{"resolution" := Url}) ->
+    do(receive _ -> Url end, #{true => Url}).
 
 %% The identity function.
 id(I) -> I.

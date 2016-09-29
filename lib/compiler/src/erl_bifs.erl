@@ -207,7 +207,6 @@ is_safe(erlang, registered, 0) -> true;
 is_safe(erlang, self, 0) -> true;
 is_safe(erlang, term_to_binary, 1) -> true;
 is_safe(erlang, time, 0) -> true;
-is_safe(error_logger, warning_map, 0) -> true;
 is_safe(_, _, _) -> false.
 
 

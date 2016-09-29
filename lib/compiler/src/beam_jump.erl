@@ -155,9 +155,7 @@ share(Is0) ->
     Is = eliminate_fallthroughs(Is0, []),
     share_1(Is, #{}, [], []).
 
-share_1([{label,_}=Lbl|Is], Dict, [], Acc) ->
-    share_1(Is, Dict, [], [Lbl|Acc]);
-share_1([{label,L}=Lbl|Is], Dict0, Seq, Acc) ->
+share_1([{label,L}=Lbl|Is], Dict0, [_|_]=Seq, Acc) ->
     case maps:find(Seq, Dict0) of
 	error ->
 	    Dict = maps:put(Seq, L, Dict0),
@@ -208,21 +206,18 @@ sharable_with_try([]) -> true.
 
 %% Eliminate all fallthroughs. Return the result reversed.
 
-eliminate_fallthroughs([I,{label,L}=Lbl|Is], Acc) ->
-    case is_unreachable_after(I) orelse is_label(I) of
+eliminate_fallthroughs([{label,L}=Lbl|Is], [I|_]=Acc) ->
+    case is_unreachable_after(I) of
 	false ->
 	    %% Eliminate fallthrough.
-	    eliminate_fallthroughs(Is, [Lbl,{jump,{f,L}},I|Acc]);
+	    eliminate_fallthroughs(Is, [Lbl,{jump,{f,L}}|Acc]);
 	true ->
-	    eliminate_fallthroughs(Is, [Lbl,I|Acc])
+	    eliminate_fallthroughs(Is, [Lbl|Acc])
     end;
 eliminate_fallthroughs([I|Is], Acc) ->
     eliminate_fallthroughs(Is, [I|Acc]);
 eliminate_fallthroughs([], Acc) -> Acc.
 
-is_label({label,_}) -> true;
-is_label(_) -> false.
-    
 %%%
 %%% (2) Move short code sequences ending in an instruction that causes an exit
 %%% to the end of the function.

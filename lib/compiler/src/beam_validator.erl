@@ -909,7 +909,7 @@ all_ms_in_x_regs(Live0, Vst) ->
 
 ms_in_y_regs(Id, #vst{current=#st{y=Ys0}}) ->
     Ys = gb_trees:to_list(Ys0),
-    [Y || {Y,#ms{id=OtherId}} <- Ys, OtherId =:= Id].
+    [{y,Y} || {Y,#ms{id=OtherId}} <- Ys, OtherId =:= Id].
 
 verify_call_match_context(Lbl, Ctx, #vst{ft=Ft}) ->
     case gb_trees:lookup(Lbl, Ft) of
