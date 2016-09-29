@@ -2121,7 +2121,7 @@ make_var(A) ->
 make_var_name() ->
     N = get(new_var_num),
     put(new_var_num, N+1),
-    list_to_atom("fol"++integer_to_list(N)).
+    list_to_atom("@f"++integer_to_list(N)).
 
 letify(Bs, Body) ->
     Ann = cerl:get_ann(Body),

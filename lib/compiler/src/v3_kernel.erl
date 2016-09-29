@@ -880,7 +880,7 @@ new_fun_name(Type, #kern{func={F,Arity},fcount=C}=St) ->
 %% new_var_name(State) -> {VarName,State}.
 
 new_var_name(#kern{vcount=C}=St) ->
-    {list_to_atom("ker" ++ integer_to_list(C)),St#kern{vcount=C+1}}.
+    {list_to_atom("@k" ++ integer_to_list(C)),St#kern{vcount=C+1}}.
 
 %% new_var(State) -> {#k_var{},State}.
 
