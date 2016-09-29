@@ -3738,7 +3738,7 @@ response_analysis(Module, Function, Arguments) ->
     {Result, Comment}.
 
 micro_ts() ->
-    erlang:monotonic_time(micro_seconds).
+    erlang:monotonic_time(microsecond).
 
 response_stat(init, Ts) ->
     {0, 0, Ts, 0, 0};

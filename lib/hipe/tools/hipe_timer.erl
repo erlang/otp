@@ -51,7 +51,7 @@ empty_time() ->
   {A,_} = erlang:statistics(runtime),
   WTB = erlang:monotonic_time(),
   {B,_} = erlang:statistics(runtime),
-  {(WTB-WTA)/erlang:convert_time_unit(1, seconds, native),B-A}.
+  {(WTB-WTA)/erlang:convert_time_unit(1, second, native),B-A}.
 
 time(F) -> 
   WTA = erlang:monotonic_time(),
@@ -59,7 +59,7 @@ time(F) ->
   F(),
   WTB = erlang:monotonic_time(),
   {B,_} = erlang:statistics(runtime),
-  {(WTB-WTA)/erlang:convert_time_unit(1, seconds, native),B-A}.
+  {(WTB-WTA)/erlang:convert_time_unit(1, second, native),B-A}.
 
 timer(F) -> 
   WTA = erlang:monotonic_time(),
@@ -67,7 +67,7 @@ timer(F) ->
   R = F(),
   WTB = erlang:monotonic_time(),
   {B,_} = erlang:statistics(runtime),
-  {R,{(WTB-WTA)/erlang:convert_time_unit(1, seconds, native),B-A}}.
+  {R,{(WTB-WTA)/erlang:convert_time_unit(1, second, native),B-A}}.
 
 advanced(_Fun, I) when I < 2 -> false;
 advanced(Fun, Iterations) ->

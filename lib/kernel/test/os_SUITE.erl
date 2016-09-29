@@ -322,7 +322,7 @@ perf_counter_api(_Config) ->
     T1 = os:perf_counter(),
     timer:sleep(100),
     T2 = os:perf_counter(),
-    TsDiff = erlang:convert_time_unit(T2 - T1, perf_counter, nano_seconds),
+    TsDiff = erlang:convert_time_unit(T2 - T1, perf_counter, nanosecond),
     ct:pal("T1: ~p~n"
            "T2: ~p~n"
            "TsDiff: ~p~n",

@@ -4446,15 +4446,15 @@ build_table2(L1,L2,Num) ->
     T.
 
 time_match_object(Tab,Match, Res) ->
-    T1 = erlang:monotonic_time(micro_seconds),
+    T1 = erlang:monotonic_time(microsecond),
     Res = ets:match_object(Tab,Match),
-    T2 = erlang:monotonic_time(micro_seconds),
+    T2 = erlang:monotonic_time(microsecond),
     T2 - T1.
 
 time_match(Tab,Match) ->
-    T1 = erlang:monotonic_time(micro_seconds),
+    T1 = erlang:monotonic_time(microsecond),
     ets:match(Tab,Match),
-    T2 = erlang:monotonic_time(micro_seconds),
+    T2 = erlang:monotonic_time(microsecond),
     T2 - T1.
 
 seventyfive_percent_success(_,S,Fa,0) ->
@@ -6276,7 +6276,7 @@ do_tc(Do, Report) ->
     T1 = erlang:monotonic_time(),
     Do(),
     T2 = erlang:monotonic_time(),
-    Elapsed = erlang:convert_time_unit(T2 - T1, native, milli_seconds),
+    Elapsed = erlang:convert_time_unit(T2 - T1, native, millisecond),
     Report(Elapsed).
 
 syrup_factor() ->

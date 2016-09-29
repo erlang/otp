@@ -230,7 +230,7 @@ time_ping(Node) ->
     T0 = erlang:monotonic_time(),
     pang = net_adm:ping(Node),
     T1 = erlang:monotonic_time(),
-    erlang:convert_time_unit(T1 - T0, native, milli_seconds).
+    erlang:convert_time_unit(T1 - T0, native, millisecond).
 
 %% Keep the connection with the client node up.
 %% This is neccessary as the client node runs with much shorter
@@ -274,7 +274,7 @@ tick_cli_test1(Node) ->
 	    receive
 		{whats_the_result, From} ->
 		    Diff = erlang:convert_time_unit(T2-T1, native,
-						    milli_seconds),
+						    millisecond),
 		    case Diff of
 			T when T > 8000, T < 16000 ->
 			    From ! {tick_test, T};
