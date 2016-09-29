@@ -28,6 +28,31 @@
   <p>This document describes the changes made to the SSL application.</p>
 
 
+<section><title>SSL 8.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A timing related bug in event handling could cause
+	    interoperability problems between an erlang TLS server
+	    and some TLS clients, especially noticed with Firefox as
+	    TLS client.</p>
+          <p>
+	    Own Id: OTP-13917</p>
+        </item>
+        <item>
+          <p>
+	    Correct ECC curve selection, the error could cause the
+	    default to always be selected.</p>
+          <p>
+	    Own Id: OTP-13918</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 8.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -232,9 +232,7 @@ error(_, _, _) ->
 	    #state{}) ->
 		   gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-hello(internal, #client_hello{client_version = ClientVersion,
-			      extensions = #hello_extensions{ec_point_formats = EcPointFormats,
-							     elliptic_curves = EllipticCurves}} = Hello,
+hello(internal, #client_hello{client_version = ClientVersion} = Hello,
       State = #state{connection_states = ConnectionStates0,
 		     port = Port, session = #session{own_certificate = Cert} = Session0,
 		     renegotiation = {Renegotiation, _},
@@ -260,7 +258,6 @@ hello(internal, #client_hello{client_version = ClientVersion,
 					     negotiated_version = Version,
 					     hashsign_algorithm = HashSign,
 					     session = Session,
-					     client_ecc = {EllipticCurves, EcPointFormats},
 					     negotiated_protocol = Protocol}, ?MODULE)
     end;
 hello(internal, #server_hello{} = Hello,
