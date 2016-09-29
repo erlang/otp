@@ -48,6 +48,7 @@
           socket_options        :: #socket_options{},
           connection_states     :: ssl_record:connection_states() | secret_printout(),
 	  protocol_buffers      :: term() | secret_printout() , %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hrl
+	  unprocessed_handshake_events = 0    :: integer(),
           tls_handshake_history :: ssl_handshake:ssl_handshake_history() | secret_printout()
                                  | 'undefined',
 	  cert_db               :: reference() | 'undefined',
@@ -81,7 +82,6 @@
           expecting_next_protocol_negotiation = false ::boolean(),
 	  expecting_finished =                  false ::boolean(),
           negotiated_protocol = undefined             :: undefined | binary(),
-	  client_ecc,          % {Curves, PointFmt}
 	  tracker              :: pid() | 'undefined', %% Tracker process for listen socket
 	  sni_hostname = undefined,
 	  downgrade,

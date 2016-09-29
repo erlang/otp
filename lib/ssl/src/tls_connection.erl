@@ -237,9 +237,7 @@ error(_, _, _) ->
 	    #state{}) ->
 		   gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-hello(internal, #client_hello{client_version = ClientVersion,
-			       extensions = #hello_extensions{ec_point_formats = EcPointFormats,
-							      elliptic_curves = EllipticCurves}} = Hello,
+hello(internal, #client_hello{client_version = ClientVersion} = Hello,
       #state{connection_states = ConnectionStates0,
 	     port = Port, session = #session{own_certificate = Cert} = Session0,
 	     renegotiation = {Renegotiation, _},
@@ -265,7 +263,6 @@ hello(internal, #client_hello{client_version = ClientVersion,
 					     negotiated_version = Version,
 					     hashsign_algorithm = HashSign,
 					     session = Session,
-					     client_ecc = {EllipticCurves, EcPointFormats},
 					     negotiated_protocol = Protocol})
     end;
 hello(internal, #server_hello{} = Hello,
@@ -421,7 +418,7 @@ handle_common_event(internal,  #ssl_tls{type = ?HANDSHAKE, fragment = Data},
 	    connection ->
 		ssl_connection:hibernate_after(StateName, State, Events);
 	    _ ->
-		{next_state, StateName, State, Events}
+		{next_state, StateName, State#state{unprocessed_handshake_events = unprocessed_events(Events)}, Events}
 	end
     catch throw:#alert{} = Alert ->
 	    ssl_connection:handle_own_alert(Alert, Version, StateName, State0)
@@ -537,7 +534,9 @@ next_tls_record(Data, #state{protocol_buffers = #protocol_buffers{tls_record_buf
 	#alert{} = Alert ->
 	    Alert
     end.
-
+next_record(#state{unprocessed_handshake_events = N} = State) when N > 0 ->
+    {no_record, State#state{unprocessed_handshake_events = N-1}};
+					 
 next_record(#state{protocol_buffers =
 		       #protocol_buffers{tls_packets = [], tls_cipher_texts = [CT | Rest]}
 		   = Buffers,
@@ -712,3 +711,10 @@ gen_info(Event, StateName, #state{negotiated_version = Version} = State) ->
 					    Version, StateName, State)  
     end.
 	    
+unprocessed_events(Events) ->
+    %% The first handshake event will be processed immediately
+    %% as it is entered first in the event queue and
+    %% when it is processed there will be length(Events)-1
+    %% handshake events left to process before we should
+    %% process more TLS-records received on the socket. 
+    erlang:length(Events)-1.
