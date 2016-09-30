@@ -1136,7 +1136,7 @@ try_load_module_2(File, Mod, Bin, From, Architecture,
             try_load_module_3(File, Mod, Bin, From, Architecture, St);
         Error ->
             error_msg("Native loading of ~ts failed: ~p\n", [File,Error]),
-            {reply,ok,St}
+            {reply,{error,Error},St}
     end.
 
 try_load_module_3(File, Mod, Bin, From, _Architecture, St0) ->
