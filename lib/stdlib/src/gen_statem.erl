@@ -142,7 +142,7 @@
 	 NextStateName :: state_name(),
 	 NewData :: data(),
 	 Actions :: [action()] | action()} |
-	common_state_callback_result().
+	keep_state_callback_result().
 -type state_function_enter_result() ::
 	{'next_state', % {next_state,NextStateName,NewData,[]}
 	 NextStateName :: state_name(),
@@ -151,7 +151,7 @@
 	 NextStateName :: state_name(),
 	 NewData :: data(),
 	 Actions :: [enter_action()] | enter_action()} |
-	common_state_callback_result().
+	keep_state_callback_enter_result().
 
 -type handle_event_result() ::
 	{'next_state', % {next_state,NextState,NewData,[]}
@@ -161,7 +161,7 @@
 	 NextState :: state(),
 	 NewData :: data(),
 	 Actions :: [action()] | action()} |
-	common_state_callback_result().
+	keep_state_callback_result().
 -type handle_event_enter_result() ::
 	{'next_state', % {next_state,NextState,NewData,[]}
 	 NextState :: state(),
@@ -169,6 +169,28 @@
 	{'next_state', % State transition, maybe to the same state
 	 NextState :: state(),
 	 NewData :: data(),
+	 Actions :: [enter_action()] | enter_action()} |
+	keep_state_callback_enter_result().
+
+-type keep_state_callback_result() ::
+	{'keep_state', % {keep_state,NewData,[]}
+	 NewData :: data()} |
+	{'keep_state', % Keep state, change data
+	 NewData :: data(),
+	 Actions :: [action()] | action()} |
+	'keep_state_and_data' | % {keep_state_and_data,[]}
+	{'keep_state_and_data', % Keep state and data -> only actions
+	 Actions :: [action()] | action()} |
+	common_state_callback_result().
+
+-type keep_state_callback_enter_result() ::
+	{'keep_state', % {keep_state,NewData,[]}
+	 NewData :: data()} |
+	{'keep_state', % Keep state, change data
+	 NewData :: data(),
+	 Actions :: [enter_action()] | enter_action()} |
+	'keep_state_and_data' | % {keep_state_and_data,[]}
+	{'keep_state_and_data', % Keep state and data -> only actions
 	 Actions :: [enter_action()] | enter_action()} |
 	common_state_callback_result().
 
@@ -185,15 +207,7 @@
 	{'stop_and_reply', % Reply then stop the server
 	 Reason :: term(),
 	 Replies :: [reply_action()] | reply_action(),
-	 NewData :: data()} |
-	{'keep_state', % {keep_state,NewData,[]}
-	 NewData :: data()} |
-	{'keep_state', % Keep state, change data
-	 NewData :: data(),
-	 Actions :: [ActionType] | ActionType} |
-	'keep_state_and_data' | % {keep_state_and_data,[]}
-	{'keep_state_and_data', % Keep state and data -> only actions
-	 Actions :: [ActionType] | ActionType}.
+	 NewData :: data()}.
 
 
 %% The state machine init function.  It is called only once and

@@ -674,6 +674,9 @@ handle_event(_, _, State, Data) ->
 	      they are merged with the current
 	      That is: <c>hibernate</c> and <c>timeout</c> overrides
 	      the current and <c>reply</c> sends a reply.
+	      This has the same effect as if you would have appended
+	      the actions from this state enter call to the actions
+	      returned by the state function that changed states.
             </p>
 	  </item>
 	  <item>
@@ -1002,28 +1005,9 @@ handle_event(_, _, State, Data) ->
       </desc>
     </datatype>
     <datatype>
-      <name name="common_state_callback_result"/>
+      <name name="keep_state_callback_result"/>
       <desc>
 	<taglist>
-	  <tag><c>stop</c></tag>
-	  <item>
-	    <p>
-	      Terminates the <c>gen_statem</c> by calling
-	      <seealso marker="#Module:terminate/3"><c>Module:terminate/3</c></seealso>
-	      with <c>Reason</c> and
-	      <c><anno>NewData</anno></c>, if specified.
-	    </p>
-	  </item>
-	  <tag><c>stop_and_reply</c></tag>
-	  <item>
-	    <p>
-	      Sends all <c><anno>Replies</anno></c>,
-	      then terminates the <c>gen_statem</c> by calling
-	      <seealso marker="#Module:terminate/3"><c>Module:terminate/3</c></seealso>
-	      with <c>Reason</c> and
-	      <c><anno>NewData</anno></c>, if specified.
-	    </p>
-	  </item>
 	  <tag><c>keep_state</c></tag>
 	  <item>
 	    <p>
@@ -1044,6 +1028,69 @@ handle_event(_, _, State, Data) ->
 	      and executes all <c><anno>Actions</anno></c>.
 	      This is the same as
 	      <c>{next_state,CurrentState,CurrentData,<anno>Actions</anno>}</c>.
+	    </p>
+	  </item>
+	</taglist>
+	<p>
+	  All these terms are tuples or atoms and this property
+	  will hold in any future version of <c>gen_statem</c>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="keep_state_callback_enter_result"/>
+      <desc>
+	<taglist>
+	  <tag><c>keep_state</c></tag>
+	  <item>
+	    <p>
+	      The <c>gen_statem</c> keeps the current state, or
+	      does a state transition to the current state if you like,
+	      sets <c><anno>NewData</anno></c>,
+	      and executes all <c><anno>Actions</anno></c>.
+	      This is the same as
+	      <c>{next_state,CurrentState,<anno>NewData</anno>,<anno>Actions</anno>}</c>.
+	    </p>
+	  </item>
+	  <tag><c>keep_state_and_data</c></tag>
+	  <item>
+	    <p>
+	      The <c>gen_statem</c> keeps the current state or
+	      does a state transition to the current state if you like,
+	      keeps the current server data,
+	      and executes all <c><anno>Actions</anno></c>.
+	      This is the same as
+	      <c>{next_state,CurrentState,CurrentData,<anno>Actions</anno>}</c>.
+	    </p>
+	  </item>
+	</taglist>
+	<p>
+	  All these terms are tuples or atoms and this property
+	  will hold in any future version of <c>gen_statem</c>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="common_state_callback_result"/>
+      <desc>
+	<taglist>
+	  <tag><c>stop</c></tag>
+	  <item>
+	    <p>
+	      Terminates the <c>gen_statem</c> by calling
+	      <seealso marker="#Module:terminate/3"><c>Module:terminate/3</c></seealso>
+	      with <c>Reason</c> and
+	      <c><anno>NewData</anno></c>, if specified.
+	    </p>
+	  </item>
+	  <tag><c>stop_and_reply</c></tag>
+	  <item>
+	    <p>
+	      Sends all <c><anno>Replies</anno></c>,
+	      then terminates the <c>gen_statem</c> by calling
+	      <seealso marker="#Module:terminate/3"><c>Module:terminate/3</c></seealso>
+	      with <c>Reason</c> and
+	      <c><anno>NewData</anno></c>, if specified.
 	    </p>
 	  </item>
 	</taglist>
@@ -1462,7 +1509,7 @@ handle_event(_, _, State, Data) ->
 	  CallbackMode =
 	  <seealso marker="#type-callback_mode">callback_mode()</seealso> |
 	  [ <seealso marker="#type-callback_mode">callback_mode()</seealso>
-	  | <seealso marker="#type-state_entry_mode"><c>state_entry_events</c></seealso> ]
+	  | <seealso marker="#type-state_enter">state_enter()</seealso> ]
 	</v>
       </type>
       <desc>
@@ -1490,9 +1537,9 @@ handle_event(_, _, State, Data) ->
 	</p>
 	<p>
 	  The <c>CallbackMode</c> is either just
-	  <seealso marker="#type-callback_mode">callback_mode()</seealso>
+	  <seealso marker="#type-callback_mode"><c>callback_mode()</c></seealso>
 	  or a list containing
-	  <seealso marker="#type-callback_mode">callback_mode()</seealso>
+	  <seealso marker="#type-callback_mode"><c>callback_mode()</c></seealso>
 	  and possibly the atom
 	  <seealso marker="#type-state_enter"><c>state_enter</c></seealso>.
 	</p>

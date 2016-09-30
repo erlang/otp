@@ -29,7 +29,7 @@
     <rev></rev>
     <file>statem.xml</file>
   </header>
-  <marker id="gen_statem behaviour"></marker>
+  <marker id="gen_statem Behaviour"></marker>
   <p>
     This section is to be read with the
     <seealso marker="stdlib:gen_statem"><c>gen_statem(3)</c></seealso>
@@ -199,7 +199,10 @@ handle_event(EventType, EventContent, State, Data) ->
     <title>State Enter Calls</title>
     <p>
       The <c>gen_statem</c> behavior can regardless of callback mode
-      automatically call the state function
+      automatically
+      <seealso marker="stdlib:gen_statem#type-state_enter">
+	call the state function
+      </seealso>
       with special arguments whenever the state changes
       so you can write state entry actions
       near the rest of the state transition rules.
@@ -214,8 +217,13 @@ StateName(EventType, EventContent, Data) ->
     {next_state, NewStateName, NewData}.</pre>
     <p>
       Depending on how your state machine is specified,
-      this can be a very useful feature, but if you use it
-      you will have to handle the state enter call in all states.
+      this can be a very useful feature,
+      but it forces you to handle the state enter calls in all states.
+      See also the
+      <seealso marker="#State Entry Actions">
+	State Entry Actions
+      </seealso>
+      chapter.
     </p>
   </section>
 
@@ -964,6 +972,7 @@ do_unlock() ->
 <!-- =================================================================== -->
 
   <section>
+    <marker id="State Entry Actions"></marker>
     <title>State Entry Actions</title>
     <p>
       Say you have a state machine specification
