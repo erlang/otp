@@ -37,7 +37,8 @@ all() ->
      {group, stop_handle_event},
      {group, abnormal},
      {group, abnormal_handle_event},
-     shutdown, stop_and_reply, state_enter, event_order, code_change,
+     shutdown, stop_and_reply, state_enter, event_order,
+     state_timeout, code_change,
      {group, sys},
      hibernate, enter_loop].
 
@@ -706,6 +707,83 @@ event_order(_Config) ->
 	Other2 ->
 	    ct:fail({unexpected,Other2})
     end.
+
+
+
+state_timeout(_Config) ->
+    process_flag(trap_exit, true),
+
+    Machine =
+	#{init =>
+	      fun () ->
+		      {ok,start,0}
+	      end,
+	  start =>
+	      fun
+		  ({call,From}, {go,Time}, 0)  ->
+		      self() ! message_to_self,
+		      {next_state, state1, {Time,From},
+		       %% Verify that internal events goes before external
+		       [{state_timeout,Time,1},
+			{next_event,internal,1}]}
+	      end,
+	  state1 =>
+	      fun
+		  (internal, 1, Data) ->
+		      %% Verify that a state change cancels timeout 1
+		      {next_state, state2, Data,
+		       [{timeout,0,2},
+			{state_timeout,0,2},
+			{next_event,internal,2}]}
+	      end,
+	  state2 =>
+	      fun
+		  (internal, 2, Data) ->
+		      %% Verify that {state_timeout,0,_}
+		      %% comes after next_event and that
+		      %% {timeout,0,_} is cancelled by
+		      %% {state_timeout,0,_}
+		      {keep_state, {ok,2,Data},
+		       [{timeout,0,3}]};
+		  (state_timeout, 2, {ok,2,{Time,From}}) ->
+		      {next_state, state3, 3,
+		       [{reply,From,ok},
+			{state_timeout,Time,3}]}
+	      end,
+	  state3 =>
+	      fun
+		  (info, message_to_self, 3) ->
+		      {keep_state, '3'};
+		  ({call,From}, check, '3') ->
+		      {keep_state, From};
+		  (state_timeout, 3, From) ->
+		      {stop_and_reply, normal,
+		       {reply,From,ok}}
+	      end},
+
+    {ok,STM} = gen_statem:start_link(?MODULE, {map_statem,Machine,[]}, []),
+    TRef = erlang:start_timer(1000, self(), kull),
+    ok = gen_statem:call(STM, {go,500}),
+    ok = gen_statem:call(STM, check),
+    receive
+	{timeout,TRef,kull} ->
+	    ct:fail(late_timeout)
+    after 0 ->
+	    receive
+		{timeout,TRef,kull} ->
+		    ok
+	    after 1000 ->
+		    ct:fail(no_check_timeout)
+	    end
+    end,
+    receive
+	{'EXIT',STM,normal} ->
+	    ok
+    after 500 ->
+	    ct:fail(did_not_stop)
+    end,
+
+    verify_empty_msgq().
 
 
 

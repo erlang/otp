@@ -527,7 +527,8 @@ handle_event(_, _, State, Data) ->
 	  Type <c>info</c> originates from regular process messages sent
 	  to the <c>gen_statem</c>. Also, the state machine
 	  implementation can generate events of types
-	  <c>timeout</c>, <c>enter</c> and <c>internal</c> to itself.
+	  <c>timeout</c>, <c>state_timeout</c>, <c>enter</c>,
+	  and <c>internal</c> to itself.
 	</p>
       </desc>
     </datatype>
@@ -657,8 +658,7 @@ handle_event(_, _, State, Data) ->
 	      All events stored with
 	      <seealso marker="#type-action"><c>action()</c></seealso>
 	      <c>next_event</c>
-	      are inserted in the queue to be processed before
-	      other events.
+	      are inserted to be processed before the other queued events.
             </p>
 	  </item>
 	  <item>
@@ -668,35 +668,36 @@ handle_event(_, _, State, Data) ->
 	      are used, the <c>gen_statem</c> calls
 	      the new state function with arguments
 	      <seealso marker="#type-state_enter">(enter, OldState, Data)</seealso>.
-	      If this call returns any
+	      Any 
 	      <seealso marker="#type-enter_action"><c>actions</c></seealso>
-	      that sets transition options
-	      they are merged with the current
-	      That is: <c>hibernate</c> and <c>timeout</c> overrides
-	      the current and <c>reply</c> sends a reply.
-	      This has the same effect as if you would have appended
-	      the actions from this state enter call to the actions
+	      returned from this call are handled as if they were
+	      appended to the actions 
 	      returned by the state function that changed states.
             </p>
 	  </item>
 	  <item>
 	    <p>
-	      If an
-              <seealso marker="#type-event_timeout"><c>event_timeout()</c></seealso>
-	      is set through
-	      <seealso marker="#type-action"><c>action()</c></seealso>
-	      <c>timeout</c>,
-	      an event timer is started if the value is less than
-	      <c>infinity</c> or a time-out zero event
-	      is enqueued if the value is zero.
+	      If there are enqueued events the (possibly new)
+	      <seealso marker="#state_function">state function</seealso>
+	      is called with the oldest enqueued event,
+	      and we start again from the top of this list.
 	    </p>
 	  </item>
 	  <item>
 	    <p>
-	      The (possibly new)
+	      Timeout timers 
+              <seealso marker="#type-state_timeout"><c>state_timeout()</c></seealso>
+	      and 
+              <seealso marker="#type-event_timeout"><c>event_timeout()</c></seealso>
+	      are handled.  This may lead to a time-out zero event
+	      being generated to the
 	      <seealso marker="#state_function">state function</seealso>
-	      is called with the oldest enqueued event if there is any,
-	      otherwise the <c>gen_statem</c> goes into <c>receive</c>
+	      and we start again from the top of this list.
+	    </p>
+	  </item>
+	  <item>
+	    <p>
+	      Otherwise the <c>gen_statem</c> goes into <c>receive</c>
 	      or hibernation
 	      (if
 	      <seealso marker="#type-hibernate"><c>hibernate()</c></seealso>
@@ -704,8 +705,11 @@ handle_event(_, _, State, Data) ->
 	      to wait for the next message. In hibernation the next
 	      non-system event awakens the <c>gen_statem</c>, or rather
 	      the next incoming message awakens the <c>gen_statem</c>,
-	      but if it is a system event
-	      it goes right back into hibernation.
+	      but if it is a system event it goes right back into hibernation.
+	      When a new message arrives the 
+	      <seealso marker="#state_function">state function</seealso>
+	      is called with the corresponding event,
+	      and we start again from the top of this list.
 	    </p>
 	  </item>
 	</list>
@@ -747,24 +751,52 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="#type-event_type"><c>event_type()</c></seealso>
 	  <c>timeout</c>
 	  after this time (in milliseconds) unless another
-	  event arrives in which case this time-out is cancelled.
-	  Notice that a retried or inserted event
-	  counts like a new in this respect.
+	  event arrives or has arrived
+	  in which case this time-out is cancelled.
+	  Note that a retried, inserted or state time-out zero
+	  events counts as arrived.
 	</p>
 	<p>
 	  If the value is <c>infinity</c>, no timer is started, as
-	  it never triggers anyway.
+	  it never would trigger anyway.
 	</p>
 	<p>
-	  If the value is <c>0</c>, the time-out event is immediately enqueued
-	  unless there already are enqueued events, as the
-	  time-out is then immediately cancelled.
-	  This is a feature ensuring that a time-out <c>0</c> event
-	  is processed before any not yet received external event.
+	  If the value is <c>0</c> no timer is actually started,
+	  instead the the time-out event is enqueued to ensure
+	  that it gets processed before any not yet
+	  received external event.
 	</p>
 	<p>
 	  Note that it is not possible or needed to cancel this time-out,
 	  as it is cancelled automatically by any other event.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="state_timeout"/>
+      <desc>
+	<p>
+	  Generates an event of
+	  <seealso marker="#type-event_type"><c>event_type()</c></seealso>
+	  <c>state_timeout</c>
+	  after this time (in milliseconds) unless the <c>gen_statem</c>
+	  changes states (<c>NewState =/= OldState</c>)
+	  which case this time-out is cancelled.
+	</p>
+	<p>
+	  If the value is <c>infinity</c>, no timer is started, as
+	  it never would trigger anyway.
+	</p>
+	<p>
+	  If the value is <c>0</c> no timer is actually started,
+	  instead the the time-out event is enqueued to ensure
+	  that it gets processed before any not yet
+	  received external event.
+	</p>
+	<p>
+	  Setting this timer while it is running will restart it with
+	  the new time-out value.  Therefore it is possible to cancel
+	  this timeout by setting it to <c>infinity</c>.
 	</p>
       </desc>
     </datatype>
@@ -883,6 +915,15 @@ handle_event(_, _, State, Data) ->
 	      Sets the
 	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>
 	      <seealso marker="#type-event_timeout"><c>event_timeout()</c></seealso>
+	      to <c><anno>Time</anno></c> with <c><anno>EventContent</anno></c>.
+	    </p>
+	  </item>
+	  <tag><c>state_timeout</c></tag>
+	  <item>
+	    <p>
+	      Sets the
+	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>
+	      <seealso marker="#type-state_timeout"><c>state_timeout()</c></seealso>
 	      to <c><anno>Time</anno></c> with <c><anno>EventContent</anno></c>.
 	    </p>
 	  </item>
