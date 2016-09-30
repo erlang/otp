@@ -398,7 +398,7 @@ cert_options(Config) ->
 				{ssl_imp, new}]},
      {server_opts, [{ssl_imp, new},{reuseaddr, true}, {cacertfile, ServerCaCertFile}, 
 		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
-     {server_anon, [{ssl_imp, new},{reuseaddr, true}, {ciphers, anonymous_suites()}]},
+     %%{server_anon, [{ssl_imp, new},{reuseaddr, true}, {ciphers, anonymous_suites()}]},
      {client_psk, [{ssl_imp, new},{reuseaddr, true},
 		   {psk_identity, "Test-User"},
 		   {user_lookup_fun, {fun user_lookup/3, PskSharedSecret}}]},
@@ -908,19 +908,8 @@ string_regex_filter(Str, Search) when is_list(Str) ->
 string_regex_filter(_Str, _Search) ->
     false.
 
-anonymous_suites() ->
-    Suites =
-	[{dh_anon, rc4_128, md5},
-	 {dh_anon, des_cbc, sha},
-	 {dh_anon, '3des_ede_cbc', sha},
-	 {dh_anon, aes_128_cbc, sha},
-	 {dh_anon, aes_256_cbc, sha},
-	 {dh_anon, aes_128_gcm, null, sha256},
-	 {dh_anon, aes_256_gcm, null, sha384},
-	 {ecdh_anon,rc4_128,sha},
-	 {ecdh_anon,'3des_ede_cbc',sha},
-	 {ecdh_anon,aes_128_cbc,sha},
-	 {ecdh_anon,aes_256_cbc,sha}],
+anonymous_suites(Version) ->
+    Suites = ssl_cipher:anonymous_suites(Version),
     ssl_cipher:filter_suites(Suites).
 
 psk_suites() ->

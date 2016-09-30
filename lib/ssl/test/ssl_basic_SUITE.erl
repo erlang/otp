@@ -2171,7 +2171,7 @@ anonymous_cipher_suites()->
     [{doc,"Test the anonymous ciphersuites"}].
 anonymous_cipher_suites(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_test_lib:anonymous_suites(),
+    Ciphers = ssl_test_lib:anonymous_suites(Version),
     run_suites(Ciphers, Version, Config, anonymous).
 %%-------------------------------------------------------------------
 psk_cipher_suites() ->
@@ -2272,8 +2272,8 @@ default_reject_anonymous(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
-
-    [Cipher | _] = ssl_test_lib:anonymous_suites(),
+    Version = tls_record:highest_protocol_version(tls_record:supported_protocol_versions()),
+    [CipherSuite | _] = ssl_test_lib:anonymous_suites(Version),
 
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
 					      {from, self()},
@@ -2283,7 +2283,7 @@ default_reject_anonymous(Config) when is_list(Config) ->
 					{host, Hostname},
 			   {from, self()},
 			   {options,
-			    [{ciphers,[Cipher]} |
+			    [{ciphers,[CipherSuite]} |
 			     ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, {error, {tls_alert, "insufficient security"}},
@@ -4437,7 +4437,7 @@ run_suites(Ciphers, Version, Config, Type) ->
 	    anonymous ->
 		%% No certs in opts!
 		{ssl_test_lib:ssl_options(client_verification_opts, Config),
-		 ssl_test_lib:ssl_options(server_anon, Config)};
+		 [{reuseaddr, true}, {ciphers, ssl_test_lib:anonymous_suites(Version)}]};
 	    psk ->
 		{ssl_test_lib:ssl_options(client_psk, Config),
 		 ssl_test_lib:ssl_options(server_psk, Config)};
