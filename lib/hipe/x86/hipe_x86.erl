@@ -37,7 +37,7 @@
 	 mk_imm_from_addr/2,
 	 mk_imm_from_atom/1,
 	 is_imm/1,
-	 %% imm_value/1,
+	 imm_value/1,
 
 	 mk_mem/3,
 	 %% is_mem/1,
@@ -241,7 +241,7 @@ mk_imm_from_addr(Addr, Type) ->
 mk_imm_from_atom(Atom) ->
     mk_imm(Atom).
 is_imm(X) -> case X of #x86_imm{} -> true; _ -> false end.
-%% imm_value(#x86_imm{value=Value}) -> Value.
+imm_value(#x86_imm{value=Value}) -> Value.
 
 mk_mem(Base, Off, Type) -> #x86_mem{base=Base, off=Off, type=Type}.
 %% is_mem(X) -> case X of #x86_mem{} -> true; _ -> false end.

@@ -257,7 +257,9 @@ conv_insn(I, Map, Data) ->
 
 conv_alu_nocc(Dst, Src1, 'add', Src2, Tail) ->
   case (not same_opnd(Dst, Src1)) andalso (not same_opnd(Dst, Src2))
-    andalso (hipe_x86:is_temp(Src1) orelse hipe_x86:is_temp(Src2))
+    %% We could use orelse instead of xor here to generate lea T1(T2), T3, but
+    %% they seem to move coalesce so well that move+add is better for them.
+    andalso (hipe_x86:is_temp(Src1) xor hipe_x86:is_temp(Src2))
   of
     false -> conv_alu(Dst, Src1, 'add', Src2, Tail);
     true -> % Use LEA
@@ -266,6 +268,16 @@ conv_alu_nocc(Dst, Src1, 'add', Src2, Tail) ->
 	      true  -> hipe_x86:mk_mem(Src1, Src2, Type);
 	      false -> hipe_x86:mk_mem(Src2, Src1, Type)
 	    end,
+      [hipe_x86:mk_lea(Mem, Dst) | Tail]
+  end;
+conv_alu_nocc(Dst, Src1, 'sub', Src2, Tail) ->
+  case (not same_opnd(Dst, Src1)) andalso hipe_x86:is_temp(Src1)
+    andalso (not hipe_x86:is_temp(Src2))
+  of
+    false -> conv_alu(Dst, Src1, 'sub', Src2, Tail);
+    true -> % Use LEA
+      Imm = hipe_x86:mk_imm(-hipe_x86:imm_value(Src2)),
+      Mem = hipe_x86:mk_mem(Src1, Imm, typeof_dst(Dst)),
       [hipe_x86:mk_lea(Mem, Dst) | Tail]
   end;
 conv_alu_nocc(Dst, Src1, BinOp, Src2, Tail) ->
