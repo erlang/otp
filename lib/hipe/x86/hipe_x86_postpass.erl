@@ -217,6 +217,11 @@ trivial_goto_elimination(Insns) -> goto_elim(Insns, []).
 
 goto_elim([#jmp_label{label=Label}, I = #label{label=Label}|Insns], Res) ->
   goto_elim([I|Insns], Res);
+goto_elim([#jcc{cc=CC, label=Label} = IJCC,
+	   #jmp_label{label=BranchTgt},
+	   #label{label=Label} = ILBL|Insns], Res) ->
+  goto_elim([IJCC#jcc{cc=hipe_x86:neg_cc(CC), label=BranchTgt},
+	     ILBL|Insns], Res);
 goto_elim([I | Insns], Res) ->
   goto_elim(Insns, [I|Res]);
 goto_elim([], Res) ->

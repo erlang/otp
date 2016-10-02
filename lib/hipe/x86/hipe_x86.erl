@@ -218,6 +218,10 @@
 	 %% highest_temp/1
 	]).
 
+%% Other utilities
+-export([neg_cc/1
+	]).
+
 %%%
 %%% Low-level accessors.
 %%%
