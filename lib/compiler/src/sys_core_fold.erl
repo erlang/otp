@@ -1130,7 +1130,13 @@ clause_1(#c_clause{guard=G0,body=B0}=Cl, Ps1, Cexpr, Ctxt, Sub1) ->
 		   %%
 		   %%   case A of NewVar when true -> ...
 		   %%
-		   sub_set_var(Var, Cexpr, Sub2);
+		   case cerl:is_c_fname(Cexpr) of
+		       false ->
+			   sub_set_var(Var, Cexpr, Sub2);
+		       true ->
+			   %% We must not copy funs, and especially not into guards.
+			   Sub2
+		   end;
 	       _ ->
 		   Sub2
 	   end,
