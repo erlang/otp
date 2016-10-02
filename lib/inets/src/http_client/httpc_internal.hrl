@@ -93,7 +93,7 @@
 %%% All data associated to a specific HTTP request
 -record(request,
 	{
-	  id,            % ref() - Request Id
+	  id,            % reference() - Request Id
 	  from,          % pid() - Caller
 	  redircount = 0,% Number of redirects made for this request
 	  scheme,        % http | https 
@@ -112,7 +112,7 @@
 			 % for testing purposes.
 	  started,       % integer() > 0 - When we started processing the 
 			 % request
-	  timer,         % undefined | ref()
+	  timer,         % undefined | reference()
 	  socket_opts,   % undefined | [socket_option()]
 	  ipv6_host_with_brackets % boolean()
 	}

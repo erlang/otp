@@ -45,8 +45,8 @@
 
 -record(timers, 
         {
-          request_timers = [], % [ref()]
-          queue_timer          % ref()
+          request_timers = [], % [reference()]
+          queue_timer          % reference()
          }).
 
 -record(state, 
@@ -113,7 +113,7 @@ send(Request, Pid) ->
 
 %%--------------------------------------------------------------------
 %% Function: cancel(RequestId, Pid) -> ok
-%%      RequestId = ref()
+%%      RequestId = reference()
 %%      Pid = pid() -  the pid of the http-request handler process.
 %%
 %% Description: Cancels a request. Intended to be called by the httpc
