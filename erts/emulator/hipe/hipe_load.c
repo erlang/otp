@@ -31,6 +31,7 @@
 #include "global.h"
 #include "erl_binary.h"
 #include "hipe_load.h"
+#include "hipe_bif0.h"
 
 void hipe_free_loader_state(HipeLoaderState *stp)
 {
@@ -51,12 +52,16 @@ void hipe_free_loader_state(HipeLoaderState *stp)
     stp->data_segment = NULL;
     stp->data_segment_size = 0;
 
-    stp->module = NIL;
+    if (stp->new_hipe_refs) {
+        hipe_purge_refs(stp->new_hipe_refs, stp->module);
+        stp->new_hipe_refs = NULL;
+    }
+    if (stp->new_hipe_sdesc) {
+        hipe_purge_sdescs(stp->new_hipe_sdesc, stp->module);
+        stp->new_hipe_sdesc = NULL;
+    }
 
-    ASSERT(!stp->new_hipe_refs && !stp->new_hipe_sdesc);
-    /* ToDO: Purge lists 'new_hipe_refs' and 'new_hipe_sdesc'
-     *       if this is a failed load.
-     */
+    stp->module = NIL;
 }
 
 static void
