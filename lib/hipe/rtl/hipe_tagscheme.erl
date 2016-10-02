@@ -40,6 +40,7 @@
 	 fixnum_gt/5, fixnum_lt/5, fixnum_ge/5, fixnum_le/5, fixnum_val/1,
 	 fixnum_mul/4, fixnum_addsub/5, fixnum_andorxor/4, fixnum_not/2,
 	 fixnum_bsr/3, fixnum_bsl/3]).
+-export([test_either_immed/4]).
 -export([unsafe_car/2, unsafe_cdr/2,
 	 unsafe_constant_element/3, unsafe_update_element/3, element/6]).
 -export([unsafe_closure_element/3]).
@@ -592,6 +593,21 @@ fixnum_bsl(Arg1, Arg2, Res) ->
    hipe_rtl:mk_alu(Tmp1, Arg1, 'sub', hipe_rtl:mk_imm(?TAG_IMMED1_SMALL)),
    hipe_rtl:mk_alu(Tmp3, Tmp1, 'sll', Tmp2),
    hipe_rtl:mk_alu(Res, Tmp3, 'or', hipe_rtl:mk_imm(?TAG_IMMED1_SMALL))].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Test if either of two values are immediate (primary tag IMMED1, 0x3)
+test_either_immed(Arg1, Arg2, TrueLab, FalseLab) ->
+  %% This test assumes primary tag 0x0 is reserved and immed has tag 0x3
+  16#0 = ?TAG_PRIMARY_HEADER,
+  16#3 = ?TAG_PRIMARY_IMMED1,
+  Tmp1 = hipe_rtl:mk_new_reg_gcsafe(),
+  Tmp2 = hipe_rtl:mk_new_reg_gcsafe(),
+  [hipe_rtl:mk_alu(Tmp1, Arg1, 'sub', hipe_rtl:mk_imm(1)),
+   hipe_rtl:mk_alu(Tmp2, Arg2, 'sub', hipe_rtl:mk_imm(1)),
+   hipe_rtl:mk_alu(Tmp2, Tmp2, 'or', Tmp1),
+   hipe_rtl:mk_branch(Tmp2, 'and', hipe_rtl:mk_imm(2), eq,
+		      FalseLab, TrueLab, 0.01)].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
