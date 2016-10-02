@@ -44,6 +44,8 @@ extern void hipe_primop_set_trampoline(Eterm name, void *trampoline);
 /* needed in beam_load.c */
 int hipe_need_blocking(Module*);
 int hipe_purge_need_blocking(Module*);
+void hipe_purge_refs(struct hipe_ref*, Eterm);
+void hipe_purge_sdescs(struct hipe_sdesc*, Eterm);
 void hipe_purge_module(Module*);
 void hipe_redirect_to_module(Module* modp);
 
