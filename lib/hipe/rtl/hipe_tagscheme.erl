@@ -510,21 +510,26 @@ unsafe_fixnum_sub(Arg1, Arg2, Res) ->
 %%% (16X+tag)+((16Y+tag)-tag) = 16X+tag+16Y = 16(X+Y)+tag
 %%% (16X+tag)-((16Y+tag)-tag) = 16X+tag-16Y = 16(X-Y)+tag
 fixnum_addsub(AluOp, Arg1, Arg2, Res, OtherLab) ->
-  Tmp = hipe_rtl:mk_new_reg_gcsafe(),
+  NoOverflowLab = hipe_rtl:mk_new_label(),
   %% XXX: Consider moving this test to the users of fixnum_addsub.
   case Arg1 =/= Res andalso Arg2 =/= Res of 
     true -> 
       %% Args differ from res.
-      NoOverflowLab = hipe_rtl:mk_new_label(),
-      [hipe_rtl:mk_alu(Tmp, Arg2, sub, hipe_rtl:mk_imm(?TAG_IMMED1_SMALL)),
-       hipe_rtl:mk_alub(Res, Arg1, AluOp, Tmp, not_overflow,
+      %% Commute add to save a move on x86
+      {UntagFirst, Lhs, Rhs} =
+	case AluOp of
+	  'add' -> {Arg1, Res, Arg2};
+	  'sub' -> {Arg2, Arg1, Res}
+	end,
+      [hipe_rtl:mk_alu(Res, UntagFirst, sub, hipe_rtl:mk_imm(?TAG_IMMED1_SMALL)),
+       hipe_rtl:mk_alub(Res, Lhs, AluOp, Rhs, not_overflow,
 			hipe_rtl:label_name(NoOverflowLab), 
 			hipe_rtl:label_name(OtherLab), 0.99),
        NoOverflowLab];
     false ->
       %% At least one of the arguments is the same as Res.
+      Tmp = hipe_rtl:mk_new_reg_gcsafe(),
       Tmp2 = hipe_rtl:mk_new_var(), % XXX: shouldn't this var be a reg?
-      NoOverflowLab = hipe_rtl:mk_new_label(),
       [hipe_rtl:mk_alu(Tmp, Arg2, sub, hipe_rtl:mk_imm(?TAG_IMMED1_SMALL)),
        hipe_rtl:mk_alub(Tmp2, Arg1, AluOp, Tmp, not_overflow,
 			hipe_rtl:label_name(NoOverflowLab), 
