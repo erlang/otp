@@ -6528,7 +6528,7 @@ erts_make_stub_module(Process* p, Eterm hipe_magic_bin, Eterm Beam, Eterm Info)
 
 	erts_free_aligned_binary_bytes(temp_alloc);
 	free_loader_state(magic);
-	hipe_free_loader_state(hipe_magic);
+	hipe_free_loader_state(hipe_stp);
 
 	return mod;
     }

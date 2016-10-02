@@ -32,13 +32,8 @@
 #include "erl_binary.h"
 #include "hipe_load.h"
 
-/*
- * This destructor function can safely be called multiple times.
- */
-static void
-hipe_loader_state_dtor(Binary* magic)
+void hipe_free_loader_state(HipeLoaderState *stp)
 {
-    HipeLoaderState* stp = ERTS_MAGIC_BIN_DATA(magic);
     if (stp->module == NIL) return;
 
     erts_fprintf(stderr, "Destroying HiPE loader state for module %T\n",
@@ -62,6 +57,16 @@ hipe_loader_state_dtor(Binary* magic)
     /* ToDO: Purge lists 'new_hipe_refs' and 'new_hipe_sdesc'
      *       if this is a failed load.
      */
+}
+
+static void
+hipe_loader_state_dtor(Binary* magic)
+{
+    HipeLoaderState* stp = ERTS_MAGIC_BIN_DATA(magic);
+
+    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(magic) == hipe_loader_state_dtor);
+
+    hipe_free_loader_state(stp);
 }
 
 Binary *hipe_alloc_loader_state(Eterm module)
@@ -88,15 +93,6 @@ Binary *hipe_alloc_loader_state(Eterm module)
     stp->new_hipe_sdesc = NULL;
 
     return magic;
-}
-
-void hipe_free_loader_state(Binary *magic)
-{
-    if (ERTS_MAGIC_BIN_DESTRUCTOR(magic) != hipe_loader_state_dtor)
-	return;
-
-    /* Why does BEAM do a refc_dec here? What is holding that reference? */
-    hipe_loader_state_dtor(magic);
 }
 
 HipeLoaderState *

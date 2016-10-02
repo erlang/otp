@@ -42,7 +42,7 @@ typedef struct hipe_loader_state {
 } HipeLoaderState;
 
 extern Binary *hipe_alloc_loader_state(Eterm module);
-extern void hipe_free_loader_state(Binary *binary);
+extern void hipe_free_loader_state(HipeLoaderState*);
 extern HipeLoaderState *hipe_get_loader_state(Binary *binary);
 
 #endif /* HIPE_LOAD_H */
