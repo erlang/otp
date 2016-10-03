@@ -516,7 +516,14 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
       <desc>
         <p>Returns an Erlang term that is the result of decoding
           binary object <c><anno>Binary</anno></c>, which must be encoded
-          according to the Erlang external term format.</p>
+          according to the <seealso marker="erts:erl_ext_dist">
+          Erlang external term format</seealso>.</p>
+        <pre>
+> <input>Bin = term_to_binary(hello).</input>
+&lt;&lt;131,100,0,5,104,101,108,108,111>>
+> <input>hello = binary_to_term(Bin).</input>
+hello
+</pre>
         <warning>
           <p>When decoding binaries from untrusted sources,
             consider using <c>binary_to_term/2</c> to prevent Denial
@@ -555,6 +562,14 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
         </taglist>
         <p>Failure: <c>badarg</c> if <c>safe</c> is specified and unsafe
           data is decoded.</p>
+        <pre>
+> <input>binary_to_term(&lt;&lt;131,100,0,5,104,101,108,108,111>>, [safe]).</input>
+** exception error: bad argument
+> <input>hello.</input>
+hello
+> <input>binary_to_term(&lt;&lt;131,100,0,5,104,101,108,108,111>>, [safe]).</input>
+hello
+</pre>
         <p>See also
           <seealso marker="#term_to_binary/1"><c>term_to_binary/1</c></seealso>,
           <seealso marker="#binary_to_term/1">
@@ -8599,12 +8614,19 @@ ok
       </fsummary>
       <desc>
         <p>Returns a binary data object that is the result of encoding
-          <c><anno>Term</anno></c> according to the Erlang external
-          term format.</p>
+          <c><anno>Term</anno></c> according to the
+          <seealso marker="erts:erl_ext_dist">Erlang external
+          term format.</seealso></p>
         <p>This can be used for various purposes, for example,
           writing a term to a file in an efficient way, or sending an
           Erlang term to some type of communications channel not
           supported by distributed Erlang.</p>
+        <pre>
+> <input>Bin = term_to_binary(hello).</input>
+&lt;&lt;131,100,0,5,104,101,108,108,111>>
+> <input>hello = binary_to_term(Bin).</input>
+hello
+</pre>
         <p>See also <seealso marker="#binary_to_term/1">
           <c>binary_to_term/1</c></seealso>.</p>
       </desc>
