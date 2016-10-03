@@ -333,21 +333,27 @@ anonymous_suites({3, N}) ->
 anonymous_suites(N)
   when N >= 3 ->
     [?TLS_DH_anon_WITH_AES_128_GCM_SHA256,
-     ?TLS_DH_anon_WITH_AES_256_GCM_SHA384
-    ] ++ anonymous_suites(0);
-
-anonymous_suites(_) ->
-    [?TLS_DH_anon_WITH_RC4_128_MD5,
-     ?TLS_DH_anon_WITH_DES_CBC_SHA,
-     ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_DH_anon_WITH_AES_128_CBC_SHA,
-     ?TLS_DH_anon_WITH_AES_256_CBC_SHA,
+     ?TLS_DH_anon_WITH_AES_256_GCM_SHA384,
      ?TLS_DH_anon_WITH_AES_128_CBC_SHA256,
      ?TLS_DH_anon_WITH_AES_256_CBC_SHA256,
-     ?TLS_ECDH_anon_WITH_RC4_128_SHA,
-     ?TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
      ?TLS_ECDH_anon_WITH_AES_128_CBC_SHA,
-     ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA].
+     ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA,
+     ?TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DH_anon_WITH_RC4_128_MD5];
+
+anonymous_suites(2) ->
+    [?TLS_ECDH_anon_WITH_AES_128_CBC_SHA,
+     ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA,
+     ?TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DH_anon_WITH_DES_CBC_SHA,
+     ?TLS_DH_anon_WITH_RC4_128_MD5];
+
+anonymous_suites(N)  when N == 0;
+			  N == 1 ->
+    [?TLS_DH_anon_WITH_RC4_128_MD5,
+     ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DH_anon_WITH_DES_CBC_SHA
+    ].
 
 %%--------------------------------------------------------------------
 -spec psk_suites(ssl_record:ssl_version() | integer()) -> [cipher_suite()].
