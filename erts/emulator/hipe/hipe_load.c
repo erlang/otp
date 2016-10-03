@@ -37,9 +37,6 @@ void hipe_free_loader_state(HipeLoaderState *stp)
 {
     if (stp->module == NIL) return;
 
-    erts_fprintf(stderr, "Destroying HiPE loader state for module %T\n",
-		 stp->module);
-
     // TODO: Needs to be freed separately. We'd like have a unified executable
     // code allocator, so postpone this for now.
     /* if (stp->text_segment) */
@@ -80,8 +77,6 @@ Binary *hipe_alloc_loader_state(Eterm module)
     Binary *magic;
 
     if (is_not_atom(module)) return NULL;
-
-    erts_fprintf(stderr, "Creating HiPE loader state for module %T\n", module);
 
     magic = erts_create_magic_binary(sizeof(HipeLoaderState),
 				     hipe_loader_state_dtor);
