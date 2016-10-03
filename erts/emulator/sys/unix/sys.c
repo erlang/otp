@@ -715,13 +715,13 @@ static RETSIGTYPE suspend_signal(void)
 static RETSIGTYPE suspend_signal(int signum)
 #endif
 {
-    int res, buf[1], __errno = errno;
+    int res, buf[1], tmp_errno = errno;
     do {
         res = read(sig_suspend_fds[0], buf, sizeof(int));
     } while (res < 0 && errno == EINTR);
 
     /* restore previous errno in case read changed it */
-    errno = __errno;
+    errno = tmp_errno;
 }
 #endif /* #ifdef ERTS_SYS_SUSPEND_SIGNAL */
 
