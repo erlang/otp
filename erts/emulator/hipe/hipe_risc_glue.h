@@ -70,7 +70,9 @@ static __inline__ void hipe_arch_glue_init(void)
 	.exnra = (unsigned long)&nbif_fail,
 	.sdesc = {
 	    .bucket = { .hvalue = (unsigned long)&nbif_return },
-	    .summary = (1<<8),
+            .fsize = 0,
+            .has_exnra = 1,
+            .arity = 0
 	},
     };
     hipe_init_sdesc_table(&nbif_return_sdesc.sdesc);

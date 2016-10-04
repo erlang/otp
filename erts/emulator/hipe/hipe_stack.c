@@ -175,7 +175,9 @@ struct hipe_sdesc *hipe_decode_sdesc(Eterm arg)
     /* Initialise head of sdesc. */
     sdesc->bucket.next = 0;
     sdesc->bucket.hvalue = ra;
-    sdesc->summary = (fsize << 9) | (exnra ? (1<<8) : 0) | arity;
+    sdesc->fsize = fsize;
+    sdesc->has_exnra = (exnra ? 1 : 0);
+    sdesc->arity = arity;
     /* Clear all live-bits */
     for (i = 0; i < livebitswords; ++i)
 	sdesc->livebits[i] = 0;

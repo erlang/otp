@@ -68,7 +68,9 @@ nstack_walk_init_sdesc(const Process *p, struct nstack_walk_state *state)
     unsigned int nstkarity = p->hipe.narity - NR_ARG_REGS;
     if ((int)nstkarity < 0)
 	nstkarity = 0;
-    state->sdesc0[0].summary = (0 << 9) | (0 << 8) | nstkarity;
+    state->sdesc0[0].fsize = 0;
+    state->sdesc0[0].has_exnra = 0;
+    state->sdesc0[0].arity = nstkarity;
     state->sdesc0[0].livebits[0] = 0;
 # ifdef DEBUG
     state->sdesc0[0].dbg_M = 0;

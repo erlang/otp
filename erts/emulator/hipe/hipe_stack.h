@@ -35,7 +35,9 @@ struct hipe_sdesc {
 	unsigned long hvalue;	/* return address */
 	struct hipe_sdesc *next;	/* hash collision chain */
     } bucket;
-    unsigned int summary; /* frame size, exn handler presence flag, arity */
+    unsigned int fsize : 23;    /* frame size */
+    unsigned int has_exnra : 1; /* exn handler presence flag */
+    unsigned int arity : 8;
 #ifdef DEBUG
     Eterm dbg_M, dbg_F;
     unsigned dbg_A;
@@ -50,17 +52,17 @@ struct hipe_sdesc_with_exnra {
 
 static __inline__ unsigned int sdesc_fsize(const struct hipe_sdesc *sdesc)
 {
-    return sdesc->summary >> 9;
+    return sdesc->fsize;
 }
 
 static __inline__ unsigned int sdesc_arity(const struct hipe_sdesc *sdesc)
 {
-    return sdesc->summary & 0xFF;
+    return sdesc->arity;
 }
 
 static __inline__ unsigned long sdesc_exnra(const struct hipe_sdesc *sdesc)
 {
-    if ((sdesc->summary & (1<<8))) {
+    if (sdesc->has_exnra) {
 	const char *tmp;
 	tmp = (const char*)sdesc - offsetof(struct hipe_sdesc_with_exnra, sdesc);
 	return ((const struct hipe_sdesc_with_exnra*)tmp)->exnra;
