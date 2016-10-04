@@ -35,7 +35,7 @@
 	 basic_andalso_orelse/1,traverse_dcd/1,
 	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
 	 bad_constants/1,bad_guards/1,
-	 guard_in_catch/1]).
+	 guard_in_catch/1,beam_bool_SUITE/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -54,7 +54,7 @@ groups() ->
        rel_ops,rel_op_combinations,
        literal_type_tests,basic_andalso_orelse,traverse_dcd,
        check_qlc_hrl,andalso_semi,t_tuple_size,binary_part,
-       bad_constants,bad_guards,guard_in_catch]}].
+       bad_constants,bad_guards,guard_in_catch,beam_bool_SUITE]}].
 
 init_per_suite(Config) ->
     Config.
@@ -2049,6 +2049,155 @@ do_guard_in_catch_bin(From) ->
 	    <<From:32>> ->
 		saint
 	end.
+
+%%%
+%%% The beam_bool pass has been eliminated. Here are the tests from
+%%% beam_bool_SUITE.
+%%%
+
+beam_bool_SUITE(_Config) ->
+    before_and_inside_if(),
+    scotland(),
+    y_registers(),
+    protected(),
+    maps(),
+    ok.
+
+before_and_inside_if() ->
+    no = before_and_inside_if([a], [b], delete),
+    no = before_and_inside_if([a], [b], x),
+    no = before_and_inside_if([a], [], delete),
+    no = before_and_inside_if([a], [], x),
+    no = before_and_inside_if([], [], delete),
+    yes = before_and_inside_if([], [], x),
+    yes = before_and_inside_if([], [b], delete),
+    yes = before_and_inside_if([], [b], x),
+
+    {ch1,ch2} = before_and_inside_if_2([a], [b], blah),
+    {ch1,ch2} = before_and_inside_if_2([a], [b], xx),
+    {ch1,ch2} = before_and_inside_if_2([a], [], blah),
+    {ch1,ch2} = before_and_inside_if_2([a], [], xx),
+    {no,no} = before_and_inside_if_2([], [b], blah),
+    {no,no} = before_and_inside_if_2([], [b], xx),
+    {ch1,no} = before_and_inside_if_2([], [], blah),
+    {no,ch2} = before_and_inside_if_2([], [], xx),
+    ok.
+
+%% Thanks to Simon Cornish and Kostis Sagonas.
+%% Used to crash beam_bool.
+before_and_inside_if(XDo1, XDo2, Do3) ->
+    Do1 = (XDo1 =/= []),
+    Do2 = (XDo2 =/= []),
+    if
+	%% This expression occurs in a try/catch (protected)
+	%% block, which cannot refer to variables outside of
+	%% the block that are boolean expressions.
+	Do1 =:= true;
+	Do1 =:= false, Do2 =:= false, Do3 =:= delete ->
+	    no;
+       true ->
+	    yes
+    end.
+
+%% Thanks to Simon Cornish.
+%% Used to generate code that would not set {y,0} on
+%% all paths before its use (and therefore fail
+%% validation by the beam_validator).
+before_and_inside_if_2(XDo1, XDo2, Do3) ->
+    Do1    = (XDo1 =/= []),
+    Do2    = (XDo2 =/= []),
+    CH1 = if Do1 == true;
+	     Do1 == false,Do2==false,Do3 == blah ->
+		  ch1;
+	     true ->
+		  no
+	  end,
+    CH2 = if Do1 == true;
+	     Do1 == false,Do2==false,Do3 == xx ->
+		  ch2;
+	     true ->
+		  no
+	  end,
+    {CH1,CH2}.
+
+
+%% beam_bool would remove the initialization of {y,0}.
+%% (Thanks to Thomas Arts and QuickCheck.)
+
+scotland() ->
+    million = do_scotland(placed),
+    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(false)),
+    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(true)),
+    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(echo)),
+    ok.
+
+do_scotland(Echo) ->
+  found(case Echo of
+	    Echo when true; Echo, Echo, Echo ->
+		Echo;
+	    echo ->
+		[]
+	end,
+	Echo = placed).
+
+found(_, _) -> million.
+
+
+%% ERL-143: beam_bool could not handle Y registers as a destination.
+y_registers() ->
+    {'EXIT',{badarith,[_|_]}} = (catch baker(valentine)),
+    {'EXIT',{badarith,[_|_]}} = (catch baker(clementine)),
+
+    {not_ok,true} = potter([]),
+    {ok,false} = potter([{encoding,any}]),
+
+    ok.
+
+%% Thanks to Quickcheck.
+baker(Baker) ->
+    (valentine == Baker) +
+	case Baker of
+	    Baker when Baker; Baker ->
+		Baker;
+	    Baker ->
+		[]
+	end.
+
+%% Thanks to Jose Valim.
+potter(Modes) ->
+    Raw = lists:keyfind(encoding, 1, Modes) == false,
+    Final = case Raw of
+		X when X == false; X == nil -> ok;
+		_ -> not_ok
+	    end,
+    {Final,Raw}.
+
+protected() ->
+    {'EXIT',{if_clause,_}} = (catch photographs({1, surprise, true}, opinions)),
+
+    {{true}} = welcome({perfect, true}),
+    {'EXIT',{if_clause,_}} = (catch welcome({perfect, false})),
+    ok.
+
+photographs({_Violation, surprise, Deep}, opinions) ->
+    {if
+	 0; "here", Deep ->
+	     Deep = Deep
+     end}.
+
+welcome({perfect, Profit}) ->
+    if
+	Profit, Profit, Profit; 0 ->
+	    {id({Profit})}
+    end.
+
+maps() ->
+    ok = evidence(#{0 => 42}).
+
+%% Cover handling of put_map in in split_block_label_used/2.
+evidence(#{0 := Charge}) when 0; #{[] => Charge} == #{[] => 42} ->
+    ok.
+
 
 
 %% Call this function to turn off constant propagation.

@@ -49,7 +49,6 @@ MODULES =  \
 	beam_a \
 	beam_asm \
 	beam_block \
-	beam_bool \
 	beam_bs \
 	beam_bsm \
 	beam_clean \

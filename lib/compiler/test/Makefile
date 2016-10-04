@@ -9,7 +9,6 @@ MODULES= \
 	andor_SUITE \
 	apply_SUITE \
 	beam_block_SUITE \
-	beam_bool_SUITE \
 	beam_validator_SUITE \
 	beam_disasm_SUITE \
 	beam_except_SUITE \
@@ -49,7 +48,6 @@ NO_OPT= \
 	andor \
 	apply \
 	beam_block \
-	beam_bool \
 	beam_except \
 	beam_jump \
 	beam_reorder \
@@ -76,7 +74,6 @@ INLINE= \
 	andor \
 	apply \
 	beam_block \
-	beam_bool \
 	beam_utils \
 	bif \
 	bs_bincomp \

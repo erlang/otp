@@ -23,7 +23,7 @@
 
 -export([module/2,
 	 is_unreachable_after/1,is_exit_instruction/1,
-	 remove_unused_labels/1,is_label_used_in/2]).
+	 remove_unused_labels/1]).
 
 %%% The following optimisations are done:
 %%%
@@ -472,36 +472,6 @@ is_exit_instruction({case_end,_}) -> true;
 is_exit_instruction({try_case_end,_}) -> true;
 is_exit_instruction({badmatch,_}) -> true;
 is_exit_instruction(_) -> false.
-
-%% is_label_used_in(LabelNumber, [Instruction]) -> boolean()
-%%  Check whether the label is used in the instruction sequence
-%%  (including inside blocks).
-
-is_label_used_in(Lbl, Is) ->
-    is_label_used_in_1(Is, Lbl, cerl_sets:new()).
-
-is_label_used_in_1([{block,Block}|Is], Lbl, Empty) ->
-    lists:any(fun(I) -> is_label_used_in_block(I, Lbl) end, Block)
-	orelse is_label_used_in_1(Is, Lbl, Empty);
-is_label_used_in_1([I|Is], Lbl, Empty) ->
-    Used = ulbl(I, Empty),
-    cerl_sets:is_element(Lbl, Used) orelse is_label_used_in_1(Is, Lbl, Empty);
-is_label_used_in_1([], _, _) -> false.
-
-is_label_used_in_block({set,_,_,Info}, Lbl) ->
-    case Info of
-        {bif,_,{f,F}} -> F =:= Lbl;
-        {alloc,_,{gc_bif,_,{f,F}}} -> F =:= Lbl;
-        {alloc,_,{put_map,_,{f,F}}} -> F =:= Lbl;
-        {get_map_elements,{f,F}} -> F =:= Lbl;
-        {try_catch,_,{f,F}} -> F =:= Lbl;
-        {alloc,_,_} -> false;
-        {put_tuple,_} -> false;
-        {get_tuple_element,_} -> false;
-        {set_tuple_element,_} -> false;
-        {line,_} -> false;
-        _ when is_atom(Info) -> false
-    end.
 
 %% remove_unused_labels(Instructions0) -> Instructions
 %%  Remove all unused labels. Also remove unreachable
