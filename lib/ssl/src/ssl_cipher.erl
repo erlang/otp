@@ -1464,6 +1464,9 @@ is_acceptable_cipher(Cipher, Algos)
 is_acceptable_cipher(Cipher, Algos)
   when Cipher == chacha20_poly1305 ->
     proplists:get_bool(Cipher, Algos);
+is_acceptable_cipher(Cipher, Algos)
+  when Cipher == rc4_128 ->
+    proplists:get_bool(rc4, Algos);
 is_acceptable_cipher(_, _) ->
     true.
 
