@@ -50,7 +50,9 @@
 #include <openssl/ripemd.h>
 #include <openssl/bn.h>
 #include <openssl/objects.h>
-#include <openssl/rc4.h>
+#ifndef OPENSSL_NO_RC4
+    #include <openssl/rc4.h>
+#endif /* OPENSSL_NO_RC4 */
 #ifndef OPENSSL_NO_RC2
     #include <openssl/rc2.h>
 #endif
@@ -838,7 +840,9 @@ static void init_algorithms_types(ErlNifEnv* env)
 #ifndef OPENSSL_NO_RC2
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"rc2_cbc");
 #endif
+#ifndef OPENSSL_NO_RC4
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"rc4");
+#endif
 #if defined(HAVE_GCM)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_gcm");
 #endif
@@ -2337,6 +2341,7 @@ static ERL_NIF_TERM do_exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 static ERL_NIF_TERM rc4_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key, Data) */
+#ifndef OPENSSL_NO_RC4
     ErlNifBinary key, data;
     RC4_KEY rc4_key;
     ERL_NIF_TERM ret;
@@ -2350,10 +2355,14 @@ static ERL_NIF_TERM rc4_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 	enif_make_new_binary(env, data.size, &ret));
     CONSUME_REDS(env,data);
     return ret;
-}   
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
+}
 
 static ERL_NIF_TERM rc4_set_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key) */
+#ifndef OPENSSL_NO_RC4
     ErlNifBinary key;
     ERL_NIF_TERM ret;
 
@@ -2363,11 +2372,14 @@ static ERL_NIF_TERM rc4_set_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     RC4_set_key((RC4_KEY*)enif_make_new_binary(env, sizeof(RC4_KEY), &ret),
 		key.size, key.data);        
     return ret;
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
 }
 
 static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (State, Data) */
-
+#ifndef OPENSSL_NO_RC4
     ErlNifBinary state, data;
     RC4_KEY* rc4_key;
     ERL_NIF_TERM new_state, new_data;
@@ -2383,7 +2395,10 @@ static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_N
 	enif_make_new_binary(env, data.size, &new_data));
     CONSUME_REDS(env,data);
     return enif_make_tuple2(env,new_state,new_data);
-}   
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
+}
 
 static int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
 {

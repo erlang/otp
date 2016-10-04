@@ -2119,6 +2119,9 @@ rc4_test(doc) ->
 rc4_test(suite) ->
     [];
 rc4_test(Config) when is_list(Config) ->
+    if_supported(rc4, fun rc4_test_do/0).
+
+rc4_test_do() ->
     CT1 = <<"Yo baby yo">>,
     R1 = <<118,122,68,110,157,166,141,212,139,39>>,
     K = "apaapa",
@@ -2134,6 +2137,9 @@ rc4_stream_test(doc) ->
 rc4_stream_test(suite) ->
     [];
 rc4_stream_test(Config) when is_list(Config) ->
+    if_supported(rc4, fun rc4_stream_test_do/0).
+
+rc4_stream_test_do() ->
     CT1 = <<"Yo ">>,
     CT2 = <<"baby yo">>,
     K = "apaapa",
