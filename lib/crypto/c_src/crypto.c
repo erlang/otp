@@ -51,7 +51,9 @@
 #include <openssl/bn.h>
 #include <openssl/objects.h>
 #include <openssl/rc4.h>
-#include <openssl/rc2.h>
+#ifndef OPENSSL_NO_RC2
+    #include <openssl/rc2.h>
+#endif
 #include <openssl/blowfish.h>
 #include <openssl/rand.h>
 #include <openssl/evp.h>
@@ -468,7 +470,13 @@ struct cipher_type_t {
 
 struct cipher_type_t cipher_types[] =
 {
-    {{"rc2_cbc"}, {&EVP_rc2_cbc}},
+    {{"rc2_cbc"},
+#ifndef OPENSSL_NO_RC2
+     {&EVP_rc2_cbc}
+#else
+     {NULL}
+#endif
+    },
     {{"des_cbc"}, {COND_NO_DES_PTR(&EVP_des_cbc)}},
     {{"des_cfb"}, {COND_NO_DES_PTR(&EVP_des_cfb8)}},
     {{"des_ecb"}, {COND_NO_DES_PTR(&EVP_des_ecb)}},
@@ -827,7 +835,9 @@ static void init_algorithms_types(ErlNifEnv* env)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_cfb64");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_ofb64");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_ecb");
+#ifndef OPENSSL_NO_RC2
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"rc2_cbc");
+#endif
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"rc4");
 #if defined(HAVE_GCM)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_gcm");
