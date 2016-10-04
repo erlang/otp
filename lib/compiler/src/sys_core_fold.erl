@@ -172,13 +172,23 @@ guard(Expr, Sub) ->
 %%
 opt_guard_try(#c_seq{arg=Arg,body=Body0}=Seq) ->
     Body = opt_guard_try(Body0),
-    case {Arg,Body} of
-	{#c_call{module=#c_literal{val=Mod},
-		 name=#c_literal{val=Name},
-		 args=Args},#c_literal{val=false}} ->
+    WillFail = case Body of
+		   #c_call{module=#c_literal{val=erlang},
+			   name=#c_literal{val=error},
+			   args=[_]} ->
+		       true;
+		   #c_literal{val=false} ->
+		       true;
+		   _ ->
+		       false
+	       end,
+    case Arg of
+	#c_call{module=#c_literal{val=Mod},
+		name=#c_literal{val=Name},
+		args=Args} when WillFail ->
 	    %% We have sequence consisting of a call (evaluated
 	    %% for a possible exception and/or side effect only),
-	    %% followed by 'false'.
+	    %% followed by 'false' or a call to error/1.
 	    %%   Since the sequence is inside a try block that will
 	    %% default to 'false' if any exception occurs, not
 	    %% evalutating the call will not change the behaviour
@@ -193,7 +203,7 @@ opt_guard_try(#c_seq{arg=Arg,body=Body0}=Seq) ->
 		    %% be safely removed.
 		    Body
 	    end;
-	{_,_} ->
+	_ ->
 	    Seq#c_seq{body=Body}
     end;
 opt_guard_try(#c_case{clauses=Cs}=Term) ->
