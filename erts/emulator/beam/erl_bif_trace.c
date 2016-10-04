@@ -512,7 +512,7 @@ start_trace(Process *c_p, ErtsTracer tracer,
             && !ERTS_TRACER_COMPARE(ERTS_TRACER(port), tracer)) {
             /* This tracee is already being traced, and not by the
              * tracer to be */
-            if (erts_is_tracer_enabled(tracer, common)) {
+            if (erts_is_tracer_enabled(ERTS_TRACER(port), common)) {
                 /* The tracer is still in use */
                 return 1;
             }
@@ -715,8 +715,8 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
 		    Process* tracee_p = erts_pix2proc(i);
 		    if (! tracee_p) 
 			continue;
-                    start_trace(p, tracer, &tracee_p->common, on, mask);
-		    matches++;
+                    if (!start_trace(p, tracer, &tracee_p->common, on, mask))
+                        matches++;
 		}
 	    }
 	    if (ports || mods) {
@@ -730,8 +730,8 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
 		    state = erts_atomic32_read_nob(&tracee_port->state);
 		    if (state & ERTS_PORT_SFLGS_DEAD)
 			continue;
-                    start_trace(p, tracer, &tracee_port->common, on, mask);
-                    matches++;
+                    if (!start_trace(p, tracer, &tracee_port->common, on, mask))
+                        matches++;
 		}
 	    }
 	}
