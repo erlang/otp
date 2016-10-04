@@ -142,9 +142,9 @@
 -type activity() :: 'ets' | 'async_dirty' | 'sync_dirty' | 'transaction' | 'sync_transaction' |
                     {'transaction', Retries::non_neg_integer()} |
                     {'sync_transaction', Retries::non_neg_integer()}.
--type table() :: 'atom'.
+-type table() :: atom().
 -type storage_type() :: 'ram_copies' | 'disc_copies' | 'disc_only_copies'.
--type index_attr() :: 'atom' | non_neg_integer().
+-type index_attr() :: atom() | non_neg_integer().
 -type write_locks() :: 'write' | 'sticky_write'.
 -type read_locks() :: 'read'.
 -type lock_kind() :: write_locks() | read_locks().
@@ -487,10 +487,11 @@ wrap_trans(State, Fun, Args, Retries, Mod, Kind) ->
 %% Nodes may either be a list of nodes or one node as an atom
 %% Mnesia on all Nodes must be connected to each other, but
 %% it is not neccessary that they are up and running.
--spec lock(LockItem, LockKind::lock_kind()) -> list() | tuple() | no_return() when
+-spec lock(LockItem, LockKind) -> list() | tuple() | no_return() when
       LockItem :: {'record', table(), Key::term()} |
                   {'table',  table()} |
-                  {'global', Key::term(), MnesiaNodes::[node()]}.
+                  {'global', Key::term(), MnesiaNodes::[node()]},
+      LockKind :: lock_kind() | load.
 lock(LockItem, LockKind) ->
     case get(mnesia_activity_state) of
 	{?DEFAULT_ACCESS, Tid, Ts} ->
@@ -503,7 +504,7 @@ lock(LockItem, LockKind) ->
 
 -spec lock_table(Tab::table(), LockKind) -> [MnesiaNode] | no_return() when
       MnesiaNode :: node(),
-      LockKind :: lock_kind().
+      LockKind :: lock_kind() | load.
 lock_table(Tab, LockKind) ->
     lock({table, Tab}, LockKind).
 
@@ -704,21 +705,21 @@ delete(Tid, Ts, Tab, Key, LockKind)
 delete(_Tid, _Ts, Tab, _Key, _LockKind) ->
     abort({bad_type, Tab}).
 
--spec delete_object({Tab::table(), Key::_}) -> 'ok'.
+-spec delete_object(Rec::tuple()) -> 'ok'.
 delete_object(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
     Tab = element(1, Val),
     delete_object(Tab, Val, write);
 delete_object(Val) ->
     abort({bad_type, Val}).
 
--spec s_delete_object({Tab::table(), Key::_}) -> 'ok'.
+-spec s_delete_object(Rec::tuple()) -> 'ok'.
 s_delete_object(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
     Tab = element(1, Val),
     delete_object(Tab, Val, sticky_write);
 s_delete_object(Val) ->
     abort({bad_type, Val}).
 
--spec delete_object(Tab::table(), Key::_, LockKind::write_locks()) -> 'ok'.
+-spec delete_object(Tab::table(), Rec::tuple(), LockKind::write_locks()) -> 'ok'.
 delete_object(Tab, Val, LockKind) ->
     case get(mnesia_activity_state) of
 	{?DEFAULT_ACCESS, Tid, Ts} ->
@@ -778,23 +779,23 @@ do_delete_object(Tid, Ts, Tab, Val, LockKind) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Access within an activity - read
 
--spec read(Tab::table(), Key::_) -> tuple().
+-spec read(Tab::table(), Key::_) -> [tuple()].
 read(Tab, Key) ->
     read(Tab, Key, read).
 
--spec read({Tab::table(), Key::_}) -> tuple().
+-spec read({Tab::table(), Key::_}) -> [tuple()].
 read({Tab, Key}) ->
     read(Tab, Key, read);
 read(Oid) ->
     abort({bad_type, Oid}).
 
--spec wread({Tab::table(), Key::_}) -> tuple().
+-spec wread({Tab::table(), Key::_}) -> [tuple()].
 wread({Tab, Key}) ->
     read(Tab, Key, write);
 wread(Oid) ->
     abort({bad_type, Oid}).
 
--spec read(Tab::table(), Key::_, LockKind::lock_kind()) -> tuple().
+-spec read(Tab::table(), Key::_, LockKind::lock_kind()) -> [tuple()].
 read(Tab, Key, LockKind) ->
     case get(mnesia_activity_state) of
 	{?DEFAULT_ACCESS, Tid, Ts} ->
@@ -1752,13 +1753,13 @@ do_dirty_update_counter(_SyncMode, Tab, _Key, Incr) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Dirty access regardless of activities - read
 
--spec dirty_read({Tab::table(), Key::_}) -> tuple().
+-spec dirty_read({Tab::table(), Key::_}) -> [tuple()].
 dirty_read({Tab, Key}) ->
     dirty_read(Tab, Key);
 dirty_read(Oid) ->
     abort({bad_type, Oid}).
 
--spec dirty_read(Tab::table(), Key::_) -> tuple().
+-spec dirty_read(Tab::table(), Key::_) -> [tuple()].
 dirty_read(Tab, Key)
   when is_atom(Tab), Tab /= schema ->
     dirty_rpc(Tab, mnesia_lib, db_get, [Tab, Key]);
@@ -2535,7 +2536,7 @@ load_mnesia_or_abort() ->
 create_schema(Ns) ->
     create_schema(Ns, []).
 
--spec create_schema(Ns::[node()], [Prop]) -> t_result('ok') when
+-spec create_schema(Ns::[node()], [Prop]) -> 'ok' | {'error', Reason::term()} when
       Prop :: BackendType | IndexPlugin,
       BackendType :: {backend_types, [{Name::atom(), Module::module()}]},
       IndexPlugin :: {index_plugins, [{{Name::atom()}, Module::module(), Function::atom()}]}.
