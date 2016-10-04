@@ -3360,7 +3360,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	veto = entry->reload(&env, &lib->priv_data, BIF_ARG_2);
 	erts_post_nif(&env);
 	if (veto) {
-	    ret = load_nif_error(BIF_P, reload, "Library reload-call unsuccessful.");
+	    ret = load_nif_error(BIF_P, reload, "Library reload-call unsuccessful (%d).", veto);
 	}
 	else {
 	    commit_opened_resource_types(lib);
@@ -3382,7 +3382,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	    erts_post_nif(&env);
 	    if (veto) {
 		prev_mi->nif->priv_data = prev_old_data;
-		ret = load_nif_error(BIF_P, upgrade, "Library upgrade-call unsuccessful.");
+		ret = load_nif_error(BIF_P, upgrade, "Library upgrade-call unsuccessful (%d).", veto);
 	    }
 	    else
 		commit_opened_resource_types(lib);
@@ -3392,7 +3392,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	    veto = entry->load(&env, &lib->priv_data, BIF_ARG_2);
 	    erts_post_nif(&env);
 	    if (veto) {
-		ret = load_nif_error(BIF_P, "load", "Library load-call unsuccessful.");
+		ret = load_nif_error(BIF_P, "load", "Library load-call unsuccessful (%d).", veto);
 	    }
 	    else
 		commit_opened_resource_types(lib);
