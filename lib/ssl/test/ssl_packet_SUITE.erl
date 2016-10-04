@@ -2011,26 +2011,19 @@ active_once_raw(Socket, Data, N) ->
 
 active_once_raw(_, _, 0, _) ->
     ok;
-active_once_raw(Socket, Data, N, Acc) ->
-    receive 
-	{ssl, Socket, Byte} when length(Byte) == 1 ->
-	    ssl:setopts(Socket, [{active, once}]),
+active_once_raw(Socket, Data, N, Acc0) ->
+    case lists:prefix(Data, Acc0) of
+	true ->
+	    DLen = length(Data),   
+	    Start = DLen + 1,
+	    Len = length(Acc0) - DLen,    
+	    Acc = string:substr(Acc0, Start, Len),   
+	    active_once_raw(Socket, Data, N-1, Acc);
+	false ->	    
 	    receive 
-		{ssl, Socket, _} ->
+		{ssl, Socket, Info}  ->
 		    ssl:setopts(Socket, [{active, once}]),
-		    active_once_raw(Socket, Data, N-1, [])
-	    end;
-	{ssl, Socket, Data} ->
-	    ssl:setopts(Socket, [{active, once}]),
-	    active_once_raw(Socket, Data, N-1, []);
-	{ssl, Socket, Other} ->
-	    case Acc ++ Other of
-		Data ->
-		    ssl:setopts(Socket, [{active, once}]),
-		    active_once_raw(Socket, Data, N-1, []);
-		NewAcc ->
-		    ssl:setopts(Socket, [{active, once}]),
-		    active_once_raw(Socket, Data, N, NewAcc)
+		    active_once_raw(Socket, Data, N, Acc0 ++ Info)
 	    end
     end.
 
