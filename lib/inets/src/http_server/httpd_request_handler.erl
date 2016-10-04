@@ -44,7 +44,7 @@
 		max_keep_alive_request = infinity, %% integer() | infinity
 		response_sent = false, %% true | false 
 		timeout,  %% infinity | integer() > 0
-		timer,     %% ref() - Request timer
+		timer,     %% reference() - Request timer
 		headers,  %% #http_request_h{}
 		body,      %% binary()
 		data,      %% The total data received in bits, checked after 10s
