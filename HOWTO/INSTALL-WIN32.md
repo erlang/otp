@@ -392,7 +392,7 @@ tools:
 
         LIB="$WIN_VISUAL_STUDIO_ROOT\\VC\\lib\\;$WIN_SDK\\lib\\winv6.3\\um\\x86"
 
-        INCLUDE="$WIN_VISUAL_STUDIO_ROOT\\VC\\include\\;$WIN_SDK\\include\\shared\\;
+        INCLUDE="$WIN_VISUAL_STUDIO_ROOT\\VC\\include\\;$WIN_SDK\\include\\shared\\;\
         $WIN_SDK\\include\\um;$WIN_SDK\\include\\winrt\\;$WIN_SDK\\include\\um\\gl"
 
         export CYGWIN PATH LIBPATH LIB INCLUDE
