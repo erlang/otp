@@ -56,7 +56,7 @@ new() ->
 	Image::wxImage:wxImage().
 
 new(Filename)
- when is_list(Filename) ->
+ when ?is_chardata(Filename) ->
   new(Filename, []);
 
 new(Image)
@@ -86,7 +86,7 @@ new(Width,Height)
  when is_integer(Width),is_integer(Height) ->
   new(Width,Height, []);
 new(Filename, Options)
- when is_list(Filename),is_list(Options) ->
+ when ?is_chardata(Filename),is_list(Options) ->
   Filename_UC = unicode:characters_to_binary([Filename,0]),
   MOpts = fun({type, Type}, Acc) -> [<<1:32/?UI,Type:32/?UI>>|Acc];
           (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
@@ -230,7 +230,7 @@ getSubBitmap(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
 	This::wxBitmap(), Name::unicode:chardata().
 
 loadFile(This,Name)
- when is_record(This, wx_ref),is_list(Name) ->
+ when is_record(This, wx_ref),?is_chardata(Name) ->
   loadFile(This,Name, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmap.html#wxbitmaploadfile">external documentation</a>.
@@ -239,7 +239,7 @@ loadFile(This,Name)
 	This::wxBitmap(), Name::unicode:chardata(),
 	Option :: {'type', wx:wx_enum()}.
 loadFile(#wx_ref{type=ThisT,ref=ThisRef},Name, Options)
- when is_list(Name),is_list(Options) ->
+ when ?is_chardata(Name),is_list(Options) ->
   ?CLASS(ThisT,wxBitmap),
   Name_UC = unicode:characters_to_binary([Name,0]),
   MOpts = fun({type, Type}, Acc) -> [<<1:32/?UI,Type:32/?UI>>|Acc];
@@ -261,7 +261,7 @@ ok(#wx_ref{type=ThisT,ref=ThisRef}) ->
 	This::wxBitmap(), Name::unicode:chardata(), Type::wx:wx_enum().
 
 saveFile(This,Name,Type)
- when is_record(This, wx_ref),is_list(Name),is_integer(Type) ->
+ when is_record(This, wx_ref),?is_chardata(Name),is_integer(Type) ->
   saveFile(This,Name,Type, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmap.html#wxbitmapsavefile">external documentation</a>.
@@ -270,7 +270,7 @@ saveFile(This,Name,Type)
 	This::wxBitmap(), Name::unicode:chardata(), Type::wx:wx_enum(),
 	Option :: {'palette', wxPalette:wxPalette()}.
 saveFile(#wx_ref{type=ThisT,ref=ThisRef},Name,Type, Options)
- when is_list(Name),is_integer(Type),is_list(Options) ->
+ when ?is_chardata(Name),is_integer(Type),is_list(Options) ->
   ?CLASS(ThisT,wxBitmap),
   Name_UC = unicode:characters_to_binary([Name,0]),
   MOpts = fun({palette, #wx_ref{type=PaletteT,ref=PaletteRef}}, Acc) ->   ?CLASS(PaletteT,wxPalette),[<<1:32/?UI,PaletteRef:32/?UI>>|Acc];

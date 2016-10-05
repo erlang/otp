@@ -72,7 +72,7 @@ bell() ->
 -spec findMenuItemId(Frame, MenuString, ItemString) -> integer() when
 	Frame::wxFrame:wxFrame(), MenuString::unicode:chardata(), ItemString::unicode:chardata().
 findMenuItemId(#wx_ref{type=FrameT,ref=FrameRef},MenuString,ItemString)
- when is_list(MenuString),is_list(ItemString) ->
+ when ?is_chardata(MenuString),?is_chardata(ItemString) ->
   ?CLASS(FrameT,wxFrame),
   MenuString_UC = unicode:characters_to_binary([MenuString,0]),
   ItemString_UC = unicode:characters_to_binary([ItemString,0]),
@@ -155,7 +155,7 @@ shell(Options)
 	Url::unicode:chardata().
 
 launchDefaultBrowser(Url)
- when is_list(Url) ->
+ when ?is_chardata(Url) ->
   launchDefaultBrowser(Url, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_miscellany.html#wxlaunchdefaultbrowser">external documentation</a>.
@@ -163,7 +163,7 @@ launchDefaultBrowser(Url)
 	Url::unicode:chardata(),
 	Option :: {'flags', integer()}.
 launchDefaultBrowser(Url, Options)
- when is_list(Url),is_list(Options) ->
+ when ?is_chardata(Url),is_list(Options) ->
   Url_UC = unicode:characters_to_binary([Url,0]),
   MOpts = fun({flags, Flags}, Acc) -> [<<1:32/?UI,Flags:32/?UI>>|Acc];
           (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,

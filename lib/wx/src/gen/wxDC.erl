@@ -253,7 +253,7 @@ drawIcon(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=IconT,ref=IconRef},{PtX,Pt
 	This::wxDC(), Text::unicode:chardata(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 
 drawLabel(This,Text,Rect={RectX,RectY,RectW,RectH})
- when is_record(This, wx_ref),is_list(Text),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
+ when is_record(This, wx_ref),?is_chardata(Text),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   drawLabel(This,Text,Rect, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdc.html#wxdcdrawlabel">external documentation</a>.
@@ -262,7 +262,7 @@ drawLabel(This,Text,Rect={RectX,RectY,RectW,RectH})
 	Option :: {'alignment', integer()}
 		 | {'indexAccel', integer()}.
 drawLabel(#wx_ref{type=ThisT,ref=ThisRef},Text,{RectX,RectY,RectW,RectH}, Options)
- when is_list(Text),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),is_list(Options) ->
+ when ?is_chardata(Text),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),is_list(Options) ->
   ?CLASS(ThisT,wxDC),
   Text_UC = unicode:characters_to_binary([Text,0]),
   MOpts = fun({alignment, Alignment}, Acc) -> [<<1:32/?UI,Alignment:32/?UI>>|Acc];
@@ -363,7 +363,7 @@ drawRectangle(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH})
 -spec drawRotatedText(This, Text, Pt, Angle) -> 'ok' when
 	This::wxDC(), Text::unicode:chardata(), Pt::{X::integer(), Y::integer()}, Angle::number().
 drawRotatedText(#wx_ref{type=ThisT,ref=ThisRef},Text,{PtX,PtY},Angle)
- when is_list(Text),is_integer(PtX),is_integer(PtY),is_number(Angle) ->
+ when ?is_chardata(Text),is_integer(PtX),is_integer(PtY),is_number(Angle) ->
   ?CLASS(ThisT,wxDC),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxDC_DrawRotatedText,
@@ -391,7 +391,7 @@ drawRoundedRectangle(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH},Radius)
 -spec drawText(This, Text, Pt) -> 'ok' when
 	This::wxDC(), Text::unicode:chardata(), Pt::{X::integer(), Y::integer()}.
 drawText(#wx_ref{type=ThisT,ref=ThisRef},Text,{PtX,PtY})
- when is_list(Text),is_integer(PtX),is_integer(PtY) ->
+ when ?is_chardata(Text),is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxDC),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxDC_DrawText,
@@ -521,7 +521,7 @@ getMapMode(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec getMultiLineTextExtent(This, String) -> {W::integer(), H::integer()} when
 	This::wxDC(), String::unicode:chardata().
 getMultiLineTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String)
- when is_list(String) ->
+ when ?is_chardata(String) ->
   ?CLASS(ThisT,wxDC),
   String_UC = unicode:characters_to_binary([String,0]),
   wxe_util:call(?wxDC_GetMultiLineTextExtent_1,
@@ -532,7 +532,7 @@ getMultiLineTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String)
 	This::wxDC(), String::unicode:chardata(),
 	Option :: {'font', wxFont:wxFont()}.
 getMultiLineTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String, Options)
- when is_list(String),is_list(Options) ->
+ when ?is_chardata(String),is_list(Options) ->
   ?CLASS(ThisT,wxDC),
   String_UC = unicode:characters_to_binary([String,0]),
   MOpts = fun({font, #wx_ref{type=FontT,ref=FontRef}}, Acc) ->   ?CLASS(FontT,wxFont),[<<1:32/?UI,FontRef:32/?UI>>|Acc];
@@ -546,7 +546,7 @@ getMultiLineTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String, Options)
 	Result ::{Res ::boolean(), Widths::[integer()]},
 	This::wxDC(), Text::unicode:chardata().
 getPartialTextExtents(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxDC),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:call(?wxDC_GetPartialTextExtents,
@@ -606,7 +606,7 @@ getTextBackground(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec getTextExtent(This, String) -> {W::integer(), H::integer()} when
 	This::wxDC(), String::unicode:chardata().
 getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String)
- when is_list(String) ->
+ when ?is_chardata(String) ->
   ?CLASS(ThisT,wxDC),
   String_UC = unicode:characters_to_binary([String,0]),
   wxe_util:call(?wxDC_GetTextExtent_1,
@@ -618,7 +618,7 @@ getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String)
 	This::wxDC(), String::unicode:chardata(),
 	Option :: {'theFont', wxFont:wxFont()}.
 getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String, Options)
- when is_list(String),is_list(Options) ->
+ when ?is_chardata(String),is_list(Options) ->
   ?CLASS(ThisT,wxDC),
   String_UC = unicode:characters_to_binary([String,0]),
   MOpts = fun({theFont, #wx_ref{type=TheFontT,ref=TheFontRef}}, Acc) ->   ?CLASS(TheFontT,wxFont),[<<1:32/?UI,TheFontRef:32/?UI>>|Acc];
@@ -929,7 +929,7 @@ setUserScale(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
 -spec startDoc(This, Message) -> boolean() when
 	This::wxDC(), Message::unicode:chardata().
 startDoc(#wx_ref{type=ThisT,ref=ThisRef},Message)
- when is_list(Message) ->
+ when ?is_chardata(Message) ->
   ?CLASS(ThisT,wxDC),
   Message_UC = unicode:characters_to_binary([Message,0]),
   wxe_util:call(?wxDC_StartDoc,

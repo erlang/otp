@@ -98,7 +98,7 @@ new(Style)
 -spec append(This, Menu, Title) -> boolean() when
 	This::wxMenuBar(), Menu::wxMenu:wxMenu(), Title::unicode:chardata().
 append(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MenuT,ref=MenuRef},Title)
- when is_list(Title) ->
+ when ?is_chardata(Title) ->
   ?CLASS(ThisT,wxMenuBar),
   ?CLASS(MenuT,wxMenu),
   Title_UC = unicode:characters_to_binary([Title,0]),
@@ -157,7 +157,7 @@ enableTop(#wx_ref{type=ThisT,ref=ThisRef},Pos,Flag)
 -spec findMenu(This, Title) -> integer() when
 	This::wxMenuBar(), Title::unicode:chardata().
 findMenu(#wx_ref{type=ThisT,ref=ThisRef},Title)
- when is_list(Title) ->
+ when ?is_chardata(Title) ->
   ?CLASS(ThisT,wxMenuBar),
   Title_UC = unicode:characters_to_binary([Title,0]),
   wxe_util:call(?wxMenuBar_FindMenu,
@@ -167,7 +167,7 @@ findMenu(#wx_ref{type=ThisT,ref=ThisRef},Title)
 -spec findMenuItem(This, MenuString, ItemString) -> integer() when
 	This::wxMenuBar(), MenuString::unicode:chardata(), ItemString::unicode:chardata().
 findMenuItem(#wx_ref{type=ThisT,ref=ThisRef},MenuString,ItemString)
- when is_list(MenuString),is_list(ItemString) ->
+ when ?is_chardata(MenuString),?is_chardata(ItemString) ->
   ?CLASS(ThisT,wxMenuBar),
   MenuString_UC = unicode:characters_to_binary([MenuString,0]),
   ItemString_UC = unicode:characters_to_binary([ItemString,0]),
@@ -239,7 +239,7 @@ getMenuCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec insert(This, Pos, Menu, Title) -> boolean() when
 	This::wxMenuBar(), Pos::integer(), Menu::wxMenu:wxMenu(), Title::unicode:chardata().
 insert(#wx_ref{type=ThisT,ref=ThisRef},Pos,#wx_ref{type=MenuT,ref=MenuRef},Title)
- when is_integer(Pos),is_list(Title) ->
+ when is_integer(Pos),?is_chardata(Title) ->
   ?CLASS(ThisT,wxMenuBar),
   ?CLASS(MenuT,wxMenu),
   Title_UC = unicode:characters_to_binary([Title,0]),
@@ -285,7 +285,7 @@ remove(#wx_ref{type=ThisT,ref=ThisRef},Pos)
 -spec replace(This, Pos, Menu, Title) -> wxMenu:wxMenu() when
 	This::wxMenuBar(), Pos::integer(), Menu::wxMenu:wxMenu(), Title::unicode:chardata().
 replace(#wx_ref{type=ThisT,ref=ThisRef},Pos,#wx_ref{type=MenuT,ref=MenuRef},Title)
- when is_integer(Pos),is_list(Title) ->
+ when is_integer(Pos),?is_chardata(Title) ->
   ?CLASS(ThisT,wxMenuBar),
   ?CLASS(MenuT,wxMenu),
   Title_UC = unicode:characters_to_binary([Title,0]),
@@ -296,7 +296,7 @@ replace(#wx_ref{type=ThisT,ref=ThisRef},Pos,#wx_ref{type=MenuT,ref=MenuRef},Titl
 -spec setHelpString(This, Itemid, HelpString) -> 'ok' when
 	This::wxMenuBar(), Itemid::integer(), HelpString::unicode:chardata().
 setHelpString(#wx_ref{type=ThisT,ref=ThisRef},Itemid,HelpString)
- when is_integer(Itemid),is_list(HelpString) ->
+ when is_integer(Itemid),?is_chardata(HelpString) ->
   ?CLASS(ThisT,wxMenuBar),
   HelpString_UC = unicode:characters_to_binary([HelpString,0]),
   wxe_util:cast(?wxMenuBar_SetHelpString,
@@ -306,7 +306,7 @@ setHelpString(#wx_ref{type=ThisT,ref=ThisRef},Itemid,HelpString)
 -spec setLabel(This, S) -> 'ok' when
 	This::wxMenuBar(), S::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},S)
- when is_list(S) ->
+ when ?is_chardata(S) ->
   ?CLASS(ThisT,wxMenuBar),
   S_UC = unicode:characters_to_binary([S,0]),
   wxe_util:cast(?wxMenuBar_SetLabel_1,
@@ -316,7 +316,7 @@ setLabel(#wx_ref{type=ThisT,ref=ThisRef},S)
 -spec setLabel(This, Itemid, Label) -> 'ok' when
 	This::wxMenuBar(), Itemid::integer(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Label)
- when is_integer(Itemid),is_list(Label) ->
+ when is_integer(Itemid),?is_chardata(Label) ->
   ?CLASS(ThisT,wxMenuBar),
   Label_UC = unicode:characters_to_binary([Label,0]),
   wxe_util:cast(?wxMenuBar_SetLabel_2,
@@ -326,7 +326,7 @@ setLabel(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Label)
 -spec setLabelTop(This, Pos, Label) -> 'ok' when
 	This::wxMenuBar(), Pos::integer(), Label::unicode:chardata().
 setLabelTop(#wx_ref{type=ThisT,ref=ThisRef},Pos,Label)
- when is_integer(Pos),is_list(Label) ->
+ when is_integer(Pos),?is_chardata(Label) ->
   ?CLASS(ThisT,wxMenuBar),
   Label_UC = unicode:characters_to_binary([Label,0]),
   wxe_util:cast(?wxMenuBar_SetLabelTop,

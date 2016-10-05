@@ -122,7 +122,7 @@ printDialog(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef})
 -spec reportError(This, Parent, Printout, Message) -> 'ok' when
 	This::wxPrinter(), Parent::wxWindow:wxWindow(), Printout::wxPrintout:wxPrintout(), Message::unicode:chardata().
 reportError(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=PrintoutT,ref=PrintoutRef},Message)
- when is_list(Message) ->
+ when ?is_chardata(Message) ->
   ?CLASS(ThisT,wxPrinter),
   ?CLASS(ParentT,wxWindow),
   ?CLASS(PrintoutT,wxPrintout),

@@ -49,7 +49,7 @@ new() ->
 -spec addFile(This, Filename) -> 'ok' when
 	This::wxFileDataObject(), Filename::unicode:chardata().
 addFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
- when is_list(Filename) ->
+ when ?is_chardata(Filename) ->
   ?CLASS(ThisT,wxFileDataObject),
   Filename_UC = unicode:characters_to_binary([Filename,0]),
   wxe_util:cast(?wxFileDataObject_AddFile,

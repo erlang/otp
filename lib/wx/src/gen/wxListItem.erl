@@ -236,7 +236,7 @@ setStateMask(#wx_ref{type=ThisT,ref=ThisRef},StateMask)
 -spec setText(This, Text) -> 'ok' when
 	This::wxListItem(), Text::unicode:chardata().
 setText(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxListItem),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxListItem_SetText,

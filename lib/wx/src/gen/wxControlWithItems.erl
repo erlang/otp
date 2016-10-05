@@ -86,7 +86,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 -spec append(This, Item) -> integer() when
 	This::wxControlWithItems(), Item::unicode:chardata().
 append(#wx_ref{type=ThisT,ref=ThisRef},Item)
- when is_list(Item) ->
+ when ?is_chardata(Item) ->
   ?CLASS(ThisT,wxControlWithItems),
   Item_UC = unicode:characters_to_binary([Item,0]),
   wxe_util:call(?wxControlWithItems_Append_1,
@@ -96,7 +96,7 @@ append(#wx_ref{type=ThisT,ref=ThisRef},Item)
 -spec append(This, Item, ClientData) -> integer() when
 	This::wxControlWithItems(), Item::unicode:chardata(), ClientData::term().
 append(#wx_ref{type=ThisT,ref=ThisRef},Item,ClientData)
- when is_list(Item) ->
+ when ?is_chardata(Item) ->
   ?CLASS(ThisT,wxControlWithItems),
   Item_UC = unicode:characters_to_binary([Item,0]),
   wxe_util:send_bin(term_to_binary(ClientData)),
@@ -136,7 +136,7 @@ delete(#wx_ref{type=ThisT,ref=ThisRef},N)
 	This::wxControlWithItems(), S::unicode:chardata().
 
 findString(This,S)
- when is_record(This, wx_ref),is_list(S) ->
+ when is_record(This, wx_ref),?is_chardata(S) ->
   findString(This,S, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsfindstring">external documentation</a>.
@@ -144,7 +144,7 @@ findString(This,S)
 	This::wxControlWithItems(), S::unicode:chardata(),
 	Option :: {'bCase', boolean()}.
 findString(#wx_ref{type=ThisT,ref=ThisRef},S, Options)
- when is_list(S),is_list(Options) ->
+ when ?is_chardata(S),is_list(Options) ->
   ?CLASS(ThisT,wxControlWithItems),
   S_UC = unicode:characters_to_binary([S,0]),
   MOpts = fun({bCase, BCase}, Acc) -> [<<1:32/?UI,(wxe_util:from_bool(BCase)):32/?UI>>|Acc];
@@ -209,7 +209,7 @@ getStringSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec insert(This, Item, Pos) -> integer() when
 	This::wxControlWithItems(), Item::unicode:chardata(), Pos::integer().
 insert(#wx_ref{type=ThisT,ref=ThisRef},Item,Pos)
- when is_list(Item),is_integer(Pos) ->
+ when ?is_chardata(Item),is_integer(Pos) ->
   ?CLASS(ThisT,wxControlWithItems),
   Item_UC = unicode:characters_to_binary([Item,0]),
   wxe_util:call(?wxControlWithItems_Insert_2,
@@ -219,7 +219,7 @@ insert(#wx_ref{type=ThisT,ref=ThisRef},Item,Pos)
 -spec insert(This, Item, Pos, ClientData) -> integer() when
 	This::wxControlWithItems(), Item::unicode:chardata(), Pos::integer(), ClientData::term().
 insert(#wx_ref{type=ThisT,ref=ThisRef},Item,Pos,ClientData)
- when is_list(Item),is_integer(Pos) ->
+ when ?is_chardata(Item),is_integer(Pos) ->
   ?CLASS(ThisT,wxControlWithItems),
   Item_UC = unicode:characters_to_binary([Item,0]),
   wxe_util:send_bin(term_to_binary(ClientData)),
@@ -256,7 +256,7 @@ setSelection(#wx_ref{type=ThisT,ref=ThisRef},N)
 -spec setString(This, N, S) -> 'ok' when
 	This::wxControlWithItems(), N::integer(), S::unicode:chardata().
 setString(#wx_ref{type=ThisT,ref=ThisRef},N,S)
- when is_integer(N),is_list(S) ->
+ when is_integer(N),?is_chardata(S) ->
   ?CLASS(ThisT,wxControlWithItems),
   S_UC = unicode:characters_to_binary([S,0]),
   wxe_util:cast(?wxControlWithItems_SetString,
@@ -266,7 +266,7 @@ setString(#wx_ref{type=ThisT,ref=ThisRef},N,S)
 -spec setStringSelection(This, S) -> boolean() when
 	This::wxControlWithItems(), S::unicode:chardata().
 setStringSelection(#wx_ref{type=ThisT,ref=ThisRef},S)
- when is_list(S) ->
+ when ?is_chardata(S) ->
   ?CLASS(ThisT,wxControlWithItems),
   S_UC = unicode:characters_to_binary([S,0]),
   wxe_util:call(?wxControlWithItems_SetStringSelection,

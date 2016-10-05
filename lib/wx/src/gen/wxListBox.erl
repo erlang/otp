@@ -220,7 +220,7 @@ setFirstItem(#wx_ref{type=ThisT,ref=ThisRef},N)
   wxe_util:cast(?wxListBox_SetFirstItem_1_0,
   <<ThisRef:32/?UI,N:32/?UI>>);
 setFirstItem(#wx_ref{type=ThisT,ref=ThisRef},S)
- when is_list(S) ->
+ when ?is_chardata(S) ->
   ?CLASS(ThisT,wxListBox),
   S_UC = unicode:characters_to_binary([S,0]),
   wxe_util:cast(?wxListBox_SetFirstItem_1_1,

@@ -137,7 +137,7 @@ getMessage(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec setMessage(This, Message) -> 'ok' when
 	This::wxDirDialog(), Message::unicode:chardata().
 setMessage(#wx_ref{type=ThisT,ref=ThisRef},Message)
- when is_list(Message) ->
+ when ?is_chardata(Message) ->
   ?CLASS(ThisT,wxDirDialog),
   Message_UC = unicode:characters_to_binary([Message,0]),
   wxe_util:cast(?wxDirDialog_SetMessage,
@@ -147,7 +147,7 @@ setMessage(#wx_ref{type=ThisT,ref=ThisRef},Message)
 -spec setPath(This, Path) -> 'ok' when
 	This::wxDirDialog(), Path::unicode:chardata().
 setPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
- when is_list(Path) ->
+ when ?is_chardata(Path) ->
   ?CLASS(ThisT,wxDirDialog),
   Path_UC = unicode:characters_to_binary([Path,0]),
   wxe_util:cast(?wxDirDialog_SetPath,

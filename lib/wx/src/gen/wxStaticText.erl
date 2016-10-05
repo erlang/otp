@@ -90,7 +90,7 @@ new() ->
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
 new(Parent,Id,Label)
- when is_record(Parent, wx_ref),is_integer(Id),is_list(Label) ->
+ when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Label) ->
   new(Parent,Id,Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextwxstatictext">external documentation</a>.
@@ -100,7 +100,7 @@ new(Parent,Id,Label)
 		 | {'size', {W::integer(), H::integer()}}
 		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
- when is_integer(Id),is_list(Label),is_list(Options) ->
+ when is_integer(Id),?is_chardata(Label),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
   Label_UC = unicode:characters_to_binary([Label,0]),
   MOpts = fun({pos, {PosX,PosY}}, Acc) -> [<<1:32/?UI,PosX:32/?UI,PosY:32/?UI,0:32>>|Acc];
@@ -116,7 +116,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
 	This::wxStaticText(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
 create(This,Parent,Id,Label)
- when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Label) ->
+ when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Label) ->
   create(This,Parent,Id,Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextcreate">external documentation</a>.
@@ -126,7 +126,7 @@ create(This,Parent,Id,Label)
 		 | {'size', {W::integer(), H::integer()}}
 		 | {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
- when is_integer(Id),is_list(Label),is_list(Options) ->
+ when is_integer(Id),?is_chardata(Label),is_list(Options) ->
   ?CLASS(ThisT,wxStaticText),
   ?CLASS(ParentT,wxWindow),
   Label_UC = unicode:characters_to_binary([Label,0]),
@@ -150,7 +150,7 @@ getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec setLabel(This, Label) -> 'ok' when
 	This::wxStaticText(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
- when is_list(Label) ->
+ when ?is_chardata(Label) ->
   ?CLASS(ThisT,wxStaticText),
   Label_UC = unicode:characters_to_binary([Label,0]),
   wxe_util:cast(?wxStaticText_SetLabel,
