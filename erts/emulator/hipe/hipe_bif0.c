@@ -417,7 +417,6 @@ BIF_RETTYPE hipe_bifs_enter_code_3(BIF_ALIST_3)
     ASSERT(bitoffs == 0);
     ASSERT(bitsize == 0);
     trampolines = NIL;
-    // XXX: Trampolines are not tracked and freed
     address = hipe_alloc_code(nrbytes, BIF_ARG_2, &trampolines, BIF_P);
     if (!address) {
 	Uint nrcallees;
