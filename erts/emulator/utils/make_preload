@@ -94,8 +94,8 @@ foreach $file (@ARGV) {
 	close(FILE);
 	
 	push(@modules, "  {\"$module\", " . length($_) . ", preloaded_$module},\n");
-	print "unsigned preloaded_size_$module = ", length($_), ";\n";
-	print "unsigned char preloaded_$module", "[] = {\n";
+	print "const unsigned preloaded_size_$module = ", length($_), ";\n";
+	print "const unsigned char preloaded_$module", "[] = {\n";
 	for ($i = 0; $i < length($_); $i++) {
 	    if ($i % 8 == 0 && $comment ne '') {
 		$comment =~ s@/\*@..@g; # Comment start -- avoid warning.
@@ -125,10 +125,10 @@ if ($gen_rc) {
     print @modules;
     print "END\n";
 } elsif ($gen_old) {
-    print "struct {\n";
+    print "const struct {\n";
     print "   char* name;\n";
     print "   int size;\n";
-    print "   unsigned char* code;\n";
+    print "   const unsigned char* code;\n";
     print "} pre_loaded[] = {\n";
     foreach (@modules) {
 	print;

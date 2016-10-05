@@ -217,7 +217,7 @@ stop_webserver(Port) ->
 
 parse_and_insert(Filename, DB) ->
     io:format("Parsing: ~p ~n", [Filename]),
-    T0 = erlang:monotonic_time(milli_seconds),
+    T0 = erlang:monotonic_time(millisecond),
     Pid = dbg:trace_client(file, Filename, mk_trace_parser(self())),
     Ref = erlang:monitor(process, Pid), 
     parse_and_insert_loop(Filename, Pid, Ref, DB, T0).
@@ -230,7 +230,7 @@ parse_and_insert_loop(Filename, Pid, Ref, DB, T0) ->
     	{parse_complete, {Pid, Count}} ->
 	    receive {'DOWN', Ref, process, Pid, normal} -> ok after 0 -> ok end,
 	    DB ! {action, consolidate},
-            T1 = erlang:monotonic_time(milli_seconds),
+            T1 = erlang:monotonic_time(millisecond),
 	    io:format("Parsed ~w entries in ~w ms.~n", [Count, T1 - T0]),
     	    io:format("    ~p created processes.~n", [length(percept_db:select({information, procs}))]),
      	    io:format("    ~p opened ports.~n", [length(percept_db:select({information, ports}))]),

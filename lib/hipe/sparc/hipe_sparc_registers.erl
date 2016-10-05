@@ -249,6 +249,8 @@ is_arg(R) ->
     _ -> false
   end.
 
+%% Note: the fact that allocatable_gpr() is a subset of call_clobbered() is
+%% hard-coded in hipe_sparc_defuse:insn_defs_all_gpr/1
 call_clobbered() ->		% does the RA strip the type or not?
   [%% ?G0 is the non-allocatable constant zero
    {?G1,tagged},{?G1,untagged},

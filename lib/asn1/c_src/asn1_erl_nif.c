@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "erl_nif.h"
+#include <erl_nif.h>
 
 /* #define ASN1_DEBUG 1 */
 

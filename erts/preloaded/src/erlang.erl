@@ -100,7 +100,8 @@
 -export([binary_to_list/3, binary_to_term/1, binary_to_term/2]).
 -export([bit_size/1, bitsize/1, bitstring_to_list/1]).
 -export([bump_reductions/1, byte_size/1, call_on_load_function/1]).
--export([cancel_timer/1, cancel_timer/2, check_old_code/1, check_process_code/2,
+-export([cancel_timer/1, cancel_timer/2, ceil/1,
+	 check_old_code/1, check_process_code/2,
 	 check_process_code/3, crc32/1]).
 -export([crc32/2, crc32_combine/3, date/0, decode_packet/3]).
 -export([delete_element/2]).
@@ -109,7 +110,7 @@
 -export([error/1, error/2, exit/1, exit/2, external_size/1]).
 -export([external_size/2, finish_after_on_load/2, finish_loading/1, float/1]).
 -export([float_to_binary/1, float_to_binary/2,
-	 float_to_list/1, float_to_list/2]).
+	 float_to_list/1, float_to_list/2, floor/1]).
 -export([fun_info/2, fun_info_mfa/1, fun_to_list/1, function_exported/3]).
 -export([garbage_collect/0, garbage_collect/1, garbage_collect/2]).
 -export([garbage_collect_message_area/0, get/0, get/1, get_keys/0, get_keys/1]).
@@ -474,6 +475,13 @@ cancel_timer(_TimerRef) ->
 cancel_timer(_TimerRef, _Options) ->
     erlang:nif_error(undefined).
 
+%% ceil/1
+%% Shadowed by erl_bif_types: erlang:ceil/1
+-spec ceil(Number) -> integer() when
+      Number :: number().
+ceil(_) ->
+    erlang:nif_error(undef).
+
 %% check_old_code/1
 -spec check_old_code(Module) -> boolean() when
       Module :: module().
@@ -837,6 +845,13 @@ float_to_list(_Float) ->
 float_to_list(_Float, _Options) ->
     erlang:nif_error(undefined).
 
+%% floor/1
+%% Shadowed by erl_bif_types: erlang:floor/1
+-spec floor(Number) -> integer() when
+      Number :: number().
+floor(_) ->
+    erlang:nif_error(undef).
+
 %% fun_info/2
 -spec erlang:fun_info(Fun, Item) -> {Item, Info} when
       Fun :: function(),
@@ -884,36 +899,39 @@ garbage_collect(Pid) ->
 	error:Error -> erlang:error(Error, [Pid])
     end.
 
+-record(gcopt, {
+    async = sync :: sync | {async, _},
+    type = major % default major, can also be minor
+    }).
+
 %% garbage_collect/2
 -spec garbage_collect(Pid, OptionList) -> GCResult | async when
       Pid :: pid(),
       RequestId :: term(),
-      Option :: {async, RequestId},
+      Option :: {async, RequestId} | {type, 'major' | 'minor'},
       OptionList :: [Option],
       GCResult :: boolean().
 garbage_collect(Pid, OptionList)  ->
     try
-	Async = get_gc_opts(OptionList, sync),
-	case Async of
+	GcOpts = get_gc_opts(OptionList, #gcopt{}),
+	case GcOpts#gcopt.async of
 	    {async, ReqId} ->
 		{priority, Prio} = erlang:process_info(erlang:self(),
 						       priority),
-		erts_internal:request_system_task(Pid,
-						  Prio,
-						  {garbage_collect, ReqId}),
+		erts_internal:request_system_task(
+                    Pid, Prio, {garbage_collect, ReqId, GcOpts#gcopt.type}),
 		async;
 	    sync ->
 		case Pid == erlang:self() of
 		    true ->
-			erlang:garbage_collect();
+			erts_internal:garbage_collect(GcOpts#gcopt.type);
 		    false ->
 			{priority, Prio} = erlang:process_info(erlang:self(),
 							       priority),
 			ReqId = erlang:make_ref(),
-			erts_internal:request_system_task(Pid,
-							  Prio,
-							  {garbage_collect,
-							   ReqId}),
+			erts_internal:request_system_task(
+                            Pid, Prio,
+                            {garbage_collect, ReqId, GcOpts#gcopt.type}),
 			receive
 			    {garbage_collect, ReqId, GCResult} ->
 				GCResult
@@ -925,10 +943,12 @@ garbage_collect(Pid, OptionList)  ->
     end.
 
 % gets async opt and verify valid option list
-get_gc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync) ->
-    get_gc_opts(Options, AsyncTuple);
-get_gc_opts([], Async) ->
-    Async.
+get_gc_opts([{async, _ReqId} = AsyncTuple | Options], GcOpt = #gcopt{}) ->
+    get_gc_opts(Options, GcOpt#gcopt{ async = AsyncTuple });
+get_gc_opts([{type, T} | Options], GcOpt = #gcopt{}) ->
+    get_gc_opts(Options, GcOpt#gcopt{ type = T });
+get_gc_opts([], GcOpt) ->
+    GcOpt.
 
 %% garbage_collect_message_area/0
 -spec erlang:garbage_collect_message_area() -> boolean().

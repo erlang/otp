@@ -733,6 +733,19 @@ hello
     </func>
 
     <func>
+      <name name="ceil" arity="1"/>
+      <fsummary>Returns the smallest integer not less than the argument</fsummary>
+      <desc>
+        <p>Returns the smallest integer not less than
+	<c><anno>Number</anno></c>.
+        For example:</p>
+        <pre>
+> <input>ceil(5.5).</input>
+6</pre>
+        <p>Allowed in guard tests.</p>
+      </desc>
+    </func>
+    <func>
       <name name="check_old_code" arity="1"/>
       <fsummary>Check if a module has old code.</fsummary>
       <desc>
@@ -1480,6 +1493,20 @@ true</pre>
     </func>
 
     <func>
+      <name name="floor" arity="1"/>
+      <fsummary>Returns the largest integer not greater than the argument</fsummary>
+      <desc>
+        <p>Returns the largest integer not greater than
+	<c><anno>Number</anno></c>.
+        For example:</p>
+        <pre>
+> <input>floor(-10.5).</input>
+-11</pre>
+        <p>Allowed in guard tests.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="fun_info" arity="1"/>
       <fsummary>Information about a fun.</fsummary>
       <desc>
@@ -1667,6 +1694,12 @@ true</pre>
             the form <c>{garbage_collect,
             <anno>RequestId</anno>, <anno>GCResult</anno>}</c>.
           </item>
+
+          <tag><c>{type, 'major' | 'minor'}</c></tag>
+          <item>Triggers garbage collection of requested type. Default value is
+            <c>'major'</c>, which would trigger a fullsweep GC.
+            The option <c>'minor'</c> is considered a hint and may lead to
+            either minor or major GC run.</item>
         </taglist>
         <p>If <c><anno>Pid</anno></c> equals <c>self()</c>, and
           no <c>async</c> option has been passed, the garbage
@@ -2544,13 +2577,6 @@ os_prompt%</pre>
       <name name="load_nif" arity="2"/>
       <fsummary>Load NIF library.</fsummary>
       <desc>
-        <note>
-          <p>Before Erlang/OTP R14B, NIFs were an
-            experimental feature. Versions before Erlang/OTP R14B can
-            have different and possibly incompatible NIF semantics and
-            interfaces. For example, in Erlang/OTP R13B03 the return value on
-            failure was <c>{error,Reason,Text}</c>.</p>
-        </note>
         <p>Loads and links a dynamic library containing native
           implemented functions (NIFs) for a module. <c><anno>Path</anno></c>
           is a file path to the shareable object/dynamic library file minus
@@ -2580,8 +2606,12 @@ os_prompt%</pre>
           <item>The library did not fulfill the requirements as a NIF
             library of the calling module.
           </item>
-          <tag><c>load | reload | upgrade</c></tag>
+          <tag><c>load | upgrade</c></tag>
           <item>The corresponding library callback was unsuccessful.
+          </item>
+          <tag><c>reload</c></tag>
+          <item>A NIF library is already loaded for this module instance.
+	    The previously deprecated <c>reload</c> feature was removed in OTP 20.
           </item>
           <tag><c>old_code</c></tag>
           <item>The call to <c>load_nif/2</c> was made from the old

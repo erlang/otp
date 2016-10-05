@@ -2391,7 +2391,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 							     ERTS_ATOM_ENC_LATIN1,
 							     1),
 					       erts_bld_uint(hpp, hszp,
-							     opc[i].count)),
+							     erts_instr_count[i])),
 				res);
 	}
 
@@ -2882,27 +2882,6 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	DECL_AM(tag);
 	BIF_RET(AM_tag);
 #endif
-    }
-    else if (ERTS_IS_ATOM_STR("check_process_code",BIF_ARG_1)) {
-	Eterm terms[3];
-	Sint length = 1;
-	Uint sz = 0;
-	Eterm *hp, res;
-	DECL_AM(direct_references);
-
-	terms[0] = AM_direct_references;
-#if !defined(ERTS_NEW_PURGE_STRATEGY)
-	{
-	    DECL_AM(indirect_references);
-	    terms[1] = AM_indirect_references;
-	    terms[2] = am_copy_literals;
-	    length = 3;
-	}
-#endif
-	erts_bld_list(NULL, &sz, length, terms);
-	hp = HAlloc(BIF_P, sz);
-	res = erts_bld_list(&hp, NULL, length, terms);
-	BIF_RET(res);
     }
 
     BIF_ERROR(BIF_P, BADARG);
@@ -3563,8 +3542,14 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	else if (ERTS_IS_ATOM_STR("DbTable_words", BIF_ARG_1)) {
 	    /* Used by ets_SUITE (stdlib) */
 	    size_t words = (sizeof(DbTable) + sizeof(Uint) - 1)/sizeof(Uint);
-	    BIF_RET(make_small((Uint) words));
+            Eterm* hp = HAlloc(BIF_P ,3);
+	    BIF_RET(TUPLE2(hp, make_small((Uint) words),
+                           erts_ets_hash_sizeof_ext_segtab()));
 	}
+        else if (ERTS_IS_ATOM_STR("DbTable_meta", BIF_ARG_1)) {
+            /* Used by ets_SUITE (stdlib) */
+            BIF_RET(erts_ets_get_meta_state(BIF_P));
+        }
 	else if (ERTS_IS_ATOM_STR("check_io_debug", BIF_ARG_1)) {
 	    /* Used by driver_SUITE (emulator) */
 	    Uint sz, *szp;
@@ -4297,6 +4282,10 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
                 FLAGS(BIF_P) |= F_NEED_FULLSWEEP;
             }
             BIF_RET(am_ok);
+        }
+        else if (ERTS_IS_ATOM_STR("DbTable_meta", BIF_ARG_1)) {
+            /* Used by ets_SUITE (stdlib) */
+            BIF_RET(erts_ets_restore_meta_state(BIF_P, BIF_ARG_2));
         }
     }
 

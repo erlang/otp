@@ -880,7 +880,7 @@ new_fun_name(Type, #kern{func={F,Arity},fcount=C}=St) ->
 %% new_var_name(State) -> {VarName,State}.
 
 new_var_name(#kern{vcount=C}=St) ->
-    {list_to_atom("ker" ++ integer_to_list(C)),St#kern{vcount=C+1}}.
+    {list_to_atom("@k" ++ integer_to_list(C)),St#kern{vcount=C+1}}.
 
 %% new_var(State) -> {#k_var{},State}.
 
@@ -1734,15 +1734,15 @@ uexpr(#k_receive_accept{anno=A}, _, St) ->
     {#k_receive_accept{anno=#k{us=[],ns=[],a=A}},[],St};
 uexpr(#k_receive_next{anno=A}, _, St) ->
     {#k_receive_next{anno=#k{us=[],ns=[],a=A}},[],St};
-uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0}=Try,
+uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
       {break,Rs0}=Br, St0) ->
     case is_in_guard(St0) of
 	true ->
 	    {[#k_var{name=X}],#k_var{name=X}} = {Vs,B0}, %Assertion.
 	    #k_atom{val=false} = H0,		%Assertion.
 	    {A1,Bu,St1} = uexpr(A0, Br, St0),
-	    {Try#k_try{anno=#k{us=Bu,ns=lit_list_vars(Rs0),a=A},
-		       arg=A1,ret=Rs0},Bu,St1};
+	    {#k_protected{anno=#k{us=Bu,ns=lit_list_vars(Rs0),a=A},
+			  arg=A1,ret=Rs0},Bu,St1};
 	false ->
 	    {Avs,St1} = new_vars(length(Vs), St0),
 	    {A1,Au,St2} = ubody(A0, {break,Avs}, St1),
@@ -1791,13 +1791,9 @@ uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
 	end,
     Fun = #k_fdef{anno=#k{us=[],ns=[],a=A},func=Fname,arity=Arity,
 		  vars=Vs ++ Fvs,body=B1},
-    %% Set dummy values for Index and Uniq -- the real values will
-    %% be assigned by beam_asm.
-    Index = Uniq = 0,
     {#k_bif{anno=#k{us=Free,ns=lit_list_vars(Rs),a=A},
- 	    op=#k_internal{name=make_fun,arity=length(Free)+3},
- 	    args=[#k_atom{val=Fname},#k_int{val=Arity},
- 		  #k_int{val=Index},#k_int{val=Uniq}|Fvs],
+	    op=#k_internal{name=make_fun,arity=length(Free)+2},
+	    args=[#k_atom{val=Fname},#k_int{val=Arity}|Fvs],
  	    ret=Rs},
      Free,add_local_function(Fun, St)};
 uexpr(Lit, {break,Rs0}, St0) ->

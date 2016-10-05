@@ -97,10 +97,10 @@ groups() ->
      {des3_cbf,[], [block]},
      {des3_cfb,[], [block]},
      {rc2_cbc,[], [block]},
-     {aes_cbc128,[], [block]},
+     {aes_cbc128,[], [block, cmac]},
      {aes_cfb8,[], [block]},
      {aes_cfb128,[], [block]},
-     {aes_cbc256,[], [block]},
+     {aes_cbc256,[], [block, cmac]},
      {aes_ecb,[], [block]},
      {aes_ige256,[], [block]},
      {blowfish_cbc, [], [block]},
@@ -154,6 +154,14 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(info, Config) ->
     Config;
+init_per_testcase(cmac, Config) ->
+    case crypto:info_lib() of
+        [{<<"OpenSSL">>,LibVer,_}] when is_integer(LibVer), LibVer > 16#10001000 ->
+            Config;
+        _Else ->
+            % The CMAC functionality was introduced in OpenSSL 1.0.1
+            {skip, "OpenSSL is too old"}
+    end;
 init_per_testcase(_Name,Config) ->
     Config.
 
@@ -195,6 +203,13 @@ hmac(Config) when is_list(Config) ->
     hmac(Type, Keys, Data, Expected),
     hmac(Type, lists:map(fun iolistify/1, Keys), lists:map(fun iolistify/1, Data), Expected),
     hmac_increment(Type).
+%%--------------------------------------------------------------------
+cmac() ->
+     [{doc, "Test all different cmac functions"}].
+cmac(Config) when is_list(Config) ->
+    Pairs = proplists:get_value(cmac, Config),
+    lists:foreach(fun cmac_check/1, Pairs),
+    lists:foreach(fun cmac_check/1, cmac_iolistify(Pairs)).
 %%--------------------------------------------------------------------
 block() ->
      [{doc, "Test block ciphers"}].
@@ -347,6 +362,23 @@ hmac_increment(State, []) ->
 hmac_increment(State0, [Increment | Rest]) ->
     State = crypto:hmac_update(State0, Increment),
     hmac_increment(State, Rest).
+
+cmac_check({Type, Key, Text, CMac}) ->
+    ExpCMac = iolist_to_binary(CMac),
+    case crypto:cmac(Type, Key, Text) of
+        ExpCMac ->
+            ok;
+        Other ->
+            ct:fail({{crypto, cmac, [Type, Key, Text]}, {expected, ExpCMac}, {got, Other}})
+    end;
+cmac_check({Type, Key, Text, Size, CMac}) ->
+    ExpCMac = iolist_to_binary(CMac),
+    case crypto:cmac(Type, Key, Text, Size) of
+        ExpCMac ->
+            ok;
+        Other ->
+            ct:fail({{crypto, cmac, [Type, Key, Text, Size]}, {expected, ExpCMac}, {got, Other}})
+    end.
 
 block_cipher({Type, Key,  PlainText}) ->
     Plain = iolist_to_binary(PlainText),
@@ -565,10 +597,17 @@ mkint(C) when $a =< C, C =< $f ->
 is_supported(Group) ->
     lists:member(Group, lists:append([Algo ||  {_, Algo}  <- crypto:supports()])). 
 
+cmac_iolistify(Blocks) ->
+    lists:map(fun do_cmac_iolistify/1, Blocks).
 block_iolistify(Blocks) ->
     lists:map(fun do_block_iolistify/1, Blocks).
 stream_iolistify(Streams) ->
     lists:map(fun do_stream_iolistify/1, Streams).
+
+do_cmac_iolistify({Type, Key, Text, CMac}) ->
+    {Type, iolistify(Key), iolistify(Text), CMac};
+do_cmac_iolistify({Type, Key, Text, Size, CMac}) ->
+    {Type, iolistify(Key), iolistify(Text), Size, CMac}.
 
 do_stream_iolistify({Type, Key, PlainText}) ->
     {Type, iolistify(Key), iolistify(PlainText)};
@@ -802,12 +841,14 @@ group_config(des_ede3, Config) ->
 group_config(rc2_cbc, Config) ->
     Block = rc2_cbc(),
     [{block, Block} | Config];
-group_config(aes_cbc128, Config) ->
+group_config(aes_cbc128 = Type, Config) ->
     Block = aes_cbc128(),
-    [{block, Block} | Config];
-group_config(aes_cbc256, Config) ->
+    Pairs = cmac_nist(Type),
+    [{block, Block}, {cmac, Pairs} | Config];
+group_config(aes_cbc256 = Type, Config) ->
     Block = aes_cbc256(),
-    [{block, Block} | Config];
+    Pairs = cmac_nist(Type),
+    [{block, Block}, {cmac, Pairs} | Config];
 group_config(aes_ecb, Config) ->
     Block = aes_ecb(),
     [{block, Block} | Config];    
@@ -2336,6 +2377,50 @@ ecc() ->
                          lists:member(Curve, Curves)
                  end,
                  TestCases).
+
+%% Test data from Appendix D of NIST Special Publication 800-38B
+%% http://csrc.nist.gov/publications/nistpubs/800-38B/Updated_CMAC_Examples.pdf
+%% The same AES128 test data are also in the RFC 4493
+%% https://tools.ietf.org/html/rfc4493
+cmac_nist(aes_cbc128 = Type) ->
+    Key = hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
+    [{Type, Key, <<"">>,
+                 hexstr2bin("bb1d6929e95937287fa37d129b756746")},
+    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"),
+                hexstr2bin("070a16b46b4d4144f79bdd9dd04a287c")},
+    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
+                           "ae2d8a571e03ac9c9eb76fac45af8e51"
+                           "30c81c46a35ce411"),
+                hexstr2bin("dfa66747de9ae63030ca32611497c827")},
+    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
+                           "ae2d8a571e03ac9c9eb76fac45af8e51"
+                           "30c81c46a35ce411e5fbc1191a0a52ef"
+                           "f69f2445df4f9b17ad2b417be66c3710"),
+                hexstr2bin("51f0bebf7e3b9d92fc49741779363cfe")},
+    % truncation
+    {Type, Key, <<"">>, 4,
+                 hexstr2bin("bb1d6929")}];
+
+cmac_nist(aes_cbc256 = Type) ->
+    Key = hexstr2bin("603deb1015ca71be2b73aef0857d7781"
+                     "1f352c073b6108d72d9810a30914dff4"),
+    [{Type, Key, <<"">>,
+                 hexstr2bin("028962f61b7bf89efc6b551f4667d983")},
+    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"),
+                hexstr2bin("28a7023f452e8f82bd4bf28d8c37c35c")},
+    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
+                           "ae2d8a571e03ac9c9eb76fac45af8e51"
+                           "30c81c46a35ce411"),
+                hexstr2bin("aaf3d8f1de5640c232f5b169b9c911e6")},
+    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
+                           "ae2d8a571e03ac9c9eb76fac45af8e51"
+                           "30c81c46a35ce411e5fbc1191a0a52ef"
+                           "f69f2445df4f9b17ad2b417be66c3710"),
+                hexstr2bin("e1992190549f6ed5696a2c056c315410")},
+    % truncation
+    {Type, Key, <<"">>, 4,
+                 hexstr2bin("028962f6")}].
+
 
 no_padding() ->
     Public = [_, Mod] = rsa_public(),

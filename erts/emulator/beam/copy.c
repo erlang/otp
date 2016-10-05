@@ -40,7 +40,8 @@ static void move_one_frag(Eterm** hpp, ErlHeapFragment*, ErlOffHeap*, int);
 /*
  *  Copy object "obj" to process p.
  */
-Eterm copy_object_x(Eterm obj, Process* to, Uint extra) {
+Eterm copy_object_x(Eterm obj, Process* to, Uint extra)
+{
     if (!is_immed(obj)) {
         Uint size = size_object(obj);
         Eterm* hp = HAllocX(to, size, extra);
@@ -70,33 +71,46 @@ Eterm copy_object_x(Eterm obj, Process* to, Uint extra) {
  * Return the "flat" size of the object.
  */
 
-Uint size_object(Eterm obj)
+#define in_literal_purge_area(PTR)                   \
+    (lit_purge_ptr && (                              \
+        (lit_purge_ptr <= (PTR) &&                   \
+        (PTR) < (lit_purge_ptr + lit_purge_sz))))
+
+Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
 {
     Uint sum = 0;
     Eterm* ptr;
     int arity;
+    Eterm *lit_purge_ptr = litopt ? litopt->lit_purge_ptr : NULL;
+    Uint   lit_purge_sz  = litopt ? litopt->lit_purge_sz  : 0;
 #ifdef DEBUG
     Eterm mypid = erts_get_current_pid();
 #endif
-
     DECLARE_ESTACK(s);
-
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] size_object %p\n", mypid, obj));
 
     for (;;) {
 	switch (primary_tag(obj)) {
 	case TAG_PRIMARY_LIST:
-	    sum += 2;
 	    ptr = list_val(obj);
+            if (litopt && erts_is_literal(obj,ptr) && !in_literal_purge_area(ptr)) {
+                goto pop_next;
+            }
+	    sum += 2;
 	    obj = *ptr++;
 	    if (!IS_CONST(obj)) {
 		ESTACK_PUSH(s, obj);
-	    }	    
+	    }
 	    obj = *ptr;
 	    break;
 	case TAG_PRIMARY_BOXED:
 	    {
-		Eterm hdr = *boxed_val(obj);
+		Eterm hdr;
+                ptr = boxed_val(obj);
+                if (litopt && erts_is_literal(obj,ptr) && !in_literal_purge_area(ptr)) {
+                    goto pop_next;
+                }
+                hdr = *ptr;
 		ASSERT(is_header(hdr));
 		switch (hdr & _TAG_HEADER_MASK) {
 		case ARITYVAL_SUBTAG:
@@ -279,10 +293,6 @@ do {                                                                    \
 
 #define COUNT_OFF_HEAP (0)
 
-#define IN_LITERAL_PURGE_AREA(info, ptr)                 \
-    ((info)->range_ptr && (                              \
-        (info)->range_ptr <= (ptr) &&                    \
-        (ptr) < ((info)->range_ptr + (info)->range_sz)))
 /*
  *  Return the real size of an object and find sharing information
  *  This currently returns the same as erts_debug:size/1.
@@ -599,7 +609,7 @@ cleanup:
 /*
  *  Copy a structure to a heap.
  */
-Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint *bsz)
+Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint *bsz, erts_literal_area_t *litopt)
 {
     char* hstart;
     Uint hsize;
@@ -616,6 +626,8 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
     Eterm hdr;
     Eterm *hend;
     int i;
+    Eterm *lit_purge_ptr = litopt ? litopt->lit_purge_ptr : NULL;
+    Uint   lit_purge_sz  = litopt ? litopt->lit_purge_sz  : 0;
 #ifdef DEBUG
     Eterm org_obj = obj;
     Uint org_sz = sz;
@@ -651,7 +663,6 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
  L_copy:
     while (hp != htop) {
 	obj = *hp;
-
 	switch (primary_tag(obj)) {
 	case TAG_PRIMARY_IMMED1:
 	    hp++;
@@ -667,6 +678,10 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 
 	L_copy_list:
 	    tailp = argp;
+            if (litopt && erts_is_literal(obj,objp) && !in_literal_purge_area(objp)) {
+                *tailp = obj;
+                goto L_copy;
+            }
 	    for (;;) {
 		tp = tailp;
 		elem = CAR(objp);
@@ -674,18 +689,23 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 		    hbot -= 2;
 		    CAR(hbot) = elem;
 		    tailp = &CDR(hbot);
-		}
-		else {
+		} else {
 		    CAR(htop) = elem;
 		    tailp = &CDR(htop);
 		    htop += 2;
 		}
 		*tp = make_list(tailp - 1);
 		obj = CDR(objp);
+
 		if (!is_list(obj)) {
 		    break;
 		}
 		objp = list_val(obj);
+
+                if (litopt && erts_is_literal(obj,objp) && !in_literal_purge_area(objp)) {
+                    *tailp = obj;
+                    goto L_copy;
+                }
 	    }
 	    switch (primary_tag(obj)) {
 	    case TAG_PRIMARY_IMMED1: *tailp = obj; goto L_copy;
@@ -695,7 +715,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 			 "%s, line %d: Internal error in copy_struct: 0x%08x\n",
 			 __FILE__, __LINE__,obj);
 	    }
-	    
+
 	case TAG_PRIMARY_BOXED:
 	    if (ErtsInArea(boxed_val(obj),hstart,hsize)) {
 		hp++;
@@ -705,6 +725,10 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 
 	L_copy_boxed:
 	    objp = boxed_val(obj);
+            if (litopt && erts_is_literal(obj,objp) && !in_literal_purge_area(objp)) {
+                *argp = obj;
+                break;
+            }
 	    hdr = *objp;
 	    switch (hdr & _TAG_HEADER_MASK) {
 	    case ARITYVAL_SUBTAG:
@@ -765,7 +789,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 			extra_bytes = 1;
 		    } else {
 			extra_bytes = 0;
-		    } 
+		    }
 		    real_size = size+extra_bytes;
 		    objp = binary_val(real_bin);
 		    if (thing_subtag(*objp) == HEAP_BINARY_SUBTAG) {
@@ -780,7 +804,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 		    } else {
 			ProcBin* from = (ProcBin *) objp;
 			ProcBin* to;
-			
+
 			ASSERT(thing_subtag(*objp) == REFC_BINARY_SUBTAG);
 			if (from->flags) {
 			    erts_emasculate_writable_binary(from);
@@ -900,6 +924,12 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
         *bsz = hend - hbot;
     } else {
 #ifdef DEBUG
+        if (!eq(org_obj, res)) {
+            erts_exit(ERTS_ABORT_EXIT,
+                    "Internal error in copy_struct() when copying %T:"
+                    " not equal to copy %T\n",
+                    org_obj, res);
+        }
         if (htop != hbot)
             erts_exit(ERTS_ABORT_EXIT,
                     "Internal error in copy_struct() when copying %T:"
@@ -1036,6 +1066,8 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
     Uint e;
     unsigned sz;
     Eterm* ptr;
+    Eterm *lit_purge_ptr = info->lit_purge_ptr;
+    Uint lit_purge_sz = info->lit_purge_sz;
 #ifdef DEBUG
     Eterm mypid = erts_get_current_pid();
 #endif
@@ -1081,7 +1113,7 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 	    /* off heap list pointers are copied verbatim */
 	    if (erts_is_literal(obj,ptr)) {
 		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] bypassed copying %p is %T\n", mypid, ptr, obj));
-                if (IN_LITERAL_PURGE_AREA(info,ptr))
+                if (in_literal_purge_area(ptr))
                     info->literal_size += size_object(obj);
 		goto pop_next;
 	    }
@@ -1132,7 +1164,7 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 	    /* off heap pointers to boxes are copied verbatim */
 	    if (erts_is_literal(obj,ptr)) {
 		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] bypassed copying %p is %T\n", mypid, ptr, obj));
-                if (IN_LITERAL_PURGE_AREA(info,ptr))
+                if (in_literal_purge_area(ptr))
                     info->literal_size += size_object(obj);
 		goto pop_next;
 	    }
@@ -1298,6 +1330,8 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
     Eterm* resp;
     Eterm *hbot, *hend;
     unsigned remaining;
+    Eterm *lit_purge_ptr = info->lit_purge_ptr;
+    Uint lit_purge_sz = info->lit_purge_sz;
 #ifdef DEBUG
     Eterm mypid = erts_get_current_pid();
     Eterm saved_obj = obj;
@@ -1347,11 +1381,11 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 	    ptr = list_val(obj);
 	    /* off heap list pointers are copied verbatim */
 	    if (erts_is_literal(obj,ptr)) {
-                if (!IN_LITERAL_PURGE_AREA(info,ptr)) {
+                if (!in_literal_purge_area(ptr)) {
                     *resp = obj;
                 } else {
                     Uint bsz = 0;
-                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz);
+                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz, NULL); /* copy literal */
                     hbot -= bsz;
                 }
 		goto cleanup_next;
@@ -1415,11 +1449,11 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 	    ptr = boxed_val(obj);
 	    /* off heap pointers to boxes are copied verbatim */
 	    if (erts_is_literal(obj,ptr)) {
-                if (!IN_LITERAL_PURGE_AREA(info,ptr)) {
+                if (!in_literal_purge_area(ptr)) {
                     *resp = obj;
                 } else {
                     Uint bsz = 0;
-                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz);
+                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz, NULL); /* copy literal */
                     hbot -= bsz;
                 }
 		goto cleanup_next;
@@ -1923,7 +1957,7 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
 	if (is_header(val)) {
 	    struct erl_off_heap_header* hdr = (struct erl_off_heap_header*)hp;
 	    ASSERT(ptr + header_arity(val) < end);
-	    MOVE_BOXED(ptr, val, hp, &dummy_ref);	    
+	    MOVE_BOXED(ptr, val, hp, &dummy_ref);
 	    switch (val & _HEADER_SUBTAG_MASK) {
 	    case REFC_BINARY_SUBTAG:
 	    case FUN_SUBTAG:

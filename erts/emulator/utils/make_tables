@@ -36,7 +36,6 @@ use File::Basename;
 #    <-src>/erl_am.c
 #    <-src>/erl_bif_table.c
 #    <-src>/erl_bif_wrap.c
-#    <-src>/erl_pbifs.c
 #    <-include>/erl_atom_table.h
 #    <-include>/erl_bif_table.h
 #
@@ -54,8 +53,7 @@ my %aliases;
 my $auto_alias_num = 0;
 
 my @bif;
-my @implementation;
-my @pbif;
+my @bif_type;
 
 while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
     my $opt = shift;
@@ -79,8 +77,11 @@ while (<>) {
     my($type, @args) = split;
     if ($type eq 'atom') {
 	save_atoms(@args);
-    } elsif ($type eq 'bif' or $type eq 'ubif') {
-	my($bif,$alias,$alias2) = (@args);
+    } elsif ($type eq 'bif' or $type eq 'ubif' or $type eq 'gcbif') {
+	if (@args > 2) {
+	    error("$type only allows two arguments");
+	}
+	my($bif,$alias) = (@args);
 	$bif =~ m@^([a-z_.'0-9]+):(.*)/(\d)$@ or error("invalid BIF");
 	my($mod,$name,$arity) = ($1,$2,$3);
 	save_atoms($mod, $name);
@@ -90,12 +91,14 @@ while (<>) {
 	    $alias .= "${name}_$arity";
 	}
 	my $wrapper;
-	$wrapper = "wrap_$alias" if $type eq 'bif';
-	$wrapper = $alias if $type eq 'ubif';
+	if ($type eq 'bif') {
+	    $wrapper = "wrap_$alias";
+	} else {
+	    $wrapper = $alias;
+	}
 	push(@bif, ["am_$atom_alias{$mod}","am_$atom_alias{$name}",$arity,
 		    $alias,$wrapper]);
-        push(@pbif, $bif =~ m/^'/ && $alias =~ m/^ebif_/);
-        push(@implementation, $alias2);
+	push(@bif_type, $type);
     } else {
 	error("invalid line");
     }
@@ -166,8 +169,14 @@ typedef struct bif_entry {
     BifFunction traced;
 } BifEntry;
 
+typedef struct erts_gc_bif {
+    BifFunction bif;
+    BifFunction gc_bif;
+} ErtsGcBif;
+
 extern BifEntry bif_table[];
 extern Export* bif_export[];
+extern const ErtsGcBif erts_gc_bifs[];
 
 #define BIF_SIZE $bif_size
 
@@ -182,8 +191,12 @@ print "\n";
 
 for ($i = 0; $i < @bif; $i++) {
     my $args = join(', ', 'Process*', 'Eterm*');
-    print "Eterm $bif[$i]->[3]($args);\n";
-    print "Eterm wrap_$bif[$i]->[3]($args, UWord *I);\n";
+    my $name = $bif[$i]->[3];
+    print "Eterm $name($args);\n";
+    print "Eterm wrap_$name($args, UWord *I);\n";
+    print "Eterm erts_gc_$name(Process* p, Eterm* reg, Uint live);\n"
+	if $bif_type[$i] eq 'gcbif';
+    print "\n";
 }
 print "#endif\n";
 
@@ -225,27 +238,26 @@ for ($i = 0; $i < @bif; $i++) {
 }
 
 #
-# Generate the package bif file.
+# Generate erl_gc_bifs.c.
 #
 
-open_file("$src/erl_pbifs.c");
+open_file("$src/erl_gc_bifs.c");
 my $i;
 includes("export.h", "sys.h", "erl_vm.h", "global.h", "erl_process.h", "bif.h",
-	 "erl_bif_table.h", "erl_atom_table.h");
+	 "erl_bif_table.h");
+print "const ErtsGcBif erts_gc_bifs[] = {\n";
 for ($i = 0; $i < @bif; $i++) {
+    next unless $bif_type[$i] eq 'gcbif';
     my $arity = $bif[$i]->[2];
     my $func = $bif[$i]->[3];
-    my $arg;
-    next unless $pbif[$i];
-    next unless $func =~ m/^ebif_(.*)/;
-    my $orig_func = $1;
-    $orig_func = $implementation[$i] if $implementation[$i];
-    print "Eterm\n";
-    print "$func(Process* p, Eterm* BIF__ARGS)\n";
-    print "{\n";
-    print "    return $orig_func(p, BIF__ARGS);\n";
-    print "}\n\n";
+    print "  {$func, erts_gc_$func},\n";
 }
+print "  {0, 0}\n";
+print "};\n";
+
+#
+# Utilities follow.
+#
 
 sub open_file {			# or die
     my($name) = @_;

@@ -28,7 +28,7 @@
 
 -export([all/0, suite/0,
 	 init_per_testcase/2, end_per_testcase/2,
-         basic/1, reload/1, upgrade/1, heap_frag/1,
+         basic/1, reload_error/1, upgrade/1, heap_frag/1,
          t_on_load/1,
 	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1,
 	 maps/1,
@@ -68,7 +68,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [basic, reload, upgrade, heap_frag, types, many_args,
+    [basic, reload_error, upgrade, heap_frag, types, many_args,
      t_on_load,
      binaries, get_string, get_atom, maps, api_macros, from_array,
      iolist_as_binary, resource, resource_binary,
@@ -112,8 +112,8 @@ basic(Config) when is_list(Config) ->
     true = lists:member(?MODULE, erlang:system_info(taints)),
     ok.
 
-%% Test reload callback in nif lib
-reload(Config) when is_list(Config) ->    
+%% Test old reload feature now always fails
+reload_error(Config) when is_list(Config) ->
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
 
@@ -127,20 +127,20 @@ reload(Config) when is_list(Config) ->
     hold_nif_mod_priv_data(nif_mod:get_priv_data_ptr()),
     [{load,1,1,101},{get_priv_data_ptr,1,2,102}] = nif_mod_call_history(),    
         
-    ok = nif_mod:load_nif_lib(Config, 2),
-    2 = nif_mod:lib_version(),
-    [{reload,2,1,201},{lib_version,2,2,202}] = nif_mod_call_history(),    
-
-    ok = nif_mod:load_nif_lib(Config, 1),
+    {error, {reload, _}} = nif_mod:load_nif_lib(Config, 2),
     1 = nif_mod:lib_version(),
-    [{reload,1,1,101},{lib_version,1,2,102}] = nif_mod_call_history(),    
+    [{lib_version,1,3,103}] = nif_mod_call_history(),
+
+    {error, {reload, _}} = nif_mod:load_nif_lib(Config, 1),
+    1 = nif_mod:lib_version(),
+    [{lib_version,1,4,104}] = nif_mod_call_history(),
 
     true = erlang:delete_module(nif_mod),
     [] = nif_mod_call_history(),    
 
     %%false= check_process_code(Pid, nif_mod),
     true = erlang:purge_module(nif_mod),
-    [{unload,1,3,103}] = nif_mod_call_history(),    
+    [{unload,1,5,105}] = nif_mod_call_history(),
 
     true = lists:member(?MODULE, erlang:system_info(taints)),
     true = lists:member(nif_mod, erlang:system_info(taints)),
@@ -828,7 +828,7 @@ resource_binary_do() ->
 -define(RT_CREATE,1).
 -define(RT_TAKEOVER,2).
 
-%% Test resource takeover by module reload and upgrade
+%% Test resource takeover by module upgrade
 resource_takeover(Config) when is_list(Config) ->    
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
@@ -893,6 +893,7 @@ resource_takeover(Config) when is_list(Config) ->
     ok = forget_resource(NGX1),
     ?CHECK([], nif_mod_call_history()), % no dtor
 
+    {module,nif_mod} = erlang:load_module(nif_mod,ModBin),
     ok = nif_mod:load_nif_lib(Config, 2,
                               [{resource_type, 0, ?RT_TAKEOVER, "resource_type_A",resource_dtor_A,
                                 ?RT_TAKEOVER},
@@ -911,7 +912,9 @@ resource_takeover(Config) when is_list(Config) ->
                                {resource_type, 4, ?RT_CREATE, "resource_type_null_goneY",null,
                                 ?RT_CREATE}
                               ]),
-    ?CHECK([{reload,2,1,201}], nif_mod_call_history()),
+    ?CHECK([{upgrade,2,1,201}], nif_mod_call_history()),
+    true = erlang:purge_module(nif_mod),
+    ?CHECK([{unload,1,1,106}], nif_mod_call_history()),
 
     BinA2 = read_resource(0,A2),
     ok = forget_resource(A2),
@@ -1221,11 +1224,19 @@ threading_do(Config) ->
     ok = tester:load_nif_lib(Config, "basic"),   
     ok = tester:run(),
 
+    erlang:load_module(tester,ModBin),
+    erlang:purge_module(tester),
     ok = tester:load_nif_lib(Config, "rwlock"),
     ok = tester:run(),
 
+    erlang:load_module(tester,ModBin),
+    erlang:purge_module(tester),
     ok = tester:load_nif_lib(Config, "tsd"),
-    ok = tester:run().
+    ok = tester:run(),
+
+    erlang:delete_module(tester),
+    erlang:purge_module(tester).
+
 
 %% Test NIF message sending
 send(Config) when is_list(Config) ->    
@@ -1513,13 +1524,13 @@ send3_new_state(State, Blob) ->
 neg(Config) when is_list(Config) ->
     TmpMem = tmpmem(),
     {'EXIT',{badarg,_}} = (catch erlang:load_nif(badarg, 0)),
-    {error,{load_failed,_}} = erlang:load_nif("pink_unicorn", 0),
     
     Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "nif_mod"),
     {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors]),
     {module,nif_mod} = erlang:load_module(nif_mod,Bin),
 
+    {error,{load_failed,_}} = nif_mod:load_nif_lib(Config, 0),
     {error,{bad_lib,_}} = nif_mod:load_nif_lib(Config, no_init),    
     verify_tmpmem(TmpMem),
     ok.
@@ -1640,6 +1651,7 @@ consume_timeslice(Config) when is_list(Config) ->
     end.
 
 consume_timeslice_test(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
     CONTEXT_REDS = 2000,
     Me = self(),
     Go = make_ref(),
@@ -1716,7 +1728,7 @@ consume_timeslice_test(Config) when is_list(Config) ->
 	    io:format("Reductions = ~p~n", [Reductions]),
 	    ok;
 	{RedDiff, Reductions} ->
-	    ct:fail({unexpected_reduction_count, Reductions})
+	    ct:fail({unexpected_reduction_count, Reductions, ExpReds})
     end,
     
     none = next_msg(P),

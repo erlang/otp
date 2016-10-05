@@ -41,6 +41,9 @@
         <p>Hmac functions - <url href="http://www.ietf.org/rfc/rfc2104.txt"> Keyed-Hashing for Message Authentication (RFC 2104) </url></p>
       </item>
       <item>
+        <p>Cmac functions - <url href="http://www.ietf.org/rfc/rfc4493.txt">The AES-CMAC Algorithm (RFC 4493)</url></p>
+      </item>
+      <item>
         <p>Block ciphers - <url href="http://csrc.nist.gov/groups/ST/toolkit/block_ciphers.html"> </url> DES and AES in
         Block Cipher Modes - <url href="http://csrc.nist.gov/groups/ST/toolkit/BCM/index.html"> ECB, CBC, CFB, OFB, CTR and GCM </url></p>
       </item>
@@ -450,6 +453,24 @@
       <desc>
         <p>Finalizes the HMAC operation referenced by <c>Context</c>. <c>HashLen</c> must be greater than
         zero. <c>Mac</c> will be a binary with at most <c>HashLen</c> bytes. Note that if HashLen is greater than the actual number of bytes returned from the underlying hash, the returned hash will have fewer than <c>HashLen</c> bytes.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>cmac(Type, Key, Data) -> Mac</name>
+      <name>cmac(Type, Key, Data, MacLength) -> Mac</name>
+      <fsummary>Calculates the Cipher-based Message Authentication Code.</fsummary>
+      <type>
+        <v>Type = block_cipher()</v>
+        <v>Key = iodata()</v>
+        <v>Data = iodata()</v>
+        <v>MacLength = integer()</v>
+        <v>Mac = binary()</v>
+      </type>
+      <desc>
+        <p>Computes a CMAC of type <c>Type</c> from <c>Data</c> using
+        <c>Key</c> as the authentication key.</p> <p><c>MacLength</c>
+        will limit the size of the resultant <c>Mac</c>.</p>
       </desc>
     </func>
 

@@ -446,11 +446,10 @@ int erts_system_profile_ts_type = ERTS_TRACE_FLG_NOW_TIMESTAMP;
 #endif
 
 typedef enum {
-    ERTS_PSTT_GC,	/* Garbage Collect */
+    ERTS_PSTT_GC_MAJOR,	/* Garbage Collect: Fullsweep */
+    ERTS_PSTT_GC_MINOR,	/* Garbage Collect: Generational */
     ERTS_PSTT_CPC,	/* Check Process Code */
-#ifdef ERTS_NEW_PURGE_STRATEGY
     ERTS_PSTT_CLA,	/* Copy Literal Area */
-#endif
     ERTS_PSTT_COHMQ,    /* Change off heap message queue */
     ERTS_PSTT_FTMQ      /* Flush trace msg queue */
 } ErtsProcSysTaskType;
@@ -8169,7 +8168,8 @@ sched_thread_func(void *vesdp)
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(NULL);
 #endif
 
-    process_main();
+    process_main(esdp->x_reg_array, esdp->f_reg_array);
+
     /* No schedulers should *ever* terminate */
     erts_exit(ERTS_ABORT_EXIT,
 	     "Scheduler thread number %beu terminated\n",
@@ -10414,7 +10414,8 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    break;
 
 	switch (st->type) {
-	case ERTS_PSTT_GC:
+        case ERTS_PSTT_GC_MAJOR:
+        case ERTS_PSTT_GC_MINOR:
 	    if (c_p->flags & F_DISABLE_GC) {
 		save_gc_task(c_p, st, st_prio);
 		st = NULL;
@@ -10422,7 +10423,9 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    }
 	    else {
 		if (!garbage_collected) {
-		    FLAGS(c_p) |= F_NEED_FULLSWEEP;
+                    if (st->type == ERTS_PSTT_GC_MAJOR) {
+                        FLAGS(c_p) |= F_NEED_FULLSWEEP;
+                    }
 		    reds -= scheduler_gc_proc(c_p, reds);
 		    garbage_collected = 1;
 		}
@@ -10438,7 +10441,6 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 		fcalls = reds - CONTEXT_REDS;
 	    st_res = erts_check_process_code(c_p,
 					     st->arg[0],
-                                             unsigned_val(st->arg[1]),
 					     &cpc_reds,
 					     fcalls);
             reds -= cpc_reds;
@@ -10449,7 +10451,6 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    }
 	    break;
         }
-#ifdef ERTS_NEW_PURGE_STRATEGY
 	case ERTS_PSTT_CLA: {
 	    int fcalls;
             int cla_reds = 0;
@@ -10469,7 +10470,6 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    }
 	    break;
         }
-#endif
 	case ERTS_PSTT_COHMQ:
 	    reds -= erts_complete_off_heap_message_queue_change(c_p);
 	    st_res = am_true;
@@ -10519,16 +10519,15 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 	    break;
 
 	switch (st->type) {
-	case ERTS_PSTT_GC:
+        case ERTS_PSTT_GC_MAJOR:
+        case ERTS_PSTT_GC_MINOR:
 	case ERTS_PSTT_CPC:
 	case ERTS_PSTT_COHMQ:
 	    st_res = am_false;
 	    break;
-#ifdef ERTS_NEW_PURGE_STRATEGY
 	case ERTS_PSTT_CLA:
 	    st_res = am_ok;
 	    break;
-#endif
 #ifdef ERTS_SMP
         case ERTS_PSTT_FTMQ:
 	    reds -= erts_flush_trace_messages(c_p, ERTS_PROC_LOCK_MAIN);
@@ -10694,16 +10693,18 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
     switch (req_type) {
 
     case am_garbage_collect:
-	st->type = ERTS_PSTT_GC;
-	noproc_res = am_false;
-	if (!rp)
+        switch (st->arg[0]) {
+        case am_minor:  st->type = ERTS_PSTT_GC_MINOR; break;
+        case am_major:  st->type = ERTS_PSTT_GC_MAJOR; break;
+        default: goto badarg;
+        }
+        noproc_res = am_false;
+        if (!rp)
 	    goto noproc;
 	break;
 
     case am_check_process_code:
 	if (is_not_atom(st->arg[0]))
-	    goto badarg;
-	if (is_not_small(st->arg[1]) || (unsigned_val(st->arg[1]) & ~ERTS_CPC_ALL))
 	    goto badarg;
 	noproc_res = am_false;
 	st->type = ERTS_PSTT_CPC;
@@ -10720,7 +10721,6 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 #endif
 	break;
 
-#ifdef ERTS_NEW_PURGE_STRATEGY
     case am_copy_literals:
 	if (st->arg[0] != am_true && st->arg[0] != am_false)
 	    goto badarg;
@@ -10729,7 +10729,6 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 	if (!rp)
 	    goto noproc;
 	break;
-#endif
 
     default:
 	goto badarg;
@@ -11379,6 +11378,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 #ifdef SHCOPY_SPAWN
     erts_shcopy_t info;
     INITIALIZE_SHCOPY(info);
+#else
+    erts_literal_area_t litarea;
+    INITIALIZE_LITERAL_PURGE_AREA(litarea);
 #endif
 
     erts_smp_proc_lock(parent, ERTS_PROC_LOCKS_ALL_MINOR);
@@ -11437,7 +11439,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 #ifdef SHCOPY_SPAWN
     arg_size = copy_shared_calculate(args, &info);
 #else
-    arg_size = size_object(args);
+    arg_size = size_object_litopt(args, &litarea);
 #endif
     heap_need = arg_size;
 
@@ -11461,7 +11463,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     }
     p->schedule_count = 0;
     ASSERT(p->min_heap_size == erts_next_heap_size(p->min_heap_size, 0));
-    
+
     p->u.initial[INITIAL_MOD] = mod;
     p->u.initial[INITIAL_FUN] = func;
     p->u.initial[INITIAL_ARI] = (Uint) arity;
@@ -11519,7 +11521,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->arg_reg[2] = copy_shared_perform(args, arg_size, &info, &p->htop, &p->off_heap);
     DESTROY_SHCOPY(info);
 #else
-    p->arg_reg[2] = copy_struct(args, arg_size, &p->htop, &p->off_heap);
+    p->arg_reg[2] = copy_struct_litopt(args, arg_size, &p->htop, &p->off_heap, &litarea);
 #endif
     p->arity = 3;
 
