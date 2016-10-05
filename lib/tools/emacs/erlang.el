@@ -1512,8 +1512,6 @@ Other commands:
   (setq paragraph-separate paragraph-start)
   (make-local-variable 'paragraph-ignore-fill-prefix)
   (setq paragraph-ignore-fill-prefix t)
-  (make-local-variable 'require-final-newline)
-  (setq require-final-newline t)
   (make-local-variable 'defun-prompt-regexp)
   (setq defun-prompt-regexp erlang-defun-prompt-regexp)
   (make-local-variable 'comment-start)
