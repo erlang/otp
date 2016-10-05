@@ -3158,7 +3158,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     Eterm mod_atom;
     const Atom* mod_atomp;
     Eterm f_atom;
-    ErtsCodeInfo* caller;
+    ErtsCodeMFA* caller;
     ErtsSysDdllError errdesc = ERTS_SYS_DDLL_ERROR_INIT;
     Eterm ret = am_ok;
     int veto;
@@ -3196,7 +3196,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	   && BIF_P->current->arity == 2);
     caller = find_function_from_pc(BIF_P->cp);
     ASSERT(caller != NULL);
-    mod_atom = caller->mfa.module;
+    mod_atom = caller->module;
     ASSERT(is_atom(mod_atom));
     module_p = erts_get_module(mod_atom, erts_active_code_ix());
     ASSERT(module_p != NULL);

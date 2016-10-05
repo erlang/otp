@@ -134,8 +134,8 @@ void erts_system_profile_setup_active_schedulers(void);
 
 /* system_monitor */
 void monitor_long_gc(Process *p, Uint time);
-void monitor_long_schedule_proc(Process *p, ErtsCodeInfo *in_i,
-                                ErtsCodeInfo *out_i, Uint time);
+void monitor_long_schedule_proc(Process *p, ErtsCodeMFA *in_i,
+                                ErtsCodeMFA *out_i, Uint time);
 void monitor_long_schedule_port(Port *pp, ErtsPortTaskType type, Uint time);
 void monitor_large_heap(Process *p);
 void monitor_generic(Process *p, Eterm type, Eterm spec);

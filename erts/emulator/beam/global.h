@@ -1024,7 +1024,7 @@ extern Process *erts_code_purger;
 
 /* beam_load.c */
 typedef struct {
-    ErtsCodeInfo* ci;		/* Pointer to: Mod, Name, Arity */
+    ErtsCodeMFA* mfa;		/* Pointer to: Mod, Name, Arity */
     Uint needed;		/* Heap space needed for entire tuple */
     Uint32 loc;			/* Location in source code */
     Eterm* fname_ptr;		/* Pointer to fname table */
@@ -1041,7 +1041,7 @@ Eterm erts_finish_loading(Binary* loader_state, Process* c_p,
 Eterm erts_preload_module(Process *c_p, ErtsProcLocks c_p_locks,
 			  Eterm group_leader, Eterm* mod, byte* code, Uint size);
 void init_load(void);
-ErtsCodeInfo* find_function_from_pc(BeamInstr* pc);
+ErtsCodeMFA* find_function_from_pc(BeamInstr* pc);
 Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
 			   Eterm args, Eterm* mfa_p);
 void erts_set_current_function(FunctionInfo* fi, ErtsCodeMFA* mfa);

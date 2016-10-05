@@ -227,7 +227,7 @@ erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
     Range* rp;
     BeamCodeHeader* hdr;
 
-    fi->ci = NULL;
+    fi->mfa = NULL;
     fi->needed = 5;
     fi->loc = LINE_INVALID_LOCATION;
     rp = find_range(pc);
@@ -243,7 +243,7 @@ erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
 	if (pc < (BeamInstr*)(mid[0])) {
 	    high = mid;
 	} else if (pc < (BeamInstr*)(mid[1])) {
-	    fi->ci = mid[0];
+	    fi->mfa = &mid[0]->mfa;
 	    if (full_info) {
 		ErtsCodeInfo** fp = hdr->functions;
 		int idx = mid - fp;
@@ -316,7 +316,7 @@ lookup_loc(FunctionInfo* fi, const BeamInstr* pc,
 	    file = LOC_FILE(fi->loc);
 	    if (file == 0) {
 		/* Special case: Module name with ".erl" appended */
-		Atom* mod_atom = atom_tab(atom_val(fi->ci->mfa.module));
+		Atom* mod_atom = atom_tab(atom_val(fi->mfa->module));
 		fi->needed += 2*(mod_atom->len+4);
 	    } else {
 		Atom* ap = atom_tab(atom_val((fi->fname_ptr)[file-1]));
