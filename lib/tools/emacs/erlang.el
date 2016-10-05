@@ -78,6 +78,10 @@
 
 ;; Variables:
 
+(defgroup erlang nil
+  "The Erlang programming language."
+  :group 'languages)
+
 (defconst erlang-version "2.7"
   "The version number of Erlang mode.")
 
@@ -2446,6 +2450,7 @@ Return the amount the indentation changed by."
     ;; after the indentation. Else stay at same point in text.
     (if (> (- (point-max) pos) (point))
 	(goto-char (- (point-max) pos)))
+    (run-hooks 'erlang-indent-line-hook)
     shift-amt))
 
 
