@@ -1409,8 +1409,14 @@ select_cont(Tid,_,State=#mnesia_select{tid=Tid,written=[]}) ->
     select_state(dirty_sel_cont(State),State);
 select_cont(Tid,_Ts,State=#mnesia_select{tid=Tid})  ->
     trans_select(dirty_sel_cont(State), State);
-select_cont(_Tid2,_,#mnesia_select{tid=_Tid1}) ->  % Missmatching tids
+select_cont(Tid2,_,#mnesia_select{tid=_Tid1})
+  when element(1,Tid2) == tid ->  % Mismatching tids
     abort(wrong_transaction);
+select_cont(Tid,Ts,State=#mnesia_select{}) ->
+    % Repair mismatching tids in non-transactional contexts
+    RepairedState = State#mnesia_select{tid = Tid, written = [],
+                                        spec = undefined, type = undefined},
+    select_cont(Tid,Ts,RepairedState);
 select_cont(_,_,Cont) ->
     abort({badarg, Cont}).
 
