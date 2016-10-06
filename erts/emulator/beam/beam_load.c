@@ -4031,60 +4031,52 @@ gen_make_fun2(LoaderState* stp, GenOpArg idx)
     op->next = NULL;
     return op;
 }
+
+static GenOp*
+translate_gc_bif(LoaderState* stp, GenOp* op, GenOpArg Bif)
+{
+    const ErtsGcBif* p;
+    BifFunction bf;
+
+    bf = stp->import[Bif.val].bf;
+    for (p = erts_gc_bifs; p->bif != 0; p++) {
+	if (p->bif == bf) {
+	    op->a[1].type = TAG_u;
+	    op->a[1].val = (BeamInstr) p->gc_bif;
+	    return op;
+	}
+    }
+
+    op->op = genop_unsupported_guard_bif_3;
+    op->arity = 3;
+    op->a[0].type = TAG_a;
+    op->a[0].val = stp->import[Bif.val].module;
+    op->a[1].type = TAG_a;
+    op->a[1].val = stp->import[Bif.val].function;
+    op->a[2].type = TAG_u;
+    op->a[2].val = stp->import[Bif.val].arity;
+    return op;
+}
+
 /*
- * Rewrite gc_bifs with one parameter (the common case). Utilized
- * in ops.tab to rewrite instructions calling bif's in guards
- * to use a garbage collecting implementation.
+ * Rewrite gc_bifs with one parameter (the common case).
  */
 static GenOp*
 gen_guard_bif1(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
 	      GenOpArg Src, GenOpArg Dst)
 {
     GenOp* op;
-    BifFunction bf;
 
     NEW_GENOP(stp, op);
     op->next = NULL;
-    bf = stp->import[Bif.val].bf;
-    /* The translations here need to have a reverse counterpart in
-       beam_emu.c:translate_gc_bif for error handling to work properly. */
-    if (bf == length_1) {
-	op->a[1].val = (BeamInstr) (void *) erts_gc_length_1;
-    } else if (bf == size_1) {
-	op->a[1].val = (BeamInstr) (void *) erts_gc_size_1;
-    } else if (bf == bit_size_1) {
-	op->a[1].val = (BeamInstr) (void *) erts_gc_bit_size_1;
-    } else if (bf == byte_size_1) {
-	op->a[1].val = (BeamInstr) (void *) erts_gc_byte_size_1;
-    } else if (bf == map_size_1) {
-	op->a[1].val = (BeamInstr) (void *) erts_gc_map_size_1;
-    } else if (bf == abs_1) {
-	op->a[1].val = (BeamInstr) (void *) erts_gc_abs_1;
-    } else if (bf == float_1) {
-	op->a[1].val = (BeamInstr) (void *) erts_gc_float_1;
-    } else if (bf == round_1) {
-	op->a[1].val = (BeamInstr) (void *) erts_gc_round_1;
-    } else if (bf == trunc_1) {
-	op->a[1].val = (BeamInstr) (void *) erts_gc_trunc_1;
-    } else {
-	op->op = genop_unsupported_guard_bif_3;
-	op->arity = 3;
-	op->a[0].type = TAG_a;
-	op->a[0].val = stp->import[Bif.val].module;
-	op->a[1].type = TAG_a;
-	op->a[1].val = stp->import[Bif.val].function;
-	op->a[2].type = TAG_u;
-	op->a[2].val = stp->import[Bif.val].arity;
-	return op;
-    }
     op->op = genop_i_gc_bif1_5;
     op->arity = 5;
     op->a[0] = Fail;
-    op->a[1].type = TAG_u;
+    /* op->a[1] is set by translate_gc_bif() */
     op->a[2] = Src;
     op->a[3] = Live;
     op->a[4] = Dst;
-    return op;
+    return translate_gc_bif(stp, op, Bif);
 }
 
 /*
@@ -4095,35 +4087,18 @@ gen_guard_bif2(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
 	      GenOpArg S1, GenOpArg S2, GenOpArg Dst)
 {
     GenOp* op;
-    BifFunction bf;
 
     NEW_GENOP(stp, op);
     op->next = NULL;
-    bf = stp->import[Bif.val].bf;
-    /* The translations here need to have a reverse counterpart in
-       beam_emu.c:translate_gc_bif for error handling to work properly. */
-    if (bf == binary_part_2) {
-	op->a[1].val = (BeamInstr) (void *) erts_gc_binary_part_2;
-    } else {
-	op->op = genop_unsupported_guard_bif_3;
-	op->arity = 3;
-	op->a[0].type = TAG_a;
-	op->a[0].val = stp->import[Bif.val].module;
-	op->a[1].type = TAG_a;
-	op->a[1].val = stp->import[Bif.val].function;
-	op->a[2].type = TAG_u;
-	op->a[2].val = stp->import[Bif.val].arity;
-	return op;
-    }
     op->op = genop_i_gc_bif2_6;
     op->arity = 6;
     op->a[0] = Fail;
-    op->a[1].type = TAG_u;
+    /* op->a[1] is set by translate_gc_bif() */
     op->a[2] = Live;
     op->a[3] = S1;
     op->a[4] = S2;
     op->a[5] = Dst;
-    return op;
+    return translate_gc_bif(stp, op, Bif);
 }
 
 /*
@@ -4134,37 +4109,19 @@ gen_guard_bif3(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
 	      GenOpArg S1, GenOpArg S2, GenOpArg S3, GenOpArg Dst)
 {
     GenOp* op;
-    BifFunction bf;
 
     NEW_GENOP(stp, op);
     op->next = NULL;
-    bf = stp->import[Bif.val].bf;
-    /* The translations here need to have a reverse counterpart in
-       beam_emu.c:translate_gc_bif for error handling to work properly. */
-    if (bf == binary_part_3) {
-	op->a[1].val = (BeamInstr) (void *) erts_gc_binary_part_3;
-    } else {
-	op->op = genop_unsupported_guard_bif_3;
-	op->arity = 3;
-	op->a[0].type = TAG_a;
-	op->a[0].val = stp->import[Bif.val].module;
-	op->a[1].type = TAG_a;
-	op->a[1].val = stp->import[Bif.val].function;
-	op->a[2].type = TAG_u;
-	op->a[2].val = stp->import[Bif.val].arity;
-	return op;
-    }
     op->op = genop_ii_gc_bif3_7;
     op->arity = 7;
     op->a[0] = Fail;
-    op->a[1].type = TAG_u;
+    /* op->a[1] is set by translate_gc_bif() */
     op->a[2] = Live;
     op->a[3] = S1;
     op->a[4] = S2;
     op->a[5] = S3;
     op->a[6] = Dst;
-    op->next = NULL;
-    return op;
+    return translate_gc_bif(stp, op, Bif);
 }
 
 static GenOp*
@@ -4882,7 +4839,7 @@ transform_engine(LoaderState* st)
 {
     Uint op;
     int ap;			/* Current argument. */
-    Uint* restart;		/* Where to restart if current match fails. */
+    const Uint* restart; /* Where to restart if current match fails. */
     GenOpArg var[TE_MAX_VARS];	/* Buffer for variables. */
     GenOpArg* rest_args = NULL;
     int num_rest_args = 0;
@@ -4891,7 +4848,7 @@ transform_engine(LoaderState* st)
     GenOp* instr;
     GenOp* first = st->genop;
     GenOp* keep = NULL;
-    Uint* pc;
+    const Uint* pc;
     static Uint restart_fail[1] = {TOP_fail};
 
     ASSERT(gen_opc[first->op].transform != -1);

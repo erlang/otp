@@ -1078,7 +1078,7 @@ static Eterm make_arglist(Process* c_p, Eterm* reg, int a);
 void
 init_emulator(void)
 {
-    process_main();
+    process_main(0, 0);
 }
 
 /*
@@ -1225,7 +1225,7 @@ init_emulator(void)
  * the instructions' C labels to the loader.
  * The second call starts execution of BEAM code. This call never returns.
  */
-void process_main(void)
+void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 {
     static int init_done = 0;
     Process* c_p = NULL;
@@ -1237,7 +1237,7 @@ void process_main(void)
     /* Pointer to X registers: x(1)..x(N); reg[0] is used when doing GC,
      * in all other cases x0 is used.
      */
-    register Eterm* reg REG_xregs = NULL;
+    register Eterm* reg REG_xregs = x_reg_array;
 
     /*
      * Top of heap (next free location); grows upwards.
@@ -1264,7 +1264,7 @@ void process_main(void)
      * X registers and floating point registers are located in
      * scheduler specific data.
      */
-    register FloatDef *freg;
+    register FloatDef *freg = f_reg_array;
 
     /*
      * For keeping the negative old value of 'reds' when call saving is active.
@@ -1350,8 +1350,6 @@ void process_main(void)
 	start_time_i = c_p->i;
     }
 
-    reg = erts_proc_sched_data(c_p)->x_reg_array;
-    freg = erts_proc_sched_data(c_p)->f_reg_array;
     ERL_BITS_RELOAD_STATEP(c_p);
     {
 	int reds;
@@ -5437,31 +5435,14 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 static BifFunction
 translate_gc_bif(void* gcf)
 {
-    if (gcf == erts_gc_length_1) {
-	return length_1;
-    } else if (gcf == erts_gc_size_1) {
-	return size_1;
-    } else if (gcf == erts_gc_bit_size_1) {
-	return bit_size_1;
-    } else if (gcf == erts_gc_byte_size_1) {
-	return byte_size_1;
-    } else if (gcf == erts_gc_map_size_1) {
-	return map_size_1;
-    } else if (gcf == erts_gc_abs_1) {
-	return abs_1;
-    } else if (gcf == erts_gc_float_1) {
-	return float_1;
-    } else if (gcf == erts_gc_round_1) {
-	return round_1;
-    } else if (gcf == erts_gc_trunc_1) {
-	return round_1;
-    } else if (gcf == erts_gc_binary_part_2) {
-	return binary_part_2;
-    } else if (gcf == erts_gc_binary_part_3) {
-	return binary_part_3;
-    } else {
-	erts_exit(ERTS_ERROR_EXIT, "bad gc bif");
+    const ErtsGcBif* p;
+
+    for (p = erts_gc_bifs; p->bif != 0; p++) {
+	if (p->gc_bif == gcf) {
+	    return p->bif;
+	}
     }
+    erts_exit(ERTS_ERROR_EXIT, "bad gc bif");
 }
 
 /*

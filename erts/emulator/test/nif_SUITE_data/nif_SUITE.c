@@ -17,7 +17,7 @@
  *
  * %CopyrightEnd%
  */
-#include "erl_nif.h"
+#include <erl_nif.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -182,14 +182,6 @@ static void resource_takeover(ErlNifEnv* env, PrivData* priv)
     assert(tried == ERL_NIF_RT_TAKEOVER);
     assert(msgenv_resource_type==NULL || msgenv_resource_type == rt); 
     msgenv_resource_type = rt;
-}
-
-static int reload(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
-{
-    PrivData* priv = (PrivData*) *priv_data;
-    add_call(env, priv, "reload");
-    resource_takeover(env,priv);
-    return 0;
 }
 
 static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info)
@@ -2094,4 +2086,4 @@ static ErlNifFunc nif_funcs[] =
     {"format_term_nif", 2, format_term}
 };
 
-ERL_NIF_INIT(nif_SUITE,nif_funcs,load,reload,upgrade,unload)
+ERL_NIF_INIT(nif_SUITE,nif_funcs,load,NULL,upgrade,unload)

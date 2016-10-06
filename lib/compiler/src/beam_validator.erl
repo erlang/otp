@@ -909,7 +909,7 @@ all_ms_in_x_regs(Live0, Vst) ->
 
 ms_in_y_regs(Id, #vst{current=#st{y=Ys0}}) ->
     Ys = gb_trees:to_list(Ys0),
-    [Y || {Y,#ms{id=OtherId}} <- Ys, OtherId =:= Id].
+    [{y,Y} || {Y,#ms{id=OtherId}} <- Ys, OtherId =:= Id].
 
 verify_call_match_context(Lbl, Ctx, #vst{ft=Ft}) ->
     case gb_trees:lookup(Lbl, Ft) of
@@ -1508,7 +1508,9 @@ bif_type(abs, [Num], Vst) ->
 bif_type(float, _, _) -> {float,[]};
 bif_type('/', _, _) -> {float,[]};
 %% Integer operations.
+bif_type(ceil, [_], _) -> {integer,[]};
 bif_type('div', [_,_], _) -> {integer,[]};
+bif_type(floor, [_], _) -> {integer,[]};
 bif_type('rem', [_,_], _) -> {integer,[]};
 bif_type(length, [_], _) -> {integer,[]};
 bif_type(size, [_], _) -> {integer,[]};
@@ -1642,6 +1644,8 @@ return_type_math(log10, 1) -> {float,[]};
 return_type_math(sqrt, 1) -> {float,[]};
 return_type_math(atan2, 2) -> {float,[]};
 return_type_math(pow, 2) -> {float,[]};
+return_type_math(ceil, 1) -> {float,[]};
+return_type_math(floor, 1) -> {float,[]};
 return_type_math(pi, 0) -> {float,[]};
 return_type_math(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
 

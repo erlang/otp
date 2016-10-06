@@ -40,14 +40,18 @@
 -include("../main/hipe.hrl").
 -define(count_temp(T), ?cons_counter(counter_mfa_mem_temps, T)).
 
-check_and_rewrite(Defun, Coloring, Strategy) ->
+check_and_rewrite(CFG, Coloring, Strategy) ->
   %% io:format("Converting\n"),
-  TempMap = hipe_temp_map:cols2tuple(Coloring, ?HIPE_X86_SPECIFIC),
+  TempMap = hipe_temp_map:cols2tuple(Coloring, ?HIPE_X86_SPECIFIC, no_context),
   %% io:format("Rewriting\n"),
-  #defun{code=Code0} = Defun,
-  {Code1, DidSpill} = do_insns(Code0, TempMap, Strategy, [], false),
-  {Defun#defun{code=Code1,var_range={0,hipe_gensym:get_var(x86)}},
-   DidSpill}.
+  do_bbs(hipe_x86_cfg:labels(CFG), TempMap, Strategy, CFG, false).
+
+do_bbs([], _, _, CFG, DidSpill) -> {CFG, DidSpill};
+do_bbs([Lbl|Lbls], TempMap, Strategy, CFG0, DidSpill0) ->
+  Code0 = hipe_bb:code(BB = hipe_x86_cfg:bb(CFG0, Lbl)),
+  {Code, DidSpill} = do_insns(Code0, TempMap, Strategy, [], DidSpill0),
+  CFG = hipe_x86_cfg:bb_add(CFG0, Lbl, hipe_bb:code_update(BB, Code)),
+  do_bbs(Lbls, TempMap, Strategy, CFG, DidSpill).
 
 do_insns([I|Insns], TempMap, Strategy, Accum, DidSpill0) ->
   {NewIs, DidSpill1} = do_insn(I, TempMap, Strategy),
@@ -169,14 +173,22 @@ do_jmp_switch(I, TempMap, Strategy) ->
 %%% Fix a lea op.
 
 do_lea(I, TempMap, Strategy) ->
-  #lea{temp=Temp} = I,
-  case is_spilled(Temp, TempMap) of
-    false ->
-      {[I], false};
-    true ->
-      NewTmp = spill_temp('untagged', Strategy),
-      {[I#lea{temp=NewTmp}, hipe_x86:mk_move(NewTmp, Temp)],
-       true}
+  #lea{mem=Mem0,temp=Temp0} = I,
+  {FixMem, Mem, DidSpill1} = fix_mem_operand(Mem0, TempMap, temp1(Strategy)),
+  case Mem of
+    #x86_mem{base=Base, off=#x86_imm{value=0}} ->
+      %% We've decayed into a move due to both operands being memory (there's an
+      %% 'add' in FixMem).
+      {FixMem ++ [hipe_x86:mk_move(Base, Temp0)], DidSpill1};
+    #x86_mem{} ->
+      {StoreTemp, Temp, DidSpill2} =
+	case is_mem_opnd(Temp0, TempMap) of
+	  false -> {[], Temp0, false};
+	  true ->
+	    Temp1 = clone2(Temp0, temp0(Strategy)),
+	    {[hipe_x86:mk_move(Temp1, Temp0)], Temp1, true}
+	end,
+      {FixMem ++ [I#lea{mem=Mem,temp=Temp} | StoreTemp], DidSpill1 or DidSpill2}
   end.
 
 %%% Fix a move op.
@@ -377,19 +389,12 @@ is_mem_opnd(Opnd, TempMap) ->
 	Reg = hipe_x86:temp_reg(Opnd),
 	case hipe_x86:temp_is_allocatable(Opnd) of
 	  true ->
-	    case tuple_size(TempMap) > Reg of
+	    case
+	      hipe_temp_map:is_spilled(Reg, TempMap) of
 	      true ->
-		case
-		  hipe_temp_map:is_spilled(Reg, TempMap) of
-		  true ->
-		    ?count_temp(Reg),
-		    true;
-		  false -> false
-		end;
-	      _ ->
-		%% impossible, but was true in ls post and false in normal post
-		exit({?MODULE,is_mem_opnd,Reg}),
-		false
+		?count_temp(Reg),
+		true;
+	      false -> false
 	    end;
 	  false -> true
 	end;
@@ -404,15 +409,10 @@ is_spilled(Temp, TempMap) ->
   case hipe_x86:temp_is_allocatable(Temp) of
     true ->
       Reg = hipe_x86:temp_reg(Temp),
-      case tuple_size(TempMap) > Reg of
+      case hipe_temp_map:is_spilled(Reg, TempMap) of
 	true ->
-	  case hipe_temp_map:is_spilled(Reg, TempMap) of
-	    true ->
-	      ?count_temp(Reg),
-	      true;
-	    false ->
-	      false
-	  end;
+	  ?count_temp(Reg),
+	  true;
 	false ->
 	  false
       end;
@@ -429,14 +429,14 @@ clone(Dst, Strategy) ->
     end,
   spill_temp(Type, Strategy).
 
-spill_temp0(Type, 'normal') ->
+spill_temp0(Type, 'normal') when Type =/= double ->
   hipe_x86:mk_new_temp(Type);
-spill_temp0(Type, 'linearscan') ->
+spill_temp0(Type, 'linearscan') when Type =/= double ->
   hipe_x86:mk_temp(?HIPE_X86_REGISTERS:temp0(), Type).
 
-spill_temp(Type, 'normal') ->
+spill_temp(Type, 'normal') when Type =/= double ->
   hipe_x86:mk_new_temp(Type);
-spill_temp(Type, 'linearscan') ->
+spill_temp(Type, 'linearscan') when Type =/= double ->
   hipe_x86:mk_temp(?HIPE_X86_REGISTERS:temp1(), Type).
 
 %%% Make a certain reg into a clone of Dst
@@ -448,6 +448,6 @@ clone2(Dst, RegOpt) ->
       #x86_temp{} -> hipe_x86:temp_type(Dst)
     end,
   case RegOpt of
-    [] -> hipe_x86:mk_new_temp(Type);
+    [] when Type =/= double -> hipe_x86:mk_new_temp(Type);
     Reg -> hipe_x86:mk_temp(Reg, Type)
   end.

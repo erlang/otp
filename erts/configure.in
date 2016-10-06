@@ -121,7 +121,6 @@ AS_HELP_STRING([--enable-bootstrap-only],
 	enable_hipe=no
 	enable_sctp=no
         enable_dirty_schedulers=no
-        enable_new_purge=no
   fi	
 ])
 
@@ -139,13 +138,6 @@ AS_HELP_STRING([--enable-dirty-schedulers], [enable dirty scheduler support]),
     no) enable_dirty_schedulers=no ;;
     *)  enable_dirty_schedulers=yes ;;
   esac ], enable_dirty_schedulers=default)
-
-AC_ARG_ENABLE(new-purge-strategy,
-AS_HELP_STRING([--enable-new-purge-strategy], [enable new code purge strategy]),
-[ case "$enableval" in
-    no) enable_new_purge=no ;;
-    *)  enable_new_purge=yes ;;
-  esac ], enable_new_purge=default)
 
 AC_ARG_ENABLE(smp-support,
 AS_HELP_STRING([--enable-smp-support], [enable smp support])
@@ -1040,8 +1032,7 @@ case $ERTS_BUILD_SMP_EMU-$enable_dirty_schedulers in
      yes-yes)
 	DIRTY_SCHEDULER_SUPPORT=yes;;
      yes-default)
-	## Maybe yes for OTP 19...
-	DIRTY_SCHEDULER_SUPPORT=no;;
+	DIRTY_SCHEDULER_SUPPORT=yes;;
      no-default)
 	DIRTY_SCHEDULER_SUPPORT=no;;
      no-yes)
@@ -1051,27 +1042,6 @@ case $ERTS_BUILD_SMP_EMU-$enable_dirty_schedulers in
 esac
 AC_MSG_RESULT($DIRTY_SCHEDULER_SUPPORT)
 AC_SUBST(DIRTY_SCHEDULER_SUPPORT)
-
-AC_MSG_CHECKING(whether the new code purge strategy should be enabled)
-case $enable_new_purge-$enable_dirty_schedulers in
-     yes-*)
-	AC_MSG_RESULT(yes)
-	enable_new_purge=yes;;
-     default-yes)
-	AC_MSG_RESULT(yes; forced by dirty scheduler support)
-	enable_new_purge=yes;;
-     no-yes)
-	AC_MSG_ERROR([Dirty schedulers enabled, but new code purge strategy disabled]);;
-     *)
-	AC_MSG_RESULT(no)
-	enable_new_purge=no;;
-esac
-
-if test $enable_new_purge = yes; then
-   AC_DEFINE(ERTS_NEW_PURGE_STRATEGY, 1, [Define if you want to use the new code purge strategy])
-fi
-NEW_PURGE_STRATEGY=$enable_new_purge
-AC_SUBST(NEW_PURGE_STRATEGY)
 
 if test $ERTS_BUILD_SMP_EMU = yes; then
 
@@ -1404,6 +1374,8 @@ AC_ARG_ENABLE(builtin-zlib,
 Z_LIB=
 
 if test "x$enable_builtin_zlib" = "xyes"; then
+  AC_DEFINE(HAVE_ZLIB_INFLATEGETDICTIONARY, 1,
+            [Define if your zlib version defines inflateGetDictionary.])
   AC_MSG_NOTICE([Using our own built-in zlib source])
 else
 AC_MSG_CHECKING(for zlib 1.2.5 or higher)
@@ -1430,6 +1402,11 @@ error
  AC_MSG_RESULT(no)
 ])
 LIBS=$zlib_save_LIBS
+
+AC_MSG_CHECKING(for zlib inflateGetDictionary presence)
+AC_SEARCH_LIBS(inflateGetDictionary, [z],
+               AC_DEFINE(HAVE_ZLIB_INFLATEGETDICTIONARY, 1,
+                         [Define if your zlib version defines inflateGetDictionary.]))
 fi
 AC_SUBST(Z_LIB)
 

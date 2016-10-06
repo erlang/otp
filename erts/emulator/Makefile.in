@@ -51,7 +51,6 @@ ARFLAGS=rc
 OMIT_OMIT_FP=no
 
 DIRTY_SCHEDULER_SUPPORT=@DIRTY_SCHEDULER_SUPPORT@
-NEW_PURGE_STRATEGY=@NEW_PURGE_STRATEGY@
 
 ifeq ($(TYPE),debug)
 PURIFY =
@@ -563,9 +562,9 @@ $(TARGET)/erl_bif_table.c \
 $(TARGET)/erl_bif_table.h \
 $(TARGET)/erl_bif_wrap.c \
 $(TARGET)/erl_bif_list.h \
+$(TARGET)/erl_gc_bifs.c \
 $(TARGET)/erl_atom_table.c \
 $(TARGET)/erl_atom_table.h \
-$(TARGET)/erl_pbifs.c \
 	: $(TARGET)/TABLES-GENERATED
 $(TARGET)/TABLES-GENERATED: $(ATOMS) $(BIFS) utils/make_tables
 	$(gen_verbose)LANG=C $(PERL) utils/make_tables -src $(TARGET) -include $(TARGET)\
@@ -739,7 +738,6 @@ EMU_OBJS = \
 	$(OBJDIR)/beam_ranges.o
 
 RUN_OBJS = \
-	$(OBJDIR)/erl_pbifs.o		\
 	$(OBJDIR)/erl_alloc.o		$(OBJDIR)/erl_mtrace.o \
 	$(OBJDIR)/erl_alloc_util.o	$(OBJDIR)/erl_goodfit_alloc.o \
 	$(OBJDIR)/erl_bestfit_alloc.o	$(OBJDIR)/erl_afit_alloc.o \
@@ -750,6 +748,7 @@ RUN_OBJS = \
 	$(OBJDIR)/erl_bif_os.o		$(OBJDIR)/erl_bif_lists.o \
 	$(OBJDIR)/erl_bif_trace.o	$(OBJDIR)/erl_bif_unique.o \
 	$(OBJDIR)/erl_bif_wrap.o \
+	$(OBJDIR)/erl_gc_bifs.o \
 	$(OBJDIR)/erl_trace.o		$(OBJDIR)/copy.o \
 	$(OBJDIR)/utils.o		$(OBJDIR)/bif.o \
 	$(OBJDIR)/io.o 			$(OBJDIR)/erl_printf_term.o\

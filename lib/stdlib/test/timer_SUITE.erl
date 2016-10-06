@@ -353,7 +353,7 @@ res_combine({error,Es}, [{error,E}|T]) ->
 
 
 system_time() ->
-    erlang:monotonic_time(milli_seconds).
+    erlang:monotonic_time(millisecond).
 
 %% ------------------------------------------------------- %%
 

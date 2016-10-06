@@ -52,6 +52,7 @@
  	 tailcall_clobbered/0,
  	 temp0/0,
 	 temp1/0,
+	 sse2_temp0/0,
 	 %% fixed/0,
 	 wordsize/0
 	]).
@@ -106,6 +107,8 @@ heap_limit_offset() -> ?P_HP_LIMIT.
 
 -define(TEMP0, ?R14).
 -define(TEMP1, ?R13).
+
+-define(SSE2_TEMP0, 00).
 
 -define(PROC_POINTER, ?RBP).
 
@@ -204,6 +207,8 @@ allocatable() ->
 allocatable_sse2() ->
   [00,01,02,03,04,05,06,07,08,09,10,11,12,13,14,15]. %% xmm0 - xmm15
 
+sse2_temp0() -> ?SSE2_TEMP0.
+
 allocatable_x87() ->
   [0,1,2,3,4,5,6].
 
@@ -248,6 +253,9 @@ ret(N) ->
     _ -> exit({?MODULE, ret, N})
   end.
 
+%% Note: the fact that (allocatable() UNION allocatable_x87() UNION
+%% allocatable_sse2()) is a subset of call_clobbered() is hard-coded in
+%% hipe_x86_defuse:insn_defs_all/1
 call_clobbered() ->
   [{?RAX,tagged},{?RAX,untagged},	% does the RA strip the type or not?
    {?RDX,tagged},{?RDX,untagged},

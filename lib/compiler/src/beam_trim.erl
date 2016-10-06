@@ -230,7 +230,7 @@ safe_labels([], Acc) -> gb_sets:from_list(Acc).
 
 frame_layout(Is, Kills, #st{safe=Safe,lbl=D}) ->
     N = frame_size(Is, Safe),
-    IsKilled = fun(R) -> beam_utils:is_killed(R, Is, D) end,
+    IsKilled = fun(R) -> beam_utils:is_not_used(R, Is, D) end,
     {N,frame_layout_1(Kills, 0, N, IsKilled, [])}.
 
 frame_layout_1([{kill,{y,Y}}=I|Ks], Y, N, IsKilled, Acc) ->

@@ -150,6 +150,11 @@ math_functions(Config) when is_list(Config) ->
     ?OPTIONAL(0.0, math:erf(id(0))),
     ?OPTIONAL(1.0, math:erfc(id(0))),
 
+    5.0 = math:floor(5.6),
+    6.0 = math:ceil(5.6),
+    5.0 = math:floor(id(5.4)),
+    6.0 = math:ceil(id(5.4)),
+
     %% Only for coverage (of beam_type.erl).
     {'EXIT',{undef,_}} = (catch math:fnurfla(0)),
     {'EXIT',{undef,_}} = (catch math:fnurfla(0, 0)),

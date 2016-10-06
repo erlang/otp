@@ -1423,7 +1423,7 @@ finish_on_load_report(Mod, Term) ->
     %% from the code_server process.
     spawn(fun() ->
 		  F = "The on_load function for module "
-		      "~s returned ~P\n",
+		      "~s returned:~n~P\n",
 
 		  %% Express the call as an apply to simplify
 		  %% the ext_mod_dep/1 test case.

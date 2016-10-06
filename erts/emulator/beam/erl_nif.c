@@ -687,9 +687,12 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
             MBUF(&menv->phony_proc) = NULL;
         }
     } else {
-        Uint sz = size_object(msg);
+        erts_literal_area_t litarea;
 	ErlOffHeap *ohp;
         Eterm *hp;
+        Uint sz;
+        INITIALIZE_LITERAL_PURGE_AREA(litarea);
+        sz = size_object_litopt(msg, &litarea);
 	if (env && !env->tracee) {
 	    full_flush_env(env);
 	    mp = erts_alloc_message_heap(rp, &rp_locks, sz, &hp, &ohp);
@@ -709,7 +712,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 		ohp = &bp->off_heap;
 	    }
 	}
-        msg = copy_struct(msg, sz, &hp, ohp);
+        msg = copy_struct_litopt(msg, sz, &hp, ohp, &litarea);
     }
 
     ERL_MESSAGE_TERM(mp) = msg;
@@ -3142,7 +3145,6 @@ static ErlNifFunc* next_func(ErlNifEntry* entry, int* incrp, ErlNifFunc* func)
 BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 {
     static const char bad_lib[] = "bad_lib";
-    static const char reload[] = "reload";
     static const char upgrade[] = "upgrade";
     char* lib_name = NULL;
     void* handle = NULL;
@@ -3159,7 +3161,6 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     Eterm ret = am_ok;
     int veto;
     struct erl_module_nif* lib = NULL;
-    int reload_warning = 0;
     struct erl_module_instance* this_mi;
     struct erl_module_instance* prev_mi;
 
@@ -3219,8 +3220,12 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	this_mi = module_p->on_load;
     }
 
-    if (init_func == NULL &&
-	     (err=erts_sys_ddll_open(lib_name, &handle, &errdesc)) != ERL_DE_NO_ERROR) {
+    if (this_mi->nif != NULL) {
+        ret = load_nif_error(BIF_P,"reload","NIF library already loaded"
+                             " (reload disallowed since OTP 20).");
+    }
+    else if (init_func == NULL &&
+             (err=erts_sys_ddll_open(lib_name, &handle, &errdesc)) != ERL_DE_NO_ERROR) {
 	const char slogan[] = "Failed to load NIF library";
 	if (strstr(errdesc.str, lib_name) != NULL) {
 	    ret = load_nif_error(BIF_P, "load_failed", "%s: '%s'", slogan, errdesc.str);
@@ -3309,7 +3314,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	goto error;
     }
 
-    /* Call load, reload or upgrade:
+    /* Call load or upgrade:
      */
 
 
@@ -3321,82 +3326,33 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     ASSERT(opened_rt_list == NULL);
     lib->mod = module_p;
     env.mod_nif = lib;
-    if (this_mi->nif != NULL) { /*************** Reload ******************/
-	/*
-	 * Repeated load_nif calls from same Erlang module instance ("reload")
-	 * is deprecated and was only ment as a development feature not to
-	 * be used in production systems. (See warning below)
-	 */
-	int k, old_incr = 0;
-	ErlNifFunc* old_func;
-        lib->priv_data = this_mi->nif->priv_data;
 
-	ASSERT(this_mi->nif->entry != NULL);
-	if (entry->reload == NULL) {
-	    ret = load_nif_error(BIF_P,reload,"Reload not supported by this NIF library.");
-	    goto error;
-	}
-	/* Check that no NIF is removed */
-	old_func = this_mi->nif->entry->funcs;
-	for (k=0; k < this_mi->nif->entry->num_of_funcs; k++) {
-	    int incr = 0;
-	    ErlNifFunc* f = entry->funcs;
-	    for (i=0; i < entry->num_of_funcs; i++) {
-		if (old_func->arity == f->arity
-		    && sys_strcmp(old_func->name, f->name) == 0) {
-		    break;
-		}
-		f = next_func(entry, &incr, f);
-	    }
-	    if (i == entry->num_of_funcs) {
-		ret = load_nif_error(BIF_P,reload,"Reloaded library missing "
-				     "function %T:%s/%u\r\n", mod_atom,
-				     old_func->name, old_func->arity);
-		goto error;
-	    }
-	    old_func = next_func(this_mi->nif->entry, &old_incr, old_func);
-	}
-	erts_pre_nif(&env, BIF_P, lib, NULL);
-	veto = entry->reload(&env, &lib->priv_data, BIF_ARG_2);
-	erts_post_nif(&env);
-	if (veto) {
-	    ret = load_nif_error(BIF_P, reload, "Library reload-call unsuccessful.");
-	}
-	else {
-	    commit_opened_resource_types(lib);
-	    this_mi->nif->entry = NULL; /* to prevent 'unload' callback */
-	    erts_unload_nif(this_mi->nif);
-	    reload_warning = 1;
-	}
+    lib->priv_data = NULL;
+    if (prev_mi->nif != NULL) { /**************** Upgrade ***************/
+        void* prev_old_data = prev_mi->nif->priv_data;
+        if (entry->upgrade == NULL) {
+            ret = load_nif_error(BIF_P, upgrade, "Upgrade not supported by this NIF library.");
+            goto error;
+        }
+        erts_pre_nif(&env, BIF_P, lib, NULL);
+        veto = entry->upgrade(&env, &lib->priv_data, &prev_mi->nif->priv_data, BIF_ARG_2);
+        erts_post_nif(&env);
+        if (veto) {
+            prev_mi->nif->priv_data = prev_old_data;
+            ret = load_nif_error(BIF_P, upgrade, "Library upgrade-call unsuccessful.");
+        }
+        else
+            commit_opened_resource_types(lib);
     }
-    else {
-	lib->priv_data = NULL;
-	if (prev_mi->nif != NULL) { /**************** Upgrade ***************/
-	    void* prev_old_data = prev_mi->nif->priv_data;
-	    if (entry->upgrade == NULL) {
-		ret = load_nif_error(BIF_P, upgrade, "Upgrade not supported by this NIF library.");
-		goto error;
-	    }
-		erts_pre_nif(&env, BIF_P, lib, NULL);
-	    veto = entry->upgrade(&env, &lib->priv_data, &prev_mi->nif->priv_data, BIF_ARG_2);
-	    erts_post_nif(&env);
-	    if (veto) {
-		prev_mi->nif->priv_data = prev_old_data;
-		ret = load_nif_error(BIF_P, upgrade, "Library upgrade-call unsuccessful.");
-	    }
-	    else
-		commit_opened_resource_types(lib);
-	}
-	else if (entry->load != NULL) { /********* Initial load ***********/
-	    erts_pre_nif(&env, BIF_P, lib, NULL);
-	    veto = entry->load(&env, &lib->priv_data, BIF_ARG_2);
-	    erts_post_nif(&env);
-	    if (veto) {
-		ret = load_nif_error(BIF_P, "load", "Library load-call unsuccessful.");
-	    }
-	    else
-		commit_opened_resource_types(lib);
-	}
+    else if (entry->load != NULL) { /********* Initial load ***********/
+        erts_pre_nif(&env, BIF_P, lib, NULL);
+        veto = entry->load(&env, &lib->priv_data, BIF_ARG_2);
+        erts_post_nif(&env);
+        if (veto) {
+            ret = load_nif_error(BIF_P, "load", "Library load-call unsuccessful.");
+        }
+        else
+            commit_opened_resource_types(lib);
     }
     if (ret == am_ok) {
 	/*
@@ -3455,14 +3411,6 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     erts_release_code_write_permission();
     erts_free(ERTS_ALC_T_TMP, lib_name);
 
-    if (reload_warning) {
-	erts_dsprintf_buf_t* dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp,
-		      "Repeated calls to erlang:load_nif from module '%T'.\n\n"
-		      "The NIF reload mechanism is deprecated and must not "
-		      "be used in production systems.\n", mod_atom);
-	erts_send_warning_to_logger(BIF_P->group_leader, dsbufp);
-    }
     BIF_RET(ret);
 }
 

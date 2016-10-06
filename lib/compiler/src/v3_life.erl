@@ -78,9 +78,7 @@ function(#k_fdef{anno=#k{a=Anno},func=F,arity=Ar,vars=Vs,body=Kb}) ->
 		     #k_match{anno=#k{us=Ka#k.us,ns=[],a=Ka#k.a},
 			      vars=Vs,body=Kb,ret=[]}
 	     end,
-	put(guard_refc, 0),
 	{B1,_,Vdb1} = body(B0, 1, Vdb0),
-	erase(guard_refc),
 	{function,F,Ar,As,B1,Vdb1,Anno}
     catch
 	Class:Error ->
@@ -106,12 +104,13 @@ body(Ke, I, Vdb0) ->
     E = expr(Ke, I, Vdb1),
     {[E],I,Vdb1}.
 
-%% guard(Kguard, I, Vdb) -> Guard.
+%% protected(Kprotected, I, Vdb) -> Protected.
+%%  Only used in guards.
 
-guard(#k_try{anno=A,arg=Ts,vars=[#k_var{name=X}],body=#k_var{name=X},
-	     handler=#k_atom{val=false},ret=Rs}, I, Vdb) ->
+protected(#k_protected{anno=A,arg=Ts,ret=Rs}, I, Vdb) ->
     %% Lock variables that are alive before try and used afterwards.
-    %% Don't lock variables that are only used inside the try expression.
+    %% Don't lock variables that are only used inside the protected
+    %% expression.
     Pdb0 = vdb_sub(I, I+1, Vdb),
     {T,MaxI,Pdb1} = body(Ts, I+1, Pdb0),
     Pdb2 = use_vars(A#k.ns, MaxI+1, Pdb1),	%Save "return" values
@@ -139,10 +138,9 @@ expr(#k_guard_match{anno=A,body=Kb,ret=Rs}, I, Vdb) ->
     M = match(Kb, A#k.us, I+1, [], Mdb),
     #l{ke={guard_match,M,var_list(Rs)},i=I,vdb=use_vars(A#k.us, I+1, Mdb),a=A#k.a};
 expr(#k_try{}=Try, I, Vdb) ->
-    case is_in_guard() of
-	false -> body_try(Try, I, Vdb);
-	true -> guard(Try, I, Vdb)
-    end;
+    body_try(Try, I, Vdb);
+expr(#k_protected{}=Protected, I, Vdb) ->
+    protected(Protected, I, Vdb);
 expr(#k_try_enter{anno=A,arg=Ka,vars=Vs,body=Kb,evars=Evs,handler=Kh}, I, Vdb) ->
     %% Lock variables that are alive before the catch and used afterwards.
     %% Don't lock variables that are only used inside the try.
@@ -213,7 +211,6 @@ body_try(#k_try{anno=A,arg=Ka,vars=Vs,body=Kb,evars=Evs,handler=Kh,ret=Rs},
        i=I,vdb=Tdb1,a=A#k.a}.
 
 %% call_op(Op) -> Op.
-%% bif_op(Op) -> Op.
 %% test_op(Op) -> Op.
 %%  Do any necessary name translations here to munge into beam format.
 
@@ -221,28 +218,14 @@ call_op(#k_local{name=N}) -> N;
 call_op(#k_remote{mod=M,name=N}) -> {remote,atomic(M),atomic(N)};
 call_op(Other) -> variable(Other).
 
-bif_op(#k_remote{mod=#k_atom{val=erlang},name=#k_atom{val=N}}) -> N;
-bif_op(#k_internal{name=N}) -> N.
-
 test_op(#k_remote{mod=#k_atom{val=erlang},name=#k_atom{val=N}}) -> N.
 
 %% k_bif(Anno, Op, [Arg], [Ret], Vdb) -> Expr.
-%%  Build bifs, do special handling of internal some calls.
+%%  Build bifs.
 
-k_bif(_A, #k_internal{name=dsetelement,arity=3}, As, []) ->
-    {bif,dsetelement,atomic_list(As),[]};
-k_bif(_A, #k_internal{name=bs_context_to_binary=Op,arity=1}, As, []) ->
-    {bif,Op,atomic_list(As),[]};
-k_bif(_A, #k_internal{name=bs_init_writable=Op,arity=1}, As, Rs) ->
-    {bif,Op,atomic_list(As),var_list(Rs)};
-k_bif(_A, #k_internal{name=make_fun},
-      [#k_atom{val=Fun},#k_int{val=Arity},
-       #k_int{val=Index},#k_int{val=Uniq}|Free],
-      Rs) ->
-    {bif,{make_fun,Fun,Arity,Index,Uniq},var_list(Free),var_list(Rs)};
-k_bif(_A, Op, As, Rs) ->
-    %% The general case.
-    Name = bif_op(Op),
+k_bif(_A, #k_internal{name=Name}, As, Rs) ->
+    {internal,Name,atomic_list(As),var_list(Rs)};
+k_bif(_A, #k_remote{mod=#k_atom{val=erlang},name=#k_atom{val=Name}}, As, Rs) ->
     Ar = length(As),
     case is_gc_bif(Name, Ar) of
 	false ->
@@ -303,9 +286,7 @@ val_clause(#k_val_clause{anno=A,val=V,body=Kb}, Ls0, I, Ctxt0, Vdb0) ->
 guard_clause(#k_guard_clause{anno=A,guard=Kg,body=Kb}, Ls, I, Ctxt, Vdb0) ->
     Vdb1 = use_vars(union(A#k.us, Ls), I+2, Vdb0),
     Gdb = vdb_sub(I+1, I+2, Vdb1),
-    OldRefc = put(guard_refc, get(guard_refc)+1),
-    G = guard(Kg, I+1, Gdb),
-    put(guard_refc, OldRefc),
+    G = protected(Kg, I+1, Gdb),
     B = match(Kb, Ls, I+2, Ctxt, Vdb1),
     #l{ke={guard_clause,G,B},
        i=I,vdb=use_vars((get_kanno(Kg))#k.us, I+2, Vdb1),
@@ -394,7 +375,6 @@ is_gc_bif(node, 0) -> false;
 is_gc_bif(node, 1) -> false;
 is_gc_bif(element, 2) -> false;
 is_gc_bif(get, 1) -> false;
-is_gc_bif(raise, 2) -> false;
 is_gc_bif(tuple_size, 1) -> false;
 is_gc_bif(Bif, Arity) ->
     not (erl_internal:bool_op(Bif, Arity) orelse
@@ -430,11 +410,6 @@ use_vars(Vs, I, Vdb) -> vdb_update_vars(Vs, Vdb, I).
 
 add_var(V, F, L, Vdb) ->
     vdb_store_new(V, {V,F,L}, Vdb).
-
-%% is_in_guard() -> true|false.
-
-is_in_guard() ->
-    get(guard_refc) > 0.
 
 %% vdb
 

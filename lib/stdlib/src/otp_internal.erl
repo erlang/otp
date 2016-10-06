@@ -416,7 +416,7 @@ obsolete_1(inviso, _, _) ->
 
 %% Added in R15B01.
 obsolete_1(gs, _, _) ->
-    {deprecated,"the gs application has been deprecated and will be removed in OTP 18; use the wx application instead"};
+    {removed,"the gs application has been removed; use the wx application instead"};
 obsolete_1(ssh, sign_data, 2) ->
     {deprecated,"deprecated (will be removed in R16A); use public_key:pem_decode/1, public_key:pem_entry_decode/1 "
      "and public_key:sign/3 instead"};

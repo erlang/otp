@@ -809,7 +809,8 @@ abst(File, Builtins, _Mode = functions) ->
                   {exports,X0}, {attributes,A}]}} ->
 	    %% R9C-
             Forms0 = epp:interpret_file_attribute(Code),
-	    {_,_,Forms,_} = sys_pre_expand:module(Forms0, []),
+	    Forms1 = erl_expand_records:module(Forms0, []),
+	    Forms = erl_internal:add_predefined_functions(Forms1),
 	    X = mfa_exports(X0, A, M),
             D = deprecated(A, X, M),
 	    xref_reader:module(M, Forms, Builtins, X, D);

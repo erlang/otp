@@ -360,7 +360,7 @@ run_tc({Name,Fun}, St) ->
     T1 = erlang:monotonic_time(),
     Val = (catch Fun(St)),
     T2 = erlang:monotonic_time(),
-    Elapsed = erlang:convert_time_unit(T2 - T1, native, milli_seconds),
+    Elapsed = erlang:convert_time_unit(T2 - T1, native, millisecond),
     Mem0 = erts_debug:flat_size(Val)*erlang:system_info(wordsize),
     Mem = lists:flatten(io_lib:format("~.1f kB", [Mem0/1024])),
     io:format(" ~-30s: ~10.3f s ~12s\n",
@@ -646,13 +646,13 @@ standard_passes() ->
      {iff,'dabstr',{listing,"abstr"}},
      {iff,debug_info,?pass(save_abstract_code)},
 
-     ?pass(expand_module),
+     ?pass(expand_records),
      {iff,'dexp',{listing,"expand"}},
      {iff,'E',{src_listing,"E"}},
      {iff,'to_exp',{done,"E"}},
 
      %% Conversion to Core Erlang.
-     {pass,v3_core},
+     ?pass(core),
      {iff,'dcore',{listing,"core"}},
      {iff,'to_core0',{done,"core"}}
      | core_passes()].
@@ -1227,13 +1227,17 @@ makedep_output(#compile{code=Code,options=Opts,ofile=Ofile}=St) ->
 	    {error,St#compile{errors=St#compile.errors++[Err]}}
     end.
 
-%% expand_module(State) -> State'
-%%  Do the common preprocessing of the input forms.
+expand_records(#compile{code=Code0,options=Opts}=St0) ->
+    Code = erl_expand_records:module(Code0, Opts),
+    {ok,St0#compile{code=Code}}.
 
-expand_module(#compile{code=Code,options=Opts0}=St0) ->
-    {Mod,Exp,Forms,Opts1} = sys_pre_expand:module(Code, Opts0),
+core(#compile{code=Forms,options=Opts0}=St) ->
+    Opts1 = lists:flatten([C || {attribute,_,compile,C} <- Forms] ++ Opts0),
     Opts = expand_opts(Opts1),
-    {ok,St0#compile{module=Mod,options=Opts,code={Mod,Exp,Forms}}}.
+    {ok,Core,Ws} = v3_core:module(Forms, Opts),
+    Mod = cerl:concrete(cerl:module_name(Core)),
+    {ok,St#compile{module=Mod,code=Core,options=Opts,
+		   warnings=St#compile.warnings++Ws}}.
 
 core_fold_module_after_inlining(#compile{code=Code0,options=Opts}=St) ->
     %% Inlining may produce code that generates spurious warnings.
@@ -1808,7 +1812,6 @@ pre_load() ->
 	 erl_scan,
 	 sys_core_dsetel,
 	 sys_core_fold,
-	 sys_pre_expand,
 	 v3_codegen,
 	 v3_core,
 	 v3_kernel,

@@ -1554,7 +1554,15 @@ guard(Config) when is_list(Config) ->
             [],
             {errors,[{1,erl_lint,illegal_guard_expr},
                      {2,erl_lint,illegal_guard_expr}],
-             []}}
+             []}},
+           {guard10,
+            <<"is_port(_) -> false.
+               t(P) when port(P) -> ok.
+            ">>,
+            [],
+            {error,
+	     [{2,erl_lint,{obsolete_guard_overridden,port}}],
+	     [{2,erl_lint,{obsolete_guard,{port,1}}}]}}
 	  ],
     [] = run(Config, Ts1),
     ok.
