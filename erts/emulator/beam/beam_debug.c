@@ -252,8 +252,8 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     int i;
 
     if (term_to_UWord(addr, &uaddr)) {
-	BeamInstr *pc = (BeamInstr *) uaddr;
-	if ((cmfa = find_function_from_pc(pc)) == NULL) {
+	code_ptr = (BeamInstr *) uaddr;
+	if ((cmfa = find_function_from_pc(code_ptr)) == NULL) {
 	    BIF_RET(am_false);
 	}
     } else if (is_tuple(addr)) {
@@ -307,12 +307,11 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 		BIF_RET(am_undef);
 	    }
 	}
+        code_ptr = erts_codemfa_to_code(cmfa);
     } else {
 	goto error;
     }
 
-
-    code_ptr = erts_codemfa_to_code(cmfa);
     dsbufp = erts_create_tmp_dsbuf(0);
     erts_print(ERTS_PRINT_DSBUF, (void *) dsbufp, HEXF ": ", code_ptr);
     instr = (BeamInstr) code_ptr[0];
@@ -335,7 +334,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     hp = HAlloc(p, hsz);
     addr = erts_bld_uword(&hp, NULL, (BeamInstr) code_ptr);
     ASSERT(is_atom(cmfa->module) || is_nil(cmfa->module));
-    ASSERT(is_atom(cmfa->function) || is_nil(cmfa->function == NIL));
+    ASSERT(is_atom(cmfa->function) || is_nil(cmfa->function));
     mfa = TUPLE3(hp, cmfa->module, cmfa->function,
                  make_small(cmfa->arity));
     hp += 4;
@@ -550,7 +549,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	case 'f':		/* Destination label */
 	    {
 		ErtsCodeMFA* cmfa = find_function_from_pc((BeamInstr *)*ap);
-		if (erts_codemfa_to_code(cmfa) != (BeamInstr *) *ap) {
+		if (!cmfa || erts_codemfa_to_code(cmfa) != (BeamInstr *) *ap) {
 		    erts_print(to, to_arg, "f(" HEXF ")", *ap);
 		} else {
 		    erts_print(to, to_arg, "%T:%T/%bpu", cmfa->module,
@@ -562,7 +561,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	case 'p':		/* Pointer (to label) */
 	    {
 		ErtsCodeMFA* cmfa = find_function_from_pc((BeamInstr *)*ap);
-		if (erts_codemfa_to_code(cmfa) != (BeamInstr *) *ap) {
+		if (!cmfa || erts_codemfa_to_code(cmfa) != (BeamInstr *) *ap) {
 		    erts_print(to, to_arg, "p(" HEXF ")", *ap);
 		} else {
 		    erts_print(to, to_arg, "%T:%T/%bpu", cmfa->module,
