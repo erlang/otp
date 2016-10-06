@@ -292,7 +292,7 @@ int hipe_fill_stacktrace(Process *p, int depth, Eterm **trace)
     ra = (unsigned long)p->hipe.nra;
     prev_ra = 0;
     i = 0;
-    for (;;) {
+    while (nsp < nsp_end) {
 	if (ra == (unsigned long)nbif_stack_trap_ra)
 	    ra = (unsigned long)p->hipe.ngra;
 	if (ra != prev_ra) {
@@ -302,8 +302,6 @@ int hipe_fill_stacktrace(Process *p, int depth, Eterm **trace)
 		break;
 	    prev_ra = ra;
 	}
-	if (nsp >= nsp_end)
-	    break;
 	sdesc = hipe_find_sdesc(ra);
 	nsp += arity + sdesc_fsize(sdesc);
 	arity = sdesc_arity(sdesc);
