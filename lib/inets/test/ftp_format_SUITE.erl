@@ -38,8 +38,8 @@ all() ->
 groups() -> 
     [{ftp_response, [],
       [ftp_150, ftp_200, ftp_220, ftp_226, ftp_257, ftp_331,
-       ftp_425, ftp_other_status_codes, ftp_multiple_lines,
-       ftp_multipel_ctrl_messages]}].
+       ftp_425, ftp_other_status_codes, ftp_multiple_lines_status_in_msg,
+       ftp_multiple_lines, ftp_multipel_ctrl_messages]}].
 
 init_per_suite(Config) ->
     Config.
@@ -139,6 +139,15 @@ ftp_425(Config) when is_list(Config) ->
     "425 Can't build data connection: Connection refused.\r\n" 
 	= Msg = parse(ftp_response, parse_lines, [[], start], FtpResponse),
     {trans_neg_compl, _} = ftp_response:interpret(Msg),
+    ok.
+
+ftp_multiple_lines_status_in_msg() ->
+    [{doc, "check that multiple lines gets parsed correct, even if we have "
+      " the status code within the msg being sent"}].
+ftp_multiple_lines_status_in_msg(Config) when is_list(Config) ->
+    ML = "230-User usr-230 is logged in\r\n" ++
+        "230 OK. Current directory is /\r\n",
+    {ok, ML, <<>>} = ftp_response:parse_lines(list_to_binary(ML), [], start),
     ok.
 
 ftp_multiple_lines() ->
