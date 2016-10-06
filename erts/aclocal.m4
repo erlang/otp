@@ -1524,6 +1524,13 @@ ETHR_LIB_NAME=
 
 ethr_modified_default_stack_size=
 
+AC_ARG_WITH(threadnames,
+AS_HELP_STRING([--with-threadnames], [use pthread_setname to set the thread names (default)])
+AS_HELP_STRING([--without-threadnames],
+               [do not set any thread names]),
+[],
+[with_threadnames=yes])
+
 dnl Name of lib where ethread implementation is located
 ethr_lib_name=ethread
 
@@ -1914,12 +1921,12 @@ case "$THR_LIB_NAME" in
                     [pthread_setname_np("name");],
                     pthread_setname=darwin)
         AC_MSG_RESULT([$pthread_setname])
-        case $pthread_setname in
-             linux) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_2, 1,
+        case $with_threadnames-$pthread_setname in
+             yes-linux) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_2, 1,
                           [Define if you have linux style pthread_setname_np]);;
-             bsd) AC_DEFINE(ETHR_HAVE_PTHREAD_SET_NAME_NP_2, 1,
+             yes-bsd) AC_DEFINE(ETHR_HAVE_PTHREAD_SET_NAME_NP_2, 1,
                           [Define if you have bsd style pthread_set_name_np]);;
-             darwin) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_1, 1,
+             yes-darwin) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_1, 1,
                           [Define if you have darwin style pthread_setname_np]);;
              *) ;;
 	esac
