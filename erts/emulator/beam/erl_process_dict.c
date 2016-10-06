@@ -56,7 +56,7 @@
 #define MAKE_HASH(Term)                                \
     ((is_small(Term)) ? unsigned_val(Term) :           \
      ((is_atom(Term)) ?                                \
-      (atom_tab(atom_val(Term))->slot.bucket.hvalue) : \
+      atom_val(Term) :								   \
       make_internal_hash(Term)))
 
 #define PD_SZ2BYTES(Sz) (sizeof(ProcDict) + ((Sz) - 1)*sizeof(Eterm))
