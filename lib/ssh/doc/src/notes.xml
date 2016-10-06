@@ -30,6 +30,24 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle all possible exit values that should be
+	    interpreted as {error, closed}. Failing to do so could
+	    lead to unexpected crashes for users of the ssh
+	    application.</p>
+          <p>
+	    Own Id: OTP-13932 Aux Id: seq13189 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
