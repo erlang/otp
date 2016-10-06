@@ -38,7 +38,8 @@
 	 no_partition/1,calling_a_binary/1,binary_in_map/1,
 	 match_string_opt/1,select_on_integer/1,
 	 map_and_binary/1,unsafe_branch_caching/1,
-	 bad_literals/1,good_literals/1,constant_propagation/1]).
+	 bad_literals/1,good_literals/1,constant_propagation/1
+	]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -768,6 +769,11 @@ multiple_uses(Config) when is_list(Config) ->
     {344,62879,345,<<245,159,1,89>>} = multiple_uses_1(<<1,88,245,159,1,89>>),
     true = multiple_uses_2(<<0,0,197,18>>),
     <<42,43>> = multiple_uses_3(<<0,0,42,43>>, fun id/1),
+
+    ok = first_after(<<>>, 42),
+    <<1>> = first_after(<<1,2,3>>, 0),
+    <<2>> = first_after(<<1,2,3>>, 1),
+
     ok.
 
 multiple_uses_1(<<X:16,Tail/binary>>) ->
@@ -788,6 +794,24 @@ multiple_uses_match(<<Y:16,Z:16>>) ->
 
 multiple_uses_cmp(<<Y:16>>, <<Y:16>>) -> true;
 multiple_uses_cmp(<<_:16>>, <<_:16>>) -> false.
+
+first_after(Data, Offset) ->
+    case byte_size(Data) > Offset of
+	false ->
+	    {First, Rest} = {ok, ok},
+	    ok;
+	true ->
+	    <<_:Offset/binary, Rest/binary>> = Data,
+	    %% 'Rest' saved in y(0) before the call.
+            {First, _} = match_first(Data, Rest),
+            %% When beam_bsm sees the code, the following line
+            %% which uses y(0) has been optimized away.
+	    {First, Rest} = {First, Rest},
+	    First
+    end.
+
+match_first(_, <<First:1/binary, Rest/binary>>) ->
+    {First, Rest}.
 
 zero_label(Config) when is_list(Config) ->
     <<"nosemouth">> = read_pols(<<"FACE","nose","mouth">>),
