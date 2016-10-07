@@ -130,7 +130,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
 	This::wxComboBox(), Parent::wxWindow:wxWindow(), Id::integer(), Value::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
 create(This,Parent,Id,Value,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
- when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Value),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
+ when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Value),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
   create(This,Parent,Id,Value,Pos,Size,Choices, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxcreate">external documentation</a>.
@@ -139,7 +139,7 @@ create(This,Parent,Id,Value,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
 	Option :: {'style', integer()}
 		 | {'validator', wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Value,{PosX,PosY},{SizeW,SizeH},Choices, Options)
- when is_integer(Id),is_list(Value),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices),is_list(Options) ->
+ when is_integer(Id),?is_chardata(Value),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices),is_list(Options) ->
   ?CLASS(ThisT,wxComboBox),
   ?CLASS(ParentT,wxWindow),
   Value_UC = unicode:characters_to_binary([Value,0]),
@@ -252,7 +252,7 @@ redo(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec replace(This, From, To, Value) -> 'ok' when
 	This::wxComboBox(), From::integer(), To::integer(), Value::unicode:chardata().
 replace(#wx_ref{type=ThisT,ref=ThisRef},From,To,Value)
- when is_integer(From),is_integer(To),is_list(Value) ->
+ when is_integer(From),is_integer(To),?is_chardata(Value) ->
   ?CLASS(ThisT,wxComboBox),
   Value_UC = unicode:characters_to_binary([Value,0]),
   wxe_util:cast(?wxComboBox_Replace,
@@ -306,7 +306,7 @@ setSelection(#wx_ref{type=ThisT,ref=ThisRef},From,To)
 -spec setValue(This, Value) -> 'ok' when
 	This::wxComboBox(), Value::unicode:chardata().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
- when is_list(Value) ->
+ when ?is_chardata(Value) ->
   ?CLASS(ThisT,wxComboBox),
   Value_UC = unicode:characters_to_binary([Value,0]),
   wxe_util:cast(?wxComboBox_SetValue,

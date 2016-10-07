@@ -246,7 +246,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Opti
 -spec addText(This, Text) -> 'ok' when
 	This::wxStyledTextCtrl(), Text::unicode:chardata().
 addText(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxStyledTextCtrl_AddText,
@@ -265,7 +265,7 @@ addStyledText(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DataT,ref=DataRef}) -
 -spec insertText(This, Pos, Text) -> 'ok' when
 	This::wxStyledTextCtrl(), Pos::integer(), Text::unicode:chardata().
 insertText(#wx_ref{type=ThisT,ref=ThisRef},Pos,Text)
- when is_integer(Pos),is_list(Text) ->
+ when is_integer(Pos),?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxStyledTextCtrl_InsertText,
@@ -823,7 +823,7 @@ styleSetSize(#wx_ref{type=ThisT,ref=ThisRef},Style,SizePoints)
 -spec styleSetFaceName(This, Style, FontName) -> 'ok' when
 	This::wxStyledTextCtrl(), Style::integer(), FontName::unicode:chardata().
 styleSetFaceName(#wx_ref{type=ThisT,ref=ThisRef},Style,FontName)
- when is_integer(Style),is_list(FontName) ->
+ when is_integer(Style),?is_chardata(FontName) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   FontName_UC = unicode:characters_to_binary([FontName,0]),
   wxe_util:cast(?wxStyledTextCtrl_StyleSetFaceName,
@@ -982,7 +982,7 @@ setCaretPeriod(#wx_ref{type=ThisT,ref=ThisRef},PeriodMilliseconds)
 -spec setWordChars(This, Characters) -> 'ok' when
 	This::wxStyledTextCtrl(), Characters::unicode:chardata().
 setWordChars(#wx_ref{type=ThisT,ref=ThisRef},Characters)
- when is_list(Characters) ->
+ when ?is_chardata(Characters) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Characters_UC = unicode:characters_to_binary([Characters,0]),
   wxe_util:cast(?wxStyledTextCtrl_SetWordChars,
@@ -1130,7 +1130,7 @@ setCaretLineBackground(#wx_ref{type=ThisT,ref=ThisRef},Back)
 -spec autoCompShow(This, LenEntered, ItemList) -> 'ok' when
 	This::wxStyledTextCtrl(), LenEntered::integer(), ItemList::unicode:chardata().
 autoCompShow(#wx_ref{type=ThisT,ref=ThisRef},LenEntered,ItemList)
- when is_integer(LenEntered),is_list(ItemList) ->
+ when is_integer(LenEntered),?is_chardata(ItemList) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   ItemList_UC = unicode:characters_to_binary([ItemList,0]),
   wxe_util:cast(?wxStyledTextCtrl_AutoCompShow,
@@ -1172,7 +1172,7 @@ autoCompComplete(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec autoCompStops(This, CharacterSet) -> 'ok' when
 	This::wxStyledTextCtrl(), CharacterSet::unicode:chardata().
 autoCompStops(#wx_ref{type=ThisT,ref=ThisRef},CharacterSet)
- when is_list(CharacterSet) ->
+ when ?is_chardata(CharacterSet) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   CharacterSet_UC = unicode:characters_to_binary([CharacterSet,0]),
   wxe_util:cast(?wxStyledTextCtrl_AutoCompStops,
@@ -1199,7 +1199,7 @@ autoCompGetSeparator(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec autoCompSelect(This, Text) -> 'ok' when
 	This::wxStyledTextCtrl(), Text::unicode:chardata().
 autoCompSelect(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxStyledTextCtrl_AutoCompSelect,
@@ -1226,7 +1226,7 @@ autoCompGetCancelAtStart(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec autoCompSetFillUps(This, CharacterSet) -> 'ok' when
 	This::wxStyledTextCtrl(), CharacterSet::unicode:chardata().
 autoCompSetFillUps(#wx_ref{type=ThisT,ref=ThisRef},CharacterSet)
- when is_list(CharacterSet) ->
+ when ?is_chardata(CharacterSet) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   CharacterSet_UC = unicode:characters_to_binary([CharacterSet,0]),
   wxe_util:cast(?wxStyledTextCtrl_AutoCompSetFillUps,
@@ -1270,7 +1270,7 @@ autoCompGetIgnoreCase(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec userListShow(This, ListType, ItemList) -> 'ok' when
 	This::wxStyledTextCtrl(), ListType::integer(), ItemList::unicode:chardata().
 userListShow(#wx_ref{type=ThisT,ref=ThisRef},ListType,ItemList)
- when is_integer(ListType),is_list(ItemList) ->
+ when is_integer(ListType),?is_chardata(ItemList) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   ItemList_UC = unicode:characters_to_binary([ItemList,0]),
   wxe_util:cast(?wxStyledTextCtrl_UserListShow,
@@ -1615,7 +1615,7 @@ getPrintColourMode(#wx_ref{type=ThisT,ref=ThisRef}) ->
 	This::wxStyledTextCtrl(), MinPos::integer(), MaxPos::integer(), Text::unicode:chardata().
 
 findText(This,MinPos,MaxPos,Text)
- when is_record(This, wx_ref),is_integer(MinPos),is_integer(MaxPos),is_list(Text) ->
+ when is_record(This, wx_ref),is_integer(MinPos),is_integer(MaxPos),?is_chardata(Text) ->
   findText(This,MinPos,MaxPos,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextctrl.html#wxstyledtextctrlfindtext">external documentation</a>.
@@ -1623,7 +1623,7 @@ findText(This,MinPos,MaxPos,Text)
 	This::wxStyledTextCtrl(), MinPos::integer(), MaxPos::integer(), Text::unicode:chardata(),
 	Option :: {'flags', integer()}.
 findText(#wx_ref{type=ThisT,ref=ThisRef},MinPos,MaxPos,Text, Options)
- when is_integer(MinPos),is_integer(MaxPos),is_list(Text),is_list(Options) ->
+ when is_integer(MinPos),is_integer(MaxPos),?is_chardata(Text),is_list(Options) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   MOpts = fun({flags, Flags}, Acc) -> [<<1:32/?UI,Flags:32/?UI>>|Acc];
@@ -1784,7 +1784,7 @@ ensureCaretVisible(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec replaceSelection(This, Text) -> 'ok' when
 	This::wxStyledTextCtrl(), Text::unicode:chardata().
 replaceSelection(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxStyledTextCtrl_ReplaceSelection,
@@ -1867,7 +1867,7 @@ clear(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec setText(This, Text) -> 'ok' when
 	This::wxStyledTextCtrl(), Text::unicode:chardata().
 setText(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxStyledTextCtrl_SetText,
@@ -1952,7 +1952,7 @@ getTargetEnd(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec replaceTarget(This, Text) -> integer() when
 	This::wxStyledTextCtrl(), Text::unicode:chardata().
 replaceTarget(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:call(?wxStyledTextCtrl_ReplaceTarget,
@@ -1962,7 +1962,7 @@ replaceTarget(#wx_ref{type=ThisT,ref=ThisRef},Text)
 -spec searchInTarget(This, Text) -> integer() when
 	This::wxStyledTextCtrl(), Text::unicode:chardata().
 searchInTarget(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:call(?wxStyledTextCtrl_SearchInTarget,
@@ -1989,7 +1989,7 @@ getSearchFlags(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec callTipShow(This, Pos, Definition) -> 'ok' when
 	This::wxStyledTextCtrl(), Pos::integer(), Definition::unicode:chardata().
 callTipShow(#wx_ref{type=ThisT,ref=ThisRef},Pos,Definition)
- when is_integer(Pos),is_list(Definition) ->
+ when is_integer(Pos),?is_chardata(Definition) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Definition_UC = unicode:characters_to_binary([Definition,0]),
   wxe_util:cast(?wxStyledTextCtrl_CallTipShow,
@@ -2383,7 +2383,7 @@ getScrollWidth(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec textWidth(This, Style, Text) -> integer() when
 	This::wxStyledTextCtrl(), Style::integer(), Text::unicode:chardata().
 textWidth(#wx_ref{type=ThisT,ref=ThisRef},Style,Text)
- when is_integer(Style),is_list(Text) ->
+ when is_integer(Style),?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:call(?wxStyledTextCtrl_TextWidth,
@@ -2427,7 +2427,7 @@ getUseVerticalScrollBar(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec appendText(This, Text) -> 'ok' when
 	This::wxStyledTextCtrl(), Text::unicode:chardata().
 appendText(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxStyledTextCtrl_AppendText,
@@ -3074,7 +3074,7 @@ searchAnchor(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec searchNext(This, Flags, Text) -> integer() when
 	This::wxStyledTextCtrl(), Flags::integer(), Text::unicode:chardata().
 searchNext(#wx_ref{type=ThisT,ref=ThisRef},Flags,Text)
- when is_integer(Flags),is_list(Text) ->
+ when is_integer(Flags),?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:call(?wxStyledTextCtrl_SearchNext,
@@ -3084,7 +3084,7 @@ searchNext(#wx_ref{type=ThisT,ref=ThisRef},Flags,Text)
 -spec searchPrev(This, Flags, Text) -> integer() when
 	This::wxStyledTextCtrl(), Flags::integer(), Text::unicode:chardata().
 searchPrev(#wx_ref{type=ThisT,ref=ThisRef},Flags,Text)
- when is_integer(Flags),is_list(Text) ->
+ when is_integer(Flags),?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:call(?wxStyledTextCtrl_SearchPrev,
@@ -3415,7 +3415,7 @@ copyRange(#wx_ref{type=ThisT,ref=ThisRef},Start,End)
 -spec copyText(This, Length, Text) -> 'ok' when
 	This::wxStyledTextCtrl(), Length::integer(), Text::unicode:chardata().
 copyText(#wx_ref{type=ThisT,ref=ThisRef},Length,Text)
- when is_integer(Length),is_list(Text) ->
+ when is_integer(Length),?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxStyledTextCtrl_CopyText,
@@ -3578,7 +3578,7 @@ wordRightEndExtend(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec setWhitespaceChars(This, Characters) -> 'ok' when
 	This::wxStyledTextCtrl(), Characters::unicode:chardata().
 setWhitespaceChars(#wx_ref{type=ThisT,ref=ThisRef},Characters)
- when is_list(Characters) ->
+ when ?is_chardata(Characters) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Characters_UC = unicode:characters_to_binary([Characters,0]),
   wxe_util:cast(?wxStyledTextCtrl_SetWhitespaceChars,
@@ -3731,7 +3731,7 @@ colourise(#wx_ref{type=ThisT,ref=ThisRef},Start,End)
 -spec setProperty(This, Key, Value) -> 'ok' when
 	This::wxStyledTextCtrl(), Key::unicode:chardata(), Value::unicode:chardata().
 setProperty(#wx_ref{type=ThisT,ref=ThisRef},Key,Value)
- when is_list(Key),is_list(Value) ->
+ when ?is_chardata(Key),?is_chardata(Value) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Key_UC = unicode:characters_to_binary([Key,0]),
   Value_UC = unicode:characters_to_binary([Value,0]),
@@ -3742,7 +3742,7 @@ setProperty(#wx_ref{type=ThisT,ref=ThisRef},Key,Value)
 -spec setKeyWords(This, KeywordSet, KeyWords) -> 'ok' when
 	This::wxStyledTextCtrl(), KeywordSet::integer(), KeyWords::unicode:chardata().
 setKeyWords(#wx_ref{type=ThisT,ref=ThisRef},KeywordSet,KeyWords)
- when is_integer(KeywordSet),is_list(KeyWords) ->
+ when is_integer(KeywordSet),?is_chardata(KeyWords) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   KeyWords_UC = unicode:characters_to_binary([KeyWords,0]),
   wxe_util:cast(?wxStyledTextCtrl_SetKeyWords,
@@ -3752,7 +3752,7 @@ setKeyWords(#wx_ref{type=ThisT,ref=ThisRef},KeywordSet,KeyWords)
 -spec setLexerLanguage(This, Language) -> 'ok' when
 	This::wxStyledTextCtrl(), Language::unicode:chardata().
 setLexerLanguage(#wx_ref{type=ThisT,ref=ThisRef},Language)
- when is_list(Language) ->
+ when ?is_chardata(Language) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Language_UC = unicode:characters_to_binary([Language,0]),
   wxe_util:cast(?wxStyledTextCtrl_SetLexerLanguage,
@@ -3762,7 +3762,7 @@ setLexerLanguage(#wx_ref{type=ThisT,ref=ThisRef},Language)
 -spec getProperty(This, Key) -> unicode:charlist() when
 	This::wxStyledTextCtrl(), Key::unicode:chardata().
 getProperty(#wx_ref{type=ThisT,ref=ThisRef},Key)
- when is_list(Key) ->
+ when ?is_chardata(Key) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Key_UC = unicode:characters_to_binary([Key,0]),
   wxe_util:call(?wxStyledTextCtrl_GetProperty,
@@ -3788,7 +3788,7 @@ getCurrentLine(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec styleSetSpec(This, StyleNum, Spec) -> 'ok' when
 	This::wxStyledTextCtrl(), StyleNum::integer(), Spec::unicode:chardata().
 styleSetSpec(#wx_ref{type=ThisT,ref=ThisRef},StyleNum,Spec)
- when is_integer(StyleNum),is_list(Spec) ->
+ when is_integer(StyleNum),?is_chardata(Spec) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Spec_UC = unicode:characters_to_binary([Spec,0]),
   wxe_util:cast(?wxStyledTextCtrl_StyleSetSpec,
@@ -3809,7 +3809,7 @@ styleSetFont(#wx_ref{type=ThisT,ref=ThisRef},StyleNum,#wx_ref{type=FontT,ref=Fon
 	This::wxStyledTextCtrl(), StyleNum::integer(), Size::integer(), FaceName::unicode:chardata(), Bold::boolean(), Italic::boolean(), Underline::boolean().
 
 styleSetFontAttr(This,StyleNum,Size,FaceName,Bold,Italic,Underline)
- when is_record(This, wx_ref),is_integer(StyleNum),is_integer(Size),is_list(FaceName),is_boolean(Bold),is_boolean(Italic),is_boolean(Underline) ->
+ when is_record(This, wx_ref),is_integer(StyleNum),is_integer(Size),?is_chardata(FaceName),is_boolean(Bold),is_boolean(Italic),is_boolean(Underline) ->
   styleSetFontAttr(This,StyleNum,Size,FaceName,Bold,Italic,Underline, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextctrl.html#wxstyledtextctrlstylesetfontattr">external documentation</a>.
@@ -3818,7 +3818,7 @@ styleSetFontAttr(This,StyleNum,Size,FaceName,Bold,Italic,Underline)
 	This::wxStyledTextCtrl(), StyleNum::integer(), Size::integer(), FaceName::unicode:chardata(), Bold::boolean(), Italic::boolean(), Underline::boolean(),
 	Option :: {'encoding', wx:wx_enum()}.
 styleSetFontAttr(#wx_ref{type=ThisT,ref=ThisRef},StyleNum,Size,FaceName,Bold,Italic,Underline, Options)
- when is_integer(StyleNum),is_integer(Size),is_list(FaceName),is_boolean(Bold),is_boolean(Italic),is_boolean(Underline),is_list(Options) ->
+ when is_integer(StyleNum),is_integer(Size),?is_chardata(FaceName),is_boolean(Bold),is_boolean(Italic),is_boolean(Underline),is_list(Options) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   FaceName_UC = unicode:characters_to_binary([FaceName,0]),
   MOpts = fun({encoding, Encoding}, Acc) -> [<<1:32/?UI,Encoding:32/?UI>>|Acc];
@@ -3938,7 +3938,7 @@ setLastKeydownProcessed(#wx_ref{type=ThisT,ref=ThisRef},Val)
 -spec saveFile(This, Filename) -> boolean() when
 	This::wxStyledTextCtrl(), Filename::unicode:chardata().
 saveFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
- when is_list(Filename) ->
+ when ?is_chardata(Filename) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Filename_UC = unicode:characters_to_binary([Filename,0]),
   wxe_util:call(?wxStyledTextCtrl_SaveFile,
@@ -3948,7 +3948,7 @@ saveFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
 -spec loadFile(This, Filename) -> boolean() when
 	This::wxStyledTextCtrl(), Filename::unicode:chardata().
 loadFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
- when is_list(Filename) ->
+ when ?is_chardata(Filename) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Filename_UC = unicode:characters_to_binary([Filename,0]),
   wxe_util:call(?wxStyledTextCtrl_LoadFile,
@@ -3969,7 +3969,7 @@ doDragOver(#wx_ref{type=ThisT,ref=ThisRef},X,Y,Def)
 -spec doDropText(This, X, Y, Data) -> boolean() when
 	This::wxStyledTextCtrl(), X::integer(), Y::integer(), Data::unicode:chardata().
 doDropText(#wx_ref{type=ThisT,ref=ThisRef},X,Y,Data)
- when is_integer(X),is_integer(Y),is_list(Data) ->
+ when is_integer(X),is_integer(Y),?is_chardata(Data) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   Data_UC = unicode:characters_to_binary([Data,0]),
   wxe_util:call(?wxStyledTextCtrl_DoDropText,

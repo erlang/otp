@@ -140,7 +140,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
 	This::wxTreeCtrl(), Text::unicode:chardata().
 
 addRoot(This,Text)
- when is_record(This, wx_ref),is_list(Text) ->
+ when is_record(This, wx_ref),?is_chardata(Text) ->
   addRoot(This,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrladdroot">external documentation</a>.
@@ -150,7 +150,7 @@ addRoot(This,Text)
 		 | {'selectedImage', integer()}
 		 | {'data', term()}.
 addRoot(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
- when is_list(Text),is_list(Options) ->
+ when ?is_chardata(Text),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   MOpts = fun({image, Image}, Acc) -> [<<1:32/?UI,Image:32/?UI>>|Acc];
@@ -166,7 +166,7 @@ addRoot(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
 	This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata().
 
 appendItem(This,Parent,Text)
- when is_record(This, wx_ref),is_integer(Parent),is_list(Text) ->
+ when is_record(This, wx_ref),is_integer(Parent),?is_chardata(Text) ->
   appendItem(This,Parent,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlappenditem">external documentation</a>.
@@ -176,7 +176,7 @@ appendItem(This,Parent,Text)
 		 | {'selectedImage', integer()}
 		 | {'data', term()}.
 appendItem(#wx_ref{type=ThisT,ref=ThisRef},Parent,Text, Options)
- when is_integer(Parent),is_list(Text),is_list(Options) ->
+ when is_integer(Parent),?is_chardata(Text),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   MOpts = fun({image, Image}, Acc) -> [<<1:32/?UI,Image:32/?UI>>|Acc];
@@ -580,7 +580,7 @@ hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
 	This::wxTreeCtrl(), Parent::integer(), Pos::integer(), Text::unicode:chardata().
 
 insertItem(This,Parent,Pos,Text)
- when is_record(This, wx_ref),is_integer(Parent),is_integer(Pos),is_list(Text) ->
+ when is_record(This, wx_ref),is_integer(Parent),is_integer(Pos),?is_chardata(Text) ->
   insertItem(This,Parent,Pos,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlinsertitem">external documentation</a>.
@@ -590,7 +590,7 @@ insertItem(This,Parent,Pos,Text)
 		 | {'selImage', integer()}
 		 | {'data', term()}.
 insertItem(#wx_ref{type=ThisT,ref=ThisRef},Parent,Pos,Text, Options)
- when is_integer(Parent),is_integer(Pos),is_list(Text),is_list(Options) ->
+ when is_integer(Parent),is_integer(Pos),?is_chardata(Text),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   MOpts = fun({image, Image}, Acc) -> [<<1:32/?UI,Image:32/?UI>>|Acc];
@@ -659,7 +659,7 @@ isTreeItemIdOk(Id)
 	This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata().
 
 prependItem(This,Parent,Text)
- when is_record(This, wx_ref),is_integer(Parent),is_list(Text) ->
+ when is_record(This, wx_ref),is_integer(Parent),?is_chardata(Text) ->
   prependItem(This,Parent,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlprependitem">external documentation</a>.
@@ -669,7 +669,7 @@ prependItem(This,Parent,Text)
 		 | {'selectedImage', integer()}
 		 | {'data', term()}.
 prependItem(#wx_ref{type=ThisT,ref=ThisRef},Parent,Text, Options)
- when is_integer(Parent),is_list(Text),is_list(Options) ->
+ when is_integer(Parent),?is_chardata(Text),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   MOpts = fun({image, Image}, Acc) -> [<<1:32/?UI,Image:32/?UI>>|Acc];
@@ -848,7 +848,7 @@ setItemImage(#wx_ref{type=ThisT,ref=ThisRef},Item,Image, Options)
 -spec setItemText(This, Item, Text) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer(), Text::unicode:chardata().
 setItemText(#wx_ref{type=ThisT,ref=ThisRef},Item,Text)
- when is_integer(Item),is_list(Text) ->
+ when is_integer(Item),?is_chardata(Text) ->
   ?CLASS(ThisT,wxTreeCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxTreeCtrl_SetItemText,

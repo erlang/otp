@@ -81,7 +81,7 @@ getWidth(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec setParameters(This, Params) -> 'ok' when
 	This::wxGridCellFloatRenderer(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
- when is_list(Params) ->
+ when ?is_chardata(Params) ->
   ?CLASS(ThisT,wxGridCellFloatRenderer),
   Params_UC = unicode:characters_to_binary([Params,0]),
   wxe_util:cast(?wxGridCellFloatRenderer_SetParameters,

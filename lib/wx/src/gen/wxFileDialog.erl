@@ -191,7 +191,7 @@ getWildcard(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec setDirectory(This, Dir) -> 'ok' when
 	This::wxFileDialog(), Dir::unicode:chardata().
 setDirectory(#wx_ref{type=ThisT,ref=ThisRef},Dir)
- when is_list(Dir) ->
+ when ?is_chardata(Dir) ->
   ?CLASS(ThisT,wxFileDialog),
   Dir_UC = unicode:characters_to_binary([Dir,0]),
   wxe_util:cast(?wxFileDialog_SetDirectory,
@@ -201,7 +201,7 @@ setDirectory(#wx_ref{type=ThisT,ref=ThisRef},Dir)
 -spec setFilename(This, Name) -> 'ok' when
 	This::wxFileDialog(), Name::unicode:chardata().
 setFilename(#wx_ref{type=ThisT,ref=ThisRef},Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxFileDialog),
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:cast(?wxFileDialog_SetFilename,
@@ -220,7 +220,7 @@ setFilterIndex(#wx_ref{type=ThisT,ref=ThisRef},FilterIndex)
 -spec setMessage(This, Message) -> 'ok' when
 	This::wxFileDialog(), Message::unicode:chardata().
 setMessage(#wx_ref{type=ThisT,ref=ThisRef},Message)
- when is_list(Message) ->
+ when ?is_chardata(Message) ->
   ?CLASS(ThisT,wxFileDialog),
   Message_UC = unicode:characters_to_binary([Message,0]),
   wxe_util:cast(?wxFileDialog_SetMessage,
@@ -230,7 +230,7 @@ setMessage(#wx_ref{type=ThisT,ref=ThisRef},Message)
 -spec setPath(This, Path) -> 'ok' when
 	This::wxFileDialog(), Path::unicode:chardata().
 setPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
- when is_list(Path) ->
+ when ?is_chardata(Path) ->
   ?CLASS(ThisT,wxFileDialog),
   Path_UC = unicode:characters_to_binary([Path,0]),
   wxe_util:cast(?wxFileDialog_SetPath,
@@ -240,7 +240,7 @@ setPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
 -spec setWildcard(This, WildCard) -> 'ok' when
 	This::wxFileDialog(), WildCard::unicode:chardata().
 setWildcard(#wx_ref{type=ThisT,ref=ThisRef},WildCard)
- when is_list(WildCard) ->
+ when ?is_chardata(WildCard) ->
   ?CLASS(ThisT,wxFileDialog),
   WildCard_UC = unicode:characters_to_binary([WildCard,0]),
   wxe_util:cast(?wxFileDialog_SetWildcard,

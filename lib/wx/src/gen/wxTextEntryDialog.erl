@@ -93,7 +93,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata().
 
 new(Parent,Message)
- when is_record(Parent, wx_ref),is_list(Message) ->
+ when is_record(Parent, wx_ref),?is_chardata(Message) ->
   new(Parent,Message, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextentrydialog.html#wxtextentrydialogwxtextentrydialog">external documentation</a>.
@@ -104,7 +104,7 @@ new(Parent,Message)
 		 | {'style', integer()}
 		 | {'pos', {X::integer(), Y::integer()}}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Message, Options)
- when is_list(Message),is_list(Options) ->
+ when ?is_chardata(Message),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
   Message_UC = unicode:characters_to_binary([Message,0]),
   MOpts = fun({caption, Caption}, Acc) ->   Caption_UC = unicode:characters_to_binary([Caption,0]),[<<1:32/?UI,(byte_size(Caption_UC)):32/?UI,(Caption_UC)/binary, 0:(((8- ((0+byte_size(Caption_UC)) band 16#7)) band 16#7))/unit:8>>|Acc];
@@ -128,7 +128,7 @@ getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec setValue(This, Val) -> 'ok' when
 	This::wxTextEntryDialog(), Val::unicode:chardata().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Val)
- when is_list(Val) ->
+ when ?is_chardata(Val) ->
   ?CLASS(ThisT,wxTextEntryDialog),
   Val_UC = unicode:characters_to_binary([Val,0]),
   wxe_util:cast(?wxTextEntryDialog_SetValue,

@@ -198,7 +198,7 @@ popStatusText(#wx_ref{type=ThisT,ref=ThisRef}, Options)
 	This::wxStatusBar(), Text::unicode:chardata().
 
 pushStatusText(This,Text)
- when is_record(This, wx_ref),is_list(Text) ->
+ when is_record(This, wx_ref),?is_chardata(Text) ->
   pushStatusText(This,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarpushstatustext">external documentation</a>.
@@ -206,7 +206,7 @@ pushStatusText(This,Text)
 	This::wxStatusBar(), Text::unicode:chardata(),
 	Option :: {'number', integer()}.
 pushStatusText(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
- when is_list(Text),is_list(Options) ->
+ when ?is_chardata(Text),is_list(Options) ->
   ?CLASS(ThisT,wxStatusBar),
   Text_UC = unicode:characters_to_binary([Text,0]),
   MOpts = fun({number, Number}, Acc) -> [<<1:32/?UI,Number:32/?UI>>|Acc];
@@ -251,7 +251,7 @@ setMinHeight(#wx_ref{type=ThisT,ref=ThisRef},Height)
 	This::wxStatusBar(), Text::unicode:chardata().
 
 setStatusText(This,Text)
- when is_record(This, wx_ref),is_list(Text) ->
+ when is_record(This, wx_ref),?is_chardata(Text) ->
   setStatusText(This,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarsetstatustext">external documentation</a>.
@@ -259,7 +259,7 @@ setStatusText(This,Text)
 	This::wxStatusBar(), Text::unicode:chardata(),
 	Option :: {'number', integer()}.
 setStatusText(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
- when is_list(Text),is_list(Options) ->
+ when ?is_chardata(Text),is_list(Options) ->
   ?CLASS(ThisT,wxStatusBar),
   Text_UC = unicode:characters_to_binary([Text,0]),
   MOpts = fun({number, Number}, Acc) -> [<<1:32/?UI,Number:32/?UI>>|Acc];

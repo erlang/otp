@@ -103,7 +103,7 @@ new() ->
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 new(Parent,Id,Title)
- when is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
+ when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
   new(Parent,Id,Title, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiparentframe.html#wxmdiparentframewxmdiparentframe">external documentation</a>.
@@ -113,7 +113,7 @@ new(Parent,Id,Title)
 		 | {'size', {W::integer(), H::integer()}}
 		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
- when is_integer(Id),is_list(Title),is_list(Options) ->
+ when is_integer(Id),?is_chardata(Title),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
   Title_UC = unicode:characters_to_binary([Title,0]),
   MOpts = fun({pos, {PosX,PosY}}, Acc) -> [<<1:32/?UI,PosX:32/?UI,PosY:32/?UI,0:32>>|Acc];
@@ -161,7 +161,7 @@ cascade(#wx_ref{type=ThisT,ref=ThisRef}) ->
 	This::wxMDIParentFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 create(This,Parent,Id,Title)
- when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
+ when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
   create(This,Parent,Id,Title, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiparentframe.html#wxmdiparentframecreate">external documentation</a>.
@@ -171,7 +171,7 @@ create(This,Parent,Id,Title)
 		 | {'size', {W::integer(), H::integer()}}
 		 | {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
- when is_integer(Id),is_list(Title),is_list(Options) ->
+ when is_integer(Id),?is_chardata(Title),is_list(Options) ->
   ?CLASS(ThisT,wxMDIParentFrame),
   ?CLASS(ParentT,wxWindow),
   Title_UC = unicode:characters_to_binary([Title,0]),

@@ -273,7 +273,7 @@ setShape(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=RegionT,ref=RegionRef}) ->
 -spec setTitle(This, Title) -> 'ok' when
 	This::wxTopLevelWindow(), Title::unicode:chardata().
 setTitle(#wx_ref{type=ThisT,ref=ThisRef},Title)
- when is_list(Title) ->
+ when ?is_chardata(Title) ->
   ?CLASS(ThisT,wxTopLevelWindow),
   Title_UC = unicode:characters_to_binary([Title,0]),
   wxe_util:cast(?wxTopLevelWindow_SetTitle,

@@ -172,7 +172,7 @@ setValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
   wxe_util:cast(?wxSpinCtrl_SetValue_1_0,
   <<ThisRef:32/?UI,Value:32/?UI>>);
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxSpinCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxSpinCtrl_SetValue_1_1,

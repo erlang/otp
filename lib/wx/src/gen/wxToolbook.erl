@@ -120,7 +120,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
 	This::wxToolbook(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
 addPage(This,Page,Text)
- when is_record(This, wx_ref),is_record(Page, wx_ref),is_list(Text) ->
+ when is_record(This, wx_ref),is_record(Page, wx_ref),?is_chardata(Text) ->
   addPage(This,Page,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoolbook.html#wxtoolbookaddpage">external documentation</a>.
@@ -129,7 +129,7 @@ addPage(This,Page,Text)
 	Option :: {'bSelect', boolean()}
 		 | {'imageId', integer()}.
 addPage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PageT,ref=PageRef},Text, Options)
- when is_list(Text),is_list(Options) ->
+ when ?is_chardata(Text),is_list(Options) ->
   ?CLASS(ThisT,wxToolbook),
   ?CLASS(PageT,wxWindow),
   Text_UC = unicode:characters_to_binary([Text,0]),
@@ -296,7 +296,7 @@ hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
 	This::wxToolbook(), N::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
 insertPage(This,N,Page,Text)
- when is_record(This, wx_ref),is_integer(N),is_record(Page, wx_ref),is_list(Text) ->
+ when is_record(This, wx_ref),is_integer(N),is_record(Page, wx_ref),?is_chardata(Text) ->
   insertPage(This,N,Page,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoolbook.html#wxtoolbookinsertpage">external documentation</a>.
@@ -305,7 +305,7 @@ insertPage(This,N,Page,Text)
 	Option :: {'bSelect', boolean()}
 		 | {'imageId', integer()}.
 insertPage(#wx_ref{type=ThisT,ref=ThisRef},N,#wx_ref{type=PageT,ref=PageRef},Text, Options)
- when is_integer(N),is_list(Text),is_list(Options) ->
+ when is_integer(N),?is_chardata(Text),is_list(Options) ->
   ?CLASS(ThisT,wxToolbook),
   ?CLASS(PageT,wxWindow),
   Text_UC = unicode:characters_to_binary([Text,0]),
@@ -347,7 +347,7 @@ setPageImage(#wx_ref{type=ThisT,ref=ThisRef},N,ImageId)
 -spec setPageText(This, N, StrText) -> boolean() when
 	This::wxToolbook(), N::integer(), StrText::unicode:chardata().
 setPageText(#wx_ref{type=ThisT,ref=ThisRef},N,StrText)
- when is_integer(N),is_list(StrText) ->
+ when is_integer(N),?is_chardata(StrText) ->
   ?CLASS(ThisT,wxToolbook),
   StrText_UC = unicode:characters_to_binary([StrText,0]),
   wxe_util:call(?wxToolbook_SetPageText,

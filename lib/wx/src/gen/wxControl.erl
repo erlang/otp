@@ -89,7 +89,7 @@ getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec setLabel(This, Label) -> 'ok' when
 	This::wxControl(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
- when is_list(Label) ->
+ when ?is_chardata(Label) ->
   ?CLASS(ThisT,wxControl),
   Label_UC = unicode:characters_to_binary([Label,0]),
   wxe_util:cast(?wxControl_SetLabel,

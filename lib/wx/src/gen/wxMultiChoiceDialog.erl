@@ -99,7 +99,7 @@ new() ->
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[unicode:chardata()].
 
 new(Parent,Message,Caption,Choices)
- when is_record(Parent, wx_ref),is_list(Message),is_list(Caption),is_list(Choices) ->
+ when is_record(Parent, wx_ref),?is_chardata(Message),?is_chardata(Caption),is_list(Choices) ->
   new(Parent,Message,Caption,Choices, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmultichoicedialog.html#wxmultichoicedialogwxmultichoicedialog">external documentation</a>.
@@ -108,7 +108,7 @@ new(Parent,Message,Caption,Choices)
 	Option :: {'style', integer()}
 		 | {'pos', {X::integer(), Y::integer()}}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Message,Caption,Choices, Options)
- when is_list(Message),is_list(Caption),is_list(Choices),is_list(Options) ->
+ when ?is_chardata(Message),?is_chardata(Caption),is_list(Choices),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
   Message_UC = unicode:characters_to_binary([Message,0]),
   Caption_UC = unicode:characters_to_binary([Caption,0]),

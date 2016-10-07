@@ -649,7 +649,7 @@ guard_test(#param{def=Def}) when Def =/= none -> skip;
 guard_test(#param{where=c})  -> skip;
 guard_test(#param{in=In}) when In == false -> skip;
 guard_test(#param{name=N, type=#type{base=string}}) ->
-    "is_list(" ++ erl_arg_name(N) ++")";
+    "?is_chardata(" ++ erl_arg_name(N) ++")";
 guard_test(#param{name=N, type=#type{name="wxArtClient"}}) ->
     "is_list(" ++ erl_arg_name(N) ++")";
 guard_test(#param{name=N, type=#type{name="wxArrayString"}}) ->

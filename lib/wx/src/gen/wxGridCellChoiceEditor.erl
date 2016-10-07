@@ -68,7 +68,7 @@ new(Choices, Options)
 -spec setParameters(This, Params) -> 'ok' when
 	This::wxGridCellChoiceEditor(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
- when is_list(Params) ->
+ when ?is_chardata(Params) ->
   ?CLASS(ThisT,wxGridCellChoiceEditor),
   Params_UC = unicode:characters_to_binary([Params,0]),
   wxe_util:cast(?wxGridCellChoiceEditor_SetParameters,

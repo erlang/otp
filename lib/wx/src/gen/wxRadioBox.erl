@@ -87,7 +87,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
 new(Parent,Id,Title,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
- when is_record(Parent, wx_ref),is_integer(Id),is_list(Title),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
+ when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
   new(Parent,Id,Title,Pos,Size,Choices, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxwxradiobox">external documentation</a>.
@@ -97,7 +97,7 @@ new(Parent,Id,Title,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
 		 | {'style', integer()}
 		 | {'val', wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title,{PosX,PosY},{SizeW,SizeH},Choices, Options)
- when is_integer(Id),is_list(Title),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices),is_list(Options) ->
+ when is_integer(Id),?is_chardata(Title),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
   Title_UC = unicode:characters_to_binary([Title,0]),
   Choices_UCA = [unicode:characters_to_binary([ChoicesTemp,0]) || 
@@ -115,7 +115,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title,{PosX,PosY},{SizeW,SizeH},Choic
 	This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
 create(This,Parent,Id,Title,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
- when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Title),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
+ when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
   create(This,Parent,Id,Title,Pos,Size,Choices, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxcreate">external documentation</a>.
@@ -125,7 +125,7 @@ create(This,Parent,Id,Title,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
 		 | {'style', integer()}
 		 | {'val', wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Title,{PosX,PosY},{SizeW,SizeH},Choices, Options)
- when is_integer(Id),is_list(Title),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices),is_list(Options) ->
+ when is_integer(Id),?is_chardata(Title),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices),is_list(Options) ->
   ?CLASS(ThisT,wxRadioBox),
   ?CLASS(ParentT,wxWindow),
   Title_UC = unicode:characters_to_binary([Title,0]),
@@ -320,7 +320,7 @@ isItemShown(#wx_ref{type=ThisT,ref=ThisRef},N)
 -spec setItemHelpText(This, N, HelpText) -> 'ok' when
 	This::wxRadioBox(), N::integer(), HelpText::unicode:chardata().
 setItemHelpText(#wx_ref{type=ThisT,ref=ThisRef},N,HelpText)
- when is_integer(N),is_list(HelpText) ->
+ when is_integer(N),?is_chardata(HelpText) ->
   ?CLASS(ThisT,wxRadioBox),
   HelpText_UC = unicode:characters_to_binary([HelpText,0]),
   wxe_util:cast(?wxRadioBox_SetItemHelpText,
@@ -330,7 +330,7 @@ setItemHelpText(#wx_ref{type=ThisT,ref=ThisRef},N,HelpText)
 -spec setItemToolTip(This, Item, Text) -> 'ok' when
 	This::wxRadioBox(), Item::integer(), Text::unicode:chardata().
 setItemToolTip(#wx_ref{type=ThisT,ref=ThisRef},Item,Text)
- when is_integer(Item),is_list(Text) ->
+ when is_integer(Item),?is_chardata(Text) ->
   ?CLASS(ThisT,wxRadioBox),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxRadioBox_SetItemToolTip,

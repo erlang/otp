@@ -93,7 +93,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 	Title::unicode:chardata(), Message::unicode:chardata().
 
 new(Title,Message)
- when is_list(Title),is_list(Message) ->
+ when ?is_chardata(Title),?is_chardata(Message) ->
   new(Title,Message, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprogressdialog.html#wxprogressdialogwxprogressdialog">external documentation</a>.
@@ -103,7 +103,7 @@ new(Title,Message)
 		 | {'parent', wxWindow:wxWindow()}
 		 | {'style', integer()}.
 new(Title,Message, Options)
- when is_list(Title),is_list(Message),is_list(Options) ->
+ when ?is_chardata(Title),?is_chardata(Message),is_list(Options) ->
   Title_UC = unicode:characters_to_binary([Title,0]),
   Message_UC = unicode:characters_to_binary([Message,0]),
   MOpts = fun({maximum, Maximum}, Acc) -> [<<1:32/?UI,Maximum:32/?UI>>|Acc];
