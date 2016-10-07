@@ -83,29 +83,6 @@ int hipe_patch_call(void *callAddress, void *destAddress, void *trampoline)
     return 0;
 }
 
-#if 0	/* change to non-zero to get allocation statistics at exit() */
-static unsigned int total_mapped, nr_joins, nr_splits, total_alloc, nr_allocs, nr_large, total_lost;
-static unsigned int atexit_done;
-
-static void alloc_code_stats(void)
-{
-    printf("\r\nalloc_code_stats: %u bytes mapped, %u joins, %u splits, %u bytes allocated, %u average alloc, %u large allocs, %u bytes lost\r\n",
-	   total_mapped, nr_joins, nr_splits, total_alloc, nr_allocs ? total_alloc/nr_allocs : 0, nr_large, total_lost);
-}
-
-static void atexit_alloc_code_stats(void)
-{
-    if (!atexit_done) {
-	atexit_done = 1;
-	(void)atexit(alloc_code_stats);
-    }
-}
-
-#define ALLOC_CODE_STATS(X)	do{X;}while(0)
-#else
-#define ALLOC_CODE_STATS(X)	do{}while(0)
-#endif
-
 /*
  * Memory allocator for executable code.
  *
@@ -116,9 +93,6 @@ static void atexit_alloc_code_stats(void)
  */
 static void *alloc_code(unsigned int alloc_bytes)
 {
-    ALLOC_CODE_STATS(++nr_allocs);
-    ALLOC_CODE_STATS(total_alloc += alloc_bytes);
-
     return erts_alloc(ERTS_ALC_T_HIPE_EXEC, alloc_bytes);
 }
 
@@ -132,9 +106,6 @@ void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *
 
 void hipe_free_code(void* code, unsigned int bytes)
 {
-    ALLOC_CODE_STATS(--nr_allocs);
-    ALLOC_CODE_STATS(total_alloc -= bytes);
-
     erts_free(ERTS_ALC_T_HIPE_EXEC, code);
 }
 
@@ -244,9 +215,6 @@ void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
 
 void hipe_free_native_stub(void* stub)
 {
-    ALLOC_CODE_STATS(++nr_allocs);
-    /*ALLOC_CODE_STATS(total_alloc += alloc_bytes);*/
-
     erts_free(ERTS_ALC_T_HIPE_EXEC, stub);
 }
 
