@@ -307,6 +307,7 @@ select14(Config) when is_list(Config) ->
 
     %% Some Helpers
     Trans = fun(Fun) -> mnesia:transaction(Fun) end,
+    Dirty = fun(Fun) -> mnesia:async_dirty(Fun) end,
     LoopHelp = fun('$end_of_table',_) -> [];
 		  ({Recs,Cont},Fun) ->
 		       Sel = mnesia:select(Cont),
@@ -334,8 +335,13 @@ select14(Config) when is_list(Config) ->
 		?match({atomic, [OneRec]}, Trans(fun() -> Loop(Tab, OnePat) end)),
 		?match({atomic, All}, Trans(fun() -> Loop(Tab, AllPat) end)),
 
-		{atomic,{_, Cont}} = Trans(fun() -> mnesia:select(Tab, OnePat, 1, read) end),
-		?match({aborted, wrong_transaction}, Trans(fun() -> mnesia:select(Cont) end)),
+		{atomic,{_, ContOne}} = Trans(fun() -> mnesia:select(Tab, OnePat, 1, read) end),
+		?match({aborted, wrong_transaction}, Trans(fun() -> mnesia:select(ContOne) end)),
+		?match('$end_of_table',              Dirty(fun() -> mnesia:select(ContOne) end)),
+
+		{atomic,{_, ContAll}} = Trans(fun() -> mnesia:select(Tab, AllPat, 1, read) end),
+		?match({aborted, wrong_transaction}, Trans(fun() -> mnesia:select(ContAll) end)),
+		?match({[_], _},                     Dirty(fun() -> mnesia:select(ContAll) end)),
 
 		?match({aborted, _}, Trans(fun() -> mnesia:select(Tab, {match, '$1', 2},1,read) end)),
 		?match({aborted, _}, Trans(fun() -> mnesia:select(Tab, [{'_', [], '$1'}],1,read) end)),
