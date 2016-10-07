@@ -1716,6 +1716,15 @@ case wxWindow_SetDoubleBuffered: { // wxWindow::SetDoubleBuffered
  break;
 }
 #endif
+#if wxCHECK_VERSION(2,9,5)
+case wxWindow_GetContentScaleFactor: { // wxWindow::GetContentScaleFactor
+ wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ double Result = This->GetContentScaleFactor();
+ rt.addFloat(Result);
+ break;
+}
+#endif
 case wxTopLevelWindow_GetIcon: { // wxTopLevelWindow::GetIcon
  wxTopLevelWindow *This = (wxTopLevelWindow *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);

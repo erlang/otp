@@ -42,8 +42,8 @@
   dragAcceptFiles/2,enable/1,enable/2,findWindow/2,fit/1,fitInside/1,
   freeze/1,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
   getBestSize/1,getCaret/1,getCharHeight/1,getCharWidth/1,getChildren/1,
-  getClientSize/1,getContainingSizer/1,getCursor/1,getDropTarget/1,
-  getEventHandler/1,getExtraStyle/1,getFont/1,getForegroundColour/1,
+  getClientSize/1,getContainingSizer/1,getContentScaleFactor/1,getCursor/1,
+  getDropTarget/1,getEventHandler/1,getExtraStyle/1,getFont/1,getForegroundColour/1,
   getGrandParent/1,getHandle/1,getHelpText/1,getId/1,getLabel/1,getMaxSize/1,
   getMaximumSizeX/1,getMaximumSizeY/1,getMinSize/1,getMinimumSizeX/1,
   getMinimumSizeY/1,getName/1,getParent/1,getPosition/1,getRect/1,getSashVisible/2,
@@ -220,6 +220,8 @@ getMaximumSizeX(This) -> wxSashWindow:getMaximumSizeX(This).
 %% @hidden
 getSashVisible(This,Edge) -> wxSashWindow:getSashVisible(This,Edge).
  %% From wxWindow
+%% @hidden
+getContentScaleFactor(This) -> wxWindow:getContentScaleFactor(This).
 %% @hidden
 setDoubleBuffered(This,On) -> wxWindow:setDoubleBuffered(This,On).
 %% @hidden

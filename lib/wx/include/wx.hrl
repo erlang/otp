@@ -4092,3 +4092,7 @@
 -define(wxWINDOW_VARIANT_MINI, 2).
 -define(wxWINDOW_VARIANT_LARGE, 3).
 -define(wxWINDOW_VARIANT_MAX, 4).
+% From "xmlres.h": wxXmlResourceFlags
+-define(wxXRC_USE_LOCALE, 1).
+-define(wxXRC_NO_SUBCLASSING, 2).
+-define(wxXRC_NO_RELOADING, 4).
