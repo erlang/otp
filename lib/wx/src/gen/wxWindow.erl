@@ -348,7 +348,7 @@ findWindow(#wx_ref{type=ThisT,ref=ThisRef},Winid)
   wxe_util:call(?wxWindow_FindWindow_1_0,
   <<ThisRef:32/?UI,Winid:32/?UI>>);
 findWindow(#wx_ref{type=ThisT,ref=ThisRef},Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxWindow),
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxWindow_FindWindow_1_1,
@@ -379,7 +379,7 @@ findWindowById(Winid, Options)
 	Name::unicode:chardata().
 
 findWindowByName(Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   findWindowByName(Name, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowfindwindowbyname">external documentation</a>.
@@ -387,7 +387,7 @@ findWindowByName(Name)
 	Name::unicode:chardata(),
 	Option :: {'parent', wxWindow()}.
 findWindowByName(Name, Options)
- when is_list(Name),is_list(Options) ->
+ when ?is_chardata(Name),is_list(Options) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
   MOpts = fun({parent, #wx_ref{type=ParentT,ref=ParentRef}}, Acc) ->   ?CLASS(ParentT,wxWindow),[<<1:32/?UI,ParentRef:32/?UI>>|Acc];
           (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
@@ -400,7 +400,7 @@ findWindowByName(Name, Options)
 	Label::unicode:chardata().
 
 findWindowByLabel(Label)
- when is_list(Label) ->
+ when ?is_chardata(Label) ->
   findWindowByLabel(Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowfindwindowbylabel">external documentation</a>.
@@ -408,7 +408,7 @@ findWindowByLabel(Label)
 	Label::unicode:chardata(),
 	Option :: {'parent', wxWindow()}.
 findWindowByLabel(Label, Options)
- when is_list(Label),is_list(Options) ->
+ when ?is_chardata(Label),is_list(Options) ->
   Label_UC = unicode:characters_to_binary([Label,0]),
   MOpts = fun({parent, #wx_ref{type=ParentT,ref=ParentRef}}, Acc) ->   ?CLASS(ParentT,wxWindow),[<<1:32/?UI,ParentRef:32/?UI>>|Acc];
           (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
@@ -728,7 +728,7 @@ getSizer(#wx_ref{type=ThisT,ref=ThisRef}) ->
 	This::wxWindow(), String::unicode:chardata().
 
 getTextExtent(This,String)
- when is_record(This, wx_ref),is_list(String) ->
+ when is_record(This, wx_ref),?is_chardata(String) ->
   getTextExtent(This,String, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowgettextextent">external documentation</a>.
@@ -737,7 +737,7 @@ getTextExtent(This,String)
 	This::wxWindow(), String::unicode:chardata(),
 	Option :: {'theFont', wxFont:wxFont()}.
 getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String, Options)
- when is_list(String),is_list(Options) ->
+ when ?is_chardata(String),is_list(Options) ->
   ?CLASS(ThisT,wxWindow),
   String_UC = unicode:characters_to_binary([String,0]),
   MOpts = fun({theFont, #wx_ref{type=TheFontT,ref=TheFontRef}}, Acc) ->   ?CLASS(TheFontT,wxFont),[<<1:32/?UI,TheFontRef:32/?UI>>|Acc];
@@ -1448,7 +1448,7 @@ setForegroundColour(#wx_ref{type=ThisT,ref=ThisRef},Colour)
 -spec setHelpText(This, Text) -> 'ok' when
 	This::wxWindow(), Text::unicode:chardata().
 setHelpText(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxWindow),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxWindow_SetHelpText,
@@ -1467,7 +1467,7 @@ setId(#wx_ref{type=ThisT,ref=ThisRef},Winid)
 -spec setLabel(This, Label) -> 'ok' when
 	This::wxWindow(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
- when is_list(Label) ->
+ when ?is_chardata(Label) ->
   ?CLASS(ThisT,wxWindow),
   Label_UC = unicode:characters_to_binary([Label,0]),
   wxe_util:cast(?wxWindow_SetLabel,
@@ -1477,7 +1477,7 @@ setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
 -spec setName(This, Name) -> 'ok' when
 	This::wxWindow(), Name::unicode:chardata().
 setName(#wx_ref{type=ThisT,ref=ThisRef},Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxWindow),
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:cast(?wxWindow_SetName,
@@ -1716,7 +1716,7 @@ setThemeEnabled(#wx_ref{type=ThisT,ref=ThisRef},EnableTheme)
       (This, Tip) -> 'ok' when
 	This::wxWindow(), Tip::wxToolTip:wxToolTip().
 setToolTip(#wx_ref{type=ThisT,ref=ThisRef},Tip)
- when is_list(Tip) ->
+ when ?is_chardata(Tip) ->
   ?CLASS(ThisT,wxWindow),
   Tip_UC = unicode:characters_to_binary([Tip,0]),
   wxe_util:cast(?wxWindow_SetToolTip_1_0,

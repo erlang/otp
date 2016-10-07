@@ -272,7 +272,7 @@ ensureVisible(#wx_ref{type=ThisT,ref=ThisRef},Item)
 	This::wxListCtrl(), Start::integer(), Str::unicode:chardata().
 
 findItem(This,Start,Str)
- when is_record(This, wx_ref),is_integer(Start),is_list(Str) ->
+ when is_record(This, wx_ref),is_integer(Start),?is_chardata(Str) ->
   findItem(This,Start,Str, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlfinditem">external documentation</a>.
@@ -286,7 +286,7 @@ findItem(This,Start,Str)
       (This, Start, Pt, Direction) -> integer() when
 	This::wxListCtrl(), Start::integer(), Pt::{X::integer(), Y::integer()}, Direction::integer().
 findItem(#wx_ref{type=ThisT,ref=ThisRef},Start,Str, Options)
- when is_integer(Start),is_list(Str),is_list(Options) ->
+ when is_integer(Start),?is_chardata(Str),is_list(Options) ->
   ?CLASS(ThisT,wxListCtrl),
   Str_UC = unicode:characters_to_binary([Str,0]),
   MOpts = fun({partial, Partial}, Acc) -> [<<1:32/?UI,(wxe_util:from_bool(Partial)):32/?UI>>|Acc];
@@ -540,7 +540,7 @@ hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
 	This::wxListCtrl(), Col::integer(), Info::wxListItem:wxListItem().
 
 insertColumn(This,Col,Heading)
- when is_record(This, wx_ref),is_integer(Col),is_list(Heading) ->
+ when is_record(This, wx_ref),is_integer(Col),?is_chardata(Heading) ->
   insertColumn(This,Col,Heading, []);
 insertColumn(#wx_ref{type=ThisT,ref=ThisRef},Col,#wx_ref{type=InfoT,ref=InfoRef})
  when is_integer(Col) ->
@@ -555,7 +555,7 @@ insertColumn(#wx_ref{type=ThisT,ref=ThisRef},Col,#wx_ref{type=InfoT,ref=InfoRef}
 	Option :: {'format', integer()}
 		 | {'width', integer()}.
 insertColumn(#wx_ref{type=ThisT,ref=ThisRef},Col,Heading, Options)
- when is_integer(Col),is_list(Heading),is_list(Options) ->
+ when is_integer(Col),?is_chardata(Heading),is_list(Options) ->
   ?CLASS(ThisT,wxListCtrl),
   Heading_UC = unicode:characters_to_binary([Heading,0]),
   MOpts = fun({format, Format}, Acc) -> [<<1:32/?UI,Format:32/?UI>>|Acc];
@@ -589,7 +589,7 @@ insertItem(#wx_ref{type=ThisT,ref=ThisRef},Index,ImageIndex)
   wxe_util:call(?wxListCtrl_InsertItem_2_0,
   <<ThisRef:32/?UI,Index:32/?UI,ImageIndex:32/?UI>>);
 insertItem(#wx_ref{type=ThisT,ref=ThisRef},Index,Label)
- when is_integer(Index),is_list(Label) ->
+ when is_integer(Index),?is_chardata(Label) ->
   ?CLASS(ThisT,wxListCtrl),
   Label_UC = unicode:characters_to_binary([Label,0]),
   wxe_util:call(?wxListCtrl_InsertItem_2_1,
@@ -599,7 +599,7 @@ insertItem(#wx_ref{type=ThisT,ref=ThisRef},Index,Label)
 -spec insertItem(This, Index, Label, ImageIndex) -> integer() when
 	This::wxListCtrl(), Index::integer(), Label::unicode:chardata(), ImageIndex::integer().
 insertItem(#wx_ref{type=ThisT,ref=ThisRef},Index,Label,ImageIndex)
- when is_integer(Index),is_list(Label),is_integer(ImageIndex) ->
+ when is_integer(Index),?is_chardata(Label),is_integer(ImageIndex) ->
   ?CLASS(ThisT,wxListCtrl),
   Label_UC = unicode:characters_to_binary([Label,0]),
   wxe_util:call(?wxListCtrl_InsertItem_3,
@@ -684,7 +684,7 @@ setItem(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=InfoT,ref=InfoRef}) ->
 	This::wxListCtrl(), Index::integer(), Col::integer(), Label::unicode:chardata().
 
 setItem(This,Index,Col,Label)
- when is_record(This, wx_ref),is_integer(Index),is_integer(Col),is_list(Label) ->
+ when is_record(This, wx_ref),is_integer(Index),is_integer(Col),?is_chardata(Label) ->
   setItem(This,Index,Col,Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetitem">external documentation</a>.
@@ -692,7 +692,7 @@ setItem(This,Index,Col,Label)
 	This::wxListCtrl(), Index::integer(), Col::integer(), Label::unicode:chardata(),
 	Option :: {'imageId', integer()}.
 setItem(#wx_ref{type=ThisT,ref=ThisRef},Index,Col,Label, Options)
- when is_integer(Index),is_integer(Col),is_list(Label),is_list(Options) ->
+ when is_integer(Index),is_integer(Col),?is_chardata(Label),is_list(Options) ->
   ?CLASS(ThisT,wxListCtrl),
   Label_UC = unicode:characters_to_binary([Label,0]),
   MOpts = fun({imageId, ImageId}, Acc) -> [<<1:32/?UI,ImageId:32/?UI>>|Acc];
@@ -790,7 +790,7 @@ setItemState(#wx_ref{type=ThisT,ref=ThisRef},Item,State,StateMask)
 -spec setItemText(This, Item, Str) -> 'ok' when
 	This::wxListCtrl(), Item::integer(), Str::unicode:chardata().
 setItemText(#wx_ref{type=ThisT,ref=ThisRef},Item,Str)
- when is_integer(Item),is_list(Str) ->
+ when is_integer(Item),?is_chardata(Str) ->
   ?CLASS(ThisT,wxListCtrl),
   Str_UC = unicode:characters_to_binary([Str,0]),
   wxe_util:cast(?wxListCtrl_SetItemText,

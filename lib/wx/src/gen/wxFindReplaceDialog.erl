@@ -99,7 +99,7 @@ new() ->
 	Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::unicode:chardata().
 
 new(Parent,Data,Title)
- when is_record(Parent, wx_ref),is_record(Data, wx_ref),is_list(Title) ->
+ when is_record(Parent, wx_ref),is_record(Data, wx_ref),?is_chardata(Title) ->
   new(Parent,Data,Title, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfindreplacedialog.html#wxfindreplacedialogwxfindreplacedialog">external documentation</a>.
@@ -107,7 +107,7 @@ new(Parent,Data,Title)
 	Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::unicode:chardata(),
 	Option :: {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=DataT,ref=DataRef},Title, Options)
- when is_list(Title),is_list(Options) ->
+ when ?is_chardata(Title),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
   ?CLASS(DataT,wxFindReplaceData),
   Title_UC = unicode:characters_to_binary([Title,0]),
@@ -122,7 +122,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=DataT,ref=DataRef},Title, O
 	This::wxFindReplaceDialog(), Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::unicode:chardata().
 
 create(This,Parent,Data,Title)
- when is_record(This, wx_ref),is_record(Parent, wx_ref),is_record(Data, wx_ref),is_list(Title) ->
+ when is_record(This, wx_ref),is_record(Parent, wx_ref),is_record(Data, wx_ref),?is_chardata(Title) ->
   create(This,Parent,Data,Title, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfindreplacedialog.html#wxfindreplacedialogcreate">external documentation</a>.
@@ -130,7 +130,7 @@ create(This,Parent,Data,Title)
 	This::wxFindReplaceDialog(), Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::unicode:chardata(),
 	Option :: {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=DataT,ref=DataRef},Title, Options)
- when is_list(Title),is_list(Options) ->
+ when ?is_chardata(Title),is_list(Options) ->
   ?CLASS(ThisT,wxFindReplaceDialog),
   ?CLASS(ParentT,wxWindow),
   ?CLASS(DataT,wxFindReplaceData),

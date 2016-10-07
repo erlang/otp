@@ -120,7 +120,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Winid, Options)
 	This::wxNotebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
 addPage(This,Page,Text)
- when is_record(This, wx_ref),is_record(Page, wx_ref),is_list(Text) ->
+ when is_record(This, wx_ref),is_record(Page, wx_ref),?is_chardata(Text) ->
   addPage(This,Page,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookaddpage">external documentation</a>.
@@ -129,7 +129,7 @@ addPage(This,Page,Text)
 	Option :: {'bSelect', boolean()}
 		 | {'imageId', integer()}.
 addPage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PageT,ref=PageRef},Text, Options)
- when is_list(Text),is_list(Options) ->
+ when ?is_chardata(Text),is_list(Options) ->
   ?CLASS(ThisT,wxNotebook),
   ?CLASS(PageT,wxWindow),
   Text_UC = unicode:characters_to_binary([Text,0]),
@@ -312,7 +312,7 @@ hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
 	This::wxNotebook(), Position::integer(), Win::wxWindow:wxWindow(), StrText::unicode:chardata().
 
 insertPage(This,Position,Win,StrText)
- when is_record(This, wx_ref),is_integer(Position),is_record(Win, wx_ref),is_list(StrText) ->
+ when is_record(This, wx_ref),is_integer(Position),is_record(Win, wx_ref),?is_chardata(StrText) ->
   insertPage(This,Position,Win,StrText, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookinsertpage">external documentation</a>.
@@ -321,7 +321,7 @@ insertPage(This,Position,Win,StrText)
 	Option :: {'bSelect', boolean()}
 		 | {'imageId', integer()}.
 insertPage(#wx_ref{type=ThisT,ref=ThisRef},Position,#wx_ref{type=WinT,ref=WinRef},StrText, Options)
- when is_integer(Position),is_list(StrText),is_list(Options) ->
+ when is_integer(Position),?is_chardata(StrText),is_list(Options) ->
   ?CLASS(ThisT,wxNotebook),
   ?CLASS(WinT,wxWindow),
   StrText_UC = unicode:characters_to_binary([StrText,0]),
@@ -372,7 +372,7 @@ setPageImage(#wx_ref{type=ThisT,ref=ThisRef},NPage,NImage)
 -spec setPageText(This, NPage, StrText) -> boolean() when
 	This::wxNotebook(), NPage::integer(), StrText::unicode:chardata().
 setPageText(#wx_ref{type=ThisT,ref=ThisRef},NPage,StrText)
- when is_integer(NPage),is_list(StrText) ->
+ when is_integer(NPage),?is_chardata(StrText) ->
   ?CLASS(ThisT,wxNotebook),
   StrText_UC = unicode:characters_to_binary([StrText,0]),
   wxe_util:call(?wxNotebook_SetPageText,

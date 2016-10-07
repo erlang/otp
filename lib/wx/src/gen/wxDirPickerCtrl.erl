@@ -167,7 +167,7 @@ getPath(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec setPath(This, Str) -> 'ok' when
 	This::wxDirPickerCtrl(), Str::unicode:chardata().
 setPath(#wx_ref{type=ThisT,ref=ThisRef},Str)
- when is_list(Str) ->
+ when ?is_chardata(Str) ->
   ?CLASS(ThisT,wxDirPickerCtrl),
   Str_UC = unicode:characters_to_binary([Str,0]),
   wxe_util:cast(?wxDirPickerCtrl_SetPath,

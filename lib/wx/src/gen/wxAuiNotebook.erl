@@ -121,7 +121,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
 	This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Caption::unicode:chardata().
 
 addPage(This,Page,Caption)
- when is_record(This, wx_ref),is_record(Page, wx_ref),is_list(Caption) ->
+ when is_record(This, wx_ref),is_record(Page, wx_ref),?is_chardata(Caption) ->
   addPage(This,Page,Caption, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookaddpage">external documentation</a>.
@@ -130,7 +130,7 @@ addPage(This,Page,Caption)
 	Option :: {'select', boolean()}
 		 | {'bitmap', wxBitmap:wxBitmap()}.
 addPage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PageT,ref=PageRef},Caption, Options)
- when is_list(Caption),is_list(Options) ->
+ when ?is_chardata(Caption),is_list(Options) ->
   ?CLASS(ThisT,wxAuiNotebook),
   ?CLASS(PageT,wxWindow),
   Caption_UC = unicode:characters_to_binary([Caption,0]),
@@ -243,7 +243,7 @@ getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
 	This::wxAuiNotebook(), Page_idx::integer(), Page::wxWindow:wxWindow(), Caption::unicode:chardata().
 
 insertPage(This,Page_idx,Page,Caption)
- when is_record(This, wx_ref),is_integer(Page_idx),is_record(Page, wx_ref),is_list(Caption) ->
+ when is_record(This, wx_ref),is_integer(Page_idx),is_record(Page, wx_ref),?is_chardata(Caption) ->
   insertPage(This,Page_idx,Page,Caption, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookinsertpage">external documentation</a>.
@@ -252,7 +252,7 @@ insertPage(This,Page_idx,Page,Caption)
 	Option :: {'select', boolean()}
 		 | {'bitmap', wxBitmap:wxBitmap()}.
 insertPage(#wx_ref{type=ThisT,ref=ThisRef},Page_idx,#wx_ref{type=PageT,ref=PageRef},Caption, Options)
- when is_integer(Page_idx),is_list(Caption),is_list(Options) ->
+ when is_integer(Page_idx),?is_chardata(Caption),is_list(Options) ->
   ?CLASS(ThisT,wxAuiNotebook),
   ?CLASS(PageT,wxWindow),
   Caption_UC = unicode:characters_to_binary([Caption,0]),
@@ -304,7 +304,7 @@ setPageBitmap(#wx_ref{type=ThisT,ref=ThisRef},Page,#wx_ref{type=BitmapT,ref=Bitm
 -spec setPageText(This, Page, Text) -> boolean() when
 	This::wxAuiNotebook(), Page::integer(), Text::unicode:chardata().
 setPageText(#wx_ref{type=ThisT,ref=ThisRef},Page,Text)
- when is_integer(Page),is_list(Text) ->
+ when is_integer(Page),?is_chardata(Text) ->
   ?CLASS(ThisT,wxAuiNotebook),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:call(?wxAuiNotebook_SetPageText,

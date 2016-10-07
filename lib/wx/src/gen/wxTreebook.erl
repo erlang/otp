@@ -121,7 +121,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
 	This::wxTreebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
 addPage(This,Page,Text)
- when is_record(This, wx_ref),is_record(Page, wx_ref),is_list(Text) ->
+ when is_record(This, wx_ref),is_record(Page, wx_ref),?is_chardata(Text) ->
   addPage(This,Page,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookaddpage">external documentation</a>.
@@ -130,7 +130,7 @@ addPage(This,Page,Text)
 	Option :: {'bSelect', boolean()}
 		 | {'imageId', integer()}.
 addPage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PageT,ref=PageRef},Text, Options)
- when is_list(Text),is_list(Options) ->
+ when ?is_chardata(Text),is_list(Options) ->
   ?CLASS(ThisT,wxTreebook),
   ?CLASS(PageT,wxWindow),
   Text_UC = unicode:characters_to_binary([Text,0]),
@@ -327,7 +327,7 @@ hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
 	This::wxTreebook(), Pos::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
 insertPage(This,Pos,Page,Text)
- when is_record(This, wx_ref),is_integer(Pos),is_record(Page, wx_ref),is_list(Text) ->
+ when is_record(This, wx_ref),is_integer(Pos),is_record(Page, wx_ref),?is_chardata(Text) ->
   insertPage(This,Pos,Page,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookinsertpage">external documentation</a>.
@@ -336,7 +336,7 @@ insertPage(This,Pos,Page,Text)
 	Option :: {'bSelect', boolean()}
 		 | {'imageId', integer()}.
 insertPage(#wx_ref{type=ThisT,ref=ThisRef},Pos,#wx_ref{type=PageT,ref=PageRef},Text, Options)
- when is_integer(Pos),is_list(Text),is_list(Options) ->
+ when is_integer(Pos),?is_chardata(Text),is_list(Options) ->
   ?CLASS(ThisT,wxTreebook),
   ?CLASS(PageT,wxWindow),
   Text_UC = unicode:characters_to_binary([Text,0]),
@@ -352,7 +352,7 @@ insertPage(#wx_ref{type=ThisT,ref=ThisRef},Pos,#wx_ref{type=PageT,ref=PageRef},T
 	This::wxTreebook(), Pos::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
 insertSubPage(This,Pos,Page,Text)
- when is_record(This, wx_ref),is_integer(Pos),is_record(Page, wx_ref),is_list(Text) ->
+ when is_record(This, wx_ref),is_integer(Pos),is_record(Page, wx_ref),?is_chardata(Text) ->
   insertSubPage(This,Pos,Page,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookinsertsubpage">external documentation</a>.
@@ -361,7 +361,7 @@ insertSubPage(This,Pos,Page,Text)
 	Option :: {'bSelect', boolean()}
 		 | {'imageId', integer()}.
 insertSubPage(#wx_ref{type=ThisT,ref=ThisRef},Pos,#wx_ref{type=PageT,ref=PageRef},Text, Options)
- when is_integer(Pos),is_list(Text),is_list(Options) ->
+ when is_integer(Pos),?is_chardata(Text),is_list(Options) ->
   ?CLASS(ThisT,wxTreebook),
   ?CLASS(PageT,wxWindow),
   Text_UC = unicode:characters_to_binary([Text,0]),
@@ -403,7 +403,7 @@ setPageImage(#wx_ref{type=ThisT,ref=ThisRef},N,ImageId)
 -spec setPageText(This, N, StrText) -> boolean() when
 	This::wxTreebook(), N::integer(), StrText::unicode:chardata().
 setPageText(#wx_ref{type=ThisT,ref=ThisRef},N,StrText)
- when is_integer(N),is_list(StrText) ->
+ when is_integer(N),?is_chardata(StrText) ->
   ?CLASS(ThisT,wxTreebook),
   StrText_UC = unicode:characters_to_binary([StrText,0]),
   wxe_util:call(?wxTreebook_SetPageText,

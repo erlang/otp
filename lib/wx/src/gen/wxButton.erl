@@ -163,7 +163,7 @@ setDefault(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec setLabel(This, Label) -> 'ok' when
 	This::wxButton(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
- when is_list(Label) ->
+ when ?is_chardata(Label) ->
   ?CLASS(ThisT,wxButton),
   Label_UC = unicode:characters_to_binary([Label,0]),
   wxe_util:cast(?wxButton_SetLabel,

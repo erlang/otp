@@ -126,7 +126,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
 -spec appendText(This, Text) -> 'ok' when
 	This::wxTextCtrl(), Text::unicode:chardata().
 appendText(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxTextCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxTextCtrl_AppendText,
@@ -238,7 +238,7 @@ discardEdits(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec changeValue(This, Value) -> 'ok' when
 	This::wxTextCtrl(), Value::unicode:chardata().
 changeValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
- when is_list(Value) ->
+ when ?is_chardata(Value) ->
   ?CLASS(ThisT,wxTextCtrl),
   Value_UC = unicode:characters_to_binary([Value,0]),
   wxe_util:cast(?wxTextCtrl_ChangeValue,
@@ -383,7 +383,7 @@ isSingleLine(#wx_ref{type=ThisT,ref=ThisRef}) ->
 	This::wxTextCtrl(), File::unicode:chardata().
 
 loadFile(This,File)
- when is_record(This, wx_ref),is_list(File) ->
+ when is_record(This, wx_ref),?is_chardata(File) ->
   loadFile(This,File, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextctrl.html#wxtextctrlloadfile">external documentation</a>.
@@ -391,7 +391,7 @@ loadFile(This,File)
 	This::wxTextCtrl(), File::unicode:chardata(),
 	Option :: {'fileType', integer()}.
 loadFile(#wx_ref{type=ThisT,ref=ThisRef},File, Options)
- when is_list(File),is_list(Options) ->
+ when ?is_chardata(File),is_list(Options) ->
   ?CLASS(ThisT,wxTextCtrl),
   File_UC = unicode:characters_to_binary([File,0]),
   MOpts = fun({fileType, FileType}, Acc) -> [<<1:32/?UI,FileType:32/?UI>>|Acc];
@@ -447,7 +447,7 @@ remove(#wx_ref{type=ThisT,ref=ThisRef},From,To)
 -spec replace(This, From, To, Value) -> 'ok' when
 	This::wxTextCtrl(), From::integer(), To::integer(), Value::unicode:chardata().
 replace(#wx_ref{type=ThisT,ref=ThisRef},From,To,Value)
- when is_integer(From),is_integer(To),is_list(Value) ->
+ when is_integer(From),is_integer(To),?is_chardata(Value) ->
   ?CLASS(ThisT,wxTextCtrl),
   Value_UC = unicode:characters_to_binary([Value,0]),
   wxe_util:cast(?wxTextCtrl_Replace,
@@ -543,7 +543,7 @@ setStyle(#wx_ref{type=ThisT,ref=ThisRef},Start,End,#wx_ref{type=StyleT,ref=Style
 -spec setValue(This, Value) -> 'ok' when
 	This::wxTextCtrl(), Value::unicode:chardata().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
- when is_list(Value) ->
+ when ?is_chardata(Value) ->
   ?CLASS(ThisT,wxTextCtrl),
   Value_UC = unicode:characters_to_binary([Value,0]),
   wxe_util:cast(?wxTextCtrl_SetValue,
@@ -570,7 +570,7 @@ undo(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec writeText(This, Text) -> 'ok' when
 	This::wxTextCtrl(), Text::unicode:chardata().
 writeText(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxTextCtrl),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxTextCtrl_WriteText,

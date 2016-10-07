@@ -127,7 +127,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
 -spec appendToPage(This, Source) -> boolean() when
 	This::wxHtmlWindow(), Source::unicode:chardata().
 appendToPage(#wx_ref{type=ThisT,ref=ThisRef},Source)
- when is_list(Source) ->
+ when ?is_chardata(Source) ->
   ?CLASS(ThisT,wxHtmlWindow),
   Source_UC = unicode:characters_to_binary([Source,0]),
   wxe_util:call(?wxHtmlWindow_AppendToPage,
@@ -209,7 +209,7 @@ historyForward(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec loadFile(This, Filename) -> boolean() when
 	This::wxHtmlWindow(), Filename::unicode:chardata().
 loadFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
- when is_list(Filename) ->
+ when ?is_chardata(Filename) ->
   ?CLASS(ThisT,wxHtmlWindow),
   Filename_UC = unicode:characters_to_binary([Filename,0]),
   wxe_util:call(?wxHtmlWindow_LoadFile,
@@ -219,7 +219,7 @@ loadFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
 -spec loadPage(This, Location) -> boolean() when
 	This::wxHtmlWindow(), Location::unicode:chardata().
 loadPage(#wx_ref{type=ThisT,ref=ThisRef},Location)
- when is_list(Location) ->
+ when ?is_chardata(Location) ->
   ?CLASS(ThisT,wxHtmlWindow),
   Location_UC = unicode:characters_to_binary([Location,0]),
   wxe_util:call(?wxHtmlWindow_LoadPage,
@@ -273,7 +273,7 @@ setBorders(#wx_ref{type=ThisT,ref=ThisRef},B)
 	This::wxHtmlWindow(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata().
 
 setFonts(This,Normal_face,Fixed_face)
- when is_record(This, wx_ref),is_list(Normal_face),is_list(Fixed_face) ->
+ when is_record(This, wx_ref),?is_chardata(Normal_face),?is_chardata(Fixed_face) ->
   setFonts(This,Normal_face,Fixed_face, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowsetfonts">external documentation</a>.
@@ -281,7 +281,7 @@ setFonts(This,Normal_face,Fixed_face)
 	This::wxHtmlWindow(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata(),
 	Option :: {'sizes', integer()}.
 setFonts(#wx_ref{type=ThisT,ref=ThisRef},Normal_face,Fixed_face, Options)
- when is_list(Normal_face),is_list(Fixed_face),is_list(Options) ->
+ when ?is_chardata(Normal_face),?is_chardata(Fixed_face),is_list(Options) ->
   ?CLASS(ThisT,wxHtmlWindow),
   Normal_face_UC = unicode:characters_to_binary([Normal_face,0]),
   Fixed_face_UC = unicode:characters_to_binary([Fixed_face,0]),
@@ -295,7 +295,7 @@ setFonts(#wx_ref{type=ThisT,ref=ThisRef},Normal_face,Fixed_face, Options)
 -spec setPage(This, Source) -> boolean() when
 	This::wxHtmlWindow(), Source::unicode:chardata().
 setPage(#wx_ref{type=ThisT,ref=ThisRef},Source)
- when is_list(Source) ->
+ when ?is_chardata(Source) ->
   ?CLASS(ThisT,wxHtmlWindow),
   Source_UC = unicode:characters_to_binary([Source,0]),
   wxe_util:call(?wxHtmlWindow_SetPage,
@@ -305,7 +305,7 @@ setPage(#wx_ref{type=ThisT,ref=ThisRef},Source)
 -spec setRelatedFrame(This, Frame, Format) -> 'ok' when
 	This::wxHtmlWindow(), Frame::wxFrame:wxFrame(), Format::unicode:chardata().
 setRelatedFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef},Format)
- when is_list(Format) ->
+ when ?is_chardata(Format) ->
   ?CLASS(ThisT,wxHtmlWindow),
   ?CLASS(FrameT,wxFrame),
   Format_UC = unicode:characters_to_binary([Format,0]),

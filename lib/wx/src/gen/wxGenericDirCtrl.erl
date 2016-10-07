@@ -175,7 +175,7 @@ collapseTree(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec expandPath(This, Path) -> boolean() when
 	This::wxGenericDirCtrl(), Path::unicode:chardata().
 expandPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
- when is_list(Path) ->
+ when ?is_chardata(Path) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
   Path_UC = unicode:characters_to_binary([Path,0]),
   wxe_util:call(?wxGenericDirCtrl_ExpandPath,
@@ -249,7 +249,7 @@ reCreateTree(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec setDefaultPath(This, Path) -> 'ok' when
 	This::wxGenericDirCtrl(), Path::unicode:chardata().
 setDefaultPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
- when is_list(Path) ->
+ when ?is_chardata(Path) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
   Path_UC = unicode:characters_to_binary([Path,0]),
   wxe_util:cast(?wxGenericDirCtrl_SetDefaultPath,
@@ -259,7 +259,7 @@ setDefaultPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
 -spec setFilter(This, Filter) -> 'ok' when
 	This::wxGenericDirCtrl(), Filter::unicode:chardata().
 setFilter(#wx_ref{type=ThisT,ref=ThisRef},Filter)
- when is_list(Filter) ->
+ when ?is_chardata(Filter) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
   Filter_UC = unicode:characters_to_binary([Filter,0]),
   wxe_util:cast(?wxGenericDirCtrl_SetFilter,
@@ -278,7 +278,7 @@ setFilterIndex(#wx_ref{type=ThisT,ref=ThisRef},N)
 -spec setPath(This, Path) -> 'ok' when
 	This::wxGenericDirCtrl(), Path::unicode:chardata().
 setPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
- when is_list(Path) ->
+ when ?is_chardata(Path) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
   Path_UC = unicode:characters_to_binary([Path,0]),
   wxe_util:cast(?wxGenericDirCtrl_SetPath,

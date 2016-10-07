@@ -142,7 +142,7 @@ addTool(This,Toolid,Bitmap)
 		 | {'longHelpString', unicode:chardata()}.
 
 addTool(This,Toolid,Label,Bitmap)
- when is_record(This, wx_ref),is_integer(Toolid),is_list(Label),is_record(Bitmap, wx_ref) ->
+ when is_record(This, wx_ref),is_integer(Toolid),?is_chardata(Label),is_record(Bitmap, wx_ref) ->
   addTool(This,Toolid,Label,Bitmap, []);
 
 addTool(This,Toolid,Bitmap,BmpDisabled)
@@ -187,10 +187,10 @@ addTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,#wx_ref{type=BitmapT,ref=BitmapRe
 		 | {'longHelpString', unicode:chardata()}.
 
 addTool(This,Toolid,Label,Bitmap,BmpDisabled)
- when is_record(This, wx_ref),is_integer(Toolid),is_list(Label),is_record(Bitmap, wx_ref),is_record(BmpDisabled, wx_ref) ->
+ when is_record(This, wx_ref),is_integer(Toolid),?is_chardata(Label),is_record(Bitmap, wx_ref),is_record(BmpDisabled, wx_ref) ->
   addTool(This,Toolid,Label,Bitmap,BmpDisabled, []);
 addTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,Label,#wx_ref{type=BitmapT,ref=BitmapRef}, Options)
- when is_integer(Toolid),is_list(Label),is_list(Options) ->
+ when is_integer(Toolid),?is_chardata(Label),is_list(Options) ->
   ?CLASS(ThisT,wxToolBar),
   Label_UC = unicode:characters_to_binary([Label,0]),
   ?CLASS(BitmapT,wxBitmap),
@@ -237,7 +237,7 @@ addTool(This,Toolid,Bitmap,BmpDisabled,Toggle,XPos)
  when is_record(This, wx_ref),is_integer(Toolid),is_record(Bitmap, wx_ref),is_record(BmpDisabled, wx_ref),is_boolean(Toggle),is_integer(XPos) ->
   addTool(This,Toolid,Bitmap,BmpDisabled,Toggle,XPos, []);
 addTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,Label,#wx_ref{type=BitmapT,ref=BitmapRef},#wx_ref{type=BmpDisabledT,ref=BmpDisabledRef}, Options)
- when is_integer(Toolid),is_list(Label),is_list(Options) ->
+ when is_integer(Toolid),?is_chardata(Label),is_list(Options) ->
   ?CLASS(ThisT,wxToolBar),
   Label_UC = unicode:characters_to_binary([Label,0]),
   ?CLASS(BitmapT,wxBitmap),
@@ -277,7 +277,7 @@ addTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,#wx_ref{type=BitmapT,ref=BitmapRe
 	This::wxToolBar(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap().
 
 addCheckTool(This,Toolid,Label,Bitmap)
- when is_record(This, wx_ref),is_integer(Toolid),is_list(Label),is_record(Bitmap, wx_ref) ->
+ when is_record(This, wx_ref),is_integer(Toolid),?is_chardata(Label),is_record(Bitmap, wx_ref) ->
   addCheckTool(This,Toolid,Label,Bitmap, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoolbar.html#wxtoolbaraddchecktool">external documentation</a>.
@@ -288,7 +288,7 @@ addCheckTool(This,Toolid,Label,Bitmap)
 		 | {'longHelp', unicode:chardata()}
 		 | {'data', wx:wx_object()}.
 addCheckTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,Label,#wx_ref{type=BitmapT,ref=BitmapRef}, Options)
- when is_integer(Toolid),is_list(Label),is_list(Options) ->
+ when is_integer(Toolid),?is_chardata(Label),is_list(Options) ->
   ?CLASS(ThisT,wxToolBar),
   Label_UC = unicode:characters_to_binary([Label,0]),
   ?CLASS(BitmapT,wxBitmap),
@@ -306,7 +306,7 @@ addCheckTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,Label,#wx_ref{type=BitmapT,r
 	This::wxToolBar(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap().
 
 addRadioTool(This,Toolid,Label,Bitmap)
- when is_record(This, wx_ref),is_integer(Toolid),is_list(Label),is_record(Bitmap, wx_ref) ->
+ when is_record(This, wx_ref),is_integer(Toolid),?is_chardata(Label),is_record(Bitmap, wx_ref) ->
   addRadioTool(This,Toolid,Label,Bitmap, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoolbar.html#wxtoolbaraddradiotool">external documentation</a>.
@@ -317,7 +317,7 @@ addRadioTool(This,Toolid,Label,Bitmap)
 		 | {'longHelp', unicode:chardata()}
 		 | {'data', wx:wx_object()}.
 addRadioTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,Label,#wx_ref{type=BitmapT,ref=BitmapRef}, Options)
- when is_integer(Toolid),is_list(Label),is_list(Options) ->
+ when is_integer(Toolid),?is_chardata(Label),is_list(Options) ->
   ?CLASS(ThisT,wxToolBar),
   Label_UC = unicode:characters_to_binary([Label,0]),
   ?CLASS(BitmapT,wxBitmap),
@@ -545,7 +545,7 @@ insertTool(This,Pos,Toolid,Bitmap)
 		 | {'longHelp', unicode:chardata()}.
 
 insertTool(This,Pos,Toolid,Label,Bitmap)
- when is_record(This, wx_ref),is_integer(Pos),is_integer(Toolid),is_list(Label),is_record(Bitmap, wx_ref) ->
+ when is_record(This, wx_ref),is_integer(Pos),is_integer(Toolid),?is_chardata(Label),is_record(Bitmap, wx_ref) ->
   insertTool(This,Pos,Toolid,Label,Bitmap, []);
 insertTool(#wx_ref{type=ThisT,ref=ThisRef},Pos,Toolid,#wx_ref{type=BitmapT,ref=BitmapRef}, Options)
  when is_integer(Pos),is_integer(Toolid),is_list(Options) ->
@@ -571,7 +571,7 @@ insertTool(#wx_ref{type=ThisT,ref=ThisRef},Pos,Toolid,#wx_ref{type=BitmapT,ref=B
 		 | {'longHelp', unicode:chardata()}
 		 | {'clientData', wx:wx_object()}.
 insertTool(#wx_ref{type=ThisT,ref=ThisRef},Pos,Toolid,Label,#wx_ref{type=BitmapT,ref=BitmapRef}, Options)
- when is_integer(Pos),is_integer(Toolid),is_list(Label),is_list(Options) ->
+ when is_integer(Pos),is_integer(Toolid),?is_chardata(Label),is_list(Options) ->
   ?CLASS(ThisT,wxToolBar),
   Label_UC = unicode:characters_to_binary([Label,0]),
   ?CLASS(BitmapT,wxBitmap),
@@ -624,7 +624,7 @@ setToolBitmapSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
 -spec setToolLongHelp(This, Toolid, HelpString) -> 'ok' when
 	This::wxToolBar(), Toolid::integer(), HelpString::unicode:chardata().
 setToolLongHelp(#wx_ref{type=ThisT,ref=ThisRef},Toolid,HelpString)
- when is_integer(Toolid),is_list(HelpString) ->
+ when is_integer(Toolid),?is_chardata(HelpString) ->
   ?CLASS(ThisT,wxToolBar),
   HelpString_UC = unicode:characters_to_binary([HelpString,0]),
   wxe_util:cast(?wxToolBar_SetToolLongHelp,
@@ -643,7 +643,7 @@ setToolPacking(#wx_ref{type=ThisT,ref=ThisRef},Packing)
 -spec setToolShortHelp(This, Id, HelpString) -> 'ok' when
 	This::wxToolBar(), Id::integer(), HelpString::unicode:chardata().
 setToolShortHelp(#wx_ref{type=ThisT,ref=ThisRef},Id,HelpString)
- when is_integer(Id),is_list(HelpString) ->
+ when is_integer(Id),?is_chardata(HelpString) ->
   ?CLASS(ThisT,wxToolBar),
   HelpString_UC = unicode:characters_to_binary([HelpString,0]),
   wxe_util:cast(?wxToolBar_SetToolShortHelp,
