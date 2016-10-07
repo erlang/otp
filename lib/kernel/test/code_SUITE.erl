@@ -487,9 +487,10 @@ load_binary(Config) when is_list(Config) ->
 upgrade(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
 
-    T = [beam, hipe],
-    %%T = [beam],
-    %%T = [hipe],
+    T = case erlang:system_info(hipe_architecture) of
+            undefined -> [beam];
+            _ -> [beam,hipe]
+        end,
 
     [upgrade_do(DataDir, Client, T) || Client <- T],
     ok.

@@ -60,7 +60,6 @@ run(Dir, Upgradee1, Upgradee2, Other1, Other2) ->
 
     Env1 = "Env1",
     put(loc1_fun, upgradee:get_local_fun(Env1)),
-    erlang:display(sverk_break),
     ?line {1,Env1} = (get(loc1_fun))(),
 
     put(exp1exp2_fun, upgradee:get_exp1exp2_fun()),
