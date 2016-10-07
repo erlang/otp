@@ -1846,10 +1846,13 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
 	    httpc_manager:update_session(ProfileName, SessionId, Pos, Value)
 	end
     catch
-	error:undef -> % This could happen during code upgrade
+	error:undef -> %% This could happen during code upgrade
 	    Session2 = erlang:setelement(Pos, Session, Value),
 	    insert_session(Session2, ProfileName);
-	  T:E ->
+	error:badarg ->
+	    exit(normal); %% Manager has been shutdown
+	T:E -> 
+	    %% Unexpected this must be an error!  
             Stacktrace = erlang:get_stacktrace(),
             error_logger:error_msg("Failed updating session: "
                                    "~n   ProfileName: ~p"
