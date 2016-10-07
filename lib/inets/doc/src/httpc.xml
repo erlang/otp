@@ -68,7 +68,7 @@
       this module:</p>
     <p><c>boolean() = true | false</c></p>
     <p><c>string()</c> = list of ASCII characters</p>
-    <p><c>request_id() = ref()</c></p>
+    <p><c>request_id() = reference()</c></p>
     <p><c>profile() = atom()</c></p>
     <p><c>path() = string()</c> representing a file path or directory path</p>
     <p><c>ip_address()</c> = See the
