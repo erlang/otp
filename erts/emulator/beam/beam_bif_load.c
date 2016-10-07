@@ -149,6 +149,9 @@ BIF_RETTYPE code_is_module_native_1(BIF_ALIST_1)
 
 BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
 {
+#if !defined(HIPE)
+    BIF_ERROR(BIF_P, EXC_NOTSUP);
+#else
     Module* modp;
     Eterm res, mod;
 
@@ -181,11 +184,9 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     if (res == mod) {
 	erts_end_staging_code_ix();
 	erts_commit_staging_code_ix();
-#ifdef HIPE
         if (!modp)
 	    modp = erts_get_module(mod, erts_active_code_ix());
         hipe_redirect_to_module(modp);
-#endif
     }
     else {
 	erts_abort_staging_code_ix();
@@ -194,6 +195,7 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_release_code_write_permission();
     return res;
+#endif
 }
 
 BIF_RETTYPE
@@ -1069,9 +1071,11 @@ check_process_code(Process* rp, Module* modp, int *redsp, int fcalls)
     BeamInstr* start;
     char* mod_start;
     Uint mod_size;
+    Eterm* sp;
+#ifdef HIPE
     void *nat_start = NULL;
     Uint nat_size = 0;
-    Eterm* sp;
+#endif
 
     *redsp += 1;
 

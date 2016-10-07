@@ -481,10 +481,12 @@ static void free_loader_state(Binary* magic);
 static ErlHeapFragment* new_literal_fragment(Uint size);
 static void free_literal_fragment(ErlHeapFragment*);
 static void loader_state_dtor(Binary* magic);
+#ifdef HIPE
 static Eterm stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 				  Eterm group_leader, Eterm module,
 				  BeamCodeHeader* code_hdr, Uint size,
 				  HipeModule *hipe_code);
+#endif
 static int init_iff_file(LoaderState* stp, byte* code, Uint size);
 static int scan_iff_file(LoaderState* stp, Uint* chunk_types,
 			 Uint num_types, Uint num_mandatory);
@@ -539,8 +541,6 @@ static Eterm compilation_info_for_module(Process* p, BeamCodeHeader*);
 static Eterm md5_of_module(Process* p, BeamCodeHeader*);
 static Eterm has_native(BeamCodeHeader*);
 static Eterm native_addresses(Process* p, BeamCodeHeader*);
-int patch_funentries(Eterm Patchlist);
-int patch(Eterm Addresses, Uint fe);
 static int safe_mul(UWord a, UWord b, UWord* resp);
 
 static int must_swap_floats;
@@ -1098,6 +1098,7 @@ loader_state_dtor(Binary* magic)
     ASSERT(stp->genop_blocks == 0);
 }
 
+#ifdef HIPE
 static Eterm
 stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 		     Eterm group_leader, Eterm module,
@@ -1125,11 +1126,9 @@ stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
     modp->curr.code_hdr = code_hdr;
     modp->curr.code_length = size;
     modp->curr.catches = BEAM_CATCHES_NIL; /* Will be filled in later. */
-#if defined(HIPE)
     DBG_TRACE_MFA(make_atom(modp->module), 0, 0, "insert_new_code "
                   "first_hipe_ref = %p", hipe_code->first_hipe_ref);
     modp->curr.hipe_code = hipe_code;
-#endif
 
     /*
      * Update ranges (used for finding a function from a PC value).
@@ -1138,6 +1137,7 @@ stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
     erts_update_ranges((BeamInstr*)modp->curr.code_hdr, size);
     return NIL;
 }
+#endif
 
 static int
 init_iff_file(LoaderState* stp, byte* code, Uint size)
@@ -5997,6 +5997,7 @@ code_module_md5_1(BIF_ALIST_1)
     return res;
 }
 
+#ifdef HIPE
 #define WORDS_PER_FUNCTION 6
 
 static BeamInstr*
@@ -6075,9 +6076,7 @@ stub_final_touch(LoaderState* stp, BeamInstr* fp)
     Eterm mod = fp[2];
     Eterm function = fp[3];
     int arity = fp[4];
-#ifdef HIPE
     Lambda* lp;
-#endif
 
     if (is_bif(mod, function, arity)) {
 	fp[1] = 0;
@@ -6106,7 +6105,6 @@ stub_final_touch(LoaderState* stp, BeamInstr* fp)
      * Search the lambda table to find out which.
      */
     
-#ifdef HIPE
     n = stp->num_lambdas;
     for (i = 0, lp = stp->lambdas; i < n; i++, lp++) {
         ErlFunEntry* fe = stp->lambdas[i].fe;
@@ -6115,7 +6113,6 @@ stub_final_touch(LoaderState* stp, BeamInstr* fp)
             fe->address = &(fp[5]);
 	}
     }
-#endif
     return;
 }
 
@@ -6124,10 +6121,9 @@ stub_final_touch(LoaderState* stp, BeamInstr* fp)
    [{Adr, Patchtyppe} | Addresses]
    and the address of a fun_entry.
 */
-int 
+static int
 patch(Eterm Addresses, Uint fe) 
  {
-#ifdef HIPE
   Eterm* listp;
   Eterm tuple;
   Eterm* tp;
@@ -6163,15 +6159,13 @@ patch(Eterm Addresses, Uint fe)
 
   }
 
-#endif
   return 1;
 }
 
 
-int
+static int
 patch_funentries(Eterm Patchlist) 
  {
-#ifdef HIPE   
   while (!is_nil(Patchlist)) {
     Eterm Info;
     Eterm MFA;
@@ -6260,10 +6254,8 @@ patch_funentries(Eterm Patchlist)
       return 0;
 
   }
-#endif
   return 1; /* Signal that all went well */
 }
-
 
 /*
  * Do a dummy load of a module. No threaded code will be loaded.
@@ -6271,7 +6263,6 @@ patch_funentries(Eterm Patchlist)
  * Will also patch all references to fun_entries to point to 
  * the new fun_entries created.
  */
-
 Eterm
 erts_make_stub_module(Process* p, Eterm hipe_magic_bin, Eterm Beam, Eterm Info)
 {
@@ -6444,11 +6435,7 @@ erts_make_stub_module(Process* p, Eterm hipe_magic_bin, Eterm Beam, Eterm Info)
 	 * as the body until we know what kind of trap we should put there.
 	 */
 	code_hdr->functions[i] = fp;
-#ifdef HIPE
 	op = (Eterm) BeamOpCode(op_hipe_trap_call); /* Might be changed later. */
-#else
-	op = (Eterm) BeamOpCode(op_move_return_n);
-#endif
 	fp = make_stub(fp, hipe_stp->module, func, arity, (Uint)native_address,
 		       op);
     }
@@ -6580,6 +6567,8 @@ int erts_commit_hipe_patch_load(Eterm hipe_magic_bin)
 }
 
 #undef WORDS_PER_FUNCTION
+#endif /* HIPE */
+
 
 static int safe_mul(UWord a, UWord b, UWord* resp)
 {
