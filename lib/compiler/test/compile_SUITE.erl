@@ -1151,8 +1151,15 @@ get_unique_beam_files() ->
 
 get_unique_files(Ext) ->
     Wc = filename:join(filename:dirname(code:which(?MODULE)), "*"++Ext),
-    [F || F <- filelib:wildcard(Wc), not is_cloned(F, Ext)].
+    [F || F <- filelib:wildcard(Wc),
+	  not is_cloned(F, Ext), not is_lfe_module(F, Ext)].
 
 is_cloned(File, Ext) ->
     Mod = list_to_atom(filename:basename(File, Ext)),
     test_lib:is_cloned_mod(Mod).
+
+is_lfe_module(File, Ext) ->
+    case filename:basename(File, Ext) of
+	"lfe_" ++ _ -> true;
+	_ -> false
+    end.
