@@ -155,7 +155,7 @@
 
       <tag><c>cipher() =</c></tag>
       <item><p><c>rc4_128 | des_cbc | '3des_ede_cbc'
-      | aes_128_cbc | aes_256_cbc | aes_128_gcm | aes_256_gcm</c></p></item>
+      | aes_128_cbc | aes_256_cbc | aes_128_gcm | aes_256_gcm | chacha20_poly1305</c></p></item>
 
       <tag><c>hash() =</c></tag>
       <item><p><c>md5 | sha | sha224 | sha256 | sha348 | sha512</c></p></item>
