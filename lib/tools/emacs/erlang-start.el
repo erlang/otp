@@ -78,7 +78,21 @@
 (autoload 'erlang-find-tag-other-window "erlang"
   "Like `find-tag-other-window'.  Capable of retreiving Erlang modules.")
 
+;;
+;; Declare functions in "erlang-edoc.el".
+;;
+
 (autoload 'erlang-edoc-mode "erlang-edoc" "Toggle Erlang-Edoc mode on or off." t)
+
+;;
+;; Declare functions in "erldoc.el".
+;;
+
+(autoload 'erldoc-browse "erldoc" "\n\n(fn MFA)" t nil)
+(autoload 'erldoc-browse-topic "erldoc" "\n\n(fn TOPIC)" t nil)
+(autoload 'erldoc-apropos "erldoc" "\n\n(fn PATTERN)" t nil)
+(autoload 'erldoc-eldoc-function "erldoc" "\
+A function suitable for `eldoc-documentation-function'.\n\n(fn)" nil nil)
 
 ;;
 ;; Associate files extensions ".erl" and ".hrl" with Erlang mode.
