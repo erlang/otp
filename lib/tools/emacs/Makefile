@@ -43,6 +43,7 @@ EMACS_FILES= \
 	erlang_appwiz \
 	erlang-start \
 	erlang-eunit \
+	erlang-edoc \
 	erlang-flymake \
 	erlang
 
