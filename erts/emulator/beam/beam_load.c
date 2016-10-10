@@ -809,18 +809,18 @@ erts_finish_loading(Binary* magic, Process* c_p,
 	    if (ep == NULL || ep->info.mfa.module != module) {
 		continue;
 	    }
-	    if (ep->addressv[code_ix] == ep->code) {
-		if (ep->code[0] == (BeamInstr) em_apply_bif) {
+	    if (ep->addressv[code_ix] == ep->beam) {
+		if (ep->beam[0] == (BeamInstr) em_apply_bif) {
 		    continue;
-		} else if (ep->code[0] ==
+		} else if (ep->beam[0] ==
 			   (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
 		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
 		    ASSERT(mod_tab_p->curr.num_traced_exports > 0);
 		    erts_clear_export_break(mod_tab_p, &ep->info);
-		    ep->addressv[code_ix] = (BeamInstr *) ep->code[1];
-		    ep->code[1] = 0;
+		    ep->addressv[code_ix] = (BeamInstr *) ep->beam[1];
+		    ep->beam[1] = 0;
 		}
-		ASSERT(ep->code[1] == 0);
+		ASSERT(ep->beam[1] == 0);
 	    }
 	}
 	ASSERT(mod_tab_p->curr.num_breakpoints == 0);
@@ -1420,8 +1420,8 @@ load_import_table(LoaderState* stp)
 	 * the BIF function.
 	 */
 	if ((e = erts_active_export_entry(mod, func, arity)) != NULL) {
-	    if (e->code[0] == (BeamInstr) em_apply_bif) {
-		stp->import[i].bf = (BifFunction) e->code[1];
+	    if (e->beam[0] == (BeamInstr) em_apply_bif) {
+		stp->import[i].bf = (BifFunction) e->beam[1];
 		if (func == am_load_nif && mod == am_erlang && arity == 2) {
 		    stp->may_load_nif = 1;
 		}
@@ -1514,7 +1514,7 @@ is_bif(Eterm mod, Eterm func, unsigned arity)
     if (e == NULL) {
 	return 0;
     }
-    if (e->code[0] != (BeamInstr) em_apply_bif) {
+    if (e->beam[0] != (BeamInstr) em_apply_bif) {
 	return 0;
     }
     if (mod == am_erlang && func == am_apply && arity == 3) {
@@ -4784,7 +4784,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 	     * callable yet. Keep any function in the current
 	     * code callable.
 	     */
-	    ep->code[1] = (BeamInstr) address;
+	    ep->beam[1] = (BeamInstr) address;
 	}
     }
 
@@ -4962,7 +4962,7 @@ transform_engine(LoaderState* st)
 		if (i >= st->num_imports || st->import[i].bf == NULL)
 		    goto restart;
 		if (bif_number != -1 &&
-		    bif_export[bif_number]->code[1] != (BeamInstr) st->import[i].bf) {
+		    bif_export[bif_number]->beam[1] != (BeamInstr) st->import[i].bf) {
 		    goto restart;
 		}
 	    }
@@ -5723,8 +5723,8 @@ exported_from_module(Process* p, /* Process whose heap to use. */
 	if (ep->info.mfa.module == mod) {
 	    Eterm tuple;
 	    
-	    if (ep->addressv[code_ix] == ep->code &&
-		ep->code[0] == (BeamInstr) em_call_error_handler) {
+	    if (ep->addressv[code_ix] == ep->beam &&
+		ep->beam[0] == (BeamInstr) em_call_error_handler) {
 		/* There is a call to the function, but it does not exist. */ 
 		continue;
 	    }

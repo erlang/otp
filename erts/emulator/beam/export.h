@@ -33,20 +33,20 @@ typedef struct export
 {
     void* addressv[ERTS_NUM_CODE_IX];  /* Pointer to code for function. */
 
-    ErtsCodeInfo info; /* MUST be just before code[] */
+    ErtsCodeInfo info; /* MUST be just before beam[] */
 
     /*
-     * code[0]: This entry is 0 unless the 'address' field points to it.
+     * beam[0]: This entry is 0 unless the 'addressv' field points to it.
      *          Threaded code instruction to load function
      *		(em_call_error_handler), execute BIF (em_apply_bif),
      *		or a breakpoint instruction (op_i_generic_breakpoint).
-     * code[1]: Function pointer to BIF function (for BIFs only),
+     * beam[1]: Function pointer to BIF function (for BIFs only),
      *		or pointer to threaded code if the module has an
      *		on_load function that has not been run yet, or pointer
-     *          to code if function code[0] is a breakpoint instruction.
+     *          to code if function beam[0] is a breakpoint instruction.
      *		Otherwise: 0.
      */
-    BeamInstr code[2];
+    BeamInstr beam[2];
 } Export;
 
 
@@ -72,8 +72,8 @@ extern erts_smp_mtx_t export_staging_lock;
 
 #include "beam_load.h" /* For em_* extern declarations */ 
 #define ExportIsBuiltIn(EntryPtr) 			\
-(((EntryPtr)->addressv[erts_active_code_ix()] == (EntryPtr)->code) && \
- ((EntryPtr)->code[0] == (BeamInstr) em_apply_bif))
+(((EntryPtr)->addressv[erts_active_code_ix()] == (EntryPtr)->beam) && \
+ ((EntryPtr)->beam[0] == (BeamInstr) em_apply_bif))
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 

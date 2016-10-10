@@ -795,16 +795,16 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	    if (ep == NULL || ep->info.mfa.module != BIF_ARG_1) {
 		continue;
 	    }
-	    if (ep->code[1] != 0) {
-		ep->addressv[code_ix] = (void *) ep->code[1];
-		ep->code[1] = 0;
+	    if (ep->beam[1] != 0) {
+		ep->addressv[code_ix] = (void *) ep->beam[1];
+		ep->beam[1] = 0;
 	    } else {
-		if (ep->addressv[code_ix] == ep->code &&
-		    ep->code[0] == (BeamInstr) em_apply_bif) {
+		if (ep->addressv[code_ix] == ep->beam &&
+		    ep->beam[0] == (BeamInstr) em_apply_bif) {
 		    continue;
 		}
-		ep->addressv[code_ix] = ep->code;
-		ep->code[0] = (BeamInstr) em_call_error_handler;
+		ep->addressv[code_ix] = ep->beam;
+		ep->beam[0] = (BeamInstr) em_call_error_handler;
 	    }
 	}
 	modp->curr.code_hdr->on_load_function_ptr = NULL;
@@ -822,10 +822,10 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	    if (ep == NULL || ep->info.mfa.module != BIF_ARG_1) {
 		continue;
 	    }
-	    if (ep->code[0] == (BeamInstr) em_apply_bif) {
+	    if (ep->beam[0] == (BeamInstr) em_apply_bif) {
 		continue;
 	    }
-	    ep->code[1] = 0;
+	    ep->beam[1] = 0;
 	}
     }
     erts_smp_thr_progress_unblock();
@@ -1711,22 +1711,22 @@ delete_code(Module* modp)
     for (i = 0; i < export_list_size(code_ix); i++) {
 	Export *ep = export_list(i, code_ix);
         if (ep != NULL && (ep->info.mfa.module == module)) {
-	    if (ep->addressv[code_ix] == ep->code) {
-		if (ep->code[0] == (BeamInstr) em_apply_bif) {
+	    if (ep->addressv[code_ix] == ep->beam) {
+		if (ep->beam[0] == (BeamInstr) em_apply_bif) {
 		    continue;
 		}
-		else if (ep->code[0] ==
+		else if (ep->beam[0] ==
 			 (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
 		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
 		    ASSERT(modp->curr.num_traced_exports > 0);
 		    erts_clear_export_break(modp, &ep->info);
 		}
-		else ASSERT(ep->code[0] == (BeamInstr) em_call_error_handler
+		else ASSERT(ep->beam[0] == (BeamInstr) em_call_error_handler
 			    || !erts_initialized);
 	    }
-	    ep->addressv[code_ix] = ep->code;
-	    ep->code[0] = (BeamInstr) em_call_error_handler;
-	    ep->code[1] = 0;
+	    ep->addressv[code_ix] = ep->beam;
+	    ep->beam[0] = (BeamInstr) em_call_error_handler;
+	    ep->beam[1] = 0;
 	}
     }
 

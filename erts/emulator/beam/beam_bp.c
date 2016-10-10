@@ -238,7 +238,7 @@ erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
             ASSERT(0);
         }
 
-	pc = ep->code;
+	pc = ep->beam;
 	if (ep->addressv[code_ix] == pc) {
 	    if ((*pc == (BeamInstr) em_apply_bif ||
 		 *pc == (BeamInstr) em_call_error_handler)) {
@@ -712,7 +712,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
     Export* ep = bif_export[bif_index];
     Uint32 flags = 0, flags_meta = 0;
     ErtsTracer meta_tracer = erts_tracer_nil;
-    int applying = (I == ep->code); /* Yup, the apply code for a bif
+    int applying = (I == ep->beam); /* Yup, the apply code for a bif
                                       * is actually in the
                                       * export entry */
     BeamInstr *cp = p->cp;

@@ -2328,9 +2328,9 @@ allocate_nif_sched_data(Process* proc, int argc)
     ep->rootset_extra = argc;
     ep->rootset[0] = NIL;
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-	ep->exp.addressv[i] = &ep->exp.code[0];
+	ep->exp.addressv[i] = &ep->exp.beam[0];
     }
-    ep->exp.code[0] = (BeamInstr) em_call_nif;
+    ep->exp.beam[0] = (BeamInstr) em_call_nif;
     (void) ERTS_PROC_SET_NIF_TRAP_EXPORT(proc, ep);
     return ep;
 }
@@ -2404,7 +2404,7 @@ init_nif_sched_data(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirec
     ep->exp.info.mfa.module = proc->current->module;
     ep->exp.info.mfa.function = proc->current->function;
     ep->exp.info.mfa.arity = argc;
-    ep->exp.code[1] = (BeamInstr) direct_fp;
+    ep->exp.beam[1] = (BeamInstr) direct_fp;
     ep->m = env->mod_nif;
     ep->fp = indirect_fp;
     proc->freason = TRAP;
