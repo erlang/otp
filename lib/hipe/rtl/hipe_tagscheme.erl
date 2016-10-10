@@ -509,33 +509,48 @@ unsafe_fixnum_sub(Arg1, Arg2, Res) ->
 
 %%% (16X+tag)+((16Y+tag)-tag) = 16X+tag+16Y = 16(X+Y)+tag
 %%% (16X+tag)-((16Y+tag)-tag) = 16X+tag-16Y = 16(X-Y)+tag
-fixnum_addsub(AluOp, Arg1, Arg2, Res, OtherLab) ->
+fixnum_addsub(AluOp, Arg1, Arg2, FinalRes, OtherLab) ->
   NoOverflowLab = hipe_rtl:mk_new_label(),
   %% XXX: Consider moving this test to the users of fixnum_addsub.
-  case Arg1 =/= Res andalso Arg2 =/= Res of 
-    true -> 
-      %% Args differ from res.
+  {Res, Tail} =
+    case Arg1 =/= FinalRes andalso Arg2 =/= FinalRes of
+      true ->
+	%% Args differ from res.
+	{FinalRes, [NoOverflowLab]};
+      false ->
+	%% At least one of the arguments is the same as Res.
+	Tmp = hipe_rtl:mk_new_reg_gcsafe(),
+	{Tmp, [NoOverflowLab, hipe_rtl:mk_move(FinalRes, Tmp)]}
+    end,
+  case (hipe_rtl:is_imm(Arg1) andalso AluOp =:= 'add')
+    orelse hipe_rtl:is_imm(Arg2)
+  of
+    true ->
+      %% Pre-compute the untagged immediate. The optimisers won't do this for us
+      %% since they don't know that the untag never underflows.
+      {Var, Imm0} =
+	case hipe_rtl:is_imm(Arg2) of
+	  true  -> {Arg1, Arg2};
+	  false -> {Arg2, Arg1}
+	end,
+      Imm = hipe_rtl:mk_imm(hipe_rtl:imm_value(Imm0) - ?TAG_IMMED1_SMALL),
+      [hipe_rtl:mk_alub(Res, Var, AluOp, Imm, not_overflow,
+			hipe_rtl:label_name(NoOverflowLab),
+			hipe_rtl:label_name(OtherLab), 0.99)
+       |Tail];
+    false ->
       %% Commute add to save a move on x86
       {UntagFirst, Lhs, Rhs} =
 	case AluOp of
 	  'add' -> {Arg1, Res, Arg2};
 	  'sub' -> {Arg2, Arg1, Res}
 	end,
-      [hipe_rtl:mk_alu(Res, UntagFirst, sub, hipe_rtl:mk_imm(?TAG_IMMED1_SMALL)),
+      [hipe_rtl:mk_alu(Res, UntagFirst, sub,
+		       hipe_rtl:mk_imm(?TAG_IMMED1_SMALL)),
        hipe_rtl:mk_alub(Res, Lhs, AluOp, Rhs, not_overflow,
 			hipe_rtl:label_name(NoOverflowLab), 
-			hipe_rtl:label_name(OtherLab), 0.99),
-       NoOverflowLab];
-    false ->
-      %% At least one of the arguments is the same as Res.
-      Tmp = hipe_rtl:mk_new_reg_gcsafe(),
-      Tmp2 = hipe_rtl:mk_new_var(), % XXX: shouldn't this var be a reg?
-      [hipe_rtl:mk_alu(Tmp, Arg2, sub, hipe_rtl:mk_imm(?TAG_IMMED1_SMALL)),
-       hipe_rtl:mk_alub(Tmp2, Arg1, AluOp, Tmp, not_overflow,
-			hipe_rtl:label_name(NoOverflowLab), 
-			hipe_rtl:label_name(OtherLab), 0.99),
-       NoOverflowLab,
-       hipe_rtl:mk_move(Res, Tmp2)]
+			hipe_rtl:label_name(OtherLab), 0.99)
+       |Tail]
   end.
 
 %%% ((16X+tag) div 16) * ((16Y+tag)-tag) + tag = X*16Y+tag = 16(XY)+tag
