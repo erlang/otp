@@ -205,7 +205,7 @@ boot(BootArgs) ->
 
     {Start0,Flags,Args} = parse_boot_args(BootArgs),
     %% We don't get to profile parsing of BootArgs
-    case get_flag(profile_boot, Flags, false) of
+    case b2a(get_flag(profile_boot, Flags, false)) of
         false -> ok;
         true  -> debug_profile_start()
     end,
@@ -782,7 +782,7 @@ do_boot(Init,Flags,Start) ->
     (catch erlang:system_info({purify, "Node: " ++ atom_to_list(node())})),
 
     start_em(Start),
-    case get_flag(profile_boot,Flags,false) of
+    case b2a(get_flag(profile_boot,Flags,false)) of
         false -> ok;
         true  ->
             debug_profile_format_mfas(debug_profile_mfas()),
