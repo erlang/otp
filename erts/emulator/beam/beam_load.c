@@ -39,6 +39,7 @@
 #include "erl_binary.h"
 #include "erl_zlib.h"
 #include "erl_map.h"
+#include "erl_process_dict.h"
 
 #ifdef HIPE
 #include "hipe_bif0.h"
@@ -4343,22 +4344,25 @@ gen_get_map_element(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
 static int
 hash_internal_genop_arg(LoaderState* stp, GenOpArg Key, Uint32* hx)
 {
+    Eterm key_term;
     switch (Key.type) {
     case TAG_a:
-	*hx = atom_val(Key.val);
-	return 1;
+	key_term = Key.val;
+        break;
     case TAG_i:
-	*hx = Key.val;
-	return 1;
+	key_term = make_small(Key.val);
+        break;
     case TAG_n:
-	*hx = make_internal_hash(NIL);
-	return 1;
+        key_term = NIL;
+        break;
     case TAG_q:
-	*hx = make_internal_hash(stp->literals[Key.val].term);
-	return 1;
+	key_term = stp->literals[Key.val].term;
+	break;
     default:
 	return 0;
     }
+    *hx = erts_pd_make_hx(key_term);
+    return 1;
 }
 
 

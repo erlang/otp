@@ -408,6 +408,11 @@ static void pd_hash_erase_all(Process *p)
     }
 }
 
+Uint32 erts_pd_make_hx(Eterm key)
+{
+    return MAKE_HASH(key);
+}
+
 Eterm erts_pd_hash_get_with_hx(Process *p, Uint32 hx, Eterm id)
 {
     unsigned int hval;
