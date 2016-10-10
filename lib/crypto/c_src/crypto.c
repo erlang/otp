@@ -595,7 +595,7 @@ static void error_handler(void* null, const char* errstr)
 }
 #endif /* HAVE_DYNAMIC_CRYPTO_LIB */
 
-static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
+static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 {
 #ifdef OPENSSL_THREADS
     ErlNifSysInfo sys_info;
@@ -610,7 +610,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     char lib_buf[1000];
 
     if (!verify_lib_version())
-	return 0;
+	return __LINE__;
 
     /* load_info: {301, <<"/full/path/of/this/library">>} */
     if (!enif_get_tuple(env, load_info, &tpl_arity, &tpl_array)
@@ -620,7 +620,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	|| !enif_inspect_binary(env, tpl_array[1], &lib_bin)) {
 
 	PRINTF_ERR1("CRYPTO: Invalid load_info '%T'", load_info);
-	return 0;
+	return __LINE__;
     }
 
     hmac_context_rtype = enif_open_resource_type(env, NULL, "hmac_context",
@@ -629,7 +629,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 						 NULL);
     if (!hmac_context_rtype) {
 	PRINTF_ERR0("CRYPTO: Could not open resource type 'hmac_context'");
-	return 0;
+	return __LINE__;
     }
 #if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
     evp_md_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_MD_CTX",
@@ -638,7 +638,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
                                                NULL);
     if (!evp_md_ctx_rtype) {
         PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_MD_CTX'");
-        return 0;
+        return __LINE__;
     }
 #endif
 #ifdef HAVE_EVP_AES_CTR
@@ -648,14 +648,14 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
                                                    NULL);
     if (!evp_cipher_ctx_rtype) {
         PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_CIPHER_CTX'");
-        return 0;
+        return __LINE__;
     }
 #endif
     if (library_refc > 0) {
 	/* Repeated loading of this library (module upgrade).
 	 * Atoms and callbacks are already set, we are done.
 	 */
-	return 1;
+	return 0;
     }
 
     atom_true  = enif_make_atom(env,"true");
@@ -701,14 +701,14 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     {
 	void* handle;
 	if (!change_basename(&lib_bin, lib_buf, sizeof(lib_buf), crypto_callback_name)) {
-	    return 0;
+	    return __LINE__;
 	}
 	if (!(handle = enif_dlopen(lib_buf, &error_handler, NULL))) {
-	    return 0;
+	    return __LINE__;
 	}
 	if (!(funcp = (get_crypto_callbacks_t*) enif_dlsym(handle, "get_crypto_callbacks",
 							   &error_handler, NULL))) {
-	    return 0;
+	    return __LINE__;
 	}
     }
 #else /* !HAVE_DYNAMIC_CRYPTO_LIB */
@@ -727,7 +727,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     
     if (!ccb || ccb->sizeof_me != sizeof(*ccb)) {
 	PRINTF_ERR0("Invalid 'crypto_callbacks'");
-	return 0;
+	return __LINE__;
     }
     
     CRYPTO_set_mem_functions(ccb->crypto_alloc, ccb->crypto_realloc, ccb->crypto_free);
@@ -741,13 +741,14 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	CRYPTO_set_dynlock_destroy_callback(ccb->dyn_destroy_function);
     }
 #endif /* OPENSSL_THREADS */
-    return 1;
+    return 0;
 }
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
-    if (!init(env, load_info)) {
-	return -1;
+    int errline = initialize(env, load_info);
+    if (errline) {
+	return errline;
     }
 
     *priv_data = NULL;
@@ -758,14 +759,16 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
 		   ERL_NIF_TERM load_info)
 {
+    int errline;
     if (*old_priv_data != NULL) {
-	return -1; /* Don't know how to do that */
+	return __LINE__; /* Don't know how to do that */
     }
     if (*priv_data != NULL) {
-	return -1; /* Don't know how to do that */
+	return __LINE__; /* Don't know how to do that */
     }
-    if (!init(env, load_info)) {
-	return -1;
+    errline = initialize(env, load_info);
+    if (errline) {
+	return errline;
     }
     library_refc++;
     return 0;
