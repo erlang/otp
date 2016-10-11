@@ -916,9 +916,15 @@ send_packet(_N, _Pid, _Chunk, DataState) ->
 finish_copy(Pid, Tab, Storage, RemoteS, NeedLock) ->
     RecNode = node(Pid),
     DatBin = dat2bin(Tab, Storage, RemoteS),
+    Node = node(Pid),
     Trans =
 	fun() ->
 		NeedLock andalso mnesia:read_lock_table(Tab),
+                %% Check that receiver is still alive
+                receive {copier_done, Node} ->
+                        throw(receiver_died)
+                after 0 -> ok
+                end,
 		A = val({Tab, access_mode}),
 		mnesia_controller:sync_and_block_table_whereabouts(Tab, RecNode, RemoteS, A),
 		cleanup_tab_copier(Pid, Storage, Tab),
@@ -927,7 +933,7 @@ finish_copy(Pid, Tab, Storage, RemoteS, NeedLock) ->
 		receive
 		    {Pid, no_more} -> % Dont bother about the spurious 'more' message
 			no_more;
-		    {copier_done, Node} when Node == node(Pid)->
+		    {copier_done, Node} ->
 			verbose("Tab receiver ~p crashed (more): ~p~n", [Tab, Node]),
 			receiver_died
 		end
