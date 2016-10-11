@@ -3921,6 +3921,7 @@ dnl use "PATH/include" and "PATH/lib".
 AC_SUBST(SSL_INCLUDE)
 AC_SUBST(SSL_INCDIR)
 AC_SUBST(SSL_LIBDIR)
+AC_SUBST(SSL_FLAGS)
 AC_SUBST(SSL_CRYPTO_LIBNAME)
 AC_SUBST(SSL_SSL_LIBNAME)
 AC_SUBST(SSL_CC_RUNTIME_LIBRARY_PATH)
@@ -4609,6 +4610,31 @@ no)   # Use no ssl runtime library path
 
 esac
 
+
+AC_ARG_ENABLE(fips,
+AS_HELP_STRING([--enable-fips], [enable OpenSSL FIPS mode support])
+AS_HELP_STRING([--disable-fips], [disable OpenSSL FIPS mode support (default)]),
+[ case "$enableval" in
+    yes) enable_fips_support=yes ;;
+    *)   enable_fips_support=no ;;
+  esac ], enable_fips_support=no)
+
+if test "x$enable_fips_support" = "xyes" && test "$CRYPTO_APP" != ""; then
+   saveCFLAGS="$CFLAGS"
+   saveLDFLAGS="$LDFLAGS"
+   saveLIBS="$LIBS"
+   CFLAGS="$CFLAGS $SSL_INCLUDE"
+   LDFLAGS="$LDFLAGS $SSL_LD_RUNTIME_LIBRARY_PATH -L$SSL_LIBDIR"
+   LIBS="-lcrypto"
+   AC_CHECK_FUNC([FIPS_mode_set],
+   [SSL_FLAGS="-DFIPS_SUPPORT"],
+   [SSL_FLAGS=])
+   CFLAGS="$saveCFLAGS"
+   LDFLAGS="$saveLDFLAGS"
+   LIBS="$saveLIBS"
+else
+   SSL_FLAGS=
+fi
 
 #--------------------------------------------------------------------
 # Os mon stuff.

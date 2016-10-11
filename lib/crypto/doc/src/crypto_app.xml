@@ -41,12 +41,32 @@
   <section>
     <title>DEPENDENCIES</title>
 
-    <p>The current crypto implementation uses nifs to interface OpenSSLs crypto library
-    and requires <em>OpenSSL</em> package version 0.9.8 or higher.</p>
+    <p>The current crypto implementation uses nifs to interface
+    OpenSSLs crypto library and requires <em>OpenSSL</em> package
+    version 0.9.8 or higher. FIPS mode support requires at least
+    version 1.0.1 and a FIPS capable OpenSSL installation.</p>
+
     <p>Source releases of OpenSSL can be downloaded from the <url href="http://www.openssl.org">OpenSSL</url> project home page,
     or mirror sites listed there.
     </p>
     </section>
+
+  <section>
+    <title>CONFIGURATION</title>
+    <p>The following configuration parameters are defined for the
+    crypto application. See <c>app(3)</c> for more information about
+    configuration parameters.</p>
+    <taglist>
+      <tag><c>fips_mode = boolean()</c></tag>
+      <item>
+        <p>Specifies whether to run crypto in FIPS mode. This setting
+        will take effect when the nif module is loaded. If FIPS mode
+        is requested but not available at run time the nif module and
+        thus the crypto module will fail to load. This mechanism
+        prevents the accidental use of non-validated algorithms.</p>
+      </item>
+    </taglist>
+  </section>
 
   <section>
     <title>SEE ALSO</title>

@@ -22,7 +22,8 @@
 
 -module(crypto).
 
--export([start/0, stop/0, info_lib/0, supports/0, version/0, bytes_to_integer/1]).
+-export([start/0, stop/0, info_lib/0, info_fips/0, supports/0, enable_fips_mode/1,
+         version/0, bytes_to_integer/1]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
 -export([sign/4, verify/5]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
@@ -190,7 +191,7 @@
 %%-type ec_key() :: {Curve :: ec_curve(), PrivKey :: binary() | undefined, PubKey :: ec_point() | undefined}.
 
 -on_load(on_load/0).
--define(CRYPTO_NIF_VSN,301).
+-define(CRYPTO_NIF_VSN,302).
 
 -define(nif_stub,nif_stub_error(?LINE)).
 nif_stub_error(Line) ->
@@ -219,6 +220,14 @@ supports()->
     ].
 
 info_lib() -> ?nif_stub.
+
+-spec info_fips() -> not_supported | not_enabled | enabled.
+
+info_fips() -> ?nif_stub.
+
+-spec enable_fips_mode(boolean()) -> boolean().
+
+enable_fips_mode(_) -> ?nif_stub.
 
 -spec hash(_, iodata()) -> binary().
 
@@ -314,7 +323,7 @@ block_encrypt(des3_cfb, Key0, Ivec, Data) ->
     Key = check_des3_key(Key0),
     block_crypt_nif(des_ede3_cfb, Key, Ivec, Data, true);
 block_encrypt(aes_ige256, Key, Ivec, Data) ->
-    aes_ige_crypt_nif(Key, Ivec, Data, true);
+    notsup_to_error(aes_ige_crypt_nif(Key, Ivec, Data, true));
 block_encrypt(aes_gcm, Key, Ivec, {AAD, Data}) ->
     aes_gcm_encrypt(Key, Ivec, AAD, Data);
 block_encrypt(aes_gcm, Key, Ivec, {AAD, Data, TagLength}) ->
@@ -484,17 +493,17 @@ sign(Alg, Type, Data, Key) when is_binary(Data) ->
     sign(Alg, Type, {digest, hash(Type, Data)}, Key);
 sign(rsa, Type, {digest, Digest}, Key) ->
     case rsa_sign_nif(Type, Digest, map_ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [Type,Digest,Key]);
+	error -> erlang:error(badkey, [rsa, Type, {digest, Digest}, Key]);
 	Sign -> Sign
     end;
 sign(dss, Type, {digest, Digest}, Key) ->
     case dss_sign_nif(Type, Digest, map_ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [Digest, Key]);
+	error -> erlang:error(badkey, [dss, Type, {digest, Digest}, Key]);
 	Sign -> Sign
     end;
 sign(ecdsa, Type, {digest, Digest}, [Key, Curve]) ->
     case ecdsa_sign_nif(Type, Digest, nif_curve_params(Curve), ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [Type,Digest,Key]);
+	error -> erlang:error(badkey, [ecdsa, Type, {digest, Digest}, [Key, Curve]]);
 	Sign -> Sign
     end.
 
@@ -510,7 +519,7 @@ sign(ecdsa, Type, {digest, Digest}, [Key, Curve]) ->
 public_encrypt(rsa, BinMesg, Key, Padding) ->
     case rsa_public_crypt(BinMesg,  map_ensure_int_as_bin(Key), Padding, true) of
 	error ->
-	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
+	    erlang:error(encrypt_failed, [rsa, BinMesg,Key, Padding]);
 	Sign -> Sign
     end.
 
@@ -518,7 +527,7 @@ public_encrypt(rsa, BinMesg, Key, Padding) ->
 private_decrypt(rsa, BinMesg, Key, Padding) ->
     case rsa_private_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, false) of
 	error ->
-	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
+	    erlang:error(decrypt_failed, [rsa, BinMesg,Key, Padding]);
 	Sign -> Sign
     end.
 
@@ -527,7 +536,7 @@ private_decrypt(rsa, BinMesg, Key, Padding) ->
 private_encrypt(rsa, BinMesg, Key, Padding) ->
     case rsa_private_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, true) of
 	error ->
-	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
+	    erlang:error(encrypt_failed, [rsa, BinMesg,Key, Padding]);
 	Sign -> Sign
     end.
 
@@ -535,7 +544,7 @@ private_encrypt(rsa, BinMesg, Key, Padding) ->
 public_decrypt(rsa, BinMesg, Key, Padding) ->
     case rsa_public_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, false) of
 	error ->
-	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
+	    erlang:error(decrypt_failed, [rsa, BinMesg,Key, Padding]);
 	Sign -> Sign
     end.
 
@@ -583,7 +592,7 @@ compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
 			    ensure_int_as_bin(MyPrivateKey),
 			    map_ensure_int_as_bin(DHParameters)) of
 	error -> erlang:error(computation_failed,
-			      [OthersPublicKey,MyPrivateKey,DHParameters]);
+			      [dh,OthersPublicKey,MyPrivateKey,DHParameters]);
 	Ret -> Ret
     end;
 
@@ -651,7 +660,8 @@ on_load() ->
 	      end,
     Lib = filename:join([PrivDir, "lib", LibName]),
     LibBin   = path2bin(Lib),
-    Status = case erlang:load_nif(Lib, {?CRYPTO_NIF_VSN,LibBin}) of
+    FipsMode = application:get_env(crypto, fips_mode, false) == true,
+    Status = case erlang:load_nif(Lib, {?CRYPTO_NIF_VSN,LibBin,FipsMode}) of
 		 ok -> ok;
 		 {error, {load_failed, _}}=Error1 ->
 		     ArchLibDir =
@@ -664,7 +674,7 @@ on_load() ->
 			 _ ->
 			     ArchLib = filename:join([ArchLibDir, LibName]),
                              ArchBin = path2bin(ArchLib),
-			     erlang:load_nif(ArchLib, {?CRYPTO_NIF_VSN,ArchBin})
+			     erlang:load_nif(ArchLib, {?CRYPTO_NIF_VSN,ArchBin,FipsMode})
 		     end;
 		 Error1 -> Error1
 	     end,
@@ -1096,24 +1106,29 @@ rc4_encrypt_with_state(_State, _Data) -> ?nif_stub.
 %% RC2 block cipher
 
 rc2_cbc_encrypt(Key, IVec, Data) ->
-    block_encrypt(rc2_cbc, Key, IVec, Data).
+    notsup_to_error(block_encrypt(rc2_cbc, Key, IVec, Data)).
 
 rc2_cbc_decrypt(Key, IVec, Data) ->
-    block_decrypt(rc2_cbc, Key, IVec, Data).
+    notsup_to_error(block_decrypt(rc2_cbc, Key, IVec, Data)).
 
 %%
 %% RC2 - 40 bits block cipher - Backwards compatibility not documented.
 %%
 rc2_40_cbc_encrypt(Key, IVec, Data) when erlang:byte_size(Key) == 5 ->
-    block_encrypt(rc2_cbc, Key, IVec, Data).
+    notsup_to_error(block_encrypt(rc2_cbc, Key, IVec, Data)).
 
 rc2_40_cbc_decrypt(Key, IVec, Data)  when erlang:byte_size(Key) == 5 ->
-    block_decrypt(rc2_cbc, Key, IVec, Data).
+    notsup_to_error(block_decrypt(rc2_cbc, Key, IVec, Data)).
 
 
 %% Secure remote password  -------------------------------------------------------------------
 
 user_srp_gen_key(Private, Generator, Prime) ->
+    %% Ensure the SRP algorithm is disabled in FIPS mode
+    case info_fips() of
+        enabled -> erlang:error(notsup);
+        _       -> ok
+    end,
     case mod_pow(Generator, Private, Prime) of
 	error ->
 	    error;
@@ -1532,6 +1547,6 @@ mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.
 		    des_cbc_ivec, des_cfb_ivec,
 		    info,
 		    %%
-		    info_lib, supports]).
+		    info_lib, info_fips, supports]).
 info() ->
     ?FUNC_LIST.
