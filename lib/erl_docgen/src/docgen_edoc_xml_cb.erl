@@ -111,7 +111,16 @@ root_attributes(Element, Opts) ->
                    Enc ->
                        Enc
                end,
-    [#xmlAttribute{name=encoding, value=Encoding}].
+    [#xmlAttribute{name=encoding, value=reformat_encoding(Encoding)}].
+
+%% epp:default_encoding/0 returns 'utf8'
+reformat_encoding(utf8) -> "UTF-8";
+reformat_encoding(List) when is_list(List) ->
+    case string:to_lower(List) of
+        "utf8" -> "UTF-8";
+        _ -> List
+    end;
+reformat_encoding(Other) -> Other.
 
 layout_chapter(#xmlElement{name=overview, content=Es}) ->
     Title = get_text(title, Es),
