@@ -1160,7 +1160,7 @@ init_emulator(void)
 #define DTRACE_NIF_RETURN(p, mfa)                                       \
     if (DTRACE_ENABLED(nif_return)) {                                   \
         DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);             \
-        DTRACE_CHARBUF(mfa_mfa, DTRACE_TERM_BUF_SIZE);                  \
+        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);                  \
         dtrace_fun_decode(p, mfa, process_name, mfa_buf);               \
         DTRACE2(nif_return, process_name, mfa_buf);                     \
     }
@@ -1175,9 +1175,9 @@ init_emulator(void)
 
 #define DTRACE_RETURN_FROM_PC(p)                                                        \
     do {                                                                                \
-        ErtsCodeInfo* ci;                                                                  \
-        if (DTRACE_ENABLED(function_return) && (ci = find_function_from_pc((p)->cp))) { \
-            DTRACE_RETURN((p), &ci->mfa);                               \
+        ErtsCodeMFA* cmfa;                                                                  \
+        if (DTRACE_ENABLED(function_return) && (cmfa = find_function_from_pc((p)->cp))) { \
+            DTRACE_RETURN((p), cmfa);                               \
         }                                                                               \
     } while(0)
 
@@ -1392,10 +1392,9 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
             if (ERTS_PROC_IS_EXITING(c_p)) {
                 strcpy(fun_buf, "<exiting>");
             } else {
-                BeamInstr *fptr = find_function_from_pc(c_p->i);
-                if (fptr) {
-                    dtrace_fun_decode(c_p, (Eterm)fptr[0],
-                                      (Eterm)fptr[1], (Uint)fptr[2],
+                ErtsCodeMFA *cmfa = find_function_from_pc(c_p->i);
+                if (cmfa) {
+                    dtrace_fun_decode(c_p, cmfa,
                                       NULL, fun_buf);
                 } else {
                     erts_snprintf(fun_buf, sizeof(DTRACE_CHARBUF_NAME(fun_buf)),
@@ -5356,11 +5355,9 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
             if (ERTS_PROC_IS_EXITING(c_p)) {
                 strcpy(fun_buf, "<exiting>");
             } else {
-                BeamInstr *fptr = find_function_from_pc(c_p->i);
-                if (fptr) {
-                    dtrace_fun_decode(c_p, (Eterm)fptr[0],
-                                      (Eterm)fptr[1], (Uint)fptr[2],
-                                      NULL, fun_buf);
+                ErtsCodeMFA *cmfa = find_function_from_pc(c_p->i);
+                if (cmfa) {
+		    dtrace_fun_decode(c_p, cmfa, NULL, fun_buf);
                 } else {
                     erts_snprintf(fun_buf, sizeof(DTRACE_CHARBUF_NAME(fun_buf)),
                                   "<unknown/%p>", *I);
@@ -6401,11 +6398,11 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
 
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(process_hibernate)) {
+        ErtsCodeMFA cmfa = { module, function, arity};
         DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);
-        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);
-        dtrace_fun_decode(c_p, module, function, arity,
-                          process_name, mfa);
-        DTRACE2(process_hibernate, process_name, mfa);
+        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);
+        dtrace_fun_decode(c_p, &cmfa, process_name, mfa_buf);
+        DTRACE2(process_hibernate, process_name, mfa_buf);
     }
 #endif
     /*

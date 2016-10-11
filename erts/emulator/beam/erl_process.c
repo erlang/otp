@@ -11690,11 +11690,12 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(process_spawn)) {
+        ErtsCodeMFA cmfa = {mod, func, arity};
         DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);
-        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);
+        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);
 
-        dtrace_fun_decode(p, mod, func, arity, process_name, mfa);
-        DTRACE2(process_spawn, process_name, mfa);
+        dtrace_fun_decode(p, &cmfa, process_name, mfa_buf);
+        DTRACE2(process_spawn, process_name, mfa_buf);
     }
 #endif
     return res;
