@@ -266,12 +266,30 @@ backward([{jump,{f,To0}},{move,Src,Reg}=Move|Is], D, Acc) ->
 	false -> backward([Move|Is], D, [Jump|Acc]);
 	true -> backward([Jump|Is], D, Acc)
     end;
-backward([{jump,{f,To}}=J|[{bif,Op,_,Ops,Reg}|Is]=Is0], D, Acc) ->
+backward([{jump,{f,To}}=J|[{bif,Op,{f,BifFail},Ops,Reg}|Is]=Is0], D, Acc) ->
     try replace_comp_op(To, Reg, Op, Ops, D) of
 	I -> backward(Is, D, I++Acc)
     catch
-	throw:not_possible -> backward(Is0, D, [J|Acc])
+	throw:not_possible ->
+	    case To =:= BifFail of
+		true ->
+		    %% The bif instruction is redundant. See the comment
+		    %% in the next clause for why there is no need to
+		    %% test for liveness of Reg at label To.
+		    backward([J|Is], D, Acc);
+		false ->
+		    backward(Is0, D, [J|Acc])
+	    end
     end;
+backward([{jump,{f,To}}=J|[{gc_bif,_,{f,To},_,_,_Dst}|Is]], D, Acc) ->
+    %% The gc_bif instruction is redundant, since either the gc_bif
+    %% instruction itself or the jump instruction will transfer control
+    %% to label To. Note that a gc_bif instruction does not assign its
+    %% destination register if the failure branch is taken; therefore,
+    %% the code at label To is not allowed to assume that the destination
+    %% register is initialized, and it is therefore no need to test
+    %% for liveness of the destination register at label To.
+    backward([J|Is], D, Acc);
 backward([{test,bs_start_match2,F,Live,[R,_]=Args,Ctxt}|Is], D,
 	 [{test,bs_match_string,F,[Ctxt,Bs]},
 	  {test,bs_test_tail2,F,[Ctxt,0]}|Acc0]=Acc) ->
