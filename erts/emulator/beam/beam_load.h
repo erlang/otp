@@ -37,14 +37,6 @@ typedef struct gen_op_entry {
 
 extern const GenOpEntry gen_opc[];
 
-#ifdef NO_JUMP_TABLE 
-#define BeamOp(Op) (Op)
-#else
-extern void** beam_ops;
-#define BeamOp(Op) beam_ops[(Op)]
-#endif
-
-
 extern BeamInstr beam_debug_apply[];
 extern BeamInstr* em_call_error_handler;
 extern BeamInstr* em_apply_bif;
@@ -115,7 +107,7 @@ typedef struct beam_code_header {
      * The actual loaded code (for the first function) start just beyond
      * this table.
      */
-    BeamInstr* functions[1];
+    ErtsCodeInfo* functions[1];
 
 }BeamCodeHeader;
 

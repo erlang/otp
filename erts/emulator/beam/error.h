@@ -21,6 +21,8 @@
 #ifndef __ERROR_H__
 #define __ERROR_H__
 
+#include "code_ix.h"
+
 /*
  * There are three primary exception classes:
  *
@@ -197,7 +199,7 @@ struct StackTrace {
     Eterm header;	/* bignum header - must be first in struct */
     Eterm freason; /* original exception reason is saved in the struct */
     BeamInstr* pc;
-    BeamInstr* current;
+    ErtsCodeMFA* current;
     int depth;	/* number of saved pointers in trace[] */
     BeamInstr *trace[1];  /* varying size - must be last in struct */
 };

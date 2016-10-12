@@ -1453,11 +1453,11 @@ BIF_RETTYPE hipe_nonclosure_address(BIF_ALIST_2)
     hdr = *boxed_val(BIF_ARG_1);
     if (is_export_header(hdr)) {
 	Export *ep = (Export*)(export_val(BIF_ARG_1)[1]);
-	unsigned int actual_arity = ep->code[2];
+	unsigned int actual_arity = ep->info.mfa.arity;
 	if (actual_arity != BIF_ARG_2)
 	    goto badfun;
-	m = ep->code[0];
-	f = ep->code[1];
+	m = ep->info.mfa.module;
+	f = ep->info.mfa.function;
     } else
 	goto badfun;
     address = hipe_get_na_nofail(m, f, BIF_ARG_2, 1);

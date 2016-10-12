@@ -116,7 +116,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     Eterm MFA = BIF_ARG_1;
     Eterm boolean = BIF_ARG_2;
     Eterm* tp;
-    Eterm mfa[3];
+    ErtsCodeMFA mfa;
     int i;
     int specified = 0;
     Eterm res;
@@ -132,23 +132,24 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     if (*tp != make_arityval(3)) {
 	goto error;
     }
-    mfa[0] = tp[1];
-    mfa[1] = tp[2];
-    mfa[2] = tp[3];
-    if (!is_atom(mfa[0]) || !is_atom(mfa[1]) ||
-	(!is_small(mfa[2]) && mfa[2] != am_Underscore)) {
+    if (!is_atom(tp[1]) || !is_atom(tp[2]) ||
+	(!is_small(tp[3]) && tp[3] != am_Underscore)) {
 	goto error;
     }
-    for (i = 0; i < 3 && mfa[i] != am_Underscore; i++, specified++) {
+    for (i = 0; i < 3 && tp[i+1] != am_Underscore; i++, specified++) {
 	/* Empty loop body */
     }
     for (i = specified; i < 3; i++) {
-	if (mfa[i] != am_Underscore) {
+	if (tp[i+1] != am_Underscore) {
 	    goto error;
 	}
     }
-    if (is_small(mfa[2])) {
-	mfa[2] = signed_val(mfa[2]);
+
+    mfa.module = tp[1];
+    mfa.function = tp[2];
+
+    if (is_small(tp[3])) {
+        mfa.arity = signed_val(tp[3]);
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
@@ -158,7 +159,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
-    erts_bp_match_functions(&f, mfa, specified);
+    erts_bp_match_functions(&f, &mfa, specified);
     if (boolean == am_true) {
 	erts_set_debug_break(&f);
 	erts_install_breakpoints(&f);
@@ -242,9 +243,9 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     Eterm* tp;
     Eterm bin;
     Eterm mfa;
-    BeamInstr* funcinfo = NULL;	/* Initialized to eliminate warning. */
+    ErtsCodeMFA *cmfa = NULL;
     BeamCodeHeader* code_hdr;
-    BeamInstr* code_ptr = NULL;	/* Initialized to eliminate warning. */
+    BeamInstr *code_ptr;
     BeamInstr instr;
     BeamInstr uaddr;
     Uint hsz;
@@ -252,7 +253,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 
     if (term_to_UWord(addr, &uaddr)) {
 	code_ptr = (BeamInstr *) uaddr;
-	if ((funcinfo = find_function_from_pc(code_ptr)) == NULL) {
+	if ((cmfa = find_function_from_pc(code_ptr)) == NULL) {
 	    BIF_RET(am_false);
 	}
     } else if (is_tuple(addr)) {
@@ -283,24 +284,22 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	 * such as erts_debug:apply/4.  Then search for it in the module.
 	 */
 	if ((ep = erts_find_function(mod, name, arity, code_ix)) != NULL) {
-	    /* XXX: add "&& ep->address != ep->code+3" condition?
+	    /* XXX: add "&& ep->address != ep->code" condition?
 	     * Consider a traced function.
-	     * Its ep will have ep->address == ep->code+3.
+	     * Its ep will have ep->address == ep->code.
 	     * erts_find_function() will return the non-NULL ep.
 	     * Below we'll try to derive a code_ptr from ep->address.
 	     * But this code_ptr will point to the start of the Export,
 	     * not the function's func_info instruction. BOOM !?
 	     */
-	    code_ptr = ((BeamInstr *) ep->addressv[code_ix]) - 5;
-	    funcinfo = code_ptr+2;
+	    cmfa = erts_code_to_codemfa(ep->addressv[code_ix]);
 	} else if (modp == NULL || (code_hdr = modp->curr.code_hdr) == NULL) {
 	    BIF_RET(am_undef);
 	} else {
 	    n = code_hdr->num_functions;
 	    for (i = 0; i < n; i++) {
-		code_ptr = code_hdr->functions[i];
-		if (code_ptr[3] == name && code_ptr[4] == arity) {
-		    funcinfo = code_ptr+2;
+		cmfa = &code_hdr->functions[i]->mfa;
+		if (cmfa->function == name && cmfa->arity == arity) {
 		    break;
 		}
 	    }
@@ -308,6 +307,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 		BIF_RET(am_undef);
 	    }
 	}
+        code_ptr = erts_codemfa_to_code(cmfa);
     } else {
 	goto error;
     }
@@ -333,9 +333,10 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     (void) erts_bld_uword(NULL, &hsz, (BeamInstr) code_ptr);
     hp = HAlloc(p, hsz);
     addr = erts_bld_uword(&hp, NULL, (BeamInstr) code_ptr);
-    ASSERT(is_atom(funcinfo[0]) || funcinfo[0] == NIL);
-    ASSERT(is_atom(funcinfo[1]) || funcinfo[1] == NIL);
-    mfa = TUPLE3(hp, (Eterm) funcinfo[0], (Eterm) funcinfo[1], make_small((Eterm) funcinfo[2]));
+    ASSERT(is_atom(cmfa->module) || is_nil(cmfa->module));
+    ASSERT(is_atom(cmfa->function) || is_nil(cmfa->function));
+    mfa = TUPLE3(hp, cmfa->module, cmfa->function,
+                 make_small(cmfa->arity));
     hp += 4;
     return TUPLE3(hp, addr, bin, mfa);
 }
@@ -347,11 +348,12 @@ dbg_bt(Process* p, Eterm* sp)
 
     while (sp < stack) {
 	if (is_CP(*sp)) {
-	    BeamInstr* addr = find_function_from_pc(cp_val(*sp));
-	    if (addr)
+	    ErtsCodeMFA* cmfa = find_function_from_pc(cp_val(*sp));
+	    if (cmfa)
 		erts_fprintf(stderr,
 			     HEXF ": %T:%T/%bpu\n",
-			     addr, (Eterm) addr[0], (Eterm) addr[1], addr[2]);
+			     &cmfa->module, cmfa->module,
+                             cmfa->function, cmfa->arity);
 	}
 	sp++;
     }
@@ -360,17 +362,17 @@ dbg_bt(Process* p, Eterm* sp)
 void
 dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg)
 {
-    BeamInstr* f = find_function_from_pc(addr);
+    ErtsCodeMFA* cmfa = find_function_from_pc(addr);
 
-    if (f == NULL) {
+    if (cmfa == NULL) {
 	erts_fprintf(stderr, "???\n");
     } else {
 	int arity;
 	int i;
 
-	addr = f;
-	arity = addr[2];
-	erts_fprintf(stderr, HEXF ": %T:%T(", addr, (Eterm) addr[0], (Eterm) addr[1]);
+	arity = cmfa->arity;
+	erts_fprintf(stderr, HEXF ": %T:%T(", addr,
+                     cmfa->module, cmfa->function);
 	for (i = 0; i < arity; i++)
 	    erts_fprintf(stderr, i ? ", %T" : "%T", i ? reg[i] : x0);
 	erts_fprintf(stderr, ")\n");
@@ -546,22 +548,24 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    break;
 	case 'f':		/* Destination label */
 	    {
-		BeamInstr* f = find_function_from_pc((BeamInstr *)*ap);
-		if (f+3 != (BeamInstr *) *ap) {
+		ErtsCodeMFA* cmfa = find_function_from_pc((BeamInstr *)*ap);
+		if (!cmfa || erts_codemfa_to_code(cmfa) != (BeamInstr *) *ap) {
 		    erts_print(to, to_arg, "f(" HEXF ")", *ap);
 		} else {
-		    erts_print(to, to_arg, "%T:%T/%bpu", (Eterm) f[0], (Eterm) f[1], f[2]);
+		    erts_print(to, to_arg, "%T:%T/%bpu", cmfa->module,
+                               cmfa->function, cmfa->arity);
 		}
 		ap++;
 	    }
 	    break;
 	case 'p':		/* Pointer (to label) */
 	    {
-		BeamInstr* f = find_function_from_pc((BeamInstr *)*ap);
-		if (f+3 != (BeamInstr *) *ap) {
+		ErtsCodeMFA* cmfa = find_function_from_pc((BeamInstr *)*ap);
+		if (!cmfa || erts_codemfa_to_code(cmfa) != (BeamInstr *) *ap) {
 		    erts_print(to, to_arg, "p(" HEXF ")", *ap);
 		} else {
-		    erts_print(to, to_arg, "%T:%T/%bpu", (Eterm) f[0], (Eterm) f[1], f[2]);
+		    erts_print(to, to_arg, "%T:%T/%bpu", cmfa->module,
+                               cmfa->function, cmfa->arity);
 		}
 		ap++;
 	    }
@@ -574,7 +578,9 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    {
 		Export* ex = (Export *) *ap;
 		erts_print(to, to_arg,
-			   "%T:%T/%bpu", (Eterm) ex->code[0], (Eterm) ex->code[1], ex->code[2]);
+			   "%T:%T/%bpu", (Eterm) ex->info.mfa.module,
+                           (Eterm) ex->info.mfa.function,
+                           ex->info.mfa.arity);
 		ap++;
 	    }
 	    break;

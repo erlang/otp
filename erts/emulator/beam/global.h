@@ -1024,7 +1024,7 @@ extern Process *erts_code_purger;
 
 /* beam_load.c */
 typedef struct {
-    BeamInstr* current;		/* Pointer to: Mod, Name, Arity */
+    ErtsCodeMFA* mfa;		/* Pointer to: Mod, Name, Arity */
     Uint needed;		/* Heap space needed for entire tuple */
     Uint32 loc;			/* Location in source code */
     Eterm* fname_ptr;		/* Pointer to fname table */
@@ -1041,10 +1041,10 @@ Eterm erts_finish_loading(Binary* loader_state, Process* c_p,
 Eterm erts_preload_module(Process *c_p, ErtsProcLocks c_p_locks,
 			  Eterm group_leader, Eterm* mod, byte* code, Uint size);
 void init_load(void);
-BeamInstr* find_function_from_pc(BeamInstr* pc);
+ErtsCodeMFA* find_function_from_pc(BeamInstr* pc);
 Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
 			   Eterm args, Eterm* mfa_p);
-void erts_set_current_function(FunctionInfo* fi, BeamInstr* current);
+void erts_set_current_function(FunctionInfo* fi, ErtsCodeMFA* mfa);
 Eterm erts_module_info_0(Process* p, Eterm module);
 Eterm erts_module_info_1(Process* p, Eterm module, Eterm what);
 Eterm erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info);
@@ -1577,8 +1577,7 @@ int erts_beam_jump_table(void);
 ERTS_GLB_INLINE void dtrace_pid_str(Eterm pid, char *process_buf);
 ERTS_GLB_INLINE void dtrace_proc_str(Process *process, char *process_buf);
 ERTS_GLB_INLINE void dtrace_port_str(Port *port, char *port_buf);
-ERTS_GLB_INLINE void dtrace_fun_decode(Process *process,
-				       Eterm module, Eterm function, int arity,
+ERTS_GLB_INLINE void dtrace_fun_decode(Process *process, ErtsCodeMFA *mfa,
 				       char *process_buf, char *mfa_buf);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
@@ -1612,8 +1611,7 @@ dtrace_port_str(Port *port, char *port_buf)
 }
 
 ERTS_GLB_INLINE void
-dtrace_fun_decode(Process *process,
-                  Eterm module, Eterm function, int arity,
+dtrace_fun_decode(Process *process, ErtsCodeMFA *mfa,
                   char *process_buf, char *mfa_buf)
 {
     if (process_buf) {
@@ -1621,7 +1619,7 @@ dtrace_fun_decode(Process *process,
     }
 
     erts_snprintf(mfa_buf, DTRACE_TERM_BUF_SIZE, "%T:%T/%d",
-                  module, function, arity);
+                  mfa->module, mfa->function, mfa->arity);
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */

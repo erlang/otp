@@ -4963,13 +4963,13 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
     int i;
     sys_memset((void *) ep, 0, sizeof(Export));
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-	ep->addressv[i] = &ep->code[3];
+	ep->addressv[i] = ep->beam;
     }
-    ep->code[0] = m;
-    ep->code[1] = f;
-    ep->code[2] = a;
-    ep->code[3] = (BeamInstr) em_apply_bif;
-    ep->code[4] = (BeamInstr) bif;
+    ep->info.mfa.module = m;
+    ep->info.mfa.function = f;
+    ep->info.mfa.arity = a;
+    ep->beam[0] = (BeamInstr) em_apply_bif;
+    ep->beam[1] = (BeamInstr) bif;
 }
 
 void erts_init_bif(void)

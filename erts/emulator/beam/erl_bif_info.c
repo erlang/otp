@@ -1114,9 +1114,9 @@ process_info_aux(Process *BIF_P,
     case am_initial_call:
 	hp = HAlloc(BIF_P, 3+4);
 	res = TUPLE3(hp,
-		     rp->u.initial[INITIAL_MOD],
-		     rp->u.initial[INITIAL_FUN],
-		     make_small(rp->u.initial[INITIAL_ARI]));
+		     rp->u.initial.module,
+		     rp->u.initial.function,
+		     make_small(rp->u.initial.arity));
 	hp += 4;
 	break;
 
@@ -1563,9 +1563,9 @@ process_info_aux(Process *BIF_P,
 		    term = am_timeout;
 		else {
 		    term = TUPLE3(hp,
-				  scb->ct[j]->code[0],
-				  scb->ct[j]->code[1],
-				  make_small(scb->ct[j]->code[2]));
+				  scb->ct[j]->info.mfa.module,
+				  scb->ct[j]->info.mfa.function,
+				  make_small(scb->ct[j]->info.mfa.arity));
 		    hp += 4;
 		}
 		list = CONS(hp, term, list);
@@ -1614,10 +1614,10 @@ current_function(Process* BIF_P, Process* rp, Eterm** hpp, int full_info)
 
     if (rp->current == NULL) {
 	erts_lookup_function_info(&fi, rp->i, full_info);
-	rp->current = fi.current;
+	rp->current = fi.mfa;
     } else if (full_info) {
 	erts_lookup_function_info(&fi, rp->i, full_info);
-	if (fi.current == NULL) {
+	if (fi.mfa == NULL) {
 	    /* Use the current function without location info */
 	    erts_set_current_function(&fi, rp->current);
 	}
@@ -1633,9 +1633,9 @@ current_function(Process* BIF_P, Process* rp, Eterm** hpp, int full_info)
 	 * instead if it can be looked up.
 	 */
 	erts_lookup_function_info(&fi2, rp->cp, full_info);
-	if (fi2.current) {
+	if (fi2.mfa) {
 	    fi = fi2;
-	    rp->current = fi2.current;
+	    rp->current = fi2.mfa;
 	}
     }
 
@@ -1650,8 +1650,9 @@ current_function(Process* BIF_P, Process* rp, Eterm** hpp, int full_info)
 	hp = erts_build_mfa_item(&fi, hp, am_true, &res);
     } else {
 	hp = HAlloc(BIF_P, 3+4);
-	res = TUPLE3(hp, rp->current[0],
-		     rp->current[1], make_small(rp->current[2]));
+	res = TUPLE3(hp, rp->current->module,
+		     rp->current->function,
+                     make_small(rp->current->arity));
 	hp += 4;
     }
     *hpp = hp;
@@ -1692,7 +1693,7 @@ current_stacktrace(Process* p, Process* rp, Eterm** hpp)
     heap_size = 3;
     for (i = 0; i < depth; i++) {
 	erts_lookup_function_info(stkp, s->trace[i], 1);
-	if (stkp->current) {
+	if (stkp->mfa) {
 	    heap_size += stkp->needed + 2;
 	    stkp++;
 	}
@@ -3227,7 +3228,7 @@ fun_info_2(BIF_ALIST_2)
 	    break;
 	case am_module:
 	    hp = HAlloc(p, 3);
-	    val = exp->code[0];
+	    val = exp->info.mfa.module;
 	    break;
 	case am_new_index:
 	    hp = HAlloc(p, 3);
@@ -3255,11 +3256,11 @@ fun_info_2(BIF_ALIST_2)
 	    break;
 	case am_arity:
 	    hp = HAlloc(p, 3);
-	    val = make_small(exp->code[2]);
+	    val = make_small(exp->info.mfa.arity);
 	    break;
 	case am_name:
 	    hp = HAlloc(p, 3);
-	    val = exp->code[1];
+	    val = exp->info.mfa.function;
 	    break;
 	default:
 	    goto error;
@@ -3285,7 +3286,9 @@ fun_info_mfa_1(BIF_ALIST_1)
     } else if (is_export(fun)) {
 	Export* exp = (Export *) ((UWord) (export_val(fun))[1]);
 	hp = HAlloc(p, 4);
-	BIF_RET(TUPLE3(hp,exp->code[0],exp->code[1],make_small(exp->code[2])));
+	BIF_RET(TUPLE3(hp,exp->info.mfa.module,
+                       exp->info.mfa.function,
+                       make_small(exp->info.mfa.arity)));
     }
     BIF_ERROR(p, BADARG);
 }

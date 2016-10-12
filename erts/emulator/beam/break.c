@@ -231,9 +231,9 @@ print_process_info(int to, void *to_arg, Process *p)
      * Display the initial function name
      */
     erts_print(to, to_arg, "Spawned as: %T:%T/%bpu\n",
-	       p->u.initial[INITIAL_MOD],
-	       p->u.initial[INITIAL_FUN],
-	       p->u.initial[INITIAL_ARI]);
+	       p->u.initial.module,
+	       p->u.initial.function,
+	       p->u.initial.arity);
     
     if (p->current != NULL) {
 	if (running) {
@@ -242,9 +242,9 @@ print_process_info(int to, void *to_arg, Process *p)
 	    erts_print(to, to_arg, "Current call: ");
 	}
 	erts_print(to, to_arg, "%T:%T/%bpu\n",
-		   p->current[0],
-		   p->current[1],
-		   p->current[2]);
+		   p->current->module,
+		   p->current->function,
+		   p->current->arity);
     }
 
     erts_print(to, to_arg, "Spawned by: %T\n", p->parent);
@@ -291,9 +291,9 @@ print_process_info(int to, void *to_arg, Process *p)
 		   erts_print(to, to_arg, "timeout");
 	     else
 		 erts_print(to, to_arg, "%T:%T/%bpu\n",
-			    scb->ct[j]->code[0],
-			    scb->ct[j]->code[1],
-			    scb->ct[j]->code[2]);
+			    scb->ct[j]->info.mfa.module,
+			    scb->ct[j]->info.mfa.function,
+			    scb->ct[j]->info.mfa.arity);
        }
        erts_print(to, to_arg, "\n");
     }

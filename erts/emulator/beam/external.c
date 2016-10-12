@@ -2826,9 +2826,10 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		Export* exp = *((Export **) (export_val(obj) + 1));
 		if ((dflags & DFLAG_EXPORT_PTR_TAG) != 0) {
 		    *ep++ = EXPORT_EXT;
-		    ep = enc_atom(acmp, exp->code[0], ep, dflags);
-		    ep = enc_atom(acmp, exp->code[1], ep, dflags);
-		    ep = enc_term(acmp, make_small(exp->code[2]), ep, dflags, off_heap);
+		    ep = enc_atom(acmp, exp->info.mfa.module, ep, dflags);
+		    ep = enc_atom(acmp, exp->info.mfa.function, ep, dflags);
+		    ep = enc_term(acmp, make_small(exp->info.mfa.arity),
+                                  ep, dflags, off_heap);
 		} else {
 		    /* Tag, arity */
 		    *ep++ = SMALL_TUPLE_EXT;
@@ -2836,10 +2837,10 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    ep += 1;
 
 		    /* Module name */
-		    ep = enc_atom(acmp, exp->code[0], ep, dflags);
+		    ep = enc_atom(acmp, exp->info.mfa.module, ep, dflags);
 
 		    /* Function name */
-		    ep = enc_atom(acmp, exp->code[1], ep, dflags);
+		    ep = enc_atom(acmp, exp->info.mfa.function, ep, dflags);
 		}
 		break;
 	    }
@@ -4262,9 +4263,9 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    {
 		Export* ep = *((Export **) (export_val(obj) + 1));
 		result += 1;
-		result += encode_size_struct2(acmp, ep->code[0], dflags);
-		result += encode_size_struct2(acmp, ep->code[1], dflags);
-		result += encode_size_struct2(acmp, make_small(ep->code[2]), dflags);
+		result += encode_size_struct2(acmp, ep->info.mfa.module, dflags);
+		result += encode_size_struct2(acmp, ep->info.mfa.function, dflags);
+		result += encode_size_struct2(acmp, make_small(ep->info.mfa.arity), dflags);
 	    }
 	    break;
 
