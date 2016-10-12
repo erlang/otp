@@ -151,10 +151,16 @@ struct BeamCodeLineTab_ {
 #define LOC_FILE(Loc) ((Loc) >> 24)
 #define LOC_LINE(Loc) ((Loc) & ((1 << 24)-1))
 
-#ifdef DEBUG
-# define ENABLE_DBG_TRACE_MFA
-#endif
 
+/*
+ * MFA event debug "tracing" usage:
+ *
+ * #define ENABLE_DBG_TRACE_MFA
+ * call dbg_set_traced_mfa("mymod","myfunc",arity)
+ * for the function(s) to trace, in some init function.
+ *
+ * Run and get stderr printouts when interesting things happen to your MFA.
+ */
 #ifdef  ENABLE_DBG_TRACE_MFA
 
 void dbg_set_traced_mfa(const char* m, const char* f, Uint a);
