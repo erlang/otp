@@ -44,18 +44,20 @@
 -export(
    [wakeup_from_hibernate/3]).
 
-%% Type exports for templates
+%% Type exports for templates and callback modules
 -export_type(
    [event_type/0,
-    state_name/0,
+    init_result/0,
     callback_mode_result/0,
     state_function_result/0,
-    state_function_enter_result/0,
     handle_event_result/0,
-    handle_event_enter_result/0,
+    state_enter_result/1,
+    event_handler_result/1,
+    reply_action/0,
+    enter_action/0,
     action/0]).
 
-%% Fix problem for doc build
+%% Type that is exported just to be documented
 -export_type([transition_option/0]).
 
 %%%==========================================================================
@@ -66,7 +68,7 @@
 	{To :: pid(), Tag :: term()}. % Reply-to specifier for call
 
 -type state() ::
-	state_name() | % For StateName/3 callback functios
+	state_name() | % For StateName/3 callback functions
 	term(). % For handle_event/4 callback function
 
 -type state_name() :: atom().
@@ -140,67 +142,45 @@
 	{'reply', % Reply to a caller
 	 From :: from(), Reply :: term()}.
 
+-type init_result() ::
+    {ok, state(), data()} |
+    {ok, state(), data(), [action()] | action()} |
+    'ignore' |
+    {'stop', Reason :: term()}.
+
+%% Old, not advertised
 -type state_function_result() ::
-	{'next_state', % {next_state,NextStateName,NewData,[]}
-	 NextStateName :: state_name(),
-	 NewData :: data()} |
-	{'next_state', % State transition, maybe to the same state
-	 NextStateName :: state_name(),
-	 NewData :: data(),
-	 Actions :: [action()] | action()} |
-	keep_state_callback_result().
--type state_function_enter_result() ::
-	{'next_state', % {next_state,NextStateName,NewData,[]}
-	 NextStateName :: state_name(),
-	 NewData :: data()} |
-	{'next_state', % State transition, maybe to the same state
-	 NextStateName :: state_name(),
-	 NewData :: data(),
-	 Actions :: [enter_action()] | enter_action()} |
-	keep_state_callback_enter_result().
-
+	event_handler_result(state_name()).
 -type handle_event_result() ::
+	event_handler_result(state()).
+%%
+-type state_enter_result(StateType) ::
 	{'next_state', % {next_state,NextState,NewData,[]}
-	 NextState :: state(),
+	 State :: StateType,
 	 NewData :: data()} |
 	{'next_state', % State transition, maybe to the same state
-	 NextState :: state(),
-	 NewData :: data(),
-	 Actions :: [action()] | action()} |
-	keep_state_callback_result().
--type handle_event_enter_result() ::
-	{'next_state', % {next_state,NextState,NewData,[]}
-	 NextState :: state(),
-	 NewData :: data()} |
-	{'next_state', % State transition, maybe to the same state
-	 NextState :: state(),
+	 State :: StateType,
 	 NewData :: data(),
 	 Actions :: [enter_action()] | enter_action()} |
-	keep_state_callback_enter_result().
-
--type keep_state_callback_result() ::
+	state_callback_result(enter_action()).
+-type event_handler_result(StateType) ::
+	{'next_state', % {next_state,NextState,NewData,[]}
+	 NextState :: StateType,
+	 NewData :: data()} |
+	{'next_state', % State transition, maybe to the same state
+	 NextState :: StateType,
+	 NewData :: data(),
+	 Actions :: [action()] | action()} |
+	state_callback_result(action()).
+-type state_callback_result(ActionType) ::
 	{'keep_state', % {keep_state,NewData,[]}
 	 NewData :: data()} |
 	{'keep_state', % Keep state, change data
 	 NewData :: data(),
-	 Actions :: [action()] | action()} |
+	 Actions :: [ActionType] | ActionType} |
 	'keep_state_and_data' | % {keep_state_and_data,[]}
 	{'keep_state_and_data', % Keep state and data -> only actions
-	 Actions :: [action()] | action()} |
-	common_state_callback_result().
-
--type keep_state_callback_enter_result() ::
-	{'keep_state', % {keep_state,NewData,[]}
-	 NewData :: data()} |
-	{'keep_state', % Keep state, change data
-	 NewData :: data(),
-	 Actions :: [enter_action()] | enter_action()} |
-	'keep_state_and_data' | % {keep_state_and_data,[]}
-	{'keep_state_and_data', % Keep state and data -> only actions
-	 Actions :: [enter_action()] | enter_action()} |
-	common_state_callback_result().
-
--type common_state_callback_result() ::
+	 Actions :: [ActionType] | ActionType} |
 	'stop' | % {stop,normal}
 	{'stop', % Stop the server
 	 Reason :: term()} |
@@ -220,11 +200,7 @@
 %% the server is not running until this function has returned
 %% an {ok, ...} tuple.  Thereafter the state callbacks are called
 %% for all events to this server.
--callback init(Args :: term()) ->
-    {ok, state(), data()} |
-    {ok, state(), data(), [action()] | action()} |
-    'ignore' |
-    {'stop', Reason :: term()}.
+-callback init(Args :: term()) -> init_result().
 
 %% This callback shall return the callback mode of the callback module.
 %%
@@ -244,11 +220,11 @@
 	    'enter',
 	    OldStateName :: state_name(),
 	    Data :: data()) ->
-    state_function_enter_result();
+    state_enter_result('state_name');
            (event_type(),
 	    EventContent :: term(),
 	    Data :: data()) ->
-    state_function_result().
+    event_handler_result(state_name()).
 %%
 %% State callback for all states
 %% when callback_mode() =:= handle_event_function.
@@ -257,12 +233,12 @@
 	    OldState :: state(),
 	    State :: state(), % Current state
 	    Data :: data()) ->
-    handle_event_enter_result();
+    state_enter_result(state());
            (event_type(),
 	    EventContent :: term(),
 	    State :: state(), % Current state
 	    Data :: data()) ->
-    handle_event_result().
+    event_handler_result(state()).
 
 %% Clean up before the server terminates.
 -callback terminate(

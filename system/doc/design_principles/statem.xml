@@ -214,7 +214,7 @@ handle_event(EventType, EventContent, State, Data) ->
       The <c>gen_statem</c> behavior can regardless of callback mode
       automatically
       <seealso marker="stdlib:gen_statem#type-state_enter">
-	call the state function
+	call the state callback
       </seealso>
       with special arguments whenever the state changes
       so you can write state entry actions
@@ -264,7 +264,7 @@ StateName(EventType, EventContent, Data) ->
       These are ordered by returning a list of
       <seealso marker="stdlib:gen_statem#type-action">actions</seealso>
       in the
-      <seealso marker="stdlib:gen_statem#type-state_function_result">return tuple</seealso>
+      <seealso marker="stdlib:gen_statem#type-state_callback_result">return tuple</seealso>
       from the
       <seealso marker="stdlib:gen_statem#Module:StateName/3">callback function</seealso>.
       These state transition actions affect the <c>gen_statem</c>
@@ -1141,7 +1141,7 @@ do_unlock() ->
       You return a list containing <c>state_enter</c> from your
       <seealso marker="stdlib:gen_statem#Module:callback_mode/0"><c>callback_mode/0</c></seealso>
       function and the <c>gen_statem</c> engine will call your
-      state function once with the arguments
+      state callback once with the arguments
       <c>(enter, OldState, ...)</c> whenever the state changes.
       Then you just need to handle these event-like calls in all states.
     </p>
