@@ -38,6 +38,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 all() -> [{group, messages},
+	  client_sends_info_timing,
 	  {group, client_server}
 	 ].
 
@@ -104,5 +105,11 @@ client_server_parallel(Config) ->
 client_server_parallel_multi(Config) ->
     ct_property_test:quickcheck(
       ssh_eqc_client_server:prop_parallel_multi(Config),
+      Config
+     ).
+
+client_sends_info_timing(Config) ->
+    ct_property_test:quickcheck(
+      ssh_eqc_client_info_timing:prop_seq(Config),
       Config
      ).
