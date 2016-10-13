@@ -1726,8 +1726,7 @@ if test "x$enable_sctp" != "xno" ; then
 fi
 
 if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
-    AC_CHECK_LIB(sctp, sctp_bindx)
-    AC_CHECK_FUNCS([sctp_peeloff sctp_getladdrs sctp_freeladdrs sctp_getpaddrs sctp_freepaddrs])
+    AC_CHECK_FUNCS([sctp_bindx sctp_peeloff sctp_getladdrs sctp_freeladdrs sctp_getpaddrs sctp_freepaddrs])
     AC_CHECK_DECLS([SCTP_UNORDERED, SCTP_ADDR_OVER, SCTP_ABORT,
                     SCTP_EOF, SCTP_SENDALL, SCTP_ADDR_CONFIRMED,
 		    SCTP_DELAYED_ACK_TIME,
