@@ -451,6 +451,8 @@ check_type(_,[{record,_,_,_}],ets) ->
     ok;
 check_type(_,[{cons,_,_,_}],dbg) ->
     ok;
+check_type(_,[{nil,_}],dbg) ->
+    ok;
 check_type(Line0,[{match,_,{var,_,_},X}],Any) ->
     check_type(Line0,[X],Any);
 check_type(Line0,[{match,_,X,{var,_,_}}],Any) ->
