@@ -1,5 +1,5 @@
 #-*-makefile-*-   ; force emacs to enter makefile-mode
 
-SSH_VSN = 4.3.4
+SSH_VSN = 4.3.5
 
 APP_VSN    = "ssh-$(SSH_VSN)"
