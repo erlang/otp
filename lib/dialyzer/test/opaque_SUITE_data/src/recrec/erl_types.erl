@@ -159,7 +159,6 @@
 	 t_map_get/2, t_map_get/3,
 	 t_map_is_key/2, t_map_is_key/3,
 	 t_map_update/2, t_map_update/3,
-	 t_map_pairwise_merge/4,
 	 t_map_put/2, t_map_put/3,
 	 t_matchstate/0,
 	 t_matchstate/2,
@@ -220,7 +219,8 @@
 	 is_erl_type/1,
 	 atom_to_string/1,
 	 var_table__new/0,
-	 cache__new/0
+         cache__new/0,
+	 map_pairwise_merge/3
 	]).
 
 %%-define(DO_ERL_TYPES_TEST, true).
@@ -494,9 +494,9 @@ t_contains_opaque(?function(Domain, Range), Opaques) ->
   t_contains_opaque(Domain, Opaques)
   orelse t_contains_opaque(Range, Opaques);
 t_contains_opaque(?identifier(_Types), _Opaques) -> false;
+t_contains_opaque(?integer(_Types), _Opaques) -> false;
 t_contains_opaque(?int_range(_From, _To), _Opaques) -> false;
 t_contains_opaque(?int_set(_Set), _Opaques) -> false;
-t_contains_opaque(?integer(_Types), _Opaques) -> false;
 t_contains_opaque(?list(Type, Tail, _), Opaques) ->
   t_contains_opaque(Type, Opaques) orelse t_contains_opaque(Tail, Opaques);
 t_contains_opaque(?map(_, _, _) = Map, Opaques) ->
@@ -611,13 +611,9 @@ t_decorate_with_opaque(T1, T2, Opaques) ->
         false -> T1;
         true ->
           R = decorate(T1, T, Opaques),
-          ?debug(case catch
-                        not t_is_equal(t_unopaque(R), t_unopaque(T1))
-                        orelse
-                        t_is_equal(T1, T) andalso not t_is_equal(T1, R)
-                 of
-                   false -> ok;
-                   _ ->
+          ?debug(case catch t_is_equal(t_unopaque(R), t_unopaque(T1)) of
+                   true -> ok;
+                   false ->
                      io:format("T1 = ~p,\n", [T1]),
                      io:format("T2 = ~p,\n", [T2]),
                      io:format("O = ~p,\n", [Opaques]),
@@ -646,6 +642,7 @@ decorate(?tuple_set(List), ?tuple_set(L), Opaques) ->
 decorate(?union(List), T, Opaques) when T =/= ?any ->
   ?union(L) = force_union(T),
   union_decorate(List, L, Opaques);
+decorate(?opaque(_)=T, _, _Opaques) -> T;
 decorate(T, ?union(L), Opaques) when T =/= ?any ->
   ?union(List) = force_union(T),
   union_decorate(List, L, Opaques);
@@ -659,7 +656,7 @@ decorate_with_opaque(Type, ?opaque(Set2), Opaques) ->
   case decoration(set_to_list(Set2), Type, Opaques, [], false) of
     {[], false} -> Type;
     {List, All} when List =/= [] ->
-      NewType = sup_opaque(List),
+      NewType = ?opaque(ordsets:from_list(List)),
       case All of
         true -> NewType;
         false -> t_sup(NewType, Type)
@@ -673,10 +670,9 @@ decoration([#opaque{struct = S} = Opaque|OpaqueTypes], Type, Opaques,
   case not IsOpaque orelse t_is_none(I) of
     true -> decoration(OpaqueTypes, Type, Opaques, NewOpaqueTypes0, All);
     false ->
-      NewI = decorate(I, S, Opaques),
-      NewOpaque = combine(NewI, [Opaque]),
+      NewOpaque = Opaque#opaque{struct = decorate(I, S, Opaques)},
       NewAll = All orelse t_is_equal(I, Type),
-      NewOpaqueTypes = NewOpaque ++ NewOpaqueTypes0,
+      NewOpaqueTypes = [NewOpaque|NewOpaqueTypes0],
       decoration(OpaqueTypes, Type, Opaques, NewOpaqueTypes, NewAll)
   end;
 decoration([], _Type, _Opaques, NewOpaqueTypes, All) ->
@@ -1668,12 +1664,10 @@ t_map(Pairs0, DefK0, DefV0) ->
   %% define(DEBUG, true).
   try
     validate_map_elements(Pairs)
-  catch error:badarg -> error(badarg, [Pairs0,DefK0,DefV0])
+  catch error:badarg ->      error(badarg,      [Pairs0,DefK0,DefV0]);
+	error:{badarg, E} -> error({badarg, E}, [Pairs0,DefK0,DefV0])
   end,
-  case map_pairs_are_none(Pairs) of
-    true -> ?none;
-    false -> ?map(Pairs, DefK, DefV)
-  end.
+  ?map(Pairs, DefK, DefV).
 
 normalise_map_optionals([], _, _) -> [];
 normalise_map_optionals([E={K,?opt,?none}|T], DefK, DefV) ->
@@ -1690,6 +1684,7 @@ normalise_map_optionals([E={K,?opt,V}|T], DefK, DefV) ->
 normalise_map_optionals([E|T], DefK, DefV) ->
   [E|normalise_map_optionals(T, DefK, DefV)].
 
+validate_map_elements([{_,?mand,?none}|_]) -> error({badarg, none_in_mand});
 validate_map_elements([{K1,_,_}|Rest=[{K2,_,_}|_]]) ->
   case is_singleton_type(K1) andalso K1 < K2 of
     false -> error(badarg);
@@ -1701,10 +1696,6 @@ validate_map_elements([{K,_,_}]) ->
     true -> true
   end;
 validate_map_elements([]) -> true.
-
-map_pairs_are_none([]) -> false;
-map_pairs_are_none([{_,?mand,?none}|_]) -> true;
-map_pairs_are_none([_|Ps]) -> map_pairs_are_none(Ps).
 
 -spec t_is_map(erl_type()) -> boolean().
 
@@ -1772,26 +1763,13 @@ mapdict_insert(E1={K1,_,_}, [E2={K2,_,_}|T]) when K1 > K2 ->
   [E2|mapdict_insert(E1, T)];
 mapdict_insert(E={_,_,_}, T) -> [E|T].
 
--type map_pairwise_merge_fun() :: fun((erl_type(),
-				       t_map_mandatoriness(), erl_type(),
-				       t_map_mandatoriness(), erl_type())
-				      -> t_map_pair() | false).
-
--spec t_map_pairwise_merge(map_pairwise_merge_fun(), erl_type(), erl_type(),
-			   opaques()) -> t_map_dict().
-t_map_pairwise_merge(F, MapA, MapB, Opaques) ->
-  do_opaque(MapA, Opaques,
-	    fun(UMapA) ->
-		do_opaque(MapB, Opaques,
-			  fun(UMapB) ->
-			      map_pairwise_merge(F, UMapA, UMapB)
-			  end)
-	    end).
-
 %% Merges the pairs of two maps together. Missing pairs become (?opt, DefV) or
 %% (?opt, ?none), depending on whether K \in DefK.
--spec map_pairwise_merge(map_pairwise_merge_fun(), erl_type(), erl_type())
-			-> t_map_dict().
+-spec map_pairwise_merge(fun((erl_type(),
+			      t_map_mandatoriness(), erl_type(),
+			      t_map_mandatoriness(), erl_type())
+			     -> t_map_pair() | false),
+			 erl_type(), erl_type()) -> t_map_dict().
 map_pairwise_merge(F, ?map(APairs, ADefK, ADefV),
 		       ?map(BPairs, BDefK, BDefV)) ->
   map_pairwise_merge(F, APairs, ADefK, ADefV, BPairs, BDefK, BDefV).
@@ -2855,7 +2833,12 @@ t_inf(?map(_, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B, _Opaques) ->
 	 %% becomes mandatory in the infinumum
 	 (K, _, V1, _, V2) -> {K, ?mand, t_inf(V1, V2)}
       end, A, B),
-  t_map(Pairs, t_inf(ADefK, BDefK), t_inf(ADefV, BDefV));
+  %% If the infinimum of any mandatory values is ?none, the entire map infinimum
+  %% is ?none.
+  case lists:any(fun({_,?mand,?none})->true; ({_,_,_}) -> false end, Pairs) of
+    true -> t_none();
+    false -> t_map(Pairs, t_inf(ADefK, BDefK), t_inf(ADefV, BDefV))
+  end;
 t_inf(?matchstate(Pres1, Slots1), ?matchstate(Pres2, Slots2), _Opaques) ->
   ?matchstate(t_inf(Pres1, Pres2), t_inf(Slots1, Slots2));
 t_inf(?nil, ?nil, _Opaques) -> ?nil;
@@ -2995,21 +2978,27 @@ inf_collect(_T1, [], _Opaques, OpL) ->
   OpL.
 
 combine(S, T1, T2) ->
-  case is_compat_opaque_names(T1, T2) of
-    true ->  combine(S, [T1]);
-    false -> combine(S, [T1, T2])
+  #opaque{mod = Mod1, name = Name1, args = Args1} = T1,
+  #opaque{mod = Mod2, name = Name2, args = Args2} = T2,
+  Comb1 = comb(Mod1, Name1, Args1, S, T1),
+  case is_compat_opaque_names({Mod1, Name1, Args1}, {Mod2, Name2, Args2}) of
+    true  -> Comb1;
+    false -> Comb1 ++ comb(Mod2, Name2, Args2, S, T2)
   end.
 
-combine(?opaque(Set), Ts) ->
-  [comb2(O, T) || O <- Set, T <- Ts];
-combine(S, Ts) ->
-  [T#opaque{struct = S} || T <- Ts].
-
-comb2(O, T) ->
-  case is_compat_opaque_names(O, T) of
-    true -> O;
-    false -> T#opaque{struct = ?opaque(set_singleton(O))}
+comb(Mod, Name, Args, S, T) ->
+  case can_combine_opaque_names(Mod, Name, Args, S) of
+    true ->
+      ?opaque(Set) = S,
+      Set;
+    false ->
+      [T#opaque{struct = S}]
   end.
+
+can_combine_opaque_names(Mod1, Name1, Args1,
+               ?opaque([#opaque{mod = Mod2, name = Name2, args = Args2}])) ->
+  is_compat_opaque_names({Mod1, Name1, Args1}, {Mod2, Name2, Args2});
+can_combine_opaque_names(_, _, _, _) -> false.
 
 %% Combining two lists this way can be very time consuming...
 %% Note: two parameterized opaque types are not the same if their
@@ -3018,27 +3007,32 @@ inf_opaque(Set1, Set2, Opaques) ->
   List1 = inf_look_up(Set1, Opaques),
   List2 = inf_look_up(Set2, Opaques),
   List0 = [combine(Inf, T1, T2) ||
-            {Is1, T1} <- List1,
-            {Is2, T2} <- List2,
-            not t_is_none(Inf = inf_opaque_types(Is1, T1, Is2, T2, Opaques))],
-  List = lists:append(List0),
+            {Is1, ModNameArgs1, T1} <- List1,
+            {Is2, ModNameArgs2, T2} <- List2,
+            not t_is_none(Inf = inf_opaque_types(Is1, ModNameArgs1, T1,
+                                                 Is2, ModNameArgs2, T2,
+                                                 Opaques))],
+  List = lists:sort(lists:append(List0)),
   sup_opaque(List).
 
 %% Optimization: do just one lookup.
 inf_look_up(Set, Opaques) ->
-  [{Opaques =:= 'universe' orelse inf_is_opaque_type2(T, Opaques), T} ||
-    T <- set_to_list(Set)].
+  [{Opaques =:= 'universe' orelse inf_is_opaque_type2(T, Opaques),
+    {M, N, Args}, T} ||
+    #opaque{mod = M, name = N, args = Args} = T <- set_to_list(Set)].
 
 inf_is_opaque_type2(T, {match, Opaques}) ->
   is_opaque_type2(T, Opaques);
 inf_is_opaque_type2(T, Opaques) ->
   is_opaque_type2(T, Opaques).
 
-inf_opaque_types(IsOpaque1, T1, IsOpaque2, T2, Opaques) ->
+inf_opaque_types(IsOpaque1, ModNameArgs1, T1,
+                 IsOpaque2, ModNameArgs2, T2, Opaques) ->
   #opaque{struct = S1}=T1,
   #opaque{struct = S2}=T2,
   case
-    Opaques =:= 'universe' orelse is_compat_opaque_names(T1, T2)
+    Opaques =:= 'universe' orelse
+    is_compat_opaque_names(ModNameArgs1, ModNameArgs2)
   of
     true -> t_inf(S1, S2, Opaques);
     false ->
@@ -3052,15 +3046,10 @@ inf_opaque_types(IsOpaque1, T1, IsOpaque2, T2, Opaques) ->
       end
   end.
 
-is_compat_opaque_names(Opaque1, Opaque2) ->
-  #opaque{mod = Mod1, name = Name1, args = Args1} = Opaque1,
-  #opaque{mod = Mod2, name = Name2, args = Args2} = Opaque2,
-  case {{Mod1, Name1, Args1}, {Mod2, Name2, Args2}} of
-    {ModNameArgs, ModNameArgs} -> true;
-    {{Mod, Name, Args1}, {Mod, Name, Args2}} ->
-      is_compat_args(Args1, Args2);
-    _ -> false
-  end.
+is_compat_opaque_names(ModNameArgs, ModNameArgs) -> true;
+is_compat_opaque_names({Mod,Name,Args1}, {Mod,Name,Args2}) ->
+  is_compat_args(Args1, Args2);
+is_compat_opaque_names(_, _) -> false.
 
 is_compat_args([A1|Args1], [A2|Args2]) ->
   is_compat_arg(A1, A2) andalso is_compat_args(Args1, Args2);
@@ -3107,10 +3096,6 @@ is_specialization(?tuple_set(List1), ?tuple_set(List2)) ->
                              [sup_tuple_elements(T) || {_Arity, T} <- List2])
   catch _:_ -> false
   end;
-is_specialization(?opaque(_) = T1, T2) ->
-  is_specialization(t_opaque_structure(T1), T2);
-is_specialization(T1, ?opaque(_) = T2) ->
-  is_specialization(T1, t_opaque_structure(T2));
 is_specialization(?union(List1)=T1, ?union(List2)=T2) ->
   case specialization_union2(T1, T2) of
     {yes, Type1, Type2} -> is_specialization(Type1, Type2);
@@ -3126,6 +3111,10 @@ is_specialization(T1, ?union(List)) ->
       {yes, Type} -> is_specialization(T1, Type);
       no -> false
   end;
+is_specialization(?opaque(_) = T1, T2) ->
+  is_specialization(t_opaque_structure(T1), T2);
+is_specialization(T1, ?opaque(_) = T2) ->
+  is_specialization(T1, t_opaque_structure(T2));
 is_specialization(?var(_), _) -> exit(error);
 is_specialization(_, ?var(_)) -> exit(error);
 is_specialization(?none, _) -> false;
@@ -4480,31 +4469,28 @@ t_from_form1(Form, ET, Site, MR, V, C) ->
                      vtab   = V,
                      tnames = TypeNames},
   L = ?EXPAND_LIMIT,
-  {T0, L0, C0} = from_form(Form, State, ?EXPAND_DEPTH, L, C),
+  {T1, L1, C1} = from_form(Form, State, ?EXPAND_DEPTH, L, C),
   if
-    L0 =< 0 ->
-      {T1, _, C1} = from_form(Form, State, 1, L, C0),
-      from_form_loop(Form, State, 2, L, C1, T1);
+    L1 =< 0 ->
+      from_form_loop(Form, State, 1, L, C1);
     true ->
-       {T0, C0}
+       {T1, C1}
   end.
 
 initial_typenames({type, _MTA}=Site) -> [Site];
 initial_typenames({spec, _MFA}) -> [];
 initial_typenames({record, _MRA}) -> [].
 
-from_form_loop(Form, State, D, Limit, C, T0) ->
+from_form_loop(Form, State, D, Limit, C) ->
   {T1, L1, C1} = from_form(Form, State, D, Limit, C),
   Delta = Limit - L1,
   if
-    L1 =< 0 ->
-      {T0, C1};
+    %% Save some time by assuming next depth will exceed the limit.
     Delta * 8 > Limit ->
-      %% Save some time by assuming next depth will exceed the limit.
       {T1, C1};
     true ->
       D1 = D + 1,
-      from_form_loop(Form, State, D1, Limit, C1, T1)
+      from_form_loop(Form, State, D1, Limit, C1)
   end.
 
 -spec from_form(parse_form(),
@@ -4763,7 +4749,7 @@ type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames, S, D, L, C) ->
                 {Rep, L2, C2} = recur_limit(Fun, D, L1, TypeName, TypeNames),
                 Rep1 = choose_opaque_type(Rep, Type),
                 Rep2 = case cannot_have_opaque(Rep1, TypeName, TypeNames) of
-                         true -> Rep;
+                         true -> Rep1;
                          false ->
                            ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
                            t_opaque(Module, Name, ArgTypes2, Rep1)
@@ -4835,7 +4821,7 @@ remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict, RemType, TypeNames,
                 NewRep1 = choose_opaque_type(NewRep, Type),
                 NewRep2 =
                   case cannot_have_opaque(NewRep1, RemType, TypeNames) of
-                    true -> NewRep;
+                    true -> NewRep1;
                     false ->
                       ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
                       t_opaque(Mod, Name, ArgTypes2, NewRep1)
