@@ -91,9 +91,6 @@ static Module* module_alloc(Module* tmpl)
     erts_module_instance_init(&obj->curr);
     erts_module_instance_init(&obj->old);
     obj->on_load = 0;
-#ifdef HIPE
-    obj->first_hipe_mfa = NULL;
-#endif
     DBG_TRACE_MFA(make_atom(obj->module), 0, 0, "module_alloc");
     return obj;
 }
@@ -127,6 +124,7 @@ void init_module_table(void)
     }
     erts_smp_atomic_init_nob(&tot_module_bytes, 0);
 }
+
 
 Module*
 erts_get_module(Eterm mod, ErtsCodeIndex code_ix)
@@ -208,9 +206,6 @@ static ERTS_INLINE void copy_module(Module* dst_mod, Module* src_mod)
     dst_mod->curr = src_mod->curr;
     dst_mod->old = src_mod->old;
     dst_mod->on_load = src_mod->on_load;
-#ifdef HIPE
-    dst_mod->first_hipe_mfa = src_mod->first_hipe_mfa;
-#endif
 }
 
 void module_start_staging(void)

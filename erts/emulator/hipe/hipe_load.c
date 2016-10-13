@@ -50,11 +50,11 @@ void hipe_free_loader_state(HipeLoaderState *stp)
     stp->data_segment_size = 0;
 
     if (stp->new_hipe_refs) {
-        hipe_purge_refs(stp->new_hipe_refs, stp->module);
+        hipe_purge_refs(stp->new_hipe_refs, stp->module, 0);
         stp->new_hipe_refs = NULL;
     }
     if (stp->new_hipe_sdesc) {
-        hipe_purge_sdescs(stp->new_hipe_sdesc, stp->module);
+        hipe_purge_sdescs(stp->new_hipe_sdesc, stp->module, 0);
         stp->new_hipe_sdesc = NULL;
     }
 

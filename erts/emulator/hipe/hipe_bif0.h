@@ -36,9 +36,9 @@ extern int hipe_find_mfa_from_ra(const void *ra, Eterm *m, Eterm *f, unsigned in
 /* needed in beam_load.c */
 int hipe_need_blocking(Module*);
 int hipe_purge_need_blocking(Module*);
-void hipe_purge_refs(struct hipe_ref*, Eterm);
-void hipe_purge_sdescs(struct hipe_sdesc*, Eterm);
-void hipe_purge_module(Module*);
+void hipe_purge_refs(struct hipe_ref*, Eterm, int is_blocking);
+void hipe_purge_sdescs(struct hipe_sdesc*, Eterm, int is_blocking);
+void hipe_purge_module(Module*, int is_blocking);
 void hipe_redirect_to_module(Module* modp);
 
 /* these are also needed in hipe_amd64.c */

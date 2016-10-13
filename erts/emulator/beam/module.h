@@ -47,9 +47,6 @@ typedef struct erl_module {
     struct erl_module_instance curr;
     struct erl_module_instance old; /* protected by "old_code" rwlock */
     struct erl_module_instance* on_load;
-#ifdef HIPE
-    struct hipe_mfa_info* first_hipe_mfa;
-#endif
 } Module; 
 
 void erts_module_instance_init(struct erl_module_instance* modi);

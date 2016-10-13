@@ -1711,7 +1711,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		modp->old.catches = BEAM_CATCHES_NIL;
 		erts_remove_from_ranges(code);
 #ifdef HIPE
-		hipe_purge_module(modp);
+		hipe_purge_module(modp, is_blocking);
 #endif
 		ERTS_BIF_PREP_RET(ret, am_true);
 	    }
