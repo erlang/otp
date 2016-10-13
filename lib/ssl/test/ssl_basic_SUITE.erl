@@ -364,6 +364,16 @@ init_per_testcase(TestCase, Config) when TestCase == psk_cipher_suites;
     ct:timetrap({seconds, 60}),
     Config;
 
+init_per_testcase(version_option, Config) ->
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
+    ct:timetrap({seconds, 10}),
+    Config;
+
+init_per_testcase(reuse_session, Config) ->
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
+    ct:timetrap({seconds, 10}),
+    Config;
+
 init_per_testcase(rizzo, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 40}),
