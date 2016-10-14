@@ -475,6 +475,28 @@
     </func>
 
     <func>
+      <name>info_fips() -> Status</name>
+      <fsummary>Provides information about the FIPS operating status.</fsummary>
+      <type>
+        <v>Status = enabled | not_enabled | not_supported</v>
+      </type>
+      <desc>
+        <p>Provides information about the FIPS operating status of
+        crypto and the underlying OpenSSL library. If crypto was built
+        with FIPS support this can be either <c>enabled</c> (when
+        running in FIPS mode) or <c>not_enabled</c>. For other builds
+        this value is always <c>not_supported</c>.</p>
+        <warning>
+          <p>In FIPS mode all non-FIPS compliant algorithms are
+          disabled and throw exception <c>not_supported</c>. Check
+          <seealso marker="#supports-0">supports</seealso> that in
+          FIPS mode returns the restricted list of available
+          algorithms.</p>
+        </warning>
+      </desc>
+    </func>
+
+    <func>
       <name>info_lib() -> [{Name,VerNum,VerStr}]</name>
       <fsummary>Provides information about the libraries used by crypto.</fsummary>
       <type>

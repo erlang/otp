@@ -339,7 +339,6 @@ renegotiate_data(ConnectionHandler) ->
 	  ssh_params                            :: #ssh{}
 						 | undefined,
 	  socket                                :: inet:socket(),
-	  sender :: pid() | undefined,
 	  decrypted_data_buffer     = <<>>      :: binary(),
 	  encrypted_data_buffer     = <<>>      :: binary(),
 	  undecrypted_packet_length             :: undefined | non_neg_integer(),
@@ -368,10 +367,9 @@ init_connection_handler(Role, Socket, Opts) ->
 	{Protocol, Callback, CloseTag} =
 	    proplists:get_value(transport, Opts, ?DefaultTransport),
 	S0#data{ssh_params = init_ssh_record(Role, Socket, Opts),
-		sender = spawn_link(fun() -> nonblocking_sender(Socket, Callback) end),
-		transport_protocol = Protocol,
-		transport_cb = Callback,
-		transport_close_tag = CloseTag
+		 transport_protocol = Protocol,
+		 transport_cb = Callback,
+		 transport_close_tag = CloseTag
 		}
     of
 	S ->
@@ -547,6 +545,7 @@ handle_event(_, {info_line,_Line}, {hello,Role}, D) ->
     case Role of
 	client ->
 	    %% The server may send info lines to the client before the version_exchange
+	    %% RFC4253/4.2
 	    inet:setopts(D#data.socket, [{active, once}]),
 	    keep_state_and_data;
 	server ->
@@ -1447,15 +1446,18 @@ start_the_connection_child(UserPid, Role, Socket, Options) ->
 %% Stopping
 -type finalize_termination_result() :: ok .
 
-finalize_termination(_StateName, D) ->
-    case D#data.connection_state of
+finalize_termination(_StateName, #data{transport_cb = Transport,
+				       connection_state = Connection,
+				       socket = Socket}) ->
+    case Connection of
 	#connection{system_supervisor = SysSup,
 		    sub_system_supervisor = SubSysSup} when is_pid(SubSysSup) ->
 	    ssh_system_sup:stop_subsystem(SysSup, SubSysSup);
 	_ ->
 	    do_nothing
     end,
-    close_transport(D).
+    (catch Transport:close(Socket)),
+    ok.
 
 %%--------------------------------------------------------------------
 %% "Invert" the Role
@@ -1510,33 +1512,9 @@ send_msg(Msg, State=#data{ssh_params=Ssh0}) when is_tuple(Msg) ->
     send_bytes(Bytes, State),
     State#data{ssh_params=Ssh}.
 
-send_bytes(Bytes, #data{sender = Sender}) ->
-    Sender ! {send,Bytes},
+send_bytes(Bytes, #data{socket = Socket, transport_cb = Transport}) ->
+    _ = Transport:send(Socket, Bytes),
     ok.
-
-close_transport(D) ->
-    D#data.sender ! close,
-    ok.
-
-
-nonblocking_sender(Socket, Callback) ->
-    receive
-	{send, Bytes} ->
-	    case Callback:send(Socket, Bytes) of
-	    	ok ->
-	    	    nonblocking_sender(Socket, Callback);
-	    	E = {error,_} ->
-	    	    exit({shutdown,E})
-	    end;
-	
-	close ->
-	    case Callback:close(Socket) of
-		ok ->
-		    ok;
-		E = {error,_} ->
-	    	    exit({shutdown,E})
-	    end
-    end.
 
 handle_version({2, 0} = NumVsn, StrVsn, Ssh0) ->
     Ssh = counterpart_versions(NumVsn, StrVsn, Ssh0),

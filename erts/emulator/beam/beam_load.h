@@ -37,14 +37,6 @@ typedef struct gen_op_entry {
 
 extern const GenOpEntry gen_opc[];
 
-#ifdef NO_JUMP_TABLE 
-#define BeamOp(Op) (Op)
-#else
-extern void** beam_ops;
-#define BeamOp(Op) beam_ops[(Op)]
-#endif
-
-
 extern BeamInstr beam_debug_apply[];
 extern BeamInstr* em_call_error_handler;
 extern BeamInstr* em_apply_bif;
@@ -115,7 +107,7 @@ typedef struct beam_code_header {
      * The actual loaded code (for the first function) start just beyond
      * this table.
      */
-    BeamInstr* functions[1];
+    ErtsCodeInfo* functions[1];
 
 }BeamCodeHeader;
 
@@ -172,9 +164,13 @@ void dbg_vtrace_mfa(unsigned ix, const char* format, ...);
         dbg_vtrace_mfa(ix, FMT"\n", ##__VA_ARGS__);\
   }while(0)
 
+#define DBG_TRACE_MFA_P(MFA, FMT, ...) \
+        DBG_TRACE_MFA((MFA)->module, (MFA)->function, (MFA)->arity, FMT, ##__VA_ARGS__)
+
 #else
 #  define dbg_set_traced_mfa(M,F,A)
 #  define DBG_TRACE_MFA(M,F,A,FMT, ...)
+#  define DBG_TRACE_MFA_P(MFA,FMT, ...)
 #endif /* ENABLE_DBG_TRACE_MFA */
 
 #endif /* _BEAM_LOAD_H */

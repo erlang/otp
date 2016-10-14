@@ -280,6 +280,10 @@ AC_ARG_ENABLE(dynamic-ssl-lib,
 AS_HELP_STRING([--disable-dynamic-ssl-lib],
                [disable using dynamic openssl libraries]))
 
+AC_ARG_ENABLE(fips,
+AS_HELP_STRING([--enable-fips], [enable OpenSSL FIPS mode support])
+AS_HELP_STRING([--disable-fips], [disable OpenSSL FIPS mode support (default)]))
+
 AC_ARG_ENABLE(builtin-zlib,
 AS_HELP_STRING([--enable-builtin-zlib],
                [force use of our own built-in zlib]))

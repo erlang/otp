@@ -30,6 +30,39 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a client illegaly sends an info-line and then
+	    immediatly closes the TCP-connection, a badmatch
+	    exception was raised.</p>
+          <p>
+	    Own Id: OTP-13966</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Intermittent ssh ERROR REPORT mentioning
+	    nonblocking_sender</p>
+          <p>
+	    Own Id: OTP-13953 Aux Id: seq13199 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.3.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -25,12 +25,11 @@
     <title>Dialyzer User's Guide</title>
     <prepared></prepared>
     <docno></docno>
-    <date></date>
+    <date>2016-09-19</date>
     <rev></rev>
     <file>part.xml</file>
   </header>
   <description>
-    <p><em>Dialyzer</em> is a static analysis tool that identifies software discrepancies such as type errors, unreachable code, unnecessary tests, etc in single Erlang modules or entire (sets of) applications.</p>
   </description>
   <xi:include href="dialyzer_chapter.xml"/>
 </part>

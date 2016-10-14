@@ -48,6 +48,7 @@ suite() ->
 
 all() -> 
     [{group,tool_tests},
+     client_info_line,
      {group,kex},
      {group,service_requests},
      {group,authentication},
@@ -575,6 +576,36 @@ client_handles_keyboard_interactive_0_pwds(Config) ->
 			).
 
 
+
+%%%--------------------------------------------------------------------
+client_info_line(_Config) ->
+    %% A client must not send an info-line. If it does, the server should handle
+    %% handle this gracefully
+    {ok,Pid} = ssh_eqc_event_handler:add_report_handler(),
+    {_, _, Port} = ssh_test_lib:daemon([]),
+
+    %% Fake client:
+    {ok,S} = gen_tcp:connect("localhost",Port,[]),
+    gen_tcp:send(S,"An illegal info-string\r\n"),
+    gen_tcp:close(S),
+
+    %% wait for server to react:
+    timer:sleep(1000),
+
+    %% check if a badmatch was received:
+    {ok, Reports} = ssh_eqc_event_handler:get_reports(Pid),
+    case lists:any(fun({error_report,_,{_,supervisor_report,L}}) when is_list(L) -> 
+			   lists:member({reason,{badmatch,{error,closed}}}, L);
+		      (_) ->
+			   false
+		   end, Reports) of
+	true ->
+	    ct:fail("Bad error report on info_line from client");
+	false ->
+	    ok
+    end.
+	
+    
 %%%================================================================
 %%%==== Internal functions ========================================
 %%%================================================================

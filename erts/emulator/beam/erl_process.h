@@ -93,10 +93,6 @@ struct ErtsNodesMonitor_;
 #define ERTS_HEAP_FREE(Type, Ptr, Size)					\
      erts_free((Type), (Ptr))
 
-#define INITIAL_MOD 0
-#define INITIAL_FUN 1
-#define INITIAL_ARI 2
-
 #include "export.h"
 
 struct saved_calls {
@@ -1022,15 +1018,16 @@ struct process {
 #endif
     union {
 	void *terminate;
-	BeamInstr initial[3];	/* Initial module(0), function(1), arity(2), often used instead
-				   of pointer to funcinfo instruction, hence the BeamInstr datatype */
+	ErtsCodeMFA initial;	/* Initial module(0), function(1), arity(2),
+                                   often used instead of pointer to funcinfo
+                                   instruction. */
     } u;
-    BeamInstr* current;		/* Current Erlang function, part of the funcinfo:
+    ErtsCodeMFA* current;	/* Current Erlang function, part of the funcinfo:
 				 * module(0), function(1), arity(2)
 				 * (module and functions are tagged atoms;
-				 * arity an untagged integer). BeamInstr * because it references code
+				 * arity an untagged integer).
 				 */
-    
+
     /*
      * Information mainly for post-mortem use (erl crash dump).
      */

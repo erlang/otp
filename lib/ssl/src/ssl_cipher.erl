@@ -1447,28 +1447,60 @@ filter_suites(Suites) ->
 			     is_acceptable_prf(Prf, Hashs)
 		 end, Suites).
 
-is_acceptable_keyexchange(KeyExchange, Algos)
-  when KeyExchange == ecdh_ecdsa;
-       KeyExchange == ecdhe_ecdsa;
-       KeyExchange == ecdh_rsa;
-       KeyExchange == ecdhe_rsa;
-       KeyExchange == ecdh_anon ->
+is_acceptable_keyexchange(KeyExchange, _Algos) when KeyExchange == psk;
+                                                    KeyExchange == null ->
+    true;
+is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == dh_anon;
+                                                   KeyExchange == dhe_psk ->
+    proplists:get_bool(dh, Algos);
+is_acceptable_keyexchange(dhe_dss, Algos) ->
+    proplists:get_bool(dh, Algos) andalso
+        proplists:get_bool(dss, Algos);
+is_acceptable_keyexchange(dhe_rsa, Algos) ->
+    proplists:get_bool(dh, Algos) andalso
+        proplists:get_bool(rsa, Algos);
+is_acceptable_keyexchange(ecdh_anon, Algos) ->
     proplists:get_bool(ecdh, Algos);
-is_acceptable_keyexchange(_, _) ->
-    true.
+is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == ecdh_ecdsa;
+                                                   KeyExchange == ecdhe_ecdsa ->
+    proplists:get_bool(ecdh, Algos) andalso
+        proplists:get_bool(ecdsa, Algos);
+is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == ecdh_rsa;
+                                                   KeyExchange == ecdhe_rsa ->
+    proplists:get_bool(ecdh, Algos) andalso
+        proplists:get_bool(rsa, Algos);
+is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == rsa;
+                                                   KeyExchange == rsa_psk ->
+    proplists:get_bool(rsa, Algos);
+is_acceptable_keyexchange(srp_anon, Algos) ->
+    proplists:get_bool(srp, Algos);
+is_acceptable_keyexchange(srp_dss, Algos) ->
+    proplists:get_bool(srp, Algos) andalso
+        proplists:get_bool(dss, Algos);
+is_acceptable_keyexchange(srp_rsa, Algos) ->
+    proplists:get_bool(srp, Algos) andalso
+        proplists:get_bool(rsa, Algos);
+is_acceptable_keyexchange(_KeyExchange, _Algos) ->
+    false.
 
+is_acceptable_cipher(null, _Algos) ->
+    true;
+is_acceptable_cipher(rc4_128, Algos) ->
+    proplists:get_bool(rc4, Algos);
+is_acceptable_cipher(des_cbc, Algos) ->
+    proplists:get_bool(des_cbc, Algos);
+is_acceptable_cipher('3des_ede_cbc', Algos) ->
+    proplists:get_bool(des3_cbc, Algos);
+is_acceptable_cipher(aes_128_cbc, Algos) ->
+    proplists:get_bool(aes_cbc128, Algos);
+is_acceptable_cipher(aes_256_cbc, Algos) ->
+    proplists:get_bool(aes_cbc256, Algos);
 is_acceptable_cipher(Cipher, Algos)
   when Cipher == aes_128_gcm;
        Cipher == aes_256_gcm ->
     proplists:get_bool(aes_gcm, Algos);
-is_acceptable_cipher(Cipher, Algos)
-  when Cipher == chacha20_poly1305 ->
-    proplists:get_bool(Cipher, Algos);
-is_acceptable_cipher(Cipher, Algos)
-  when Cipher == rc4_128 ->
-    proplists:get_bool(rc4, Algos);
-is_acceptable_cipher(_, _) ->
-    true.
+is_acceptable_cipher(Cipher, Algos) ->
+    proplists:get_bool(Cipher, Algos).
 
 is_acceptable_hash(null, _Algos) ->
     true;
