@@ -1609,13 +1609,14 @@ cancel_timer(undefined) ->
     ok;
 cancel_timer(TRef) ->
     case erlang:cancel_timer(TRef) of
-	TimeLeft when is_integer(TimeLeft) ->
-	    ok;
 	false ->
+	    %% We have to assume that TRef is the ref of a running timer
+	    %% and if so the timer has expired
+	    %% hence we must wait for the timeout message
 	    receive
 		{timeout,TRef,_} ->
 		    ok
-	    after 0 ->
-		    ok
-	    end
+	    end;
+	_TimeLeft ->
+	    ok
     end.
