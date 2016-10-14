@@ -52,7 +52,8 @@ MODULES= \
 	ssh_echo_server \
 	ssh_peername_sockname_server \
 	ssh_test_cli \
-	ssh_relay
+	ssh_relay \
+	ssh_eqc_event_handler
 
 HRL_FILES_NEEDED_IN_TEST= \
 	$(ERL_TOP)/lib/ssh/test/ssh_test_lib.hrl \

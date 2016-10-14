@@ -525,7 +525,7 @@ handle_event(_, _Event, {init_error,Error}, _) ->
 %% The very first event that is sent when the we are set as controlling process of Socket
 handle_event(_, socket_control, {hello,_}, D) ->
     VsnMsg = ssh_transport:hello_version_msg(string_version(D#data.ssh_params)),
-    ok = send_bytes(VsnMsg, D),
+    send_bytes(VsnMsg, D),
     case inet:getopts(Socket=D#data.socket, [recbuf]) of
 	{ok, [{recbuf,Size}]} ->
 	    %% Set the socket to the hello text line handling mode:
@@ -545,12 +545,13 @@ handle_event(_, {info_line,_Line}, {hello,Role}, D) ->
     case Role of
 	client ->
 	    %% The server may send info lines to the client before the version_exchange
+	    %% RFC4253/4.2
 	    inet:setopts(D#data.socket, [{active, once}]),
 	    keep_state_and_data;
 	server ->
 	    %% But the client may NOT send them to the server. Openssh answers with cleartext,
 	    %% and so do we
-	    ok = send_bytes("Protocol mismatch.", D),
+	    send_bytes("Protocol mismatch.", D),
 	    {stop, {shutdown,"Protocol mismatch in version exchange. Client sent info lines."}}
     end;
 
@@ -565,7 +566,7 @@ handle_event(_, {version_exchange,Version}, {hello,Role}, D) ->
 					 {active, once},
 					 {recbuf, D#data.inet_initial_recbuf_size}]),
 	    {KeyInitMsg, SshPacket, Ssh} = ssh_transport:key_exchange_init_msg(Ssh1),
-	    ok = send_bytes(SshPacket, D),
+	    send_bytes(SshPacket, D),
 	    {next_state, {kexinit,Role,init}, D#data{ssh_params = Ssh,
 						     key_exchange_init_msg = KeyInitMsg}};
 	not_supported ->
@@ -583,7 +584,7 @@ handle_event(_, {#ssh_msg_kexinit{}=Kex, Payload}, {kexinit,Role,ReNeg},
     Ssh1 = ssh_transport:key_init(peer_role(Role), D#data.ssh_params, Payload),
     Ssh = case ssh_transport:handle_kexinit_msg(Kex, OwnKex, Ssh1) of
 	      {ok, NextKexMsg, Ssh2} when Role==client ->
-		  ok = send_bytes(NextKexMsg, D),
+		  send_bytes(NextKexMsg, D),
 		  Ssh2;
 	      {ok, Ssh2} when Role==server ->
 		  Ssh2
@@ -596,43 +597,43 @@ handle_event(_, {#ssh_msg_kexinit{}=Kex, Payload}, {kexinit,Role,ReNeg},
 %%%---- diffie-hellman
 handle_event(_, #ssh_msg_kexdh_init{} = Msg, {key_exchange,server,ReNeg}, D) ->
     {ok, KexdhReply, Ssh1} = ssh_transport:handle_kexdh_init(Msg, D#data.ssh_params),
-    ok = send_bytes(KexdhReply, D),
+    send_bytes(KexdhReply, D),
     {ok, NewKeys, Ssh} = ssh_transport:new_keys_message(Ssh1),
-    ok = send_bytes(NewKeys, D),
+    send_bytes(NewKeys, D),
     {next_state, {new_keys,server,ReNeg}, D#data{ssh_params=Ssh}};
 
 handle_event(_, #ssh_msg_kexdh_reply{} = Msg, {key_exchange,client,ReNeg}, D) ->
     {ok, NewKeys, Ssh} = ssh_transport:handle_kexdh_reply(Msg, D#data.ssh_params),
-    ok = send_bytes(NewKeys, D),
+    send_bytes(NewKeys, D),
     {next_state, {new_keys,client,ReNeg}, D#data{ssh_params=Ssh}};
 
 %%%---- diffie-hellman group exchange
 handle_event(_, #ssh_msg_kex_dh_gex_request{} = Msg, {key_exchange,server,ReNeg}, D) ->
     {ok, GexGroup, Ssh} = ssh_transport:handle_kex_dh_gex_request(Msg, D#data.ssh_params),
-    ok = send_bytes(GexGroup, D),
+    send_bytes(GexGroup, D),
     {next_state, {key_exchange_dh_gex_init,server,ReNeg}, D#data{ssh_params=Ssh}};
 
 handle_event(_, #ssh_msg_kex_dh_gex_request_old{} = Msg, {key_exchange,server,ReNeg}, D) ->
     {ok, GexGroup, Ssh} = ssh_transport:handle_kex_dh_gex_request(Msg, D#data.ssh_params),
-    ok = send_bytes(GexGroup, D),
+    send_bytes(GexGroup, D),
     {next_state, {key_exchange_dh_gex_init,server,ReNeg}, D#data{ssh_params=Ssh}};
 
 handle_event(_, #ssh_msg_kex_dh_gex_group{} = Msg, {key_exchange,client,ReNeg}, D) ->
     {ok, KexGexInit, Ssh} = ssh_transport:handle_kex_dh_gex_group(Msg, D#data.ssh_params),
-    ok = send_bytes(KexGexInit, D),
+    send_bytes(KexGexInit, D),
     {next_state, {key_exchange_dh_gex_reply,client,ReNeg}, D#data{ssh_params=Ssh}};
 
 %%%---- elliptic curve diffie-hellman
 handle_event(_, #ssh_msg_kex_ecdh_init{} = Msg, {key_exchange,server,ReNeg}, D) ->
     {ok, KexEcdhReply, Ssh1} = ssh_transport:handle_kex_ecdh_init(Msg, D#data.ssh_params),
-    ok = send_bytes(KexEcdhReply, D),
+    send_bytes(KexEcdhReply, D),
     {ok, NewKeys, Ssh} = ssh_transport:new_keys_message(Ssh1),
-    ok = send_bytes(NewKeys, D),
+    send_bytes(NewKeys, D),
     {next_state, {new_keys,server,ReNeg}, D#data{ssh_params=Ssh}};
 
 handle_event(_, #ssh_msg_kex_ecdh_reply{} = Msg, {key_exchange,client,ReNeg}, D) ->
     {ok, NewKeys, Ssh} = ssh_transport:handle_kex_ecdh_reply(Msg, D#data.ssh_params),
-    ok = send_bytes(NewKeys, D),
+    send_bytes(NewKeys, D),
     {next_state, {new_keys,client,ReNeg}, D#data{ssh_params=Ssh}};
 
 
@@ -640,9 +641,9 @@ handle_event(_, #ssh_msg_kex_ecdh_reply{} = Msg, {key_exchange,client,ReNeg}, D)
 
 handle_event(_, #ssh_msg_kex_dh_gex_init{} = Msg, {key_exchange_dh_gex_init,server,ReNeg}, D) ->
     {ok, KexGexReply, Ssh1} =  ssh_transport:handle_kex_dh_gex_init(Msg, D#data.ssh_params),
-    ok = send_bytes(KexGexReply, D),
+    send_bytes(KexGexReply, D),
     {ok, NewKeys, Ssh} = ssh_transport:new_keys_message(Ssh1),
-    ok = send_bytes(NewKeys, D),
+    send_bytes(NewKeys, D),
     {next_state, {new_keys,server,ReNeg}, D#data{ssh_params=Ssh}};
 
 
@@ -650,7 +651,7 @@ handle_event(_, #ssh_msg_kex_dh_gex_init{} = Msg, {key_exchange_dh_gex_init,serv
 
 handle_event(_, #ssh_msg_kex_dh_gex_reply{} = Msg, {key_exchange_dh_gex_reply,client,ReNeg}, D) ->
     {ok, NewKeys, Ssh1} = ssh_transport:handle_kex_dh_gex_reply(Msg, D#data.ssh_params),
-    ok = send_bytes(NewKeys, D),
+    send_bytes(NewKeys, D),
     {next_state, {new_keys,client,ReNeg}, D#data{ssh_params=Ssh1}};
 
 
@@ -662,7 +663,7 @@ handle_event(_, #ssh_msg_newkeys{} = Msg, {new_keys,Role,init}, D) ->
     Ssh = case Role of
 	      client ->
 		  {MsgReq, Ssh2} = ssh_auth:service_request_msg(Ssh1),
-		  ok = send_bytes(MsgReq, D),
+		  send_bytes(MsgReq, D),
 		  Ssh2;
 	      server ->
 		  Ssh1
@@ -680,7 +681,7 @@ handle_event(_, Msg = #ssh_msg_service_request{name=ServiceName}, StateName = {s
 	"ssh-userauth" ->
 	    Ssh0 = #ssh{session_id=SessionId} = D#data.ssh_params,
 	    {ok, {Reply, Ssh}} = ssh_auth:handle_userauth_request(Msg, SessionId, Ssh0),
-	    ok = send_bytes(Reply, D),
+	    send_bytes(Reply, D),
 	    {next_state, {userauth,server}, D#data{ssh_params = Ssh}};
 
 	_ ->
@@ -692,7 +693,7 @@ handle_event(_, Msg = #ssh_msg_service_request{name=ServiceName}, StateName = {s
 handle_event(_, #ssh_msg_service_accept{name = "ssh-userauth"}, {service_request,client},
 	     #data{ssh_params = #ssh{service="ssh-userauth"} = Ssh0} = State) ->
     {Msg, Ssh} = ssh_auth:init_userauth_request_msg(Ssh0),
-    ok = send_bytes(Msg, State),
+    send_bytes(Msg, State),
     {next_state, {userauth,client}, State#data{auth_user = Ssh#ssh.user, ssh_params = Ssh}};
 
 
@@ -709,7 +710,7 @@ handle_event(_,
 	    %% Probably the very first userauth_request but we deny unauthorized login
 	    {not_authorized, _, {Reply,Ssh}} =
 		ssh_auth:handle_userauth_request(Msg, Ssh0#ssh.session_id, Ssh0),
-	    ok = send_bytes(Reply, D),
+	    send_bytes(Reply, D),
 	    {keep_state, D#data{ssh_params = Ssh}};
 	
 	{"ssh-connection", "ssh-connection", Method} ->
@@ -719,7 +720,7 @@ handle_event(_,
 		    %% Yepp! we support this method
 		    case ssh_auth:handle_userauth_request(Msg, Ssh0#ssh.session_id, Ssh0) of
 			{authorized, User, {Reply, Ssh}} ->
-			    ok = send_bytes(Reply, D),
+			    send_bytes(Reply, D),
 			    D#data.starter ! ssh_connected,
 			    connected_fun(User, Method, D),
 			    {next_state, {connected,server},
@@ -727,11 +728,11 @@ handle_event(_,
 				    ssh_params = Ssh#ssh{authenticated = true}}};
 			{not_authorized, {User, Reason}, {Reply, Ssh}} when Method == "keyboard-interactive" ->
 			    retry_fun(User, Reason, D),
-			    ok = send_bytes(Reply, D),
+			    send_bytes(Reply, D),
 			    {next_state, {userauth_keyboard_interactive,server}, D#data{ssh_params = Ssh}};
 			{not_authorized, {User, Reason}, {Reply, Ssh}} ->
 			    retry_fun(User, Reason, D),
-			    ok = send_bytes(Reply, D),
+			    send_bytes(Reply, D),
 			    {keep_state, D#data{ssh_params = Ssh}}
 		    end;
 		false ->
@@ -1512,7 +1513,8 @@ send_msg(Msg, State=#data{ssh_params=Ssh0}) when is_tuple(Msg) ->
     State#data{ssh_params=Ssh}.
 
 send_bytes(Bytes, #data{socket = Socket, transport_cb = Transport}) ->
-    Transport:send(Socket, Bytes).
+    _ = Transport:send(Socket, Bytes),
+    ok.
 
 handle_version({2, 0} = NumVsn, StrVsn, Ssh0) ->
     Ssh = counterpart_versions(NumVsn, StrVsn, Ssh0),
