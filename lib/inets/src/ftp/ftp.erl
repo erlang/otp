@@ -2361,6 +2361,7 @@ send_message({ssl, Socket}, Message) ->
 activate_ctrl_connection(#state{csock = Socket, ctrl_data = {<<>>, _, _}}) ->
     activate_connection(Socket);
 activate_ctrl_connection(#state{csock = Socket}) ->
+    activate_connection(Socket),
     %% We have already received at least part of the next control message,
     %% that has been saved in ctrl_data, process this first.
     self() ! {socket_type(Socket), unwrap_socket(Socket), <<>>}.
