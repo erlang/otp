@@ -1361,6 +1361,7 @@ fix_cpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
 	   && type <= ERTS_ALC_N_MAX_A_FIXED_SIZE);
 
     fix = &allctr->fix[type - ERTS_ALC_N_MIN_A_FIXED_SIZE];
+    ASSERT(size == fix->type_size);
 
     res = fix->list;
     if (res) {
@@ -1372,8 +1373,6 @@ fix_cpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
 	fix_cpool_check_shrink(allctr, type, fix, NULL);
 	return res;
     }
-    if (size < 2*sizeof(UWord))
-	size += sizeof(UWord);
     if (size >= allctr->sbc_threshold) {
 	Block_t *blk;
 	blk = create_carrier(allctr, size, CFLG_SBC);
@@ -1493,6 +1492,7 @@ fix_nocpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
 	   && type <= ERTS_ALC_N_MAX_A_FIXED_SIZE);
 
     fix = &allctr->fix[type - ERTS_ALC_N_MIN_A_FIXED_SIZE];
+    ASSERT(size == fix->type_size);
 
     ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 1);
     fix->u.nocpool.used++;
@@ -1515,8 +1515,6 @@ fix_nocpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
 	ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 0);
 	return res;
     }
-    if (size < 2*sizeof(UWord))
-	size += sizeof(UWord);
     if (fix->u.nocpool.limit < fix->u.nocpool.used)
 	fix->u.nocpool.limit = fix->u.nocpool.used;
     if (fix->u.nocpool.max_used < fix->u.nocpool.used)
