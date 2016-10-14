@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2014. All Rights Reserved.
+dnl Copyright Ericsson AB 1998-2016. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -229,7 +229,10 @@ AS_HELP_STRING([--enable-kernel-poll], [enable kernel poll support])
 AS_HELP_STRING([--disable-kernel-poll], [disable kernel poll support]))
 
 AC_ARG_ENABLE(sctp,
-AS_HELP_STRING([--enable-sctp], [enable sctp support])
+AS_HELP_STRING([--enable-sctp], [enable sctp support (default)
+to on demand load the SCTP library in runtime])
+AS_HELP_STRING([--enable-sctp=lib], [enable sctp support
+to link against the SCTP library])
 AS_HELP_STRING([--disable-sctp], [disable sctp support]))
 
 AC_ARG_ENABLE(hipe,
