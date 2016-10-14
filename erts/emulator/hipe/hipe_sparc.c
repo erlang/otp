@@ -87,8 +87,8 @@ int hipe_patch_call(void *callAddress, void *destAddress, void *trampoline)
 {
     Uint32 relDest, newI;
 
-    if (trampoline)
-	return -1;
+    ASSERT(trampoline == NULL);
+
     relDest = (Uint32)((Sint32)destAddress - (Sint32)callAddress);
     newI = (1 << 30) | (relDest >> 2);
     *(Uint32*)callAddress = newI;

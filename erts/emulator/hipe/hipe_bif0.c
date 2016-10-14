@@ -819,9 +819,6 @@ BIF_RETTYPE hipe_bifs_bif_address_3(BIF_ALIST_3)
 struct primop {
     HashBucket bucket;	/* bucket.hvalue == atom_val(name) */
     const void *address;
-#if defined(__arm__)
-    void *trampoline;
-#endif
 };
 
 static struct primop primops[] = {
@@ -879,29 +876,6 @@ static struct primop *primop_table_get(Eterm name)
     tmpl.bucket.hvalue = atom_val(name);
     return hash_get(&primop_table, &tmpl);
 }
-
-#if defined(__arm__)
-static struct primop *primop_table_put(Eterm name)
-{
-    struct primop tmpl;
-
-    init_primop_table();
-    tmpl.bucket.hvalue = atom_val(name);
-    return hash_put(&primop_table, &tmpl);
-}
-
-void *hipe_primop_get_trampoline(Eterm name)
-{
-    struct primop *primop = primop_table_get(name);
-    return primop ? primop->trampoline : NULL;
-}
-
-void hipe_primop_set_trampoline(Eterm name, void *trampoline)
-{
-    struct primop *primop = primop_table_put(name);
-    primop->trampoline = trampoline;
-}
-#endif
 
 /*
  * hipe_bifs_primop_address(Atom) -> address or false
@@ -1062,9 +1036,6 @@ struct hipe_mfa_info {
     void *new_address;
     struct hipe_ref_head callers;   /* sentinel in list of hipe_ref's */
     struct hipe_mfa_info* next_in_mod;
-#if defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__) || defined(__arm__)
-    void *trampoline;
-#endif
 #ifdef DEBUG
     Export* dbg_export;
 #endif
@@ -1094,7 +1065,9 @@ static struct {
 struct hipe_ref {
     struct hipe_ref_head head;    /* list of refs to same calleee */
     void *address;
+#if defined(arm) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)
     void *trampoline;
+#endif
     unsigned int flags;
     struct hipe_ref* next_from_modi; /* list of refs from same module instance */
 #if defined(DEBUG)
@@ -1181,9 +1154,6 @@ static struct hipe_mfa_info *hipe_mfa_info_table_alloc(Eterm m, Eterm f, unsigne
     res->callers.next = &res->callers;
     res->callers.prev = &res->callers;
     res->next_in_mod = NULL;
-#if defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__) || defined(__arm__)
-    res->trampoline = NULL;
-#endif
 #ifdef DEBUG
     res->dbg_export = NULL;
 #endif
@@ -1293,30 +1263,6 @@ static void hipe_mfa_set_na(Eterm m, Eterm f, unsigned int arity, void *address)
 
     hipe_mfa_info_table_rwunlock();
 }
-
-#if defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__) || defined(__arm__)
-void *hipe_mfa_get_trampoline(Eterm m, Eterm f, unsigned int arity)
-{
-    struct hipe_mfa_info *p;
-    void *trampoline;
-
-    hipe_mfa_info_table_rlock();
-    p = hipe_mfa_info_table_get_locked(m, f, arity);
-    trampoline = p ? p->trampoline : NULL;
-    hipe_mfa_info_table_runlock();
-    return trampoline;
-}
-
-void hipe_mfa_set_trampoline(Eterm m, Eterm f, unsigned int arity, void *trampoline)
-{
-    struct hipe_mfa_info *p;
-
-    hipe_mfa_info_table_rwlock();
-    p = hipe_mfa_info_table_put_rwlocked(m, f, arity);
-    p->trampoline = trampoline;
-    hipe_mfa_info_table_rwunlock();
-}
-#endif
 
 BIF_RETTYPE hipe_bifs_set_funinfo_native_address_3(BIF_ALIST_3)
 {
@@ -1531,7 +1477,9 @@ BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
 
     ref = erts_alloc(ERTS_ALC_T_HIPE, sizeof(struct hipe_ref));
     ref->address = address;
+#if defined(arm) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)
     ref->trampoline = trampoline;
+#endif
     ref->flags = flags;
 
     /*
@@ -1815,8 +1763,14 @@ void hipe_redirect_to_module(Module* modp)
 
 	    if (ref->flags & REF_FLAG_IS_LOAD_MFA)
 		res = hipe_patch_insn(ref->address, (Uint)p->remote_address, am_load_mfa);
-	    else
-		res = hipe_patch_call(ref->address, p->remote_address, ref->trampoline);
+	    else {
+#if defined(arm) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)
+                void* trampoline = ref->trampoline;
+#else
+                void* trampoline = NULL;
+#endif
+		res = hipe_patch_call(ref->address, p->remote_address, trampoline);
+            }
 	    if (res)
 		fprintf(stderr, "%s: patch failed", __FUNCTION__);
 	}

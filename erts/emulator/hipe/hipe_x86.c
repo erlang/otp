@@ -61,8 +61,8 @@ int hipe_patch_call(void *callAddress, void *destAddress, void *trampoline)
 {
     Uint rel32;
 
-    if (trampoline)
-	return -1;
+    ASSERT(trampoline == NULL);
+
     rel32 = (Uint)destAddress - (Uint)callAddress - 4;
     *(Uint32*)callAddress = rel32;
     hipe_flush_icache_word(callAddress);

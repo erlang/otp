@@ -32,14 +32,6 @@ extern void hipe_mfa_info_table_init(void);
 extern void *hipe_get_remote_na(Eterm m, Eterm f, unsigned int a);
 extern BIF_RETTYPE hipe_find_na_or_make_stub(BIF_ALIST_3);
 extern int hipe_find_mfa_from_ra(const void *ra, Eterm *m, Eterm *f, unsigned int *a);
-#if defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__) || defined(__arm__)
-extern void *hipe_mfa_get_trampoline(Eterm m, Eterm f, unsigned int a);
-extern void hipe_mfa_set_trampoline(Eterm m, Eterm f, unsigned int a, void *trampoline);
-#endif
-#if defined(__arm__)
-extern void *hipe_primop_get_trampoline(Eterm name);
-extern void hipe_primop_set_trampoline(Eterm name, void *trampoline);
-#endif
 
 /* needed in beam_load.c */
 int hipe_need_blocking(Module*);

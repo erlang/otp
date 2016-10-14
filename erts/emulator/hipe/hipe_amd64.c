@@ -73,8 +73,8 @@ int hipe_patch_call(void *callAddress, void *destAddress, void *trampoline)
 {
     Sint rel32;
 
-    if (trampoline)
-	return -1;
+    ASSERT(trampoline == NULL);
+
     rel32 = (Sint)destAddress - (Sint)callAddress - 4;
     if ((Sint)(Sint32)rel32 != rel32)
 	return -1;
