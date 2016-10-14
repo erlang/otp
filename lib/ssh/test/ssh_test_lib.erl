@@ -767,3 +767,28 @@ open_port(Arg1, ExtraOpts) ->
 		      use_stdio,
 		      overlapped_io, hide %only affects windows
 		      | ExtraOpts]).
+
+%%%----------------------------------------------------------------
+%%% Sleeping
+
+%%% Milli sec
+sleep_millisec(Nms) -> receive after Nms -> ok end.
+
+%%% Micro sec
+sleep_microsec(Nus) ->
+   busy_wait(Nus, erlang:system_time(microsecond)).
+
+busy_wait(Nus, T0) ->
+    T = erlang:system_time(microsecond) - T0,
+    Tleft = Nus - T,
+    if
+	Tleft > 2000 -> 
+	    sleep_millisec((Tleft-1500) div 1000), % μs -> ms
+	    busy_wait(Nus,T0);
+	Tleft > 1 ->
+	    busy_wait(Nus, T0);
+	true ->
+	    T
+    end.
+
+%%%----------------------------------------------------------------
