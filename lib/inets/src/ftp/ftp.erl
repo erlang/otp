@@ -2363,12 +2363,14 @@ activate_ctrl_connection(#state{csock = Socket, ctrl_data = {<<>>, _, _}}) ->
 activate_ctrl_connection(#state{csock = Socket}) ->
     %% We have already received at least part of the next control message,
     %% that has been saved in ctrl_data, process this first.
-    self() ! {tcp, unwrap_socket(Socket), <<>>}.
+    self() ! {socket_type(Socket), unwrap_socket(Socket), <<>>}.
 
 unwrap_socket({tcp,Socket}) -> Socket;
 unwrap_socket({ssl,Socket}) -> Socket;
 unwrap_socket(Socket) -> Socket.
     
+socket_type({tcp,_Socket}) -> tcp;
+socket_type({ssl,_Socket}) -> ssl.
 
 activate_data_connection(#state{dsock = Socket} = State) ->
     activate_connection(Socket),
