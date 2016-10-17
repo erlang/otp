@@ -1130,19 +1130,18 @@ try_load_module_2(File, Mod, Bin, From, Architecture,
                   #state{moddb=Db}=St) ->
     case catch hipe_unified_loader:load_native_code(Mod, Bin, Architecture) of
         {module,Mod} = Module ->
-	    ets:insert(Db, [{{native,Mod},true},{Mod,File}]),
+	    ets:insert(Db, {Mod,File}),
             {reply,Module,St};
         no_native ->
             try_load_module_3(File, Mod, Bin, From, Architecture, St);
         Error ->
             error_msg("Native loading of ~ts failed: ~p\n", [File,Error]),
-            {reply,ok,St}
+            {reply,{error,Error},St}
     end.
 
-try_load_module_3(File, Mod, Bin, From, Architecture, St0) ->
+try_load_module_3(File, Mod, Bin, From, _Architecture, St0) ->
     Action = fun({module,_}=Module, #state{moddb=Db}=S) ->
 		     ets:insert(Db, {Mod,File}),
-		     post_beam_load([Mod], Architecture, S),
 		     {reply,Module,S};
 		({error,on_load_failure}=Error, S) ->
 		     {reply,Error,S};
@@ -1153,24 +1152,14 @@ try_load_module_3(File, Mod, Bin, From, Architecture, St0) ->
     Res = erlang:load_module(Mod, Bin),
     handle_on_load(Res, Action, Mod, From, St0).
 
-hipe_result_to_status(Result, #state{moddb=Db}) ->
+hipe_result_to_status(Result, #state{}) ->
     case Result of
-	{module,Mod} ->
-	    ets:insert(Db, [{{native,Mod},true}]),
+	{module,_} ->
 	    Result;
 	_ ->
 	    {error,Result}
     end.
 
-post_beam_load(_, undefined, _) ->
-    %% HiPE is disabled.
-    ok;
-post_beam_load(Mods0, _Architecture, #state{moddb=Db}) ->
-    %% post_beam_load/2 can potentially be very expensive because it
-    %% blocks multi-scheduling. Therefore, we only want to call
-    %% it with modules that are known to have native code loaded.
-    Mods = [M || M <- Mods0, ets:member(Db, {native,M})],
-    hipe_unified_loader:post_beam_load(Mods).
 
 int_list([H|T]) when is_integer(H) -> int_list(T);
 int_list([_|_])                    -> false;
@@ -1313,15 +1302,12 @@ abort_if_sticky(L, Db) ->
 	[_|_] -> {error,Sticky}
     end.
 
-do_finish_loading(Prepared, #state{moddb=Db}=St) ->
+do_finish_loading(Prepared, #state{moddb=Db}) ->
     MagicBins = [B || {_,{B,_}} <- Prepared],
     case erlang:finish_loading(MagicBins) of
 	ok ->
 	    MFs = [{M,F} || {M,{_,F}} <- Prepared],
 	    true = ets:insert(Db, MFs),
-	    Ms = [M || {M,_} <- MFs],
-	    Architecture = erlang:system_info(hipe_architecture),
-	    post_beam_load(Ms, Architecture, St),
 	    ok;
 	{Reason,Ms} ->
 	    {error,[{M,Reason} || M <- Ms]}

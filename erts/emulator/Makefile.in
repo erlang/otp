@@ -884,7 +884,9 @@ HIPE_OBJS= \
 	$(OBJDIR)/hipe_bif2.o \
 	$(OBJDIR)/hipe_debug.o \
 	$(OBJDIR)/hipe_gc.o \
+	$(OBJDIR)/hipe_load.o \
 	$(OBJDIR)/hipe_mode_switch.o \
+	$(OBJDIR)/hipe_module.o \
 	$(OBJDIR)/hipe_native_bif.o \
 	$(OBJDIR)/hipe_stack.o $(HIPE_ARCH_OBJS)
 ifdef HIPE_ENABLED

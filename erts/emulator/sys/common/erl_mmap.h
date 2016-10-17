@@ -159,9 +159,10 @@ Eterm erts_mmap_info_options(ErtsMemMapper*,
 extern ErtsMemMapper erts_dflt_mmapper;
 #  if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
 extern ErtsMemMapper erts_literal_mmapper;
-#  endif
-#  ifdef ERTS_ALC_A_EXEC
+#    ifdef ERTS_ALC_A_EXEC
+#      define ERTS_HAVE_EXEC_MMAPPER
 extern ErtsMemMapper erts_exec_mmapper;
+#    endif
 #  endif
 #endif /* ERTS_WANT_MEM_MAPPERS */
 

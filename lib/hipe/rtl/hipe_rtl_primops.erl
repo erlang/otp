@@ -760,12 +760,9 @@ gen_fun_thing_skeleton(FunP, FunName={_Mod,_FunId,Arity}, NumFree,
   %%  And creates a fe (at load time).
   FeVar = hipe_rtl:mk_new_reg(),
   PidVar = hipe_rtl:mk_new_reg_gcsafe(),
-  NativeVar = hipe_rtl:mk_new_reg(),
 
   [hipe_rtl:mk_load_address(FeVar, {FunName, MagicNr, Index}, closure),
    store_struct_field(FunP, ?EFT_FE, FeVar),
-   load_struct_field(NativeVar, FeVar, ?EFE_NATIVE_ADDRESS),
-   store_struct_field(FunP, ?EFT_NATIVE_ADDRESS, NativeVar),
 
    store_struct_field(FunP, ?EFT_ARITY, hipe_rtl:mk_imm(Arity-NumFree)),
 

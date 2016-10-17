@@ -116,8 +116,8 @@ get_chunk(_, _) ->
 is_module_native(_) ->
     erlang:nif_error(undef).
 
--spec make_stub_module(Module, Beam, Info) -> Module when
-      Module :: module(),
+-spec make_stub_module(LoaderState, Beam, Info) -> module() when
+      LoaderState :: binary(),
       Beam :: binary(),
       Info :: {list(), list(), binary()}.
 

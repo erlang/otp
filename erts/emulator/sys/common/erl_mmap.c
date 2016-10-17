@@ -21,6 +21,7 @@
 #  include "config.h"
 #endif
 
+#define ERTS_WANT_MEM_MAPPERS
 #include "sys.h"
 #include "erl_process.h"
 #include "erl_smp.h"
@@ -358,10 +359,9 @@ char* erts_literals_start;
 UWord erts_literals_size;
 #endif
 
-#ifdef ERTS_ALC_A_EXEC
+#ifdef ERTS_HAVE_EXEC_MMAPPER
 ErtsMemMapper erts_exec_mmapper;
 #endif
-
 
 
 #define ERTS_MMAP_SIZE_SC_SA_INC(SZ) 						\

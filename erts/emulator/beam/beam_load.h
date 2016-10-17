@@ -143,4 +143,34 @@ struct BeamCodeLineTab_ {
 #define LOC_FILE(Loc) ((Loc) >> 24)
 #define LOC_LINE(Loc) ((Loc) & ((1 << 24)-1))
 
+
+/*
+ * MFA event debug "tracing" usage:
+ *
+ * #define ENABLE_DBG_TRACE_MFA
+ * call dbg_set_traced_mfa("mymod","myfunc",arity)
+ * for the function(s) to trace, in some init function.
+ *
+ * Run and get stderr printouts when interesting things happen to your MFA.
+ */
+#ifdef  ENABLE_DBG_TRACE_MFA
+
+void dbg_set_traced_mfa(const char* m, const char* f, Uint a);
+int dbg_is_traced_mfa(Eterm m, Eterm f, Uint a);
+void dbg_vtrace_mfa(unsigned ix, const char* format, ...);
+#define DBG_TRACE_MFA(M,F,A,FMT, ...) do {\
+    unsigned ix;\
+    if ((ix=dbg_is_traced_mfa(M,F,A))) \
+        dbg_vtrace_mfa(ix, FMT"\n", ##__VA_ARGS__);\
+  }while(0)
+
+#define DBG_TRACE_MFA_P(MFA, FMT, ...) \
+        DBG_TRACE_MFA((MFA)->module, (MFA)->function, (MFA)->arity, FMT, ##__VA_ARGS__)
+
+#else
+#  define dbg_set_traced_mfa(M,F,A)
+#  define DBG_TRACE_MFA(M,F,A,FMT, ...)
+#  define DBG_TRACE_MFA_P(MFA,FMT, ...)
+#endif /* ENABLE_DBG_TRACE_MFA */
+
 #endif /* _BEAM_LOAD_H */

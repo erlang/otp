@@ -45,6 +45,7 @@
 #include "hipe_bif0.h"
 #include "hipe_mode_switch.h"
 #include "hipe_arch.h"
+#include "hipe_load.h"
 #endif
 
 ErlDrvBinary* erts_gzinflate_buffer(char*, int);
@@ -481,9 +482,12 @@ static void free_loader_state(Binary* magic);
 static ErlHeapFragment* new_literal_fragment(Uint size);
 static void free_literal_fragment(ErlHeapFragment*);
 static void loader_state_dtor(Binary* magic);
+#ifdef HIPE
 static Eterm stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 				  Eterm group_leader, Eterm module,
-				  BeamCodeHeader* code, Uint size);
+				  BeamCodeHeader* code_hdr, Uint size,
+				  HipeModule *hipe_code);
+#endif
 static int init_iff_file(LoaderState* stp, byte* code, Uint size);
 static int scan_iff_file(LoaderState* stp, Uint* chunk_types,
 			 Uint num_types, Uint num_mandatory);
@@ -538,8 +542,6 @@ static Eterm compilation_info_for_module(Process* p, BeamCodeHeader*);
 static Eterm md5_of_module(Process* p, BeamCodeHeader*);
 static Eterm has_native(BeamCodeHeader*);
 static Eterm native_addresses(Process* p, BeamCodeHeader*);
-int patch_funentries(Eterm Patchlist);
-int patch(Eterm Addresses, Uint fe);
 static int safe_mul(UWord a, UWord b, UWord* resp);
 
 static int must_swap_floats;
@@ -843,9 +845,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
 	    erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 		       sizeof(struct erl_module_instance));
 	inst_p = mod_tab_p->on_load;
-	inst_p->nif = 0;
-        inst_p->num_breakpoints = 0;
-        inst_p->num_traced_exports = 0;
+        erts_module_instance_init(inst_p);
     }
 
     inst_p->code_hdr = stp->hdr;
@@ -944,6 +944,13 @@ erts_module_for_prepared_code(Binary* magic)
     LoaderState* stp;
 
     if (ERTS_MAGIC_BIN_DESTRUCTOR(magic) != loader_state_dtor) {
+#ifdef HIPE
+	HipeLoaderState *hipe_stp;
+	if ((hipe_stp = hipe_get_loader_state(magic))
+	    && hipe_stp->text_segment != 0) {
+	    return hipe_stp->module;
+	}
+#endif
 	return NIL;
     }
     stp = ERTS_MAGIC_BIN_DATA(magic);
@@ -1092,10 +1099,12 @@ loader_state_dtor(Binary* magic)
     ASSERT(stp->genop_blocks == 0);
 }
 
+#ifdef HIPE
 static Eterm
 stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 		     Eterm group_leader, Eterm module,
-		     BeamCodeHeader* code_hdr, Uint size)
+		     BeamCodeHeader* code_hdr, Uint size,
+		     HipeModule *hipe_code)
 {
     Module* modp;
     Eterm retval;
@@ -1118,6 +1127,9 @@ stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
     modp->curr.code_hdr = code_hdr;
     modp->curr.code_length = size;
     modp->curr.catches = BEAM_CATCHES_NIL; /* Will be filled in later. */
+    DBG_TRACE_MFA(make_atom(modp->module), 0, 0, "insert_new_code "
+                  "first_hipe_ref = %p", hipe_code->first_hipe_ref);
+    modp->curr.hipe_code = hipe_code;
 
     /*
      * Update ranges (used for finding a function from a PC value).
@@ -1126,6 +1138,7 @@ stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
     erts_update_ranges((BeamInstr*)modp->curr.code_hdr, size);
     return NIL;
 }
+#endif
 
 static int
 init_iff_file(LoaderState* stp, byte* code, Uint size)
@@ -4780,9 +4793,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 	}
 	ep = erts_export_put(stp->module, stp->export[i].function,
 			     stp->export[i].arity);
-	if (!on_load) {
-	    ep->addressv[erts_staging_code_ix()] = address;
-	} else {
+	if (on_load) {
 	    /*
 	     * on_load: Don't make any of the exported functions
 	     * callable yet. Keep any function in the current
@@ -4790,6 +4801,8 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 	     */
 	    ep->beam[1] = (BeamInstr) address;
 	}
+        else
+            ep->addressv[erts_staging_code_ix()] = address;
     }
 
     /*
@@ -5991,23 +6004,19 @@ code_module_md5_1(BIF_ALIST_1)
     return res;
 }
 
+#ifdef HIPE
 #define WORDS_PER_FUNCTION (sizeof(ErtsCodeInfo) / sizeof(UWord) + 1)
 
 static BeamInstr*
 make_stub(ErtsCodeInfo* info, Eterm mod, Eterm func, Uint arity, Uint native, BeamInstr OpCode)
 {
+    DBG_TRACE_MFA(mod,func,arity,"make beam stub at %p", erts_codeinfo_to_code(info));
     ASSERT(WORDS_PER_FUNCTION == 6);
     info->op = (BeamInstr) BeamOp(op_i_func_info_IaaI);
     info->native = native;
     info->mfa.module = mod;
     info->mfa.function = func;
     info->mfa.arity = arity;
-#ifdef HIPE
-    if (native) {
-        erts_codeinfo_to_code(info)[0] = BeamOpCode(op_move_return_n);
-	hipe_mfa_save_orig_beam_op(mod, func, arity, erts_codeinfo_to_code(info));
-    }
-#endif
     erts_codeinfo_to_code(info)[0] = OpCode;
     return erts_codeinfo_to_code(info)+1;
 }
@@ -6072,9 +6081,7 @@ stub_final_touch(LoaderState* stp, ErtsCodeInfo* ci)
 {
     unsigned int i;
     unsigned int n = stp->num_exps;
-#ifdef HIPE
     Lambda* lp;
-#endif
 
     if (is_bif(ci->mfa.module, ci->mfa.function, ci->mfa.arity)) {
 	ci->native = 0;
@@ -6095,6 +6102,8 @@ stub_final_touch(LoaderState* stp, ErtsCodeInfo* ci)
                                          ci->mfa.function,
                                          ci->mfa.arity);
 	    ep->addressv[erts_staging_code_ix()] = erts_codeinfo_to_code(ci);
+	    DBG_TRACE_MFA_P(&ci->mfa,"set beam stub at %p in export at %p (code_ix=%d)",
+			    erts_codeinfo_to_code(ci), ep, erts_staging_code_ix());
 	    return;
 	}
     }
@@ -6104,7 +6113,6 @@ stub_final_touch(LoaderState* stp, ErtsCodeInfo* ci)
      * Search the lambda table to find out which.
      */
     
-#ifdef HIPE
     n = stp->num_lambdas;
     for (i = 0, lp = stp->lambdas; i < n; i++, lp++) {
         ErlFunEntry* fe = stp->lambdas[i].fe;
@@ -6113,7 +6121,6 @@ stub_final_touch(LoaderState* stp, ErtsCodeInfo* ci)
             fe->address = erts_codeinfo_to_code(ci);
 	}
     }
-#endif
     return;
 }
 
@@ -6122,10 +6129,9 @@ stub_final_touch(LoaderState* stp, ErtsCodeInfo* ci)
    [{Adr, Patchtyppe} | Addresses]
    and the address of a fun_entry.
 */
-int 
+static int
 patch(Eterm Addresses, Uint fe) 
  {
-#ifdef HIPE
   Eterm* listp;
   Eterm tuple;
   Eterm* tp;
@@ -6161,15 +6167,13 @@ patch(Eterm Addresses, Uint fe)
 
   }
 
-#endif
   return 1;
 }
 
 
-int
+static int
 patch_funentries(Eterm Patchlist) 
  {
-#ifdef HIPE   
   while (!is_nil(Patchlist)) {
     Eterm Info;
     Eterm MFA;
@@ -6258,10 +6262,8 @@ patch_funentries(Eterm Patchlist)
       return 0;
 
   }
-#endif
   return 1; /* Signal that all went well */
 }
-
 
 /*
  * Do a dummy load of a module. No threaded code will be loaded.
@@ -6269,12 +6271,14 @@ patch_funentries(Eterm Patchlist)
  * Will also patch all references to fun_entries to point to 
  * the new fun_entries created.
  */
-
 Eterm
-erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
+erts_make_stub_module(Process* p, Eterm hipe_magic_bin, Eterm Beam, Eterm Info)
 {
     Binary* magic;
+    Binary* hipe_magic;
     LoaderState* stp;
+    HipeLoaderState* hipe_stp;
+    HipeModule *hipe_code;
     BeamInstr Funcs;
     BeamInstr Patchlist;
     Eterm MD5Bin;
@@ -6297,8 +6301,12 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
      */
     magic = erts_alloc_loader_state();
     stp = ERTS_MAGIC_BIN_DATA(magic);
+    hipe_code = erts_alloc(ERTS_ALC_T_HIPE, sizeof(*hipe_code));
 
-    if (is_not_atom(Mod)) {
+    if (!ERTS_TERM_IS_MAGIC_BINARY(hipe_magic_bin) ||
+	!(hipe_magic = ((ProcBin*)binary_val(hipe_magic_bin))->val,
+	  hipe_stp = hipe_get_loader_state(hipe_magic)) ||
+	hipe_stp->module == NIL || hipe_stp->text_segment == 0) {
 	goto error;
     }
     if (is_not_tuple(Info)) {
@@ -6326,7 +6334,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
      * Scan the Beam binary and read the interesting sections.
      */
 
-    stp->module = Mod;
+    stp->module = hipe_stp->module;
     stp->group_leader = p->group_leader;
     stp->num_functions = n;
     if (!init_iff_file(stp, bytes, size)) {
@@ -6435,12 +6443,8 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 	 * as the body until we know what kind of trap we should put there.
 	 */
 	code_hdr->functions[i] = (ErtsCodeInfo*)fp;
-#ifdef HIPE
 	op = (Eterm) BeamOpCode(op_hipe_trap_call); /* Might be changed later. */
-#else
-	op = (Eterm) BeamOpCode(op_move_return_n);
-#endif
-	fp = make_stub((ErtsCodeInfo*)fp, Mod, func, arity,
+	fp = make_stub((ErtsCodeInfo*)fp, hipe_stp->module, func, arity,
                        (Uint)native_address, op);
     }
 
@@ -6481,11 +6485,20 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     }
 
     /*
+     * Initialise HiPE module
+     */
+    hipe_code->text_segment = hipe_stp->text_segment;
+    hipe_code->text_segment_size = hipe_stp->text_segment_size;
+    hipe_code->data_segment = hipe_stp->data_segment;
+    hipe_code->first_hipe_ref = hipe_stp->new_hipe_refs;
+    hipe_code->first_hipe_sdesc = hipe_stp->new_hipe_sdesc;
+
+    /*
      * Insert the module in the module table.
      */
 
-    rval = stub_insert_new_code(p, 0, p->group_leader, Mod,
-				code_hdr, code_size);
+    rval = stub_insert_new_code(p, 0, p->group_leader, hipe_stp->module,
+				code_hdr, code_size, hipe_code);
     if (rval != NIL) {
 	goto error;
     }
@@ -6501,18 +6514,69 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     }
 
     if (patch_funentries(Patchlist)) {
+	Eterm mod = hipe_stp->module;
+	/* Prevent code from being freed */
+	hipe_stp->text_segment = 0;
+	hipe_stp->data_segment = 0;
+        hipe_stp->new_hipe_refs = NULL;
+        hipe_stp->new_hipe_sdesc = NULL;
+
 	erts_free_aligned_binary_bytes(temp_alloc);
 	free_loader_state(magic);
-	return Mod;
+	hipe_free_loader_state(hipe_stp);
+
+	return mod;
     }
 
  error:
+    erts_free(ERTS_ALC_T_HIPE, hipe_code);
     erts_free_aligned_binary_bytes(temp_alloc);
     free_loader_state(magic);
     BIF_ERROR(p, BADARG);
 }
 
+int erts_commit_hipe_patch_load(Eterm hipe_magic_bin)
+{
+    Binary* hipe_magic;
+    HipeLoaderState* hipe_stp;
+    HipeModule *hipe_code;
+    Module* modp;
+
+    if (!ERTS_TERM_IS_MAGIC_BINARY(hipe_magic_bin) ||
+	!(hipe_magic = ((ProcBin*)binary_val(hipe_magic_bin))->val,
+	  hipe_stp = hipe_get_loader_state(hipe_magic)) ||
+	hipe_stp->module == NIL || hipe_stp->text_segment == 0) {
+	return 0;
+    }
+
+    modp = erts_get_module(hipe_stp->module, erts_active_code_ix());
+    if (!modp)
+	return 0;
+
+    /*
+     * Initialise HiPE module
+     */
+    hipe_code = erts_alloc(ERTS_ALC_T_HIPE, sizeof(*hipe_code));
+    hipe_code->text_segment = hipe_stp->text_segment;
+    hipe_code->text_segment_size = hipe_stp->text_segment_size;
+    hipe_code->data_segment = hipe_stp->data_segment;
+    hipe_code->first_hipe_ref = hipe_stp->new_hipe_refs;
+    hipe_code->first_hipe_sdesc = hipe_stp->new_hipe_sdesc;
+
+    modp->curr.hipe_code = hipe_code;
+
+    /* Prevent code from being freed */
+    hipe_stp->text_segment = 0;
+    hipe_stp->data_segment = 0;
+    hipe_stp->new_hipe_refs = NULL;
+    hipe_stp->new_hipe_sdesc = NULL;
+
+    return 1;
+}
+
 #undef WORDS_PER_FUNCTION
+#endif /* HIPE */
+
 
 static int safe_mul(UWord a, UWord b, UWord* resp)
 {
@@ -6526,3 +6590,46 @@ static int safe_mul(UWord a, UWord b, UWord* resp)
     }
 }
 
+#ifdef ENABLE_DBG_TRACE_MFA
+
+#define MFA_MAX 10
+Eterm dbg_trace_m[MFA_MAX];
+Eterm dbg_trace_f[MFA_MAX];
+Uint  dbg_trace_a[MFA_MAX];
+unsigned int dbg_trace_ix = 0;
+
+void dbg_set_traced_mfa(const char* m, const char* f, Uint a)
+{
+    unsigned i = dbg_trace_ix++;
+    ASSERT(i < MFA_MAX);
+    dbg_trace_m[i] = am_atom_put(m, strlen(m));
+    dbg_trace_f[i] = am_atom_put(f, strlen(f));
+    dbg_trace_a[i] = a;
+}
+
+int dbg_is_traced_mfa(Eterm m, Eterm f, Uint a)
+{
+    unsigned int i;
+    for (i = 0; i < dbg_trace_ix; ++i) {
+        if (m == dbg_trace_m[i] &&
+            (!f || (f == dbg_trace_f[i] && a == dbg_trace_a[i]))) {
+
+            return i+1;
+        }
+    }
+    return 0;
+}
+
+void dbg_vtrace_mfa(unsigned ix, const char* format, ...)
+{
+    va_list arglist;
+    va_start(arglist, format);
+    ASSERT(--ix < MFA_MAX);
+    erts_fprintf(stderr, "MFA TRACE %T:%T/%u: ",
+                 dbg_trace_m[ix], dbg_trace_f[ix], (int)dbg_trace_a[ix]);
+
+    erts_vfprintf(stderr, format, arglist);
+    va_end(arglist);
+}
+
+#endif /* ENABLE_DBG_TRACE_MFA */

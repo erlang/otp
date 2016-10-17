@@ -6121,6 +6121,7 @@ call_error_handler(Process* p, ErtsCodeMFA* mfa, Eterm* reg, Eterm func)
     Uint sz;
     int i;
 
+    DBG_TRACE_MFA_P(mfa, "call_error_handler");
     /*
      * Search for the error_handler module.
      */
@@ -6676,9 +6677,6 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     funp->fe = fe;
     funp->num_free = num_free;
     funp->creator = p->common.id;
-#ifdef HIPE
-    funp->native_address = fe->native_address;
-#endif
     funp->arity = (int)fe->address[-1] - num_free;
     for (i = 0; i < num_free; i++) {
 	*hp++ = reg[i];
