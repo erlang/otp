@@ -2463,7 +2463,6 @@ arg_types(hipe_bifs, add_ref, 2) ->
 		     t_integer(),
 		     t_sup(t_atom('call'), t_atom('load_mfa')),
 		     t_trampoline(),
-		     t_atom(),
 		     t_binary()])];
 arg_types(hipe_bifs, alloc_data, 3) ->
   [t_integer(), t_integer(), t_binary()];
@@ -2504,7 +2503,7 @@ arg_types(hipe_bifs, check_crc, 1) ->
 arg_types(hipe_bifs, enter_code, 3) ->
   [t_binary(), t_sup(t_nil(), t_tuple()), t_binary()];
 arg_types(hipe_bifs, enter_sdesc, 2) ->
-  [t_tuple([t_integer(), t_integer(), t_integer(), t_integer(), t_integer(), t_mfa(), t_atom()]),
+  [t_tuple([t_integer(), t_integer(), t_integer(), t_integer(), t_integer(), t_mfa()]),
    t_binary()];
 arg_types(hipe_bifs, find_na_or_make_stub, 1) ->
   [t_mfa()];

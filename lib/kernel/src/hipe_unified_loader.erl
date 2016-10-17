@@ -772,7 +772,7 @@ find_const(ConstNo, []) ->
 
 add_ref(CalleeMFA, Address, FunDefs, RefType, Trampoline, RemoteOrLocal) ->
   CallerMFA = address_to_mfa_lth(Address, FunDefs),
-  case RemoteOrLocal of
+  _  = case RemoteOrLocal of
     local ->
       %% just a sanity assertion
       {M,_,_} = CalleeMFA,
