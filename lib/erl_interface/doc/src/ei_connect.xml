@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>ei_connect</title>
@@ -29,7 +29,7 @@
     <checked>?</checked>
     <date>2001-09-01</date>
     <rev>A</rev>
-    <file>ei_connect.sgml</file>
+    <file>ei_connect.xml</file>
   </header>
   <lib>ei_connect</lib>
   <libsummary>Communicate with distributed erlang</libsummary>
@@ -72,11 +72,96 @@
       the operations are completed (regardless of the result). To
       avoid problems, leave the socket options alone. Ei will handle
       any socket options that need modification.</p>
-    <p>In all other senses, the <c><![CDATA[_tmo]]></c> functions inherit all 
-      the return values and the semantics from the functions without 
+    <p>In all other senses, the <c><![CDATA[_tmo]]></c> functions inherit all
+      the return values and the semantics from the functions without
       the <c><![CDATA[_tmo]]></c> suffix.</p>
   </section>
   <funcs>
+    <func>
+      <name><ret>struct hostent</ret><nametext>*ei_gethostbyaddr(const char *addr, int len, int type)</nametext></name>
+      <name><ret>struct hostent</ret><nametext>*ei_gethostbyaddr_r(const char *addr, int length,  int type,  struct hostent *hostp, char *buffer,   int buflen,  int *h_errnop)</nametext></name>
+      <name><ret>struct hostent</ret><nametext>*ei_gethostbyname(const char *name)</nametext></name>
+      <name><ret>struct hostent</ret><nametext>*ei_gethostbyname_r(const char *name,  struct hostent *hostp,  char *buffer,  int buflen,  int *h_errnop)</nametext></name>
+      <fsummary>Name lookup functions.</fsummary>
+      <desc>
+        <p>These are convenience functions for some common name lookup functions.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_accept(ei_cnode *ec, int listensock, ErlConnect *conp)</nametext></name>
+      <fsummary>Accept a connection from another node.</fsummary>
+      <desc>
+        <p>This function is used by a server process to accept a
+          connection from a client process.</p>
+        <p><c><![CDATA[ec]]></c> is the C-node structure.</p>
+        <p><c><![CDATA[listensock]]></c> is an open socket descriptor on which
+          <c><![CDATA[listen()]]></c> has previously been called.</p>
+        <p><c><![CDATA[conp]]></c> is a pointer to an <c><![CDATA[ErlConnect]]></c> struct,
+          described as follows:</p>
+        <code type="none"><![CDATA[
+typedef struct {
+  char ipadr[4];             
+  char nodename[MAXNODELEN];
+} ErlConnect;
+        ]]></code>
+        <p>On success, <c><![CDATA[conp]]></c> is filled in with the address and
+          node name of the connecting client and a file descriptor is
+          returned. On failure, <c><![CDATA[ERL_ERROR]]></c> is returned and
+          <c><![CDATA[erl_errno]]></c> is set to <c><![CDATA[EIO]]></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_accept_tmo(ei_cnode *ec, int listensock, ErlConnect *conp, unsigned timeout_ms)</nametext></name>
+      <fsummary>Accept a connection from another node with optional timeout.</fsummary>
+      <desc>
+        <p>ei_accept with an optional timeout argument,
+          see the description at the beginning of this document.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_connect(ei_cnode* ec, char *nodename)</nametext></name>
+      <name><ret>int</ret><nametext>ei_xconnect(ei_cnode* ec, Erl_IpAddr adr, char *alivename)</nametext></name>
+      <fsummary>Establishe a connection to an Erlang node.</fsummary>
+      <desc>
+        <p>These functions set up a connection to an Erlang node.</p>
+        <p><c><![CDATA[ei_xconnect()]]></c> requires the IP address of the remote
+          host and the alive name of the remote node
+          to be specified. <c><![CDATA[ei_connect()]]></c> provides an alternative
+          interface, and determines the information from the node name
+          provided.</p>
+        <p><c><![CDATA[addr]]></c> is the 32-bit IP address of the remote host.</p>
+        <p><c><![CDATA[alive]]></c> is the alivename of the remote node.</p>
+        <p><c><![CDATA[node]]></c> is the name of the remote node.</p>
+        <p>These functions return an open file descriptor on success, or
+          a negative value indicating that an error occurred --- in
+          which case they will set <c><![CDATA[erl_errno]]></c> to one of:</p>
+        <taglist>
+          <tag><c><![CDATA[EHOSTUNREACH]]></c></tag>
+          <item>The remote host <c><![CDATA[node]]></c> is unreachable</item>
+          <tag><c><![CDATA[ENOMEM]]></c></tag>
+          <item>No more memory available.</item>
+          <tag><c><![CDATA[EIO]]></c></tag>
+          <item>I/O error.</item>
+        </taglist>
+        <p>Additionally, <c><![CDATA[errno]]></c> values from
+          <c><![CDATA[socket]]></c><em>(2)</em> and <c><![CDATA[connect]]></c><em>(2)</em>
+          system calls may be propagated into <c><![CDATA[erl_errno]]></c>.</p>
+        <p>Example:</p>
+        <code type="none"><![CDATA[
+#define NODE   "madonna@chivas.du.etx.ericsson.se"
+#define ALIVE  "madonna"
+#define IP_ADDR "150.236.14.75"
+
+/*** Variant 1 ***/
+int fd = ei_connect(&ec, NODE);
+
+/*** Variant 2 ***/
+struct in_addr addr;
+addr.s_addr = inet_addr(IP_ADDR);
+fd = ei_xconnect(&ec, &addr, ALIVE);
+        ]]></code>
+      </desc>
+    </func>
     <func>
       <name><ret>int</ret><nametext>ei_connect_init(ei_cnode* ec, const char* this_node_name, const char *cookie, short creation)</nametext></name>
       <name><ret>int</ret><nametext>ei_connect_xinit(ei_cnode* ec, const char *thishostname, const char *thisalivename, const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, short creation)</nametext></name>
@@ -140,61 +225,58 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>ei_connect(ei_cnode* ec, char *nodename)</nametext></name>
-      <name><ret>int</ret><nametext>ei_xconnect(ei_cnode* ec, Erl_IpAddr adr, char *alivename)</nametext></name>
-      <fsummary>Establishe a connection to an Erlang node</fsummary>
-      <desc>
-        <p>These functions set up a connection to an Erlang node.</p>
-        <p><c><![CDATA[ei_xconnect()]]></c> requires the IP address of the remote
-          host and the alive name of the remote node
-          to be specified. <c><![CDATA[ei_connect()]]></c> provides an alternative
-          interface, and determines the information from the node name
-          provided.</p>
-        <p><c><![CDATA[addr]]></c> is the 32-bit IP address of the remote host.</p>
-        <p><c><![CDATA[alive]]></c> is the alivename of the remote node.</p>
-        <p><c><![CDATA[node]]></c> is the name of the remote node.</p>
-        <p>These functions return an open file descriptor on success, or
-          a negative value indicating that an error occurred --- in
-          which case they will set <c><![CDATA[erl_errno]]></c> to one of:</p>
-        <taglist>
-          <tag><c><![CDATA[EHOSTUNREACH]]></c></tag>
-          <item>The remote host <c><![CDATA[node]]></c> is unreachable</item>
-          <tag><c><![CDATA[ENOMEM]]></c></tag>
-          <item>No more memory available.</item>
-          <tag><c><![CDATA[EIO]]></c></tag>
-          <item>I/O error.</item>
-        </taglist>
-        <p>Additionally, <c><![CDATA[errno]]></c> values from
-          <c><![CDATA[socket]]></c><em>(2)</em> and <c><![CDATA[connect]]></c><em>(2)</em>
-          system calls may be propagated into <c><![CDATA[erl_errno]]></c>.</p>
-        <p>Example:</p>
-        <code type="none"><![CDATA[
-#define NODE   "madonna@chivas.du.etx.ericsson.se"
-#define ALIVE  "madonna"
-#define IP_ADDR "150.236.14.75"
-
-/*** Variant 1 ***/
-int fd = ei_connect(&ec, NODE);
-
-/*** Variant 2 ***/
-struct in_addr addr;
-addr.s_addr = inet_addr(IP_ADDR);
-fd = ei_xconnect(&ec, &addr, ALIVE);
-        ]]></code>
-      </desc>
-    </func>
-    <func>
       <name><ret>int</ret><nametext>ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned timeout_ms)</nametext></name>
       <name><ret>int</ret><nametext>ei_xconnect_tmo(ei_cnode* ec, Erl_IpAddr adr, char *alivename, unsigned timeout_ms)</nametext></name>
-      <fsummary>Establish a connection to an Erlang node with optional timeout</fsummary>
+      <fsummary>Establish a connection to an Erlang node with optional timeout.</fsummary>
       <desc>
         <p>ei_connect and ei_xconnect with an optional timeout argument,
           see the description at the beginning of this document.</p>
       </desc>
     </func>
     <func>
+      <name><ret>int</ret><nametext>ei_get_tracelevel(void)</nametext></name>
+      <name><ret>void</ret><nametext>ei_set_tracelevel(int level)</nametext></name>
+      <fsummary>Get and set functions for tracing.</fsummary>
+      <desc>
+        <p>These functions are used to set tracing on the distribution. The levels are different verbosity levels. A higher level means more information.
+	See also Debug Information and <c><![CDATA[EI_TRACELEVEL]]></c> below. </p>
+	<p> <c><![CDATA[ei_set_tracelevel]]></c> and <c><![CDATA[ei_get_tracelevel]]></c> are not thread safe.  </p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_publish(ei_cnode *ec, int port)</nametext></name>
+      <fsummary>Publish a node name.</fsummary>
+      <desc>
+        <p>These functions are used by a server process to register
+          with the local name server <em>epmd</em>, thereby allowing
+          other processes to send messages by using the registered name.
+          Before calling either of these functions, the process should
+          have called <c><![CDATA[bind()]]></c> and <c><![CDATA[listen()]]></c> on an open socket.</p>
+        <p><c><![CDATA[ec]]></c> is the C-node structure.</p>
+        <p><c><![CDATA[port]]></c> is the local name to register, and should be the
+          same as the port number that was previously bound to the socket.</p>
+        <p><c><![CDATA[addr]]></c> is the 32-bit IP address of the local host.</p>
+        <p>To unregister with epmd, simply close the returned
+          descriptor. Do not use <c><![CDATA[ei_unpublish()]]></c>, which is deprecated anyway.</p>
+        <p>On success, the functions return a descriptor connecting the
+          calling process to epmd. On failure, they return -1 and set
+          <c><![CDATA[erl_errno]]></c> to <c><![CDATA[EIO]]></c>.</p>
+        <p>Additionally, <c><![CDATA[errno]]></c> values from <c><![CDATA[socket]]></c><em>(2)</em>
+          and <c><![CDATA[connect]]></c><em>(2)</em> system calls may be propagated
+          into <c><![CDATA[erl_errno]]></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_publish_tmo(ei_cnode *ec, int port, unsigned timeout_ms)</nametext></name>
+      <fsummary>Publish a node name with optional timeout.</fsummary>
+      <desc>
+        <p>ei_publish with an optional timeout argument,
+          see the description at the beginning of this document.</p>
+      </desc>
+    </func>
+    <func>
       <name><ret>int</ret><nametext>ei_receive(int fd, unsigned char* bufp, int bufsize)</nametext></name>
-      <fsummary>Receive a message</fsummary>
+      <fsummary>Receive a message.</fsummary>
       <desc>
         <p>This function receives a message consisting of a sequence
           of bytes in the Erlang external format.</p>
@@ -224,17 +306,44 @@ fd = ei_xconnect(&ec, &addr, ALIVE);
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>ei_receive_tmo(int fd, unsigned char* bufp, int bufsize, unsigned timeout_ms)</nametext></name>
-      <fsummary>Receive a message with optional timeout</fsummary>
+      <name><ret>int</ret><nametext>ei_receive_encoded(int fd, char **mbufp, int *bufsz,  erlang_msg *msg, int *msglen)</nametext></name>
+      <fsummary>Obsolete function for receiving a message.</fsummary>
       <desc>
-        <p>ei_receive with an optional timeout argument,
+        <p>This function is retained for compatibility with code
+          generated by the interface compiler and with code following
+          examples in the same application.</p>
+        <p>In essence the function performs the same operation as
+          <c><![CDATA[ei_xreceive_msg]]></c>, but instead of using an ei_x_buff, the
+          function expects a pointer to a character pointer
+          (<c><![CDATA[mbufp]]></c>), where the character pointer should point to a
+          memory area allocated by <c><![CDATA[malloc]]></c>. The argument
+          <c><![CDATA[bufsz]]></c> should be a pointer to an integer containing the
+          exact size (in bytes) of the memory area. The function may
+          reallocate the memory area and will in such cases put the new
+          size in <c><![CDATA[*bufsz]]></c> and update <c><![CDATA[*mbufp]]></c>.</p>
+        <p>Furthermore the function returns either ERL_TICK or the
+          <c><![CDATA[msgtype]]></c> field of the <c><![CDATA[erlang_msg *msg]]></c>. The actual
+          length of the message is put in <c><![CDATA[*msglen]]></c>. On error it
+          will return a value <c><![CDATA[< 0]]></c>.</p>
+        <p>It is recommended to use ei_xreceive_msg instead when
+          possible, for the sake of readability. The function will
+          however be retained in the interface for compatibility and
+          will <em>not</em> be removed not be removed in future releases
+          without notice.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_receive_encoded_tmo(int fd, char **mbufp, int *bufsz,  erlang_msg *msg, int *msglen, unsigned timeout_ms)</nametext></name>
+      <fsummary>Obsolete function for receiving a message with timeout.</fsummary>
+      <desc>
+        <p>ei_receive_encoded with an optional timeout argument,
           see the description at the beginning of this document.</p>
       </desc>
     </func>
     <func>
       <name><ret>int</ret><nametext>ei_receive_msg(int fd, erlang_msg* msg, ei_x_buff* x)</nametext></name>
       <name><ret>int</ret><nametext>ei_xreceive_msg(int fd, erlang_msg* msg, ei_x_buff* x)</nametext></name>
-      <fsummary>Receive a message</fsummary>
+      <fsummary>Receive a message.</fsummary>
       <desc>
         <p>These functions receives a message to the buffer in
           <c><![CDATA[x]]></c>.  <c><![CDATA[ei_xreceive_msg]]></c> allows the buffer in
@@ -279,90 +388,23 @@ typedef struct {
     <func>
       <name><ret>int</ret><nametext>ei_receive_msg_tmo(int fd, erlang_msg* msg, ei_x_buff* x, unsigned imeout_ms)</nametext></name>
       <name><ret>int</ret><nametext>ei_xreceive_msg_tmo(int fd, erlang_msg* msg, ei_x_buff* x, unsigned timeout_ms)</nametext></name>
-      <fsummary>Receive a message with optional timeout</fsummary>
+      <fsummary>Receive a message with optional timeout.</fsummary>
       <desc>
         <p>ei_receive_msg and ei_xreceive_msg with an optional timeout argument,
           see the description at the beginning of this document.</p>
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>ei_receive_encoded(int fd, char **mbufp, int *bufsz,  erlang_msg *msg, int *msglen)</nametext></name>
-      <fsummary>Obsolete function for receiving a message</fsummary>
+      <name><ret>int</ret><nametext>ei_receive_tmo(int fd, unsigned char* bufp, int bufsize, unsigned timeout_ms)</nametext></name>
+      <fsummary>Receive a message with optional timeout.</fsummary>
       <desc>
-        <p>This function is retained for compatibility with code
-          generated by the interface compiler and with code following
-          examples in the same application.</p>
-        <p>In essence the function performs the same operation as
-          <c><![CDATA[ei_xreceive_msg]]></c>, but instead of using an ei_x_buff, the
-          function expects a pointer to a character pointer
-          (<c><![CDATA[mbufp]]></c>), where the character pointer should point to a
-          memory area allocated by <c><![CDATA[malloc]]></c>. The argument
-          <c><![CDATA[bufsz]]></c> should be a pointer to an integer containing the
-          exact size (in bytes) of the memory area. The function may
-          reallocate the memory area and will in such cases put the new
-          size in <c><![CDATA[*bufsz]]></c> and update <c><![CDATA[*mbufp]]></c>.</p>
-        <p>Furthermore the function returns either ERL_TICK or the
-          <c><![CDATA[msgtype]]></c> field of the <c><![CDATA[erlang_msg *msg]]></c>. The actual
-          length of the message is put in <c><![CDATA[*msglen]]></c>. On error it
-          will return a value <c><![CDATA[< 0]]></c>.</p>
-        <p>It is recommended to use ei_xreceive_msg instead when
-          possible, for the sake of readability. The function will
-          however be retained in the interface for compatibility and
-          will <em>not</em> be removed not be removed in future releases
-          without notice.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>ei_receive_encoded_tmo(int fd, char **mbufp, int *bufsz,  erlang_msg *msg, int *msglen, unsigned timeout_ms)</nametext></name>
-      <fsummary>Obsolete function for receiving a message with timeout</fsummary>
-      <desc>
-        <p>ei_receive_encoded with an optional timeout argument,
-          see the description at the beginning of this document.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>ei_send(int fd, erlang_pid* to, char* buf, int len)</nametext></name>
-      <fsummary>Send a message</fsummary>
-      <desc>
-        <p>This function sends an Erlang term to a process.</p>
-        <p><c><![CDATA[fd]]></c> is an open descriptor to an Erlang connection.</p>
-        <p><c><![CDATA[to]]></c> is the Pid of the intended recipient of the
-          message.</p>
-        <p><c><![CDATA[buf]]></c> is the buffer containing the term in binary
-          format.</p>
-        <p><c><![CDATA[len]]></c> is the length of the message in bytes.</p>
-        <p>The function returns 0 if successful, otherwise -1, in the
-          latter case it will set <c><![CDATA[erl_errno]]></c> to <c><![CDATA[EIO]]></c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>ei_send_tmo(int fd, erlang_pid* to, char* buf, int len, unsigned timeout_ms)</nametext></name>
-      <fsummary>Send a message with optional timeout</fsummary>
-      <desc>
-        <p>ei_send with an optional timeout argument,
-          see the description at the beginning of this document.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>ei_send_encoded(int fd, erlang_pid* to, char* buf, int len)</nametext></name>
-      <fsummary>Obsolete function to send a message</fsummary>
-      <desc>
-        <p>Works exactly as ei_send, the alternative name retained for
-          backward compatibility. The function will <em>not</em> be
-          removed without notice.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>ei_send_encoded_tmo(int fd, erlang_pid* to, char* buf, int len, unsigned timeout_ms)</nametext></name>
-      <fsummary>Obsolete function to send a message with optional timeout</fsummary>
-      <desc>
-        <p>ei_send_encoded with an optional timeout argument,
+        <p>ei_receive with an optional timeout argument,
           see the description at the beginning of this document.</p>
       </desc>
     </func>
     <func>
       <name><ret>int</ret><nametext>ei_reg_send(ei_cnode* ec, int fd, char* server_name, char* buf, int len)</nametext></name>
-      <fsummary>Send a message to a registered name</fsummary>
+      <fsummary>Send a message to a registered name.</fsummary>
       <desc>
         <p>This function sends an Erlang term to a registered process.
           </p>
@@ -387,41 +429,9 @@ if (ei_reg_send(&ec, fd, x.buff, x.index) < 0)
     </func>
     <func>
       <name><ret>int</ret><nametext>ei_reg_send_tmo(ei_cnode* ec, int fd, char* server_name, char* buf, int len, unsigned timeout_ms)</nametext></name>
-      <fsummary>Send a message to a registered name with optional timeout</fsummary>
+      <fsummary>Send a message to a registered name with optional timeout.</fsummary>
       <desc>
         <p>ei_reg_send with an optional timeout argument,
-          see the description at the beginning of this document.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>ei_send_reg_encoded(int fd, const erlang_pid *from, const char *to, const char *buf, int len)</nametext></name>
-      <fsummary>Obsolete function to send a message to a registered name</fsummary>
-      <desc>
-        <p>This function is retained for compatibility with code
-          generated by the interface compiler and with code following
-          examples in the same application.</p>
-        <p>The function works as <c><![CDATA[ei_reg_send]]></c> with one
-          exception. Instead of taking the <c><![CDATA[ei_cnode]]></c> as a first
-          argument, it takes a second argument, an <c><![CDATA[erlang_pid]]></c>
-          which should be the process identifier of the sending process
-          (in the erlang distribution protocol). </p>
-        <p>A suitable <c><![CDATA[erlang_pid]]></c> can be constructed from the
-          <c><![CDATA[ei_cnode]]></c> structure by the following example code:</p>
-        <code type="none"><![CDATA[
-          ei_cnode ec;
-          erlang_pid *self;
-          int fd; /* the connection fd */
-          ...
-          self = ei_self(&ec);
-          self->num = fd;
-        ]]></code>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>ei_send_reg_encoded_tmo(int fd, const erlang_pid *from, const char *to, const char *buf, int len)</nametext></name>
-      <fsummary>Obsolete function to send a message to a registered name with timeout</fsummary>
-      <desc>
-        <p>ei_send_reg_encoded with an optional timeout argument,
           see the description at the beginning of this document.</p>
       </desc>
     </func>
@@ -429,7 +439,7 @@ if (ei_reg_send(&ec, fd, x.buff, x.index) < 0)
       <name><ret>int</ret><nametext>ei_rpc(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen, ei_x_buff *x)</nametext></name>
       <name><ret>int</ret><nametext>ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen)</nametext></name>
       <name><ret>int</ret><nametext>ei_rpc_from(ei_cnode *ec, int fd, int timeout, erlang_msg *msg, ei_x_buff *x)</nametext></name>
-      <fsummary>Remote Procedure Call from C to Erlang</fsummary>
+      <fsummary>Remote Procedure Call from C to Erlang.</fsummary>
       <desc>
         <p>These functions support calling Erlang functions on remote nodes.
           <c><![CDATA[ei_rpc_to()]]></c> sends an rpc request to a remote node and
@@ -496,95 +506,85 @@ if (ei_decode_version(result.buff, &index) < 0
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>ei_publish(ei_cnode *ec, int port)</nametext></name>
-      <fsummary>Publish a node name</fsummary>
+      <name><ret>erlang_pid *</ret><nametext>ei_self(ei_cnode *ec)</nametext></name>
+      <fsummary>Retrieve the Pid of the C-node.</fsummary>
       <desc>
-        <p>These functions are used by a server process to register
-          with the local name server <em>epmd</em>, thereby allowing
-          other processes to send messages by using the registered name.
-          Before calling either of these functions, the process should
-          have called <c><![CDATA[bind()]]></c> and <c><![CDATA[listen()]]></c> on an open socket.</p>
-        <p><c><![CDATA[ec]]></c> is the C-node structure.</p>
-        <p><c><![CDATA[port]]></c> is the local name to register, and should be the
-          same as the port number that was previously bound to the socket.</p>
-        <p><c><![CDATA[addr]]></c> is the 32-bit IP address of the local host.</p>
-        <p>To unregister with epmd, simply close the returned
-          descriptor. Do not use <c><![CDATA[ei_unpublish()]]></c>, which is deprecated anyway.</p>
-        <p>On success, the functions return a descriptor connecting the
-          calling process to epmd. On failure, they return -1 and set
-          <c><![CDATA[erl_errno]]></c> to <c><![CDATA[EIO]]></c>.</p>
-        <p>Additionally, <c><![CDATA[errno]]></c> values from <c><![CDATA[socket]]></c><em>(2)</em>
-          and <c><![CDATA[connect]]></c><em>(2)</em> system calls may be propagated
-          into <c><![CDATA[erl_errno]]></c>.</p>
+        <p>This function retrieves the Pid of the C-node. Every C-node
+          has a (pseudo) pid used in <c><![CDATA[ei_send_reg]]></c>, <c><![CDATA[ei_rpc]]></c>
+          and others. This is contained in a field in the <c><![CDATA[ec]]></c>
+          structure. It will be safe for a long time to fetch this
+          field directly from the <c><![CDATA[ei_cnode]]></c> structure.</p>
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>ei_publish_tmo(ei_cnode *ec, int port, unsigned timeout_ms)</nametext></name>
-      <fsummary>Publish a node name with optional timeout</fsummary>
+      <name><ret>int</ret><nametext>ei_send(int fd, erlang_pid* to, char* buf, int len)</nametext></name>
+      <fsummary>Send a message.</fsummary>
       <desc>
-        <p>ei_publish with an optional timeout argument,
+        <p>This function sends an Erlang term to a process.</p>
+        <p><c><![CDATA[fd]]></c> is an open descriptor to an Erlang connection.</p>
+        <p><c><![CDATA[to]]></c> is the Pid of the intended recipient of the
+          message.</p>
+        <p><c><![CDATA[buf]]></c> is the buffer containing the term in binary
+          format.</p>
+        <p><c><![CDATA[len]]></c> is the length of the message in bytes.</p>
+        <p>The function returns 0 if successful, otherwise -1, in the
+          latter case it will set <c><![CDATA[erl_errno]]></c> to <c><![CDATA[EIO]]></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_send_encoded(int fd, erlang_pid* to, char* buf, int len)</nametext></name>
+      <fsummary>Obsolete function to send a message.</fsummary>
+      <desc>
+        <p>Works exactly as ei_send, the alternative name retained for
+          backward compatibility. The function will <em>not</em> be
+          removed without notice.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_send_encoded_tmo(int fd, erlang_pid* to, char* buf, int len, unsigned timeout_ms)</nametext></name>
+      <fsummary>Obsolete function to send a message with optional timeout.</fsummary>
+      <desc>
+        <p>ei_send_encoded with an optional timeout argument,
           see the description at the beginning of this document.</p>
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>ei_accept(ei_cnode *ec, int listensock, ErlConnect *conp)</nametext></name>
-      <fsummary>Accept a connection from another node</fsummary>
+      <name><ret>int</ret><nametext>ei_send_reg_encoded(int fd, const erlang_pid *from, const char *to, const char *buf, int len)</nametext></name>
+      <fsummary>Obsolete function to send a message to a registered name.</fsummary>
       <desc>
-        <p>This function is used by a server process to accept a
-          connection from a client process.</p>
-        <p><c><![CDATA[ec]]></c> is the C-node structure.</p>
-        <p><c><![CDATA[listensock]]></c> is an open socket descriptor on which
-          <c><![CDATA[listen()]]></c> has previously been called.</p>
-        <p><c><![CDATA[conp]]></c> is a pointer to an <c><![CDATA[ErlConnect]]></c> struct,
-          described as follows:</p>
+        <p>This function is retained for compatibility with code
+          generated by the interface compiler and with code following
+          examples in the same application.</p>
+        <p>The function works as <c><![CDATA[ei_reg_send]]></c> with one
+          exception. Instead of taking the <c><![CDATA[ei_cnode]]></c> as a first
+          argument, it takes a second argument, an <c><![CDATA[erlang_pid]]></c>
+          which should be the process identifier of the sending process
+          (in the erlang distribution protocol). </p>
+        <p>A suitable <c><![CDATA[erlang_pid]]></c> can be constructed from the
+          <c><![CDATA[ei_cnode]]></c> structure by the following example code:</p>
         <code type="none"><![CDATA[
-typedef struct {
-  char ipadr[4];             
-  char nodename[MAXNODELEN];
-} ErlConnect;
+          ei_cnode ec;
+          erlang_pid *self;
+          int fd; /* the connection fd */
+          ...
+          self = ei_self(&ec);
+          self->num = fd;
         ]]></code>
-        <p>On success, <c><![CDATA[conp]]></c> is filled in with the address and
-          node name of the connecting client and a file descriptor is
-          returned. On failure, <c><![CDATA[ERL_ERROR]]></c> is returned and
-          <c><![CDATA[erl_errno]]></c> is set to <c><![CDATA[EIO]]></c>.</p>
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>ei_accept_tmo(ei_cnode *ec, int listensock, ErlConnect *conp, unsigned timeout_ms)</nametext></name>
-      <fsummary>Accept a connection from another node with optional timeout</fsummary>
+      <name><ret>int</ret><nametext>ei_send_reg_encoded_tmo(int fd, const erlang_pid *from, const char *to, const char *buf, int len)</nametext></name>
+      <fsummary>Obsolete function to send a message to a registered name with timeout.</fsummary>
       <desc>
-        <p>ei_accept with an optional timeout argument,
+        <p>ei_send_reg_encoded with an optional timeout argument,
           see the description at the beginning of this document.</p>
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>ei_unpublish(ei_cnode *ec)</nametext></name>
-      <fsummary>Forcefully unpublish a node name</fsummary>
+      <name><ret>int</ret><nametext>ei_send_tmo(int fd, erlang_pid* to, char* buf, int len, unsigned timeout_ms)</nametext></name>
+      <fsummary>Send a message with optional timeout.</fsummary>
       <desc>
-        <p>This function can be called by a process to unregister a
-          specified node from epmd on the localhost. This is however usually not 
-	  allowed, unless epmd was started with the -relaxed_command_check 
-	  flag, which it normally isn't.</p>
-
-	  <p>To unregister a node you have published, you should
-	  close the descriptor that was returned by  
-	  <c><![CDATA[ei_publish()]]></c>.</p> 
-
-        <warning>
-          <p>This function is deprecated and will be removed in a future 
-	  release.</p>
-        </warning>
-        <p><c><![CDATA[ec]]></c> is the node structure of the node to unregister.</p>
-        <p>If the node was successfully unregistered from epmd, the
-          function returns 0. Otherwise, it returns -1 and sets
-          <c><![CDATA[erl_errno]]></c> is to <c><![CDATA[EIO]]></c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>ei_unpublish_tmo(ei_cnode *ec, unsigned timeout_ms)</nametext></name>
-      <fsummary>Unpublish a node name with optional timeout</fsummary>
-      <desc>
-        <p>ei_unpublish with an optional timeout argument,
+        <p>ei_send with an optional timeout argument,
           see the description at the beginning of this document.</p>
       </desc>
     </func>
@@ -592,7 +592,7 @@ typedef struct {
       <name><ret>const char *</ret><nametext>ei_thisnodename(ei_cnode *ec)</nametext></name>
       <name><ret>const char *</ret><nametext>ei_thishostname(ei_cnode *ec)</nametext></name>
       <name><ret>const char *</ret><nametext>ei_thisalivename(ei_cnode *ec)</nametext></name>
-      <fsummary>Retrieve some values</fsummary>
+      <fsummary>Retrieve some values.</fsummary>
       <desc>
         <p>These functions can be used to retrieve information about
           the C Node. These values are initially set with
@@ -603,37 +603,37 @@ typedef struct {
       </desc>
     </func>
     <func>
-      <name><ret>erlang_pid *</ret><nametext>ei_self(ei_cnode *ec)</nametext></name>
-      <fsummary>Retrieve the Pid of the C-node</fsummary>
+      <name><ret>int</ret><nametext>ei_unpublish(ei_cnode *ec)</nametext></name>
+      <fsummary>Forcefully unpublish a node name.</fsummary>
       <desc>
-        <p>This function retrieves the Pid of the C-node. Every C-node
-          has a (pseudo) pid used in <c><![CDATA[ei_send_reg]]></c>, <c><![CDATA[ei_rpc]]></c>
-          and others. This is contained in a field in the <c><![CDATA[ec]]></c>
-          structure. It will be safe for a long time to fetch this
-          field directly from the <c><![CDATA[ei_cnode]]></c> structure.</p>
+        <p>This function can be called by a process to unregister a
+          specified node from epmd on the localhost. This is however usually not
+	  allowed, unless epmd was started with the -relaxed_command_check
+	  flag, which it normally isn't.</p>
+
+	  <p>To unregister a node you have published, you should
+	  close the descriptor that was returned by
+	  <c><![CDATA[ei_publish()]]></c>.</p>
+
+        <warning>
+          <p>This function is deprecated and will be removed in a future
+	  release.</p>
+        </warning>
+        <p><c><![CDATA[ec]]></c> is the node structure of the node to unregister.</p>
+        <p>If the node was successfully unregistered from epmd, the
+          function returns 0. Otherwise, it returns -1 and sets
+          <c><![CDATA[erl_errno]]></c> is to <c><![CDATA[EIO]]></c>.</p>
       </desc>
     </func>
     <func>
-      <name><ret>struct hostent</ret><nametext>*ei_gethostbyname(const char *name)</nametext></name>
-      <name><ret>struct hostent</ret><nametext>*ei_gethostbyaddr(const char *addr, int len, int type)</nametext></name>
-      <name><ret>struct hostent</ret><nametext>*ei_gethostbyname_r(const char *name,  struct hostent *hostp,  char *buffer,  int buflen,  int *h_errnop)</nametext></name>
-      <name><ret>struct hostent</ret><nametext>*ei_gethostbyaddr_r(const char *addr, int length,  int type,  struct hostent *hostp, char *buffer,   int buflen,  int *h_errnop)</nametext></name>
-      <fsummary>Name lookup functions</fsummary>
+      <name><ret>int</ret><nametext>ei_unpublish_tmo(ei_cnode *ec, unsigned timeout_ms)</nametext></name>
+      <fsummary>Unpublish a node name with optional timeout.</fsummary>
       <desc>
-        <p>These are convenience functions for some common name lookup functions.</p>
+        <p>ei_unpublish with an optional timeout argument,
+          see the description at the beginning of this document.</p>
       </desc>
     </func>
-    <func>
-      <name><ret>int</ret><nametext>ei_get_tracelevel(void)</nametext></name>
-      <name><ret>void</ret><nametext>ei_set_tracelevel(int level)</nametext></name>
-      <fsummary>Get and set functions for tracing.</fsummary>
-      <desc>
-        <p>These functions are used to set tracing on the distribution. The levels are different verbosity levels. A higher level means more information.
-	See also Debug Information and <c><![CDATA[EI_TRACELEVEL]]></c> below. </p>
-	<p> <c><![CDATA[ei_set_tracelevel]]></c> and <c><![CDATA[ei_get_tracelevel]]></c> are not thread safe.  </p>
-      </desc>
-    </func>
-  </funcs>
+ </funcs>
 
   <section>
     <title>Debug Information</title>
@@ -652,13 +652,12 @@ typedef struct {
     <c><![CDATA[ei_set_tracelevel]]></c> or by setting the environment variable <c><![CDATA[EI_TRACELEVEL]]></c>.
     The different tracelevels has the following messages:</p>
     <list>
-    	<item>1: Verbose error messages</item>
-    	<item>2: Above messages and verbose warning messages </item>
-    	<item>3: Above messages and progress reports for connection handling</item>
-    	<item>4: Above messages and progress reports for communication</item>
-    	<item>5: Above messages and progress reports for data conversion</item>
+        <item>1: Verbose error messages</item>
+        <item>2: Above messages and verbose warning messages</item>
+        <item>3: Above messages and progress reports for connection handling</item>
+        <item>4: Above messages and progress reports for communication</item>
+        <item>5: Above messages and progress reports for data conversion</item>
     </list>
   </section>
 
 </cref>
-

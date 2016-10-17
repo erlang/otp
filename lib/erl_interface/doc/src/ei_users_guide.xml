@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>The El Library User's Guide</title>
@@ -77,7 +77,7 @@ Eshell V4.7.4  (abort with ^G)
       definition in your <c><![CDATA[Makefile]]></c>. The correct value for this path is
       <c><![CDATA[$OTPROOT/lib/erl_interface]]></c><em>Vsn</em><c><![CDATA[/include]]></c>, where <c><![CDATA[$OTPROOT]]></c> is the path
       reported by <c><![CDATA[code:root_dir/0]]></c> in the above example, and <em>Vsn</em> is
-      the version of the Erl_interface application, for example 
+      the version of the Erl_interface application, for example
       <c><![CDATA[erl_interface-3.2.3]]></c></p>
     <code type="none"><![CDATA[
 $ cc -c -I/usr/local/otp/lib/erl_interface-3.2.3/include myprog.c    ]]></code>
@@ -147,7 +147,7 @@ i = erl_encode(tuple, buf);    ]]></code>
 
   <section>
     <title>Building Terms and Patterns</title>
-    <p>The previous example can be simplified by using 
+    <p>The previous example can be simplified by using
       <c><![CDATA[erl_format()]]></c> to create an Erlang term.</p>
     <code type="none"><![CDATA[
 
@@ -610,4 +610,3 @@ ei_reg_restore(fd, reg, "mtab");      ]]></code>
     </section>
   </section>
 </chapter>
-

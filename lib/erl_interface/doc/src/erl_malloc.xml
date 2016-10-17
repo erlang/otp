@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>erl_malloc</title>
@@ -30,7 +30,7 @@
     <checked>Torbj&ouml;rn T&ouml;rnkvist</checked>
     <date>980703</date>
     <rev>A</rev>
-    <file>erl_malloc.sgml</file>
+    <file>erl_malloc.xml</file>
   </header>
   <lib>erl_malloc</lib>
   <libsummary>Memory Allocation Functions</libsummary>
@@ -41,7 +41,7 @@
   <funcs>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_alloc_eterm(etype)</nametext></name>
-      <fsummary>Allocates an ETERM structure</fsummary>
+      <fsummary>Allocates an ETERM structure.</fsummary>
       <type>
         <v>unsigned char etype;</v>
       </type>
@@ -101,9 +101,9 @@
     </func>
     <func>
       <name><ret>void</ret><nametext>erl_eterm_release(void)</nametext></name>
-      <fsummary>Clears the ETERM freelist</fsummary>
+      <fsummary>Clears the ETERM freelist.</fsummary>
       <desc>
-        <p>Clears the 
+        <p>Clears the
           freelist, where blocks are placed when they are
           released by <c><![CDATA[erl_free_term()]]></c> and
           <c><![CDATA[erl_free_compound()]]></c>. </p>
@@ -111,7 +111,7 @@
     </func>
     <func>
       <name><ret>void</ret><nametext>erl_eterm_statistics(allocated, freed)</nametext></name>
-      <fsummary>Reports term allocation statistics</fsummary>
+      <fsummary>Reports term allocation statistics.</fsummary>
       <type>
         <v>long *allocated;</v>
         <v>long *freed;</v>
@@ -127,8 +127,19 @@
       </desc>
     </func>
     <func>
+      <name><ret>void</ret><nametext>erl_free(ptr)</nametext></name>
+      <fsummary>Frees some memory.</fsummary>
+      <type>
+        <v>void *ptr;</v>
+      </type>
+      <desc>
+        <p>This function calls the standard
+          <c><![CDATA[free()]]></c> function. </p>
+      </desc>
+    </func>
+    <func>
       <name><ret>void</ret><nametext>erl_free_array(array, size)</nametext></name>
-      <fsummary>Frees an array of ETERM structures</fsummary>
+      <fsummary>Frees an array of ETERM structures.</fsummary>
       <type>
         <v>ETERM **array;</v>
         <v>int size;</v>
@@ -141,18 +152,8 @@
       </desc>
     </func>
     <func>
-      <name><ret>void</ret><nametext>erl_free_term(t)</nametext></name>
-      <fsummary>Frees an ETERM structure</fsummary>
-      <type>
-        <v>ETERM *t;</v>
-      </type>
-      <desc>
-        <p>Use this function to free an Erlang term.</p>
-      </desc>
-    </func>
-    <func>
       <name><ret>void</ret><nametext>erl_free_compound(t)</nametext></name>
-      <fsummary>Frees an array of ETERM structures</fsummary>
+      <fsummary>Frees an array of ETERM structures.</fsummary>
       <type>
         <v>ETERM *t;</v>
       </type>
@@ -175,27 +176,25 @@
       </desc>
     </func>
     <func>
+      <name><ret>void</ret><nametext>erl_free_term(t)</nametext></name>
+      <fsummary>Frees an ETERM structure.</fsummary>
+      <type>
+        <v>ETERM *t;</v>
+      </type>
+      <desc>
+        <p>Use this function to free an Erlang term.</p>
+      </desc>
+    </func>
+    <func>
       <name><ret>void</ret><nametext>erl_malloc(size)</nametext></name>
-      <fsummary>Allocates some memory</fsummary>
+      <fsummary>Allocates some memory.</fsummary>
       <type>
         <v>long size;</v>
       </type>
       <desc>
-        <p>This function calls the standard 
+        <p>This function calls the standard
           <c><![CDATA[malloc()]]></c> function. </p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>void</ret><nametext>erl_free(ptr)</nametext></name>
-      <fsummary>Frees some memory</fsummary>
-      <type>
-        <v>void *ptr;</v>
-      </type>
-      <desc>
-        <p>This function calls the standard 
-          <c><![CDATA[free()]]></c> function. </p>
       </desc>
     </func>
   </funcs>
 </cref>
-

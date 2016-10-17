@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>erl_marshal</title>
@@ -30,7 +30,7 @@
     <checked>Torbj&ouml;rn T&ouml;rnkvist</checked>
     <date>980703</date>
     <rev>A</rev>
-    <file>erl_marshal.sgml</file>
+    <file>erl_marshal.xml</file>
   </header>
   <lib>erl_marshal</lib>
   <libsummary>Encoding and Decoding of Erlang terms</libsummary>
@@ -42,7 +42,7 @@
   <funcs>
     <func>
       <name><ret>int</ret><nametext>erl_compare_ext(bufp1, bufp2)</nametext></name>
-      <fsummary>Compares encoded byte sequences</fsummary>
+      <fsummary>Compares encoded byte sequences.</fsummary>
       <type>
         <v>unsigned char *bufp1,*bufp2;</v>
       </type>
@@ -56,14 +56,14 @@
           term term2.
           </p>
         <p>The function returns 0 if the terms are equal, -1 if term1
-          is less than term2, or 1 if term2 is less than term1. 
+          is less than term2, or 1 if term2 is less than term1.
           </p>
       </desc>
     </func>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_decode(bufp)</nametext></name>
       <name><ret>ETERM *</ret><nametext>erl_decode_buf(bufpp)</nametext></name>
-      <fsummary>Converts a term from Erlang external format</fsummary>
+      <fsummary>Converts a term from Erlang external format.</fsummary>
       <type>
         <v>unsigned char *bufp;</v>
         <v>unsigned char **bufpp;</v>
@@ -79,7 +79,7 @@
           </p>
         <p><c><![CDATA[bufpp]]></c> is the address of a buffer pointer. The buffer
           contains one or more consecutively encoded Erlang terms.
-          Following a successful call to  <c><![CDATA[erl_decode_buf()]]></c>, 
+          Following a successful call to  <c><![CDATA[erl_decode_buf()]]></c>,
           <c><![CDATA[bufpp]]></c> will be updated so that it points to the next
           encoded term.
           </p>
@@ -96,14 +96,14 @@
     <func>
       <name><ret>int</ret><nametext>erl_encode(term, bufp)</nametext></name>
       <name><ret>int</ret><nametext>erl_encode_buf(term, bufpp)</nametext></name>
-      <fsummary>Converts a term into Erlang external format</fsummary>
+      <fsummary>Converts a term into Erlang external format.</fsummary>
       <type>
         <v>ETERM *term;</v>
         <v>unsigned char *bufp;</v>
         <v>unsigned char **bufpp;</v>
       </type>
       <desc>
-        <p><c><![CDATA[erl_encode()]]></c> and  <c><![CDATA[erl_encode_buf()]]></c> encode 
+        <p><c><![CDATA[erl_encode()]]></c> and  <c><![CDATA[erl_encode_buf()]]></c> encode
           Erlang terms into external format for storage or transmission.
           <c><![CDATA[erl_encode_buf()]]></c> provides a simple mechanism for
           encoding several terms consecutively in the same
@@ -116,13 +116,13 @@
           </p>
         <p><c>bufpp</c> is a pointer to a pointer to a buffer
           containing one or more consecutively encoded Erlang terms.
-          Following a successful call to  <c><![CDATA[erl_encode_buf()]]></c>, 
+          Following a successful call to  <c><![CDATA[erl_encode_buf()]]></c>,
           <c>bufpp</c> will be updated so that it points to the
           position for the next encoded term.
           </p>
         <p>
 	  These functions returns the number of bytes written to buffer
-	  if successful, otherwise returns 0.  
+	  if successful, otherwise returns 0.
 	</p>
         <p>Note that no bounds checking is done on the buffer. It is
           the caller's responsibility to make sure that the buffer is
@@ -165,14 +165,14 @@
            is an atom.</item>
         </taglist>
         <p>The total space required will be the result calculated
-          from the information above, plus 1 additional byte for a 
+          from the information above, plus 1 additional byte for a
           version identifier.
           </p>
       </desc>
     </func>
     <func>
       <name><ret>int</ret><nametext>erl_ext_size(bufp)</nametext></name>
-      <fsummary>Counts elements in encoded term</fsummary>
+      <fsummary>Counts elements in encoded term.</fsummary>
       <type>
         <v>unsigned char *bufp;</v>
       </type>
@@ -183,7 +183,7 @@
     </func>
     <func>
       <name><ret>unsigned char</ret><nametext>erl_ext_type(bufp)</nametext></name>
-      <fsummary>Determines type of an encoded byte sequence</fsummary>
+      <fsummary>Determines type of an encoded byte sequence.</fsummary>
       <type>
         <v>unsigned char *bufp;</v>
       </type>
@@ -230,7 +230,7 @@
     </func>
     <func>
       <name><ret>unsigned char *</ret><nametext>erl_peek_ext(bufp, pos)</nametext></name>
-      <fsummary>Steps over encoded term</fsummary>
+      <fsummary>Steps over encoded term.</fsummary>
       <type>
         <v>unsigned char *bufp;</v>
         <v>int pos;</v>
@@ -244,7 +244,7 @@
           more encoded Erlang terms.
           </p>
         <p><c><![CDATA[pos]]></c> indicates how many terms to step over in the
-          buffer. 
+          buffer.
           </p>
         <p>The function returns a pointer to a sub-term that can be
           used in a subsequent call to <c><![CDATA[erl_decode()]]></c> in order to retrieve
@@ -255,7 +255,7 @@
     </func>
     <func>
       <name><ret>int</ret><nametext>erl_term_len(t)</nametext></name>
-      <fsummary>Determines encoded size of term</fsummary>
+      <fsummary>Determines encoded size of term.</fsummary>
       <type>
         <v>ETERM *t;</v>
       </type>
@@ -270,4 +270,3 @@
     </func>
   </funcs>
 </cref>
-

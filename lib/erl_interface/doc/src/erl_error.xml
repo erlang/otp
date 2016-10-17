@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>erl_error</title>
@@ -30,13 +30,13 @@
     <checked>Torbj&ouml;rn T&ouml;rnkvist</checked>
     <date>961014</date>
     <rev>A</rev>
-    <file>erl_error.sgml</file>
+    <file>erl_error.xml</file>
   </header>
   <lib>erl_error</lib>
   <libsummary>Error Print Routines</libsummary>
   <description>
     <p>This module contains some error printing routines taken
-      from <em>Advanced Programming in the UNIX Environment</em> 
+      from <em>Advanced Programming in the UNIX Environment</em>
       by W. Richard Stevens. </p>
     <p>These functions are all called in the same manner as
       <c><![CDATA[printf()]]></c>, i.e. with a string containing format specifiers
@@ -46,7 +46,7 @@
   <funcs>
     <func>
       <name><ret>void</ret><nametext>erl_err_msg(FormatStr, ... )</nametext></name>
-      <fsummary>Non-fatal error, and not system call error</fsummary>
+      <fsummary>Non-fatal error, and not system call error.</fsummary>
       <type>
         <v>const char *FormatStr;</v>
       </type>
@@ -57,7 +57,7 @@
     </func>
     <func>
       <name><ret>void</ret><nametext>erl_err_quit(FormatStr, ... )</nametext></name>
-      <fsummary>Fatal error, but not system call error</fsummary>
+      <fsummary>Fatal error, but not system call error.</fsummary>
       <type>
         <v>const char *FormatStr;</v>
       </type>
@@ -70,19 +70,19 @@
     </func>
     <func>
       <name><ret>void</ret><nametext>erl_err_ret(FormatStr, ... )</nametext></name>
-      <fsummary>Non-fatal system call error</fsummary>
+      <fsummary>Non-fatal system call error.</fsummary>
       <type>
         <v>const char *FormatStr;</v>
       </type>
       <desc>
         <p>Use this function after a failed system call. The message
           provided by the caller is printed followed by a string
-          describing the reason for failure. </p>
+          describing the reason for failure.</p>
       </desc>
     </func>
     <func>
       <name><ret>void</ret><nametext>erl_err_sys(FormatStr, ... )</nametext></name>
-      <fsummary>Fatal system call error</fsummary>
+      <fsummary>Fatal system call error.</fsummary>
       <type>
         <v>const char *FormatStr;</v>
       </type>
@@ -107,7 +107,7 @@
   <funcs>
     <func>
       <name><ret>volatile int</ret><nametext>erl_errno</nametext></name>
-      <fsummary>The variable <c><![CDATA[erl_errno]]></c>contains the erl_interface error number. You can change the value if you wish. </fsummary>
+      <fsummary>The variable <c><![CDATA[erl_errno]]></c>contains the erl_interface error number. You can change the value if you wish.</fsummary>
       <desc>
         <p><c><![CDATA[erl_errno]]></c> is initially (at program startup) zero and
           is then set by many erl_interface functions on failure to a
@@ -134,4 +134,3 @@
     </func>
   </funcs>
 </cref>
-

@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>erl_format</title>
@@ -30,7 +30,7 @@
     <checked>Torbj&ouml;rn T&ouml;rnkvist</checked>
     <date>961016</date>
     <rev>A</rev>
-    <file>erl_format.sgml</file>
+    <file>erl_format.xml</file>
   </header>
   <lib>erl_format</lib>
   <libsummary>Create and Match Erlang Terms</libsummary>
@@ -41,7 +41,7 @@
   <funcs>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_format(FormatStr, ... )</nametext></name>
-      <fsummary>Creates an Erlang term</fsummary>
+      <fsummary>Creates an Erlang term.</fsummary>
       <type>
         <v>char *FormatStr;</v>
       </type>
@@ -81,7 +81,7 @@ erl_format("[{name,~a},{age,~i},{data,~w}]",
            erl_format("[{adr,~s,~i}]","E-street",42));
         ]]></code>
         <p>This will create an <c><![CDATA[(ETERM *)]]></c> structure corresponding
-          to the Erlang term: 
+          to the Erlang term:
           <c><![CDATA[[{name,madonna},{age,21},{data,[{adr,"E-street",42}]}]]]></c></p>
         <p>The function returns an Erlang term, or NULL if
           <c><![CDATA[FormatStr]]></c> does not describe a valid Erlang term.</p>
@@ -89,7 +89,7 @@ erl_format("[{name,~a},{age,~i},{data,~w}]",
     </func>
     <func>
       <name><ret>int</ret><nametext>erl_match(Pattern, Term)</nametext></name>
-      <fsummary>Performs pattern matching</fsummary>
+      <fsummary>Performs pattern matching.</fsummary>
       <type>
         <v>ETERM *Pattern,*Term;</v>
       </type>
@@ -139,4 +139,3 @@ if (erl_match(pattern2, term2)) {
     </func>
   </funcs>
 </cref>
-

@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>erl_eterm</title>
@@ -30,7 +30,7 @@
     <checked>Torbj&ouml;rn T&ouml;rnkvist</checked>
     <date>980703</date>
     <rev>A</rev>
-    <file>erl_eterm.sgml</file>
+    <file>erl_eterm.xml</file>
   </header>
   <lib>erl_eterm</lib>
   <libsummary>Functions for Erlang Term Construction</libsummary>
@@ -167,18 +167,18 @@ erl_free_compound(list);
     </func>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_copy_term(term)</nametext></name>
-      <fsummary>Creates a copy of an Erlang term</fsummary>
+      <fsummary>Creates a copy of an Erlang term.</fsummary>
       <type>
         <v>ETERM *term;</v>
       </type>
       <desc>
-        <p>This function creates and returns a copy of the Erlang term 
+        <p>This function creates and returns a copy of the Erlang term
           <c><![CDATA[term]]></c>.</p>
       </desc>
     </func>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_element(position, tuple)</nametext></name>
-      <fsummary>Extracts an element from an Erlang tuple</fsummary>
+      <fsummary>Extracts an element from an Erlang tuple.</fsummary>
       <type>
         <v>int position;</v>
         <v>ETERM *tuple;</v>
@@ -196,23 +196,8 @@ erl_free_compound(list);
       </desc>
     </func>
     <func>
-      <name><ret>void</ret><nametext>erl_init(NULL, 0)</nametext></name>
-      <fsummary>Initialization routine</fsummary>
-      <type>
-        <v>void *NULL;</v>
-        <v>int 0;</v>
-      </type>
-      <desc>
-        <marker id="erl_init"></marker>
-        <p>This function must be called before any of the others in 
-          the <c><![CDATA[erl_interface]]></c> library in order to initialize the
-          library functions. The arguments must be specified as 
-          <c><![CDATA[erl_init(NULL,0)]]></c>.</p>
-      </desc>
-    </func>
-    <func>
       <name><ret>ETERM *</ret><nametext>erl_hd(list)</nametext></name>
-      <fsummary>Extracts the first element from a list</fsummary>
+      <fsummary>Extracts the first element from a list.</fsummary>
       <type>
         <v>ETERM *list;</v>
       </type>
@@ -225,8 +210,39 @@ erl_free_compound(list);
       </desc>
     </func>
     <func>
+      <name><ret>void</ret><nametext>erl_init(NULL, 0)</nametext></name>
+      <fsummary>Initialization routine.</fsummary>
+      <type>
+        <v>void *NULL;</v>
+        <v>int 0;</v>
+      </type>
+      <desc>
+        <marker id="erl_init"></marker>
+        <p>This function must be called before any of the others in
+          the <c><![CDATA[erl_interface]]></c> library in order to initialize the
+          library functions. The arguments must be specified as
+          <c><![CDATA[erl_init(NULL,0)]]></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>erl_iolist_length(list)</nametext></name>
+      <fsummary>Return the length of an IO list.</fsummary>
+      <type>
+        <v>ETERM *list;</v>
+      </type>
+      <desc>
+        <p>Returns the length of an IO list.
+          </p>
+        <p><c><![CDATA[list]]></c> is an Erlang term containing an IO list. </p>
+        <p>The function returns the length of <c><![CDATA[list]]></c>, or -1 if
+          <c><![CDATA[list]]></c> is not an IO list.</p>
+        <p>Refer to <c><![CDATA[erl_iolist_to_binary()]]></c> for the definition of
+          an IO list. </p>
+      </desc>
+    </func>
+    <func>
       <name><ret>ETERM *</ret><nametext>erl_iolist_to_binary(term)</nametext></name>
-      <fsummary>Converts an IO list to a binary</fsummary>
+      <fsummary>Converts an IO list to a binary.</fsummary>
       <type>
         <v>ETERM *list;</v>
       </type>
@@ -252,7 +268,7 @@ iohead ::= Binary
     </func>
     <func>
       <name><ret>char *</ret><nametext>erl_iolist_to_string(list)</nametext></name>
-      <fsummary>Converts an IO list to a zero terminated string</fsummary>
+      <fsummary>Converts an IO list to a zero terminated string.</fsummary>
       <type>
         <v>ETERM *list;</v>
       </type>
@@ -272,24 +288,8 @@ iohead ::= Binary
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>erl_iolist_length(list)</nametext></name>
-      <fsummary>Return the length of an IO list</fsummary>
-      <type>
-        <v>ETERM *list;</v>
-      </type>
-      <desc>
-        <p>Returns the length of an IO list.
-          </p>
-        <p><c><![CDATA[list]]></c> is an Erlang term containing an IO list. </p>
-        <p>The function returns the length of <c><![CDATA[list]]></c>, or -1 if
-          <c><![CDATA[list]]></c> is not an IO list.</p>
-        <p>Refer to <c><![CDATA[erl_iolist_to_binary()]]></c> for the definition of
-          an IO list. </p>
-      </desc>
-    </func>
-    <func>
       <name><ret>int</ret><nametext>erl_length(list)</nametext></name>
-      <fsummary>Determines the length of a list</fsummary>
+      <fsummary>Determines the length of a list.</fsummary>
       <type>
         <v>ETERM *list;</v>
       </type>
@@ -303,7 +303,7 @@ iohead ::= Binary
     </func>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_mk_atom(string)</nametext></name>
-      <fsummary>Creates an atom</fsummary>
+      <fsummary>Creates an atom.</fsummary>
       <type>
         <v>const char *string;</v>
       </type>
@@ -324,7 +324,7 @@ iohead ::= Binary
     </func>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_mk_binary(bptr, size)</nametext></name>
-      <fsummary>Creates a binary object</fsummary>
+      <fsummary>Creates a binary object.</fsummary>
       <type>
         <v>char *bptr;</v>
         <v>int size;</v>
@@ -336,13 +336,13 @@ iohead ::= Binary
         <p><c><![CDATA[size]]></c> indicates the length of <c><![CDATA[bptr]]></c>.</p>
         <p>The function returns an Erlang binary object.</p>
         <p><c><![CDATA[ERL_BIN_PTR(bin)]]></c> retrieves a pointer to
-          the binary data. <c><![CDATA[ERL_BIN_SIZE(bin)]]></c> retrieves the 
+          the binary data. <c><![CDATA[ERL_BIN_SIZE(bin)]]></c> retrieves the
           size. </p>
       </desc>
     </func>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_mk_empty_list()</nametext></name>
-      <fsummary>Creates an empty Erlang list</fsummary>
+      <fsummary>Creates an empty Erlang list.</fsummary>
       <desc>
         <p>This function creates and returns an empty Erlang list.
           Note that NULL is not used to represent an empty list;
@@ -351,7 +351,7 @@ iohead ::= Binary
     </func>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_mk_estring(string, len)</nametext></name>
-      <fsummary>Creates an Erlang string</fsummary>
+      <fsummary>Creates an Erlang string.</fsummary>
       <type>
         <v>char *string;</v>
         <v>int len;</v>
@@ -367,7 +367,7 @@ iohead ::= Binary
     </func>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_mk_float(f)</nametext></name>
-      <fsummary>Creates an Erlang float</fsummary>
+      <fsummary>Creates an Erlang float.</fsummary>
       <type>
         <v>double f;</v>
       </type>
@@ -385,7 +385,7 @@ iohead ::= Binary
     </func>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_mk_int(n)</nametext></name>
-      <fsummary>Creates an Erlang integer</fsummary>
+      <fsummary>Creates an Erlang integer.</fsummary>
       <type>
         <v>int n;</v>
       </type>
@@ -395,13 +395,13 @@ iohead ::= Binary
         <p></p>
         <p>The function returns an Erlang integer object with the
           value specified in <c><![CDATA[n]]></c>.</p>
-        <p><c><![CDATA[ERL_INT_VALUE(t)]]></c> can be used to retrieve the value 
+        <p><c><![CDATA[ERL_INT_VALUE(t)]]></c> can be used to retrieve the value
           value from an Erlang integer.</p>
       </desc>
     </func>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_mk_list(array, arrsize)</nametext></name>
-      <fsummary>Creates a list from an array</fsummary>
+      <fsummary>Creates a list from an array.</fsummary>
       <type>
         <v>ETERM **array;</v>
         <v>int arrsize;</v>
@@ -418,78 +418,8 @@ iohead ::= Binary
       </desc>
     </func>
     <func>
-      <name><ret>ETERM *</ret><nametext>erl_mk_pid(node, number, serial, creation)</nametext></name>
-      <fsummary>Creates a process identifier</fsummary>
-      <type>
-        <v>const char *node;</v>
-        <v>unsigned int number;</v>
-        <v>unsigned int serial;</v>
-        <v>unsigned int creation;</v>
-      </type>
-      <desc>
-        <p>This function creates an Erlang process identifier. The
-          resulting pid can be used by Erlang processes wishing to
-          communicate with the C node.</p>
-        <p><c><![CDATA[node]]></c> is the name of the C node.</p>
-        <p><c><![CDATA[number]]></c>, <c><![CDATA[serial]]></c> and <c><![CDATA[creation]]></c> are
-          arbitrary numbers. Note though, that these are limited in
-          precision, so only the low 15, 3 and 2 bits of these numbers
-          are actually used.</p>
-        <p>The function returns an Erlang pid object.</p>
-        <p><c><![CDATA[ERL_PID_NODE(pid)]]></c>, <c><![CDATA[ERL_PID_NUMBER(pid)]]></c>,
-          <c><![CDATA[ERL_PID_SERIAL(pid)]]></c> and <c><![CDATA[ERL_PID_CREATION(pid)]]></c>
-          can be used to retrieve the four values used to create the pid.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>ETERM *</ret><nametext>erl_mk_port(node, number, creation)</nametext></name>
-      <fsummary>Creates a port identifier</fsummary>
-      <type>
-        <v>const char *node;</v>
-        <v>unsigned int number;</v>
-        <v>unsigned int creation;</v>
-      </type>
-      <desc>
-        <p>This function creates an Erlang port identifier. </p>
-        <p><c><![CDATA[node]]></c> is the name of the C node.</p>
-        <p><c><![CDATA[number]]></c> and <c><![CDATA[creation]]></c> are arbitrary numbers.
-          Note though, that these are limited in
-          precision, so only the low 18 and 2 bits of these numbers
-          are actually used.</p>
-        <p>The function returns an Erlang port object.</p>
-        <p><c><![CDATA[ERL_PORT_NODE(port)]]></c>, <c><![CDATA[ERL_PORT_NUMBER(port)]]></c>
-          and <c><![CDATA[ERL_PORT_CREATION]]></c> can be used to retrieve the three
-          values used to create the port. </p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>ETERM *</ret><nametext>erl_mk_ref(node, number, creation)</nametext></name>
-      <fsummary>Creates an old Erlang reference</fsummary>
-      <type>
-        <v>const char *node;</v>
-        <v>unsigned int number;</v>
-        <v>unsigned int creation;</v>
-      </type>
-      <desc>
-        <p>This function creates an old Erlang reference, with
-          only 18 bits - use <c><![CDATA[erl_mk_long_ref]]></c> instead.</p>
-        <p><c><![CDATA[node]]></c> is the name of the C node.</p>
-        <p><c><![CDATA[number]]></c> should be chosen uniquely for each reference
-          created for a given C node.</p>
-        <p><c><![CDATA[creation]]></c> is an arbitrary number.</p>
-        <p>Note  that <c><![CDATA[number]]></c> and <c><![CDATA[creation]]></c> are limited in
-          precision, so only the low 18 and 2 bits of these numbers
-          are actually used.
-          </p>
-        <p>The function returns an Erlang reference object.</p>
-        <p><c><![CDATA[ERL_REF_NODE(ref)]]></c>, <c><![CDATA[ERL_REF_NUMBER(ref)]]></c>, and
-          <c><![CDATA[ERL_REF_CREATION(ref)]]></c> to retrieve the three values used
-          to create the reference. </p>
-      </desc>
-    </func>
-    <func>
       <name><ret>ETERM *</ret><nametext>erl_mk_long_ref(node, n1, n2, n3, creation)</nametext></name>
-      <fsummary>Creates an Erlang reference</fsummary>
+      <fsummary>Creates an Erlang reference.</fsummary>
       <type>
         <v>const char *node;</v>
         <v>unsigned int n1, n2, n3;</v>
@@ -515,8 +445,78 @@ iohead ::= Binary
       </desc>
     </func>
     <func>
+      <name><ret>ETERM *</ret><nametext>erl_mk_pid(node, number, serial, creation)</nametext></name>
+      <fsummary>Creates a process identifier.</fsummary>
+      <type>
+        <v>const char *node;</v>
+        <v>unsigned int number;</v>
+        <v>unsigned int serial;</v>
+        <v>unsigned int creation;</v>
+      </type>
+      <desc>
+        <p>This function creates an Erlang process identifier. The
+          resulting pid can be used by Erlang processes wishing to
+          communicate with the C node.</p>
+        <p><c><![CDATA[node]]></c> is the name of the C node.</p>
+        <p><c><![CDATA[number]]></c>, <c><![CDATA[serial]]></c> and <c><![CDATA[creation]]></c> are
+          arbitrary numbers. Note though, that these are limited in
+          precision, so only the low 15, 3 and 2 bits of these numbers
+          are actually used.</p>
+        <p>The function returns an Erlang pid object.</p>
+        <p><c><![CDATA[ERL_PID_NODE(pid)]]></c>, <c><![CDATA[ERL_PID_NUMBER(pid)]]></c>,
+          <c><![CDATA[ERL_PID_SERIAL(pid)]]></c> and <c><![CDATA[ERL_PID_CREATION(pid)]]></c>
+          can be used to retrieve the four values used to create the pid.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>ETERM *</ret><nametext>erl_mk_port(node, number, creation)</nametext></name>
+      <fsummary>Creates a port identifier.</fsummary>
+      <type>
+        <v>const char *node;</v>
+        <v>unsigned int number;</v>
+        <v>unsigned int creation;</v>
+      </type>
+      <desc>
+        <p>This function creates an Erlang port identifier. </p>
+        <p><c><![CDATA[node]]></c> is the name of the C node.</p>
+        <p><c><![CDATA[number]]></c> and <c><![CDATA[creation]]></c> are arbitrary numbers.
+          Note though, that these are limited in
+          precision, so only the low 18 and 2 bits of these numbers
+          are actually used.</p>
+        <p>The function returns an Erlang port object.</p>
+        <p><c><![CDATA[ERL_PORT_NODE(port)]]></c>, <c><![CDATA[ERL_PORT_NUMBER(port)]]></c>
+          and <c><![CDATA[ERL_PORT_CREATION]]></c> can be used to retrieve the three
+          values used to create the port. </p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>ETERM *</ret><nametext>erl_mk_ref(node, number, creation)</nametext></name>
+      <fsummary>Creates an old Erlang reference.</fsummary>
+      <type>
+        <v>const char *node;</v>
+        <v>unsigned int number;</v>
+        <v>unsigned int creation;</v>
+      </type>
+      <desc>
+        <p>This function creates an old Erlang reference, with
+          only 18 bits - use <c><![CDATA[erl_mk_long_ref]]></c> instead.</p>
+        <p><c><![CDATA[node]]></c> is the name of the C node.</p>
+        <p><c><![CDATA[number]]></c> should be chosen uniquely for each reference
+          created for a given C node.</p>
+        <p><c><![CDATA[creation]]></c> is an arbitrary number.</p>
+        <p>Note  that <c><![CDATA[number]]></c> and <c><![CDATA[creation]]></c> are limited in
+          precision, so only the low 18 and 2 bits of these numbers
+          are actually used.
+          </p>
+        <p>The function returns an Erlang reference object.</p>
+        <p><c><![CDATA[ERL_REF_NODE(ref)]]></c>, <c><![CDATA[ERL_REF_NUMBER(ref)]]></c>, and
+          <c><![CDATA[ERL_REF_CREATION(ref)]]></c> to retrieve the three values used
+          to create the reference. </p>
+      </desc>
+    </func>
+    <func>
       <name><ret>ETERM *</ret><nametext>erl_mk_string(string)</nametext></name>
-      <fsummary>Creates a string</fsummary>
+      <fsummary>Creates a string.</fsummary>
       <type>
         <v>char *string;</v>
       </type>
@@ -529,7 +529,7 @@ iohead ::= Binary
     </func>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_mk_tuple(array, arrsize)</nametext></name>
-      <fsummary>Creates an Erlang tuple from an array</fsummary>
+      <fsummary>Creates an Erlang tuple from an array.</fsummary>
       <type>
         <v>ETERM **array;</v>
         <v>int arrsize;</v>
@@ -553,7 +553,7 @@ iohead ::= Binary
     </func>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_mk_uint(n)</nametext></name>
-      <fsummary>Creates an unsigned integer</fsummary>
+      <fsummary>Creates an unsigned integer.</fsummary>
       <type>
         <v>unsigned int n;</v>
       </type>
@@ -570,7 +570,7 @@ iohead ::= Binary
     </func>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_mk_var(name)</nametext></name>
-      <fsummary>Creates an Erlang variable</fsummary>
+      <fsummary>Creates an Erlang variable.</fsummary>
       <type>
         <v>char *name;</v>
       </type>
@@ -584,7 +584,7 @@ iohead ::= Binary
     </func>
     <func>
       <name><ret>int</ret><nametext>erl_print_term(stream, term)</nametext></name>
-      <fsummary>Prints an Erlang term</fsummary>
+      <fsummary>Prints an Erlang term.</fsummary>
       <type>
         <v>FILE *stream;</v>
         <v>ETERM *term;</v>
@@ -601,7 +601,7 @@ iohead ::= Binary
     </func>
     <func>
       <name><ret>void</ret><nametext>erl_set_compat_rel(release_number)</nametext></name>
-      <fsummary>Set the erl_interface library in compatibility mode</fsummary>
+      <fsummary>Set the erl_interface library in compatibility mode.</fsummary>
       <type>
         <v>unsigned release_number;</v>
       </type>
@@ -633,7 +633,7 @@ iohead ::= Binary
     </func>
     <func>
       <name><ret>int</ret><nametext>erl_size(term)</nametext></name>
-      <fsummary>Return the arity of a tuple or binary</fsummary>
+      <fsummary>Return the arity of a tuple or binary.</fsummary>
       <type>
         <v>ETERM *term;</v>
       </type>
@@ -648,7 +648,7 @@ iohead ::= Binary
     </func>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_tl(list)</nametext></name>
-      <fsummary>Extracts the tail from a list</fsummary>
+      <fsummary>Extracts the tail from a list.</fsummary>
       <type>
         <v>ETERM *list;</v>
       </type>
@@ -662,14 +662,14 @@ iohead ::= Binary
     </func>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_var_content(term, name)</nametext></name>
-      <fsummary>Extracts the content of a variable</fsummary>
+      <fsummary>Extracts the content of a variable.</fsummary>
       <type>
         <v>ETERM *term;</v>
         <v>char *name;</v>
       </type>
       <desc>
         <p>This function returns the contents of the specified
-          variable in an Erlang term. 
+          variable in an Erlang term.
           </p>
         <p><c><![CDATA[term]]></c> is an Erlang term. In order for this function
           to succeed, <c><![CDATA[term]]></c> must be an Erlang variable with the
@@ -685,4 +685,3 @@ iohead ::= Binary
     </func>
   </funcs>
 </cref>
-

@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>erl_global</title>
@@ -30,7 +30,7 @@
     <checked>Gordon Beaton</checked>
     <date>980703</date>
     <rev>A</rev>
-    <file>erl_global.sgml</file>
+    <file>erl_global.xml</file>
   </header>
   <lib>erl_global</lib>
   <libsummary>Access globally registered names</libsummary>
@@ -39,14 +39,14 @@
       up and unregistering names in the Erlang Global module. For more
       information, see the description of Global in the reference manual.</p>
     <p>Note that the functions below perform an RPC using an open file
-      descriptor provided by the caller. This file descriptor must 
-      not be used for other traffic during the global operation or the 
+      descriptor provided by the caller. This file descriptor must
+      not be used for other traffic during the global operation or the
       function may receive unexpected data and fail.</p>
   </description>
   <funcs>
     <func>
       <name><ret>char **</ret><nametext>erl_global_names(fd,count)</nametext></name>
-      <fsummary>Obtain list of Global names</fsummary>
+      <fsummary>Obtain list of Global names.</fsummary>
       <type>
         <v>int fd;</v>
         <v>int *count;</v>
@@ -76,7 +76,7 @@
     </func>
     <func>
       <name><ret>int</ret><nametext>erl_global_register(fd,name,pid)</nametext></name>
-      <fsummary>Register a name in Global</fsummary>
+      <fsummary>Register a name in Global.</fsummary>
       <type>
         <v>int fd;</v>
         <v>const char *name;</v>
@@ -98,7 +98,7 @@
     </func>
     <func>
       <name><ret>int</ret><nametext>erl_global_unregister(fd,name)</nametext></name>
-      <fsummary>Unregister a name in Global</fsummary>
+      <fsummary>Unregister a name in Global.</fsummary>
       <type>
         <v>int fd;</v>
         <v>const char *name;</v>
@@ -115,7 +115,7 @@
     </func>
     <func>
       <name><ret>ETERM *</ret><nametext>erl_global_whereis(fd,name,node)</nametext></name>
-      <fsummary>Look up a name in global</fsummary>
+      <fsummary>Look up a name in global.</fsummary>
       <type>
         <v>int fd;</v>
         <v>const char *name;</v>
@@ -139,4 +139,3 @@
     </func>
   </funcs>
 </cref>
-
