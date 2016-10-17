@@ -171,15 +171,6 @@ erts_put_module(Eterm mod)
     return put_module(mod, &module_tables[erts_staging_code_ix()]);
 }
 
-Module*
-erts_put_active_module(Eterm mod)
-{
-    ASSERT(is_atom(mod));
-    //SVERK Why not? ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
-
-    return put_module(mod, &module_tables[erts_active_code_ix()]);
-}
-
 Module *module_code(int i, ErtsCodeIndex code_ix)
 {
     return (Module*) erts_index_lookup(&module_tables[code_ix], i);

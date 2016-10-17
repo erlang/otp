@@ -52,7 +52,6 @@ typedef struct erl_module {
 void erts_module_instance_init(struct erl_module_instance* modi);
 Module* erts_get_module(Eterm mod, ErtsCodeIndex code_ix);
 Module* erts_put_module(Eterm mod);
-Module* erts_put_active_module(Eterm mod); /* only while blocked */
 
 void init_module_table(void);
 void module_start_staging(void);
