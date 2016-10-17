@@ -342,9 +342,12 @@ spawned_receiver(ReplyTo,Tab,Storage,Cs, SenderPid,TabSize,DetsData, Init) ->
     Done = do_init_table(Tab,Storage,Cs,
 			 SenderPid,TabSize,DetsData,
 			 ReplyTo, Init),
-    ReplyTo ! {self(),Done},
-    unlink(ReplyTo),
-    unlink(whereis(mnesia_controller)),
+    try
+        ReplyTo ! {self(),Done},
+        unlink(ReplyTo),
+        unlink(whereis(mnesia_controller))
+    catch _:_ -> ok %% avoid error reports when stopping down mnesia
+    end,
     exit(normal).
 
 wait_on_load_complete(Pid) ->
