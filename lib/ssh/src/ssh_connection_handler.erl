@@ -671,8 +671,9 @@ handle_event(_, #ssh_msg_newkeys{} = Msg, {new_keys,Role,init}, D) ->
     {next_state, {service_request,Role}, D#data{ssh_params=Ssh}};
 
 %% Subsequent key exchange rounds (renegotiation):
-handle_event(_, #ssh_msg_newkeys{}, {new_keys,Role,renegotiate}, D) ->
-    {next_state, {connected,Role}, D};
+handle_event(_, #ssh_msg_newkeys{} = Msg, {new_keys,Role,renegotiate}, D) ->
+    {ok, Ssh} = ssh_transport:handle_new_keys(Msg, D#data.ssh_params),
+    {next_state, {connected,Role}, D#data{ssh_params=Ssh}};
 
 %%% ######## {service_request, client|server}
 
