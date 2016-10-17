@@ -531,8 +531,13 @@ tc_print(Category,Importance,Format,Args) ->
 		   Val
 	   end,
     if Importance >= (100-VLvl) ->
-	    Head = get_heading(Category),
-	    io:format(user, lists:concat([Head,Format,"\n\n"]), Args),
+            Str = lists:concat([get_heading(Category),Format,"\n\n"]),
+            try
+                io:format(?def_gl, Str, Args)
+            catch
+                %% default group leader probably not started, or has stopped
+                _:_ -> io:format(user, Str, Args)
+            end,
 	    ok;
        true ->
 	    ok
@@ -679,7 +684,7 @@ logger(Parent, Mode, Verbosity) ->
 	    PrivFilesDestRun = [filename:join(AbsDir, F) || F <- PrivFiles],
 	    case copy_priv_files(PrivFilesSrc, PrivFilesDestTop) of
 		{error,Src1,Dest1,Reason1} ->
-		    io:format(user, "ERROR! "++
+		    io:format(?def_gl, "ERROR! "++
 				  "Priv file ~p could not be copied to ~p. "++
 				  "Reason: ~p~n",
 			      [Src1,Dest1,Reason1]),
@@ -687,7 +692,7 @@ logger(Parent, Mode, Verbosity) ->
 		ok ->
 		    case copy_priv_files(PrivFilesSrc, PrivFilesDestRun) of
 			{error,Src2,Dest2,Reason2} ->
-			    io:format(user,
+			    io:format(?def_gl,
 				      "ERROR! "++
 				      "Priv file ~p could not be copied to ~p. "
 				      ++"Reason: ~p~n",
