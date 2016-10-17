@@ -6271,7 +6271,11 @@ check_dirty_enqueue_in_prio_queue(Process *c_p,
 	return -1*queue;
     }
 
-    *newp |= ERTS_PSFLG_IN_RUNQ;
+    /*
+     * Enqueue using process struct.
+     */
+    *newp &= ~ERTS_PSFLGS_PRQ_PRIO_MASK;
+    *newp |= ERTS_PSFLG_IN_RUNQ | (aprio << ERTS_PSFLGS_PRQ_PRIO_OFFSET);
     return queue;
 }
 
