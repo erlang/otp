@@ -208,6 +208,16 @@ reply(TestCase, Result) ->
 
 rcv_expected(Expect, SshPort, Timeout) ->
     receive
+	{SshPort, Recvd} when is_function(Expect) ->
+	    case Expect(Recvd) of
+		true ->
+		    ct:log("Got expected ~p from ~p",[Recvd,SshPort]),
+		    catch port_close(SshPort),
+		    rcv_lingering(50);
+		false ->
+		    ct:log("Got UNEXPECTED ~p~n",[Recvd]),
+		    rcv_expected(Expect, SshPort, Timeout)
+	    end;
 	{SshPort, Expect} ->
 	    ct:log("Got expected ~p from ~p",[Expect,SshPort]),
 	    catch port_close(SshPort),
