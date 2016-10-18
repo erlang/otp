@@ -1003,7 +1003,7 @@ type(erlang, tuple_to_list, 1, Xs, Opaques) ->
 	 end, Opaques);
 %%-- hipe_bifs ----------------------------------------------------------------
 type(hipe_bifs, add_ref, 2, Xs, Opaques) ->
-  strict(hipe_bifs, add_ref, 2, Xs, fun (_) -> t_nil() end, Opaques);
+  strict(hipe_bifs, add_ref, 2, Xs, fun (_) -> t_atom('ok') end, Opaques);
 type(hipe_bifs, alloc_data, 3, Xs, Opaques) ->
   strict(hipe_bifs, alloc_data, 3, Xs,
 	 fun (_) -> t_integer() end, Opaques); % address
