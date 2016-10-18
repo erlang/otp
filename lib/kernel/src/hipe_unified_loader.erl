@@ -774,8 +774,9 @@ add_ref(CalleeMFA, Address, FunDefs, RefType, Trampoline, RemoteOrLocal) ->
   CallerMFA = address_to_mfa_lth(Address, FunDefs),
   case RemoteOrLocal of
     local ->
-      %% just a sanity assertion
-      {_M,_,_} = CalleeMFA,
+      %% assert that the callee and caller are from the same module
+      {M,_,_} = CalleeMFA,
+      {M,_,_} = CallerMFA,
       ok;
     remote ->
       hipe_bifs:add_ref(CalleeMFA, {CallerMFA,Address,RefType,Trampoline,
