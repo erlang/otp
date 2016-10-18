@@ -30,6 +30,21 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.3.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Re-negotiation problems with OpenSSH client solved.</p>
+          <p>
+	    Own Id: OTP-13972</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.3.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
