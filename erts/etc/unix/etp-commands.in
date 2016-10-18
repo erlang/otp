@@ -52,7 +52,7 @@ document etp-help
 %   etpf-cons, etpf-boxed, 
 % 
 % Special commands for not really terms:
-%   etp-mfa, etp-cp, 
+%   etp-mfa, etp-cp, etp-disasm,
 %   etp-msgq, etpf-msgq, 
 %   etp-stacktrace, etp-stackdump, etpf-stackdump, etp-dictdump
 %   etp-process-info, etp-process-memory-info
@@ -1090,12 +1090,10 @@ document etp-mfa
 %---------------------------------------------------------------------------
 end
 
-
-
-define etp-cp-1
+define etp-cp-func-info-1
 # Args: Eterm cp
 #
-# Non-reentrant
+# Non-reentrant, takes cp, sets $etp_cp_p to MFA in func_info
 #
   set $etp_cp = (Eterm)($arg0)
   set $etp_ranges = &r[(int)the_active_code_index]
@@ -1137,8 +1135,21 @@ define etp-cp-1
     end
   end
   if $etp_cp_p
+    set $cp_cp_p_offset = ($etp_cp-((Eterm)($etp_cp_p-2)))
+  else
+    set $cp_cp_p_offset = 0
+  end
+end
+
+define etp-cp-1
+# Args: Eterm cp
+#
+# Non-reentrant
+#
+  etp-cp-func-info-1 $arg0
+  if $etp_cp_p
     printf "#Cp"
-    etp-mfa-1 ($etp_cp_p) ($etp_cp-((Eterm)($etp_cp_p-2)))
+    etp-mfa-1 $etp_cp_p $cp_cp_p_offset
   else
     if $etp_cp == beam_apply+1
       printf "#Cp<terminate process normally>"
@@ -2491,8 +2502,55 @@ end
 document etp-schedulers
 %---------------------------------------------------------------------------
 % etp-schedulers
-% 
+%
 % Print misc info about all schedulers
+%---------------------------------------------------------------------------
+end
+
+define etp-disasm-1
+  set $code_ptr = ((BeamInstr*)$arg0)
+  set $addr = *$code_ptr
+  set $i = 0
+  while $i < (sizeof(opc) / sizeof(OpEntry))
+    if $addr == beam_ops[$i]
+      printf "%s %d", opc[$i].name, opc[$i].sz
+      set $next_i = $code_ptr + opc[$i].sz
+      set $i += 4999
+    end
+    set $i++
+  end
+end
+
+define etp-disasm
+  etp-cp-func-info-1 $arg0
+  if $etp_cp_p == 0
+    printf "invalid argument"
+  else
+    etp-mfa-1 $etp_cp_p $cp_cp_p_offset
+    printf ": "
+    etp-disasm-1 $arg0
+    printf "\r\n"
+    while $next_i < ((BeamInstr*)$arg1)
+      set $prev_i = $next_i
+      etp-cp-func-info-1 $next_i
+      etp-mfa-1 $etp_cp_p $cp_cp_p_offset
+      printf ": "
+      etp-disasm-1 $next_i
+      if $prev_i == $next_i
+        # ptr did not advance, we are inside some strange opcode with argument
+        set $next_i++
+        printf "instr argument"
+      end
+      printf "\r\n"
+    end
+  end
+end
+
+document etp-disasm
+%---------------------------------------------------------------------------
+% etp-disasm StartI EndI
+%
+% Disassemble the code inbetween StartI and EndI
 %---------------------------------------------------------------------------
 end
 
