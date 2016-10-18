@@ -65,7 +65,7 @@ run(Dir, Upgradee1, Upgradee2, Other1, Other2) ->
     put(exp1exp2_fun, upgradee:get_exp1exp2_fun()),
     ?line 1 = (get(exp1exp2_fun))(),
 
-    ?line 13 = check_tracing(Tracer),
+    ok = check_tracing(Tracer, 13),
 
     %%
     %% Load version 1 of other
@@ -89,7 +89,7 @@ run(Dir, Upgradee1, Upgradee2, Other1, Other2) ->
     ?line {'EXIT',{undef,_}} = proxy_call(P, other, exp2),
     ?line {'EXIT',{undef,_}} = proxy_call(P, other, loc2),
 
-    ?line 5 = check_tracing(Tracer),
+    ok = check_tracing(Tracer, 5),
 
     %%
     %% Load version 2 of upgradee
@@ -150,7 +150,7 @@ run(Dir, Upgradee1, Upgradee2, Other1, Other2) ->
 
     ?line 2 = (get(exp1exp2_fun))(),
 
-    ?line 10 = check_tracing(Tracer),
+    ok = check_tracing(Tracer, 10),
 
     %%
     %% Load version 2 of other
@@ -208,7 +208,7 @@ run(Dir, Upgradee1, Upgradee2, Other1, Other2) ->
     ?line {2,Env2} = (get(loc2_fun))(),
     ?line 2 = (get(exp1exp2_fun))(),
 
-    ?line 10 = check_tracing(Tracer),
+    ok = check_tracing(Tracer, 10),
 
     %%
     %% Upgrade proxy to version 2
@@ -273,7 +273,7 @@ run(Dir, Upgradee1, Upgradee2, Other1, Other2) ->
 
     ?line {'EXIT',{undef,_}} = (catch (get(exp1exp2_fun))()),
     
-    ?line 14 = check_tracing(Tracer),
+    ok = check_tracing(Tracer, 14),
 
     unlink(P),
     exit(P, die_please),
@@ -319,18 +319,24 @@ tracer_loop(Receiver) ->
 	    tracer_loop(Receiver)
     end.
 
-check_tracing(Tracer) ->
+check_tracing(Tracer, Expected) ->
     Tracer ! {do_trace_delivered, self()},
-    check_tracing_loop(0).
+    case check_tracing_loop(0,[]) of
+        {Expected,_} ->
+            ok;
+        {Got, MsgList} ->
+            io:format("Expected ~p trace msg, got ~p:\n~p\n",
+                      [Expected, Got, lists:reverse(MsgList)]),
+            "Trace msg mismatch"
+    end.
 
-check_tracing_loop(N) ->
+check_tracing_loop(N, MsgList) ->
     Self = self(),
     receive
 	{trace, _Pid, call, {_M, _F, _Args}} = Msg ->
-	    io:format("Trace: ~p\n",[Msg]),
-	    check_tracing_loop(N+1);
+	    check_tracing_loop(N+1, [Msg | MsgList]);
 	{trace_delivered, Self, _} ->
-	    N
+	    {N, MsgList}
     end.
 
 

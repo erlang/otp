@@ -506,7 +506,7 @@ upgrade_do(DataDir, Client, T) ->
     ok.
 
 compile_load(Mod, Dir, Ver, CodeType) ->
-    erlang:display({"{{{{{{{{{{{{{{{{Loading",Mod,Ver,CodeType}),
+    %%erlang:display({"{{{{{{{{{{{{{{{{Loading",Mod,Ver,CodeType}),
     Version = case Ver of
 	undefined ->
 	    io:format("Compiling '~p' as ~p\n", [Mod, CodeType]),
@@ -532,7 +532,7 @@ compile_load(Mod, Dir, Ver, CodeType) ->
     T3 = erlang:now(),
     io:format("Compile time ~p ms, Load time ~p ms\n",
 	      [timer:now_diff(T2,T1) div 1000, timer:now_diff(T3,T2) div 1000]),
-    erlang:display({"}}}}}}}}}}}}}}}Loaded",Mod,Ver,CodeType}),
+    %%erlang:display({"}}}}}}}}}}}}}}}Loaded",Mod,Ver,CodeType}),
     ok.
 
 dir_req(Config) when is_list(Config) ->
