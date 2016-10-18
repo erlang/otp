@@ -489,7 +489,11 @@ upgrade(Config) ->
 
     T = case erlang:system_info(hipe_architecture) of
             undefined -> [beam];
-            _ -> [beam,hipe]
+            _ ->
+                case hipe:llvm_support_available() of
+                    false -> [beam,hipe];
+                    true  -> [beam,hipe,hipe_llvm]
+                end
         end,
 
     [upgrade_do(DataDir, Client, T) || Client <- T],
@@ -514,7 +518,8 @@ compile_load(Mod, Dir, Ver, CodeType) ->
     end,
     Target = case CodeType of
 	beam -> [];
-	hipe -> [native]
+	hipe -> [native];
+	hipe_llvm -> [native,{hipe,to_llvm}]
     end,
     CompOpts = [binary, report] ++ Target ++ Version,
 

@@ -276,8 +276,7 @@ fix_reloc(#elf_rel{symbol=#elf_sym{name=Name, section=#elf_shdr{name=?TEXT},
 		   offset=Offset, type=?PCREL_T, addend=?PCREL_A},
 	  RelocsDict, MFA) when Name =/= "" ->
   case dict:fetch(Name, RelocsDict) of
-    {call, not_remote, MFA} -> {?CALL_LOCAL, Offset, MFA};
-    {call, remote, MFA} -> {?CALL_REMOTE, Offset, MFA}
+    {call, not_remote, MFA} -> {?CALL_LOCAL, Offset, MFA}
   end;
 fix_reloc(#elf_rel{symbol=#elf_sym{name=Name, section=#elf_shdr{name=?RODATA},
 				   type=object},

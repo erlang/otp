@@ -438,7 +438,7 @@ trans_call_name(RtlCallName, RtlCallType, Relocs, CallArgs, FinalArgs) ->
         relocs_store(LlvmName, {call, not_remote, {bif, PrimOp, length(CallArgs)}}, Relocs),
       {"@" ++ LlvmName, [], Relocs1};
     {M, F, A} when is_atom(M), is_atom(F), is_integer(A) ->
-      LlvmName = trans_mfa_name({M, F, A}),
+      LlvmName = trans_mfa_name({M, F, A}, RtlCallType),
       ok = case RtlCallType of
              not_remote -> ok;
              remote -> ok
@@ -1039,8 +1039,12 @@ llvm_id(C) ->
  io_lib:format("_~2.16.0B_",[C]).
 
 %% @doc Create an acceptable LLVM identifier for an MFA.
-trans_mfa_name({M,F,A}) ->
-  N = atom_to_list(M) ++ "." ++ atom_to_list(F) ++ "." ++ integer_to_list(A),
+trans_mfa_name({M,F,A}, Linkage) ->
+  N0 = atom_to_list(M) ++ "." ++ atom_to_list(F) ++ "." ++ integer_to_list(A),
+  N = case Linkage of
+	not_remote -> N0;
+	remote -> "rem." ++ N0
+      end,
   make_llvm_id(N).
 
 %%------------------------------------------------------------------------------
@@ -1342,7 +1346,7 @@ llvm_type_from_size(Size) ->
 %%      precoloured registers that are passed as arguments must be stored to
 %%      the corresonding stack slots.
 create_function_definition(Fun, Params, Code, LocalVars) ->
-  FunctionName = trans_mfa_name(Fun),
+  FunctionName = trans_mfa_name(Fun, not_remote),
   FixedRegs = fixed_registers(),
   %% Reverse parameters to match with the Erlang calling convention
   ReversedParams =
@@ -1527,7 +1531,7 @@ load_closure({ClosureName, _})->
 
 %% @doc Declaration of a local variable for a switch jump table.
 declare_switches(JumpTableList, Fun) ->
-  FunName = trans_mfa_name(Fun),
+  FunName = trans_mfa_name(Fun, not_remote),
   [declare_switch_table(X, FunName) || X <- JumpTableList].
 
 declare_switch_table({Name, {switch, {TableType, Labels, _, _}, _}}, FunName) ->
@@ -1543,7 +1547,7 @@ declare_switch_table({Name, {switch, {TableType, Labels, _, _}, _}}, FunName) ->
 declare_closure_labels([], Relocs, _Fun) ->
   {[], Relocs};
 declare_closure_labels(ClosureLabels, Relocs, Fun) ->
-  FunName = trans_mfa_name(Fun),
+  FunName = trans_mfa_name(Fun, not_remote),
   {LabelList, ArityList} =
     lists:unzip([{mk_jump_label(Label), A} ||
 		  {_, {closure_label, Label, A}} <- ClosureLabels]),
@@ -1561,7 +1565,7 @@ declare_closure_labels(ClosureLabels, Relocs, Fun) ->
 
 %% @doc A call is treated as non external only in a case of a local recursive
 %%      function.
-is_external_call({_, {call, _, MFA}}, MFA) -> false;
+is_external_call({_, {call, not_remote, MFA}}, MFA) -> false;
 is_external_call(_, _) -> true.
 
 %% @doc External declaration of a function.
