@@ -1382,7 +1382,7 @@ mapfoldr(F, Accu, []) when is_function(F, 2) -> {[],Accu}.
 takewhile(Pred, [Hd|Tail]) ->
     case Pred(Hd) of
 	true -> [Hd|takewhile(Pred, Tail)];
-	false -> []
+	false -> takewhile(Pred, Tail)
     end;
 takewhile(Pred, []) when is_function(Pred, 1) -> [].
 
@@ -1395,7 +1395,7 @@ takewhile(Pred, []) when is_function(Pred, 1) -> [].
 dropwhile(Pred, [Hd|Tail]=Rest) ->
     case Pred(Hd) of
 	true -> dropwhile(Pred, Tail);
-	false -> Rest
+	false -> [Hd | dropwhile(Pred, Tail)]
     end;
 dropwhile(Pred, []) when is_function(Pred, 1) -> [].
 
