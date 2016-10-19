@@ -2221,16 +2221,16 @@ setup_data_connection(#state{mode   = active,
 	    {ok, Port} = inet:port(LSock),
 	    case FtpExt of
 	    	false ->
-			    {IP1, IP2, IP3, IP4} = IP,
-			    {Port1, Port2} = {Port div 256, Port rem 256},
-			    send_ctrl_message(State, 
-					      mk_cmd("PORT ~w,~w,~w,~w,~w,~w",
-						     [IP1, IP2, IP3, IP4, Port1, Port2]));
-			true -> 
-			    IpAddress = inet_parse:ntoa(IP),
-			    Cmd = mk_cmd("EPRT |1|~s|~p|", [IpAddress, Port]),
-			    send_ctrl_message(State, Cmd)
-		end,	        
+		    {IP1, IP2, IP3, IP4} = IP,
+		    {Port1, Port2} = {Port div 256, Port rem 256},
+		    send_ctrl_message(State, 
+				      mk_cmd("PORT ~w,~w,~w,~w,~w,~w",
+					     [IP1, IP2, IP3, IP4, Port1, Port2]));
+		true ->
+		    IpAddress = inet_parse:ntoa(IP),
+		    Cmd = mk_cmd("EPRT |1|~s|~p|", [IpAddress, Port]),
+		    send_ctrl_message(State, Cmd)
+	    end,	        
 	    activate_ctrl_connection(State),
 	    {noreply, State#state{caller = {setup_data_connection, 
 					    {LSock, Caller}}}}
@@ -2377,8 +2377,8 @@ activate_data_connection(#state{dsock = Socket} = State) ->
     activate_connection(Socket),
     State.
 
-activate_connection({tcp, Socket}) ->  inet:setopts(Socket, [{active, once}]);
-activate_connection({ssl, Socket}) ->  ssl:setopts(Socket, [{active, once}]).
+activate_connection({tcp, Socket}) -> inet:setopts(Socket, [{active, once}]);
+activate_connection({ssl, Socket}) -> ssl:setopts(Socket, [{active, once}]).
 
 close_ctrl_connection(#state{csock = undefined}) -> ok;
 close_ctrl_connection(#state{csock = Socket}) -> close_connection(Socket).
@@ -2386,7 +2386,7 @@ close_ctrl_connection(#state{csock = Socket}) -> close_connection(Socket).
 close_data_connection(#state{dsock = undefined}) -> ok;
 close_data_connection(#state{dsock = Socket}) -> close_connection(Socket).
 
-close_connection({lsock,Socket}) ->  gen_tcp:close(Socket);
+close_connection({lsock,Socket}) -> gen_tcp:close(Socket);
 close_connection({tcp, Socket}) -> gen_tcp:close(Socket);
 close_connection({ssl, Socket}) -> ssl:close(Socket).
 
