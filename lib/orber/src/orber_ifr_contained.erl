@@ -232,7 +232,7 @@ move(true, Contained_objref, New_container, New_name, New_version) ->
 			       lists:filter(fun(X) -> X /= Contained_objref
 					    end, select(Old_container_obj,
 							contents))),
-		 New_container_obj = mnesia:read(New_container),
+		 [New_container_obj] = mnesia:read(New_container),
 		 Contents = orber_ifr_container:contents(New_container, dk_All,
 							 true),
 		 New_new_container_obj =
