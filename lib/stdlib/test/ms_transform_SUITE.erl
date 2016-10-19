@@ -296,6 +296,8 @@ basic_dbg(Config) when is_list(Config) ->
 	compile_and_run(<<"dbg:fun2ms(fun([A,B]) -> bindings() end)">>),
     [{['$1','$2'],[],['$_']}] =
 	compile_and_run(<<"dbg:fun2ms(fun([A,B]) -> object() end)">>),
+    [{[],[],[{return_trace}]}] =
+	compile_and_run(<<"dbg:fun2ms(fun([]) -> return_trace() end)">>),
     ok.
 
 %% Test calling of ets/dbg:fun2ms from the shell.
