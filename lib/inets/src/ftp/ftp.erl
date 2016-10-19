@@ -2368,8 +2368,7 @@ activate_ctrl_connection(#state{csock = Socket}) ->
     self() ! {socket_type(Socket), unwrap_socket(Socket), <<>>}.
 
 unwrap_socket({tcp,Socket}) -> Socket;
-unwrap_socket({ssl,Socket}) -> Socket;
-unwrap_socket(Socket) -> Socket.
+unwrap_socket({ssl,Socket}) -> Socket.
     
 socket_type({tcp,_Socket}) -> tcp;
 socket_type({ssl,_Socket}) -> ssl.
