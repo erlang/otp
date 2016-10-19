@@ -483,3 +483,9 @@ dump_atoms(int to, void *to_arg)
 	}
     }
 }
+
+Uint
+erts_get_atom_limit(void)
+{
+    return erts_atom_table.limit;
+}
