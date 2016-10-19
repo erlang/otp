@@ -904,7 +904,7 @@ Please see the function `tempo-define-template'.")
     "%% @doc" n
     "%% Define the callback_mode() for this callback module." n
     (erlang-skel-separator-end 2)
-    "-spec callback_mode() -> gen_statem:callback_mode()." n
+    "-spec callback_mode() -> gen_statem:callback_mode_result()." n
     "callback_mode() -> state_functions." n
     n
     (erlang-skel-separator-start 2)
@@ -931,14 +931,16 @@ Please see the function `tempo-define-template'.")
     "%% Whenever a gen_statem receives an event, the function " n
     "%% with the name of the current state (StateName) " n
     "%% is called to handle the event." n
-    "%%" n
-    "%% NOTE: If there is an exported function handle_event/4, it is called" n
-    "%%       instead of StateName/3 functions like this!" n
     (erlang-skel-separator-end 2)
-    "-spec state_name(" n>
-    "gen_statem:event_type(), Msg :: term()," n>
+    "-spec state_name('enter'," n>
+    "OldState :: atom()," n>
     "Data :: term()) ->" n>
-    "gen_statem:state_function_result()." n
+    "gen_statem:state_enter_result('state_name');" n>
+    "(gen_statem:event_type()," n>
+    "Msg :: term()," n>
+    "Data :: term()) ->" n>
+    "gen_statem:event_handler_result(atom())." n
+    ;;
     "state_name({call,Caller}, _Msg, Data) ->" n>
     "{next_state, state_name, Data, [{reply,Caller,ok}]}." n
     n
@@ -1015,7 +1017,7 @@ Please see the function `tempo-define-template'.")
     "%% @doc" n
     "%% Define the callback_mode() for this callback module." n
     (erlang-skel-separator-end 2)
-    "-spec callback_mode() -> gen_statem:callback_mode()." n
+    "-spec callback_mode() -> gen_statem:callback_mode_result()." n
     "callback_mode() -> handle_event_function." n
     n
     (erlang-skel-separator-start 2)
@@ -1039,14 +1041,18 @@ Please see the function `tempo-define-template'.")
     "%% @private" n
     "%% @doc" n
     "%% This function is called for every event a gen_statem receives." n
-    "%%" n
-    "%% NOTE: If there is no exported function handle_event/4," n
-    "%%       StateName/3 functions are called instead!" n
     (erlang-skel-separator-end 2)
-    "-spec handle_event(" n>
-    "gen_statem:event_type(), Msg :: term()," n>
-    "State :: term(), Data :: term()) ->" n>
-    "gen_statem:handle_event_result()." n
+    "-spec handle_event('enter'," n>
+    "OldState :: term()," n>
+    "State :: term()," n>
+    "Data :: term()) ->" n>
+    "gen_statem:state_enter_result(term());" n>
+    "(gen_statem:event_type()," n>
+    "Msg :: term()," n>
+    "State :: term()," n>
+    "Data :: term()) ->" n>
+    "gen_statem:event_handler_result(term())." n
+    ;;
     "handle_event({call,From}, _Msg, State, Data) ->" n>
     "{next_state, State, Data, [{reply,From,ok}]}." n
     n

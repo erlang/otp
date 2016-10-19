@@ -37,7 +37,8 @@ all() ->
      {group, stop_handle_event},
      {group, abnormal},
      {group, abnormal_handle_event},
-     shutdown, stop_and_reply, event_order, code_change,
+     shutdown, stop_and_reply, state_enter, event_order,
+     state_timeout, code_change,
      {group, sys},
      hibernate, enter_loop].
 
@@ -57,7 +58,7 @@ tcs(start) ->
 tcs(stop) ->
     [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10];
 tcs(abnormal) ->
-    [abnormal1, abnormal2];
+    [abnormal1, abnormal1clean, abnormal1dirty, abnormal2];
 tcs(sys) ->
     [sys1, call_format_status,
      error_format_status, terminate_crash_format,
@@ -451,7 +452,51 @@ abnormal1(Config) ->
 	   gen_statem:call(Name, {delayed_answer,1000}, 10),
 	   Reason),
     ok = gen_statem:stop(Name),
+    ?t:sleep(1100),
     ok = verify_empty_msgq().
+
+%% Check that time outs in calls work
+abnormal1clean(Config) ->
+    Name = abnormal1clean,
+    LocalSTM = {local,Name},
+
+    {ok, _Pid} =
+	gen_statem:start(LocalSTM, ?MODULE, start_arg(Config, []), []),
+
+    %% timeout call.
+    delayed =
+	gen_statem:call(Name, {delayed_answer,1}, {clean_timeout,100}),
+    {timeout,_} =
+	?EXPECT_FAILURE(
+	   gen_statem:call(
+	     Name, {delayed_answer,1000}, {clean_timeout,10}),
+	   Reason),
+    ok = gen_statem:stop(Name),
+    ?t:sleep(1100),
+    ok = verify_empty_msgq().
+
+%% Check that time outs in calls work
+abnormal1dirty(Config) ->
+    Name = abnormal1dirty,
+    LocalSTM = {local,Name},
+
+    {ok, _Pid} =
+	gen_statem:start(LocalSTM, ?MODULE, start_arg(Config, []), []),
+
+    %% timeout call.
+    delayed =
+	gen_statem:call(Name, {delayed_answer,1}, {dirty_timeout,100}),
+    {timeout,_} =
+	?EXPECT_FAILURE(
+	   gen_statem:call(
+	     Name, {delayed_answer,1000}, {dirty_timeout,10}),
+	   Reason),
+    ok = gen_statem:stop(Name),
+    ?t:sleep(1100),
+    case flush() of
+	[{Ref,delayed}] when is_reference(Ref) ->
+	    ok
+    end.
 
 %% Check that bad return values makes the stm crash. Note that we must
 %% trap exit since we must link to get the real bad_return_ error
@@ -512,7 +557,8 @@ stop_and_reply(_Config) ->
 		      {stop_and_reply,Reason,
 		       [R1,{reply,From2,Reply2}]}
 	      end},
-    {ok,STM} = gen_statem:start_link(?MODULE, {map_statem,Machine}, []),
+    {ok,STM} =
+	gen_statem:start_link(?MODULE, {map_statem,Machine,[]}, []),
 
     Self = self(),
     Tag1 = make_ref(),
@@ -525,6 +571,61 @@ stop_and_reply(_Config) ->
 	Other1 ->
 	    ct:fail({unexpected,Other1})
     end,
+
+    {noproc,_} =
+	?EXPECT_FAILURE(gen_statem:call(STM, hej), Reason),
+    case flush() of
+	[] ->
+	    ok;
+	Other2 ->
+	    ct:fail({unexpected,Other2})
+    end.
+
+
+
+state_enter(_Config) ->
+    process_flag(trap_exit, true),
+    Self = self(),
+
+    Machine =
+	%% Abusing the internal format of From...
+	#{init =>
+	      fun () ->
+		      {ok,start,1}
+	      end,
+	  start =>
+	      fun (enter, Prev, N) ->
+		      Self ! {enter,start,Prev,N},
+		      {keep_state,N + 1};
+		  (internal, Prev, N) ->
+		      Self ! {internal,start,Prev,N},
+		      {keep_state,N + 1};
+		  ({call,From}, echo, N) ->
+		      {next_state,wait,N + 1,{reply,From,{echo,start,N}}};
+		  ({call,From}, {stop,Reason}, N) ->
+		      {stop_and_reply,Reason,[{reply,From,{stop,N}}],N + 1}
+	      end,
+	  wait =>
+	      fun (enter, Prev, N) ->
+		      Self ! {enter,wait,Prev,N},
+		      {keep_state,N + 1};
+		  ({call,From}, echo, N) ->
+		      {next_state,start,N + 1,
+		       [{next_event,internal,wait},
+			{reply,From,{echo,wait,N}}]}
+	      end},
+    {ok,STM} =
+	gen_statem:start_link(
+	  ?MODULE, {map_statem,Machine,[state_enter]}, []),
+
+    [{enter,start,start,1}] = flush(),
+    {echo,start,2} = gen_statem:call(STM, echo),
+    [{enter,wait,start,3}] = flush(),
+    {wait,[4|_]} = sys:get_state(STM),
+    {echo,wait,4} = gen_statem:call(STM, echo),
+    [{enter,start,wait,5},{internal,start,wait,6}] = flush(),
+    {stop,7} = gen_statem:call(STM, {stop,bye}),
+    [{'EXIT',STM,bye}] = flush(),
 
     {noproc,_} =
 	?EXPECT_FAILURE(gen_statem:call(STM, hej), Reason),
@@ -579,7 +680,7 @@ event_order(_Config) ->
 		      Result
 	      end},
 
-    {ok,STM} = gen_statem:start_link(?MODULE, {map_statem,Machine}, []),
+    {ok,STM} = gen_statem:start_link(?MODULE, {map_statem,Machine,[]}, []),
     Self = self(),
     Tag1 = make_ref(),
     gen_statem:cast(STM, {reply,{Self,Tag1},ok1}),
@@ -606,6 +707,83 @@ event_order(_Config) ->
 	Other2 ->
 	    ct:fail({unexpected,Other2})
     end.
+
+
+
+state_timeout(_Config) ->
+    process_flag(trap_exit, true),
+
+    Machine =
+	#{init =>
+	      fun () ->
+		      {ok,start,0}
+	      end,
+	  start =>
+	      fun
+		  ({call,From}, {go,Time}, 0)  ->
+		      self() ! message_to_self,
+		      {next_state, state1, {Time,From},
+		       %% Verify that internal events goes before external
+		       [{state_timeout,Time,1},
+			{next_event,internal,1}]}
+	      end,
+	  state1 =>
+	      fun
+		  (internal, 1, Data) ->
+		      %% Verify that a state change cancels timeout 1
+		      {next_state, state2, Data,
+		       [{timeout,0,2},
+			{state_timeout,0,2},
+			{next_event,internal,2}]}
+	      end,
+	  state2 =>
+	      fun
+		  (internal, 2, Data) ->
+		      %% Verify that {state_timeout,0,_}
+		      %% comes after next_event and that
+		      %% {timeout,0,_} is cancelled by
+		      %% {state_timeout,0,_}
+		      {keep_state, {ok,2,Data},
+		       [{timeout,0,3}]};
+		  (state_timeout, 2, {ok,2,{Time,From}}) ->
+		      {next_state, state3, 3,
+		       [{reply,From,ok},
+			{state_timeout,Time,3}]}
+	      end,
+	  state3 =>
+	      fun
+		  (info, message_to_self, 3) ->
+		      {keep_state, '3'};
+		  ({call,From}, check, '3') ->
+		      {keep_state, From};
+		  (state_timeout, 3, From) ->
+		      {stop_and_reply, normal,
+		       {reply,From,ok}}
+	      end},
+
+    {ok,STM} = gen_statem:start_link(?MODULE, {map_statem,Machine,[]}, []),
+    TRef = erlang:start_timer(1000, self(), kull),
+    ok = gen_statem:call(STM, {go,500}),
+    ok = gen_statem:call(STM, check),
+    receive
+	{timeout,TRef,kull} ->
+	    ct:fail(late_timeout)
+    after 0 ->
+	    receive
+		{timeout,TRef,kull} ->
+		    ok
+	    after 1000 ->
+		    ct:fail(no_check_timeout)
+	    end
+    end,
+    receive
+	{'EXIT',STM,normal} ->
+	    ok
+    after 500 ->
+	    ct:fail(did_not_stop)
+    end,
+
+    verify_empty_msgq().
 
 
 
@@ -1271,9 +1449,9 @@ init({callback_mode,CallbackMode,Arg}) ->
     ets:new(?MODULE, [named_table,private]),
     ets:insert(?MODULE, {callback_mode,CallbackMode}),
     init(Arg);
-init({map_statem,#{init := Init}=Machine}) ->
+init({map_statem,#{init := Init}=Machine,Modes}) ->
     ets:new(?MODULE, [named_table,private]),
-    ets:insert(?MODULE, {callback_mode,handle_event_function}),
+    ets:insert(?MODULE, {callback_mode,[handle_event_function|Modes]}),
     case Init() of
 	{ok,State,Data,Ops} ->
 	    {ok,State,[Data|Machine],Ops};
