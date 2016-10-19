@@ -1392,7 +1392,7 @@ takewhile(Pred, []) when is_function(Pred, 1) -> [].
       List2 :: [T],
       T :: term().
 
-dropwhile(Pred, [Hd|Tail]=Rest) ->
+dropwhile(Pred, [Hd|Tail]) ->
     case Pred(Hd) of
 	true -> dropwhile(Pred, Tail);
 	false -> [Hd | dropwhile(Pred, Tail)]
