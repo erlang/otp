@@ -173,7 +173,7 @@
           subterms associated with a specified Erlang term, regardless of
           whether we are still holding pointers to the subterms.</p>
         <p>For an example, see section
-            <seealso marker="building terms and patterns">Building Terms and Patterns</seealso>
+            <seealso marker="ei_users_guide#building_terms_and_patterns">Building Terms and Patterns</seealso>
             in the User's Guide.</p>
       </desc>
     </func>

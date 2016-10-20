@@ -153,7 +153,7 @@ i = erl_encode(tuple, buf);    ]]></code>
 
   <section>
     <title>Building Terms and Patterns</title>
-    <p>The previous example can be simplified by using 
+    <p>The previous example can be simplified by using
       <c><![CDATA[erl_format()]]></c> to create an Erlang term.</p>
     <code type="none"><![CDATA[
 
@@ -171,7 +171,7 @@ ep = erl_format("[{name,~a},{age,~i},{data,~w}]",
                  erl_format("[{adr,~s,~i}]", "E-street", 42));
 erl_free_compound(ep);      ]]></code>
     <p>As in previous examples, it is your responsibility to free the
-      memory allocated for Erlang terms. In this example, 
+      memory allocated for Erlang terms. In this example,
       <c><![CDATA[erl_free_compound()]]></c> ensures that the complete term pointed to
       by <c><![CDATA[ep]]></c> is released. This is necessary, because the pointer from
       the second call to <c><![CDATA[erl_format()]]></c> is lost. </p>
@@ -623,4 +623,3 @@ ei_reg_restore(fd, reg, "mtab");      ]]></code>
     </section>
   </section>
 </chapter>
-

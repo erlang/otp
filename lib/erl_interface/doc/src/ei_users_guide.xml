@@ -45,7 +45,7 @@
         storage</item>
       <item>Communication between C nodes and Erlang processes</item>
       <item>Backup and restore of C node state to and from
-        <seealso marker="mnesia"><c>Mnesia</c></seealso></item>
+        <seealso marker="mnesia:mnesia">Mnesia</seealso></item>
     </list>
     <note>
       <p>By default, the <c>Erl_Interface</c> libraries are only guaranteed
@@ -207,7 +207,7 @@ i = erl_encode(tuple, buf);    ]]></code>
   </section>
 
   <section>
-    <marker id="building terms and patterns"/>
+    <marker id="building_terms_and_patterns"/>
     <title>Building Terms and Patterns</title>
     <p>The previous example can be simplified by using the
       <seealso marker="erl_format"><c>erl_format</c></seealso> module
@@ -733,7 +733,7 @@ ei_reg_close(reg);    ]]></code>
     <section>
       <title>Backing Up the Registry to Mnesia</title>
       <p>The contents of a registry can be backed up to
-        <seealso marker="mnesia"><c>Mnesia</c></seealso> on a "nearby" Erlang
+        <seealso marker="mnesia:mnesia"><c>Mnesia</c></seealso> on a "nearby" Erlang
         node. You must provide an open connection to the Erlang node
         (see <seealso marker="erl_connect"><c>erl_connect</c></seealso>).
         Also, <c>Mnesia</c> 3.0 or later must be running

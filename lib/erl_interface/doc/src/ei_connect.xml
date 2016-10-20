@@ -292,7 +292,7 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
       <desc>
         <p>Used to set tracing on the distribution. The levels are different
           verbosity levels. A higher level means more information. See also
-          section <seealso marker="debug_information">
+          section <seealso marker="#debug_information">
           Debug Information</seealso>.</p>
 	<p>These functions are not thread safe.</p>
       </desc>
