@@ -70,7 +70,7 @@
 %% Extensions handling
 -export([client_hello_extensions/6,
 	 handle_client_hello_extensions/9, %% Returns server hello extensions
-	 handle_server_hello_extensions/9, select_curve/2
+	 handle_server_hello_extensions/9, select_curve/2, select_curve/3
 	]).
 
 %% MISC
@@ -120,11 +120,13 @@ server_hello_done() ->
     #server_hello_done{}.
 
 client_hello_extensions(Host, Version, CipherSuites, 
-			#ssl_options{signature_algs = SupportedHashSigns, versions = AllVersions} = SslOpts, ConnectionStates, Renegotiation) ->
+			#ssl_options{signature_algs = SupportedHashSigns,
+				     eccs = SupportedECCs,
+				     versions = AllVersions} = SslOpts, ConnectionStates, Renegotiation) ->
     {EcPointFormats, EllipticCurves} =
 	case advertises_ec_ciphers(lists:map(fun ssl_cipher:suite_definition/1, CipherSuites)) of
 	    true ->
-		client_ecc_extensions(tls_v1, Version);
+		client_ecc_extensions(SupportedECCs);
 	    false ->
 		{undefined, undefined}
 	end,
@@ -1169,8 +1171,9 @@ select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, Port, 
 	    {resumed, Resumed}
     end.
 
-supported_ecc({Major, Minor} = Version) when ((Major == 3) and (Minor >= 1)) orelse (Major > 3) ->
-    Curves = tls_v1:ecc_curves(Version),
+%% Deprecated?
+supported_ecc({Major, Minor}) when ((Major == 3) and (Minor >= 1)) orelse (Major > 3) ->
+    Curves = tls_v1:ecc_curves(Minor),
     #elliptic_curves{elliptic_curve_list = Curves};
 supported_ecc(_) ->
     #elliptic_curves{elliptic_curve_list = []}.
@@ -1454,12 +1457,12 @@ srp_user(#ssl_options{srp_identity = {UserName, _}}) ->
 srp_user(_) ->
     undefined.
 
-client_ecc_extensions(Module, Version) ->
+client_ecc_extensions(SupportedECCs) ->
     CryptoSupport = proplists:get_value(public_keys, crypto:supports()),
     case proplists:get_bool(ecdh, CryptoSupport) of
 	true ->
 	    EcPointFormats = #ec_point_formats{ec_point_format_list = [?ECPOINT_UNCOMPRESSED]},
-	    EllipticCurves = #elliptic_curves{elliptic_curve_list = Module:ecc_curves(Version)},
+	    EllipticCurves = SupportedECCs,
 	    {EcPointFormats, EllipticCurves};
 	_ ->
 	    {undefined, undefined}
@@ -1493,22 +1496,34 @@ advertises_ec_ciphers([{ecdh_anon, _,_,_} | _]) ->
     true;
 advertises_ec_ciphers([_| Rest]) ->
     advertises_ec_ciphers(Rest).
-select_curve(#elliptic_curves{elliptic_curve_list = ClientCurves}, 
-	     #elliptic_curves{elliptic_curve_list = ServerCurves}) -> 
-    select_curve(ClientCurves, ServerCurves);
-select_curve(undefined, _) ->
+
+select_curve(Client, Server) ->
+    select_curve(Client, Server, false).
+
+select_curve(#elliptic_curves{elliptic_curve_list = ClientCurves},
+	     #elliptic_curves{elliptic_curve_list = ServerCurves},
+	     ServerOrder) ->
+    case ServerOrder of
+        false ->
+            select_shared_curve(ClientCurves, ServerCurves);
+        true ->
+            select_shared_curve(ServerCurves, ClientCurves)
+    end;
+select_curve(undefined, _, _) ->
     %% Client did not send ECC extension use default curve if 
     %% ECC cipher is negotiated
-    {namedCurve, ?secp256r1};
-select_curve(_, []) ->
+    {namedCurve, ?secp256r1}.
+
+select_shared_curve([], _) ->
     no_curve;
-select_curve(Curves, [Curve| Rest]) ->
+select_shared_curve([Curve | Rest], Curves) ->
     case lists:member(Curve, Curves) of
 	true ->
 	    {namedCurve, Curve};
 	false ->
-	    select_curve(Curves, Rest)
+	    select_shared_curve(Rest, Curves)
     end.
+
 %% RFC 6066, Section 3: Currently, the only server names supported are
 %% DNS hostnames
 sni(_, disable) ->
