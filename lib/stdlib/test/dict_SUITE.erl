@@ -61,27 +61,6 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
-take_any(Config) when is_list(Config) ->
-    test_all([{1,71}], fun take_any_1/2).
-
-take_any_1(List, M) ->
-    case M(module, []) of
-	gb_trees ->
-	    G1 = gb_trees:from_orddict(
- 	        orddict:from_list([{k1, v1}, {k2, v2}, {k3, v3}, {k4, v4}, {k5, v5}])
-	    ),
-	    {ok, v1, G2} = gb_trees:take_any(k1, G1),
-        {ok, v2, G3} = gb_trees:take_any(k2, G2),
-        {ok, v3, G4} = gb_trees:take_any(k3, G3),
-        {ok, v4, G5} = gb_trees:take_any(k4, G4),
-        {ok, v5, G6} = gb_trees:take_any(k5, G5),
-        true = (G6 == gb_trees:empty()),
-	    error = gb_trees:take_any(k6, G1),
-	    M(from_list, List);
-	_ ->
-	    M(from_list, List)
-    end.
-
 take(Config) when is_list(Config) ->
     test_all([{1,71}], fun take_1/2).
 
@@ -112,6 +91,28 @@ take_1(List, M) ->
         {'EXIT', _} = (catch gb_trees:take(k6, G1)),
         M(from_list, List)
     end.
+
+take_any(Config) when is_list(Config) ->
+    test_all([{1,71}], fun take_any_1/2).
+
+take_any_1(List, M) ->
+    case M(module, []) of
+	gb_trees ->
+	    G1 = gb_trees:from_orddict(
+ 	        orddict:from_list([{k1, v1}, {k2, v2}, {k3, v3}, {k4, v4}, {k5, v5}])
+	    ),
+	    {ok, v1, G2} = gb_trees:take_any(k1, G1),
+	    {ok, v2, G3} = gb_trees:take_any(k2, G2),
+	    {ok, v3, G4} = gb_trees:take_any(k3, G3),
+	    {ok, v4, G5} = gb_trees:take_any(k4, G4),
+	    {ok, v5, G6} = gb_trees:take_any(k5, G5),
+	    true = (G6 == gb_trees:empty()),
+	    error = gb_trees:take_any(k6, G1),
+	    M(from_list, List);
+	_ ->
+	    M(from_list, List)
+    end.
+
 
 create(Config) when is_list(Config) ->
     test_all(fun create_1/1).

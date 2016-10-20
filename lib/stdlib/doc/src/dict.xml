@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>dict</title>
@@ -105,6 +105,14 @@
       </desc>
     </func>
 
+    <func>
+      <name name="take" arity="2"/>
+      <fsummary>Return value and new dictionary without element with this value.</fsummary>
+      <desc>
+        <p>This function returns value from dictionary and new dictionary without this value.
+            Returns <c>error</c> if the key is not present in the dictionary.</p>
+      </desc>
+    </func>
     <func>
       <name name="filter" arity="2"/>
       <fsummary>Select elements that satisfy a predicate.</fsummary>
@@ -297,8 +305,7 @@ update_counter(Key, Incr, D) ->
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="gb_trees"><c>gb_trees(3)</c></seealso>, 
+    <p><seealso marker="gb_trees"><c>gb_trees(3)</c></seealso>,
       <seealso marker="orddict"><c>orddict(3)</c></seealso></p>
   </section>
 </erlref>
-
