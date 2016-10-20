@@ -201,13 +201,13 @@ erl_free_compound(list);
       </type>
       <desc>
         <p>Extracts a specified element from an Erlang tuple.</p>
-        <iist type="bulleted">
+        <list type="bulleted">
           <item><c><![CDATA[position]]></c> specifies which element to retrieve
             from <c><![CDATA[tuple]]></c>. The elements are numbered starting
             from 1.</item>
           <item><c><![CDATA[tuple]]></c> is an Erlang term containing at least
             <c><![CDATA[position]]></c> elements.</item>
-        </iist>
+        </list>
         <p>Returns a new Erlang term corresponding to the requested element, or
           <c>NULL</c> if <c><![CDATA[position]]></c> was greater
           than the arity of <c><![CDATA[tuple]]></c>.</p>
@@ -292,12 +292,12 @@ iohead ::= Binary
 
     <func>
       <name><ret>char *</ret><nametext>erl_iolist_to_string(list)</nametext></name>
-      <fsummary>Convert an I/O list to a zero-terminated string.</fsummary>
+      <fsummary>Convert an I/O list to a <c>NULL</c>-terminated string.</fsummary>
       <type>
         <v>ETERM *list;</v>
       </type>
       <desc>
-        <p>Converts an I/O list to a '\0' terminated C string.</p>
+          <p>Converts an I/O list to a <c>NULL</c>-terminated C string.</p>
         <p><c><![CDATA[list]]></c> is an Erlang term containing an I/O list.
           The I/O list must not contain the integer 0, as C strings may not
           contain this value except as a terminating marker.</p>
@@ -344,14 +344,14 @@ iohead ::= Binary
           contains a valid name for an atom.</p>
         <p><c><![CDATA[ERL_ATOM_PTR(atom)]]></c> and
           <c><![CDATA[ERL_ATOM_PTR_UTF8(atom)]]></c>
-	  can be used to retrieve the atom name (as a null-terminated string).
+          can be used to retrieve the atom name (as a <c>NULL</c>-terminated string).
           <c><![CDATA[ERL_ATOM_SIZE(atom)]]></c>
 	  and <c><![CDATA[ERL_ATOM_SIZE_UTF8(atom)]]></c> return the length
           of the atom name.</p>
 	<note>
           <p>The UTF-8 variants were introduced in Erlang/OTP R16 and the
 	    string returned by <c>ERL_ATOM_PTR(atom)</c> was not
-            null-terminated on older releases.</p>
+        <c>NULL</c>-terminated on older releases.</p>
 	</note>
       </desc>
     </func>
@@ -400,7 +400,7 @@ iohead ::= Binary
         <p>Creates a list from a sequence of bytes.</p>
         <list type="bulleted">
           <item><c><![CDATA[string]]></c> is a buffer containing a sequence of
-            bytes. The buffer does not need to be zero-terminated.</item>
+              bytes. The buffer does not need to be <c>NULL</c>-terminated.</item>
           <item><c><![CDATA[len]]></c> is the length of
             <c><![CDATA[string]]></c>.</item>
         </list>
@@ -586,8 +586,8 @@ iohead ::= Binary
         <v>char *string;</v>
       </type>
       <desc>
-        <p>Creates a list from a zero-terminated string.</p>
-        <p><c><![CDATA[string]]></c> is the zero-terminated sequence of
+          <p>Creates a list from a <c>NULL</c>-terminated string.</p>
+          <p><c><![CDATA[string]]></c> is a <c>NULL</c>-terminated sequence of
           characters
           (that is, a C string) from which the list will be created.</p>
         <p>Returns an Erlang list.</p>

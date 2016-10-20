@@ -106,7 +106,7 @@ Eshell V4.7.4  (abort with ^G)
       <c><![CDATA[-I]]></c> argument on the command line, or add it to
       the <c><![CDATA[CFLAGS]]></c> definition in your
       <c><![CDATA[Makefile]]></c>. The correct value for this path is
-      <c><![CDATA[$OTPROOT/lib/erl_interface]]></c><em>Vsn</em><c><![CDATA[/include]]></c>,
+      <c><![CDATA[$OTPROOT/lib/erl_interface-$EIVSN/include]]></c>,
       where:</p>
 
     <list type="bulleted">
@@ -115,7 +115,7 @@ Eshell V4.7.4  (abort with ^G)
           <c><![CDATA[code:root_dir/0]]></c> in the example above.</p>
       </item>
       <item>
-        <p><em>Vsn</em> is the version of the <c>Erl_Interface</c> application,
+        <p><c><![CDATA[$EIVSN]]></c> is the version of the <c>Erl_Interface</c> application,
           for example, <c><![CDATA[erl_interface-3.2.3]]></c>.</p>
       </item>
     </list>
@@ -552,8 +552,8 @@ erl_free_term(reply);    ]]></code>
   <section>
     <title>Using Global Names</title>
     <p>A C node has access to names registered through the
-      <seealso marker="kernel:global"><c>kernel:global</c></seealso>
-      module. Names can be looked up, allowing the C node to send messages
+      <seealso marker="kernel:global"><c>global</c></seealso>
+      module in Kernel. Names can be looked up, allowing the C node to send messages
       to named Erlang services. C nodes can also register global names,
       allowing them to provide named services to Erlang processes or other C
       nodes.</p>
@@ -648,7 +648,7 @@ erl_global_unregister(fd,servicename);    ]]></code>
       detailed information about the individual API functions, see the
       <seealso marker="registry"><c>registry</c></seealso> module.</p>
 
-    <p>Keys are strings, that is, zero-terminated arrays of characters, and
+   <p>Keys are strings, that is, <c>NULL</c>-terminated arrays of characters, and
       values are arbitrary objects. Although integers and floating point numbers
       are treated specially by the registry, you can store strings or binary
       objects of any type as pointers.</p>

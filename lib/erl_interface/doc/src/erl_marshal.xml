@@ -57,7 +57,7 @@
         </list>
         <p>Returns <c>0</c> if the terms are equal, <c>-1</c> if
           <c>term1</c> &lt; <c>term2</c>, or <c>1</c> if <c>term2</c> &lt;
-          term1.</p>
+          <c>term1</c>.</p>
       </desc>
     </func>
 

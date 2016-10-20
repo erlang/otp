@@ -215,8 +215,8 @@ Y=2,
     <p>(In the example, the output has been formatted afterwards.)</p>
 
     <code type="none"><![CDATA[
-erl_call -s -m -a lolita -n madonna
--module(lolita).
+erl_call -s -m -a procnames -n madonna
+-module(procnames).
 -compile(export_all).
 start() ->
         P = processes(),

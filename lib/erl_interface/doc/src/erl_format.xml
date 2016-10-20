@@ -89,8 +89,8 @@ erl_format("[{name,~a},{age,~i},{data,~w}]",
       </type>
       <desc>
         <p>This function is used to perform pattern matching similar
-          to that done in Erlang. For matching rules and more exemples, see
-          section <seealso marker="doc/reference_manual#patterns">
+          to that done in Erlang. For matching rules and more examples, see
+          section <seealso marker="doc/reference_manual:patterns">
           Pattern Matching</seealso> in the Erlang Reference Manual.</p>
         <list type="bulleted">
           <item><c><![CDATA[Pattern]]></c> is an Erlang term, possibly

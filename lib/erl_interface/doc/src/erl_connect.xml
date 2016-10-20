@@ -165,7 +165,7 @@ erl_xconnect( &addr , ALIVE );
         <p>Initializes the <c><![CDATA[erl_connect]]></c> module.
           In particular, these functions are used to identify the name of the
           C-node from which they are called. One of these functions must
-          be called before any of the other functions in the <c>erl_connect</c> 
+          be called before any of the other functions in the <c>erl_connect</c>
           module are used.</p>
         <p><c><![CDATA[erl_connect_xinit()]]></c> stores for later use
           information about:</p>
@@ -196,7 +196,7 @@ erl_xconnect( &addr , ALIVE );
           </item>
           <item>
             <p><c><![CDATA[node]]></c> is the node name. It is to
-              be of the form <em>alivename@hostname</em>.</p>
+                be of the form <em>alivename@hostname</em>.</p>
           </item>
           <item>
             <p><c><![CDATA[addr]]></c> is the 32-bit IP address of
@@ -212,7 +212,7 @@ erl_xconnect( &addr , ALIVE );
               <c><![CDATA[HOMEDRIVE]]></c> and
               <c><![CDATA[HOMEPATH]]></c> variables on Windows. For more
               details, see the <seealso marker="kernel:auth">
-              <c>kernel:auth</c></seealso> module.</p>
+              <c>auth</c></seealso> module in Kernel.</p>
           </item>
           <item>
             <p><c><![CDATA[creation]]></c> helps identifying a particular
@@ -255,7 +255,7 @@ if (!erl_connect_init(17, "samplecookiestring...", 0))
       </type>
       <desc>
         <p>This function is used by a server process to register
-          with the local name server <em>epmd</em>, thereby allowing
+          with the local name server EPMD, thereby allowing
           other processes to send messages by using the registered name.
           Before calling this function, the process should
           have called <c><![CDATA[bind()]]></c> and <c><![CDATA[listen()]]></c>

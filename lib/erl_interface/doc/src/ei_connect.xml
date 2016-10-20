@@ -303,7 +303,7 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
       <fsummary>Publish a node name.</fsummary>
       <desc>
         <p>Used by a server process to register
-          with the local name server <em>epmd</em>, thereby allowing
+          with the local name server EPMD, thereby allowing
           other processes to send messages by using the registered name.
           Before calling either of these functions, the process should
           have called <c><![CDATA[bind()]]></c> and <c><![CDATA[listen()]]></c>
@@ -570,7 +570,7 @@ if (ei_reg_send(&ec, fd, x.buff, x.index) < 0)
           call. <c><![CDATA[ei_rpc()]]></c> combines the functionality of these
           two functions by sending an RPC request and waiting for the results.
           See also <seealso marker="kernel:rpc#call/4">
-          <c>rpc:call/4</c></seealso> in <c>Kernel</c>.</p>
+          <c>rpc:call/4</c></seealso> in Kernel.</p>
         <list type="bulleted">
           <item>
             <p><c><![CDATA[ec]]></c> is the C-node structure previously
