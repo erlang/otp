@@ -1582,7 +1582,7 @@ BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
 		  ref, callee.mod, callee.fun, callee.ari, ref->address);
     DBG_TRACE_MFA(callee.mod, callee.fun, callee.ari, "add_ref at %p FROM %T:%T/%u (from %p)",
 		  ref, caller.mod, caller.fun, caller.ari, ref->address);
-    BIF_RET(NIL);
+    BIF_RET(am_ok);
 
  badarg:
     BIF_ERROR(BIF_P, BADARG);
