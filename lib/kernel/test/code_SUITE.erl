@@ -487,16 +487,21 @@ load_binary(Config) when is_list(Config) ->
 upgrade(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
 
-    T = case erlang:system_info(hipe_architecture) of
-            undefined -> [beam];
-            _ ->
-                case hipe:llvm_support_available() of
-                    false -> [beam,hipe];
-                    true  -> [beam,hipe,hipe_llvm]
-                end
-        end,
+    case erlang:system_info(hipe_architecture) of
+        undefined ->
+            upgrade_do(DataDir, beam, [beam]);
 
-    [upgrade_do(DataDir, Client, T) || Client <- T],
+        _ ->
+            T = [beam, hipe],
+            [upgrade_do(DataDir, Client, T) || Client <- T],
+
+            case hipe:llvm_support_available() of
+                false -> ok;
+                true  ->
+                    T2 = [beam, hipe_llvm],
+                    [upgrade_do(DataDir, Client, T2) || Client <- T2]
+            end
+    end,
     ok.
 
 upgrade_do(DataDir, Client, T) ->
