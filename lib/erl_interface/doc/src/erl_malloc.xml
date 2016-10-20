@@ -181,7 +181,6 @@
     <func>
       <name><ret>void</ret><nametext>erl_free_term(t)</nametext></name>
       <fsummary>Free an ETERM structure.</fsummary>
-      <marker id="erl_free_term"/>
       <type>
         <v>ETERM *t;</v>
       </type>

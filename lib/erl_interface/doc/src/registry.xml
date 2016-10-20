@@ -87,7 +87,6 @@
     <func>
       <name><ret>int</ret><nametext>ei_reg_dump(fd,reg,mntab,flags)</nametext></name>
       <fsummary>Back up a registry to Mnesia.</fsummary>
-      <marker id="ei_reg_dump"/>
       <type>
         <v>int fd;</v>
         <v>ei_reg *reg;</v>
@@ -281,7 +280,6 @@
     <func>
       <name><ret>int</ret><nametext>ei_reg_markdirty(reg,key)</nametext></name>
       <fsummary>Mark an object as dirty.</fsummary>
-      <marker id="ei_reg_markdirty"/>
       <type>
         <v>ei_reg *reg;</v>
         <v>const char *key;</v>

@@ -348,7 +348,6 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
     <func>
       <name><ret>int</ret><nametext>ei_receive(int fd, unsigned char* bufp, int bufsize)</nametext></name>
       <fsummary>Receive a message.</fsummary>
-      <marker id="ei_receive"/>
       <desc>
         <p>Receives a message consisting of a sequence
           of bytes in the Erlang external format.</p>
@@ -432,7 +431,6 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
       <name><ret>int</ret><nametext>ei_receive_msg(int fd, erlang_msg* msg, ei_x_buff* x)</nametext></name>
       <name><ret>int</ret><nametext>ei_xreceive_msg(int fd, erlang_msg* msg, ei_x_buff* x)</nametext></name>
       <fsummary>Receive a message.</fsummary>
-      <marker id="ei_receive_msg"/>
       <desc>
         <p>Receives a message to the buffer in <c><![CDATA[x]]></c>.
           <c><![CDATA[ei_xreceive_msg]]></c> allows the buffer in

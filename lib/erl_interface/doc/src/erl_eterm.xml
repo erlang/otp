@@ -237,7 +237,6 @@ erl_free_compound(list);
         <v>int 0;</v>
       </type>
       <desc>
-        <marker id="erl_init"></marker>
         <p>This function must be called before any of the others in the
           <c><![CDATA[Erl_Interface]]></c> library to initialize the
           library functions. The arguments must be specified as
@@ -273,7 +272,6 @@ erl_free_compound(list);
         <p><c><![CDATA[list]]></c> is an Erlang term containing a list.</p>
         <p>Returns an Erlang binary term, or <c>NULL</c> if
           <c><![CDATA[list]]></c> was not an I/O list.</p>
-        <marker id="erl_iolist_to_binary"></marker>
         <p>Informally, an I/O list is a deep list of characters and
           binaries that can be sent to an Erlang port. In BNF, an I/O
           list is formally defined as follows:</p>
@@ -676,16 +674,14 @@ iohead ::= Binary
     <func>
       <name><ret>void</ret><nametext>erl_set_compat_rel(release_number)</nametext></name>
       <fsummary>Set the Erl_Interface library in compatibility mode.</fsummary>
-      <marker id="erl_set_compat_rel"/>
       <type>
         <v>unsigned release_number;</v>
       </type>
       <desc>
-        <marker id="erl_set_compat_rel"></marker>
         <p>By default, the <c><![CDATA[Erl_Interface]]></c> library is only
           guaranteed to be compatible with other Erlang/OTP components from the
           same release as the <c><![CDATA[Erl_Interface]]></c> library itself.
-          For example, <c><![CDATA[Erl_Interface]]></c> from Erlang/OTP R10 
+          For example, <c><![CDATA[Erl_Interface]]></c> from Erlang/OTP R10
           is not compatible
           with an Erlang emulator from Erlang/OTP R9 by default.</p>
         <p>A call to <c><![CDATA[erl_set_compat_rel(release_number)]]></c> sets

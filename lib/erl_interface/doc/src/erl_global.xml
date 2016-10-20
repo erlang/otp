@@ -50,7 +50,6 @@
     <func>
       <name><ret>char **</ret><nametext>erl_global_names(fd,count)</nametext></name>
       <fsummary>Obtain list of global names.</fsummary>
-      <marker id="erl_global_names"/>
       <type>
         <v>int fd;</v>
         <v>int *count;</v>

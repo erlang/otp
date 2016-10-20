@@ -51,7 +51,6 @@
     <func>
       <name><ret>int</ret><nametext>erl_accept(listensock, conp)</nametext></name>
       <fsummary>Accept a connection.</fsummary>
-      <marker id="erl_accept"/>
       <type>
         <v>int listensock;</v>
         <v>ErlConnect *conp;</v>
@@ -153,7 +152,6 @@ erl_xconnect( &addr , ALIVE );
       <name><ret>int</ret><nametext>erl_connect_init(number, cookie, creation)</nametext></name>
       <name><ret>int</ret><nametext>erl_connect_xinit(host, alive, node, addr, cookie, creation)</nametext></name>
       <fsummary>Initialize communication.</fsummary>
-      <marker id="erl_connect_init"/>
       <type>
         <v>int number;</v>
         <v>char *cookie;</v>
@@ -281,7 +279,6 @@ if (!erl_connect_init(17, "samplecookiestring...", 0))
     <func>
       <name><ret>int</ret><nametext>erl_receive(fd, bufp, bufsize)</nametext></name>
       <fsummary>Receive a message.</fsummary>
-      <marker id="erl_receive"/>
       <type>
         <v>int fd;</v>
         <v>char *bufp;</v>
@@ -321,7 +318,6 @@ if (!erl_connect_init(17, "samplecookiestring...", 0))
     <func>
       <name><ret>int</ret><nametext>erl_receive_msg(fd, bufp, bufsize, emsg)</nametext></name>
       <fsummary>Receive and decode a message.</fsummary>
-      <marker id="erl_receive_msg"/>
       <type>
         <v>int fd;</v>
         <v>unsigned char *bufp;</v>
@@ -417,7 +413,6 @@ typedef struct {
     <func>
       <name><ret>int</ret><nametext>erl_reg_send(fd, to, msg)</nametext></name>
       <fsummary>Send a message to a registered name.</fsummary>
-      <marker id="erl_reg_send"/>
       <type>
         <v>int fd;</v>
         <v>char *to;</v>
@@ -518,7 +513,6 @@ typedef struct {
     <func>
       <name><ret>int</ret><nametext>erl_send(fd, to, msg)</nametext></name>
       <fsummary>Send a message.</fsummary>
-      <marker id="erl_send"/>
       <type>
         <v>int fd;</v>
         <v>ETERM *to, *msg;</v>

@@ -83,7 +83,6 @@ erl_format("[{name,~a},{age,~i},{data,~w}]",
     <func>
       <name><ret>int</ret><nametext>erl_match(Pattern, Term)</nametext></name>
       <fsummary>Perform pattern matching.</fsummary>
-      <marker id="erl_match"/>
       <type>
         <v>ETERM *Pattern,*Term;</v>
       </type>
