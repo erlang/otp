@@ -423,7 +423,7 @@ int ei_connect_xinit(ei_cnode* ec, const char *thishostname,
     }
 #endif /* _REENTRANT */
 
-    ec->creation = creation;
+    ec->creation = creation & 0x3; /* 2 bits */
     
     if (cookie) {
 	if (strlen(cookie) >= sizeof(ec->ei_connect_cookie)) { 
@@ -462,7 +462,7 @@ int ei_connect_xinit(ei_cnode* ec, const char *thishostname,
     strcpy(ec->self.node,thisnodename);
     ec->self.num = 0;
     ec->self.serial = 0;
-    ec->self.creation = creation;
+    ec->self.creation = creation & 0x3; /* 2 bits */
 
     if ((dbglevel = getenv("EI_TRACELEVEL")) != NULL ||
 	(dbglevel = getenv("ERL_DEBUG_DIST")) != NULL)
