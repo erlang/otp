@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2008-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -23,10 +23,10 @@
 
 -module(dict_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-         create/1,store/1,iterate/1]).
+	 create/1,store/1,iterate/1, take/1, take_any/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -36,10 +36,10 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,5}}].
 
-all() -> 
-    [create, store, iterate].
+all() ->
+    [create, store, iterate, take, take_any].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -60,6 +60,58 @@ init_per_testcase(_Case, Config) ->
 
 end_per_testcase(_Case, _Config) ->
     ok.
+
+take_any(Config) when is_list(Config) ->
+    test_all([{1,71}], fun take_any_1/2).
+
+take_any_1(List, M) ->
+    case M(module, []) of
+	gb_trees ->
+	    G1 = gb_trees:from_orddict(
+ 	        orddict:from_list([{k1, v1}, {k2, v2}, {k3, v3}, {k4, v4}, {k5, v5}])
+	    ),
+	    {ok, v1, G2} = gb_trees:take_any(k1, G1),
+        {ok, v2, G3} = gb_trees:take_any(k2, G2),
+        {ok, v3, G4} = gb_trees:take_any(k3, G3),
+        {ok, v4, G5} = gb_trees:take_any(k4, G4),
+        {ok, v5, G6} = gb_trees:take_any(k5, G5),
+        true = (G6 == gb_trees:empty()),
+	    error = gb_trees:take_any(k6, G1),
+	    M(from_list, List);
+	_ ->
+	    M(from_list, List)
+    end.
+
+take(Config) when is_list(Config) ->
+    test_all([{1,71}], fun take_1/2).
+
+take_1(List, M) ->
+    case M(module, []) of
+    orddict ->
+        M(from_list, List);
+    dict ->
+        D1 = dict:from_list([{k1, v1}, {k2, v2}, {k3, v3}, {k4, v4}, {k5, v5}]),
+        {ok, v1, D2} = dict:take(k1, D1),
+        {ok, v2, D3} = dict:take(k2, D2),
+        {ok, v3, D4} = dict:take(k3, D3),
+        {ok, v4, D5} = dict:take(k4, D4),
+        {ok, v5, D6} = dict:take(k5, D5),
+        true = (D6 == dict:new()),
+        error = dict:take(k6, D1),
+        M(from_list, List);
+    gb_trees ->
+        G1 = gb_trees:from_orddict(
+                 orddict:from_list([{k1, v1}, {k2, v2}, {k3, v3}, {k4, v4}, {k5, v5}])
+             ),
+        {ok, v1, G2} = gb_trees:take(k1, G1),
+        {ok, v2, G3} = gb_trees:take(k2, G2),
+        {ok, v3, G4} = gb_trees:take(k3, G3),
+        {ok, v4, G5} = gb_trees:take(k4, G4),
+        {ok, v5, G6} = gb_trees:take(k5, G5),
+        true = (G6 == gb_trees:empty()),
+        {'EXIT', _} = (catch gb_trees:take(k6, G1)),
+        M(from_list, List)
+    end.
 
 create(Config) when is_list(Config) ->
     test_all(fun create_1/1).
@@ -141,10 +193,10 @@ iterate_tree_1(M, {K, V, I}, R) ->
 dict_mods() ->
     Orddict = dict_test_lib:new(orddict, fun(X, Y) -> X == Y end),
     Dict = dict_test_lib:new(dict, fun(X, Y) ->
-					   lists:sort(dict:to_list(X)) == 
+					   lists:sort(dict:to_list(X)) ==
 					       lists:sort(dict:to_list(Y)) end),
     Gb = dict_test_lib:new(gb_trees, fun(X, Y) ->
-					     gb_trees:to_list(X) == 
+					     gb_trees:to_list(X) ==
 						 gb_trees:to_list(Y) end),
     [Orddict,Dict,Gb].
 

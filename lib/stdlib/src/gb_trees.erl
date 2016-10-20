@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2001-2015. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% =====================================================================
@@ -58,6 +58,12 @@
 %%
 %% - delete_any(X, T): removes key X from tree T if the key is present
 %%   in the tree, otherwise does nothing; returns new tree.
+%%
+%% - take(X, S): removes element with key X from tree S; returns new tree
+%%   with removed element; Assumes that the key is present in the tree.
+%%
+%% - take_any(X, S):removes element with key X from tree S; returns new tree
+%%   with removed element.
 %%
 %% - balance(T): rebalances tree T. Note that this is rarely necessary,
 %%   but may be motivated when a large number of entries have been
@@ -121,7 +127,7 @@
 -export([empty/0, is_empty/1, size/1, lookup/2, get/2, insert/3,
 	 update/3, enter/3, delete/2, delete_any/2, balance/1,
 	 is_defined/2, keys/1, values/1, to_list/1, from_orddict/1,
-	 smallest/1, largest/1, take_smallest/1, take_largest/1,
+	 smallest/1, largest/1, take/2, take_any/2, take_smallest/1, take_largest/1,
 	 iterator/1, iterator_from/2, next/1, map/2]).
 
 
@@ -150,7 +156,7 @@
 
 -define(pow(A, _), A * A). % correct with exponent as defined above.
 
--define(div2(X), X bsr 1). 
+-define(div2(X), X bsr 1).
 
 -define(mul2(X), X bsl 1).
 
@@ -259,7 +265,7 @@ update(Key, Val, {S, T}) ->
 
 %% See `lookup' for notes on the term comparison order.
 
-update_1(Key, Value, {Key1, V, Smaller, Bigger}) when Key < Key1 -> 
+update_1(Key, Value, {Key1, V, Smaller, Bigger}) when Key < Key1 ->
     {Key1, V, update_1(Key, Value, Smaller), Bigger};
 update_1(Key, Value, {Key1, V, Smaller, Bigger}) when Key > Key1 ->
     {Key1, V, Smaller, update_1(Key, Value, Bigger)};
@@ -276,7 +282,7 @@ insert(Key, Val, {S, T}) when is_integer(S) ->
     S1 = S+1,
     {S1, insert_1(Key, Val, T, ?pow(S1, ?p))}.
 
-insert_1(Key, Value, {Key1, V, Smaller, Bigger}, S) when Key < Key1 -> 
+insert_1(Key, Value, {Key1, V, Smaller, Bigger}, S) when Key < Key1 ->
     case insert_1(Key, Value, Smaller, ?div2(S)) of
 	{T1, H1, S1} ->
 	    T = {Key1, V, T1, Bigger},
@@ -285,7 +291,7 @@ insert_1(Key, Value, {Key1, V, Smaller, Bigger}, S) when Key < Key1 ->
 	    SS = S1 + S2 + 1,
 	    P = ?pow(SS, ?p),
 	    if
-		H > P -> 
+		H > P ->
 		    balance(T, SS);
 		true ->
 		    {T, H, SS}
@@ -293,7 +299,7 @@ insert_1(Key, Value, {Key1, V, Smaller, Bigger}, S) when Key < Key1 ->
 	T1 ->
 	    {Key1, V, T1, Bigger}
     end;
-insert_1(Key, Value, {Key1, V, Smaller, Bigger}, S) when Key > Key1 -> 
+insert_1(Key, Value, {Key1, V, Smaller, Bigger}, S) when Key > Key1 ->
     case insert_1(Key, Value, Bigger, ?div2(S)) of
 	{T1, H1, S1} ->
 	    T = {Key1, V, Smaller, T1},
@@ -302,7 +308,7 @@ insert_1(Key, Value, {Key1, V, Smaller, Bigger}, S) when Key > Key1 ->
 	    SS = S1 + S2 + 1,
 	    P = ?pow(SS, ?p),
 	    if
-		H > P -> 
+		H > P ->
 		    balance(T, SS);
 		true ->
 		    {T, H, SS}
@@ -423,6 +429,47 @@ merge(Smaller, Larger) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-spec take_any(Key, Tree1) -> {ok, Value, Tree2} | error when
+      Tree1 :: tree(Key, _),
+      Tree2 :: tree(Key, _),
+      Key   :: term(),
+      Value :: term().
+take_any(Key, T) ->
+    case is_defined(Key, T) of
+	true ->
+	    take(Key, T);
+	false ->
+	    error
+    end.
+
+-spec take(Key, Tree1) -> {ok, Value, Tree2} when
+      Tree1 :: tree(Key, _),
+      Tree2 :: tree(Key, _),
+      Key   :: term(),
+      Value :: term().
+take(Key, {S, T}) when is_integer(S), S >= 0 ->
+    {{Key, Value}, Res} = take_1(Key, T),
+    {ok, Value, {S - 1, Res}}.
+
+take_1(Key, {Key1, Value, Smaller, Larger}) when Key < Key1 ->
+    case take_1(Key, Smaller) of
+	{{Key2, Value2}, Smaller1} ->
+	    {{Key2, Value2}, {Key1, Value, Smaller1, Larger}};
+	Smaller1 ->
+	    {Key1, Value, Smaller1, Larger}
+    end;
+take_1(Key, {Key1, Value, Smaller, Bigger}) when Key > Key1 ->
+    case take_1(Key, Bigger) of
+	{{Key2, Value2}, Bigger1} ->
+	    {{Key2, Value2}, {Key1, Value, Smaller, Bigger1}};
+	Bigger1 ->
+	    {Key1, Value, Smaller, Bigger1}
+    end;
+take_1(_, {Key, Value, Smaller, Larger}) ->
+    {{Key, Value}, merge(Smaller, Larger)}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 -spec take_smallest(Tree1) -> {Key, Value, Tree2} when
       Tree1 :: tree(Key, Value),
       Tree2 :: tree(Key, Value).
@@ -477,7 +524,7 @@ largest_1({_Key, _Value, _Smaller, Larger}) ->
 
 -spec to_list(Tree) -> [{Key, Value}] when
       Tree :: tree(Key, Value).
-			   
+
 to_list({_, T}) ->
     to_list(T, []).
 
