@@ -524,7 +524,7 @@ compile_load(Mod, Dir, Ver, CodeType) ->
     Target = case CodeType of
 	beam -> [];
 	hipe -> [native];
-	hipe_llvm -> [native,{hipe,to_llvm}]
+	hipe_llvm -> [native,{hipe,[to_llvm]}]
     end,
     CompOpts = [binary, report] ++ Target ++ Version,
 
