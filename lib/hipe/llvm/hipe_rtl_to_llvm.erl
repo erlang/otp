@@ -1461,7 +1461,7 @@ handle_relocations(Relocs, Data, Fun) ->
   Relocs2 = lists:foldl(fun const_to_dict/2, Relocs1, ConstLabels),
   %% Temporary Store inc_stack and llvm_fix_pinned_regs to Dictionary
   %% TODO: Remove this
-  Relocs3 = dict:store("inc_stack_0", {call, remote, {bif, inc_stack_0, 0}}, Relocs2),
+  Relocs3 = dict:store("inc_stack_0", {call, not_remote, {bif, inc_stack_0, 0}}, Relocs2),
   Relocs4 = dict:store("hipe_bifs.llvm_fix_pinned_regs.0",
                        {call, remote, {hipe_bifs, llvm_fix_pinned_regs, 0}}, Relocs3),
   BranchMetaData = [
