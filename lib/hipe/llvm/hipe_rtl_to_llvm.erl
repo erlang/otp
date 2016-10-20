@@ -439,10 +439,6 @@ trans_call_name(RtlCallName, RtlCallType, Relocs, CallArgs, FinalArgs) ->
       {"@" ++ LlvmName, [], Relocs1};
     {M, F, A} when is_atom(M), is_atom(F), is_integer(A) ->
       LlvmName = trans_mfa_name({M, F, A}, RtlCallType),
-      ok = case RtlCallType of
-             not_remote -> ok;
-             remote -> ok
-           end,
       Relocs1 =
         relocs_store(LlvmName, {call, RtlCallType, {M, F, length(CallArgs)}}, Relocs),
       {"@" ++ LlvmName, [], Relocs1};
