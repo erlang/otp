@@ -68,38 +68,37 @@ span.bold_code   { font-family: mono, Courier, monospace; white-space: pre; font
 span.code        { font-family: mono, Courier, monospace; white-space: pre; font-weight: normal }
 
 .note, .warning, .do, .dont {
-  border: solid #3E4349 1px;
+  border: 1px solid #495057;
   margin: 1em 3em;
 }
 .note .label {
-  background: #30d42a;
-  color: white;
+  background-color: #2b8a3e;
+  color: #fefefe;
   font-weight: bold;
   padding: 5px 10px;
 }
 .note .content {
-  background: #eafeea;
-  color: #3E4349;
+  background: #f8f9fa;
   line-height: 120%;
   font-size: 90%;
-  padding: 5px 10px;
+  padding: 0.5em 1em;
 }
 .warning .label {
-  background: #C00;
-  color: white;
+  background: #c92a2a;
+  color: #fefefe;
   font-weight: bold;
   padding: 5px 10px;
 }
 .warning .content {
-  background: #FFF0F0;
-  color: #3E4349;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
   line-height: 120%;
   font-size: 90%;
-  padding: 5px 10px;
+  padding: 0.5em 1em;
 }
 .do .label {
   background: #30d42a;
-  color: white;
+  color: #fefefe;
   font-weight: bold;
   padding: 5px 10px;
 }
@@ -112,7 +111,7 @@ span.code        { font-family: mono, Courier, monospace; white-space: pre; font
 }
 .dont .label {
   background: #C00;
-  color: white;
+  color: #fefefe;
   font-weight: bold;
   padding: 5px 10px;
 }
