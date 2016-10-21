@@ -67,7 +67,14 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 }
 
 span.bold_code   { font-family: mono, Courier, monospace; white-space: pre; font-weight: bold }
-span.code        { font-family: mono, Courier, monospace; white-space: pre; font-weight: normal }
+span.code        {
+ font-family: mono, Courier, monospace; white-space: pre; font-weight: normal;
+ color: #000;
+ background-color: #f5f5f5;
+ padding: 0.15em;
+ border: 1px solid #ddd;
+ border-radius: 0.2em;
+}
 
 .note, .warning, .do, .dont {
   border: 1px solid #495057;
