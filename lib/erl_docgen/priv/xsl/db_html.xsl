@@ -810,26 +810,26 @@
       </xsl:otherwise>
     </xsl:choose>
     <br/>
-    <small>
+    <ul class="panel-sections">
       <xsl:if test="boolean(/book/parts/part)">
-        <a href="users_guide.html">User's Guide</a><br/>
+          <li><a href="users_guide.html">User's Guide</a></li>
       </xsl:if>
       <xsl:if test="boolean(/book/applications)">
-        <a href="index.html">Reference Manual</a><br/>
+          <li><a href="index.html">Reference Manual</a></li>
       </xsl:if>
       <xsl:if test="boolean(/book/releasenotes)">
-        <a href="release_notes.html">Release Notes</a><br/>
+          <li><a href="release_notes.html">Release Notes</a></li>
       </xsl:if>
       <xsl:choose>
 	<xsl:when test="string-length($pdfname) > 0">
-	  <a href="{$pdfdir}/{$pdfname}.pdf">PDF</a><br/>
+        <li><a href="{$pdfdir}/{$pdfname}.pdf">PDF</a></li>
 	</xsl:when>
 	<xsl:otherwise>
-	  <a href="{$pdfdir}/{$appname}-{$appver}.pdf">PDF</a><br/>
+        <li><a href="{$pdfdir}/{$appname}-{$appver}.pdf">PDF</a></li>
 	</xsl:otherwise>
       </xsl:choose>
-      <a href="{$topdocdir}/index.html">Top</a>
-    </small>
+      <li><a href="{$topdocdir}/index.html">Top</a></li>
+    </ul>
   </xsl:template>
 
   <xsl:template name="menu_middle">
@@ -847,8 +847,10 @@
     </small -->
     <br/>
 
-    <a href="javascript:openAllFlips()">Expand All</a><br/>
-    <a href="javascript:closeAllFlips()">Contract All</a>
+    <ul class="expand-collapse-items">
+        <li><a href="javascript:openAllFlips()">Expand All</a></li>
+        <li><a href="javascript:closeAllFlips()">Contract All</a></li>
+    </ul>
   </xsl:template>
 
 
