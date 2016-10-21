@@ -386,7 +386,7 @@
   <!-- Datatypes -->
   <xsl:template match="datatypes">
     <h3>
-      <xsl:text>DATA TYPES</xsl:text>
+      <xsl:text>Data Types</xsl:text>
     </h3>
     <xsl:apply-templates/>
   </xsl:template>
@@ -1779,7 +1779,7 @@
   <!-- Module -->
   <xsl:template match="module">
     <xsl:param name="partnum"/>
-    <h3>MODULE</h3>
+    <h3>Module</h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1791,7 +1791,7 @@
   <!-- Modulesummary -->
   <xsl:template match="modulesummary">
     <xsl:param name="partnum"/>
-    <h3>MODULE SUMMARY</h3>
+    <h3>Module Summary</h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1802,7 +1802,7 @@
   <!-- Lib -->
   <xsl:template match="lib">
     <xsl:param name="partnum"/>
-    <h3>C LIBRARY</h3>
+    <h3>C Library</h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1814,7 +1814,7 @@
   <!-- Libsummary -->
   <xsl:template match="libsummary">
     <xsl:param name="partnum"/>
-    <h3>LIBRARY SUMMARY</h3>
+    <h3>Library Summary</h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1825,7 +1825,7 @@
   <!-- Com -->
   <xsl:template match="com">
     <xsl:param name="partnum"/>
-    <h3>COMMAND</h3>
+    <h3>Command</h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1837,7 +1837,7 @@
   <!-- Comsummary -->
   <xsl:template match="comsummary">
     <xsl:param name="partnum"/>
-    <h3>COMMAND SUMMARY</h3>
+    <h3>Command Summary</h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1848,7 +1848,7 @@
   <!-- File -->
   <xsl:template match="file">
     <xsl:param name="partnum"/>
-    <h3>FILE</h3>
+    <h3>File</h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1860,7 +1860,7 @@
   <!-- Filesummary -->
   <xsl:template match="filesummary">
     <xsl:param name="partnum"/>
-    <h3>FILE SUMMARY</h3>
+    <h3>File Summary</h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1872,7 +1872,7 @@
   <!-- App -->
   <xsl:template match="app">
     <xsl:param name="partnum"/>
-    <h3>APPLICATION</h3>
+    <h3>Application</h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1884,7 +1884,7 @@
   <!-- Appsummary -->
   <xsl:template match="appsummary">
     <xsl:param name="partnum"/>
-    <h3>APPLICATION SUMMARY</h3>
+    <h3>Application Summary</h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1895,7 +1895,7 @@
   <!-- Description -->
   <xsl:template match="description">
     <xsl:param name="partnum"/>
-    <h3>DESCRIPTION</h3>
+    <h3>Description</h3>
     <div class="REFBODY">
       <p>
         <xsl:apply-templates>
@@ -1910,7 +1910,7 @@
     <xsl:param name="partnum"/>
 
     <h3>
-      <xsl:text>EXPORTS</xsl:text>
+      <xsl:text>Exports</xsl:text>
     </h3>
 
     <xsl:apply-templates>
