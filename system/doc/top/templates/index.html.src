@@ -73,24 +73,10 @@ limitations under the License.
 
 <div id="content">
 <div class="innertube">
-<center>
-<font size="+1"><b>Erlang/OTP #otp_base_vsn#</b></font><br>
-</center>
-<center>
-<p>
-<font size="+1">Welcome to Erlang/OTP, a complete<br>
-development environment<br>
-for concurrent programming.</font>
-</p>
-</center>
-<br>
-<br>
-<br>
-<p><b>
-<font size="+1">
-Some hints that may get you started faster
-</font>
-</b></p>
+    <h1 class="main-title">Erlang/OTP #otp_base_vsn#</h1>
+    <p class="main-description">Welcome to Erlang/OTP, a complete development environment for concurrent programming.</p>
+ 
+    <h2>Some hints that may get you started faster</h2>
 
 <ul>
 

@@ -150,3 +150,13 @@ footer       { }
  text-align: center;
  margin-bottom: 1em;
 }
+
+.main-title{
+ text-align: center;
+}
+
+.main-description{
+ text-align: center;
+ margin: 2em 0;
+ font-size: 1.5em;
+}
