@@ -9,6 +9,7 @@ body {
   overflow: scroll;
   height: 100%;
   max-height: 100%;
+  line-height: 1.5em;
 }
 
 th            { font-family: Verdana, Arial, Helvetica, sans-serif }
@@ -62,6 +63,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 .footer 
 {
   margin: 15px; /* Magins for inner DIV inside each DIV (to provide padding) */
+  text-align: center;
 }
 
 span.bold_code   { font-family: mono, Courier, monospace; white-space: pre; font-weight: bold }
