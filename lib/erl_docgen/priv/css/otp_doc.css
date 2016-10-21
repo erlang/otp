@@ -1,7 +1,7 @@
 /* standard OTP style sheet */
 body {
   background: #fefefe;
-  color: #3E4349;
+  color: #1a1a1a;
   font-family: serif;
   margin: 0;
   padding: 0;
@@ -106,7 +106,7 @@ span.code        { font-family: mono, Courier, monospace; white-space: pre; font
 }
 .do .content {
   background: #eafeea;
-  color: #3E4349;
+  color: #1a1a1a;
   line-height: 120%;
   font-size: 90%;
   padding: 5px 10px;
@@ -119,7 +119,7 @@ span.code        { font-family: mono, Courier, monospace; white-space: pre; font
 }
 .dont .content {
   background: #FFF0F0;
-  color: #3E4349;
+  color: #1a1a1a;
   line-height: 120%;
   font-size: 90%;
   padding: 5px 10px;
@@ -225,7 +225,7 @@ th {
 }
 
 h3>a{
- color: #3E4349 !important;
+ color: #1a1a1a !important;
 }
 
 hr{
