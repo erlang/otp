@@ -1260,11 +1260,7 @@
 
         <xsl:call-template name="menu_middle"/>
 
-        <p>
-          <small>
-            <strong>Chapters</strong>
-          </small>
-        </p>
+        <h3>Chapters</h3>
 
         <ul class="flipMenu" imagepath="{$topdocdir}/js/flipmenu">
           <xsl:call-template name="menu.chapter">
@@ -1425,11 +1421,7 @@
 
         <xsl:call-template name="menu_middle"/>
 
-        <p>
-          <small>
-            <strong>Table of Contents</strong>
-          </small>
-        </p>
+        <h3>Table of Contents</h3>
 
         <ul class="flipMenu">
           <xsl:call-template name="menu.ref2">
@@ -2272,11 +2264,7 @@
 
         <xsl:call-template name="menu_middle"/>
 
-        <p>
-          <small>
-            <strong>Chapters</strong>
-          </small>
-        </p>
+        <h3>Chapters</h3>
 
         <ul class="flipMenu" imagepath="{$topdocdir}/js/flipmenu">
           <xsl:call-template name="menu.chapter">
