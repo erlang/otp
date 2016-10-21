@@ -64,8 +64,8 @@ a:visited      { color: blue; text-decoration: none }
   margin: 15px; /* Magins for inner DIV inside each DIV (to provide padding) */
 }
 
-span.bold_code   { font-family: Courier, monospace; font-weight: bold }
-span.code        { font-family: Courier, monospace; font-weight: normal }
+span.bold_code   { font-family: mono, Courier, monospace; white-space: pre; font-weight: bold }
+span.code        { font-family: mono, Courier, monospace; white-space: pre; font-weight: normal }
 
 .note, .warning, .do, .dont {
   border: solid #3E4349 1px;
@@ -138,7 +138,7 @@ span.code        { font-family: Courier, monospace; font-weight: normal }
   font-size: 120%;
 }
 
-pre          { font-family: Courier, monospace; font-weight: normal }
+pre          { font-family: mono, Courier, monospace; font-weight: normal }
 
 .REFBODY     { margin-left: 13mm }
 
