@@ -102,21 +102,21 @@ Eshell V4.7.4  (abort with ^G)
 /usr/local/otp    ]]></code>
 
     <p>To compile your code, ensure that your C compiler knows where
-      to find <c><![CDATA[erl_interface.h]]></c> by specifying an appropriate
-      <c><![CDATA[-I]]></c> argument on the command line, or add it to
-      the <c><![CDATA[CFLAGS]]></c> definition in your
-      <c><![CDATA[Makefile]]></c>. The correct value for this path is
-      <c><![CDATA[$OTPROOT/lib/erl_interface-$EIVSN/include]]></c>,
+      to find <c>erl_interface.h</c> by specifying an appropriate
+      <c>-I</c> argument on the command line, or add it to
+      the <c>CFLAGS</c> definition in your
+      <c>Makefile</c>. The correct value for this path is
+      <c>$OTPROOT/lib/erl_interface-$EIVSN/include</c>,
       where:</p>
 
     <list type="bulleted">
       <item>
-        <p><c><![CDATA[$OTPROOT]]></c> is the path reported by
-          <c><![CDATA[code:root_dir/0]]></c> in the example above.</p>
+        <p><c>$OTPROOT</c> is the path reported by
+          <c>code:root_dir/0</c> in the example above.</p>
       </item>
       <item>
-        <p><c><![CDATA[$EIVSN]]></c> is the version of the <c>Erl_Interface</c> application,
-          for example, <c><![CDATA[erl_interface-3.2.3]]></c>.</p>
+        <p><c>$EIVSN</c> is the version of the <c>Erl_Interface</c> application,
+          for example, <c>erl_interface-3.2.3</c>.</p>
       </item>
     </list>
 
@@ -128,16 +128,16 @@ $ cc -c -I/usr/local/otp/lib/erl_interface-3.2.3/include myprog.c    ]]></code>
     <p>When linking:</p>
 
     <list type="bulleted">
-      <item>Specify the path to <c><![CDATA[liberl_interface.a]]></c> and
-        <c><![CDATA[libei.a]]></c> with
-        <c><![CDATA[-L$OTPROOT/lib/erl_interface-3.2.3/lib]]></c>.</item>
+      <item>Specify the path to <c>liberl_interface.a</c> and
+        <c>libei.a</c> with
+        <c>-L$OTPROOT/lib/erl_interface-3.2.3/lib</c>.</item>
       <item>Specify the name of the libraries with
-        <c><![CDATA[-lerl_interface -lei]]></c>.</item>
+        <c>-lerl_interface -lei</c>.</item>
     </list>
 
     <p>Do this on the command line or add the flags to the
-      <c><![CDATA[LDFLAGS]]></c> definition in your
-      <c><![CDATA[Makefile]]></c>.</p>
+      <c>LDFLAGS</c> definition in your
+      <c>Makefile</c>.</p>
 
     <p>Linking the code:</p>
 
@@ -146,9 +146,9 @@ $ ld -L/usr/local/otp/lib/erl_interface-3.2.3/
                             lib myprog.o -lerl_interface -lei -o myprog    ]]></code>
 
     <p>On some systems it can be necessary to link with some more
-      libraries (for example, <c><![CDATA[libnsl.a]]></c> and
-      <c><![CDATA[libsocket.a]]></c> on Solaris, or
-      <c><![CDATA[wsock32.lib]]></c> on Windows) to use the
+      libraries (for example, <c>libnsl.a</c> and
+      <c>libsocket.a</c> on Solaris, or
+      <c>wsock32.lib</c> on Windows) to use the
       communication facilities of <c>Erl_Interface</c>.</p>
 
     <p>If you use the <c>Erl_Interface</c> functions in a threaded
@@ -156,18 +156,18 @@ $ ld -L/usr/local/otp/lib/erl_interface-3.2.3/
       <c>Erl_Interface</c> needs access to some of the synchronization
       facilities in your threads package. You must specify extra
       compiler flags to indicate which of the packages you use. Define
-      <c><![CDATA[_REENTRANT]]></c> and either <c><![CDATA[STHREADS]]></c> or
-      <c><![CDATA[PTHREADS]]></c>. The default is to use POSIX threads if
-      <c><![CDATA[_REENTRANT]]></c> is specified.</p>
+      <c>_REENTRANT</c> and either <c>STHREADS</c> or
+      <c>PTHREADS</c>. The default is to use POSIX threads if
+      <c>_REENTRANT</c> is specified.</p>
   </section>
 
   <section>
     <title>Initializing the Erl_Interface Library</title>
     <p>Before calling any of the other <c>Erl_Interface</c> functions, call
-      <c><![CDATA[erl_init()]]></c> exactly once to initialize the library.
-      <c><![CDATA[erl_init()]]></c> takes two arguments. However, the arguments
+      <c>erl_init()</c> exactly once to initialize the library.
+      <c>erl_init()</c> takes two arguments. However, the arguments
       are no longer used by <c>Erl_Interface</c> and are therefore to be
-      specified as <c><![CDATA[erl_init(NULL,0)]]></c>.</p>
+      specified as <c>erl_init(NULL,0)</c>.</p>
   </section>
 
   <section>
@@ -181,7 +181,7 @@ $ ld -L/usr/local/otp/lib/erl_interface-3.2.3/
       several C functions that create and manipulate Erlang data
       structures. The library also contains an encode and a decode function.
       The following example shows how to create and encode an Erlang tuple
-      <c><![CDATA[{tobbe,3928}]]></c>:</p>
+      <c>{tobbe,3928}</c>:</p>
 
     <code type="none"><![CDATA[
 ETERM *arr[2], *tuple;
@@ -193,8 +193,8 @@ arr[1] = erl_mk_integer(3928);
 tuple  = erl_mk_tuple(arr, 2);
 i = erl_encode(tuple, buf);    ]]></code>
 
-    <p>Alternatively, you can use <c><![CDATA[erl_send()]]></c> and
-      <c><![CDATA[erl_receive_msg]]></c>, which handle the encoding and
+    <p>Alternatively, you can use <c>erl_send()</c> and
+      <c>erl_receive_msg</c>, which handle the encoding and
       decoding of messages transparently.</p>
 
     <p>For a complete description, see the following modules:</p>
@@ -232,8 +232,8 @@ erl_free_compound(ep);      ]]></code>
 
     <p>As in the previous examples, it is your responsibility to free the
       memory allocated for Erlang terms. In this example,
-      <c><![CDATA[erl_free_compound()]]></c> ensures that the complete term
-      pointed to by <c><![CDATA[ep]]></c> is released. This is necessary
+      <c>erl_free_compound()</c> ensures that the complete term
+      pointed to by <c>ep</c> is released. This is necessary
       because the pointer from the second call to <c>erl_format</c> is lost.</p>
 
     <p>The following example shows a slightly different solution:</p>
@@ -247,7 +247,7 @@ erl_free_term(ep);
 erl_free_term(ep2);      ]]></code>
 
     <p>In this case, you free the two terms independently. The order in
-      which you free the terms <c><![CDATA[ep]]></c> and <c><![CDATA[ep2]]></c>
+      which you free the terms <c>ep</c> and <c>ep2</c>
       is not important,
       because the <c>Erl_Interface</c> library uses reference counting to
       determine when it is safe to remove objects.</p>
@@ -274,7 +274,7 @@ erl_eterm_release();
   <section>
     <title>Pattern Matching</title>
     <p>An Erlang pattern is a term that can contain unbound variables or
-      <c><![CDATA["do not care"]]></c> symbols. Such a pattern can be matched
+      <c>"do not care"</c> symbols. Such a pattern can be matched
       against a
       term and, if the match is successful, any unbound variables in the
       pattern will be bound as a side effect. The content of a bound
@@ -348,7 +348,7 @@ erl_connect_init(identification_number, cookie, creation);    ]]></code>
 
     <p>After initialization, you set up the connection to the Erlang node.
       To specify the Erlang node you want to connect to, use
-      <c><![CDATA[erl_connect()]]></c>. The following example sets up the
+      <c>erl_connect()</c>. The following example sets up the
       connection and is to result in a valid socket file descriptor:</p>
 
     <code type="none"><![CDATA[
@@ -357,7 +357,7 @@ char *nodename="xyz@chivas.du.etx.ericsson.se"; /* An example */
 if ((sockfd = erl_connect(nodename)) < 0)
   erl_err_quit("ERROR: erl_connect failed");    ]]></code>
 
-    <p><c><![CDATA[erl_err_quit()]]></c> prints the specified string and
+    <p><c>erl_err_quit()</c> prints the specified string and
       terminates the program. For more information, see the
       <seealso marker="erl_error"><c>erl_error</c></seealso> module.</p>
   </section>
@@ -366,24 +366,24 @@ if ((sockfd = erl_connect(nodename)) < 0)
     <title>Using EPMD</title>
     <p><seealso marker="erts:epmd"><c>erts:epmd</c></seealso>
       is the Erlang Port Mapper Daemon. Distributed
-      Erlang nodes register with <c><![CDATA[epmd]]></c> on the local host to
+      Erlang nodes register with <c>epmd</c> on the local host to
       indicate to other nodes that they exist and can accept connections.
-      <c><![CDATA[epmd]]></c> maintains a register of
+      <c>epmd</c> maintains a register of
       node and port number information, and when a node wishes to connect to
-      another node, it first contacts <c><![CDATA[epmd]]></c> to find the
+      another node, it first contacts <c>epmd</c> to find the
       correct port number to connect to.</p>
 
     <p>When you use
       <seealso marker="erl_connect"><c>erl_connect</c></seealso>
       to connect to an Erlang node, a connection is first made to
-      <c><![CDATA[epmd]]></c> and, if the node is known, a
+      <c>epmd</c> and, if the node is known, a
       connection is then made to the Erlang node.</p>
 
-    <p>C nodes can also register themselves with <c><![CDATA[epmd]]></c>
+    <p>C nodes can also register themselves with <c>epmd</c>
       if they want other
       nodes in the system to be able to find and connect to them.</p>
 
-    <p>Before registering with <c><![CDATA[epmd]]></c>, you must first
+    <p>Before registering with <c>epmd</c>, you must first
       create a listen socket and bind it to a port. Then:</p>
 
     <code type="none"><![CDATA[
@@ -391,17 +391,17 @@ int pub;
 
 pub = erl_publish(port);    ]]></code>
 
-    <p><c><![CDATA[pub]]></c> is a file descriptor now connected to
-      <c><![CDATA[epmd]]></c>. <c><![CDATA[epmd]]></c>
+    <p><c>pub</c> is a file descriptor now connected to
+      <c>epmd</c>. <c>epmd</c>
       monitors the other end of the connection. If it detects that the
       connection has been closed, the node becomes unregistered. So, if you
       explicitly close the descriptor or if your node fails, it becomes
-      unregistered from <c><![CDATA[epmd]]></c>.</p>
+      unregistered from <c>epmd</c>.</p>
 
     <p>Notice that on some systems (such as VxWorks), a failed node is
       not detected by this mechanism, as the operating system does not
       automatically close descriptors that were left open when the node
-      failed. If a node has failed in this way, <c><![CDATA[epmd]]></c>
+      failed. If a node has failed in this way, <c>epmd</c>
       prevents you from
       registering a new node with the old name, as it thinks that the old
       name is still in use. In this case, you must unregister the name
@@ -410,7 +410,7 @@ pub = erl_publish(port);    ]]></code>
     <code type="none"><![CDATA[
 erl_unpublish(node);    ]]></code>
 
-    <p>This causes <c><![CDATA[epmd]]></c> to close the connection from the
+    <p>This causes <c>epmd</c> to close the connection from the
       far end. Notice
       that if the name was in fact still in use by a node, the results of
       this operation are unpredictable. Also, doing this does not cause the
@@ -442,15 +442,15 @@ erl_unpublish(node);    ]]></code>
         <c>erl_connect:erl_receive_msg</c></seealso></item>
     </list>
 
-    <p><c><![CDATA[erl_receive()]]></c> receives the message into a buffer,
-      while <c><![CDATA[erl_receive_msg()]]></c> decodes the message into an
+    <p><c>erl_receive()</c> receives the message into a buffer,
+      while <c>erl_receive_msg()</c> decodes the message into an
       Erlang term.</p>
 
     <section>
       <title>Example of Sending Messages</title>
-      <p>In the following example, <c><![CDATA[{Pid, hello_world}]]></c> is
-        sent to a registered process <c><![CDATA[my_server]]></c>. The message
-        is encoded by <c><![CDATA[erl_send()]]></c>:</p>
+      <p>In the following example, <c>{Pid, hello_world}</c> is
+        sent to a registered process <c>my_server</c>. The message
+        is encoded by <c>erl_send()</c>:</p>
 
       <code type="none"><![CDATA[
 extern const char *erl_thisnodename(void);
@@ -467,16 +467,16 @@ erl_reg_send(sockfd, "my_server", emsg);
 erl_free_term(emsg);      ]]></code>
 
       <p>The first element of the tuple that is sent is your own
-        pid. This enables <c><![CDATA[my_server]]></c> to reply.
+        pid. This enables <c>my_server</c> to reply.
         For more information about the primitives, see the
         <seealso marker="erl_connect"><c>erl_connect</c></seealso> module.</p>
     </section>
 
     <section>
       <title>Example of Receiving Messages</title>
-      <p>In this example, <c><![CDATA[{Pid, Something}]]></c> is received. The
+      <p>In this example, <c>{Pid, Something}</c> is received. The
         received pid is then used to return
-        <c><![CDATA[{goodbye,Pid}]]></c>.</p>
+        <c>{goodbye,Pid}</c>.</p>
 
       <code type="none"><![CDATA[
 ETERM *arr[2], *answer;
@@ -498,15 +498,15 @@ if ((rc = erl_receive_msg(sockfd , buf, BUFSIZE, &emsg)) == ERL_MSG) {
         occasionally polls all its connected neighbors in an attempt to
         detect failed nodes or communication links. A node that receives such
         a message is expected to respond immediately with an
-        <c><![CDATA[ERL_TICK]]></c> message. This is done automatically by
-        <c><![CDATA[erl_receive()]]></c>. However, when this has occurred,
-        <c><![CDATA[erl_receive]]></c> returns <c><![CDATA[ERL_TICK]]></c> to
+        <c>ERL_TICK</c> message. This is done automatically by
+        <c>erl_receive()</c>. However, when this has occurred,
+        <c>erl_receive</c> returns <c>ERL_TICK</c> to
         the caller without storing a message into the
-        <c><![CDATA[ErlMessage]]></c> structure.</p>
+        <c>ErlMessage</c> structure.</p>
 
       <p>When a message has been received, it is the caller's responsibility
-        to free the received message <c><![CDATA[emsg.msg]]></c> and
-        <c><![CDATA[emsg.to]]></c> or <c><![CDATA[emsg.from]]></c>,
+        to free the received message <c>emsg.msg</c> and
+        <c>emsg.to</c> or <c>emsg.from</c>,
         depending on the type of message received.</p>
 
       <p>For more information, see the
@@ -538,14 +538,14 @@ if (!erl_match(ep, reply))
 erl_free_term(ep);
 erl_free_term(reply);    ]]></code>
 
-    <p><c><![CDATA[c:c/1]]></c> is called to compile the specified module on
-      the remote node. <c><![CDATA[erl_match()]]></c> checks that the
+    <p><c>c:c/1</c> is called to compile the specified module on
+      the remote node. <c>erl_match()</c> checks that the
       compilation was
-      successful by testing for the expected <c><![CDATA[ok]]></c>.</p>
+      successful by testing for the expected <c>ok</c>.</p>
 
-    <p>For more information about <c><![CDATA[erl_rpc()]]></c> and its
-      companions <c><![CDATA[erl_rpc_to()]]></c> and
-      <c><![CDATA[erl_rpc_from()]]></c>, see the
+    <p>For more information about <c>erl_rpc()</c> and its
+      companions <c>erl_rpc_to()</c> and
+      <c>erl_rpc_from()</c>, see the
       <seealso marker="erl_connect"><c>erl_connect</c></seealso> module.</p>
   </section>
 
@@ -582,15 +582,15 @@ free(names);    ]]></code>
       <c>erl_global:erl_global_names</c></seealso>
       allocates and returns a buffer containing
       all the names known to the <c>global</c> module in <c>Kernel</c>.
-      <c><![CDATA[count]]></c> is initialized to
+      <c>count</c> is initialized to
       indicate the number of names in the array. The array of strings in names
       is terminated by a <c>NULL</c> pointer, so it is not necessary to use
-      <c><![CDATA[count]]></c> to determine when the last name is reached.</p>
+      <c>count</c> to determine when the last name is reached.</p>
 
     <p>It is the caller's responsibility to free the array.
       <c>erl_global_names</c> allocates the array and all the strings
-      using a single call to <c><![CDATA[malloc()]]></c>, so
-      <c><![CDATA[free(names)]]></c> is all that is necessary.</p>
+      using a single call to <c>malloc()</c>, so
+      <c>free(names)</c> is all that is necessary.</p>
 
     <p>To look up one of the names:</p>
 
@@ -600,16 +600,16 @@ char node[256];
 
 pid = erl_global_whereis(fd,"schedule",node);    ]]></code>
 
-    <p>If <c><![CDATA["schedule"]]></c> is known to the
+    <p>If <c>"schedule"</c> is known to the
       <c>global</c> module in <c>Kernel</c>, an Erlang pid is
       returned that can be used to send messages to the schedule service.
-      Also, <c><![CDATA[node]]></c> is initialized to contain the name of
+      Also, <c>node</c> is initialized to contain the name of
       the node where the service is registered, so that you can make a
       connection to it by simply passing the variable to
       <seealso marker="erl_connect"><c>erl_connect</c></seealso>.</p>
 
     <p>Before registering a name, you should already have registered your
-      port number with <c><![CDATA[epmd]]></c>. This is not strictly necessary,
+      port number with <c>epmd</c>. This is not strictly necessary,
       but if you
       neglect to do so, then other nodes wishing to communicate with your
       service cannot find or connect to your process.</p>
@@ -629,7 +629,7 @@ erl_global_register(fd,servicename,pid);    ]]></code>
         to wait for incoming connections.</p>
 
     <note>
-      <p>Remember to free <c><![CDATA[pid]]></c> later with
+      <p>Remember to free <c>pid</c> later with
         <seealso marker="erl_malloc#erl_free_term">
         <c>erl_malloc:erl_free_term</c></seealso>.</p>
     </note>
@@ -743,7 +743,7 @@ ei_reg_close(reg);    ]]></code>
 ei_reg_dump(fd, reg, "mtab", dumpflags);      ]]></code>
 
       <p>This example back up the contents of the registry to the
-        specified <c>Mnesia</c> table <c><![CDATA["mtab"]]></c>.
+        specified <c>Mnesia</c> table <c>"mtab"</c>.
         Once a registry has been backed
         up to <c>Mnesia</c> like this, more backups only affect
         objects that have been modified since the most recent backup, that is,
@@ -756,7 +756,7 @@ ei_reg_dump(fd, reg, "mtab", dumpflags);      ]]></code>
       <code type="none"><![CDATA[
 ei_reg_restore(fd, reg, "mtab");      ]]></code>
 
-      <p>This reads the entire contents of <c><![CDATA["mtab"]]></c> into the
+      <p>This reads the entire contents of <c>"mtab"</c> into the
         specified registry. After the restore, all the objects in the registry
         are marked as unmodified, so a later backup only affects
         objects that you have modified since the restore.</p>
@@ -775,8 +775,8 @@ ei_reg_restore(fd, reg, "mtab");      ]]></code>
         important that some simple guidelines are followed.</p>
 
       <p>Most importantly, the object must have been created with a single call
-        to <c><![CDATA[malloc()]]></c> (or similar), so that it can later be
-        removed by a single call to <c><![CDATA[free()]]></c>.
+        to <c>malloc()</c> (or similar), so that it can later be
+        removed by a single call to <c>free()</c>.
         Objects are freed by the registry
         when it is closed, or when you assign a new value to an object that
         previously contained a string or binary.</p>

@@ -40,9 +40,9 @@
       by W. Richard Stevens.</p>
 
     <p>These functions are all called in the same manner as
-      <c><![CDATA[printf()]]></c>, that is, with a string containing format
+      <c>printf()</c>, that is, with a string containing format
       specifiers followed by a list of corresponding arguments. All output from
-      these functions is to <c><![CDATA[stderr]]></c>.</p>
+      these functions is to <c>stderr</c>.</p>
   </description>
 
   <funcs>
@@ -54,7 +54,7 @@
       </type>
       <desc>
         <p>The message provided by the caller is printed. This
-          function is simply a wrapper for <c><![CDATA[fprintf()]]></c>.</p>
+          function is simply a wrapper for <c>fprintf()</c>.</p>
       </desc>
     </func>
 
@@ -105,37 +105,37 @@
     <title>Error Reporting</title>
     <p>Most functions in <c>Erl_Interface</c> report failures to the caller by
       returning some otherwise meaningless value (typically
-      <c><![CDATA[NULL]]></c>
+      <c>NULL</c>
       or a negative number). As this only tells you that things did not
-      go well, examine the error code in <c><![CDATA[erl_errno]]></c> if you
+      go well, examine the error code in <c>erl_errno</c> if you
       want to find out more about the failure.</p>
   </section>
 
   <funcs>
     <func>
       <name><ret>volatile int</ret><nametext>erl_errno</nametext></name>
-      <fsummary>Variable <c><![CDATA[erl_errno]]></c> contains the
+      <fsummary>Variable <c>erl_errno</c> contains the
         Erl_Interface error number. You can change the value if you wish.
       </fsummary>
       <desc>
-        <p><c><![CDATA[erl_errno]]></c> is initially (at program startup) zero
+        <p><c>erl_errno</c> is initially (at program startup) zero
           and is then set by many <c>Erl_Interface</c> functions on failure to
           a non-zero error code to indicate what kind of error it
           encountered. A successful function call can change
-          <c><![CDATA[erl_errno]]></c> (by calling some other function that
+          <c>erl_errno</c> (by calling some other function that
           fails), but no function does never set it to zero. This means
-          that you cannot use <c><![CDATA[erl_errno]]></c> to see <em>if</em> a
+          that you cannot use <c>erl_errno</c> to see <em>if</em> a
           function call failed. Instead, each function reports failure
           in its own way (usually by returning a negative number or
-          <c><![CDATA[NULL]]></c>), in which case you can examine
-          <c><![CDATA[erl_errno]]></c> for details.</p>
-        <p><c><![CDATA[erl_errno]]></c> uses the error codes defined in your
-          system's <c><![CDATA[<errno.h>]]></c>.</p>
+          <c>NULL</c>), in which case you can examine
+          <c>erl_errno</c> for details.</p>
+        <p><c>erl_errno</c> uses the error codes defined in your
+          system's <c>&lt;errno.h&gt;</c>.</p>
         <note>
-          <p><c><![CDATA[erl_errno]]></c> is a "modifiable lvalue" (just
-            like ISO C defines <c><![CDATA[errno]]></c> to be) rather than a
+          <p><c>erl_errno</c> is a "modifiable lvalue" (just
+            like ISO C defines <c>errno</c> to be) rather than a
             variable. This means it can be implemented as a macro
-            (expanding to, for example, <c><![CDATA[*_erl_errno()]]></c>).
+            (expanding to, for example, <c>*_erl_errno()</c>).
             For reasons of thread safety (or task safety), this is exactly what
             we do on most platforms.</p>
         </note>

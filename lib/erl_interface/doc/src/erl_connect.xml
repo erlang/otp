@@ -59,10 +59,10 @@
         <p>This function is used by a server process to accept a
           connection from a client process.</p>
         <list type="bulleted">
-          <item><c><![CDATA[listensock]]></c> is an open socket descriptor on
-            which <c><![CDATA[listen()]]></c> has previously been called.</item>
-          <item><c><![CDATA[conp]]></c> is a pointer to an
-            <c><![CDATA[ErlConnect]]></c> struct, described as follows:</item>
+          <item><c>listensock</c> is an open socket descriptor on
+            which <c>listen()</c> has previously been called.</item>
+          <item><c>conp</c> is a pointer to an
+            <c>ErlConnect</c> struct, described as follows:</item>
         </list>
         <code type="none"><![CDATA[
 typedef struct {
@@ -70,10 +70,10 @@ typedef struct {
   char nodename[MAXNODELEN];
 } ErlConnect;
         ]]></code>
-        <p>On success, <c><![CDATA[conp]]></c> is filled in with the address and
+        <p>On success, <c>conp</c> is filled in with the address and
           node name of the connecting client and a file descriptor is
-          returned. On failure, <c><![CDATA[ERL_ERROR]]></c> is returned and
-          <c><![CDATA[erl_errno]]></c> is set to <c><![CDATA[EIO]]></c>.</p>
+          returned. On failure, <c>ERL_ERROR</c> is returned and
+          <c>erl_errno</c> is set to <c>EIO</c>.</p>
       </desc>
     </func>
 
@@ -85,9 +85,9 @@ typedef struct {
       </type>
       <desc>
         <p>Closes an open connection to an Erlang node.</p>
-        <p><c><![CDATA[Fd]]></c> is a file descriptor obtained from
-          <c><![CDATA[erl_connect()]]></c> or
-          <c><![CDATA[erl_xconnect()]]></c>.</p>
+        <p><c>Fd</c> is a file descriptor obtained from
+          <c>erl_connect()</c> or
+          <c>erl_xconnect()</c>.</p>
         <p>Returns <c>0</c> on success. If the call fails, a non-zero value
           is returned, and the reason for the error can be obtained with the
           appropriate platform-dependent call.</p>
@@ -104,33 +104,33 @@ typedef struct {
       </type>
       <desc>
         <p>Sets up a connection to an Erlang node.</p>
-        <p><c><![CDATA[erl_xconnect()]]></c> requires the IP address of the
+        <p><c>erl_xconnect()</c> requires the IP address of the
           remote host and the alivename of the remote node to be
-          specified. <c><![CDATA[erl_connect()]]></c> provides an alternative
+          specified. <c>erl_connect()</c> provides an alternative
           interface, and determines the information from the node name
           provided.</p>
         <list type="bulleted">
-          <item><c><![CDATA[addr]]></c> is the 32-bit IP address of the remote
+          <item><c>addr</c> is the 32-bit IP address of the remote
             host.</item>
-          <item><c><![CDATA[alive]]></c> is the alivename of the remote node.
+          <item><c>alive</c> is the alivename of the remote node.
           </item>
-          <item><c><![CDATA[node]]></c> is the name of the remote node.</item>
+          <item><c>node</c> is the name of the remote node.</item>
         </list>
         <p>Returns an open file descriptor on success, otherwise a negative
-          value. In the latter case <c><![CDATA[erl_errno]]></c> is set to one
+          value. In the latter case <c>erl_errno</c> is set to one
           of:</p>
         <taglist>
-          <tag><c><![CDATA[EHOSTUNREACH]]></c></tag>
-          <item>The remote host <c><![CDATA[node]]></c> is unreachable.</item>
-          <tag><c><![CDATA[ENOMEM]]></c></tag>
+          <tag><c>EHOSTUNREACH</c></tag>
+          <item>The remote host <c>node</c> is unreachable.</item>
+          <tag><c>ENOMEM</c></tag>
           <item>No more memory is available.</item>
-          <tag><c><![CDATA[EIO]]></c></tag>
+          <tag><c>EIO</c></tag>
           <item>I/O error.</item>
         </taglist>
-        <p>Also, <c><![CDATA[errno]]></c> values from
-          <c><![CDATA[socket]]></c><em>(2)</em> and
-          <c><![CDATA[connect]]></c><em>(2)</em>
-          system calls can be propagated into <c><![CDATA[erl_errno]]></c>.</p>
+        <p>Also, <c>errno</c> values from
+          <c>socket</c><em>(2)</em> and
+          <c>connect</c><em>(2)</em>
+          system calls can be propagated into <c>erl_errno</c>.</p>
         <p><em>Example:</em></p>
         <code type="none"><![CDATA[
 #define NODE   "madonna@chivas.du.etx.ericsson.se"
@@ -160,69 +160,69 @@ erl_xconnect( &addr , ALIVE );
         <v>struct in_addr *addr;</v>
       </type>
       <desc>
-        <p>Initializes the <c><![CDATA[erl_connect]]></c> module.
+        <p>Initializes the <c>erl_connect</c> module.
           In particular, these functions are used to identify the name of the
           C-node from which they are called. One of these functions must
           be called before any of the other functions in the <c>erl_connect</c>
           module are used.</p>
-        <p><c><![CDATA[erl_connect_xinit()]]></c> stores for later use
+        <p><c>erl_connect_xinit()</c> stores for later use
           information about:</p>
         <list type="bulleted">
-          <item>Hostname of the node, <c><![CDATA[host]]></c></item>
-          <item>Alivename, <c><![CDATA[alive]]></c></item>
-          <item>Node name, <c><![CDATA[node]]></c></item>
-          <item>IP address, <c><![CDATA[addr]]></c></item>
-          <item>Cookie, <c><![CDATA[cookie]]></c></item>
-          <item>Creation number, <c><![CDATA[creation]]></c></item>
+          <item>Hostname of the node, <c>host</c></item>
+          <item>Alivename, <c>alive</c></item>
+          <item>Node name, <c>node</c></item>
+          <item>IP address, <c>addr</c></item>
+          <item>Cookie, <c>cookie</c></item>
+          <item>Creation number, <c>creation</c></item>
         </list>
-        <p><c><![CDATA[erl_connect_init()]]></c>
+        <p><c>erl_connect_init()</c>
           provides an alternative interface that does not require as much
           information from the caller. Instead,
-          <c><![CDATA[erl_connect_init()]]></c>
-          uses <c><![CDATA[gethostbyname()]]></c> to obtain default values.</p>
-        <p>If you use <c><![CDATA[erl_connect_init()]]></c>, your node will
+          <c>erl_connect_init()</c>
+          uses <c>gethostbyname()</c> to obtain default values.</p>
+        <p>If you use <c>erl_connect_init()</c>, your node will
           have a short name, that is, it will not be fully qualified. If you
           need to use fully qualified (long) names, use
-          <c><![CDATA[erl_connect_xinit()]]></c> instead.</p>
+          <c>erl_connect_xinit()</c> instead.</p>
         <list type="bulleted">
           <item>
-            <p><c><![CDATA[host]]></c> is the name of the host on which the node
+            <p><c>host</c> is the name of the host on which the node
               is running.</p>
           </item>
           <item>
-            <p><c><![CDATA[alive]]></c> is the alivename of the node.</p>
+            <p><c>alive</c> is the alivename of the node.</p>
           </item>
           <item>
-            <p><c><![CDATA[node]]></c> is the node name. It is to
+            <p><c>node</c> is the node name. It is to
                 be of the form <em>alivename@hostname</em>.</p>
           </item>
           <item>
-            <p><c><![CDATA[addr]]></c> is the 32-bit IP address of
-              <c><![CDATA[host]]></c>.</p>
+            <p><c>addr</c> is the 32-bit IP address of
+              <c>host</c>.</p>
           </item>
           <item>
-            <p><c><![CDATA[cookie]]></c> is the authorization string required
+            <p><c>cookie</c> is the authorization string required
               for access to the remote node. If <c>NULL</c>, the user
               <c>HOME</c> directory is searched for a cookie file
-              <c><![CDATA[.erlang.cookie]]></c>. The path to
+              <c>.erlang.cookie</c>. The path to
               the home directory is retrieved from environment variable
-              <c><![CDATA[HOME]]></c> on Unix and from the
-              <c><![CDATA[HOMEDRIVE]]></c> and
-              <c><![CDATA[HOMEPATH]]></c> variables on Windows. For more
+              <c>HOME</c> on Unix and from the
+              <c>HOMEDRIVE</c> and
+              <c>HOMEPATH</c> variables on Windows. For more
               details, see the <seealso marker="kernel:auth">
               <c>auth</c></seealso> module in Kernel.</p>
           </item>
           <item>
-            <p><c><![CDATA[creation]]></c> helps identifying a particular
+            <p><c>creation</c> helps identifying a particular
               instance of a C-node. In particular, it can help prevent us from
               receiving messages sent to an earlier process with the same
               registered name.</p>
           </item>
         </list>
         <p>A C-node acting as a server is assigned a creation number
-          when it calls <c><![CDATA[erl_publish()]]></c>.</p>
-        <p><c><![CDATA[number]]></c> is used by
-          <c><![CDATA[erl_connect_init()]]></c> to
+          when it calls <c>erl_publish()</c>.</p>
+        <p><c>number</c> is used by
+          <c>erl_connect_init()</c> to
           construct the actual node name. In Example 2
           below, <em>"c17@a.DNS.name"</em> is the resulting node name.</p>
         <p><em>Example 1:</em></p>
@@ -256,23 +256,23 @@ if (!erl_connect_init(17, "samplecookiestring...", 0))
           with the local name server EPMD, thereby allowing
           other processes to send messages by using the registered name.
           Before calling this function, the process should
-          have called <c><![CDATA[bind()]]></c> and <c><![CDATA[listen()]]></c>
+          have called <c>bind()</c> and <c>listen()</c>
           on an open socket.</p>
-        <p><c><![CDATA[port]]></c> is the local name to register, and is to be
+        <p><c>port</c> is the local name to register, and is to be
           the same as the port number that was previously bound to the
           socket.</p>
         <p>To unregister with EPMD, simply close the returned descriptor.</p>
         <p>On success, a descriptor connecting the calling process to EPMD is
           returned. On failure, <c>-1</c> is returned and
-          <c><![CDATA[erl_errno]]></c> is set to:</p>
+          <c>erl_errno</c> is set to:</p>
         <taglist>
-          <tag><c><![CDATA[EIO]]></c></tag>
+          <tag><c>EIO</c></tag>
           <item>I/O error.</item>
         </taglist>
-        <p>Also, <c><![CDATA[errno]]></c> values from
-          <c><![CDATA[socket]]></c><em>(2)</em>
-          and <c><![CDATA[connect]]></c><em>(2)</em> system calls can be
-          propagated into <c><![CDATA[erl_errno]]></c>.</p>
+        <p>Also, <c>errno</c> values from
+          <c>socket</c><em>(2)</em>
+          and <c>connect</c><em>(2)</em> system calls can be
+          propagated into <c>erl_errno</c>.</p>
       </desc>
     </func>
 
@@ -288,28 +288,28 @@ if (!erl_connect_init(17, "samplecookiestring...", 0))
         <p>Receives a message consisting of a sequence
           of bytes in the Erlang external format.</p>
         <list type="bulleted">
-          <item><c><![CDATA[fd]]></c> is an open descriptor to an Erlang
+          <item><c>fd</c> is an open descriptor to an Erlang
             connection.</item>
-          <item><c><![CDATA[bufp]]></c> is a buffer large enough to hold the
+          <item><c>bufp</c> is a buffer large enough to hold the
             expected message.</item>
-          <item><c><![CDATA[bufsize]]></c> indicates the size of
-            <c><![CDATA[bufp]]></c>.</item>
+          <item><c>bufsize</c> indicates the size of
+            <c>bufp</c>.</item>
         </list>
         <p>If a <em>tick</em> occurs, that is, the Erlang node on the
           other end of the connection has polled this node to see if it
-          is still alive, the function returns <c><![CDATA[ERL_TICK]]></c> and
+          is still alive, the function returns <c>ERL_TICK</c> and
           no message is placed in the buffer. Also,
-          <c><![CDATA[erl_errno]]></c> is set to <c><![CDATA[EAGAIN]]></c>.</p>
+          <c>erl_errno</c> is set to <c>EAGAIN</c>.</p>
         <p>On success, the message is placed in the specified buffer
           and the function returns the number of bytes actually read. On
           failure, the function returns a negative value and sets
-          <c><![CDATA[erl_errno]]></c> to one of:</p>
+          <c>erl_errno</c> to one of:</p>
         <taglist>
-          <tag><c><![CDATA[EAGAIN]]></c></tag>
+          <tag><c>EAGAIN</c></tag>
           <item>Temporary error: Try again.</item>
-          <tag><c><![CDATA[EMSGSIZE]]></c></tag>
+          <tag><c>EMSGSIZE</c></tag>
           <item>Buffer is too small.</item>
-          <tag><c><![CDATA[EIO]]></c></tag>
+          <tag><c>EIO</c></tag>
           <item>I/O error.</item>
         </taglist>
       </desc>
@@ -326,18 +326,18 @@ if (!erl_connect_init(17, "samplecookiestring...", 0))
       </type>
       <desc>
         <p>Receives the message into the specified buffer
-          and decodes into <c><![CDATA[(ErlMessage *) emsg]]></c>.</p>
+          and decodes into <c>(ErlMessage *) emsg</c>.</p>
         <list type="bulleted">
-          <item><c><![CDATA[fd]]></c> is an open descriptor to an Erlang
+          <item><c>fd</c> is an open descriptor to an Erlang
             connection.</item>
-          <item><c><![CDATA[bufp]]></c> is a buffer large enough to hold the
+          <item><c>bufp</c> is a buffer large enough to hold the
             expected message.</item>
-          <item><c><![CDATA[bufsize]]></c> indicates the size of
-            <c><![CDATA[bufp]]></c>.</item>
-          <item>><c><![CDATA[emsg]]></c> is a pointer to an
-            <c><![CDATA[ErlMessage]]></c> structure
+          <item><c>bufsize</c> indicates the size of
+            <c>bufp</c>.</item>
+          <item>><c>emsg</c> is a pointer to an
+            <c>ErlMessage</c> structure
             into which the message will be decoded.
-            <c><![CDATA[ErlMessage]]></c> is defined as follows:</item>
+            <c>ErlMessage</c> is defined as follows:</item>
         </list>
         <code type="none"><![CDATA[
 typedef struct {
@@ -349,62 +349,62 @@ typedef struct {
 } ErlMessage;
         ]]></code>
         <note>
-          <p>The definition of <c><![CDATA[ErlMessage]]></c> has changed since
+          <p>The definition of <c>ErlMessage</c> has changed since
             earlier versions of <c>Erl_Interface</c>.</p>
         </note>
-        <p><c><![CDATA[type]]></c> identifies the type of message, one of the
+        <p><c>type</c> identifies the type of message, one of the
           following:</p>
         <taglist>
-          <tag><c><![CDATA[ERL_SEND]]></c></tag>
+          <tag><c>ERL_SEND</c></tag>
           <item>
             <p>An ordinary send operation has occurred and
-              <c><![CDATA[emsg->to]]></c> contains the pid of the recipient.
-              The message is in <c><![CDATA[emsg->msg]]></c>.</p>
+              <c>emsg->to</c> contains the pid of the recipient.
+              The message is in <c>emsg->msg</c>.</p>
           </item>
-          <tag><c><![CDATA[ERL_REG_SEND]]></c></tag>
+          <tag><c>ERL_REG_SEND</c></tag>
           <item>
             <p>A registered send operation has occurred and
-              <c><![CDATA[emsg->from]]></c> contains the pid of the sender.
-              The message is in <c><![CDATA[emsg->msg]]></c>.</p>
+              <c>emsg->from</c> contains the pid of the sender.
+              The message is in <c>emsg->msg</c>.</p>
           </item>
-          <tag><c><![CDATA[ERL_LINK]]></c> or <c><![CDATA[ERL_UNLINK]]></c>
+          <tag><c>ERL_LINK</c> or <c>ERL_UNLINK</c>
           </tag>
           <item>
-            <p><c><![CDATA[emsg->to]]></c> and <c><![CDATA[emsg->from]]></c>
+            <p><c>emsg->to</c> and <c>emsg->from</c>
               contain the pids of the sender and recipient of the link or
-              unlink. <c><![CDATA[emsg->msg]]></c> is not used.</p>
+              unlink. <c>emsg->msg</c> is not used.</p>
           </item>
-          <tag><c><![CDATA[ERL_EXIT]]></c></tag>
+          <tag><c>ERL_EXIT</c></tag>
           <item>
-            <p>A link is broken. <c><![CDATA[emsg->to]]></c> and
-              <c><![CDATA[emsg->from]]></c> contain the pids of the linked
-              processes, and <c><![CDATA[emsg->msg]]></c> contains the reason
+            <p>A link is broken. <c>emsg->to</c> and
+              <c>emsg->from</c> contain the pids of the linked
+              processes, and <c>emsg->msg</c> contains the reason
               for the exit.</p>
           </item>
         </taglist>
         <note>
           <p>It is the caller's responsibility to release the
-            memory pointed to by <c><![CDATA[emsg->msg]]></c>,
-            <c><![CDATA[emsg->to]]></c>, and
-            <c><![CDATA[emsg->from]]></c>.</p>
+            memory pointed to by <c>emsg->msg</c>,
+            <c>emsg->to</c>, and
+            <c>emsg->from</c>.</p>
         </note>
         <p>If a <em>tick</em> occurs, that is, the Erlang node on the
           other end of the connection has polled this node to see if it
-          is still alive, the function returns <c><![CDATA[ERL_TICK]]></c>
+          is still alive, the function returns <c>ERL_TICK</c>
           indicating that the tick has been received and responded to,
           but no message is placed in the buffer. In this case you
-          are to call <c><![CDATA[erl_receive_msg()]]></c> again.</p>
-        <p>On success, the function returns <c><![CDATA[ERL_MSG]]></c> and the
-          <c><![CDATA[Emsg]]></c> struct is initialized as described above, or
-          <c><![CDATA[ERL_TICK]]></c>, in which case no message is returned. On
-          failure, the function returns <c><![CDATA[ERL_ERROR]]></c> and sets
-          <c><![CDATA[erl_errno]]></c> to one of:</p>
+          are to call <c>erl_receive_msg()</c> again.</p>
+        <p>On success, the function returns <c>ERL_MSG</c> and the
+          <c>Emsg</c> struct is initialized as described above, or
+          <c>ERL_TICK</c>, in which case no message is returned. On
+          failure, the function returns <c>ERL_ERROR</c> and sets
+          <c>erl_errno</c> to one of:</p>
         <taglist>
-          <tag><c><![CDATA[EMSGSIZE]]></c></tag>
+          <tag><c>EMSGSIZE</c></tag>
           <item>Buffer is too small.</item>
-          <tag><c><![CDATA[ENOMEM]]></c></tag>
+          <tag><c>ENOMEM</c></tag>
           <item>No more memory is available.</item>
-          <tag><c><![CDATA[EIO]]></c></tag>
+          <tag><c>EIO</c></tag>
           <item>I/O error.</item>
         </taglist>
       </desc>
@@ -421,18 +421,18 @@ typedef struct {
       <desc>
         <p>Sends an Erlang term to a registered process.</p>
         <list type="bulleted">
-          <item><c><![CDATA[fd]]></c> is an open descriptor to an Erlang
+          <item><c>fd</c> is an open descriptor to an Erlang
             connection.</item>
-          <item><c><![CDATA[to]]></c> is a string containing the registered name
+          <item><c>to</c> is a string containing the registered name
             of the intended recipient of the message.</item>
-          <item><c><![CDATA[msg]]></c> is the Erlang term to be sent.</item>
+          <item><c>msg</c> is the Erlang term to be sent.</item>
         </list>
         <p>Returns <c>1</c> on success, otherwise <c>0</c>. In
-          the latter case <c><![CDATA[erl_errno]]></c> is set to one of:</p>
+          the latter case <c>erl_errno</c> is set to one of:</p>
         <taglist>
-          <tag><c><![CDATA[ENOMEM]]></c></tag>
+          <tag><c>ENOMEM</c></tag>
           <item>No more memory is available.</item>
-          <tag><c><![CDATA[EIO]]></c></tag>
+          <tag><c>EIO</c></tag>
           <item>I/O error.</item>
         </taglist>
       </desc>
@@ -451,60 +451,60 @@ typedef struct {
       </type>
       <desc>
         <p>Supports calling Erlang functions on remote nodes.
-          <c><![CDATA[erl_rpc_to()]]></c> sends an RPC request to a remote node
-          and <c><![CDATA[erl_rpc_from()]]></c> receives the results of such a
-          call. <c><![CDATA[erl_rpc()]]></c> combines the functionality of
+          <c>erl_rpc_to()</c> sends an RPC request to a remote node
+          and <c>erl_rpc_from()</c> receives the results of such a
+          call. <c>erl_rpc()</c> combines the functionality of
           these two functions by sending an RPC request and waiting for the
           results. See also <seealso marker="kernel:rpc#call/4">
           <c>rpc:call/4</c></seealso> in <c>Kernel</c>.</p>
         <list type="bulleted">
-          <item><c><![CDATA[fd]]></c> is an open descriptor to an Erlang
+          <item><c>fd</c> is an open descriptor to an Erlang
             connection.</item>
-          <item><c><![CDATA[timeout]]></c> is the maximum time (in milliseconds)
+          <item><c>timeout</c> is the maximum time (in milliseconds)
             to wait for
-            results. To wait forever, specify <c><![CDATA[ERL_NO_TIMEOUT]]></c>.
+            results. To wait forever, specify <c>ERL_NO_TIMEOUT</c>.
             When <c>erl_rpc()</c> calls <c>erl_rpc_from()</c>, the call will
             never timeout.</item>
-          <item><c><![CDATA[mod]]></c> is the name of the module containing the
+          <item><c>mod</c> is the name of the module containing the
             function to be run on the remote node.</item>
-          <item><c><![CDATA[fun]]></c> is the name of the function to run.
+          <item><c>fun</c> is the name of the function to run.
           </item>
-          <item><c><![CDATA[args]]></c> is an Erlang list, containing the
+          <item><c>args</c> is an Erlang list, containing the
             arguments to be passed to the function.</item>
-          <item><c><![CDATA[emsg]]></c> is a message containing the result of
+          <item><c>emsg</c> is a message containing the result of
             the function call.</item>
         </list>
         <p>The actual message returned by the RPC server
-          is a 2-tuple <c><![CDATA[{rex,Reply}]]></c>. If you use
-          <c><![CDATA[erl_rpc_from()]]></c> in your code, this is the message
-          you will need to parse. If you use <c><![CDATA[erl_rpc()]]></c>, the
+          is a 2-tuple <c>{rex,Reply}</c>. If you use
+          <c>erl_rpc_from()</c> in your code, this is the message
+          you will need to parse. If you use <c>erl_rpc()</c>, the
           tuple itself is parsed for you, and the message returned to your
-          program is the Erlang term containing <c><![CDATA[Reply]]></c> only.
+          program is the Erlang term containing <c>Reply</c> only.
           Replies to RPC requests are always <c>ERL_SEND</c> messages.</p>
         <note>
           <p>It is the caller's responsibility to free the returned
-            <c><![CDATA[ETERM]]></c> structure and the memory pointed to by
-            <c><![CDATA[emsg->msg]]></c> and <c><![CDATA[emsg->to]]></c>.</p>
+            <c>ETERM</c> structure and the memory pointed to by
+            <c>emsg->msg</c> and <c>emsg->to</c>.</p>
         </note>
-        <p><c><![CDATA[erl_rpc()]]></c> returns the remote function's return
-          value on success, otherwise <c><![CDATA[NULL]]></c>.</p>
-        <p><c><![CDATA[erl_rpc_to()]]></c> returns <c>0</c> on
+        <p><c>erl_rpc()</c> returns the remote function's return
+          value on success, otherwise <c>NULL</c>.</p>
+        <p><c>erl_rpc_to()</c> returns <c>0</c> on
           success, otherwise a negative number.</p>
-        <p><c><![CDATA[erl_rcp_from()]]></c> returns <c><![CDATA[ERL_MSG]]></c>
-          on success (with <c><![CDATA[Emsg]]></c> now
+        <p><c>erl_rcp_from()</c> returns <c>ERL_MSG</c>
+          on success (with <c>Emsg</c> now
           containing the reply tuple), otherwise one of
-          <c><![CDATA[ERL_TICK]]></c>, <c><![CDATA[ERL_TIMEOUT]]></c>, or
-          <c><![CDATA[ERL_ERROR]]></c>.</p>
+          <c>ERL_TICK</c>, <c>ERL_TIMEOUT</c>, or
+          <c>ERL_ERROR</c>.</p>
         <p>When failing,
-          all three functions set <c><![CDATA[erl_errno]]></c> to one of:</p>
+          all three functions set <c>erl_errno</c> to one of:</p>
         <taglist>
-          <tag><c><![CDATA[ENOMEM]]></c></tag>
+          <tag><c>ENOMEM</c></tag>
           <item>No more memory is available.</item>
-          <tag><c><![CDATA[EIO]]></c></tag>
+          <tag><c>EIO</c></tag>
           <item>I/O error.</item>
-          <tag><c><![CDATA[ETIMEDOUT]]></c></tag>
+          <tag><c>ETIMEDOUT</c></tag>
           <item>Timeout has expired.</item>
-          <tag><c><![CDATA[EAGAIN]]></c></tag>
+          <tag><c>EAGAIN</c></tag>
           <item>Temporary error: Try again.</item>
         </taglist>
       </desc>
@@ -520,21 +520,21 @@ typedef struct {
       <desc>
         <p>Sends an Erlang term to a process.</p>
         <list type="bulleted">
-          <item><c><![CDATA[fd]]></c> is an open descriptor to an Erlang
+          <item><c>fd</c> is an open descriptor to an Erlang
             connection.</item>
-          <item><c><![CDATA[to]]></c> is an Erlang term containing the pid of
+          <item><c>to</c> is an Erlang term containing the pid of
             the intended recipient of the message.</item>
-          <item>><c><![CDATA[msg]]></c> is the Erlang term to be sent.</item>
+          <item>><c>msg</c> is the Erlang term to be sent.</item>
         </list>
         <p>Returns <c>1</c> on success, otherwise <c>0</c>. In
-          the latter case <c><![CDATA[erl_errno]]></c> is set to one of:</p>
+          the latter case <c>erl_errno</c> is set to one of:</p>
         <taglist>
-          <tag><c><![CDATA[EINVAL]]></c></tag>
-          <item>Invalid argument: <c><![CDATA[to]]></c> is not a valid Erlang
+          <tag><c>EINVAL</c></tag>
+          <item>Invalid argument: <c>to</c> is not a valid Erlang
             pid.</item>
-          <tag><c><![CDATA[ENOMEM]]></c></tag>
+          <tag><c>ENOMEM</c></tag>
           <item>No more memory is available.</item>
-          <tag><c><![CDATA[EIO]]></c></tag>
+          <tag><c>EIO</c></tag>
           <item>I/O error.</item>
         </taglist>
       </desc>
@@ -550,8 +550,8 @@ typedef struct {
       <desc>
         <p>Retrieves information about
           the C-node. These values are initially set with
-          <c><![CDATA[erl_connect_init()]]></c> or
-          <c><![CDATA[erl_connect_xinit()]]></c>.</p>
+          <c>erl_connect_init()</c> or
+          <c>erl_connect_xinit()</c>.</p>
       </desc>
     </func>
 
@@ -568,17 +568,17 @@ typedef struct {
           <c>-relaxed_command_check</c>, which it normally is not.</p>
         <p>To unregister a node you have published, you should instead
           close the descriptor that was returned by
-          <c><![CDATA[ei_publish()]]></c>.</p>
+          <c>ei_publish()</c>.</p>
         <warning>
           <p>This function is deprecated and will be removed in a future
             release.</p>
         </warning>
-        <p><c><![CDATA[alive]]></c> is the name of the node to unregister, that
+        <p><c>alive</c> is the name of the node to unregister, that
           is, the first component of the node name, without
-          <c><![CDATA[@hostname]]></c>.</p>
+          <c>@hostname</c>.</p>
         <p>If the node was successfully unregistered from EPMD, <c>0</c> is
           returned, otherwise <c>-1</c> is returned and
-          <c><![CDATA[erl_errno]]></c> is set to <c><![CDATA[EIO]]></c>.</p>
+          <c>erl_errno</c> is set to <c>EIO</c>.</p>
       </desc>
     </func>
 
@@ -592,24 +592,24 @@ typedef struct {
         <v>ErlMessage *emsg;</v>
       </type>
       <desc>
-        <p>Similar to <c><![CDATA[erl_receive_msg]]></c>. The difference is
-          that <c><![CDATA[erl_xreceive_msg]]></c> expects the buffer to
-          have been allocated by <c><![CDATA[malloc]]></c>, and reallocates it
+        <p>Similar to <c>erl_receive_msg</c>. The difference is
+          that <c>erl_xreceive_msg</c> expects the buffer to
+          have been allocated by <c>malloc</c>, and reallocates it
           if the received
           message does not fit into the original buffer. Therefore
           both buffer and buffer length are given as pointers; their values
           can change by the call.</p>
-        <p>On success, the function returns <c><![CDATA[ERL_MSG]]></c> and the
-          <c><![CDATA[Emsg]]></c> struct is initialized as described above, or
-          <c><![CDATA[ERL_TICK]]></c>, in which case no message is returned. On
-          failure, the function returns <c><![CDATA[ERL_ERROR]]></c> and sets
-          <c><![CDATA[erl_errno]]></c> to one of:</p>
+        <p>On success, the function returns <c>ERL_MSG</c> and the
+          <c>Emsg</c> struct is initialized as described above, or
+          <c>ERL_TICK</c>, in which case no message is returned. On
+          failure, the function returns <c>ERL_ERROR</c> and sets
+          <c>erl_errno</c> to one of:</p>
         <taglist>
-          <tag><c><![CDATA[EMSGSIZE]]></c></tag>
+          <tag><c>EMSGSIZE</c></tag>
           <item>Buffer is too small.</item>
-          <tag><c><![CDATA[ENOMEM]]></c></tag>
+          <tag><c>ENOMEM</c></tag>
           <item>No more memory is available.</item>
-          <tag><c><![CDATA[EIO]]></c></tag>
+          <tag><c>EIO</c></tag>
           <item>I/O error.</item>
         </taglist>
       </desc>
@@ -643,11 +643,11 @@ typedef struct {
     <p>If a connection attempt fails, the following can be checked:</p>
 
     <list type="bulleted">
-      <item><c><![CDATA[erl_errno]]></c></item>
+      <item><c>erl_errno</c></item>
       <item>That the correct cookie was used</item>
       <item>That EPMD is running</item>
       <item>That the remote Erlang node on the other side is running the same
-        version of Erlang as the <c><![CDATA[erl_interface]]></c> library</item>
+        version of Erlang as the <c>erl_interface</c> library</item>
     </list>
   </section>
 </cref>

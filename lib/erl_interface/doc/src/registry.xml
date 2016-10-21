@@ -51,9 +51,9 @@
       </type>
       <desc>
         <p>A registry that has previously been created with
-          <c><![CDATA[ei_reg_open()]]></c> is closed, and all the objects it
+          <c>ei_reg_open()</c> is closed, and all the objects it
           contains are freed.</p>
-        <p><c><![CDATA[reg]]></c> is the registry to close.</p>
+        <p><c>reg</c> is the registry to close.</p>
         <p>Returns <c>0</c>.</p>
       </desc>
     </func>
@@ -73,12 +73,12 @@
           well. If another object is later created with the same key, the
           object will be reused. </p>
         <p>The object is removed from the registry after a call to
-          <c><![CDATA[ei_reg_dump()]]></c> or <c><![CDATA[ei_reg_purge()]]></c>.
+          <c>ei_reg_dump()</c> or <c>ei_reg_purge()</c>.
         </p>
         <list type="bulleted">
-          <item><c><![CDATA[reg]]></c> is the registry containing
-            <c><![CDATA[key]]></c>.</item>
-          <item><c><![CDATA[key]]></c> is the object to remove.</item>
+          <item><c>reg</c> is the registry containing
+            <c>key</c>.</item>
+          <item><c>key</c> is the object to remove.</item>
         </list>
         <p>Returns <c>0</c> on success, otherwise <c>-1</c>.</p>
       </desc>
@@ -99,17 +99,17 @@
           If any errors are encountered while backing up
           the data, the entire operation is aborted.</p>
         <list type="bulleted">
-          <item><c><![CDATA[fd]]></c> is an open connection to Erlang.
+          <item><c>fd</c> is an open connection to Erlang.
             <c>Mnesia</c> 3.0 or later must be running on the Erlang node.
           </item>
-          <item><c><![CDATA[reg]]></c> is the registry to back up.</item>
-          <item><c><![CDATA[mntab]]></c> is the name of the <c>Mnesia</c> table
+          <item><c>reg</c> is the registry to back up.</item>
+          <item><c>mntab</c> is the name of the <c>Mnesia</c> table
             where the backed up data is to be placed. If the table does not
             exist, it is created automatically using configurable defaults.
             For information about configuring this behavior, see
             <seealso marker="mnesia:mnesia"><c>Mnesia</c></seealso>.</item>
         </list>
-        <p>If <c><![CDATA[flags]]></c> is <c>0</c>, the backup includes only
+        <p>If <c>flags</c> is <c>0</c>, the backup includes only
           those objects that have been created, modified, or deleted since the
           last backup or restore (that is, an incremental backup). After the
           backup, any objects that were marked dirty are now clean, and any
@@ -118,7 +118,7 @@
           backup to be done, and <c>EI_NOPURGE</c> causes the deleted objects
           to be left in the registry afterwards. These can be bitwise OR'ed
           together if both behaviors are desired. If <c>EI_NOPURGE</c> was
-          specified, <c><![CDATA[ei_reg_purge()]]></c> can be used to
+          specified, <c>ei_reg_purge()</c> can be used to
           explicitly remove the deleted items from the registry later.</p>
         <p>Returns <c>0</c> on success, otherwise <c>-1</c>.</p>
       </desc>
@@ -132,21 +132,21 @@
         <v>const char *key;</v>
       </type>
       <desc>
-        <p>Gets the value associated with <c><![CDATA[key]]></c> in the
+        <p>Gets the value associated with <c>key</c> in the
           registry. The value must be a floating point type.</p>
         <list type="bulleted">
-          <item><c><![CDATA[reg]]></c> is the registry where the object will be
+          <item><c>reg</c> is the registry where the object will be
             looked up.</item>
-          <item><c><![CDATA[key]]></c> is the name of the object to look up.
+          <item><c>key</c> is the name of the object to look up.
           </item>
         </list>
         <p>On success, the function returns the value associated with
-          <c><![CDATA[key]]></c>.
+          <c>key</c>.
           If the object is not found or if it is not a floating point
           object, <c>-1.0</c> is returned. To avoid problems with in-band error
           reporting (that is, if you cannot distinguish between <c>-1.0</c> and
           a valid result), use the more general function
-          <c><![CDATA[ei_reg_getval()]]></c> instead.</p>
+          <c>ei_reg_getval()</c> instead.</p>
       </desc>
     </func>
 
@@ -158,21 +158,21 @@
         <v>const char *key;</v>
       </type>
       <desc>
-        <p>Gets the value associated with <c><![CDATA[key]]></c> in the
+        <p>Gets the value associated with <c>key</c> in the
           registry. The value must be an integer.</p>
         <list type="bulleted">
-          <item><c><![CDATA[reg]]></c> is the registry where the object will be
+          <item><c>reg</c> is the registry where the object will be
             looked up.</item>
-          <item><c><![CDATA[key]]></c> is the name of the object to look up.
+          <item><c>key</c> is the name of the object to look up.
           </item>
         </list>
         <p>On success, the function returns the value associated with
-          <c><![CDATA[key]]></c>.
+          <c>key</c>.
           If the object is not found or if it is not an integer
           object, <c>-1</c> is returned. To avoid problems with in-band error
           reporting (that is, if you cannot distinguish between <c>-1</c> and a
           valid result), use the more general function
-          <c><![CDATA[ei_reg_getval()]]></c> instead.</p>
+          <c>ei_reg_getval()</c> instead.</p>
       </desc>
     </func>
 
@@ -185,24 +185,24 @@
         <v>int size;</v>
       </type>
       <desc>
-        <p>Gets the value associated with <c><![CDATA[key]]></c> in the
+        <p>Gets the value associated with <c>key</c> in the
           registry. The value must be a binary (pointer) type.</p>
         <list type="bulleted">
-          <item><c><![CDATA[reg]]></c> is the registry where the object will be
+          <item><c>reg</c> is the registry where the object will be
             looked up.</item>
-          <item><c><![CDATA[key]]></c> is the name of the object to look up.
+          <item><c>key</c> is the name of the object to look up.
           </item>
-          <item><c><![CDATA[size]]></c> is initialized to contain the length in
+          <item><c>size</c> is initialized to contain the length in
             bytes of the object, if it is found.</item>
         </list>
         <p>On success, the function returns the value associated with
-          <c><![CDATA[key]]></c> and indicates its length in
-          <c><![CDATA[size]]></c>.
+          <c>key</c> and indicates its length in
+          <c>size</c>.
           If the object is not found or if it is not a binary object,
           <c>NULL</c> is returned. To avoid problems with in-band error
           reporting (that is, if you cannot distinguish between <c>NULL</c> and
           a valid result), use the more general function
-          <c><![CDATA[ei_reg_getval()]]></c> instead.</p>
+          <c>ei_reg_getval()</c> instead.</p>
       </desc>
     </func>
 
@@ -214,20 +214,20 @@
         <v>const char *key;</v>
       </type>
       <desc>
-        <p>Gets the value associated with <c><![CDATA[key]]></c> in the
+        <p>Gets the value associated with <c>key</c> in the
           registry. The value must be a string.</p>
         <list type="bulleted">
-          <item><c><![CDATA[reg]]></c> is the registry where the object will be
+          <item><c>reg</c> is the registry where the object will be
             looked up.</item>
-          <item><c><![CDATA[key]]></c> is the name of the object to look up.
+          <item><c>key</c> is the name of the object to look up.
           </item>
         </list>
         <p>On success, the function returns the value associated with
-          <c><![CDATA[key]]></c>. If the object is not found or if it is not a
+          <c>key</c>. If the object is not found or if it is not a
           string, <c>NULL</c> is returned. To avoid problems with in-band error
           reporting (that is, if you cannot distinguish between <c>NULL</c> and
           a valid result), use the more general function
-          <c><![CDATA[ei_reg_getval()]]></c> instead.</p>
+          <c>ei_reg_getval()</c> instead.</p>
       </desc>
     </func>
 
@@ -245,32 +245,32 @@
           object from the registry.</p>
         <list type="bulleted">
           <item>
-            <p><c><![CDATA[reg]]></c> is the registry where the object will be
+            <p><c>reg</c> is the registry where the object will be
               looked up.</p>
           </item>
           <item>
-            <p><c><![CDATA[key]]></c> is the name of the object to look up.</p>
+            <p><c>key</c> is the name of the object to look up.</p>
           </item>
           <item>
-            <p><c><![CDATA[flags]]></c> indicates the type of object that you
-              are looking for. If <c><![CDATA[flags]]></c> is <c>0</c>, any
+            <p><c>flags</c> indicates the type of object that you
+              are looking for. If <c>flags</c> is <c>0</c>, any
               kind of object is returned.
-              If <c><![CDATA[flags]]></c> is <c>EI_INT</c>, <c>EI_FLT</c>,
+              If <c>flags</c> is <c>EI_INT</c>, <c>EI_FLT</c>,
               <c>EI_STR</c>, or <c>EI_BIN</c>, then only values of
               that kind are returned.</p>
-            <p>The buffer pointed to by <c><![CDATA[v]]></c>
+            <p>The buffer pointed to by <c>v</c>
               must be large enough to hold the return data, that is, it must be
-              a pointer to one of <c><![CDATA[int]]></c>,
-              <c><![CDATA[double]]></c>, <c><![CDATA[char*]]></c>, or
-              <c><![CDATA[void*]]></c>, respectively.</p>
-            <p>If <c><![CDATA[flags]]></c> is <c>EI_BIN</c>, a fifth argument
-              <c><![CDATA[int *size]]></c> is required, so that the size of the
+              a pointer to one of <c>int</c>,
+              <c>double</c>, <c>char*</c>, or
+              <c>void*</c>, respectively.</p>
+            <p>If <c>flags</c> is <c>EI_BIN</c>, a fifth argument
+              <c>int *size</c> is required, so that the size of the
               object can be returned.</p>
           </item>
         </list>
-        <p>On success, <c><![CDATA[v]]></c> (and <c><![CDATA[size]]></c> if the
+        <p>On success, <c>v</c> (and <c>size</c> if the
           object is binary) is initialized with the value associated
-          with <c><![CDATA[key]]></c>, and the function returns <c>EI_INT</c>,
+          with <c>key</c>, and the function returns <c>EI_INT</c>,
           <c>EI_FLT</c>, <c>EI_STR</c>, or <c>EI_BIN</c>, indicating the type
           of object. On failure, <c>-1</c> is returned and the
           arguments are not updated.</p>
@@ -295,9 +295,9 @@
           unmodified. This function allows you to make such modifications
           and then let the registry know about them.</p>
         <list type="bulleted">
-          <item><c><![CDATA[reg]]></c> is the registry containing the object.
+          <item><c>reg</c> is the registry containing the object.
           </item>
-          <item><c><![CDATA[key]]></c> is the name of the object to mark.
+          <item><c>key</c> is the name of the object to mark.
           </item>
         </list>
         <p>Returns <c>0</c> on success, otherwise <c>-1</c>.</p>
@@ -312,14 +312,14 @@
       </type>
       <desc>
         <p>Opens (creates) a registry, which initially is empty. To
-          close the registry later, use <c><![CDATA[ei_reg_close()]]></c>.</p>
-        <p><c><![CDATA[size]]></c> is the approximate number of objects you
+          close the registry later, use <c>ei_reg_close()</c>.</p>
+        <p><c>size</c> is the approximate number of objects you
           intend to store in the registry. As the registry uses a hash table
           with collision chaining, no absolute upper limit exists on the
           number of objects that can be stored in it. However, for reasons
           of efficiency, it is a good idea to choose a number that is
           appropriate for your needs. To change the size later, use
-          <c><![CDATA[ei_reg_resize()]]></c>. Notice that the number
+          <c>ei_reg_resize()</c>. Notice that the number
           you provide is increased to the nearest larger prime number.</p>
         <p>Returns an empty registry on success, otherwise <c>NULL</c>.</p>
       </desc>
@@ -333,13 +333,13 @@
       </type>
       <desc>
         <p>Removes all objects marked for deletion. When objects
-          are deleted with <c><![CDATA[ei_reg_delete()]]></c> they are not
+          are deleted with <c>ei_reg_delete()</c> they are not
           removed from the registry, only marked for later removal.
           On a later backup to <c>Mnesia</c>, the
           objects can also be removed from the <c>Mnesia</c> table. If you are
           not backing up to <c>Mnesia</c>, you may wish to remove the objects
           manually with this function.</p>
-        <p><c><![CDATA[reg]]></c> is a registry containing objects marked for
+        <p><c>reg</c> is a registry containing objects marked for
           deletion.</p>
         <p>Returns <c>0</c> on success, otherwise <c>-1</c>.</p>
       </desc>
@@ -354,7 +354,7 @@
       </type>
       <desc>
         <p>Changes the size of a registry.</p>
-        <p><c><![CDATA[newsize]]></c> is the new size to make the registry. The
+        <p><c>newsize</c> is the new size to make the registry. The
           number is increased to the nearest larger prime number.</p>
         <p>On success, the registry is resized, all contents
           rehashed, and <c>0</c> is returned. On failure, the
@@ -373,17 +373,17 @@
       <desc>
         <p>The contents of a <c>Mnesia</c> table are read into the registry.</p>
         <list type="bulleted">
-          <item><c><![CDATA[fd]]></c> is an open connection to Erlang.
+          <item><c>fd</c> is an open connection to Erlang.
             <c>Mnesia</c> 3.0 or later must be running on the Erlang node.
           </item>
-          <item><c><![CDATA[reg]]></c> is the registry where the data is to be
+          <item><c>reg</c> is the registry where the data is to be
             placed.</item>
-          <item><c><![CDATA[mntab]]></c> is the name of the <c>Mnesia</c> table
+          <item><c>mntab</c> is the name of the <c>Mnesia</c> table
             to read data from.</item>
         </list>
         <p>Notice that only tables of a certain format can be
           restored, that is, those that have been created and backed up to
-          with <c><![CDATA[ei_reg_dump()]]></c>. If the registry was not empty
+          with <c>ei_reg_dump()</c>. If the registry was not empty
           before the operation, the contents of the table are added to the
           contents of the registry. If the table contains objects with the
           same keys as those already in the registry, the registry objects
@@ -407,16 +407,16 @@
         <v>double f;</v>
       </type>
       <desc>
-        <p>Creates a key-value pair with the specified <c><![CDATA[key]]></c>
-          and floating point value <c><![CDATA[f]]></c>. If an object already
-          exists with the same <c><![CDATA[key]]></c>, the new value replaces
+        <p>Creates a key-value pair with the specified <c>key</c>
+          and floating point value <c>f</c>. If an object already
+          exists with the same <c>key</c>, the new value replaces
           the old one. If the previous value was a binary or string, it is
-          freed with <c><![CDATA[free()]]></c>.</p>
+          freed with <c>free()</c>.</p>
         <list type="bulleted">
-          <item><c><![CDATA[reg]]></c> is the registry where the object is to be
+          <item><c>reg</c> is the registry where the object is to be
             placed.</item>
-          <item><c><![CDATA[key]]></c> is the object name.</item>
-          <item><c><![CDATA[f]]></c> is the floating point value to assign.
+          <item><c>key</c> is the object name.</item>
+          <item><c>f</c> is the floating point value to assign.
           </item>
         </list>
         <p>Returns <c>0</c> on success, otherwise <c>-1</c>.</p>
@@ -432,16 +432,16 @@
         <v>int i;</v>
       </type>
       <desc>
-        <p>Creates a key-value pair with the specified <c><![CDATA[key]]></c>
-          and integer value <c><![CDATA[i]]></c>. If an object already exists
-          with the same <c><![CDATA[key]]></c>, the new value replaces the old
+        <p>Creates a key-value pair with the specified <c>key</c>
+          and integer value <c>i</c>. If an object already exists
+          with the same <c>key</c>, the new value replaces the old
           one. If the previous value was a binary or string, it is freed with
-          <c><![CDATA[free()]]></c>.</p>
+          <c>free()</c>.</p>
         <list type="bulleted">
-          <item><c><![CDATA[reg]]></c> is the registry where the object is to be
+          <item><c>reg</c> is the registry where the object is to be
             placed.</item>
-          <item><c><![CDATA[key]]></c> is the object name.</item>
-          <item><c><![CDATA[i]]></c> is the integer value to assign.</item>
+          <item><c>key</c> is the object name.</item>
+          <item><c>i</c> is the integer value to assign.</item>
         </list>
         <p>Returns <c>0</c> on success, otherwise <c>-1</c>.</p>
       </desc>
@@ -457,21 +457,21 @@
         <v>int size;</v>
       </type>
       <desc>
-        <p>Creates a key-value pair with the specified <c><![CDATA[key]]></c>
-          whose "value" is the binary object pointed to by <c><![CDATA[p]]></c>.
-          If an object already exists with the same <c><![CDATA[key]]></c>,
+        <p>Creates a key-value pair with the specified <c>key</c>
+          whose "value" is the binary object pointed to by <c>p</c>.
+          If an object already exists with the same <c>key</c>,
           the new value replaces the old one. If the previous value was a
-          binary or string, it is freed with <c><![CDATA[free()]]></c>.</p>
+          binary or string, it is freed with <c>free()</c>.</p>
         <list type="bulleted">
-          <item><c><![CDATA[reg]]></c> is the registry where the object is to be
+          <item><c>reg</c> is the registry where the object is to be
             placed.</item>
-          <item><c><![CDATA[key]]></c> is the object name.</item>
-          <item><c><![CDATA[p]]></c> is a pointer to the binary object. The
+          <item><c>key</c> is the object name.</item>
+          <item><c>p</c> is a pointer to the binary object. The
             object itself must have been created through a single call to
-            <c><![CDATA[malloc()]]></c> or a similar function, so that the
+            <c>malloc()</c> or a similar function, so that the
             registry can later delete it if necessary by calling
-            <c><![CDATA[free()]]></c>.</item>
-          <item><c><![CDATA[size]]></c> is the length in bytes of the binary
+            <c>free()</c>.</item>
+          <item><c>size</c> is the length in bytes of the binary
             object.</item>
         </list>
         <p>Returns <c>0</c> on success, otherwise <c>-1</c>.</p>
@@ -487,20 +487,20 @@
         <v>const char *s;</v>
       </type>
       <desc>
-        <p>Creates a key-value pair with the specified <c><![CDATA[key]]></c>
-          whose "value" is the specified string <c><![CDATA[s]]></c>. If an
-          object already exists with the same <c><![CDATA[key]]></c>, the new
+        <p>Creates a key-value pair with the specified <c>key</c>
+          whose "value" is the specified string <c>s</c>. If an
+          object already exists with the same <c>key</c>, the new
           value replaces the old one. If the previous value was a binary or
-          string, it is freed with <c><![CDATA[free()]]></c>.</p>
+          string, it is freed with <c>free()</c>.</p>
         <list type="bulleted">
-          <item><c><![CDATA[reg]]></c> is the registry where the object is to be
+          <item><c>reg</c> is the registry where the object is to be
             placed.</item>
-          <item><c><![CDATA[key]]></c> is the object name.</item>
-          <item><c><![CDATA[s]]></c> is the string to assign. The string itself
+          <item><c>key</c> is the object name.</item>
+          <item><c>s</c> is the string to assign. The string itself
             must have been created through a single call to
-            <c><![CDATA[malloc()]]></c> or similar a function,
+            <c>malloc()</c> or similar a function,
             so that the registry can later delete it if
-            necessary by calling <c><![CDATA[free()]]></c>.</item>
+            necessary by calling <c>free()</c>.</item>
         </list>
         <p>Returns <c>0</c> on success, otherwise <c>-1</c>.</p>
       </desc>
@@ -516,36 +516,36 @@
         <v>v (see below)</v>
       </type>
       <desc>
-        <p>Creates a key-value pair with the specified <c><![CDATA[key]]></c>
-          whose value is specified by <c><![CDATA[v]]></c>. If an object already
-          exists with the same <c><![CDATA[key]]></c>, the new value replaces
+        <p>Creates a key-value pair with the specified <c>key</c>
+          whose value is specified by <c>v</c>. If an object already
+          exists with the same <c>key</c>, the new value replaces
           the old one. If the previous value was a binary or string, it is freed
-          with <c><![CDATA[free()]]></c>.</p>
+          with <c>free()</c>.</p>
         <list type="bulleted">
           <item>
-            <p><c><![CDATA[reg]]></c> is the registry where the object is to be
+            <p><c>reg</c> is the registry where the object is to be
               placed.</p>
           </item>
           <item>
-            <p><c><![CDATA[key]]></c> is the object name.</p>
+            <p><c>key</c> is the object name.</p>
           </item>
           <item>
-            <p><c><![CDATA[flags]]></c> indicates the type of the object
-              specified by <c><![CDATA[v]]></c>. Flags must be one of
+            <p><c>flags</c> indicates the type of the object
+              specified by <c>v</c>. Flags must be one of
               <c>EI_INT</c>, <c>EI_FLT</c>, <c>EI_STR</c>, and <c>EI_BIN</c>,
               indicating whether
-              <c><![CDATA[v]]></c> is <c><![CDATA[int]]></c>,
-              <c><![CDATA[double]]></c>, <c><![CDATA[char*]]></c>, or
-              <c><![CDATA[void*]]></c>.</p>
-            <p>If <c><![CDATA[flags]]></c> is <c>EI_BIN</c>, a fifth argument
-              <c><![CDATA[size]]></c> is required, indicating the size
-              in bytes of the object pointed to by <c><![CDATA[v]]></c>.</p>
+              <c>v</c> is <c>int</c>,
+              <c>double</c>, <c>char*</c>, or
+              <c>void*</c>.</p>
+            <p>If <c>flags</c> is <c>EI_BIN</c>, a fifth argument
+              <c>size</c> is required, indicating the size
+              in bytes of the object pointed to by <c>v</c>.</p>
           </item>
         </list>
         <p>If you wish to store an arbitrary pointer in the registry,
-          specify a <c><![CDATA[size]]></c> of <c>0</c>. In this case, the
+          specify a <c>size</c> of <c>0</c>. In this case, the
           object itself is not transferred by an
-          <c><![CDATA[ei_reg_dump()]]></c> operation, only the pointer
+          <c>ei_reg_dump()</c> operation, only the pointer
           value.</p>
         <p>Returns <c>0</c> on success, otherwise <c>-1</c>.</p>
       </desc>
@@ -562,11 +562,11 @@
       <desc>
         <p>Returns information about an object.</p>
         <list type="bulleted">
-          <item><c><![CDATA[reg]]></c> is the registry containing the object.
+          <item><c>reg</c> is the registry containing the object.
           </item>
-          <item><c><![CDATA[key]]></c> is the object name.</item>
-          <item><c><![CDATA[obuf]]></c> is a pointer to an
-            <c><![CDATA[ei_reg_stat]]></c> structure, defined as follows:</item>
+          <item><c>key</c> is the object name.</item>
+          <item><c>obuf</c> is a pointer to an
+            <c>ei_reg_stat</c> structure, defined as follows:</item>
         </list>
         <code type="none"><![CDATA[
 struct ei_reg_stat {
@@ -574,17 +574,17 @@ struct ei_reg_stat {
   int size;
 };
         ]]></code>
-        <p>In <c><![CDATA[attr]]></c> the attributes of the object are stored
+        <p>In <c>attr</c> the attributes of the object are stored
           as the logical <em>OR</em> of its type (one of <c>EI_INT</c>,
           <c>EI_FLT</c>, <c>EI_BIN</c>, and <c>EI_STR</c>),
           whether it is marked for deletion (<c>EI_DELET</c>), and whether it
           has been modified since the last backup to <c>Mnesia</c>
           (<c>EI_DIRTY</c>).</p>
-        <p>Field <c><![CDATA[size]]></c> indicates the size in bytes required
+        <p>Field <c>size</c> indicates the size in bytes required
           to store <c>EI_STR</c> (including the terminating <c>0</c>) and
           <c>EI_BIN</c> objects, or <c>0</c> for <c>EI_INT</c> and
           <c>EI_FLT</c>.</p>
-        <p>Returns <c>0</c> and initializes <c><![CDATA[obuf]]></c> on success,
+        <p>Returns <c>0</c> and initializes <c>obuf</c> on success,
           otherwise <c>-1</c>.</p>
       </desc>
     </func>
@@ -601,10 +601,10 @@ struct ei_reg_stat {
           returned by this function, you can see whether the size of the
           registry is suitable for the amount of data it contains.</p>
         <list type="bulleted">
-          <item><c><![CDATA[reg]]></c> is the registry to return information
+          <item><c>reg</c> is the registry to return information
             about.</item>
-          <item><c><![CDATA[obuf]]></c> is a pointer to an
-            <c><![CDATA[ei_reg_tabstat]]></c> structure, defined as follows:
+          <item><c>obuf</c> is a pointer to an
+            <c>ei_reg_tabstat</c> structure, defined as follows:
           </item>
         </list>
         <code type="none"><![CDATA[
@@ -615,21 +615,21 @@ struct ei_reg_tabstat {
   int collisions; 
 };
         ]]></code>
-        <p>Field <c><![CDATA[size]]></c> indicates the number of hash positions
+        <p>Field <c>size</c> indicates the number of hash positions
           in the registry. This is the number you provided when you
           created or last resized the registry, rounded up to the nearest
           prime number.</p>
         <list type="bulleted">
-          <item><c><![CDATA[nelem]]></c> indicates the number of elements stored
+          <item><c>nelem</c> indicates the number of elements stored
             in the registry. It includes objects that are deleted but not
             purged.</item>
-          <item><c><![CDATA[npos]]></c> indicates the number of unique positions
+          <item><c>npos</c> indicates the number of unique positions
             that are occupied in the registry.</item>
-          <item><c><![CDATA[collisions]]></c> indicates how many elements are
+          <item><c>collisions</c> indicates how many elements are
             sharing positions in the registry.</item>
         </list>
         <p>On success, <c>0</c> is returned and
-          <c><![CDATA[obuf]]></c> is initialized to contain table statistics,
+          <c>obuf</c> is initialized to contain table statistics,
           otherwise <c>-1</c> is returned.</p>
       </desc>
     </func>

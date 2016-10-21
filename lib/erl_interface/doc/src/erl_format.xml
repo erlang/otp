@@ -49,8 +49,8 @@
       <desc>
         <p>A general function for creating Erlang terms using
           a format specifier and a corresponding set of arguments, much
-          in the way <c><![CDATA[printf()]]></c> works.</p>
-        <p><c><![CDATA[FormatStr]]></c> is a format specification string.
+          in the way <c>printf()</c> works.</p>
+        <p><c>FormatStr</c> is a format specification string.
           The valid format specifiers are as follows:</p>
         <list type="bulleted">
           <item><c>~i</c> - Integer</item>
@@ -59,10 +59,10 @@
           <item><c>~s</c> - String</item>
           <item><c>~w</c> - Arbitrary Erlang term</item>
         </list>
-        <p>For each format specifier included in <c><![CDATA[FormatStr]]></c>,
+        <p>For each format specifier included in <c>FormatStr</c>,
           there must be a corresponding argument following
-          <c><![CDATA[FormatStr]]></c>. An Erlang term is built according to
-          <c><![CDATA[FormatStr]]></c> with values and Erlang terms substituted
+          <c>FormatStr</c>. An Erlang term is built according to
+          <c>FormatStr</c> with values and Erlang terms substituted
           from the corresponding arguments, and according to the individual
           format specifiers. For example:</p>
         <code type="none"><![CDATA[
@@ -71,11 +71,11 @@ erl_format("[{name,~a},{age,~i},{data,~w}]",
            21,
            erl_format("[{adr,~s,~i}]","E-street",42));
         ]]></code>
-        <p>This creates an <c><![CDATA[(ETERM *)]]></c> structure corresponding
+        <p>This creates an <c>(ETERM *)</c> structure corresponding
           to the Erlang term
-          <c><![CDATA[[{name,madonna},{age,21},{data,[{adr,"E-street",42}]}]]]></c></p>
+          <c>[{name,madonna},{age,21},{data,[{adr,"E-street",42}]}]</c></p>
         <p>The function returns an Erlang term, or <c>NULL</c> if
-          <c><![CDATA[FormatStr]]></c> does not describe a valid Erlang
+          <c>FormatStr</c> does not describe a valid Erlang
           term.</p>
       </desc>
     </func>
@@ -92,18 +92,18 @@ erl_format("[{name,~a},{age,~i},{data,~w}]",
           section <seealso marker="doc/reference_manual:patterns">
           Pattern Matching</seealso> in the Erlang Reference Manual.</p>
         <list type="bulleted">
-          <item><c><![CDATA[Pattern]]></c> is an Erlang term, possibly
+          <item><c>Pattern</c> is an Erlang term, possibly
             containing unbound variables.</item>
-          <item><c><![CDATA[Term]]></c> is an Erlang term that we wish to match
-            against <c><![CDATA[Pattern]]></c>.</item>
+          <item><c>Term</c> is an Erlang term that we wish to match
+            against <c>Pattern</c>.</item>
         </list>
-        <p><c><![CDATA[Term]]></c> and <c><![CDATA[Pattern]]></c> are compared
-          and any unbound variables in <c><![CDATA[Pattern]]></c> are bound to
-          corresponding values in <c><![CDATA[Term]]></c>.</p>
-        <p>If <c><![CDATA[Term]]></c> and <c><![CDATA[Pattern]]></c> can be
+        <p><c>Term</c> and <c>Pattern</c> are compared
+          and any unbound variables in <c>Pattern</c> are bound to
+          corresponding values in <c>Term</c>.</p>
+        <p>If <c>Term</c> and <c>Pattern</c> can be
           matched, the function returns a non-zero value and binds any unbound
-          variables in <c><![CDATA[Pattern]]></c>. If <c><![CDATA[Term]]></c>
-          and <c><![CDATA[Pattern]]></c> do
+          variables in <c>Pattern</c>. If <c>Term</c>
+          and <c>Pattern</c> do
           not match, <c>0</c> is returned. For example:</p>
         <code type="none"><![CDATA[
 ETERM *term, *pattern, *pattern2;
@@ -129,9 +129,9 @@ if (erl_match(pattern2, term2)) {
   ...
 }
         ]]></code>
-        <p><c><![CDATA[erl_var_content()]]></c> can be used to retrieve the
+        <p><c>erl_var_content()</c> can be used to retrieve the
           content of any variables bound as a result of a call to
-          <c><![CDATA[erl_match()]]></c>.</p>
+          <c>erl_match()</c>.</p>
       </desc>
     </func>
   </funcs>

@@ -47,8 +47,8 @@
         <v>unsigned char etype;</v>
       </type>
       <desc>
-        <p>Allocates an <c><![CDATA[(ETERM)]]></c> structure.</p>
-        <p>Specify <c><![CDATA[etype]]></c> as one of the following
+        <p>Allocates an <c>(ETERM)</c> structure.</p>
+        <p>Specify <c>etype</c> as one of the following
           constants:</p>
         <list type="bulleted">
           <item><c>ERL_INTEGER</c>
@@ -80,9 +80,9 @@
           <item><c>ERL_U_SMALL_BIG</c> (bignum)
           </item>
         </list>
-        <p><c><![CDATA[ERL_SMALL_BIG]]></c> and
-          <c><![CDATA[ERL_U_SMALL_BIG]]></c> are for
-          creating Erlang <c><![CDATA[bignums]]></c>, which can contain integers
+        <p><c>ERL_SMALL_BIG</c> and
+          <c>ERL_U_SMALL_BIG</c> are for
+          creating Erlang <c>bignums</c>, which can contain integers
           of any size. The size of an integer in Erlang is machine-dependent,
           but any integer &gt; 2^28 requires a bignum.</p>
       </desc>
@@ -93,8 +93,8 @@
       <fsummary>Clear the ETERM freelist.</fsummary>
       <desc>
         <p>Clears the freelist, where blocks are placed when they are
-          released by <c><![CDATA[erl_free_term()]]></c> and
-          <c><![CDATA[erl_free_compound()]]></c>.</p>
+          released by <c>erl_free_term()</c> and
+          <c>erl_free_compound()</c>.</p>
       </desc>
     </func>
 
@@ -107,20 +107,20 @@
       </type>
       <desc>
         <p>Reports term allocation statistics.</p>
-        <p><c><![CDATA[allocated]]></c> and <c><![CDATA[freed]]></c> are
+        <p><c>allocated</c> and <c>freed</c> are
           initialized to
           contain information about the fix-allocator used to allocate
           <c>ETERM</c> components.</p>
         <list type="bulleted">
           <item>
-            <p><c><![CDATA[allocated]]></c> is the number of blocks currently
+            <p><c>allocated</c> is the number of blocks currently
               allocated to <c>ETERM</c> objects.</p>
           </item>
           <item>
-            <p><c><![CDATA[freed]]></c> is the length of the freelist, where
+            <p><c>freed</c> is the length of the freelist, where
               blocks are placed when they are
-              released by <c><![CDATA[erl_free_term()]]></c> and
-              <c><![CDATA[erl_free_compound()]]></c>.</p>
+              released by <c>erl_free_term()</c> and
+              <c>erl_free_compound()</c>.</p>
           </item>
         </list>
       </desc>
@@ -134,7 +134,7 @@
       </type>
       <desc>
         <p>Calls the standard
-          <c><![CDATA[free()]]></c> function.</p>
+          <c>free()</c> function.</p>
       </desc>
     </func>
 
@@ -148,8 +148,8 @@
       <desc>
         <p>Frees an array of Erlang terms.</p>
         <list type="bulleted">
-          <item><c><![CDATA[array]]></c> is an array of ETERM* objects.</item>
-          <item><c><![CDATA[size]]></c> is the number of terms in the array.
+          <item><c>array</c> is an array of ETERM* objects.</item>
+          <item><c>size</c> is the number of terms in the array.
           </item>
         </list>
       </desc>
@@ -164,12 +164,12 @@
       <desc>
         <p>Normally it is the programmer's responsibility to free each
           Erlang term that has been returned from any of the
-          <c><![CDATA[Erl_Interface]]></c> functions. However, as many of the
+          <c>Erl_Interface</c> functions. However, as many of the
           functions that build new Erlang terms in fact share objects
           with other existing terms, it can be difficult for the
           programmer to maintain pointers to all such terms to
           free them individually.</p>
-        <p><c><![CDATA[erl_free_compound()]]></c> recursively frees all of the
+        <p><c>erl_free_compound()</c> recursively frees all of the
           subterms associated with a specified Erlang term, regardless of
           whether we are still holding pointers to the subterms.</p>
         <p>For an example, see section
@@ -197,7 +197,7 @@
       </type>
       <desc>
         <p>Calls the standard
-          <c><![CDATA[malloc()]]></c> function.</p>
+          <c>malloc()</c> function.</p>
       </desc>
     </func>
   </funcs>

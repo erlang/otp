@@ -50,9 +50,9 @@
       <desc>
         <p>Compares two encoded terms.</p>
         <list type="bulleted">
-          <item><c><![CDATA[bufp1]]></c> is a buffer containing an encoded
+          <item><c>bufp1</c> is a buffer containing an encoded
             Erlang term term1.</item>
-          <item><c><![CDATA[bufp2]]></c> is a buffer containing an encoded
+          <item><c>bufp2</c> is a buffer containing an encoded
             Erlang term term2.</item>
         </list>
         <p>Returns <c>0</c> if the terms are equal, <c>-1</c> if
@@ -70,31 +70,31 @@
         <v>unsigned char **bufpp;</v>
       </type>
       <desc>
-        <p><c><![CDATA[erl_decode()]]></c> and
-          <c><![CDATA[erl_decode_buf()]]></c> decode
+        <p><c>erl_decode()</c> and
+          <c>erl_decode_buf()</c> decode
           the contents of a buffer and return the corresponding
-          Erlang term. <c><![CDATA[erl_decode_buf()]]></c> provides a simple
+          Erlang term. <c>erl_decode_buf()</c> provides a simple
           mechanism for dealing with several encoded terms stored
           consecutively in the buffer.</p>
         <list type="bulleted">
           <item>
-            <p><c><![CDATA[bufp]]></c> is a pointer to a buffer containing one
+            <p><c>bufp</c> is a pointer to a buffer containing one
               or more encoded Erlang terms.</p>
           </item>
           <item>
-            <p><c><![CDATA[bufpp]]></c> is the address of a buffer pointer. The
+            <p><c>bufpp</c> is the address of a buffer pointer. The
               buffer contains one or more consecutively encoded Erlang terms.
               Following a successful call to
-              <c><![CDATA[erl_decode_buf()]]></c>, <c><![CDATA[bufpp]]></c> is
+              <c>erl_decode_buf()</c>, <c>bufpp</c> is
               updated so that it points to the next encoded term.</p>
           </item>
         </list>
-        <p><c><![CDATA[erl_decode()]]></c> returns an Erlang term
-          corresponding to the contents of <c><![CDATA[bufp]]></c> on success,
-          otherwise <c>NULL</c>. <c><![CDATA[erl_decode_buf()]]></c>
+        <p><c>erl_decode()</c> returns an Erlang term
+          corresponding to the contents of <c>bufp</c> on success,
+          otherwise <c>NULL</c>. <c>erl_decode_buf()</c>
           returns an Erlang
           term corresponding to the first of the consecutive terms in
-          <c><![CDATA[bufpp]]></c> and moves <c><![CDATA[bufpp]]></c> forward
+          <c>bufpp</c> and moves <c>bufpp</c> forward
           to point to the
           next term in the buffer. On failure, each of the functions
           return <c>NULL</c>.</p>
@@ -111,10 +111,10 @@
         <v>unsigned char **bufpp;</v>
       </type>
       <desc>
-        <p><c><![CDATA[erl_encode()]]></c> and
-          <c><![CDATA[erl_encode_buf()]]></c> encode
+        <p><c>erl_encode()</c> and
+          <c>erl_encode_buf()</c> encode
           Erlang terms into external format for storage or transmission.
-          <c><![CDATA[erl_encode_buf()]]></c> provides a simple mechanism for
+          <c>erl_encode_buf()</c> provides a simple mechanism for
           encoding several terms consecutively in the same buffer.</p>
         <list type="bulleted">
           <item>
@@ -128,7 +128,7 @@
             <p><c>bufpp</c> is a pointer to a pointer to a buffer
               containing one or more consecutively encoded Erlang terms.
               Following a successful call to
-              <c><![CDATA[erl_encode_buf()]]></c>, <c>bufpp</c> is updated so
+              <c>erl_encode_buf()</c>, <c>bufpp</c> is updated so
               that it points to the
               position for the next encoded term.</p>
           </item>
@@ -139,36 +139,36 @@
           the caller's responsibility to ensure that the buffer is
           large enough to hold the encoded terms. You can either use a
           static buffer that is large enough to hold the terms you expect
-          to need in your program, or use <c><![CDATA[erl_term_len()]]></c>
+          to need in your program, or use <c>erl_term_len()</c>
           to determine the exact requirements for a given term.</p>
         <p>The following can help you estimate the buffer
           requirements for a term. Notice that this information is
           implementation-specific, and can change in future versions.
-          If you are unsure, use <c><![CDATA[erl_term_len()]]></c>.</p>
+          If you are unsure, use <c>erl_term_len()</c>.</p>
         <p>Erlang terms are encoded with a 1 byte tag that
           identifies the type of object, a 2- or 4-byte length field,
           and then the data itself. Specifically:</p>
         <taglist>
-          <tag><c><![CDATA[Tuples]]></c></tag>
+          <tag><c>Tuples</c></tag>
           <item>Need 5 bytes, plus the space for each element.</item>
-          <tag><c><![CDATA[Lists]]></c></tag>
+          <tag><c>Lists</c></tag>
           <item>Need 5 bytes, plus the space for each element, and 1
             more byte for the empty list at the end.</item>
-          <tag><c><![CDATA[Strings and atoms]]></c></tag>
+          <tag><c>Strings and atoms</c></tag>
           <item>Need 3 bytes, plus 1 byte for each character (the
             terminating 0 is not encoded). Really long strings (more
             than 64k characters) are encoded as lists. Atoms cannot
             contain more than 256 characters.</item>
-          <tag><c><![CDATA[Integers]]></c></tag>
+          <tag><c>Integers</c></tag>
           <item>Need 5 bytes.</item>
-          <tag><c><![CDATA[Characters]]></c></tag>
+          <tag><c>Characters</c></tag>
           <item>(Integers &lt; 256) need 2 bytes.</item>
-          <tag><c><![CDATA[Floating point numbers]]></c></tag>
+          <tag><c>Floating point numbers</c></tag>
           <item>Need 32 bytes.</item>
-          <tag><c><![CDATA[Pids]]></c></tag>
+          <tag><c>Pids</c></tag>
           <item>Need 10 bytes, plus the space for the node name, which
             is an atom.</item>
-          <tag><c><![CDATA[Ports and Refs]]></c></tag>
+          <tag><c>Ports and Refs</c></tag>
           <item>Need 6 bytes, plus the space for the node name, which
             is an atom.</item>
         </taglist>
@@ -198,7 +198,7 @@
       <desc>
         <p>Identifies and returns the type of Erlang term encoded
           in a buffer. It skips a trailing <em>magic</em> identifier.</p>
-        <p>Returns <c><![CDATA[0]]></c> if the type cannot be determined or
+        <p>Returns <c>0</c> if the type cannot be determined or
           one of:</p>
         <list type="bulleted">
           <item><c>ERL_INTEGER</c>
@@ -238,15 +238,15 @@
         <p>This function is used for stepping over one or more
           encoded terms in a buffer, to directly access later term.</p>
         <list type="bulleted">
-          <item><c><![CDATA[bufp]]></c> is a pointer to a buffer containing one
+          <item><c>bufp</c> is a pointer to a buffer containing one
             or more encoded Erlang terms.</item>
-          <item><c><![CDATA[pos]]></c> indicates how many terms to step over in
+          <item><c>pos</c> indicates how many terms to step over in
             the buffer.</item>
         </list>
         <p>Returns a pointer to a subterm that can be
-          used in a later call to <c><![CDATA[erl_decode()]]></c> to retrieve
+          used in a later call to <c>erl_decode()</c> to retrieve
           the term at that position. If there is no term, or
-          <c><![CDATA[pos]]></c> would exceed the size of the terms in the
+          <c>pos</c> would exceed the size of the terms in the
           buffer, <c>NULL</c> is returned.</p>
       </desc>
     </func>
@@ -259,8 +259,8 @@
       </type>
       <desc>
         <p>Determines the buffer space that would be
-          needed by <c><![CDATA[t]]></c> if it were encoded into Erlang external
-          format by <c><![CDATA[erl_encode()]]></c>.</p>
+          needed by <c>t</c> if it were encoded into Erlang external
+          format by <c>erl_encode()</c>.</p>
         <p>Returns the size in bytes.</p>
       </desc>
     </func>
