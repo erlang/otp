@@ -225,3 +225,9 @@ th {
 h3>a{
  color: #3E4349 !important;
 }
+
+hr{
+  border: 0;
+  border-top: 1px solid #aaa;
+}
+
