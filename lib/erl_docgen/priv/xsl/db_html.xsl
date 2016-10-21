@@ -386,7 +386,7 @@
   <!-- Datatypes -->
   <xsl:template match="datatypes">
     <h3>
-      <xsl:text>Data Types</xsl:text>
+        <a name="data-types" href="#data-types"><xsl:text>Data Types</xsl:text></a>
     </h3>
     <xsl:apply-templates/>
   </xsl:template>
@@ -1768,7 +1768,7 @@
   <!-- Module -->
   <xsl:template match="module">
     <xsl:param name="partnum"/>
-    <h3>Module</h3>
+    <h3><a name="module" href="#module">Module</a></h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1780,7 +1780,7 @@
   <!-- Modulesummary -->
   <xsl:template match="modulesummary">
     <xsl:param name="partnum"/>
-    <h3>Module Summary</h3>
+    <h3><a name="module-sumary" href="#module-sumary">Module Summary</a></h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1791,7 +1791,7 @@
   <!-- Lib -->
   <xsl:template match="lib">
     <xsl:param name="partnum"/>
-    <h3>C Library</h3>
+    <h3><a name="c-library" href="#c-library">C Library</a></h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1803,7 +1803,7 @@
   <!-- Libsummary -->
   <xsl:template match="libsummary">
     <xsl:param name="partnum"/>
-    <h3>Library Summary</h3>
+    <h3><a name="library-sumary" href="#library-sumary">Library Summary</a></h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1814,7 +1814,7 @@
   <!-- Com -->
   <xsl:template match="com">
     <xsl:param name="partnum"/>
-    <h3>Command</h3>
+    <h3><a name="command" href="#command">Command</a></h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1826,7 +1826,7 @@
   <!-- Comsummary -->
   <xsl:template match="comsummary">
     <xsl:param name="partnum"/>
-    <h3>Command Summary</h3>
+    <h3><a name="command-summary" href="#command-summary">Command Summary</a></h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1837,7 +1837,7 @@
   <!-- File -->
   <xsl:template match="file">
     <xsl:param name="partnum"/>
-    <h3>File</h3>
+    <h3><a name="file" href="#file">File</a></h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1849,7 +1849,7 @@
   <!-- Filesummary -->
   <xsl:template match="filesummary">
     <xsl:param name="partnum"/>
-    <h3>File Summary</h3>
+    <h3><a name="file-summary" href="#file-summary">File Summary</a></h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1861,7 +1861,7 @@
   <!-- App -->
   <xsl:template match="app">
     <xsl:param name="partnum"/>
-    <h3>Application</h3>
+    <h3><a name="application" href="#application">Application</a></h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1873,7 +1873,7 @@
   <!-- Appsummary -->
   <xsl:template match="appsummary">
     <xsl:param name="partnum"/>
-    <h3>Application Summary</h3>
+    <h3><a name="application-summary" href="#application-summary">Application Summary</a></h3>
     <div class="REFBODY">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1884,7 +1884,7 @@
   <!-- Description -->
   <xsl:template match="description">
     <xsl:param name="partnum"/>
-    <h3>Description</h3>
+    <h3><a name="description" href="#description">Description</a></h3>
     <div class="REFBODY">
       <p>
         <xsl:apply-templates>
@@ -1898,9 +1898,7 @@
   <xsl:template match="funcs">
     <xsl:param name="partnum"/>
 
-    <h3>
-      <xsl:text>Exports</xsl:text>
-    </h3>
+    <h3><a name="exports" href="#exports"><xsl:text>Exports</xsl:text></a></h3>
 
     <xsl:apply-templates>
       <xsl:with-param name="partnum" select="$partnum"/>
