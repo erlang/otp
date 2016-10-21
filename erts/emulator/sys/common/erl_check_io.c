@@ -807,6 +807,24 @@ check_cleanup_active_fds(erts_aint_t current_cio_time)
     erts_smp_atomic32_set_relb(&pollset.active_fd.no, no);
 }
 
+static void grow_active_fds(void)
+{
+    ASSERT(pollset.active_fd.six == pollset.active_fd.eix);
+    pollset.active_fd.six = 0;
+    pollset.active_fd.eix = pollset.active_fd.size;
+    pollset.active_fd.size += ERTS_ACTIVE_FD_INC;
+    pollset.active_fd.array = erts_realloc(ERTS_ALC_T_ACTIVE_FD_ARR,
+                                           pollset.active_fd.array,
+                                           pollset.active_fd.size*sizeof(ErtsSysFdType));
+#ifdef DEBUG
+    {
+        int i;
+        for (i = pollset.active_fd.eix + 1; i < pollset.active_fd.size; i++)
+            pollset.active_fd.array[i] = ERTS_SYS_FD_INVALID;
+    }
+#endif
+}
+
 static ERTS_INLINE void
 add_active_fd(ErtsSysFdType fd)
 {
@@ -823,25 +841,11 @@ add_active_fd(ErtsSysFdType fd)
     eix++;
     if (eix >= size)
 	eix = 0;
-    if (pollset.active_fd.six == eix) {
-	pollset.active_fd.six = 0;
-	eix = size;
-	size += ERTS_ACTIVE_FD_INC;
-	pollset.active_fd.array = erts_realloc(ERTS_ALC_T_ACTIVE_FD_ARR,
-					       pollset.active_fd.array,
-					       sizeof(ErtsSysFdType)*size);
-	pollset.active_fd.size = size;
-#ifdef DEBUG
-	{
-	    int i;
-	    for (i = eix + 1; i < size; i++)
-		pollset.active_fd.array[i] = ERTS_SYS_FD_INVALID;
-	}
-#endif
-
-    }
-
     pollset.active_fd.eix = eix;
+
+    if (pollset.active_fd.six == eix) {
+        grow_active_fds();
+    }
 }
 
 int
