@@ -22,9 +22,9 @@ p             { font-family: Verdana, Arial, Helvetica, sans-serif }
 .otp2         { background: #efe }
 .app          { background: #ffe }
 
-a:link         { color: blue; text-decoration: none }
-a:active       { color: blue; text-decoration: none }
-a:visited      { color: blue; text-decoration: none }
+a:link         { color: #1862ab; text-decoration: none }
+a:active       { color: #1c7cd6; text-decoration: none }
+a:visited      { color: #1b6ec2; text-decoration: none }
 
 #container {
   width: 100%;
