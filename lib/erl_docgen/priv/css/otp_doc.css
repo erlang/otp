@@ -217,3 +217,11 @@ th {
 .section-version{
  font-size: small;
 }
+
+.expand-collapse-items{
+ font-size: small;
+}
+
+h3>a{
+ color: #3E4349;
+}
