@@ -131,6 +131,7 @@ span.code        { font-family: mono, Courier, monospace; white-space: pre; font
   background-color:#f1f3f5;
   border: 1px solid #dee2e6;
   padding: 0.5em 1em;
+  margin: 1em 0;
 }
 .extrafrontpageinfo {
   color: #C00;
