@@ -659,7 +659,7 @@
           </xsl:otherwise>
         </xsl:choose>
       </head>
-      <body bgcolor="white" text="#000000" link="#0000ff" vlink="#ff00ff" alink="#ff0000">
+      <body>
 
         <div id="container">
           <script id="js" type="text/javascript" language="JavaScript" src="{$topdocdir}/js/flipmenu/flipmenu.js"/>
@@ -734,6 +734,8 @@
           </div>
         </div>
 
+        <script type="text/javascript"><xsl:text>window.__otpTopDocDir = '</xsl:text><xsl:value-of select="$topdocdir"/><xsl:text>/js/';</xsl:text></script>
+        <script type="text/javascript" src="{$topdocdir}/js/highlight.js"/>
       </body>
     </html>
   </xsl:template>
