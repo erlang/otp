@@ -12405,6 +12405,8 @@ send_exit_signal(Process *c_p,		/* current process if and only
 	    else if (!(state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS))) {
 		/* Process not running ... */
 		ErtsProcLocks need_locks = ~(*rp_locks) & ERTS_PROC_LOCKS_ALL;
+		ErlHeapFragment *bp = NULL;
+		Eterm rsn_cpy;
 		if (need_locks
 		    && erts_smp_proc_trylock(rp, need_locks) == EBUSY) {
 		    /* ... but we havn't got all locks on it ... */
@@ -12417,12 +12419,32 @@ send_exit_signal(Process *c_p,		/* current process if and only
 		}
                 /* ...and we have all locks on it... */
                 *rp_locks = ERTS_PROC_LOCKS_ALL;
-                set_proc_exiting(rp,
-                                 state,
-                                 (is_immed(rsn)
-                                  ? rsn
-                                  : copy_object(rsn, rp)),
-                                 NULL);
+
+		state = erts_smp_atomic32_read_nob(&rp->state);
+
+		if (is_immed(rsn))
+		    rsn_cpy = rsn;
+		else {
+		    Eterm *hp;
+		    ErlOffHeap *ohp;
+		    Uint rsn_sz = size_object(rsn);
+#ifdef ERTS_DIRTY_SCHEDULERS
+		    if (state & (ERTS_PSFLG_DIRTY_RUNNING
+				 | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+			bp = new_message_buffer(rsn_sz);
+			ohp = &bp->off_heap;
+			hp = &bp->mem[0];
+		    }
+		    else
+#endif
+		    {
+			hp = HAlloc(rp, rsn_sz);
+			ohp = &rp->off_heap;
+		    }
+		    rsn_cpy = copy_struct(rsn, rsn_sz, &hp, ohp);
+		}
+
+		set_proc_exiting(rp, state, rsn_cpy, bp);
 	    }
 	    else { /* Process running... */
 
