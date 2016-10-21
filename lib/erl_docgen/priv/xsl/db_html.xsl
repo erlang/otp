@@ -1252,11 +1252,9 @@
 
         <xsl:call-template name="menu_top"/>
 
-        <p>
-          <strong><xsl:value-of select="/book/header/title"/></strong><br/>
-          <strong>User's Guide</strong><br/>
-          <small>Version <xsl:value-of select="$appver"/></small>
-        </p>
+        <p class="section-title"><xsl:value-of select="/book/header/title"/></p>
+        <p class="section-subtitle">User's Guide</p>
+        <p class="section-version">Version <xsl:value-of select="$appver"/></p>
 
         <xsl:call-template name="menu_middle"/>
 
@@ -1413,11 +1411,9 @@
 
         <xsl:call-template name="menu_top"/>
 
-        <p>
-          <strong><xsl:value-of select="/book/header/title"/></strong><br/>
-          <strong>Reference Manual</strong><br/>
-          <small>Version <xsl:value-of select="$appver"/></small>
-        </p>
+        <p class="section-title"><xsl:value-of select="/book/header/title"/></p>
+        <p class="section-subtitle">Reference Manual</p>
+        <p class="section-version">Version <xsl:value-of select="$appver"/></p>
 
         <xsl:call-template name="menu_middle"/>
 
@@ -2256,11 +2252,9 @@
 
         <xsl:call-template name="menu_top"/>
 
-        <p>
-          <strong><xsl:value-of select="/book/header/title"/></strong><br/>
-          <strong>Release Notes</strong><br/>
-          <small>Version <xsl:value-of select="$appver"/></small>
-        </p>
+        <p class="section-title"><xsl:value-of select="/book/header/title"/></p>
+        <p class="section-subtitle">Release Notes</p>
+        <p class="section-version">Version <xsl:value-of select="$appver"/></p>
 
         <xsl:call-template name="menu_middle"/>
 
