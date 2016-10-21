@@ -796,7 +796,7 @@
   </xsl:template>
 
 
-  <xsl:template name="menu_top">
+  <xsl:template name="erlang_logo">
     <xsl:choose>
       <xsl:when test="string-length($logo) > 0">
         <div class="erlang-logo-wrapper">
@@ -809,7 +809,9 @@
         </div>
       </xsl:otherwise>
     </xsl:choose>
+  </xsl:template>
 
+  <xsl:template name="menu_top">
     <ul class="panel-sections">
       <xsl:if test="boolean(/book/parts/part)">
           <li><a href="users_guide.html">User's Guide</a></li>
@@ -1251,6 +1253,8 @@
     <div id="leftnav">
       <div class="innertube">
 
+        <xsl:call-template name="erlang_logo"/>
+
         <p class="section-title"><xsl:value-of select="/book/header/title"/></p>
         <p class="section-subtitle">User's Guide</p>
         <p class="section-version">Version <xsl:value-of select="$appver"/></p>
@@ -1409,6 +1413,8 @@
     <xsl:param name="curModule"/>
     <div id="leftnav">
       <div class="innertube">
+
+        <xsl:call-template name="erlang_logo"/>
 
         <p class="section-title"><xsl:value-of select="/book/header/title"/></p>
         <p class="section-subtitle">Reference Manual</p>
@@ -2248,6 +2254,8 @@
 
     <div id="leftnav">
       <div class="innertube">
+
+        <xsl:call-template name="erlang_logo"/>
 
         <p class="section-title"><xsl:value-of select="/book/header/title"/></p>
         <p class="section-subtitle">Release Notes</p>
