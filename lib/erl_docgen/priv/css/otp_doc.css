@@ -1,7 +1,8 @@
 /* standard OTP style sheet */
 body {
-  background: white;
-  font-family: Verdana, Arial, Helvetica, sans-serif;
+  background: #fefefe;
+  color: #3E4349;
+  font-family: 'goudy old style', 'minion pro', 'bell mt', Georgia, 'Hiragino Mincho Pro', serif;
   margin: 0;
   padding: 0;
   border: 0;
@@ -14,7 +15,7 @@ th            { font-family: Verdana, Arial, Helvetica, sans-serif }
 td            { font-family: Verdana, Arial, Helvetica, sans-serif }
 p             { font-family: Verdana, Arial, Helvetica, sans-serif }
 
-.header       { background: #222; color: #fff }
+.header       { background: #222; color: #fefefe }
 .top          { background: #efe }
 .otp          { background: #efe }
 .erlang       { background: #ffe }
@@ -28,7 +29,7 @@ a:visited      { color: blue; text-decoration: none }
 #container {
   width: 100%;
   margin: 0;
-  background-color: #fff;
+  background-color: #fefefe;
 }
 
 #leftnav {
@@ -67,7 +68,7 @@ span.bold_code   { font-family: Courier, monospace; font-weight: bold }
 span.code        { font-family: Courier, monospace; font-weight: normal }
 
 .note, .warning, .do, .dont {
-  border: solid black 1px;
+  border: solid #3E4349 1px;
   margin: 1em 3em;
 }
 .note .label {
@@ -78,7 +79,7 @@ span.code        { font-family: Courier, monospace; font-weight: normal }
 }
 .note .content {
   background: #eafeea;
-  color: black;
+  color: #3E4349;
   line-height: 120%;
   font-size: 90%;
   padding: 5px 10px;
@@ -91,7 +92,7 @@ span.code        { font-family: Courier, monospace; font-weight: normal }
 }
 .warning .content {
   background: #FFF0F0;
-  color: black;
+  color: #3E4349;
   line-height: 120%;
   font-size: 90%;
   padding: 5px 10px;
@@ -104,7 +105,7 @@ span.code        { font-family: Courier, monospace; font-weight: normal }
 }
 .do .content {
   background: #eafeea;
-  color: black;
+  color: #3E4349;
   line-height: 120%;
   font-size: 90%;
   padding: 5px 10px;
@@ -117,7 +118,7 @@ span.code        { font-family: Courier, monospace; font-weight: normal }
 }
 .dont .content {
   background: #FFF0F0;
-  color: black;
+  color: #3E4349;
   line-height: 120%;
   font-size: 90%;
   padding: 5px 10px;
