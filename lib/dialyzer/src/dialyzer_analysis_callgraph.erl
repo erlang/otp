@@ -406,24 +406,28 @@ compile_common(File, AbstrCode, CompOpts, Callgraph, CServer,
 	{ok, RecInfo} ->
 	  CServer1 =
 	    dialyzer_codeserver:store_temp_records(Mod, RecInfo, CServer),
-          MetaFunInfo =
-            dialyzer_utils:get_fun_meta_info(Mod, AbstrCode, LegalWarnings),
-          CServer2 =
-            dialyzer_codeserver:insert_fun_meta_info(MetaFunInfo, CServer1),
-	  case UseContracts of
-	    true ->
-	      case dialyzer_utils:get_spec_info(Mod, AbstrCode, RecInfo) of
-		{error, _} = Error -> Error;
-		{ok, SpecInfo, CallbackInfo} ->
-		  CServer3 =
-		    dialyzer_codeserver:store_temp_contracts(Mod, SpecInfo,
-							     CallbackInfo,
-							     CServer2),
-		  store_core(Mod, Core, Callgraph, CServer3)
-	      end;
-	    false ->
-	      store_core(Mod, Core, Callgraph, CServer2)
-	  end
+          case
+            dialyzer_utils:get_fun_meta_info(Mod, AbstrCode, LegalWarnings)
+          of
+            {error, _} = Error -> Error;
+            MetaFunInfo ->
+              CServer2 =
+                dialyzer_codeserver:insert_fun_meta_info(MetaFunInfo, CServer1),
+              case UseContracts of
+                true ->
+                  case dialyzer_utils:get_spec_info(Mod, AbstrCode, RecInfo) of
+                    {error, _} = Error -> Error;
+                    {ok, SpecInfo, CallbackInfo} ->
+                      CServer3 =
+                        dialyzer_codeserver:store_temp_contracts(Mod, SpecInfo,
+                                                                 CallbackInfo,
+                                                                 CServer2),
+                      store_core(Mod, Core, Callgraph, CServer3)
+                  end;
+                false ->
+                  store_core(Mod, Core, Callgraph, CServer2)
+              end
+          end
       end
   end.
 
