@@ -387,9 +387,7 @@ subst("#copyright#", _Info, _Group) ->
     "copyright  Copyright &copy; 1991-2004";
 subst("#groups#", Info, _Group) ->
     [
-     "<table border=0 width=\"90%\" cellspacing=3 cellpadding=5>\n",
-     subst_groups(Info),
-     "</table>\n"
+     subst_groups(Info)
     ];
 subst("#applinks#", Info, Group) ->
     subst_applinks(Info, Group);
@@ -476,16 +474,10 @@ subst_unknown_groups([{_Group,Heading,Apps} | Groups], Text0, Left) ->
 
 
 group_table(Heading,Apps) ->
-    [
-     "  <tr>\n",
-     "    <td colspan=2 class=header>\n",
-     "      <font size=\"+1\"><b>",Heading,"</b></font>\n",
-     "    </td>\n",
-     "  </tr>\n",
+    ["<h2>",Heading,"</h2>",
+     "<table class=\"group-table\">\n",
      subst_apps(Apps),
-     "  <tr>\n",
-     "    <td colspan=2><font size=1>&nbsp;</font></td>\n",
-     "  </tr>\n"
+     "</table>\n"
     ].
 
 % Count and split the applications in half to get the right sort
@@ -500,17 +492,11 @@ subst_apps([]) ->
 subst_app(App, [{VSN,_Path,Link,Text}]) ->
     [
      "  <tr class=app>\n",
-     "    <td align=left valign=top>\n",
-     "      <table border=0 width=\"100%\" cellspacing=0 cellpadding=0>\n",
-     "        <tr class=app>\n",
-     "          <td align=left valign=top>\n",
+     "    <td>\n",
      "            <a href=\"",Link,"\" target=\"_top\">",uc(App),"</a>\n",
      "            <a href=\"",Link,"\" target=\"_top\">",VSN,"</a>\n",
-     "          </td>\n",
-     "        </tr>\n",
-     "      </table>\n"
      "    </td>\n",
-     "    <td align=left valign=top>\n",
+     "    <td>\n",
      Text,"\n",
      "    </td>\n",
      "  </tr>\n"
@@ -518,27 +504,14 @@ subst_app(App, [{VSN,_Path,Link,Text}]) ->
 subst_app(App, [{VSN,_Path,Link,Text} | VerInfos]) ->
     [
      "  <tr class=app>\n",
-     "    <td align=left valign=top>\n",
-     "      <table border=0 width=\"100%\" cellspacing=0 cellpadding=0>\n",
-     "        <tr class=app>\n",
-     "          <td align=left valign=top>\n",
+     "    <td>\n",
      "            <a href=\"",Link,"\" target=\"_top\">",uc(App),
-     "</a>&nbsp;&nbsp;<br>\n",
+     "</a>\n",
      "            <a href=\"",Link,"\" target=\"_top\">",VSN,"</a>\n",
-     "          </td>\n",
-     "          <td align=right valign=top width=50>\n",
-     "            <table border=0 width=40 cellspacing=0 cellpadding=0>\n",
-     "              <tr class=app>\n",
-     "                <td align=left valign=top class=appnums>\n",
+     "                <td class=appnums>\n",
      subst_vsn(VerInfos),
-     "                </td>\n",
-     "              </tr>\n",
-     "            </table>\n"
-     "          </td>\n",
-     "        </tr>\n",
-     "      </table>\n"
      "    </td>\n",
-     "    <td align=left valign=top>\n",
+     "    <td>\n",
      Text,"\n",
      "    </td>\n",
      "  </tr>\n"
