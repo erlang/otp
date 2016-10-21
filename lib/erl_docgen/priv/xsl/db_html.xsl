@@ -1135,7 +1135,8 @@
     <xsl:variable name="tabnum">
       <xsl:number level="any" from="chapter" count="table"/>
     </xsl:variable>
-    <table border="1" cellpadding="2" cellspacing="0">
+    <div class="doc-table-wrapper">
+    <table class="doc-table">
       <!-- tbody-->
       <xsl:apply-templates select="row">
         <xsl:with-param name="chapnum" select="$chapnum"/>
@@ -1147,6 +1148,7 @@
       <xsl:with-param name="chapnum" select="$chapnum"/>
       <xsl:with-param name="tabnum" select="$tabnum"/>
     </xsl:apply-templates>
+    </div>
   </xsl:template>
 
   <xsl:template match="row">
@@ -1166,11 +1168,11 @@
     <xsl:param name="chapnum"/>
     <xsl:param name="tabnum"/>
 
-      <em>Table
+      <p class="doc-table-caption">Table
         <xsl:value-of select="$chapnum"/>.<xsl:value-of select="$tabnum"/>:
         &#160;
         <xsl:apply-templates/>
-      </em>
+      </p>
 
   </xsl:template>
 

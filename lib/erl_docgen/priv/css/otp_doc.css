@@ -69,7 +69,7 @@ span.code        { font-family: mono, Courier, monospace; white-space: pre; font
 
 .note, .warning, .do, .dont {
   border: 1px solid #495057;
-  margin: 1em 3em;
+  margin: 1em 0;
 }
 .note .label {
   background-color: #2b8a3e;
@@ -160,4 +160,47 @@ footer       { }
  text-align: center;
  margin: 2em 0;
  font-size: 1.5em;
+}
+
+.doc-table-wrapper{
+ width: 100%;
+}
+
+.doc-table{
+ min-width: 50%;
+ margin: 0 auto;
+}
+
+.doc-table-caption{
+ margin-top: 1em;
+ font-style: italic;
+ text-align: center;
+}
+
+table {
+ border-collapse: collapse;
+ min-width: 50%;
+ margin: 1em;
+}
+
+table, th, td {
+ border: 1px solid #666;
+}
+
+th, td {
+ padding: 0.5em;
+ text-align: left;
+}
+
+tr:hover {
+ background-color: #f5f5f5;
+}
+
+tr:nth-child(even) {
+ background-color: #f2f2f2;
+}
+
+th {
+ background-color: #777;
+ color: #fefefe;
 }
