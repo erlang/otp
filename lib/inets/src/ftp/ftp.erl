@@ -1475,16 +1475,19 @@ handle_info({Trpt, Socket, Data}, #state{dsock = {Trpt,Socket}} = State0) when T
 				  Data/binary>>}};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
-					 caller = {recv_file, Fd}} 
-	    = State) when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
-    ok = file_close(Fd),
+				  caller = {recv_file, Fd}} = State)
+  when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
+    case file_close(Fd) of
+	ok -> ok;
+	{error,einval} -> ok
+    end,
     progress_report({transfer_size, 0}, State),
     activate_ctrl_connection(State),
     {noreply, State#state{dsock = undefined, data = <<>>}};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, client = From,
-					 caller = recv_chunk} 
-	    = State) when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
+				  caller = recv_chunk} = State)
+  when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
     gen_server:reply(From, ok),
     {noreply, State#state{dsock = undefined, client = undefined,
 			  data = <<>>, caller = undefined,
@@ -2063,7 +2066,10 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {recv_file, _}} = State0) ->
     end;
 
 handle_ctrl_result({Status, _}, #state{caller = {recv_file, Fd}} = State) ->
-    ok = file_close(Fd),
+    case file_close(Fd) of
+	ok -> ok;
+	{error, einval} -> ok
+    end,
     close_data_connection(State),
     ctrl_result_response(Status, State#state{dsock = undefined}, 
 			 {error, epath});
