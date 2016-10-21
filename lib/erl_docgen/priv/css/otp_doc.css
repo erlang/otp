@@ -204,3 +204,16 @@ th {
  background-color: #777;
  color: #fefefe;
 }
+
+.section-title, .section-subtitle, .section-version{
+ text-align: center;
+ margin: 0;
+}
+
+.section-title{
+ font-weight: bold;
+}
+
+.section-version{
+ font-size: small;
+}

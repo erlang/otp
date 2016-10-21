@@ -809,7 +809,7 @@
         </div>
       </xsl:otherwise>
     </xsl:choose>
-    <br/>
+
     <ul class="panel-sections">
       <xsl:if test="boolean(/book/parts/part)">
           <li><a href="users_guide.html">User's Guide</a></li>
@@ -845,7 +845,6 @@
         </xsl:when>
       </xsl:choose>
     </small -->
-    <br/>
 
     <ul class="expand-collapse-items">
         <li><a href="javascript:openAllFlips()">Expand All</a></li>
@@ -1252,11 +1251,11 @@
     <div id="leftnav">
       <div class="innertube">
 
-        <xsl:call-template name="menu_top"/>
-
         <p class="section-title"><xsl:value-of select="/book/header/title"/></p>
         <p class="section-subtitle">User's Guide</p>
         <p class="section-version">Version <xsl:value-of select="$appver"/></p>
+
+        <xsl:call-template name="menu_top"/>
 
         <xsl:call-template name="menu_middle"/>
 
@@ -1411,11 +1410,11 @@
     <div id="leftnav">
       <div class="innertube">
 
-        <xsl:call-template name="menu_top"/>
-
         <p class="section-title"><xsl:value-of select="/book/header/title"/></p>
         <p class="section-subtitle">Reference Manual</p>
         <p class="section-version">Version <xsl:value-of select="$appver"/></p>
+
+        <xsl:call-template name="menu_top"/>
 
         <xsl:call-template name="menu_middle"/>
 
@@ -2252,11 +2251,11 @@
     <div id="leftnav">
       <div class="innertube">
 
-        <xsl:call-template name="menu_top"/>
-
         <p class="section-title"><xsl:value-of select="/book/header/title"/></p>
         <p class="section-subtitle">Release Notes</p>
         <p class="section-version">Version <xsl:value-of select="$appver"/></p>
+
+        <xsl:call-template name="menu_top"/>
 
         <xsl:call-template name="menu_middle"/>
 

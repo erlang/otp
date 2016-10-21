@@ -34,19 +34,19 @@ limitations under the License.
 <div id="container">
 <div id="leftnav">
 <div class="innertube">
-    <div class="erlang-logo-wrapper">
-        <img alt="Erlang Logo" src="erlang-logo.png" class="erlang-logo"/ >
-    </div>
+<div class="erlang-logo-wrapper">
+ <img alt="Erlang logo" src="erlang-logo.png" class="erlang-logo"/ >
+</div>
 
-    <ul>
-        <li><a href="applications.html">Applications</a></li>
-        <li><a href="man_index.html">Modules</a></li>
-    </ul>
+<ul class="section-links">
+ <li><a href="applications.html">Applications</a></li>
+ <li><a href="man_index.html" class="modules">Modules</a></li>
+</ul>
 
-    <ul class="expand-collapse-items">
-        <li><a href="javascript:openAllFlips()">Expand All</a></li>
-        <li><a href="javascript:closeAllFlips()">Contract All</a></li>
-    </ul>
+<ul class="expand-collapse-items">
+ <li><a href="javascript:openAllFlips()">Expand All</a></li>
+ <li><a href="javascript:closeAllFlips()">Contract All</a></li>
+</ul>
 
 <ul class="flipMenu">
 <li>System Documentation
@@ -64,6 +64,7 @@ limitations under the License.
 </ul>
 </li>
 </ul>
+
 <h3>Application Groups</h3>
 
 <ul class="flipMenu">
@@ -77,8 +78,10 @@ limitations under the License.
 <div id="content">
 <div class="innertube">
     <h1 class="main-title">Erlang/OTP #otp_base_vsn#</h1>
-    <p class="main-description">Welcome to Erlang/OTP, a complete development environment for concurrent programming.</p>
- 
+    <p class="main-description">
+    Welcome to Erlang/OTP, a complete development environment for concurrent programming.
+    </p>
+
     <h2>Some hints that may get you started faster</h2>
 
 <ul>
