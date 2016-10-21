@@ -42,7 +42,7 @@ a:visited      { color: blue; text-decoration: none }
   overflow:auto;
   margin: 0;
   padding: 1px;
-  border-right: 1px solid red;
+  border-right: 1px solid #ccc;
 }
 
 #content {
