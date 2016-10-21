@@ -1001,7 +1001,7 @@ loop_event_result(
 		{sys_debug(Debug, S, State, {consume,Event,State}),
 		 P_0}
 	end,
-    {Events_1,NewP,{TimerRefs,TimerTypes}} =
+    {Events_1,NewP,{TimerRefs_1,TimerTypes_1}} =
 	%% Move all postponed events to queue and cancel the
 	%% state timeout if the state changes
 	if
@@ -1012,17 +1012,16 @@ loop_event_result(
 		 cancel_timer_by_type(
 		   state_timeout, TimerRefs_0, TimerTypes_0)}
 	end,
-    {NewTimerRefs,NewTimerTypes,TimeoutEvents} =
-	%% Stop and start timers
-	handle_timers(TimerRefs, TimerTypes, TimeoutsR),
-    %% Place next events first in reversed queue
-    NewEventsR = lists:reverse(Events_1, NextEventsR),
-    %% Append timeout zero events
-    NewEvents =
-	lists:reverse(
-	  NewEventsR,
-	  process_timeout_events(TimeoutEvents, NewEventsR)),
-    %%
+    {TimerRefs_2,TimerTypes_2,TimeoutEvents} =
+	%% Stop and start timers non-event timers
+	parse_timers(TimerRefs_1, TimerTypes_1, TimeoutsR),
+    %% Place next events last in reversed queue
+    Events_2R = lists:reverse(Events_1, NextEventsR),
+    %% Enqueue immediate timeout events and start event timer
+    {NewTimerRefs,NewTimerTypes,Events_3R} =
+	process_timeout_events(
+	  TimerRefs_2, TimerTypes_2, TimeoutEvents, Events_2R),
+    NewEvents = lists:reverse(Events_3R),
     loop_events(
       Parent, NewDebug, S, NewTimerRefs, NewTimerTypes,
       NewEvents, Hibernate, NextState, NewData, NewP).
@@ -1356,55 +1355,88 @@ parse_actions(
 
 
 %% Stop and start timers as well as create timeout zero events
+%% and pending event timer
 %%
-handle_timers(TimerRefs, TimerTypes, TimeoutsR) ->
-    Seen = #{},
-    TimeoutEvents = [],
-    handle_timers(TimerRefs, TimerTypes, TimeoutsR, Seen, TimeoutEvents).
+%% Stop and start timers non-event timers
+parse_timers(TimerRefs, TimerTypes, TimeoutsR) ->
+    parse_timers(TimerRefs, TimerTypes, TimeoutsR, #{}, []).
 %%
-handle_timers(TimerRefs, TimerTypes, [], _Seen, TimeoutEvents) ->
+parse_timers(TimerRefs, TimerTypes, [], _Seen, TimeoutEvents) ->
     {TimerRefs,TimerTypes,TimeoutEvents};
-handle_timers(TimerRefs, TimerTypes, [Timeout|TimeoutsR], Seen, TimeoutEvents) ->
+parse_timers(
+  TimerRefs, TimerTypes, [Timeout|TimeoutsR], Seen, TimeoutEvents) ->
     {TimerType,Time,TimerMsg} = Timeout,
     case Seen of
 	#{TimerType := _} ->
-	    handle_timers(
+	    %% Type seen before - ignore
+	    parse_timers(
 	      TimerRefs, TimerTypes, TimeoutsR, Seen, TimeoutEvents);
 	#{} ->
+	    %% Unseen type - handle
 	    NewSeen = Seen#{TimerType => true},
+	    %% Cancel any running timer
 	    {NewTimerRefs,NewTimerTypes} =
 		cancel_timer_by_type(TimerType, TimerRefs, TimerTypes),
-	    case Time of
-		0 ->
-		    TimeoutEvent = {TimerType,TimerMsg},
-		    handle_timers(
-		      NewTimerRefs, NewTimerTypes,
-		      TimeoutsR, NewSeen, [TimeoutEvent|TimeoutEvents]);
-		infinity ->
+	    if
+		Time =:= infinity ->
 		    %% Ignore - timer will never fire
-		    handle_timers(
-		      NewTimerRefs, NewTimerTypes,
-		      TimeoutsR, NewSeen, TimeoutEvents);
-		_ ->
+		    parse_timers(
+		      NewTimerRefs, NewTimerTypes, TimeoutsR,
+		      NewSeen, TimeoutEvents);
+		TimerType =:= timeout ->
+		    %% Handle event timer later
+		    parse_timers(
+		      NewTimerRefs, NewTimerTypes, TimeoutsR,
+		      NewSeen, [Timeout|TimeoutEvents]);
+		Time =:= 0 ->
+		    %% Handle zero time timeouts later
+		    TimeoutEvent = {TimerType,TimerMsg},
+		    parse_timers(
+		      NewTimerRefs, NewTimerTypes, TimeoutsR,
+		      NewSeen, [TimeoutEvent|TimeoutEvents]);
+		true ->
+		    %% Start a new timer
 		    TimerRef = erlang:start_timer(Time, self(), TimerMsg),
-		    handle_timers(
+		    parse_timers(
 		      NewTimerRefs#{TimerRef => TimerType},
 		      NewTimerTypes#{TimerType => TimerRef},
 		      TimeoutsR, NewSeen, TimeoutEvents)
 	    end
     end.
 
-
-%% Keep an event timeout event if it is the only event so far
-process_timeout_events([], _Es) ->
-    [];
-process_timeout_events([{timeout,_} = TimeoutEvent|TimeoutEvents], []) ->
-    [TimeoutEvent|process_timeout_events(TimeoutEvents, [TimeoutEvent])];
-process_timeout_events([{timeout,_}|TimeoutEvents], Es) ->
-    %% Ignore event timeout since there are other events
-    process_timeout_events(TimeoutEvents, Es);
-process_timeout_events([TimeoutEvent|TimeoutEvents], Es) ->
-    [TimeoutEvent|process_timeout_events(TimeoutEvents, [TimeoutEvent|Es])].
+%% Enqueue immediate timeout events and start event timer
+process_timeout_events(TimerRefs, TimerTypes, [], EventsR) ->
+    {TimerRefs, TimerTypes, EventsR};
+process_timeout_events(
+  TimerRefs, TimerTypes,
+  [{timeout,0,TimerMsg}|TimeoutEvents], []) ->
+    %% No enqueued events - insert a timeout zero event
+    TimeoutEvent = {timeout,TimerMsg},
+    process_timeout_events(
+      TimerRefs, TimerTypes,
+      TimeoutEvents, [TimeoutEvent]);
+process_timeout_events(
+  TimerRefs, TimerTypes,
+  [{timeout,Time,TimerMsg}], []) ->
+    %% No enqueued events - start event timer
+    TimerRef = erlang:start_timer(Time, self(), TimerMsg),
+    process_timeout_events(
+      TimerRefs#{TimerRef => timeout}, TimerTypes#{timeout => TimerRef},
+      [], []);
+process_timeout_events(
+  TimerRefs, TimerTypes,
+  [{timeout,_Time,_TimerMsg}|TimeoutEvents], EventsR) ->
+    %% There will be some other event so optimize by not starting
+    %% an event timer to just have to cancel it again
+    process_timeout_events(
+      TimerRefs, TimerTypes,
+      TimeoutEvents, EventsR);
+process_timeout_events(
+  TimerRefs, TimerTypes,
+  [{_TimeoutType,_TimeoutMsg} = TimeoutEvent|TimeoutEvents], EventsR) ->
+    process_timeout_events(
+      TimerRefs, TimerTypes,
+      TimeoutEvents, [TimeoutEvent|EventsR]).
 
 
 

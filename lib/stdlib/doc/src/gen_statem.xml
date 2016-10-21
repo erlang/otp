@@ -773,8 +773,9 @@ handle_event(_, _, State, Data) ->
 	  after this time (in milliseconds) unless another
 	  event arrives or has arrived
 	  in which case this time-out is cancelled.
-	  Note that a retried, inserted or state time-out zero
-	  events counts as arrived.
+	  Note that a retried or inserted event counts as arrived.
+	  So does a state time-out zero event, if it was generated
+	  before this timer is requested.
 	</p>
 	<p>
 	  If the value is <c>infinity</c>, no timer is started, as
