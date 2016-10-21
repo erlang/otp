@@ -29,14 +29,14 @@ limitations under the License.
 </script>
 </head> 
 
-<body bgcolor=white text="#000000" link="#0000ff" vlink="#ff00ff"
-      alink="#ff0000">
+<body>
 
 <div id="container">
 <div id="leftnav">
 <div class="innertube">
-<img alt="Erlang logo" src="erlang-logo.png"/ >
-<p/>
+    <div class="erlang-logo-wrapper">
+        <img alt="Erlang Logo" src="erlang-logo.png" class="erlang-logo"/ >
+    </div>
 <small><a href="applications.html">Applications</a><br>
 <a href="man_index.html">Modules</a></small>
 <p/>

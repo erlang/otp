@@ -145,3 +145,8 @@ pre          { font-family: mono, Courier, monospace; font-weight: normal }
 .REFTYPES    { margin-left: 8mm }
 
 footer       { }
+
+.erlang-logo-wrapper{
+ text-align: center;
+ margin-bottom: 1em;
+}

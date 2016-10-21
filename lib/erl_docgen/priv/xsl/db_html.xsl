@@ -799,10 +799,14 @@
   <xsl:template name="menu_top">
     <xsl:choose>
       <xsl:when test="string-length($logo) > 0">
-        <img alt="Erlang logo" src="{$topdocdir}/{$logo}"/>
+        <div class="erlang-logo-wrapper">
+            <img alt="Erlang Logo" src="{$topdocdir}/{$logo}" class="erlang-logo"/>
+        </div>
       </xsl:when>
       <xsl:otherwise>
-        <img alt="Erlang logo" src="{$topdocdir}/erlang-logo.png"/>
+        <div class="erlang-logo-wrapper">
+            <img alt="Erlang Logo" src="{$topdocdir}/erlang-logo.png" class="erlang-logo"/>
+        </div>
       </xsl:otherwise>
     </xsl:choose>
     <br/>
