@@ -26,7 +26,7 @@ limitations under the License.
 <!--
     BODY           { background: #fefefe; color: #111; }
 
-    BODY           { font-family: Verdana, Arial, Helvetica, sans-serif }
+    BODY           { font-family: sans-serif }
 
     .header        { background: #333; color: #fefefe; }
 
