@@ -244,10 +244,10 @@ hr{
   border-top: 1px solid #aaa;
 }
 
-.panel-sections, .expand-collapse-items{
+.section-links, .panel-sections, .expand-collapse-items{
  padding: 0 1em;
 }
 
-.panel-sections{
+.section-links, .panel-sections{
  margin-top: 0;
 }
