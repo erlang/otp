@@ -2,7 +2,7 @@
 body {
   background: #fefefe;
   color: #1a1a1a;
-  font-family: serif;
+  font-family: sans-serif;
   margin: 0;
   padding: 0;
   border: 0;
@@ -12,9 +12,7 @@ body {
   line-height: 1.5em;
 }
 
-th            { font-family: Verdana, Arial, Helvetica, sans-serif }
-td            { font-family: Verdana, Arial, Helvetica, sans-serif }
-p             { font-family: Verdana, Arial, Helvetica, sans-serif; max-width: 80em }
+p             { max-width: 80em }
 
 .header       { background: #222; color: #fefefe }
 .top          { background: #efe }
