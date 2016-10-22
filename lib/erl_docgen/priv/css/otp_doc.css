@@ -154,9 +154,11 @@ pre {
  margin: 0;
 }
 
-.REFBODY     { margin-left: 13mm }
 
-.REFTYPES    { margin-left: 8mm }
+.exports-body, .data-types-body, .REFBODY{
+ margin-left: 2em;
+}
+.REFTYPES    { margin-left: 1.5em }
 
 footer       { }
 
