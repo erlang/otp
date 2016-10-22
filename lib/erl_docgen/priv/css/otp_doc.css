@@ -148,7 +148,11 @@ span.code        {
   font-size: 120%;
 }
 
-pre          { font-family: mono, Courier, monospace; font-weight: normal }
+pre {
+ font-family: mono, Courier, monospace;
+ font-weight: normal;
+ margin: 0;
+}
 
 .REFBODY     { margin-left: 13mm }
 
@@ -239,4 +243,3 @@ hr{
   border: 0;
   border-top: 1px solid #aaa;
 }
-
