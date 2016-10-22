@@ -66,9 +66,9 @@ a:visited      { color: #1b6ec2; text-decoration: none }
   text-align: center;
 }
 
-span.bold_code   { font-family: mono, Courier, monospace; white-space: pre; font-weight: bold }
+span.bold_code   { font-family: mono, Courier, monospace; font-weight: bold }
 span.code        {
- font-family: mono, Courier, monospace; white-space: pre; font-weight: normal;
+ font-family: mono, Courier, monospace; font-weight: normal;
  color: #000;
  background-color: #f5f5f5;
  padding: 0.15em;
