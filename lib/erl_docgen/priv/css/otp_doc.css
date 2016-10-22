@@ -14,7 +14,7 @@ body {
 
 th            { font-family: Verdana, Arial, Helvetica, sans-serif }
 td            { font-family: Verdana, Arial, Helvetica, sans-serif }
-p             { font-family: Verdana, Arial, Helvetica, sans-serif }
+p             { font-family: Verdana, Arial, Helvetica, sans-serif; max-width: 80em }
 
 .header       { background: #222; color: #fefefe }
 .top          { background: #efe }
