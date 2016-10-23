@@ -3585,6 +3585,7 @@ format_arg(Arg) ->
       case cerl:var_name(Arg) of
 	Atom when is_atom(Atom) ->
 	  case atom_to_list(Atom) of
+	    "@"++_ -> Default;
 	    "cor"++_ -> Default;
 	    "rec"++_ -> Default;
 	    Name -> Name ++ "::"
@@ -3645,6 +3646,7 @@ map_pats(Pats) ->
 		case cerl:var_name(Tree) of
 		  Atom when is_atom(Atom) ->
 		    case atom_to_list(Atom) of
+		      "@"++_ -> cerl:c_var('');
 		      "cor"++_ -> cerl:c_var('');
 		      "rec"++_ -> cerl:c_var('');
 		      _ -> cerl:set_ann(Tree, [])

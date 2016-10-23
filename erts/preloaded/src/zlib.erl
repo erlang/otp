@@ -23,7 +23,8 @@
 -export([open/0,close/1,deflateInit/1,deflateInit/2,deflateInit/6,
 	 deflateSetDictionary/2,deflateReset/1,deflateParams/3,
 	 deflate/2,deflate/3,deflateEnd/1,
-	 inflateInit/1,inflateInit/2,inflateSetDictionary/2,
+	 inflateInit/1,inflateInit/2,
+	 inflateSetDictionary/2,inflateGetDictionary/1,
 	 inflateSync/1,inflateReset/1,inflate/2,inflateEnd/1,
 	 inflateChunk/1, inflateChunk/2,
 	 setBufSize/2,getBufSize/1,
@@ -98,25 +99,26 @@
 -define(INFLATE_INIT,    8).
 -define(INFLATE_INIT2,   9).
 -define(INFLATE_SETDICT, 10).
--define(INFLATE_SYNC,    11).
--define(INFLATE_RESET,   12).
--define(INFLATE_END,     13).
--define(INFLATE,         14).
--define(INFLATE_CHUNK,   25).
+-define(INFLATE_GETDICT, 11).
+-define(INFLATE_SYNC,    12).
+-define(INFLATE_RESET,   13).
+-define(INFLATE_END,     14).
+-define(INFLATE,         15).
+-define(INFLATE_CHUNK,   26).
 
--define(CRC32_0,         15).
--define(CRC32_1,         16).
--define(CRC32_2,         17).
+-define(CRC32_0,         16).
+-define(CRC32_1,         17).
+-define(CRC32_2,         18).
 
--define(SET_BUFSZ,       18).
--define(GET_BUFSZ,       19).
--define(GET_QSIZE,       20).
+-define(SET_BUFSZ,       19).
+-define(GET_BUFSZ,       20).
+-define(GET_QSIZE,       21).
 
--define(ADLER32_1,       21).
--define(ADLER32_2,       22).
+-define(ADLER32_1,       22).
+-define(ADLER32_2,       23).
 
--define(CRC32_COMBINE,   23).
--define(ADLER32_COMBINE, 24).
+-define(CRC32_COMBINE,   24).
+-define(ADLER32_COMBINE, 25).
 
 %%------------------------------------------------------------------------
 
@@ -241,6 +243,13 @@ inflateInit(Z, WindowBits) ->
       Dictionary :: iodata().
 inflateSetDictionary(Z, Dictionary) -> 
     call(Z, ?INFLATE_SETDICT, Dictionary).
+
+-spec inflateGetDictionary(Z) -> Dictionary when
+      Z :: zstream(),
+      Dictionary :: iolist().
+inflateGetDictionary(Z) ->
+    _ = call(Z, ?INFLATE_GETDICT, []),
+    collect(Z).
 
 -spec inflateSync(zstream()) -> 'ok'.
 inflateSync(Z) -> 

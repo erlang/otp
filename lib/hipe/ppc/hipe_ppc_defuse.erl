@@ -22,6 +22,7 @@
 -module(hipe_ppc_defuse).
 -export([insn_def_all/1, insn_use_all/1]).
 -export([insn_def_gpr/1, insn_use_gpr/1]).
+-export([insn_defs_all_gpr/1, insn_defs_all_fpr/1]).
 -export([insn_def_fpr/1, insn_use_fpr/1]).
 -include("hipe_ppc.hrl").
 
@@ -51,6 +52,9 @@ insn_def_gpr(I) ->
     #unary{dst=Dst} -> [Dst];
     _ -> []
   end.
+
+insn_defs_all_gpr(#pseudo_call{}) -> true;
+insn_defs_all_gpr(_) -> false.
 
 call_clobbered_gpr() ->
   [hipe_ppc:mk_temp(R, T)
@@ -115,6 +119,9 @@ insn_def_fpr(I) ->
     #pseudo_fmove{dst=Dst} -> [Dst];
     _ -> []
   end.
+
+insn_defs_all_fpr(#pseudo_call{}) -> true;
+insn_defs_all_fpr(_) -> false.
 
 call_clobbered_fpr() ->
   [hipe_ppc:mk_temp(R, 'double') || R <- hipe_ppc_registers:allocatable_fpr()].

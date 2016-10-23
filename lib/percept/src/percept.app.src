@@ -38,7 +38,7 @@
     {applications, [kernel,stdlib]},
     {env,[]},
     {runtime_dependencies, ["stdlib-2.0","runtime_tools-1.8.14","kernel-3.0",
-			    "inets-5.10","erts-6.0"]}
+			    "inets-5.10","erts-9.0"]}
 ]}.
 
 

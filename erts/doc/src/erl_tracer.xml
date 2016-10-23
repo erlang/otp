@@ -684,7 +684,7 @@ trace(_, _, _, _, _) ->
     <p><c>erl_msg_tracer.c</c>:</p>
 
     <pre>
-#include "erl_nif.h"
+#include &lt;erl_nif.h&gt;
 
 /* NIF interface declarations */
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);

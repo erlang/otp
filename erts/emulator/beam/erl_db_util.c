@@ -1769,7 +1769,7 @@ Eterm db_prog_match(Process *c_p,
     Eterm t;
     Eterm *esp;
     MatchVariable* variables;
-    BeamInstr *cp;
+    ErtsCodeMFA *cp;
     const UWord *pc = prog->text;
     Eterm *ehp;
     Eterm ret;
@@ -2408,9 +2408,9 @@ restart:
 		ehp = HAllocX(build_proc, 4, HEAP_XTRA);
  		*esp++ = make_tuple(ehp);
 		ehp[0] = make_arityval(3);
-		ehp[1] = cp[0];
-		ehp[2] = cp[1];
-		ehp[3] = make_small((Uint) cp[2]);
+		ehp[1] = cp->module;
+		ehp[2] = cp->function;
+		ehp[3] = make_small((Uint) cp->arity);
 	    }
 	    break;
         case matchSilent:

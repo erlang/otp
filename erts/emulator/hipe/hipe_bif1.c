@@ -45,7 +45,7 @@ BIF_RETTYPE hipe_bifs_call_count_on_1(BIF_ALIST_1)
     pc = hipe_bifs_find_pc_from_mfa(BIF_ARG_1);
     if (!pc)
 	BIF_ERROR(BIF_P, BADARG);
-    ASSERT(pc[-5] == BeamOpCode(op_i_func_info_IaaI));
+    ASSERT(pc[-6] == BeamOpCode(op_i_func_info_IaaI));
     if (pc[0] == BeamOpCode(op_hipe_trap_call))
 	BIF_ERROR(BIF_P, BADARG);
     if (pc[0] == BeamOpCode(op_hipe_call_count))
@@ -67,7 +67,7 @@ BIF_RETTYPE hipe_bifs_call_count_off_1(BIF_ALIST_1)
     pc = hipe_bifs_find_pc_from_mfa(BIF_ARG_1);
     if (!pc)
 	BIF_ERROR(BIF_P, BADARG);
-    ASSERT(pc[-5] == BeamOpCode(op_i_func_info_IaaI));
+    ASSERT(pc[-6] == BeamOpCode(op_i_func_info_IaaI));
     if (pc[0] != BeamOpCode(op_hipe_call_count))
 	BIF_RET(am_false);
     hcc = (struct hipe_call_count*)pc[-4];
@@ -86,7 +86,7 @@ BIF_RETTYPE hipe_bifs_call_count_get_1(BIF_ALIST_1)
     pc = hipe_bifs_find_pc_from_mfa(BIF_ARG_1);
     if (!pc)
 	BIF_ERROR(BIF_P, BADARG);
-    ASSERT(pc[-5] == BeamOpCode(op_i_func_info_IaaI));
+    ASSERT(pc[-6] == BeamOpCode(op_i_func_info_IaaI));
     if (pc[0] != BeamOpCode(op_hipe_call_count))
 	BIF_RET(am_false);
     hcc = (struct hipe_call_count*)pc[-4];
@@ -102,7 +102,7 @@ BIF_RETTYPE hipe_bifs_call_count_clear_1(BIF_ALIST_1)
     pc = hipe_bifs_find_pc_from_mfa(BIF_ARG_1);
     if (!pc)
 	BIF_ERROR(BIF_P, BADARG);
-    ASSERT(pc[-5] == BeamOpCode(op_i_func_info_IaaI));
+    ASSERT(pc[-6] == BeamOpCode(op_i_func_info_IaaI));
     if (pc[0] != BeamOpCode(op_hipe_call_count))
 	BIF_RET(am_false);
     hcc = (struct hipe_call_count*)pc[-4];

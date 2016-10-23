@@ -75,10 +75,12 @@ is_pure(erlang, binary_to_list, 1) -> true;
 is_pure(erlang, binary_to_list, 3) -> true;
 is_pure(erlang, bit_size, 1) -> true;
 is_pure(erlang, byte_size, 1) -> true;
+is_pure(erlang, ceil, 1) -> true;
 is_pure(erlang, element, 2) -> true;
 is_pure(erlang, float, 1) -> true;
 is_pure(erlang, float_to_list, 1) -> true;
 is_pure(erlang, float_to_binary, 1) -> true;
+is_pure(erlang, floor, 1) -> true;
 is_pure(erlang, hash, 2) -> false;
 is_pure(erlang, hd, 1) -> true;
 is_pure(erlang, integer_to_binary, 1) -> true;
@@ -129,11 +131,13 @@ is_pure(math, asinh, 1) -> true;
 is_pure(math, atan, 1) -> true;
 is_pure(math, atan2, 2) -> true;
 is_pure(math, atanh, 1) -> true;
+is_pure(math, ceil, 1) -> true;
 is_pure(math, cos, 1) -> true;
 is_pure(math, cosh, 1) -> true;
 is_pure(math, erf, 1) -> true;
 is_pure(math, erfc, 1) -> true;
 is_pure(math, exp, 1) -> true;
+is_pure(math, floor, 1) -> true;
 is_pure(math, log, 1) -> true;
 is_pure(math, log2, 1) -> true;
 is_pure(math, log10, 1) -> true;
@@ -203,7 +207,6 @@ is_safe(erlang, registered, 0) -> true;
 is_safe(erlang, self, 0) -> true;
 is_safe(erlang, term_to_binary, 1) -> true;
 is_safe(erlang, time, 0) -> true;
-is_safe(error_logger, warning_map, 0) -> true;
 is_safe(_, _, _) -> false.
 
 

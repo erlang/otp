@@ -62,10 +62,12 @@ static void print_beam_pc(BeamInstr *pc)
     } else if (pc == &beam_apply[1]) {
 	printf("normal-process-exit");
     } else {
-	BeamInstr *mfa = find_function_from_pc(pc);
-	if (mfa)
+	ErtsCodeMFA *cmfa = find_function_from_pc(pc);
+	if (cmfa)
 	    erts_printf("%T:%T/%bpu + 0x%bpx",
-			mfa[0], mfa[1], mfa[2], pc - &mfa[3]);
+			cmfa->module, cmfa->function,
+                        cmfa->arity,
+                        pc - erts_codemfa_to_code(cmfa));
 	else
 	    printf("?");
     }
@@ -214,10 +216,10 @@ void hipe_print_pcb(Process *p)
     U("seq..clock ", seq_trace_clock);
     U("seq..astcnt", seq_trace_lastcnt);
     U("seq..token ", seq_trace_token);
-    U("intial[0]  ", u.initial[0]);
-    U("intial[1]  ", u.initial[1]);
-    U("intial[2]  ", u.initial[2]);
-    P("current    ", current);
+    U("intial.mod ", u.initial.module);
+    U("intial.fun ", u.initial.function);
+    U("intial.ari ", u.initial.arity);
+    U("current    ", current);
     P("cp         ", cp);
     P("i          ", i);
     U("catches    ", catches);

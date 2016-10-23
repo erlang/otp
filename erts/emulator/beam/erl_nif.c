@@ -687,9 +687,12 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
             MBUF(&menv->phony_proc) = NULL;
         }
     } else {
-        Uint sz = size_object(msg);
+        erts_literal_area_t litarea;
 	ErlOffHeap *ohp;
         Eterm *hp;
+        Uint sz;
+        INITIALIZE_LITERAL_PURGE_AREA(litarea);
+        sz = size_object_litopt(msg, &litarea);
 	if (env && !env->tracee) {
 	    full_flush_env(env);
 	    mp = erts_alloc_message_heap(rp, &rp_locks, sz, &hp, &ohp);
@@ -709,7 +712,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 		ohp = &bp->off_heap;
 	    }
 	}
-        msg = copy_struct(msg, sz, &hp, ohp);
+        msg = copy_struct_litopt(msg, sz, &hp, ohp, &litarea);
     }
 
     ERL_MESSAGE_TERM(mp) = msg;
@@ -2282,7 +2285,7 @@ typedef struct {
     Export exp;
     struct erl_module_nif* m;
     NativeFunPtr fp;
-    BeamInstr *saved_current;
+    ErtsCodeMFA *saved_current;
     int exception_thrown;
     int saved_argc;
     int rootset_extra;
@@ -2325,9 +2328,9 @@ allocate_nif_sched_data(Process* proc, int argc)
     ep->rootset_extra = argc;
     ep->rootset[0] = NIL;
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-	ep->exp.addressv[i] = &ep->exp.code[3];
+	ep->exp.addressv[i] = &ep->exp.beam[0];
     }
-    ep->exp.code[3] = (BeamInstr) em_call_nif;
+    ep->exp.beam[0] = (BeamInstr) em_call_nif;
     (void) ERTS_PROC_SET_NIF_TRAP_EXPORT(proc, ep);
     return ep;
 }
@@ -2398,10 +2401,10 @@ init_nif_sched_data(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirec
 	ep->saved_argc = argc;
     }
     proc->i = (BeamInstr*) ep->exp.addressv[0];
-    ep->exp.code[0] = (BeamInstr) proc->current[0];
-    ep->exp.code[1] = (BeamInstr) proc->current[1];
-    ep->exp.code[2] = argc;
-    ep->exp.code[4] = (BeamInstr) direct_fp;
+    ep->exp.info.mfa.module = proc->current->module;
+    ep->exp.info.mfa.function = proc->current->function;
+    ep->exp.info.mfa.arity = argc;
+    ep->exp.beam[1] = (BeamInstr) direct_fp;
     ep->m = env->mod_nif;
     ep->fp = indirect_fp;
     proc->freason = TRAP;
@@ -2423,7 +2426,7 @@ restore_nif_mfa(Process* proc, NifExport* ep, int exception)
     ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(proc)
 		       & ERTS_PROC_LOCK_MAIN);
 
-    ASSERT(ep->saved_current != &ep->exp.code[0]);
+    ASSERT(ep->saved_current != &ep->exp.info.mfa);
     proc->current = ep->saved_current;
     ep->saved_current = NULL;
     if (exception) {
@@ -2497,7 +2500,8 @@ execute_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     execution_state(env, &proc, NULL);
 
-    fp = (NativeFunPtr) proc->current[6];
+    ep = ErtsContainerStruct(proc->current, NifExport, exp.info.mfa);
+    fp = ep->fp;
 
     ASSERT(ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(proc)));
 
@@ -2566,7 +2570,8 @@ schedule_dirty_nif(ErlNifEnv* env, int flags, int argc, const ERL_NIF_TERM argv[
 	erts_smp_proc_lock(proc, ERTS_PROC_LOCK_MAIN);
     }
 
-    fp = (NativeFunPtr) proc->current[6];
+    ep = ErtsContainerStruct(proc->current, NifExport, exp.info.mfa);
+    fp = ep->fp;
 
     ASSERT(fp);
 
@@ -2626,7 +2631,8 @@ execute_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ERL_NIF_TERM result;
 
     execution_state(env, &proc, NULL);
-    fp = (NativeFunPtr) proc->current[6];
+    ep = ErtsContainerStruct(proc->current, NifExport, exp.info.mfa);
+    fp = ep->fp;
 
     ASSERT(!env->exception_thrown);
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
@@ -2694,7 +2700,7 @@ enif_schedule_nif(ErlNifEnv* env, const char* fun_name, int flags,
 
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
     ASSERT(ep);
-    ep->exp.code[1] = (BeamInstr) fun_name_atom;
+    ep->exp.info.mfa.function = (BeamInstr) fun_name_atom;
 
 done:
     if (scheduler < 0)
@@ -3008,17 +3014,16 @@ int enif_map_iterator_get_pair(ErlNifEnv *env,
  ***************************************************************************/
 
 
-static BeamInstr** get_func_pp(BeamCodeHeader* mod_code, Eterm f_atom, unsigned arity)
+static ErtsCodeInfo** get_func_pp(BeamCodeHeader* mod_code, Eterm f_atom, unsigned arity)
 {
     int n = (int) mod_code->num_functions;
     int j;
     for (j = 0; j < n; ++j) {
-	BeamInstr* code_ptr = (BeamInstr*) mod_code->functions[j];
-	ASSERT(code_ptr[0] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
-	if (f_atom == ((Eterm) code_ptr[3])
-	    && arity == ((unsigned) code_ptr[4])) {
-
-	    return (BeamInstr**) &mod_code->functions[j];
+	ErtsCodeInfo* ci = mod_code->functions[j];
+	ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IaaI));
+	if (f_atom == ci->mfa.function
+	    && arity == ci->mfa.arity) {
+	    return mod_code->functions+j;
 	}
     }
     return NULL;
@@ -3142,7 +3147,6 @@ static ErlNifFunc* next_func(ErlNifEntry* entry, int* incrp, ErlNifFunc* func)
 BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 {
     static const char bad_lib[] = "bad_lib";
-    static const char reload[] = "reload";
     static const char upgrade[] = "upgrade";
     char* lib_name = NULL;
     void* handle = NULL;
@@ -3154,12 +3158,11 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     Eterm mod_atom;
     const Atom* mod_atomp;
     Eterm f_atom;
-    BeamInstr* caller;
+    ErtsCodeMFA* caller;
     ErtsSysDdllError errdesc = ERTS_SYS_DDLL_ERROR_INIT;
     Eterm ret = am_ok;
     int veto;
     struct erl_module_nif* lib = NULL;
-    int reload_warning = 0;
     struct erl_module_instance* this_mi;
     struct erl_module_instance* prev_mi;
 
@@ -3188,12 +3191,12 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 
     /* Find calling module */
     ASSERT(BIF_P->current != NULL);
-    ASSERT(BIF_P->current[0] == am_erlang
-	   && BIF_P->current[1] == am_load_nif 
-	   && BIF_P->current[2] == 2);
+    ASSERT(BIF_P->current->module == am_erlang
+	   && BIF_P->current->function == am_load_nif 
+	   && BIF_P->current->arity == 2);
     caller = find_function_from_pc(BIF_P->cp);
     ASSERT(caller != NULL);
-    mod_atom = caller[0];
+    mod_atom = caller->module;
     ASSERT(is_atom(mod_atom));
     module_p = erts_get_module(mod_atom, erts_active_code_ix());
     ASSERT(module_p != NULL);
@@ -3219,8 +3222,12 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	this_mi = module_p->on_load;
     }
 
-    if (init_func == NULL &&
-	     (err=erts_sys_ddll_open(lib_name, &handle, &errdesc)) != ERL_DE_NO_ERROR) {
+    if (this_mi->nif != NULL) {
+        ret = load_nif_error(BIF_P,"reload","NIF library already loaded"
+                             " (reload disallowed since OTP 20).");
+    }
+    else if (init_func == NULL &&
+             (err=erts_sys_ddll_open(lib_name, &handle, &errdesc)) != ERL_DE_NO_ERROR) {
 	const char slogan[] = "Failed to load NIF library";
 	if (strstr(errdesc.str, lib_name) != NULL) {
 	    ret = load_nif_error(BIF_P, "load_failed", "%s: '%s'", slogan, errdesc.str);
@@ -3266,9 +3273,9 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	int incr = 0;
 	ErlNifFunc* f = entry->funcs;
 	for (i=0; i < entry->num_of_funcs && ret==am_ok; i++) {
-	    BeamInstr** code_pp;
+	    ErtsCodeInfo** ci_pp;
 	    if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1)
-		|| (code_pp = get_func_pp(this_mi->code_hdr, f_atom, f->arity))==NULL) {
+		|| (ci_pp = get_func_pp(this_mi->code_hdr, f_atom, f->arity))==NULL) {
 		ret = load_nif_error(BIF_P,bad_lib,"Function not found %T:%s/%u",
 				     mod_atom, f->name, f->arity);
 	    }
@@ -3290,9 +3297,9 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 #endif
 	    }
 #ifdef ERTS_DIRTY_SCHEDULERS
-	    else if (code_pp[1] - code_pp[0] < (5+4))
+	    else if (erts_codeinfo_to_code(ci_pp[1]) - erts_codeinfo_to_code(ci_pp[0]) < (4))
 #else
-	    else if (code_pp[1] - code_pp[0] < (5+3))
+	    else if (erts_codeinfo_to_code(ci_pp[1]) - erts_codeinfo_to_code(ci_pp[0]) < (3))
 #endif
 	    {
 		ret = load_nif_error(BIF_P,bad_lib,"No explicit call to load_nif"
@@ -3309,7 +3316,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	goto error;
     }
 
-    /* Call load, reload or upgrade:
+    /* Call load or upgrade:
      */
 
 
@@ -3321,82 +3328,33 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     ASSERT(opened_rt_list == NULL);
     lib->mod = module_p;
     env.mod_nif = lib;
-    if (this_mi->nif != NULL) { /*************** Reload ******************/
-	/*
-	 * Repeated load_nif calls from same Erlang module instance ("reload")
-	 * is deprecated and was only ment as a development feature not to
-	 * be used in production systems. (See warning below)
-	 */
-	int k, old_incr = 0;
-	ErlNifFunc* old_func;
-        lib->priv_data = this_mi->nif->priv_data;
 
-	ASSERT(this_mi->nif->entry != NULL);
-	if (entry->reload == NULL) {
-	    ret = load_nif_error(BIF_P,reload,"Reload not supported by this NIF library.");
-	    goto error;
-	}
-	/* Check that no NIF is removed */
-	old_func = this_mi->nif->entry->funcs;
-	for (k=0; k < this_mi->nif->entry->num_of_funcs; k++) {
-	    int incr = 0;
-	    ErlNifFunc* f = entry->funcs;
-	    for (i=0; i < entry->num_of_funcs; i++) {
-		if (old_func->arity == f->arity
-		    && sys_strcmp(old_func->name, f->name) == 0) {
-		    break;
-		}
-		f = next_func(entry, &incr, f);
-	    }
-	    if (i == entry->num_of_funcs) {
-		ret = load_nif_error(BIF_P,reload,"Reloaded library missing "
-				     "function %T:%s/%u\r\n", mod_atom,
-				     old_func->name, old_func->arity);
-		goto error;
-	    }
-	    old_func = next_func(this_mi->nif->entry, &old_incr, old_func);
-	}
-	erts_pre_nif(&env, BIF_P, lib, NULL);
-	veto = entry->reload(&env, &lib->priv_data, BIF_ARG_2);
-	erts_post_nif(&env);
-	if (veto) {
-	    ret = load_nif_error(BIF_P, reload, "Library reload-call unsuccessful (%d).", veto);
-	}
-	else {
-	    commit_opened_resource_types(lib);
-	    this_mi->nif->entry = NULL; /* to prevent 'unload' callback */
-	    erts_unload_nif(this_mi->nif);
-	    reload_warning = 1;
-	}
+    lib->priv_data = NULL;
+    if (prev_mi->nif != NULL) { /**************** Upgrade ***************/
+        void* prev_old_data = prev_mi->nif->priv_data;
+        if (entry->upgrade == NULL) {
+            ret = load_nif_error(BIF_P, upgrade, "Upgrade not supported by this NIF library.");
+            goto error;
+        }
+        erts_pre_nif(&env, BIF_P, lib, NULL);
+        veto = entry->upgrade(&env, &lib->priv_data, &prev_mi->nif->priv_data, BIF_ARG_2);
+        erts_post_nif(&env);
+        if (veto) {
+            prev_mi->nif->priv_data = prev_old_data;
+            ret = load_nif_error(BIF_P, upgrade, "Library upgrade-call unsuccessful (%d).", veto);
+        }
+        else
+            commit_opened_resource_types(lib);
     }
-    else {
-	lib->priv_data = NULL;
-	if (prev_mi->nif != NULL) { /**************** Upgrade ***************/
-	    void* prev_old_data = prev_mi->nif->priv_data;
-	    if (entry->upgrade == NULL) {
-		ret = load_nif_error(BIF_P, upgrade, "Upgrade not supported by this NIF library.");
-		goto error;
-	    }
-		erts_pre_nif(&env, BIF_P, lib, NULL);
-	    veto = entry->upgrade(&env, &lib->priv_data, &prev_mi->nif->priv_data, BIF_ARG_2);
-	    erts_post_nif(&env);
-	    if (veto) {
-		prev_mi->nif->priv_data = prev_old_data;
-		ret = load_nif_error(BIF_P, upgrade, "Library upgrade-call unsuccessful (%d).", veto);
-	    }
-	    else
-		commit_opened_resource_types(lib);
-	}
-	else if (entry->load != NULL) { /********* Initial load ***********/
-	    erts_pre_nif(&env, BIF_P, lib, NULL);
-	    veto = entry->load(&env, &lib->priv_data, BIF_ARG_2);
-	    erts_post_nif(&env);
-	    if (veto) {
-		ret = load_nif_error(BIF_P, "load", "Library load-call unsuccessful (%d).", veto);
-	    }
-	    else
-		commit_opened_resource_types(lib);
-	}
+    else if (entry->load != NULL) { /********* Initial load ***********/
+        erts_pre_nif(&env, BIF_P, lib, NULL);
+        veto = entry->load(&env, &lib->priv_data, BIF_ARG_2);
+        erts_post_nif(&env);
+        if (veto) {
+            ret = load_nif_error(BIF_P, "load", "Library load-call unsuccessful (%d).", veto);
+        }
+        else
+            commit_opened_resource_types(lib);
     }
     if (ret == am_ok) {
 	/*
@@ -3409,31 +3367,33 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	this_mi->nif = lib;
 	for (i=0; i < entry->num_of_funcs; i++)
 	{
-	    BeamInstr* code_ptr;
+	    ErtsCodeInfo* ci;
+            BeamInstr *code_ptr;
 	    erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1);
-	    code_ptr = *get_func_pp(this_mi->code_hdr, f_atom, f->arity);
+	    ci = *get_func_pp(this_mi->code_hdr, f_atom, f->arity);
+            code_ptr = erts_codeinfo_to_code(ci);
 
-	    if (code_ptr[1] == 0) {
-		code_ptr[5+0] = (BeamInstr) BeamOp(op_call_nif);
+	    if (ci->native == 0) {
+		code_ptr[0] = (BeamInstr) BeamOp(op_call_nif);
 	    }
 	    else { /* Function traced, patch the original instruction word */
-		GenericBp* g = (GenericBp *) code_ptr[1];
-		ASSERT(code_ptr[5+0] ==
+		GenericBp* g = (GenericBp *) ci->native;
+		ASSERT(code_ptr[0] ==
 		       (BeamInstr) BeamOp(op_i_generic_breakpoint));
 		g->orig_instr = (BeamInstr) BeamOp(op_call_nif);
 	    }
 #ifdef ERTS_DIRTY_SCHEDULERS
 	    if ((entry->major > 2 || (entry->major == 2 && entry->minor >= 7))
 		&& (entry->options & ERL_NIF_DIRTY_NIF_OPTION) && f->flags) {
-		code_ptr[5+3] = (BeamInstr) f->fptr;
-		code_ptr[5+1] = (f->flags == ERL_NIF_DIRTY_JOB_IO_BOUND) ?
+		code_ptr[3] = (BeamInstr) f->fptr;
+		code_ptr[1] = (f->flags == ERL_NIF_DIRTY_JOB_IO_BOUND) ?
 		    (BeamInstr) schedule_dirty_io_nif :
 		    (BeamInstr) schedule_dirty_cpu_nif;
 	    }
 	    else
 #endif
-		code_ptr[5+1] = (BeamInstr) f->fptr;
-	    code_ptr[5+2] = (BeamInstr) lib;
+		code_ptr[1] = (BeamInstr) f->fptr;
+	    code_ptr[2] = (BeamInstr) lib;
 	    f = next_func(entry, &incr, f);
 	}
     }
@@ -3455,14 +3415,6 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     erts_release_code_write_permission();
     erts_free(ERTS_ALC_T_TMP, lib_name);
 
-    if (reload_warning) {
-	erts_dsprintf_buf_t* dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp,
-		      "Repeated calls to erlang:load_nif from module '%T'.\n\n"
-		      "The NIF reload mechanism is deprecated and must not "
-		      "be used in production systems.\n", mod_atom);
-	erts_send_warning_to_logger(BIF_P->group_leader, dsbufp);
-    }
     BIF_RET(ret);
 }
 

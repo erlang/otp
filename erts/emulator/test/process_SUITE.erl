@@ -2428,7 +2428,7 @@ no_priority_inversion2(Config) when is_list(Config) ->
 
 request_gc(Pid, Prio) ->
     Ref = make_ref(),
-    erts_internal:request_system_task(Pid, Prio, {garbage_collect, Ref}),
+    erts_internal:request_system_task(Pid, Prio, {garbage_collect, Ref, major}),
     Ref.
 
 system_task_blast(Config) when is_list(Config) ->

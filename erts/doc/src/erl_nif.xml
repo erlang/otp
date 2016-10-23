@@ -80,7 +80,7 @@
 
     <code type="none">
 /* niftest.c */
-#include "erl_nif.h"
+#include &lt;erl_nif.h&gt;
 
 static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -296,8 +296,8 @@ return term;</code>
           synchronization. This includes terms in process-independent
           environments that are shared between threads. Resource objects also
           require synchronization if you treat them as mutable.</p>
-        <p>The library initialization callbacks <c>load</c>, <c>reload</c>, and
-          <c>upgrade</c> are all thread-safe even for shared state data.</p>
+        <p>The library initialization callbacks <c>load</c> and
+          <c>upgrade</c> are thread-safe even for shared state data.</p>
       </item>
       <tag><marker id="version_management"/>Version Management</tag>
       <item>
@@ -498,7 +498,7 @@ return term;</code>
     <title>Initialization</title>
     <taglist>
       <tag><marker id="ERL_NIF_INIT"/><c>ERL_NIF_INIT(MODULE,
-        ErlNifFunc funcs[], load, reload, upgrade, unload)</c></tag>
+        ErlNifFunc funcs[], load, NULL, upgrade, unload)</c></tag>
       <item>
         <p>This is the magic macro to initialize a NIF library. It
           is to be evaluated in global file scope.</p>
@@ -507,11 +507,14 @@ return term;</code>
           the macro.</p>
         <p><c>funcs</c> is a static array of function descriptors for
           all the implemented NIFs in this library.</p>
-        <p><c>load</c>, <c>reload</c>, <c>upgrade</c> and <c>unload</c>
-          are pointers to functions. One of <c>load</c>, <c>reload</c>, or
+        <p><c>load</c>, <c>upgrade</c> and <c>unload</c>
+          are pointers to functions. One of <c>load</c> or
           <c>upgrade</c> is called to initialize the library.
           <c>unload</c> is called to release the library. All are
           described individually below.</p>
+       <p>The fourth argument <c>NULL</c> is ignored. It
+          was earlier used for the deprectated <c>reload</c> callback
+          which is no longer supported since OTP 20.</p>
         <p>If compiling a NIF for static inclusion through
           <c>--enable-static-nifs</c>, you must define <c>STATIC_ERLANG_NIF</c>
            before the <c>ERL_NIF_INIT</c> declaration.</p>
@@ -539,7 +542,7 @@ return term;</code>
           and there is old code of this module with a loaded NIF library.</p>
         <p>Works as <c>load</c>, except that <c>*old_priv_data</c> already
           contains the value set by the last call to <c>load</c> or
-          <c>reload</c> for the old module code. <c>*priv_data</c> is
+          <c>upgrade</c> for the old module code. <c>*priv_data</c> is
           initialized to <c>NULL</c> when <c>upgrade</c> is called. It is
           allowed to write to both <c>*priv_data</c> and
           <c>*old_priv_data.</c></p> 
@@ -551,27 +554,7 @@ return term;</code>
       <item>
         <p><c>unload</c> is called when the module code that
           the NIF library belongs to is purged as old. New code of the same
-          module may or may not exist. Notice that <c>unload</c> is not
-          called for a replaced library as a consequence of <c>reload</c>.</p>
-      </item>
-      <tag><marker id="reload"/><c>int (*reload)(ErlNifEnv* env, void**
-        priv_data, ERL_NIF_TERM load_info)</c></tag>
-      <item>
-        <note>
-          <p><em>The reload mechanism is deprecated.</em> It was only intended
-            as a development feature. Do not use it as an upgrade method for
-            live production systems. It can be removed in future releases.
-            Ensure to pass <c>reload</c> as <c>NULL</c> to
-            <seealso marker="#ERL_NIF_INIT"><c>ERL_NIF_INIT</c></seealso>
-            to disable it when not used.</p>
-        </note>
-        <p><c>reload</c> is called when the NIF library is loaded and a
-          previously loaded library already exists for this module code.</p>
-        <p>Works as <c>load</c>, except that
-          <c>*priv_data</c> already contains the value set by the
-          previous call to <c>load</c> or <c>reload</c>.</p>
-        <p>The library fails to load if <c>reload</c> returns
-          anything other than <c>0</c> or if <c>reload</c> is <c>NULL</c>.</p> 
+          module may or may not exist.</p>
       </item>
     </taglist>
   </section>
@@ -2249,9 +2232,8 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           returns <c>NULL</c> and sets <c>*tried</c> to <c>flags</c>.
           It is allowed to set <c>tried</c> to <c>NULL</c>.</p>
         <p>Notice that <c>enif_open_resource_type</c> is only allowed to be
-          called in the three callbacks
-          <seealso marker="#load"><c>load</c></seealso>,
-          <seealso marker="#reload"><c>reload</c></seealso>, and
+          called in the two callbacks
+          <seealso marker="#load"><c>load</c></seealso> and
           <seealso marker="#upgrade"><c>upgrade</c></seealso>.</p>
       </desc>
     </func>
@@ -2305,10 +2287,8 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
       <fsummary>Get the private data of a NIF library.</fsummary>
       <desc>
         <p>Returns the pointer to the private data that was set by
-          <seealso marker="#load"><c>load</c></seealso>,
-          <seealso marker="#reload"><c>reload</c></seealso>, or
+          <seealso marker="#load"><c>load</c></seealso> or
           <seealso marker="#upgrade"><c>upgrade</c></seealso>.</p>
-        <p>Was previously named <c>enif_get_data</c>.</p>
       </desc>
     </func>
 

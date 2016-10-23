@@ -3305,7 +3305,7 @@ time_now() ->
 make_timestamp(MonTime, TimeOffset) ->
     ErlangSystemTime = erlang:convert_time_unit(MonTime+TimeOffset,
 						native,
-						micro_seconds),
+						microsecond),
     MegaSecs = ErlangSystemTime div 1000000000000,
     Secs = ErlangSystemTime div 1000000 - MegaSecs*1000000,
     MicroSecs = ErlangSystemTime rem 1000000,

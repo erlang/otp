@@ -1166,19 +1166,21 @@ compile(Config, Tests) ->
     lists:foldl(F, [], Tests).
 
 compile_file(Config, Test0) ->
-    case compile_file(Config, Test0, ['E']) of
+    Test = ["-module(erl_pp_test).\n",
+	    "-compile(export_all).\n",
+	    Test0],
+    case compile_file(Config, Test, ['E']) of
         {ok, RootFile} ->
             File = RootFile ++ ".E",
             {ok, Bin0} = file:read_file(File),
-            Bin = strip_module_info(Bin0),
             %% A very simple check: just try to compile the output.
-            case compile_file(Config, Bin, []) of
+            case compile_file(Config, Bin0, []) of
                 {ok, RootFile2} ->
                     File2 = RootFile2 ++ ".E",
                     {ok, Bin1} = file:read_file(File2),
                     case Bin0 =:= Bin1 of
                         true ->
-                            test_max_line(binary_to_list(Bin));
+                            test_max_line(binary_to_list(Bin0));
                         false ->
                             {error, file_contents_modified, {Bin0, Bin1}}
                     end;
@@ -1189,11 +1191,8 @@ compile_file(Config, Test0) ->
             Error
     end.
 
-compile_file(Config, Test0, Opts0) ->
+compile_file(Config, Test, Opts0) ->
     FileName = filename('erl_pp_test.erl', Config),
-    Test = list_to_binary(["-module(erl_pp_test). "
-                           "-compile(export_all). ",
-                           Test0]),
     Opts = [export_all,return,nowarn_unused_record,{outdir,?privdir} | Opts0],
     ok = file:write_file(FileName, Test),
     case compile:file(FileName, Opts) of
@@ -1201,11 +1200,6 @@ compile_file(Config, Test0, Opts0) ->
             {ok, filename:rootname(FileName)};
         Error -> Error
     end.
-
-strip_module_info(Bin) ->
-    {match, [{Start,_Len}|_]} = re:run(Bin, "module_info"),
-    <<R:Start/binary,_/binary>> = Bin,
-    R.
 
 flat_expr1(Expr0) ->
     Expr = erl_parse:new_anno(Expr0),

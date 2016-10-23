@@ -41,13 +41,12 @@
 
 %%----------------------------------------------------------------------
 
-map(Defun) ->
-  CFG0 = hipe_x86_cfg:init(Defun),
+map(CFG0) ->
   %% hipe_x86_cfg:pp(CFG0),
   Liveness = ?HIPE_X86_LIVENESS:analyse(CFG0),
   StartLabel = hipe_x86_cfg:start_label(CFG0),
   {CFG1,_} = do_blocks([], [StartLabel], CFG0, Liveness, [], gb_trees:empty()),
-  hipe_x86_cfg:linearise(CFG1).
+  CFG1.
 
 do_blocks(Pred, [Lbl|Lbls], CFG, Liveness, Map, BlockMap) ->
   case gb_trees:lookup(Lbl, BlockMap) of

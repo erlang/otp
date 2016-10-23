@@ -23,12 +23,13 @@
 -export([finalise/3]).
 -include("hipe_arm.hrl").
 
-finalise(Defun, TempMap, _FPMap0=[]) ->
-  Code = hipe_arm:defun_code(Defun),
-  {_, SpillLimit} = hipe_arm:defun_var_range(Defun),
+finalise(CFG, TempMap, _FPMap0=[]) ->
+  {_, SpillLimit} = hipe_gensym:var_range(arm),
   Map = mk_ra_map(TempMap, SpillLimit),
-  NewCode = ra_code(Code, Map, []),
-  Defun#defun{code=NewCode}.
+  hipe_arm_cfg:map_bbs(fun(_Lbl, BB) -> ra_bb(BB, Map) end, CFG).
+
+ra_bb(BB, Map) ->
+  hipe_bb:code_update(BB, ra_code(hipe_bb:code(BB), Map, [])).
 
 ra_code([I|Insns], Map, Accum) ->
   ra_code(Insns, Map, [ra_insn(I, Map) | Accum]);

@@ -25,17 +25,13 @@
 
 -include("hipe_arm.hrl").
 
-check_and_rewrite(Defun, Coloring, Allocator) ->
-  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_arm_specific),
-  check_and_rewrite2(Defun, TempMap, Allocator).
+check_and_rewrite(CFG, Coloring, Allocator) ->
+  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_arm_specific, no_context),
+  check_and_rewrite2(CFG, TempMap, Allocator).
 
-check_and_rewrite2(Defun, TempMap, Allocator) ->
+check_and_rewrite2(CFG, TempMap, Allocator) ->
   Strategy = strategy(Allocator),
-  #defun{code=Code0} = Defun,
-  {Code1,DidSpill} = do_insns(Code0, TempMap, Strategy, [], false),
-  VarRange = {0, hipe_gensym:get_var(arm)},
-  {Defun#defun{code=Code1, var_range=VarRange},
-   DidSpill}.
+  do_bbs(hipe_arm_cfg:labels(CFG), TempMap, Strategy, CFG, false).
 
 strategy(Allocator) ->
   case Allocator of
@@ -43,6 +39,13 @@ strategy(Allocator) ->
     'linearscan' -> 'fixed';
     'naive' -> 'fixed'
   end.
+
+do_bbs([], _, _, CFG, DidSpill) -> {CFG, DidSpill};
+do_bbs([Lbl|Lbls], TempMap, Strategy, CFG0, DidSpill0) ->
+  Code0 = hipe_bb:code(BB = hipe_arm_cfg:bb(CFG0, Lbl)),
+  {Code, DidSpill} = do_insns(Code0, TempMap, Strategy, [], DidSpill0),
+  CFG = hipe_arm_cfg:bb_add(CFG0, Lbl, hipe_bb:code_update(BB, Code)),
+  do_bbs(Lbls, TempMap, Strategy, CFG, DidSpill).
 
 do_insns([I|Insns], TempMap, Strategy, Accum, DidSpill0) ->
   {NewIs, DidSpill1} = do_insn(I, TempMap, Strategy),

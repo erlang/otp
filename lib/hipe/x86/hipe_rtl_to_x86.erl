@@ -85,7 +85,7 @@ conv_insn(I, Map, Data) ->
 	  true ->
 	    conv_shift(Dst, Src1, BinOp, Src2);
 	  false ->
-	    conv_alu(Dst, Src1, BinOp, Src2, [])
+	    conv_alu_nocc(Dst, Src1, BinOp, Src2, [])
 	end,
       {FixSrc1++FixSrc2++I2, Map2, Data};
     #alub{} ->
@@ -144,7 +144,7 @@ conv_insn(I, Map, Data) ->
       {I2, Map, Data};
     #load{} ->
       {Dst, Map0} = conv_dst(hipe_rtl:load_dst(I), Map),
-      {FixSrc, Src, Map1} = conv_src(hipe_rtl:load_src(I), Map0),
+      {FixSrc, Src, Map1} = conv_src_noimm(hipe_rtl:load_src(I), Map0),
       {FixOff, Off, Map2} = conv_src(hipe_rtl:load_offset(I), Map1),
       I2 = case {hipe_rtl:load_size(I), hipe_rtl:load_sign(I)} of
 	     {byte, signed} ->
@@ -171,6 +171,7 @@ conv_insn(I, Map, Data) ->
       Src = hipe_x86:mk_imm_from_atom(hipe_rtl:load_atom_atom(I)),
       I2 = [hipe_x86:mk_move(Src, Dst)],
       {I2, Map0, Data};
+    #move{src=Dst, dst=Dst} -> {[], Map, Data};
     #move{} ->
       {Dst, Map0} = conv_dst(hipe_rtl:move_dst(I), Map),
       {FixSrc, Src, Map1} = conv_src(hipe_rtl:move_src(I), Map0),
@@ -182,11 +183,11 @@ conv_insn(I, Map, Data) ->
       I2 = move_retvals(Args, [hipe_x86:mk_ret(-1)]),
       {FixArgs++I2, Map0, Data};
     #store{} ->
-      {Ptr, Map0} = conv_dst(hipe_rtl:store_base(I), Map),
+      {FixPtr, Ptr, Map0} = conv_src_noimm(hipe_rtl:store_base(I), Map),
       {FixSrc, Src, Map1} = conv_src(hipe_rtl:store_src(I), Map0),
       {FixOff, Off, Map2} = conv_src(hipe_rtl:store_offset(I), Map1),
       I2 = mk_store(hipe_rtl:store_size(I), Src, Ptr, Off),
-      {FixSrc++FixOff++I2, Map2, Data};
+      {FixPtr++FixSrc++FixOff++I2, Map2, Data};
     #switch{} ->	% this one also updates Data :-(
       %% from hipe_rtl2sparc, but we use a hairy addressing mode
       %% instead of doing the arithmetic manually
@@ -206,7 +207,7 @@ conv_insn(I, Map, Data) ->
       {I2, Map1, NewData};
     #fload{} ->
       {Dst, Map0} = conv_dst(hipe_rtl:fload_dst(I), Map),
-      {[], Src, Map1} = conv_src(hipe_rtl:fload_src(I), Map0),
+      {[], Src, Map1} = conv_src_noimm(hipe_rtl:fload_src(I), Map0),
       {[], Off, Map2} = conv_src(hipe_rtl:fload_offset(I), Map1),
       I2 = [hipe_x86:mk_fmove(hipe_x86:mk_mem(Src, Off, 'double'),Dst)],
       {I2, Map2, Data};
@@ -248,6 +249,22 @@ conv_insn(I, Map, Data) ->
 
 %%% Finalise the conversion of a 3-address ALU operation, taking
 %%% care to not introduce more temps and moves than necessary.
+
+conv_alu_nocc(Dst, Src1, 'add', Src2, Tail) ->
+  case (not same_opnd(Dst, Src1)) andalso (not same_opnd(Dst, Src2))
+    andalso (hipe_x86:is_temp(Src1) orelse hipe_x86:is_temp(Src2))
+  of
+    false -> conv_alu(Dst, Src1, 'add', Src2, Tail);
+    true -> % Use LEA
+      Type = typeof_dst(Dst),
+      Mem = case hipe_x86:is_temp(Src1) of
+	      true  -> hipe_x86:mk_mem(Src1, Src2, Type);
+	      false -> hipe_x86:mk_mem(Src2, Src1, Type)
+	    end,
+      [hipe_x86:mk_lea(Mem, Dst) | Tail]
+  end;
+conv_alu_nocc(Dst, Src1, BinOp, Src2, Tail) ->
+  conv_alu(Dst, Src1, BinOp, Src2, Tail).
 
 conv_alu(Dst, Src1, 'imul', Src2, Tail) ->
   mk_imul(Src1, Src2, Dst, Tail);
@@ -570,6 +587,16 @@ conv_fun(Fun, Map) ->
 	      exit({?MODULE,conv_fun,Fun})
 	  end
       end
+  end.
+
+conv_src_noimm(Opnd, Map) ->
+  R={FixSrc0, Src, NewMap} = conv_src(Opnd, Map),
+  case hipe_x86:is_imm(Src) of
+    false -> R;
+    true ->
+      Tmp = new_untagged_temp(),
+      {FixSrc0 ++ [hipe_x86:mk_move(Src, Tmp)],
+       Tmp, NewMap}
   end.
 
 %%% Convert an RTL source operand (imm/var/reg).

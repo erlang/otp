@@ -40,6 +40,15 @@
 	 ssa_liveness__livein/2]).
 %%	 ssa_liveness__livein/3],
 %%	 ssa_liveness__liveout/2]).
+-type set(E) :: gb_sets:set(E).
+-type liveness(Label, Var) ::
+	#{Label => {{Gen          :: set(Var),
+		     Kill         :: set(Var),
+		     {TotalDirGen :: set(Var),
+		      DirGen      :: gb_trees:tree(Label, set(Var))}},
+		    LiveIn        :: set(Var),
+		    LiveOut       :: set(Var),
+		    Successors    :: [Label]}}.
 -endif.
 %% -ifdef(DEBUG_LIVENESS).
 %% -export([pp_liveness/1]).
@@ -262,21 +271,15 @@ update_directed_gen({Pred, Var}, Map)->
 %%
 %% liveness
 %%
+-compile({inline, [liveness_lookup/2, liveness_update/3]}).
 
 liveness_init(List) ->
-  liveness_init1(List, gb_trees:empty()).
+  maps:from_list(List).
 
-liveness_init1([{Label, Info}|Left], Map) ->
-  liveness_init1(Left, gb_trees:insert(Label, Info, Map));
-liveness_init1([], Map) ->
-  Map.
-
-liveness_lookup(Label, Map) ->
-  {value, Info} = gb_trees:lookup(Label, Map),
-  Info.
-
-liveness_update(Label, NewInfo, Map) ->
-  gb_trees:update(Label, NewInfo, Map).
+liveness_lookup(Label, Liveness) ->
+  maps:get(Label, Liveness).
+liveness_update(Label, Val, Liveness) ->
+  maps:update(Label, Val, Liveness).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

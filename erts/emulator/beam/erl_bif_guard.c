@@ -141,6 +141,39 @@ BIF_RETTYPE trunc_1(BIF_ALIST_1)
     BIF_RET(res);
 }
 
+BIF_RETTYPE floor_1(BIF_ALIST_1)
+{
+    Eterm res;
+    FloatDef f;
+
+    if (is_not_float(BIF_ARG_1)) {
+	if (is_integer(BIF_ARG_1))
+	    BIF_RET(BIF_ARG_1);
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    GET_DOUBLE(BIF_ARG_1, f);
+    res = double_to_integer(BIF_P, floor(f.fd));
+    BIF_RET(res);
+}
+
+BIF_RETTYPE ceil_1(BIF_ALIST_1)
+{
+    Eterm res;
+    FloatDef f;
+
+    /* check arg */
+    if (is_not_float(BIF_ARG_1)) {
+	if (is_integer(BIF_ARG_1))
+	    BIF_RET(BIF_ARG_1);
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    /* get the float */
+    GET_DOUBLE(BIF_ARG_1, f);
+
+    res = double_to_integer(BIF_P, ceil(f.fd));
+    BIF_RET(res);
+}
+
 BIF_RETTYPE round_1(BIF_ALIST_1)
 {
     Eterm res;
@@ -619,6 +652,38 @@ Eterm erts_gc_trunc_1(Process* p, Eterm* reg, Uint live)
     /* truncate it and return the resultant integer */
     return gc_double_to_integer(p, (f.fd >= 0.0) ? floor(f.fd) : ceil(f.fd),
 				reg, live);
+}
+
+Eterm erts_gc_floor_1(Process* p, Eterm* reg, Uint live)
+{
+    Eterm arg;
+    FloatDef f;
+
+    arg = reg[live];
+    if (is_not_float(arg)) {
+	if (is_integer(arg))  {
+	    return arg;
+	}
+	BIF_ERROR(p, BADARG);
+    }
+    GET_DOUBLE(arg, f);
+    return gc_double_to_integer(p, floor(f.fd), reg, live);
+}
+
+Eterm erts_gc_ceil_1(Process* p, Eterm* reg, Uint live)
+{
+    Eterm arg;
+    FloatDef f;
+
+    arg = reg[live];
+    if (is_not_float(arg)) {
+	if (is_integer(arg))  {
+	    return arg;
+	}
+	BIF_ERROR(p, BADARG);
+    }
+    GET_DOUBLE(arg, f);
+    return gc_double_to_integer(p, ceil(f.fd), reg, live);
 }
 
 static Eterm

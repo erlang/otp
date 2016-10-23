@@ -3978,6 +3978,36 @@ erts_ets_colliding_names(Process* p, Eterm name, Uint cnt)
     return list;
 }
 
+/*
+ * For testing only
+ * Retreive meta table size state
+ */
+Eterm erts_ets_get_meta_state(Process* p)
+{
+    Eterm* hp = HAlloc(p, 3);
+    return TUPLE2(hp,
+                  erts_ets_hash_get_memstate(p, &meta_pid_to_tab->hash),
+                  erts_ets_hash_get_memstate(p, &meta_pid_to_fixed_tab->hash));
+}
+/*
+ * For testing only
+ * Restore a previously retrieved meta table size state.
+ * We do this to suppress failed memory checks
+ * caused by the hysteresis of meta tables grow/shrink limits.
+ */
+Eterm erts_ets_restore_meta_state(Process* p, Eterm meta_state)
+{
+    Eterm* tv;
+    Eterm* hp;
+    if (!is_tuple_arity(meta_state, 2))
+        return am_badarg;
+
+    tv = tuple_val(meta_state);
+    hp = HAlloc(p, 3);
+    return TUPLE2(hp,
+                  erts_ets_hash_restore_memstate(&meta_pid_to_tab->hash, tv[1]),
+                  erts_ets_hash_restore_memstate(&meta_pid_to_fixed_tab->hash, tv[2]));
+}
 
 #ifdef HARDDEBUG   /* Here comes some debug functions */
 

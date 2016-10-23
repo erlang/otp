@@ -3869,7 +3869,24 @@ BIF_RETTYPE garbage_collect_0(BIF_ALIST_0)
 {
     FLAGS(BIF_P) |= F_NEED_FULLSWEEP;
     erts_garbage_collect(BIF_P, 0, NULL, 0);
-    BIF_RET(am_true);
+    return am_true;
+}
+
+/*
+ * Pass atom 'minor' for relaxed generational GC run. This is only
+ * recommendation, major run may still be chosen by VM.
+ * Pass atom 'major' for default behaviour - major GC run (fullsweep)
+ */
+BIF_RETTYPE
+erts_internal_garbage_collect_1(BIF_ALIST_1)
+{
+    switch (BIF_ARG_1) {
+    case am_minor:  break;
+    case am_major:  FLAGS(BIF_P) |= F_NEED_FULLSWEEP; break;
+    default:        BIF_ERROR(BIF_P, BADARG);
+    }
+    erts_garbage_collect(BIF_P, 0, NULL, 0);
+    return am_true;
 }
 
 /**********************************************************************/
@@ -4946,13 +4963,13 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
     int i;
     sys_memset((void *) ep, 0, sizeof(Export));
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-	ep->addressv[i] = &ep->code[3];
+	ep->addressv[i] = ep->beam;
     }
-    ep->code[0] = m;
-    ep->code[1] = f;
-    ep->code[2] = a;
-    ep->code[3] = (BeamInstr) em_apply_bif;
-    ep->code[4] = (BeamInstr) bif;
+    ep->info.mfa.module = m;
+    ep->info.mfa.function = f;
+    ep->info.mfa.arity = a;
+    ep->beam[0] = (BeamInstr) em_apply_bif;
+    ep->beam[1] = (BeamInstr) bif;
 }
 
 void erts_init_bif(void)
