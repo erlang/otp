@@ -154,12 +154,12 @@
 -type handle_event_result() ::
 	event_handler_result(state()).
 %%
--type state_enter_result(StateType) ::
+-type state_enter_result(State) ::
 	{'next_state', % {next_state,NextState,NewData,[]}
-	 State :: StateType,
+	 State,
 	 NewData :: data()} |
 	{'next_state', % State transition, maybe to the same state
-	 State :: StateType,
+	 State,
 	 NewData :: data(),
 	 Actions :: [enter_action()] | enter_action()} |
 	state_callback_result(enter_action()).
@@ -231,9 +231,9 @@
 -callback handle_event(
 	    'enter',
 	    OldState :: state(),
-	    State :: state(), % Current state
+	    State, % Current state
 	    Data :: data()) ->
-    state_enter_result(state());
+    state_enter_result(State);
            (event_type(),
 	    EventContent :: term(),
 	    State :: state(), % Current state

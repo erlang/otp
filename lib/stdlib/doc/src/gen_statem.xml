@@ -533,7 +533,7 @@ handle_event(_, _, State, Data) ->
 	  Type <c>info</c> originates from regular process messages sent
 	  to the <c>gen_statem</c>. Also, the state machine
 	  implementation can generate events of types
-	  <c>timeout</c>, <c>state_timeout</c>, <c>enter</c>,
+	  <c>timeout</c>, <c>state_timeout</c>,
 	  and <c>internal</c> to itself.
 	</p>
       </desc>
@@ -1773,7 +1773,7 @@ handle_event(_, _, State, Data) ->
         StateFunctionResult
       </name>
       <name>Module:handle_event(enter, OldState, State, Data) ->
-	StateEnterResult
+	StateEnterResult(State)
       </name>
       <name>Module:handle_event(EventType, EventContent, State, Data) ->
 	HandleEventResult
@@ -1802,8 +1802,8 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="#type-event_handler_result">event_handler_result</seealso>(<seealso marker="#type-state_name">state_name()</seealso>)
 	</v>
 	<v>
-	  StateEnterResult =
-	  <seealso marker="#type-state_enter_result">state_enter_result</seealso>(<seealso marker="#type-state">state()</seealso>)
+	  StateEnterResult(State) =
+	  <seealso marker="#type-state_enter_result">state_enter_result(State)</seealso>
 	</v>
 	<v>
 	  HandleEventResult =
