@@ -487,12 +487,21 @@ load_binary(Config) when is_list(Config) ->
 upgrade(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
 
-    T = case erlang:system_info(hipe_architecture) of
-            undefined -> [beam];
-            _ -> [beam,hipe]
-        end,
+    case erlang:system_info(hipe_architecture) of
+        undefined ->
+            upgrade_do(DataDir, beam, [beam]);
 
-    [upgrade_do(DataDir, Client, T) || Client <- T],
+        _ ->
+            T = [beam, hipe],
+            [upgrade_do(DataDir, Client, T) || Client <- T],
+
+            case hipe:llvm_support_available() of
+                false -> ok;
+                true  ->
+                    T2 = [beam, hipe_llvm],
+                    [upgrade_do(DataDir, Client, T2) || Client <- T2]
+            end
+    end,
     ok.
 
 upgrade_do(DataDir, Client, T) ->
@@ -502,7 +511,7 @@ upgrade_do(DataDir, Client, T) ->
     ok.
 
 compile_load(Mod, Dir, Ver, CodeType) ->
-    erlang:display({"{{{{{{{{{{{{{{{{Loading",Mod,Ver,CodeType}),
+    %%erlang:display({"{{{{{{{{{{{{{{{{Loading",Mod,Ver,CodeType}),
     Version = case Ver of
 	undefined ->
 	    io:format("Compiling '~p' as ~p\n", [Mod, CodeType]),
@@ -514,7 +523,8 @@ compile_load(Mod, Dir, Ver, CodeType) ->
     end,
     Target = case CodeType of
 	beam -> [];
-	hipe -> [native]
+	hipe -> [native];
+	hipe_llvm -> [native,{hipe,[to_llvm]}]
     end,
     CompOpts = [binary, report] ++ Target ++ Version,
 
@@ -527,7 +537,7 @@ compile_load(Mod, Dir, Ver, CodeType) ->
     T3 = erlang:now(),
     io:format("Compile time ~p ms, Load time ~p ms\n",
 	      [timer:now_diff(T2,T1) div 1000, timer:now_diff(T3,T2) div 1000]),
-    erlang:display({"}}}}}}}}}}}}}}}Loaded",Mod,Ver,CodeType}),
+    %%erlang:display({"}}}}}}}}}}}}}}}Loaded",Mod,Ver,CodeType}),
     ok.
 
 dir_req(Config) when is_list(Config) ->
