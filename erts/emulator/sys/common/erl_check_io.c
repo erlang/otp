@@ -1699,31 +1699,22 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 
 	switch (state->type) {
 	case ERTS_EV_TYPE_DRV_SEL: { /* Requested via driver_select()... */
-	    ErtsPollEvents revents;
-	    ErtsPollEvents revent_mask;
+	    ErtsPollEvents revents = pollres[i].events;
 
-	    revent_mask = ~(ERTS_POLL_EV_IN|ERTS_POLL_EV_OUT);
-	    revent_mask |= state->events;
-	    revents = pollres[i].events & revent_mask;
+            if (revents & ERTS_POLL_EV_ERR) {
+                /*
+                 * Handle error events by triggering all in/out events
+                 * that the driver has selected.
+                 * We *do not* want to call a callback that corresponds
+		 * to an event not selected.
+                 */
+                revents = state->events;
+            }
+            else {
+                revents &= (state->events | ERTS_POLL_EV_NVAL);
+            }
 
-	    if (revents & ERTS_POLL_EV_ERR) {
-		/*
-		 * Let the driver handle the error condition. Only input,
-		 * only output, or nothing might have been selected.
-		 * We *do not* want to call a callback that corresponds
-		 * to an event not selected. revents might give us a clue
-		 * on which one to call.
-		 */ 
-		if ((revents & ERTS_POLL_EV_IN)
-		    || (!(revents & ERTS_POLL_EV_OUT)
-			&& state->events & ERTS_POLL_EV_IN)) {
-		    iready(state->driver.select->inport, state, current_cio_time);
-		}
-		else if (state->events & ERTS_POLL_EV_OUT) {
-		    oready(state->driver.select->outport, state, current_cio_time);
-		}
-	    }
-	    else if (revents & (ERTS_POLL_EV_IN|ERTS_POLL_EV_OUT)) {
+            if (revents & (ERTS_POLL_EV_IN|ERTS_POLL_EV_OUT)) {
 		if (revents & ERTS_POLL_EV_OUT) {
 		    oready(state->driver.select->outport, state, current_cio_time);
 		}
@@ -1731,7 +1722,7 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 		   was read (true also on the non-smp emulator since
 		   oready() may have been called); therefore, update
 		   revents... */
-		revents &= ~(~state->events & ERTS_POLL_EV_IN);
+		revents &= state->events;
 		if (revents & ERTS_POLL_EV_IN) {
 		    iready(state->driver.select->inport, state, current_cio_time);
 		}
