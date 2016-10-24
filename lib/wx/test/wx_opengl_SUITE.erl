@@ -111,6 +111,8 @@ canvas(Config) ->
 
     ?m(false, wx:is_null(wxGLCanvas:getContext(Canvas))),
     ?m({'EXIT', {{error, no_gl_context,_},_}}, gl:getString(?GL_VENDOR)),
+    gl:viewport(0,0,50,50), %% Show cause an error report
+
 
     ?m(ok, wxGLCanvas:setCurrent(Canvas)),
     io:format("Vendor:     ~s~n",  [gl:getString(?GL_VENDOR)]),
