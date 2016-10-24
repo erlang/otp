@@ -283,7 +283,7 @@
 call(Op, Args) ->
     Port = get(opengl_port), 
     _ = erlang:port_control(Port,Op,Args),
-    rec().
+    rec(Op).
     
 %% @hidden
 cast(Op, Args) ->
@@ -292,11 +292,15 @@ cast(Op, Args) ->
     ok.
     
 %% @hidden
-rec() ->
-    receive 
+rec(Op) ->
+    receive
         {'_egl_result_', Res} -> Res;
-        {'_egl_error_',  Op, Res} -> error({error,Res,Op})
-    end. 
+        {'_egl_error_',  Op, Res} -> error({error,Res,Op});
+        {'_egl_error_', Other, Res} ->
+                Err = io_lib:format("~p in op: ~p", [Res, Other]),
+               error_logger:error_report([{gl, error}, {message, lists:flatten(Err)}]),
+               rec(Op)
+    end.
 
 %% @hidden
 send_bin(Bin) when is_binary(Bin) ->
