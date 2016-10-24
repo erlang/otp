@@ -251,3 +251,7 @@ hr{
 .section-links, .panel-sections{
  margin-top: 0;
 }
+
+a > .code {
+ color: #1862ab;
+}
