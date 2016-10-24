@@ -399,18 +399,26 @@ erlang_server_openssh_client_renegotiate(Config) ->
 
     ct:sleep(500),
 
+    RenegLimitK = 3,
     DataFile = filename:join(PrivDir, "renegotiate_openssh_client.data"),
-    Data =  lists:duplicate(32000, $a),
+    Data =  lists:duplicate(trunc(1.1*RenegLimitK*1024), $a),
     ok = file:write_file(DataFile, Data),
 
     Cmd = "ssh -p " ++ integer_to_list(Port) ++
 	" -o UserKnownHostsFile=" ++ KnownHosts ++
-	" -o RekeyLimit=20K" ++
+	" -o RekeyLimit=" ++ integer_to_list(RenegLimitK) ++"K" ++
 	" " ++ Host ++ " < " ++ DataFile,
     OpenSsh = ssh_test_lib:open_port({spawn, Cmd}),
 
     Expect = fun({data,R}) -> 
-		     try lists:prefix(binary_to_list(R), Data)
+		     try
+			 NonAlphaChars = [C || C<-lists:seq(1,255), 
+					       not lists:member(C,lists:seq($a,$z)),
+					       not lists:member(C,lists:seq($A,$Z))
+					 ],
+			 Lines = string:tokens(binary_to_list(R), NonAlphaChars),
+			 lists:any(fun(L) -> lists:prefix(L, Data) end,
+				   Lines)
 		     catch
 			 _:_ -> false
 		     end;
