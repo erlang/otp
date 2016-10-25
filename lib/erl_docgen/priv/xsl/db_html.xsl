@@ -200,12 +200,12 @@
   <xsl:template match="head">
     <xsl:param name="local_types"/>
     <xsl:param name="global_types"/>
-    <span class="bold_code bc-1">
+    <div class="bold_code func-head">
       <xsl:apply-templates mode="local_type">
         <xsl:with-param name="local_types" select="$local_types"/>
         <xsl:with-param name="global_types" select="$global_types"/>
       </xsl:apply-templates>
-    </span>
+    </div>
   </xsl:template>
 
   <!-- The *last* <name name="..." arity=".."/> -->
