@@ -36,11 +36,11 @@
 -include_lib("kernel/include/file.hrl").
 
 -record(progress, {
-	  file,                 % string()
-	  cb_module,            % atom()
-	  cb_function,          % atom()
-	  init_progress_term,   % term()
-	  current_progress_term % term()
+	  file                  :: string() | 'undefined',
+	  cb_module             :: module(),
+	  cb_function           :: atom(),
+	  init_progress_term    :: term(),
+	  current_progress_term :: term()
 	 }).
 
 %%%=========================================================================
@@ -53,13 +53,15 @@
 %% Description: Starts the progress report process unless progress reporting
 %% should not be performed.
 %%--------------------------------------------------------------------------
+-type options() :: 'ignore' | {module(), atom(), term()}.
+-spec start_link(options()) -> 'ignore' | pid().
 start_link(ignore) ->
     ignore;
 start_link(Options) ->
     spawn_link(?MODULE, init, [Options]).
 
 %%--------------------------------------------------------------------------
-%% report_progress(Pid, Report) -> _
+%% report_progress(Pid, Report) -> ok
 %%      Pid = pid()
 %%	Report = {local_file, File} | {remote_file, File} | 
 %%               {transfer_size, Size}
@@ -68,17 +70,23 @@ start_link(Options) ->
 %% Description: Reports progress to the reporting process that calls the
 %% user defined callback function.
 %%--------------------------------------------------------------------------
+-type report() :: {'local_file', string()} | {'remote_file', string()}
+                | {'transfer_size', non_neg_integer()}.
+-spec report(pid(), report()) -> 'ok'.
 report(Pid, Report) ->
-    Pid ! {progress_report, Report}.
+    Pid ! {progress_report, Report},
+    ok.
 
 %%--------------------------------------------------------------------------
-%% stop(Pid) -> _
+%% stop(Pid) -> ok
 %%	Pid = pid()
 %%
 %% Description: 
 %%--------------------------------------------------------------------------   
+-spec stop(pid()) -> 'ok'.
 stop(Pid) ->
-    Pid ! stop.
+    Pid ! stop,
+    ok.
 
 %%%=========================================================================
 %%%  Internal functions
