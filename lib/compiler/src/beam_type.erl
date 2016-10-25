@@ -594,6 +594,7 @@ is_math_bif(atan2, 2) -> true;
 is_math_bif(pow, 2) -> true;
 is_math_bif(ceil, 1) -> true;
 is_math_bif(floor, 1) -> true;
+is_math_bif(fmod, 2) -> true;
 is_math_bif(pi, 0) -> true;
 is_math_bif(_, _) -> false.
 
