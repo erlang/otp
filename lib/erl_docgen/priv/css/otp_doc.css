@@ -257,3 +257,7 @@ hr{
 a > .code {
  color: #1862ab;
 }
+
+.func-types-title{
+ font-size: 1em;
+}

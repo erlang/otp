@@ -234,7 +234,7 @@
          (there is no spec with more than one clause) -->
     <xsl:if test="count($clause/guard) > 0 or count($type) > 0">
         <div class="REFBODY fun-types">
-            <h3 class="func-types-title">Types:</h3>
+            <h3 class="func-types-title">Types</h3>
 
         <xsl:choose>
           <xsl:when test="$output_subtypes">
@@ -2046,7 +2046,7 @@
     <xsl:if test="string-length(@name) = 0 and string-length(@variable) = 0">
 
         <div class="REFBODY rb-5">
-            <h3>Types:</h3>
+            <h3 class="func-types-title">Types</h3>
 
             <xsl:apply-templates>
                 <xsl:with-param name="partnum" select="$partnum"/>
