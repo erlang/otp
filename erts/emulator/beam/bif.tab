@@ -667,6 +667,7 @@ gcbif erlang:floor/1
 gcbif erlang:ceil/1
 bif math:floor/1
 bif math:ceil/1
+bif math:fmod/2
 
 #
 # Obsolete
