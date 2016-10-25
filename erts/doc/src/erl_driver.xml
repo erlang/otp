@@ -1916,9 +1916,9 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
           returned. Another thread can still be using the event object
           internally. To safely close an event object, call
           <c>driver_select</c> with <c>ERL_DRV_USE</c> and <c>on==0</c>, which
-          clears all events. Then call
-          <seealso marker="driver_entry#stop_select">
-          <c>stop_select</c></seealso> when it is safe to close the event
+          clears all events and then either calls
+	  <seealso marker="driver_entry#stop_select"><c>stop_select</c></seealso>
+	  or schedules it to be called when it is safe to close the event
           object. <c>ERL_DRV_USE</c> is to be set together with the first event
           for an event object. It is harmless to set <c>ERL_DRV_USE</c>
           even if it already has been done. Clearing all events but keeping
