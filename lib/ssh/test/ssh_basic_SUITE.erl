@@ -343,14 +343,15 @@ end_per_testcase(TC, Config) when TC==shell_no_unicode ;
 				  TC==shell_unicode_string ->
     case proplists:get_value(sftpd, Config) of
 	{Pid, _, _} ->
-	    ssh:stop_daemon(Pid),
-	    ssh:stop();
+	    catch ssh:stop_daemon(Pid);
 	_ ->
-	    ssh:stop()
-    end;
+	    ok
+    end,
+    end_per_testcase(Config);
 end_per_testcase(_TestCase, Config) ->
     end_per_testcase(Config).
-end_per_testcase(_Config) ->    
+
+end_per_testcase(_Config) ->
     ssh:stop(),
     ok.
 
