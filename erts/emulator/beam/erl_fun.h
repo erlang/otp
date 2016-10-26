@@ -45,6 +45,9 @@ typedef struct erl_fun_entry {
     erts_refc_t refc;		/* Reference count: One for code + one for each
 				   fun object in each process. */
     BeamInstr *pend_purge_address; /* address stored during a pending purge */
+#ifdef HIPE
+    UWord* pend_purge_native_address;
+#endif
 } ErlFunEntry;
 
 /*

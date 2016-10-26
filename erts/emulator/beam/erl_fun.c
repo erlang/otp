@@ -31,6 +31,9 @@
 static Hash erts_fun_table;
 
 #include "erl_smp.h"
+#ifdef HIPE
+# include "hipe_mode_switch.h"
+#endif
 
 static erts_smp_rwmtx_t erts_fun_table_lock;
 
@@ -219,6 +222,10 @@ erts_fun_purge_prepare(BeamInstr* start, BeamInstr* end)
 		fe->pend_purge_address = addr;
 		ERTS_SMP_WRITE_MEMORY_BARRIER;
 		fe->address = unloaded_fun;
+#ifdef HIPE
+                fe->pend_purge_native_address = fe->native_address;
+                hipe_set_closure_stub(fe);
+#endif
 		erts_purge_state_add_fun(fe);
 	    }
 	    b = b->next;
@@ -234,8 +241,12 @@ erts_fun_purge_abort_prepare(ErlFunEntry **funs, Uint no)
 
     for (ix = 0; ix < no; ix++) {
 	ErlFunEntry *fe = funs[ix];
-	if (fe->address == unloaded_fun)
+	if (fe->address == unloaded_fun) {
 	    fe->address = fe->pend_purge_address;
+#ifdef HIPE
+            fe->native_address = fe->pend_purge_native_address;
+#endif
+        }
     }
 }
 
@@ -244,8 +255,12 @@ erts_fun_purge_abort_finalize(ErlFunEntry **funs, Uint no)
 {
     Uint ix;
 
-    for (ix = 0; ix < no; ix++)
+    for (ix = 0; ix < no; ix++) {
 	funs[ix]->pend_purge_address = NULL;
+#ifdef HIPE
+        funs[ix]->pend_purge_native_address = NULL;
+#endif
+    }
 }
 
 void
@@ -256,6 +271,9 @@ erts_fun_purge_complete(ErlFunEntry **funs, Uint no)
     for (ix = 0; ix < no; ix++) {
 	ErlFunEntry *fe = funs[ix];
 	fe->pend_purge_address = NULL;
+#ifdef HIPE
+        fe->pend_purge_native_address = NULL;
+#endif
 	if (erts_refc_dectest(&fe->refc, 0) == 0)
 	    erts_erase_fun_entry(fe);
     }
@@ -324,6 +342,7 @@ fun_alloc(ErlFunEntry* template)
     obj->pend_purge_address = NULL;
 #ifdef HIPE
     obj->native_address = NULL;
+    obj->pend_purge_native_address = NULL;
 #endif
     return obj;
 }
