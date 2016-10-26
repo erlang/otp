@@ -93,10 +93,15 @@ call(ChannelPid, Msg, TimeOute) ->
     catch 
  	exit:{noproc, _} ->
  	    {error, closed};
+	exit:{normal, _} ->
+	    {error, closed};
+	exit:{shutdown, _} ->
+	    {error, closed};
+	exit:{{shutdown, _}, _} ->
+	    {error, closed};
  	exit:{timeout, _} ->
  	    {error, timeout}
     end.
-
 
 cast(ChannelPid, Msg) ->
     gen_server:cast(ChannelPid, Msg).

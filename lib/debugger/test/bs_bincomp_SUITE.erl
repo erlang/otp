@@ -66,6 +66,7 @@ end_per_group(_GroupName, Config) ->
 
 byte_aligned(Config) when is_list(Config) ->
     <<"abcdefg">> = << <<(X+32)>> || <<X>> <= <<"ABCDEFG">> >>,
+    <<"AxyzBxyzCxyz">> = << <<X, "xyz">> || <<X>> <= <<"ABC">> >>,
     <<1:32/little,2:32/little,3:32/little,4:32/little>> =
 	<< <<X:32/little>> || <<X:32>> <= <<1:32,2:32,3:32,4:32>> >>,
     <<1:32/little,2:32/little,3:32/little,4:32/little>> =

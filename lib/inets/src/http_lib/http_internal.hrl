@@ -71,7 +71,7 @@
  	  'last-modified',
 	  other=[]        % list() - Key/Value list with other headers
 	 }).
-
+-type http_response_h() :: #http_response_h{}.
 
 %%% Request headers
 -record(http_request_h,{
@@ -118,5 +118,6 @@
  	  'last-modified',
 	  other=[]        % list() - Key/Value list with other headers
 	 }).
+-type http_request_h() :: #http_request_h{}.
 
 -endif. % -ifdef(http_internal_hrl).

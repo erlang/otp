@@ -90,19 +90,23 @@ parse_lines(<<C1, C2, C3, ?WHITE_SPACE, Bin/binary>>, Lines, start) ->
     parse_lines(Bin, [?WHITE_SPACE, C3, C2, C1 | Lines], finish);
 
 %% Last line found
-parse_lines(<<C1, C2, C3, ?WHITE_SPACE, Rest/binary>>, Lines, {C1, C2, C3}) ->
-    parse_lines(Rest, [?WHITE_SPACE, C3, C2, C1 | Lines], finish);
+parse_lines(<<?CR, ?LF, C1, C2, C3, ?WHITE_SPACE, Rest/binary>>, Lines, {C1, C2, C3}) ->
+    parse_lines(Rest, [?WHITE_SPACE, C3, C2, C1, ?LF, ?CR | Lines], finish);
 %% Potential end found  wait for more data 
-parse_lines(<<C1, C2, C3>> = Bin, Lines, {C1, C2, C3}) ->
+parse_lines(<<?CR, ?LF, C1, C2, C3>> = Bin, Lines, {C1, C2, C3}) ->
     {continue, {Bin, Lines, {C1, C2, C3}}};
 %% Intermidate line begining with status code
-parse_lines(<<C1, C2, C3, Rest/binary>>, Lines, {C1, C2, C3}) ->
-    parse_lines(Rest, [C3, C2, C1 | Lines], {C1, C2, C3});
+parse_lines(<<?CR, ?LF, C1, C2, C3, Rest/binary>>, Lines, {C1, C2, C3}) ->
+    parse_lines(Rest, [C3, C2, C1, ?LF, ?CR  | Lines], {C1, C2, C3});
 
 %% Potential last line wait for more data
-parse_lines(<<C1, C2>> = Data, Lines, {C1, C2, _} = StatusCode) ->
+parse_lines(<<?CR, ?LF, C1, C2>> = Data, Lines, {C1, C2, _} = StatusCode) ->
     {continue, {Data, Lines, StatusCode}};
-parse_lines(<<C1>> = Data, Lines, {C1, _, _} = StatusCode) ->
+parse_lines(<<?CR, ?LF, C1>> = Data, Lines, {C1, _, _} = StatusCode) ->
+    {continue, {Data, Lines, StatusCode}};
+parse_lines(<<?CR, ?LF>> = Data, Lines, {_,_,_} = StatusCode) ->
+    {continue, {Data, Lines, StatusCode}};
+parse_lines(<<?LF>> = Data, Lines, {_,_,_} = StatusCode) ->
     {continue, {Data, Lines, StatusCode}};
 parse_lines(<<>> = Data, Lines, {_,_,_} = StatusCode) ->
     {continue, {Data, Lines, StatusCode}};

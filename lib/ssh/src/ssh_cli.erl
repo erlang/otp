@@ -208,8 +208,15 @@ handle_msg({Group, Req}, #state{group = Group, buf = Buf, pty = Pty,
     write_chars(ConnectionHandler, ChannelId, Chars),
     {ok, State#state{buf = NewBuf}};
 
-handle_msg({'EXIT', Group, _Reason}, #state{group = Group,
-					     channel = ChannelId} = State) ->
+handle_msg({'EXIT', Group, Reason}, #state{group = Group,
+					    cm = ConnectionHandler,
+					    channel = ChannelId} = State) ->
+    Status = case Reason of
+                 normal -> 0;
+                 _      -> -1
+             end,
+    ssh_connection:exit_status(ConnectionHandler, ChannelId, Status),
+    ssh_connection:send_eof(ConnectionHandler, ChannelId),
     {stop, ChannelId, State};
 
 handle_msg(_, State) ->

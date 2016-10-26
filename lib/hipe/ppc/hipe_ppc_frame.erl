@@ -24,16 +24,14 @@
 -include("hipe_ppc.hrl").
 -include("../rtl/hipe_literals.hrl").
 
-frame(Defun) ->
-  Formals = fix_formals(hipe_ppc:defun_formals(Defun)),
-  Temps0 = all_temps(hipe_ppc:defun_code(Defun), Formals),
-  MinFrame = defun_minframe(Defun),
+frame(CFG) ->
+  Formals = fix_formals(hipe_ppc_cfg:params(CFG)),
+  Temps0 = all_temps(CFG, Formals),
+  MinFrame = defun_minframe(CFG),
   Temps = ensure_minframe(MinFrame, Temps0),
-  ClobbersLR = clobbers_lr(hipe_ppc:defun_code(Defun)),
-  CFG0 = hipe_ppc_cfg:init(Defun),
-  Liveness = hipe_ppc_liveness_all:analyse(CFG0),
-  CFG1 = do_body(CFG0, Liveness, Formals, Temps, ClobbersLR),
-  hipe_ppc_cfg:linearise(CFG1).
+  ClobbersLR = clobbers_lr(CFG),
+  Liveness = hipe_ppc_liveness_all:analyse(CFG),
+  do_body(CFG, Liveness, Formals, Temps, ClobbersLR).
 
 fix_formals(Formals) ->
   fix_formals(hipe_ppc_registers:nr_args(), Formals).
@@ -44,27 +42,16 @@ fix_formals(_, []) -> [].
 
 do_body(CFG0, Liveness, Formals, Temps, ClobbersLR) ->
   Context = mk_context(Liveness, Formals, Temps, ClobbersLR),
-  CFG1 = do_blocks(CFG0, Context),
+  CFG1 = hipe_ppc_cfg:map_bbs(
+	   fun(Lbl, BB) -> do_block(Lbl, BB, Context) end, CFG0),
   do_prologue(CFG1, Context).
 
-do_blocks(CFG, Context) ->
-  Labels = hipe_ppc_cfg:labels(CFG),
-  do_blocks(Labels, CFG, Context).
-
-do_blocks([Label|Labels], CFG, Context) ->
+do_block(Label, Block, Context) ->
   Liveness = context_liveness(Context),
   LiveOut = hipe_ppc_liveness_all:liveout(Liveness, Label),
-  Block = hipe_ppc_cfg:bb(CFG, Label),
   Code = hipe_bb:code(Block),
-  NewCode = do_block(Code, LiveOut, Context),
-  NewBlock = hipe_bb:code_update(Block, NewCode),
-  NewCFG = hipe_ppc_cfg:bb_add(CFG, Label, NewBlock),
-  do_blocks(Labels, NewCFG, Context);
-do_blocks([], CFG, _) ->
-  CFG.
-
-do_block(Insns, LiveOut, Context) ->
-  do_block(Insns, LiveOut, Context, context_framesize(Context), []).
+  NewCode = do_block(Code, LiveOut, Context, context_framesize(Context), []),
+  hipe_bb:code_update(Block, NewCode).
 
 do_block([I|Insns], LiveOut, Context, FPoff0, RevCode) ->
   {NewIs, FPoff1} = do_insn(I, LiveOut, Context, FPoff0),
@@ -573,29 +560,41 @@ temp_is_pseudo(Temp) ->
 %%% Detect if a Defun's body clobbers LR.
 %%%
 
-clobbers_lr([I|Insns]) ->
-  case I of
-    #pseudo_call{} -> true;
-    %% mtspr to lr cannot occur yet
-    _ -> clobbers_lr(Insns)
-  end;
-clobbers_lr([]) -> false.
+clobbers_lr(CFG) ->
+  any_insn(fun(#pseudo_call{}) -> true;
+	      (_) -> false
+	   end, CFG).
+
+any_insn(Pred, CFG) ->
+  %% Abuse fold to do an efficient "any"-operation using nonlocal control flow
+  FoundSatisfying = make_ref(),
+  try fold_insns(fun (I, _) ->
+		     case Pred(I) of
+		       true -> throw(FoundSatisfying);
+		       false -> false
+		     end
+		 end, false, CFG)
+  of _ -> false
+  catch FoundSatisfying -> true
+  end.
 
 %%%
 %%% Build the set of all temps used in a Defun's body.
 %%%
 
-all_temps(Code, Formals) ->
-  S0 = find_temps(Code, tset_empty()),
+all_temps(CFG, Formals) ->
+  S0 = fold_insns(fun find_temps/2, tset_empty(), CFG),
   S1 = tset_del_list(S0, Formals),
   tset_filter(S1, fun(T) -> temp_is_pseudo(T) end).
 
-find_temps([I|Insns], S0) ->
+find_temps(I, S0) ->
   S1 = tset_add_list(S0, hipe_ppc_defuse:insn_def_all(I)),
-  S2 = tset_add_list(S1, hipe_ppc_defuse:insn_use_all(I)),
-  find_temps(Insns, S2);
-find_temps([], S) ->
-  S.
+  tset_add_list(S1, hipe_ppc_defuse:insn_use_all(I)).
+
+fold_insns(Fun, InitAcc, CFG) ->
+  hipe_ppc_cfg:fold_bbs(
+    fun(_, BB, Acc0) -> lists:foldl(Fun, Acc0, hipe_bb:code(BB)) end,
+    InitAcc, CFG).
 
 tset_empty() ->
   gb_sets:new().
@@ -624,15 +623,10 @@ tset_to_list(S) ->
 %%% in the middle of a tailcall.
 %%%
 
-defun_minframe(Defun) ->
-  MaxTailArity = body_mta(hipe_ppc:defun_code(Defun), 0),
-  MyArity = length(fix_formals(hipe_ppc:defun_formals(Defun))),
+defun_minframe(CFG) ->
+  MaxTailArity = fold_insns(fun insn_mta/2, 0, CFG),
+  MyArity = length(fix_formals(hipe_ppc_cfg:params(CFG))),
   erlang:max(MaxTailArity - MyArity, 0).
-
-body_mta([I|Code], MTA) ->
-  body_mta(Code, insn_mta(I, MTA));
-body_mta([], MTA) ->
-  MTA.
 
 insn_mta(I, MTA) ->
   case I of

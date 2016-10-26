@@ -108,6 +108,7 @@
 
 -define(DBG(F,A), 'n/a').
 %%-define(DBG(F,A), io:format(F,A)).
+%%-define(DBG(F,A), if is_list(F) -> ct:pal(F,A); is_atom(F)->ct:pal(atom_to_list(F),A) end).
 
 %%%=========================================================================
 %%%  API - CLIENT FUNCTIONS
@@ -1095,7 +1096,7 @@ init(Options) ->
     erlang:monitor(process, Client),
 
     %% Make sure inet is started
-    inet_db:start(),
+    _ = inet_db:start(),
     
     %% Where are we
     {ok, Dir} = file:get_cwd(),
@@ -1105,15 +1106,17 @@ init(Options) ->
 	trace ->
 	    dbg:tracer(),
 	    dbg:p(all, [call]),
-	    dbg:tpl(ftp, [{'_', [], [{return_trace}]}]),
-	    dbg:tpl(ftp_response, [{'_', [], [{return_trace}]}]),
-	    dbg:tpl(ftp_progress, [{'_', [], [{return_trace}]}]);
+	    {ok, _} = dbg:tpl(ftp, [{'_', [], [{return_trace}]}]),
+	    {ok, _} = dbg:tpl(ftp_response, [{'_', [], [{return_trace}]}]),
+	    {ok, _} = dbg:tpl(ftp_progress, [{'_', [], [{return_trace}]}]),
+	    ok;
 	debug ->
 	    dbg:tracer(),
 	    dbg:p(all, [call]),
-	    dbg:tp(ftp, [{'_', [], [{return_trace}]}]),
-	    dbg:tp(ftp_response, [{'_', [], [{return_trace}]}]),
-	    dbg:tp(ftp_progress, [{'_', [], [{return_trace}]}]); 
+	    {ok, _} = dbg:tp(ftp, [{'_', [], [{return_trace}]}]),
+	    {ok, _} = dbg:tp(ftp_response, [{'_', [], [{return_trace}]}]),
+	    {ok, _} = dbg:tp(ftp_progress, [{'_', [], [{return_trace}]}]),
+	    ok; 
 	_ ->
 	    %% Keep silent
 	    ok
@@ -1295,8 +1298,7 @@ handle_call({_,{rmdir, Dir}}, From, #state{chunk = false} = State) ->
     activate_ctrl_connection(State),
     {noreply, State#state{client = From}};
 
-handle_call({_,{type, Type}}, From,  #state{chunk = false} 
-	    = State) ->  
+handle_call({_,{type, Type}}, From, #state{chunk = false} = State) ->  
     case Type of
 	ascii ->
 	    send_ctrl_message(State, mk_cmd("TYPE A", [])),
@@ -1454,7 +1456,7 @@ handle_info({Trpt, Socket, Data},
 	    #state{dsock = {Trpt,Socket},
 		   caller = {recv_file, Fd}} = State0) when Trpt==tcp;Trpt==ssl ->    
     ?DBG('L~p --data ~p ----> ~s~p~n',[?LINE,Socket,Data,State0]),
-    file_write(binary_to_list(Data), Fd),
+    ok = file_write(binary_to_list(Data), Fd),
     progress_report({binary, Data}, State0),
     State = activate_data_connection(State0),
     {noreply, State};
@@ -1473,16 +1475,19 @@ handle_info({Trpt, Socket, Data}, #state{dsock = {Trpt,Socket}} = State0) when T
 				  Data/binary>>}};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
-					 caller = {recv_file, Fd}} 
-	    = State) when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
-    file_close(Fd),
+				  caller = {recv_file, Fd}} = State)
+  when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
+    case file_close(Fd) of
+	ok -> ok;
+	{error,einval} -> ok
+    end,
     progress_report({transfer_size, 0}, State),
     activate_ctrl_connection(State),
     {noreply, State#state{dsock = undefined, data = <<>>}};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, client = From,
-					 caller = recv_chunk} 
-	    = State) when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
+				  caller = recv_chunk} = State)
+  when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
     gen_server:reply(From, ok),
     {noreply, State#state{dsock = undefined, client = undefined,
 			  data = <<>>, caller = undefined,
@@ -2061,7 +2066,10 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {recv_file, _}} = State0) ->
     end;
 
 handle_ctrl_result({Status, _}, #state{caller = {recv_file, Fd}} = State) ->
-    file_close(Fd),
+    case file_close(Fd) of
+	ok -> ok;
+	{error, einval} -> ok
+    end,
     close_data_connection(State),
     ctrl_result_response(Status, State#state{dsock = undefined}, 
 			 {error, epath});
@@ -2220,16 +2228,16 @@ setup_data_connection(#state{mode   = active,
 	    {ok, Port} = inet:port(LSock),
 	    case FtpExt of
 	    	false ->
-			    {IP1, IP2, IP3, IP4} = IP,
-			    {Port1, Port2} = {Port div 256, Port rem 256},
-			    send_ctrl_message(State, 
-					      mk_cmd("PORT ~w,~w,~w,~w,~w,~w",
-						     [IP1, IP2, IP3, IP4, Port1, Port2]));
-			true -> 
-			    IpAddress = inet_parse:ntoa(IP),
-			    Cmd = mk_cmd("EPRT |1|~s|~p|", [IpAddress, Port]),
-			    send_ctrl_message(State, Cmd)
-		end,	        
+		    {IP1, IP2, IP3, IP4} = IP,
+		    {Port1, Port2} = {Port div 256, Port rem 256},
+		    send_ctrl_message(State, 
+				      mk_cmd("PORT ~w,~w,~w,~w,~w,~w",
+					     [IP1, IP2, IP3, IP4, Port1, Port2]));
+		true ->
+		    IpAddress = inet_parse:ntoa(IP),
+		    Cmd = mk_cmd("EPRT |1|~s|~p|", [IpAddress, Port]),
+		    send_ctrl_message(State, Cmd)
+	    end,	        
 	    activate_ctrl_connection(State),
 	    {noreply, State#state{caller = {setup_data_connection, 
 					    {LSock, Caller}}}}
@@ -2337,7 +2345,7 @@ accept_data_connection(#state{mode = passive} = State) ->
 send_ctrl_message(_S=#state{csock = Socket, verbose = Verbose}, Message) ->
     verbose(lists:flatten(Message),Verbose,send),
     ?DBG('<--ctrl ~p ---- ~s~p~n',[Socket,Message,_S]),
-    send_message(Socket, Message).
+    ok = send_message(Socket, Message).
 
 send_data_message(_S=#state{dsock = Socket}, Message) ->
     ?DBG('<==data ~p ==== ~s~n~p~n',[Socket,Message,_S]),
@@ -2359,23 +2367,26 @@ send_message({ssl, Socket}, Message) ->
     ssl:send(Socket, Message).
 
 activate_ctrl_connection(#state{csock = Socket, ctrl_data = {<<>>, _, _}}) ->
-    activate_connection(Socket);
+    ok = activate_connection(Socket);
 activate_ctrl_connection(#state{csock = Socket}) ->
+    ok = activate_connection(Socket),
     %% We have already received at least part of the next control message,
     %% that has been saved in ctrl_data, process this first.
-    self() ! {tcp, unwrap_socket(Socket), <<>>}.
+    self() ! {socket_type(Socket), unwrap_socket(Socket), <<>>},
+    ok.
 
 unwrap_socket({tcp,Socket}) -> Socket;
-unwrap_socket({ssl,Socket}) -> Socket;
-unwrap_socket(Socket) -> Socket.
+unwrap_socket({ssl,Socket}) -> Socket.
     
+socket_type({tcp,_Socket}) -> tcp;
+socket_type({ssl,_Socket}) -> ssl.
 
 activate_data_connection(#state{dsock = Socket} = State) ->
-    activate_connection(Socket),
+    ok = activate_connection(Socket),
     State.
 
-activate_connection({tcp, Socket}) ->  inet:setopts(Socket, [{active, once}]);
-activate_connection({ssl, Socket}) ->  ssl:setopts(Socket, [{active, once}]).
+activate_connection({tcp, Socket}) -> inet:setopts(Socket, [{active, once}]);
+activate_connection({ssl, Socket}) -> ssl:setopts(Socket, [{active, once}]).
 
 close_ctrl_connection(#state{csock = undefined}) -> ok;
 close_ctrl_connection(#state{csock = Socket}) -> close_connection(Socket).
@@ -2383,21 +2394,21 @@ close_ctrl_connection(#state{csock = Socket}) -> close_connection(Socket).
 close_data_connection(#state{dsock = undefined}) -> ok;
 close_data_connection(#state{dsock = Socket}) -> close_connection(Socket).
 
-close_connection({lsock,Socket}) ->  gen_tcp:close(Socket);
+close_connection({lsock,Socket}) -> gen_tcp:close(Socket);
 close_connection({tcp, Socket}) -> gen_tcp:close(Socket);
 close_connection({ssl, Socket}) -> ssl:close(Socket).
 
-%%  ------------ FILE HANDELING  ----------------------------------------   
+%%  ------------ FILE HANDLING  ----------------------------------------   
 send_file(#state{tls_upgrading_data_connection = {true, CTRL, _}} = State, Fd) ->
     {noreply, State#state{tls_upgrading_data_connection = {true, CTRL, ?MODULE, send_file, Fd}}};
 send_file(State, Fd) ->
     case file_read(Fd) of
-	{ok, N, Bin} when N > 0->
+	{ok, N, Bin} when N > 0 ->
 	    send_data_message(State, Bin),
 	    progress_report({binary, Bin}, State),
 	    send_file(State, Fd);
 	{ok, _, _} ->
-	    file_close(Fd),
+	    ok = file_close(Fd),
 	    close_data_connection(State),
 	    progress_report({transfer_size, 0}, State),
 	    activate_ctrl_connection(State),
@@ -2504,7 +2515,7 @@ progress_report(stop, #state{progress = ProgressPid}) ->
     ftp_progress:stop(ProgressPid);
 progress_report({binary, Data}, #state{progress = ProgressPid}) ->
     ftp_progress:report(ProgressPid, {transfer_size, size(Data)});
-progress_report(Report,  #state{progress = ProgressPid}) ->
+progress_report(Report, #state{progress = ProgressPid}) ->
     ftp_progress:report(ProgressPid, Report).
 
 

@@ -67,7 +67,8 @@
 	 shell_unicode_string/1,
 	 ssh_info_print/1,
 	 key_callback/1,
-	 key_callback_options/1
+	 key_callback_options/1,
+	 shell_exit_status/1
 	]).
 
 %%% Common test callbacks
@@ -106,7 +107,8 @@ all() ->
      multi_daemon_opt_fd,
      packet_size_zero,
      ssh_info_print,
-     {group, login_bad_pwd_no_retry}
+     {group, login_bad_pwd_no_retry},
+     shell_exit_status
     ].
 
 groups() ->
@@ -1166,6 +1168,33 @@ login_bad_pwd_no_retry(Config, AuthMethods) ->
 		    {fail, "Connect erroneosly succeded"}
 	    end
     end.
+
+
+%%----------------------------------------------------------------------------
+%%% Test that when shell REPL exit with reason normal client receives status 0
+shell_exit_status(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+
+    ShellFun = fun (_User) -> spawn(fun() -> ok end) end,
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                             {user_dir, UserDir},
+                                             {user_passwords, [{"vego", "morot"}]},
+                                             {shell, ShellFun},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
+    ConnectionRef =
+        ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {user_dir, UserDir},
+                                          {user, "vego"},
+                                          {password, "morot"},
+                                          {user_interaction, false}]),
+
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ok = ssh_connection:shell(ConnectionRef, ChannelId),
+    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
+    ssh:stop_daemon(Pid).
+
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

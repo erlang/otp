@@ -1087,6 +1087,10 @@ wait_dynamic_children(#child{restart_type=RType} = Child, Pids, Sz,
             wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), Sz-1,
                                   TRef, EStack);
 
+        {'DOWN', _MRef, process, Pid, {shutdown, _}} ->
+            wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), Sz-1,
+                                  TRef, EStack);
+
         {'DOWN', _MRef, process, Pid, normal} when RType =/= permanent ->
             wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), Sz-1,
                                   TRef, EStack);

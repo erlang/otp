@@ -45,7 +45,7 @@
 	 
 	 pt/1, man/1, ex/1, ex2/1, not_yet/1,
 	 line_wrap/1,
-	 otp_10302/1, otp_11286/1, unicode/1]).
+	 otp_10302/1, otp_11286/1, unicode/1, otp_13916/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -62,12 +62,12 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [{group, checks}, {group, examples}, {group, bugs}].
+    [{group, checks}, {group, examples}, {group, tickets}, {group, bugs}].
 
 groups() -> 
     [{checks, [], [file, compile, syntax]},
      {examples, [], [pt, man, ex, ex2, not_yet, unicode]},
-     {tickets, [], [otp_10302, otp_11286]},
+     {tickets, [], [otp_10302, otp_11286, otp_13916]},
      {bugs, [], [line_wrap]}].
 
 init_per_suite(Config) ->
@@ -408,12 +408,12 @@ unicode(Config) when is_list(Config) ->
     Ts = [{unicode_1, 
 	   <<"%% -*- coding: utf-8 -*-\n"
 	     "Definitions.\n"
-	     "RTLarrow    = (←)\n"
+	     "RTLarrow    = (â)\n"
 	     "Rules.\n"
-	     "{RTLarrow}  : {token,{'<-',TokenLine}}.\n"
+	     "{RTLarrow}  : {token,{\"â\",TokenLine}}.\n"
 	     "Erlang code.\n"
 	     "-export([t/0]).\n"
-	     "t() -> {ok, [{'<-', 1}], 1} = string(\"←\"), ok.">>,
+	     "t() -> {ok, [{\"â\", 1}], 1} = string(\"â\"), ok.">>,
            default,
            ok}],
 
@@ -1052,7 +1052,7 @@ otp_11286(Config) when is_list(Config) ->
     Dir = ?privdir,
     UName = [1024] ++ "u",
     UDir = filename:join(Dir, UName),
-    ok = rpc:call(Node, file, make_dir, [UDir]),
+    _ = rpc:call(Node, file, make_dir, [UDir]),
 
     %% Note: Cannot use UName as filename since the filename is used
     %% as module name. To be fixed in R18.
@@ -1093,6 +1093,42 @@ otp_11286(Config) when is_list(Config) ->
                   [Scannerfile,[basic_validation,return]]),
 
     true = test_server:stop_node(Node),
+    ok.
+
+otp_13916(doc) ->
+    "OTP-13916. Leex rules with newlines result in bad line numbers";
+otp_13916(suite) -> [];
+otp_13916(Config) when is_list(Config) ->
+    Ts = [{otp_13916_1,
+           <<"Definitions.\n"
+             "W = [a-zA-Z0-9]\n"
+             "S = [\\s\\t]\n"
+             "B = [\\n\\r]\n"
+             "Rules.\n"
+             "%% mark line break(s) and empty lines by token 'break'\n"
+             "%% in order to use as delimiters\n"
+             "{B}({S}*{B})+ : {token, {break,   TokenLine}}.\n"
+             "{B}           : {token, {break,   TokenLine}}.\n"
+             "{S}+          : {token, {blank,   TokenLine, TokenChars}}.\n"
+             "{W}+          : {token, {word,    TokenLine, TokenChars}}.\n"
+             "Erlang code.\n"
+             "-export([t/0]).\n"
+             "t() ->\n"
+             "    {ok,[{break,1},{blank,4,\"  \"},{word,4,\"breaks\"}],4} =\n"
+             "        string(\"\\n\\n  \\n  breaks\"),\n"
+             "    {ok,[{break,1},{word,4,\"works\"}],4} =\n"
+             "        string(\"\\n\\n  \\nworks\"),\n"
+             "    {ok,[{break,1},{word,4,\"L4\"},{break,4},\n"
+             "         {word,5,\"L5\"},{break,5},{word,7,\"L7\"}], 7} =\n"
+             "        string(\"\\n\\n  \\nL4\\nL5\\n\\nL7\"),\n"
+             "    {ok,[{break,1},{blank,4,\" \"},{word,4,\"L4\"},\n"
+             "         {break,4},{blank,5,\" \"},{word,5,\"L5\"},\n"
+             "         {break,5},{blank,7,\" \"},{word,7,\"L7\"}], 7} =\n"
+             "        string(\"\\n\\n  \\n L4\\n L5\\n\\n L7\"),\n"
+             "    ok.\n">>,
+           default,
+           ok}],
+    ?line run(Config, Ts),
     ok.
 
 start_node(Name, Args) ->
@@ -1137,7 +1173,7 @@ run_test(Config, Def, Pre) ->
     XrlFile = filename:join(DataDir, DefFile),
     ErlFile = filename:join(DataDir, Filename),
     Opts = [return, warn_unused_vars,{outdir,DataDir}],
-    ok = file:write_file(XrlFile, Def, [{encoding, unicode}]),
+    ok = file:write_file(XrlFile, Def),
     LOpts = [return, {report, false} | 
              case Pre of
                  default ->

@@ -35,7 +35,7 @@
 -endif.
 
 -module(?HIPE_X86_DEFUSE).
--export([insn_def/1, insn_use/1]). %% src_use/1]).
+-export([insn_def/1, insn_defs_all/1, insn_use/1]). %% src_use/1]).
 -include("../x86/hipe_x86.hrl").
 
 %%%
@@ -62,6 +62,16 @@ insn_def(I) ->
     %% call, cmp, comment, jcc, jmp_fun, jmp_label, jmp_switch, label
     %% pseudo_jcc, pseudo_tailcall, push, ret
     _ -> []
+  end.
+
+
+%% @doc Answers whether instruction I defines all allocatable registers. Used by
+%% hipe_regalloc_prepass.
+-spec insn_defs_all(_) -> boolean().
+insn_defs_all(I) ->
+  case I of
+    #pseudo_call{} -> true;
+    _ -> false
   end.
 
 dst_def(Dst) ->

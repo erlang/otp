@@ -121,7 +121,6 @@ AS_HELP_STRING([--enable-bootstrap-only],
 	enable_hipe=no
 	enable_sctp=no
         enable_dirty_schedulers=no
-        enable_new_purge=no
   fi	
 ])
 
@@ -139,13 +138,6 @@ AS_HELP_STRING([--enable-dirty-schedulers], [enable dirty scheduler support]),
     no) enable_dirty_schedulers=no ;;
     *)  enable_dirty_schedulers=yes ;;
   esac ], enable_dirty_schedulers=default)
-
-AC_ARG_ENABLE(new-purge-strategy,
-AS_HELP_STRING([--enable-new-purge-strategy], [enable new code purge strategy]),
-[ case "$enableval" in
-    no) enable_new_purge=no ;;
-    *)  enable_new_purge=yes ;;
-  esac ], enable_new_purge=default)
 
 AC_ARG_ENABLE(smp-support,
 AS_HELP_STRING([--enable-smp-support], [enable smp support])
@@ -196,12 +188,18 @@ AS_HELP_STRING([--disable-kernel-poll], [disable kernel poll support]),
 
 
 AC_ARG_ENABLE(sctp,
-AS_HELP_STRING([--enable-sctp], [enable sctp support (default)])
+AS_HELP_STRING([--enable-sctp], [enable sctp support (default)
+to on demand load the SCTP library in runtime if needed])
+AS_HELP_STRING([--enable-sctp=lib], [enable sctp support
+to link against the SCTP library])
 AS_HELP_STRING([--disable-sctp], [disable sctp support]),
-[ case "$enableval" in
-    no) enable_sctp=no ;;
-    *)  enable_sctp=yes ;;
-  esac ], enable_sctp=unknown)
+[ case "x$enableval" in
+      xno|xyes|xlib|x)
+          ;;
+      x*)
+          AC_MSG_ERROR("invalid value --enable-sctp=$enableval")
+          ;;
+  esac ])
 
 AC_ARG_ENABLE(hipe,
 AS_HELP_STRING([--enable-hipe], [enable hipe support])
@@ -875,6 +873,22 @@ dnl for now that is the way we do it.
 USER_LD=$LD
 USER_LDFLAGS="$LDFLAGS"
 LD='$(CC)'
+case $host_os in
+     darwin*)
+	saved_LDFLAGS="$LDFLAGS"
+	LDFLAGS="$LDFLAGS -Wl,-no_weak_imports"
+	AC_TRY_LINK([],[],
+		[
+			LD_MAY_BE_WEAK=no
+		],
+		[
+			LD_MAY_BE_WEAK=yes
+			LDFLAGS="$saved_LDFLAGS"
+		]);;
+    *)
+	LD_MAY_BE_WEAK=no;;
+esac
+
 AC_SUBST(LD)
 
 LDFLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
@@ -1024,8 +1038,7 @@ case $ERTS_BUILD_SMP_EMU-$enable_dirty_schedulers in
      yes-yes)
 	DIRTY_SCHEDULER_SUPPORT=yes;;
      yes-default)
-	## Maybe yes for OTP 19...
-	DIRTY_SCHEDULER_SUPPORT=no;;
+	DIRTY_SCHEDULER_SUPPORT=yes;;
      no-default)
 	DIRTY_SCHEDULER_SUPPORT=no;;
      no-yes)
@@ -1035,27 +1048,6 @@ case $ERTS_BUILD_SMP_EMU-$enable_dirty_schedulers in
 esac
 AC_MSG_RESULT($DIRTY_SCHEDULER_SUPPORT)
 AC_SUBST(DIRTY_SCHEDULER_SUPPORT)
-
-AC_MSG_CHECKING(whether the new code purge strategy should be enabled)
-case $enable_new_purge-$enable_dirty_schedulers in
-     yes-*)
-	AC_MSG_RESULT(yes)
-	enable_new_purge=yes;;
-     default-yes)
-	AC_MSG_RESULT(yes; forced by dirty scheduler support)
-	enable_new_purge=yes;;
-     no-yes)
-	AC_MSG_ERROR([Dirty schedulers enabled, but new code purge strategy disabled]);;
-     *)
-	AC_MSG_RESULT(no)
-	enable_new_purge=no;;
-esac
-
-if test $enable_new_purge = yes; then
-   AC_DEFINE(ERTS_NEW_PURGE_STRATEGY, 1, [Define if you want to use the new code purge strategy])
-fi
-NEW_PURGE_STRATEGY=$enable_new_purge
-AC_SUBST(NEW_PURGE_STRATEGY)
 
 if test $ERTS_BUILD_SMP_EMU = yes; then
 
@@ -1388,6 +1380,8 @@ AC_ARG_ENABLE(builtin-zlib,
 Z_LIB=
 
 if test "x$enable_builtin_zlib" = "xyes"; then
+  AC_DEFINE(HAVE_ZLIB_INFLATEGETDICTIONARY, 1,
+            [Define if your zlib version defines inflateGetDictionary.])
   AC_MSG_NOTICE([Using our own built-in zlib source])
 else
 AC_MSG_CHECKING(for zlib 1.2.5 or higher)
@@ -1414,6 +1408,11 @@ error
  AC_MSG_RESULT(no)
 ])
 LIBS=$zlib_save_LIBS
+
+AC_MSG_CHECKING(for zlib inflateGetDictionary presence)
+AC_SEARCH_LIBS(inflateGetDictionary, [z],
+               AC_DEFINE(HAVE_ZLIB_INFLATEGETDICTIONARY, 1,
+                         [Define if your zlib version defines inflateGetDictionary.]))
 fi
 AC_SUBST(Z_LIB)
 
@@ -1710,8 +1709,9 @@ if test "x$enable_sctp" != "xno" ; then
 fi
 
 if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
-    AC_CHECK_LIB(sctp, sctp_bindx)
-    AC_CHECK_FUNCS([sctp_peeloff sctp_getladdrs sctp_freeladdrs sctp_getpaddrs sctp_freepaddrs])
+    AS_IF([test "x$enable_sctp" = "xlib"],
+        AC_CHECK_LIB(sctp, sctp_bindx))
+    AC_CHECK_FUNCS([sctp_bindx sctp_peeloff sctp_getladdrs sctp_freeladdrs sctp_getpaddrs sctp_freepaddrs])
     AC_CHECK_DECLS([SCTP_UNORDERED, SCTP_ADDR_OVER, SCTP_ABORT,
                     SCTP_EOF, SCTP_SENDALL, SCTP_ADDR_CONFIRMED,
 		    SCTP_DELAYED_ACK_TIME,
@@ -1964,7 +1964,7 @@ getaddrinfo("","",NULL,NULL);
 if test $have_getaddrinfo = yes; then
         AC_MSG_RESULT([yes])
         AC_MSG_CHECKING([whether getaddrinfo accepts enough flags])
-        AC_TRY_COMPILE([
+        AC_TRY_LINK([
 #include <stdlib.h>
 #include <string.h>
 #ifdef HAVE_WINSOCK2_H
@@ -2038,7 +2038,7 @@ AC_CHECK_FUNCS([getipnodebyname getipnodebyaddr gethostbyname2])
 
 AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlopen \
 		pread pwrite memmove strerror strerror_r strncasecmp \
-		gethrtime localtime_r gmtime_r inet_pton \
+		gethrtime localtime_r gmtime_r inet_pton mprotect \
 		mmap mremap memcpy mallopt sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time time2posix \
 		setlocale nl_langinfo poll mlockall ppoll])
@@ -2079,7 +2079,7 @@ int main(void) {
 		 fi]);;
 esac
 
-if test $have_posix_memalign = yes; then
+if test "$have_posix_memalign" = "yes"; then
    AC_DEFINE(HAVE_POSIX_MEMALIGN,[1],
 	     [Define to 1 if you have the `posix_memalign' function.])
 fi
@@ -2221,7 +2221,7 @@ dnl Checks for features/quirks in the system that affects Erlang.
 dnl ----------------------------------------------------------------------
 
 AC_MSG_CHECKING([for sched_getaffinity/sched_setaffinity])
-AC_TRY_COMPILE([#include <sched.h>],
+AC_TRY_LINK([#include <sched.h>],
 [
 #ifndef CPU_SETSIZE
 #error no CPU_SETSIZE
@@ -2244,7 +2244,7 @@ fi
 
 
 AC_MSG_CHECKING([for pset functionality])
-AC_TRY_COMPILE([#include <sys/pset.h>],
+AC_TRY_LINK([#include <sys/pset.h>],
 [
 	int res;
 	psetid_t id = PS_MYID;
@@ -2262,7 +2262,7 @@ if test $pset_functionality = yes; then
 fi
 
 AC_MSG_CHECKING([for processor_bind functionality])
-AC_TRY_COMPILE([
+AC_TRY_LINK([
 #include <sys/types.h>
 #include <sys/processor.h>
 #include <sys/procset.h>
@@ -2278,7 +2278,7 @@ if test $processor_bind_functionality = yes; then
 fi
 
 AC_MSG_CHECKING([for cpuset_getaffinity/cpuset_setaffinity])
-AC_TRY_COMPILE([
+AC_TRY_LINK([
 #include <sys/param.h>
 #include <sys/cpuset.h>
 ],
@@ -2477,7 +2477,7 @@ if test "x$ac_cv_func_sbrk" = "xyes"; then
 	for rtype in $ret_types; do
 	    for atype in $arg_types; do
 		IFS=$save_ifs
-		AC_TRY_COMPILE([#include <sys/types.h>
+		AC_TRY_LINK([#include <sys/types.h>
 				#include <unistd.h>],
 				[$rtype sbrk($atype incr);],
 				[erts_cv_sbrk_ret_arg_types="$rtype,$atype"])
@@ -2514,7 +2514,7 @@ if test $ac_cv_func_brk = yes; then
 	for rtype in $ret_types; do
 	    for atype in $arg_types; do
 		IFS=$save_ifs
-		AC_TRY_COMPILE([#include <sys/types.h>
+		AC_TRY_LINK([#include <sys/types.h>
 				#include <unistd.h>],
 				[$rtype brk($atype endds);],
 				[erts_cv_brk_ret_arg_types="$rtype,$atype"])
@@ -2744,17 +2744,29 @@ ERL_TIME_CORRECTION
 AC_CHECK_PROG(M4, m4, m4)
 
 
-dnl HiPE cannot run on 64-bit without MAP_FIXED and MAP_NORESERVE
-if test X${enable_hipe} != Xno && test X$ac_cv_sizeof_void_p != X4; then
-   AC_CHECK_DECLS([MAP_FIXED, MAP_NORESERVE], [], [], [#include <sys/mman.h>])
-   if test X$ac_cv_have_decl_MAP_FIXED != Xyes || test X$ac_cv_have_decl_MAP_NORESERVE != Xyes; then
-      if test X${enable_hipe} = Xyes; then
-	 AC_MSG_ERROR([HiPE on 64-bit needs MAP_FIXED and MAP_NORESERVE flags for mmap()])
-      else
-	 enable_hipe=no
-	 AC_MSG_WARN([Disable HiPE due to lack of MAP_FIXED and MAP_NORESERVE flags for mmap()])
-      fi
-   fi
+if test X${enable_hipe} != Xno; then
+    if test X$ac_cv_sizeof_void_p != X4 && test X$ARCH = Xamd64; then
+        dnl HiPE cannot run on x86_64 without MAP_FIXED and MAP_NORESERVE
+	AC_CHECK_DECLS([MAP_FIXED, MAP_NORESERVE], [], [], [#include <sys/mman.h>])
+	if test X$ac_cv_have_decl_MAP_FIXED != Xyes || test X$ac_cv_have_decl_MAP_NORESERVE != Xyes; then
+	    if test X${enable_hipe} = Xyes; then
+	        AC_MSG_ERROR([HiPE on x86_64 needs MAP_FIXED and MAP_NORESERVE flags for mmap()])
+	    else
+	        enable_hipe=no
+	        AC_MSG_WARN([Disable HiPE due to lack of MAP_FIXED and MAP_NORESERVE flags for mmap()])
+	    fi
+        fi
+    else
+        dnl HiPE cannot run without mprotect()
+        if test X$ac_cv_func_mprotect != Xyes; then
+            if test X${enable_hipe} = Xyes; then
+	        AC_MSG_ERROR([HiPE needs mprotect() on $ARCH])
+            else
+	        enable_hipe=no
+	        AC_MSG_WARN([Disable HiPE due to lack of mprotect()])
+            fi
+        fi
+    fi
 fi
 
 dnl check to auto-enable hipe here...
@@ -2798,7 +2810,7 @@ if test X${enable_fp_exceptions} != Xyes ; then
     FPE=unreliable
 else
 
-    AC_MSG_CHECKING([for unreliable floating point execptions])
+    AC_MSG_CHECKING([for unreliable floating point exceptions])
 
 
     AC_TRY_RUN([
@@ -3386,13 +3398,8 @@ if test X${enable_hipe} = Xyes; then
      AC_DEFINE(HIPE,[1],[Define to enable HiPE])
      HIPE_HELPERS="xmerl syntax_tools edoc"
      ENABLE_ALLOC_TYPE_VARS="$ENABLE_ALLOC_TYPE_VARS hipe"
-     case "$ARCH" in
-	  amd64)
-		# For now exec_alloc is only used for hipe on amd64
-		AC_MSG_NOTICE([Enable exec_alloc for hipe code allocation])
-		ENABLE_ALLOC_TYPE_VARS="$ENABLE_ALLOC_TYPE_VARS exec_alloc"
-		;;
-     esac
+     AC_MSG_NOTICE([Enable exec_alloc for hipe code allocation])
+     ENABLE_ALLOC_TYPE_VARS="$ENABLE_ALLOC_TYPE_VARS exec_alloc"
   fi
 fi
 AC_SUBST(HIPE_HELPERS)
@@ -3536,7 +3543,7 @@ fi
 #
 if test $have_kernel_poll = epoll; then
 	AC_MSG_CHECKING([whether epoll is level triggered])
-	AC_TRY_COMPILE([#include <sys/epoll.h>],[
+	AC_TRY_LINK([#include <sys/epoll.h>],[
 			#ifdef EPOLLET
 			/* Edge triggered option exist, assume level triggered
 			   is default */
@@ -3928,6 +3935,7 @@ dnl use "PATH/include" and "PATH/lib".
 AC_SUBST(SSL_INCLUDE)
 AC_SUBST(SSL_INCDIR)
 AC_SUBST(SSL_LIBDIR)
+AC_SUBST(SSL_FLAGS)
 AC_SUBST(SSL_CRYPTO_LIBNAME)
 AC_SUBST(SSL_SSL_LIBNAME)
 AC_SUBST(SSL_CC_RUNTIME_LIBRARY_PATH)
@@ -4616,6 +4624,31 @@ no)   # Use no ssl runtime library path
 
 esac
 
+
+AC_ARG_ENABLE(fips,
+AS_HELP_STRING([--enable-fips], [enable OpenSSL FIPS mode support])
+AS_HELP_STRING([--disable-fips], [disable OpenSSL FIPS mode support (default)]),
+[ case "$enableval" in
+    yes) enable_fips_support=yes ;;
+    *)   enable_fips_support=no ;;
+  esac ], enable_fips_support=no)
+
+if test "x$enable_fips_support" = "xyes" && test "$CRYPTO_APP" != ""; then
+   saveCFLAGS="$CFLAGS"
+   saveLDFLAGS="$LDFLAGS"
+   saveLIBS="$LIBS"
+   CFLAGS="$CFLAGS $SSL_INCLUDE"
+   LDFLAGS="$LDFLAGS $SSL_LD_RUNTIME_LIBRARY_PATH -L$SSL_LIBDIR"
+   LIBS="-lcrypto"
+   AC_CHECK_FUNC([FIPS_mode_set],
+   [SSL_FLAGS="-DFIPS_SUPPORT"],
+   [SSL_FLAGS=])
+   CFLAGS="$saveCFLAGS"
+   LDFLAGS="$saveLDFLAGS"
+   LIBS="$saveLIBS"
+else
+   SSL_FLAGS=
+fi
 
 #--------------------------------------------------------------------
 # Os mon stuff.

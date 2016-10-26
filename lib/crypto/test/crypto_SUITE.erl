@@ -29,52 +29,88 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [app,
      appup,
-     {group, md4},
-     {group, md5},
-     {group, ripemd160},
-     {group, sha},
-     {group, sha224},
-     {group, sha256},
-     {group, sha384},
-     {group, sha512},
-     {group, rsa},
-     {group, dss},
-     {group, ecdsa},
-     {group, dh},
-     {group, ecdh},
-     {group, srp},
-     {group, des_cbc},
-     {group, des_cfb},
-     {group, des3_cbc},
-     {group, des3_cbf},
-     {group, des3_cfb},
-     {group, des_ede3},
-     {group, blowfish_cbc},
-     {group, blowfish_ecb},
-     {group, blowfish_cfb64},
-     {group, blowfish_ofb64},
-     {group, aes_cbc128},
-     {group, aes_cfb8},
-     {group, aes_cfb128},
-     {group, aes_cbc256},
-     {group, aes_ecb},
-     {group, aes_ige256},
-     {group, rc2_cbc},
-     {group, rc4}, 
-     {group, aes_ctr},
-     {group, aes_gcm},
-     {group, chacha20_poly1305},
-     {group, aes_cbc},
+     {group, fips},
+     {group, non_fips},
      mod_pow,
      exor,
      rand_uniform
     ].
 
-groups() -> 
-    [{md4, [], [hash]},
+groups() ->
+    [{non_fips, [], [{group, md4},
+                     {group, md5},
+                     {group, ripemd160},
+                     {group, sha},
+                     {group, sha224},
+                     {group, sha256},
+                     {group, sha384},
+                     {group, sha512},
+                     {group, rsa},
+                     {group, dss},
+                     {group, ecdsa},
+                     {group, dh},
+                     {group, ecdh},
+                     {group, srp},
+                     {group, des_cbc},
+                     {group, des_cfb},
+                     {group, des3_cbc},
+                     {group, des3_cbf},
+		     {group, des3_cfb},
+                     {group, des_ede3},
+                     {group, blowfish_cbc},
+                     {group, blowfish_ecb},
+                     {group, blowfish_cfb64},
+                     {group, blowfish_ofb64},
+                     {group, aes_cbc128},
+                     {group, aes_cfb8},
+                     {group, aes_cfb128},
+                     {group, aes_cbc256},
+                     {group, aes_ige256},
+                     {group, rc2_cbc},
+                     {group, rc4},
+                     {group, aes_ctr},
+		     {group, aes_gcm},
+		     {group, chacha20_poly1305},
+		     {group, aes_cbc}]},
+     {fips, [], [{group, no_md4},
+                 {group, no_md5},
+                 {group, no_ripemd160},
+                 {group, sha},
+                 {group, sha224},
+                 {group, sha256},
+                 {group, sha384},
+                 {group, sha512},
+                 {group, rsa},
+                 {group, dss},
+                 {group, ecdsa},
+                 {group, dh},
+                 {group, ecdh},
+                 {group, no_srp},
+                 {group, no_des_cbc},
+                 {group, no_des_cfb},
+                 {group, des3_cbc},
+                 {group, des3_cbf},
+		 {group, des3_cfb},
+                 {group, des_ede3},
+                 {group, no_blowfish_cbc},
+                 {group, no_blowfish_ecb},
+                 {group, no_blowfish_cfb64},
+                 {group, no_blowfish_ofb64},
+                 {group, aes_cbc128},
+                 {group, aes_cfb8},
+                 {group, aes_cfb128},
+                 {group, aes_cbc256},
+                 {group, no_aes_ige256},
+                 {group, no_rc2_cbc},
+                 {group, no_rc4},
+                 {group, aes_ctr},
+		 {group, aes_gcm},
+		 {group, no_chacha20_poly1305},
+		 {group, aes_cbc}]},
+     {md4, [], [hash]},
      {md5, [], [hash, hmac]},
      {ripemd160, [], [hash]},
      {sha, [], [hash, hmac]},
@@ -82,9 +118,9 @@ groups() ->
      {sha256, [], [hash, hmac]},
      {sha384, [], [hash, hmac]},
      {sha512, [], [hash, hmac]},
-     {rsa, [], [sign_verify, 
-		public_encrypt
-	       ]},
+     {rsa, [], [sign_verify,
+                public_encrypt
+               ]},
      {dss, [], [sign_verify]},
      {ecdsa, [], [sign_verify]},
      {dh, [], [generate_compute]},
@@ -97,21 +133,35 @@ groups() ->
      {des3_cbf,[], [block]},
      {des3_cfb,[], [block]},
      {rc2_cbc,[], [block]},
-     {aes_cbc128,[], [block]},
+     {aes_cbc128,[], [block, cmac]},
      {aes_cfb8,[], [block]},
      {aes_cfb128,[], [block]},
-     {aes_cbc256,[], [block]},
+     {aes_cbc256,[], [block, cmac]},
      {aes_ecb,[], [block]},
      {aes_ige256,[], [block]},
      {blowfish_cbc, [], [block]},
      {blowfish_ecb, [], [block]},
      {blowfish_cfb64, [], [block]},
      {blowfish_ofb64,[], [block]},
-     {rc4, [], [stream]}, 
+     {rc4, [], [stream]},
      {aes_ctr, [], [stream]},
      {aes_gcm, [], [aead]},
      {chacha20_poly1305, [], [aead]},
-     {aes_cbc, [], [block]}
+     {aes_cbc, [], [block]},
+     {no_md4, [], [no_support, no_hash]},
+     {no_md5, [], [no_support, no_hash, no_hmac]},
+     {no_ripemd160, [], [no_support, no_hash]},
+     {no_srp, [], [no_support, no_generate_compute]},
+     {no_des_cbc, [], [no_support, no_block]},
+     {no_des_cfb, [], [no_support, no_block]},
+     {no_blowfish_cbc, [], [no_support, no_block]},
+     {no_blowfish_ecb, [], [no_support, no_block]},
+     {no_blowfish_cfb64, [], [no_support, no_block]},
+     {no_blowfish_ofb64, [], [no_support, no_block]},
+     {no_aes_ige256, [], [no_support, no_block]},
+     {no_chacha20_poly1305, [], [no_support, no_aead]},
+     {no_rc2_cbc, [], [no_support, no_block]},
+     {no_rc4, [], [no_support, no_stream]}
     ].
 
 %%-------------------------------------------------------------------
@@ -141,12 +191,47 @@ end_per_suite(_Config) ->
     application:stop(crypto).
 
 %%-------------------------------------------------------------------
+init_per_group(fips, Config) ->
+    FIPSConfig = [{fips, true} | Config],
+    case crypto:info_fips() of
+        enabled ->
+            FIPSConfig;
+        not_enabled ->
+            case crypto:enable_fips_mode(true) of
+		true ->
+		    enabled = crypto:info_fips(),
+		    FIPSConfig;
+		false ->
+		    {skip, "Failed to enable FIPS mode"}
+	    end;
+        not_supported ->
+            {skip, "FIPS mode not supported"}
+    end;
+init_per_group(non_fips, Config) ->
+    NonFIPSConfig = [{fips, false} | Config],
+    case crypto:info_fips() of
+        enabled ->
+            true = crypto:enable_fips_mode(false),
+            not_enabled = crypto:info_fips(),
+            NonFIPSConfig;
+        _NotEnabled ->
+            NonFIPSConfig
+    end;
 init_per_group(GroupName, Config) ->
-    case is_supported(GroupName) of
-	true ->
-	    group_config(GroupName, Config);
-	false ->
-	    {skip, "Group not supported"}
+    case atom_to_list(GroupName) of
+        "no_" ++ TypeStr ->
+            %% Negated test case: check the algorithm is not supported
+            %% (e.g. due to FIPS mode limitations)
+            TypeAtom = list_to_atom(TypeStr),
+            [{type, TypeAtom} | group_config(TypeAtom, Config)];
+        _Other ->
+            %% Regular test case: skip if the algorithm is not supported
+            case is_supported(GroupName) of
+                true ->
+                    [{type, GroupName} | group_config(GroupName, Config)];
+                false ->
+                    {skip, "Group not supported"}
+            end
     end.
 
 end_per_group(_GroupName, Config) ->
@@ -154,6 +239,14 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(info, Config) ->
     Config;
+init_per_testcase(cmac, Config) ->
+    case crypto:info_lib() of
+        [{<<"OpenSSL">>,LibVer,_}] when is_integer(LibVer), LibVer > 16#10001000 ->
+            Config;
+        _Else ->
+            % The CMAC functionality was introduced in OpenSSL 1.0.1
+            {skip, "OpenSSL is too old"}
+    end;
 init_per_testcase(_Name,Config) ->
     Config.
 
@@ -175,6 +268,12 @@ appup() ->
 appup(Config) when is_list(Config) ->
     ok = ?t:appup_test(crypto).
 %%--------------------------------------------------------------------
+no_support() ->
+    [{doc, "Test an algorithm is not reported in the supported list"}].
+no_support(Config) when is_list(Config) ->
+    Type  = ?config(type, Config),
+    false = is_supported(Type).
+%%--------------------------------------------------------------------
 hash() ->
     [{doc, "Test all different hash functions"}].
 hash(Config) when is_list(Config) ->
@@ -186,7 +285,14 @@ hash(Config) when is_list(Config) ->
     hash(Type, Msgs, Digests),
     hash(Type, lists:map(fun iolistify/1, Msgs), Digests),
     hash_increment(Type, Inc, IncrDigest).
-%%-------------------------------------------------------------------- 
+%%--------------------------------------------------------------------
+no_hash() ->
+    [{doc, "Test all disabled hash functions"}].
+no_hash(Config) when is_list(Config) ->
+    Type = ?config(type, Config),
+    notsup(fun crypto:hash/2, [Type, <<"Hi There">>]),
+    notsup(fun crypto:hash_init/1, [Type]).
+%%--------------------------------------------------------------------
 hmac() ->
      [{doc, "Test all different hmac functions"}].
 hmac(Config) when is_list(Config) ->
@@ -196,14 +302,67 @@ hmac(Config) when is_list(Config) ->
     hmac(Type, lists:map(fun iolistify/1, Keys), lists:map(fun iolistify/1, Data), Expected),
     hmac_increment(Type).
 %%--------------------------------------------------------------------
+no_hmac() ->
+     [{doc, "Test all disabled hmac functions"}].
+no_hmac(Config) when is_list(Config) ->
+    Type = ?config(type, Config),
+    notsup(fun crypto:hmac/3, [Type, <<"Key">>, <<"Hi There">>]),
+    notsup(fun crypto:hmac_init/2, [Type, <<"Key">>]).
+%%--------------------------------------------------------------------
+cmac() ->
+     [{doc, "Test all different cmac functions"}].
+cmac(Config) when is_list(Config) ->
+    Pairs = proplists:get_value(cmac, Config),
+    lists:foreach(fun cmac_check/1, Pairs),
+    lists:foreach(fun cmac_check/1, cmac_iolistify(Pairs)).
+%%--------------------------------------------------------------------
 block() ->
      [{doc, "Test block ciphers"}].
 block(Config) when is_list(Config) ->
+    Fips = proplists:get_bool(fips, Config),
+    Type = ?config(type, Config),
+    %% See comment about EVP_CIPHER_CTX_set_key_length in
+    %% block_crypt_nif in crypto.c.
+    case {Fips, Type} of
+	{true, aes_cfb8} ->
+	    throw({skip, "Cannot test aes_cfb8 in FIPS mode because of key length issue"});
+	{true, aes_cfb128} ->
+	    throw({skip, "Cannot test aes_cfb128 in FIPS mode because of key length issue"});
+	_ ->
+	    ok
+    end,
+
     Blocks = proplists:get_value(block, Config),
     lists:foreach(fun block_cipher/1, Blocks),
     lists:foreach(fun block_cipher/1, block_iolistify(Blocks)),
     lists:foreach(fun block_cipher_increment/1, block_iolistify(Blocks)).
 
+%%--------------------------------------------------------------------
+no_block() ->
+     [{doc, "Test disabled block ciphers"}].
+no_block(Config) when is_list(Config) ->
+    Blocks = proplists:get_value(block, Config),
+    Args = case Blocks of
+	       [{_Type, _Key, _PlainText} = A | _] ->
+		   tuple_to_list(A);
+	       [{_Type, _Key, _IV, _PlainText} = A | _] ->
+		   tuple_to_list(A);
+	       [{Type, Key, IV, PlainText, _CipherText} | _] ->
+		   [Type, Key, IV, PlainText]
+	   end,
+    N = length(Args),
+    notsup(fun crypto:block_encrypt/N, Args),
+    notsup(fun crypto:block_decrypt/N, Args).
+%%--------------------------------------------------------------------
+no_aead() ->
+     [{doc, "Test disabled aead ciphers"}].
+no_aead(Config) when is_list(Config) ->
+    [{Type, Key, PlainText, Nonce, AAD, CipherText, CipherTag} | _] =
+	proplists:get_value(aead, Config),
+    EncryptArgs = [Type, Key, Nonce, {AAD, PlainText}],
+    DecryptArgs = [Type, Key, Nonce, {AAD, CipherText, CipherTag}],
+    notsup(fun crypto:block_encrypt/4, EncryptArgs),
+    notsup(fun crypto:block_decrypt/4, DecryptArgs).
 %%--------------------------------------------------------------------
 stream() ->
       [{doc, "Test stream ciphers"}].
@@ -213,6 +372,12 @@ stream(Config) when is_list(Config) ->
     lists:foreach(fun stream_cipher/1, Streams),
     lists:foreach(fun stream_cipher/1, stream_iolistify(Streams)),
     lists:foreach(fun stream_cipher_incment/1, stream_iolistify(Streams)).
+%%--------------------------------------------------------------------
+no_stream() ->
+      [{doc, "Test disabled stream ciphers"}].
+no_stream(Config) when is_list(Config) ->
+    Type = ?config(type, Config),
+    notsup(fun crypto:stream_init/2, [Type, <<"Key">>]).
 
 %%--------------------------------------------------------------------
 aead() ->
@@ -220,7 +385,20 @@ aead() ->
 aead(Config) when is_list(Config) ->
     AEADs = lazy_eval(proplists:get_value(aead, Config)),
 
-    lists:foreach(fun aead_cipher/1, AEADs).
+    FilteredAEADs =
+	case proplists:get_bool(fips, Config) of
+	    false ->
+		AEADs;
+	    true ->
+		%% In FIPS mode, the IV length must be at least 12 bytes.
+		lists:filter(
+		  fun(Tuple) ->
+			  IVLen = byte_size(element(4, Tuple)),
+			  IVLen >= 12
+		  end, AEADs)
+	end,
+
+    lists:foreach(fun aead_cipher/1, FilteredAEADs).
 
 %%-------------------------------------------------------------------- 
 sign_verify() ->
@@ -243,6 +421,24 @@ generate_compute() ->
 generate_compute(Config) when is_list(Config) ->
     GenCom = proplists:get_value(generate_compute, Config),
     lists:foreach(fun do_generate_compute/1, GenCom).
+%%--------------------------------------------------------------------
+no_generate_compute() ->
+     [{doc, "Test crypto:genarate_key and crypto:compute_key "
+       "for disabled algorithms"}].
+no_generate_compute(Config) when is_list(Config) ->
+    %% This test is specific to the SRP protocol
+    srp = ?config(type, Config),
+    {srp,
+     UserPrivate, UserGenParams, UserComParams,
+     HostPublic, HostPrivate, HostGenParams, HostComParams,
+     _SessionKey} = srp3(),
+    UserPublic = HostPublic,                    % use a fake public key
+    notsup(fun crypto:generate_key/3, [srp, UserGenParams, UserPrivate]),
+    notsup(fun crypto:generate_key/3, [srp, HostGenParams, HostPrivate]),
+    notsup(fun crypto:compute_key/4,
+           [srp, HostPublic, {UserPublic, UserPrivate}, UserComParams]),
+    notsup(fun crypto:compute_key/4,
+           [srp, UserPublic, {HostPublic, HostPrivate}, HostComParams]).
 %%--------------------------------------------------------------------
 compute() ->
      [{doc, " Test crypto:compute_key"}].
@@ -347,6 +543,23 @@ hmac_increment(State, []) ->
 hmac_increment(State0, [Increment | Rest]) ->
     State = crypto:hmac_update(State0, Increment),
     hmac_increment(State, Rest).
+
+cmac_check({Type, Key, Text, CMac}) ->
+    ExpCMac = iolist_to_binary(CMac),
+    case crypto:cmac(Type, Key, Text) of
+        ExpCMac ->
+            ok;
+        Other ->
+            ct:fail({{crypto, cmac, [Type, Key, Text]}, {expected, ExpCMac}, {got, Other}})
+    end;
+cmac_check({Type, Key, Text, Size, CMac}) ->
+    ExpCMac = iolist_to_binary(CMac),
+    case crypto:cmac(Type, Key, Text, Size) of
+        ExpCMac ->
+            ok;
+        Other ->
+            ct:fail({{crypto, cmac, [Type, Key, Text, Size]}, {expected, ExpCMac}, {got, Other}})
+    end.
 
 block_cipher({Type, Key,  PlainText}) ->
     Plain = iolist_to_binary(PlainText),
@@ -545,6 +758,25 @@ do_generate({ecdh = Type, Curve, Priv, Pub}) ->
 	    ct:fail({{crypto, generate_key, [Type, Priv, Curve]}, {expected, Pub}, {got, Other}})
     end.
 
+notsup(Fun, Args) ->
+    Result =
+        try
+            {error, {return, apply(Fun, Args)}}
+        catch
+            error:notsup ->
+                ok;
+            Class:Error ->
+                {error, {Class, Error}}
+        end,
+    case Result of
+        ok ->
+            ok;
+        {error, Value} ->
+            {module, Module} = erlang:fun_info(Fun, module),
+            {name,   Name}   = erlang:fun_info(Fun, name),
+            ct:fail({{Module, Name, Args}, {expected, {error, notsup}}, {got, Value}})
+    end.
+
 hexstr2point(X, Y) ->
     <<4:8, (hexstr2bin(X))/binary, (hexstr2bin(Y))/binary>>.
 
@@ -565,10 +797,17 @@ mkint(C) when $a =< C, C =< $f ->
 is_supported(Group) ->
     lists:member(Group, lists:append([Algo ||  {_, Algo}  <- crypto:supports()])). 
 
+cmac_iolistify(Blocks) ->
+    lists:map(fun do_cmac_iolistify/1, Blocks).
 block_iolistify(Blocks) ->
     lists:map(fun do_block_iolistify/1, Blocks).
 stream_iolistify(Streams) ->
     lists:map(fun do_stream_iolistify/1, Streams).
+
+do_cmac_iolistify({Type, Key, Text, CMac}) ->
+    {Type, iolistify(Key), iolistify(Text), CMac};
+do_cmac_iolistify({Type, Key, Text, Size, CMac}) ->
+    {Type, iolistify(Key), iolistify(Text), Size, CMac}.
 
 do_stream_iolistify({Type, Key, PlainText}) ->
     {Type, iolistify(Key), iolistify(PlainText)};
@@ -752,12 +991,23 @@ group_config(rsa = Type, Config) ->
     Private = rsa_private(),
     PublicS = rsa_public_stronger(),
     PrivateS = rsa_private_stronger(),
-    SignVerify = sign_verify_tests(Type, Msg, Public, Private, PublicS, PrivateS),
+    SignVerify =
+        case ?config(fips, Config) of
+            true ->
+                %% Use only the strong keys in FIPS mode
+                sign_verify_tests(Type, Msg,
+                                  PublicS, PrivateS,
+                                  PublicS, PrivateS);
+            false ->
+                sign_verify_tests(Type, Msg,
+                                  Public,  Private,
+                                  PublicS, PrivateS)
+        end,
     MsgPubEnc = <<"7896345786348 Asldi">>,
-    PubPrivEnc = [{rsa, Public, Private, MsgPubEnc, rsa_pkcs1_padding},
-		  rsa_oaep(),
-		  no_padding()
-		 ],
+    PubPrivEnc = [{rsa, PublicS, PrivateS, MsgPubEnc, rsa_pkcs1_padding},
+                  rsa_oaep(),
+                  no_padding()
+                 ],
     [{sign_verify, SignVerify}, {pub_priv_encrypt, PubPrivEnc} | Config];
 group_config(dss = Type, Config) ->
     Msg = dss_plain(),
@@ -802,12 +1052,14 @@ group_config(des_ede3, Config) ->
 group_config(rc2_cbc, Config) ->
     Block = rc2_cbc(),
     [{block, Block} | Config];
-group_config(aes_cbc128, Config) ->
+group_config(aes_cbc128 = Type, Config) ->
     Block = aes_cbc128(),
-    [{block, Block} | Config];
-group_config(aes_cbc256, Config) ->
+    Pairs = cmac_nist(Type),
+    [{block, Block}, {cmac, Pairs} | Config];
+group_config(aes_cbc256 = Type, Config) ->
     Block = aes_cbc256(),
-    [{block, Block} | Config];
+    Pairs = cmac_nist(Type),
+    [{block, Block}, {cmac, Pairs} | Config];
 group_config(aes_ecb, Config) ->
     Block = aes_ecb(),
     [{block, Block} | Config];    
@@ -2294,7 +2546,7 @@ ecdh() ->
                  TestCases).
 
 dh() ->
-    {dh, 0087761979513264537414556992123116644042638206717762626089877284926656954974893442000747478454809111207351620687968672207938731607963470779396984752680274820156266685080223616226905101126463253150237669547023934604953898814222890239130021414026118792251620881355456432549881723310342870016961804255746630219, 2}.
+    {dh, 90970053988169282502023478715631717259407236400413906591937635666709823903223997309250405131675572047545403771567755831138144089197560332757755059848492919215391041119286178688014693040542889497092308638580104031455627238700168892909539193174537248629499995652186913900511641708112112482297874449292467498403, 2}.
 
 rsa_oaep() ->
     %% ftp://ftp.rsa.com/pub/rsalabs/tmp/pkcs1v15crypt-vectors.txt
@@ -2337,9 +2589,53 @@ ecc() ->
                  end,
                  TestCases).
 
+%% Test data from Appendix D of NIST Special Publication 800-38B
+%% http://csrc.nist.gov/publications/nistpubs/800-38B/Updated_CMAC_Examples.pdf
+%% The same AES128 test data are also in the RFC 4493
+%% https://tools.ietf.org/html/rfc4493
+cmac_nist(aes_cbc128 = Type) ->
+    Key = hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
+    [{Type, Key, <<"">>,
+                 hexstr2bin("bb1d6929e95937287fa37d129b756746")},
+    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"),
+                hexstr2bin("070a16b46b4d4144f79bdd9dd04a287c")},
+    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
+                           "ae2d8a571e03ac9c9eb76fac45af8e51"
+                           "30c81c46a35ce411"),
+                hexstr2bin("dfa66747de9ae63030ca32611497c827")},
+    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
+                           "ae2d8a571e03ac9c9eb76fac45af8e51"
+                           "30c81c46a35ce411e5fbc1191a0a52ef"
+                           "f69f2445df4f9b17ad2b417be66c3710"),
+                hexstr2bin("51f0bebf7e3b9d92fc49741779363cfe")},
+    % truncation
+    {Type, Key, <<"">>, 4,
+                 hexstr2bin("bb1d6929")}];
+
+cmac_nist(aes_cbc256 = Type) ->
+    Key = hexstr2bin("603deb1015ca71be2b73aef0857d7781"
+                     "1f352c073b6108d72d9810a30914dff4"),
+    [{Type, Key, <<"">>,
+                 hexstr2bin("028962f61b7bf89efc6b551f4667d983")},
+    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"),
+                hexstr2bin("28a7023f452e8f82bd4bf28d8c37c35c")},
+    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
+                           "ae2d8a571e03ac9c9eb76fac45af8e51"
+                           "30c81c46a35ce411"),
+                hexstr2bin("aaf3d8f1de5640c232f5b169b9c911e6")},
+    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
+                           "ae2d8a571e03ac9c9eb76fac45af8e51"
+                           "30c81c46a35ce411e5fbc1191a0a52ef"
+                           "f69f2445df4f9b17ad2b417be66c3710"),
+                hexstr2bin("e1992190549f6ed5696a2c056c315410")},
+    % truncation
+    {Type, Key, <<"">>, 4,
+                 hexstr2bin("028962f6")}].
+
+
 no_padding() ->
-    Public = [_, Mod] = rsa_public(),
-    Private = rsa_private(),
+    Public = [_, Mod] = rsa_public_stronger(),
+    Private = rsa_private_stronger(),
     MsgLen = erlang:byte_size(int_to_bin(Mod)),
     Msg = list_to_binary(lists:duplicate(MsgLen, $X)),
     {rsa, Public, Private, Msg, rsa_no_padding}.

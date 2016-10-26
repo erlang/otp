@@ -41,6 +41,9 @@
         <p>Hmac functions - <url href="http://www.ietf.org/rfc/rfc2104.txt"> Keyed-Hashing for Message Authentication (RFC 2104) </url></p>
       </item>
       <item>
+        <p>Cmac functions - <url href="http://www.ietf.org/rfc/rfc4493.txt">The AES-CMAC Algorithm (RFC 4493)</url></p>
+      </item>
+      <item>
         <p>Block ciphers - <url href="http://csrc.nist.gov/groups/ST/toolkit/block_ciphers.html"> </url> DES and AES in
         Block Cipher Modes - <url href="http://csrc.nist.gov/groups/ST/toolkit/BCM/index.html"> ECB, CBC, CFB, OFB, CTR and GCM </url></p>
       </item>
@@ -450,6 +453,46 @@
       <desc>
         <p>Finalizes the HMAC operation referenced by <c>Context</c>. <c>HashLen</c> must be greater than
         zero. <c>Mac</c> will be a binary with at most <c>HashLen</c> bytes. Note that if HashLen is greater than the actual number of bytes returned from the underlying hash, the returned hash will have fewer than <c>HashLen</c> bytes.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>cmac(Type, Key, Data) -> Mac</name>
+      <name>cmac(Type, Key, Data, MacLength) -> Mac</name>
+      <fsummary>Calculates the Cipher-based Message Authentication Code.</fsummary>
+      <type>
+        <v>Type = block_cipher()</v>
+        <v>Key = iodata()</v>
+        <v>Data = iodata()</v>
+        <v>MacLength = integer()</v>
+        <v>Mac = binary()</v>
+      </type>
+      <desc>
+        <p>Computes a CMAC of type <c>Type</c> from <c>Data</c> using
+        <c>Key</c> as the authentication key.</p> <p><c>MacLength</c>
+        will limit the size of the resultant <c>Mac</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>info_fips() -> Status</name>
+      <fsummary>Provides information about the FIPS operating status.</fsummary>
+      <type>
+        <v>Status = enabled | not_enabled | not_supported</v>
+      </type>
+      <desc>
+        <p>Provides information about the FIPS operating status of
+        crypto and the underlying OpenSSL library. If crypto was built
+        with FIPS support this can be either <c>enabled</c> (when
+        running in FIPS mode) or <c>not_enabled</c>. For other builds
+        this value is always <c>not_supported</c>.</p>
+        <warning>
+          <p>In FIPS mode all non-FIPS compliant algorithms are
+          disabled and throw exception <c>not_supported</c>. Check
+          <seealso marker="#supports-0">supports</seealso> that in
+          FIPS mode returns the restricted list of available
+          algorithms.</p>
+        </warning>
       </desc>
     </func>
 

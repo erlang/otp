@@ -20,11 +20,11 @@
 %%
 
 -module(hipe_arm_ra_naive).
--export([ra/3]).
+-export([ra/4]).
 
 -include("hipe_arm.hrl").
 
-ra(Defun, _Coloring_fp, _Options) ->	% -> {Defun, Coloring}
-  {NewDefun,_DidSpill} =
-    hipe_arm_ra_postconditions:check_and_rewrite2(Defun, [], 'naive'),
-  {NewDefun, []}.
+ra(CFG, Liveness, _Coloring_fp, _Options) ->	% -> {CFG, Liveness, Coloring}
+  {NewCFG,_DidSpill} =
+    hipe_arm_ra_postconditions:check_and_rewrite2(CFG, [], 'naive'),
+  {NewCFG, Liveness, []}.

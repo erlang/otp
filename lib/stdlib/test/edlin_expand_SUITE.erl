@@ -21,7 +21,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_group/2,end_per_group/2]).
--export([normal/1, quoted_fun/1, quoted_module/1, quoted_both/1]).
+-export([normal/1, quoted_fun/1, quoted_module/1, quoted_both/1, erl_1152/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -36,7 +36,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [normal, quoted_fun, quoted_module, quoted_both].
+    [normal, quoted_fun, quoted_module, quoted_both, erl_1152].
 
 groups() -> 
     [].
@@ -149,5 +149,12 @@ quoted_both(Config) when is_list(Config) ->
     {yes,"weird-fun-name'()",[]} = do_expand("'ExpandTestCaps1':'#"),
     ok.
 
+erl_1152(Config) when is_list(Config) ->
+    "\n"++"foo"++"    "++[1089]++_ = do_format(["foo",[1089]]),
+    ok.
+
 do_expand(String) ->
     edlin_expand:expand(lists:reverse(String)).
+
+do_format(StringList) ->
+    lists:flatten(edlin_expand:format_matches(StringList)).

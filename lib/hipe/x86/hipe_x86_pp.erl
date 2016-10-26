@@ -171,7 +171,7 @@ pp_insn(Dev, I, Pre) ->
     #pseudo_tailcall{'fun'=Fun, arity=Arity, stkargs=StkArgs, linkage=Linkage} ->
       io:format(Dev, "\tpseudo_tailcall ", []),
       pp_fun(Dev, Fun),
-      io:format(Dev, "~w (", [Arity]),
+      io:format(Dev, " ~w (", [Arity]),
       pp_args(Dev, StkArgs),
       io:format(Dev, ") ~w\n", [Linkage]);
     #pseudo_tailcall_prepare{} ->

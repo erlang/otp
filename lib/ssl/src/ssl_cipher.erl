@@ -46,9 +46,9 @@
 	      erl_cipher_suite/0, openssl_cipher_suite/0,
 	      hash/0, key_algo/0, sign_algo/0]).
 
--type cipher()            :: null |rc4_128 | idea_cbc | des40_cbc | des_cbc | '3des_ede_cbc' 
+-type cipher()            :: null |rc4_128 | des_cbc | '3des_ede_cbc' 
 			   | aes_128_cbc |  aes_256_cbc | aes_128_gcm | aes_256_gcm | chacha20_poly1305.
--type hash()              :: null | sha | md5 | sha224 | sha256 | sha384 | sha512.
+-type hash()              :: null | md5 | sha | sha224 | sha256 | sha384 | sha512.
 -type sign_algo()         :: rsa | dsa | ecdsa.
 -type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | ecdhe_ecdsa| ecdh_ecdsa | ecdh_rsa| srp_rsa| srp_dss | 
 			     psk | dhe_psk | rsa_psk | dh_anon | ecdh_anon | srp_anon.
@@ -333,21 +333,27 @@ anonymous_suites({3, N}) ->
 anonymous_suites(N)
   when N >= 3 ->
     [?TLS_DH_anon_WITH_AES_128_GCM_SHA256,
-     ?TLS_DH_anon_WITH_AES_256_GCM_SHA384
-    ] ++ anonymous_suites(0);
-
-anonymous_suites(_) ->
-    [?TLS_DH_anon_WITH_RC4_128_MD5,
-     ?TLS_DH_anon_WITH_DES_CBC_SHA,
-     ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_DH_anon_WITH_AES_128_CBC_SHA,
-     ?TLS_DH_anon_WITH_AES_256_CBC_SHA,
+     ?TLS_DH_anon_WITH_AES_256_GCM_SHA384,
      ?TLS_DH_anon_WITH_AES_128_CBC_SHA256,
      ?TLS_DH_anon_WITH_AES_256_CBC_SHA256,
-     ?TLS_ECDH_anon_WITH_RC4_128_SHA,
-     ?TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
      ?TLS_ECDH_anon_WITH_AES_128_CBC_SHA,
-     ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA].
+     ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA,
+     ?TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DH_anon_WITH_RC4_128_MD5];
+
+anonymous_suites(2) ->
+    [?TLS_ECDH_anon_WITH_AES_128_CBC_SHA,
+     ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA,
+     ?TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DH_anon_WITH_DES_CBC_SHA,
+     ?TLS_DH_anon_WITH_RC4_128_MD5];
+
+anonymous_suites(N)  when N == 0;
+			  N == 1 ->
+    [?TLS_DH_anon_WITH_RC4_128_MD5,
+     ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DH_anon_WITH_DES_CBC_SHA
+    ].
 
 %%--------------------------------------------------------------------
 -spec psk_suites(ssl_record:ssl_version() | integer()) -> [cipher_suite()].
@@ -1441,25 +1447,60 @@ filter_suites(Suites) ->
 			     is_acceptable_prf(Prf, Hashs)
 		 end, Suites).
 
-is_acceptable_keyexchange(KeyExchange, Algos)
-  when KeyExchange == ecdh_ecdsa;
-       KeyExchange == ecdhe_ecdsa;
-       KeyExchange == ecdh_rsa;
-       KeyExchange == ecdhe_rsa;
-       KeyExchange == ecdh_anon ->
+is_acceptable_keyexchange(KeyExchange, _Algos) when KeyExchange == psk;
+                                                    KeyExchange == null ->
+    true;
+is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == dh_anon;
+                                                   KeyExchange == dhe_psk ->
+    proplists:get_bool(dh, Algos);
+is_acceptable_keyexchange(dhe_dss, Algos) ->
+    proplists:get_bool(dh, Algos) andalso
+        proplists:get_bool(dss, Algos);
+is_acceptable_keyexchange(dhe_rsa, Algos) ->
+    proplists:get_bool(dh, Algos) andalso
+        proplists:get_bool(rsa, Algos);
+is_acceptable_keyexchange(ecdh_anon, Algos) ->
     proplists:get_bool(ecdh, Algos);
-is_acceptable_keyexchange(_, _) ->
-    true.
+is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == ecdh_ecdsa;
+                                                   KeyExchange == ecdhe_ecdsa ->
+    proplists:get_bool(ecdh, Algos) andalso
+        proplists:get_bool(ecdsa, Algos);
+is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == ecdh_rsa;
+                                                   KeyExchange == ecdhe_rsa ->
+    proplists:get_bool(ecdh, Algos) andalso
+        proplists:get_bool(rsa, Algos);
+is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == rsa;
+                                                   KeyExchange == rsa_psk ->
+    proplists:get_bool(rsa, Algos);
+is_acceptable_keyexchange(srp_anon, Algos) ->
+    proplists:get_bool(srp, Algos);
+is_acceptable_keyexchange(srp_dss, Algos) ->
+    proplists:get_bool(srp, Algos) andalso
+        proplists:get_bool(dss, Algos);
+is_acceptable_keyexchange(srp_rsa, Algos) ->
+    proplists:get_bool(srp, Algos) andalso
+        proplists:get_bool(rsa, Algos);
+is_acceptable_keyexchange(_KeyExchange, _Algos) ->
+    false.
 
+is_acceptable_cipher(null, _Algos) ->
+    true;
+is_acceptable_cipher(rc4_128, Algos) ->
+    proplists:get_bool(rc4, Algos);
+is_acceptable_cipher(des_cbc, Algos) ->
+    proplists:get_bool(des_cbc, Algos);
+is_acceptable_cipher('3des_ede_cbc', Algos) ->
+    proplists:get_bool(des3_cbc, Algos);
+is_acceptable_cipher(aes_128_cbc, Algos) ->
+    proplists:get_bool(aes_cbc128, Algos);
+is_acceptable_cipher(aes_256_cbc, Algos) ->
+    proplists:get_bool(aes_cbc256, Algos);
 is_acceptable_cipher(Cipher, Algos)
   when Cipher == aes_128_gcm;
        Cipher == aes_256_gcm ->
     proplists:get_bool(aes_gcm, Algos);
-is_acceptable_cipher(Cipher, Algos)
-  when Cipher == chacha20_poly1305 ->
-    proplists:get_bool(Cipher, Algos);
-is_acceptable_cipher(_, _) ->
-    true.
+is_acceptable_cipher(Cipher, Algos) ->
+    proplists:get_bool(Cipher, Algos).
 
 is_acceptable_hash(null, _Algos) ->
     true;

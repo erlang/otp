@@ -409,11 +409,13 @@
       The initial values for fields are to be compatible
       with (that is, a member of) the corresponding types.
       This is checked by the compiler and results in a compilation error
-      if a violation is detected. For fields without initial values,
-      the singleton type <c>'undefined'</c> is added to all declared types.
-      In other words, the following two record declarations have identical 
-      effects:
+      if a violation is detected. 
     </p>
+    <note>
+      <p>Before Erlang/OTP 19, for fields without initial values,
+      the singleton type <c>'undefined'</c> was added to all declared types.
+      In other words, the following two record declarations had identical 
+      effects:</p>
     <pre>
   -record(rec, {f1 = 42 :: integer(),
                 f2      :: float(),
@@ -423,9 +425,10 @@
                 f2      :: 'undefined' | float(),
                 f3      :: 'undefined' | 'a' | 'b'}).</pre>
     <p>
-      For this reason, it is recommended that records contain initializers, 
-      whenever possible.
+      This is no longer the case. If you require <c>'undefined'</c> in your record field
+      type, you must explicitly add it to the typespec, as in the 2nd example.
     </p>
+    </note>
     <p>
       Any record, containing type information or not, once defined, 
       can be used as a type using the following syntax:

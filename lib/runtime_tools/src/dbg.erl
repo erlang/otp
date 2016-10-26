@@ -427,7 +427,7 @@ trace_port(file, Filename) ->
     trace_port1(file, Filename, nowrap);
 
 trace_port(ip, Portno) when is_integer(Portno) -> 
-    trace_port(ip,{Portno,50});
+    trace_port(ip,{Portno,200});
 
 trace_port(ip, {Portno, Qsiz}) when is_integer(Portno), is_integer(Qsiz) -> 
     fun() ->

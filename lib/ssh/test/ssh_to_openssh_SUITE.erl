@@ -58,7 +58,8 @@ groups() ->
 			  erlang_client_openssh_server_nonexistent_subsystem
 			 ]},
      {erlang_server, [], [erlang_server_openssh_client_public_key_dsa,
-			  erlang_server_openssh_client_public_key_rsa
+			  erlang_server_openssh_client_public_key_rsa,
+			  erlang_server_openssh_client_renegotiate
 			 ]}
     ].
 
@@ -383,6 +384,41 @@ erlang_server_openssh_client_public_key_X(Config, PubKeyAlg) ->
 	" " ++ Host ++ " 1+1.",
     OpenSsh = ssh_test_lib:open_port({spawn, Cmd}),
     ssh_test_lib:rcv_expected({data,<<"2\n">>}, OpenSsh, ?TIMEOUT),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%% Test that the Erlang/OTP server can renegotiate with openSSH
+erlang_server_openssh_client_renegotiate(Config) ->
+    PubKeyAlg = ssh_rsa,
+    SystemDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {public_key_alg, PubKeyAlg},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+
+    ct:sleep(500),
+
+    DataFile = filename:join(PrivDir, "renegotiate_openssh_client.data"),
+    Data =  lists:duplicate(32000, $a),
+    ok = file:write_file(DataFile, Data),
+
+    Cmd = "ssh -p " ++ integer_to_list(Port) ++
+	" -o UserKnownHostsFile=" ++ KnownHosts ++
+	" -o RekeyLimit=20K" ++
+	" " ++ Host ++ " < " ++ DataFile,
+    OpenSsh = ssh_test_lib:open_port({spawn, Cmd}),
+
+    Expect = fun({data,R}) -> 
+		     try lists:prefix(binary_to_list(R), Data)
+		     catch
+			 _:_ -> false
+		     end;
+		(_) ->
+		     false
+	     end,
+
+    ssh_test_lib:rcv_expected(Expect, OpenSsh, ?TIMEOUT),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------

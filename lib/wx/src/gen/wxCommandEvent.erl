@@ -114,7 +114,7 @@ setInt(#wx_ref{type=ThisT,ref=ThisRef},I)
 -spec setString(This, S) -> 'ok' when
 	This::wxCommandEvent(), S::unicode:chardata().
 setString(#wx_ref{type=ThisT,ref=ThisRef},S)
- when is_list(S) ->
+ when ?is_chardata(S) ->
   ?CLASS(ThisT,wxCommandEvent),
   S_UC = unicode:characters_to_binary([S,0]),
   wxe_util:cast(?wxCommandEvent_SetString,

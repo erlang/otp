@@ -17,7 +17,7 @@
  *
  * %CopyrightEnd%
  */
-#include "erl_nif.h"
+#include <erl_nif.h>
 #include <assert.h>
 #ifdef __WIN32__
 #include <windows.h>

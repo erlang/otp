@@ -76,7 +76,7 @@ getText(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec setText(This, Text) -> 'ok' when
 	This::wxTextDataObject(), Text::unicode:chardata().
 setText(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxTextDataObject),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxTextDataObject_SetText,

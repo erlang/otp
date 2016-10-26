@@ -146,11 +146,12 @@ typedef struct op_entry {
    int sz;			/* Number of loaded words. */
    char* pack;			/* Instructions for packing engine. */
    char* sign;			/* Signature string. */
-   unsigned count;		/* Number of times executed. */
 } OpEntry;
 
-extern OpEntry opc[];		/* Description of all instructions. */
-extern int num_instructions;	/* Number of instruction in opc[]. */
+extern const OpEntry opc[];	/* Description of all instructions. */
+extern const int num_instructions; /* Number of instruction in opc[]. */
+
+extern Uint erts_instr_count[];
 
 /* some constants for various table sizes etc */
 
@@ -184,5 +185,12 @@ extern int erts_pd_initial_size;/* Initial Process dictionary table size */
 #define make_signed_32(x3,x2,x1,x0) ((sint32) (((x3) << 24) | ((x2) << 16) | ((x1) << 8) | (x0)))
 
 #include "erl_term.h"
+
+#ifdef NO_JUMP_TABLE 
+#define BeamOp(Op) (Op)
+#else
+extern void** beam_ops;
+#define BeamOp(Op) beam_ops[(Op)]
+#endif
 
 #endif	/* __ERL_VM_H__ */

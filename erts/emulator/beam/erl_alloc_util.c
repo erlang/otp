@@ -907,7 +907,9 @@ erts_alcu_literal_32_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
 
 #elif defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
 
-/* Used by literal allocator that has its own mmapper (super carrier) */
+/* For allocators that have their own mmapper (super carrier),
+ * like literal_alloc and exec_alloc on amd64
+ */
 void*
 erts_alcu_mmapper_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
 {
@@ -947,6 +949,50 @@ erts_alcu_mmapper_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
     INC_CC(allctr->calls.mseg_dealloc);
 }
 #endif /* ARCH_64 && ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION */
+
+#if defined(ERTS_ALC_A_EXEC) && !defined(ERTS_HAVE_EXEC_MMAPPER)
+
+/*
+ * For exec_alloc on non-amd64 that just need memory with PROT_EXEC
+ */
+void*
+erts_alcu_exec_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
+{
+    void* res = erts_alcu_mseg_alloc(allctr, size_p, flags);
+
+    if (res) {
+        int r = mprotect(res, *size_p, PROT_EXEC | PROT_READ | PROT_WRITE);
+        ASSERT(r == 0); (void)r;
+    }
+    return res;
+}
+
+void*
+erts_alcu_exec_mseg_realloc(Allctr_t *allctr, void *seg,
+                            Uint old_size, Uint *new_size_p)
+{
+    void *res;
+
+    if (seg && old_size) {
+        int r = mprotect(seg, old_size, PROT_READ | PROT_WRITE);
+        ASSERT(r == 0); (void)r;
+    }
+    res = erts_alcu_mseg_realloc(allctr, seg, old_size, new_size_p);
+    if (res) {
+        int r = mprotect(res, *new_size_p, PROT_EXEC | PROT_READ | PROT_WRITE);
+        ASSERT(r == 0); (void)r;
+    }
+    return res;
+}
+
+void
+erts_alcu_exec_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size, Uint flags)
+{
+    int r = mprotect(seg, size, PROT_READ | PROT_WRITE);
+    ASSERT(r == 0); (void)r;
+    erts_alcu_mseg_dealloc(allctr, seg, size, flags);
+}
+#endif /* ERTS_ALC_A_EXEC && !ERTS_HAVE_EXEC_MMAPPER */
 
 #endif /* HAVE_ERTS_MSEG */
 
@@ -1361,6 +1407,7 @@ fix_cpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
 	   && type <= ERTS_ALC_N_MAX_A_FIXED_SIZE);
 
     fix = &allctr->fix[type - ERTS_ALC_N_MIN_A_FIXED_SIZE];
+    ASSERT(size == fix->type_size);
 
     res = fix->list;
     if (res) {
@@ -1372,8 +1419,6 @@ fix_cpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
 	fix_cpool_check_shrink(allctr, type, fix, NULL);
 	return res;
     }
-    if (size < 2*sizeof(UWord))
-	size += sizeof(UWord);
     if (size >= allctr->sbc_threshold) {
 	Block_t *blk;
 	blk = create_carrier(allctr, size, CFLG_SBC);
@@ -1493,6 +1538,7 @@ fix_nocpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
 	   && type <= ERTS_ALC_N_MAX_A_FIXED_SIZE);
 
     fix = &allctr->fix[type - ERTS_ALC_N_MIN_A_FIXED_SIZE];
+    ASSERT(size == fix->type_size);
 
     ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 1);
     fix->u.nocpool.used++;
@@ -1515,8 +1561,6 @@ fix_nocpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
 	ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 0);
 	return res;
     }
-    if (size < 2*sizeof(UWord))
-	size += sizeof(UWord);
     if (fix->u.nocpool.limit < fix->u.nocpool.used)
 	fix->u.nocpool.limit = fix->u.nocpool.used;
     if (fix->u.nocpool.max_used < fix->u.nocpool.used)

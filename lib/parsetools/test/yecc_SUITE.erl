@@ -2009,7 +2009,7 @@ otp_11286(Config) when is_list(Config) ->
     Dir = ?privdir,
     UName = [1024] ++ "u",
     UDir = filename:join(Dir, UName),
-    ok = rpc:call(Node, file, make_dir, [UDir]),
+    _ = rpc:call(Node, file, make_dir, [UDir]),
 
     %% Note: Cannot use UName as filename since the filename is used
     %% as module name. To be fixed in R18.

@@ -1000,12 +1000,8 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg);
 Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 
 /* beam_bif_load.c */
-#define ERTS_CPC_ALLOW_GC      (1 << 0)
-#define ERTS_CPC_ALL           ERTS_CPC_ALLOW_GC
-Eterm erts_check_process_code(Process *c_p, Eterm module, Uint flags, int *redsp, int fcalls);
-#ifdef ERTS_NEW_PURGE_STRATEGY
+Eterm erts_check_process_code(Process *c_p, Eterm module, int *redsp, int fcalls);
 Eterm erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed);
-#endif
 
 typedef struct ErtsLiteralArea_ {
     struct erl_off_heap_header *off_heap;
@@ -1019,10 +1015,7 @@ typedef struct ErtsLiteralArea_ {
 extern erts_smp_atomic_t erts_copy_literal_area__;
 #define ERTS_COPY_LITERAL_AREA()					\
     ((ErtsLiteralArea *) erts_smp_atomic_read_nob(&erts_copy_literal_area__))
-
-#ifdef ERTS_NEW_PURGE_STRATEGY
 extern Process *erts_literal_area_collector;
-#endif
 #ifdef ERTS_DIRTY_SCHEDULERS
 extern Process *erts_dirty_process_code_checker;
 #endif
@@ -1031,7 +1024,7 @@ extern Process *erts_code_purger;
 
 /* beam_load.c */
 typedef struct {
-    BeamInstr* current;		/* Pointer to: Mod, Name, Arity */
+    ErtsCodeMFA* mfa;		/* Pointer to: Mod, Name, Arity */
     Uint needed;		/* Heap space needed for entire tuple */
     Uint32 loc;			/* Location in source code */
     Eterm* fname_ptr;		/* Pointer to fname table */
@@ -1048,13 +1041,14 @@ Eterm erts_finish_loading(Binary* loader_state, Process* c_p,
 Eterm erts_preload_module(Process *c_p, ErtsProcLocks c_p_locks,
 			  Eterm group_leader, Eterm* mod, byte* code, Uint size);
 void init_load(void);
-BeamInstr* find_function_from_pc(BeamInstr* pc);
+ErtsCodeMFA* find_function_from_pc(BeamInstr* pc);
 Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
 			   Eterm args, Eterm* mfa_p);
-void erts_set_current_function(FunctionInfo* fi, BeamInstr* current);
+void erts_set_current_function(FunctionInfo* fi, ErtsCodeMFA* mfa);
 Eterm erts_module_info_0(Process* p, Eterm module);
 Eterm erts_module_info_1(Process* p, Eterm module, Eterm what);
 Eterm erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info);
+int erts_commit_hipe_patch_load(Eterm hipe_magic_bin);
 
 /* beam_ranges.c */
 void erts_init_ranges(void);
@@ -1104,26 +1098,26 @@ typedef struct {
     Eterm* shtable_start;
     ErtsAlcType_t shtable_alloc_type;
     Uint literal_size;
-    Eterm *range_ptr;
-    Uint  range_sz;
+    Eterm *lit_purge_ptr;
+    Uint lit_purge_sz;
 } erts_shcopy_t;
 
-#define INITIALIZE_SHCOPY(info)                         \
-do {                                                    \
-    ErtsLiteralArea *larea__ = ERTS_COPY_LITERAL_AREA();\
-    info.queue_start = info.queue_default;              \
-    info.bitstore_start = info.bitstore_default;        \
-    info.shtable_start = info.shtable_default;          \
-    info.literal_size = 0;                              \
-    if (larea__) {					\
-	info.range_ptr = &larea__->start[0];		\
-	info.range_sz = larea__->end - info.range_ptr;	\
-    }							\
-    else {						\
-	info.range_ptr = NULL;				\
-	info.range_sz = 0;				\
-    }							\
-} while(0)
+#define INITIALIZE_SHCOPY(info)						\
+    do {								\
+	ErtsLiteralArea *larea__ = ERTS_COPY_LITERAL_AREA();		\
+	info.queue_start = info.queue_default;				\
+	info.bitstore_start = info.bitstore_default;			\
+	info.shtable_start = info.shtable_default;			\
+	info.literal_size = 0;						\
+	if (larea__) {							\
+	    info.lit_purge_ptr = &larea__->start[0];			\
+	    info.lit_purge_sz = larea__->end - info.lit_purge_ptr;	\
+	}								\
+	else {								\
+	    info.lit_purge_ptr = NULL;					\
+	    info.lit_purge_sz = 0;					\
+	}								\
+    } while(0)
 
 #define DESTROY_SHCOPY(info)                                            \
 do {                                                                    \
@@ -1139,18 +1133,42 @@ do {                                                                    \
 } while(0)
 
 /* copy.c */
+typedef struct {
+    Eterm *lit_purge_ptr;
+    Uint lit_purge_sz;
+} erts_literal_area_t;
+
+#define INITIALIZE_LITERAL_PURGE_AREA(Area)				\
+    do {								\
+	ErtsLiteralArea *larea__ = ERTS_COPY_LITERAL_AREA();		\
+	if (larea__) {							\
+	    (Area).lit_purge_ptr = &larea__->start[0];			\
+	    (Area).lit_purge_sz = larea__->end - (Area).lit_purge_ptr;	\
+	}								\
+	else {								\
+	    (Area).lit_purge_ptr = NULL;				\
+	    (Area).lit_purge_sz = 0;					\
+	}								\
+    } while(0)
+
 Eterm copy_object_x(Eterm, Process*, Uint);
 #define copy_object(Term, Proc) copy_object_x(Term,Proc,0)
 
-Uint size_object(Eterm);
+Uint size_object_x(Eterm, erts_literal_area_t*);
+#define size_object(Term) size_object_x(Term,NULL)
+#define size_object_litopt(Term,LitArea) size_object_x(Term,LitArea)
+
 Uint copy_shared_calculate(Eterm, erts_shcopy_t*);
 Eterm copy_shared_perform(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*);
 
 Uint size_shared(Eterm);
 
-Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint* bsz);
+Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_t*);
 #define copy_struct(Obj,Sz,HPP,OH) \
-    copy_struct_x(Obj,Sz,HPP,OH,NULL)
+    copy_struct_x(Obj,Sz,HPP,OH,NULL,NULL)
+#define copy_struct_litopt(Obj,Sz,HPP,OH,LitArea) \
+    copy_struct_x(Obj,Sz,HPP,OH,NULL,LitArea)
+
 Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
 
 void erts_move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
@@ -1179,7 +1197,7 @@ void print_pass_through(int, byte*, int);
 /* beam_emu.c */
 int catchlevel(Process*);
 void init_emulator(void);
-void process_main(void);
+void process_main(Eterm* x_reg_array, FloatDef* f_reg_array);
 void erts_dirty_process_main(ErtsSchedulerData *);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
 Eterm expand_error_value(Process* c_p, Uint freason, Eterm Value);
@@ -1452,18 +1470,6 @@ Eterm erts_gc_bor(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_bxor(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_bnot(Process* p, Eterm* reg, Uint live);
 
-Eterm erts_gc_length_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_size_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_bit_size_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_byte_size_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_map_size_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_abs_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_float_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_round_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_trunc_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_binary_part_3(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_binary_part_2(Process* p, Eterm* reg, Uint live);
-
 Uint erts_current_reductions(Process* current, Process *p);
 
 int erts_print_system_version(int to, void *arg, Process *c_p);
@@ -1572,8 +1578,7 @@ int erts_beam_jump_table(void);
 ERTS_GLB_INLINE void dtrace_pid_str(Eterm pid, char *process_buf);
 ERTS_GLB_INLINE void dtrace_proc_str(Process *process, char *process_buf);
 ERTS_GLB_INLINE void dtrace_port_str(Port *port, char *port_buf);
-ERTS_GLB_INLINE void dtrace_fun_decode(Process *process,
-				       Eterm module, Eterm function, int arity,
+ERTS_GLB_INLINE void dtrace_fun_decode(Process *process, ErtsCodeMFA *mfa,
 				       char *process_buf, char *mfa_buf);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
@@ -1607,8 +1612,7 @@ dtrace_port_str(Port *port, char *port_buf)
 }
 
 ERTS_GLB_INLINE void
-dtrace_fun_decode(Process *process,
-                  Eterm module, Eterm function, int arity,
+dtrace_fun_decode(Process *process, ErtsCodeMFA *mfa,
                   char *process_buf, char *mfa_buf)
 {
     if (process_buf) {
@@ -1616,7 +1620,7 @@ dtrace_fun_decode(Process *process,
     }
 
     erts_snprintf(mfa_buf, DTRACE_TERM_BUF_SIZE, "%T:%T/%d",
-                  module, function, arity);
+                  mfa->module, mfa->function, mfa->arity);
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */

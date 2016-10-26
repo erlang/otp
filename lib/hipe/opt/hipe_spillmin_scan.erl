@@ -60,7 +60,7 @@
 
 -module(hipe_spillmin_scan).
 
--export([stackalloc/6]).
+-export([stackalloc/8]).
 
 %%-define(DEBUG, 1).
 -define(HIPE_INSTRUMENT_COMPILER, true).
@@ -69,6 +69,8 @@
 
 -include("../main/hipe.hrl").
 -include("../flow/cfg.hrl").
+
+-type target_context() :: any().
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -85,15 +87,14 @@
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec stackalloc(#cfg{}, [_], non_neg_integer(),
-		 comp_options(), module(), hipe_temp_map()) ->
+-spec stackalloc(#cfg{}, _, [_], non_neg_integer(),
+		 comp_options(), module(), target_context(), hipe_temp_map()) ->
                                 {hipe_spill_map(), non_neg_integer()}.
 
-stackalloc(CFG, StackSlots, SpillIndex, Options, Target, TempMap) ->
+stackalloc(CFG, Liveness, StackSlots, SpillIndex, Options, TargetMod,
+	   TargetContext, TempMap) ->
+  Target = {TargetMod, TargetContext},
   ?debug_msg("LinearScan: ~w\n", [erlang:statistics(runtime)]),
-  %% Step 1: Calculate liveness (Call external implementation.)
-  Liveness = liveness(CFG, Target),
-  ?debug_msg("liveness (done)~w\n", [erlang:statistics(runtime)]),
   USIntervals = calculate_intervals(CFG, Liveness, Options,
 				    Target, TempMap),
   %% ?debug_msg("intervals (done) ~w\n", [erlang:statistics(runtime)]),
@@ -124,8 +125,8 @@ stackalloc(CFG, StackSlots, SpillIndex, Options, Target, TempMap) ->
 %%  all other.
 %%-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 calculate_intervals(CFG, Liveness, _Options, Target, TempMap) ->
-  Interval = empty_interval(Target:number_of_temporaries(CFG)),
-  Worklist = Target:reverse_postorder(CFG),
+  Interval = empty_interval(number_of_temporaries(CFG, Target)),
+  Worklist = reverse_postorder(CFG, Target),
   intervals(Worklist, Interval, 1, CFG, Liveness, Target, TempMap).
 
 %%-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
@@ -538,23 +539,26 @@ extend_interval(Pos, {Beginning, End})
 %% 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-liveness(CFG, Target) ->
-  Target:analyze(CFG).
+bb(CFG, L, {TgtMod,TgtCtx}) ->
+  TgtMod:bb(CFG, L, TgtCtx).
 
-bb(CFG, L, Target) ->
-  Target:bb(CFG, L).
+livein(Liveness, L, Target={TgtMod,TgtCtx}) ->
+  regnames(TgtMod:livein(Liveness, L, TgtCtx), Target).
 
-livein(Liveness, L, Target) ->
-  regnames(Target:livein(Liveness, L), Target).
+liveout(Liveness, L, Target={TgtMod,TgtCtx}) ->
+  regnames(TgtMod:liveout(Liveness, L, TgtCtx), Target).
 
-liveout(Liveness, L, Target) ->
-  regnames(Target:liveout(Liveness, L), Target).
+number_of_temporaries(CFG, {TgtMod,TgtCtx}) ->
+  TgtMod:number_of_temporaries(CFG, TgtCtx).
 
-uses(I, Target) ->
-  regnames(Target:uses(I), Target).
+uses(I, Target={TgtMod,TgtCtx}) ->
+  regnames(TgtMod:uses(I,TgtCtx), Target).
 
-defines(I, Target) ->
-  regnames(Target:defines(I), Target).
+defines(I, Target={TgtMod,TgtCtx}) ->
+  regnames(TgtMod:defines(I,TgtCtx), Target).
 
-regnames(Regs, Target) ->
-  [Target:reg_nr(X) || X <- Regs]. 
+regnames(Regs, {TgtMod,TgtCtx}) ->
+  [TgtMod:reg_nr(X,TgtCtx) || X <- Regs].
+
+reverse_postorder(CFG, {TgtMod,TgtCtx}) ->
+  TgtMod:reverse_postorder(CFG, TgtCtx).

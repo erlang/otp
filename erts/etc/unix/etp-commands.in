@@ -52,7 +52,7 @@ document etp-help
 %   etpf-cons, etpf-boxed, 
 % 
 % Special commands for not really terms:
-%   etp-mfa, etp-cp, 
+%   etp-mfa, etp-cp, etp-disasm,
 %   etp-msgq, etpf-msgq, 
 %   etp-stacktrace, etp-stackdump, etpf-stackdump, etp-dictdump
 %   etp-process-info, etp-process-memory-info
@@ -1090,12 +1090,10 @@ document etp-mfa
 %---------------------------------------------------------------------------
 end
 
-
-
-define etp-cp-1
+define etp-cp-func-info-1
 # Args: Eterm cp
 #
-# Non-reentrant
+# Non-reentrant, takes cp, sets $etp_cp_p to MFA in func_info
 #
   set $etp_cp = (Eterm)($arg0)
   set $etp_ranges = &r[(int)the_active_code_index]
@@ -1137,8 +1135,21 @@ define etp-cp-1
     end
   end
   if $etp_cp_p
+    set $cp_cp_p_offset = ($etp_cp-((Eterm)($etp_cp_p-2)))
+  else
+    set $cp_cp_p_offset = 0
+  end
+end
+
+define etp-cp-1
+# Args: Eterm cp
+#
+# Non-reentrant
+#
+  etp-cp-func-info-1 $arg0
+  if $etp_cp_p
     printf "#Cp"
-    etp-mfa-1 ($etp_cp_p) ($etp_cp-((Eterm)($etp_cp_p-2)))
+    etp-mfa-1 $etp_cp_p $cp_cp_p_offset
   else
     if $etp_cp == beam_apply+1
       printf "#Cp<terminate process normally>"
@@ -1301,23 +1312,30 @@ document etpf-msgq
 %---------------------------------------------------------------------------
 end
 
-
+define etp-stack-preamble
+  set $etp_stack_p = ($arg0)->stop
+  set $etp_stack_end = ($arg0)->hend
+  printf "%% Stacktrace (%u)\n", $etp_stack_end-$etp_stack_p
+  etp-1 ((Eterm)($arg0)->i) 0
+  printf "  (I)\n"
+  if ($arg0)->cp != 0
+    etp-1 ((Eterm)($arg0)->cp) 0
+    printf "  (cp)\n"
+  end
+end
 
 define etp-stacktrace
 # Args: Process*
 #
 # Non-reentrant
 #
-  set $etp_stacktrace_p = ($arg0)->stop
-  set $etp_stacktrace_end = ($arg0)->hend
-  printf "%% Stacktrace (%u): ", $etp_stacktrace_end-$etp_stacktrace_p
-  etp ($arg0)->cp
-  while $etp_stacktrace_p < $etp_stacktrace_end
-    if ($etp_stacktrace_p[0] & 0x3) == 0x0
+  etp-stack-preamble ($arg0)
+  while $etp_stack_p < $etp_stack_end
+    if ($etp_stack_p[0] & 0x3) == 0x0
       # Continuation pointer
-      etp $etp_stacktrace_p[0]
+      etp $etp_stack_p[0]
     end
-    set $etp_stacktrace_p++
+    set $etp_stack_p++
   end
 end
 
@@ -1336,13 +1354,10 @@ define etp-stackdump
 #
 # Non-reentrant
 #
-  set $etp_stackdump_p = ($arg0)->stop
-  set $etp_stackdump_end = ($arg0)->hend
-  printf "%% Stackdump (%u): ", $etp_stackdump_end-$etp_stackdump_p
-  etp ($arg0)->cp
-  while $etp_stackdump_p < $etp_stackdump_end
-    etp $etp_stackdump_p[0]
-    set $etp_stackdump_p++
+  etp-stack-preamble ($arg0)
+  while $etp_stack_p < $etp_stack_end
+    etp $etp_stack_p[0]
+    set $etp_stack_p++
   end
 end
 
@@ -1824,26 +1839,35 @@ define etp-process-info
       printf "\n"
     end
   end
+  printf "  Current function: "
   if ($etp_proc->current)
-    printf "  Current function: "
-    etp-1 $etp_proc->current[0]
+    etp-1 $etp_proc->current->module
     printf ":"
-    etp-1 $etp_proc->current[1]
-    printf "/%d\n", $etp_proc->current[2]
+    etp-1 $etp_proc->current->function
+    printf "/%d\n", $etp_proc->current->arity
+  else
+    printf "unknown\n"
   end
+  printf "  CP: "
   if ($etp_proc->cp)
-    printf "  CP: "
     etp-cp-1 $etp_proc->cp
     printf "\n"
+  else
+    printf "unknown\n"
   end
+  printf "  I: "
   if ($etp_proc->i)
-    printf "  I: "
     etp-cp-1 $etp_proc->i
     printf "\n"
+  else
+    printf "unknown\n"
   end
   printf "  Heap size: %ld\n", $etp_proc->heap_sz
+  printf "  Old-heap size: "
   if ($etp_proc->old_heap)
-    printf "  Old-heap size: %ld\n", $etp_proc->old_hend - $etp_proc->old_heap
+    printf "%ld\n", $etp_proc->old_hend - $etp_proc->old_heap
+  else
+    printf "0\n"
   end
   printf "  Mbuf size: %ld\n", $etp_proc->mbuf_sz
   if (etp_smp_compiled)
@@ -2478,8 +2502,55 @@ end
 document etp-schedulers
 %---------------------------------------------------------------------------
 % etp-schedulers
-% 
+%
 % Print misc info about all schedulers
+%---------------------------------------------------------------------------
+end
+
+define etp-disasm-1
+  set $code_ptr = ((BeamInstr*)$arg0)
+  set $addr = *$code_ptr
+  set $i = 0
+  while $i < (sizeof(opc) / sizeof(OpEntry))
+    if $addr == beam_ops[$i]
+      printf "%s %d", opc[$i].name, opc[$i].sz
+      set $next_i = $code_ptr + opc[$i].sz
+      set $i += 4999
+    end
+    set $i++
+  end
+end
+
+define etp-disasm
+  etp-cp-func-info-1 $arg0
+  if $etp_cp_p == 0
+    printf "invalid argument"
+  else
+    etp-mfa-1 $etp_cp_p $cp_cp_p_offset
+    printf ": "
+    etp-disasm-1 $arg0
+    printf "\r\n"
+    while $next_i < ((BeamInstr*)$arg1)
+      set $prev_i = $next_i
+      etp-cp-func-info-1 $next_i
+      etp-mfa-1 $etp_cp_p $cp_cp_p_offset
+      printf ": "
+      etp-disasm-1 $next_i
+      if $prev_i == $next_i
+        # ptr did not advance, we are inside some strange opcode with argument
+        set $next_i++
+        printf "instr argument"
+      end
+      printf "\r\n"
+    end
+  end
+end
+
+document etp-disasm
+%---------------------------------------------------------------------------
+% etp-disasm StartI EndI
+%
+% Disassemble the code inbetween StartI and EndI
 %---------------------------------------------------------------------------
 end
 

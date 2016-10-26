@@ -45,28 +45,30 @@
 
 -record(timers, 
         {
-          request_timers = [], % [ref()]
-          queue_timer          % ref()
+          request_timers = [] :: [reference()],
+          queue_timer         :: reference() | 'undefined'
          }).
+
+-type session_failed() :: {'connect_failed',term()} | {'send_failed',term()}.
 
 -record(state, 
         {
-          request,                   % #request{}
-          session,                   % #session{}
+          request                   :: request() | 'undefined',
+          session                   :: session() | session_failed() | 'undefined',
           status_line,               % {Version, StatusCode, ReasonPharse}
-          headers,                   % #http_response_h{}
-          body,                      % binary()
+          headers                   :: http_response_h() | 'undefined',
+          body                      :: binary() | 'undefined',
           mfa,                       % {Module, Function, Args}
-          pipeline = queue:new(),    % queue:queue()
-          keep_alive = queue:new(),  % queue:queue()
+          pipeline = queue:new()    :: queue:queue(),
+          keep_alive = queue:new()  :: queue:queue(),
           status,   % undefined | new | pipeline | keep_alive | close | {ssl_tunnel, Request}
           canceled = [],             % [RequestId]
-          max_header_size = nolimit, % nolimit | integer() 
-          max_body_size = nolimit,   % nolimit | integer()
-          options,                   % #options{}
-          timers = #timers{},        % #timers{}
-          profile_name,              % atom() - id of httpc_manager process.
-          once = inactive            % inactive | once
+          max_header_size = nolimit :: nolimit | integer(),
+          max_body_size = nolimit   :: nolimit | integer(),
+          options                   :: options(),
+          timers = #timers{}        :: #timers{},
+          profile_name              :: atom(), % id of httpc_manager process.
+          once = inactive           :: 'inactive' | 'once'
          }).
 
 
@@ -113,7 +115,7 @@ send(Request, Pid) ->
 
 %%--------------------------------------------------------------------
 %% Function: cancel(RequestId, Pid) -> ok
-%%      RequestId = ref()
+%%      RequestId = reference()
 %%      Pid = pid() -  the pid of the http-request handler process.
 %%
 %% Description: Cancels a request. Intended to be called by the httpc
@@ -789,47 +791,6 @@ deliver_answer(Request) ->
 %% Purpose: Convert process state when code is changed
 %%--------------------------------------------------------------------
 
-code_change(_, 
-            #state{session      = OldSession, 
-                   profile_name = ProfileName} = State, 
-            upgrade_from_pre_5_8_1) ->
-    case OldSession of
-        {session, 
-         Id, ClientClose, Scheme, Socket, SocketType, QueueLen, Type} ->
-            NewSession = #session{id           = Id, 
-                                  client_close = ClientClose, 
-                                  scheme       = Scheme, 
-                                  socket       = Socket, 
-                                  socket_type  = SocketType,
-                                  queue_length = QueueLen, 
-                                  type         = Type}, 
-            insert_session(NewSession, ProfileName), 
-            {ok, State#state{session = NewSession}};
-        _ -> 
-            {ok, State}
-    end;
-
-code_change(_, 
-            #state{session      = OldSession, 
-                   profile_name = ProfileName} = State, 
-            downgrade_to_pre_5_8_1) ->
-    case OldSession of
-        #session{id           = Id, 
-                 client_close = ClientClose, 
-                 scheme       = Scheme, 
-                 socket       = Socket, 
-                 socket_type  = SocketType,
-                 queue_length = QueueLen, 
-                 type         = Type} ->
-            NewSession = {session, 
-                          Id, ClientClose, Scheme, Socket, SocketType, 
-                          QueueLen, Type},
-            insert_session(NewSession, ProfileName), 
-            {ok, State#state{session = NewSession}};
-        _ -> 
-            {ok, State}
-    end;
-
 code_change(_, State, _) ->
     {ok, State}.
 
@@ -934,8 +895,7 @@ connect_and_send_first_request(Address, Request, #state{options = Options} = Sta
                     TmpState = State#state{request = Request,
                                            session = Session,
                                            mfa = init_mfa(Request, State),
-                                           status_line =
-                                           init_status_line(Request),
+                                           status_line = init_status_line(Request),
                                            headers = undefined,
                                            body = undefined,
                                            status = new},
@@ -947,8 +907,7 @@ connect_and_send_first_request(Address, Request, #state{options = Options} = Sta
                     self() ! {init_error, error_sending,
                               httpc_response:error(Request, Reason)},
                     {ok, State#state{request = Request,
-                                     session =
-                                         #session{socket = Socket}}}
+                                     session = #session{socket = Socket}}}
             end;
         {error, Reason} ->
             self() ! {init_error, error_connecting,
@@ -1796,7 +1755,7 @@ tls_tunnel_request(#request{headers = Headers,
     URI = Host ++":" ++ integer_to_list(Port),
     
     #request{
-       id =  make_ref(),
+       id = make_ref(),
        from = self(),
        scheme = http, %% Use tcp-first and then upgrade!
        address = Adress,
@@ -1887,10 +1846,13 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
 	    httpc_manager:update_session(ProfileName, SessionId, Pos, Value)
 	end
     catch
-	error:undef -> % This could happen during code upgrade
+	error:undef -> %% This could happen during code upgrade
 	    Session2 = erlang:setelement(Pos, Session, Value),
 	    insert_session(Session2, ProfileName);
-	  T:E ->
+	error:badarg ->
+	    exit(normal); %% Manager has been shutdown
+	T:E -> 
+	    %% Unexpected this must be an error!  
             Stacktrace = erlang:get_stacktrace(),
             error_logger:error_msg("Failed updating session: "
                                    "~n   ProfileName: ~p"
@@ -1922,8 +1884,8 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
 %% ---------------------------------------------------------------------
 
 call(Msg, Pid) ->
-    Timeout = infinity,
-    call(Msg, Pid, Timeout).
+    call(Msg, Pid, infinity).
+
 call(Msg, Pid, Timeout) ->
     gen_server:call(Pid, Msg, Timeout).
 

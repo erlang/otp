@@ -116,10 +116,10 @@ do {                                     \
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #endif
 
-#define GET_BIF_MODULE(p)  ((Eterm) (((Export *) p)->code[0]))
-#define GET_BIF_FUNCTION(p)  ((Eterm) (((Export *) p)->code[1]))
-#define GET_BIF_ARITY(p)  ((Eterm) (((Export *) p)->code[2]))
-#define GET_BIF_ADDRESS(p) ((BifFunction) (((Export *) p)->code[4]))
+#define GET_BIF_MODULE(p)  (p->info.mfa.module)
+#define GET_BIF_FUNCTION(p)  (p->info.mfa.function)
+#define GET_BIF_ARITY(p)  (p->info.mfa.arity)
+#define GET_BIF_ADDRESS(p) ((BifFunction) (p->beam[1]))
 #define TermWords(t) (((t) / (sizeof(BeamInstr)/sizeof(Eterm))) + !!((t) % (sizeof(BeamInstr)/sizeof(Eterm))))
 
 
@@ -1045,7 +1045,7 @@ void** beam_ops;
 static BifFunction translate_gc_bif(void* gcf) NOINLINE;
 static BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
 			       Eterm* reg, BifFunction bf) NOINLINE;
-static BeamInstr* call_error_handler(Process* p, BeamInstr* ip,
+static BeamInstr* call_error_handler(Process* p, ErtsCodeMFA* mfa,
 				     Eterm* reg, Eterm func) NOINLINE;
 static BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity) NOINLINE;
 static BeamInstr* apply(Process* p, Eterm module, Eterm function,
@@ -1078,7 +1078,7 @@ static Eterm make_arglist(Process* c_p, Eterm* reg, int a);
 void
 init_emulator(void)
 {
-    process_main();
+    process_main(0, 0);
 }
 
 /*
@@ -1106,98 +1106,91 @@ init_emulator(void)
 
 #ifdef USE_VM_CALL_PROBES
 
-#define DTRACE_LOCAL_CALL(p, m, f, a)					\
+#define DTRACE_LOCAL_CALL(p, mfa)					\
     if (DTRACE_ENABLED(local_function_entry)) {				\
         DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);		\
-        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);			\
+        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);			\
         int depth = STACK_START(p) - STACK_TOP(p);			\
-        dtrace_fun_decode(p, m, f, a,					\
-                          process_name, mfa);				\
-        DTRACE3(local_function_entry, process_name, mfa, depth);	\
+        dtrace_fun_decode(p, mfa, process_name, mfa_buf);               \
+        DTRACE3(local_function_entry, process_name, mfa_buf, depth);	\
     }
 
-#define DTRACE_GLOBAL_CALL(p, m, f, a)					\
+#define DTRACE_GLOBAL_CALL(p, mfa)					\
     if (DTRACE_ENABLED(global_function_entry)) {			\
         DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);		\
-        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);			\
+        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);			\
         int depth = STACK_START(p) - STACK_TOP(p);			\
-        dtrace_fun_decode(p, m, f, a,					\
-                          process_name, mfa);				\
-        DTRACE3(global_function_entry, process_name, mfa, depth);	\
+        dtrace_fun_decode(p, mfa, process_name, mfa_buf);               \
+        DTRACE3(global_function_entry, process_name, mfa_buf, depth);	\
     }
 
-#define DTRACE_RETURN(p, m, f, a)                               \
+#define DTRACE_RETURN(p, mfa)                                    \
     if (DTRACE_ENABLED(function_return)) {                      \
         DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
-        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
+        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);          \
         int depth = STACK_START(p) - STACK_TOP(p);              \
-        dtrace_fun_decode(p, m, f, a,                           \
-                          process_name, mfa);                   \
-        DTRACE3(function_return, process_name, mfa, depth);     \
+        dtrace_fun_decode(p, mfa, process_name, mfa_buf);       \
+        DTRACE3(function_return, process_name, mfa_buf, depth); \
     }
 
-#define DTRACE_BIF_ENTRY(p, m, f, a)                            \
-    if (DTRACE_ENABLED(bif_entry)) {                            \
-        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
-        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
-        dtrace_fun_decode(p, m, f, a,                           \
-                          process_name, mfa);                   \
-        DTRACE2(bif_entry, process_name, mfa);                  \
+#define DTRACE_BIF_ENTRY(p, mfa)                                    \
+    if (DTRACE_ENABLED(bif_entry)) {                                \
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);         \
+        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);              \
+        dtrace_fun_decode(p, mfa, process_name, mfa_buf);           \
+        DTRACE2(bif_entry, process_name, mfa_buf);                  \
     }
 
-#define DTRACE_BIF_RETURN(p, m, f, a)                           \
-    if (DTRACE_ENABLED(bif_return)) {                           \
-        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
-        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
-        dtrace_fun_decode(p, m, f, a,                           \
-                          process_name, mfa);                   \
-        DTRACE2(bif_return, process_name, mfa);                 \
+#define DTRACE_BIF_RETURN(p, mfa)                                   \
+    if (DTRACE_ENABLED(bif_return)) {                               \
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);         \
+        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);              \
+        dtrace_fun_decode(p, mfa, process_name, mfa_buf);           \
+        DTRACE2(bif_return, process_name, mfa_buf);                 \
     }
 
-#define DTRACE_NIF_ENTRY(p, m, f, a)                            \
-    if (DTRACE_ENABLED(nif_entry)) {                            \
-        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
-        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
-        dtrace_fun_decode(p, m, f, a,                           \
-                          process_name, mfa);                   \
-        DTRACE2(nif_entry, process_name, mfa);                  \
+#define DTRACE_NIF_ENTRY(p, mfa)                                        \
+    if (DTRACE_ENABLED(nif_entry)) {                                    \
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);             \
+        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);                  \
+        dtrace_fun_decode(p, mfa, process_name, mfa_buf);               \
+        DTRACE2(nif_entry, process_name, mfa_buf);                      \
     }
 
-#define DTRACE_NIF_RETURN(p, m, f, a)                           \
-    if (DTRACE_ENABLED(nif_return)) {                           \
-        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
-        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
-        dtrace_fun_decode(p, m, f, a,                           \
-                          process_name, mfa);                   \
-        DTRACE2(nif_return, process_name, mfa);                 \
+#define DTRACE_NIF_RETURN(p, mfa)                                       \
+    if (DTRACE_ENABLED(nif_return)) {                                   \
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);             \
+        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);                  \
+        dtrace_fun_decode(p, mfa, process_name, mfa_buf);               \
+        DTRACE2(nif_return, process_name, mfa_buf);                     \
     }
 
 #define DTRACE_GLOBAL_CALL_FROM_EXPORT(p,e)                                                    \
     do {                                                                                       \
         if (DTRACE_ENABLED(global_function_entry)) {                                           \
             BeamInstr* fp = (BeamInstr *) (((Export *) (e))->addressv[erts_active_code_ix()]); \
-            DTRACE_GLOBAL_CALL((p), (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);                     \
+            DTRACE_GLOBAL_CALL((p), erts_code_to_codemfa(fp));          \
         }                                                                                      \
     } while(0)
 
 #define DTRACE_RETURN_FROM_PC(p)                                                        \
     do {                                                                                \
-        BeamInstr* fp;                                                                  \
-        if (DTRACE_ENABLED(function_return) && (fp = find_function_from_pc((p)->cp))) { \
-            DTRACE_RETURN((p), (Eterm)fp[0], (Eterm)fp[1], (Uint)fp[2]);                \
+        ErtsCodeMFA* cmfa;                                                                  \
+        if (DTRACE_ENABLED(function_return) && (cmfa = find_function_from_pc((p)->cp))) { \
+            DTRACE_RETURN((p), cmfa);                               \
         }                                                                               \
     } while(0)
 
 #else /* USE_VM_PROBES */
-#define DTRACE_LOCAL_CALL(p, m, f, a)        do {} while (0)
-#define DTRACE_GLOBAL_CALL(p, m, f, a)       do {} while (0)
+#define DTRACE_LOCAL_CALL(p, mfa)        do {} while (0)
+#define DTRACE_GLOBAL_CALL(p, mfa)       do {} while (0)
 #define DTRACE_GLOBAL_CALL_FROM_EXPORT(p, e) do {} while (0)
-#define DTRACE_RETURN(p, m, f, a)            do {} while (0)
+#define DTRACE_RETURN(p, mfa)            do {} while (0)
 #define DTRACE_RETURN_FROM_PC(p)             do {} while (0)
-#define DTRACE_BIF_ENTRY(p, m, f, a)         do {} while (0)
-#define DTRACE_BIF_RETURN(p, m, f, a)        do {} while (0)
-#define DTRACE_NIF_ENTRY(p, m, f, a)         do {} while (0)
-#define DTRACE_NIF_RETURN(p, m, f, a)        do {} while (0)
+#define DTRACE_BIF_ENTRY(p, mfa)         do {} while (0)
+#define DTRACE_BIF_RETURN(p, mfa)        do {} while (0)
+#define DTRACE_NIF_ENTRY(p, mfa)         do {} while (0)
+#define DTRACE_NIF_RETURN(p, mfa)        do {} while (0)
 #endif /* USE_VM_PROBES */
 
 #ifdef DEBUG
@@ -1225,7 +1218,7 @@ init_emulator(void)
  * the instructions' C labels to the loader.
  * The second call starts execution of BEAM code. This call never returns.
  */
-void process_main(void)
+void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 {
     static int init_done = 0;
     Process* c_p = NULL;
@@ -1237,7 +1230,7 @@ void process_main(void)
     /* Pointer to X registers: x(1)..x(N); reg[0] is used when doing GC,
      * in all other cases x0 is used.
      */
-    register Eterm* reg REG_xregs = NULL;
+    register Eterm* reg REG_xregs = x_reg_array;
 
     /*
      * Top of heap (next free location); grows upwards.
@@ -1264,7 +1257,7 @@ void process_main(void)
      * X registers and floating point registers are located in
      * scheduler specific data.
      */
-    register FloatDef *freg;
+    register FloatDef *freg = f_reg_array;
 
     /*
      * For keeping the negative old value of 'reds' when call saving is active.
@@ -1324,8 +1317,8 @@ void process_main(void)
     if (start_time != 0) {
         Sint64 diff = erts_timestamp_millis() - start_time;
 	if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule) {
-	    BeamInstr *inptr = find_function_from_pc(start_time_i);
-	    BeamInstr *outptr = find_function_from_pc(c_p->i);
+	    ErtsCodeMFA *inptr = find_function_from_pc(start_time_i);
+	    ErtsCodeMFA *outptr = find_function_from_pc(c_p->i);
 	    monitor_long_schedule_proc(c_p,inptr,outptr,(Uint) diff);
 	}
     }
@@ -1350,8 +1343,6 @@ void process_main(void)
 	start_time_i = c_p->i;
     }
 
-    reg = erts_proc_sched_data(c_p)->x_reg_array;
-    freg = erts_proc_sched_data(c_p)->f_reg_array;
     ERL_BITS_RELOAD_STATEP(c_p);
     {
 	int reds;
@@ -1401,10 +1392,9 @@ void process_main(void)
             if (ERTS_PROC_IS_EXITING(c_p)) {
                 strcpy(fun_buf, "<exiting>");
             } else {
-                BeamInstr *fptr = find_function_from_pc(c_p->i);
-                if (fptr) {
-                    dtrace_fun_decode(c_p, (Eterm)fptr[0],
-                                      (Eterm)fptr[1], (Uint)fptr[2],
+                ErtsCodeMFA *cmfa = find_function_from_pc(c_p->i);
+                if (cmfa) {
+                    dtrace_fun_decode(c_p, cmfa,
                                       NULL, fun_buf);
                 } else {
                     erts_snprintf(fun_buf, sizeof(DTRACE_CHARBUF_NAME(fun_buf)),
@@ -1585,7 +1575,7 @@ void process_main(void)
  /* FALL THROUGH */
  OpCase(i_call_only_f): {
      SET_I((BeamInstr *) Arg(0));
-     DTRACE_LOCAL_CALL(c_p, (Eterm)I[-3], (Eterm)I[-2], I[-1]);
+     DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
      Dispatch();
  }
 
@@ -1597,7 +1587,7 @@ void process_main(void)
      RESTORE_CP(E);
      E = ADD_BYTE_OFFSET(E, Arg(1));
      SET_I((BeamInstr *) Arg(0));
-     DTRACE_LOCAL_CALL(c_p, (Eterm)I[-3], (Eterm)I[-2], I[-1]);
+     DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
      Dispatch();
  }
 
@@ -1609,7 +1599,7 @@ void process_main(void)
  OpCase(i_call_f): {
      SET_CP(c_p, I+2);
      SET_I((BeamInstr *) Arg(0));
-     DTRACE_LOCAL_CALL(c_p, (Eterm)I[-3], (Eterm)I[-2], I[-1]);
+     DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
      Dispatch();
  }
 
@@ -2836,25 +2826,27 @@ do {						\
 	Eterm result;
 	BeamInstr *next;
 	ErlHeapFragment *live_hf_end;
+        Export *export = (Export*)Arg(0);
 
 
         if (!((FCALLS - 1) > 0 || (FCALLS-1) > neg_o_reds)) {
             /* If we have run out of reductions, we do a context
                switch before calling the bif */
-            c_p->arity = ((Export *)Arg(0))->code[2];
-            c_p->current = ((Export *)Arg(0))->code;
+            c_p->arity = GET_BIF_ARITY(export);
+            c_p->current = &export->info.mfa;
             goto context_switch3;
         }
 
-        ERTS_MSACC_SET_BIF_STATE_CACHED_X(GET_BIF_MODULE(Arg(0)), GET_BIF_ADDRESS(Arg(0)));
+        ERTS_MSACC_SET_BIF_STATE_CACHED_X(
+            GET_BIF_MODULE(export), GET_BIF_ADDRESS(export));
 
-	bf = GET_BIF_ADDRESS(Arg(0));
+	bf = GET_BIF_ADDRESS(export);
 
 	PRE_BIF_SWAPOUT(c_p);
 	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	c_p->fcalls = FCALLS - 1;
 	if (FCALLS <= 0) {
-	   save_calls(c_p, (Export *) Arg(0));
+	   save_calls(c_p, export);
 	}
 	PreFetch(1, next);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
@@ -2868,7 +2860,7 @@ do {						\
 	ERTS_HOLE_CHECK(c_p);
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	if (ERTS_IS_GC_DESIRED(c_p)) {
-	    Uint arity = ((Export *)Arg(0))->code[2];
+	    Uint arity = GET_BIF_ARITY(export);
 	    result = erts_gc_after_bif_call_lhf(c_p, live_hf_end, result, reg, arity);
 	    E = c_p->stop;
 	}
@@ -3361,14 +3353,15 @@ do {						\
      * called from I[-3], I[-2], and I[-1] respectively.
      */
  context_switch_fun:
-    c_p->arity = I[-1] + 1;
+    /* Add one for the environment of the fun */
+    c_p->arity = erts_code_to_codemfa(I)->arity + 1;
     goto context_switch2;
 
  context_switch:
-    c_p->arity = I[-1];
+    c_p->arity = erts_code_to_codemfa(I)->arity;
 
- context_switch2:		/* Entry for fun calls. */
-    c_p->current = I-3;		/* Pointer to Mod, Func, Arity */
+ context_switch2: 		/* Entry for fun calls. */
+    c_p->current = erts_code_to_codemfa(I);
 
  context_switch3:
 
@@ -3509,7 +3502,8 @@ do {						\
      * code[4]: Not used
      */
     HEAVY_SWAPOUT;
-    I = call_error_handler(c_p, I-3, reg, am_undefined_function);
+    I = call_error_handler(c_p, erts_code_to_codemfa(I),
+                           reg, am_undefined_function);
     HEAVY_SWAPIN;
     if (I) {
 	Goto(*I);
@@ -3546,9 +3540,12 @@ do {						\
 	     * I[1]: Function pointer to NIF function
 	     * I[2]: Pointer to erl_module_nif
 	     * I[3]: Function pointer to dirty NIF
+             *
+             * This layout is determined by the NifExport struct
 	     */
 	    BifFunction vbf;
 	    ErlHeapFragment *live_hf_end;
+            ErtsCodeMFA *codemfa;
 
             if (!((FCALLS - 1) > 0 || (FCALLS - 1) > neg_o_reds)) {
                 /* If we have run out of reductions, we do a context
@@ -3558,12 +3555,16 @@ do {						\
 
 	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
 
-	    DTRACE_NIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
-	    c_p->current = I-3; /* current and vbf set to please handle_error */ 
+	    codemfa = erts_code_to_codemfa(I);
+
+            c_p->current = codemfa; /* current and vbf set to please handle_error */
+
+	    DTRACE_NIF_ENTRY(c_p, codemfa);
+
 	    SWAPOUT;
 	    c_p->fcalls = FCALLS - 1;
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
-	    bif_nif_arity = I[-1];
+	    bif_nif_arity = codemfa->arity;
 	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
 
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
@@ -3590,19 +3591,19 @@ do {						\
 		ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	    }
 
-	    DTRACE_NIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
+	    DTRACE_NIF_RETURN(c_p, codemfa);
 	    goto apply_bif_or_nif_epilogue;
 	 
 	OpCase(apply_bif):
 	    /*
-	     * At this point, I points to the code[3] in the export entry for
+	     * At this point, I points to the code[0] in the export entry for
 	     * the BIF:
 	     *
-	     * code[0]: Module
-	     * code[1]: Function
-	     * code[2]: Arity
-	     * code[3]: &&apply_bif
-	     * code[4]: Function pointer to BIF function
+	     * code[-3]: Module
+	     * code[-2]: Function
+	     * code[-1]: Arity
+	     * code[0]: &&apply_bif
+	     * code[1]: Function pointer to BIF function
 	     */
 
             if (!((FCALLS - 1) > 0 || (FCALLS - 1) > neg_o_reds)) {
@@ -3611,21 +3612,25 @@ do {						\
                 goto context_switch;
             }
 
-            ERTS_MSACC_SET_BIF_STATE_CACHED_X((Eterm)I[-3], (BifFunction)Arg(0));
+	    codemfa = erts_code_to_codemfa(I);
 
-	    c_p->current = I-3;	/* In case we apply process_info/1,2 or load_nif/1 */
+            ERTS_MSACC_SET_BIF_STATE_CACHED_X(codemfa->module, (BifFunction)Arg(0));
+
+
+            /* In case we apply process_info/1,2 or load_nif/1 */
+	    c_p->current = codemfa;
 	    c_p->i = I;		/* In case we apply check_process_code/2. */
 	    c_p->arity = 0;		/* To allow garbage collection on ourselves
 					 * (check_process_code/2).
 					 */
-	    DTRACE_BIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
+	    DTRACE_BIF_ENTRY(c_p, codemfa);
 
 	    SWAPOUT;
 	    ERTS_DBG_CHK_REDS(c_p, FCALLS - 1);
 	    c_p->fcalls = FCALLS - 1;
 	    vbf = (BifFunction) Arg(0);
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
-	    bif_nif_arity = I[-1];
+	    bif_nif_arity = codemfa->arity;
             ASSERT(bif_nif_arity <= 4);
 	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
 	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
@@ -3647,7 +3652,7 @@ do {						\
             if (ERTS_MSACC_IS_ENABLED_CACHED_X())
                 ERTS_MSACC_UPDATE_CACHE_X();
 	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
-	    DTRACE_BIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
+	    DTRACE_BIF_RETURN(c_p, codemfa);
 
 	apply_bif_or_nif_epilogue:
 	    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
@@ -3714,8 +3719,9 @@ do {						\
     goto find_func_info;
 
  OpCase(i_func_info_IaaI): {
+     ErtsCodeInfo *ci = (ErtsCodeInfo*)I;
      c_p->freason = EXC_FUNCTION_CLAUSE;
-     c_p->current = I + 2;
+     c_p->current = &ci->mfa;
      goto handle_error;
  }
 
@@ -4706,11 +4712,11 @@ do {						\
      */
 
  OpCase(return_trace): {
-     BeamInstr* code = (BeamInstr *) (UWord) E[0];
+     ErtsCodeMFA* mfa = (ErtsCodeMFA *)(E[0]);
      
      SWAPOUT;		/* Needed for shared heap */
      ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-     erts_trace_return(c_p, code, r(0), ERTS_TRACER_FROM_ETERM(E+1)/* tracer */);
+     erts_trace_return(c_p, mfa, r(0), ERTS_TRACER_FROM_ETERM(E+1)/* tracer */);
      ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
      SWAPIN;
      c_p->cp = NULL;
@@ -4721,9 +4727,8 @@ do {						\
 
  OpCase(i_generic_breakpoint): {
      BeamInstr real_I;
-     ASSERT(I[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
      HEAVY_SWAPOUT;
-     real_I = erts_generic_breakpoint(c_p, I, reg);
+     real_I = erts_generic_breakpoint(c_p, erts_code_to_codeinfo(I), reg);
      HEAVY_SWAPIN;
      ASSERT(VALID_INSTR(real_I));
      Goto(real_I);
@@ -4732,7 +4737,7 @@ do {						\
  OpCase(i_return_time_trace): {
      BeamInstr *pc = (BeamInstr *) (UWord) E[0];
      SWAPOUT;
-     erts_trace_time_return(c_p, pc);
+     erts_trace_time_return(c_p, erts_code_to_codeinfo(pc));
      SWAPIN;
      c_p->cp = NULL;
      SET_I((BeamInstr *) cp_val(E[1]));
@@ -4917,16 +4922,18 @@ do {						\
 	  * I[ 0]: &&lb_hipe_trap_call
 	  * ... remainder of original BEAM code
 	  */
-	 ASSERT(I[-5] == (Uint) OpCode(i_func_info_IaaI));
-	 c_p->hipe.u.ncallee = (void(*)(void)) I[-4];
+         ErtsCodeInfo *ci = erts_code_to_codeinfo(I);
+	 ASSERT(ci->op == (Uint) OpCode(i_func_info_IaaI));
+	 c_p->hipe.u.ncallee = (void(*)(void)) ci->native;
 	 ++hipe_trap_count;
-	 HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_CALL | (I[-1] << 8));
+	 HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_CALL | (ci->mfa.arity << 8));
      }
      OpCase(hipe_trap_call_closure): {
-       ASSERT(I[-5] == (Uint) OpCode(i_func_info_IaaI));
-       c_p->hipe.u.ncallee = (void(*)(void)) I[-4];
+       ErtsCodeInfo *ci = erts_code_to_codeinfo(I);
+       ASSERT(ci->op == (Uint) OpCode(i_func_info_IaaI));
+       c_p->hipe.u.ncallee = (void(*)(void)) ci->native;
        ++hipe_trap_count;
-       HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_CALL_CLOSURE | (I[-1] << 8));
+       HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_CALL_CLOSURE | (ci->mfa.arity << 8));
      }
      OpCase(hipe_trap_return): {
 	 HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_RETURN);
@@ -4995,8 +5002,9 @@ do {						\
       * I[ 0]: &&lb_hipe_call_count
       * ... remainder of original BEAM code
       */
-     struct hipe_call_count *hcc = (struct hipe_call_count*)I[-4];
-     ASSERT(I[-5] == (Uint) OpCode(i_func_info_IaaI));
+     ErtsCodeInfo *ci = erts_code_to_codeinfo(I);
+     struct hipe_call_count *hcc = (struct hipe_call_count*)ci->native;
+     ASSERT(ci->op == (Uint) OpCode(i_func_info_IaaI));
      ASSERT(hcc != NULL);
      ASSERT(VALID_INSTR(hcc->opcode));
      ++(hcc->count);
@@ -5065,7 +5073,7 @@ do {						\
 
  OpCase(i_debug_breakpoint): {
      HEAVY_SWAPOUT;
-     I = call_error_handler(c_p, I-3, reg, am_breakpoint);
+     I = call_error_handler(c_p, erts_code_to_codemfa(I), reg, am_breakpoint);
      HEAVY_SWAPIN;
      if (I) {
 	 Goto(*I);
@@ -5138,10 +5146,10 @@ do {						\
 			      bif_table[i].name,
 			      bif_table[i].arity);
 	 bif_export[i] = ep;
-	 ep->code[3] = (BeamInstr) OpCode(apply_bif);
-	 ep->code[4] = (BeamInstr) bif_table[i].f;
+	 ep->beam[0] = (BeamInstr) OpCode(apply_bif);
+	 ep->beam[1] = (BeamInstr) bif_table[i].f;
 	 /* XXX: set func info for bifs */
-	 ep->fake_op_func_info_for_hipe[0] = (BeamInstr) BeamOp(op_i_func_info_IaaI);
+	 ep->info.op = (BeamInstr) BeamOp(op_i_func_info_IaaI);
      }
 
      return;
@@ -5221,8 +5229,8 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
     goto do_dirty_schedule;
 
  context_switch:
-    c_p->arity = I[-1];
-    c_p->current = I-3;		/* Pointer to Mod, Func, Arity */
+    c_p->current = erts_code_to_codemfa(I);	/* Pointer to Mod, Func, Arity */
+    c_p->arity = c_p->current->arity;
 
     {
 	int reds_used;
@@ -5347,11 +5355,9 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
             if (ERTS_PROC_IS_EXITING(c_p)) {
                 strcpy(fun_buf, "<exiting>");
             } else {
-                BeamInstr *fptr = find_function_from_pc(c_p->i);
-                if (fptr) {
-                    dtrace_fun_decode(c_p, (Eterm)fptr[0],
-                                      (Eterm)fptr[1], (Uint)fptr[2],
-                                      NULL, fun_buf);
+                ErtsCodeMFA *cmfa = find_function_from_pc(c_p->i);
+                if (cmfa) {
+		    dtrace_fun_decode(c_p, cmfa, NULL, fun_buf);
                 } else {
                     erts_snprintf(fun_buf, sizeof(DTRACE_CHARBUF_NAME(fun_buf)),
                                   "<unknown/%p>", *I);
@@ -5380,16 +5386,22 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	     * I[1]: Function pointer to NIF function
 	     * I[2]: Pointer to erl_module_nif
 	     * I[3]: Function pointer to dirty NIF
+             *
+             * This layout is determined by the NifExport struct
 	     */
 	    BifFunction vbf;
+            ErtsCodeMFA *codemfa;
 
 	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
 
-	    DTRACE_NIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
-	    c_p->current = I-3; /* current and vbf set to please handle_error */
+            codemfa = erts_code_to_codemfa(I);
+
+	    DTRACE_NIF_ENTRY(c_p, codemfa);
+            /* current and vbf set to please handle_error */
+	    c_p->current = codemfa;
 	    SWAPOUT;
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
-	    arity = I[-1];
+	    arity = codemfa->arity;
 	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
 
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
@@ -5424,7 +5436,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 		ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	    }
 
-	    DTRACE_NIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
+	    DTRACE_NIF_RETURN(c_p, codemfa);
 	    ERTS_HOLE_CHECK(c_p);
 	    SWAPIN;
 	    I = c_p->i;
@@ -5437,31 +5449,14 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 static BifFunction
 translate_gc_bif(void* gcf)
 {
-    if (gcf == erts_gc_length_1) {
-	return length_1;
-    } else if (gcf == erts_gc_size_1) {
-	return size_1;
-    } else if (gcf == erts_gc_bit_size_1) {
-	return bit_size_1;
-    } else if (gcf == erts_gc_byte_size_1) {
-	return byte_size_1;
-    } else if (gcf == erts_gc_map_size_1) {
-	return map_size_1;
-    } else if (gcf == erts_gc_abs_1) {
-	return abs_1;
-    } else if (gcf == erts_gc_float_1) {
-	return float_1;
-    } else if (gcf == erts_gc_round_1) {
-	return round_1;
-    } else if (gcf == erts_gc_trunc_1) {
-	return round_1;
-    } else if (gcf == erts_gc_binary_part_2) {
-	return binary_part_2;
-    } else if (gcf == erts_gc_binary_part_3) {
-	return binary_part_3;
-    } else {
-	erts_exit(ERTS_ERROR_EXIT, "bad gc bif");
+    const ErtsGcBif* p;
+
+    for (p = erts_gc_bifs; p->bif != 0; p++) {
+	if (p->gc_bif == gcf) {
+	    return p->bif;
+	}
     }
+    erts_exit(ERTS_ERROR_EXIT, "bad gc bif");
 }
 
 /*
@@ -5621,7 +5616,8 @@ next_catch(Process* c_p, Eterm *reg) {
 	/* Can not follow cp here - code may be unloaded */
 	BeamInstr *cpp = c_p->cp;
 	if (cpp == beam_exception_trace) {
-	    erts_trace_exception(c_p, cp_val(ptr[0]),
+            ErtsCodeMFA *mfa = (ErtsCodeMFA*)cp_val(ptr[0]);
+	    erts_trace_exception(c_p, mfa,
 				 reg[1], reg[2],
                                  ERTS_TRACER_FROM_ETERM(ptr+1));
 	    /* Skip return_trace parameters */
@@ -5649,7 +5645,8 @@ next_catch(Process* c_p, Eterm *reg) {
 		    if (is_catch(*ptr) && active_catches) goto found_catch;
 		}
 		if (cp_val(*prev) == beam_exception_trace) {
-		    erts_trace_exception(c_p, cp_val(ptr[0]),
+                    ErtsCodeMFA *mfa = (ErtsCodeMFA*)cp_val(ptr[0]);
+		    erts_trace_exception(c_p, mfa,
 					 reg[1], reg[2],
                                          ERTS_TRACER_FROM_ETERM(ptr+1));
 		}
@@ -5855,7 +5852,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 	for (i = 0; i < BIF_SIZE; i++) {
 	    if (bf == bif_table[i].f || bf == bif_table[i].traced) {
 		Export *ep = bif_export[i];
-		s->current = ep->code;
+		s->current = &ep->info.mfa;
 	        a = bif_table[i].arity;
 		break;
 	    }
@@ -5869,7 +5866,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 	     */
 	    ASSERT(c_p->current);
 	    s->current = c_p->current;
-	    a = s->current[2];
+	    a = s->current->arity;
 	}
 	/* Save first stack entry */
 	ASSERT(pc);
@@ -5894,7 +5891,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 	     (GET_EXC_INDEX(EXC_FUNCTION_CLAUSE)) ) {
 	    int a;
 	    ASSERT(s->current);
-	    a = s->current[2];
+	    a = s->current->arity;
 	    args = make_arglist(c_p, reg, a); /* Overwrite CAR(c_p->ftrace) */
 	    /* Save first stack entry */
 	    ASSERT(c_p->cp);
@@ -6065,7 +6062,7 @@ build_stacktrace(Process* c_p, Eterm exc) {
 	erts_lookup_function_info(&fi, s->pc, 1);
     } else if (GET_EXC_INDEX(s->freason) ==
 	       GET_EXC_INDEX(EXC_FUNCTION_CLAUSE)) {
-	erts_lookup_function_info(&fi, s->current, 1);
+	erts_lookup_function_info(&fi, erts_codemfa_to_code(s->current), 1);
     } else {
 	erts_set_current_function(&fi, s->current);
     }
@@ -6074,8 +6071,8 @@ build_stacktrace(Process* c_p, Eterm exc) {
      * If fi.current is still NULL, default to the initial function
      * (e.g. spawn_link(erlang, abs, [1])).
      */
-    if (fi.current == NULL) {
-	erts_set_current_function(&fi, c_p->u.initial);
+    if (fi.mfa == NULL) {
+	erts_set_current_function(&fi, &c_p->u.initial);
 	args = am_true; /* Just in case */
     } else {
 	args = get_args_from_exc(exc);
@@ -6091,7 +6088,7 @@ build_stacktrace(Process* c_p, Eterm exc) {
     heap_size = fi.needed + 2;
     for (i = 0; i < depth; i++) {
 	erts_lookup_function_info(stkp, s->trace[i], 1);
-	if (stkp->current) {
+	if (stkp->mfa) {
 	    heap_size += stkp->needed + 2;
 	    stkp++;
 	}
@@ -6115,7 +6112,7 @@ build_stacktrace(Process* c_p, Eterm exc) {
 }
 
 static BeamInstr*
-call_error_handler(Process* p, BeamInstr* fi, Eterm* reg, Eterm func)
+call_error_handler(Process* p, ErtsCodeMFA* mfa, Eterm* reg, Eterm func)
 {
     Eterm* hp;
     Export* ep;
@@ -6124,13 +6121,14 @@ call_error_handler(Process* p, BeamInstr* fi, Eterm* reg, Eterm func)
     Uint sz;
     int i;
 
+    DBG_TRACE_MFA_P(mfa, "call_error_handler");
     /*
      * Search for the error_handler module.
      */
     ep = erts_find_function(erts_proc_get_error_handler(p), func, 3,
 			    erts_active_code_ix());
     if (ep == NULL) {		/* No error handler */
-	p->current = fi;
+	p->current = mfa;
 	p->freason = EXC_UNDEF;
 	return 0;
     }
@@ -6139,7 +6137,7 @@ call_error_handler(Process* p, BeamInstr* fi, Eterm* reg, Eterm func)
      * Create a list with all arguments in the x registers.
      */
 
-    arity = fi[2];
+    arity = mfa->arity;
     sz = 2 * arity;
     if (HeapWordsLeft(p) < sz) {
 	erts_garbage_collect(p, sz, reg, arity);
@@ -6155,8 +6153,8 @@ call_error_handler(Process* p, BeamInstr* fi, Eterm* reg, Eterm func)
     /*
      * Set up registers for call to error_handler:<func>/3.
      */
-    reg[0] = fi[0];
-    reg[1] = fi[1];
+    reg[0] = mfa->module;
+    reg[1] = mfa->function;
     reg[2] = args;
     return ep->addressv[erts_active_code_ix()];
 }
@@ -6401,11 +6399,11 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
 
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(process_hibernate)) {
+        ErtsCodeMFA cmfa = { module, function, arity};
         DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);
-        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);
-        dtrace_fun_decode(c_p, module, function, arity,
-                          process_name, mfa);
-        DTRACE2(process_hibernate, process_name, mfa);
+        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);
+        dtrace_fun_decode(c_p, &cmfa, process_name, mfa_buf);
+        DTRACE2(process_hibernate, process_name, mfa_buf);
     }
 #endif
     /*
@@ -6452,7 +6450,7 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     }
     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
-    c_p->current = bif_export[BIF_hibernate_3]->code;
+    c_p->current = &bif_export[BIF_hibernate_3]->info.mfa;
     c_p->flags |= F_HIBERNATE_SCHED; /* Needed also when woken! */
     return 1;
 }
@@ -6475,21 +6473,15 @@ call_fun(Process* p,		/* Current process. */
 
     if (is_fun_header(hdr)) {
 	ErlFunThing* funp = (ErlFunThing *) fun_val(fun);
-	ErlFunEntry* fe;
-	BeamInstr* code_ptr;
+	ErlFunEntry* fe = funp->fe;
+	BeamInstr* code_ptr = fe->address;
 	Eterm* var_ptr;
-	int actual_arity;
-	unsigned num_free;
-
-	fe = funp->fe;
-	num_free = funp->num_free;
-	code_ptr = fe->address;
-	actual_arity = (int) code_ptr[-1];
+	unsigned num_free = funp->num_free;
+        ErtsCodeMFA *mfa = erts_code_to_codemfa(code_ptr);
+	int actual_arity = mfa->arity;
 
 	if (actual_arity == arity+num_free) {
-	    DTRACE_LOCAL_CALL(p, (Eterm)code_ptr[-3],
-			(Eterm)code_ptr[-2],
-			code_ptr[-1]);
+	    DTRACE_LOCAL_CALL(p, mfa);
 	    if (num_free == 0) {
 		return code_ptr;
 	    } else {
@@ -6594,10 +6586,10 @@ call_fun(Process* p,		/* Current process. */
 	int actual_arity;
 
 	ep = *((Export **) (export_val(fun) + 1));
-	actual_arity = (int) ep->code[2];
+	actual_arity = ep->info.mfa.arity;
 
 	if (arity == actual_arity) {
-	    DTRACE_GLOBAL_CALL(p, ep->code[0], ep->code[1], (Uint)ep->code[2]);
+	    DTRACE_GLOBAL_CALL(p, &ep->info.mfa);
 	    return ep->addressv[erts_active_code_ix()];
 	} else {
 	    /*
@@ -6685,9 +6677,6 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     funp->fe = fe;
     funp->num_free = num_free;
     funp->creator = p->common.id;
-#ifdef HIPE
-    funp->native_address = fe->native_address;
-#endif
     funp->arity = (int)fe->address[-1] - num_free;
     for (i = 0; i < num_free; i++) {
 	*hp++ = reg[i];
@@ -7218,15 +7207,15 @@ erts_is_builtin(Eterm Mod, Eterm Name, int arity)
 	return 1;
     }
 
-    e.code[0] = Mod;
-    e.code[1] = Name;
-    e.code[2] = arity;
+    e.info.mfa.module = Mod;
+    e.info.mfa.function = Name;
+    e.info.mfa.arity = arity;
 
     if ((ep = export_get(&e)) == NULL) {
 	return 0;
     }
-    return ep->addressv[erts_active_code_ix()] == ep->code+3
-	&& (ep->code[3] == (BeamInstr) em_apply_bif);
+    return ep->addressv[erts_active_code_ix()] == ep->beam
+	&& (ep->beam[0] == (BeamInstr) em_apply_bif);
 }
 
 

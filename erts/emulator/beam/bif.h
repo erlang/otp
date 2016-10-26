@@ -159,7 +159,7 @@ do {									\
 #define ERTS_BIF_ERROR_TRAPPED0(Proc, Reason, Bif)		\
 do {								\
     (Proc)->freason = (Reason);					\
-    (Proc)->current = (Bif)->code;				\
+    (Proc)->current = &(Bif)->info.mfa;                         \
     return THE_NON_VALUE; 					\
 } while (0)
 
@@ -167,7 +167,7 @@ do {								\
 do {								\
     Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
-    (Proc)->current = (Bif)->code;				\
+    (Proc)->current = &(Bif)->info.mfa;                         \
     reg[0] = (Eterm) (A0);					\
     return THE_NON_VALUE; 					\
 } while (0)
@@ -176,7 +176,7 @@ do {								\
 do {								\
     Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
-    (Proc)->current = (Bif)->code;				\
+    (Proc)->current = &(Bif)->info.mfa;                         \
     reg[0] = (Eterm) (A0);					\
     reg[1] = (Eterm) (A1);					\
     return THE_NON_VALUE; 					\
@@ -186,7 +186,7 @@ do {								\
 do {								\
     Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
-    (Proc)->current = (Bif)->code;				\
+    (Proc)->current = &(Bif)->info.mfa;                         \
     reg[0] = (Eterm) (A0);					\
     reg[1] = (Eterm) (A1);					\
     reg[2] = (Eterm) (A2);					\
@@ -202,7 +202,7 @@ do {						\
 #define ERTS_BIF_PREP_ERROR_TRAPPED0(Ret, Proc, Reason, Bif)	\
 do {								\
     (Proc)->freason = (Reason);					\
-    (Proc)->current = (Bif)->code;				\
+    (Proc)->current = &(Bif)->info.mfa;                         \
     (Ret) = THE_NON_VALUE;					\
 } while (0)
 
@@ -210,7 +210,7 @@ do {								\
 do {								\
     Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
-    (Proc)->current = (Bif)->code;				\
+    (Proc)->current = &(Bif)->info.mfa;                         \
     reg[0] = (Eterm) (A0);					\
     (Ret) = THE_NON_VALUE;					\
 } while (0)
@@ -219,7 +219,7 @@ do {								\
 do {								\
     Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
-    (Proc)->current = (Bif)->code;				\
+    (Proc)->current = &(Bif)->info.mfa;                         \
     reg[0] = (Eterm) (A0);					\
     reg[1] = (Eterm) (A1);					\
     (Ret) = THE_NON_VALUE;					\
@@ -229,7 +229,7 @@ do {								\
 do {								\
     Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
-    (Proc)->current = (Bif)->code;				\
+    (Proc)->current = &(Bif)->info.mfa;                         \
     reg[0] = (Eterm) (A0);					\
     reg[1] = (Eterm) (A1);					\
     reg[2] = (Eterm) (A2);					\

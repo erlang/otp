@@ -1586,6 +1586,8 @@ out_dfa_graph(St, DFA, DF) ->
     case file:open(St#leex.gfile, [write]) of
         {ok,Gfile} ->
             try
+                %% Set the same encoding as infile:
+                set_encoding(St, Gfile),
                 io:fwrite(Gfile, "digraph DFA {~n", []),
                 out_dfa_states(Gfile, DFA, DF),
                 out_dfa_edges(Gfile, DFA),
@@ -1621,7 +1623,7 @@ out_dfa_edges(File, DFA) ->
                     foreach(fun (T) ->
                                     Crs = orddict:fetch(T, Tdict),
                                     Edgelab = dfa_edgelabel(Crs),
-                                    io:fwrite(File, "  ~b -> ~b [label=\"~s\"];~n",
+                                    io:fwrite(File, "  ~b -> ~b [label=\"~ts\"];~n",
                                               [S,T,Edgelab])
                             end, sort(orddict:fetch_keys(Tdict)))
             end, DFA).

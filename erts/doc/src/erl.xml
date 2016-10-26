@@ -393,9 +393,11 @@
       <tag><c><![CDATA[-pa Dir1 Dir2 ...]]></c></tag>
       <item>
         <p>Adds the specified directories to the beginning of the code
-          path, similar to <c><![CDATA[code:add_pathsa/1]]></c>; see
-          <seealso marker="kernel:code"><c>code(3)</c></seealso>.
-	  As an alternative to <c>-pa</c>, if several directories are
+          path, similar to <seealso marker="kernel:code#add_pathsa/1">
+	  <c><![CDATA[code:add_pathsa/1]]></c></seealso>. Note that the
+	  order of the given directories will be reversed in the
+	  resulting path.</p>
+	<p>As an alternative to <c>-pa</c>, if several directories are
 	  to be prepended to the code path and the directories have a
 	  common parent directory, that parent directory can be
 	  specified in environment variable <c>ERL_LIBS</c>; see

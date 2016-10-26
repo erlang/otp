@@ -514,16 +514,21 @@ get_spec_info([], SpecDict, CallbackDict,
   {ok, SpecDict, CallbackDict}.
 
 -spec get_fun_meta_info(module(), abstract_code(), [dial_warn_tag()]) ->
-                           dialyzer_codeserver:fun_meta_info().
+                dialyzer_codeserver:fun_meta_info() | {'error', string()}.
 
 get_fun_meta_info(M, Abs, LegalWarnings) ->
-  NoWarn = get_nowarn_unused_function(M, Abs),
-  FuncSupp = get_func_suppressions(M, Abs),
-  Warnings0 = get_options(Abs, LegalWarnings),
-  Warnings = ordsets:to_list(Warnings0),
-  ModuleWarnings = [{M, W} || W <- Warnings],
-  RawProps = lists:append([NoWarn, FuncSupp, ModuleWarnings]),
-  process_options(dialyzer_utils:family(RawProps), Warnings0).
+  try
+    {get_nowarn_unused_function(M, Abs), get_func_suppressions(M, Abs)}
+  of
+    {NoWarn, FuncSupp} ->
+      Warnings0 = get_options(Abs, LegalWarnings),
+      Warnings = ordsets:to_list(Warnings0),
+      ModuleWarnings = [{M, W} || W <- Warnings],
+      RawProps = lists:append([NoWarn, FuncSupp, ModuleWarnings]),
+      process_options(dialyzer_utils:family(RawProps), Warnings0)
+  catch throw:{error, _} = Error ->
+      Error
+  end.
 
 process_options([{M, _}=Mod|Left], Warnings) when is_atom(M) ->
   [Mod|process_options(Left, Warnings)];

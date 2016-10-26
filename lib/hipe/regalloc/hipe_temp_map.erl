@@ -33,9 +33,11 @@
 
 -module(hipe_temp_map).
 
--export([cols2tuple/2, is_spilled/2, to_substlist/1]).
+-export([cols2tuple/3, find/2, is_spilled/2, to_substlist/1]).
 
 -include("../main/hipe.hrl").
+
+-type target_context() :: any().
 
 %%----------------------------------------------------------------------------
 %% Convert a list of [{R0, C1}, {R1, C2}, ...] to a temp_map
@@ -47,34 +49,32 @@
 %% element 1
 %%----------------------------------------------------------------------------
 
--spec cols2tuple(hipe_map(), atom()) -> hipe_temp_map().
+-spec cols2tuple(hipe_map(), module(), target_context()) -> hipe_temp_map().
 
-cols2tuple(Map, Target) ->
-  ?ASSERT(check_list(Map)),
-  SortedMap = lists:keysort(1, Map), 
-  cols2tuple(0, SortedMap, [], Target). 
+cols2tuple(Map, TgtMod, TgtCtx) ->
+  SortedMap = lists:keysort(1, Map),
+  cols2tuple(0, SortedMap, [], TgtMod, TgtCtx).
 
-%% sorted_cols2tuple(Map, Target) ->
-%%   ?ASSERT(check_list(Map)),
+%% sorted_cols2tuple(Map, TgtMod, TgtCtx) ->
 %%   ?ASSERT(Map =:= lists:keysort(1, Map)),
-%%   cols2tuple(0, Map, [], Target). 
+%%   cols2tuple(0, Map, [], TgtMod, TgtCtx). 
 
 %% Build a dense mapping 
-cols2tuple(_, [], Vs, _) ->
+cols2tuple(_, [], Vs, _, _) ->
   %% Done reverse the list and convert to tuple.
   list_to_tuple(lists:reverse(Vs));
-cols2tuple(N, [{R, C}|Ms], Vs, Target) when N =:= R ->
+cols2tuple(N, [{R, C}|Ms], Vs, TgtMod, TgtCtx) when N =:= R ->
   %% N makes sure the mapping is dense. N is he next key.
-  cols2tuple(N+1, Ms, [C|Vs], Target);
-cols2tuple(N, SourceMapping, Vs, Target) ->
+  cols2tuple(N+1, Ms, [C|Vs], TgtMod, TgtCtx);
+cols2tuple(N, SourceMapping=[{R,_}|_], Vs, TgtMod, TgtCtx) when N < R ->
   %% The source was sparse, make up some placeholders...
   Val = 	      
-    case Target:is_precoloured(N) of
+    case TgtMod:is_precoloured(N, TgtCtx) of
       %% If it is precoloured, we know what to map it to.
       true -> {reg, N};
       false -> unknown
     end,
-  cols2tuple(N+1, SourceMapping, [Val|Vs], Target).
+  cols2tuple(N+1, SourceMapping, [Val|Vs], TgtMod, TgtCtx).
 
 %%
 %% True if temp Temp is spilled.
@@ -82,7 +82,7 @@ cols2tuple(N, SourceMapping, Vs, Target) ->
 -spec is_spilled(non_neg_integer(), hipe_temp_map()) -> boolean().
 
 is_spilled(Temp, Map) ->
-  case element(Temp+1, Map) of
+  case find(Temp, Map) of
     {reg, _R} -> false;
     {fp_reg, _R}-> false;
     {spill, _N} -> true;
@@ -106,9 +106,10 @@ is_spilled(Temp, Map) ->
 %%     {spill, _N} -> false;
 %%     unknown -> false
 %%   end.
-%% 
-%% %% Returns the inf temp Temp is mapped to.
-%% find(Temp, Map) -> element(Temp+1, Map).
+
+%% Returns the inf temp Temp is mapped to.
+find(Temp, Map) when Temp < tuple_size(Map) -> element(Temp+1, Map);
+find(_,    Map) when is_tuple(Map) -> unknown. % consistency with cols2tuple/3
 
 
 %%

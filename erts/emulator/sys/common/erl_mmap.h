@@ -157,12 +157,23 @@ Eterm erts_mmap_info_options(ErtsMemMapper*,
 #  include "erl_alloc_types.h"
 
 extern ErtsMemMapper erts_dflt_mmapper;
-#  if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+
+# if defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+
+#  if defined(ARCH_64)
 extern ErtsMemMapper erts_literal_mmapper;
 #  endif
-#  ifdef ERTS_ALC_A_EXEC
+
+#  if defined(ERTS_ALC_A_EXEC) && defined(__x86_64__)
+   /*
+    * On x86_64, exec_alloc employs its own super carrier 'erts_exec_mmaper'
+    * to ensure low memory for HiPE AMD64 small code model.
+    */
+#   define ERTS_HAVE_EXEC_MMAPPER
 extern ErtsMemMapper erts_exec_mmapper;
 #  endif
+
+# endif /* ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION */
 #endif /* ERTS_WANT_MEM_MAPPERS */
 
 /*#define HARD_DEBUG_MSEG*/

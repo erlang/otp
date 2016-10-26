@@ -950,7 +950,7 @@ return_abort(Fun, Args, Reason)  ->
     if
 	Level == 1 ->
 	    mnesia_locker:async_release_tid(Nodes, Tid),
-	    ?MODULE ! {delete_transaction, Tid},
+	    ?SAFE(?MODULE ! {delete_transaction, Tid}),
 	    erase(mnesia_activity_state),
 	    flush_downs(),
 	    ?SAFE(unlink(whereis(?MODULE))),

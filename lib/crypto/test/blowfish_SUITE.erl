@@ -107,11 +107,37 @@ end_per_testcase(_TestCase, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-[ecb, cbc, cfb64, ofb64].
+[{group, fips},
+ {group, non_fips}].
 
 groups() -> 
-    [].
+    [{fips,     [], [no_ecb, no_cbc, no_cfb64, no_ofb64]},
+     {non_fips, [], [ecb, cbc, cfb64, ofb64]}].
 
+init_per_group(fips, Config) ->
+    case crypto:info_fips() of
+        enabled ->
+            Config;
+        not_enabled ->
+            case crypto:enable_fips_mode(true) of
+		true ->
+		    enabled = crypto:info_fips(),
+		    Config;
+		false ->
+		    {skip, "Failed to enable FIPS mode"}
+	    end;
+        not_supported ->
+            {skip, "FIPS mode not supported"}
+    end;
+init_per_group(non_fips, Config) ->
+    case crypto:info_fips() of
+        enabled ->
+            true = crypto:enable_fips_mode(false),
+            not_enabled = crypto:info_fips(),
+            Config;
+        _NotEnabled ->
+            Config
+    end;
 init_per_group(_GroupName, Config) ->
 	Config.
 
@@ -196,7 +222,53 @@ ofb64(Config) when is_list(Config) ->
 		to_bin("E73214A2822139CA62B343CC5B65587310DD908D0C241B2263C2CF80DA"),
 	ok.
 
+no_ecb(doc) ->
+    "Test that ECB mode is disabled";
+no_ecb(suite) ->
+    [];
+no_ecb(Config) when is_list(Config) ->
+	notsup(fun crypto:blowfish_ecb_encrypt/2,
+               [to_bin("0000000000000000"),
+                to_bin("FFFFFFFFFFFFFFFF")]).
+
+no_cbc(doc) ->
+    "Test that CBC mode is disabled";
+no_cbc(suite) ->
+    [];
+no_cbc(Config) when is_list(Config) ->
+	notsup(fun crypto:blowfish_cbc_encrypt/3,
+               [?KEY, ?IVEC, ?DATA_PADDED]).
+
+no_cfb64(doc) ->
+    "Test that CFB64 mode is disabled";
+no_cfb64(suite) ->
+    [];
+no_cfb64(Config) when is_list(Config) ->
+	notsup(fun crypto:blowfish_cfb64_encrypt/3,
+               [?KEY, ?IVEC, ?DATA]),
+	ok.
+
+no_ofb64(doc) ->
+    "Test that OFB64 mode is disabled";
+no_ofb64(suite) ->
+    [];
+no_ofb64(Config) when is_list(Config) ->
+	notsup(fun crypto:blowfish_ofb64_encrypt/3,
+               [?KEY, ?IVEC, ?DATA]).
+
 %% Helper functions
+
+%% Assert function fails with notsup error
+notsup(Fun, Args) ->
+    ok = try
+             {error, {return, apply(Fun, Args)}}
+         catch
+             error:notsup ->
+                 ok;
+             Class:Error ->
+                 {error, {Class, Error}}
+         end.
+
 
 %% Convert a hexadecimal string to a binary.
 -spec(to_bin(L::string()) -> binary()).

@@ -526,8 +526,8 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	case EXPORT_DEF:
 	    {
 		Export* ep = *((Export **) (export_val(wobj) + 1));
-		Atom* module = atom_tab(atom_val(ep->code[0]));
-		Atom* name = atom_tab(atom_val(ep->code[1]));
+		Atom* module = atom_tab(atom_val(ep->info.mfa.module));
+		Atom* name = atom_tab(atom_val(ep->info.mfa.function));
 
 		PRINT_STRING(res, fn, arg, "#Fun<");
 		PRINT_BUF(res, fn, arg, module->name, module->len);
@@ -535,7 +535,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 		PRINT_BUF(res, fn, arg, name->name, name->len);
 		PRINT_CHAR(res, fn, arg, '.');
 		PRINT_SWORD(res, fn, arg, 'd', 0, 1,
-			    (ErlPfSWord) ep->code[2]);
+			    (ErlPfSWord) ep->info.mfa.arity);
 		PRINT_CHAR(res, fn, arg, '>');
 	    }
 	    break;

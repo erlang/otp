@@ -56,7 +56,7 @@
 #define MAKE_HASH(Term)                                \
     ((is_small(Term)) ? unsigned_val(Term) :           \
      ((is_atom(Term)) ?                                \
-      (atom_tab(atom_val(Term))->slot.bucket.hvalue) : \
+      atom_val(Term) :								   \
       make_internal_hash(Term)))
 
 #define PD_SZ2BYTES(Sz) (sizeof(ProcDict) + ((Sz) - 1)*sizeof(Eterm))
@@ -406,6 +406,11 @@ static void pd_hash_erase_all(Process *p)
 	PD_FREE(p->dictionary, PD_SZ2BYTES(p->dictionary->size));
 	p->dictionary = NULL;
     }
+}
+
+Uint32 erts_pd_make_hx(Eterm key)
+{
+    return MAKE_HASH(key);
 }
 
 Eterm erts_pd_hash_get_with_hx(Process *p, Uint32 hx, Eterm id)

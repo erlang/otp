@@ -576,6 +576,18 @@ unpack(Z, Compressed, Dict) ->
     </func>
 
     <func>
+      <name name="inflateGetDictionary" arity="1"/>
+      <fsummary>Return the decompression dictionary.</fsummary>
+      <desc>
+        <p>Returns the decompression dictionary currently in use
+          by the stream. This function must be called between
+          <seealso marker="#inflateInit/1"><c>inflateInit/1,2</c></seealso>
+          and <seealso marker="#inflateEnd/1"><c>inflateEnd</c></seealso>.</p>
+        <p>Only supported if ERTS was compiled with zlib >= 1.2.8.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="open" arity="0"/>
       <fsummary>Open a stream and return a stream reference.</fsummary>
       <desc>

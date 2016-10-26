@@ -760,12 +760,9 @@ gen_fun_thing_skeleton(FunP, FunName={_Mod,_FunId,Arity}, NumFree,
   %%  And creates a fe (at load time).
   FeVar = hipe_rtl:mk_new_reg(),
   PidVar = hipe_rtl:mk_new_reg_gcsafe(),
-  NativeVar = hipe_rtl:mk_new_reg(),
 
   [hipe_rtl:mk_load_address(FeVar, {FunName, MagicNr, Index}, closure),
    store_struct_field(FunP, ?EFT_FE, FeVar),
-   load_struct_field(NativeVar, FeVar, ?EFE_NATIVE_ADDRESS),
-   store_struct_field(FunP, ?EFT_NATIVE_ADDRESS, NativeVar),
 
    store_struct_field(FunP, ?EFT_ARITY, hipe_rtl:mk_imm(Arity-NumFree)),
 
@@ -845,7 +842,7 @@ gen_free_vars([], _, _, _, AccCode) -> AccCode.
 %% call_fun (also handles enter_fun when Continuation = [])
 
 gen_call_fun(Dst, ArgsAndFun, Continuation, Fail) ->  
-  NAddressReg = hipe_rtl:mk_new_reg(),
+  NCNAddressReg = hipe_rtl:mk_new_reg(),
   ArityReg = hipe_rtl:mk_new_reg_gcsafe(),
   [Fun|RevArgs] = lists:reverse(ArgsAndFun),
 
@@ -856,7 +853,7 @@ gen_call_fun(Dst, ArgsAndFun, Continuation, Fail) ->
   BadFunLabName = hipe_rtl:label_name(NonClosureLabel),
   BadFunCode =
     [NonClosureLabel,
-     hipe_rtl:mk_call([NAddressReg],
+     hipe_rtl:mk_call([NCNAddressReg],
 		      'nonclosure_address',
 		      [Fun, hipe_rtl:mk_imm(length(Args))],
 		      hipe_rtl:label_name(CallNonClosureLabel),
@@ -865,25 +862,26 @@ gen_call_fun(Dst, ArgsAndFun, Continuation, Fail) ->
      CallNonClosureLabel,
      case Continuation of
        [] ->
-	 hipe_rtl:mk_enter(NAddressReg, Args, not_remote);
+	 hipe_rtl:mk_enter(NCNAddressReg, Args, not_remote);
        _ ->
-	 hipe_rtl:mk_call(Dst, NAddressReg, Args,
+	 hipe_rtl:mk_call(Dst, NCNAddressReg, Args,
 			  Continuation, Fail, not_remote)
      end],
 
   {BadArityLabName, BadArityCode} = gen_fail_code(Fail, {badarity, Fun}),
 
-  CheckGetCode = 
-    hipe_tagscheme:if_fun_get_arity_and_address(ArityReg, NAddressReg,
+  CNAddressReg = hipe_rtl:mk_new_reg(),
+  CheckGetCode =
+    hipe_tagscheme:if_fun_get_arity_and_address(ArityReg, CNAddressReg,
 						Fun, BadFunLabName,
 						0.9),
   CheckArityCode = check_arity(ArityReg, length(RevArgs), BadArityLabName),
   CallCode =
     case Continuation of
       [] -> %% This is a tailcall
-	[hipe_rtl:mk_enter(NAddressReg, ArgsAndFun, not_remote)];
+	[hipe_rtl:mk_enter(CNAddressReg, ArgsAndFun, not_remote)];
       _ -> %% Ordinary call
-	[hipe_rtl:mk_call(Dst, NAddressReg, ArgsAndFun,
+	[hipe_rtl:mk_call(Dst, CNAddressReg, ArgsAndFun,
 			  Continuation, Fail, not_remote)]
     end,
   [CheckGetCode, CheckArityCode, CallCode, BadFunCode, BadArityCode].
