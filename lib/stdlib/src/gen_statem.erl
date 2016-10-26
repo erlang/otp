@@ -749,6 +749,10 @@ print_event(Dev, {out,Reply,{To,_Tag}}, {Name,State}) ->
     io:format(
       Dev, "*DBG* ~p send ~p to ~p from state ~p~n",
       [Name,Reply,To,State]);
+print_event(Dev, {terminate,Reason}, {Name,State}) ->
+    io:format(
+      Dev, "*DBG* ~p terminate ~p in state ~p~n",
+      [Name,Reason,State]);
 print_event(Dev, {Tag,Event,NextState}, {Name,State}) ->
     StateString =
 	case NextState of
@@ -1497,16 +1501,20 @@ terminate(
 	    sys:print_log(Debug),
 	    erlang:raise(C, R, ST)
     end,
-    case Reason of
-	normal -> ok;
-	shutdown -> ok;
-	{shutdown,_} -> ok;
-	_ ->
-	    error_info(
-	      Class, Reason, Stacktrace, S, Q, P,
-	      format_status(terminate, get(), S)),
-	    sys:print_log(Debug)
-    end,
+    _ =
+	case Reason of
+	    normal ->
+		sys_debug(Debug, S, State, {terminate,Reason});
+	    shutdown ->
+		sys_debug(Debug, S, State, {terminate,Reason});
+	    {shutdown,_} ->
+		sys_debug(Debug, S, State, {terminate,Reason});
+	    _ ->
+		error_info(
+		  Class, Reason, Stacktrace, S, Q, P,
+		  format_status(terminate, get(), S)),
+		sys:print_log(Debug)
+	end,
     case Stacktrace of
 	[] ->
 	    erlang:Class(Reason);
