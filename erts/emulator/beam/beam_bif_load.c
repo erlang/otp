@@ -1623,10 +1623,10 @@ erts_purge_state_add_fun(ErlFunEntry *fe)
 }
 
 Export *
-erts_suspend_process_on_pending_purge_lambda(Process *c_p)
+erts_suspend_process_on_pending_purge_lambda(Process *c_p, ErlFunEntry* fe)
 {
     erts_smp_mtx_lock(&purge_state.mtx);
-    if (is_value(purge_state.module)) {
+    if (purge_state.module == fe->module) {
 	/*
 	 * The process c_p is about to call a fun in the code
 	 * that we are trying to purge. Suspend it and call
