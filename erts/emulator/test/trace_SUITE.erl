@@ -30,7 +30,7 @@
 	 procs_trace/1, dist_procs_trace/1, procs_new_trace/1,
 	 suspend/1, mutual_suspend/1, suspend_exit/1, suspender_exit/1,
 	 suspend_system_limit/1, suspend_opts/1, suspend_waiting/1,
-	 new_clear/1, existing_clear/1,
+	 new_clear/1, existing_clear/1, tracer_die/1,
 	 set_on_spawn/1, set_on_first_spawn/1, cpu_timestamp/1,
 	 set_on_link/1, set_on_first_link/1,
 	 system_monitor_args/1, more_system_monitor_args/1,
@@ -54,7 +54,7 @@ all() ->
      send_trace, procs_trace, dist_procs_trace, suspend,
      mutual_suspend, suspend_exit, suspender_exit,
      suspend_system_limit, suspend_opts, suspend_waiting,
-     new_clear, existing_clear, set_on_spawn,
+     new_clear, existing_clear, tracer_die, set_on_spawn,
      set_on_first_spawn, set_on_link, set_on_first_link,
      system_monitor_args,
      more_system_monitor_args, system_monitor_long_gc_1,
@@ -1633,6 +1633,34 @@ existing_clear(Config) when is_list(Config) ->
     {flags, []} = erlang:trace_info(Self, flags),
     {tracer, []} = erlang:trace_info(Self, tracer),
     M = N, % Used to be N + 1, but from 19.0 the tracer is also traced
+
+    ok.
+
+%% Test that erlang:trace/3 can be called on processes where the
+%% tracer has died. OTP-13928
+tracer_die(Config) when is_list(Config) ->
+    Proc = spawn(fun receiver/0),
+
+    Tracer = spawn(fun receiver/0),
+    timer:sleep(1),
+    N = erlang:trace(existing, true, [send, {tracer, Tracer}]),
+    {flags, [send]} = erlang:trace_info(Proc, flags),
+    {tracer, Tracer} = erlang:trace_info(Proc, tracer),
+    exit(Tracer, die),
+
+    Tracer2 = spawn(fun receiver/0),
+    timer:sleep(1),
+    N = erlang:trace(existing, true, [send, {tracer, Tracer2}]),
+    {flags, [send]} = erlang:trace_info(Proc, flags),
+    {tracer, Tracer2} = erlang:trace_info(Proc, tracer),
+    exit(Tracer2, die),
+
+    Tracer3 = spawn(fun receiver/0),
+    timer:sleep(1),
+    1 = erlang:trace(Proc, true, [send, {tracer, Tracer3}]),
+    {flags, [send]} = erlang:trace_info(Proc, flags),
+    {tracer, Tracer3} = erlang:trace_info(Proc, tracer),
+    exit(Tracer3, die),
 
     ok.
 
