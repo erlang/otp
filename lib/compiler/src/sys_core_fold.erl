@@ -734,7 +734,7 @@ call(#c_call{args=As}=Call, #c_literal{val=M}=M0, #c_literal{val=N}=N0, Sub) ->
   	false ->
 	    case sys_core_fold_lists:call(Call, M, N, As) of
 		none ->
-		    call_1(Call, M, N, As, Sub);
+		    call_1(Call, M0, N0, As, Sub);
 		Core ->
 		    expr(Core, Sub)
 	    end
