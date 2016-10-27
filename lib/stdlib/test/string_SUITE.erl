@@ -32,7 +32,7 @@
 -export([len/1,equal/1,concat/1,chr_rchr/1,str_rstr/1]).
 -export([span_cspan/1,substr/1,tokens/1,chars/1]).
 -export([copies/1,words/1,strip/1,sub_word/1,left_right/1]).
--export([sub_string/1,centre/1, join/1]).
+-export([sub_string/1,centre/1, join/1, starts_with/1]).
 -export([to_integer/1,to_float/1]).
 -export([to_upper_to_lower/1]).
 
@@ -40,13 +40,13 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
+all() ->
     [len, equal, concat, chr_rchr, str_rstr, span_cspan,
      substr, tokens, chars, copies, words, strip, sub_word,
      left_right, sub_string, centre, join, to_integer,
-     to_float, to_upper_to_lower].
+     to_float, to_upper_to_lower, starts_with].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -463,3 +463,17 @@ join(Config) when is_list(Config) ->
     %% invalid arg type
     {'EXIT',_} = (catch string:join([apa], "")),
     ok.
+
+starts_with(suite) ->
+    [];
+starts_with(doc) ->
+    [];
+starts_with(Config) when is_list(Config) ->
+	?line true = string:starts_with("", ""),
+	?line true = string:starts_with("hello joe", ""),
+	?line true = string:starts_with("hello mike", "hello"),
+	?line false = string:starts_with("", "hello robert"),
+	?line false = string:starts_with("hello", "hello joe"),
+	?line false = string:starts_with("hello mike", "hello robert"),
+	?line {'EXIT',_} = (catch string:starts_with(otp, 123)),
+	ok.

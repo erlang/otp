@@ -24,7 +24,7 @@
 -export([copies/2,words/1,words/2,strip/1,strip/2,strip/3,
 	 sub_word/2,sub_word/3,left/2,left/3,right/2,right/3,
 	 sub_string/2,sub_string/3,centre/2,centre/3, join/2]).
--export([to_upper/1, to_lower/1]).
+-export([to_upper/1, to_lower/1, starts_with/2]).
 
 -import(lists,[reverse/1,member/2]).
 
@@ -540,3 +540,10 @@ join([], Sep) when is_list(Sep) ->
     [];
 join([H|T], Sep) ->
     H ++ lists:append([Sep ++ X || X <- T]).
+
+-spec starts_with(String, StartString) -> Result when
+	  String :: string(),
+	  StartString :: string(),
+	  Result :: boolean().
+starts_with(String, StartString) ->
+	lists:prefix(StartString, String).
