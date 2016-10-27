@@ -211,24 +211,24 @@ static ERTS_INLINE void hash_erase_drv_ev_state(ErtsDrvEventState *state)
 #endif /* !ERTS_SYS_CONTINOUS_FD_NUMBERS */
 
 static void stale_drv_select(Eterm id, ErtsDrvEventState *state, int mode);
-static void select_steal(ErlDrvPort ix, ErtsDrvEventState *state, 
+static void drv_select_steal(ErlDrvPort ix, ErtsDrvEventState *state,
 			 int mode, int on);
-static void print_select_op(erts_dsprintf_buf_t *dsbufp,
-			    ErlDrvPort ix, ErtsSysFdType fd, int mode, int on);
+static void print_drv_select_op(erts_dsprintf_buf_t *dsbufp,
+                                ErlDrvPort ix, ErtsSysFdType fd, int mode, int on);
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
 static void select_large_fd_error(ErlDrvPort, ErtsSysFdType, int, int);
 #endif
 #if ERTS_CIO_HAVE_DRV_EVENT
-static void event_steal(ErlDrvPort ix, ErtsDrvEventState *state, 
+static void drv_event_steal(ErlDrvPort ix, ErtsDrvEventState *state,
 			ErlDrvEventData event_data);
-static void print_event_op(erts_dsprintf_buf_t *dsbufp,
-			   ErlDrvPort, ErtsSysFdType, ErlDrvEventData);    
+static void print_drv_event_op(erts_dsprintf_buf_t *dsbufp,
+                               ErlDrvPort, ErtsSysFdType, ErlDrvEventData);
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
 static void event_large_fd_error(ErlDrvPort, ErtsSysFdType, ErlDrvEventData);
 #endif
 #endif
-static void steal_pending_stop_select(erts_dsprintf_buf_t*, ErlDrvPort,
-				      ErtsDrvEventState*, int mode, int on);
+static void steal_pending_stop_use(erts_dsprintf_buf_t*, ErlDrvPort,
+                                   ErtsDrvEventState*, int mode, int on);
 
 #ifdef ERTS_SMP
 ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(removed_fd, struct removed_fd, 64, ERTS_ALC_T_FD_LIST)
@@ -922,12 +922,12 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
 
 #if ERTS_CIO_HAVE_DRV_EVENT
     if (state->type == ERTS_EV_TYPE_DRV_EV)
-	select_steal(ix, state, mode, on);
+	drv_select_steal(ix, state, mode, on);
 #endif
     if (state->type == ERTS_EV_TYPE_STOP_USE) {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	print_select_op(dsbufp, ix, state->fd, mode, on);
-	steal_pending_stop_select(dsbufp, ix, state, mode, on);
+	print_drv_select_op(dsbufp, ix, state->fd, mode, on);
+	steal_pending_stop_use(dsbufp, ix, state, mode, on);
 	if (state->type == ERTS_EV_TYPE_STOP_USE) {
 	    ret = 0;
 	    goto done; /* stop_select still pending */
@@ -939,7 +939,7 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
 	if (state->type == ERTS_EV_TYPE_DRV_SEL) {
 	    Eterm owner = state->driver.select->inport;
 	    if (owner != id && is_not_nil(owner))
-		select_steal(ix, state, mode, on);
+		drv_select_steal(ix, state, mode, on);
 	}
 	ctl_events |= ERTS_POLL_EV_IN;
     }
@@ -947,7 +947,7 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
 	if (state->type == ERTS_EV_TYPE_DRV_SEL) {
 	    Eterm owner = state->driver.select->outport;
 	    if (owner != id && is_not_nil(owner))
-		select_steal(ix, state, mode, on);
+		drv_select_steal(ix, state, mode, on);
 	}
 	ctl_events |= ERTS_POLL_EV_OUT;
     }	
@@ -1130,12 +1130,12 @@ ERTS_CIO_EXPORT(driver_event)(ErlDrvPort ix,
 	if (state->driver.event->port == id) break;
 	/*fall through*/
     case ERTS_EV_TYPE_DRV_SEL:
-	event_steal(ix, state, event_data);
+	drv_event_steal(ix, state, event_data);
 	break;
     case ERTS_EV_TYPE_STOP_USE: {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	print_event_op(dsbufp, ix, fd, event_data);
-	steal_pending_stop_select(dsbufp, ix, state, 0, 1);
+	print_drv_event_op(dsbufp, ix, fd, event_data);
+	steal_pending_stop_use(dsbufp, ix, state, 0, 1);
 	break;
       }
     }
@@ -1339,8 +1339,8 @@ steal(erts_dsprintf_buf_t *dsbufp, ErtsDrvEventState *state, int mode)
 }
 
 static void
-print_select_op(erts_dsprintf_buf_t *dsbufp,
-		ErlDrvPort ix, ErtsSysFdType fd, int mode, int on)
+print_drv_select_op(erts_dsprintf_buf_t *dsbufp,
+                    ErlDrvPort ix, ErtsSysFdType fd, int mode, int on)
 {
     Port *pp = erts_drvport2port(ix);
     erts_dsprintf(dsbufp,
@@ -1358,11 +1358,11 @@ print_select_op(erts_dsprintf_buf_t *dsbufp,
 }
 
 static void
-select_steal(ErlDrvPort ix, ErtsDrvEventState *state, int mode, int on)
+drv_select_steal(ErlDrvPort ix, ErtsDrvEventState *state, int mode, int on)
 {
     if (need2steal(state, mode)) {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	print_select_op(dsbufp, ix, state->fd, mode, on);
+	print_drv_select_op(dsbufp, ix, state->fd, mode, on);
 	steal(dsbufp, state, mode);
 	erts_send_error_to_logger_nogl(dsbufp);
     }
@@ -1381,7 +1381,7 @@ static void
 select_large_fd_error(ErlDrvPort ix, ErtsSysFdType fd, int mode, int on)
 {
     erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-    print_select_op(dsbufp, ix, fd, mode, on);
+    print_drv_select_op(dsbufp, ix, fd, mode, on);
     erts_dsprintf(dsbufp, "failed: ");
     large_fd_error_common(dsbufp, fd);
     erts_send_error_to_logger_nogl(dsbufp);
@@ -1391,8 +1391,8 @@ select_large_fd_error(ErlDrvPort ix, ErtsSysFdType fd, int mode, int on)
 
 
 static void
-steal_pending_stop_select(erts_dsprintf_buf_t *dsbufp, ErlDrvPort ix,
-			  ErtsDrvEventState *state, int mode, int on)
+steal_pending_stop_use(erts_dsprintf_buf_t *dsbufp, ErlDrvPort ix,
+                       ErtsDrvEventState *state, int mode, int on)
 {
     ASSERT(state->type == ERTS_EV_TYPE_STOP_USE);
     erts_dsprintf(dsbufp, "failed: fd=%d (re)selected before stop_select "
@@ -1433,8 +1433,8 @@ steal_pending_stop_select(erts_dsprintf_buf_t *dsbufp, ErlDrvPort ix,
 #if ERTS_CIO_HAVE_DRV_EVENT
 
 static void
-print_event_op(erts_dsprintf_buf_t *dsbufp,
-	       ErlDrvPort ix, ErtsSysFdType fd, ErlDrvEventData event_data)
+print_drv_event_op(erts_dsprintf_buf_t *dsbufp,
+                   ErlDrvPort ix, ErtsSysFdType fd, ErlDrvEventData event_data)
 {
     Port *pp = erts_drvport2port(ix);
     erts_dsprintf(dsbufp, "driver_event(%p, %d, ", ix, (int) fd);
@@ -1451,11 +1451,11 @@ print_event_op(erts_dsprintf_buf_t *dsbufp,
 }
 
 static void
-event_steal(ErlDrvPort ix, ErtsDrvEventState *state, ErlDrvEventData event_data)
+drv_event_steal(ErlDrvPort ix, ErtsDrvEventState *state, ErlDrvEventData event_data)
 {
     if (need2steal(state, ERL_DRV_READ|ERL_DRV_WRITE)) {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	print_event_op(dsbufp, ix, state->fd, event_data);
+	print_drv_event_op(dsbufp, ix, state->fd, event_data);
 	steal(dsbufp, state, ERL_DRV_READ|ERL_DRV_WRITE);
 	erts_send_error_to_logger_nogl(dsbufp);
     }
@@ -1470,7 +1470,7 @@ static void
 event_large_fd_error(ErlDrvPort ix, ErtsSysFdType fd, ErlDrvEventData event_data)
 {
     erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-    print_event_op(dsbufp, ix, fd, event_data);
+    print_drv_event_op(dsbufp, ix, fd, event_data);
     erts_dsprintf(dsbufp, "failed: ");
     large_fd_error_common(dsbufp, fd);
     erts_send_error_to_logger_nogl(dsbufp);
