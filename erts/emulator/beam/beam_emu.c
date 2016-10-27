@@ -6547,7 +6547,7 @@ call_fun(Process* p,		/* Current process. */
 		     * and let it try again when the purge operation is
 		     * done (may succeed or not).
 		     */
-		    ep = erts_suspend_process_on_pending_purge_lambda(p);
+		    ep = erts_suspend_process_on_pending_purge_lambda(p, fe);
 		    ASSERT(ep);
 		}
 		else {

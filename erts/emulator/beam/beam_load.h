@@ -116,7 +116,8 @@ int erts_is_module_native(BeamCodeHeader* code);
 void erts_beam_bif_load_init(void);
 struct erl_fun_entry;
 void erts_purge_state_add_fun(struct erl_fun_entry *fe);
-Export *erts_suspend_process_on_pending_purge_lambda(Process *c_p);
+Export *erts_suspend_process_on_pending_purge_lambda(Process *c_p,
+                                                     struct erl_fun_entry*);
 
 /*
  * Layout of the line table.
