@@ -43,7 +43,7 @@
       Erlang node distributed, <c>net_kernel</c> uses this module to
       set up listen ports and connections.</p>
 
-      <p>In the SSL application, an exra distribution
+      <p>In the SSL application, an extra distribution
       module, <c>inet_tls_dist</c>, can be used as an
       alternative. All distribution connections will use SSL and
       all participating Erlang nodes in a distributed system must use
