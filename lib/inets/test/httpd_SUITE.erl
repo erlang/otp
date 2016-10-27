@@ -521,6 +521,9 @@ do_auth_api(AuthPrefix, Config) ->
       		     "two", "group1"),
     add_group_member(Node, ServerRoot, Port, AuthPrefix,  
       			 "secret", "Aladdin", "group2"),
+    {ok, Members} = list_group_members(Node, ServerRoot, Port, AuthPrefix, "secret", "group1"),
+    true = lists:member("one", Members),
+    true = lists:member("two", Members),
     ok = auth_status(auth_request("/" ++ AuthPrefix ++ "secret/",
       				  "one", "onePassword", Version, Host),
       		     Config, [{statuscode, 200}]),
@@ -2155,6 +2158,10 @@ add_group_member(Node, Root, Port, AuthPrefix, Dir, User, Group) ->
     Directory = filename:join([Root, "htdocs", AuthPrefix ++ Dir]),
     rpc:call(Node, mod_auth, add_group_member, [Group, User, Addr, Port, 
 					  Directory]).
+list_group_members(Node, Root, Port, AuthPrefix, Dir, Group) ->
+    Directory = filename:join([Root, "htdocs", AuthPrefix ++ Dir]),
+    rpc:call(Node, mod_auth, list_group_members, [Group, [{port, Port}, {dir, Directory}]]).
+
 getaddr() ->
     {ok,HostName} = inet:gethostname(),
     {ok,{A1,A2,A3,A4}} = inet:getaddr(HostName,inet),
