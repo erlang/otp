@@ -397,6 +397,7 @@ erlang_server_openssh_client_renegotiate(Config) ->
 					     {public_key_alg, PubKeyAlg},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
 
+    ssh_dbg:messages(fun(String,_D) -> ct:log(String) end),
     ct:sleep(500),
 
     RenegLimitK = 3,
