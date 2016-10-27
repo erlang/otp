@@ -417,7 +417,7 @@ erlang_server_openssh_client_renegotiate(Config) ->
 					       not lists:member(C,lists:seq($A,$Z))
 					 ],
 			 Lines = string:tokens(binary_to_list(R), NonAlphaChars),
-			 lists:any(fun(L) -> lists:prefix(L, Data) end,
+			 lists:any(fun(L) -> length(L)>1 andalso lists:prefix(L, Data) end,
 				   Lines)
 		     catch
 			 _:_ -> false
