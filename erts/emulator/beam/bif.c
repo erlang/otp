@@ -5027,17 +5027,16 @@ void erts_init_bif(void)
 
 #define ERTS_SCHED_BIF_TRAP_MARKER ((void *) (UWord) 1)
 
-static void
+static ERTS_INLINE void
 schedule(Process *c_p, Process *dirty_shadow_proc,
-	 ErtsCodeMFA *mfa, BifFunction *nif, BeamInstr *pc,
+	 ErtsCodeMFA *mfa, BeamInstr *pc,
 	 ErtsBifFunc dfunc, void *ifunc,
 	 Eterm module, Eterm function,
 	 int argc, Eterm *argv)
 {
     ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
     (void) erts_nif_export_schedule(c_p, dirty_shadow_proc,
-				    mfa, nif, pc,
-				    (BeamInstr) em_apply_bif,
+				    mfa, pc, (BeamInstr) em_apply_bif,
 				    dfunc, ifunc,
 				    module, function,
 				    argc, argv);
@@ -5120,11 +5119,10 @@ erts_schedule_bif(Process *proc,
 
     if (!ERTS_PROC_IS_EXITING(c_p)) {
 	Export *exp;
-	BifFunction obif, dbif, ibif;
+	BifFunction dbif, ibif;
 	BeamInstr *pc;
 
 	/*
-	 * obif - original bif
 	 * dbif - direct bif
 	 * ibif - indirect bif
 	 */
@@ -5160,14 +5158,12 @@ erts_schedule_bif(Process *proc,
 
 	if (i == NULL) {
 	    ERTS_INTERNAL_ERROR("Missing instruction pointer");
-	    obif = NULL;
 	}
 #ifdef HIPE
 	else if (proc->flags & F_HIPE_MODE) {
 	    /* Pointer to bif export in i */
 	    exp = (Export *) i;
 	    pc = c_p->cp;
-	    obif = (BifFunction) exp->beam[1];
 	    mfa = &exp->info.mfa;
 	}
 #endif
@@ -5175,19 +5171,16 @@ erts_schedule_bif(Process *proc,
 	    /* Pointer to bif export in i+1 */
 	    exp = (Export *) i[1];
 	    pc = i;
-	    obif = (BifFunction) exp->beam[1];
 	    mfa = &exp->info.mfa;
 	}
 	else if (em_apply_bif == (BeamInstr *) *i) {
 	    /* Pointer to bif in i+1, and mfa in i-3 */	    
-	    obif = (BifFunction) i[1];
 	    pc = c_p->cp;
 	    mfa = erts_code_to_codemfa(i);
 	}
 	else {
 	    ERTS_INTERNAL_ERROR("erts_schedule_bif() called "
 				"from unexpected instruction");
-	    obif = NULL;
 	}
 	ASSERT(bif);
 
@@ -5197,8 +5190,8 @@ erts_schedule_bif(Process *proc,
 	    argc = (int) mfa->arity;
 	}
 
-	schedule(c_p, dirty_shadow_proc, mfa, obif,
-		 pc, dbif, ibif, mod, func, argc, argv);
+	schedule(c_p, dirty_shadow_proc, mfa, pc, dbif, ibif,
+		 mod, func, argc, argv);
     }
 
     if (dirty_shadow_proc)
@@ -5295,14 +5288,14 @@ erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *
 
     if (!exiting) {
 	if (is_value(result))
-	    schedule(c_p, dirty_shadow_proc, NULL, NULL, NULL, dirty_bif_result,
+	    schedule(c_p, dirty_shadow_proc, NULL, NULL, dirty_bif_result,
 		     NULL, am_erts_internal, am_dirty_bif_result, 1, &result);
 	else if (dirty_shadow_proc->freason != TRAP) {
 	    Eterm argv[2];
 	    ASSERT(dirty_shadow_proc->freason <= MAX_SMALL);
 	    argv[0] = make_small(dirty_shadow_proc->freason);
 	    argv[1] = dirty_shadow_proc->fvalue;
-	    schedule(c_p, dirty_shadow_proc, NULL, NULL, NULL,
+	    schedule(c_p, dirty_shadow_proc, NULL, NULL,
 		     dirty_bif_exception, NULL, am_erts_internal,
 		     am_dirty_bif_exception, 2, argv);
 	}
@@ -5310,7 +5303,7 @@ erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *
 	    /* Dirty BIF did an ordinary trap... */
 	    ASSERT(!(erts_smp_atomic32_read_nob(&c_p->state)
 		     & (ERTS_PSFLG_DIRTY_CPU_PROC|ERTS_PSFLG_DIRTY_IO_PROC)));
-	    schedule(c_p, dirty_shadow_proc, NULL, NULL, NULL,
+	    schedule(c_p, dirty_shadow_proc, NULL, NULL,
 		     dirty_bif_trap, (void *) dirty_shadow_proc->i,
 		     am_erts_internal, am_dirty_bif_trap,
 		     dirty_shadow_proc->arity, reg);

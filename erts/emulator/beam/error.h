@@ -214,7 +214,6 @@ struct StackTrace {
     BeamInstr* pc;
     ErtsCodeMFA* current;
     int depth;	/* number of saved pointers in trace[] */
-    ErtsCodeMFA mfa; /* in case we need to make a copy of mfa */
     BeamInstr *trace[1];  /* varying size - must be last in struct */
 };
 

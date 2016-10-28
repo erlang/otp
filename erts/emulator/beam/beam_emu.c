@@ -1057,9 +1057,10 @@ do {                                            \
  * The following functions are called directly by process_main().
  * Don't inline them.
  */
-static BifFunction translate_gc_bif(void* gcf) NOINLINE;
+static ErtsCodeMFA *ubif2mfa(void* uf) NOINLINE;
+static ErtsCodeMFA *gcbif2mfa(void* gcf) NOINLINE;
 static BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
-			       Eterm* reg, BifFunction bf) NOINLINE;
+			       Eterm* reg, ErtsCodeMFA* bif_mfa) NOINLINE;
 static BeamInstr* call_error_handler(Process* p, ErtsCodeMFA* mfa,
 				     Eterm* reg, Eterm func) NOINLINE;
 static BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity,
@@ -1088,7 +1089,7 @@ static BeamInstr* next_catch(Process* c_p, Eterm *reg);
 static void terminate_proc(Process* c_p, Eterm Value);
 static Eterm add_stacktrace(Process* c_p, Eterm Value, Eterm exc);
 static void save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
-			     BifFunction bf, Eterm args);
+			    ErtsCodeMFA *bif_mfa, Eterm args);
 static struct StackTrace * get_trace_from_exc(Eterm exc);
 static Eterm make_arglist(Process* c_p, Eterm* reg, int a);
 
@@ -2640,7 +2641,7 @@ do {						\
 	}
 	reg[0] = tmp_reg[0];
 	SWAPOUT;
-	I = handle_error(c_p, I, reg, bf);
+	I = handle_error(c_p, I, reg, ubif2mfa((void *) bf));
 	goto post_error_handling;
     }
 
@@ -2676,7 +2677,7 @@ do {						\
 	    Goto(*I);
 	}
 	x(0) = x(live);
-	I = handle_error(c_p, I, reg, translate_gc_bif((void *) bf));
+	I = handle_error(c_p, I, reg, gcbif2mfa((void *) bf));
 	goto post_error_handling;
     }
 
@@ -2721,7 +2722,7 @@ do {						\
 	live--;
 	x(0) = x(live);
 	x(1) = x(live+1);
-	I = handle_error(c_p, I, reg, translate_gc_bif((void *) bf));
+	I = handle_error(c_p, I, reg, gcbif2mfa((void *) bf));
 	goto post_error_handling;
     }
 
@@ -2767,7 +2768,7 @@ do {						\
 	x(0) = x(live);
 	x(1) = x(live+1);
 	x(2) = x(live+2);
-	I = handle_error(c_p, I, reg, translate_gc_bif((void *) bf));
+	I = handle_error(c_p, I, reg, gcbif2mfa((void *) bf));
 	goto post_error_handling;
     }
 
@@ -2829,7 +2830,7 @@ do {						\
 	reg[0] = tmp_reg[0];
 	reg[1] = tmp_reg[1];
 	SWAPOUT;
-	I = handle_error(c_p, I, reg, bf);
+	I = handle_error(c_p, I, reg, ubif2mfa((void *) bf));
 	goto post_error_handling;
     }
 
@@ -2906,7 +2907,7 @@ do {						\
 	 * Error handling.  SWAPOUT is not needed because it was done above.
 	 */
 	ASSERT(c_p->stop == E);
-	I = handle_error(c_p, I, reg, bf);
+	I = handle_error(c_p, I, reg, &export->info.mfa);
 	goto post_error_handling;
     }
 
@@ -3210,7 +3211,7 @@ do {						\
 	 SET_I(next);
 	 Dispatch();
      }
-     I = handle_error(c_p, I, reg, apply_3);
+     I = handle_error(c_p, I, reg, &bif_export[BIF_apply_3]->info.mfa);
      goto post_error_handling;
  }
 
@@ -3225,7 +3226,7 @@ do {						\
 	 SET_I(next);
 	 Dispatch();
      }
-     I = handle_error(c_p, I, reg, apply_3);
+     I = handle_error(c_p, I, reg, &bif_export[BIF_apply_3]->info.mfa);
      goto post_error_handling;
  }
 
@@ -3238,7 +3239,7 @@ do {						\
 	 SET_I(next);
 	 Dispatch();
      }
-     I = handle_error(c_p, I, reg, apply_3);
+     I = handle_error(c_p, I, reg, &bif_export[BIF_apply_3]->info.mfa);
      goto post_error_handling;
  }
 
@@ -3253,7 +3254,7 @@ do {						\
 	 SET_I(next);
 	 Dispatch();
      }
-     I = handle_error(c_p, I, reg, apply_3);
+     I = handle_error(c_p, I, reg, &bif_export[BIF_apply_3]->info.mfa);
      goto post_error_handling;
  }
 
@@ -3269,7 +3270,7 @@ do {						\
 	 SET_I(next);
 	 Dispatch();
      }
-     I = handle_error(c_p, I, reg, apply_3);
+     I = handle_error(c_p, I, reg, &bif_export[BIF_apply_3]->info.mfa);
      goto post_error_handling;
  }
 
@@ -3690,7 +3691,7 @@ do {						\
 		}
 		Dispatch();
 	    }
-	    I = handle_error(c_p, c_p->cp, reg, vbf);
+	    I = handle_error(c_p, c_p->cp, reg, c_p->current);
 	    goto post_error_handling;
 	}
     }
@@ -5045,7 +5046,7 @@ do {						\
 	 goto do_schedule;
      } else {
 	 HEAVY_SWAPIN;
-	 I = handle_error(c_p, I, reg, hibernate_3);
+	 I = handle_error(c_p, I, reg, &bif_export[BIF_hibernate_3]->info.mfa);
 	 goto post_error_handling;
      }
  }
@@ -5437,17 +5438,28 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 #endif /* ERTS_DIRTY_SCHEDULERS */
 }
 
-static BifFunction
-translate_gc_bif(void* gcf)
+static ErtsCodeMFA *
+gcbif2mfa(void* gcf)
 {
-    const ErtsGcBif* p;
-
-    for (p = erts_gc_bifs; p->bif != 0; p++) {
-	if (p->gc_bif == gcf) {
-	    return p->bif;
-	}
+    int i;
+    for (i = 0; erts_gc_bifs[i].bif; i++) {
+	if (erts_gc_bifs[i].gc_bif == gcf)
+	    return &bif_export[erts_gc_bifs[i].exp_ix]->info.mfa;
     }
     erts_exit(ERTS_ERROR_EXIT, "bad gc bif");
+    return NULL;
+}
+
+static ErtsCodeMFA *
+ubif2mfa(void* uf)
+{
+    int i;
+    for (i = 0; erts_u_bifs[i].bif; i++) {
+	if (erts_u_bifs[i].bif == uf)
+	    return &bif_export[erts_u_bifs[i].exp_ix]->info.mfa;
+    }
+    erts_exit(ERTS_ERROR_EXIT, "bad u bif");
+    return NULL;
 }
 
 /*
@@ -5506,7 +5518,7 @@ Eterm error_atom[NUMBER_EXIT_CODES] = {
  */
 
 static BeamInstr*
-handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf)
+handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, ErtsCodeMFA *bif_mfa)
 {
     Eterm* hp;
     Eterm Value = c_p->fvalue;
@@ -5514,9 +5526,16 @@ handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf)
 
     ASSERT(c_p->freason != TRAP); /* Should have been handled earlier. */
 
-    if (c_p->freason & EXF_RESTORE_NIF) {
-	erts_nif_export_restore_error(c_p, &pc, reg, &bf);
+    if (c_p->freason & EXF_RESTORE_NIF)
+	erts_nif_export_restore_error(c_p, &pc, reg, &bif_mfa);
+
+#ifdef DEBUG
+    if (bif_mfa) {
+	/* Verify that bif_mfa does not point into our nif export */
+	NifExport *nep = ERTS_PROC_GET_NIF_TRAP_EXPORT(c_p);
+	ASSERT(!nep || !ErtsInArea(bif_mfa, (char *)nep, sizeof(NifExport)));
     }
+#endif
 
     c_p->i = pc;    /* In case we call erts_exit(). */
 
@@ -5542,7 +5561,7 @@ handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf)
      * more modular.
      */
     if (c_p->freason & EXF_SAVETRACE) {
-        save_stacktrace(c_p, pc, reg, bf, Args);
+        save_stacktrace(c_p, pc, reg, bif_mfa, Args);
     }
 
     /*
@@ -5817,23 +5836,12 @@ expand_error_value(Process* c_p, Uint freason, Eterm Value) {
  */
 
 static void
-save_stacktrace_current(struct StackTrace *s, Process *c_p, ErtsCodeMFA *mfa)
-{
-    NifExport *nep = (NifExport *) ERTS_PROC_GET_NIF_TRAP_EXPORT(c_p);
-    if (!nep || &nep->exp.info.mfa != mfa)
-	s->current = mfa;
-    else {
-	s->mfa = *mfa;
-	s->current = &s->mfa;
-    }
-}
-
-static void
-save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
-		Eterm args) {
+save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
+		ErtsCodeMFA *bif_mfa, Eterm args) {
     struct StackTrace* s;
     int sz;
     int depth = erts_backtrace_depth;    /* max depth (never negative) */
+
     if (depth > 0) {
 	/* There will always be a current function */
 	depth --;
@@ -5850,33 +5858,29 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 
     /*
      * If the failure was in a BIF other than 'error/1', 'error/2',
-     * 'exit/1' or 'throw/1', find the bif-table index and save the
-     * argument registers by consing up an arglist.
+     * 'exit/1' or 'throw/1', save BIF-MFA and save the argument
+     * registers by consing up an arglist.
      */
-    if (bf != NULL && bf != error_1 && bf != error_2 && bf != exit_1
-	&& bf != throw_1 && bf != wrap_error_1 && bf != wrap_error_2
-	&& bf != wrap_exit_1 && bf != wrap_throw_1) {
-        int i;
-	int a;
-	for (i = 0; i < BIF_SIZE; i++) {
-	    if (bf == bif_table[i].f || bf == bif_table[i].traced) {
-		save_stacktrace_current(s, c_p, &bif_export[i]->info.mfa);
+    if (bif_mfa) {
+	if (bif_mfa->module == am_erlang) {
+	    switch (bif_mfa->function) {
+	    case am_error:
+		if (bif_mfa->arity == 1 || bif_mfa->arity == 2)
+		    goto non_bif_stacktrace;
+		break;
+	    case am_exit:
+		if (bif_mfa->arity == 1)
+		    goto non_bif_stacktrace;
+		break;
+	    case am_throw:
+		if (bif_mfa->arity == 1)
+		    goto non_bif_stacktrace;
+		break;
+	    default:
 		break;
 	    }
 	}
-	if (i >= BIF_SIZE) {
-	    /* 
-	     * The Bif does not really exist (no BIF entry).  It is a
-	     * TRAP and traps are called through apply_bif, which also
-	     * sets c_p->current (luckily).
-	     * OR it is a NIF called by call_nif where current is also set.
-	     */
-	    ASSERT(c_p->current);
-	    save_stacktrace_current(s, c_p, c_p->current);
-	}
-
-	a = s->current->arity;
-
+	s->current = bif_mfa;
 	/* Save first stack entry */
 	ASSERT(pc);
 	if (depth > 0) {
@@ -5889,11 +5893,12 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 	    depth--;
 	}
 	s->pc = NULL;
-	args = make_arglist(c_p, reg, a); /* Overwrite CAR(c_p->ftrace) */
+	args = make_arglist(c_p, reg, bif_mfa->arity); /* Overwrite CAR(c_p->ftrace) */
     } else {
 
-	save_stacktrace_current(s, c_p, c_p->current);
+    non_bif_stacktrace:
 
+	s->current = c_p->current;
         /* 
 	 * For a function_clause error, the arguments are in the beam
 	 * registers, c_p->cp is valid, and c_p->current is set.

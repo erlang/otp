@@ -266,7 +266,6 @@ static ERTS_INLINE ERL_NIF_TERM
 schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
 	 Eterm mod, Eterm func_name, int argc, const ERL_NIF_TERM argv[])
 {
-    Export *exp;
     NifExport *ep;
     Process *c_p, *dirty_shadow_proc;
 
@@ -278,11 +277,8 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
 
     ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
 
-    exp = ErtsContainerStruct(c_p->current, Export, info.mfa);
-
     ep = erts_nif_export_schedule(c_p, dirty_shadow_proc,
 				  c_p->current,
-				  (BifFunction) exp->beam[1],
 				  c_p->cp,
 				  (BeamInstr) em_call_nif,
 				  direct_fp, indirect_fp,

@@ -52,7 +52,7 @@ typedef struct {
 NifExport *erts_new_proc_nif_export(Process *c_p, int argc);
 void erts_destroy_nif_export(Process *p);
 NifExport *erts_nif_export_schedule(Process *c_p, Process *dirty_shadow_proc,
-				    ErtsCodeMFA *mfa, void *nif, BeamInstr *pc,
+				    ErtsCodeMFA *mfa, BeamInstr *pc,
 				    BeamInstr instr,
 				    void *dfunc, void *ifunc,
 				    Eterm mod, Eterm func,
@@ -65,7 +65,7 @@ ERTS_GLB_INLINE int erts_check_nif_export_in_area(Process *p,
 						  char *start, Uint size);
 ERTS_GLB_INLINE void erts_nif_export_restore(Process *c_p, NifExport *ep);
 ERTS_GLB_INLINE void erts_nif_export_restore_error(Process* c_p, BeamInstr **pc,
-						   Eterm *reg, void **nif);
+						   Eterm *reg, ErtsCodeMFA **nif_mfa);
 ERTS_GLB_INLINE Process *erts_proc_shadow2real(Process *c_p);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
@@ -132,8 +132,8 @@ erts_nif_export_restore(Process *c_p, NifExport *ep)
 }
 
 ERTS_GLB_INLINE void
-erts_nif_export_restore_error(Process* c_p, BeamInstr **pc, Eterm *reg,
-			      void **nif)
+erts_nif_export_restore_error(Process* c_p, BeamInstr **pc,
+			      Eterm *reg, ErtsCodeMFA **nif_mfa)
 {
     NifExport *nep = (NifExport *) ERTS_PROC_GET_NIF_TRAP_EXPORT(c_p);
     int ix;
@@ -141,7 +141,7 @@ erts_nif_export_restore_error(Process* c_p, BeamInstr **pc, Eterm *reg,
     ASSERT(nep);
     *pc = nep->pc;
     c_p->cp = nep->cp;
-    *nif = nep->nif;
+    *nif_mfa = nep->mfa;
     for (ix = 0; ix < nep->argc; ix++)
 	reg[ix] = nep->argv[ix];
     erts_nif_export_restore(c_p, nep);

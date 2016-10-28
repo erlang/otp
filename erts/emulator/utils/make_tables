@@ -37,6 +37,7 @@ use File::Basename;
 #    <-src>/erl_bif_table.c
 #    <-src>/erl_bif_wrap.c
 #    <-src>/erl_dirty_bif_wrap.c
+#    <-src>/erl_guard_bifs.c
 #    <-src>/hipe_nbif_impl.c
 #    <-include>/hipe_nbif_impl.h
 #    <-include>/erl_atom_table.h
@@ -228,11 +229,18 @@ typedef struct bif_entry {
 typedef struct erts_gc_bif {
     BifFunction bif;
     BifFunction gc_bif;
+    int exp_ix;
 } ErtsGcBif;
+
+typedef struct erts_u_bif {
+    BifFunction bif;
+    int exp_ix;
+} ErtsUBif;
 
 extern BifEntry bif_table[];
 extern Export* bif_export[];
 extern const ErtsGcBif erts_gc_bifs[];
+extern const ErtsUBif erts_u_bifs[];
 
 #define BIF_SIZE $bif_size
 
@@ -304,18 +312,24 @@ for ($i = 0; $i < @bif; $i++) {
 # Generate erl_gc_bifs.c.
 #
 
-open_file("$src/erl_gc_bifs.c");
+open_file("$src/erl_guard_bifs.c");
 my $i;
 includes("export.h", "sys.h", "erl_vm.h", "global.h", "erl_process.h", "bif.h",
 	 "erl_bif_table.h");
 print "const ErtsGcBif erts_gc_bifs[] = {\n";
 for ($i = 0; $i < @bif; $i++) {
     next unless $bif_info[$i]->[0] eq 'gcbif';
-    my $arity = $bif[$i]->[2];
-    my $func = $bif[$i]->[3];
-    print "  {$func, erts_gc_$func},\n";
+    print "  {$bif[$i]->[3], erts_gc_$bif[$i]->[3], BIF_$bif[$i]->[5]},\n";
 }
-print "  {0, 0}\n";
+print "  {NULL, NULL, -1}\n";
+print "};\n";
+
+print "const ErtsUBif erts_u_bifs[] = {\n";
+for ($i = 0; $i < @bif; $i++) {
+    next unless $bif_info[$i]->[0] eq 'ubif';
+    print "  {$bif[$i]->[3], BIF_$bif[$i]->[5]},\n";
+}
+print "  {NULL, -1}\n";
 print "};\n";
 
 #

@@ -63,7 +63,7 @@ erts_destroy_nif_export(Process *p)
 
 NifExport *
 erts_nif_export_schedule(Process *c_p, Process *dirty_shadow_proc,
-			 ErtsCodeMFA *mfa, void *nif, BeamInstr *pc,
+			 ErtsCodeMFA *mfa, BeamInstr *pc,
 			 BeamInstr instr,
 			 void *dfunc, void *ifunc,
 			 Eterm mod, Eterm func,
@@ -111,8 +111,6 @@ erts_nif_export_schedule(Process *c_p, Process *dirty_shadow_proc,
 	    nep->argv[i] = reg[i];
 	nep->pc = pc;
 	nep->cp = c_p->cp;
-	ASSERT(nif);
-	nep->nif = nif;
 	nep->mfa = mfa;
 	nep->current = c_p->current;
 	ASSERT(argc >= 0);
