@@ -2039,7 +2039,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
       <fsummary>Set and get limits for busy port message queue.</fsummary>
       <desc>
         <marker id="erl_drv_busy_msgq_limits"></marker>
-        <p>Sets and gets limits that will be used for controling the
+        <p>Sets and gets limits that will be used for controlling the
           busy state of the port message queue.</p>
         <p>The port message queue is set into a busy
           state when the amount of command data queued on the
@@ -2112,7 +2112,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
           It is used to identify the condition variable in planned
           future debug functionality.</p>
         <p>Returns <c>NULL</c> on failure. The driver
-          creating the condition variable is responsibile for
+          creating the condition variable is responsible for
           destroying it before the driver is unloaded.</p>
         <p>This function is thread-safe.</p>
       </desc>
