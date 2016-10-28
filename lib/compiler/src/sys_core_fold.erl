@@ -172,13 +172,23 @@ guard(Expr, Sub) ->
 %%
 opt_guard_try(#c_seq{arg=Arg,body=Body0}=Seq) ->
     Body = opt_guard_try(Body0),
-    case {Arg,Body} of
-	{#c_call{module=#c_literal{val=Mod},
-		 name=#c_literal{val=Name},
-		 args=Args},#c_literal{val=false}} ->
+    WillFail = case Body of
+		   #c_call{module=#c_literal{val=erlang},
+			   name=#c_literal{val=error},
+			   args=[_]} ->
+		       true;
+		   #c_literal{val=false} ->
+		       true;
+		   _ ->
+		       false
+	       end,
+    case Arg of
+	#c_call{module=#c_literal{val=Mod},
+		name=#c_literal{val=Name},
+		args=Args} when WillFail ->
 	    %% We have sequence consisting of a call (evaluated
 	    %% for a possible exception and/or side effect only),
-	    %% followed by 'false'.
+	    %% followed by 'false' or a call to error/1.
 	    %%   Since the sequence is inside a try block that will
 	    %% default to 'false' if any exception occurs, not
 	    %% evalutating the call will not change the behaviour
@@ -193,7 +203,7 @@ opt_guard_try(#c_seq{arg=Arg,body=Body0}=Seq) ->
 		    %% be safely removed.
 		    Body
 	    end;
-	{_,_} ->
+	_ ->
 	    Seq#c_seq{body=Body}
     end;
 opt_guard_try(#c_case{clauses=Cs}=Term) ->
@@ -2141,7 +2151,7 @@ letify(Bs, Body) ->
 -spec opt_not_in_let(cerl:c_let()) -> cerl:cerl().
 
 opt_not_in_let(#c_let{vars=[_]=Vs0,arg=Arg0,body=Body0}=Let) ->
-    case opt_not_in_let(Vs0, Arg0, Body0) of
+    case opt_not_in_let_0(Vs0, Arg0, Body0) of
 	{[],#c_values{es=[]},Body} ->
 	    Body;
 	{Vs,Arg,Body} ->
@@ -2149,13 +2159,7 @@ opt_not_in_let(#c_let{vars=[_]=Vs0,arg=Arg0,body=Body0}=Let) ->
     end;
 opt_not_in_let(Let) -> Let.
 
-%% opt_not_in_let(Vs, Arg, Body) -> {Vs',Arg',Body'}
-%%  Try to optimize away a 'not' operator in a 'let'.
-
--spec opt_not_in_let([cerl:c_var()], cerl:cerl(), cerl:cerl()) ->
-			    {[cerl:c_var()],cerl:cerl(),cerl:cerl()}.
-
-opt_not_in_let([#c_var{name=V}]=Vs0, Arg0, Body0) ->
+opt_not_in_let_0([#c_var{name=V}]=Vs0, Arg0, Body0) ->
     case cerl:type(Body0) of
 	call ->
 	    %% let <V> = Expr in not V  ==>
@@ -2186,9 +2190,7 @@ opt_not_in_let([#c_var{name=V}]=Vs0, Arg0, Body0) ->
 	    end;
 	_ ->
 	    {Vs0,Arg0,Body0}
-    end;
-opt_not_in_let(Vs, Arg, Body) ->
-    {Vs,Arg,Body}.
+    end.
 
 opt_not_in_let_1(V, Call, Body) ->
     case Call of
@@ -2642,11 +2644,10 @@ opt_simple_let_0(#c_let{arg=Arg0}=Let, Ctxt, Sub) ->
 
 opt_simple_let_1(#c_let{vars=Vs0,body=B0}=Let, Arg0, Ctxt, Sub0) ->
     %% Optimise let and add new substitutions.
-    {Vs1,Args,Sub1} = let_substs(Vs0, Arg0, Sub0),
-    BodySub = update_let_types(Vs1, Args, Sub1),
-    B1 = body(B0, Ctxt, BodySub),
-    Arg1 = core_lib:make_values(Args),
-    {Vs,Arg,B} = opt_not_in_let(Vs1, Arg1, B1),
+    {Vs,Args,Sub1} = let_substs(Vs0, Arg0, Sub0),
+    BodySub = update_let_types(Vs, Args, Sub1),
+    B = body(B0, Ctxt, BodySub),
+    Arg = core_lib:make_values(Args),
     opt_simple_let_2(Let, Vs, Arg, B, B0, Ctxt, Sub1).
 
 opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
