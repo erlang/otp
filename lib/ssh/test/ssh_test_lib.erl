@@ -797,3 +797,20 @@ busy_wait(Nus, T0) ->
     end.
 
 %%%----------------------------------------------------------------
+%% get_kex_init - helper function to get key_exchange_init_msg
+
+get_kex_init(Conn) ->
+    %% First, validate the key exchange is complete (StateName == connected)
+    {{connected,_},S} = sys:get_state(Conn),
+    %% Next, walk through the elements of the #state record looking
+    %% for the #ssh_msg_kexinit record. This method is robust against
+    %% changes to either record. The KEXINIT message contains a cookie
+    %% unique to each invocation of the key exchange procedure (RFC4253)
+    SL = tuple_to_list(S),
+    case lists:keyfind(ssh_msg_kexinit, 1, SL) of
+	false ->
+	    throw(not_found);
+	KexInit ->
+	    KexInit
+    end.
+
