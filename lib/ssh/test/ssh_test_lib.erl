@@ -127,24 +127,19 @@ std_simple_exec(Host, Port, Config, Opts) ->
     ssh:close(ConnectionRef).
 
 
-start_shell(Port, IOServer, UserDir) ->
-    start_shell(Port, IOServer, UserDir, []).
-
-start_shell(Port, IOServer, UserDir, Options) ->
-    spawn_link(?MODULE, init_shell, [Port, IOServer, [{user_dir, UserDir}|Options]]).
-
 start_shell(Port, IOServer) ->
-    spawn_link(?MODULE, init_shell, [Port, IOServer, []]).
+    start_shell(Port, IOServer, []).
 
-init_shell(Port, IOServer, UserDir) ->
-    Host = hostname(),
-    Options = [{user_interaction, false}, {silently_accept_hosts,
-					   true}] ++ UserDir,
-    group_leader(IOServer, self()),
-    loop_shell(Host, Port, Options).
+start_shell(Port, IOServer, ExtraOptions) ->
+    spawn_link(
+      fun() ->
+	      Host = hostname(),
+	      Options = [{user_interaction, false},
+			 {silently_accept_hosts,true} | ExtraOptions],
+	      group_leader(IOServer, self()),
+	      ssh:shell(Host, Port, Options)
+      end).
 
-loop_shell(Host, Port, Options) ->
-    ssh:shell(Host, Port, Options).
 
 start_io_server() ->
     spawn_link(?MODULE, init_io_server, [self()]).

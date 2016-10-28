@@ -1011,7 +1011,7 @@ ssh_connect_nonegtimeout_connected(Config, Parallel) ->
     ct:sleep(500),
 
     IO = ssh_test_lib:start_io_server(),
-    Shell = ssh_test_lib:start_shell(Port, IO, UserDir),
+    Shell = ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir}]),
     receive
 	Error = {'EXIT', _, _} ->
 	    ct:log("~p",[Error]),

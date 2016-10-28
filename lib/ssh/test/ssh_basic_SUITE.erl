@@ -315,9 +315,9 @@ init_per_testcase(TC, Config) when TC==shell_no_unicode ;
 			     {user_passwords, [{"foo", "bar"}]}]),
     ct:sleep(500),
     IO = ssh_test_lib:start_io_server(),
-    Shell = ssh_test_lib:start_shell(Port, IO, UserDir,
-				     [{silently_accept_hosts, true},
-				      {user,"foo"},{password,"bar"}]),
+    Shell = ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir},
+						{silently_accept_hosts, true},
+						{user,"foo"},{password,"bar"}]),
     ct:log("IO=~p, Shell=~p, self()=~p",[IO,Shell,self()]),
     ct:log("file:native_name_encoding() = ~p,~nio:getopts() = ~p",
 	   [file:native_name_encoding(),io:getopts()]),
@@ -525,7 +525,7 @@ shell(Config) when is_list(Config) ->
     ct:sleep(500),
 
     IO = ssh_test_lib:start_io_server(),
-    Shell = ssh_test_lib:start_shell(Port, IO, UserDir),
+    Shell = ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir}]),
     receive
 	{'EXIT', _, _} ->
 	    ct:fail(no_ssh_connection);  
@@ -563,10 +563,10 @@ exec_key_differs(Config, UserPKAlgs) ->
 	    ct:sleep(500),
 
 	    IO = ssh_test_lib:start_io_server(),
-	    Shell = ssh_test_lib:start_shell(Port, IO, UserDir,
-					     [{preferred_algorithms,[{public_key,['ssh-rsa']}]},
-					      {pref_public_key_algs,UserPKAlgs}
-					     ]),
+	    Shell = ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir},
+							{preferred_algorithms,[{public_key,['ssh-rsa']}]},
+							{pref_public_key_algs,UserPKAlgs}
+						       ]),
 
 
 	    receive
@@ -597,9 +597,9 @@ exec_key_differs_fail(Config) when is_list(Config) ->
     ct:sleep(500),
 
     IO = ssh_test_lib:start_io_server(),
-    ssh_test_lib:start_shell(Port, IO, UserDir,
-			     [{preferred_algorithms,[{public_key,['ssh-rsa']}]},
-			      {pref_public_key_algs,['ssh-dss']}]),
+    ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir},
+					{preferred_algorithms,[{public_key,['ssh-rsa']}]},
+					{pref_public_key_algs,['ssh-dss']}]),
     receive
 	{'EXIT', _, _} ->
 	    ok;  
