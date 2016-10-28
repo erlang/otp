@@ -87,6 +87,7 @@ misc(Config) when is_list(Config) ->
     {ok,buf,<<>>} = get_data({o,true,0}, 42, buf),
     {ok,buf,<<>>} = get_data({o,false,0}, 0, buf),
     error = get_data({o,false,0}, 42, buf),
+
     ok.
     
 
@@ -343,6 +344,11 @@ complex_semicolon(Config) when is_list(Config) ->
     ok = csemi7(#{a=>1}, 3, 3),
     ok = csemi7(#{a=>1, b=>3}, 0, 0),
 
+    %% 8: Make sure that funs cannot be copied into guards.
+    ok = csemi8(true),
+    error = csemi8(false),
+    error = csemi8(42),
+
     ok.
 
 csemi1(Type, Val) when is_list(Val), Type == float;
@@ -456,6 +462,13 @@ csemi6(_, _) -> error.
     
 csemi7(A, B, C) when A#{a:=B} > #{a=>1}; abs(C) > 2 -> ok;
 csemi7(_, _, _) -> error.
+
+csemi8(Together) ->
+  case fun csemi8/1 of
+      Typically when Together; Typically, Together -> ok;
+      _ -> error
+  end.
+
 
 comma(Config) when is_list(Config) ->
 
