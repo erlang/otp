@@ -29,6 +29,7 @@
 
 -define(TIMEOUT, 50000).
 -define(SSH_DEFAULT_PORT, 22).
+-define(REKEY_DATA_TMO, 65000).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -55,7 +56,8 @@ groups() ->
 			  erlang_client_openssh_server_publickey_rsa,
 			  erlang_client_openssh_server_password,
 			  erlang_client_openssh_server_kexs,
-			  erlang_client_openssh_server_nonexistent_subsystem
+			  erlang_client_openssh_server_nonexistent_subsystem,
+			  erlang_client_openssh_server_renegotiate
 			 ]},
      {erlang_server, [], [erlang_server_openssh_client_public_key_dsa,
 			  erlang_server_openssh_client_public_key_rsa,
@@ -105,6 +107,11 @@ init_per_testcase(erlang_server_openssh_client_public_key_rsa, Config) ->
     chk_key(sshc, 'ssh-rsa', ".ssh/id_rsa", Config);
 init_per_testcase(erlang_client_openssh_server_publickey_dsa, Config) ->
     chk_key(sshd, 'ssh-dss', ".ssh/id_dsa", Config);
+init_per_testcase(erlang_server_openssh_client_renegotiate, Config) ->
+    case os:type() of
+	{unix,_} -> ssh:start(), Config;
+	Type -> ct:fail("Unsupported test on ~p",[Type])
+    end;
 init_per_testcase(_TestCase, Config) ->
     ssh:start(),
     Config.
@@ -393,11 +400,12 @@ erlang_server_openssh_client_renegotiate(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
+
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {public_key_alg, PubKeyAlg},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
 
-    ssh_dbg:messages(fun(String,_D) -> ct:log(String) end),
+    catch ssh_dbg:messages(fun(String,_D) -> ct:log(String) end),
     ct:sleep(500),
 
     RenegLimitK = 3,
@@ -428,7 +436,69 @@ erlang_server_openssh_client_renegotiate(Config) ->
 	     end,
 
     ssh_test_lib:rcv_expected(Expect, OpenSsh, ?TIMEOUT),
+    %% Unfortunatly we can't check that there has been a renegotiation, just trust OpenSSH.
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+erlang_client_openssh_server_renegotiate(_Config) ->
+    process_flag(trap_exit, true),
+
+    IO = ssh_test_lib:start_io_server(),
+    Ref = make_ref(),
+    Parent = self(),
+
+    catch ssh_dbg:messages(fun(X,_) -> ct:pal(X) end),
+    Shell = 
+	spawn_link(
+	  fun() ->
+		  Host = ssh_test_lib:hostname(),
+		  Options = [{user_interaction, false},
+			     {silently_accept_hosts,true}],
+		  group_leader(IO, self()),
+		  {ok, ConnRef} = ssh:connect(Host, ?SSH_DEFAULT_PORT, Options),
+		  ct:pal("~p:~p ~p",[?MODULE,?LINE,self()]),
+		  case ssh_connection:session_channel(ConnRef, infinity) of
+		      {ok,ChannelId}  ->
+			  ct:pal("~p:~p ~p",[?MODULE,?LINE,self()]),
+			  success = ssh_connection:ptty_alloc(ConnRef, ChannelId, []),
+			  ct:pal("~p:~p ~p",[?MODULE,?LINE,self()]),
+			  Args = [{channel_cb, ssh_shell},
+				  {init_args,[ConnRef, ChannelId]},
+				  {cm, ConnRef}, {channel_id, ChannelId}],
+			  {ok, State} = ssh_channel:init([Args]),
+			  ct:pal("~p:~p ~p",[?MODULE,?LINE,self()]),
+			  Parent ! {ok, Ref, ConnRef},
+			  ssh_channel:enter_loop(State);
+		      Error ->
+			  ct:pal("~p:~p ~p",[?MODULE,?LINE,self()]),
+			  Parent ! {error, Ref, Error}
+		  end,
+		  ct:pal("~p:~p ~p",[?MODULE,?LINE,self()]),
+		  receive
+		      nothing -> ok
+		  end
+	  end),
+
+    ct:pal("~p:~p ~p",[?MODULE,?LINE,self()]),
+
+    receive
+	{error, Ref, Error} ->
+	    ct:fail("Error=~p",[Error]);
+	{ok, Ref, ConnectionRef} ->
+	    ct:pal("ConnRef = ~p",[ConnectionRef]),
+	    IO ! {input, self(), "echo Hej\n"},
+	    receive_hej(),
+	    ct:pal("ConnRef = ~p",[ConnectionRef]),
+	    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
+	    ssh_connection_handler:renegotiate(ConnectionRef),
+	    IO ! {input, self(), "echo Hej\n"},
+	    receive_hej(),
+	    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
+	    IO ! {input, self(), "exit\n"},
+	    receive_logout(),
+	    receive_normal_exit(Shell),
+	    true = (Kex1 =/= Kex2)
+    end.
 
 %%--------------------------------------------------------------------
 erlang_client_openssh_server_password() ->
@@ -506,6 +576,25 @@ receive_hej() ->
     after 
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
+
+receive_data(Data) ->
+    receive
+	Info when is_binary(Info) ->
+	    Lines = string:tokens(binary_to_list(Info), "\r\n "),
+	    case lists:member(Data, Lines) of
+		true ->
+		    ct:log("Expected result found in lines: ~p~n", [Lines]),
+		    ok;
+		false ->
+		    ct:log("Extra info: ~p~n", [Info]),
+		    receive_data(Data)
+	    end;
+	Other ->
+	    ct:log("Unexpected: ~p",[Other]),
+	    receive_data(Data)
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+    end.	
 
 receive_logout() ->
     receive
