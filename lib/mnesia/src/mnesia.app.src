@@ -3,6 +3,7 @@
   {vsn, "%VSN%"},
   {modules, [
 	     mnesia, 
+	     mnesia_app,
 	     mnesia_backend_type,
 	     mnesia_backup, 
 	     mnesia_bup, 
@@ -49,7 +50,5 @@
 		mnesia_tm
 	       ]},
   {applications, [kernel, stdlib]},
-  {mod, {mnesia_sup, []}},
+  {mod, {mnesia_app, []}},
   {runtime_dependencies, ["stdlib-2.0","kernel-3.0","erts-7.0"]}]}.
-
-
