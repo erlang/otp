@@ -498,9 +498,11 @@ module.beam: module.erl \
 	    </warning>
           </item>
 
-	  <tag><c>warn_export_all</c></tag>
+	  <tag><c>nowarn_export_all</c></tag>
           <item>
-	      <p>Emits a warning if option <c>export_all</c> is also given.</p>
+	      <p>Turns off warnings for uses of the <c>export_all</c>
+	      option. Default is to emit a warning if option
+	      <c>export_all</c> is also given.</p>
           </item>
 
 	  <tag><c>warn_export_vars</c></tag>

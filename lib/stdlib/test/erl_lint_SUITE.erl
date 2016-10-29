@@ -2702,9 +2702,9 @@ export_all(Config) when is_list(Config) ->
 
             id(I) -> I.
            ">>,
-    [] = run_test2(Config, Ts, []),
+    [] = run_test2(Config, Ts, [nowarn_export_all]),
     {warnings,[{2,erl_lint,export_all}]} =
-	run_test2(Config, Ts, [warn_export_all]),
+	run_test2(Config, Ts, []),
     ok.
 
 %% Test warnings for functions that clash with BIFs.
