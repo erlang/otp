@@ -56,7 +56,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += +warn_obsolete_guard -DCRYPTO_VSN=\"$(VSN)\" -Werror
+ERL_COMPILE_FLAGS += -DCRYPTO_VSN=\"$(VSN)\" -Werror
 
 # ----------------------------------------------------
 # Targets
