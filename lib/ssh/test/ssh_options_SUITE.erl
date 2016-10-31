@@ -982,7 +982,14 @@ ssh_connect_negtimeout(Config, Parallel) ->
     ct:sleep(round(Factor * NegTimeOut)),
     
     case inet:sockname(Socket) of
-	{ok,_} -> ct:fail("Socket not closed");
+	{ok,_} -> 
+	    %% Give it another chance...
+	    ct:log("Sleep more...",[]),
+	    ct:sleep(round(Factor * NegTimeOut)),
+	    case inet:sockname(Socket) of
+		{ok,_} -> ct:fail("Socket not closed");
+		{error,_} -> ok
+	    end;
 	{error,_} -> ok
     end.
 
