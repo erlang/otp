@@ -405,7 +405,7 @@ erlang_server_openssh_client_renegotiate(Config) ->
 					     {public_key_alg, PubKeyAlg},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
 
-    catch ssh_dbg:messages(fun(String,_D) -> ct:log(String) end),
+%%    catch ssh_dbg:messages(fun(String,_D) -> ct:log(String) end),
     ct:sleep(500),
 
     RenegLimitK = 3,
@@ -447,7 +447,7 @@ erlang_client_openssh_server_renegotiate(_Config) ->
     Ref = make_ref(),
     Parent = self(),
 
-    catch ssh_dbg:messages(fun(X,_) -> ct:pal(X) end),
+%%    catch ssh_dbg:messages(fun(X,_) -> ct:log(X) end),
     Shell = 
 	spawn_link(
 	  fun() ->
@@ -456,39 +456,29 @@ erlang_client_openssh_server_renegotiate(_Config) ->
 			     {silently_accept_hosts,true}],
 		  group_leader(IO, self()),
 		  {ok, ConnRef} = ssh:connect(Host, ?SSH_DEFAULT_PORT, Options),
-		  ct:pal("~p:~p ~p",[?MODULE,?LINE,self()]),
 		  case ssh_connection:session_channel(ConnRef, infinity) of
 		      {ok,ChannelId}  ->
-			  ct:pal("~p:~p ~p",[?MODULE,?LINE,self()]),
 			  success = ssh_connection:ptty_alloc(ConnRef, ChannelId, []),
-			  ct:pal("~p:~p ~p",[?MODULE,?LINE,self()]),
 			  Args = [{channel_cb, ssh_shell},
 				  {init_args,[ConnRef, ChannelId]},
 				  {cm, ConnRef}, {channel_id, ChannelId}],
 			  {ok, State} = ssh_channel:init([Args]),
-			  ct:pal("~p:~p ~p",[?MODULE,?LINE,self()]),
 			  Parent ! {ok, Ref, ConnRef},
 			  ssh_channel:enter_loop(State);
 		      Error ->
-			  ct:pal("~p:~p ~p",[?MODULE,?LINE,self()]),
 			  Parent ! {error, Ref, Error}
 		  end,
-		  ct:pal("~p:~p ~p",[?MODULE,?LINE,self()]),
 		  receive
 		      nothing -> ok
 		  end
 	  end),
 
-    ct:pal("~p:~p ~p",[?MODULE,?LINE,self()]),
-
     receive
 	{error, Ref, Error} ->
 	    ct:fail("Error=~p",[Error]);
 	{ok, Ref, ConnectionRef} ->
-	    ct:pal("ConnRef = ~p",[ConnectionRef]),
 	    IO ! {input, self(), "echo Hej\n"},
 	    receive_hej(),
-	    ct:pal("ConnRef = ~p",[ConnectionRef]),
 	    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
 	    ssh_connection_handler:renegotiate(ConnectionRef),
 	    IO ! {input, self(), "echo Hej\n"},
