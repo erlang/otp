@@ -17,7 +17,7 @@
 %%
 %% %CopyrightEnd%
 -module(cdv_wx).
--compile(export_all).
+
 -behaviour(wx_object).
 
 -export([start/1]).

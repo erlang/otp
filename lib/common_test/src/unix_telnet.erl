@@ -53,8 +53,6 @@
 %%% @see ct_telnet
 -module(unix_telnet).
 
--compile(export_all).
-
 %% Callbacks for ct_telnet.erl
 -export([connect/7,get_prompt_regexp/0]).
 -import(ct_telnet,[start_gen_log/1,log/4,end_gen_log/0]).
