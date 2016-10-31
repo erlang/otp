@@ -384,7 +384,7 @@ load_dict(N) ->
     A3 = erl_anno:new(3),
     A4 = erl_anno:new(4),
     Forms = [{attribute, A1, module, Mod},
-             {attribute, A2, compile, [export_all]},
+             {attribute, A2, export, [{id,0}]},
              {function, A3, id, 0,
               [{clause, A4, [], [], [{integer, A4, N}]}]}],
     {ok, Mod, Bin, []} = compile:forms(Forms, [return]),
