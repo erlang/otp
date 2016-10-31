@@ -800,17 +800,37 @@ busy_wait(Nus, T0) ->
 %% get_kex_init - helper function to get key_exchange_init_msg
 
 get_kex_init(Conn) ->
-    %% First, validate the key exchange is complete (StateName == connected)
-    {{connected,_},S} = sys:get_state(Conn),
-    %% Next, walk through the elements of the #state record looking
-    %% for the #ssh_msg_kexinit record. This method is robust against
-    %% changes to either record. The KEXINIT message contains a cookie
-    %% unique to each invocation of the key exchange procedure (RFC4253)
-    SL = tuple_to_list(S),
-    case lists:keyfind(ssh_msg_kexinit, 1, SL) of
-	false ->
-	    throw(not_found);
-	KexInit ->
-	    KexInit
-    end.
+    Ref = make_ref(),
+    {ok,TRef} = timer:send_after(15000, {reneg_timeout,Ref}),
+    get_kex_init(Conn, Ref, TRef).
 
+get_kex_init(Conn, Ref, TRef) ->
+    %% First, validate the key exchange is complete (StateName == connected)
+    case sys:get_state(Conn) of
+	{{connected,_}, S} ->
+	    timer:cancel(TRef),
+	    %% Next, walk through the elements of the #state record looking
+	    %% for the #ssh_msg_kexinit record. This method is robust against
+	    %% changes to either record. The KEXINIT message contains a cookie
+	    %% unique to each invocation of the key exchange procedure (RFC4253)
+	    SL = tuple_to_list(S),
+	    case lists:keyfind(ssh_msg_kexinit, 1, SL) of
+		false ->
+		    throw(not_found);
+		KexInit ->
+		    KexInit
+	    end;
+
+	{OtherState, S} ->
+	    ct:log("Not in 'connected' state: ~p",[OtherState]),
+	    receive
+		{reneg_timeout,Ref} -> 
+		    ct:log("S = ~p", [S]),
+		    ct:fail(reneg_timeout)
+	    after 0 ->
+		    timer:sleep(100), % If renegotiation is complete we do not
+				      % want to exit on the reneg_timeout
+		    get_kex_init(Conn, Ref, TRef)
+	    end
+    end.
+    

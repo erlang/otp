@@ -447,7 +447,7 @@ erlang_client_openssh_server_renegotiate(_Config) ->
     Ref = make_ref(),
     Parent = self(),
 
-%%    catch ssh_dbg:messages(fun(X,_) -> ct:log(X) end),
+    catch ssh_dbg:messages(fun(X,_) -> ct:log(X) end),
     Shell = 
 	spawn_link(
 	  fun() ->
@@ -477,12 +477,12 @@ erlang_client_openssh_server_renegotiate(_Config) ->
 	{error, Ref, Error} ->
 	    ct:fail("Error=~p",[Error]);
 	{ok, Ref, ConnectionRef} ->
-	    IO ! {input, self(), "echo Hej\n"},
-	    receive_data("Hej"),
+	    IO ! {input, self(), "echo Hej1\n"},
+	    receive_data("Hej1"),
 	    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
 	    ssh_connection_handler:renegotiate(ConnectionRef),
-	    IO ! {input, self(), "echo Hej\n"},
-	    receive_data("Hej"),
+	    IO ! {input, self(), "echo Hej2\n"},
+	    receive_data("Hej2"),
 	    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
 	    IO ! {input, self(), "exit\n"},
 	    receive_logout(),
