@@ -540,10 +540,18 @@ connectfun_disconnectfun_server(Config) ->
 		{disconnect,Ref,R} ->
 		    ct:log("Disconnect result: ~p",[R]),
 		    ssh:stop_daemon(Pid)
-	    after 2000 ->
+	    after 5000 ->
+		    receive
+			X -> ct:log("received ~p",[X])
+		    after 0 -> ok
+		    end,
 		    {fail, "No disconnectfun action"}
 	    end
-    after 2000 ->
+    after 5000 ->
+	    receive
+		X -> ct:log("received ~p",[X])
+	    after 0 -> ok
+	    end,
 	    {fail, "No connectfun action"}
     end.
 
@@ -649,7 +657,7 @@ disconnectfun_option_server(Config) ->
 	    ct:log("Server detected disconnect: ~p",[Reason]),
 	    ssh:stop_daemon(Pid),
 	    ok
-    after 3000 ->
+    after 5000 ->
 	    receive
 		X -> ct:log("received ~p",[X])
 	    after 0 -> ok
@@ -1003,7 +1011,7 @@ ssh_connect_nonegtimeout_connected(Config, Parallel) ->
     ct:sleep(500),
 
     IO = ssh_test_lib:start_io_server(),
-    Shell = ssh_test_lib:start_shell(Port, IO, UserDir),
+    Shell = ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir}]),
     receive
 	Error = {'EXIT', _, _} ->
 	    ct:log("~p",[Error]),

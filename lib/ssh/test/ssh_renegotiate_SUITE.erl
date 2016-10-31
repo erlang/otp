@@ -92,11 +92,11 @@ rekey(Config) ->
     ConnectionRef =
 	ssh_test_lib:std_connect(Config, Host, Port, 
 				 [{rekey_limit, 0}]),
-    Kex1 = get_kex_init(ConnectionRef),
+    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
     receive
     after ?REKEY_DATA_TMO ->
 	    %%By this time rekeying would have been done
-	    Kex2 = get_kex_init(ConnectionRef),
+	    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
 	    false = (Kex2 == Kex1),
 	    ssh:close(ConnectionRef),
 	    ssh:stop_daemon(Pid)
@@ -120,31 +120,31 @@ rekey_limit(Config) ->
 								  {max_random_length_padding,0}]),
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
 
-    Kex1 = get_kex_init(ConnectionRef),
+    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
 
     timer:sleep(?REKEY_DATA_TMO),
-    Kex1 = get_kex_init(ConnectionRef),
+    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
 
     Data = lists:duplicate(159000,1),
     ok = ssh_sftp:write_file(SftpPid, DataFile, Data),
 
     timer:sleep(?REKEY_DATA_TMO),
-    Kex2 = get_kex_init(ConnectionRef),
+    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
 
     false = (Kex2 == Kex1),
 
     timer:sleep(?REKEY_DATA_TMO),
-    Kex2 = get_kex_init(ConnectionRef),
+    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
 
     ok = ssh_sftp:write_file(SftpPid, DataFile, "hi\n"),
 
     timer:sleep(?REKEY_DATA_TMO),
-    Kex2 = get_kex_init(ConnectionRef),
+    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
 
     false = (Kex2 == Kex1),
 
     timer:sleep(?REKEY_DATA_TMO),
-    Kex2 = get_kex_init(ConnectionRef),
+    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
 
     ssh_sftp:stop_channel(SftpPid),
     ssh:close(ConnectionRef),
@@ -169,7 +169,7 @@ renegotiate1(Config) ->
     ConnectionRef = ssh_test_lib:std_connect(Config, Host, RPort, [{max_random_length_padding,0}]),
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
 
-    Kex1 = get_kex_init(ConnectionRef),
+    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
 
     {ok, Handle} = ssh_sftp:open(SftpPid, DataFile, [write]),
 
@@ -181,7 +181,7 @@ renegotiate1(Config) ->
 
     timer:sleep(2000),
 
-    Kex2 = get_kex_init(ConnectionRef),
+    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
 
     false = (Kex2 == Kex1),
     
@@ -208,7 +208,7 @@ renegotiate2(Config) ->
     ConnectionRef = ssh_test_lib:std_connect(Config, Host, RPort, [{max_random_length_padding,0}]),
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
 
-    Kex1 = get_kex_init(ConnectionRef),
+    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
 
     {ok, Handle} = ssh_sftp:open(SftpPid, DataFile, [write]),
 
@@ -223,7 +223,7 @@ renegotiate2(Config) ->
 
     timer:sleep(2000),
 
-    Kex2 = get_kex_init(ConnectionRef),
+    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
 
     false = (Kex2 == Kex1),
 
@@ -235,19 +235,3 @@ renegotiate2(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
-%% get_kex_init - helper function to get key_exchange_init_msg
-get_kex_init(Conn) ->
-    %% First, validate the key exchange is complete (StateName == connected)
-    {{connected,_},S} = sys:get_state(Conn),
-    %% Next, walk through the elements of the #state record looking
-    %% for the #ssh_msg_kexinit record. This method is robust against
-    %% changes to either record. The KEXINIT message contains a cookie
-    %% unique to each invocation of the key exchange procedure (RFC4253)
-    SL = tuple_to_list(S),
-    case lists:keyfind(ssh_msg_kexinit, 1, SL) of
-	false ->
-	    throw(not_found);
-	KexInit ->
-	    KexInit
-    end.
-
