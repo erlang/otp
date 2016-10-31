@@ -1188,12 +1188,14 @@
       <xsl:number level="any" from="chapter" count="image"/>
     </xsl:variable>
 
-      <img alt="IMAGE MISSING" src="{@file}"/><br/>
+    <div class="doc-image-wrapper">
+      <img alt="IMAGE MISSING" src="{@file}" class="doc-image"/>
 
       <xsl:apply-templates>
         <xsl:with-param name="chapnum" select="$chapnum"/>
         <xsl:with-param name="fignum" select="$fignum"/>
       </xsl:apply-templates>
+    </div>
 
 
   </xsl:template>
@@ -1203,11 +1205,11 @@
     <xsl:param name="chapnum"/>
     <xsl:param name="fignum"/>
 
-      <p><em>Figure
+      <p class="doc-image-caption">Figure
         <xsl:value-of select="$chapnum"/>.<xsl:value-of select="$fignum"/>:
         &#160;
         <xsl:apply-templates/>
-      </em></p>
+      </p>
 
   </xsl:template>
 

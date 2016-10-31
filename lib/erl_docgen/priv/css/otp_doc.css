@@ -177,16 +177,20 @@ footer       { }
  font-size: 1.5em;
 }
 
-.doc-table-wrapper{
+.doc-table-wrapper, .doc-image-wrapper{
  width: 100%;
 }
 
-.doc-table{
+.doc-image-wrapper{
+ text-align: center;
+}
+
+.doc-table, .doc-image{
  min-width: 50%;
  margin: 0 auto;
 }
 
-.doc-table-caption{
+.doc-table-caption, .doc-image-caption{
  margin-top: 1em;
  font-style: italic;
  text-align: center;
