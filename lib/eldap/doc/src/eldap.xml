@@ -197,7 +197,7 @@
       </type>
       <desc>
 	<p> Add an entry. The entry must not exist.</p>
-	<pre>
+	<code>
   add(Handle,
       "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com",
        [{"objectclass", ["person"]},
@@ -205,7 +205,7 @@
         {"sn", ["Valentine"]},
         {"telephoneNumber", ["545 555 00"]}]
      )
-	</pre>
+	</code>
       </desc>
     </func>
     <func>
@@ -216,9 +216,9 @@
       </type>
       <desc>
 	<p> Delete an entry.</p>
-	<pre>
+	<code>
   delete(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com")
-	</pre>
+	</code>
       </desc>
     </func>
 
@@ -259,11 +259,11 @@
       </type>
       <desc>
 	<p> Modify an entry.</p>
-	<pre>
+	<code>
   modify(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com",
          [eldap:mod_replace("telephoneNumber", ["555 555 00"]),
 	  eldap:mod_add("description", ["LDAP Hacker"]) ])
-	</pre>
+	</code>
       </desc>
     </func>
     <func>
@@ -320,10 +320,10 @@
 	whether the current RDN should be removed from the attribute list after the after operation.
 	<c>NewSupDN</c> is the new parent that the RDN shall be moved to.  If the old parent should
 	remain as parent, <c>NewSupDN</c> shall be "".</p>
-	<pre>
+	<code>
   modify_dn(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com ",
             "cn=Bill Jr Valentine", true, "")
-	</pre>
+	</code>
       </desc>
     </func>
     <func>
@@ -342,10 +342,10 @@
 	Default values: scope is <c>wholeSubtree()</c>, deref is <c>derefAlways()</c>,
 	types_only is <c>false</c> and timeout is <c>0</c> (meaning infinity).
 	</p>
-	<pre>
+	<code>
   Filter = eldap:substrings("cn", [{any,"V"}]),
   search(Handle, [{base, "dc=example, dc=com"}, {filter, Filter}, {attributes, ["cn"]}]),
-	</pre>
+	</code>
 	<p>The <c>timeout</c> option in the <c>SearchOptions</c> is for the ldap server, while
 	the timeout in <seealso marker="#open/2">eldap:open/2</seealso> is used for each
 	individual request in the search operation.
@@ -454,7 +454,7 @@
       </type>
       <desc> <p>Creates an extensible match filter. For example, </p>
       <code>
-	eldap:extensibleMatch("Bar", [{type,"sn"}, {matchingRule,"caseExactMatch"}]))
+  eldap:extensibleMatch("Bar", [{type,"sn"}, {matchingRule,"caseExactMatch"}]))
       </code>
       <p>creates a filter which performs a <c>caseExactMatch</c> on the attribute <c>sn</c> and matches with the value <c>"Bar"</c>. The default value of <c>dnAttributes</c> is <c>false</c>.</p> </desc>
     </func>
