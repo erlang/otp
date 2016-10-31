@@ -113,7 +113,12 @@ setup_tracer(Write, MangleArg) ->
     ok.
 
 %%%----------------------------------------------------------------
-shrink_bin(B) when is_binary(B), size(B)>100 -> {'*** SHRINKED BIN',size(B),element(1,split_binary(B,20)),'***'};
+shrink_bin(B) when is_binary(B), size(B)>100 -> {'*** SHRINKED BIN',
+						 size(B),
+						 element(1,split_binary(B,20)),
+						 '...',
+						 element(2,split_binary(B,size(B)-20))
+						};
 shrink_bin(L) when is_list(L) -> lists:map(fun shrink_bin/1, L);
 shrink_bin(T) when is_tuple(T) -> list_to_tuple(shrink_bin(tuple_to_list(T)));
 shrink_bin(X) -> X.

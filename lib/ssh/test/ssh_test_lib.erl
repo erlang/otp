@@ -127,24 +127,19 @@ std_simple_exec(Host, Port, Config, Opts) ->
     ssh:close(ConnectionRef).
 
 
-start_shell(Port, IOServer, UserDir) ->
-    start_shell(Port, IOServer, UserDir, []).
-
-start_shell(Port, IOServer, UserDir, Options) ->
-    spawn_link(?MODULE, init_shell, [Port, IOServer, [{user_dir, UserDir}|Options]]).
-
 start_shell(Port, IOServer) ->
-    spawn_link(?MODULE, init_shell, [Port, IOServer, []]).
+    start_shell(Port, IOServer, []).
 
-init_shell(Port, IOServer, UserDir) ->
-    Host = hostname(),
-    Options = [{user_interaction, false}, {silently_accept_hosts,
-					   true}] ++ UserDir,
-    group_leader(IOServer, self()),
-    loop_shell(Host, Port, Options).
+start_shell(Port, IOServer, ExtraOptions) ->
+    spawn_link(
+      fun() ->
+	      Host = hostname(),
+	      Options = [{user_interaction, false},
+			 {silently_accept_hosts,true} | ExtraOptions],
+	      group_leader(IOServer, self()),
+	      ssh:shell(Host, Port, Options)
+      end).
 
-loop_shell(Host, Port, Options) ->
-    ssh:shell(Host, Port, Options).
 
 start_io_server() ->
     spawn_link(?MODULE, init_io_server, [self()]).
@@ -802,3 +797,20 @@ busy_wait(Nus, T0) ->
     end.
 
 %%%----------------------------------------------------------------
+%% get_kex_init - helper function to get key_exchange_init_msg
+
+get_kex_init(Conn) ->
+    %% First, validate the key exchange is complete (StateName == connected)
+    {{connected,_},S} = sys:get_state(Conn),
+    %% Next, walk through the elements of the #state record looking
+    %% for the #ssh_msg_kexinit record. This method is robust against
+    %% changes to either record. The KEXINIT message contains a cookie
+    %% unique to each invocation of the key exchange procedure (RFC4253)
+    SL = tuple_to_list(S),
+    case lists:keyfind(ssh_msg_kexinit, 1, SL) of
+	false ->
+	    throw(not_found);
+	KexInit ->
+	    KexInit
+    end.
+
