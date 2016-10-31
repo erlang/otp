@@ -64,6 +64,7 @@ Eterm hipe_build_stacktrace(Process *p, struct StackTrace *s);
 
 ERTS_GLB_INLINE void hipe_reserve_beam_trap_frame(Process*, Eterm reg[], unsigned arity);
 ERTS_GLB_INLINE void hipe_unreserve_beam_trap_frame(Process*);
+ERTS_GLB_INLINE int hipe_is_ra_mode_switch(const void* ra);
 
 extern Uint hipe_beam_pc_return[];
 extern Uint hipe_beam_pc_throw[];
@@ -110,6 +111,11 @@ ERTS_GLB_INLINE void hipe_unreserve_beam_trap_frame(Process *p)
 
     ASSERT(p->stop[0] == NIL && p->stop[1] == hipe_beam_catch_throw);
     p->stop += 2;
+}
+
+ERTS_GLB_INLINE int hipe_is_ra_mode_switch(const void* ra)
+{
+    return ra == nbif_return;
 }
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */

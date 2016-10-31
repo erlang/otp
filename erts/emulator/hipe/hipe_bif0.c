@@ -1476,6 +1476,10 @@ int hipe_find_mfa_from_ra(const void *ra, Eterm *m, Eterm *f, unsigned int *a)
     struct hipe_mfa_info **bucket;
     unsigned int i, nrbuckets;
 
+    if (hipe_is_ra_mode_switch(ra)) {
+        return 0;
+    }
+
     /* Note about locking: the table is only updated from the
        loader, which runs with the rest of the system suspended. */
     /* XXX: alas not true; see comment at hipe_mfa_info_table.lock */
