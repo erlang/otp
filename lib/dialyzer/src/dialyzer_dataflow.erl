@@ -1211,7 +1211,7 @@ handle_tuple(Tree, Map, State) ->
 	      TagVal = cerl:atom_val(Tag),
               case state__lookup_record(TagVal, length(Left), State1) of
                 error -> {State1, Map1, TupleType};
-                {ok, RecType} ->
+                {ok, RecType, FieldNames} ->
                   InfTupleType = t_inf(RecType, TupleType),
                   case t_is_none(InfTupleType) of
                     true ->
@@ -1232,10 +1232,13 @@ handle_tuple(Tree, Map, State) ->
                                                       Tree, Msg),
                           {State2, Map1, t_none()};
                         {error, opaque, ErrorPat, ErrorType, OpaqueType} ->
+                          OpaqueStr = format_type(OpaqueType, State1),
+                          Name = field_name(Elements, ErrorPat, FieldNames),
                           Msg = {opaque_match,
-                                 [format_patterns(ErrorPat),
-                                  format_type(ErrorType, State1),
-                                  format_type(OpaqueType, State1)]},
+                                 ["record field" ++ Name ++
+                                  " declared to be of type " ++
+                                    format_type(ErrorType, State1),
+                                  OpaqueStr, OpaqueStr]},
                           State2 = state__add_warning(State1, ?WARN_OPAQUE,
                                                       Tree, Msg),
                           {State2, Map1, t_none()};
@@ -1250,6 +1253,15 @@ handle_tuple(Tree, Map, State) ->
 	[] ->
 	  {State1, Map1, t_tuple([])}
       end
+  end.
+
+field_name(Elements, ErrorPat, FieldNames) ->
+  try
+    [Pat] = ErrorPat,
+    Take = lists:takewhile(fun(X) -> X =/= Pat end, Elements),
+    " " ++ format_atom(lists:nth(length(Take), FieldNames))
+  catch
+    _:_ -> ""
   end.
 
 %%----------------------------------------
@@ -1632,7 +1644,7 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 		  TagAtom = cerl:atom_val(Tag),
 		  case state__lookup_record(TagAtom, length(Left), State) of
 		    error -> {false, t_tuple(length(Es))};
-		    {ok, Record} ->
+		    {ok, Record, _FieldNames} ->
 		      [_Head|AnyTail] = [t_any() || _ <- Es],
 		      UntypedRecord = t_tuple([t_atom(TagAtom)|AnyTail]),
 		      {not t_is_equal(Record, UntypedRecord), Record}
@@ -2160,7 +2172,7 @@ handle_guard_is_record(Guard, Map, Env, Eval, State) ->
       TupleType =
         case state__lookup_record(Tag, ArityMin1, State) of
           error -> Tuple;
-          {ok, Prototype} -> Prototype
+          {ok, Prototype, _FieldNames} -> Prototype
         end,
       Type = t_inf(TupleType, RecType, State#state.opaques),
       case t_is_none(Type) of
@@ -3207,7 +3219,8 @@ state__lookup_record(Tag, Arity, #state{records = Records}) ->
       RecType =
         t_tuple([t_atom(Tag)|
                  [FieldType || {_FieldName, _Abstr, FieldType} <- Fields]]),
-      {ok, RecType};
+      FieldNames = [FieldName || {FieldName, _Abstr, _FieldType} <- Fields],
+      {ok, RecType, FieldNames};
     error ->
       error
   end.
@@ -3659,6 +3672,9 @@ map_pats(Pats) ->
 
 fold_literals(TreeList) ->
   [cerl:fold_literal(Tree) || Tree <- TreeList].
+
+format_atom(A) ->
+  format_cerl(cerl:c_atom(A)).
 
 type(Tree) ->
   Folded = cerl:fold_literal(Tree),

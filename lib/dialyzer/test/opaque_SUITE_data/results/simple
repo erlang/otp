@@ -23,7 +23,7 @@ rec_api.erl:29: Matching of pattern {'r1', 10} tagged with a record name violate
 rec_api.erl:33: The attempt to match a term of type rec_adt:r1() against the pattern {'r1', 'a'} breaks the opaqueness of the term
 rec_api.erl:35: Invalid type specification for function rec_api:adt_t1/1. The success typing is (#r1{f1::'a'}) -> #r1{f1::'a'}
 rec_api.erl:40: Invalid type specification for function rec_api:adt_r1/0. The success typing is () -> #r1{f1::'a'}
-rec_api.erl:85: The attempt to match a term of type rec_api:f() against the variable _ breaks the opaqueness of rec_adt:f()
+rec_api.erl:85: The attempt to match a term of type rec_adt:f() against the record field 'f' declared to be of type rec_api:f() breaks the opaqueness of the term
 rec_api.erl:99: Record construction #r2{f1::10} violates the declared type of field f1::rec_api:a()
 simple1_api.erl:113: The test simple1_api:d1() =:= simple1_api:d2() can never evaluate to 'true'
 simple1_api.erl:118: Guard test simple1_api:d2() =:= A::simple1_api:d1() can never succeed
