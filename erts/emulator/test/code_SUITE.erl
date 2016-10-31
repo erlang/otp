@@ -153,127 +153,23 @@ call_purged_fun_code_there(Config) when is_list(Config) ->
     ok.
 
 call_purged_fun_test(Priv, Data, Type) ->
-    File = filename:join(Data, "my_code_test2"),
-    Code = filename:join(Priv, "my_code_test2"),
+    OptsList = case erlang:system_info(hipe_architecture) of
+                   undefined -> [[]];
+                   _ -> [[], [native]]
+               end,
+    [call_purged_fun_test_do(Priv, Data, Type, CO, FO)
+     || CO <- OptsList, FO <- OptsList].
 
-    catch erlang:purge_module(my_code_test2),
-    catch erlang:delete_module(my_code_test2),
-    catch erlang:purge_module(my_code_test2),
 
-    {ok,my_code_test2} = c:c(File, [{outdir,Priv}]),
+call_purged_fun_test_do(Priv, Data, Type, CallerOpts, FunOpts) ->
+    io:format("Compile caller as ~p and funs as ~p\n", [CallerOpts, FunOpts]),
+    SrcFile = filename:join(Data, "call_purged_fun_tester.erl"),
+    ObjFile = filename:join(Priv, "call_purged_fun_tester.beam"),
+    {ok,Mod,Code} = compile:file(SrcFile, [binary, report | CallerOpts]),
+    {module,Mod} = code:load_binary(Mod, ObjFile, Code),
 
-    T = ets:new(my_code_test2_fun_table, []),
-    ets:insert(T, {my_fun,my_code_test2:make_fun(4711)}),
-    ets:insert(T, {my_fun2,my_code_test2:make_fun2()}),
+    call_purged_fun_tester:do(Priv, Data, Type, FunOpts).
 
-    spawn(fun () ->
-		  [{my_fun2,F2}] = ets:lookup(T, my_fun2),
-		  F2(fun () ->
-			     receive after infinity -> ok end
-		     end,
-		     fun () -> ok end),
-		  exit(completed)
-	  end),
-
-    PurgeType = case Type of
-		    code_gone ->
-			ok = file:delete(Code++".beam"),
-			true;
-		    code_reload ->
-			true;
-		    code_there ->
-			false
-		end,
-
-    true = erlang:delete_module(my_code_test2),
-
-    Purge = start_purge(my_code_test2, PurgeType),
-
-    {P0, M0} = spawn_monitor(fun () ->
-				     [{my_fun,F}] = ets:lookup(T, my_fun),
-				     4712 = F(1),
-				     exit(completed)
-			     end),
-
-    wait_until(fun () ->
-		       {status, suspended}
-			   == process_info(P0, status)
-	       end),
-
-    ok = continue_purge(Purge),
-
-    {P1, M1} = spawn_monitor(fun () ->
-				     [{my_fun,F}] = ets:lookup(T, my_fun),
-				     4713 = F(2),
-				     exit(completed)
-			     end),
-    {P2, M2} = spawn_monitor(fun () ->
-				     [{my_fun,F}] = ets:lookup(T, my_fun),
-				     4714 = F(3),
-				     exit(completed)
-			     end),
-
-    wait_until(fun () ->
-		       {status, suspended}
-			   == process_info(P1, status)
-	       end),
-    wait_until(fun () ->
-		       {status, suspended}
-			   == process_info(P2, status)
-	       end),
-
-    {current_function,
-     {erts_code_purger,
-      pending_purge_lambda,
-      3}} = process_info(P0, current_function),
-    {current_function,
-     {erts_code_purger,
-      pending_purge_lambda,
-      3}} = process_info(P1, current_function),
-    {current_function,
-     {erts_code_purger,
-      pending_purge_lambda,
-      3}} = process_info(P2, current_function),
-
-    case Type of
-	code_there ->
-	    false = complete_purge(Purge);
-	_ ->
-	    {true, true} = complete_purge(Purge)
-    end,
-
-    case Type of
-	code_gone ->
-	    receive
-		{'DOWN', M0, process, P0, Reason0} ->
-		    {undef, _} = Reason0
-	    end,
-	    receive
-		{'DOWN', M1, process, P1, Reason1} ->
-		    {undef, _} = Reason1
-	    end,
-	    receive
-		{'DOWN', M2, process, P2, Reason2} ->
-		    {undef, _} = Reason2
-	    end;
-	_ ->
-	    receive
-		{'DOWN', M0, process, P0, Reason0} ->
-		    completed = Reason0
-	    end,
-	    receive
-		{'DOWN', M1, process, P1, Reason1} ->
-		    completed = Reason1
-	    end,
-	    receive
-		{'DOWN', M2, process, P2, Reason2} ->
-		    completed = Reason2
-	    end,
-	    catch erlang:purge_module(my_code_test2),
-	    catch erlang:delete_module(my_code_test2),
-	    catch erlang:purge_module(my_code_test2)
-    end,
-    ok.
 
 multi_proc_purge(Config) when is_list(Config) ->
     %%
@@ -975,35 +871,3 @@ flush() ->
 
 id(I) -> I.
 
-wait_until(Fun) ->
-    case Fun() of
-	true ->
-	    ok;
-	false ->
-	    receive after 100 -> ok end,
-	    wait_until(Fun)
-    end.
-
-start_purge(Mod, Type) when is_atom(Mod)
-			    andalso ((Type == true)
-				     orelse (Type == false)) ->
-    Ref = make_ref(),
-    erts_code_purger ! {test_purge, Mod, self(), Type, Ref},
-    receive
-	{started, Ref} ->
-	    Ref
-    end.
-
-continue_purge(Ref) when is_reference(Ref) ->
-    erts_code_purger ! {continue, Ref},
-    receive
-	{continued, Ref} ->
-	    ok
-    end.
-
-complete_purge(Ref) when is_reference(Ref) ->
-    erts_code_purger ! {complete, Ref},
-    receive
-	{test_purge, Res, Ref} ->
-	    Res
-    end.

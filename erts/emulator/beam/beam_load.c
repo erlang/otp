@@ -4848,7 +4848,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 	    }
 	    fe->address = code_ptr;
 #ifdef HIPE
-	    hipe_set_closure_stub(fe, stp->lambdas[i].num_free);
+	    hipe_set_closure_stub(fe);
 #endif
 	}
     }

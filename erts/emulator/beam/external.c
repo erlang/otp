@@ -3748,7 +3748,7 @@ dec_term_atom_common:
 		funp->arity = arity;
 #ifdef HIPE
 		if (funp->fe->native_address == NULL) {
-		    hipe_set_closure_stub(funp->fe, num_free);
+		    hipe_set_closure_stub(funp->fe);
 		}
 #endif
 		hp = factory->hp;

@@ -59,7 +59,7 @@ void hipe_set_call_trap(Uint *bfun, void *nfun, int is_closure);
 Process *hipe_mode_switch(Process*, unsigned, Eterm*);
 void hipe_inc_nstack(Process *p);
 void hipe_empty_nstack(Process *p);
-void hipe_set_closure_stub(ErlFunEntry *fe, unsigned num_free);
+void hipe_set_closure_stub(ErlFunEntry *fe);
 Eterm hipe_build_stacktrace(Process *p, struct StackTrace *s);
 
 ERTS_GLB_INLINE void hipe_reserve_beam_trap_frame(Process*, Eterm reg[], unsigned arity);
