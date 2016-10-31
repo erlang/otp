@@ -100,33 +100,30 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 }
 .warning .content {
   background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
   line-height: 120%;
   font-size: 90%;
   padding: 0.5em 1em;
 }
 .do .label {
-  background: #30d42a;
+  background-color: #2b8a3e;
   color: #fefefe;
   font-weight: bold;
   padding: 5px 10px;
 }
 .do .content {
-  background: #eafeea;
-  color: #1a1a1a;
+  background: #f8f9fa;
   line-height: 120%;
   font-size: 90%;
   padding: 5px 10px;
 }
 .dont .label {
-  background: #C00;
+  background: #c92a2a;
   color: #fefefe;
   font-weight: bold;
   padding: 5px 10px;
 }
 .dont .content {
-  background: #FFF0F0;
-  color: #1a1a1a;
+  background-color: #f8f9fa;
   line-height: 120%;
   font-size: 90%;
   padding: 5px 10px;
