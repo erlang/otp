@@ -110,7 +110,7 @@ init_per_testcase(erlang_client_openssh_server_publickey_dsa, Config) ->
 init_per_testcase(erlang_server_openssh_client_renegotiate, Config) ->
     case os:type() of
 	{unix,_} -> ssh:start(), Config;
-	Type -> ct:fail("Unsupported test on ~p",[Type])
+	Type -> {skip, io_lib:format("Unsupported test on ~p",[Type])}
     end;
 init_per_testcase(_TestCase, Config) ->
     ssh:start(),
