@@ -110,7 +110,7 @@ init_per_testcase(erlang_client_openssh_server_publickey_dsa, Config) ->
 init_per_testcase(erlang_server_openssh_client_renegotiate, Config) ->
     case os:type() of
 	{unix,_} -> ssh:start(), Config;
-	Type -> ct:fail("Unsupported test on ~p",[Type])
+	Type -> {skip, io_lib:format("Unsupported test on ~p",[Type])}
     end;
 init_per_testcase(_TestCase, Config) ->
     ssh:start(),
@@ -153,7 +153,7 @@ erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     IO = ssh_test_lib:start_io_server(),
     Shell = ssh_test_lib:start_shell(?SSH_DEFAULT_PORT, IO),
     IO ! {input, self(), "echo Hej\n"},
-    receive_hej(),
+    receive_data("Hej"),
     IO ! {input, self(), "exit\n"},
     receive_logout(),
     receive_normal_exit(Shell).
@@ -447,7 +447,7 @@ erlang_client_openssh_server_renegotiate(_Config) ->
     Ref = make_ref(),
     Parent = self(),
 
-%%    catch ssh_dbg:messages(fun(X,_) -> ct:log(X) end),
+    catch ssh_dbg:messages(fun(X,_) -> ct:log(X) end),
     Shell = 
 	spawn_link(
 	  fun() ->
@@ -477,12 +477,12 @@ erlang_client_openssh_server_renegotiate(_Config) ->
 	{error, Ref, Error} ->
 	    ct:fail("Error=~p",[Error]);
 	{ok, Ref, ConnectionRef} ->
-	    IO ! {input, self(), "echo Hej\n"},
-	    receive_hej(),
+	    IO ! {input, self(), "echo Hej1\n"},
+	    receive_data("Hej1"),
 	    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
 	    ssh_connection_handler:renegotiate(ConnectionRef),
-	    IO ! {input, self(), "echo Hej\n"},
-	    receive_hej(),
+	    IO ! {input, self(), "echo Hej2\n"},
+	    receive_data("Hej2"),
 	    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
 	    IO ! {input, self(), "exit\n"},
 	    receive_logout(),
@@ -545,28 +545,6 @@ erlang_client_openssh_server_nonexistent_subsystem(Config) when is_list(Config) 
 %%--------------------------------------------------------------------
 %%% Internal functions -----------------------------------------------
 %%--------------------------------------------------------------------
-receive_hej() ->
-    receive
-	<<"Hej", _binary>> = Hej ->
-	    ct:log("Expected result: ~p~n", [Hej]);
-	<<"Hej\n", _binary>> = Hej ->
-	    ct:log("Expected result: ~p~n", [Hej]);
-	<<"Hej\r\n", _/binary>> = Hej ->
-	    ct:log("Expected result: ~p~n", [Hej]);
-	Info ->
-	    Lines = binary:split(Info, [<<"\r\n">>], [global]),
-	    case lists:member(<<"Hej">>, Lines) of
-		true ->
-		    ct:log("Expected result found in lines: ~p~n", [Lines]),
-		    ok;
-		false ->
-		    ct:log("Extra info: ~p~n", [Info]),
-		    receive_hej()
-	    end
-    after 
-	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.
-
 receive_data(Data) ->
     receive
 	Info when is_binary(Info) ->
