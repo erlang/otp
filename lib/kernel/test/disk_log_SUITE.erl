@@ -4666,7 +4666,7 @@ other_groups(Conf) when is_list(Conf) ->
 
     ok.
 
--define(MAX, 16384). % MAX in disk_log_1.erl
+-define(MAX, ?MAX_FWRITE_CACHE). % as in disk_log_1.erl
 %% Evil cases such as closed file descriptor port.
 evil(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
@@ -4690,7 +4690,7 @@ evil(Conf) when is_list(Conf) ->
                                      {size,?MAX+50},{format,external}]),
     [Fd] = erlang:ports() -- Ports0,
     {B,_} = x_mk_bytes(30),
-    ok = disk_log:blog(Log, <<0:(?MAX+1)/unit:8>>),
+    ok = disk_log:blog(Log, <<0:(?MAX-1)/unit:8>>),
     exit(Fd, kill),
     {error, {file_error,_,einval}} = disk_log:blog_terms(Log, [B,B]),
     ok= disk_log:close(Log),
