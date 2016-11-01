@@ -111,6 +111,7 @@ extern int erts_eager_check_io;
 extern int erts_sched_compact_load;
 extern int erts_sched_balance_util;
 extern Uint erts_no_schedulers;
+extern Uint erts_no_total_schedulers;
 #ifdef ERTS_DIRTY_SCHEDULERS
 extern Uint erts_no_dirty_cpu_schedulers;
 extern Uint erts_no_dirty_io_schedulers;

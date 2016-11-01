@@ -154,6 +154,7 @@ int ERTS_WRITE_UNLIKELY(erts_eager_check_io) = 1;
 int ERTS_WRITE_UNLIKELY(erts_sched_compact_load);
 int ERTS_WRITE_UNLIKELY(erts_sched_balance_util) = 0;
 Uint ERTS_WRITE_UNLIKELY(erts_no_schedulers);
+Uint ERTS_WRITE_UNLIKELY(erts_no_total_schedulers);
 Uint ERTS_WRITE_UNLIKELY(erts_no_dirty_cpu_schedulers) = 0;
 Uint ERTS_WRITE_UNLIKELY(erts_no_dirty_io_schedulers) = 0;
 
@@ -5908,9 +5909,12 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online
 
     n = (int) no_schedulers;
     erts_no_schedulers = n;
+    erts_no_total_schedulers = n;
 #ifdef ERTS_DIRTY_SCHEDULERS
     erts_no_dirty_cpu_schedulers = no_dirty_cpu_schedulers;
+    erts_no_total_schedulers += no_dirty_cpu_schedulers;
     erts_no_dirty_io_schedulers = no_dirty_io_schedulers;
+    erts_no_total_schedulers += no_dirty_io_schedulers;
 #endif
 
     /* Create and initialize scheduler sleep info */

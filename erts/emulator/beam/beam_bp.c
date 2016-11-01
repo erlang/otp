@@ -1517,7 +1517,7 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
 	ASSERT((bp->flags & ERTS_BPF_TIME_TRACE) == 0);
 	bdt = Alloc(sizeof(BpDataTime));
 	erts_refc_init(&bdt->refc, 1);
-	bdt->n = erts_no_schedulers;
+	bdt->n = erts_no_total_schedulers;
 	bdt->hash = Alloc(sizeof(bp_time_hash_t)*(bdt->n));
 	for (i = 0; i < bdt->n; i++) {
 	    bp_hash_init(&(bdt->hash[i]), 32);
