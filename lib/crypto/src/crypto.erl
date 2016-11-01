@@ -40,146 +40,10 @@
 -export([ec_curve/1, ec_curves/0]).
 -export([rand_seed/1]).
 
-%% DEPRECATED
--export([rand_bytes/1]).
--deprecated({rand_bytes, 1, next_major_release}).
-
-%% Replaced by hash_*
--export([md4/1, md4_init/0, md4_update/2, md4_final/1]).
--export([md5/1, md5_init/0, md5_update/2, md5_final/1]).
--export([sha/1, sha_init/0, sha_update/2, sha_final/1]).
--deprecated({md4, 1, next_major_release}).
--deprecated({md5, 1, next_major_release}).
--deprecated({sha, 1, next_major_release}).
--deprecated({md4_init, 0, next_major_release}).
--deprecated({md5_init, 0, next_major_release}).
--deprecated({sha_init, 0, next_major_release}).
--deprecated({md4_update, 2, next_major_release}).
--deprecated({md5_update, 2, next_major_release}).
--deprecated({sha_update, 2, next_major_release}).
--deprecated({md4_final, 1, next_major_release}).
--deprecated({md5_final, 1, next_major_release}).
--deprecated({sha_final, 1, next_major_release}).
-
-%% Replaced by hmac_*
--export([md5_mac/2, md5_mac_96/2, sha_mac/2, sha_mac/3, sha_mac_96/2]).
--deprecated({md5_mac, 2, next_major_release}).
--deprecated({md5_mac_96, 2, next_major_release}).
--deprecated({sha_mac, 2, next_major_release}).
--deprecated({sha_mac, 3, next_major_release}).
--deprecated({sha_mac_96, 2, next_major_release}).
-
-%% Replaced by sign/verify
--export([dss_verify/3, dss_verify/4, rsa_verify/3, rsa_verify/4]).
--export([dss_sign/2, dss_sign/3, rsa_sign/2, rsa_sign/3]).
--deprecated({dss_verify, 3, next_major_release}).
--deprecated({dss_verify, 4, next_major_release}).
--deprecated({rsa_verify, 3, next_major_release}).
--deprecated({rsa_verify, 4, next_major_release}).
--deprecated({dss_sign, 2, next_major_release}).
--deprecated({dss_sign, 3, next_major_release}).
--deprecated({rsa_sign, 2, next_major_release}).
--deprecated({rsa_sign, 3, next_major_release}).
-
-%% Replaced by generate_key
--export([dh_generate_key/1, dh_generate_key/2, dh_compute_key/3]).
--deprecated({dh_generate_key, 1, next_major_release}).
--deprecated({dh_generate_key, 2, next_major_release}).
--deprecated({dh_compute_key, 3, next_major_release}).
-
-%% Replaced by mod_exp_prim and no longer needed
--export([mod_exp/3, mpint/1, erlint/1,  strong_rand_mpint/3]).
--deprecated({mod_exp, 3, next_major_release}).
--deprecated({mpint, 1, next_major_release}).
--deprecated({erlint, 1, next_major_release}).
--deprecated({strong_rand_mpint, 3, next_major_release}).
-
-%% Replaced by block_*
--export([des_cbc_encrypt/3, des_cbc_decrypt/3, des_cbc_ivec/1]).
--export([des3_cbc_encrypt/5, des3_cbc_decrypt/5]).
--export([des_ecb_encrypt/2, des_ecb_decrypt/2]).
--export([des_ede3_cbc_encrypt/5, des_ede3_cbc_decrypt/5]).
--export([des_cfb_encrypt/3, des_cfb_decrypt/3, des_cfb_ivec/2]).
--export([des3_cfb_encrypt/5, des3_cfb_decrypt/5]).
--deprecated({des_cbc_encrypt, 3, next_major_release}).
--deprecated({des_cbc_decrypt, 3, next_major_release}).
--deprecated({des_cbc_ivec, 1, next_major_release}).
--deprecated({des3_cbc_encrypt, 5, next_major_release}).
--deprecated({des3_cbc_decrypt, 5, next_major_release}).
--deprecated({des_ecb_encrypt, 2, next_major_release}).
--deprecated({des_ecb_decrypt, 2, next_major_release}).
--deprecated({des_ede3_cbc_encrypt, 5, next_major_release}).
--deprecated({des_ede3_cbc_decrypt, 5, next_major_release}).
--deprecated({des_cfb_encrypt, 3, next_major_release}).
--deprecated({des_cfb_decrypt, 3, next_major_release}).
--deprecated({des_cfb_ivec, 2, next_major_release}).
--deprecated({des3_cfb_encrypt, 5, next_major_release}).
--deprecated({des3_cfb_decrypt, 5, next_major_release}).
--export([blowfish_ecb_encrypt/2, blowfish_ecb_decrypt/2]).
--export([blowfish_cbc_encrypt/3, blowfish_cbc_decrypt/3]).
--export([blowfish_cfb64_encrypt/3, blowfish_cfb64_decrypt/3]).
--export([blowfish_ofb64_encrypt/3]).
--deprecated({blowfish_ecb_encrypt, 2, next_major_release}).
--deprecated({blowfish_ecb_decrypt, 2, next_major_release}).
--deprecated({blowfish_cbc_encrypt, 3, next_major_release}).
--deprecated({blowfish_cbc_decrypt, 3, next_major_release}).
--deprecated({blowfish_cfb64_encrypt, 3, next_major_release}).
--deprecated({blowfish_cfb64_decrypt, 3, next_major_release}).
--deprecated({blowfish_ofb64_encrypt, 3, next_major_release}).
--export([aes_cfb_128_encrypt/3, aes_cfb_128_decrypt/3]).
--export([aes_cbc_128_encrypt/3, aes_cbc_128_decrypt/3]).
--export([aes_cbc_256_encrypt/3, aes_cbc_256_decrypt/3]).
--export([aes_cbc_ivec/1]).
--deprecated({aes_cfb_128_encrypt, 3, next_major_release}).
--deprecated({aes_cfb_128_decrypt, 3, next_major_release}).
--deprecated({aes_cbc_128_encrypt, 3, next_major_release}).
--deprecated({aes_cbc_128_decrypt, 3, next_major_release}).
--deprecated({aes_cbc_256_encrypt, 3, next_major_release}).
--deprecated({aes_cbc_256_decrypt, 3, next_major_release}).
--deprecated({aes_cbc_ivec, 1, next_major_release}).
--export([rc2_cbc_encrypt/3, rc2_cbc_decrypt/3]).
--export([rc2_40_cbc_encrypt/3, rc2_40_cbc_decrypt/3]).
--deprecated({rc2_cbc_encrypt, 3, next_major_release}).
--deprecated({rc2_cbc_decrypt, 3, next_major_release}).
-%% allready replaced by above!
--deprecated({rc2_40_cbc_encrypt, 3, next_major_release}).
--deprecated({rc2_40_cbc_decrypt, 3, next_major_release}).
-
-%% Replaced by stream_*
--export([aes_ctr_stream_init/2, aes_ctr_stream_encrypt/2, aes_ctr_stream_decrypt/2]).
--export([rc4_set_key/1, rc4_encrypt_with_state/2]).
--deprecated({aes_ctr_stream_init, 2, next_major_release}).
--deprecated({aes_ctr_stream_encrypt, 2, next_major_release}).
--deprecated({aes_ctr_stream_decrypt, 2, next_major_release}).
--deprecated({rc4_set_key, 1, next_major_release}).
--deprecated({rc4_encrypt_with_state, 2, next_major_release}).
-
-%% Not needed special case of stream_*
--export([aes_ctr_encrypt/3, aes_ctr_decrypt/3, rc4_encrypt/2]).
--deprecated({aes_ctr_encrypt, 3, next_major_release}).
--deprecated({aes_ctr_decrypt, 3, next_major_release}).
--deprecated({rc4_encrypt, 2, next_major_release}).
-
-%% Replace by public/private_encrypt/decrypt
--export([rsa_public_encrypt/3, rsa_private_decrypt/3]).
--export([rsa_private_encrypt/3, rsa_public_decrypt/3]).
--deprecated({rsa_public_encrypt, 3, next_major_release}).
--deprecated({rsa_private_decrypt, 3, next_major_release}).
--deprecated({rsa_public_decrypt, 3, next_major_release}).
--deprecated({rsa_private_encrypt, 3, next_major_release}).
-
-%% Replaced by crypto:module_info()
--export([info/0]).
--deprecated({info, 0, next_major_release}).
-
 %% This should correspond to the similar macro in crypto.c
 -define(MAX_BYTES_TO_NIF, 20000). %%  Current value is: erlang:system_info(context_reductions) * 10
 
--type mpint() :: binary().
--type rsa_digest_type() :: 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
--type dss_digest_type() :: 'none' | 'sha'.
 %%-type ecdsa_digest_type() :: 'md5' | 'sha' | 'sha256' | 'sha384' | 'sha512'.
--type data_or_digest() :: binary() | {digest, binary()}.
 -type crypto_integer() :: binary() | integer().
 %%-type ec_named_curve() :: atom().
 %%-type ec_point() :: crypto_integer().
@@ -420,12 +284,9 @@ stream_decrypt(State, Data0) ->
 %%
 %% RAND - pseudo random numbers using RN_ functions in crypto lib
 %%
--spec rand_bytes(non_neg_integer()) -> binary().
 -spec strong_rand_bytes(non_neg_integer()) -> binary().
 -spec rand_uniform(crypto_integer(), crypto_integer()) ->
 			  crypto_integer().
-
-rand_bytes(_Bytes) -> ?nif_stub.
 
 strong_rand_bytes(Bytes) ->
     case strong_rand_bytes_nif(Bytes) of
@@ -694,7 +555,7 @@ path2bin(Path) when is_list(Path) ->
     end.
 
 %%--------------------------------------------------------------------
-%%% Internal functions (some internal API functions are part of the deprecated API)
+%%% Internal functions 
 %%--------------------------------------------------------------------
 max_bytes() ->
     ?MAX_BYTES_TO_NIF.
@@ -723,59 +584,6 @@ hash_nif(_Hash, _Data) -> ?nif_stub.
 hash_init_nif(_Hash) -> ?nif_stub.
 hash_update_nif(_State, _Data) -> ?nif_stub.
 hash_final_nif(_State) -> ?nif_stub.
-
-
-%%
-%%  MD5
-%%
-
--spec md5(iodata()) -> binary().
--spec md5_init() -> binary().
--spec md5_update(binary(), iodata()) -> binary().
--spec md5_final(binary()) -> binary().
-
-md5(Data) ->
-    hash(md5, Data).
-md5_init() ->
-    hash_init(md5).
-md5_update(Context, Data) ->
-    hash_update(Context, Data).
-md5_final(Context) ->
-    hash_final(Context).
-
-%%
-%%  MD4
-%%
--spec md4(iodata()) -> binary().
--spec md4_init() -> binary().
--spec md4_update(binary(), iodata()) -> binary().
--spec md4_final(binary()) -> binary().
-
-md4(Data) ->
-    hash(md4, Data).
-md4_init() ->
-    hash_init(md4).
-md4_update(Context, Data) ->
-    hash_update(Context, Data).
-md4_final(Context) ->
-    hash_final(Context).
-
-%%
-%% SHA
-%%
--spec sha(iodata()) -> binary().
--spec sha_init() -> binary().
--spec sha_update(binary(), iodata()) -> binary().
--spec sha_final(binary()) -> binary().
-
-sha(Data) ->
-    hash(sha, Data).
-sha_init() ->
-    hash_init(sha).
-sha_update(Context, Data) ->
-    hash_update(Context, Data).
-sha_final(Context) ->
-    hash_final(Context).
 
 %% HMAC --------------------------------------------------------------------
 
@@ -811,28 +619,6 @@ hmac_final_nif(_Context, _MacSize) -> ?nif_stub.
 
 cmac_nif(_Type, _Key, _Data) -> ?nif_stub.
 
-%%
-%%  MD5_MAC
-%%
--spec md5_mac(iodata(), iodata()) -> binary().
--spec md5_mac_96(iodata(), iodata()) -> binary().
-
-md5_mac(Key, Data) -> hmac(md5, Key, Data).
-
-md5_mac_96(Key, Data) -> hmac(md5, Key, Data, 12).
-
-%%
-%%  SHA_MAC
-%%
--spec sha_mac(iodata(), iodata()) -> binary().
--spec sha_mac_96(iodata(), iodata()) -> binary().
-
-sha_mac(Key, Data) -> hmac(sha, Key, Data).
-
-sha_mac(Key, Data, Size) -> hmac(sha, Key, Data, Size).
-
-sha_mac_96(Key, Data) -> hmac(sha, Key, Data, 12).
-
 %% CIPHERS --------------------------------------------------------------------
 
 block_crypt_nif(_Type, _Key, _Ivec, _Text, _IsEncrypt) -> ?nif_stub.
@@ -849,94 +635,6 @@ check_des3_key(Key) ->
    end.
 
 %%
-%% DES - in electronic codebook mode (ECB)
-%%
--spec des_ecb_encrypt(iodata(), iodata()) -> binary().
--spec des_ecb_decrypt(iodata(), iodata()) -> binary().
-
-des_ecb_encrypt(Key, Data) ->
-    block_encrypt(des_ecb, Key, Data).
-des_ecb_decrypt(Key, Data) ->
-    block_decrypt(des_ecb, Key, Data).
-
-%%
-%% DES3 - in cipher block chaining mode (CBC)
-%%
--spec des3_cbc_encrypt(iodata(), iodata(), iodata(), binary(), iodata()) ->
-			     binary().
--spec des3_cbc_decrypt(iodata(), iodata(), iodata(), binary(), iodata()) ->
-			     binary().
-
-des3_cbc_encrypt(Key1, Key2, Key3, IVec, Data) ->
-    block_encrypt(des3_cbc, [Key1, Key2, Key3], IVec, Data).
-des_ede3_cbc_encrypt(Key1, Key2, Key3, IVec, Data) ->
-    block_encrypt(des_ede3, [Key1, Key2, Key3], IVec, Data).
-
-des3_cbc_decrypt(Key1, Key2, Key3, IVec, Data) ->
-    block_decrypt(des3_cbc, [Key1, Key2, Key3], IVec, Data).
-des_ede3_cbc_decrypt(Key1, Key2, Key3, IVec, Data) ->
-    block_decrypt(des_ede3, [Key1, Key2, Key3], IVec, Data).
-
-%%
-%% DES3 - in 8-bits cipher feedback mode (CFB)
-%%
--spec des3_cfb_encrypt(iodata(), iodata(), iodata(), binary(), iodata()) ->
-			     binary().
--spec des3_cfb_decrypt(iodata(), iodata(), iodata(), binary(), iodata()) ->
-			     binary().
-
-des3_cfb_encrypt(Key1, Key2, Key3, IVec, Data) ->
-    block_encrypt(des3_cfb, [Key1, Key2, Key3], IVec, Data).
-
-des3_cfb_decrypt(Key1, Key2, Key3, IVec, Data) ->
-    block_decrypt(des3_cfb, [Key1, Key2, Key3], IVec, Data).
-
-%%
-%% Blowfish
-%%
--spec blowfish_ecb_encrypt(iodata(), iodata()) -> binary().
--spec blowfish_ecb_decrypt(iodata(), iodata()) -> binary().
--spec blowfish_cbc_encrypt(iodata(), binary(), iodata()) -> binary().
--spec blowfish_cbc_decrypt(iodata(), binary(), iodata()) -> binary().
--spec blowfish_cfb64_encrypt(iodata(), binary(), iodata()) -> binary().
--spec blowfish_cfb64_decrypt(iodata(), binary(), iodata()) -> binary().
--spec blowfish_ofb64_encrypt(iodata(), binary(), iodata()) -> binary().
-
-blowfish_ecb_encrypt(Key, Data) ->
-    block_encrypt(blowfish_ecb, Key, Data).
-
-blowfish_ecb_decrypt(Key, Data) ->
-    block_decrypt(blowfish_ecb, Key, Data).
-
-blowfish_cbc_encrypt(Key, IVec, Data) ->
-    block_encrypt(blowfish_cbc, Key, IVec, Data).
-
-blowfish_cbc_decrypt(Key, IVec, Data) ->
-    block_decrypt(blowfish_cbc, Key, IVec, Data).
-
-blowfish_cfb64_encrypt(Key, IVec, Data) ->
-    block_encrypt(blowfish_cfb64, Key, IVec, Data).
-
-blowfish_cfb64_decrypt(Key, IVec, Data) ->
-    block_decrypt(blowfish_cfb64, Key, IVec, Data).
-
-blowfish_ofb64_encrypt(Key, IVec, Data) ->
-    block_encrypt(blowfish_ofb64, Key, IVec, Data).
-
-
-%%
-%% AES in cipher feedback mode (CFB) - 128 bit shift
-%%
--spec aes_cfb_128_encrypt(iodata(), binary(), iodata()) -> binary().
--spec aes_cfb_128_decrypt(iodata(), binary(), iodata()) -> binary().
-
-aes_cfb_128_encrypt(Key, IVec, Data) ->
-    block_encrypt(aes_cfb128, Key, IVec, Data).
-
-aes_cfb_128_decrypt(Key, IVec, Data) ->
-    block_decrypt(aes_cfb128, Key, IVec, Data).
-
-%%
 %% AES - in Galois/Counter Mode (GCM)
 %%
 %% The default tag length is EVP_GCM_TLS_TAG_LEN(16),
@@ -950,88 +648,6 @@ aes_gcm_decrypt(_Key, _Ivec, _AAD, _In, _Tag) -> ?nif_stub.
 %%
 chacha20_poly1305_encrypt(_Key, _Ivec, _AAD, _In) -> ?nif_stub.
 chacha20_poly1305_decrypt(_Key, _Ivec, _AAD, _In, _Tag) -> ?nif_stub.
-
-%%
-%% DES - in cipher block chaining mode (CBC)
-%%
--spec des_cbc_encrypt(iodata(), binary(), iodata()) -> binary().
--spec des_cbc_decrypt(iodata(), binary(), iodata()) -> binary().
-
-des_cbc_encrypt(Key, IVec, Data) ->
-    block_encrypt(des_cbc, Key, IVec, Data).
-
-des_cbc_decrypt(Key, IVec, Data) ->
-    block_decrypt(des_cbc, Key, IVec, Data).
-
-%%
-%% dec_cbc_ivec(Data) -> binary()
-%%
-%% Returns the IVec to be used in the next iteration of
-%% des_cbc_[encrypt|decrypt].
-%%
--spec des_cbc_ivec(iodata()) -> binary().
-
-des_cbc_ivec(Data) ->
-    next_iv(des_cbc, Data).
-
-%%
-%% DES - in 8-bits cipher feedback mode (CFB)
-%%
--spec des_cfb_encrypt(iodata(), binary(), iodata()) -> binary().
--spec des_cfb_decrypt(iodata(), binary(), iodata()) -> binary().
-
-des_cfb_encrypt(Key, IVec, Data) ->
-    block_encrypt(des_cfb, Key, IVec, Data).
-
-des_cfb_decrypt(Key, IVec, Data) ->
-    block_decrypt(des_cfb, Key, IVec, Data).
-
-%%
-%% dec_cfb_ivec(IVec, Data) -> binary()
-%%
-%% Returns the IVec to be used in the next iteration of
-%% des_cfb_[encrypt|decrypt].
-%%
-
--spec des_cfb_ivec(iodata(), iodata()) -> binary().
-
-des_cfb_ivec(IVec, Data) ->
-    next_iv(des_cfb, Data, IVec).
-
-
-%%
-%% AES - with 128 or 256 bit key in cipher block chaining mode (CBC)
-%%
--spec aes_cbc_128_encrypt(iodata(), binary(), iodata()) ->
-				 binary().
--spec aes_cbc_128_decrypt(iodata(), binary(), iodata()) ->
-				 binary().
--spec aes_cbc_256_encrypt(iodata(), binary(), iodata()) ->
-				 binary().
--spec aes_cbc_256_decrypt(iodata(), binary(), iodata()) ->
-				 binary().
-
-aes_cbc_128_encrypt(Key, IVec, Data) ->
-    block_encrypt(aes_cbc128, Key, IVec, Data).
-
-aes_cbc_128_decrypt(Key, IVec, Data) ->
-    block_decrypt(aes_cbc128, Key, IVec, Data).
-
-aes_cbc_256_encrypt(Key, IVec, Data) ->
-    block_encrypt(aes_cbc256, Key, IVec, Data).
-
-aes_cbc_256_decrypt(Key, IVec, Data) ->
-    block_decrypt(aes_cbc256, Key, IVec, Data).
-
-%%
-%% aes_cbc_ivec(Data) -> binary()
-%%
-%% Returns the IVec to be used in the next iteration of
-%% aes_cbc_*_[encrypt|decrypt].
-%% IVec size: 16 bytes
-%%
-aes_cbc_ivec(Data) ->
-    next_iv(aes_cbc, Data).
 
 %%
 %% AES - with 256 bit key in infinite garble extension mode (IGE)
@@ -1066,17 +682,6 @@ do_stream_decrypt({rc4, State0}, Data) ->
     {State, Text} = rc4_encrypt_with_state(State0, Data),
     {{rc4, State}, Text}.
 
-%%
-%% AES - in counter mode (CTR)
-%%
--spec aes_ctr_encrypt(iodata(), binary(), iodata()) ->
-				 binary().
--spec aes_ctr_decrypt(iodata(), binary(), iodata()) ->
-				 binary().
-
-aes_ctr_encrypt(_Key, _IVec, _Data) -> ?nif_stub.
-aes_ctr_decrypt(_Key, _IVec, _Cipher) -> ?nif_stub.
-
 
 %%
 %% AES - in counter mode (CTR) with state maintained for multi-call streaming 
@@ -1096,30 +701,8 @@ aes_ctr_stream_decrypt(_State, _Cipher) -> ?nif_stub.
 %%
 %% RC4 - symmetric stream cipher
 %%
--spec rc4_encrypt(iodata(), iodata()) -> binary().
-
-rc4_encrypt(_Key, _Data) -> ?nif_stub.
 rc4_set_key(_Key) -> ?nif_stub.
 rc4_encrypt_with_state(_State, _Data) -> ?nif_stub.
-
-
-%% RC2 block cipher
-
-rc2_cbc_encrypt(Key, IVec, Data) ->
-    notsup_to_error(block_encrypt(rc2_cbc, Key, IVec, Data)).
-
-rc2_cbc_decrypt(Key, IVec, Data) ->
-    notsup_to_error(block_decrypt(rc2_cbc, Key, IVec, Data)).
-
-%%
-%% RC2 - 40 bits block cipher - Backwards compatibility not documented.
-%%
-rc2_40_cbc_encrypt(Key, IVec, Data) when erlang:byte_size(Key) == 5 ->
-    notsup_to_error(block_encrypt(rc2_cbc, Key, IVec, Data)).
-
-rc2_40_cbc_decrypt(Key, IVec, Data)  when erlang:byte_size(Key) == 5 ->
-    notsup_to_error(block_decrypt(rc2_cbc, Key, IVec, Data)).
-
 
 %% Secure remote password  -------------------------------------------------------------------
 
@@ -1168,7 +751,7 @@ srp_scrambler(Version, UserPublic, HostPublic, Prime) when Version == '6'; Versi
 srp_scrambler('3', _, HostPublic, _Prime) ->
     %% The parameter u is a 32-bit unsigned integer which takes its value
     %% from the first 32 bits of the SHA1 hash of B, MSB first.
-    <<U:32/bits, _/binary>> = sha(HostPublic),
+    <<U:32/bits, _/binary>> = hash(sha, HostPublic),
     U.
 
 srp_pad_length(Width, Length) ->
@@ -1223,26 +806,10 @@ dh_check([_Prime,_Gen]) -> ?nif_stub.
 
 %% DHParameters = [P (Prime)= mpint(), G(Generator) = mpint()]
 %% PrivKey = mpint()
--spec dh_generate_key([binary()]) -> {binary(),binary()}.
--spec dh_generate_key(binary()|undefined, [binary()]) ->
-			     {binary(),binary()}.
-
-dh_generate_key(DHParameters) ->
-    dh_generate_key_nif(undefined, map_mpint_to_bin(DHParameters), 4).
-dh_generate_key(PrivateKey, DHParameters) ->
-    dh_generate_key_nif(mpint_to_bin(PrivateKey), map_mpint_to_bin(DHParameters), 4).
-
 dh_generate_key_nif(_PrivateKey, _DHParameters, _Mpint) -> ?nif_stub.
 
 %% DHParameters = [P (Prime)= mpint(), G(Generator) = mpint()]
 %% MyPrivKey, OthersPublicKey = mpint()
--spec dh_compute_key(binary(), binary(), [binary()]) -> binary().
-
-dh_compute_key(OthersPublicKey, MyPrivateKey, DHParameters) ->
-    compute_key(dh, mpint_to_bin(OthersPublicKey), mpint_to_bin(MyPrivateKey),
-		map_mpint_to_bin(DHParameters)).
-
-
 dh_compute_key_nif(_OthersPublicKey, _MyPrivateKey, _DHParameters) -> ?nif_stub.
 
 ec_key_generate(_Curve, _Key) -> ?nif_stub.
@@ -1322,137 +889,19 @@ ensure_int_as_bin(Int) when is_integer(Int) ->
 ensure_int_as_bin(Bin) ->
     Bin.
 
-map_to_norm_bin([H|_]=List) when is_integer(H) ->
-    lists:map(fun(E) -> int_to_bin(E) end, List);
-map_to_norm_bin(List) ->
-    lists:map(fun(E) -> mpint_to_bin(E) end, List).
-
-%%--------------------------------------------------------------------
-%%% Deprecated
 %%--------------------------------------------------------------------
 %%
-%%  rsa_public_encrypt
-%%  rsa_private_decrypt
 -type rsa_padding() :: 'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding' | 'rsa_no_padding'.
-
--spec rsa_public_encrypt(binary(), [binary()], rsa_padding()) ->
-				binary().
--spec rsa_public_decrypt(binary(), [integer() | mpint()], rsa_padding()) ->
-				binary().
--spec rsa_private_encrypt(binary(), [integer() | mpint()], rsa_padding()) ->
-				binary().
--spec rsa_private_decrypt(binary(), [integer() | mpint()], rsa_padding()) ->
-				binary().
-
-%% Binary, Key = [E,N]
-rsa_public_encrypt(BinMesg, Key, Padding) ->
-    case rsa_public_crypt(BinMesg, map_to_norm_bin(Key), Padding, true) of
-	error ->
-	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
-	Sign -> Sign
-    end.
 
 rsa_public_crypt(_BinMsg, _Key, _Padding, _IsEncrypt) -> ?nif_stub.
 
-%% Binary, Key = [E,N,D]
-rsa_private_decrypt(BinMesg, Key, Padding) ->
-    case rsa_private_crypt(BinMesg, map_to_norm_bin(Key), Padding, false) of
-	error ->
-	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
-	Sign -> Sign
-    end.
-
 rsa_private_crypt(_BinMsg, _Key, _Padding, _IsEncrypt) -> ?nif_stub.
-
-
-%% Binary, Key = [E,N,D]
-rsa_private_encrypt(BinMesg, Key, Padding) ->
-    case rsa_private_crypt(BinMesg, map_to_norm_bin(Key), Padding, true) of
-	error ->
-	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
-	Sign -> Sign
-    end.
-
-%% Binary, Key = [E,N]
-rsa_public_decrypt(BinMesg, Key, Padding) ->
-    case rsa_public_crypt(BinMesg, map_to_norm_bin(Key), Padding, false) of
-	error ->
-	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
-	Sign -> Sign
-    end.
-
-map_mpint_to_bin(List) ->
-    lists:map(fun(E) -> mpint_to_bin(E) end, List ).
-
-%%
-%% DSS, RSA - sign
-%%
-%% Key = [P,Q,G,X]   P,Q,G=DSSParams  X=PrivateKey
--spec dss_sign(data_or_digest(), [binary()]) -> binary().
--spec dss_sign(dss_digest_type(), data_or_digest(), [binary()]) -> binary().
--spec rsa_sign(data_or_digest(), [binary()]) -> binary().
--spec rsa_sign(rsa_digest_type(), data_or_digest(), [binary()]) -> binary().
-
-dss_sign(DataOrDigest,Key) ->
-    dss_sign(sha,DataOrDigest,Key).
-dss_sign(Type, Data, Key) when is_binary(Data), Type=/=none ->
-    sign(dss, Type, mpint_to_bin(Data), map_mpint_to_bin(Key));
-dss_sign(Type, Digest, Key) ->
-    sign(dss, Type, Digest, map_mpint_to_bin(Key)).
-
-
-%% Key = [E,N,D]  E=PublicExponent N=PublicModulus  D=PrivateExponent
-rsa_sign(DataOrDigest,Key) ->
-    rsa_sign(sha, DataOrDigest, Key).
-
-rsa_sign(Type, Data, Key) when is_binary(Data) ->
-    sign(rsa, Type, mpint_to_bin(Data), map_mpint_to_bin(Key));
-rsa_sign(Type, Digest, Key) ->
-    sign(rsa, Type, Digest, map_mpint_to_bin(Key)).
-
-%%
-%% DSS, RSA - verify
-%%
--spec dss_verify(data_or_digest(), binary(), [binary()]) -> boolean().
--spec dss_verify(dss_digest_type(), data_or_digest(), binary(), [binary()]) -> boolean().
--spec rsa_verify(data_or_digest(), binary(), [binary()]) -> boolean().
--spec rsa_verify(rsa_digest_type(), data_or_digest(), binary(), [binary()]) ->
-			boolean().
-
-%% Key = [P,Q,G,Y]   P,Q,G=DSSParams  Y=PublicKey
-dss_verify(Data,Signature,Key) ->
-    dss_verify(sha, Data, Signature, Key).
-
-dss_verify(Type,Data,Signature,Key) when is_binary(Data), Type=/=none ->
-    verify(dss,Type,mpint_to_bin(Data),mpint_to_bin(Signature),map_mpint_to_bin(Key));
-dss_verify(Type,Digest,Signature,Key) ->
-    verify(dss,Type,Digest,mpint_to_bin(Signature),map_mpint_to_bin(Key)).
-
-% Key = [E,N]  E=PublicExponent N=PublicModulus
-rsa_verify(Data,Signature,Key) ->
-    rsa_verify(sha, Data,Signature,Key).
-rsa_verify(Type, Data, Signature, Key) when is_binary(Data) ->
-    verify(rsa, Type, mpint_to_bin(Data), mpint_to_bin(Signature), map_mpint_to_bin(Key));
-rsa_verify(Type, Digest, Signature, Key) ->
-    verify(rsa, Type, Digest, mpint_to_bin(Signature), map_mpint_to_bin(Key)).
-
--spec strong_rand_mpint(Bits::non_neg_integer(),
-			Top::-1..1,
-			Bottom::0..1) -> binary().
-
-strong_rand_mpint(Bits, Top, Bottom) ->
-    case strong_rand_mpint_nif(Bits,Top,Bottom) of
-        false -> erlang:error(low_entropy);
-        Bin -> Bin
-    end.
-strong_rand_mpint_nif(_Bits, _Top, _Bottom) -> ?nif_stub.
-
 
 %% large integer in a binary with 32bit length
 %% MP representaion  (SSH2)
 mpint(X) when X < 0 -> mpint_neg(X);
 mpint(X) -> mpint_pos(X).
-
+ 
 -define(UINT32(X),   X:32/unsigned-big-integer).
 
 
@@ -1477,76 +926,8 @@ erlint(<<MPIntSize:32/integer,MPIntValue/binary>>) ->
     <<Integer:Bits/integer>> = MPIntValue,
     Integer.
 
-mpint_to_bin(<<Len:32, Bin:Len/binary>>) ->
-    Bin.
-
 %%
 %% mod_exp - utility for rsa generation and SRP
 %%
-mod_exp(Base, Exponent, Modulo)
-  when is_integer(Base), is_integer(Exponent), is_integer(Modulo) ->
-    bin_to_int(mod_exp_nif(int_to_bin(Base), int_to_bin(Exponent), int_to_bin(Modulo), 0));
-
-mod_exp(Base, Exponent, Modulo) ->
-    mod_exp_nif(mpint_to_bin(Base),mpint_to_bin(Exponent),mpint_to_bin(Modulo), 4).
-
 mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.
 
--define(FUNC_LIST, [hash, hash_init, hash_update, hash_final,
-		    hmac, hmac_init, hmac_update, hmac_final, hmac_final_n,
-		    cmac,
-		    %% deprecated
-		    md4, md4_init, md4_update, md4_final,
-		    md5, md5_init, md5_update, md5_final,
-		    sha, sha_init, sha_update, sha_final,
-		    md5_mac,  md5_mac_96,
-		    sha_mac,  sha_mac_96,
-		    %%
-		    block_encrypt, block_decrypt,
-		    %% deprecated
-		    des_cbc_encrypt, des_cbc_decrypt,
-		    des_cfb_encrypt, des_cfb_decrypt,
-		    des_ecb_encrypt, des_ecb_decrypt,
-		    des3_cbc_encrypt, des3_cbc_decrypt,
-		    des3_cfb_encrypt, des3_cfb_decrypt,
-		    aes_cfb_128_encrypt, aes_cfb_128_decrypt,
-		    rc2_cbc_encrypt, rc2_cbc_decrypt,
-		    rc2_40_cbc_encrypt, rc2_40_cbc_decrypt,
-		    aes_cbc_128_encrypt, aes_cbc_128_decrypt,
-		    aes_cbc_256_encrypt, aes_cbc_256_decrypt,
-		    blowfish_cbc_encrypt, blowfish_cbc_decrypt,
-		    blowfish_cfb64_encrypt, blowfish_cfb64_decrypt,
-		    blowfish_ecb_encrypt, blowfish_ecb_decrypt, blowfish_ofb64_encrypt,
-		    %%
-		    rand_bytes,
-		    strong_rand_bytes,
-		    rand_uniform,
-		    rand_seed,
-		    mod_pow,
-		    exor,
-		    %% deprecated
-		    mod_exp,strong_rand_mpint,erlint, mpint,
-		    %%
-		    sign, verify, generate_key, compute_key,
-		    %% deprecated
-		    dss_verify,dss_sign,
-		    rsa_verify,rsa_sign,
-		    rsa_public_encrypt,rsa_private_decrypt,
-		    rsa_private_encrypt,rsa_public_decrypt,
-		    dh_generate_key, dh_compute_key,
-		    %%
-		    stream_init, stream_encrypt, stream_decrypt,
-		    %% deprecated
-		    rc4_encrypt, rc4_set_key, rc4_encrypt_with_state,
-		    aes_ctr_encrypt, aes_ctr_decrypt,
-                    aes_ctr_stream_init, aes_ctr_stream_encrypt, aes_ctr_stream_decrypt,
-		    %%
-		    next_iv,
-		    %% deprecated
-		    aes_cbc_ivec,
-		    des_cbc_ivec, des_cfb_ivec,
-		    info,
-		    %%
-		    info_lib, info_fips, supports]).
-info() ->
-    ?FUNC_LIST.

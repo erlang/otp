@@ -151,7 +151,7 @@ end_per_group(_GroupName, Config) ->
 ecb_test(KeyBytes, ClearBytes, CipherBytes) ->
     {Key, Clear, Cipher} =
 	{to_bin(KeyBytes), to_bin(ClearBytes), to_bin(CipherBytes)},
-    ?line m(crypto:blowfish_ecb_encrypt(Key, Clear), Cipher),
+    ?line m(crypto:block_encrypt(blowfish_ecb, Key, Clear), Cipher),
     true.
 
 ecb(doc) ->
@@ -200,7 +200,7 @@ cbc(doc) ->
 cbc(suite) ->
     [];
 cbc(Config) when is_list(Config) ->
-	true = crypto:blowfish_cbc_encrypt(?KEY, ?IVEC, ?DATA_PADDED) =:=
+	true = crypto:block_encrypt(blowfish_cbc, ?KEY, ?IVEC, ?DATA_PADDED) =:=
 		to_bin("6B77B4D63006DEE605B156E27403979358DEB9E7154616D959F1652BD5FF92CC"),
 	ok.
 
@@ -209,7 +209,7 @@ cfb64(doc) ->
 cfb64(suite) ->
     [];
 cfb64(Config) when is_list(Config) ->
-	true = crypto:blowfish_cfb64_encrypt(?KEY, ?IVEC, ?DATA) =:=
+	true = crypto:block_encrypt(blowfish_cfb64, ?KEY, ?IVEC, ?DATA) =:=
 		to_bin("E73214A2822139CAF26ECF6D2EB9E76E3DA3DE04D1517200519D57A6C3"),
 	ok.
 
@@ -218,7 +218,7 @@ ofb64(doc) ->
 ofb64(suite) ->
     [];
 ofb64(Config) when is_list(Config) ->
-	true = crypto:blowfish_ofb64_encrypt(?KEY, ?IVEC, ?DATA) =:=
+	true = crypto:block_encrypt(blowfish_ofb64, ?KEY, ?IVEC, ?DATA) =:=
 		to_bin("E73214A2822139CA62B343CC5B65587310DD908D0C241B2263C2CF80DA"),
 	ok.
 
@@ -227,8 +227,9 @@ no_ecb(doc) ->
 no_ecb(suite) ->
     [];
 no_ecb(Config) when is_list(Config) ->
-	notsup(fun crypto:blowfish_ecb_encrypt/2,
-               [to_bin("0000000000000000"),
+	notsup(fun crypto:block_encrypt/3,
+               [blowfish_ecb,
+		to_bin("0000000000000000"),
                 to_bin("FFFFFFFFFFFFFFFF")]).
 
 no_cbc(doc) ->
@@ -236,16 +237,16 @@ no_cbc(doc) ->
 no_cbc(suite) ->
     [];
 no_cbc(Config) when is_list(Config) ->
-	notsup(fun crypto:blowfish_cbc_encrypt/3,
-               [?KEY, ?IVEC, ?DATA_PADDED]).
+	notsup(fun crypto:block_encrypt/4,
+               [blowfish_cbc, ?KEY, ?IVEC, ?DATA_PADDED]).
 
 no_cfb64(doc) ->
     "Test that CFB64 mode is disabled";
 no_cfb64(suite) ->
     [];
 no_cfb64(Config) when is_list(Config) ->
-	notsup(fun crypto:blowfish_cfb64_encrypt/3,
-               [?KEY, ?IVEC, ?DATA]),
+	notsup(fun crypto:block_encrypt/4,
+               [blowfish_cfb64, ?KEY, ?IVEC, ?DATA]),
 	ok.
 
 no_ofb64(doc) ->
@@ -253,8 +254,8 @@ no_ofb64(doc) ->
 no_ofb64(suite) ->
     [];
 no_ofb64(Config) when is_list(Config) ->
-	notsup(fun crypto:blowfish_ofb64_encrypt/3,
-               [?KEY, ?IVEC, ?DATA]).
+	notsup(fun crypto:block_encrypt/4,
+               [blowfish_ofb64, ?KEY, ?IVEC, ?DATA]).
 
 %% Helper functions
 
