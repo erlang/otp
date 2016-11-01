@@ -250,6 +250,11 @@
           environment variable <c><![CDATA[DISPLAY]]></c> set to
           <c><![CDATA[gin:0]]></c>.</p>
       </item>
+      <tag><c><![CDATA[-epmd_module Module]]></c> (init flag)</tag>
+      <item>
+        <p>Configures the module responsible to communicate to
+          <seealso marker="epmd">epmd</seealso>. Defaults to <c>erl_epmd</c>.</p>
+      </item>
       <tag><c><![CDATA[-eval Expr]]></c> (init flag)</tag>
       <item>
         <p>Makes <c><![CDATA[init]]></c> evaluate the expression
