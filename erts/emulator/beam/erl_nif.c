@@ -3166,6 +3166,12 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     struct erl_module_instance* this_mi;
     struct erl_module_instance* prev_mi;
 
+    if (BIF_P->flags & F_HIPE_MODE) {
+	ret = load_nif_error(BIF_P, "notsup", "Calling load_nif from HiPE compiled "
+			     "modules not supported");
+	BIF_RET(ret);
+    }
+
     encoding = erts_get_native_filename_encoding();
     if (encoding == ERL_FILENAME_WIN_WCHAR) {
         /* Do not convert the lib name to utf-16le yet, do that in win32 specific code */

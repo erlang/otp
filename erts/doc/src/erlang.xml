@@ -2618,6 +2618,10 @@ os_prompt%</pre>
             code of a module that has been upgraded; this is not
             allowed.
           </item>
+	  <tag><c>notsup</c></tag>
+          <item>Lack of support. Such as loading NIF library for a
+	    HiPE compiled module.
+	  </item>
         </taglist>
       </desc>
     </func>

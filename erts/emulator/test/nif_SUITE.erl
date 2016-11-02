@@ -30,6 +30,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload_error/1, upgrade/1, heap_frag/1,
          t_on_load/1,
+         hipe/1,
 	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1,
 	 maps/1,
 	 api_macros/1,
@@ -70,6 +71,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [basic, reload_error, upgrade, heap_frag, types, many_args,
      t_on_load,
+     hipe,
      binaries, get_string, get_atom, maps, api_macros, from_array,
      iolist_as_binary, resource, resource_binary,
      resource_takeover, threading, send, send2, send3,
@@ -88,6 +90,11 @@ all() ->
 init_per_testcase(t_on_load, Config) ->
     ets:new(nif_SUITE, [named_table]),
     Config;
+init_per_testcase(hipe, Config) ->
+    case erlang:system_info(hipe_architecture) of
+	undefined -> {skip, "HiPE is disabled"};
+	_ -> Config
+    end;
 init_per_testcase(_Case, Config) ->
     Config.
 
@@ -409,6 +416,17 @@ t_on_load(Config) when is_list(Config) ->
     true = lists:member(?MODULE, erlang:system_info(taints)),
     true = lists:member(nif_mod, erlang:system_info(taints)),
     verify_tmpmem(TmpMem),
+    ok.
+
+hipe(Config) when is_list(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
+    Src = filename:join(Data, "hipe_compiled"),
+    {ok,hipe_compiled} = c:c(Src, [{outdir,Priv},native]),
+    true = code:is_module_native(hipe_compiled),
+    {error, {notsup,_}} = hipe_compiled:try_load_nif(),
+    true = code:delete(hipe_compiled),
+    false = code:purge(hipe_compiled),
     ok.
 
 
