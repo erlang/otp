@@ -437,10 +437,21 @@ t_process_info(Config) when is_list(Config) ->
     verify_loc(Line2, Res2),
     pi_stacktrace([{?MODULE,t_process_info,1,?LINE}]),
 
+    verify_stacktrace_depth(),
+
     Gleader = group_leader(),
     {group_leader, Gleader} = process_info(self(), group_leader),
     {'EXIT',{badarg,_Info}} = (catch process_info('not_a_pid')),
     ok.
+
+verify_stacktrace_depth() ->
+    CS = current_stacktrace,
+    OldDepth = erlang:system_flag(backtrace_depth, 0),
+    {CS,[]} = erlang:process_info(self(), CS),
+    _ = erlang:system_flag(backtrace_depth, 8),
+    {CS,[{?MODULE,verify_stacktrace_depth,0,_},_|_]} =
+        erlang:process_info(self(), CS),
+    _ = erlang:system_flag(backtrace_depth, OldDepth).
 
 pi_stacktrace(Expected0) ->
     {Line,Res} = {?LINE,erlang:process_info(self(), current_stacktrace)},
