@@ -232,7 +232,7 @@ init_p(Parent, Ancestors, Fun) when is_function(Fun) ->
 	Fun()
     catch
 	Class:Reason ->
-	    exit_p(Class, Reason)
+	    exit_p(Class, Reason, erlang:get_stacktrace())
     end.
 
 -spec init_p(pid(), [pid()], atom(), atom(), [term()]) -> term().
@@ -247,7 +247,7 @@ init_p_do_apply(M, F, A) ->
 	apply(M, F, A) 
     catch
 	Class:Reason ->
-	    exit_p(Class, Reason)
+	    exit_p(Class, Reason, erlang:get_stacktrace())
     end.
 
 -spec wake_up(atom(), atom(), [term()]) -> term().
@@ -257,21 +257,28 @@ wake_up(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
 	apply(M, F, A) 
     catch
 	Class:Reason ->
-	    exit_p(Class, Reason)
+	    exit_p(Class, Reason, erlang:get_stacktrace())
     end.
 
-exit_p(Class, Reason) ->
+exit_p(Class, Reason, Stacktrace) ->
     case get('$initial_call') of
 	{M,F,A} when is_atom(M), is_atom(F), is_integer(A) ->
 	    MFA = {M,F,make_dummy_args(A, [])},
 	    crash_report(Class, Reason, MFA),
-	    exit(Reason);
+	    erlang:raise(exit, exit_reason(Class, Reason, Stacktrace), Stacktrace);
 	_ ->
 	    %% The process dictionary has been cleared or
 	    %% possibly modified.
 	    crash_report(Class, Reason, []),
-	    exit(Reason)
+	    erlang:raise(exit, exit_reason(Class, Reason, Stacktrace), Stacktrace)
     end.
+
+exit_reason(error, Reason, Stacktrace) ->
+    {Reason, Stacktrace};
+exit_reason(exit, Reason, _Stacktrace) ->
+    Reason;
+exit_reason(throw, Reason, Stacktrace) ->
+    {{nocatch, Reason}, Stacktrace}.
 
 -spec start(Module, Function, Args) -> Ret when
       Module :: module(),

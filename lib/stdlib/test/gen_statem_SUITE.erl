@@ -505,10 +505,10 @@ abnormal2(Config) ->
     {ok,Pid} = gen_statem:start_link(?MODULE, start_arg(Config, []), []),
 
     %% bad return value in the gen_statem loop
-    {{bad_return_from_state_function,badreturn},_} =
+    {{{bad_return_from_state_function,badreturn},_},_} =
 	?EXPECT_FAILURE(gen_statem:call(Pid, badreturn), Reason),
     receive
-	{'EXIT',Pid,{bad_return_from_state_function,badreturn}} -> ok
+	{'EXIT',Pid,{{bad_return_from_state_function,badreturn},_}} -> ok
     after 5000 ->
 	    ct:fail(gen_statem_did_not_die)
     end,
@@ -887,7 +887,7 @@ error_format_status(Config) ->
 	gen_statem:start(
 	  ?MODULE, start_arg(Config, {data,Data}), []),
     %% bad return value in the gen_statem loop
-    {{bad_return_from_state_function,badreturn},_} =
+    {{{bad_return_from_state_function,badreturn},_},_} =
 	?EXPECT_FAILURE(gen_statem:call(Pid, badreturn), Reason),
     receive
 	{error,_,
