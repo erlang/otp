@@ -436,10 +436,11 @@ microstate_accounting(Ref, Threads) ->
 trace(_PidSpec, _How, _FlagList) ->
     erlang:nif_error(undefined).
 
+-type match_variable() :: atom(). % Approximation of '$1' | '$2' | ...
 -type trace_pattern_mfa() ::
       {atom(),atom(),arity() | '_'} | on_load.
 -type trace_match_spec() ::
-      [{[term()] | '_' ,[term()],[term()]}].
+      [{[term()] | '_' | match_variable() ,[term()],[term()]}].
 
 -spec trace_pattern(MFA, MatchSpec, FlagList) -> non_neg_integer() when
       MFA :: trace_pattern_mfa(),

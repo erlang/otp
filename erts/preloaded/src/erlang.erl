@@ -2428,10 +2428,11 @@ term_to_binary(_Term, _Options) ->
 tl(_List) ->
     erlang:nif_error(undefined).
 
+-type match_variable() :: atom(). % Approximation of '$1' | '$2' | ...
 -type trace_pattern_mfa() ::
       {atom(),atom(),arity() | '_'} | on_load.
 -type trace_match_spec() ::
-      [{[term()] | '_' ,[term()],[term()]}].
+      [{[term()] | '_' | match_variable() ,[term()],[term()]}].
 
 -spec erlang:trace_pattern(MFA, MatchSpec) -> non_neg_integer() when
       MFA :: trace_pattern_mfa() | send | 'receive',
