@@ -564,6 +564,10 @@ as before, but the build process will take a much longer time.
 > automatically when `make` is invoked from `$ERL_TOP` with either the
 > `clean` target, or the default target. It is also automatically invoked
 > if `./otp_build remove_prebuilt_files` is invoked.
+>
+> If you need to verify the bootstrap beam files match the provided
+> source files, use `./otp_build update_primary` to create a new commit that
+> contains differences, if any exist.
 
 #### How to Build a Debug Enabled Erlang RunTime System ####
 
