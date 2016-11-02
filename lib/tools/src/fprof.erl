@@ -1702,6 +1702,12 @@ trace_handler({trace_ts, Pid, send, _OtherPid, _Msg, TS} = Trace,
     dump_stack(Dump, get(Pid), Trace),
     TS;
 %%
+%% send_to_non_existing_process
+trace_handler({trace_ts, Pid, send_to_non_existing_process, _OtherPid, _Msg, TS} = Trace,
+	      _Table, _, Dump) ->
+    dump_stack(Dump, get(Pid), Trace),
+    TS;
+%%
 %% 'receive'
 trace_handler({trace_ts, Pid, 'receive', _Msg, TS} = Trace,
 	      _Table, _, Dump) ->
