@@ -1646,6 +1646,7 @@ return_type_math(atan2, 2) -> {float,[]};
 return_type_math(pow, 2) -> {float,[]};
 return_type_math(ceil, 1) -> {float,[]};
 return_type_math(floor, 1) -> {float,[]};
+return_type_math(fmod, 2) -> {float,[]};
 return_type_math(pi, 0) -> {float,[]};
 return_type_math(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
 
