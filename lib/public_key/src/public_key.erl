@@ -49,6 +49,7 @@
 	 pkix_normalize_name/1,
 	 pkix_path_validation/3,
 	 ssh_decode/2, ssh_encode/2,
+	 ssh_hostkey_fingerprint/1, ssh_hostkey_fingerprint/2,
 	 ssh_curvename2oid/1, oid2ssh_curvename/1,
 	 pkix_crls_validate/3,
 	 pkix_dist_point/1,
@@ -817,6 +818,41 @@ ssh_curvename2oid(<<"nistp521">>) ->  ?'secp521r1'.
 oid2ssh_curvename(?'secp256r1') -> <<"nistp256">>;
 oid2ssh_curvename(?'secp384r1') -> <<"nistp384">>;
 oid2ssh_curvename(?'secp521r1') -> <<"nistp521">>.
+
+%%--------------------------------------------------------------------
+-spec ssh_hostkey_fingerprint(public_key()) -> string().
+-spec ssh_hostkey_fingerprint(md5, public_key()) -> string().
+
+ssh_hostkey_fingerprint(Key) ->
+    sshfp_string(md5, Key).
+
+ssh_hostkey_fingerprint(HashAlg, Key) ->
+    lists:concat([sshfp_alg_name(HashAlg),
+		  [$: | sshfp_string(HashAlg, Key)]
+		 ]).
+
+sshfp_string(HashAlg, Key) ->
+    %% Other HashAlgs than md5 will be printed with
+    %% other formats than hextstr by
+    %%    ssh-keygen -E <alg> -lf <file>
+    fp_fmt(sshfp_fmt(HashAlg), crypto:hash(HashAlg, public_key:ssh_encode(Key,ssh2_pubkey))).
+
+sshfp_alg_name(sha) -> "SHA1";
+sshfp_alg_name(Alg) -> string:to_upper(atom_to_list(Alg)).
+
+sshfp_fmt(md5) -> hexstr;
+sshfp_fmt(_) -> b64.
+
+fp_fmt(hexstr, Bin) ->
+    lists:flatten(string:join([io_lib:format("~2.16.0b",[C1]) || <<C1>> <= Bin], ":"));
+fp_fmt(b64, Bin) ->
+    %% This function clause *seems* to be
+    %%    [C || C<-base64:encode_to_string(Bin), C =/= $=]
+    %% but I am not sure. Must be checked.
+    B64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
+    BitsInLast = 8*size(Bin) rem 6,
+    Padding = (6-BitsInLast) rem 6, % Want BitsInLast = [1:5] to map to padding [5:1] and 0 -> 0
+    [lists:nth(C+1,B64Chars) || <<C:6>> <= <<Bin/binary,0:Padding>> ].
 
 %%--------------------------------------------------------------------
 -spec short_name_hash({rdnSequence, [#'AttributeTypeAndValue'{}]}) ->
