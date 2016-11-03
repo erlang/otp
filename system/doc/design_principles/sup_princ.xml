@@ -163,7 +163,9 @@ SupFlags = #{strategy => Strategy, ...}</code>
 SupFlags = #{intensity => MaxR, period => MaxT, ...}</code>
     <p>If more than <c>MaxR</c> number of restarts occur in the last
       <c>MaxT</c> seconds, the supervisor terminates all the child
-      processes and then itself.</p>
+      processes and then itself.
+      The termination reason for the supervisor itself in that case will be
+      <c>shutdown</c>.</p>
     <p>When the supervisor terminates, then the next higher-level
       supervisor takes some action. It either restarts the terminated
       supervisor or terminates itself.</p>
