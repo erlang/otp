@@ -381,13 +381,13 @@ do_interrupted_send(Config, SendSize, EchoSize) ->
 					     {password, "morot"},
 					     {subsystems, [{"echo_n",EchoSS_spec}]}]),
     
-    ct:log("connect", []),
+    ct:log("~p:~p connect", [?MODULE,?LINE]),
     ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 						      {user, "foo"},
 						      {password, "morot"},
 						      {user_interaction, false},
 						      {user_dir, UserDir}]),
-    ct:log("connected", []),
+    ct:log("~p:~p connected", [?MODULE,?LINE]),
 
     %% build big binary
     Data = << <<X:32>> || X <- lists:seq(1,SendSize div 4)>>,
@@ -399,9 +399,9 @@ do_interrupted_send(Config, SendSize, EchoSize) ->
     Parent = self(),
     ResultPid = spawn(
 		  fun() ->
-			  ct:log("open channel",[]),
+			  ct:log("~p:~p open channel",[?MODULE,?LINE]),
 			  {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-			  ct:log("start subsystem", []),
+			  ct:log("~p:~p start subsystem", [?MODULE,?LINE]),
 			  case ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity) of
 			      success ->
 				  Parent ! {self(), channelId, ChannelId},
@@ -410,47 +410,69 @@ do_interrupted_send(Config, SendSize, EchoSize) ->
 				      try collect_data(ConnectionRef, ChannelId)
 				      of
 					  ExpectedData -> 
+					      ct:log("~p:~p got expected data",[?MODULE,?LINE]),
 					      ok;
-					  _ ->
-					      {fail,"unexpected result"}
+					  Other ->
+					      ct:log("~p:~p unexpect: ~p", [?MODULE,?LINE,Other]),
+					      {fail,"unexpected result in listener"}
 				      catch
 					  Class:Exception ->
-					      {fail, io_lib:format("Exception ~p:~p",[Class,Exception])}
+					      {fail, io_lib:format("Listener exception ~p:~p",[Class,Exception])}
 				      end,
-				  Parent ! {self(), Result};
+				  Parent ! {self(), result, Result};
 			      Other ->
 				  Parent ! {self(), channelId, error, Other}
 			  end
 		  end),
     
     receive
-	{ResultPid, channelId, ChannelId} ->
-	    %% pre-adjust receive window so the other end doesn't block
-	    ct:log("adjust window", []),
-	    ssh_connection:adjust_window(ConnectionRef, ChannelId, size(ExpectedData) + 1),
-
-	    ct:log("going to send ~p bytes", [size(Data)]),
-	    case ssh_connection:send(ConnectionRef, ChannelId, Data, 30000) of
-		{error, closed} ->
-		    ct:log("{error,closed} - That's what we expect :)", []),
-		    ok;
-		Msg ->
-		    ct:log("Got ~p - that's bad, very bad indeed",[Msg]),
-		    ct:fail({expected,{error,closed}, got, Msg})
-	    end,
-	    ct:log("going to check the result (if it is available)", []),
-	    receive
-		{ResultPid, Result} ->
-		    ct:log("Got result: ~p", [Result]),
-		    ssh:close(ConnectionRef),
-		    ssh:stop_daemon(Pid),
-		    Result
-	    end;
-
 	{ResultPid, channelId, error, Other} ->
+	    ct:log("~p:~p channelId error ~p", [?MODULE,?LINE,Other]),
 	    ssh:close(ConnectionRef),
 	    ssh:stop_daemon(Pid),
-	    {fail, io_lib:format("ssh_connection:subsystem: ~p",[Other])}
+	    {fail, "ssh_connection:subsystem"};
+
+	{ResultPid, channelId, ChannelId} ->
+	    ct:log("~p:~p ~p going to send ~p bytes", [?MODULE,?LINE,self(),size(Data)]),
+	    SenderPid = spawn(fun() ->
+				      Parent ! {self(),  ssh_connection:send(ConnectionRef, ChannelId, Data, 30000)}
+			      end),
+	    receive
+	    	{ResultPid, result, {fail, Fail}} ->
+		    ct:log("~p:~p Listener failed: ~p", [?MODULE,?LINE,Fail]),
+		    {fail, Fail};
+
+		{ResultPid, result, Result} ->
+		    ct:log("~p:~p Got result: ~p", [?MODULE,?LINE,Result]),
+		    ssh:close(ConnectionRef),
+		    ssh:stop_daemon(Pid),
+		    ct:log("~p:~p Check sender", [?MODULE,?LINE]),
+		    receive
+			{SenderPid, {error, closed}} ->
+			    ct:log("~p:~p {error,closed} - That's what we expect :)",[?MODULE,?LINE]),
+			    ok;
+			Msg ->
+			    ct:log("~p:~p Not expected send result: ~p",[?MODULE,?LINE,Msg]),
+			    {fail, "Not expected msg"}
+		    end;
+
+		{SenderPid, {error, closed}} ->
+		    ct:log("~p:~p {error,closed} - That's what we expect, but client channel handler has not reported yet",[?MODULE,?LINE]),
+		    receive
+			{ResultPid, result, Result} ->
+			    ct:log("~p:~p Now got the result: ~p", [?MODULE,?LINE,Result]),
+			    ssh:close(ConnectionRef),
+			    ssh:stop_daemon(Pid),
+			    ok;
+			Msg ->
+			    ct:log("~p:~p Got an unexpected msg ~p",[?MODULE,?LINE,Msg]),
+			    {fail, "Un-expected msg"}
+		    end;
+
+		Msg ->
+		    ct:log("~p:~p Got unexpected ~p",[?MODULE,?LINE,Msg]),
+		    {fail, "Unexpected msg"}
+	    end
     end.
 
 %%--------------------------------------------------------------------
@@ -910,34 +932,35 @@ big_cat_rx(ConnectionRef, ChannelId, Acc) ->
     end.
 
 collect_data(ConnectionRef, ChannelId) ->
-    ct:log("Listener ~p running! ConnectionRef=~p, ChannelId=~p",[self(),ConnectionRef,ChannelId]),
+    ct:log("~p:~p Listener ~p running! ConnectionRef=~p, ChannelId=~p",[?MODULE,?LINE,self(),ConnectionRef,ChannelId]),
     collect_data(ConnectionRef, ChannelId, [], 0).
 
 collect_data(ConnectionRef, ChannelId, Acc, Sum) ->
     TO = 5000,
     receive
 	{ssh_cm, ConnectionRef, {data, ChannelId, 0, Data}} when is_binary(Data) ->
-	    ct:log("collect_data: received ~p bytes. total ~p bytes",[size(Data),Sum+size(Data)]),
+	    ct:log("~p:~p collect_data: received ~p bytes. total ~p bytes",[?MODULE,?LINE,size(Data),Sum+size(Data)]),
+	    ssh_connection:adjust_window(ConnectionRef, ChannelId, size(Data)),
 	    collect_data(ConnectionRef, ChannelId, [Data | Acc], Sum+size(Data));
 	{ssh_cm, ConnectionRef, {eof, ChannelId}} ->
 	    try
 		iolist_to_binary(lists:reverse(Acc))
 	    of
 		Bin ->
-		    ct:log("collect_data: received eof.~nGot in total ~p bytes",[size(Bin)]),
+		    ct:log("~p:~p collect_data: received eof.~nGot in total ~p bytes",[?MODULE,?LINE,size(Bin)]),
 		    Bin
 	    catch 
 		C:E ->
-		    ct:log("collect_data: received eof.~nAcc is strange...~nException=~p:~p~nAcc=~p",
-			   [C,E,Acc]),
+		    ct:log("~p:~p collect_data: received eof.~nAcc is strange...~nException=~p:~p~nAcc=~p",
+			   [?MODULE,?LINE,C,E,Acc]),
 		    {error,{C,E}}
 	    end;
 	Msg ->
-	    ct:log("collect_data: ***** unexpected message *****~n~p",[Msg]),
+	    ct:log("~p:~p collect_data: ***** unexpected message *****~n~p",[?MODULE,?LINE,Msg]),
 	    collect_data(ConnectionRef, ChannelId, Acc, Sum)
 
     after TO ->
-	    ct:log("collect_data: ----- Nothing received for ~p seconds -----~n",[]),
+	    ct:log("~p:~p collect_data: ----- Nothing received for ~p seconds -----~n",[?MODULE,?LINE,TO]),
 	    collect_data(ConnectionRef, ChannelId, Acc, Sum)
     end.
 
