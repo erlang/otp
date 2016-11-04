@@ -32,6 +32,22 @@
     <file>notes.xml</file>
   </header>
 
+
+  <section><title>cosProperty 1.2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix dialyzer warnings.</p>
+          <p>
+	    Own Id: OTP-14006</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
   <section><title>cosProperty 1.2.1</title>
 
     <section><title>Improvements and New Features</title>
