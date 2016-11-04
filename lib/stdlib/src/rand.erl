@@ -19,7 +19,7 @@
 %%
 %% =====================================================================
 %% Multiple PRNG module for Erlang/OTP
-%% Copyright (c) 2015 Kenji Rikitake
+%% Copyright (c) 2015-2016 Kenji Rikitake
 %% =====================================================================
 
 -module(rand).
@@ -27,11 +27,14 @@
 -export([seed_s/1, seed_s/2, seed/1, seed/2,
 	 export_seed/0, export_seed_s/1,
          uniform/0, uniform/1, uniform_s/1, uniform_s/2,
+         jump/0, jump/1,
 	 normal/0, normal_s/1
 	]).
 
 -compile({inline, [exs64_next/1, exsplus_next/1,
+		   exsplus_jump/1,
 		   exs1024_next/1, exs1024_calc/2,
+		   exs1024_jump/1,
 		   get_52/1, normal_kiwi/1]}).
 
 -define(DEFAULT_ALG_HANDLER, exsplus).
@@ -48,7 +51,8 @@
 			 max       := integer(),
 			 next      := fun(),
 			 uniform   := fun(),
-			 uniform_n := fun()}.
+			 uniform_n := fun(),
+			 jump      := fun()}.
 
 %% Internal state
 -opaque state() :: {alg_handler(), alg_seed()}.
@@ -79,9 +83,7 @@ export_seed_s({#{type:=Alg}, Seed}) -> {Alg, Seed}.
 
 -spec seed(AlgOrExpState::alg() | export_state()) -> state().
 seed(Alg) ->
-    R = seed_s(Alg),
-    _ = seed_put(R),
-    R.
+    seed_put(seed_s(Alg)).
 
 -spec seed_s(AlgOrExpState::alg() | export_state()) -> state().
 seed_s(Alg) when is_atom(Alg) ->
@@ -97,9 +99,7 @@ seed_s({Alg0, Seed}) ->
 
 -spec seed(Alg :: alg(), {integer(), integer(), integer()}) -> state().
 seed(Alg0, S0) ->
-    State = seed_s(Alg0, S0),
-    _ = seed_put(State),
-    State.
+    seed_put(seed_s(Alg0, S0)).
 
 -spec seed_s(Alg :: alg(), {integer(), integer(), integer()}) -> state().
 seed_s(Alg0, S0 = {_, _, _}) ->
@@ -150,6 +150,25 @@ uniform_s(N, State0 = {#{uniform:=Uniform}, _})
     {F, State} = Uniform(State0),
     {trunc(F * N) + 1, State}.
 
+%% jump/1: given a state, jump/1
+%% returns a new state which is equivalent to that
+%% after a large number of call defined for each algorithm.
+%% The large number is algorithm dependent.
+
+-spec jump(state()) -> {NewS :: state()}.
+jump(State = {#{jump:=Jump}, _}) ->
+    Jump(State).
+
+%% jump/0: read the internal state and
+%% apply the jump function for the state as in jump/1
+%% and write back the new value to the internal state,
+%% then returns the new value.
+
+-spec jump() -> {NewS :: state()}.
+
+jump() ->
+    seed_put(jump(seed_get())).
+
 %% normal/0: returns a random float with standard normal distribution
 %% updating the state in the process dictionary.
 
@@ -192,9 +211,10 @@ normal_s(State0) ->
 -type uint64() :: 0..16#ffffffffffffffff.
 -type uint58() :: 0..16#03ffffffffffffff.
 
--spec seed_put(state()) -> undefined | state().
+-spec seed_put(state()) -> state().
 seed_put(Seed) ->
-    put(?SEED_DICT, Seed).
+    put(?SEED_DICT, Seed),
+    Seed.
 
 seed_get() ->
     case get(?SEED_DICT) of
@@ -205,15 +225,18 @@ seed_get() ->
 %% Setup alg record
 mk_alg(exs64) ->
     {#{type=>exs64, max=>?UINT64MASK, next=>fun exs64_next/1,
-       uniform=>fun exs64_uniform/1, uniform_n=>fun exs64_uniform/2},
+       uniform=>fun exs64_uniform/1, uniform_n=>fun exs64_uniform/2,
+       jump=>fun exs64_jump/1},
      fun exs64_seed/1};
 mk_alg(exsplus) ->
     {#{type=>exsplus, max=>?UINT58MASK, next=>fun exsplus_next/1,
-       uniform=>fun exsplus_uniform/1, uniform_n=>fun exsplus_uniform/2},
+       uniform=>fun exsplus_uniform/1, uniform_n=>fun exsplus_uniform/2,
+       jump=>fun exsplus_jump/1},
      fun exsplus_seed/1};
 mk_alg(exs1024) ->
     {#{type=>exs1024, max=>?UINT64MASK, next=>fun exs1024_next/1,
-       uniform=>fun exs1024_uniform/1, uniform_n=>fun exs1024_uniform/2},
+       uniform=>fun exs1024_uniform/1, uniform_n=>fun exs1024_uniform/2,
+       jump=>fun exs1024_jump/1},
      fun exs1024_seed/1}.
 
 %% =====================================================================
@@ -245,6 +268,9 @@ exs64_uniform({Alg, R0}) ->
 exs64_uniform(Max, {Alg, R}) ->
     {V, R1} = exs64_next(R),
     {(V rem Max) + 1, {Alg, R1}}.
+
+exs64_jump(_) ->
+    erlang:error(not_implemented).
 
 %% =====================================================================
 %% exsplus PRNG: Xorshift116+
@@ -282,6 +308,42 @@ exsplus_uniform({Alg, R0}) ->
 exsplus_uniform(Max, {Alg, R}) ->
     {V, R1} = exsplus_next(R),
     {(V rem Max) + 1, {Alg, R1}}.
+
+%% This is the jump function for the exsplus generator, equivalent
+%% to 2^64 calls to next/1; it can be used to generate 2^52
+%% non-overlapping subsequences for parallel computations.
+%% Note: the jump function takes 116 times of the execution time of
+%% next/1.
+
+%% -define(JUMPCONST, 16#000d174a83e17de2302f8ea6bc32c797).
+%% split into 58-bit chunks
+%% and two iterative executions
+
+-define(JUMPCONST1, 16#02f8ea6bc32c797).
+-define(JUMPCONST2, 16#345d2a0f85f788c).
+-define(JUMPELEMLEN, 58).
+
+-spec exsplus_jump(exsplus_state()) -> exsplus_state().
+
+exsplus_jump({Alg, S}) ->
+    {S1, AS1} = exsplus_jump(S, [0|0], ?JUMPCONST1, ?JUMPELEMLEN),
+    {_,  AS2} = exsplus_jump(S1, AS1,  ?JUMPCONST2, ?JUMPELEMLEN),
+    {Alg, AS2}.
+
+-spec exsplus_jump(state(), state(), pos_integer(), pos_integer()) ->
+           {state(), state()}.
+
+exsplus_jump(S, AS, _, 0) ->
+    {S, AS};
+exsplus_jump(S, [AS0|AS1], J, N) ->
+    {_, NS} = exsplus_next(S),
+    case (J band 1) of
+        1 ->
+            [S0|S1] = S,
+            exsplus_jump(NS, [(AS0 bxor S0)|(AS1 bxor S1)], J bsr 1, N-1);
+        0 ->
+            exsplus_jump(NS, [AS0|AS1], J bsr 1, N-1)
+    end.
 
 %% =====================================================================
 %% exs1024 PRNG: Xorshift1024*
@@ -339,6 +401,64 @@ exs1024_uniform({Alg, R0}) ->
 exs1024_uniform(Max, {Alg, R}) ->
     {V, R1} = exs1024_next(R),
     {(V rem Max) + 1, {Alg, R1}}.
+
+%% This is the jump function for the exs1024 generator, equivalent
+%% to 2^512 calls to next(); it can be used to generate 2^512
+%% non-overlapping subsequences for parallel computations.
+%% Note: the jump function takes ~2000 times of the execution time of
+%% next/1.
+
+%% Jump constant here split into 58 bits for speed
+-define(JUMPCONSTHEAD, 16#00242f96eca9c41d).
+-define(JUMPCONSTTAIL,
+        [16#0196e1ddbe5a1561,
+         16#0239f070b5837a3c,
+         16#03f393cc68796cd2,
+         16#0248316f404489af,
+         16#039a30088bffbac2,
+         16#02fea70dc2d9891f,
+         16#032ae0d9644caec4,
+         16#0313aac17d8efa43,
+         16#02f132e055642626,
+         16#01ee975283d71c93,
+         16#00552321b06f5501,
+         16#00c41d10a1e6a569,
+         16#019158ecf8aa1e44,
+         16#004e9fc949d0b5fc,
+         16#0363da172811fdda,
+         16#030e38c3b99181f2,
+         16#0000000a118038fc]).
+-define(JUMPTOTALLEN, 1024).
+-define(RINGLEN, 16).
+
+-spec exs1024_jump(state()) -> state().
+
+exs1024_jump({Alg, {L, RL}}) ->
+    P = length(RL),
+    AS = exs1024_jump({L, RL},
+         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+         ?JUMPCONSTTAIL, ?JUMPCONSTHEAD, ?JUMPELEMLEN, ?JUMPTOTALLEN),
+    {ASL, ASR} = lists:split(?RINGLEN - P, AS),
+    {Alg, {ASL, lists:reverse(ASR)}}.
+
+-spec exs1024_jump(state(), list(non_neg_integer()),
+           list(non_neg_integer()), non_neg_integer(),
+           non_neg_integer(), non_neg_integer()) -> list(non_neg_integer()).
+
+exs1024_jump(_, AS, _, _, _, 0) ->
+    AS;
+exs1024_jump(S, AS, [H|T], _, 0, TN) ->
+    exs1024_jump(S, AS, T, H, ?JUMPELEMLEN, TN);
+exs1024_jump({L, RL}, AS, JL, J, N, TN) ->
+    {_, NS} = exs1024_next({L, RL}),
+    case (J band 1) of
+        1 ->
+            AS2 = lists:zipwith(fun(X, Y) -> X bxor Y end,
+                        AS, L ++ lists:reverse(RL)),
+            exs1024_jump(NS, AS2, JL, J bsr 1, N-1, TN-1);
+        0 ->
+            exs1024_jump(NS, AS, JL, J bsr 1, N-1, TN-1)
+    end.
 
 %% =====================================================================
 %% Ziggurat cont
