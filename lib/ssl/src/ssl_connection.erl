@@ -1172,14 +1172,23 @@ handle_alert(#alert{level = ?WARNING} = Alert, StateName,
 %%% Internal functions
 %%--------------------------------------------------------------------
 connection_info(#state{sni_hostname = SNIHostname, 
-		       session = #session{cipher_suite = CipherSuite}, 
+		       session = #session{cipher_suite = CipherSuite, ecc = ECCCurve},
 		       protocol_cb = Connection,
 		       negotiated_version =  {_,_} = Version, 
 		       ssl_options = Opts}) ->
     RecordCB = record_cb(Connection),
+    CipherSuiteDef = ssl_cipher:erl_suite_definition(CipherSuite),
+    IsNamedCurveSuite = lists:member(element(1,CipherSuiteDef),
+			      [ecdh_ecdsa, ecdhe_ecdsa, ecdh_anon]),
+    CurveInfo = case ECCCurve of
+		    {namedCurve, Curve} when IsNamedCurveSuite ->
+			[{ecc, {named_curve, pubkey_cert_records:namedCurves(Curve)}}];
+		    _ ->
+			[]
+		end,
     [{protocol, RecordCB:protocol_version(Version)},
-     {cipher_suite, ssl_cipher:erl_suite_definition(CipherSuite)}, 
-     {sni_hostname, SNIHostname}] ++ ssl_options_list(Opts).
+     {cipher_suite, CipherSuiteDef},
+     {sni_hostname, SNIHostname} | CurveInfo] ++ ssl_options_list(Opts).
 
 do_server_hello(Type, #hello_extensions{next_protocol_negotiation = NextProtocols} =
 		    ServerHelloExt,
@@ -1741,12 +1750,13 @@ calculate_secret(#server_dh_params{dh_p = Prime, dh_g = Base,
 			    Connection, certify, certify);
 
 calculate_secret(#server_ecdh_params{curve = ECCurve, public = ECServerPubKey},
-		     State, Connection) ->
+		     State=#state{session=Session}, Connection) ->
     ECDHKeys = public_key:generate_key(ECCurve),
     PremasterSecret = 
 	ssl_handshake:premaster_secret(#'ECPoint'{point = ECServerPubKey}, ECDHKeys),
     calculate_master_secret(PremasterSecret,
-			    State#state{diffie_hellman_keys = ECDHKeys}, 
+			    State#state{diffie_hellman_keys = ECDHKeys,
+					session = Session#session{ecc = ECCurve}},
 			    Connection, certify, certify);
 
 calculate_secret(#server_psk_params{

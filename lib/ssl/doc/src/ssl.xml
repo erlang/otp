@@ -170,6 +170,14 @@
       <tag><c>SNIfun::fun()</c></tag>
       <item><p><c>= fun(ServerName :: string()) -> [ssl_option()]</c></p></item>
 
+      <tag><c>named_curve() =</c></tag>
+      <item><p><c>sect571r1 | sect571k1 | secp521r1 | brainpoolP512r1
+       | sect409k1 | sect409r1 | brainpoolP384r1 | secp384r1
+       | sect283k1 | sect283r1 | brainpoolP256r1 | secp256k1 | secp256r1
+       | sect239k1 | sect233k1 | sect233r1 | secp224k1 | secp224r1
+       | sect193r1 | sect193r2 | secp192k1 | secp192r1 | sect163k1
+       | sect163r1 | sect163r2 | secp160k1 | secp160r1 | secp160r2</c></p></item>
+
     </taglist>
   </section>
 
@@ -216,6 +224,11 @@
       this option; they are supported/enabled by the peer also.
       Anonymous cipher suites are supported for testing purposes
       only and are not be used when security matters.</p></item>
+
+      <tag><c>{eccs, [named_curve()]}</c></tag>
+      <item><p> Allows to specify the order of preference for named curves
+      and to restrict their usage when using a cipher suite supporting them.
+      </p></item>
 
       <tag><c>{secure_renegotiate, boolean()}</c></tag>
       <item><p>Specifies if to reject renegotiation attempt that does
@@ -751,6 +764,11 @@ fun(srp, Username :: string(), UserState :: term()) ->
       (the default), use the client's preference.
       </item>
       
+      <tag><c>{honor_ecc_order, boolean()}</c></tag>
+      <item>If true, use the server's preference for ECC curve selection. If false
+      (the default), use the client's preference.
+      </item>
+
       <tag><c>{signature_algs, [{hash(), ecdsa | rsa | dsa}]}</c></tag>
       <item><p> The algorithms specified by
       this option will be the ones accepted by the server in a signature algorithm
@@ -801,6 +819,17 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	<c>cipher_suites(all)</c> are not used unless explicitly configured
 	by the user.</p>
     </desc>
+    </func>
+
+    <func>
+      <name>eccs() -></name>
+      <name>eccs(protocol()) -> [named_curve()]</name>
+      <fsummary>Returns a list of supported ECCs.</fsummary>
+
+      <desc><p>Returns a list of supported ECCs. <c>eccs()</c>
+      is equivalent to calling <c>eccs(Protocol)</c> with all
+      supported protocols and then deduplicating the output.</p>
+      </desc>
     </func>
 
     <func>
@@ -898,7 +927,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <fsummary>Returns all the connection information.
       </fsummary>
       <type>
-        <v>Item = protocol | cipher_suite | sni_hostname | atom()</v>
+        <v>Item = protocol | cipher_suite | sni_hostname | ecc | atom()</v>
 	<d>Meaningful atoms, not specified above, are the ssl option names.</d>
 	<v>Result = [{Item::atom(), Value::term()}]</v>
         <v>Reason = term()</v>

@@ -140,6 +140,8 @@
 	  crl_check                  :: boolean() | peer | best_effort, 
 	  crl_cache,
 	  signature_algs,
+	  eccs,
+	  honor_ecc_order            :: boolean(),
 	  v2_hello_compatible        :: boolean()
 	  }).
 

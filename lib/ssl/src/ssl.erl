@@ -38,7 +38,7 @@
 	 getopts/2, setopts/2, getstat/1, getstat/2
 	]).
 %% SSL/TLS protocol handling
--export([cipher_suites/0, cipher_suites/1,
+-export([cipher_suites/0, cipher_suites/1, eccs/0, eccs/1,
 	 connection_info/1, versions/0, session_info/1, format_error/1,
      renegotiate/1, prf/5, negotiated_protocol/1, negotiated_next_protocol/1,
 	 connection_information/1, connection_information/2]).
@@ -420,6 +420,33 @@ cipher_suites(all) ->
     [ssl_cipher:erl_suite_definition(Suite) || Suite <- available_suites(all)].
 
 %%--------------------------------------------------------------------
+-spec eccs() -> tls_v1:curves().
+%% Description: returns all supported curves across all versions
+%%--------------------------------------------------------------------
+eccs() ->
+    Curves = tls_v1:ecc_curves(all), % only tls_v1 has named curves right now
+    eccs_filter_supported(Curves).
+
+%%--------------------------------------------------------------------
+-spec eccs(tls_record:tls_version() | tls_record:tls_atom_version()) ->
+    tls_v1:curves().
+%% Description: returns the curves supported for a given version of
+%% ssl/tls.
+%%--------------------------------------------------------------------
+eccs({3,0}) ->
+    [];
+eccs({3,_}) ->
+    Curves = tls_v1:ecc_curves(all),
+    eccs_filter_supported(Curves);
+eccs(AtomVersion) when is_atom(AtomVersion) ->
+    eccs(tls_record:protocol_version(AtomVersion)).
+
+eccs_filter_supported(Curves) ->
+    CryptoCurves = crypto:ec_curves(),
+    lists:filter(fun(Curve) -> proplists:get_bool(Curve, CryptoCurves) end,
+                 Curves).
+
+%%--------------------------------------------------------------------
 -spec getopts(#sslsocket{}, [gen_tcp:option_name()]) ->
 		     {ok, [gen_tcp:option()]} | {error, reason()}.
 %%
@@ -647,6 +674,8 @@ do_connect(Address, Port,
     end.
 
 %% Handle extra ssl options given to ssl_accept
+-spec handle_options([any()], #ssl_options{}) -> #ssl_options{}
+      ;             ([any()], client | server) -> {ok, #config{}}.
 handle_options(Opts0, #ssl_options{protocol = Protocol, cacerts = CaCerts0,
 				   cacertfile = CaCertFile0} = InheritedSslOpts) ->
     RecordCB = record_cb(Protocol),
@@ -725,6 +754,8 @@ handle_options(Opts0, Role) ->
 		    srp_identity = handle_option(srp_identity, Opts, undefined),
 		    ciphers    = handle_cipher_option(proplists:get_value(ciphers, Opts, []), 
 						      RecordCb:highest_protocol_version(Versions)),
+		    eccs       = handle_eccs_option(proplists:get_value(eccs, Opts, eccs()),
+						      RecordCb:highest_protocol_version(Versions)),
 		    signature_algs = handle_hashsigns_option(proplists:get_value(signature_algs, Opts, 
 									     default_option_role(server, 
 												 tls_v1:default_signature_algs(Versions), Role)),
@@ -755,6 +786,9 @@ handle_options(Opts0, Role) ->
 		    honor_cipher_order = handle_option(honor_cipher_order, Opts, 
 						       default_option_role(server, false, Role), 
 						       server, Role),
+		    honor_ecc_order = handle_option(honor_ecc_order, Opts,
+						       default_option_role(server, false, Role),
+						       server, Role),
 		    protocol = proplists:get_value(protocol, Opts, tls),
 		    padding_check =  proplists:get_value(padding_check, Opts, true),
 		    beast_mitigation = handle_option(beast_mitigation, Opts, one_n_minus_one),
@@ -780,7 +814,7 @@ handle_options(Opts0, Role) ->
 		  alpn_preferred_protocols, next_protocols_advertised,
 		  client_preferred_next_protocols, log_alert,
 		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
-		  fallback, signature_algs, beast_mitigation, v2_hello_compatible],
+		  fallback, signature_algs, eccs, honor_ecc_order, beast_mitigation, v2_hello_compatible],
 
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
@@ -1010,6 +1044,8 @@ validate_option(sni_fun, Fun) when is_function(Fun) ->
     Fun;
 validate_option(honor_cipher_order, Value) when is_boolean(Value) ->
     Value;
+validate_option(honor_ecc_order, Value) when is_boolean(Value) ->
+    Value;
 validate_option(padding_check, Value) when is_boolean(Value) ->
     Value;
 validate_option(fallback, Value) when is_boolean(Value) ->
@@ -1163,6 +1199,14 @@ binary_cipher_suites(Version, Ciphers0)  ->
     %% Format: "RC4-SHA:RC4-MD5"
     Ciphers = [ssl_cipher:openssl_suite(C) || C <- string:tokens(Ciphers0, ":")],
     binary_cipher_suites(Version, Ciphers).
+
+handle_eccs_option(Value, {_Major, Minor}) when is_list(Value) ->
+    try tls_v1:ecc_curves(Minor, Value) of
+        Curves -> #elliptic_curves{elliptic_curve_list = Curves}
+    catch
+        exit:_ -> throw({error, {options, {eccs, Value}}});
+        error:_ -> throw({error, {options, {eccs, Value}}})
+    end.
 
 unexpected_format(Error) ->
     lists:flatten(io_lib:format("Unexpected error: ~p", [Error])).
@@ -1334,6 +1378,14 @@ new_ssl_options([{server_name_indication, Value} | Rest], #ssl_options{} = Opts,
     new_ssl_options(Rest, Opts#ssl_options{server_name_indication = validate_option(server_name_indication, Value)}, RecordCB);
 new_ssl_options([{honor_cipher_order, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
     new_ssl_options(Rest, Opts#ssl_options{honor_cipher_order = validate_option(honor_cipher_order, Value)}, RecordCB);
+new_ssl_options([{honor_ecc_order, Value} | Rest], #ssl_options{} = Opts, RecordCB) ->
+    new_ssl_options(Rest, Opts#ssl_options{honor_ecc_order = validate_option(honor_ecc_order, Value)}, RecordCB);
+new_ssl_options([{eccs, Value} | Rest], #ssl_options{} = Opts, RecordCB) ->
+    new_ssl_options(Rest,
+		    Opts#ssl_options{eccs =
+			 handle_eccs_option(Value, RecordCB:highest_protocol_version())
+		    },
+		    RecordCB);
 new_ssl_options([{signature_algs, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
     new_ssl_options(Rest, 
 		    Opts#ssl_options{signature_algs = 

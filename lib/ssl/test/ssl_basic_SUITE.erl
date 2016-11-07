@@ -150,6 +150,7 @@ api_tests() ->
      peercert_with_client_cert,
      sockname,
      versions,
+     eccs,
      controlling_process,
      getstat,
      close_with_timeout,
@@ -456,6 +457,15 @@ init_per_testcase(accept_pool, Config) ->
 init_per_testcase(controller_dies, Config) ->
     ct:timetrap({seconds, 10}),
     Config;
+init_per_testcase(eccs, Config) ->
+    case ssl:eccs() of
+        [] ->
+            {skip, "named curves not supported"};
+        [_|_] ->
+            ssl_test_lib:ct_log_supported_protocol_versions(Config),
+            ct:timetrap({seconds, 5}),
+            Config
+    end;
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 5}),
@@ -1503,6 +1513,25 @@ versions() ->
 versions(Config) when is_list(Config) -> 
     [_|_] = Versions = ssl:versions(),
     ct:log("~p~n", [Versions]).
+
+
+%%--------------------------------------------------------------------
+eccs() ->
+    [{doc, "Test API functions eccs/0 and eccs/1"}].
+
+eccs(Config) when is_list(Config) ->
+    [_|_] = All = ssl:eccs(),
+    [] = SSL3 = ssl:eccs({3,0}),
+    [_|_] = Tls = ssl:eccs({3,1}),
+    [_|_] = Tls1 = ssl:eccs({3,2}),
+    [_|_] = Tls2 = ssl:eccs({3,3}),
+    [] = SSL3 = ssl:eccs(sslv3),
+    [_|_] = Tls = ssl:eccs(tlsv1),
+    [_|_] = Tls1 = ssl:eccs('tlsv1.1'),
+    [_|_] = Tls2 = ssl:eccs('tlsv1.2'),
+    %% ordering is currently unverified by the test
+    true = lists:sort(All) =:= lists:usort(SSL3 ++ Tls ++ Tls1 ++ Tls2),
+    ok.
 
 %%--------------------------------------------------------------------
 send_recv() ->
