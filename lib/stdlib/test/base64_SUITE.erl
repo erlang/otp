@@ -23,9 +23,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0, groups/0, group/1]).
 
 %% Test cases must be exported.
 -export([base64_encode/1, base64_decode/1, base64_otp_5635/1,
@@ -33,41 +31,26 @@
 	 mime_decode_to_string/1,
 	 roundtrip_1/1, roundtrip_2/1, roundtrip_3/1, roundtrip_4/1]).
 
-init_per_testcase(_, Config) ->
-    Config.
-
-end_per_testcase(_, _Config) ->
-    ok.
-
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
+
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,4}}].
 
-all() -> 
+all() ->
     [base64_encode, base64_decode, base64_otp_5635,
      base64_otp_6279, big, illegal, mime_decode, mime_decode_to_string,
      {group, roundtrip}].
 
-groups() -> 
+groups() ->
     [{roundtrip, [parallel],
       [roundtrip_1, roundtrip_2, roundtrip_3, roundtrip_4]}].
 
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
+group(roundtrip) ->
+    %% valgrind needs a lot of time
+    [{timetrap,{minutes,10}}].
 
 %%-------------------------------------------------------------------------
 %% Test base64:encode/1.
@@ -78,9 +61,9 @@ base64_encode(Config) when is_list(Config) ->
     %% One pad
     <<"SGVsbG8gV29ybGQ=">> = base64:encode(<<"Hello World">>),
     %% No pad
-    "QWxhZGRpbjpvcGVuIHNlc2Ft" = 
+    "QWxhZGRpbjpvcGVuIHNlc2Ft" =
 	base64:encode_to_string("Aladdin:open sesam"),
-    
+
     "MDEyMzQ1Njc4OSFAIzBeJiooKTs6PD4sLiBbXXt9" =
 	base64:encode_to_string(<<"0123456789!@#0^&*();:<>,. []{}">>),
     ok.
@@ -93,7 +76,7 @@ base64_decode(Config) when is_list(Config) ->
     %% One pad
     <<"Hello World">> = base64:decode(<<"SGVsbG8gV29ybGQ=">>),
     %% No pad
-    <<"Aladdin:open sesam">> = 
+    <<"Aladdin:open sesam">> =
 	base64:decode("QWxhZGRpbjpvcGVuIHNlc2Ft"),
 
     Alphabet = list_to_binary(lists:seq(0, 255)),
@@ -208,7 +191,7 @@ mime_decode_to_string(Config) when is_list(Config) ->
     %% One pad to ignore, followed by more text
     "Hello World!!" = base64:mime_decode_to_string(<<"SGVsb)(G8gV29ybGQ=h IQ= =">>),
     %% No pad
-    "Aladdin:open sesam" = 
+    "Aladdin:open sesam" =
 	base64:mime_decode_to_string("QWxhZGRpbjpvcG¤\")(VuIHNlc2Ft"),
     %% Encoded base 64 strings may be divided by non base 64 chars.
     %% In this cases whitespaces.
@@ -314,7 +297,7 @@ interleaved_ws_roundtrip_1([], Base64List, Bin, List) ->
 
 random_byte_list(0, Acc) ->
     Acc;
-random_byte_list(N, Acc) -> 
+random_byte_list(N, Acc) ->
     random_byte_list(N-1, [rand:uniform(255)|Acc]).
 
 make_big_binary(N) ->
