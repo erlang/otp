@@ -9,6 +9,7 @@ test() ->
   <<49,50,51>> = lex_digits1(Bin, 1, []),
   <<49,50,51>> = lex_digits2(Bin, 1, []),
   ok = var_bind_bug(<<1, 2, 3, 4, 5, 6, 7, 8>>),
+  ok = bs_match_string_bug(),
   ok.
 
 %%--------------------------------------------------------------------
@@ -65,3 +66,50 @@ var_bind_bug(<<A:1/binary, B:8/integer, _C:B/binary, _Rest/binary>>) ->
     B -> wrong;
     _ -> ok
   end.
+
+%%--------------------------------------------------------------------
+%% From: Andreas Schultz
+%% Date: 2/11/2016
+%%
+%% Either HiPE is messing up binary matches in some cases or I'm not
+%% seeing the problem. ... <SNIP PROGRAM - CLEANED UP VERSION BELOW>
+%% With Erlang 19.1.3 the HiPE compiled version behaves differently
+%% than the non-HiPE version: ... <SNIP TEST RUNS>
+%% So, do I do something wrong here or is this a legitimate HiPE bug?
+%%
+%% Yes, this was a legitimate HiPE bug: The BEAM to ICode tranaslation
+%% of the bs_match_string instruction, written long ago for binaries
+%% (i.e., with byte-sized strings), tried to do a `clever' translation
+%% of even bit-sized strings using a HiPE primop that took a `Size'
+%% argument expressed in *bytes*. ICode is not really the place to do
+%% such a thing, and moreover there is really no reason for the HiPE
+%% primop not to take a Size argument expressed in *bits* instead.
+%% The bug was fixed by changing the `Size' argument to be in bits,
+%% postponing the translation of the bs_match_string primop until RTL
+%% and doing a proper translation using bit-sized quantities there.
+%%--------------------------------------------------------------------
+
+bs_match_string_bug() ->
+  ok = test0(<<50>>),
+  Bin = data(),
+  ok = test1(Bin),
+  ok = test2(Bin),
+  ok.
+
+%% Minimal test case showing the problem matching with strings
+test0(<<6:5, 0:1, 0:2>>) -> weird;
+test0(<<6:5, _:1, _:2>>) -> ok;
+test0(_) -> default.
+
+data() -> <<50,16,0>>.
+
+%% This was the problematic test case in HiPE: 'default' was returned
+test1(<<1:3, 1:1, _:1, 0:1, 0:1, 0:1, _/binary>>) -> weird;
+test1(<<1:3, 1:1, _:1, _:1, _:1, _:1, _/binary>>) -> ok;
+test1(_) -> default.
+
+%% This variation of test1/1 above worked OK, even in HiPE
+test2(<<1:3, 1:1, _:1, A:1, B:1, C:1, _/binary>>)
+  when A =:= 1; B =:= 1; C =:= 1 -> ok;
+test2(<<1:3, 1:1, _:1, 0:1, 0:1, 0:1, _/binary>>) -> weird;
+test2(_) -> default.
