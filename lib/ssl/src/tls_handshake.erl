@@ -160,13 +160,15 @@ handle_client_hello(Version, #client_hello{session_id = SugesstedId,
 					   extensions = #hello_extensions{elliptic_curves = Curves,
 									  signature_algs = ClientHashSigns} = HelloExt},
 		    #ssl_options{versions = Versions,
-				 signature_algs = SupportedHashSigns} = SslOpts,
+				 signature_algs = SupportedHashSigns,
+				 eccs = SupportedECCs,
+				 honor_ecc_order = ECCOrder} = SslOpts,
 		    {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert, _}, Renegotiation) ->
     case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
 				   ClientHashSigns, SupportedHashSigns, Cert, Version),
-	    ECCCurve = ssl_handshake:select_curve(Curves, ssl_handshake:supported_ecc(Version)),
+	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, ECCOrder),
 	    {Type, #session{cipher_suite = CipherSuite} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites, AvailableHashSigns, Compressions,
 					       Port, Session0#session{ecc = ECCCurve}, Version,
