@@ -138,6 +138,21 @@
 -include("mnesia.hrl").
 -import(mnesia_lib, [verbose/2]).
 
+-type create_option() ::
+        {'access_mode', 'read_write' | 'read_only'} |
+        {'attributes', [atom()]} |
+        {'disc_copies', [node()]} |
+        {'disc_only_copies', [node]} |
+        {'index', [index_attr()]} |
+        {'load_order', non_neg_integer()} |
+        {'majority', boolean()} |
+        {'ram_copies', [node()]} |
+        {'record_name', atom()} |
+        {'snmp', SnmpStruct::term()} |
+        {'storage_properties', [{Backend::module(), [BackendProp::_]}]} |
+        {'type', 'set' | 'ordered_set' | 'bag'} |
+        {'local_content', boolean()}.
+
 -type t_result(Res) :: {'atomic', Res} | {'aborted', Reason::term()}.
 -type activity() :: 'ets' | 'async_dirty' | 'sync_dirty' | 'transaction' | 'sync_transaction' |
                     {'transaction', Retries::non_neg_integer()} |
@@ -491,7 +506,7 @@ wrap_trans(State, Fun, Args, Retries, Mod, Kind) ->
       LockItem :: {'record', table(), Key::term()} |
                   {'table',  table()} |
                   {'global', Key::term(), MnesiaNodes::[node()]},
-      LockKind :: lock_kind() | load.
+      LockKind :: lock_kind() | 'load'.
 lock(LockItem, LockKind) ->
     case get(mnesia_activity_state) of
 	{?DEFAULT_ACCESS, Tid, Ts} ->
@@ -1774,7 +1789,7 @@ dirty_match_object(Pat) ->
     abort({bad_type, Pat}).
 
 -spec dirty_match_object(Tab,Pattern) -> [Record] when
-      Tab::table(),Pattern::tuple(),Record::tuple().
+      Tab::table(), Pattern::tuple(), Record::tuple().
 dirty_match_object(Tab, Pat)
   when is_atom(Tab), Tab /= schema, is_tuple(Pat), tuple_size(Pat) > 2 ->
     dirty_rpc(Tab, ?MODULE, remote_dirty_match_object, [Tab, Pat]);
@@ -2623,39 +2638,12 @@ restore(Opaque, Args) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Table mgt
-
 -spec create_table([Arg]) -> t_result('ok') when
-      Arg :: {'name', table()} |
-             {'access_mode', 'read_write' | 'read_only'} |
-             {'attributes', [atom()]} |
-             {'disc_copies', [node()]} |
-             {'disc_only_copies', [node]} |
-             {'index', [index_attr()]} |
-             {'load_order', non_neg_integer()} |
-             {'majority', boolean()} |
-             {'ram_copies', [node()]} |
-             {'record_name', atom()} |
-             {'snmp', SnmpStruct::term()} |
-             {'storage_properties', [{Backend::module(), [BackendProp::_]}]} |
-             {'type', 'set' | 'ordered_set' | 'bag'} |
-             {'local_content', boolean()}.
+      Arg :: {'name', table()} | create_option().
 create_table(Arg) ->
     mnesia_schema:create_table(Arg).
 
--spec create_table(Name::table(), [Arg]) -> t_result('ok') when
-      Arg :: {'access_mode', 'read_write' | 'read_only'} |
-             {'attributes', [atom()]} |
-             {'disc_copies', [node()]} |
-             {'disc_only_copies', [node]} |
-             {'index', [index_attr()]} |
-             {'load_order', non_neg_integer()} |
-             {'majority', boolean()} |
-             {'ram_copies', [node()]} |
-             {'record_name', atom()} |
-             {'snmp', Struct::snmp_struct()} |
-             {'storage_properties', [{Backend::module(), [BackendProp::_]}]} |
-             {'type', 'set' | 'ordered_set' | 'bag'} |
-             {'local_content', boolean()}.
+-spec create_table(Name::table(), [create_option()]) -> t_result('ok').
 create_table(Name, Arg) when is_list(Arg) ->
     mnesia_schema:create_table([{name, Name}| Arg]);
 create_table(Name, Arg) ->
