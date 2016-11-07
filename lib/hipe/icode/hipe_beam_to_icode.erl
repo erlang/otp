@@ -763,32 +763,10 @@ trans_fun([{test,bs_test_unit,{f,Lbl},[Ms,Unit]}|
 		[MsVar], [], Env, Instructions);
 trans_fun([{test,bs_match_string,{f,Lbl},[Ms,BitSize,Bin]}|
 	   Instructions], Env) -> 
-  True = mk_label(new),
-  FalseLabName = map_label(Lbl),
-  TrueLabName = hipe_icode:label_name(True),
+  %% the current match buffer
   MsVar = mk_var(Ms),
-  TmpVar = mk_var(new),
-  ByteSize = BitSize div 8,
-  ExtraBits = BitSize rem 8,
-  WordSize = hipe_rtl_arch:word_size(),
-  if ExtraBits =:= 0 ->
-      trans_op_call({hipe_bs_primop,{bs_match_string,Bin,ByteSize}}, Lbl, 
-		    [MsVar], [MsVar], Env, Instructions);
-      BitSize =< ((WordSize * 8) - 5) -> 
-      <<Int:BitSize, _/bits>> = Bin,
-      {I1,Env1} = trans_one_op_call({hipe_bs_primop,{bs_get_integer,BitSize,0}}, Lbl, 
-				    [MsVar], [TmpVar, MsVar], Env), 
-      I2 = hipe_icode:mk_type([TmpVar], {integer,Int}, TrueLabName, FalseLabName),
-      I1 ++ [I2,True] ++ trans_fun(Instructions, Env1);
-     true ->
-      <<RealBin:ByteSize/binary, Int:ExtraBits, _/bits>> = Bin,
-      {I1,Env1} = trans_one_op_call({hipe_bs_primop,{bs_match_string,RealBin,ByteSize}}, Lbl, 
-				    [MsVar], [MsVar], Env),
-      {I2,Env2} = trans_one_op_call({hipe_bs_primop,{bs_get_integer,ExtraBits,0}}, Lbl, 
-				    [MsVar], [TmpVar, MsVar], Env1),
-      I3 = hipe_icode:mk_type([TmpVar], {integer,Int}, TrueLabName, FalseLabName),
-      I1 ++ I2 ++ [I3,True] ++ trans_fun(Instructions, Env2)
-  end;
+  Primop = {hipe_bs_primop, {bs_match_string, Bin, BitSize}},
+  trans_op_call(Primop, Lbl, [MsVar], [MsVar], Env, Instructions);
 trans_fun([{bs_context_to_binary,Var}|Instructions], Env) -> 
   %% the current match buffer
   IVars = [trans_arg(Var)],

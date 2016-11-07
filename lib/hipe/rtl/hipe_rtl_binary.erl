@@ -19,7 +19,7 @@
 %%% %CopyrightEnd%
 %%%
 %%%-------------------------------------------------------------------
-%%% File    : hipe_rtl_binary_2.erl
+%%% File    : hipe_rtl_binary.erl
 %%% Author  : Per Gustafsson <pergu@it.uu.se>
 %%% Description : 
 %%%
