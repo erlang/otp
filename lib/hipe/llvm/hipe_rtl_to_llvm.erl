@@ -1496,16 +1496,18 @@ seperate_relocs([R|Rs], CallAcc, AtomAcc, ClosureAcc, LabelAcc, JmpTableAcc) ->
 
 %% @doc External declaration of an atom.
 declare_atom({AtomName, _}) ->
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
-  hipe_llvm:mk_const_decl("@" ++ AtomName, "external constant", WordTy, "").
+  %% The type has to be byte, or a backend might assume the constant is aligned
+  %% and incorrectly optimise away type tests
+  ByteTy = hipe_llvm:mk_int(8),
+  hipe_llvm:mk_const_decl("@" ++ AtomName, "external constant", ByteTy, "").
 
 %% @doc Creation of local variable for an atom.
 load_atom({AtomName, _}) ->
   Dst = "%" ++ AtomName ++ "_var",
   Name = "@" ++ AtomName,
   WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
-  WordTyPtr = hipe_llvm:mk_pointer(WordTy),
-  hipe_llvm:mk_conversion(Dst, ptrtoint, WordTyPtr, Name, WordTy).
+  ByteTyPtr = hipe_llvm:mk_pointer(hipe_llvm:mk_int(8)),
+  hipe_llvm:mk_conversion(Dst, ptrtoint, ByteTyPtr, Name, WordTy).
 
 %% @doc External declaration of a closure.
 declare_closure({ClosureName, _})->
