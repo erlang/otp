@@ -387,6 +387,7 @@ basic_test(ClientCert, ClientKey, ClientCA, ServerCert, ServerKey, ServerCA, Con
     check_result(Server, SType, Client, CType),
     close(Server, Client).    
 
+
 ecc_test(Expect, COpts, SOpts, CECCOpts, SECCOpts, Config) ->
     CCA = proplists:get_value(cacertfile, COpts),
     CCert = proplists:get_value(certfile, COpts),
@@ -411,8 +412,10 @@ ecc_test_error(COpts, SOpts, CECCOpts, SECCOpts, Config) ->
     Error = {error, {tls_alert, "insufficient security"}},
     ssl_test_lib:check_result(Server, Error, Client, Error).
 
-start_client(openssl, Port, PeerCA, OwnCa, Cert, Key, _Config) ->
-    CA = new_openssl_ca("openssl_client_ca", PeerCA, OwnCa),
+
+start_client(openssl, Port, PeerCA, OwnCa, Cert, Key, Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    CA = new_openssl_ca(filename:join(PrivDir, "openssl_client_ca.pem"), PeerCA, OwnCa),
     Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
     Exe = "openssl",
     Args = ["s_client", "-verify", "2", "-port", integer_to_list(Port),
@@ -424,7 +427,8 @@ start_client(openssl, Port, PeerCA, OwnCa, Cert, Key, _Config) ->
     true = port_command(OpenSslPort, "Hello world"),
     OpenSslPort;
 start_client(erlang, Port, PeerCA, OwnCa, Cert, Key, Config) ->
-    CA = new_ca("erlang_client_ca", PeerCA, OwnCa),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    CA = new_ca(filename:join(PrivDir,"erlang_client_ca.pem"), PeerCA, OwnCa),
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
     ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 			       {host, Hostname},
@@ -433,6 +437,7 @@ start_client(erlang, Port, PeerCA, OwnCa, Cert, Key, Config) ->
 			       {options, [{verify, verify_peer}, 
 					  {cacertfile, CA},
 					  {certfile, Cert}, {keyfile, Key}]}]).
+
 
 start_client_ecc(erlang, Port, PeerCA, OwnCa, Cert, Key, Expect, ECCOpts, Config) ->
     CA = new_ca("erlang_client_ca", PeerCA, OwnCa),
@@ -459,8 +464,10 @@ start_client_ecc_error(erlang, Port, PeerCA, OwnCa, Cert, Key, ECCOpts, Config) 
                                        {cacertfile, CA},
                                        {certfile, Cert}, {keyfile, Key}]}]).
 
-start_server(openssl, PeerCA, OwnCa, Cert, Key, _Config) ->
-    CA = new_openssl_ca("openssl_server_ca", PeerCA, OwnCa),
+
+start_server(openssl, PeerCA, OwnCa, Cert, Key, Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    CA = new_openssl_ca(filename:join(PrivDir,"openssl_server_ca.pem"), PeerCA, OwnCa),
     Port = ssl_test_lib:inet_port(node()),
     Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
     Exe = "openssl",
@@ -471,7 +478,8 @@ start_server(openssl, PeerCA, OwnCa, Cert, Key, _Config) ->
     true = port_command(OpenSslPort, "Hello world"),
     {OpenSslPort, Port};
 start_server(erlang, PeerCA, OwnCa, Cert, Key, Config) ->
-    CA = new_ca("erlang_server_ca", PeerCA, OwnCa),
+     PrivDir = proplists:get_value(priv_dir, Config),
+    CA = new_ca(filename:join(PrivDir,"erlang_server_ca.pem"), PeerCA, OwnCa),    
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 			       {from, self()},
@@ -484,16 +492,17 @@ start_server(erlang, PeerCA, OwnCa, Cert, Key, Config) ->
     {Server, ssl_test_lib:inet_port(Server)}.
 
 start_server_with_raw_key(erlang, PeerCA, OwnCa, Cert, Key, Config) ->
-     CA = new_ca("erlang_server_ca", PeerCA, OwnCa),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    CA = new_ca(filename:join(PrivDir, "erlang_server_ca.pem"), PeerCA, OwnCa),
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-			       {from, self()},
-			       {mfa, {ssl_test_lib,
-				      send_recv_result_active,
-				      []}},
-			       {options,
-				[{verify, verify_peer}, {cacertfile, CA},
-				 {certfile, Cert}, {key, Key}]}]),
+					{from, self()},
+					{mfa, {ssl_test_lib,
+					       send_recv_result_active,
+					       []}},
+					{options,
+					 [{verify, verify_peer}, {cacertfile, CA},
+					  {certfile, Cert}, {key, Key}]}]),
     {Server, ssl_test_lib:inet_port(Server)}.
 
 start_server_ecc(erlang, PeerCA, OwnCa, Cert, Key, Expect, ECCOpts, Config) ->
