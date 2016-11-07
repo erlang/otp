@@ -18,7 +18,11 @@
 %% %CopyrightEnd%
 
 -module(rand_SUITE).
--export([all/0, suite/0,groups/0]).
+-compile({nowarn_deprecated_function,[{random,seed,1},
+                                      {random,uniform_s,1},
+                                      {random,uniform_s,2}]}).
+
+-export([all/0, suite/0, groups/0, group/1]).
 
 -export([interval_int/1, interval_float/1, seed/1,
          api_eq/1, reference/1,
@@ -47,18 +51,22 @@ groups() ->
     [{basic_stats, [parallel],
       [basic_stats_uniform_1, basic_stats_uniform_2, basic_stats_normal]}].
 
+group(basic_stats) ->
+    %% valgrind needs a lot of time
+    [{timetrap,{minutes,10}}].
+
 %% A simple helper to test without test_server during dev
 test() ->
     Tests = all(),
     lists:foreach(fun(Test) ->
-			  try
-			      ok = ?MODULE:Test([]),
-			      io:format("~p: ok~n", [Test])
-			  catch _:Reason ->
-				  io:format("Failed: ~p: ~p ~p~n",
-					    [Test, Reason, erlang:get_stacktrace()])
-			  end
-		  end, Tests).
+                          try
+                              ok = ?MODULE:Test([]),
+                              io:format("~p: ok~n", [Test])
+                          catch _:Reason ->
+                                    io:format("Failed: ~p: ~p ~p~n",
+                                              [Test, Reason, erlang:get_stacktrace()])
+                          end
+                  end, Tests).
 
 algs() ->
     [exs64, exsplus, exs1024].

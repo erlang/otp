@@ -976,21 +976,21 @@ try_bad_env(Env) ->
 %% Test that we can handle a very very large environment gracefully.
 huge_env(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),
-    Vars = case os:type() of
-               {win32,_} -> 500;
-               _ ->
-                   %% We create a huge environment,
-                   %% 20000 variables is about 25MB
-                   %% which seems to be the limit on Linux.
-                   20000
-           end,
+    {Vars, Cmd} = case os:type() of
+                      {win32,_} -> {500, "cmd /q /c ls"};
+                      _ ->
+                          %% We create a huge environment,
+                          %% 20000 variables is about 25MB
+                          %% which seems to be the limit on Linux.
+                          {20000, "ls"}
+                  end,
     Env = [{[$a + I div (25*25*25*25) rem 25,
              $a + I div (25*25*25) rem 25,
              $a + I div (25*25) rem 25,
              $a+I div 25 rem 25, $a+I rem 25],
             lists:duplicate(100,$a+I rem 25)}
            || I <- lists:seq(1,Vars)],
-    try erlang:open_port({spawn,"ls"},[exit_status, {env, Env}]) of
+    try erlang:open_port({spawn,Cmd},[exit_status, {env, Env}]) of
         P ->
             receive
                 {P, {exit_status,N}} = M ->
@@ -1009,7 +1009,10 @@ huge_env(Config) when is_list(Config) ->
 %% Test to spawn program with command payload buffer
 %% just around pipe capacity (9f779819f6bda734c5953468f7798)
 pipe_limit_env(Config) when is_list(Config) ->
-    Cmd = "true",
+    Cmd = case os:type() of
+              {win32,_} -> "cmd /q /c true";
+              _ -> "true"
+          end,
     CmdSize = command_payload_size(Cmd),
     Limits = [4096, 16384, 65536], % Try a couple of common pipe buffer sizes
 
@@ -1026,7 +1029,7 @@ pipe_limit_env_do(Bytes, Cmd, CmdSize) ->
 	    try erlang:open_port({spawn,Cmd},[exit_status, {env, Env}]) of
 		P ->
 		    receive
-			{P, {exit_status,N}} = M ->
+			{P, {exit_status,N}} ->
 			    %% Bug caused exit_status 150 (EINVAL+128)
 			    0 = N
 		    end
