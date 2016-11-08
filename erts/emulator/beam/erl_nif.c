@@ -2290,9 +2290,9 @@ erts_nif_export_cleanup_nif_mod(NifExport *ep)
 }
 
 static ERTS_INLINE void
-nif_export_restore(Process *c_p, NifExport *ep)
+nif_export_restore(Process *c_p, NifExport *ep, Eterm res)
 {
-    erts_nif_export_restore(c_p, ep);
+    erts_nif_export_restore(c_p, ep, res);
     ASSERT(ep->m);
     nif_export_cleanup_nif_mod(ep);
 }
@@ -2320,7 +2320,7 @@ dirty_nif_finalizer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ASSERT(!ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(proc)));
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
     ASSERT(ep);
-    nif_export_restore(proc, ep);
+    nif_export_restore(proc, ep, argv[0]);
     return argv[0];
 }
 
@@ -2462,7 +2462,7 @@ execute_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 	/* Done (not rescheduled)... */
 	ASSERT(ep->func == ERTS_DBG_NIF_NOT_SCHED_MARKER);
 	if (!env->exception_thrown)
-	    nif_export_restore(proc, ep);
+	    nif_export_restore(proc, ep, result);
 	else {
 	    nif_export_cleanup_nif_mod(ep);
 	    /*

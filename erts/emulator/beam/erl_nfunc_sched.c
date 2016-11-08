@@ -28,6 +28,7 @@
 #include "erl_process.h"
 #include "bif.h"
 #include "erl_nfunc_sched.h"
+#include "erl_trace.h"
 
 NifExport *
 erts_new_proc_nif_export(Process *c_p, int argc)
@@ -44,9 +45,12 @@ erts_new_proc_nif_export(Process *c_p, int argc)
 
     nep->argc = -1; /* unused marker */
     nep->argv_size = argc;
+    nep->trace = NULL;
     old_nep = ERTS_PROC_SET_NIF_TRAP_EXPORT(c_p, nep);
-    if (old_nep)
+    if (old_nep) {
+	ASSERT(!nep->trace);
 	erts_free(ERTS_ALC_T_NIF_TRAP_EXPORT, old_nep);
+    }
     return nep;
 }
 
@@ -59,6 +63,40 @@ erts_destroy_nif_export(Process *p)
 	    erts_nif_export_cleanup_nif_mod(nep);
 	erts_free(ERTS_ALC_T_NIF_TRAP_EXPORT, nep);
     }
+}
+
+void
+erts_nif_export_save_trace(Process *c_p, NifExport *nep, int applying,
+			   Export* ep, BeamInstr *cp, Uint32 flags,
+			   Uint32 flags_meta, BeamInstr* I,
+			   ErtsTracer meta_tracer)
+{
+    NifExportTrace *netp;
+    ASSERT(nep && nep->argc >= 0);
+    ASSERT(!nep->trace);
+    netp = erts_alloc(ERTS_ALC_T_NIF_EXP_TRACE,
+		      sizeof(NifExportTrace));
+    netp->applying = applying;
+    netp->ep = ep;
+    netp->cp = cp;
+    netp->flags = flags;
+    netp->flags_meta = flags_meta;
+    netp->I = I;
+    netp->meta_tracer = NIL;
+    erts_tracer_update(&netp->meta_tracer, meta_tracer);
+    nep->trace = netp;
+}
+
+void
+erts_nif_export_restore_trace(Process *c_p, Eterm result, NifExport *nep)
+{
+    NifExportTrace *netp = nep->trace;
+    nep->trace = NULL;
+    erts_bif_trace_epilogue(c_p, result, netp->applying, netp->ep,
+			    netp->cp, netp->flags, netp->flags_meta,
+			    netp->I, netp->meta_tracer);
+    erts_tracer_update(&netp->meta_tracer, NIL);
+    erts_free(ERTS_ALC_T_NIF_EXP_TRACE, netp);
 }
 
 NifExport *

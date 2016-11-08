@@ -143,6 +143,11 @@ Uint erts_trace_flag2bit(Eterm flag);
 int erts_trace_flags(Eterm List, 
 		 Uint *pMask, ErtsTracer *pTracer, int *pCpuTimestamp);
 Eterm erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr *I);
+Eterm
+erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
+			Export* ep, BeamInstr *cp, Uint32 flags,
+			Uint32 flags_meta, BeamInstr* I,
+			ErtsTracer meta_tracer);
 
 #ifdef ERTS_SMP
 void erts_send_pending_trace_msgs(ErtsSchedulerData *esdp);

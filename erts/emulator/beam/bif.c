@@ -5047,7 +5047,7 @@ schedule(Process *c_p, Process *dirty_shadow_proc,
 static BIF_RETTYPE dirty_bif_result(BIF_ALIST_1)
 {
     NifExport *nep = (NifExport *) ERTS_PROC_GET_NIF_TRAP_EXPORT(BIF_P);
-    erts_nif_export_restore(BIF_P, nep);
+    erts_nif_export_restore(BIF_P, nep, BIF_ARG_1);
     BIF_RET(BIF_ARG_1);
 }
 
@@ -5062,7 +5062,7 @@ static BIF_RETTYPE dirty_bif_trap(BIF_ALIST)
 
     ASSERT(BIF_P->arity == nep->exp.info.mfa.arity);
 
-    erts_nif_export_restore(BIF_P, nep);
+    erts_nif_export_restore(BIF_P, nep, THE_NON_VALUE);
 
     BIF_P->i = (BeamInstr *) nep->func;
     BIF_P->freason = TRAP;
@@ -5216,12 +5216,12 @@ call_bif(Process *c_p, Eterm *reg, BeamInstr *I)
     ret = (*bif)(c_p, reg, I);
 
     if (is_value(ret))
-	erts_nif_export_restore(c_p, nep);
+	erts_nif_export_restore(c_p, nep, ret);
     else if (c_p->freason != TRAP)
 	c_p->freason |= EXF_RESTORE_NIF; /* restore in handle_error() */
     else if (nep->func == ERTS_SCHED_BIF_TRAP_MARKER) {
 	/* BIF did an ordinary trap... */
-	erts_nif_export_restore(c_p, nep);
+	erts_nif_export_restore(c_p, nep, ret);
     }
     /* else:
      *   BIF rescheduled itself using erts_schedule_bif().

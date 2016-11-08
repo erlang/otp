@@ -23,6 +23,17 @@
 
 #include "erl_process.h"
 #include "bif.h"
+#include "error.h"
+
+typedef struct {
+    int applying;
+    Export* ep;
+    BeamInstr *cp;
+    Uint32 flags;
+    Uint32 flags_meta;
+    BeamInstr* I;
+    ErtsTracer meta_tracer;
+} NifExportTrace;
 
 /*
  * NIF exports need a few more items than the Export struct provides,
@@ -39,6 +50,7 @@ typedef struct {
     struct erl_module_nif* m; /* NIF module, or NULL if BIF */
     void *func;		/* Indirect NIF or BIF to execute (may be unused) */
     ErtsCodeMFA *current;/* Current as set when originally called */
+    NifExportTrace *trace;
     /* --- The following is only used on error --- */
     BeamInstr *pc;	/* Program counter */
     BeamInstr *cp;	/* Continuation pointer */
@@ -50,6 +62,11 @@ typedef struct {
 } NifExport;
 
 NifExport *erts_new_proc_nif_export(Process *c_p, int argc);
+void erts_nif_export_save_trace(Process *c_p, NifExport *nep, int applying,
+				Export* ep, BeamInstr *cp, Uint32 flags,
+				Uint32 flags_meta, BeamInstr* I,
+				ErtsTracer meta_tracer);
+void erts_nif_export_restore_trace(Process *c_p, Eterm result, NifExport *nep);
 void erts_destroy_nif_export(Process *p);
 NifExport *erts_nif_export_schedule(Process *c_p, Process *dirty_shadow_proc,
 				    ErtsCodeMFA *mfa, BeamInstr *pc,
@@ -63,9 +80,15 @@ ERTS_GLB_INLINE int erts_setup_nif_export_rootset(Process* proc, Eterm** objv,
 						  Uint* nobj);
 ERTS_GLB_INLINE int erts_check_nif_export_in_area(Process *p,
 						  char *start, Uint size);
-ERTS_GLB_INLINE void erts_nif_export_restore(Process *c_p, NifExport *ep);
+ERTS_GLB_INLINE void erts_nif_export_restore(Process *c_p, NifExport *ep,
+					     Eterm result);
 ERTS_GLB_INLINE void erts_nif_export_restore_error(Process* c_p, BeamInstr **pc,
 						   Eterm *reg, ErtsCodeMFA **nif_mfa);
+ERTS_GLB_INLINE int erts_nif_export_check_save_trace(Process *c_p, Eterm result,
+						     int applying, Export* ep,
+						     BeamInstr *cp, Uint32 flags,
+						     Uint32 flags_meta, BeamInstr* I,
+						     ErtsTracer meta_tracer);
 ERTS_GLB_INLINE Process *erts_proc_shadow2real(Process *c_p);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
@@ -119,7 +142,7 @@ erts_check_nif_export_in_area(Process *p, char *start, Uint size)
 }
 
 ERTS_GLB_INLINE void
-erts_nif_export_restore(Process *c_p, NifExport *ep)
+erts_nif_export_restore(Process *c_p, NifExport *ep, Eterm result)
 {
     ASSERT(!ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()));
     ERTS_SMP_LC_ASSERT(!(c_p->static_flags
@@ -129,6 +152,8 @@ erts_nif_export_restore(Process *c_p, NifExport *ep)
 
     c_p->current = ep->current;
     ep->argc = -1; /* Unused nif-export marker... */
+    if (ep->trace)
+	erts_nif_export_restore_trace(c_p, result, ep);
 }
 
 ERTS_GLB_INLINE void
@@ -144,7 +169,26 @@ erts_nif_export_restore_error(Process* c_p, BeamInstr **pc,
     *nif_mfa = nep->mfa;
     for (ix = 0; ix < nep->argc; ix++)
 	reg[ix] = nep->argv[ix];
-    erts_nif_export_restore(c_p, nep);
+    erts_nif_export_restore(c_p, nep, THE_NON_VALUE);
+}
+
+ERTS_GLB_INLINE int
+erts_nif_export_check_save_trace(Process *c_p, Eterm result,
+				 int applying, Export* ep,
+				 BeamInstr *cp, Uint32 flags,
+				 Uint32 flags_meta, BeamInstr* I,
+				 ErtsTracer meta_tracer)
+{
+    if (is_non_value(result) && c_p->freason == TRAP) {
+	NifExport *nep = ERTS_PROC_GET_NIF_TRAP_EXPORT(c_p);
+	if (nep && nep->argc >= 0) {
+	    erts_nif_export_save_trace(c_p, nep, applying, ep,
+				       cp, flags, flags_meta,
+				       I, meta_tracer);
+	    return 1;
+	}
+    }
+    return 0;
 }
 
 ERTS_GLB_INLINE Process *
