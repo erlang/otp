@@ -29,7 +29,7 @@
 	 app_test/1,appup_test/1,
 	 file_1/1, forms_2/1, module_mismatch/1, big_file/1, outdir/1,
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
-	 other_output/1, encrypted_abstr/1,
+	 other_output/1, kernel_listing/1, encrypted_abstr/1,
 	 strict_record/1,
 	 cover/1, env/1, core/1,
 	 core_roundtrip/1, asm/1,
@@ -47,7 +47,7 @@ all() ->
     test_lib:recompile(?MODULE),
     [app_test, appup_test, file_1, forms_2, module_mismatch, big_file, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
-     other_output, encrypted_abstr,
+     other_output, kernel_listing, encrypted_abstr,
      strict_record,
      cover, env, core, core_roundtrip, asm,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
@@ -429,6 +429,32 @@ other_output(Config) when is_list(Config) ->
     {ok,simple,Asm} = compile:forms(PP, [to_asm,binary,time]),
 
     ok.
+
+%% Smoke test and cover of pretty-printing of Kernel code.
+kernel_listing(_Config) ->
+    TestBeams = get_unique_beam_files(),
+    Abstr = [begin {ok,{Mod,[{abstract_code,
+			      {raw_abstract_v1,Abstr}}]}} =
+		       beam_lib:chunks(Beam, [abstract_code]),
+		   {Mod,Abstr} end || Beam <- TestBeams],
+    test_lib:p_run(fun(F) -> do_kernel_listing(F) end, Abstr).
+
+do_kernel_listing({M,A}) ->
+    try
+	{ok,M,Kern} = compile:forms(A, [to_kernel]),
+	IoList = v3_kernel_pp:format(Kern),
+	_ = iolist_size(IoList),
+	ok
+    catch
+	throw:{error,Error} ->
+	    io:format("*** compilation failure '~p' for module ~s\n",
+		      [Error,M]),
+	    error;
+	Class:Error ->
+	    io:format("~p: ~p ~p\n~p\n",
+		      [M,Class,Error,erlang:get_stacktrace()]),
+	    error
+    end.
 
 encrypted_abstr(Config) when is_list(Config) ->
     {Simple,Target} = get_files(Config, simple, "encrypted_abstr"),
