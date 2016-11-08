@@ -273,6 +273,7 @@ kill() ->
 ms() ->
     [
      mnesia,
+     mnesia_app,
      mnesia_backup,
      mnesia_bup,
      mnesia_checkpoint,

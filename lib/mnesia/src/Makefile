@@ -43,6 +43,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/mnesia-$(VSN)
 # ----------------------------------------------------
 MODULES= \
 	mnesia \
+	mnesia_app \
 	mnesia_backend_type \
 	mnesia_backup \
 	mnesia_bup \
