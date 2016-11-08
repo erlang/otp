@@ -1097,7 +1097,8 @@ client_with_cert_cipher_suites_handshake(Config) when is_list(Config) ->
 					{mfa, {ssl_test_lib,
 					       send_recv_result_active, []}},
 					{options, [{active, true},
-						   {ciphers, ssl_test_lib:rsa_non_signed_suites()}
+						   {ciphers, 
+						    ssl_test_lib:rsa_non_signed_suites(tls_record:highest_protocol_version([]))}
 						   | ServerOpts]}]),
     Port  = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},

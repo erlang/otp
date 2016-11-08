@@ -834,7 +834,7 @@ ciphers_dsa_signed_certs() ->
     [{doc,"Test cipher suites that uses dsa certs"}].
 ciphers_dsa_signed_certs(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_test_lib:dsa_suites(),
+    Ciphers = ssl_test_lib:dsa_suites(tls_record:protocol_version(Version)),
     run_suites(Ciphers, Version, Config, dsa).
 
 %%--------------------------------------------------------------------
