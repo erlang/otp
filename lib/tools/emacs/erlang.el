@@ -1442,6 +1442,11 @@ Other commands:
   (erlang-skel-init)
   (when (fboundp 'tempo-use-tag-list)
     (tempo-use-tag-list 'erlang-tempo-tags))
+  (when (and (fboundp 'add-function) (fboundp 'erldoc-eldoc-function))
+    (or eldoc-documentation-function
+        (setq-local eldoc-documentation-function #'ignore))
+    (add-function :before-until (local 'eldoc-documentation-function)
+                  #'erldoc-eldoc-function))
   (run-hooks 'erlang-mode-hook)
   (if (zerop (buffer-size))
       (run-hooks 'erlang-new-file-hook)))
