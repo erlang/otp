@@ -742,26 +742,40 @@ state_timeout(_Config) ->
 		      %% Verify that {state_timeout,0,_}
 		      %% comes after next_event and that
 		      %% {timeout,0,_} is cancelled by
-		      %% {state_timeout,0,_}
+		      %% pending {state_timeout,0,_}
 		      {keep_state, {ok,2,Data},
 		       [{timeout,0,3}]};
-		  (state_timeout, 2, {ok,2,{Time,From}}) ->
-		      {next_state, state3, 3,
+		  (state_timeout, 2, {ok,2,Data}) ->
+		      %% Verify that timeout 0's are processed
+		      %% in order
+		      {keep_state, {ok,3,Data},
+		       [{timeout,0,4},{state_timeout,0,5}]};
+		  (timeout, 4, {ok,3,Data}) ->
+		      %% Verify that timeout 0 is cancelled by
+		      %% enqueued state_timeout 0 and that
+		      %% multiple state_timeout 0 can be enqueued
+		      {keep_state, {ok,4,Data},
+		       [{state_timeout,0,6},{timeout,0,7}]};
+		  (state_timeout, 5, {ok,4,Data}) ->
+		      {keep_state, {ok,5,Data}};
+		  (state_timeout, 6, {ok,5,{Time,From}}) ->
+		      {next_state, state3, 6,
 		       [{reply,From,ok},
-			{state_timeout,Time,3}]}
+			{state_timeout,Time,8}]}
 	      end,
 	  state3 =>
 	      fun
-		  (info, message_to_self, 3) ->
-		      {keep_state, '3'};
-		  ({call,From}, check, '3') ->
+		  (info, message_to_self, 6) ->
+		      {keep_state, 7};
+		  ({call,From}, check, 7) ->
 		      {keep_state, From};
-		  (state_timeout, 3, From) ->
+		  (state_timeout, 8, From) ->
 		      {stop_and_reply, normal,
 		       {reply,From,ok}}
 	      end},
 
     {ok,STM} = gen_statem:start_link(?MODULE, {map_statem,Machine,[]}, []),
+    sys:trace(STM, true),
     TRef = erlang:start_timer(1000, self(), kull),
     ok = gen_statem:call(STM, {go,500}),
     ok = gen_statem:call(STM, check),

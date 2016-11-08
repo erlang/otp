@@ -1015,17 +1015,24 @@ open(cast, {button,_}, Data) ->
 ...
     ]]></code>
     <p>
-      The fact that a postponed event is only retried after a state change
-      translates into a requirement on the event and state space.
-      If you have a choice between storing a state data item
-      in the <c>State</c> or in the <c>Data</c>:
-      if a change in the item value affects which events that
-      are handled, then this item is to be part of the state.
+      Since a postponed event is only retried after a state change,
+      you have to think about where to keep a state data item.
+      You can keep it in the server <c>Data</c>
+      or in the <c>State</c> itself,
+      for example by having two more or less identical states
+      to keep a boolean value, or by using a complex state with
+      <seealso marker="#Callback Modes">callback mode</seealso>
+      <seealso marker="stdlib:gen_statem#type-callback_mode"><c>handle_event_function</c></seealso>.
+      If a change in the value changes the set of events that is handled,
+      then the value should be kept in the State.
+      Otherwise no postponed events will be retried
+      since only the server Data changes.
     </p>
     <p>
-      You want to avoid that you maybe much later decide
-      to postpone an event in one state and by misfortune it is never retried,
-      as the code only changes the <c>Data</c> but not the <c>State</c>.
+      This is not important if you do not postpone events.
+      But if you later decide to start postponing some events,
+      then the design flaw of not having separate states
+      when they should be, might become a hard to find bug.
     </p>
 
     <section>
