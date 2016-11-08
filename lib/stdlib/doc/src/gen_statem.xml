@@ -533,7 +533,7 @@ handle_event(_, _, State, Data) ->
 	  Type <c>info</c> originates from regular process messages sent
 	  to the <c>gen_statem</c>. Also, the state machine
 	  implementation can generate events of types
-	  <c>timeout</c>, <c>state_timeout</c>, <c>enter</c>,
+	  <c>timeout</c>, <c>state_timeout</c>,
 	  and <c>internal</c> to itself.
 	</p>
       </desc>
@@ -639,6 +639,20 @@ handle_event(_, _, State, Data) ->
 	</p>
 	<list type="ordered">
 	  <item>
+            <p>
+	      If the state changes or is the initial state, and
+	      <seealso marker="#type-state_enter"><em>state enter calls</em></seealso>
+	      are used, the <c>gen_statem</c> calls
+	      the new state callback with arguments
+	      <seealso marker="#type-state_enter">(enter, OldState, Data)</seealso>.
+	      Any 
+	      <seealso marker="#type-enter_action"><c>actions</c></seealso>
+	      returned from this call are handled as if they were
+	      appended to the actions 
+	      returned by the state callback that changed states.
+            </p>
+	  </item>
+	  <item>
 	    <p>
 	      All
               <seealso marker="#type-action">actions</seealso>
@@ -668,36 +682,36 @@ handle_event(_, _, State, Data) ->
             </p>
 	  </item>
 	  <item>
-            <p>
-	      If the state changes or is the initial state, and
-	      <seealso marker="#type-state_enter"><em>state enter calls</em></seealso>
-	      are used, the <c>gen_statem</c> calls
-	      the new state callback with arguments
-	      <seealso marker="#type-state_enter">(enter, OldState, Data)</seealso>.
-	      Any 
-	      <seealso marker="#type-enter_action"><c>actions</c></seealso>
-	      returned from this call are handled as if they were
-	      appended to the actions 
-	      returned by the state callback that changed states.
-            </p>
-	  </item>
-	  <item>
-	    <p>
-	      If there are enqueued events the (possibly new)
-	      <seealso marker="#state callback">state callback</seealso>
-	      is called with the oldest enqueued event,
-	      and we start again from the top of this list.
-	    </p>
-	  </item>
-	  <item>
 	    <p>
 	      Timeout timers 
               <seealso marker="#type-state_timeout"><c>state_timeout()</c></seealso>
 	      and 
               <seealso marker="#type-event_timeout"><c>event_timeout()</c></seealso>
-	      are handled.  This may lead to a time-out zero event
-	      being generated to the
+	      are handled.  Time-outs with zero time are guaranteed to be
+	      delivered to the state machine before any external
+	      not yet received event so if there is such a timeout requested,
+	      the corresponding time-out zero event is enqueued as
+	      the newest event.
+	    </p>
+	    <p>
+	      Any event cancels an
+              <seealso marker="#type-event_timeout"><c>event_timeout()</c></seealso>
+	      so a zero time event time-out is only generated
+	      if the event queue is empty.
+	    </p>
+	    <p>
+	      A state change cancels a
+              <seealso marker="#type-state_timeout"><c>state_timeout()</c></seealso>
+	      and any new transition option of this type
+	      belongs to the new state.
+	    </p>
+	  </item>
+	  <item>
+	    <p>
+	      If there are enqueued events the
 	      <seealso marker="#state callback">state callback</seealso>
+	      for the possibly new state
+	      is called with the oldest enqueued event,
 	      and we start again from the top of this list.
 	    </p>
 	  </item>
@@ -759,8 +773,9 @@ handle_event(_, _, State, Data) ->
 	  after this time (in milliseconds) unless another
 	  event arrives or has arrived
 	  in which case this time-out is cancelled.
-	  Note that a retried, inserted or state time-out zero
-	  events counts as arrived.
+	  Note that a retried or inserted event counts as arrived.
+	  So does a state time-out zero event, if it was generated
+	  before this timer is requested.
 	</p>
 	<p>
 	  If the value is <c>infinity</c>, no timer is started, as
@@ -802,7 +817,7 @@ handle_event(_, _, State, Data) ->
 	<p>
 	  Setting this timer while it is running will restart it with
 	  the new time-out value.  Therefore it is possible to cancel
-	  this timeout by setting it to <c>infinity</c>.
+	  this time-out by setting it to <c>infinity</c>.
 	</p>
       </desc>
     </datatype>
@@ -1130,7 +1145,7 @@ handle_event(_, _, State, Data) ->
 	  <c><anno>Timeout</anno></c> can also be a tuple
 	  <c>{clean_timeout,<anno>T</anno>}</c> or
 	  <c>{dirty_timeout,<anno>T</anno>}</c>, where
-	  <c><anno>T</anno></c> is the timeout time.
+	  <c><anno>T</anno></c> is the time-out time.
 	  <c>{clean_timeout,<anno>T</anno>}</c> works like
 	  just <c>T</c> described in the note above
 	  and uses a proxy process for <c>T &lt; infinity</c>,
@@ -1773,7 +1788,7 @@ handle_event(_, _, State, Data) ->
         StateFunctionResult
       </name>
       <name>Module:handle_event(enter, OldState, State, Data) ->
-	StateEnterResult
+	StateEnterResult(State)
       </name>
       <name>Module:handle_event(EventType, EventContent, State, Data) ->
 	HandleEventResult
@@ -1802,8 +1817,8 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="#type-event_handler_result">event_handler_result</seealso>(<seealso marker="#type-state_name">state_name()</seealso>)
 	</v>
 	<v>
-	  StateEnterResult =
-	  <seealso marker="#type-state_enter_result">state_enter_result</seealso>(<seealso marker="#type-state">state()</seealso>)
+	  StateEnterResult(State) =
+	  <seealso marker="#type-state_enter_result">state_enter_result(State)</seealso>
 	</v>
 	<v>
 	  HandleEventResult =
