@@ -32,6 +32,50 @@
   <p>This document describes the changes made to the ERTS application.</p>
 
 
+<section><title>Erts 8.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The emulator got a dynamic library dependency towards
+	    libsctp, which on Linux was not intended since the
+	    emulator there loads and resolves the needed sctp
+	    functions in runtime. This has been fixed and a configure
+	    switch --enable-sctp=lib has been added for those who
+	    want such a library dependency.</p>
+          <p>
+	    Own Id: OTP-13956 Aux Id: ERL-262, ERL-133 </p>
+        </item>
+        <item>
+          <p>
+	    Fix SIGUSR1 crashdump generation</p>
+          <p>
+	    Do not generate a core when a crashdump is asked for.</p>
+          <p>
+	    Own Id: OTP-13997</p>
+        </item>
+        <item>
+	    <p>The new functions in <c>code</c> that allows loading
+	    of many modules at once had a performance problem. While
+	    executing a helper function in the <c>erl_prim_loader</c>
+	    process, garbage messages were produced. The garbages
+	    messages were ignored and ultimately discarded, but there
+	    would be a negative impact on performance and memory
+	    usage. The number of garbage message depended on both the
+	    number of modules to be loaded and the length of the code
+	    path.</p>
+	    <p>The functions affected of this problem were:
+	    <c>atomic_load/1</c>, <c>ensure_modules_loaded/1</c>, and
+	    <c>prepare_loading/1</c>.</p>
+          <p>
+	    Own Id: OTP-14009</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 8.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
