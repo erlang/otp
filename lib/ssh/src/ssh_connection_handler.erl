@@ -1194,12 +1194,12 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
 		ssh_message:decode(set_kex_overload_prefix(DecryptedBytes,D))
 	    of
 		Msg = #ssh_msg_kexinit{} ->
-		    {keep_state, D, [{next_event, internal, {Msg,DecryptedBytes}},
-				     {next_event, internal, prepare_next_packet}
+		    {keep_state, D, [{next_event, internal, prepare_next_packet},
+				     {next_event, internal, {Msg,DecryptedBytes}}
 				    ]};
 		Msg ->
-		    {keep_state, D, [{next_event, internal, Msg},
-				     {next_event, internal, prepare_next_packet}
+		    {keep_state, D, [{next_event, internal, prepare_next_packet},
+				     {next_event, internal, Msg}
 				    ]}
 	    catch
 		_C:_E  ->
