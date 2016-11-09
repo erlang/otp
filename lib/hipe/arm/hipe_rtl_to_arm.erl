@@ -62,7 +62,6 @@ conv_insn(I, Map, Data) ->
   case I of
     #alu{} -> conv_alu(I, Map, Data);
     #alub{} -> conv_alub(I, Map, Data);
-    #branch{} -> conv_branch(I, Map, Data);
     #call{} -> conv_call(I, Map, Data);
     #comment{} -> conv_comment(I, Map, Data);
     #enter{} -> conv_enter(I, Map, Data);
@@ -110,6 +109,17 @@ commute_arithop(ArithOp) ->
     'sub' -> 'rsb';
     _ -> ArithOp
   end.
+
+conv_cmpop('add') -> 'cmn';
+conv_cmpop('sub') -> 'cmp';
+conv_cmpop('and') -> 'tst';
+conv_cmpop('xor') -> 'teq';
+conv_cmpop(_) -> none.
+
+cmpop_commutes('cmp') -> false;
+cmpop_commutes('cmn') -> true;
+cmpop_commutes('tst') -> true;
+cmpop_commutes('teq') -> true.
 
 mk_alu(S, Dst, Src1, RtlAluOp, Src2) ->
   case hipe_rtl:is_shift_op(RtlAluOp) of
@@ -223,71 +233,77 @@ fix_aluop_imm(AluOp, Imm) -> % {FixAm1,NewAluOp,Am1}
 
 conv_alub(I, Map, Data) ->
   %% dst = src1 aluop src2; if COND goto label
-  {Dst, Map0} = conv_dst(hipe_rtl:alub_dst(I), Map),
-  {Src1, Map1} = conv_src(hipe_rtl:alub_src1(I), Map0),
-  {Src2, Map2} = conv_src(hipe_rtl:alub_src2(I), Map1),
+  {Src1, Map0} = conv_src(hipe_rtl:alub_src1(I), Map),
+  {Src2, Map1} = conv_src(hipe_rtl:alub_src2(I), Map0),
   RtlAluOp = hipe_rtl:alub_op(I),
-  Cond0 = conv_alub_cond(RtlAluOp, hipe_rtl:alub_cond(I)),
-  Cond =
-    case {RtlAluOp,Cond0} of
-      {'mul','vs'} -> 'ne';	% overflow becomes not-equal
-      {'mul','vc'} -> 'eq';	% no-overflow becomes equal
-      {'mul',_} -> exit({?MODULE,I});
-      {_,_} -> Cond0
-    end,
-  I2 = mk_pseudo_bc(
-	  Cond,
-	  hipe_rtl:alub_true_label(I),
-	  hipe_rtl:alub_false_label(I),
-	  hipe_rtl:alub_pred(I)),
-  S = true,
-  I1 = mk_alu(S, Dst, Src1, RtlAluOp, Src2),
-  {I1 ++ I2, Map2, Data}.
+  RtlCond = hipe_rtl:alub_cond(I),
+  HasDst = hipe_rtl:alub_has_dst(I),
+  CmpOp = conv_cmpop(RtlAluOp),
+  Cond0 = conv_alub_cond(RtlAluOp, RtlCond),
+  case (not HasDst) andalso CmpOp =/= none of
+    true ->
+      I1 = mk_branch(Src1, CmpOp, Src2, Cond0,
+		     hipe_rtl:alub_true_label(I),
+		     hipe_rtl:alub_false_label(I),
+		     hipe_rtl:alub_pred(I)),
+      {I1, Map1, Data};
+    false ->
+      {Dst, Map2} =
+	case HasDst of
+	  false -> {new_untagged_temp(), Map1};
+	  true -> conv_dst(hipe_rtl:alub_dst(I), Map1)
+	end,
+      Cond =
+	case {RtlAluOp,Cond0} of
+	  {'mul','vs'} -> 'ne';	% overflow becomes not-equal
+	  {'mul','vc'} -> 'eq';	% no-overflow becomes equal
+	  {'mul',_} -> exit({?MODULE,I});
+	  {_,_} -> Cond0
+	end,
+      I2 = mk_pseudo_bc(
+	     Cond,
+	     hipe_rtl:alub_true_label(I),
+	     hipe_rtl:alub_false_label(I),
+	     hipe_rtl:alub_pred(I)),
+      S = true,
+      I1 = mk_alu(S, Dst, Src1, RtlAluOp, Src2),
+      {I1 ++ I2, Map2, Data}
+  end.
 
-conv_branch(I, Map, Data) ->
-  %% <unused> = src1 - src2; if COND goto label
-  {Src1, Map0} = conv_src(hipe_rtl:branch_src1(I), Map),
-  {Src2, Map1} = conv_src(hipe_rtl:branch_src2(I), Map0),
-  Cond = conv_branch_cond(hipe_rtl:branch_cond(I)),
-  I2 = mk_branch(Src1, Cond, Src2,
-		 hipe_rtl:branch_true_label(I),
-		 hipe_rtl:branch_false_label(I),
-		 hipe_rtl:branch_pred(I)),
-  {I2, Map1, Data}.
-
-mk_branch(Src1, Cond, Src2, TrueLab, FalseLab, Pred) ->
+mk_branch(Src1, CmpOp, Src2, Cond, TrueLab, FalseLab, Pred) ->
   case hipe_arm:is_temp(Src1) of
     true ->
       case hipe_arm:is_temp(Src2) of
 	true ->
-	  mk_branch_rr(Src1, Src2, Cond, TrueLab, FalseLab, Pred);
+	  mk_branch_rr(Src1, CmpOp, Src2, Cond, TrueLab, FalseLab, Pred);
 	_ ->
-	  mk_branch_ri(Src1, Cond, Src2, TrueLab, FalseLab, Pred)
+	  mk_branch_ri(Src1, CmpOp, Src2, Cond, TrueLab, FalseLab, Pred)
       end;
     _ ->
       case hipe_arm:is_temp(Src2) of
 	true ->
-	  NewCond = commute_cond(Cond),
-	  mk_branch_ri(Src2, NewCond, Src1, TrueLab, FalseLab, Pred);
+	  NewCond =
+	    case cmpop_commutes(CmpOp) of
+	      true -> Cond;
+	      false ->  commute_cond(Cond)
+	    end,
+	  mk_branch_ri(Src2, CmpOp, Src1, NewCond, TrueLab, FalseLab, Pred);
 	_ ->
-	  mk_branch_ii(Src1, Cond, Src2, TrueLab, FalseLab, Pred)
+	  mk_branch_ii(Src1, CmpOp, Src2, Cond, TrueLab, FalseLab, Pred)
       end
   end.
 
-mk_branch_ii(Imm1, Cond, Imm2, TrueLab, FalseLab, Pred) ->
+mk_branch_ii(Imm1, CmpOp, Imm2, Cond, TrueLab, FalseLab, Pred) ->
   Tmp = new_untagged_temp(),
   mk_li(Tmp, Imm1,
-	mk_branch_ri(Tmp, Cond, Imm2,
+	mk_branch_ri(Tmp, CmpOp, Imm2, Cond,
 		     TrueLab, FalseLab, Pred)).
 
-mk_branch_ri(Src, Cond, Imm, TrueLab, FalseLab, Pred) ->
-  {FixAm1,NewCmpOp,Am1} = fix_aluop_imm('cmp', Imm),
-  FixAm1 ++ mk_cmp_bc(NewCmpOp, Src, Am1, Cond, TrueLab, FalseLab, Pred).
+mk_branch_ri(Src, CmpOp, Imm, Cond, TrueLab, FalseLab, Pred) ->
+  {FixAm1,NewCmpOp,Am1} = fix_aluop_imm(CmpOp, Imm),
+  FixAm1 ++ mk_branch_rr(Src, NewCmpOp, Am1, Cond, TrueLab, FalseLab, Pred).
 
-mk_branch_rr(Src1, Src2, Cond, TrueLab, FalseLab, Pred) ->
-  mk_cmp_bc('cmp', Src1, Src2, Cond, TrueLab, FalseLab, Pred).
-
-mk_cmp_bc(CmpOp, Src, Am1, Cond, TrueLab, FalseLab, Pred) ->
+mk_branch_rr(Src, CmpOp, Am1, Cond, TrueLab, FalseLab, Pred) ->
   [hipe_arm:mk_cmp(CmpOp, Src, Am1) |
    mk_pseudo_bc(Cond, TrueLab, FalseLab, Pred)].
 
@@ -637,6 +653,7 @@ conv_alub_cond(RtlAluOp, Cond) ->	% may be unsigned, depends on aluop
   case {RtlAluOp, Cond} of	% handle allowed alub unsigned conditions
     {'add', 'ltu'} -> 'hs';	% add+ltu == unsigned overflow == carry set == hs
     %% add more cases when needed
+    {'sub', _} -> conv_branch_cond(Cond);
     _ -> conv_cond(Cond)
   end.
 

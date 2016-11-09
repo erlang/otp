@@ -201,7 +201,7 @@
 	 shift_src/1,
 	 shift_dst/1,
 
-	 %% mk_test/2,
+	 mk_test/2,
 	 test_src/1,
 	 test_dst/1,
 
@@ -305,7 +305,7 @@ mk_cmp(Src, Dst) -> #cmp{src=Src, dst=Dst}.
 cmp_src(#cmp{src=Src}) -> Src.
 cmp_dst(#cmp{dst=Dst}) -> Dst.
 
-%% mk_test(Src, Dst) -> #test{src=Src, dst=Dst}.
+mk_test(Src, Dst) -> #test{src=Src, dst=Dst}.
 test_src(#test{src=Src}) -> Src.
 test_dst(#test{dst=Dst}) -> Dst.
 

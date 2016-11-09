@@ -80,7 +80,6 @@ conv_insn(I, Map, Data) ->
   case I of
     #alu{} -> conv_alu(I, Map, Data);
     #alub{} -> conv_alub(I, Map, Data);
-    #branch{} -> conv_branch(I, Map, Data);
     #call{} -> conv_call(I, Map, Data);
     #comment{} -> conv_comment(I, Map, Data);
     #enter{} -> conv_enter(I, Map, Data);
@@ -441,36 +440,53 @@ mk_alu_rr(Dst, Src1, RtlAluOp, Src2) ->
 
 conv_alub(I, Map, Data) ->
   %% dst = src1 aluop src2; if COND goto label
-  {Dst, Map0} = conv_dst(hipe_rtl:alub_dst(I), Map),
-  {Src1, Map1} = conv_src(hipe_rtl:alub_src1(I), Map0),
-  {Src2, Map2} = conv_src(hipe_rtl:alub_src2(I), Map1),
-  {AluOp, BCond} =
-    case {hipe_rtl:alub_op(I), hipe_rtl:alub_cond(I)} of
-      {'add', 'ltu'} ->
-	{'addc', 'eq'};
-      {RtlAlubOp, RtlAlubCond} ->
-	{conv_alub_op(RtlAlubOp), conv_alub_cond(RtlAlubCond)}
-    end,
-  BC = mk_pseudo_bc(BCond,
-		    hipe_rtl:alub_true_label(I),
-		    hipe_rtl:alub_false_label(I),
-		    hipe_rtl:alub_pred(I)),
-  I2 =
-    case {AluOp, BCond} of
-      {'addc', 'eq'} ->	% copy XER[CA] to CR0[EQ] before the BC
-	TmpR = new_untagged_temp(),
-	[hipe_ppc:mk_mfspr(TmpR, 'xer'),
-	 hipe_ppc:mk_mtcr(TmpR) |
-	 BC];
-      _ -> BC
-    end,
-  {NewSrc1, NewSrc2} =
-    case AluOp of
-      'subf' -> {Src2, Src1};
-      _ -> {Src1, Src2}
-    end,
-  I1 = mk_alub(Dst, NewSrc1, AluOp, NewSrc2, BCond),
-  {I1 ++ I2, Map2, Data}.
+  HasDst = hipe_rtl:alub_has_dst(I),
+  {Src1, Map0} = conv_src(hipe_rtl:alub_src1(I), Map),
+  {Src2, Map1} = conv_src(hipe_rtl:alub_src2(I), Map0),
+  RtlAlubOp = hipe_rtl:alub_op(I),
+  RtlAlubCond = hipe_rtl:alub_cond(I),
+  case {HasDst, RtlAlubOp} of
+    {false, sub} ->
+      {BCond,Sign} = conv_branch_cond(RtlAlubCond),
+      I2 = mk_branch(Src1, BCond, Sign, Src2,
+		     hipe_rtl:alub_true_label(I),
+		     hipe_rtl:alub_false_label(I),
+		     hipe_rtl:alub_pred(I)),
+      {I2, Map1, Data};
+    _ ->
+      {Dst, Map2} =
+	case HasDst of
+	  false -> {new_untagged_temp(), Map1};
+	  true -> conv_dst(hipe_rtl:alub_dst(I), Map1)
+	end,
+      {AluOp, BCond} =
+	case {RtlAlubOp, RtlAlubCond} of
+	  {'add', 'ltu'} ->
+	    {'addc', 'eq'};
+	  {_, _} ->
+	    {conv_alub_op(RtlAlubOp), conv_alub_cond(RtlAlubCond)}
+	end,
+      BC = mk_pseudo_bc(BCond,
+			hipe_rtl:alub_true_label(I),
+			hipe_rtl:alub_false_label(I),
+			hipe_rtl:alub_pred(I)),
+      I2 =
+	case {AluOp, BCond} of
+	  {'addc', 'eq'} ->	% copy XER[CA] to CR0[EQ] before the BC
+	    TmpR = new_untagged_temp(),
+	    [hipe_ppc:mk_mfspr(TmpR, 'xer'),
+	     hipe_ppc:mk_mtcr(TmpR) |
+	     BC];
+	  _ -> BC
+	end,
+      {NewSrc1, NewSrc2} =
+	case AluOp of
+	  'subf' -> {Src2, Src1};
+	  _ -> {Src1, Src2}
+	end,
+      I1 = mk_alub(Dst, NewSrc1, AluOp, NewSrc2, BCond),
+      {I1 ++ I2, Map2, Data}
+  end.
 
 conv_alub_op(RtlAluOp) ->
   case {get(hipe_target_arch), RtlAluOp} of
@@ -688,17 +704,6 @@ mk_alub_rr_Rc(Dst, Src1, AluOp, Src2) ->
       'srad'  -> 'srad.'
     end,
   [hipe_ppc:mk_alu(AluOpDot, Dst, Src1, Src2)].
-
-conv_branch(I, Map, Data) ->
-  %% <unused> = src1 - src2; if COND goto label
-  {Src1, Map0} = conv_src(hipe_rtl:branch_src1(I), Map),
-  {Src2, Map1} = conv_src(hipe_rtl:branch_src2(I), Map0),
-  {BCond,Sign} = conv_branch_cond(hipe_rtl:branch_cond(I)),
-  I2 = mk_branch(Src1, BCond, Sign, Src2,
-		 hipe_rtl:branch_true_label(I),
-		 hipe_rtl:branch_false_label(I),
-		 hipe_rtl:branch_pred(I)),
-  {I2, Map1, Data}.
 
 conv_branch_cond(Cond) -> % may be unsigned
   case Cond of

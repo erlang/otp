@@ -63,7 +63,6 @@ conv_insn(I, Map, Data) ->
   case I of
     #alu{} -> conv_alu(I, Map, Data);
     #alub{} -> conv_alub(I, Map, Data);
-    #branch{} -> conv_branch(I, Map, Data);
     #call{} -> conv_call(I, Map, Data);
     #comment{} -> conv_comment(I, Map, Data);
     #enter{} -> conv_enter(I, Map, Data);
@@ -281,7 +280,12 @@ mk_alu_rs(XAluOp, Src1, Src2, Dst) ->
 
 conv_alub(I, Map, Data) ->
   %% dst = src1 aluop src2; if COND goto label
-  {Dst, Map0} = conv_dst(hipe_rtl:alub_dst(I), Map),
+  HasDst = hipe_rtl:alub_has_dst(I),
+  {Dst, Map0} =
+    case HasDst of
+      false -> {hipe_sparc:mk_g0(), Map};
+      true -> conv_dst(hipe_rtl:alub_dst(I), Map)
+    end,
   {Src1, Map1} = conv_src(hipe_rtl:alub_src1(I), Map0),
   {Src2, Map2} = conv_src(hipe_rtl:alub_src2(I), Map1),
   Cond = conv_cond(hipe_rtl:alub_cond(I)),
@@ -307,67 +311,33 @@ conv_alub(I, Map, Data) ->
 	I1 ++
 	[hipe_sparc:mk_rdy(TmpHi),
 	 hipe_sparc:mk_alu('sra', Dst, hipe_sparc:mk_uimm5(31), TmpSign) |
-	 conv_alub2(G0, TmpSign, 'sub', NewCond, TmpHi, I)];
+	 conv_alub2(G0, TmpSign, 'cmpcc', NewCond, TmpHi, I)];
       _ ->
-	conv_alub2(Dst, Src1, RtlAlubOp, Cond, Src2, I)
+	XAluOp =
+	  case (not HasDst) andalso RtlAlubOp =:= 'sub' of
+	    true -> 'cmpcc'; % == a subcc that commutes
+	    false -> conv_alubop_cc(RtlAlubOp)
+	  end,
+	conv_alub2(Dst, Src1, XAluOp, Cond, Src2, I)
     end,
   {I2, Map2, Data}.
 
--ifdef(notdef).	% XXX: only for sparc64, alas
-conv_alub2(Dst, Src1, RtlAlubOp, Cond, Src2, I) ->
-  case conv_cond_rcond(Cond) of
-    [] ->
-      conv_alub_bp(Dst, Src1, RtlAlubOp, Cond, Src2, I);
-    RCond ->
-      conv_alub_br(Dst, Src1, RtlAlubOp, RCond, Src2, I)
-  end.
+conv_alub2(Dst, Src1, XAluOp, Cond, Src2, I) ->
+  conv_alub_bp(Dst, Src1, XAluOp, Cond, Src2, I).
 
-conv_alub_br(Dst, Src1, RtlAlubOp, RCond, Src2, I) ->
-  TrueLab = hipe_rtl:alub_true_label(I),
-  FalseLab = hipe_rtl:alub_false_label(I),
-  Pred = hipe_rtl:alub_pred(I),
-  %% "Dst = Src1 AluOp Src2; if COND" becomes
-  %% "Dst = Src1 AluOp Src2; if-COND(Dst)"
-  {I2, _DidCommute} = mk_alu(conv_alubop_nocc(RtlAlubOp), Src1, Src2, Dst),
-  I2 ++ mk_pseudo_br(RCond, Dst, TrueLab, FalseLab, Pred).
-
-conv_cond_rcond(Cond) ->
-  case Cond of
-    'e'  -> 'z';
-    'ne' -> 'nz';
-    'g'  -> 'gz';
-    'ge' -> 'gez';
-    'l'  -> 'lz';
-    'le' -> 'lez';
-    _	 -> []	% vs, vc, gu, geu, lu, leu
-  end.
-
-conv_alubop_nocc(RtlAlubOp) ->
-  case RtlAlubOp of
-    'add' -> 'add';
-    'sub' -> 'sub';
-    %% mul: handled elsewhere
-    'or' -> 'or';
-    'and' -> 'and';
-    'xor' -> 'xor'
-    %% no shift ops
-  end.
-
-mk_pseudo_br(RCond, Dst, TrueLab, FalseLab, Pred) ->
-  [hipe_sparc:mk_pseudo_br(RCond, Dst, TrueLab, FalseLab, Pred)].
--else.
-conv_alub2(Dst, Src1, RtlAlubOp, Cond, Src2, I) ->
-  conv_alub_bp(Dst, Src1, RtlAlubOp, Cond, Src2, I).
--endif.
-
-conv_alub_bp(Dst, Src1, RtlAlubOp, Cond, Src2, I) ->
+conv_alub_bp(Dst, Src1, XAluOp, Cond, Src2, I) ->
   TrueLab = hipe_rtl:alub_true_label(I),
   FalseLab = hipe_rtl:alub_false_label(I),
   Pred = hipe_rtl:alub_pred(I),
   %% "Dst = Src1 AluOp Src2; if COND" becomes
   %% "Dst = Src1 AluOpCC Src22; if-COND(CC)"
-  {I2, _DidCommute} = mk_alu(conv_alubop_cc(RtlAlubOp), Src1, Src2, Dst),
-  I2 ++ mk_pseudo_bp(Cond, TrueLab, FalseLab, Pred).
+  {I2, DidCommute} = mk_alu(XAluOp, Src1, Src2, Dst),
+  NewCond =
+    case DidCommute andalso XAluOp =:= 'cmpcc' of
+      true -> commute_cond(Cond); % subcc does not commute; its conditions do
+      false -> Cond
+    end,
+  I2 ++ mk_pseudo_bp(NewCond, TrueLab, FalseLab, Pred).
 
 conv_alubop_cc(RtlAlubOp) ->
   case RtlAlubOp of
@@ -379,69 +349,6 @@ conv_alubop_cc(RtlAlubOp) ->
     'xor' -> 'xorcc'
     %% no shift ops
   end.
-
-conv_branch(I, Map, Data) ->
-  %% <unused> = src1 - src2; if COND goto label
-  {Src1, Map0} = conv_src(hipe_rtl:branch_src1(I), Map),
-  {Src2, Map1} = conv_src(hipe_rtl:branch_src2(I), Map0),
-  Cond = conv_cond(hipe_rtl:branch_cond(I)),
-  I2 = conv_branch2(Src1, Cond, Src2, I),
-  {I2, Map1, Data}.
-
--ifdef(notdef).	% XXX: only for sparc64, alas
-conv_branch2(Src1, Cond, Src2, I) ->
-  case conv_cond_rcond(Cond) of
-    [] ->
-      conv_branch_bp(Src1, Cond, Src2, I);
-    RCond ->
-      conv_branch_br(Src1, RCond, Src2, I)
-  end.
-
-conv_branch_br(Src1, RCond, Src2, I) ->
-  TrueLab = hipe_rtl:branch_true_label(I),
-  FalseLab = hipe_rtl:branch_false_label(I),
-  Pred = hipe_rtl:branch_pred(I),
-  %% "if src1-COND-src2" becomes
-  %% "sub src1,src2,tmp; if-COND(tmp)"
-  Dst = hipe_sparc:mk_new_temp('untagged'),
-  XAluOp = 'cmp',	% == a sub that commutes
-  {I1, DidCommute} = mk_alu(XAluOp, Src1, Src2, Dst),
-  NewRCond =
-    case DidCommute of
-      true -> commute_rcond(RCond);
-      false -> RCond
-    end,
-  I1 ++ mk_pseudo_br(NewRCond, Dst, TrueLab, FalseLab, Pred).
-
-commute_rcond(RCond) ->	% if x RCond y, then y commute_rcond(RCond) x
-  case RCond of
-    'z'   -> 'z';	% ==, ==
-    'nz'  -> 'nz';	% !=, !=
-    'gz'  -> 'lz';	% >, <
-    'gez' -> 'lez';	% >=, <=
-    'lz'  -> 'gz';	% <, >
-    'lez' -> 'gez'	% <=, >=
-  end.
--else.
-conv_branch2(Src1, Cond, Src2, I) ->
-  conv_branch_bp(Src1, Cond, Src2, I).
--endif.
-
-conv_branch_bp(Src1, Cond, Src2, I) ->
-  TrueLab = hipe_rtl:branch_true_label(I),
-  FalseLab = hipe_rtl:branch_false_label(I),
-  Pred = hipe_rtl:branch_pred(I),
-  %% "if src1-COND-src2" becomes
-  %% "subcc src1,src2,%g0; if-COND(CC)"
-  Dst = hipe_sparc:mk_g0(),
-  XAluOp = 'cmpcc',	% == a subcc that commutes
-  {I1, DidCommute} = mk_alu(XAluOp, Src1, Src2, Dst),
-  NewCond =
-    case DidCommute of
-      true -> commute_cond(Cond);
-      false -> Cond
-    end,
-  I1 ++ mk_pseudo_bp(NewCond, TrueLab, FalseLab, Pred).
 
 conv_call(I, Map, Data) ->
   {Args, Map0} = conv_src_list(hipe_rtl:call_arglist(I), Map),

@@ -171,14 +171,12 @@ test_nil(X, TrueLab, FalseLab, Pred) ->
   hipe_rtl:mk_branch(X, eq, hipe_rtl:mk_imm(?NIL), TrueLab, FalseLab, Pred).
 
 test_cons(X, TrueLab, FalseLab, Pred) ->
-  Tmp = hipe_rtl:mk_new_reg_gcsafe(),
   Mask = hipe_rtl:mk_imm(?TAG_PRIMARY_MASK - ?TAG_PRIMARY_LIST),
-  hipe_rtl:mk_alub(Tmp, X, 'and', Mask, 'eq', TrueLab, FalseLab, Pred).
+  hipe_rtl:mk_branch(X, 'and', Mask, 'eq', TrueLab, FalseLab, Pred).
 
 test_is_boxed(X, TrueLab, FalseLab, Pred) ->
-  Tmp = hipe_rtl:mk_new_reg_gcsafe(),
   Mask = hipe_rtl:mk_imm(?TAG_PRIMARY_MASK - ?TAG_PRIMARY_BOXED),
-  hipe_rtl:mk_alub(Tmp, X, 'and', Mask, 'eq', TrueLab, FalseLab, Pred).
+  hipe_rtl:mk_branch(X, 'and', Mask, 'eq', TrueLab, FalseLab, Pred).
 
 get_header(Res, X) ->
   hipe_rtl:mk_load(Res, X, hipe_rtl:mk_imm(-(?TAG_PRIMARY_BOXED))).
@@ -238,13 +236,12 @@ test_atom(X, TrueLab, FalseLab, Pred) ->
 
 test_tuple(X, TrueLab, FalseLab, Pred) ->
   Tmp = hipe_rtl:mk_new_reg_gcsafe(),
-  Tmp2 = hipe_rtl:mk_new_reg_gcsafe(),
   HalfTrueLab = hipe_rtl:mk_new_label(),
   [test_is_boxed(X, hipe_rtl:label_name(HalfTrueLab), FalseLab, Pred),
    HalfTrueLab,
    get_header(Tmp, X),
-   hipe_rtl:mk_alub(Tmp2, Tmp, 'and', hipe_rtl:mk_imm(?TAG_HEADER_MASK), 'eq',
-		    TrueLab, FalseLab, Pred)].
+   hipe_rtl:mk_branch(Tmp, 'and', hipe_rtl:mk_imm(?TAG_HEADER_MASK), 'eq',
+		      TrueLab, FalseLab, Pred)].
 
 test_tuple_N(X, N, TrueLab, FalseLab, Pred) ->
   Tmp = hipe_rtl:mk_new_reg_gcsafe(),
@@ -687,7 +684,6 @@ element(Dst, Index, Tuple, FailLabName, unknown, IndexInfo) ->
   IndexOkLab = hipe_rtl:mk_new_label(),
   Ptr = hipe_rtl:mk_new_reg(), % offset from Tuple
   Header = hipe_rtl:mk_new_reg_gcsafe(),
-  Tmp = hipe_rtl:mk_new_reg_gcsafe(),
   UIndex = hipe_rtl:mk_new_reg_gcsafe(),
   Arity = hipe_rtl:mk_new_reg_gcsafe(),
   InvIndex = hipe_rtl:mk_new_reg_gcsafe(),
@@ -700,9 +696,9 @@ element(Dst, Index, Tuple, FailLabName, unknown, IndexInfo) ->
        BoxedOkLab,
        hipe_rtl:mk_alu(Ptr, Tuple, 'sub', hipe_rtl:mk_imm(?TAG_PRIMARY_BOXED)),
        hipe_rtl:mk_load(Header, Ptr, hipe_rtl:mk_imm(0)),
-       hipe_rtl:mk_alub(Tmp, Header, 'and', 
-			hipe_rtl:mk_imm(?TAG_HEADER_MASK), 'eq',
-			hipe_rtl:label_name(TupleOkLab), FailLabName, 0.99),
+       hipe_rtl:mk_branch(Header, 'and',
+			  hipe_rtl:mk_imm(?TAG_HEADER_MASK), 'eq',
+			  hipe_rtl:label_name(TupleOkLab), FailLabName, 0.99),
        TupleOkLab,
        untag_fixnum(UIndex, Index),
        hipe_rtl:mk_alu(Arity, Header, 'srl',
@@ -716,9 +712,9 @@ element(Dst, Index, Tuple, FailLabName, unknown, IndexInfo) ->
        BoxedOkLab,
        hipe_rtl:mk_alu(Ptr, Tuple, 'sub', hipe_rtl:mk_imm(?TAG_PRIMARY_BOXED)),
        hipe_rtl:mk_load(Header, Ptr, hipe_rtl:mk_imm(0)),
-       hipe_rtl:mk_alub(Tmp, Header, 'and', 
-			hipe_rtl:mk_imm(?TAG_HEADER_MASK), 'eq',
-			hipe_rtl:label_name(TupleOkLab), FailLabName, 0.99),
+       hipe_rtl:mk_branch(Header, 'and',
+			  hipe_rtl:mk_imm(?TAG_HEADER_MASK), 'eq',
+			  hipe_rtl:label_name(TupleOkLab), FailLabName, 0.99),
        TupleOkLab,
        hipe_rtl:mk_alu(Arity, Header, 'srl', 
 		       hipe_rtl:mk_imm(?HEADER_ARITY_OFFS))|
@@ -734,9 +730,9 @@ element(Dst, Index, Tuple, FailLabName, unknown, IndexInfo) ->
        BoxedOkLab,
        hipe_rtl:mk_alu(Ptr, Tuple, 'sub', hipe_rtl:mk_imm(?TAG_PRIMARY_BOXED)),
        hipe_rtl:mk_load(Header, Ptr, hipe_rtl:mk_imm(0)),
-       hipe_rtl:mk_alub(Tmp, Header, 'and', 
-			hipe_rtl:mk_imm(?TAG_HEADER_MASK), 'eq',
-			hipe_rtl:label_name(TupleOkLab), FailLabName, 0.99),
+       hipe_rtl:mk_branch(Header, 'and',
+			  hipe_rtl:mk_imm(?TAG_HEADER_MASK), 'eq',
+			  hipe_rtl:label_name(TupleOkLab), FailLabName, 0.99),
        TupleOkLab,
        untag_fixnum(UIndex, Index),
        hipe_rtl:mk_alu(Arity, Header, 'srl',
