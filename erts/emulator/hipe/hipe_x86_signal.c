@@ -51,7 +51,7 @@
 #endif
 #include "hipe_signal.h"
 
-#if __GLIBC__ == 2 && (__GLIBC_MINOR__ >= 3)
+#if defined(__GLIBC__) && __GLIBC__ == 2 && (__GLIBC_MINOR__ >= 3)
 /*
  * __libc_sigaction() is the core routine.
  * Without libpthread, sigaction() and __sigaction() are both aliases

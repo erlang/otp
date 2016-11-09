@@ -46,10 +46,10 @@
 #include <signal.h>
 #include <setjmp.h>
 
-#if HAVE_SYS_SOCKETIO_H
+#ifdef HAVE_SYS_SOCKETIO_H
 #   include <sys/socketio.h>
 #endif
-#if HAVE_SYS_SOCKIO_H
+#ifdef HAVE_SYS_SOCKIO_H
 #   include <sys/sockio.h>
 #endif
 

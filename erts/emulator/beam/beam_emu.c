@@ -5053,7 +5053,7 @@ do {						\
     } else {
         TestHeap(ERTS_SINT64_HEAP_SIZE(ts),0);
         r(0) = make_big(HTOP);
-#if defined(ARCH_32) || HALFWORD_HEAP
+#if defined(ARCH_32)
         if (ts >= (((Uint64) 1) << 32)) {
             *HTOP = make_pos_bignum_header(2);
             BIG_DIGIT(HTOP, 0) = (Uint) (ts & ((Uint) 0xffffffff));

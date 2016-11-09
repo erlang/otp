@@ -35,7 +35,7 @@
 #include "error.h"
 #include "big.h"
 #include "erl_gc.h"
-#if HIPE
+#ifdef HIPE
 #include "hipe_stack.h"
 #include "hipe_mode_switch.h"
 #endif
@@ -395,11 +395,11 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 
     if (is_non_value(result)) {
 	if (p->freason == TRAP) {
-	  #if HIPE
+#ifdef HIPE
 	    if (regs == NULL) {
 		regs = erts_proc_sched_data(p)->x_reg_array;
 	    }
-	  #endif
+#endif
 	    cost = garbage_collect(p, live_hf_end, 0, regs, p->arity, p->fcalls);
 	} else {
 	    cost = garbage_collect(p, live_hf_end, 0, regs, arity, p->fcalls);

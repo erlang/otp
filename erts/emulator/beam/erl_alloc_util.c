@@ -6083,7 +6083,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	goto error;
     allctr->min_block_size		= UNIT_CEILING(allctr->min_block_size
 						       + sizeof(FreeBlkFtr_t));
-#if ERTS_SMP
+#ifdef ERTS_SMP
     if (init->tpref) {
 	Uint sz = ABLK_HDR_SZ;
 	sz += (init->fix ? 
