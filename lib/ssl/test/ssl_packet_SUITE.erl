@@ -41,9 +41,9 @@
 
 -define(MANY, 1000).
 -define(SOME, 50).
--define(BASE_TIMEOUT_SECONDS, 30).
--define(SOME_SCALE, 20).
--define(MANY_SCALE, 20).
+-define(BASE_TIMEOUT_SECONDS, 5).
+-define(SOME_SCALE, 2).
+-define(MANY_SCALE, 3).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
