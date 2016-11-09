@@ -83,6 +83,8 @@ do_insn(I, TempMap, Strategy) ->	% Insn -> {Insn list, DidSpill}
       do_fmove(I, TempMap, Strategy);
     #shift{} ->
       do_shift(I, TempMap, Strategy);
+    #test{} ->
+      do_test(I, TempMap, Strategy);
     _ ->
       %% comment, jmp*, label, pseudo_call, pseudo_jcc, pseudo_tailcall,
       %% pseudo_tailcall_prepare, push, ret
@@ -307,6 +309,14 @@ do_shift(I, TempMap, Strategy) ->
     #x86_temp{reg=Reg}  ->
       {FixDst ++ [I#shift{dst=Dst}], DidSpill}
   end.
+
+%%% Fix a test op.
+
+do_test(I, TempMap, Strategy) ->
+  #test{src=Src0,dst=Dst0} = I,
+  {FixSrc, Src, FixDst, Dst, DidSpill} =
+    do_binary(Src0, Dst0, TempMap, Strategy),
+  {FixSrc ++ FixDst ++ [I#test{src=Src,dst=Dst}], DidSpill}.
 
 %%% Fix the operands of a binary op.
 %%% 1. remove pseudos from any explicit memory operands

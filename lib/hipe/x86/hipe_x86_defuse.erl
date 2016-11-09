@@ -60,7 +60,7 @@ insn_def(I) ->
     #pseudo_tailcall_prepare{} -> tailcall_clobbered();
     #shift{dst=Dst} -> dst_def(Dst);
     %% call, cmp, comment, jcc, jmp_fun, jmp_label, jmp_switch, label
-    %% pseudo_jcc, pseudo_tailcall, push, ret
+    %% pseudo_jcc, pseudo_tailcall, push, ret, test
     _ -> []
   end.
 
@@ -120,6 +120,7 @@ insn_use(I) ->
     #push{src=Src} -> addtemp(Src, []);
     #ret{} -> [hipe_x86:mk_temp(?HIPE_X86_REGISTERS:?RV(), 'tagged')];
     #shift{src=Src,dst=Dst} -> addtemp(Src, addtemp(Dst, []));
+    #test{src=Src, dst=Dst} -> addtemp(Src, addtemp(Dst, []));
     %% comment, jcc, jmp_label, label, pseudo_jcc, pseudo_tailcall_prepare
     _ -> []
   end.

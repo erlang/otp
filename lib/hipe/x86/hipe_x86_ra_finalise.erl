@@ -162,6 +162,10 @@ ra_insn(I, Map, FpMap) ->
       Src = ra_opnd(Src0, Map),
       Dst = ra_opnd(Dst0, Map),
       I#shift{src=Src,dst=Dst};
+    #test{src=Src0,dst=Dst0} ->
+      Src = ra_opnd(Src0, Map),
+      Dst = ra_opnd(Dst0, Map),
+      I#test{src=Src,dst=Dst};
     _ ->
       exit({?MODULE,ra_insn,I})
   end.

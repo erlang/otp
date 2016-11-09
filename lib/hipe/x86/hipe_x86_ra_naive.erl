@@ -100,6 +100,8 @@ do_insn(I) ->	% Insn -> Insn list
       do_fp_binop(I);
     #shift{} ->
       do_shift(I);
+    #test{} ->
+      do_test(I);
     #label{} ->
       [I];
     #pseudo_jcc{} ->
@@ -309,6 +311,11 @@ do_shift(I) ->
     #x86_temp{reg=Reg}  ->
       FixDst ++ [I#shift{dst=Dst}]
   end.
+
+do_test(I) ->
+  #test{src=Src0,dst=Dst0} = I,
+  {FixSrc, Src, FixDst, Dst} = do_binary(Src0, Dst0),
+  FixSrc ++ FixDst ++ [I#test{src=Src,dst=Dst}].
 
 %%% Fix the operands of a binary op.
 %%% 1. remove pseudos from any explicit memory operands
