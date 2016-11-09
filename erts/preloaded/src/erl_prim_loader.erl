@@ -555,17 +555,18 @@ efile_gm_get(Paths, Mod, ParentRef, Process) ->
 
 efile_gm_get_1([P|Ps], File0, Mod, {Parent,Ref}=PR, Process) ->
     File = join(P, File0),
-    Res = try prim_file:read_file(File) of
-	      {ok,Bin} ->
-		  gm_process(Mod, File, Bin, Process);
-	      Error ->
-		  _ = check_file_result(get_modules, File, Error),
-		  efile_gm_get_1(Ps, File0, Mod, PR, Process)
-	  catch
-	      _:Reason ->
-		  {error,{crash,Reason}}
-	  end,
-    Parent ! {Ref,Mod,Res};
+    try prim_file:read_file(File) of
+	{ok,Bin} ->
+	    Res = gm_process(Mod, File, Bin, Process),
+	    Parent ! {Ref,Mod,Res};
+	Error ->
+	    _ = check_file_result(get_modules, File, Error),
+	    efile_gm_get_1(Ps, File0, Mod, PR, Process)
+    catch
+	_:Reason ->
+	    Res = {error,{crash,Reason}},
+	    Parent ! {Ref,Mod,Res}
+    end;
 efile_gm_get_1([], _, Mod, {Parent,Ref}, _Process) ->
     Parent ! {Ref,Mod,{error,enoent}}.
 
