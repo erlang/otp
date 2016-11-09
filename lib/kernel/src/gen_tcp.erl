@@ -320,7 +320,7 @@ unrecv(S, Data) when is_port(S) ->
 -spec controlling_process(Socket, Pid) -> ok | {error, Reason} when
       Socket :: socket(),
       Pid :: pid(),
-      Reason :: closed | not_owner | inet:posix().
+      Reason :: closed | not_owner | badarg | inet:posix().
 
 controlling_process(S, NewOwner) ->
     case inet_db:lookup_socket(S) of

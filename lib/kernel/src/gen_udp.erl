@@ -195,7 +195,7 @@ connect(S, Address, Port) when is_port(S) ->
 -spec controlling_process(Socket, Pid) -> ok | {error, Reason} when
       Socket :: socket(),
       Pid :: pid(),
-      Reason :: closed | not_owner | inet:posix().
+      Reason :: closed | not_owner | badarg | inet:posix().
 
 controlling_process(S, NewOwner) ->
     inet:udp_controlling_process(S, NewOwner).
