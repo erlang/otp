@@ -49,6 +49,7 @@ CREATE_DIRS=
 LDFLAGS=@LDFLAGS@
 ARFLAGS=rc
 OMIT_OMIT_FP=no
+TYPE_LIBS=
 
 DIRTY_SCHEDULER_SUPPORT=@DIRTY_SCHEDULER_SUPPORT@
 NEW_PURGE_STRATEGY=@NEW_PURGE_STRATEGY@
@@ -90,7 +91,7 @@ PURIFY =
 TYPEMARKER = .gcov
 TYPE_FLAGS = $(DEBUG_CFLAGS) -DERTS_GCOV -DNO_JUMP_TABLE -fprofile-arcs -ftest-coverage -O0 -DERTS_CAN_INLINE=0 -DERTS_INLINE=
 ifneq ($(findstring solaris,$(TARGET)),solaris)
-LIBS += -lgcov
+TYPE_LIBS = -lgcov
 endif
 ENABLE_ALLOC_TYPE_VARS += debug
 else
@@ -145,6 +146,8 @@ endif
 endif
 endif
 endif
+
+LIBS += $(TYPE_LIBS)
 
 comma:=,
 space:=
@@ -931,7 +934,7 @@ $(OBJDIR)/%.o: hipe/%.c
 	$(V_CC) $(subst O2,O3, $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
 $(BINDIR)/hipe_mkliterals$(TF_MARKER):	$(OBJDIR)/hipe_mkliterals.o
-	$(ld_verbose)$(CC) $(CFLAGS) $(INCLUDES) -o $@ $<
+	$(ld_verbose)$(CC) $(LDFLAGS) -o $@ $< $(TYPE_LIBS)
 
 $(OBJDIR)/hipe_mkliterals.o:	$(HIPE_ASM) $(TTF_DIR)/erl_alloc_types.h $(DTRACE_HEADERS) \
 	$(TTF_DIR)/OPCODES-GENERATED $(TARGET)/TABLES-GENERATED
