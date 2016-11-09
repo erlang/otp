@@ -1192,25 +1192,15 @@ db_select(Storage, Tab, Pat) ->
     end.
 
 db_select_init({ext, Alias, Mod}, Tab, Pat, Limit) ->
-    case Mod:select(Alias, Tab, Pat, Limit) of
-	{Matches, Continuation} when is_list(Matches) ->
-	    {Matches, {Alias, Continuation}};
-	R ->
-	    R
-    end;
+    Mod:select(Alias, Tab, Pat, Limit);
 db_select_init(disc_only_copies, Tab, Pat, Limit) ->
     dets:select(Tab, Pat, Limit);
 db_select_init(_, Tab, Pat, Limit) ->
     ets:select(Tab, Pat, Limit).
 
-db_select_cont({ext, Alias, Mod}, Cont0, Ms) ->
+db_select_cont({ext, _Alias, Mod}, Cont0, Ms) ->
     Cont = Mod:repair_continuation(Cont0, Ms),
-    case Mod:select(Cont) of
-	{Matches, Continuation} when is_list(Matches) ->
-	    {Matches, {Alias, Continuation}};
-	R ->
-	    R
-    end;
+    Mod:select(Cont);
 db_select_cont(disc_only_copies, Cont0, Ms) ->
     Cont = dets:repair_continuation(Cont0, Ms),
     dets:select(Cont);
