@@ -672,7 +672,7 @@ sigusr1_exit(void)
     }
 
     prepare_crash_dump(secs);
-    erts_exit(ERTS_ERROR_EXIT, "Received SIGUSR1\n");
+    erts_exit(ERTS_DUMP_EXIT, "Received SIGUSR1\n");
 }
 
 #ifdef ETHR_UNUSABLE_SIGUSRX
