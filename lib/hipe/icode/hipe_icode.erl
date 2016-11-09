@@ -594,6 +594,7 @@
 	 uses/1,
 	 defines/1,
 	 is_safe/1,
+	 reduce_unused/1,
 	 strip_comments/1,
 	 subst/2,
 	 subst_uses/2,
@@ -1763,6 +1764,18 @@ is_safe(Instr) ->
     #icode_comment{} -> false;
     #icode_begin_try{} -> false;
     #icode_end_try{} -> false
+  end.
+
+%% @doc Produces a simplified instruction sequence that is equivalent to [Instr]
+%% under the assumption that all results of Instr are unused, or 'false' if
+%% there is no such sequence (other than [Instr] itself).
+
+-spec reduce_unused(icode_instr()) -> false | [icode_instr()].
+
+reduce_unused(Instr) ->
+  case is_safe(Instr) of
+    true -> [];
+    false -> false
   end.
 
 %%-----------------------------------------------------------------------

@@ -334,6 +334,7 @@
 	 defines/1,
 	 redirect_jmp/3,
 	 is_safe/1,
+	 reduce_unused/1,
 	 %% highest_var/1,
 	 pp/1,
 	 pp/2,
@@ -1312,6 +1313,24 @@ is_safe(Instr) ->
     #return{} -> false;
     #store{} -> false;
     #switch{} -> false %% Maybe this is safe...
+  end.
+
+%% @spec reduce_unused(rtl_instruction())
+%%           -> false | [rtl_instruction()].
+%%
+%% @doc Produces a simplified instruction sequence that is equivalent to [Instr]
+%% under the assumption that all results of Instr are unused, or 'false' if
+%% there is no such sequence (other than [Instr] itself).
+
+reduce_unused(Instr) ->
+  case Instr of
+    #alub{dst=Dst} when Dst =/= [] ->
+      [Instr#alub{dst=[]}];
+    _ ->
+      case is_safe(Instr) of
+	true -> [];
+	false -> false
+      end
   end.
 
 %%
