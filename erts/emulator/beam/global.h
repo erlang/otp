@@ -773,8 +773,8 @@ do {						\
 
 typedef struct ErtsPStack_ {
     byte* pstart;
-    byte* psp;
-    byte* pend;
+    int offs;   /* "stack pointer" as byte offset from pstart */
+    int size;   /* allocated size in bytes */
     ErtsAlcType_t alloc_type;
 }ErtsPStack;
 
@@ -785,8 +785,8 @@ void erl_grow_pstack(ErtsPStack* s, void* default_pstack, unsigned need_bytes);
 #define PSTACK_DECLARE(s, DEF_PSTACK_SIZE) \
 PSTACK_TYPE PSTK_DEF_STACK(s)[DEF_PSTACK_SIZE];                            \
 ErtsPStack s = { (byte*)PSTK_DEF_STACK(s), /* pstart */                    \
-                 (byte*)(PSTK_DEF_STACK(s) - 1), /* psp */                 \
-                 (byte*)(PSTK_DEF_STACK(s) + (DEF_PSTACK_SIZE)), /* pend */\
+                 -(int)sizeof(PSTACK_TYPE), /* offs */                     \
+                 DEF_PSTACK_SIZE*sizeof(PSTACK_TYPE), /* size */           \
                  ERTS_ALC_T_ESTACK   /* alloc_type */                      \
 }
 
@@ -806,19 +806,21 @@ do {							\
     }							\
 } while(0)
 
-#define PSTACK_IS_EMPTY(s) (s.psp < s.pstart)
+#define PSTACK_IS_EMPTY(s) (s.offs < 0)
 
-#define PSTACK_COUNT(s) (((PSTACK_TYPE*)s.psp + 1) - (PSTACK_TYPE*)s.pstart)
+#define PSTACK_COUNT(s) ((s.offs + sizeof(PSTACK_TYPE)) / sizeof(PSTACK_TYPE))
 
-#define PSTACK_TOP(s) (ASSERT(!PSTACK_IS_EMPTY(s)), (PSTACK_TYPE*)(s.psp))
+#define PSTACK_TOP(s) (ASSERT(!PSTACK_IS_EMPTY(s)), \
+                       (PSTACK_TYPE*)(s.pstart + s.offs))
 
-#define PSTACK_PUSH(s) 		                                           \
-    (s.psp += sizeof(PSTACK_TYPE),                                         \
-     ((s.psp == s.pend) ? erl_grow_pstack(&s, PSTK_DEF_STACK(s),           \
-                                          sizeof(PSTACK_TYPE)) : (void)0), \
-     ((PSTACK_TYPE*) s.psp))
+#define PSTACK_PUSH(s) 		                                            \
+    (s.offs += sizeof(PSTACK_TYPE),                                         \
+     ((s.offs == s.size) ? erl_grow_pstack(&s, PSTK_DEF_STACK(s),           \
+                                          sizeof(PSTACK_TYPE)) : (void)0),  \
+     ((PSTACK_TYPE*) (s.pstart + s.offs)))
 
-#define PSTACK_POP(s) ((PSTACK_TYPE*) (s.psp -= sizeof(PSTACK_TYPE)))
+#define PSTACK_POP(s) ((s.offs -= sizeof(PSTACK_TYPE)), \
+                       (PSTACK_TYPE*)(s.pstart + s.offs))
 
 /*
  * Do not free the stack after this, it may have pointers into what
@@ -831,8 +833,8 @@ do {\
 	(dst)->pstart = erts_alloc(s.alloc_type,\
 				   sizeof(PSTK_DEF_STACK(s)));\
 	sys_memcpy((dst)->pstart, s.pstart, _pbytes);\
-	(dst)->psp = (dst)->pstart + _pbytes - sizeof(PSTACK_TYPE);\
-	(dst)->pend = (dst)->pstart + sizeof(PSTK_DEF_STACK(s));\
+	(dst)->offs = s.offs;\
+	(dst)->size = s.size;\
 	(dst)->alloc_type = s.alloc_type;\
     } else\
         *(dst) = s;\
@@ -847,8 +849,8 @@ do {						        \
     ASSERT(s.pstart == (byte*)PSTK_DEF_STACK(s));	\
     s = *(src);  /* struct copy */		        \
     (src)->pstart = NULL;			        \
-    ASSERT(s.psp >= (s.pstart - sizeof(PSTACK_TYPE)));  \
-    ASSERT(s.psp < s.pend);			        \
+    ASSERT(s.offs >= -(int)sizeof(PSTACK_TYPE));        \
+    ASSERT(s.offs < s.size);			        \
 } while (0)
 
 #define PSTACK_DESTROY_SAVED(pstack)\
