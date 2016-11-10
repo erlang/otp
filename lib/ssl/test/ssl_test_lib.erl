@@ -462,9 +462,10 @@ cert_options(Config) ->
 
 
 make_dsa_cert(Config) ->
-    
-    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, dsa, dsa, ""),
-    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, dsa, dsa, ""),
+    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = 
+	make_cert_files("server", Config, dsa, dsa, "", []),
+    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = 
+	make_cert_files("client", Config, dsa, dsa, "", []),
     [{server_dsa_opts, [{ssl_imp, new},{reuseaddr, true}, 
 				 {cacertfile, ServerCaCertFile},
 				 {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
@@ -490,8 +491,10 @@ make_ecdsa_cert(Config) ->
     CryptoSupport = crypto:supports(),
     case proplists:get_bool(ecdsa, proplists:get_value(public_keys, CryptoSupport)) of
 	    true ->
-	    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, ec, ec, ""),
-	    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, ec, ec, ""),
+	    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = 
+		make_cert_files("server", Config, ec, ec, "", [{digest, appropriate_sha(CryptoSupport)}]),
+	    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = 
+		make_cert_files("client", Config, ec, ec, "", [{digest, appropriate_sha(CryptoSupport)}]),
 	    [{server_ecdsa_opts, [{ssl_imp, new},{reuseaddr, true},
 				  {cacertfile, ServerCaCertFile},
 				  {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
@@ -507,6 +510,14 @@ make_ecdsa_cert(Config) ->
 	    Config
     end.
 
+appropriate_sha(CryptoSupport) ->
+    case proplists:get_bool(sha256, CryptoSupport) of
+	true ->
+	    sha256;
+	false ->
+	    sha1
+    end.
+
 %% RFC 4492, Sect. 2.3.  ECDH_RSA
 %%
 %%    This key exchange algorithm is the same as ECDH_ECDSA except that the
@@ -515,8 +526,10 @@ make_ecdh_rsa_cert(Config) ->
     CryptoSupport = crypto:supports(),
     case proplists:get_bool(ecdh, proplists:get_value(public_keys, CryptoSupport)) of
 	true ->
-	    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, rsa, ec, "rsa_"),
-	    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, rsa, ec, "rsa_"),
+	    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = 
+		make_cert_files("server", Config, rsa, ec, "rsa_", []),
+	    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = 
+		make_cert_files("client", Config, rsa, ec, "rsa_",[]),
 	    [{server_ecdh_rsa_opts, [{ssl_imp, new},{reuseaddr, true},
 				     {cacertfile, ServerCaCertFile},
 				     {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
@@ -534,9 +547,9 @@ make_ecdh_rsa_cert(Config) ->
 
 make_mix_cert(Config) ->
     {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, dsa,
-									rsa, "mix"),
+									rsa, "mix", []),
     {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, dsa,
-									rsa, "mix"),
+									rsa, "mix", []),
     [{server_mix_opts, [{ssl_imp, new},{reuseaddr, true},
 				 {cacertfile, ServerCaCertFile},
 				 {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
@@ -549,11 +562,11 @@ make_mix_cert(Config) ->
 			{certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
      | Config].
 
-make_cert_files(RoleStr, Config, Alg1, Alg2, Prefix) ->
+make_cert_files(RoleStr, Config, Alg1, Alg2, Prefix, Opts) ->
     Alg1Str = atom_to_list(Alg1),
     Alg2Str = atom_to_list(Alg2),
-    CaInfo = {CaCert, _} = erl_make_certs:make_cert([{key, Alg1}]),
-    {Cert, CertKey} = erl_make_certs:make_cert([{key, Alg2}, {issuer, CaInfo}]),
+    CaInfo = {CaCert, _} = erl_make_certs:make_cert([{key, Alg1}| Opts]),
+    {Cert, CertKey} = erl_make_certs:make_cert([{key, Alg2}, {issuer, CaInfo} | Opts]),
     CaCertFile = filename:join([proplists:get_value(priv_dir, Config), 
 				RoleStr, Prefix ++ Alg1Str ++ "_cacerts.pem"]),
     CertFile = filename:join([proplists:get_value(priv_dir, Config), 
@@ -840,37 +853,42 @@ common_ciphers(openssl) ->
         lists:member(ssl_cipher:openssl_suite_name(S), OpenSslSuites)
     ].
 
-rsa_non_signed_suites() ->
+available_suites(Version) ->
+    [ssl_cipher:erl_suite_definition(Suite) || 
+	Suite  <-  ssl_cipher:filter_suites(ssl_cipher:suites(Version))].
+
+
+rsa_non_signed_suites(Version) ->
     lists:filter(fun({rsa, _, _}) ->
 			 true;
 		    (_) ->
 			 false
 		 end,
-		 ssl:cipher_suites()).
+		 available_suites(Version)).
 
-dsa_suites() ->
+dsa_suites(Version) ->
      lists:filter(fun({dhe_dss, _, _}) ->
 			 true;
 		    (_) ->
 			 false
 		 end,
-		 ssl:cipher_suites()).
+		 available_suites(Version)).
 
-ecdsa_suites() ->
+ecdsa_suites(Version) ->
      lists:filter(fun({ecdhe_ecdsa, _, _}) ->
 			 true;
 		    (_) ->
 			 false
 		 end,
-		 ssl:cipher_suites()).
+		 available_suites(Version)).
 
-ecdh_rsa_suites() ->
+ecdh_rsa_suites(Version) ->
      lists:filter(fun({ecdh_rsa, _, _}) ->
 			 true;
 		    (_) ->
 			 false
 		 end,
-		 ssl:cipher_suites()).
+		 available_suites(Version)).
 
 openssl_rsa_suites(CounterPart) ->
     Ciphers = ssl:cipher_suites(openssl),
@@ -1174,14 +1192,15 @@ is_fips(_) ->
     false.
 
 cipher_restriction(Config0) ->
+    Version = tls_record:protocol_version(protocol_version(Config0)),
     case is_sane_ecc(openssl) of
 	false ->
 	    Opts = proplists:get_value(server_opts, Config0),
 	    Config1 = proplists:delete(server_opts, Config0),
 	    VerOpts = proplists:get_value(server_verification_opts, Config1),
 	    Config = proplists:delete(server_verification_opts, Config1),
-	    Restricted0 = ssl:cipher_suites() -- ecdsa_suites(),
-            Restricted  = Restricted0 -- ecdh_rsa_suites(),
+	    Restricted0 = ssl:cipher_suites() -- ecdsa_suites(Version),
+            Restricted  = Restricted0 -- ecdh_rsa_suites(Version),
 	    [{server_opts, [{ciphers, Restricted} | Opts]}, {server_verification_opts, [{ciphers, Restricted} | VerOpts] } | Config];
 	true ->
 	    Config0
