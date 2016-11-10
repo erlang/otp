@@ -84,7 +84,7 @@ compile_with_llvm(FunName, Arity, LLVMCode, Options, UseBuffer) ->
   __ = file:close(File_llvm),
   %% Invoke LLVM compiler tools to produce an object file
   llvm_opt(Dir, Filename, Options),
-  llvm_llc(Dir, Filename, Options),
+  llvm_llc(Dir, Filename, Ver, Options),
   compile(Dir, Filename, "gcc"), %%FIXME: use llc -filetype=obj and skip this!
   {ok, Dir, Dir ++ Filename ++ ".o"}.
 
@@ -103,12 +103,14 @@ llvm_opt(Dir, Filename, Options) ->
 
 %% @doc Invoke llc tool to compile the bitcode to object file
 %%      (_name.bc -> _name.o).
-llvm_llc(Dir, Filename, Options) ->
+llvm_llc(Dir, Filename, Ver, Options) ->
   Source   = Dir ++ Filename ++ ".bc",
   OptLevel = trans_optlev_flag(llc, Options),
+  VerFlags = llc_ver_flags(Ver),
   Align    = find_stack_alignment(),
   LlcFlags = [OptLevel, "-code-model=medium", "-stack-alignment=" ++ Align
-             , "-tailcallopt", "-filetype=asm"], %%FIXME
+             , "-tailcallopt", "-filetype=asm" %FIXME
+             | VerFlags],
   Command  = "llc " ++ fix_opts(LlcFlags) ++ " " ++ Source,
   %% io:format("LLC: ~s~n", [Command]),
   case os:cmd(Command) of
@@ -152,6 +154,12 @@ trans_optlev_flag(Tool, Options) ->
     o3 -> "-O3";
     undefined -> "-O2"
   end.
+
+llc_ver_flags(Ver = {_, _}) when Ver >= {3,9} ->
+  %% Works around a bug in the x86-call-frame-opt pass (as of LLVM 3.9) that
+  %% break the garbage collection stack descriptors.
+  ["-no-x86-call-frame-opt"];
+llc_ver_flags({_, _}) -> [].
 
 %%------------------------------------------------------------------------------
 %% Functions to manage Relocations

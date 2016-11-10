@@ -10,7 +10,8 @@
 -include("../rtl/hipe_literals.hrl").
 -include("hipe_llvm_arch.hrl").
 
--define(WORD_WIDTH, (?bytes_to_bits(hipe_rtl_arch:word_size()))).
+-define(BITS_IN_WORD, (?bytes_to_bits(hipe_rtl_arch:word_size()))).
+-define(BITS_IN_BYTE, (?bytes_to_bits(1))).
 -define(BRANCH_META_TAKEN, "0").
 -define(BRANCH_META_NOT_TAKEN, "1").
 -define(FIRST_FREE_META_NO, 2).
@@ -95,9 +96,9 @@ do_alloca_stack([], _, _, Acc) ->
   Acc;
 do_alloca_stack([D|Ds], Params, Roots, Acc) ->
   {Name, _I} = trans_dst(D),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   WordTyPtr = hipe_llvm:mk_pointer(WordTy),
-  ByteTyPtr = hipe_llvm:mk_pointer(hipe_llvm:mk_int(8)),
+  ByteTyPtr = hipe_llvm:mk_pointer(hipe_llvm:mk_int(?BITS_IN_BYTE)),
   case hipe_rtl:is_var(D) of
     true ->
       Num = hipe_rtl:var_index(D),
@@ -233,7 +234,7 @@ trans_alu(I, Relocs) ->
   {Src1, I1} = trans_src(hipe_rtl:alu_src1(I)),
   {Src2, I2} = trans_src(hipe_rtl:alu_src2(I)),
   Op = trans_op(hipe_rtl:alu_op(I)),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   I3 = hipe_llvm:mk_operation(TmpDst, Op, WordTy, Src1, Src2, []),
   I4 = store_stack_dst(TmpDst, RtlDst),
   {[I4, I3, I2, I1], Relocs}.
@@ -258,7 +259,7 @@ trans_alub_overflow(I, Sign, Relocs) ->
   TmpDst = mk_temp(),
   Name = trans_alub_op(I, Sign),
   NewRelocs = relocs_store(Name, {call, {llvm, Name, 2}}, Relocs),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   ReturnType = hipe_llvm:mk_struct([WordTy, hipe_llvm:mk_int(1)]),
   T1 = mk_temp(),
   I3 = hipe_llvm:mk_call(T1, false, [], [], ReturnType, "@" ++ Name,
@@ -320,7 +321,7 @@ trans_alub_no_overflow(I, Relocs) ->
   {Dst, I2} = trans_src(hipe_rtl:alub_dst(I)),
   Cond = trans_rel_op(hipe_rtl:alub_cond(I)),
   T3 = mk_temp(),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   I5 = hipe_llvm:mk_icmp(T3, Cond, WordTy, Dst, "0"),
   %% br
   Metadata = branch_metadata(hipe_rtl:alub_pred(I)),
@@ -338,7 +339,7 @@ trans_branch(I, Relocs) ->
   Cond = trans_rel_op(hipe_rtl:branch_cond(I)),
   %% icmp
   T1 = mk_temp(),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   I3 = hipe_llvm:mk_icmp(T1, Cond, WordTy, Src1, Src2),
   %% br
   True_label = mk_jump_label(hipe_rtl:branch_true_label(I)),
@@ -366,7 +367,7 @@ trans_call(I, Relocs) ->
   {Name, I3, Relocs2} =
     trans_call_name(RtlCallName, Relocs1, CallArgs, FinalArgs),
   T1 = mk_temp(),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   FunRetTy = hipe_llvm:mk_struct(lists:duplicate(?NR_PINNED_REGS + 1, WordTy)),
   I4 =
     case hipe_rtl:call_fail(I) of
@@ -450,7 +451,7 @@ trans_call_name(RtlCallName, Relocs, CallArgs, FinalArgs) ->
 	  %% order to make the call
           TT1 = mk_temp(),
           {RegName, II1} = trans_src(Reg),
-          WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+          WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
           WordTyPtr = hipe_llvm:mk_pointer(WordTy),
           II2 =
             hipe_llvm:mk_conversion(TT1, inttoptr, WordTy, RegName, WordTyPtr),
@@ -503,7 +504,7 @@ trans_enter(I, Relocs) ->
   {Name, I2, NewRelocs} =
     trans_call_name(hipe_rtl:enter_fun(I), Relocs, CallArgs, FinalArgs),
   T1 = mk_temp(),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   FunRetTy = hipe_llvm:mk_struct(lists:duplicate(?NR_PINNED_REGS + 1, WordTy)),
   I3 = hipe_llvm:mk_call(T1, true, "cc 11", [], FunRetTy, Name, FinalArgs, []),
   I4 = hipe_llvm:mk_ret([{FunRetTy, T1}]),
@@ -518,7 +519,7 @@ trans_fconv(I, Relocs) ->
   TmpDst = mk_temp(),
   {Src, I1} =  trans_float_src(hipe_rtl:fconv_src(I)),
   FloatTy = hipe_llvm:mk_double(),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   I2 = hipe_llvm:mk_conversion(TmpDst, sitofp, WordTy, Src, FloatTy),
   I3 = store_float_stack(TmpDst, RtlDst),
   {[I3, I2, I1], Relocs}.
@@ -538,7 +539,7 @@ trans_fload(I, Relocs) ->
   {Src, I1} = trans_float_src(RtlSrc),
   {Offset, I2} = trans_float_src(_Offset),
   T1 = mk_temp(),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   FloatTyPtr = hipe_llvm:mk_pointer(hipe_llvm:mk_double()),
   I3 = hipe_llvm:mk_operation(T1, add, WordTy, Src, Offset, []),
   T2 = mk_temp(),
@@ -619,7 +620,7 @@ trans_fstore(I, Relocs) ->
 
 trans_fstore_reg(I, Relocs) ->
   {Base, I0}  = trans_reg(hipe_rtl:fstore_base(I), dst),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   WordTyPtr = hipe_llvm:mk_pointer(WordTy),
   FloatTy = hipe_llvm:mk_double(),
   FloatTyPtr = hipe_llvm:mk_pointer(FloatTy),
@@ -659,7 +660,7 @@ trans_load(I, Relocs) ->
   {Src, I1} = trans_src(hipe_rtl:load_src(I)),
   {Offset, I2} = trans_src(hipe_rtl:load_offset(I)),
   T1 = mk_temp(),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   WordTyPtr = hipe_llvm:mk_pointer(WordTy),
   I3 = hipe_llvm:mk_operation(T1, add, WordTy, Src, Offset, []),
   %%----------------------------------------------------------------
@@ -737,7 +738,7 @@ trans_move(I, Relocs) ->
 %% return
 %%
 trans_return(I, Relocs) ->
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   {VarRet, I1} =
     case hipe_rtl:return_varlist(I) of
       [] ->
@@ -777,7 +778,7 @@ trans_store(I, Relocs) ->
   {Offset, I2} = trans_src(hipe_rtl:store_offset(I)),
   {Value, I3} = trans_src(hipe_rtl:store_src(I)),
   T1 = mk_temp(),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   WordTyPtr = hipe_llvm:mk_pointer(WordTy),
   I4 = hipe_llvm:mk_operation(T1, add, WordTy, Base, Offset, []),
   I5 =
@@ -811,14 +812,14 @@ trans_switch(I, Relocs, Data) ->
   JumpLabels = [mk_jump_label(L) || L <- Labels],
   SortOrder = hipe_rtl:switch_sort_order(I),
   NrLabels = length(Labels),
-  ByteTyPtr = hipe_llvm:mk_pointer(hipe_llvm:mk_int(8)),
+  ByteTyPtr = hipe_llvm:mk_pointer(hipe_llvm:mk_int(?BITS_IN_BYTE)),
   TableType = hipe_llvm:mk_array(NrLabels, ByteTyPtr),
   TableTypeP = hipe_llvm:mk_pointer(TableType),
   TypedJumpLabels = [{hipe_llvm:mk_label_type(), X} || X <- JumpLabels],
   T1 = mk_temp(),
   {Src2, []} = trans_dst(RtlSrc),
   TableName = "table_" ++ tl(Src2),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   I2 = hipe_llvm:mk_getelementptr(T1, TableTypeP, "@"++TableName,
                                   [{WordTy, "0"}, {WordTy, Src}], false),
   T2 = mk_temp(),
@@ -933,7 +934,7 @@ create_fail_blocks(Label, FailLabels, Acc) ->
     false ->
       Acc;
     {value, {Label, FailLabel, SpAdj}, RestFailLabels} ->
-      WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+      WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
       I1 = hipe_llvm:mk_label(FailLabel),
       LP = hipe_llvm:mk_landingpad(),
       I2 =
@@ -962,7 +963,7 @@ create_fail_blocks(Label, FailLabels, Acc) ->
 
 %% @doc Convert RTL argument list to LLVM argument list.
 trans_args(ArgList) ->
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   MakeArg =
     fun(A) ->
       {Name, I1} = trans_src(A),
@@ -972,13 +973,13 @@ trans_args(ArgList) ->
 
 %% @doc Convert a list of Precoloured registers to LLVM argument list.
 fix_reg_args(ArgList) ->
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   [{WordTy, A} || A <- ArgList].
 
 %% @doc Load Precoloured registers.
 load_fixed_regs(RegList) ->
   Names = [mk_temp_reg(R) || R <- RegList],
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   WordTyPtr = hipe_llvm:mk_pointer(WordTy),
   Fun1 =
     fun (X, Y) ->
@@ -991,7 +992,7 @@ load_fixed_regs(RegList) ->
 store_fixed_regs(RegList, Name) ->
   Names = [mk_temp_reg(R) || R <- RegList],
   Indexes = lists:seq(0, erlang:length(RegList) - 1),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   WordTyPtr = hipe_llvm:mk_pointer(WordTy),
   FunRetTy = hipe_llvm:mk_struct(lists:duplicate(?NR_PINNED_REGS + 1, WordTy)),
   Fun1 =
@@ -1060,7 +1061,7 @@ mk_temp_reg(Name) ->
 
 store_stack_dst(TempDst, Dst) ->
   {Dst2, II1} = trans_dst(Dst),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   WordTyPtr = hipe_llvm:mk_pointer(WordTy),
   II2 = hipe_llvm:mk_store(WordTy, TempDst, WordTyPtr, Dst2, [], [], false),
   [II2, II1].
@@ -1078,7 +1079,7 @@ trans_float_src(Src) ->
       Name = "@DL" ++ integer_to_list(hipe_rtl:const_label_label(Src)),
       T1 = mk_temp(),
       %% XXX: Hardcoded offset
-      ByteTy = hipe_llvm:mk_int(8),
+      ByteTy = hipe_llvm:mk_int(?BITS_IN_BYTE),
       ByteTyPtr = hipe_llvm:mk_pointer(ByteTy),
       I1 = hipe_llvm:mk_getelementptr(T1, ByteTyPtr, Name,
            [{ByteTy, integer_to_list(?FLOAT_OFFSET)}], true),
@@ -1094,7 +1095,7 @@ trans_float_src(Src) ->
   end.
 
 trans_src(A) ->
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   WordTyPtr = hipe_llvm:mk_pointer(WordTy),
   case hipe_rtl:is_imm(A) of
     true ->
@@ -1197,7 +1198,7 @@ map_precoloured_reg(Index) ->
 fix_reg_dst(Register) ->
   case Register of
     {Name, Offset} -> %% Case of %fcalls, %hplim
-      WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+      WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
       pointer_from_reg(Name, WordTy, Offset);
     Name -> %% Case of %p and %hp
       {Name, []}
@@ -1205,7 +1206,7 @@ fix_reg_dst(Register) ->
 
 %% @doc Load precoloured src register.
 fix_reg_src(Register) ->
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   WordTyPtr = hipe_llvm:mk_pointer(WordTy),
   case Register of
     {Name, Offset} -> %% Case of %fcalls, %hplim
@@ -1327,10 +1328,10 @@ insn_dst(I) ->
 
 llvm_type_from_size(Size) ->
   case Size of
-    byte  -> hipe_llvm:mk_int(8);
+    byte  -> hipe_llvm:mk_int(?BITS_IN_BYTE);
     int16 -> hipe_llvm:mk_int(16);
     int32 -> hipe_llvm:mk_int(32);
-    word  -> hipe_llvm:mk_int(64)
+    word  -> hipe_llvm:mk_int(?BITS_IN_WORD)
   end.
 
 %% @doc Create definition for the compiled function. The parameters that are
@@ -1360,13 +1361,13 @@ create_function_definition(Fun, Params, Code, LocalVars) ->
     lists:flatten([EntryLabel, ExceptionSync, I2, LocalVars, StoredParams, I3]),
   Final_Code = EntryBlock ++ Code,
   FunctionOptions = [nounwind, noredzone, list_to_atom("gc \"erlang\"")],
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   FunRetTy = hipe_llvm:mk_struct(lists:duplicate(?NR_PINNED_REGS + 1, WordTy)),
   hipe_llvm:mk_fun_def([], [], "cc 11", [], FunRetTy, FunctionName, Args,
                        FunctionOptions, [], Final_Code).
 
 header_params(Params) ->
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   [{WordTy, "%v" ++ integer_to_list(hipe_rtl:var_index(P))} || P <- Params].
 
 store_params(Params) ->
@@ -1375,7 +1376,7 @@ store_params(Params) ->
       Index = hipe_rtl:var_index(X),
       {Name, _} = trans_dst(X),
       ParamName = "%v" ++ integer_to_list(Index),
-      WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+      WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
       WordTyPtr = hipe_llvm:mk_pointer(WordTy),
       hipe_llvm:mk_store(WordTy, ParamName, WordTyPtr, Name, [], [], false)
     end,
@@ -1392,11 +1393,11 @@ fixed_registers() ->
   end.
 
 header_regs(Registers) ->
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   [{WordTy, "%" ++ X ++ "_in"} || X <- Registers].
 
 load_regs(Registers) ->
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   WordTyPtr = hipe_llvm:mk_pointer(WordTy),
   Fun1 =
     fun(X) ->
@@ -1496,28 +1497,30 @@ seperate_relocs([R|Rs], CallAcc, AtomAcc, ClosureAcc, LabelAcc, JmpTableAcc) ->
 
 %% @doc External declaration of an atom.
 declare_atom({AtomName, _}) ->
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
-  hipe_llvm:mk_const_decl("@" ++ AtomName, "external constant", WordTy, "").
+  %% The type has to be byte, or a backend might assume the constant is aligned
+  %% and incorrectly optimise away type tests
+  ByteTy = hipe_llvm:mk_int(?BITS_IN_BYTE),
+  hipe_llvm:mk_const_decl("@" ++ AtomName, "external constant", ByteTy, "").
 
 %% @doc Creation of local variable for an atom.
 load_atom({AtomName, _}) ->
   Dst = "%" ++ AtomName ++ "_var",
   Name = "@" ++ AtomName,
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
-  WordTyPtr = hipe_llvm:mk_pointer(WordTy),
-  hipe_llvm:mk_conversion(Dst, ptrtoint, WordTyPtr, Name, WordTy).
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
+  ByteTyPtr = hipe_llvm:mk_pointer(hipe_llvm:mk_int(?BITS_IN_BYTE)),
+  hipe_llvm:mk_conversion(Dst, ptrtoint, ByteTyPtr, Name, WordTy).
 
 %% @doc External declaration of a closure.
 declare_closure({ClosureName, _})->
-  ByteTy = hipe_llvm:mk_int(8),
+  ByteTy = hipe_llvm:mk_int(?BITS_IN_BYTE),
   hipe_llvm:mk_const_decl("@" ++ ClosureName, "external constant", ByteTy, "").
 
 %% @doc Creation of local variable for a closure.
 load_closure({ClosureName, _})->
   Dst = "%" ++ ClosureName ++ "_var",
   Name = "@" ++ ClosureName,
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
-  ByteTyPtr = hipe_llvm:mk_pointer(hipe_llvm:mk_int(8)),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
+  ByteTyPtr = hipe_llvm:mk_pointer(hipe_llvm:mk_int(?BITS_IN_BYTE)),
   hipe_llvm:mk_conversion(Dst, ptrtoint, ByteTyPtr, Name, WordTy).
 
 %% @doc Declaration of a local variable for a switch jump table.
@@ -1548,7 +1551,7 @@ declare_closure_labels(ClosureLabels, Relocs, Fun) ->
   List3 = string:join(List2, ",\n"),
   List4 = "[\n" ++ List3 ++ "\n]\n",
   NrLabels = length(LabelList),
-  ByteTyPtr = hipe_llvm:mk_pointer(hipe_llvm:mk_int(8)),
+  ByteTyPtr = hipe_llvm:mk_pointer(hipe_llvm:mk_int(?BITS_IN_BYTE)),
   TableType = hipe_llvm:mk_array(NrLabels, ByteTyPtr),
   ConstDecl =
     hipe_llvm:mk_const_decl("@table_closures", "constant", TableType, List4),
@@ -1563,7 +1566,7 @@ is_external_call(_, _) -> true.
 call_to_decl({Name, {call, MFA}}) ->
   {M, _F, A} = MFA,
   CConv = "cc 11",
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   FunRetTy = hipe_llvm:mk_struct(lists:duplicate(?NR_PINNED_REGS + 1, WordTy)),
   {Type, Args} =
     case M of
@@ -1578,14 +1581,14 @@ call_to_decl({Name, {call, MFA}}) ->
 
 %% @doc These functions are always declared, even if not used.
 fixed_fun_decl() ->
-  ByteTy = hipe_llvm:mk_int(8),
+  ByteTy = hipe_llvm:mk_int(?BITS_IN_BYTE),
   ByteTyPtr = hipe_llvm:mk_pointer(ByteTy),
   LandPad = hipe_llvm:mk_fun_decl([], [], [], [], hipe_llvm:mk_int(32),
     "@__gcc_personality_v0", [hipe_llvm:mk_int(32), hipe_llvm:mk_int(64),
     ByteTyPtr, ByteTyPtr], []),
   GCROOTDecl = hipe_llvm:mk_fun_decl([], [], [], [], hipe_llvm:mk_void(),
     "@llvm.gcroot", [hipe_llvm:mk_pointer(ByteTyPtr), ByteTyPtr], []),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   FunRetTy = hipe_llvm:mk_struct(lists:duplicate(?NR_PINNED_REGS + 1, WordTy)),
   FixPinnedRegs = hipe_llvm:mk_fun_decl([], [], [], [], FunRetTy,
     "@hipe_bifs.llvm_fix_pinned_regs.0", [], []),
@@ -1599,7 +1602,7 @@ fixed_fun_decl() ->
 %%      values, add the offset and convert them again to pointers.
 declare_constant(Label) ->
   Name = "@DL" ++ integer_to_list(Label),
-  ByteTy = hipe_llvm:mk_int(8),
+  ByteTy = hipe_llvm:mk_int(?BITS_IN_BYTE),
   hipe_llvm:mk_const_decl(Name, "external constant", ByteTy, "").
 
 %% @doc Load a constant is achieved by converting a pointer to an integer of
@@ -1607,8 +1610,8 @@ declare_constant(Label) ->
 load_constant(Label) ->
   Dst = "%DL" ++ integer_to_list(Label) ++ "_var",
   Name = "@DL" ++ integer_to_list(Label),
-  WordTy = hipe_llvm:mk_int(?WORD_WIDTH),
-  ByteTyPtr = hipe_llvm:mk_pointer(hipe_llvm:mk_int(8)),
+  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
+  ByteTyPtr = hipe_llvm:mk_pointer(hipe_llvm:mk_int(?BITS_IN_BYTE)),
   hipe_llvm:mk_conversion(Dst, ptrtoint, ByteTyPtr, Name, WordTy).
 
 %% @doc Store external constants and calls to dictionary.
