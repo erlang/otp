@@ -2193,7 +2193,7 @@ ciphers_dsa_signed_certs() ->
        
 ciphers_dsa_signed_certs(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_test_lib:dsa_suites(),
+    Ciphers = ssl_test_lib:dsa_suites(tls_record:protocol_version(Version)),
     ct:log("~p erlang cipher suites ~p~n", [Version, Ciphers]),
     run_suites(Ciphers, Version, Config, dsa).
 %%-------------------------------------------------------------------
@@ -2334,7 +2334,7 @@ ciphers_ecdsa_signed_certs() ->
 
 ciphers_ecdsa_signed_certs(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_test_lib:ecdsa_suites(),
+    Ciphers = ssl_test_lib:ecdsa_suites(tls_record:protocol_version(Version)),
     ct:log("~p erlang cipher suites ~p~n", [Version, Ciphers]),
     run_suites(Ciphers, Version, Config, ecdsa).
 %%--------------------------------------------------------------------
@@ -2352,7 +2352,7 @@ ciphers_ecdh_rsa_signed_certs() ->
 
 ciphers_ecdh_rsa_signed_certs(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_test_lib:ecdh_rsa_suites(),
+    Ciphers = ssl_test_lib:ecdh_rsa_suites(tls_record:protocol_version(Version)),
     ct:log("~p erlang cipher suites ~p~n", [Version, Ciphers]),
     run_suites(Ciphers, Version, Config, ecdh_rsa).
 %%--------------------------------------------------------------------
@@ -3663,9 +3663,10 @@ no_rizzo_rc4() ->
     [{doc,"Test that there is no 1/n-1-split for RC4 as it is not vunrable to Rizzo/Dungon attack"}].
 
 no_rizzo_rc4(Config) when is_list(Config) ->
-    Ciphers = [X || X ={_,Y,_} <- ssl:cipher_suites(),Y == rc4_128],
     Prop = proplists:get_value(tc_group_properties, Config),
     Version = proplists:get_value(name, Prop),
+    Ciphers  =  [ssl_cipher:erl_suite_definition(Suite) || 
+		    Suite  <- ssl_test_lib:rc4_suites(tls_record:protocol_version(Version))],
     run_send_recv_rizzo(Ciphers, Config, Version,
 			{?MODULE, send_recv_result_active_no_rizzo, []}).
 
@@ -3673,9 +3674,10 @@ rizzo_one_n_minus_one() ->
     [{doc,"Test that the 1/n-1-split mitigation of Rizzo/Dungon attack can be explicitly selected"}].
 
 rizzo_one_n_minus_one(Config) when is_list(Config) ->
-    Ciphers  = [X || X ={_,Y,_} <- ssl:cipher_suites(), Y  =/= rc4_128],
     Prop = proplists:get_value(tc_group_properties, Config),
     Version = proplists:get_value(name, Prop),
+    AllSuites = ssl_test_lib:available_suites(tls_record:protocol_version(Version)),
+    Ciphers  = [X || X ={_,Y,_} <- AllSuites, Y  =/= rc4_128],
     run_send_recv_rizzo(Ciphers, Config, Version,
 			 {?MODULE, send_recv_result_active_rizzo, []}).
 
@@ -3683,9 +3685,10 @@ rizzo_zero_n() ->
     [{doc,"Test that the 0/n-split mitigation of Rizzo/Dungon attack can be explicitly selected"}].
 
 rizzo_zero_n(Config) when is_list(Config) ->
-    Ciphers  = [X || X ={_,Y,_} <- ssl:cipher_suites(), Y  =/= rc4_128],
     Prop = proplists:get_value(tc_group_properties, Config),
     Version = proplists:get_value(name, Prop),
+    AllSuites = ssl_test_lib:available_suites(tls_record:protocol_version(Version)),
+    Ciphers  = [X || X ={_,Y,_} <- AllSuites, Y  =/= rc4_128],
     run_send_recv_rizzo(Ciphers, Config, Version,
 			 {?MODULE, send_recv_result_active_no_rizzo, []}).
 
@@ -4436,7 +4439,7 @@ rizzo_test(Cipher, Config, Version, Mfa) ->
 					{host, Hostname},
 			   {from, self()},
 			   {mfa, Mfa},
-			   {options, [{active, true} | ClientOpts]}]),
+			   {options, [{active, true}, {ciphers, [Cipher]}| ClientOpts]}]),
 
     Result = ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
@@ -4727,3 +4730,4 @@ first_rsa_suite([_ | Rest]) ->
 wait_for_send(Socket) ->
     %% Make sure TLS process processed send message event
     _ = ssl:connection_information(Socket).
+
