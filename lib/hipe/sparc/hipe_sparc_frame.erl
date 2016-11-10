@@ -110,7 +110,10 @@ do_pseudo_move(I, Context, FPoff) ->
 	  Offset = pseudo_offset(Src, FPoff, Context),
 	  mk_load(hipe_sparc:mk_sp(), Offset, Dst, []);
 	_ ->
-	  [hipe_sparc:mk_mov(Src, Dst)]
+	  case hipe_sparc:temp_reg(Dst) =:= hipe_sparc:temp_reg(Src) of
+	    true -> [];
+	    false -> [hipe_sparc:mk_mov(Src, Dst)]
+	  end
       end
   end.
 
