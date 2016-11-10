@@ -26,7 +26,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 create/1,store/1,iterate/1, take/1, take_any/1]).
+	 create/1,store/1,iterate/1, take_2/1, take_3/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -37,7 +37,7 @@ suite() ->
      {timetrap,{minutes,5}}].
 
 all() ->
-    [create, store, iterate, take, take_any].
+    [create, store, iterate, take_2, take_3].
 
 groups() ->
     [].
@@ -61,20 +61,28 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
-take(Config) when is_list(Config) ->
-    test_all([{1,71}], fun take_1/2).
+take_2(Config) when is_list(Config) ->
+    test_all([{1,71}], fun take_2_/2).
 
-take_1(List, M) ->
+take_2_(List, M) ->
     case M(module, []) of
     orddict ->
+        Od1 = orddict:from_list([{k1, v1}, {k2, v2}, {k3, v3}, {k4, v4}, {k5, v5}]),
+        {v1, Od2} = orddict:take(k1, Od1),
+        {v2, Od3} = orddict:take(k2, Od2),
+        {v3, Od4} = orddict:take(k3, Od3),
+        {v4, Od5} = orddict:take(k4, Od4),
+        {v5, Od6} = orddict:take(k5, Od5),
+        true = (Od6 == orddict:new()),
+        error = orddict:take(k6, Od1),
         M(from_list, List);
     dict ->
         D1 = dict:from_list([{k1, v1}, {k2, v2}, {k3, v3}, {k4, v4}, {k5, v5}]),
-        {ok, v1, D2} = dict:take(k1, D1),
-        {ok, v2, D3} = dict:take(k2, D2),
-        {ok, v3, D4} = dict:take(k3, D3),
-        {ok, v4, D5} = dict:take(k4, D4),
-        {ok, v5, D6} = dict:take(k5, D5),
+        {v1, D2} = dict:take(k1, D1),
+        {v2, D3} = dict:take(k2, D2),
+        {v3, D4} = dict:take(k3, D3),
+        {v4, D5} = dict:take(k4, D4),
+        {v5, D6} = dict:take(k5, D5),
         true = (D6 == dict:new()),
         error = dict:take(k6, D1),
         M(from_list, List);
@@ -82,35 +90,55 @@ take_1(List, M) ->
         G1 = gb_trees:from_orddict(
                  orddict:from_list([{k1, v1}, {k2, v2}, {k3, v3}, {k4, v4}, {k5, v5}])
              ),
-        {ok, v1, G2} = gb_trees:take(k1, G1),
-        {ok, v2, G3} = gb_trees:take(k2, G2),
-        {ok, v3, G4} = gb_trees:take(k3, G3),
-        {ok, v4, G5} = gb_trees:take(k4, G4),
-        {ok, v5, G6} = gb_trees:take(k5, G5),
+        {v1, G2} = gb_trees:take(k1, G1),
+        {v2, G3} = gb_trees:take(k2, G2),
+        {v3, G4} = gb_trees:take(k3, G3),
+        {v4, G5} = gb_trees:take(k4, G4),
+        {v5, G6} = gb_trees:take(k5, G5),
         true = (G6 == gb_trees:empty()),
         {'EXIT', _} = (catch gb_trees:take(k6, G1)),
         M(from_list, List)
     end.
 
-take_any(Config) when is_list(Config) ->
-    test_all([{1,71}], fun take_any_1/2).
+take_3(Config) when is_list(Config) ->
+    test_all([{1,71}], fun take_3_/2).
 
-take_any_1(List, M) ->
+take_3_(List, M) ->
     case M(module, []) of
-	gb_trees ->
-	    G1 = gb_trees:from_orddict(
- 	        orddict:from_list([{k1, v1}, {k2, v2}, {k3, v3}, {k4, v4}, {k5, v5}])
-	    ),
-	    {ok, v1, G2} = gb_trees:take_any(k1, G1),
-	    {ok, v2, G3} = gb_trees:take_any(k2, G2),
-	    {ok, v3, G4} = gb_trees:take_any(k3, G3),
-	    {ok, v4, G5} = gb_trees:take_any(k4, G4),
-	    {ok, v5, G6} = gb_trees:take_any(k5, G5),
-	    true = (G6 == gb_trees:empty()),
-	    error = gb_trees:take_any(k6, G1),
-	    M(from_list, List);
-	_ ->
-	    M(from_list, List)
+    dict ->
+        D1 = dict:from_list([{k1, v1}, {k2, v2}, {k3, v3}, {k4, v4}, {k5, v5}]),
+        {v1, D2} = dict:take(k1, D1, default),
+        {v2, D3} = dict:take(k2, D2, default),
+        {v3, D4} = dict:take(k3, D3, default),
+        {v4, D5} = dict:take(k4, D4, default),
+        {v5, D6} = dict:take(k5, D5, default),
+        true = (D6 == dict:new()),
+        default = dict:take(k6, D1, default),
+        M(from_list, List);
+    orddict ->
+        Od1 = orddict:from_list([{k1, v1}, {k2, v2}, {k3, v3}, {k4, v4}, {k5, v5}]),
+        {v1, Od2} = orddict:take(k1, Od1, default),
+        {v2, Od3} = orddict:take(k2, Od2, default),
+        {v3, Od4} = orddict:take(k3, Od3, default),
+        {v4, Od5} = orddict:take(k4, Od4, default),
+        {v5, Od6} = orddict:take(k5, Od5, default),
+        true = (Od6 == orddict:new()),
+        default = orddict:take(k6, Od1, default),
+        M(from_list, List);
+    gb_trees ->
+        G1 = gb_trees:from_orddict(
+             orddict:from_list([{k1, v1}, {k2, v2}, {k3, v3}, {k4, v4}, {k5, v5}])
+        ),
+        {v1, G2} = gb_trees:take(k1, G1, default),
+        {v2, G3} = gb_trees:take(k2, G2, default),
+        {v3, G4} = gb_trees:take(k3, G3, default),
+        {v4, G5} = gb_trees:take(k4, G4, default),
+        {v5, G6} = gb_trees:take(k5, G5, default),
+        true = (G6 == gb_trees:empty()),
+        default = gb_trees:take(k6, G1, default),
+        M(from_list, List);
+    _ ->
+        M(from_list, List)
     end.
 
 

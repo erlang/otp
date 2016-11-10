@@ -59,11 +59,11 @@
 %% - delete_any(X, T): removes key X from tree T if the key is present
 %%   in the tree, otherwise does nothing; returns new tree.
 %%
-%% - take(X, S): removes element with key X from tree S; returns new tree
-%%   with removed element; Assumes that the key is present in the tree.
+%% - take(X, T): removes element with key X from tree T; returns new tree
+%%   without removed element; Assumes that the key is present in the tree.
 %%
-%% - take_any(X, S):removes element with key X from tree S; returns new tree
-%%   with removed element.
+%% - take(X, T, D):removes element with key X from tree T; returns new tree
+%%   without removed element or D if element is not present in tree T.
 %%
 %% - balance(T): rebalances tree T. Note that this is rarely necessary,
 %%   but may be motivated when a large number of entries have been
@@ -127,7 +127,7 @@
 -export([empty/0, is_empty/1, size/1, lookup/2, get/2, insert/3,
 	 update/3, enter/3, delete/2, delete_any/2, balance/1,
 	 is_defined/2, keys/1, values/1, to_list/1, from_orddict/1,
-	 smallest/1, largest/1, take/2, take_any/2, take_smallest/1, take_largest/1,
+	 smallest/1, largest/1, take/2, take/3, take_smallest/1, take_largest/1,
 	 iterator/1, iterator_from/2, next/1, map/2]).
 
 
@@ -429,42 +429,35 @@ merge(Smaller, Larger) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec take_any(Key, Tree1) -> {ok, Value, Tree2} | error when
-      Tree1 :: tree(Key, _),
-      Tree2 :: tree(Key, _),
-      Key   :: term(),
-      Value :: term().
-take_any(Key, T) ->
+-spec take(Key, Tree1, Default) -> {Value, Tree2} | Default when
+      Tree1   :: tree(Key, _),
+      Tree2   :: tree(Key, _),
+      Key     :: term(),
+      Value   :: term(),
+	  Default :: term().
+take(Key, T, Default) ->
     case is_defined(Key, T) of
 	true ->
 	    take(Key, T);
 	false ->
-	    error
+	    Default
     end.
 
--spec take(Key, Tree1) -> {ok, Value, Tree2} when
+-spec take(Key, Tree1) -> {Value, Tree2} when
       Tree1 :: tree(Key, _),
       Tree2 :: tree(Key, _),
       Key   :: term(),
       Value :: term().
 take(Key, {S, T}) when is_integer(S), S >= 0 ->
     {{Key, Value}, Res} = take_1(Key, T),
-    {ok, Value, {S - 1, Res}}.
+    {Value, {S - 1, Res}}.
 
 take_1(Key, {Key1, Value, Smaller, Larger}) when Key < Key1 ->
-    case take_1(Key, Smaller) of
-	{{Key2, Value2}, Smaller1} ->
-	    {{Key2, Value2}, {Key1, Value, Smaller1, Larger}};
-	Smaller1 ->
-	    {Key1, Value, Smaller1, Larger}
-    end;
+    {{Key2, Value2}, Smaller1} = take_1(Key, Smaller),
+    {{Key2, Value2}, {Key1, Value, Smaller1, Larger}};
 take_1(Key, {Key1, Value, Smaller, Bigger}) when Key > Key1 ->
-    case take_1(Key, Bigger) of
-	{{Key2, Value2}, Bigger1} ->
-	    {{Key2, Value2}, {Key1, Value, Smaller, Bigger1}};
-	Bigger1 ->
-	    {Key1, Value, Smaller, Bigger1}
-    end;
+    {{Key2, Value2}, Bigger1} = take_1(Key, Bigger),
+    {{Key2, Value2}, {Key1, Value, Smaller, Bigger1}};
 take_1(_, {Key, Value, Smaller, Larger}) ->
     {{Key, Value}, merge(Smaller, Larger)}.
 

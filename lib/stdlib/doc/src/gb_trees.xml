@@ -108,23 +108,27 @@
 
     <func>
       <name name="take" arity="2"/>
-      <fsummary>Returns a value and new set without node without key <c>Key</c></fsummary>
+      <fsummary>Returns a value and new tree without node with key <c>Key</c>.</fsummary>
       <desc>
         <p>Returns a value <c><anno>Value</anno></c> from node with key <c><anno>Key</anno></c>
-          and new <c><anno>Tree2</anno></c> without node with value <c><anno>Value</anno></c>.
-          Assumes that the key is present in the tree, crashes otherwise.</p>
+          and new <c><anno>Tree2</anno></c> without node with this value.
+          Assumes that the node with key is present in the tree, crashes otherwise.</p>
       </desc>
     </func>
+
     <func>
-      <name name="take_any" arity="2"/>
-      <fsummary>Returns a value and new set without node without key <c>Key</c></fsummary>
+      <name name="take" arity="3"/>
+      <fsummary>Returns a value and new tree without node with key <c>Key</c> or
+        <c>Default</c> and old tree.</fsummary>
       <desc>
-        <p>Returns a value <c><anno>Value</anno></c> from node with key <c><anno>Key</anno></c>
-          and new <c><anno>Tree2</anno></c> without node with key <c><anno>Key</anno></c>.
-          If node with key <c><anno>Key</anno></c> is not in tree <c><anno>Tree1</anno></c> then
-          return <c>error</c>.</p>
+        <p>Returns a value <c><anno>Value</anno></c> from node with key
+          <c><anno>Key</anno></c> and new <c><anno>Tree2</anno></c> without node
+          with this value <c><anno>Value</anno></c>. If node with key <c><anno>Key</anno></c>
+          is not in tree <c><anno>Tree1</anno></c> then return <c>Default</c> and old
+          tree <c><anno>Tree1</anno></c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="empty" arity="0"/>
       <fsummary>Return an empty tree.</fsummary>
