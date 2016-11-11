@@ -59,7 +59,7 @@
 	 no_appup_relup/1, bad_appup_relup/1, app_start_type_relup/1,
 	 regexp_relup/1]).
 -export([normal_hybrid/1,hybrid_no_old_sasl/1,hybrid_no_new_sasl/1]).
--export([otp_6226_outdir/1]).
+-export([otp_6226_outdir/1, app_file_defaults/1]).
 -export([init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([delete_tree/1]).
@@ -97,7 +97,7 @@ groups() ->
        no_appup_relup, bad_appup_relup, app_start_type_relup, regexp_relup
       ]},
      {hybrid, [], [normal_hybrid,hybrid_no_old_sasl,hybrid_no_new_sasl]},
-     {options, [], [otp_6226_outdir]}].
+     {options, [], [otp_6226_outdir,app_file_defaults]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -2013,6 +2013,37 @@ otp_6226_outdir(Config) when is_list(Config) ->
     ok = file:set_cwd(OldDir),
     ok.
 
+
+%% Test that all default values can be used as values in the .app file
+app_file_defaults(Config) ->
+    PrivDir = ?config(priv_dir,Config),
+    Name = app1,
+    NameStr = atom_to_list(Name),
+    Vsn = "1.0",
+    AppSpec = app_spec(Name,#{vsn=>"1.0"}),
+    ok = file:write_file(filename:join(PrivDir,NameStr ++ ".app"),
+			 io_lib:format("~p.~n",[AppSpec])),
+    {ok,_} = systools_make:read_application(NameStr,Vsn,[PrivDir],[]),
+    ok.
+
+app_spec(Name,New) ->
+    {application,Name,app_spec(New)}.
+
+app_spec(New) ->
+    Default = #{description => "",
+		id => "",
+		vsn => "",
+		modules => [],
+		maxP => infinity,
+		maxT => infinity,
+		registered => [],
+		included_applications => [],
+		applications => [],
+		env => [],
+		mod => [],
+		start_phases => undefined,
+		runtime_dependencies => []},
+    maps:to_list(maps:merge(Default,New)).
 
 %%%%%%
 %%%%%% Utilities
