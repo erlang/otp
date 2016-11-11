@@ -92,7 +92,8 @@
 -type public_crypt_options() :: [{rsa_pad, rsa_padding()}].
 -type rsa_digest_type()      :: 'md5' | 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type()      :: 'none' | 'sha'. %% None is for backwards compatibility
--type ecdsa_digest_type()       :: 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512'.
+-type ecdsa_digest_type()    :: 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512'.
+-type digest_type()          :: rsa_digest_type() |  dss_digest_type() | ecdsa_digest_type().
 -type crl_reason()           ::  unspecified | keyCompromise | cACompromise | affiliationChanged | superseded
 			       | cessationOfOperation | certificateHold | privilegeWithdrawn |  aACompromise.
 -type oid()                  :: tuple().
@@ -821,7 +822,7 @@ oid2ssh_curvename(?'secp521r1') -> <<"nistp521">>.
 
 %%--------------------------------------------------------------------
 -spec ssh_hostkey_fingerprint(public_key()) -> string().
--spec ssh_hostkey_fingerprint(md5, public_key()) -> string().
+-spec ssh_hostkey_fingerprint(digest_type(), public_key()) -> string().
 
 ssh_hostkey_fingerprint(Key) ->
     sshfp_string(md5, Key).
