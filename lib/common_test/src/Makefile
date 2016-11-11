@@ -80,6 +80,7 @@ MODULES= \
 	ct_groups \
 	ct_property_test \
 	ct_release_test \
+	ct_default_gl \
 	erl2html2 \
 	test_server_ctrl \
 	test_server_gl \

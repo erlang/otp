@@ -188,6 +188,8 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
 	    ok
     end,
 
+    ct_default_gl:start_link(group_leader()),
+
     {StartTime,TestLogDir} = ct_logs:init(Mode, Verbosity),
 
     ct_event:notify(#event{name=test_start,
@@ -474,6 +476,7 @@ loop(Mode,TestData,StartDir) ->
 	    ct_logs:close(Info, StartDir),
 	    ct_event:stop(),
 	    ct_config:stop(),
+	    ct_default_gl:stop(),
 	    ok = file:set_cwd(StartDir),
 	    return(From, Info);
 	{Ref, _Msg} when is_reference(Ref) ->
@@ -926,7 +929,8 @@ warn_duplicates(Suites) ->
 		    [] ->
 			ok;
 		    _ ->
-			io:format(user,"~nWARNING! Deprecated function: ~w:sequences/0.~n"
+			io:format(?def_gl,
+				  "~nWARNING! Deprecated function: ~w:sequences/0.~n"
 				  "         Use group with sequence property instead.~n",[Mod])
 		end
 	end,
@@ -980,12 +984,12 @@ get_profile_data(Profile, Key, StartDir) ->
 	end,
     case Result of
 	{error,enoent} when Profile /= default ->
-	    io:format(user, "~nERROR! Missing profile file ~p~n", [File]),
+	    io:format(?def_gl, "~nERROR! Missing profile file ~p~n", [File]),
 	    undefined;
 	{error,enoent} when Profile == default ->
 	    undefined;
 	{error,Reason} ->
-	    io:format(user,"~nERROR! Error in profile file ~p: ~p~n",
+	    io:format(?def_gl,"~nERROR! Error in profile file ~p: ~p~n",
 		      [WhichFile,Reason]),
 	    undefined;
 	{ok,Data} ->
@@ -995,7 +999,7 @@ get_profile_data(Profile, Key, StartDir) ->
 			_ when is_list(Data) ->
 			    Data;
 			_ ->
-			    io:format(user,
+			    io:format(?def_gl,
 				      "~nERROR! Invalid profile data in ~p~n",
 				      [WhichFile]),
 			    []
@@ -1082,10 +1086,10 @@ open_url(iexplore, Args, URL) ->
 	    Path = proplists:get_value(default, Paths),
 	    [Cmd | _] = string:tokens(Path, "%"),
 	    Cmd1 = Cmd ++ " " ++ Args ++ " " ++ URL,
-	    io:format(user, "~nOpening ~ts with command:~n  ~ts~n", [URL,Cmd1]),
+	    io:format(?def_gl, "~nOpening ~ts with command:~n  ~ts~n", [URL,Cmd1]),
 	    open_port({spawn,Cmd1}, []);
 	_ ->
-	    io:format("~nNo path to iexplore.exe~n",[])
+	    io:format(?def_gl, "~nNo path to iexplore.exe~n",[])
     end,
     win32reg:close(R),
     ok;
@@ -1095,6 +1099,6 @@ open_url(Prog, Args, URL) ->
 		 is_list(Prog) -> Prog
 	      end,
     Cmd = ProgStr ++ " " ++ Args ++ " " ++ URL,
-    io:format(user, "~nOpening ~ts with command:~n  ~ts~n", [URL,Cmd]),
+    io:format(?def_gl, "~nOpening ~ts with command:~n  ~ts~n", [URL,Cmd]),
     open_port({spawn,Cmd},[]),
     ok.
