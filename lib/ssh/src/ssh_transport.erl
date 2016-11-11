@@ -734,12 +734,16 @@ public_algo({#'ECPoint'{},{namedCurve,OID}}) ->
     list_to_atom("ecdsa-sha2-" ++ binary_to_list(Curve)).
 
 
-accepted_host(Ssh, PeerName, Opts) ->
+accepted_host(Ssh, PeerName, Public, Opts) ->
     case proplists:get_value(silently_accept_hosts, Opts, false) of
+	F when is_function(F,2) ->
+	    true == (catch F(PeerName, public_key:ssh_hostkey_fingerprint(Public)));
+	{DigestAlg,F} when is_function(F,2) ->
+	    true == (catch F(PeerName, public_key:ssh_hostkey_fingerprint(DigestAlg,Public)));
 	true ->
-	    yes;
+	    true;
 	false ->
-	    yes_no(Ssh, "New host " ++ PeerName ++ " accept")
+	    yes == yes_no(Ssh, "New host " ++ PeerName ++ " accept")
     end.
 
 known_host_key(#ssh{opts = Opts, key_cb = Mod, peer = Peer} = Ssh, 
@@ -749,10 +753,10 @@ known_host_key(#ssh{opts = Opts, key_cb = Mod, peer = Peer} = Ssh,
 	true ->
 	    ok;
 	false ->
-	    case accepted_host(Ssh, PeerName, Opts) of
-		yes ->
+	    case accepted_host(Ssh, PeerName, Public, Opts) of
+		true ->
 		    Mod:add_host_key(PeerName, Public, Opts);
-		no ->
+		false ->
 		    {error, rejected}
 	    end
     end.
