@@ -88,8 +88,31 @@ misc(Config) when is_list(Config) ->
     {ok,buf,<<>>} = get_data({o,false,0}, 0, buf),
     error = get_data({o,false,0}, 42, buf),
 
+    relief = misc_2(0),
+    error = misc_2(1),
+    error = misc_2(true),
+
+    if
+	is_integer(Config) =/= true ->
+	    ok
+    end,
+
+    true = misc_3(1, 0),
+    true = misc_3(0, 0),
+    false = misc_3(0, 2),
+
+    %% Abuse of boolean values.
+
+    Zero = id(0),
+    One = id(1),
+    ok = if (Zero == 0) > false -> ok end,
+    ok = if (Zero == 0) =:= (One == 1) -> ok end,
+    ok = if (Zero == 0) =:= (One == 1) -> ok end,
+    ok = if is_atom(Zero > One) -> ok end,
+    error = if abs(Zero > One) -> ok; true -> error end,
+    ok = if is_integer(Zero) >= is_integer(One) -> ok end,
+
     ok.
-    
 
 misc_1([{W},{X},{Y},{Z}]) ->
 	      if
@@ -97,6 +120,17 @@ misc_1([{W},{X},{Y},{Z}]) ->
 	    id(W);
 	true ->
 	    none
+    end.
+
+misc_2(0) -> relief;
+misc_2(Adapter = 1) when Adapter -> franklin;
+misc_2(_) -> error.
+
+misc_3(LenUp, LenDw) ->
+    if
+	%% Cover handling of #k_alt{}.
+	LenUp >= 1 orelse ((LenDw >= 2) xor true) -> true;
+	true -> false
     end.
 
 get_data({o,Active,Raw}, BytesToRead, Buffer) 
@@ -164,6 +198,12 @@ basic_not(Config) when is_list(Config) ->
     check(fun() -> if not glurf -> ok; true -> error end end, error),
     check(fun() -> if not Glurf -> ok; true -> error end end, error),
 
+    check(fun() -> if not (not true) -> broken end end, broken),
+
+    check(fun() -> if not (True xor True) -> ok end end, ok),
+    check(fun() -> if not (True xor False) -> ok;
+		      true -> error end end, error),
+
     ok.
 
 complex_not(Config) when is_list(Config) ->
@@ -188,7 +228,59 @@ complex_not(Config) when is_list(Config) ->
     check(fun() -> if not(element(1, ATuple) orelse element(3, ATuple)) -> ok;
 		      true -> error end end, error),
 
+    %% complex_not_1/4
+    ok = complex_not_1(1, 1, 1, a),
+    error = complex_not_1(1, 1, 1, []),
+    error = complex_not_1(1, 1, 3, a),
+    error = complex_not_1(1, 1, 3, []),
+    error = complex_not_1(1, 2, 1, a),
+    error = complex_not_1(1, 2, 1, []),
+    error = complex_not_1(1, 2, 3, a),
+    error = complex_not_1(1, 2, 3, []),
+
+    %% complex_not_2/4
+    ok = complex_not_2(1, 2, 0, x),
+    error = complex_not_2(1, 2, 0, []),
+    error = complex_not_2(1, 2, 3, x),
+    error = complex_not_2(1, 2, 3, []),
+    error = complex_not_2(1, 1, 0, x),
+    error = complex_not_2(1, 1, 0, []),
+    error = complex_not_2(1, 1, 3, x),
+    error = complex_not_2(1, 1, 3, []),
+
     ok.
+
+complex_not_1(A, B, C, D) ->
+    Res = complex_not_1a(A, B, C, D),
+    Res = complex_not_1b(A, B, C, D).
+
+complex_not_1a(A, B, C, D)
+  when (not (A < B)) andalso (not (B < C)) andalso (not is_list(D)) ->
+    ok;
+complex_not_1a(_, _, _, _) ->
+    error.
+
+complex_not_1b(A, B, C, D)
+  when (not (A < B)) and (not (B < C)) and (not is_list(D)) ->
+    ok;
+complex_not_1b(_, _, _, _) ->
+    error.
+
+complex_not_2(A, B, C, D) ->
+    Res = complex_not_2a(A, B, C, D),
+    Res = complex_not_2b(A, B, C, D).
+
+complex_not_2a(A, B, C, D)
+  when A < B andalso not (B < C) andalso not is_list(D) ->
+    ok;
+complex_not_2a(_, _, _, _) ->
+    error.
+
+complex_not_2b(A, B, C, D)
+  when A < B, not (B < C), not is_list(D) ->
+    ok;
+complex_not_2b(_, _, _, _) ->
+    error.
 
 nested_nots(Config) when is_list(Config) ->
     true = nested_not_1(0, 0),
@@ -210,19 +302,36 @@ nested_nots(Config) when is_list(Config) ->
     false = nested_not_2(true, true, atom),
     ok.
 
-nested_not_1(X, Y) when not (((X>Y) or not(is_atom(X))) and
+nested_not_1(X, Y) ->
+    Res = nested_not_1a(X, Y),
+    Res = nested_not_1b(X, Y).
+
+nested_not_1a(X, Y) when not (((X>Y) or not(is_atom(X))) and
 			     (is_atom(Y) or (X==3.4))) ->
     true;
-nested_not_1(_, _) ->
+nested_not_1a(_, _) ->
+    false.
+
+nested_not_1b(X, Y) when not (((X>Y) orelse not(is_atom(X))) andalso
+			     (is_atom(Y) orelse (X==3.4))) ->
+    true;
+nested_not_1b(_, _) ->
     false.
 
 nested_not_2(X, Y, Z) ->
-    nested_not_2(X, Y, Z, true).
+    Res = nested_not_2a(X, Y, Z, true),
+    Res = nested_not_2b(X, Y, Z, true).
 
-nested_not_2(X, Y, Z, True)
+nested_not_2a(X, Y, Z, True)
   when not(True and not((not(X) and not(Y)) or not(is_atom(Z)))) ->
     true;
-nested_not_2(_, _, _, _) ->
+nested_not_2a(_, _, _, _) ->
+    false.
+
+nested_not_2b(X, Y, Z, True)
+  when not(True andalso not((not(X) andalso not(Y)) orelse not(is_atom(Z)))) ->
+    true;
+nested_not_2b(_, _, _, _) ->
     false.
 
 semicolon(Config) when is_list(Config) ->
@@ -1094,6 +1203,13 @@ tricky(Config) when is_list(Config) ->
     false = rb(100000, [1], 42),
     true = rb(100000, [], 42),
     true = rb(555, [a,b,c], 19),
+
+    error = tricky_3(42),
+    error = tricky_3(42.0),
+    error = tricky_3(<<>>),
+    error = tricky_3(#{}),
+    error = tricky_3({a,b}),
+
     ok.
 
 tricky_1(X, Y) when abs((X == 1) or (Y == 2)) -> ok;
@@ -1101,6 +1217,15 @@ tricky_1(_, _) -> not_ok.
 
 tricky_2(X) when float(X) or float(X) -> ok;
 tricky_2(_) -> error.
+
+tricky_3(X)
+  when abs(X) or bit_size(X) or byte_size(X) or ceil(X) or
+       float(X) or floor(X) or length(X) or
+       map_size(X) or node() or node(X) or round(X) or
+       self() or size(X) or tl(X) or trunc(X) or tuple_size(X) ->
+    ok;
+tricky_3(_) ->
+    error.
 
 %% From dets_v9:read_buckets/11, simplified.
 
