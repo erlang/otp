@@ -307,7 +307,7 @@ add_defaults(Mod,Func, GroupPath) ->
 				   "~w:suite/0 failed: ~p~n",
 				   [Suite,Reason]),
 	    io:format(ErrStr, []),
-	    io:format(user, ErrStr, []),
+	    io:format(?def_gl, ErrStr, []),
 	    {suite0_failed,{exited,Reason}};
 	SuiteInfo when is_list(SuiteInfo) ->
 	    case lists:all(fun(E) when is_tuple(E) -> true;
@@ -330,7 +330,7 @@ add_defaults(Mod,Func, GroupPath) ->
 					   "~w:suite/0: ~p~n",
 					   [Suite,SuiteInfo]),
 		    io:format(ErrStr, []),
-		    io:format(user, ErrStr, []),
+		    io:format(?def_gl, ErrStr, []),
 		    {suite0_failed,bad_return_value}
 	    end;
 	SuiteInfo ->
@@ -338,7 +338,7 @@ add_defaults(Mod,Func, GroupPath) ->
 				   "Invalid return value from "
 				   "~w:suite/0: ~p~n", [Suite,SuiteInfo]),
 	    io:format(ErrStr, []),
-	    io:format(user, ErrStr, []),
+	    io:format(?def_gl, ErrStr, []),
 	    {suite0_failed,bad_return_value}
     end.
 
@@ -366,7 +366,7 @@ add_defaults1(Mod,Func, GroupPath, SuiteInfo) ->
 				      "~w:group(~w): ~p~n",
 				      [Mod,GrName,BadGr0Val]),
 	    io:format(Gr0ErrStr, []),
-	    io:format(user, Gr0ErrStr, []),
+	    io:format(?def_gl, Gr0ErrStr, []),
 	    {group0_failed,bad_return_value};
 	_ ->
 	    Args = if Func == init_per_group ; Func == end_per_group ->
@@ -388,7 +388,7 @@ add_defaults1(Mod,Func, GroupPath, SuiteInfo) ->
 					      "~w:~w/0: ~p~n",
 					      [Mod,Func,BadTC0Val]),
 		    io:format(TC0ErrStr, []),
-		    io:format(user, TC0ErrStr, []),
+		    io:format(?def_gl, TC0ErrStr, []),
 		    {testcase0_failed,bad_return_value};
 		_ ->
 		    %% let test case info (also for all config funcs) override
@@ -927,7 +927,7 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 		       Div = "~n- - - - - - - - - - - - - - - - - - - "
 			     "- - - - - - - - - - - - - - - - - - - - -~n",
 		       ErrorStr2 = io_lib:format(ErrorFormat, ErrorArgs),
-		       io:format(user, lists:concat([Div,ErrorStr2,Div,"~n"]),
+		       io:format(?def_gl, lists:concat([Div,ErrorStr2,Div,"~n"]),
 				 []),
 		       Link =
 			   "\n\n<a href=\"#end\">"
@@ -1133,7 +1133,7 @@ get_all(Mod, ConfTests) ->
 		    ErrStr = io_lib:format("~n*** ERROR *** "
 					   "~w:all/0 failed: ~p~n",
 					   [Mod,ExitReason]),
-		    io:format(user, ErrStr, []),
+		    io:format(?def_gl, ErrStr, []),
 		    %% save the error info so it doesn't get printed twice
 		    ct_util:set_testdata_async({{error_in_suite,Mod},
 						ExitReason});

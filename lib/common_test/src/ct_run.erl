@@ -2155,8 +2155,8 @@ continue(_MakeErrors, true) ->
     false;
 continue(_MakeErrors, _AbortIfMissingSuites) ->
     io:nl(),
-    OldGl = group_leader(),
-    case set_group_leader_same_as_shell() of
+    OldGL = group_leader(),
+    case set_group_leader_same_as_shell(OldGL) of
 	true ->
 	    S = self(),
 	    io:format("Failed to compile or locate one "
@@ -2172,7 +2172,7 @@ continue(_MakeErrors, _AbortIfMissingSuites) ->
 					S ! false
 				end
 			end),
-	    group_leader(OldGl, self()),
+	    group_leader(OldGL, self()),
 	    receive R when R==true; R==false ->
 		    R
 	    after 15000 ->
@@ -2184,7 +2184,9 @@ continue(_MakeErrors, _AbortIfMissingSuites) ->
 	    true
     end.
 
-set_group_leader_same_as_shell() ->
+set_group_leader_same_as_shell(OldGL) ->
+    %% find the group leader process on the node in a dirty fashion
+    %% (check initial function call and look in the process dictionary)
     GS2or3 = fun(P) ->
     		     case process_info(P,initial_call) of
     			 {initial_call,{group,server,X}} when X == 2 ; X == 3 ->
@@ -2197,7 +2199,10 @@ set_group_leader_same_as_shell() ->
     	       true == lists:keymember(shell,1,
     				       element(2,process_info(P,dictionary)))] of
     	[GL|_] ->
-    	    group_leader(GL, self());
+            %% check if started from remote node (skip interaction)
+            if node(OldGL) /= node(GL) -> false;
+               true -> group_leader(GL, self())
+            end;
     	[] ->
     	    false
     end.
