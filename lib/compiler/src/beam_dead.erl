@@ -379,6 +379,14 @@ backward([{kill,_}=I|Is], D, [{line,_},Exit|_]=Acc) ->
 	false -> backward(Is, D, [I|Acc]);
 	true -> backward(Is, D, Acc)
     end;
+backward([{bif,'or',{f,To0},[Dst,{atom,false}],Dst}=I|Is], D,
+	 [{test,is_eq_exact,{f,To},[Dst,{atom,true}]}|_]=Acc) ->
+    case shortcut_label(To0, D) of
+	To ->
+	    backward(Is, D, Acc);
+	_ ->
+	    backward(Is, D, [I|Acc])
+    end;
 backward([I|Is], D, Acc) ->
     backward(Is, D, [I|Acc]);
 backward([], _D, Acc) -> Acc.
@@ -397,6 +405,8 @@ shortcut_select_list([Lit,{f,To0}|T], Reg, D, Acc) ->
     shortcut_select_list(T, Reg, D, [{f,To},Lit|Acc]);
 shortcut_select_list([], _, _, Acc) -> reverse(Acc).
 
+shortcut_label(0, _) ->
+    0;
 shortcut_label(To0, D) ->
     case beam_utils:code_at(To0, D) of
   	[{jump,{f,To}}|_] -> shortcut_label(To, D);
