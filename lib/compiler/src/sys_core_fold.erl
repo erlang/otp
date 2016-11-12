@@ -1606,16 +1606,14 @@ opt_bool_clauses(Cs, true, true) ->
 	    []
     end;
 opt_bool_clauses([#c_clause{pats=[#c_literal{val=Lit}],
-			    guard=#c_literal{val=true},
-			    body=B}=C0|Cs], SeenT, SeenF) ->
+			    guard=#c_literal{val=true}}=C|Cs], SeenT, SeenF) ->
     case is_boolean(Lit) of
 	false ->
 	    %% Not a boolean - this clause can't match.
-	    add_warning(C0, nomatch_clause_type),
+	    add_warning(C, nomatch_clause_type),
 	    opt_bool_clauses(Cs, SeenT, SeenF);
 	true ->
 	    %% This clause will match.
-	    C = C0#c_clause{body=opt_bool_case(B)},
 	    case {Lit,SeenT,SeenF} of
                 {false,_,false} ->
                     [C|opt_bool_clauses(Cs, SeenT, true)];
@@ -2386,9 +2384,7 @@ is_safe_bool_expr_list([], _, _) -> true.
 %%  as a let or a sequence, move the original let body into the complex
 %%  expression.
 
-simplify_let(#c_let{arg=Arg0}=Let0, Sub) ->
-    Arg = opt_bool_case(Arg0),
-    Let = Let0#c_let{arg=Arg},
+simplify_let(#c_let{arg=Arg}=Let, Sub) ->
     move_let_into_expr(Let, Arg, Sub).
 
 move_let_into_expr(#c_let{vars=InnerVs0,body=InnerBody0}=Inner,
