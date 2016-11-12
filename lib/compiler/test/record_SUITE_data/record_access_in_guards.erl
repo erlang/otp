@@ -27,12 +27,12 @@
 -record(r3, {a = fun(_) -> #r1{} end(1), b}).
 
 t() ->
-    foo = fun(A) when A#r1.a > A#r1.b -> foo end(#r1{b = 2}),
-    0 = fun(A) when A#r2.a -> 0 end(#r2{a = true}),
+    foo = rec_call(fun(A) when A#r1.a > A#r1.b -> foo end, #r1{b = 2}),
+    0 = rec_call(fun(A) when A#r2.a -> 0 end, #r2{a = true}),
     1 = fun(A) when (#r1{a = A})#r1.a > 2 -> 1 end(3),
     2 = fun(N) when ((#r2{a = #r{a = 4}, b = length([a,b,c])})#r2.a)#r.a > N ->
-                2 end(2),
-    3 = fun(A) when (A#r2.a)#r1.a =:= 3 -> 3 end(#r2{a = #r1{a = 3}}),
+		2 end(2),
+    3 = rec_call(fun(A) when (A#r2.a)#r1.a =:= 3 -> 3 end, #r2{a = #r1{a = 3}}),
     ok = fun() ->
                  F = fun(A) when record(A#r.a, r1) -> 4;
                         (A) when record(A#r1.a, r1) -> 5
@@ -41,9 +41,9 @@ t() ->
                  4 = F(#r{a = #r1{}}),
                  ok
          end(),
-    3 = fun(A) when record(A#r1.a, r),
-                          (A#r1.a)#r.a > 3 -> 3
-        end(#r1{a = #r{a = 4}}),
+    3 = rec_call(fun(A) when record(A#r1.a, r),
+			     (A#r1.a)#r.a > 3 -> 3
+		 end, #r1{a = #r{a = 4}}),
     7 = fun(A) when record(A#r3.a, r1) -> 7 end(#r3{}),
     [#r1{a = 2,b = 1}] = 
         fun() ->
@@ -71,9 +71,10 @@ t() ->
            (_) -> p
         end(#r1{a = 2}),
 
-    3 = fun(A) when A#r1.a > 3, 
-                    record(A, r1) -> 3
-        end(#r1{a = 5}),
+    o = rec_call(fun(A) when (A#r1.a =:= 2) orelse (A#r2.a =:= 1) -> o end, #r1{a = 2}),
+    o = rec_call(fun(A) when A#r1.a =:= 2; A#r2.a =:= 1 -> o end, #r2{a = 1}),
+
+    3 = rec_call(fun(A) when A#r1.a > 3, record(A, r1) -> 3 end, #r1{a = 5}),
 
     ok = fun() ->
                  F = fun(A) when (A#r2.a =:= 1) orelse (A#r2.a) -> 2;
@@ -93,6 +94,8 @@ t() ->
            (_) -> b
         end(#r1{a = 1}),
 
+    a = rec_call(fun(A) when not (A#r.a =:= 1) or false -> a end, #r{a = 42}),
+
     ok = fun() ->
                  F = fun(A) when not (A#r.a =:= 1) -> yes;
                         (_) -> no
@@ -103,14 +106,14 @@ t() ->
                  ok
          end(),
 
-    a = fun(A) when record(A, r),
-                    A#r.a =:= 1,
-                    A#r.b =:= 2 ->a
-        end(#r{a = 1, b = 2}),
-    a = fun(A) when erlang:is_record(A, r),
-                    A#r.a =:= 1,
-                    A#r.b =:= 2 -> a
-        end(#r{a = 1, b = 2}),
+    a = rec_call(fun(A) when record(A, r),
+			     A#r.a =:= 1,
+			     A#r.b =:= 2 -> a
+		 end, #r{a = 1, b = 2}),
+    a = rec_call(fun(A) when erlang:is_record(A, r),
+			     A#r.a =:= 1,
+			     A#r.b =:= 2 -> a
+		 end, #r{a = 1, b = 2}),
     a = fun(A) when is_record(A, r),
                     A#r.a =:= 1,
                     A#r.b =:= 2 -> a
@@ -144,8 +147,7 @@ t() ->
                  ok
          end(),
 
-    both = fun(A) when A#r.a, A#r.b -> both 
-           end(#r{a = true, b = true}),
+    both = rec_call(fun(A) when A#r.a, A#r.b -> both end, #r{a = true, b = true}),
 
     ok = fun() ->
                  F = fun(A, B) when ((A#r1.a) orelse (B#r2.a)) 
@@ -176,3 +178,24 @@ t() ->
 
     ok.
 
+rec_call(F, Rec) ->
+    Corrupted1 = setelement(1, Rec, wrong),
+    Corrupted2 = erlang:append_element(Rec, extra),
+    Corrupted3 = erlang:append_element(Corrupted1, extra),
+    fc(F, Corrupted1),
+    fc(F, Corrupted2),
+    fc(F, Corrupted3),
+    F(Rec).
+
+fc(F, Term) ->
+    try
+	F(Term),
+	error(expected_to_fail)
+    catch
+	error:function_clause ->
+	    ok;
+	error:{case_clause,_} ->
+	    Comp = ?MODULE:module_info(compile),
+	    {_,Opts} = lists:keyfind(options, 1, Comp),
+	    true = lists:member(inline, Opts)
+    end.
