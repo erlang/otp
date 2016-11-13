@@ -183,8 +183,9 @@ get_header(Res, X) ->
 
 mask_and_compare(X, Mask, Value, TrueLab, FalseLab, Pred) ->
   Tmp = hipe_rtl:mk_new_reg_gcsafe(),
-  [hipe_rtl:mk_alu(Tmp, X, 'and', hipe_rtl:mk_imm(Mask)),
-   hipe_rtl:mk_branch(Tmp, 'eq', hipe_rtl:mk_imm(Value), TrueLab, FalseLab, Pred)].
+  [hipe_rtl:mk_alu(Tmp, X, 'sub', hipe_rtl:mk_imm(Value)),
+   hipe_rtl:mk_branch(Tmp, 'and', hipe_rtl:mk_imm(Mask),
+		      eq, TrueLab, FalseLab, Pred)].
 
 test_immed1(X, Value, TrueLab, FalseLab, Pred) ->
   mask_and_compare(X, ?TAG_IMMED1_MASK, Value, TrueLab, FalseLab, Pred).
@@ -886,12 +887,10 @@ heap_arch_spec(HP) ->
    hipe_rtl_arch:pcb_store(?P_OFF_HEAP_FIRST, HP)].
 
 test_heap_binary(Binary, TrueLblName, FalseLblName) ->
-  Tmp1 = hipe_rtl:mk_new_reg_gcsafe(),
-  Tmp2 = hipe_rtl:mk_new_reg_gcsafe(),
-  [get_header(Tmp1, Binary),
-   hipe_rtl:mk_alu(Tmp2, Tmp1, 'and', hipe_rtl:mk_imm(?TAG_HEADER_MASK)),
-   hipe_rtl:mk_branch(Tmp2, eq, hipe_rtl:mk_imm(?TAG_HEADER_HEAP_BIN), 
-		      TrueLblName, FalseLblName)].
+  Tmp = hipe_rtl:mk_new_reg_gcsafe(),
+  [get_header(Tmp, Binary),
+   mask_and_compare(Tmp, ?TAG_HEADER_MASK, ?TAG_HEADER_HEAP_BIN,
+		    TrueLblName, FalseLblName, 0.5)].
 
 mk_sub_binary(Dst, ByteSize, ByteOffs, BitSize, BitOffs, Orig) -> 
   mk_sub_binary(Dst, ByteSize, ByteOffs, BitSize, BitOffs, 
@@ -919,11 +918,10 @@ build_sub_binary(Dst, ByteSize, ByteOffs, BitSize, BitOffs,
    set_field_from_term({sub_binary, orig}, Dst, Orig)].
 
 test_subbinary(Binary, TrueLblName, FalseLblName) ->
-  Tmp1 = hipe_rtl:mk_new_reg_gcsafe(),
-  Tmp2 = hipe_rtl:mk_new_reg_gcsafe(),
-  [get_header(Tmp1, Binary),
-   hipe_rtl:mk_alu(Tmp2, Tmp1, 'and', hipe_rtl:mk_imm(?TAG_HEADER_MASK)),
-   hipe_rtl:mk_branch(Tmp2, eq, hipe_rtl:mk_imm(?TAG_HEADER_SUB_BIN), TrueLblName, FalseLblName)].
+  Tmp = hipe_rtl:mk_new_reg_gcsafe(),
+  [get_header(Tmp, Binary),
+   mask_and_compare(Tmp, ?TAG_HEADER_MASK, ?TAG_HEADER_SUB_BIN,
+		    TrueLblName, FalseLblName, 0.5)].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
