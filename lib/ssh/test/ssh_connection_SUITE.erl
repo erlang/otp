@@ -407,7 +407,7 @@ do_interrupted_send(Config, SendSize, EchoSize) ->
 				  Parent ! {self(), channelId, ChannelId},
 				  
 				  Result = 
-				      try collect_data(ConnectionRef, ChannelId)
+				      try collect_data(ConnectionRef, ChannelId, EchoSize)
 				      of
 					  ExpectedData -> 
 					      ct:log("~p:~p got expected data",[?MODULE,?LINE]),
@@ -931,23 +931,25 @@ big_cat_rx(ConnectionRef, ChannelId, Acc) ->
 	    timeout
     end.
 
-collect_data(ConnectionRef, ChannelId) ->
+collect_data(ConnectionRef, ChannelId, EchoSize) ->
     ct:log("~p:~p Listener ~p running! ConnectionRef=~p, ChannelId=~p",[?MODULE,?LINE,self(),ConnectionRef,ChannelId]),
-    collect_data(ConnectionRef, ChannelId, [], 0).
+    collect_data(ConnectionRef, ChannelId, EchoSize, [], 0).
 
-collect_data(ConnectionRef, ChannelId, Acc, Sum) ->
+collect_data(ConnectionRef, ChannelId, EchoSize, Acc, Sum) ->
     TO = 5000,
     receive
 	{ssh_cm, ConnectionRef, {data, ChannelId, 0, Data}} when is_binary(Data) ->
-	    ct:log("~p:~p collect_data: received ~p bytes. total ~p bytes",[?MODULE,?LINE,size(Data),Sum+size(Data)]),
+	    ct:log("~p:~p collect_data: received ~p bytes. total ~p bytes,  want ~p more",
+		   [?MODULE,?LINE,size(Data),Sum+size(Data),EchoSize-Sum]),
 	    ssh_connection:adjust_window(ConnectionRef, ChannelId, size(Data)),
-	    collect_data(ConnectionRef, ChannelId, [Data | Acc], Sum+size(Data));
+	    collect_data(ConnectionRef, ChannelId, EchoSize, [Data | Acc], Sum+size(Data));
 	{ssh_cm, ConnectionRef, {eof, ChannelId}} ->
 	    try
 		iolist_to_binary(lists:reverse(Acc))
 	    of
 		Bin ->
-		    ct:log("~p:~p collect_data: received eof.~nGot in total ~p bytes",[?MODULE,?LINE,size(Bin)]),
+		    ct:log("~p:~p collect_data: received eof.~nGot in total ~p bytes,  want ~p more",
+			   [?MODULE,?LINE,size(Bin),EchoSize,size(Bin)]),
 		    Bin
 	    catch 
 		C:E ->
@@ -957,11 +959,11 @@ collect_data(ConnectionRef, ChannelId, Acc, Sum) ->
 	    end;
 	Msg ->
 	    ct:log("~p:~p collect_data: ***** unexpected message *****~n~p",[?MODULE,?LINE,Msg]),
-	    collect_data(ConnectionRef, ChannelId, Acc, Sum)
+	    collect_data(ConnectionRef, ChannelId, EchoSize, Acc, Sum)
 
     after TO ->
 	    ct:log("~p:~p collect_data: ----- Nothing received for ~p seconds -----~n",[?MODULE,?LINE,TO]),
-	    collect_data(ConnectionRef, ChannelId, Acc, Sum)
+	    collect_data(ConnectionRef, ChannelId, EchoSize, Acc, Sum)
     end.
 
 %%%-------------------------------------------------------------------
