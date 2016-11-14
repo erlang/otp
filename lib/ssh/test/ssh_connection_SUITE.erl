@@ -943,20 +943,12 @@ collect_data(ConnectionRef, ChannelId, EchoSize, Acc, Sum) ->
 		   [?MODULE,?LINE,size(Data),Sum+size(Data),EchoSize-Sum]),
 	    ssh_connection:adjust_window(ConnectionRef, ChannelId, size(Data)),
 	    collect_data(ConnectionRef, ChannelId, EchoSize, [Data | Acc], Sum+size(Data));
-	{ssh_cm, ConnectionRef, {eof, ChannelId}} ->
-	    try
-		iolist_to_binary(lists:reverse(Acc))
-	    of
-		Bin ->
-		    ct:log("~p:~p collect_data: received eof.~nGot in total ~p bytes,  want ~p more",
-			   [?MODULE,?LINE,size(Bin),EchoSize,size(Bin)]),
-		    Bin
-	    catch 
-		C:E ->
-		    ct:log("~p:~p collect_data: received eof.~nAcc is strange...~nException=~p:~p~nAcc=~p",
-			   [?MODULE,?LINE,C,E,Acc]),
-		    {error,{C,E}}
-	    end;
+	{ssh_cm, ConnectionRef, Msg={eof, ChannelId}} ->
+	    collect_data_report_end(Acc, Msg, EchoSize);
+
+	{ssh_cm, ConnectionRef, Msg={closed,ChannelId}} ->
+	    collect_data_report_end(Acc, Msg, EchoSize);
+
 	Msg ->
 	    ct:log("~p:~p collect_data: ***** unexpected message *****~n~p",[?MODULE,?LINE,Msg]),
 	    collect_data(ConnectionRef, ChannelId, EchoSize, Acc, Sum)
@@ -964,6 +956,21 @@ collect_data(ConnectionRef, ChannelId, EchoSize, Acc, Sum) ->
     after TO ->
 	    ct:log("~p:~p collect_data: ----- Nothing received for ~p seconds -----~n",[?MODULE,?LINE,TO]),
 	    collect_data(ConnectionRef, ChannelId, EchoSize, Acc, Sum)
+    end.
+
+collect_data_report_end(Acc, Msg, EchoSize) ->
+    try
+	iolist_to_binary(lists:reverse(Acc))
+    of
+	Bin ->
+	    ct:log("~p:~p collect_data: received ~p.~nGot in total ~p bytes,  want ~p more",
+		   [?MODULE,?LINE,Msg,size(Bin),EchoSize,size(Bin)]),
+	    Bin
+    catch
+	C:E ->
+	    ct:log("~p:~p collect_data: received ~p.~nAcc is strange...~nException=~p:~p~nAcc=~p",
+		   [?MODULE,?LINE,Msg,C,E,Acc]),
+	    {error,{C,E}}
     end.
 
 %%%-------------------------------------------------------------------
