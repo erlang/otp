@@ -928,6 +928,7 @@ handle_event(internal, Msg=#ssh_msg_channel_request{},           StateName, D) -
     handle_connection_msg(Msg, StateName, D);
 
 handle_event(internal, Msg=#ssh_msg_channel_success{},           StateName, D) ->
+    update_inet_buffers(D#data.socket),
     handle_connection_msg(Msg, StateName, D);
 
 handle_event(internal, Msg=#ssh_msg_channel_failure{},           StateName, D) ->
@@ -1007,6 +1008,7 @@ handle_event(cast, {reply_request,success,ChannelId}, {connected,_}, D) ->
     case ssh_channel:cache_lookup(cache(D), ChannelId) of
 	#channel{remote_id = RemoteId} ->
 	    Msg = ssh_connection:channel_success_msg(RemoteId),
+	    update_inet_buffers(D#data.socket),
 	    {keep_state, send_msg(Msg,D)};
 
 	undefined ->
@@ -1194,12 +1196,12 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
 		ssh_message:decode(set_kex_overload_prefix(DecryptedBytes,D))
 	    of
 		Msg = #ssh_msg_kexinit{} ->
-		    {keep_state, D, [{next_event, internal, {Msg,DecryptedBytes}},
-				     {next_event, internal, prepare_next_packet}
+		    {keep_state, D, [{next_event, internal, prepare_next_packet},
+				     {next_event, internal, {Msg,DecryptedBytes}}
 				    ]};
 		Msg ->
-		    {keep_state, D, [{next_event, internal, Msg},
-				     {next_event, internal, prepare_next_packet}
+		    {keep_state, D, [{next_event, internal, prepare_next_packet},
+				     {next_event, internal, Msg}
 				    ]}
 	    catch
 		_C:_E  ->
@@ -1738,6 +1740,11 @@ send_replies(Repls, State) ->
 		Repls).
 
 get_repl({connection_reply,Msg}, {CallRepls,S}) ->
+    if is_record(Msg, ssh_msg_channel_success) ->
+	    update_inet_buffers(S#data.socket);
+       true ->
+	    ok
+    end,
     {CallRepls, send_msg(Msg,S)};
 get_repl({channel_data,undefined,_Data}, Acc) ->
     Acc;
@@ -1926,3 +1933,13 @@ handshake(Pid, Ref, Timeout) ->
 	    {error, timeout}
     end.
 
+update_inet_buffers(Socket) ->
+    {ok, BufSzs0} = inet:getopts(Socket, [sndbuf,recbuf]),
+    MinVal = 655360,
+    case
+	[{Tag,MinVal} || {Tag,Val} <- BufSzs0,
+			 Val < MinVal]
+    of
+	[] -> ok;
+	NewOpts -> inet:setopts(Socket, NewOpts)
+    end.

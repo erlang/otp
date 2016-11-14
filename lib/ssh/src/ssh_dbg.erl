@@ -28,6 +28,9 @@
 	 stop/0
 	]).
 
+-export([shrink_bin/1,
+	 wr_record/3]).
+
 -include("ssh.hrl").
 -include("ssh_transport.hrl").
 -include("ssh_connect.hrl").
