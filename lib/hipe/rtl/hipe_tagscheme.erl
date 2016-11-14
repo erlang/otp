@@ -464,12 +464,17 @@ test_fixnums_1([Arg1, Arg2|Args], Acc) ->
 
 test_two_fixnums(Arg1, Arg2, FalseLab) ->
   TrueLab = hipe_rtl:mk_new_label(),
-  case hipe_rtl:is_imm(Arg2) of
+  case hipe_rtl:is_imm(Arg1) orelse hipe_rtl:is_imm(Arg2) of
     true ->
-      Value = hipe_rtl:imm_value(Arg2),
+      {Imm, Var} =
+	case hipe_rtl:is_imm(Arg1) of
+	  true  -> {Arg1, Arg2};
+	  false -> {Arg2, Arg1}
+	end,
+      Value = hipe_rtl:imm_value(Imm),
       case Value band ?TAG_IMMED1_MASK of
 	?TAG_IMMED1_SMALL ->
-	  [test_fixnum(Arg1, hipe_rtl:label_name(TrueLab), FalseLab, 0.99),
+	  [test_fixnum(Var, hipe_rtl:label_name(TrueLab), FalseLab, 0.99),
 	   TrueLab];
 	_ ->
 	  [hipe_rtl:mk_goto(FalseLab)]
