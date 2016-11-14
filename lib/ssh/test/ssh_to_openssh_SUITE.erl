@@ -404,8 +404,6 @@ erlang_server_openssh_client_renegotiate(Config) ->
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {public_key_alg, PubKeyAlg},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
-
-%%    catch ssh_dbg:messages(fun(String,_D) -> ct:log(String) end),
     ct:sleep(500),
 
     RenegLimitK = 3,
@@ -431,13 +429,24 @@ erlang_server_openssh_client_renegotiate(Config) ->
 		     catch
 			 _:_ -> false
 		     end;
+
+		({exit_status,E}) when E=/=0 ->
+		     ct:log("exit_status ~p",[E]),
+		     throw({skip,"exit status"});
+
 		(_) ->
 		     false
 	     end,
-
-    ssh_test_lib:rcv_expected(Expect, OpenSsh, ?TIMEOUT),
-    %% Unfortunatly we can't check that there has been a renegotiation, just trust OpenSSH.
-    ssh:stop_daemon(Pid).
+    
+    try 
+	ssh_test_lib:rcv_expected(Expect, OpenSsh, ?TIMEOUT)
+    of
+	_ ->
+	    %% Unfortunatly we can't check that there has been a renegotiation, just trust OpenSSH.
+	    ssh:stop_daemon(Pid)
+    catch
+	throw:{skip,R} -> {skip,R}
+    end.
 
 %%--------------------------------------------------------------------
 erlang_client_openssh_server_renegotiate(_Config) ->
@@ -447,7 +456,6 @@ erlang_client_openssh_server_renegotiate(_Config) ->
     Ref = make_ref(),
     Parent = self(),
 
-    catch ssh_dbg:messages(fun(X,_) -> ct:log(X) end),
     Shell = 
 	spawn_link(
 	  fun() ->
