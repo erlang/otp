@@ -438,6 +438,7 @@
 	 if_true_label/1,
 	 if_false_label/1,
 	 if_args/1,
+	 if_args_update/2,
 	 if_pred/1,
 	 %% is_if/1,
 	 
@@ -713,6 +714,9 @@ if_op_update(IF, NewOp) -> IF#icode_if{op=NewOp}.
 
 -spec if_args(#icode_if{}) -> [icode_term_arg()].
 if_args(#icode_if{args=Args}) -> Args.
+
+-spec if_args_update(#icode_if{}, [icode_term_arg()]) -> #icode_if{}.
+if_args_update(IF, Args) -> IF#icode_if{args=Args}.
 
 -spec if_true_label(#icode_if{}) -> icode_lbl().
 if_true_label(#icode_if{true_label=TrueLbl}) -> TrueLbl.
