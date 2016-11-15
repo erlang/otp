@@ -120,19 +120,15 @@ peep([#move{src=Src1, dst=Dst},
 
 %% ElimCmp0
 %% --------
-peep([C=#cmp{src=Src, dst=Dst},J=#jcc{cc=Cond, label=Lab}|Insns],Res,Lst) ->
-    case (((Src =:= #x86_imm{value=0}) or (Dst =:= #x86_imm{value=0})) and
-	  ((Cond =:= 'eq') or (Cond =:= 'neq'))) of
-	true ->
-	    Src2 = case Src of #x86_imm{value=0} -> Src; _ -> Dst end, 
-	    Cond2 = case Cond of 'eq' -> 'z'; 'neq' -> 'nz' end,
-	    Test = #test{src=Src2, dst=#x86_imm{value=0}},
-	    Jump = #jcc{cc=Cond2, label=Lab},
-	    peep(Insns, [Jump, Test|Res], [elimCmp0|Lst]);
-	_ ->
-	    peep(Insns, [J,C|Res], Lst)
-    end;
-
+peep([#cmp{src=#x86_imm{value=0}, dst=Dst=#x86_temp{}}|Insns],Res,Lst) ->
+  %% TEST leaves the adjust flag undefined, whereas CMP sets it properly (in
+  %% this case to 0). However, since HiPE does not use any instructions that
+  %% read the adjust flag, we can do this transform safely.
+  peep(Insns, [#test{src=Dst, dst=Dst} | Res], [elimCmp0_1|Lst]);
+peep([#cmp{src=Src=#x86_temp{}, dst=#x86_imm{value=0}},
+      J=#jcc{cc=Cond}|Insns],Res,Lst)
+  when Cond =:= 'e'; Cond =:= 'ne' -> % We're commuting the comparison
+  peep(Insns, [J, #test{src=Src, dst=Src} | Res], [elimCmp0_2|Lst]);
 
 %% ElimCmpTest
 %% -----------
