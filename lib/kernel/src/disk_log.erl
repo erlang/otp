@@ -75,8 +75,6 @@
 
 -opaque continuation() :: #continuation{}.
 
--type bytes()          :: binary() | [byte()].
-
 -type file_error()     :: term().  % XXX: refine
 -type invalid_header() :: term().  % XXX: refine
 
@@ -131,7 +129,7 @@ log(Log, Term) ->
 
 -spec blog(Log, Bytes) -> ok | {error, Reason :: log_error_rsn()} when
       Log :: log(),
-      Bytes :: bytes().
+      Bytes :: iodata().
 blog(Log, Bytes) ->
     req(Log, {blog, ensure_binary(Bytes)}).
 
@@ -145,7 +143,7 @@ log_terms(Log, Terms) ->
 -spec blog_terms(Log, BytesList) ->
                         ok | {error, Reason :: log_error_rsn()} when
       Log :: log(),
-      BytesList :: [bytes()].
+      BytesList :: [iodata()].
 blog_terms(Log, Bytess) ->
     Bs = ensure_binary_list(Bytess),
     req(Log, {blog, Bs}).
@@ -167,13 +165,13 @@ alog_terms(Log, Terms) ->
 
 -spec balog(Log, Bytes) -> notify_ret() when
       Log :: log(),
-      Bytes :: bytes().
+      Bytes :: iodata().
 balog(Log, Bytes) ->
     notify(Log, {balog, ensure_binary(Bytes)}).
 
 -spec balog_terms(Log, ByteList) -> notify_ret() when
       Log :: log(),
-      ByteList :: [bytes()].
+      ByteList :: [iodata()].
 balog_terms(Log, Bytess) ->
     Bs = ensure_binary_list(Bytess),
     notify(Log, {balog, Bs}).
@@ -219,7 +217,7 @@ truncate(Log, Head) ->
 
 -spec btruncate(Log, BHead) -> 'ok' | {'error', trunc_error_rsn()} when
       Log :: log(),
-      BHead :: bytes().
+      BHead :: iodata().
 btruncate(Log, Head) ->
     req(Log, {truncate, {ok, ensure_binary(Head)}, btruncate, 2}).
 
@@ -248,7 +246,7 @@ reopen(Log, NewFile, NewHead) ->
 -spec breopen(Log, File, BHead) -> 'ok' | {'error', reopen_error_rsn()} when
       Log :: log(),
       File :: file:filename(),
-      BHead :: bytes().
+      BHead :: iodata().
 breopen(Log, NewFile, NewHead) ->
     req(Log, {reopen, NewFile, {ok, ensure_binary(NewHead)}, breopen, 3}).
 
@@ -1348,10 +1346,8 @@ make_binary_list([B | Bs]) ->
 make_binary_list([]) ->
     [].
 
-ensure_binary(Binary) when is_binary(Binary) ->
-    Binary;
 ensure_binary(Bytes) ->
-    list_to_binary(Bytes).
+    iolist_to_binary(Bytes).
 
 %%-----------------------------------------------------------------
 %% Change size of the logs in runtime.
