@@ -26,7 +26,7 @@
 	 control_application/1,
 	 change_application_data/2, prep_config_change/0, config_change/1,
 	 which_applications/0, which_applications/1,
-	 loaded_applications/0, info/0,
+	 loaded_applications/0, info/0, info/1,
 	 get_pid_env/2, get_env/2, get_pid_all_env/1, get_all_env/1,
 	 get_pid_key/2, get_key/2, get_pid_all_key/1, get_all_key/1,
 	 get_master/1, get_application/1, get_application_module/1,
@@ -277,7 +277,9 @@ loaded_applications() ->
 
 %% Returns some debug info
 info() ->
-    gen_server:call(?AC, info).    
+    gen_server:call(?AC, info).
+info(Timeout) ->
+    gen_server:call(?AC, info, Timeout).
 
 control_application(AppName) ->
     gen_server:call(?AC, {control_application, AppName}, infinity).
