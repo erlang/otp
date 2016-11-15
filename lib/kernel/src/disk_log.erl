@@ -1695,7 +1695,7 @@ do_unblock(L, S) ->
 do_log(L, B) when L#log.type =:= halt ->
     #log{format = Format, extra = Halt} = L,
     #halt{curB = CurSize, size = Sz} = Halt,
-    {Bs, BSize} = bsize(B, Format),
+    {Bs, BSize} = logl(B, Format),
     case get(is_full) of
 	true ->
             {error, {error, {full, L#log.name}}, 0};
@@ -1731,17 +1731,14 @@ do_log(L, B) when L#log.format_type =:= wrap_ext ->
 	    {error, Error, Logged - Lost}
     end.
 
-bsize(B, external) ->
-    {B, xsz(B, 0)};
-bsize(B, internal) ->
+logl(B, external) ->
+    {B, iolist_size(B)};
+logl(B, internal) ->
     disk_log_1:logl(B).
 
-xsz([B|T], Sz) -> xsz(T, byte_size(B) + Sz);
-xsz([], Sz) -> Sz.
-	
 halt_write_full(L, [Bin | Bins], Format, N) ->
     B = [Bin],
-    {Bs, BSize} = bsize(B, Format),
+    {Bs, BSize} = logl(B, Format),
     Halt = L#log.extra,
     #halt{curB = CurSize, size = Sz} = Halt,
     if 
