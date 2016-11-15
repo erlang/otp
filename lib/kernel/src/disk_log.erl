@@ -67,7 +67,7 @@
 %%-define(PROFILE(C), C).
 -define(PROFILE(C), void).
 
--compile({inline,[{log_loop,5},{log_end_sync,2},{replies,2},{rflat,1}]}).
+-compile({inline,[{log_loop,6},{log_end_sync,2},{replies,2},{rflat,1}]}).
 
 %%%----------------------------------------------------------------------
 %%% Contract type specifications
@@ -691,7 +691,7 @@ handle({From, {log, B}}=Message, S) ->
 	L when L#log.mode =:= read_only ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
 	L when L#log.status =:= ok, L#log.format =:= internal ->
-	    log_loop(S, From, [B], [], iolist_size(B));
+	    log_loop(S, From, [B], []);
 	L when L#log.status =:= ok, L#log.format =:= external ->
 	    reply(From, {error, {format_external, L#log.name}}, S);
 	L when L#log.status =:= {blocked, false} ->
@@ -706,7 +706,7 @@ handle({From, {blog, B}}=Message, S) ->
 	L when L#log.mode =:= read_only ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
 	L when L#log.status =:= ok ->
-	    log_loop(S, From, [B], [], iolist_size(B));
+	    log_loop(S, From, [B], []);
 	L when L#log.status =:= {blocked, false} ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	L when L#log.blocked_by =:= From ->
@@ -720,7 +720,7 @@ handle({alog, B}=Message, S) ->
 	    notify_owners({read_only,B}),
 	    loop(S);
 	L when L#log.status =:= ok, L#log.format =:= internal ->
-	    log_loop(S, [], [B], [], iolist_size(B));
+	    log_loop(S, [], [B], []);
 	L when L#log.status =:= ok ->
 	    notify_owners({format_external, B}),
 	    loop(S);
@@ -736,7 +736,7 @@ handle({balog, B}=Message, S) ->
 	    notify_owners({read_only,B}),
 	    loop(S);
 	L when L#log.status =:= ok ->
-	    log_loop(S, [], [B], [], iolist_size(B));
+	    log_loop(S, [], [B], []);
 	L when L#log.status =:= {blocked, false} ->
 	    notify_owners({blocked_log, B}),
 	    loop(S);
@@ -770,7 +770,7 @@ handle({From, sync}=Message, S) ->
 	L when L#log.mode =:= read_only ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
 	L when L#log.status =:= ok ->
-	    sync_loop([From], S);
+            log_loop(S, [], [], [From]);
 	L when L#log.status =:= {blocked, false} ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	L when L#log.blocked_by =:= From ->
@@ -1031,41 +1031,43 @@ handle(_, S) ->
 enqueue(Message, S) ->
     loop(S#state{queue = [Message | S#state.queue]}).
 
-sync_loop(From, S) ->
-    log_loop(S, [], [], From, 0).
+%% Collect further log and sync requests already in the mailbox or queued
 
 -define(MAX_LOOK_AHEAD, 64*1024).
 
+log_loop(S, Pids, Bins, Sync) ->
+    log_loop(S, Pids, Bins, Sync, iolist_size(Bins), (get(log))#log.format).
+
 %% Inlined.
-log_loop(#state{cache_error = CE}=S, Pids, _Bins, _Sync, _Sz) when CE =/= ok ->
+log_loop(#state{cache_error = CE}=S, Pids, _Bins, _Sync, _Sz, _F) when CE =/= ok ->
     loop(cache_error(S, Pids));
-log_loop(#state{}=S, Pids, Bins, Sync, Sz) when Sz > ?MAX_LOOK_AHEAD ->
+log_loop(#state{}=S, Pids, Bins, Sync, Sz, _F) when Sz > ?MAX_LOOK_AHEAD ->
     loop(log_end(S, Pids, Bins, Sync));
-log_loop(#state{messages = []}=S, Pids, Bins, Sync, Sz) ->
-    receive 
+log_loop(#state{messages = []}=S, Pids, Bins, Sync, Sz, F) ->
+    receive
 	Message ->
-            log_loop(Message, Pids, Bins, Sync, Sz, S, get(log))
+            log_loop(Message, Pids, Bins, Sync, Sz, F, S)
     after 0 ->
 	    loop(log_end(S, Pids, Bins, Sync))
     end;
-log_loop(#state{messages = [M | Ms]}=S, Pids, Bins, Sync, Sz) ->
+log_loop(#state{messages = [M | Ms]}=S, Pids, Bins, Sync, Sz, F) ->
     S1 = S#state{messages = Ms},
-    log_loop(M, Pids, Bins, Sync, Sz, S1, get(log)).
+    log_loop(M, Pids, Bins, Sync, Sz, F, S1).
 
 %% Items logged after the last sync request found are sync:ed as well.
-log_loop({alog,B}, Pids, Bins, Sync, Sz, S, #log{format = internal}) ->
+log_loop({alog,B}, Pids, Bins, Sync, Sz, internal=F, S) ->
     %% {alog, _} allowed for the internal format only.
-    log_loop(S, Pids, [B | Bins], Sync, Sz+iolist_size(B));
-log_loop({balog, B}, Pids, Bins, Sync, Sz, S, _L) ->
-    log_loop(S, Pids, [B | Bins], Sync, Sz+iolist_size(B));
-log_loop({From, {log, B}}, Pids, Bins, Sync, Sz, S, #log{format = internal}) ->
+    log_loop(S, Pids, [B | Bins], Sync, Sz+iolist_size(B), F);
+log_loop({balog, B}, Pids, Bins, Sync, Sz, F, S) ->
+    log_loop(S, Pids, [B | Bins], Sync, Sz+iolist_size(B), F);
+log_loop({From, {log, B}}, Pids, Bins, Sync, Sz, internal=F, S) ->
     %% {log, _} allowed for the internal format only.
-    log_loop(S, [From | Pids], [B | Bins], Sync, Sz+iolist_size(B));
-log_loop({From, {blog, B}}, Pids, Bins, Sync, Sz, S, _L) ->
-    log_loop(S, [From | Pids], [B | Bins], Sync, Sz+iolist_size(B));
-log_loop({From, sync}, Pids, Bins, Sync, Sz, S, _L) ->
-    log_loop(S, Pids, Bins, [From | Sync], Sz);
-log_loop(Message, Pids, Bins, Sync, _Sz, S, _L) ->
+    log_loop(S, [From | Pids], [B | Bins], Sync, Sz+iolist_size(B), F);
+log_loop({From, {blog, B}}, Pids, Bins, Sync, Sz, F, S) ->
+    log_loop(S, [From | Pids], [B | Bins], Sync, Sz+iolist_size(B), F);
+log_loop({From, sync}, Pids, Bins, Sync, Sz, F, S) ->
+    log_loop(S, Pids, Bins, [From | Sync], Sz, F);
+log_loop(Message, Pids, Bins, Sync, _Sz, _F, S) ->
     NS = log_end(S, Pids, Bins, Sync),
     handle(Message, NS).
 
