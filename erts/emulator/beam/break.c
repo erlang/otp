@@ -44,7 +44,6 @@
 static void process_killer(void);
 void do_break(void);
 void erl_crash_dump_v(char *file, int line, char* fmt, va_list args);
-void erl_crash_dump(char* file, int line, char* fmt, ...);
 
 #ifdef DEBUG
 static void bin_check(void);
@@ -884,12 +883,3 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     erts_fprintf(stderr,"done\n");
 }
 
-void
-erl_crash_dump(char* file, int line, char* fmt, ...)
-{
-  va_list args;
-  
-  va_start(args, fmt);
-  erl_crash_dump_v(file, line, fmt, args);
-  va_end(args);
-}

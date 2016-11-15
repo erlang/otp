@@ -90,8 +90,6 @@ extern void erl_sys_args(int*, char**);
 
 extern void erts_sys_init_float(void);
 
-extern void erl_crash_dump(char* file, int line, char* fmt, ...);
-
 
 #ifdef DEBUG
 static int debug_log = 0;
