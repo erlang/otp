@@ -43,7 +43,7 @@
       <taglist>
 	<tag>halt logs</tag>
 	<item><p>Appends items to a single file, which size can
-	be limited by the disk log module.</p></item>
+	be limited by the <c>disk_log</c> module.</p></item>
 	<tag>wrap logs</tag>
 	<item><p>Uses a sequence of wrap log files of limited size. As a
 	wrap log file is filled up, further items are logged on to the next
@@ -62,8 +62,8 @@
 	An item logged to an internally formatted log must not occupy more
 	than 4 GB of disk space (the size must fit in 4 bytes).</p></item>
 	<tag>external format</tag>
-	<item><p>Leaves it up to the user to read the logged deep byte lists.
-	The disk log module cannot repair externally formatted logs.</p></item>
+	<item><p>Leaves it up to the user to read and interpret the logged data.
+	The <c>disk_log</c> module cannot repair externally formatted logs.</p></item>
       </taglist>
 
     <p>For each open disk log, one process handles requests
