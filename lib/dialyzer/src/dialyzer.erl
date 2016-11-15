@@ -407,6 +407,10 @@ message_to_string({contract_range, [Contract, M, F, ArgStrings, Line, CRet]}) ->
 message_to_string({invalid_contract, [M, F, A, Sig]}) ->
   io_lib:format("Invalid type specification for function ~w:~w/~w."
 		" The success typing is ~s\n", [M, F, A, Sig]);
+message_to_string({contract_with_opaque, [M, F, A, OpaqueType, SigType]}) ->
+  io_lib:format("The specification for ~w:~w/~w"
+                " has an opaque subtype ~s which is violated by the"
+                " success typing ~s\n", [M, F, A, OpaqueType, SigType]);
 message_to_string({extra_range, [M, F, A, ExtraRanges, SigRange]}) ->
   io_lib:format("The specification for ~w:~w/~w states that the function"
 		" might also return ~s but the inferred return is ~s\n",

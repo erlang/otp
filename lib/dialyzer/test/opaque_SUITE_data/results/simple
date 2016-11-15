@@ -22,7 +22,7 @@ rec_api.erl:24: Record construction #r1{f1::10} violates the declared type of fi
 rec_api.erl:29: Matching of pattern {'r1', 10} tagged with a record name violates the declared type of #r1{f1::10}
 rec_api.erl:33: The attempt to match a term of type rec_adt:r1() against the pattern {'r1', 'a'} breaks the opaqueness of the term
 rec_api.erl:35: Invalid type specification for function rec_api:adt_t1/1. The success typing is (#r1{f1::'a'}) -> #r1{f1::'a'}
-rec_api.erl:40: Invalid type specification for function rec_api:adt_r1/0. The success typing is () -> #r1{f1::'a'}
+rec_api.erl:40: The specification for rec_api:adt_r1/0 has an opaque subtype rec_adt:r1() which is violated by the success typing () -> #r1{f1::'a'}
 rec_api.erl:85: The attempt to match a term of type rec_adt:f() against the record field 'f' declared to be of type rec_api:f() breaks the opaqueness of the term
 rec_api.erl:99: Record construction #r2{f1::10} violates the declared type of field f1::rec_api:a()
 simple1_api.erl:113: The test simple1_api:d1() =:= simple1_api:d2() can never evaluate to 'true'
@@ -79,7 +79,7 @@ simple1_api.erl:538: Guard test A::simple1_adt:d1() =:= 3 contains an opaque ter
 simple1_api.erl:548: The call erlang:'<'(A::simple1_adt:d1(),3) contains an opaque term as 1st argument when terms of different types are expected in these positions
 simple1_api.erl:558: The call erlang:'=<'(A::simple1_adt:d1(),B::simple1_adt:d2()) contains opaque terms as 1st and 2nd arguments when terms of different types are expected in these positions
 simple1_api.erl:565: Guard test {digraph:graph(),3} > {digraph:graph(),atom() | ets:tid()} contains an opaque term as 2nd argument
-simple1_api.erl:91: Invalid type specification for function simple1_api:tup/0. The success typing is () -> {'a','b'}
+simple1_api.erl:91: The specification for simple1_api:tup/0 has an opaque subtype simple1_adt:tuple1() which is violated by the success typing () -> {'a','b'}
 simple2_api.erl:100: The call lists:flatten(A::simple1_adt:tuple1()) contains an opaque term as 1st argument when a structured term of type [any()] is expected
 simple2_api.erl:116: The call lists:flatten({simple1_adt:tuple1()}) will never return since it differs in the 1st argument from the success typing arguments: ([any()])
 simple2_api.erl:121: Guard test {simple1_adt:d1(),3} > {simple1_adt:d1(),simple1_adt:tuple1()} contains an opaque term as 2nd argument
