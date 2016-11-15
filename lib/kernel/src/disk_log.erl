@@ -1042,13 +1042,13 @@ log_loop(S, Pids, Bins, Sync) ->
 log_loop(#state{cache_error = CE}=S, Pids, _Bins, _Sync, _Sz, _F) when CE =/= ok ->
     loop(cache_error(S, Pids));
 log_loop(#state{}=S, Pids, Bins, Sync, Sz, _F) when Sz > ?MAX_LOOK_AHEAD ->
-    loop(log_end(S, Pids, Bins, Sync));
+    loop(log_end(S, Pids, Bins, Sync, Sz));
 log_loop(#state{messages = []}=S, Pids, Bins, Sync, Sz, F) ->
     receive
 	Message ->
             log_loop(Message, Pids, Bins, Sync, Sz, F, S)
     after 0 ->
-	    loop(log_end(S, Pids, Bins, Sync))
+	    loop(log_end(S, Pids, Bins, Sync, Sz))
     end;
 log_loop(#state{messages = [M | Ms]}=S, Pids, Bins, Sync, Sz, F) ->
     S1 = S#state{messages = Ms},
@@ -1067,14 +1067,14 @@ log_loop({From, {blog, B}}, Pids, Bins, Sync, Sz, F, S) ->
     log_loop(S, [From | Pids], [B | Bins], Sync, Sz+iolist_size(B), F);
 log_loop({From, sync}, Pids, Bins, Sync, Sz, F, S) ->
     log_loop(S, Pids, Bins, [From | Sync], Sz, F);
-log_loop(Message, Pids, Bins, Sync, _Sz, _F, S) ->
-    NS = log_end(S, Pids, Bins, Sync),
+log_loop(Message, Pids, Bins, Sync, Sz, _F, S) ->
+    NS = log_end(S, Pids, Bins, Sync, Sz),
     handle(Message, NS).
 
-log_end(S, [], [], Sync) ->
+log_end(S, [], [], Sync, _Sz) ->
     log_end_sync(S, Sync);
-log_end(S, Pids, Bins, Sync) ->
-    case do_log(get(log), rflat(Bins)) of
+log_end(S, Pids, Bins, Sync, Sz) ->
+    case do_log(get(log), rflat(Bins), Sz) of
 	N when is_integer(N) ->
 	    ok = replies(Pids, ok),
 	    S1 = (state_ok(S))#state{cnt = S#state.cnt+N},
@@ -1692,10 +1692,13 @@ do_unblock(L, S) ->
 
 -spec do_log(#log{}, [binary()]) -> integer() | {'error', _, integer()}.
 
-do_log(L, B) when L#log.type =:= halt ->
+do_log(L, B) ->
+    do_log(L, B, iolist_size(B)).
+
+do_log(L, B, BSz) when L#log.type =:= halt ->
     #log{format = Format, extra = Halt} = L,
     #halt{curB = CurSize, size = Sz} = Halt,
-    {Bs, BSize} = logl(B, Format),
+    {Bs, BSize} = logl(B, Format, BSz),
     case get(is_full) of
 	true ->
             {error, {error, {full, L#log.name}}, 0};
@@ -1704,7 +1707,7 @@ do_log(L, B) when L#log.type =:= halt ->
 	undefined ->
 	    halt_write_full(L, B, Format, 0)
     end;
-do_log(L, B) when L#log.format_type =:= wrap_int ->
+do_log(L, B, _BSz) when L#log.format_type =:= wrap_int ->
     case disk_log_1:mf_int_log(L#log.extra, B, L#log.head) of
 	{ok, Handle, Logged, Lost, Wraps} ->
 	    notify_owners_wrap(Wraps),
@@ -1717,7 +1720,7 @@ do_log(L, B) when L#log.format_type =:= wrap_int ->
 	    put(log, L#log{extra = Handle}),
 	    {error, Error, Logged - Lost}
     end;
-do_log(L, B) when L#log.format_type =:= wrap_ext ->
+do_log(L, B, _BSz) when L#log.format_type =:= wrap_ext ->
     case disk_log_1:mf_ext_log(L#log.extra, B, L#log.head) of
 	{ok, Handle, Logged, Lost, Wraps} ->
 	    notify_owners_wrap(Wraps),
@@ -1731,14 +1734,16 @@ do_log(L, B) when L#log.format_type =:= wrap_ext ->
 	    {error, Error, Logged - Lost}
     end.
 
-logl(B, external) ->
+logl(B, external, undefined) ->
     {B, iolist_size(B)};
-logl(B, internal) ->
+logl(B, external, Sz) ->
+    {B, Sz};
+logl(B, internal, _Sz) ->
     disk_log_1:logl(B).
 
 halt_write_full(L, [Bin | Bins], Format, N) ->
     B = [Bin],
-    {Bs, BSize} = logl(B, Format),
+    {Bs, BSize} = logl(B, Format, undefined),
     Halt = L#log.extra,
     #halt{curB = CurSize, size = Sz} = Halt,
     if 
