@@ -133,7 +133,7 @@ log(Log, Term) ->
       Log :: log(),
       Bytes :: bytes().
 blog(Log, Bytes) ->
-    req(Log, {blog, check_bytes(Bytes)}).
+    req(Log, {blog, ensure_binary(Bytes)}).
 
 -spec log_terms(Log, TermList) -> ok | {error, Resaon :: log_error_rsn()} when
       Log :: log(),
@@ -147,7 +147,7 @@ log_terms(Log, Terms) ->
       Log :: log(),
       BytesList :: [bytes()].
 blog_terms(Log, Bytess) ->
-    Bs = check_bytes_list(Bytess, Bytess),
+    Bs = ensure_binary_list(Bytess),
     req(Log, {blog, Bs}).
 
 -type notify_ret() :: 'ok' | {'error', 'no_such_log'}.
@@ -169,13 +169,13 @@ alog_terms(Log, Terms) ->
       Log :: log(),
       Bytes :: bytes().
 balog(Log, Bytes) ->
-    notify(Log, {balog, check_bytes(Bytes)}).
+    notify(Log, {balog, ensure_binary(Bytes)}).
 
 -spec balog_terms(Log, ByteList) -> notify_ret() when
       Log :: log(),
       ByteList :: [bytes()].
 balog_terms(Log, Bytess) ->
-    Bs = check_bytes_list(Bytess, Bytess),
+    Bs = ensure_binary_list(Bytess),
     notify(Log, {balog, Bs}).
 
 -type close_error_rsn() ::'no_such_log' | 'nonode'
@@ -221,7 +221,7 @@ truncate(Log, Head) ->
       Log :: log(),
       BHead :: bytes().
 btruncate(Log, Head) ->
-    req(Log, {truncate, {ok, check_bytes(Head)}, btruncate, 2}).
+    req(Log, {truncate, {ok, ensure_binary(Head)}, btruncate, 2}).
 
 -type reopen_error_rsn() :: no_such_log
                           | nonode
@@ -250,7 +250,7 @@ reopen(Log, NewFile, NewHead) ->
       File :: file:filename(),
       BHead :: bytes().
 breopen(Log, NewFile, NewHead) ->
-    req(Log, {reopen, NewFile, {ok, check_bytes(NewHead)}, breopen, 3}).
+    req(Log, {reopen, NewFile, {ok, ensure_binary(NewHead)}, breopen, 3}).
 
 -type inc_wrap_error_rsn() :: 'no_such_log' | 'nonode'
                             | {'read_only_mode', log()}
@@ -1326,7 +1326,7 @@ do_open(A) ->
     end.
 
 mk_head({head, Term}, internal) -> {ok, term_to_binary(Term)};
-mk_head({head, Bytes}, external) -> {ok, check_bytes(Bytes)};
+mk_head({head, Bytes}, external) -> {ok, ensure_binary(Bytes)};
 mk_head(H, _) -> H.
 
 terms2bins([T | Ts]) ->
@@ -1334,23 +1334,24 @@ terms2bins([T | Ts]) ->
 terms2bins([]) ->
     [].
 
-check_bytes_list([B | Bs], Bs0) when is_binary(B) ->
-    check_bytes_list(Bs, Bs0);
-check_bytes_list([], Bs0) ->
-    Bs0;
-check_bytes_list(_, Bs0) ->
-    check_bytes_list(Bs0).
+ensure_binary_list(Bs) ->
+    ensure_binary_list(Bs, Bs).
 
-check_bytes_list([B | Bs]) when is_binary(B) ->
-    [B | check_bytes_list(Bs)];
-check_bytes_list([B | Bs]) ->
-    [list_to_binary(B) | check_bytes_list(Bs)];
-check_bytes_list([]) ->
+ensure_binary_list([B | Bs], Bs0) when is_binary(B) ->
+    ensure_binary_list(Bs, Bs0);
+ensure_binary_list([], Bs0) ->
+    Bs0;
+ensure_binary_list(_, Bs0) ->
+    make_binary_list(Bs0).
+
+make_binary_list([B | Bs]) ->
+    [ensure_binary(B) | make_binary_list(Bs)];
+make_binary_list([]) ->
     [].
 
-check_bytes(Binary) when is_binary(Binary) ->     
+ensure_binary(Binary) when is_binary(Binary) ->
     Binary;
-check_bytes(Bytes) -> 
+ensure_binary(Bytes) ->
     list_to_binary(Bytes).
 
 %%-----------------------------------------------------------------
@@ -1388,7 +1389,7 @@ check_head({head_func, {M, F, A}}, _Format) when is_atom(M),
                                                  is_list(A) ->
     {ok, {M, F, A}};
 check_head({head, Head}, external) ->
-    case catch check_bytes(Head) of
+    case catch ensure_binary(Head) of
 	{'EXIT', _} ->
 	    {error, {badarg, head}};
 	_ ->
