@@ -888,22 +888,29 @@ resolve_alu_args(Src, Dst, Context) ->
 %%% test
 resolve_test_args(Src, Dst, Context) ->
   case Src of
-    #x86_imm{} ->
-      Imm = translate_imm(Src, Context, false),
-      case Imm of
-	{imm8,_} ->
-	  case Dst of
-	    #x86_temp{reg=0} -> {al, Imm};
-	    #x86_temp{} -> resolve_test_imm8_reg(Imm, Dst);
-	    #x86_mem{} -> {mem_to_rm8(Dst), Imm}
-	  end;
-	{imm32,_} ->
-	  {case Dst of
-	     #x86_temp{reg=0} -> eax;
-	     #x86_temp{} -> temp_to_rm32(Dst);
-	     #x86_mem{} -> mem_to_rm32(Dst)
-	   end, Imm}
+    %% Since we're using an 8-bit instruction, the immediate is not sign
+    %% extended. Thus, we can use immediates up to 255.
+    #x86_imm{value=ImmVal}
+      when is_integer(ImmVal), ImmVal >= 0, ImmVal =< 255 ->
+      Imm = {imm8, ImmVal},
+      case Dst of
+	#x86_temp{reg=0} -> {al, Imm};
+	#x86_temp{} -> resolve_test_imm8_reg(Imm, Dst);
+	#x86_mem{} -> {mem_to_rm8(Dst), Imm}
       end;
+    #x86_imm{value=ImmVal} when is_integer(ImmVal), ImmVal >= 0 ->
+      {case Dst of
+	 #x86_temp{reg=0} -> eax;
+	 #x86_temp{} -> temp_to_rm32(Dst);
+	 #x86_mem{} -> mem_to_rm32(Dst)
+       end, {imm32, ImmVal}};
+    #x86_imm{} -> % Negative ImmVal; use word-sized instr, imm32
+      {_, ImmVal} = translate_imm(Src, Context, false),
+      {case Dst of
+	 #x86_temp{reg=0} -> ?EAX;
+	 #x86_temp{} -> temp_to_rmArch(Dst);
+	 #x86_mem{} -> mem_to_rmArch(Dst)
+       end, {imm32, ImmVal}};
     #x86_temp{} ->
       NewDst =
 	case Dst of

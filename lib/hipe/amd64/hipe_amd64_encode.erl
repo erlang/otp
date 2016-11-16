@@ -828,12 +828,16 @@ test_encode(Opnds) ->
 	    [?PFX_OPND_16BITS, 16#A9 | le16(Imm16, [])];
 	{eax, {imm32,Imm32}} ->
 	    [16#A9 | le32(Imm32, [])];
+	{rax, {imm32,Imm32}} ->
+	    [rex([{w,1}]), 16#A9 | le32(Imm32, [])];
 	{{rm8,RM8}, {imm8,Imm8}} ->
 	    [rex([{r8,RM8}]), 16#F6 | encode_rm(RM8, 2#000, [Imm8])];
 	{{rm16,RM16}, {imm16,Imm16}} ->
 	    [?PFX_OPND_16BITS, 16#F7 | encode_rm(RM16, 2#000, le16(Imm16, []))];
 	{{rm32,RM32}, {imm32,Imm32}} ->
 	    [16#F7 | encode_rm(RM32, 2#000, le32(Imm32, []))];
+	{{rm64,RM64}, {imm32,Imm32}} ->
+	    [rex([{w,1}]), 16#F7 | encode_rm(RM64, 2#000, le32(Imm32, []))];
 	{{rm32,RM32}, {reg32,Reg32}} ->
 	    [16#85 | encode_rm(RM32, Reg32, [])];
 	{{rm64,RM64}, {reg64,Reg64}} ->
@@ -1478,10 +1482,12 @@ dotest1(OS) ->
     t(OS,'test',{al,Imm8}),
     t(OS,'test',{ax,Imm16}),
     t(OS,'test',{eax,Imm32}),
+    t(OS,'test',{rax,Imm32}),
     t(OS,'test',{RM8,Imm8}),
     t(OS,'test',{RM8REX,Imm8}),
     t(OS,'test',{RM16,Imm16}),
     t(OS,'test',{RM32,Imm32}),
+    t(OS,'test',{RM64,Imm32}),
     t(OS,'test',{RM32,Reg32}),
     t(OS,'test',{RM64,Reg64}),
     t(OS,'xor',{eax,Imm32}),
