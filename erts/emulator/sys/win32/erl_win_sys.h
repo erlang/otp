@@ -182,6 +182,8 @@ typedef LONGLONG ErtsMonotonicTime;
 typedef LONGLONG ErtsSysHrTime;
 #endif
 
+#define ErtsStrToSint64 _strtoi64
+
 typedef ErtsMonotonicTime ErtsSystemTime;
 typedef ErtsMonotonicTime ErtsSysPerfCounter;
 

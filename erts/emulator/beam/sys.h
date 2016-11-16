@@ -378,6 +378,7 @@ typedef long          Sint64;
 #    ifdef LONG_MIN
 #      define ERTS_SINT64_MIN LONG_MIN
 #    endif
+#    define ErtsStrToSint64 strtol
 #  elif SIZEOF_LONG_LONG == 8
 #    define HAVE_INT64 1
 typedef unsigned long long Uint64;
@@ -391,6 +392,7 @@ typedef long long          Sint64;
 #    ifdef LLONG_MIN
 #      define ERTS_SINT64_MIN LLONG_MIN
 #    endif
+#    define ErtsStrToSint64 strtoll
 #  else
 #    error "No 64-bit integer type found"
 #  endif
