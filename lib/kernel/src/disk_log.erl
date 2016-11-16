@@ -125,20 +125,20 @@ open(A) ->
       Log :: log(),
       Term :: term().
 log(Log, Term) -> 
-    req(Log, {log, [term_to_binary(Term)]}).
+    req(Log, {log, internal, [term_to_binary(Term)]}).
 
 -spec blog(Log, Bytes) -> ok | {error, Reason :: log_error_rsn()} when
       Log :: log(),
       Bytes :: iodata().
 blog(Log, Bytes) ->
-    req(Log, {blog, [ensure_binary(Bytes)]}).
+    req(Log, {log, external, [ensure_binary(Bytes)]}).
 
 -spec log_terms(Log, TermList) -> ok | {error, Resaon :: log_error_rsn()} when
       Log :: log(),
       TermList :: [term()].
 log_terms(Log, Terms) ->
     Bs = terms2bins(Terms),
-    req(Log, {log, Bs}).
+    req(Log, {log, internal, Bs}).
 
 -spec blog_terms(Log, BytesList) ->
                         ok | {error, Reason :: log_error_rsn()} when
@@ -146,7 +146,7 @@ log_terms(Log, Terms) ->
       BytesList :: [iodata()].
 blog_terms(Log, Bytess) ->
     Bs = ensure_binary_list(Bytess),
-    req(Log, {blog, Bs}).
+    req(Log, {log, external, Bs}).
 
 -type notify_ret() :: 'ok' | {'error', 'no_such_log'}.
 
@@ -154,27 +154,27 @@ blog_terms(Log, Bytess) ->
       Log :: log(),
       Term :: term().
 alog(Log, Term) -> 
-    notify(Log, {alog, [term_to_binary(Term)]}).
+    notify(Log, {alog, internal, [term_to_binary(Term)]}).
 
 -spec alog_terms(Log, TermList) -> notify_ret() when
       Log :: log(),
       TermList :: [term()].
 alog_terms(Log, Terms) ->
     Bs = terms2bins(Terms),
-    notify(Log, {alog, Bs}).
+    notify(Log, {alog, internal, Bs}).
 
 -spec balog(Log, Bytes) -> notify_ret() when
       Log :: log(),
       Bytes :: iodata().
 balog(Log, Bytes) ->
-    notify(Log, {balog, [ensure_binary(Bytes)]}).
+    notify(Log, {alog, external, [ensure_binary(Bytes)]}).
 
 -spec balog_terms(Log, ByteList) -> notify_ret() when
       Log :: log(),
       ByteList :: [iodata()].
 balog_terms(Log, Bytess) ->
     Bs = ensure_binary_list(Bytess),
-    notify(Log, {balog, Bs}).
+    notify(Log, {alog, external, Bs}).
 
 -type close_error_rsn() ::'no_such_log' | 'nonode'
                          | {'file_error', file:filename(), file_error()}.
@@ -684,25 +684,12 @@ handle({From, write_cache}, S) when From =:= self() ->
         Error ->
 	    loop(S#state{cache_error = Error})
     end;
-handle({From, {log, B}}=Message, S) ->
+handle({From, {log, Format, B}}=Message, S) ->
     case get(log) of
 	L when L#log.mode =:= read_only ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
-	L when L#log.status =:= ok, L#log.format =:= internal ->
-	    log_loop(S, From, [B], []);
-	L when L#log.status =:= ok, L#log.format =:= external ->
+	L when L#log.status =:= ok, L#log.format =:= external, Format =:= internal ->
 	    reply(From, {error, {format_external, L#log.name}}, S);
-	L when L#log.status =:= {blocked, false} ->
-	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	L when L#log.blocked_by =:= From ->
-	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	_ ->
-	    enqueue(Message, S)
-    end;
-handle({From, {blog, B}}=Message, S) ->
-    case get(log) of
-	L when L#log.mode =:= read_only ->
-	    reply(From, {error, {read_only_mode, L#log.name}}, S);
 	L when L#log.status =:= ok ->
 	    log_loop(S, From, [B], []);
 	L when L#log.status =:= {blocked, false} ->
@@ -712,26 +699,13 @@ handle({From, {blog, B}}=Message, S) ->
 	_ ->
 	    enqueue(Message, S)
     end;
-handle({alog, B}=Message, S) ->
+handle({alog, Format, B}=Message, S) ->
     case get(log) of
 	L when L#log.mode =:= read_only ->
 	    notify_owners({read_only,B}),
 	    loop(S);
-	L when L#log.status =:= ok, L#log.format =:= internal ->
-	    log_loop(S, [], [B], []);
-	L when L#log.status =:= ok ->
+	L when L#log.status =:= ok, L#log.format =:= external, Format =:= internal ->
 	    notify_owners({format_external, B}),
-	    loop(S);
-	L when L#log.status =:= {blocked, false} ->
-	    notify_owners({blocked_log, B}),
-	    loop(S);
-	_ ->
-	    enqueue(Message, S)
-    end;
-handle({balog, B}=Message, S) ->
-    case get(log) of
-	L when L#log.mode =:= read_only ->
-	    notify_owners({read_only,B}),
 	    loop(S);
 	L when L#log.status =:= ok ->
 	    log_loop(S, [], [B], []);
@@ -1053,15 +1027,15 @@ log_loop(#state{messages = [M | Ms]}=S, Pids, Bins, Sync, Sz, F) ->
     log_loop(M, Pids, Bins, Sync, Sz, F, S1).
 
 %% Items logged after the last sync request found are sync:ed as well.
-log_loop({alog,B}, Pids, Bins, Sync, Sz, internal=F, S) ->
-    %% {alog, _} allowed for the internal format only.
+log_loop({alog, internal, B}, Pids, Bins, Sync, Sz, internal=F, S) ->
+    %% alog of terms allowed for the internal format only
     log_loop(S, Pids, [B | Bins], Sync, Sz+iolist_size(B), F);
-log_loop({balog, B}, Pids, Bins, Sync, Sz, F, S) ->
+log_loop({alog, binary, B}, Pids, Bins, Sync, Sz, F, S) ->
     log_loop(S, Pids, [B | Bins], Sync, Sz+iolist_size(B), F);
-log_loop({From, {log, B}}, Pids, Bins, Sync, Sz, internal=F, S) ->
-    %% {log, _} allowed for the internal format only.
+log_loop({From, {log, internal, B}}, Pids, Bins, Sync, Sz, internal=F, S) ->
+    %% log of terms allowed for the internal format only
     log_loop(S, [From | Pids], [B | Bins], Sync, Sz+iolist_size(B), F);
-log_loop({From, {blog, B}}, Pids, Bins, Sync, Sz, F, S) ->
+log_loop({From, {log, binary, B}}, Pids, Bins, Sync, Sz, F, S) ->
     log_loop(S, [From | Pids], [B | Bins], Sync, Sz+iolist_size(B), F);
 log_loop({From, sync}, Pids, Bins, Sync, Sz, F, S) ->
     log_loop(S, Pids, Bins, [From | Sync], Sz, F);
