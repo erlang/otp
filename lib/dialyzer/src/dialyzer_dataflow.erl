@@ -2622,7 +2622,7 @@ bind_guard_case_clauses(Arg, Clauses, Map0, Env, Eval, State) ->
   Map = join_maps_begin(Map0),
   {GenMap, GenArgType} = bind_guard(Arg, Map, Env, dont_know, State),
   bind_guard_case_clauses(GenArgType, GenMap, Arg, Clauses1, Map, Env, Eval,
-			  t_none(), [], State).
+			  t_none(), [], [], State).
 
 filter_fail_clauses([Clause|Left]) ->
   case (cerl:clause_pats(Clause) =:= []) of
@@ -2641,7 +2641,7 @@ filter_fail_clauses([]) ->
   [].
 
 bind_guard_case_clauses(GenArgType, GenMap, ArgExpr, [Clause|Left],
-			Map, Env, Eval, AccType, AccMaps, State) ->
+			Map, Env, Eval, AccType, AccMaps, Throws, State) ->
   Pats = cerl:clause_pats(Clause),
   {NewMap0, ArgType} =
     case Pats of
@@ -2685,9 +2685,9 @@ bind_guard_case_clauses(GenArgType, GenMap, ArgExpr, [Clause|Left],
   case (NewMap1 =:= none) orelse t_is_none(GenArgType) of
     true ->
       bind_guard_case_clauses(NewGenArgType, GenMap, ArgExpr, Left, Map, Env,
-			      Eval, AccType, AccMaps, State);
+			      Eval, AccType, AccMaps, Throws, State);
     false ->
-      {NewAccType, NewAccMaps} =
+      {NewAccType, NewAccMaps, NewThrows} =
 	try
 	  {NewMap2, GuardType} = bind_guard(Guard, NewMap1, Env, pos, State),
 	  case t_is_none(t_inf(t_atom(true), GuardType)) of
@@ -2711,17 +2711,26 @@ bind_guard_case_clauses(GenArgType, GenMap, ArgExpr, [Clause|Left],
 	    dont_know ->
 	      ok
 	  end,
-	  {t_sup(AccType, CType), [NewMap3|AccMaps]}
+	  {t_sup(AccType, CType), [NewMap3|AccMaps], Throws}
 	catch
-	  throw:{fail, _What} -> {AccType, AccMaps}
+	  throw:{fail, Reason} ->
+            Throws1 = case Reason of
+                        none -> Throws;
+                        _ -> Throws ++ [Reason]
+                      end,
+            {AccType, AccMaps, Throws1}
 	end,
       bind_guard_case_clauses(NewGenArgType, GenMap, ArgExpr, Left, Map, Env,
-			      Eval, NewAccType, NewAccMaps, State)
+			      Eval, NewAccType, NewAccMaps, NewThrows, State)
   end;
 bind_guard_case_clauses(_GenArgType, _GenMap, _ArgExpr, [], Map, _Env, _Eval,
-			AccType, AccMaps, _State) ->
+			AccType, AccMaps, Throws, _State) ->
   case t_is_none(AccType) of
-    true -> throw({fail, none});
+    true ->
+      case Throws of
+        [Throw|_] -> throw({fail, Throw});
+        [] -> throw({fail, none})
+      end;
     false -> {join_maps_end(AccMaps, Map), AccType}
   end.
 
