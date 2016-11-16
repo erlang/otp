@@ -125,13 +125,13 @@ open(A) ->
       Log :: log(),
       Term :: term().
 log(Log, Term) -> 
-    req(Log, {log, term_to_binary(Term)}).
+    req(Log, {log, [term_to_binary(Term)]}).
 
 -spec blog(Log, Bytes) -> ok | {error, Reason :: log_error_rsn()} when
       Log :: log(),
       Bytes :: iodata().
 blog(Log, Bytes) ->
-    req(Log, {blog, ensure_binary(Bytes)}).
+    req(Log, {blog, [ensure_binary(Bytes)]}).
 
 -spec log_terms(Log, TermList) -> ok | {error, Resaon :: log_error_rsn()} when
       Log :: log(),
@@ -154,7 +154,7 @@ blog_terms(Log, Bytess) ->
       Log :: log(),
       Term :: term().
 alog(Log, Term) -> 
-    notify(Log, {alog, term_to_binary(Term)}).
+    notify(Log, {alog, [term_to_binary(Term)]}).
 
 -spec alog_terms(Log, TermList) -> notify_ret() when
       Log :: log(),
@@ -167,7 +167,7 @@ alog_terms(Log, Terms) ->
       Log :: log(),
       Bytes :: iodata().
 balog(Log, Bytes) ->
-    notify(Log, {balog, ensure_binary(Bytes)}).
+    notify(Log, {balog, [ensure_binary(Bytes)]}).
 
 -spec balog_terms(Log, ByteList) -> notify_ret() when
       Log :: log(),
@@ -1093,12 +1093,9 @@ log_end_sync(S, Sync) ->
     state_err(S, Res).
 
 %% Inlined.
-rflat([B]=L) when is_binary(B) -> L;
 rflat([B]) -> B;
 rflat(B) -> rflat(B, []).
 
-rflat([B | Bs], L) when is_binary(B) ->
-    rflat(Bs, [B | L]);
 rflat([B | Bs], L) ->
     rflat(Bs, B ++ L);
 rflat([], L) -> L.
