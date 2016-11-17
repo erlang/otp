@@ -32,9 +32,9 @@ script:
   - ./otp_build all -a
   
 after_success:
+  - $ERL_TOP/bin/dialyzer --build_plt --apps asn1 compiler crypto dialyzer edoc erts et hipe inets kernel mnesia observer public_key runtime_tools snmp ssh ssl stdlib syntax_tools wx xmerl --statistics
+  - $ERL_TOP/bin/dialyzer -n -Wunmatched_returns --apps asn1 compiler crypto dialyzer erts hipe parsetools public_key runtime_tools sasl stdlib tools --statistics
   - ./otp_build tests && make release_docs
 
 after_script:
   - cd $ERL_TOP/release/tests/test_server && $ERL_TOP/bin/erl -s ts install -s ts smoke_test batch -s init stop
-  
-
