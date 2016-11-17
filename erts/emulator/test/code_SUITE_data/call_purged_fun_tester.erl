@@ -39,14 +39,16 @@ do_it(Priv, Data, Type, Opts) ->
     ets:insert(T, {my_fun,my_code_test2:make_fun(4711)}),
     ets:insert(T, {my_fun2,my_code_test2:make_fun2()}),
 
-    spawn(fun () ->
-		  [{my_fun2,F2}] = ets:lookup(T, my_fun2),
-		  F2(fun () ->
-			     receive after infinity -> ok end
-		     end,
-		     fun () -> ok end),
-		  exit(completed)
-	  end),
+    Papa = self(),
+    {P0,M0} = spawn_monitor(fun () ->
+                                    [{my_fun2,F2}] = ets:lookup(T, my_fun2),
+                                    F2(fun () ->
+                                               Papa ! {self(),"going to sleep"},
+                                               receive {Papa,"wake up"} -> ok end
+                                       end,
+                                       fun () -> ok end),
+                                    exit(completed)
+                            end),
 
     ?line PurgeType = case Type of
 		    code_gone ->
@@ -59,6 +61,10 @@ do_it(Priv, Data, Type, Opts) ->
 		end,
 
     ?line true = erlang:delete_module(my_code_test2),
+
+    ?line ok = receive {P0, "going to sleep"} -> ok
+               after 1000 -> timeout
+               end,
 
     ?line Purge = start_purge(my_code_test2, PurgeType),
 
@@ -110,9 +116,12 @@ do_it(Priv, Data, Type, Opts) ->
 
     case Type of
 	code_there ->
-	    ?line false = complete_purge(Purge);
+	    ?line false = complete_purge(Purge),
+            P0 ! {self(), "wake up"},
+            ?line completed = wait_for_down(P0,M0);
 	_ ->
-	    ?line {true, true} = complete_purge(Purge)
+	    ?line {true, true} = complete_purge(Purge),
+            ?line killed = wait_for_down(P0,M0)
     end,
 
     case Type of
