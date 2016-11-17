@@ -62,25 +62,25 @@ do_it(Priv, Data, Type, Opts) ->
 
     ?line Purge = start_purge(my_code_test2, PurgeType),
 
-    ?line {P0, M0} = spawn_monitor(fun () ->
+    ?line {P1, M1} = spawn_monitor(fun () ->
                                            ?line [{my_fun,F}] = ets:lookup(T, my_fun),
                                            ?line 4712 = F(1),
                                            exit(completed)
 			     end),
 
-    ?line ok = wait_until(fun () ->
+   ?line ok =  wait_until(fun () ->
                                   {status, suspended}
-                                      == process_info(P0, status)
+                                      == process_info(P1, status)
                           end),
 
     ?line ok = continue_purge(Purge),
 
-    ?line {P1, M1} = spawn_monitor(fun () ->
+    ?line {P2, M2} = spawn_monitor(fun () ->
                                            ?line [{my_fun,F}] = ets:lookup(T, my_fun),
                                            ?line 4713 = F(2),
                                            exit(completed)
 			     end),
-    ?line {P2, M2} = spawn_monitor(fun () ->
+    ?line {P3, M3} = spawn_monitor(fun () ->
                                            ?line [{my_fun,F}] = ets:lookup(T, my_fun),
                                            ?line 4714 = F(3),
                                            exit(completed)
@@ -88,17 +88,13 @@ do_it(Priv, Data, Type, Opts) ->
 
     ?line ok = wait_until(fun () ->
                                   {status, suspended}
-                                      == process_info(P1, status)
+                                      == process_info(P2, status)
                           end),
     ?line ok = wait_until(fun () ->
                                   {status, suspended}
-                                      == process_info(P2, status)
+                                      == process_info(P3, status)
                           end),
 
-    ?line {current_function,
-     {erts_code_purger,
-      pending_purge_lambda,
-      3}} = process_info(P0, current_function),
     ?line {current_function,
      {erts_code_purger,
       pending_purge_lambda,
@@ -107,6 +103,10 @@ do_it(Priv, Data, Type, Opts) ->
      {erts_code_purger,
       pending_purge_lambda,
       3}} = process_info(P2, current_function),
+    ?line {current_function,
+     {erts_code_purger,
+      pending_purge_lambda,
+      3}} = process_info(P3, current_function),
 
     case Type of
 	code_there ->
@@ -117,36 +117,26 @@ do_it(Priv, Data, Type, Opts) ->
 
     case Type of
 	code_gone ->
-	    receive
-		{'DOWN', M0, process, P0, Reason0} ->
-		    ?line {undef, _} = Reason0
-	    end,
-	    receive
-		{'DOWN', M1, process, P1, Reason1} ->
-		    ?line {undef, _} = Reason1
-	    end,
-	    receive
-		{'DOWN', M2, process, P2, Reason2} ->
-		    ?line {undef, _} = Reason2
-	    end;
+            ?line {undef, _} = wait_for_down(P1,M1),
+            ?line {undef, _} = wait_for_down(P2,M2),
+            ?line {undef, _} = wait_for_down(P3,M3);
 	_ ->
-	    receive
-		{'DOWN', M0, process, P0, Reason0} ->
-		    ?line completed = Reason0
-	    end,
-	    receive
-		{'DOWN', M1, process, P1, Reason1} ->
-		    ?line completed = Reason1
-	    end,
-	    receive
-		{'DOWN', M2, process, P2, Reason2} ->
-		    ?line completed = Reason2
-	    end,
+            ?line completed = wait_for_down(P1,M1),
+            ?line completed = wait_for_down(P2,M2),
+            ?line completed = wait_for_down(P3,M3),
 	    catch erlang:purge_module(my_code_test2),
 	    catch erlang:delete_module(my_code_test2),
 	    catch erlang:purge_module(my_code_test2)
     end,
     ok.
+
+wait_for_down(P,M) ->
+    receive
+        {'DOWN', M, process, P, Reason} ->
+            Reason
+    after 1000 ->
+            timeout
+    end.
 
 wait_until(Fun) ->
     wait_until(Fun, 20).
