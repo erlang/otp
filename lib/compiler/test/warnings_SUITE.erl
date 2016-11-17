@@ -42,7 +42,7 @@
 	 comprehensions/1,maps/1,maps_bin_opt_info/1,
          redundant_boolean_clauses/1,
 	 latin1_fallback/1,underscore/1,no_warnings/1,
-	 bit_syntax/1]).
+	 bit_syntax/1,inlining/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -65,7 +65,7 @@ groups() ->
        bin_opt_info,bin_construction,comprehensions,maps,
        maps_bin_opt_info,
        redundant_boolean_clauses,latin1_fallback,
-       underscore,no_warnings,bit_syntax]}].
+       underscore,no_warnings,bit_syntax,inlining]}].
 
 init_per_suite(Config) ->
     Config.
@@ -823,6 +823,30 @@ bit_syntax(Config) ->
     run(Config, Ts),
     ok.
 
+inlining(Config) ->
+    %% Make sure that no spurious warnings are generated
+    %% when inlining.
+    Ts = [{inlining_1,
+           <<"-compile(inline).
+              compute1(X) -> add(X, 0).
+              add(1, 0) -> 1;
+              add(1, Y) -> 1 + Y;
+              add(X, Y) -> X + Y.
+           ">>,
+           [],
+           []},
+	  {inlining_2,
+           <<"-compile({inline,[add/2]}).
+              compute1(X) -> add(X, 0).
+              add(1, 0) -> 1;
+              add(1, Y) -> 1 + Y;
+              add(X, Y) -> X + Y.
+           ">>,
+           [],
+           []}
+	 ],
+    run(Config, Ts),
+    ok.
 
 %%%
 %%% End of test cases.

@@ -684,7 +684,7 @@ kernel_passes() ->
      {iff,core,?pass(save_core_code)},
 
      %% Kernel Erlang and code generation.
-     {pass,v3_kernel},
+     ?pass(v3_kernel),
      {iff,dkern,{listing,"kernel"}},
      {iff,'to_kernel',{done,"kernel"}},
      {pass,v3_life},
@@ -1240,6 +1240,17 @@ core_fold_module_after_inlining(#compile{code=Code0,options=Opts}=St) ->
     %% Ignore all warnings.
     {ok,Code,_Ws} = sys_core_fold:module(Code0, Opts),
     {ok,St#compile{code=Code}}.
+
+v3_kernel(#compile{code=Code0,options=Opts,warnings=Ws0}=St) ->
+    {ok,Code,Ws} = v3_kernel:module(Code0, Opts),
+    case Ws =:= [] orelse test_core_inliner(St) of
+	false ->
+	    {ok,St#compile{code=Code,warnings=Ws0++Ws}};
+	true ->
+	    %% cerl_inline may produce code that generates spurious
+	    %% warnings. Ignore any such warnings.
+	    {ok,St#compile{code=Code}}
+    end.
 
 test_old_inliner(#compile{options=Opts}) ->
     %% The point of this test is to avoid loading the old inliner
