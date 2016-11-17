@@ -233,5 +233,5 @@ select_1({Acc, C}) ->
 select(ext_ets, Tab, Ms, Limit) when is_integer(Limit); Limit =:= infinity ->
     ets:select(mnesia_lib:val({?MODULE,Tab}), Ms, Limit).
 
-repair_continuation({Alias, Cont}, Ms) ->
-    {Alias, ets:repair_continuation(Cont, Ms)}.
+repair_continuation(Cont, Ms) ->
+    ets:repair_continuation(Cont, Ms).
