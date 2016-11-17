@@ -557,8 +557,8 @@ do {									\
  */
 
 static void exec_misc_ops(ErtsRunQueue *);
-static void print_function_from_pc(int to, void *to_arg, BeamInstr* x);
-static int stack_element_dump(int to, void *to_arg, Eterm* sp, int yreg);
+static void print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x);
+static int stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, int yreg);
 
 static void aux_work_timeout(void *unused);
 static void aux_work_timeout_early_init(int no_schedulers);
@@ -13171,7 +13171,7 @@ erts_continue_exit_process(Process *p)
  */
 
 void
-erts_stack_dump(int to, void *to_arg, Process *p)
+erts_stack_dump(fmtfn_t to, void *to_arg, Process *p)
 {
     Eterm* sp;
     int yreg = -1;
@@ -13186,7 +13186,7 @@ erts_stack_dump(int to, void *to_arg, Process *p)
 }
 
 void
-erts_program_counter_info(int to, void *to_arg, Process *p)
+erts_program_counter_info(fmtfn_t to, void *to_arg, Process *p)
 {
     erts_aint32_t state;
     int i;
@@ -13216,7 +13216,7 @@ erts_program_counter_info(int to, void *to_arg, Process *p)
 }
 
 static void
-print_function_from_pc(int to, void *to_arg, BeamInstr* x)
+print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
 {
     BeamInstr* addr = find_function_from_pc(x);
     if (addr == NULL) {
@@ -13238,7 +13238,7 @@ print_function_from_pc(int to, void *to_arg, BeamInstr* x)
 }
 
 static int
-stack_element_dump(int to, void *to_arg, Eterm* sp, int yreg)
+stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, int yreg)
 {
     Eterm x = *sp;
 
@@ -13270,7 +13270,7 @@ stack_element_dump(int to, void *to_arg, Eterm* sp, int yreg)
  * Print scheduler information
  */
 void
-erts_print_scheduler_info(int to, void *to_arg, ErtsSchedulerData *esdp) {
+erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp) {
     int i;
     erts_aint32_t flg;
     Process *p;

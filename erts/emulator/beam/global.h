@@ -68,7 +68,7 @@ extern void erts_pre_dirty_nif(ErtsSchedulerData *,
 extern void erts_post_dirty_nif(struct enif_environment_t* env);
 #endif
 extern Eterm erts_nif_taints(Process* p);
-extern void erts_print_nif_taints(int to, void* to_arg);
+extern void erts_print_nif_taints(fmtfn_t to, void* to_arg);
 void erts_unload_nif(struct erl_module_nif* nif);
 extern void erl_nif_init(void);
 extern int erts_nif_get_funcs(struct erl_module_nif*,
@@ -1069,10 +1069,10 @@ void erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info);
 void init_break_handler(void);
 void erts_set_ignore_break(void);
 void erts_replace_intr(void);
-void process_info(int, void *);
-void print_process_info(int, void *, Process*);
-void info(int, void *);
-void loaded(int, void *);
+void process_info(fmtfn_t, void *);
+void print_process_info(fmtfn_t, void *, Process*);
+void info(fmtfn_t, void *);
+void loaded(fmtfn_t, void *);
 
 /* erl_arith.c */
 double erts_get_positive_zero_float(void);
@@ -1161,7 +1161,7 @@ extern void erts_delete_nodes_monitors(Process *, ErtsProcLocks);
 extern Eterm erts_monitor_nodes(Process *, Eterm, Eterm);
 extern Eterm erts_processes_monitoring_nodes(Process *);
 extern int erts_do_net_exits(DistEntry*, Eterm);
-extern int distribution_info(int, void *);
+extern int distribution_info(fmtfn_t, void *);
 extern int is_node_name_atom(Eterm a);
 
 extern int erts_net_message(Port *, DistEntry *,
@@ -1350,7 +1350,7 @@ int erts_utf8_to_latin1(byte* dest, const byte* source, int slen);
 #define ERTS_UTF8_ANALYZE_MORE 3
 #define ERTS_UTF8_OK_MAX_CHARS 4
 
-void bin_write(int, void*, byte*, size_t);
+void bin_write(fmtfn_t, void*, byte*, size_t);
 Sint intlist_to_buf(Eterm, char*, Sint); /* most callers pass plain char*'s */
 
 struct Sint_buf {
@@ -1466,7 +1466,7 @@ Eterm erts_gc_binary_part_2(Process* p, Eterm* reg, Uint live);
 
 Uint erts_current_reductions(Process* current, Process *p);
 
-int erts_print_system_version(int to, void *arg, Process *c_p);
+int erts_print_system_version(fmtfn_t to, void *arg, Process *c_p);
 
 int erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* reg);
 

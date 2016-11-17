@@ -4473,7 +4473,7 @@ add_fix_types(Allctr_t *allctr, int internal, Uint **hpp, Uint *szp,
 static Eterm
 sz_info_fix(Allctr_t *allctr,
 	    int internal,
-	    int *print_to_p,
+	    fmtfn_t *print_to_p,
 	    void *print_to_arg,
 	    Uint **hpp,
 	    Uint *szp)
@@ -4494,7 +4494,7 @@ sz_info_fix(Allctr_t *allctr,
 		UWord used = fix->type_size * fix->u.cpool.used;
 
 		if (print_to_p) {
-		    int to = *print_to_p;
+		    fmtfn_t to = *print_to_p;
 		    void *arg = print_to_arg;
 		    erts_print(to,
 			       arg,
@@ -4522,7 +4522,7 @@ sz_info_fix(Allctr_t *allctr,
 	    UWord used = fix->type_size*fix->u.nocpool.used;
 
 	    if (print_to_p) {
-		int to = *print_to_p;
+		fmtfn_t to = *print_to_p;
 		void *arg = print_to_arg;
 		erts_print(to,
 			   arg,
@@ -4548,7 +4548,7 @@ static Eterm
 sz_info_carriers(Allctr_t *allctr,
 		 CarriersStats_t *cs,
 		 char *prefix,
-		 int *print_to_p,
+		 fmtfn_t *print_to_p,
 		 void *print_to_arg,
 		 Uint **hpp,
 		 Uint *szp)
@@ -4557,7 +4557,7 @@ sz_info_carriers(Allctr_t *allctr,
     UWord curr_size = cs->curr.norm.mseg.size + cs->curr.norm.sys_alloc.size;
 
     if (print_to_p) {
-	int to = *print_to_p;
+	fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
 	erts_print(to,
 		   arg,
@@ -4598,7 +4598,7 @@ static Eterm
 info_cpool(Allctr_t *allctr,
 	   int sz_only,
 	   char *prefix,
-	   int *print_to_p,
+	   fmtfn_t *print_to_p,
 	   void *print_to_arg,
 	   Uint **hpp,
 	   Uint *szp)
@@ -4615,7 +4615,7 @@ info_cpool(Allctr_t *allctr,
     }
 
     if (print_to_p) {
-	int to = *print_to_p;
+	fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
 	if (!sz_only)
 	    erts_print(to, arg, "%sblocks: %bpu\n", prefix, nob);
@@ -4652,7 +4652,7 @@ static Eterm
 info_carriers(Allctr_t *allctr,
 	      CarriersStats_t *cs,
 	      char *prefix,
-	      int *print_to_p,
+	      fmtfn_t *print_to_p,
 	      void *print_to_arg,
 	      Uint **hpp,
 	      Uint *szp)
@@ -4664,7 +4664,7 @@ info_carriers(Allctr_t *allctr,
     curr_size = cs->curr.norm.mseg.size + cs->curr.norm.sys_alloc.size;
 
     if (print_to_p) {
-	int to = *print_to_p;
+	fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
 	erts_print(to,
 		   arg,
@@ -4790,7 +4790,7 @@ make_name_atoms(Allctr_t *allctr)
 
 static Eterm
 info_calls(Allctr_t *allctr,
-	   int *print_to_p,
+	   fmtfn_t *print_to_p,
 	   void *print_to_arg,
 	   Uint **hpp,
 	   Uint *szp)
@@ -4807,7 +4807,7 @@ info_calls(Allctr_t *allctr,
 	erts_print(TO, TOA, "%s%s calls: %b64u\n",PRFX,NAME,CC)
 
 	char *prefix = allctr->name_prefix;
-	int to = *print_to_p;
+	fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
 
 	PRINT_CC_5(to, arg, prefix, "alloc",        allctr->calls.this_alloc);
@@ -4883,7 +4883,7 @@ info_calls(Allctr_t *allctr,
 
 static Eterm
 info_options(Allctr_t *allctr,
-             int *print_to_p,
+             fmtfn_t *print_to_p,
 	     void *print_to_arg,
 	     Uint **hpp,
 	     Uint *szp)
@@ -5035,7 +5035,7 @@ reset_max_values(CarriersStats_t *cs)
 \*                                                                         */
 
 Eterm
-erts_alcu_au_info_options(int *print_to_p, void *print_to_arg,
+erts_alcu_au_info_options(fmtfn_t *print_to_p, void *print_to_arg,
 			  Uint **hpp, Uint *szp)
 {
     Eterm res = THE_NON_VALUE;    
@@ -5078,7 +5078,7 @@ erts_alcu_au_info_options(int *print_to_p, void *print_to_arg,
 
 Eterm
 erts_alcu_info_options(Allctr_t *allctr,
-		       int *print_to_p,
+		       fmtfn_t *print_to_p,
 		       void *print_to_arg,
 		       Uint **hpp,
 		       Uint *szp)
@@ -5110,7 +5110,7 @@ Eterm
 erts_alcu_sz_info(Allctr_t *allctr,
 		  int internal,
 		  int begin_max_period,
-		  int *print_to_p,
+		  fmtfn_t *print_to_p,
 		  void *print_to_arg,
 		  Uint **hpp,
 		  Uint *szp)
@@ -5196,7 +5196,7 @@ Eterm
 erts_alcu_info(Allctr_t *allctr,
 	       int internal,
 	       int begin_max_period,
-	       int *print_to_p,
+	       fmtfn_t *print_to_p,
 	       void *print_to_arg,
 	       Uint **hpp,
 	       Uint *szp)

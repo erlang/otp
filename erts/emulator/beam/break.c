@@ -49,17 +49,17 @@ void erl_crash_dump_v(char *file, int line, char* fmt, va_list args);
 static void bin_check(void);
 #endif
 
-static void print_garb_info(int to, void *to_arg, Process* p);
+static void print_garb_info(fmtfn_t to, void *to_arg, Process* p);
 #ifdef OPPROF
 static void dump_frequencies(void);
 #endif
 
-static void dump_attributes(int to, void *to_arg, byte* ptr, int size);
+static void dump_attributes(fmtfn_t to, void *to_arg, byte* ptr, int size);
 
 extern char* erts_system_version[];
 
 static void
-port_info(int to, void *to_arg)
+port_info(fmtfn_t to, void *to_arg)
 {
     int i, max = erts_ptab_max(&erts_port);
     for (i = 0; i < max; i++) {
@@ -70,7 +70,7 @@ port_info(int to, void *to_arg)
 }
 
 void
-process_info(int to, void *to_arg)
+process_info(fmtfn_t to, void *to_arg)
 {
     int i, max = erts_ptab_max(&erts_proc);
     for (i = 0; i < max; i++) {
@@ -147,14 +147,14 @@ process_killer(void)
 
 typedef struct {
     int is_first;
-    int to;
+    fmtfn_t to;
     void *to_arg;
 } PrintMonitorContext;
 
 static void doit_print_link(ErtsLink *lnk, void *vpcontext)
 {
     PrintMonitorContext *pcontext = vpcontext;
-    int to = pcontext->to;
+    fmtfn_t to = pcontext->to;
     void *to_arg = pcontext->to_arg;
 
     if (pcontext->is_first) {
@@ -169,7 +169,7 @@ static void doit_print_link(ErtsLink *lnk, void *vpcontext)
 static void doit_print_monitor(ErtsMonitor *mon, void *vpcontext)
 {
     PrintMonitorContext *pcontext = vpcontext;
-    int to = pcontext->to;
+    fmtfn_t to = pcontext->to;
     void *to_arg = pcontext->to_arg;
     char *prefix = ", ";
  
@@ -196,7 +196,7 @@ static void doit_print_monitor(ErtsMonitor *mon, void *vpcontext)
 			       
 /* Display info about an individual Erlang process */
 void
-print_process_info(int to, void *to_arg, Process *p)
+print_process_info(fmtfn_t to, void *to_arg, Process *p)
 {
     time_t approx_started;
     int garbing = 0;
@@ -299,7 +299,7 @@ print_process_info(int to, void *to_arg, Process *p)
 
     /* display the links only if there are any*/
     if (ERTS_P_LINKS(p) || ERTS_P_MONITORS(p)) {
-	PrintMonitorContext context = {1,to}; 
+	PrintMonitorContext context = {1, to, to_arg};
 	erts_print(to, to_arg,"Link list: [");
 	erts_doforall_links(ERTS_P_LINKS(p), &doit_print_link, &context);	
 	erts_doforall_monitors(ERTS_P_MONITORS(p), &doit_print_monitor, &context);
@@ -347,7 +347,7 @@ print_process_info(int to, void *to_arg, Process *p)
 }
 
 static void
-print_garb_info(int to, void *to_arg, Process* p)
+print_garb_info(fmtfn_t to, void *to_arg, Process* p)
 {
 #ifdef ERTS_SMP
     /* ERTS_SMP: A scheduler is probably concurrently doing gc... */
@@ -364,7 +364,7 @@ print_garb_info(int to, void *to_arg, Process* p)
 }
 
 void
-info(int to, void *to_arg)
+info(fmtfn_t to, void *to_arg)
 {
     erts_memory(&to, to_arg, NULL, THE_NON_VALUE);
     atom_info(to, to_arg);
@@ -380,7 +380,7 @@ info(int to, void *to_arg)
 }
 
 void
-loaded(int to, void *to_arg)
+loaded(fmtfn_t to, void *to_arg)
 {
     int i;
     int old = 0;
@@ -477,7 +477,7 @@ loaded(int to, void *to_arg)
 
 
 static void
-dump_attributes(int to, void *to_arg, byte* ptr, int size)
+dump_attributes(fmtfn_t to, void *to_arg, byte* ptr, int size)
 {
     while (size-- > 0) {
 	erts_print(to, to_arg, "%02X", *ptr++);
@@ -678,6 +678,8 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     int secs;
     int env_erl_crash_dump_seconds_set = 1;
     int i;
+    fmtfn_t to = &erts_write_fd;
+    void*   to_arg;
 
     if (ERTS_SOMEONE_IS_CRASH_DUMPING)
 	return;
@@ -768,39 +770,40 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     fd = open(dumpname,O_WRONLY | O_CREAT | O_TRUNC,0640);
     if (fd < 0)
 	return; /* Can't create the crash dump, skip it */
+    to_arg = (void*)&fd;
     time(&now);
-    erts_fdprintf(fd, "=erl_crash_dump:0.3\n%s", ctime(&now));
+    erts_cbprintf(to, to_arg, "=erl_crash_dump:0.3\n%s", ctime(&now));
 
     if (file != NULL)
-       erts_fdprintf(fd, "The error occurred in file %s, line %d\n", file, line);
+       erts_cbprintf(to, to_arg, "The error occurred in file %s, line %d\n", file, line);
 
     if (fmt != NULL && *fmt != '\0') {
-	erts_fdprintf(fd, "Slogan: ");
-	erts_vfdprintf(fd, fmt, args);
+	erts_cbprintf(to, to_arg, "Slogan: ");
+	erts_vcbprintf(to, to_arg, fmt, args);
     }
-    erts_fdprintf(fd, "System version: ");
-    erts_print_system_version(fd, NULL, NULL);
+    erts_cbprintf(to, to_arg, "System version: ");
+    erts_print_system_version(to, to_arg, NULL);
 #if ERTS_SAVED_COMPILE_TIME
-    erts_fdprintf(fd, "%s\n", "Compiled: " ERLANG_COMPILE_DATE);
+    erts_cbprintf(to, to_arg, "%s\n", "Compiled: " ERLANG_COMPILE_DATE);
 #endif
 
-    erts_fdprintf(fd, "Taints: ");
-    erts_print_nif_taints(fd, NULL);
-    erts_fdprintf(fd, "Atoms: %d\n", atom_table_size());
+    erts_cbprintf(to, to_arg, "Taints: ");
+    erts_print_nif_taints(to, to_arg);
+    erts_cbprintf(to, to_arg, "Atoms: %d\n", atom_table_size());
 
 #ifdef USE_THREADS
     /* We want to note which thread it was that called erts_exit */
     if (erts_get_scheduler_data()) {
-        erts_fdprintf(fd, "Calling Thread: scheduler:%d\n",
+        erts_cbprintf(to, to_arg, "Calling Thread: scheduler:%d\n",
                       erts_get_scheduler_data()->no);
     } else {
         if (!erts_thr_getname(erts_thr_self(), dumpnamebuf, MAXPATHLEN))
-            erts_fdprintf(fd, "Calling Thread: %s\n", dumpnamebuf);
+            erts_cbprintf(to, to_arg, "Calling Thread: %s\n", dumpnamebuf);
         else
-            erts_fdprintf(fd, "Calling Thread: %p\n", erts_thr_self());
+            erts_cbprintf(to, to_arg, "Calling Thread: %p\n", erts_thr_self());
     }
 #else
-    erts_fdprintf(fd, "Calling Thread: scheduler:1\n");
+    erts_cbprintf(to, to_arg, "Calling Thread: scheduler:1\n");
 #endif
 
 #if defined(ERTS_HAVE_TRY_CATCH)
@@ -815,8 +818,8 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
      */
     for (i = 0; i < erts_no_schedulers; i++) {
         ERTS_SYS_TRY_CATCH(
-            erts_print_scheduler_info(fd, NULL, ERTS_SCHEDULER_IX(i)),
-            erts_fdprintf(fd, "** crashed **\n"));
+            erts_print_scheduler_info(to, to_arg, ERTS_SCHEDULER_IX(i)),
+            erts_cbprintf(to, to_arg, "** crashed **\n"));
     }
 #endif
 
@@ -847,38 +850,38 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 #ifndef ERTS_HAVE_TRY_CATCH
     /* This is safe to call here, as all schedulers are blocked */
     for (i = 0; i < erts_no_schedulers; i++) {
-        erts_print_scheduler_info(fd, NULL, ERTS_SCHEDULER_IX(i));
+        erts_print_scheduler_info(to, to_arg, ERTS_SCHEDULER_IX(i));
     }
 #endif
     
-    info(fd, NULL); /* General system info */
+    info(to, to_arg); /* General system info */
     if (erts_ptab_initialized(&erts_proc))
-	process_info(fd, NULL); /* Info about each process and port */
-    db_info(fd, NULL, 0);
-    erts_print_bif_timer_info(fd, NULL);
-    distribution_info(fd, NULL);
-    erts_fdprintf(fd, "=loaded_modules\n");
-    loaded(fd, NULL);
-    erts_dump_fun_entries(fd, NULL);
-    erts_deep_process_dump(fd, NULL);
-    erts_fdprintf(fd, "=atoms\n");
-    dump_atoms(fd, NULL);
+	process_info(to, to_arg); /* Info about each process and port */
+    db_info(to, to_arg, 0);
+    erts_print_bif_timer_info(to, to_arg);
+    distribution_info(to, to_arg);
+    erts_cbprintf(to, to_arg, "=loaded_modules\n");
+    loaded(to, to_arg);
+    erts_dump_fun_entries(to, to_arg);
+    erts_deep_process_dump(to, to_arg);
+    erts_cbprintf(to, to_arg, "=atoms\n");
+    dump_atoms(to, to_arg);
 
     /* Keep the instrumentation data at the end of the dump */
     if (erts_instr_memory_map || erts_instr_stat) {
-	erts_fdprintf(fd, "=instr_data\n");
+	erts_cbprintf(to, to_arg, "=instr_data\n");
 
 	if (erts_instr_stat) {
-	    erts_fdprintf(fd, "=memory_status\n");
-	    erts_instr_dump_stat_to_fd(fd, 0);
+	    erts_cbprintf(to, to_arg, "=memory_status\n");
+	    erts_instr_dump_stat_to(to, to_arg, 0);
 	}
 	if (erts_instr_memory_map) {
-	    erts_fdprintf(fd, "=memory_map\n");
-	    erts_instr_dump_memory_map_to_fd(fd);
+	    erts_cbprintf(to, to_arg, "=memory_map\n");
+	    erts_instr_dump_memory_map_to(to, to_arg);
 	}
     }
 
-    erts_fdprintf(fd, "=end\n");
+    erts_cbprintf(to, to_arg, "=end\n");
     close(fd);
     erts_fprintf(stderr,"done\n");
 }

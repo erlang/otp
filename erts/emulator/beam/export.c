@@ -83,7 +83,7 @@ static struct export_blob* entry_to_blob(struct export_entry* ee)
 }
 
 void
-export_info(int to, void *to_arg)
+export_info(fmtfn_t to, void *to_arg)
 {
 #ifdef ERTS_SMP
     int lock = !ERTS_IS_CRASH_DUMPING;

@@ -2113,7 +2113,7 @@ add_fix_values(UWord *ap, UWord *up, ErtsAlcUFixInfo_t *fi, ErtsAlcType_t type)
 }
 
 Eterm
-erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
+erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 {
 /*
  * NOTE! When updating this function, make sure to also update
@@ -2476,7 +2476,7 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 
     if (print_to_p) {
 	int i;
-	int to = *print_to_p;
+	fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
 
 	/* Print result... */
@@ -2530,7 +2530,7 @@ struct aa_values {
 };
 
 Eterm
-erts_allocated_areas(int *print_to_p, void *print_to_arg, void *proc)
+erts_allocated_areas(fmtfn_t *print_to_p, void *print_to_arg, void *proc)
 {
 #define MAX_AA_VALUES (24)
     struct aa_values values[MAX_AA_VALUES];
@@ -2665,7 +2665,7 @@ erts_allocated_areas(int *print_to_p, void *print_to_arg, void *proc)
 
     if (print_to_p) {
 	/* Print result... */
-	int to = *print_to_p;
+	fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
 
 	erts_print(to, arg, "=allocated_areas\n");
@@ -2779,7 +2779,7 @@ erts_alloc_util_allocators(void *proc)
 }
 
 void
-erts_allocator_info(int to, void *arg)
+erts_allocator_info(fmtfn_t to, void *arg)
 {
     ErtsAlcType_t a;
 
@@ -3110,7 +3110,7 @@ reply_alloc_info(void *vair)
     Eterm (*info_func)(Allctr_t *,
 		       int,
 		       int,
-		       int *,
+		       fmtfn_t *,
 		       void *,
 		       Uint **,
 		       Uint *) = (air->only_sz

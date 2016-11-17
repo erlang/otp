@@ -69,11 +69,11 @@ void *erts_sys_aligned_realloc(UWord alignment, void *ptr, UWord size, UWord old
 void erts_sys_aligned_free(UWord alignment, void *ptr);
 #endif
 
-Eterm erts_memory(int *, void *, void *, Eterm);
-Eterm erts_allocated_areas(int *, void *, void *);
+Eterm erts_memory(fmtfn_t *, void *, void *, Eterm);
+Eterm erts_allocated_areas(fmtfn_t *, void *, void *);
 
 Eterm erts_alloc_util_allocators(void *proc);
-void erts_allocator_info(int, void *);
+void erts_allocator_info(fmtfn_t, void *);
 Eterm erts_allocator_options(void *proc);
 
 struct process;

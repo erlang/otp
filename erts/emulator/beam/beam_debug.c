@@ -50,7 +50,7 @@
 void dbg_bt(Process* p, Eterm* sp);
 void dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg);
 
-static int print_op(int to, void *to_arg, int op, int size, BeamInstr* addr);
+static int print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr);
 
 BIF_RETTYPE
 erts_debug_same_2(BIF_ALIST_2)
@@ -377,7 +377,7 @@ dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg)
 }
 
 static int
-print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
+print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 {
     int i;
     BeamInstr tag;

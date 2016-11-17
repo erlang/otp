@@ -60,10 +60,10 @@ static const char dashes[PTR_SIZE+3] = {
 
 void pps(Process*, Eterm*);
 void ptd(Process*, Eterm);
-void paranoid_display(int, void*, Process*, Eterm);
+void paranoid_display(fmtfn_t, void*, Process*, Eterm);
 static int dcount;
 
-static int pdisplay1(int to, void *to_arg, Process* p, Eterm obj);
+static int pdisplay1(fmtfn_t to, void *to_arg, Process* p, Eterm obj);
 
 void ptd(Process* p, Eterm x) 
 {
@@ -77,14 +77,14 @@ void ptd(Process* p, Eterm x)
  */
 
 void
-paranoid_display(int to, void *to_arg, Process* p, Eterm obj)
+paranoid_display(fmtfn_t to, void *to_arg, Process* p, Eterm obj)
 {
     dcount = 100000;
     pdisplay1(to, to_arg, p, obj);
 }
 
 static int
-pdisplay1(int to, void *to_arg, Process* p, Eterm obj)
+pdisplay1(fmtfn_t to, void *to_arg, Process* p, Eterm obj)
 {
     int i, k;
     Eterm* nobj;
@@ -201,7 +201,7 @@ pdisplay1(int to, void *to_arg, Process* p, Eterm obj)
 void
 pps(Process* p, Eterm* stop)
 {
-    int to = ERTS_PRINT_STDOUT;
+    fmtfn_t to = ERTS_PRINT_STDOUT;
     void *to_arg = NULL;
     Eterm* sp = STACK_START(p) - 1;
 

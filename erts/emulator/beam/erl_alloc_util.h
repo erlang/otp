@@ -178,10 +178,10 @@ void *	erts_alcu_realloc_mv_thr_pref(ErtsAlcType_t, void *, void *, Uint);
 void	erts_alcu_free_thr_pref(ErtsAlcType_t, void *, void *);
 #endif
 #endif
-Eterm	erts_alcu_au_info_options(int *, void *, Uint **, Uint *);
-Eterm	erts_alcu_info_options(Allctr_t *, int *, void *, Uint **, Uint *);
-Eterm	erts_alcu_sz_info(Allctr_t *, int, int, int *, void *, Uint **, Uint *);
-Eterm	erts_alcu_info(Allctr_t *, int, int, int *, void *, Uint **, Uint *);
+Eterm	erts_alcu_au_info_options(fmtfn_t *, void *, Uint **, Uint *);
+Eterm	erts_alcu_info_options(Allctr_t *, fmtfn_t *, void *, Uint **, Uint *);
+Eterm	erts_alcu_sz_info(Allctr_t *, int, int, fmtfn_t *, void *, Uint **, Uint *);
+Eterm	erts_alcu_info(Allctr_t *, int, int, fmtfn_t *, void *, Uint **, Uint *);
 void	erts_alcu_init(AlcUInit_t *);
 void    erts_alcu_current_size(Allctr_t *, AllctrSize_t *,
 			       ErtsAlcUFixInfo_t *, int);
@@ -586,7 +586,7 @@ struct Allctr_t_ {
 						 Block_t *, Uint);
     void		(*link_free_block)	(Allctr_t *, Block_t *);
     void		(*unlink_free_block)	(Allctr_t *, Block_t *);
-    Eterm		(*info_options)		(Allctr_t *, char *, int *,
+    Eterm		(*info_options)		(Allctr_t *, char *, fmtfn_t *,
 						 void *, Uint **, Uint *);
 
     Uint		(*get_next_mbc_size)	(Allctr_t *);

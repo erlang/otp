@@ -2402,13 +2402,13 @@ erts_kill_dist_connection(DistEntry *dep, Uint32 connection_id)
 }
 
 struct print_to_data {
-    int to;
+    fmtfn_t to;
     void *arg;
 };
 
 static void doit_print_monitor_info(ErtsMonitor *mon, void *vptdp)
 {
-    int to = ((struct print_to_data *) vptdp)->to;
+    fmtfn_t to = ((struct print_to_data *) vptdp)->to;
     void *arg = ((struct print_to_data *) vptdp)->arg;
     Process *rp;
     ErtsMonitor *rmon;
@@ -2431,7 +2431,7 @@ static void doit_print_monitor_info(ErtsMonitor *mon, void *vptdp)
     }
 }    
 
-static void print_monitor_info(int to, void *arg, ErtsMonitor *mon)
+static void print_monitor_info(fmtfn_t to, void *arg, ErtsMonitor *mon)
 {
     struct print_to_data ptd = {to, arg};
     erts_doforall_monitors(mon,&doit_print_monitor_info,&ptd);
@@ -2457,7 +2457,7 @@ static void doit_print_link_info(ErtsLink *lnk, void *vptdp)
     } 
 }
 
-static void print_link_info(int to, void *arg, ErtsLink *lnk)
+static void print_link_info(fmtfn_t to, void *arg, ErtsLink *lnk)
 {
     struct print_to_data ptd = {to, arg};
     erts_doforall_links(lnk, &doit_print_link_info, (void *) &ptd);
@@ -2478,7 +2478,7 @@ static void doit_print_nodelink_info(ErtsLink *lnk, void *vpcontext)
 		   "Remote monitoring: %T %T\n", lnk->pid, pcontext->sysname);
 }
 
-static void print_nodelink_info(int to, void *arg, ErtsLink *lnk, Eterm sysname)
+static void print_nodelink_info(fmtfn_t to, void *arg, ErtsLink *lnk, Eterm sysname)
 {
     PrintNodeLinkContext context = {{to, arg}, sysname};
     erts_doforall_links(lnk, &doit_print_nodelink_info, &context);
@@ -2486,7 +2486,7 @@ static void print_nodelink_info(int to, void *arg, ErtsLink *lnk, Eterm sysname)
 
 
 static int
-info_dist_entry(int to, void *arg, DistEntry *dep, int visible, int connected)
+info_dist_entry(fmtfn_t to, void *arg, DistEntry *dep, int visible, int connected)
 {
 
   if (visible && connected) {
@@ -2535,7 +2535,7 @@ info_dist_entry(int to, void *arg, DistEntry *dep, int visible, int connected)
   return 0;
     
 }
-int distribution_info(int to, void *arg)	/* Called by break handler */
+int distribution_info(fmtfn_t to, void *arg)	/* Called by break handler */
 {
     DistEntry *dep;
 

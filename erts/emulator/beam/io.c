@@ -5480,7 +5480,7 @@ erts_request_io_bytes(Process *c_p)
 
 
 typedef struct {
-    int to;
+    fmtfn_t to;
     void *arg;
 } prt_one_lnk_data;
 
@@ -5497,7 +5497,7 @@ static void prt_one_lnk(ErtsLink *lnk, void *vprtd)
 }
 
 void
-print_port_info(Port *p, int to, void *arg)
+print_port_info(Port *p, fmtfn_t to, void *arg)
 {
     erts_aint32_t state = erts_atomic32_read_nob(&p->state);
 

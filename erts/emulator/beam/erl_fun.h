@@ -71,7 +71,7 @@ typedef struct erl_fun_thing {
 #define ERL_FUN_SIZE ((sizeof(ErlFunThing)/sizeof(Eterm))-1)
 
 void erts_init_fun_table(void);
-void erts_fun_info(int, void *);
+void erts_fun_info(fmtfn_t, void *);
 int erts_fun_table_sz(void);
 
 ErlFunEntry* erts_put_fun_entry(Eterm mod, int uniq, int index);
@@ -86,6 +86,6 @@ void erts_fun_purge_prepare(BeamInstr* start, BeamInstr* end);
 void erts_fun_purge_abort_prepare(ErlFunEntry **funs, Uint no);
 void erts_fun_purge_abort_finalize(ErlFunEntry **funs, Uint no);
 void erts_fun_purge_complete(ErlFunEntry **funs, Uint no);
-void erts_dump_fun_entries(int, void *);
+void erts_dump_fun_entries(fmtfn_t, void *);
 
 #endif

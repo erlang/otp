@@ -98,8 +98,8 @@ Uint  erts_mseg_unit_size(void);
 void  erts_mseg_init(ErtsMsegInit_t *init);
 void  erts_mseg_late_init(void); /* Have to be called after all allocators,
 				   threads and timers have been initialized. */
-Eterm erts_mseg_info_options(int, int *, void*, Uint **, Uint *);
-Eterm erts_mseg_info(int, int *, void*, int, int, Uint **, Uint *);
+Eterm erts_mseg_info_options(int, fmtfn_t*, void*, Uint **, Uint *);
+Eterm erts_mseg_info(int, fmtfn_t *, void*, int, int, Uint **, Uint *);
 
 #endif /* #if HAVE_ERTS_MSEG */
 

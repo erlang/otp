@@ -610,22 +610,21 @@ Uint erts_sys_misc_mem_sz(void);
 #include "erl_printf.h"
 
 /* Io constants to erts_print and erts_putc */
-#define ERTS_PRINT_STDERR	(2)
-#define ERTS_PRINT_STDOUT	(1)
-#define ERTS_PRINT_FILE		(-1)
-#define ERTS_PRINT_SBUF		(-2)
-#define ERTS_PRINT_SNBUF	(-3)
-#define ERTS_PRINT_DSBUF	(-4)
-
-#define ERTS_PRINT_MIN		ERTS_PRINT_DSBUF
+#define ERTS_PRINT_STDERR	((fmtfn_t)0)
+#define ERTS_PRINT_STDOUT	((fmtfn_t)1)
+#define ERTS_PRINT_FILE		((fmtfn_t)2)
+#define ERTS_PRINT_SBUF		((fmtfn_t)3)
+#define ERTS_PRINT_SNBUF	((fmtfn_t)4)
+#define ERTS_PRINT_DSBUF	((fmtfn_t)5)
+#define ERTS_PRINT_FD           ((fmtfn_t)6)
 
 typedef struct {
     char *buf;
     size_t size;
 } erts_print_sn_buf;
 
-int erts_print(int to, void *arg, char *format, ...);	/* in utils.c */
-int erts_putc(int to, void *arg, char);			/* in utils.c */
+int erts_print(fmtfn_t to, void *arg, char *format, ...);	/* in utils.c */
+int erts_putc(fmtfn_t to, void *arg, char);			/* in utils.c */
 
 /* logger stuff is declared here instead of in global.h, so sys files
    won't have to include global.h */

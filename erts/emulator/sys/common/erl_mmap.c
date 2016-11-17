@@ -2390,7 +2390,7 @@ add_2tup(Uint **hpp, Uint *szp, Eterm *lp, Eterm el1, Eterm el2)
 }
 
 Eterm erts_mmap_info(ErtsMemMapper* mm,
-                     int *print_to_p,
+                     fmtfn_t *print_to_p,
                      void *print_to_arg,
                      Eterm** hpp, Uint* szp,
                      struct erts_mmap_info_struct* emis)
@@ -2431,7 +2431,7 @@ Eterm erts_mmap_info(ErtsMemMapper* mm,
 
 
     if (print_to_p) {
-        int to = *print_to_p;
+        fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
         if (mm->supercarrier) {
             const char* prefix = "supercarrier ";
@@ -2485,7 +2485,7 @@ Eterm erts_mmap_info(ErtsMemMapper* mm,
 
 Eterm erts_mmap_info_options(ErtsMemMapper* mm,
                              char *prefix,
-                             int *print_to_p,
+                             fmtfn_t *print_to_p,
                              void *print_to_arg,
                              Uint **hpp,
                              Uint *szp)
@@ -2496,7 +2496,7 @@ Eterm erts_mmap_info_options(ErtsMemMapper* mm,
     Eterm res = THE_NON_VALUE;
 
     if (print_to_p) {
-        int to = *print_to_p;
+        fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
         erts_print(to, arg, "%sscs: %bpu\n", prefix, scs);
         if (mm->supercarrier) {
