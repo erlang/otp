@@ -887,27 +887,40 @@ matching_and_andalso(Config) when is_list(Config) ->
     {'EXIT',{function_clause,_}} = (catch matching_and_andalso_1(<<1,2,3>>, blurf)),
     {'EXIT',{function_clause,_}} = (catch matching_and_andalso_1(<<1,2,3>>, 19)),
 
-    {"abc",<<"xyz">>} = matching_and_andalso_2("abc", <<"-xyz">>),
-    {"abc",<<"">>} = matching_and_andalso_2("abc", <<($a-1)>>),
-    {"abc",<<"">>} = matching_and_andalso_2("abc", <<($z+1)>>),
-    {"abc",<<"">>} = matching_and_andalso_2("abc", <<($A-1)>>),
-    {"abc",<<"">>} = matching_and_andalso_2("abc", <<($Z+1)>>),
-    error = matching_and_andalso_2([], <<>>),
-    error = matching_and_andalso_2([], <<$A>>),
-    error = matching_and_andalso_2([], <<$Z>>),
-    error = matching_and_andalso_2([], <<$a>>),
-    error = matching_and_andalso_2([], <<$z>>),
+    {"abc",<<"xyz">>} = matching_and_andalso_23("abc", <<"-xyz">>),
+    {"abc",<<"">>} = matching_and_andalso_23("abc", <<($a-1)>>),
+    {"abc",<<"">>} = matching_and_andalso_23("abc", <<($z+1)>>),
+    {"abc",<<"">>} = matching_and_andalso_23("abc", <<($A-1)>>),
+    {"abc",<<"">>} = matching_and_andalso_23("abc", <<($Z+1)>>),
+    error = matching_and_andalso_23([], <<>>),
+    error = matching_and_andalso_23([], <<$A>>),
+    error = matching_and_andalso_23([], <<$Z>>),
+    error = matching_and_andalso_23([], <<$a>>),
+    error = matching_and_andalso_23([], <<$z>>),
     ok.
 
 matching_and_andalso_1(<<Bitmap/binary>>, K)
   when is_integer(K) andalso size(Bitmap) >= K andalso 0 < K ->
     ok.
 
+matching_and_andalso_23(Datetime, Bin) ->
+    Res = matching_and_andalso_2(Datetime, Bin),
+    Res = matching_and_andalso_3(Datetime, Bin),
+    Res.
+
 matching_and_andalso_2(Datetime, <<H,T/binary>>)
   when not ((H >= $a) andalso (H =< $z)) andalso
        not ((H >= $A) andalso (H =< $Z)) ->
     {Datetime,T};
 matching_and_andalso_2(_, _) -> error.
+
+%% Contrived example to ensure we cover the handling of 'call' instructions
+%% in v3_codegen:bsm_rename_ctx/4.
+matching_and_andalso_3(Datetime, <<H,T/binary>>)
+  when not ((abs(H) >= $a) andalso (abs(H) =< $z)) andalso
+       not ((abs(H) >= $A) andalso (abs(H) =< $Z)) ->
+    {Datetime,T};
+matching_and_andalso_3(_, _) -> error.
 
 %% Thanks to Tomas Stejskal.
 otp_7188(Config) when is_list(Config) ->

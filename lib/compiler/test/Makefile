@@ -9,7 +9,6 @@ MODULES= \
 	andor_SUITE \
 	apply_SUITE \
 	beam_block_SUITE \
-	beam_bool_SUITE \
 	beam_validator_SUITE \
 	beam_disasm_SUITE \
 	beam_except_SUITE \
@@ -49,7 +48,6 @@ NO_OPT= \
 	andor \
 	apply \
 	beam_block \
-	beam_bool \
 	beam_except \
 	beam_jump \
 	beam_reorder \
@@ -76,7 +74,6 @@ INLINE= \
 	andor \
 	apply \
 	beam_block \
-	beam_bool \
 	beam_utils \
 	bif \
 	bs_bincomp \
@@ -96,6 +93,10 @@ INLINE= \
 	receive \
 	record
 
+CORE_MODULES = \
+	lfe_andor_SUITE \
+	lfe_guard_SUITE
+
 NO_OPT_MODULES= $(NO_OPT:%=%_no_opt_SUITE)
 NO_OPT_ERL_FILES= $(NO_OPT_MODULES:%=%.erl)
 POST_OPT_MODULES= $(NO_OPT:%=%_post_opt_SUITE)
@@ -104,6 +105,8 @@ INLINE_MODULES= $(INLINE:%=%_inline_SUITE)
 INLINE_ERL_FILES= $(INLINE_MODULES:%=%.erl)
 
 ERL_FILES= $(MODULES:%=%.erl)
+CORE_FILES= $(CORE_MODULES:%=%.core)
+ERL_DUMMY_FILES= $(CORE_MODULES:%=%.erl)
 
 ##TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 ##INSTALL_PROGS= $(TARGET_FILES)
@@ -137,6 +140,8 @@ make_emakefile: $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) $(INLINE_ERL_FILES)
 	-o$(EBIN) $(POST_OPT_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +inline $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(INLINE_MODULES) >> $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile +from_core $(ERL_COMPILE_FLAGS) \
+	-o$(EBIN) $(CORE_MODULES) >> $(EMAKEFILE)
 
 tests debug opt: make_emakefile
 	erl $(ERL_MAKE_FLAGS) -make
@@ -174,6 +179,12 @@ release_tests_spec: make_emakefile
 		$(EMAKEFILE) $(ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) \
 		$(INLINE_ERL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(CORE_FILES) "$(RELSYSDIR)"
+	for file in $(ERL_DUMMY_FILES); do \
+	    module=`basename $$file .erl`; \
+	    echo "-module($$module). %% dummy .erl file" >$$file; \
+        done
+	$(INSTALL_DATA) $(ERL_DUMMY_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 

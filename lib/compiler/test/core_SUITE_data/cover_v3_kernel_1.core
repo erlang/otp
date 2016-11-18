@@ -1,0 +1,147 @@
+module 'cover_v3_kernel_1' ['cover_v3_kernel_1'/0,
+			    'module_info'/0,
+			    'module_info'/1]
+    attributes []
+'cover_v3_kernel_1'/0 =
+    %% Line 4
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      %% Line 5
+	      case apply 'bad_and_args'/1
+		       ('x') of
+		<'error'> when 'true' ->
+		    %% Line 7
+		    case apply 'bad_and_args'/2
+			     (1, 2) of
+		      <'error'> when 'true' ->
+			  %% Line 8
+			  case apply 'bad_and_args'/2
+				   (1, 'true') of
+			    <'error'> when 'true' ->
+				%% Line 9
+				case apply 'bad_and_args'/2
+					 ('true', 42) of
+				  <'error'> when 'true' ->
+				      %% Line 10
+				      case apply 'bad_and_args'/2
+					       ('true', 'false') of
+					<'error'> when 'true' ->
+					    %% Line 11
+					    case apply 'bad_and_args'/2
+						     ('false', 'true') of
+					      <'error'> when 'true' ->
+						  %% Line 12
+						  case apply 'bad_and_args'/2
+							   ('true', 'true') of
+						    <'ok'> when 'true' ->
+							%% Line 14
+							'ok'
+						    ( <_@c6> when 'true' ->
+							  primop 'match_fail'
+							      ({'badmatch',_@c6})
+						      -| ['compiler_generated'] )
+						  end
+					      ( <_@c5> when 'true' ->
+						    primop 'match_fail'
+							({'badmatch',_@c5})
+						-| ['compiler_generated'] )
+					    end
+					( <_@c4> when 'true' ->
+					      primop 'match_fail'
+						  ({'badmatch',_@c4})
+					  -| ['compiler_generated'] )
+				      end
+				  ( <_@c3> when 'true' ->
+					primop 'match_fail'
+					    ({'badmatch',_@c3})
+				    -| ['compiler_generated'] )
+				end
+			    ( <_@c2> when 'true' ->
+				  primop 'match_fail'
+				      ({'badmatch',_@c2})
+			      -| ['compiler_generated'] )
+			  end
+		      ( <_@c1> when 'true' ->
+			    primop 'match_fail'
+				({'badmatch',_@c1})
+			-| ['compiler_generated'] )
+		    end
+		( <_@c0> when 'true' ->
+		      primop 'match_fail'
+			  ({'badmatch',_@c0})
+		  -| ['compiler_generated'] )
+	      end
+	  ( <> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause'})
+		  -| [{'function_name',{'cover_v3_kernel_1',0}}] )
+	    -| ['compiler_generated'] )
+	end
+'bad_and_args'/1 =
+    %% Line 16
+    fun (_@c0) ->
+	case _@c0 of
+	  <A>
+	      when try
+		    call 'erlang':'and'(A, 42)
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      'ok'
+	  %% Line 17
+	  <_@c4> when 'true' ->
+	      'error'
+	  ( <_@c3> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_@c3})
+		  -| [{'function_name',{'bad_and_args',1}}] )
+	    -| ['compiler_generated'] )
+	end
+'bad_and_args'/2 =
+    %% Line 19
+    fun (_@c1,_@c0) ->
+	case <_@c1,_@c0> of
+	  <X,Y>
+	      when try
+		    call 'erlang':'and'(X, Y)
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      'ok'
+	  %% Line 20
+	  <_@c6,_@c7> when 'true' ->
+	      'error'
+	  ( <_@c5,_@c4> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_@c5,_@c4})
+		  -| [{'function_name',{'bad_and_args',2}}] )
+	    -| ['compiler_generated'] )
+	end
+'module_info'/0 =
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      call 'erlang':'get_module_info'
+		  ('cover_v3_kernel_1')
+	  ( <> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause'})
+		  -| [{'function_name',{'module_info',0}}] )
+	    -| ['compiler_generated'] )
+	end
+'module_info'/1 =
+    fun (_@c0) ->
+	case _@c0 of
+	  <X> when 'true' ->
+	      call 'erlang':'get_module_info'
+		  ('cover_v3_kernel_1', X)
+	  ( <_@c1> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_@c1})
+		  -| [{'function_name',{'module_info',1}}] )
+	    -| ['compiler_generated'] )
+	end
+end

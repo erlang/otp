@@ -22,7 +22,7 @@
 
 -module(beam_utils).
 -export([is_killed_block/2,is_killed/3,is_killed_at/3,
-	 is_not_used/3,is_not_used_at/3,
+	 is_not_used/3,
 	 empty_label_index/0,index_label/3,index_labels/1,
 	 code_at/2,bif_to_test/3,is_pure_test/1,
 	 live_opt/1,delete_live_annos/1,combine_heap_needs/2,
@@ -92,20 +92,6 @@ is_killed_at(R, Lbl, D) when is_integer(Lbl) ->
 is_not_used(R, Is, D) ->
     St = #live{lbl=D,res=gb_trees:empty()},
     case check_liveness(R, Is, St) of
-	{used,_} -> false;
-	{_,_} -> true
-    end.
-
-%% is_not_used(Register, [Instruction], State) -> true|false
-%%  Determine whether a register is never used in the instruction sequence
-%%  (it could still be referenced by an allocate instruction, meaning that
-%%  it MUST be initialized, but that its value does not matter).
-%%    The state is used to allow us to determine the usage state
-%%  across branches.
-
-is_not_used_at(R, Lbl, D) ->
-    St = #live{lbl=D,res=gb_trees:empty()},
-    case check_liveness_at(R, Lbl, St) of
 	{used,_} -> false;
 	{_,_} -> true
     end.

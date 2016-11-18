@@ -32,7 +32,7 @@
 	 other_output/1, kernel_listing/1, encrypted_abstr/1,
 	 strict_record/1,
 	 cover/1, env/1, core/1,
-	 core_roundtrip/1, asm/1,
+	 core_roundtrip/1, asm/1, optimized_guards/1,
 	 sys_pre_attributes/1, dialyzer/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1
 	]).
@@ -49,7 +49,7 @@ all() ->
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, kernel_listing, encrypted_abstr,
      strict_record,
-     cover, env, core, core_roundtrip, asm,
+     cover, env, core, core_roundtrip, asm, optimized_guards,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
      env_compiler_options].
 
@@ -342,7 +342,6 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     do_listing(Simple, TargetDir, dblk, ".block"),
     do_listing(Simple, TargetDir, dexcept, ".except"),
     do_listing(Simple, TargetDir, dbs, ".bs"),
-    do_listing(Simple, TargetDir, dbool, ".bool"),
     do_listing(Simple, TargetDir, dtype, ".type"),
     do_listing(Simple, TargetDir, ddead, ".dead"),
     do_listing(Simple, TargetDir, djmp, ".jump"),
@@ -927,6 +926,96 @@ do_asm(Beam, Outdir) ->
 	    error
     end.
 
+%% Make sure that guards are fully optimized. Guards should
+%% should use 'test' instructions, not 'bif' instructions.
+
+optimized_guards(_Config) ->
+    TestBeams = get_unique_beam_files(),
+    test_lib:p_run(fun(F) -> do_opt_guards(F) end, TestBeams).
+
+do_opt_guards(Beam) ->
+    {ok,{M,[{abstract_code,{raw_abstract_v1,A}}]}} =
+	beam_lib:chunks(Beam, [abstract_code]),
+    try
+	{ok,M,Asm} = compile:forms(A, ['S']),
+	do_opt_guards_mod(Asm)
+    catch Class:Error ->
+	    io:format("~p: ~p ~p\n~p\n",
+		      [M,Class,Error,erlang:get_stacktrace()]),
+	    error
+    end.
+
+do_opt_guards_mod({Mod,_Exp,_Attr,Asm,_NumLabels}) ->
+    case do_opt_guards_fs(Mod, Asm) of
+	[] ->
+	    ok;
+	[_|_]=Bifs ->
+	    io:format("ERRORS FOR ~p:\n~p\n", [Mod,Bifs]),
+	    error
+    end.
+
+do_opt_guards_fs(Mod, [{function,Name,Arity,_,Is}|Fs]) ->
+    Bifs0 = do_opt_guards_fun(Is),
+
+    %% The compiler does not attempt to optimize 'xor'.
+    %% Therefore, ignore all functions that use 'xor' in
+    %% a guard.
+    Bifs = case lists:any(fun({bif,'xor',_,_,_}) -> true;
+			     (_) -> false
+			  end, Bifs0) of
+	       true -> [];
+	       false -> Bifs0
+	   end,
+
+    %% Filter out the allowed exceptions.
+    FA = {Name,Arity},
+    case {Bifs,is_exception(Mod, FA)} of
+	{[_|_],true} ->
+	    io:format("~p:~p/~p IGNORED:\n~p\n",
+		      [Mod,Name,Arity,Bifs]),
+	    do_opt_guards_fs(Mod, Fs);
+	{[_|_],false} ->
+	    [{FA,Bifs}|do_opt_guards_fs(Mod, Fs)];
+	{[],false} ->
+	    do_opt_guards_fs(Mod, Fs);
+	{[],true} ->
+	    io:format("Redundant exception for ~p:~p/~p\n",
+		      [Mod,Name,Arity]),
+	    error(redundant)
+    end;
+do_opt_guards_fs(_, []) -> [].
+
+do_opt_guards_fun([{bif,Name,{f,F},As,_}=I|Is]) when F =/= 0 ->
+    Arity = length(As),
+    case erl_internal:comp_op(Name, Arity) orelse
+	erl_internal:bool_op(Name, Arity) orelse
+	erl_internal:new_type_test(Name, Arity) of
+	true ->
+	    [I|do_opt_guards_fun(Is)];
+	false ->
+	    do_opt_guards_fun(Is)
+    end;
+do_opt_guards_fun([_|Is]) ->
+    do_opt_guards_fun(Is);
+do_opt_guards_fun([]) -> [].
+
+is_exception(bs_match_SUITE, {matching_and_andalso_2,2}) -> true;
+is_exception(bs_match_SUITE, {matching_and_andalso_3,2}) -> true;
+is_exception(guard_SUITE, {'-complex_not/1-fun-4-',1}) -> true;
+is_exception(guard_SUITE, {'-complex_not/1-fun-5-',1}) -> true;
+is_exception(guard_SUITE, {basic_andalso_orelse,1}) -> true;
+is_exception(guard_SUITE, {bad_guards,1}) -> true;
+is_exception(guard_SUITE, {bad_guards_2,2}) -> true;
+is_exception(guard_SUITE, {bad_guards_3,2}) -> true;
+is_exception(guard_SUITE, {cqlc,4}) -> true;
+is_exception(guard_SUITE, {csemi7,3}) -> true;
+is_exception(guard_SUITE, {misc,1}) -> true;
+is_exception(guard_SUITE, {nested_not_2b,4}) -> true;
+is_exception(guard_SUITE, {tricky_1,2}) -> true;
+is_exception(map_SUITE, {map_guard_update,2}) -> true;
+is_exception(map_SUITE, {map_guard_update_variables,3}) -> true;
+is_exception(_, _) -> false.
+
 sys_pre_attributes(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     File = filename:join(DataDir, "attributes.erl"),
@@ -1152,8 +1241,15 @@ get_unique_beam_files() ->
 
 get_unique_files(Ext) ->
     Wc = filename:join(filename:dirname(code:which(?MODULE)), "*"++Ext),
-    [F || F <- filelib:wildcard(Wc), not is_cloned(F, Ext)].
+    [F || F <- filelib:wildcard(Wc),
+	  not is_cloned(F, Ext), not is_lfe_module(F, Ext)].
 
 is_cloned(File, Ext) ->
     Mod = list_to_atom(filename:basename(File, Ext)),
     test_lib:is_cloned_mod(Mod).
+
+is_lfe_module(File, Ext) ->
+    case filename:basename(File, Ext) of
+	"lfe_" ++ _ -> true;
+	_ -> false
+    end.

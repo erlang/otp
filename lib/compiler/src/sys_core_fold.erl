@@ -373,7 +373,7 @@ expr(#c_case{}=Case0, Ctxt, Sub) ->
     %%   (in addition to any warnings that may have been emitted
     %%   according to the rules above).
     %%
-    case opt_bool_case(Case0) of
+    case opt_bool_case(Case0, Sub) of
 	#c_case{arg=Arg0,clauses=Cs0}=Case1 ->
 	    Arg1 = body(Arg0, value, Sub),
 	    LitExpr = cerl:is_literal(Arg1),
@@ -1554,9 +1554,11 @@ will_match(E, [P]) ->
 will_match_1({false,_}) -> maybe;
 will_match_1({true,_}) -> yes.
 
-%% opt_bool_case(CoreExpr) - CoreExpr'.
-%%  Do various optimizations to case statement that has a
-%%  boolean case expression.
+%% opt_bool_case(CoreExpr, Sub) - CoreExpr'.
+%%
+%%  In bodies, do various optimizations to case statements that have
+%%  boolean case expressions. We don't do the optimizations in guards,
+%%  because they would thwart the optimization in v3_kernel.
 %%
 %%  We start with some simple optimizations and normalization
 %%  to facilitate later optimizations.
@@ -1565,7 +1567,7 @@ will_match_1({true,_}) -> yes.
 %%  (or fail), we can remove any clause that cannot
 %%  possibly match 'true' or 'false'. Also, any clause
 %%  following both 'true' and 'false' clause can
-%%  be removed. If successful, we will end up this:
+%%  be removed. If successful, we will end up like this:
 %%
 %%  case BoolExpr of           	    case BoolExpr of
 %%     true ->			       false ->
@@ -1576,8 +1578,11 @@ will_match_1({true,_}) -> yes.
 %%
 %%  We give up if there are clauses with guards, or if there
 %%  is a variable clause that matches anything.
-%%
-opt_bool_case(#c_case{arg=Arg}=Case0) ->
+
+opt_bool_case(#c_case{}=Case, #sub{in_guard=true}) ->
+    %% v3_kernel does a better job without "help".
+    Case;
+opt_bool_case(#c_case{arg=Arg}=Case0, #sub{in_guard=false}) ->
     case is_bool_expr(Arg) of
 	false ->
 	    Case0;
@@ -1589,8 +1594,7 @@ opt_bool_case(#c_case{arg=Arg}=Case0) ->
 		impossible ->
 		    Case0
 	    end
-    end;
-opt_bool_case(Core) -> Core.
+    end.
 
 opt_bool_clauses(#c_case{clauses=Cs}=Case) ->
     Case#c_case{clauses=opt_bool_clauses(Cs, false, false)}.
@@ -1606,16 +1610,14 @@ opt_bool_clauses(Cs, true, true) ->
 	    []
     end;
 opt_bool_clauses([#c_clause{pats=[#c_literal{val=Lit}],
-			    guard=#c_literal{val=true},
-			    body=B}=C0|Cs], SeenT, SeenF) ->
+			    guard=#c_literal{val=true}}=C|Cs], SeenT, SeenF) ->
     case is_boolean(Lit) of
 	false ->
 	    %% Not a boolean - this clause can't match.
-	    add_warning(C0, nomatch_clause_type),
+	    add_warning(C, nomatch_clause_type),
 	    opt_bool_clauses(Cs, SeenT, SeenF);
 	true ->
 	    %% This clause will match.
-	    C = C0#c_clause{body=opt_bool_case(B)},
 	    case {Lit,SeenT,SeenF} of
                 {false,_,false} ->
                     [C|opt_bool_clauses(Cs, SeenT, true)];
@@ -2238,14 +2240,14 @@ inverse_rel_op(_) -> no.
 
 %% opt_bool_case_in_let(LetExpr) -> Core
 
-opt_bool_case_in_let(#c_let{vars=Vs,arg=Arg,body=B}=Let) ->
-    opt_bool_case_in_let_1(Vs, Arg, B, Let).
+opt_bool_case_in_let(#c_let{vars=Vs,arg=Arg,body=B}=Let, Sub) ->
+    opt_bool_case_in_let_1(Vs, Arg, B, Let, Sub).
 
 opt_bool_case_in_let_1([#c_var{name=V}], Arg,
-		  #c_case{arg=#c_var{name=V}}=Case0, Let) ->
+		  #c_case{arg=#c_var{name=V}}=Case0, Let, Sub) ->
     case is_simple_case_arg(Arg) of
 	true ->
-	    Case = opt_bool_case(Case0#c_case{arg=Arg}),
+	    Case = opt_bool_case(Case0#c_case{arg=Arg}, Sub),
 	    case core_lib:is_var_used(V, Case) of
 		false -> Case;
 		true -> Let
@@ -2253,7 +2255,7 @@ opt_bool_case_in_let_1([#c_var{name=V}], Arg,
 	false ->
 	    Let
     end;
-opt_bool_case_in_let_1(_, _, _, Let) -> Let.
+opt_bool_case_in_let_1(_, _, _, Let, _) -> Let.
 
 %% is_simple_case_arg(Expr) -> true|false
 %%  Determine whether the Expr is simple enough to be worth
@@ -2386,9 +2388,7 @@ is_safe_bool_expr_list([], _, _) -> true.
 %%  as a let or a sequence, move the original let body into the complex
 %%  expression.
 
-simplify_let(#c_let{arg=Arg0}=Let0, Sub) ->
-    Arg = opt_bool_case(Arg0),
-    Let = Let0#c_let{arg=Arg},
+simplify_let(#c_let{arg=Arg}=Let, Sub) ->
     move_let_into_expr(Let, Arg, Sub).
 
 move_let_into_expr(#c_let{vars=InnerVs0,body=InnerBody0}=Inner,
@@ -2688,8 +2688,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 		    #c_seq{arg=Arg,body=Body};
 		true ->
 		    Let1 = Let0#c_let{vars=Vs,arg=Arg1,body=Body},
-		    Let2 = opt_bool_case_in_let(Let1),
-		    opt_case_in_let_arg(Let2, Ctxt, Sub)
+		    opt_bool_case_in_let(Let1, Sub)
 	    end
     end.
 
@@ -2816,48 +2815,6 @@ move_case_into_arg(#c_case{arg=#c_seq{arg=OuterArg,body=InnerArg}=Outer,
                 body=Inner#c_case{arg=InnerArg,clauses=InnerClauses}};
 move_case_into_arg(_, _) ->
     impossible.
-
-%% In guards only, rewrite a case in a let argument like
-%%
-%%    let <Var> = case <> of
-%%                    <> when AnyGuard -> Literal1;
-%%                    <> when AnyGuard -> Literal2
-%%                end
-%%    in LetBody
-%%
-%% to
-%%
-%%    case <> of
-%%         <> when AnyGuard ->
-%%              let <Var> = Literal1 in LetBody
-%%         <> when 'true' ->
-%%              let <Var> = Literal2 in LetBody
-%%    end
-%%
-%% In the worst case, the size of the code could increase.
-%% In practice, though, substituting the literals into
-%% LetBody and doing constant folding will decrease the code
-%% size. (Doing this transformation outside of guards could
-%% lead to a substantational increase in code size.)
-%%
-opt_case_in_let_arg(#c_let{arg=#c_case{}=Case}=Let, Ctxt,
-		    #sub{in_guard=true}=Sub) ->
-    opt_case_in_let_arg_1(Let, Case, Ctxt, Sub);
-opt_case_in_let_arg(Let, _, _) -> Let.
-
-opt_case_in_let_arg_1(Let0, #c_case{arg=#c_values{es=[]},
-				    clauses=Cs}=Case0, _Ctxt, _Sub) ->
-    Let = mark_compiler_generated(Let0),
-    case Cs of
-	[#c_clause{body=#c_literal{}=BodyA}=Ca0,
-	 #c_clause{body=#c_literal{}=BodyB}=Cb0] ->
-	    Ca = Ca0#c_clause{body=Let#c_let{arg=BodyA}},
-	    Cb = Cb0#c_clause{body=Let#c_let{arg=BodyB}},
-	    Case0#c_case{clauses=[Ca,Cb]};
-	_ ->
-	    Let
-    end;
-opt_case_in_let_arg_1(Let, _, _, _) -> Let.
 
 is_any_var_used([#c_var{name=V}|Vs], Expr) ->
     case core_lib:is_var_used(V, Expr) of
@@ -3288,13 +3245,6 @@ bsm_problem(Where, What) ->
 %%%
 %%% Handling of warnings.
 %%%
-
-mark_compiler_generated(Term) ->
-    cerl_trees:map(fun mark_compiler_generated_1/1, Term).
-
-mark_compiler_generated_1(#c_call{anno=Anno}=Term) ->
-    Term#c_call{anno=[compiler_generated|Anno--[compiler_generated]]};
-mark_compiler_generated_1(Term) -> Term.
 
 init_warnings() ->
     put({?MODULE,warnings}, []).
