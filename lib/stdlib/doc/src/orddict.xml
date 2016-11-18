@@ -38,7 +38,7 @@
     <p>This module provides a <c>Key</c>-<c>Value</c> dictionary.
       An <c>orddict</c> is a representation of a dictionary, where a
       list of pairs is used to store the keys and values. The list is
-      ordered after the keys.</p>
+      ordered after the keys in the <em>Erlang term order</em>.</p>
 
     <p>This module provides the same interface as the
       <seealso marker="dict"><c>dict(3)</c></seealso> module
