@@ -88,9 +88,11 @@ send(SendAddr, Socket, SocketType,
 	case Address of
 	    SendAddr ->
 		{TmpHdrs2, Path ++ Query};
-	    _Proxy ->
+	    _Proxy when SocketType == ip_comm ->
 		TmpHdrs3 = handle_proxy(HttpOptions, TmpHdrs2), 
-		{TmpHdrs3, AbsUri}
+		{TmpHdrs3, AbsUri};
+	    _  ->
+		{TmpHdrs2, Path ++ Query}	
 	end,
     
     FinalHeaders = 
