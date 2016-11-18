@@ -33,7 +33,10 @@ script:
   
 after_success:
   - $ERL_TOP/bin/dialyzer --build_plt --apps asn1 compiler crypto dialyzer edoc erts et hipe inets kernel mnesia observer public_key runtime_tools snmp ssh ssl stdlib syntax_tools wx xmerl --statistics
-  - $ERL_TOP/bin/dialyzer -n -Wunmatched_returns --apps asn1 compiler crypto dialyzer erts hipe parsetools public_key runtime_tools sasl stdlib tools --statistics
+  - $ERL_TOP/bin/dialyzer -n -Wunknown -Wunmatched_returns --apps compiler erts kernel stdlib --statistics
+  - $ERL_TOP/bin/dialyzer -n -Wunknown -Wunmatched_returns --apps asn1 crypto dialyzer --statistics
+  - $ERL_TOP/bin/dialyzer -n -Wunknown -Wunmatched_returns --apps hipe parsetools public_key --statistics
+  - $ERL_TOP/bin/dialyzer -n -Wunknown -Wunmatched_returns --apps runtime_tools sasl tools --statistics
   - ./otp_build tests && make release_docs
 
 after_script:
