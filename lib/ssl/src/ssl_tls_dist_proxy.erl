@@ -434,6 +434,12 @@ ssl_options(server, ["server_ciphers", Value|T]) ->
     [{ciphers, Value} | ssl_options(server,T)];
 ssl_options(client, ["client_ciphers", Value|T]) ->
     [{ciphers, Value} | ssl_options(client,T)];
+ssl_options(server, ["server_eccs", Value|T]) ->
+    Eccs = lists:map(fun list_to_atom/1, string:tokens(Value, ",")),
+    [{eccs, Eccs} | ssl_options(server,T)];
+ssl_options(client, ["client_eccs", Value|T]) ->
+    Eccs = lists:map(fun list_to_atom/1, string:tokens(Value, ",")),
+    [{eccs, Eccs} | ssl_options(client,T)];
 ssl_options(server, ["server_dhfile", Value|T]) ->
     [{dhfile, Value} | ssl_options(server,T)];
 ssl_options(server, ["server_fail_if_no_peer_cert", Value|T]) ->
