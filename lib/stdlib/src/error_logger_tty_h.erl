@@ -128,13 +128,12 @@ write_events(State, [Ev|Es]) ->
 write_events(_State, []) ->
     ok.
 
-do_write_event(State, {Time0, Event}) ->
+do_write_event(State, {Time, Event}) ->
     case parse_event(Event) of
 	ignore ->
 	    ok;
-	{Head,Pid,FormatList} ->
-	    Time = maybe_utc(Time0),
-	    Header = write_time(Time, Head),
+	{Title,Pid,FormatList} ->
+	    Header = header(Time, Title),
 	    Body = format_body(State, FormatList),
 	    AtNode = if
 			 node(Pid) =/= node() ->
@@ -197,21 +196,6 @@ parse_event({warning_report, _GL, {Pid, std_warning, Args}}) ->
     {"WARNING REPORT",Pid,format_term(Args)};
 parse_event(_) -> ignore.
 
-maybe_utc(Time) ->
-    UTC = case application:get_env(sasl, utc_log) of
-              {ok, Val} -> Val;
-              undefined ->
-                  %% Backwards compatible:
-                  case application:get_env(stdlib, utc_log) of
-                      {ok, Val} -> Val;
-                      undefined -> false
-                  end
-          end,
-    maybe_utc(Time, UTC).
-
-maybe_utc(Time, true) -> {utc, Time};
-maybe_utc(Time, _) -> {local, calendar:universal_time_to_local_time(Time)}.
-
 format_term(Term) when is_list(Term) ->
     case string_p(Term) of
 	true ->
@@ -255,12 +239,29 @@ string_p1([H|T]) when is_list(H) ->
 string_p1([]) -> true;
 string_p1(_) ->  false.
 
-write_time({utc,{{Y,Mo,D},{H,Mi,S}}},Type) ->
-    io_lib:format("~n=~s==== ~p-~s-~p::~s:~s:~s UTC ===~n",
-		  [Type,D,month(Mo),Y,t(H),t(Mi),t(S)]);
-write_time({local, {{Y,Mo,D},{H,Mi,S}}},Type) ->
-    io_lib:format("~n=~s==== ~p-~s-~p::~s:~s:~s ===~n",
-		  [Type,D,month(Mo),Y,t(H),t(Mi),t(S)]).
+get_utc_config() ->
+    %% SASL utc_log configuration overrides stdlib config
+    %% in order to have uniform timestamps in log messages
+    case application:get_env(sasl, utc_log) of
+        {ok, Val} -> Val;
+        undefined ->
+            case application:get_env(stdlib, utc_log) of
+                {ok, Val} -> Val;
+                undefined -> false
+            end
+    end.
+
+header(Time, Title) ->
+    case get_utc_config() of
+        true ->
+            header(Time, Title, "UTC ");
+        _ ->
+            header(calendar:universal_time_to_local_time(Time), Title, "")
+    end.
+
+header({{Y,Mo,D},{H,Mi,S}}, Title, UTC) ->
+    io_lib:format("~n=~s==== ~p-~s-~p::~s:~s:~s ~s===~n",
+                 [Title,D,month(Mo),Y,t(H),t(Mi),t(S),UTC]).
 
 t(X) when is_integer(X) ->
     t1(integer_to_list(X));
@@ -281,8 +282,3 @@ month(9) -> "Sep";
 month(10) -> "Oct";
 month(11) -> "Nov";
 month(12) -> "Dec".
-
-
-
-
-
