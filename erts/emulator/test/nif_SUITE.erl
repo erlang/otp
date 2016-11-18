@@ -155,7 +155,13 @@ reload_error(Config) when is_list(Config) ->
     ok.
 
 %% Test upgrade callback in nif lib
-upgrade(Config) when is_list(Config) ->    
+upgrade(Config) when is_list(Config) ->
+    [begin io:format("Do test for API version \"~p\"", [API]),
+           upgrade_do([{nif_api_version,API}|Config])
+     end
+     || API <- ["", ".2_4"]].
+
+upgrade_do(Config) ->
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
 
@@ -295,6 +301,12 @@ upgrade(Config) when is_list(Config) ->
 
 %% Test loading/upgrade in on_load
 t_on_load(Config) when is_list(Config) ->
+    [begin io:format("Do test for API version \"~p\"", [API]),
+           t_on_load_do([{nif_api_version,API}|Config])
+     end
+     || API <- ["", ".2_4"]].
+
+t_on_load_do(Config) ->
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
 
@@ -306,6 +318,8 @@ t_on_load(Config) when is_list(Config) ->
     %% Use ETS to tell nif_mod:on_load what to do
     ets:insert(nif_SUITE, {data_dir, Data}),
     ets:insert(nif_SUITE, {lib_version, 1}),
+    API = proplists:get_value(nif_api_version, Config, ""),
+    ets:insert(nif_SUITE, {nif_api_version, API}),
     {module,nif_mod} = code:load_binary(nif_mod,File,Bin),
     hold_nif_mod_priv_data(nif_mod:get_priv_data_ptr()),
     [{load,1,1,101},{get_priv_data_ptr,1,2,102}] = nif_mod_call_history(),
@@ -848,6 +862,12 @@ resource_binary_do() ->
 
 %% Test resource takeover by module upgrade
 resource_takeover(Config) when is_list(Config) ->    
+    [begin io:format("Do test for API version \"~p\"", [API]),
+           resource_takeover_do([{nif_api_version,API}|Config])
+     end
+     || API <- ["", ".2_4"]].
+
+resource_takeover_do(Config) ->
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
 
@@ -1168,6 +1188,9 @@ resource_takeover(Config) when is_list(Config) ->
 
     ok = forget_resource(AN7),
     [] = nif_mod_call_history(),
+
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
 
     true = lists:member(?MODULE, erlang:system_info(taints)),
     true = lists:member(nif_mod, erlang:system_info(taints)),

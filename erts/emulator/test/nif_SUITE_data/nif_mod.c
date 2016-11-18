@@ -237,6 +237,14 @@ static ERL_NIF_TERM lib_version(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     return enif_make_int(env, NIF_LIB_VER);
 }
 
+static ERL_NIF_TERM nif_api_version(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    /*ADD_CALL("nif_api_version");*/
+    return enif_make_tuple2(env,
+			    enif_make_int(env, ERL_NIF_MAJOR_VERSION),
+			    enif_make_int(env, ERL_NIF_MINOR_VERSION));
+}
+
 static ERL_NIF_TERM get_priv_data_ptr(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ADD_CALL("get_priv_data_ptr");
@@ -279,6 +287,7 @@ static ERL_NIF_TERM get_resource(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
+    {"nif_api_version", 0, nif_api_version},
     {"get_priv_data_ptr", 0, get_priv_data_ptr},
     {"make_new_resource", 2, make_new_resource},
     {"get_resource", 2, get_resource}
