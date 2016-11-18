@@ -720,19 +720,24 @@ memory(Config) when is_list(Config) ->
 
 %% Test filenames with characters outside the US ASCII range.
 unicode(Config) when is_list(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    do_unicode(PrivDir),
+    run_unicode_node(Config, "+fnu"),
     case has_transparent_naming() of
 	true ->
-	    Pa = filename:dirname(code:which(?MODULE)),
-	    Node = start_node(unicode, "+fnl -pa "++Pa),
-	    ok = rpc:call(Node, erlang, apply,
-			  [fun() -> do_unicode(PrivDir) end,[]]),
-	    true = test_server:stop_node(Node),
-	    ok;
+	    run_unicode_node(Config, "+fnl");
 	false ->
 	    ok
     end.
+
+run_unicode_node(Config, Option) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Pa = filename:dirname(code:which(?MODULE)),
+    Args = Option ++ " -pa "++Pa,
+    io:format("~s\n", [Args]),
+    Node = start_node(unicode, Args),
+    ok = rpc:call(Node, erlang, apply,
+		  [fun() -> do_unicode(PrivDir) end,[]]),
+    true = test_server:stop_node(Node),
+    ok.
 
 has_transparent_naming() ->
     case os:type() of
@@ -745,10 +750,11 @@ do_unicode(PrivDir) ->
     ok = file:set_cwd(PrivDir),
     ok = file:make_dir("unicöde"),
 
-    Names = unicode_create_files(),
+    Names = lists:sort(unicode_create_files()),
     Tar = "unicöde.tar",
     ok = erl_tar:create(Tar, ["unicöde"], []),
-    {ok,Names} = erl_tar:table(Tar, []),
+    {ok,Names0} = erl_tar:table(Tar, []),
+    Names = lists:sort(Names0),
     _ = [ok = file:delete(Name) || Name <- Names],
     ok = erl_tar:extract(Tar),
     _ = [{ok,_} = file:read_file(Name) || Name <- Names],
