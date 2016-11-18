@@ -113,19 +113,27 @@ std_simple_exec(Host, Port, Config) ->
     std_simple_exec(Host, Port, Config, []).
 
 std_simple_exec(Host, Port, Config, Opts) ->
+    ct:log("~p:~p std_simple_exec",[?MODULE,?LINE]),
     ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, Opts),
+    ct:log("~p:~p connected! ~p",[?MODULE,?LINE,ConnectionRef]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    success = ssh_connection:exec(ConnectionRef, ChannelId, "23+21-2.", infinity),
-    Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"42\n">>}},
-    case ssh_test_lib:receive_exec_result(Data) of
-	expected ->
-	    ok;
-	Other ->
-	    ct:fail(Other)
-    end,
-    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
-    ssh:close(ConnectionRef).
-
+    ct:log("~p:~p session_channel ok ~p",[?MODULE,?LINE,ChannelId]),
+    ExecResult = ssh_connection:exec(ConnectionRef, ChannelId, "23+21-2.", infinity),
+    ct:log("~p:~p exec ~p",[?MODULE,?LINE,ExecResult]),
+    case ExecResult of
+	success ->
+	    Expected = {ssh_cm, ConnectionRef, {data,ChannelId,0,<<"42\n">>}},
+	    case receive_exec_result(Expected) of
+		expected ->
+		    ok;
+		Other ->
+		    ct:fail(Other)
+	    end,
+	    receive_exec_end(ConnectionRef, ChannelId),
+	    ssh:close(ConnectionRef);
+	_ ->
+	    ct:fail(ExecResult)
+    end.
 
 start_shell(Port, IOServer) ->
     start_shell(Port, IOServer, []).
