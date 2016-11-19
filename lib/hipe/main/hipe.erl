@@ -635,44 +635,51 @@ run_compiler(Name, DisasmFun, IcodeFun, Opts0) ->
   Opts = expand_basic_options(Opts0 ++ ?COMPILE_DEFAULTS),
   ?when_option(verbose, Opts, ?debug_msg("Compiling: ~p\n",[Name])),
   ?option_start_time("Compile", Opts),
-  Res = run_compiler_1(DisasmFun, IcodeFun, Opts),
+  Res = run_compiler_1(Name, DisasmFun, IcodeFun, Opts),
   ?option_stop_time("Compile", Opts),
   Res.
 
-run_compiler_1(DisasmFun, IcodeFun, Options) ->
+run_compiler_1(Name, DisasmFun, IcodeFun, Options) ->
   Parent = self(),
   {trap_exit,TrapExit} = process_info(Parent, trap_exit),
   %% Spawn a compilation process CompProc. In case this process gets
   %% killed, the trap_exit flag is restored to that of the Parent process.
   process_flag(trap_exit, true),
-  CompProc = spawn_link(fun () ->
-			    %% Compiler process
-			    set_architecture(Options),
-			    pre_init(Options),
-			    %% The full option expansion is not done
-			    %% until the DisasmFun returns.
-			    {Code, CompOpts} = DisasmFun(Options),
-			    Opts0 = expand_options(Options ++ CompOpts,
-                                                   get(hipe_target_arch)),
-                            Opts =
-                             case proplists:get_bool(to_llvm, Opts0) andalso
-                                 not llvm_support_available() of
-                               true ->
-                                 ?error_msg("No LLVM version 3.4 or greater "
-                                            "found in $PATH; aborting "
-                                            "native code compilation.\n", []),
-                                 ?EXIT(cant_find_required_llvm_version);
-                               false ->
-                                 Opts0
-                             end,
-			    check_options(Opts),
-			    ?when_option(verbose, Options,
-					 ?debug_msg("Options: ~p.\n",[Opts])),
-			    init(Opts),
-			    {Icode, WholeModule} = IcodeFun(Code, Opts),
-			    CompRes = compile_finish(Icode, WholeModule, Opts),
-			    compiler_return(CompRes, Parent)
-			end),
+  CompProc =
+    spawn_link(
+      fun () ->
+	  try
+	    %% Compiler process
+	    set_architecture(Options),
+	    pre_init(Options),
+	    %% The full option expansion is not done
+	    %% until the DisasmFun returns.
+	    {Code, CompOpts} = DisasmFun(Options),
+	    Opts0 = expand_options(Options ++ CompOpts,
+				   get(hipe_target_arch)),
+	    Opts =
+	      case proplists:get_bool(to_llvm, Opts0) andalso
+		not llvm_support_available() of
+		true ->
+		  ?error_msg("No LLVM version 3.4 or greater "
+			     "found in $PATH; aborting "
+			     "native code compilation.\n", []),
+		  ?EXIT(cant_find_required_llvm_version);
+		false ->
+		  Opts0
+	      end,
+	    check_options(Opts),
+	    ?when_option(verbose, Options,
+			 ?debug_msg("Options: ~p.\n",[Opts])),
+	    init(Opts),
+	    {Icode, WholeModule} = IcodeFun(Code, Opts),
+	    CompRes = compile_finish(Icode, WholeModule, Opts),
+	    compiler_return(CompRes, Parent)
+	  catch error:Error ->
+	      print_crash_message(Name, Error),
+	      exit(Error)
+	  end
+      end),
   Timeout = case proplists:get_value(timeout, Options) of
 	      N when is_integer(N), N >= 0 -> N;
 	      undefined -> ?DEFAULT_TIMEOUT;
@@ -691,7 +698,7 @@ run_compiler_1(DisasmFun, IcodeFun, Options) ->
       exit(CompProc, kill),
       receive {'EXIT', CompProc, _} -> ok end,
       flush(),
-      ?error_msg("ERROR: Compilation timed out.\n",[]),
+      ?error_msg("ERROR: Compilation of ~w timed out.\n",[Name]),
       exit(timed_out)
   end,
   Result = receive {CompProc, Res} -> Res end,
@@ -844,10 +851,24 @@ finalize_fun_sequential({MFA, Icode}, Opts, Servers) ->
   catch
     error:Error ->
       ?when_option(verbose, Opts, ?debug_untagged_msg("\n", [])),
-      ErrorInfo = {Error, erlang:get_stacktrace()},
-      ?error_msg("ERROR: ~p~n", [ErrorInfo]),
-      ?EXIT(ErrorInfo)
+      print_crash_message(MFA, Error),
+      exit(Error)
   end.
+
+print_crash_message(What, Error) ->
+  StackFun = fun(_,_,_) -> false end,
+  FormatFun = fun (Term, _) -> io_lib:format("~p", [Term]) end,
+  StackTrace = lib:format_stacktrace(1, erlang:get_stacktrace(),
+				     StackFun, FormatFun),
+  WhatS = case What of
+	    {M,F,A} -> io_lib:format("~w:~w/~w", [M,F,A]);
+	    Mod -> io_lib:format("~w", [Mod])
+	  end,
+  ?error_msg("INTERNAL ERROR~n"
+	     "while compiling ~s~n"
+	     "crash reason: ~p~n"
+	     "~s~n",
+	     [WhatS, Error, StackTrace]).
 
 pp_server_start(Opts) ->
   set_architecture(Opts),
