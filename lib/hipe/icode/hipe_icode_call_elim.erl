@@ -46,7 +46,8 @@ cfg(IcodeSSA) ->
 -spec elim_insn(icode_instr()) -> icode_instr().
 elim_insn(Insn=#icode_call{'fun'={_,_,_}=MFA, args=Args, type=remote,
 			   dstlist=[Dst=#icode_variable{
-				      annotation={type_anno, RetType, _}}]}) ->
+					   annotation={type_anno, RetType, _}}],
+			   continuation=[], fail_label=[]}) ->
   Opaques = 'universe',
   case erl_types:t_is_singleton(RetType, Opaques) of
     true ->
