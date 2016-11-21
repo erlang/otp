@@ -26,7 +26,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,
+-export([all/0, suite/0, groups/0,
+         init_per_group/2, end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload_error/1, upgrade/1, heap_frag/1,
          t_on_load/1,
@@ -53,28 +54,20 @@
 
 -export([many_args_100/100]).
 
-
-%% -export([lib_version/0,call_history/0,hold_nif_mod_priv_data/1,nif_mod_call_history/0,
-%% 	 list_seq/1,type_test/0,tuple_2_list/1,is_identical/2,compare/2,
-%% 	 clone_bin/1,make_sub_bin/3,string_to_bin/2,atom_to_bin/2,macros/1,
-%% 	 tuple_2_list_and_tuple/1,iolist_2_bin/1,get_resource_type/1,alloc_resource/2,
-%% 	 make_resource/1,get_resource/2,release_resource/1,last_resource_dtor_call/0, suite/0,
-%% 	 make_new_resource/2,make_new_resource_binary/1,send_list_seq/2,send_new_blob/2,
-%% 	 alloc_msgenv/0,clear_msgenv/1,grow_blob/2,send_blob/2,send_blob_thread/3,
-%% 	 join_send_thread/1]).
-
-
 -define(nif_stub,nif_stub_error(?LINE)).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [basic, reload_error, upgrade, heap_frag, types, many_args,
-     t_on_load,
+all() ->
+    [basic]
+        ++
+    [{group, G} || G <- api_groups()]
+        ++
+    [reload_error, heap_frag, types, many_args,
      hipe,
      binaries, get_string, get_atom, maps, api_macros, from_array,
      iolist_as_binary, resource, resource_binary,
-     resource_takeover, threading, send, send2, send3,
+     threading, send, send2, send3,
      send_threaded, neg, is_checks, get_length, make_atom,
      make_string,reverse_list_test,
      otp_9828,
@@ -86,6 +79,19 @@ all() ->
      nif_term_to_binary, nif_binary_to_term,
      nif_port_command,
      nif_snprintf].
+
+groups() ->
+    [{G, [], api_repeaters()} || G <- api_groups()].
+
+api_groups() -> [api_latest, api_2_4].
+
+api_repeaters() -> [upgrade, resource_takeover, t_on_load].
+
+init_per_group(api_latest, Config) -> Config;
+init_per_group(api_2_4, Config) ->
+    [{nif_api_version, ".2_4"} | Config].
+
+end_per_group(_,_) -> ok.
 
 init_per_testcase(t_on_load, Config) ->
     ets:new(nif_SUITE, [named_table]),
@@ -156,12 +162,6 @@ reload_error(Config) when is_list(Config) ->
 
 %% Test upgrade callback in nif lib
 upgrade(Config) when is_list(Config) ->
-    [begin io:format("Do test for API version \"~p\"", [API]),
-           upgrade_do([{nif_api_version,API}|Config])
-     end
-     || API <- ["", ".2_4"]].
-
-upgrade_do(Config) ->
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
 
@@ -301,12 +301,6 @@ upgrade_do(Config) ->
 
 %% Test loading/upgrade in on_load
 t_on_load(Config) when is_list(Config) ->
-    [begin io:format("Do test for API version \"~p\"", [API]),
-           t_on_load_do([{nif_api_version,API}|Config])
-     end
-     || API <- ["", ".2_4"]].
-
-t_on_load_do(Config) ->
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
 
@@ -862,12 +856,6 @@ resource_binary_do() ->
 
 %% Test resource takeover by module upgrade
 resource_takeover(Config) when is_list(Config) ->    
-    [begin io:format("Do test for API version \"~p\"", [API]),
-           resource_takeover_do([{nif_api_version,API}|Config])
-     end
-     || API <- ["", ".2_4"]].
-
-resource_takeover_do(Config) ->
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
 
