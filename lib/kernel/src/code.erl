@@ -719,37 +719,28 @@ start_get_mode() ->
 which(Module) when is_atom(Module) ->
     case is_loaded(Module) of
 	false ->
-	    which2(Module);
+            File = atom_to_list(Module) ++ objfile_extension(),
+            which(File, get_path());
 	{file, File} ->
 	    File
     end.
 
-which2(Module) ->
-    Base = atom_to_list(Module),
-    File = filename:basename(Base) ++ objfile_extension(),
-    Path = get_path(),
-    which(File, filename:dirname(Base), Path).
-
--spec which(file:filename(), file:filename(), [file:filename()]) ->
+-spec which(file:filename(), [file:filename()]) ->
         'non_existing' | file:filename().
 
-which(_, _, []) ->
+which(_, []) ->
     non_existing;
-which(File, Base, [Directory|Tail]) ->
-    Path = if
-	       Base =:= "." -> Directory;
-	       true -> filename:join(Directory, Base)
-	   end,
+which(File, [Path|Tail]) ->
     case erl_prim_loader:list_dir(Path) of
 	{ok,Files} ->
 	    case lists:member(File,Files) of
 		true ->
 		    filename:append(Path, File);
 		false ->
-		    which(File, Base, Tail)
+		    which(File, Tail)
 	    end;
 	_Error ->
-	    which(File, Base, Tail)
+	    which(File, Tail)
     end.
 
 %% Search the code path for a specific file. Try to locate
@@ -760,13 +751,13 @@ which(File, Base, [Directory|Tail]) ->
       Absname :: file:filename().
 where_is_file(File) when is_list(File) ->
     Path = get_path(),
-    which(File, ".", Path).
+    which(File, Path).
 
 -spec where_is_file(Path :: file:filename(), Filename :: file:filename()) ->
         file:filename() | 'non_existing'.
 
 where_is_file(Path, File) when is_list(Path), is_list(File) ->
-    which(File, ".", Path).
+    which(File, Path).
 
 -spec set_primary_archive(ArchiveFile :: file:filename(),
 			  ArchiveBin :: binary(),
