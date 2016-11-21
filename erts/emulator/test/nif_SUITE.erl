@@ -21,7 +21,7 @@
 -module(nif_SUITE).
 
 %%-define(line_trace,true).
--define(CHECK(Exp,Got), check(Exp,Got,?LINE)).
+-define(CHECK(Exp,Got), Exp = check(Exp,Got,?LINE)).
 %%-define(CHECK(Exp,Got), Exp = Got).
 
 -include_lib("common_test/include/ct.hrl").
@@ -932,7 +932,7 @@ resource_takeover(Config) when is_list(Config) ->
                               ]),
     ?CHECK([{upgrade,2,1,201}], nif_mod_call_history()),
     true = erlang:purge_module(nif_mod),
-    ?CHECK([{unload,1,1,106}], nif_mod_call_history()),
+    ?CHECK([], nif_mod_call_history()),  % BGX2 keeping lib loaded
 
     BinA2 = read_resource(0,A2),
     ok = forget_resource(A2),
@@ -945,8 +945,8 @@ resource_takeover(Config) when is_list(Config) ->
     ?CHECK([], nif_mod_call_history()),    % no dtor
 
     ok = forget_resource(BGX2),  % calling dtor in orphan library v1 still loaded
-    ?CHECK([{{resource_dtor_B_v1,BinBGX2},1,6,106}], nif_mod_call_history()),
-    % How to test that lib v1 is closed here?
+    ?CHECK([{{resource_dtor_B_v1,BinBGX2},1,6,106}, {unload,1,7,107}],
+           nif_mod_call_history()),
 
     ok = forget_resource(NGX2),
     ?CHECK([], nif_mod_call_history()),  % no dtor
@@ -1900,7 +1900,8 @@ check(Exp,Got,Line) ->
     case Got of
  	Exp -> Exp;	    
   	_ ->
-  	    io:format("CHECK at ~p: Expected ~p but got ~p\n",[Line,Exp,Got]),
+	    io:format("CHECK at line ~p\nExpected: ~p\nGot     : ~p\n",
+                      [Line,Exp,Got]),
  	    Got
     end.
 
