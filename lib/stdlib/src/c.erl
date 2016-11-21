@@ -26,7 +26,7 @@
 -export([help/0,lc/1,c/1,c/2,nc/1,nc/2, nl/1,l/1,i/0,i/1,ni/0,
          y/1, y/2,
 	 lc_batch/0, lc_batch/1,
-	 i/3,pid/3,m/0,m/1,
+	 i/3,pid/3,m/0,m/1,mm/0,lm/0,
 	 bt/1, q/0,
 	 erlangrc/0,erlangrc/1,bi/1, flush/0, regs/0, uptime/0,
 	 nregs/0,pwd/0,ls/0,ls/1,cd/1,memory/1,memory/0, xm/1]).
@@ -52,11 +52,13 @@ help() ->
 		   "ni()       -- information about the networked system\n"
 		   "i(X,Y,Z)   -- information about pid <X,Y,Z>\n"
 		   "l(Module)  -- load or reload module\n"
+		   "lm()       -- load all modified modules\n"
 		   "lc([File]) -- compile a list of Erlang modules\n"
 		   "ls()       -- list files in the current directory\n"
 		   "ls(Dir)    -- list files in directory <Dir>\n"
 		   "m()        -- which modules are loaded\n"
 		   "m(Mod)     -- information about module <Mod>\n"
+		   "mm()       -- list all modified modules\n"
 		   "memory()   -- memory allocation information\n"
 		   "memory(T)  -- memory allocation information of type <T>\n"
 		   "nc(File)   -- compile and load code in <File> on all nodes\n"
@@ -458,6 +460,16 @@ m() ->
 
 mformat(A1, A2) ->
     format("~-20s  ~ts\n", [A1,A2]).
+
+-spec mm() -> [module()].
+
+mm() ->
+    code:modified_modules().
+
+-spec lm() -> [code:load_ret()].
+
+lm() ->
+    [l(M) || M <- mm()].
 
 %% erlangrc(Home)
 %%  Try to run a ".erlang" file, first in the current directory
