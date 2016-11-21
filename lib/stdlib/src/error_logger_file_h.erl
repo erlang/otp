@@ -125,7 +125,7 @@ write_event(#st{fd=Fd}=State, Event) ->
 			 true ->
 			     []
 		     end,
-	    io:put_chars(Fd, [Header,Body,AtNode])
+	    io:put_chars(Fd, [Header,AtNode,Body])
     end.
 
 format_body(State, [{Format,Args}|T]) ->

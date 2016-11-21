@@ -141,7 +141,7 @@ do_write_event(State, {Time, Event}) ->
 			 true ->
 			     []
 		     end,
-	    Str = [Header,Body,AtNode],
+	    Str = [Header,AtNode,Body],
 	    case State#st.io_mod of
 		io_lib ->
 		    Str;

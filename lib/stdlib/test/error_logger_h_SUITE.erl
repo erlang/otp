@@ -297,13 +297,13 @@ match_format(Tag, [Format,Args], [Head|Lines], AtNode, Depth) ->
 	    iolist_to_binary(S)
     end,
     Expected0 = binary:split(Bin, <<"\n">>, [global,trim]),
-    Expected = Expected0 ++ AtNode,
+    Expected = AtNode ++ Expected0,
     match_term_lines(Expected, Lines).
 
 match_term(Tag, [Arg], [Head|Lines], AtNode, Depth) ->
     match_head(Tag, Head),
     Expected0 = match_term_get_expected(Arg, Depth),
-    Expected = Expected0 ++ AtNode,
+    Expected = AtNode ++ Expected0,
     match_term_lines(Expected, Lines).
 
 match_term_get_expected(List, Depth) when is_list(List) ->
