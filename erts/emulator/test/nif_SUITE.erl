@@ -83,13 +83,15 @@ all() ->
 groups() ->
     [{G, [], api_repeaters()} || G <- api_groups()].
 
-api_groups() -> [api_latest, api_2_4].
+api_groups() -> [api_latest, api_2_4, api_2_0].
 
 api_repeaters() -> [upgrade, resource_takeover, t_on_load].
 
 init_per_group(api_latest, Config) -> Config;
 init_per_group(api_2_4, Config) ->
-    [{nif_api_version, ".2_4"} | Config].
+    [{nif_api_version, ".2_4"} | Config];
+init_per_group(api_2_0, Config) ->
+    [{nif_api_version, ".2_0"} | Config].
 
 end_per_group(_,_) -> ok.
 
