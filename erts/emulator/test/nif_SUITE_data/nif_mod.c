@@ -247,8 +247,12 @@ static ERL_NIF_TERM nif_api_version(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 
 static ERL_NIF_TERM get_priv_data_ptr(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    NifModPrivData** bin_data;
+    ERL_NIF_TERM res;
     ADD_CALL("get_priv_data_ptr");
-    return enif_make_uint64(env, (ErlNifUInt64)priv_data(env));
+    bin_data = (NifModPrivData**)enif_make_new_binary(env, sizeof(void*), &res);
+    *bin_data = priv_data(env);
+    return res;
 }
 
 static ERL_NIF_TERM make_new_resource(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
