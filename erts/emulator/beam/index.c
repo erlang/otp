@@ -27,7 +27,7 @@
 #include "global.h"
 #include "index.h"
 
-void index_info(int to, void *arg, IndexTable *t)
+void index_info(fmtfn_t to, void *arg, IndexTable *t)
 {
     hash_info(to, arg, &t->htable);
     erts_print(to, arg, "=index_table:%s\n", t->htable.name);

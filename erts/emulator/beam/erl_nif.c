@@ -3073,16 +3073,16 @@ Eterm erts_nif_taints(Process* p)
     return list;
 }
 
-void erts_print_nif_taints(int to, void* to_arg)
+void erts_print_nif_taints(fmtfn_t to, void* to_arg)
 {
     struct tainted_module_t* t;
     const char* delim = "";
     for (t=first_tainted_module ; t!=NULL; t=t->next) {
 	const Atom* atom = atom_tab(atom_val(t->module_atom));
-	erts_print(to,to_arg,"%s%.*s", delim, atom->len, atom->name);
+	erts_cbprintf(to,to_arg,"%s%.*s", delim, atom->len, atom->name);
 	delim = ",";
     }
-    erts_print(to,to_arg,"\n");
+    erts_cbprintf(to,to_arg,"\n");
 }
 
 

@@ -165,8 +165,8 @@ write_f(void *vfp, char* buf, size_t len)
     return len;
 }
 
-static int
-write_fd(void *vfdp, char* buf, size_t len)
+int
+erts_write_fd(void *vfdp, char* buf, size_t len)
 {
     ssize_t size;
     size_t res = len;
@@ -226,8 +226,8 @@ write_sn(void *vwsnap, char* buf, size_t len)
     return rv;
 }
 
-static int
-write_ds(void *vdsbufp, char* buf, size_t len)
+int
+erts_write_ds(void *vdsbufp, char* buf, size_t len)
 {
     erts_dsprintf_buf_t *dsbufp = (erts_dsprintf_buf_t *) vdsbufp;
     size_t need_len = len + 1; /* Also trailing '\0' */
@@ -301,7 +301,7 @@ erts_fdprintf(int fd, const char *format, ...)
     va_list arglist;
     va_start(arglist, format);
     errno = 0;
-    res = erts_printf_format(write_fd,(void *)&fd,(char *)format,arglist);
+    res = erts_printf_format(erts_write_fd,(void *)&fd,(char *)format,arglist);
     va_end(arglist);
     return res;
 }
@@ -355,13 +355,27 @@ erts_dsprintf(erts_dsprintf_buf_t *dsbufp, const char *format, ...)
 	return -EINVAL;
     va_start(arglist, format);
     errno = 0;
-    res = erts_printf_format(write_ds, (void *)dsbufp, (char *)format, arglist);
+    res = erts_printf_format(erts_write_ds, (void *)dsbufp, (char *)format, arglist);
     if (dsbufp->str) {
 	if (res < 0)
 	    dsbufp->str[0] = '\0';
 	else
 	    dsbufp->str[dsbufp->str_len] = '\0';
     }
+    va_end(arglist);
+    return res;
+}
+
+/*
+ * Callback printf
+ */
+int erts_cbprintf(fmtfn_t cb_fn, void* cb_arg, const char* format, ...)
+{
+    int res;
+    va_list arglist;
+    va_start(arglist, format);
+    errno = 0;
+    res = erts_printf_format(cb_fn, cb_arg, (char *)format, arglist);
     va_end(arglist);
     return res;
 }
@@ -411,7 +425,7 @@ erts_vfdprintf(int fd, const char *format, va_list arglist)
 {
     int res;
     errno = 0;
-    res = erts_printf_format(write_fd,(void *)&fd,(char *)format,arglist);
+    res = erts_printf_format(erts_write_fd,(void *)&fd,(char *)format,arglist);
     return res;
 }
 
@@ -456,7 +470,7 @@ erts_vdsprintf(erts_dsprintf_buf_t *dsbufp, const char *format, va_list arglist)
     if (!dsbufp)
 	return -EINVAL;
     errno = 0;
-    res = erts_printf_format(write_ds, (void *)dsbufp, (char *)format, arglist);
+    res = erts_printf_format(erts_write_ds, (void *)dsbufp, (char *)format, arglist);
     if (dsbufp->str) {
 	if (res < 0)
 	    dsbufp->str[0] = '\0';
@@ -464,4 +478,11 @@ erts_vdsprintf(erts_dsprintf_buf_t *dsbufp, const char *format, va_list arglist)
 	    dsbufp->str[dsbufp->str_len] = '\0';
     }
     return res;
+}
+
+int
+erts_vcbprintf(fmtfn_t cb_fn, void* cb_arg, const char *format, va_list arglist)
+{
+    errno = 0;
+    return erts_printf_format(cb_fn, cb_arg, (char *)format, arglist);
 }

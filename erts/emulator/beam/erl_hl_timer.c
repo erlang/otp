@@ -2851,7 +2851,7 @@ erts_read_port_timer(Port *c_prt)
  */
 
 typedef struct {
-    int to;
+    fmtfn_t to;
     void *to_arg;
     ErtsMonotonicTime now;
 } ErtsBTMPrint;
@@ -2881,7 +2881,7 @@ btm_print(ErtsHLTimer *tmr, void *vbtmp)
 }
 
 void
-erts_print_bif_timer_info(int to, void *to_arg)
+erts_print_bif_timer_info(fmtfn_t to, void *to_arg)
 {
     ErtsBTMPrint btmp;
     int six;

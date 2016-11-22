@@ -188,7 +188,7 @@ dist_table_free(void *vdep)
 
 
 void
-erts_dist_table_info(int to, void *to_arg)
+erts_dist_table_info(fmtfn_t to, void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
@@ -564,7 +564,7 @@ erts_node_table_size(void)
 }
 
 void
-erts_node_table_info(int to, void *to_arg)
+erts_node_table_info(fmtfn_t to, void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
@@ -649,7 +649,7 @@ void erts_schedule_delete_node(ErlNode *enp)
 }
 
 struct pn_data {
-    int to;
+    fmtfn_t to;
     void *to_arg;
     Eterm sysname;
     int no_sysname;
@@ -679,7 +679,7 @@ static void print_node(void *venp, void *vpndp)
     pndp->no_total++;
 }
 
-void erts_print_node_info(int to,
+void erts_print_node_info(fmtfn_t to,
 			  void *to_arg,
 			  Eterm sysname,
 			  int *no_sysname,

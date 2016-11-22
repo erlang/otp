@@ -2372,6 +2372,8 @@ system_cleanup(int flush_async)
     erts_exit_flush_async();
 }
 
+static int erts_exit_code;
+
 static __decl_noreturn void __noreturn
 erts_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
 {
@@ -2383,11 +2385,20 @@ erts_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
     if (fmt != NULL && *fmt != '\0')
 	erl_error(fmt, args2);	/* Print error message. */
 
-    /* Produce an Erlang core dump if error */
+    erts_exit_code = n;
+
+    /* Produce an Erlang crash dump if error */
     if (((n == ERTS_ERROR_EXIT && erts_no_crash_dump == 0) || n == ERTS_DUMP_EXIT)
 	&& erts_initialized) {
 	erl_crash_dump_v((char*) NULL, 0, fmt, args1);
     }
+
+    erts_exit_epilogue();
+}
+
+__decl_noreturn void __noreturn erts_exit_epilogue(void)
+{
+    int n = erts_exit_code;
 
     sys_tty_reset(n);
 

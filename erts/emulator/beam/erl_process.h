@@ -1834,12 +1834,12 @@ void erts_cleanup_empty_process(Process* p);
 #ifdef DEBUG
 void erts_debug_verify_clean_empty_process(Process* p);
 #endif
-void erts_stack_dump(int to, void *to_arg, Process *);
-void erts_limited_stack_trace(int to, void *to_arg, Process *);
-void erts_program_counter_info(int to, void *to_arg, Process *);
-void erts_print_scheduler_info(int to, void *to_arg, ErtsSchedulerData *esdp);
-void erts_dump_extended_process_state(int to, void *to_arg, erts_aint32_t psflg);
-void erts_dump_process_state(int to, void *to_arg, erts_aint32_t psflg);
+void erts_stack_dump(fmtfn_t to, void *to_arg, Process *);
+void erts_limited_stack_trace(fmtfn_t to, void *to_arg, Process *);
+void erts_program_counter_info(fmtfn_t to, void *to_arg, Process *);
+void erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp);
+void erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
+void erts_dump_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
 
 Eterm erts_get_process_priority(Process *p);
 Eterm erts_set_process_priority(Process *p, Eterm prio);
@@ -1875,7 +1875,7 @@ void erts_handle_pending_exit(Process *, ErtsProcLocks);
 #define ERTS_PROC_PENDING_EXIT(P) 0
 #endif
 
-void erts_deep_process_dump(int, void *);
+void erts_deep_process_dump(fmtfn_t, void *);
 
 Eterm erts_get_reader_groups_map(Process *c_p);
 Eterm erts_debug_reader_groups_map(Process *c_p, int groups);

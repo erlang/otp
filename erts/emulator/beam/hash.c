@@ -95,7 +95,7 @@ void hash_get_info(HashInfo *hi, Hash *h)
 **
 */
 
-void hash_info(int to, void *arg, Hash* h)
+void hash_info(fmtfn_t to, void *arg, Hash* h)
 {
     HashInfo hi;
 

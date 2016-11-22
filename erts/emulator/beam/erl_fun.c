@@ -77,7 +77,7 @@ erts_init_fun_table(void)
 }
 
 void
-erts_fun_info(int to, void *to_arg)
+erts_fun_info(fmtfn_t to, void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
@@ -281,7 +281,7 @@ erts_fun_purge_complete(ErlFunEntry **funs, Uint no)
 }
 
 void
-erts_dump_fun_entries(int to, void *to_arg)
+erts_dump_fun_entries(fmtfn_t to, void *to_arg)
 {
     int limit;
     HashBucket** bucket;

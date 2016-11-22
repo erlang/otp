@@ -22,6 +22,7 @@
 #define ERL_MMAP_H__
 
 #include "sys.h"
+#include "erl_printf.h"
 
 #define ERTS_MMAP_SUPERALIGNED_BITS (18)
 /* Affects hard limits for sbct and lmbcs documented in erts_alloc.xml */
@@ -146,10 +147,10 @@ struct erts_mmap_info_struct
     UWord segs[6];
     UWord os_used;
 };
-Eterm erts_mmap_info(ErtsMemMapper*, int *print_to_p, void *print_to_arg,
+Eterm erts_mmap_info(ErtsMemMapper*, fmtfn_t *print_to_p, void *print_to_arg,
                      Eterm** hpp, Uint* szp, struct erts_mmap_info_struct*);
 Eterm erts_mmap_info_options(ErtsMemMapper*,
-                             char *prefix, int *print_to_p, void *print_to_arg,
+                             char *prefix, fmtfn_t *print_to_p, void *print_to_arg,
                              Uint **hpp, Uint *szp);
 
 

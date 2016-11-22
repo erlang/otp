@@ -31,6 +31,7 @@
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 binary_to_atom/1,binary_to_existing_atom/1,
 	 atom_to_binary/1,min_max/1, erlang_halt/1,
+         erl_crash_dump_bytes/1,
 	 is_builtin/1]).
 
 suite() ->
@@ -43,6 +44,7 @@ all() ->
      t_list_to_existing_atom, os_env, otp_7526,
      display,
      atom_to_binary, binary_to_atom, binary_to_existing_atom,
+     erl_crash_dump_bytes,
      min_max, erlang_halt, is_builtin].
 
 %% Uses erlang:display to test that erts_printf does not do deep recursion
@@ -664,7 +666,7 @@ erlang_halt(Config) when is_list(Config) ->
                      [available_internal_state, true]),
     {badrpc,nodedown} = rpc:call(N4, erts_debug, set_internal_state,
                                  [broken_halt, "Validate correct crash dump"]),
-    ok = wait_until_stable_size(CrashDump,-1),
+    {ok,_} = wait_until_stable_size(CrashDump,-1),
     {ok, Bin} = file:read_file(CrashDump),
     case {string:str(binary_to_list(Bin),"\n=end\n"),
           string:str(binary_to_list(Bin),"\r\n=end\r\n")} of
@@ -681,10 +683,33 @@ wait_until_stable_size(File,PrevSz) ->
             wait_until_stable_size(File,PrevSz-1);
         {ok,#file_info{size = PrevSz }} when PrevSz /= -1 ->
             io:format("Crashdump file size was: ~p (~s)~n",[PrevSz,File]),
-            ok;
+            {ok,PrevSz};
         {ok,#file_info{size = NewSz }} ->
             wait_until_stable_size(File,NewSz)
     end.
+
+% Test erlang:halt with ERL_CRASH_DUMP_BYTES
+erl_crash_dump_bytes(Config) when is_list(Config) ->
+    Bytes = 1000,
+    CrashDump = do_limited_crash_dump(Config, Bytes),
+    {ok,ActualBytes} = wait_until_stable_size(CrashDump,-1),
+    true = ActualBytes < (Bytes + 100),
+
+    NoDump = do_limited_crash_dump(Config,0),
+    {error,enoent} = wait_until_stable_size(NoDump,-8),
+    ok.
+
+do_limited_crash_dump(Config, Bytes) ->
+    H = hostname(),
+    {ok,N} = slave:start(H, halt_node),
+    BytesStr = integer_to_list(Bytes),
+    CrashDump = filename:join(proplists:get_value(priv_dir,Config),
+                              "erl_crash." ++ BytesStr ++ ".dump"),
+    true = rpc:call(N, os, putenv, ["ERL_CRASH_DUMP",CrashDump]),
+    true = rpc:call(N, os, putenv, ["ERL_CRASH_DUMP_BYTES",BytesStr]),
+    {badrpc,nodedown} = rpc:call(N, erlang, halt, ["Testing ERL_CRASH_DUMP_BYTES"]),
+    CrashDump.
+
 
 is_builtin(_Config) ->
     Exp0 = [{M,F,A} || {M,_} <- code:all_loaded(),

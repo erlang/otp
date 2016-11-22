@@ -51,7 +51,7 @@ static erts_smp_atomic_t tot_module_bytes;
 
 #include "erl_smp.h"
 
-void module_info(int to, void *to_arg)
+void module_info(fmtfn_t to, void *to_arg)
 {
     index_info(to, to_arg, &module_tables[erts_active_code_ix()]);
 }

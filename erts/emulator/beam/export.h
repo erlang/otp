@@ -51,7 +51,7 @@ typedef struct export
 
 
 void init_export_table(void);
-void export_info(int, void *);
+void export_info(fmtfn_t, void *);
 
 ERTS_GLB_INLINE Export* erts_active_export_entry(Eterm m, Eterm f, unsigned a);
 Export* erts_export_put(Eterm mod, Eterm func, unsigned int arity);

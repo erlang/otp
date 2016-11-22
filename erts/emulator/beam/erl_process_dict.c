@@ -156,7 +156,7 @@ erts_pd_set_initial_size(int size)
  * Called from break handler
  */
 void
-erts_dictionary_dump(int to, void *to_arg, ProcDict *pd)
+erts_dictionary_dump(fmtfn_t to, void *to_arg, ProcDict *pd)
 {
     unsigned int i;
 #ifdef DEBUG
@@ -196,8 +196,8 @@ erts_dictionary_dump(int to, void *to_arg, ProcDict *pd)
 }
 
 void
-erts_deep_dictionary_dump(int to, void *to_arg,
-			  ProcDict* pd, void (*cb)(int, void *, Eterm))
+erts_deep_dictionary_dump(fmtfn_t to, void *to_arg,
+			  ProcDict* pd, void (*cb)(fmtfn_t, void *, Eterm))
 {
     unsigned int i;
     Eterm t;
