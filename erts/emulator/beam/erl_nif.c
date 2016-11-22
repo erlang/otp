@@ -2309,6 +2309,17 @@ erts_setup_nif_gc(Process* proc, Eterm** objv, int* nobj)
     return gc;
 }
 
+int
+erts_check_nif_export_in_area(Process *p, char *start, Uint size)
+{
+    NifExport *nep = ERTS_PROC_GET_NIF_TRAP_EXPORT(p);
+    if (!nep || !nep->saved_current)
+	return 0;
+    if (ErtsInArea(nep->saved_current, start, size))
+	return 1;
+    return 0;
+}
+
 /*
  * Allocate a NifExport and set it in proc specific data
  */

@@ -1086,6 +1086,11 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
 	|| ErtsInArea(rp->cp, mod_start, mod_size)) {
 	return am_true;
     }
+ 
+    *redsp += 1;
+
+    if (erts_check_nif_export_in_area(rp, mod_start, mod_size))
+	return am_true;
 
     *redsp += (STACK_START(rp) - rp->stop) / 32;
 
@@ -1161,6 +1166,12 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
 	|| ErtsInArea(rp->cp, mod_start, mod_size)) {
 	return am_true;
     }
+ 
+    *redsp += 1;
+
+    if (erts_check_nif_export_in_area(rp, mod_start, mod_size))
+	return am_true;
+
 
     /*
      * Check all continuation pointers stored on the stack.
