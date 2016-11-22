@@ -2360,6 +2360,7 @@ init_nif_sched_data(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirec
     Eterm* reg;
     NifExport* ep;
     int i, scheduler;
+    int orig_argc;
 
     execution_state(env, &proc, &scheduler);
 
@@ -2370,11 +2371,14 @@ init_nif_sched_data(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirec
 
     reg = erts_proc_sched_data(proc)->x_reg_array;
 
+    ASSERT(!need_save || proc->current);
+    orig_argc = need_save ? (int) proc->current[2] : 0;
+
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
     if (!ep)
-	ep = allocate_nif_sched_data(proc, argc);
-    else if (need_save && ep->rootset_extra < argc) {
-	NifExport* new_ep = allocate_nif_sched_data(proc, argc);
+	ep = allocate_nif_sched_data(proc, orig_argc);
+    else if (need_save && ep->rootset_extra < orig_argc) {
+	NifExport* new_ep = allocate_nif_sched_data(proc, orig_argc);
 	destroy_nif_export(ep);
 	ep = new_ep;
     }
@@ -2387,16 +2391,14 @@ init_nif_sched_data(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirec
     }
     if (scheduler > 0)
 	ERTS_VBUMP_ALL_REDS(proc);
-    for (i = 0; i < argc; i++) {
-	if (need_save)
-	    ep->rootset[i+1] = reg[i];
-	reg[i] = (Eterm) argv[i];
-    }
     if (need_save) {
-	ASSERT(proc->current);
 	ep->saved_current = proc->current;
-	ep->saved_argc = argc;
+	ep->saved_argc = orig_argc;
+	for (i = 0; i < orig_argc; i++)
+	    ep->rootset[i+1] = reg[i];
     }
+    for (i = 0; i < argc; i++)
+	reg[i] = (Eterm) argv[i];
     proc->i = (BeamInstr*) ep->exp.addressv[0];
     ep->exp.code[0] = (BeamInstr) proc->current[0];
     ep->exp.code[1] = (BeamInstr) proc->current[1];
