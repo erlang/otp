@@ -815,7 +815,7 @@ case 5107: { // glCallList
 }; break;
 case 5108: { // glCallLists
  int * listsLen = (int *) bp; bp += 4;
- GLuint * lists = (GLuint *) bp;  bp += (8-((*listsLen*4+4)%8))%8;
+ GLuint * lists = (GLuint *) bp;  bp += *listsLen*4 + (8-((*listsLen*4+4)%8))%8;
  weglCallLists(*listsLen,GL_UNSIGNED_INT,lists);
 }; break;
 case 5109: { // glListBase
@@ -1866,7 +1866,7 @@ case 5271: { // glGenTextures
 }; break;
 case 5272: { // glDeleteTextures
  int * texturesLen = (int *) bp; bp += 4;
- GLuint * textures = (GLuint *) bp;  bp += (8-((*texturesLen*4+4)%8))%8;
+ GLuint * textures = (GLuint *) bp;  bp += *texturesLen*4 + (8-((*texturesLen*4+4)%8))%8;
  weglDeleteTextures(*texturesLen,textures);
 }; break;
 case 5273: { // glBindTexture
@@ -1876,14 +1876,14 @@ case 5273: { // glBindTexture
 }; break;
 case 5274: { // glPrioritizeTextures
  int * texturesLen = (int *) bp; bp += 4;
- GLuint * textures = (GLuint *) bp;  bp += (8-((*texturesLen*4+4)%8))%8;
+ GLuint * textures = (GLuint *) bp;  bp += *texturesLen*4 + (8-((*texturesLen*4+4)%8))%8;
  int * prioritiesLen = (int *) bp; bp += 4;
- GLclampf * priorities = (GLclampf *) bp;  bp += (8-((*prioritiesLen*4+4)%8))%8;
+ GLclampf * priorities = (GLclampf *) bp;  bp += *prioritiesLen*4 + (8-((*prioritiesLen*4+4)%8))%8;
  weglPrioritizeTextures(*texturesLen,textures,priorities);
 }; break;
 case 5275: { // glAreTexturesResident
  int * texturesLen = (int *) bp; bp += 4;
- GLuint * textures = (GLuint *) bp;  bp += (8-((*texturesLen*4+4)%8))%8;
+ GLuint * textures = (GLuint *) bp;  bp += *texturesLen*4 + (8-((*texturesLen*4+4)%8))%8;
  GLboolean *residences;
  residences = (GLboolean *) driver_alloc(sizeof(GLboolean) * *texturesLen);
  GLboolean result = weglAreTexturesResident(*texturesLen,textures,residences);
@@ -2921,9 +2921,9 @@ case 5394: { // glBlendFuncSeparate
 case 5395: { // glMultiDrawArrays
  GLenum *mode = (GLenum *) bp; bp += 4;
  int * firstLen = (int *) bp; bp += 4;
- GLint * first = (GLint *) bp;  bp += (8-((*firstLen*4+0)%8))%8;
+ GLint * first = (GLint *) bp;  bp += *firstLen*4 + (8-((*firstLen*4+0)%8))%8;
  int * countLen = (int *) bp; bp += 4;
- GLsizei * count = (GLsizei *) bp;  bp += (8-((*countLen*4+4)%8))%8;
+ GLsizei * count = (GLsizei *) bp;  bp += *countLen*4 + (8-((*countLen*4+4)%8))%8;
  weglMultiDrawArrays(*mode,first,count,*firstLen);
 }; break;
 case 5396: { // glPointParameterf
@@ -3064,7 +3064,7 @@ case 5422: { // glGenQueries
 }; break;
 case 5423: { // glDeleteQueries
  int * idsLen = (int *) bp; bp += 4;
- GLuint * ids = (GLuint *) bp;  bp += (8-((*idsLen*4+4)%8))%8;
+ GLuint * ids = (GLuint *) bp;  bp += *idsLen*4 + (8-((*idsLen*4+4)%8))%8;
  weglDeleteQueries(*idsLen,ids);
 }; break;
 case 5424: { // glIsQuery
@@ -3125,7 +3125,7 @@ case 5430: { // glBindBuffer
 }; break;
 case 5431: { // glDeleteBuffers
  int * buffersLen = (int *) bp; bp += 4;
- GLuint * buffers = (GLuint *) bp;  bp += (8-((*buffersLen*4+4)%8))%8;
+ GLuint * buffers = (GLuint *) bp;  bp += *buffersLen*4 + (8-((*buffersLen*4+4)%8))%8;
  weglDeleteBuffers(*buffersLen,buffers);
 }; break;
 case 5432: { // glGenBuffers
@@ -3216,7 +3216,7 @@ case 5440: { // glBlendEquationSeparate
 }; break;
 case 5441: { // glDrawBuffers
  int * bufsLen = (int *) bp; bp += 4;
- GLenum * bufs = (GLenum *) bp;  bp += (8-((*bufsLen*4+4)%8))%8;
+ GLenum * bufs = (GLenum *) bp;  bp += *bufsLen*4 + (8-((*bufsLen*4+4)%8))%8;
  weglDrawBuffers(*bufsLen,bufs);
 }; break;
 case 5442: { // glStencilOpSeparate
@@ -3635,7 +3635,7 @@ case 5482: { // glUniform4i
 case 5483: { // glUniform1fv
  GLint *location = (GLint *) bp; bp += 4;
  int * valueLen = (int *) bp; bp += 4;
- GLfloat * value = (GLfloat *) bp;  bp += (8-((*valueLen*4+0)%8))%8;
+ GLfloat * value = (GLfloat *) bp;  bp += *valueLen*4 + (8-((*valueLen*4+0)%8))%8;
  weglUniform1fv(*location,*valueLen,value);
 }; break;
 case 5484: { // glUniform2fv
@@ -3659,7 +3659,7 @@ case 5486: { // glUniform4fv
 case 5487: { // glUniform1iv
  GLint *location = (GLint *) bp; bp += 4;
  int * valueLen = (int *) bp; bp += 4;
- GLint * value = (GLint *) bp;  bp += (8-((*valueLen*4+0)%8))%8;
+ GLint * value = (GLint *) bp;  bp += *valueLen*4 + (8-((*valueLen*4+0)%8))%8;
  weglUniform1iv(*location,*valueLen,value);
 }; break;
 case 5488: { // glUniform2iv
@@ -4230,7 +4230,7 @@ case 5563: { // glUniform4ui
 case 5564: { // glUniform1uiv
  GLint *location = (GLint *) bp; bp += 4;
  int * valueLen = (int *) bp; bp += 4;
- GLuint * value = (GLuint *) bp;  bp += (8-((*valueLen*4+0)%8))%8;
+ GLuint * value = (GLuint *) bp;  bp += *valueLen*4 + (8-((*valueLen*4+0)%8))%8;
  weglUniform1uiv(*location,*valueLen,value);
 }; break;
 case 5565: { // glUniform2uiv
@@ -4483,42 +4483,42 @@ case 5594: { // glMultTransposeMatrixdARB
 }; break;
 case 5595: { // glWeightbvARB
  int * weightsLen = (int *) bp; bp += 4;
- GLbyte * weights = (GLbyte *) bp;  bp += (8-((*weightsLen*1+4)%8))%8;
+ GLbyte * weights = (GLbyte *) bp;  bp += *weightsLen*1 + (8-((*weightsLen*1+4)%8))%8;
  weglWeightbvARB(*weightsLen,weights);
 }; break;
 case 5596: { // glWeightsvARB
  int * weightsLen = (int *) bp; bp += 4;
- GLshort * weights = (GLshort *) bp;  bp += (8-((*weightsLen*2+4)%8))%8;
+ GLshort * weights = (GLshort *) bp;  bp += *weightsLen*2 + (8-((*weightsLen*2+4)%8))%8;
  weglWeightsvARB(*weightsLen,weights);
 }; break;
 case 5597: { // glWeightivARB
  int * weightsLen = (int *) bp; bp += 4;
- GLint * weights = (GLint *) bp;  bp += (8-((*weightsLen*4+4)%8))%8;
+ GLint * weights = (GLint *) bp;  bp += *weightsLen*4 + (8-((*weightsLen*4+4)%8))%8;
  weglWeightivARB(*weightsLen,weights);
 }; break;
 case 5598: { // glWeightfvARB
  int * weightsLen = (int *) bp; bp += 4;
- GLfloat * weights = (GLfloat *) bp;  bp += (8-((*weightsLen*4+4)%8))%8;
+ GLfloat * weights = (GLfloat *) bp;  bp += *weightsLen*4 + (8-((*weightsLen*4+4)%8))%8;
  weglWeightfvARB(*weightsLen,weights);
 }; break;
 case 5599: { // glWeightdvARB
  int * weightsLen = (int *) bp; bp += 8;
- GLdouble * weights = (GLdouble *) bp;  bp += (8-((*weightsLen*8+0)%8))%8;
+ GLdouble * weights = (GLdouble *) bp;  bp += *weightsLen*8 + (8-((*weightsLen*8+0)%8))%8;
  weglWeightdvARB(*weightsLen,weights);
 }; break;
 case 5600: { // glWeightubvARB
  int * weightsLen = (int *) bp; bp += 4;
- GLubyte * weights = (GLubyte *) bp;  bp += (8-((*weightsLen*1+4)%8))%8;
+ GLubyte * weights = (GLubyte *) bp;  bp += *weightsLen*1 + (8-((*weightsLen*1+4)%8))%8;
  weglWeightubvARB(*weightsLen,weights);
 }; break;
 case 5601: { // glWeightusvARB
  int * weightsLen = (int *) bp; bp += 4;
- GLushort * weights = (GLushort *) bp;  bp += (8-((*weightsLen*2+4)%8))%8;
+ GLushort * weights = (GLushort *) bp;  bp += *weightsLen*2 + (8-((*weightsLen*2+4)%8))%8;
  weglWeightusvARB(*weightsLen,weights);
 }; break;
 case 5602: { // glWeightuivARB
  int * weightsLen = (int *) bp; bp += 4;
- GLuint * weights = (GLuint *) bp;  bp += (8-((*weightsLen*4+4)%8))%8;
+ GLuint * weights = (GLuint *) bp;  bp += *weightsLen*4 + (8-((*weightsLen*4+4)%8))%8;
  weglWeightuivARB(*weightsLen,weights);
 }; break;
 case 5603: { // glVertexBlendARB
@@ -4531,17 +4531,17 @@ case 5604: { // glCurrentPaletteMatrixARB
 }; break;
 case 5605: { // glMatrixIndexubvARB
  int * indicesLen = (int *) bp; bp += 4;
- GLubyte * indices = (GLubyte *) bp;  bp += (8-((*indicesLen*1+4)%8))%8;
+ GLubyte * indices = (GLubyte *) bp;  bp += *indicesLen*1 + (8-((*indicesLen*1+4)%8))%8;
  weglMatrixIndexubvARB(*indicesLen,indices);
 }; break;
 case 5606: { // glMatrixIndexusvARB
  int * indicesLen = (int *) bp; bp += 4;
- GLushort * indices = (GLushort *) bp;  bp += (8-((*indicesLen*2+4)%8))%8;
+ GLushort * indices = (GLushort *) bp;  bp += *indicesLen*2 + (8-((*indicesLen*2+4)%8))%8;
  weglMatrixIndexusvARB(*indicesLen,indices);
 }; break;
 case 5607: { // glMatrixIndexuivARB
  int * indicesLen = (int *) bp; bp += 4;
- GLuint * indices = (GLuint *) bp;  bp += (8-((*indicesLen*4+4)%8))%8;
+ GLuint * indices = (GLuint *) bp;  bp += *indicesLen*4 + (8-((*indicesLen*4+4)%8))%8;
  weglMatrixIndexuivARB(*indicesLen,indices);
 }; break;
 case 5608: { // glProgramStringARB
@@ -4558,7 +4558,7 @@ case 5609: { // glBindProgramARB
 }; break;
 case 5610: { // glDeleteProgramsARB
  int * programsLen = (int *) bp; bp += 4;
- GLuint * programs = (GLuint *) bp;  bp += (8-((*programsLen*4+4)%8))%8;
+ GLuint * programs = (GLuint *) bp;  bp += *programsLen*4 + (8-((*programsLen*4+4)%8))%8;
  weglDeleteProgramsARB(*programsLen,programs);
 }; break;
 case 5611: { // glGenProgramsARB
@@ -5021,7 +5021,7 @@ case 5650: { // glBindRenderbuffer
 }; break;
 case 5651: { // glDeleteRenderbuffers
  int * renderbuffersLen = (int *) bp; bp += 4;
- GLuint * renderbuffers = (GLuint *) bp;  bp += (8-((*renderbuffersLen*4+4)%8))%8;
+ GLuint * renderbuffers = (GLuint *) bp;  bp += *renderbuffersLen*4 + (8-((*renderbuffersLen*4+4)%8))%8;
  weglDeleteRenderbuffers(*renderbuffersLen,renderbuffers);
 }; break;
 case 5652: { // glGenRenderbuffers
@@ -5074,7 +5074,7 @@ case 5656: { // glBindFramebuffer
 }; break;
 case 5657: { // glDeleteFramebuffers
  int * framebuffersLen = (int *) bp; bp += 4;
- GLuint * framebuffers = (GLuint *) bp;  bp += (8-((*framebuffersLen*4+4)%8))%8;
+ GLuint * framebuffers = (GLuint *) bp;  bp += *framebuffersLen*4 + (8-((*framebuffersLen*4+4)%8))%8;
  weglDeleteFramebuffers(*framebuffersLen,framebuffers);
 }; break;
 case 5658: { // glGenFramebuffers
@@ -5200,7 +5200,7 @@ case 5671: { // glBindVertexArray
 }; break;
 case 5672: { // glDeleteVertexArrays
  int * arraysLen = (int *) bp; bp += 4;
- GLuint * arrays = (GLuint *) bp;  bp += (8-((*arraysLen*4+4)%8))%8;
+ GLuint * arrays = (GLuint *) bp;  bp += *arraysLen*4 + (8-((*arraysLen*4+4)%8))%8;
  weglDeleteVertexArrays(*arraysLen,arrays);
 }; break;
 case 5673: { // glGenVertexArrays
@@ -5255,7 +5255,7 @@ case 5675: { // glGetUniformIndices
 case 5676: { // glGetActiveUniformsiv
  GLuint *program = (GLuint *) bp; bp += 4;
  int * uniformIndicesLen = (int *) bp; bp += 4;
- GLuint * uniformIndices = (GLuint *) bp;  bp += (8-((*uniformIndicesLen*4+0)%8))%8;
+ GLuint * uniformIndices = (GLuint *) bp;  bp += *uniformIndicesLen*4 + (8-((*uniformIndicesLen*4+0)%8))%8;
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLint *params;
  params = (GLint *) driver_alloc(sizeof(GLint) * *uniformIndicesLen);
@@ -5622,7 +5622,7 @@ case 5709: { // glGenSamplers
 }; break;
 case 5710: { // glDeleteSamplers
  int * samplersLen = (int *) bp; bp += 4;
- GLuint * samplers = (GLuint *) bp;  bp += (8-((*samplersLen*4+4)%8))%8;
+ GLuint * samplers = (GLuint *) bp;  bp += *samplersLen*4 + (8-((*samplersLen*4+4)%8))%8;
  weglDeleteSamplers(*samplersLen,samplers);
 }; break;
 case 5711: { // glIsSampler
@@ -5649,7 +5649,7 @@ case 5714: { // glSamplerParameteriv
  GLuint *sampler = (GLuint *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  int * paramLen = (int *) bp; bp += 4;
- GLint * param = (GLint *) bp;  bp += (8-((*paramLen*4+4)%8))%8;
+ GLint * param = (GLint *) bp;  bp += *paramLen*4 + (8-((*paramLen*4+4)%8))%8;
  weglSamplerParameteriv(*sampler,*pname,param);
 }; break;
 case 5715: { // glSamplerParameterf
@@ -5662,21 +5662,21 @@ case 5716: { // glSamplerParameterfv
  GLuint *sampler = (GLuint *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  int * paramLen = (int *) bp; bp += 4;
- GLfloat * param = (GLfloat *) bp;  bp += (8-((*paramLen*4+4)%8))%8;
+ GLfloat * param = (GLfloat *) bp;  bp += *paramLen*4 + (8-((*paramLen*4+4)%8))%8;
  weglSamplerParameterfv(*sampler,*pname,param);
 }; break;
 case 5717: { // glSamplerParameterIiv
  GLuint *sampler = (GLuint *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  int * paramLen = (int *) bp; bp += 4;
- GLint * param = (GLint *) bp;  bp += (8-((*paramLen*4+4)%8))%8;
+ GLint * param = (GLint *) bp;  bp += *paramLen*4 + (8-((*paramLen*4+4)%8))%8;
  weglSamplerParameterIiv(*sampler,*pname,param);
 }; break;
 case 5718: { // glSamplerParameterIuiv
  GLuint *sampler = (GLuint *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  int * paramLen = (int *) bp; bp += 4;
- GLuint * param = (GLuint *) bp;  bp += (8-((*paramLen*4+4)%8))%8;
+ GLuint * param = (GLuint *) bp;  bp += *paramLen*4 + (8-((*paramLen*4+4)%8))%8;
  weglSamplerParameterIuiv(*sampler,*pname,param);
 }; break;
 case 5719: { // glGetSamplerParameteriv
@@ -5827,7 +5827,7 @@ case 5734: { // glUniform1dv
  GLint *location = (GLint *) bp; bp += 4;
  bp += 4;
  int * valueLen = (int *) bp; bp += 8;
- GLdouble * value = (GLdouble *) bp;  bp += (8-((*valueLen*8+0)%8))%8;
+ GLdouble * value = (GLdouble *) bp;  bp += *valueLen*8 + (8-((*valueLen*8+0)%8))%8;
  weglUniform1dv(*location,*valueLen,value);
 }; break;
 case 5735: { // glUniform2dv
@@ -6010,7 +6010,7 @@ case 5751: { // glGetActiveSubroutineName
 case 5752: { // glUniformSubroutinesuiv
  GLenum *shadertype = (GLenum *) bp; bp += 4;
  int * indicesLen = (int *) bp; bp += 4;
- GLuint * indices = (GLuint *) bp;  bp += (8-((*indicesLen*4+0)%8))%8;
+ GLuint * indices = (GLuint *) bp;  bp += *indicesLen*4 + (8-((*indicesLen*4+0)%8))%8;
  weglUniformSubroutinesuiv(*shadertype,*indicesLen,indices);
 }; break;
 case 5753: { // glGetUniformSubroutineuiv
@@ -6061,7 +6061,7 @@ case 5755: { // glPatchParameteri
 case 5756: { // glPatchParameterfv
  GLenum *pname = (GLenum *) bp; bp += 4;
  int * valuesLen = (int *) bp; bp += 4;
- GLfloat * values = (GLfloat *) bp;  bp += (8-((*valuesLen*4+0)%8))%8;
+ GLfloat * values = (GLfloat *) bp;  bp += *valuesLen*4 + (8-((*valuesLen*4+0)%8))%8;
  weglPatchParameterfv(*pname,values);
 }; break;
 case 5757: { // glBindTransformFeedback
@@ -6071,7 +6071,7 @@ case 5757: { // glBindTransformFeedback
 }; break;
 case 5758: { // glDeleteTransformFeedbacks
  int * idsLen = (int *) bp; bp += 4;
- GLuint * ids = (GLuint *) bp;  bp += (8-((*idsLen*4+4)%8))%8;
+ GLuint * ids = (GLuint *) bp;  bp += *idsLen*4 + (8-((*idsLen*4+4)%8))%8;
  weglDeleteTransformFeedbacks(*idsLen,ids);
 }; break;
 case 5759: { // glGenTransformFeedbacks
@@ -6144,7 +6144,7 @@ case 5768: { // glReleaseShaderCompiler
 }; break;
 case 5769: { // glShaderBinary
  int * shadersLen = (int *) bp; bp += 4;
- GLuint * shaders = (GLuint *) bp;  bp += (8-((*shadersLen*4+4)%8))%8;
+ GLuint * shaders = (GLuint *) bp;  bp += *shadersLen*4 + (8-((*shadersLen*4+4)%8))%8;
  GLenum *binaryformat = (GLenum *) bp; bp += 4;
  GLvoid *binary = (GLvoid *) bins[0];
  GLsizei binary_size = bins_sz[0];
@@ -6239,7 +6239,7 @@ case 5779: { // glBindProgramPipeline
 }; break;
 case 5780: { // glDeleteProgramPipelines
  int * pipelinesLen = (int *) bp; bp += 4;
- GLuint * pipelines = (GLuint *) bp;  bp += (8-((*pipelinesLen*4+4)%8))%8;
+ GLuint * pipelines = (GLuint *) bp;  bp += *pipelinesLen*4 + (8-((*pipelinesLen*4+4)%8))%8;
  weglDeleteProgramPipelines(*pipelinesLen,pipelines);
 }; break;
 case 5781: { // glGenProgramPipelines
@@ -6288,7 +6288,7 @@ case 5785: { // glProgramUniform1iv
  GLuint *program = (GLuint *) bp; bp += 4;
  GLint *location = (GLint *) bp; bp += 4;
  int * valueLen = (int *) bp; bp += 4;
- GLint * value = (GLint *) bp;  bp += (8-((*valueLen*4+4)%8))%8;
+ GLint * value = (GLint *) bp;  bp += *valueLen*4 + (8-((*valueLen*4+4)%8))%8;
  weglProgramUniform1iv(*program,*location,*valueLen,value);
 }; break;
 case 5786: { // glProgramUniform1f
@@ -6301,7 +6301,7 @@ case 5787: { // glProgramUniform1fv
  GLuint *program = (GLuint *) bp; bp += 4;
  GLint *location = (GLint *) bp; bp += 4;
  int * valueLen = (int *) bp; bp += 4;
- GLfloat * value = (GLfloat *) bp;  bp += (8-((*valueLen*4+4)%8))%8;
+ GLfloat * value = (GLfloat *) bp;  bp += *valueLen*4 + (8-((*valueLen*4+4)%8))%8;
  weglProgramUniform1fv(*program,*location,*valueLen,value);
 }; break;
 case 5788: { // glProgramUniform1d
@@ -6314,7 +6314,7 @@ case 5789: { // glProgramUniform1dv
  GLuint *program = (GLuint *) bp; bp += 4;
  GLint *location = (GLint *) bp; bp += 4;
  int * valueLen = (int *) bp; bp += 8;
- GLdouble * value = (GLdouble *) bp;  bp += (8-((*valueLen*8+0)%8))%8;
+ GLdouble * value = (GLdouble *) bp;  bp += *valueLen*8 + (8-((*valueLen*8+0)%8))%8;
  weglProgramUniform1dv(*program,*location,*valueLen,value);
 }; break;
 case 5790: { // glProgramUniform1ui
@@ -6327,7 +6327,7 @@ case 5791: { // glProgramUniform1uiv
  GLuint *program = (GLuint *) bp; bp += 4;
  GLint *location = (GLint *) bp; bp += 4;
  int * valueLen = (int *) bp; bp += 4;
- GLuint * value = (GLuint *) bp;  bp += (8-((*valueLen*4+4)%8))%8;
+ GLuint * value = (GLuint *) bp;  bp += *valueLen*4 + (8-((*valueLen*4+4)%8))%8;
  weglProgramUniform1uiv(*program,*location,*valueLen,value);
 }; break;
 case 5792: { // glProgramUniform2i
@@ -6860,7 +6860,7 @@ case 5853: { // glDebugMessageControlARB
  GLenum *type = (GLenum *) bp; bp += 4;
  GLenum *severity = (GLenum *) bp; bp += 4;
  int * idsLen = (int *) bp; bp += 4;
- GLuint * ids = (GLuint *) bp;  bp += (8-((*idsLen*4+0)%8))%8;
+ GLuint * ids = (GLuint *) bp;  bp += *idsLen*4 + (8-((*idsLen*4+0)%8))%8;
  GLboolean *enabled = (GLboolean *) bp; bp += 1;
  weglDebugMessageControlARB(*source,*type,*severity,*idsLen,ids,*enabled);
 }; break;

@@ -217,7 +217,7 @@ decode_arg(P=#arg{name=Name,type=#type{size=Sz,single=list,name=Type}},A0) ->
     A = align(max([Sz,4]),A0),
     w(" int * ~sLen = (int *) bp; bp += ~p;~n",    [Name, max([4,Sz])]),
     w(" ~s * ~s = (~s *) bp; ", [Type,Name,Type]),
-    w(" bp += (8-((*~sLen*~p+~p)%8))%8;~n", [Name,Sz,A]),
+    w(" bp += *~sLen*~p + (8-((*~sLen*~p+~p)%8))%8;~n", [Name,Sz,Name,Sz,A]),
     {P, 0};
 decode_arg(P=#arg{name=Name,type=#type{size=TSz,name=Type,single={tuple,undefined}}},A0) ->
     A = align(TSz,A0),
