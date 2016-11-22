@@ -661,6 +661,26 @@ bin_check(void)
 
 #endif
 
+static Sint64 crash_dump_limit = ERTS_SINT64_MAX;
+static Sint64 crash_dump_written = 0;
+
+static int crash_dump_limited_writer(void* vfdp, char* buf, size_t len)
+{
+    const char stop_msg[] = "\n=abort: CRASH DUMP SIZE LIMIT REACHED\n";
+
+    crash_dump_written += len;
+    if (crash_dump_written <= crash_dump_limit) {
+        return erts_write_fd(vfdp, buf, len);
+    }
+
+    len -= (crash_dump_written - crash_dump_limit);
+    erts_write_fd(vfdp, buf, len);
+    erts_write_fd(vfdp, (char*)stop_msg, sizeof(stop_msg)-1);
+
+    /* We assume that crash dump was called from erts_exit_vv() */
+    erts_exit_epilogue();
+}
+
 /* XXX THIS SHOULD BE IN SYSTEM !!!! */
 void
 erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
@@ -758,6 +778,21 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 
     if (erts_sys_prepare_crash_dump(secs) && !env_erl_crash_dump_seconds_set ) {
 	return;
+    }
+
+    crash_dump_limit = ERTS_SINT64_MAX;
+    envsz = sizeof(env);
+    if (erts_sys_getenv__("ERL_CRASH_DUMP_BYTES", env, &envsz) == 0) {
+        Sint64 limit;
+        char* endptr;
+        errno = 0;
+        limit = ErtsStrToSint64(env, &endptr, 10);
+        if (errno == 0 && limit >= 0 && endptr != env && *endptr == 0) {
+            if (limit == 0)
+                return;
+            crash_dump_limit = limit;
+            to = &crash_dump_limited_writer;
+        }
     }
 
     if (erts_sys_getenv__("ERL_CRASH_DUMP",&dumpnamebuf[0],&dumpnamebufsize) != 0)

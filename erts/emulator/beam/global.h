@@ -1079,6 +1079,7 @@ double erts_get_positive_zero_float(void);
 
 /* config.c */
 
+__decl_noreturn void __noreturn erts_exit_epilogue(void);
 __decl_noreturn void __noreturn erts_exit(int n, char*, ...);
 __decl_noreturn void __noreturn erts_flush_async_exit(int n, char*, ...);
 void erl_error(char*, va_list);
