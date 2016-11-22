@@ -16,7 +16,7 @@ para2.erl:88: The test para2:circ(integer()) =:= para2:circ(integer(),integer())
 para3.erl:28: Invalid type specification for function para3:ot2/0. The success typing is () -> 'foo'
 para3.erl:36: The pattern {{{17}}} can never match the type {{{{{{_,_,_,_,_}}}}}}
 para3.erl:55: Invalid type specification for function para3:t2/0. The success typing is () -> 'foo'
-para3.erl:65: The attempt to match a term of type {{{{{para3_adt:ot1(_,_,_,_,_)}}}}} against the pattern {{{{{17}}}}} breaks the opaqueness of para3_adt:ot1(_,_,_,_,_)
+para3.erl:65: The attempt to match a term of type {{{{{para3_adt:ot1(_,_,_,_,_)}}}}} against the pattern {{{{{17}}}}} breaks the opacity of para3_adt:ot1(_,_,_,_,_)
 para3.erl:68: The pattern {{{{17}}}} can never match the type {{{{{para3_adt:ot1(_,_,_,_,_)}}}}}
 para3.erl:74: The specification for para3:exp_adt/0 has an opaque subtype para3_adt:exp1(para3_adt:exp2()) which is violated by the success typing () -> 3
 para4.erl:21: Invalid type specification for function para4:a/1. The success typing is (para4:d_all() | para4:d_atom()) -> [{atom() | integer(),atom() | integer()}]
