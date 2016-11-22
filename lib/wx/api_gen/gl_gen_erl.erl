@@ -496,6 +496,8 @@ doc_arg_type2(#type{base=string, single=list}) ->
     "iolist()";
 doc_arg_type2(T=#type{single={tuple,Sz}}) ->
     "{" ++ args(fun doc_arg_type3/1, ",", lists:duplicate(Sz,T)) ++ "}";
+doc_arg_type2(#type{base=guard_int, single=list}) ->
+    "[integer()]|mem()";
 doc_arg_type2(T=#type{single=list}) ->
     "[" ++ doc_arg_type3(T) ++ "]";
 doc_arg_type2(T=#type{single={list, _Max}}) ->
@@ -516,7 +518,9 @@ doc_arg_type3(#type{base=binary}) ->    "binary()";
 doc_arg_type3(#type{base=memory}) ->    "mem()".
 
 guard_test(As) ->
-    Str = args(fun(#arg{name=N,type=#type{base=guard_int}}) ->
+    Str = args(fun(#arg{name=N,type=#type{base=guard_int, single=list}}) ->
+		       " is_list("++erl_arg_name(N)++")";
+                   (#arg{name=N,type=#type{base=guard_int}}) ->
 		       " is_integer("++erl_arg_name(N)++")";
 		  (_) ->
 		       skip
@@ -526,6 +530,13 @@ guard_test(As) ->
 	Other -> " when " ++ Other
     end.
 
+pre_marshal([#arg{name=N,in=true, type=#type{base=binary, single=list}=T, alt=list_binary}=A|R]) ->
+    w("  send_bin(~s),~n", [erl_arg_name(N)]),
+    w("  ~sLen = byte_size(if is_binary(~s) -> ~s; is_tuple(~s) -> element(2, ~s) end) div 4,~n",
+      [erl_arg_name(N),erl_arg_name(N), erl_arg_name(N), erl_arg_name(N), erl_arg_name(N)]),
+    Type = T#type{base=int, by_val=true, single=true, ref=undefined},
+    Arg=A#arg{name=N++"Len", where=both, type=Type},
+    [Arg|pre_marshal(R)];
 pre_marshal([#arg{name=N,in=true,type=#type{base=binary}}|R]) ->
     w("  send_bin(~s),~n", [erl_arg_name(N)]),
     pre_marshal(R);
@@ -587,7 +598,7 @@ marshal_arg(#type{size=BSz,name=Type,single={tuple,matrix12}},Name,A0) ->
     align(BSz,16,A0,All);
 
 marshal_arg(#type{size=Sz,name=Type,base=Base,single=list},Name,A0)
-  when Base =:= float; Base =:= int ->
+  when Base =:= float; Base =:= int; Base =:= guard_int ->
     KeepA = case Sz of 8 -> "0:32,"; _ -> "" end,
     Str0 = "(length("++Name++")):?GLuint,"++KeepA++"\n"
 	"        (<< <<C:?"++Type++">> || C <- "++Name++">>)/binary",
