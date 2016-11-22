@@ -22,7 +22,7 @@
 #define ERL_MSACC_H__
 
 /* Can be enabled/disabled via configure */
-#if ERTS_ENABLE_MSACC == 2
+#if defined(ERTS_ENABLE_MSACC) && ERTS_ENABLE_MSACC == 2
 #define ERTS_MSACC_EXTENDED_STATES 1
 #endif
 
@@ -66,7 +66,7 @@
 
 #define ERTS_MSACC_STATE_COUNT 7
 
-#if ERTS_MSACC_STATE_STRINGS && ERTS_ENABLE_MSACC
+#if defined(ERTS_MSACC_STATE_STRINGS) && defined(ERTS_ENABLE_MSACC)
 static char *erts_msacc_states[] = {
     "aux",
     "check_io",
@@ -104,7 +104,7 @@ static char *erts_msacc_states[] = {
 #define ERTS_MSACC_STATE_COUNT ERTS_MSACC_STATIC_STATE_COUNT
 #endif
 
-#if ERTS_MSACC_STATE_STRINGS
+#ifdef ERTS_MSACC_STATE_STRINGS
 static char *erts_msacc_states[] = {
     "alloc",
     "aux",
@@ -157,7 +157,7 @@ struct erl_msacc_t_ {
 
 };
 
-#if ERTS_ENABLE_MSACC
+#ifdef ERTS_ENABLE_MSACC
 
 #ifdef USE_THREADS
 extern erts_tsd_key_t erts_msacc_key;

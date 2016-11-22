@@ -21,6 +21,8 @@
 #ifndef __PROCESS_H__
 #define __PROCESS_H__
 
+#include "sys.h"
+
 #undef ERTS_INCLUDE_SCHEDULER_INTERNALS
 #if (defined(ERL_PROCESS_C__) \
      || defined(ERL_PORT_TASK_C__) \
@@ -36,8 +38,6 @@
 #endif
 
 typedef struct process Process;
-
-#include "sys.h"
 
 #define ERTS_PROCESS_LOCK_ONLY_PROC_LOCK_TYPE__
 #include "erl_process_lock.h" /* Only pull out important types... */

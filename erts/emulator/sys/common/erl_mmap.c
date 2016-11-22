@@ -1878,7 +1878,7 @@ erts_mremap(ErtsMemMapper* mm,
 	    return NULL;
 	}
 
-#if ERTS_HAVE_OS_MREMAP || ERTS_HAVE_GENUINE_OS_MMAP
+#if defined(ERTS_HAVE_OS_MREMAP) || defined(ERTS_HAVE_GENUINE_OS_MMAP)
 	superaligned = (ERTS_MMAPFLG_SUPERALIGNED & flags);
 
 	if (superaligned) {
@@ -1898,7 +1898,7 @@ erts_mremap(ErtsMemMapper* mm,
 	    }
 	}
 
-#if ERTS_HAVE_GENUINE_OS_MMAP
+#ifdef ERTS_HAVE_GENUINE_OS_MMAP
 	if (asize < old_size
 	    && (!superaligned
 		|| ERTS_IS_SUPERALIGNED(ptr))) {
@@ -1913,7 +1913,7 @@ erts_mremap(ErtsMemMapper* mm,
 	    return ptr;
 	}
 #endif
-#if ERTS_HAVE_OS_MREMAP
+#ifdef ERTS_HAVE_OS_MREMAP
 	if (superaligned)
 	    return remap_move(mm, flags, new_ptr, old_size, sizep);
 	else {

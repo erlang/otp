@@ -533,6 +533,7 @@ if test "x$GCC" = xyes; then
   # Treat certain GCC warnings as errors
   LM_TRY_ENABLE_CFLAG([-Werror=return-type], [WERRORFLAGS])
   LM_TRY_ENABLE_CFLAG([-Werror=implicit], [WERRORFLAGS])
+  LM_TRY_ENABLE_CFLAG([-Werror=undef], [WERRORFLAGS])
 
   # until the emulator can handle this, I suggest we turn it off!
   #WFLAGS="-Wall -Wshadow -Wcast-qual -Wmissing-declarations"

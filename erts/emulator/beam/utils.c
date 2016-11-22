@@ -204,9 +204,8 @@ erl_grow_wstack(ErtsWStack* s, Uint need)
 void
 erl_grow_pstack(ErtsPStack* s, void* default_pstack, unsigned need_bytes)
 {
-    Uint old_size = s->pend - s->pstart;
+    Uint old_size = s->size;
     Uint new_size;
-    Uint sp_offs = s->psp - s->pstart;
 
     if (need_bytes < old_size)
 	new_size = 2 * old_size;
@@ -220,8 +219,7 @@ erl_grow_pstack(ErtsPStack* s, void* default_pstack, unsigned need_bytes)
 	sys_memcpy(new_ptr, s->pstart, old_size);
 	s->pstart = new_ptr;
     }
-    s->pend = s->pstart + new_size;
-    s->psp = s->pstart + sp_offs;
+    s->size = new_size;
 }
 
 /*

@@ -733,7 +733,7 @@ erts_thr_drvport2port(ErlDrvPort drvport, int lock_pdl)
     if (lock_pdl && prt->port_data_lock)
 	driver_pdl_lock(prt->port_data_lock);
 
-#if ERTS_ENABLE_LOCK_CHECK
+#ifdef ERTS_ENABLE_LOCK_CHECK
     if (!ERTS_IS_CRASH_DUMPING) {
 	if (erts_lc_is_emu_thr()) {
 	    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
