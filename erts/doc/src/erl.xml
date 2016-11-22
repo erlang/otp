@@ -1540,6 +1540,15 @@
           </item>
         </taglist>
       </item>
+      <tag><c><![CDATA[ERL_CRASH_DUMP_BYTES]]></c></tag>
+      <item>
+      <p>This variable sets the maximum size of a crash dump file in bytes.
+        The crash dump will be truncated if this limit is exceeded. If the
+	variable is not set, no size limit is enforced by default. If the
+	variable is set to <c>0</c>, the runtime system does not even attempt
+	to write a crash dump file.</p>
+      <p>Introduced in ERTS 8.1.2 (Erlang/OTP 19.2).</p>
+      </item>
       <tag><marker id="ERL_AFLAGS"/><c><![CDATA[ERL_AFLAGS]]></c></tag>
       <item>
         <p>The content of this variable is added to the beginning of the

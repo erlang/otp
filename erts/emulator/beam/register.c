@@ -102,7 +102,7 @@ is_proc_alive(Process *p)
     return !ERTS_PROC_IS_EXITING(p);
 }
 
-void register_info(int to, void *to_arg)
+void register_info(fmtfn_t to, void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)

@@ -175,7 +175,7 @@ typedef struct db_table_method
     int (*db_free_table)(DbTable* db /* [in out] */ );
     int (*db_free_table_continue)(DbTable* db); /* [in out] */  
     
-    void (*db_print)(int to, 
+    void (*db_print)(fmtfn_t to,
 		     void* to_arg, 
 		     int show, 
 		     DbTable* tb /* [in out] */ );

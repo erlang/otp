@@ -385,7 +385,7 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
 static int db_select_delete_continue_tree(Process *p, DbTable *tbl, 
 					  Eterm continuation, Eterm *ret);
 static int db_take_tree(Process *, DbTable *, Eterm, Eterm *);
-static void db_print_tree(int to, void *to_arg,
+static void db_print_tree(fmtfn_t to, void *to_arg,
 			  int show, DbTable *tbl);
 static int db_free_table_tree(DbTable *tbl);
 
@@ -1740,7 +1740,7 @@ static int db_take_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 
 
 /* Display tree contents (for dump) */
-static void db_print_tree(int to, void *to_arg, 
+static void db_print_tree(fmtfn_t to, void *to_arg,
 			  int show,
 			  DbTable *tbl)
 {

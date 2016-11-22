@@ -437,7 +437,7 @@ static int db_select_count_continue_hash(Process *p, DbTable *tbl,
 static int db_select_delete_continue_hash(Process *p, DbTable *tbl,
 					  Eterm continuation, Eterm *ret);
 static int db_take_hash(Process *, DbTable *, Eterm, Eterm *);
-static void db_print_hash(int to,
+static void db_print_hash(fmtfn_t to,
 			  void *to_arg,
 			  int show,
 			  DbTable *tbl);
@@ -2155,7 +2155,7 @@ int db_mark_all_deleted_hash(DbTable *tbl)
 
 
 /* Display hash table contents (for dump) */
-static void db_print_hash(int to, void *to_arg, int show, DbTable *tbl)
+static void db_print_hash(fmtfn_t to, void *to_arg, int show, DbTable *tbl)
 {
     DbTableHash *tb = &tbl->hash;
     DbHashStats stats;

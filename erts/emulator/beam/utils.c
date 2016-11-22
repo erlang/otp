@@ -348,40 +348,41 @@ int erts_fit_in_bits_uint(Uint value)
 }
 
 int
-erts_print(int to, void *arg, char *format, ...)
+erts_print(fmtfn_t to, void *arg, char *format, ...)
 {
     int res;
     va_list arg_list;
     va_start(arg_list, format);
 
-    if (to < ERTS_PRINT_MIN)
-	res = -EINVAL;
-    else {
-	switch (to) {
-	case ERTS_PRINT_STDOUT:
+    {
+	switch ((UWord)to) {
+	case (UWord)ERTS_PRINT_STDOUT:
 	    res = erts_vprintf(format, arg_list);
 	    break;
-	case ERTS_PRINT_STDERR:
+	case (UWord)ERTS_PRINT_STDERR:
 	    res = erts_vfprintf(stderr, format, arg_list);
 	    break;
-	case ERTS_PRINT_FILE:
+	case (UWord)ERTS_PRINT_FILE:
 	    res = erts_vfprintf((FILE *) arg, format, arg_list);
 	    break;
-	case ERTS_PRINT_SBUF:
+	case (UWord)ERTS_PRINT_SBUF:
 	    res = erts_vsprintf((char *) arg, format, arg_list);
 	    break;
-	case ERTS_PRINT_SNBUF:
+	case (UWord)ERTS_PRINT_SNBUF:
 	    res = erts_vsnprintf(((erts_print_sn_buf *) arg)->buf,
 				 ((erts_print_sn_buf *) arg)->size,
 				 format,
 				 arg_list);
 	    break;
-	case ERTS_PRINT_DSBUF:
+	case (UWord)ERTS_PRINT_DSBUF:
 	    res = erts_vdsprintf((erts_dsprintf_buf_t *) arg, format, arg_list);
 	    break;
-	default:
-	    res = erts_vfdprintf((int) to, format, arg_list);
+        case (UWord)ERTS_PRINT_FD:
+	    res = erts_vfdprintf((int)(SWord) arg, format, arg_list);
 	    break;
+        default:
+            res = erts_vcbprintf(to, arg, format, arg_list);
+            break;
 	}
     }
 
@@ -390,7 +391,7 @@ erts_print(int to, void *arg, char *format, ...)
 }
 
 int
-erts_putc(int to, void *arg, char c)
+erts_putc(fmtfn_t to, void *arg, char c)
 {
     return erts_print(to, arg, "%c", c);
 }
@@ -3876,7 +3877,7 @@ store_external_or_ref_in_proc_(Process *proc, Eterm ns)
     return store_external_or_ref_(&hp, &MSO(proc), ns);
 }
 
-void bin_write(int to, void *to_arg, byte* buf, size_t sz)
+void bin_write(fmtfn_t to, void *to_arg, byte* buf, size_t sz)
 {
     size_t i;
 
