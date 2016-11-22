@@ -545,8 +545,18 @@ pre_marshal([#arg{name=N,type=#type{base=memory}}|R]) ->
     pre_marshal(R);
 pre_marshal([A=#arg{name=N,type=#type{base=string,single=list}}|R]) ->
     %% With null terminations
-    w(" ~sTemp = list_to_binary([[Str|[0]] || Str <- ~s ]),~n",
+    w("  ~sTemp = list_to_binary([[Str|[0]] || Str <- ~s ]),~n",
       [erl_arg_name(N), erl_arg_name(N)]),
+    w("  ~sLen = length(~s),~n",[erl_arg_name(N), erl_arg_name(N)]),
+    [A|pre_marshal(R)];
+pre_marshal([A=#arg{name=N,type=#type{base=string,single=true,ref={pointer,1}}}|R]) ->
+    w("  ~sLen = length(~s),~n",[erl_arg_name(N), erl_arg_name(N)]),
+    [A|pre_marshal(R)];
+pre_marshal([A=#arg{name=N,type=#type{single=list}}|R]) ->
+    w("  ~sLen = length(~s),~n",[erl_arg_name(N), erl_arg_name(N)]),
+    [A|pre_marshal(R)];
+pre_marshal([A=#arg{name=N,type=#type{single={tuple_list,_}}}|R]) ->
+    w("  ~sLen = length(~s),~n",[erl_arg_name(N), erl_arg_name(N)]),
     [A|pre_marshal(R)];
 pre_marshal([A|R]) ->
     [A|pre_marshal(R)];
@@ -600,7 +610,7 @@ marshal_arg(#type{size=BSz,name=Type,single={tuple,matrix12}},Name,A0) ->
 marshal_arg(#type{size=Sz,name=Type,base=Base,single=list},Name,A0)
   when Base =:= float; Base =:= int; Base =:= guard_int ->
     KeepA = case Sz of 8 -> "0:32,"; _ -> "" end,
-    Str0 = "(length("++Name++")):?GLuint,"++KeepA++"\n"
+    Str0 = Name++"Len:?GLuint,"++KeepA++"\n"
 	"        (<< <<C:?"++Type++">> || C <- "++Name++">>)/binary",
     {Str,Align} = align(max([Sz,4]),A0,Str0),
     align_after(Sz,Align,0,1,Name,Str);
@@ -621,7 +631,7 @@ marshal_arg(#type{base=string,single=true,ref={pointer,1}},Name,A0) ->
 
 marshal_arg(#type{base=string,single=list,ref={pointer,2}},Name,A0) ->
     Str0 =
-	"(length("++Name++")):?GLuint,"
+	Name++"Len:?GLuint,"
         "(size("++Name ++ "Temp)):?GLuint,"
 	"(" ++ Name ++ "Temp)/binary",
     {Str,A} = align(4,A0,Str0),
@@ -635,7 +645,7 @@ marshal_arg(#type{size=Sz,name=Type,single={tuple_list,TSz}},Name,A0) ->
     TBin = args(fun(ElName) -> ElName ++ ":?" ++ Type end, ",", Names),
 
     KeepA = case Sz of 8 -> "0:32,"; 4 -> "" end,
-    Str0 = "(length("++Name++")):?GLuint,"++KeepA++"\n"
+    Str0 = Name++"Len:?GLuint,"++KeepA++"\n"
 	"        (<< <<"++TBin++">> || {"++TTup++"} <- "++Name++">>)/binary",
     align(Sz,A0,Str0);
 
@@ -671,19 +681,19 @@ align(8,_,7,Str) -> {"0:8," ++Str, 0}.
 align_after(8,0,_Add,_Multiplier,_Name,Str) -> {Str,0};
 align_after(4,0,Add,Mult,Name,Str) ->
     Extra = extra_align(Add,Mult),
-    Align = ",0:(((length("++Name++")"++Extra++") rem 2)*32)",
+    Align = ",0:((("++Name++"Len"++Extra++") rem 2)*32)",
     {Str ++ Align,0};
 align_after(4,4,Add,Mult,Name,Str) ->
     Extra = extra_align(Add,Mult),
-    Align = ",0:(((1+length("++Name++")"++Extra++") rem 2)*32)",
+    Align = ",0:(((1+"++Name++"Len"++Extra++") rem 2)*32)",
     {Str ++ Align,0};
 align_after(2,A,Add,Mult,Name,Str) when (A rem 2) =:= 0 ->
     Extra = extra_align(A+Add*2,Mult),
-    Align = ",0:((8-((length("++Name++")*2"++Extra++") rem 8)) rem 8)",
+    Align = ",0:((8-(("++Name++"Len*2"++Extra++") rem 8)) rem 8)",
     {Str ++ Align,0};
 align_after(1,A,Add,Mult,Name,Str) ->
     Extra = extra_align(A+Add,Mult),
-    Align = ",0:((8-((length("++Name++")"++Extra++") rem 8)) rem 8)",
+    Align = ",0:((8-(("++Name++"Len"++Extra++") rem 8)) rem 8)",
     {Str ++ Align,0};
 align_after(Sz,A,Add,Mult,Name,Str) ->
     io:format("~p ~p with ~p ~p ~s~n, ~p", [Sz,A,Add,Mult,Name,Str]),

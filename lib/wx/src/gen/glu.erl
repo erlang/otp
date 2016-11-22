@@ -334,7 +334,9 @@ build3DMipmaps(Target,InternalFormat,Width,Height,Depth,Format,Type,Data) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluCheckExtension.xml">external</a> documentation.
 -spec checkExtension(ExtName, ExtString) -> 0|1 when ExtName :: string(),ExtString :: string().
 checkExtension(ExtName,ExtString) ->
-  call(5016, <<(list_to_binary([ExtName|[0]]))/binary,0:((8-((length(ExtName)+ 1) rem 8)) rem 8),(list_to_binary([ExtString|[0]]))/binary,0:((8-((length(ExtString)+ 1) rem 8)) rem 8)>>).
+  ExtNameLen = length(ExtName),
+  ExtStringLen = length(ExtString),
+  call(5016, <<(list_to_binary([ExtName|[0]]))/binary,0:((8-((ExtNameLen+ 1) rem 8)) rem 8),(list_to_binary([ExtString|[0]]))/binary,0:((8-((ExtStringLen+ 1) rem 8)) rem 8)>>).
 
 %% @doc Draw a cylinder
 %%
