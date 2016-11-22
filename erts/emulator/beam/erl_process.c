@@ -6691,15 +6691,8 @@ schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st,
     erts_aint32_t fail_state, state, a, n, enq_prio;
     int enqueue; /* < 0 -> use proxy */
     unsigned int prof_runnable_procs;
-    int strict_fail_state;
 
     fail_state = *fail_state_p;
-    /*
-     * If fail state something other than just exiting process,
-     * ensure that the task wont be scheduled when the 
-     * receiver is in the failure state.
-     */
-    strict_fail_state = fail_state != ERTS_PSFLG_EXITING;
 
     res = 1; /* prepare for success */
     st->next = st->prev = st; /* Prep for empty prio queue */
@@ -6781,7 +6774,7 @@ schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st,
     /* Status lock prevents out of order "runnable proc" trace msgs */
     ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p));
 
-    if (!prof_runnable_procs && !strict_fail_state) {
+    if (!prof_runnable_procs) {
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 	locked = 0;
     }
@@ -6791,11 +6784,6 @@ schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st,
     while (1) {
 	erts_aint32_t e;
 	n = e = a;
-
-	if (strict_fail_state && (a & fail_state)) {
-	    *fail_state_p = (a & fail_state);
-	    goto cleanup;
-	}
 
 	if (a & ERTS_PSFLG_FREE)
 	    goto cleanup; /* We don't want to schedule free processes... */
