@@ -83,9 +83,7 @@ mk_goto(Name) ->
 
 branch_successors(Instr) ->
   case Instr of
-    #branch{} -> [hipe_rtl:branch_true_label(Instr), 
-		  hipe_rtl:branch_false_label(Instr)];
-    #alub{} -> [hipe_rtl:alub_true_label(Instr), 
+    #alub{} -> [hipe_rtl:alub_true_label(Instr),
 	        hipe_rtl:alub_false_label(Instr)];
     #switch{} -> hipe_rtl:switch_labels(Instr);
     #call{} -> 
@@ -106,7 +104,6 @@ fails_to(Instr) ->
 
 is_branch(Instr) ->
    case Instr of
-     #branch{} -> true;
      #alub{} -> true;
      #switch{} -> true;
      #goto{} -> true;
@@ -127,7 +124,7 @@ is_branch(Instr) ->
 
 is_pure_branch(Instr) ->
   case Instr of
-    #branch{} -> true;
+    #alub{} -> not hipe_rtl:alub_has_dst(Instr);
     #switch{} -> true;
     #goto{} -> true;
     _ -> false

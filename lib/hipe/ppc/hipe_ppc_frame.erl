@@ -98,7 +98,10 @@ do_pseudo_move(I, Context, FPoff) ->
 	  Offset = pseudo_offset(Src, FPoff, Context),
 	  mk_load(hipe_ppc:ldop_word(), Dst, Offset, mk_sp(), []);
 	_ ->
-	  [hipe_ppc:mk_alu('or', Dst, Src, Src)]
+	  case hipe_ppc:temp_reg(Dst) =:= hipe_ppc:temp_reg(Src) of
+	    true -> [];
+	    false -> [hipe_ppc:mk_alu('or', Dst, Src, Src)]
+	  end
       end
   end.
 

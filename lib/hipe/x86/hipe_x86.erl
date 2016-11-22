@@ -37,7 +37,7 @@
 	 mk_imm_from_addr/2,
 	 mk_imm_from_atom/1,
 	 is_imm/1,
-	 %% imm_value/1,
+	 imm_value/1,
 
 	 mk_mem/3,
 	 %% is_mem/1,
@@ -201,7 +201,7 @@
 	 shift_src/1,
 	 shift_dst/1,
 
-	 %% mk_test/2,
+	 mk_test/2,
 	 test_src/1,
 	 test_dst/1,
 
@@ -216,6 +216,10 @@
 	 %% defun_label_range/1,
 
 	 %% highest_temp/1
+	]).
+
+%% Other utilities
+-export([neg_cc/1
 	]).
 
 %%%
@@ -241,7 +245,7 @@ mk_imm_from_addr(Addr, Type) ->
 mk_imm_from_atom(Atom) ->
     mk_imm(Atom).
 is_imm(X) -> case X of #x86_imm{} -> true; _ -> false end.
-%% imm_value(#x86_imm{value=Value}) -> Value.
+imm_value(#x86_imm{value=Value}) -> Value.
 
 mk_mem(Base, Off, Type) -> #x86_mem{base=Base, off=Off, type=Type}.
 %% is_mem(X) -> case X of #x86_mem{} -> true; _ -> false end.
@@ -305,7 +309,7 @@ mk_cmp(Src, Dst) -> #cmp{src=Src, dst=Dst}.
 cmp_src(#cmp{src=Src}) -> Src.
 cmp_dst(#cmp{dst=Dst}) -> Dst.
 
-%% mk_test(Src, Dst) -> #test{src=Src, dst=Dst}.
+mk_test(Src, Dst) -> #test{src=Src, dst=Dst}.
 test_src(#test{src=Src}) -> Src.
 test_dst(#test{dst=Dst}) -> Dst.
 

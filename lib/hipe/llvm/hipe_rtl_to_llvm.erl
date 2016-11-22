@@ -156,9 +156,6 @@ translate_instr(I, Relocs, Data) ->
     #alub{} ->
       {I2, Relocs2} = trans_alub(I, Relocs),
       {I2, Relocs2, Data};
-    #branch{} ->
-      {I2, Relocs2} = trans_branch(I, Relocs),
-      {I2, Relocs2, Data};
     #call{} ->
       {I2, Relocs2} =
         case hipe_rtl:call_fun(I) of
@@ -255,7 +252,6 @@ trans_alub(I, Relocs) ->
 trans_alub_overflow(I, Sign, Relocs) ->
   {Src1, I1} = trans_src(hipe_rtl:alub_src1(I)),
   {Src2, I2} = trans_src(hipe_rtl:alub_src2(I)),
-  RtlDst = hipe_rtl:alub_dst(I),
   TmpDst = mk_temp(),
   Name = trans_alub_op(I, Sign),
   NewRelocs = relocs_store(Name, {call, remote, {llvm, Name, 2}}, Relocs),
@@ -266,7 +262,10 @@ trans_alub_overflow(I, Sign, Relocs) ->
 			                   [{WordTy, Src1}, {WordTy, Src2}], []),
   %% T1{0}: result of the operation
   I4 = hipe_llvm:mk_extractvalue(TmpDst, ReturnType, T1 , "0", []),
-  I5 = store_stack_dst(TmpDst, RtlDst),
+  I5 = case hipe_rtl:alub_has_dst(I) of
+	 false -> [];
+	 true -> store_stack_dst(TmpDst, hipe_rtl:alub_dst(I))
+       end,
   T2 = mk_temp(),
   %% T1{1}: Boolean variable indicating overflow
   I6 = hipe_llvm:mk_extractvalue(T2, ReturnType, T1, "1", []),
@@ -311,42 +310,35 @@ trans_alub_op(I, Sign) ->
   Name ++ Type.
 
 trans_alub_no_overflow(I, Relocs) ->
-  %% alu
-  T = hipe_rtl:mk_alu(hipe_rtl:alub_dst(I), hipe_rtl:alub_src1(I),
-                      hipe_rtl:alub_op(I), hipe_rtl:alub_src2(I)),
-  %% A trans_alu instruction cannot change relocations
-  {I1, _} = trans_alu(T, Relocs),
-  %% icmp
-  %% Translate destination as src, to match with the semantics of instruction
-  {Dst, I2} = trans_src(hipe_rtl:alub_dst(I)),
-  Cond = trans_rel_op(hipe_rtl:alub_cond(I)),
-  T3 = mk_temp(),
+  {Src1, I1} = trans_src(hipe_rtl:alub_src1(I)),
+  {Src2, I2} = trans_src(hipe_rtl:alub_src2(I)),
   WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
-  I5 = hipe_llvm:mk_icmp(T3, Cond, WordTy, Dst, "0"),
+  %% alu
+  {CmpLhs, CmpRhs, I5, Cond} =
+    case {hipe_rtl:alub_has_dst(I), hipe_rtl:alub_op(I)} of
+      {false, 'sub'} ->
+	Cond0 = trans_branch_rel_op(hipe_rtl:alub_cond(I)),
+	{Src1, Src2, [], Cond0};
+      {HasDst, AlubOp} ->
+	TmpDst = mk_temp(),
+	Op = trans_op(AlubOp),
+	I3 = hipe_llvm:mk_operation(TmpDst, Op, WordTy, Src1, Src2, []),
+	I4 = case HasDst of
+	       false -> [];
+	       true -> store_stack_dst(TmpDst, hipe_rtl:alub_dst(I))
+	     end,
+	Cond0 = trans_alub_rel_op(hipe_rtl:alub_cond(I)),
+	{TmpDst, "0", [I4, I3], Cond0}
+    end,
+  %% icmp
+  T3 = mk_temp(),
+  I6 = hipe_llvm:mk_icmp(T3, Cond, WordTy, CmpLhs, CmpRhs),
   %% br
   Metadata = branch_metadata(hipe_rtl:alub_pred(I)),
   True_label = mk_jump_label(hipe_rtl:alub_true_label(I)),
   False_label = mk_jump_label(hipe_rtl:alub_false_label(I)),
-  I6 = hipe_llvm:mk_br_cond(T3, True_label, False_label, Metadata),
-  {[I6, I5, I2, I1], Relocs}.
-
-%%
-%% branch
-%%
-trans_branch(I, Relocs) ->
-  {Src1, I1} = trans_src(hipe_rtl:branch_src1(I)),
-  {Src2, I2} = trans_src(hipe_rtl:branch_src2(I)),
-  Cond = trans_rel_op(hipe_rtl:branch_cond(I)),
-  %% icmp
-  T1 = mk_temp(),
-  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
-  I3 = hipe_llvm:mk_icmp(T1, Cond, WordTy, Src1, Src2),
-  %% br
-  True_label = mk_jump_label(hipe_rtl:branch_true_label(I)),
-  False_label = mk_jump_label(hipe_rtl:branch_false_label(I)),
-  Metadata = branch_metadata(hipe_rtl:branch_pred(I)),
-  I4 = hipe_llvm:mk_br_cond(T1, True_label, False_label, Metadata),
-  {[I4, I3, I2, I1], Relocs}.
+  I7 = hipe_llvm:mk_br_cond(T3, True_label, False_label, Metadata),
+  {[I7, I6, I5, I2, I1], Relocs}.
 
 branch_metadata(X) when X =:= 0.5 -> [];
 branch_metadata(X) when X > 0.5 -> ?BRANCH_META_TAKEN;
@@ -1162,7 +1154,7 @@ trans_dst(A) ->
 		       true ->
 			 "%DL" ++ integer_to_list(hipe_rtl:const_label_label(A)) ++ "_var";
 		       false ->
-			 exit({?MODULE, trans_dst, {"Bad RTL argument",A}})
+			 error(badarg, [A])
 		     end
 		 end
 	     end,
@@ -1260,14 +1252,19 @@ trans_op(Op) ->
     Other -> exit({?MODULE, trans_op, {"Unknown RTL operator", Other}})
   end.
 
-trans_rel_op(Op) ->
+trans_branch_rel_op(Op) ->
   case Op of
-    eq -> eq;
-    ne -> ne;
     gtu -> ugt;
     geu -> uge;
     ltu -> ult;
     leu -> ule;
+    _ -> trans_alub_rel_op(Op)
+  end.
+
+trans_alub_rel_op(Op) ->
+  case Op of
+    eq -> eq;
+    ne -> ne;
     gt -> sgt;
     ge -> sge;
     lt -> slt;
@@ -1300,7 +1297,10 @@ insn_dst(I) ->
     #alu{} ->
       [hipe_rtl:alu_dst(I)];
     #alub{} ->
-      [hipe_rtl:alub_dst(I)];
+      case hipe_rtl:alub_has_dst(I) of
+	true -> [hipe_rtl:alub_dst(I)];
+	false -> []
+      end;
     #call{} ->
       case hipe_rtl:call_dstlist(I) of
         [] -> [];

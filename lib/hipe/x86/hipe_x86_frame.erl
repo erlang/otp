@@ -116,6 +116,8 @@ do_insn(I, LiveOut, Context, FPoff) ->
       {do_ret(I, Context, FPoff), context_framesize(Context)};
     #shift{} ->
       {[do_shift(I, Context, FPoff)], FPoff};
+    #test{} ->
+      {[do_test(I, Context, FPoff)], FPoff};
     _ ->	% comment, jmp, label, pseudo_jcc, pseudo_tailcall_prepare
       {[I], FPoff}
   end.
@@ -187,6 +189,12 @@ do_shift(I, Context, FPoff) ->
   Src = conv_opnd(Src0, FPoff, Context),
   Dst = conv_opnd(Dst0, FPoff, Context),
   I#shift{src=Src,dst=Dst}.
+
+do_test(I, Context, FPoff) ->
+  #test{src=Src0,dst=Dst0} = I,
+  Src = conv_opnd(Src0, FPoff, Context),
+  Dst = conv_opnd(Dst0, FPoff, Context),
+  I#test{src=Src,dst=Dst}.
 
 conv_opnd(Opnd, FPoff, Context) ->
   case opnd_is_pseudo(Opnd) of

@@ -91,26 +91,31 @@ conv_insn(I, Map, Data) ->
     #alub{} ->
       %% dst = src1 op src2; if COND goto label
       BinOp = conv_binop(hipe_rtl:alub_op(I)),
-      {Dst, Map0} = conv_dst(hipe_rtl:alub_dst(I), Map),
-      {FixSrc1, Src1, Map1} = conv_src(hipe_rtl:alub_src1(I), Map0),
-      {FixSrc2, Src2, Map2} = conv_src(hipe_rtl:alub_src2(I), Map1),
+      {FixSrc1, Src1, Map0} = conv_src(hipe_rtl:alub_src1(I), Map),
+      {FixSrc2, Src2, Map1} = conv_src(hipe_rtl:alub_src2(I), Map0),
       Cc = conv_cond(hipe_rtl:alub_cond(I)),
-      I1 = [hipe_x86:mk_pseudo_jcc(Cc,
-				   hipe_rtl:alub_true_label(I),
-				   hipe_rtl:alub_false_label(I),
-				   hipe_rtl:alub_pred(I))],
-      I2 = conv_alu(Dst, Src1, BinOp, Src2, I1),
-      {FixSrc1++FixSrc2++I2, Map2, Data};
-    #branch{} ->
-      %% <unused> = src1 - src2; if COND goto label
-      {FixSrc1, Src1, Map0} = conv_src(hipe_rtl:branch_src1(I), Map),
-      {FixSrc2, Src2, Map1} = conv_src(hipe_rtl:branch_src2(I), Map0),
-      Cc = conv_cond(hipe_rtl:branch_cond(I)),
-      I2 = conv_branch(Src1, Cc, Src2,
-		       hipe_rtl:branch_true_label(I),
-		       hipe_rtl:branch_false_label(I),
-		       hipe_rtl:branch_pred(I)),
-      {FixSrc1++FixSrc2++I2, Map1, Data};
+      BranchOp = conv_branchop(BinOp),
+      HasDst = hipe_rtl:alub_has_dst(I),
+      {I2, Map3} =
+	case (not HasDst) andalso BranchOp =/= none of
+	  true ->
+	    {conv_branch(Src1, BranchOp, Src2, Cc,
+			 hipe_rtl:alub_true_label(I),
+			 hipe_rtl:alub_false_label(I),
+			 hipe_rtl:alub_pred(I)), Map1};
+	  false ->
+	    {Dst, Map2} =
+	      case HasDst of
+		false -> {new_untagged_temp(), Map1};
+		true -> conv_dst(hipe_rtl:alub_dst(I), Map1)
+	      end,
+	    I1 = [hipe_x86:mk_pseudo_jcc(Cc,
+					 hipe_rtl:alub_true_label(I),
+					 hipe_rtl:alub_false_label(I),
+					 hipe_rtl:alub_pred(I))],
+	    {conv_alu(Dst, Src1, BinOp, Src2, I1), Map2}
+	end,
+      {FixSrc1++FixSrc2++I2, Map3, Data};
     #call{} ->
       %%	push <arg1>
       %%	...
@@ -252,7 +257,9 @@ conv_insn(I, Map, Data) ->
 
 conv_alu_nocc(Dst, Src1, 'add', Src2, Tail) ->
   case (not same_opnd(Dst, Src1)) andalso (not same_opnd(Dst, Src2))
-    andalso (hipe_x86:is_temp(Src1) orelse hipe_x86:is_temp(Src2))
+    %% We could use orelse instead of xor here to generate lea T1(T2), T3, but
+    %% they seem to move coalesce so well that move+add is better for them.
+    andalso (hipe_x86:is_temp(Src1) xor hipe_x86:is_temp(Src2))
   of
     false -> conv_alu(Dst, Src1, 'add', Src2, Tail);
     true -> % Use LEA
@@ -261,6 +268,16 @@ conv_alu_nocc(Dst, Src1, 'add', Src2, Tail) ->
 	      true  -> hipe_x86:mk_mem(Src1, Src2, Type);
 	      false -> hipe_x86:mk_mem(Src2, Src1, Type)
 	    end,
+      [hipe_x86:mk_lea(Mem, Dst) | Tail]
+  end;
+conv_alu_nocc(Dst, Src1, 'sub', Src2, Tail) ->
+  case (not same_opnd(Dst, Src1)) andalso hipe_x86:is_temp(Src1)
+    andalso (not hipe_x86:is_temp(Src2))
+  of
+    false -> conv_alu(Dst, Src1, 'sub', Src2, Tail);
+    true -> % Use LEA
+      Imm = hipe_x86:mk_imm(-hipe_x86:imm_value(Src2)),
+      Mem = hipe_x86:mk_mem(Src1, Imm, typeof_dst(Dst)),
       [hipe_x86:mk_lea(Mem, Dst) | Tail]
   end;
 conv_alu_nocc(Dst, Src1, BinOp, Src2, Tail) ->
@@ -360,27 +377,40 @@ conv_shift(Dst, Src1, BinOp, Src2) ->
 %%% Finalise the conversion of a conditional branch operation, taking
 %%% care to not introduce more temps and moves than necessary.
 
-conv_branch(Src1, Cc, Src2, TrueLab, FalseLab, Pred) ->
+conv_branchop('sub') -> 'cmp';
+conv_branchop('and') ->  'test';
+conv_branchop(_) -> none.
+
+branchop_commutes('cmp') -> false;
+branchop_commutes('test') -> true.
+
+conv_branch(Src1, Op, Src2, Cc, TrueLab, FalseLab, Pred) ->
   case hipe_x86:is_imm(Src1) of
     false ->
-      mk_branch(Src1, Cc, Src2, TrueLab, FalseLab, Pred);
+      mk_branch(Src1, Op, Src2, Cc, TrueLab, FalseLab, Pred);
     true ->
       case hipe_x86:is_imm(Src2) of
 	false ->
-	  NewCc = commute_cc(Cc),
-	  mk_branch(Src2, NewCc, Src1, TrueLab, FalseLab, Pred);
+	  NewCc = case branchop_commutes(Op) of
+		    true -> Cc;
+		    false -> commute_cc(Cc)
+		  end,
+	  mk_branch(Src2, Op, Src1, NewCc, TrueLab, FalseLab, Pred);
 	true ->
 	  %% two immediates, let the optimiser clean it up
 	  Tmp = new_untagged_temp(),
 	  [hipe_x86:mk_move(Src1, Tmp) |
-	   mk_branch(Tmp, Cc, Src2, TrueLab, FalseLab, Pred)]
+	   mk_branch(Tmp, Op, Src2, Cc, TrueLab, FalseLab, Pred)]
       end
   end.
 
-mk_branch(Src1, Cc, Src2, TrueLab, FalseLab, Pred) ->
+mk_branch(Src1, Op, Src2, Cc, TrueLab, FalseLab, Pred) ->
   %% PRE: not(is_imm(Src1))
-  [hipe_x86:mk_cmp(Src2, Src1),
+  [mk_branchtest(Src1, Op, Src2),
    hipe_x86:mk_pseudo_jcc(Cc, TrueLab, FalseLab, Pred)].
+
+mk_branchtest(Src1, cmp, Src2) -> hipe_x86:mk_cmp(Src2, Src1);
+mk_branchtest(Src1, test, Src2) -> hipe_x86:mk_test(Src2, Src1).
 
 %%% Convert an RTL ALU or ALUB binary operator.
 

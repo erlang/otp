@@ -659,9 +659,8 @@ test_alignment_code(Size, Unit, SLblName, FalseLblName) ->
   end.
 
 get_fast_test_code(Size, AndTest, SLblName, FalseLblName) ->
-  [Tmp] = create_gcsafe_regs(1),
-  [hipe_rtl:mk_alub(Tmp, Size, 'and', hipe_rtl:mk_imm(AndTest),
-		    'eq', SLblName, FalseLblName)].
+  [hipe_rtl:mk_branch(Size, 'and', hipe_rtl:mk_imm(AndTest), 'eq',
+		      SLblName, FalseLblName, 0.5)].
 
 %% This is really slow
 get_slow_test_code(Size, Unit, SLblName, FalseLblName) ->

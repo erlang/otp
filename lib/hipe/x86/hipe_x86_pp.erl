@@ -188,6 +188,12 @@ pp_insn(Dev, I, Pre) ->
       io:format(Dev, ", ", []),
       pp_dst(Dev, Dst),
       io:format(Dev, "\n", []);
+    #test{src=Src, dst=Dst} ->
+      io:format(Dev, "\ttest ", []),
+      pp_src(Dev, Src),
+      io:format(Dev, ", ", []),
+      pp_dst(Dev, Dst),
+      io:format(Dev, "\n", []);
     #fp_binop{src=Src, dst=Dst, op=Op} ->
       io:format(Dev, "\t~s ", [Op]),
       pp_dst(Dev, Dst),

@@ -170,6 +170,12 @@ pp_insn(Dev, I, Pre) ->
       io:format(Dev, ", ", []),
       pp_temp(Dev, Base2),
       io:format(Dev, "\n", []);
+    #unary{unop={UnOp,I1,I2,I3}, dst=Dst, src=Src} ->
+      io:format(Dev, "\t~s ", [UnOp]),
+      pp_temp(Dev, Dst),
+      io:format(Dev, ", ", []),
+      pp_temp(Dev, Src),
+      io:format(Dev, ", ~s, ~s, ~s\n", [to_hex(I1),to_hex(I2),to_hex(I3)]);
     #unary{unop=UnOp, dst=Dst, src=Src} ->
       io:format(Dev, "\t~w ", [unop_name(UnOp)]),
       pp_temp(Dev, Dst),
