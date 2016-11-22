@@ -100,18 +100,12 @@
       provided by Dets, neither is the limited support for
       concurrent updates that makes a sequence of <c>first</c> and
       <c>next</c> calls safe to use on fixed ETS tables. Both these
-      features will be provided by Dets in a future release of
+      features may be provided by Dets in a future release of
       Erlang/OTP. Until then, the Mnesia application (or some
       user-implemented method for locking) must be used to implement safe
       concurrency. Currently, no Erlang/OTP library has support for
       ordered disk-based term storage.</p>
 
-    <p>Two versions of the format used for storing objects on file are
-      supported by Dets. The first version, 8, is the format always used
-      for tables created by Erlang/OTP R7 and earlier. The second version, 9,
-      is the default version of tables created by Erlang/OTP R8 (and later
-      releases). Erlang/OTP R8 can create version 8 tables, and convert version
-      8 tables to version 9, and conversely, upon request.</p>
     <p>All Dets functions return <c>{error, Reason}</c> if an error
       occurs (<seealso marker="#first/1"><c>first/1</c></seealso> and
       <seealso marker="#next/2"><c>next/2</c></seealso> are exceptions, they
@@ -189,9 +183,6 @@
     </datatype>
     <datatype>
       <name name="type"/>
-    </datatype>
-    <datatype>
-      <name name="version"/>
     </datatype>
   </datatypes>
 
@@ -385,18 +376,13 @@
             <p><c>{bchunk_format, binary()}</c> - An opaque binary
               describing the format of the objects returned by
               <c>bchunk/2</c>. The binary can be used as argument to
-              <c>is_compatible_chunk_format/2</c>. Only available for
-              version 9 tables.</p>
+              <c>is_compatible_chunk_format/2</c>.</p>
           </item>
           <item>
             <p><c>{hash, Hash}</c> - Describes which BIF is
               used to calculate the hash values of the objects stored in the
               Dets table. Possible values of <c>Hash</c>:</p>
             <list>
-              <item>
-                <p><c>hash</c> - Implies that the <c>erlang:hash/2</c> BIF
-                  is used.</p>
-              </item>
               <item>
                 <p><c>phash</c> - Implies that the <c>erlang:phash/2</c> BIF
                   is used.</p>
@@ -413,8 +399,7 @@
           </item>
           <item>
             <p><c>{no_keys, integer >= 0()}</c> - The number of different
-              keys stored in the table. Only available for version 9
-              tables.</p>
+              keys stored in the table.</p>
           </item>
           <item>
             <p><c>{no_objects, integer >= 0()}</c> - The number of objects
@@ -424,8 +409,7 @@
             <p><c>{no_slots, {Min, Used, Max}}</c> - The
               number of slots of the table. <c>Min</c> is the minimum number of
               slots, <c>Used</c> is the number of currently used slots,
-              and <c>Max</c> is the maximum number of slots. Only
-              available for version 9 tables.</p>
+              and <c>Max</c> is the maximum number of slots.</p>
           </item>
           <item>
             <p><c>{owner, pid()}</c> - The pid of the process that
@@ -465,10 +449,6 @@
               <seealso marker="erts:time_correction#Time_Warp_Safe_Code">
               time warp safe</seealso>. Time warp safe code must use
               <c>safe_fixed_monotonic_time</c> instead.</p>
-          </item>
-          <item>
-            <p><c>{version, integer()}</c> - The version of the format of
-              the table.</p>
           </item>
         </list>
       </desc>
@@ -662,8 +642,8 @@ ok
           objects at a time, until at least one object matches or the
           end of the table is reached. The default, indicated by
           giving <c><anno>N</anno></c> the value <c>default</c>, is to let
-          the number of objects vary depending on the sizes of the objects. If
-          <c><anno>Name</anno></c> is a version 9 table, all objects with the
+          the number of objects vary depending on the sizes of the objects.
+	  All objects with the
           same key are always matched at the same time, which implies that
           more than <anno>N</anno> objects can sometimes be matched.</p>
         <p>The table is always to be protected using
@@ -743,9 +723,9 @@ ok
           end of the table is reached. The default, indicated by
           giving <c><anno>N</anno></c> the value <c>default</c>,
           is to let the number
-          of objects vary depending on the sizes of the objects. If
-          <c><anno>Name</anno></c> is a version 9 table, all matching objects
-          with the same key are always returned in the same reply, which implies
+          of objects vary depending on the sizes of the objects. All
+	  matching objects with the same key are always returned
+	  in the same reply, which implies
           that more than <anno>N</anno> objects can sometimes be returned.</p>
         <p>The table is always to be protected using
           <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
@@ -842,8 +822,7 @@ ok
               maximal value. Notice that a higher value can
               increase the table fragmentation, and
               a smaller value can decrease the fragmentation, at
-              the expense of execution time. Only available for version
-              9 tables.</p>
+              the expense of execution time.</p>
           </item>
           <item>
             <p><c>{min_no_slots, </c><seealso marker="#type-no_slots">
@@ -880,27 +859,13 @@ ok
               FileName}}</c> is returned if the table must be repaired.</p>
             <p>Value <c>force</c> means that a reparation
               is made even if the table is properly closed.
-              This is how to convert tables created by older versions of
-              STDLIB. An example is tables hashed with the deprecated
-              <c>erlang:hash/2</c> BIF. Tables created with Dets from
-              STDLIB version 1.8.2 or later use function
-              <c>erlang:phash/2</c> or function <c>erlang:phash2/1</c>,
-              which is preferred.</p>
+	      This is a seldom needed option.</p>
             <p>Option <c>repair</c> is ignored if the table is already open.</p>
           </item>
           <item>
             <p><c>{type, </c><seealso marker="#type-type">
               <c>type()</c></seealso><c>}</c> - The table type. Defaults to
               <c>set</c>.</p>
-          </item>
-          <item>
-            <p><c>{version, </c><seealso marker="#type-version">
-              <c>version()</c></seealso><c>}</c> - The version of the format
-              used for the table. Defaults to <c>9</c>. Tables on the format
-              used before Erlang/OTP R8 can be created by specifying value
-              <c>8</c>. A version 8 table can be converted to a version 9
-              table by specifying options <c>{version,9}</c>
-              and <c>{repair,force}</c>.</p>
           </item>
         </list>
       </desc>
@@ -1041,8 +1006,8 @@ ok
           a time, until at least one object matches or the end of the
           table is reached. The default, indicated by giving
           <c><anno>N</anno></c> the value <c>default</c>, is to let the number
-          of objects vary depending on the sizes of the objects. If
-          <c><anno>Name</anno></c> is a version 9 table, all objects with the
+          of objects vary depending on the sizes of the objects. All
+	  objects with the
           same key are always handled at the same time, which implies that the
           match specification can be applied to more than <anno>N</anno>
           objects.</p>

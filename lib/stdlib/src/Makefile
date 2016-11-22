@@ -51,7 +51,6 @@ MODULES= \
 	dets_server \
 	dets_sup \
 	dets_utils \
-	dets_v8 \
 	dets_v9 \
 	dict \
 	digraph \
@@ -225,7 +224,6 @@ $(EBIN)/beam_lib.beam: ../include/erl_compile.hrl ../../kernel/include/file.hrl
 $(EBIN)/dets.beam: dets.hrl ../../kernel/include/file.hrl
 $(EBIN)/dets_server.beam: dets.hrl
 $(EBIN)/dets_utils.beam: dets.hrl
-$(EBIN)/dets_v8.beam: dets.hrl
 $(EBIN)/dets_v9.beam: dets.hrl
 $(EBIN)/erl_bits.beam: ../include/erl_bits.hrl
 $(EBIN)/erl_compile.beam: ../include/erl_compile.hrl ../../kernel/include/file.hrl

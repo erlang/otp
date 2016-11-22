@@ -31,7 +31,6 @@
              dets_server,
 	     dets_sup,
 	     dets_utils,
-	     dets_v8,
 	     dets_v9,
 	     dict,
 	     digraph,
