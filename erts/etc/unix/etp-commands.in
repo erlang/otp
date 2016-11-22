@@ -2432,46 +2432,36 @@ define etp-schedulers
   if (!erts_initialized)
     printf "No schedulers, since system isn't initialized!\n"
   else
+    set $sched_type = 0
     set $sched_ix = 0
     while $sched_ix < erts_no_schedulers
-      printf "--- Scheduler %d ---\n", $sched_ix+1
-      printf " IX: %d\n", $sched_ix
-      if (erts_aligned_scheduler_data[$sched_ix].esd.cpu_id < 0)
-        printf " CPU Binding: unbound\n"
-      else
-        printf " CPU Binding: %d\n", erts_aligned_scheduler_data[$sched_ix].esd.cpu_id
-      end
-      printf " Aux work Flags:"
-      set $aux_work_flags = *((Uint32 *) &erts_aligned_scheduler_data[$sched_ix].esd.ssi->aux_work)
-      etp-aux-work-flags $aux_work_flags
-      printf " Sleep Info Flags:"
-      set $ssi_flags = *((Uint32 *) &erts_aligned_scheduler_data[$sched_ix].esd.ssi->flags)
-      etp-ssi-flags $ssi_flags
-      printf " Pointer: (ErtsSchedulerData *) %p\n", &erts_aligned_scheduler_data[$sched_ix].esd
-      printf " - Run Queue -\n"
-      if (etp_smp_compiled)
-        set $runq = erts_aligned_scheduler_data[$sched_ix].esd.run_queue
-      else
-        set $runq = &erts_aligned_run_queues[0].runq
-      end
-      printf "  Length: total=%d", *((Uint32 *) &($runq->len))
-      printf ", max=%d", *((Uint32 *) &($runq->procs.prio_info[0].len))
-      printf ", high=%d", *((Uint32 *) &($runq->procs.prio_info[1].len))
-      printf ", normal=%d", *((Uint32 *) &($runq->procs.prio_info[2].len))
-      printf ", low=%d", *((Uint32 *) &($runq->procs.prio_info[3].len))
-      printf ", port=%d\n", *((Uint32 *) &($runq->ports.info.len))
-      if ($runq->misc.start)
-        printf "  Misc Jobs: yes\n"
-      else
-        printf "  Misc Jobs: no\n"
-      end
-      set $rq_flags = *((Uint32 *) &($runq->flags))
-      etp-rq-flags-int $rq_flags
-      printf "  Pointer: (ErtsRunQueue *) %p\n", $runq
-
+      etp-scheduler-info-internal
+      etp-run-queue-info-internal
       set $sched_ix++
     end
-    printf "-------------------\n",
+    printf "---------------------\n"
+    if (erts_no_dirty_cpu_schedulers)
+       printf "\n\n"
+       set $sched_type = 1
+       set $sched_ix = 0
+       while $sched_ix < erts_no_dirty_cpu_schedulers
+         etp-scheduler-info-internal
+         set $sched_ix++
+       end
+       etp-run-queue-info-internal
+       printf "---------------------\n"
+    end
+    if (erts_no_dirty_io_schedulers)
+       printf "\n\n"
+       set $sched_type = 2
+       set $sched_ix = 0
+       while $sched_ix < erts_no_dirty_io_schedulers
+         etp-scheduler-info-internal
+         set $sched_ix++
+       end
+       etp-run-queue-info-internal
+       printf "---------------------\n"
+    end
   end
 end
 
@@ -2481,6 +2471,67 @@ document etp-schedulers
 % 
 % Print misc info about all schedulers
 %---------------------------------------------------------------------------
+end
+
+define etp-scheduler-info-internal
+  if ($sched_type == 0)
+    printf "--- Scheduler %d ---\n", $sched_ix+1
+    set $sched_data=&erts_aligned_scheduler_data[$sched_ix].esd
+  else
+    if ($sched_type == 1)
+      printf "--- Dirty CPU Scheduler %d ---\n", $sched_ix+1
+      set $sched_data=&erts_aligned_dirty_cpu_scheduler_data[$sched_ix].esd
+    else
+      printf "--- Dirty I/O Scheduler %d ---\n", $sched_ix+1
+      set $sched_data=&erts_aligned_dirty_io_scheduler_data[$sched_ix].esd
+    end
+  end
+  printf " IX: %d\n", $sched_ix
+  if ($sched_data->cpu_id < 0)
+    printf " CPU Binding: unbound\n"
+  else
+    printf " CPU Binding: %d\n", $sched_data->cpu_id
+  end
+  printf " Aux work Flags:"
+  set $aux_work_flags = *((Uint32 *) &$sched_data->ssi->aux_work)
+  etp-aux-work-flags $aux_work_flags
+  printf " Sleep Info Flags:"
+  set $ssi_flags = *((Uint32 *) &$sched_data->ssi->flags)
+  etp-ssi-flags $ssi_flags
+  printf " Pointer: (ErtsSchedulerData *) %p\n", $sched_data
+end
+
+define etp-run-queue-info-internal
+  if ($sched_type == 0)
+    printf " - Run Queue -\n"
+    if (etp_smp_compiled)
+      set $runq = erts_aligned_scheduler_data[$sched_ix].esd.run_queue
+    else
+      set $runq = &erts_aligned_run_queues[0].runq
+    end
+  else
+    if ($sched_type == 1)
+      printf "\n--- Dirty CPU Run Queue ---\n"
+      set $runq = &erts_aligned_run_queues[-1].runq
+    else
+      printf "\n--- Dirty I/O Run Queue ---\n"
+      set $runq = &erts_aligned_run_queues[-2].runq
+    end
+  end
+  printf "  Length: total=%d", *((Uint32 *) &($runq->len))
+  printf ", max=%d", *((Uint32 *) &($runq->procs.prio_info[0].len))
+  printf ", high=%d", *((Uint32 *) &($runq->procs.prio_info[1].len))
+  printf ", normal=%d", *((Uint32 *) &($runq->procs.prio_info[2].len))
+  printf ", low=%d", *((Uint32 *) &($runq->procs.prio_info[3].len))
+  printf ", port=%d\n", *((Uint32 *) &($runq->ports.info.len))
+  if ($runq->misc.start)
+    printf "  Misc Jobs: yes\n"
+  else
+    printf "  Misc Jobs: no\n"
+  end
+  set $rq_flags = *((Uint32 *) &($runq->flags))
+  etp-rq-flags-int $rq_flags
+  printf "  Pointer: (ErtsRunQueue *) %p\n", $runq
 end
 
 define etp-migration-info
