@@ -910,7 +910,7 @@ case 238: {// wxDropFilesEvent
  } else {
    send_res =  rt.send();
    if(cb->skip) event->Skip();
-   if(app->recurse_level < 1) {
+   if(app->recurse_level < 1 && Etype->cID != 168) {
      app->recurse_level++;
      app->dispatch_cmds();
      app->recurse_level--;
