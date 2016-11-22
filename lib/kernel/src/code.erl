@@ -719,29 +719,14 @@ start_get_mode() ->
 which(Module) when is_atom(Module) ->
     case is_loaded(Module) of
 	false ->
-            File = atom_to_list(Module) ++ objfile_extension(),
-            which(File, get_path());
+            which(Module, get_path());
 	{file, File} ->
 	    File
     end.
 
--spec which(file:filename(), [file:filename()]) ->
-        'non_existing' | file:filename().
-
-which(_, []) ->
-    non_existing;
-which(File, [Path|Tail]) ->
-    case erl_prim_loader:list_dir(Path) of
-	{ok,Files} ->
-	    case lists:member(File,Files) of
-		true ->
-		    filename:append(Path, File);
-		false ->
-		    which(File, Tail)
-	    end;
-	_Error ->
-	    which(File, Tail)
-    end.
+which(Module, Path) when is_atom(Module) ->
+    File = atom_to_list(Module) ++ objfile_extension(),
+    where_is_file(Path, File).
 
 %% Search the code path for a specific file. Try to locate
 %% it in the code path cache if possible.
@@ -751,13 +736,28 @@ which(File, [Path|Tail]) ->
       Absname :: file:filename().
 where_is_file(File) when is_list(File) ->
     Path = get_path(),
-    which(File, Path).
+    where_is_file(Path, File).
 
 -spec where_is_file(Path :: file:filename(), Filename :: file:filename()) ->
         file:filename() | 'non_existing'.
 
-where_is_file(Path, File) when is_list(Path), is_list(File) ->
-    which(File, Path).
+where_is_file([], _) ->
+    non_existing;
+where_is_file([Path|Tail], File) ->
+    case erl_prim_loader:list_dir(Path) of
+	{ok,Files} ->
+            where_is_file(Tail, File, Path, Files);
+	_Error ->
+	    where_is_file(Tail, File)
+    end.
+
+where_is_file(Tail, File, Path, Files) ->
+    case lists:member(File, Files) of
+        true ->
+            filename:append(Path, File);
+        false ->
+            where_is_file(Tail, File)
+    end.
 
 -spec set_primary_archive(ArchiveFile :: file:filename(),
 			  ArchiveBin :: binary(),
