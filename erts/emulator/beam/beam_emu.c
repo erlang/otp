@@ -5325,7 +5325,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 
 	I = c_p->i;
 
-	ASSERT(BeamOp(op_call_nif) == (BeamInstr *) *I);
+	ASSERT(em_call_nif == (BeamInstr *) *I);
 
 	/*
 	 * Set fcalls even though we ignore it, so we don't
