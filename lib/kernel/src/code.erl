@@ -738,11 +738,16 @@ where_is_file(File) when is_list(File) ->
     Path = get_path(),
     where_is_file(Path, File).
 
--spec where_is_file(Path :: file:filename(), Filename :: file:filename()) ->
-        file:filename() | 'non_existing'.
+%% To avoid unnecessary work when looking at many modules, this also
+%% accepts pairs of directories and pre-fetched contents in the path
+-spec where_is_file(Path :: [Dir|{Dir,Files}], Filename :: file:filename()) ->
+          'non_existing' | file:filename() when
+      Dir :: file:filename(), Files :: [file:filename()].
 
 where_is_file([], _) ->
     non_existing;
+where_is_file([{Path, Files}|Tail], File) ->
+    where_is_file(Tail, File, Path, Files);
 where_is_file([Path|Tail], File) ->
     case erl_prim_loader:list_dir(Path) of
 	{ok,Files} ->
