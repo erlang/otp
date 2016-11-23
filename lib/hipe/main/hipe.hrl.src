@@ -1,4 +1,4 @@
-%% -*- erlang-indent-level: 2 -*-
+%% -*- mode: erlang; erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
 %% 
@@ -70,10 +70,14 @@
 	code_server:info_msg(?MSGTAG ++ Msg, Args)).
 -define(untagged_msg(Msg, Args),
 	code_server:info_msg(Msg, Args)).
+-define(untagged_error_msg(Msg, Args),
+	code_server:error_msg(Msg, Args)).
 -else.
 -define(msg(Msg, Args),
 	io:format(?MSGTAG ++ Msg, Args)).
 -define(untagged_msg(Msg, Args),
+	io:format(Msg, Args)).
+-define(untagged_error_msg(Msg, Args),
 	io:format(Msg, Args)).
 -endif.
 
@@ -81,9 +85,9 @@
 %% Define error and warning messages.
 %%
 -define(error_msg(Msg, Args),
-	code_server:error_msg(?MSGTAG ++
+	?untagged_error_msg(?MSGTAG ++
 			      "Error: [~s:~w]: " ++ Msg,
-			      [?MODULE,?LINE|Args])).
+			    [?MODULE,?LINE|Args])).
 -define(WARNING_MSG(Msg, Args),
 	?msg("Warning: [~s:~w]: " ++ Msg, [?MODULE,?LINE|Args])).
 
