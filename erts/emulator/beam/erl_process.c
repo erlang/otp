@@ -154,6 +154,7 @@ int ERTS_WRITE_UNLIKELY(erts_eager_check_io) = 1;
 int ERTS_WRITE_UNLIKELY(erts_sched_compact_load);
 int ERTS_WRITE_UNLIKELY(erts_sched_balance_util) = 0;
 Uint ERTS_WRITE_UNLIKELY(erts_no_schedulers);
+Uint ERTS_WRITE_UNLIKELY(erts_no_total_schedulers);
 Uint ERTS_WRITE_UNLIKELY(erts_no_dirty_cpu_schedulers) = 0;
 Uint ERTS_WRITE_UNLIKELY(erts_no_dirty_io_schedulers) = 0;
 
@@ -5908,9 +5909,12 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online
 
     n = (int) no_schedulers;
     erts_no_schedulers = n;
+    erts_no_total_schedulers = n;
 #ifdef ERTS_DIRTY_SCHEDULERS
     erts_no_dirty_cpu_schedulers = no_dirty_cpu_schedulers;
+    erts_no_total_schedulers += no_dirty_cpu_schedulers;
     erts_no_dirty_io_schedulers = no_dirty_io_schedulers;
+    erts_no_total_schedulers += no_dirty_io_schedulers;
 #endif
 
     /* Create and initialize scheduler sleep info */
@@ -6271,7 +6275,11 @@ check_dirty_enqueue_in_prio_queue(Process *c_p,
 	return -1*queue;
     }
 
-    *newp |= ERTS_PSFLG_IN_RUNQ;
+    /*
+     * Enqueue using process struct.
+     */
+    *newp &= ~ERTS_PSFLGS_PRQ_PRIO_MASK;
+    *newp |= ERTS_PSFLG_IN_RUNQ | (aprio << ERTS_PSFLGS_PRQ_PRIO_OFFSET);
     return queue;
 }
 
@@ -6683,15 +6691,8 @@ schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st,
     erts_aint32_t fail_state, state, a, n, enq_prio;
     int enqueue; /* < 0 -> use proxy */
     unsigned int prof_runnable_procs;
-    int strict_fail_state;
 
     fail_state = *fail_state_p;
-    /*
-     * If fail state something other than just exiting process,
-     * ensure that the task wont be scheduled when the 
-     * receiver is in the failure state.
-     */
-    strict_fail_state = fail_state != ERTS_PSFLG_EXITING;
 
     res = 1; /* prepare for success */
     st->next = st->prev = st; /* Prep for empty prio queue */
@@ -6773,7 +6774,7 @@ schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st,
     /* Status lock prevents out of order "runnable proc" trace msgs */
     ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p));
 
-    if (!prof_runnable_procs && !strict_fail_state) {
+    if (!prof_runnable_procs) {
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 	locked = 0;
     }
@@ -6783,11 +6784,6 @@ schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st,
     while (1) {
 	erts_aint32_t e;
 	n = e = a;
-
-	if (strict_fail_state && (a & fail_state)) {
-	    *fail_state_p = (a & fail_state);
-	    goto cleanup;
-	}
 
 	if (a & ERTS_PSFLG_FREE)
 	    goto cleanup; /* We don't want to schedule free processes... */
@@ -12401,6 +12397,8 @@ send_exit_signal(Process *c_p,		/* current process if and only
 	    else if (!(state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS))) {
 		/* Process not running ... */
 		ErtsProcLocks need_locks = ~(*rp_locks) & ERTS_PROC_LOCKS_ALL;
+		ErlHeapFragment *bp = NULL;
+		Eterm rsn_cpy;
 		if (need_locks
 		    && erts_smp_proc_trylock(rp, need_locks) == EBUSY) {
 		    /* ... but we havn't got all locks on it ... */
@@ -12413,12 +12411,32 @@ send_exit_signal(Process *c_p,		/* current process if and only
 		}
                 /* ...and we have all locks on it... */
                 *rp_locks = ERTS_PROC_LOCKS_ALL;
-                set_proc_exiting(rp,
-                                 state,
-                                 (is_immed(rsn)
-                                  ? rsn
-                                  : copy_object(rsn, rp)),
-                                 NULL);
+
+		state = erts_smp_atomic32_read_nob(&rp->state);
+
+		if (is_immed(rsn))
+		    rsn_cpy = rsn;
+		else {
+		    Eterm *hp;
+		    ErlOffHeap *ohp;
+		    Uint rsn_sz = size_object(rsn);
+#ifdef ERTS_DIRTY_SCHEDULERS
+		    if (state & (ERTS_PSFLG_DIRTY_RUNNING
+				 | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+			bp = new_message_buffer(rsn_sz);
+			ohp = &bp->off_heap;
+			hp = &bp->mem[0];
+		    }
+		    else
+#endif
+		    {
+			hp = HAlloc(rp, rsn_sz);
+			ohp = &rp->off_heap;
+		    }
+		    rsn_cpy = copy_struct(rsn, rsn_sz, &hp, ohp);
+		}
+
+		set_proc_exiting(rp, state, rsn_cpy, bp);
 	    }
 	    else { /* Process running... */
 
