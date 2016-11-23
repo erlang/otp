@@ -60,11 +60,15 @@ end_per_suite(_onfig) ->
 groups() -> 
     [{not_unicode, [], [{group,erlang_server},
 			{group,openssh_server},
+			{group,big_recvpkt_size},
 			sftp_nonexistent_subsystem]},
 
      {unicode, [], [{group,erlang_server},
 		    {group,openssh_server},
 		    sftp_nonexistent_subsystem]},
+
+     {big_recvpkt_size, [], [{group,erlang_server},
+			     {group,openssh_server}]},
 
      {erlang_server, [], [{group,write_read_tests},
 			  version_option,
@@ -148,6 +152,9 @@ init_per_group(unicode, Config) ->
 	_ ->
 	    {skip, "Not unicode file encoding"}
     end;
+
+init_per_group(big_recvpkt_size, Config) ->
+    [{pkt_sz,123456} | Config];
 
 init_per_group(erlang_server, Config) ->
     ct:comment("Begin ~p",[grps(Config)]),
@@ -257,7 +264,10 @@ init_per_testcase(Case, Config00) ->
     Dog = ct:timetrap(2 * ?default_timeout),
     User = proplists:get_value(user, Config0),
     Passwd = proplists:get_value(passwd, Config0),
-
+    PktSzOpt = case proplists:get_value(pkt_sz, Config0) of
+		   undefined -> [];
+		   Sz -> [{packet_size,Sz}]
+	       end,
     Config =
 	case proplists:get_value(group,Config2) of
 	    erlang_server ->
@@ -267,7 +277,9 @@ init_per_testcase(Case, Config00) ->
 					   [{user, User},
 					    {password, Passwd},
 					    {user_interaction, false},
-					    {silently_accept_hosts, true}]
+					    {silently_accept_hosts, true}
+					    | PktSzOpt
+					   ]
 					  ),
 		Sftp = {ChannelPid, Connection},
 		[{sftp, Sftp}, {watchdog, Dog} | Config2];
@@ -278,7 +290,9 @@ init_per_testcase(Case, Config00) ->
 		{ok, ChannelPid, Connection} = 
 		    ssh_sftp:start_channel(Host, 
 					   [{user_interaction, false},
-					    {silently_accept_hosts, true}]), 
+					    {silently_accept_hosts, true}
+					    | PktSzOpt
+					   ]),
 		Sftp = {ChannelPid, Connection},
 		[{sftp, Sftp}, {watchdog, Dog} | Config2]
 	end,

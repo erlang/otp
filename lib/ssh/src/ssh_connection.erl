@@ -287,6 +287,9 @@ handle_msg(#ssh_msg_channel_open_confirmation{recipient_channel = ChannelId,
     
     ssh_channel:cache_update(Cache, Channel#channel{
 				     remote_id = RemoteId,
+				     recv_packet_size = max(32768, % rfc4254/5.2
+							    min(PacketSz, Channel#channel.recv_packet_size)
+							   ),
 				     send_window_size = WindowSz,
 				     send_packet_size = PacketSz}),
     {Reply, Connection} = reply_msg(Channel, Connection0, {open, ChannelId}),
