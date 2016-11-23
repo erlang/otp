@@ -175,11 +175,21 @@
 	    supplied with this option.
 	    </p>
 	  </item>
-          <tag><c><![CDATA[{silently_accept_hosts, boolean()}]]></c></tag>
+          <tag><c><![CDATA[{silently_accept_hosts, boolean() | accept_fun() | {crypto:digest_type(), accept_fun()} }]]></c>
+	  <br/>
+	  <c><![CDATA[accept_fun() :: fun(PeerName::string(), FingerPrint::string()) -> boolean()]]></c>
+	  </tag>
 	  <item>
 	    <p>When <c>true</c>, hosts are added to the
 	    file <c><![CDATA[known_hosts]]></c> without asking the user.
-	    Defaults to <c>false</c>.
+	    Defaults to <c>false</c> which will give a user question on stdio of whether to accept or reject a previously
+	    unseen host.</p>
+	    <p>If the option value is has an <c>accept_fun()</c>, that fun will called with the arguments
+	    <c>(PeerName, PeerHostKeyFingerPrint)</c>.  The fingerprint is calculated on the Peer's Host Key with
+	    <seealso marker="public_key:public_key#ssh_hostkey_fingerprint-1">public_key:ssh_hostkey_fingerprint/1</seealso>.
+	    </p>
+	    <p>If the <c>crypto:digest_type()</c> is present, the fingerprint is calculated with that digest type by the function
+	    <seealso marker="public_key:public_key#ssh_hostkey_fingerprint-2">public_key:ssh_hostkey_fingerprint/2</seealso>.
 	    </p>
 	  </item>
 	  <tag><c><![CDATA[{user_interaction, boolean()}]]></c></tag>
