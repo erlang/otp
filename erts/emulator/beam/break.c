@@ -666,7 +666,7 @@ static Sint64 crash_dump_written = 0;
 
 static int crash_dump_limited_writer(void* vfdp, char* buf, size_t len)
 {
-    const char stop_msg[] = "\n=abort: CRASH DUMP SIZE LIMIT REACHED\n";
+    const char stop_msg[] = "\n=abort:CRASH DUMP SIZE LIMIT REACHED\n";
 
     crash_dump_written += len;
     if (crash_dump_written <= crash_dump_limit) {
