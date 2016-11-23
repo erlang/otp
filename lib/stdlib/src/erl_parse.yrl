@@ -612,11 +612,11 @@ Erlang code.
                        | af_bin(abstract_expr())
                        | af_binary_op(abstract_expr())
                        | af_unary_op(abstract_expr())
-                       | af_record_access(abstract_expr())
+                       | af_record_creation(abstract_expr())
                        | af_record_update(abstract_expr())
                        | af_record_index()
                        | af_record_field_access(abstract_expr())
-                       | af_map_access(abstract_expr())
+                       | af_map_creation(abstract_expr())
                        | af_map_update(abstract_expr())
                        | af_catch()
                        | af_local_call()
@@ -720,26 +720,25 @@ Erlang code.
                        | af_bin(af_guard_test())
                        | af_binary_op(af_guard_test())
                        | af_unary_op(af_guard_test())
-                       | af_record_access(af_guard_test())
+                       | af_record_creation(af_guard_test())
                        | af_record_index()
                        | af_record_field_access(af_guard_test())
-                       | af_map_access(abstract_expr()) % FIXME
-                       | af_map_update(abstract_expr()) % FIXME
+                       | af_map_creation(abstract_expr())
+                       | af_map_update(abstract_expr())
                        | af_guard_call()
                        | af_remote_guard_call().
 
 -type af_record_field_access(T) ::
         {'record_field', anno(), T, record_name(), af_field_name()}.
 
--type af_map_access(T) :: {'map', anno(), [af_map_field(T)]}.
+-type af_map_creation(T) :: {'map', anno(), [af_assoc(T)]}.
 
--type af_map_update(T) :: {'map', anno(), T, [af_map_field(T)]}.
+-type af_map_update(T) :: {'map', anno(), T, [af_assoc(T)]}.
 
--type af_map_field(T) :: af_map_field_assoc(T) | af_map_field_exact(T).
+-type af_assoc(T) :: {'map_field_assoc', anno(), T, T}
+                   | af_assoc_exact(T).
 
--type af_map_field_assoc(T) :: {'map_field_assoc', anno(), T, T}.
-
--type af_map_field_exact(T) :: {'map_field_exact', anno(), T, T}.
+-type af_assoc_exact(T) :: {'map_field_exact', anno(), T, T}.
 
 -type af_guard_call() :: {'call', anno(), function_name(), [af_guard_test()]}.
 
@@ -757,20 +756,20 @@ Erlang code.
                     | af_bin(af_pattern())
                     | af_binary_op(af_pattern())
                     | af_unary_op(af_pattern())
-                    | af_record_access(af_pattern())
+                    | af_record_creation(af_pattern())
                     | af_record_index()
                     | af_map_pattern().
 
 -type af_record_index() ::
         {'record_index', anno(), record_name(), af_field_name()}.
 
--type af_record_access(T) ::
+-type af_record_creation(T) ::
         {'record', anno(), record_name(), [af_record_field(T)]}.
 
 -type af_record_field(T) :: {'record_field', anno(), af_field_name(), T}.
 
 -type af_map_pattern() ::
-        {'map', anno(), [af_map_field_exact(abstract_expr)]}. % FIXME?
+        {'map', anno(), [af_assoc_exact(abstract_expr)]}.
 
 -type abstract_type() :: af_annotated_type()
                        | af_atom()
@@ -807,9 +806,9 @@ Erlang code.
         {'type', anno(), 'range', [af_singleton_integer_type()]}.
 
 -type af_map_type() :: {'type', anno(), 'map', 'any'}
-                     | {'type', anno(), 'map', [af_map_pair_type()]}.
+                     | {'type', anno(), 'map', [af_assoc_type()]}.
 
--type af_map_pair_type() ::
+-type af_assoc_type() ::
         {'type', anno(), 'map_field_assoc', [abstract_type()]}
       | {'type', anno(), 'map_field_exact', [abstract_type()]}.
 
