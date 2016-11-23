@@ -118,6 +118,6 @@
   {applications, []},
   {env, [{error_logger, tty}]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-8.0", "stdlib-3.0", "sasl-3.0"]}
+  {runtime_dependencies, ["erts-8.1", "stdlib-3.0", "sasl-3.0"]}
  ]
 }.
