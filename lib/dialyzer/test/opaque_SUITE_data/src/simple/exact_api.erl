@@ -52,7 +52,7 @@ exact_api_set_type(#exact_api{}=E) -> E.
 -record(exact_adt, {}).
 
 exact_adt_test(X) ->
-    #exact_adt{} = exact_adt:exact_adt_set_type(X). % breaks the opaqueness
+    #exact_adt{} = exact_adt:exact_adt_set_type(X). % breaks the opacity
 
 exact_adt_new(A) ->
     A = #exact_adt{},

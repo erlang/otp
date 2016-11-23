@@ -2,7 +2,7 @@
 %%------------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -310,7 +310,7 @@ createWarningsMenu() ->
   addCheckedItem(WarningsMenu, ?menuID_WARN_FAIL_FUN_CALLS,
 		 "Failing function calls"),
   addCheckedItem(WarningsMenu, ?menuID_WARN_BAD_FUN, "Bad fun applications"),
-  addCheckedItem(WarningsMenu, ?menuID_WARN_OPAQUE, "Opaqueness violations"),
+  addCheckedItem(WarningsMenu, ?menuID_WARN_OPAQUE, "Opacity violations"),
   addCheckedItem(WarningsMenu, ?menuID_WARN_LIST_CONSTR,
 		 "Improper list constructions"),
   addCheckedItem(WarningsMenu, ?menuID_WARN_UNUSED_FUN, "Unused functions"),

@@ -522,7 +522,7 @@
 	    or modifying opaque types within the scope of a module.
 	    </p> <p> Hitherto the shape of terms (tuple, list, etc.)
 	    has been used to determine the opaque terms, but now the
-	    contracts are used for decorating types with opaqueness.
+	    contracts are used for decorating types with opacity.
 	    </p>
           <p>
 	    Own Id: OTP-10397</p>
@@ -1505,7 +1505,7 @@
       <list>
         <item>
 	    <p>The analysis accepts opaque type declarations and
-	    detects violations of opaqueness of terms of such types.
+	    detects violations of opacity of terms of such types.
 	    Starting with R13, many Erlang/OTP standard libraries
 	    (array, dict, digraph, ets, gb_sets, gb_trees, queue, and
 	    sets) contain opaque type declarations of their main data

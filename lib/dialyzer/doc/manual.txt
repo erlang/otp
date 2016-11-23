@@ -255,7 +255,7 @@ Warning options:
   -Wno_match
      Suppress warnings for patterns that are unused or cannot match.
   -Wno_opaque
-     Suppress warnings for violations of opaqueness of data types.
+     Suppress warnings for violations of opacity of data types.
   -Wunmatched_returns ***
      Include warnings for function calls which ignore a structured return
      value or do not match against one of many possible return value(s).

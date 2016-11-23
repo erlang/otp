@@ -14,12 +14,12 @@
 rel2fam(Rel) ->
     sofs:to_external(sofs:relation_to_family(sofs:relation(Rel))).
 
-%% a definition that does not violate the opaqueness of gb_trees:tree()
+%% a definition that does not violate the opacity of gb_trees:tree()
 gb_trees_smallest_key(Tree) ->
     {Key, _V} = gb_trees:smallest(Tree),
     Key.
 
-%% a definition that violates the opaqueness of gb_trees:tree()
+%% a definition that violates the opacity of gb_trees:tree()
 gb_trees_largest_key({_, Tree}) ->
     largest_key1(Tree).
 

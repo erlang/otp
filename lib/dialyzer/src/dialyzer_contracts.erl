@@ -232,7 +232,7 @@ check_contract(#contract{contracts = Contracts}, SuccType, Opaques) ->
       error ->
 	{error, {overlapping_contract, []}};
       ok ->
-	InfList = [erl_types:t_inf(Contract, SuccType, Opaques)
+	InfList = [{Contract, erl_types:t_inf(Contract, SuccType, Opaques)}
 		   || Contract <- Contracts2],
 	case check_contract_inf_list(InfList, SuccType, Opaques) of
 	  {error, _} = Invalid -> Invalid;
@@ -256,10 +256,21 @@ check_domains([Dom|Doms]) ->
 %% Allow a contract if one of the overloaded contracts is possible.
 %% We used to be more strict, e.g., all overloaded contracts had to be
 %% possible.
-check_contract_inf_list([FunType|Left], SuccType, Opaques) ->
+check_contract_inf_list(List, SuccType, Opaques) ->
+  case check_contract_inf_list(List, SuccType, Opaques, []) of
+    ok -> ok;
+    {error, []} -> {error, invalid_contract};
+    {error, [{SigRange, ContrRange}|_]} ->
+      case erl_types:t_find_opaque_mismatch(SigRange, ContrRange, Opaques) of
+        error -> {error, invalid_contract};
+        {ok, _T1, T2} -> {error, {opaque_mismatch, T2}}
+      end
+  end.
+
+check_contract_inf_list([{Contract, FunType}|Left], SuccType, Opaques, OM) ->
   FunArgs = erl_types:t_fun_args(FunType),
   case lists:any(fun erl_types:t_is_none_or_unit/1, FunArgs) of
-    true -> check_contract_inf_list(Left, SuccType, Opaques);
+    true -> check_contract_inf_list(Left, SuccType, Opaques, OM);
     false ->
       STRange = erl_types:t_fun_range(SuccType),
       case erl_types:t_is_none_or_unit(STRange) of
@@ -267,13 +278,16 @@ check_contract_inf_list([FunType|Left], SuccType, Opaques) ->
 	false ->
 	  Range = erl_types:t_fun_range(FunType),
 	  case erl_types:t_is_none(erl_types:t_inf(STRange, Range)) of
-	    true -> check_contract_inf_list(Left, SuccType, Opaques);
+	    true ->
+              CR = erl_types:t_fun_range(Contract),
+              NewOM = [{STRange, CR}|OM],
+              check_contract_inf_list(Left, SuccType, Opaques, NewOM);
 	    false -> ok
 	  end
       end
   end;
-check_contract_inf_list([], _SuccType, _Opaques) ->
-  {error, invalid_contract}.
+check_contract_inf_list([], _SuccType, _Opaques, OM) ->
+  {error, OM}.
 
 check_extraneous([], _SuccType) -> ok;
 check_extraneous([C|Cs], SuccType) ->
@@ -687,6 +701,9 @@ get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract, _Xtra}}|Left],
 	case check_contract(Contract, Sig, Opaques) of
 	  {error, invalid_contract} ->
 	    [invalid_contract_warning(MFA, WarningInfo, Sig, RecDict)|Acc];
+          {error, {opaque_mismatch, T2}} ->
+            W = contract_opaque_warning(MFA, WarningInfo, T2, Sig, RecDict),
+            [W|Acc];
 	  {error, {overlapping_contract, []}} ->
 	    [overlapping_contract_warning(MFA, WarningInfo)|Acc];
 	  {error, {extra_range, ExtraRanges, STRange}} ->
@@ -739,6 +756,12 @@ get_invalid_contract_warnings_funs([], _Plt, _RecDict, _FindOpaques, Acc) ->
 invalid_contract_warning({M, F, A}, WarningInfo, SuccType, RecDict) ->
   SuccTypeStr = dialyzer_utils:format_sig(SuccType, RecDict),
   {?WARN_CONTRACT_TYPES, WarningInfo, {invalid_contract, [M, F, A, SuccTypeStr]}}.
+
+contract_opaque_warning({M, F, A}, WarningInfo, OpType, SuccType, RecDict) ->
+  OpaqueStr = erl_types:t_to_string(OpType),
+  SuccTypeStr = dialyzer_utils:format_sig(SuccType, RecDict),
+  {?WARN_CONTRACT_TYPES, WarningInfo,
+   {contract_with_opaque, [M, F, A, OpaqueStr, SuccTypeStr]}}.
 
 overlapping_contract_warning({M, F, A}, WarningInfo) ->
   {?WARN_CONTRACT_TYPES, WarningInfo, {overlapping_contract, [M, F, A]}}.

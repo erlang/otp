@@ -4366,7 +4366,7 @@ record_field_diffs_to_string(?tuple([_|Fs], Arity, Tag), RecDict) ->
   string:join(FieldDiffs, " and ").
 
 field_diffs([F|Fs], [{FName, _Abstr, DefType}|FDefs], RecDict, Acc) ->
-  %% Don't care about opaqueness for now.
+  %% Don't care about opacity for now.
   NewAcc =
     case not t_is_none(t_inf(F, DefType)) of
       true -> Acc;
