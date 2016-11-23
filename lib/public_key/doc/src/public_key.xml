@@ -822,6 +822,36 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
   </func>
 
   <func>
+    <name>ssh_hostkey_fingerprint(HostKey) -> string()</name>
+    <name>ssh_hostkey_fingerprint(DigestType, HostKey) -> string()</name>
+    <fsummary>Calculates a ssh fingerprint for a hostkey.</fsummary>
+    <type>
+      <v>Key = public_key()</v>
+      <v>DigestType = digest_type()</v>
+    </type>
+  <desc>
+    <p>Calculates a ssh fingerprint from a public host key as openssh does.</p>
+    <p>The algorithm in <c>ssh_hostkey_fingerprint/1</c> is md5 to be compatible with older
+    ssh-keygen commands. The string from the second variant is prepended by the algorithm name
+    in uppercase as in newer ssh-keygen commands.</p>
+    <p>Examples:</p>
+    <code>
+ 2> public_key:ssh_hostkey_fingerprint(Key).    
+ "f5:64:a6:c1:5a:cb:9f:0a:10:46:a2:5c:3e:2f:57:84"
+
+ 3> public_key:ssh_hostkey_fingerprint(md5,Key).
+ "MD5:f5:64:a6:c1:5a:cb:9f:0a:10:46:a2:5c:3e:2f:57:84"
+
+ 4> public_key:ssh_hostkey_fingerprint(sha,Key).
+ "SHA1:bSLY/C4QXLDL/Iwmhyg0PGW9UbY"
+
+ 5> public_key:ssh_hostkey_fingerprint(sha256,Key).
+ "SHA256:aZGXhabfbf4oxglxltItWeHU7ub3Dc31NcNw2cMJePQ"
+    </code>
+  </desc>
+  </func>
+
+  <func>
     <name>verify(Msg, DigestType, Signature, Key) -> boolean()</name>
     <fsummary>Verifies a digital signature.</fsummary>
     <type>
