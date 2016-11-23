@@ -34,6 +34,8 @@
 
 int driver_select_kp(ErlDrvPort, ErlDrvEvent, int, int);
 int driver_select_nkp(ErlDrvPort, ErlDrvEvent, int, int);
+int enif_select_kp(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, Eterm);
+int enif_select_nkp(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, Eterm);
 int driver_event_kp(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
 int driver_event_nkp(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
 Uint erts_check_io_size_kp(void);
@@ -136,4 +138,20 @@ typedef struct {
     ErtsIoTask iniotask;
     ErtsIoTask outiotask;
 } ErtsDrvSelectDataState;
+
+struct erts_nif_select_event {
+    Eterm pid;
+    Eterm immed;
+    Uint32 refn[ERTS_REF_NUMBERS];
+    Sint32 ddeselect_cnt; /* 0:  No delayed deselect in progress
+                           * 1:  Do deselect before next poll
+                           * >1: Countdown of ignored events
+                           */
+};
+
+typedef struct {
+    struct erts_nif_select_event in;
+    struct erts_nif_select_event out;
+} ErtsNifSelectDataState;
+
 #endif /* #ifndef ERL_CHECK_IO_INTERNAL__ */

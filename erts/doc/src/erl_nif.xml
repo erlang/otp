@@ -699,11 +699,29 @@ typedef struct {
           Each resource type has a unique name and a destructor function that
           is called when objects of its type are released.</p>
       </item>
+      <tag><marker id="ErlNifResourceTypeInit"/><c>ErlNifResourceTypeInit</c></tag>
+      <item>
+        <code type="none">
+typedef struct {
+    ErlNifResourceDtor* dtor;
+    ErlNifResourceStop* stop;
+} ErlNifResourceTypeInit;</code>
+        <p>Initialization structure read by <seealso marker="#enif_open_resource_type_x">
+	enif_open_resource_type_x</seealso>.</p>
+      </item>
       <tag><marker id="ErlNifResourceDtor"/><c>ErlNifResourceDtor</c></tag>
       <item>
         <code type="none">
 typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);</code>
         <p>The function prototype of a resource destructor function.</p>
+      </item>
+      <tag><marker id="ErlNifResourceStop"/><c>ErlNifResourceStop</c></tag>
+      <item>
+        <code type="none">
+typedef void ErlNifResourceStop(ErlNifEnv* env, void* obj);</code>
+        <p>The function prototype of a resource stop function,
+	  called on the behalf of <seealso marker="#enif_select">
+	  enif_select</seealso>.</p>
       </item>
       <tag><marker id="ErlNifCharEncoding"/><c>ErlNifCharEncoding</c></tag>
       <item>
@@ -2239,6 +2257,24 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
+      <name><ret>ErlNifResourceType *</ret>
+        <nametext>enif_open_resource_type_x(ErlNifEnv* env, const char* name,
+	ErlNifResourceTypeInit* init,
+        ErlNifResourceFlags flags, ErlNifResourceFlags* tried)</nametext>
+      </name>
+      <fsummary>Create or takeover a resource type.</fsummary>
+      <desc>
+	<p>Same as <seealso marker="#enif_open_resource_type"><c>enif_open_resource_type</c></seealso>
+	  except is also accept a <c>stop</c> callback for resource types that are
+	  used together with <seealso marker="#enif_select"><c>enif_select</c></seealso>.</p>
+	<p>Argument <c>init</c> is a pointer to an
+	  <seealso marker="#ErlNifResourceTypeInit"><c>ErlNifResourceTypeInit</c></seealso>
+	  structure that contains the function pointers for the destructor and the stop callback
+	  of the resource type.</p>
+      </desc>
+    </func>
+
+    <func>
      <name><ret>int</ret><nametext>enif_port_command(ErlNifEnv* env, const
        ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg)</nametext>
      </name>
@@ -2345,7 +2381,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
         <nametext>enif_release_resource(void* obj)</nametext></name>
       <fsummary>Release a resource object.</fsummary>
       <desc>
-        <p>Removes a reference to resource object <c>obj</c>obtained from
+        <p>Removes a reference to resource object <c>obj</c> obtained from
           <seealso marker="#enif_alloc_resource">
           <c>enif_alloc_resource</c></seealso>.
           The resource object is destructed when the last reference is removed.
@@ -2484,6 +2520,52 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           block waiting for the scheduled NIF to execute and return. This means
           that the calling NIF cannot expect to receive the scheduled NIF
           return value and use it for further operations.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+        <nametext>enif_select(ErlNifEnv* env, ErlNifEvent event,
+	                      enum ErlNifSelectFlags mode, void* obj, Eterm ref)</nametext>
+      </name>
+      <fsummary>Manage subscription on IO event.</fsummary>
+      <desc>
+        <p>This function can be used to receive asynchronous notifications
+	  when OS-specific event objects become ready for either read or write operations.</p>
+	<p>Argument <c>event</c> identifies the event object. On Unix
+	  systems, the functions <c>select</c>/<c>poll</c> are used. The event
+	  object must be a socket, pipe or other file descriptor object that
+	  <c>select</c>/<c>poll</c> can use.</p>
+	<p>Argument <c>mode</c> describes the type of events to wait for. It can be
+	  <c>ERL_NIF_SELECT_READ</c>, <c>ERL_NIF_SELECT_WRITE</c> or a bitwise
+	  OR combination to wait for both. It can also be <c>ERL_NIF_SELECT_STOP</c>
+	  which is described further below. When a read or write event is triggerred,
+	  a notification message like this is sent to the Erlang process that called
+	  <c>enif_select</c>:</p>
+	<code type="none"><c>{select, Obj, Ref, ready_input | ready_output}</c></code>
+	<p><c>ready_input</c> or <c>ready_output</c> indicates if the event object
+	  is ready for reading or writing.</p>
+	<p>Argument <c>obj</c> is a resource object obtained from
+          <seealso marker="#enif_alloc_resource"><c>enif_alloc_resource</c></seealso>.
+	  The purpose of the resource objects is as a container of the event object
+	  to manage its state and lifetime. A handle to the resource is received
+	  in the notification message as <c>Obj</c>.</p>
+	<p>Argument <c>ref</c> must be either a reference obtained from
+	  <seealso marker="erlang#make_ref-0"><c>erlang:make_ref/0</c></seealso>
+	  or the atom <c>undefined</c>. It will be passed as <c>Ref</c> in the notifications.
+	  If a selective <c>receive</c> statement is used to wait for the notification
+	  then a reference created just before the <c>receive</c> will exploit a runtime
+	  optimization that bypasses all earlier received messages in the queue.</p>
+	<p>The notifications are one-shot only. To receive further notifications of the same
+	  type (read or write), repeated calls to <c>enif_select</c> must be made.</p>
+	<p>Use <c>ERL_NIF_SELECT_STOP</c> as <c>mode</c> in order to safely
+	  close an event object that has been passed to <c>enif_select</c>. The
+	  <seealso marker="#ErlNifResourceStop"><c>stop</c></seealso> callback
+	  of the resource <c>obj</c> will be called when it is safe to close
+	  the event object. This safe way of closing event objects must be used
+	  even if all notifications have been received and no further calls to
+	  <c>enif_select</c> have been made.</p>
+	<p>Returns 0 on success, or -1 if invalid arguments.</p>
       </desc>
     </func>
 

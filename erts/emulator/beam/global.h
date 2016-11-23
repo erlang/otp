@@ -42,6 +42,7 @@
 #include "erl_utils.h"
 #include "erl_port.h"
 #include "erl_gc.h"
+#include "erl_nif.h"
 
 struct enif_func_t;
 
@@ -58,6 +59,33 @@ struct enif_environment_t /* ErlNifEnv */
     Process *tracee;
     int exiting; /* boolean (dirty nifs might return in exiting state) */
 };
+struct enif_resource_type_t
+{
+    struct enif_resource_type_t* next;   /* list of all resource types */
+    struct enif_resource_type_t* prev;
+    struct erl_module_nif* owner;  /* that created this type and thus implements the destructor*/
+    ErlNifResourceDtor* dtor;      /* user destructor function */
+    ErlNifResourceStop* stop;
+    erts_refc_t refc;  /* num of resources of this type (HOTSPOT warning)
+                          +1 for active erl_module_nif */
+    Eterm module;
+    Eterm name;
+};
+typedef struct enif_resource_t
+{
+    struct enif_resource_type_t* type;
+#ifdef DEBUG
+    erts_refc_t nif_refc;
+# ifdef ARCH_32
+    byte align__[4];
+# endif
+#endif
+
+    char data[1];
+}ErlNifResource;
+
+#define DATA_TO_RESOURCE(PTR) ((ErlNifResource*)((char*)(PTR) - offsetof(ErlNifResource,data)))
+
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*, Process* tracee);
 extern void erts_post_nif(struct enif_environment_t* env);
@@ -67,6 +95,7 @@ extern void erts_pre_dirty_nif(ErtsSchedulerData *,
 			       struct erl_module_nif*);
 extern void erts_post_dirty_nif(struct enif_environment_t* env);
 #endif
+extern void erts_resource_stop(ErlNifResource* resource);
 extern Eterm erts_nif_taints(Process* p);
 extern void erts_print_nif_taints(fmtfn_t to, void* to_arg);
 void erts_unload_nif(struct erl_module_nif* nif);

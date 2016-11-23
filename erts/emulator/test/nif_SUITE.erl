@@ -31,6 +31,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload_error/1, upgrade/1, heap_frag/1,
          t_on_load/1,
+         select/1,
          hipe/1,
 	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1,
 	 maps/1,
@@ -64,6 +65,7 @@ all() ->
     [{group, G} || G <- api_groups()]
         ++
     [reload_error, heap_frag, types, many_args,
+     select,
      hipe,
      binaries, get_string, get_atom, maps, api_macros, from_array,
      iolist_as_binary, resource, resource_binary,
@@ -432,6 +434,33 @@ t_on_load(Config) when is_list(Config) ->
     true = lists:member(?MODULE, erlang:system_info(taints)),
     true = lists:member(nif_mod, erlang:system_info(taints)),
     verify_tmpmem(TmpMem),
+    ok.
+
+-define(ERL_NIF_SELECT_READ, (1 bsl 0)).
+-define(ERL_NIF_SELECT_WRITE, (1 bsl 1)).
+-define(ERL_NIF_SELECT_STOP, (1 bsl 2)).
+
+select(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+
+    Ref = make_ref(),
+    {R,W} = pipe_nif(),
+    ok = write_nif(W, <<"hej">>),
+    <<"hej">> = read_nif(R, 3),
+    eagain = read_nif(R, 3),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,Ref),
+    [] = flush(),
+    ok = write_nif(W, <<"hej">>),
+    [{select, R, Ref, ready_input}] = flush(),
+    <<"hej">> = read_nif(R, 3),
+
+    %% To be extended...
+
+    0 = select_nif(R,?ERL_NIF_SELECT_STOP,R,Ref),
+    0 = select_nif(W,?ERL_NIF_SELECT_STOP,W,Ref),
+    timer:sleep(10),
+    true = is_closed_nif(R),
+    true = is_closed_nif(W),
     ok.
 
 hipe(Config) when is_list(Config) ->
@@ -1910,6 +1939,15 @@ call(Pid,Cmd) ->
 receive_any() ->
     receive M -> M end.	     
 
+flush() ->
+    flush(10).
+flush(Timeout) ->
+    receive M ->
+            [M | flush(Timeout)]
+    after Timeout ->
+            []
+    end.
+
 repeat(0, _, Arg) ->
     Arg;
 repeat(N, Fun, Arg0) ->
@@ -2273,6 +2311,11 @@ term_to_binary_nif(_, _) -> ?nif_stub.
 binary_to_term_nif(_, _, _) -> ?nif_stub.
 port_command_nif(_, _) -> ?nif_stub.
 format_term_nif(_,_) -> ?nif_stub.
+select_nif(_,_,_,_) -> ?nif_stub.
+pipe_nif() -> ?nif_stub.
+write_nif(_,_) -> ?nif_stub.
+read_nif(_,_) -> ?nif_stub.
+is_closed_nif(_) -> ?nif_stub.
 
 %% maps
 is_map_nif(_) -> ?nif_stub.

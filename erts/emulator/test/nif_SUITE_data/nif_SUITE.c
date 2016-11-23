@@ -25,6 +25,8 @@
 #include <limits.h>
 #ifndef __WIN32__
 #include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
 #endif
 
 #include "nif_mod.h"
@@ -42,7 +44,9 @@ static ERL_NIF_TERM atom_second;
 static ERL_NIF_TERM atom_millisecond;
 static ERL_NIF_TERM atom_microsecond;
 static ERL_NIF_TERM atom_nanosecond;
-
+static ERL_NIF_TERM atom_eagain;
+static ERL_NIF_TERM atom_eof;
+static ERL_NIF_TERM atom_error;
 
 typedef struct
 {
@@ -102,6 +106,18 @@ struct binary_resource {
     unsigned size;
 };
 
+static ErlNifResourceType* fd_resource_type;
+static void fd_resource_dtor(ErlNifEnv* env, void* obj);
+static void fd_resource_stop(ErlNifEnv* env, void* obj);
+static ErlNifResourceTypeInit fd_rt_init = {
+    fd_resource_dtor,
+    fd_resource_stop
+};
+struct fd_resource {
+    int fd;
+};
+
+
 static int get_pointer(ErlNifEnv* env, ERL_NIF_TERM term, void** pp)
 {
     ErlNifBinary bin;
@@ -144,6 +160,9 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     msgenv_resource_type =  enif_open_resource_type(env,NULL,"nif_SUITE.msgenv",
 						    msgenv_dtor,
 						    ERL_NIF_RT_CREATE, NULL);
+    fd_resource_type =  enif_open_resource_type_x(env, "nif_SUITE.fd",
+                                                  &fd_rt_init,
+                                                  ERL_NIF_RT_CREATE, NULL);
     atom_false = enif_make_atom(env,"false");
     atom_true = enif_make_atom(env,"true");
     atom_self = enif_make_atom(env,"self");
@@ -154,6 +173,9 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_millisecond = enif_make_atom(env,"millisecond");
     atom_microsecond = enif_make_atom(env,"microsecond");
     atom_nanosecond = enif_make_atom(env,"nanosecond");
+    atom_eagain = enif_make_atom(env, "eagain");
+    atom_eof = enif_make_atom(env, "eof");
+    atom_error = enif_make_atom(env, "error");
 
     *priv_data = data;
     return 0;
@@ -2010,6 +2032,165 @@ static ERL_NIF_TERM format_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 }
 
 
+static int get_fd(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifEvent* fd)
+{
+    struct fd_resource* rsrc;
+
+    if (!enif_get_resource(env, term, fd_resource_type, (void**)&rsrc)) {
+        return 0;
+    }
+    *fd = rsrc->fd;
+    return 1;
+}
+
+static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifEvent e;
+    enum ErlNifSelectFlags mode;
+    void* obj;
+    ERL_NIF_TERM ref;
+    int retval;
+
+    if (!get_fd(env, argv[0], &e)
+        || !enif_get_uint(env, argv[1], &mode)
+        || !enif_get_resource(env, argv[2], fd_resource_type, &obj))
+    {
+        return enif_make_badarg(env);
+    }
+
+    ref = argv[3];
+
+    retval = enif_select(env, e, mode, obj, ref);
+
+    return enif_make_int(env, retval);
+}
+
+static ERL_NIF_TERM pipe_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    struct fd_resource* read_rsrc;
+    struct fd_resource* write_rsrc;
+    ERL_NIF_TERM read_fd, write_fd;
+    unsigned char *inp, *outp;
+    int fds[2], flags;
+
+    if (pipe(fds) < 0)
+        return enif_make_string(env, "pipe failed", ERL_NIF_LATIN1);
+
+    if ((flags = fcntl(fds[0], F_GETFL, 0)) < 0
+        || fcntl(fds[0], F_SETFL, flags|O_NONBLOCK) < 0
+        || (flags = fcntl(fds[1], F_GETFL, 0)) < 0
+        || fcntl(fds[1], F_SETFL, flags|O_NONBLOCK) < 0) {
+        close(fds[0]);
+        close(fds[1]);
+        return enif_make_string(env, "fcntl failed on pipe", ERL_NIF_LATIN1);
+    }
+
+    read_rsrc  = enif_alloc_resource(fd_resource_type, sizeof(struct fd_resource));
+    write_rsrc = enif_alloc_resource(fd_resource_type, sizeof(struct fd_resource));
+    read_rsrc->fd  = fds[0];
+    write_rsrc->fd = fds[1];
+    read_fd  = enif_make_resource(env, read_rsrc);
+    write_fd = enif_make_resource(env, write_rsrc);
+    enif_release_resource(read_rsrc);
+    enif_release_resource(write_rsrc);
+
+    return enif_make_tuple2(env, read_fd, write_fd);
+}
+
+static ERL_NIF_TERM write_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifEvent fd;
+    ErlNifBinary bin;
+    int n, written = 0;
+
+    if (!get_fd(env, argv[0], &fd)
+        || !enif_inspect_binary(env, argv[1], &bin))
+        return enif_make_badarg(env);
+
+    for (;;) {
+        n = write(fd, bin.data + written, bin.size - written);
+        if (n >= 0) {
+            written += n;
+            if (written == bin.size) {
+                return atom_ok;
+            }
+        }
+        else if (errno == EAGAIN) {
+            return enif_make_tuple2(env, atom_eagain, enif_make_int(env, written));
+        }
+        else if (errno == EINTR) {
+            continue;
+        }
+        else {
+            return enif_make_tuple2(env, atom_error, enif_make_int(env, errno));
+        }
+    }
+}
+
+static ERL_NIF_TERM read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifEvent fd;
+    unsigned char* buf;
+    int n, count, nread = 0;
+    ERL_NIF_TERM res;
+
+    if (!get_fd(env, argv[0], &fd)
+        || !enif_get_int(env, argv[1], &count) || count < 1)
+        return enif_make_badarg(env);
+
+    buf = enif_make_new_binary(env, count, &res);
+
+    for (;;) {
+        n = read(fd, buf, count);
+        if (n > 0) {
+            if (n < count) {
+                res = enif_make_sub_binary(env, res, 0, n);
+            }
+            return res;
+        }
+        else if (n == 0) {
+            return atom_eof;
+        }
+        else if (errno == EAGAIN) {
+            return atom_eagain;
+        }
+        else if (errno == EINTR) {
+            continue;
+        }
+        else {
+            return enif_make_tuple2(env, atom_error, enif_make_int(env, errno));
+        }
+    }
+}
+
+static ERL_NIF_TERM is_closed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifEvent fd;
+
+    if (!get_fd(env, argv[0], &fd))
+        return enif_make_badarg(env);
+
+    return fd < 0 ? atom_true : atom_false;
+}
+
+static void fd_resource_dtor(ErlNifEnv* env, void* obj)
+{
+    struct fd_resource* rsrc = (struct fd_resource*)obj;
+    if (rsrc->fd >= 0)
+        close(rsrc->fd);
+}
+
+static void fd_resource_stop(ErlNifEnv* env, void* obj)
+{
+    struct fd_resource* rsrc = (struct fd_resource*)obj;
+    if (rsrc->fd >= 0) {
+        close(rsrc->fd);
+        rsrc->fd = -1;   /* thread safety ? */
+    }
+}
+
+
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -2086,7 +2267,12 @@ static ErlNifFunc nif_funcs[] =
     {"term_to_binary_nif", 2, term_to_binary},
     {"binary_to_term_nif", 3, binary_to_term},
     {"port_command_nif", 2, port_command},
-    {"format_term_nif", 2, format_term}
+    {"format_term_nif", 2, format_term},
+    {"select_nif", 4, select_nif},
+    {"pipe_nif", 0, pipe_nif},
+    {"write_nif", 2, write_nif},
+    {"read_nif", 2, read_nif},
+    {"is_closed_nif", 1, is_closed_nif}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,NULL,upgrade,unload)

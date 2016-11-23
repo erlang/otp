@@ -161,6 +161,7 @@ int erts_use_kernel_poll = 0;
 
 struct {
     int (*select)(ErlDrvPort, ErlDrvEvent, int, int);
+    int (*enif_select)(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, Eterm);
     int (*event)(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
     void (*check_io_as_interrupt)(void);
     void (*check_io_interrupt)(int);
@@ -184,6 +185,13 @@ driver_event(ErlDrvPort port, ErlDrvEvent event, ErlDrvEventData event_data)
     return (*io_func.event)(port, event, event_data);
 }
 
+int enif_select(ErlNifEnv* env, ErlNifEvent event,
+                enum ErlNifSelectFlags flags, void* obj, Eterm ref)
+{
+    return (*io_func.enif_select)(env, event, flags, obj, ref);
+}
+
+
 Eterm erts_check_io_info(void *p)
 {
     return (*io_func.info)(p);
@@ -201,6 +209,7 @@ init_check_io(void)
 {
     if (erts_use_kernel_poll) {
 	io_func.select			= driver_select_kp;
+        io_func.enif_select		= enif_select_kp;
 	io_func.event			= driver_event_kp;
 #ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
 	io_func.check_io_as_interrupt	= erts_check_io_async_sig_interrupt_kp;
@@ -216,6 +225,7 @@ init_check_io(void)
     }
     else {
 	io_func.select			= driver_select_nkp;
+        io_func.enif_select		= enif_select_nkp;
 	io_func.event			= driver_event_nkp;
 #ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
 	io_func.check_io_as_interrupt	= erts_check_io_async_sig_interrupt_nkp;

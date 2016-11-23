@@ -3030,6 +3030,7 @@ ERTS_POLL_EXPORT(erts_poll_get_selected_events)(ErtsPollSet ps,
 	    ev[fd] = 0;
 	else {
 	    ev[fd] = ps->fds_status[fd].events;
+            ASSERT(ps->fds_status[fd].used_events == ev[fd]);
             if (
 #if ERTS_POLL_USE_WAKEUP_PIPE
                 fd == ps->wake_fds[0] || fd == ps->wake_fds[1] ||

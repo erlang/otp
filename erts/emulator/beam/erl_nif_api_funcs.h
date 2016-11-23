@@ -175,6 +175,8 @@ ERL_NIF_API_FUNC_DECL(size_t, enif_binary_to_term, (ErlNifEnv *env, const unsign
 ERL_NIF_API_FUNC_DECL(int, enif_port_command, (ErlNifEnv *env, const ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg));
 ERL_NIF_API_FUNC_DECL(int,enif_thread_type,(void));
 ERL_NIF_API_FUNC_DECL(int,enif_snprintf,(char * buffer, size_t size, const char *format, ...));
+ERL_NIF_API_FUNC_DECL(int,enif_select,(ErlNifEnv* env, ErlNifEvent e, enum ErlNifSelectFlags flags, void* obj, ERL_NIF_TERM ref));
+ERL_NIF_API_FUNC_DECL(ErlNifResourceType*,enif_open_resource_type_x,(ErlNifEnv*, const char* name_str, const ErlNifResourceTypeInit*, ErlNifResourceFlags flags, ErlNifResourceFlags* tried));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -332,6 +334,8 @@ ERL_NIF_API_FUNC_DECL(int,enif_snprintf,(char * buffer, size_t size, const char 
 #  define enif_port_command ERL_NIF_API_FUNC_MACRO(enif_port_command)
 #  define enif_thread_type ERL_NIF_API_FUNC_MACRO(enif_thread_type)
 #  define enif_snprintf ERL_NIF_API_FUNC_MACRO(enif_snprintf)
+#  define enif_select ERL_NIF_API_FUNC_MACRO(enif_select)
+#  define enif_open_resource_type_x ERL_NIF_API_FUNC_MACRO(enif_open_resource_type_x)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

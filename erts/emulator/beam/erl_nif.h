@@ -52,7 +52,7 @@
 ** 2.11: 19.0 enif_snprintf 
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 11
+#define ERL_NIF_MINOR_VERSION 12
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -122,6 +122,9 @@ typedef struct enif_entry_t
 
     /* Added in 2.7 */
     unsigned options;   /* Unused. Can be set to 0 or 1 (dirty sched config) */
+
+    /* Added in 2.12 */
+    size_t sizeof_ErlNifResourceTypeInit;
 }ErlNifEntry;
 
 
@@ -135,8 +138,20 @@ typedef struct
     void* ref_bin;
 }ErlNifBinary;
 
+typedef struct {
+    void (*dtor)(ErlNifEnv* env, void* obj);
+    void (*stop)(ErlNifEnv* env, void* obj); /* at ERL_NIF_SELECT_STOP event */
+} ErlNifResourceTypeInit;
+
 typedef struct enif_resource_type_t ErlNifResourceType;
 typedef void ErlNifResourceDtor(ErlNifEnv*, void*);
+typedef void ErlNifResourceStop(ErlNifEnv*, void*);
+typedef void ErlNifResourceExit(ErlNifEnv*, void*);
+
+//#ifndef ERL_SYS_DRV
+typedef int ErlNifEvent; /* An event to be selected on. */
+//#endif
+
 typedef enum
 {
     ERL_NIF_RT_CREATE = 1,
@@ -292,7 +307,8 @@ ERL_NIF_INIT_DECL(NAME)			\
 	FUNCS,				\
 	LOAD, RELOAD, UPGRADE, UNLOAD,	\
 	ERL_NIF_VM_VARIANT,		\
-	1		                \
+        1,                              \
+        sizeof(ErlNifResourceTypeInit)  \
     };                                  \
     ERL_NIF_INIT_BODY;                  \
     return &entry;			\

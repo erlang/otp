@@ -76,11 +76,10 @@ typedef struct {
 #  endif
 #endif
 
-/* Values for mode arg to driver_select() */
-#define ERL_DRV_READ  (1 << 0)
-#define ERL_DRV_WRITE (1 << 1)
-#define ERL_DRV_USE   (1 << 2)
-#define ERL_DRV_USE_NO_CALLBACK (ERL_DRV_USE | (1 << 3))
+#define ERL_DRV_READ  ((int)ERL_NIF_SELECT_READ)
+#define ERL_DRV_WRITE ((int)ERL_NIF_SELECT_WRITE)
+#define ERL_DRV_USE   ((int)ERL_NIF_SELECT_STOP)
+#define ERL_DRV_USE_NO_CALLBACK (ERL_DRV_USE | (ERL_DRV_USE  << 1))
 
 /* Old deprecated */
 #define DO_READ  ERL_DRV_READ
