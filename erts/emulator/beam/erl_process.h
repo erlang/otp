@@ -107,6 +107,7 @@ extern int erts_eager_check_io;
 extern int erts_sched_compact_load;
 extern int erts_sched_balance_util;
 extern Uint erts_no_schedulers;
+extern Uint erts_no_total_schedulers;
 #ifdef ERTS_DIRTY_SCHEDULERS
 extern Uint erts_no_dirty_cpu_schedulers;
 extern Uint erts_no_dirty_io_schedulers;
@@ -1583,6 +1584,7 @@ Uint64 erts_step_proc_interval(void);
 
 int erts_setup_nif_gc(Process* proc, Eterm** objv, int* nobj); /* see erl_nif.c */
 void erts_destroy_nif_export(void *); /* see erl_nif.c */
+int erts_check_nif_export_in_area(Process *p, char *start, Uint size);
 
 ErtsProcList *erts_proclist_create(Process *);
 ErtsProcList *erts_proclist_copy(ErtsProcList *);

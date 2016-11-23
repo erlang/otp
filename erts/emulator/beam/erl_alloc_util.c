@@ -4197,9 +4197,9 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
 	    ASSERT(IS_LAST_BLK(blk));
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG
-	    (*allctr->link_free_block)(allctr, blk, 0);
+	    (*allctr->link_free_block)(allctr, blk);
 	    HARD_CHECK_BLK_CARRIER(allctr, blk);
-	    (*allctr->unlink_free_block)(allctr, blk, 0);
+	    (*allctr->unlink_free_block)(allctr, blk);
 #endif
 	}
 #endif
@@ -6484,11 +6484,6 @@ check_blk_carrier(Allctr_t *allctr, Block_t *iblk)
 
 	ASSERT(SBC2BLK(allctr, sbc) == iblk);
 	ASSERT(CARRIER_SZ(sbc) - SBC_HEADER_SIZE >= SBC_BLK_SZ(iblk));
-#if HAVE_ERTS_MSEG
-	if (IS_MSEG_CARRIER(sbc)) {
-	    ASSERT(CARRIER_SZ(sbc) % ERTS_SACRR_UNIT_SZ == 0);
-	}
-#endif
 	crr = sbc;
 	cl = &allctr->sbc_list;
     }
