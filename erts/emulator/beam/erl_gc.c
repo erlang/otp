@@ -2325,6 +2325,11 @@ move_msgq_to_heap(Process *p)
 static Uint
 setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 {
+    /*
+     * NOTE!
+     *   Remember to update offset_rootset() when changing
+     *   this function.
+     */
     Roots* roots;
     Uint n;
 
@@ -2969,6 +2974,12 @@ offset_one_rootset(Process *p, Sint offs, char* area, Uint area_size,
 	offset_heap_ptr(objv, nobj, offs, area, area_size);
     }
     offset_off_heap(p, offs, area, area_size);
+    if (ERTS_PROC_GET_NIF_TRAP_EXPORT(p)) {
+	Eterm* argv;
+	int argc;
+	if (erts_setup_nif_gc(p, &argv, &argc))
+	    offset_heap_ptr(argv, argc, offs, area, area_size);
+    }
 }
 
 static void
