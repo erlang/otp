@@ -346,7 +346,7 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       </item>
       <tag><c>-Wno_opaque</c></tag>
       <item>
-        <p>Suppress warnings for violations of opaqueness of data types.</p>
+        <p>Suppress warnings for violations of opacity of data types.</p>
       </item>
       <tag><c>-Wno_return</c></tag>
       <item>

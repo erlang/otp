@@ -10,8 +10,8 @@ guards.erl:136: The call guards:t16('a') will never return since it differs in t
 guards.erl:136: The call guards:t16('c') will never return since it differs in the 1st argument from the success typing arguments: ('b')
 guards.erl:55: Function t5/1 has no local return
 guards.erl:55: Guard test is_integer(A::atom()) can never succeed
-guards.erl:59: Clause guard cannot succeed. The variable A was matched against the type any()
 guards.erl:59: Function t6/1 has no local return
+guards.erl:59: Guard test is_integer(A::atom()) can never succeed
 guards.erl:67: The call guards:t7({42}) will never return since it differs in the 1st argument from the success typing arguments: (atom() | integer())
 guards.erl:75: The call guards:t8({42}) will never return since it differs in the 1st argument from the success typing arguments: (atom() | integer())
 guards.erl:92: The variable _ can never match since previous clauses completely covered the type {'true','true'}

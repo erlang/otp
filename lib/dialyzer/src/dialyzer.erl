@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -407,6 +407,10 @@ message_to_string({contract_range, [Contract, M, F, ArgStrings, Line, CRet]}) ->
 message_to_string({invalid_contract, [M, F, A, Sig]}) ->
   io_lib:format("Invalid type specification for function ~w:~w/~w."
 		" The success typing is ~s\n", [M, F, A, Sig]);
+message_to_string({contract_with_opaque, [M, F, A, OpaqueType, SigType]}) ->
+  io_lib:format("The specification for ~w:~w/~w"
+                " has an opaque subtype ~s which is violated by the"
+                " success typing ~s\n", [M, F, A, OpaqueType, SigType]);
 message_to_string({extra_range, [M, F, A, ExtraRanges, SigRange]}) ->
   io_lib:format("The specification for ~w:~w/~w states that the function"
 		" might also return ~s but the inferred return is ~s\n",
@@ -432,25 +436,25 @@ message_to_string({opaque_guard, [Arg1, Infix, Arg2, ArgNs]}) ->
   io_lib:format("Guard test ~s ~s ~s contains ~s\n",
 		[Arg1, Infix, Arg2, form_positions(ArgNs)]);
 message_to_string({opaque_guard, [Guard, Args]}) ->
-  io_lib:format("Guard test ~w~s breaks the opaqueness of its argument\n",
+  io_lib:format("Guard test ~w~s breaks the opacity of its argument\n",
 		[Guard, Args]);
 message_to_string({opaque_match, [Pat, OpaqueType, OpaqueTerm]}) ->
   Term = if OpaqueType =:= OpaqueTerm -> "the term";
 	    true -> OpaqueTerm
 	 end,
   io_lib:format("The attempt to match a term of type ~s against the ~s"
-		" breaks the opaqueness of ~s\n", [OpaqueType, Pat, Term]);
+		" breaks the opacity of ~s\n", [OpaqueType, Pat, Term]);
 message_to_string({opaque_neq, [Type, _Op, OpaqueType]}) ->
   io_lib:format("Attempt to test for inequality between a term of type ~s"
 		" and a term of opaque type ~s\n", [Type, OpaqueType]);
 message_to_string({opaque_type_test, [Fun, Args, Arg, ArgType]}) ->
-  io_lib:format("The type test ~s~s breaks the opaqueness of the term ~s~s\n",
+  io_lib:format("The type test ~s~s breaks the opacity of the term ~s~s\n",
                 [Fun, Args, Arg, ArgType]);
 message_to_string({opaque_size, [SizeType, Size]}) ->
-  io_lib:format("The size ~s breaks the opaqueness of ~s\n",
+  io_lib:format("The size ~s breaks the opacity of ~s\n",
                 [SizeType, Size]);
 message_to_string({opaque_call, [M, F, Args, Culprit, OpaqueType]}) ->
-  io_lib:format("The call ~s:~s~s breaks the opaqueness of the term ~s :: ~s\n",
+  io_lib:format("The call ~s:~s~s breaks the opacity of the term ~s :: ~s\n",
                 [M, F, Args, Culprit, OpaqueType]);
 %%----- Warnings for concurrency errors --------------------
 message_to_string({race_condition, [M, F, Args, Reason]}) ->
