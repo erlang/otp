@@ -71,10 +71,12 @@
 struct erl_module_nif {
     void* priv_data;
     void* handle;             /* "dlopen" */
-    struct enif_entry_t* entry;
+    struct enif_entry_t entry;
     erts_refc_t rt_cnt;       /* number of resource types */
     erts_refc_t rt_dtor_cnt;  /* number of resource types with destructors */
     Module* mod;           /* Can be NULL if orphan with dtor-resources left */ 
+
+    ErlNifFunc _funcs_copy_[1];  /* only used for old libs */
 };
 
 #ifdef DEBUG
@@ -1958,10 +1960,10 @@ static void close_lib(struct erl_module_nif* lib)
     ASSERT(lib->handle != NULL);
     ASSERT(erts_refc_read(&lib->rt_dtor_cnt,0) == 0);
 
-    if (lib->entry != NULL && lib->entry->unload != NULL) {
+    if (lib->entry.unload != NULL) {
 	struct enif_msg_environment_t msg_env;
         pre_nif_noproc(&msg_env, lib, NULL);
-	lib->entry->unload(&msg_env.env, lib->priv_data);
+	lib->entry.unload(&msg_env.env, lib->priv_data);
         post_nif_noproc(&msg_env);
     }
     if (!erts_is_static_nif(lib->handle))
@@ -3115,33 +3117,52 @@ static Eterm load_nif_error(Process* p, const char* atom, const char* format, ..
     return ret;
 }
 
+#define AT_LEAST_VERSION(E,MAJ,MIN) \
+    (((E)->major * 0x100 + (E)->minor) >= ((MAJ) * 0x100 + (MIN)))
+
 /*
- * The function below is for looping through ErlNifFunc arrays, helping
- * provide backwards compatibility across the version 2.7 change that added
- * the "flags" field to ErlNifFunc.
+ * Allocate erl_module_nif and make a _modern_ copy of the lib entry.
  */
-static ErlNifFunc* next_func(ErlNifEntry* entry, int* incrp, ErlNifFunc* func)
+static struct erl_module_nif* create_lib(const ErlNifEntry* src)
 {
-    ASSERT(incrp);
-    if (!*incrp) {
-	if (entry->major > 2 || (entry->major == 2 && entry->minor >= 7))
-	    *incrp = sizeof(ErlNifFunc);
-	else {
-	    /*
-	     * ErlNifFuncV1 below is what ErlNifFunc was before the
-	     * addition of the flags field for 2.7, and is needed to handle
-	     * backward compatibility.
-	     */
-	    typedef struct {
-		const char* name;
-		unsigned arity;
-		ERL_NIF_TERM (*fptr)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-	    }ErlNifFuncV1;
-	    *incrp = sizeof(ErlNifFuncV1);
-	}
+    struct erl_module_nif* lib;
+    ErlNifEntry* dst;
+    Uint bytes = offsetof(struct erl_module_nif, _funcs_copy_);
+
+    if (!AT_LEAST_VERSION(src, 2, 7))
+        bytes += src->num_of_funcs * sizeof(ErlNifFunc);
+
+    lib = erts_alloc(ERTS_ALC_T_NIF, bytes);
+    dst = &lib->entry;
+
+    sys_memcpy(dst, src, offsetof(ErlNifEntry, vm_variant));
+
+    if (AT_LEAST_VERSION(src, 2, 1)) {
+        dst->vm_variant = src->vm_variant;
+    } else {
+        dst->vm_variant = "beam.vanilla";
     }
-    return (ErlNifFunc*) ((char*)func + *incrp);
-}
+    if (AT_LEAST_VERSION(src, 2, 7)) {
+        dst->options = src->options;
+    } else {
+        /*
+         * Make a modern copy of the ErlNifFunc array
+         */
+        struct ErlNifFunc_V1 {
+            const char* name;
+            unsigned arity;
+            ERL_NIF_TERM (*fptr)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+        }*src_funcs = (struct ErlNifFunc_V1*) src->funcs;
+        int i;
+        for (i = 0; i < src->num_of_funcs; ++i) {
+            sys_memcpy(&lib->_funcs_copy_[i], &src_funcs[i], sizeof(*src_funcs));
+            lib->_funcs_copy_[i].flags = 0;
+        }
+        dst->funcs = lib->_funcs_copy_;
+        dst->options = 0;
+    }
+    return lib;
+};
 
 
 BIF_RETTYPE load_nif_2(BIF_ALIST_2)
@@ -3261,7 +3282,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	ret = load_nif_error(BIF_P, bad_lib, "Library version (%d.%d) not compatible (with %d.%d).",
 			     entry->major, entry->minor, ERL_NIF_MAJOR_VERSION, ERL_NIF_MINOR_VERSION);
     }   
-    else if (entry->minor >= 1
+    else if (AT_LEAST_VERSION(entry, 2, 1)
 	     && sys_strcmp(entry->vm_variant, ERL_NIF_VM_VARIANT) != 0) {
 	ret = load_nif_error(BIF_P, bad_lib, "Library (%s) not compiled for "
 			     "this vm variant (%s).",
@@ -3272,20 +3293,25 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 			     " match calling module '%T'", entry->name, mod_atom);
     }
     else {
-	/*erts_fprintf(stderr, "Found module %T\r\n", mod_atom);*/
+        lib = create_lib(entry);
+        entry = &lib->entry; /* Use a guaranteed modern lib entry from now on */
 
-	int maybe_dirty_nifs = ((entry->major > 2 || (entry->major == 2 && entry->minor >= 7))
-				&& (entry->options & ERL_NIF_DIRTY_NIF_OPTION));
-	int incr = 0;
-	ErlNifFunc* f = entry->funcs;
-	for (i=0; i < entry->num_of_funcs && ret==am_ok; i++) {
+        lib->handle = handle;
+        erts_refc_init(&lib->rt_cnt, 0);
+        erts_refc_init(&lib->rt_dtor_cnt, 0);
+        ASSERT(opened_rt_list == NULL);
+        lib->mod = module_p;
+
+        for (i=0; i < entry->num_of_funcs && ret==am_ok; i++) {
 	    ErtsCodeInfo** ci_pp;
+            ErlNifFunc* f = &entry->funcs[i];
+
 	    if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1)
 		|| (ci_pp = get_func_pp(this_mi->code_hdr, f_atom, f->arity))==NULL) {
 		ret = load_nif_error(BIF_P,bad_lib,"Function not found %T:%s/%u",
 				     mod_atom, f->name, f->arity);
 	    }
-	    else if (maybe_dirty_nifs && f->flags) {
+	    else if (f->flags) {
 		/*
 		 * If the flags field is non-zero and this emulator was
 		 * built with dirty scheduler support, check that the flags
@@ -3314,7 +3340,6 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	    }
 	    /*erts_fprintf(stderr, "Found NIF %T:%s/%u\r\n",
 	      mod_atom, f->name, f->arity);*/
-	    f = next_func(entry, &incr, f);
 	}
     }
 
@@ -3325,14 +3350,6 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     /* Call load or upgrade:
      */
 
-
-    lib = erts_alloc(ERTS_ALC_T_NIF, sizeof(struct erl_module_nif));
-    lib->handle = handle;
-    lib->entry = entry;
-    erts_refc_init(&lib->rt_cnt, 0);
-    erts_refc_init(&lib->rt_dtor_cnt, 0);
-    ASSERT(opened_rt_list == NULL);
-    lib->mod = module_p;
     env.mod_nif = lib;
 
     lib->priv_data = NULL;
@@ -3349,8 +3366,6 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
             prev_mi->nif->priv_data = prev_old_data;
             ret = load_nif_error(BIF_P, upgrade, "Library upgrade-call unsuccessful (%d).", veto);
         }
-        else
-            commit_opened_resource_types(lib);
     }
     else if (entry->load != NULL) { /********* Initial load ***********/
         erts_pre_nif(&env, BIF_P, lib, NULL);
@@ -3359,22 +3374,21 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
         if (veto) {
             ret = load_nif_error(BIF_P, "load", "Library load-call unsuccessful (%d).", veto);
         }
-        else
-            commit_opened_resource_types(lib);
     }
     if (ret == am_ok) {
+        commit_opened_resource_types(lib);
+
 	/*
 	** Everything ok, patch the beam code with op_call_nif
 	*/
 
-	int incr = 0;
-	ErlNifFunc* f = entry->funcs;
-
 	this_mi->nif = lib;
 	for (i=0; i < entry->num_of_funcs; i++)
 	{
+            ErlNifFunc* f = &entry->funcs[i];
 	    ErtsCodeInfo* ci;
             BeamInstr *code_ptr;
+
 	    erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1);
 	    ci = *get_func_pp(this_mi->code_hdr, f_atom, f->arity);
             code_ptr = erts_codeinfo_to_code(ci);
@@ -3389,8 +3403,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 		g->orig_instr = (BeamInstr) BeamOp(op_call_nif);
 	    }
 #ifdef ERTS_DIRTY_SCHEDULERS
-	    if ((entry->major > 2 || (entry->major == 2 && entry->minor >= 7))
-		&& (entry->options & ERL_NIF_DIRTY_NIF_OPTION) && f->flags) {
+	    if (f->flags) {
 		code_ptr[3] = (BeamInstr) f->fptr;
 		code_ptr[1] = (f->flags == ERL_NIF_DIRTY_JOB_IO_BOUND) ?
 		    (BeamInstr) schedule_dirty_io_nif :
@@ -3400,7 +3413,6 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 #endif
 		code_ptr[1] = (BeamInstr) f->fptr;
 	    code_ptr[2] = (BeamInstr) lib;
-	    f = next_func(entry, &incr, f);
 	}
     }
     else {
@@ -3484,8 +3496,8 @@ void erl_nif_init()
 int erts_nif_get_funcs(struct erl_module_nif* mod,
                        ErlNifFunc **funcs)
 {
-    *funcs = mod->entry->funcs;
-    return mod->entry->num_of_funcs;
+    *funcs = mod->entry.funcs;
+    return mod->entry.num_of_funcs;
 }
 
 Eterm erts_nif_call_function(Process *p, Process *tracee,
@@ -3496,10 +3508,10 @@ Eterm erts_nif_call_function(Process *p, Process *tracee,
 #ifdef DEBUG
     /* Verify that function is part of this module */
     int i;
-    for (i = 0; i < mod->entry->num_of_funcs; i++)
-        if (fun == &(mod->entry->funcs[i]))
+    for (i = 0; i < mod->entry.num_of_funcs; i++)
+        if (fun == &(mod->entry.funcs[i]))
             break;
-    ASSERT(i < mod->entry->num_of_funcs);
+    ASSERT(i < mod->entry.num_of_funcs);
     if (p)
         ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(p) & ERTS_PROC_LOCK_MAIN
                            || erts_smp_thr_progress_is_blocking());
