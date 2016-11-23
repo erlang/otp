@@ -61,7 +61,13 @@
 	 unexpectedfun_option_client/1, 
 	 unexpectedfun_option_server/1, 
 	 user_dir_option/1, 
-	 connectfun_disconnectfun_server/1
+	 connectfun_disconnectfun_server/1,
+	 hostkey_fingerprint_check/1,
+	 hostkey_fingerprint_check_md5/1,
+	 hostkey_fingerprint_check_sha/1,
+	 hostkey_fingerprint_check_sha256/1,
+	 hostkey_fingerprint_check_sha384/1,
+	 hostkey_fingerprint_check_sha512/1
 	]).
 
 %%% Common test callbacks
@@ -100,6 +106,12 @@ all() ->
      disconnectfun_option_client,
      unexpectedfun_option_server,
      unexpectedfun_option_client,
+     hostkey_fingerprint_check,
+     hostkey_fingerprint_check_md5,
+     hostkey_fingerprint_check_sha,
+     hostkey_fingerprint_check_sha256,
+     hostkey_fingerprint_check_sha384,
+     hostkey_fingerprint_check_sha512,
      id_string_no_opt_client,
      id_string_own_string_client,
      id_string_random_client,
@@ -780,6 +792,93 @@ unexpectedfun_option_client(Config) ->
 	    ssh:stop_daemon(Pid),
 	    {fail,timeout}
     end.
+
+%%--------------------------------------------------------------------
+hostkey_fingerprint_check(Config) ->
+    do_hostkey_fingerprint_check(Config, old).
+
+hostkey_fingerprint_check_md5(Config) ->
+    do_hostkey_fingerprint_check(Config, md5).
+
+hostkey_fingerprint_check_sha(Config) ->
+    do_hostkey_fingerprint_check(Config, sha).
+
+hostkey_fingerprint_check_sha256(Config) ->
+    do_hostkey_fingerprint_check(Config, sha256).
+
+hostkey_fingerprint_check_sha384(Config) ->
+    do_hostkey_fingerprint_check(Config, sha384).
+
+hostkey_fingerprint_check_sha512(Config) ->
+    do_hostkey_fingerprint_check(Config, sha512).
+
+
+%%%----
+do_hostkey_fingerprint_check(Config, HashAlg) ->
+    case supported_hash(HashAlg) of
+	true ->
+	    really_do_hostkey_fingerprint_check(Config, HashAlg);
+	false ->
+	    {skip,{unsupported_hash,HashAlg}}
+    end.
+
+supported_hash(old) -> true;
+supported_hash(HashAlg) ->
+   proplists:get_value(HashAlg,
+		       proplists:get_value(hashs, crypto:supports(), []),
+		       false).
+
+
+really_do_hostkey_fingerprint_check(Config, HashAlg) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    %% All host key fingerprints.  Trust that public_key has checked the ssh_hostkey_fingerprint
+    %% function since that function is used by the ssh client...
+    FPs = [case HashAlg of
+	       old -> public_key:ssh_hostkey_fingerprint(Key);
+	       _ -> public_key:ssh_hostkey_fingerprint(HashAlg, Key)
+	   end
+	   || FileCandidate <- begin
+				   {ok,KeyFileCands} = file:list_dir(SysDir),
+				   KeyFileCands
+			       end,
+	      nomatch =/= re:run(FileCandidate, ".*\\.pub", []),
+	      {Key,_Cmnts} <- begin
+				  {ok,Bin} = file:read_file(filename:join(SysDir, FileCandidate)),
+				  try public_key:ssh_decode(Bin, public_key)
+				  catch
+				      _:_ -> []
+				  end
+			      end],
+    ct:log("Fingerprints(~p) = ~p",[HashAlg,FPs]),
+
+    %% Start daemon with the public keys that we got fingerprints from
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"}]),
+    
+    FP_check_fun = fun(PeerName, FP) ->
+			   ct:pal("PeerName = ~p, FP = ~p",[PeerName,FP]),
+			   HostCheck = (Host == PeerName),
+			   FPCheck = lists:member(FP, FPs),
+			   ct:log("check ~p == ~p (~p) and ~n~p in ~p (~p)~n",
+				  [PeerName,Host,HostCheck,FP,FPs,FPCheck]),
+			   HostCheck and FPCheck
+		   end,
+    
+    ssh_test_lib:connect(Host, Port, [{silently_accept_hosts,
+				       case HashAlg of
+					   old -> FP_check_fun;
+					   _ -> {HashAlg, FP_check_fun}
+				       end},
+				      {user, "foo"},
+				      {password, "morot"},
+				      {user_dir, UserDir},
+				      {user_interaction, false}]),
+    ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
 %%% Test connect_timeout option in ssh:connect/4

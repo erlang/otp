@@ -617,6 +617,15 @@ handle_ssh_option({user_dir_fun, Value} = Opt) when is_function(Value) ->
     Opt;
 handle_ssh_option({silently_accept_hosts, Value} = Opt) when is_boolean(Value) ->
     Opt;
+handle_ssh_option({silently_accept_hosts, Value} = Opt) when is_function(Value,2) ->
+    Opt;
+handle_ssh_option({silently_accept_hosts, {DigestAlg,Value}} = Opt) when is_function(Value,2) ->
+    case lists:member(DigestAlg, [md5, sha, sha224, sha256, sha384, sha512]) of
+	true ->
+	    Opt;
+	false ->
+	    throw({error, {eoptions, Opt}})
+    end;
 handle_ssh_option({user_interaction, Value} = Opt) when is_boolean(Value) ->
     Opt;
 handle_ssh_option({preferred_algorithms,[_|_]} = Opt) ->

@@ -45,7 +45,14 @@ all() ->
      {group, sign_verify},
      pkix, pkix_countryname, pkix_emailaddress, pkix_path_validation,
      pkix_iso_rsa_oid, pkix_iso_dsa_oid, pkix_crl, general_name,
-     short_cert_issuer_hash, short_crl_issuer_hash].
+     short_cert_issuer_hash, short_crl_issuer_hash,
+     ssh_hostkey_fingerprint_md5_implicit,
+     ssh_hostkey_fingerprint_md5,
+     ssh_hostkey_fingerprint_sha,
+     ssh_hostkey_fingerprint_sha256,
+     ssh_hostkey_fingerprint_sha384,
+     ssh_hostkey_fingerprint_sha512
+    ].
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, ec_pem, encrypted_pem,
@@ -81,7 +88,25 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 %%-------------------------------------------------------------------
-init_per_testcase(_TestCase, Config0) ->
+init_per_testcase(TestCase, Config) ->
+    case TestCase of
+	ssh_hostkey_fingerprint_md5_implicit -> init_fingerprint_testcase(md5, Config);
+	ssh_hostkey_fingerprint_md5 ->    init_fingerprint_testcase(md5, Config);
+	ssh_hostkey_fingerprint_sha ->    init_fingerprint_testcase(sha, Config);
+	ssh_hostkey_fingerprint_sha256 -> init_fingerprint_testcase(sha256, Config);
+	ssh_hostkey_fingerprint_sha384 -> init_fingerprint_testcase(sha384, Config);
+	ssh_hostkey_fingerprint_sha512 -> init_fingerprint_testcase(sha512, Config);
+	_ -> init_common_per_testcase(Config)
+    end.
+	
+init_fingerprint_testcase(Alg, Config) ->
+    CryptoSupports = lists:member(Alg, proplists:get_value(hashs, crypto:supports())),
+    case CryptoSupports of
+	false -> {skip,{Alg,not_supported}};
+	true -> init_common_per_testcase(Config)
+    end.
+
+init_common_per_testcase(Config0) ->
     Config = lists:keydelete(watchdog, 1, Config0),
     Dog = ct:timetrap(?TIMEOUT),
     [{watchdog, Dog} | Config].
@@ -89,6 +114,7 @@ init_per_testcase(_TestCase, Config0) ->
 
 end_per_testcase(_TestCase, _Config) ->
     ok.
+
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
@@ -529,6 +555,48 @@ ssh_openssh_public_key_long_header(Config) when is_list(Config) ->
     Decoded = public_key:ssh_decode(Encoded, rfc4716_public_key).
 
 %%--------------------------------------------------------------------
+%% Check of different host keys left to later
+ssh_hostkey_fingerprint_md5_implicit(_Config) ->
+    Expected = "4b:0b:63:de:0f:a7:3a:ab:2c:cc:2d:d1:21:37:1d:3a",
+    Expected = public_key:ssh_hostkey_fingerprint(ssh_hostkey(rsa)).
+
+%%--------------------------------------------------------------------
+%% Check of different host keys left to later
+ssh_hostkey_fingerprint_md5(_Config) ->
+    Expected = "MD5:4b:0b:63:de:0f:a7:3a:ab:2c:cc:2d:d1:21:37:1d:3a",
+    Expected = public_key:ssh_hostkey_fingerprint(md5, ssh_hostkey(rsa)).
+
+%%--------------------------------------------------------------------
+%% Since this kind of fingerprint is not available yet on standard
+%% distros, we do like this instead. The Expected is generated with:
+%%       $ openssh-7.3p1/ssh-keygen -E sha1 -lf <file>
+%%       2048 SHA1:Soammnaqg06jrm2jivMSnzQGlmk none@example.org (RSA)
+ssh_hostkey_fingerprint_sha(_Config) ->
+    Expected = "SHA1:Soammnaqg06jrm2jivMSnzQGlmk",
+    Expected = public_key:ssh_hostkey_fingerprint(sha, ssh_hostkey(rsa)).
+
+%%--------------------------------------------------------------------
+%% Since this kind of fingerprint is not available yet on standard
+%% distros, we do like this instead.
+ssh_hostkey_fingerprint_sha256(_Config) ->
+    Expected = "SHA256:T7F1BahkJWR7iJO8+rpzWOPbp7LZP4MlNrDExdNYOvY",
+    Expected = public_key:ssh_hostkey_fingerprint(sha256, ssh_hostkey(rsa)).
+
+%%--------------------------------------------------------------------
+%% Since this kind of fingerprint is not available yet on standard
+%% distros, we do like this instead.
+ssh_hostkey_fingerprint_sha384(_Config) ->
+    Expected = "SHA384:QhkLoGNI4KXdPvC//HxxSCP3uTQVADqxdajbgm+Gkx9zqz8N94HyP1JmH8C4/aEl",
+    Expected = public_key:ssh_hostkey_fingerprint(sha384, ssh_hostkey(rsa)).
+
+%%--------------------------------------------------------------------
+%% Since this kind of fingerprint is not available yet on standard
+%% distros, we do like this instead.
+ssh_hostkey_fingerprint_sha512(_Config) ->
+    Expected = "SHA512:ezUismvm3ADQQb6Nm0c1DwQ6ydInlJNfsnSQejFkXNmABg1Aenk9oi45CXeBOoTnlfTsGG8nFDm0smP10PBEeA",
+    Expected = public_key:ssh_hostkey_fingerprint(sha512, ssh_hostkey(rsa)).
+
+%%--------------------------------------------------------------------
 encrypt_decrypt() ->
     [{doc, "Test public_key:encrypt_private and public_key:decrypt_public"}].
 encrypt_decrypt(Config) when is_list(Config) -> 
@@ -929,3 +997,13 @@ incorrect_countryname_pkix_cert() ->
 
 incorrect_emailaddress_pkix_cert() ->
     <<48,130,3,74,48,130,2,50,2,9,0,133,49,203,25,198,156,252,230,48,13,6,9,42,134, 72,134,247,13,1,1,5,5,0,48,103,49,11,48,9,6,3,85,4,6,19,2,65,85,49,19,48,17, 6,3,85,4,8,12,10,83,111,109,101,45,83,116,97,116,101,49,33,48,31,6,3,85,4,10, 12,24,73,110,116,101,114,110,101,116,32,87,105,100,103,105,116,115,32,80,116, 121,32,76,116,100,49,32,48,30,6,9,42,134,72,134,247,13,1,9,1,12,17,105,110, 118,97,108,105,100,64,101,109,97,105,108,46,99,111,109,48,30,23,13,49,51,49, 49,48,55,50,48,53,54,49,56,90,23,13,49,52,49,49,48,55,50,48,53,54,49,56,90, 48,103,49,11,48,9,6,3,85,4,6,19,2,65,85,49,19,48,17,6,3,85,4,8,12,10,83,111, 109,101,45,83,116,97,116,101,49,33,48,31,6,3,85,4,10,12,24,73,110,116,101, 114,110,101,116,32,87,105,100,103,105,116,115,32,80,116,121,32,76,116,100,49, 32,48,30,6,9,42,134,72,134,247,13,1,9,1,12,17,105,110,118,97,108,105,100,64, 101,109,97,105,108,46,99,111,109,48,130,1,34,48,13,6,9,42,134,72,134,247,13, 1,1,1,5,0,3,130,1,15,0,48,130,1,10,2,130,1,1,0,190,243,49,213,219,60,232,105, 1,127,126,9,130,15,60,190,78,100,148,235,246,223,21,91,238,200,251,84,55,212, 78,32,120,61,85,172,0,144,248,5,165,29,143,79,64,178,51,153,203,76,115,238, 192,49,173,37,121,203,89,62,157,13,181,166,30,112,154,40,202,140,104,211,157, 73,244,9,78,236,70,153,195,158,233,141,42,238,2,143,160,225,249,27,30,140, 151,176,43,211,87,114,164,108,69,47,39,195,123,185,179,219,28,218,122,53,83, 77,48,81,184,14,91,243,12,62,146,86,210,248,228,171,146,225,87,51,146,155, 116,112,238,212,36,111,58,41,67,27,6,61,61,3,84,150,126,214,121,57,38,12,87, 121,67,244,37,45,145,234,131,115,134,58,194,5,36,166,52,59,229,32,47,152,80, 237,190,58,182,248,98,7,165,198,211,5,31,231,152,116,31,108,71,218,64,188, 178,143,27,167,79,15,112,196,103,116,212,65,197,94,37,4,132,103,91,217,73, 223,207,185,7,153,221,240,232,31,44,102,108,82,83,56,242,210,214,74,71,246, 177,217,148,227,220,230,4,176,226,74,194,37,2,3,1,0,1,48,13,6,9,42,134,72, 134,247,13,1,1,5,5,0,3,130,1,1,0,89,247,141,154,173,123,123,203,143,85,28,79, 73,37,164,6,17,89,171,224,149,22,134,17,198,146,158,192,241,41,253,58,230, 133,71,189,43,66,123,88,15,242,119,227,249,99,137,61,200,54,161,0,177,167, 169,114,80,148,90,22,97,78,162,181,75,93,209,116,245,46,81,232,64,157,93,136, 52,57,229,113,197,218,113,93,42,161,213,104,205,137,30,144,183,58,10,98,47, 227,177,96,40,233,98,150,209,217,68,22,221,133,27,161,152,237,46,36,179,59, 172,97,134,194,205,101,137,71,192,57,153,20,114,27,173,233,166,45,56,0,61, 205,45,202,139,7,132,103,248,193,157,184,123,43,62,172,236,110,49,62,209,78, 249,83,219,133,1,213,143,73,174,16,113,143,189,41,84,60,128,222,30,177,104, 134,220,52,239,171,76,59,176,36,113,176,214,118,16,44,235,21,167,199,216,200, 76,219,142,248,13,70,145,205,216,230,226,148,97,223,216,179,68,209,222,63, 140,137,24,164,192,149,194,79,119,247,75,159,49,116,70,241,70,116,11,40,119, 176,157,36,160,102,140,255,34,248,25,231,136,59>>.
+
+
+
+ssh_hostkey(rsa) ->
+    [{PKdecoded,_}] =
+	public_key:ssh_decode(
+	  <<"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDYXcYmsyJBstl4EfFYzfQJmSiUE162zvSGSoMYybShYOI6rnnyvvihfw8Aml+2gZ716F2tqG48FQ/yPZEGWNPMrCejPpJctaPWhpNdNMJ8KFXSEgr5bY2mEpa19DHmuDeXKzeJJ+X7s3fVdYc4FMk5731KIW6Huf019ZnTxbx0VKG6b1KAJBg3vpNsDxEMwQ4LFMB0JHVklOTzbxmpaeULuIxvl65A+eGeFVeo2Q+YI9UnwY1vSgmc9Azwy8Ie9Z0HpQBN5I7Uc5xnknT8V6xDhgNfXEfzsgsRdDfZLECt1WO/1gP9wkosvAGZWt5oG8pbNQWiQdFq536ck8WQD9WD none@example.org">>,
+	  public_key),
+    PKdecoded.
+
