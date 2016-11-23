@@ -883,19 +883,33 @@ badmap_term(Map, #core{in_guard=false}) ->
     c_tuple([#c_literal{val=badmap},Map]).
 
 map_build_pairs(Map, Es0, Ann, St0) ->
-    {Es,Pre,St1} = map_build_pairs_1(Es0, St0),
+    {Es,Pre,_,St1} = map_build_pairs_1(Es0, cerl_sets:new(), St0),
     {ann_c_map(Ann, Map, Es),Pre,St1}.
 
-map_build_pairs_1([{Op0,L,K0,V0}|Es], St0) ->
+map_build_pairs_1([{Op0,L,K0,V0}|Es], Used0, St0) ->
     {K,Pre0,St1} = safe(K0, St0),
     {V,Pre1,St2} = safe(V0, St1),
-    {Pairs,Pre2,St3} = map_build_pairs_1(Es, St2),
+    {Pairs,Pre2,Used1,St3} = map_build_pairs_1(Es, Used0, St2),
     As = lineno_anno(L, St3),
     Op = map_op(Op0),
+    {Used2,St4} = maybe_warn_repeated_keys(K, L, Used1, St3),
     Pair = cerl:ann_c_map_pair(As, Op, K, V),
-    {[Pair|Pairs],Pre0++Pre1++Pre2,St3};
-map_build_pairs_1([], St) ->
-    {[],[],St}.
+    {[Pair|Pairs],Pre0++Pre1++Pre2,Used2,St4};
+map_build_pairs_1([], Used, St) ->
+    {[],[],Used,St}.
+
+maybe_warn_repeated_keys(Ck,Line,Used,St) ->
+    case cerl:is_literal(Ck) of
+        false -> {Used,St};
+        true ->
+            K = cerl:concrete(Ck),
+            case cerl_sets:is_element(K,Used) of
+                true ->
+                    {Used, add_warning(Line, {map_key_repeated,K}, St)};
+                false ->
+                    {cerl_sets:add_element(K,Used), St}
+            end
+    end.
 
 map_op(map_field_assoc) -> #c_literal{val=assoc};
 map_op(map_field_exact) -> #c_literal{val=exact}.
@@ -2603,7 +2617,11 @@ format_error(nomatch) ->
 format_error(bad_binary) ->
     "binary construction will fail because of a type mismatch";
 format_error(badmap) ->
-    "map construction will fail because of a type mismatch".
+    "map construction will fail because of a type mismatch";
+format_error({map_key_repeated,Key}) when is_atom(Key) ->
+    io_lib:format("key '~w' will be overridden in expression", [Key]);
+format_error({map_key_repeated,Key}) ->
+    io_lib:format("key ~p will be overridden in expression", [Key]).
 
 add_warning(Anno, Term, #core{ws=Ws,file=[{file,File}]}=St) ->
     case erl_anno:generated(Anno) of
