@@ -66,8 +66,8 @@
 	 reload_config/1,
 	 escape_chars/1, escape_chars/2,
 	 log/1, log/2, log/3, log/4, log/5,
-	 print/1, print/2, print/3, print/4,
-	 pal/1, pal/2, pal/3, pal/4,
+	 print/1, print/2, print/3, print/4, print/5,
+	 pal/1, pal/2, pal/3, pal/4, pal/5,
          set_verbosity/2, get_verbosity/1,
 	 capture_start/0, capture_stop/0, capture_get/0, capture_get/1,
 	 fail/1, fail/2, comment/1, comment/2, make_priv_dir/0,
@@ -592,7 +592,7 @@ log(X1,X2,X3,X4) ->
 %%%      Format = string()
 %%%      Args = list()
 %%%      Opts = [Opt]
-%%%      Opt = esc_chars | no_css
+%%%      Opt = {heading,string()} | esc_chars | no_css
 %%%
 %%% @doc Printout from a test case to the log file. 
 %%%
@@ -610,43 +610,61 @@ log(Category,Importance,Format,Args,Opts) ->
 
 %%%-----------------------------------------------------------------
 %%% @spec print(Format) -> ok
-%%% @equiv print(default,50,Format,[])
+%%% @equiv print(default,50,Format,[],[])
 print(Format) ->
-    print(default,?STD_IMPORTANCE,Format,[]).
+    print(default,?STD_IMPORTANCE,Format,[],[]).
 
 %%%-----------------------------------------------------------------
 %%% @spec print(X1,X2) -> ok
 %%%      X1 = Category | Importance | Format
 %%%      X2 = Format | Args
-%%% @equiv print(Category,Importance,Format,Args)
+%%% @equiv print(Category,Importance,Format,Args,[])
 print(X1,X2) ->
     {Category,Importance,Format,Args} = 
 	if is_atom(X1)    -> {X1,?STD_IMPORTANCE,X2,[]};
 	   is_integer(X1) -> {default,X1,X2,[]};
 	   is_list(X1)    -> {default,?STD_IMPORTANCE,X1,X2}
 	end,
-    print(Category,Importance,Format,Args).
+    print(Category,Importance,Format,Args,[]).
 
 %%%-----------------------------------------------------------------
 %%% @spec print(X1,X2,X3) -> ok
+%%%      X1 = Category | Importance | Format
+%%%      X2 = Importance | Format | Args
+%%%      X3 = Format | Args | Opts
+%%% @equiv print(Category,Importance,Format,Args,Opts)
+print(X1,X2,X3) ->
+    {Category,Importance,Format,Args,Opts} = 
+	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,[],[]};
+	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3,[]};
+	   is_integer(X1)              -> {default,X1,X2,X3,[]};
+	   is_list(X1), is_list(X2)    -> {default,?STD_IMPORTANCE,X1,X2,X3}
+	end,
+    print(Category,Importance,Format,Args,Opts).
+
+%%%-----------------------------------------------------------------
+%%% @spec print(X1,X2,X3,X4) -> ok
 %%%      X1 = Category | Importance
 %%%      X2 = Importance | Format
 %%%      X3 = Format | Args
-%%% @equiv print(Category,Importance,Format,Args)
-print(X1,X2,X3) ->
-    {Category,Importance,Format,Args} = 
-	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,[]};
-	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3};
-	   is_integer(X1)              -> {default,X1,X2,X3}
+%%%      X4 = Args | Opts
+%%% @equiv print(Category,Importance,Format,Args,Opts)
+print(X1,X2,X3,X4) ->
+    {Category,Importance,Format,Args,Opts} = 
+	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,X4,[]};
+	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3,X4};
+	   is_integer(X1)              -> {default,X1,X2,X3,X4}
 	end,
-    print(Category,Importance,Format,Args).
+    print(Category,Importance,Format,Args,Opts).
 
 %%%-----------------------------------------------------------------
-%%% @spec print(Category,Importance,Format,Args) -> ok
+%%% @spec print(Category,Importance,Format,Args,Opts) -> ok
 %%%      Category = atom()
 %%%      Importance = integer()
 %%%      Format = string()
 %%%      Args = list()
+%%%      Opts = [Opt]
+%%%      Opt = {heading,string()}
 %%%
 %%% @doc Printout from a test case to the console. 
 %%%
@@ -658,13 +676,13 @@ print(X1,X2,X3) ->
 %%% and default value for <c>Args</c> is <c>[]</c>.</p>
 %%% <p>Please see the User's Guide for details on <c>Category</c>
 %%% and <c>Importance</c>.</p>
-print(Category,Importance,Format,Args) ->
-    ct_logs:tc_print(Category,Importance,Format,Args).
+print(Category,Importance,Format,Args,Opts) ->
+    ct_logs:tc_print(Category,Importance,Format,Args,Opts).
 
 
 %%%-----------------------------------------------------------------
 %%% @spec pal(Format) -> ok
-%%% @equiv pal(default,50,Format,[])
+%%% @equiv pal(default,50,Format,[],[])
 pal(Format) ->
     pal(default,?STD_IMPORTANCE,Format,[]).
 
@@ -672,35 +690,53 @@ pal(Format) ->
 %%% @spec pal(X1,X2) -> ok
 %%%      X1 = Category | Importance | Format
 %%%      X2 = Format | Args
-%%% @equiv pal(Category,Importance,Format,Args)
+%%% @equiv pal(Category,Importance,Format,Args,[])
 pal(X1,X2) ->
     {Category,Importance,Format,Args} = 
 	if is_atom(X1)    -> {X1,?STD_IMPORTANCE,X2,[]};
 	   is_integer(X1) -> {default,X1,X2,[]};
 	   is_list(X1)    -> {default,?STD_IMPORTANCE,X1,X2}
 	end,
-    pal(Category,Importance,Format,Args).
+    pal(Category,Importance,Format,Args,[]).
 
 %%%-----------------------------------------------------------------
 %%% @spec pal(X1,X2,X3) -> ok
+%%%      X1 = Category | Importance | Format
+%%%      X2 = Importance | Format | Args
+%%%      X3 = Format | Args | Opts
+%%% @equiv pal(Category,Importance,Format,Args,Opts)
+pal(X1,X2,X3) ->
+    {Category,Importance,Format,Args,Opts} = 
+	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,[],[]};
+	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3,[]};
+	   is_integer(X1)              -> {default,X1,X2,X3,[]};
+	   is_list(X1), is_list(X2)    -> {default,?STD_IMPORTANCE,X1,X2,X3}
+	end,
+    pal(Category,Importance,Format,Args,Opts).
+
+%%%-----------------------------------------------------------------
+%%% @spec pal(X1,X2,X3,X4) -> ok
 %%%      X1 = Category | Importance
 %%%      X2 = Importance | Format
 %%%      X3 = Format | Args
-%%% @equiv pal(Category,Importance,Format,Args)
-pal(X1,X2,X3) ->
-    {Category,Importance,Format,Args} = 
-	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,[]};
-	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3};
-	   is_integer(X1)              -> {default,X1,X2,X3}
+%%%      X4 = Args | Opts
+%%% @equiv pal(Category,Importance,Format,Args,Opts)
+pal(X1,X2,X3,X4) ->
+    {Category,Importance,Format,Args,Opts} = 
+	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,X4,[]};
+	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3,X4};
+	   is_integer(X1)              -> {default,X1,X2,X3,X4}
 	end,
-    pal(Category,Importance,Format,Args).
+    pal(Category,Importance,Format,Args,Opts).
 
 %%%-----------------------------------------------------------------
-%%% @spec pal(Category,Importance,Format,Args) -> ok
+%%% @spec pal(Category,Importance,Format,Args,Opts) -> ok
 %%%      Category = atom()
 %%%      Importance = integer()
 %%%      Format = string()
 %%%      Args = list()
+%%%      Opts = [Opt]
+%%%      Opt = {heading,string()} | no_css
 %%%
 %%% @doc Print and log from a test case. 
 %%%
@@ -712,8 +748,8 @@ pal(X1,X2,X3) ->
 %%% and default value for <c>Args</c> is <c>[]</c>.</p>
 %%% <p>Please see the User's Guide for details on <c>Category</c>
 %%% and <c>Importance</c>.</p>
-pal(Category,Importance,Format,Args) ->
-    ct_logs:tc_pal(Category,Importance,Format,Args).
+pal(Category,Importance,Format,Args,Opts) ->
+    ct_logs:tc_pal(Category,Importance,Format,Args,Opts).
 
 %%%-----------------------------------------------------------------
 %%% @spec set_verbosity(Category, Level) -> ok
