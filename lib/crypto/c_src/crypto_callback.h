@@ -18,13 +18,20 @@
  * %CopyrightEnd%
  */
 
+#include <openssl/crypto.h>
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+# define CCB_FILE_LINE_ARGS
+#else
+# define CCB_FILE_LINE_ARGS , const char *file, int line
+#endif
+
 struct crypto_callbacks
 {
     size_t sizeof_me;
 
-    void* (*crypto_alloc)(size_t size);
-    void* (*crypto_realloc)(void* ptr, size_t size);
-    void (*crypto_free)(void* ptr);
+    void* (*crypto_alloc)(size_t size CCB_FILE_LINE_ARGS);
+    void* (*crypto_realloc)(void* ptr, size_t size CCB_FILE_LINE_ARGS);
+    void (*crypto_free)(void* ptr CCB_FILE_LINE_ARGS);
 
     /* openssl callbacks */
   #ifdef OPENSSL_THREADS
