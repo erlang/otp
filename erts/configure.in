@@ -4285,8 +4285,7 @@ yes
 					#include <stdio.h>
  					#include <openssl/hmac.h>],
  					[ 
- 					HMAC_CTX hc;
- 					HMAC_CTX_init(&hc);		
+					HMAC(0, 0, 0, 0, 0, 0, 0);
  					],
  					[ssl_linkable=yes],
  					[ssl_linkable=no])
@@ -4341,8 +4340,7 @@ dnl		so it is - be adoptable
 			#include <stdio.h>
  			#include <openssl/hmac.h>],
  			[ 
- 			HMAC_CTX hc;
- 			HMAC_CTX_init(&hc);		
+			HMAC(0, 0, 0, 0, 0, 0, 0);
  			],
  			[ssl_dyn_linkable=yes],
  			[ssl_dyn_linkable=no])
@@ -4605,8 +4603,7 @@ yes)   # Use standard lib locations for ssl runtime library path
                          #include <openssl/hmac.h>
                     ],
                     [ 
-                         HMAC_CTX hc;
-                         HMAC_CTX_init(&hc);		
+			 HMAC(0, 0, 0, 0, 0, 0, 0);
                     ],
                     [rpath_success=yes],
                     [rpath_success=no])
