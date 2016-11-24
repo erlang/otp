@@ -138,6 +138,13 @@
 #include <openssl/ecdsa.h>
 #endif
 
+/*
+ * FIXME: The support for ChaCha and Poly1305 is based on pre-releases
+ * of OpenSSL 1.1.0. It is seriously broken when used with the released
+ * OpenSSL 1.1.0 or later.
+ */
+#undef HAVE_CHACHA20_POLY1305
+
 #if defined(HAVE_CHACHA20_POLY1305)
 #include <openssl/chacha.h>
 #include <openssl/poly1305.h>
