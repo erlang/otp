@@ -91,7 +91,13 @@ init_per_group(api_latest, Config) -> Config;
 init_per_group(api_2_4, Config) ->
     [{nif_api_version, ".2_4"} | Config];
 init_per_group(api_2_0, Config) ->
-    [{nif_api_version, ".2_0"} | Config].
+    case {os:type(),erlang:system_info({wordsize, internal})} of
+        {{win32,_}, 8} ->
+            %% ERL_NIF_TERM was declared as 32-bit 'long' until 2.3
+            {skip, "API 2.0 buggy on Windows 64-bit"};
+        _ ->
+            [{nif_api_version, ".2_0"} | Config]
+    end.
 
 end_per_group(_,_) -> ok.
 
