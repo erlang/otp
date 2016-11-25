@@ -3186,15 +3186,15 @@ erts_sys_pre_init(void)
     eid.thread_create_parent_func = thr_create_cleanup;
 
     erts_thr_init(&eid);
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    erts_lc_init();
 #endif
-
-    erts_init_sys_time_sup();
-
-#ifdef USE_THREADS
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_init();
 #endif
 #endif
+
+    erts_init_sys_time_sup();
 
     erts_smp_atomic_init_nob(&sys_misc_mem_sz, 0);
 }

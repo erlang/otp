@@ -274,11 +274,11 @@ void erts_lcnt_init() {
 
     lcnt_unlock();
 
-    /* set start timer and zero statistics */
-    erts_lcnt_clear_counters();
 }
 
 void erts_lcnt_late_init() {
+    /* set start timer and zero statistics */
+    erts_lcnt_clear_counters();
     erts_thr_install_exit_handler(erts_lcnt_thread_exit_handler);
 }
 
