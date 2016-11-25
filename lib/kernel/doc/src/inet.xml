@@ -987,11 +987,6 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
             <p>Sets the line delimiting character for line-oriented protocols
               (<c>line</c>). Defaults to <c>$\n</c>.</p>
           </item>
-          <tag><c>{priority, Priority}</c></tag>
-          <item>
-            <p>Sets the protocol-defined priority for all packets to be sent
-              on this socket.</p>
-          </item>
           <tag><c>{raw, Protocol, OptionNum, ValueBin}</c></tag>
           <item>
             <p>See below.</p>
