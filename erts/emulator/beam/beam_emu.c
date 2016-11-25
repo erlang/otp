@@ -5844,12 +5844,13 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
     s->depth = 0;
 
     /*
-     * If the failure was in a BIF other than 'error', 'exit' or
-     * 'throw', find the bif-table index and save the argument
-     * registers by consing up an arglist.
+     * If the failure was in a BIF other than 'error/1', 'error/2',
+     * 'exit/1' or 'throw/1', find the bif-table index and save the
+     * argument registers by consing up an arglist.
      */
-    if (bf != NULL && bf != error_1 && bf != error_2 &&
-	bf != exit_1 && bf != throw_1) {
+    if (bf != NULL && bf != error_1 && bf != error_2 && bf != exit_1
+	&& bf != throw_1 && bf != wrap_error_1 && bf != wrap_error_2
+	&& bf != wrap_exit_1 && bf != wrap_throw_1) {
         int i;
 	int a = 0;
 	for (i = 0; i < BIF_SIZE; i++) {
@@ -5945,12 +5946,30 @@ erts_save_stacktrace(Process* p, struct StackTrace* s, int depth)
 	    p->cp) {
 	    /* Cannot follow cp here - code may be unloaded */
 	    BeamInstr *cpp = p->cp;
+	    int trace_cp;
 	    if (cpp == beam_exception_trace || cpp == beam_return_trace) {
 		/* Skip return_trace parameters */
 		ptr += 2;
+		trace_cp = 1;
 	    } else if (cpp == beam_return_to_trace) {
 		/* Skip return_to_trace parameters */
 		ptr += 1;
+		trace_cp = 1;
+	    }
+	    else {
+		trace_cp = 0;
+	    }
+	    if (trace_cp && s->pc == cpp) {
+		/*
+		 * If process 'cp' points to a return/exception trace
+		 * instruction and 'cp' has been saved as 'pc' in
+		 * stacktrace, we need to update 'pc' in stacktrace
+		 * with the actual 'cp' located on the top of the
+		 * stack; otherwise, we will lose the top stackframe
+		 * when building the stack trace.
+		 */
+		ASSERT(is_CP(p->stop[0]));
+		s->pc = cp_val(p->stop[0]);
 	    }
 	}
 	while (ptr < STACK_START(p) && depth > 0) {
@@ -6070,12 +6089,15 @@ build_stacktrace(Process* c_p, Eterm exc) {
 	erts_set_current_function(&fi, s->current);
     }
 
+    depth = s->depth;
     /*
-     * If fi.current is still NULL, default to the initial function
+     * If fi.current is still NULL, and we have no
+     * stack at all, default to the initial function
      * (e.g. spawn_link(erlang, abs, [1])).
      */
     if (fi.current == NULL) {
-	erts_set_current_function(&fi, c_p->u.initial);
+	if (depth <= 0)
+	    erts_set_current_function(&fi, c_p->u.initial);
 	args = am_true; /* Just in case */
     } else {
 	args = get_args_from_exc(exc);
@@ -6085,10 +6107,9 @@ build_stacktrace(Process* c_p, Eterm exc) {
      * Look up all saved continuation pointers and calculate
      * needed heap space.
      */
-    depth = s->depth;
     stk = stkp = (FunctionInfo *) erts_alloc(ERTS_ALC_T_TMP,
 				      depth*sizeof(FunctionInfo));
-    heap_size = fi.needed + 2;
+    heap_size = fi.current ? fi.needed + 2 : 0;
     for (i = 0; i < depth; i++) {
 	erts_lookup_function_info(stkp, s->trace[i], 1);
 	if (stkp->current) {
@@ -6107,8 +6128,10 @@ build_stacktrace(Process* c_p, Eterm exc) {
 	res = CONS(hp, mfa, res);
 	hp += 2;
     }
-    hp = erts_build_mfa_item(&fi, hp, args, &mfa);
-    res = CONS(hp, mfa, res);
+    if (fi.current) {
+	hp = erts_build_mfa_item(&fi, hp, args, &mfa);
+	res = CONS(hp, mfa, res);
+    }
 
     erts_free(ERTS_ALC_T_TMP, (void *) stk);
     return res;
