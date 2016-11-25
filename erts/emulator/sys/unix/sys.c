@@ -412,6 +412,10 @@ erts_sys_pre_init(void)
 
     erts_thr_init(&eid);
 
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    erts_lc_init();
+#endif
+
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_init();
 #endif

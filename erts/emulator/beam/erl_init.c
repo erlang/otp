@@ -795,9 +795,6 @@ early_init(int *argc, char **argv) /*
     erts_thr_progress_pre_init();
 #endif
 
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_lc_init();
-#endif
 #ifdef ERTS_SMP
     erts_smp_atomic32_init_nob(&erts_writing_erl_crash_dump, 0L);
     erts_tsd_key_create(&erts_is_crash_dumping_key,"erts_is_crash_dumping_key");
