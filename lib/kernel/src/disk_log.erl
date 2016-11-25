@@ -689,8 +689,8 @@ handle({From, {log, Format, B}}=Message, S) ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
 	#log{status = ok, format=external}=L when Format =:= internal ->
 	    reply(From, {error, {format_external, L#log.name}}, S);
-	#log{status = ok} ->
-	    log_loop(S, From, [B], []);
+	#log{status = ok, format=LogFormat} ->
+	    log_loop(S, From, [B], [], iolist_size(B), LogFormat);
 	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	#log{blocked_by = From}=L ->
@@ -706,8 +706,8 @@ handle({alog, Format, B}=Message, S) ->
 	#log{status = ok, format = external} when Format =:= internal ->
 	    notify_owners({format_external, B}),
 	    loop(S);
-	#log{status = ok} ->
-	    log_loop(S, [], [B], []);
+	#log{status = ok, format=LogFormat} ->
+	    log_loop(S, [], [B], [], iolist_size(B), LogFormat);
 	#log{status = {blocked, false}} ->
 	    notify_owners({blocked_log, B}),
 	    loop(S);
@@ -740,8 +740,8 @@ handle({From, sync}=Message, S) ->
     case get(log) of
 	#log{mode = read_only}=L ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
-	#log{status = ok} ->
-            log_loop(S, [], [], [From]);
+	#log{status = ok, format=LogFormat} ->
+            log_loop(S, [], [], [From], 0, LogFormat);
 	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	#log{blocked_by = From}=L ->
@@ -1005,9 +1005,6 @@ enqueue(Message, #state{queue = Queue}=S) ->
 %% Collect further log and sync requests already in the mailbox or queued
 
 -define(MAX_LOOK_AHEAD, 64*1024).
-
-log_loop(S, Pids, Bins, Sync) ->
-    log_loop(S, Pids, Bins, Sync, iolist_size(Bins), (get(log))#log.format).
 
 %% Inlined.
 log_loop(#state{cache_error = CE}=S, Pids, _Bins, _Sync, _Sz, _F) when CE =/= ok ->
