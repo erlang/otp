@@ -21,12 +21,13 @@
 -module(nif_SUITE).
 
 %%-define(line_trace,true).
--define(CHECK(Exp,Got), check(Exp,Got,?LINE)).
+-define(CHECK(Exp,Got), Exp = check(Exp,Got,?LINE)).
 %%-define(CHECK(Exp,Got), Exp = Got).
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,
+-export([all/0, suite/0, groups/0,
+         init_per_group/2, end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload_error/1, upgrade/1, heap_frag/1,
          t_on_load/1,
@@ -53,28 +54,20 @@
 
 -export([many_args_100/100]).
 
-
-%% -export([lib_version/0,call_history/0,hold_nif_mod_priv_data/1,nif_mod_call_history/0,
-%% 	 list_seq/1,type_test/0,tuple_2_list/1,is_identical/2,compare/2,
-%% 	 clone_bin/1,make_sub_bin/3,string_to_bin/2,atom_to_bin/2,macros/1,
-%% 	 tuple_2_list_and_tuple/1,iolist_2_bin/1,get_resource_type/1,alloc_resource/2,
-%% 	 make_resource/1,get_resource/2,release_resource/1,last_resource_dtor_call/0, suite/0,
-%% 	 make_new_resource/2,make_new_resource_binary/1,send_list_seq/2,send_new_blob/2,
-%% 	 alloc_msgenv/0,clear_msgenv/1,grow_blob/2,send_blob/2,send_blob_thread/3,
-%% 	 join_send_thread/1]).
-
-
 -define(nif_stub,nif_stub_error(?LINE)).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [basic, reload_error, upgrade, heap_frag, types, many_args,
-     t_on_load,
+all() ->
+    [basic]
+        ++
+    [{group, G} || G <- api_groups()]
+        ++
+    [reload_error, heap_frag, types, many_args,
      hipe,
      binaries, get_string, get_atom, maps, api_macros, from_array,
      iolist_as_binary, resource, resource_binary,
-     resource_takeover, threading, send, send2, send3,
+     threading, send, send2, send3,
      send_threaded, neg, is_checks, get_length, make_atom,
      make_string,reverse_list_test,
      otp_9828,
@@ -86,6 +79,27 @@ all() ->
      nif_term_to_binary, nif_binary_to_term,
      nif_port_command,
      nif_snprintf].
+
+groups() ->
+    [{G, [], api_repeaters()} || G <- api_groups()].
+
+api_groups() -> [api_latest, api_2_4, api_2_0].
+
+api_repeaters() -> [upgrade, resource_takeover, t_on_load].
+
+init_per_group(api_latest, Config) -> Config;
+init_per_group(api_2_4, Config) ->
+    [{nif_api_version, ".2_4"} | Config];
+init_per_group(api_2_0, Config) ->
+    case {os:type(),erlang:system_info({wordsize, internal})} of
+        {{win32,_}, 8} ->
+            %% ERL_NIF_TERM was declared as 32-bit 'long' until 2.3
+            {skip, "API 2.0 buggy on Windows 64-bit"};
+        _ ->
+            [{nif_api_version, ".2_0"} | Config]
+    end.
+
+end_per_group(_,_) -> ok.
 
 init_per_testcase(t_on_load, Config) ->
     ets:new(nif_SUITE, [named_table]),
@@ -155,7 +169,7 @@ reload_error(Config) when is_list(Config) ->
     ok.
 
 %% Test upgrade callback in nif lib
-upgrade(Config) when is_list(Config) ->    
+upgrade(Config) when is_list(Config) ->
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
 
@@ -306,6 +320,8 @@ t_on_load(Config) when is_list(Config) ->
     %% Use ETS to tell nif_mod:on_load what to do
     ets:insert(nif_SUITE, {data_dir, Data}),
     ets:insert(nif_SUITE, {lib_version, 1}),
+    API = proplists:get_value(nif_api_version, Config, ""),
+    ets:insert(nif_SUITE, {nif_api_version, API}),
     {module,nif_mod} = code:load_binary(nif_mod,File,Bin),
     hold_nif_mod_priv_data(nif_mod:get_priv_data_ptr()),
     [{load,1,1,101},{get_priv_data_ptr,1,2,102}] = nif_mod_call_history(),
@@ -932,7 +948,7 @@ resource_takeover(Config) when is_list(Config) ->
                               ]),
     ?CHECK([{upgrade,2,1,201}], nif_mod_call_history()),
     true = erlang:purge_module(nif_mod),
-    ?CHECK([{unload,1,1,106}], nif_mod_call_history()),
+    ?CHECK([], nif_mod_call_history()),  % BGX2 keeping lib loaded
 
     BinA2 = read_resource(0,A2),
     ok = forget_resource(A2),
@@ -945,8 +961,8 @@ resource_takeover(Config) when is_list(Config) ->
     ?CHECK([], nif_mod_call_history()),    % no dtor
 
     ok = forget_resource(BGX2),  % calling dtor in orphan library v1 still loaded
-    ?CHECK([{{resource_dtor_B_v1,BinBGX2},1,6,106}], nif_mod_call_history()),
-    % How to test that lib v1 is closed here?
+    ?CHECK([{{resource_dtor_B_v1,BinBGX2},1,6,106}, {unload,1,7,107}],
+           nif_mod_call_history()),
 
     ok = forget_resource(NGX2),
     ?CHECK([], nif_mod_call_history()),  % no dtor
@@ -1168,6 +1184,9 @@ resource_takeover(Config) when is_list(Config) ->
 
     ok = forget_resource(AN7),
     [] = nif_mod_call_history(),
+
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
 
     true = lists:member(?MODULE, erlang:system_info(taints)),
     true = lists:member(nif_mod, erlang:system_info(taints)),
@@ -1900,7 +1919,8 @@ check(Exp,Got,Line) ->
     case Got of
  	Exp -> Exp;	    
   	_ ->
-  	    io:format("CHECK at ~p: Expected ~p but got ~p\n",[Line,Exp,Got]),
+	    io:format("CHECK at line ~p\nExpected: ~p\nGot     : ~p\n",
+                      [Line,Exp,Got]),
  	    Got
     end.
 

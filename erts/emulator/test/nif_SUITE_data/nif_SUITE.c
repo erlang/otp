@@ -104,20 +104,23 @@ struct binary_resource {
 
 static int get_pointer(ErlNifEnv* env, ERL_NIF_TERM term, void** pp)
 {
-    ErlNifUInt64 i64;
-    int r = enif_get_uint64(env, term, &i64);
+    ErlNifBinary bin;
+    int r = enif_inspect_binary(env, term, &bin);
     if (r) {
-	*pp = (void*)i64;
+	*pp = *(void**)bin.data;
     }
     return r;
 }
 
 static ERL_NIF_TERM make_pointer(ErlNifEnv* env, void* p)
 {
-    ErlNifUInt64 i64 = (ErlNifUInt64) p;
-    return enif_make_uint64(env, i64);
+    void** bin_data;
+    ERL_NIF_TERM res;
+    ADD_CALL("get_priv_data_ptr");
+    bin_data = (void**)enif_make_new_binary(env, sizeof(void*), &res);
+    *bin_data = p;
+    return res;
 }
-
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {

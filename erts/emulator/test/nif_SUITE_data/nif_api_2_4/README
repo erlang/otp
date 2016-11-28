@@ -1,0 +1,6 @@
+These are old genuine header files
+checked out from tag OTP_R16B 05f11890bdfec4bfc3a78e191
+
+I choose this API version (2.4) to test, as it's before
+the addition of 'options' in ErlNifEntry and 'flags' in ErlNifFunc
+and without include of generated erl_native_features_config.h.
