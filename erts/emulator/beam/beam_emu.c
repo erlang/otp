@@ -1047,9 +1047,11 @@ static BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
 			       Eterm* reg, BifFunction bf) NOINLINE;
 static BeamInstr* call_error_handler(Process* p, BeamInstr* ip,
 				     Eterm* reg, Eterm func) NOINLINE;
-static BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity) NOINLINE;
+static BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity,
+			      BeamInstr *I, Uint offs) NOINLINE;
 static BeamInstr* apply(Process* p, Eterm module, Eterm function,
-			Eterm args, Eterm* reg) NOINLINE;
+			Eterm args, Eterm* reg,
+			BeamInstr *I, Uint offs) NOINLINE;
 static BeamInstr* call_fun(Process* p, int arity,
 			   Eterm* reg, Eterm args) NOINLINE;
 static BeamInstr* apply_fun(Process* p, Eterm fun,
@@ -3194,7 +3196,7 @@ do {						\
  OpCase(i_apply): {
      BeamInstr *next;
      HEAVY_SWAPOUT;
-     next = apply(c_p, r(0), x(1), x(2), reg);
+     next = apply(c_p, r(0), x(1), x(2), reg, NULL, 0);
      HEAVY_SWAPIN;
      if (next != NULL) {
 	 SET_CP(c_p, I+1);
@@ -3208,7 +3210,7 @@ do {						\
  OpCase(i_apply_last_P): {
      BeamInstr *next;
      HEAVY_SWAPOUT;
-     next = apply(c_p, r(0), x(1), x(2), reg);
+     next = apply(c_p, r(0), x(1), x(2), reg, I, Arg(0));
      HEAVY_SWAPIN;
      if (next != NULL) {
 	 SET_CP(c_p, (BeamInstr *) E[0]);
@@ -3223,7 +3225,7 @@ do {						\
  OpCase(i_apply_only): {
      BeamInstr *next;
      HEAVY_SWAPOUT;
-     next = apply(c_p, r(0), x(1), x(2), reg);
+     next = apply(c_p, r(0), x(1), x(2), reg, I, 0);
      HEAVY_SWAPIN;
      if (next != NULL) {
 	 SET_I(next);
@@ -3237,7 +3239,7 @@ do {						\
      BeamInstr *next;
 
      HEAVY_SWAPOUT;
-     next = fixed_apply(c_p, reg, Arg(0));
+     next = fixed_apply(c_p, reg, Arg(0), NULL, 0);
      HEAVY_SWAPIN;
      if (next != NULL) {
 	 SET_CP(c_p, I+2);
@@ -3252,7 +3254,7 @@ do {						\
      BeamInstr *next;
 
      HEAVY_SWAPOUT;
-     next = fixed_apply(c_p, reg, Arg(0));
+     next = fixed_apply(c_p, reg, Arg(0), I, Arg(1));
      HEAVY_SWAPIN;
      if (next != NULL) {
 	 SET_CP(c_p, (BeamInstr *) E[0]);
@@ -6228,8 +6230,107 @@ apply_setup_error_handler(Process* p, Eterm module, Eterm function, Uint arity, 
     return ep;
 }
 
+static ERTS_INLINE void
+apply_bif_error_adjustment(Process *p, Export *ep,
+			   Eterm *reg, Uint arity,
+			   BeamInstr *I, Uint stack_offset)
+{
+    /*
+     * I is only set when the apply is a tail call, i.e.,
+     * from the instructions i_apply_only, i_apply_last_P,
+     * and apply_last_IP.
+     */
+    if (I
+	&& ep->code[3] == (BeamInstr) em_apply_bif
+	&& (ep == bif_export[BIF_error_1]
+	    || ep == bif_export[BIF_error_2]
+	    || ep == bif_export[BIF_exit_1]
+	    || ep == bif_export[BIF_throw_1])) {
+	/*
+	 * We are about to tail apply one of the BIFs
+	 * erlang:error/1, erlang:error/2, erlang:exit/1,
+	 * or erlang:throw/1. Error handling of these BIFs is
+	 * special!
+	 *
+	 * We need 'p->cp' to point into the calling
+	 * function when handling the error after the BIF has
+	 * been applied. This in order to get the topmost
+	 * stackframe correct. Without the following adjustment,
+	 * 'p->cp' will point into the function that called
+	 * current function when handling the error. We add a
+	 * dummy stackframe in order to achive this.
+	 *
+	 * Note that these BIFs unconditionally will cause
+	 * an exception to be raised. That is, our modifications
+	 * of 'p->cp' as well as the stack will be corrected by
+	 * the error handling code.
+	 *
+	 * If we find an exception/return-to trace continuation
+	 * pointer as the topmost continuation pointer, we do not
+	 * need to do anything since the information already will
+	 * be available for generation of the stacktrace.
+	 */
+	int apply_only = stack_offset == 0;
+	BeamInstr *cpp;
+
+	if (apply_only) {
+	    ASSERT(p->cp != NULL);
+	    cpp = p->cp;
+	}
+	else {
+	    ASSERT(is_CP(p->stop[0]));
+	    cpp = cp_val(p->stop[0]);
+	}
+
+	if (cpp != beam_exception_trace
+	    && cpp != beam_return_trace
+	    && cpp != beam_return_to_trace) {
+	    Uint need = stack_offset /* bytes */ / sizeof(Eterm);
+	    if (need == 0)
+		need = 1; /* i_apply_only */
+	    if (p->stop - p->htop < need)
+		erts_garbage_collect(p, (int) need, reg, arity+1);
+	    p->stop -= need;
+
+	    if (apply_only) {
+		/*
+		 * Called from the i_apply_only instruction.
+		 *
+		 * 'p->cp' contains continuation pointer pointing
+		 * into the function that called current function.
+		 * We push that continuation pointer onto the stack,
+		 * and set 'p->cp' to point into current function.
+		 */
+
+		p->stop[0] = make_cp(p->cp);
+		p->cp = I;
+	    }
+	    else {
+		/*
+		 * Called from an i_apply_last_p, or apply_last_IP,
+		 * instruction.
+		 *
+		 * Calling instruction will after we return read
+		 * a continuation pointer from the stack and write
+		 * it to 'p->cp', and then remove the topmost
+		 * stackframe of size 'stack_offset'.
+		 *
+		 * We have sized the dummy-stackframe so that it
+		 * will be removed by the instruction we currently
+		 * are executing, and leave the stackframe that
+		 * normally would have been removed intact.
+		 *
+		 */
+		p->stop[0] = make_cp(I);
+	    }
+	}
+    }
+}
+
 static BeamInstr*
-apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
+apply(
+Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg,
+BeamInstr *I, Uint stack_offset)
 {
     int arity;
     Export* ep;
@@ -6254,21 +6355,54 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
 	return 0;
     }
 
-    /* The module argument may be either an atom or an abstract module
-     * (currently implemented using tuples, but this might change).
-     */
-    this = THE_NON_VALUE;
-    if (is_not_atom(module)) {
-	Eterm* tp;
+    while (1) {
+	Eterm m, f, a;
+	/* The module argument may be either an atom or an abstract module
+	 * (currently implemented using tuples, but this might change).
+	 */
+	this = THE_NON_VALUE;
+	if (is_not_atom(module)) {
+	    Eterm* tp;
 
-        if (is_not_tuple(module)) goto error;
-        tp = tuple_val(module);
-        if (arityval(tp[0]) < 1) goto error;
-        this = module;
-        module = tp[1];
-        if (is_not_atom(module)) goto error;
+	    if (is_not_tuple(module)) goto error;
+	    tp = tuple_val(module);
+	    if (arityval(tp[0]) < 1) goto error;
+	    this = module;
+	    module = tp[1];
+	    if (is_not_atom(module)) goto error;
+	}
+
+	if (module != am_erlang || function != am_apply)
+	    break;
+
+	/* Adjust for multiple apply of apply/3... */
+
+	a = args;
+	if (is_list(a)) {
+	    Eterm *consp = list_val(a);
+	    m = CAR(consp);
+	    a = CDR(consp);
+	    if (is_list(a)) {
+		consp = list_val(a);
+		f = CAR(consp);
+		a = CDR(consp);
+		if (is_list(a)) {
+		    consp = list_val(a);
+		    a = CAR(consp);
+		    if (is_nil(CDR(consp))) {
+			/* erlang:apply/3 */
+			module = m;
+			function = f;
+			args = a;
+			if (is_not_atom(f))
+			    goto error;
+			continue;
+		    }
+		}
+	    }
+	}
+	break; /* != erlang:apply/3 */
     }
-    
     /*
      * Walk down the 3rd parameter of apply (the argument list) and copy
      * the parameters to the x registers (reg[]). If the module argument
@@ -6306,12 +6440,14 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
 	save_calls(p, ep);
     }
+    apply_bif_error_adjustment(p, ep, reg, arity, I, stack_offset);
     DTRACE_GLOBAL_CALL_FROM_EXPORT(p, ep);
     return ep->addressv[erts_active_code_ix()];
 }
 
 static BeamInstr*
-fixed_apply(Process* p, Eterm* reg, Uint arity)
+fixed_apply(Process* p, Eterm* reg, Uint arity,
+	    BeamInstr *I, Uint stack_offset)
 {
     Export* ep;
     Eterm module;
@@ -6341,6 +6477,10 @@ fixed_apply(Process* p, Eterm* reg, Uint arity)
         if (is_not_atom(module)) goto error;
         ++arity;
     }
+
+    /* Handle apply of apply/3... */
+    if (module == am_erlang && function == am_apply && arity == 3)
+	return apply(p, reg[0], reg[1], reg[2], reg, I, stack_offset);
     
     /*
      * Get the index into the export table, or failing that the export
@@ -6355,6 +6495,7 @@ fixed_apply(Process* p, Eterm* reg, Uint arity)
     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
 	save_calls(p, ep);
     }
+    apply_bif_error_adjustment(p, ep, reg, arity, I, stack_offset);
     DTRACE_GLOBAL_CALL_FROM_EXPORT(p, ep);
     return ep->addressv[erts_active_code_ix()];
 }

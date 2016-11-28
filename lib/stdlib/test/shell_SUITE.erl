@@ -2325,7 +2325,7 @@ otp_6554(Config) when is_list(Config) ->
 			  "[unproper | list]).">>),
 	    %% Cheating:
 	    "exception error: no function clause matching "
-		"erl_eval:do_apply(4)" ++ _ =
+		"shell:apply_fun(4)" ++ _ =
 		comm_err(<<"erlang:error(function_clause, [4]).">>),
 		"exception error: no function clause matching "
 		"lists:reverse(" ++ _ =
