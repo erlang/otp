@@ -406,7 +406,11 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{num_responses = 1,
 				   kb_tries_left = KbTriesLeft,
 				   user = User,
 				   userauth_supported_methods = Methods} = Ssh) ->
-    SendOneEmpty = proplists:get_value(tstflg, Opts) == one_empty,
+    SendOneEmpty =
+	(proplists:get_value(tstflg,Opts) == one_empty)
+	orelse 
+	proplists:get_value(one_empty, proplists:get_value(tstflg,Opts,[]), false),
+
     case check_password(User, unicode:characters_to_list(Password), Opts, Ssh) of
 	{true,Ssh1} when SendOneEmpty==true ->
 	    Msg = #ssh_msg_userauth_info_request{name = "",
