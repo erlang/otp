@@ -479,6 +479,11 @@ To activate the workaround, place the following in your `~/.emacs' file:
   "*Indentation of Erlang calls/clauses within blocks.")
 (put 'erlang-indent-level 'safe-local-variable 'integerp)
 
+(defvar erlang-icr-indent nil
+  "*Indentation of Erlang if/case/receive/ patterns.  `nil' means
+  keeping default behavior.  When non-nil, indent to th column of
+  if/case/receive.")
+
 (defvar erlang-indent-guard 2
   "*Indentation of Erlang guards.")
 (put 'erlang-indent-guard 'safe-local-variable 'integerp)
@@ -2919,14 +2924,16 @@ Return nil if inside string, t if in a comment."
                  (t
                   (save-excursion
                     (goto-char (nth 1 stack-top))
-                    (if (looking-at "case[^_a-zA-Z0-9]")
-                        (+ (nth 2 stack-top) erlang-indent-level)
-                      (skip-chars-forward "a-z")
-                      (skip-chars-forward " \t")
-                      (if (memq (following-char) '(?% ?\n))
+                    (if (and erlang-icr-indent
+                             (looking-at "\\(if\\|case\\|receive\\)[^_a-zA-Z0-9]"))
+                        (+ (nth 2 stack-top) erlang-icr-indent)
+                      (if (looking-at "\\(case\\|receive\\)[^_a-zA-Z0-9]")
                           (+ (nth 2 stack-top) erlang-indent-level)
-                        (current-column))))))
-           )
+                        (skip-chars-forward "a-z")
+                        (skip-chars-forward " \t")
+                        (if (memq (following-char) '(?% ?\n))
+                            (+ (nth 2 stack-top) erlang-indent-level)
+                          (current-column))))))))
           ((and (eq (car stack-top) '||) (looking-at "\\(]\\|>>\\)[^_a-zA-Z0-9]"))
            (nth 2 (car (cdr stack))))
           ;; Real indentation, where operators create extra indentation etc.
@@ -2948,7 +2955,9 @@ Return nil if inside string, t if in a comment."
                       ;; If in fun definition use standard indent level not double
                       ;;(if (not (eq (car (car (cdr stack))) 'fun))
                       ;; Removed it made multi clause fun's look to bad
-                      (setq off (* 2 erlang-indent-level)))) ;; )
+                      (setq off (+ erlang-indent-level (if (not erlang-icr-indent)
+                                                           erlang-indent-level
+                                                         erlang-icr-indent))))) 
                (let ((base (erlang-indent-find-base stack indent-point off skip)))
                  ;; Special cases
                  (goto-char indent-point)
