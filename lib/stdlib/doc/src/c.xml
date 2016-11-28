@@ -148,6 +148,15 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
+      <name name="lm" arity="0"/>
+      <fsummary>Loads all modified modules.</fsummary>
+      <desc>
+        <p>Reloads all currently loaded modules that have changed on disk (see <c>mm()</c>).
+        Returns the list of results from calling <c>l(M)</c> for each such <c>M</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="ls" arity="0"/>
       <fsummary>List files in the current directory.</fsummary>
       <desc>
@@ -178,6 +187,15 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
       <fsummary>Information about a module.</fsummary>
       <desc>
         <p>Displays information about <c><anno>Module</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mm" arity="0"/>
+      <fsummary>Lists all modified modules.</fsummary>
+      <desc>
+        <p>Lists all modified modules. Shorthand for
+        <seealso marker="kernel:code#modified_modules/0"><c>code:modified_modules/0</c></seealso>.</p>
       </desc>
     </func>
 

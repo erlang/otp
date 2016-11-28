@@ -983,9 +983,10 @@ get_keys(_Val) ->
     erlang:nif_error(undefined).
 
 %% get_module_info/1
--spec erlang:get_module_info(P1) -> [{atom(), [{atom(), term()}]}] when
-      P1 :: atom().
-get_module_info(_P1) ->
+-spec erlang:get_module_info(Module) -> [{Item, term()}] when
+      Item :: module | exports | attributes | compile | native | md5,
+      Module :: atom().
+get_module_info(_Module) ->
     erlang:nif_error(undefined).
 
 %% get_stacktrace/0
@@ -1882,10 +1883,12 @@ element(_N, _Tuple) ->
     erlang:nif_error(undefined).
 
 %% Not documented
+-type module_info_key() :: attributes | compile | exports | functions | md5
+                         | module | native | native_addresses.
 -spec erlang:get_module_info(Module, Item) -> ModuleInfo when
       Module :: atom(),
-      Item :: module | exports | functions | attributes | compile | native_addresses | md5,
-      ModuleInfo :: atom() | [] | [{atom(), arity()}] | [{atom(), term()}] | [{atom(), arity(), integer()}].
+      Item :: module_info_key(),
+      ModuleInfo :: term().
 get_module_info(_Module, _Item) ->
     erlang:nif_error(undefined).
 
