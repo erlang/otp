@@ -628,7 +628,112 @@ maps(Config) when is_list(Config) ->
 	     id(I) -> I.
            ">>,
            [],
-	   []}],
+	   []},
+           {repeated_keys1,
+           <<"
+             foo1() ->
+                 #{a=>1,
+                   b=> 2,
+                   a=>3}.
+             
+             bar1(M) ->
+                 M#{a=>1, b=> 2, a:=3}.
+             
+             baz1(M) ->
+                 M#{a=>1, b=> 2, a:=3}.
+             
+             foo2() ->
+                 #{\"a\"=>1, \"b\"=> 2, \"a\"=>3}.
+             
+             bar2(M) ->
+                 M#{\"a\"=>1, \"b\"=> 2, \"a\":=3}.
+             
+             baz2(M) ->
+                 M#{\"a\"=>1, \"b\"=> 2, \"a\":=3}.
+             
+             foo3() ->
+                 #{\"a\"=>1,
+                   \"b\"=> 2,
+                   \"a\"=>3}.
+             
+             bar3(M) ->
+                 M#{\"a\"=>1, \"b\"=> 2, \"a\":=3}.
+             
+             baz3(M) ->
+                 M#{<<\"a\">>=>1, <<\"b\">>=> 2, <<\"a\">>:=3}.
+           ">>,
+           [],
+           {warnings,[{3,v3_core,{map_key_repeated,a}},
+                      {8,v3_core,{map_key_repeated,a}},
+                      {11,v3_core,{map_key_repeated,a}},
+                      {14,v3_core,{map_key_repeated,"a"}},
+                      {17,v3_core,{map_key_repeated,"a"}},
+                      {20,v3_core,{map_key_repeated,"a"}},
+                      {23,v3_core,{map_key_repeated,"a"}},
+                      {28,v3_core,{map_key_repeated,"a"}},
+                      {31,v3_core,{map_key_repeated,<<"a">>}}]}},
+           {repeated_keys2,
+           <<"
+             foo4(K) ->
+                 #{\"a\"=>1, K => 1, \"b\"=> 2, \"a\"=>3, K=>2}.
+             
+             bar4(M,K) ->
+                 M#{a=>1, K =>1, b=> 2, a:=3, K=>2}.
+             
+             baz4(M,K) ->
+                 M#{<<\"a\">>=>1,
+                     K => 1, <<\"b\">>=> 2,
+                     <<\"a\">>:=3, K=>2}.
+             
+             foo5(K) ->
+                 #{{\"a\",1}=>1, K => 1, \"b\"=> 2, {\"a\",1}=>3, K=>2}.
+             
+             bar5(M,K) ->
+                 M#{{\"a\",<<\"b\">>}=>1, K =>1,
+                    \"b\"=> 2, {\"a\",<<\"b\">>}:=3, K=>2}.
+             
+             baz5(M,K) ->
+                 M#{{<<\"a\">>,1}=>1, K => 1,
+                    <<\"b\">>=> 2, {<<\"a\">>,1}:=3,K=>2}.
+             
+             foo6(K) ->
+                 #{#{\"a\"=>1}=>1, K => 1, \"b\"=> 2, #{\"a\"=>1}=>3, K=>2}.
+             
+             bar6(M,K) ->
+                 M#{#{\"a\"=><<\"b\">>}=>1, K =>1,
+                    \"b\"=> 2, #{\"a\"=><<\"b\">>}:=3, K=>2}.
+             
+             baz6(M,K) ->
+                 M#{#{<<\"a\">>=>1}=>1,
+                    K => 1,
+                    <<\"b\">>=> 2,
+                    #{<<\"a\">>=>1}:=3,K=>2}.
+             
+             foo7(K) ->
+                 M1 = #{#{\"a\"=>1}=>1, K => 1, \"b\"=> 2},
+                 M1#{#{\"a\"=>1}=>3, K=>2}.
+             
+             bar7(M,K) ->
+                 M1 = M#{#{\"a\"=><<\"b\">>}=>1, K =>1, \"b\"=> 2},
+                 M1#{#{\"a\"=><<\"b\">>}:=3, K=>2}.
+             
+             baz7(M,K) ->
+                 M1 = M#{#{<<\"a\">>=>1}=>1,
+                    K => 1,
+                    <<\"b\">>=> 2},
+                 M1#{#{<<\"a\">>=>1}:=3,K=>2}.
+          ">>,
+           [],
+           {warnings,[{3,v3_core,{map_key_repeated,"a"}},
+                      {6,v3_core,{map_key_repeated,a}},
+                      {9,v3_core,{map_key_repeated,<<"a">>}},
+                      {14,v3_core,{map_key_repeated,{"a",1}}},
+                      {17,v3_core,{map_key_repeated,{"a",<<"b">>}}},
+                      {21,v3_core,{map_key_repeated,{<<"a">>,1}}},
+                      {25,v3_core,{map_key_repeated,#{"a" => 1}}},
+                      {28,v3_core,{map_key_repeated,#{"a" => <<"b">>}}},
+                      {32,v3_core,{map_key_repeated,#{<<"a">> => 1}}}]}}
+         ],
     run(Config, Ts),
     ok.
 
