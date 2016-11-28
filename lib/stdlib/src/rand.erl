@@ -155,7 +155,7 @@ uniform_s(N, State0 = {#{uniform:=Uniform}, _})
 %% after a large number of call defined for each algorithm.
 %% The large number is algorithm dependent.
 
--spec jump(state()) -> NewS :: state().
+-spec jump(state()) -> {NewS :: state()}.
 jump(State = {#{jump:=Jump}, _}) ->
     Jump(State).
 
@@ -164,7 +164,7 @@ jump(State = {#{jump:=Jump}, _}) ->
 %% and write back the new value to the internal state,
 %% then returns the new value.
 
--spec jump() -> NewS :: state().
+-spec jump() -> {NewS :: state()}.
 
 jump() ->
     seed_put(jump(seed_get())).
@@ -323,14 +323,16 @@ exsplus_uniform(Max, {Alg, R}) ->
 -define(JUMPCONST2, 16#345d2a0f85f788c).
 -define(JUMPELEMLEN, 58).
 
--dialyzer({no_improper_lists, exsplus_jump/1}).
--spec exsplus_jump(state()) -> state().
+-spec exsplus_jump(exsplus_state()) -> exsplus_state().
+
 exsplus_jump({Alg, S}) ->
     {S1, AS1} = exsplus_jump(S, [0|0], ?JUMPCONST1, ?JUMPELEMLEN),
     {_,  AS2} = exsplus_jump(S1, AS1,  ?JUMPCONST2, ?JUMPELEMLEN),
     {Alg, AS2}.
 
--dialyzer({no_improper_lists, exsplus_jump/4}).
+-spec exsplus_jump(state(), state(), pos_integer(), pos_integer()) ->
+           {state(), state()}.
+
 exsplus_jump(S, AS, _, 0) ->
     {S, AS};
 exsplus_jump(S, [AS0|AS1], J, N) ->
@@ -438,6 +440,10 @@ exs1024_jump({Alg, {L, RL}}) ->
          ?JUMPCONSTTAIL, ?JUMPCONSTHEAD, ?JUMPELEMLEN, ?JUMPTOTALLEN),
     {ASL, ASR} = lists:split(?RINGLEN - P, AS),
     {Alg, {ASL, lists:reverse(ASR)}}.
+
+-spec exs1024_jump(state(), list(non_neg_integer()),
+           list(non_neg_integer()), non_neg_integer(),
+           non_neg_integer(), non_neg_integer()) -> list(non_neg_integer()).
 
 exs1024_jump(_, AS, _, _, _, 0) ->
     AS;
