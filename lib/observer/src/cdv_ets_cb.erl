@@ -34,10 +34,8 @@
 -define(COL_NAME,  ?COL_ID+1).
 -define(COL_SLOT,  ?COL_NAME+1).
 -define(COL_OWNER, ?COL_SLOT+1).
--define(COL_BUCK,  ?COL_OWNER+1).
--define(COL_OBJ,   ?COL_BUCK+1).
+-define(COL_OBJ,   ?COL_OWNER+1).
 -define(COL_MEM,   ?COL_OBJ+1).
--define(COL_TYPE,  ?COL_MEM+1).
 
 %% Callbacks for cdv_virtual_list_wx
 col_to_elem(id) -> col_to_elem(?COL_ID);
@@ -45,8 +43,6 @@ col_to_elem(?COL_ID)    -> #ets_table.id;
 col_to_elem(?COL_NAME)  -> #ets_table.name;
 col_to_elem(?COL_SLOT)  -> #ets_table.slot;
 col_to_elem(?COL_OWNER) -> #ets_table.pid;
-col_to_elem(?COL_TYPE)  -> #ets_table.data_type;
-col_to_elem(?COL_BUCK)  -> #ets_table.buckets;
 col_to_elem(?COL_OBJ)   -> #ets_table.size;
 col_to_elem(?COL_MEM)   -> #ets_table.memory.
 
@@ -57,7 +53,6 @@ col_spec() ->
      {"Owner",   ?wxLIST_FORMAT_CENTRE, 120},
      {"Objects", ?wxLIST_FORMAT_RIGHT,  80},
      {"Memory",  ?wxLIST_FORMAT_RIGHT,  80}
-%     {"Type",    ?wxLIST_FORMAT_LEFT,   50}
     ].
 
 get_info(Owner) ->
