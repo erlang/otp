@@ -2163,12 +2163,8 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
  * We use this atom as sysname in local pid/port/refs
  * for the ETS compressed format (DFLAG_INTERNAL_TAGS).
  *
- * We used atom '' earlier but that turned out to cause problems
- * for buggy erl_interface/ic usage of c-nodes with empty node names.
- * A long atom reduces risk of nodes actually called this and the length
- * does not matter anyway as it's encoded with atom index (ATOM_INTERNAL_REF2).
  */
-#define INTERNAL_LOCAL_SYSNAME am_await_microstate_accounting_modifications
+#define INTERNAL_LOCAL_SYSNAME am_ErtsSecretAtom
 
 static byte*
 enc_pid(ErtsAtomCacheMap *acmp, Eterm pid, byte* ep, Uint32 dflags)
