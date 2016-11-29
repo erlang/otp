@@ -3341,11 +3341,8 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 				     mod_atom, f->name, f->arity);
 #endif
 	    }
-#ifdef ERTS_DIRTY_SCHEDULERS
-	    else if (erts_codeinfo_to_code(ci_pp[1]) - erts_codeinfo_to_code(ci_pp[0]) < (4))
-#else
-	    else if (erts_codeinfo_to_code(ci_pp[1]) - erts_codeinfo_to_code(ci_pp[0]) < (3))
-#endif
+	    else if (erts_codeinfo_to_code(ci_pp[1]) - erts_codeinfo_to_code(ci_pp[0])
+                     < BEAM_NIF_MIN_FUNC_SZ)
 	    {
 		ret = load_nif_error(BIF_P,bad_lib,"No explicit call to load_nif"
 				     " in module (%T:%s/%u too small)",
