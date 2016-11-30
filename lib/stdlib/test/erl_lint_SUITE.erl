@@ -1863,7 +1863,7 @@ otp_5276(Config) when is_list(Config) ->
 %% OTP-5917. Check the 'deprecated' attributed.
 otp_5917(Config) when is_list(Config) ->
     Ts = [{otp_5917_1,
-          <<"-compile(export_all).
+          <<"-export([t/0]).
 
              -deprecated({t,0}).
 
@@ -1878,7 +1878,7 @@ otp_5917(Config) when is_list(Config) ->
 %% OTP-6585. Check the deprecated guards list/1, pid/1, ....
 otp_6585(Config) when is_list(Config) ->
     Ts = [{otp_6585_1,
-          <<"-compile(export_all).
+          <<"-export([t/0]).
 
              -record(r, {}).
 
@@ -2627,7 +2627,7 @@ otp_11772(Config) when is_list(Config) ->
     Ts = <<"
             -module(newly).
 
-            -compile(export_all).
+            -export([t/0]).
 
             %% Built-in:
             -type node() :: node().
@@ -2652,7 +2652,7 @@ otp_11771(Config) when is_list(Config) ->
     Ts = <<"
             -module(newly).
 
-            -compile(export_all).
+            -export([t/0]).
 
             %% No longer allowed in 17.0:
             -type arity() :: atom().
@@ -2679,7 +2679,7 @@ otp_11872(Config) when is_list(Config) ->
     Ts = <<"
             -module(map).
 
-            -compile(export_all).
+            -export([t/0]).
 
             -export_type([map/0, product/0]).
 
@@ -3005,7 +3005,7 @@ behaviour_basic(Config) when is_list(Config) ->
 
           {behaviour4,
            <<"-behavior(application).  %% Test callbacks with export_all
-              -compile(export_all).
+              -compile([export_all, nowarn_export_all]).
               stop(_) -> ok.
              ">>,
            [],

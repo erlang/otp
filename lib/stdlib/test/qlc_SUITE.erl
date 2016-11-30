@@ -7936,7 +7936,6 @@ compile(Config, Tests, Fun) ->
 compile_file(Config, Test0, Opts0) ->
     {File, Mod} = compile_file_mod(Config),
     Test = list_to_binary(["-module(", atom_to_list(Mod), "). "
-                           "-compile(export_all). "
                            "-import(qlc_SUITE, [i/1,i/2,format_info/2]). "
                            "-import(qlc_SUITE, [etsc/2, etsc/3]). "
                            "-import(qlc_SUITE, [create_ets/2]). "
@@ -7946,7 +7945,7 @@ compile_file(Config, Test0, Opts0) ->
                            "-import(qlc_SUITE, [lookup_keys/1]). "
                            "-include_lib(\"stdlib/include/qlc.hrl\"). ",
                            Test0]),
-    Opts = [export_all,return,nowarn_unused_record,{outdir,?privdir}|Opts0],
+    Opts = [export_all,nowarn_export_all,return,nowarn_unused_record,{outdir,?privdir}|Opts0],
     ok = file:write_file(File, Test),
     case compile:file(File, Opts) of
         {ok, _M, Ws} -> warnings(File, Ws);
