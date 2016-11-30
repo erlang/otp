@@ -155,7 +155,7 @@ call_purged_fun_code_there(Config) when is_list(Config) ->
 call_purged_fun_test(Priv, Data, Type) ->
     OptsList = case erlang:system_info(hipe_architecture) of
                    undefined -> [[]];
-                   _ -> [[], [native]]
+                   _ -> [[], [native,{d,hipe}]]
                end,
     [call_purged_fun_test_do(Priv, Data, Type, CO, FO)
      || CO <- OptsList, FO <- OptsList].
