@@ -2227,8 +2227,20 @@ expr({'fun',Line,Body}, Vt, St) ->
 	{function,M,F,A} when is_atom(M), is_atom(F), is_integer(A) ->
 	    %% Compatibility with pre-R15 abstract format.
 	    {[],St};
+	{function,{atom,Lm,M},{atom,Lf,F},A} ->
+            St1 = keyword_warning(Lm, M, St),
+            St2 = keyword_warning(Lf, F, St1),
+	    {Bvt, St3} = expr_list([A], Vt, St2),
+	    {vtupdate(Bvt, Vt),St3};
+	{function,{atom,Lm,M},F,A} ->
+            St1 = keyword_warning(Lm, M, St),
+	    {Bvt, St2} = expr_list([F,A], Vt, St1),
+	    {vtupdate(Bvt, Vt),St2};
+	{function,M,{atom,Lf,F},A} ->
+            St1 = keyword_warning(Lf, F, St),
+	    {Bvt, St2} = expr_list([M,A], Vt, St1),
+	    {vtupdate(Bvt, Vt),St2};
 	{function,M,F,A} ->
-	    %% New in R15.
 	    {Bvt, St1} = expr_list([M,F,A], Vt, St),
 	    {vtupdate(Bvt, Vt),St1}
     end;
@@ -2249,14 +2261,19 @@ expr({call,Line,{remote,_Lr,{atom,_Lm,erlang},{atom,Lf,is_record}},[E,A]},
     expr({call,Line,{atom,Lf,is_record},[E,A]}, Vt, St0);
 expr({call,L,{tuple,Lt,[{atom,Lm,erlang},{atom,Lf,is_record}]},As}, Vt, St) ->
     expr({call,L,{remote,Lt,{atom,Lm,erlang},{atom,Lf,is_record}},As}, Vt, St);
-expr({call,Line,{remote,_Lr,{atom,_Lm,M},{atom,Lf,F}},As}, Vt, St0) ->
+expr({call,Line,{remote,_Lr,{atom,Lm,M},{atom,Lf,F}},As}, Vt, St0) ->
+    St1 = keyword_warning(Lm, M, St0),
+    St2 = keyword_warning(Lf, F, St1),
+    St3 = check_remote_function(Line, M, F, As, St2),
+    expr_list(As, Vt, St3);
+expr({call,_Line,{remote,_Lr,{atom,Lm,M},F},As}, Vt, St0) ->
+    St1 = keyword_warning(Lm, M, St0),
+    expr_list([F|As], Vt, St1);
+expr({call,_Line,{remote,_Lr,M,{atom,Lf,F}},As}, Vt, St0) ->
     St1 = keyword_warning(Lf, F, St0),
-    St2 = check_remote_function(Line, M, F, As, St1),
-    expr_list(As, Vt, St2);
-expr({call,Line,{remote,_Lr,M,F},As}, Vt, St0) ->
-    St1 = keyword_warning(Line, M, St0),
-    St2 = keyword_warning(Line, F, St1),
-    expr_list([M,F|As], Vt, St2);
+    expr_list([M|As], Vt, St1);
+expr({call,_Line,{remote,_Lr,M,F},As}, Vt, St0) ->
+    expr_list([M,F|As], Vt, St0);
 expr({call,Line,{atom,La,F},As}, Vt, St0) ->
     St1 = keyword_warning(La, F, St0),
     {Asvt,St2} = expr_list(As, Vt, St1),
@@ -3680,7 +3697,7 @@ test_overriden_by_local(Line, OldTest, Arity, St) ->
 %% keyword_warning(Line, Atom, State) -> State.
 %%  Add warning for atoms that will be reserved keywords in the future.
 %%  (Currently, no such keywords to warn for.)
-keyword_warning(_Line, _A, St) -> St.
+keyword_warning(_Line, A, St) when is_atom(A) -> St.
 
 %% format_function(Line, ModName, FuncName, [Arg], State) -> State.
 %%  Add warning for bad calls to io:fwrite/format functions.
