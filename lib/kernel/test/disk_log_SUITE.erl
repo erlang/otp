@@ -421,7 +421,7 @@ halt_ro_alog(Conf) when is_list(Conf) ->
 halt_ro_alog_wait_notify(Log, T) ->
     Term = term_to_binary(T),
     receive
-	{disk_log, _, Log,{read_only, Term}} ->
+	{disk_log, _, Log,{read_only, [Term]}} ->
 	    ok;
 	Other ->
 	    Other
@@ -449,7 +449,7 @@ halt_ro_balog(Conf) when is_list(Conf) ->
 halt_ro_balog_wait_notify(Log, T) ->
     Term = list_to_binary(T),
     receive
-	{disk_log, _, Log,{read_only, Term}} ->
+	{disk_log, _, Log,{read_only, [Term]}} ->
 	    ok;
 	Other ->
 	    Other
@@ -1385,15 +1385,15 @@ blocked_notif(Conf) when is_list(Conf) ->
     "The requested operation" ++ _ = format_error(Error1),
     ok = disk_log:blog(n, B),
     ok = disk_log:alog(n, B),
-    rec(1, {disk_log, node(), n, {format_external, term_to_binary(B)}}),
+    rec(1, {disk_log, node(), n, {format_external, [term_to_binary(B)]}}),
     ok = disk_log:alog_terms(n, [B,B,B,B]),
     rec(1, {disk_log, node(), n, {format_external,
 				  lists:map(fun term_to_binary/1, [B,B,B,B])}}),
     ok = disk_log:block(n, false),
     ok = disk_log:alog(n, B),
-    rec(1, {disk_log, node(), n, {blocked_log, term_to_binary(B)}}),
+    rec(1, {disk_log, node(), n, {blocked_log, [term_to_binary(B)]}}),
     ok = disk_log:balog(n, B),
-    rec(1, {disk_log, node(), n, {blocked_log, list_to_binary(B)}}),
+    rec(1, {disk_log, node(), n, {blocked_log, [list_to_binary(B)]}}),
     ok = disk_log:balog_terms(n, [B,B,B,B]),
     disk_log:close(n),
     rec(1, {disk_log, node(), n, {blocked_log,
@@ -4666,7 +4666,7 @@ other_groups(Conf) when is_list(Conf) ->
 
     ok.
 
--define(MAX, 16384). % MAX in disk_log_1.erl
+-define(MAX, ?MAX_FWRITE_CACHE). % as in disk_log_1.erl
 %% Evil cases such as closed file descriptor port.
 evil(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
@@ -4690,7 +4690,7 @@ evil(Conf) when is_list(Conf) ->
                                      {size,?MAX+50},{format,external}]),
     [Fd] = erlang:ports() -- Ports0,
     {B,_} = x_mk_bytes(30),
-    ok = disk_log:blog(Log, <<0:(?MAX+1)/unit:8>>),
+    ok = disk_log:blog(Log, <<0:(?MAX-1)/unit:8>>),
     exit(Fd, kill),
     {error, {file_error,_,einval}} = disk_log:blog_terms(Log, [B,B]),
     ok= disk_log:close(Log),
