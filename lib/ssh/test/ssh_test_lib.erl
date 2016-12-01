@@ -847,3 +847,15 @@ get_kex_init(Conn, Ref, TRef) ->
 %%%
 random_chars(N) -> [crypto:rand_uniform($a,$z) || _<-lists:duplicate(N,x)].
 
+
+create_random_dir(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Name = filename:join(PrivDir, random_chars(15)),
+    case file:make_dir(Name) of
+	ok -> 
+	    Name;
+	{error,eexist} ->
+	    %% The Name already denotes an existing file system object, try again.
+	    %% The likelyhood of always generating an existing file name is low
+	    create_random_dir(Config)
+    end.
