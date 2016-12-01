@@ -20,6 +20,7 @@ do(Priv, Data, Type, Opts) ->
     ets:insert(T, {my_fun2,my_code_test2:make_fun2()}),
 
     spawn(fun () ->
+		  %% Cause merge conflict.
 		  [{my_fun2,F2}] = ets:lookup(T, my_fun2),
 		  F2(fun () ->
 			     receive after infinity -> ok end
