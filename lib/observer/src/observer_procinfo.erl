@@ -434,7 +434,7 @@ get_gc_info(Arg) ->
 filter_monitor_info() ->
     fun(Data) ->
 	    Ms = proplists:get_value(monitors, Data),
-	    [Pid || {process, Pid} <- Ms]
+	    [Id || {_Type, Id} <- Ms] % Type is process or port
     end.
 
 stringify_bins(Data) ->
