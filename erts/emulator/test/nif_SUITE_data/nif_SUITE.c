@@ -2176,6 +2176,7 @@ static ERL_NIF_TERM is_closed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 static void fd_resource_dtor(ErlNifEnv* env, void* obj)
 {
     struct fd_resource* rsrc = (struct fd_resource*)obj;
+    resource_dtor(env, obj);
     if (rsrc->fd >= 0)
         close(rsrc->fd);
 }

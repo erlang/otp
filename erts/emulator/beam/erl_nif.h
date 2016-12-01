@@ -146,7 +146,6 @@ typedef struct {
 typedef struct enif_resource_type_t ErlNifResourceType;
 typedef void ErlNifResourceDtor(ErlNifEnv*, void*);
 typedef void ErlNifResourceStop(ErlNifEnv*, void*);
-typedef void ErlNifResourceExit(ErlNifEnv*, void*);
 
 //#ifndef ERL_SYS_DRV
 typedef int ErlNifEvent; /* An event to be selected on. */

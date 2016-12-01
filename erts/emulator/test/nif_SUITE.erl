@@ -447,6 +447,8 @@ select(Config) when is_list(Config) ->
     {R,W} = pipe_nif(),
     ok = write_nif(W, <<"hej">>),
     <<"hej">> = read_nif(R, 3),
+
+    %% Wait for read
     eagain = read_nif(R, 3),
     0 = select_nif(R,?ERL_NIF_SELECT_READ,R,Ref),
     [] = flush(),
@@ -454,14 +456,93 @@ select(Config) when is_list(Config) ->
     [{select, R, Ref, ready_input}] = flush(),
     <<"hej">> = read_nif(R, 3),
 
-    %% To be extended...
+    %% Wait for write
+    Written = write_full(W, $a),
+    0 = select_nif(W,?ERL_NIF_SELECT_WRITE,W,Ref),
+    [] = flush(),
+    Half = byte_size(Written) div 2,
+    <<First:Half/binary,Second/binary>> = Written,
+    First = read_nif(R,Half),
+    [{select, W, Ref, ready_output}] = flush(),
+    Third = write_full(W, $A),
+    Half2 = byte_size(Second),
+    <<Second:Half2/binary, Third/binary>> = read_nif(R, byte_size(Written)),
+
+    %% Close write and wait for EOF
+    eagain = read_nif(R, 1),
+    0 = select_nif(W,?ERL_NIF_SELECT_STOP,W,Ref),
+    timer:sleep(10),
+    true = is_closed_nif(W),
+    [] = flush(),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,Ref),
+    [{select, R, Ref, ready_input}] = flush(),
+    eof = read_nif(R,1),
 
     0 = select_nif(R,?ERL_NIF_SELECT_STOP,R,Ref),
-    0 = select_nif(W,?ERL_NIF_SELECT_STOP,W,Ref),
+    timer:sleep(10),
+    true = is_closed_nif(R),
+
+    select_2(Config).
+
+select_2(Config) ->
+    erlang:garbage_collect(),
+    {_,_,2} = last_resource_dtor_call(),
+
+    Ref1 = make_ref(),
+    Ref2 = make_ref(),
+    {R,W} = pipe_nif(),
+
+    %% Change ref
+    eagain = read_nif(R, 1),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,Ref1),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,Ref2),
+
+    [] = flush(),
+    ok = write_nif(W, <<"hej">>),
+    [{select, R, Ref2, ready_input}] = flush(),
+    <<"hej">> = read_nif(R, 3),
+
+    %% Change pid
+    eagain = read_nif(R, 1),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,Ref1),
+    Papa = self(),
+    Pid2 = spawn_link(fun() ->
+                              0 = select_nif(R,?ERL_NIF_SELECT_READ,R,Ref1),
+                              [] = flush(),
+                              Papa ! sync,
+                              [{select, R, Ref1, ready_input}] = flush(),
+                              <<"hej">> = read_nif(R, 3),
+                              Papa ! done
+                      end),
+    sync = receive_any(),
+    ok = write_nif(W, <<"hej">>),
+    done = receive_any(),
+    [] = flush(),
+
+    0 = select_nif(R,?ERL_NIF_SELECT_STOP,R,Ref1),
+    0 = select_nif(W,?ERL_NIF_SELECT_STOP,W,Ref1),
     timer:sleep(10),
     true = is_closed_nif(R),
     true = is_closed_nif(W),
+
+    select_3(Config).
+
+select_3(Config) ->
+    erlang:garbage_collect(),
+    {_,_,2} = last_resource_dtor_call(),
     ok.
+
+
+
+write_full(W, C) ->
+    write_full(W, C, <<>>).
+write_full(W, C, Acc) ->
+    case write_nif(W, <<C>>) of
+        ok ->
+            write_full(W, (C+1) band 255, <<Acc/binary, C>>);
+        {eagain,0} ->
+            Acc
+    end.
 
 hipe(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),

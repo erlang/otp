@@ -1256,11 +1256,18 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
         on = 0;
         mode = ERL_DRV_READ | ERL_DRV_WRITE | ERL_DRV_USE;
         wake_poller = 1; /* to eject fd from pollset (if needed) */
+        ctl_events = ERTS_POLL_EV_IN | ERTS_POLL_EV_OUT;
     }
     else {
         on = 1;
         ASSERT(mode);
         wake_poller = 0;
+        if (mode & ERL_DRV_READ) {
+            ctl_events |= ERTS_POLL_EV_IN;
+        }
+        if (mode & ERL_DRV_WRITE) {
+            ctl_events |= ERTS_POLL_EV_OUT;
+        }
     }
 
 #ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
@@ -1302,16 +1309,6 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
         ASSERT(state->type == ERTS_EV_TYPE_NONE);
         break;
     }}
-
-    ASSERT(state->type == ERTS_EV_TYPE_NONE ||
-           state->type == ERTS_EV_TYPE_NIF);
-
-    if (mode & ERL_DRV_READ) {
-	ctl_events |= ERTS_POLL_EV_IN;
-    }
-    if (mode & ERL_DRV_WRITE) {
-	ctl_events |= ERTS_POLL_EV_OUT;
-    }
 
     ASSERT((state->type == ERTS_EV_TYPE_NIF) ||
 	   (state->type == ERTS_EV_TYPE_NONE && !state->events));
@@ -1355,7 +1352,6 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
             ASSERT(state->type == ERTS_EV_TYPE_NIF);
             ASSERT(state->driver.stop.resource == resource);
 	    if (ctl_events & ERTS_POLL_EV_IN) {
-                ASSERT(is_nil(state->driver.nif->in.pid));
 		state->driver.nif->in.pid = id;
                 if (is_immed(ref)) {
                     state->driver.nif->in.immed = ref;
@@ -1370,7 +1366,6 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
                 state->driver.nif->in.ddeselect_cnt = 0;
             }
 	    if (ctl_events & ERTS_POLL_EV_OUT) {
-                ASSERT(is_nil(state->driver.nif->out.pid));
 		state->driver.nif->out.pid = id;
                 if (is_immed(ref)) {
                     state->driver.nif->out.immed = ref;
@@ -1384,7 +1379,6 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
                 }
                 state->driver.nif->out.ddeselect_cnt = 0;
             }
-            state->flags |= ERTS_EV_FLAG_USED;
 	}
 	else { /* off */
 	    if (state->type == ERTS_EV_TYPE_NIF) {
@@ -1395,7 +1389,6 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
                 state->driver.nif->out.pid = NIL;
                 state->driver.nif->in.ddeselect_cnt = 0;
                 state->driver.nif->out.ddeselect_cnt = 0;
-                state->flags &= ~ERTS_EV_FLAG_USED;
                 if (old_events != 0) {
                     remember_removed(state, &pollset);
                 }
@@ -2063,7 +2056,7 @@ send_event_tuple(struct erts_nif_select_event* e, ErlNifResource* resource,
     ErlOffHeap* ohp;
     ErtsBinary* bin;
     Eterm* hp;
-    Uint hsz = 5 + PROC_BIN_SIZE + REF_THING_SIZE; /* {select, Resource, Ref, EventAtom} */
+    Uint hsz;
     Eterm resource_term, ref_term, tuple;
 
     if (!rp) {
@@ -2072,6 +2065,14 @@ send_event_tuple(struct erts_nif_select_event* e, ErlNifResource* resource,
     }
 
     bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
+
+     /* {select, Resource, Ref, EventAtom} */
+    if (is_value(e->immed)) {
+        hsz = 5 + PROC_BIN_SIZE;
+    }
+    else {
+        hsz = 5 + PROC_BIN_SIZE + REF_THING_SIZE;
+    }
 
     mp = erts_alloc_message_heap(rp, &rp_locks, hsz, &hp, &ohp);
 
@@ -2083,8 +2084,8 @@ send_event_tuple(struct erts_nif_select_event* e, ErlNifResource* resource,
     else {
         write_ref_thing(hp, e->refn[0], e->refn[1], e->refn[2]);
         ref_term = make_internal_ref(hp);
+        hp += REF_THING_SIZE;
     }
-    hp += REF_THING_SIZE;
     tuple = TUPLE4(hp, am_select, resource_term, ref_term, event_atom);
 
     ERL_MESSAGE_TOKEN(mp) = am_undefined;
