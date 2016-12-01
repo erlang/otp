@@ -842,3 +842,8 @@ get_kex_init(Conn, Ref, TRef) ->
 	    end
     end.
     
+%%%----------------------------------------------------------------
+%%% Return a string with N random characters
+%%%
+random_chars(N) -> [crypto:rand_uniform($a,$z) || _<-lists:duplicate(N,x)].
+
