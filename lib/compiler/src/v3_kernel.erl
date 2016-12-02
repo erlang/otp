@@ -151,6 +151,7 @@ include_attribute(optional_callbacks) -> false;
 include_attribute(_) -> true.
 
 function({#c_var{name={F,Arity}=FA},Body}, St0) ->
+    %%io:format("~w/~w~n", [F,Arity]),
     try
 	St1 = St0#kern{func=FA,ff=undefined,vcount=0,fcount=0,ds=cerl_sets:new()},
 	{#ifun{anno=Ab,vars=Kvs,body=B0},[],St2} = expr(Body, new_sub(), St1),
@@ -1820,10 +1821,70 @@ select(T, Cs) -> [ C || C <- Cs, clause_con(C) =:= T ].
 %%  At this point all the clauses have the same constructor, we must
 %%  now separate them according to value.
 
-match_value(Us, T, Cs0, Def, St0) ->
-    Css = group_value(T, Cs0),
+match_value(Us0, T, Cs0, Def, St0) ->
+    {Us1,Cs1,St1} = partition_intersection(T, Us0, Cs0, St0),
+    UCss = group_value(T, Us1, Cs1),
     %%ok = io:format("match_value ~p ~p~n", [T, Css]),
-    mapfoldl(fun (Cs, St) -> match_clause(Us, Cs, Def, St) end, St0, Css).
+    mapfoldl(fun ({Us,Cs}, St) -> match_clause(Us, Cs, Def, St) end, St1, UCss).
+
+%% partition_intersection
+%%  Partitions a map into two maps with the most common keys to the first map.
+%%      case <M> of
+%%          <#{a}>
+%%          <#{a,b}>
+%%          <#{a,c}>
+%%          <#{c}>
+%%      end
+%%  becomes
+%%      case <M,M> of
+%%          <#{a}, #{ }>
+%%          <#{a}, #{b}>
+%%          <#{ }, #{c}>
+%%          <#{a}, #{c}>
+%%      end
+%% The intention is to group as many keys together as possible and thus
+%% reduce the number of lookups to that key.
+partition_intersection(k_map, [U|_]=Us0, [_,_|_]=Cs0,St0) ->
+    Ps = [clause_val(C) || C <- Cs0],
+    case find_key_partition(Ps) of
+        no_partition ->
+            {Us0,Cs0,St0};
+        Ks ->
+            {Cs1,St1} = mapfoldl(fun(#iclause{pats=[Arg|Args]}=C, Sti) ->
+                                         {{Arg1,Arg2},St} = partition_key_intersection(Arg, Ks, Sti),
+                                         {C#iclause{pats=[Arg1,Arg2|Args]}, St}
+                                 end, St0, Cs0),
+            {[U|Us0],Cs1,St1}
+    end;
+partition_intersection(_, Us, Cs, St) ->
+    {Us,Cs,St}.
+
+partition_key_intersection(#k_map{es=Pairs}=Map,Ks,St0) ->
+    F = fun(#k_map_pair{key=Key}) -> member(map_key_clean(Key), Ks) end,
+    {Ps1,Ps2} = partition(F, Pairs),
+    {{Map#k_map{es=Ps1},Map#k_map{es=Ps2}},St0};
+partition_key_intersection(#ialias{pat=Map}=Alias,Ks,St0) ->
+    %% only alias one of them
+    {{Map1,Map2},St1} = partition_key_intersection(Map, Ks, St0),
+    {{Map1,Alias#ialias{pat=Map2}},St1}.
+
+% Only check for the complete intersection of keys and not commonality
+find_key_partition(Ps) ->
+    Sets = [sets:from_list(Ks)||Ks <- Ps],
+    Is   = sets:intersection(Sets),
+    case sets:to_list(Is) of
+        [] -> no_partition;
+        KeyIntersection ->
+            %% Check if the intersection are all keys in all clauses.
+            %% Don't split if they are since this will only
+            %% infer extra is_map instructions with no gain.
+            All = foldl(fun (Kset, Bool) ->
+                                Bool andalso sets:is_subset(Kset, Is)
+                        end, true, Sets),
+            if All  -> no_partition;
+               true -> KeyIntersection
+            end
+    end.
 
 %% group_value([Clause]) -> [[Clause]].
 %%  Group clauses according to value.  Here we know that
@@ -1831,30 +1892,30 @@ match_value(Us, T, Cs0, Def, St0) ->
 %%  2. The clauses in bin_segs cannot be reordered only grouped
 %%  3. Other types are disjoint and can be reordered
 
-group_value(k_cons, Cs) -> [Cs];		%These are single valued
-group_value(k_nil, Cs) -> [Cs];
-group_value(k_binary, Cs) -> [Cs];
-group_value(k_bin_end, Cs) -> [Cs];
-group_value(k_bin_seg, Cs) -> group_bin_seg(Cs);
-group_value(k_bin_int, Cs) -> [Cs];
-group_value(k_map, Cs) -> group_map(Cs);
-group_value(_, Cs) ->
+group_value(k_cons, Us, Cs)    -> [{Us,Cs}];               %These are single valued
+group_value(k_nil, Us, Cs)     -> [{Us,Cs}];
+group_value(k_binary, Us, Cs)  -> [{Us,Cs}];
+group_value(k_bin_end, Us, Cs) -> [{Us,Cs}];
+group_value(k_bin_seg, Us, Cs) -> group_bin_seg(Us,Cs);
+group_value(k_bin_int, Us, Cs) -> [{Us,Cs}];
+group_value(k_map, Us, Cs)     -> group_map(Us,Cs);
+group_value(_, Us, Cs) ->
     %% group_value(Cs).
     Cd = foldl(fun (C, Gcs0) -> dict:append(clause_val(C), C, Gcs0) end,
 	       dict:new(), Cs),
-    dict:fold(fun (_, Vcs, Css) -> [Vcs|Css] end, [], Cd).
+    dict:fold(fun (_, Vcs, Css) -> [{Us,Vcs}|Css] end, [], Cd).
 
-group_bin_seg([C1|Cs]) ->
+group_bin_seg(Us, [C1|Cs]) ->
     V1 = clause_val(C1),
     {More,Rest} = splitwith(fun (C) -> clause_val(C) == V1 end, Cs),
-    [[C1|More]|group_bin_seg(Rest)];
-group_bin_seg([]) -> [].
+    [{Us,[C1|More]}|group_bin_seg(Us,Rest)];
+group_bin_seg(_, []) -> [].
 
-group_map([C1|Cs]) ->
+group_map(Us, [C1|Cs]) ->
     V1 = clause_val(C1),
     {More,Rest} = splitwith(fun (C) -> clause_val(C) =:= V1 end, Cs),
-    [[C1|More]|group_map(Rest)];
-group_map([]) -> [].
+    [{Us,[C1|More]}|group_map(Us,Rest)];
+group_map(_, []) -> [].
 
 %% Profiling shows that this quadratic implementation account for a big amount
 %% of the execution time if there are many values.
