@@ -185,7 +185,7 @@ reset_state() ->
 init([]) ->
     process_flag(trap_exit, true),
     Empty = gb_trees:empty(),
-    {ok,Shared} = test_server_gl:start_link(),
+    {ok,Shared} = test_server_gl:start_link(self()),
     {ok,#st{fds=Empty,shared_gl=Shared,gls=gb_sets:empty(),
 	    io_buffering=gb_sets:empty(),
 	    buffered=Empty,
@@ -200,7 +200,7 @@ req(Req) ->
     gen_server:call(?MODULE, Req, infinity).
 
 handle_call({get_gl,false}, _From, #st{gls=Gls,gl_props=Props}=St) ->
-    {ok,Pid} = test_server_gl:start_link(),
+    {ok,Pid} = test_server_gl:start_link(self()),
     test_server_gl:set_props(Pid, Props),
     {reply,Pid,St#st{gls=gb_sets:insert(Pid, Gls)}};
 handle_call({get_gl,true}, _From, #st{shared_gl=Shared}=St) ->
@@ -285,7 +285,7 @@ handle_call(reset_state, _From, #st{fds=Fds,tags=Tags,gls=Gls,
 	    ok
     end,
     Empty = gb_trees:empty(),
-    {ok,Shared} = test_server_gl:start_link(),
+    {ok,Shared} = test_server_gl:start_link(self()),
     {reply,ok,#st{fds=Empty,shared_gl=Shared,gls=gb_sets:empty(),
 		  io_buffering=gb_sets:empty(),
 		  buffered=Empty,
