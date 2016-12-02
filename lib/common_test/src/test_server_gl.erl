@@ -24,7 +24,7 @@
 %% through the test_server_io module/process.
 
 -module(test_server_gl).
--export([start_link/0,stop/1,set_minor_fd/3,unset_minor_fd/1,
+-export([start_link/1,stop/1,set_minor_fd/3,unset_minor_fd/1,
 	 get_tc_supervisor/1,print/4,set_props/2]).
 
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2]).
@@ -33,6 +33,7 @@
 	     tc :: mfa() | 'undefined',	       %Current test case MFA
 	     minor :: 'none'|pid(),	       %Minor fd
 	     minor_monitor,		       %Monitor ref for minor fd
+             tsio_monitor,                     %Monitor red for controlling proc
 	     capture :: 'none'|pid(),	       %Capture output
 	     reject_io :: boolean(),	       %Reject I/O requests...
 	     permit_io,			       %... and exceptions
@@ -45,8 +46,8 @@
 %%  Start a new group leader process. Only to be called by
 %%  the test_server_io process.
 
-start_link() ->
-    case gen_server:start_link(?MODULE, [], []) of
+start_link(TSIO) ->
+    case gen_server:start_link(?MODULE, [TSIO], []) of
 	{ok,Pid} ->
 	    {ok,Pid};
 	Other ->
@@ -130,14 +131,16 @@ set_props(GL, PropList) ->
 
 %%% Internal functions.
 
-init([]) ->
+init([TSIO]) ->
     EscChars = case application:get_env(test_server, esc_chars) of
 		   {ok,ECBool} -> ECBool;
 		   _           -> true
 	       end,
+    Ref = erlang:monitor(process, TSIO),
     {ok,#st{tc_supervisor=none,
 	    minor=none,
 	    minor_monitor=none,
+            tsio_monitor=Ref,
 	    capture=none,
 	    reject_io=false,
 	    permit_io=gb_sets:empty(),
@@ -176,6 +179,9 @@ handle_info({'DOWN',Ref,process,_,Reason}=D, #st{minor_monitor=Ref}=St) ->
 	    test_server_io:print_unexpected(Data)
     end,
     {noreply,St#st{minor=none,minor_monitor=none}};
+handle_info({'DOWN',Ref,process,_,_}, #st{tsio_monitor=Ref}=St) ->
+    %% controlling process (test_server_io) terminated, we're done
+    {stop,normal,St};
 handle_info({permit_io,Pid}, #st{permit_io=P}=St) ->
     {noreply,St#st{permit_io=gb_sets:add(Pid, P)}};
 handle_info({capture,Cap0}, St) ->
