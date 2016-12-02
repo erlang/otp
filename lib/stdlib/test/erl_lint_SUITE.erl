@@ -45,6 +45,7 @@
          shadow_vars/1,
          unused_import/1,
          unused_function/1,
+         undefined_remote/1,
          unsafe_vars/1,unsafe_vars2/1,
          unsafe_vars_try/1,
          unsized_binary_in_bin_gen_pattern/1,
@@ -72,7 +73,7 @@ suite() ->
 
 all() -> 
     [{group, unused_vars_warn}, export_vars_warn,
-     shadow_vars, unused_import, unused_function,
+     shadow_vars, unused_import, unused_function, undefined_remote,
      unsafe_vars, unsafe_vars2, unsafe_vars_try, guard,
      unsized_binary_in_bin_gen_pattern,
      otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
@@ -915,7 +916,30 @@ unused_function(Config) when is_list(Config) ->
 
     [] = run(Config, Ts),
     ok.
-    
+
+%% Test that the 'warn_undefined_remote_function' option works.
+undefined_remote(Config) when is_list(Config) ->
+    Ts = [{imp1,
+	   <<"t(L) ->
+                _=lists:reverse(L),  % exists
+                _=lists:reverse(),   % wrong arity
+                _=lists:revert(L),   % nonexisting
+                _=erlang:length(L),  % preloaded, built-in
+                _=erlang:length(),   % preloaded, wrong arity
+                _=prim_file:foo(L),  % preloaded, nonexisting
+                %% no warning for missing modules
+                _=blargh:bluh(),
+                _=blargh:blah().
+           ">>,
+	   [warn_undefined_remote_function],
+	   {warnings,[{3,erl_lint,{undefined_remote_function,{lists,reverse,0}}},
+                      {4,erl_lint,{undefined_remote_function,{lists,revert,1}}},
+                      {6,erl_lint,{undefined_remote_function,{erlang,length,0}}},
+                      {7,erl_lint,{undefined_remote_function,{prim_file,foo,1}}}
+                     ]}}],
+    [] = run(Config, Ts),
+    ok.
+
 %% OTP-4671. Errors for unsafe variables.
 unsafe_vars(Config) when is_list(Config) ->
     Ts = [{unsafe1,
