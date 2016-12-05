@@ -1749,14 +1749,16 @@ tls_tunnel(Address, Request, #state{session = #session{socket = Socket,
 
 tls_tunnel_request(#request{headers = Headers, 
 			     settings = Options,
+			     id = RequestId,
+			     from = From,
 			     address =  {Host, Port}= Adress,
 			     ipv6_host_with_brackets = IPV6}) ->
     
     URI = Host ++":" ++ integer_to_list(Port),
     
     #request{
-       id = make_ref(),
-       from = self(),
+       id = RequestId,
+       from = From,
        scheme = http, %% Use tcp-first and then upgrade!
        address = Adress,
        path = URI,
