@@ -80,6 +80,7 @@ start() ->
 init(Parent) ->
     register(?MODULE, self()),
     process_flag(trap_exit, true),
+    process_flag(message_queue_data, off_heap),
 
     %% Initialize the schema
     IgnoreFallback = mnesia_monitor:get_env(ignore_fallback_at_startup),
