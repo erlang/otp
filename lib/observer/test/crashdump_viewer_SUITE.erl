@@ -420,6 +420,10 @@ special(File,Procs) ->
 	%% ".trunc" ->
 	%%     %% ????
 	%%     ok;
+        ".trunc.bytes" ->
+            {ok,_,[TW]} = crashdump_viewer:general_info(),
+            {match,_} = re:run(TW,"CRASH DUMP SIZE LIMIT REACHED"),
+            ok;
 	_ ->
 	    ok
     end,
@@ -481,7 +485,11 @@ do_create_dumps(DataDir,Rel) ->
 	current ->
 	    CD3 = dump_with_args(DataDir,Rel,"instr","+Mim true"),
 	    CD4 = dump_with_strange_module_name(DataDir,Rel,"strangemodname"),
-	    {[CD1,CD2,CD3,CD4], DosDump};
+            Bytes = rand:uniform(300000) + 100,
+            CD5 = dump_with_args(DataDir,Rel,"trunc.bytes",
+                                 "-env ERL_CRASH_DUMP_BYTES " ++
+                                     integer_to_list(Bytes)),
+	    {[CD1,CD2,CD3,CD4,CD5], DosDump};
 	_ ->
 	    {[CD1,CD2], DosDump}
     end.
