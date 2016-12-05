@@ -259,13 +259,11 @@ static ERTS_INLINE void port_init_instr(Port *prt
     ASSERT(prt->drv_ptr && prt->lock);
     if (!prt->drv_ptr->lock) {
 	char *lock_str = "port_lock";
-	erts_mtx_init_locked_x(prt->lock, lock_str, id,
 #ifdef ERTS_ENABLE_LOCK_COUNT
-			       (erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK)
-#else
-			       0
+        if (!(erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK))
+            lock_str = NULL;
 #endif
-			       );
+	erts_mtx_init_locked_x(prt->lock, lock_str, id);
     }
 #endif
     erts_port_task_init_sched(&prt->sched, id);
@@ -7107,7 +7105,7 @@ driver_pdl_create(ErlDrvPort dp)
 	return NULL;
     pdl = erts_alloc(ERTS_ALC_T_PORT_DATA_LOCK,
 		     sizeof(struct erl_drv_port_data_lock));
-    erts_mtx_init_x(&pdl->mtx, "port_data_lock", pp->common.id, 1);
+    erts_mtx_init_x(&pdl->mtx, "port_data_lock", pp->common.id);
     pdl_init_refc(pdl);
     erts_port_inc_refc(pp);
     pdl->prt = pp;
@@ -8290,14 +8288,13 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
 	erts_mtx_init_x(drv->lock,
 			"driver_lock",
 #if defined(ERTS_ENABLE_LOCK_CHECK) || defined(ERTS_ENABLE_LOCK_COUNT)
-			    erts_atom_put((byte *) drv->name,
-					  sys_strlen(drv->name),
-					  ERTS_ATOM_ENC_LATIN1,
-					  1),
+                        erts_atom_put((byte *) drv->name,
+				       sys_strlen(drv->name),
+                                       ERTS_ATOM_ENC_LATIN1,
+                                       1)
 #else
-			NIL,
+			NIL
 #endif
-			1
 	    );
     }
 #endif

@@ -123,7 +123,7 @@ erts_init_proc_lock(int cpus)
     for (i = 0; i < ERTS_NO_OF_PIX_LOCKS; i++) {
 #ifdef ERTS_ENABLE_LOCK_COUNT
 	erts_mtx_init_x(&erts_pix_locks[i].u.mtx,
-			"pix_lock", make_small(i), 1);
+			"pix_lock", make_small(i));
 #else
 	erts_mtx_init(&erts_pix_locks[i].u.mtx, "pix_lock");
 #endif
@@ -1027,39 +1027,32 @@ erts_proc_lock_init(Process *p)
 #endif
 #elif ERTS_PROC_LOCK_RAW_MUTEX_IMPL
 
-#ifdef ERTS_ENABLE_LOCK_COUNT
-    int do_lock_count = 1;
-#else
-    int do_lock_count = 0;
-#endif
-
-    erts_mtx_init_x(&p->lock.main, "proc_main", p->common.id, do_lock_count);
+    erts_mtx_init_x(&p->lock.main, "proc_main", p->common.id);
     ethr_mutex_lock(&p->lock.main.mtx);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_trylock(1, &p->lock.main.lc);
 #endif
-    erts_mtx_init_x(&p->lock.link, "proc_link", p->common.id, do_lock_count);
+    erts_mtx_init_x(&p->lock.link, "proc_link", p->common.id);
     ethr_mutex_lock(&p->lock.link.mtx);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_trylock(1, &p->lock.link.lc);
 #endif
-    erts_mtx_init_x(&p->lock.msgq, "proc_msgq", p->common.id, do_lock_count);
+    erts_mtx_init_x(&p->lock.msgq, "proc_msgq", p->common.id);
     ethr_mutex_lock(&p->lock.msgq.mtx);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_trylock(1, &p->lock.msgq.lc);
 #endif
-    erts_mtx_init_x(&p->lock.btm, "proc_btm", p->common.id, do_lock_count);
+    erts_mtx_init_x(&p->lock.btm, "proc_btm", p->common.id);
     ethr_mutex_lock(&p->lock.btm.mtx);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_trylock(1, &p->lock.btm.lc);
 #endif
-    erts_mtx_init_x(&p->lock.status, "proc_status", p->common.id,
-		    do_lock_count);
+    erts_mtx_init_x(&p->lock.status, "proc_status", p->common.id);
     ethr_mutex_lock(&p->lock.status.mtx);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_trylock(1, &p->lock.status.lc);
 #endif
-    erts_mtx_init_x(&p->lock.trace, "proc_trace", p->common.id, do_lock_count);
+    erts_mtx_init_x(&p->lock.trace, "proc_trace", p->common.id);
     ethr_mutex_lock(&p->lock.trace.mtx);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_trylock(1, &p->lock.trace.lc);
