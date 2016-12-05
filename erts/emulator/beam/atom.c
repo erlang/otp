@@ -199,7 +199,7 @@ atom_alloc(Atom* tmpl)
 static void
 atom_free(Atom* obj)
 {
-    erts_free(ERTS_ALC_T_ATOM, (void*) obj);
+    ASSERT(obj->slot.index == atom_val(am_ErtsSecretAtom));
 }
 
 static void latin1_to_utf8(byte* conv_buf, const byte** srcp, int* lenp)
@@ -467,6 +467,9 @@ init_atom_table(void)
 	atom_space -= a.len;
 	atom_tab(ix)->name = (byte*)erl_atom_names[i];
     }
+
+    /* Hide am_ErtsSecretAtom */
+    hash_erase(&erts_atom_table.htable, atom_tab(atom_val(am_ErtsSecretAtom)));
 }
 
 void
