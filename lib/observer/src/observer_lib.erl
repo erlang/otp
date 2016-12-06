@@ -25,7 +25,7 @@
 	 wait_for_progress/0, report_progress/1,
 	 user_term/3, user_term_multiline/3,
 	 interval_dialog/4, start_timer/1, stop_timer/1,
-	 display_info/2, fill_info/2, update_info/2, to_str/1,
+	 display_info/2, display_info/3, fill_info/2, update_info/2, to_str/1,
 	 create_menus/3, create_menu_item/3,
 	 create_attrs/0,
 	 set_listctrl_col_size/2,
@@ -124,6 +124,11 @@ display_info(Frame, Info) ->
     Panel = wxPanel:new(Frame),
     wxWindow:setBackgroundStyle(Panel, ?wxBG_STYLE_SYSTEM),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
+    InfoFs = display_info(Panel, Sizer, Info),
+    wxWindow:setSizerAndFit(Panel, Sizer),
+    {Panel, Sizer, InfoFs}.
+
+display_info(Panel, Sizer, Info) ->
     wxSizer:addSpacer(Sizer, 5),
     Add = fun(BoxInfo) ->
 		  case create_box(Panel, BoxInfo) of
@@ -136,9 +141,7 @@ display_info(Frame, Info) ->
 			  []
 		  end
 	  end,
-    InfoFs = [Add(I) || I <- Info],
-    wxWindow:setSizerAndFit(Panel, Sizer),
-    {Panel, Sizer, InfoFs}.
+    [Add(I) || I <- Info].
 
 fill_info([{dynamic, Key}|Rest], Data)
   when is_atom(Key); is_function(Key) ->
@@ -254,6 +257,11 @@ to_str({func, {F,A}}) when is_atom(F), is_integer(A) ->
     lists:concat([F, "/", A]);
 to_str({func, {F,'_'}}) when is_atom(F) ->
     atom_to_list(F);
+to_str({inet, Addr}) ->
+    case inet:ntoa(Addr) of
+        {error,einval} -> to_str(Addr);
+        AddrStr -> AddrStr
+    end;
 to_str({{format,Fun},Value}) when is_function(Fun) ->
     Fun(Value);
 to_str({A, B}) when is_atom(A), is_atom(B) ->
