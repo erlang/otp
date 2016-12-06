@@ -46,14 +46,17 @@ start_link() ->
 init([]) ->    
     SessionCertManager = session_and_cert_manager_child_spec(),
     TLSConnetionManager = tls_connection_manager_child_spec(),
-    %% Not supported yet
-    %%DTLSConnetionManager = dtls_connection_manager_child_spec(),
-    %% Handles emulated options so that they inherited by the accept socket, even when setopts is performed on 
-    %% the listen socket
+    %% Handles emulated options so that they inherited by the accept
+    %% socket, even when setopts is performed on the listen socket
     ListenOptionsTracker = listen_options_tracker_child_spec(), 
+    
+    DTLSConnetionManager = dtls_connection_manager_child_spec(),
+    DTLSUdpListeners = dtls_udp_listeners_spec(),
+
     {ok, {{one_for_all, 10, 3600}, [SessionCertManager, TLSConnetionManager, 
-				    %%DTLSConnetionManager, 
-				    ListenOptionsTracker]}}.
+				    ListenOptionsTracker,
+				    DTLSConnetionManager, DTLSUdpListeners
+				   ]}}.
 
 
 manager_opts() ->
@@ -94,24 +97,32 @@ tls_connection_manager_child_spec() ->
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-%% dtls_connection_manager_child_spec() ->
-%%     Name = dtls_connection,
-%%     StartFunc = {dtls_connection_sup, start_link, []},
-%%     Restart = permanent,
-%%     Shutdown = 4000,
-%%     Modules = [dtls_connection, ssl_connection],
-%%     Type = supervisor,
-%%     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-listen_options_tracker_child_spec() ->
-    Name = ssl_socket,  
-    StartFunc = {ssl_listen_tracker_sup, start_link, []},
-    Restart = permanent, 
+dtls_connection_manager_child_spec() ->
+    Name = dtls_connection,
+    StartFunc = {dtls_connection_sup, start_link, []},
+    Restart = permanent,
     Shutdown = 4000,
-    Modules = [ssl_socket],
+    Modules = [dtls_connection_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
+listen_options_tracker_child_spec() ->
+    Name = tls_socket,  
+    StartFunc = {ssl_listen_tracker_sup, start_link, []},
+    Restart = permanent, 
+    Shutdown = 4000,
+    Modules = [tls_socket],
+    Type = supervisor,
+    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+
+dtls_udp_listeners_spec() ->
+    Name = dtls_udp_listener,  
+    StartFunc = {dtls_udp_sup, start_link, []},
+    Restart = permanent, 
+    Shutdown = 4000,
+    Modules = [],
+    Type = supervisor,
+    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
 session_cb_init_args() ->
     case application:get_env(ssl, session_cb_init_args) of

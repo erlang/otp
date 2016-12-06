@@ -41,16 +41,15 @@
 	 set_server_verify_data/3,
 	 empty_connection_state/2, initial_connection_state/2, record_protocol_role/1]).
 
-%% Encoding records
--export([encode_handshake/3, encode_alert_record/3,
-	 encode_change_cipher_spec/2, encode_data/3]).
-
 %% Compression
 -export([compress/3, uncompress/3, compressions/0]).
 
 %% Payload encryption/decryption
 -export([cipher/4, decipher/4, is_correct_mac/2,
 	 cipher_aead/4, decipher_aead/4]).
+
+%% Encoding
+-export([encode_plain_text/4]).
 
 -export_type([ssl_version/0, ssl_atom_version/0, connection_states/0, connection_state/0]).
 
@@ -272,70 +271,26 @@ set_pending_cipher_state(#{pending_read := Read,
       pending_read => Read#{cipher_state => ServerState},
       pending_write => Write#{cipher_state => ClientState}}.
 
-
-%%--------------------------------------------------------------------
--spec encode_handshake(iolist(), ssl_version(), connection_states()) ->
-			      {iolist(), connection_states()}.
-%%
-%% Description: Encodes a handshake message to send on the ssl-socket.
-%%--------------------------------------------------------------------
-encode_handshake(Frag, Version, 
-		 #{current_write :=
-		       #{beast_mitigation := BeastMitigation,
-			  security_parameters :=
-			     #security_parameters{bulk_cipher_algorithm = BCA}}} = 
-		     ConnectionStates)
-  when is_list(Frag) ->
-    case iolist_size(Frag) of
-	N  when N > ?MAX_PLAIN_TEXT_LENGTH ->
-	    Data = split_bin(iolist_to_binary(Frag), ?MAX_PLAIN_TEXT_LENGTH, Version, BCA, BeastMitigation),
-	    encode_iolist(?HANDSHAKE, Data, Version, ConnectionStates);
-	_  ->
-	    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates)
-    end;
-%% TODO: this is a workarround for DTLS
-%%
-%% DTLS need to select the connection write state based on Epoch it wants to
-%% send this fragment in. That Epoch does not nessarily has to be the same
-%% as the current_write epoch.
-%% The right solution might be to pass the WriteState instead of the ConnectionStates,
-%% however, this will require substantion API changes.
-encode_handshake(Frag, Version, ConnectionStates) ->
-    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates).
-
-%%--------------------------------------------------------------------
--spec encode_alert_record(#alert{}, ssl_version(), connection_states()) ->
-				 {iolist(), connection_states()}.
-%%
-%% Description: Encodes an alert message to send on the ssl-socket.
-%%--------------------------------------------------------------------
-encode_alert_record(#alert{level = Level, description = Description},
-                    Version, ConnectionStates) ->
-    encode_plain_text(?ALERT, Version, <<?BYTE(Level), ?BYTE(Description)>>,
-		      ConnectionStates).
-
-%%--------------------------------------------------------------------
--spec encode_change_cipher_spec(ssl_version(), connection_states()) ->
-				       {iolist(), connection_states()}.
-%%
-%% Description: Encodes a change_cipher_spec-message to send on the ssl socket.
-%%--------------------------------------------------------------------
-encode_change_cipher_spec(Version, ConnectionStates) ->
-    encode_plain_text(?CHANGE_CIPHER_SPEC, Version, <<1:8>>, ConnectionStates).
-
-%%--------------------------------------------------------------------
--spec encode_data(binary(), ssl_version(), connection_states()) ->
-			 {iolist(), connection_states()}.
-%%
-%% Description: Encodes data to send on the ssl-socket.
-%%--------------------------------------------------------------------
-encode_data(Frag, Version,
-	    #{current_write := #{beast_mitigation := BeastMitigation,
-				 security_parameters :=
-				     #security_parameters{bulk_cipher_algorithm = BCA}}} =
-		ConnectionStates) ->
-    Data = split_bin(Frag, ?MAX_PLAIN_TEXT_LENGTH, Version, BCA, BeastMitigation),
-    encode_iolist(?APPLICATION_DATA, Data, Version, ConnectionStates).
+encode_plain_text(Type, Version, Data, #{compression_state := CompS0,
+					 security_parameters :=
+					     #security_parameters{
+						cipher_type = ?AEAD,
+						compression_algorithm = CompAlg}
+					} = WriteState0) ->
+    {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
+    WriteState1 = WriteState0#{compression_state => CompS1},
+    AAD = ssl_cipher:calc_aad(Type, Version, WriteState1),
+    ssl_record:cipher_aead(Version, Comp, WriteState1, AAD);
+encode_plain_text(Type, Version, Data, #{compression_state := CompS0,
+					 security_parameters :=
+					     #security_parameters{compression_algorithm = CompAlg}
+					}= WriteState0) ->
+    {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
+    WriteState1 = WriteState0#{compression_state => CompS1},
+    MacHash = ssl_cipher:calc_mac_hash(Type, Version, Comp, WriteState1),
+    ssl_record:cipher(Version, Comp, WriteState1, MacHash);
+encode_plain_text(_,_,_,CS) ->
+    exit({cs, CS}).
 
 uncompress(?NULL, Data, CS) ->
     {Data, CS}.
@@ -451,11 +406,6 @@ random() ->
     Random_28_bytes = ssl_cipher:random_bytes(28),
     <<?UINT32(Secs_since_1970), Random_28_bytes/binary>>.
 
-%% dtls_next_epoch(#connection_state{epoch = undefined}) -> %% SSL/TLS
-%%     undefined;
-%% dtls_next_epoch(#connection_state{epoch = Epoch}) -> %% DTLS
-%%     Epoch + 1.
-
 is_correct_mac(Mac, Mac) ->
     true;
 is_correct_mac(_M,_H) ->
@@ -484,47 +434,3 @@ initial_security_params(ConnectionEnd) ->
 				     compression_algorithm = ?NULL},
     ssl_cipher:security_parameters(?TLS_NULL_WITH_NULL_NULL, SecParams).
 
-
-encode_plain_text(Type, Version, Data, ConnectionStates) ->
-    RecordCB = protocol_module(Version),
-    RecordCB:encode_plain_text(Type, Version, Data, ConnectionStates).
-
-encode_iolist(Type, Data, Version, ConnectionStates0) ->
-    RecordCB = protocol_module(Version),
-    {ConnectionStates, EncodedMsg} =
-        lists:foldl(fun(Text, {CS0, Encoded}) ->
-			    {Enc, CS1} =
-				RecordCB:encode_plain_text(Type, Version, Text, CS0),
-			    {CS1, [Enc | Encoded]}
-		    end, {ConnectionStates0, []}, Data),
-    {lists:reverse(EncodedMsg), ConnectionStates}.
-
-%% 1/n-1 splitting countermeasure Rizzo/Duong-Beast, RC4 chiphers are
-%% not vulnerable to this attack.
-split_bin(<<FirstByte:8, Rest/binary>>, ChunkSize, Version, BCA, one_n_minus_one) when
-      BCA =/= ?RC4 andalso ({3, 1} == Version orelse
-			    {3, 0} == Version) ->
-    do_split_bin(Rest, ChunkSize, [[FirstByte]]);
-%% 0/n splitting countermeasure for clients that are incompatible with 1/n-1
-%% splitting.
-split_bin(Bin, ChunkSize, Version, BCA, zero_n) when
-      BCA =/= ?RC4 andalso ({3, 1} == Version orelse
-			    {3, 0} == Version) ->
-    do_split_bin(Bin, ChunkSize, [[<<>>]]);
-split_bin(Bin, ChunkSize, _, _, _) ->
-    do_split_bin(Bin, ChunkSize, []).
-
-do_split_bin(<<>>, _, Acc) ->
-    lists:reverse(Acc);
-do_split_bin(Bin, ChunkSize, Acc) ->
-    case Bin of
-        <<Chunk:ChunkSize/binary, Rest/binary>> ->
-            do_split_bin(Rest, ChunkSize, [Chunk | Acc]);
-        _ ->
-            lists:reverse(Acc, [Bin])
-    end.
-
-protocol_module({3, _}) ->
-    tls_record;
-protocol_module({254, _}) ->
-    dtls_record.

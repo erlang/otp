@@ -21,7 +21,7 @@
 
 -include("ssl_cipher.hrl").
 
--export([suites/1, mac_hash/7, ecc_curves/1, corresponding_tls_version/1]).
+-export([suites/1, mac_hash/7, ecc_curves/1, corresponding_tls_version/1, corresponding_dtls_version/1]).
 
 -spec suites(Minor:: 253|255) -> [ssl_cipher:cipher_suite()].
 
@@ -29,7 +29,7 @@ suites(Minor) ->
    tls_v1:suites(corresponding_minor_tls_version(Minor)).
 
 mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
-    tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, corresponding_tls_version(Version),
+    tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
 		    Length, Fragment).
 
 ecc_curves({_Major, Minor}) ->
@@ -42,3 +42,11 @@ corresponding_minor_tls_version(255) ->
     2;
 corresponding_minor_tls_version(253) ->
     3.
+
+corresponding_dtls_version({3, Minor}) -> 
+    {254, corresponding_minor_dtls_version(Minor)}.
+
+corresponding_minor_dtls_version(2) ->
+    255;
+corresponding_minor_dtls_version(3) ->
+    253.

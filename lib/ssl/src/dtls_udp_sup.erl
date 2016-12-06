@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,15 +20,16 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Supervisor of DTLS connection.
+%% Purpose: Supervisor for a procsses dispatching upd datagrams to
+%% correct DTLS handler 
 %%----------------------------------------------------------------------
--module(dtls_connection_sup).
+-module(dtls_udp_sup).
 
 -behaviour(supervisor).
 
 %% API
--export([start_link/0, start_link_dist/0]).
--export([start_child/1, start_child_dist/1]).
+-export([start_link/0]).
+-export([start_child/1]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -39,14 +40,8 @@
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
-start_link_dist() ->
-    supervisor:start_link({local, dtls_connection_sup_dist}, ?MODULE, []).
-
 start_child(Args) ->
     supervisor:start_child(?MODULE, Args).
-        
-start_child_dist(Args) ->
-    supervisor:start_child(dtls_connection_sup_dist, Args).
     
 %%%=========================================================================
 %%%  Supervisor callback
@@ -57,10 +52,10 @@ init(_O) ->
     MaxT = 3600,
    
     Name = undefined, % As simple_one_for_one is used.
-    StartFunc = {dtls_connection, start_link, []},
+    StartFunc = {dtls_udp_listener, start_link, []},
     Restart = temporary, % E.g. should not be restarted
     Shutdown = 4000,
-    Modules = [dtls_connection, ssl_connection],
+    Modules = [dtls_udp_listener],
     Type = worker,
     
     ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},
