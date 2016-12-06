@@ -2516,53 +2516,69 @@ record_def(Line, Name, Fs0, St0) ->
     case dict:is_key(Name, St0#lint.records) of
         true -> add_error(Line, {redefine_record,Name}, St0);
         false ->
-            {Fs1,St1} = def_fields(normalise_fields(Fs0), Name, St0),
-            St2 = St1#lint{records=dict:store(Name, {Line,Fs1},
-                                              St1#lint.records)},
-            Types = [T || {typed_record_field, _, T} <- Fs0],
-            check_type({type, nowarn(), product, Types}, St2)
+            %% initializers cannot refer to the record being defined, but
+            %% types in typed record fields can be recursive, so we need to
+            %% set up a preliminary definition of the record being defined
+            NFs = lists:map(fun normalise_field/1, Fs0),
+            St1 = set_record_def(Name, {Line,NFs}, St0),
+            {Fs1,St2} = def_fields(NFs, Fs0, Name, [], St1),
+            set_record_def(Name, {Line,Fs1}, St2)
     end.
 
+set_record_def(Name, Def, St) ->
+    St#lint{records=dict:store(Name, Def, St#lint.records)}.
+
 %% def_fields([RecDef], RecordName, State) -> {[DefField],State}.
-%%  Check (normalised) fields for duplicates.  Return unduplicated
-%%  record and set State.
+%%  Check (normalised) fields for duplicates and check field types.
+%%  Return unduplicated record and set State.
 
-def_fields(Fs0, Name, St0) ->
-    foldl(fun ({record_field,Lf,{atom,La,F},V}, {Fs,St}) ->
-                  case exist_field(F, Fs) of
-                      true -> {Fs,add_error(Lf, {redefine_field,Name,F}, St)};
-                      false ->
-                          St1 = St#lint{recdef_top = true},
-                          {_,St2} = expr(V, [], St1),
-                          %% Warnings and errors found are kept, but
-                          %% updated calls, records, etc. are discarded.
-                          St3 = St1#lint{warnings = St2#lint.warnings,
-                                         errors = St2#lint.errors,
-                                         called = St2#lint.called,
-                                         recdef_top = false},
-                          %% This is one way of avoiding a loop for
-                          %% "recursive" definitions.
-                          NV = case St2#lint.errors =:= St1#lint.errors of
-                                   true -> V;
-                                   false -> {atom,La,undefined}
-                               end,
-                          {[{record_field,Lf,{atom,La,F},NV}|Fs],St3}
-                  end
-          end, {[],St0}, Fs0).
+def_fields([{record_field,Lf,{atom,La,A},V}|NFs], [F0 | Fs0], Name, Fs, St0) ->
+    case exist_field(A, Fs) of
+        true ->
+            def_fields(NFs, Fs0, Name, Fs,
+                       add_error(Lf, {redefine_field,Name,A}, St0));
+        false ->
+            St1 = St0#lint{recdef_top = true},
+            %% the type declaration has to be checked first so
+            %% it can be used when checking the value
+            {_,St2} = expr(V, [], check_type(field_type(F0), St1)),
+            %% Warnings and errors found are kept, but
+            %% updated calls, records, etc. are discarded.
+            St3 = St1#lint{warnings = St2#lint.warnings,
+                           errors = St2#lint.errors,
+                           called = St2#lint.called,
+                           usage = St2#lint.usage,
+                           atoms = St2#lint.atoms,
+                           recdef_top = false},
+            %% This is one way of avoiding a loop for
+            %% "recursive" definitions.
+            Nv = case St2#lint.errors =:= St1#lint.errors of
+                     true -> V;
+                     false -> {atom,La,undefined}
+                 end,
+            def_fields(NFs, Fs0, Name,
+                       [{record_field,Lf,{atom,La,A},Nv}|Fs], St3)
+    end;
+def_fields([], [], _Name, Fs, St) ->
+    {Fs, St}.
 
-%% normalise_fields([RecDef]) -> [Field].
-%%  Normalise the field definitions to always have a default value. If
-%%  none has been given then use 'undefined'.
-%%  Also, strip type information from typed record fields.
+%% Drop any type declaration
+normalise_field({typed_record_field, Field, _Type}) ->
+    normalise_field_1(Field);
+normalise_field(Field) ->
+    normalise_field_1(Field).
 
-normalise_fields(Fs) ->
-    map(fun ({record_field,Lf,Field}) ->
-		{record_field,Lf,Field,{atom,Lf,undefined}};
-	    ({typed_record_field,{record_field,Lf,Field},_Type}) ->
-		{record_field,Lf,Field,{atom,Lf,undefined}};
-	    ({typed_record_field,Field,_Type}) ->
-		Field;
-            (F) -> F end, Fs).
+%% If no initial value has been given for a field then use 'undefined'
+normalise_field_1({record_field, Lf, Field, Value}) ->
+    {record_field,Lf,Field,Value};
+normalise_field_1({record_field, Lf, Field}) ->
+    {record_field,Lf,Field,{atom,Lf,undefined}}.
+
+%% If no type is specified, then use any()
+field_type({typed_record_field, _Field, Type}) ->
+    Type;
+field_type(_) ->
+    {type,0,any}.
 
 %% exist_record(Line, RecordName, State) -> State.
 %%  Check if a record exists.  Set State.
