@@ -128,7 +128,7 @@ list_group_members(Addr, Port, Dir, Group, Password) ->
     list_group_members(Addr, Port, ?DEFAULT_PROFILE, Dir, Group, Password).
 list_group_members(Addr, Port, Profile, Dir, Group, Password) ->
     Name = make_name(Addr, Port, Profile),
-    Req  = {list_group_members, Addr, Port, Dir, Group, Password},
+    Req  = {list_group_members, Addr, Port, Profile, Dir, Group, Password},
     call(Name, Req).
 
 delete_group(Addr, Port, Dir, GroupName, Password) ->
