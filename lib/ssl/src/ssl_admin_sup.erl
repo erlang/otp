@@ -20,12 +20,12 @@
 
 %%
 
--module(ssl_sup).
+-module(ssl_admin_sup).
 
 -behaviour(supervisor).
 
 %% API
--export([start_link/0]).
+-export([start_link/0, manager_opts/0]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -44,28 +44,52 @@ start_link() ->
 %%%=========================================================================
 
 init([]) ->    
-    {ok, {{rest_for_one, 10, 3600}, [ssl_admin_child_spec(),
-				     ssl_connection_sup()
-				    ]}}.
+    PEMCache = pem_cache_child_spec(),
+    SessionCertManager = session_and_cert_manager_child_spec(),
+    {ok, {{rest_for_one, 10, 3600}, [PEMCache, SessionCertManager]}}.
 
+manager_opts() ->
+    CbOpts = case application:get_env(ssl, session_cb) of
+		 {ok, Cb} when is_atom(Cb) ->
+		     InitArgs = session_cb_init_args(),
+		     [{session_cb, Cb}, {session_cb_init_args, InitArgs}];
+		 _  ->
+		     []
+	     end,
+    case application:get_env(ssl, session_lifetime) of
+	{ok, Time} when is_integer(Time) ->
+	    [{session_lifetime, Time}| CbOpts];
+	_  ->
+	    CbOpts
+    end.
+    
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-ssl_admin_child_spec() ->
-    Name = ssl_admin_sup,  
-    StartFunc = {ssl_admin_sup, start_link, []},
+
+pem_cache_child_spec() ->
+    Name = ssl_pem_cache,  
+    StartFunc = {ssl_pem_cache, start_link, [[]]},
     Restart = permanent, 
     Shutdown = 4000,
-    Modules = [ssl_admin_sup],
-    Type = supervisor,
+    Modules = [ssl_pem_cache],
+    Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-ssl_connection_sup() ->
-    Name = ssl_connection_sup,
-    StartFunc = {ssl_connection_sup, start_link, []},
-    Restart = permanent,
+session_and_cert_manager_child_spec() ->
+    Opts = manager_opts(),
+    Name = ssl_manager,  
+    StartFunc = {ssl_manager, start_link, [Opts]},
+    Restart = permanent, 
     Shutdown = 4000,
-    Modules = [ssl_connection_sup],
-    Type = supervisor,
+    Modules = [ssl_manager],
+    Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
+session_cb_init_args() ->
+    case application:get_env(ssl, session_cb_init_args) of
+	{ok, Args} when is_list(Args) ->
+	    Args;
+	_  ->
+	    []
+    end.
