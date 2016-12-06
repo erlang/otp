@@ -101,9 +101,9 @@ loop(#server_state{parent = Parent} = State,
     {AnalPid, cserver, CServer, Plt} ->
       send_codeserver_plt(Parent, CServer, Plt),
       loop(State, Analysis, ExtCalls);
-    {AnalPid, done, Plt, DocPlt} ->
+    {AnalPid, done, MiniPlt, DocPlt} ->
       send_ext_calls(Parent, ExtCalls),
-      send_analysis_done(Parent, Plt, DocPlt);
+      send_analysis_done(Parent, MiniPlt, DocPlt);
     {AnalPid, ext_calls, NewExtCalls} ->
       loop(State, Analysis, NewExtCalls);
     {AnalPid, ext_types, ExtTypes} ->
@@ -161,6 +161,7 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
               begin
                 TmpCServer3 =
                   dialyzer_utils:process_record_remote_types(TmpCServer2),
+                erlang:garbage_collect(),
                 dialyzer_contracts:process_contract_remote_types(TmpCServer3)
               end)
     catch
@@ -171,48 +172,54 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
   NewPlt1 = dialyzer_plt:insert_exported_types(NewPlt0, ExpTypes),
   State0 = State#analysis_state{plt = NewPlt1},
   dump_callgraph(Callgraph, State0, Analysis),
-  State1 = State0#analysis_state{codeserver = NewCServer},
   %% Remove all old versions of the files being analyzed
   AllNodes = dialyzer_callgraph:all_nodes(Callgraph),
-  Plt1 = dialyzer_plt:delete_list(NewPlt1, AllNodes),
+  Plt1_a = dialyzer_plt:delete_list(NewPlt1, AllNodes),
+  Plt1 = dialyzer_plt:insert_callbacks(Plt1_a, NewCServer),
+  State1 = State0#analysis_state{codeserver = NewCServer, plt = Plt1},
   Exports = dialyzer_codeserver:get_exports(NewCServer),
+  NonExports = sets:subtract(sets:from_list(AllNodes), Exports),
+  NonExportsList = sets:to_list(NonExports),
   NewCallgraph =
     case Analysis#analysis.race_detection of
       true -> dialyzer_callgraph:put_race_detection(true, Callgraph);
       false -> Callgraph
     end,
-  State2 = analyze_callgraph(NewCallgraph, State1#analysis_state{plt = Plt1}),
+  %% Calls to erlang:garbage_collect() help to reduce the heap size.
+  %% An alternative is to spawn more processes to do the job(s).
+  erlang:garbage_collect(),
+  State2 = analyze_callgraph(NewCallgraph, State1),
+  #analysis_state{plt = MiniPlt2, doc_plt = DocPlt} = State2,
   dialyzer_callgraph:dispose_race_server(NewCallgraph),
   rcv_and_send_ext_types(Parent),
-  NonExports = sets:subtract(sets:from_list(AllNodes), Exports),
-  NonExportsList = sets:to_list(NonExports),
-  Plt2 = dialyzer_plt:delete_list(State2#analysis_state.plt, NonExportsList),
-  send_codeserver_plt(Parent, CServer, State2#analysis_state.plt),
-  send_analysis_done(Parent, Plt2, State2#analysis_state.doc_plt).
+  %% Since the PLT is never used, a dummy is sent:
+  DummyPlt = dialyzer_plt:new(),
+  send_codeserver_plt(Parent, CServer, DummyPlt),
+  MiniPlt3 = dialyzer_plt:delete_list(MiniPlt2, NonExportsList),
+  send_analysis_done(Parent, MiniPlt3, DocPlt).
 
 analyze_callgraph(Callgraph, #analysis_state{codeserver = Codeserver,
 					     doc_plt = DocPlt,
+                                             plt = Plt,
 					     timing_server = TimingServer,
 					     parent = Parent,
                                              solvers = Solvers} = State) ->
-  Plt = dialyzer_plt:insert_callbacks(State#analysis_state.plt, Codeserver),
-  {NewPlt, NewDocPlt} =
-    case State#analysis_state.analysis_type of
-      plt_build ->
-	NewPlt0 =
-	  dialyzer_succ_typings:analyze_callgraph(Callgraph, Plt, Codeserver,
-						  TimingServer, Solvers, Parent),
-	{NewPlt0, DocPlt};
-      succ_typings ->
-	{Warnings, NewPlt0, NewDocPlt0} =
-	  dialyzer_succ_typings:get_warnings(Callgraph, Plt, DocPlt, Codeserver,
-					     TimingServer, Solvers, Parent),
-        Warnings1 = filter_warnings(Warnings, Codeserver),
-	send_warnings(State#analysis_state.parent, Warnings1),
-	{NewPlt0, NewDocPlt0}
-    end,
-  dialyzer_callgraph:delete(Callgraph),
-  State#analysis_state{plt = NewPlt, doc_plt = NewDocPlt}.
+  case State#analysis_state.analysis_type of
+    plt_build ->
+      NewMiniPlt =
+        dialyzer_succ_typings:analyze_callgraph(Callgraph, Plt, Codeserver,
+                                                TimingServer, Solvers, Parent),
+      dialyzer_callgraph:delete(Callgraph),
+      State#analysis_state{plt = NewMiniPlt, doc_plt = DocPlt};
+    succ_typings ->
+      {Warnings, NewMiniPlt, NewDocPlt} =
+        dialyzer_succ_typings:get_warnings(Callgraph, Plt, DocPlt, Codeserver,
+                                           TimingServer, Solvers, Parent),
+      dialyzer_callgraph:delete(Callgraph),
+      Warnings1 = filter_warnings(Warnings, Codeserver),
+      send_warnings(State#analysis_state.parent, Warnings1),
+      State#analysis_state{plt = NewMiniPlt, doc_plt = NewDocPlt}
+    end.
 
 %%--------------------------------------------------------------------
 %% Build the callgraph and fill the codeserver.
@@ -569,8 +576,9 @@ is_ok_fun({_Filename, _Line, {_M, _F, _A} = MFA}, Codeserver) ->
 is_ok_tag(Tag, {_F, _L, MorMFA}, Codeserver) ->
   not dialyzer_utils:is_suppressed_tag(MorMFA, Tag, Codeserver).
   
-send_analysis_done(Parent, Plt, DocPlt) ->
-  Parent ! {self(), done, Plt, DocPlt},
+send_analysis_done(Parent, MiniPlt, DocPlt) ->
+  ok = dialyzer_plt:give_away(MiniPlt, Parent),
+  Parent ! {self(), done, MiniPlt, DocPlt},
   ok.
 
 send_ext_calls(_Parent, none) ->
@@ -583,7 +591,7 @@ send_ext_types(Parent, ExtTypes) ->
   Parent ! {self(), ext_types, ExtTypes},
   ok.
 
-send_codeserver_plt(Parent, CServer, Plt ) ->
+send_codeserver_plt(Parent, CServer, Plt) ->
   Parent ! {self(), cserver, CServer, Plt},
   ok.
 

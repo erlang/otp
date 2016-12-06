@@ -170,6 +170,7 @@ process_contract_remote_types(CodeServer) ->
           lists:mapfoldl(ContractFun, C3, dict:to_list(ContractDict)),
         {{ModuleName, dict:from_list(NewContractList)}, C4}
     end,
+  erlang:garbage_collect(),
   Cache = erl_types:cache__new(),
   {NewContractList, C5} =
     lists:mapfoldl(ModuleFun, Cache, dict:to_list(TmpContractDict)),
@@ -177,6 +178,8 @@ process_contract_remote_types(CodeServer) ->
     lists:mapfoldl(ModuleFun, C5, dict:to_list(TmpCallbackDict)),
   NewContractDict = dict:from_list(NewContractList),
   NewCallbackDict = dict:from_list(NewCallbackList),
+  %% Make sure the (huge) cache is garbage collected:
+  erlang:garbage_collect(),
   dialyzer_codeserver:finalize_contracts(NewContractDict, NewCallbackDict,
                                          CodeServer).
 

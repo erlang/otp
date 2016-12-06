@@ -96,7 +96,7 @@ analyze_callgraph(Callgraph, Plt, Codeserver, TimingServer, Solvers, Parent) ->
   NewState =
     init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
 				       TimingServer, Solvers, Parent),
-  dialyzer_plt:restore_full_plt(NewState#st.plt, Plt).
+  NewState#st.plt.
 
 %%--------------------------------------------------------------------
 
@@ -111,6 +111,7 @@ init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
 
 get_refined_success_typings(SCCs, #st{callgraph = Callgraph,
 				      timing_server = TimingServer} = State) ->
+  erlang:garbage_collect(),
   case find_succ_typings(SCCs, State) of
     {fixpoint, State1} -> State1;
     {not_fixpoint, NotFixpoint1, State1} ->
@@ -155,8 +156,8 @@ get_warnings(Callgraph, Plt, DocPlt, Codeserver,
     ?timing(TimingServer, "warning",
 	    get_warnings_from_modules(Mods, InitState, MiniDocPlt)),
   {postprocess_warnings(CWarns ++ ModWarns, Codeserver),
-   dialyzer_plt:restore_full_plt(MiniPlt, Plt),
-   dialyzer_plt:restore_full_plt(MiniDocPlt, DocPlt)}.
+   MiniPlt,
+   dialyzer_plt:restore_full_plt(MiniDocPlt)}.
 
 get_warnings_from_modules(Mods, State, DocPlt) ->
   #st{callgraph = Callgraph, codeserver = Codeserver,
@@ -174,10 +175,10 @@ collect_warnings(M, {Codeserver, Callgraph, Plt, DocPlt}) ->
   %% Check if there are contracts for functions that do not exist
   Warnings1 =
     dialyzer_contracts:contracts_without_fun(Contracts, AllFuns, Callgraph),
+  Attrs = cerl:module_attrs(ModCode),
   {Warnings2, FunTypes} =
     dialyzer_dataflow:get_warnings(ModCode, Plt, Callgraph, Codeserver,
 				   Records),
-  Attrs = cerl:module_attrs(ModCode),
   Warnings3 =
     dialyzer_behaviours:check_callbacks(M, Attrs, Records, Plt, Codeserver),
   DocPlt = insert_into_doc_plt(FunTypes, Callgraph, DocPlt),

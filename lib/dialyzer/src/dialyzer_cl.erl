@@ -637,8 +637,8 @@ cl_loop(State, LogCache) ->
     {BackendPid, warnings, Warnings} ->
       NewState = store_warnings(State, Warnings),
       cl_loop(NewState, LogCache);
-    {BackendPid, done, NewPlt, _NewDocPlt} ->
-      return_value(State, NewPlt);
+    {BackendPid, done, NewMiniPlt, _NewDocPlt} ->
+      return_value(State, NewMiniPlt);
     {BackendPid, ext_calls, ExtCalls} ->
       cl_loop(State#cl_state{external_calls = ExtCalls}, LogCache);
     {BackendPid, ext_types, ExtTypes} ->
@@ -654,6 +654,7 @@ cl_loop(State, LogCache) ->
       cl_error(State, Msg);
     _Other ->
       %% io:format("Received ~p\n", [_Other]),
+      %% Note: {BackendPid, cserver, CodeServer, Plt} is ignored.
       cl_loop(State, LogCache)
   end.
 
@@ -699,10 +700,13 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
 			       output_plt = OutputPlt,
 			       plt_info = PltInfo,
 			       stored_warnings = StoredWarnings},
-	     Plt) ->
+	     MiniPlt) ->
   case OutputPlt =:= none of
-    true -> ok;
-    false -> dialyzer_plt:to_file(OutputPlt, Plt, ModDeps, PltInfo)
+    true ->
+      dialyzer_plt:delete(MiniPlt);
+    false ->
+      Plt = dialyzer_plt:restore_full_plt(MiniPlt),
+      dialyzer_plt:to_file(OutputPlt, Plt, ModDeps, PltInfo)
   end,
   UnknownWarnings = unknown_warnings(State),
   RetValue =

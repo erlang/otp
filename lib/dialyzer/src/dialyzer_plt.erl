@@ -58,7 +58,9 @@
 	 get_specs/4,
 	 to_file/4,
 	 get_mini_plt/1,
-	 restore_full_plt/2
+	 restore_full_plt/1,
+         delete/1,
+         give_away/2
 	]).
 
 %% Debug utilities
@@ -88,8 +90,10 @@
               exported_types = sets:new()  :: sets:set()}).
 
 -record(mini_plt, {info      :: ets:tid(),
+                   types     :: ets:tid(),
 		   contracts :: ets:tid(),
-		   callbacks :: ets:tid()
+		   callbacks :: ets:tid(),
+                   exported_types :: ets:tid()
 		  }).
 
 -opaque plt() :: #plt{} | #mini_plt{}.
@@ -130,6 +134,10 @@ delete_module(#plt{info = Info, types = Types,
 
 -spec delete_list(plt(), [mfa() | integer()]) -> plt().
 
+delete_list(#mini_plt{info = Info,
+                      contracts = Contracts}=Plt, List) ->
+  Plt#mini_plt{info = ets_table_delete_list(Info, List),
+               contracts = ets_table_delete_list(Contracts, List)};
 delete_list(#plt{info = Info, types = Types,
 		 contracts = Contracts,
 		 callbacks = Callbacks,
@@ -510,31 +518,99 @@ init_md5_list_1(Md5List, [], Acc) ->
 
 -spec get_mini_plt(plt()) -> plt().
 
-get_mini_plt(#plt{info = Info, contracts = Contracts, callbacks = Callbacks}) ->
-  [ETSInfo, ETSContracts, ETSCallbacks] =
-    [ets:new(Name, [public]) || Name <- [plt_info, plt_contracts, plt_callbacks]],
+get_mini_plt(#plt{info = Info,
+                  types = Types,
+                  contracts = Contracts,
+                  callbacks = Callbacks,
+                  exported_types = ExpTypes}) ->
+  [ETSInfo, ETSTypes, ETSContracts, ETSCallbacks, ETSExpTypes] =
+    [ets:new(Name, [public]) ||
+      Name <- [plt_info, plt_types, plt_contracts, plt_callbacks,
+               plt_exported_types]],
   CallbackList = dict:to_list(Callbacks),
   CallbacksByModule =
     [{M, [Cb || {{M1,_,_},_} = Cb <- CallbackList, M1 =:= M]} ||
       M <- lists:usort([M || {{M,_,_},_} <- CallbackList])],
-  [true, true] =
+  [true, true, true] =
     [ets:insert(ETS, dict:to_list(Data)) ||
-      {ETS, Data} <- [{ETSInfo, Info}, {ETSContracts, Contracts}]],
+      {ETS, Data} <- [{ETSInfo, Info},
+                      {ETSTypes, Types},
+                      {ETSContracts, Contracts}]],
   true = ets:insert(ETSCallbacks, CallbacksByModule),
-  #mini_plt{info = ETSInfo, contracts = ETSContracts, callbacks = ETSCallbacks};
+  true = ets:insert(ETSExpTypes, [{ET} || ET <- sets:to_list(ExpTypes)]),
+  #mini_plt{info = ETSInfo,
+            types = ETSTypes,
+            contracts = ETSContracts,
+            callbacks = ETSCallbacks,
+            exported_types = ETSExpTypes};
 get_mini_plt(undefined) ->
   undefined.
 
--spec restore_full_plt(plt(), plt()) -> plt().
+-spec restore_full_plt(plt()) -> plt().
 
-restore_full_plt(#mini_plt{info = ETSInfo, contracts = ETSContracts}, Plt) ->
-  Info = dict:from_list(ets:tab2list(ETSInfo)),
-  Contracts = dict:from_list(ets:tab2list(ETSContracts)),
-  ets:delete(ETSContracts),
-  ets:delete(ETSInfo),
-  Plt#plt{info = Info, contracts = Contracts};
-restore_full_plt(undefined, undefined) ->
+restore_full_plt(#mini_plt{info = ETSInfo,
+                           types = ETSTypes,
+                           contracts = ETSContracts,
+                           callbacks = ETSCallbacks,
+                           exported_types = ETSExpTypes} = MiniPlt) ->
+  Info = dict:from_list(tab2list(ETSInfo)),
+  Contracts = dict:from_list(tab2list(ETSContracts)),
+  Types = dict:from_list(tab2list(ETSTypes)),
+  Callbacks =
+    dict:from_list([Cb || {_M, Cbs} <- tab2list(ETSCallbacks), Cb <- Cbs]),
+  ExpTypes = sets:from_list([E || {E} <- tab2list(ETSExpTypes)]),
+  ok = delete(MiniPlt),
+  #plt{info = Info,
+       types = Types,
+       contracts = Contracts,
+       callbacks = Callbacks,
+       exported_types = ExpTypes};
+restore_full_plt(undefined) ->
   undefined.
+
+-spec delete(plt()) -> 'ok'.
+
+delete(#mini_plt{info = ETSInfo,
+                 types = ETSTypes,
+                 contracts = ETSContracts,
+                 callbacks = ETSCallbacks,
+                 exported_types = ETSExpTypes}) ->
+  true = ets:delete(ETSContracts),
+  true = ets:delete(ETSTypes),
+  true = ets:delete(ETSInfo),
+  true = ets:delete(ETSCallbacks),
+  true = ets:delete(ETSExpTypes),
+  ok.
+
+-spec give_away(plt(), pid()) -> 'ok'.
+
+give_away(#mini_plt{info = ETSInfo,
+                    types = ETSTypes,
+                    contracts = ETSContracts,
+                    callbacks = ETSCallbacks,
+                    exported_types = ETSExpTypes},
+          Pid) ->
+  true = ets:give_away(ETSContracts, Pid, any),
+  true = ets:give_away(ETSTypes, Pid, any),
+  true = ets:give_away(ETSInfo, Pid, any),
+  true = ets:give_away(ETSCallbacks, Pid, any),
+  true = ets:give_away(ETSExpTypes, Pid, any),
+  ok.
+
+%% Somewhat slower than ets:tab2list(), but uses less memory.
+tab2list(T) ->
+  tab2list(ets:first(T), T, []).
+
+tab2list('$end_of_table', T, A) ->
+  case ets:first(T) of % no safe_fixtable()...
+    '$end_of_table' -> A;
+    Key -> tab2list(Key, T, A)
+  end;
+tab2list(Key, T, A) ->
+  Vs = ets:lookup(T, Key),
+  Key1 = ets:next(T, Key),
+  ets:delete(T, Key),
+  tab2list(Key1, T, Vs ++ A).
 
 %%---------------------------------------------------------------------------
 %% Edoc
@@ -606,6 +682,12 @@ table_delete_module1(Plt, Mod) ->
 
 table_delete_module2(Plt, Mod) ->
   dict:filter(fun(M, _Val) -> M =/= Mod end, Plt).
+
+ets_table_delete_list(Tab, [H|T]) ->
+  ets:delete(Tab, H),
+  ets_table_delete_list(Tab, T);
+ets_table_delete_list(Tab, []) ->
+  Tab.
 
 table_delete_list(Plt, [H|T]) ->
   table_delete_list(dict:erase(H, Plt), T);

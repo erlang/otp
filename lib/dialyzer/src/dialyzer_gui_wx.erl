@@ -505,8 +505,9 @@ gui_loop(#gui_state{backend_pid = BackendPid, doc_plt = DocPlt,
 	end,
       ExplanationPid = spawn_link(Fun),
       gui_loop(State#gui_state{expl_pid = ExplanationPid});
-    {BackendPid, done, _NewPlt, NewDocPlt} ->
+    {BackendPid, done, NewMiniPlt, NewDocPlt} ->
       message(State, "Analysis done"),
+      dialyzer_plt:delete(NewMiniPlt),
       config_gui_stop(State),
       gui_loop(State#gui_state{doc_plt = NewDocPlt});
     {'EXIT', BackendPid, {error, Reason}} ->
