@@ -383,8 +383,8 @@ lmax(MState, Values, State) ->
 init_data(runq, {stats, _, T0, _, _}) -> {mk_max(),lists:sort(T0)};
 init_data(io,   {stats, _, _, {{_,In0}, {_,Out0}}, _}) -> {mk_max(), {In0,Out0}};
 init_data(memory, _) -> {mk_max(), info(memory, undefined)};
-init_data(alloc, _) -> {mk_max(), ok};
-init_data(utilz, _) -> {mk_max(), ok}.
+init_data(alloc, _) -> {mk_max(), unused};
+init_data(utilz, _) -> {mk_max(), unused}.
 
 info(runq, {stats, _, T0, _, _}) -> lists:seq(1, length(T0));
 info(memory, _) -> [total, processes, atom, binary, code, ets];
@@ -410,11 +410,11 @@ collect_data(memory, {stats, _, _, _, MemInfo}, {Max, MemTypes}) ->
 collect_data(alloc, MemInfo, Max) ->
     Vs = [Carrier || {_Type,_Block,Carrier} <- MemInfo],
     Sample = list_to_tuple(Vs),
-    {Sample, lmax(Max, Vs, Sample)};
+    {Sample, {lmax(Max, Vs, Sample),unused}};
 collect_data(utilz, MemInfo, Max) ->
     Vs = [round(100*Block/Carrier) || {_Type,Block,Carrier} <- MemInfo],
     Sample = list_to_tuple(Vs),
-    {Sample, lmax(Max,Vs,Sample)}.
+    {Sample, {lmax(Max,Vs,Sample),unused}}.
 
 calc_delta([{Id, WN, TN}|Ss], [{Id, WP, TP}|Ps]) ->
     [100*(WN-WP) div (TN-TP)|calc_delta(Ss, Ps)];

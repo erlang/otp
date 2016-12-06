@@ -141,13 +141,58 @@ get_mnesia_loop(Parent, {Match, Cont}) ->
     get_mnesia_loop(Parent, mnesia:select(Cont)).
 
 get_port_list() ->
+    ExtraItems = [monitors,monitored_by,parallelism,locking,queue_size,memory],
     [begin
 	 [{port_id,P}|erlang:port_info(P)] ++
-	     case erlang:port_info(P,monitors) of
-		 undefined -> [];
-		 Monitors -> [Monitors]
-	     end
+             port_info(P,ExtraItems) ++
+             inet_port_extra(erlang:port_info(P, name), P)
      end || P <- erlang:ports()].
+
+port_info(P,[Item|Items]) ->
+    case erlang:port_info(P,Item) of
+        undefined -> port_info(P,Items);
+        Value -> [Value|port_info(P,Items)]
+    end;
+port_info(_,[]) ->
+    [].
+
+inet_port_extra({_,Type},Port) when Type =:= "udp_inet";
+                                    Type =:= "tcp_inet";
+                                    Type =:= "sctp_inet" ->
+    Data =
+        case inet:getstat(Port) of
+            {ok, Stats} -> [{statistics, Stats}];
+            _ -> []
+        end ++
+        case inet:peername(Port) of
+            {ok, {RAddr,RPort}} when is_tuple(RAddr), is_integer(RPort) ->
+                [{remote_address,RAddr},{remote_port,RPort}];
+            {ok, RAddr} ->
+                [{remote_address,RAddr}];
+            {error, _} ->  []
+        end ++
+        case inet:sockname(Port) of
+            {ok, {LAddr,LPort}} when is_tuple(LAddr), is_integer(LPort) ->
+                [{local_address,LAddr},{local_port,LPort}];
+            {ok, LAddr} ->
+                [{local_address,LAddr}];
+            {error, _} -> []
+        end ++
+        case inet:getopts(Port,
+                          [active, broadcast, buffer, delay_send,
+                           deliver, dontroute, exit_on_close,
+                           header, high_msgq_watermark, high_watermark,
+                           ipv6_v6only, keepalive, linger, low_msgq_watermark,
+                           low_watermark, mode, netns, nodelay, packet,
+                           packet_size, priority, read_packets, recbuf,
+                           reuseaddr, send_timeout, send_timeout_close,
+                           show_econnreset, sndbuf, tos, tclass]) of
+            {ok, Opts} -> [{options, Opts}];
+            {error, _} -> []
+        end,
+    [{inet,Data}];
+inet_port_extra(_,_) ->
+    [].
 
 get_table_list(ets, Opts) ->
     HideUnread = proplists:get_value(unread_hidden, Opts, true),
