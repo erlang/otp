@@ -17,16 +17,19 @@
 %%
 %% %CopyrightEnd%
 %%
--module(ssl_socket).
+-module(tls_socket).
 
 -behaviour(gen_server).
 
 -include("ssl_internal.hrl").
 -include("ssl_api.hrl").
 
--export([socket/5, setopts/3, getopts/3, getstat/3, peername/2, sockname/2, port/2]).
+-export([send/3, listen/3, accept/3, socket/5, connect/4, upgrade/3,
+	 setopts/3, getopts/3, getstat/3, peername/2, sockname/2, port/2]).
+-export([split_options/1, get_socket_opts/3]).
 -export([emulated_options/0, internal_inet_values/0, default_inet_values/0,
-	 init/1, start_link/3, terminate/2, inherit_tracker/3, get_emulated_opts/1, 
+	 init/1, start_link/3, terminate/2, inherit_tracker/3, 
+	 emulated_socket_options/2, get_emulated_opts/1, 
 	 set_emulated_opts/2, get_all_opts/1, handle_call/3, handle_cast/2,
 	 handle_info/2, code_change/3]).
 
@@ -39,6 +42,76 @@
 %%--------------------------------------------------------------------
 %%% Internal API
 %%--------------------------------------------------------------------
+send(Transport, Socket, Data) ->
+    Transport:send(Socket, Data).
+
+listen(Transport, Port, #config{transport_info = {Transport, _, _, _}, 
+				inet_user = Options, 
+				ssl = SslOpts, emulated = EmOpts} = Config) ->
+    case Transport:listen(Port, Options ++ internal_inet_values()) of
+	{ok, ListenSocket} ->
+	    {ok, Tracker} = inherit_tracker(ListenSocket, EmOpts, SslOpts),
+	    {ok, #sslsocket{pid = {ListenSocket, Config#config{emulated = Tracker}}}};
+	Err = {error, _} ->
+	    Err
+    end.
+
+accept(ListenSocket, #config{transport_info = {Transport,_,_,_} = CbInfo,
+			     connection_cb = ConnectionCb,
+			     ssl = SslOpts,
+			     emulated = Tracker}, Timeout) -> 
+    case Transport:accept(ListenSocket, Timeout) of
+	{ok, Socket} ->
+	    {ok, EmOpts} = get_emulated_opts(Tracker),
+	    {ok, Port} = tls_socket:port(Transport, Socket),
+	    ConnArgs = [server, "localhost", Port, Socket,
+			{SslOpts, emulated_socket_options(EmOpts, #socket_options{}), Tracker}, self(), CbInfo],
+	    case tls_connection_sup:start_child(ConnArgs) of
+		{ok, Pid} ->
+		    ssl_connection:socket_control(ConnectionCb, Socket, Pid, Transport, Tracker);
+		{error, Reason} ->
+		    {error, Reason}
+	    end;
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
+upgrade(Socket, #config{transport_info = {Transport,_,_,_}= CbInfo,
+			ssl = SslOptions,
+			emulated = EmOpts, connection_cb = ConnectionCb}, Timeout) ->
+    ok = setopts(Transport, Socket, tls_socket:internal_inet_values()),
+    case peername(Transport, Socket) of
+	{ok, {Address, Port}} ->
+	    ssl_connection:connect(ConnectionCb, Address, Port, Socket,
+				   {SslOptions, 
+				    emulated_socket_options(EmOpts, #socket_options{}), undefined},
+				   self(), CbInfo, Timeout);
+	{error, Error} ->
+	    {error, Error}
+    end.
+
+connect(Address, Port,
+	#config{transport_info = CbInfo, inet_user = UserOpts, ssl = SslOpts,
+		emulated = EmOpts, inet_ssl = SocketOpts, connection_cb = ConnetionCb},
+	Timeout) ->
+    {Transport, _, _, _} = CbInfo,
+    try Transport:connect(Address, Port,  SocketOpts, Timeout) of
+	{ok, Socket} ->
+	    ssl_connection:connect(ConnetionCb, Address, Port, Socket, 
+				   {SslOpts, 
+				    emulated_socket_options(EmOpts, #socket_options{}), undefined},
+				   self(), CbInfo, Timeout);
+	{error, Reason} ->
+	    {error, Reason}
+    catch
+	exit:{function_clause, _} ->
+	    {error, {options, {cb_info, CbInfo}}};
+	exit:badarg ->
+	    {error, {options, {socket_options, UserOpts}}};
+	exit:{badarg, _} ->
+	    {error, {options, {socket_options, UserOpts}}}
+    end.
+
 socket(Pid, Transport, Socket, ConnectionCb, Tracker) ->
     #sslsocket{pid = Pid, 
 	       %% "The name "fd" is keept for backwards compatibility
@@ -241,3 +314,17 @@ get_emulated_opts(TrackerPid, EmOptNames) ->
     lists:map(fun(Name) -> {value, Value} = lists:keysearch(Name, 1, EmOpts),
 			   Value end,
 	      EmOptNames).
+
+emulated_socket_options(InetValues, #socket_options{
+				       mode   = Mode,
+				       header = Header,
+				       active = Active,
+				       packet = Packet,
+				       packet_size = Size}) ->
+    #socket_options{
+       mode   = proplists:get_value(mode, InetValues, Mode),
+       header = proplists:get_value(header, InetValues, Header),
+       active = proplists:get_value(active, InetValues, Active),
+       packet = proplists:get_value(packet, InetValues, Packet),
+       packet_size = proplists:get_value(packet_size, InetValues, Size)
+      }.

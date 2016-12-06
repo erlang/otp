@@ -6,6 +6,7 @@
 	       tls_connection,
 	       tls_handshake,
 	       tls_record,
+	       tls_socket,
 	       tls_v1,
 	       ssl_v3,
 	       ssl_v2,
@@ -13,7 +14,10 @@
 	       dtls_connection,
 	       dtls_handshake,
 	       dtls_record,
+	       dtls_socket,
 	       dtls_v1,
+	       dtls_udp_listener,
+	       dtls_udp_sup,
 	       %% API
 	       ssl,  %% Main API		  
 	       tls,  %% TLS specific
@@ -27,7 +31,6 @@
 	       ssl_cipher,
 	       ssl_srp_primes,
 	       ssl_alert,
-	       ssl_socket,
 	       ssl_listen_tracker_sup,	
 	       %% Erlang Distribution over SSL/TLS
 	       inet_tls_dist,
