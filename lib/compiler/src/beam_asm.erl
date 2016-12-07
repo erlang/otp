@@ -233,7 +233,12 @@ build_attributes(Opts, SourceFile, Attr, MD5) ->
 	       false -> Misc0;
 	       true -> []
 	   end,
-    Compile = [{options,Opts},{version,?COMPILER_VSN}|Misc],
+    Compile = case member(deterministic, Opts) of
+		  false ->
+		      [{options,Opts},{version,?COMPILER_VSN}|Misc];
+		  true ->
+		      [{version,?COMPILER_VSN}]
+	      end,
     {term_to_binary(set_vsn_attribute(Attr, MD5)),term_to_binary(Compile)}.
 
 build_line_table(Dict) ->
