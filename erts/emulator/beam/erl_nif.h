@@ -138,18 +138,18 @@ typedef struct
     void* ref_bin;
 }ErlNifBinary;
 
-typedef struct {
-    void (*dtor)(ErlNifEnv* env, void* obj);
-    void (*stop)(ErlNifEnv* env, void* obj); /* at ERL_NIF_SELECT_STOP event */
-} ErlNifResourceTypeInit;
-
-typedef struct enif_resource_type_t ErlNifResourceType;
-typedef void ErlNifResourceDtor(ErlNifEnv*, void*);
-typedef void ErlNifResourceStop(ErlNifEnv*, void*);
-
 //#ifndef ERL_SYS_DRV
 typedef int ErlNifEvent; /* An event to be selected on. */
 //#endif
+
+typedef struct enif_resource_type_t ErlNifResourceType;
+typedef void ErlNifResourceDtor(ErlNifEnv*, void*);
+typedef void ErlNifResourceStop(ErlNifEnv*, void*, ErlNifEvent, int is_direct_call);
+
+typedef struct {
+    ErlNifResourceDtor* dtor;
+    ErlNifResourceStop* stop;  /* at ERL_NIF_SELECT_STOP event */
+} ErlNifResourceTypeInit;
 
 typedef enum
 {

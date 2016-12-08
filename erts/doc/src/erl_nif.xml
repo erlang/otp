@@ -718,10 +718,12 @@ typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);</code>
       <tag><marker id="ErlNifResourceStop"/><c>ErlNifResourceStop</c></tag>
       <item>
         <code type="none">
-typedef void ErlNifResourceStop(ErlNifEnv* env, void* obj);</code>
+typedef void ErlNifResourceStop(ErlNifEnv* env, void* obj, ErlNifEvent event, int is_direct_call);</code>
         <p>The function prototype of a resource stop function,
 	  called on the behalf of <seealso marker="#enif_select">
-	  enif_select</seealso>.</p>
+	  enif_select</seealso>. <c>obj</c> is the resource, <c>event</c> is OS event,
+	  <c>is_direct_call</c> is true if the call is made directly from <c>enif_select</c>
+	  or false if it is a scheduled call (potentially from another thread).</p>
       </item>
       <tag><marker id="ErlNifCharEncoding"/><c>ErlNifCharEncoding</c></tag>
       <item>

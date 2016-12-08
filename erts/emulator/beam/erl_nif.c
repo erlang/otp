@@ -2124,12 +2124,13 @@ static void nif_resource_dtor(Binary* bin)
     }
 }
 
-void erts_resource_stop(ErlNifResource* resource)
+void erts_resource_stop(ErlNifResource* resource, ErlNifEvent e,
+                        int is_direct_call)
 {
     struct enif_msg_environment_t msg_env;
     ASSERT(resource->type->stop);
     pre_nif_noproc(&msg_env, resource->type->owner, NULL);
-    resource->type->stop(&msg_env.env, resource->data);
+    resource->type->stop(&msg_env.env, resource->data, e, is_direct_call);
     post_nif_noproc(&msg_env);
 }
 

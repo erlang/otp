@@ -108,13 +108,14 @@ struct binary_resource {
 
 static ErlNifResourceType* fd_resource_type;
 static void fd_resource_dtor(ErlNifEnv* env, void* obj);
-static void fd_resource_stop(ErlNifEnv* env, void* obj);
+static void fd_resource_stop(ErlNifEnv* env, void* obj, ErlNifEvent, int);
 static ErlNifResourceTypeInit fd_rt_init = {
     fd_resource_dtor,
     fd_resource_stop
 };
 struct fd_resource {
     int fd;
+    int was_selected;
 };
 
 
@@ -1128,10 +1129,6 @@ static ERL_NIF_TERM make_term_string(struct make_term_info* mti, int n)
 {
     return enif_make_string(mti->dst_env, "Hello!", ERL_NIF_LATIN1);
 }
-static ERL_NIF_TERM make_term_ref(struct make_term_info* mti, int n)
-{
-    return enif_make_ref(mti->dst_env);
-}
 static ERL_NIF_TERM make_term_sub_binary(struct make_term_info* mti, int n)
 {
     ERL_NIF_TERM orig;
@@ -1239,7 +1236,6 @@ static Make_term_Func* make_funcs[] = {
     make_term_atom,
     make_term_existing_atom,
     make_term_string,
-    //make_term_ref,
     make_term_sub_binary,
     make_term_uint,
     make_term_long,
@@ -2032,26 +2028,23 @@ static ERL_NIF_TERM format_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 }
 
 
-static int get_fd(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifEvent* fd)
+static int get_fd(ErlNifEnv* env, ERL_NIF_TERM term, struct fd_resource** rsrc)
 {
-    struct fd_resource* rsrc;
-
-    if (!enif_get_resource(env, term, fd_resource_type, (void**)&rsrc)) {
+    if (!enif_get_resource(env, term, fd_resource_type, (void**)rsrc)) {
         return 0;
     }
-    *fd = rsrc->fd;
     return 1;
 }
 
 static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    ErlNifEvent e;
+    struct fd_resource* fdr;
     enum ErlNifSelectFlags mode;
     void* obj;
     ERL_NIF_TERM ref;
     int retval;
 
-    if (!get_fd(env, argv[0], &e)
+    if (!get_fd(env, argv[0], &fdr)
         || !enif_get_uint(env, argv[1], &mode)
         || !enif_get_resource(env, argv[2], fd_resource_type, &obj))
     {
@@ -2060,7 +2053,8 @@ static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
     ref = argv[3];
 
-    retval = enif_select(env, e, mode, obj, ref);
+    fdr->was_selected = 1;
+    retval = enif_select(env, fdr->fd, mode, obj, ref);
 
     return enif_make_int(env, retval);
 }
@@ -2070,7 +2064,6 @@ static ERL_NIF_TERM pipe_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     struct fd_resource* read_rsrc;
     struct fd_resource* write_rsrc;
     ERL_NIF_TERM read_fd, write_fd;
-    unsigned char *inp, *outp;
     int fds[2], flags;
 
     if (pipe(fds) < 0)
@@ -2099,16 +2092,16 @@ static ERL_NIF_TERM pipe_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 
 static ERL_NIF_TERM write_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    ErlNifEvent fd;
+    struct fd_resource* fdr;
     ErlNifBinary bin;
     int n, written = 0;
 
-    if (!get_fd(env, argv[0], &fd)
+    if (!get_fd(env, argv[0], &fdr)
         || !enif_inspect_binary(env, argv[1], &bin))
         return enif_make_badarg(env);
 
     for (;;) {
-        n = write(fd, bin.data + written, bin.size - written);
+        n = write(fdr->fd, bin.data + written, bin.size - written);
         if (n >= 0) {
             written += n;
             if (written == bin.size) {
@@ -2129,19 +2122,19 @@ static ERL_NIF_TERM write_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 
 static ERL_NIF_TERM read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    ErlNifEvent fd;
+    struct fd_resource* fdr;
     unsigned char* buf;
-    int n, count, nread = 0;
+    int n, count;
     ERL_NIF_TERM res;
 
-    if (!get_fd(env, argv[0], &fd)
+    if (!get_fd(env, argv[0], &fdr)
         || !enif_get_int(env, argv[1], &count) || count < 1)
         return enif_make_badarg(env);
 
     buf = enif_make_new_binary(env, count, &res);
 
     for (;;) {
-        n = read(fd, buf, count);
+        n = read(fdr->fd, buf, count);
         if (n > 0) {
             if (n < count) {
                 res = enif_make_sub_binary(env, res, 0, n);
@@ -2165,29 +2158,33 @@ static ERL_NIF_TERM read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 
 static ERL_NIF_TERM is_closed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    ErlNifEvent fd;
+    struct fd_resource* fdr;
 
-    if (!get_fd(env, argv[0], &fd))
+    if (!get_fd(env, argv[0], &fdr))
         return enif_make_badarg(env);
 
-    return fd < 0 ? atom_true : atom_false;
+    return fdr->fd < 0 ? atom_true : atom_false;
 }
 
 static void fd_resource_dtor(ErlNifEnv* env, void* obj)
 {
-    struct fd_resource* rsrc = (struct fd_resource*)obj;
+    struct fd_resource* fdr = (struct fd_resource*)obj;
     resource_dtor(env, obj);
-    if (rsrc->fd >= 0)
-        close(rsrc->fd);
+    if (fdr->fd >= 0) {
+        assert(!fdr->was_selected);
+        close(fdr->fd);
+    }
 }
 
-static void fd_resource_stop(ErlNifEnv* env, void* obj)
+static void fd_resource_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd,
+                             int is_direct_call)
 {
-    struct fd_resource* rsrc = (struct fd_resource*)obj;
-    if (rsrc->fd >= 0) {
-        close(rsrc->fd);
-        rsrc->fd = -1;   /* thread safety ? */
-    }
+    struct fd_resource* fdr = (struct fd_resource*)obj;
+    assert(fd == fdr->fd);
+    assert(fd >= 0);
+    close(fd);
+    fdr->fd = -1;   /* thread safety ? */
+    fdr->was_selected = 0;
 }
 
 

@@ -95,7 +95,7 @@ extern void erts_pre_dirty_nif(ErtsSchedulerData *,
 			       struct erl_module_nif*);
 extern void erts_post_dirty_nif(struct enif_environment_t* env);
 #endif
-extern void erts_resource_stop(ErlNifResource* resource);
+extern void erts_resource_stop(ErlNifResource*, ErlNifEvent, int is_direct_call);
 extern Eterm erts_nif_taints(Process* p);
 extern void erts_print_nif_taints(fmtfn_t to, void* to_arg);
 void erts_unload_nif(struct erl_module_nif* nif);

@@ -450,7 +450,7 @@ forget_removed(struct pollset_info* psi)
 	    }
 	}
         if (resource) {
-            erts_resource_stop(resource);
+            erts_resource_stop(resource, (ErlNifEvent)fd, 0);
             enif_release_resource(resource->data);
         }
 
@@ -1436,7 +1436,7 @@ done:
 done_unknown:
     erts_smp_mtx_unlock(fd_mtx(fd));
     if (call_stop) {
-        erts_resource_stop(resource);
+        erts_resource_stop(resource, (ErlNifEvent)fd, 1);
         if (call_stop == CALL_STOP_AND_RELEASE) {
             enif_release_resource(resource->data);
         }
@@ -2141,6 +2141,10 @@ ERTS_CIO_EXPORT(erts_check_io_interrupt_timed)(int set,
     ERTS_CIO_POLL_INTR_TMD(pollset.ps, set, timeout_time);
 }
 
+/*
+ * Number of ignored events, for a lingering fd added by enif_select(),
+ * until we deselect fd-event from pollset.
+ */
 #define ERTS_NIF_DELAYED_DESELECT 20
 
 void
