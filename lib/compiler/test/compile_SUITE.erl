@@ -105,6 +105,14 @@ file_1(Config) when is_list(Config) ->
 
     {ok,simple} = compile:file(Simple, [{eprof,beam_z}]), %Coverage
 
+
+    %% Test option 'deterministic'.
+    {ok,simple} = compile:file(Simple, [deterministic]),
+    {module,simple} = c:l(simple),
+    [{version,_}] = simple:module_info(compile),
+    true = code:delete(simple),
+    false = code:purge(simple),
+
     ok = file:set_cwd(Cwd),
     true = exists(Target),
     passed = run(Target, test, []),

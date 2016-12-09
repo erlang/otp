@@ -176,6 +176,14 @@
               <seealso marker="stdlib:beam_lib#debug_info">beam_lib(3)</seealso>.</p>
           </item>
 
+          <tag><c>deterministic</c></tag>
+          <item>
+            <p>Omit the <c>options</c> and <c>source</c> tuples in
+	    the list returned by <c>Module:module_info(compile)</c>.
+	    This option will make it easier to achieve reproducible builds.
+	    </p>
+          </item>
+
           <tag><c>makedep</c></tag>
           <item>
             <p>Produces a Makefile rule to track headers dependencies.
