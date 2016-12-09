@@ -121,6 +121,7 @@ loop(#server_state{parent = Parent} = State,
 %% The Analysis
 %%--------------------------------------------------------------------
 
+%% Calls to erlang:garbage_collect() help to reduce the heap size.
 analysis_start(Parent, Analysis, LegalWarnings) ->
   CServer = dialyzer_codeserver:new(),
   Plt = Analysis#analysis.plt,
@@ -157,6 +158,7 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
       TmpCServer1 = dialyzer_codeserver:set_temp_records(MergedRecords, TmpCServer0),
       TmpCServer2 =
         dialyzer_codeserver:finalize_exported_types(MergedExpTypes, TmpCServer1),
+      erlang:garbage_collect(),
       ?timing(State#analysis_state.timing_server, "remote",
               begin
                 TmpCServer3 =
@@ -185,8 +187,6 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
       true -> dialyzer_callgraph:put_race_detection(true, Callgraph);
       false -> Callgraph
     end,
-  %% Calls to erlang:garbage_collect() help to reduce the heap size.
-  %% An alternative is to spawn more processes to do the job(s).
   erlang:garbage_collect(),
   State2 = analyze_callgraph(NewCallgraph, State1),
   #analysis_state{plt = MiniPlt2, doc_plt = DocPlt} = State2,

@@ -48,6 +48,7 @@
 	 is_exported/2,
 	 lookup_mod_code/2,
 	 lookup_mfa_code/2,
+	 lookup_mfa_var_label/2,
 	 lookup_mod_records/2,
 	 lookup_mod_contracts/2,
 	 lookup_mfa_contract/2,
@@ -173,8 +174,8 @@ insert(Mod, ModCode, CS) ->
   As = cerl:get_ann(ModCode),
   Funs =
     [{{Mod, cerl:fname_id(Var), cerl:fname_arity(Var)},
-      Val} || Val = {Var, _Fun} <- Defs],
-  Keys = [Key || {Key, _Value} <- Funs],
+      Val, {Var, cerl_trees:get_label(Fun)}} || Val = {Var, Fun} <- Defs],
+  Keys = [Key || {Key, _Value, _Label} <- Funs],
   ModEntry = {Mod, {Name, Exports, Attrs, Keys, As}},
   true = ets:insert(CS#codeserver.code, [ModEntry|Funs]),
   CS.
@@ -236,6 +237,11 @@ lookup_mod_code(Mod, CS) when is_atom(Mod) ->
 
 lookup_mfa_code({_M, _F, _A} = MFA, CS) ->
   table__lookup(CS#codeserver.code, MFA).
+
+-spec lookup_mfa_var_label(mfa(), codeserver()) -> {cerl:c_var(), label()}.
+
+lookup_mfa_var_label({_M, _F, _A} = MFA, CS) ->
+  ets:lookup_element(CS#codeserver.code, MFA, 3).
 
 -spec get_next_core_label(codeserver()) -> label().
 

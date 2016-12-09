@@ -349,21 +349,25 @@ find_succ_typings(SCCs, #st{codeserver = Codeserver, callgraph = Callgraph,
 
 -spec find_succ_types_for_scc(scc(), typesig_init_data()) -> [mfa_or_funlbl()].
 
-find_succ_types_for_scc(SCC, {Codeserver, Callgraph, Plt, Solvers}) ->
-  SCC_Info = [{MFA, 
-	       dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
-	       dialyzer_codeserver:lookup_mod_records(M, Codeserver)}
-	      || {M, _, _} = MFA <- SCC],
+find_succ_types_for_scc(SCC0, {Codeserver, Callgraph, Plt, Solvers}) ->
+  SCC = [MFA || {_, _, _} = MFA <- SCC0],
   Contracts1 = [{MFA, dialyzer_codeserver:lookup_mfa_contract(MFA, Codeserver)}
-		|| {_, _, _} = MFA <- SCC],
+		|| MFA <- SCC],
   Contracts2 = [{MFA, Contract} || {MFA, {ok, Contract}} <- Contracts1],
   Contracts3 = orddict:from_list(Contracts2),
   Label = dialyzer_codeserver:get_next_core_label(Codeserver),
-  AllFuns = collect_fun_info([Fun || {_MFA, {_Var, Fun}, _Rec} <- SCC_Info]),
+  AllFuns = lists:append(
+              [begin
+                 {_Var, Fun} =
+                   dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
+                 collect_fun_info([Fun])
+               end || MFA <- SCC]),
+  erlang:garbage_collect(),
   PropTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
   %% Assume that the PLT contains the current propagated types
-  FunTypes = dialyzer_typesig:analyze_scc(SCC_Info, Label, Callgraph,
-                                          Plt, PropTypes, Solvers),
+  FunTypes = dialyzer_typesig:analyze_scc(SCC, Label, Callgraph,
+                                          Codeserver, Plt, PropTypes,
+                                          Solvers),
   AllFunSet = sets:from_list([X || {X, _} <- AllFuns]),
   FilteredFunTypes =
     dict:filter(fun(X, _) -> sets:is_element(X, AllFunSet) end, FunTypes),

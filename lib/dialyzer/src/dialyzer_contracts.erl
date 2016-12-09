@@ -176,7 +176,7 @@ process_contract_remote_types(CodeServer) ->
   NewCallbackList = lists:map(ModuleFun, dict:to_list(TmpCallbackDict)),
   NewContractDict = dict:from_list(NewContractList),
   NewCallbackDict = dict:from_list(NewCallbackList),
-  %% Make sure the (huge) cache is garbage collected:
+  %% Make sure temporary data and the (huge) cache are garbage collected:
   erlang:garbage_collect(),
   dialyzer_codeserver:finalize_contracts(NewContractDict, NewCallbackDict,
                                          CodeServer).

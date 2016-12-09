@@ -29,7 +29,7 @@
 
 -module(dialyzer_typesig).
 
--export([analyze_scc/6]).
+-export([analyze_scc/7]).
 -export([get_safe_underapprox/2]).
 
 %%-import(helper, %% 'helper' could be any module doing sanity checks...
@@ -101,7 +101,6 @@
 
 -type types() :: erl_types:type_table().
 
--type typesig_scc()    :: [{mfa(), {cerl:c_var(), cerl:c_fun()}, types()}].
 -type typesig_funmap() :: #{type_var() => type_var()}.
 
 -type prop_types() :: dict:dict(label(), types()).
@@ -160,11 +159,10 @@
 %%-----------------------------------------------------------------------------
 %% Analysis of strongly connected components.
 %%
-%% analyze_scc(SCC, NextLabel, CallGraph, PLT, PropTypes, Solvers) -> FunTypes
+%% analyze_scc(SCC, NextLabel, CallGraph, CodeServer,
+%%             PLT, PropTypes, Solvers) -> FunTypes
 %%
-%% SCC       - [{MFA, Def, Records}]
-%%             where Def = {Var, Fun} as in the Core Erlang module definitions.
-%%                   Records = dict(RecName, {Arity, [{FieldName, FieldType}]})
+%% SCC       - [{MFA}]
 %% NextLabel - An integer that is higher than any label in the code.
 %% CallGraph - A callgraph as produced by dialyzer_callgraph.erl
 %%             Note: The callgraph must have been built with all the
@@ -176,27 +174,26 @@
 %% Solvers   - User specified solvers.
 %%-----------------------------------------------------------------------------
 
--spec analyze_scc(typesig_scc(), label(),
+-spec analyze_scc([mfa()], label(),
 		  dialyzer_callgraph:callgraph(),
+                  dialyzer_codeserver:codeserver(),
 		  dialyzer_plt:plt(), prop_types(), [solver()]) -> prop_types().
 
-analyze_scc(SCC, NextLabel, CallGraph, Plt, PropTypes, Solvers0) ->
+analyze_scc(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers0) ->
   Solvers = solvers(Solvers0),
-  assert_format_of_scc(SCC),
-  State1 = new_state(SCC, NextLabel, CallGraph, Plt, PropTypes, Solvers),
-  DefSet = add_def_list([Var || {_MFA, {Var, _Fun}, _Rec} <- SCC], sets:new()),
-  State2 = traverse_scc(SCC, DefSet, State1),
+  State1 = new_state(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes,
+                     Solvers),
+  DefSet = add_def_list(maps:values(State1#state.name_map), sets:new()),
+  ModRecs = [{M, dialyzer_codeserver:lookup_mod_records(M, CServer)} ||
+              M <- lists:usort([M || {M, _, _} <- SCC])],
+  State2 = traverse_scc(SCC, CServer, DefSet, ModRecs, State1),
   State3 = state__finalize(State2),
+  erlang:garbage_collect(),
   Funs = state__scc(State3),
   pp_constrs_scc(Funs, State3),
   constraints_to_dot_scc(Funs, State3),
   T = solve(Funs, State3),
   dict:from_list(maps:to_list(T)).
-
-assert_format_of_scc([{_MFA, {_Var, _Fun}, _Records}|Left]) ->
-  assert_format_of_scc(Left);
-assert_format_of_scc([]) ->
-  ok.
 
 solvers([]) -> [v2];
 solvers(Solvers) -> Solvers.
@@ -207,12 +204,14 @@ solvers(Solvers) -> Solvers.
 %%
 %% ============================================================================
 
-traverse_scc([{_MFA, Def, Rec}|Left], DefSet, AccState) ->
+traverse_scc([{M,_,_}=MFA|Left], Codeserver, DefSet, ModRecs, AccState) ->
+  Def = dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
+  {M, Rec} = lists:keyfind(M, 1, ModRecs),
   TmpState1 = state__set_rec_dict(AccState, Rec),
   DummyLetrec = cerl:c_letrec([Def], cerl:c_atom(foo)),
   {NewAccState, _} = traverse(DummyLetrec, DefSet, TmpState1),
-  traverse_scc(Left, DefSet, NewAccState);
-traverse_scc([], _DefSet, AccState) ->
+  traverse_scc(Left, Codeserver, DefSet, ModRecs, NewAccState);
+traverse_scc([], _Codeserver, _DefSet, _ModRecs, AccState) ->
   AccState.
 
 traverse(Tree, DefinedVars, State) ->
@@ -2702,11 +2701,14 @@ pp_map(_S, _Map) ->
 %%
 %% ============================================================================
 
-new_state(SCC0, NextLabel, CallGraph, Plt, PropTypes, Solvers) ->
-  List = [{MFA, Var} || {MFA, {Var, _Fun}, _Rec} <- SCC0],
+new_state(MFAs, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers) ->
+  List_SCC =
+    [begin
+       {Var, Label} = dialyzer_codeserver:lookup_mfa_var_label(MFA, CServer),
+       {{MFA, Var}, t_var(Label)}
+   end || MFA <- MFAs],
+  {List, SCC} = lists:unzip(List_SCC),
   NameMap = maps:from_list(List),
-  MFAs = [MFA || {MFA, _Var} <- List],
-  SCC = [mk_var(Fun) || {_MFA, {_Var, Fun}, _Rec} <- SCC0],
   SelfRec =
     case SCC of
       [OneF] ->
