@@ -4285,8 +4285,7 @@ yes
 					#include <stdio.h>
  					#include <openssl/hmac.h>],
  					[ 
- 					HMAC_CTX hc;
- 					HMAC_CTX_init(&hc);		
+					HMAC(0, 0, 0, 0, 0, 0, 0);
  					],
  					[ssl_linkable=yes],
  					[ssl_linkable=no])
@@ -4341,8 +4340,7 @@ dnl		so it is - be adoptable
 			#include <stdio.h>
  			#include <openssl/hmac.h>],
  			[ 
- 			HMAC_CTX hc;
- 			HMAC_CTX_init(&hc);		
+			HMAC(0, 0, 0, 0, 0, 0, 0);
  			],
  			[ssl_dyn_linkable=yes],
  			[ssl_dyn_linkable=no])
@@ -4447,12 +4445,14 @@ esac
 
 if test "x$SSL_APP" != "x" ; then
     dnl We found openssl, now check if we use kerberos 5 support
+    dnl FIXME: Do we still support platforms that have Kerberos?
     AC_MSG_CHECKING(for OpenSSL kerberos 5 support)
     old_CPPFLAGS=$CPPFLAGS
     CPPFLAGS=$SSL_INCLUDE
     AC_EGREP_CPP(^yes$,[
+#include <openssl/opensslv.h>
 #include <openssl/opensslconf.h>
-#ifndef OPENSSL_NO_KRB5
+#if OPENSSL_VERSION_NUMBER < 0x1010000fL && !defined(OPENSSL_NO_KRB5)
 yes
 #endif
       ],[
@@ -4603,8 +4603,7 @@ yes)   # Use standard lib locations for ssl runtime library path
                          #include <openssl/hmac.h>
                     ],
                     [ 
-                         HMAC_CTX hc;
-                         HMAC_CTX_init(&hc);		
+			 HMAC(0, 0, 0, 0, 0, 0, 0);
                     ],
                     [rpath_success=yes],
                     [rpath_success=no])
