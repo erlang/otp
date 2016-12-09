@@ -68,9 +68,6 @@ init_per_group(_, Config) ->
 end_per_group(_, Config) ->
     Config.
 
-%%% Always skip the testcase that is not quite in phase with the
-%%% ssh_message.erl code
-init_per_testcase(decode_encode, _) -> {skip, "Fails - testcase is not ok"};
 init_per_testcase(_TestCase, Config) -> Config.
     
 end_per_testcase(_TestCase, Config) -> Config.
