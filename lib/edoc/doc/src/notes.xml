@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.8.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Document the function tags <c>@param</c> and
+	    <c>@returns</c>. </p>
+          <p>
+	    Own Id: OTP-13930 Aux Id: PR-1175 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.8</title>
 
     <section><title>Improvements and New Features</title>

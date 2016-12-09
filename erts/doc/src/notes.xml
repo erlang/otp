@@ -32,6 +32,166 @@
   <p>This document describes the changes made to the ERTS application.</p>
 
 
+<section><title>Erts 8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed <c>configure</c> failures on MacOSX. Most important
+	    <c>clock_gettime()</c> was detected when building for
+	    MacOSX - El Capitan using XCode 8 despite it is not
+	    available until MacOSX - Sierra.</p>
+          <p>
+	    Own Id: OTP-13904 Aux Id: ERL-256 </p>
+        </item>
+        <item>
+          <p>
+	    <c>code:add_pathsa/1</c> and command line option
+	    <c>-pa</c> both revert the given list of directories when
+	    adding it at the beginning of the code path. This is now
+	    documented.</p>
+          <p>
+	    Own Id: OTP-13920 Aux Id: ERL-267 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a compilation error of erts in OpenBSD related to the
+	    usage of the __errno variable.</p>
+          <p>
+	    Own Id: OTP-13927</p>
+        </item>
+        <item>
+          <p>
+	    Fixed so that when enabling tracing on a process that had
+	    an invalid tracer associated with it, the new tracer
+	    overwrites the old tracer. Before this fix, calling
+	    erlang:trace/3 would behave as if the tracer was still
+	    alive and not apply the new trace.</p>
+          <p>
+	    This fault was introduced in ERTS 8.0.</p>
+          <p>
+	    Own Id: OTP-13928</p>
+        </item>
+        <item>
+          <p>
+	    Fix parsing of <c>-profile_boot 'true' | 'false'</c></p>
+          <p>
+	    Own Id: OTP-13955 Aux Id: ERL-280 </p>
+        </item>
+        <item>
+          <p>
+	    A slight improvement of <c>erlang:get_stacktrace/0</c>
+	    for exceptions raised in hipe compiled code. Beam
+	    compiled functions in such stack trace was earlier
+	    replaced by some unrelated function. They are now instead
+	    omitted. This is an attempt to reduce the confusion in
+	    the absence of a complete and correct stack trace for
+	    mixed beam and hipe functions.</p>
+          <p>
+	    Own Id: OTP-13992</p>
+        </item>
+        <item>
+	    <p> Correct type declaration of match specification head.
+	    </p>
+          <p>
+	    Own Id: OTP-13996</p>
+        </item>
+        <item>
+          <p>
+	    HiPE code loading failed for x86_64 if gcc was configured
+	    with <c>--enable-default-pie</c>. Fixed by disabling PIE,
+	    if needed for HiPE, when building the VM.</p>
+          <p>
+	    Own Id: OTP-14031 Aux Id: ERL-294, PR-1239 </p>
+        </item>
+        <item>
+          <p>
+	    Faulty arguments could be presented on exception from a
+	    NIF that had rescheduled itself using
+	    <c>enif_schedule_nif()</c>.</p>
+          <p>
+	    Own Id: OTP-14048</p>
+        </item>
+        <item>
+          <p>
+	    The runtime system could crash if a garbage collection on
+	    a process was performed immediately after a NIF had been
+	    rescheduled using <c>enif_schedule_nif()</c>.</p>
+          <p>
+	    Own Id: OTP-14049</p>
+        </item>
+        <item>
+          <p>
+	    A reference to purged code could be left undetected by
+	    the purge operation if a process just had rescheduled a
+	    NIF call using <c>enif_schedule_nif()</c> when the
+	    process was checked. This could cause a runtime system
+	    crash.</p>
+          <p>
+	    Own Id: OTP-14050</p>
+        </item>
+        <item>
+	    <p>Fixed a number of dirty scheduler related bugs:</p>
+	    <list> <item><p>Process priority was not handled correct
+	    when scheduling on a dirty scheduler.</p></item>
+	    <item><p>The runtime system could crash when an exit
+	    signal with a compound exit reason was sent to a process
+	    executing on a dirty scheduler.</p></item> <item><p>The
+	    runtime system crashed when call tracing a process
+	    executing on a dirty scheduler.</p></item> <item><p>A
+	    code purge operation could end up hanging forever when a
+	    process executed on a dirty scheduler</p></item> </list>
+          <p>
+	    Own Id: OTP-14051</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a number of bugs that caused faulty stack-traces to
+	    be created on exception when a process was traced.</p>
+          <p>
+	    Own Id: OTP-14055</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix minor soft purge race bug that could incorrectly
+	    trigger code_server to load new code for the module if
+	    the soft purge failed and no current version of the
+	    module existed.</p>
+          <p>
+	    Own Id: OTP-13925</p>
+        </item>
+        <item>
+          <p>
+	    To ease troubleshooting, <c>erlang:load_nif/2</c> now
+	    includes the return value from a failed call to
+	    load/reload/upgrade in the text part of the error tuple.
+	    The <c>crypto</c> NIF makes use of this feature by
+	    returning the source line where/if the initialization
+	    fails.</p>
+          <p>
+	    Own Id: OTP-13951</p>
+        </item>
+        <item>
+          <p>
+	    New environment variable <c>ERL_CRASH_DUMP_BYTES</c> can
+	    be used to limit the size of crash dumps. If the limit is
+	    reached, crash dump generation is aborted and the
+	    generated file will be truncated.</p>
+          <p>
+	    Own Id: OTP-14046</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 8.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,60 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The shell script (priv/bin/cdv) and bat file
+	    (priv/bin/cdv.bat) which can be used for starting
+	    crashdump_viewer both started a distributed erlang node.
+	    This would cause any attempt at starting a second
+	    instance of the crashdump_viewer to fail. To solve this
+	    problem, cdv and cdv.bat now use non-distributed nodes
+	    when starting the crashdump_viewer.</p>
+          <p>
+	    Own Id: OTP-14010</p>
+        </item>
+        <item>
+          <p>
+	    A bug caused the number of buckets to be shown in the
+	    'Objects' column, and the number of objects to be shown
+	    in the 'Memory' column for ets table in crashdump_viewer.
+	    This is now corrected.</p>
+          <p>
+	    Own Id: OTP-14064</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add option <c>queue_size</c> to ttb:tracer/2. This sets
+	    the maximum queue size for the IP trace driver which is
+	    used when tracing to shell and/or <c>{local,File}</c>.</p>
+          <p>
+	    The default value for <c>queue_size</c> is specified by
+	    <c>dbg</c>, and it is now changed from 50 to 200.</p>
+          <p>
+	    Own Id: OTP-13829 Aux Id: seq13171 </p>
+        </item>
+        <item>
+          <p>
+	    The port information page is updated to show more
+	    information per port.</p>
+          <p>
+	    Own Id: OTP-13948 Aux Id: ERL-272 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

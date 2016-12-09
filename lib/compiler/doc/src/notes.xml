@@ -32,6 +32,41 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a compiler crash when maps were matched.</p>
+          <p>
+	    Own Id: OTP-13931 Aux Id: ERL-266 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a compiler crash having to with the delayed
+	    sub-creation optimization. (Thanks to Jose Valim for
+	    reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-13947 Aux Id: ERL-268 </p>
+        </item>
+        <item>
+	    <p>The compiler option <c>inline_list_funcs</c>
+	    accidentally turned off some other optimizations.</p>
+          <p>
+	    Own Id: OTP-13985</p>
+        </item>
+        <item>
+	    <p>The compiler could sometimes generate spurious
+	    warnings when inlining was enabled.</p>
+          <p>
+	    Own Id: OTP-14040 Aux Id: ERL-301 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

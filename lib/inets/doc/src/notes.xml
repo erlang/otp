@@ -33,7 +33,66 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.3.3</title>
+  <section><title>Inets 6.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixes a bug that makes the ftp client end up in bad state
+	    if there is a multi line response from the server and the
+	    response number is in the message being sent.</p>
+          <p>
+	    Own Id: OTP-13960 Aux Id: PR1196 </p>
+        </item>
+        <item>
+          <p>
+	    The ftp client could stop consuming messages when the
+	    multiline response handling was corrected.</p>
+          <p>
+	    Own Id: OTP-13967</p>
+        </item>
+        <item>
+          <p>
+	    Fix keep-alive https through proxy connections so that
+	    all requests, following the first one, will run as
+	    expected instead of failing.</p>
+          <p>
+	    Own Id: OTP-14041</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug from commit
+	    fdfda2fab0921d409789174556582db28141448e that could make
+	    listing of group members in mod_auth callbacks fail.</p>
+          <p>
+	    Own Id: OTP-14082</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update behavior of httpc:request to match RFC-7231</p>
+          <p>
+	    Own Id: OTP-13902</p>
+        </item>
+        <item>
+          <p>
+	    Fixed dialyzer warnings as well as some white-space
+	    issues. Thanks to Kostis.</p>
+          <p>
+	    Own Id: OTP-13982 Aux Id: PR-1207 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -32,7 +32,28 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.11.3</title>
+  <section><title>ODBC 2.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change configure to skip odbc for old MACs, the change in
+	    PR-1227 is not backwards compatible with old MACs, and we
+	    do not see a need to continue support for such old
+	    versions. However it is still possible to make it work on
+	    such machines using the --with-odbc configure option.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14083</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.11.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

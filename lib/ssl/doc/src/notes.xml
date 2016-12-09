@@ -28,6 +28,42 @@
   <p>This document describes the changes made to the SSL application.</p>
 
 
+<section><title>SSL 8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    List of possible anonymous suites, never supported by
+	    default, where incorrect for some TLS versions.</p>
+          <p>
+	    Own Id: OTP-13926</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Experimental version of DTLS. It is runnable but not
+	    complete and cannot be considered reliable for production
+	    usage.</p>
+          <p>
+	    Own Id: OTP-12982</p>
+        </item>
+        <item>
+          <p>
+	    Add API options to handle ECC curve selection.</p>
+          <p>
+	    Own Id: OTP-13959</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 8.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
