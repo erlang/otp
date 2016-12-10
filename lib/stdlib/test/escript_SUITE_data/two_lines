@@ -1,0 +1,2 @@
+#! /usr/bin/env escript
+main(MainArgs) -> io:format("main:~p\n", [MainArgs]), ErlArgs = init:get_arguments(), io:format("ERL_FLAGS=~p\n", [os:getenv("ERL_FLAGS")]), io:format("unknown:~p\n",[[E || E <- ErlArgs, element(1, E) =:= unknown]]).
