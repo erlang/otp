@@ -386,7 +386,7 @@ decode_msg(Msg, Parent, Name, State, Mod, Time, Debug, Hib) ->
 	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
 				  [Name, State, Mod, Time], Hib);
 	{'EXIT', Parent, Reason} ->
-	    terminate(Reason, Name, Msg, Mod, State, Debug);
+	    terminate(Reason, Name, undefined, Msg, Mod, State, Debug);
 	_Msg when Debug =:= [] ->
 	    handle_msg(Msg, Parent, Name, State, Mod);
 	_Msg ->
@@ -658,14 +658,14 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod) ->
 	    loop(Parent, Name, NState, Mod, Time1, []);
 	{ok, {stop, Reason, Reply, NState}} ->
 	    {'EXIT', R} = 
-		(catch terminate(Reason, Name, Msg, Mod, NState, [])),
+		(catch terminate(Reason, Name, From, Msg, Mod, NState, [])),
 	    reply(From, Reply),
 	    exit(R);
-	Other -> handle_common_reply(Other, Parent, Name, Msg, Mod, State)
+	Other -> handle_common_reply(Other, Parent, Name, From, Msg, Mod, State)
     end;
 handle_msg(Msg, Parent, Name, State, Mod) ->
     Reply = try_dispatch(Msg, Mod, State),
-    handle_common_reply(Reply, Parent, Name, Msg, Mod, State).
+    handle_common_reply(Reply, Parent, Name, undefined, Msg, Mod, State).
 
 handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, Debug) ->
     Result = try_handle_call(Mod, Msg, From, State),
@@ -686,31 +686,31 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, Debug) ->
 	    loop(Parent, Name, NState, Mod, Time1, Debug1);
 	{ok, {stop, Reason, Reply, NState}} ->
 	    {'EXIT', R} = 
-		(catch terminate(Reason, Name, Msg, Mod, NState, Debug)),
+		(catch terminate(Reason, Name, From, Msg, Mod, NState, Debug)),
 	    _ = reply(Name, From, Reply, NState, Debug),
 	    exit(R);
 	Other ->
-	    handle_common_reply(Other, Parent, Name, Msg, Mod, State, Debug)
+	    handle_common_reply(Other, Parent, Name, From, Msg, Mod, State, Debug)
     end;
 handle_msg(Msg, Parent, Name, State, Mod, Debug) ->
     Reply = try_dispatch(Msg, Mod, State),
-    handle_common_reply(Reply, Parent, Name, Msg, Mod, State, Debug).
+    handle_common_reply(Reply, Parent, Name, undefined, Msg, Mod, State, Debug).
 
-handle_common_reply(Reply, Parent, Name, Msg, Mod, State) ->
+handle_common_reply(Reply, Parent, Name, From, Msg, Mod, State) ->
     case Reply of
 	{ok, {noreply, NState}} ->
 	    loop(Parent, Name, NState, Mod, infinity, []);
 	{ok, {noreply, NState, Time1}} ->
 	    loop(Parent, Name, NState, Mod, Time1, []);
 	{ok, {stop, Reason, NState}} ->
-	    terminate(Reason, Name, Msg, Mod, NState, []);
+	    terminate(Reason, Name, From, Msg, Mod, NState, []);
 	{'EXIT', ExitReason, ReportReason} ->
-	    terminate(ExitReason, ReportReason, Name, Msg, Mod, State, []);
+	    terminate(ExitReason, ReportReason, Name, From, Msg, Mod, State, []);
 	{ok, BadReply} ->
-	    terminate({bad_return_value, BadReply}, Name, Msg, Mod, State, [])
+	    terminate({bad_return_value, BadReply}, Name, From, Msg, Mod, State, [])
     end.
 
-handle_common_reply(Reply, Parent, Name, Msg, Mod, State, Debug) ->
+handle_common_reply(Reply, Parent, Name, From, Msg, Mod, State, Debug) ->
     case Reply of
 	{ok, {noreply, NState}} ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
@@ -721,11 +721,11 @@ handle_common_reply(Reply, Parent, Name, Msg, Mod, State, Debug) ->
 				      {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, Time1, Debug1);
 	{ok, {stop, Reason, NState}} ->
-	    terminate(Reason, Name, Msg, Mod, NState, Debug);
+	    terminate(Reason, Name, From, Msg, Mod, NState, Debug);
 	{'EXIT', ExitReason, ReportReason} ->
-	    terminate(ExitReason, ReportReason, Name, Msg, Mod, State, Debug);
+	    terminate(ExitReason, ReportReason, Name, From, Msg, Mod, State, Debug);
 	{ok, BadReply} ->
-	    terminate({bad_return_value, BadReply}, Name, Msg, Mod, State, Debug)
+	    terminate({bad_return_value, BadReply}, Name, From, Msg, Mod, State, Debug)
     end.
 
 reply(Name, {To, Tag}, Reply, State, Debug) ->
@@ -743,7 +743,7 @@ system_continue(Parent, Debug, [Name, State, Mod, Time]) ->
 -spec system_terminate(_, _, _, [_]) -> no_return().
 
 system_terminate(Reason, _Parent, Debug, [Name, State, Mod, _Time]) ->
-    terminate(Reason, Name, [], Mod, State, Debug).
+    terminate(Reason, Name, undefined, [], Mod, State, Debug).
 
 system_code_change([Name, State, Mod, Time], _Module, OldVsn, Extra) ->
     case catch Mod:code_change(OldVsn, State, Extra) of
@@ -786,17 +786,17 @@ print_event(Dev, Event, Name) ->
 %%% Terminate the server.
 %%% ---------------------------------------------------
 
--spec terminate(_, _, _, _, _, _) -> no_return().
-terminate(Reason, Name, Msg, Mod, State, Debug) ->
-    terminate(Reason, Reason, Name, Msg, Mod, State, Debug).
-
 -spec terminate(_, _, _, _, _, _, _) -> no_return().
-terminate(ExitReason, ReportReason, Name, Msg, Mod, State, Debug) ->
+terminate(Reason, Name, From, Msg, Mod, State, Debug) ->
+    terminate(Reason, Reason, Name, From, Msg, Mod, State, Debug).
+
+-spec terminate(_, _, _, _, _, _, _, _) -> no_return().
+terminate(ExitReason, ReportReason, Name, From, Msg, Mod, State, Debug) ->
     Reply = try_terminate(Mod, ExitReason, State),
     case Reply of
 	{'EXIT', ExitReason1, ReportReason1} ->
 	    FmtState = format_status(terminate, Mod, get(), State),
-	    error_info(ReportReason1, Name, Msg, FmtState, Debug),
+	    error_info(ReportReason1, Name, From, Msg, FmtState, Debug),
 	    exit(ExitReason1);
 	_ ->
 	    case ExitReason of
@@ -808,17 +808,17 @@ terminate(ExitReason, ReportReason, Name, Msg, Mod, State, Debug) ->
 		    exit(Shutdown);
 		_ ->
 		    FmtState = format_status(terminate, Mod, get(), State),
-		    error_info(ReportReason, Name, Msg, FmtState, Debug),
+		    error_info(ReportReason, Name, From, Msg, FmtState, Debug),
 		    exit(ExitReason)
 	    end
     end.
 
-error_info(_Reason, application_controller, _Msg, _State, _Debug) ->
+error_info(_Reason, application_controller, _From, _Msg, _State, _Debug) ->
     %% OTP-5811 Don't send an error report if it's the system process
     %% application_controller which is terminating - let init take care
     %% of it instead
     ok;
-error_info(Reason, Name, Msg, State, Debug) ->
+error_info(Reason, Name, From, Msg, State, Debug) ->
     Reason1 = 
 	case Reason of
 	    {undef,[{M,F,A,L}|MFAs]} ->
@@ -835,14 +835,35 @@ error_info(Reason, Name, Msg, State, Debug) ->
 		end;
 	    _ ->
 		Reason
-	end,    
+	end,
+    {ClientFmt, ClientArgs} = client_stacktrace(From),
     format("** Generic server ~p terminating \n"
            "** Last message in was ~p~n"
            "** When Server state == ~p~n"
-           "** Reason for termination == ~n** ~p~n",
-	   [Name, Msg, State, Reason1]),
+           "** Reason for termination == ~n** ~p~n" ++ ClientFmt,
+	   [Name, Msg, State, Reason1] ++ ClientArgs),
     sys:print_log(Debug),
     ok.
+
+client_stacktrace(undefined) ->
+    {"", []};
+client_stacktrace({From, _Tag}) ->
+    client_stacktrace(From);
+client_stacktrace(From) when is_pid(From), node(From) =:= node() ->
+    case process_info(From, [current_stacktrace, registered_name]) of
+        undefined ->
+            {"** Client ~p is dead~n", [From]};
+        [{current_stacktrace, Stacktrace}, {registered_name, []}]  ->
+            {"** Client ~p stacktrace~n"
+             "** ~p~n",
+             [From, Stacktrace]};
+        [{current_stacktrace, Stacktrace}, {registered_name, Name}]  ->
+            {"** Client ~p stacktrace~n"
+             "** ~p~n",
+             [Name, Stacktrace]}
+    end;
+client_stacktrace(From) when is_pid(From) ->
+    {"** Client ~p is remote on node ~p~n", [From, node(From)]}.
 
 %%-----------------------------------------------------------------
 %% Status information
