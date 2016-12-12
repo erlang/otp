@@ -34,7 +34,8 @@ function({function,Name,Arity,CLabel,Asm0}) ->
     try
 	Asm1 = beam_utils:live_opt(Asm0),
 	Asm2 = opt(Asm1, [], tdb_new()),
-	Asm = beam_utils:delete_live_annos(Asm2),
+	Asm3 = beam_utils:live_opt(Asm2),
+	Asm = beam_utils:delete_live_annos(Asm3),
 	{function,Name,Arity,CLabel,Asm}
     catch
 	Class:Error ->

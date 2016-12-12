@@ -768,6 +768,8 @@ live_opt_block([{set,Ds,Ss,Op}=I0|Is], Regs0, D, Acc) ->
 	_ ->
 	    live_opt_block(Is, Regs, D, [I|Acc])
     end;
+live_opt_block([{'%live',_,_}|Is], Regs, D, Acc) ->
+    live_opt_block(Is, Regs, D, Acc);
 live_opt_block([], Regs, _, Acc) -> {Acc,Regs}.
 
 live_join_labels([{f,L}|T], D, Regs0) when L =/= 0 ->
