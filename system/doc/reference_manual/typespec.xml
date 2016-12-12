@@ -63,7 +63,7 @@
       Types consist of, and are built from, a set of predefined types,
       for example, <c>integer()</c>, <c>atom()</c>, and <c>pid()</c>.
       Predefined types represent a typically infinite set of Erlang terms that
-      belong to this type.  For example, the type <c>atom()</c> stands for the
+      belong to this type.  For example, the type <c>atom()</c> denotes the
       set of all Erlang atoms.
     </p>
     <p>
@@ -131,11 +131,11 @@
         | nonempty_improper_list(Type1, Type2) %% Type1 and Type2 as above
         | nonempty_list(Type)                  %% Proper non-empty list
 
-  Map :: map()                                 %% stands for a map of any size
-       | #{}                                   %% stands for the empty map
+  Map :: map()                                 %% denotes a map of any size
+       | #{}                                   %% denotes the empty map
        | #{PairList}
 
-  Tuple :: tuple()                             %% stands for a tuple of any size
+  Tuple :: tuple()                             %% denotes a tuple of any size
          | {}
          | {TList}
 
