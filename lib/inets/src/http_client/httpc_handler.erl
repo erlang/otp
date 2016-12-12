@@ -493,7 +493,7 @@ handle_info({Proto, _Socket, Data},
                 {noreply, NewState#state{mfa     = NewMFA,
                                          request = NewRequest}};
             {Module, decode_size,
-             [TotalChunk, HexList,
+             [TotalChunk, HexList, AccHeaderSize,
               {MaxBodySize, BodySoFar, AccLength, MaxHeaderSize}]}
               when BodySoFar =/= <<>> ->
                 ?hcrd("data processed - decode_size", []),
@@ -503,7 +503,7 @@ handle_info({Proto, _Socket, Data},
                 {_, NewBody, NewRequest} = stream(BodySoFar, Request, Code),
                 NewState = next_body_chunk(State, Code),
                 NewMFA   = {Module, decode_size,
-                            [TotalChunk, HexList,
+                            [TotalChunk, HexList, AccHeaderSize,
                              {MaxBodySize, NewBody, AccLength, MaxHeaderSize}]},
                 {noreply, NewState#state{mfa     = NewMFA,
                                          request = NewRequest}};
