@@ -142,8 +142,8 @@
   PairList :: Pair
             | Pair, PairList
 
-  Pair :: Type := Type                         %% denotes a pair that must be present
-        | Type => Type
+  Pair :: Type := Type                         %% denotes a mandatory pair
+        | Type => Type                         %% denotes an optional pair
 
   TList :: Type
          | Type, TList
@@ -176,7 +176,11 @@
     The general form of maps is <c>#{PairList}</c>. The key types in
     <c>PairList</c> are allowed to overlap, and if they do, the
     leftmost pair takes precedence. A map pair has a key in
-    <c>PairList</c> if it belongs to this type.
+    <c>PairList</c> if it belongs to this type. A <c>PairList</c> may contain
+    both 'mandatory' and 'optional' pairs where 'mandatory' denotes that
+    a key type, and its associated value type, must be present.
+    In the case of an 'optional' pair it is not required for the key type to
+    be present.
   </p>
   <p>
     Notice that the syntactic representation of <c>map()</c> is
