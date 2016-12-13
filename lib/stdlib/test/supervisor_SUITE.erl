@@ -55,7 +55,7 @@
 	  temporary_abnormal/1, temporary_bystander/1]).
 
 %% Restart strategy tests 
--export([ multiple_restarts/1,
+-export([ multiple_restarts/1, delayed_restarts/1, delayed_restarts_too_many/1,
 	  one_for_one/1,
 	  one_for_one_escalation/1, one_for_all/1,
 	  one_for_all_escalation/1, one_for_all_other_child_fails_restart/1,
@@ -83,7 +83,7 @@ suite() ->
 all() -> 
     [{group, sup_start}, {group, sup_start_map}, {group, sup_stop}, child_adm,
      child_adm_simple, extra_return, child_specs, sup_flags,
-     multiple_restarts,
+     multiple_restarts, delayed_restarts, delayed_restarts_too_many,
      {group, restart_one_for_one},
      {group, restart_one_for_all},
      {group, restart_simple_one_for_one},
@@ -955,6 +955,69 @@ multiple_restarts(Config) when is_list(Config) ->
     exit(SupPid, kill),
     ok.
 
+
+%%-------------------------------------------------------------------------
+%% Test restarting a process multiple times with incremental restart delay.
+delayed_restarts(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+              start => {supervisor_1, start_reg_child, []},
+              restart => permanent,
+              shutdown => brutal_kill,
+              type => worker,
+              modules => []},
+    SupFlags = #{strategy => one_for_one,
+                intensity => 10,
+                period => 1,  % short period
+                min_delay => 1,
+                max_delay => 50},
+    {ok, SupPid} = start_link({ok, {SupFlags, []}}),
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+
+    %% steal the name for a while, preventing immediate restart
+    %% but allowing for a recovery within about 5 attempts
+    unregister(child_name),
+    register(child_name, self()),
+    timer:apply_after(50, erlang, unregister, [child_name]),
+    terminate(SupPid, CPid1, child1, abnormal),
+    timer:sleep(200),
+
+    %% the child should now exist with a new pid
+    [{child1, CPid2, _, _}] = supervisor:which_children(sup_test),
+    false = (CPid2 =:= CPid1),
+
+    %% Verify that the supervisor is still alive and clean up.
+    ok = supervisor:terminate_child(SupPid, child1),
+    ok = supervisor:delete_child(SupPid, child1),
+    exit(SupPid, kill),
+    ok.
+
+delayed_restarts_too_many(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+              start => {supervisor_1, start_reg_child, []},
+              restart => permanent,
+              shutdown => brutal_kill,
+              type => worker,
+              modules => []},
+    SupFlags = #{strategy => one_for_one,
+                intensity => 10,
+                period => 30,  % long enough period
+                min_delay => 1,
+                max_delay => 50},
+    {ok, SupPid} = start_link({ok, {SupFlags, []}}),
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+
+    %% steal the name for a long time, making the supervisor give up
+    unregister(child_name),
+    register(child_name, self()),
+    timer:apply_after(500, erlang, unregister, [child_name]),
+    terminate(SupPid, CPid1, child1, abnormal),
+    timer:sleep(500),
+
+    %% Verify that the supervisor is gone
+    false = erlang:is_process_alive(SupPid),
+    ok.
 
 %%-------------------------------------------------------------------------
 %% Test the one_for_one base case.

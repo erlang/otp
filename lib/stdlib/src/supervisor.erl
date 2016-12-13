@@ -31,7 +31,6 @@
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3, format_status/2]).
--export([try_again_restart/2]).
 
 %% For release_handler only
 -export([get_callback_module/1]).
@@ -84,7 +83,9 @@
 %% Defaults
 -define(default_flags, #{strategy  => one_for_one,
 			 intensity => 1,
-			 period    => 5000  % milliseconds internally
+			 period    => 5000, % milliseconds internally
+                         min_delay => 1,   % 1 ms delay is often all you need
+                         max_delay => 500  % cap at two per second
                         }).
 -define(default_child_spec, #{restart  => permanent,
 			      type     => worker}).
@@ -119,6 +120,8 @@
 		intensity              :: non_neg_integer() | 'undefined',
 		period                 :: pos_integer() | 'undefined',
 		restarts = {0,[],[]},
+                min_delay = 1          :: non_neg_integer(),
+                max_delay = 0          :: non_neg_integer(),
 		dynamic_restarts = 0   :: non_neg_integer(),
 	        module,
 	        args}).
@@ -245,17 +248,6 @@ check_childspecs(ChildSpecs) when is_list(ChildSpecs) ->
 	Error -> {error, Error}
     end;
 check_childspecs(X) -> {error, {badarg, X}}.
-
-%%%-----------------------------------------------------------------
-%%% Called by restart/2
--spec try_again_restart(SupRef, Child) -> ok when
-      SupRef :: sup_ref(),
-      Child :: child_id() | pid().
-try_again_restart(Supervisor, Child) ->
-    cast(Supervisor, {try_again_restart, Child}).
-
-cast(Supervisor, Req) ->
-    gen_server:cast(Supervisor, Req).
 
 %%%-----------------------------------------------------------------
 %%% Called by release_handler during upgrade
@@ -576,15 +568,25 @@ count_child(#child{pid = Pid, child_type = supervisor},
 	false -> {Specs+1, Active, Supers+1, Workers}
     end.
 
+%%% Hopefully cause a function-clause as there is no API function
+%%% that utilizes cast.
+-spec handle_cast('null', state()) -> {'noreply', state()}.
 
-%%% If a restart attempt failed, this message is cast
-%%% from restart/2 in order to give gen_server the chance to
-%%% check it's inbox before trying again.
--spec handle_cast({try_again_restart, child_id() | pid()}, state()) ->
-			 {'noreply', state()} | {stop, shutdown, state()}.
+handle_cast(null, State) ->
+    error_logger:error_msg("ERROR: Supervisor received cast-message 'null'~n",
+                           []),
+    {noreply, State}.
 
-handle_cast({try_again_restart,Pid}, #state{children=[Child]}=State)
+-type info_msg() :: {'EXIT', pid(), Reason :: term()}
+                  | {try_again_restart, child_id() | pid()}.
+
+-spec handle_info(info_msg(), state()) ->
+			 {'noreply', state()} | {'stop', 'shutdown', state()}.
+
+handle_info({try_again_restart,Pid}, #state{children=[Child]}=State)
   when ?is_simple(State) ->
+    %% If a restart attempt failed, this message is cast from restart/2 in
+    %% order to give gen_server a chance to check its inbox before retrying
     RT = Child#child.restart_type,
     RPid = restarting(Pid),
     case dynamic_child_args(RPid, RT, State#state.dynamics) of
@@ -601,7 +603,7 @@ handle_cast({try_again_restart,Pid}, #state{children=[Child]}=State)
             {noreply, State}
     end;
 
-handle_cast({try_again_restart,Name}, State) ->
+handle_info({try_again_restart,Name}, State) ->
     case lists:keyfind(Name,#child.name,State#state.children) of
 	Child = #child{pid=?restarting(_)} ->
 	    case restart(Child,State) of
@@ -612,15 +614,10 @@ handle_cast({try_again_restart,Name}, State) ->
 	    end;
 	_ ->
 	    {noreply,State}
-    end.
-
-%%
-%% Take care of terminated children.
-%%
--spec handle_info(term(), state()) ->
-        {'noreply', state()} | {'stop', 'shutdown', state()}.
+    end;
 
 handle_info({'EXIT', Pid, Reason}, State) ->
+    %% Take care of terminated children.
     case restart_child(Pid, Reason, State) of
 	{ok, State1} ->
 	    {noreply, State1};
@@ -784,22 +781,21 @@ should_restart(transient, _) -> true;
 should_restart(temporary, _) -> false.
 
 restart(Child, State) ->
-    case add_restart(State) of
+    Now = erlang:monotonic_time(milli_seconds),
+    Then = last_restart(State),
+    case add_restart(Now, State) of
 	{ok, NState} ->
 	    case restart(NState#state.strategy, Child, NState) of
 		{try_again,NState2} ->
-		    %% Leaving control back to gen_server before
-		    %% trying again. This way other incoming requsts
-		    %% for the supervisor can be handled - e.g. a
-		    %% shutdown request for the supervisor or the
-		    %% child.
 		    Id = if ?is_simple(State) -> Child#child.pid;
 			    true -> Child#child.name
 			 end,
-		    ok = try_again_restart(self(), Id),
+                    Delay = restart_delay(Now, Then, NState2),
+		    send_try_again(Id, Delay),
 		    {ok,NState2};
 		{try_again, NState2, #child{name=ChName}} ->
-		    ok = try_again_restart(self(), ChName),
+                    Delay = restart_delay(Now, Then, NState2),
+		    send_try_again(ChName, Delay),
 		    {ok,NState2};
 		Other ->
 		    Other
@@ -808,6 +804,32 @@ restart(Child, State) ->
 	    report_error(shutdown, reached_max_restart_intensity,
 			 Child, State#state.name),
 	    {shutdown, remove_child(Child, NState)}
+    end.
+
+%% Leaving control back to gen_server before trying again. This way other
+%% incoming requsts for the supervisor can be handled - e.g. a shutdown
+%% request for the supervisor or the child.
+send_try_again(Child, 0) ->
+    self() ! {try_again_restart, Child},  % don't go via timer
+    ok;
+send_try_again(Child, Delay) ->
+    _ = timer:send_after(Delay, self(), {try_again_restart, Child}),
+    ok.
+
+%% Compute the desired restart delay in milliseconds (0 for no delay) based
+%% on the latest restart found in the queue (if any).
+restart_delay(_Now, undefined, _State) ->
+    0;  % queue was empty - immediate restart
+restart_delay(Now, Then, #state{min_delay = MinD, max_delay = MaxD}) ->
+    %% The calculation is based on the delta of actual elapsed time between
+    %% restart attempts, not on the last used delay, to keep the backoff
+    %% behaviour connected to reality.
+    D = Now - Then,
+    if D > 2*MaxD ->
+            0;  % too long ago to consider related - immediate restart
+       true ->
+            %% note: setting max_delay to zero disables delayed restart
+            min(MaxD, max(MinD, 2*D))
     end.
 
 restart(simple_one_for_one, Child, State0) ->
@@ -1243,10 +1265,13 @@ init_state(SupName, SupFlags, Mod, Args) ->
 
 set_flags(Flags, State) ->
     try check_flags(Flags) of
-	#{strategy := Strategy, intensity := MaxIntensity, period := Period} ->
+	#{strategy := Strategy, intensity := MaxIntensity, period := Period,
+          min_delay := MinDelay, max_delay := MaxDelay} ->
 	    {ok, State#state{strategy = Strategy,
 			     intensity = MaxIntensity,
-			     period = Period * 1000  % milliseconds internally
+			     period = Period * 1000,  % milliseconds internally
+                             min_delay = max(MinDelay, 1), % never zero
+                             max_delay = MaxDelay  % can be zero
                             }}
     catch
 	Thrown -> Thrown
@@ -1263,10 +1288,15 @@ check_flags(What) ->
 
 do_check_flags(#{strategy := Strategy,
 		 intensity := MaxIntensity,
-		 period := Period} = Flags) ->
+		 period := Period,
+                 min_delay := MinDelay,
+                 max_delay := MaxDelay
+                } = Flags) ->
     validStrategy(Strategy),
     validIntensity(MaxIntensity),
     validPeriod(Period),
+    validDelay(MinDelay),
+    validDelay(MaxDelay),
     Flags.
 
 validStrategy(simple_one_for_one) -> true;
@@ -1282,6 +1312,10 @@ validIntensity(What)               -> throw({invalid_intensity, What}).
 validPeriod(Period) when is_integer(Period),
                          Period > 0 -> true;
 validPeriod(What)                   -> throw({invalid_period, What}).
+
+validDelay(Delay) when is_integer(Delay),
+                       Delay >= 0 -> true;
+validDelay(What)                  -> throw({invalid_delay, What}).
 
 supname(self, Mod) -> {self(), Mod};
 supname(N, _)      -> N.
@@ -1403,11 +1437,10 @@ child_to_spec(#child{name = Name,
 %%% Returns: {ok, State'} | {terminate, State'}
 %%% ------------------------------------------------------
 
-add_restart(State) ->  
+add_restart(Now, State) ->
     I = State#state.intensity,
     P = State#state.period,
     R = State#state.restarts,
-    Now = erlang:monotonic_time(milli_seconds),
     R1 = enqueue_restart(Now, dequeue_restarts(R, Now, P)),
     State1 = State#state{restarts = R1},
     case restart_count(R1) of
@@ -1447,6 +1480,10 @@ dequeue_restarts(N, In, [Time|Out1]=Out, Now, Period) ->
 	false ->
             dequeue_restarts(N-1, In, Out1, Now, Period)
     end.
+
+%% get the last entered restart in the queue, or 'undefined' if empty
+last_restart(#state{restarts={_, [Time|_], _}}) -> Time;
+last_restart(#state{}) -> undefined.
 
 %%% ------------------------------------------------------
 %%% Error and progress reporting.

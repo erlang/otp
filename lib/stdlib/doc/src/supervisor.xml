@@ -77,7 +77,9 @@
     <pre>
 sup_flags() = #{strategy => strategy(),         % optional
                 intensity => non_neg_integer(), % optional
-                period => pos_integer()}        % optional</pre>
+                period => pos_integer(),        % optional
+                min_delay => pos_integer(),     % optional
+                max_delay => pos_integer()}     % optional</pre>
 
     <p>A supervisor can have one of the following <em>restart strategies</em>
       specified with the <c>strategy</c> key in the above map:</p>
@@ -137,6 +139,18 @@ sup_flags() = #{strategy => strategy(),         % optional
       reason for the supervisor itself in that case will be <c>shutdown</c>.
       <c>intensity</c> defaults to <c>1</c> and <c>period</c> defaults to
       <c>5</c>.</p>
+
+    <p>In order not to use up all restart attempts in a very short time
+      before the error condition has had time to clear, a supervisor can
+      delay repeated restarts by exponential backoff, starting at
+      <c>min_delay</c> milliseconds and limited at <c>max_delay</c>
+      milliseconds. The delay happens asynchronously and does not block the
+      supervisor. By default, <c>min_delay</c> is 1 millisecond and
+      <c>max_delay</c> is 500 milliseconds. (In practice, in simple
+      situations like when the OS is still holding on to a socket, or the
+      Erlang process registry has not yet unregistered a name, only one or
+      two delayed restart attempts will typically be needed.) To disable
+      delayed restarts completely, set <c>max_delay</c> to zero.</p>
 
     <marker id="child_spec"/>
     <p>The type definition of a child specification is as follows:</p>

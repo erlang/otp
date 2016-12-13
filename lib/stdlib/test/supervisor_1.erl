@@ -21,7 +21,7 @@
 %% Is used by the supervisor_SUITE test suite.  
 -module(supervisor_1).
 
--export([start_child/0, start_child/1, init/1]).
+-export([start_child/0, start_child/1, start_reg_child/0, init/1]).
 
 -export([handle_call/3, handle_info/2, terminate/2]).
 
@@ -50,6 +50,12 @@ start_child(Extra) ->
 start_child() ->
     gen_server:start_link(?MODULE, normal, []).
 
+start_reg_child() ->
+    gen_server:start_link(?MODULE, register, []).
+
+init(register) ->
+    register(child_name, self()),
+    init(normal);
 init(normal) ->
     process_flag(trap_exit, true),
     {ok, {}}.
