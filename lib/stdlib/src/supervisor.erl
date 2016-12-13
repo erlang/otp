@@ -1235,10 +1235,10 @@ remove_child(Child, State) ->
 %% Purpose: Check that Type is of correct type (!)
 %% Returns: {ok, state()} | Error
 %%-----------------------------------------------------------------
-init_state(SupName, Type, Mod, Args) ->
-    set_flags(Type, #state{name = supname(SupName,Mod),
-			   module = Mod,
-			   args = Args}).
+init_state(SupName, SupFlags, Mod, Args) ->
+    set_flags(SupFlags, #state{name = supname(SupName,Mod),
+                               module = Mod,
+                               args = Args}).
 
 set_flags(Flags, State) ->
     try check_flags(Flags) of
