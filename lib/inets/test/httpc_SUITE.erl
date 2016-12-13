@@ -125,6 +125,7 @@ only_simulated() ->
      redirect_see_other,
      redirect_temporary_redirect,
      port_in_host_header,
+     redirect_port_in_host_header,
      relaxed
     ].
 
@@ -1102,6 +1103,12 @@ port_in_host_header(Config) when is_list(Config) ->
     Request = {url(group_name(Config), "/ensure_host_header_with_port.html", Config), []},
     {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], []),
     inets_test_lib:check_body(Body).
+%%-------------------------------------------------------------------------
+redirect_port_in_host_header(Config) when is_list(Config) ->
+
+    Request = {url(group_name(Config), "/redirect_ensure_host_header_with_port.html", Config), []},
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], []),
+    inets_test_lib:check_body(Body).
 
 %%-------------------------------------------------------------------------
 timeout_memory_leak() ->
@@ -1680,6 +1687,12 @@ handle_uri(_,"/ensure_host_header_with_port.html",_,Headers,_,_) ->
 	    "HTTP/1.1 500 Internal Server Error\r\n" ++
 		"Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
     end;
+handle_uri(_,"/redirect_ensure_host_header_with_port.html",Port,_,Socket,_) ->
+    NewUri = url_start(Socket) ++
+	integer_to_list(Port) ++ "/ensure_host_header_with_port.html",
+    "HTTP/1.1 302 Found \r\n" ++
+	"Location:" ++ NewUri ++  "\r\n" ++
+	"Content-Length:0\r\n\r\n";
 
 handle_uri(_,"/300.html",Port,_,Socket,_) ->
     NewUri = url_start(Socket) ++
