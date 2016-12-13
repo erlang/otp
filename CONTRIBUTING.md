@@ -85,7 +85,7 @@ Check your coding style:
 
 If you use Emacs, use the Erlang mode, and add the following lines to `.emacs`:
 
-    (setq indent-tabs-mode nil)
+    (setq-default indent-tabs-mode nil)
     (setq c-basic-offset 4)
 
 If you want to change the setting only for the Erlang mode, you can use a hook like this:
@@ -94,6 +94,5 @@ If you want to change the setting only for the Erlang mode, you can use a hook l
 (add-hook 'erlang-mode-hook 'my-erlang-hook)
 
 (defun my-erlang-hook ()
-  ( ;;; Untabify.
   (setq indent-tabs-mode nil))
 ```
