@@ -117,7 +117,7 @@
                                         | 'undefined',
 		intensity              :: non_neg_integer() | 'undefined',
 		period                 :: pos_integer() | 'undefined',
-		restarts = [],
+		restarts = {0,[],[]},
 		dynamic_restarts = 0   :: non_neg_integer(),
 	        module,
 	        args}).
@@ -1396,8 +1396,8 @@ child_to_spec(#child{name = Name,
 %%% Add a new restart and calculate if the max restart
 %%% intensity has been reached (in that case the supervisor
 %%% shall terminate).
-%%% All restarts accured inside the period amount of seconds
-%%% are kept in the #state.restarts list.
+%%% All restarts occurred inside the period amount of seconds
+%%% are kept in the #state.restarts queue.
 %%% Returns: {ok, State'} | {terminate, State'}
 %%% ------------------------------------------------------
 
@@ -1406,27 +1406,45 @@ add_restart(State) ->
     P = State#state.period,
     R = State#state.restarts,
     Now = erlang:monotonic_time(1),
-    R1 = add_restart([Now|R], Now, P),
+    R1 = enqueue_restart(Now, dequeue_restarts(R, Now, P)),
     State1 = State#state{restarts = R1},
-    case length(R1) of
+    case restart_count(R1) of
 	CurI when CurI  =< I ->
 	    {ok, State1};
 	_ ->
 	    {terminate, State1}
     end.
 
-add_restart([R|Restarts], Now, Period) ->
-    case inPeriod(R, Now, Period) of
-	true ->
-	    [R|add_restart(Restarts, Now, Period)];
-	_ ->
-	    []
-    end;
-add_restart([], _, _) ->
-    [].
+restart_count({N,_,_}) -> N.
 
-inPeriod(Then, Now, Period) ->
+
+in_period(Then, Now, Period) ->
     Now =< Then + Period.
+
+enqueue_restart(Now, {N,In,Out}) ->
+    {N+1,[Now|In],Out}.
+
+dequeue_restarts({N, In, Out}, Now, Period) ->
+    dequeue_restarts(N, In, Out, Now, Period).
+
+%% note that the latest added element must never be moved to the Out-list
+%% so that it can be inspected in constant time
+dequeue_restarts(_, [], [], _Now, _Period) ->
+    {0, [], []};
+dequeue_restarts(_, [Time]=In, [], Now, Period) ->
+    case in_period(Time, Now, Period) of
+        true  -> {1, In, []};
+        false -> {0, [], []}
+    end;
+dequeue_restarts(N, [Time|In], [], Now, Period) ->
+    dequeue_restarts(N, [Time], lists:reverse(In), Now, Period);
+dequeue_restarts(N, In, [Time|Out1]=Out, Now, Period) ->
+    case in_period(Time, Now, Period) of
+	true ->
+            {N, In, Out};
+	false ->
+            dequeue_restarts(N-1, In, Out1, Now, Period)
+    end.
 
 %%% ------------------------------------------------------
 %%% Error and progress reporting.
