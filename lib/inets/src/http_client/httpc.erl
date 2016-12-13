@@ -147,6 +147,26 @@ request(Method, Request, HttpOptions, Options) ->
     request(Method, Request, HttpOptions, Options, default_profile()). 
 
 request(Method, 
+	{Url, Headers, ContentType, TupleBody}, 
+	HTTPOptions, Options, Profile) 
+  when ((Method =:= post) orelse (Method =:= patch) orelse (Method =:= put) orelse (Method =:= delete)) 
+       andalso (is_atom(Profile) orelse is_pid(Profile)) andalso
+       is_list(ContentType)  andalso is_tuple(TupleBody)->
+    case check_body_gen(TupleBody) of
+	ok ->
+	    do_request(Method, {Url, Headers, ContentType, TupleBody}, HTTPOptions, Options, Profile);
+	Error ->
+	    Error
+    end;
+request(Method, 
+	{Url, Headers, ContentType, Body}, 
+	HTTPOptions, Options, Profile) 
+  when ((Method =:= post) orelse (Method =:= patch) orelse (Method =:= put) orelse (Method =:= delete)) 
+       andalso (is_atom(Profile) orelse is_pid(Profile)) andalso
+       is_list(ContentType) andalso (is_list(Body) orelse is_binary(Body)) ->
+    do_request(Method, {Url, Headers, ContentType, Body}, HTTPOptions, Options, Profile);
+
+request(Method, 
 	{Url, Headers}, 
 	HTTPOptions, Options, Profile) 
   when (Method =:= options) orelse 
@@ -166,21 +186,9 @@ request(Method,
 		    handle_request(Method, Url, ParsedUrl, Headers, [], [], 
 				   HTTPOptions, Options, Profile)
 	    end
-    end;
-     
-request(Method, 
-	{Url, Headers, ContentType, Body}, 
-	HTTPOptions, Options, Profile) 
-  when ((Method =:= post) orelse (Method =:= patch) orelse (Method =:= put) orelse
-	(Method =:= delete)) andalso (is_atom(Profile) orelse is_pid(Profile)) ->
-    ?hcrt("request", [{method,       Method}, 
-		      {url,          Url},
-		      {headers,      Headers}, 
-		      {content_type, ContentType}, 
-		      {body,         Body}, 
-		      {http_options, HTTPOptions}, 
-		      {options,      Options}, 
-		      {profile,      Profile}]),
+    end.
+
+do_request(Method, {Url, Headers, ContentType, Body}, HTTPOptions, Options, Profile) ->
     case uri_parse(Url, Options) of
 	{error, Reason} ->
 	    {error, Reason};
@@ -1225,3 +1233,10 @@ host_address(Host, false) ->
     Host;
 host_address(Host, true) ->
     string:strip(string:strip(Host, right, $]), left, $[).
+
+check_body_gen({Fun, _}) when is_function(Fun) -> 
+    ok;
+check_body_gen({chunkify, Fun, _}) when is_function(Fun) -> 
+    ok;
+check_body_gen(Gen) -> 
+    {error, {bad_body_generator, Gen}}.
