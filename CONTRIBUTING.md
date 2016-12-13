@@ -27,7 +27,7 @@ small code sample in the commit message or email a module that will provoke the 
 
 * It is recommended to discuss new features on
 [the erlang-questions mailing list](http://erlang.org/mailman/listinfo/erlang-questions),
-especially for major new features or any new features in Kernel or STDLIB.
+especially for major new features or any new features in ERTS, Kernel, or STDLIB.
 
 * It is important to write a good commit message explaining **why** the feature is needed.
 We prefer that the information is in the commit message, so that anyone that want to know 
@@ -47,9 +47,10 @@ that only makes sense one some platforms, for example the `win32reg` module for 
 compatibility in major releases and only for a very good reason. Usually we first deprecate the
 feature one or two releases beforehand.
 
-* In general, language changes/extensions or major updates to Kernel and STDLIB also require an
+* In general, language changes/extensions require an
 [EEP (Erlang Enhancement Proposal)](https://github.com/erlang/eep) to be written and approved before they 
-can be included in OTP.
+can be included in OTP. Major changes or new features in ERTS, Kernel, or STDLIB may need an EEP or at least
+a discussion on the mailing list.
 
 ## Before you submit your pull request
 
@@ -78,7 +79,6 @@ Check your coding style:
 
 * Do not commit commented-out code or files that are no longer needed. Remove the code or the files.
 
-* In most code (Erlang and C), indentation is 4 steps. Indentation using only spaces is preferred.
-If you indent using a combination of space and tabs, remember that **tabs are always 8 steps.** 
+* In most code (Erlang and C), indentation is 4 steps. Indentation using only spaces is **strongly recommended**.
 (If you use Emacs, use Erlang-mode, and add `(setq c-basic-offset 4)` to `.emacs` to get
 C code correctly indented.)
