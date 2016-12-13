@@ -1,12 +1,40 @@
-language: erlang
+language: c
 
-otp_release:
-  - 18.0
-
-sudo: false
+matrix:
+  include:
+    - os: linux
+      sudo: false
+      env: JOB=DEFAULT
+    - os: linux
+      sudo: false
+      env: JOB=MAX_CFG CUSTOM_CC="gcc-4.8" CUSTOM_CXX="g++-4.8" CFG_PARAMS="--enable-threads --enable-dirty-schedulers --enable-new-purge-strategy --enable-smp-support --enable-lock-checking --enable-lock-counter --enable-kernel-poll --enable-sctp --disable-hipe --enable-fp-exceptions --disable-vm-probes --disable-saved-compile-time --enable-sharing-preserving --enable-m64-build --enable-sanitizers=address --disable-silent-rules --without-dynamic-trace --with-microstate-accounting=extra --with-ets-write-concurrency-locks=256 --with-clock-resolution=high --with-javac --with-ssl --without-odbc"
+    - os: linux
+      sudo: false
+      env: JOB=MAX_CFG CUSTOM_CC="gcc-6" CUSTOM_CXX="g++-6" CUSTOM_LDFLAGS="-fuse-ld=gold" CFG_PARAMS="--enable-threads --enable-dirty-schedulers --enable-new-purge-strategy --enable-smp-support --enable-lock-checking --enable-lock-counter --enable-kernel-poll --enable-sctp --disable-hipe --enable-fp-exceptions --disable-vm-probes --disable-saved-compile-time --enable-sharing-preserving --enable-m64-build --enable-sanitizers=address --disable-silent-rules --without-dynamic-trace --with-microstate-accounting=extra --with-ets-write-concurrency-locks=256 --with-clock-resolution=high --with-javac --with-ssl --without-odbc"
+    - os: linux
+      sudo: false
+      env: JOB=MAX_CFG CUSTOM_CC="clang-3.8" CUSTOM_CXX="clang++-3.8" CFG_PARAMS="--enable-threads --enable-dirty-schedulers --enable-new-purge-strategy --enable-smp-support --enable-lock-checking --enable-lock-counter --enable-kernel-poll --enable-sctp --disable-hipe --enable-fp-exceptions --disable-vm-probes --disable-saved-compile-time --enable-sharing-preserving --enable-m64-build --enable-sanitizers=address --disable-silent-rules --without-dynamic-trace --with-microstate-accounting=extra --with-ets-write-concurrency-locks=256 --with-clock-resolution=high --with-javac --with-ssl --without-odbc"
+    - os: osx
+      osx_image: xcode7.1
+      env: JOB=DEFAULT
+    - os: osx
+      osx_image: xcode7.1
+      env: JOB=MAX_CFG CFG_PARAMS="--enable-threads --enable-dirty-schedulers --enable-new-purge-strategy --enable-smp-support --enable-lock-checking --enable-lock-counter --enable-kernel-poll --enable-sctp --disable-hipe --enable-fp-exceptions --enable-vm-probes --disable-saved-compile-time --enable-sharing-preserving --enable-m64-build --enable-sanitizers=address --disable-silent-rules --with-dynamic-trace=dtrace --with-microstate-accounting=extra --with-ets-write-concurrency-locks=256 --with-clock-resolution=high --with-javac --with-ssl --without-odbc"
+    - os: osx
+      osx_image: xcode7.3
+      env: JOB=MAX_CFG CFG_PARAMS="--enable-threads --enable-dirty-schedulers --enable-new-purge-strategy --enable-smp-support --enable-lock-checking --enable-lock-counter --enable-kernel-poll --enable-sctp --disable-hipe --enable-fp-exceptions --enable-vm-probes --disable-saved-compile-time --enable-sharing-preserving --enable-m64-build --enable-sanitizers=address --disable-silent-rules --with-dynamic-trace=dtrace --with-microstate-accounting=extra --with-ets-write-concurrency-locks=256 --with-clock-resolution=high --with-javac --with-ssl --without-odbc"
+    - os: osx
+      osx_image: xcode8
+      env: JOB=DEFAULT
+    - os: osx
+      osx_image: xcode8
+      env: JOB=MAX_CFG CFG_PARAMS="--enable-threads --enable-dirty-schedulers --enable-new-purge-strategy --enable-smp-support --enable-lock-checking --enable-lock-counter --enable-kernel-poll --enable-sctp --disable-hipe --enable-fp-exceptions --enable-vm-probes --disable-saved-compile-time --enable-sharing-preserving --enable-m64-build --enable-sanitizers=address --disable-silent-rules --with-dynamic-trace=dtrace --with-microstate-accounting=extra --with-ets-write-concurrency-locks=256 --with-clock-resolution=high --with-javac --with-ssl --without-odbc"
 
 addons:
   apt:
+    sources:
+      - ubuntu-toolchain-r-test
+      - llvm-toolchain-precise-3.8
     packages:
       - autoconf
       - libncurses-dev
@@ -19,6 +47,11 @@ addons:
       - default-jdk
       - g++
       - xsltproc
+      - gcc-4.8
+      - g++-4.8
+      - gcc-6
+      - g++-6
+      - clang-3.8
 
 before_script:
   - set -e
@@ -26,11 +59,10 @@ before_script:
   - export PATH=$ERL_TOP/bin:$PATH
   - export ERL_LIBS=''
   - export MAKEFLAGS=-j6
-  - kerl_deactivate
 
 script:
-  - ./otp_build all -a
-  
+  - case $JOB-$TRAVIS_OS_NAME in DEFAULT-*) ./otp_build all -a;; MAX_CFG-linux) ( export CC=${CUSTOM_CC:?} && export CXX=${CUSTOM_CXX:?} && export LDFLAGS=$CUSTOM_LDFLAGS && ./otp_build autoconf && ./otp_build configure ${CFG_PARAMS:?} && { ls -l erts/config.status && cat erts/config.status && ls -l erts/config.status; } && ./otp_build boot -a && ./otp_build release -a; );; MAX_CFG-osx) ./otp_build autoconf && ./otp_build configure ${CFG_PARAMS:?} && { ls -l erts/config.status && cat erts/config.status && ls -l erts/config.status; } && ./otp_build boot -a && ./otp_build release -a;; esac
+
 after_success:
   - $ERL_TOP/bin/dialyzer --build_plt --apps asn1 compiler crypto dialyzer edoc erts et hipe inets kernel mnesia observer public_key runtime_tools snmp ssh ssl stdlib syntax_tools wx xmerl --statistics
   - $ERL_TOP/bin/dialyzer -n -Wunknown -Wunmatched_returns --apps compiler erts kernel stdlib --statistics
