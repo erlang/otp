@@ -49,7 +49,7 @@ feature one or two releases beforehand.
 
 * In general, language changes/extensions require an
 [EEP (Erlang Enhancement Proposal)](https://github.com/erlang/eep) to be written and approved before they 
-can be included in OTP. Major changes or new features in ERTS, Kernel, or STDLIB may need an EEP or at least
+can be included in OTP. Major changes or new features in ERTS, Kernel, or STDLIB will need an EEP or at least
 a discussion on the mailing list.
 
 ## Before you submit your pull request
