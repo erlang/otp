@@ -84,7 +84,8 @@
 %% Defaults
 -define(default_flags, #{strategy  => one_for_one,
 			 intensity => 1,
-			 period    => 5}).
+			 period    => 5000  % milliseconds internally
+                        }).
 -define(default_child_spec, #{restart  => permanent,
 			      type     => worker}).
 %% Default 'shutdown' is 5000 for workers and infinity for supervisors.
@@ -1245,7 +1246,8 @@ set_flags(Flags, State) ->
 	#{strategy := Strategy, intensity := MaxIntensity, period := Period} ->
 	    {ok, State#state{strategy = Strategy,
 			     intensity = MaxIntensity,
-			     period = Period}}
+			     period = Period * 1000  % milliseconds internally
+                            }}
     catch
 	Thrown -> Thrown
     end.
@@ -1396,7 +1398,7 @@ child_to_spec(#child{name = Name,
 %%% Add a new restart and calculate if the max restart
 %%% intensity has been reached (in that case the supervisor
 %%% shall terminate).
-%%% All restarts occurred inside the period amount of seconds
+%%% All restarts occurred inside the period amount of milliseconds
 %%% are kept in the #state.restarts queue.
 %%% Returns: {ok, State'} | {terminate, State'}
 %%% ------------------------------------------------------
@@ -1405,7 +1407,7 @@ add_restart(State) ->
     I = State#state.intensity,
     P = State#state.period,
     R = State#state.restarts,
-    Now = erlang:monotonic_time(1),
+    Now = erlang:monotonic_time(milli_seconds),
     R1 = enqueue_restart(Now, dequeue_restarts(R, Now, P)),
     State1 = State#state{restarts = R1},
     case restart_count(R1) of
