@@ -46,44 +46,22 @@
     Than Recursive Functions</title>
 
     <p><marker id="tail_recursive"></marker>According to the myth,
-    recursive functions leave references
-    to dead terms on the stack and the garbage collector has to copy
-    all those dead terms, while tail-recursive functions immediately
-    discard those terms.</p>
+    using a tail-recursive function that builds a list in reverse
+    followed by a call to <c>lists:reverse/1</c> is faster than
+    a body-recursive function that builds the list in correct order;
+    the reason being that body-recursive functions use more memory than
+    tail-recursive functions.</p>
 
-    <p>That used to be true before R7B. In R7B, the compiler started
-    to generate code that overwrites references to terms that will never
-    be used with an empty list, so that the garbage collector would not
-    keep dead values any longer than necessary.</p>
+    <p>That was true to some extent before R12B. It was even more true
+    before R7B. Today, not so much. A body-recursive function
+    generally uses the same amount of memory as a tail-recursive
+    function. It is generally not possible to predict whether the
+    tail-recursive or the body-recursive version will be
+    faster. Therefore, use the version that makes your code cleaner
+    (hint: it is usually the body-recursive version).</p>
 
-    <p>Even after that optimization, a tail-recursive function is
-    still most of the times faster than a body-recursive function. Why?</p>
-
-    <p>It has to do with how many words of stack that are used in each
-    recursive call. In most cases, a recursive function uses more words
-    on the stack for each recursion than the number of words a tail-recursive
-    would allocate on the heap. As more memory is used, the garbage
-    collector is invoked more frequently, and it has more work traversing
-    the stack.</p>
-
-    <p>In R12B and later releases, there is an optimization that
-    in many cases reduces the number of words used on the stack in
-    body-recursive calls. A body-recursive list function and a
-    tail-recursive function that calls <seealso
-    marker="stdlib:lists#reverse/1">lists:reverse/1</seealso> at
-    the end will use the same amount of memory.
-    <c>lists:map/2</c>, <c>lists:filter/2</c>, list comprehensions,
-    and many other recursive functions now use the same amount of space
-    as their tail-recursive equivalents.</p>
-
-    <p>So, which is faster?
-    It depends. On Solaris/Sparc, the body-recursive function seems to
-    be slightly faster, even for lists with a lot of elements. On the x86
-    architecture, tail-recursion was up to about 30% faster.</p>
-
-    <p>So, the choice is now mostly a matter of taste. If you really do need
-    the utmost speed, you must <em>measure</em>. You can no longer be
-    sure that the tail-recursive list function always is the fastest.</p>
+    <p>For a more thorough discussion about tail and body recursion,
+    see <url href="http://ferd.ca/erlang-s-tail-recursion-is-not-a-silver-bullet.html">Erlang's Tail Recursion is Not a Silver Bullet</url>.</p>
 
     <note><p>A tail-recursive function that does not need to reverse the
     list at the end is faster than a body-recursive function,
