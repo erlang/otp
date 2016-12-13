@@ -367,7 +367,7 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E},
 						h_sig = H_SIG
 					       }, Ssh0),
 	    {ok, SshPacket, Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}},
-				     shared_secret = K,
+				     shared_secret = ssh_bits:mpint(K),
 				     exchanged_hash = H,
 				     session_id = sid(Ssh1, H)}};
 
@@ -393,7 +393,7 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
 	    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
 		ok ->
 		    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
-		    {ok, SshPacket, Ssh#ssh{shared_secret  = K,
+		    {ok, SshPacket, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
 					    exchanged_hash = H,
 					    session_id = sid(Ssh, H)}};
 		Error ->
@@ -532,7 +532,7 @@ handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E},
 			ssh_packet(#ssh_msg_kex_dh_gex_reply{public_host_key = MyPubHostKey,
 							     f = Public,
 							     h_sig = H_SIG}, Ssh0),
-		    {ok, SshPacket, Ssh#ssh{shared_secret = K,
+		    {ok, SshPacket, Ssh#ssh{shared_secret = ssh_bits:mpint(K),
 					    exchanged_hash = H,
 					    session_id = sid(Ssh, H)
 					   }};
@@ -568,7 +568,7 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostK
 		    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
 			ok ->
 			    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
-			    {ok, SshPacket, Ssh#ssh{shared_secret  = K,
+			    {ok, SshPacket, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
 						    exchanged_hash = H,
 						    session_id = sid(Ssh, H)}};
 			_Error ->
@@ -618,7 +618,7 @@ handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
 						   h_sig = H_SIG},
 			   Ssh0),
     	    {ok, SshPacket, Ssh1#ssh{keyex_key = {{MyPublic,MyPrivate},Curve},
-				     shared_secret = K,
+				     shared_secret = ssh_bits:mpint(K),
 				     exchanged_hash = H,
 				     session_id = sid(Ssh1, H)}}
     catch
@@ -644,7 +644,7 @@ handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
 	    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
 		ok ->
 		    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
-		    {ok, SshPacket, Ssh#ssh{shared_secret  = K,
+		    {ok, SshPacket, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
 					    exchanged_hash = H,
 					    session_id = sid(Ssh, H)}};
 		Error ->
@@ -1577,7 +1577,7 @@ hash(SSH, Char, Bits) ->
 hash(_SSH, _Char, 0, _HASH) ->
     <<>>;
 hash(SSH, Char, N, HASH) ->
-    K = ssh_bits:mpint(SSH#ssh.shared_secret),
+K = SSH#ssh.shared_secret, %    K = ssh_bits:mpint(SSH#ssh.shared_secret),
     H = SSH#ssh.exchanged_hash,
     SessionID = SSH#ssh.session_id,
     K1 = HASH([K, H, Char, SessionID]),
