@@ -80,5 +80,8 @@ Check your coding style:
 * Do not commit commented-out code or files that are no longer needed. Remove the code or the files.
 
 * In most code (Erlang and C), indentation is 4 steps. Indentation using only spaces is **strongly recommended**.
-(If you use Emacs, use Erlang-mode, and add `(setq c-basic-offset 4)` to `.emacs` to get
-C code correctly indented.)
+
+If you use Emacs, use the Erlang mode, and add the following lines to `.emacs`:
+
+    (setq indent-tabs-mode nil)
+    (setq c-basic-offset 4)
