@@ -30,13 +30,7 @@
 -export([random/1]).
 
 %%%----------------------------------------------------------------
-name_list([Name]) -> to_bin(Name);
-name_list([Name|Ns]) -> <<(to_bin(Name))/binary, ",", (name_list(Ns))/binary>>;
-name_list([]) -> <<>>.
-
-to_bin(A) when is_atom(A) -> list_to_binary(atom_to_list(A));
-to_bin(S) when is_list(S) -> list_to_binary(S);
-to_bin(B) when is_binary(B) -> B.
+name_list(NamesList) -> list_to_binary(lists:join($,, NamesList)).
 
 %%%----------------------------------------------------------------
 %%% Multi Precision Integer encoding
