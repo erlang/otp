@@ -152,6 +152,11 @@ vanilla_reverse([], Acc) ->
 
     <p>That was once true, but from R6B the BEAM compiler can see
     that a variable is not used.</p>
+
+    <p>Similarly, trivial transformations on the source-code level
+    such as converting a <c>case</c> statement to clauses at the
+    top-level of the function seldom makes any difference to the
+    generated code.</p>
   </section>
 
   <section>
