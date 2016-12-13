@@ -743,45 +743,45 @@ handle_start_child(Child, State) ->
 %%% Returns: {ok, state()} | {shutdown, state()}
 %%% ---------------------------------------------------
 
-restart_child(Pid, Reason, #state{children = [Child]} = State) when ?is_simple(State) ->
-    RestartType = Child#child.restart_type,
-    case dynamic_child_args(Pid, RestartType, State#state.dynamics) of
-	{ok, Args} ->
-	    {M, F, _} = Child#child.mfargs,
-	    NChild = Child#child{pid = Pid, mfargs = {M, F, Args}},
-	    do_restart(RestartType, Reason, NChild, State);
-	error ->
-            {ok, State}
-    end;
-
 restart_child(Pid, Reason, State) ->
-    Children = State#state.children,
-    case lists:keyfind(Pid, #child.pid, Children) of
+    case find_child(Pid, State) of
 	#child{restart_type = RestartType} = Child ->
-	    do_restart(RestartType, Reason, Child, State);
+            report_crash(RestartType, Reason, Child, State),
+            case should_restart(RestartType, Reason) of
+                true ->
+                    restart(Child, State);
+                false ->
+                    {ok, state_del_child(Child, State)}
+            end;
 	false ->
 	    {ok, State}
     end.
 
-do_restart(permanent, Reason, Child, State) ->
-    report_error(child_terminated, Reason, Child, State#state.name),
-    restart(Child, State);
-do_restart(_, normal, Child, State) ->
-    NState = state_del_child(Child, State),
-    {ok, NState};
-do_restart(_, shutdown, Child, State) ->
-    NState = state_del_child(Child, State),
-    {ok, NState};
-do_restart(_, {shutdown, _Term}, Child, State) ->
-    NState = state_del_child(Child, State),
-    {ok, NState};
-do_restart(transient, Reason, Child, State) ->
-    report_error(child_terminated, Reason, Child, State#state.name),
-    restart(Child, State);
-do_restart(temporary, Reason, Child, State) ->
-    report_error(child_terminated, Reason, Child, State#state.name),
-    NState = state_del_child(Child, State),
-    {ok, NState}.
+find_child(Pid, #state{children = [Child]} = State) when ?is_simple(State) ->
+    RestartType = Child#child.restart_type,
+    case dynamic_child_args(Pid, RestartType, State#state.dynamics) of
+	{ok, Args} ->
+	    {M, F, _} = Child#child.mfargs,
+	    Child#child{pid = Pid, mfargs = {M, F, Args}};
+	error ->
+            false
+    end;
+find_child(Pid, State) ->
+    lists:keyfind(Pid, #child.pid, State#state.children).
+
+report_crash(Type, normal, _Child, _State) when Type =/= permanent ->
+    ok;
+report_crash(Type, shutdown, _Child, _State) when Type =/= permanent ->
+    ok;
+report_crash(_, Reason, Child, State) ->
+    report_error(child_terminated, Reason, Child, State#state.name).
+
+should_restart(permanent, _) -> true;
+should_restart(_, normal)    -> false;
+should_restart(_, shutdown)  -> false;
+should_restart(_, {shutdown, _Term})  -> false;
+should_restart(transient, _) -> true;
+should_restart(temporary, _) -> false.
 
 restart(Child, State) ->
     case add_restart(State) of
