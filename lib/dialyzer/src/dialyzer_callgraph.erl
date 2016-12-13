@@ -759,36 +759,19 @@ to_ps(#callgraph{} = CG, File, Args) ->
 
 condensation(G) ->
   SCs = digraph_utils:strong_components(G),
-  V2I = ets:new(condensation_v2i, []),
-  I2C = ets:new(condensation_i2c, []),
-  I2I = ets:new(condensation_i2i, [bag]),
-  CFun =
-    fun(SC, N) ->
-	lists:foreach(fun(V) -> true = ets:insert(V2I, {V,N}) end, SC),
-	true = ets:insert(I2C, {N, SC}),
-	N + 1
-    end,
-  lists:foldl(CFun, 1, SCs),
-  Fun1 =
-    fun({V1, V2}) ->
-        I1 = ets:lookup_element(V2I, V1, 2),
-        I2 = ets:lookup_element(V2I, V2, 2),
-	I1 =:= I2 orelse ets:insert(I2I, {I1, I2})
-    end,
-  lists:foreach(Fun1, digraph:edges(G)),
-  Fun3 =
-    fun({I1, I2}, {Out, In}) ->
-        SC1 = ets:lookup_element(I2C, I1, 2),
-        SC2 = ets:lookup_element(I2C, I2, 2),
-        {dict:append(SC1, SC2, Out), dict:append(SC2, SC1, In)}
-    end,
-  {OutDict, InDict} = ets:foldl(Fun3, {dict:new(), dict:new()}, I2I),
+  %% Subsitute strong components for vertices in edges:
+  C2V = sofs:relation([{SC, V} || SC <- SCs, V <- SC], [{scc, v}]),
+  Es = sofs:relation(digraph:edges(G), [{v, v}]),
+  R1 = sofs:relative_product(C2V, Es),
+  R2 = sofs:relative_product(C2V, sofs:converse(R1)),
+  %% Create in- and out-neighbours:
+  In = sofs:relation_to_family(sofs:strict_relation(R2)),
+  R3 = sofs:converse(R2),
+  Out = sofs:relation_to_family(sofs:strict_relation(R3)),
   [OutETS, InETS] =
     [ets:new(Name,[{read_concurrency, true}]) ||
       Name <- [callgraph_deps_out, callgraph_deps_in]],
-  ets:insert(OutETS, dict:to_list(OutDict)),
-  ets:insert(InETS, dict:to_list(InDict)),
-  ets:delete(V2I),
-  ets:delete(I2C),
-  ets:delete(I2I),
+  ets:insert(OutETS, sofs:to_external(Out)),
+  ets:insert(InETS, sofs:to_external(In)),
+  erlang:garbage_collect(),
   {{'e', OutETS, InETS}, SCs}.
