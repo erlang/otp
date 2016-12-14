@@ -148,10 +148,7 @@ string(Str, Dict) when is_list(Str) ->
 lambda(Lbl, NumFree, #asm{lambdas={OldIndex,Lambdas0}}=Dict) ->
     %% Set Index the same as OldIndex.
     Index = OldIndex,
-    %% Initialize OldUniq to 0. It will be set to an unique value
-    %% based on the MD5 checksum of the BEAM code for the module.
-    OldUniq = 0,
-    Lambdas = [{Lbl,{OldIndex,Lbl,Index,NumFree,OldUniq}}|Lambdas0],
+    Lambdas = [{Lbl,{Index,Lbl,NumFree}}|Lambdas0],
     {OldIndex,Dict#asm{lambdas={OldIndex+1,Lambdas}}}.
 
 %% Returns the index for a literal (adding it to the literal table if necessary).
@@ -239,8 +236,11 @@ lambda_table(#asm{locals=Loc0,lambdas={NumLambdas,Lambdas0}}) ->
     Lambdas1 = sofs:relation(Lambdas0),
     Loc = sofs:relation([{Lbl,{F,A}} || {F,A,Lbl} <- Loc0]),
     Lambdas2 = sofs:relative_product1(Lambdas1, Loc),
+    %% Initialize OldUniq to 0. It will be set to an unique value
+    %% based on the MD5 checksum of the BEAM code for the module.
+    OldUniq = 0,
     Lambdas = [<<F:32,A:32,Lbl:32,Index:32,NumFree:32,OldUniq:32>> ||
-		  {{_,Lbl,Index,NumFree,OldUniq},{F,A}} <- sofs:to_external(Lambdas2)],
+		  {{Index,Lbl,NumFree},{F,A}} <- sofs:to_external(Lambdas2)],
     {NumLambdas,Lambdas}.
 
 %% Returns the literal table.
