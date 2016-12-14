@@ -31,6 +31,48 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When a simple_one_for_one supervisor is shutting down,
+	    and a child exits with an exit reason of the form
+	    {shutdown, Term}, an error report was earlier printed.
+	    This is now corrected.</p>
+          <p>
+	    Own Id: OTP-13907 Aux Id: PR-1158, ERL-163 </p>
+        </item>
+        <item>
+	    <p> Allow empty list as parameter of the fun used with
+	    <c>dbg:fun2ms/1</c>. </p>
+          <p>
+	    Own Id: OTP-13974</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The new behaviour gen_statem has been improved with 3 new
+	    features: the possibility to use old style non-proxy
+	    timeouts for gen_statem:call/2,3, state entry code, and
+	    state timeouts. These are backwards compatible. Minor
+	    code and documentation improvements has been performed
+	    including a borderline semantics correction of timeout
+	    zero handling.</p>
+          <p>
+	    Own Id: OTP-13929 Aux Id: PR-1170, ERL-284 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

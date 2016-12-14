@@ -32,6 +32,35 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Allow string arguments to be binaries as specified, i.e.
+	    unicode:chardata().</p>
+          <p>
+	    Own Id: OTP-13934 Aux Id: ERL-270 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add wxWindow:dragAcceptFiles/2 and wxDropFilesEvent to
+	    support simple drag and drop from file browser.</p>
+          <p>
+	    Own Id: OTP-13933</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,39 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 5.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>code:add_pathsa/1</c> and command line option
+	    <c>-pa</c> both revert the given list of directories when
+	    adding it at the beginning of the code path. This is now
+	    documented.</p>
+          <p>
+	    Own Id: OTP-13920 Aux Id: ERL-267 </p>
+        </item>
+        <item>
+          <p>
+	    Add lost runtime dependency to erts-8.1. This should have
+	    been done in kernel-5.1 (OTP-19.1) as it cannot run
+	    without at least erts-8.1 (OTP-19.1).</p>
+          <p>
+	    Own Id: OTP-14003</p>
+        </item>
+        <item>
+          <p>
+	    Type and doc for gen_{tcp,udp,sctp}:controlling_process/2
+	    has been improved.</p>
+          <p>
+	    Own Id: OTP-14022 Aux Id: PR-1208 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

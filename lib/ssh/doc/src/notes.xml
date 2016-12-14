@@ -30,6 +30,50 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A file read with an sftp client could loose data if the
+	    packet_size is set to larger than 64k. This is corrected
+	    now in such a way that the packet_size is silently
+	    lowered if there is a risk for data loss.</p>
+          <p>
+	    Own Id: OTP-13857 Aux Id: ERL-238, OTP-13858 </p>
+        </item>
+        <item>
+          <p>
+	    When user defined SSH shell REPL process exits with
+	    reason normal, the SSH channel callback module should
+	    report successful exit status to the SSH client. This
+	    provides simple way for SSH clients to check for
+	    successful completion of executed commands. (Thanks to
+	    isvilen)</p>
+          <p>
+	    Own Id: OTP-13905 Aux Id: PR-1173 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Extended the option <c>silently_accept_hosts</c> for
+	    <c>ssh:connect</c> to make it possible for the client to
+	    check the SSH host key fingerprint string. Se the
+	    reference manual for SSH.</p>
+          <p>
+	    Own Id: OTP-13887 Aux Id: OTP-13888 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.3.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

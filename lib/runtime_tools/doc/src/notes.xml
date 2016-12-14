@@ -32,6 +32,33 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add option <c>queue_size</c> to ttb:tracer/2. This sets
+	    the maximum queue size for the IP trace driver which is
+	    used when tracing to shell and/or <c>{local,File}</c>.</p>
+          <p>
+	    The default value for <c>queue_size</c> is specified by
+	    <c>dbg</c>, and it is now changed from 50 to 200.</p>
+          <p>
+	    Own Id: OTP-13829 Aux Id: seq13171 </p>
+        </item>
+        <item>
+          <p>
+	    The port information page is updated to show more
+	    information per port.</p>
+          <p>
+	    Own Id: OTP-13948 Aux Id: ERL-272 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.10.1</title>
 
     <section><title>Improvements and New Features</title>
