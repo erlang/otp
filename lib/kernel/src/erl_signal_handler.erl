@@ -28,6 +28,10 @@
 init(_Args) ->
     {ok, #state{}}.
 
+handle_event(sigterm, S) ->
+    error_logger:info_msg("SIGTERM received - shutting down~n"),
+    ok = init:stop(),
+    {ok, S};
 handle_event(_SignalMsg, S) ->
     {ok, S}.
 

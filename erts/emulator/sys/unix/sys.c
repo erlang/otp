@@ -679,26 +679,6 @@ static RETSIGTYPE request_break(int signum)
 #endif
 }
 
-static void stop_requested(void) {
-    Process* p = NULL;
-    Eterm msg, *hp;
-    ErtsProcLocks locks = 0;
-    ErlOffHeap *ohp;
-    Eterm id = erts_whereis_name_to_id(NULL, am_init);
-
-    if ((p = (erts_pid2proc_opt(NULL, 0, id, 0, ERTS_P2P_FLG_INC_REFC))) != NULL) {
-        ErtsMessage *msgp = erts_alloc_message_heap(p, &locks, 3, &hp, &ohp);
-
-        /* init ! {stop,stop} */
-        msg = TUPLE2(hp, am_stop, am_stop);
-        erts_queue_message(p, locks, msgp, msg, am_system);
-
-        if (locks)
-            erts_smp_proc_unlock(p, locks);
-        erts_proc_dec_refc(p);
-    }
-}
-
 #if (defined(SIG_SIGSET) || defined(SIG_SIGNAL))
 static RETSIGTYPE request_stop(void)
 #else
@@ -706,9 +686,9 @@ static RETSIGTYPE request_stop(int signum)
 #endif
 {
 #ifdef ERTS_SMP
-    smp_sig_notify('S');
+    smp_sig_notify('T');
 #else
-    stop_requested();
+    signal_notify_requested(am_sigterm);
 #endif
 }
 
@@ -1330,8 +1310,8 @@ signal_dispatcher_thread_func(void *unused)
             case 'H': /* SIGHUP */
                 signal_notify_requested(am_sighup);
                 break;
-	    case 'S': /* SIGTERM */
-		stop_requested();
+	    case 'T': /* SIGTERM */
+                signal_notify_requested(am_sigterm);
 		break;
 	    case 'I': /* SIGINT */
 		break_requested();

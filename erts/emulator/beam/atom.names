@@ -592,6 +592,7 @@ atom set_tcw_fake
 atom separate
 atom shared
 atom sighup
+atom sigterm
 atom silent
 atom size
 atom sl_alloc
