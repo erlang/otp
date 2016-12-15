@@ -4067,7 +4067,7 @@ non-whitespace characters following the point on the current line."
     nil)))
 
 
-(defun erlang-electric-arrow\ off (&optional arg)
+(defun erlang-electric-arrow (&optional arg)
   "Insert a '>'-sign and possibly a new indented line.
 
 This command is only `electric' when the `>' is part of an `->' arrow.
