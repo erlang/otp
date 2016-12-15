@@ -130,6 +130,11 @@
 
 -import(lists, [reverse/1,reverse/2,foldl/3]).
 
+-type instruction() :: beam_utils:instruction().
+
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
     Fs = [function(F) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
@@ -269,9 +274,9 @@ extract_seq_1(_, _) -> no.
 
 -record(st,
 	{
-	  entry,		     %Entry label (must not be moved).
-	  mlbl,			     %Moved labels.
-	  labels :: cerl_sets:set()  %Set of referenced labels.
+	  entry :: beam_asm:label(), %Entry label (must not be moved).
+	  mlbl :: #{beam_asm:label() := [beam_asm:label()]}, %Moved labels.
+	  labels :: cerl_sets:set()         %Set of referenced labels.
 	}).
 
 opt(Is0, CLabel) ->
@@ -453,6 +458,8 @@ is_label_used(L, St) ->
 %% is_unreachable_after(Instruction) -> boolean()
 %%  Test whether the code after Instruction is unreachable.
 
+-spec is_unreachable_after(instruction()) -> boolean().
+
 is_unreachable_after({func_info,_M,_F,_A}) -> true;
 is_unreachable_after(return) -> true;
 is_unreachable_after({jump,_Lbl}) -> true;
@@ -465,6 +472,8 @@ is_unreachable_after(I) -> is_exit_instruction(I).
 %%  Test whether the instruction Instruction always
 %%  causes an exit/failure.
 
+-spec is_exit_instruction(instruction()) -> boolean().
+
 is_exit_instruction({call_ext,_,{extfunc,M,F,A}}) ->
     erl_bifs:is_exit_bif(M, F, A);
 is_exit_instruction(if_end) -> true;
@@ -476,6 +485,8 @@ is_exit_instruction(_) -> false.
 %% remove_unused_labels(Instructions0) -> Instructions
 %%  Remove all unused labels. Also remove unreachable
 %%  instructions following labels that are removed.
+
+-spec remove_unused_labels([instruction()]) -> [instruction()].
 
 remove_unused_labels(Is) ->
     Used0 = initial_labels(Is),
