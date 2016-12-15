@@ -23,8 +23,8 @@
 ;; Crawl Erlang/OTP HTML documentation and generate lookup tables.
 ;;
 ;; This package depends on `cl-lib', `pcase' and
-;; `libxml-parse-html-region'; emacs 24+ compiled with libxml2 should
-;; work. On emacs 24.1 and 24.2 do `M-x package-install RET cl-lib
+;; `libxml-parse-html-region'.  Emacs 24+ compiled with libxml2 should
+;; work.  On Emacs 24.1 and 24.2 do `M-x package-install RET cl-lib
 ;; RET' to install `cl-lib'.
 ;;
 ;; Please customise `erldoc-man-index' to point to your local OTP
@@ -67,7 +67,7 @@
 (eval-and-compile                       ;for emacs < 24.3
   (or (fboundp 'user-error) (defalias 'user-error 'error)))
 
-(defgroup erldoc nil
+(defgroup erldoc 'erlang
   "Browse Erlang document."
   :group 'help)
 
@@ -505,4 +505,10 @@ up the indexing."
   (browse-url (cdr (assoc topic (erldoc-user-guides)))))
 
 (provide 'erldoc)
+
+;; Local variables:
+;; coding: utf-8
+;; indent-tabs-mode: nil
+;; End:
+
 ;;; erldoc.el ends here
