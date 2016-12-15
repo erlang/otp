@@ -1038,7 +1038,7 @@ oldprep(Config) ->
 
 prepare(Config0) ->
     PrivDir = proplists:get_value(priv_dir, Config0),
-    Dir = filename:join(PrivDir, random_chars(10)),
+    Dir = filename:join(PrivDir, ssh_test_lib:random_chars(10)),
     file:make_dir(Dir),
     Keys = [filename,
 	    testfile,
@@ -1057,8 +1057,6 @@ prepare(Config0) ->
     {ok,_} = file:copy(FilenameSrc, FilenameDst),
     [{sftp_priv_dir,Dir} | Config2].
 
-
-random_chars(N) -> [crypto:rand_uniform($a,$z) || _<-lists:duplicate(N,x)].
 
 foldl_keydelete(Keys, L) ->
     lists:foldl(fun(K,E) -> lists:keydelete(K,1,E) end, 
