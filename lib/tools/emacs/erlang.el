@@ -2959,7 +2959,7 @@ Return nil if inside string, t if in a comment."
                       ;; Removed it made multi clause fun's look to bad
                       (setq off (+ erlang-indent-level (if (not erlang-icr-indent)
                                                            erlang-indent-level
-                                                         erlang-icr-indent))))) 
+                                                         erlang-icr-indent)))))
                (let ((base (erlang-indent-find-base stack indent-point off skip)))
                  ;; Special cases
                  (goto-char indent-point)
@@ -3822,10 +3822,10 @@ In the future the list may contain more elements."
   "Returns non-nil if there is an exported function in the current
 buffer between point and MAX."
   (block nil
-    (while (and (not erlang-inhibit-exported-function-name-face)
-                (erlang-match-next-function max))
-      (when (erlang-last-match-exported-p)
-        (return (match-data))))))
+         (while (and (not erlang-inhibit-exported-function-name-face)
+                     (erlang-match-next-function max))
+           (when (erlang-last-match-exported-p)
+             (return (match-data))))))
 
 (defun erlang-match-next-function (max)
   "Searches forward in current buffer for the next erlang function,
