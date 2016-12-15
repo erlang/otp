@@ -173,17 +173,25 @@ env_default_opts() ->
 
 do_compile(Input, Opts0) ->
     Opts = expand_opts(Opts0),
-    {Pid,Ref} =
-	spawn_monitor(fun() ->
-			      exit(try
-				       internal(Input, Opts)
-				   catch
-				       error:Reason ->
-					   {error,Reason}
-				   end)
-		      end),
-    receive
-	{'DOWN',Ref,process,Pid,Rep} -> Rep
+    IntFun = fun() -> try
+                          internal(Input, Opts)
+                      catch
+                          error:Reason ->
+                              {error,Reason}
+                      end
+             end,
+    %% Dialyzer has already spawned workers.
+    case lists:member(dialyzer, Opts) of
+        true ->
+            IntFun();
+        false ->
+            {Pid,Ref} =
+                spawn_monitor(fun() ->
+                                      exit(IntFun())
+                              end),
+            receive
+                {'DOWN',Ref,process,Pid,Rep} -> Rep
+            end
     end.
 
 expand_opts(Opts0) ->
