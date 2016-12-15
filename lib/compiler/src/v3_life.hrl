@@ -20,8 +20,10 @@
 %% This record contains variable life-time annotation for a
 %% kernel expression.  Added by v3_life, used by v3_codegen.
 
+-type vdb_entry() :: {atom(),non_neg_integer(),non_neg_integer()}.
+
 -record(l, {ke,					%Kernel expression
-	    i=0,				%Op number
-	    vdb=[],				%Variable database
-	    a}).				%Core annotation
+	    i=0 :: non_neg_integer(),           %Op number
+	    vdb=[] :: [vdb_entry()],            %Variable database
+	    a=[] :: [term()]}).                 %Core annotation
 
