@@ -959,9 +959,7 @@ label(Tree) ->
 -spec parallelism() -> integer().
 
 parallelism() ->
-  CPUs = erlang:system_info(logical_processors_available),
-  Schedulers = erlang:system_info(schedulers),
-  min(CPUs, Schedulers).
+  erlang:system_info(schedulers_online).
 
 -spec family([{K,V}]) -> [{K,[V]}].
 
