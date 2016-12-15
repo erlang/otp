@@ -47,7 +47,7 @@
 
 canno(Cthing) -> element(2, Cthing).
 
--spec format(cerl:cerl()) -> iolist().
+-spec format(#k_mdef{}) -> iolist().
 
 format(Node) -> format(Node, #ctxt{}).
 
