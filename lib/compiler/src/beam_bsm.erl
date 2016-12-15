@@ -60,19 +60,26 @@
 %%% data structures or passed to BIFs.
 %%%
 
+-type label() :: beam_asm:label().
+-type func_info() :: {beam_asm:reg(),boolean()}.
+
 -record(btb,
-	{f,					%Gbtrees for all functions.
-	 index,					%{Label,Code} index (for liveness).
-	 ok_br,					%Labels that are OK.
-	 must_not_save,				%Must not save position when
-						% optimizing (reaches
-						% bs_context_to_binary).
-	 must_save				%Must save position when optimizing.
+	{f :: gb_trees:tree(label(), func_info()),
+	 index :: beam_utils:code_index(), %{Label,Code} index (for liveness).
+	 ok_br=gb_sets:empty() :: gb_sets:set(label()), %Labels that are OK.
+	 must_not_save=false :: boolean(), %Must not save position when
+					   % optimizing (reaches
+                                           % bs_context_to_binary).
+	 must_save=false :: boolean() %Must save position when optimizing.
 	}).
 
+
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs0,Lc}, Opts) ->
-    D = #btb{f=btb_index(Fs0)},
-    Fs = [function(F, D) || F <- Fs0],
+    FIndex = btb_index(Fs0),
+    Fs = [function(F, FIndex) || F <- Fs0],
     Code = {Mod,Exp,Attr,Fs,Lc},
     case proplists:get_bool(bin_opt_info, Opts) of
 	true ->
@@ -92,10 +99,10 @@ format_error({no_bin_opt,Reason}) ->
 %%% Local functions.
 %%% 
 
-function({function,Name,Arity,Entry,Is}, D0) ->
+function({function,Name,Arity,Entry,Is}, FIndex) ->
     try
 	Index = beam_utils:index_labels(Is),
-	D = D0#btb{index=Index},
+	D = #btb{f=FIndex,index=Index},
 	{function,Name,Arity,Entry,btb_opt_1(Is, D, [])}
     catch
 	Class:Error ->
@@ -179,15 +186,14 @@ btb_gen_save(false, _, Acc) -> Acc.
 %%  a bs_context_to_binary instruction.
 %% 
 
-btb_reaches_match(Is, RegList, D0) ->
+btb_reaches_match(Is, RegList, D) ->
     try
 	Regs = btb_regs_from_list(RegList),
-	D = D0#btb{ok_br=gb_sets:empty(),must_not_save=false,must_save=false},
 	#btb{must_not_save=MustNotSave,must_save=MustSave} =
-	btb_reaches_match_1(Is, Regs, D),
-	case MustNotSave and MustSave of
+            btb_reaches_match_1(Is, Regs, D),
+	case MustNotSave andalso MustSave of
 	    true -> btb_error(must_and_must_not_save);
-	    _    -> {ok,MustSave}
+	    false -> {ok,MustSave}
 	end
     catch
 	throw:{error,_}=Error -> Error
