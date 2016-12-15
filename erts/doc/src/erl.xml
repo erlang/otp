@@ -1595,6 +1595,25 @@
   </section>
 
   <section>
+      <marker id="signals"></marker>
+      <title>Signals</title>
+      <p>On Unix systems, the Erlang runtime will interpret two types of signals.</p>
+      <taglist>
+          <tag><c>SIGUSR1</c></tag>
+          <item>
+              <p>A <c>SIGUSR1</c> signal forces a crash dump.</p>
+          </item>
+          <tag><c>SIGTERM</c></tag>
+          <item>
+              <p>A <c>SIGTERM</c> will produce a <c>stop</c> message to the <c>init</c> process.
+                  This is equivalent to a <c>init:stop/0</c> call.</p>
+              <p>Introduced in ERTS 8.3 (Erlang/OTP 19.3)</p>
+          </item>
+      </taglist>
+      <p>The signal <c>SIGUSR2</c> is reserved for internal usage. No other signals are handled.</p>
+  </section>
+
+  <section>
     <marker id="configuration"></marker>
     <title>Configuration</title>
     <p>The standard Erlang/OTP system can be reconfigured to change the default
