@@ -28,7 +28,7 @@
 	 string_table/1,lambda_table/1,literal_table/1,
 	 line_table/1]).
 
--type label() :: non_neg_integer().
+-type label() :: beam_asm:label().
 
 -type index() :: non_neg_integer().
 
@@ -38,13 +38,16 @@
 -type line_tab()   :: #{{Fname :: index(), Line :: term()} => index()}.
 -type literal_tab() :: dict:dict(Literal :: term(), index()).
 
+-type lambda_info() :: {label(),{index(),label(),non_neg_integer()}}.
+-type lambda_tab() :: {non_neg_integer(),[lambda_info()]}.
+
 -record(asm,
 	{atoms = #{}                :: atom_tab(),
 	 exports = []		    :: [{label(), arity(), label()}],
 	 locals = []		    :: [{label(), arity(), label()}],
 	 imports = gb_trees:empty() :: import_tab(),
 	 strings = <<>>		    :: binary(),	%String pool
-	 lambdas = {0,[]},				%[{...}]
+	 lambdas = {0,[]}           :: lambda_tab(),
 	 literals = dict:new()	    :: literal_tab(),
 	 fnames = #{}               :: fname_tab(),
 	 lines = #{}                :: line_tab(),
@@ -181,6 +184,9 @@ line([{location,Name,Line}], #asm{lines=Lines,num_lines=N}=Dict0) ->
 	    Index = maps:size(Lines) + 1,
             {Index, Dict1#asm{lines=Lines#{Key=>Index},num_lines=N+1}}
     end.
+
+-spec fname(nonempty_string(), bdict()) ->
+                   {non_neg_integer(), bdict()}.
 
 fname(Name, #asm{fnames=Fnames}=Dict) ->
     case Fnames of
