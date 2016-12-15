@@ -1362,15 +1362,10 @@ replaced by `erlang-etags-tags-completion-table'.")
 (defun erlang-version ()
   "Return the current version of Erlang mode."
   (interactive)
-  (if (erlang-interactive-p)
+  (if (called-interactively-p 'interactive)
       (message "Erlang mode version %s, written by Anders Lindgren"
                erlang-version))
   erlang-version)
-
-(defun erlang-interactive-p ()
-  (if (fboundp 'called-interactively-p)
-      (called-interactively-p 'interactive)
-    (funcall (symbol-function 'interactive-p))))
 
 ;;;###autoload
 (define-derived-mode erlang-mode prog-mode "Erlang"
@@ -5549,7 +5544,7 @@ Return the position after the newly inserted command."
            (boundp 'comint-last-output-start))
       (save-excursion
         (goto-char
-         (if (erlang-interactive-p)
+         (if (called-interactively-p 'interactive)
              (symbol-value 'comint-last-input-end)
            (symbol-value 'comint-last-output-start)))
         (while (progn (skip-chars-forward "^\C-h")
@@ -5568,7 +5563,7 @@ Return the position after the newly inserted command."
       (let ((pmark (process-mark (get-buffer-process (current-buffer)))))
         (save-excursion
           (goto-char
-           (if (erlang-interactive-p)
+           (if (called-interactively-p 'interactive)
                (symbol-value 'comint-last-input-end)
              (symbol-value 'comint-last-output-start)))
           (while (re-search-forward "\r+$" pmark t)
