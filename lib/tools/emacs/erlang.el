@@ -1372,10 +1372,6 @@ replaced by `erlang-etags-tags-completion-table'.")
       (called-interactively-p 'interactive)
     (funcall (symbol-function 'interactive-p))))
 
-(unless (fboundp 'prog-mode)
-  (defun prog-mode ()
-    (use-local-map (make-keymap))))
-
 ;;;###autoload
 (define-derived-mode erlang-mode prog-mode "Erlang"
   "Major mode for editing Erlang source files in Emacs.
