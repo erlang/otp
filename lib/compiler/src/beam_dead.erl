@@ -29,6 +29,10 @@
 
 -import(lists, [mapfoldl/3,reverse/1]).
 
+
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs0,_}, _Opts) ->
     {Fs1,Lc1} = beam_clean:clean_labels(Fs0),
     {Fs,Lc} = mapfoldl(fun function/2, Lc1, Fs1),

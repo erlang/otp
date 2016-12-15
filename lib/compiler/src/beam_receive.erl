@@ -65,6 +65,9 @@
 %%% as the SomeUniqInteger.
 %%%
 
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs0,Lc}, _Opts) ->
     Fs = [function(F) || F <- Fs0],
     Code = {Mod,Exp,Attr,Fs,Lc},
