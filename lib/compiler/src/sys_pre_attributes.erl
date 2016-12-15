@@ -61,7 +61,7 @@
 
 parse_transform(Forms, Options) ->
     S = #state{forms = Forms, options = Options},
-    S2 = init_transform(S),
+    S2 = init_transform(Options, S),
     report_verbose("Pre  options: ~p~n", [S2#state.pre_ops], S2),
     report_verbose("Post options: ~p~n", [S2#state.post_ops], S2),
     S3 = pre_transform(S2),
@@ -71,13 +71,6 @@ parse_transform(Forms, Options) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Computes the lists of pre_ops and post_ops that are 
 %% used in the real transformation.
-init_transform(S) ->
-    case S#state.options of
-	Options when is_list(Options) ->
-	    init_transform(Options, S);
-	Option ->
-	    init_transform([Option], S)
-    end.
 
 init_transform([{attribute, insert, Name, Val} | Tail], S) ->
     Op = {insert, Name, Val},
@@ -92,12 +85,9 @@ init_transform([{attribute, delete, Name} | Tail], S) ->
     Op = {delete, Name},
     PreOps = [Op | S#state.pre_ops],
     init_transform(Tail, S#state{pre_ops = PreOps});
-init_transform([], S) ->
-    S;
 init_transform([_ | T], S) ->
     init_transform(T, S);
-init_transform(BadOpt, S) ->
-    report_error("Illegal option (ignored): ~p~n", [BadOpt], S),
+init_transform([], S) ->
     S.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -176,18 +166,9 @@ attrs([], _, _) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Report functions.
 %%
-%% Errors messages are controlled with the 'report_errors' compiler option
 %% Warning messages are controlled with the 'report_warnings' compiler option
 %% Verbose messages are controlled with the 'verbose' compiler option
 
-report_error(Format, Args, S) -> 
-    case is_error(S) of
-	true ->
-	    io:format("~p: * ERROR * " ++ Format, [?MODULE | Args]);
-	false ->
-	    ok
-    end.
-    
 report_warning(Format, Args, S) -> 
     case is_warning(S) of
 	true ->
@@ -203,9 +184,6 @@ report_verbose(Format, Args, S) ->
 	false ->
 	    ok
     end.
-
-is_error(S) ->
-    lists:member(report_errors, S#state.options) or is_verbose(S).
 
 is_warning(S) ->
     lists:member(report_warnings, S#state.options) or is_verbose(S).
