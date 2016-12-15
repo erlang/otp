@@ -99,8 +99,8 @@ Erlang mode menu.")
     (if (boundp 'emacs-major-version)
         emacs-major-version
       (string-match "\\([0-9]+\\)\\.\\([0-9]+\\)" emacs-version)
-      (erlang-string-to-int (substring emacs-version
-                                       (match-beginning 1) (match-end 1))))
+      (string-to-number (substring emacs-version
+                                   (match-beginning 1) (match-end 1))))
     "Major version number of Emacs."))
 
 (eval-and-compile
@@ -108,8 +108,8 @@ Erlang mode menu.")
     (if (boundp 'emacs-minor-version)
         emacs-minor-version
       (string-match "\\([0-9]+\\)\\.\\([0-9]+\\)" emacs-version)
-      (erlang-string-to-int (substring emacs-version
-                                       (match-beginning 2) (match-end 2))))
+      (string-to-number (substring emacs-version
+                                   (match-beginning 2) (match-end 2))))
     "Minor version number of Emacs."))
 
 (defconst erlang-xemacs-p (string-match "Lucid\\|XEmacs" emacs-version)
@@ -2396,7 +2396,7 @@ can contain other `tempo' attributes.  Please see the function
 The first character of DD is space if the value is less than 10."
   (let ((date (current-time-string)))
     (format "%2d %s %s"
-            (erlang-string-to-int (substring date 8 10))
+            (string-to-number (substring date 8 10))
             (substring date 4 7)
             (substring date -4))))
 
@@ -3599,7 +3599,7 @@ corresponds to the order of the parsed Erlang list."
                                (erlang-remove-quotes
                                 (erlang-buffer-substring
                                  (match-beginning 1) (match-end 1)))
-                               (erlang-string-to-int
+                               (string-to-number
                                 (erlang-buffer-substring
                                  (match-beginning
                                   (+ 1 erlang-atom-regexp-matches))
@@ -5939,12 +5939,6 @@ it assumes that NEWDEF is loaded."
           (when (featurep 'advice)
             (ad-unadvise 'Man-notify-when-ready)
             (ad-unadvise 'set-visited-file-name)))))
-
-
-(defun erlang-string-to-int (string)
-  (if (fboundp 'string-to-number)
-      (string-to-number string)
-    (funcall (symbol-function 'string-to-int) string)))
 
 ;; The end...
 
