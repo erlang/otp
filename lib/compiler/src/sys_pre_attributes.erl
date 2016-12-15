@@ -25,10 +25,10 @@
 
 -define(OPTION_TAG, attributes).
 
--record(state, {forms,
-		pre_ops = [],
-		post_ops = [],
-		options}).
+-record(state, {forms :: [form()],
+		pre_ops = [] :: [op()],
+		post_ops = [] :: [op()],
+                options :: [option()]}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Inserts, deletes and replaces Erlang compiler attributes.
@@ -58,6 +58,20 @@
 %% overs will be those replace operations that not has been performed
 %% due to that the pre_transform pass did not find the attribute plus
 %% all insert operations.
+
+-type attribute() :: atom().
+-type value() :: term().
+-type form() :: {function, integer(), atom(), arity(), _}
+              | {attribute, integer(), attribute(), _}.
+-type option() :: compile:option()
+                | {'attribute', 'insert', attribute(), value()}
+                | {'attribute', 'replace', attribute(), value()}
+                | {'attribute', 'delete', attribute()}.
+-type op() :: {'insert', attribute(), value()}
+            | {'replace', attribute(), value()}
+            | {'delete', attribute()}.
+
+-spec parse_transform([form()], [option()]) -> [form()].
 
 parse_transform(Forms, Options) ->
     S = #state{forms = Forms, options = Options},
