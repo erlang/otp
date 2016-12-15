@@ -1312,29 +1312,6 @@ replaced by `erlang-etags-tags-completion-table'.")
 
 ;;; Avoid errors while compiling this file.
 
-;; `eval-when-compile' is not defined in Emacs 18.  We define it as a
-;; no-op.
-(or (fboundp 'eval-when-compile)
-    (defmacro eval-when-compile (&rest rest) nil))
-
-;; These umm...functions are new in Emacs 20. And, yes, until version
-;; 19.27 Emacs backquotes were this ugly.
-
-(or (fboundp 'unless)
-    (defmacro unless (condition &rest body)
-      "(unless CONDITION BODY...): If CONDITION is false, do BODY, else return nil."
-      `((if (, condition) nil ,@body))))
-
-(or (fboundp 'when)
-    (defmacro when (condition &rest body)
-      "(when CONDITION BODY...): If CONDITION is true, do BODY, else return nil."
-      `((if (, condition) (progn ,@body) nil))))
-
-(or (fboundp 'char-before)
-    (defmacro char-before (&optional pos)
-      "Return the character in the current buffer just before POS."
-      `( (char-after (1- (or ,pos (point)))))))
-
 ;; defvar some obsolete variables, which we still support for
 ;; backwards compatibility reasons.
 (eval-when-compile
