@@ -4,6 +4,8 @@
 ;; Author:   Anders Lindgren
 ;; Keywords: erlang, languages, processes
 ;; Date:     2011-12-11
+;; Version:  2.7.0
+;; Package-Requires: ((emacs "24.1"))
 
 ;; %CopyrightBegin%
 ;;
