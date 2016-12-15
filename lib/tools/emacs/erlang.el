@@ -97,24 +97,6 @@ Erlang mode menu."
   :type '(restricted-sexp :match-alternatives (stringp 'nil))
   :safe (lambda (val) (or (eq nil val) (strinp val))))
 
-(eval-and-compile
-  (defconst erlang-emacs-major-version
-    (if (boundp 'emacs-major-version)
-        emacs-major-version
-      (string-match "\\([0-9]+\\)\\.\\([0-9]+\\)" emacs-version)
-      (string-to-number (substring emacs-version
-                                   (match-beginning 1) (match-end 1))))
-    "Major version number of Emacs."))
-
-(eval-and-compile
-  (defconst erlang-emacs-minor-version
-    (if (boundp 'emacs-minor-version)
-        emacs-minor-version
-      (string-match "\\([0-9]+\\)\\.\\([0-9]+\\)" emacs-version)
-      (string-to-number (substring emacs-version
-                                   (match-beginning 2) (match-end 2))))
-    "Minor version number of Emacs."))
-
 (defconst erlang-xemacs-p (string-match "Lucid\\|XEmacs" emacs-version)
   "Non-nil when running under XEmacs or Lucid Emacs.")
 
@@ -595,7 +577,7 @@ This is an elisp list of options. Each option can be either:
 
 (eval-and-compile
   (defvar erlang-regexp-modern-p
-    (if (> erlang-emacs-major-version 21) t nil)
+    (if (> emacs-major-version 21) t nil)
     "Non-nil when this version of Emacs uses a modern version of regexp.
 Supporting \_< and \_> This is determined by checking the version of Emacs used."))
 
@@ -1542,7 +1524,7 @@ Other commands:
   (make-local-variable 'indent-region-function)
   (setq indent-region-function 'erlang-indent-region)
   (set (make-local-variable 'comment-indent-function) 'erlang-comment-indent)
-  (if (<= erlang-emacs-major-version 18)
+  (if (<= emacs-major-version 18)
       (set (make-local-variable 'comment-indent-hook) 'erlang-comment-indent))
   (set (make-local-variable 'parse-sexp-ignore-comments) t)
   (set (make-local-variable 'dabbrev-case-fold-search) nil)
@@ -1779,7 +1761,7 @@ Please see the variable `erlang-menu-base-items'."
            (if (and popup (boundp 'mode-popup-menu))
                (funcall (symbol-function 'set)
                         'mode-popup-menu erlang-xemacs-popup-menu))))
-        ((>= erlang-emacs-major-version 19)
+        ((>= emacs-major-version 19)
          (define-key keymap (vector 'menu-bar (intern name))
            (erlang-menu-make-keymap name items)))
         (t nil)))
@@ -2244,8 +2226,8 @@ to be used."
                 (setq process-environment (cons (concat "MANPATH=" dir)
                                                 process-environment)))
               (cond ((not (and (not erlang-xemacs-p)
-                               (= erlang-emacs-major-version 19)
-                               (< erlang-emacs-minor-version 29)))
+                               (= emacs-major-version 19)
+                               (< emacs-minor-version 29)))
                      (manual-entry page))
                     (t
                      ;; Emacs 19.28 and earlier versions of 19:
@@ -4370,7 +4352,7 @@ This function only works under Emacs 18 and Emacs 19.  Currently, It
 is not implemented under XEmacs.  (Hint: The Emacs 19 etags module
 works under XEmacs.)"
   (interactive)
-  (cond ((= erlang-emacs-major-version 18)
+  (cond ((= emacs-major-version 18)
          (require 'tags)
          (erlang-tags-define-keys (current-local-map))
          (setq erlang-tags-installed t))
@@ -4634,7 +4616,7 @@ Tags can be given on the forms `tag', `module:', `module:tag'."
   ;; Make sure our functions are installed in TAGS files loaded
   ;; into Emacs while searching.
   (cond
-   ((>= erlang-emacs-major-version 20)
+   ((>= emacs-major-version 20)
     (setq erlang-tags-orig-format-functions
           (symbol-value 'tags-table-format-functions))
     (funcall (symbol-function 'set) 'tags-table-format-functions
@@ -4712,7 +4694,7 @@ Tags can be given on the forms `tag', `module:', `module:tag'."
 (defun erlang-tags-remove-module-check ()
   "Remove our own tags search functions."
   (cond
-   ((>= erlang-emacs-major-version 20)
+   ((>= emacs-major-version 20)
     (funcall (symbol-function 'set)
              'tags-table-format-functions
              erlang-tags-orig-format-functions)
@@ -5384,7 +5366,7 @@ editing control characters:
 
   (setq inferior-erlang-process
         (get-buffer-process inferior-erlang-buffer))
-  (if (> 21 erlang-emacs-major-version) ; funcalls to avoid compiler warnings
+  (if (> 21 emacs-major-version) ; funcalls to avoid compiler warnings
       (funcall (symbol-function 'set-process-query-on-exit-flag)
                inferior-erlang-process nil)
     (funcall (symbol-function 'process-kill-without-query) inferior-erlang-process))
@@ -5455,7 +5437,7 @@ frame will become deselected before the next command."
 (defun inferior-erlang-window (&optional all-frames)
   "Return the window containing the inferior Erlang, or nil."
   (and (inferior-erlang-running-p)
-       (if (and all-frames (>= erlang-emacs-major-version 19))
+       (if (and all-frames (>= emacs-major-version 19))
            (get-buffer-window inferior-erlang-buffer t)
          (get-buffer-window inferior-erlang-buffer))))
 
