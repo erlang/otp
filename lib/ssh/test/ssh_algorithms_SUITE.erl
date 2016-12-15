@@ -198,7 +198,7 @@ try_exec_simple_group(Group, Config) ->
 %%--------------------------------------------------------------------
 %% Testing all default groups
 
-simple_exec_groups() -> [{timetrap,{minutes,5}}].
+simple_exec_groups() -> [{timetrap,{minutes,8}}].
 
 simple_exec_groups(Config) ->
     Sizes = interpolate( public_key:dh_gex_group_sizes() ),
@@ -206,10 +206,8 @@ simple_exec_groups(Config) ->
       fun(Sz) ->
 	      ct:log("Try size ~p",[Sz]),
 	      ct:comment(Sz),
-	      case simple_exec_group(Sz, Config) of
-		  expected -> ct:log("Size ~p ok",[Sz]);
-		  _ -> ct:log("Size ~p not ok",[Sz])
-	      end
+	      simple_exec_group(Sz, Config),
+	      ct:log("Size ~p ok",[Sz])
       end, Sizes),
     ct:comment("~p",[lists:map(fun({_,I,_}) -> I;
 				  (I) -> I
