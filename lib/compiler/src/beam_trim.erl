@@ -24,9 +24,12 @@
 -import(lists, [reverse/1,reverse/2,splitwith/2,sort/1]).
 
 -record(st,
-	{safe,					%Safe labels.
-	 lbl					%Code at each label.
+	{safe :: gb_sets:set(beam_asm:label()), %Safe labels.
+	 lbl :: beam_utils:code_index()         %Code at each label.
 	 }).
+
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
 
 module({Mod,Exp,Attr,Fs0,Lc}, _Opts) ->
     Fs = [function(F) || F <- Fs0],
