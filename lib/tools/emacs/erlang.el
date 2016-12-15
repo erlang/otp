@@ -26,7 +26,7 @@
 ;; %CopyrightEnd%
 ;;
 
-;; Lars Thorsén's modifications of 2000-06-07 included.
+;; Lars ThorsÃ©n's modifications of 2000-06-07 included.
 ;; The original version of this package was written by Robert Virding.
 ;;
 ;;; Commentary:
@@ -5928,7 +5928,7 @@ it assumes that NEWDEF is loaded."
 (run-hooks 'erlang-load-hook)
 
 ;; Local variables:
-;; coding: iso-8859-1
+;; coding: utf-8
 ;; indent-tabs-mode: nil
 ;; End:
 
