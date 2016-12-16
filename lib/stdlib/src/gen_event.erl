@@ -160,7 +160,7 @@ add_sup_handler(M, Handler, Args)  ->
     rpc(M, {add_sup_handler, Handler, Args, self()}).
 
 -spec notify(emgr_ref(), term()) -> 'ok'.
-notify(M, Event) -> send(M, {notify, Event}). 
+notify(M, Event) -> send(M, {notify, Event}).
 
 -spec sync_notify(emgr_ref(), term()) -> 'ok'.
 sync_notify(M, Event) -> rpc(M, {sync_notify, Event}).
@@ -193,7 +193,7 @@ stop(M) ->
 stop(M, Reason, Timeout) ->
     gen:stop(M, Reason, Timeout).
 
-rpc(M, Cmd) -> 
+rpc(M, Cmd) ->
     {ok, Reply} = gen:call(M, self(), Cmd, infinity),
     Reply.
 
@@ -421,7 +421,7 @@ server_add_handler({Mod,Id}, Args, MSL) ->
     Handler = #handler{module = Mod,
 		       id = Id},
     server_add_handler(Mod, Handler, Args, MSL);
-server_add_handler(Mod, Args, MSL) -> 
+server_add_handler(Mod, Args, MSL) ->
     Handler = #handler{module = Mod},
     server_add_handler(Mod, Handler, Args, MSL).
 
@@ -446,7 +446,7 @@ server_add_sup_handler({Mod,Id}, Args, MSL, Parent) ->
 		       id = Id,
 		       supervised = Parent},
     server_add_handler(Mod, Handler, Args, MSL);
-server_add_sup_handler(Mod, Args, MSL, Parent) -> 
+server_add_sup_handler(Mod, Args, MSL, Parent) ->
     link(Parent),
     Handler = #handler{module = Mod,
 		       supervised = Parent},
@@ -454,7 +454,7 @@ server_add_sup_handler(Mod, Args, MSL, Parent) ->
 
 %% server_delete_handler(HandlerId, Args, MSL) -> {Ret, MSL'}
 
-server_delete_handler(HandlerId, Args, MSL, SName) -> 
+server_delete_handler(HandlerId, Args, MSL, SName) ->
     case split(HandlerId, MSL) of
 	{Mod, Handler, MSL1} ->
 	    {do_terminate(Mod, Handler, Args,
@@ -511,7 +511,7 @@ split_and_terminate(HandlerId, Args, MSL, SName, Handler2, Sup) ->
 
 %% server_notify(Event, Func, MSL, SName) -> MSL'
 
-server_notify(Event, Func, [Handler|T], SName) -> 
+server_notify(Event, Func, [Handler|T], SName) ->
     case server_update(Handler, Func, Event, SName) of
 	{ok, Handler1} ->
 	    {Hib, NewHandlers} = server_notify(Event, Func, T, SName),
@@ -531,9 +531,9 @@ server_update(Handler1, Func, Event, SName) ->
     Mod1 = Handler1#handler.module,
     State = Handler1#handler.state,
     case catch Mod1:Func(Event, State) of
-	{ok, State1} -> 
+	{ok, State1} ->
 	    {ok, Handler1#handler{state = State1}};
-	{ok, State1, hibernate} -> 
+	{ok, State1, hibernate} ->
 	    {hibernate, Handler1#handler{state = State1}};
 	{swap_handler, Args1, State1, Handler2, Args2} ->
 	    do_swap(Mod1, Handler1, Args1, State1, Handler2, Args2, SName);
@@ -644,14 +644,14 @@ server_call_update(Handler1, Query, SName) ->
     Mod1 = Handler1#handler.module,
     State = Handler1#handler.state,
     case catch Mod1:handle_call(Query, State) of
-	{ok, Reply, State1} -> 
+	{ok, Reply, State1} ->
 	    {{ok, Handler1#handler{state = State1}}, Reply};
-	{ok, Reply, State1, hibernate} -> 
-	    {{hibernate, Handler1#handler{state = State1}}, 
+	{ok, Reply, State1, hibernate} ->
+	    {{hibernate, Handler1#handler{state = State1}},
 	     Reply};
 	{swap_handler, Reply, Args1, State1, Handler2, Args2} ->
 	    {do_swap(Mod1,Handler1,Args1,State1,Handler2,Args2,SName), Reply};
-	{remove_handler, Reply} -> 
+	{remove_handler, Reply} ->
 	    do_terminate(Mod1, Handler1, remove_handler, State,
 			 remove, SName, normal),
 	    {no, Reply};
@@ -686,7 +686,7 @@ report_error(_Handler, normal, _, _, _)             -> ok;
 report_error(_Handler, shutdown, _, _, _)           -> ok;
 report_error(_Handler, {swapped,_,_}, _, _, _)      -> ok;
 report_error(Handler, Reason, State, LastIn, SName) ->
-    Reason1 = 
+    Reason1 =
 	case Reason of
 	    {'EXIT',{undef,[{M,F,A,L}|MFAs]}} ->
 		case code:is_loaded(M) of
