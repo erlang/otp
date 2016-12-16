@@ -555,13 +555,13 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 do_handle_call({get_bufinf,BufHandle}, _From, S=#state{inf=I0}) ->
-    {reply, dict:find(BufHandle,I0), S};
+    {reply, maps:find(BufHandle,I0), S};
 
 do_handle_call({put_bufinf,BufHandle,B}, _From, S=#state{inf=I0}) ->
-    {reply, ok, S#state{inf=dict:store(BufHandle,B,I0)}};
+    {reply, ok, S#state{inf=maps:put(BufHandle,B,I0)}};
 
 do_handle_call({erase_bufinf,BufHandle}, _From, S=#state{inf=I0}) ->
-    {reply, ok, S#state{inf=dict:erase(BufHandle,I0)}};
+    {reply, ok, S#state{inf=maps:remove(BufHandle,I0)}};
 
 do_handle_call({open, Async,FileName,Mode}, From, #state{xf = XF} = State) ->
     {Access,Flags,Attrs} = open_mode(XF#ssh_xfer.vsn, Mode),
@@ -1128,11 +1128,11 @@ open_mode3(Modes) ->
 	 end,
     {[], Fl, A}.
 
-%% accessors for inf dict
-new_inf() -> dict:new().
+%% accessors for inf map
+new_inf() -> #{}.
 
 add_new_handle(Handle, FileMode, Inf) ->
-    dict:store(Handle, #fileinf{offset=0, size=0, mode=FileMode}, Inf).
+    maps:put(Handle, #fileinf{offset=0, size=0, mode=FileMode}, Inf).
 
 update_size(Handle, NewSize, State) ->
     OldSize = get_size(Handle, State),
@@ -1152,27 +1152,24 @@ update_offset(Handle, NewOffset, State0) ->
 %% access size and offset for handle
 put_size(Handle, Size, State) ->
     Inf0 = State#state.inf,
-    case dict:find(Handle, Inf0) of
+    case maps:find(Handle, Inf0) of
 	{ok, FI} ->
-	    State#state{inf=dict:store(Handle, FI#fileinf{size=Size}, Inf0)};
+	    State#state{inf=maps:put(Handle, FI#fileinf{size=Size}, Inf0)};
 	_ ->
-	    State#state{inf=dict:store(Handle, #fileinf{size=Size,offset=0},
-				       Inf0)}
+	    State#state{inf=maps:put(Handle, #fileinf{size=Size,offset=0}, Inf0)}
     end.
 
 put_offset(Handle, Offset, State) ->
     Inf0 = State#state.inf,
-    case dict:find(Handle, Inf0) of
+    case maps:find(Handle, Inf0) of
 	{ok, FI} ->
-	    State#state{inf=dict:store(Handle, FI#fileinf{offset=Offset},
-				       Inf0)};
+	    State#state{inf=maps:put(Handle, FI#fileinf{offset=Offset}, Inf0)};
 	_ ->
-	    State#state{inf=dict:store(Handle, #fileinf{size=Offset,
-							offset=Offset}, Inf0)}
+	    State#state{inf=maps:put(Handle, #fileinf{size=Offset, offset=Offset}, Inf0)}
     end.
 
 get_size(Handle, State) ->
-    case dict:find(Handle, State#state.inf) of
+    case maps:find(Handle, State#state.inf) of
 	{ok, FI} ->
 	    FI#fileinf.size;
 	_ ->
@@ -1180,11 +1177,11 @@ get_size(Handle, State) ->
     end.
 
 %% get_offset(Handle, State) ->
-%%     {ok, FI} = dict:find(Handle, State#state.inf),
+%%     {ok, FI} = maps:find(Handle, State#state.inf),
 %%     FI#fileinf.offset.
 
 get_mode(Handle, State) ->
-    case dict:find(Handle, State#state.inf) of
+    case maps:find(Handle, State#state.inf) of
 	{ok, FI} ->
 	    FI#fileinf.mode;
 	_ ->
@@ -1192,14 +1189,14 @@ get_mode(Handle, State) ->
     end.
 
 erase_handle(Handle, State) ->
-    FI = dict:erase(Handle, State#state.inf),
+    FI = maps:remove(Handle, State#state.inf),
     State#state{inf = FI}.
 
 %%
 %% Caluclate a integer offset
 %%
 lseek_position(Handle, Pos, State) ->
-    case dict:find(Handle, State#state.inf) of
+    case maps:find(Handle, State#state.inf) of
 	{ok, #fileinf{offset=O, size=S}} ->
 	    lseek_pos(Pos, O, S);
 	_ ->
