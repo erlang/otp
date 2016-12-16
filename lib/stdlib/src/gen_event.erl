@@ -32,7 +32,9 @@
 %%% Modified by Martin - uses proc_lib, sys and gen!
 
 
--export([start/0, start/1, start_link/0, start_link/1, stop/1, stop/3,
+-export([start/0, start/1, start/2,
+         start_link/0, start_link/1, start_link/2,
+         stop/1, stop/3,
 	 notify/2, sync_notify/2,
 	 add_handler/3, add_sup_handler/3, delete_handler/3, swap_handler/3,
 	 swap_sup_handler/3, which_handlers/1, call/3, call/4, wake_hib/4]).
@@ -117,30 +119,64 @@
 -type del_handler_ret()  :: ok | term() | {'EXIT',term()}.
 
 -type emgr_name() :: {'local', atom()} | {'global', atom()}
-		   | {'via', atom(), term()}.
+                   | {'via', atom(), term()}.
+-type debug_flag() :: 'trace' | 'log' | 'statistics' | 'debug'
+                    | {'logfile', string()}.
+-type option() :: {'timeout', timeout()}
+                | {'debug', [debug_flag()]}
+                | {'spawn_opt', [proc_lib:spawn_option()]}.
 -type emgr_ref()  :: atom() | {atom(), atom()} |  {'global', atom()}
-		   | {'via', atom(), term()} | pid().
+                   | {'via', atom(), term()} | pid().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
 
 %%---------------------------------------------------------------------------
 
 -define(NO_CALLBACK, 'no callback module').
 
+%% -----------------------------------------------------------------
+%% Starts a generic event handler.
+%% start()
+%% start(MgrName | Options)
+%% start(MgrName, Options)
+%% start_link()
+%% start_link(MgrName | Options)
+%% start_link(MgrName, Options)
+%%    MgrName ::= {local, atom()} | {global, atom()} | {via, atom(), term()}
+%%    Options ::= [{timeout, Timeout} | {debug, [Flag]} | {spawn_opt,SOpts}]
+%%       Flag ::= trace | log | {logfile, File} | statistics | debug
+%%          (debug == log && statistics)
+%% Returns: {ok, Pid} |
+%%          {error, {already_started, Pid}} |
+%%          {error, Reason}
+%% -----------------------------------------------------------------
+
 -spec start() -> start_ret().
 start() ->
     gen:start(?MODULE, nolink, ?NO_CALLBACK, [], []).
 
--spec start(emgr_name()) -> start_ret().
-start(Name) ->
-    gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], []).
+-spec start(emgr_name() | [option()]) -> start_ret().
+start(Name) when is_tuple(Name) ->
+    gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], []);
+start(Options) when is_list(Options) ->
+    gen:start(?MODULE, nolink, ?NO_CALLBACK, [], Options).
+
+-spec start(emgr_name(), [option()]) -> start_ret().
+start(Name, Options) ->
+    gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], Options).
 
 -spec start_link() -> start_ret().
 start_link() ->
     gen:start(?MODULE, link, ?NO_CALLBACK, [], []).
 
--spec start_link(emgr_name()) -> start_ret().
-start_link(Name) ->
-    gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], []).
+-spec start_link(emgr_name() | [option()]) -> start_ret().
+start_link(Name) when is_tuple(Name) ->
+    gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], []);
+start_link(Options) when is_list(Options) ->
+    gen:start(?MODULE, link, ?NO_CALLBACK, [], Options).
+
+-spec start_link(emgr_name(), [option()]) -> start_ret().
+start_link(Name, Options) ->
+    gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], Options).
 
 %% -spec init_it(pid(), 'self' | pid(), emgr_name(), module(), [term()], [_]) -> 
 init_it(Starter, self, Name, Mod, Args, Options) ->
