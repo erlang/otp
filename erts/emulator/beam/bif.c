@@ -3865,13 +3865,6 @@ BIF_RETTYPE now_0(BIF_ALIST_0)
 
 /**********************************************************************/
 
-BIF_RETTYPE garbage_collect_0(BIF_ALIST_0)
-{
-    FLAGS(BIF_P) |= F_NEED_FULLSWEEP;
-    erts_garbage_collect(BIF_P, 0, NULL, 0);
-    return am_true;
-}
-
 /*
  * Pass atom 'minor' for relaxed generational GC run. This is only
  * recommendation, major run may still be chosen by VM.
@@ -4324,7 +4317,7 @@ BIF_RETTYPE group_leader_2(BIF_ALIST_2)
 		erts_smp_proc_unlock(new_member, ERTS_PROC_LOCK_STATUS);
 		if (new_member == BIF_P
 		    || !(erts_smp_atomic32_read_nob(&new_member->state)
-			 & (ERTS_PSFLG_DIRTY_RUNNING|ERTS_PSFLG_DIRTY_RUNNING_SYS))) {
+			 & ERTS_PSFLG_DIRTY_RUNNING)) {
 		    new_member->group_leader = STORE_NC_IN_PROC(new_member,
 								BIF_ARG_1);
 		}

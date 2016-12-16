@@ -5327,10 +5327,25 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
     ASSERT(!(c_p->flags & F_HIPE_MODE));
     ERTS_MSACC_UPDATE_CACHE_X();
 
-    reg = esdp->x_reg_array;
-    {
+    /*
+     * Set fcalls even though we ignore it, so we don't
+     * confuse code accessing it...
+     */
+    if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
+	c_p->fcalls = 0;
+    else
+	c_p->fcalls = CONTEXT_REDS;
+
+    if (erts_smp_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_DIRTY_RUNNING_SYS) {
+	erts_execute_dirty_system_task(c_p);
+	goto do_dirty_schedule;
+    }
+    else {
+	ErtsCodeMFA *codemfa;
 	Eterm* argp;
-	int i;
+	int i, exiting;
+
+	reg = esdp->x_reg_array;
 
 	argp = c_p->arg_reg;
 	for (i = c_p->arity - 1; i >= 0; i--) {
@@ -5345,15 +5360,6 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	 */
 
 	I = c_p->i;
-
-	/*
-	 * Set fcalls even though we ignore it, so we don't
-	 * confuse code accessing it...
-	 */
-	if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
-	    c_p->fcalls = 0;
-	else
-	    c_p->fcalls = CONTEXT_REDS;
 
 	SWAPIN;
 
@@ -5378,62 +5384,55 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
             DTRACE2(process_scheduled, process_buf, fun_buf);
         }
 #endif
-    }
 
-    {
-	int exiting;
+	/*
+	 * call_nif is always first instruction in function:
+	 *
+	 * I[-3]: Module
+	 * I[-2]: Function
+	 * I[-1]: Arity
+	 * I[0]: &&call_nif
+	 * I[1]: Function pointer to NIF function
+	 * I[2]: Pointer to erl_module_nif
+	 * I[3]: Function pointer to dirty NIF
+	 *
+	 * This layout is determined by the NifExport struct
+	 */
 
-	{
-	    /*
-	     * call_nif is always first instruction in function:
-	     *
-	     * I[-3]: Module
-	     * I[-2]: Function
-	     * I[-1]: Arity
-	     * I[0]: &&call_nif
-	     * I[1]: Function pointer to NIF function
-	     * I[2]: Pointer to erl_module_nif
-	     * I[3]: Function pointer to dirty NIF
-             *
-             * This layout is determined by the NifExport struct
-	     */
-            ErtsCodeMFA *codemfa;
+	ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
 
-	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
+	codemfa = erts_code_to_codemfa(I);
 
-            codemfa = erts_code_to_codemfa(I);
+	DTRACE_NIF_ENTRY(c_p, codemfa);
+	c_p->current = codemfa;
+	SWAPOUT;
+	PROCESS_MAIN_CHK_LOCKS(c_p);
+	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
 
-	    DTRACE_NIF_ENTRY(c_p, codemfa);
-	    c_p->current = codemfa;
-	    SWAPOUT;
-	    PROCESS_MAIN_CHK_LOCKS(c_p);
-	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-
-	    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	    if (em_apply_bif == (BeamInstr *) *I) {
-		exiting = erts_call_dirty_bif(esdp, c_p, I, reg);
-	    }
-	    else {
-		ASSERT(em_call_nif == (BeamInstr *) *I);
-		exiting = erts_call_dirty_nif(esdp, c_p, I, reg);
-	    }
-
-	    ASSERT(!(c_p->flags & F_HIBERNATE_SCHED));
-
-	    PROCESS_MAIN_CHK_LOCKS(c_p);
-	    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
-	    if (exiting)
-		goto do_dirty_schedule;
-	    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-
-	    DTRACE_NIF_RETURN(c_p, codemfa);
-	    ERTS_HOLE_CHECK(c_p);
-	    SWAPIN;
-	    I = c_p->i;
-	    goto context_switch;
+	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	if (em_apply_bif == (BeamInstr *) *I) {
+	    exiting = erts_call_dirty_bif(esdp, c_p, I, reg);
 	}
+	else {
+	    ASSERT(em_call_nif == (BeamInstr *) *I);
+	    exiting = erts_call_dirty_nif(esdp, c_p, I, reg);
+	}
+
+	ASSERT(!(c_p->flags & F_HIBERNATE_SCHED));
+
+	PROCESS_MAIN_CHK_LOCKS(c_p);
+	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+	ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
+	if (exiting)
+	    goto do_dirty_schedule;
+	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+
+	DTRACE_NIF_RETURN(c_p, codemfa);
+	ERTS_HOLE_CHECK(c_p);
+	SWAPIN;
+	I = c_p->i;
+	goto context_switch;
     }
 #endif /* ERTS_DIRTY_SCHEDULERS */
 }

@@ -886,7 +886,7 @@ function_exported(_Module, _Function, _Arity) ->
 %% garbage_collect/0
 -spec garbage_collect() -> true.
 garbage_collect() ->
-    erlang:nif_error(undefined).
+    erts_internal:garbage_collect(major).
 
 %% garbage_collect/1
 -spec garbage_collect(Pid) -> GCResult when

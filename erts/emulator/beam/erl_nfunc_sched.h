@@ -54,7 +54,6 @@ typedef struct {
     /* --- The following is only used on error --- */
     BeamInstr *pc;	/* Program counter */
     BeamInstr *cp;	/* Continuation pointer */
-    void *nif;		/* Original NIF/BIF call */
     ErtsCodeMFA *mfa;	/* MFA of original call */
     int argc;		/* Number of arguments in original call */
     int argv_size;	/* Allocated size of argv */

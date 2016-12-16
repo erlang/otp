@@ -6439,10 +6439,30 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
     int enqueue; /* < 0 -> use proxy */
     ErtsRunQueue* runq;
 
-    if (is_normal_sched)
-	running_flgs = ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS;
-    else
+    if (!is_normal_sched)
 	running_flgs = ERTS_PSFLG_DIRTY_RUNNING|ERTS_PSFLG_DIRTY_RUNNING_SYS;
+    else {
+	running_flgs = ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS;
+#ifdef ERTS_DIRTY_SCHEDULERS
+        if (state & ERTS_PSFLG_DIRTY_ACTIVE_SYS
+            && (p->flags & (F_DELAY_GC|F_DISABLE_GC))) {
+            /*
+             * Delay dirty GC; will be enabled automatically
+             * again by next GC...
+             */
+
+            /*
+             * No normal execution until dirty CLA or hibernat has
+             * been handled...
+             */
+            ASSERT(!(p->flags & (F_DIRTY_CLA | F_DIRTY_GC_HIBERNATE)));
+
+            state = erts_smp_atomic32_read_band_nob(&p->state,
+                                                    ~ERTS_PSFLG_DIRTY_ACTIVE_SYS);
+            state &= ~ERTS_PSFLG_DIRTY_ACTIVE_SYS;
+        }
+#endif
+    }
 
     a = state;
 
@@ -8642,8 +8662,7 @@ pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
 		erts_aint32_t state;
 		state = erts_smp_atomic32_read_nob(&rp->state);
 		ASSERT((state & ERTS_PSFLG_PENDING_EXIT)
-		       || !(state & (ERTS_PSFLG_RUNNING
-				     | ERTS_PSFLG_DIRTY_RUNNING_SYS)));
+		       || !(state & ERTS_PSFLG_RUNNING));
 	    }
 #endif
 
@@ -9981,6 +10000,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 					      | ERTS_PSFLG_FREE
 					      | ERTS_PSFLG_RUNNING_SYS
+					      | ERTS_PSFLG_DIRTY_RUNNING_SYS
 					      | ERTS_PSFLG_EXITING))
 				    == ERTS_PSFLG_EXITING)
 				   & (!!is_normal_sched))
@@ -9992,7 +10012,14 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 					    | ERTS_PSFLG_PENDING_EXIT
 					    | ERTS_PSFLG_ACTIVE_SYS
 					    | ERTS_PSFLG_DIRTY_ACTIVE_SYS))
-				  != ERTS_PSFLG_SUSPENDED));
+				  != ERTS_PSFLG_SUSPENDED)
+#ifdef ERTS_DIRTY_SCHEDULERS
+                               & (!(state & (ERTS_PSFLG_EXITING
+                                             | ERTS_PSFLG_PENDING_EXIT))
+                                  | (!!is_normal_sched))
+#endif
+                    );
+
 		if (run_process) {
 		    if (state & (ERTS_PSFLG_ACTIVE_SYS
 				 | ERTS_PSFLG_DIRTY_ACTIVE_SYS))
@@ -10133,65 +10160,70 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    }
 	}
 
-	if (state & (ERTS_PSFLG_RUNNING_SYS
-		     | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
-	    /*
-	     * GC is normally never delayed when a process
-	     * is scheduled out, but might be when executing
-	     * hand written beam assembly in
-	     * prim_eval:'receive'. If GC is delayed we are
-	     * not allowed to execute system tasks.
-	     */
-	    if (!(p->flags & F_DELAY_GC)) {
-		int cost = execute_sys_tasks(p, &state, reds);
-		calls += cost;
-		reds -= cost;
-		if (reds <= 0
+        if (is_normal_sched) {
+
+            if (state & ERTS_PSFLG_RUNNING_SYS) {
+                /*
+                 * GC is normally never delayed when a process
+                 * is scheduled out, but might be when executing
+                 * hand written beam assembly in
+                 * prim_eval:'receive'. If GC is delayed we are
+                 * not allowed to execute system tasks.
+                 */
+                if (!(p->flags & F_DELAY_GC)) {
+                    int cost = execute_sys_tasks(p, &state, reds);
+                    calls += cost;
+                    reds -= cost;
+                    if (reds <= 0)
+                        goto sched_out_proc;
 #ifdef ERTS_DIRTY_SCHEDULERS
-		    || !is_normal_sched
-		    || (state & ERTS_PSFLGS_DIRTY_WORK)
+                    if (state & ERTS_PSFLGS_DIRTY_WORK)
+                        goto sched_out_proc;
 #endif
-		    ) {
-		    goto sched_out_proc;
-		}
-	    }
+                }
 
-	    ASSERT(state & psflg_running_sys);
-	    ASSERT(!(state & psflg_running));
+                ASSERT(state & psflg_running_sys);
+                ASSERT(!(state & psflg_running));
 
-	    while (1) {
-		erts_aint32_t n, e;
+                while (1) {
+                    erts_aint32_t n, e;
 
-		if (((state & (ERTS_PSFLG_SUSPENDED
-			       | ERTS_PSFLG_ACTIVE)) != ERTS_PSFLG_ACTIVE)
-		    && !(state & ERTS_PSFLG_EXITING)) {
-		    goto sched_out_proc;
-		}
+                    if (((state & (ERTS_PSFLG_SUSPENDED
+                                   | ERTS_PSFLG_ACTIVE)) != ERTS_PSFLG_ACTIVE)
+                        && !(state & ERTS_PSFLG_EXITING)) {
+                        goto sched_out_proc;
+                    }
 
-		n = e = state;
-		n &= ~psflg_running_sys;
-		n |= psflg_running;
+                    n = e = state;
+                    n &= ~psflg_running_sys;
+                    n |= psflg_running;
 
-		state = erts_smp_atomic32_cmpxchg_mb(&p->state, n, e);
-		if (state == e) {
-		    state = n;
-		    break;
-		}
+                    state = erts_smp_atomic32_cmpxchg_mb(&p->state, n, e);
+                    if (state == e) {
+                        state = n;
+                        break;
+                    }
 
-		ASSERT(state & psflg_running_sys);
-		ASSERT(!(state & psflg_running));
-	    }
-	}
+                    ASSERT(state & psflg_running_sys);
+                    ASSERT(!(state & psflg_running));
+                }
+            }
 
-	if (ERTS_IS_GC_DESIRED(p) && !ERTS_SCHEDULER_IS_DIRTY_IO(esdp)) {
-	    if (!(state & ERTS_PSFLG_EXITING) && !(p->flags & (F_DELAY_GC|F_DISABLE_GC))) {
-		int cost = scheduler_gc_proc(p, reds);
-		calls += cost;
-		reds -= cost;
-		if (reds <= 0)
-		    goto sched_out_proc;
-	    }
-	}
+            if (ERTS_IS_GC_DESIRED(p)) {
+                if (!(state & ERTS_PSFLG_EXITING)
+                    && !(p->flags & (F_DELAY_GC|F_DISABLE_GC))) {
+                    int cost = scheduler_gc_proc(p, reds);
+                    calls += cost;
+                    reds -= cost;
+                    if (reds <= 0)
+                        goto sched_out_proc;
+#ifdef ERTS_DIRTY_SCHEDULERS
+                    if (p->flags & (F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC))
+                        goto sched_out_proc;
+#endif
+                }
+            }
+        }
 
 	if (proxy_p) {
 	    free_proxy_proc(proxy_p);
@@ -10203,7 +10235,13 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 
 	/* Never run a suspended process */
-	ASSERT(!(ERTS_PSFLG_SUSPENDED & erts_smp_atomic32_read_nob(&p->state)));
+#ifdef DEBUG
+        {
+            erts_aint32_t dstate = erts_smp_atomic32_read_nob(&p->state);
+            ASSERT(!(ERTS_PSFLG_SUSPENDED & dstate)
+                   || (ERTS_PSFLG_DIRTY_RUNNING_SYS & dstate));
+        }
+#endif
 
 	ASSERT(erts_proc_read_refc(p) > 0);
 
@@ -10224,9 +10262,18 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 }
 
 static int
-notify_sys_task_executed(Process *c_p, ErtsProcSysTask *st, Eterm st_result)
+notify_sys_task_executed(Process *c_p, ErtsProcSysTask *st,
+			 Eterm st_result, int normal_sched)
 {
-    Process *rp = erts_proc_lookup(st->requester);
+    Process *rp;
+#ifdef ERTS_DIRTY_SCHEDULERS
+    if (!normal_sched)
+	rp = erts_pid2proc_opt(c_p, ERTS_PROC_LOCK_MAIN,
+			       st->requester, 0,
+			       ERTS_P2P_FLG_INC_REFC);
+    else
+#endif
+	rp = erts_proc_lookup(st->requester);
     if (rp) {
 	ErtsProcLocks rp_locks;
 	ErlOffHeap *ohp;
@@ -10274,6 +10321,11 @@ notify_sys_task_executed(Process *c_p, ErtsProcSysTask *st, Eterm st_result)
 
 	if (rp_locks)
 	    erts_smp_proc_unlock(rp, rp_locks);
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+	if (!normal_sched)
+	    erts_proc_dec_refc(rp);
+#endif
     }
 
     erts_cleanup_offheap(&st->off_heap);
@@ -10429,18 +10481,23 @@ done:
 }
 
 static void save_gc_task(Process *c_p, ErtsProcSysTask *st, int prio);
+#ifdef ERTS_DIRTY_SCHEDULERS
+static void save_dirty_task(Process *c_p, ErtsProcSysTask *st);
+#endif
 
 static int
 execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 {
-    int garbage_collected = 0;
+    int minor_gc = 0, major_gc = 0;
     erts_aint32_t state = *statep;
     int reds = in_reds;
     int qmask = 0;
 
+    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(c_p)));
     ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) == ERTS_PROC_LOCK_MAIN);
 
     do {
+	ErtsProcSysTaskType type;
 	ErtsProcSysTask *st;
 	int st_prio;
 	Eterm st_res;
@@ -10458,7 +10515,9 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	if (!st)
 	    break;
 
-	switch (st->type) {
+	type = st->type;
+
+	switch (type) {
         case ERTS_PSTT_GC_MAJOR:
         case ERTS_PSTT_GC_MINOR:
 	    if (c_p->flags & F_DISABLE_GC) {
@@ -10467,12 +10526,23 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 		reds--;
 	    }
 	    else {
-		if (!garbage_collected) {
-                    if (st->type == ERTS_PSTT_GC_MAJOR) {
+		if (!minor_gc
+		    || (!major_gc && type == ERTS_PSTT_GC_MAJOR)) {
+                    if (type == ERTS_PSTT_GC_MAJOR) {
                         FLAGS(c_p) |= F_NEED_FULLSWEEP;
                     }
 		    reds -= scheduler_gc_proc(c_p, reds);
-		    garbage_collected = 1;
+#ifdef ERTS_DIRTY_SCHEDULERS
+		    if (c_p->flags & (F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC)) {
+			save_dirty_task(c_p, st);
+			st = NULL;
+			break;
+		    }
+#endif
+		    if (type == ERTS_PSTT_GC_MAJOR)
+			minor_gc = major_gc = 1;
+		    else
+			minor_gc = 1;
 		}
 		st_res = am_true;
 	    }
@@ -10499,20 +10569,31 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	case ERTS_PSTT_CLA: {
 	    int fcalls;
             int cla_reds = 0;
+	    int do_gc;
+
 	    if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
 		fcalls = reds;
 	    else
 		fcalls = reds - CONTEXT_REDS;
-	    st_res = erts_proc_copy_literal_area(c_p,
-						 &cla_reds,
-						 fcalls,
-						 st->arg[0] == am_true);
+	    do_gc = st->arg[0] == am_true;
+	    st_res = erts_proc_copy_literal_area(c_p, &cla_reds,
+						 fcalls, do_gc);
             reds -= cla_reds;
 	    if (is_non_value(st_res)) {
+#ifdef ERTS_DIRTY_SCHEDULERS
+		if (c_p->flags & F_DIRTY_CLA) {
+		    save_dirty_task(c_p, st);
+		    st = NULL;
+		    break;
+		}
+#endif
 		/* Needed gc, but gc was disabled */
 		save_gc_task(c_p, st, st_prio);
 		st = NULL;
+		break;
 	    }
+	    if (do_gc) /* We did a major gc */
+		minor_gc = major_gc = 1;
 	    break;
         }
 	case ERTS_PSTT_COHMQ:
@@ -10531,7 +10612,7 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	}
 
 	if (st)
-	    reds += notify_sys_task_executed(c_p, st, st_res);
+	    reds += notify_sys_task_executed(c_p, st, st_res, 1);
 
 	state = erts_smp_atomic32_read_acqb(&c_p->state);
     } while (qmask && reds > 0);
@@ -10559,9 +10640,18 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 	Eterm st_res;
 	int st_prio;
 
-	st = fetch_sys_task(c_p, state, &qmask, &st_prio);
-	if (!st)
-	    break;
+#ifdef ERTS_DIRTY_SCHEDULERS
+	if (c_p->dirty_sys_tasks) {
+	    st = c_p->dirty_sys_tasks;
+	    c_p->dirty_sys_tasks = st->next;
+	}
+	else
+#endif
+	{
+	    st = fetch_sys_task(c_p, state, &qmask, &st_prio);
+	    if (!st)
+		break;
+	}
 
 	switch (st->type) {
         case ERTS_PSTT_GC_MAJOR:
@@ -10585,7 +10675,7 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 	    break;
 	}
 
-	reds += notify_sys_task_executed(c_p, st, st_res);
+	reds += notify_sys_task_executed(c_p, st, st_res, 1);
 
 	state = erts_smp_atomic32_read_acqb(&c_p->state);
     } while (qmask && reds < max_reds);
@@ -10594,6 +10684,92 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 }
 
 #ifdef ERTS_DIRTY_SCHEDULERS
+
+void
+erts_execute_dirty_system_task(Process *c_p)
+{
+    Eterm cla_res = THE_NON_VALUE;
+    ErtsProcSysTask *stasks;
+
+    /*
+     * If multiple operations, perform them in the following
+     * order (in order to avoid unnecessary GC):
+     *  1. Copy Literal Area (implies major GC).
+     *  2. GC Hibernate (implies major GC if not woken).
+     *  3. Major GC (implies minor GC).
+     *  4. Minor GC.
+     *
+     * System task requests are handled after the actual
+     * operations have been performed...
+     */
+
+    ASSERT(!(c_p->flags & (F_DELAY_GC|F_DISABLE_GC)));
+
+    if (c_p->flags & F_DIRTY_CLA) {
+	int cla_reds = 0;
+	cla_res = erts_proc_copy_literal_area(c_p, &cla_reds, c_p->fcalls, 1);
+	ASSERT(is_value(cla_res));
+    }
+
+    if (c_p->flags & F_DIRTY_GC_HIBERNATE) {
+	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
+	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
+	if (c_p->msg.len)
+            c_p->flags &= ~F_DIRTY_GC_HIBERNATE; /* operation aborted... */
+        else {
+	    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
+	    c_p->fvalue = NIL;
+	    erts_garbage_collect_hibernate(c_p);
+	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+	    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
+	    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	}
+	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
+    }
+
+    if (c_p->flags & (F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC)) {
+        if (c_p->flags & F_DIRTY_MAJOR_GC)
+            c_p->flags |= F_NEED_FULLSWEEP;
+	(void) erts_garbage_collect_nobump(c_p, 0, c_p->arg_reg,
+					   c_p->arity, c_p->fcalls);
+    }
+
+    ASSERT(!(c_p->flags & (F_DIRTY_CLA
+			   | F_DIRTY_GC_HIBERNATE
+			   | F_DIRTY_MAJOR_GC
+			   | F_DIRTY_MINOR_GC)));
+
+    stasks = c_p->dirty_sys_tasks;
+    c_p->dirty_sys_tasks = NULL;
+    
+    while (stasks) {
+	Eterm st_res;
+	ErtsProcSysTask *st = stasks;
+	stasks = st->next;
+
+	switch (st->type) {
+	case ERTS_PSTT_CLA:
+	    ASSERT(is_value(st_res));
+	    st_res = cla_res;
+	    break;
+	case ERTS_PSTT_GC_MAJOR:
+	    st_res = am_true;
+	    break;
+	case ERTS_PSTT_GC_MINOR:
+	    st_res = am_true;
+	    break;
+
+	default:
+	    ERTS_INTERNAL_ERROR("Not supported dirty system task");
+	    break;
+	}
+
+	(void) notify_sys_task_executed(c_p, st, st_res, 0);
+
+    }
+
+    erts_smp_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_DIRTY_ACTIVE_SYS);
+}
 
 static BIF_RETTYPE
 dispatch_system_task(Process *c_p, erts_aint_t fail_state,
@@ -10797,7 +10973,7 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 	    ERTS_INTERNAL_ERROR("Unknown failure schedule_process_sys_task()");
 	    failure = am_internal_error;
 	}
-	notify_sys_task_executed(c_p, st, failure);
+	notify_sys_task_executed(c_p, st, failure, 1);
     }
 
     ERTS_BIF_PREP_RET(ret, am_ok);
@@ -11011,6 +11187,15 @@ save_gc_task(Process *c_p, ErtsProcSysTask *st, int prio)
 	    break;
     }
 }
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+static void
+save_dirty_task(Process *c_p, ErtsProcSysTask *st)
+{
+    st->next = c_p->dirty_sys_tasks;
+    c_p->dirty_sys_tasks = st;
+}
+#endif
 
 int
 erts_set_gc_state(Process *c_p, int enable)
@@ -11348,6 +11533,7 @@ static void early_init_process_struct(void *varg, Eterm data)
     proc->common.id = make_internal_pid(data);
 #ifdef ERTS_DIRTY_SCHEDULERS
     erts_smp_atomic32_init_nob(&proc->dirty_state, 0);
+    proc->dirty_sys_tasks = NULL;
 #endif
     erts_smp_atomic32_init_relb(&proc->state, arg->state);
 
@@ -11856,6 +12042,7 @@ void erts_init_empty_process(Process *p)
 
 #ifdef ERTS_DIRTY_SCHEDULERS
     erts_smp_atomic32_init_nob(&p->dirty_state, 0);
+    p->dirty_sys_tasks = NULL;
 #endif
     erts_smp_atomic32_init_nob(&p->state, (erts_aint32_t) PRIORITY_NORMAL);
 
@@ -12443,7 +12630,9 @@ send_exit_signal(Process *c_p,		/* current process if and only
 		}
 		set_proc_exiting(c_p, state, rsn, NULL);
 	    }
-	    else if (!(state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS))) {
+	    else if (!(state & (ERTS_PSFLG_RUNNING
+                                | ERTS_PSFLG_RUNNING_SYS
+                                | ERTS_PSFLG_DIRTY_RUNNING_SYS))) {
 		/* Process not running ... */
 		ErtsProcLocks need_locks = ~(*rp_locks) & ERTS_PROC_LOCKS_ALL;
 		ErlHeapFragment *bp = NULL;
@@ -12470,8 +12659,7 @@ send_exit_signal(Process *c_p,		/* current process if and only
 		    ErlOffHeap *ohp;
 		    Uint rsn_sz = size_object(rsn);
 #ifdef ERTS_DIRTY_SCHEDULERS
-		    if (state & (ERTS_PSFLG_DIRTY_RUNNING
-				 | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+		    if (state & ERTS_PSFLG_DIRTY_RUNNING) {
 			bp = new_message_buffer(rsn_sz);
 			ohp = &bp->off_heap;
 			hp = &bp->mem[0];
@@ -12488,7 +12676,7 @@ send_exit_signal(Process *c_p,		/* current process if and only
 		set_proc_exiting(rp, state, rsn_cpy, bp);
 	    }
 	    else { /* Process running... */
-
+ 
 		/*
 		 * The pending exit will be discovered when the process
 		 * is scheduled out if not discovered earlier.
@@ -12510,8 +12698,35 @@ send_exit_signal(Process *c_p,		/* current process if and only
 							  &bp->off_heap);
 		    rp->pending_exit.bp = bp;
 		}
-		erts_smp_atomic32_read_bor_relb(&rp->state,
-						ERTS_PSFLG_PENDING_EXIT);
+
+		/*
+		 * If no dirty work has been scheduled, pending exit will
+                 * be discovered when the process is scheduled. If dirty work
+                 * has been scheduled, we may need to add it to a normal run
+                 * queue...
+		 */
+#ifndef ERTS_DIRTY_SCHEDULERS
+                (void) erts_smp_atomic32_read_bor_relb(&rp->state,
+                                                       ERTS_PSFLG_PENDING_EXIT);
+#else
+                {
+                    erts_aint32_t a = erts_smp_atomic32_read_nob(&rp->state);
+                    while (1) {
+                        erts_aint32_t n, e;
+                        int dwork;
+                        n = e = a;
+                        n |= ERTS_PSFLG_PENDING_EXIT;
+                        dwork = !!(n & ERTS_PSFLGS_DIRTY_WORK);
+                        n &= ~ERTS_PSFLGS_DIRTY_WORK;
+                        a = erts_smp_atomic32_cmpxchg_mb(&rp->state, n, e);
+                        if (a == e) {
+                            if (dwork)
+                                erts_schedule_process(rp, n, *rp_locks);
+                            break;
+                        }
+                    }
+                }
+#endif
 	    }
 	}
 	/* else:
