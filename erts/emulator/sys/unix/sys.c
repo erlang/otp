@@ -161,7 +161,7 @@ int erts_use_kernel_poll = 0;
 
 struct {
     int (*select)(ErlDrvPort, ErlDrvEvent, int, int);
-    int (*enif_select)(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, Eterm);
+    enum ErlNifSelectReturn (*enif_select)(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, Eterm);
     int (*event)(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
     void (*check_io_as_interrupt)(void);
     void (*check_io_interrupt)(int);

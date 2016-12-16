@@ -2042,7 +2042,7 @@ static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     enum ErlNifSelectFlags mode;
     void* obj;
     ERL_NIF_TERM ref;
-    int retval;
+    enum ErlNifSelectReturn retval;
 
     if (!get_fd(env, argv[0], &fdr)
         || !enif_get_uint(env, argv[1], &mode)
@@ -2056,7 +2056,7 @@ static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     fdr->was_selected = 1;
     retval = enif_select(env, fdr->fd, mode, obj, ref);
 
-    return enif_make_int(env, retval);
+    return enif_make_int(env, (int)retval);
 }
 
 static ERL_NIF_TERM pipe_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])

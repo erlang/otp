@@ -1198,7 +1198,7 @@ done_unknown:
     return ret;
 }
 
-int
+enum ErlNifSelectReturn
 ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
                              ErlNifEvent e,
                              enum ErlNifSelectFlags mode,
@@ -1213,7 +1213,7 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
     ErtsPollEvents new_events, old_events;
     ErtsDrvEventState *state;
     int wake_poller;
-    int ret;
+    enum ErlNifSelectReturn ret;
     enum { NO_STOP=0, CALL_STOP, CALL_STOP_AND_RELEASE } call_stop = NO_STOP;
 #if ERTS_CIO_HAVE_DRV_EVENT
     ErtsDrvEventDataState *free_event = NULL;
@@ -1227,11 +1227,11 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     if ((unsigned)fd >= (unsigned)erts_smp_atomic_read_nob(&drv_ev_state_len)) {
 	if (fd < 0) {
-	    return -1;
+	    return ERL_NIF_SELECT_ERROR | ERL_NIF_SELECT_INVALID_EVENT;
 	}
 	if (fd >= max_fds) {
 	    nif_select_large_fd_error(fd, mode, resource, ref);
-            return -1;
+            return ERL_NIF_SELECT_ERROR | ERL_NIF_SELECT_INVALID_EVENT;
 	}
 	grow_drv_ev_state(fd);
     }
@@ -1250,7 +1250,7 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
         if (IS_FD_UNKNOWN(state)) {
             /* fast track to stop callback */
             call_stop = CALL_STOP;
-            ret = 0;
+            ret = ERL_NIF_SELECT_STOP_CALLED;
             goto done_unknown;
         }
         on = 0;
@@ -1303,7 +1303,7 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
         print_nif_select_op(dsbufp, fd, mode, resource, ref);
         steal_pending_stop_nif(dsbufp, resource, state, mode, on);
         if (state->type == ERTS_EV_TYPE_STOP_NIF) {
-            ret = 0;
+            ret = ERL_NIF_SELECT_STOP_SCHEDULED;  /* ?? */
             goto done;
         }
         ASSERT(state->type == ERTS_EV_TYPE_NONE);
@@ -1325,7 +1325,7 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
             state->driver.nif->out.ddeselect_cnt = 0;
             state->driver.stop.resource = NULL;
 	}
-	ret = -1;
+	ret = ERL_NIF_SELECT_ERROR | ERL_NIF_SELECT_FAILED;
 	goto done;
     }
 
@@ -1339,8 +1339,7 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
 	   || state->type == ERTS_EV_TYPE_NONE);
 
     state->events = new_events;
-    if (ctl_events) {
-	if (on) {
+    if (on) {
             Uint32* refn;
 	    if (!state->driver.nif)
 		state->driver.nif = alloc_nif_select_data();
@@ -1379,8 +1378,9 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
                 }
                 state->driver.nif->out.ddeselect_cnt = 0;
             }
-	}
-	else { /* off */
+            ret = 0;
+    }
+    else { /* off */
 	    if (state->type == ERTS_EV_TYPE_NIF) {
                 //erts_fprintf(stderr, "SVERK: enif select clear fd=%d inpid=%T inrsrc=%p\n",
                 //             state->fd, state->driver.nif->inpid,
@@ -1408,6 +1408,7 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
                     call_stop = CALL_STOP;
                 }
                 state->type = ERTS_EV_TYPE_NONE;
+                ret = ERL_NIF_SELECT_STOP_CALLED;
             }
             else {
                 /* Not safe to close fd, postpone stop_select callback. */
@@ -1418,11 +1419,9 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
                     enif_keep_resource(resource);
                 }
                 state->type = ERTS_EV_TYPE_STOP_NIF;
+                ret = ERL_NIF_SELECT_STOP_SCHEDULED;
 	    }
-	}
     }
-
-    ret = 0;
 
 done:
 

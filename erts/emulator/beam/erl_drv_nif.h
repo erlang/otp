@@ -56,6 +56,14 @@ enum ErlNifSelectFlags {
     ERL_NIF_SELECT_STOP      = (1 << 2)
 };
 
+enum ErlNifSelectReturn {
+    ERL_NIF_SELECT_ERROR          = (1 << 0),
+    ERL_NIF_SELECT_STOP_CALLED    = (1 << 1),
+    ERL_NIF_SELECT_STOP_SCHEDULED = (1 << 2),
+    ERL_NIF_SELECT_INVALID_EVENT  = (1 << 3),
+    ERL_NIF_SELECT_FAILED         = (1 << 4)
+};
+
 #ifdef SIZEOF_CHAR
 #  define SIZEOF_CHAR_SAVED__ SIZEOF_CHAR
 #  undef SIZEOF_CHAR

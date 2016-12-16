@@ -440,6 +440,13 @@ t_on_load(Config) when is_list(Config) ->
 -define(ERL_NIF_SELECT_WRITE, (1 bsl 1)).
 -define(ERL_NIF_SELECT_STOP, (1 bsl 2)).
 
+-define(ERL_NIF_SELECT_ERROR, (1 bsl 0)).
+-define(ERL_NIF_SELECT_STOP_CALLED, (1 bsl 1)).
+-define(ERL_NIF_SELECT_STOP_SCHEDULED, (1 bsl 2)).
+-define(ERL_NIF_SELECT_INVALID_EVENT, (1 bsl 3)).
+-define(ERL_NIF_SELECT_FAILED, (1 bsl 4)).
+
+
 select(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
 
@@ -470,7 +477,7 @@ select(Config) when is_list(Config) ->
 
     %% Close write and wait for EOF
     eagain = read_nif(R, 1),
-    0 = select_nif(W,?ERL_NIF_SELECT_STOP,W,Ref),
+    check_stop_ret(select_nif(W,?ERL_NIF_SELECT_STOP,W,Ref)),
     timer:sleep(10),
     {1, {W_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(W),
@@ -479,7 +486,7 @@ select(Config) when is_list(Config) ->
     [{select, R, Ref, ready_input}] = flush(),
     eof = read_nif(R,1),
 
-    0 = select_nif(R,?ERL_NIF_SELECT_STOP,R,Ref),
+    check_stop_ret(select_nif(R,?ERL_NIF_SELECT_STOP,R,Ref)),
     timer:sleep(10),
     {1, {R_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(R),
@@ -521,12 +528,12 @@ select_2(Config) ->
     done = receive_any(),
     [] = flush(),
 
-    0 = select_nif(R,?ERL_NIF_SELECT_STOP,R,Ref1),
+    check_stop_ret(select_nif(R,?ERL_NIF_SELECT_STOP,R,Ref1)),
     timer:sleep(10),
     {1, {R_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(R),
 
-    0 = select_nif(W,?ERL_NIF_SELECT_STOP,W,Ref1),
+    ?ERL_NIF_SELECT_STOP_CALLED = select_nif(W,?ERL_NIF_SELECT_STOP,W,Ref1),
     timer:sleep(10),
     {1, {W_ptr,1}} = last_fd_stop_call(),
     true = is_closed_nif(W),
@@ -538,7 +545,8 @@ select_3(Config) ->
     {_,_,2} = last_resource_dtor_call(),
     ok.
 
-
+check_stop_ret(?ERL_NIF_SELECT_STOP_CALLED) -> ok;    
+check_stop_ret(?ERL_NIF_SELECT_STOP_SCHEDULED) -> ok.
 
 write_full(W, C) ->
     write_full(W, C, <<>>).
