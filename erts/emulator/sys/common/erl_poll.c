@@ -51,7 +51,6 @@
 #ifndef WANT_NONBLOCKING
 #  define WANT_NONBLOCKING
 #endif
-#define ERTS_WANT_GOT_SIGUSR1
 
 #include "erl_poll.h"
 #if ERTS_POLL_USE_KQUEUE

@@ -50,7 +50,6 @@
 #endif
 
 #define ERTS_WANT_BREAK_HANDLING
-#define ERTS_WANT_GOT_SIGUSR1
 #define WANT_NONBLOCKING    /* must define this to pull in defs from sys.h */
 #include "sys.h"
 #include "erl_thr_progress.h"
@@ -96,18 +95,10 @@ static int debug_log = 0;
 #endif
 
 #ifdef ERTS_SMP
-erts_smp_atomic32_t erts_got_sigusr1;
-#define ERTS_SET_GOT_SIGUSR1 \
-  erts_smp_atomic32_set_mb(&erts_got_sigusr1, 1)
-#define ERTS_UNSET_GOT_SIGUSR1 \
-  erts_smp_atomic32_set_mb(&erts_got_sigusr1, 0)
 static erts_smp_atomic32_t have_prepared_crash_dump;
 #define ERTS_PREPARED_CRASH_DUMP \
   ((int) erts_smp_atomic32_xchg_nob(&have_prepared_crash_dump, 1))
 #else
-volatile int erts_got_sigusr1;
-#define ERTS_SET_GOT_SIGUSR1 (erts_got_sigusr1 = 1)
-#define ERTS_UNSET_GOT_SIGUSR1 (erts_got_sigusr1 = 0)
 static volatile int have_prepared_crash_dump;
 #define ERTS_PREPARED_CRASH_DUMP \
   (have_prepared_crash_dump++)
@@ -430,11 +421,9 @@ erts_sys_pre_init(void)
 
 #ifdef ERTS_SMP
     erts_smp_atomic32_init_nob(&erts_break_requested, 0);
-    erts_smp_atomic32_init_nob(&erts_got_sigusr1, 0);
     erts_smp_atomic32_init_nob(&have_prepared_crash_dump, 0);
 #else
     erts_break_requested = 0;
-    erts_got_sigusr1 = 0;
     have_prepared_crash_dump = 0;
 #endif
 
@@ -692,29 +681,6 @@ static RETSIGTYPE request_stop(int signum)
 #endif
 }
 
-
-static ERTS_INLINE void
-sigusr1_exit(void)
-{
-    char env[21]; /* enough to hold any 64-bit integer */
-    size_t envsz;
-    int i, secs = -1;
-
-    /* We do this at interrupt level, since the main reason for
-     * wanting to generate a crash dump in this way is that the emulator
-     * is hung somewhere, so it won't be able to poll any flag we set here.
-     */
-    ERTS_SET_GOT_SIGUSR1;
-
-    envsz = sizeof(env);
-    if ((i = erts_sys_getenv_raw("ERL_CRASH_DUMP_SECONDS", env, &envsz)) >= 0) {
-	secs = i != 0 ? 0 : atoi(env);
-    }
-
-    prepare_crash_dump(secs);
-    erts_exit(ERTS_DUMP_EXIT, "Received SIGUSR1\n");
-}
-
 #ifdef ETHR_UNUSABLE_SIGUSRX
 #warning "Unusable SIGUSR1 & SIGUSR2. Disabling use of these signals"
 
@@ -744,7 +710,7 @@ static RETSIGTYPE user_signal1(int signum)
 #ifdef ERTS_SMP
    smp_sig_notify('1');
 #else
-   sigusr1_exit();
+   signal_notify_requested(am_sigusr1);
 #endif
 }
 
@@ -1313,14 +1279,14 @@ signal_dispatcher_thread_func(void *unused)
 	    case 'T': /* SIGTERM */
                 signal_notify_requested(am_sigterm);
 		break;
+	    case '1': /* SIGUSR1 */
+                signal_notify_requested(am_sigusr1);
+		break;
 	    case 'I': /* SIGINT */
 		break_requested();
 		break;
 	    case 'Q': /* SIGQUIT */
 		quit_requested();
-		break;
-	    case '1': /* SIGUSR1 */
-		sigusr1_exit();
 		break;
 	    default:
 		erts_exit(ERTS_ABORT_EXIT,

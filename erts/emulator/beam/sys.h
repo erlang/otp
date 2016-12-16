@@ -487,20 +487,6 @@ extern volatile int erts_break_requested;
 void erts_do_break_handling(void);
 #endif
 
-#ifdef ERTS_WANT_GOT_SIGUSR1
-#  ifndef UNIX
-#    define ERTS_GOT_SIGUSR1 0
-#  else
-#    ifdef ERTS_SMP
-extern erts_smp_atomic32_t erts_got_sigusr1;
-#      define ERTS_GOT_SIGUSR1 ((int) erts_smp_atomic32_read_mb(&erts_got_sigusr1))
-#    else
-extern volatile int erts_got_sigusr1;
-#      define ERTS_GOT_SIGUSR1 erts_got_sigusr1
-#    endif
-#  endif
-#endif
-
 #ifdef ERTS_SMP
 extern erts_smp_atomic32_t erts_writing_erl_crash_dump;
 extern erts_tsd_key_t erts_is_crash_dumping_key;

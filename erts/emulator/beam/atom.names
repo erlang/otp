@@ -593,6 +593,7 @@ atom separate
 atom shared
 atom sighup
 atom sigterm
+atom sigusr1
 atom silent
 atom size
 atom sl_alloc
