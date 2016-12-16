@@ -123,7 +123,7 @@ ok
 "Hello world!"</code>
 
     <p>A better solution for a real module is to take advantage of the new
-      directive <c>on load</c> (see section
+      directive <c>on_load</c> (see section
       <seealso marker="doc/reference_manual:code_loading#on_load">Running a
       Function When a Module is Loaded</seealso> in the Erlang Reference
       Manual) to load the NIF library automatically when the module is
@@ -135,27 +135,14 @@ ok
         away by the compiler, causing loading of the NIF library to fail.</p>
     </note>
 
-    <p>A loaded NIF library is tied to the Erlang module code version
-      that loaded it. If the module is upgraded with a new version, the
-      new Erlang code need to load its own NIF library (or maybe choose not
-      to). The new code version can, however, choose to load the
-      same NIF library as the old code if it wants to. Sharing the
-      dynamic library means that static data defined by the library
-      is shared as well. To avoid unintentionally shared static
-      data, each Erlang module code can keep its own private data. This
-      private data can be set when the NIF library is loaded and
-      then retrieved by calling <seealso marker="#enif_priv_data">
-      <c>enif_priv_data</c></seealso>.</p>
-
-    <p>A NIF library cannot be loaded explicitly. A library is
-      automatically unloaded when the module code that it belongs to is purged
-      by the code server.</p>
+    <p>Once loaded, a NIF library is persistent. It will not be unloaded
+      until the module code version that it belongs to is purged.</p>
   </description>
 
   <section>
   <title>Functionality</title>
-    <p>All functions that a NIF library needs to do with Erlang are
-      performed through the NIF API functions. Functions exist
+    <p>All interaction between NIF code and the Erlang runtime system is
+      performed by calling NIF API functions. Functions exist
       for the following functionality:</p>
 
     <taglist>
@@ -285,6 +272,19 @@ return term;</code>
           be deleted or taken over by the new NIF library. The unloading of a
           library is postponed as long as there exist resource objects with a
           destructor function in the library.</p>
+      </item>
+      <tag>Module upgrade and static data</tag>
+      <item>
+	<p>A loaded NIF library is tied to the Erlang module instance
+	that loaded it. If the module is upgraded, the new module instance
+	needs to load its own NIF library (or maybe choose not to). The new
+	module instance can, however, choose to load the exact same NIF library
+	as the old code if it wants to. Sharing the dynamic library means that
+	static data defined by the library is shared as well. To avoid
+	unintentionally shared static data between module instances, each Erlang
+	module version can keep its own private data. This private data can be
+	set when the NIF library is loaded and later retrieved by calling
+	<seealso marker="#enif_priv_data"><c>enif_priv_data</c></seealso>.</p>
       </item>
       <tag>Threads and concurrency</tag>
       <item>
@@ -525,7 +525,7 @@ return term;</code>
         <p><c>load</c> is called when the NIF library is loaded
           and no previously loaded library exists for this module.</p>
         <p><c>*priv_data</c> can be set to point to some private data
-          that the library needs to keep a state between NIF
+          if the library needs to keep a state between NIF
           calls. <c>enif_priv_data</c> returns this pointer.
           <c>*priv_data</c> is initialized to <c>NULL</c> when <c>load</c> is
           called.</p> 
