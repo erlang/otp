@@ -153,7 +153,7 @@ volatile int erts_break_requested = 0;
 static struct termios initial_tty_mode;
 static int replace_intr = 0;
 /* assume yes initially, ttsl_init will clear it */
-int using_oldshell = 1; 
+int using_oldshell = 1;
 
 #ifdef ERTS_ENABLE_KERNEL_POLL
 
@@ -798,11 +798,11 @@ void erts_replace_intr(void) {
 
   if (isatty(0)) {
     tcgetattr(0, &mode);
-    
+
     /* here's an example of how to replace ctrl-c with ctrl-u */
     /* mode.c_cc[VKILL] = 0;
        mode.c_cc[VINTR] = CKILL; */
-    
+
     mode.c_cc[VINTR] = 0;	/* disable ctrl-c */
     tcsetattr(0, TCSANOW, &mode);
     replace_intr = 1;
@@ -856,10 +856,7 @@ get_number(char **str_ptr)
     }
 }
 
-void
-os_flavor(char* namebuf, 	/* Where to return the name. */
-	  unsigned size) 	/* Size of name buffer. */
-{
+void os_flavor(char* namebuf, unsigned size) {
     struct utsname uts;		/* Information about the system. */
     char* s;
 
@@ -872,22 +869,16 @@ os_flavor(char* namebuf, 	/* Where to return the name. */
     strcpy(namebuf, uts.sysname);
 }
 
-void
-os_version(pMajor, pMinor, pBuild)
-int* pMajor;			/* Pointer to major version. */
-int* pMinor;			/* Pointer to minor version. */
-int* pBuild;			/* Pointer to build number. */
-{
+void os_version(int *pMajor, int *pMinor, int *pBuild) {
     struct utsname uts;		/* Information about the system. */
     char* release;		/* Pointer to the release string:
-				 * X.Y or X.Y.Z.
-				 */
+				 * X.Y or X.Y.Z.  */
 
     (void) uname(&uts);
     release = uts.release;
-    *pMajor = get_number(&release);
-    *pMinor = get_number(&release);
-    *pBuild = get_number(&release);
+    *pMajor = get_number(&release); /* Pointer to major version. */
+    *pMinor = get_number(&release); /* Pointer to minor version. */
+    *pBuild = get_number(&release); /* Pointer to build number. */
 }
 
 void init_getenv_state(GETENV_STATE *state)
@@ -922,7 +913,7 @@ void erts_do_break_handling(void)
 {
     struct termios temp_mode;
     int saved = 0;
-    
+
     /*
      * Most functions that do_break() calls are intentionally not thread safe;
      * therefore, make sure that all threads but this one are blocked before
@@ -940,14 +931,14 @@ void erts_do_break_handling(void)
       tcsetattr(0,TCSANOW,&initial_tty_mode);
       saved = 1;
     }
-    
+
     /* call the break handling function, reset the flag */
     do_break();
 
     ERTS_UNSET_BREAK_REQUESTED;
 
     fflush(stdout);
-    
+
     /* after break we go back to saved settings */
     if (using_oldshell && !replace_intr) {
       SET_NONBLOCKING(1);
@@ -1055,36 +1046,11 @@ erts_sys_unsetenv(char *key)
     return res;
 }
 
-void
-sys_init_io(void)
-{
-}
-
-#if (0) /* unused? */
-static int write_fill(fd, buf, len)
-int fd, len;
-char *buf;
-{
-    int i, done = 0;
-    
-    do {
-	if ((i = write(fd, buf+done, len-done)) < 0) {
-	    if (errno != EINTR)
-		return (i);
-	    i = 0;
-	}
-	done += i;
-    } while (done < len);
-    return (len);
-}
-#endif
+void sys_init_io(void) { }
+void erts_sys_alloc_init(void) { }
 
 extern const char pre_loaded_code[];
 extern Preload pre_loaded[];
-
-void erts_sys_alloc_init(void)
-{
-}
 
 #if ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
 void *erts_sys_aligned_alloc(UWord alignment, UWord size)
@@ -1186,9 +1152,7 @@ void sys_preload_end(Preload* p)
    Here we assume that all schedulers are stopped so that erl_poll
    does not interfere with the select below.
 */
-int sys_get_key(fd)
-int fd;
-{
+int sys_get_key(int fd) {
     int c, ret;
     unsigned char rbuf[64];
     fd_set fds;
@@ -1207,15 +1171,14 @@ int fd;
         if (c <= 0)
             return c;
     }
-
-    return rbuf[0]; 
+    return rbuf[0];
 }
 
 
 extern int erts_initialized;
 void
 erl_assert_error(const char* expr, const char* func, const char* file, int line)
-{   
+{
     fflush(stdout);
     fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
             file, line, func, expr);
@@ -1240,7 +1203,7 @@ erl_debug(char* fmt, ...)
 {
     char sbuf[1024];		/* Temporary buffer. */
     va_list va;
-    
+
     if (debug_log) {
 	va_start(va, fmt);
 	vsprintf(sbuf, fmt, va);
@@ -1388,9 +1351,9 @@ init_smp_sig_suspend(void) {
 int erts_darwin_main_thread_pipe[2];
 int erts_darwin_main_thread_result_pipe[2];
 
-static void initialize_darwin_main_thread_pipes(void) 
+static void initialize_darwin_main_thread_pipes(void)
 {
-    if (pipe(erts_darwin_main_thread_pipe) < 0 || 
+    if (pipe(erts_darwin_main_thread_pipe) < 0 ||
 	pipe(erts_darwin_main_thread_result_pipe) < 0) {
 	erts_exit(ERTS_ERROR_EXIT,"Fatal error initializing Darwin main thread stealing");
     }
@@ -1556,5 +1519,4 @@ erl_sys_args(int* argc, char** argv)
 	    argv[j++] = argv[i];
     }
     *argc = j;
-
 }
