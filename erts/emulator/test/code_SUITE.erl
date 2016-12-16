@@ -65,9 +65,9 @@ versions(Config) when is_list(Config) ->
     2 = versions:version(),
 
     %% Kill processes, unload code.
-    P1 ! P2 ! done,
     _ = monitor(process, P1),
     _ = monitor(process, P2),
+    P1 ! P2 ! done,
     receive
         {'DOWN',_,process,P1,normal} -> ok
     end,
