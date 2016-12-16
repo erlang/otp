@@ -95,7 +95,7 @@ Should this variable be nil, no manual pages will show up in the
 Erlang mode menu."
   :group 'erlang
   :type '(restricted-sexp :match-alternatives (stringp 'nil))
-  :safe (lambda (val) (or (eq nil val) (strinp val))))
+  :safe (lambda (val) (or (eq nil val) (stringp val))))
 
 (defconst erlang-xemacs-p (string-match "Lucid\\|XEmacs" emacs-version)
   "Non-nil when running under XEmacs or Lucid Emacs.")
@@ -5534,7 +5534,7 @@ Return the position after the newly inserted command."
            (boundp 'comint-last-output-start))
       (save-excursion
         (goto-char
-         (if (erlang-interactive-p)
+         (if (called-interactively-p 'interactive)
              (symbol-value 'comint-last-input-end)
            (symbol-value 'comint-last-output-start)))
         (while (progn (skip-chars-forward "^\C-h")
@@ -5553,7 +5553,7 @@ Return the position after the newly inserted command."
       (let ((pmark (process-mark (get-buffer-process (current-buffer)))))
         (save-excursion
           (goto-char
-           (if (erlang-interactive-p)
+           (if (called-interactively-p 'interactive)
                (symbol-value 'comint-last-input-end)
              (symbol-value 'comint-last-output-start)))
           (while (re-search-forward "\r+$" pmark t)
