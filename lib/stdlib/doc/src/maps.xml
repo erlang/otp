@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -315,6 +315,33 @@ false</code>
 error</code>
       </desc>
     </func>
+
+    <func>
+      <name name="take" arity="3"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>The function removes the <c><anno>Key</anno></c>, if it
+        exists, and its associated value from <c><anno>Map1</anno></c>
+        and returns a tuple with the removed <c><anno>Value</anno></c>
+        and the new map <c><anno>Map2</anno></c> without key
+        <c><anno>Key</anno></c>.  If the key does not exist
+        <c>Default</c> is returned.
+        </p>
+        <p>The call will fail with a <c>{badmap,Map}</c> exception if
+        <c><anno>Map1</anno></c> is not a map.
+        </p>
+        <p>Example:</p>
+        <code type="none">
+        > Map = #{"a" => "hello", "b" => "world"}.
+        #{"a" => "hello", "b" => "world"}
+        > maps:take("a",Map,"default value").
+        {"hello",#{"b" => "world"}}
+        > maps:take("does not exist",Map,"default value").
+        "default value"
+        </code>
+      </desc>
+    </func>
+
 
     <func>
       <name name="to_list" arity="1"/>

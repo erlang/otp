@@ -30,7 +30,7 @@
 -export([t_update_with_3/1, t_update_with_4/1,
          t_get_3/1, t_filter_2/1,
          t_fold_3/1,t_map_2/1,t_size_1/1,
-         t_with_2/1,t_without_2/1]).
+         t_with_2/1,t_without_2/1,t_take_3/1]).
 
 %%-define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
 %%-define(badarg(F,Args), {'EXIT', {badarg, [{maps,F,Args,_}|_]}}).
@@ -47,7 +47,7 @@ all() ->
     [t_update_with_3,t_update_with_4,
      t_get_3,t_filter_2,
      t_fold_3,t_map_2,t_size_1,
-     t_with_2,t_without_2].
+     t_with_2,t_without_2,t_take_3].
 
 t_update_with_3(Config) when is_list(Config) ->
     V1 = value1,
@@ -95,6 +95,16 @@ t_get_3(Config) when is_list(Config) ->
 
     %% error case
     ?badmap(a,get,[[a,b],a,def]) = (catch maps:get([a,b],id(a),def)),
+    ok.
+
+t_take_3(Config) when is_list(Config) ->
+    Map = #{ key1 => value1, key2 => value2 },
+    Default = "Default value",
+    {value1, #{ key2 => value2 }} == maps:take(key1, Map, Default),
+    Default = maps:take(key3, Map, Default),
+
+    %% error case
+    ?badmap(a,take,[[a,b],a,def]) = (catch maps:take([a,b],id(a),def)),
     ok.
 
 t_without_2(_Config) ->

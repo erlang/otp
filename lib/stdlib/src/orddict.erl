@@ -22,7 +22,7 @@
 
 %% Standard interface.
 -export([new/0,is_key/2,to_list/1,from_list/1,size/1,is_empty/1]).
--export([fetch/2,find/2,fetch_keys/1,erase/2,take/2,take/3]).
+-export([fetch/2,find/2,fetch_keys/1,erase/2,take/2]).
 -export([store/3,append/3,append_list/3,update/3,update/4,update_counter/3]).
 -export([fold/3,map/2,filter/2,merge/3]).
 
@@ -105,19 +105,6 @@ erase(Key, [{K,_}=E|Dict]) when Key > K ->
     [E|erase(Key, Dict)];
 erase(_Key, [{_K,_Val}|Dict]) -> Dict;		%Key == K
 erase(_, []) -> [].
-
--spec take(Key, Orddict, Default) -> {Value, Orddict1} | Default when
-      Orddict :: orddict(Key, Value),
-      Orddict1 :: orddict(Key, Value),
-      Key :: term(),
-      Value :: term(),
-      Default :: term().
-
-take(Key, Orddict, Default) ->
-    case take_1(Key, Orddict, []) of
-      error -> Default;
-      Result -> Result
-    end.
 
 -spec take(Key, Orddict) -> {Value, Orddict1} | error when
       Orddict :: orddict(Key, Value),

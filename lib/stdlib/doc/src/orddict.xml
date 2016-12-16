@@ -122,16 +122,6 @@
     </func>
 
     <func>
-      <name name="take" arity="3"/>
-      <fsummary>Return value and new dictionary without element with this value or
-          <c><anno>Default</anno></c>.</fsummary>
-      <desc>
-        <p>This function returns value from dictionary and new dictionary without this value. If key is not present in
-          the dictionary then returns <c><anno>Default</anno></c>.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="filter" arity="2"/>
       <fsummary>Select elements that satisfy a predicate.</fsummary>
       <desc>

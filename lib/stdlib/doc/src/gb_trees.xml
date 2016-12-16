@@ -117,19 +117,6 @@
     </func>
 
     <func>
-      <name name="take" arity="3"/>
-      <fsummary>Returns a value and new tree without node with key <c>Key</c> or
-        <c>Default</c> and old tree.</fsummary>
-      <desc>
-        <p>Returns a value <c><anno>Value</anno></c> from node with key
-          <c><anno>Key</anno></c> and new <c><anno>Tree2</anno></c> without node
-          with this value <c><anno>Value</anno></c>. If node with key <c><anno>Key</anno></c>
-          is not in tree <c><anno>Tree1</anno></c> then return <c>Default</c> and old
-          tree <c><anno>Tree1</anno></c>.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="empty" arity="0"/>
       <fsummary>Return an empty tree.</fsummary>
       <desc>

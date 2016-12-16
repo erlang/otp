@@ -29,7 +29,8 @@
 -export([get/2, find/2, from_list/1,
          is_key/2, keys/1, merge/2,
          new/0, put/3, remove/2, take/2,
-         to_list/1, update/3, values/1]).
+         to_list/1, update/3, values/1,
+         take/3]).
 
 %% Shadowed by erl_bif_types: maps:get/2
 -spec get(Key,Map) -> Value when
@@ -113,6 +114,18 @@ remove(_,_) -> erlang:nif_error(undef).
     Map2 :: map().
 
 take(_,_) -> erlang:nif_error(undef).
+
+-spec take(Key,Map1,Default) -> {Value,Map2} | Default when
+    Key :: term(),
+    Map1 :: map(),
+    Value :: term(),
+    Map2 :: map().
+
+take(Key,Map1,Default) ->
+  case maps:take(Key,Map1) of
+    error -> Default;
+    Map2 -> Map2
+  end.
 
 %% Shadowed by erl_bif_types: maps:to_list/1
 -spec to_list(Map) -> [{Key,Value}] when
