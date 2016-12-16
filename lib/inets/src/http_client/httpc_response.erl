@@ -363,7 +363,7 @@ redirect(Response = {StatusLine, Headers, Body}, Request) ->
 		%% Automatic redirection
 		{ok, {Scheme, _, Host, Port, Path,  Query}} -> 
 		    NewHeaders = 
-			(Request#request.headers)#http_request_h{host = Host},
+			(Request#request.headers)#http_request_h{host = Host++":"++integer_to_list(Port)},
 		    NewRequest = 
 			Request#request{redircount = 
 					Request#request.redircount+1,
