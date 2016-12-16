@@ -444,7 +444,7 @@ select(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
 
     Ref = make_ref(),
-    {R,W} = pipe_nif(),
+    {{R, R_ptr}, {W, W_ptr}} = pipe_nif(),
     ok = write_nif(W, <<"hej">>),
     <<"hej">> = read_nif(R, 3),
 
@@ -472,6 +472,7 @@ select(Config) when is_list(Config) ->
     eagain = read_nif(R, 1),
     0 = select_nif(W,?ERL_NIF_SELECT_STOP,W,Ref),
     timer:sleep(10),
+    {1, {W_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(W),
     [] = flush(),
     0 = select_nif(R,?ERL_NIF_SELECT_READ,R,Ref),
@@ -480,6 +481,7 @@ select(Config) when is_list(Config) ->
 
     0 = select_nif(R,?ERL_NIF_SELECT_STOP,R,Ref),
     timer:sleep(10),
+    {1, {R_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(R),
 
     select_2(Config).
@@ -490,7 +492,7 @@ select_2(Config) ->
 
     Ref1 = make_ref(),
     Ref2 = make_ref(),
-    {R,W} = pipe_nif(),
+    {{R, R_ptr}, {W, W_ptr}} = pipe_nif(),
 
     %% Change ref
     eagain = read_nif(R, 1),
@@ -520,9 +522,13 @@ select_2(Config) ->
     [] = flush(),
 
     0 = select_nif(R,?ERL_NIF_SELECT_STOP,R,Ref1),
+    timer:sleep(10),
+    {1, {R_ptr,_}} = last_fd_stop_call(),
+    true = is_closed_nif(R),
+
     0 = select_nif(W,?ERL_NIF_SELECT_STOP,W,Ref1),
     timer:sleep(10),
-    true = is_closed_nif(R),
+    {1, {W_ptr,1}} = last_fd_stop_call(),
     true = is_closed_nif(W),
 
     select_3(Config).
@@ -2397,6 +2403,7 @@ pipe_nif() -> ?nif_stub.
 write_nif(_,_) -> ?nif_stub.
 read_nif(_,_) -> ?nif_stub.
 is_closed_nif(_) -> ?nif_stub.
+last_fd_stop_call() -> ?nif_stub.
 
 %% maps
 is_map_nif(_) -> ?nif_stub.

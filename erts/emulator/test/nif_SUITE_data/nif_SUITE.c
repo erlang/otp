@@ -2087,7 +2087,9 @@ static ERL_NIF_TERM pipe_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     enif_release_resource(read_rsrc);
     enif_release_resource(write_rsrc);
 
-    return enif_make_tuple2(env, read_fd, write_fd);
+    return enif_make_tuple2(env,
+               enif_make_tuple2(env, read_fd, make_pointer(env, read_rsrc)),
+               enif_make_tuple2(env, write_fd, make_pointer(env, write_rsrc)));
 }
 
 static ERL_NIF_TERM write_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -2176,17 +2178,37 @@ static void fd_resource_dtor(ErlNifEnv* env, void* obj)
     }
 }
 
+static struct {
+    void* obj;
+    int was_direct_call;
+}last_fd_stop;
+int fd_stop_cnt = 0;
+
 static void fd_resource_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd,
                              int is_direct_call)
 {
     struct fd_resource* fdr = (struct fd_resource*)obj;
     assert(fd == fdr->fd);
     assert(fd >= 0);
+
+    last_fd_stop.obj = obj;
+    last_fd_stop.was_direct_call = is_direct_call;
+    fd_stop_cnt++;
+
     close(fd);
     fdr->fd = -1;   /* thread safety ? */
     fdr->was_selected = 0;
 }
 
+static ERL_NIF_TERM last_fd_stop_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM last, ret;
+    last = enif_make_tuple2(env, make_pointer(env, last_fd_stop.obj),
+                            enif_make_int(env, last_fd_stop.was_direct_call));
+    ret = enif_make_tuple2(env, enif_make_int(env, fd_stop_cnt), last);
+    fd_stop_cnt = 0;
+    return ret;
+}
 
 
 static ErlNifFunc nif_funcs[] =
@@ -2270,7 +2292,8 @@ static ErlNifFunc nif_funcs[] =
     {"pipe_nif", 0, pipe_nif},
     {"write_nif", 2, write_nif},
     {"read_nif", 2, read_nif},
-    {"is_closed_nif", 1, is_closed_nif}
+    {"is_closed_nif", 1, is_closed_nif},
+    {"last_fd_stop_call", 0, last_fd_stop_call}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,NULL,upgrade,unload)
