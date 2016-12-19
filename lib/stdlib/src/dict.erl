@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2000-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -38,7 +38,7 @@
 
 %% Standard interface.
 -export([new/0,is_key/2,to_list/1,from_list/1,size/1,is_empty/1]).
--export([fetch/2,find/2,fetch_keys/1,erase/2]).
+-export([fetch/2,find/2,fetch_keys/1,erase/2,take/2]).
 -export([store/3,append/3,append_list/3,update/3,update/4,update_counter/3]).
 -export([fold/3,map/2,filter/2,merge/3]).
 
@@ -113,7 +113,7 @@ from_list(L) ->
 -spec size(Dict) -> non_neg_integer() when
       Dict :: dict().
 
-size(#dict{size=N}) when is_integer(N), N >= 0 -> N. 
+size(#dict{size=N}) when is_integer(N), N >= 0 -> N.
 
 -spec is_empty(Dict) -> boolean() when
       Dict :: dict().
@@ -160,7 +160,7 @@ fetch_keys(D) ->
 
 %%  Erase all elements with key Key.
 
-erase(Key, D0) -> 
+erase(Key, D0) ->
     Slot = get_slot(D0, Key),
     {D1,Dc} = on_bucket(fun (B0) -> erase_key(Key, B0) end,
 			D0, Slot),
@@ -172,14 +172,48 @@ erase_key(Key, [E|Bkt0]) ->
     {[E|Bkt1],Dc};
 erase_key(_, []) -> {[],0}.
 
+-spec take(Key, Dict) -> {Value, Dict1} | error when
+      Dict :: dict(Key, Value),
+      Dict1 :: dict(Key, Value),
+      Key :: term(),
+      Value :: term().
+
+take(Key, D0) ->
+    Slot = get_slot(D0, Key),
+    case on_bucket_for_take(fun (B0) -> take_key(Key, B0) end, D0, Slot) of
+	{Value, {D1, Dc}} -> {Value, maybe_contract(D1, Dc)};
+	_ -> error
+    end.
+
+take_key(Key, [?kv(Key,_Val)|Bkt]) ->
+    {Bkt,1};
+take_key(Key, [E|Bkt0]) ->
+    {Bkt1,Dc} = take_key(Key, Bkt0),
+    {[E|Bkt1],Dc};
+take_key(_, []) -> {[],0}.
+
+on_bucket_for_take(F, T, Slot) ->
+    SegI = ((Slot-1) div ?seg_size) + 1,
+    BktI = ((Slot-1) rem ?seg_size) + 1,
+    Segs = T#dict.segs,
+    Seg = element(SegI, Segs),
+    B0 = element(BktI, Seg),
+    {B1,Res} = F(B0),
+    case Res of
+	0 ->
+	    {T#dict{segs=setelement(SegI, Segs, setelement(BktI, Seg, B1))},Res};
+	_ ->
+	    [[_|Val]] = B0,
+	    {Val, {T#dict{segs=setelement(SegI, Segs, setelement(BktI, Seg, B1))},Res}}
+    end.
+
 -spec store(Key, Value, Dict1) -> Dict2 when
       Dict1 :: dict(Key, Value),
       Dict2 :: dict(Key, Value).
 
 store(Key, Val, D0) ->
     Slot = get_slot(D0, Key),
-    {D1,Ic} = on_bucket(fun (B0) -> store_bkt_val(Key, Val, B0) end,
-			D0, Slot),
+    {D1,Ic} = on_bucket(fun (B0) -> store_bkt_val(Key, Val, B0) end, D0, Slot),
     maybe_expand(D1, Ic).
 
 %% store_bkt_val(Key, Val, Bucket) -> {NewBucket,PutCount}.
@@ -274,7 +308,7 @@ app_list_bkt(Key, L, []) -> {[?kv(Key,L)],1}.
 
 %% on_key_bkt(Key, F, [?kv(Key,Val)|Bkt]) ->
 %%     case F(Val) of
-%% 	{ok,New} -> {[?kv(Key,New)|Bkt],0}; 
+%% 	{ok,New} -> {[?kv(Key,New)|Bkt],0};
 %% 	erase -> {Bkt,1}
 %%     end;
 %% on_key_bkt(Key, F, [Other|Bkt0]) ->

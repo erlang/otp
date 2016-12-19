@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -43,12 +43,10 @@
   <section>
     <title>Data Structure</title>
     <code type="none">
-{Size, Tree}</code>
-
-    <p><c>Tree</c> is composed of nodes of the form <c>{Key, Value, Smaller,
-      Bigger}</c> and the "empty tree" node <c>nil</c>.</p>
-
-    <p>There is no attempt to balance trees after deletions. As
+  - {Size, Tree}, where `Tree' is composed of nodes of the form:
+  - {Key, Value, Smaller, Bigger}, and the "empty tree" node:
+  - nil.</code>
+    <p>There is no attempt to balance trees after deletions. Since
       deletions do not increase the height of a tree, this should be OK.</p>
 
     <p>The original balance condition <em>h(T) &lt;= ceil(c * log(|T|))</em>
@@ -105,6 +103,16 @@
           <c><anno>Tree1</anno></c> if
           the key is present in the tree, otherwise does nothing.
           Returns the new tree.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="take" arity="2"/>
+      <fsummary>Returns a value and new tree without node with key <c>Key</c>.</fsummary>
+      <desc>
+        <p>Returns a value <c><anno>Value</anno></c> from node with key <c><anno>Key</anno></c>
+          and new <c><anno>Tree2</anno></c> without node with this value.
+          Assumes that the node with key is present in the tree, crashes otherwise.</p>
       </desc>
     </func>
 
@@ -345,4 +353,3 @@
       <seealso marker="gb_sets"><c>gb_sets(3)</c></seealso></p>
   </section>
 </erlref>
-
