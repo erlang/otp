@@ -23,10 +23,10 @@
 
 -module(dict_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-         create/1,store/1,iterate/1]).
+	 create/1,store/1,iterate/1,remove/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -37,7 +37,7 @@ suite() ->
      {timetrap,{minutes,5}}].
 
 all() -> 
-    [create, store, iterate].
+    [create, store, remove, iterate].
 
 groups() -> 
     [].
@@ -91,6 +91,27 @@ store_1(List, M) ->
 	    false = M(is_empty, D1)
     end,
     D0.
+
+remove(_Config) ->
+    test_all([{0,87}], fun remove_1/2).
+
+remove_1(List0, M) ->
+    %% Make sure that keys are unique. Randomize key order.
+    List1 = orddict:from_list(List0),
+    List2 = lists:sort([{rand:uniform(),E} || E <- List1]),
+    List = [E || {_,E} <- List2],
+    D0 = M(from_list, List),
+    remove_2(List, D0, M).
+
+remove_2([{Key,Val}|T], D0, M) ->
+    {Val,D1} = M(take, {Key,D0}),
+    error = M(take, {Key,D1}),
+    D2 = M(erase, {Key,D0}),
+    true = M(equal, {D1,D2}),
+    remove_2(T, D1, M);
+remove_2([], D, M) ->
+    true = M(is_empty, D),
+    D.
 
 %%%
 %%% Test specifics for gb_trees.
