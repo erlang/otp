@@ -864,11 +864,11 @@ handle_call({close, {Pid, Timeout}}, From, StateName, State0, Connection) when i
     %% When downgrading an TLS connection to a transport connection
     %% we must recive the close alert from the peer before releasing the 
     %% transport socket.
-    {next_state, downgrade, State, [{timeout, Timeout, downgrade}]};
+    {next_state, downgrade, State#state{terminated = true}, [{timeout, Timeout, downgrade}]};
 handle_call({close, _} = Close, From, StateName, State, Connection) ->
     %% Run terminate before returning so that the reuseaddr
-    %% inet-option 
-    Result = Connection:terminate(Close, StateName, State),
+    %% inet-option works properly
+    Result = Connection:terminate(Close, StateName, State#state{terminated = true}),
     {stop_and_reply, {shutdown, normal},  
      {reply, From, Result}, State};
 handle_call({shutdown, How0}, From, _,
@@ -1010,7 +1010,10 @@ handle_info(Msg, StateName, #state{socket = Socket, error_tag = Tag} = State) ->
 terminate(_, _, #state{terminated = true}) ->
     %% Happens when user closes the connection using ssl:close/1
     %% we want to guarantee that Transport:close has been called
-    %% when ssl:close/1 returns.
+    %% when ssl:close/1 returns unless it is a downgrade where
+    %% we want to guarantee that close alert is recived before 
+    %% returning. In both cases terminate has been run manually
+    %% before run by gen_statem which will end up here
     ok;
 
 terminate({shutdown, transport_closed} = Reason, 
