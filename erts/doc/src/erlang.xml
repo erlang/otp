@@ -7224,8 +7224,8 @@ ok
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="11"/>
       <name name="system_info" arity="1" clause_i="12"/>
+      <name name="system_info" arity="1" clause_i="13"/>
       <fsummary>Information about the CPU topology of the system.</fsummary>
       <type name="cpu_topology"/>
       <type name="level_entry"/>
@@ -7325,12 +7325,12 @@ ok
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="28"/>
       <name name="system_info" arity="1" clause_i="29"/>
-      <name name="system_info" arity="1" clause_i="37"/>
+      <name name="system_info" arity="1" clause_i="30"/>
       <name name="system_info" arity="1" clause_i="38"/>
       <name name="system_info" arity="1" clause_i="39"/>
       <name name="system_info" arity="1" clause_i="40"/>
+      <name name="system_info" arity="1" clause_i="41"/>
       <fsummary>Information about the default process heap settings.</fsummary>
       <type name="message_queue_data"/>
       <type name="max_heap_size"/>
@@ -7408,7 +7408,7 @@ ok
       <name name="system_info" arity="1" clause_i="8"/>
       <name name="system_info" arity="1" clause_i="9"/>
       <name name="system_info" arity="1" clause_i="10"/>
-      <name name="system_info" arity="1" clause_i="13"/>
+      <name name="system_info" arity="1" clause_i="11"/>
       <name name="system_info" arity="1" clause_i="14"/>
       <name name="system_info" arity="1" clause_i="15"/>
       <name name="system_info" arity="1" clause_i="16"/>
@@ -7423,14 +7423,14 @@ ok
       <name name="system_info" arity="1" clause_i="25"/>
       <name name="system_info" arity="1" clause_i="26"/>
       <name name="system_info" arity="1" clause_i="27"/>
-      <name name="system_info" arity="1" clause_i="30"/>
+      <name name="system_info" arity="1" clause_i="28"/>
       <name name="system_info" arity="1" clause_i="31"/>
       <name name="system_info" arity="1" clause_i="32"/>
       <name name="system_info" arity="1" clause_i="33"/>
       <name name="system_info" arity="1" clause_i="34"/>
       <name name="system_info" arity="1" clause_i="35"/>
       <name name="system_info" arity="1" clause_i="36"/>
-      <name name="system_info" arity="1" clause_i="41"/>
+      <name name="system_info" arity="1" clause_i="37"/>
       <name name="system_info" arity="1" clause_i="42"/>
       <name name="system_info" arity="1" clause_i="43"/>
       <name name="system_info" arity="1" clause_i="44"/>
