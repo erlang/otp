@@ -156,6 +156,7 @@ type -> '#' atom '{' field_types '}'      : {type, ?anno('$1'),
                                              record, ['$2'|'$4']}.
 type -> binary_type                       : '$1'.
 type -> integer                           : '$1'.
+type -> char                              : '$1'.
 type -> 'fun' '(' ')'                     : {type, ?anno('$1'), 'fun', []}.
 type -> 'fun' '(' fun_type_100 ')'        : '$3'.
 

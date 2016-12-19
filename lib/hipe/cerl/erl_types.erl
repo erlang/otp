@@ -4542,6 +4542,8 @@ from_form({atom, _L, Atom}, _S, _D, L, C) ->
   {t_atom(Atom), L, C};
 from_form({integer, _L, Int}, _S, _D, L, C) ->
   {t_integer(Int), L, C};
+from_form({char, _L, Char}, _S, _D, L, C) ->
+  {t_integer(Char), L, C};
 from_form({op, _L, _Op, _Arg} = Op, _S, _D, L, C) ->
   case erl_eval:partial_eval(Op) of
     {integer, _, Val} ->
@@ -5056,6 +5058,7 @@ check_record_fields({remote_type, _L, [{atom, _, _}, {atom, _, _}, Args]},
   list_check_record_fields(Args, S, C);
 check_record_fields({atom, _L, _}, _S, C) -> C;
 check_record_fields({integer, _L, _}, _S, C) -> C;
+check_record_fields({char, _L, _}, _S, C) -> C;
 check_record_fields({op, _L, _Op, _Arg}, _S, C) -> C;
 check_record_fields({op, _L, _Op, _Arg1, _Arg2}, _S, C) -> C;
 check_record_fields({type, _L, tuple, any}, _S, C) -> C;
@@ -5157,6 +5160,7 @@ t_form_to_string({var, _L, Name}) -> atom_to_list(Name);
 t_form_to_string({atom, _L, Atom}) -> 
   io_lib:write_string(atom_to_list(Atom), $'); % To quote or not to quote... '
 t_form_to_string({integer, _L, Int}) -> integer_to_list(Int);
+t_form_to_string({char, _L, Char}) -> integer_to_list(Char);
 t_form_to_string({op, _L, _Op, _Arg} = Op) ->
   case erl_eval:partial_eval(Op) of
     {integer, _, _} = Int -> t_form_to_string(Int);
