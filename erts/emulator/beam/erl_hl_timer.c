@@ -2865,7 +2865,8 @@ btm_print(ErtsHLTimer *tmr, void *vbtmp)
 
     if (tmr->timeout <= btmp->now)
 	left = 0;
-    left = ERTS_CLKTCKS_TO_MSEC(tmr->timeout - btmp->now);
+    else
+        left = ERTS_CLKTCKS_TO_MSEC(tmr->timeout - btmp->now);
 
     receiver = ((tmr->head.roflgs & ERTS_TMR_ROFLG_REG_NAME)
 		? tmr->receiver.name
