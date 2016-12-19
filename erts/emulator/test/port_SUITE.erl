@@ -2292,7 +2292,7 @@ maybe_to_list(List) ->
     List.
 
 format({Eol,List}) ->
-    io_lib:format("tuple<~w,~s>",[Eol, maybe_to_list(List)]);
+    io_lib:format("tuple<~w,~w>",[Eol, maybe_to_list(List)]);
 format(List) when is_list(List) ->
     case list_at_least(50, List) of
         true ->
