@@ -757,6 +757,39 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
   </func> 
 
   <func>
+    <name>pkix_verify_hostname(Cert, ReferenceIDs) -> boolean()</name>
+    <name>pkix_verify_hostname(Cert, ReferenceIDs, Opts) -> boolean()</name>
+    <fsummary>Verifies that a PKIX x.509 certificate <i>presented identifier</i> (e.g hostname) is
+    an expected one.</fsummary>
+    <type>
+      <v>Cert = der_encoded() | #'OTPCertificate'{} </v>
+      <v>ReferenceIDs = [ RefID ]</v>
+      <v>RefID = {IdType,string()}</v>
+      <v>IdType = dns_id | srv_id | uri_id</v>
+      <v>Opts = [ PvhOpt() ]</v>
+      <v>PvhOpt = [MatchOpt | FailCallBackOpt | FqdnExtractOpt]</v>
+      <v>MatchOpt = {fun(RefId | FQDN::string(), PresentedID) -> boolean() | default}</v>
+      <v>PresentedID = {dNSName,string()} | {uniformResourceIdentifier,string()}</v>
+      <v>FailCallBackOpt = {fail_callback, fun(#'OTPCertificate'{}) -> boolean()}</v>
+      <v>FqdnExtractOpt = {fqdn_fun, fun(RefID) -> FQDN::string() | default | undefined}</v>
+    </type>
+    <desc>
+      <p>This function checks that the <i>Presented Identifier</i> (e.g hostname) in a peer certificate
+      conforms with the Expected Identifier that the client wants to connect to.
+      This functions is intended to be added as an extra client check to the peer certificate when performing
+      <seealso marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_validation/3</seealso>
+      </p>
+      <p>See <url href="https://tools.ietf.org/html/rfc6125">RFC 6125</url>
+      for detailed information about hostname verification.
+      The <seealso marker="using_public_key#verify_hostname">User's Manual</seealso>
+      and
+      <seealso marker="using_public_key#verify_hostname_examples">code examples</seealso>
+      describes this function more detailed.
+      </p>
+    </desc>
+  </func>
+
+  <func>
     <name>sign(Msg, DigestType, Key) -> binary()</name>
     <fsummary>Creates a digital signature.</fsummary>
     <type>
