@@ -145,13 +145,6 @@
           <p>
 	    Own Id: OTP-14051</p>
         </item>
-        <item>
-          <p>
-	    Fixed a number of bugs that caused faulty stack-traces to
-	    be created on exception when a process was traced.</p>
-          <p>
-	    Own Id: OTP-14055</p>
-        </item>
       </list>
     </section>
 
