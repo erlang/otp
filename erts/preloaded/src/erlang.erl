@@ -2532,6 +2532,7 @@ tuple_to_list(_Tuple) ->
       Alloc :: atom();
          ({allocator_sizes, Alloc}) -> [_] when %% More or less anything
       Alloc :: atom();
+         (atom_count) -> pos_integer();
          (atom_limit) -> pos_integer();
          (build_type) -> opt | debug | purify | quantify | purecov |
                          gcov | valgrind | gprof | lcnt | frmptr;
