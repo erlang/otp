@@ -302,13 +302,11 @@ get_record_fields([], _RecDict, Acc) ->
 process_record_remote_types(CServer) ->
   TempRecords = dialyzer_codeserver:get_temp_records(CServer),
   ExpTypes = dialyzer_codeserver:get_exported_types(CServer),
-  Cache = erl_types:cache__new(),
-  {TempRecords1, Cache1} =
-    process_opaque_types0(TempRecords, ExpTypes, Cache),
+  TempRecords1 = process_opaque_types0(TempRecords, ExpTypes),
   %% A cache (not the field type cache) is used for speeding things up a bit.
   VarTable = erl_types:var_table__new(),
   ModuleFun =
-    fun({Module, Record}, C0) ->
+    fun({Module, Record}) ->
         RecordFun =
           fun({Key, Value}, C2) ->
               case Key of
@@ -334,24 +332,27 @@ process_record_remote_types(CServer) ->
                 _Other -> {{Key, Value}, C2}
               end
           end,
-        {RecordList, C1} =
-          lists:mapfoldl(RecordFun, C0, dict:to_list(Record)),
-        {{Module, dict:from_list(RecordList)}, C1}
+        Cache = erl_types:cache__new(),
+        {RecordList, _NewCache} =
+          lists:mapfoldl(RecordFun, Cache, dict:to_list(Record)),
+        {Module, dict:from_list(RecordList)}
     end,
-  {NewRecordsList, C1} =
-    lists:mapfoldl(ModuleFun, Cache1, dict:to_list(TempRecords1)),
+  NewRecordsList = lists:map(ModuleFun, dict:to_list(TempRecords1)),
   NewRecords = dict:from_list(NewRecordsList),
-  _C8 = check_record_fields(NewRecords, ExpTypes, C1),
+  check_record_fields(NewRecords, ExpTypes),
   dialyzer_codeserver:finalize_records(NewRecords, CServer).
 
 %% erl_types:t_from_form() substitutes the declaration of opaque types
 %% for the expanded type in some cases. To make sure the initial type,
 %% any(), is not used, the expansion is done twice.
 %% XXX: Recursive opaque types are not handled well.
-process_opaque_types0(TempRecords0, TempExpTypes, Cache) ->
-  {TempRecords1, NewCache} =
+process_opaque_types0(TempRecords0, TempExpTypes) ->
+  Cache = erl_types:cache__new(),
+  {TempRecords1, Cache1} =
     process_opaque_types(TempRecords0, TempExpTypes, Cache),
-  process_opaque_types(TempRecords1, TempExpTypes, NewCache).
+  {TempRecords, _NewCache} =
+    process_opaque_types(TempRecords1, TempExpTypes, Cache1),
+  TempRecords.
 
 process_opaque_types(TempRecords, TempExpTypes, Cache) ->
   VarTable = erl_types:var_table__new(),
@@ -380,7 +381,8 @@ process_opaque_types(TempRecords, TempExpTypes, Cache) ->
   {dict:from_list(TempRecordList), NewCache}.
   %% dict:map(ModuleFun, TempRecords).
 
-check_record_fields(Records, TempExpTypes, Cache) ->
+check_record_fields(Records, TempExpTypes) ->
+  Cache = erl_types:cache__new(),
   VarTable = erl_types:var_table__new(),
   CheckFun =
     fun({Module, Element}, C0) ->
@@ -412,7 +414,8 @@ check_record_fields(Records, TempExpTypes, Cache) ->
           end,
         lists:foldl(ElemFun, C0, dict:to_list(Element))
     end,
-  lists:foldl(CheckFun, Cache, dict:to_list(Records)).
+  _NewCache = lists:foldl(CheckFun, Cache, dict:to_list(Records)),
+  ok.
 
 msg_with_position(Fun, FileLine) ->
   try Fun()
