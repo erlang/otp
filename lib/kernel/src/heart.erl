@@ -198,16 +198,11 @@ start_portprogram() ->
     end.
 
 get_heart_timeouts() ->
-    HeartOpts = case os:getenv("HEART_BEAT_TIMEOUT") of
-		    false -> "";
-		    H when is_list(H) -> 
-			"-ht " ++ H
-		end,
-    HeartOpts ++ case os:getenv("HEART_BEAT_BOOT_DELAY") of
-		     false -> "";
-		     W when is_list(W) ->
-			 " -wt " ++ W
-		 end.
+    case os:getenv("HEART_BEAT_TIMEOUT") of
+	false -> "";
+	H when is_list(H) ->
+	    "-ht " ++ H
+    end.
 
 check_start_heart() ->
     case init:get_argument(heart) of
