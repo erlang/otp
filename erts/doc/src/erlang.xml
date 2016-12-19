@@ -7460,11 +7460,18 @@ ok
       <name name="system_info" arity="1" clause_i="68"/>
       <name name="system_info" arity="1" clause_i="69"/>
       <name name="system_info" arity="1" clause_i="70"/>
+      <name name="system_info" arity="1" clause_i="71"/>
       <fsummary>Information about the system.</fsummary>
       <desc>
         <p>Returns various information about the current system
           (emulator) as specified by <c><anno>Item</anno></c>:</p>
         <taglist>
+          <tag><c>atom_count</c></tag>
+          <item>
+            <marker id="system_info_atom_count"></marker>
+            <p>Returns the number of atoms currently existing at the
+              local node. The value is given as an integer.</p>
+          </item>
           <tag><c>atom_limit</c></tag>
           <item>
             <marker id="system_info_atom_limit"></marker>
