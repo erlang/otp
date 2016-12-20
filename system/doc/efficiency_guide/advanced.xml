@@ -87,15 +87,15 @@
       </row>
       <row>
         <cell>Small Map</cell>
-        <cell>4 words + 2 words per entry (key and value) + the size of each key and value pair.</cell>
+        <cell>5 words + the size of all keys and values.</cell>
       </row>
       <row>
-        <cell>Large Map</cell>
+        <cell>Large Map (> 32 keys)</cell>
         <cell>
-            At least, 2 words + 2 x <c>N</c> words + 2 x log16(<c>N</c>) words +
-            the size of each key and value pair, where <c>N</c> is the number of pairs in the Map.
-            A large Map is represented as a tree internally where each node in the tree is a
-            "sparse tuple" of arity 16.
+            <c>N</c> x <c>F</c> words + the size of all keys and values.<br></br>
+            <c>N</c> is the number of keys in the Map.<br></br>
+            <c>F</c> is a sparsity factor that can vary between 1.6 and 1.8
+            due to the probabilistic nature of the internal HAMT data structure.
         </cell>
       </row>
       <row>
