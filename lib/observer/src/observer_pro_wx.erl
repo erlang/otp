@@ -511,7 +511,13 @@ table_holder(#holder{info=Info, attrs=Attrs,
 	    table_holder(S0);
 	{dump, Fd} ->
 	    EtopInfo = (S0#holder.etop)#etop_info{procinfo=array:to_list(Info)},
-	    etop_txt:do_update(Fd, EtopInfo, #opts{node=Node}),
+            %% The empty #etop_info{} below is a dummy previous info
+            %% value. It is used by etop to calculate the scheduler
+            %% utilization since last update. When dumping to file,
+            %% there is no previous measurement to use, so we just add
+            %% a dummy here, and the value shown will be since the
+            %% tool was started.
+	    etop_txt:do_update(Fd, EtopInfo, #etop_info{}, #opts{node=Node}),
 	    file:close(Fd),
 	    table_holder(S0);
 	stop ->
