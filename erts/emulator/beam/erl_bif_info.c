@@ -1673,11 +1673,11 @@ current_stacktrace(Process* p, Process* rp, Eterm** hpp)
     Eterm mfa;
     Eterm res = NIL;
 
-    depth = 8;
+    depth = erts_backtrace_depth;
     sz = offsetof(struct StackTrace, trace) + sizeof(BeamInstr *)*depth;
     s = (struct StackTrace *) erts_alloc(ERTS_ALC_T_TMP, sz);
     s->depth = 0;
-    if (rp->i) {
+    if (depth > 0 && rp->i) {
 	s->trace[s->depth++] = rp->i;
 	depth--;
     }

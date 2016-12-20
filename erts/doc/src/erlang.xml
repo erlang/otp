@@ -4933,7 +4933,9 @@ RealSystem = system + MissedSystem</code>
             <p>Returns the current call stack back-trace (<em>stacktrace</em>)
               of the process. The stack has the same format as returned by
               <seealso marker="#get_stacktrace/0">
-              <c>erlang:get_stacktrace/0</c></seealso>.</p>
+              <c>erlang:get_stacktrace/0</c></seealso>. The depth of the
+              stacktrace is truncated according to the <c>backtrace_depth</c>
+              system flag setting.</p>
           </item>
           <tag><c>{dictionary, <anno>Dictionary</anno>}</c></tag>
           <item>
@@ -6645,7 +6647,9 @@ ok
       <fsummary>Set system flag <c>backtrace_depth</c>.</fsummary>
       <desc>
         <p>Sets the maximum depth of call stack back-traces in the
-          exit reason element of <c>'EXIT'</c> tuples.</p>
+          exit reason element of <c>'EXIT'</c> tuples. The flag
+          also limits the stacktrace depth returned by <c>process_info</c>
+          item <c>current_stacktrace.</c></p>
         <p>Returns the old value of the flag.</p>
       </desc>
     </func>
