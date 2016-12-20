@@ -21,7 +21,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 -export([start/1, add_handler/1, add_sup_handler/1,
 	 delete_handler/1, swap_handler/1, swap_sup_handler/1,
@@ -31,12 +31,12 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [start, {group, test_all}, hibernate,
      call_format_status, call_format_status_anon, error_format_status,
      get_state, replace_state].
 
-groups() -> 
+groups() ->
     [{test_all, [],
       [add_handler, add_sup_handler, delete_handler,
        swap_handler, swap_sup_handler, notify, sync_notify,
