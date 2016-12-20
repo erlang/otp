@@ -59,6 +59,9 @@ end_per_group(_GroupName, Config) ->
 %% Start an event manager.
 %% --------------------------------------
 
+-define(LMGR, {local, my_dummy_name}).
+-define(GMGR, {global, my_dummy_name}).
+
 start(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
@@ -72,40 +75,36 @@ start(Config) when is_list(Config) ->
     [] = gen_event:which_handlers(Pid1),
     ok = gen_event:stop(Pid1),
 
-    {ok, Pid2} = gen_event:start({local, my_dummy_name}),
+    {ok, Pid2} = gen_event:start(?LMGR),
     [] = gen_event:which_handlers(my_dummy_name),
     [] = gen_event:which_handlers(Pid2),
     ok = gen_event:stop(my_dummy_name),
 
-    {ok, Pid3} = gen_event:start_link({local, my_dummy_name}),
+    {ok, Pid3} = gen_event:start_link(?LMGR),
     [] = gen_event:which_handlers(my_dummy_name),
     [] = gen_event:which_handlers(Pid3),
     ok = gen_event:stop(my_dummy_name),
 
-    {ok, Pid4} = gen_event:start_link({global, my_dummy_name}),
-    [] = gen_event:which_handlers({global, my_dummy_name}),
+    {ok, Pid4} = gen_event:start_link(?GMGR),
+    [] = gen_event:which_handlers(?GMGR),
     [] = gen_event:which_handlers(Pid4),
-    ok = gen_event:stop({global, my_dummy_name}),
+    ok = gen_event:stop(?GMGR),
 
     {ok, Pid5} = gen_event:start_link({via, dummy_via, my_dummy_name}),
     [] = gen_event:which_handlers({via, dummy_via, my_dummy_name}),
     [] = gen_event:which_handlers(Pid5),
     ok = gen_event:stop({via, dummy_via, my_dummy_name}),
 
-    {ok, _} = gen_event:start_link({local, my_dummy_name}),
-    {error, {already_started, _}} =
-	gen_event:start_link({local, my_dummy_name}),
-    {error, {already_started, _}} =
-	gen_event:start({local, my_dummy_name}),
+    {ok, _} = gen_event:start_link(?LMGR),
+    {error, {already_started, _}} = gen_event:start_link(?LMGR),
+    {error, {already_started, _}} = gen_event:start(?LMGR),
     ok = gen_event:stop(my_dummy_name),
 
-    {ok, Pid6} = gen_event:start_link({global, my_dummy_name}),
-    {error, {already_started, _}} =
-	gen_event:start_link({global, my_dummy_name}),
-    {error, {already_started, _}} =
-	gen_event:start({global, my_dummy_name}),
+    {ok, Pid6} = gen_event:start_link(?GMGR),
+    {error, {already_started, _}} = gen_event:start_link(?GMGR),
+    {error, {already_started, _}} = gen_event:start(?GMGR),
 
-    ok = gen_event:stop({global, my_dummy_name}, shutdown, 10000),
+    ok = gen_event:stop(?GMGR, shutdown, 10000),
     receive
 	{'EXIT', Pid6, shutdown} -> ok
     after 10000 ->
@@ -113,10 +112,8 @@ start(Config) when is_list(Config) ->
     end,
 
     {ok, Pid7} = gen_event:start_link({via, dummy_via, my_dummy_name}),
-    {error, {already_started, _}} =
-	gen_event:start_link({via, dummy_via, my_dummy_name}),
-    {error, {already_started, _}} =
-	gen_event:start({via, dummy_via, my_dummy_name}),
+    {error, {already_started, _}} = gen_event:start_link({via, dummy_via, my_dummy_name}),
+    {error, {already_started, _}} = gen_event:start({via, dummy_via, my_dummy_name}),
 
     exit(Pid7, shutdown),
     receive
@@ -127,7 +124,6 @@ start(Config) when is_list(Config) ->
 
     process_flag(trap_exit, OldFl),
     ok.
-
 
 hibernate(Config) when is_list(Config) ->
     {ok,Pid} = gen_event:start({local, my_dummy_handler}),
