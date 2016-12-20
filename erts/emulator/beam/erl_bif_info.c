@@ -2863,6 +2863,9 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     else if (ERTS_IS_ATOM_STR("atom_limit",BIF_ARG_1)) {
         BIF_RET(make_small(erts_get_atom_limit()));
     }
+    else if (ERTS_IS_ATOM_STR("atom_count",BIF_ARG_1)) {
+        BIF_RET(make_small(atom_table_size()));
+    }
     else if (ERTS_IS_ATOM_STR("tolerant_timeofday",BIF_ARG_1)) {
 	if (erts_has_time_correction()
 	    && erts_time_offset_state() == ERTS_TIME_OFFSET_FINAL) {

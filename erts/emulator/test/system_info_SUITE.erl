@@ -36,7 +36,8 @@
 -export([all/0, suite/0]).
 
 -export([process_count/1, system_version/1, misc_smoke_tests/1,
-         heap_size/1, wordsize/1, memory/1, ets_limit/1, atom_limit/1]).
+         heap_size/1, wordsize/1, memory/1, ets_limit/1, atom_limit/1,
+         atom_count/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -44,7 +45,7 @@ suite() ->
 
 all() -> 
     [process_count, system_version, misc_smoke_tests,
-     heap_size, wordsize, memory, ets_limit, atom_limit].
+     heap_size, wordsize, memory, ets_limit, atom_limit, atom_count].
 
 %%%
 %%% The test cases -------------------------------------------------------------
@@ -550,3 +551,13 @@ get_atom_limit(Config, AtomsMax) ->
     end,
     stop_node(Node),
     Res.
+
+%% Verify that system_info(atom_count) works.
+atom_count(Config) when is_list(Config) ->
+    Limit = erlang:system_info(atom_limit),
+    Count1 = erlang:system_info(atom_count),
+    list_to_atom(integer_to_list(erlang:unique_integer())),
+    Count2 = erlang:system_info(atom_count),
+    true = Limit >= Count2,
+    true = Count2 > Count1,
+    ok.
