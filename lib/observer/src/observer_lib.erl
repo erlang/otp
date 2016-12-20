@@ -461,14 +461,16 @@ create_box(Parent, Data) ->
 				 link_entry(Panel,Value);
 			     _ ->
 				 Value = to_str(Value0),
-				 case length(Value) > 100 of
-				     true ->
-					 Shown = lists:sublist(Value, 80),
+                                 case string:sub_word(lists:sublist(Value, 80),1,$\n) of
+                                     Value ->
+                                         %% Short string, no newlines - show all
+					 wxStaticText:new(Panel, ?wxID_ANY, Value);
+                                     Shown ->
+                                         %% Long or with newlines,
+                                         %% use tooltip to show all
 					 TCtrl = wxStaticText:new(Panel, ?wxID_ANY, [Shown,"..."]),
 					 wxWindow:setToolTip(TCtrl,wxToolTip:new(Value)),
-					 TCtrl;
-				     false ->
-					 wxStaticText:new(Panel, ?wxID_ANY, Value)
+					 TCtrl
 				 end
 			 end,
 		     wxSizer:add(Line, 10, 0), % space of size 10 horisontally

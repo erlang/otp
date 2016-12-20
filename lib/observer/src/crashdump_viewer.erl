@@ -928,7 +928,10 @@ general_info(File) ->
 		  WholeLine -> WholeLine
 	      end,
 
-    GI = get_general_info(Fd,#general_info{created=Created}),
+    {Slogan,SysVsn} = get_slogan_and_sysvsn(Fd,[]),
+    GI = get_general_info(Fd,#general_info{created=Created,
+                                           slogan=Slogan,
+                                           system_vsn=SysVsn}),
 
     {MemTot,MemMax} = 
 	case lookup_index(?memory) of
@@ -982,12 +985,20 @@ general_info(File) ->
 		    mem_max=MemMax,
 		    instr_info=InstrInfo}.
 
+get_slogan_and_sysvsn(Fd,Acc) ->
+    case val(Fd,eof) of
+        "Slogan: " ++ SloganPart when Acc==[] ->
+            get_slogan_and_sysvsn(Fd,[SloganPart]);
+        "System version: " ++ SystemVsn ->
+            {lists:append(lists:reverse(Acc)),SystemVsn};
+        eof ->
+            {lists:append(lists:reverse(Acc)),"-1"};
+        SloganPart ->
+            get_slogan_and_sysvsn(Fd,[[$\n|SloganPart]|Acc])
+    end.
+
 get_general_info(Fd,GenInfo) ->
     case line_head(Fd) of
-	"Slogan" ->
-	    get_general_info(Fd,GenInfo#general_info{slogan=val(Fd)});
-	"System version" ->
-	    get_general_info(Fd,GenInfo#general_info{system_vsn=val(Fd)});
 	"Compiled" ->
 	    get_general_info(Fd,GenInfo#general_info{compile_time=val(Fd)});
 	"Taints" ->
