@@ -1704,6 +1704,25 @@ case "$THR_LIB_NAME" in
 			AC_DEFINE(ETHR_TIME_WITH_SYS_TIME, 1, \
 [Define if you can safely include both <sys/time.h> and <time.h>.]))
 
+	AC_MSG_CHECKING([for usable PTHREAD_STACK_MIN])
+	pthread_stack_min=no
+	AC_TRY_COMPILE([
+#include <limits.h>
+#if defined(ETHR_NEED_NPTL_PTHREAD_H)
+#include <nptl/pthread.h>
+#elif defined(ETHR_HAVE_MIT_PTHREAD_H)
+#include <pthread/mit/pthread.h>
+#elif defined(ETHR_HAVE_PTHREAD_H)
+#include <pthread.h>
+#endif
+			], 
+			[return PTHREAD_STACK_MIN;],
+			[pthread_stack_min=yes])
+
+	AC_MSG_RESULT([$pthread_stack_min])
+	test $pthread_stack_min != yes || {
+	     AC_DEFINE(ETHR_HAVE_USABLE_PTHREAD_STACK_MIN, 1, [Define if you can use PTHREAD_STACK_MIN])
+	}
 
 	dnl
 	dnl Check for functions
