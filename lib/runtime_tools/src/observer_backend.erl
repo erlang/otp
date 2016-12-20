@@ -314,13 +314,12 @@ etop_collect(Collector) ->
 
     case SchedulerWallTime of
 	undefined ->
-	    spawn(fun() -> flag_holder_proc(Collector) end),
+            erlang:system_flag(scheduler_wall_time,true),
+            spawn(fun() -> flag_holder_proc(Collector) end),
             ok;
 	_ ->
 	    ok
-    end,
-
-    erlang:system_flag(scheduler_wall_time,true).
+    end.
 
 flag_holder_proc(Collector) ->
     Ref = erlang:monitor(process,Collector),

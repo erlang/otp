@@ -22,35 +22,35 @@
 
 %%-compile(export_all).
 -export([init/1,stop/1]).
--export([do_update/3]).
+-export([do_update/4]).
 
 -include("etop.hrl").
 -include("etop_defs.hrl").
 
--import(etop,[loadinfo/1,meminfo/2]).
+-import(etop,[loadinfo/2,meminfo/2]).
 
 -define(PROCFORM,"~-15w~-20s~8w~8w~8w~8w ~-20s~n").
 
 stop(Pid) -> Pid ! stop.
 
 init(Config) ->
-    loop(Config).
+    loop(#etop_info{},Config).
 
-loop(Config) ->
-    Info = do_update(Config),
+loop(Prev,Config) ->
+    Info = do_update(Prev,Config),
     receive 
 	stop -> stopped;
-	{dump,Fd} -> do_update(Fd,Info,Config), loop(Config); 
-	{config,_,Config1} -> loop(Config1)
-    after Config#opts.intv -> loop(Config)
+	{dump,Fd} -> do_update(Fd,Info,Prev,Config), loop(Info,Config);
+	{config,_,Config1} -> loop(Info,Config1)
+    after Config#opts.intv -> loop(Info,Config)
     end.
 
-do_update(Config) ->
+do_update(Prev,Config) ->
     Info = etop:update(Config),
-    do_update(standard_io,Info,Config).
+    do_update(standard_io,Info,Prev,Config).
 
-do_update(Fd,Info,Config) ->
-    {Cpu,NProcs,RQ,Clock} = loadinfo(Info),
+do_update(Fd,Info,Prev,Config) ->
+    {Cpu,NProcs,RQ,Clock} = loadinfo(Info,Prev),
     io:nl(Fd),
     writedoubleline(Fd),
     case Info#etop_info.memi of
