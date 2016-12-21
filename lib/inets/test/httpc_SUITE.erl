@@ -88,7 +88,8 @@ real_requests()->
      stream_through_mfa,
      streaming_error,
      inet_opts,
-     invalid_headers
+     invalid_headers,
+     invalid_body
     ].
 
 only_simulated() ->
@@ -1002,9 +1003,24 @@ invalid_headers(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), [{"cookie", undefined}]},
     {error, _} = httpc:request(get, Request, [], []).
 
+%%-------------------------------------------------------------------------
+
+invalid_body(Config) ->
+    URL = url(group_name(Config), "/dummy.html", Config),
+    try 
+	httpc:request(post, {URL, [], <<"text/plain">>, "foobar"},
+		      [], []),
+	ct:fail(accepted_invalid_input)
+    catch 
+	error:function_clause ->
+	    ok
+    end.
+
+%%-------------------------------------------------------------------------
 remote_socket_close(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/just_close.html", Config),
     {error, socket_closed_remotely} = httpc:request(URL).
+
 
 %%-------------------------------------------------------------------------
 
