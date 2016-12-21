@@ -3317,8 +3317,8 @@ erts_max_heap_size(Eterm arg, Uint *max_heap_size, Uint *max_heap_flags)
 
 #if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)
 
-static int
-within2(Eterm *ptr, Process *p, Eterm *real_htop)
+int
+erts_dbg_within_proc(Eterm *ptr, Process *p, Eterm *real_htop)
 {
     ErlHeapFragment* bp;
     ErtsMessage* mp;
@@ -3360,12 +3360,6 @@ within2(Eterm *ptr, Process *p, Eterm *real_htop)
     }
 
     return 0;
-}
-
-int
-within(Eterm *ptr, Process *p)
-{
-    return within2(ptr, p, NULL);
 }
 
 #endif
@@ -3422,7 +3416,7 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 	else if (oheap <= u.ep && u.ep < ohtop)
 	    old = 1;
 	else {
-	    ERTS_CHK_OFFHEAP_ASSERT(within2(u.ep, p, htop));
+	    ERTS_CHK_OFFHEAP_ASSERT(erts_dbg_within_proc(u.ep, p, htop));
 	}
     }
 

@@ -99,7 +99,7 @@ Eterm *fullsweep_nstack(Process *p, Eterm *n_htop)
 		    if (IS_MOVED_CONS(val)) {
 			*nsp_i = ptr[1];
 		    } else if (!erts_is_literal(gval, ptr)) {
-			ASSERT(within(ptr, p));
+			ASSERT(erts_dbg_within_proc(ptr, p, NULL));
 			MOVE_CONS(ptr, val, n_htop, nsp_i);
 		    }
 		}
@@ -208,7 +208,7 @@ void gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop)
 		    } else if (ErtsInArea(ptr, mature, mature_size)) {
 			MOVE_BOXED(ptr, val, old_htop, nsp_i);
 		    } else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
-			ASSERT(within(ptr, p));
+			ASSERT(erts_dbg_within_proc(ptr, p, NULL));
 			MOVE_BOXED(ptr, val, n_htop, nsp_i);
 		    }
 		} else if (is_list(gval)) {
@@ -219,7 +219,7 @@ void gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop)
 		    } else if (ErtsInArea(ptr, mature, mature_size)) {
 			MOVE_CONS(ptr, val, old_htop, nsp_i);
 		    } else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
-			ASSERT(within(ptr, p));
+			ASSERT(erts_dbg_within_proc(ptr, p, NULL));
 			MOVE_CONS(ptr, val, n_htop, nsp_i);
 		    }
 		}
