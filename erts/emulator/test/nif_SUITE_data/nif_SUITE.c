@@ -47,6 +47,7 @@ static ERL_NIF_TERM atom_nanosecond;
 static ERL_NIF_TERM atom_eagain;
 static ERL_NIF_TERM atom_eof;
 static ERL_NIF_TERM atom_error;
+static ERL_NIF_TERM atom_fd_resource_stop;
 
 typedef struct
 {
@@ -116,6 +117,7 @@ static ErlNifResourceTypeInit fd_rt_init = {
 struct fd_resource {
     int fd;
     int was_selected;
+    ErlNifPid pid;
 };
 
 
@@ -176,6 +178,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_eagain = enif_make_atom(env, "eagain");
     atom_eof = enif_make_atom(env, "eof");
     atom_error = enif_make_atom(env, "error");
+    atom_fd_resource_stop = enif_make_atom(env, "fd_resource_stop");
 
     *priv_data = data;
     return 0;
@@ -2063,6 +2066,7 @@ static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     ref = argv[3];
 
     fdr->was_selected = 1;
+    enif_self(env, &fdr->pid);
     retval = enif_select(env, fdr->fd, mode, obj, ref);
 
     return enif_make_int(env, (int)retval);
@@ -2207,6 +2211,18 @@ static void fd_resource_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd,
     close(fd);
     fdr->fd = -1;   /* thread safety ? */
     fdr->was_selected = 0;
+
+    {
+        ErlNifEnv* msg_env = enif_alloc_env();
+        ERL_NIF_TERM msg;
+        msg = enif_make_tuple3(msg_env,
+                               atom_fd_resource_stop,
+                               make_pointer(msg_env, obj),
+                               enif_make_int(msg_env, is_direct_call));
+
+        enif_send(env, &fdr->pid, msg_env, msg);
+        enif_free_env(msg_env);
+    }
 }
 
 static ERL_NIF_TERM last_fd_stop_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])

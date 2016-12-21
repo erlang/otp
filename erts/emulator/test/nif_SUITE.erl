@@ -478,7 +478,7 @@ select(Config) when is_list(Config) ->
     %% Close write and wait for EOF
     eagain = read_nif(R, 1),
     check_stop_ret(select_nif(W,?ERL_NIF_SELECT_STOP,W,Ref)),
-    timer:sleep(10),
+    [{fd_resource_stop, W_ptr, _}] = flush(),
     {1, {W_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(W),
     [] = flush(),
@@ -487,7 +487,7 @@ select(Config) when is_list(Config) ->
     eof = read_nif(R,1),
 
     check_stop_ret(select_nif(R,?ERL_NIF_SELECT_STOP,R,Ref)),
-    timer:sleep(10),
+    [{fd_resource_stop, R_ptr, _}] = flush(),
     {1, {R_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(R),
 
@@ -529,12 +529,13 @@ select_2(Config) ->
     [] = flush(),
 
     check_stop_ret(select_nif(R,?ERL_NIF_SELECT_STOP,R,Ref1)),
-    timer:sleep(10),
+    [{fd_resource_stop, R_ptr, _}] = flush(),
     {1, {R_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(R),
 
+    %% Stop without previous read/write select
     ?ERL_NIF_SELECT_STOP_CALLED = select_nif(W,?ERL_NIF_SELECT_STOP,W,Ref1),
-    timer:sleep(10),
+    [{fd_resource_stop, W_ptr, 1}] = flush(),
     {1, {W_ptr,1}} = last_fd_stop_call(),
     true = is_closed_nif(W),
 
