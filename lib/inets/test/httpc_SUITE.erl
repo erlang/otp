@@ -126,7 +126,8 @@ only_simulated() ->
      redirect_temporary_redirect,
      port_in_host_header,
      redirect_port_in_host_header,
-     relaxed
+     relaxed,
+     multipart_chunks
     ].
 
 misc() ->
@@ -1111,6 +1112,13 @@ redirect_port_in_host_header(Config) when is_list(Config) ->
     inets_test_lib:check_body(Body).
 
 %%-------------------------------------------------------------------------
+multipart_chunks(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/multipart_chunks.html", Config), []},
+    {ok, Ref} = httpc:request(get, Request, [], [{sync, false}, {stream, self}]),
+    ok = receive_stream_n(Ref, 10),
+    httpc:cancel_request(Ref).
+    
+%%-------------------------------------------------------------------------
 timeout_memory_leak() ->
     [{doc, "Check OTP-8739"}].
 timeout_memory_leak(Config) when is_list(Config) ->
@@ -1405,7 +1413,7 @@ dummy_server(Caller, SocketType, Inet, Extra) ->
     end.
 
 dummy_server_init(Caller, ip_comm, Inet, _) ->
-    BaseOpts = [binary, {packet, 0}, {reuseaddr,true}, {active, false}], 
+    BaseOpts = [binary, {packet, 0}, {reuseaddr,true}, {keepalive, true}, {active, false}], 
     {ok, ListenSocket} = gen_tcp:listen(0, [Inet | BaseOpts]),
     {ok, Port} = inet:port(ListenSocket),
     Caller ! {port, Port},
@@ -1981,6 +1989,16 @@ handle_uri(_,"/missing_CR.html",_,_,_,_) ->
 	"Content-Length:32\r\n\n" ++
 	"<HTML><BODY>foobar</BODY></HTML>";
 
+handle_uri(_,"/multipart_chunks.html",_,_,Socket,_) ->
+    Head = "HTTP/1.1 200 ok\r\n" ++
+	"Transfer-Encoding:chunked\r\n" ++
+	"Date: " ++ httpd_util:rfc1123_date() ++ "\r\n"
+	"Connection: Keep-Alive\r\n" ++
+	"Content-Type: multipart/x-mixed-replace; boundary=chunk_boundary\r\n" ++
+	"\r\n",
+    send(Socket, Head),
+    send_multipart_chunks(Socket),
+    http_chunk:encode_last();
 handle_uri("HEAD",_,_,_,_,_) ->
     "HTTP/1.1 200 ok\r\n" ++
 	"Content-Length:0\r\n\r\n";
@@ -2276,4 +2294,22 @@ otp_8739_dummy_server_main(_Parent, ListenSocket) ->
 	    end;
 	Error ->
 	    exit(Error)
+    end.
+
+send_multipart_chunks(Socket) ->
+    send(Socket, http_chunk:encode("--chunk_boundary\r\n")),
+    send(Socket, http_chunk:encode("Content-Type: text/plain\r\nContent-Length: 4\r\n\r\n")),
+    send(Socket, http_chunk:encode("test\r\n")),
+    ct:sleep(500),
+    send_multipart_chunks(Socket).
+
+receive_stream_n(_, 0) ->
+    ok;
+receive_stream_n(Ref, N) ->
+    receive
+	{http, {Ref, stream_start, _}} ->
+	    receive_stream_n(Ref, N);
+	{http, {Ref,stream, Data}} ->
+	    ct:pal("Data:  ~p", [Data]),
+	    receive_stream_n(Ref, N-1)
     end.
