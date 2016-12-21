@@ -1893,10 +1893,10 @@ case_opt_arg_1(E0, Cs0, LitExpr) ->
 	true ->
 	    E = case_opt_compiler_generated(E0),
 	    Cs = case_opt_nomatch(E, Cs0, LitExpr),
-	    case cerl:data_type(E) of
-		{atomic,_} ->
+            case cerl:is_literal(E) of
+                true ->
 		    case_opt_lit(E, Cs);
-		_ ->
+		false ->
 		    case_opt_data(E, Cs)
 	    end
     end.
