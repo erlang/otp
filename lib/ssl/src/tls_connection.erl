@@ -424,18 +424,26 @@ handle_common_event(internal,  #ssl_tls{type = ?HANDSHAKE, fragment = Data},
 				      ssl_options = Options} = State0) ->
     try
 	{Packets, Buf} = tls_handshake:get_tls_handshake(Version,Data,Buf0, Options),
-	State =
+	State1 =
 	    State0#state{protocol_buffers =
 			     Buffers#protocol_buffers{tls_handshake_buffer = Buf}},
-	Events = tls_handshake_events(Packets),
-	case StateName of
-	    connection ->
-		ssl_connection:hibernate_after(StateName, State, Events);
-	    _ ->
-		{next_state, StateName, State#state{unprocessed_handshake_events = unprocessed_events(Events)}, Events}
-	end
+	case Packets of
+            [] -> 
+                assert_buffer_sanity(Buf, Options),
+                {Record, State} = next_record(State1),
+                next_event(StateName, Record, State);
+            _ ->                
+                Events = tls_handshake_events(Packets),
+                case StateName of
+                    connection ->
+                        ssl_connection:hibernate_after(StateName, State1, Events);
+                    _ ->
+                        {next_state, StateName, 
+                         State1#state{unprocessed_handshake_events = unprocessed_events(Events)}, Events}
+                end
+        end
     catch throw:#alert{} = Alert ->
-	    ssl_connection:handle_own_alert(Alert, Version, StateName, State0)
+            ssl_connection:handle_own_alert(Alert, Version, StateName, State0)
     end;
 %%% TLS record protocol level application data messages 
 handle_common_event(internal, #ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State) ->
@@ -615,8 +623,6 @@ next_event(StateName, Record, State, Actions) ->
 	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
     end.
 
-tls_handshake_events([]) ->
-    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake));
 tls_handshake_events(Packets) ->
     lists:map(fun(Packet) ->
 		      {next_event, internal, {handshake, Packet}}
@@ -735,3 +741,25 @@ unprocessed_events(Events) ->
     %% handshake events left to process before we should
     %% process more TLS-records received on the socket. 
     erlang:length(Events)-1.
+
+
+assert_buffer_sanity(<<?BYTE(_Type), ?UINT24(Length), Rest/binary>>, #ssl_options{max_handshake_size = Max}) when 
+      Length =< Max ->  
+    case size(Rest) of
+        N when N < Length ->
+            true;
+        N when N > Length ->       
+            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
+                             too_big_handshake_data));
+        _ ->
+            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
+                             malformed_handshake_data))  
+    end;  
+assert_buffer_sanity(Bin, _) ->
+    case size(Bin) of
+        N when N < 3 ->
+            true;
+        _ ->       
+            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
+                             malformed_handshake_data))
+    end.  

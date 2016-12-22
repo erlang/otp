@@ -424,6 +424,14 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
 	    </taglist>
 
 	  </item>
+
+	  <tag><c>max_handshake_size</c></tag>
+	  <item>
+	    <p>Integer (24 bits unsigned). Used to limit the size of
+	    valid TLS handshake packets to avoid DoS attacks.
+	    Defaults to 256*1024.</p>
+          </item>
+          
 	</taglist>
 
       </item>
