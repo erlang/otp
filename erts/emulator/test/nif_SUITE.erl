@@ -49,7 +49,8 @@
          nif_is_process_alive/1, nif_is_port_alive/1,
          nif_term_to_binary/1, nif_binary_to_term/1,
          nif_port_command/1,
-         nif_snprintf/1
+         nif_snprintf/1,
+         nif_entry_dtor/1
 	]).
 
 -export([many_args_100/100]).
@@ -78,7 +79,8 @@ all() ->
      nif_is_process_alive, nif_is_port_alive,
      nif_term_to_binary, nif_binary_to_term,
      nif_port_command,
-     nif_snprintf].
+     nif_snprintf,
+     nif_entry_dtor].
 
 groups() ->
     [{G, [], api_repeaters()} || G <- api_groups()].
@@ -2209,6 +2211,32 @@ nif_snprintf(Config) ->
     <<"\"hello world\"",0>> = format_term_nif(14,"hello world"),
     <<"{{hello,world,-33},3.14",_/binary>> = format_term_nif(50,{{hello,world, -33}, 3.14, self()}),
     <<"{{hello,world,-33},",0>> = format_term_nif(20,{{hello,world, -33}, 3.14, self()}),
+    ok.
+
+
+nif_entry_dtor(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Data, "tester"),
+    {ok,tester,ModBin} = compile:file(File, [binary,return_errors]),
+    {module,tester} = erlang:load_module(tester,ModBin),
+
+    ok = tester:load_nif_lib(Config, "entry_dtor"),
+    ok = tester:run(),
+
+    MarkerFile = filename:join(PrivDir, "entry_dtor_marker.txt"),
+    {error,enoent} = file:consult(MarkerFile),
+
+    {ok, OldDir} = file:get_cwd(),
+    ok = file:set_cwd(PrivDir),
+
+    erlang:delete_module(tester),
+    erlang:purge_module(tester),
+
+    ok = file:set_cwd(OldDir),
+
+    {ok,[123]} = file:consult(MarkerFile),
+
     ok.
 
 

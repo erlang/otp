@@ -1966,6 +1966,9 @@ static void close_lib(struct erl_module_nif* lib)
 	lib->entry.unload(&msg_env.env, lib->priv_data);
         post_nif_noproc(&msg_env);
     }
+    if (lib->entry.dtor != NULL) {
+        lib->entry.dtor(lib->entry.dtor_data);
+    }
     if (!erts_is_static_nif(lib->handle))
       erts_sys_ddll_close(lib->handle);
     lib->handle = NULL;
@@ -3173,6 +3176,13 @@ static struct erl_module_nif* create_lib(const ErlNifEntry* src)
         }
         dst->funcs = lib->_funcs_copy_;
         dst->options = 0;
+    }
+    if (AT_LEAST_VERSION(src, 2, 12)) {
+        dst->dtor = src->dtor;
+        dst->dtor_data = src->dtor_data;
+    } else {
+        dst->dtor = NULL;
+        dst->dtor_data = NULL;
     }
     return lib;
 };
