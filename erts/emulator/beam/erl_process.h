@@ -170,8 +170,14 @@ extern int erts_sched_thread_suggested_stack_size;
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 6))
 #define ERTS_RUNQ_FLG_EXEC \
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 7))
+#define ERTS_RUNQ_FLG_MSB_EXEC \
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 8))
+#define ERTS_RUNQ_FLG_MISC_OP \
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 9))
+#define ERTS_RUNQ_FLG_HALTING \
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 10))
 
-#define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 8)
+#define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 11)
 
 #define ERTS_RUNQ_FLGS_MIGRATION_QMASKS	\
   (ERTS_RUNQ_FLGS_EMIGRATE_QMASK	\
@@ -262,8 +268,9 @@ typedef enum {
 #define ERTS_SSI_FLG_TSE_SLEEPING 	(((erts_aint32_t) 1) << 2)
 #define ERTS_SSI_FLG_WAITING		(((erts_aint32_t) 1) << 3)
 #define ERTS_SSI_FLG_SUSPENDED	 	(((erts_aint32_t) 1) << 4)
+#define ERTS_SSI_FLG_MSB_EXEC	 	(((erts_aint32_t) 1) << 5)
 
-#define ERTS_SSI_FLGS_MAX                                       5
+#define ERTS_SSI_FLGS_MAX                                       6
 
 #define ERTS_SSI_FLGS_SLEEP_TYPE			\
  (ERTS_SSI_FLG_TSE_SLEEPING|ERTS_SSI_FLG_POLL_SLEEPING)
@@ -274,7 +281,8 @@ typedef enum {
 #define ERTS_SSI_FLGS_ALL				\
  (ERTS_SSI_FLGS_SLEEP					\
   | ERTS_SSI_FLG_WAITING				\
-  | ERTS_SSI_FLG_SUSPENDED)
+  | ERTS_SSI_FLG_SUSPENDED                              \
+  | ERTS_SSI_FLG_MSB_EXEC)
 
 /*
  * Keep ERTS_SSI_AUX_WORK flags ordered in expected frequency
@@ -393,6 +401,12 @@ typedef struct {
     Process* last;
 } ErtsRunPrioQueue;
 
+typedef enum {
+    ERTS_SCHED_NORMAL,
+    ERTS_SCHED_DIRTY_CPU,
+    ERTS_SCHED_DIRTY_IO
+} ErtsSchedType;
+
 typedef struct ErtsSchedulerData_ ErtsSchedulerData;
 
 typedef struct ErtsRunQueue_ ErtsRunQueue;
@@ -478,7 +492,6 @@ struct ErtsRunQueue_ {
     erts_smp_atomic32_t len;
     int wakeup_other;
     int wakeup_other_reds;
-    int halt_in_progress;
 
     struct {
 	ErtsProcList *pending_exiters;
@@ -642,6 +655,7 @@ struct ErtsSchedulerData_ {
 #endif
     ErtsSchedulerSleepInfo *ssi;
     Process *current_process;
+    ErtsSchedType type;
     Uint no;			/* Scheduler number for normal schedulers */
 #ifdef ERTS_DIRTY_SCHEDULERS
     ErtsDirtySchedId dirty_no;  /* Scheduler number for dirty schedulers */

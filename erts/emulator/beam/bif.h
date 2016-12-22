@@ -498,12 +498,6 @@ erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
 					 Eterm args[],
 					 int nargs);
 
-typedef enum {
-    ERTS_SCHED_NORMAL,
-    ERTS_SCHED_DIRTY_CPU,
-    ERTS_SCHED_DIRTY_IO
-} ErtsSchedType;
-
 #ifdef ERTS_DIRTY_SCHEDULERS
 int erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p,
 			BeamInstr *I, Eterm *reg);

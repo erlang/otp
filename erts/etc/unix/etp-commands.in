@@ -2389,6 +2389,9 @@ define etp-ssi-flags
   if ($arg0 & 0x10)
     printf " suspended"
   end
+  if ($arg0 & 0x20)
+    printf " msb_exec"
+  end
   printf "\n"
 end
 
