@@ -438,17 +438,17 @@ merge_records(NewRecords, OldRecords) ->
 %%
 %% ============================================================================
 
--type spec_dict()     :: dict:dict().
--type callback_dict() :: dict:dict().
+-type spec_map()     :: dialyzer_codeserver:contracts().
+-type callback_map() :: dialyzer_codeserver:contracts().
 
 -spec get_spec_info(module(), abstract_code(), type_table()) ->
-        {'ok', spec_dict(), callback_dict()} | {'error', string()}.
+        {'ok', spec_map(), callback_map()} | {'error', string()}.
 
-get_spec_info(ModName, AbstractCode, RecordsDict) ->
+get_spec_info(ModName, AbstractCode, RecordsMap) ->
   OptionalCallbacks0 = get_optional_callbacks(AbstractCode, ModName),
   OptionalCallbacks = gb_sets:from_list(OptionalCallbacks0),
-  get_spec_info(AbstractCode, dict:new(), dict:new(),
-		RecordsDict, ModName, OptionalCallbacks, "nofile").
+  get_spec_info(AbstractCode, maps:new(), maps:new(),
+		RecordsMap, ModName, OptionalCallbacks, "nofile").
 
 get_optional_callbacks(Abs, ModName) ->
   [{ModName, F, A} || {F, A} <- get_optional_callbacks(Abs)].
@@ -466,7 +466,7 @@ get_optional_callbacks(Abs) ->
 %%    are erl_types:erl_type()
 
 get_spec_info([{attribute, Anno, Contract, {Id, TypeSpec}}|Left],
-	      SpecDict, CallbackDict, RecordsDict, ModName, OptCb, File)
+	      SpecMap, CallbackMap, RecordsMap, ModName, OptCb, File)
   when ((Contract =:= 'spec') or (Contract =:= 'callback')),
        is_list(TypeSpec) ->
   Ln = erl_anno:line(Anno),
@@ -475,24 +475,24 @@ get_spec_info([{attribute, Anno, Contract, {Id, TypeSpec}}|Left],
 	  {F, A} -> {ModName, F, A}
 	end,
   Xtra = [optional_callback || gb_sets:is_member(MFA, OptCb)],
-  ActiveDict =
+  ActiveMap =
     case Contract of
-      spec     -> SpecDict;
-      callback -> CallbackDict
+      spec     -> SpecMap;
+      callback -> CallbackMap
     end,
-  try dict:find(MFA, ActiveDict) of
+  try maps:find(MFA, ActiveMap) of
     error ->
       SpecData = {TypeSpec, Xtra},
-      NewActiveDict =
+      NewActiveMap =
 	dialyzer_contracts:store_tmp_contract(MFA, {File, Ln}, SpecData,
-					      ActiveDict, RecordsDict),
-      {NewSpecDict, NewCallbackDict} =
+					      ActiveMap, RecordsMap),
+      {NewSpecMap, NewCallbackMap} =
 	case Contract of
-	  spec     -> {NewActiveDict, CallbackDict};
-	  callback -> {SpecDict, NewActiveDict}
+	  spec     -> {NewActiveMap, CallbackMap};
+	  callback -> {SpecMap, NewActiveMap}
 	end,
-      get_spec_info(Left, NewSpecDict, NewCallbackDict,
-		    RecordsDict, ModName, OptCb, File);
+      get_spec_info(Left, NewSpecMap, NewCallbackMap,
+		    RecordsMap, ModName, OptCb, File);
     {ok, {{OtherFile, L}, _D}} ->
       {Mod, Fun, Arity} = MFA,
       Msg = flat_format("  Contract/callback for function ~w:~w/~w "
@@ -505,16 +505,16 @@ get_spec_info([{attribute, Anno, Contract, {Id, TypeSpec}}|Left],
 			  [Ln, Error])}
   end;
 get_spec_info([{attribute, _, file, {IncludeFile, _}}|Left],
-	      SpecDict, CallbackDict, RecordsDict, ModName, OptCb, _File) ->
-  get_spec_info(Left, SpecDict, CallbackDict,
-		RecordsDict, ModName, OptCb, IncludeFile);
-get_spec_info([_Other|Left], SpecDict, CallbackDict,
-	      RecordsDict, ModName, OptCb, File) ->
-  get_spec_info(Left, SpecDict, CallbackDict,
-                RecordsDict, ModName, OptCb, File);
-get_spec_info([], SpecDict, CallbackDict,
-              _RecordsDict, _ModName, _OptCb, _File) ->
-  {ok, SpecDict, CallbackDict}.
+	      SpecMap, CallbackMap, RecordsMap, ModName, OptCb, _File) ->
+  get_spec_info(Left, SpecMap, CallbackMap,
+		RecordsMap, ModName, OptCb, IncludeFile);
+get_spec_info([_Other|Left], SpecMap, CallbackMap,
+	      RecordsMap, ModName, OptCb, File) ->
+  get_spec_info(Left, SpecMap, CallbackMap,
+                RecordsMap, ModName, OptCb, File);
+get_spec_info([], SpecMap, CallbackMap,
+              _RecordsMap, _ModName, _OptCb, _File) ->
+  {ok, SpecMap, CallbackMap}.
 
 -spec get_fun_meta_info(module(), abstract_code(), [dial_warn_tag()]) ->
                 dialyzer_codeserver:fun_meta_info() | {'error', string()}.

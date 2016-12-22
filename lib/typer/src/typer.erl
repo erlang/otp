@@ -156,7 +156,7 @@ extract(#analysis{macros = Macros,
     fun(Module, TmpPlt) ->
 	{ok, ModuleContracts} = dict:find(Module, Contracts),
 	SpecList = [{MFA, Contract} 
-		    || {MFA, {_FileLine, Contract}} <- dict:to_list(ModuleContracts)],
+		    || {MFA, {_FileLine, Contract}} <- maps:to_list(ModuleContracts)],
 	dialyzer_plt:insert_contract_list(TmpPlt, SpecList)
     end,
   NewTrustPLT = lists:foldl(FoldFun, TrustPLT, Modules),

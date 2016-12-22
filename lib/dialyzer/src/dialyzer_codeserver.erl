@@ -59,19 +59,20 @@
 	 store_temp_records/3,
 	 store_temp_contracts/4]).
 
--export_type([codeserver/0, fun_meta_info/0]).
+-export_type([codeserver/0, fun_meta_info/0, contracts/0]).
 
 -include("dialyzer.hrl").
 
 %%--------------------------------------------------------------------
 
 -type dict_ets() :: ets:tid().
+-type map_ets()  :: ets:tid().
 -type  set_ets() :: ets:tid().
 
 -type types()         :: erl_types:type_table().
 -type mod_records()   :: dict:dict(module(), types()).
 
--type contracts()     :: dict:dict(mfa(),dialyzer_contracts:file_contract()).
+-type contracts()     :: #{mfa() => dialyzer_contracts:file_contract()}.
 -type mod_contracts() :: dict:dict(module(), contracts()).
 
 %% A property-list of data compiled from -compile and -dialyzer attributes.
@@ -84,8 +85,8 @@
 		     code		 :: dict_ets(),
                      exported_types      :: set_ets() | 'undefined', % set(mfa())
 		     records             :: dict_ets() | 'undefined',
-		     contracts           :: dict_ets() | 'undefined',
-		     callbacks           :: dict_ets() | 'undefined',
+		     contracts           :: map_ets() | 'undefined',
+		     callbacks           :: map_ets() | 'undefined',
                      fun_meta_info       :: dict_ets(), % {mfa(), meta_info()}
 		     exports             :: 'clean' | set_ets(), % set(mfa())
                      temp_exported_types :: 'clean' | set_ets(), % set(mfa())
@@ -106,6 +107,10 @@ ets_dict_find(Key, Table) ->
   end.
 
 ets_dict_store(Key, Element, Table) ->
+  true = ets:insert(Table, {Key, Element}),
+  Table.
+
+ets_map_store(Key, Element, Table) ->
   true = ets:insert(Table, {Key, Element}),
   Table.
 
@@ -301,9 +306,9 @@ finalize_records(Dict, CS) ->
 lookup_mod_contracts(Mod, #codeserver{contracts = ContDict})
   when is_atom(Mod) ->
   case ets_dict_find(Mod, ContDict) of
-    error -> dict:new();
+    error -> maps:new();
     {ok, Keys} ->
-      dict:from_list([get_file_contract(Key, ContDict)|| Key <- Keys])
+      maps:from_list([get_file_contract(Key, ContDict)|| Key <- Keys])
   end.
 
 get_file_contract(Key, ContDict) ->
@@ -336,20 +341,20 @@ get_callbacks(#codeserver{callbacks = CallbDict}) ->
 -spec store_temp_contracts(module(), contracts(), contracts(), codeserver()) ->
 	 codeserver().
 
-store_temp_contracts(Mod, SpecDict, CallbackDict,
+store_temp_contracts(Mod, SpecMap, CallbackMap,
 		     #codeserver{temp_contracts = Cn,
 				 temp_callbacks = Cb} = CS)
   when is_atom(Mod) ->
   CS1 =
-    case dict:size(SpecDict) =:= 0 of
+    case maps:size(SpecMap) =:= 0 of
       true -> CS;
       false ->
-	CS#codeserver{temp_contracts = ets_dict_store(Mod, SpecDict, Cn)}
+	CS#codeserver{temp_contracts = ets_map_store(Mod, SpecMap, Cn)}
     end,
-  case dict:size(CallbackDict) =:= 0 of
+  case maps:size(CallbackMap) =:= 0 of
     true -> CS1;
     false ->
-      CS1#codeserver{temp_callbacks = ets_dict_store(Mod, CallbackDict, Cb)}
+      CS1#codeserver{temp_callbacks = ets_map_store(Mod, CallbackMap, Cb)}
   end.
 
 -spec get_temp_contracts(codeserver()) -> {mod_contracts(), mod_contracts()}.
@@ -369,14 +374,14 @@ finalize_contracts(SpecDict, CallbackDict, CS)  ->
   CS#codeserver{contracts = Contracts, callbacks = Callbacks,
 		temp_contracts = clean, temp_callbacks = clean}.
 
-decompose_spec_dict(Mod, Dict, Table) ->
-  Keys = dict:fetch_keys(Dict),
-  true = ets:insert(Table, dict:to_list(Dict)),
+decompose_spec_dict(Mod, Map, Table) ->
+  Keys = maps:keys(Map),
+  true = ets:insert(Table, maps:to_list(Map)),
   true = ets:insert(Table, {Mod, Keys}),
   Table.
 
-decompose_cb_dict(_Mod, Dict, Table) ->
-  true = ets:insert(Table, dict:to_list(Dict)),
+decompose_cb_dict(_Mod, Map, Table) ->
+  true = ets:insert(Table, maps:to_list(Map)),
   Table.
 
 table__lookup(TablePid, M) when is_atom(M) ->

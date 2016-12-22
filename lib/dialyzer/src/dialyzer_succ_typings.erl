@@ -263,7 +263,7 @@ refine_one_module(M, {CodeServer, Callgraph, Plt, _Solvers}) ->
   NewFunTypes =
     dialyzer_dataflow:get_fun_types(ModCode, Plt, Callgraph, CodeServer, Records),
   Contracts1 = dialyzer_codeserver:lookup_mod_contracts(M, CodeServer),
-  Contracts = orddict:from_list(dict:to_list(Contracts1)),
+  Contracts = orddict:from_list(maps:to_list(Contracts1)),
   FindOpaques = find_opaques_fun(Records),
   DecoratedFunTypes =
     decorate_succ_typings(Contracts, Callgraph, NewFunTypes, FindOpaques),

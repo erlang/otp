@@ -165,11 +165,11 @@ process_contract_remote_types(CodeServer) ->
         {{MFA, {File, Contract, Xtra}}, C2}
     end,
   ModuleFun =
-    fun({ModuleName, ContractDict}) ->
+    fun({ModuleName, ContractMap}) ->
         Cache = erl_types:cache__new(),
         {NewContractList, _NewCache} =
-          lists:mapfoldl(ContractFun, Cache, dict:to_list(ContractDict)),
-        {ModuleName, dict:from_list(NewContractList)}
+          lists:mapfoldl(ContractFun, Cache, maps:to_list(ContractMap)),
+        {ModuleName, maps:from_list(NewContractList)}
     end,
   erlang:garbage_collect(),
   NewContractList = lists:map(ModuleFun, dict:to_list(TmpContractDict)),
@@ -398,7 +398,7 @@ solve_constraints(Contract, Call, Constraints) ->
   %%  ?debug("Inf: ~s\n", [erl_types:t_to_string(Inf)]),
   %%  erl_types:t_assign_variables_to_subtype(Contract, Inf).
 
--type contracts() :: dict:dict(mfa(),dialyzer_contracts:file_contract()).
+-type contracts() :: dialyzer_codeserver:contracts().
 
 %% Checks the contracts for functions that are not implemented
 -spec contracts_without_fun(contracts(), [_], dialyzer_callgraph:callgraph()) ->
@@ -408,12 +408,12 @@ contracts_without_fun(Contracts, AllFuns0, Callgraph) ->
   AllFuns1 = [{dialyzer_callgraph:lookup_name(Label, Callgraph), Arity}
 	      || {Label, Arity} <- AllFuns0],
   AllFuns2 = [{M, F, A} || {{ok, {M, F, _}}, A} <- AllFuns1],
-  AllContractMFAs = dict:fetch_keys(Contracts),
+  AllContractMFAs = maps:keys(Contracts),
   ErrorContractMFAs = AllContractMFAs -- AllFuns2,
   [warn_spec_missing_fun(MFA, Contracts) || MFA <- ErrorContractMFAs].
 
 warn_spec_missing_fun({M, F, A} = MFA, Contracts) ->
-  {{File, Line}, _Contract, _Xtra} = dict:fetch(MFA, Contracts),
+  {{File, Line}, _Contract, _Xtra} = maps:get(MFA, Contracts),
   WarningInfo = {File, Line, MFA},
   {?WARN_CONTRACT_SYNTAX, WarningInfo, {spec_missing_fun, [M, F, A]}}.
 
@@ -446,11 +446,11 @@ insert_constraints([], Map) -> Map.
 -spec store_tmp_contract(mfa(), file_line(), spec_data(), contracts(), types()) ->
         contracts().
 
-store_tmp_contract(MFA, FileLine, {TypeSpec, Xtra}, SpecDict, RecordsDict) ->
+store_tmp_contract(MFA, FileLine, {TypeSpec, Xtra}, SpecMap, RecordsDict) ->
   %% io:format("contract from form: ~p\n", [TypeSpec]),
   TmpContract = contract_from_form(TypeSpec, MFA, RecordsDict, FileLine),
   %% io:format("contract: ~p\n", [TmpContract]),
-  dict:store(MFA, {FileLine, TmpContract, Xtra}, SpecDict).
+  maps:put(MFA, {FileLine, TmpContract, Xtra}, SpecMap).
 
 contract_from_form(Forms, MFA, RecDict, FileLine) ->
   {CFuns, Forms1} = contract_from_form(Forms, MFA, RecDict, FileLine, [], []),
@@ -678,7 +678,7 @@ get_invalid_contract_warnings(Modules, CodeServer, Plt, FindOpaques) ->
 
 get_invalid_contract_warnings_modules([Mod|Mods], CodeServer, Plt, FindOpaques, Acc) ->
   Contracts1 = dialyzer_codeserver:lookup_mod_contracts(Mod, CodeServer),
-  Contracts2 = dict:to_list(Contracts1),
+  Contracts2 = maps:to_list(Contracts1),
   Records = dialyzer_codeserver:lookup_mod_records(Mod, CodeServer),
   NewAcc = get_invalid_contract_warnings_funs(Contracts2, Plt, Records, FindOpaques, Acc),
   get_invalid_contract_warnings_modules(Mods, CodeServer, Plt, FindOpaques, NewAcc);
