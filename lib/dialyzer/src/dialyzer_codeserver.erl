@@ -130,7 +130,7 @@ ets_set_to_set(Table) ->
   ets:foldl(Fold, sets:new(), Table).
 
 ets_read_concurrent_table(Name) ->
-  ets:new(Name, [{read_concurrency, true}]).
+  ets:new(Name, [compressed, {read_concurrency, true}]).
 
 %%--------------------------------------------------------------------
 
