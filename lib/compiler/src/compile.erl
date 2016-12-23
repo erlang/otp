@@ -310,6 +310,7 @@ format_error_reason(Reason) ->
 		  ofile=""    :: file:filename(),
 		  module=[]   :: module() | [],
 		  core_code=[] :: cerl:c_module() | [],
+                  records=[]  :: [erl_parse:abstract_form()],
 		  abstract_code=[] :: binary() | [], %Abstract code for debugger.
 		  options=[]  :: [option()],  %Options for compilation
 		  mod_options=[]  :: [option()], %Options for module_info
@@ -673,6 +674,7 @@ standard_passes() ->
      {iff,debug_info,?pass(save_abstract_code)},
 
      ?pass(expand_records),
+     ?pass(collect_records),
      {iff,'dexp',{listing,"expand"}},
      {iff,'E',{src_listing,"E"}},
      {iff,'to_exp',{done,"E"}},
@@ -1261,6 +1263,10 @@ expand_records(Code0, #compile{options=Opts}=St) ->
     Code = erl_expand_records:module(Code0, Opts),
     {ok,Code,St}.
 
+collect_records(Forms, St) ->
+    Recs = [R || {attribute,_,record,_}=R <- Forms],
+    {ok,Forms,St#compile{records=Recs}}.
+
 core(Forms, #compile{options=Opts0}=St) ->
     Opts1 = lists:flatten([C || {attribute,_,compile,C} <- Forms] ++ Opts0),
     Opts = expand_opts(Opts1),
@@ -1386,14 +1392,14 @@ encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
 save_core_code(Code, St) ->
     {ok,Code,St#compile{core_code=cerl:from_records(Code)}}.
 
-beam_asm(Code0, #compile{ifile=File,abstract_code=Abst,
-			 options=CompilerOpts,mod_options=Opts0}=St) ->
+beam_asm(Code0, #compile{ifile=File, records=Records, abstract_code=Abst,
+			 options=CompilerOpts, mod_options=Opts0}=St) ->
     Source = paranoid_absname(File),
     Opts1 = lists:map(fun({debug_info_key,_}) -> {debug_info_key,'********'};
 			 (Other) -> Other
 		      end, Opts0),
     Opts2 = [O || O <- Opts1, effects_code_generation(O)],
-    case beam_asm:module(Code0, Abst, Source, Opts2, CompilerOpts) of
+    case beam_asm:module(Code0, Records, Abst, Source, Opts2, CompilerOpts) of
 	{ok,Code} -> {ok,Code,St#compile{abstract_code=[]}}
     end.
 
