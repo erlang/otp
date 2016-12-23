@@ -21,23 +21,28 @@
 
 -module(beam_asm).
 
--export([module/4]).
+-export([module/1]).
 -export([encode/2]).
 
 -import(lists, [map/2,member/2,keymember/3,duplicate/2,splitwith/2]).
 -include("beam_opcodes.hrl").
 
-module(Code, Abst, SourceFile, Opts) ->
-    {ok,assemble(Code, Abst, SourceFile, Opts)}.
+module(BeamData) ->
+    {ok,assemble(BeamData)}.
 
-assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, Abst, SourceFile, Opts) ->
+assemble(#{mod := Mod,
+           exp := Exp,
+           attr := Attr0,
+           asm := Asm0} = BeamData) ->
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
     {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
-    Exp = cerl_sets:from_list(Exp0),
-    {Code,Dict2} = assemble_1(Asm, Exp, Dict1, []),
-    build_file(Code, Attr, Dict2, NumLabels, NumFuncs, Abst, SourceFile, Opts).
+    {Code,Dict2} = assemble_1(Asm, cerl_sets:from_list(Exp), Dict1, []),
+    build_file(BeamData#{code => Code,
+                         attr => Attr,
+                         dict => Dict2,
+                         num_funcs => NumFuncs}).
 
 on_load(Fs0, Attr0) ->
     case proplists:get_value(on_load, Attr0) of
@@ -80,7 +85,15 @@ assemble_function([H|T], Acc, Dict0) ->
 assemble_function([], Code, Dict) ->
     {Code, Dict}.
 
-build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
+build_file(#{code := Code,
+             attr := Attr,
+             dict := Dict,
+             num_labels := NumLabels,
+             num_funcs := NumFuncs,
+             abst := Abst,
+             source_file := SourceFile,
+             opts := Opts}) ->
+
     %% Create the code chunk.
 
     CodeChunk = chunk(<<"Code">>,

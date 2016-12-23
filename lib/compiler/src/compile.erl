@@ -1361,7 +1361,16 @@ beam_asm(#compile{ifile=File,code=Code0,
 			 (Other) -> Other
 		      end, Opts0),
     Opts2 = [O || O <- Opts1, effects_code_generation(O)],
-    case beam_asm:module(Code0, Abst, Source, Opts2) of
+    {Mod,Exp,Attr,Asm,NumLabels} = Code0,
+    case beam_asm:module(#{mod => Mod,
+                           exp => Exp,
+                           attr => Attr,
+                           asm => Asm,
+                           num_labels => NumLabels,
+                           abst => Abst,
+                           source_file => Source,
+                           opts => Opts2})
+    of
 	{ok,Code} -> {ok,St#compile{code=Code,abstract_code=[]}}
     end.
 
