@@ -84,7 +84,7 @@
 %%----------------------------------------------------------------------
 
 -record(plt, {info           = table_new() :: dict:dict(),
-	      types          = table_new() :: dict:dict(),
+	      types          = table_new() :: erl_types:mod_records(),
 	      contracts      = table_new() :: dict:dict(),
 	      callbacks      = table_new() :: dict:dict(),
               exported_types = sets:new()  :: sets:set()}).
@@ -191,7 +191,7 @@ lookup(Plt, Label) when is_integer(Label) ->
 lookup_1(#mini_plt{info = Info}, MFAorLabel) ->
   ets_table_lookup(Info, MFAorLabel).
 
--spec insert_types(plt(), dict:dict()) -> plt().
+-spec insert_types(plt(), erl_types:mod_records()) -> plt().
 
 insert_types(PLT, Rec) ->
   PLT#plt{types = Rec}.
@@ -201,7 +201,7 @@ insert_types(PLT, Rec) ->
 insert_exported_types(PLT, Set) ->
   PLT#plt{exported_types = Set}.
 
--spec get_types(plt()) -> dict:dict().
+-spec get_types(plt()) -> erl_types:mod_records().
 
 get_types(#plt{types = Types}) ->
   Types.
@@ -261,8 +261,10 @@ from_file(FileName, ReturnInfo) ->
 	  Msg = io_lib:format("Old PLT file ~s\n", [FileName]),
 	  plt_error(Msg);
 	ok ->
+          Types = [{Mod, maps:from_list(dict:to_list(Types))} ||
+                    {Mod, Types} <- dict:to_list(Rec#file_plt.types)],
 	  Plt = #plt{info = Rec#file_plt.info,
-		     types = Rec#file_plt.types,
+		     types = dict:from_list(Types),
 		     contracts = Rec#file_plt.contracts,
 		     callbacks = Rec#file_plt.callbacks,
                      exported_types = Rec#file_plt.exported_types},
@@ -379,12 +381,14 @@ to_file(FileName,
 			  end,
 			  OldModDeps, ModDeps),
   ImplMd5 = compute_implementation_md5(),
+  FileTypes = dict:from_list([{Mod, dict:from_list(maps:to_list(MTypes))} ||
+                               {Mod, MTypes} <- dict:to_list(Types)]),
   Record = #file_plt{version = ?VSN,
 		     file_md5_list = MD5,
 		     info = Info,
 		     contracts = Contracts,
 		     callbacks = Callbacks,
-		     types = Types,
+		     types = FileTypes,
                      exported_types = ExpTypes,
 		     mod_deps = NewModDeps,
 		     implementation_md5 = ImplMd5},

@@ -202,7 +202,7 @@ get_core_from_abstract_code(AbstrCode, Opts) ->
 
 get_record_and_type_info(AbstractCode) ->
   Module = get_module(AbstractCode),
-  get_record_and_type_info(AbstractCode, Module, dict:new()).
+  get_record_and_type_info(AbstractCode, Module, maps:new()).
 
 -spec get_record_and_type_info(abstract_code(), module(), type_table()) ->
 	{'ok', type_table()} | {'error', string()}.
@@ -215,7 +215,7 @@ get_record_and_type_info([{attribute, A, record, {Name, Fields0}}|Left],
   {ok, Fields} = get_record_fields(Fields0, RecDict),
   Arity = length(Fields),
   FN = {File, erl_anno:line(A)},
-  NewRecDict = dict:store({record, Name}, {FN, [{Arity,Fields}]}, RecDict),
+  NewRecDict = maps:put({record, Name}, {FN, [{Arity,Fields}]}, RecDict),
   get_record_and_type_info(Left, Module, NewRecDict, File);
 get_record_and_type_info([{attribute, A, type, {{record, Name}, Fields0, []}}
 			  |Left], Module, RecDict, File) ->
@@ -223,7 +223,7 @@ get_record_and_type_info([{attribute, A, type, {{record, Name}, Fields0, []}}
   {ok, Fields} = get_record_fields(Fields0, RecDict),
   Arity = length(Fields),
   FN = {File, erl_anno:line(A)},
-  NewRecDict = dict:store({record, Name}, {FN, [{Arity, Fields}]}, RecDict),
+  NewRecDict = maps:put({record, Name}, {FN, [{Arity, Fields}]}, RecDict),
   get_record_and_type_info(Left, Module, NewRecDict, File);
 get_record_and_type_info([{attribute, A, Attr, {Name, TypeForm}}|Left],
 			 Module, RecDict, File)
@@ -263,9 +263,9 @@ add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, FN,
     false ->
       try erl_types:t_var_names(ArgForms) of
         ArgNames ->
-	  dict:store({TypeOrOpaque, Name, Arity},
-                     {{Module, FN, TypeForm, ArgNames},
-                      erl_types:t_any()}, RecDict)
+	  maps:put({TypeOrOpaque, Name, Arity},
+                   {{Module, FN, TypeForm, ArgNames},
+                    erl_types:t_any()}, RecDict)
       catch
         _:_ ->
 	  throw({error, flat_format("Type declaration for ~w does not "
@@ -334,8 +334,8 @@ process_record_remote_types(CServer) ->
           end,
         Cache = erl_types:cache__new(),
         {RecordList, _NewCache} =
-          lists:mapfoldl(RecordFun, Cache, dict:to_list(Record)),
-        {Module, dict:from_list(RecordList)}
+          lists:mapfoldl(RecordFun, Cache, maps:to_list(Record)),
+        {Module, maps:from_list(RecordList)}
     end,
   NewRecordsList = lists:map(ModuleFun, dict:to_list(TempRecords1)),
   NewRecords = dict:from_list(NewRecordsList),
@@ -372,8 +372,8 @@ process_opaque_types(TempRecords, TempExpTypes, Cache) ->
               end
           end,
         {RecordList, C1} =
-          lists:mapfoldl(RecordFun, C0, dict:to_list(Record)),
-        {{Module, dict:from_list(RecordList)}, C1}
+          lists:mapfoldl(RecordFun, C0, maps:to_list(Record)),
+        {{Module, maps:from_list(RecordList)}, C1}
         %% dict:map(RecordFun, Record)
     end,
   {TempRecordList, NewCache} =
@@ -412,7 +412,7 @@ check_record_fields(Records, TempExpTypes) ->
                   msg_with_position(Fun, FileLine)
               end
           end,
-        lists:foldl(ElemFun, C0, dict:to_list(Element))
+        lists:foldl(ElemFun, C0, maps:to_list(Element))
     end,
   _NewCache = lists:foldl(CheckFun, Cache, dict:to_list(Records)),
   ok.
@@ -710,7 +710,7 @@ format_errors([]) ->
 -spec format_sig(erl_types:erl_type()) -> string().
 
 format_sig(Type) ->
-  format_sig(Type, dict:new()).
+  format_sig(Type, maps:new()).
 
 -spec format_sig(erl_types:erl_type(), type_table()) -> string().
 

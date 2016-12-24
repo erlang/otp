@@ -226,7 +226,7 @@ get_external(Exts, Plt) ->
 -type fa()        :: {atom(), arity()}.
 -type func_info() :: {line(), atom(), arity()}.
 
--record(info, {records = map__new() :: map_dict(),
+-record(info, {records = maps:new() :: erl_types:type_table(),
 	       functions = []       :: [func_info()],
 	       types = map__new()   :: map_dict(),
 	       edoc = false	    :: boolean()}).
@@ -269,7 +269,7 @@ write_inc_files(Inc) ->
 	Functions = [Key || {Key, _} <- Val],
 	Val1 = [{{F,A},Type} || {{_Line,F,A},Type} <- Val],
 	Info = #info{types = map__from_list(Val1),
-		     records = map__new(),
+		     records = maps:new(),
 		     %% Note we need to sort functions here!
 		     functions = lists:keysort(1, Functions)},
 	%% io:format("Types ~p\n", [Info#info.types]),

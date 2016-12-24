@@ -70,7 +70,7 @@
 -type  set_ets() :: ets:tid().
 
 -type types()         :: erl_types:type_table().
--type mod_records()   :: dict:dict(module(), types()).
+-type mod_records()   :: erl_types:mod_records().
 
 -type contracts()     :: #{mfa() => dialyzer_contracts:file_contract()}.
 -type mod_contracts() :: dict:dict(module(), contracts()).
@@ -84,15 +84,15 @@
 -record(codeserver, {next_core_label = 0 :: label(),
 		     code		 :: dict_ets(),
                      exported_types      :: set_ets() | 'undefined', % set(mfa())
-		     records             :: dict_ets() | 'undefined',
+		     records             :: map_ets() | 'undefined',
 		     contracts           :: map_ets() | 'undefined',
 		     callbacks           :: map_ets() | 'undefined',
                      fun_meta_info       :: dict_ets(), % {mfa(), meta_info()}
 		     exports             :: 'clean' | set_ets(), % set(mfa())
                      temp_exported_types :: 'clean' | set_ets(), % set(mfa())
-		     temp_records        :: 'clean' | dict_ets(),
-		     temp_contracts      :: 'clean' | dict_ets(),
-		     temp_callbacks      :: 'clean' | dict_ets()
+		     temp_records        :: 'clean' | map_ets(),
+		     temp_contracts      :: 'clean' | map_ets(),
+		     temp_callbacks      :: 'clean' | map_ets()
 		    }).
 
 -opaque codeserver() :: #codeserver{}.
@@ -105,10 +105,6 @@ ets_dict_find(Key, Table) ->
   catch
     _:_ -> error
   end.
-
-ets_dict_store(Key, Element, Table) ->
-  true = ets:insert(Table, {Key, Element}),
-  Table.
 
 ets_map_store(Key, Element, Table) ->
   true = ets:insert(Table, {Key, Element}),
@@ -262,8 +258,8 @@ set_next_core_label(NCL, CS) ->
 
 lookup_mod_records(Mod, #codeserver{records = RecDict}) when is_atom(Mod) ->
   case ets_dict_find(Mod, RecDict) of
-    error -> dict:new();
-    {ok, Dict} -> Dict
+    error -> maps:new();
+    {ok, Map} -> Map
   end.
 
 -spec get_records(codeserver()) -> mod_records().
@@ -273,11 +269,11 @@ get_records(#codeserver{records = RecDict}) ->
 
 -spec store_temp_records(module(), types(), codeserver()) -> codeserver().
 
-store_temp_records(Mod, Dict, #codeserver{temp_records = TempRecDict} = CS)
+store_temp_records(Mod, Map, #codeserver{temp_records = TempRecDict} = CS)
   when is_atom(Mod) ->
-  case dict:size(Dict) =:= 0 of
+  case maps:size(Map) =:= 0 of
     true -> CS;
-    false -> CS#codeserver{temp_records = ets_dict_store(Mod, Dict, TempRecDict)}
+    false -> CS#codeserver{temp_records = ets_map_store(Mod, Map, TempRecDict)}
   end.
 
 -spec get_temp_records(codeserver()) -> mod_records().

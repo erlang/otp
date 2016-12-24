@@ -103,7 +103,7 @@
 
 -type typesig_funmap() :: #{type_var() => type_var()}.
 
--type prop_types() :: dict:dict(label(), types()).
+-type prop_types() :: dict:dict(label(), erl_types:erl_type()).
 
 -record(state, {callgraph                :: dialyzer_callgraph:callgraph()
                                           | 'undefined',
@@ -120,7 +120,7 @@
 		plt                      :: dialyzer_plt:plt()
                                           | 'undefined',
 		prop_types  = dict:new() :: prop_types(),
-		records     = dict:new() :: types(),
+		records     = maps:new() :: types(),
 		scc         = []         :: ordsets:ordset(type_var()),
 		mfas                     :: [mfa()],
                 solvers     = []         :: [solver()]
