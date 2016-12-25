@@ -267,10 +267,18 @@ handle_cast(Event, _State) ->
     error({unhandled_cast, Event}).
 
 handle_info({portinfo_open, PortIdStr},
-	    State = #state{grid=Grid, ports=Ports, open_wins=Opened}) ->
-    Port = lists:keyfind(PortIdStr,#port.id_str,Ports),
-    NewOpened = display_port_info(Grid, Port, Opened),
-    {noreply, State#state{open_wins = NewOpened}};
+	    State = #state{node=Node, grid=Grid, opt=Opt, open_wins=Opened}) ->
+    Ports0 = get_ports(Node),
+    Ports = update_grid(Grid, Opt, Ports0),
+    Port = lists:keyfind(PortIdStr, #port.id_str, Ports),
+    NewOpened =
+        case Port of
+            undefined ->
+                Opened;
+            _ ->
+                display_port_info(Grid, Port, Opened)
+        end,
+    {noreply, State#state{ports=Ports, open_wins=NewOpened}};
 
 handle_info(refresh_interval, State = #state{node=Node, grid=Grid, opt=Opt,
                                              ports=OldPorts}) ->
