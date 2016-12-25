@@ -23,11 +23,11 @@
 %% Store info about ip addresses, names, aliases host files resolver
 %% options
 
-%% If the macro DEBUG is defined during compilation, 
+%% If the macro DEBUG is defined during compilation,
 %% debug printouts are done through erlang:display/1.
-%% Activate this feature by starting the compiler 
-%% with> erlc -DDEBUG ... 
-%% or by> setenv ERL_COMPILER_FLAGS DEBUG 
+%% Activate this feature by starting the compiler
+%% with> erlc -DDEBUG ...
+%% or by> setenv ERL_COMPILER_FLAGS DEBUG
 %% before running make (in the OTP make system)
 %% (the example is for tcsh)
 
@@ -36,7 +36,7 @@
 -export([add_rr/1,add_rr/5,del_rr/4]).
 -export([add_ns/1,add_ns/2, ins_ns/1, ins_ns/2,
 	 del_ns/2, del_ns/1, del_ns/0]).
--export([add_alt_ns/1,add_alt_ns/2, ins_alt_ns/1, ins_alt_ns/2, 
+-export([add_alt_ns/1,add_alt_ns/2, ins_alt_ns/1, ins_alt_ns/2,
 	 del_alt_ns/2, del_alt_ns/1, del_alt_ns/0]).
 -export([add_search/1,ins_search/1,del_search/1, del_search/0]).
 -export([set_lookup/1, set_recurse/1]).
@@ -80,7 +80,7 @@
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 
--record(state, 
+-record(state,
 	{db,                %% resolver data
 	 cache,             %% bag of resource records
 	 hosts_byname,      %% hosts table
@@ -113,8 +113,8 @@ start_link() ->
 	{ok, _Pid}=Ok -> inet_config:init(), Ok;
 	Error -> Error
     end.
-	       
-call(Req) -> 
+
+call(Req) ->
     gen_server:call(inet_db, Req, infinity).
 
 stop() ->
@@ -148,7 +148,7 @@ del_host(IP) ->  call({del_host, IP}).
 clear_hosts() -> call(clear_hosts).
 
 %% add to the end of name server list
-add_ns(IP) -> 
+add_ns(IP) ->
     add_ns(IP,?NAMESERVER_PORT).
 add_ns(IP,Port) ->
     call({listop, nameservers, add, {IP,Port}}).
@@ -160,23 +160,23 @@ ins_ns(IP,Port) ->
     call({listop, nameservers, ins, {IP,Port}}).
 
 %% delete this name server entry (delete all ns having this ip)
-del_ns(IP) -> 
+del_ns(IP) ->
     del_ns(IP, ?NAMESERVER_PORT).
 del_ns(IP, Port) ->
     call({listop, nameservers, del, {IP,Port}}).
 
-del_ns() -> 
+del_ns() ->
     call({listdel, nameservers}).
 
 %% ALTERNATIVE NAME SERVER
 %% add to the end of name server list
-add_alt_ns(IP) -> 
+add_alt_ns(IP) ->
     add_alt_ns(IP, ?NAMESERVER_PORT).
 add_alt_ns(IP,Port) ->
     call({listop, alt_nameservers, add, {IP,Port}}).
 
 %% insert at head of name server list
-ins_alt_ns(IP) -> 
+ins_alt_ns(IP) ->
     ins_alt_ns(IP, ?NAMESERVER_PORT).
 ins_alt_ns(IP,Port) ->
     call({listop, alt_nameservers, ins, {IP,Port}}).
@@ -187,11 +187,11 @@ del_alt_ns(IP) ->
 del_alt_ns(IP, Port) ->
     call({listop, alt_nameservers, del, {IP,Port}}).
 
-del_alt_ns() -> 
+del_alt_ns() ->
     call({listdel, alt_nameservers}).
 
 %% add this domain to the search list
-add_search(Domain) when is_list(Domain) -> 
+add_search(Domain) when is_list(Domain) ->
     call({listop, search, add, Domain}).
 
 ins_search(Domain) when is_list(Domain) ->
@@ -272,7 +272,7 @@ set_sctp_module(Family)-> call({set_sctp_module,Family}).
 sctp_module()-> db_get(sctp_module).
 
 %% Add an inetrc file
-add_rc(File) -> 
+add_rc(File) ->
     case file:consult(File) of
 	{ok, List} -> add_rc_list(List);
 	Error -> Error
@@ -306,10 +306,10 @@ translate_lookup([_ | Ls]) -> translate_lookup(Ls);
 translate_lookup([]) -> [].
 
 valid_lookup() -> [dns, file, yp, nis, nisplus, native].
-    
 
-%% Reconstruct an inetrc sturcture from inet_db
-get_rc() -> 
+
+%% Reconstruct an inetrc structure from inet_db
+get_rc() ->
     get_rc([hosts, domain, nameservers, search, alt_nameservers,
 	    timeout, retry, inet6, usevc,
 	    edns, udp_payload_size, resolv_conf, hosts_file,
@@ -332,7 +332,7 @@ get_rc([K | Ks], Ls) ->
 				   ?DNS_UDP_PAYLOAD_SIZE, Ks, Ls);
 	resolv_conf -> get_rc(resolv_conf, res_resolv_conf, undefined, Ks, Ls);
 	hosts_file -> get_rc(hosts_file, res_hosts_file, undefined, Ks, Ls);
-	tcp     -> get_rc(tcp,  tcp_module,  ?DEFAULT_TCP_MODULE,  Ks, Ls); 
+	tcp     -> get_rc(tcp,  tcp_module,  ?DEFAULT_TCP_MODULE,  Ks, Ls);
 	udp     -> get_rc(udp,  udp_module,  ?DEFAULT_UDP_MODULE,  Ks, Ls);
 	sctp	-> get_rc(sctp, sctp_module, ?DEFAULT_SCTP_MODULE, Ks, Ls);
 	lookup  -> get_rc(lookup, res_lookup, [native,file], Ks, Ls);
@@ -350,7 +350,7 @@ get_rc([K | Ks], Ls) ->
 	_ ->
 	    get_rc(Ks, Ls)
     end;
-get_rc([], Ls) -> 
+get_rc([], Ls) ->
     lists:reverse(Ls).
 
 get_rc(Name, Key, Default, Ks, Ls) ->
@@ -562,7 +562,7 @@ del_rr(Domain, Class, Type, Data) ->
 res_cache_answer(Rec) ->
     lists:foreach( fun(RR) -> add_rr(RR) end, Rec#dns_rec.anlist).
 
-    
+
 
 
 %%
@@ -639,12 +639,12 @@ hostent_by_domain(Domain, Aliases, LAliases, Type) ->
     case lookup_type(Domain, Type) of
 	[] ->
 	    case lookup_cname(Domain) of
-		[] ->  
+		[] ->
 		    {error, nxdomain};
 		[CName | _] ->
 		    LDomain = tolower(Domain),
 		    case lists:member(CName, [LDomain | LAliases]) of
-                        true -> 
+                        true ->
 			    {error, nxdomain};
                         false ->
 			    hostent_by_domain(CName, [Domain | Aliases],
@@ -683,11 +683,11 @@ res_hostent_by_domain(Domain, Aliases, LAliases, Type, RRs) ->
     case res_lookup_type(LDomain, Type, RRs) of
 	[] ->
 	    case res_lookup_type(LDomain, ?S_CNAME, RRs) of
-		[] ->  
+		[] ->
 		    {error, nxdomain};
 		[CName | _] ->
 		    case lists:member(tolower(CName), [LDomain | LAliases]) of
-			true -> 
+			true ->
 			    {error, nxdomain};
 			false ->
 			    res_hostent_by_domain(CName, [Domain | Aliases],
@@ -811,7 +811,7 @@ lookup_socket(Socket) when is_port(Socket) ->
 %% res_alt_ns     [AltNameServer] - list of alternate name servers (nxdomain)
 %% res_search     [Domain]        - list of domains for short names
 %% res_domain     Domain          - local domain for short names
-%% res_recurse    Bool            - recursive query 
+%% res_recurse    Bool            - recursive query
 %% res_usevc      Bool            - use tcp only
 %% res_id         Integer         - NS query identifier
 %% res_retry      Integer         - Retry count for UDP query
@@ -1074,12 +1074,12 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	    ets:insert(Db, {socks5_port, Port}),
 	    {reply, ok, State};
 
-	{add_socks_methods, Ls} -> 
+	{add_socks_methods, Ls} ->
 	    [{_,As}] = ets:lookup(Db, socks5_methods),
 	    As1 = lists_subtract(As, Ls),
 	    ets:insert(Db, {socks5_methods, As1 ++ Ls}),
 	    {reply, ok, State};
-	    
+
 	{del_socks_methods, Ls} ->
 	    [{_,As}] = ets:lookup(Db, socks5_methods),
 	    As1 = lists_subtract(As, Ls),
@@ -1088,12 +1088,12 @@ handle_call(Request, From, #state{db=Db}=State) ->
 		true  -> ets:insert(Db, {socks5_methods, As1})
 	    end,
 	    {reply, ok, State};
-	
+
 	del_socks_methods ->
 	    ets:insert(Db, {socks5_methods, [none]}),
 	    {reply, ok, State};
 
-	{add_socks_noproxy, {{A,B,C,D},{MA,MB,MC,MD}}} 
+	{add_socks_noproxy, {{A,B,C,D},{MA,MB,MC,MD}}}
 	when ?ip(A,B,C,D), ?ip(MA,MB,MC,MD) ->
 	    [{_,As}] = ets:lookup(Db, socks5_noproxy),
 	    ets:insert(Db, {socks5_noproxy, As++[{{A,B,C,D},{MA,MB,MC,MD}}]}),
@@ -1119,7 +1119,7 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	{set_cache_size, Size} when is_integer(Size), Size >= 0 ->
 	    ets:insert(Db, {cache_size, Size}),
 	    {reply, ok, State};
-	
+
 	{set_cache_refresh, Time} when is_integer(Time), Time > 0 ->
 	    Time1 = ((Time+999) div 1000)*1000, %% round up
 	    ets:insert(Db, {cache_refresh_interval, Time1}),
@@ -1429,7 +1429,7 @@ tolower([C|Cs]) when is_integer(C) ->
     end.
 
 dn_ip6_int(A,B,C,D,E,F,G,H) ->
-    dnib(H) ++ dnib(G) ++ dnib(F) ++ dnib(E) ++ 
+    dnib(H) ++ dnib(G) ++ dnib(F) ++ dnib(E) ++
 	dnib(D) ++ dnib(C) ++ dnib(B) ++ dnib(A) ++ "ip6.int".
 
 dn_in_addr_arpa(A,B,C,D) ->

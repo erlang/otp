@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1999-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(erl_distribution_wb_SUITE).
@@ -22,15 +22,15 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 
--export([init_per_testcase/2, end_per_testcase/2, whitebox/1, 
+-export([init_per_testcase/2, end_per_testcase/2, whitebox/1,
 	 switch_options/1, missing_compulsory_dflags/1]).
 
 %% 1)
 %%
-%% Connections are now always set up symetrically with respect to
+%% Connections are now always set up symmetrically with respect to
 %% publication. If connecting node doesn't send DFLAG_PUBLISHED
 %% the other node wont send DFLAG_PUBLISHED. If the connecting
 %% node send DFLAG_PUBLISHED but the other node doesn't send
@@ -65,12 +65,12 @@
 -define(shutdown(X), exit(X)).
 -define(int16(X), [((X) bsr 8) band 16#ff, (X) band 16#ff]).
 
--define(int32(X), 
+-define(int32(X),
 	[((X) bsr 24) band 16#ff, ((X) bsr 16) band 16#ff,
 	 ((X) bsr 8) band 16#ff, (X) band 16#ff]).
 
 -define(i16(X1,X0),
-        (?u16(X1,X0) - 
+        (?u16(X1,X0) -
 	     (if (X1) > 127 -> 16#10000; true -> 0 end))).
 
 -define(u16(X1,X0),
@@ -83,10 +83,10 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
+all() ->
     [whitebox, switch_options, missing_compulsory_dflags].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -115,7 +115,7 @@ end_per_testcase(_Func, _Config) ->
 switch_options(Config) when is_list(Config) ->
     ok = test_switch_active(),
     ok = test_switch_active_partial() ,
-    ok = test_switch_active_and_packet(),    
+    ok = test_switch_active_and_packet(),
     ok.
 
 
@@ -256,7 +256,7 @@ simultaneous_md5(Node, OurName, Cookie) when OurName < Node ->
 				    [{active,false},
 				     {packet,2}]),
     send_name(SocketA,OurName,5),
-    %% We are still not marked up on the other side, as our first message 
+    %% We are still not marked up on the other side, as our first message
     %% is not sent.
     SocketB = case gen_tcp:accept(LSocket) of
 		  {ok, Socket1} ->
@@ -415,7 +415,7 @@ receive_packets(Sock, M, N) ->
     Expect = ?int32(M),
     receive
 	{tcp, Sock, Expect} ->
-	    receive_packets(Sock, M+1, N); 
+	    receive_packets(Sock, M+1, N);
 	{tcp, Sock, Unexpected} ->
 	    exit({unexpected_data_received, Unexpected})
     after 500 ->
@@ -423,11 +423,11 @@ receive_packets(Sock, M, N) ->
     end.
 
 socket_pair(ClientPack, ServerPack) ->
-    {ok, Listen} = gen_tcp:listen(0, [{active, false}, 
+    {ok, Listen} = gen_tcp:listen(0, [{active, false},
 				      {packet, ServerPack}]),
     {ok, Host} = inet:gethostname(),
     {ok, Port} = inet:port(Listen),
-    {ok, Client} = gen_tcp:connect(Host, Port, [{active, false}, 
+    {ok, Client} = gen_tcp:connect(Host, Port, [{active, false},
 						{packet, ClientPack}]),
     {ok, Server} = gen_tcp:accept(Listen),
     gen_tcp:close(Listen),
@@ -450,7 +450,7 @@ close_pair({Client, Server}) ->
 gen_challenge() ->
     rand:uniform(1000000).
 
-%% Generate a message digest from Challenge number and Cookie	
+%% Generate a message digest from Challenge number and Cookie
 gen_digest(Challenge, Cookie) when is_integer(Challenge), is_atom(Cookie) ->
     C0 = erlang:md5_init(),
     C1 = erlang:md5_update(C0, atom_to_list(Cookie)),
@@ -466,7 +466,7 @@ send_status(Socket, Stat) ->
     case gen_tcp:send(Socket, [$s | atom_to_list(Stat)]) of
 	{error, _} ->
 	    ?shutdown(could_not_send_status);
-	_ -> 
+	_ ->
 	    true
     end.
 
@@ -501,7 +501,7 @@ recv_challenge(Socket) ->
 	    Challenge = ?u32(CA3,CA2,CA1,CA0),
 	    {Type,Node,Version,Challenge};
 	_ ->
-	    ?shutdown(no_node)	    
+	    ?shutdown(no_node)
     end.
 
 send_challenge_reply(Socket, Challenge, Digest) ->
@@ -562,10 +562,10 @@ get_name([$n,VersionA, VersionB, Flag1, Flag2, Flag3, Flag4 | OtherNode]) ->
     Type = case ?u32(Flag1, Flag2, Flag3, Flag4) band ?DFLAG_PUBLISHED of
 	       0 ->
 		   hidden;
-	       _ -> 
+	       _ ->
 		   normal
 	   end,
-    {Type, list_to_atom(OtherNode), 
+    {Type, list_to_atom(OtherNode),
      ?u16(VersionA,VersionB)};
 get_name(Data) ->
     ?shutdown(Data).
@@ -581,7 +581,7 @@ get_epmd_port() ->
             4369 % Default epmd port
     end.
 
-do_register_node(NodeName, TcpPort, VLow, VHigh) ->    
+do_register_node(NodeName, TcpPort, VLow, VHigh) ->
     case gen_tcp:connect({127,0,0,1}, get_epmd_port(), []) of
 	{ok, Socket} ->
 	    {N0,_} = split(NodeName),
@@ -667,7 +667,7 @@ build_rex_message(Cookie,OurName) ->
 		      [OurName, hello, world, []],
 		      self()} })].
 
-%% Receive a distribution message    
+%% Receive a distribution message
 recv_message(Socket) ->
     case gen_tcp:recv(Socket, 0) of
 	{ok,Data} ->
@@ -685,7 +685,7 @@ recv_message(Socket) ->
 	    {Header, Message};
 	Res ->
 	    exit({no_message,Res})
-    end. 
+    end.
 
 %% Build a nodename
 join(Name,Host) ->

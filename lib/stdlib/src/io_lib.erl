@@ -28,7 +28,7 @@
 %% Most of the code here is derived from the original prolog versions and
 %% from similar code written by Joe Armstrong and myself.
 %%
-%% This module has been split into seperate modules:
+%% This module has been split into separate modules:
 %% io_lib        - basic write and utilities
 %% io_lib_format - formatted output
 %% io_lib_fread  - formatted input
@@ -588,8 +588,8 @@ printable_latin1_list(_) -> false.			%Everything else is false
 %%  Return true if CharList is a list of printable characters, else
 %%  false. The notion of printable in Unicode terms is somewhat floating.
 %%  Everything that is not a control character and not invalid unicode
-%%  will be considered printable. 
-%%  What the user has noted as printable characters is what actually 
+%%  will be considered printable.
+%%  What the user has noted as printable characters is what actually
 %%  specifies when this function will return true. If the VM is started
 %%  with +pc latin1, only the latin1 range will be deemed as printable
 %%  if on the other hand +pc unicode is given, all characters in the Unicode
@@ -599,7 +599,7 @@ printable_latin1_list(_) -> false.			%Everything else is false
       Term :: term().
 
 printable_list(L) ->
-    %% There will be more alternatives returns from io:printable range 
+    %% There will be more alternatives returns from io:printable range
     %% in the future. To not have a catch-all clause is deliberate.
     case io:printable_range() of
 	latin1 ->
@@ -663,7 +663,7 @@ cafu(_Other,_N,Count,_ByteCount,SavePos) -> % Non Utf8 character at end
 collect_chars(Tag, Data, N) ->
     collect_chars(Tag, Data, latin1, N).
 
-%% Now we are aware of encoding...    
+%% Now we are aware of encoding...
 collect_chars(start, Data, unicode, N) when is_binary(Data) ->
     {Size,Npos} = count_and_find_utf8(Data,N),
     if Size > N ->
@@ -749,7 +749,7 @@ collect_chars_list(Stack,N, [H|T]) ->
 %%
 %%  XXX Can be removed when compatibility with pre-R12B-5 nodes
 %%  is no longer required.
-%% 
+%%
 collect_line([], Chars) ->
     collect_line1(Chars, []);
 collect_line({SoFar}, More) ->
@@ -773,10 +773,10 @@ collect_line1([], Stack) ->
 %%	{stop,Result,RestData}
 %%	NewState
 %%% BC (with pre-R13).
-collect_line(Tag, Data, Any) -> 
+collect_line(Tag, Data, Any) ->
     collect_line(Tag, Data, latin1, Any).
 
-%% Now we are aware of encoding...    
+%% Now we are aware of encoding...
 collect_line(start, Data, Encoding, _) when is_binary(Data) ->
     collect_line_bin(Data, Data, [], Encoding);
 collect_line(start, Data, _, _) when is_list(Data) ->
@@ -827,7 +827,7 @@ collect_line_list([H|T], Stack) ->
 collect_line_list([], Stack) ->
     Stack.
 
-%% Translator function to emulate a new (R9C and later) 
+%% Translator function to emulate a new (R9C and later)
 %% I/O client when you have an old one.
 %%
 %% Implements a middleman that is get_until server and get_chars client.
@@ -836,7 +836,7 @@ collect_line_list([], Stack) ->
 get_until(Any,Data,Arg) ->
     get_until(Any,Data,latin1,Arg).
 
-%% Now we are aware of encoding...    
+%% Now we are aware of encoding...
 get_until(start, Data, Encoding, XtraArg) ->
     get_until([], Data, Encoding, XtraArg);
 get_until(Cont, Data, Encoding, {Mod, Func, XtraArgs}) ->
@@ -849,11 +849,11 @@ get_until(Cont, Data, Encoding, {Mod, Func, XtraArgs}) ->
 	    end,
     case apply(Mod, Func, [Cont,Chars|XtraArgs]) of
 	{done,Result,Buf} ->
-	    {stop,if is_binary(Data), 
-		     is_list(Result), 
+	    {stop,if is_binary(Data),
+		     is_list(Result),
 		     Encoding =:= unicode ->
 			  unicode:characters_to_binary(Result,unicode,unicode);
-		     is_binary(Data), 
+		     is_binary(Data),
 		     is_list(Result) ->
 			  erlang:iolist_to_binary(Result);
 %%		     is_list(Data),
@@ -861,7 +861,7 @@ get_until(Cont, Data, Encoding, {Mod, Func, XtraArgs}) ->
 %% 		     Encoding =:= latin1 ->
 %% 			  % Should check for only latin1, but skip that for
 %% 			  % efficiency reasons.
-%% 			  [ exit({cannot_convert, unicode, latin1}) || 
+%% 			  [ exit({cannot_convert, unicode, latin1}) ||
 %% 			      X <- List, X > 255 ];
 		     true ->
 			  Result

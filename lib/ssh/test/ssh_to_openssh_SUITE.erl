@@ -38,9 +38,9 @@
 suite() ->
     [{timetrap,{seconds,20}}].
 
-all() -> 
+all() ->
     case os:find_executable("ssh") of
-	false -> 
+	false ->
 	    {skip, "openSSH not installed on host"};
 	_ ->
 	    [{group, erlang_client},
@@ -48,7 +48,7 @@ all() ->
 	     ]
     end.
 
-groups() -> 
+groups() ->
     [{erlang_client, [], [erlang_shell_client_openssh_server,
 			  erlang_client_openssh_server_exec_compressed,
 			  erlang_client_openssh_server_setenv,
@@ -134,10 +134,10 @@ chk_key(Pgm, Name, File, Config) ->
 			[{_,_, not_encrypted}] ->
 			    init_per_testcase('__default__',Config);
 			_ ->
-			    {skip, {error, "Has pass phrase can not be used by automated test case"}} 
+			    {skip, {error, "Has pass phrase can not be used by automated test case"}}
 		    end;
 		_ ->
-		    {skip, lists:concat(["no ~/",File])}  
+		    {skip, lists:concat(["no ~/",File])}
 	    end
     end.
 
@@ -157,7 +157,7 @@ erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     IO ! {input, self(), "exit\n"},
     receive_logout(),
     receive_normal_exit(Shell).
-   
+
 %--------------------------------------------------------------------
 erlang_client_openssh_server_exec() ->
     [{doc, "Test api function ssh_connection:exec"}].
@@ -243,7 +243,7 @@ erlang_client_openssh_server_kexs(Config) when is_list(Config) ->
 	    Success =
 		lists:foldl(
 		  fun(Kex, Acc) ->
-			  ConnectionRef = 
+			  ConnectionRef =
 			      ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 								       {user_interaction, false},
 								       {preferred_algorithms,
@@ -341,12 +341,12 @@ erlang_client_openssh_server_publickey_rsa(Config) when is_list(Config) ->
 		    ok = ssh_connection:close(ConnectionRef, Channel),
 		    ok = ssh:close(ConnectionRef);
 		_ ->
-		    {skip, {error, "Has pass phrase can not be used by automated test case"}} 
+		    {skip, {error, "Has pass phrase can not be used by automated test case"}}
 	    end;
 	_ ->
-	    {skip, "no ~/.ssh/id_rsa"}  
+	    {skip, "no ~/.ssh/id_rsa"}
     end.
-	
+
 
 %%--------------------------------------------------------------------
 erlang_client_openssh_server_publickey_dsa() ->
@@ -417,9 +417,9 @@ erlang_server_openssh_client_renegotiate(Config) ->
 	" " ++ Host ++ " < " ++ DataFile,
     OpenSsh = ssh_test_lib:open_port({spawn, Cmd}),
 
-    Expect = fun({data,R}) -> 
+    Expect = fun({data,R}) ->
 		     try
-			 NonAlphaChars = [C || C<-lists:seq(1,255), 
+			 NonAlphaChars = [C || C<-lists:seq(1,255),
 					       not lists:member(C,lists:seq($a,$z)),
 					       not lists:member(C,lists:seq($A,$Z))
 					 ],
@@ -437,12 +437,12 @@ erlang_server_openssh_client_renegotiate(Config) ->
 		(_) ->
 		     false
 	     end,
-    
-    try 
+
+    try
 	ssh_test_lib:rcv_expected(Expect, OpenSsh, ?TIMEOUT)
     of
 	_ ->
-	    %% Unfortunatly we can't check that there has been a renegotiation, just trust OpenSSH.
+	    %% Unfortunately we can't check that there has been a renegotiation, just trust OpenSSH.
 	    ssh:stop_daemon(Pid)
     catch
 	throw:{skip,R} -> {skip,R}
@@ -456,7 +456,7 @@ erlang_client_openssh_server_renegotiate(_Config) ->
     Ref = make_ref(),
     Parent = self(),
 
-    Shell = 
+    Shell =
 	spawn_link(
 	  fun() ->
 		  Host = ssh_test_lib:hostname(),
@@ -510,7 +510,7 @@ erlang_client_openssh_server_password(Config) when is_list(Config) ->
 					     {password, "morot"},
 					     {user_interaction, false},
 					     {user_dir, UserDir}]),
-    
+
     ct:log("Test of user foo that does not exist. "
 		       "Error msg: ~p~n", [Reason0]),
 
@@ -568,9 +568,9 @@ receive_data(Data) ->
 	Other ->
 	    ct:log("Unexpected: ~p",[Other]),
 	    receive_data(Data)
-    after 
+    after
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.	
+    end.
 
 receive_logout() ->
     receive
@@ -579,13 +579,13 @@ receive_logout() ->
 	    receive
 		<<"Connection closed">> ->
 		    ok
-	    after 
+	    after
 		30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
 	    end;
 	Info ->
 	    ct:log("Extra info when logging out: ~p~n", [Info]),
 	    receive_logout()
-    after 
+    after
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
@@ -597,15 +597,15 @@ receive_normal_exit(Shell) ->
 	    receive_normal_exit(Shell);
 	Other ->
 	    ct:fail({unexpected_msg, Other})
-    after 
+    after
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
 extra_logout() ->
-    receive 	
+    receive
 	<<"logout">> ->
 	    ok
-    after 500 -> 
+    after 500 ->
 	    ok
     end.
 

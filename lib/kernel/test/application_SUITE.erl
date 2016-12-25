@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1996-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,14 +14,14 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(application_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2
      ]).
 
@@ -31,7 +31,7 @@
 	 otp_3002/1, otp_3184/1, otp_4066/1, otp_4227/1, otp_5363/1,
 	 otp_5606/1,
 	 start_phases/1, get_key/1, get_env/1,
-	 permit_false_start_local/1, permit_false_start_dist/1, script_start/1, 
+	 permit_false_start_local/1, permit_false_start_dist/1, script_start/1,
 	 nodedown_start/1, init2973/0, loop2973/0, loop5606/1]).
 
 -export([config_change/1, persistent_env/1,
@@ -42,14 +42,14 @@
 -define(TESTCASE, testcase_name).
 -define(testcase, proplists:get_value(?TESTCASE, Config)).
 
--export([init_per_testcase/2, end_per_testcase/2, start_type/0, 
+-export([init_per_testcase/2, end_per_testcase/2, start_type/0,
 	 start_phase/0, conf_change/0]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,2}}].
 
-all() -> 
+all() ->
     [failover, failover_comp, permissions, load,
      load_use_cache, ensure_started, {group, reported_bugs}, start_phases,
      script_start, nodedown_start, permit_false_start_local,
@@ -58,7 +58,7 @@ all() ->
      shutdown_deadlock,
      persistent_env].
 
-groups() -> 
+groups() ->
     [{reported_bugs, [],
       [otp_1586, otp_2078, otp_2012, otp_2718, otp_2973,
        otp_3002, otp_3184, otp_4066, otp_4227, otp_5363,
@@ -133,10 +133,10 @@ failover(Conf) when is_list(Conf) ->
     wait_for_ready_net(),
 
     %% Start app1 and make sure cp1 starts it
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall(Cps, application, load, [app1()]),
     ?UNTIL(is_loaded(app1, Cps)),
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall(Cps, application, start, [app1, permanent]),
     ?UNTIL(is_started(app1, Cp1)),
     false = is_started(app1, Cp2),
@@ -160,18 +160,18 @@ failover(Conf) when is_list(Conf) ->
     %% Start app_sp and make sure cp2 starts it (cp1 has more apps started)
     {[ok,ok,ok],[]} =
         rpc:multicall([Cp1_2, Cp2, Cp3], application, load, [app_sp()]),
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall([Cp1_2, Cp2, Cp3], application, start,[app_sp,permanent]),
     ?UNTIL(is_started(app_sp, Cp2)),
     false = is_started(app_sp, Cp1),
     false = is_started(app_sp, Cp3),
     ok = get_start_type(#st{normal = 3}),
-	
+
     %% Stop cp2 and make sure cp1 starts app_sp
     stop_node_nice(Cp2),
     ?UNTIL(is_started(app_sp, Cp1_2)),
     ok = get_start_type(#st{failover = 3}),
-	
+
     %% Stop cp1 and make sure cp3 starts app_sp
     stop_node_nice(Cp1_2),
     ?UNTIL(is_started(app_sp, Cp3)),
@@ -212,7 +212,7 @@ failover(Conf) when is_list(Conf) ->
     stop_node_nice(Cp2_2),
     stop_node_nice(Cp3),
     ok.
-    
+
 %%-----------------------------------------------------------------
 %% Should be started in a CC view with:
 %% erl -sname XXX -rsh ctrsh where XX not in [cp1, cp2, cp3]
@@ -237,10 +237,10 @@ failover_comp(Conf) when is_list(Conf) ->
     wait_for_ready_net(),
 
     %% Start app1 and make sure cp1 starts it
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall(Cps, application, load, [app1()]),
     ?UNTIL(is_loaded(app1, Cps)),
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall(Cps, application, start, [app1, permanent]),
     ?UNTIL(is_started(app1, Cp1)),
     false = is_started(app1, Cp2),
@@ -266,18 +266,18 @@ failover_comp(Conf) when is_list(Conf) ->
     {[ok,ok,ok],[]} =
         rpc:multicall([Cp1_2, Cp2, Cp3], application, load, [app3()]),
     ?UNTIL(is_loaded(app3, [Cp1_2, Cp2, Cp3])),
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall([Cp1_2, Cp2, Cp3], application, start,[app3,permanent]),
     ?UNTIL(is_started(app3, Cp2)),
     false = is_started(app3, Cp1),
     false = is_started(app3, Cp3),
     ok = get_start_type(#st{normal = 3}),
-	
+
     %% Stop cp2 and make sure cp1 starts app3
     stop_node_nice(Cp2),
     ?UNTIL(is_started(app3, Cp1_2)),
     ok = get_start_type(#st{normal = 3}),
-	
+
     %% Stop cp1 and make sure cp3 starts app3
     stop_node_nice(Cp1_2),
     ?UNTIL(is_started(app3, Cp3)),
@@ -366,10 +366,10 @@ permissions(Conf) when is_list(Conf) ->
     true = is_started(app1, Cp2),
 
     %% Start app3, make sure noone starts it
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall(Cps, application, load, [app3()]),
     ?UNTIL(is_loaded(app3, Cps)),
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall(Cps, application, start, [app3, permanent]),
     ct:sleep(1000),
     false = is_started(app3, Cp1),
@@ -416,17 +416,17 @@ load(Conf) when is_list(Conf) ->
     Cps = [Cp1, Cp2, Cp3],
     wait_for_ready_net(),
 
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall(Cps, application, load, [app1(), d1(NodeNames)]),
     ?UNTIL(is_loaded(app1, Cps)),
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall(Cps, application, start, [app1, permanent]),
     ?UNTIL(is_started(app1, Cp1)),
     false = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
 
     %% Load app1 with different specs and make sure we get an error
-    {[{error,_},{error,_}],[]} = 
+    {[{error,_},{error,_}],[]} =
         rpc:multicall([Cp1, Cp2], application, load, [app1(), d1(NodeNames)]),
     {error, _} = rpc:call(Cp3, application, load, [app1(), d2(NodeNames)]),
 
@@ -434,7 +434,7 @@ load(Conf) when is_list(Conf) ->
     stop_node_nice(Cp2),
     stop_node_nice(Cp3),
     ok.
-    
+
 %%-----------------------------------------------------------------
 %% Same test as load/1, only with code path cache enabled.
 %%-----------------------------------------------------------------
@@ -451,16 +451,16 @@ load_use_cache(Conf) when is_list(Conf) ->
     Cps = [Cp1, Cp2, Cp3],
     wait_for_ready_net(),
 
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall(Cps, application, load, [app1(), d1(NodeNames)]),
     ?UNTIL(is_loaded(app1, Cps)),
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall(Cps, application, start, [app1, permanent]),
     ?UNTIL(is_started(app1, Cp1)),
     false = is_started(app1, Cp2),
 
     %% Load app1 with different specs and make sure we get an error
-    {[{error,_},{error,_}],[]} = 
+    {[{error,_},{error,_}],[]} =
         rpc:multicall([Cp1, Cp2], application, load, [app1(), d1(NodeNames)]),
     {error, _} = rpc:call(Cp3, application, load, [app1(), d2(NodeNames)]),
 
@@ -488,7 +488,7 @@ start_phases(Conf) when is_list(Conf) ->
     %%=============================
     %%Example 1 in the user's guide
     %%=============================
-    ok = rpc:call(Cp1, application, load, [myApp, 
+    ok = rpc:call(Cp1, application, load, [myApp,
                                                  d_any3(myApp, NodeNames)]),
     ?UNTIL(is_loaded(myApp, Cp1)),
     ok = rpc:call(Cp1, application, start, [myApp, permanent]),
@@ -499,18 +499,18 @@ start_phases(Conf) when is_list(Conf) ->
     %%=============================
     %%Example 2 in the user's guide
     %%=============================
-    ok = rpc:call(Cp1, application, load, [topApp, 
+    ok = rpc:call(Cp1, application, load, [topApp,
                                                  d_any3(topApp, NodeNames)]),
     ?UNTIL(is_loaded(topApp, Cp1)),
     ok = rpc:call(Cp1, application, start, [topApp, permanent]),
     ?UNTIL(is_started(topApp, Cp1)),
     ok = get_start_phase({sp, 0, 1, 0, 0, 1}),
     ok = rpc:call(Cp1, application, stop, [topApp]),
-	
+
     %%=============================
     %%Example 3 in the user's guide
     %%=============================
-    ok = rpc:call(Cp1, application, load, [topApp2, 
+    ok = rpc:call(Cp1, application, load, [topApp2,
                                                  d_any3(topApp2, NodeNames)]),
     ?UNTIL(is_loaded(topApp2, Cp1)),
     ok = rpc:call(Cp1, application, start, [topApp2, permanent]),
@@ -521,14 +521,14 @@ start_phases(Conf) when is_list(Conf) ->
     %%=============================
     %%Example 4 in the user's guide
     %%=============================
-    ok = rpc:call(Cp1, application, load, [topApp3, 
+    ok = rpc:call(Cp1, application, load, [topApp3,
                                                  d_any3(topApp3, NodeNames)]),
     ?UNTIL(is_loaded(topApp3, Cp1)),
     ok = rpc:call(Cp1, application, start, [topApp3, permanent]),
     ?UNTIL(is_started(topApp3, Cp1)),
     ok = get_start_phase({sp, 1, 3, 3, 2, 4}),
     ok = rpc:call(Cp1, application, stop, [topApp3]),
-	
+
     global:send(start_phase, kill),
 
     stop_node_nice(Cp1),
@@ -578,7 +578,7 @@ script_start(Conf) when is_list(Conf) ->
     ?UNTIL(is_started(app2, Cp2)),
     ?UNTIL(is_started(app_sp, Cp2)),
     ok = get_start_type(#st{normal = 6, failover = 3}),
-	
+
     %% Restart cp1, Cp1 takesover app1 and app2
     {ok, Cp1_2} = start_node_boot_config(Ncp1, NoSyncTime, Conf, latest),
     global:sync(),
@@ -589,20 +589,20 @@ script_start(Conf) when is_list(Conf) ->
     ?UNTIL(not is_started(app1, Cp2)),
     ?UNTIL(not is_started(app2, Cp2)),
     ok = get_start_type(#st{takeover = 6}),
-	
+
     %% Stop cp2 and make sure cp1 starts app_sp.
     false = is_started(app_sp, Cp1_2),
     stop_node_nice(Cp2),
     ?UNTIL(is_started(app_sp, Cp1_2)),
     ok = get_start_type(#st{failover = 3}),
-	
+
     %% Stop cp1 and make sure cp3 starts app1, app2 and app_sp
     stop_node_nice(Cp1_2),
     ?UNTIL(is_started(app_sp, Cp3)),
     ?UNTIL(is_started(app1, Cp3)),
     ?UNTIL(is_started(app2, Cp3)),
     ok = get_start_type(#st{normal = 6, failover = 3}),
-	
+
     %% Restart cp2 and make sure it takesover app1, app2 and app_sp
     {ok, Cp2_2} = start_node_boot_config(Ncp2, NoSyncTime, Conf, latest),
     global:sync(),
@@ -635,13 +635,13 @@ script_start(Conf) when is_list(Conf) ->
     PP = global:whereis_name({ch,3}),
     exit(PP, kill),
     ok = get_start_type(#st{local = 1}),
-	
+
     global:send(st_type, kill),
 
     stop_node_nice(Cp1_3),
     stop_node_nice(Cp2_2),
     stop_node_nice(Cp3),
-    
+
     ok = file:delete("latest.boot"),
     ok = file:delete("latest.rel"),
     ok = file:delete("latest.script"),
@@ -661,15 +661,15 @@ permit_false_start_local(Conf) when is_list(Conf) ->
     {ok, Cp3} = start_node(Ncp3, Config),
     wait_for_ready_net(),
 
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall([Cp1, Cp2, Cp3], application, load, [app1()]),
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall([Cp1, Cp2, Cp3], application, start, [app1, permanent]),
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall([Cp1, Cp2, Cp3], application, load, [app2()]),
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall([Cp1, Cp2, Cp3], application, start, [app2, permanent]),
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall([Cp1, Cp2, Cp3], application, load, [app3()]),
 
     ct:sleep(1000),
@@ -685,7 +685,7 @@ permit_false_start_local(Conf) when is_list(Conf) ->
     false = is_started(app3, Cp3),
 
     %% Permit a not loaded application
-    {error,{not_loaded,app_notloaded}} = 
+    {error,{not_loaded,app_notloaded}} =
 	rpc:call(Cp1, application, permit, [app_notloaded, true]),
     ct:sleep(1000),
     false = is_started(app_notloaded, Cp1),
@@ -700,7 +700,7 @@ permit_false_start_local(Conf) when is_list(Conf) ->
     false = is_started(app3, Cp3),
 
     %% Unpermit a not loaded application
-    {error,{not_loaded,app_notloaded}} = 
+    {error,{not_loaded,app_notloaded}} =
 	rpc:call(Cp1, application, permit, [app_notloaded, false]),
     ct:sleep(1000),
     false = is_started(app_notloaded, Cp1),
@@ -774,7 +774,7 @@ permit_false_start_local(Conf) when is_list(Conf) ->
     stop_node_nice(Cp2),
     stop_node_nice(Cp3),
     ok.
-    
+
 
 %% Start distributed applications with permission false.  Set
 %% permit true on different nodes.
@@ -790,12 +790,12 @@ permit_false_start_dist(Conf) when is_list(Conf) ->
     Cps = [Cp1, Cp2, Cp3],
     wait_for_ready_net(),
 
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall(Cps, application, load, [app1()]),
     ?UNTIL(is_loaded(app1, Cps)),
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall(Cps, application, start, [app1, permanent]),
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall(Cps, application, load, [app2()]),
 
     ct:sleep(1000),
@@ -811,7 +811,7 @@ permit_false_start_dist(Conf) when is_list(Conf) ->
     false = is_started(app2, Cp3),
 
     %% Permit a not loaded application
-    {error,{not_loaded,app3}} = 
+    {error,{not_loaded,app3}} =
 	rpc:call(Cp1, application, permit, [app3, true]),
     ct:sleep(1000),
     false = is_started(app3, Cp1),
@@ -820,7 +820,7 @@ permit_false_start_dist(Conf) when is_list(Conf) ->
 
     %% Unpermit a not started application
     ok = rpc:call(Cp1, application, permit, [app2, false]),
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall([Cp1, Cp2, Cp3], application, start, [app2, permanent]),
     ct:sleep(1000),
     false = is_started(app2, Cp1),
@@ -828,12 +828,12 @@ permit_false_start_dist(Conf) when is_list(Conf) ->
     false = is_started(app2, Cp3),
 
     %% Unpermit a not loaded application
-    {error,{not_loaded,app3}} = 
+    {error,{not_loaded,app3}} =
 	rpc:call(Cp1, application, permit, [app3, false]),
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall(Cps, application, load, [app3()]),
     ?UNTIL(is_loaded(app3, Cps)),
-    {[ok,ok,ok],[]} = 
+    {[ok,ok,ok],[]} =
         rpc:multicall(Cps, application, start, [app3, permanent]),
     ct:sleep(1000),
     false = is_started(app3, Cp1),
@@ -922,7 +922,7 @@ nodedown_start(Conf) when is_list(Conf) ->
     wait_for_ready_net(),
 
     %% Start app1 and make sure cp1 starts it
-    {[ok,ok],[]} = 
+    {[ok,ok],[]} =
         rpc:multicall([Cp1, Cp2], application, load, [app1()]),
     _ = rpc:cast(Cp2, application, start, [app1, permanent]),
     ct:sleep(1000),
@@ -930,7 +930,7 @@ nodedown_start(Conf) when is_list(Conf) ->
     %% Crash CP1 and make sure app1 is started on CP2
     stop_node_nice(Cp1),
     ?UNTIL(is_started(app1, Cp2)),
-    
+
     stop_node_nice(Cp2),
     ok.
 
@@ -1073,7 +1073,7 @@ otp_2078(Conf) when is_list(Conf) ->
     wait_for_ready_net(),
 
     %% Start app1 and make sure cp1 starts it
-    {[ok,ok],[]} = 
+    {[ok,ok],[]} =
         rpc:multicall(Cps, application, load, [app1()]),
     ?UNTIL(is_loaded(app1, Cps)),
     ok = rpc:call(Cp1, application, start, [app1, permanent]),
@@ -1085,7 +1085,7 @@ otp_2078(Conf) when is_list(Conf) ->
     ok = rpc:call(Cp2, application, start, [app1, permanent]),
     true = is_started(app1, Cp1),
     false = is_started(app1, Cp2),
-    
+
     stop_node_nice(Cp1),
     stop_node_nice(Cp2),
     ok.
@@ -1110,27 +1110,27 @@ otp_2012(Conf) when is_list(Conf) ->
 
     %% Read the current configuration parameters, and change them
     EnvBefore = application_controller:prep_config_change(),
-    application_controller:test_change_apps([app1],[[{app1,[{new1, hi}, 
+    application_controller:test_change_apps([app1],[[{app1,[{new1, hi},
                                                             {new2, moi}]}]]),
     ok = application_controller:config_change(EnvBefore),
     ok = get_conf_change([{[], [{new1, hi}, {new2, moi}], []}]),
-    
+
     %% Start app2
     ok = application:load(app2()),
     ok = application:start(app2, permanent),
 
     %% Read the current configuration parameters, and change them again
     EnvBefore2 = application_controller:prep_config_change(),
-    application_controller:test_change_apps([app1],[[{app1,[{new1, hello}, 
+    application_controller:test_change_apps([app1],[[{app1,[{new1, hello},
                                                             {new3, mors}]}]]),
-    application_controller:test_change_apps([app2],[[{app2,[{new1, si}, 
+    application_controller:test_change_apps([app2],[[{app2,[{new1, si},
                                                             {new2, no}]}]]),
     _EnvBefore22 = application_controller:prep_config_change(),
     ok = application_controller:config_change(EnvBefore2),
-    
+
     ok = get_conf_change([{[],[{new1,si},{new2,no}],[]},
                                 {[{new1,hello}],[{new3,mors}],[new2]}]),
-    
+
     ok = application:stop(app1),
     ok = application:stop(app2),
     ok.
@@ -1165,7 +1165,7 @@ otp_2718(Conf) when is_list(Conf) ->
 %% Ticket: OTP-2973
 %% Slogan: application:start does not test if an appl is already starting...
 %%-----------------------------------------------------------------
-%% Test of two processes simultanously starting the same application.
+%% Test of two processes simultaneously starting the same application.
 otp_2973(Conf) when is_list(Conf) ->
     %% Write a .app file
     {ok, Fd} = file:open("app0.app", [write]),
@@ -1177,17 +1177,17 @@ otp_2973(Conf) when is_list(Conf) ->
 
     Pid1 ! {start, self(), app0},
     Pid2 ! {start, self(), app0},
-    
-    {Res1, Res2} = receive 
+
+    {Res1, Res2} = receive
 			     {Pid1, res, Res1x} ->
-				 receive 
+				 receive
 				     {Pid2, res, Res2x} ->
 					 {Res1x, Res2x}
 				   after 2000 ->
 					   ct:fail(timeout_pid2)
 				   end;
 			     {Pid2, res, Res2x} ->
-				 receive 
+				 receive
 				     {Pid1, res, Res1x} ->
 					 {Res1x, Res2x}
 				 after 2000 ->
@@ -1216,17 +1216,17 @@ otp_2973(Conf) when is_list(Conf) ->
 
     Pid1 ! {start, self(), app_start_error},
     Pid2 ! {start, self(), app_start_error},
-    
-    {Res1a, Res2a} = receive 
+
+    {Res1a, Res2a} = receive
 			       {Pid1, res, Res1y} ->
-				   receive 
+				   receive
 				       {Pid2, res, Res2y} ->
 					   {Res1y, Res2y}
 				   after 2000 ->
 					   ct:fail(timeout_pid2)
 				   end;
 			       {Pid2, res, Res2y} ->
-				   receive 
+				   receive
 				       {Pid1, res, Res1y} ->
 					   {Res1y, Res2y}
 				   after 2000 ->
@@ -1235,7 +1235,7 @@ otp_2973(Conf) when is_list(Conf) ->
 			   end,
 
     case {Res1a, Res2a} of
-	{{error,{'start error',{app_start_error,start,[normal,[]]}}}, 
+	{{error,{'start error',{app_start_error,start,[normal,[]]}}},
 	 {error,{'start error',{app_start_error,start,[normal,[]]}}}} ->
 	    ok;
 	_ ->
@@ -1265,7 +1265,7 @@ otp_3184(Conf) when is_list(Conf) ->
     wait_for_ready_net(),
 
     %% Start app1 and make sure it is not started
-    {[ok,ok],[]} = 
+    {[ok,ok],[]} =
         rpc:multicall([Cp1, Cp2], application, load, [app1()]),
     ct:sleep(3000),
     false = is_started(app1, Cp1),
@@ -1277,7 +1277,7 @@ otp_3184(Conf) when is_list(Conf) ->
     ok = rpc:call(Cp2, application, start, [app1, permanent]),
     ?UNTIL(is_started(app1, Cp1)),
     false = is_started(app1, Cp2),
-    
+
     %% Check that the application is marked as running in application_controller
     X = rpc:call(Cp1, application_controller, info, []),
     {value, {running, Xrunning}} = lists:keysearch(running, 1, X),
@@ -1401,7 +1401,7 @@ print_dac_state(Node) when is_atom(Node) ->
                        [Node, State]);
 print_dac_state(Nodes) when is_list(Nodes) ->
     lists:foreach(fun (N) -> print_dac_state(N) end, Nodes).
-				
+
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-4227
@@ -1420,12 +1420,12 @@ otp_4227(Conf) when is_list(Conf) ->
     wait_for_ready_net(),
 
     %% Try to start app10 which should fail since app9 is not started
-    {[ok,ok],[]} = 
+    {[ok,ok],[]} =
         rpc:multicall(Cps, application, load, [app9()]),
     ?UNTIL(is_loaded(app9, Cps)),
-    {[ok,ok],[]} = 
+    {[ok,ok],[]} =
         rpc:multicall(Cps, application, load, [app10_dep9()]),
-    {error, {not_started, app9}} = 
+    {error, {not_started, app9}} =
 	rpc:call(Cp1, application, start, [app10]),
 
     %% Start app9 and brutally kill it, then try to start app10
@@ -1437,7 +1437,7 @@ otp_4227(Conf) when is_list(Conf) ->
     ct:sleep(1000),
 
     %% This gave {error, no_report} before the patch
-    {error, {not_running, app9}} = 
+    {error, {not_running, app9}} =
 	rpc:call(Cp1, application, start, [app10]),
 
     stop_node_nice(Cp1),
@@ -1447,7 +1447,7 @@ otp_4227(Conf) when is_list(Conf) ->
 config_4227([Ncp1, Ncp2]) ->
     fun(Fd, SyncNodesTimeout) ->
             M = from($@, atom_to_list(node())),
-            io:format(Fd, 
+            io:format(Fd,
                       "[{kernel, "
                       "  [{sync_nodes_optional, ['~s@~s','~s@~s']},"
                       "   {sync_nodes_timeout, ~w},"
@@ -1455,9 +1455,9 @@ config_4227([Ncp1, Ncp2]) ->
                       "   {distributed, "
                       "    [{app9,  ['~s@~s','~s@~s']}, "
                       "     {app10, ['~s@~s','~s@~s']}]}]}].~n",
-                      [Ncp1, M, Ncp2, M,  
-                       SyncNodesTimeout,  
-                       Ncp1, M, Ncp2, M,  
+                      [Ncp1, M, Ncp2, M,
+                       SyncNodesTimeout,
+                       Ncp1, M, Ncp2, M,
                        Ncp1, M, Ncp2, M])
     end.
 
@@ -1498,7 +1498,7 @@ otp_5363(Conf) when is_list(Conf) ->
 %% Ticket: OTP-5606
 %% Slogan: Problems with starting a distributed application
 %%-----------------------------------------------------------------
-%% Test of several processes simultanously starting the same
+%% Test of several processes simultaneously starting the same
 %% distributed application.
 otp_5606(Conf) when is_list(Conf) ->
 
@@ -1509,7 +1509,7 @@ otp_5606(Conf) when is_list(Conf) ->
     (config4(NodeNames))(Fd, 10000),
     file:close(Fd),
     Config = filename:join(Dir, "sys"),
-    
+
     %% Test [cp1, cp2]
     {ok, Cp1} = start_node(Ncp1, Config),
     {ok, Cp2} = start_node(Ncp2, Config),
@@ -1542,7 +1542,7 @@ otp_5606(Conf) when is_list(Conf) ->
 	    ct:fail(lists:flatten(Txt))
     end,
 
-    {error, {already_started, app1}} = 
+    {error, {already_started, app1}} =
 	rpc:call(Cp1, application, start, [app1]),
 
     stop_node_nice(Cp1),
@@ -1550,7 +1550,7 @@ otp_5606(Conf) when is_list(Conf) ->
     ok.
 
 otp_5606_loop(ResL) when length(ResL)<4 ->
-    receive 
+    receive
 	{_Pid, Res} ->
 	    otp_5606_loop([Res|ResL])
     after 5000 ->
@@ -1565,7 +1565,7 @@ loop5606(Pid) ->
 	    Res = application:start(app1),
 	    Pid ! {self(), Res}
     end.
-	    
+
 %% Tests get_env/* functions.
 get_env(Conf) when is_list(Conf) ->
     {ok, _}   = application:get_env(kernel, error_logger),
@@ -1590,13 +1590,13 @@ get_key(Conf) when is_list(Conf) ->
     ?UNTIL(is_loaded(appinc, Cp1)),
     ok = rpc:call(Cp1, application, start, [appinc, permanent]),
     ?UNTIL(is_started(appinc, Cp1)),
-    
+
     {ok, "Test of new app file, including appnew"} =
 	rpc:call(Cp1, application, get_key, [appinc, description]),
     {ok, "CXC 138 ai"} = rpc:call(Cp1, application, get_key, [appinc ,id]),
     {ok, "2.0"} = rpc:call(Cp1, application, get_key, [appinc, vsn]),
     {ok, [kernel]} = rpc:call(Cp1, application, get_key, [appinc, applications]),
-    {ok, [appinc1, appinc2]} = 
+    {ok, [appinc1, appinc2]} =
 	rpc:call(Cp1, application, get_key, [appinc, included_applications]),
     {ok, []} = rpc:call(Cp1, application, get_key, [appinc, registered]),
     {ok, [{init, [kalle]}, {takeover, []}, {go, [sune]}]} =
@@ -1605,74 +1605,74 @@ get_key(Conf) when is_list(Conf) ->
     [{included_applications,[appinc1,appinc2]},
 	   {own2,val2},{own_env1,value1}] = lists:sort(Env),
     {ok, []} = rpc:call(Cp1, application, get_key, [appinc, modules]),
-    {ok, {application_starter, [ch_sup, {appinc, 41, 43}] }} = 
+    {ok, {application_starter, [ch_sup, {appinc, 41, 43}] }} =
 	rpc:call(Cp1, application, get_key, [appinc, mod]),
     {ok, infinity} = rpc:call(Cp1, application, get_key, [appinc, maxP]),
     {ok, infinity} = rpc:call(Cp1, application, get_key, [appinc, maxT]),
     undefined = rpc:call(Cp1, application, get_key, [appinc, very_unknown]),
 
-    {ok, [{description, "Test of new app file, including appnew"}, 
-		{id, "CXC 138 ai"}, 
-		{vsn, "2.0"}, 
-		{modules, []}, 
-		{maxP, infinity}, 
-		{maxT, infinity}, 
-		{registered, []}, 
-		{included_applications, [appinc1, appinc2]}, 
-		{applications, [kernel]}, 
-		{env, Env}, 
-		{mod, {application_starter, [ch_sup, {appinc, 41, 43}] }}, 
-		{start_phases, [{init, [kalle]}, {takeover, []}, {go, [sune]}]}]} = 
+    {ok, [{description, "Test of new app file, including appnew"},
+		{id, "CXC 138 ai"},
+		{vsn, "2.0"},
+		{modules, []},
+		{maxP, infinity},
+		{maxT, infinity},
+		{registered, []},
+		{included_applications, [appinc1, appinc2]},
+		{applications, [kernel]},
+		{env, Env},
+		{mod, {application_starter, [ch_sup, {appinc, 41, 43}] }},
+		{start_phases, [{init, [kalle]}, {takeover, []}, {go, [sune]}]}]} =
 	rpc:call(Cp1, application, get_all_key, [appinc]),
     [{included_applications,[appinc1,appinc2]},
 	   {own2,val2},{own_env1,value1}] = lists:sort(Env),
 
     {ok, "Test of new app file, including appnew"} =
 	gen_server:call({global, {ch,41}}, {get_pid_key, description}),
-    {ok, "CXC 138 ai"} = 
+    {ok, "CXC 138 ai"} =
 	gen_server:call({global, {ch,41}}, {get_pid_key, id}),
-    {ok, "2.0"} = 
+    {ok, "2.0"} =
 	gen_server:call({global, {ch,41}}, {get_pid_key, vsn}),
-    {ok, [kernel]} = 
+    {ok, [kernel]} =
 	gen_server:call({global, {ch,41}}, {get_pid_key, applications}),
-    {ok, [appinc1, appinc2]} = 
+    {ok, [appinc1, appinc2]} =
 	gen_server:call({global, {ch,41}}, {get_pid_key, included_applications}),
-    {ok, []} = 
+    {ok, []} =
 	gen_server:call({global, {ch,41}}, {get_pid_key, registered}),
     {ok, [{init, [kalle]}, {takeover, []}, {go, [sune]}]} =
 	gen_server:call({global, {ch,41}}, {get_pid_key, start_phases}),
     {ok, Env} = gen_server:call({global, {ch,41}}, {get_pid_key, env}),
     [{included_applications,[appinc1,appinc2]},
 	   {own2,val2},{own_env1,value1}] = lists:sort(Env),
-    {ok, []} = 
+    {ok, []} =
 	gen_server:call({global, {ch,41}}, {get_pid_key, modules}),
-    {ok, {application_starter, [ch_sup, {appinc, 41, 43}] }} = 
+    {ok, {application_starter, [ch_sup, {appinc, 41, 43}] }} =
 	gen_server:call({global, {ch,41}}, {get_pid_key, mod}),
-    {ok, infinity} = 
+    {ok, infinity} =
 	gen_server:call({global, {ch,41}}, {get_pid_key, maxP}),
-    {ok, infinity} = 
+    {ok, infinity} =
 	gen_server:call({global, {ch,41}}, {get_pid_key, maxT}),
-    undefined = 
+    undefined =
 	gen_server:call({global, {ch,41}}, {get_pid_key, very_unknown}),
 
 
 
-    {ok, [{description, "Test of new app file, including appnew"}, 
-		{id, "CXC 138 ai"}, 
-		{vsn, "2.0"}, 
-		{modules, []}, 
-		{maxP, infinity}, 
-		{maxT, infinity}, 
-		{registered, []}, 
-		{included_applications, [appinc1, appinc2]}, 
-		{applications, [kernel]}, 
-		{env, Env}, 
-		{mod, {application_starter, [ch_sup, {appinc, 41, 43}] }}, 
-		{start_phases, [{init, [kalle]}, {takeover, []}, {go, [sune]}]}]} = 
+    {ok, [{description, "Test of new app file, including appnew"},
+		{id, "CXC 138 ai"},
+		{vsn, "2.0"},
+		{modules, []},
+		{maxP, infinity},
+		{maxT, infinity},
+		{registered, []},
+		{included_applications, [appinc1, appinc2]},
+		{applications, [kernel]},
+		{env, Env},
+		{mod, {application_starter, [ch_sup, {appinc, 41, 43}] }},
+		{start_phases, [{init, [kalle]}, {takeover, []}, {go, [sune]}]}]} =
 	gen_server:call({global, {ch,41}}, get_pid_all_key),
     [{included_applications,[appinc1,appinc2]},
 	   {own2,val2},{own_env1,value1}] = lists:sort(Env),
-    
+
     stop_node_nice(Cp1),
     ok.
 
@@ -1683,7 +1683,7 @@ get_key(Conf) when is_list(Conf) ->
 %% Test change of distributed parameter.
 distr_changed_tc1(Conf) when is_list(Conf) ->
 
-    {OldKernel, OldEnv, {Cp1, Cp2, Cp3}, {_Ncp1, _Ncp2, _Ncp3}, _Config2} = 
+    {OldKernel, OldEnv, {Cp1, Cp2, Cp3}, {_Ncp1, _Ncp2, _Ncp3}, _Config2} =
 	distr_changed_prep(Conf),
 
     NewDist = {distributed, [{app1, [Cp3]},
@@ -1692,21 +1692,21 @@ distr_changed_tc1(Conf) when is_list(Conf) ->
 				   {app6, [Cp1, {Cp3, Cp2}]},
 				   {app7, 1000, [Cp3]},
 				   {app8, [Cp1, {Cp2, Cp3}]}]},
-    
+
     NewKernel = [{kernel, lists:keyreplace(distributed, 1, OldKernel, NewDist)}],
-    ok = rpc:call(Cp1, application_controller, test_change_apps, 
+    ok = rpc:call(Cp1, application_controller, test_change_apps,
 			[[kernel], [NewKernel]]),
-    ok = rpc:call(Cp2, application_controller, test_change_apps, 
+    ok = rpc:call(Cp2, application_controller, test_change_apps,
 			[[kernel], [NewKernel]]),
-    ok = rpc:call(Cp3, application_controller, test_change_apps, 
+    ok = rpc:call(Cp3, application_controller, test_change_apps,
 			[[kernel], [NewKernel]]),
-    
-    {[ok,ok,ok],[]} = 
-	rpc:multicall([Cp1, Cp2, Cp3], 
+
+    {[ok,ok,ok],[]} =
+	rpc:multicall([Cp1, Cp2, Cp3],
 		      application_controller, config_change, [OldEnv]),
-    
+
     ct:sleep(7000),
-    
+
     DcInfo1 = rpc:call(Cp1, dist_ac, info, []),
     DcInfo2 = rpc:call(Cp2, dist_ac, info, []),
     DcInfo3 = rpc:call(Cp3, dist_ac, info, []),
@@ -1714,7 +1714,7 @@ distr_changed_tc1(Conf) when is_list(Conf) ->
     DcWa1 = which_applications(Cp1),
     DcWa2 = which_applications(Cp2),
     DcWa3 = which_applications(Cp3),
-    
+
     Wa1 = lists:foldl(fun({A1, _N1, _V1}, AccIn) -> [A1 | AccIn] end,
 			    [], DcWa1),
     Wa2 = lists:foldl(fun({A2, _N2, _V2}, AccIn) -> [A2 | AccIn] end,
@@ -1728,7 +1728,7 @@ distr_changed_tc1(Conf) when is_list(Conf) ->
 		  X1 = io_lib:format("distribution error: Cp1 ~p ",[EWa1]),
 		  ct:fail(lists:flatten(X1))
 	  end,
-		  
+
     case lists:sort(Wa2) of
 	      [app6, app8, kernel, stdlib] ->
 		  ok;
@@ -1736,7 +1736,7 @@ distr_changed_tc1(Conf) when is_list(Conf) ->
 		  X2 = io_lib:format("distribution error: Cp2 ~p ",[EWa2]),
 		  ct:fail(lists:flatten(X2))
 	  end,
-		  
+
     case lists:sort(Wa3) of
 	      [app7, kernel, stdlib] ->
 		  ok;
@@ -1744,7 +1744,7 @@ distr_changed_tc1(Conf) when is_list(Conf) ->
 		  X3 = io_lib:format("distribution error: Cp3 ~p ",[EWa3]),
 		  ct:fail(lists:flatten(X3))
 	  end,
-		  
+
     DcInfo1n = rpc:call(Cp1, dist_ac, info, []),
     DcInfo2n = rpc:call(Cp2, dist_ac, info, []),
     DcInfo3n = rpc:call(Cp3, dist_ac, info, []),
@@ -1755,8 +1755,8 @@ distr_changed_tc1(Conf) when is_list(Conf) ->
     true = DcInfo3 =:= DcInfo3n,
 
     stop_node_nice(Cp1),
-    stop_node_nice(Cp2),   
-    stop_node_nice(Cp3),   
+    stop_node_nice(Cp2),
+    stop_node_nice(Cp3),
 
     ok = file:delete("dc.boot"),
     ok = file:delete("dc.rel"),
@@ -1767,7 +1767,7 @@ distr_changed_tc1(Conf) when is_list(Conf) ->
 %% Test change of distributed parameter, move appls by crashing a node.
 distr_changed_tc2(Conf) when is_list(Conf) ->
 
-    {OldKernel, OldEnv, {Cp1, Cp2, Cp3}, {Ncp1, _Ncp2, _Ncp3}, Config2} = 
+    {OldKernel, OldEnv, {Cp1, Cp2, Cp3}, {Ncp1, _Ncp2, _Ncp3}, Config2} =
 	distr_changed_prep(Conf),
 
     NewDist = {distributed, [{app1, [Cp3]},
@@ -1776,21 +1776,21 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
 				   {app6, [Cp1, {Cp3, Cp2}]},
 				   {app7, 1000, [Cp3]},
 				   {app8, [Cp1, {Cp2, Cp3}]}]},
-    
+
     NewKernel = [{kernel, lists:keyreplace(distributed, 1, OldKernel, NewDist)}],
-    ok = rpc:call(Cp1, application_controller, test_change_apps, 
+    ok = rpc:call(Cp1, application_controller, test_change_apps,
 			[[kernel], [NewKernel]]),
-    ok = rpc:call(Cp2, application_controller, test_change_apps, 
+    ok = rpc:call(Cp2, application_controller, test_change_apps,
 			[[kernel], [NewKernel]]),
-    ok = rpc:call(Cp3, application_controller, test_change_apps, 
+    ok = rpc:call(Cp3, application_controller, test_change_apps,
 			[[kernel], [NewKernel]]),
-    
-    {[ok,ok,ok],[]} = 
-	rpc:multicall([Cp1, Cp2, Cp3], 
+
+    {[ok,ok,ok],[]} =
+	rpc:multicall([Cp1, Cp2, Cp3],
 		      application_controller, config_change, [OldEnv]),
-    
+
     ct:sleep(4000),
-    stop_node_nice(Cp1),   
+    stop_node_nice(Cp1),
     ct:sleep(10000),
 
     _DcInfo2 = rpc:call(Cp2, dist_ac, info, []),
@@ -1798,12 +1798,12 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
 
     DcWa2 = which_applications(Cp2),
     DcWa3 = which_applications(Cp3),
-    
+
     Wa2 = lists:foldl(fun({A2, _N2, _V2}, AccIn) -> [A2 | AccIn] end,
 			    [], DcWa2),
     Wa3 = lists:foldl(fun({A3, _N3, _V3}, AccIn) -> [A3 | AccIn] end,
 			    [], DcWa3),
-		  
+
 
     case lists:sort(Wa2) of
 	      [app2, app6, app8, kernel, stdlib] ->
@@ -1812,7 +1812,7 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
 		  X2 = io_lib:format("distribution error: Cp2 ~p ",[EWa2]),
 		  ct:fail(lists:flatten(X2))
 	  end,
-		  
+
     case lists:sort(Wa3) of
 	      [app1, app3, app7, kernel, stdlib] ->
 		  ok;
@@ -1832,14 +1832,14 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
     DcWa1rs = which_applications(Cp1),
     DcWa2rs = which_applications(Cp2),
     DcWa3rs = which_applications(Cp3),
-    
+
     Wa1rs = lists:foldl(fun({A1, _N1, _V1}, AccIn) -> [A1 | AccIn] end,
 			      [], DcWa1rs),
     Wa2rs = lists:foldl(fun({A2, _N2, _V2}, AccIn) -> [A2 | AccIn] end,
 			      [], DcWa2rs),
     Wa3rs = lists:foldl(fun({A3, _N3, _V3}, AccIn) -> [A3 | AccIn] end,
 			      [], DcWa3rs),
-		  
+
     case lists:sort(Wa1rs) of
 	      [app6, app8, kernel, stdlib] ->
 		  ok;
@@ -1847,7 +1847,7 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
 		  X1rs = io_lib:format("distribution error: Cp1 ~p ",[EWa1rs]),
 		  ct:fail(lists:flatten(X1rs))
 	  end,
-		  
+
     case lists:sort(Wa2rs) of
 	      [app2, kernel, stdlib] ->
 		  ok;
@@ -1855,7 +1855,7 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
 		  X2rs = io_lib:format("distribution error: Cp2 ~p ",[EWa2rs]),
 		  ct:fail(lists:flatten(X2rs))
 	  end,
-		  
+
     case lists:sort(Wa3rs) of
 	      [app1, app3, app7, kernel, stdlib] ->
 		  ok;
@@ -1935,7 +1935,7 @@ get_appls({script, _, Script}) ->
     get_appls(Script, []).
 
 %% kernel is taken care of separately
-get_appls([{kernelProcess, application_controller, 
+get_appls([{kernelProcess, application_controller,
 	    {application_controller, start, [App]}} | T], Res) ->
     get_appls(T, [App | Res]);
 %% other applications but kernel
@@ -1996,7 +1996,7 @@ shutdown_func(Config) when is_list(Config) ->
     {ok,Cp1} = start_node(?MODULE_STRING++"_shutdown_func"),
     wait_for_ready_net(),
     Tag = make_ref(),
-    ok = rpc:call(Cp1, application, set_env, 
+    ok = rpc:call(Cp1, application, set_env,
                         [kernel, shutdown_func, {?MODULE, do_shutdown}]),
     ok = rpc:call(Cp1, application, set_env,
                         [kernel, shutdown_func_test, {self(), Tag}]),
@@ -2020,8 +2020,8 @@ shutdown_func(Config) when is_list(Config) ->
 do_shutdown(Reason) ->
     {ok, {Pid, Tag}} = application:get_env(kernel, shutdown_func_test),
     Pid ! {self(), Tag, shutting_down, Reason},
-    receive 
-	{Pid, Tag, ok} -> ok 
+    receive
+	{Pid, Tag, ok} -> ok
     end.
 
 
@@ -2187,7 +2187,7 @@ appinc() ->
       {env, [{own_env1, value1}, {own2, val2}]},
       {included_applications, [appinc1, appinc2]},
       {start_phases, [{init, [kalle]}, {takeover, []}, {go, [sune]}]},
-      {mod, {application_starter, [ch_sup, {appinc, 41, 43}] }}]}. 
+      {mod, {application_starter, [ch_sup, {appinc, 41, 43}] }}]}.
 
 
 app_sp() ->
@@ -2198,7 +2198,7 @@ app_sp() ->
       {applications, [kernel]},
       {modules, []},
       {registered, []},
-      {mod, {application_starter, [ch_sup, {app_sp, 31, 33}] }}]}. 
+      {mod, {application_starter, [ch_sup, {app_sp, 31, 33}] }}]}.
 
 app_trans_normal() ->
     {application, trans_normal,
@@ -2288,9 +2288,9 @@ config([Ncp1, Ncp2, Ncp3]) ->
                       "{distributed, [{app1, ['~s@~s', '~s@~s', '~s@~s']},"
                       "{app2, 1000, ['~s@~s', '~s@~s', '~s@~s']},"
                       "{app3, 1000, [{'~s@~s', '~s@~s'}, '~s@~s']}]}]}].~n",
-                      [Ncp1, M, Ncp2, M, Ncp3, M,  
-                       SyncNodesTimeout,  Ncp1, M, Ncp2, M, Ncp3, M,  
-                       Ncp1, M, Ncp2, M, Ncp3, M,  
+                      [Ncp1, M, Ncp2, M, Ncp3, M,
+                       SyncNodesTimeout,  Ncp1, M, Ncp2, M, Ncp3, M,
+                       Ncp1, M, Ncp2, M, Ncp3, M,
                        Ncp1, M, Ncp2, M, Ncp3, M])
     end.
 
@@ -2304,10 +2304,10 @@ config2([Ncp1, Ncp2, Ncp3]) ->
                       "{distributed, [{app1, ['~s@~s', '~s@~s', '~s@~s']},"
                       "{app2, 10000, ['~s@~s', '~s@~s', '~s@~s']},"
                       "{app3, 5000, [{'~s@~s', '~s@~s'}, '~s@~s']}]}]}].~n",
-                      [Ncp1, M, Ncp2, M, Ncp3, M,  
-                       SyncNodesTimeout,  
-                       Ncp1, M, Ncp2, M, Ncp3, M,  
-                       Ncp1, M, Ncp2, M, Ncp3, M,  
+                      [Ncp1, M, Ncp2, M, Ncp3, M,
+                       SyncNodesTimeout,
+                       Ncp1, M, Ncp2, M, Ncp3, M,
+                       Ncp1, M, Ncp2, M, Ncp3, M,
                        Ncp1, M, Ncp2, M, Ncp3, M])
     end.
 
@@ -2319,7 +2319,7 @@ config3([Ncp1, Ncp2, Ncp3]) ->
                       "{sync_nodes_timeout, ~w},"
                       "{start_dist_ac, true},"
                       "{permissions, [{app3, false}]}]}].~n",
-                      [Ncp1, M, Ncp2, M, Ncp3, M,  
+                      [Ncp1, M, Ncp2, M, Ncp3, M,
                        SyncNodesTimeout])
     end.
 
@@ -2331,7 +2331,7 @@ config4([Ncp1, Ncp2]) ->
                       "{sync_nodes_timeout, ~w},"
                       "{start_dist_ac, true},"
                       "{distributed, [{app1, ['~s@~s', '~s@~s']}]}]}].~n",
-                      [Ncp1, M, Ncp2, M,  SyncNodesTimeout,  
+                      [Ncp1, M, Ncp2, M,  SyncNodesTimeout,
                        Ncp1, M, Ncp2, M])
     end.
 
@@ -2343,7 +2343,7 @@ config3184([Ncp1, Ncp2]) ->
                       "{sync_nodes_timeout, ~w},"
                       "{permissions, [{app1, false}]},"
                       "{distributed, [{app1, ['~s@~s', '~s@~s']}]}]}].~n",
-                      [Ncp1, M, Ncp2, M,  SyncNodesTimeout,  
+                      [Ncp1, M, Ncp2, M,  SyncNodesTimeout,
                        Ncp1, M, Ncp2, M])
     end.
 
@@ -2377,10 +2377,10 @@ config_inc([Ncp1, Ncp2, Ncp3]) ->
                       "{distributed, [{appinc, ['~s@~s', '~s@~s', '~s@~s']},"
                       "{app2, 10000, ['~s@~s', '~s@~s', '~s@~s']},"
                       "{app3, 5000, [{'~s@~s', '~s@~s'}, '~s@~s']}]}]}].~n",
-                      [Ncp1, M, Ncp2, M, Ncp3, M,  
-                       SyncNodesTimeout,  
-                       Ncp1, M, Ncp2, M, Ncp3, M,  
-                       Ncp1, M, Ncp2, M, Ncp3, M,  
+                      [Ncp1, M, Ncp2, M, Ncp3, M,
+                       SyncNodesTimeout,
+                       Ncp1, M, Ncp2, M, Ncp3, M,
+                       Ncp1, M, Ncp2, M, Ncp3, M,
                        Ncp1, M, Ncp2, M, Ncp3, M])
     end.
 
@@ -2399,16 +2399,16 @@ config_sf([Ncp1, Ncp2, Ncp3]) ->
                       "{incl2B, ['~s@~s', '~s@~s', '~s@~s']},"
                       "{with, ['~s@~s', '~s@~s', '~s@~s']},"
                       "{wrapper, ['~s@~s', '~s@~s', '~s@~s']}]}]}].~n",
-                      [Ncp1, M, Ncp2, M, Ncp3, M,  
-                       SyncNodesTimeout,   
-                       Ncp1, M, Ncp2, M, Ncp3, M,  
-                       Ncp1, M, Ncp2, M, Ncp3, M,  
-                       Ncp1, M, Ncp2, M, Ncp3, M,  
-                       Ncp1, M, Ncp2, M, Ncp3, M,  
-                       Ncp1, M, Ncp2, M, Ncp3, M,  
-                       Ncp1, M, Ncp2, M, Ncp3, M,  
-                       Ncp1, M, Ncp2, M, Ncp3, M,  
-                       Ncp1, M, Ncp2, M, Ncp3, M,  
+                      [Ncp1, M, Ncp2, M, Ncp3, M,
+                       SyncNodesTimeout,
+                       Ncp1, M, Ncp2, M, Ncp3, M,
+                       Ncp1, M, Ncp2, M, Ncp3, M,
+                       Ncp1, M, Ncp2, M, Ncp3, M,
+                       Ncp1, M, Ncp2, M, Ncp3, M,
+                       Ncp1, M, Ncp2, M, Ncp3, M,
+                       Ncp1, M, Ncp2, M, Ncp3, M,
+                       Ncp1, M, Ncp2, M, Ncp3, M,
+                       Ncp1, M, Ncp2, M, Ncp3, M,
                        Ncp1, M, Ncp2, M, Ncp3, M])
     end.
 
@@ -2441,13 +2441,13 @@ config_dc([Ncp1, Ncp2, Ncp3]) ->
                       "               {app7, ['~s@~s']}, "
                       "               {app8, ['~s@~s', {'~s@~s', '~s@~s'}]}"
                       "              ]}]}].~n",
-                      [Ncp1, M, Ncp2, M, Ncp3, M,  
-                       SyncNodesTimeout,  
-                       Ncp1, M, Ncp2, M,  
-                       Ncp1, M,  
-                       Ncp1, M, Ncp2, M,  
-                       Ncp3, M, Ncp2, M,  
-                       Ncp3, M,  
+                      [Ncp1, M, Ncp2, M, Ncp3, M,
+                       SyncNodesTimeout,
+                       Ncp1, M, Ncp2, M,
+                       Ncp1, M,
+                       Ncp1, M, Ncp2, M,
+                       Ncp3, M, Ncp2, M,
+                       Ncp3, M,
                        Ncp2, M, Ncp1, M, Ncp3, M])
     end.
 
@@ -2464,12 +2464,12 @@ config_dc2([Ncp1, Ncp2, Ncp3]) ->
                       "               {app7, 1000, ['~s@~s']}, "
                       "               {app8, ['~s@~s', {'~s@~s', '~s@~s'}]}"
                       "              ]}]}].~n",
-                      [Ncp1, M, Ncp2, M, Ncp3, M,  
-                       Ncp3, M, 
-                       Ncp2, M, 
-                       Ncp3, M, Ncp1, M, Ncp2, M, 
-                       Ncp1, M, Ncp3, M, Ncp2, M, 
-                       Ncp3, M,  
+                      [Ncp1, M, Ncp2, M, Ncp3, M,
+                       Ncp3, M,
+                       Ncp2, M,
+                       Ncp3, M, Ncp1, M, Ncp2, M,
+                       Ncp1, M, Ncp3, M, Ncp2, M,
+                       Ncp3, M,
                        Ncp1, M, Ncp2, M, Ncp3, M])
     end.
 
@@ -2579,9 +2579,9 @@ start_node(Name, ConfigFile) ->
 
 start_node(Name, ConfigFile, ExtraArgs) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args, 
-                                          " -pa " ++ Pa ++ 
-                                          " -config " ++ ConfigFile ++ 
+    test_server:start_node(Name, slave, [{args,
+                                          " -pa " ++ Pa ++
+                                          " -config " ++ ConfigFile ++
                                           ExtraArgs}]).
 
 start_node_with_cache(Name, SysConfigFun, Conf) ->
@@ -2598,10 +2598,10 @@ start_node_boot_3002(Name, Boot) ->
 	   [" -pa " ++ Pa ++ " -env ERL_CRASH_DUMP erl_crash_dump." ++
 		atom_to_list(Name) ++ " -boot " ++ Boot ++
 		" -sasl dummy \"missing "]),
-    test_server:start_node(Name, slave, 
+    test_server:start_node(Name, slave,
                            [{args, " -pa " ++ Pa ++
                              " -env ERL_CRASH_DUMP erl_crash_dump." ++
-                             atom_to_list(Name) ++ " -boot " ++ Boot ++ 
+                             atom_to_list(Name) ++ " -boot " ++ Boot ++
                              " -sasl dummy \"missing "}]).
 
 start_node_boot_config(Name, SysConfigFun, Conf, Boot) ->
@@ -2654,12 +2654,12 @@ get_start_type(Expected, Times, Ack0) ->
     global:send(st_type, {st, read, self()}),
     receive
         {st, N, L, T, F} ->
-            Ack = #st{normal = N0 + N, local = L0 + L, 
+            Ack = #st{normal = N0 + N, local = L0 + L,
                       takeover = T0 + T, failover = F0 + F},
             if
                 Ack =:= Expected ->
                     ok;
-                true -> 
+                true ->
                     timer:sleep(200),
                     get_start_type(Expected, Times-1, Ack)
             end
@@ -2862,7 +2862,7 @@ distr_changed_prep(Conf) when is_list(Conf) ->
 	  end,
 
     ok = systools:make_script("dc", Options),
-    
+
     NodeNames = [Ncp1, Ncp2, Ncp3] = node_names([cp1, cp2, cp3], Conf),
     NoSyncTime = config_fun_fast(config_dc(NodeNames)),
     WithSyncTime = config_fun(config_dc(NodeNames)),
@@ -2872,7 +2872,7 @@ distr_changed_prep(Conf) when is_list(Conf) ->
     (config_dc2(NodeNames))(Fd_dc2),
     file:close(Fd_dc2),
     Config2 = filename:join(Dir, "sys2"),
-    
+
     %% Test [cp1, cp2, cp3]
     {ok, Cp1} = start_node_boot_config(Ncp1, NoSyncTime, Conf, dc),
     {ok, Cp2} = start_node_boot_config(Ncp2, NoSyncTime, Conf, dc),
@@ -2899,12 +2899,12 @@ is_real_system(KernelVsn, StdlibVsn) ->
 	_ ->
 	    false
     end.
-    
-init2973() -> 
+
+init2973() ->
     loop2973().
 
 
-loop2973() -> 
+loop2973() ->
     receive
 	{start, From, App} ->
 	    Res = application:start(App),
@@ -2919,7 +2919,7 @@ wait_for_ready_net() ->
     Nodes = lists:sort([node() | nodes()]),
     ?UNTIL(begin
                lists:all(fun(N) -> Nodes =:= get_known(N) end, Nodes) and
-               lists:all(fun(N) -> 
+               lists:all(fun(N) ->
                                  LNs = rpc:call(N, erlang, nodes, []),
                                  Nodes =:= lists:sort([N | LNs])
                          end, Nodes)
@@ -2929,7 +2929,7 @@ get_known(Node) ->
     case catch gen_server:call({global_name_server,Node}, get_known) of
         {'EXIT', _} ->
             [list, without, nodenames];
-        Known -> 
+        Known ->
             lists:sort([Node | Known])
     end.
 

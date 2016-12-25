@@ -21,7 +21,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 
 -export([tick/1, tick_change/1, illegal_nodenames/1, hidden_node/1,
@@ -67,13 +67,13 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,4}}].
 
-all() -> 
+all() ->
     [tick, tick_change, illegal_nodenames, hidden_node,
      setopts,
      table_waste, net_setuptime, inet_dist_options_options,
      {group, monitor_nodes}].
 
-groups() -> 
+groups() ->
     [{monitor_nodes, [],
       [monitor_nodes_nodedown_reason,
        monitor_nodes_complex_nodedown_reason,
@@ -168,7 +168,7 @@ tick(Config) when is_list(Config) ->
 table_waste(Config) when is_list(Config) ->
     {ok, HName} = inet:gethostname(),
     F = fun(0,_F) -> [];
-	   (N,F) -> 
+	   (N,F) ->
 		Name = list_to_atom("erl_distribution_"++integer_to_list(N)++
 					"@"++HName),
 		pang = net_adm:ping(Name),
@@ -233,7 +233,7 @@ time_ping(Node) ->
     erlang:convert_time_unit(T1 - T0, native, milli_seconds).
 
 %% Keep the connection with the client node up.
-%% This is neccessary as the client node runs with much shorter
+%% This is necessary as the client node runs with much shorter
 %% tick time !!
 keep_conn(Node) ->
     sleep(1),
@@ -1059,7 +1059,7 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
     RemotePid = spawn(Node,
 		      fun () ->
 			      receive after 1500 -> ok end,
-			      %% infinit loop of msgs
+			      %% infinite loop of msgs
 			      %% we want an endless stream of messages and the kill
 			      %% the node mercilessly.
 			      %% We then want to ensure that the nodedown message arrives
@@ -1325,7 +1325,7 @@ print_my_messages() ->
     ok.
 
 
-sleep(T) -> receive after T * 1000 -> ok end.	
+sleep(T) -> receive after T * 1000 -> ok end.
 
 start_node(Name, Param, this) ->
     NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)),

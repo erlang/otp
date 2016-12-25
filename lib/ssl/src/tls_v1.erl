@@ -31,7 +31,7 @@
 
 -export([master_secret/4, finished/5, certificate_verify/3, mac_hash/7,
 	 setup_keys/8, suites/1, prf/5,
-	 ecc_curves/1, ecc_curves/2, oid_to_enum/1, enum_to_oid/1, 
+	 ecc_curves/1, ecc_curves/2, oid_to_enum/1, enum_to_oid/1,
 	 default_signature_algs/1, signature_algs/2]).
 
 -type named_curve() :: sect571r1 | sect571k1 | secp521r1 | brainpoolP512r1 |
@@ -272,7 +272,7 @@ signature_algs({3, 3}, HashSigns) ->
     Hashes = proplists:get_value(hashs, CryptoSupports),
     PubKeys = proplists:get_value(public_keys, CryptoSupports),
     Supported = lists:foldl(fun({Hash, dsa = Sign} = Alg, Acc) ->
-				    case proplists:get_bool(dss, PubKeys) 
+				    case proplists:get_bool(dss, PubKeys)
 					andalso proplists:get_bool(Hash, Hashes)
 					andalso is_pair(Hash, Sign, Hashes)
 				    of
@@ -281,9 +281,9 @@ signature_algs({3, 3}, HashSigns) ->
 					false ->
 					    Acc
 				    end;
-			       ({Hash, Sign} = Alg, Acc) -> 
-				    case proplists:get_bool(Sign, PubKeys) 
-					andalso proplists:get_bool(Hash, Hashes) 
+			       ({Hash, Sign} = Alg, Acc) ->
+				    case proplists:get_bool(Sign, PubKeys)
+					andalso proplists:get_bool(Hash, Hashes)
 					andalso is_pair(Hash, Sign, Hashes)
 				    of
 					true ->
@@ -407,7 +407,7 @@ is_pair(Hash, rsa, Hashs) ->
     AtLeastMd5 = Hashs -- [md2,md4],
     lists:member(Hash, AtLeastMd5).
 
-%% list ECC curves in prefered order
+%% list ECC curves in preferred order
 -spec ecc_curves(1..3 | all) -> [named_curve()].
 ecc_curves(all) ->
     [sect571r1,sect571k1,secp521r1,brainpoolP512r1,

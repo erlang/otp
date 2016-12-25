@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
-%% This is a developement feature when developing a new file module,
+%% This is a development feature when developing a new file module,
 %% ugly but practical.
 -ifndef(FILE_MODULE).
 -define(FILE_MODULE, file).
@@ -41,7 +41,7 @@
 
 -module(?FILE_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2,
 	 read_write_file/1, names/1]).
@@ -116,7 +116,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
+all() ->
     [unicode, altname, read_write_file, {group, dirs},
      {group, files}, delete, rename, names, {group, errors},
      {group, compression}, {group, links}, copy,
@@ -127,7 +127,7 @@ all() ->
      unicode_mode
     ].
 
-groups() -> 
+groups() ->
     [{dirs, [], [make_del_dir, cur_dir_0, cur_dir_1,
 		 list_dir, list_dir_error, untranslatable_names,
 		 untranslatable_names_error]},
@@ -640,7 +640,7 @@ cur_dir_0(Config) when is_list(Config) ->
 
 	    %% Delete the directory and return to the old current directory
 	    %% and check that the created file isn't there (too!)
-	    expect({error, einval}, {error, eacces}, 
+	    expect({error, einval}, {error, eacces},
 	    	   ?FILE_MODULE:del_dir(NewDir)),
 	    ?FILE_MODULE:delete(UncommonName),
 	    {ok,[]} = ?FILE_MODULE:list_dir("."),
@@ -1348,7 +1348,7 @@ file_info_basic_directory(Config) when is_list(Config) ->
     %% Test that the RootDir directory has the expected attributes.
     test_directory(RootDir, read_write),
 
-    %% Note that on Windows file systems, 
+    %% Note that on Windows file systems,
     %% "/" or "c:/" are *NOT* directories.
     %% Therefore, test that ?FILE_MODULE:file_info/1 behaves as if they were
     %% directories.
@@ -2094,7 +2094,7 @@ e_delete(Config) when is_list(Config) ->
     Afile = filename:join(Base, "a_file"),
     ok = ?FILE_MODULE:write_file(Afile, "hello\n"),
     {error, E} =
-	expect({error, enotdir}, {error, enoent}, 
+	expect({error, enotdir}, {error, enoent},
 	       ?FILE_MODULE:delete(filename:join(Afile, "another_file"))),
     io:format("Result: ~p~n", [E]),
 
@@ -2154,7 +2154,7 @@ e_rename(Config) when is_list(Config) ->
     {error, einval} = ?FILE_MODULE:rename("/", "arne"),
 
     %% Move Base into Base/new_name.
-    {error, einval} = 
+    {error, einval} =
 	?FILE_MODULE:rename(Base, filename:join(Base, "new_name")),
 
     %% Overwrite a directory with a file.
@@ -2176,7 +2176,7 @@ e_rename(Config) when is_list(Config) ->
 
     %% Move a file to another filesystem.
     %% XXX - This test case is bogus. We cannot be guaranteed that
-    %%       the source and destination are on 
+    %%       the source and destination are on
     %%       different filesystems.
     %%
     %% XXX - Gross hack!
@@ -2215,7 +2215,7 @@ e_rename(Config) when is_list(Config) ->
 
 e_make_dir(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir, Config),
-    Base = filename:join(RootDir, 
+    Base = filename:join(RootDir,
 			 atom_to_list(?MODULE)++"_e_make_dir"),
     ok = ?FILE_MODULE:make_dir(Base),
 
@@ -2252,7 +2252,7 @@ e_del_dir(Config) when is_list(Config) ->
     ok = ?FILE_MODULE:make_dir(Base),
 
     %% Delete a non-existent directory.
-    {error, enoent} = 
+    {error, enoent} =
 	?FILE_MODULE:del_dir(filename:join(Base, "non_existing")),
 
     %% Use a path-name with a non-directory component.
@@ -2269,7 +2269,7 @@ e_del_dir(Config) when is_list(Config) ->
     io:format("Result: ~p", [E2]),
 
     %% Remove the current directory.
-    {error, E3} = expect({error, einval}, 
+    {error, E3} = expect({error, einval},
 			 {error, eperm}, % Linux and DUX
 			 {error, eacces},
 			 {error, ebusy},
@@ -2639,7 +2639,7 @@ altname(Config) when is_list(Config) ->
 	case ?FILE_MODULE:altname(NewDir) of
 	    {error, enotsup} ->
 		{skipped, "Altname not supported on this platform"};
-	    {ok, "LONGAL~1"} -> 
+	    {ok, "LONGAL~1"} ->
 		{ok, "A_FILE~1"} = ?FILE_MODULE:altname(Name),
 		{ok, "C:/"} = ?FILE_MODULE:altname("C:/"),
 		{ok, "C:\\"} = ?FILE_MODULE:altname("C:\\"),
@@ -2668,9 +2668,9 @@ make_link(Config) when is_list(Config) ->
 	    {error, enotsup} ->
 		{skipped, "Links not supported on this platform"};
 	    ok ->
-		%% Note: We take the opportunity to test 
+		%% Note: We take the opportunity to test
 		%% ?FILE_MODULE:read_link_info/1,
-		%% which should in behave exactly as 
+		%% which should in behave exactly as
 		%% ?FILE_MODULE:read_file_info/1
 		%% since they are not used on symbolic links.
 
@@ -2909,7 +2909,7 @@ run_test(Test, Args) ->
 
 delayed_write(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir, Config),
-    File = filename:join(RootDir, 
+    File = filename:join(RootDir,
 			 atom_to_list(?MODULE)++"_delayed_write.txt"),
     Data1 = "asdfghjkl",
     Data2 = "qwertyuio",
@@ -2922,7 +2922,7 @@ delayed_write(Config) when is_list(Config) ->
     Data1Data1Data1Data1 = Data1Data1++Data1Data1,
     %%
     %% Test caching and normal close of non-raw file
-    {ok, Fd1} = 
+    {ok, Fd1} =
 	?FILE_MODULE:open(File, [write, {delayed_write, Size+1, 2000}]),
     ok = ?FILE_MODULE:write(Fd1, Data1),
     timer:sleep(1000), % Just in case the file system is slow
@@ -2940,7 +2940,7 @@ delayed_write(Config) when is_list(Config) ->
     {ok, Data1Data1Data1Data1} = ?FILE_MODULE:pread(Fd2, bof, 4*Size+1),
     ok = ?FILE_MODULE:close(Fd2),
     %%
-    %% Test implicit close through exit by file owning process, 
+    %% Test implicit close through exit by file owning process,
     %% raw file, default parameters.
     Parent = self(),
     Fun = fun() ->
@@ -2964,8 +2964,8 @@ delayed_write(Config) when is_list(Config) ->
 	  end,
     Child1 = spawn(Fun),
     Mref1 = erlang:monitor(process, Child1),
-    receive 
-        {Child1, wrote} -> 
+    receive
+        {Child1, wrote} ->
             ok;
         {'DOWN', Mref1, _, _, _} = Down1a ->
             ct:fail(Down1a)
@@ -2974,8 +2974,8 @@ delayed_write(Config) when is_list(Config) ->
     {ok, Fd3} = ?FILE_MODULE:open(File, [read]),
     eof = ?FILE_MODULE:read(Fd3, 1),
     Child1 ! {Parent, continue, normal},
-    receive 
-        {'DOWN', Mref1, process, Child1, normal} -> 
+    receive
+        {'DOWN', Mref1, process, Child1, normal} ->
             ok;
         {'DOWN', Mref1, _, _, _} = Down1b ->
             ct:fail(Down1b)
@@ -2987,8 +2987,8 @@ delayed_write(Config) when is_list(Config) ->
     %% The same again, but this time with reason 'kill'.
     Child2 = spawn(Fun),
     Mref2 = erlang:monitor(process, Child2),
-    receive 
-        {Child2, wrote} -> 
+    receive
+        {Child2, wrote} ->
             ok;
         {'DOWN', Mref2, _, _, _} = Down2a ->
             ct:fail(Down2a)
@@ -2997,8 +2997,8 @@ delayed_write(Config) when is_list(Config) ->
     {ok, Fd4} = ?FILE_MODULE:open(File, [read]),
     eof = ?FILE_MODULE:read(Fd4, 1),
     Child2 ! {Parent, continue, kill},
-    receive 
-        {'DOWN', Mref2, process, Child2, kill} -> 
+    receive
+        {'DOWN', Mref2, process, Child2, kill} ->
             ok;
         {'DOWN', Mref2, _, _, _} = Down2b ->
             ct:fail(Down2b)
@@ -3008,7 +3008,7 @@ delayed_write(Config) when is_list(Config) ->
     ok  = ?FILE_MODULE:close(Fd4),
     %%
     %% Test if file position works with delayed_write
-    {ok, Fd5} = ?FILE_MODULE:open(File, [raw, read, write, 
+    {ok, Fd5} = ?FILE_MODULE:open(File, [raw, read, write,
 					 delayed_write]),
     ok = ?FILE_MODULE:truncate(Fd5),
     ok = ?FILE_MODULE:write(Fd5, [Data1|Data2]),
@@ -3113,7 +3113,7 @@ segment_read(Config) when is_list(Config) ->
     SegCnt = SegSize div 4,
     Cnt = 4 * SegCnt,
     ok = create_file(Name, Cnt),
-    %% 
+    %%
     %% read_file/1
     %%
     {ok, Bin} = ?FILE_MODULE:read_file(Name),
@@ -3409,7 +3409,7 @@ segment_write(Config) when is_list(Config) ->
     %%
     {ok, FD7} = ?FILE_MODULE:open(Name, [write, raw, binary]),
     Req = lists:flatten(lists:duplicate(17,
-					[{2*SegSize, 
+					[{2*SegSize,
 					  subbin(Bin, 2*SegSize, 2*SegSize)},
 					 {0*SegSize,
 					  subbin(Bin, 0*SegSize, 2*SegSize)}])),
@@ -3438,7 +3438,7 @@ ipread(Config) when is_list(Config) ->
 
 ipread_int(Dir, ModeList) ->
     Name =
-	filename:join(Dir, 
+	filename:join(Dir,
 		      lists:flatten([?MODULE_STRING, "_ipread",
 				     lists:map(fun (X) ->
 						       ["_", atom_to_list(X)]
@@ -3450,12 +3450,12 @@ ipread_int(Dir, ModeList) ->
 	    true ->
 		{fun (Bin) when is_binary(Bin) -> Bin;
 		     (List) when is_list(List) -> list_to_binary(List)
-		 end, 
+		 end,
 		 fun erlang:byte_size/1};
 	    false ->
 		{fun (Bin) when is_binary(Bin) -> binary_to_list(Bin);
 		     (List) when is_list(List) -> List
-		 end, 
+		 end,
 		 fun erlang:length/1}
 	end,
     Pos = 4711,
@@ -3482,29 +3482,29 @@ ipread_int(Dir, ModeList) ->
 	?FILE_MODULE:ipread_s32bu_p32bu(FD, SizeInit, Size-1),
     %% Data block protudes over eof
     ok =
-	?FILE_MODULE:pwrite(FD, SizeInit, 
-			    <<Size1:32/big-unsigned, 
+	?FILE_MODULE:pwrite(FD, SizeInit,
+			    <<Size1:32/big-unsigned,
 			      Pos:32/big-unsigned>>),
     {ok, {Size1, Pos, Data}} =
 	?FILE_MODULE:ipread_s32bu_p32bu(FD, SizeInit, Size1),
     %% Data block outside file
     ok =
-	?FILE_MODULE:pwrite(FD, SizeInit, 
-			    <<Size:32/big-unsigned, 
+	?FILE_MODULE:pwrite(FD, SizeInit,
+			    <<Size:32/big-unsigned,
 			      SizePos:32/big-unsigned>>),
     {ok, {Size, SizePos, eof}} =
 	?FILE_MODULE:ipread_s32bu_p32bu(FD, SizeInit, Size),
     %% Zero size
     ok =
-	?FILE_MODULE:pwrite(FD, SizeInit, 
-			    <<0:32/big-unsigned, 
+	?FILE_MODULE:pwrite(FD, SizeInit,
+			    <<0:32/big-unsigned,
 			      Pos:32/big-unsigned>>),
     {ok, {0, Pos, eof}} =
 	?FILE_MODULE:ipread_s32bu_p32bu(FD, SizeInit, Size),
     %% Invalid header - protudes over eof
     eof =
-	?FILE_MODULE:ipread_s32bu_p32bu(FD, 
-					Pos+Size-(Sizeof(Head)-1), 
+	?FILE_MODULE:ipread_s32bu_p32bu(FD,
+					Pos+Size-(Sizeof(Head)-1),
 					infinity),
     %% Header not even in file
     eof =
@@ -3708,7 +3708,7 @@ response_analysis(Module, Function, Arguments) ->
 	spawn_link(
 	  fun () ->
 		  receive {Parent, start, Ts} -> ok end,
-		  Stat = 
+		  Stat =
 		      iterate(response_stat(response_stat(init, Ts),
 					    micro_ts()),
 			      done,
@@ -3774,7 +3774,7 @@ create_file_slow(FD, M, N) ->
 
 
 
-%% Creates a file 'Name' containing 'N' unsigned 32 bit integers 
+%% Creates a file 'Name' containing 'N' unsigned 32 bit integers
 %% from 0 to N-1.
 
 create_file(Name, N) when is_integer(N), N >= 0 ->
@@ -3795,9 +3795,9 @@ create_file(FD, M, N) ->
 create_file(FD, M, M, R) ->
     ok = ?FILE_MODULE:write(FD, R);
 create_file(FD, M, N0, R) when M + 8 =< N0 ->
-    N1  = N0-1,  N2  = N0-2,  N3  = N0-3,  N4  = N0-4, 
-    N5  = N0-5,  N6  = N0-6,  N7  = N0-7,  N8  = N0-8, 
-    create_file(FD, M, N8, 
+    N1  = N0-1,  N2  = N0-2,  N3  = N0-3,  N4  = N0-4,
+    N5  = N0-5,  N6  = N0-6,  N7  = N0-7,  N8  = N0-8,
+    create_file(FD, M, N8,
 		[<<N8:32/unsigned,  N7:32/unsigned,
 		   N6:32/unsigned,  N5:32/unsigned,
 		   N4:32/unsigned,  N3:32/unsigned,
@@ -3814,10 +3814,10 @@ create_bin(M, N) when is_integer(M), is_integer(N), N >= 0, M >= 0 ->
 create_bin(N, N, R) ->
     list_to_binary(R);
 create_bin(M, N0, R) when M+8 =< N0 ->
-    N1  = N0-1,  N2  = N0-2,  N3  = N0-3,  N4  = N0-4, 
-    N5  = N0-5,  N6  = N0-6,  N7  = N0-7,  N8  = N0-8, 
+    N1  = N0-1,  N2  = N0-2,  N3  = N0-3,  N4  = N0-4,
+    N5  = N0-5,  N6  = N0-6,  N7  = N0-7,  N8  = N0-8,
     create_bin(M, N8,
-	       [<<N8:32/unsigned,  N7:32/unsigned, 
+	       [<<N8:32/unsigned,  N7:32/unsigned,
 		  N6:32/unsigned,  N5:32/unsigned,
 		  N4:32/unsigned,  N3:32/unsigned,
 		  N2:32/unsigned,  N1:32/unsigned>> | R]);
@@ -3833,10 +3833,10 @@ verify_bin(<<>>, _, 0) ->
 verify_bin(<<>>, _, _) ->
     false;
 verify_bin(Bin, N, Cnt) ->
-    N0 = N + 0, N1 = N + 1, N2 = N + 2, N3 = N + 3, 
-    N4 = N + 4, N5 = N + 5, N6 = N + 6, N7 = N + 7, 
+    N0 = N + 0, N1 = N + 1, N2 = N + 2, N3 = N + 3,
+    N4 = N + 4, N5 = N + 5, N6 = N + 6, N7 = N + 7,
     case Bin of
-	<<N0:32/unsigned, N1:32/unsigned, N2:32/unsigned, N3:32/unsigned, 
+	<<N0:32/unsigned, N1:32/unsigned, N2:32/unsigned, N3:32/unsigned,
 	  N4:32/unsigned, N5:32/unsigned, N6:32/unsigned, N7:32/unsigned,
 	  B/binary>> ->
 	    verify_bin(B, N+8, Cnt-8);
@@ -4029,14 +4029,14 @@ rl_lines() ->
 read_line_create0(Filename) ->
     {ok,F} = file:open(Filename,[write]),
     L = rl_lines(),
-    [ file:write(F,[R,<<"\r\n">>]) || R <- L ], 
+    [ file:write(F,[R,<<"\r\n">>]) || R <- L ],
     file:write(F,<<"Inget radslut\r">>),
     file:close(F).
 read_line_create1(Filename) ->
     {ok,F} = file:open(Filename,[write]),
     L = rl_lines(),
     [ begin
-	  [ file:write(F,[R,<<"\r\n">>]) || R <- L ], 
+	  [ file:write(F,[R,<<"\r\n">>]) || R <- L ],
 	  file:write(F,<<"Inget radslut\r">>)
       end || _ <- lists:seq(1,100)],
     file:close(F).
@@ -4044,7 +4044,7 @@ read_line_create2(Filename) ->
     {ok,F} = file:open(Filename,[write]),
     L = rl_lines(),
     [ begin
-	  [ file:write(F,[R]) || R <- L ], 
+	  [ file:write(F,[R]) || R <- L ],
 	  file:write(F,<<"Inget radslut\r">>)
       end || _ <- lists:seq(1,200)],
     file:write(F,<<"\r\n">>),
@@ -4056,7 +4056,7 @@ read_line_create3(Filename) ->
     [ begin
 	  file:write(F,<<"\r\n">>),
 	  file:write(F,<<"\r\n">>),
-	  [ file:write(F,[R,<<"\r\n">>]) || R <- L ], 
+	  [ file:write(F,[R,<<"\r\n">>]) || R <- L ],
 	  file:write(F,<<"Inget radslut\r">>)
       end || _ <- lists:seq(1,100)],
     file:close(F).
@@ -4067,7 +4067,7 @@ read_line_create4(Filename) ->
     [ begin
 	  file:write(F,<<"\n">>),
 	  file:write(F,<<"\n">>),
-	  [ file:write(F,[R,<<"\r\n">>]) || R <- L ], 
+	  [ file:write(F,[R,<<"\r\n">>]) || R <- L ],
 	  file:write(F,<<"Inget radslut\r">>)
       end || _ <- lists:seq(1,100)],
     file:close(F).
@@ -4078,7 +4078,7 @@ read_line_create5(Filename) ->
     [ begin
 	  file:write(F,<<"i\n">>),
 	  file:write(F,<<"i\n">>),
-	  [ file:write(F,[R,<<"\r\n">>]) || R <- L ], 
+	  [ file:write(F,[R,<<"\r\n">>]) || R <- L ],
 	  file:write(F,<<"Inget radslut\r">>)
       end || _ <- lists:seq(1,100)],
     file:close(F).
@@ -4089,7 +4089,7 @@ read_line_create6(Filename) ->
     [ begin
 	  file:write(F,<<"i\r\n">>),
 	  file:write(F,<<"i\r\n">>),
-	  [ file:write(F,[R,<<"\r\n">>]) || R <- L ], 
+	  [ file:write(F,[R,<<"\r\n">>]) || R <- L ],
 	  file:write(F,<<"Inget radslut\r">>)
       end || _ <- lists:seq(1,100)],
     file:close(F).
@@ -4097,7 +4097,7 @@ read_line_create7(Filename) ->
     {ok,F} = file:open(Filename,[write]),
     L = rl_lines(),
     [ begin
-	  [ file:write(F,[R,<<"\r\n">>]) || R <- L ], 
+	  [ file:write(F,[R,<<"\r\n">>]) || R <- L ],
 	  file:write(F,<<"Inget radslut\r">>)
       end || _ <- lists:seq(1,1000)],
     file:close(F).
@@ -4196,7 +4196,7 @@ read_rl_lines(F,Alternate) ->
 	     case Alternate of
 		 true -> prim_file:read(F,1);
 		 false -> prim_file:read_line(F)
-	     end 
+	     end
 	 end of
 	eof ->
 	    [];
@@ -4210,7 +4210,7 @@ read_rl_lines2(F,Alternate) ->
 	     case Alternate of
 		 true -> file:read(F,1);
 		 false -> file:read_line(F)
-	     end 
+	     end
 	 end of
 	eof ->
 	    [];
@@ -4283,7 +4283,7 @@ run_large_file_test(Config, Run, Name) ->
 	       true ->
 		    do_run_large_file_test(Config, Run, Name)
 	    end;
-	_ -> 
+	_ ->
 	    {skip,"Only supported on Win32, Unix or SunOS >= 5.5.1"}
     end.
 
@@ -4294,7 +4294,7 @@ do_run_large_file_test(Config, Run, Name0) ->
 
     %% Set up a process that will delete this file.
     Tester = self(),
-    Deleter = 
+    Deleter =
 	spawn(
 	  fun() ->
 		  Mref = erlang:monitor(process, Tester),

@@ -1,4 +1,4 @@
-%% 
+%%
 %% %CopyrightBegin%
 %%
 %% Copyright Ericsson AB 2003-2016. All Rights Reserved.
@@ -16,7 +16,7 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-%% 
+%%
 
 %%----------------------------------------------------------------------
 %% Purpose:
@@ -24,7 +24,7 @@
 %% Test:    ts:run(snmp, snmp_manager_test, [batch]).
 %% Test:    ts:run(snmp, snmp_manager_test, event_tests, [batch]).
 %% Test:    ts:run(snmp, snmp_manager_test, inform_swarm, [batch]).
-%% 
+%%
 %%----------------------------------------------------------------------
 -module(snmp_manager_test).
 
@@ -45,14 +45,14 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-	 all/0, 
-	 groups/0, 
-	 init_per_group/2, end_per_group/2, 
+	 all/0,
+	 groups/0,
+	 init_per_group/2, end_per_group/2,
          init_per_testcase/2, end_per_testcase/2,
 
-	 init_per_suite/1, end_per_suite/1, 
+	 init_per_suite/1, end_per_suite/1,
 
-	
+
 	 simple_start_and_stop1/1,
 	 simple_start_and_stop2/1,
 	 simple_start_and_monitor_crash1/1,
@@ -61,46 +61,46 @@
 	 notify_started02/1,
 
 	 register_user1/1,
-	
+
 	 register_agent1/1,
 	 register_agent2/1,
 	 register_agent3/1,
 
 	 info/1,
-	 
-	 simple_sync_get1/1, 
-	 simple_sync_get2/1, 
-	 simple_sync_get3/1, 
-	 simple_async_get1/1, 
-	 simple_async_get2/1, 
-	 simple_async_get3/1, 
-	
-  	 simple_sync_get_next1/1, 
-  	 simple_sync_get_next2/1, 
-  	 simple_sync_get_next3/1, 
-  	 simple_async_get_next1/1, 
-  	 simple_async_get_next2/1, 
-  	 simple_async_get_next3/1, 
-	 
-	 simple_sync_set1/1, 
-	 simple_sync_set2/1, 
-	 simple_sync_set3/1, 
-	 simple_async_set1/1, 
-	 simple_async_set2/1, 
-	 simple_async_set3/1, 
-	 
-  	 simple_sync_get_bulk1/1, 
-  	 simple_sync_get_bulk2/1, 
-  	 simple_sync_get_bulk3/1, 
-  	 simple_async_get_bulk1/1, 
-  	 simple_async_get_bulk2/1, 
-  	 simple_async_get_bulk3/1, 
-	 
-  	 misc_async1/1, 
-  	 misc_async2/1, 
+
+	 simple_sync_get1/1,
+	 simple_sync_get2/1,
+	 simple_sync_get3/1,
+	 simple_async_get1/1,
+	 simple_async_get2/1,
+	 simple_async_get3/1,
+
+  	 simple_sync_get_next1/1,
+  	 simple_sync_get_next2/1,
+  	 simple_sync_get_next3/1,
+  	 simple_async_get_next1/1,
+  	 simple_async_get_next2/1,
+  	 simple_async_get_next3/1,
+
+	 simple_sync_set1/1,
+	 simple_sync_set2/1,
+	 simple_sync_set3/1,
+	 simple_async_set1/1,
+	 simple_async_set2/1,
+	 simple_async_set3/1,
+
+  	 simple_sync_get_bulk1/1,
+  	 simple_sync_get_bulk2/1,
+  	 simple_sync_get_bulk3/1,
+  	 simple_async_get_bulk1/1,
+  	 simple_async_get_bulk2/1,
+  	 simple_async_get_bulk3/1,
+
+  	 misc_async1/1,
+  	 misc_async2/1,
 
 	 discovery/1,
-	 
+
 	 trap1/1,
 	 trap2/1,
 
@@ -112,8 +112,8 @@
 
 	 report/1,
 
-	 otp8015_1/1, 
-	
+	 otp8015_1/1,
+
 	 otp8395_1/1
 
 	]).
@@ -156,7 +156,7 @@ init_per_suite(Config0) when is_list(Config0) ->
     ?DBG("init_per_suite -> entry with"
 	 "~n   Config0: ~p", [Config0]),
 
-    Config1   = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
+    Config1   = snmp_test_lib:init_suite_top_dir(?MODULE, Config0),
     Config2   = snmp_test_lib:fix_data_dir(Config1),
 
     %% Mib-dirs
@@ -180,19 +180,19 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     p(Case, "init_per_testcase begin when"
       "~n      Nodes: ~p~n~n", [erlang:nodes()]),
     %% This version of the API, based on Addr and Port, has been deprecated
-    DeprecatedApiCases = 
+    DeprecatedApiCases =
 	[
-	 simple_sync_get1, 
-	 simple_async_get1, 
-	 simple_sync_get_next1, 
-	 simple_async_get_next1, 
-	 simple_sync_set1, 
-	 simple_async_set1, 
-	 simple_sync_get_bulk1, 
+	 simple_sync_get1,
+	 simple_async_get1,
+	 simple_sync_get_next1,
+	 simple_async_get_next1,
+	 simple_sync_set1,
+	 simple_async_set1,
+	 simple_sync_get_bulk1,
 	 simple_async_get_bulk1,
 	 misc_async1
 	],
-    Result = 
+    Result =
 	case lists:member(Case, DeprecatedApiCases) of
 	    true ->
 		%% ?SKIP(api_no_longer_supported);
@@ -212,11 +212,11 @@ init_per_testcase2(Case, Config) ->
 	 "~n   Config: ~p"
 	 "~n   Nodes:  ~p", [Case, Config, erlang:nodes()]),
 
-    CaseTopDir = snmp_test_lib:init_testcase_top_dir(Case, Config), 
+    CaseTopDir = snmp_test_lib:init_testcase_top_dir(Case, Config),
 
     %% -- Manager dirs  --
-    MgrTopDir  = filename:join(CaseTopDir, "manager/"), 
-    ?DBG("init_per_testcase2 -> try create manager top dir: ~n~p", 
+    MgrTopDir  = filename:join(CaseTopDir, "manager/"),
+    ?DBG("init_per_testcase2 -> try create manager top dir: ~n~p",
 	 [MgrTopDir]),
     ?line ok   = file:make_dir(MgrTopDir),
 
@@ -251,8 +251,8 @@ init_per_testcase2(Case, Config) ->
 	    {agent_dir,                 AgTopDir},
 	    {agent_conf_dir,            AgConfDir},
 	    {agent_db_dir,              AgDbDir},
-	    {agent_log_dir,             AgLogDir}, 
-	    {manager_agent_target_name, "agent01"}, 
+	    {agent_log_dir,             AgLogDir},
+	    {manager_agent_target_name, "agent01"},
 	    {manager_dir,               MgrTopDir},
 	    {manager_conf_dir,          MgrConfDir},
 	    {manager_db_dir,            MgrDbDir},
@@ -262,31 +262,31 @@ init_per_testcase2(Case, Config) ->
     Conf2.
 
 init_per_testcase3(Case, Config) ->
-    ApiCases02 = 
+    ApiCases02 =
 	[
-	 simple_sync_get2, 
-	 simple_async_get2, 
-	 simple_sync_get_next2, 
-	 simple_async_get_next2, 
-	 simple_sync_set2, 
-	 simple_async_set2, 
-	 simple_sync_get_bulk2, 
+	 simple_sync_get2,
+	 simple_async_get2,
+	 simple_sync_get_next2,
+	 simple_async_get_next2,
+	 simple_sync_set2,
+	 simple_async_set2,
+	 simple_sync_get_bulk2,
 	 simple_async_get_bulk2,
 	 misc_async2,
 	 otp8395_1
 	],
-    ApiCases03 = 
+    ApiCases03 =
 	[
 	 simple_sync_get3,
-	 simple_async_get3, 
-	 simple_sync_get_next3, 
-	 simple_async_get_next3, 
-	 simple_sync_set3, 
-	 simple_async_set3, 
-	 simple_sync_get_bulk3, 
+	 simple_async_get3,
+	 simple_sync_get_next3,
+	 simple_async_get_next3,
+	 simple_sync_set3,
+	 simple_async_set3,
+	 simple_sync_get_bulk3,
 	 simple_async_get_bulk3
 	],
-    Cases = 
+    Cases =
 	[
 	 trap1,
 	 trap2,
@@ -296,20 +296,20 @@ init_per_testcase3(Case, Config) ->
 	 inform4,
 	 inform_swarm,
 	 report
-	] ++ 
+	] ++
 	ApiCases02 ++
 	ApiCases03,
     case lists:member(Case, Cases) of
 	true ->
-	    NoAutoInformCases = [inform1, inform2, inform3, inform_swarm], 
+	    NoAutoInformCases = [inform1, inform2, inform3, inform_swarm],
 	    AutoInform = not lists:member(Case, NoAutoInformCases),
-	    Conf1 = if 
+	    Conf1 = if
 			Case =:= inform_swarm ->
 			    Verb = [{manager_config_verbosity,     silence},
 				    {manager_note_store_verbosity, silence},
 				    {manager_server_verbosity,     info},
 				    {manager_net_if_verbosity,     info},
-				    {agent_verbosity,              info}, 
+				    {agent_verbosity,              info},
 				    {agent_net_if_verbosity,       info}],
 			    Verb ++ Config;
 			Case =:= otp8395_1 ->
@@ -318,7 +318,7 @@ init_per_testcase3(Case, Config) ->
 			    Config
 		    end,
 	    Conf2 = init_agent(Conf1),
-	    Conf3 = init_manager(AutoInform, Conf2), 
+	    Conf3 = init_manager(AutoInform, Conf2),
 	    Conf4 = init_mgr_user(Conf3),
 	    case lists:member(Case, ApiCases02 ++ ApiCases03) of
 		true ->
@@ -346,31 +346,31 @@ end_per_testcase(Case, Config) when is_list(Config) ->
     Conf2.
 
 end_per_testcase2(Case, Config) ->
-    ApiCases02 = 
+    ApiCases02 =
 	[
-	 simple_sync_get2, 
-	 simple_async_get2, 
-	 simple_sync_get_next2, 
-	 simple_async_get_next2, 
-	 simple_sync_set2, 
-	 simple_async_set2, 
-	 simple_sync_get_bulk2, 
+	 simple_sync_get2,
+	 simple_async_get2,
+	 simple_sync_get_next2,
+	 simple_async_get_next2,
+	 simple_sync_set2,
+	 simple_async_set2,
+	 simple_sync_get_bulk2,
 	 simple_async_get_bulk2,
 	 misc_async2,
 	 otp8395_1
 	],
-    ApiCases03 = 
+    ApiCases03 =
 	[
-	 simple_sync_get3, 
-	 simple_async_get3, 
-	 simple_sync_get_next3, 
-	 simple_async_get_next3, 
-	 simple_sync_set3, 
-	 simple_async_set3, 
-	 simple_sync_get_bulk3, 
-	 simple_async_get_bulk3 
+	 simple_sync_get3,
+	 simple_async_get3,
+	 simple_sync_get_next3,
+	 simple_async_get_next3,
+	 simple_sync_set3,
+	 simple_async_set3,
+	 simple_sync_get_bulk3,
+	 simple_async_get_bulk3
 	],
-    Cases = 
+    Cases =
 	[
 	 trap1,
 	 trap2,
@@ -380,8 +380,8 @@ end_per_testcase2(Case, Config) ->
 	 inform4,
 	 inform_swarm,
 	 report
-	] ++ 
-	ApiCases02 ++ 
+	] ++
+	ApiCases02 ++
 	ApiCases03,
     case lists:member(Case, Cases) of
 	true ->
@@ -403,74 +403,74 @@ end_per_testcase2(Case, Config) ->
 %% Test case definitions
 %%======================================================================
 
-all() -> 
+all() ->
     [
-     {group, start_and_stop_tests}, 
-     {group, misc_tests}, 
-     {group, user_tests}, 
-     {group, agent_tests}, 
-     {group, request_tests}, 
-     {group, request_tests_mt}, 
-     {group, event_tests}, 
-     {group, event_tests_mt}, 
-     discovery, 
-     {group, tickets}, 
+     {group, start_and_stop_tests},
+     {group, misc_tests},
+     {group, user_tests},
+     {group, agent_tests},
+     {group, request_tests},
+     {group, request_tests_mt},
+     {group, event_tests},
+     {group, event_tests_mt},
+     discovery,
+     {group, tickets},
      {group, ipv6},
      {group, ipv6_mt}
     ].
 
-groups() -> 
+groups() ->
     [
      {start_and_stop_tests, [],
       [
-       simple_start_and_stop1, 
+       simple_start_and_stop1,
        simple_start_and_stop2,
        simple_start_and_monitor_crash1,
-       simple_start_and_monitor_crash2, 
+       simple_start_and_monitor_crash2,
        notify_started01,
        notify_started02
       ]
      },
-     {misc_tests, [], 
+     {misc_tests, [],
       [
        info
       ]
      },
-     {user_tests, [], 
+     {user_tests, [],
       [
        register_user1
       ]
      },
-     {agent_tests, [], 
+     {agent_tests, [],
       [
-       register_agent1, 
-       register_agent2, 
+       register_agent1,
+       register_agent2,
        register_agent3
       ]
      },
      {request_tests, [],
       [
-       {group, get_tests}, 
-       {group, get_next_tests}, 
-       {group, set_tests}, 
-       {group, bulk_tests}, 
-       {group, misc_request_tests} 
+       {group, get_tests},
+       {group, get_next_tests},
+       {group, set_tests},
+       {group, bulk_tests},
+       {group, misc_request_tests}
       ]
      },
      {request_tests_mt, [],
       [
-       {group, get_tests}, 
+       {group, get_tests},
        {group, get_next_tests},
-       {group, set_tests}, 
+       {group, set_tests},
        {group, bulk_tests},
        {group, misc_request_tests}
       ]
      },
      {get_tests, [],
       [
-       simple_sync_get1, 
-       simple_sync_get2, 
-       simple_sync_get3, 
+       simple_sync_get1,
+       simple_sync_get2,
+       simple_sync_get3,
        simple_async_get1,
        simple_async_get2,
        simple_async_get3
@@ -478,76 +478,76 @@ groups() ->
      },
      {get_next_tests, [],
       [
-       simple_sync_get_next1, 
+       simple_sync_get_next1,
        simple_sync_get_next2,
        simple_sync_get_next3,
-       simple_async_get_next1, 
-       simple_async_get_next2, 
+       simple_async_get_next1,
+       simple_async_get_next2,
        simple_async_get_next3
       ]
      },
      {set_tests, [],
       [
-       simple_sync_set1, 
-       simple_sync_set2, 
-       simple_sync_set3, 
+       simple_sync_set1,
+       simple_sync_set2,
+       simple_sync_set3,
        simple_async_set1,
-       simple_async_set2, 
+       simple_async_set2,
        simple_async_set3
       ]
      },
      {bulk_tests, [],
        [
-        simple_sync_get_bulk1, 
+        simple_sync_get_bulk1,
         simple_sync_get_bulk2,
         simple_sync_get_bulk3,
-        simple_async_get_bulk1, 
-        simple_async_get_bulk2, 
+        simple_async_get_bulk1,
+        simple_async_get_bulk2,
 	simple_async_get_bulk3
        ]
       },
-      {misc_request_tests, [], 
+      {misc_request_tests, [],
        [
-	misc_async1, 
+	misc_async1,
 	misc_async2
        ]
       },
      {event_tests, [],
       [
-       trap1, 
-       trap2, 
-       inform1, 
-       inform2, 
-       inform3, 
+       trap1,
+       trap2,
+       inform1,
+       inform2,
+       inform3,
        inform4,
-       inform_swarm, 
+       inform_swarm,
        report
       ]
      },
      {event_tests_mt, [],
       [
-       trap1, 
-       trap2, 
-       inform1, 
-       inform2, 
-       inform3, 
+       trap1,
+       trap2,
+       inform1,
+       inform2,
+       inform3,
        inform4,
-       inform_swarm, 
+       inform_swarm,
        report
       ]
      },
-     {tickets, [], 
+     {tickets, [],
       [
-       {group, otp8015}, 
+       {group, otp8015},
        {group, otp8395}
       ]
      },
-     {otp8015, [], 
+     {otp8015, [],
       [
        otp8015_1
       ]
-     }, 
-     {otp8395, [], 
+     },
+     {otp8395, [],
       [
        otp8395_1
       ]
@@ -576,11 +576,11 @@ ipv6_tests() ->
 
 init_per_group(request_tests_mt = GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(
-      GroupName, 
+      GroupName,
       [{manager_net_if_module, snmpm_net_if_mt} | Config]);
 init_per_group(event_tests_mt = GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(
-      GroupName, 
+      GroupName,
       [{manager_net_if_module, snmpm_net_if_mt} | Config]);
 init_per_group(ipv6_mt = GroupName, Config) ->
     {ok, Hostname0} = inet:gethostname(),
@@ -599,7 +599,7 @@ init_per_group(ipv6_mt = GroupName, Config) ->
 	_ ->
 	    {skip, "Test config ipv6_hosts is missing"}
     end;
-init_per_group(ipv6 = GroupName, Config) -> 
+init_per_group(ipv6 = GroupName, Config) ->
     {ok, Hostname0} = inet:gethostname(),
     case ct:require(ipv6_hosts) of
 	ok ->
@@ -664,7 +664,7 @@ simple_start_and_stop2(Config) when is_list(Config) ->
     put(tname,ssas2),
     p("starting with Config: ~p~n", [Config]),
 
-    ManagerNode = start_manager_node(), 
+    ManagerNode = start_manager_node(),
 
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
@@ -745,7 +745,7 @@ simple_start_and_monitor_crash1(Config) when is_list(Config) ->
 	{'DOWN', Ref, process, Obj2, Reason2} ->
 	    p("received expected down-message: "
 	      "~n   Obj2:    ~p"
-	      "~n   Reason2: ~p", 
+	      "~n   Reason2: ~p",
 	      [Obj2, Reason2]),
 	    ok
     after 1000 ->
@@ -799,7 +799,7 @@ simple_start_and_monitor_crash2(Config) when is_list(Config) ->
 	{'DOWN', Ref, process, Obj2, Reason2} ->
 	    p("received expected down-message: "
 	      "~n   Obj2:    ~p"
-	      "~n   Reason2: ~p", 
+	      "~n   Reason2: ~p",
 	      [Obj2, Reason2]),
 	    ok
     after 1000 ->
@@ -831,7 +831,7 @@ simulate_crash(NumKills, Pid) when (NumKills < ?MAX_KILLS) and is_pid(Pid) ->
     p("similate_crash -> ~w, ~p", [NumKills, Pid]),
     Ref = erlang:monitor(process, Pid),
     exit(Pid, kill),
-    receive 
+    receive
 	{'DOWN', Ref, process, _Object, _Info} ->
 	    p("received expected 'DOWN' message"),
 	    simulate_crash(NumKills + 1, server_pid())
@@ -885,7 +885,7 @@ notify_started01(Config) when is_list(Config) ->
     Pid = snmpm_starter(Opts, 5000),
 
     p("await the start notification"),
-    Ref = 
+    Ref =
 	receive
 	    {snmpm_started, Pid2} ->
 		p("received started message -> create the monitor"),
@@ -912,7 +912,7 @@ notify_started01(Config) when is_list(Config) ->
 	{'DOWN', Ref, process, Obj2, Reason2} ->
 	    p("received expected down-message: "
 	      "~n   Obj2:    ~p"
-	      "~n   Reason2: ~p", 
+	      "~n   Reason2: ~p",
 	      [Obj2, Reason2]),
 	    ok
     after 5000 ->
@@ -926,8 +926,8 @@ notify_started01(Config) when is_list(Config) ->
 snmpm_starter(Opts, To) ->
     Parent = self(),
     spawn(
-      fun() -> 
-	      ?SLEEP(To), 
+      fun() ->
+	      ?SLEEP(To),
 	      ok = snmpm:start(Opts),
 	      receive
 		  {stop, Parent} ->
@@ -944,9 +944,9 @@ notify_started02(Config) when is_list(Config) ->
     put(tname,ns02),
 
     %% <CONDITIONAL-SKIP>
-    %% The point of this is to catch machines running 
+    %% The point of this is to catch machines running
     %% SLES9 (2.6.5)
-    LinuxVersionVerify = 
+    LinuxVersionVerify =
 	fun() ->
 		case os:cmd("uname -m") of
 		    "i686" ++ _ ->
@@ -988,9 +988,9 @@ notify_started02(Config) when is_list(Config) ->
 
     p("start snmpm starter process"),
     Pid2 = ns02_loop2_start(Opts),
-    
+
     p("await snmpm client process exit"),
-    receive 
+    receive
 	{'EXIT', Pid1, normal} ->
 	    ok;
 	{'EXIT', Pid1, Reason1} ->
@@ -998,9 +998,9 @@ notify_started02(Config) when is_list(Config) ->
     after 25000 ->
 	    ?FAIL(timeout)
     end,
-	
+
     p("await snmpm starter process exit"),
-    receive 
+    receive
 	{'EXIT', Pid2, normal} ->
 	    ok;
 	{'EXIT', Pid2, Reason2} ->
@@ -1008,14 +1008,14 @@ notify_started02(Config) when is_list(Config) ->
     after 5000 ->
 	    ?FAIL(timeout)
     end,
-	
+
     p("end"),
     ok.
 
 
 ns02_loop1_start() ->
     spawn_link(fun() -> ns02_loop1() end).
-		       
+
 ns02_loop1() ->
     put(tname,ns02_loop1),
     p("starting"),
@@ -1048,7 +1048,7 @@ ns02_loop1(Ref, Pid, N) ->
 
 ns02_loop2_start(Opts) ->
     spawn_link(fun() -> ns02_loop2(Opts) end).
-		       
+
 ns02_loop2(Opts) ->
     put(tname,ns02_loop2),
     p("starting"),
@@ -1092,7 +1092,7 @@ info(Config) when is_list(Config) ->
     ?SLEEP(1000),
 
     p("manager started, now get info"),
-    Info = snmpm:info(), 
+    Info = snmpm:info(),
     p("got info, now verify: ~n~p", [Info]),
     ok = verify_info( Info ),
 
@@ -1146,7 +1146,7 @@ register_user1(Config) when is_list(Config) ->
     put(tname,ru1),
     p("starting with Config: ~p~n", [Config]),
 
-    ManagerNode = start_manager_node(), 
+    ManagerNode = start_manager_node(),
 
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
@@ -1175,7 +1175,7 @@ register_user1(Config) when is_list(Config) ->
     p("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     p("try register user(s)"),
-    ?line ok = mgr_register_user(ManagerNode, calvin, snmpm_user_default, 
+    ?line ok = mgr_register_user(ManagerNode, calvin, snmpm_user_default,
 				 [self(), "various misc info"]),
 
     Users1 = mgr_which_users(ManagerNode),
@@ -1183,7 +1183,7 @@ register_user1(Config) when is_list(Config) ->
     ?line ok = verify_users(Users1, [calvin]),
     p("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    ?line ok = mgr_register_user(ManagerNode, hobbe, snmpm_user_default, 
+    ?line ok = mgr_register_user(ManagerNode, hobbe, snmpm_user_default,
 				 {"misc info", self()}),
 
     Users2 = mgr_which_users(ManagerNode),
@@ -1231,21 +1231,21 @@ verify_users(ActualUsers0, [User|RegUsers]) ->
 	ActualUsers ->
 	    verify_users(ActualUsers, RegUsers)
     end.
-    
+
 
 %%======================================================================
 
-register_agent1(doc) -> 
+register_agent1(doc) ->
     ["Test registration of agents with the OLD interface functions"];
-register_agent1(suite) -> 
+register_agent1(suite) ->
     [];
 register_agent1(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     put(tname,ra1),
-    
+
     p("starting with Config: ~p~n", [Config]),
 
-    ManagerNode = start_manager_node(), 
+    ManagerNode = start_manager_node(),
 
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
@@ -1312,7 +1312,7 @@ register_agent1(Config) when is_list(Config) ->
     end,
 
     p("manager info: ~p~n", [mgr_info(ManagerNode)]),
-    
+
     p("unregister user user_alfa"),
     ?line ok = mgr_unregister_user(ManagerNode, user_alfa),
 
@@ -1363,20 +1363,20 @@ register_agent1(Config) when is_list(Config) ->
 
 %%======================================================================
 
-register_agent2(doc) -> 
+register_agent2(doc) ->
     ["Test registration of agents with the NEW interface functions"];
-register_agent2(suite) -> 
+register_agent2(suite) ->
     [];
 register_agent2(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     put(tname, ra2),
     p("starting with Config: ~p~n", [Config]),
 
-    ManagerNode = start_manager_node(), 
+    ManagerNode = start_manager_node(),
 
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
-    LocalHost = snmp_test_lib:localhost(), 
+    LocalHost = snmp_test_lib:localhost(),
 
 
     write_manager_conf(ConfDir),
@@ -1408,22 +1408,22 @@ register_agent2(Config) when is_list(Config) ->
     p("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     p("register agent(s)"),
-    TargetName1 = "agent1", 
-    ?line ok = mgr_register_agent(ManagerNode, user_alfa, TargetName1, 
+    TargetName1 = "agent1",
+    ?line ok = mgr_register_agent(ManagerNode, user_alfa, TargetName1,
 				  [{address,   LocalHost},
 				   {port,      5001},
 				   {engine_id, "agentEngineId-1"}]),
-    TargetName2 = "agent2", 
+    TargetName2 = "agent2",
     ?line ok = mgr_register_agent(ManagerNode, user_alfa, TargetName2,
 				  [{address,   LocalHost},
 				   {port,      5002},
 				   {engine_id, "agentEngineId-2"}]),
-    TargetName3 = "agent3", 
+    TargetName3 = "agent3",
     ?line ok = mgr_register_agent(ManagerNode, user_beta, TargetName3,
 				  [{address,   LocalHost},
 				   {port,      5003},
 				   {engine_id, "agentEngineId-3"}]),
-    TargetName4 = "agent4", 
+    TargetName4 = "agent4",
     ?line ok = mgr_register_agent(ManagerNode, user_beta, TargetName4,
 				  [{address,   LocalHost},
 				   {port,      5004},
@@ -1508,21 +1508,21 @@ register_agent2(Config) when is_list(Config) ->
 
 %%======================================================================
 
-register_agent3(doc) -> 
+register_agent3(doc) ->
     ["Test registration of agents with the NEW interface functions "
      "and specifying transport domain"];
-register_agent3(suite) -> 
+register_agent3(suite) ->
     [];
 register_agent3(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     put(tname, ra3),
     p("starting with Config: ~p~n", [Config]),
 
-    ManagerNode = start_manager_node(), 
+    ManagerNode = start_manager_node(),
 
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
-    LocalHost = snmp_test_lib:localhost(), 
+    LocalHost = snmp_test_lib:localhost(),
 
 
     write_manager_conf(ConfDir),
@@ -1554,28 +1554,28 @@ register_agent3(Config) when is_list(Config) ->
     p("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     p("register agent(s)"),
-    TargetName1 = "agent2", 
-    ?line ok = mgr_register_agent(ManagerNode, user_alfa, TargetName1, 
+    TargetName1 = "agent2",
+    ?line ok = mgr_register_agent(ManagerNode, user_alfa, TargetName1,
 				  [{tdomain,   transportDomainUdpIpv4},
 				   {address,   LocalHost},
 				   {port,      5001},
 				   {engine_id, "agentEngineId-1"}]),
-    TargetName2 = "agent3", 
+    TargetName2 = "agent3",
     ?line ok = mgr_register_agent(ManagerNode, user_alfa, TargetName2,
 				  [{tdomain,   transportDomainUdpIpv6},
 				   {address,   {0,0,0,0,0,0,0,1}},
 				   {port,      5002},
 				   {engine_id, "agentEngineId-2"}]),
-    TargetName3 = "agent4", 
-    ?line {error, {unsupported_domain, _} = Reason4} = 
+    TargetName3 = "agent4",
+    ?line {error, {unsupported_domain, _} = Reason4} =
 	mgr_register_agent(ManagerNode, user_beta, TargetName3,
 			   [{tdomain,   transportDomainTcpIpv4},
 			    {address,   LocalHost},
 			    {port,      5003},
 			    {engine_id, "agentEngineId-3"}]),
     p("Expected registration failure: ~p", [Reason4]),
-    TargetName4 = "agent5", 
-    ?line {error, {unknown_domain, _} = Reason5} = 
+    TargetName4 = "agent5",
+    ?line {error, {unknown_domain, _} = Reason5} =
 	mgr_register_agent(ManagerNode, user_beta, TargetName4,
 			   [{tdomain,   transportDomainUdpIpv4_bad},
 			    {address,   LocalHost},
@@ -1661,7 +1661,7 @@ register_agent3(Config) when is_list(Config) ->
 simple_sync_get1(doc) -> ["Simple sync get-request - Old style (Addr & Port)"];
 simple_sync_get1(suite) -> [];
 simple_sync_get1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?SKIP(api_no_longer_supported),
 
     process_flag(trap_exit, true),
     put(tname, ssg1),
@@ -1693,10 +1693,10 @@ do_simple_sync_get(Node, Addr, Port, Oids) ->
 	 "~n   Rem:   ~w", [Reply, _Rem]),
 
     %% verify that the operation actually worked:
-    %% The order should be the same, so no need to seach 
+    %% The order should be the same, so no need to search
     ?line ok = case Reply of
 		   {noError, 0, [#varbind{oid   = ?sysObjectID_instance,
-					  value = SysObjectID}, 
+					  value = SysObjectID},
 				 #varbind{oid   = ?sysDescr_instance,
 					  value = SysDescr},
 				 #varbind{oid   = ?sysUpTime_instance,
@@ -1704,7 +1704,7 @@ do_simple_sync_get(Node, Addr, Port, Oids) ->
 		       p("expected result from get: "
 			 "~n   SysObjectID: ~p"
 			 "~n   SysDescr:    ~s"
-			 "~n   SysUpTime:   ~w", 
+			 "~n   SysUpTime:   ~w",
 			 [SysObjectID, SysDescr, SysUpTime]),
 		       ok;
 		   {noError, 0, Vbs} ->
@@ -1715,11 +1715,11 @@ do_simple_sync_get(Node, Addr, Port, Oids) ->
 		       {error, {unexpected_response, Else}}
 	       end,
     ok.
-    
+
 
 %%======================================================================
 
-simple_sync_get2(doc) -> 
+simple_sync_get2(doc) ->
     ["Simple sync get-request - Version 2 API (TargetName)"];
 simple_sync_get2(suite) -> [];
 simple_sync_get2(Config) when is_list(Config) ->
@@ -1730,9 +1730,9 @@ simple_sync_get2(Config) when is_list(Config) ->
     ok.
 
 do_simple_sync_get2(Config) ->
-    Get = fun(Node, TargetName, Oids) -> 
-		  mgr_user_sync_get(Node, TargetName, Oids) 
-	  end, 
+    Get = fun(Node, TargetName, Oids) ->
+		  mgr_user_sync_get(Node, TargetName, Oids)
+	  end,
     PostVerify = fun() -> ok end,
     do_simple_sync_get2(Config, Get, PostVerify).
 
@@ -1752,7 +1752,7 @@ do_simple_sync_get2(Config, Get, PostVerify) ->
     ?line ok = do_simple_sync_get2(Node, TargetName, Oids2, Get, PostVerify),
     ok.
 
-do_simple_sync_get2(Node, TargetName, Oids, Get, PostVerify) 
+do_simple_sync_get2(Node, TargetName, Oids, Get, PostVerify)
   when is_function(Get, 3) andalso is_function(PostVerify, 0) ->
     ?line {ok, Reply, _Rem} = Get(Node, TargetName, Oids),
 
@@ -1760,10 +1760,10 @@ do_simple_sync_get2(Node, TargetName, Oids, Get, PostVerify)
 	 "~n   Rem:   ~w", [Reply, _Rem]),
 
     %% verify that the operation actually worked:
-    %% The order should be the same, so no need to seach 
+    %% The order should be the same, so no need to search
     ?line ok = case Reply of
 		   {noError, 0, [#varbind{oid   = ?sysObjectID_instance,
-					  value = SysObjectID}, 
+					  value = SysObjectID},
 				 #varbind{oid   = ?sysDescr_instance,
 					  value = SysDescr},
 				 #varbind{oid   = ?sysUpTime_instance,
@@ -1771,7 +1771,7 @@ do_simple_sync_get2(Node, TargetName, Oids, Get, PostVerify)
 		       p("expected result from get: "
 			 "~n   SysObjectID: ~p"
 			 "~n   SysDescr:    ~s"
-			 "~n   SysUpTime:   ~w", 
+			 "~n   SysUpTime:   ~w",
 			 [SysObjectID, SysDescr, SysUpTime]),
 		       PostVerify();
 		   {noError, 0, Vbs} ->
@@ -1786,7 +1786,7 @@ do_simple_sync_get2(Node, TargetName, Oids, Get, PostVerify)
 
 %%======================================================================
 
-simple_sync_get3(doc) -> 
+simple_sync_get3(doc) ->
     ["Simple sync get-request - Version 3 API (TargetName and send-opts)"];
 simple_sync_get3(suite) -> [];
 simple_sync_get3(Config) when is_list(Config) ->
@@ -1797,18 +1797,18 @@ simple_sync_get3(Config) when is_list(Config) ->
     ok.
 
 do_simple_sync_get3(Config) ->
-    Self  = self(), 
-    Msg   = simple_sync_get3, 
+    Self  = self(),
+    Msg   = simple_sync_get3,
     Fun   = fun() -> Self ! Msg end,
-    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun}, 
-    SendOpts = 
+    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun},
+    SendOpts =
 	[
 	 {extra, Extra}
-	], 
-    Get = fun(Node, TargetName, Oids) -> 
-		  mgr_user_sync_get2(Node, TargetName, Oids, SendOpts) 
+	],
+    Get = fun(Node, TargetName, Oids) ->
+		  mgr_user_sync_get2(Node, TargetName, Oids, SendOpts)
 	  end,
-    PostVerify = 
+    PostVerify =
 	fun() ->
 		receive
 		    Msg ->
@@ -1820,11 +1820,11 @@ do_simple_sync_get3(Config) ->
 
 %%======================================================================
 
-simple_async_get1(doc) -> 
+simple_async_get1(doc) ->
     ["Simple (async) get-request - Old style (Addr & Port)"];
 simple_async_get1(suite) -> [];
 simple_async_get1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?SKIP(api_no_longer_supported),
 
     process_flag(trap_exit, true),
     put(tname, sag1),
@@ -1836,7 +1836,7 @@ simple_async_get1(Config) when is_list(Config) ->
     Port      = ?AGENT_PORT,
 
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
-    Test2Mib = test2_mib(Config), 
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
 
@@ -1844,39 +1844,39 @@ simple_async_get1(Config) when is_list(Config) ->
 		   async_g_exec1(MgrNode, Addr, Port, Data)
 	   end,
 
-    Requests = 
+    Requests =
 	[
-	 { 1,  
-	   [?sysObjectID_instance], 
-	   Exec, 
-	   fun(X) -> sag_verify(X, [?sysObjectID_instance]) end }, 
-	 { 2,  
+	 { 1,
+	   [?sysObjectID_instance],
+	   Exec,
+	   fun(X) -> sag_verify(X, [?sysObjectID_instance]) end },
+	 { 2,
 	   [?sysDescr_instance, ?sysUpTime_instance],
-	   Exec, 
-	   fun(X) -> 
-		   sag_verify(X, [?sysObjectID_instance, 
-				  ?sysUpTime_instance]) 
-	   end }, 
-	 { 3,  
+	   Exec,
+	   fun(X) ->
+		   sag_verify(X, [?sysObjectID_instance,
+				  ?sysUpTime_instance])
+	   end },
+	 { 3,
 	   [[sysObjectID, 0], [sysDescr, 0], [sysUpTime, 0]],
-	   Exec, 
-	   fun(X) -> 
-		   sag_verify(X, [?sysObjectID_instance, 
-				  ?sysDescr_instance, 
-				  ?sysUpTime_instance]) 
-	   end }, 
-	 { 4,  
-	   [?sysObjectID_instance, 
-	    ?sysDescr_instance, 
+	   Exec,
+	   fun(X) ->
+		   sag_verify(X, [?sysObjectID_instance,
+				  ?sysDescr_instance,
+				  ?sysUpTime_instance])
+	   end },
+	 { 4,
+	   [?sysObjectID_instance,
+	    ?sysDescr_instance,
 	    ?sysUpTime_instance],
-	   Exec, 
-	   fun(X) -> 
-		   sag_verify(X, [?sysObjectID_instance, 
-				  ?sysDescr_instance, 
-				  ?sysUpTime_instance]) 
+	   Exec,
+	   fun(X) ->
+		   sag_verify(X, [?sysObjectID_instance,
+				  ?sysDescr_instance,
+				  ?sysUpTime_instance])
 	   end }
 	],
-    
+
     p("manager info when starting test: ~n~p", [mgr_info(MgrNode)]),
     p("agent info when starting test: ~n~p", [agent_info(AgentNode)]),
 
@@ -1924,7 +1924,7 @@ sag_verify_vbs([Vb|_], [E|_]) ->
 
 %%======================================================================
 
-simple_async_get2(doc) -> 
+simple_async_get2(doc) ->
     ["Simple (async) get-request - Version 2 API (TargetName)"];
 simple_async_get2(suite) -> [];
 simple_async_get2(Config) when is_list(Config) ->
@@ -1935,60 +1935,60 @@ simple_async_get2(Config) when is_list(Config) ->
     AgentNode  = ?config(agent_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
     Get        = fun(Oids) -> async_g_exec2(MgrNode, TargetName, Oids) end,
-    PostVerify = fun(Res) -> Res end, 
+    PostVerify = fun(Res) -> Res end,
     do_simple_async_sync_get2(Config, MgrNode, AgentNode, Get, PostVerify),
     display_log(Config),
     ok.
 
 do_simple_async_sync_get2(Config, MgrNode, AgentNode, Get, PostVerify) ->
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
-    Test2Mib = test2_mib(Config), 
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
     do_simple_async_sync_get2(fun() -> mgr_info(MgrNode) end,
 			      fun() -> agent_info(AgentNode) end,
 			      Get, PostVerify).
 
-do_simple_async_sync_get2(MgrInfo, AgentInfo, Get, PostVerify) 
-  when is_function(MgrInfo, 0) andalso 
-       is_function(AgentInfo, 0) andalso 
-       is_function(Get, 1) andalso 
+do_simple_async_sync_get2(MgrInfo, AgentInfo, Get, PostVerify)
+  when is_function(MgrInfo, 0) andalso
+       is_function(AgentInfo, 0) andalso
+       is_function(Get, 1) andalso
        is_function(PostVerify, 1) ->
-    Requests = 
+    Requests =
 	[
-	 { 1,  
-	   [?sysObjectID_instance], 
-	   Get, 
-	   fun(X) -> 
-		   PostVerify(sag_verify(X, [?sysObjectID_instance])) end}, 
-	 { 2,  
+	 { 1,
+	   [?sysObjectID_instance],
+	   Get,
+	   fun(X) ->
+		   PostVerify(sag_verify(X, [?sysObjectID_instance])) end},
+	 { 2,
 	   [?sysDescr_instance, ?sysUpTime_instance],
-	   Get, 
-	   fun(X) -> 
-		   PostVerify(sag_verify(X, [?sysObjectID_instance, 
+	   Get,
+	   fun(X) ->
+		   PostVerify(sag_verify(X, [?sysObjectID_instance,
 					     ?sysUpTime_instance]))
-	   end}, 
-	 { 3,  
+	   end},
+	 { 3,
 	   [[sysObjectID, 0], [sysDescr, 0], [sysUpTime, 0]],
-	   Get, 
-	   fun(X) -> 
-		   PostVerify(sag_verify(X, [?sysObjectID_instance, 
-					     ?sysDescr_instance, 
+	   Get,
+	   fun(X) ->
+		   PostVerify(sag_verify(X, [?sysObjectID_instance,
+					     ?sysDescr_instance,
 					     ?sysUpTime_instance]))
-		       
-	   end}, 
-	 { 4,  
-	   [?sysObjectID_instance, 
-	    ?sysDescr_instance, 
+
+	   end},
+	 { 4,
+	   [?sysObjectID_instance,
+	    ?sysDescr_instance,
 	    ?sysUpTime_instance],
-	   Get, 
-	   fun(X) -> 
-		   PostVerify(sag_verify(X, [?sysObjectID_instance, 
-					     ?sysDescr_instance, 
+	   Get,
+	   fun(X) ->
+		   PostVerify(sag_verify(X, [?sysObjectID_instance,
+					     ?sysDescr_instance,
 					     ?sysUpTime_instance]))
 	   end}
 	],
-    
+
     p("manager info when starting test: ~n~p", [MgrInfo()]),
     p("agent info when starting test: ~n~p",   [AgentInfo()]),
 
@@ -2005,7 +2005,7 @@ async_g_exec2(Node, TargetName, Oids) ->
 
 %%======================================================================
 
-simple_async_get3(doc) -> 
+simple_async_get3(doc) ->
     ["Simple (async) get-request - Version 3 API (TargetName and send-opts)"];
 simple_async_get3(suite) -> [];
 simple_async_get3(Config) when is_list(Config) ->
@@ -2015,17 +2015,17 @@ simple_async_get3(Config) when is_list(Config) ->
     MgrNode    = ?config(manager_node, Config),
     AgentNode  = ?config(agent_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
-    Self  = self(), 
-    Msg   = simple_async_get3, 
+    Self  = self(),
+    Msg   = simple_async_get3,
     Fun   = fun() -> Self ! Msg end,
-    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun}, 
-    SendOpts = 
+    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun},
+    SendOpts =
 	[
 	 {extra, Extra}
-	], 
+	],
     Get = fun(Oids) -> async_g_exec3(MgrNode, TargetName, Oids, SendOpts) end,
     PostVerify = fun(ok)    -> receive Msg -> ok end;
-		    (Error) -> Error 
+		    (Error) -> Error
 		 end,
     do_simple_async_sync_get2(Config, MgrNode, AgentNode, Get, PostVerify),
     display_log(Config),
@@ -2041,7 +2041,7 @@ simple_sync_get_next1(doc) -> ["Simple (sync) get_next-request - "
 			       "Old style (Addr & Port)"];
 simple_sync_get_next1(suite) -> [];
 simple_sync_get_next1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?SKIP(api_no_longer_supported),
 
     process_flag(trap_exit, true),
     put(tname, ssgn1),
@@ -2055,77 +2055,77 @@ simple_sync_get_next1(Config) when is_list(Config) ->
     %% -- 1 --
     Oids01 = [[1,3,7,1]],
     VF01   = fun(X) -> verify_ssgn_reply1(X, [{[1,3,7,1],endOfMibView}]) end,
-    ?line ok = do_simple_get_next(1, 
+    ?line ok = do_simple_get_next(1,
 				  MgrNode, Addr, Port, Oids01, VF01),
-    
+
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
 
     %% -- 2 --
-    Oids02 = [[sysDescr], [1,3,7,1]], 
-    VF02   = fun(X) -> 
-		     verify_ssgn_reply1(X, [?sysDescr_instance, endOfMibView]) 
+    Oids02 = [[sysDescr], [1,3,7,1]],
+    VF02   = fun(X) ->
+		     verify_ssgn_reply1(X, [?sysDescr_instance, endOfMibView])
 	     end,
-    ?line ok = do_simple_get_next(2, 
+    ?line ok = do_simple_get_next(2,
 				  MgrNode, Addr, Port, Oids02, VF02),
-    
-    Test2Mib = test2_mib(Config), 
+
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
 
     %% -- 3 --
     ?line {ok, [TCnt2|_]} = mgr_user_name_to_oid(MgrNode, tCnt2),
-    Oids03 = [[TCnt2, 1]], 
-    VF03   = fun(X) -> 
-		     verify_ssgn_reply1(X, [{fl([TCnt2,2]), 100}]) 
+    Oids03 = [[TCnt2, 1]],
+    VF03   = fun(X) ->
+		     verify_ssgn_reply1(X, [{fl([TCnt2,2]), 100}])
 	     end,
-    ?line ok = do_simple_get_next(3, 
+    ?line ok = do_simple_get_next(3,
 				  MgrNode, Addr, Port, Oids03, VF03),
-    
+
     %% -- 4 --
-    Oids04 = [[TCnt2, 2]], 
-    VF04   = fun(X) -> 
-		     verify_ssgn_reply1(X, [{fl([TCnt2,2]), endOfMibView}]) 
+    Oids04 = [[TCnt2, 2]],
+    VF04   = fun(X) ->
+		     verify_ssgn_reply1(X, [{fl([TCnt2,2]), endOfMibView}])
 	     end,
-    ?line ok = do_simple_get_next(4, 
+    ?line ok = do_simple_get_next(4,
 				  MgrNode, Addr, Port, Oids04, VF04),
-    
+
     %% -- 5 --
     ?line {ok, [TGenErr1|_]} = mgr_user_name_to_oid(MgrNode, tGenErr1),
-    Oids05 = [TGenErr1], 
-    VF05   = fun(X) -> 
-		     verify_ssgn_reply2(X, {genErr, 1, [TGenErr1]}) 
+    Oids05 = [TGenErr1],
+    VF05   = fun(X) ->
+		     verify_ssgn_reply2(X, {genErr, 1, [TGenErr1]})
 	     end,
-    ?line ok = do_simple_get_next(5, 
+    ?line ok = do_simple_get_next(5,
 				  MgrNode, Addr, Port, Oids05, VF05),
-    
+
     %% -- 6 --
     ?line {ok, [TGenErr2|_]} = mgr_user_name_to_oid(MgrNode, tGenErr2),
-    Oids06 = [TGenErr2], 
-    VF06   = fun(X) -> 
-		     verify_ssgn_reply2(X, {genErr, 1, [TGenErr2]}) 
+    Oids06 = [TGenErr2],
+    VF06   = fun(X) ->
+		     verify_ssgn_reply2(X, {genErr, 1, [TGenErr2]})
 	     end,
-    ?line ok = do_simple_get_next(6, 
+    ?line ok = do_simple_get_next(6,
 				  MgrNode, Addr, Port, Oids06, VF06),
-    
+
     %% -- 7 --
     ?line {ok, [TGenErr3|_]} = mgr_user_name_to_oid(MgrNode, tGenErr3),
-    Oids07 = [[sysDescr], TGenErr3], 
-    VF07   = fun(X) -> 
-		     verify_ssgn_reply2(X, {genErr, 2, 
-					   [?sysDescr, TGenErr3]}) 
+    Oids07 = [[sysDescr], TGenErr3],
+    VF07   = fun(X) ->
+		     verify_ssgn_reply2(X, {genErr, 2,
+					   [?sysDescr, TGenErr3]})
 	     end,
-    ?line ok = do_simple_get_next(7, 
+    ?line ok = do_simple_get_next(7,
 				  MgrNode, Addr, Port, Oids07, VF07),
-    
+
     %% -- 8 --
     ?line {ok, [TTooBig|_]} = mgr_user_name_to_oid(MgrNode, tTooBig),
-    Oids08 = [TTooBig], 
-    VF08   = fun(X) -> 
-		     verify_ssgn_reply2(X, {tooBig, 0, []}) 
+    Oids08 = [TTooBig],
+    VF08   = fun(X) ->
+		     verify_ssgn_reply2(X, {tooBig, 0, []})
 	     end,
-    ?line ok = do_simple_get_next(8, 
+    ?line ok = do_simple_get_next(8,
 				  MgrNode, Addr, Port, Oids08, VF08),
-    
+
     display_log(Config),
     ok.
 
@@ -2164,12 +2164,12 @@ check_ssgn_vbs(Unexpected, []) ->
     {error, {unexpected_vbs, Unexpected}};
 check_ssgn_vbs([], Expected) ->
     {error, {expected_vbs, Expected}};
-check_ssgn_vbs([#varbind{value = endOfMibView}|R], 
+check_ssgn_vbs([#varbind{value = endOfMibView}|R],
 	       [endOfMibView|Expected]) ->
     check_ssgn_vbs(R, Expected);
 check_ssgn_vbs([#varbind{oid = Oid}|R], [Oid|Expected]) ->
     check_ssgn_vbs(R, Expected);
-check_ssgn_vbs([#varbind{oid = Oid, value = Value}|R], 
+check_ssgn_vbs([#varbind{oid = Oid, value = Value}|R],
 	       [{Oid, Value}|Expected]) ->
     check_ssgn_vbs(R, Expected);
 check_ssgn_vbs([Vb|_], [E|_]) ->
@@ -2178,7 +2178,7 @@ check_ssgn_vbs([Vb|_], [E|_]) ->
 
 %%======================================================================
 
-simple_sync_get_next2(doc) -> 
+simple_sync_get_next2(doc) ->
     ["Simple (sync) get_next-request - Version 2 API (TargetName)"];
 simple_sync_get_next2(suite) -> [];
 simple_sync_get_next2(Config) when is_list(Config) ->
@@ -2186,8 +2186,8 @@ simple_sync_get_next2(Config) when is_list(Config) ->
     put(tname, ssgn2),
     p("starting with Config: ~p~n", [Config]),
 
-    GetNext = fun(Node, TargetName, Oids) -> 
-		      mgr_user_sync_get_next(Node, TargetName, Oids) 
+    GetNext = fun(Node, TargetName, Oids) ->
+		      mgr_user_sync_get_next(Node, TargetName, Oids)
 	      end,
     PostVerify = fun(Res) -> Res end,
     do_simple_sync_get_next2(Config, GetNext, PostVerify),
@@ -2195,7 +2195,7 @@ simple_sync_get_next2(Config) when is_list(Config) ->
     ok.
 
 
-do_simple_sync_get_next2(Config, GetNext, PostVerify) 
+do_simple_sync_get_next2(Config, GetNext, PostVerify)
   when is_function(GetNext, 3) andalso is_function(PostVerify, 1) ->
 
     MgrNode    = ?config(manager_node, Config),
@@ -2205,83 +2205,83 @@ do_simple_sync_get_next2(Config, GetNext, PostVerify)
     %% -- 1 --
     Oids01 = [[1,3,7,1]],
     VF01   = fun(X) -> verify_ssgn_reply1(X, [{[1,3,7,1],endOfMibView}]) end,
-    ?line ok = do_simple_get_next(1, 
-				  MgrNode, TargetName, Oids01, VF01, 
+    ?line ok = do_simple_get_next(1,
+				  MgrNode, TargetName, Oids01, VF01,
 				  GetNext, PostVerify),
-    
+
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
 
     %% -- 2 --
-    Oids02 = [[sysDescr], [1,3,7,1]], 
-    VF02   = fun(X) -> 
-		     verify_ssgn_reply1(X, [?sysDescr_instance, endOfMibView]) 
+    Oids02 = [[sysDescr], [1,3,7,1]],
+    VF02   = fun(X) ->
+		     verify_ssgn_reply1(X, [?sysDescr_instance, endOfMibView])
 	     end,
-    ?line ok = do_simple_get_next(2, 
-				  MgrNode, TargetName, Oids02, VF02, 
+    ?line ok = do_simple_get_next(2,
+				  MgrNode, TargetName, Oids02, VF02,
 				  GetNext, PostVerify),
-    
-    Test2Mib = test2_mib(Config), 
+
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
 
     %% -- 3 --
     ?line {ok, [TCnt2|_]} = mgr_user_name_to_oid(MgrNode, tCnt2),
-    Oids03 = [[TCnt2, 1]], 
-    VF03   = fun(X) -> 
-		     verify_ssgn_reply1(X, [{fl([TCnt2,2]), 100}]) 
+    Oids03 = [[TCnt2, 1]],
+    VF03   = fun(X) ->
+		     verify_ssgn_reply1(X, [{fl([TCnt2,2]), 100}])
 	     end,
-    ?line ok = do_simple_get_next(3, 
-				  MgrNode, TargetName, Oids03, VF03, 
+    ?line ok = do_simple_get_next(3,
+				  MgrNode, TargetName, Oids03, VF03,
 				  GetNext, PostVerify),
-    
+
     %% -- 4 --
-    Oids04 = [[TCnt2, 2]], 
-    VF04   = fun(X) -> 
-		     verify_ssgn_reply1(X, [{fl([TCnt2,2]), endOfMibView}]) 
+    Oids04 = [[TCnt2, 2]],
+    VF04   = fun(X) ->
+		     verify_ssgn_reply1(X, [{fl([TCnt2,2]), endOfMibView}])
 	     end,
-    ?line ok = do_simple_get_next(4, 
-				  MgrNode, TargetName, Oids04, VF04, 
+    ?line ok = do_simple_get_next(4,
+				  MgrNode, TargetName, Oids04, VF04,
 				  GetNext, PostVerify),
-    
+
     %% -- 5 --
     ?line {ok, [TGenErr1|_]} = mgr_user_name_to_oid(MgrNode, tGenErr1),
-    Oids05 = [TGenErr1], 
-    VF05   = fun(X) -> 
-		     verify_ssgn_reply2(X, {genErr, 1, [TGenErr1]}) 
+    Oids05 = [TGenErr1],
+    VF05   = fun(X) ->
+		     verify_ssgn_reply2(X, {genErr, 1, [TGenErr1]})
 	     end,
-    ?line ok = do_simple_get_next(5, 
-				  MgrNode, TargetName, Oids05, VF05, 
+    ?line ok = do_simple_get_next(5,
+				  MgrNode, TargetName, Oids05, VF05,
 				  GetNext, PostVerify),
-    
+
     %% -- 6 --
     ?line {ok, [TGenErr2|_]} = mgr_user_name_to_oid(MgrNode, tGenErr2),
-    Oids06 = [TGenErr2], 
-    VF06   = fun(X) -> 
-		     verify_ssgn_reply2(X, {genErr, 1, [TGenErr2]}) 
+    Oids06 = [TGenErr2],
+    VF06   = fun(X) ->
+		     verify_ssgn_reply2(X, {genErr, 1, [TGenErr2]})
 	     end,
-    ?line ok = do_simple_get_next(6, 
-				  MgrNode, TargetName, Oids06, VF06, 
+    ?line ok = do_simple_get_next(6,
+				  MgrNode, TargetName, Oids06, VF06,
 				  GetNext, PostVerify),
-    
+
     %% -- 7 --
     ?line {ok, [TGenErr3|_]} = mgr_user_name_to_oid(MgrNode, tGenErr3),
-    Oids07 = [[sysDescr], TGenErr3], 
-    VF07   = fun(X) -> 
-		     verify_ssgn_reply2(X, {genErr, 2, 
-					   [?sysDescr, TGenErr3]}) 
+    Oids07 = [[sysDescr], TGenErr3],
+    VF07   = fun(X) ->
+		     verify_ssgn_reply2(X, {genErr, 2,
+					   [?sysDescr, TGenErr3]})
 	     end,
-    ?line ok = do_simple_get_next(7, 
-				  MgrNode, TargetName, Oids07, VF07, 
+    ?line ok = do_simple_get_next(7,
+				  MgrNode, TargetName, Oids07, VF07,
 				  GetNext, PostVerify),
-    
+
     %% -- 8 --
     ?line {ok, [TTooBig|_]} = mgr_user_name_to_oid(MgrNode, tTooBig),
-    Oids08 = [TTooBig], 
-    VF08   = fun(X) -> 
-		     verify_ssgn_reply2(X, {tooBig, 0, []}) 
+    Oids08 = [TTooBig],
+    VF08   = fun(X) ->
+		     verify_ssgn_reply2(X, {tooBig, 0, []})
 	     end,
-    ?line ok = do_simple_get_next(8, 
-				  MgrNode, TargetName, Oids08, VF08, 
+    ?line ok = do_simple_get_next(8,
+				  MgrNode, TargetName, Oids08, VF08,
 				  GetNext, PostVerify),
     ok.
 
@@ -2302,7 +2302,7 @@ do_simple_get_next(N, Node, TargetName, Oids, Verify, GetNext, PostVerify) ->
 
 %%======================================================================
 
-simple_sync_get_next3(doc) -> 
+simple_sync_get_next3(doc) ->
     ["Simple (sync) get_next-request - "
      "Version 3 API (TargetName with send-opts)"];
 simple_sync_get_next3(suite) -> [];
@@ -2310,19 +2310,19 @@ simple_sync_get_next3(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     put(tname, ssgn3),
     p("starting with Config: ~p~n", [Config]),
-    Self  = self(), 
-    Msg   = simple_sync_get_next3, 
+    Self  = self(),
+    Msg   = simple_sync_get_next3,
     Fun   = fun() -> Self ! Msg end,
-    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun}, 
-    SendOpts = 
+    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun},
+    SendOpts =
 	[
 	 {extra, Extra}
-	], 
-    GetNext = fun(Node, TargetName, Oids) -> 
-		      mgr_user_sync_get_next2(Node, TargetName, Oids, SendOpts) 
+	],
+    GetNext = fun(Node, TargetName, Oids) ->
+		      mgr_user_sync_get_next2(Node, TargetName, Oids, SendOpts)
 	      end,
     PostVerify = fun(ok)    -> receive Msg -> ok end;
-		    (Error) -> Error 
+		    (Error) -> Error
 		 end,
     do_simple_sync_get_next2(Config, GetNext, PostVerify),
     display_log(Config),
@@ -2335,7 +2335,7 @@ simple_async_get_next1(doc) -> ["Simple (async) get_next-request - "
 				"Old style (Addr & Port)"];
 simple_async_get_next1(suite) -> [];
 simple_async_get_next1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?SKIP(api_no_longer_supported),
 
     process_flag(trap_exit, true),
     put(tname, ssgn1),
@@ -2347,7 +2347,7 @@ simple_async_get_next1(Config) when is_list(Config) ->
     Port      = ?AGENT_PORT,
 
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
-    Test2Mib = test2_mib(Config), 
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
 
@@ -2361,55 +2361,55 @@ simple_async_get_next1(Config) when is_list(Config) ->
     ?line {ok, [TGenErr3|_]} = mgr_user_name_to_oid(MgrNode, tGenErr3),
     ?line {ok, [TTooBig|_]}  = mgr_user_name_to_oid(MgrNode, tTooBig),
 
-    Requests = 
+    Requests =
 	[
-	 {1, 
-	  [[1,3,7,1]], 
-	  Exec, 
+	 {1,
+	  [[1,3,7,1]],
+	  Exec,
 	  fun(X) ->
 		  verify_ssgn_reply1(X, [{[1,3,7,1], endOfMibView}])
-	  end}, 
-	 {2, 
-	  [[sysDescr], [1,3,7,1]], 
-	  Exec, 
+	  end},
+	 {2,
+	  [[sysDescr], [1,3,7,1]],
+	  Exec,
 	  fun(X) ->
 		  verify_ssgn_reply1(X, [?sysDescr_instance, endOfMibView])
-	  end}, 
-	 {3, 
-	  [[TCnt2, 1]], 
-	  Exec, 
+	  end},
+	 {3,
+	  [[TCnt2, 1]],
+	  Exec,
 	  fun(X) ->
 		  verify_ssgn_reply1(X, [{fl([TCnt2,2]), 100}])
-	  end}, 
-	 {4, 
-	  [[TCnt2, 2]], 
-	  Exec, 
+	  end},
+	 {4,
+	  [[TCnt2, 2]],
+	  Exec,
 	  fun(X) ->
 		  verify_ssgn_reply1(X, [{fl([TCnt2,2]), endOfMibView}])
-	  end}, 
-	 {5, 
-	  [TGenErr1], 
-	  Exec, 
+	  end},
+	 {5,
+	  [TGenErr1],
+	  Exec,
 	  fun(X) ->
-		  verify_ssgn_reply2(X, {genErr, 1, [TGenErr1]}) 
-	  end}, 
-	 {6, 
-	  [TGenErr2], 
-	  Exec, 
+		  verify_ssgn_reply2(X, {genErr, 1, [TGenErr1]})
+	  end},
+	 {6,
+	  [TGenErr2],
+	  Exec,
 	  fun(X) ->
-		  verify_ssgn_reply2(X, {genErr, 1, [TGenErr2]}) 
-	  end}, 
-	 {7, 
-	  [[sysDescr], TGenErr3], 
-	  Exec, 
+		  verify_ssgn_reply2(X, {genErr, 1, [TGenErr2]})
+	  end},
+	 {7,
+	  [[sysDescr], TGenErr3],
+	  Exec,
 	  fun(X) ->
-		  verify_ssgn_reply2(X, {genErr, 2, [TGenErr3]}) 
-	  end}, 
-	 {8, 
-	  [TTooBig], 
-	  Exec, 
+		  verify_ssgn_reply2(X, {genErr, 2, [TGenErr3]})
+	  end},
+	 {8,
+	  [TTooBig],
+	  Exec,
 	  fun(X) ->
-		  verify_ssgn_reply2(X, {tooBig, 0, []}) 
+		  verify_ssgn_reply2(X, {tooBig, 0, []})
 	  end}
 	],
 
@@ -2431,7 +2431,7 @@ async_gn_exec1(Node, Addr, Port, Oids) ->
 
 %%======================================================================
 
-simple_async_get_next2(doc) -> 
+simple_async_get_next2(doc) ->
     ["Simple (async) get_next-request - Version 2 API (TargetName)"];
 simple_async_get_next2(suite) -> [];
 simple_async_get_next2(Config) when is_list(Config) ->
@@ -2444,7 +2444,7 @@ simple_async_get_next2(Config) when is_list(Config) ->
     TargetName = ?config(manager_agent_target_name, Config),
 
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
-    Test2Mib = test2_mib(Config), 
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
     GetNext = fun(Oids) ->
@@ -2455,7 +2455,7 @@ simple_async_get_next2(Config) when is_list(Config) ->
     display_log(Config),
     ok.
 
-do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify) 
+do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify)
   when is_function(GetNext, 1) andalso is_function(PostVerify, 1) ->
     ?line {ok, [TCnt2|_]}    = mgr_user_name_to_oid(MgrNode, tCnt2),
     ?line {ok, [TGenErr1|_]} = mgr_user_name_to_oid(MgrNode, tGenErr1),
@@ -2463,61 +2463,61 @@ do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify)
     ?line {ok, [TGenErr3|_]} = mgr_user_name_to_oid(MgrNode, tGenErr3),
     ?line {ok, [TTooBig|_]}  = mgr_user_name_to_oid(MgrNode, tTooBig),
 
-    Requests = 
+    Requests =
 	[
-	 {1, 
-	  [[1,3,7,1]], 
-	  GetNext, 
+	 {1,
+	  [[1,3,7,1]],
+	  GetNext,
 	  fun(X) ->
 		  PostVerify(
-		    verify_ssgn_reply1(X, [{[1,3,7,1], endOfMibView}])) 
-		  
-	  end}, 
-	 {2, 
-	  [[sysDescr], [1,3,7,1]], 
-	  GetNext, 
+		    verify_ssgn_reply1(X, [{[1,3,7,1], endOfMibView}]))
+
+	  end},
+	 {2,
+	  [[sysDescr], [1,3,7,1]],
+	  GetNext,
 	  fun(X) ->
 		  PostVerify(
 		    verify_ssgn_reply1(X, [?sysDescr_instance, endOfMibView]))
-	  end}, 
-	 {3, 
-	  [[TCnt2, 1]], 
-	  GetNext, 
+	  end},
+	 {3,
+	  [[TCnt2, 1]],
+	  GetNext,
 	  fun(X) ->
 		  PostVerify(
 		    verify_ssgn_reply1(X, [{fl([TCnt2,2]), 100}]))
-	  end}, 
-	 {4, 
-	  [[TCnt2, 2]], 
-	  GetNext, 
+	  end},
+	 {4,
+	  [[TCnt2, 2]],
+	  GetNext,
 	  fun(X) ->
 		  PostVerify(
 		    verify_ssgn_reply1(X, [{fl([TCnt2,2]), endOfMibView}]))
-	  end}, 
-	 {5, 
-	  [TGenErr1], 
-	  GetNext, 
+	  end},
+	 {5,
+	  [TGenErr1],
+	  GetNext,
 	  fun(X) ->
 		  PostVerify(
 		    verify_ssgn_reply2(X, {genErr, 1, [TGenErr1]}))
-	  end}, 
-	 {6, 
-	  [TGenErr2], 
-	  GetNext, 
+	  end},
+	 {6,
+	  [TGenErr2],
+	  GetNext,
 	  fun(X) ->
 		  PostVerify(
 		    verify_ssgn_reply2(X, {genErr, 1, [TGenErr2]}))
-	  end}, 
-	 {7, 
-	  [[sysDescr], TGenErr3], 
-	  GetNext, 
+	  end},
+	 {7,
+	  [[sysDescr], TGenErr3],
+	  GetNext,
 	  fun(X) ->
 		  PostVerify(
 		    verify_ssgn_reply2(X, {genErr, 2, [TGenErr3]}))
-	  end}, 
-	 {8, 
-	  [TTooBig], 
-	  GetNext, 
+	  end},
+	 {8,
+	  [TTooBig],
+	  GetNext,
 	  fun(X) ->
 		  PostVerify(
 		    verify_ssgn_reply2(X, {tooBig, 0, []}))
@@ -2541,7 +2541,7 @@ async_gn_exec2(Node, TargetName, Oids) ->
 
 %%======================================================================
 
-simple_async_get_next3(doc) -> 
+simple_async_get_next3(doc) ->
     ["Simple (async) get_next-request - "
      "Version 3 API (TargetName with send-opts)"];
 simple_async_get_next3(suite) -> [];
@@ -2555,24 +2555,24 @@ simple_async_get_next3(Config) when is_list(Config) ->
     TargetName = ?config(manager_agent_target_name, Config),
 
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
-    Test2Mib = test2_mib(Config), 
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
 
-    Self  = self(), 
-    Msg   = simple_async_get_next3, 
+    Self  = self(),
+    Msg   = simple_async_get_next3,
     Fun   = fun() -> Self ! Msg end,
-    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun}, 
-    SendOpts = 
+    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun},
+    SendOpts =
 	[
 	 {extra, Extra}
-	], 
+	],
 
     GetNext = fun(Oids) ->
 		      async_gn_exec3(MgrNode, TargetName, Oids, SendOpts)
 	      end,
     PostVerify = fun(ok)    -> receive Msg -> ok end;
-		    (Error) -> Error 
+		    (Error) -> Error
 		 end,
 
     do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify),
@@ -2589,7 +2589,7 @@ simple_sync_set1(doc) -> ["Simple (sync) set-request - "
 			  "Old style (Addr & Port)"];
 simple_sync_set1(suite) -> [];
 simple_sync_set1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?SKIP(api_no_longer_supported),
 
     process_flag(trap_exit, true),
     put(tname, sss1),
@@ -2629,7 +2629,7 @@ do_simple_set1(Node, Addr, Port, VAVs) ->
 	 "~n   Rem:   ~w", [Reply, _Rem]),
 
     %% verify that the operation actually worked:
-    %% The order should be the same, so no need to seach 
+    %% The order should be the same, so no need to search
     %% The value we get should be exactly the same as we sent
     ?line ok = case Reply of
 		   {noError, 0, [#varbind{oid   = ?sysName_instance,
@@ -2655,10 +2655,10 @@ value_of_vavs([{_Oid, _Type, Val}|VAVs], Acc) ->
 value_of_vavs([{_Oid, Val}|VAVs], Acc) ->
     value_of_vavs(VAVs, [Val|Acc]).
 
-			       
+
 %%======================================================================
 
-simple_sync_set2(doc) -> 
+simple_sync_set2(doc) ->
     ["Simple (sync) set-request - Version 2 API (TargetName)"];
 simple_sync_set2(suite) -> [];
 simple_sync_set2(Config) when is_list(Config) ->
@@ -2666,8 +2666,8 @@ simple_sync_set2(Config) when is_list(Config) ->
     put(tname, sss2),
     p("starting with Config: ~p~n", [Config]),
 
-    Set = fun(Node, TargetName, VAVs) -> 
-		  mgr_user_sync_set(Node, TargetName, VAVs) 
+    Set = fun(Node, TargetName, VAVs) ->
+		  mgr_user_sync_set(Node, TargetName, VAVs)
 	  end,
     PostVerify = fun() -> ok end,
 
@@ -2675,7 +2675,7 @@ simple_sync_set2(Config) when is_list(Config) ->
     display_log(Config),
     ok.
 
-do_simple_sync_set2(Config, Set, PostVerify) 
+do_simple_sync_set2(Config, Set, PostVerify)
   when is_function(Set, 3) andalso is_function(PostVerify, 0) ->
 
     Node       = ?config(manager_node, Config),
@@ -2709,7 +2709,7 @@ do_simple_set2(Node, TargetName, VAVs, Set, PostVerify) ->
 	 "~n   Rem:   ~w", [Reply, _Rem]),
 
     %% verify that the operation actually worked:
-    %% The order should be the same, so no need to seach 
+    %% The order should be the same, so no need to search
     %% The value we get should be exactly the same as we sent
     ?line ok = case Reply of
 		   {noError, 0, [#varbind{oid   = ?sysName_instance,
@@ -2728,7 +2728,7 @@ do_simple_set2(Node, TargetName, VAVs, Set, PostVerify) ->
 
 %%======================================================================
 
-simple_sync_set3(doc) -> 
+simple_sync_set3(doc) ->
     ["Simple (sync) set-request - Version 3 API (TargetName with send-opts)"];
 simple_sync_set3(suite) -> [];
 simple_sync_set3(Config) when is_list(Config) ->
@@ -2736,17 +2736,17 @@ simple_sync_set3(Config) when is_list(Config) ->
     put(tname, sss3),
     p("starting with Config: ~p~n", [Config]),
 
-    Self  = self(), 
-    Msg   = simple_sync_set3, 
+    Self  = self(),
+    Msg   = simple_sync_set3,
     Fun   = fun() -> Self ! Msg end,
-    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun}, 
-    SendOpts = 
+    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun},
+    SendOpts =
 	[
 	 {extra, Extra}
-	], 
-    
-    Set = fun(Node, TargetName, VAVs) -> 
-		  mgr_user_sync_set2(Node, TargetName, VAVs, SendOpts) 
+	],
+
+    Set = fun(Node, TargetName, VAVs) ->
+		  mgr_user_sync_set2(Node, TargetName, VAVs, SendOpts)
 	  end,
     PostVerify = fun() -> receive Msg -> ok end end,
 
@@ -2761,7 +2761,7 @@ simple_async_set1(doc) -> ["Simple (async) set-request - "
 			   "Old style (Addr & Port)"];
 simple_async_set1(suite) -> [];
 simple_async_set1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?SKIP(api_no_longer_supported),
 
     process_flag(trap_exit, true),
     put(tname, sas1),
@@ -2773,7 +2773,7 @@ simple_async_set1(Config) when is_list(Config) ->
     Port      = ?AGENT_PORT,
 
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
-    Test2Mib = test2_mib(Config), 
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
 
@@ -2781,7 +2781,7 @@ simple_async_set1(Config) when is_list(Config) ->
 		   async_s_exec1(MgrNode, Addr, Port, X)
 	   end,
 
-    Requests = 
+    Requests =
 	[
 	 {1,
 	  [{?sysName_instance, s, "Arne Anka"}],
@@ -2790,14 +2790,14 @@ simple_async_set1(Config) when is_list(Config) ->
 		  sas_verify(X, [?sysName_instance])
 	  end},
 	 {2,
-	  [{?sysLocation_instance, s, "Stockholm"}, 
+	  [{?sysLocation_instance, s, "Stockholm"},
 	   {?sysName_instance,     s, "Arne Anka"}],
 	  Exec,
 	  fun(X) ->
 		  sas_verify(X, [?sysLocation_instance, ?sysName_instance])
 	  end},
 	 {3,
-	  [{[sysName, 0],     "Gothenburg"}, 
+	  [{[sysName, 0],     "Gothenburg"},
 	   {[sysLocation, 0], "Sune Anka"}],
 	  Exec,
 	  fun(X) ->
@@ -2849,10 +2849,10 @@ sas_verify_vbs([#varbind{oid = Oid, value = Value}|Vbs], [{Oid,Value}|Exp]) ->
 sas_verify_vbs([Vb|_], [E|_]) ->
     {error, {unexpected_vb, Vb, E}}.
 
-    
+
 %%======================================================================
 
-simple_async_set2(doc) -> 
+simple_async_set2(doc) ->
     ["Simple (async) set-request - Version 2 API (TargetName)"];
 simple_async_set2(suite) -> [];
 simple_async_set2(Config) when is_list(Config) ->
@@ -2865,11 +2865,11 @@ simple_async_set2(Config) when is_list(Config) ->
     TargetName = ?config(manager_agent_target_name, Config),
 
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
-    Test2Mib = test2_mib(Config), 
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
 
-    Set = 
+    Set =
 	fun(Oids) ->
 		async_s_exec2(MgrNode, TargetName, Oids)
 	end,
@@ -2880,7 +2880,7 @@ simple_async_set2(Config) when is_list(Config) ->
     ok.
 
 do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify) ->
-    Requests = 
+    Requests =
 	[
 	 {1,
 	  [{?sysName_instance, s, "Arne Anka"}],
@@ -2889,21 +2889,21 @@ do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify) ->
 		  PostVerify(sas_verify(X, [?sysName_instance]))
 	  end},
 	 {2,
-	  [{?sysLocation_instance, s, "Stockholm"}, 
+	  [{?sysLocation_instance, s, "Stockholm"},
 	   {?sysName_instance,     s, "Arne Anka"}],
 	  Set,
 	  fun(X) ->
-		  PostVerify(sas_verify(X, 
-					[?sysLocation_instance, 
+		  PostVerify(sas_verify(X,
+					[?sysLocation_instance,
 					 ?sysName_instance]))
 	  end},
 	 {3,
-	  [{[sysName, 0],     "Gothenburg"}, 
+	  [{[sysName, 0],     "Gothenburg"},
 	   {[sysLocation, 0], "Sune Anka"}],
 	  Set,
 	  fun(X) ->
-		  PostVerify(sas_verify(X, 
-					[?sysName_instance, 
+		  PostVerify(sas_verify(X,
+					[?sysName_instance,
 					 ?sysLocation_instance]))
 	  end}
 	],
@@ -2925,7 +2925,7 @@ async_s_exec2(Node, TargetName, VAVs) ->
 
 %%======================================================================
 
-simple_async_set3(doc) -> 
+simple_async_set3(doc) ->
     ["Simple (async) set-request - Version 3 API (TargetName with send-opts)"];
 simple_async_set3(suite) -> [];
 simple_async_set3(Config) when is_list(Config) ->
@@ -2938,25 +2938,25 @@ simple_async_set3(Config) when is_list(Config) ->
     TargetName = ?config(manager_agent_target_name, Config),
 
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
-    Test2Mib = test2_mib(Config), 
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
 
-    Self  = self(), 
-    Msg   = simple_async_set3, 
+    Self  = self(),
+    Msg   = simple_async_set3,
     Fun   = fun() -> Self ! Msg end,
-    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun}, 
-    SendOpts = 
+    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun},
+    SendOpts =
 	[
 	 {extra, Extra}
-	], 
+	],
 
-    Set = 
+    Set =
 	fun(Oids) ->
 		async_s_exec3(MgrNode, TargetName, Oids, SendOpts)
 	end,
-    PostVerify = fun(ok)  -> receive Msg -> ok end; 
-		    (Res) -> Res 
+    PostVerify = fun(ok)  -> receive Msg -> ok end;
+		    (Res) -> Res
 		 end,
 
     do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify),
@@ -2973,7 +2973,7 @@ simple_sync_get_bulk1(doc) -> ["Simple (sync) get_bulk-request - "
 			       "Old style (Addr & Port)"];
 simple_sync_get_bulk1(suite) -> [];
 simple_sync_get_bulk1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?SKIP(api_no_longer_supported),
 
     process_flag(trap_exit, true),
     put(tname, ssgb1),
@@ -2986,107 +2986,107 @@ simple_sync_get_bulk1(Config) when is_list(Config) ->
 
     %% -- 1 --
     ?line ok = do_simple_get_bulk1(1,
-				  MgrNode, Addr, Port,  1,  1, [], 
-				  fun verify_ssgb_reply1/1), 
+				  MgrNode, Addr, Port,  1,  1, [],
+				  fun verify_ssgb_reply1/1),
 
     %% -- 2 --
-    ?line ok = do_simple_get_bulk1(2, 
-				  MgrNode, Addr, Port, -1,  1, [], 
-				  fun verify_ssgb_reply1/1), 
+    ?line ok = do_simple_get_bulk1(2,
+				  MgrNode, Addr, Port, -1,  1, [],
+				  fun verify_ssgb_reply1/1),
 
     %% -- 3 --
-    ?line ok = do_simple_get_bulk1(3, 
-				  MgrNode, Addr, Port, -1, -1, [], 
-				  fun verify_ssgb_reply1/1), 
+    ?line ok = do_simple_get_bulk1(3,
+				  MgrNode, Addr, Port, -1, -1, [],
+				  fun verify_ssgb_reply1/1),
 
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
     %% -- 4 --
-    VF04 = fun(X) -> 
-		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView]) 
+    VF04 = fun(X) ->
+		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView])
 	   end,
     ?line ok = do_simple_get_bulk1(4,
-				  MgrNode, Addr, Port,  
+				  MgrNode, Addr, Port,
 				  2, 0, [[sysDescr],[1,3,7,1]], VF04),
 
     %% -- 5 --
     ?line ok = do_simple_get_bulk1(5,
-				  MgrNode, Addr, Port,  
+				  MgrNode, Addr, Port,
 				  1, 2, [[sysDescr],[1,3,7,1]], VF04),
 
     %% -- 6 --
-    VF06 = fun(X) -> 
-		   verify_ssgb_reply2(X, 
+    VF06 = fun(X) ->
+		   verify_ssgb_reply2(X,
 				      [?sysDescr_instance,    endOfMibView,
-				       ?sysObjectID_instance, endOfMibView]) 
+				       ?sysObjectID_instance, endOfMibView])
 	   end,
     ?line ok = do_simple_get_bulk1(6,
-				  MgrNode, Addr, Port,  
-				  0, 2, [[sysDescr],[1,3,7,1]], VF06), 
+				  MgrNode, Addr, Port,
+				  0, 2, [[sysDescr],[1,3,7,1]], VF06),
 
     %% -- 7 --
-    VF07 = fun(X) -> 
-		   verify_ssgb_reply2(X, 
+    VF07 = fun(X) ->
+		   verify_ssgb_reply2(X,
 				      [?sysDescr_instance,    endOfMibView,
 				       ?sysDescr_instance,    endOfMibView,
-				       ?sysObjectID_instance, endOfMibView]) 
+				       ?sysObjectID_instance, endOfMibView])
 	   end,
     ?line ok = do_simple_get_bulk1(7,
-				  MgrNode, Addr, Port,  
-				  2, 2, 
+				  MgrNode, Addr, Port,
+				  2, 2,
 				  [[sysDescr],[1,3,7,1],[sysDescr],[1,3,7,1]],
-				  VF07), 
+				  VF07),
 
-    Test2Mib = test2_mib(Config), 
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
 
     %% -- 8 --
-    VF08 = fun(X) -> 
-		   verify_ssgb_reply2(X, 
-				      [?sysDescr_instance, 
-				       ?sysDescr_instance]) 
+    VF08 = fun(X) ->
+		   verify_ssgb_reply2(X,
+				      [?sysDescr_instance,
+				       ?sysDescr_instance])
 	   end,
     ?line ok = do_simple_get_bulk1(8,
-				  MgrNode, Addr, Port,  
-				  1, 2, 
+				  MgrNode, Addr, Port,
+				  1, 2,
 				  [[sysDescr],[sysDescr],[tTooBig]],
-				 VF08), 
+				 VF08),
 
     %% -- 9 --
     ?line ok = do_simple_get_bulk1(9,
-				  MgrNode, Addr, Port,  
-				  1, 12, 
-				  [[tDescr2], [sysDescr]], 
+				  MgrNode, Addr, Port,
+				  1, 12,
+				  [[tDescr2], [sysDescr]],
 				  fun verify_ssgb_reply1/1),
 
     %% -- 10 --
-    VF10 = fun(X) -> 
-		   verify_ssgb_reply3(X, 
-				      [{?sysDescr,    'NULL'}, 
+    VF10 = fun(X) ->
+		   verify_ssgb_reply3(X,
+				      [{?sysDescr,    'NULL'},
 				       {?sysObjectID, 'NULL'},
 				       {?tGenErr1,    'NULL'},
-				       {?sysDescr,    'NULL'}]) 
+				       {?sysDescr,    'NULL'}])
 	   end,
     ?line ok = do_simple_get_bulk1(10,
-				  MgrNode, Addr, Port,  
-				  2, 2, 
-				  [[sysDescr], 
-				   [sysObjectID], 
-				   [tGenErr1], 
+				  MgrNode, Addr, Port,
+				  2, 2,
+				  [[sysDescr],
+				   [sysObjectID],
+				   [tGenErr1],
 				   [sysDescr]],
-				 VF10), 
+				 VF10),
 
     %% -- 11 --
     ?line {ok, [TCnt2|_]} = mgr_user_name_to_oid(MgrNode, tCnt2),
     p("TCnt2: ~p", [TCnt2]),
-    VF11 = fun(X) -> 
-		   verify_ssgb_reply2(X, 
-				      [{fl([TCnt2,2]), 100}, 
-				       {fl([TCnt2,2]), endOfMibView}]) 
+    VF11 = fun(X) ->
+		   verify_ssgb_reply2(X,
+				      [{fl([TCnt2,2]), 100},
+				       {fl([TCnt2,2]), endOfMibView}])
 	   end,
     ?line ok = do_simple_get_bulk1(11,
-				  MgrNode, Addr, Port,  
-				  0, 2, 
+				  MgrNode, Addr, Port,
+				  0, 2,
 				  [[TCnt2, 1]], VF11),
 
     display_log(Config),
@@ -3129,12 +3129,12 @@ check_ssgb_vbs(Unexpected, []) ->
     {error, {unexpected_vbs, Unexpected}};
 check_ssgb_vbs([], Expected) ->
     {error, {expected_vbs, Expected}};
-check_ssgb_vbs([#varbind{value = endOfMibView}|R], 
+check_ssgb_vbs([#varbind{value = endOfMibView}|R],
 	       [endOfMibView|Expected]) ->
     check_ssgb_vbs(R, Expected);
 check_ssgb_vbs([#varbind{oid = Oid}|R], [Oid|Expected]) ->
     check_ssgb_vbs(R, Expected);
-check_ssgb_vbs([#varbind{oid = Oid, value = Value}|R], 
+check_ssgb_vbs([#varbind{oid = Oid, value = Value}|R],
 	       [{Oid, Value}|Expected]) ->
     check_ssgb_vbs(R, Expected);
 check_ssgb_vbs([R|_], [E|_]) ->
@@ -3143,7 +3143,7 @@ check_ssgb_vbs([R|_], [E|_]) ->
 
 %%======================================================================
 
-simple_sync_get_bulk2(doc) -> 
+simple_sync_get_bulk2(doc) ->
     ["Simple (sync) get_bulk-request - Version 2 API (TargetName)"];
 simple_sync_get_bulk2(suite) -> [];
 simple_sync_get_bulk2(Config) when is_list(Config) ->
@@ -3155,10 +3155,10 @@ simple_sync_get_bulk2(Config) when is_list(Config) ->
     AgentNode  = ?config(agent_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
 
-    GetBulk = 
+    GetBulk =
 	fun(NonRep, MaxRep, Oids) ->
-		mgr_user_sync_get_bulk(MgrNode, TargetName, 
-				       NonRep, MaxRep, Oids)    
+		mgr_user_sync_get_bulk(MgrNode, TargetName,
+				       NonRep, MaxRep, Oids)
 	end,
     PostVerify = fun(Res) -> Res end,
 
@@ -3169,119 +3169,119 @@ simple_sync_get_bulk2(Config) when is_list(Config) ->
 do_simple_sync_get_bulk2(Config, MgrNode, AgentNode, GetBulk, PostVerify) ->
     %% -- 1 --
     ?line ok = do_simple_get_bulk2(1,
-				   1,  1, [], 
-				   fun verify_ssgb_reply1/1, 
-				   GetBulk, PostVerify), 
-    
+				   1,  1, [],
+				   fun verify_ssgb_reply1/1,
+				   GetBulk, PostVerify),
+
     %% -- 2 --
-    ?line ok = do_simple_get_bulk2(2, 
-				   -1,  1, [], 
-				   fun verify_ssgb_reply1/1, 
-				   GetBulk, PostVerify), 
+    ?line ok = do_simple_get_bulk2(2,
+				   -1,  1, [],
+				   fun verify_ssgb_reply1/1,
+				   GetBulk, PostVerify),
 
     %% -- 3 --
-    ?line ok = do_simple_get_bulk2(3, 
-				   -1, -1, [], 
-				   fun verify_ssgb_reply1/1, 
-				   GetBulk, PostVerify), 
+    ?line ok = do_simple_get_bulk2(3,
+				   -1, -1, [],
+				   fun verify_ssgb_reply1/1,
+				   GetBulk, PostVerify),
 
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
     %% -- 4 --
-    VF04 = fun(X) -> 
-		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView]) 
+    VF04 = fun(X) ->
+		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView])
 	   end,
     ?line ok = do_simple_get_bulk2(4,
-				   2, 0, [[sysDescr],[1,3,7,1]], VF04, 
+				   2, 0, [[sysDescr],[1,3,7,1]], VF04,
 				   GetBulk, PostVerify),
 
     %% -- 5 --
     ?line ok = do_simple_get_bulk2(5,
-				   1, 2, [[sysDescr],[1,3,7,1]], VF04, 
+				   1, 2, [[sysDescr],[1,3,7,1]], VF04,
 				   GetBulk, PostVerify),
 
     %% -- 6 --
-    VF06 = fun(X) -> 
-		   verify_ssgb_reply2(X, 
+    VF06 = fun(X) ->
+		   verify_ssgb_reply2(X,
 				      [?sysDescr_instance,    endOfMibView,
-				       ?sysObjectID_instance, endOfMibView]) 
+				       ?sysObjectID_instance, endOfMibView])
 	   end,
     ?line ok = do_simple_get_bulk2(6,
-				   0, 2, [[sysDescr],[1,3,7,1]], VF06, 
-				   GetBulk, PostVerify), 
+				   0, 2, [[sysDescr],[1,3,7,1]], VF06,
+				   GetBulk, PostVerify),
 
     %% -- 7 --
-    VF07 = fun(X) -> 
-		   verify_ssgb_reply2(X, 
+    VF07 = fun(X) ->
+		   verify_ssgb_reply2(X,
 				      [?sysDescr_instance,    endOfMibView,
 				       ?sysDescr_instance,    endOfMibView,
-				       ?sysObjectID_instance, endOfMibView]) 
+				       ?sysObjectID_instance, endOfMibView])
 	   end,
     ?line ok = do_simple_get_bulk2(7,
-				   2, 2, 
+				   2, 2,
 				   [[sysDescr],[1,3,7,1],[sysDescr],[1,3,7,1]],
-				   VF07, 
-				   GetBulk, PostVerify), 
+				   VF07,
+				   GetBulk, PostVerify),
 
-    Test2Mib = test2_mib(Config), 
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
 
     %% -- 8 --
-    VF08 = fun(X) -> 
-		   verify_ssgb_reply2(X, 
-				      [?sysDescr_instance, 
-				       ?sysDescr_instance]) 
+    VF08 = fun(X) ->
+		   verify_ssgb_reply2(X,
+				      [?sysDescr_instance,
+				       ?sysDescr_instance])
 	   end,
     ?line ok = do_simple_get_bulk2(8,
-				   1, 2, 
+				   1, 2,
 				   [[sysDescr],[sysDescr],[tTooBig]],
-				   VF08, 
-				   GetBulk, PostVerify), 
+				   VF08,
+				   GetBulk, PostVerify),
 
     %% -- 9 --
     ?line ok = do_simple_get_bulk2(9,
-				   1, 12, 
-				   [[tDescr2], [sysDescr]], 
-				   fun verify_ssgb_reply1/1, 
+				   1, 12,
+				   [[tDescr2], [sysDescr]],
+				   fun verify_ssgb_reply1/1,
 				   GetBulk, PostVerify),
 
     %% -- 10 --
-    VF10 = fun(X) -> 
-		   verify_ssgb_reply3(X, 
-				      [{?sysDescr,    'NULL'}, 
+    VF10 = fun(X) ->
+		   verify_ssgb_reply3(X,
+				      [{?sysDescr,    'NULL'},
 				       {?sysObjectID, 'NULL'},
 				       {?tGenErr1,    'NULL'},
-				       {?sysDescr,    'NULL'}]) 
+				       {?sysDescr,    'NULL'}])
 	   end,
     ?line ok = do_simple_get_bulk2(10,
-				   2, 2, 
-				   [[sysDescr], 
-				    [sysObjectID], 
-				    [tGenErr1], 
+				   2, 2,
+				   [[sysDescr],
+				    [sysObjectID],
+				    [tGenErr1],
 				    [sysDescr]],
-				   VF10, 
-				   GetBulk, PostVerify), 
+				   VF10,
+				   GetBulk, PostVerify),
 
     %% -- 11 --
     ?line {ok, [TCnt2|_]} = mgr_user_name_to_oid(MgrNode, tCnt2),
     p("TCnt2: ~p", [TCnt2]),
-    VF11 = fun(X) -> 
-		   verify_ssgb_reply2(X, 
-				      [{fl([TCnt2,2]), 100}, 
-				       {fl([TCnt2,2]), endOfMibView}]) 
+    VF11 = fun(X) ->
+		   verify_ssgb_reply2(X,
+				      [{fl([TCnt2,2]), 100},
+				       {fl([TCnt2,2]), endOfMibView}])
 	   end,
     ?line ok = do_simple_get_bulk2(11,
-				   0, 2, 
-				   [[TCnt2, 1]], VF11, 
+				   0, 2,
+				   [[TCnt2, 1]], VF11,
 				   GetBulk, PostVerify),
-    
+
     ok.
 
-do_simple_get_bulk2(N, 
-		    NonRep, MaxRep, Oids, 
-		    Verify, GetBulk, PostVerify) 
-  when is_function(Verify, 1) andalso 
-       is_function(GetBulk, 3) andalso 
+do_simple_get_bulk2(N,
+		    NonRep, MaxRep, Oids,
+		    Verify, GetBulk, PostVerify)
+  when is_function(Verify, 1) andalso
+       is_function(GetBulk, 3) andalso
        is_function(PostVerify) ->
     p("issue get-bulk command ~w", [N]),
     case GetBulk(NonRep, MaxRep, Oids) of
@@ -3298,7 +3298,7 @@ do_simple_get_bulk2(N,
 
 %%======================================================================
 
-simple_sync_get_bulk3(doc) -> 
+simple_sync_get_bulk3(doc) ->
     ["Simple (sync) get_bulk-request - "
      "Version 3 API (TargetName with send-opts)"];
 simple_sync_get_bulk3(suite) -> [];
@@ -3311,22 +3311,22 @@ simple_sync_get_bulk3(Config) when is_list(Config) ->
     AgentNode  = ?config(agent_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
 
-    Self  = self(), 
-    Msg   = simple_async_set3, 
+    Self  = self(),
+    Msg   = simple_async_set3,
     Fun   = fun() -> Self ! Msg end,
-    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun}, 
-    SendOpts = 
+    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun},
+    SendOpts =
 	[
 	 {extra, Extra}
-	], 
+	],
 
-    GetBulk = 
+    GetBulk =
 	fun(NonRep, MaxRep, Oids) ->
-		mgr_user_sync_get_bulk2(MgrNode, TargetName, 
-					NonRep, MaxRep, Oids, SendOpts)    
+		mgr_user_sync_get_bulk2(MgrNode, TargetName,
+					NonRep, MaxRep, Oids, SendOpts)
 	end,
     PostVerify = fun(ok) -> receive Msg -> ok end;
-		    (Res) -> Res 
+		    (Res) -> Res
 		 end,
 
     do_simple_sync_get_bulk2(Config, MgrNode, AgentNode, GetBulk, PostVerify),
@@ -3340,19 +3340,19 @@ simple_async_get_bulk1(doc) -> ["Simple (async) get_bulk-request - "
 				"Old style (Addr & Port)"];
 simple_async_get_bulk1(suite) -> [];
 simple_async_get_bulk1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?SKIP(api_no_longer_supported),
 
     process_flag(trap_exit, true),
     put(tname, sagb1),
     p("starting with Config: ~p~n", [Config]),
-    
+
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node, Config),
     Addr = ?config(ip, Config),
     Port = ?AGENT_PORT,
 
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
-    Test2Mib = test2_mib(Config), 
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
 
@@ -3361,106 +3361,106 @@ simple_async_get_bulk1(Config) when is_list(Config) ->
 	   end,
 
     %% We re-use the verification functions from the ssgb test-case
-    VF04 = fun(X) -> 
-		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView]) 
+    VF04 = fun(X) ->
+		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView])
 	   end,
-    VF06 = fun(X) -> 
-		   verify_ssgb_reply2(X, 
+    VF06 = fun(X) ->
+		   verify_ssgb_reply2(X,
 				      [?sysDescr_instance,    endOfMibView,
-				       ?sysObjectID_instance, endOfMibView]) 
+				       ?sysObjectID_instance, endOfMibView])
 	   end,
-    VF07 = fun(X) -> 
-		   verify_ssgb_reply2(X, 
+    VF07 = fun(X) ->
+		   verify_ssgb_reply2(X,
 				      [?sysDescr_instance,    endOfMibView,
 				       ?sysDescr_instance,    endOfMibView,
-				       ?sysObjectID_instance, endOfMibView]) 
+				       ?sysObjectID_instance, endOfMibView])
 	   end,
-    VF08 = fun(X) -> 
-		   verify_ssgb_reply2(X, 
-				      [?sysDescr_instance, 
-				       ?sysDescr_instance]) 
+    VF08 = fun(X) ->
+		   verify_ssgb_reply2(X,
+				      [?sysDescr_instance,
+				       ?sysDescr_instance])
 	   end,
-    VF10 = fun(X) -> 
-		   verify_ssgb_reply3(X, 
-				      [{?sysDescr,    'NULL'}, 
+    VF10 = fun(X) ->
+		   verify_ssgb_reply3(X,
+				      [{?sysDescr,    'NULL'},
 				       {?sysObjectID, 'NULL'},
 				       {?tGenErr1,    'NULL'},
-				       {?sysDescr,    'NULL'}]) 
+				       {?sysDescr,    'NULL'}])
 	   end,
     ?line {ok, [TCnt2|_]} = mgr_user_name_to_oid(MgrNode, tCnt2),
-    VF11 = fun(X) -> 
-		   verify_ssgb_reply2(X, 
-				      [{fl([TCnt2,2]), 100}, 
-				       {fl([TCnt2,2]), endOfMibView}]) 
+    VF11 = fun(X) ->
+		   verify_ssgb_reply2(X,
+				      [{fl([TCnt2,2]), 100},
+				       {fl([TCnt2,2]), endOfMibView}])
 	   end,
     Requests = [
-		{ 1,  
-		  {1,  1, []}, 
-		  Exec, 
+		{ 1,
+		  {1,  1, []},
+		  Exec,
 		  fun verify_ssgb_reply1/1},
-		{ 2, 
-		  {-1,  1, []}, 
-		  Exec, 
+		{ 2,
+		  {-1,  1, []},
+		  Exec,
 		  fun verify_ssgb_reply1/1},
-		{ 3, 
-		  {-1, -1, []}, 
-		  Exec, 
+		{ 3,
+		  {-1, -1, []},
+		  Exec,
 		  fun verify_ssgb_reply1/1},
-		{ 4,  
-		  {2,  0, [[sysDescr],[1,3,7,1]]}, 
-		  Exec, 
+		{ 4,
+		  {2,  0, [[sysDescr],[1,3,7,1]]},
+		  Exec,
 		  VF04},
-		{ 5,  
-		  {1,  2, [[sysDescr],[1,3,7,1]]}, 
-		  Exec, 
+		{ 5,
+		  {1,  2, [[sysDescr],[1,3,7,1]]},
+		  Exec,
 		  VF04},
-		{ 6,  
-		  {0,  2, [[sysDescr],[1,3,7,1]]}, 
-		  Exec, 
+		{ 6,
+		  {0,  2, [[sysDescr],[1,3,7,1]]},
+		  Exec,
 		  VF06},
-		{ 7,  
-		  {2,  2, [[sysDescr],[1,3,7,1],[sysDescr],[1,3,7,1]]}, 
-		  Exec, 
+		{ 7,
+		  {2,  2, [[sysDescr],[1,3,7,1],[sysDescr],[1,3,7,1]]},
+		  Exec,
 		  VF07},
-		{ 8,  
-		  {1,  2, [[sysDescr],[sysDescr],[tTooBig]]}, 
-		  Exec, 
+		{ 8,
+		  {1,  2, [[sysDescr],[sysDescr],[tTooBig]]},
+		  Exec,
 		  VF08},
-		{ 9,  
-		  {1, 12, [[tDescr2], [sysDescr]]}, 
-		  Exec, 
+		{ 9,
+		  {1, 12, [[tDescr2], [sysDescr]]},
+		  Exec,
 		  fun verify_ssgb_reply1/1},
-		{10,  
-		 {2,  2, [[sysDescr],[sysObjectID], [tGenErr1],[sysDescr]]}, 
-		 Exec, 
-		 VF10},
-		{11,  
-		 {0,  2, [[TCnt2, 1]]}, 
+		{10,
+		 {2,  2, [[sysDescr],[sysObjectID], [tGenErr1],[sysDescr]]},
 		 Exec,
-		 VF11}, 
-		{12,  
-		 {2,  0, [[sysDescr],[1,3,7,1]]}, 
+		 VF10},
+		{11,
+		 {0,  2, [[TCnt2, 1]]},
+		 Exec,
+		 VF11},
+		{12,
+		 {2,  0, [[sysDescr],[1,3,7,1]]},
 		 Exec,
 		 VF04},
-		{13,  
+		{13,
 		 {1, 12, [[tDescr2], [sysDescr]]},
-		 Exec, 
+		 Exec,
 		 fun verify_ssgb_reply1/1},
-		{14,  
+		{14,
 		 {2,  2, [[sysDescr],[sysObjectID],[tGenErr1],[sysDescr]]},
-		 Exec, 
+		 Exec,
 		 VF10},
-		{15,  
+		{15,
 		 {0,  2, [[TCnt2, 1]]},
-		 Exec, 
+		 Exec,
 		 VF11},
-		{16,  
+		{16,
 		 {2,  2, [[sysDescr],[1,3,7,1],[sysDescr],[1,3,7,1]]},
-		 Exec, 
+		 Exec,
 		 VF07},
-		{17,  
+		{17,
 		 {2,  2, [[sysDescr],[sysObjectID], [tGenErr1],[sysDescr]]},
-		 Exec, 
+		 Exec,
 		 VF10}
 	       ],
 
@@ -3482,24 +3482,24 @@ async_gb_exec1(Node, Addr, Port, {NR, MR, Oids}) ->
 
 %%======================================================================
 
-simple_async_get_bulk2(doc) -> 
+simple_async_get_bulk2(doc) ->
     ["Simple (async) get_bulk-request - Version 2 API (TargetName)"];
 simple_async_get_bulk2(suite) -> [];
 simple_async_get_bulk2(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     put(tname, sagb2),
     p("starting with Config: ~p~n", [Config]),
-    
+
     MgrNode    = ?config(manager_node, Config),
     AgentNode  = ?config(agent_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
 
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
-    Test2Mib = test2_mib(Config), 
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
 
-    GetBulk = 
+    GetBulk =
 	fun(Data) ->
 		async_gb_exec2(MgrNode, TargetName, Data)
 	end,
@@ -3511,112 +3511,112 @@ simple_async_get_bulk2(Config) when is_list(Config) ->
 
 do_simple_async_get_bulk2(MgrNode, AgentNode, GetBulk, PostVerify) ->
     %% We re-use the verification functions from the ssgb test-case
-    VF04 = fun(X) -> 
+    VF04 = fun(X) ->
 		   PostVerify(
 		     verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView]))
 	   end,
-    VF06 = fun(X) -> 
+    VF06 = fun(X) ->
 		   PostVerify(
-		     verify_ssgb_reply2(X, 
+		     verify_ssgb_reply2(X,
 					[?sysDescr_instance,    endOfMibView,
 					 ?sysObjectID_instance, endOfMibView]))
 	   end,
-    VF07 = fun(X) -> 
+    VF07 = fun(X) ->
 		   PostVerify(
-		     verify_ssgb_reply2(X, 
+		     verify_ssgb_reply2(X,
 					[?sysDescr_instance,    endOfMibView,
 					 ?sysDescr_instance,    endOfMibView,
 					 ?sysObjectID_instance, endOfMibView]))
 	   end,
-    VF08 = fun(X) -> 
+    VF08 = fun(X) ->
 		   PostVerify(
-		     verify_ssgb_reply2(X, 
-					[?sysDescr_instance, 
-					 ?sysDescr_instance])) 
+		     verify_ssgb_reply2(X,
+					[?sysDescr_instance,
+					 ?sysDescr_instance]))
 	   end,
-    VF10 = fun(X) -> 
+    VF10 = fun(X) ->
 		   PostVerify(
-		     verify_ssgb_reply3(X, 
-					[{?sysDescr,    'NULL'}, 
+		     verify_ssgb_reply3(X,
+					[{?sysDescr,    'NULL'},
 					 {?sysObjectID, 'NULL'},
 					 {?tGenErr1,    'NULL'},
-					 {?sysDescr,    'NULL'}])) 
+					 {?sysDescr,    'NULL'}]))
 	   end,
     ?line {ok, [TCnt2|_]} = mgr_user_name_to_oid(MgrNode, tCnt2),
-    VF11 = fun(X) -> 
+    VF11 = fun(X) ->
 		   PostVerify(
-		     verify_ssgb_reply2(X, 
-					[{fl([TCnt2,2]), 100}, 
+		     verify_ssgb_reply2(X,
+					[{fl([TCnt2,2]), 100},
 					 {fl([TCnt2,2]), endOfMibView}]))
 	   end,
     Requests = [
-		{ 1,  
-		  {1,  1, []}, 
-		  GetBulk, 
+		{ 1,
+		  {1,  1, []},
+		  GetBulk,
 		  fun(X) -> PostVerify(verify_ssgb_reply1(X)) end},
-		{ 2, 
-		  {-1,  1, []}, 
-		  GetBulk, 
+		{ 2,
+		  {-1,  1, []},
+		  GetBulk,
 		  fun(X) -> PostVerify(verify_ssgb_reply1(X)) end},
-		{ 3, 
-		  {-1, -1, []}, 
-		  GetBulk, 
+		{ 3,
+		  {-1, -1, []},
+		  GetBulk,
 		  fun(X) -> PostVerify(verify_ssgb_reply1(X)) end},
-		{ 4,  
-		  {2,  0, [[sysDescr],[1,3,7,1]]}, 
-		  GetBulk, 
+		{ 4,
+		  {2,  0, [[sysDescr],[1,3,7,1]]},
+		  GetBulk,
 		  VF04},
-		{ 5,  
-		  {1,  2, [[sysDescr],[1,3,7,1]]}, 
-		  GetBulk, 
+		{ 5,
+		  {1,  2, [[sysDescr],[1,3,7,1]]},
+		  GetBulk,
 		  VF04},
-		{ 6,  
-		  {0,  2, [[sysDescr],[1,3,7,1]]}, 
-		  GetBulk, 
+		{ 6,
+		  {0,  2, [[sysDescr],[1,3,7,1]]},
+		  GetBulk,
 		  VF06},
-		{ 7,  
-		  {2,  2, [[sysDescr],[1,3,7,1],[sysDescr],[1,3,7,1]]}, 
-		  GetBulk, 
+		{ 7,
+		  {2,  2, [[sysDescr],[1,3,7,1],[sysDescr],[1,3,7,1]]},
+		  GetBulk,
 		  VF07},
-		{ 8,  
-		  {1,  2, [[sysDescr],[sysDescr],[tTooBig]]}, 
-		  GetBulk, 
+		{ 8,
+		  {1,  2, [[sysDescr],[sysDescr],[tTooBig]]},
+		  GetBulk,
 		  VF08},
-		{ 9,  
-		  {1, 12, [[tDescr2], [sysDescr]]}, 
-		  GetBulk, 
+		{ 9,
+		  {1, 12, [[tDescr2], [sysDescr]]},
+		  GetBulk,
 		  fun(X) -> PostVerify(verify_ssgb_reply1(X)) end},
-		{10,  
-		 {2,  2, [[sysDescr],[sysObjectID], [tGenErr1],[sysDescr]]}, 
-		 GetBulk, 
-		 VF10},
-		{11,  
-		 {0,  2, [[TCnt2, 1]]}, 
+		{10,
+		 {2,  2, [[sysDescr],[sysObjectID], [tGenErr1],[sysDescr]]},
 		 GetBulk,
-		 VF11}, 
-		{12,  
-		 {2,  0, [[sysDescr],[1,3,7,1]]}, 
+		 VF10},
+		{11,
+		 {0,  2, [[TCnt2, 1]]},
+		 GetBulk,
+		 VF11},
+		{12,
+		 {2,  0, [[sysDescr],[1,3,7,1]]},
 		 GetBulk,
 		 VF04},
-		{13,  
+		{13,
 		 {1, 12, [[tDescr2], [sysDescr]]},
-		 GetBulk, 
+		 GetBulk,
 		 fun(X) -> PostVerify(verify_ssgb_reply1(X)) end},
-		{14,  
+		{14,
 		 {2,  2, [[sysDescr],[sysObjectID],[tGenErr1],[sysDescr]]},
-		 GetBulk, 
+		 GetBulk,
 		 VF10},
-		{15,  
+		{15,
 		 {0,  2, [[TCnt2, 1]]},
-		 GetBulk, 
+		 GetBulk,
 		 VF11},
-		{16,  
+		{16,
 		 {2,  2, [[sysDescr],[1,3,7,1],[sysDescr],[1,3,7,1]]},
-		 GetBulk, 
+		 GetBulk,
 		 VF07},
-		{17,  
+		{17,
 		 {2,  2, [[sysDescr],[sysObjectID], [tGenErr1],[sysDescr]]},
-		 GetBulk, 
+		 GetBulk,
 		 VF10}
 	       ],
 
@@ -3637,7 +3637,7 @@ async_gb_exec2(Node, TargetName, {NR, MR, Oids}) ->
 
 %%======================================================================
 
-simple_async_get_bulk3(doc) -> 
+simple_async_get_bulk3(doc) ->
     ["Simple (async) get_bulk-request - "
      "Version 3 API (TargetName with send-opts)"];
 simple_async_get_bulk3(suite) -> [];
@@ -3651,25 +3651,25 @@ simple_async_get_bulk3(Config) when is_list(Config) ->
     TargetName = ?config(manager_agent_target_name, Config),
 
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
-    Test2Mib = test2_mib(Config), 
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
 
-    Self  = self(), 
-    Msg   = simple_async_get_bulk3, 
+    Self  = self(),
+    Msg   = simple_async_get_bulk3,
     Fun   = fun() -> Self ! Msg end,
-    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun}, 
-    SendOpts = 
+    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun},
+    SendOpts =
 	[
 	 {extra, Extra}
-	], 
+	],
 
-    GetBulk = 
+    GetBulk =
 	fun(Data) ->
 		async_gb_exec3(MgrNode, TargetName, Data, SendOpts)
 	end,
     PostVerify = fun(ok)  -> receive Msg -> ok end;
-		    (Res) -> Res 
+		    (Res) -> Res
 		 end,
 
     do_simple_async_get_bulk2(MgrNode, AgentNode, GetBulk, PostVerify),
@@ -3686,7 +3686,7 @@ misc_async1(doc) -> ["Misc (async) request(s) - "
 		     "Old style (Addr & Port)"];
 misc_async1(suite) -> [];
 misc_async1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?SKIP(api_no_longer_supported),
 
     process_flag(trap_exit, true),
     put(tname, ms1),
@@ -3696,170 +3696,170 @@ misc_async1(Config) when is_list(Config) ->
     AgentNode = ?config(agent_node, Config),
     Addr = ?config(ip, Config),
     Port = ?AGENT_PORT,
-    
+
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
-    Test2Mib = test2_mib(Config), 
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
-    
+
     ExecG = fun(Data) ->
 		    async_g_exec1(MgrNode, Addr, Port, Data)
 	    end,
-    
+
     ExecGN = fun(Data) ->
 		     async_gn_exec1(MgrNode, Addr, Port, Data)
 	     end,
-    
+
     ExecS = fun(Data) ->
 		    async_s_exec1(MgrNode, Addr, Port, Data)
 	    end,
-    
+
     ExecGB = fun(Data) ->
 		     async_gb_exec1(MgrNode, Addr, Port, Data)
 	     end,
-    
+
     ?line {ok, [TCnt2|_]}    = mgr_user_name_to_oid(MgrNode, tCnt2),
     ?line {ok, [TGenErr1|_]} = mgr_user_name_to_oid(MgrNode, tGenErr1),
     ?line {ok, [TGenErr2|_]} = mgr_user_name_to_oid(MgrNode, tGenErr2),
     ?line {ok, [TGenErr3|_]} = mgr_user_name_to_oid(MgrNode, tGenErr3),
     ?line {ok, [TTooBig|_]}  = mgr_user_name_to_oid(MgrNode, tTooBig),
 
-    Requests = 
+    Requests =
 	[
-	 { 1,  
-	   [?sysObjectID_instance], 
-	   ExecG, 
-	   fun(X) -> 
-		   sag_verify(X, [?sysObjectID_instance]) 
+	 { 1,
+	   [?sysObjectID_instance],
+	   ExecG,
+	   fun(X) ->
+		   sag_verify(X, [?sysObjectID_instance])
 	   end
 	  },
-	 { 2,  
-	   {1,  1, []}, 
-	   ExecGB, 
+	 { 2,
+	   {1,  1, []},
+	   ExecGB,
 	   fun verify_ssgb_reply1/1},
-	 { 3, 
-	   {-1,  1, []}, 
-	   ExecGB, 
+	 { 3,
+	   {-1,  1, []},
+	   ExecGB,
 	   fun verify_ssgb_reply1/1},
 	 { 4,
-	   [{?sysLocation_instance, s, "Stockholm"}, 
+	   [{?sysLocation_instance, s, "Stockholm"},
 	    {?sysName_instance,     s, "Arne Anka"}],
 	   ExecS,
 	   fun(X) ->
 		   sas_verify(X, [?sysLocation_instance, ?sysName_instance])
-	   end}, 
-	 { 5, 
-	   [[sysDescr], [1,3,7,1]], 
-	   ExecGN, 
+	   end},
+	 { 5,
+	   [[sysDescr], [1,3,7,1]],
+	   ExecGN,
 	   fun(X) ->
 		   verify_ssgn_reply1(X, [?sysDescr_instance, endOfMibView])
-	   end}, 
-	 { 6,  
+	   end},
+	 { 6,
 	   [[sysObjectID, 0], [sysDescr, 0], [sysUpTime, 0]],
-	   ExecG, 
-	   fun(X) -> 
-		   sag_verify(X, [?sysObjectID_instance, 
-				  ?sysDescr_instance, 
-				  ?sysUpTime_instance]) 
-	   end}, 
-	 { 7, 
-	  [TGenErr2], 
-	   ExecGN, 
+	   ExecG,
 	   fun(X) ->
-		   verify_ssgn_reply2(X, {genErr, 1, [TGenErr2]}) 
-	   end}, 
-	 { 8,  
-	   {2,  0, [[sysDescr],[1,3,7,1]]}, 
-	   ExecGB, 
-	   fun(X) -> 
-		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView]) 
+		   sag_verify(X, [?sysObjectID_instance,
+				  ?sysDescr_instance,
+				  ?sysUpTime_instance])
 	   end},
-	 { 9,  
-	   {1,  2, [[sysDescr],[1,3,7,1]]}, 
-	   ExecGB, 
-	   fun(X) -> 
-		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView]) 
+	 { 7,
+	  [TGenErr2],
+	   ExecGN,
+	   fun(X) ->
+		   verify_ssgn_reply2(X, {genErr, 1, [TGenErr2]})
 	   end},
-	 {10, 
-	  [TGenErr1], 
-	  ExecGN, 
+	 { 8,
+	   {2,  0, [[sysDescr],[1,3,7,1]]},
+	   ExecGB,
+	   fun(X) ->
+		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView])
+	   end},
+	 { 9,
+	   {1,  2, [[sysDescr],[1,3,7,1]]},
+	   ExecGB,
+	   fun(X) ->
+		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView])
+	   end},
+	 {10,
+	  [TGenErr1],
+	  ExecGN,
 	  fun(X) ->
-		  verify_ssgn_reply2(X, {genErr, 1, [TGenErr1]}) 
-	  end}, 
-	 {11,  
-	  {0,  2, [[sysDescr],[1,3,7,1]]}, 
-	  ExecGB, 
-	  fun(X) -> 
-		  verify_ssgb_reply2(X, 
+		  verify_ssgn_reply2(X, {genErr, 1, [TGenErr1]})
+	  end},
+	 {11,
+	  {0,  2, [[sysDescr],[1,3,7,1]]},
+	  ExecGB,
+	  fun(X) ->
+		  verify_ssgb_reply2(X,
 				     [?sysDescr_instance,    endOfMibView,
-				      ?sysObjectID_instance, endOfMibView]) 
+				      ?sysObjectID_instance, endOfMibView])
 	  end},
 	 {12,
-	  [{[sysName, 0],     "Gothenburg"}, 
+	  [{[sysName, 0],     "Gothenburg"},
 	   {[sysLocation, 0], "Sune Anka"}],
 	  ExecS,
 	  fun(X) ->
 		  sas_verify(X, [?sysName_instance, ?sysLocation_instance])
 	  end},
-	 {13,  
-	  {2,  2, [[sysDescr],[1,3,7,1],[sysDescr],[1,3,7,1]]}, 
-	  ExecGB, 
-	  fun(X) -> 
-		  verify_ssgb_reply2(X, 
+	 {13,
+	  {2,  2, [[sysDescr],[1,3,7,1],[sysDescr],[1,3,7,1]]},
+	  ExecGB,
+	  fun(X) ->
+		  verify_ssgb_reply2(X,
 				     [?sysDescr_instance,    endOfMibView,
 				      ?sysDescr_instance,    endOfMibView,
-				      ?sysObjectID_instance, endOfMibView]) 
+				      ?sysObjectID_instance, endOfMibView])
 	  end},
-	 {14,  
-	  {1,  2, [[sysDescr],[sysDescr],[tTooBig]]}, 
-	  ExecGB, 
-	  fun(X) -> 
-		  verify_ssgb_reply2(X, 
-				     [?sysDescr_instance, 
-				      ?sysDescr_instance]) 
+	 {14,
+	  {1,  2, [[sysDescr],[sysDescr],[tTooBig]]},
+	  ExecGB,
+	  fun(X) ->
+		  verify_ssgb_reply2(X,
+				     [?sysDescr_instance,
+				      ?sysDescr_instance])
 	  end},
-	 {15,  
-	  {1, 12, [[tDescr2], [sysDescr]]}, 
-	  ExecGB, 
+	 {15,
+	  {1, 12, [[tDescr2], [sysDescr]]},
+	  ExecGB,
 	  fun verify_ssgb_reply1/1},
-	 {16,  
-	  {2,  2, [[sysDescr],[sysObjectID], [tGenErr1],[sysDescr]]}, 
-	  ExecGB, 
-	  fun(X) -> 
-		  verify_ssgb_reply3(X, 
-				     [{?sysDescr,    'NULL'}, 
+	 {16,
+	  {2,  2, [[sysDescr],[sysObjectID], [tGenErr1],[sysDescr]]},
+	  ExecGB,
+	  fun(X) ->
+		  verify_ssgb_reply3(X,
+				     [{?sysDescr,    'NULL'},
 				      {?sysObjectID, 'NULL'},
 				      {?tGenErr1,    'NULL'},
-				      {?sysDescr,    'NULL'}]) 
+				      {?sysDescr,    'NULL'}])
 	  end},
-	 {17, 
-	  [[sysDescr], TGenErr3], 
-	  ExecGN, 
+	 {17,
+	  [[sysDescr], TGenErr3],
+	  ExecGN,
 	  fun(X) ->
-		  verify_ssgn_reply2(X, {genErr, 2, [TGenErr3]}) 
-	  end}, 
-	 {18,  
-	  {0,  2, [[TCnt2, 1]]}, 
+		  verify_ssgn_reply2(X, {genErr, 2, [TGenErr3]})
+	  end},
+	 {18,
+	  {0,  2, [[TCnt2, 1]]},
 	  ExecGB,
-	  fun(X) -> 
-		  verify_ssgb_reply2(X, 
-				     [{fl([TCnt2,2]), 100}, 
-				      {fl([TCnt2,2]), endOfMibView}]) 
-	  end},
-	 {19, 
-	  [TTooBig], 
-	  ExecGN, 
 	  fun(X) ->
-		  verify_ssgn_reply2(X, {tooBig, 0, []}) 
+		  verify_ssgb_reply2(X,
+				     [{fl([TCnt2,2]), 100},
+				      {fl([TCnt2,2]), endOfMibView}])
 	  end},
-	 {20, 
-	  [TTooBig], 
-	  ExecGN, 
+	 {19,
+	  [TTooBig],
+	  ExecGN,
 	  fun(X) ->
-		  verify_ssgn_reply2(X, {tooBig, 0, []}) 
+		  verify_ssgn_reply2(X, {tooBig, 0, []})
+	  end},
+	 {20,
+	  [TTooBig],
+	  ExecGN,
+	  fun(X) ->
+		  verify_ssgn_reply2(X, {tooBig, 0, []})
 	  end}
 	],
-    
+
     p("manager info when starting test: ~n~p", [mgr_info(MgrNode)]),
     p("agent info when starting test: ~n~p", [agent_info(AgentNode)]),
 
@@ -3874,7 +3874,7 @@ misc_async1(Config) when is_list(Config) ->
 
 %%======================================================================
 
-misc_async2(doc) -> 
+misc_async2(doc) ->
     ["Misc (async) request(s) - Version 2 API (TargetName)"];
 misc_async2(suite) -> [];
 misc_async2(Config) when is_list(Config) ->
@@ -3885,170 +3885,170 @@ misc_async2(Config) when is_list(Config) ->
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
-    
+
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
-    Test2Mib = test2_mib(Config), 
+    Test2Mib = test2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
-    
+
     ExecG = fun(Data) ->
 		    async_g_exec2(MgrNode, TargetName, Data)
 	    end,
-    
+
     ExecGN = fun(Data) ->
 		     async_gn_exec2(MgrNode, TargetName, Data)
 	     end,
-    
+
     ExecS = fun(Data) ->
 		    async_s_exec2(MgrNode, TargetName, Data)
 	    end,
-    
+
     ExecGB = fun(Data) ->
 		     async_gb_exec2(MgrNode, TargetName, Data)
 	     end,
-    
+
     ?line {ok, [TCnt2|_]}    = mgr_user_name_to_oid(MgrNode, tCnt2),
     ?line {ok, [TGenErr1|_]} = mgr_user_name_to_oid(MgrNode, tGenErr1),
     ?line {ok, [TGenErr2|_]} = mgr_user_name_to_oid(MgrNode, tGenErr2),
     ?line {ok, [TGenErr3|_]} = mgr_user_name_to_oid(MgrNode, tGenErr3),
     ?line {ok, [TTooBig|_]}  = mgr_user_name_to_oid(MgrNode, tTooBig),
 
-    Requests = 
+    Requests =
 	[
-	 { 1,  
-	   [?sysObjectID_instance], 
-	   ExecG, 
-	   fun(X) -> 
-		   sag_verify(X, [?sysObjectID_instance]) 
+	 { 1,
+	   [?sysObjectID_instance],
+	   ExecG,
+	   fun(X) ->
+		   sag_verify(X, [?sysObjectID_instance])
 	   end
 	  },
-	 { 2,  
-	   {1,  1, []}, 
-	   ExecGB, 
+	 { 2,
+	   {1,  1, []},
+	   ExecGB,
 	   fun verify_ssgb_reply1/1},
-	 { 3, 
-	   {-1,  1, []}, 
-	   ExecGB, 
+	 { 3,
+	   {-1,  1, []},
+	   ExecGB,
 	   fun verify_ssgb_reply1/1},
 	 { 4,
-	   [{?sysLocation_instance, s, "Stockholm"}, 
+	   [{?sysLocation_instance, s, "Stockholm"},
 	    {?sysName_instance,     s, "Arne Anka"}],
 	   ExecS,
 	   fun(X) ->
 		   sas_verify(X, [?sysLocation_instance, ?sysName_instance])
-	   end}, 
-	 { 5, 
-	   [[sysDescr], [1,3,7,1]], 
-	   ExecGN, 
+	   end},
+	 { 5,
+	   [[sysDescr], [1,3,7,1]],
+	   ExecGN,
 	   fun(X) ->
 		   verify_ssgn_reply1(X, [?sysDescr_instance, endOfMibView])
-	   end}, 
-	 { 6,  
+	   end},
+	 { 6,
 	   [[sysObjectID, 0], [sysDescr, 0], [sysUpTime, 0]],
-	   ExecG, 
-	   fun(X) -> 
-		   sag_verify(X, [?sysObjectID_instance, 
-				  ?sysDescr_instance, 
-				  ?sysUpTime_instance]) 
-	   end}, 
-	 { 7, 
-	  [TGenErr2], 
-	   ExecGN, 
+	   ExecG,
 	   fun(X) ->
-		   verify_ssgn_reply2(X, {genErr, 1, [TGenErr2]}) 
-	   end}, 
-	 { 8,  
-	   {2,  0, [[sysDescr],[1,3,7,1]]}, 
-	   ExecGB, 
-	   fun(X) -> 
-		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView]) 
+		   sag_verify(X, [?sysObjectID_instance,
+				  ?sysDescr_instance,
+				  ?sysUpTime_instance])
 	   end},
-	 { 9,  
-	   {1,  2, [[sysDescr],[1,3,7,1]]}, 
-	   ExecGB, 
-	   fun(X) -> 
-		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView]) 
+	 { 7,
+	  [TGenErr2],
+	   ExecGN,
+	   fun(X) ->
+		   verify_ssgn_reply2(X, {genErr, 1, [TGenErr2]})
 	   end},
-	 {10, 
-	  [TGenErr1], 
-	  ExecGN, 
+	 { 8,
+	   {2,  0, [[sysDescr],[1,3,7,1]]},
+	   ExecGB,
+	   fun(X) ->
+		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView])
+	   end},
+	 { 9,
+	   {1,  2, [[sysDescr],[1,3,7,1]]},
+	   ExecGB,
+	   fun(X) ->
+		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView])
+	   end},
+	 {10,
+	  [TGenErr1],
+	  ExecGN,
 	  fun(X) ->
-		  verify_ssgn_reply2(X, {genErr, 1, [TGenErr1]}) 
-	  end}, 
-	 {11,  
-	  {0,  2, [[sysDescr],[1,3,7,1]]}, 
-	  ExecGB, 
-	  fun(X) -> 
-		  verify_ssgb_reply2(X, 
+		  verify_ssgn_reply2(X, {genErr, 1, [TGenErr1]})
+	  end},
+	 {11,
+	  {0,  2, [[sysDescr],[1,3,7,1]]},
+	  ExecGB,
+	  fun(X) ->
+		  verify_ssgb_reply2(X,
 				     [?sysDescr_instance,    endOfMibView,
-				      ?sysObjectID_instance, endOfMibView]) 
+				      ?sysObjectID_instance, endOfMibView])
 	  end},
 	 {12,
-	  [{[sysName, 0],     "Gothenburg"}, 
+	  [{[sysName, 0],     "Gothenburg"},
 	   {[sysLocation, 0], "Sune Anka"}],
 	  ExecS,
 	  fun(X) ->
 		  sas_verify(X, [?sysName_instance, ?sysLocation_instance])
 	  end},
-	 {13,  
-	  {2,  2, [[sysDescr],[1,3,7,1],[sysDescr],[1,3,7,1]]}, 
-	  ExecGB, 
-	  fun(X) -> 
-		  verify_ssgb_reply2(X, 
+	 {13,
+	  {2,  2, [[sysDescr],[1,3,7,1],[sysDescr],[1,3,7,1]]},
+	  ExecGB,
+	  fun(X) ->
+		  verify_ssgb_reply2(X,
 				     [?sysDescr_instance,    endOfMibView,
 				      ?sysDescr_instance,    endOfMibView,
-				      ?sysObjectID_instance, endOfMibView]) 
+				      ?sysObjectID_instance, endOfMibView])
 	  end},
-	 {14,  
-	  {1,  2, [[sysDescr],[sysDescr],[tTooBig]]}, 
-	  ExecGB, 
-	  fun(X) -> 
-		  verify_ssgb_reply2(X, 
-				     [?sysDescr_instance, 
-				      ?sysDescr_instance]) 
+	 {14,
+	  {1,  2, [[sysDescr],[sysDescr],[tTooBig]]},
+	  ExecGB,
+	  fun(X) ->
+		  verify_ssgb_reply2(X,
+				     [?sysDescr_instance,
+				      ?sysDescr_instance])
 	  end},
-	 {15,  
-	  {1, 12, [[tDescr2], [sysDescr]]}, 
-	  ExecGB, 
+	 {15,
+	  {1, 12, [[tDescr2], [sysDescr]]},
+	  ExecGB,
 	  fun verify_ssgb_reply1/1},
-	 {16,  
-	  {2,  2, [[sysDescr],[sysObjectID], [tGenErr1],[sysDescr]]}, 
-	  ExecGB, 
-	  fun(X) -> 
-		  verify_ssgb_reply3(X, 
-				     [{?sysDescr,    'NULL'}, 
+	 {16,
+	  {2,  2, [[sysDescr],[sysObjectID], [tGenErr1],[sysDescr]]},
+	  ExecGB,
+	  fun(X) ->
+		  verify_ssgb_reply3(X,
+				     [{?sysDescr,    'NULL'},
 				      {?sysObjectID, 'NULL'},
 				      {?tGenErr1,    'NULL'},
-				      {?sysDescr,    'NULL'}]) 
+				      {?sysDescr,    'NULL'}])
 	  end},
-	 {17, 
-	  [[sysDescr], TGenErr3], 
-	  ExecGN, 
+	 {17,
+	  [[sysDescr], TGenErr3],
+	  ExecGN,
 	  fun(X) ->
-		  verify_ssgn_reply2(X, {genErr, 2, [TGenErr3]}) 
-	  end}, 
-	 {18,  
-	  {0,  2, [[TCnt2, 1]]}, 
+		  verify_ssgn_reply2(X, {genErr, 2, [TGenErr3]})
+	  end},
+	 {18,
+	  {0,  2, [[TCnt2, 1]]},
 	  ExecGB,
-	  fun(X) -> 
-		  verify_ssgb_reply2(X, 
-				     [{fl([TCnt2,2]), 100}, 
-				      {fl([TCnt2,2]), endOfMibView}]) 
-	  end},
-	 {19, 
-	  [TTooBig], 
-	  ExecGN, 
 	  fun(X) ->
-		  verify_ssgn_reply2(X, {tooBig, 0, []}) 
+		  verify_ssgb_reply2(X,
+				     [{fl([TCnt2,2]), 100},
+				      {fl([TCnt2,2]), endOfMibView}])
 	  end},
-	 {20, 
-	  [TTooBig], 
-	  ExecGN, 
+	 {19,
+	  [TTooBig],
+	  ExecGN,
 	  fun(X) ->
-		  verify_ssgn_reply2(X, {tooBig, 0, []}) 
+		  verify_ssgn_reply2(X, {tooBig, 0, []})
+	  end},
+	 {20,
+	  [TTooBig],
+	  ExecGN,
+	  fun(X) ->
+		  verify_ssgn_reply2(X, {tooBig, 0, []})
 	  end}
 	],
-    
+
     p("manager info when starting test: ~n~p", [mgr_info(MgrNode)]),
     p("agent info when starting test: ~n~p", [agent_info(AgentNode)]),
 
@@ -4069,9 +4069,9 @@ discovery(Config) when is_list(Config) ->
 
 
 %%======================================================================
-%% 
+%%
 %% Utility functions for cases trap1 and trap2
-%% 
+%%
 
 collect_traps(N) ->
     collect_traps(N, []).
@@ -4136,9 +4136,9 @@ trap1(Config) when is_list(Config) ->
     AgentNode = ?config(agent_node, Config),
 
     ?line ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
-    Test2Mib      = test2_mib(Config), 
-    TestTrapMib   = test_trap_mib(Config), 
-    TestTrapv2Mib = test_trap_v2_mib(Config), 
+    Test2Mib      = test2_mib(Config),
+    TestTrapMib   = test_trap_mib(Config),
+    TestTrapv2Mib = test_trap_v2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = mgr_user_load_mib(MgrNode, TestTrapMib),
     ?line ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
@@ -4147,12 +4147,12 @@ trap1(Config) when is_list(Config) ->
     ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
 
     %% Version 1 trap verification function:
-    VerifyTrap_v1 = 
+    VerifyTrap_v1 =
 	fun(Ent, Gen, Spec, ExpVBs, Trap) ->
 		case Trap of
 		    {Ent, Gen, Spec, _Timestamp, VBs} ->
-			p("trap info as expected"), 
-			case (catch validate_vbs(MgrNode, 
+			p("trap info as expected"),
+			case (catch validate_vbs(MgrNode,
 						 ExpVBs, VBs)) of
 			    ok ->
 				p("valid trap"),
@@ -4167,9 +4167,9 @@ trap1(Config) when is_list(Config) ->
 			  "~n   Generic:   ~p"
 			  "~n   Spec:      ~p"
 			  "~n   Timestamp: ~p"
-			  "~n   VBs:       ~p", 
+			  "~n   VBs:       ~p",
 			  [Enteprise, Generic, Spec, Timestamp, VBs]),
-			ExpTrap = {Ent, Gen, Spec, ignore, ExpVBs}, 
+			ExpTrap = {Ent, Gen, Spec, ignore, ExpVBs},
 			Reason = {unexpected_trap, {ExpTrap, Trap}},
 			{error, Reason};
 		    {Err, Idx, VBs} ->
@@ -4183,20 +4183,20 @@ trap1(Config) when is_list(Config) ->
 	end,
 
     %% Version 2 trap verification function:
-    VerifyTrap_v2 = 
+    VerifyTrap_v2 =
 	fun(ExpVBs, Trap) ->
 		case Trap of
 		    {noError, 0, VBs0} ->
-			p("trap info as expected: ~n~p", [VBs0]), 
+			p("trap info as expected: ~n~p", [VBs0]),
 			%% The first two are a timestamp and oid
 			[_,_|VBs] = VBs0,
-			case (catch validate_vbs(MgrNode, 
+			case (catch validate_vbs(MgrNode,
 						 ExpVBs, VBs)) of
 			    ok ->
 				p("valid trap"),
 				ok;
 			    Error ->
-				p("invalid trap: ~n   Error: ~p", 
+				p("invalid trap: ~n   Error: ~p",
 				  [Error]),
 				Error
 			end;
@@ -4213,7 +4213,7 @@ trap1(Config) when is_list(Config) ->
 
     %% -- command 1 --
     %% Collect various info about the manager and the agent
-    Cmd1 = 
+    Cmd1 =
 	fun() ->
 		p("manager info: ~n~p", [mgr_info(MgrNode)]),
 		p("agent info: ~n~p", [agent_info(AgentNode)]),
@@ -4222,7 +4222,7 @@ trap1(Config) when is_list(Config) ->
 
     %% -- command 2 --
     %% Make the agent send trap(s) (both a v1 and a v2 trap)
-    Cmd2 = 
+    Cmd2 =
 	fun() ->
 		VBs = [{ifIndex,       [1], 1},
 		       {ifAdminStatus, [1], 1},
@@ -4233,11 +4233,11 @@ trap1(Config) when is_list(Config) ->
 
     %% -- command 3 --
     %% Version 1 trap verify function
-    Cmd3_VerifyTrap_v1 = 
+    Cmd3_VerifyTrap_v1 =
 	fun(Trap) ->
-		Ent    = [1,2,3], 
-		Gen    = 3, 
-		Spec   = 0, 
+		Ent    = [1,2,3],
+		Gen    = 3,
+		Spec   = 0,
 		ExpVBs = [{[ifIndex,       1], 1},
 			  {[ifAdminStatus, 1], 1},
 			  {[ifOperStatus,  1], 2}],
@@ -4245,7 +4245,7 @@ trap1(Config) when is_list(Config) ->
 	end,
 
     %% Version 2 trap verify function
-    Cmd3_VerifyTrap_v2 = 
+    Cmd3_VerifyTrap_v2 =
 	fun(Trap) ->
 		ExpVBs = [{[ifIndex,       1], 1},
 			  {[ifAdminStatus, 1], 1},
@@ -4254,7 +4254,7 @@ trap1(Config) when is_list(Config) ->
 	end,
 
     %% Verify the two traps. The order of them is unknown
-    Cmd3 = 
+    Cmd3 =
 	fun() ->
 		Verifiers = [{"v1 trap verifier", Cmd3_VerifyTrap_v1},
 			     {"v2 trap verifier", Cmd3_VerifyTrap_v2}],
@@ -4263,7 +4263,7 @@ trap1(Config) when is_list(Config) ->
 
     Cmd4 = fun() -> ?SLEEP(1000), ok end,
 
-    Commands = 
+    Commands =
 	[
 	 {1, "Manager and agent info at start of test", Cmd1},
 	 {2, "Send trap from agent", Cmd2},
@@ -4276,7 +4276,7 @@ trap1(Config) when is_list(Config) ->
     display_log(Config),
     ok.
 
-    
+
 %%======================================================================
 
 trap2(suite) -> [];
@@ -4289,9 +4289,9 @@ trap2(Config) when is_list(Config) ->
     AgentNode = ?config(agent_node, Config),
 
     ?line ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
-    Test2Mib      = test2_mib(Config), 
-    TestTrapMib   = test_trap_mib(Config), 
-    TestTrapv2Mib = test_trap_v2_mib(Config), 
+    Test2Mib      = test2_mib(Config),
+    TestTrapMib   = test_trap_mib(Config),
+    TestTrapv2Mib = test_trap_v2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = mgr_user_load_mib(MgrNode, TestTrapMib),
     ?line ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
@@ -4300,12 +4300,12 @@ trap2(Config) when is_list(Config) ->
     ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
 
     %% Version 1 trap verification function:
-    VerifyTrap_v1 = 
+    VerifyTrap_v1 =
 	fun(Ent, Gen, Spec, ExpVBs, Trap) ->
 		case Trap of
 		    {Ent, Gen, Spec, _Timestamp, VBs} ->
-			p("trap info as expected"), 
-			case (catch validate_vbs(MgrNode, 
+			p("trap info as expected"),
+			case (catch validate_vbs(MgrNode,
 						 ExpVBs, VBs)) of
 			    ok ->
 				p("valid trap"),
@@ -4320,9 +4320,9 @@ trap2(Config) when is_list(Config) ->
 			  "~n   Generic:   ~p"
 			  "~n   Spec:      ~p"
 			  "~n   Timestamp: ~p"
-			  "~n   VBs:       ~p", 
+			  "~n   VBs:       ~p",
 			  [Enteprise, Generic, Spec, Timestamp, VBs]),
-			ExpTrap = {Ent, Gen, Spec, ignore, ExpVBs}, 
+			ExpTrap = {Ent, Gen, Spec, ignore, ExpVBs},
 			Reason = {unexpected_trap, {ExpTrap, Trap}},
 			{error, Reason};
 		    {Err, Idx, VBs} ->
@@ -4336,20 +4336,20 @@ trap2(Config) when is_list(Config) ->
 	end,
 
     %% Version 2 trap verification function:
-    VerifyTrap_v2 = 
+    VerifyTrap_v2 =
 	fun(ExpVBs, Trap) ->
 		case Trap of
 		    {noError, 0, VBs0} ->
-			p("trap info as expected: ~n~p", [VBs0]), 
+			p("trap info as expected: ~n~p", [VBs0]),
 			%% The first two are a timestamp and oid
 			[_,_|VBs] = VBs0,
-			case (catch validate_vbs(MgrNode, 
+			case (catch validate_vbs(MgrNode,
 						 ExpVBs, VBs)) of
 			    ok ->
 				p("valid trap"),
 				ok;
 			    Error ->
-				p("invalid trap: ~n   Error: ~p", 
+				p("invalid trap: ~n   Error: ~p",
 				  [Error]),
 				Error
 			end;
@@ -4365,7 +4365,7 @@ trap2(Config) when is_list(Config) ->
 
     %% -- command 1 --
     %% Collect various info about the manager and the agent
-    Cmd1 = 
+    Cmd1 =
 	fun() ->
 		p("manager info: ~n~p", [mgr_info(MgrNode)]),
 		p("agent info: ~n~p",   [agent_info(AgentNode)]),
@@ -4374,7 +4374,7 @@ trap2(Config) when is_list(Config) ->
 
     %% -- command 2 --
     %% Make the agent send trap(s) (both a v1 and a v2 trap)
-    Cmd2 = 
+    Cmd2 =
 	fun() ->
 		VBs = [{sysContact, "pelle"}],
 		agent_send_trap(AgentNode, testTrap1, "standard trap", VBs),
@@ -4383,25 +4383,25 @@ trap2(Config) when is_list(Config) ->
 
     %% -- command 3 --
     %% Version 1 trap verify function
-    Cmd3_VerifyTrap_v1 = 
+    Cmd3_VerifyTrap_v1 =
 	fun(Trap) ->
-		Ent    = [1,2,3], 
-		Gen    = 1, 
-		Spec   = 0, 
+		Ent    = [1,2,3],
+		Gen    = 1,
+		Spec   = 0,
 		ExpVBs = [{[system, [4,0]], "pelle"}],
 		VerifyTrap_v1(Ent, Gen, Spec, ExpVBs, Trap)
 	end,
 
     %% Version 2 trap verify function
-    Cmd3_VerifyTrap_v2 = 
+    Cmd3_VerifyTrap_v2 =
 	fun(Trap) ->
 		ExpVBs = [{[system, [4,0]], "pelle"},
 			  {[snmpTrapEnterprise,0], any}],
 		VerifyTrap_v2(ExpVBs, Trap)
 	end,
-		
+
     %% Verify the two traps. The order of them is unknown
-    Cmd3 = 
+    Cmd3 =
 	fun() ->
 		Verifiers = [{"v1 trap verifier", Cmd3_VerifyTrap_v1},
 			     {"v2 trap verifier", Cmd3_VerifyTrap_v2}],
@@ -4410,7 +4410,7 @@ trap2(Config) when is_list(Config) ->
 
     %% -- command 4 --
     %% Make the agent send another set of trap(s) (both a v1 and a v2 trap)
-    Cmd4 = 
+    Cmd4 =
 	fun() ->
 		VBs = [{ifIndex,       [1], 1},
 		       {ifAdminStatus, [1], 1},
@@ -4419,31 +4419,31 @@ trap2(Config) when is_list(Config) ->
 		ok
 	end,
 
-    
+
     %% -- command 5 --
     %% Expected varbinds
     ExpVBs5 = [{[ifIndex,       1], 1},
 	       {[ifAdminStatus, 1], 1},
 	       {[ifOperStatus,  1], 2}],
 
-    
+
     %% Version 1 trap verify function
-    Cmd5_VerifyTrap_v1 = 
+    Cmd5_VerifyTrap_v1 =
 	fun(Trap) ->
-		Ent    = [1,2,3], 
-		Gen    = 3, 
-		Spec   = 0, 
+		Ent    = [1,2,3],
+		Gen    = 3,
+		Spec   = 0,
 		VerifyTrap_v1(Ent, Gen, Spec, ExpVBs5, Trap)
 	end,
 
     %% Version 2 trap verify function
-    Cmd5_VerifyTrap_v2 = 
+    Cmd5_VerifyTrap_v2 =
 	fun(Trap) ->
 		VerifyTrap_v2(ExpVBs5, Trap)
 	end,
 
     %% Verify the two traps. The order of them is unknown
-    Cmd5 = 
+    Cmd5 =
 	fun() ->
 		Verifiers = [{"v1 trap verifier", Cmd5_VerifyTrap_v1},
 			     {"v2 trap verifier", Cmd5_VerifyTrap_v2}],
@@ -4454,7 +4454,7 @@ trap2(Config) when is_list(Config) ->
     %% Some sleep before we are done
     Cmd6 = fun() -> ?SLEEP(1000), ok end,
 
-    Commands = 
+    Commands =
 	[
 	 {1, "Manager and agent info at start of test", Cmd1},
 	 {2, "Send first trap(s) from agent", Cmd2},
@@ -4469,7 +4469,7 @@ trap2(Config) when is_list(Config) ->
     display_log(Config),
     ok.
 
-    
+
 %%======================================================================
 
 inform1(suite) -> [];
@@ -4482,9 +4482,9 @@ inform1(Config) when is_list(Config) ->
     AgentNode = ?config(agent_node, Config),
 
     ?line ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
-    Test2Mib      = test2_mib(Config), 
-    TestTrapMib   = test_trap_mib(Config), 
-    TestTrapv2Mib = test_trap_v2_mib(Config), 
+    Test2Mib      = test2_mib(Config),
+    TestTrapMib   = test_trap_mib(Config),
+    TestTrapv2Mib = test_trap_v2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = mgr_user_load_mib(MgrNode, TestTrapMib),
     ?line ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
@@ -4492,8 +4492,8 @@ inform1(Config) when is_list(Config) ->
     ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
 
-    
-    Cmd1 = 
+
+    Cmd1 =
 	fun() ->
 		p("manager info: ~n~p", [mgr_info(MgrNode)]),
 		p("manager system info: ~n~p", [mgr_sys_info(MgrNode)]),
@@ -4501,28 +4501,28 @@ inform1(Config) when is_list(Config) ->
 		ok
 	end,
 
-    Cmd2 = 
+    Cmd2 =
 	fun() ->
 		agent_send_notif(AgentNode, testTrapv22, "standard inform"),
 		ok
 	end,
 
-    Cmd3 = 
+    Cmd3 =
 	fun() ->
 		receive
 		    {async_event, From, {inform, Pid, Inform}} ->
 			p("received inform"),
 			case Inform of
 			    {noError, 0, VBs} when is_list(VBs) ->
-				case (catch validate_testTrapv22_vbs(MgrNode, 
+				case (catch validate_testTrapv22_vbs(MgrNode,
 								     VBs)) of
 				    ok ->
 					p("valid inform"),
-					Pid ! {handle_inform_no_response, 
-					       From}, 
+					Pid ! {handle_inform_no_response,
+					       From},
 					ok;
 				    Error ->
-					p("invalid inform: ~n   Error: ~p", 
+					p("invalid inform: ~n   Error: ~p",
 					  [Error]),
 					Error
 				end;
@@ -4535,7 +4535,7 @@ inform1(Config) when is_list(Config) ->
 				{error, Reason}
 			end
 		after 10000 ->
-			receive 
+			receive
 			    Any ->
 				{error, {timeout_crap, Any}}
 			after 1000 ->
@@ -4544,21 +4544,21 @@ inform1(Config) when is_list(Config) ->
 		end
 	end,
 
-    Cmd4 = 
+    Cmd4 =
 	fun() ->
 		receive
 		    {async_event, From, {inform, Pid, Inform}} ->
 			p("received inform"),
 			case Inform of
 			    {noError, 0, VBs} when is_list(VBs) ->
-				case (catch validate_testTrapv22_vbs(MgrNode, 
+				case (catch validate_testTrapv22_vbs(MgrNode,
 								     VBs)) of
 				    ok ->
 					p("valid inform"),
-					Pid ! {handle_inform_response, From}, 
+					Pid ! {handle_inform_response, From},
 					ok;
 				    Error ->
-					p("invalid inform: ~n   Error: ~p", 
+					p("invalid inform: ~n   Error: ~p",
 					  [Error]),
 					Error
 				end;
@@ -4571,7 +4571,7 @@ inform1(Config) when is_list(Config) ->
 				{error, Reason}
 			end
 		after 20000 ->
-			receive 
+			receive
 			    Any ->
 				{error, {timeout_crap, Any}}
 			after 1000 ->
@@ -4582,7 +4582,7 @@ inform1(Config) when is_list(Config) ->
 
     Cmd5 = fun() -> ?SLEEP(5000), ok end,
 
-    Commands = 
+    Commands =
 	[
 	 {1, "Manager and agent info at start of test", Cmd1},
 	 {2, "Send notifcation [no receiver] from agent", Cmd2},
@@ -4611,9 +4611,9 @@ inform2(Config) when is_list(Config) ->
     %% Port = ?AGENT_PORT,
 
     ?line ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
-    Test2Mib      = test2_mib(Config), 
-    TestTrapMib   = test_trap_mib(Config), 
-    TestTrapv2Mib = test_trap_v2_mib(Config), 
+    Test2Mib      = test2_mib(Config),
+    TestTrapMib   = test_trap_mib(Config),
+    TestTrapv2Mib = test_trap_v2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = mgr_user_load_mib(MgrNode, TestTrapMib),
     ?line ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
@@ -4621,31 +4621,31 @@ inform2(Config) when is_list(Config) ->
     ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
 
-    Cmd1 = 
+    Cmd1 =
 	fun() ->
 		p("manager info: ~n~p", [mgr_info(MgrNode)]),
 		p("agent info: ~n~p", [agent_info(AgentNode)]),
 		ok
 	end,
 
-    Cmd2 = 
+    Cmd2 =
 	fun() ->
-		agent_send_notif(AgentNode, 
-				 testTrapv22, 
-				 {inform2_tag1, self()}, 
+		agent_send_notif(AgentNode,
+				 testTrapv22,
+				 {inform2_tag1, self()},
 				 "standard inform",
 				[]),
 		ok
 	end,
 
-    Cmd3 = 
+    Cmd3 =
 	fun() ->
 		receive
 		    {snmp_targets, inform2_tag1, Addrs} ->
 			p("sent inform to ~p", [Addrs]),
 			ok
 		after 10000 ->
-			receive 
+			receive
 			    Any ->
 				{error, {timeout_crap, Any}}
 			after 1000 ->
@@ -4654,22 +4654,22 @@ inform2(Config) when is_list(Config) ->
 		end
 	end,
 
-    Cmd4 = 
+    Cmd4 =
 	fun() ->
 		receive
 		    {async_event, From, {inform, Pid, Inform}} ->
 			p("received inform"),
 			case Inform of
 			    {noError, 0, VBs} when is_list(VBs) ->
-				case (catch validate_testTrapv22_vbs(MgrNode, 
+				case (catch validate_testTrapv22_vbs(MgrNode,
 								     VBs)) of
 				    ok ->
 					p("valid inform"),
-					Pid ! {handle_inform_no_response, 
-					       From}, 
+					Pid ! {handle_inform_no_response,
+					       From},
 					ok;
 				    Error ->
-					p("invalid inform: ~n   Error: ~p", 
+					p("invalid inform: ~n   Error: ~p",
 					  [Error]),
 					Error
 				end;
@@ -4682,7 +4682,7 @@ inform2(Config) when is_list(Config) ->
 				{error, Reason}
 			end
 		after 10000 ->
-			receive 
+			receive
 			    Any ->
 				{error, {timeout_crap, Any}}
 			after 1000 ->
@@ -4691,21 +4691,21 @@ inform2(Config) when is_list(Config) ->
 		end
 	end,
 
-    Cmd5 = 
+    Cmd5 =
 	fun() ->
 		receive
 		    {async_event, From, {inform, Pid, Inform}} ->
 			p("received inform"),
 			case Inform of
 			    {noError, 0, VBs} when is_list(VBs) ->
-				case (catch validate_testTrapv22_vbs(MgrNode, 
+				case (catch validate_testTrapv22_vbs(MgrNode,
 								     VBs)) of
 				    ok ->
 					p("valid inform"),
-					Pid ! {handle_inform_response, From}, 
+					Pid ! {handle_inform_response, From},
 					ok;
 				    Error ->
-					p("invalid inform: ~n   Error: ~p", 
+					p("invalid inform: ~n   Error: ~p",
 					  [Error]),
 					Error
 				end;
@@ -4718,7 +4718,7 @@ inform2(Config) when is_list(Config) ->
 				{error, Reason}
 			end
 		after 20000 ->
-			receive 
+			receive
 			    Any ->
 				{error, {timeout_crap, Any}}
 			after 1000 ->
@@ -4727,7 +4727,7 @@ inform2(Config) when is_list(Config) ->
 		end
 	end,
 
-    Cmd6 = 
+    Cmd6 =
 	fun() ->
 		receive
 		    {snmp_notification, inform2_tag1, {got_response, Addr}} ->
@@ -4741,7 +4741,7 @@ inform2(Config) when is_list(Config) ->
 			  "~n   ~p", [Addr]),
 			{error, no_response}
 		after 10000 ->
-			receive 
+			receive
 			    Any ->
 				{error, {timeout_crap, Any}}
 			after 1000 ->
@@ -4752,7 +4752,7 @@ inform2(Config) when is_list(Config) ->
 
     Cmd7 = fun() -> ?SLEEP(5000), ok end,
 
-    Commands = 
+    Commands =
 	[
 	 {1, "Manager and agent info at start of test", Cmd1},
 	 {2, "Send notifcation [no receiver] from agent", Cmd2},
@@ -4768,7 +4768,7 @@ inform2(Config) when is_list(Config) ->
     display_log(Config),
     ok.
 
-    
+
 %%======================================================================
 
 inform3(suite) -> [];
@@ -4781,9 +4781,9 @@ inform3(Config) when is_list(Config) ->
     AgentNode = ?config(agent_node, Config),
 
     ?line ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
-    Test2Mib      = test2_mib(Config), 
-    TestTrapMib   = test_trap_mib(Config), 
-    TestTrapv2Mib = test_trap_v2_mib(Config), 
+    Test2Mib      = test2_mib(Config),
+    TestTrapMib   = test_trap_mib(Config),
+    TestTrapv2Mib = test_trap_v2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = mgr_user_load_mib(MgrNode, TestTrapMib),
     ?line ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
@@ -4791,31 +4791,31 @@ inform3(Config) when is_list(Config) ->
     ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
 
-    Cmd1 = 
+    Cmd1 =
 	fun() ->
 		p("manager info: ~n~p", [mgr_info(MgrNode)]),
 		p("agent info: ~n~p", [agent_info(AgentNode)]),
 		ok
 	end,
 
-    Cmd2 = 
+    Cmd2 =
 	fun() ->
-		agent_send_notif(AgentNode, 
-				 testTrapv22, 
-				 {inform3_tag1, self()}, 
+		agent_send_notif(AgentNode,
+				 testTrapv22,
+				 {inform3_tag1, self()},
 				 "standard inform",
 				 []),
 		ok
 	end,
 
-    Cmd3 = 
+    Cmd3 =
 	fun() ->
 		receive
 		    {snmp_targets, inform3_tag1, [_Addr]} ->
 			p("received inform-sent acknowledgement", []),
 			ok
 		after 10000 ->
-			receive 
+			receive
 			    Crap ->
 				{error, {timeout_crap, Crap}}
 			after 0 ->
@@ -4824,22 +4824,22 @@ inform3(Config) when is_list(Config) ->
 		end
 	end,
 
-    Cmd4 = 
+    Cmd4 =
 	fun() ->
 		receive
 		    {async_event, From, {inform, Pid, Inform}} ->
 			p("received inform"),
 			case Inform of
 			    {noError, 0, VBs} when is_list(VBs) ->
-				case (catch validate_testTrapv22_vbs(MgrNode, 
+				case (catch validate_testTrapv22_vbs(MgrNode,
 								     VBs)) of
 				    ok ->
 					p("valid inform"),
-					Pid ! {handle_inform_no_response, 
-					       From}, 
+					Pid ! {handle_inform_no_response,
+					       From},
 					ok;
 				    Error ->
-					p("invalid inform: ~n   Error: ~p", 
+					p("invalid inform: ~n   Error: ~p",
 					  [Error]),
 					Error
 				end;
@@ -4852,7 +4852,7 @@ inform3(Config) when is_list(Config) ->
 				{error, Reason}
 			end
 		after 50000 ->
-			receive 
+			receive
 			    Any ->
 				{error, {timeout_crap, Any}}
 			after 0 ->
@@ -4861,7 +4861,7 @@ inform3(Config) when is_list(Config) ->
 		end
 	end,
 
-    Cmd7 = 
+    Cmd7 =
 	fun() ->
 		receive
 		    {snmp_notification, inform3_tag1, {no_response, Addr}} ->
@@ -4872,11 +4872,11 @@ inform3(Config) when is_list(Config) ->
 		    {snmp_notification, inform3_tag1, {got_response, Addr}} ->
 			p("<ERROR> received unexpected \"got response\" "
 			  "notification from: "
-			  "~n   ~p", 
+			  "~n   ~p",
 			  [Addr]),
 			{error, {got_response, Addr}}
 		after 120000 ->
-			receive 
+			receive
 			    Crap ->
 				{error, {timeout_crap, Crap}}
 			after 0 ->
@@ -4887,7 +4887,7 @@ inform3(Config) when is_list(Config) ->
 
     Cmd8 = fun() -> ?SLEEP(1000), ok end,
 
-    Commands = 
+    Commands =
 	[
 	 {1, "Manager and agent info at start of test", Cmd1},
 	 {2, "Send notifcation from agent", Cmd2},
@@ -4904,7 +4904,7 @@ inform3(Config) when is_list(Config) ->
     display_log(Config),
     ok.
 
-    
+
 %%======================================================================
 
 inform4(suite) -> [];
@@ -4917,9 +4917,9 @@ inform4(Config) when is_list(Config) ->
     AgentNode = ?config(agent_node, Config),
 
     ?line ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
-    Test2Mib      = test2_mib(Config), 
-    TestTrapMib   = test_trap_mib(Config), 
-    TestTrapv2Mib = test_trap_v2_mib(Config), 
+    Test2Mib      = test2_mib(Config),
+    TestTrapMib   = test_trap_mib(Config),
+    TestTrapv2Mib = test_trap_v2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = mgr_user_load_mib(MgrNode, TestTrapMib),
     ?line ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
@@ -4927,27 +4927,27 @@ inform4(Config) when is_list(Config) ->
     ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
 
-    Cmd1 = 
+    Cmd1 =
 	fun() ->
 		p("manager info: ~n~p", [mgr_info(MgrNode)]),
 		p("agent info: ~n~p", [agent_info(AgentNode)]),
 		ok
 	end,
 
-    Cmd2 = 
+    Cmd2 =
 	fun() ->
 		agent_send_notif(AgentNode, testTrapv22, "standard inform"),
 		ok
 	end,
 
-    Cmd3 = 
+    Cmd3 =
 	fun() ->
 		receive
 		    {async_event, From, {inform, Pid, Inform}} ->
 			p("received inform"),
 			case Inform of
 			    {noError, 0, VBs} when is_list(VBs) ->
-				case (catch validate_testTrapv22_vbs(MgrNode, 
+				case (catch validate_testTrapv22_vbs(MgrNode,
 								     VBs)) of
 				    ok ->
 					p("valid inform"),
@@ -4955,10 +4955,10 @@ inform4(Config) when is_list(Config) ->
 					%% configured the manager in
 					%% this test case (irb = auto)
 					%% it has already responded
-					Pid ! {handle_inform_response, From}, 
+					Pid ! {handle_inform_response, From},
 					ok;
 				    Error ->
-					p("invalid inform: ~n   Error: ~p", 
+					p("invalid inform: ~n   Error: ~p",
 					  [Error]),
 					Error
 				end;
@@ -4971,7 +4971,7 @@ inform4(Config) when is_list(Config) ->
 				{error, Reason}
 			end
 		after 20000 ->
-			receive 
+			receive
 			    Any ->
 				{error, {crap, Any}}
 			after 1000 ->
@@ -4981,15 +4981,15 @@ inform4(Config) when is_list(Config) ->
 	end,
 
     %% This is the a result of erroneous configuration.
-%%     Cmd4 = 
+%%     Cmd4 =
 %% 	fun() ->
-%% 		receive 
+%% 		receive
 %% 		    {async_event, _ReqId, {error, Reason}} ->
 %% 			p("received error"),
 %% 			case Reason of
 %% 			    {failed_processing_message,
 %% 			     {securityError, usmStatsUnknownEngineIDs}} ->
-%% 				p("expected error"), 
+%% 				p("expected error"),
 %% 				ok;
 %% 			    _ ->
 %% 				p("unexpected error: "
@@ -4997,7 +4997,7 @@ inform4(Config) when is_list(Config) ->
 %% 				{error, {unexpected_error, Reason}}
 %% 			end
 %% 		after 20000 ->
-%% 			receive 
+%% 			receive
 %% 			    Any ->
 %% 				{error, {crap, Any}}
 %% 			after 1000 ->
@@ -5008,7 +5008,7 @@ inform4(Config) when is_list(Config) ->
 
     Cmd5 = fun() -> ?SLEEP(1000), ok end,
 
-    Commands = 
+    Commands =
 	[
 	 {1, "Manager and agent info at start of test", Cmd1},
 	 {2, "Send notifcation [no receiver] from agent", Cmd2},
@@ -5024,7 +5024,7 @@ inform4(Config) when is_list(Config) ->
 
 
 %%======================================================================
-%% 
+%%
 %% Test: ts:run(snmp, snmp_manager_test, inform_swarm, [batch]).
 
 inform_swarm(suite) -> [];
@@ -5037,20 +5037,20 @@ inform_swarm(Config) when is_list(Config) ->
     AgentNode = ?config(agent_node, Config),
 
     ?line ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
-    Test2Mib      = test2_mib(Config), 
-    TestTrapMib   = test_trap_mib(Config), 
-    TestTrapv2Mib = test_trap_v2_mib(Config), 
+    Test2Mib      = test2_mib(Config),
+    TestTrapMib   = test_trap_mib(Config),
+    TestTrapv2Mib = test_trap_v2_mib(Config),
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = mgr_user_load_mib(MgrNode, TestTrapMib),
     ?line ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
     ?line ok = agent_load_mib(AgentNode,  Test2Mib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
-    NumInforms = 100, 
+    NumInforms = 100,
 
     Collector = self(),
 
-    Generator = 
+    Generator =
 	erlang:spawn(
 	  fun() ->
 		  receive
@@ -5061,14 +5061,14 @@ inform_swarm(Config) when is_list(Config) ->
 		  lists:foreach(
 		    fun(N) ->
 			    p("send notification ~w", [N]),
-			    agent_send_notif(AgentNode, 
-					     testTrapv22, 
+			    agent_send_notif(AgentNode,
+					     testTrapv22,
 					     {{inform2_tag1, N}, Collector},
 					     "standard inform",
 					     []),
-			    %% Sleep some [(N div 10)*100 ms] 
+			    %% Sleep some [(N div 10)*100 ms]
 			    %% every tenth notification
-			    if 
+			    if
 				N rem 10 == 0 ->
 				    %% Time to sleep some
 				    Sleep = (N div 10) * 50,
@@ -5080,9 +5080,9 @@ inform_swarm(Config) when is_list(Config) ->
 		    end,
 		    Seqs),
 		  ok
-	  end), 
+	  end),
 
-    Cmd1 = 
+    Cmd1 =
 	fun() ->
 		p("manager info: ~n~p", [mgr_info(MgrNode)]),
 		p("agent info: ~n~p", [agent_info(AgentNode)]),
@@ -5091,7 +5091,7 @@ inform_swarm(Config) when is_list(Config) ->
 
     Cmd2 = fun() -> Generator ! {Collector, start}, ok end,
 
-    Cmd3 = 
+    Cmd3 =
 	fun() ->
 		inform_swarm_collector(NumInforms)
 	end,
@@ -5099,7 +5099,7 @@ inform_swarm(Config) when is_list(Config) ->
 
     Cmd4 = fun() -> ?SLEEP(1000), ok end,
 
-    Commands = 
+    Commands =
 	[
 	 {1, "Manager and agent info at start of test", Cmd1},
 	 {2, "Send notifcation(s) from agent", Cmd2},
@@ -5118,16 +5118,16 @@ inform_swarm_collector(N) ->
 
 %% Note that we need to deal with re-transmissions!
 %% That is, the agent did not receive the ack in time,
-%% and therefor did a re-transmit. This means that we 
-%% expect to receive more inform's then we actually 
-%% sent. So for sucess we assume: 
-%% 
+%% and therefor did a re-transmit. This means that we
+%% expect to receive more inform's then we actually
+%% sent. So for success we assume:
+%%
 %%     SentAckCnt =  N
 %%     RespCnt    =  N
 %%     RecvCnt    >= N
-%% 
-inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, _) 
-  when ((N == SentAckCnt) and 
+%%
+inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, _)
+  when ((N == SentAckCnt) and
 	(N == RespCnt)    and
 	(N =< RecvCnt)) ->
     p("inform_swarm_collector -> done when"
@@ -5145,7 +5145,7 @@ inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, Timeout) ->
     receive
 	{snmp_targets, {inform2_tag1, Id}, [_Addr]} ->
 	    p("received inform-sent acknowledgement for ~w", [Id]),
-	    inform_swarm_collector(N, SentAckCnt+1, RecvCnt, RespCnt, 
+	    inform_swarm_collector(N, SentAckCnt+1, RecvCnt, RespCnt,
 				   Timeout);
 
 	%% The manager has received the actual inform
@@ -5153,8 +5153,8 @@ inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, Timeout) ->
 	    p("received inform"),
 	    case Inform of
 		{noError, 0, VBs} when is_list(VBs) ->
-		    Pid ! {handle_inform_response, From}, 
-		    inform_swarm_collector(N, SentAckCnt, RecvCnt+1, RespCnt, 
+		    Pid ! {handle_inform_response, From},
+		    inform_swarm_collector(N, SentAckCnt, RecvCnt+1, RespCnt,
 					   Timeout);
 		{Err, Idx, VBs} ->
 		    p("<ERROR> unexpected error status: "
@@ -5165,16 +5165,16 @@ inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, Timeout) ->
 		    {error, Reason}
 	    end;
 
-	%% The agent has received ack from the manager 
+	%% The agent has received ack from the manager
 	{snmp_notification, {inform2_tag1, Id}, {got_response, Addr}} ->
 	    p("received expected \"got response\" for ~w"
 	      "notification from: "
-	      "~n   ~p", 
+	      "~n   ~p",
 	      [Id, Addr]),
-	    inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt+1, 
+	    inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt+1,
 				   Timeout);
 
-	%% The agent did not received ack from the manager in time 
+	%% The agent did not received ack from the manager in time
 	{snmp_notification, inform2_tag1, {no_response, Addr}} ->
 	    p("<ERROR> received expected \"no response\" notification "
 	      "from: "
@@ -5186,7 +5186,7 @@ inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, Timeout) ->
 	    %% Give up when we have been dead in the water for Timeout ms
 	    {error, {timeout, N, SentAckCnt, RecvCnt, RespCnt}}
     end.
-		    
+
 
 %%======================================================================
 
@@ -5194,7 +5194,7 @@ report(suite) -> [];
 report(Config) when is_list(Config) ->
     ?SKIP(not_yet_implemented).
 
-    
+
 
 %%======================================================================
 
@@ -5220,7 +5220,7 @@ otp8015_1(Config) when is_list(Config) ->
 
     ?SLEEP(1000),
 
-    snmpm:load_mib(std_mib()), 
+    snmpm:load_mib(std_mib()),
     snmpm:load_mib(test_trap_mib(Config)),
 
     p("manager started, now sleep some"),
@@ -5229,11 +5229,11 @@ otp8015_1(Config) when is_list(Config) ->
 
     p("loaded mibs: ~p", [snmpm:which_mibs()]),
 
-    p("get some type(s) from the mibs"),    
-    {ok, 'Counter32'} = snmpm:oid_to_type(?snmpOutTraps), 
+    p("get some type(s) from the mibs"),
+    {ok, 'Counter32'} = snmpm:oid_to_type(?snmpOutTraps),
     {ok, [IfIndex]} = snmpm:name_to_oid(ifIndex),
     {ok, 'INTEGER'} = snmpm:oid_to_type(IfIndex),
-    
+
 
     p("stop manager"),
     ok = snmpm:stop(),
@@ -5369,33 +5369,33 @@ init_manager(AutoInform, Config) ->
 	 "~n   Config:     ~p", [AutoInform, Config]),
 
 
-    %% -- 
+    %% --
     %% Start node
-    %% 
+    %%
 
     ?line Node = start_manager_node(),
 
-    %% The point with this (try catch block) is to be 
-    %% able to do some cleanup in case we fail to 
-    %% start some of the apps. That is, if we fail to 
-    %% start the apps (mnesia, crypto and snmp agent) 
+    %% The point with this (try catch block) is to be
+    %% able to do some cleanup in case we fail to
+    %% start some of the apps. That is, if we fail to
+    %% start the apps (mnesia, crypto and snmp agent)
     %% we stop the (agent) node!
 
     try
 	begin
 
-	    %% -- 
+	    %% --
 	    %% Start and initiate crypto on manager node
-	    %% 
-	    
+	    %%
+
 	    ?line ok = init_crypto(Node),
-	    
-	    %% 
+
+	    %%
 	    %% Write manager config
-	    %% 
-	    
+	    %%
+
 	    ?line ok = write_manager_config(Config),
-	    
+
 	    IRB  = case AutoInform of
 		       true ->
 			   auto;
@@ -5403,18 +5403,18 @@ init_manager(AutoInform, Config) ->
 			   user
 		   end,
 	    Conf = [{manager_node, Node}, {irb, IRB} | Config],
-	    Vsns = [v1,v2,v3], 
+	    Vsns = [v1,v2,v3],
 	    start_manager(Node, Vsns, Conf)
 	end
     catch
 	T:E ->
-	    StackTrace = ?STACK(), 
+	    StackTrace = ?STACK(),
 	    p("Failure during manager start: "
 	      "~n      Error Type: ~p"
 	      "~n      Error:      ~p"
-	      "~n      StackTrace: ~p", [T, E, StackTrace]), 
+	      "~n      StackTrace: ~p", [T, E, StackTrace]),
 	    %% And now, *try* to cleanup
-	    (catch stop_node(Node)), 
+	    (catch stop_node(Node)),
 	    ?FAIL({failed_starting_manager, T, E, StackTrace})
     end.
 
@@ -5426,10 +5426,10 @@ fin_manager(Config) ->
     p("fin_agent -> stop apps and (mgr node ~p) node results: "
       "~n      SNMP Mgr: ~p"
       "~n      Crypto:   ~p"
-      "~n      Node:     ~p", 
+      "~n      Node:     ~p",
       [Node, StopMgrRes, StopCryptoRes, StopNode]),
     Config.
-    
+
 
 %% -- Misc agent functions --
 
@@ -5437,69 +5437,69 @@ init_agent(Config) ->
     ?LOG("init_agent -> entry with"
 	 "~n   Config: ~p", [Config]),
 
-    %% -- 
+    %% --
     %% Retrieve some dir's
-    %% 
+    %%
     Dir    = ?config(agent_dir, Config),
     MibDir = ?config(mib_dir,  Config),
 
-    %% -- 
+    %% --
     %% Start node
-    %% 
+    %%
 
     ?line Node = start_agent_node(),
 
-    %% The point with this (try catch block) is to be 
-    %% able to do some cleanup in case we fail to 
-    %% start some of the apps. That is, if we fail to 
-    %% start the apps (mnesia, crypto and snmp agent) 
+    %% The point with this (try catch block) is to be
+    %% able to do some cleanup in case we fail to
+    %% start some of the apps. That is, if we fail to
+    %% start the apps (mnesia, crypto and snmp agent)
     %% we stop the (agent) node!
 
     try
 	begin
-	    
-	    %% -- 
+
+	    %% --
 	    %% Start and initiate mnesia on agent node
-	    %% 
-	    
+	    %%
+
 	    ?line ok = init_mnesia(Node, Dir, ?config(mnesia_debug, Config)),
-	    
-	    
-	    %% -- 
+
+
+	    %% --
 	    %% Start and initiate crypto on agent node
-	    %% 
-	    
+	    %%
+
 	    ?line ok = init_crypto(Node),
-	    
-	    
-	    %% 
+
+
+	    %%
 	    %% Write agent config
-	    %% 
-	    
-	    Vsns = [v1,v2], 
+	    %%
+
+	    Vsns = [v1,v2],
 	    ?line ok = write_agent_config(Vsns, Config),
-	    
+
 	    Conf = [{agent_node, Node},
 		    {mib_dir,    MibDir} | Config],
-    
-	    %% 
-	    %% Start the agent 
-	    %% 
-	    
+
+	    %%
+	    %% Start the agent
+	    %%
+
 	    start_agent(Node, Vsns, Conf)
 	end
     catch
 	T:E ->
-	    StackTrace = ?STACK(), 
+	    StackTrace = ?STACK(),
 	    p("Failure during agent start: "
 	      "~n      Error Type: ~p"
 	      "~n      Error:      ~p"
-	      "~n      StackTrace: ~p", [T, E, StackTrace]), 
+	      "~n      StackTrace: ~p", [T, E, StackTrace]),
 	    %% And now, *try* to cleanup
-	    (catch stop_node(Node)), 
+	    (catch stop_node(Node)),
 	    ?FAIL({failed_starting_agent, T, E, StackTrace})
     end.
-	      
+
 
 fin_agent(Config) ->
     Node = ?config(agent_node, Config),
@@ -5511,12 +5511,12 @@ fin_agent(Config) ->
       "~n      SNMP Agent: ~p"
       "~n      Crypto:     ~p"
       "~n      Mnesia:     ~p"
-      "~n      Node:       ~p", 
+      "~n      Node:       ~p",
       [Node, StopAgentRes, StopCryptoRes, StopMnesiaRes, StopNode]),
     Config.
 
-init_mnesia(Node, Dir, MnesiaDebug) 
-  when ((MnesiaDebug =/= none) andalso 
+init_mnesia(Node, Dir, MnesiaDebug)
+  when ((MnesiaDebug =/= none) andalso
 	(MnesiaDebug =/= debug) andalso (MnesiaDebug =/= trace)) ->
     init_mnesia(Node, Dir, ?DEFAULT_MNESIA_DEBUG);
 init_mnesia(Node, Dir, MnesiaDebug) ->
@@ -5529,7 +5529,7 @@ init_mnesia(Node, Dir, MnesiaDebug) ->
     %% Just in case, only set (known to be) valid values for debug
     if
 	((MnesiaDebug =:= debug) orelse (MnesiaDebug =:= trace)) ->
-	    ?DBG("init_mnesia -> application mnesia: set_env debug: ~w", 
+	    ?DBG("init_mnesia -> application mnesia: set_env debug: ~w",
 		 [MnesiaDebug]),
 	    ?line ok = set_mnesia_env(Node, debug, MnesiaDebug);
 	true ->
@@ -5546,7 +5546,7 @@ init_mnesia(Node, Dir, MnesiaDebug) ->
 	      Error ->
 		  ?FAIL({failed_creating_mnesia_schema, Error})
 	  end,
-    
+
     ?DBG("init_mnesia -> start application mnesia",[]),
     ?line ok = start_mnesia(Node),
 
@@ -5584,7 +5584,7 @@ load_app(Node, App) ->
 		    end,
     do_load_app(Node, App, VerifySuccess).
 
-do_load_app(Node, App, VerifySuccess) 
+do_load_app(Node, App, VerifySuccess)
   when (Node =:= node()) andalso is_atom(App) ->
     %% Local app
     exec(fun() -> application:load(App) end, VerifySuccess);
@@ -5605,7 +5605,7 @@ start_app(Node, App) ->
 		    end,
     start_app(Node, App, VerifySuccess).
 
-start_app(Node, App, VerifySuccess) 
+start_app(Node, App, VerifySuccess)
   when (Node =:= node()) andalso is_atom(App) ->
     exec(fun() -> application:start(App) end, VerifySuccess);
 start_app(Node, App, VerifySuccess) ->
@@ -5623,8 +5623,8 @@ stop_app(Node, App) ->
 			    ?FAIL({failed_stop, Node, App, Reason})
 		    end,
     stop_app(Node, App, VerifySuccess).
-    
-stop_app(Node, App, VerifySuccess) 
+
+stop_app(Node, App, VerifySuccess)
   when (Node =:= node()) andalso is_atom(App)  ->
     exec(fun() -> application:stop(App) end, VerifySuccess);
 stop_app(Node, App, VerifySuccess) when is_atom(App) ->
@@ -5640,16 +5640,16 @@ set_app_env(Node, App, Key, Val) ->
 			      "~n      Val:    ~p"
 			      "~n      Reason: ~p"
 			      "~n      ~p", [App, Node, Key, Val, Reason]),
-			    ?FAIL({failed_set_app_env, 
+			    ?FAIL({failed_set_app_env,
 				   Node, App, Key, Val, Reason})
 		    end,
     set_app_env(Node, App, Key, Val, VerifySuccess).
 
-set_app_env(Node, App, Key, Val, VerifySuccess) 
+set_app_env(Node, App, Key, Val, VerifySuccess)
   when (Node =:= node()) andalso is_atom(App) ->
     exec(fun() -> application:set_env(App, Key, Val) end, VerifySuccess);
 set_app_env(Node, App, Key, Val, VerifySuccess) when is_atom(App) ->
-    exec(fun() -> rcall(Node, application, set_env, [App, Key, Val]) end, 
+    exec(fun() -> rcall(Node, application, set_env, [App, Key, Val]) end,
 	 VerifySuccess).
 
 
@@ -5690,15 +5690,15 @@ mgr_which_users(Node) ->
 %% mgr_register_agent(Node, Id, Conf) when is_list(Conf) ->
 %%     mgr_register_agent(Node, Id, 5000, Conf).
 
-mgr_register_agent(Node, Id, Port, Conf) 
+mgr_register_agent(Node, Id, Port, Conf)
   when is_integer(Port) andalso is_list(Conf) ->
     Localhost = snmp_test_lib:localhost(),
     mgr_register_agent(Node, Id, Localhost, Port, Conf);
-mgr_register_agent(Node, Id, TargetName, Config) 
+mgr_register_agent(Node, Id, TargetName, Config)
   when is_list(TargetName) andalso is_list(Config) ->
     rcall(Node, snmpm, register_agent, [Id, TargetName, Config]).
 
-mgr_register_agent(Node, Id, Addr, Port, Conf) 
+mgr_register_agent(Node, Id, Addr, Port, Conf)
   when is_integer(Port) andalso is_list(Conf) ->
     rcall(Node, snmpm, register_agent, [Id, Addr, Port, Conf]).
 
@@ -5792,7 +5792,7 @@ init_mgr_user(Conf) ->
     ?line {ok, User} = mgr_user_start(Node),
     ?DBG("start_mgr_user -> User: ~p", [User]),
     link(User),
-    
+
     [{user_pid, User} | Conf].
 
 fin_mgr_user(Conf) ->
@@ -5829,13 +5829,13 @@ init_mgr_user_data1(Conf) ->
     ?line {ok, _DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
     ?DBG("Default agent config: ~n~p", [_DefAgentConf]),
 
-    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+    ?line ok = mgr_user_update_agent_info(Node, TargetName,
 					  community, "all-rights"),
-    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+    ?line ok = mgr_user_update_agent_info(Node, TargetName,
 					  sec_name, "all-rights"),
-    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+    ?line ok = mgr_user_update_agent_info(Node, TargetName,
 					  engine_id, "agentEngine"),
-    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+    ?line ok = mgr_user_update_agent_info(Node, TargetName,
 					  max_message_size, 1024),
 
     ?line {ok, _AgentConf} = mgr_user_agent_info(Node, TargetName, all),
@@ -5871,11 +5871,11 @@ init_mgr_user_data2(Conf) ->
     ?line {ok, _DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
     ?DBG("Default agent config: ~n~p", [_DefAgentConf]),
 
-    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+    ?line ok = mgr_user_update_agent_info(Node, TargetName,
 					  community, "all-rights"),
-    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+    ?line ok = mgr_user_update_agent_info(Node, TargetName,
 					  sec_name, "all-rights"),
-    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+    ?line ok = mgr_user_update_agent_info(Node, TargetName,
 					  max_message_size, 1024),
 
     ?line {ok, _AgentConf} = mgr_user_agent_info(Node, TargetName, all),
@@ -5910,7 +5910,7 @@ mgr_user_stop(Node) ->
 %%     mgr_user_register_agent(Node, TargetName, []);
 %% mgr_user_register_agent(Node, Addr) ->
 %%     mgr_user_register_agent(Node, Addr, ?AGENT_PORT, []).
-mgr_user_register_agent(Node, TargetName, Conf) 
+mgr_user_register_agent(Node, TargetName, Conf)
   when is_list(TargetName) andalso is_list(Conf) ->
     rcall(Node, snmp_manager_user, register_agent, [TargetName, Conf]).
 %% <REMOVED-IN-R16B>
@@ -5929,7 +5929,7 @@ mgr_user_unregister_agent(Node, TargetName) when is_list(TargetName) ->
 %%     rcall(Node, snmp_manager_user, unregister_agent, [Addr, Port]).
 %% </REMOVED-IN-R16B>
 
-mgr_user_agent_info(Node, TargetName, Item) 
+mgr_user_agent_info(Node, TargetName, Item)
   when is_list(TargetName) andalso is_atom(Item) ->
     rcall(Node, snmp_manager_user, agent_info, [TargetName, Item]).
 %% <REMOVED-IN-R16B>
@@ -5939,12 +5939,12 @@ mgr_user_agent_info(Node, TargetName, Item)
 
 %% mgr_user_update_agent_info(Node, Item, Val) when atom(Item) ->
 %%     mgr_user_update_agent_info(Node, ?LOCALHOST(), ?AGENT_PORT, Item, Val).
-mgr_user_update_agent_info(Node, TargetName, Item, Val) 
+mgr_user_update_agent_info(Node, TargetName, Item, Val)
   when is_list(TargetName) andalso is_atom(Item) ->
     rcall(Node, snmp_manager_user, update_agent_info, [TargetName, Item, Val]).
 %% <REMOVED-IN-R16B>
 %% mgr_user_update_agent_info(Node, Addr, Port, Item, Val) when is_atom(Item) ->
-%%     rcall(Node, snmp_manager_user, update_agent_info, 
+%%     rcall(Node, snmp_manager_user, update_agent_info,
 %% 	  [Addr, Port, Item, Val]).
 %% </REMOVED-IN-R16B>
 
@@ -5978,7 +5978,7 @@ mgr_user_async_get(Node, Addr, Port, Oids) ->
     rcall(Node, snmp_manager_user, async_get, [Addr, Port, Oids]).
 %% </REMOVED-IN-R16B>
 
-mgr_user_async_get2(Node, TargetName, Oids, SendOpts) 
+mgr_user_async_get2(Node, TargetName, Oids, SendOpts)
   when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, async_get2, [TargetName, Oids, SendOpts]).
 
@@ -5991,7 +5991,7 @@ mgr_user_sync_get_next(Node, Addr, Port, Oids) ->
     rcall(Node, snmp_manager_user, sync_get_next, [Addr, Port, Oids]).
 %% </REMOVED-IN-R16B>
 
-mgr_user_sync_get_next2(Node, TargetName, Oids, SendOpts) 
+mgr_user_sync_get_next2(Node, TargetName, Oids, SendOpts)
   when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, sync_get_next2, [TargetName, Oids, SendOpts]).
 
@@ -6004,7 +6004,7 @@ mgr_user_async_get_next(Node, Addr, Port, Oids) ->
     rcall(Node, snmp_manager_user, async_get_next, [Addr, Port, Oids]).
 %% </REMOVED-IN-R16B>
 
-mgr_user_async_get_next2(Node, TargetName, Oids, SendOpts) 
+mgr_user_async_get_next2(Node, TargetName, Oids, SendOpts)
   when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, async_get_next2, [TargetName, Oids, SendOpts]).
 
@@ -6033,39 +6033,39 @@ mgr_user_async_set2(Node, TargetName, VAV, SendOpts) when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, async_set2, [TargetName, VAV, SendOpts]).
 
 %% mgr_user_sync_get_bulk(Node, NonRep, MaxRep, Oids) ->
-%%     mgr_user_sync_get_bulk(Node, ?LOCALHOST(), ?AGENT_PORT, 
+%%     mgr_user_sync_get_bulk(Node, ?LOCALHOST(), ?AGENT_PORT,
 %% 			   NonRep, MaxRep, Oids).
-mgr_user_sync_get_bulk(Node, TargetName, NonRep, MaxRep, Oids) 
+mgr_user_sync_get_bulk(Node, TargetName, NonRep, MaxRep, Oids)
   when is_list(TargetName) ->
-    rcall(Node, snmp_manager_user, sync_get_bulk, 
+    rcall(Node, snmp_manager_user, sync_get_bulk,
 	  [TargetName, NonRep, MaxRep, Oids]).
 %% <REMOVED-IN-R16B>
 mgr_user_sync_get_bulk(Node, Addr, Port, NonRep, MaxRep, Oids) ->
-    rcall(Node, snmp_manager_user, sync_get_bulk, 
+    rcall(Node, snmp_manager_user, sync_get_bulk,
 	     [Addr, Port, NonRep, MaxRep, Oids]).
 %% </REMOVED-IN-R16B>
 
-mgr_user_sync_get_bulk2(Node, TargetName, NonRep, MaxRep, Oids, SendOpts) 
+mgr_user_sync_get_bulk2(Node, TargetName, NonRep, MaxRep, Oids, SendOpts)
   when is_list(TargetName) ->
-    rcall(Node, snmp_manager_user, sync_get_bulk2, 
+    rcall(Node, snmp_manager_user, sync_get_bulk2,
 	  [TargetName, NonRep, MaxRep, Oids, SendOpts]).
 
 %% mgr_user_async_get_bulk(Node, NonRep, MaxRep, Oids) ->
-%%     mgr_user_async_get_bulk(Node, ?LOCALHOST(), ?AGENT_PORT, 
+%%     mgr_user_async_get_bulk(Node, ?LOCALHOST(), ?AGENT_PORT,
 %% 			   NonRep, MaxRep, Oids).
-mgr_user_async_get_bulk(Node, TargetName, NonRep, MaxRep, Oids) 
+mgr_user_async_get_bulk(Node, TargetName, NonRep, MaxRep, Oids)
   when is_list(TargetName) ->
-    rcall(Node, snmp_manager_user, async_get_bulk, 
+    rcall(Node, snmp_manager_user, async_get_bulk,
 	  [TargetName, NonRep, MaxRep, Oids]).
 %% <REMOVED-IN-R16B>
 mgr_user_async_get_bulk(Node, Addr, Port, NonRep, MaxRep, Oids) ->
-    rcall(Node, snmp_manager_user, async_get_bulk, 
+    rcall(Node, snmp_manager_user, async_get_bulk,
 	     [Addr, Port, NonRep, MaxRep, Oids]).
 %% </REMOVED-IN-R16B>
 
-mgr_user_async_get_bulk2(Node, TargetName, NonRep, MaxRep, Oids, SendOpts) 
+mgr_user_async_get_bulk2(Node, TargetName, NonRep, MaxRep, Oids, SendOpts)
   when is_list(TargetName) ->
-    rcall(Node, snmp_manager_user, async_get_bulk2, 
+    rcall(Node, snmp_manager_user, async_get_bulk2,
 	  [TargetName, NonRep, MaxRep, Oids, SendOpts]).
 
 mgr_user_purify_oid(Node, Oid) ->
@@ -6074,7 +6074,7 @@ mgr_user_purify_oid(Node, Oid) ->
 mgr_user_name_to_oid(Node, Name) ->
     rcall(Node, snmp_manager_user, name_to_oid, [Name]).
 
-   
+
 %% -- Misc manager wrapper functions --
 
 start_manager(Node, Vsns, Config) ->
@@ -6085,7 +6085,7 @@ start_manager(Node, Vsns, Conf0, _Opts) ->
 	 "~n   Vsns:   ~p"
 	 "~n   Conf0:  ~p"
 	 "~n   Opts:   ~p", [Node, Vsns, Conf0, _Opts]),
-    
+
     AtlDir  = ?config(manager_log_dir,  Conf0),
     ConfDir = ?config(manager_conf_dir, Conf0),
     DbDir   = ?config(manager_db_dir, Conf0),
@@ -6098,12 +6098,12 @@ start_manager(Node, Vsns, Conf0, _Opts) ->
 
     AtlSeqNo           = get_opt(manager_atl_seqno,            Conf0, false),
 
-    NetIfConf = 
+    NetIfConf =
 	case get_opt(manager_net_if_module, Conf0, no_module) of
 	    no_module ->
 		[{verbosity, NetIfVerbosity}];
 	    NetIfModule ->
-		[{module,    NetIfModule}, 
+		[{module,    NetIfModule},
 		 {verbosity, NetIfVerbosity}]
 	end,
 
@@ -6114,8 +6114,8 @@ start_manager(Node, Vsns, Conf0, _Opts) ->
 			      {size,      {10240, 10}},
 			      {repair,    true},
 			      {seqno,     AtlSeqNo}]},
-	   {config,          [{dir,       ConfDir}, 
-			      {db_dir,    DbDir}, 
+	   {config,          [{dir,       ConfDir},
+			      {db_dir,    DbDir},
 			      {verbosity, ConfigVerbosity}]},
 	   {note_store,      [{verbosity, NoteStoreVerbosity}]},
 	   {server,          [{verbosity, ServerVerbosity}]},
@@ -6123,7 +6123,7 @@ start_manager(Node, Vsns, Conf0, _Opts) ->
     ?line ok = set_mgr_env(Node, Env),
 
     ?line ok = start_snmp(Node),
-    
+
     Conf0.
 
 stop_manager(Node) ->
@@ -6140,7 +6140,7 @@ start_agent(Node, Vsns, Conf0, _Opts) ->
 	 "~n   Vsns:   ~p"
 	 "~n   Conf0:  ~p"
 	 "~n   Opts:   ~p", [Node, Vsns, Conf0, _Opts]),
-    
+
     AtlDir  = ?config(agent_log_dir,  Conf0),
     ConfDir = ?config(agent_conf_dir, Conf0),
     DbDir   = ?config(agent_db_dir,   Conf0),
@@ -6160,8 +6160,8 @@ start_agent(Node, Vsns, Conf0, _Opts) ->
 			      {dir,    AtlDir},
 			      {size,   {10240, 10}},
 			      {repair, true}]},
-	   {config,          [{dir,        ConfDir}, 
-			      {force_load, false}, 
+	   {config,          [{dir,        ConfDir},
+			      {force_load, false},
 			      {verbosity,  CV}]},
 	   {db_dir,          DbDir},
 	   {local_db,        [{repair,    true},
@@ -6254,8 +6254,8 @@ await_stopped(Node, N) ->
 	    p("await_stopped -> ~p gone: ~w", [Node, N]),
 	    ok
     end.
-    
- 
+
+
 
 %% -- Misc config wrapper functions --
 
@@ -6315,7 +6315,7 @@ write_agent_config(Vsns, Conf) ->
     ?line ok = write_agent_target_params_conf(Dir, Vsns),
     ?line ok = write_agent_notify_conf(Dir),
     ok.
-    
+
 write_agent_config_files(Dir, Vsns, Domain, Ip) ->
     snmp_config:write_agent_snmp_files(
       Dir, Vsns, Domain, {Ip, ?MGR_PORT}, {Ip, ?AGENT_PORT}, "mgr-test",
@@ -6324,66 +6324,66 @@ write_agent_config_files(Dir, Vsns, Domain, Ip) ->
 update_agent_usm(Vsns, Dir) ->
     case lists:member(v3, Vsns) of
         true ->
-            Conf = [{"agentEngine", "all-rights", "all-rights", zeroDotZero, 
-                     usmNoAuthProtocol, "", "", 
-                     usmNoPrivProtocol, "", "", "", "", ""}, 
+            Conf = [{"agentEngine", "all-rights", "all-rights", zeroDotZero,
+                     usmNoAuthProtocol, "", "",
+                     usmNoPrivProtocol, "", "", "", "", ""},
 
-                    {"agentEngine", "no-rights", "no-rights", zeroDotZero, 
-                     usmNoAuthProtocol, "", "", 
-                     usmNoPrivProtocol, "", "", "", "", ""}, 
+                    {"agentEngine", "no-rights", "no-rights", zeroDotZero,
+                     usmNoAuthProtocol, "", "",
+                     usmNoPrivProtocol, "", "", "", "", ""},
 
-                    {"agentEngine", "authMD5", "authMD5", zeroDotZero, 
-                     usmHMACMD5AuthProtocol, "", "", 
-                     usmNoPrivProtocol, "", "", "", "passwd_md5xxxxxx", ""}, 
+                    {"agentEngine", "authMD5", "authMD5", zeroDotZero,
+                     usmHMACMD5AuthProtocol, "", "",
+                     usmNoPrivProtocol, "", "", "", "passwd_md5xxxxxx", ""},
 
-                    {"agentEngine", "authSHA", "authSHA", zeroDotZero, 
-                     usmHMACSHAAuthProtocol, "", "", 
-                     usmNoPrivProtocol, "", "", "", 
-                     "passwd_shaxxxxxxxxxx", ""}, 
+                    {"agentEngine", "authSHA", "authSHA", zeroDotZero,
+                     usmHMACSHAAuthProtocol, "", "",
+                     usmNoPrivProtocol, "", "", "",
+                     "passwd_shaxxxxxxxxxx", ""},
 
-                    {"agentEngine", "privDES", "privDES", zeroDotZero, 
-                     usmHMACSHAAuthProtocol, "", "", 
-                     usmDESPrivProtocol, "", "", "", 
-                     "passwd_shaxxxxxxxxxx", "passwd_desxxxxxx"}, 
+                    {"agentEngine", "privDES", "privDES", zeroDotZero,
+                     usmHMACSHAAuthProtocol, "", "",
+                     usmDESPrivProtocol, "", "", "",
+                     "passwd_shaxxxxxxxxxx", "passwd_desxxxxxx"},
 
-                    {"mgrEngine", "all-rights", "all-rights", zeroDotZero, 
-                     usmNoAuthProtocol, "", "", 
-                     usmNoPrivProtocol, "", "", "", "", ""}, 
+                    {"mgrEngine", "all-rights", "all-rights", zeroDotZero,
+                     usmNoAuthProtocol, "", "",
+                     usmNoPrivProtocol, "", "", "", "", ""},
 
-                    {"mgrEngine", "no-rights", "no-rights", zeroDotZero, 
-                     usmNoAuthProtocol, "", "", 
-                     usmNoPrivProtocol, "", "", "", "", ""}, 
+                    {"mgrEngine", "no-rights", "no-rights", zeroDotZero,
+                     usmNoAuthProtocol, "", "",
+                     usmNoPrivProtocol, "", "", "", "", ""},
 
-                    {"mgrEngine", "authMD5", "authMD5", zeroDotZero, 
-                     usmHMACMD5AuthProtocol, "", "", 
-                     usmNoPrivProtocol, "", "", "", "passwd_md5xxxxxx", ""}, 
+                    {"mgrEngine", "authMD5", "authMD5", zeroDotZero,
+                     usmHMACMD5AuthProtocol, "", "",
+                     usmNoPrivProtocol, "", "", "", "passwd_md5xxxxxx", ""},
 
-                    {"mgrEngine", "authSHA", "authSHA", zeroDotZero, 
-                     usmHMACSHAAuthProtocol, "", "", 
-                     usmNoPrivProtocol, "", "", "", 
-                     "passwd_shaxxxxxxxxxx", ""}, 
+                    {"mgrEngine", "authSHA", "authSHA", zeroDotZero,
+                     usmHMACSHAAuthProtocol, "", "",
+                     usmNoPrivProtocol, "", "", "",
+                     "passwd_shaxxxxxxxxxx", ""},
 
-                    {"mgrEngine", "privDES", "privDES", zeroDotZero, 
-                     usmHMACSHAAuthProtocol, "", "", 
-                     usmDESPrivProtocol, "", "", "", 
+                    {"mgrEngine", "privDES", "privDES", zeroDotZero,
+                     usmHMACSHAAuthProtocol, "", "",
+                     usmDESPrivProtocol, "", "", "",
                      "passwd_shaxxxxxxxxxx", "passwd_desxxxxxx"}],
             snmp_config:update_agent_usm_config(Dir, Conf);
         false ->
             ok
     end.
 
-update_agent_community([v3], _Dir) -> 
+update_agent_community([v3], _Dir) ->
     ok;
 update_agent_community(_, Dir) ->
     Conf = [{"no-rights", "no-rights", "no-rights", "", ""}],
     snmp_config:update_agent_community_config(Dir, Conf).
 
 update_agent_vacm(_Vsns, Dir) ->
-    Conf = [{vacmSecurityToGroup, usm, "authMD5", "initial"}, 
-            {vacmSecurityToGroup, usm, "authSHA", "initial"}, 
-            {vacmSecurityToGroup, usm, "privDES", "initial"}, 
+    Conf = [{vacmSecurityToGroup, usm, "authMD5", "initial"},
+            {vacmSecurityToGroup, usm, "authSHA", "initial"},
+            {vacmSecurityToGroup, usm, "privDES", "initial"},
             {vacmSecurityToGroup, usm, "newUser", "initial"},
-            {vacmViewTreeFamily, "internet", ?tDescr_instance, 
+            {vacmViewTreeFamily, "internet", ?tDescr_instance,
              excluded, null}],
     snmp_config:update_agent_vacm_config(Dir, Conf).
 
@@ -6391,7 +6391,7 @@ write_agent_target_addr_conf(Dir, Domain, Ip, Vsns) ->
     snmp_config:write_agent_snmp_target_addr_conf(
       Dir, Domain, {Ip, ?MGR_PORT}, 300, 3, Vsns).
 
-write_agent_target_params_conf(Dir, Vsns) -> 
+write_agent_target_params_conf(Dir, Vsns) ->
     F = fun(v1) -> {"target_v1", v1,  v1,  "all-rights", noAuthNoPriv};
            (v2) -> {"target_v2", v2c, v2c, "all-rights", noAuthNoPriv};
            (v3) -> {"target_v3", v3,  usm, "all-rights", noAuthNoPriv}
@@ -6399,8 +6399,8 @@ write_agent_target_params_conf(Dir, Vsns) ->
     Conf = [F(Vsn) || Vsn <- Vsns],
     snmp_config:write_agent_target_params_config(Dir, "", Conf).
 
-write_agent_notify_conf(Dir) -> 
-    Conf = [{"standard trap",   "std_trap",   trap}, 
+write_agent_notify_conf(Dir) ->
+    Conf = [{"standard trap",   "std_trap",   trap},
             {"standard inform", "std_inform", inform}],
     snmp_config:write_agent_notify_config(Dir, "", Conf).
 
@@ -6409,7 +6409,7 @@ write_conf_file(Dir, File, Str) ->
     ?line {ok, Fd} = file:open(filename:join(Dir, File), write),
     ?line ok = io:format(Fd, "~s", [Str]),
     file:close(Fd).
- 
+
 
 %% ------
 
@@ -6418,9 +6418,9 @@ display_log(Config) ->
 	{value, {_, Dir}} ->
 	    case lists:keysearch(manager_node, 1, Config) of
 		{value, {_, Node}} ->
-		    LogDir  = Dir, 
-		    Mibs    = [], 
-		    OutFile = j(LogDir, "snmpm_log.txt"), 
+		    LogDir  = Dir,
+		    Mibs    = [],
+		    OutFile = j(LogDir, "snmpm_log.txt"),
 		    p("~n"
 		      "========================="
 		      "  < Audit Trail Log >  "
@@ -6499,10 +6499,10 @@ rcall(Node, Mod, Func, Args) ->
 
 p(F) ->
     p(F, []).
- 
+
 p(F, A) ->
     p(get(tname), F, A).
- 
+
 p(TName, F, A) ->
     io:format("*** [~w][~s] ***"
               "~n   " ++ F ++ "~n", [TName, formated_timestamp()|A]).

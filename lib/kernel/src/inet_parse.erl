@@ -48,7 +48,7 @@
 
 %% --------------------------------------------------------------------------
 %% Parse services internet style
-%% Syntax: 
+%% Syntax:
 %%      Name   Port/Protocol    [Aliases]  \n
 %%      # comment
 %% --------------------------------------------------------------------------
@@ -146,7 +146,7 @@ host_conf_linux(File) ->
 host_conf_linux(Fname, File) ->
     Fn = fun(["order" | Order]) ->
 		 %% XXX remove ',' between entries
-		 {lookup, split_comma(Order)}; 
+		 {lookup, split_comma(Order)};
 	    (_) ->
 		 skip
 	 end,
@@ -175,7 +175,7 @@ host_conf_freebsd(Fname, File) ->
 %% Parse BSD/OS irs.conf file
 %% find "hosts" only and ignore options.
 %%
-%% Syntax: 
+%% Syntax:
 %%      Map AccessMethod [,AccessMethod] [continue|merge [,merge|,continue]] \n
 %%      # comment
 
@@ -309,7 +309,7 @@ parse_fd(Fname,Fd, Line, Fun, Ls) ->
 			    warning("~p:~p: warning! strange domain name(s) ~p ~n",[Fname,Line,Wlist]),
 			    parse_fd(Fname, Fd,Line+1,Fun,[Val|Ls]);
 
-			skip -> 
+			skip ->
 			    parse_fd(Fname, Fd, Line+1, Fun, Ls);
 			Val -> parse_fd(Fname, Fd, Line+1, Fun, [Val|Ls])
 		    end
@@ -324,7 +324,7 @@ parse_cs(Fname, Chars, Line, Fun, Ls) ->
 		[] -> parse_cs(Fname, Chars1, Line+1, Fun, Ls);
 		Toks ->
 		    case catch Fun(Toks) of
-			{'EXIT',_} -> 
+			{'EXIT',_} ->
 			    error("~p:~p: erroneous line, SKIPPED~n",[Fname,Line]),
  			    parse_cs(Fname, Chars1, Line+1, Fun, Ls);
 			{warning,Wlist,Val} ->
@@ -361,7 +361,7 @@ collect_line(Fd, Cs) ->
 	eof when Cs =:= [] ->
 	    eof;
 	eof -> reverse(Cs)
-    end.    
+    end.
 
 collect_line(Fd, N, [$\r, $\n|_], Cs) ->
     {ok, _} = file:position(Fd, {cur,-(N-2)}),
@@ -376,9 +376,9 @@ collect_line(Fd, N, [X|Xs], Cs) ->
 
 
 %% split Port/Proto -> {Port, Proto}
-port_proto([X|Xs], N) when X >= $0, X =< $9 -> 
+port_proto([X|Xs], N) when X >= $0, X =< $9 ->
     port_proto(Xs, N*10 + (X - $0));
-port_proto([$/ | Proto], Port) when Port =/= 0 -> 
+port_proto([$/ | Proto], Port) when Port =/= 0 ->
     {list_to_atom(Proto), Port}.
 
 %%
@@ -405,7 +405,7 @@ domain(_) ->
 
 is_dom1([C | Cs]) when C >= $a, C =< $z -> is_dom_ldh(Cs);
 is_dom1([C | Cs]) when C >= $A, C =< $Z -> is_dom_ldh(Cs);
-is_dom1([C | Cs]) when C >= $0, C =< $9 -> 
+is_dom1([C | Cs]) when C >= $0, C =< $9 ->
     case is_dom_ldh(Cs) of
 	true  -> is_dom2(string:tokens([C | Cs],"."));
 	false -> false
@@ -454,7 +454,7 @@ address(Cs) when is_list(Cs) ->
 	_ ->
 	    ipv6strict_address(Cs)
     end;
-address(_) -> 
+address(_) ->
     {error, einval}.
 
 %%Parse ipv4 strict address or ipv6 strict address
@@ -469,7 +469,7 @@ strict_address(_) ->
     {error, einval}.
 
 %%
-%% Parse IPv4 address: 
+%% Parse IPv4 address:
 %%    d1.d2.d3.d4
 %%    d1.d2.d4
 %%    d1.d4
@@ -701,10 +701,10 @@ dup(N, E, L) when is_integer(N), N >= 1 ->
 
 
 
-%% Convert IPv4 adress to ascii
-%% Convert IPv6 / IPV4 adress to ascii (plain format)
+%% Convert IPv4 address to ascii
+%% Convert IPv6 / IPV4 address to ascii (plain format)
 ntoa({A,B,C,D}) ->
-    integer_to_list(A) ++ "." ++ integer_to_list(B) ++ "." ++ 
+    integer_to_list(A) ++ "." ++ integer_to_list(B) ++ "." ++
 	integer_to_list(C) ++ "." ++ integer_to_list(D);
 %% ANY
 ntoa({0,0,0,0,0,0,0,0}) -> "::";
@@ -713,7 +713,7 @@ ntoa({0,0,0,0,0,0,0,1}) -> "::1";
 %% IPV4 ipv6 host address
 ntoa({0,0,0,0,0,0,A,B}) -> "::" ++ dig_to_dec(A) ++ "." ++ dig_to_dec(B);
 %% IPV4 non ipv6 host address
-ntoa({0,0,0,0,0,16#ffff,A,B}) -> 
+ntoa({0,0,0,0,0,16#ffff,A,B}) ->
     "::FFFF:" ++ dig_to_dec(A) ++ "." ++ dig_to_dec(B);
 ntoa({_,_,_,_,_,_,_,_}=T) ->
     %% Find longest sequence of zeros, at least 2, to replace with "::"
@@ -776,7 +776,7 @@ separate(_E, [H], R) ->
 
 %% convert to A.B decimal form
 dig_to_dec(0) -> "0.0";
-dig_to_dec(X) -> 
+dig_to_dec(X) ->
     integer_to_list((X bsr 8) band 16#ff) ++ "." ++
 	integer_to_list(X band 16#ff).
 
@@ -824,16 +824,16 @@ split_end(Acc, Tokens) -> reverse([reverse(Acc) | Tokens]).
 %%        ",foo"
 %%        "foo,"
 %%        "foo,bar..."
- 
+
 split_comma([]) ->
     [];
 split_comma([Token | Tokens]) ->
     split_comma(Token, []) ++ split_comma(Tokens).
- 
+
 split_comma([], Tokens) ->       reverse(Tokens);
 split_comma([$, | L], Tokens) -> split_comma(L, Tokens);
 split_comma([C|Cs], Tokens) ->   split_mid_comma(Cs, [C], Tokens).
- 
+
 split_mid_comma([$, | Cs], Acc, Tokens) ->
     split_comma(Cs, [reverse(Acc) | Tokens]);
 split_mid_comma([], Acc, Tokens) ->
@@ -845,7 +845,7 @@ split_mid_comma([C|Cs], Acc, Tokens) ->
 
 warning(Fmt, Args) ->
     case application:get_env(kernel,inet_warnings) of
-	{ok,on} -> 
+	{ok,on} ->
 	    error_logger:info_msg("inet_parse:" ++ Fmt, Args);
 	_ ->
 	    ok
