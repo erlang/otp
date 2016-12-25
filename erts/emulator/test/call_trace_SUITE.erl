@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1999-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 %%% Purpose : Tests the new call_trace BIF.
@@ -45,7 +45,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {seconds, 30}}].
 
-all() -> 
+all() ->
     Common = [errors, on_load],
     NotHipe = [process_specs, basic, flags, pam, change_pam,
                upgrade,
@@ -178,9 +178,9 @@ basic() ->
     trace_info(self(), flags),
     trace_info(self(), tracer),
     0 = trace_func({?MODULE,no_such_function,0}, []),
-    {traced,undefined} = 
+    {traced,undefined} =
     trace_info({?MODULE,no_such_function,0}, traced),
-    {match_spec, undefined} = 
+    {match_spec, undefined} =
     trace_info({?MODULE,no_such_function,0}, match_spec),
 
     %% Trace some functions...
@@ -233,7 +233,7 @@ basic() ->
     trace_func({'_','_','_'}, false),
     [b,a] = lists:reverse([a,b]),
 
-    %% Read out the remaing trace messages.
+    %% Read out the remaining trace messages.
 
     ?MODULE:expect({trace,Self,call,{lists,seq,[1,10]}}),
     ?MODULE:expect({trace,Self,call,{erlang,list_to_integer,["777"]}}),
@@ -687,7 +687,7 @@ exception_trace() ->
     1 = trace_func({lists,append,2}, Prog1),
     1 = trace_func({erlang,process_info,2}, Prog1),
     {match_spec,Prog1} = trace_info({lists,append,2}, match_spec),
-    {match_spec,Prog1} = 
+    {match_spec,Prog1} =
     trace_info({erlang,process_info,2}, match_spec),
 
     [x,y] = lists:append(id([x]), id([y])),
@@ -703,7 +703,7 @@ exception_trace() ->
 
     %% Try catch/exit.
 
-    1 = trace_func({?MODULE,nasty,0}, 
+    1 = trace_func({?MODULE,nasty,0},
                    [{[],[],[{exception_trace},{message,false}]}]),
     {'EXIT',good_bye} = (catch ?MODULE:nasty()),
     expect({trace_ts,Self,exception_from,
@@ -715,7 +715,7 @@ exception_trace() ->
     1 = trace_func({lists,append,2}, false),
     1 = trace_func({erlang,process_info,2}, false),
     {match_spec,false} = trace_info({lists,append,2}, match_spec),
-    {match_spec,false} = 
+    {match_spec,false} =
     trace_info({erlang,process_info,2}, match_spec),
 
     %% No timestamp, no trace message for call.
@@ -726,7 +726,7 @@ exception_trace() ->
     1 = trace_func({lists,seq,2}, Prog2),
     1 = trace_func({erlang,atom_to_list,1}, Prog2),
     {match_spec,Prog2} = trace_info({lists,seq,2}, match_spec),
-    {match_spec,Prog2} = 
+    {match_spec,Prog2} =
     trace_info({erlang,atom_to_list,1}, match_spec),
 
     lists:seq(2, 7),
@@ -739,7 +739,7 @@ exception_trace() ->
     1 = trace_func({lists,seq,2}, false),
     1 = trace_func({erlang,atom_to_list,1}, false),
     {match_spec,false} = trace_info({lists,seq,2}, match_spec),
-    {match_spec,false} = 
+    {match_spec,false} =
     trace_info({erlang,atom_to_list,1}, match_spec),
 
     expect(),
@@ -797,27 +797,27 @@ deep_exception() ->
     2 = trace_func({erlang,error,'_'}, Prog),
     1 = trace_func({lists,reverse,2}, Prog),
 
-    deep_exception(?LINE, exit, [paprika], 1, 
+    deep_exception(?LINE, exit, [paprika], 1,
                    [{trace,Self,call,{erlang,exit,[paprika]}},
                     {trace,Self,exception_from,{erlang,exit,1},
-                     {exit,paprika}}], 
+                     {exit,paprika}}],
                    exception_from, {exit,paprika}),
-    deep_exception(?LINE, throw, [3.14], 2, 
+    deep_exception(?LINE, throw, [3.14], 2,
                    [{trace,Self,call,{erlang,throw,[3.14]}},
                     {trace,Self,exception_from,{erlang,throw,1},
-                     {throw,3.14}}], 
+                     {throw,3.14}}],
                    exception_from, {throw,3.14}),
-    deep_exception(?LINE, error, [{paprika}], 3, 
+    deep_exception(?LINE, error, [{paprika}], 3,
                    [{trace,Self,call,{erlang,error,[{paprika}]}},
                     {trace,Self,exception_from,{erlang,error,1},
-                     {error,{paprika}}}], 
+                     {error,{paprika}}}],
                    exception_from, {error,{paprika}}),
-    deep_exception(?LINE, error, ["{paprika}",[]], 3, 
+    deep_exception(?LINE, error, ["{paprika}",[]], 3,
                    [{trace,Self,call,{erlang,error,["{paprika}",[]]}},
                     {trace,Self,exception_from,{erlang,error,2},
-                     {error,"{paprika}"}}], 
+                     {error,"{paprika}"}}],
                    exception_from, {error,"{paprika}"}),
-    deep_exception(?LINE, id, [broccoli], 4, [], 
+    deep_exception(?LINE, id, [broccoli], 4, [],
                    return_from, broccoli),
     deep_exception(
       ?LINE, append, [1,2], 5,
@@ -836,7 +836,7 @@ deep_exception() ->
                  when is_list(L1), is_list(L2), S == Self ->
                    next;
                ({trace,S,exception_from,
-                 {lists,reverse,2},{error,badarg}}) 
+                 {lists,reverse,2},{error,badarg}})
                  when S == Self ->
                    expected;
                ('_') ->
@@ -847,12 +847,12 @@ deep_exception() ->
                     {trace,Self,exception_from,
                      {lists,reverse,2},{error,badarg}}}
            end),
-    deep_exception(?LINE, deep_5, [1,2], 7, 
+    deep_exception(?LINE, deep_5, [1,2], 7,
                    [{trace,Self,call,{erlang,error,[undef]}},
                     {trace,Self,exception_from,{erlang,error,1},
                      {error,undef}}],
                    exception_from, {error,undef}),
-    deep_exception(?LINE, deep_5, [undef], 8, 
+    deep_exception(?LINE, deep_5, [undef], 8,
                    [{trace,Self,call,{?MODULE,deep_5,[undef]}},
                     {trace,Self,exception_from,{?MODULE,deep_5,1},
                      {error,function_clause}}],
@@ -860,23 +860,23 @@ deep_exception() ->
 
     %% Apply
     %%
-    deep_exception(?LINE, apply, [erlang,error,[[mo|rot]]], 1, 
+    deep_exception(?LINE, apply, [erlang,error,[[mo|rot]]], 1,
                    [{trace,Self,call,{erlang,error,[[mo|rot]]}},
                     {trace,Self,exception_from,{erlang,error,1},
                      {error,[mo|rot]}}],
                    exception_from, {error,[mo|rot]}),
-    deep_exception(?LINE, apply, [erlang,error,[[mo|"rot"],[]]], 1, 
+    deep_exception(?LINE, apply, [erlang,error,[[mo|"rot"],[]]], 1,
                    [{trace,Self,call,{erlang,error,[[mo|"rot"],[]]}},
                     {trace,Self,exception_from,{erlang,error,2},
                      {error,[mo|"rot"]}}],
                    exception_from, {error,[mo|"rot"]}),
     Morot = make_ref(),
-    deep_exception(?LINE, apply, [erlang,throw,[Morot]], 3, 
+    deep_exception(?LINE, apply, [erlang,throw,[Morot]], 3,
                    [{trace,Self,call,{erlang,throw,[Morot]}},
                     {trace,Self,exception_from,{erlang,throw,1},
                      {throw,Morot}}],
                    exception_from, {throw,Morot}),
-    deep_exception(?LINE, apply, [erlang,exit,[["morot"|Morot]]], 2, 
+    deep_exception(?LINE, apply, [erlang,exit,[["morot"|Morot]]], 2,
                    [{trace,Self,call,{erlang,exit,[["morot"|Morot]]}},
                     {trace,Self,exception_from,{erlang,exit,1},
                      {exit,["morot"|Morot]}}],
@@ -900,7 +900,7 @@ deep_exception() ->
                  when is_list(L1), is_list(L2), S == Self ->
                    next;
                ({trace,S,exception_from,
-                 {lists,reverse,2},{error,badarg}}) 
+                 {lists,reverse,2},{error,badarg}})
                  when S == Self ->
                    expected;
                ('_') ->
@@ -911,44 +911,44 @@ deep_exception() ->
                     {trace,Self,exception_from,
                      {lists,reverse,2},{error,badarg}}}
            end),
-    deep_exception(?LINE, apply, [?MODULE,deep_5,[1,2]], 7, 
+    deep_exception(?LINE, apply, [?MODULE,deep_5,[1,2]], 7,
                    [{trace,Self,call,{erlang,error,[undef]}},
                     {trace,Self,exception_from,{erlang,error,1},
                      {error,undef}}],
                    exception_from, {error,undef}),
-    deep_exception(?LINE, apply, [?MODULE,deep_5,[undef]], 8, 
+    deep_exception(?LINE, apply, [?MODULE,deep_5,[undef]], 8,
                    [{trace,Self,call,{?MODULE,deep_5,[undef]}},
                     {trace,Self,exception_from,{?MODULE,deep_5,1},
                      {error,function_clause}}],
                    exception_from, {error,function_clause}),
     %% Apply of fun
     %%
-    deep_exception(?LINE, apply, 
-                   [fun () -> 
-                            erlang:error([{"palsternacka",3.14},17]) 
-                    end, []], 1, 
+    deep_exception(?LINE, apply,
+                   [fun () ->
+                            erlang:error([{"palsternacka",3.14},17])
+                    end, []], 1,
                    [{trace,Self,call,
                      {erlang,error,[[{"palsternacka",3.14},17]]}},
                     {trace,Self,exception_from,{erlang,error,1},
                      {error,[{"palsternacka",3.14},17]}}],
                    exception_from, {error,[{"palsternacka",3.14},17]}),
-    deep_exception(?LINE, apply, 
-                   [fun () -> 
-                            erlang:error(["palsternacka",17], []) 
-                    end, []], 1, 
+    deep_exception(?LINE, apply,
+                   [fun () ->
+                            erlang:error(["palsternacka",17], [])
+                    end, []], 1,
                    [{trace,Self,call,
                      {erlang,error,[["palsternacka",17],[]]}},
                     {trace,Self,exception_from,{erlang,error,2},
                      {error,["palsternacka",17]}}],
                    exception_from, {error,["palsternacka",17]}),
-    deep_exception(?LINE, apply, 
-                   [fun () -> erlang:throw(Self) end, []], 2, 
+    deep_exception(?LINE, apply,
+                   [fun () -> erlang:throw(Self) end, []], 2,
                    [{trace,Self,call,{erlang,throw,[Self]}},
                     {trace,Self,exception_from,{erlang,throw,1},
                      {throw,Self}}],
                    exception_from, {throw,Self}),
-    deep_exception(?LINE, apply, 
-                   [fun () -> 
+    deep_exception(?LINE, apply,
+                   [fun () ->
                             erlang:exit({1,2,3,4,[5,palsternacka]})
                     end, []], 3,
                    [{trace,Self,call,
@@ -956,18 +956,18 @@ deep_exception() ->
                     {trace,Self,exception_from,{erlang,exit,1},
                      {exit,{1,2,3,4,[5,palsternacka]}}}],
                    exception_from, {exit,{1,2,3,4,[5,palsternacka]}}),
-    deep_exception(?LINE, apply, 
+    deep_exception(?LINE, apply,
                    [fun () -> ?MODULE:id(bladsallad) end, []], 4,
                    [{trace,Self,call,{?MODULE,id,[bladsallad]}},
                     {trace,Self,return_from,{?MODULE,id,1},bladsallad}],
                    return_from, bladsallad),
-    deep_exception(?LINE, apply, 
+    deep_exception(?LINE, apply,
                    [fun (A, B) -> A ++ B end, [1,2]], 5,
                    [{trace,Self,call,{erlang,'++',[1,2]}},
                     {trace,Self,exception_from,
                      {erlang,'++',2},{error,badarg}}],
                    exception_from, {error,badarg}),
-    deep_exception(?LINE, apply, [fun (A, B) -> A = B end, [1,2]], 6, 
+    deep_exception(?LINE, apply, [fun (A, B) -> A = B end, [1,2]], 6,
                    [],
                    exception_from, {error,{badmatch,2}}),
     io:format("== Subtest: ~w", [?LINE]),
@@ -979,7 +979,7 @@ deep_exception() ->
                  when is_list(L1), is_list(L2), S == Self ->
                    next;
                ({trace,S,exception_from,
-                 {lists,reverse,2},{error,badarg}}) 
+                 {lists,reverse,2},{error,badarg}})
                  when S == Self ->
                    expected;
                ('_') ->
@@ -990,14 +990,14 @@ deep_exception() ->
                     {trace,Self,exception_from,
                      {lists,reverse,2},{error,badarg}}}
            end),
-    deep_exception(?LINE, apply, 
-                   [fun () -> ?MODULE:deep_5(1,2) end, []], 7, 
+    deep_exception(?LINE, apply,
+                   [fun () -> ?MODULE:deep_5(1,2) end, []], 7,
                    [{trace,Self,call,{erlang,error,[undef]}},
                     {trace,Self,exception_from,{erlang,error,1},
                      {error,undef}}],
                    exception_from, {error,undef}),
-    deep_exception(?LINE, apply, 
-                   [fun () -> ?MODULE:deep_5(undef) end, []], 8, 
+    deep_exception(?LINE, apply,
+                   [fun () -> ?MODULE:deep_5(undef) end, []], 8,
                    [{trace,Self,call,{?MODULE,deep_5,[undef]}},
                     {trace,Self,exception_from,{?MODULE,deep_5,1},
                      {error,function_clause}}],
@@ -1076,16 +1076,16 @@ exception_nocatch() ->
     1 = erlang:trace_pattern({erlang,throw,1}, Prog),
     2 = erlang:trace_pattern({erlang,error,'_'}, Prog),
     Q1 = {make_ref(),Prog},
-    T1 = 
-    exception_nocatch(?LINE, exit, [Q1], 3, 
+    T1 =
+    exception_nocatch(?LINE, exit, [Q1], 3,
                       [{trace,t1,call,{erlang,exit,[Q1]}},
                        {trace,t1,exception_from,{erlang,exit,1},
                         {exit,Q1}}],
                       exception_from, {exit,Q1}),
     expect({trace,T1,exit,Q1}),
     Q2 = {cake,14.125},
-    T2 = 
-    exception_nocatch(?LINE, throw, [Q2], 2, 
+    T2 =
+    exception_nocatch(?LINE, throw, [Q2], 2,
                       [{trace,t2,call,{erlang,throw,[Q2]}},
                        {trace,t2,exception_from,{erlang,throw,1},
                         {error,{nocatch,Q2}}}],
@@ -1093,15 +1093,15 @@ exception_nocatch() ->
     expect({trace,T2,exit,{{nocatch,Q2},[{?MODULE,deep_4,1,
                                           Deep4LocThrow}]}}),
     Q3 = {dump,[dump,{dump}]},
-    T3 = 
-    exception_nocatch(?LINE, error, [Q3], 4, 
+    T3 =
+    exception_nocatch(?LINE, error, [Q3], 4,
                       [{trace,t3,call,{erlang,error,[Q3]}},
                        {trace,t3,exception_from,{erlang,error,1},
                         {error,Q3}}],
                       exception_from, {error,Q3}),
     expect({trace,T3,exit,{Q3,[{?MODULE,deep_4,1,Deep4LocError}]}}),
-    T4 = 
-    exception_nocatch(?LINE, '=', [17,4711], 5, [], 
+    T4 =
+    exception_nocatch(?LINE, '=', [17,4711], 5, [],
                       exception_from, {error,{badmatch,4711}}),
     expect({trace,T4,exit,{{badmatch,4711},
                            [{?MODULE,deep_4,1,Deep4LocBadmatch}]}}),
@@ -1124,7 +1124,7 @@ get_deep_4_loc(Arg) ->
 exception_nocatch(Line, B, Q, N, Extra, Tag, R) ->
     io:format("== Subtest: ~w", [Line]),
     Go = make_ref(),
-    Tracee = 
+    Tracee =
     spawn(fun () ->
                   receive
                       Go ->
@@ -1133,7 +1133,7 @@ exception_nocatch(Line, B, Q, N, Extra, Tag, R) ->
           end),
     1 = erlang:trace(Tracee, true, [call,return_to,procs]),
     Tracee ! Go,
-    deep_expect_N(Tracee, B, Q, N-1, 
+    deep_expect_N(Tracee, B, Q, N-1,
                   [setelement(2, T, Tracee) || T <- Extra], Tag, R),
     Tracee.
 
@@ -1240,7 +1240,7 @@ expect(Message) ->
                 Message ->
                     ok = io:format("Expected and got ~p", [abbr(Message)]);
                 Other ->
-                    io:format("Expected ~p; got ~p", 
+                    io:format("Expected ~p; got ~p",
                               [abbr(Message),abbr(Other)]),
                     ct:fail({unexpected,abbr([Other|flush()])})
             end

@@ -106,7 +106,7 @@ do {                                     \
 	CHECK_TERM(x(i_));               \
   }                                      \
 } while (0)
-    
+
 #else
 #  define CHECK_TERM(T) ASSERT(!is_CP(T))
 #  define CHECK_ARGS(T)
@@ -125,7 +125,7 @@ do {                                     \
 
 /*
  * We reuse some of fields in the save area in the process structure.
- * This is safe to do, since this space is only activly used when
+ * This is safe to do, since this space is only actively used when
  * the process is switched out.
  */
 #define REDS_IN(p)  ((p)->def_arg_reg[5])
@@ -178,7 +178,7 @@ do {                                     \
  * Dst points to the word with a destination descriptor, which MUST
  * be just before the next instruction.
  */
- 
+
 #define StoreBifResult(Dst, Result)		\
   do {						\
     BeamInstr* stb_next;			\
@@ -218,7 +218,7 @@ BeamInstr* em_call_nif;
 
 /* NOTE These should be the only variables containing trace instructions.
 **      Sometimes tests are form the instruction value, and sometimes
-**      for the refering variable (one of these), and rouge references
+**      for the referring variable (one of these), and rouge references
 **      will most likely cause chaos.
 */
 BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
@@ -2008,7 +2008,7 @@ void process_main(void)
 		 c_p->seq_trace_clock = unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p));
 	     }
 	     msg = ERL_MESSAGE_TERM(msgp);
-	     seq_trace_output(SEQ_TRACE_TOKEN(c_p), msg, SEQ_TRACE_RECEIVE, 
+	     seq_trace_output(SEQ_TRACE_TOKEN(c_p), msg, SEQ_TRACE_RECEIVE,
 			      c_p->common.id, c_p);
 #ifdef USE_VM_PROBES
 	 }
@@ -2315,7 +2315,7 @@ void process_main(void)
  OpCase(i_select_val_bins_yfI):
      select_val = yb(Arg(0));
      goto do_binary_search;
-     
+
  do_binary_search:
  {
      struct Pairs {
@@ -2367,7 +2367,7 @@ void process_main(void)
 
  {
      Eterm jump_on_val_zero_index;
-     
+
  OpCase(i_jump_on_val_zero_yfI):
      jump_on_val_zero_index = yb(Arg(0));
      goto do_jump_on_val_zero_index;
@@ -2391,7 +2391,7 @@ void process_main(void)
  {
      Eterm jump_on_val_index;
 
- 
+
  OpCase(i_jump_on_val_yfII):
      jump_on_val_index = yb(Arg(0));
      goto do_jump_on_val_index;
@@ -2985,7 +2985,7 @@ do {						\
  }
 
  /*
-  * An error occured in an arithmetic operation or test that could
+  * An error occurred in an arithmetic operation or test that could
   * appear either in a head or in a body.
   * In a head, execution should continue at failure address in Arg(0).
   * In a body, Arg(0) == 0 and an exception should be raised.
@@ -3063,7 +3063,7 @@ do {						\
 	     goto do_bsl;
 	}
      goto badarith;
-     
+
      OpCase(i_bsl_jIssd):
          GetArg2(2, Op1, Op2);
  do_bsl:
@@ -3073,7 +3073,7 @@ do {						\
 	     if (is_small(Op1)) {
 	     small_shift:
 		 ires = signed_val(Op1);
-	     
+
 		 if (i == 0 || ires == 0) {
 		     StoreBifResult(4, Op1);
 		 } else if (i < 0)  { /* Right shift */
@@ -3106,7 +3106,7 @@ do {						\
 		     ires = BIG_NEED_SIZE(ires+1);
 		     /*
 		      * Slightly conservative check the size to avoid
-		      * allocating huge amounts of memory for bignums that 
+		      * allocating huge amounts of memory for bignums that
 		      * clearly would overflow the arity in the header
 		      * word.
 		      */
@@ -3440,7 +3440,7 @@ do {						\
      Eterm tuple;
      BeamInstr *next;
      Eterm* p;
-     
+
      PreFetch(3, next);
      GetArg1(0, element);
      tuple = REG_TARGET(Arg(1));
@@ -3561,7 +3561,7 @@ do {						\
 	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
 
 	    DTRACE_NIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
-	    c_p->current = I-3; /* current and vbf set to please handle_error */ 
+	    c_p->current = I-3; /* current and vbf set to please handle_error */
 	    SWAPOUT;
 	    c_p->fcalls = FCALLS - 1;
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -3594,7 +3594,7 @@ do {						\
 
 	    DTRACE_NIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
 	    goto apply_bif_or_nif_epilogue;
-	 
+
 	OpCase(apply_bif):
 	    /*
 	     * At this point, I points to the code[3] in the export entry for
@@ -3746,7 +3746,7 @@ do {						\
 	 I++;
 	 goto do_bs_init_bits_known;
      }
-     
+
      OpCase(i_bs_init_bits_IId): {
 	 num_bits = Arg(0);
 	 alloc = 0;
@@ -3967,7 +3967,7 @@ do {						\
 	 pb->val = bptr;
 	 pb->bytes = (byte*) bptr->orig_bytes;
 	 pb->flags = 0;
-	 
+
 	 OH_OVERHEAD(&(MSO(c_p)), BsOp1 / sizeof(Eterm));
 
 	 StoreBifResult(2, make_binary(pb));
@@ -4074,7 +4074,7 @@ do {						\
 	 /*
 	  * The arguments are now correct and stored in a and b.
 	  */
-	 
+
 	 BsSafeMul(b, Unit, goto system_limit, c);
 	 Op1 = a + c;
 	 if (Op1 < a) {
@@ -4229,7 +4229,7 @@ do {						\
  }
 
  /*
-  * Only used for validating a value matched out. 
+  * Only used for validating a value matched out.
   */
  OpCase(i_bs_validate_unicode_retract_jss): {
 	Eterm i; 		/* Integer to validate */
@@ -4326,7 +4326,7 @@ do {						\
  OpCase(bs_test_zero_tail2_fx): {
      BeamInstr *next;
      ErlBinMatchBuffer *_mb;
-     
+
      PreFetch(2, next);
      _mb = (ErlBinMatchBuffer*) ms_matchbuffer(xb(Arg(1)));
      if (_mb->size != _mb->offset) {
@@ -4402,7 +4402,7 @@ do {						\
 	 Eterm _result;
 	 _mb = ms_matchbuffer(bs_get_integer_16_context);
 	 if (_mb->size - _mb->offset < 16) {
-	     ClauseFail(); 
+	     ClauseFail();
 	 }
 	 if (BIT_OFFSET(_mb->offset) != 0) {
 	     _result = erts_bs_get_integer_2(c_p, 16, 0, _mb);
@@ -4472,7 +4472,7 @@ do {						\
 	 /* Operands: Fail Flags Dst */
 	 goto do_bs_get_integer_imm;
      }
- 
+
      /*
       * Ms = match context
       * Sz = size of field
@@ -4709,7 +4709,7 @@ do {						\
 
  OpCase(return_trace): {
      BeamInstr* code = (BeamInstr *) (UWord) E[0];
-     
+
      SWAPOUT;		/* Needed for shared heap */
      ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
      erts_trace_return(c_p, code, r(0), ERTS_TRACER_FROM_ETERM(E+1)/* tracer */);
@@ -5008,7 +5008,7 @@ do {						\
 
  OpCase(i_yield):
  {
-     /* This is safe as long as REDS_IN(c_p) is never stored 
+     /* This is safe as long as REDS_IN(c_p) is never stored
       * in c_p->arg_reg[0]. It is currently stored in c_p->def_arg_reg[5],
       * which may be c_p->arg_reg[5], which is close, but no banana.
       */
@@ -5118,7 +5118,7 @@ do {						\
      beam_ops = opcodes;
 #endif /* ERTS_OPCODE_COUNTER_SUPPORT */
 #endif /* NO_JUMP_TABLE */
-     
+
      em_call_error_handler = OpCode(call_error_handler);
      em_apply_bif = OpCode(apply_bif);
      em_call_nif = OpCode(call_nif);
@@ -5682,14 +5682,14 @@ next_catch(Process* c_p, Eterm *reg) {
 	} else ptr++;
     }
     return NULL;
-    
+
  found_catch:
     ASSERT(ptr < STACK_START(c_p));
     c_p->stop = prev;
     if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO) && return_to_trace_ptr) {
 	/* The stackframe closest to the catch contained an
 	 * return_to_trace entry, so since the execution now
-	 * continues after the catch, a return_to trace message 
+	 * continues after the catch, a return_to trace message
 	 * would be appropriate.
 	 */
 	erts_trace_return_to(c_p, cp_val(*return_to_trace_ptr));
@@ -5864,7 +5864,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 	    }
 	}
 	if (i >= BIF_SIZE) {
-	    /* 
+	    /*
 	     * The Bif does not really exist (no BIF entry).  It is a
 	     * TRAP and traps are called through apply_bif, which also
 	     * sets c_p->current (luckily).
@@ -5889,7 +5889,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 	args = make_arglist(c_p, reg, a); /* Overwrite CAR(c_p->ftrace) */
     } else {
 	s->current = c_p->current;
-        /* 
+        /*
 	 * For a function_clause error, the arguments are in the beam
 	 * registers, c_p->cp is valid, and c_p->current is set.
 	 */
@@ -5938,7 +5938,7 @@ erts_save_stacktrace(Process* p, struct StackTrace* s, int depth)
 	/*
 	 * Traverse the stack backwards and add all unique continuation
 	 * pointers to the buffer, up to the maximum stack trace size.
-	 * 
+	 *
 	 * Skip trace stack frames.
 	 */
 	ptr = p->stop;
@@ -6204,7 +6204,7 @@ apply_setup_error_handler(Process* p, Eterm module, Eterm function, Uint arity, 
 	Uint sz = 2*arity;
 	Eterm* hp;
 	Eterm args = NIL;
-	
+
 	/*
 	 * Always copy args from registers to a new list; this ensures
 	 * that we have the same behaviour whether or not this was
@@ -6258,7 +6258,7 @@ apply_bif_error_adjustment(Process *p, Export *ep,
 	 * stackframe correct. Without the following adjustment,
 	 * 'p->cp' will point into the function that called
 	 * current function when handling the error. We add a
-	 * dummy stackframe in order to achive this.
+	 * dummy stackframe in order to achieve this.
 	 *
 	 * Note that these BIFs unconditionally will cause
 	 * an exception to be raised. That is, our modifications
@@ -6481,7 +6481,7 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
     /* Handle apply of apply/3... */
     if (module == am_erlang && function == am_apply && arity == 3)
 	return apply(p, reg[0], reg[1], reg[2], reg, I, stack_offset);
-    
+
     /*
      * Get the index into the export table, or failing that the export
      * entry for the error handler module.
@@ -6587,7 +6587,7 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
 
     /*
      * If there are no waiting messages, garbage collect and
-     * shrink the heap. 
+     * shrink the heap.
      */
     erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
     ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
@@ -6602,7 +6602,7 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
 #ifndef ERTS_SMP
 	if (ERTS_PROC_IS_EXITING(c_p)) {
 	    /*
-	     * See comment in the begining of the function...
+	     * See comment in the beginning of the function...
 	     *
 	     * This second test is needed since gc might be traced.
 	     */
@@ -6732,7 +6732,7 @@ call_fun(Process* p,		/* Current process. */
 			 */
 			goto badfun;
 		    }
-		
+
 		    /*
 		     * No current code for this module. Call the error_handler module
 		     * to attempt loading the module.
@@ -6766,7 +6766,7 @@ call_fun(Process* p,		/* Current process. */
 	} else {
 	    /*
 	     * Wrong arity. First build a list of the arguments.
-	     */  
+	     */
 
 	    if (is_non_value(args)) {
 		args = NIL;

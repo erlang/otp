@@ -35,7 +35,7 @@
 #include "erl_time.h"
 #include "erl_driver.h"
 #include "erl_nif.h"
- 
+
 static erts_smp_mtx_t erts_timeofday_mtx;
 static erts_smp_mtx_t erts_get_time_mtx;
 
@@ -468,7 +468,7 @@ check_time_correction(void *vesdp)
 	    new_correction.error = 0;
 	}
     }
-    else /* if (ci.correction.error < 0) */ { 
+    else /* if (ci.correction.error < 0) */ {
 	if (0 < sdiff) {
 	    if (ci.correction.error != -ERTS_TCORR_ERR_LARGE_ADJ
 		&& time_sup.r.o.adj.large_diff < sdiff) {
@@ -593,7 +593,7 @@ check_time_correction(void *vesdp)
     }
 
     begin_short_intervals |= set_new_correction;
-    
+
     if (begin_short_intervals) {
 	time_sup.inf.c.parmon.cdata.short_check_interval
 	    = ERTS_INIT_SHORT_INTERVAL_COUNTER;
@@ -761,7 +761,7 @@ init_check_time_correction(void *vesdp)
 	/* Had a system time leap... pretend no drift... */
 	stime_diff = mtime_diff;
     }
-    
+
     /*
      * We use old time values in order to trigger
      * a drift adjustment, and repeat this interval
@@ -943,7 +943,7 @@ void erts_init_sys_time_sup(void)
 	= sys_init_time_res.os_system_time_info.resolution;
 }
 
-int 
+int
 erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 {
     ErtsMonotonicTime resolution, ilength, intervals, short_isecs;
@@ -962,7 +962,7 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 
     time_sup.r.o.correction = time_correction;
     time_sup.r.o.warp_mode = time_warp_mode;
- 
+
     if (time_warp_mode == ERTS_SINGLE_TIME_WARP_MODE)
 	erts_smp_atomic32_init_nob(&time_sup.inf.c.preliminary_offset, 1);
     else
@@ -1127,7 +1127,7 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 				&rwmtx_opts, "get_corrected_time");
 
 	cdatap = &time_sup.inf.c.parmon.cdata;
-    
+
 	cdatap->drift.intervals[0].time.sys = time_sup.inf.c.sinit;
 	cdatap->drift.intervals[0].time.mon = time_sup.inf.c.minit;
 	cdatap->insts.curr.correction.drift = 0;
@@ -1166,7 +1166,7 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 #endif
 
     return ERTS_CLKTCK_RESOLUTION/1000;
-}    
+}
 
 void
 erts_late_init_time_sup(void)
@@ -1186,7 +1186,7 @@ erts_sched_init_time_sup(ErtsSchedulerData *esdp)
 	if (time_sup.r.o.get_time != get_not_corrected_time)
 	    late_init_time_correction(esdp);
     }
-#endif	
+#endif
 }
 
 ErtsTimeWarpMode erts_time_warp_mode(void)
@@ -1288,8 +1288,8 @@ erts_finalize_time_offset(void)
 
 /* info functions */
 
-void 
-elapsed_time_both(UWord *ms_user, UWord *ms_sys, 
+void
+elapsed_time_both(UWord *ms_user, UWord *ms_sys,
 		  UWord *ms_user_diff, UWord *ms_sys_diff)
 {
     UWord prev_total_user, prev_total_sys;
@@ -1306,16 +1306,16 @@ elapsed_time_both(UWord *ms_user, UWord *ms_sys,
 	*ms_sys = total_sys;
 
     erts_smp_mtx_lock(&erts_timeofday_mtx);
-    
+
     prev_total_user = (t_start.tms_utime * 1000) / SYS_CLK_TCK;
     prev_total_sys = (t_start.tms_stime * 1000) / SYS_CLK_TCK;
     t_start = now;
-    
+
     erts_smp_mtx_unlock(&erts_timeofday_mtx);
 
     if (ms_user_diff != NULL)
 	*ms_user_diff = total_user - prev_total_user;
-	  
+
     if (ms_sys_diff != NULL)
 	*ms_sys_diff = total_sys - prev_total_sys;
 }
@@ -1323,7 +1323,7 @@ elapsed_time_both(UWord *ms_user, UWord *ms_sys,
 
 /* wall clock routines */
 
-void 
+void
 wall_clock_elapsed_time_both(UWord *ms_total, UWord *ms_diff)
 {
     ErtsMonotonicTime now, elapsed;
@@ -1342,7 +1342,7 @@ wall_clock_elapsed_time_both(UWord *ms_total, UWord *ms_diff)
 }
 
 /* get current time */
-void 
+void
 get_time(int *hour, int *minute, int *second)
 {
     time_t the_clock;
@@ -1350,7 +1350,7 @@ get_time(int *hour, int *minute, int *second)
 #ifdef HAVE_LOCALTIME_R
     struct tm tmbuf;
 #endif
-    
+
     the_clock = time((time_t *)0);
 #ifdef HAVE_LOCALTIME_R
     tm = localtime_r(&the_clock, &tmbuf);
@@ -1363,7 +1363,7 @@ get_time(int *hour, int *minute, int *second)
 }
 
 /* get current date */
-void 
+void
 get_date(int *year, int *month, int *day)
 {
     time_t the_clock;
@@ -1385,8 +1385,8 @@ get_date(int *year, int *month, int *day)
 }
 
 /* get localtime */
-void 
-get_localtime(int *year, int *month, int *day, 
+void
+get_localtime(int *year, int *month, int *day,
 	      int *hour, int *minute, int *second)
 {
     time_t the_clock;
@@ -1411,8 +1411,8 @@ get_localtime(int *year, int *month, int *day,
 
 
 /* get universaltime */
-void 
-get_universaltime(int *year, int *month, int *day, 
+void
+get_universaltime(int *year, int *month, int *day,
 		  int *hour, int *minute, int *second)
 {
     time_t the_clock;
@@ -1447,7 +1447,7 @@ static const int mdays[14] = {0, 31, 28, 31, 30, 31, 30,
 
 /* This is the earliest year we are sure to be able to handle
    on all platforms w/o problems */
-#define  BASEYEAR       1902 
+#define  BASEYEAR       1902
 
 /* A more "clever" mktime
  * return  1, if successful
@@ -1488,21 +1488,21 @@ static int erl_mktime(time_t *c, struct tm *tm) {
  * gregday
  *
  * Returns the number of days since Jan 1, 1600, if year is
- * greater of equal to 1600 , and month [1-12] and day [1-31] 
+ * greater of equal to 1600 , and month [1-12] and day [1-31]
  * are within range. Otherwise it returns -1.
  */
 static time_t gregday(int year, int month, int day)
 {
   Sint ndays = 0;
   Sint gyear, pyear, m;
-  
+
   /* number of days in previous years */
   gyear = year - 1600;
   if (gyear > 0) {
     pyear = gyear - 1;
     ndays = (pyear/4) - (pyear/100) + (pyear/400) + pyear*365 + 366;
   }
-  /* number of days in all months preceeding month */
+  /* number of days in all months preceding month */
   for (m = 1; m < month; m++)
     ndays += mdays[m];
   /* Extra day if leap year and March or later */
@@ -1516,7 +1516,7 @@ static time_t gregday(int year, int month, int day)
 #define SECONDS_PER_HOUR    (60 * SECONDS_PER_MINUTE)
 #define SECONDS_PER_DAY     (24 * SECONDS_PER_HOUR)
 
-int seconds_to_univ(Sint64 time, Sint *year, Sint *month, Sint *day, 
+int seconds_to_univ(Sint64 time, Sint *year, Sint *month, Sint *day,
 	Sint *hour, Sint *minute, Sint *second) {
 
     Sint y,mi;
@@ -1528,7 +1528,7 @@ int seconds_to_univ(Sint64 time, Sint *year, Sint *month, Sint *day,
 	days--;
 	secs += SECONDS_PER_DAY;
     }
-    
+
     tmp     = secs % SECONDS_PER_HOUR;
 
     *hour   = secs / SECONDS_PER_HOUR;
@@ -1536,7 +1536,7 @@ int seconds_to_univ(Sint64 time, Sint *year, Sint *month, Sint *day,
     *second = tmp  % SECONDS_PER_MINUTE;
 
     days   += 719468;
-    y       = (10000*((Sint64)days) + 14780) / 3652425; 
+    y       = (10000*((Sint64)days) + 14780) / 3652425;
     tmp     = days - (365 * y + y/4 - y/100 + y/400);
 
     if (tmp < 0) {
@@ -1556,16 +1556,16 @@ int univ_to_seconds(Sint year, Sint month, Sint day, Sint hour, Sint minute, Sin
 
     if (!(IN_RANGE(1600, year, INT_MAX - 1) &&
           IN_RANGE(1, month, 12) &&
-          IN_RANGE(1, day, (mdays[month] + 
-                             (month == 2 
-                              && (year % 4 == 0) 
+          IN_RANGE(1, day, (mdays[month] +
+                             (month == 2
+                              && (year % 4 == 0)
                               && (year % 100 != 0 || year % 400 == 0)))) &&
           IN_RANGE(0, hour, 23) &&
           IN_RANGE(0, minute, 59) &&
           IN_RANGE(0, second, 59))) {
       return 0;
     }
- 
+
     days   = gregday(year, month, day);
     *time  = SECONDS_PER_DAY;
     *time *= days;             /* don't try overflow it, it hurts */
@@ -1581,8 +1581,8 @@ int univ_to_seconds(Sint year, Sint month, Sint day, Sint hour, Sint minute, Sin
 extern time_t time2posix(time_t);
 #endif
 
-int 
-local_to_univ(Sint *year, Sint *month, Sint *day, 
+int
+local_to_univ(Sint *year, Sint *month, Sint *day,
 	      Sint *hour, Sint *minute, Sint *second, int isdst)
 {
     time_t the_clock;
@@ -1590,19 +1590,19 @@ local_to_univ(Sint *year, Sint *month, Sint *day,
 #ifdef HAVE_GMTIME_R
     struct tm tmbuf;
 #endif
-    
+
     if (!(IN_RANGE(BASEYEAR, *year, INT_MAX - 1) &&
           IN_RANGE(1, *month, 12) &&
-          IN_RANGE(1, *day, (mdays[*month] + 
-                             (*month == 2 
-                              && (*year % 4 == 0) 
+          IN_RANGE(1, *day, (mdays[*month] +
+                             (*month == 2
+                              && (*year % 4 == 0)
                               && (*year % 100 != 0 || *year % 400 == 0)))) &&
           IN_RANGE(0, *hour, 23) &&
           IN_RANGE(0, *minute, 59) &&
           IN_RANGE(0, *second, 59))) {
       return 0;
     }
-    
+
     t.tm_year = *year - 1900;
     t.tm_mon = *month - 1;
     t.tm_mday = *day;
@@ -1656,8 +1656,8 @@ local_to_univ(Sint *year, Sint *month, Sint *day,
 extern time_t posix2time(time_t);
 #endif
 
-int 
-univ_to_local(Sint *year, Sint *month, Sint *day, 
+int
+univ_to_local(Sint *year, Sint *month, Sint *day,
 	      Sint *hour, Sint *minute, Sint *second)
 {
     time_t the_clock;
@@ -1665,19 +1665,19 @@ univ_to_local(Sint *year, Sint *month, Sint *day,
 #ifdef HAVE_LOCALTIME_R
     struct tm tmbuf;
 #endif
-    
+
     if (!(IN_RANGE(BASEYEAR, *year, INT_MAX - 1) &&
           IN_RANGE(1, *month, 12) &&
-          IN_RANGE(1, *day, (mdays[*month] + 
-                             (*month == 2 
-                              && (*year % 4 == 0) 
+          IN_RANGE(1, *day, (mdays[*month] +
+                             (*month == 2
+                              && (*year % 4 == 0)
                               && (*year % 100 != 0 || *year % 400 == 0)))) &&
           IN_RANGE(0, *hour, 23) &&
           IN_RANGE(0, *minute, 59) &&
           IN_RANGE(0, *second, 59))) {
       return 0;
     }
-    
+
     the_clock = *second + 60 * (*minute + 60 * (*hour + 24 *
                                             gregday(*year, *month, *day)));
 #ifdef HAVE_POSIX2TIME
@@ -1717,7 +1717,7 @@ void
 get_now(Uint* megasec, Uint* sec, Uint* microsec)
 {
     ErtsMonotonicTime now_megasec, now_sec, now, mtime, time_offset;
-    
+
     mtime = time_sup.r.o.get_time();
     time_offset = get_time_offset();
     update_last_mtime(NULL, mtime);
@@ -1730,7 +1730,7 @@ get_now(Uint* megasec, Uint* sec, Uint* microsec)
 	now = previous_now + 1;
 
     previous_now = now;
-    
+
     erts_smp_mtx_unlock(&erts_timeofday_mtx);
 
     now_megasec = now / ERTS_MONOTONIC_TIME_TERA;
@@ -1903,7 +1903,7 @@ send_time_offset_changed_notifications(void *new_offsetp)
     if (no_monitors) {
 	ErtsTimeOffsetMonitorContext cntxt;
 	Uint alloc_sz;
-	
+
 	/* Monitor info array size */
 	alloc_sz = no_monitors*sizeof(ErtsTimeOffsetMonitorInfo);
 	/* + template max size */

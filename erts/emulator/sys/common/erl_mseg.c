@@ -79,7 +79,7 @@ static ERTS_INLINE Uint ceil_2pow(Uint x) {
     return x + 1;
 }
 static const int debruijn[32] = {
-     0,  1, 28,  2, 29, 14, 24,  3, 30, 22, 20, 15, 25, 17,  4,  8, 
+     0,  1, 28,  2, 29, 14, 24,  3, 30, 22, 20, 15, 25, 17,  4,  8,
     31, 27, 13, 23, 21, 19, 16,  7, 26, 12, 18,  6, 11,  5, 10,  9
 };
 
@@ -240,7 +240,7 @@ do {									\
     C->segments.current.no--;						\
     ASSERT(C->segments.current.sz >= (SZ));				\
     C->segments.current.sz -= (SZ);					\
-} while (0) 
+} while (0)
 
 #define ERTS_MSEG_REALLOC_STAT(C,OSZ, NSZ)				\
 do {									\
@@ -307,7 +307,7 @@ mseg_create(ErtsMsegAllctr_t *ma, Uint flags, UWord *sizep)
 
 static ERTS_INLINE void
 mseg_destroy(ErtsMsegAllctr_t *ma, Uint flags, void *seg_p, UWord size) {
-    
+
     Uint32 mmap_flags = 0;
     if (MSEG_FLG_IS_2POW(flags))
 	 mmap_flags |= ERTS_MMAPFLG_SUPERALIGNED;
@@ -326,7 +326,7 @@ static ERTS_INLINE void *
 mseg_recreate(ErtsMsegAllctr_t *ma, Uint flags, void *old_seg, UWord old_size, UWord *sizep)
 {
 #ifdef ERTS_PRINT_ERTS_MMAP
-    UWord req_size = *sizep;	
+    UWord req_size = *sizep;
 #endif
     void *new_seg;
     Uint32 mmap_flags = 0;
@@ -378,7 +378,7 @@ static ERTS_INLINE int cache_bless_segment(ErtsMsegAllctr_t *ma, void *seg, UWor
 
     ASSERT(!MSEG_FLG_IS_2POW(flags) || (MSEG_FLG_IS_2POW(flags) && MAP_IS_ALIGNED(seg) && IS_2POW(size)));
 
-    /* The idea is that sbc caching is prefered over mbc caching.
+    /* The idea is that sbc caching is preferred over mbc caching.
      * Blocks are normally allocated in mb carriers and thus cached there.
      * Large blocks has no such cache and it is up to mseg to cache them to speed things up.
      */
@@ -499,7 +499,7 @@ static ERTS_INLINE void *cache_get_segment(ErtsMsegAllctr_t *ma, UWord *size_p, 
 
 	    return seg;
 	}
-    } 
+    }
     else if (!erts_circleq_is_empty(&(ma->cache_unpowered_node))) {
 	void *seg;
 	cache_t *c;
@@ -1110,7 +1110,7 @@ info_status(ErtsMsegAllctr_t *ma, fmtfn_t *print_to_p, void *print_to_arg,
 	    int begin_new_max_period, int only_sz, Uint **hpp, Uint *szp)
 {
     Eterm res = THE_NON_VALUE;
-    
+
     if (ma->segments.max_ever.no < ma->segments.max.no)
 	ma->segments.max_ever.no = ma->segments.max.no;
     if (ma->segments.max_ever.sz < ma->segments.max.sz)

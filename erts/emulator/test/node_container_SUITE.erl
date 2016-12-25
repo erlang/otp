@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2002-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,14 +14,14 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 %%%----------------------------------------------------------------------
 %%% File    : node_container_SUITE.erl
 %%% Author  : Rickard <rickard.green@uab.ericsson.se>
-%%% Purpose : 
+%%% Purpose :
 %%% Created : 24 Jul 2002 by Rickard <rickard.green@uab.ericsson.se>
 %%%----------------------------------------------------------------------
 
@@ -57,7 +57,7 @@ suite() ->
      {timetrap, {minutes, 12}}].
 
 
-all() -> 
+all() ->
     [term_to_binary_to_term_eq, round_trip_eq, cmp, ref_eq,
      node_table_gc, dist_link_refc, dist_monitor_refc,
      node_controller_refc, ets_refc, match_spec_refc,
@@ -152,7 +152,7 @@ ttbtteq_do_remote(RNode) ->
 %%
 %% Test case: round_trip_eq
 %%
-%% Tests that node containers that are sent beteen nodes stay equal to themselves.
+%% Tests that node containers that are sent between nodes stay equal to themselves.
 round_trip_eq(Config) when is_list(Config) ->
     ThisNode = {node(), erlang:system_info(creation)},
     NodeFirstName = get_nodefirstname(),
@@ -330,7 +330,7 @@ cmp(Config) when is_list(Config) ->
     %% Test ports ---------------------------------------------------
     %%
     %% Significance (most -> least):
-    %%   nodename, creation, number 
+    %%   nodename, creation, number
     %%
     %% OBS: Comparison between ports has changed in R9. This
     %%      since it wasn't stable in R8 (and eariler releases).
@@ -346,7 +346,7 @@ cmp(Config) when is_list(Config) ->
 
     %% Test refs ----------------------------------------------------
     %% Significance (most -> least):
-    %% nodename, creation, (number high, number mid), number low, 
+    %% nodename, creation, (number high, number mid), number low,
     %%
     %% OBS: Comparison between refs has changed in R9. This
     %%      since it wasn't stable in R8 (and eariler releases).
@@ -986,7 +986,7 @@ check_refc(ThisNodeName,ThisCreation,Table,EntryList) when is_list(EntryList) ->
                   {{ThisNodeName, ThisCreation}, 0} -> ok;
                   {_, 0} when DelayedDeleteTimer == false ->
                       exit({not_referred_entry_in_table, Table, Entry});
-                  {_, _} -> ok 
+                  {_, _} -> ok
               end
 
       end,

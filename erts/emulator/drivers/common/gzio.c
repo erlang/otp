@@ -86,7 +86,7 @@ local uLong  getLong      (gz_stream *s);
 
 #ifdef UNIX
 /*
- * In Solaris 8 and earlier, fopen() and its friends cannot handle 
+ * In Solaris 8 and earlier, fopen() and its friends cannot handle
  * file descriptors larger than 255. Therefore, we use read()/write()
  * on all Unix systems.
  */
@@ -108,10 +108,10 @@ local uLong  getLong      (gz_stream *s);
 
 #ifdef FILENAMES_16BIT
 #  define FILENAME_BYTELEN(Str) filename_len_16bit(Str)
-#  define FILENAME_COPY(To,From) filename_cpy_16bit((To),(From)) 
+#  define FILENAME_COPY(To,From) filename_cpy_16bit((To),(From))
 #  define FILENAME_CHARSIZE 2
 
-   static int filename_len_16bit(const char *str) 
+   static int filename_len_16bit(const char *str)
    {
        const char *p = str;
        while(*p != '\0' || p[1] != '\0') {
@@ -120,7 +120,7 @@ local uLong  getLong      (gz_stream *s);
        return (p - str);
    }
 
-   static void filename_cpy_16bit(char *to, const char *from) 
+   static void filename_cpy_16bit(char *to, const char *from)
    {
        while(*from != '\0' || from[1] != '\0') {
 	   *to++ = *from++;
@@ -132,7 +132,7 @@ local uLong  getLong      (gz_stream *s);
 
 #else
 #  define FILENAME_BYTELEN(Str) strlen(Str)
-#  define FILENAME_COPY(To,From) strcpy(To,From) 
+#  define FILENAME_COPY(To,From) strcpy(To,From)
 #  define FILENAME_CHARSIZE 1
 #endif
 
@@ -199,7 +199,7 @@ local ErtsGzFile gz_open (path, mode)
     *m = '\0';
     if (s->mode == '\0')
 	return s->destroy(s), (ErtsGzFile)Z_NULL;
-    
+
     if (s->mode == 'w') {
         err = deflateInit2(&(s->stream), level,
                            Z_DEFLATED, MAX_WBITS+16, DEF_MEM_LEVEL, 0);
@@ -308,7 +308,7 @@ ErtsGzFile erts_gzopen (path, mode)
 /* ===========================================================================
      Read a byte from a gz_stream; update next_in and avail_in. Return EOF
    for end of file.
-   IN assertion: the stream s has been sucessfully opened for reading.
+   IN assertion: the stream s has been successfully opened for reading.
 */
 local int get_byte(s)
     gz_stream *s;
@@ -620,7 +620,7 @@ erts_gzseek(ErtsGzFile file, int offset, int whence)
     switch (whence) {
     case SEEK_SET: pos = offset; break;
     case SEEK_CUR: pos = s->position+offset; break;
-    case SEEK_END: 
+    case SEEK_END:
     default:
       errno = EINVAL; return -1;
     }
@@ -690,10 +690,10 @@ erts_gzflush(ErtsGzFile file, int flush)
         s->z_err = deflate(&(s->stream), flush);
 
         /* deflate has finished flushing only when it hasn't used up
-         * all the available space in the output buffer: 
+         * all the available space in the output buffer:
          */
         done = (s->stream.avail_out != 0 || s->z_err == Z_STREAM_END);
- 
+
         if (s->z_err != Z_OK && s->z_err != Z_STREAM_END) break;
     }
 #ifndef UNIX
@@ -703,7 +703,7 @@ erts_gzflush(ErtsGzFile file, int flush)
 }
 
 /* ===========================================================================
-   Reads a long in LSB order from the given gz_stream. Sets 
+   Reads a long in LSB order from the given gz_stream. Sets
 */
 local uLong getLong (s)
     gz_stream *s;
@@ -853,7 +853,7 @@ erts_gzdeflate_buffer(char* start, uLong size)
 
     if (deflate(&c_stream, Z_FINISH) != Z_STREAM_END) {
 	driver_free_binary(bin);
-	return NULL;	
+	return NULL;
     }
     crc = crc32(crc, (unsigned char*)start, size);
     ptr = c_stream.next_out;
@@ -871,8 +871,8 @@ erts_gzdeflate_buffer(char* start, uLong size)
 
     if (deflateEnd(&c_stream) != Z_OK) {
 	driver_free_binary(bin);
-	return NULL;	
-    }	
+	return NULL;
+    }
     size = ptr - (Byte*)bin->orig_bytes;
 
     if ((bin2 = driver_realloc_binary(bin, size)) == NULL)

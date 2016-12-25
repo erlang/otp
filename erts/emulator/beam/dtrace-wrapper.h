@@ -45,7 +45,7 @@
 
 #define DTRACE_CHARBUF_NAME(name) name##_BUFFER
 
-#if defined(USE_DYNAMIC_TRACE) && defined(USE_VM_PROBES) 
+#if defined(USE_DYNAMIC_TRACE) && defined(USE_VM_PROBES)
 
 #include "erlang_dtrace.h"
 
@@ -74,7 +74,7 @@
 
 #if defined(_SDT_PROBE) && !defined(STAP_PROBE11)
 /* SLF: This is Ubuntu 11-style SystemTap hackery */
-/* work arround for missing STAP macro */
+/* workaround for missing STAP macro */
 #define STAP_PROBE11(provider,name,arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11) \
   _SDT_PROBE(provider, name, 11, \
              (arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11))

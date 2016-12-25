@@ -39,7 +39,7 @@ extern int errno;
 typedef struct {
     char* progname;	        /* Name of this program (from argv[0]). */
     int header_size;	        /* Number of bytes in each packet header:
-				 * 1, 2, or 4, or 0 for a continous byte stream. */
+				 * 1, 2, or 4, or 0 for a continuous byte stream. */
     int fd_from_erl;	        /* File descriptor from Erlang. */
     int fd_to_erl;	        /* File descriptor to Erlang. */
     unsigned char* io_buf;      /* Buffer for file i/o. */
@@ -113,11 +113,11 @@ char *argv[];
     exit(1);
   }
   port_data->header_size = 0;
-  port_data->io_buf_size = 0;	
-  port_data->delay_mode = 0;	
-  port_data->break_mode = 0;	
-  port_data->quit_mode = 0;	
-  port_data->slow_writes = 0;	
+  port_data->io_buf_size = 0;
+  port_data->delay_mode = 0;
+  port_data->break_mode = 0;
+  port_data->quit_mode = 0;
+  port_data->slow_writes = 0;
   port_data->output_file = NULL;
   port_data->no_packet_loop = 0;
 
@@ -162,16 +162,16 @@ char *argv[];
       case '1': port_data->header_size = 1; break;
       case '2': port_data->header_size = 2; break;
       case '4': port_data->header_size = 4; break;
-      case '\0': 
+      case '\0':
 	fprintf(stderr, "%s: missing header size for -h\n", port_data->progname);
 	return 1;
       default:
-	fprintf(stderr, "%s: illegal packet header size: %c\n", 
+	fprintf(stderr, "%s: illegal packet header size: %c\n",
 		port_data->progname, argv[1][2]);
 	return 1;
       }
       break;
-    case 'e': 
+    case 'e':
 	port_data->fd_to_erl = 2;
 	break;
     case 'l':
@@ -213,7 +213,7 @@ packet_loop(void)
 {
   int total_read = 0;
   port_data->io_buf = (unsigned char*) malloc(1);		/* Allocate once, so realloc works (SunOS) */
-  
+
 
   for (;;) {
     int packet_length;		/* Length of current packet. */
@@ -286,16 +286,16 @@ packet_loop(void)
 	return(1);
       }
     }
-    
+
     /*
      * Act on the command.
      */
     if (port_data->header_size == 0) {
       reply(port_data->io_buf+4, bytes_read);
-      if(port_data->limited_bytecount && 
+      if(port_data->limited_bytecount &&
 	 port_data->limited_bytecount <= total_read){
 	delay(5000L);
-	return(0); 
+	return(0);
       }
     } else {
       switch (port_data->io_buf[4]) {
@@ -440,7 +440,7 @@ dump(buf, sz, max)
 {
   int i, imax;
   char comma[5];
-  
+
   comma[0] = ',';
   comma[1] = '\0';
   if (!sz)
@@ -449,7 +449,7 @@ dump(buf, sz, max)
     imax = max;
   else
     imax = sz;
-  
+
   for (i=0; i<imax; i++) {
     if (i == imax-1) {
       if (sz > max)
@@ -494,7 +494,7 @@ delay(unsigned ms)
  * <packet-bytes>,<start-character>,<increment>,<size>
  *
  * Where:
- *	<packet-bytes> is 
+ *	<packet-bytes> is
  */
 static void
 generate_reply(spec)

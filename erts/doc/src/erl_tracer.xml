@@ -103,7 +103,7 @@
           <item>If set the tracer has been requested to include a
             time stamp.</item>
           <tag><c>extra</c></tag>
-          <item>If set the tracepoint has included additonal data about
+          <item>If set the tracepoint has included additional data about
             the trace event. What the additional data is depends on which
             <c>TraceTag</c> has been triggered. The <c>extra</c> trace data
             corresponds to the fifth element in the trace tuples described in

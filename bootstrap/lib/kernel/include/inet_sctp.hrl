@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2007-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,9 +14,9 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
-%% 
+%%
 %% SCTP protocol contribution by Leonid Timochouk and Serge Aleynikov.
 %% See also: $ERL_TOP/lib/kernel/AUTHORS
 %%
@@ -120,7 +120,7 @@
 	}).
 
 %% sctp_partial_delivery_event: XXX: Not clear whether it is delivered to
-%%				the Sender or to the Recepient (probably the
+%%				the Sender or to the Recipient (probably the
 %%				former). Currently, there is only 1 possible
 %%				value for "indication":
 -record(sctp_pdapi_event,
@@ -179,11 +179,11 @@
 	  pathmaxrxt, % 0
 	  pathmtu,    % 0
 	  sackdelay,  % 0
-	  flags	  % [hb_enable,     
+	  flags	  % [hb_enable,
 	  %%         hb_disable
-	  %%         hb_demand,       
-	  %%         pmtud_enable,    
-	  %%         pmtud_disable,   
+	  %%         hb_demand,
+	  %%         pmtud_enable,
+	  %%         pmtud_disable,
 	  %%         sackdelay_enable,
 	  %%         sackdelay_disable]
 	 }).

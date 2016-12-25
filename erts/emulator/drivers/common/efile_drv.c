@@ -90,7 +90,7 @@
 
 /* Internal */
 
-/* Set to 1 to test having read_ahead implicitly for read_line */ 
+/* Set to 1 to test having read_ahead implicitly for read_line */
 #define ALWAYS_READ_LINE_AHEAD 0
 
 
@@ -116,7 +116,7 @@
 #include "erl_efile.h"
 #include "erl_threads.h"
 #include "gzio.h"
-#include "dtrace-wrapper.h" 
+#include "dtrace-wrapper.h"
 
 
 static ErlDrvSysInfo sys_info;
@@ -219,10 +219,10 @@ dt_private *get_dt_private(int);
 #error 16bit characters in filenames and dtrace in combination is not supported.
 #endif
 #  define FILENAME_BYTELEN(Str) filename_len_16bit(Str)
-#  define FILENAME_COPY(To,From) filename_cpy_16bit((To),(From)) 
+#  define FILENAME_COPY(To,From) filename_cpy_16bit((To),(From))
 #  define FILENAME_CHARSIZE 2
 
-   static int filename_len_16bit(char *str) 
+   static int filename_len_16bit(char *str)
    {
        char *p = str;
        while(*p != '\0' || p[1] != '\0') {
@@ -231,7 +231,7 @@ dt_private *get_dt_private(int);
        return (p - str);
    }
 
-   static void filename_cpy_16bit(char *to, char *from) 
+   static void filename_cpy_16bit(char *to, char *from)
    {
        while(*from != '\0' || from[1] != '\0') {
 	   *to++ = *from++;
@@ -243,7 +243,7 @@ dt_private *get_dt_private(int);
 
 #else
 #  define FILENAME_BYTELEN(Str) strlen(Str)
-#  define FILENAME_COPY(To,From) strcpy(To,From) 
+#  define FILENAME_COPY(To,From) strcpy(To,From)
 #  define FILENAME_CHARSIZE 1
 #endif
 
@@ -260,7 +260,7 @@ dt_private *get_dt_private(int);
 #if ALWAYS_READ_LINE_AHEAD
 #define DEFAULT_LINEBUF_SIZE 2048
 #else
-#define DEFAULT_LINEBUF_SIZE 512 /* Small, it's usually discarded anyway */ 
+#define DEFAULT_LINEBUF_SIZE 512 /* Small, it's usually discarded anyway */
 #endif
 
 typedef unsigned char uchar;
@@ -627,7 +627,7 @@ static void ev_free(ErlIOVec *ev) {
 }
 
 /* Copy the contents from source to dest.
- * Data in binaries is not copied, just the pointers; 
+ * Data in binaries is not copied, just the pointers;
  * and refc is incremented.
  */
 static ErlIOVec *ev_copy(ErlIOVec *dest, ErlIOVec *source) {
@@ -650,9 +650,9 @@ static ErlIOVec *ev_copy(ErlIOVec *dest, ErlIOVec *source) {
 	return NULL;
     }
     dest->size = source->size;
-    /* Copy one vector element at the time. 
+    /* Copy one vector element at the time.
      * Use *ip as an alias for dest->vsize to improve readabiliy.
-     * Keep dest consistent in every iteration by using 
+     * Keep dest consistent in every iteration by using
      * dest->vsize==*ip as loop variable.
      */
     for (ip = &dest->vsize, *ip = 0;  *ip < source->vsize;  (*ip)++) {
@@ -670,7 +670,7 @@ static ErlIOVec *ev_copy(ErlIOVec *dest, ErlIOVec *source) {
 		driver_binary_inc_refc(source->binv[*ip]);
 	    } else {
 		/* Contents not in binary - allocate new binary and copy data */
-		if (! (dest->binv[*ip] = 
+		if (! (dest->binv[*ip] =
 		       driver_alloc_binary(source->iov[*ip].iov_len))) {
 		    goto failed;
 		}
@@ -718,7 +718,7 @@ static struct t_data *cq_deq(file_descriptor *desc) {
 	    ASSERT(desc->cq_tail == d);
 	    desc->cq_tail = NULL;
 	}
-    }	
+    }
     return d;
 }
 
@@ -726,7 +726,7 @@ static struct t_data *cq_deq(file_descriptor *desc) {
 /*********************************************************************
  * Driver entry point -> init
  */
-static int 
+static int
 file_init(void)
 {
     char buf[21]; /* enough to hold any 64-bit integer */
@@ -753,8 +753,8 @@ file_init(void)
 /*********************************************************************
  * Driver entry point -> start
  */
-static ErlDrvData 
-file_start(ErlDrvPort port, char* command) 
+static ErlDrvData
+file_start(ErlDrvPort port, char* command)
 
 {
     file_descriptor* desc;
@@ -842,7 +842,7 @@ static void reply_posix_error(file_descriptor *desc, int posix_errno) {
     char response[256];		/* Response buffer. */
     char* s;
     char* t;
-    
+
     /*
      * Contents of buffer sent back:
      *
@@ -859,12 +859,12 @@ static void reply_posix_error(file_descriptor *desc, int posix_errno) {
     driver_output2(desc->port, response, t-response, NULL, 0);
 }
 
-static void reply_Uint_posix_error(file_descriptor *desc, Uint num, 
+static void reply_Uint_posix_error(file_descriptor *desc, Uint num,
 				   int posix_errno) {
     char response[256];		/* Response buffer. */
     char* s;
     char* t;
-    
+
     /*
      * Contents of buffer sent back:
      *
@@ -900,14 +900,14 @@ static void reply_string_error(file_descriptor *desc, char* str) {
 }
 #endif
 
-static int reply_error(file_descriptor *desc, 
+static int reply_error(file_descriptor *desc,
 		       Efile_error *errInfo) /* The error codes. */
 {
     reply_posix_error(desc, errInfo->posix_errno);
     return 0;
 }
 
-static int reply_Uint_error(file_descriptor *desc, Uint num, 
+static int reply_Uint_error(file_descriptor *desc, Uint num,
 			    Efile_error *errInfo) /* The error codes. */
 {
     reply_Uint_posix_error(desc, num, errInfo->posix_errno);
@@ -991,7 +991,7 @@ static void reply_ev(file_descriptor *desc, char response, ErlIOVec *ev) {
     driver_outputv(desc->port, tmp, sizeof(tmp), ev, 0);
 }
 
-static void reply_data(file_descriptor *desc, 
+static void reply_data(file_descriptor *desc,
 		       ErlDrvBinary *binp, size_t offset, size_t len) {
     char header[1+4+4];
     /* Data arriving at the Erlang process:
@@ -1029,7 +1029,7 @@ static int reply_eof(file_descriptor *desc) {
     driver_output2(desc->port, &c, 1, NULL, 0);
     return 0;
 }
- 
+
 static void invoke_name(void *data, int (*f)(Efile_error *, char *))
 {
     struct t_data *d = (struct t_data *) data;
@@ -1160,7 +1160,7 @@ static void invoke_read_line(void *data)
     DTRACE_INVOKE_SETUP(FILE_READ_LINE);
 
     do {
-	size_t size = (d->c.read_line.binp)->orig_size - 
+	size_t size = (d->c.read_line.binp)->orig_size -
 	    d->c.read_line.read_offset - d->c.read_line.read_size;
 	if (size == 0) {
 	    /* Need more place */
@@ -1169,7 +1169,7 @@ static void invoke_read_line(void *data)
 	    ErlDrvBinary   *newbin;
 #if !ALWAYS_READ_LINE_AHEAD
 	    /* Use read_ahead size if need does not exceed it */
-	    if (need < (d->c.read_line.binp)->orig_size && 
+	    if (need < (d->c.read_line.binp)->orig_size &&
 		d->c.read_line.read_ahead)
 	      need = (d->c.read_line.binp)->orig_size;
 #endif
@@ -1180,7 +1180,7 @@ static void invoke_read_line(void *data)
 		d->again = 0;
 		break;
 	    }
-	    memcpy(newbin->orig_bytes, (d->c.read_line.binp)->orig_bytes + d->c.read_line.read_offset,  
+	    memcpy(newbin->orig_bytes, (d->c.read_line.binp)->orig_bytes + d->c.read_line.read_offset,
 		   d->c.read_line.read_size);
 	    driver_free_binary(d->c.read_line.binp);
 	    d->c.read_line.binp = newbin;
@@ -1189,7 +1189,7 @@ static void invoke_read_line(void *data)
 	}
 	if (d->flags & EFILE_COMPRESSED) {
 	    read_size = erts_gzread((ErtsGzFile)d->fd,
-				    d->c.read_line.binp->orig_bytes + 
+				    d->c.read_line.binp->orig_bytes +
 				    d->c.read_line.read_offset + d->c.read_line.read_size,
 				    size);
 	    status = (read_size != (size_t) -1);
@@ -1198,19 +1198,19 @@ static void invoke_read_line(void *data)
 	    }
 	} else {
 	    status = efile_read(&d->errInfo, d->flags, (int) d->fd,
-				d->c.read_line.binp->orig_bytes + 
+				d->c.read_line.binp->orig_bytes +
 				d->c.read_line.read_offset + d->c.read_line.read_size,
 				size,
 				&read_size);
 	}
 	if ( (d->result_ok = status)) {
-	    void *nl_ptr = memchr((d->c.read_line.binp)->orig_bytes + 
+	    void *nl_ptr = memchr((d->c.read_line.binp)->orig_bytes +
 				  d->c.read_line.read_offset + d->c.read_line.read_size,'\n',read_size);
 	    ASSERT(read_size <= size);
 	    d->c.read_line.read_size += read_size;
 	    if (nl_ptr != NULL) {
 		/* If found, we're done */
-		d->c.read_line.nl_pos = ((char *) nl_ptr) - 
+		d->c.read_line.nl_pos = ((char *) nl_ptr) -
 		    ((char *) ((d->c.read_line.binp)->orig_bytes)) + 1;
 		if (d->c.read_line.nl_pos > 1 &&
 		    *(((char *) nl_ptr) - 1) == '\r') {
@@ -1224,7 +1224,7 @@ static void invoke_read_line(void *data)
 #if !ALWAYS_READ_LINE_AHEAD
 		if (!(d->c.read_line.read_ahead)) {
 		    /* Ouch! Undo buffering... */
-		    size_t too_much = d->c.read_line.read_size - d->c.read_line.nl_skip - 
+		    size_t too_much = d->c.read_line.read_size - d->c.read_line.nl_skip -
 			(d->c.read_line.nl_pos - d->c.read_line.read_offset);
 		    d->c.read_line.read_size -= too_much;
 		    ASSERT(d->c.read_line.read_size >= 0);
@@ -1237,7 +1237,7 @@ static void invoke_read_line(void *data)
 			}
 		    } else {
 			Sint64 location;
-			d->result_ok = efile_seek(&d->errInfo, (int) d->fd, 
+			d->result_ok = efile_seek(&d->errInfo, (int) d->fd,
 						-((Sint64) too_much), EFILE_SEEK_CUR,
 						&location);
 		    }
@@ -1245,7 +1245,7 @@ static void invoke_read_line(void *data)
 #endif
 		break;
 	    } else if (read_size == 0) {
-		d->c.read_line.nl_pos = 
+		d->c.read_line.nl_pos =
 		    d->c.read_line.read_offset + d->c.read_line.read_size;
 		d->c.read_line.nl_skip = 0;
 		d->again = 0;
@@ -1273,20 +1273,20 @@ static void invoke_read_file(void *data)
     size_t read_size;
     int chop;
     DTRACE_INVOKE_SETUP(FILE_READ_FILE);
-    
+
     if (! d->c.read_file.binp) { /* First invocation only */
 	int fd;
 	Sint64 size;
-	
-	if (! (d->result_ok = 
-	       efile_openfile(&d->errInfo, d->b, 
+
+	if (! (d->result_ok =
+	       efile_openfile(&d->errInfo, d->b,
 			      EFILE_MODE_READ, &fd, &size))) {
 	    goto done;
 	}
 	d->fd = fd;
 	d->c.read_file.size = (int) size;
 	if (size < 0 || size != d->c.read_file.size ||
-	    ! (d->c.read_file.binp = 
+	    ! (d->c.read_file.binp =
 	       driver_alloc_binary(d->c.read_file.size))) {
 	    d->result_ok = 0;
 	    d->errInfo.posix_errno = ENOMEM;
@@ -1295,17 +1295,17 @@ static void invoke_read_file(void *data)
 	d->c.read_file.offset = 0;
     }
     /* Invariant: d->c.read_file.size >= d->c.read_file.offset */
-    
+
     read_size = (size_t) (d->c.read_file.size - d->c.read_file.offset);
     if (! read_size) goto close;
     chop = d->again && read_size >= FILE_SEGMENT_READ*2;
     if (chop) read_size = FILE_SEGMENT_READ;
-    d->result_ok = 
-	efile_read(&d->errInfo, 
-		   EFILE_MODE_READ, 
-		   (int) d->fd, 
+    d->result_ok =
+	efile_read(&d->errInfo,
+		   EFILE_MODE_READ,
+		   (int) d->fd,
 		   d->c.read_file.binp->orig_bytes + d->c.read_file.offset,
-		   read_size, 
+		   read_size,
 		   &read_size);
     if (d->result_ok) {
 	d->c.read_file.offset += read_size;
@@ -1341,15 +1341,15 @@ static void invoke_preadv(void *data)
     while (c->cnt < c->n) {
 	size_t read_size = ev->iov[1 + c->cnt].iov_len - c->size;
 	size_t bytes_read = 0;
-	int chop = d->again 
+	int chop = d->again
 	    && bytes_read_so_far + read_size >= 2*FILE_SEGMENT_READ;
 	if (chop) {
 	    ASSERT(bytes_read_so_far < FILE_SEGMENT_READ);
 	    read_size = FILE_SEGMENT_READ + FILE_SEGMENT_READ/2
 		- bytes_read_so_far;
 	}
-	if ( (d->result_ok 
-	      = efile_pread(&d->errInfo, 
+	if ( (d->result_ok
+	      = efile_pread(&d->errInfo,
 			    (int) d->fd,
 			    c->offsets[c->cnt] + c->size,
 			    ((char *)ev->iov[1 + c->cnt].iov_base) + c->size,
@@ -1366,7 +1366,7 @@ static void invoke_preadv(void *data)
 	    put_int64(bytes_read + c->size, p); p += 8;
 	    c->size = 0;
 	    c->cnt++;
-	    if (d->again 
+	    if (d->again
 		&& bytes_read_so_far >= FILE_SEGMENT_READ
 		&& c->cnt < c->n) {
 		goto done;
@@ -1378,7 +1378,7 @@ static void invoke_preadv(void *data)
 	     */
 	    break;
 	}
-    }					
+    }
     d->again = 0;
  done:
     DTRACE_INVOKE_RETURN(FILE_PREADV);
@@ -1388,7 +1388,7 @@ static void free_preadv(void *data) {
     struct t_data *d = data;
     int            i;
     ErlIOVec      *ev = &d->c.preadv.eiov;
-    
+
     for(i = 0; i < ev->vsize; i++) {
 	driver_free_binary(ev->binv[i]);
     }
@@ -1404,9 +1404,9 @@ static void invoke_ipread(void *data)
     char buf[2*sizeof(Uint32)];
     Uint32 offset, size;
     DTRACE_INVOKE_SETUP(FILE_IPREAD);
-    
+
     /* Read indirection header */
-    if (! efile_pread(&d->errInfo, (int) d->fd, c->offsets[0], 
+    if (! efile_pread(&d->errInfo, (int) d->fd, c->offsets[0],
 		      buf, sizeof(buf), &bytes_read)) {
 	goto error;
     }
@@ -1512,7 +1512,7 @@ static void invoke_writev(void *data) {
 		    /* Just in case, I do not know what gzwrite does
 		     * with errno.
 		     */
-		    errno = EINVAL; 
+		    errno = EINVAL;
 		    status = erts_gzwrite((ErtsGzFile)d->fd,
 					  iov[i].iov_base,
 					  iov[i].iov_len) == iov[i].iov_len;
@@ -1525,7 +1525,7 @@ static void invoke_writev(void *data) {
 	    }
 	    d->result_ok = status;
 	} else {
-	    d->result_ok = efile_writev(&d->errInfo, 
+	    d->result_ok = efile_writev(&d->errInfo,
 					d->flags, (int) d->fd,
 					iov, iovcnt);
 	}
@@ -1637,7 +1637,7 @@ static void invoke_pwritev(void *data) {
 	chop = segment && written + write_size >= 2*FILE_SEGMENT_WRITE;
 	if (chop) {
 	    ASSERT(written < FILE_SEGMENT_WRITE);
-	    write_size = FILE_SEGMENT_WRITE + FILE_SEGMENT_WRITE/2 
+	    write_size = FILE_SEGMENT_WRITE + FILE_SEGMENT_WRITE/2
 		- written;
 	}
 	d->result_ok = efile_pwrite(&d->errInfo, (int) d->fd,
@@ -1648,9 +1648,9 @@ static void invoke_pwritev(void *data) {
 	    d->again = 0;
 	    goto deq_error;
 	}
-	written += write_size; 
+	written += write_size;
 	c->size -= write_size;
-	if (chop) { 
+	if (chop) {
 	    c->specs[c->cnt].offset += write_size;
 	    c->specs[c->cnt].size -= write_size;
 	    /* Schedule out (d->again != 0) */
@@ -1660,7 +1660,7 @@ static void invoke_pwritev(void *data) {
 	p += write_size;
 	ASSERT(iov[iovcnt].iov_len >= p);
 	if (iov[iovcnt].iov_len == p) {
-	    /* Move to next iov[], we trust that it is not a 
+	    /* Move to next iov[], we trust that it is not a
 	     * zero length vector, and thereby depend on that
 	     * such are not queued.
 	     */
@@ -1669,7 +1669,7 @@ static void invoke_pwritev(void *data) {
     }
     if (! segment) {
 	if (c->cnt != c->n) {
-	    /* Mismatch between number of 
+	    /* Mismatch between number of
 	     * pos/size specs vs number of queued buffers .
 	     */
 	error:
@@ -1689,13 +1689,13 @@ static void invoke_pwritev(void *data) {
     } else {
       ASSERT(written >= FILE_SEGMENT_WRITE);
     }
-      
+
     MUTEX_LOCK(c->q_mtx);
     driver_deq(c->port, written);
     MUTEX_UNLOCK(c->q_mtx);
  done:
     EF_FREE(iov); /* Free our copy of the vector, nothing to restore */
-    
+
     DTRACE_INVOKE_RETURN(FILE_PWRITEV);
 }
 
@@ -1771,7 +1771,7 @@ static void invoke_lseek(void *data)
     d->again = 0;
     if (d->flags & EFILE_COMPRESSED) {
 	int offset = (int) d->c.lseek.offset;
-	
+
 	if (offset != d->c.lseek.offset) {
 	    d->errInfo.posix_errno = EINVAL;
 	    status = 0;
@@ -1786,7 +1786,7 @@ static void invoke_lseek(void *data)
 	    }
 	}
     } else {
-	status = efile_seek(&d->errInfo, (int) d->fd, 
+	status = efile_seek(&d->errInfo, (int) d->fd,
 			    d->c.lseek.offset, d->c.lseek.origin,
 			    &d->c.lseek.location);
     }
@@ -1812,7 +1812,7 @@ static void invoke_readdir(void *data)
 	n       = 1;
 	b       = EF_SAFE_ALLOC(sizeof(struct t_readdir_buf));
 	b->next = NULL;
-	
+
 	if (d->c.read_dir.last_buf) {
 	    d->c.read_dir.last_buf->next = b;
 	} else {
@@ -2239,7 +2239,7 @@ static int lseek_flush_read(file_descriptor *desc, int *errp
  * The close has to be scheduled on async thread, so that currently active
  * async operation does not suddenly have the ground disappearing under their feet...
  */
-static void 
+static void
 file_stop(ErlDrvData e)
 {
     file_descriptor* desc = (file_descriptor*)e;
@@ -2281,7 +2281,7 @@ file_stop(ErlDrvData e)
 /*********************************************************************
  * Driver entry point -> ready_async
  */
-static void 
+static void
 file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 {
     file_descriptor *desc = (file_descriptor*)e;
@@ -2314,37 +2314,37 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	if (!d->result_ok) {
 	    reply_error(desc, &d->errInfo);
 	} else {
-	    size_t available_bytes = 
+	    size_t available_bytes =
 		d->c.read.bin_offset + d->c.read.bin_size - desc->read_offset;
 	    if (available_bytes < d->c.read.size) {
 		d->c.read.size = available_bytes;
 	    }
 	    TRACE_C('D');
-	    reply_data(desc, d->c.read.binp, 
+	    reply_data(desc, d->c.read.binp,
 		       desc->read_offset, d->c.read.size);
 	    desc->read_offset += d->c.read.size;
-	    desc->read_size = 
+	    desc->read_size =
 		d->c.read.bin_offset + d->c.read.bin_size - desc->read_offset;
 	    try_free_read_bin(desc);
 	}
 	free_read(data);
 	break;
       case FILE_READ_LINE:
-	  /* The read_line stucture differs from the read structure.
-	     The data->read_offset and d->c.read_line.read_offset are copies, as are 
-	     data->read_size and d->c.read_line.read_size 
+	  /* The read_line structure differs from the read structure.
+	     The data->read_offset and d->c.read_line.read_offset are copies, as are
+	     data->read_size and d->c.read_line.read_size
              The read_line function does not kniow in advance how large the binary has to be,
-	     why new allocation (but not reallocation of the old binary, for obvious reasons) 
+	     why new allocation (but not reallocation of the old binary, for obvious reasons)
 	     may happen in the worker thread. */
 	if (!d->result_ok) {
 	    reply_error(desc, &d->errInfo);
 	} else {
 	    size_t len = d->c.read_line.nl_pos - d->c.read_line.read_offset;
 	    TRACE_C('L');
-	    reply_data(desc, d->c.read_line.binp, 
+	    reply_data(desc, d->c.read_line.binp,
 		       d->c.read_line.read_offset, len);
 	    desc->read_offset = d->c.read_line.read_offset + d->c.read_line.nl_skip + len;
-	    desc->read_size = 
+	    desc->read_size =
 		d->c.read_line.read_size - d->c.read_line.nl_skip - len;
 	    if (desc->read_binp != d->c.read_line.binp) { /* New binary allocated */
 		driver_free_binary(desc->read_binp);
@@ -2494,7 +2494,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 		EF_FREE(b2);
 	    }
 	    driver_output2(desc->port, &op, 1, NULL, 0);
-    
+
 	    d->c.read_dir.first_buf = NULL;
 	    d->c.read_dir.last_buf = NULL;
 	}
@@ -2584,7 +2584,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 /*********************************************************************
  * Driver entry point -> output
  */
-static void 
+static void
 file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 {
     file_descriptor* desc = (file_descriptor*)e;
@@ -2616,7 +2616,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
     case FILE_MKDIR:
     {
 	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE);
-	
+
 	FILENAME_COPY(d->b, name);
 #ifdef USE_VM_PROBES
 	dt_s1 = d->b;
@@ -2631,7 +2631,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
     case FILE_RMDIR:
     {
 	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE);
-	
+
 	FILENAME_COPY(d->b, name);
 #ifdef USE_VM_PROBES
 	dt_s1 = d->b;
@@ -2646,7 +2646,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
     case FILE_DELETE:
     {
 	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE);
-	
+
 	FILENAME_COPY(d->b, name);
 #ifdef USE_VM_PROBES
 	dt_s1 = d->b;
@@ -2666,7 +2666,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1
 			      + namelen
 			      + FILENAME_BYTELEN(new_name) + FILENAME_CHARSIZE);
-	
+
 	    FILENAME_COPY(d->b, name);
 	    FILENAME_COPY(d->b + namelen, new_name);
 #ifdef USE_VM_PROBES
@@ -2685,7 +2685,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
     case FILE_CHDIR:
     {
 	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE);
-	
+
 	FILENAME_COPY(d->b, name);
 #ifdef USE_VM_PROBES
 	dt_s1 = d->b;
@@ -2700,7 +2700,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
     case FILE_PWD:
         {
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + RESBUFSIZE + 1);
-	
+
 	    d->drive = *(uchar*)buf;
 #ifdef USE_VM_PROBES
 	    dt_utag = buf + 1;
@@ -2712,13 +2712,13 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    goto done;
 	}
 
-    case FILE_READDIR: 
+    case FILE_READDIR:
 #ifdef USE_THREADS
 	if (sys_info.async_threads > 0)
 	{
-	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + 
+	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) +
 			      FILENAME_CHARSIZE);
-	
+
 	    FILENAME_COPY(d->b, name);
 #ifdef USE_VM_PROBES
 	    dt_s1 = d->b;
@@ -2733,7 +2733,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    d->c.read_dir.last_buf = NULL;
 	    goto done;
 	}
-	else   
+	else
 #endif
 	{
 	    size_t resbufsize;
@@ -2788,12 +2788,12 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 #ifdef USE_VM_PROBES
 	    if (dt_utag != NULL && dt_utag[0] == '\0') {
                 dt_utag = NULL;
-            } 
+            }
 
 	    DTRACE11(efile_drv_entry, dt_priv->thread_num, dt_priv->tag,
 		     dt_utag, command, name, dt_s2,
 		     dt_i1, dt_i2, dt_i3, dt_i4, desc->port_str);
-	    DTRACE6(efile_drv_return, dt_priv->thread_num, dt_priv->tag++, 
+	    DTRACE6(efile_drv_return, dt_priv->thread_num, dt_priv->tag++,
 		    dt_utag, command, 1, 0);
 #endif
 	    TRACE_C('R');
@@ -2802,9 +2802,9 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	}
     case FILE_OPEN:
 	{
-	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(buf+4) + 
+	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(buf+4) +
 			      FILENAME_CHARSIZE);
-	
+
 	    d->flags = get_int32((uchar*)buf);
 	    name = buf+4;
 	    FILENAME_COPY(d->b, name);
@@ -2824,7 +2824,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
     case FILE_FDATASYNC:
 	{
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data));
-	    
+
 	    d->fd = fd;
 #ifdef USE_VM_PROBES
 	    dt_utag = name;
@@ -2840,7 +2840,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
     case FILE_FSYNC:
 	{
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data));
-	    
+
 	    d->fd = fd;
 #ifdef USE_VM_PROBES
 	    dt_utag = name;
@@ -2854,12 +2854,12 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	}
 
 
-    case FILE_FSTAT: 
+    case FILE_FSTAT:
     case FILE_LSTAT:
 	{
-	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + 
+	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) +
 			      FILENAME_CHARSIZE);
-	    
+
 	    FILENAME_COPY(d->b, name);
 	    d->fd = fd;
 #ifdef USE_VM_PROBES
@@ -2876,11 +2876,11 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    d->level = 2;
 	    goto done;
 	}
-	
+
     case FILE_TRUNCATE:
         {
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data));
-	    
+
 	    d->flags = desc->flags;
 	    d->fd = fd;
 #ifdef USE_VM_PROBES
@@ -2899,7 +2899,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	{
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1
 			      + FILENAME_BYTELEN(buf + 9*4) + FILENAME_CHARSIZE);
-	    
+
 	    d->info.mode       = get_int32(buf + 0 * 4);
 	    d->info.uid        = get_int32(buf + 1 * 4);
 	    d->info.gid        = get_int32(buf + 2 * 4);
@@ -2924,8 +2924,8 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 
     case FILE_READLINK:
 	{
-	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + 
-			      MAX(RESBUFSIZE, (FILENAME_BYTELEN(name) +  
+	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 +
+			      MAX(RESBUFSIZE, (FILENAME_BYTELEN(name) +
 					       FILENAME_CHARSIZE))  + 1);
 	    FILENAME_COPY(d->b, name);
 #ifdef USE_VM_PROBES
@@ -2941,8 +2941,8 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 
     case FILE_ALTNAME:
 	{
-	     d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + 
-			       MAX(RESBUFSIZE, (FILENAME_BYTELEN(name) +  
+	     d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 +
+			       MAX(RESBUFSIZE, (FILENAME_BYTELEN(name) +
 						FILENAME_CHARSIZE))  + 1);
 	    FILENAME_COPY(d->b, name);
 #ifdef USE_VM_PROBES
@@ -2966,7 +2966,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1
 			      + namelen
 			      + FILENAME_BYTELEN(new_name) + FILENAME_CHARSIZE);
-	
+
 	    FILENAME_COPY(d->b, name);
 	    FILENAME_COPY(d->b + namelen, new_name);
 #ifdef USE_VM_PROBES
@@ -2992,7 +2992,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1
 			      + namelen
 			      + FILENAME_BYTELEN(new_name) + FILENAME_CHARSIZE);
-	
+
 	    FILENAME_COPY(d->b, name);
 	    FILENAME_COPY(d->b + namelen, new_name);
 #ifdef USE_VM_PROBES
@@ -3050,7 +3050,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
     /*
      * Ignore anything else -- let the caller hang.
      */
-     
+
     return;
 
  done:
@@ -3078,7 +3078,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 /*********************************************************************
  * Driver entry point -> flush
  */
-static void 
+static void
 file_flush(ErlDrvData e) {
     file_descriptor *desc = (file_descriptor *)e;
 #ifdef DEBUG
@@ -3095,18 +3095,18 @@ file_flush(ErlDrvData e) {
 #endif
 
 #ifdef DEBUG
-    r = 
+    r =
 #endif
          flush_write(desc, NULL
 #ifdef USE_VM_PROBES
 		     , dt_priv, (desc->d == NULL) ? NULL : desc->d->sched_utag
 #endif
 		     );
-    /* Only possible reason for bad return value is ENOMEM, and 
+    /* Only possible reason for bad return value is ENOMEM, and
      * there is nobody to tell...
      */
 #ifdef DEBUG
-    ASSERT(r == 0); 
+    ASSERT(r == 0);
 #endif
     cq_execute(desc);
 }
@@ -3118,7 +3118,7 @@ file_flush(ErlDrvData e) {
  * Only debug functionality...
  */
 static ErlDrvSSizeT
-file_control(ErlDrvData e, unsigned int command, 
+file_control(ErlDrvData e, unsigned int command,
 	     char* buf, ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen) {
     file_descriptor *desc = (file_descriptor *)e;
     switch (command) {
@@ -3139,7 +3139,7 @@ file_control(ErlDrvData e, unsigned int command,
 /*********************************************************************
  * Driver entry point -> timeout
  */
-static void 
+static void
 file_timeout(ErlDrvData e) {
     file_descriptor *desc = (file_descriptor *)e;
     enum e_timer timer_state = desc->timer_state;
@@ -3161,17 +3161,17 @@ file_timeout(ErlDrvData e) {
 	break;
     case timer_write: {
 #ifdef DEBUG
-	int r = 
+	int r =
 #endif
 	         flush_write(desc, NULL
 #ifdef USE_VM_PROBES
 			     , dt_priv, (desc->d == NULL) ? NULL : desc->d->sched_utag
 #endif
 			     );
-	/* Only possible reason for bad return value is ENOMEM, and 
+	/* Only possible reason for bad return value is ENOMEM, and
 	 * there is nobody to tell...
 	 */
-	ASSERT(r == 0); 
+	ASSERT(r == 0);
 	cq_execute(desc);
     } break;
     } /* case */
@@ -3182,7 +3182,7 @@ file_timeout(ErlDrvData e) {
 /*********************************************************************
  * Driver entry point -> outputv
  */
-static void 
+static void
 file_outputv(ErlDrvData e, ErlIOVec *ev) {
     file_descriptor* desc = (file_descriptor*)e;
     char command;
@@ -3209,7 +3209,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
      * 'p' and 'q' point out the next byte in the command:
      * ((char *)ev->iov[q].iov_base) + p;
      */
-    
+
     TRACE_F(("%i", (int) command));
 
     switch (command) {
@@ -3274,7 +3274,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	}
 #if ALWAYS_READ_LINE_AHEAD
 	if (desc->read_bufsize == 0 && desc->read_binp != NULL && desc->read_size > 0) {
-	    /* We have allocated a buffer for line mode but should not really have a 
+	    /* We have allocated a buffer for line mode but should not really have a
 	       read-ahead buffer... */
 	    if (lseek_flush_read(desc, &err
 #ifdef USE_VM_PROBES
@@ -3313,17 +3313,17 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    try_free_read_bin(desc);
 	    goto done;
 	}
-	/* We may have some of the data 
+	/* We may have some of the data
 	 */
 	/* Justification for the following strange formula:
-	 * If the read request is for such a large block as more than 
-	 * half the buffer size it may lead to a lot of unnecessary copying, 
+	 * If the read request is for such a large block as more than
+	 * half the buffer size it may lead to a lot of unnecessary copying,
 	 * since the tail of the old buffer is copied to the head of the
 	 * new, and if the tail is almost half the buffer it is a lot
-	 * to copy. Therefore allocate the exact amount needed in 
+	 * to copy. Therefore allocate the exact amount needed in
 	 * this case, giving no lingering tail. */
-	alloc_size = 
-	    size > (desc->read_bufsize>>1) ? 
+	alloc_size =
+	    size > (desc->read_bufsize>>1) ?
 	    size : desc->read_bufsize;
 	if (! desc->read_binp) {
 	    /* Need to allocate a new binary for the result */
@@ -3341,14 +3341,14 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 		    goto done;
 		}
 		/* Move data we already have to the new binary */
-		sys_memcpy(binp->orig_bytes, 
+		sys_memcpy(binp->orig_bytes,
 			   desc->read_binp->orig_bytes + desc->read_offset,
 			   desc->read_size);
 		driver_free_binary(desc->read_binp);
 		desc->read_offset = 0;
 		desc->read_binp = binp;
 	    }
-	} 
+	}
 	if (! (d = EF_ALLOC(sizeof(struct t_data)))) {
 	    reply_posix_error(desc, ENOMEM);
 	    goto done;
@@ -3376,10 +3376,10 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
     case FILE_READ_LINE: {
 	/*
 	 * Icky little creature... We do mostly as ordinary file read, but with a few differences.
-	 * 1) We have to scan for proper newline sequence if there is a buffer already, we cannot know 
+	 * 1) We have to scan for proper newline sequence if there is a buffer already, we cannot know
 	 *    in advance if the buffer contains a whole line without scanning.
 	 * 2) We do not know how large the buffer needs to be in advance. We give a default buffer,
-	 *    but the worker may need to allocate a new one. Freeing the old and rereferencing a newly 
+	 *    but the worker may need to allocate a new one. Freeing the old and rereferencing a newly
 	 *    allocated binary + dealing with offsets and lengts are done in file_async ready
 	 *    for this OP.
 	 */
@@ -3414,14 +3414,14 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    if (nl_ptr != NULL) {
 		/* If found, we're done */
 		int skip = 0;
-		size_t size = ((char *) nl_ptr) - 
+		size_t size = ((char *) nl_ptr) -
 		    ((char *) (desc->read_binp->orig_bytes + desc->read_offset)) + 1;
 		if (size > 1 &&
 		    *(((char *) nl_ptr) - 1) == '\r') {
-		    *(((char *) nl_ptr) - 1) = '\n';		    
+		    *(((char *) nl_ptr) - 1) = '\n';
 		    skip = 1;
 		    --size;
-		} 
+		}
 		reply_data(desc, desc->read_binp, desc->read_offset, size);
 		desc->read_offset += (size + skip);
 		desc->read_size -= (size + skip);
@@ -3430,18 +3430,18 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    }
 	}
 	/* Now, it's up to the thread to work out the need for more buffers and such, it's
-	   no use doing it in this thread as we do not have the information required anyway. 
-	   Even a NULL buffer could be handled by the thread, but code is simplified by us 
+	   no use doing it in this thread as we do not have the information required anyway.
+	   Even a NULL buffer could be handled by the thread, but code is simplified by us
 	   allocating it */
 	if (! desc->read_binp) {
-	    int alloc_size = (desc->read_bufsize > DEFAULT_LINEBUF_SIZE) ? desc->read_bufsize : 
+	    int alloc_size = (desc->read_bufsize > DEFAULT_LINEBUF_SIZE) ? desc->read_bufsize :
 		DEFAULT_LINEBUF_SIZE;
 	    /* Allocate a new binary for the result */
 	    if (! (desc->read_binp = driver_alloc_binary(alloc_size))) {
 		reply_posix_error(desc, ENOMEM);
 		goto done;
 	    }
-	}	
+	}
 	if (! (d = EF_ALLOC(sizeof(struct t_data)))) {
 	    reply_posix_error(desc, ENOMEM);
 	    goto done;
@@ -3464,15 +3464,15 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 #ifdef USE_VM_PROBES
 	dt_i4 = d->c.read_line.read_ahead;
 #endif
-#endif 
+#endif
 	driver_binary_inc_refc(d->c.read.binp);
 	d->invoke = invoke_read_line;
 	d->free = free_read_line;
 	d->level = 1;
 	cq_enq(desc, d);
     } goto done;
-    case FILE_WRITE: { /* Dtrace: The dtrace user tag is not last in message, 
-			  but follows the message tag directly. 
+    case FILE_WRITE: { /* Dtrace: The dtrace user tag is not last in message,
+			  but follows the message tag directly.
 			  This is handled specially in prim_file.erl */
 	ErlDrvSizeT skip = 1;
 	ErlDrvSizeT size = ev->size - skip;
@@ -3527,10 +3527,10 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	}
     } goto done; /* case FILE_WRITE */
 
-    case FILE_PWRITEV: { /* Dtrace: The dtrace user tag is not last in message, 
-			   but follows the message tag directly. 
+    case FILE_PWRITEV: { /* Dtrace: The dtrace user tag is not last in message,
+			   but follows the message tag directly.
 			   This is handled specially in prim_file.erl */
-	Uint32 i, j, n; 
+	Uint32 i, j, n;
 	size_t total;
 #ifdef USE_VM_PROBES
 	char dt_tmp;
@@ -3538,7 +3538,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 
 	dt_utag = EV_CHAR_P(ev, p, q);
 	/* This will work for UTF-8, but not for UTF-16 - extra reminder here */
-#ifdef FILENAMES_16BIT 
+#ifdef FILENAMES_16BIT
 #error 16bit characters in filenames and dtrace in combination is not supported.
 #endif
 	while (EV_GET_CHAR(ev, &dt_tmp, &p, &q) && dt_tmp != '\0') {
@@ -3588,7 +3588,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_Uint_posix_error(desc, 0, EINVAL);
 	    goto done;
 	}
-	d = EF_ALLOC(sizeof(struct t_data) 
+	d = EF_ALLOC(sizeof(struct t_data)
 		     + (n * sizeof(struct t_pbuf_spec)));
 	if (! d) {
 	    reply_Uint_posix_error(desc, 0, ENOMEM);
@@ -3647,13 +3647,13 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    EF_FREE(d);
 	    reply_Uint(desc, 0);
 	} else {
-	    ErlDrvSizeT skip = 1 + 4 + 8 * (2*n) 
+	    ErlDrvSizeT skip = 1 + 4 + 8 * (2*n)
 #ifdef USE_VM_PROBES
 		+ dt_utag_bytes
 #endif
 		;
 	    if (skip + total != ev->size) {
-		/* Actual amount of data does not match 
+		/* Actual amount of data does not match
 		 * total of all pos/size specs
 		 */
 		EF_FREE(d);
@@ -3672,8 +3672,8 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	}
     } goto done; /* case FILE_PWRITEV: */
 
-    case FILE_PREADV: { /* Dtrace: The dtrace user tag is not last in message, 
-			   but follows the message tag directly. 
+    case FILE_PREADV: { /* Dtrace: The dtrace user tag is not last in message,
+			   but follows the message tag directly.
 			   This is handled specially in prim_file.erl */
 	register void * void_ptr;
 	Uint32 i, n;
@@ -3682,7 +3682,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	char dt_tmp;
 	int dt_utag_bytes = 1;
 	/* This will work for UTF-8, but not for UTF-16 - extra reminder here */
-#ifdef FILENAMES_16BIT 
+#ifdef FILENAMES_16BIT
 #error 16bit characters in filenames and dtrace in combination is not supported.
 #endif
 	dt_utag = EV_CHAR_P(ev, p, q);
@@ -3725,8 +3725,8 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
-	/* Create the thread data structure with the contained ErlIOVec 
-	 * and corresponding binaries for the response 
+	/* Create the thread data structure with the contained ErlIOVec
+	 * and corresponding binaries for the response
 	 */
 	d = EF_ALLOC(sizeof(*d)
 		     + (n * sizeof(*d->c.preadv.offsets))
@@ -3867,7 +3867,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	}
 #ifndef USE_VM_PROBES
-	/* In the dtrace case, the iov has an extra element, the dtrace utag - we will need 
+	/* In the dtrace case, the iov has an extra element, the dtrace utag - we will need
 	   another test to see that
 	   the filename is in a single buffer: */
 	if (ev->size-1 != ev->iov[q].iov_len-p) {
@@ -3880,7 +3880,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    /* Name not in one single buffer */
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
-	}	
+	}
 #endif
 	filename = EV_CHAR_P(ev, p, q);
 	d = EF_ALLOC(sizeof(struct t_data) -1 + FILENAME_BYTELEN(filename) + FILENAME_CHARSIZE);
@@ -3897,10 +3897,10 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    char dt_tmp;
 
 	    /* This will work for UTF-8, but not for UTF-16 - extra reminder here */
-#ifdef FILENAMES_16BIT 
+#ifdef FILENAMES_16BIT
 #error 16bit characters in filenames and dtrace in combination is not supported.
 #endif
-	    while (EV_GET_CHAR(ev, &dt_tmp, &p, &q) && dt_tmp != '\0') 
+	    while (EV_GET_CHAR(ev, &dt_tmp, &p, &q) && dt_tmp != '\0')
 		;
 	    dt_s1 = d->b;
 	    dt_utag = EV_CHAR_P(ev, p, q);
@@ -3915,10 +3915,10 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 
     case FILE_IPREAD: {
 	/* This operation cheets by using invoke_preadv() and free_preadv()
-	 * plus its own invoke_ipread. Therefore the result format is 
+	 * plus its own invoke_ipread. Therefore the result format is
 	 * a bit awkward - the header binary contains one extra 64 bit
 	 * field that invoke_preadv() fortunately ignores,
-	 * and the first 64 bit field does not contain the number of 
+	 * and the first 64 bit field does not contain the number of
 	 * data binaries which invoke_preadv() also ignores.
 	 */
 	register void * void_ptr;
@@ -3939,7 +3939,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	if (ev->size < 1+1+8+4
 	    || !EV_GET_SINT64(ev, &hdr_offset, &p, &q)
 	    || !EV_GET_UINT32(ev, &max_size, &p, &q)) {
-	    /* Buffer too short to contain 
+	    /* Buffer too short to contain
 	     * the header offset and max size spec */
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
@@ -3963,11 +3963,11 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_posix_error(desc, err);
 	    goto done;
 	}
-	/* Create the thread data structure with the contained ErlIOVec 
-	 * and corresponding binaries for the response 
+	/* Create the thread data structure with the contained ErlIOVec
+	 * and corresponding binaries for the response
 	 */
 	vsize = 2;
-	d = EF_ALLOC(sizeof(*d) + 
+	d = EF_ALLOC(sizeof(*d) +
 		     vsize*(sizeof(*res_ev->iov) + sizeof(*res_ev->binv)));
 	if (! d) {
 	    reply_posix_error(desc, ENOMEM);
@@ -4109,7 +4109,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	}
 
-	
+
 	if (flags & SENDFILE_FLGS_USE_THREADS && !THRDS_AVAILABLE) {
 	    /* We do not allow use_threads flag on a system where
 	       no threads are available. */

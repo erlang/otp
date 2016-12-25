@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -452,7 +452,7 @@
             utilization value &gt; 0 is used, allocator instances
             are allowed to abandon multiblock carriers. If <c>de</c> (default
             enabled) is passed instead of a <c><![CDATA[<utilization>]]></c>,
-            a recomended non-zero utilization value is used. The value
+            a recommended non-zero utilization value is used. The value
             chosen depends on the allocator type and can be changed between
             ERTS versions. Defaults to <c>de</c>, but this
             can be changed in the future.</p>
@@ -690,7 +690,7 @@
             <seealso marker="tools:instrument">
             <c>instrument(3)</c></seealso>. <c>+Mim true</c>
             implies <c>+Mis true</c>. <c>+Mim true</c> is the same as flag
-            <seealso marker="erl#instr"><c>-instr</c></seealso> in 
+            <seealso marker="erl#instr"><c>-instr</c></seealso> in
             <c>erl(1)</c>.</p>
         </item>
         <tag><marker id="Mis"/><c>+Mis true|false</c></tag>

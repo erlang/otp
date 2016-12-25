@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1997-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -34,16 +34,16 @@
 -export([all/0, suite/0,
          ddll_test/1, errors/1, reference_count/1,
          kill_port/1, dont_kill_port/1]).
--export([unload_on_process_exit/1, delayed_unload_with_ports/1, 
+-export([unload_on_process_exit/1, delayed_unload_with_ports/1,
          unload_due_to_process_exit/1,
          no_unload_due_to_process_exit/1, no_unload_due_to_process_exit_2/1,
          unload_reload_thingie/1, unload_reload_thingie_2/1,
          unload_reload_thingie_3/1, reload_pending/1, reload_pending_kill/1,
          load_fail_init/1,
          reload_pending_fail_init/1,
-         more_error_codes/1, forced_port_killing/1, 
+         more_error_codes/1, forced_port_killing/1,
          no_trap_exit_and_kill_ports/1,
-         monitor_demonitor/1, monitor_demonitor_load/1, new_interface/1, 
+         monitor_demonitor/1, monitor_demonitor_load/1, new_interface/1,
          lock_driver/1]).
 
 % Private exports
@@ -57,7 +57,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {seconds, 10}}].
 
-all() -> 
+all() ->
     [ddll_test, errors, reference_count, kill_port,
      dont_kill_port, properties, load_and_unload,
      unload_on_process_exit, delayed_unload_with_ports,
@@ -124,9 +124,9 @@ delayed_unload_with_ports(Config) when is_list(Config) ->
 unload_due_to_process_exit(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     Parent = self(),
-    F3 = fun() -> 
-                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}), 
-                 receive X -> Parent ! {got,X} end 
+    F3 = fun() ->
+                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}),
+                 receive X -> Parent ! {got,X} end
          end,
     Pid = spawn(fun() ->
                         receive go -> ok end,
@@ -139,10 +139,10 @@ unload_due_to_process_exit(Config) when is_list(Config) ->
                 end),
     Ref = erlang:monitor(process,Pid),
     Pid ! go,
-    {ok,Ref2} = receive 
-                    R when is_reference(R) -> {ok,R}; 
-                    Other -> {error, Other} 
-                after 500 -> {error, timeout} 
+    {ok,Ref2} = receive
+                    R when is_reference(R) -> {ok,R};
+                    Other -> {error, Other}
+                after 500 -> {error, timeout}
                 end,
     Pid ! go,
     ok = receive {'DOWN', Ref, process, Pid, banan} -> ok after 300 -> error end,
@@ -153,9 +153,9 @@ unload_due_to_process_exit(Config) when is_list(Config) ->
 no_unload_due_to_process_exit(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     Parent = self(),
-    F3 = fun() -> 
-                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}), 
-                 receive X -> Parent ! {got,X} end 
+    F3 = fun() ->
+                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}),
+                 receive X -> Parent ! {got,X} end
          end,
     Pid = spawn(fun() ->
                         receive go -> ok end,
@@ -168,10 +168,10 @@ no_unload_due_to_process_exit(Config) when is_list(Config) ->
                 end),
     Ref = erlang:monitor(process,Pid),
     Pid ! go,
-    {ok,Ref2} = receive 
-                    R when is_reference(R) -> {ok,R}; 
-                    Other -> {error, Other} 
-                after 500 -> {error, timeout} 
+    {ok,Ref2} = receive
+                    R when is_reference(R) -> {ok,R};
+                    Other -> {error, Other}
+                after 500 -> {error, timeout}
                 end,
     {ok, already_loaded} = erl_ddll:try_load(Path, echo_drv, []),
     Pid ! go,
@@ -185,9 +185,9 @@ no_unload_due_to_process_exit(Config) when is_list(Config) ->
 no_unload_due_to_process_exit_2(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     Parent = self(),
-    F3 = fun() -> 
-                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}), 
-                 receive X -> Parent ! {got,X} end 
+    F3 = fun() ->
+                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}),
+                 receive X -> Parent ! {got,X} end
          end,
     Pid = spawn(fun() ->
                         receive go -> ok end,
@@ -200,10 +200,10 @@ no_unload_due_to_process_exit_2(Config) when is_list(Config) ->
                 end),
     Ref = erlang:monitor(process,Pid),
     Pid ! go,
-    {ok,Ref2} = receive 
-                    R when is_reference(R) -> {ok,R}; 
-                    Other -> {error, Other} 
-                after 500 -> {error, timeout} 
+    {ok,Ref2} = receive
+                    R when is_reference(R) -> {ok,R};
+                    Other -> {error, Other}
+                after 500 -> {error, timeout}
                 end,
     Port = open_port({spawn, echo_drv}, [eof]),
     Pid ! go,
@@ -218,9 +218,9 @@ unload_reload_thingie(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     Parent = self(),
     {ok, loaded} = erl_ddll:try_load(Path, echo_drv, []),
-    F3 = fun() -> 
-                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded_only}), 
-                 receive X -> Parent ! {got,X} end 
+    F3 = fun() ->
+                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded_only}),
+                 receive X -> Parent ! {got,X} end
          end,
     Pid = spawn(fun() ->
                         receive go -> ok end,
@@ -231,10 +231,10 @@ unload_reload_thingie(Config) when is_list(Config) ->
                 end),
     Ref = erlang:monitor(process,Pid),
     Pid ! go,
-    {ok,Ref2} = receive 
-                    R when is_reference(R) -> {ok,R}; 
-                    Other -> {error, Other} 
-                after 500 -> {error, timeout} 
+    {ok,Ref2} = receive
+                    R when is_reference(R) -> {ok,R};
+                    Other -> {error, Other}
+                after 500 -> {error, timeout}
                 end,
     {ok,pending_driver,Ref3} = erl_ddll:try_unload(echo_drv,[{monitor,pending}]),
     Ref4 = erl_ddll:monitor(driver,{echo_drv,loaded}),
@@ -246,9 +246,9 @@ unload_reload_thingie(Config) when is_list(Config) ->
     [{Parent,1}] = erl_ddll:info(echo_drv, processes),
     0 = erl_ddll:info(echo_drv, port_count),
     ok = unload_expect_fast(echo_drv,[{monitor,pending}]),
-    ok = receive 
-             {got,{'DOWN', Ref2, driver, echo_drv, unloaded}} -> ok 
-         after 300 -> error 
+    ok = receive
+             {got,{'DOWN', Ref2, driver, echo_drv, unloaded}} -> ok
+         after 300 -> error
          end,
     ok = receive X -> {error, X} after 300 -> ok end,
     ok.
@@ -258,9 +258,9 @@ unload_reload_thingie_2(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     Parent = self(),
     {ok, loaded} = erl_ddll:try_load(Path, echo_drv, []),
-    F3 = fun() -> 
-                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded_only}), 
-                 receive X -> Parent ! {got,X} end 
+    F3 = fun() ->
+                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded_only}),
+                 receive X -> Parent ! {got,X} end
          end,
     Pid = spawn(fun() ->
                         receive go -> ok end,
@@ -271,10 +271,10 @@ unload_reload_thingie_2(Config) when is_list(Config) ->
                 end),
     Ref = erlang:monitor(process,Pid),
     Pid ! go,
-    {ok,Ref2} = receive 
-                    R when is_reference(R) -> {ok,R}; 
-                    Other -> {error, Other} 
-                after 500 -> {error, timeout} 
+    {ok,Ref2} = receive
+                    R when is_reference(R) -> {ok,R};
+                    Other -> {error, Other}
+                after 500 -> {error, timeout}
                 end,
     {ok,pending_driver,Ref3} = erl_ddll:try_load(Path, echo_drv,
                                                  [{monitor,pending_driver},{reload,pending_driver}]),
@@ -285,9 +285,9 @@ unload_reload_thingie_2(Config) when is_list(Config) ->
     ok = receive {'UP',Ref3, driver,echo_drv,loaded} -> ok after 1000 -> false end,
     [{Parent,1}] = erl_ddll:info(echo_drv, processes),
     0 = erl_ddll:info(echo_drv, port_count),
-    ok = receive 
-             {got,{'DOWN', Ref2, driver, echo_drv, unloaded}} -> ok 
-         after 300 -> error 
+    ok = receive
+             {got,{'DOWN', Ref2, driver, echo_drv, unloaded}} -> ok
+         after 300 -> error
          end,
     ok = unload_expect_fast(echo_drv,[{monitor,pending}]),
     ok = receive X -> {error, X} after 300 -> ok end,
@@ -298,9 +298,9 @@ unload_reload_thingie_3(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     Parent = self(),
     {ok, loaded} = erl_ddll:try_load(Path, echo_drv, []),
-    F3 = fun() -> 
-                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}), 
-                 receive X -> Parent ! {got,X} end 
+    F3 = fun() ->
+                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}),
+                 receive X -> Parent ! {got,X} end
          end,
     Pid = spawn(fun() ->
                         receive go -> ok end,
@@ -311,24 +311,24 @@ unload_reload_thingie_3(Config) when is_list(Config) ->
                 end),
     Ref = erlang:monitor(process,Pid),
     Pid ! go,
-    {ok,Ref2} = receive 
-                    R when is_reference(R) -> {ok,R}; 
-                    Other -> {error, Other} 
-                after 500 -> {error, timeout} 
+    {ok,Ref2} = receive
+                    R when is_reference(R) -> {ok,R};
+                    Other -> {error, Other}
+                after 500 -> {error, timeout}
                 end,
     {ok,pending_driver,Ref3} = erl_ddll:try_load(filename:join([Path,"skrumpf"]), echo_drv,
                                                  [{monitor,pending_driver},{reload,pending_driver}]),
     Ref4 = erl_ddll:monitor(driver,{echo_drv,unloaded}),
     Pid ! go,
     ok = receive {'DOWN', Ref, process, Pid, banan} -> ok after 300 -> error end,
-    ok = receive 
-             {got,{'DOWN', Ref2, driver, echo_drv, unloaded}} -> ok 
-         after 300 -> error 
+    ok = receive
+             {got,{'DOWN', Ref2, driver, echo_drv, unloaded}} -> ok
+         after 300 -> error
          end,
     ok = receive {'DOWN',Ref4,driver,echo_drv,unloaded} -> ok after 300 -> false end,
-    ok = receive 
-             {'DOWN',Ref3, driver,echo_drv,{load_failure,_}} -> ok 
-         after 1000 -> false 
+    ok = receive
+             {'DOWN',Ref3, driver,echo_drv,{load_failure,_}} -> ok
+         after 1000 -> false
          end,
     {'EXIT',_} = (catch erl_ddll:info(echo_drv, port_count)),
     {error, not_loaded} = erl_ddll:try_unload(echo_drv,[{monitor,pending}]),
@@ -339,9 +339,9 @@ unload_reload_thingie_3(Config) when is_list(Config) ->
 reload_pending(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     Parent = self(),
-    F3 = fun() -> 
-                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}), 
-                 receive X -> Parent ! {got,X} end 
+    F3 = fun() ->
+                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}),
+                 receive X -> Parent ! {got,X} end
          end,
     Pid = spawn(fun() ->
                         receive go -> ok end,
@@ -356,20 +356,20 @@ reload_pending(Config) when is_list(Config) ->
                 end),
     Ref = erlang:monitor(process,Pid),
     Pid ! go,
-    {ok,Ref2} = receive 
-                    R when is_reference(R) -> {ok,R}; 
-                    Other -> {error, Other} 
-                after 500 -> {error, timeout} 
+    {ok,Ref2} = receive
+                    R when is_reference(R) -> {ok,R};
+                    Other -> {error, Other}
+                after 500 -> {error, timeout}
                 end,
     {ok, already_loaded} = erl_ddll:try_load(Path, echo_drv, []),
     Port = open_port({spawn, echo_drv}, [eof]),
     Pid ! go,
     receive opened -> ok end,
-    {error, pending_process} = 
+    {error, pending_process} =
     erl_ddll:try_load(Path, echo_drv,
                       [{reload,pending_driver},
                        {monitor,pending_driver}]),
-    {ok, pending_process, Ref3} = 
+    {ok, pending_process, Ref3} =
     erl_ddll:try_load(Path, echo_drv,
                       [{reload,pending},
                        {monitor,pending}]),
@@ -398,7 +398,7 @@ load_fail_init(Config) when is_list(Config) ->
                   end,
                   AllFailInits),
     [_|_] = filelib:wildcard("echo_drv.*",PathFailing),
-    {error, driver_init_failed} = erl_ddll:try_load(PathFailing, 
+    {error, driver_init_failed} = erl_ddll:try_load(PathFailing,
                                                     echo_drv,
                                                     [{monitor,pending}]),
     ok = receive XX ->
@@ -424,9 +424,9 @@ reload_pending_fail_init(Config) when is_list(Config) ->
                   AllFailInits),
     [_|_] = filelib:wildcard("echo_drv.*",PathFailing),
     Parent = self(),
-    F3 = fun() -> 
-                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}), 
-                 receive X -> Parent ! {got,X} end 
+    F3 = fun() ->
+                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}),
+                 receive X -> Parent ! {got,X} end
          end,
     Pid = spawn(fun() ->
                         receive go -> ok end,
@@ -441,16 +441,16 @@ reload_pending_fail_init(Config) when is_list(Config) ->
                 end),
     Ref = erlang:monitor(process,Pid),
     Pid ! go,
-    {ok,Ref2} = receive 
-                    R when is_reference(R) -> {ok,R}; 
-                    Other -> {error, Other} 
-                after 500 -> {error, timeout} 
+    {ok,Ref2} = receive
+                    R when is_reference(R) -> {ok,R};
+                    Other -> {error, Other}
+                after 500 -> {error, timeout}
                 end,
     {ok, already_loaded} = erl_ddll:try_load(Path, echo_drv, []),
     Port = open_port({spawn, echo_drv}, [eof]),
     Pid ! go,
     receive opened -> ok end,
-    {ok, pending_process, Ref3} = 
+    {ok, pending_process, Ref3} =
     erl_ddll:try_load(PathFailing, echo_drv,
                       [{reload,pending},
                        {monitor,pending}]),
@@ -471,9 +471,9 @@ reload_pending_kill(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit,true),
     Path = proplists:get_value(data_dir, Config),
     Parent = self(),
-    F3 = fun() -> 
-                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}), 
-                 receive X -> Parent ! {got,X} end 
+    F3 = fun() ->
+                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}),
+                 receive X -> Parent ! {got,X} end
          end,
     Pid = spawn(fun() ->
                         process_flag(trap_exit,true),
@@ -485,42 +485,42 @@ reload_pending_kill(Config) when is_list(Config) ->
                         Port2 = open_port({spawn, echo_drv}, [eof]),
                         Parent ! opened,
                         receive go -> ok end,
-                        receive 
+                        receive
                             {'EXIT', Port2, driver_unloaded} ->
-                                Parent ! first_exit 
+                                Parent ! first_exit
                         end,
-                        receive 
+                        receive
                             {'EXIT', Port, driver_unloaded} ->
-                                Parent ! second_exit 
+                                Parent ! second_exit
                         end,
                         receive go -> ok end,
                         exit(banan)
                 end),
     Ref = erlang:monitor(process,Pid),
     Pid ! go,
-    {ok,Ref2} = receive 
-                    R when is_reference(R) -> {ok,R}; 
-                    Other -> {error, Other} 
-                after 500 -> {error, timeout} 
+    {ok,Ref2} = receive
+                    R when is_reference(R) -> {ok,R};
+                    Other -> {error, Other}
+                after 500 -> {error, timeout}
                 end,
     {ok, already_loaded} = erl_ddll:try_load(Path, echo_drv, [{driver_options,[kill_ports]}]),
     {error,inconsistent} = erl_ddll:try_load(Path, echo_drv, []),
     Port = open_port({spawn, echo_drv}, [eof]),
     Pid ! go,
     receive opened -> ok end,
-    {error, pending_process} = 
+    {error, pending_process} =
     erl_ddll:try_load(Path, echo_drv,
                       [{driver_options,[kill_ports]},
                        {reload,pending_driver},
                        {monitor,pending_driver}]),
-    {ok, pending_process, Ref3} = 
+    {ok, pending_process, Ref3} =
     erl_ddll:try_load(Path, echo_drv,
                       [{driver_options,[kill_ports]},
                        {reload,pending},
                        {monitor,pending}]),
-    ok =  receive 
+    ok =  receive
               {'EXIT', Port, driver_unloaded} ->
-                  ok 
+                  ok
           after 300 -> error
           end,
     Pid ! go,
@@ -529,7 +529,7 @@ reload_pending_kill(Config) when is_list(Config) ->
     [_,_] = erl_ddll:info(echo_drv,processes),
     ok = receive first_exit -> ok after 300 -> error end,
     ok = receive second_exit -> ok after 300 -> error end,
-    0 = erl_ddll:info(echo_drv,port_count), 
+    0 = erl_ddll:info(echo_drv,port_count),
     ok = receive X -> {error, X} after 300 -> ok end,
     Pid ! go,
     ok = receive {'DOWN', Ref, process, Pid, banan} -> ok after 300 -> error end,
@@ -537,17 +537,17 @@ reload_pending_kill(Config) when is_list(Config) ->
     Port2 = open_port({spawn, echo_drv}, [eof]),
     true = is_port(Port2),
     [{Parent,1}] = erl_ddll:info(echo_drv,processes),
-    1 = erl_ddll:info(echo_drv,port_count), 
+    1 = erl_ddll:info(echo_drv,port_count),
     erlang:port_close(Port2),
     ok = receive {'EXIT', Port2, normal} -> ok after 300 -> error end,
-    0 = erl_ddll:info(echo_drv,port_count), 
+    0 = erl_ddll:info(echo_drv,port_count),
     [{Parent,1}] = erl_ddll:info(echo_drv,processes),
     Port3 = open_port({spawn, echo_drv}, [eof]),
-    {ok, pending_driver, Ref4} = 
+    {ok, pending_driver, Ref4} =
     erl_ddll:try_unload(echo_drv,[{monitor,pending_driver}]),
-    ok =  receive 
+    ok =  receive
               {'EXIT', Port3, driver_unloaded} ->
-                  ok 
+                  ok
           after 300 -> error
           end,
     ok = receive {'DOWN', Ref4, driver, echo_drv, unloaded} -> ok after 300 -> error end,
@@ -569,24 +569,24 @@ forced_port_killing(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     OldFlag=process_flag(trap_exit,true),
     Parent = self(),
-    F3 = fun() -> 
-                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}), 
-                 receive X -> Parent ! {got,X} end 
+    F3 = fun() ->
+                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}),
+                 receive X -> Parent ! {got,X} end
          end,
     {ok, loaded} = erl_ddll:try_load(Path, echo_drv, []),
     spawn(F3),
-    {ok,Ref2} = receive 
-                    R when is_reference(R) -> {ok,R}; 
-                    Other -> {error, Other} 
-                after 500 -> {error, timeout} 
+    {ok,Ref2} = receive
+                    R when is_reference(R) -> {ok,R};
+                    Other -> {error, Other}
+                after 500 -> {error, timeout}
                 end,
     Port = open_port({spawn, echo_drv}, [eof]),
     Port2 = open_port({spawn, echo_drv}, [eof]),
-    {ok, pending_driver, Ref1} = 
+    {ok, pending_driver, Ref1} =
     erl_ddll:try_unload(echo_drv,[{monitor,pending_driver},kill_ports]),
-    ok = receive 
-             {got,{'DOWN', Ref2, driver, echo_drv, unloaded}} -> ok 
-         after 300 -> error 
+    ok = receive
+             {got,{'DOWN', Ref2, driver, echo_drv, unloaded}} -> ok
+         after 300 -> error
          end,
     ok = receive {'EXIT',Port,driver_unloaded} -> ok after 300 -> false end,
     ok = receive {'EXIT',Port2,driver_unloaded} -> ok after 300 -> false end,
@@ -600,14 +600,14 @@ no_trap_exit_and_kill_ports(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     Parent = self(),
     OldFlag=process_flag(trap_exit,true),
-    F3 = fun() -> 
-                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}), 
-                 receive X -> Parent ! {got,X} end 
+    F3 = fun() ->
+                 Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}),
+                 receive X -> Parent ! {got,X} end
          end,
     Pid = spawn(fun() ->
                         process_flag(trap_exit,false),
                         receive go -> ok end,
-                        {ok, loaded} = erl_ddll:try_load(Path, echo_drv, 
+                        {ok, loaded} = erl_ddll:try_load(Path, echo_drv,
                                                          [{driver_options,[kill_ports]}]),
                         spawn(F3),
                         receive go -> ok end,
@@ -617,10 +617,10 @@ no_trap_exit_and_kill_ports(Config) when is_list(Config) ->
                 end),
     Ref = erlang:monitor(process,Pid),
     Pid ! go,
-    {ok,Ref2} = receive 
-                    R when is_reference(R) -> {ok,R}; 
-                    Other -> {error, Other} 
-                after 500 -> {error, timeout} 
+    {ok,Ref2} = receive
+                    R when is_reference(R) -> {ok,R};
+                    Other -> {error, Other}
+                after 500 -> {error, timeout}
                 end,
     {error, inconsistent} = erl_ddll:try_load(Path, echo_drv, []),
     MyPort = open_port({spawn, echo_drv}, [eof]),
@@ -655,7 +655,7 @@ monitor_demonitor_load(Config) when is_list(Config) ->
     Ref2 = erl_ddll:monitor(driver,{echo_drv,loaded}),
     ok = receive {'DOWN',Ref2,driver,echo_drv,load_cancelled} -> ok after 0 -> error end,
     {ok,already_loaded} = erl_ddll:try_load(Path, echo_drv, []),
-    {ok, pending_driver} = 
+    {ok, pending_driver} =
     erl_ddll:try_load(Path, echo_drv, [{reload,pending_driver}]),
     Ref3 = erl_ddll:monitor(driver,{echo_drv,loaded}),
     Ref4 = erl_ddll:monitor(driver,{echo_drv,unloaded}),
@@ -678,10 +678,10 @@ new_interface(Config) when is_list(Config) ->
     Port = open_port({spawn, echo_drv}, [eof]),
     ok = erl_ddll:unload(echo_drv),
     Port ! {self(), {command, "text"}},
-    ok = receive 
+    ok = receive
              {Port, {data, "text"}} -> ok;
              _ -> error
-         after 
+         after
              1000 -> error
          end,
     Ref = erl_ddll:monitor(driver,{echo_drv,unloaded}),
@@ -696,26 +696,26 @@ new_interface(Config) when is_list(Config) ->
     Port2 = open_port({spawn, echo_drv}, [eof]),
     ok = erl_ddll:unload(echo_drv),
     Port2 ! {self(), {command, "text"}},
-    ok = receive 
+    ok = receive
              {Port2, {data, "text"}} -> ok;
              _ -> error
-         after 
+         after
              1000 -> error
          end,
     ok = erl_ddll:unload(echo_drv),
     Port2 ! {self(), {command, "text"}},
-    ok = receive 
+    ok = receive
              {Port2, {data, "text"}} -> ok;
              _ -> error
-         after 
+         after
              1000 -> error
          end,
     ok = erl_ddll:unload(echo_drv),
     Port2 ! {self(), {command, "text"}},
-    ok = receive 
+    ok = receive
              {Port2, {data, "text"}} -> ok;
              _ -> error
-         after 
+         after
              1000 -> error
          end,
     ok = receive X2 -> {error, X2} after 300 -> ok end,
@@ -743,15 +743,15 @@ ddll_test(Config) when is_list(Config) ->
     %% Verify that the driver works.
 
     Port = open_port({spawn, echo_drv}, [eof]),
-    {hej, "hopp",4711,123445567436543653} = 
+    {hej, "hopp",4711,123445567436543653} =
     erlang:port_call(Port,{hej, "hopp",4711,123445567436543653}),
-    {hej, "hopp",4711,123445567436543653} = 
+    {hej, "hopp",4711,123445567436543653} =
     erlang:port_call(Port,47,{hej, "hopp",4711,123445567436543653}),
     Port ! {self(), {command, "text"}},
-    1 = receive 
+    1 = receive
             {Port, {data, "text"}} -> 1;
             _Other -> 2
-        after 
+        after
             1000 -> 2
         end,
     Port ! {self(), close},
@@ -805,7 +805,7 @@ reference_count(Config) when is_list(Config) ->
 
     Pid1 ! {self(), die},
     test_server:sleep(200),   % Give time to unload.
-    % Verify that the driver was automaticly unloaded when the
+    % Verify that the driver was automatically unloaded when the
     % process died.
     {error, not_loaded}=erl_ddll:unload_driver(echo_drv),
     ok.
@@ -888,7 +888,7 @@ dont_kill_port(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     exit(Pid1, kill),
     test_server:sleep(200),    % Give some time to unload.
-    {hej, "hopp",4711,123445567436543653} = 
+    {hej, "hopp",4711,123445567436543653} =
     erlang:port_call(Port,{hej, "hopp",4711,123445567436543653}),
     [] = erl_ddll:info(echo_drv,processes),
     %% unload should work with no owner
@@ -943,7 +943,7 @@ load_and_unload(Config) when is_list(Config) ->
     Set2 = ordsets:from_list(Loaded_drivers2),
     io:format("~p == ~p\n", [Loaded_drivers1, Loaded_drivers2]),
     [] = ordsets:to_list(ordsets:subtract(Set2, Set1)),
-    ok.    
+    ok.
 
 %% Check multiple calls to driver_lock_driver
 lock_driver(Config) when is_list(Config) ->
@@ -964,7 +964,7 @@ load_echo_driver(Path) ->
     {ok, L1} = erl_ddll:loaded_drivers(),
     ok = erl_ddll:load_driver(Path, echo_drv),
     {ok, L2} = erl_ddll:loaded_drivers(),
-    ["echo_drv"] = ordsets:to_list(subtract(ordsets:from_list(L2), 
+    ["echo_drv"] = ordsets:to_list(subtract(ordsets:from_list(L2),
                                             ordsets:from_list(L1))),
     {ok,L1,L2}.
 
@@ -972,7 +972,7 @@ load_nice_echo_driver(Path) ->
     {ok, L1} = erl_ddll:loaded_drivers(),
     ok = erl_ddll:load(Path, echo_drv),
     {ok, L2} = erl_ddll:loaded_drivers(),
-    ["echo_drv"] = ordsets:to_list(subtract(ordsets:from_list(L2), 
+    ["echo_drv"] = ordsets:to_list(subtract(ordsets:from_list(L2),
                                             ordsets:from_list(L1))),
     {ok,L1,L2}.
 
@@ -985,7 +985,7 @@ unload_echo_driver(L1,L2) ->
     ok.
 
 unload_expect_fast(Driver,XFlags) ->
-    {ok, pending_driver, Ref} = 
+    {ok, pending_driver, Ref} =
     erl_ddll:try_unload(Driver,
                         [{monitor,pending_driver}]++XFlags),
     receive

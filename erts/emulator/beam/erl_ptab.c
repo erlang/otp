@@ -50,7 +50,7 @@ typedef struct ErtsPTabListBifData_ ErtsPTabListBifData;
 #define ERTS_PTAB_LIST_INSPECT_DELETED_MAX_REDS				\
  (ERTS_PTAB_LIST_BIF_TAB_CHUNK_SIZE					\
   / ERTS_PTAB_LIST_BIF_TAB_INSPECT_INDICES_PER_RED)
- 
+
 
 #define ERTS_PTAB_LIST_BIF_BUILD_RESULT_CONSES_PER_RED 75
 
@@ -365,7 +365,7 @@ erts_ptab_init_table(ErtsPTab *ptab,
 		     int atomic_refc)
 {
     size_t tab_sz, alloc_sz;
-    Uint32 bits, cl, cli, ix, ix_per_cache_line, tab_cache_lines; 
+    Uint32 bits, cl, cli, ix, ix_per_cache_line, tab_cache_lines;
     char *tab_end;
     erts_smp_atomic_t *tab_entry;
     erts_smp_rwmtx_opt_t rwmtx_opts = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
@@ -474,7 +474,7 @@ erts_ptab_init_table(ErtsPTab *ptab,
 	 * we don't want to shrink the size to ERTS_PTAB_MAX_SIZE/2.
 	 *
 	 * In order to fix this, we insert a pointer from the table
-	 * to the invalid_element, wich will be interpreted as a
+	 * to the invalid_element, which will be interpreted as a
 	 * slot currently being modified. This way we will be able to
 	 * have ERTS_PTAB_MAX_SIZE-1 valid elements in the table while
 	 * still having a table size of the power of 2.
@@ -574,7 +574,7 @@ erts_ptab_new_element(ErtsPTab *ptab,
 		== ERTS_AINT_NULL) {
 		erts_aint_t val;
 		val = erts_smp_atomic_cmpxchg_relb(&ptab->r.o.tab[pix],
-						   invalid,	
+						   invalid,
 						   ERTS_AINT_NULL);
 
 		if (ERTS_AINT_NULL == val)
@@ -701,10 +701,10 @@ erts_ptab_delete_element(ErtsPTab *ptab,
 	ASSERT(data != ptab->r.o.invalid_data);
 	ASSERT(pix == erts_ptab_data2pix(ptab, data));
 
-	do { 
+	do {
 	    ix = (Uint32) erts_smp_atomic32_inc_read_relb(&ptab->vola.tile.fid_ix);
 	    ix = ix_to_free_id_data_ix(ptab, ix);
-    
+
 	    prev_data = erts_smp_atomic32_cmpxchg_nob(&ptab->r.o.free_id_data[ix],
 						      data,
 						      ptab->r.o.invalid_data);
@@ -1008,7 +1008,7 @@ ptab_list_bif_engine(Process *c_p, Eterm *res_accp, Binary *mbp)
 	    }
 
 	    ptlbdp->tix = end_ix;
-	    
+
 	    erts_ptab_rwunlock(ptab);
 	    locked = 0;
 
@@ -1025,7 +1025,7 @@ ptab_list_bif_engine(Process *c_p, Eterm *res_accp, Binary *mbp)
 		    end_ix = ptab->r.o.max;
 		    indices = end_ix - ix;
 		}
-		
+
 		reds = indices/ERTS_PTAB_LIST_BIF_TAB_INSPECT_INDICES_PER_RED;
 
 		/* Pretend we have no reds left if we haven't got enough
@@ -1189,7 +1189,7 @@ ptab_list_bif_engine(Process *c_p, Eterm *res_accp, Binary *mbp)
 	    }
 
 	    have_reds -= reds;
-	    if (have_reds < 0)	
+	    if (have_reds < 0)
 		have_reds = 0;
 	    BUMP_REDS(c_p, reds);
 	    break;
@@ -1260,7 +1260,7 @@ ptab_list_bif_engine(Process *c_p, Eterm *res_accp, Binary *mbp)
 		     __FILE__, __LINE__, (int) ptlbdp->state);
 	}
 
-	
+
     } while (have_reds || ptlbdp->state == RETURN_RESULT);
 
     return 0;
@@ -1328,7 +1328,7 @@ static void assert_ptab_consistency(ErtsPTab *ptab)
 	Uint32 ix, pix, data;
 	int free_pids = 0;
 	int null_slots = 0;
-	
+
 	for (ix=0; ix < ptab->r.o.max; ix++) {
 	    if (erts_smp_atomic32_read_nob(&ptab->r.o.free_id_data[ix]) != ptab->r.o.invalid_data) {
 		++free_pids;
@@ -1339,7 +1339,7 @@ static void assert_ptab_consistency(ErtsPTab *ptab)
 	    if (erts_smp_atomic_read_nob(&ptab->r.o.tab[ix]) == ERTS_AINT_NULL) {
 		++null_slots;
 	    }
-	}	
+	}
 	ASSERT(free_pids == null_slots);
 	ASSERT(free_pids == ptab->r.o.max - erts_smp_atomic32_read_nob(&ptab->vola.tile.count));
     }
@@ -1475,7 +1475,7 @@ erts_debug_ptab_list(Process *c_p, ErtsPTab *ptab)
     need = erts_ptab_count(ptab) * 2;
     hp = HAlloc(c_p, need); /* we need two heap words for each id */
     hp_end = hp + need;
-     
+
     /* make the list by scanning bakward */
 
 
@@ -1641,7 +1641,7 @@ debug_ptab_list_check_del_list(ErtsPTab *ptab)
 	    else {
 		Uint64 s_interval = ptdep->u.element.inserted;
 		Uint64 x_interval = ptdep->u.element.deleted;
-		
+
 		ERTS_PTAB_LIST_ASSERT(s_interval <= x_interval);
 		if (prev_x_interval_p)
 		    ERTS_PTAB_LIST_ASSERT(*prev_x_interval_p <= x_interval);
@@ -1654,7 +1654,7 @@ debug_ptab_list_check_del_list(ErtsPTab *ptab)
 
 	    }
 	}
-	
+
     }
 }
 
@@ -1682,7 +1682,7 @@ debug_ptab_list_check_del_free_list(ErtsPTab *ptab,
 
 static void
 debug_ptab_list_assert_error(char* expr, const char* file, int line, const char *func)
-{   
+{
     fflush(stdout);
     erts_fprintf(stderr, "%s:%d:%s(): Assertion failed: %s\n",
 		 (char *) file, line, (char *) func, expr);

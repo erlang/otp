@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -517,7 +517,7 @@
       <list>
         <item>
           <p>
-	    Fixed a VM crash that occured in a garbage collection of
+	    Fixed a VM crash that occurred in a garbage collection of
 	    a process when it had received binaries. This bug was
 	    introduced in ERTS version 8.0 (OTP 19.0).</p>
           <p>
@@ -534,7 +534,7 @@
       <list>
         <item>
           <p>
-	    Fixed a VM crash that occured in garbage collection of a
+	    Fixed a VM crash that occurred in garbage collection of a
 	    process when it had received maps over the distribution.
 	    This bug was introduced in ERTS version 8.0 (OTP 19.0).</p>
           <p>
@@ -2023,7 +2023,7 @@
           <p>
 	    Ensure hashing of zero is consistent</p>
 	    <p> Erlang treats positive and negative zero as
-	    equal:</p> 
+	    equal:</p>
           <p>
 	    <c>true = 0.0 =:= 0.0/-1</c></p>
 	    <p>However, Erlangs hash functions: hash, phash and
@@ -5635,7 +5635,7 @@
 	    dependent, so applications aiming to be portable should
 	    consider using <c>{ipv6_v6only,true}</c> when creating an
 	    <c>inet6</c> listening/destination socket, and if
-	    neccesary also create an <c>inet</c> socket on the same
+	    necessary also create an <c>inet</c> socket on the same
 	    port for IPv4 traffic. See the documentation.</p>
           <p>
 	    Own Id: OTP-8928 Aux Id: kunagi-193 [104] </p>
@@ -6016,7 +6016,7 @@
 	    This change of default value will reduce lock contention
 	    on ETS tables using the <c>read_concurrency</c> option at
 	    the expense of memory consumption when the amount of
-	    schedulers and logical processors are beween 8 and 64.
+	    schedulers and logical processors are between 8 and 64.
 	    For more information, see documentation of the <c>+rg</c>
 	    command line argument of <c>erl(1)</c>.</p>
           <p>
@@ -6993,7 +6993,7 @@
           <p>
 	    For the subsection about process_flag(save_calls, N)
 	    there's an unrelated paragraph about process priorities
-	    which was copied from the preceeding subsection regarding
+	    which was copied from the preceding subsection regarding
 	    process_flag(priority, Level). (Thanks to Filipe David
 	    Manana)</p>
           <p>
@@ -8208,7 +8208,7 @@
         <item>
           <p>
 	    Wx on MacOS X generated complains on stderr about certain
-	    cocoa functions not beeing called from the "Main thread".
+	    cocoa functions not being called from the "Main thread".
 	    This is now corrected.</p>
           <p>
 	    Own Id: OTP-9081</p>
@@ -9199,7 +9199,7 @@
         </item>
         <item>
 	    <p>The <c>empd</c> program could loop and consume 100%
-	    CPU time if an unexpected error ocurred in
+	    CPU time if an unexpected error occurred in
 	    <c>listen()</c> or <c>accept()</c>. Now <c>epmd</c> will
 	    terminate if a non-recoverable error occurs. (Thanks to
 	    Michael Santos.)</p>
@@ -14491,17 +14491,17 @@
             support.</p>
           <p>The runtime system with SMP support is in this release
             focused on stability and there are a number of steps
-            with optimizations to follow before it will take 
+            with optimizations to follow before it will take
             full advantage of multi processor systems.
             The released system is however truly multi threaded
             and you will notice increased performance
             for many applications already.
-            We recommend that you evaluate your application on  
+            We recommend that you evaluate your application on
             the SMP version of the runtime system and wait for some
-            more optimizations before you use it in a real product. 
-            You will then discover if there are any problems in 
-            your application that needs to be fixed in order for 
-            it to work properly in a multi threaded environment. 
+            more optimizations before you use it in a real product.
+            You will then discover if there are any problems in
+            your application that needs to be fixed in order for
+            it to work properly in a multi threaded environment.
             More optimized versions of the runtime system
             with SMP support will be included in the R11B
             maintenance releases.</p>

@@ -25,8 +25,8 @@
  * Date:	2008-07-03
  * Abstract:
  * 	Locks statistics internal representation.
- * 	
- * 	Conceptual representation, 
+ *
+ * 	Conceptual representation,
  * 	- set name
  * 	| - id (the unique lock)
  * 	| | - lock type
@@ -129,7 +129,7 @@ typedef struct {
 
 typedef struct erts_lcnt_lock_stats_s {
     /* "tries" and "colls" needs to be atomic since
-     * trylock busy does not aquire a lock and there
+     * trylock busy does not acquire a lock and there
      * is no post action to rectify the situation
      */
 
@@ -148,13 +148,13 @@ typedef struct erts_lcnt_lock_stats_s {
 typedef struct erts_lcnt_lock_s {
     char *name;            /* lock name */
     Uint16 flag;           /* lock type */
-    Eterm id;              /* id if possible */ 
+    Eterm id;              /* id if possible */
 
 #ifdef DEBUG
     ethr_atomic_t flowstate;
 #endif
 
-    /* lock states */    
+    /* lock states */
     ethr_atomic_t w_state; /* 0 not taken, otherwise n threads waiting */
     ethr_atomic_t r_state; /* 0 not taken, > 0 -> writes will wait */
 

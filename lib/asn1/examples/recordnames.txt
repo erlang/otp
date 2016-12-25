@@ -1,6 +1,6 @@
 For each ASN1 types SET and SEQUENCE a record is generated in the .hrl
 file with the same name as the corresponding type.
-A decoded value is also returned as a record with the apropriate name.
+A decoded value is also returned as a record with the appropriate name.
 An internally defined type as the type in component 'a' in the
 following example will result in a record with name 'Seq_a':
 

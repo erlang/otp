@@ -222,7 +222,7 @@ erts_init_gc(void)
      * example is fib(35) == 14meg, whereas fib(36) == 24meg;
      * we really don't want that growth when the heaps are that big.
      */
-	    
+
     /* Growth stage 1 - Fibonacci + 1*/
     /* 12,38 will hit size 233, the old default */
 
@@ -239,7 +239,7 @@ erts_init_gc(void)
      * for 64 bit we want max_heap_size to be MAX(52bit) / 8 [words]
      */
 
-    max_heap_size = sizeof(Eterm) < 8 ? (Sint)((~(Uint)0)/(sizeof(Eterm))) : 
+    max_heap_size = sizeof(Eterm) < 8 ? (Sint)((~(Uint)0)/(sizeof(Eterm))) :
 					(Sint)(((Uint64)1 << 53)/sizeof(Eterm));
 
     /* Growth stage 2 - 20% growth */
@@ -253,7 +253,7 @@ erts_init_gc(void)
 	}
     }
     num_heap_sizes = i;
-    
+
     for (ix = 0; ix < erts_no_schedulers; ix++) {
       ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(ix);
       init_gc_info(&esdp->gc_info);
@@ -348,14 +348,14 @@ erts_heap_sizes(Process* p)
     return res;
 }
 
-void 
+void
 erts_offset_heap(Eterm* hp, Uint sz, Sint offs, Eterm* low, Eterm* high)
 {
     offset_heap(hp, sz, offs, (char*) low, ((char *)high)-((char *)low));
 }
 
-void 
-erts_offset_heap_ptr(Eterm* hp, Uint sz, Sint offs, 
+void
+erts_offset_heap_ptr(Eterm* hp, Uint sz, Sint offs,
 		     Eterm* low, Eterm* high)
 {
     offset_heap_ptr(hp, sz, offs, (char *) low, ((char *)high)-((char *)low));
@@ -428,7 +428,7 @@ static ERTS_INLINE void reset_active_writer(Process *p)
     struct erl_off_heap_header* ptr;
     ptr = MSO(p).first;
     while (ptr) {
-	if (ptr->thing_word == HEADER_PROC_BIN) {	
+	if (ptr->thing_word == HEADER_PROC_BIN) {
 	    ProcBin *pbp = (ProcBin*) ptr;
 	    pbp->flags &= ~PB_ACTIVE_WRITER;
 	}
@@ -737,7 +737,7 @@ do_major_collection:
 
     esdp->gc_info.garbage_cols++;
     esdp->gc_info.reclaimed += reclaimed_now;
-    
+
     FLAGS(p) &= ~F_FORCE_GC;
     p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
 
@@ -750,7 +750,7 @@ do_major_collection:
      */
     p->last_htop = p->htop;
     p->last_mbuf = 0;
-#endif    
+#endif
 
 #ifdef DEBUG
     /*
@@ -892,7 +892,7 @@ erts_garbage_collect_hibernate(Process* p)
 #ifdef CHECK_FOR_HOLES
     p->last_htop = p->htop;
     p->last_mbuf = 0;
-#endif    
+#endif
 #ifdef DEBUG
     p->last_old_htop = NULL;
 #endif
@@ -992,7 +992,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
      * with pointer to literals on the old heap. We will now allocate
      * an old heap to contain the literals.
      */
-    
+
     ASSERT(p->old_heap == 0);	/* Must NOT have an old heap yet. */
     old_heap_size = erts_next_heap_size(lit_size, 0);
     p->old_heap = p->old_htop = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_OLD_HEAP,
@@ -1227,7 +1227,7 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
         need_after = ((HEAP_TOP(p) - HEAP_START(p))
                       + need
                       + stack_size);
-	
+
         /*
          * Excessively large heaps should be shrunk, but
          * don't even bother on reasonable small heaps.
@@ -1668,7 +1668,7 @@ full_sweep_heaps(Process *p,
 	    Eterm* ptr;
 	    Eterm val;
 	    Eterm gval = *g_ptr;
-	    
+
 	    switch (primary_tag(gval)) {
 
 	    case TAG_PRIMARY_BOXED: {
@@ -1721,7 +1721,7 @@ full_sweep_heaps(Process *p,
 	sweep_off_heap(p, 1);
     }
 
-    if (OLD_HEAP(p) != NULL) {       
+    if (OLD_HEAP(p) != NULL) {
 	ERTS_HEAP_FREE(ERTS_ALC_T_OLD_HEAP,
 		       OLD_HEAP(p),
 		       (OLD_HEND(p) - OLD_HEAP(p)) * sizeof(Eterm));
@@ -1737,11 +1737,11 @@ adjust_after_fullsweep(Process *p, int need, Eterm *objv, int nobj)
     int adjusted = 0;
     Uint wanted, sz, need_after;
     Uint stack_size = STACK_SZ_ON_HEAP(p);
-    
+
     /*
      * Resize the heap if needed.
      */
-    
+
     need_after = (HEAP_TOP(p) - HEAP_START(p)) + need + stack_size;
     if (HEAP_SIZE(p) < need_after) {
         /* Too small - grow to match requested need */
@@ -1758,7 +1758,7 @@ adjust_after_fullsweep(Process *p, int need, Eterm *objv, int nobj)
            I think this is better as fullsweep is used mainly on
            small memory systems, but I could be wrong... */
         wanted = 2 * need_after;
-	
+
 	sz = wanted < p->min_heap_size ? p->min_heap_size
 				       : next_heap_size(p, wanted, 0);
 
@@ -1779,12 +1779,12 @@ remove_message_buffers(Process* p)
     if (MBUF(p) != NULL) {
 	free_message_buffer(MBUF(p));
 	MBUF(p) = NULL;
-    }    
+    }
     if (p->msg_frag) {
 	erts_cleanup_messages(p->msg_frag);
 	p->msg_frag = NULL;
     }
-    MBUF_SIZE(p) = 0;    
+    MBUF_SIZE(p) = 0;
 }
 #ifdef HARDDEBUG
 
@@ -1975,7 +1975,7 @@ sweep(Eterm *n_hp, Eterm *n_htop,
 		if (header_is_bin_matchstate(gval)) {
 		    ErlBinMatchState *ms = (ErlBinMatchState*) n_hp;
 		    ErlBinMatchBuffer *mb = &(ms->mb);
-		    Eterm* origptr;	
+		    Eterm* origptr;
 		    origptr = &(mb->orig);
 		    ptr = boxed_val(*origptr);
 		    val = *ptr;
@@ -1983,7 +1983,7 @@ sweep(Eterm *n_hp, Eterm *n_htop,
 			*origptr = val;
 			mb->base = binary_bytes(*origptr);
 		    } else if (ERTS_IS_IN_SWEEP_AREA(*origptr, ptr)) {
-			MOVE_BOXED(ptr,val,n_htop,origptr); 
+			MOVE_BOXED(ptr,val,n_htop,origptr);
 			mb->base = binary_bytes(*origptr);
 		    }
 		}
@@ -2112,7 +2112,7 @@ move_one_area(Eterm* n_htop, char* src, Uint src_size)
 	ASSERT(val != ERTS_HOLE_MARKER);
 	if (is_header(val)) {
 	    ASSERT(ptr + header_arity(val) < end);
-	    MOVE_BOXED(ptr, val, n_htop, &dummy_ref);	    
+	    MOVE_BOXED(ptr, val, n_htop, &dummy_ref);
 	}
 	else { /* must be a cons cell */
 	    ASSERT(ptr+1 < end);
@@ -2140,8 +2140,8 @@ collect_live_heap_frags(Process* p, ErlHeapFragment *live_hf_end,
     /*
      * Move the heap fragments to the new heap. Note that no GC is done on
      * the heap fragments. Any garbage will thus be moved as well and survive
-     * until next GC.  
-     */ 
+     * until next GC.
+     */
     qb = MBUF(p);
     while (qb != live_hf_end) {
         ASSERT(!qb->off_heap.first);  /* process fragments use the MSO(p) list */
@@ -2270,7 +2270,7 @@ copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 static void
 move_msgq_to_heap(Process *p)
 {
-    
+
     ErtsMessage **mpp = &p->msg.first;
     Uint64 pre_oh = MSO(p).overhead;
 
@@ -2653,7 +2653,7 @@ link_live_proc_bin(struct shrink_cand_data *shrink,
 	}
     }
 
-    /* Not a shrink candidate; keep in original mso list */ 
+    /* Not a shrink candidate; keep in original mso list */
     *prevppp = &pbp->next;
 }
 
@@ -2681,7 +2681,7 @@ sweep_off_heap(Process *p, int fullsweep)
     prev = &MSO(p).first;
     ptr = MSO(p).first;
 
-    /* Firts part of the list will reside on the (old) new-heap.
+    /* First part of the list will reside on the (old) new-heap.
      * Keep if moved, otherwise deref.
      */
     while (ptr) {
@@ -2696,7 +2696,7 @@ sweep_off_heap(Process *p, int fullsweep)
 		    bin_vheap += ptr->size / sizeof(Eterm);
 		} else {
 		    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
-		}		
+		}
 		link_live_proc_bin(&shrink, &prev, &ptr, to_new_heap);
 	    }
 	    else {
@@ -2709,7 +2709,7 @@ sweep_off_heap(Process *p, int fullsweep)
 	    switch (thing_subtag(ptr->thing_word)) {
 	    case REFC_BINARY_SUBTAG:
 		{
-		    Binary* bptr = ((ProcBin*)ptr)->val;	
+		    Binary* bptr = ((ProcBin*)ptr)->val;
 		    if (erts_refc_dectest(&bptr->refc, 0) == 0) {
 			erts_bin_free(bptr);
 		    }
@@ -2737,7 +2737,7 @@ sweep_off_heap(Process *p, int fullsweep)
      */
     while (ptr) {
 	ASSERT(ErtsInArea(ptr, oheap, oheap_sz));
-	ASSERT(!IS_MOVED_BOXED(ptr->thing_word));       
+	ASSERT(!IS_MOVED_BOXED(ptr->thing_word));
 	if (ptr->thing_word == HEADER_PROC_BIN) {
 	    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
 	    link_live_proc_bin(&shrink, &prev, &ptr, 0);
@@ -2817,7 +2817,7 @@ sweep_off_heap(Process *p, int fullsweep)
  * Offset pointers into the heap (not stack).
  */
 
-static void 
+static void
 offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 {
     while (sz--) {
@@ -2854,7 +2854,7 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 		  }
 		  break;
 	      case BIN_MATCHSTATE_SUBTAG:
-		{	
+		{
 		  ErlBinMatchState *ms = (ErlBinMatchState*) hp;
 		  ErlBinMatchBuffer *mb = &(ms->mb);
 		  if (ErtsInArea(ptr_val(mb->orig), area, area_size)) {
@@ -2879,7 +2879,7 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
  * Offset pointers to heap from stack.
  */
 
-static void 
+static void
 offset_heap_ptr(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 {
     while (sz--) {
@@ -2939,8 +2939,8 @@ offset_mqueue(Process *p, Sint offs, char* area, Uint area_size)
 	    if (is_boxed(mesg) && ErtsInArea(ptr_val(mesg), area, area_size)) {
 		ERL_MESSAGE_DT_UTAG(mp) = offset_ptr(mesg, offs);
 	    }
-#endif	
-	
+#endif
+
 	    ASSERT((is_nil(ERL_MESSAGE_TOKEN(mp)) ||
 		    is_tuple(ERL_MESSAGE_TOKEN(mp)) ||
 		    is_atom(ERL_MESSAGE_TOKEN(mp))));
@@ -3032,11 +3032,11 @@ reply_gc_info(void *vgcirp)
 			     make_small(esdp->no),
 			     erts_bld_uint64(hpp, szp, garbage_cols),
 			     erts_bld_uint64(hpp, szp, reclaimed));
-	
+
 	msg = erts_bld_tuple(hpp, szp, 2, ref_copy, msg);
 	if (hpp)
 	  break;
-	
+
 	mp = erts_alloc_message_heap(rp, &rp_locks, sz, &hp, &ohp);
 
 	szp = NULL;
@@ -3047,7 +3047,7 @@ reply_gc_info(void *vgcirp)
 
     if (gcirp->req_sched == esdp->no)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
- 
+
     if (rp_locks)
 	erts_smp_proc_unlock(rp, rp_locks);
 
@@ -3371,7 +3371,7 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 	erts_aint_t refc;
 	switch (thing_subtag(u.hdr->thing_word)) {
 	case REFC_BINARY_SUBTAG:
-	    refc = erts_refc_read(&u.pb->val->refc, 1);		
+	    refc = erts_refc_read(&u.pb->val->refc, 1);
 	    break;
 	case FUN_SUBTAG:
 	    refc = erts_refc_read(&u.fun->fe->refc, 1);
