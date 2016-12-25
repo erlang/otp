@@ -36,7 +36,7 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [test_ei_decode_long, test_ei_decode_ulong,
      test_ei_decode_longlong, test_ei_decode_ulonglong,
      test_ei_decode_char, test_ei_decode_nonoptimal,
@@ -45,7 +45,7 @@ all() ->
 %% ---------------------------------------------------------------------------
 
 % NOTE: for historical reasons we don't pach as tight as we can,
-%       we only fill 27 bits in 32 bit INTEGER_EXT 
+%       we only fill 27 bits in 32 bit INTEGER_EXT
 
 
 %% ######################################################################## %%
@@ -99,7 +99,7 @@ test_ei_decode_ulonglong(Config) when is_list(Config) ->
 
 
 %% ######################################################################## %%
-%% A "character" for us is an 8 bit integer, alwasy positive, i.e.
+%% A "character" for us is an 8 bit integer, always positive, i.e.
 %% it is unsigned.
 %% FIXME maybe the API should change to use "unsigned char" to be clear?!
 

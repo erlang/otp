@@ -1,9 +1,9 @@
 %% -*- erlang-indent-level: 4 -*-
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2003-2015. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,7 +15,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% @author Richard Carlsson <richardc@it.uu.se>
@@ -177,7 +177,7 @@ function_definition({V, F}, S) ->
     {{icode_icode_name(Icode), Icode}, S2}.
 
 init(Module) ->
-    reset_label_counter(),		     
+    reset_label_counter(),
     s__new(Module).
 
 %% @spec function(Module::atom(), Name::atom(), Function::cerl()) ->
@@ -204,7 +204,7 @@ function(Module, Name, Fun) ->
 %% <p>`Degree' specifies the number of values the function is expected
 %% to return; this is typically 1 (one); cf. {@link function/3}.</p>
 %%
-%% <p>Notes: 
+%% <p>Notes:
 %% <ul>
 %%   <li>This function assumes that the code has been transformed into a
 %%   very simple and explicit form, using the {@link cerl_hipeify}
@@ -318,11 +318,11 @@ function_1(Name, Fun, Degree, S) ->
     Code = s__get_code(S2),
     Function = icode_icode(Module, Name, Vs1, Closure, Code,
 			   {LowV, HighV}, {LowL, HighL}),
-    if Closure -> 
+    if Closure ->
 	    {_, OrigArity} =
 		lists:keyfind(closure_orig_arity, 1, cerl:get_ann(Fun)),
-	    {hipe_icode:icode_closure_arity_update(Function, 
-						   OrigArity), 
+	    {hipe_icode:icode_closure_arity_update(Function,
+						   OrigArity),
 	     S2};
        true -> {Function, S2}
     end.
@@ -609,7 +609,7 @@ do_size_code([Seg|Rest], S, Env, Const, Pairs, Bins) ->
     case calculate_size(Unit, Size, false, Env, S) of
 	{all,_, _, S} ->
 	    Binary = make_var(),
-	    S1 = expr(Val, [Binary], #ctxt{final=false}, Env, S), 
+	    S1 = expr(Val, [Binary], #ctxt{final=false}, Env, S),
 	    do_size_code(Rest, S1, Env, Const, Pairs, [{all,Binary}|Bins]);
 	{NewVal, [], S, _} ->
 	    do_size_code(Rest, S, Env, add_val(NewVal, Const), Pairs, Bins);
@@ -626,7 +626,7 @@ create_size_code([{UnitVal, Var}|Rest], Bins, Ctxt, Old, S0) ->
     Dst = make_var(),
     S = make_bs_add(UnitVal, Old, Var, Dst, Ctxt, S0),
     create_size_code(Rest, Bins, Ctxt, Dst, S);
-create_size_code([], Bins, Ctxt, Old, S0) -> 
+create_size_code([], Bins, Ctxt, Old, S0) ->
     Dst = make_var(),
     S = make_bs_bits_to_bytes(Old, Dst, Ctxt, S0),
     create_size_code(Bins, Ctxt, Dst, S).
@@ -660,14 +660,14 @@ make_bs_add(Unit, Old, Var, Dst, _Ctxt, S0) ->
 	      icode_call_primop([Temp], '*', [Var, icode_const(Unit)]),
 	      icode_call_primop([Dst], '+', [Temp, Old])], S0).
 
-make_bs_bits_to_bytes(Old, Dst, #ctxt{fail=FL, class=guard}, S0) -> 
+make_bs_bits_to_bytes(Old, Dst, #ctxt{fail=FL, class=guard}, S0) ->
     SL = new_label(),
     add_code([icode_guardop([Dst], 'bsl', [Old, icode_const(3)], SL, FL),
 	      icode_label(SL)], S0);
 make_bs_bits_to_bytes(Old, Dst, _Ctxt, S0) ->
     add_code([icode_call_primop([Dst], 'bsl', [Old, icode_const(3)])], S0).
 
-make_binary_size(Old, Bin, Dst, #ctxt{fail=FL, class=guard}, S0) -> 
+make_binary_size(Old, Bin, Dst, #ctxt{fail=FL, class=guard}, S0) ->
     SL1 = new_label(),
     SL2 = new_label(),
     add_code([icode_guardop([Dst], {erlang, byte_size, 1}, [Bin], SL1, FL),
@@ -701,7 +701,7 @@ do_const_segs(SegList, TList, S, _Align, Base, Offset) ->
 	     add_code([icode_call_primop([Offset], Primop, [Base, Offset])],
 		      S)}
     end.
-	     
+
 get_segs([Seg|Rest], [_|RestT], Acc, AccSize, BestPresent) ->
     Size = cerl:bitstr_size(Seg),
     Unit = cerl:bitstr_unit(Seg),
@@ -712,7 +712,7 @@ get_segs([Seg|Rest], [_|RestT], Acc, AccSize, BestPresent) ->
 		[] ->
 		    get_segs(Rest, RestT, [Seg|Acc], NewAccSize, BestPresent);
 		_ ->
-		    get_segs(Rest, RestT, [Seg|Acc], NewAccSize, 
+		    get_segs(Rest, RestT, [Seg|Acc], NewAccSize,
 			     {lists:reverse([Seg|Acc]), Rest, RestT})
 	    end;
 	{possible, NewAccSize} ->
@@ -723,10 +723,10 @@ get_segs([Seg|Rest], [_|RestT], Acc, AccSize, BestPresent) ->
 get_segs([], [], _Acc, _AccSize, Best) ->
     Best.
 
-		
+
 create_string([Seg|Rest], Bin, TotalSize) ->
     Size = cerl:bitstr_size(Seg),
-    Unit = cerl:bitstr_unit(Seg), 
+    Unit = cerl:bitstr_unit(Seg),
     NewSize = cerl:int_val(Size) * cerl:int_val(Unit),
     LitVal = cerl:concrete(cerl:bitstr_val(Seg)),
     LiteralFlags = cerl:bitstr_flags(Seg),
@@ -737,16 +737,16 @@ create_string([Seg|Rest], Bin, TotalSize) ->
 		 integer ->
 		     case {FlagVal band 2, FlagVal band 4} of
 			 {2, 4} ->
-			     <<Bin:TotalSize/binary-unit:1, 
+			     <<Bin:TotalSize/binary-unit:1,
 			      LitVal:NewSize/integer-little-signed, 0:Pad>>;
 			 {0, 4} ->
-			     <<Bin:TotalSize/binary-unit:1, 
+			     <<Bin:TotalSize/binary-unit:1,
 			      LitVal:NewSize/integer-signed, 0:Pad>>;
 			 {2, 0} ->
-			     <<Bin:TotalSize/binary-unit:1, 
+			     <<Bin:TotalSize/binary-unit:1,
 			      LitVal:NewSize/integer-little, 0:Pad>>;
 			 {0, 0} ->
-			     <<Bin:TotalSize/binary-unit:1, 
+			     <<Bin:TotalSize/binary-unit:1,
 			      LitVal:NewSize/integer, 0:Pad>>
 		     end;
 		 float ->
@@ -763,7 +763,7 @@ create_string([Seg|Rest], Bin, TotalSize) ->
 
 create_string([], Bin, _Size) ->
     binary_to_list(Bin).
-		
+
 allowed(Size, Unit, Val, AccSize) ->
     case {cerl:is_c_int(Size), cerl:is_literal(Val)} of
 	{true, true} ->
@@ -823,8 +823,8 @@ bitstr_gen_op([V], _Ctxt, SizeInfo, ConstInfo, Type, Flags, Base,
 	    Type = binary,
 	    Name = {bs_put_binary_all, NewUnit, Flags},
 	    Primop = {hipe_bs_primop, Name},
-	    {add_code([icode_call_primop([Offset], Primop, 
-					 [V, Base, Offset])], S), 
+	    {add_code([icode_call_primop([Offset], Primop,
+					 [V, Base, Offset])], S),
 	     NewAlign};
 	{NewUnit, NewArgs, S, NewAlign} ->
 	    Args = [V|NewArgs] ++ [Base, Offset],
@@ -838,7 +838,7 @@ bitstr_gen_op([V], _Ctxt, SizeInfo, ConstInfo, Type, Flags, Base,
 			{bs_put_binary, NewUnit, Flags}
 		end,
 	    Primop = {hipe_bs_primop, Name},
-	    {add_code([icode_call_primop([Offset], Primop, Args)], S), 
+	    {add_code([icode_call_primop([Offset], Primop, Args)], S),
 	     NewAlign}
     end.
 
@@ -1044,7 +1044,7 @@ primop_goto_label(A, S) ->
     add_code([icode_goto(Label)], S1).
 
 is_goto(E) ->
-    case cerl:type(E) of 
+    case cerl:type(E) of
 	primop ->
 	    Name = cerl:atom_val(cerl:primop_name(E)),
 	    As = cerl:primop_args(E),
@@ -1058,7 +1058,7 @@ is_goto(E) ->
 	_ ->
 	    false
     end.
-		       
+
 primop_reduction_test(Ctxt, S) ->
     add_code(make_op(?OP_REDTEST, [], [], Ctxt), S).
 
@@ -1431,7 +1431,7 @@ is_binary_switch1([C|Cs], N) ->
 	    case cerl:is_c_binary(P) of
 		true ->
 		    is_binary_switch1(Cs, N + 1);
-		false -> 
+		false ->
 		    %% The final clause may be a catch-all.
 		    Cs =:= [] andalso N > 0 andalso cerl:type(P) =:= var
 	    end;
@@ -1478,7 +1478,7 @@ val_clause_body(_N, _V, C, F, Next, _Fail, Ctxt, Env, S) ->
     clause_body(C, F, Next, Ctxt, Env, S).
 
 switch_tuple_clauses(Cs, F, Vs, Ctxt, Env, S) ->
-    switch_clauses(Cs, F, Vs, Ctxt, Env, 
+    switch_clauses(Cs, F, Vs, Ctxt, Env,
 		   fun (P) -> cerl:tuple_arity(P) end,
 		   fun icode_switch_tuple_arity/4,
 		   fun tuple_clause_body/9,
@@ -1530,13 +1530,13 @@ switch_binary_clauses(Cs, F, Vs, Ctxt, Env, S) ->
 			     add_code([icode_label(Fail)], S1))
 	 end,
     add_continuation_label(Next, Ctxt, S2).
-    
-get_binary_clauses(Cs) ->    
+
+get_binary_clauses(Cs) ->
     get_binary_clauses(Cs, []).
 
 get_binary_clauses([C|Cs], Acc) ->
     [P] = cerl:clause_pats(C),
-    case cerl:is_c_binary(P) of 
+    case cerl:is_c_binary(P) of
 	true ->
 	    get_binary_clauses(Cs, [C|Acc]);
 	false ->
@@ -1620,7 +1620,7 @@ clause(C, F, Vs, Fail, Next, Ctxt, Env, S) ->
     end.
 
 clause_body(C, F, Next, Ctxt, Env, S) ->
-    %% This check is inserted as a goto is always final 
+    %% This check is inserted as a goto is always final
     case is_goto(cerl:clause_body(C)) of
 	true ->
 	    F(cerl:clause_body(C), Ctxt, Env, S);
@@ -1748,7 +1748,7 @@ bin_seg_pattern(P, V, MS, Fail, Env, S, Align) ->
     Unit = cerl:bitstr_unit(P),
     Type = cerl:concrete(cerl:bitstr_type(P)),
     LiteralFlags = cerl:bitstr_flags(P),
-    T = cerl:bitstr_val(P), 
+    T = cerl:bitstr_val(P),
     Flags = translate_flags(LiteralFlags, Align),
     case calculate_size(Unit, Size, false, Env, S) of
 	{all, NewUnit, NewAlign, S0} ->
@@ -1757,7 +1757,7 @@ bin_seg_pattern(P, V, MS, Fail, Env, S, Align) ->
 	    Primop = {hipe_bs_primop, Name},
 	    S1 = add_code([icode_guardop([V,MS], Primop, [MS], L, Fail),
 			   icode_label(L)], S0),
-	    {pattern(T, V, Fail, Env, S1), NewAlign};	
+	    {pattern(T, V, Fail, Env, S1), NewAlign};
 	{NewUnit, Args, S0, NewAlign} ->
 	    Name =
 		case Type of
@@ -1771,7 +1771,7 @@ bin_seg_pattern(P, V, MS, Fail, Env, S, Align) ->
 	    Primop = {hipe_bs_primop, Name},
 	    S1 = add_code([icode_guardop([V,MS], Primop, [MS|Args], L, Fail),
 			   icode_label(L)], S0),
-	    {pattern(T, V, Fail, Env, S1), NewAlign}	
+	    {pattern(T, V, Fail, Env, S1), NewAlign}
     end.
 
 %% ---------------------------------------------------------------------
@@ -2027,7 +2027,7 @@ type_test(Name, [A], True, False, Ctxt, Env, S) ->
     Test = type_test(Name),
     add_code([make_type([V], Test, True, False)], S1).
 
-%% It turned out to be easiest to generate Icode directly for this. 
+%% It turned out to be easiest to generate Icode directly for this.
 is_record_test(T, A, N, True, False, Ctxt, Env, S) ->
     case cerl:is_c_atom(A) andalso cerl:is_c_int(N)
 	andalso (cerl:concrete(N) > 0) of
@@ -2236,7 +2236,7 @@ make_op(Name, Ts, As, Ctxt) ->
 		     icode_label(Next)];
 		_ ->
 		    [icode_call_primop(Ts, Name, As)]
-	    end;	
+	    end;
 	true ->
 	    [icode_enter_primop(Name, As)]
     end.
@@ -2282,7 +2282,7 @@ make_bool_glue(V, T, F) ->
     False = new_label(),
     True = new_label(),
     Next = new_label(),
-    Code = [icode_label(False), 
+    Code = [icode_label(False),
 	    icode_move(V, icode_const(F)),
 	    icode_goto(Next),
 	    icode_label(True),
@@ -2397,21 +2397,21 @@ calculate_size(Unit, Var, Align, Env, S) ->
 	false ->
 	    case cerl:is_c_int(Var) of
 		true ->
-		    NewVal = cerl:concrete(Var) * cerl:concrete(Unit),  
+		    NewVal = cerl:concrete(Var) * cerl:concrete(Unit),
 		    NewAlign =
 			case Align of
 			    false ->
 				false
 			    %% Currently, all uses of the function are
 			    %% with "Aligned == false", and this case
-			    %% is commented out to shut up Dialyzer. 
+			    %% is commented out to shut up Dialyzer.
 			    %% _ ->
 			    %%	(NewVal+Align) band 7
 			end,
 		    {NewVal, [], S, NewAlign};
 		false ->
 		    NewSize = make_var(),
-		    S1 = expr(Var, [NewSize], #ctxt{final=false}, Env, S), 
+		    S1 = expr(Var, [NewSize], #ctxt{final=false}, Env, S),
 		    NewAlign =
 			case cerl:concrete(Unit) band 7 of
 			    0 ->
@@ -2446,7 +2446,7 @@ env__get(Key, Env) ->
 %% ---------------------------------------------------------------------
 %% State (abstract datatype)
 
--record(state, {module, function, local, labels=gb_trees:empty(), 
+-record(state, {module, function, local, labels=gb_trees:empty(),
 		code = [], pmatch=true, bitlevel_binaries=false}).
 
 s__new(Module) ->
@@ -2485,7 +2485,7 @@ s__get_label(Ref, S) ->
 	    Label = new_label(),
 	    S1 = S#state{labels=gb_trees:enter(Ref, Label, Labels)},
 	    {Label, S1};
-	{value, Label} -> 
+	{value, Label} ->
 	    {Label,S}
     end.
 
@@ -2627,7 +2627,7 @@ icode_switch_val(Arg, Fail, Length, Cases) ->
     hipe_icode:mk_switch_val(Arg, Fail, Length, Cases).
 
 icode_switch_tuple_arity(Arg, Fail, Length, Cases) ->
-    SortedCases = lists:keysort(1, Cases), %% immitate BEAM compiler - Kostis
+    SortedCases = lists:keysort(1, Cases), %% imitate BEAM compiler - Kostis
     hipe_icode:mk_switch_tuple_arity(Arg, Fail, Length, SortedCases).
 
 
@@ -2706,6 +2706,6 @@ binary_match([], _F, _, _Next, Fail, _Ctxt, _Env, S) ->
 translate_label_primop(LabelPrimop) ->
     ?PRIMOP_SET_LABEL = cerl:atom_val(cerl:primop_name(LabelPrimop)),
     [Ref] = cerl:primop_args(LabelPrimop),
-    Ref.    
+    Ref.
 
 

@@ -565,7 +565,7 @@ resolve_inst({make_fun2,Args},_,_,Lbls,Lambdas) ->
     [OldIndex] = resolve_args(Args),
     {value,{OldIndex,{F,A,_Lbl,_Index,NumFree,OldUniq}}} =
 	lists:keysearch(OldIndex, 1, Lambdas),
-    [{_,{M,_,_}}|_] = Lbls,			% Slighly kludgy.
+    [{_,{M,_,_}}|_] = Lbls,			% Slightly kludgy.
     {make_fun2,{M,F,A},OldIndex,OldUniq,NumFree};
 resolve_inst(Instr, Imports, Str, Lbls, _Lambdas) ->
     resolve_inst(Instr, Imports, Str, Lbls).

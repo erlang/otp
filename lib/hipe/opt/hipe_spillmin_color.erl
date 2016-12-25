@@ -1,9 +1,9 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2005-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,7 +15,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% ===========================================================================
@@ -58,8 +58,8 @@
 
 %% Define these as 'ok' or 'report(X,Y)' depending on how much output you want.
 -define(report0(X,Y), ?IF_DEBUG_LEVEL(0,?msg(X, Y),ok)).
--define(report(X,Y),  ?IF_DEBUG_LEVEL(1,?msg(X, Y),ok)). 
--define(report2(X,Y), ?IF_DEBUG_LEVEL(2,?msg(X, Y),ok)). 
+-define(report(X,Y),  ?IF_DEBUG_LEVEL(1,?msg(X, Y),ok)).
+-define(report2(X,Y), ?IF_DEBUG_LEVEL(2,?msg(X, Y),ok)).
 -define(report3(X,Y), ?IF_DEBUG_LEVEL(3,?msg(X, Y),ok)).
 
 %% Emits a coloring: a list of {TempName,Location}
@@ -73,7 +73,7 @@
 stackalloc(CFG, _StackSlots, SpillIndex, _Options, Target, TempMap) ->
   ?report2("building IG~n", []),
   {IG, NumNodes} = build_ig(CFG, Target, TempMap),
-  {Cols, MaxColors} = 
+  {Cols, MaxColors} =
     color_heuristic(IG, 0, NumNodes, NumNodes, NumNodes, Target, 1),
   SortedCols = lists:sort(Cols),
   {remap_temp_map(SortedCols, TempMap, SpillIndex), SpillIndex+MaxColors}.
@@ -121,7 +121,7 @@ color_heuristic(IG, Min, Max, Safe, MaxNodes, Target, MaxDepth) ->
       end;
     _ ->
       %% This can be increased from 2, and by this the heuristic can be
-      %% exited earlier, but the same can be achived by decreasing the
+      %% exited earlier, but the same can be achieved by decreasing the
       %% recursion depth. This should not be decreased below 2.
       case (Max - Min) < 2 of
         true ->
@@ -199,19 +199,19 @@ build_ig_bbs([], _CFG, _Live, IG, _Target, _TempMap, _TempMapping) ->
   IG;
 build_ig_bbs([L|Ls], CFG, Live, IG, Target, TempMap, TempMapping) ->
   Xs = bb(CFG, L, Target),
-  LiveOut = [X || X <- liveout(Live, L, Target), 
+  LiveOut = [X || X <- liveout(Live, L, Target),
 		  hipe_temp_map:is_spilled(X, TempMap)],
   LiveOutList = ordsets:to_list(LiveOut),
   LiveOutListMapped = list_map(LiveOutList, TempMapping, []),
   LiveOutSetMapped = ordsets:from_list(LiveOutListMapped),
-  {_, NewIG} = 
+  {_, NewIG} =
     build_ig_bb(Xs, LiveOutSetMapped, IG, Target, TempMap, TempMapping),
   build_ig_bbs(Ls, CFG, Live, NewIG, Target, TempMap, TempMapping).
 
 build_ig_bb([], LiveOut, IG, _Target, _TempMap, _TempMapping) ->
   {LiveOut, IG};
 build_ig_bb([X|Xs], LiveOut, IG, Target, TempMap, TempMapping) ->
-  {Live,NewIG} = 
+  {Live,NewIG} =
     build_ig_bb(Xs, LiveOut, IG, Target, TempMap, TempMapping),
   build_ig_instr(X, Live, NewIG, Target, TempMap, TempMapping).
 
@@ -226,7 +226,7 @@ build_ig_instr(X, Live, IG, Target, TempMap, TempMapping) ->
   NewLive = ordsets:union(UseSetMapped, ordsets:subtract(Live, DefSetMapped)),
   {NewLive, NewIG}.
 
-%% Given a list of Keys and an ets-table returns a list of the elements 
+%% Given a list of Keys and an ets-table returns a list of the elements
 %% in Mapping corresponding to the Keys and appends Acc to this list.
 list_map([], _Mapping, Acc) ->
   Acc;
@@ -252,7 +252,7 @@ interference_arcs([], _Live, IG) ->
 interference_arcs([X|Xs], Live, IG) ->
   interference_arcs(Xs, Live, i_arcs(X, Live, IG)).
 
-i_arcs(_X, [], IG) -> 
+i_arcs(_X, [], IG) ->
   IG;
 i_arcs(X, [Y|Ys], IG) ->
   i_arcs(X, Ys, add_edge(X, Y, IG)).
@@ -282,7 +282,7 @@ color(IG, StackSlots, NumNodes, Target) ->
       ?EXIT(Rsn)
   end.
 
-color_0(IG, StackSlots, NumNodes, Target) -> 
+color_0(IG, StackSlots, NumNodes, Target) ->
   ?report("simplification of IG~n", []),
   K = ordsets:size(StackSlots),
   Nodes = list_ig(IG),
@@ -371,7 +371,7 @@ decrement_each([N|Ns], OldLow, IG, Vis, K) ->
 select(Stk, IG, PhysRegs, NumNodes) ->
   select_colors(Stk, IG, none_colored(NumNodes), PhysRegs).
 
-select_colors([], _IG, _Cols, _PhysRegs) -> 
+select_colors([], _IG, _Cols, _PhysRegs) ->
   ?report("all nodes colored~n", []),
   {[], 0};
 select_colors([{X,colorable}|Xs], IG, Cols, PhysRegs) ->
@@ -547,9 +547,9 @@ bb(CFG, L, Target) ->
    hipe_bb:code(Target:bb(CFG, L)).
 
 def_use(X, Target, TempMap) ->
-  Defines = [Y || Y <- reg_names(Target:defines(X), Target), 
+  Defines = [Y || Y <- reg_names(Target:defines(X), Target),
 		  hipe_temp_map:is_spilled(Y, TempMap)],
-  Uses = [Z || Z <- reg_names(Target:uses(X), Target), 
+  Uses = [Z || Z <- reg_names(Target:uses(X), Target),
 	       hipe_temp_map:is_spilled(Z, TempMap)],
   {Defines, Uses}.
 

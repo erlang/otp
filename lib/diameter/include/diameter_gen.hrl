@@ -424,7 +424,7 @@ d(true, _, Name, Avp, Acc) ->
 
 %% ... or not. Failures here won't be visible since they're a "normal"
 %% occurrence if the peer sends a faulty AVP that we need to respond
-%% sensibly to. Log the occurence for traceability, but the peer will
+%% sensibly to. Log the occurrence for traceability, but the peer will
 %% also receive info in the resulting answer message.
 d(false, Reason, Name, Avp, {Avps, Acc}) ->
     Stack = diameter_lib:get_stacktrace(),

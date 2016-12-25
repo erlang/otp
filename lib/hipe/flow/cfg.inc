@@ -3,9 +3,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -17,7 +17,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -34,7 +34,7 @@
 %%       with Label.
 %%  succ(Map, Label) - returns a list of successors of basic block 'Label'.
 %%  pred(Map, Label) - returns the predecessors of basic block 'Label'.
-%%  fallthrough(CFG, Label) - returns fall-through successor of basic 
+%%  fallthrough(CFG, Label) - returns fall-through successor of basic
 %%       block 'Label' (or 'none').
 %%  conditional(CFG, Label) - returns conditional successor (or 'none')
 %%  start_label(CFG) - returns the label of the entry basic block.
@@ -117,7 +117,7 @@
 %%       true if instruction is a comment, used by remove dead code.
 %% is_goto(Instr) -> boolean(),
 %%       true if instruction is a pure goto, used by remove dead code.
-%% redirect_jmp(Jmp, ToOld, ToNew) -> NewJmp, 
+%% redirect_jmp(Jmp, ToOld, ToNew) -> NewJmp,
 %% redirect_ops(Labels, CFG, Map) -> CFG.
 %%       Rewrite instructions with labels in operands to use
 %%       the new label as given by map.
@@ -127,7 +127,7 @@
 %% cfg_to_linear(CFG) -> LinearCode, linearizes the code of CFG
 %% mk_goto(Label) -> instruction
 %% is_phi(Instr) -> boolean(), true if the instruction is a phi-instruction.
-%% phi_remove_pred(PhiInstr, Pred) -> NewPhi, 
+%% phi_remove_pred(PhiInstr, Pred) -> NewPhi,
 %%       Removes the predecessor Pred from the phi instruction.
 %% highest_var(Code) -> term(),
 %%       Returns the highest variable used or defined in the code.
@@ -215,7 +215,7 @@ info_update(CFG, I) ->
 -ifndef(GEN_CFG).
 
 -spec other_entrypoints(cfg()) -> [cfg_lbl()].
-%% @doc Returns a list of labels that are refered to from the data section.
+%% @doc Returns a list of labels that are referred to from the data section.
 
 other_entrypoints(CFG) ->
   hipe_consttab:referred_labels(data(CFG)).
@@ -258,7 +258,7 @@ remove_duplicates([], Acc) ->
 
 %% @spec bb_insert_between(CFG::cfg(),
 %%                         Label::cfg_lbl(), NewBB::basic_block(),
-%%                         Pred::cfg_lbl(), Succ::cfg_lbl()) -> cfg() 
+%%                         Pred::cfg_lbl(), Succ::cfg_lbl()) -> cfg()
 %%
 %% @doc Insert the new basic block with label Label in the edge from
 %%      Pred to Succ
@@ -287,7 +287,7 @@ bb_insert_between(CFG, Label, NewBB, Pred, Succ) ->
   NewSBB = hipe_bb:code_update(SBB, NewSCode),
   HT2 = gb_trees:update(Succ, {NewSBB,SSucc,NewSPred}, HT1),
   %% Enters NewBB into the CFG
-  HT3 = gb_trees:insert(Label, {NewBB,[Succ],[Pred]}, HT2), 
+  HT3 = gb_trees:insert(Label, {NewBB,[Succ],[Pred]}, HT2),
   CFG#cfg{table = HT3}.
 
 redirect_phis([], _OldPred, _NewPred, Acc) ->
@@ -344,7 +344,7 @@ remove_pred(HT, FromL, PredL) ->
     {value, {Block, Succ, Preds}} ->
       Code = hipe_bb:code(Block),
       NewCode = remove_pred_from_phis(Code, PredL, []),
-      NewBlock = hipe_bb:code_update(Block, NewCode),      
+      NewBlock = hipe_bb:code_update(Block, NewCode),
       gb_trees:update(FromL, {NewBlock,Succ,lists:delete(PredL,Preds)}, HT);
     none ->
       HT
@@ -361,7 +361,7 @@ add_pred(HT, ToL, PredL) ->
 %% find_highest_label(CFG) ->
 %%   Labels = labels(CFG),
 %%   lists:foldl(fun(X, Acc) -> erlang:max(X, Acc) end, 0, Labels).
-%% 
+%%
 %% find_highest_var(CFG) ->
 %%   Labels = labels(CFG),
 %%   Fun = fun(X, Max) ->
@@ -376,7 +376,7 @@ add_pred(HT, ToL, PredL) ->
 %% the change.
 remove_pred_from_phis(List = [I|Left], Label, Acc) ->
   case is_phi(I) of
-    true -> 
+    true ->
       NewAcc = [phi_remove_pred(I, Label)|Acc],
       remove_pred_from_phis(Left, Label, NewAcc);
     false ->
@@ -446,8 +446,8 @@ take_bb([X, Y|Xs], Code) ->
       end
   end;
 take_bb([X], []) ->
-  case is_label(X) of 
-    true -> 
+  case is_label(X) of
+    true ->
       %% We don't want the CFG to just end with a label...
       %% We loop forever instead...
       {[X,mk_goto(label_name(X))],[]};
@@ -455,8 +455,8 @@ take_bb([X], []) ->
       {[X],[]}
   end;
 take_bb([X], Code) ->
-  case is_label(X) of 
-    true -> 
+  case is_label(X) of
+    true ->
       %% We don't want the CFG to just end with a label...
       %% We loop for ever instead...
       {lists:reverse(Code),[X,mk_goto(label_name(X))]};
@@ -484,7 +484,7 @@ reverse_postorder(CFG) ->
   Ordering.
 
 depth_search([N|Ns], Visited, CFG, Acc) ->
-  case is_visited(N, Visited) of 
+  case is_visited(N, Visited) of
     true ->
       depth_search(Ns, Visited, CFG, Acc);
     false ->
@@ -502,11 +502,11 @@ preorder(CFG) ->
   lists:reverse(Ordering).
 
 preorder_search([N|Ns], Visited, CFG, Acc) ->
-  case is_visited(N, Visited) of 
+  case is_visited(N, Visited) of
     true ->
       preorder_search(Ns, Visited, CFG, Acc);
     false ->
-      {Order, Vis} = 
+      {Order, Vis} =
 	preorder_search(succ(CFG, N), visit(N, Visited), CFG, [N|Acc]),
       preorder_search(Ns, Vis, CFG, Order)
   end;
@@ -530,16 +530,16 @@ breadth_list([X|Xs], Vis, CFG, BO) ->
       breadth_list(Xs, Vis, CFG, BO);
     false ->
       breadth_list(Xs ++ succ(CFG, X), visit(X, Vis), CFG, [X|BO])
-  end;  
-breadth_list([], Vis, _CFG, BO) -> 
+  end;
+breadth_list([], Vis, _CFG, BO) ->
   {Vis, BO}.
 -endif.
 
 -spec none_visited() -> gb_sets:set().
-none_visited() -> 
+none_visited() ->
   gb_sets:empty().
 
-visit(X, Vis) -> 
+visit(X, Vis) ->
   gb_sets:add(X, Vis).
 
 is_visited(X, Vis) ->
@@ -649,7 +649,7 @@ find_new_label(Old, Map) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% Remove empty BBs.
-%% 
+%%
 %% Removes basic blocks containing only a goto to another BB.
 %% Branches to removed blocks are updated to the successor of the
 %% removed block.
@@ -704,7 +704,7 @@ redirect_branches(Map, CFG) ->
 		  lists:foldl(
 		    fun({ToOld,ToNew}, CFG1) ->
 			case bb(CFG1, From) of
-			  not_found -> 
+			  not_found ->
 			    CFG1;
 			  _ ->
 			    To = forward(ToNew, Map),
@@ -735,7 +735,7 @@ bb_remove(CFG, Label) ->
 			end,
 			HT, Succ),
       CFG#cfg{table = gb_trees:delete(Label, HT1)};
-    none -> 
+    none ->
       CFG
   end.
 
@@ -746,7 +746,7 @@ remap([L|Rest], Map, CFG) ->
 	[L] -> %% This is an empty (infinite) self loop. Leave it.
 	  remap(Rest, Map, CFG);
 	[SuccL] ->
-	  CFG1 = bb_remove(CFG, L), 
+	  CFG1 = bb_remove(CFG, L),
 	  NewMap = remap_to_succ(L, SuccL, Map, CFG),
 	  remap(Rest, NewMap, CFG1)
       end;
@@ -770,7 +770,7 @@ forward(L, Map) ->
 %% A redirection map contains mappings from labels to
 %%  none -> this BB is not affected by the remapping.
 %%  {dead,To} -> this BB is dead, To is the new proxy.
-%%  {newsuccs,[{X,Y}|...]} -> The successor X is redirected to Y. 
+%%  {newsuccs,[{X,Y}|...]} -> The successor X is redirected to Y.
 
 rd_map_new() -> gb_trees:empty().
 
@@ -804,7 +804,7 @@ is_empty(BB) ->
 is_empty_bb([I]) ->
   is_goto(I); %% A BB with just a 'goto' is empty.
 is_empty_bb([I|Is]) ->
-  case is_comment(I) of 
+  case is_comment(I) of
     true ->
       is_empty_bb(Is);
     false ->
@@ -856,7 +856,7 @@ rewrite_trivial_branches([], CFG) ->
 %% That is, the block L has only one successor (Successor) and that
 %% successor has no other predecessors than L.
 %%
-%% Note: calls might end a basic block 
+%% Note: calls might end a basic block
 
 merge_bbs(CFG) ->
   lists:foldl(fun merge_successor/2, CFG, postorder(CFG)).
@@ -886,8 +886,8 @@ merge_successor(L, CFG) ->
 	    false ->
 	      CFG
 	  end;
-	_ -> 
-	  %% Not exactly one successor or tried to merge with the 
+	_ ->
+	  %% Not exactly one successor or tried to merge with the
 	  %% entry point
 	  CFG
       end
@@ -902,10 +902,10 @@ merge(BB, BB2, BB2_Label) ->
     true ->
       %% Just ignore the goto.
       Head ++ Tail;
-    false -> 
+    false ->
       %% The last instr is not a goto,
       %%  e.g. a call with only fall-through
-      %% Remove the fall-through with the []-label. 
+      %% Remove the fall-through with the []-label.
       Head ++ [redirect_jmp(Last, BB2_Label, [])|Tail]
   end.
 
@@ -915,7 +915,7 @@ merge(BB, BB2, BB2_Label) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% Remove unreachable BBs.
-%% 
+%%
 %% A BB is unreachable if it cannot be reached by any path from the
 %% start label of the function.
 %%

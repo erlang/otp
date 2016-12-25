@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1997-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -32,7 +32,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%
 %%%%  This is a simple packer that take a specification in the format
-%%%%  
+%%%%
 %%%%    Spec       -> [WidthSpec, WidthSpec....]
 %%%%    WidthSpec  -> {fixed,Size} | {stretch,Weight} |
 %%%%                  {stretch,Weight,Min} | {stretch,Weight,Min,Max}
@@ -61,8 +61,8 @@
 %%%%      2. Calculate the Unit (or whatever it should be called), the
 %%%%         given space minus the fixed sise divided by the Weights.
 %%%%
-%%%%      3. If we in total can fullfill the request we try to
-%%%%         fullfill the individual constraints. See remove_failure/2.
+%%%%      3. If we in total can fulfill the request we try to
+%%%%         fulfill the individual constraints. See remove_failure/2.
 %%%%
 %%%%      4. If we have too little or too much pixels we take our
 %%%%         specification and create a new more relaxed one. See
@@ -199,7 +199,7 @@ distribute_space({stretch,W,_Mi}, Specs, Unit, Err) ->
     distribute_space({stretch,W}, Specs, Unit, Err);
 distribute_space({stretch,W,_Mi,_Ma}, Specs, Unit, Err) ->
     distribute_space({stretch,W}, Specs, Unit, Err).
-    
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%
@@ -263,7 +263,7 @@ get_size_info([], TotW, NumW, TotFixed, TotMin, TotMax) ->
     {TotW, NumW, TotFixed, TotMin, TotMax};
 get_size_info([Spec | Specs], TotW, NumW, TotFixed, TotMin, TotMax) ->
     get_size_info(Spec, TotW, NumW, TotFixed, TotMin, TotMax, Specs).
-    
+
 get_size_info({fixed,P}, TotW, NumW, TotFixed, TotMin, TotMax, Specs) ->
     get_size_info(Specs, TotW, NumW, TotFixed+P, TotMin, TotMax);
 get_size_info({stretch,W}, TotW, NumW, TotFixed, TotMin, _TotMax, Specs) ->
