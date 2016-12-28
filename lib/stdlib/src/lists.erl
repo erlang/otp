@@ -109,8 +109,8 @@ reverse(_, _) ->
 
 -spec append(List1, List2) -> List3 when
       List1 :: [T],
-      List2 :: [T],
-      List3 :: [T],
+      List2 :: any(),
+      List3 :: maybe_improper_list(),
       T :: term().
 
 append(L1, L2) -> L1 ++ L2.
