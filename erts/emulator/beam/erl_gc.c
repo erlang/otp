@@ -176,6 +176,13 @@ typedef struct {
     erts_smp_atomic32_t refc;
 } ErtsGCInfoReq;
 
+#ifdef ERTS_DIRTY_SCHEDULERS
+static struct {
+    erts_mtx_t mtx;
+    ErtsGCInfo info;
+} dirty_gc;
+#endif
+
 static ERTS_INLINE int
 gc_cost(Uint gc_moved_live_words, Uint resize_moved_words)
 {
@@ -258,6 +265,11 @@ erts_init_gc(void)
       ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(ix);
       init_gc_info(&esdp->gc_info);
     }
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+    erts_smp_mtx_init(&dirty_gc.mtx, "dirty_gc_info");
+    init_gc_info(&dirty_gc.info);
+#endif
 
     init_gcireq_alloc();
 }
@@ -735,8 +747,19 @@ do_major_collection:
 	    monitor_large_heap(p);
     }
 
-    esdp->gc_info.garbage_cols++;
-    esdp->gc_info.reclaimed += reclaimed_now;
+#ifdef ERTS_DIRTY_SCHEDULERS
+    if (ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+	erts_mtx_lock(&dirty_gc.mtx);
+	dirty_gc.info.garbage_cols++;
+	dirty_gc.info.reclaimed += reclaimed_now;
+	erts_mtx_unlock(&dirty_gc.mtx);
+    }
+    else
+#endif
+    {
+	esdp->gc_info.garbage_cols++;
+	esdp->gc_info.reclaimed += reclaimed_now;
+    }
     
     FLAGS(p) &= ~F_FORCE_GC;
     p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
@@ -3017,6 +3040,18 @@ reply_gc_info(void *vgcirp)
 
     reclaimed = esdp->gc_info.reclaimed;
     garbage_cols = esdp->gc_info.garbage_cols;
+#ifdef ERTS_DIRTY_SCHEDULERS
+    /*
+     * Add dirty schedulers info on requesting
+     * schedulers info
+     */
+    if (gcirp->req_sched == esdp->no) {
+	erts_mtx_lock(&dirty_gc.mtx);
+	reclaimed += dirty_gc.info.reclaimed;
+	garbage_cols += dirty_gc.info.garbage_cols;
+	erts_mtx_unlock(&dirty_gc.mtx);
+    }
+#endif
 
     sz = 0;
     hpp = NULL;
