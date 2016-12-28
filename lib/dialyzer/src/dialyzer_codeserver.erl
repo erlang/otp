@@ -29,7 +29,8 @@
 -module(dialyzer_codeserver).
 
 -export([delete/1,
-	 finalize_contracts/3,
+	 store_temp_contracts/4,
+	 finalize_contracts/1,
          finalize_exported_types/2,
 	 finalize_records/2,
 	 get_contracts/1,
@@ -38,7 +39,9 @@
 	 get_exports/1,
 	 get_records/1,
 	 get_next_core_label/1,
-	 get_temp_contracts/1,
+         get_temp_contracts/2,
+         contracts_modules/1,
+         store_contracts/4,
          get_temp_exported_types/1,
 	 get_temp_records/1,
 	 insert/3,
@@ -56,8 +59,7 @@
 	 new/0,
 	 set_next_core_label/2,
 	 set_temp_records/2,
-	 store_temp_records/3,
-	 store_temp_contracts/4]).
+	 store_temp_records/3]).
 
 -export_type([codeserver/0, fun_meta_info/0, contracts/0]).
 
@@ -85,8 +87,8 @@
 		     code		 :: dict_ets(),
                      exported_types      :: set_ets() | 'undefined', % set(mfa())
 		     records             :: map_ets() | 'undefined',
-		     contracts           :: map_ets() | 'undefined',
-		     callbacks           :: map_ets() | 'undefined',
+		     contracts           :: map_ets(),
+		     callbacks           :: map_ets(),
                      fun_meta_info       :: dict_ets(), % {mfa(), meta_info()}
 		     exports             :: 'clean' | set_ets(), % set(mfa())
                      temp_exported_types :: 'clean' | set_ets(), % set(mfa())
@@ -141,6 +143,8 @@ new() ->
   CodeOptions = [compressed, public, {read_concurrency, true}],
   Code = ets:new(dialyzer_codeserver_code, CodeOptions),
   TempOptions = [public, {write_concurrency, true}],
+  Contracts = ets_read_concurrent_table(dialyzer_codeserver_contracts),
+  Callbacks = ets_read_concurrent_table(dialyzer_codeserver_callbacks),
   [Exports, FunMetaInfo, TempExportedTypes, TempRecords, TempContracts,
    TempCallbacks] =
     [ets:new(Name, TempOptions) ||
@@ -152,6 +156,8 @@ new() ->
   #codeserver{code                = Code,
 	      exports             = Exports,
               fun_meta_info       = FunMetaInfo,
+              contracts           = Contracts,
+              callbacks           = Callbacks,
 	      temp_exported_types = TempExportedTypes,
 	      temp_records        = TempRecords,
 	      temp_contracts      = TempContracts,
@@ -341,44 +347,43 @@ store_temp_contracts(Mod, SpecMap, CallbackMap,
 		     #codeserver{temp_contracts = Cn,
 				 temp_callbacks = Cb} = CS)
   when is_atom(Mod) ->
-  CS1 =
-    case maps:size(SpecMap) =:= 0 of
-      true -> CS;
-      false ->
-	CS#codeserver{temp_contracts = ets_map_store(Mod, SpecMap, Cn)}
-    end,
-  case maps:size(CallbackMap) =:= 0 of
-    true -> CS1;
-    false ->
-      CS1#codeserver{temp_callbacks = ets_map_store(Mod, CallbackMap, Cb)}
-  end.
+  CS1 = CS#codeserver{temp_contracts = ets_map_store(Mod, SpecMap, Cn)},
+  CS1#codeserver{temp_callbacks = ets_map_store(Mod, CallbackMap, Cb)}.
 
--spec get_temp_contracts(codeserver()) -> {mod_contracts(), mod_contracts()}.
+-spec contracts_modules(codeserver()) -> [module()].
 
-get_temp_contracts(#codeserver{temp_contracts = TempContDict,
-			       temp_callbacks = TempCallDict}) ->
-  {ets_dict_to_dict(TempContDict), ets_dict_to_dict(TempCallDict)}.
+contracts_modules(#codeserver{temp_contracts = TempContTable}) ->
+  ets:select(TempContTable, [{{'$1', '$2'}, [], ['$1']}]).
 
--spec finalize_contracts(mod_contracts(), mod_contracts(), codeserver()) ->
-                           codeserver().
+-spec store_contracts(module(), contracts(), contracts(), codeserver()) ->
+                         codeserver().
 
-finalize_contracts(SpecDict, CallbackDict, CS)  ->
-  Contracts = ets_read_concurrent_table(dialyzer_codeserver_contracts),
-  Callbacks = ets_read_concurrent_table(dialyzer_codeserver_callbacks),
-  Contracts = dict:fold(fun decompose_spec_dict/3, Contracts, SpecDict),
-  Callbacks = dict:fold(fun decompose_cb_dict/3, Callbacks, CallbackDict),
-  CS#codeserver{contracts = Contracts, callbacks = Callbacks,
-		temp_contracts = clean, temp_callbacks = clean}.
+store_contracts(Mod, SpecMap, CallbackMap, CS) ->
+  #codeserver{contracts = SpecDict, callbacks = CallbackDict} = CS,
+  Keys = maps:keys(SpecMap),
+  true = ets:insert(SpecDict, maps:to_list(SpecMap)),
+  true = ets:insert(SpecDict, {Mod, Keys}),
+  true = ets:insert(CallbackDict, maps:to_list(CallbackMap)),
+  CS.
 
-decompose_spec_dict(Mod, Map, Table) ->
-  Keys = maps:keys(Map),
-  true = ets:insert(Table, maps:to_list(Map)),
-  true = ets:insert(Table, {Mod, Keys}),
-  Table.
+-spec get_temp_contracts(module(), codeserver()) ->
+                            {contracts(), contracts()}.
 
-decompose_cb_dict(_Mod, Map, Table) ->
-  true = ets:insert(Table, maps:to_list(Map)),
-  Table.
+get_temp_contracts(Mod, #codeserver{temp_contracts = TempContDict,
+                                    temp_callbacks = TempCallDict}) ->
+  [{Mod, Contracts}] = ets:lookup(TempContDict, Mod),
+  true = ets:delete(TempContDict, Mod),
+  [{Mod, Callbacks}] = ets:lookup(TempCallDict, Mod),
+  true = ets:delete(TempCallDict, Mod),
+  {Contracts, Callbacks}.
+
+-spec finalize_contracts(codeserver()) -> codeserver().
+
+finalize_contracts(#codeserver{temp_contracts = TempContDict,
+                               temp_callbacks = TempCallDict} = CS)  ->
+  true = ets:delete(TempContDict),
+  true = ets:delete(TempCallDict),
+  CS#codeserver{temp_contracts = clean, temp_callbacks = clean}.
 
 table__lookup(TablePid, M) when is_atom(M) ->
   {Name, Exports, Attrs, Keys, As} = ets:lookup_element(TablePid, M, 2),

@@ -150,8 +150,7 @@ sequence([H|T], Delimiter) -> H ++ Delimiter ++ sequence(T, Delimiter).
 	  dialyzer_codeserver:codeserver().
 
 process_contract_remote_types(CodeServer) ->
-  {TmpContractDict, TmpCallbackDict} =
-    dialyzer_codeserver:get_temp_contracts(CodeServer),
+  Mods = dialyzer_codeserver:contracts_modules(CodeServer),
   ExpTypes = dialyzer_codeserver:get_exported_types(CodeServer),
   RecordDict = dialyzer_codeserver:get_records(CodeServer),
   ContractFun =
@@ -165,21 +164,22 @@ process_contract_remote_types(CodeServer) ->
         {{MFA, {File, Contract, Xtra}}, C2}
     end,
   ModuleFun =
-    fun({ModuleName, ContractMap}) ->
+    fun(ModuleName) ->
         Cache = erl_types:cache__new(),
-        {NewContractList, _NewCache} =
+        {ContractMap, CallbackMap} =
+          dialyzer_codeserver:get_temp_contracts(ModuleName, CodeServer),
+        {NewContractList, Cache1} =
           lists:mapfoldl(ContractFun, Cache, maps:to_list(ContractMap)),
-        {ModuleName, maps:from_list(NewContractList)}
+        {NewCallbackList, _NewCache} =
+          lists:mapfoldl(ContractFun, Cache1, maps:to_list(CallbackMap)),
+        dialyzer_codeserver:store_contracts(ModuleName,
+                                            maps:from_list(NewContractList),
+                                            maps:from_list(NewCallbackList),
+                                            CodeServer)
     end,
-  erlang:garbage_collect(),
-  NewContractList = lists:map(ModuleFun, dict:to_list(TmpContractDict)),
-  NewCallbackList = lists:map(ModuleFun, dict:to_list(TmpCallbackDict)),
-  NewContractDict = dict:from_list(NewContractList),
-  NewCallbackDict = dict:from_list(NewCallbackList),
-  %% Make sure temporary data and the (huge) cache are garbage collected:
-  erlang:garbage_collect(),
-  dialyzer_codeserver:finalize_contracts(NewContractDict, NewCallbackDict,
-                                         CodeServer).
+  lists:foreach(ModuleFun, Mods),
+  %% erlang:garbage_collect(),
+  dialyzer_codeserver:finalize_contracts(CodeServer).
 
 -type opaques_fun() :: fun((module()) -> [erl_types:erl_type()]).
 
