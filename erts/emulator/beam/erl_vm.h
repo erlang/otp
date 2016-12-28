@@ -36,7 +36,7 @@
 #define EMULATOR "BEAM"
 #define SEQ_TRACE 1
 
-#define CONTEXT_REDS 2000	/* Swap process out after this number */
+#define CONTEXT_REDS 4000	/* Swap process out after this number */
 #define MAX_ARG 255	        /* Max number of arguments allowed */
 #define MAX_REG 1024            /* Max number of x(N) registers used */
 

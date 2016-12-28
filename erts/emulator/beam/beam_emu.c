@@ -633,21 +633,34 @@ void** beam_ops;
       y[4] = xt4;				\
  } while (0)
 
+#define DispatchReturn                          \
+do {                                            \
+    if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
+        FCALLS--;				\
+        Goto(*I);                               \
+    }                                           \
+    else {					\
+        c_p->current = NULL;                    \
+        c_p->arity = 1;                         \
+        goto context_switch3;			\
+    }						\
+} while (0)
+
 #define MoveReturn(Src)				\
     x(0) = (Src);				\
     I = c_p->cp;				\
     ASSERT(VALID_INSTR(*c_p->cp));		\
     c_p->cp = 0;				\
     CHECK_TERM(r(0));				\
-    Goto(*I)
+    DispatchReturn
 
 #define DeallocateReturn(Deallocate)       \
   do {                                     \
     int words_to_pop = (Deallocate);       \
-    SET_I((BeamInstr *) cp_val(*E));                     \
+    SET_I((BeamInstr *) cp_val(*E));       \
     E = ADD_BYTE_OFFSET(E, words_to_pop);  \
     CHECK_TERM(r(0));                      \
-    Goto(*I);                              \
+    DispatchReturn;                        \
   } while (0)
 
 #define MoveDeallocateReturn(Src, Deallocate)	\
@@ -1681,7 +1694,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
     c_p->cp = 0;
     CHECK_TERM(r(0));
     HEAP_SPACE_VERIFIED(0);
-    Goto(*I);
+    DispatchReturn;
  }
 
     /*
