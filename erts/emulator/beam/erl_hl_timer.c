@@ -2666,7 +2666,7 @@ erts_start_timer_callback(ErtsMonotonicTime tmo,
 				  tmo);
     twt = tmo < ERTS_TIMER_WHEEL_MSEC;
 
-    if (esdp)
+    if (esdp && !ERTS_SCHEDULER_IS_DIRTY(esdp))
 	start_callback_timer(esdp,
 			     twt,
 			     timeout_pos,
