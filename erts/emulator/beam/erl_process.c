@@ -2060,6 +2060,7 @@ handle_thr_prgr_later_op(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int wait
 #endif
     for (lops = 0; lops < ERTS_MAX_THR_PRGR_LATER_OPS; lops++) {
 	ErtsThrPrgrLaterOp *lop = awdp->later_op.first;
+
 	if (!erts_thr_progress_has_reached_this(current, lop->later))
 	    return aux_work & ~ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP;
 	awdp->later_op.first = lop->next;
@@ -6234,6 +6235,12 @@ check_dirty_enqueue_in_prio_queue(Process *c_p,
     int queue;
     erts_aint32_t dact, max_qbit;
 
+    /* Do not enqueue free process... */
+    if (actual & ERTS_PSFLG_FREE) {
+	*newp &= ~ERTS_PSFLGS_DIRTY_WORK;
+        return ERTS_ENQUEUE_NOT;
+    }
+
     /* Termination should be done on an ordinary scheduler */
     if ((*newp) & ERTS_PSFLG_EXITING) {
 	*newp &= ~ERTS_PSFLGS_DIRTY_WORK;
@@ -6426,6 +6433,9 @@ select_enqueue_run_queue(int enqueue, int enq_prio, Process *p, erts_aint32_t st
 
 /*
  * schedule_out_process() return with c_rq locked.
+ *
+ * Return non-zero value if caller should decrease
+ * reference count on the process when done with it...
  */
 static ERTS_INLINE int
 schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
@@ -6480,12 +6490,18 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
 
 	erts_smp_runq_lock(c_rq);
 
-	return 0;
-
+#if !defined(ERTS_SMP)
+        /* Decrement refc if process struct is free... */
+        return !!(n & ERTS_PSFLG_FREE);
+#else
+        /* Decrement refc if scheduled out from dirty scheduler... */
+	return !is_normal_sched;
+#endif
     }
     else {
 	Process* sched_p;
 
+        ASSERT(!(n & ERTS_PSFLG_FREE));
 	ASSERT(!(n & ERTS_PSFLG_SUSPENDED) || (n & (ERTS_PSFLG_ACTIVE_SYS
 						    | ERTS_PSFLG_DIRTY_ACTIVE_SYS)));
 
@@ -6501,11 +6517,14 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
 
 	erts_smp_runq_lock(runq);
 
+        if (is_normal_sched && sched_p == p && ERTS_RUNQ_IX_IS_DIRTY(runq->ix))
+            erts_proc_inc_refc(p); /* Needs to be done before enqueue_process() */
+
 	/* Enqueue the process */
 	enqueue_process(runq, (int) enq_prio, sched_p);
 
 	if (runq == c_rq)
-	    return 1;
+	    return 0;
 
 	erts_smp_runq_unlock(runq);
 
@@ -6513,9 +6532,15 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
 
 	erts_smp_runq_lock(c_rq);
 
-	return 1;
+        /*
+         * Decrement refc if process is scheduled out by a
+         * dirty scheduler, and we have not just scheduled
+         * the process using the ordinary process struct
+         * on a dirty run-queue again...
+         */
+        return !is_normal_sched && (sched_p != p
+                                    || !ERTS_RUNQ_IX_IS_DIRTY(runq->ix));
     }
-
 }
 
 static ERTS_INLINE void
@@ -6530,8 +6555,17 @@ add2runq(int enqueue, erts_aint32_t prio,
     if (runq) {
 	Process *sched_p;
 
-	if (enqueue > 0)
+	if (enqueue > 0) {
 	    sched_p = proc;
+	    /*
+	     * Refc on process struct (i.e. true struct,
+	     * not proxy-struct) increased while in a
+	     * dirty run-queue or executing on a dirty
+	     * scheduler.
+	     */
+            if (ERTS_RUNQ_IX_IS_DIRTY(runq->ix))
+                erts_proc_inc_refc(proc);
+        }
 	else {
 	    Process *pxy;
 
@@ -9587,40 +9621,45 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	esdp->reductions += reds;
 
-	/* schedule_out_process() returns with rq locked! */
-	schedule_out_process(rq, state, p, proxy_p, is_normal_sched);
-	proxy_p = NULL;
+        {
+            int dec_refc;
 
-	ERTS_PROC_REDUCTIONS_EXECUTED(esdp, rq,
-				      (int) ERTS_PSFLGS_GET_USR_PRIO(state),
-				      reds,
-				      actual_reds);
+            /* schedule_out_process() returns with rq locked! */
+            dec_refc = schedule_out_process(rq, state, p,
+                                            proxy_p, is_normal_sched);
+            proxy_p = NULL;
 
-	esdp->current_process = NULL;
+            ERTS_PROC_REDUCTIONS_EXECUTED(esdp, rq,
+                                          (int) ERTS_PSFLGS_GET_USR_PRIO(state),
+                                          reds,
+                                          actual_reds);
+
+            esdp->current_process = NULL;
 #ifdef ERTS_SMP
-	p->scheduler_data = NULL;
+            p->scheduler_data = NULL;
 #endif
 
-	erts_smp_proc_unlock(p, (ERTS_PROC_LOCK_MAIN
-				 | ERTS_PROC_LOCK_STATUS
-				 | ERTS_PROC_LOCK_TRACE));
+            erts_smp_proc_unlock(p, (ERTS_PROC_LOCK_MAIN
+                                     | ERTS_PROC_LOCK_STATUS
+                                     | ERTS_PROC_LOCK_TRACE));
 
-        ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_OTHER);
+            ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_OTHER);
 
-	if (state & ERTS_PSFLG_FREE) {
-	    if (!is_normal_sched) {
-		ASSERT(p->flags & F_DELAYED_DEL_PROC);
-		erts_proc_dec_refc(p);
-	    }
-	    else {
 #ifdef ERTS_SMP
-		ASSERT(esdp->free_process == p);
-		esdp->free_process = NULL;
-#else
-		erts_proc_dec_refc(p);
+            if (state & ERTS_PSFLG_FREE) {
+                if (!is_normal_sched) {
+                    ASSERT(p->flags & F_DELAYED_DEL_PROC);
+                }
+                else {
+                    ASSERT(esdp->free_process == p);
+                    esdp->free_process = NULL;
+                }
+            }
 #endif
-	    }
-	}
+
+            if (dec_refc)
+                erts_proc_dec_refc(p);
+        }
 
 #ifdef ERTS_SMP
 	ASSERT(!esdp->free_process);
@@ -9896,8 +9935,12 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    if (!(state & ERTS_PSFLG_PROXY))
 		psflg_band_mask &= ~ERTS_PSFLG_IN_RUNQ;
 	    else {
+                Eterm pid = p->common.id;
 		proxy_p = p;
-		p = erts_proc_lookup_raw(proxy_p->common.id);
+		p = (is_normal_sched
+                     ? erts_proc_lookup_raw(pid)
+                     : erts_pid2proc_opt(NULL, 0, pid, 0,
+                                         ERTS_P2P_FLG_INC_REFC));
 		if (!p) {
 		    free_proxy_proc(proxy_p);
 		    proxy_p = NULL;
@@ -9929,6 +9972,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 					    | ERTS_PSFLG_FREE)))
 #ifdef ERTS_DIRTY_SCHEDULERS
 				| (((state & (ERTS_PSFLG_RUNNING
+
 					      | ERTS_PSFLG_FREE
 					      | ERTS_PSFLG_RUNNING_SYS
 					      | ERTS_PSFLG_EXITING))
@@ -9961,6 +10005,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 			    /* free and not queued by proxy */
 			    erts_proc_dec_refc(p);
 			}
+                        if (!is_normal_sched)
+                            erts_proc_dec_refc(p);
 			goto pick_next_process;
 		    }
 		    state = new;
@@ -13091,15 +13137,14 @@ erts_continue_exit_process(Process *p)
 	}
 
 #ifdef ERTS_DIRTY_SCHEDULERS
-	if (a & (ERTS_PSFLG_DIRTY_RUNNING
-		 | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+        if (a & (ERTS_PSFLG_DIRTY_RUNNING
+                 | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
 	    p->flags |= F_DELAYED_DEL_PROC;
 	    delay_del_proc = 1;
 	    /*
-	     * The dirty scheduler will also decrease
-	     * refc when done...
+	     * The dirty scheduler decrease refc
+             * when done with the process...
 	     */
-	    erts_proc_inc_refc(p);
 	}
 #endif
 
