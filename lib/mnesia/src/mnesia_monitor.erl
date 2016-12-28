@@ -169,7 +169,7 @@ check_protocol([{Node, {accept, Mon, Version, Protocol}} | Tail], Protocols) ->
 	    verbose("Failed to connect with ~p. ~p protocols rejected. "
 		    "expected version = ~p, expected protocol = ~p~n",
 		    [Node, Protocols, Version, Protocol]),
-	    unlink(Mon), % Get rid of unneccessary link
+	    unlink(Mon), % Get rid of unnecessary link
 	    check_protocol(Tail, Protocols)
     end;
 check_protocol([{Node, {reject, _Mon, Version, Protocol}} | Tail], Protocols) ->

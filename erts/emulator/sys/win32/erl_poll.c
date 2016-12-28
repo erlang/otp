@@ -30,7 +30,7 @@
 #include "erl_msacc.h"
 
 /*
- * Some debug macros 
+ * Some debug macros
  */
 
 /*#define HARDDEBUG */
@@ -234,7 +234,7 @@ void poll_debug_died(ErtsSysFdType fd)
 
 
 /*
- * Handles that we poll, but that are actually signalled from outside 
+ * Handles that we poll, but that are actually signalled from outside
  * this module
  */
 
@@ -266,7 +266,7 @@ typedef struct _Waiter {
     void *xdata;                /* used when thread parameter */
     erts_tid_t this;            /* Thread "handle" of this waiter */
     erts_mtx_t mtx;             /* Mutex for updating/reading pollset, but the
-				   currently used set require thread stopping 
+				   currently used set require thread stopping
 				   to be updated */
 } Waiter;
 
@@ -275,9 +275,9 @@ typedef struct _Waiter {
  */
 struct ErtsPollSet_ {
     Waiter** waiter;
-    int allocated_waiters;  /* Size ow waiter array */ 
+    int allocated_waiters;  /* Size ow waiter array */
     int num_waiters;	    /* Number of waiter threads. */
-    int restore_events;        /* Tells us to restore waiters events 
+    int restore_events;        /* Tells us to restore waiters events
 				  next time around */
     HANDLE event_io_ready;     /* To be used when waiting for io */
     /* These are used to wait for workers to enter standby */
@@ -328,7 +328,7 @@ static erts_atomic32_t break_waiter_state;
 #define BREAK_WAITER_GOT_HALT 2
 
 
-/* 
+/*
  * Forward declarations
  */
 
@@ -570,7 +570,7 @@ static void setup_standby_wait(ErtsPollSet ps, int num_threads)
     LeaveCriticalSection(&(ps->standby_crit));
 }
 
-static void signal_standby(ErtsPollSet ps) 
+static void signal_standby(ErtsPollSet ps)
 {
     EnterCriticalSection(&(ps->standby_crit));
     --(ps->standby_wait_counter);
@@ -595,13 +595,13 @@ static void remove_event_from_set(Waiter *w, int j)
     w->evdata[j]->mode = 0;
     w->evdata[j]->next = w->first_free_evdata;
     w->first_free_evdata = w->evdata[j];
-    
+
     /*
      * If the event is active, we will overwrite it
      * with the last active event and make the hole
      * the first non-active event.
      */
-    
+
     if (j < w->active_events) {
 	w->active_events--;
 	w->highwater--;
@@ -624,15 +624,15 @@ static void remove_event_from_set(Waiter *w, int j)
 	w->events[j] = w->events[w->total_events];
 	w->evdata[j] = w->evdata[w->total_events];
     }
-    
+
 #ifdef DEBUG
     w->events[w->total_events] = (HANDLE) CleanLandFill;
     w->evdata[w->total_events] = (EventData *) CleanLandFill;
     consistency_check(w);
 #endif
-}    
+}
 
-/* 
+/*
  * Thread handling
  */
 
@@ -640,7 +640,7 @@ static void remove_event_from_set(Waiter *w, int j)
 static void consistency_check(Waiter* w)
 {
     int i;
-    
+
     ASSERT(w->active_events <= w->total_events);
     ASSERT(w->evdata[0] == NULL);
 
@@ -668,7 +668,7 @@ static void new_waiter(ErtsPollSet ps)
 				 old_size,
 				 sizeof(Waiter *) * (ps->allocated_waiters));
     }
-	
+
     w = (Waiter *) SEL_ALLOC(ERTS_ALC_T_WAITER_OBJ, sizeof(Waiter));
     ps->waiter[ps->num_waiters] = w;
 
@@ -742,7 +742,7 @@ static void *break_waiter(void *param)
 	}
     }
 }
-		    
+
 static void *threaded_waiter(void *param)
 {
     register Waiter* w = (Waiter *) param;
@@ -788,7 +788,7 @@ static void *threaded_waiter(void *param)
 	save_active_events = w->active_events;
 	save_total_events = w->total_events;
 	save_highwater = w->highwater;
-	erts_mtx_unlock(&w->mtx);	
+	erts_mtx_unlock(&w->mtx);
 #endif
 	i = WaitForMultipleObjects(w->active_events, w->events, FALSE, INFINITE);
 	switch (i) {
@@ -798,7 +798,7 @@ static void *threaded_waiter(void *param)
 	    /* Dont wait for our signal event */
 	    for (j = 1; j < w->active_events; j++) {
 		int tmp;
-		if ((tmp = WaitForSingleObject(w->events[j], 0)) 
+		if ((tmp = WaitForSingleObject(w->events[j], 0))
 		    == WAIT_FAILED) {
 		    DEBUGF(("Invalid handle: i = %d, handle = 0x%0x\n",
 			    j, w->events[j]));
@@ -842,9 +842,9 @@ event_happened:
 	    ASSERT(WAIT_OBJECT_0 < i && i < WAIT_OBJECT_0+w->active_events);
 	    notify_io_ready(ps);
 
-	    /* 
-	     * The main thread wont start working on our arrays untill we're
-	     * stopped, so we can work in peace although the main thread runs 
+	    /*
+	     * The main thread wont start working on our arrays until we're
+	     * stopped, so we can work in peace although the main thread runs
 	     */
 	    ASSERT(i >= WAIT_OBJECT_0+1);
 	    i -= WAIT_OBJECT_0;
@@ -871,14 +871,14 @@ event_happened:
 #ifdef DEBUG
 	    consistency_check(w);
 #endif
-	    erts_mtx_unlock(&w->mtx);	    
+	    erts_mtx_unlock(&w->mtx);
 	    break;
 	}
     }
 }
 
 /*
- * The actual adding and removing from pollset utilities 
+ * The actual adding and removing from pollset utilities
  */
 
 static int set_driver_select(ErtsPollSet ps, HANDLE event, ErtsPollEvents mode)
@@ -1131,7 +1131,7 @@ int erts_poll_wait(ErtsPollSet ps,
     EventData* ev;
     int res = 0;
     int num = 0;
-    int n; 
+    int n;
     int i;
     int break_state;
 
@@ -1151,7 +1151,7 @@ int erts_poll_wait(ErtsPollSet ps,
 	       STOP_WAITER(ps,w);
 	       HARDDEBUGF(("Need reset %d %d %d %d",i,
 			   w->active_events,w->highwater,w->total_events));
-	       erts_mtx_lock(&w->mtx);	       
+	       erts_mtx_lock(&w->mtx);
 	       /* Need reset, just check that it doesn't have got more to tell */
 	       if (w->highwater != w->active_events) {
 		   HARDDEBUGF(("Oups!"));
@@ -1162,7 +1162,7 @@ int erts_poll_wait(ErtsPollSet ps,
 		   }
 		   START_WAITER(ps,w);
 		   erts_mtx_unlock(&w->mtx);
-		   ps->restore_events = 1; 
+		   ps->restore_events = 1;
 		   continue;
 	       }
 	       w->active_events = w->highwater =  w->total_events;
@@ -1233,7 +1233,7 @@ int erts_poll_wait(ErtsPollSet ps,
 
     reset_io_ready(ps);
 
-    n = ps->num_waiters;	
+    n = ps->num_waiters;
 
     for (i = 0; i < n; i++) {
 	Waiter* w = ps->waiter[i];
@@ -1315,7 +1315,7 @@ void erts_poll_info(ErtsPollSet ps,
 	}
     }
 
-    pip->primary = "WaitForMultipleObjects"; 
+    pip->primary = "WaitForMultipleObjects";
 
     pip->fallback = NULL;
 
@@ -1354,7 +1354,7 @@ ErtsPollSet erts_poll_create_pollset(void)
     InitializeCriticalSection(&(ps->standby_crit));
     ps->standby_wait_counter = 0;
     ps->event_io_ready = CreateManualEvent(FALSE);
-    ps->standby_wait_event = CreateManualEvent(FALSE); 
+    ps->standby_wait_event = CreateManualEvent(FALSE);
     ps->restore_events = 0;
 
     erts_atomic32_init_nob(&ps->wakeup_state, ERTS_POLL_NOT_WOKEN);
@@ -1413,7 +1413,7 @@ void  erts_poll_init(void)
 
     erts_mtx_init(&break_waiter_lock,"break_waiter_lock");
     break_happened_event = CreateManualEvent(FALSE);
-    erts_atomic32_init_nob(&break_waiter_state, 0); 
+    erts_atomic32_init_nob(&break_waiter_state, 0);
 
     erts_thr_create(&thread, &break_waiter, NULL, NULL);
     ERTS_UNSET_BREAK_REQUESTED;

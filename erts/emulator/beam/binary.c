@@ -107,13 +107,13 @@ new_binary(Process *p, byte *buf, Uint len)
     pb->flags = 0;
 
     /*
-     * Miscellanous updates. Return the tagged binary.
+     * Miscellaneous updates. Return the tagged binary.
      */
     OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
     return make_binary(pb);
 }
 
-/* 
+/*
  * When heap binary is not desired...
  */
 
@@ -144,7 +144,7 @@ Eterm erts_new_mso_binary(Process *p, byte *buf, Uint len)
     pb->flags = 0;
 
     /*
-     * Miscellanous updates. Return the tagged binary.
+     * Miscellaneous updates. Return the tagged binary.
      */
     OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
     return make_binary(pb);
@@ -196,7 +196,7 @@ erts_get_aligned_binary_bytes_extra(Eterm bin, byte** base_ptr, ErtsAlcType_t al
     Uint byte_size;
     Uint offs = 0;
     Uint bit_offs = 0;
-    
+
     if (is_not_binary(bin)) {
 	return NULL;
     }
@@ -220,7 +220,7 @@ erts_get_aligned_binary_bytes_extra(Eterm bin, byte** base_ptr, ErtsAlcType_t al
 	byte* buf = (byte *) erts_alloc(allocator, byte_size + extra);
 	*base_ptr = buf;
 	buf += extra;
-	erts_copy_bits(bytes, bit_offs, 1, buf, 0, 1, byte_size*8);	
+	erts_copy_bits(bytes, bit_offs, 1, buf, 0, 1, byte_size*8);
 	bytes = buf;
     }
     return bytes;
@@ -259,9 +259,9 @@ BIF_RETTYPE binary_to_integer_1(BIF_ALIST_1)
   if ((bytes = (char*)erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc))
       == NULL )
     goto binary_to_integer_1_error;
-  
+
   size = binary_size(BIF_ARG_1);
-  
+
   if ((res = erts_chars_to_integer(BIF_P,bytes,size,10)) != THE_NON_VALUE) {
     erts_free_aligned_binary_bytes(temp_alloc);
     return res;
@@ -279,35 +279,35 @@ BIF_RETTYPE binary_to_integer_2(BIF_ALIST_2)
   Uint size;
   int base;
   Eterm res;
-  
+
   if (!is_small(BIF_ARG_2))
     BIF_ERROR(BIF_P, BADARG);
 
   base = signed_val(BIF_ARG_2);
-  
-  if (base < 2 || base > 36) 
+
+  if (base < 2 || base > 36)
     BIF_ERROR(BIF_P, BADARG);
 
   if ((bytes = (char*)erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc))
       == NULL )
     goto binary_to_integer_2_error;
-  
+
   size = binary_size(BIF_ARG_1);
-  
+
   if ((res = erts_chars_to_integer(BIF_P,bytes,size,base)) != THE_NON_VALUE) {
     erts_free_aligned_binary_bytes(temp_alloc);
     return res;
   }
 
  binary_to_integer_2_error:
-  
+
   erts_free_aligned_binary_bytes(temp_alloc);
   BIF_ERROR(BIF_P, BADARG);
 
 }
 
 BIF_RETTYPE integer_to_binary_1(BIF_ALIST_1)
-{   
+{
     Uint size;
     Eterm res;
 
@@ -732,7 +732,7 @@ list_to_binary_engine(ErtsL2BState *sp)
 static void
 l2b_state_destructor(Binary *mbp)
 {
-    ErtsL2BState *sp = ERTS_MAGIC_BIN_DATA(mbp); 
+    ErtsL2BState *sp = ERTS_MAGIC_BIN_DATA(mbp);
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(mbp) == l2b_state_destructor);
     DESTROY_SAVED_ESTACK(&sp->buf.iolist.estack);
 }
@@ -741,7 +741,7 @@ static ERTS_INLINE Eterm
 l2b_final_touch(Process *c_p, ErtsL2BState *sp)
 {
     Eterm *hp;
-    ErlSubBin* sbin; 
+    ErlSubBin* sbin;
     if (sp->buf.offset == 0)
 	return sp->bin;
 
@@ -769,7 +769,7 @@ list_to_binary_chunk(Eterm mb_eterm,
     Process *c_p = sp->buf.iolist.c_p;
 
     sp->buf.iolist.reds_left = reds_left;
-    
+
     switch (list_to_binary_engine(sp)) {
 
     case ERTS_L2B_OK: {
@@ -1012,7 +1012,7 @@ BIF_RETTYPE list_to_bitstring_1(BIF_ALIST_1)
 	    switch (bitstr_list_len(&state.buf.iolist)) {
 	    case ERTS_IOLIST_OK: {
 		ErlDrvSizeT size = state.buf.iolist.size;
-		
+
 		state.bin = new_binary(BIF_P, (byte *) NULL, size);
 		state.buf.buf = (char *) binary_bytes(state.bin);
 		state.buf.len = size;
@@ -1113,7 +1113,7 @@ BIF_RETTYPE split_binary_2(BIF_ALIST_2)
     hp += ERL_SUB_BIN_SIZE;
 
     return TUPLE2(hp, make_binary(sb1), make_binary(sb2));
-    
+
     error:
 	BIF_ERROR(BIF_P, BADARG);
 }
@@ -1240,7 +1240,7 @@ list_to_bitstr_buf(int yield_support, ErtsIOList2BufState *state)
 	    /* check stack */
 	}
     }
-    
+
     while (!ESTACK_ISEMPTY(s)) {
 	obj = ESTACK_POP(s);
     L_again:
@@ -1256,11 +1256,11 @@ list_to_bitstr_buf(int yield_support, ErtsIOList2BufState *state)
 			if (offset == 0) {
 			    *buf++ = unsigned_val(obj);
 			} else {
-			    *buf =  (char)((unsigned_val(obj) >> offset) | 
+			    *buf =  (char)((unsigned_val(obj) >> offset) |
 					   ((*buf >> (8-offset)) << (8-offset)));
 			    buf++;
 			    *buf = (unsigned_val(obj) << (8-offset));
-			}   
+			}
 #ifdef DEBUG
 			len--;
 #endif
@@ -1295,7 +1295,7 @@ list_to_bitstr_buf(int yield_support, ErtsIOList2BufState *state)
 	    ASSERT(is_nil(obj));
 	}
     }
-    
+
     DESTROY_ESTACK(s);
 
     if (yield_support) {

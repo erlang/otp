@@ -182,7 +182,7 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 	}
 
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK);
-	
+
 	if (erts_add_link(&ERTS_P_LINKS(BIF_P), LINK_PID, BIF_ARG_1) >= 0)
 	    send_link_signal = 1;
 	/* else: already linked */
@@ -353,15 +353,15 @@ remote_demonitor(Process *c_p, DistEntry *dep, Eterm ref, Eterm to)
 	}
 	else {
 	    /*
-	     * Soft (no force) send, use ->data in dist slot 
-	     * monitor list since in case of monitor name 
+	     * Soft (no force) send, use ->data in dist slot
+	     * monitor list since in case of monitor name
 	     * the atom is stored there. Yield if necessary.
 	     */
 	    code = erts_dsig_send_demonitor(&dsd,
-					    c_p->common.id, 
+					    c_p->common.id,
 					    (mon->name != NIL
 					     ? mon->name
-					     : mon->pid), 
+					     : mon->pid),
 					    ref,
 					    0);
             res = (code == ERTS_DSIG_SEND_YIELD ? am_yield : am_true);
@@ -467,7 +467,7 @@ demonitor_local_port(Process *origin, Eterm ref, Eterm target)
 }
 
 /* Can return atom true, false, yield, internal_error, badarg or
- * THE_NON_VALUE if error occured or trap has been set up
+ * THE_NON_VALUE if error occurred or trap has been set up
  */
 static
 BIF_RETTYPE demonitor(Process *c_p, Eterm ref, Eterm *multip)
@@ -589,7 +589,7 @@ BIF_RETTYPE demonitor_2(BIF_ALIST_2)
 	default:
 	    goto badarg;
 	}
-	list = CDR(consp);	
+	list = CDR(consp);
     }
 
     if (is_not_nil(list))
@@ -597,7 +597,7 @@ BIF_RETTYPE demonitor_2(BIF_ALIST_2)
 
     switch (demonitor(BIF_P, BIF_ARG_1, &multi)) {
     case THE_NON_VALUE:
-        /* If other error occured or trap has been set up - pass through */
+        /* If other error occurred or trap has been set up - pass through */
         BIF_RET(THE_NON_VALUE);
     case am_false:
 	if (info)
@@ -876,12 +876,12 @@ remote_monitor(Process *p, Eterm bifarg1, Eterm bifarg2,
 
     BIF_RET(ret);
 }
-	
+
 BIF_RETTYPE monitor_2(BIF_ALIST_2)
 {
     Eterm target = BIF_ARG_2;
     BIF_RETTYPE ret;
-    DistEntry  *dep = NULL; 
+    DistEntry  *dep = NULL;
     int deref_de = 0;
 
     /* Only process monitors are implemented */
@@ -1126,7 +1126,7 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
     }
 }
 
-  
+
 /**********************************************************************/
 /* remove a link from a process */
 BIF_RETTYPE unlink_1(BIF_ALIST_1)
@@ -1292,7 +1292,7 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 	if (rp != BIF_P)
 	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
     }
- 
+
     erts_smp_proc_unlock(BIF_P, cp_locks & ~ERTS_PROC_LOCK_MAIN);
 
     BIF_RET(am_true);
@@ -1302,7 +1302,7 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
     erts_handle_pending_exit(BIF_P, (ERTS_PROC_LOCK_MAIN
 				     | ERTS_PROC_LOCK_LINK
 				     | ERTS_PROC_LOCK_STATUS));
-    ASSERT(ERTS_PROC_IS_EXITING(BIF_P)); 
+    ASSERT(ERTS_PROC_IS_EXITING(BIF_P));
     erts_smp_proc_unlock(BIF_P,	ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS);
     ERTS_BIF_EXITED(BIF_P);
 #endif
@@ -1403,7 +1403,7 @@ BIF_RETTYPE exit_1(BIF_ALIST_1)
 /**********************************************************************/
 /* raise an exception of given class, value and stacktrace.
  *
- * If there is an error in the argument format, 
+ * If there is an error in the argument format,
  * return the atom 'badarg' instead.
  */
 BIF_RETTYPE raise_3(BIF_ALIST_3)
@@ -1430,15 +1430,15 @@ BIF_RETTYPE raise_3(BIF_ALIST_3)
 	reason = EXC_THROWN;
     } else goto error;
     reason &= ~EXF_SAVETRACE;
-    
+
     /* Check syntax of stacktrace, and count depth.
      * Accept anything that can be returned from erlang:get_stacktrace/0,
      * as well as a 2-tuple with a fun as first element that the
      * error_handler may need to give us. Also allow old-style
      * MFA three-tuples.
      */
-    for (l = stacktrace, depth = 0;  
-	 is_list(l);  
+    for (l = stacktrace, depth = 0;
+	 is_list(l);
 	 l = CDR(list_val(l)), depth++) {
 	Eterm t = CAR(list_val(l));
 	Eterm location = NIL;
@@ -1482,7 +1482,7 @@ BIF_RETTYPE raise_3(BIF_ALIST_3)
 	}
     }
     if (is_not_nil(l)) goto error;
-    
+
     /* Create stacktrace and store */
     if (erts_backtrace_depth < depth) {
 	depth = erts_backtrace_depth;
@@ -1498,7 +1498,7 @@ BIF_RETTYPE raise_3(BIF_ALIST_3)
     }
 
     tp = &c_p->ftrace;
-    sz = (offsetof(struct StackTrace, trace) + sizeof(Eterm) - 1) 
+    sz = (offsetof(struct StackTrace, trace) + sizeof(Eterm) - 1)
 	/ sizeof(Eterm);
     hp = HAlloc(c_p, sz + (2+6)*(cnt + 1));
     hp_end = hp + sz + (2+6)*(cnt + 1);
@@ -1541,7 +1541,7 @@ BIF_RETTYPE raise_3(BIF_ALIST_3)
     ASSERT(hp <= hp_end);
     HRelease(c_p, hp_end, hp);
     BIF_ERROR(c_p, reason);
-    
+
  error:
     return am_badarg;
 }
@@ -1597,7 +1597,7 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
      else if(is_external_port(BIF_ARG_1)
 	     && external_port_dist_entry(BIF_ARG_1) == erts_this_dist_entry)
 	 BIF_RET(am_true);
-     
+
      /*
       * If it is a remote pid, send a signal to the remote node.
       */
@@ -2117,7 +2117,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
 
-	rp = erts_proc_lookup_raw(to);	
+	rp = erts_proc_lookup_raw(to);
 	if (!rp)
 	    return 0;
     } else if (is_external_pid(to)) {
@@ -2161,7 +2161,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
 	    trace_send(p, to, msg);
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
-	
+
 	return SEND_BADARG;
     } else if (is_external_port(to)
 	       && (external_port_dist_entry(to)
@@ -2250,7 +2250,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
 	    return SEND_BADARG;
 	if (is_not_atom(tp[1]) || is_not_atom(tp[2]))
 	    return SEND_BADARG;
-	
+
 	/* sysname_to_connected_dist_entry will return NULL if there
 	   is no dist_entry or the dist_entry has no port,
 	   but remote_send() will handle that. */
@@ -2297,7 +2297,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
 	    save_calls(p, &exp_send);
 	return SEND_BADARG;
     }
-    
+
  send_message: {
 	ErtsProcLocks rp_locks = 0;
 	Sint res;
@@ -2657,7 +2657,7 @@ consolidate(Process* p, Eterm acc, Uint size)
 	Eterm* big;
 	Uint sz;
 	Eterm res;
-	
+
 	acc = accumulate(acc, size);
 	big = big_val(acc);
 	sz = BIG_NEED_SIZE(BIG_SIZE(big));
@@ -2996,7 +2996,7 @@ BIF_RETTYPE atom_to_list_1(BIF_ALIST_1)
 
     if (is_not_atom(BIF_ARG_1))
 	BIF_ERROR(BIF_P, BADARG);
-     
+
     /* read data from atom table */
     ap = atom_tab(atom_val(BIF_ARG_1));
     if (ap->len == 0)
@@ -3007,7 +3007,7 @@ BIF_RETTYPE atom_to_list_1(BIF_ALIST_1)
 #endif
 	erts_analyze_utf8(ap->name, ap->len, &err_pos, &num_chars, NULL);
     ASSERT(ares == ERTS_UTF8_OK);
-    
+
     res = erts_utf8_to_list(BIF_P, num_chars, ap->name, ap->len, ap->len,
 			    &num_built, &num_eaten, NIL);
     ASSERT(num_built == num_chars);
@@ -3018,7 +3018,7 @@ BIF_RETTYPE atom_to_list_1(BIF_ALIST_1)
 /**********************************************************************/
 
 /* convert a list of ascii integers to an atom */
- 
+
 BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
 {
     Eterm res;
@@ -3040,7 +3040,7 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
 }
 
 /* conditionally convert a list of ascii integers to an atom */
- 
+
 BIF_RETTYPE list_to_existing_atom_1(BIF_ALIST_1)
 {
     Sint i;
@@ -3052,7 +3052,7 @@ BIF_RETTYPE list_to_existing_atom_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P, BADARG);
     } else {
 	Eterm a;
-	
+
 	if (erts_atom_get(buf, i, &a, ERTS_ATOM_ENC_LATIN1)) {
 	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	    BIF_RET(a);
@@ -3132,7 +3132,7 @@ BIF_RETTYPE string_to_integer_1(BIF_ALIST_1)
 BIF_RETTYPE list_to_integer_1(BIF_ALIST_1)
  {
    /* Using erts_list_to_integer is about twice as fast as using
-      erts_chars_to_integer because we do not have to copy the 
+      erts_chars_to_integer because we do not have to copy the
       entire list */
      Eterm res;
      Eterm dummy;
@@ -3157,10 +3157,10 @@ BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
     i = erts_list_length(BIF_ARG_1);
     if (i < 0)
       BIF_ERROR(BIF_P, BADARG);
-    
+
     base = signed_val(BIF_ARG_2);
 
-    if (base < 2 || base > 36) 
+    if (base < 2 || base > 36)
       BIF_ERROR(BIF_P, BADARG);
 
     if (erts_list_to_integer(BIF_P, BIF_ARG_1, base,
@@ -3172,7 +3172,7 @@ BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
 
 /**********************************************************************/
 
-static int do_float_to_charbuf(Process *p, Eterm efloat, Eterm list, 
+static int do_float_to_charbuf(Process *p, Eterm efloat, Eterm list,
 			char *fbuf, int sizeof_fbuf) {
 
     const static int arity_two = make_arityval(2);
@@ -3234,14 +3234,14 @@ static BIF_RETTYPE do_float_to_list(Process *BIF_P, Eterm arg, Eterm opts) {
   int used;
   Eterm* hp;
   char fbuf[256];
-  
+
   if ((used = do_float_to_charbuf(BIF_P,arg,opts,fbuf,sizeof(fbuf))) <= 0) {
     BIF_ERROR(BIF_P, BADARG);
   }
   hp = HAlloc(BIF_P, (Uint)used*2);
   BIF_RET(buf_to_intlist(&hp, fbuf, (Uint)used, NIL));
 }
-  
+
 
 BIF_RETTYPE float_to_list_1(BIF_ALIST_1)
 {
@@ -3258,7 +3258,7 @@ BIF_RETTYPE float_to_list_2(BIF_ALIST_2)
 static BIF_RETTYPE do_float_to_binary(Process *BIF_P, Eterm arg, Eterm opts) {
   int used;
   char fbuf[256];
-  
+
   if ((used = do_float_to_charbuf(BIF_P,arg,opts,fbuf,sizeof(fbuf))) <= 0) {
     BIF_ERROR(BIF_P, BADARG);
   }
@@ -3316,7 +3316,7 @@ BIF_RETTYPE string_to_float_1(BIF_ALIST_1)
     error:
 	if (buf)
 	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
-	hp = HAlloc(BIF_P, 3);    
+	hp = HAlloc(BIF_P, 3);
 	BIF_RET(TUPLE2(hp, am_error, error_res));
     }
     if (is_not_list(list)) {
@@ -3327,24 +3327,24 @@ BIF_RETTYPE string_to_float_1(BIF_ALIST_1)
     buf = (byte *) erts_alloc(ERTS_ALC_T_TMP, bufsz);
 
     /*
-       The float might start with a SIGN (+ | -). It must contain an integer 
-       part, INT, followed by a delimiter (. | ,) and a fractional, FRAC, 
-       part. The float might also contain an exponent. If e or E indicates 
+       The float might start with a SIGN (+ | -). It must contain an integer
+       part, INT, followed by a delimiter (. | ,) and a fractional, FRAC,
+       part. The float might also contain an exponent. If e or E indicates
        this we will look for a possible EXP_SIGN (+ | -) followed by the
        exponential number, EXP. (EXP0 is the first digit and EXP1 the rest).
 
        When we encounter an expected e or E, we can't tell if it's part of
-       the float or the rest of the string. We save the current position 
+       the float or the rest of the string. We save the current position
        with SAVE_E. If we later find out it was not part of the float, we
        restore the position (end of the float) with LOAD_E.
     */
     while(1) {
-	if (is_not_small(CAR(list_val(list)))) 
+	if (is_not_small(CAR(list_val(list))))
 	    goto back_to_e;
 	if (CAR(list_val(list)) == make_small('-')) {
 	    switch (part) {
 	    case SIGN:		/* expect integer part next */
-		part = INT;		
+		part = INT;
 		break;
 	    case EXP_SIGN:	/* expect first digit in exp */
 		part = EXP0;
@@ -3382,9 +3382,9 @@ BIF_RETTYPE string_to_float_1(BIF_ALIST_1)
 	} else if (IS_E(CAR(list_val(list)))) {	/* e or E */
 	    switch (part) {
 	    case FRAC:		/* expect a + or - (or a digit) next */
-		/* 
+		/*
 		   remember the position of e in case we find out later
-		   that it was not part of the float, e.g. "2.3eh?" 
+		   that it was not part of the float, e.g. "2.3eh?"
 		*/
 		SAVE_E(i, i_mem, list, list_mem);
 		part = EXP_SIGN;
@@ -3409,7 +3409,7 @@ BIF_RETTYPE string_to_float_1(BIF_ALIST_1)
 	    }
 	} else			/* character not part of float - done */
 	    goto back_to_e;
-	
+
 	if (part == END) {
 	    if (i < 3) {	/* we require a fractional part */
 		error_res = am_no_float;
@@ -3438,7 +3438,7 @@ BIF_RETTYPE string_to_float_1(BIF_ALIST_1)
 	    break;
 	}
     }
-      
+
     if (i == 0) {		/* no float first in list */
 	error_res = am_no_float;
 	goto error;
@@ -3481,19 +3481,19 @@ BIF_RETTYPE list_to_float_1(BIF_ALIST_1)
     i = erts_list_length(BIF_ARG_1);
     if (i < 0)
       BIF_ERROR(BIF_P, BADARG);
-    
+
     buf = (char *) erts_alloc(ERTS_ALC_T_TMP, i + 1);
-    
+
     if (intlist_to_buf(BIF_ARG_1, buf, i) < 0)
       goto list_to_float_1_error;
     buf[i] = '\0';		/* null terminal */
-    
+
     if ((res = do_charbuf_to_float(BIF_P,buf)) == THE_NON_VALUE)
       goto list_to_float_1_error;
-    
+
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
     BIF_RET(res);
-    
+
  list_to_float_1_error:
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
     BIF_ERROR(BIF_P, BADARG);
@@ -3513,9 +3513,9 @@ BIF_RETTYPE binary_to_float_1(BIF_ALIST_1)
     if (is_not_binary(binary) || (size = binary_size(binary)) == 0)
       BIF_ERROR(BIF_P, BADARG);
 
-    /* 
+    /*
      *  Unfortunately we have to copy the binary because we have to insert
-     *  the '\0' at the end of the binary for strtod to work 
+     *  the '\0' at the end of the binary for strtod to work
      *  (there is no nstrtod :( )
      */
 
@@ -3530,7 +3530,7 @@ BIF_RETTYPE binary_to_float_1(BIF_ALIST_1)
 	offs = sb->offs;
 	bit_offs = sb->bitoffs;
 	real_bin = binary_val(sb->orig);
-    } 
+    }
     if (*real_bin == HEADER_PROC_BIN) {
 	bytes = ((ProcBin *) real_bin)->bytes + offs;
     } else {
@@ -3540,9 +3540,9 @@ BIF_RETTYPE binary_to_float_1(BIF_ALIST_1)
       erts_copy_bits(bytes, bit_offs, 1, buf, 0, 1, size*8);
     else
       memcpy(buf, bytes, size);
-    
+
     buf[size] = '\0';
-    
+
     if ((res = do_charbuf_to_float(BIF_P,(char*)buf)) == THE_NON_VALUE)
 	goto binary_to_float_1_error;
 
@@ -3640,7 +3640,7 @@ BIF_RETTYPE date_0(BIF_ALIST_0)
 {
      int year, month, day;
      Eterm* hp;
-     
+
      get_date(&year, &month, &day);
      hp = HAlloc(BIF_P, 4);	/* {year, month, day}  + arity */
      BIF_RET(TUPLE3(hp, make_small(year), make_small(month), make_small(day)));
@@ -3696,7 +3696,7 @@ BIF_RETTYPE localtime_0(BIF_ALIST_0)
 /**********************************************************************/
 
 /* type check and extract components from a tuple on form: {{Y,M,D},{H,M,S}} */
-static int 
+static int
 time_to_parts(Eterm date, Sint* year, Sint* month, Sint* day,
 	      Sint* hour, Sint* minute, Sint* second)
 {
@@ -3707,18 +3707,18 @@ time_to_parts(Eterm date, Sint* year, Sint* month, Sint* day,
 	return 0;
     }
     t1 = tuple_val(date);
-    if (arityval(t1[0]) !=2 || 
+    if (arityval(t1[0]) !=2 ||
 	is_not_tuple(t1[1]) || is_not_tuple(t1[2]))
 	return 0;
     t2 = tuple_val(t1[1]);
     t1 = tuple_val(t1[2]);
-    if (arityval(t2[0]) != 3 || 
+    if (arityval(t2[0]) != 3 ||
 	is_not_small(t2[1]) || is_not_small(t2[2]) || is_not_small(t2[3]))
 	return 0;
     *year  = signed_val(t2[1]);
     *month = signed_val(t2[2]);
     *day   = signed_val(t2[3]);
-    if (arityval(t1[0]) != 3 || 
+    if (arityval(t1[0]) != 3 ||
 	is_not_small(t1[1]) || is_not_small(t1[2]) || is_not_small(t1[3]))
 	return 0;
     *hour   = signed_val(t1[1]);
@@ -3730,7 +3730,7 @@ time_to_parts(Eterm date, Sint* year, Sint* month, Sint* day,
 
 /* return the universal time */
 
-BIF_RETTYPE 
+BIF_RETTYPE
 localtime_to_universaltime_2(BIF_ALIST_2)
 {
     Process *p = BIF_P;
@@ -3741,17 +3741,17 @@ localtime_to_universaltime_2(BIF_ALIST_2)
     int isdst;
     Eterm res1, res2;
     Eterm* hp;
-    
+
     if (dst == am_true) isdst = 1;
     else if (dst == am_false) isdst = 0;
     else if (dst == am_undefined) isdst = -1;
     else goto error;
-    
-    if (!time_to_parts(localtime, &year, &month, &day, 
+
+    if (!time_to_parts(localtime, &year, &month, &day,
 		       &hour, &minute, &second)) goto error;
-    if (!local_to_univ(&year, &month, &day, 
+    if (!local_to_univ(&year, &month, &day,
 		       &hour, &minute, &second, isdst)) goto error;
-    
+
     hp = HAlloc(p, 4+4+3);
     res1 = TUPLE3(hp,make_small(year),make_small(month),
 		  make_small(day));
@@ -3763,7 +3763,7 @@ localtime_to_universaltime_2(BIF_ALIST_2)
  error:
     BIF_ERROR(p, BADARG);
  }
-	 
+
 
 /**********************************************************************/
 
@@ -3776,13 +3776,13 @@ BIF_RETTYPE universaltime_to_localtime_1(BIF_ALIST_1)
     Eterm res1, res2;
     Eterm* hp;
 
-    if (!time_to_parts(BIF_ARG_1, &year, &month, &day, 
+    if (!time_to_parts(BIF_ARG_1, &year, &month, &day,
 		       &hour, &minute, &second))
 	BIF_ERROR(BIF_P, BADARG);
-    if (!univ_to_local(&year, &month, &day, 
+    if (!univ_to_local(&year, &month, &day,
 		       &hour, &minute, &second))
 	BIF_ERROR(BIF_P, BADARG);
-    
+
     hp = HAlloc(BIF_P, 4+4+3);
     res1 = TUPLE3(hp,make_small(year),make_small(month),
 		  make_small(day));
@@ -3804,7 +3804,7 @@ BIF_RETTYPE universaltime_to_posixtime_1(BIF_ALIST_1)
     Eterm *hp;
     Uint hsz = 0;
 
-    if (!time_to_parts(BIF_ARG_1, &year, &month, &day, 
+    if (!time_to_parts(BIF_ARG_1, &year, &month, &day,
 		       &hour, &minute, &second))
 	BIF_ERROR(BIF_P, BADARG);
 
@@ -3903,7 +3903,7 @@ BIF_RETTYPE throw_1(BIF_ALIST_1)
 /**********************************************************************/
 
 
-/* 
+/*
  * Non-standard, undocumented, dirty BIF, meant for debugging.
  *
  */
@@ -3921,7 +3921,7 @@ BIF_RETTYPE erts_debug_display_1(BIF_ALIST_1)
     int pres;
     Eterm res;
     Eterm *hp;
-    erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(64);       
+    erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(64);
     pres = erts_dsprintf(dsbufp, "%.*T\n", INT_MAX, BIF_ARG_1);
     if (pres < 0)
 	erts_exit(ERTS_ERROR_EXIT, "Failed to convert term to string: %d (%s)\n",
@@ -4042,7 +4042,7 @@ BIF_RETTYPE function_exported_3(BIF_ALIST_3)
 {
     int arity;
     if (is_not_atom(BIF_ARG_1) ||
-	is_not_atom(BIF_ARG_2) || 
+	is_not_atom(BIF_ARG_2) ||
 	is_not_small(BIF_ARG_3)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
@@ -4055,7 +4055,7 @@ BIF_RETTYPE function_exported_3(BIF_ALIST_3)
     BIF_RET(am_false);
 }
 
-/**********************************************************************/    
+/**********************************************************************/
 
 BIF_RETTYPE is_builtin_3(BIF_ALIST_3)
 {
@@ -4071,7 +4071,7 @@ BIF_RETTYPE is_builtin_3(BIF_ALIST_3)
 	    am_true : am_false);
 }
 
-/**********************************************************************/    
+/**********************************************************************/
 
 /* NOTE: Cannot be used in all *_to_list() bifs. erts_dsprintf() prints
  *       some terms on other formats than what is desired as results
@@ -4084,7 +4084,7 @@ term2list_dsprintf(Process *p, Eterm term)
     int pres;
     Eterm res;
     Eterm *hp;
-    erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(64);       
+    erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(64);
     pres = erts_dsprintf(dsbufp, "%T", term);
     if (pres < 0)
 	erts_exit(ERTS_ERROR_EXIT, "Failed to convert term to list: %d (%s)\n",
@@ -4131,7 +4131,7 @@ BIF_RETTYPE fun_to_list_1(BIF_ALIST_1)
     BIF_RET(term2list_dsprintf(p, fun));
 }
 
-/**********************************************************************/    
+/**********************************************************************/
 
 /* convert a pid to an erlang list (for the linked cons cells) of the form
    <node.number.serial> to a PID
@@ -4179,7 +4179,7 @@ BIF_RETTYPE list_to_pid_1(BIF_ALIST_1)
 
     cp = buf;
     if (*cp++ != '<') goto bad;
-    
+
     if (*cp < '0' || *cp > '9') goto bad;
     while(*cp >= '0' && *cp <= '9') { a = 10*a + (*cp - '0'); cp++; }
 
@@ -4220,7 +4220,7 @@ BIF_RETTYPE list_to_pid_1(BIF_ALIST_1)
 
       if (is_nil(dep->cid))
 	  goto bad;
-      
+
       enp = erts_find_or_insert_node(dep->sysname, dep->creation);
       ASSERT(enp != erts_this_node);
 
@@ -4354,8 +4354,8 @@ BIF_RETTYPE group_leader_2(BIF_ALIST_2)
 	BIF_ERROR(BIF_P, BADARG);
     }
 }
-    
-BIF_RETTYPE system_flag_2(BIF_ALIST_2)    
+
+BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 {
     Sint n;
 
@@ -4811,11 +4811,11 @@ BIF_RETTYPE phash2_2(BIF_ALIST_2)
 BIF_RETTYPE bump_reductions_1(BIF_ALIST_1)
 {
     Sint reds;
-	
+
     if (is_not_small(BIF_ARG_1) || ((reds = signed_val(BIF_ARG_1)) < 0)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
-    
+
     if (reds > CONTEXT_REDS) {
         reds = CONTEXT_REDS;
     }
@@ -5123,7 +5123,7 @@ BIF_RETTYPE dt_get_tag_data_0(BIF_ALIST_0)
 BIF_RETTYPE dt_prepend_vm_tag_data_1(BIF_ALIST_1)
 {
 #ifdef USE_VM_PROBES
-    Eterm b; 
+    Eterm b;
     Eterm *hp;
     if (is_binary((DT_UTAG(BIF_P)))) {
 	Uint sz = binary_size(DT_UTAG(BIF_P));
@@ -5135,7 +5135,7 @@ BIF_RETTYPE dt_prepend_vm_tag_data_1(BIF_ALIST_1)
 	p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),&temp_alloc);
 	for(i=0;i<sz;++i) {
 	    q[i] = p[i];
-	} 
+	}
 	erts_free_aligned_binary_bytes(temp_alloc);
 	q[sz] = '\0';
     } else {
@@ -5150,7 +5150,7 @@ BIF_RETTYPE dt_prepend_vm_tag_data_1(BIF_ALIST_1)
 BIF_RETTYPE dt_append_vm_tag_data_1(BIF_ALIST_1)
 {
 #ifdef USE_VM_PROBES
-    Eterm b; 
+    Eterm b;
     Eterm *hp;
     if (is_binary((DT_UTAG(BIF_P)))) {
 	Uint sz = binary_size(DT_UTAG(BIF_P));
@@ -5162,7 +5162,7 @@ BIF_RETTYPE dt_append_vm_tag_data_1(BIF_ALIST_1)
 	p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),&temp_alloc);
 	for(i=0;i<sz;++i) {
 	    q[i] = p[i];
-	} 
+	}
 	erts_free_aligned_binary_bytes(temp_alloc);
 	q[sz] = '\0';
     } else {
@@ -5237,13 +5237,13 @@ BIF_RETTYPE dt_restore_tag_1(BIF_ALIST_1)
 	x = unsigned_val(tpl[1]) & (DT_UTAG_SPREADING | DT_UTAG_PERMANENT);
 #ifdef DTRACE_TAG_HARDDEBUG
 
-	if (!(x & DT_UTAG_SPREADING) && (DT_UTAG_FLAGS(BIF_P) & 
+	if (!(x & DT_UTAG_SPREADING) && (DT_UTAG_FLAGS(BIF_P) &
 					 DT_UTAG_SPREADING)) {
 	    erts_fprintf(stderr,
 			 "Dtrace -> (%T) restore stop spreading "
 			 "tag %T\r\n",
 			 BIF_P->common.id, tpl[2]);
-	} else if ((x & DT_UTAG_SPREADING) && 
+	} else if ((x & DT_UTAG_SPREADING) &&
 		   !(DT_UTAG_FLAGS(BIF_P) & DT_UTAG_SPREADING)) {
 	    erts_fprintf(stderr,
 			 "Dtrace -> (%T) restore start spreading "
@@ -5256,7 +5256,7 @@ BIF_RETTYPE dt_restore_tag_1(BIF_ALIST_1)
 	    SEQ_TRACE_TOKEN(BIF_P) = am_have_dt_utag;
 	}
     }
-#else    
+#else
     if (BIF_ARG_1 != am_true) {
 	BIF_ERROR(BIF_P,BADARG);
     }

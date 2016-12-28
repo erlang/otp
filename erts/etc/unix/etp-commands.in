@@ -1,8 +1,8 @@
 #
 # %CopyrightBegin%
-# 
+#
 # Copyright Ericsson AB 2005-2016. All Rights Reserved.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,13 +14,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
 ############################################################################
 # Help commands
-# 
+#
 
 define etp-help
   help etp-help
@@ -29,31 +29,31 @@ end
 document etp-help
 %---------------------------------------------------------------------------
 % etp-help
-% 
+%
 % Same as "help etp-help"
-% 
+%
 % Emulator Toolbox for Pathologists
 % - GDB command toolbox for analyzing core dumps from the
 % Erlang emulator (BEAM).
-% 
+%
 % Should work for 32-bit erts-5.2/R9B, ...
-% 
+%
 % The commands are prefixed with:
 %   etp:  Acronym for erts-term-print
 %   etpf: Acronym for erts-term-print-flat
-% 
+%
 % User commands (these have help themselves):
-% 
+%
 % Most useful:
 %   etp, etpf
-% 
-% Useful for doing step-by-step traversal of lists and tuples after 
+%
+% Useful for doing step-by-step traversal of lists and tuples after
 % calling the toplevel command etpf:
-%   etpf-cons, etpf-boxed, 
-% 
+%   etpf-cons, etpf-boxed,
+%
 % Special commands for not really terms:
 %   etp-mfa, etp-cp, etp-disasm,
-%   etp-msgq, etpf-msgq, 
+%   etp-msgq, etpf-msgq,
 %   etp-stacktrace, etp-stackdump, etpf-stackdump, etp-dictdump
 %   etp-process-info, etp-process-memory-info
 %   etp-port-info, etp-port-state, etp-port-sched-flags
@@ -77,14 +77,14 @@ document etp-help
 %
 % Parameter handling commands:
 %   etp-show, etp-set-max-depth, etp-set-max-string-length
-% 
+%
 % Other commands you may find in this toolbox are suffixed -1, -2, ...
 % and are internal; not for the console user.
-% 
+%
 % The Erlang support module requires `erl' and `erlc' in the path.
 % The compiled "erl_commands.beam" file is stored in the current
 % working directory, so it is thereby in the search path of `erl'.
-% 
+%
 % These are just helpful commands when analyzing core dumps, but
 % you will not get away without knowing the gory details of the
 % tag bits. Do not forget about the e.g p, p/x, x and x/4x commands.
@@ -103,7 +103,7 @@ end
 
 ############################################################################
 # Toplevel commands
-# 
+#
 
 define etp
 # Args: Eterm
@@ -117,7 +117,7 @@ end
 document etp
 %---------------------------------------------------------------------------
 % etp Eterm
-% 
+%
 % Takes a toplevel Erlang term and prints the whole deep term
 % very much as in Erlang itself. Up to a max depth. See etp-show.
 %---------------------------------------------------------------------------
@@ -170,8 +170,8 @@ end
 document etpf
 %---------------------------------------------------------------------------
 % etpf Eterm
-% 
-% Takes a toplevel Erlang term and prints it is. If it is a deep term 
+%
+% Takes a toplevel Erlang term and prints it is. If it is a deep term
 % print which command to use to traverse down one level.
 %---------------------------------------------------------------------------
 end
@@ -322,7 +322,7 @@ end
 document etpf-cons
 %---------------------------------------------------------------------------
 % etpf-cons Eterm
-% 
+%
 % Takes a Cons ptr and prints the Car and Cdr cells with etpf (flat).
 %---------------------------------------------------------------------------
 end
@@ -473,7 +473,7 @@ end
 document etpf-boxed
 %---------------------------------------------------------------------------
 % etpf-boxed Eterm
-% 
+%
 % Take a Boxed ptr and print the contents in one level using etpf (flat).
 %---------------------------------------------------------------------------
 end
@@ -559,7 +559,7 @@ define etp-immediate-1
   if (($arg0) & 0x3) != 0x3
     printf "#NotImmediate<%#x>", ($arg0)
   else
-    if (($arg0) & 0xF) == 0x3 
+    if (($arg0) & 0xF) == 0x3
       etp-pid-1 ($arg0)
     else
       if (($arg0) & 0xF) == 0x7
@@ -748,7 +748,7 @@ end
 define etp-ct-name-1
 # Args: int
 #
-# Determines if integer is a name character, 
+# Determines if integer is a name character,
 # i.e non-first atom or variable character.
 #
 # Non-reentrant
@@ -1068,7 +1068,7 @@ define etp-mfa-1
     printf "+%#x>", ($arg1)
   else
     printf ">"
-  end	
+  end
 end
 
 define etp-mfa
@@ -1083,7 +1083,7 @@ end
 document etp-mfa
 %---------------------------------------------------------------------------
 % etp-mfa Eterm*
-% 
+%
 % Take an Eterm* to an MFA function name entry and print it.
 % These can be found e.g in the process structure;
 % process_tab[i]->current and process_tab[i]->initial.
@@ -1183,10 +1183,10 @@ end
 document etp-cp
 %---------------------------------------------------------------------------
 % etp-cp Eterm
-% 
-% Take a code continuation pointer and print 
-% module, function, arity and offset. 
-% 
+%
+% Take a code continuation pointer and print
+% module, function, arity and offset.
+%
 % Code continuation pointers can be found in the process structure e.g
 % process_tab[i]->cp and process_tab[i]->i, the second is the
 % program counter, which is the same thing as a continuation pointer.
@@ -1283,11 +1283,11 @@ end
 document etp-msgq
 %---------------------------------------------------------------------------
 % etp-msgq ErlMessageQueue*
-% 
-% Take an ErlMessageQueue* and print the contents of the message queue. 
-% Sequential trace tokens are included in comments and 
+%
+% Take an ErlMessageQueue* and print the contents of the message queue.
+% Sequential trace tokens are included in comments and
 % the current match position in the queue is marked '<='.
-% 
+%
 % A process's message queue is process_tab[i]->msg.
 %---------------------------------------------------------------------------
 end
@@ -1307,7 +1307,7 @@ end
 document etpf-msgq
 %---------------------------------------------------------------------------
 % etpf-msgq ErlMessageQueue*
-% 
+%
 % Same as 'etp-msgq' but print the messages using etpf (flat).
 %---------------------------------------------------------------------------
 end
@@ -1339,7 +1339,7 @@ end
 document etp-stacktrace
 %---------------------------------------------------------------------------
 % etp-stacktrace Process*
-% 
+%
 % Take an Process* and print a stactrace for the process.
 % The stacktrace consists just of the pushed code continuation
 % pointers on the stack, the most recently pushed first.
@@ -1368,7 +1368,7 @@ end
 document etp-stackdump
 %---------------------------------------------------------------------------
 % etp-stackdump Process*
-% 
+%
 % Take an Process* and print a stackdump for the process.
 % The stackdump consists of all pushed values on the stack.
 % All code continuation pointers are preceeded with a line
@@ -1389,7 +1389,7 @@ end
 document etpf-stackdump
 %---------------------------------------------------------------------------
 % etpf-stackdump Process*
-% 
+%
 % Same as etp-stackdump but print the values using etpf (flat).
 %---------------------------------------------------------------------------
 end
@@ -1801,7 +1801,7 @@ end
 document etp-proc-state-int
 %---------------------------------------------------------------------------
 % etp-proc-state-int int
-% 
+%
 % Print state of process state value
 %---------------------------------------------------------------------------
 end
@@ -1817,7 +1817,7 @@ end
 document etp-proc-state
 %---------------------------------------------------------------------------
 % etp-proc-state Process*
-% 
+%
 % Print state of process
 %---------------------------------------------------------------------------
 end
@@ -1879,7 +1879,7 @@ end
 document etp-process-info
 %---------------------------------------------------------------------------
 % etp-process-info Process*
-% 
+%
 % Print info about process
 %---------------------------------------------------------------------------
 end
@@ -2084,7 +2084,7 @@ end
 document etp-port-sched-flags-int
 %---------------------------------------------------------------------------
 % etp-proc-sched-flags-int int
-% 
+%
 % Print port sched-flags
 %---------------------------------------------------------------------------
 end
@@ -2100,7 +2100,7 @@ end
 document etp-port-sched-flags
 %---------------------------------------------------------------------------
 % etp-proc-sched-flags-int Port *
-% 
+%
 % Print port sched-flags
 %---------------------------------------------------------------------------
 end
@@ -2162,7 +2162,7 @@ end
 document etp-port-state-int
 %---------------------------------------------------------------------------
 % etp-proc-state-int int
-% 
+%
 % Print port state
 %---------------------------------------------------------------------------
 end
@@ -2178,7 +2178,7 @@ end
 document etp-port-state
 %---------------------------------------------------------------------------
 % etp-proc-state-int Port *
-% 
+%
 % Print port state
 %---------------------------------------------------------------------------
 end
@@ -2210,7 +2210,7 @@ end
 document etp-port-info
 %---------------------------------------------------------------------------
 % etp-port-info Port*
-% 
+%
 % Print info about port
 %---------------------------------------------------------------------------
 end
@@ -2240,7 +2240,7 @@ end
 document etp-ports
 %---------------------------------------------------------------------------
 % etp-ports
-% 
+%
 % Print misc info about all ports
 %---------------------------------------------------------------------------
 end
@@ -2361,7 +2361,7 @@ end
 document etp-rq-flags-int
 %---------------------------------------------------------------------------
 % etp-rq-flags-int
-% 
+%
 % Print run queue flags
 %---------------------------------------------------------------------------
 end
@@ -2391,7 +2391,7 @@ document etp-ssi-flags
 %---------------------------------------------------------------------------
 % etp-ssi-flags
 % Arg int
-% 
+%
 % Print aux work flags
 %---------------------------------------------------------------------------
 end
@@ -2442,7 +2442,7 @@ document etp-aux-work-flags
 %---------------------------------------------------------------------------
 % etp-aux-work-flags
 % Arg int
-% 
+%
 % Print aux work flags
 %---------------------------------------------------------------------------
 end
@@ -2596,7 +2596,7 @@ document etp-disasm
 %---------------------------------------------------------------------------
 % etp-disasm StartI EndI
 %
-% Disassemble the code inbetween StartI and EndI
+% Disassemble the code in-between StartI and EndI
 %---------------------------------------------------------------------------
 end
 
@@ -2616,7 +2616,7 @@ end
 document etp-migration-info
 %---------------------------------------------------------------------------
 % etp-migration-info
-% 
+%
 % Print migration information
 %---------------------------------------------------------------------------
 end
@@ -2699,7 +2699,7 @@ end
 document etp-system-info
 %---------------------------------------------------------------------------
 % etp-system-info
-% 
+%
 % Print general information about the system
 %---------------------------------------------------------------------------
 end
@@ -2796,7 +2796,7 @@ end
 document etp-dictdump
 %---------------------------------------------------------------------------
 % etp-dictdump ErlProcDict*
-% 
+%
 % Take an ErlProcDict* and print all entries in the process dictionary.
 %---------------------------------------------------------------------------
 end
@@ -2814,7 +2814,7 @@ end
 document etpf-dictdump
 %---------------------------------------------------------------------------
 % etpf-dictdump ErlProcDict*
-% 
+%
 % Same as etp-dictdump but print the values using etpf (flat).
 %---------------------------------------------------------------------------
 end
@@ -2849,7 +2849,7 @@ end
 document etp-offheapdump
 %---------------------------------------------------------------------------
 % etp-offheapdump ( ExternalThing* | ProcBin* | ErlFunThing* )
-% 
+%
 % Take an pointer to a linked list and print the terms in the list
 % up to the max depth.
 %---------------------------------------------------------------------------
@@ -2868,7 +2868,7 @@ end
 document etpf-offheapdump
 %---------------------------------------------------------------------------
 % etpf-offheapdump ( ExternalThing* | ProcBin* | ErlFunThing* )
-% 
+%
 % Same as etp-offheapdump but print the values using etpf (flat).
 %---------------------------------------------------------------------------
 end
@@ -2948,7 +2948,7 @@ end
 document etp-search-heaps
 %---------------------------------------------------------------------------
 % etp-search-heaps Eterm
-% 
+%
 % Search all process heaps in process_tab[], including the heap fragments
 % (process_tab[]->mbuf) for the specified Eterm.
 %---------------------------------------------------------------------------
@@ -3056,7 +3056,7 @@ end
 document etp-search-alloc
 %---------------------------------------------------------------------------
 % etp-search-heaps Eterm
-% 
+%
 % Search all internal allocator memory blocks for for the specified Eterm.
 %---------------------------------------------------------------------------
 end
@@ -3210,7 +3210,7 @@ end
 
 
 define etp-overlapped-heaps
-# Args: 
+# Args:
 #
 # Non-reentrant
 #
@@ -3289,8 +3289,8 @@ end
 document etp-overlapped-heaps
 %---------------------------------------------------------------------------
 % etp-overlapped-heaps
-% 
-% Dump all process heap addresses in process_tab[], including 
+%
+% Dump all process heap addresses in process_tab[], including
 % the heap fragments in binary format on the file etp-commands.bin.
 % Then call etp_commands:file/1 to analyze if any heaps overlap.
 %
@@ -3320,7 +3320,7 @@ end
 document etp-chart
 %---------------------------------------------------------------------------
 % etp-chart Process*
-% 
+%
 % Dump all process data to the file "etp-commands.bin" and then use
 % the Erlang support module to print a memory chart of all terms.
 %---------------------------------------------------------------------------
@@ -3364,7 +3364,7 @@ end
 document etp-chart-start
 %---------------------------------------------------------------------------
 % etp-chart-start Process*
-% 
+%
 % Dump a chart head to the file "etp-commands.bin".
 %---------------------------------------------------------------------------
 end
@@ -3397,7 +3397,7 @@ end
 document etp-chart-print
 %---------------------------------------------------------------------------
 % etp-chart-print Process*
-% 
+%
 % Print a memory chart of the dumped data in "etp-commands.bin", and stop
 % chart recording.
 %---------------------------------------------------------------------------
@@ -3438,7 +3438,7 @@ define etp-ets-obj
 #
   set $etp_ets_obj_i = 1
   while $etp_ets_obj_i <= (($arg0)->tpl[0] >> 6)
-    if $etp_ets_obj_i == 1      
+    if $etp_ets_obj_i == 1
       printf "{"
     else
       printf ", "
@@ -3612,8 +3612,8 @@ end
 document etp-run
 %---------------------------------------------------------------------------
 % etp-run
-% 
-% Make and run the Erlang support module on the input file 
+%
+% Make and run the Erlang support module on the input file
 % "erl-commands.bin". The environment variable ROOTDIR must
 % be set to find $ROOTDIR/erts/etc/unix/etp_commands.mk.
 %
@@ -3865,7 +3865,7 @@ end
 document etp-set-max-depth
 %---------------------------------------------------------------------------
 % etp-set-max-depth Depth
-% 
+%
 % Set the max term depth to use for etp. The term dept limit
 % works in both depth and width, so if you set the max depth to 10,
 % an 11 element flat tuple will be truncated.
@@ -3883,7 +3883,7 @@ end
 document etp-set-max-string-length
 %---------------------------------------------------------------------------
 % etp-set-max-strint-length Length
-% 
+%
 % Set the max string length to use for ept when printing lists
 % that can be shown as printable strings. Printable strings
 % that are longer will be truncated, and not even checked if
@@ -3899,8 +3899,8 @@ end
 document etp-show
 %---------------------------------------------------------------------------
 % etp-show
-% 
-% Show the commands needed to set all etp parameters 
+%
+% Show the commands needed to set all etp parameters
 % to their current value.
 %---------------------------------------------------------------------------
 end
@@ -3929,7 +3929,7 @@ end
 document etp-init
 %---------------------------------------------------------------------------
 % Use etp-help for a command overview and general help.
-% 
+%
 % To use the Erlang support module, the environment variable ROOTDIR
 % must be set to the toplevel installation directory of Erlang/OTP,
 % so the etp-commands file becomes:

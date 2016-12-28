@@ -1,8 +1,8 @@
 /*
  * %CopyrightBegin%
- * 
+ *
  * Copyright Ericsson AB 1997-2016. All Rights Reserved.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,12 +14,12 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  *
 
  */
-/* 
+/*
  * common interface to some simple synchronisation primitives for
  * internal use by ei.
  */
@@ -51,8 +51,8 @@
 
 #ifdef _REENTRANT
 
-/* 
- * Create a new mutex object. 
+/*
+ * Create a new mutex object.
  * Returns a pointer to the mutex if successful, NULL otherwise.
  */
 ei_mutex_t *ei_mutex_create(void)
@@ -76,8 +76,8 @@ ei_mutex_t *ei_mutex_create(void)
   return l;
 }
 
-/* 
- * Free a mutex and the structure asociated with it.
+/*
+ * Free a mutex and the structure associated with it.
  *
  * This function attempts to obtain the mutex before releasing it;
  * If nblock == 1 and the mutex was unavailable, the function will
@@ -87,13 +87,13 @@ ei_mutex_t *ei_mutex_create(void)
  * available, at which time it will be removed and the function will
  * succeed.
  *
- * returns 0 if the mutex is removed, -1 on failure (busy) 
+ * returns 0 if the mutex is removed, -1 on failure (busy)
  */
 int ei_mutex_free(ei_mutex_t *l, int nblock)
 {
   /* attempt to lock it first, to make sure it's really free */
   if (ei_mutex_lock(l,nblock)) return -1; /* attempt failed */
-    
+
   /* we are now holding the lock */
 #ifdef __WIN32__
   CloseHandle(l->lock);
@@ -112,7 +112,7 @@ int ei_mutex_free(ei_mutex_t *l, int nblock)
 
 /* Grab a mutex. If the mutex is not held by any other process the
  * function returns so that the caller may enter a critical section.
- * Processes subsequently wishing to obtain the lock will block 
+ * Processes subsequently wishing to obtain the lock will block
  * until this process releases it.
  *
  * If the mutex is busy (held by some other process) and nblock == 0,
@@ -121,7 +121,7 @@ int ei_mutex_free(ei_mutex_t *l, int nblock)
  *
  * If the mutex is busy and nblock != 0, the function will not block.
  * Instead it will return -1 immediately, indicating that the
- * operation failed. 
+ * operation failed.
 
  * Returns 0 on success, -1 on failure.
  */
@@ -129,8 +129,8 @@ int ei_mutex_lock(ei_mutex_t *l, int nblock)
 {
 #ifdef __WIN32__
   /* check valid values for timeout: is 0 ok? */
-  if (WaitForSingleObject(l->lock,(nblock? 0 : INFINITE)) != WAIT_OBJECT_0) 
-    return -1; 
+  if (WaitForSingleObject(l->lock,(nblock? 0 : INFINITE)) != WAIT_OBJECT_0)
+    return -1;
 
 #elif VXWORKS
   if (semTake(l->lock,(nblock? NO_WAIT : WAIT_FOREVER)) == ERROR)

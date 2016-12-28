@@ -61,7 +61,7 @@ typedef struct driver_data DriverData;
 
 static void init_console();
 static int get_and_remove_option(int* argc, char** argv, const char* option);
-static char *get_and_remove_option2(int *argc, char **argv, 
+static char *get_and_remove_option2(int *argc, char **argv,
 				    const char *option);
 static int init_async_io(DriverData *dp, struct async_io* aio, int use_threads);
 static void release_async_io(struct async_io* aio, ErlDrvPort);
@@ -156,8 +156,8 @@ void erl_sys_args(int* argc, char** argv);
 int nohup;
 #ifndef __GNUC__
 void erts_sys_invalid_parameter_handler(const wchar_t * expression,
-                                        const wchar_t * function, 
-                                        const wchar_t * file, 
+                                        const wchar_t * function,
+                                        const wchar_t * file,
                                         unsigned int line,
                                         uintptr_t pReserved
                                         )
@@ -165,7 +165,7 @@ void erts_sys_invalid_parameter_handler(const wchar_t * expression,
 #ifdef DEBUG
     fprintf(stderr,
 	    "Debug: Invalid parameter\"%ls\" "
-	    "(detected in \"%ls\" [%ls:%d]) \n", 
+	    "(detected in \"%ls\" [%ls:%d]) \n",
 	    (expression) ? expression : L"(unknown)",
 	    (function) ? function : L"(unknown)",
 	    (file) ? file : L"(unknown)",
@@ -178,8 +178,8 @@ void erts_sys_invalid_parameter_handler(const wchar_t * expression,
 void sys_primitive_init(HMODULE beam)
 {
 #ifndef __GNUC__
-    /* Initialize this module handle (the beam.dll module handle) and 
-       take care of the standard library's aggressive invalid parameter 
+    /* Initialize this module handle (the beam.dll module handle) and
+       take care of the standard library's aggressive invalid parameter
        handling... */
     _set_invalid_parameter_handler(&erts_sys_invalid_parameter_handler);
 #endif
@@ -223,14 +223,14 @@ void erl_sys_args(int* argc, char** argv)
     }
 #endif
 
-    if (nohup && (event_name = get_and_remove_option2(argc, argv, 
+    if (nohup && (event_name = get_and_remove_option2(argc, argv,
 						      "-service_event"))) {
-	if ((erts_service_event = 
+	if ((erts_service_event =
 	     OpenEvent(EVENT_ALL_ACCESS,FALSE,event_name)) == NULL) {
 	    erts_fprintf(stderr,
-			 "Warning: could not open service event: %s\r\n", 
+			 "Warning: could not open service event: %s\r\n",
 			 event_name);
-	}	    
+	}
     } else {
 	erts_service_event = NULL;
     }
@@ -315,7 +315,7 @@ init_console(void)
     erts_free_read_env(mode);
 }
 
-int sys_max_files(void) 
+int sys_max_files(void)
 {
     return max_files;
 }
@@ -349,7 +349,7 @@ get_and_remove_option(int* argc, char* argv[], const char *option)
     return 0;
 }
 
-static char *get_and_remove_option2(int *argc, char **argv, 
+static char *get_and_remove_option2(int *argc, char **argv,
 				    const char *option)
 {
     char *ret;
@@ -371,7 +371,7 @@ static char *get_and_remove_option2(int *argc, char **argv,
     }
     return NULL;
 }
-    
+
 
 /************************** OS info *******************************/
 
@@ -492,7 +492,7 @@ struct driver_data {
     int outBufSize;		/* Size of output buffer. */
     byte *outbuf;		/* Buffer to use for overlapped write. */
     ErlDrvPort port_num;	/* The port handle. */
-    int packet_bytes;		/* 0: continous stream, 1, 2, or 4: the number
+    int packet_bytes;		/* 0: continuous stream, 1, 2, or 4: the number
 				 * of bytes in the packet header.
 				 */
     HANDLE port_pid;		/* PID of the port process. */
@@ -726,10 +726,10 @@ release_driver_data(DriverData* dp)
     }
 #else
 	if (dp->in.thread == (HANDLE) -1 && dp->in.fd != INVALID_HANDLE_VALUE) {
-	     CancelIo(dp->in.fd); 
+	     CancelIo(dp->in.fd);
 	}
 	if (dp->out.thread == (HANDLE) -1 && dp->out.fd != INVALID_HANDLE_VALUE) {
-	    CancelIo(dp->out.fd); 
+	    CancelIo(dp->out.fd);
 	}
 #endif
 
@@ -960,7 +960,7 @@ init_async_io(DriverData *dp, AsyncIo* aio, int use_threads)
 
 /*
  * Releases everything allocated in an AsyncIo structure.
- */  
+ */
 
 static void
 release_async_io(AsyncIo* aio, ErlDrvPort port_num)
@@ -1048,7 +1048,7 @@ async_read_file(AsyncIo* aio, LPVOID buf, DWORD numToRead)
 /* ----------------------------------------------------------------------
  * async_write_file --
  *	Initiaties an asynchronous file write, or simulates that using
- *	the output thread associated with this driver data. 
+ *	the output thread associated with this driver data.
  *	To get the results, call get_overlapped_result().
  *
  * Results:
@@ -1162,16 +1162,16 @@ get_overlapped_result(AsyncIo* aio,		/* Pointer to async control block. */
     }
     return NO_ERROR;
 }
-  
+
 static int
 fd_init(void)
 {
     char kernel_dll_name[] = "kernel32";
     HMODULE module;
     module = GetModuleHandle(kernel_dll_name);
-    fpSetHandleInformation = (module != NULL) ? 
-	(BOOL (WINAPI *)(HANDLE,DWORD,DWORD)) 
-	GetProcAddress(module,"SetHandleInformation") : 
+    fpSetHandleInformation = (module != NULL) ?
+	(BOOL (WINAPI *)(HANDLE,DWORD,DWORD))
+	GetProcAddress(module,"SetHandleInformation") :
 	NULL;
 
     return 0;
@@ -1224,7 +1224,7 @@ spawn_start(ErlDrvPort port_num, char* utf8_name, SysDriverOpts* opts)
      */
 
     if (opts->read_write & DO_READ) {
-	if (!create_pipe(&hFromChild, &hChildStdout, FALSE, 
+	if (!create_pipe(&hFromChild, &hChildStdout, FALSE,
 			 opts->overlapped_io))
 	    goto error;
     } else {
@@ -1245,7 +1245,7 @@ spawn_start(ErlDrvPort port_num, char* utf8_name, SysDriverOpts* opts)
 				 &sa, OPEN_EXISTING,
 				 FILE_ATTRIBUTE_NORMAL, NULL);
 	DEBUGF(("Created nul file for hChildStdin = %d\n",hChildStdin));
-    }	
+    }
 
     /*
      * Make sure that standard error is valid handle, because a Command Prompt
@@ -1280,7 +1280,7 @@ spawn_start(ErlDrvPort port_num, char* utf8_name, SysDriverOpts* opts)
 	name[i] = L'\0';
     }
     DEBUGF(("Spawning \"%S\"\n", name));
-    envir = win_build_environment(envir); /* Always a unicode environment */ 
+    envir = win_build_environment(envir); /* Always a unicode environment */
     ok = create_child_process(name,
 			      hChildStdin,
 			      hChildStdout,
@@ -1309,7 +1309,7 @@ spawn_start(ErlDrvPort port_num, char* utf8_name, SysDriverOpts* opts)
 	dp->port_pid = INVALID_HANDLE_VALUE;
 	if (errno_return >= 0) {
 	    retval = ERL_DRV_ERROR_ERRNO;
-	} 
+	}
     } else {
 	if (!use_named_pipes) {
 	    if ((opts->read_write & DO_READ) &&
@@ -1337,10 +1337,10 @@ spawn_start(ErlDrvPort port_num, char* utf8_name, SysDriverOpts* opts)
             erl_drv_set_os_pid(port_num, pid);
 	}
     }
-    
+
     if (retval != ERL_DRV_ERROR_GENERAL && retval != ERL_DRV_ERROR_ERRNO)
 	return retval;
-    
+
  error:
     if (hFromChild != INVALID_HANDLE_VALUE)
 	CloseHandle(hFromChild);
@@ -1360,7 +1360,7 @@ create_file_thread(AsyncIo* aio, int mode)
 
     refer_driver_data(aio->dp);
     aio->thread = (HANDLE)
-	_beginthreadex(NULL, 0, 
+	_beginthreadex(NULL, 0,
 		       (mode & DO_WRITE) ? threaded_writer : threaded_reader,
 		       aio, 0, &tid);
     if (aio->thread != (HANDLE) -1)
@@ -1369,7 +1369,7 @@ create_file_thread(AsyncIo* aio, int mode)
     return 0;
 }
 
-/* 
+/*
  *  A helper function used by create_child_process().
  *  Parses a command line with arguments and returns the length of the
  *  first part containing the program name.
@@ -1387,7 +1387,7 @@ int parse_command(wchar_t* cmd){
     while (cmd[i]) {
 	switch (cmd[i]) {
 	case L'"':
-	    if (state == NORMAL) 
+	    if (state == NORMAL)
 		state = STRING;
 	    else
 		state = NORMAL;
@@ -1414,7 +1414,7 @@ int parse_command(wchar_t* cmd){
 
 /*
  * Translating of command line arguments to correct format. In the examples
- * below the '' are not part of the actual string. 
+ * below the '' are not part of the actual string.
  * 'io:format("hello").' -> 'io:format(\"hello\").'
  * 'io:format("is anybody in there?").' -> '"io:format(\"is anybody in there?\")."'
  * 'Just nod if you can hear me.' -> '"Just nod if you can hear me."'
@@ -1423,7 +1423,7 @@ int parse_command(wchar_t* cmd){
  *
  * If new == NULL we just calculate the length.
  *
- * The reason for having to quote all of the is becasue CreateProcessW removes
+ * The reason for having to quote all of the is because CreateProcessW removes
  * one level of escaping since it takes a single long command line rather
  * than the argument chunks that unix uses.
  */
@@ -1457,25 +1457,25 @@ static int escape_and_quote(wchar_t *str, wchar_t *new, BOOL *quoted) {
  *
  * create_child_process --
  *
- *	Create a child process that has pipes as its 
+ *	Create a child process that has pipes as its
  *	standard input, output, and error.  The child process runs
  *	synchronously under Win32s and asynchronously under Windows NT
  *	and Windows 95, and runs with the same environment variables
  *	as the creating process.
  *
- *	The complete Windows search path is searched to find the specified 
- *	executable.  If an executable by the given name is not found, 
- *	automatically tries appending ".com", ".exe", and ".bat" to the 
+ *	The complete Windows search path is searched to find the specified
+ *	executable.  If an executable by the given name is not found,
+ *	automatically tries appending ".com", ".exe", and ".bat" to the
  *	executable name.
  *
  * Results:
- *	The return value is FALSE if there was a problem creating the child process.  
+ *	The return value is FALSE if there was a problem creating the child process.
  *      Otherwise, the return value is 0 and *phPid is
  *	filled with the process id of the child process.
- * 
+ *
  * Side effects:
  *	A process is created.
- *	
+ *
  *----------------------------------------------------------------------
  */
 
@@ -1487,7 +1487,7 @@ create_child_process
 		  * ERTS_SPAWN_EXECUTABLE
 		  */
  HANDLE hStdin,  /* The standard input handle for child. */
- HANDLE hStdout, /* The standard output handle for child. */ 
+ HANDLE hStdout, /* The standard output handle for child. */
  HANDLE hStderr, /* The standard error handle for child. */
  LPHANDLE phPid, /* Pointer to variable to received Process handle. */
  LPDWORD pdwID,   /* Pointer to variable to received Process ID */
@@ -1503,7 +1503,7 @@ create_child_process
     BOOL ok = FALSE;
     int applType;
     /* Not to be changed for different types of executables */
-    int staticCreateFlags = GetPriorityClass(GetCurrentProcess()); 
+    int staticCreateFlags = GetPriorityClass(GetCurrentProcess());
     int createFlags = DETACHED_PROCESS;
     wchar_t *newcmdline = NULL;
     int cmdlength;
@@ -1581,12 +1581,12 @@ create_child_process
 	applType = application_type(origcmd, execPath, FALSE, FALSE, errno_return);
 	if (applType == APPL_NONE) {
 	    return FALSE;
-	} 
+	}
 	if (applType == APPL_DOS) {
 	    /*
 	     * See comment above
 	     */
-		
+
 	    siStartInfo.wShowWindow = SW_HIDE;
 	    siStartInfo.dwFlags |= STARTF_USESHOWWINDOW;
 	    createFlags = CREATE_NEW_CONSOLE;
@@ -1610,7 +1610,7 @@ create_child_process
 	    appname = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP, (wcslen(execPath)+1)*sizeof(wchar_t));
 	    wcscpy(appname, execPath);
 	}
-	if (argv == NULL) { 
+	if (argv == NULL) {
 	    BOOL orig_need_q;
 	    wchar_t *ptr;
 	    int ocl = escape_and_quote(execPath, NULL, &orig_need_q);
@@ -1666,8 +1666,8 @@ create_child_process
 		argv[0] = save_arg0;
 	    }
 	    erts_free(ERTS_ALC_T_TMP, qte);
-	}	    
-	    
+	}
+
 	DEBUGF((stderr,"Creating child process: %S, createFlags = %d\n", newcmdline, createFlags));
 	ok = CreateProcessW((wchar_t *) appname,
 			    (wchar_t *) newcmdline,
@@ -1684,10 +1684,10 @@ create_child_process
     } /* end SPAWN_EXECUTABLE */
     if (newcmdline != NULL) {
 	    erts_free(ERTS_ALC_T_TMP,newcmdline);
-    }	
+    }
     if (appname != NULL) {
 	    erts_free(ERTS_ALC_T_TMP,appname);
-    }	
+    }
     if (!ok) {
 	DEBUGF(("CreateProcess failed: %s\n", last_error()));
 	if (*errno_return < 0) {
@@ -1702,15 +1702,15 @@ create_child_process
     if (applType == APPL_DOS) {
 	WaitForSingleObject(hProcess, 50);
     }
-    
+
     return ok;
 }
 
-/* 
+/*
  * Note, inheritRead == FALSE means "inhetitWrite", i e one of the
- * pipe ends is always expected to be inherited. The pipe end that should 
+ * pipe ends is always expected to be inherited. The pipe end that should
  * be inherited is opened without overlapped io flags, as the child program
- * would expect stdout not to demand overlapped I/O. 
+ * would expect stdout not to demand overlapped I/O.
  */
 static int create_pipe(HANDLE *phRead, HANDLE *phWrite, BOOL inheritRead, BOOL overlapped_io)
 {
@@ -1759,7 +1759,7 @@ static int create_pipe(HANDLE *phRead, HANDLE *phWrite, BOOL inheritRead, BOOL o
     DEBUGF(("Creating pipe %s\n", pipe_name));
     sa.bInheritHandle = inheritRead;
     if ((*phRead = CreateNamedPipe(pipe_name,
-				   PIPE_ACCESS_INBOUND | 
+				   PIPE_ACCESS_INBOUND |
 				   ((inheritRead && !overlapped_io) ? 0 : FILE_FLAG_OVERLAPPED),
 				   PIPE_TYPE_BYTE | PIPE_READMODE_BYTE,
 				   1,
@@ -1770,14 +1770,14 @@ static int create_pipe(HANDLE *phRead, HANDLE *phWrite, BOOL inheritRead, BOOL o
 	DEBUGF(("Error creating pipe: %s\n", last_error()));
 	return FALSE;
     }
-  
+
     sa.bInheritHandle = !inheritRead;
     if ((*phWrite = CreateFile(pipe_name,
 			       GENERIC_WRITE,
 			       0, /* No sharing */
 			       &sa,
 			       OPEN_EXISTING,
-			       FILE_ATTRIBUTE_NORMAL | 
+			       FILE_ATTRIBUTE_NORMAL |
 			       ((inheritRead || overlapped_io) ? FILE_FLAG_OVERLAPPED : 0),
 			       NULL)) == INVALID_HANDLE_VALUE) {
 	CloseHandle(*phRead);
@@ -1806,7 +1806,7 @@ static int application_type (const wchar_t *originalName, /* Name of the applica
     wchar_t xfullpath[MAX_PATH];
 
     len = wcslen(originalName);
-    is_quoted = handle_quotes && len > 0 && originalName[0] == L'"' && 
+    is_quoted = handle_quotes && len > 0 && originalName[0] == L'"' &&
 	originalName[len-1] == L'"';
 
     applType = APPL_NONE;
@@ -1842,23 +1842,23 @@ static int application_type (const wchar_t *originalName, /* Name of the applica
 	    break;
 	}
 
-	hFile = CreateFileW(wfullpath, GENERIC_READ, FILE_SHARE_READ, NULL, 
+	hFile = CreateFileW(wfullpath, GENERIC_READ, FILE_SHARE_READ, NULL,
 		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hFile == INVALID_HANDLE_VALUE) {
 	    continue;
 	}
 
-	*error_return = EACCES; /* If considered an error, 
+	*error_return = EACCES; /* If considered an error,
 				    it's an access error */
 	header.e_magic = 0;
 	ReadFile(hFile, (void *) &header, sizeof(header), &read, NULL);
 	if (header.e_magic != IMAGE_DOS_SIGNATURE) {
-	    /* 
-	     * Doesn't have the magic number for relocatable executables.  If 
+	    /*
+	     * Doesn't have the magic number for relocatable executables.  If
 	     * filename ends with .com, assume it's a DOS application anyhow.
 	     * Note that we didn't make this assumption at first, because some
 	     * supposed .com files are really 32-bit executables with all the
-	     * magic numbers and everything.  
+	     * magic numbers and everything.
 	     */
 
 	    CloseHandle(hFile);
@@ -1869,9 +1869,9 @@ static int application_type (const wchar_t *originalName, /* Name of the applica
 	    continue;
 	}
 	if (header.e_lfarlc != sizeof(header)) {
-	    /* 
+	    /*
 	     * All Windows 3.X and Win32 and some DOS programs have this value
-	     * set here.  If it doesn't, assume that since it already had the 
+	     * set here.  If it doesn't, assume that since it already had the
 	     * other magic number it was a DOS application.
 	     */
 
@@ -1880,7 +1880,7 @@ static int application_type (const wchar_t *originalName, /* Name of the applica
 	    break;
 	}
 
-	/* 
+	/*
 	 * The DWORD at header.e_lfanew points to yet another magic number.
 	 */
 
@@ -1906,10 +1906,10 @@ static int application_type (const wchar_t *originalName, /* Name of the applica
     }
 
     if ((applType == APPL_DOS) || (applType == APPL_WIN3X)) {
-	/* 
-	 * Replace long path name of executable with short path name for 
+	/*
+	 * Replace long path name of executable with short path name for
 	 * 16-bit applications.  Otherwise the application may not be able
-	 * to correctly parse its own command line to separate off the 
+	 * to correctly parse its own command line to separate off the
 	 * application name from the arguments.
 	 */
 
@@ -1937,7 +1937,7 @@ threaded_reader(LPVOID param)
     HANDLE thread = GetCurrentThread();
     char* buf;
     DWORD numToRead;
-  
+
     for (;;) {
 	WaitForSingleObject(aio->ioAllowed, INFINITE);
 	if (aio->flags & DF_EXIT_THREAD)
@@ -1951,7 +1951,7 @@ threaded_reader(LPVOID param)
 	} else if (aio->flags & DF_XLAT_CR) {
 	    char *s;
 	    int n;
-	    
+
 	    n = aio->bytesTransferred;
 	    for (s = buf; s < buf+n; s++) {
 		if (*s == '\r') {
@@ -1994,7 +1994,7 @@ threaded_writer(LPVOID param)
     HANDLE handles[2];
     handles[0] = aio->ioAllowed;
     handles[1] = aio->flushEvent;
-  
+
     for (;;) {
 	handle = WaitForMultipleObjects(2, handles, FALSE, INFINITE);
 	if (aio->flags & DF_EXIT_THREAD) {
@@ -2014,16 +2014,16 @@ threaded_writer(LPVOID param)
 	ok = WriteFile(aio->fd, buf, numToWrite, &aio->bytesTransferred, NULL);
 	if (!ok) {
 	    aio->pendingError = GetLastError();
-	    if (aio->pendingError == ERROR_INVALID_HANDLE && 
+	    if (aio->pendingError == ERROR_INVALID_HANDLE &&
 		aio->flags & DF_DROP_IF_INVH) {
-		/* This is standard error and we'we got an 
-		   invalid standard error FD (non-inheritable) from parent. 
+		/* This is standard error and we'we got an
+		   invalid standard error FD (non-inheritable) from parent.
 		   Just drop the message and be happy. */
 		aio->pendingError = 0;
 		aio->bytesTransferred = numToWrite;
 	    } else if (aio->pendingError == ERROR_NOT_ENOUGH_MEMORY) {
-		/* This could be a console, which limits utput to 64kbytes, 
-		   which might translate to less on a unicode system. 
+		/* This could be a console, which limits utput to 64kbytes,
+		   which might translate to less on a unicode system.
 		   Try 16k chunks and see if it works before giving up. */
 		int done = 0;
 		DWORD transferred;
@@ -2036,13 +2036,13 @@ threaded_writer(LPVOID param)
 		    done += 0x4000;
 		}
 		if (ok && (numToWrite - done) > 0) {
-		    ok = WriteFile(aio->fd, buf + done, (numToWrite - done), 
+		    ok = WriteFile(aio->fd, buf + done, (numToWrite - done),
 				   &transferred, NULL);
 		    aio->bytesTransferred += transferred;
 		}
 		if (!ok) {
 		    aio->pendingError = GetLastError();
-		}  
+		}
 	    }
 	}
 	OV_NUM_TO_READ(aio) = 0;
@@ -2116,7 +2116,7 @@ fd_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
     } else {
 	if ((dp = new_driver_data(port_num, opts->packet_bytes, 2, TRUE)) == NULL)
 	    return ERL_DRV_ERROR_GENERAL;
-	
+
 	/**
 	 * Here is a brief description about how the fd driver works on windows.
 	 *
@@ -2157,18 +2157,18 @@ fd_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
 	if (!create_file_thread(&dp->in, DO_READ)) {
 	    return ERL_DRV_ERROR_GENERAL;
 	}
-	
+
 	if (!create_file_thread(&dp->out, DO_WRITE)) {
 	    return ERL_DRV_ERROR_GENERAL;
 	}
-	
+
 	fd_driver_input = &(dp->in);
 	dp->in.flags = DF_XLAT_CR;
 	if (is_std_error) {
 	    dp->out.flags |= DF_DROP_IF_INVH; /* Just drop messages if stderror
 						 is an invalid handle */
 	}
-	
+
 	if ( in == 0 && out == 1) {
 	    save_01_port = dp;
 	} else if (in == 2 && out == 2) {
@@ -2186,7 +2186,7 @@ static void fd_stop(ErlDrvData data)
    * Instead we let it live until it's opened again (which it is,
    * as the only FD-drivers are for 0,1 and 2 adn the only time they
    * get closed is by init:reboot).
-   * So - just deselect them and let everything be as is. 
+   * So - just deselect them and let everything be as is.
    * They get woken up in fd_start again, where the DriverData is
    * remembered. /PaN
    */
@@ -2204,7 +2204,7 @@ static void fd_stop(ErlDrvData data)
 	SetEvent(dp->out.flushEvent);
       } while (WaitForSingleObject(dp->out.flushReplyEvent, 10) == WAIT_TIMEOUT
 	       && !(dp->out.flags & DF_THREAD_FLUSHED));
-  }    
+  }
 
 }
 
@@ -2234,7 +2234,7 @@ vanilla_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
 	return ERL_DRV_ERROR_GENERAL;
     ofd = CreateFile(name, access, FILE_SHARE_READ | FILE_SHARE_WRITE,
 		    NULL, crFlags, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (!DuplicateHandle(this_process, (HANDLE) ofd,	
+    if (!DuplicateHandle(this_process, (HANDLE) ofd,
 			 this_process, &ifd, 0,
 			 FALSE, DUPLICATE_SAME_ACCESS)) {
 	CloseHandle(ofd);
@@ -2260,7 +2260,7 @@ stop(ErlDrvData data)
 	(void) driver_select(dp->port_num,
 			     (ErlDrvEvent)dp->out.ov.hEvent,
 			     ERL_DRV_WRITE|ERL_DRV_USE_NO_CALLBACK, 0);
-    }    
+    }
 
     if (dp->out.thread == (HANDLE) -1 && dp->in.thread == (HANDLE) -1) {
 	release_driver_data(dp);
@@ -2355,7 +2355,7 @@ threaded_exiter(LPVOID param)
 	    error = WaitForSingleObject(dp->out.thread, INFINITE);
 	}
     }
-    
+
     if (dp->in.thread != (HANDLE) -1) {
 	if (WaitForSingleObject(dp->in.thread, 0) == WAIT_OBJECT_0) {
 	    CloseHandle(dp->in.thread);
@@ -2460,7 +2460,7 @@ output(ErlDrvData drv_data, char* buf, ErlDrvSizeT len)
 
     if (len)
 	memcpy(current, buf, len);
-    
+
     if (!async_write_file(&dp->out, dp->outbuf, pb+len)) {
 	set_busy_port(dp->port_num, 1);
     } else {
@@ -2482,7 +2482,7 @@ output(ErlDrvData drv_data, char* buf, ErlDrvSizeT len)
  *	event object has been signaled, indicating that there is
  *	something to read on the corresponding file handle.
  *
- *	If the port is working in the continous stream mode (packet_bytes == 0),
+ *	If the port is working in the continuous stream mode (packet_bytes == 0),
  *	whatever data read will be sent straight to Erlang.
  *
  * Results:
@@ -2523,7 +2523,7 @@ ready_input(ErlDrvData drv_data, ErlDrvEvent ready_event)
 #endif
 
     if (error == NO_ERROR) {
-	if (pb == 0) { /* Continous stream. */
+	if (pb == 0) { /* Continuous stream. */
 #ifdef DEBUG
 	    DEBUGF(("ready_input: %d: ", bytesRead));
 	    erl_bin_write(dp->inbuf, 16, bytesRead);
@@ -2555,7 +2555,7 @@ ready_input(ErlDrvData drv_data, ErlDrvEvent ready_event)
 
 		    int packet_size = 0;
 		    unsigned char *header = (unsigned char *) dp->inbuf;
-		    
+
 		    switch (pb) {
 		    case 4:
 			packet_size = (packet_size << 8) | *header++;
@@ -2565,16 +2565,16 @@ ready_input(ErlDrvData drv_data, ErlDrvEvent ready_event)
 		    case 1:
 			packet_size = (packet_size << 8) | *header++;
 		    }
-		    
+
 		    dp->totalNeeded += packet_size;
-		    
+
 		    /*
 		     * Make sure that the receive buffer is big enough.
 		     */
-		    
+
 		    if (dp->inBufSize < dp->totalNeeded) {
 			char* new_buf;
-		    
+
 			new_buf = DRV_BUF_REALLOC(dp->inbuf, dp->totalNeeded);
 			if (new_buf == NULL) {
 			    error = ERROR_NOT_ENOUGH_MEMORY;
@@ -2587,11 +2587,11 @@ ready_input(ErlDrvData drv_data, ErlDrvEvent ready_event)
 			dp->inbuf = new_buf;
 		    }
 		}
-		
+
 		/*
 		 * Check for completion of a packet read.
 		 */
-		
+
 		if (dp->bytesInBuffer < dp->totalNeeded) {
 		    /*
 		     * Not enough bytes in the buffer.  Break out of
@@ -2600,32 +2600,32 @@ ready_input(ErlDrvData drv_data, ErlDrvEvent ready_event)
 
 		    break;
 		} else {
-		    
+
 		    /*
 		     * We have successfully read a complete packet, which
 		     * can be passed to Erlang.
 		     */
-		    
+
 		    driver_output(dp->port_num, dp->inbuf+pb, dp->totalNeeded-pb);
-		    
+
 		    /*
 		     * Update the number of bytes remaining in the buffer,
 		     * and move the data remaining (if any) to the beginning
 		     * of the buffer.
 		     */
-		    
+
 		    dp->bytesInBuffer -= dp->totalNeeded;
 		    if (dp->bytesInBuffer > 0) {
 			memmove(dp->inbuf, dp->inbuf+dp->totalNeeded,
 				dp->bytesInBuffer);
 		    }
-		    
+
 		    /*
 		     * Indicate that we need the size of a header, and
 		     * go through the loop once more (to either process
 		     * remaining bytes or initiate reading more).
 		     */
-		    
+
 		    dp->totalNeeded = pb;
 		}
 	    }
@@ -2725,10 +2725,10 @@ void sys_get_pid(char *buffer, size_t buffer_size){
 void
 sys_init_io(void)
 {
-    
+
     /* Now heres an icky one... This is called before drivers are, so we
        can change our view of the number of open files possible.
-       We estimate the number to twice the amount of ports. 
+       We estimate the number to twice the amount of ports.
        We really dont know on windows, do we? */
     max_files = 2*erts_ptab_max(&erts_port);
 }
@@ -2821,7 +2821,7 @@ Preload* sys_preloaded(void)
 	exit(1);
     }
     data = (unsigned char *) LoadResource(beam_module, hRes);
-    
+
     num_preloaded = GETWORD(data);
     if (num_preloaded == 0) {
 	fprintf(stderr, "No preloaded modules\n");
@@ -2838,7 +2838,7 @@ Preload* sys_preloaded(void)
 			    + (num_preloaded+1)*sizeof(unsigned));
     for (i = 0; i < num_preloaded; i++) {
 	int n;
-	
+
 	preloaded[i].size = GETDWORD(data);
 	data += 4;
 	res_name[i] = GETWORD(data);
@@ -2855,7 +2855,7 @@ Preload* sys_preloaded(void)
     }
     preloaded[i].name = NULL;
     }
-    
+
 #undef GETWORD
 #undef GETDWORD
     return preloaded;
@@ -2866,7 +2866,7 @@ unsigned char* sys_preload_begin(Preload* pp)
 {
     HRSRC hRes;
     unsigned resource;
-    
+
     ASSERT(beam_module != NULL);
 
     resource = res_name[pp-preloaded];
@@ -2995,17 +2995,17 @@ static void debug_console(void)
   sa.lpSecurityDescriptor = NULL;
   sa.bInheritHandle = TRUE;
   if (!CreatePipe(&hRead, &hDebugWrite, &sa, 0)) {
-    fprintf(stderr, "Failed to create pipe: %d\n", 
+    fprintf(stderr, "Failed to create pipe: %d\n",
 	    GetLastError());
     exit(1);
   }
 
   startInfo.cb = sizeof(STARTUPINFO);
   startInfo.lpTitle = "Erlang Debug Log";
-  startInfo.lpReserved = NULL; 
-  startInfo.lpReserved2 = NULL; 
-  startInfo.cbReserved2 = 0; 
-  startInfo.lpDesktop = NULL;  
+  startInfo.lpReserved = NULL;
+  startInfo.lpReserved2 = NULL;
+  startInfo.cbReserved2 = 0;
+  startInfo.lpDesktop = NULL;
   startInfo.dwFlags = STARTF_USESTDHANDLES;
   startInfo.hStdInput = hRead;
 
@@ -3025,7 +3025,7 @@ static void debug_console(void)
 		     &procInfo	/* Process information. */
 		     );
 
-  CloseHandle(hRead); 
+  CloseHandle(hRead);
 
   if (ok) {
     /*
@@ -3058,7 +3058,7 @@ erl_bin_write(buf, sz, max)
     imax = max;
   else
     imax = sz;
-  
+
   for (i=0; i<imax; i++) {
     if (i == imax-1) {
       if (sz > max)
@@ -3082,7 +3082,7 @@ erl_bin_write(buf, sz, max)
 
 void
 erl_assert_error(const char* expr, const char* func, const char* file, int line)
-{   
+{
     char message[1024];
 
     erts_snprintf(message, sizeof(message),
@@ -3095,7 +3095,7 @@ erl_assert_error(const char* expr, const char* func, const char* file, int line)
     DebugBreak();
 }
 
-	    
+
 static void
 check_supported_os_version(void)
 {
@@ -3206,7 +3206,7 @@ void noinherit_std_handle(DWORD type)
 	SetHandleInformation(h,HANDLE_FLAG_INHERIT,0);
     }
 }
-	    
+
 
 void erl_sys_init(void)
 {
@@ -3251,7 +3251,7 @@ void erl_sys_init(void)
     /*
      * The following makes sure that the current directory for the current drive
      * is remembered (in the environment).
-     */  
+     */
 
     chdir(".");
 
@@ -3267,7 +3267,7 @@ void erl_sys_init(void)
 
     /* Suppress windows error message popups */
     SetErrorMode(SetErrorMode(0) |
-		 SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX); 
+		 SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
 }
 
 void

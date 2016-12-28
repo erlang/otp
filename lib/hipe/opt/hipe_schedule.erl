@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -26,7 +26,7 @@
 %% * while ready[cycle] nonempty do
 %%   - take x with greatest priority from ready[cycle]
 %%   - try to schedule x;
-%%     * if scheduling x was possible, 
+%%     * if scheduling x was possible,
 %%       - reserve resources
 %%       - add x to schedule and delete x from dag
 %%       - update earliest-time for all successor nodes
@@ -94,13 +94,13 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Function    : cfg
-%% Argument    : CFG - the control flow graph 
+%% Argument    : CFG - the control flow graph
 %% Returns     : CFG - A new cfg with scheduled blocks
 %% Description : Takes each basic block and schedules them one by one.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cfg(CFG) ->
     ?debug3("CFG: ~n~p", [CFG]),
-    update_all( [ {L, 
+    update_all( [ {L,
 		   hipe_bb:mk_bb(
 		     block(L,hipe_bb:code(hipe_sparc_cfg:bb(CFG,L))) )}
 		 || L <- hipe_sparc_cfg:labels(CFG) ], CFG).
@@ -127,7 +127,7 @@ est_cfg(CFG) ->
 %%
 %% Provides an estimation of how quickly a block will execute.
 %% This is done by chaining all instructions in sequential order
-%% by 0-cycle dependences (which means they will never be reordered), 
+%% by 0-cycle dependences (which means they will never be reordered),
 %% then scheduling the mess.
 
 est_block([]) -> [];
@@ -164,8 +164,8 @@ lookup_instr([_|Xs], N) -> lookup_instr(Xs, N).
 %%
 %%               Note: does not consider delay slots!
 %%              (another argument for using only annulled delay slots?)
-%%               * how do we add delay slots? somewhat tricky to 
-%%                 reconcile with the sort of scheduling we consider. 
+%%               * how do we add delay slots? somewhat tricky to
+%%                 reconcile with the sort of scheduling we consider.
 %%                 (as-early-as-possible)
 %%                 => rewrite scheduler into as-late-as-possible?
 %%                (=> just reverse the dependence arcs??)
@@ -174,7 +174,7 @@ lookup_instr([_|Xs], N) -> lookup_instr(Xs, N).
 %% Don't fire up the scheduler if there's no work to do.
 block(_, []) ->
     [];
-block(_L, [I]) -> 
+block(_L, [I]) ->
     case hipe_sparc:is_any_branch(I) of
 	true -> [hipe_sparc:nop_create(), I];
 	false -> [I]
@@ -200,7 +200,7 @@ block(_L, Blk) ->
 %% Argument    : Sch - List of {{cycle, C}, {node, N}} : C = current cycle
 %%                                                       N = node index
 %%               IxBlk - Indexed block [{N, Instr}]
-%%               DAG   - Dependence graph 
+%%               DAG   - Dependence graph
 %% Returns     : {NewSch, NewIxBlk} - vector with new schedule and vector
 %%                                    with {N, Instr}
 %% Description : Goes through the schedule from back to front looking for
@@ -211,7 +211,7 @@ block(_L, Blk) ->
 fill_delays(Sch, IxBlk, DAG) ->
     NewIxBlk =  hipe_vectors:list_to_vector(IxBlk),
     %% NewSch = hipe_vectors:list_to_vector(Sch),
-    NewSch = fill_del(length(Sch), hipe_vectors:list_to_vector(Sch), 
+    NewSch = fill_del(length(Sch), hipe_vectors:list_to_vector(Sch),
 		      NewIxBlk, DAG),
     {NewSch, NewIxBlk}.
 
@@ -221,7 +221,7 @@ fill_delays(Sch, IxBlk, DAG) ->
 %%               Sch   - schedule
 %%               IxBlk - indexed block
 %%               DAG   - dependence graph
-%% Returns     : Sch   - New schedule with possibly a delay instr in the last 
+%% Returns     : Sch   - New schedule with possibly a delay instr in the last
 %%                       position.
 %% Description : If a call/jump is found fill_branch_delay/fill_call_delay
 %%                 is called to find a delay-filler.
@@ -232,7 +232,7 @@ fill_del(N, Sch, IxBlk, DAG) ->
     Index = get_index(Sch, N),
     ?debug2("Index for ~p: ~p~nInstr: ~p~n",
 	    [N, Index, get_instr(IxBlk, Index)]),
-    NewSch = 
+    NewSch =
 	case get_instr(IxBlk, Index) of
 	    #call_link{} ->
 		fill_branch_delay(N - 1, N, Sch, IxBlk, DAG);
@@ -260,7 +260,7 @@ fill_del(N, Sch, IxBlk, DAG) ->
 %%               IxBlk - block vector:    < {N, Instr1}, {N+1, Instr2} ... >
 %%               DAG   - dependence graph
 %% Returns     : Sch - new updated schedule.
-%% Description : Searches backwards through the schedule trying to find an 
+%% Description : Searches backwards through the schedule trying to find an
 %%               instr without conflicts with the Call-instr.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -274,15 +274,15 @@ fill_call_delay(Cand, Call, Sch, IxBlk, DAG) ->
 	    case single_depend(CandIndex, CallIndex, DAG) of
 		false -> % Other instrs depends on Cand ...
 		    fill_call_delay(Cand - 1, Call, Sch, IxBlk, DAG);
-		
+
 		true ->
 		    CallI = get_instr(IxBlk, CallIndex),
-		    
+
 		    CandDefs = ordsets:from_list(hipe_sparc:defines(CandI)),
 		    %% CandUses = ordsets:from_list(hipe_sparc:uses(CandI)),
 		    %% CallDefs = ordsets:from_list(hipe_sparc:defines(CallI)),
 		    CallUses = ordsets:from_list(hipe_sparc:uses(CallI)),
-		    
+
 		    Args = case CallI of
 			       #jmp_link{} ->
 				   ordsets:from_list(
@@ -301,11 +301,11 @@ fill_call_delay(Cand, Call, Sch, IxBlk, DAG) ->
 		    %% io:format("CandUses = ~p~nCallUses = ~p~n",[CandUses,CallUses]),
 		    %% io:format("Args = ~p~nCallUses2 = ~p~n",[Args,CallUses2]),
 		    %% io:format("Conflict = ~p~n",[Conflict]),
-		    
-		    case Conflict of 
+
+		    case Conflict of
 			[] -> % No conflicts ==> Cand can fill delayslot after Call
 			    update_schedule(Cand, Call, Sch);
-			_ -> % Conflict: try with preceeding instrs
+			_ -> % Conflict: try with proceeding instrs
 			    fill_call_delay(Cand - 1, Call, Sch, IxBlk, DAG)
 		    end
 	    end;
@@ -322,12 +322,12 @@ fill_call_delay(Cand, Call, Sch, IxBlk, DAG) ->
 %%               IxBlk  - indexed block
 %%               DAG    - dependence graph
 %% Returns     : Sch - new updated schedule.
-%% Description : Searches backwards through the schedule trying to find an 
+%% Description : Searches backwards through the schedule trying to find an
 %%               instr without conflicts with the Branch-instr.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 fill_branch_delay(Cand, _Br, Sch, _IxBlk, _DAG) when Cand < 1 -> Sch;
-fill_branch_delay(Cand, Br, Sch, IxBlk, DAG) -> 
+fill_branch_delay(Cand, Br, Sch, IxBlk, DAG) ->
     CandIndex = get_index(Sch, Cand),
     BrIndex   = get_index(Sch, Br),
     CandI = get_instr(IxBlk, CandIndex),
@@ -336,23 +336,23 @@ fill_branch_delay(Cand, Br, Sch, IxBlk, DAG) ->
 	    case single_depend(CandIndex, BrIndex, DAG) of
 		false -> % Other instrs depends on Cand ...
 		    fill_branch_delay(Cand - 1, Br, Sch, IxBlk, DAG);
-		
+
 		true ->
 		    BrI      = get_instr(IxBlk, BrIndex),
 		    CandDefs = ordsets:from_list(hipe_sparc:defines(CandI)),
 		    %% CandUses = ordsets:from_list(hipe_sparc:uses(CandI)),
 		    %% BrDefs   = ordsets:from_list(hipe_sparc:defines(BrI)),
 		    BrUses   = ordsets:from_list(hipe_sparc:uses(BrI)),
-		    
+
 		    Conflict = ordsets:intersection(CandDefs, BrUses),
 		    %% io:format("single_depend -> true: ~p~n, ~p~n,~p~n", [CandI, BrI, DAG]),
 		    %% io:format("Cand = ~p~nBr = ~p~n",[CandI,BrI]),
 		    %% io:format("CandDefs = ~p~nBrDefs = ~p~n",[CandDefs,BrDefs]),
 		    %% io:format("CandUses = ~p~nBrUses = ~p~n",[CandUses,BrUses]),
 		    %% io:format("Conflict = ~p~n",[Conflict]);
-		    
-		    case Conflict of 
-			[] -> % No conflicts ==> 
+
+		    case Conflict of
+			[] -> % No conflicts ==>
                               % Cand can fill delayslot after Branch
 			    update_schedule(Cand, Br, Sch);
 			_ -> % Conflict: try with preceeding instrs
@@ -362,18 +362,18 @@ fill_branch_delay(Cand, Br, Sch, IxBlk, DAG) ->
 	false ->
 	    fill_branch_delay(Cand - 1, Br, Sch, IxBlk, DAG)
     end.
-    
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Function    : update_schedule
 %% Argument    : From - the position from where to switch indexes in Sch
 %%               To   - the position to where to switch indexes in Sch
 %%               Sch  - schedule
 %% Returns     : Sch - an updated schedule
-%% Description : If From is the delay-filler and To is the Call/jump, the 
-%%               schedule is updated so From gets index To, To gets index 
+%% Description : If From is the delay-filler and To is the Call/jump, the
+%%               schedule is updated so From gets index To, To gets index
 %%               To - 1, and the nodes between From and To gets old_index - 1.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-update_schedule(To, To, Sch) -> 
+update_schedule(To, To, Sch) ->
     {{cycle, C}, {node, _N} = Node} = hipe_vectors:get(Sch, To-1),
     hipe_vectors:set(Sch, To-1, {{cycle, C+1}, Node});
 update_schedule(From, To, Sch) ->
@@ -388,7 +388,7 @@ update_schedule(From, To, Sch) ->
 %%                      depend to.
 %%               DAG  - The dependence graph
 %% Returns     : true if no other nodes than N os depending on N
-%% Description : Checks that no other nodes than M depends on N and that the 
+%% Description : Checks that no other nodes than M depends on N and that the
 %%               latency between them is zero or 1.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 single_depend(N, M, DAG) ->
@@ -474,9 +474,9 @@ finalize_block(N, End, C0, Sch, IxBlk, Instrs) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Function    : bb
 %% Argument    : IxBlk - indexed block
-%%               DAG   - {Dag, Preds} where Dag is dependence graph and 
+%%               DAG   - {Dag, Preds} where Dag is dependence graph and
 %%                       Preds is number of predecessors for each node.
-%% Returns     : Sch 
+%% Returns     : Sch
 %% Description : Initializes earliest-list, ready-list, priorities, resources
 %%               and so on, and calls the cycle_sched which does the scheduling
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -488,7 +488,7 @@ bb(N,IxBlk,{DAG, Preds}) ->
     BigArray = N*10,                     % "nothing" is this big :-)
     Ready = hipe_schedule_prio:init_ready(BigArray,Preds),
     I_res = init_instr_resources(N, IxBlk),
-    
+
     Prio = hipe_schedule_prio:init_instr_prio(N,DAG),
     Rsrc = init_resources(BigArray),
     ?debug4("I_res: ~n~p~nPrio: ~n~p~nRsrc: ~n~p~n", [I_res,Prio,Rsrc]),
@@ -500,16 +500,16 @@ bb(N,IxBlk,{DAG, Preds}) ->
 %% Function    : cycle_sched
 %% Argument    :  - C is current cycle, 1 or more.
 %%                - Ready is an array (Cycle -> [Node])
-%%                    yielding the collection of nodes ready to be 
+%%                    yielding the collection of nodes ready to be
 %%                    scheduled in a cycle.
 %%                - DAG is an array (Instr -> [{Latency,Instr}])
 %%                    represents the dependence DAG.
 %%                - Preds is an array (Instr -> NumPreds)
-%%                    counts the number of predecessors 
+%%                    counts the number of predecessors
 %%                    (0 preds = ready to be scheduled).
 %%                - Earl is an array (Instr -> EarliestCycle)
 %%                    holds the earliest cycle an instruction can be scheduled.
-%%                - Rsrc is a 'resource ADT' that handles scheduler resource 
+%%                - Rsrc is a 'resource ADT' that handles scheduler resource
 %%                    management checks whether instruction can be scheduled
 %%                    this cycle without a stall.
 %%                - I_res is an array (Instr -> Required_resources)
@@ -520,7 +520,7 @@ bb(N,IxBlk,{DAG, Preds}) ->
 %%                - IxBlk is the indexed block with instrs
 %% Returns     : present schedule
 %% Description : Scheduler main loop.
-%%               Pick next ready node in priority order for cycle C until 
+%%               Pick next ready node in priority order for cycle C until
 %%               none remain.
 %%                 * check each node if it can be scheduled w/o stalling
 %%                 * if so, schedule it
@@ -529,13 +529,13 @@ bb(N,IxBlk,{DAG, Preds}) ->
 cycle_sched(C,Ready,DAG,Preds,Earl,Rsrc,I_res,Prio,Sch,N,IxBlk) ->
     case hipe_schedule_prio:next_ready(C,Ready,Prio,IxBlk,DAG,Preds,Earl) of
 %  case hipe_schedule_prio:next_ready(C,Ready,Prio,IxBlk) of
-	{next,I,Ready1} ->  
+	{next,I,Ready1} ->
 	    ?debug('try ~p~n==> ready = ~p~n',[I, Ready1]),
 	    case resources_available(C,I,Rsrc,I_res) of
 		{yes,NewRsrc} ->
 		    ?debug(' scheduled~n==> Rscrs = ~p~n',[NewRsrc]),
 		    NewSch = add_to_schedule(I,C,Sch),
-		    {ReadyNs,NewDAG,NewPreds,NewEarl} = 
+		    {ReadyNs,NewDAG,NewPreds,NewEarl} =
 			delete_node(C,I,DAG,Preds,Earl),
 		    ?debug("NewPreds : ~p~n",[Preds]),
 		    ?debug(' ReadyNs: ~p~n',[ReadyNs]),
@@ -565,8 +565,8 @@ cycle_sched(C,Ready,DAG,Preds,Earl,Rsrc,I_res,Prio,Sch,N,IxBlk) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Function    : init_earliest
 %% Argument    : N - number of instrs
-%% Returns     : 
-%% Description : 
+%% Returns     :
+%% Description :
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 init_earliest(N) ->
     hipe_vectors:new(N,1).
@@ -662,7 +662,7 @@ delete_node(Cycle,I,DAG,Preds,Earl) ->
 %%               Earl  - earliest times for nodes
 %%               Ready - array with readynodes for cycles
 %% Returns     : {Ready,Preds,Earl}
-%% Description : Updates the earliest times for nodes and updates number of 
+%% Description : Updates the earliest times for nodes and updates number of
 %%               predecessors for nodes
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 update_earliest([],_Cycle,Preds,Earl,Ready) ->
@@ -704,8 +704,8 @@ update_earliest([{Lat,N}|Xs],Cycle,Preds,Earl,Ready) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Function    : deps
-%% Argument    : BB - Basic block 
-%% Returns     : {IxBB,DAG} - indexed block and dependence graph. DAG consists 
+%% Argument    : BB - Basic block
+%% Returns     : {IxBB,DAG} - indexed block and dependence graph. DAG consists
 %%                            of both Dag and Preds, where Preds is number
 %%                            of predecessors for nodes.
 %% Description : Collect instruction dependences.
@@ -723,7 +723,7 @@ update_earliest([{Lat,N}|Xs],Cycle,Preds,Earl,Ready) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 deps(IxBB) ->
     N = length(IxBB),
-    DAG = empty_dag(N),  % The DAG contains both dependence-arcs and 
+    DAG = empty_dag(N),  % The DAG contains both dependence-arcs and
                          % number of predeccessors...
     {_DepTab,DAG1} = dd(IxBB, DAG),
     DAG2 = md(IxBB, DAG1),
@@ -736,7 +736,7 @@ deps(IxBB) ->
 %% Description : DAG consists of dependence graph and predeccessors
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 empty_dag(N) ->
-    {hipe_vectors:new(N, []), hipe_vectors:new(N, 0)}. 
+    {hipe_vectors:new(N, []), hipe_vectors:new(N, 0)}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Function    : indexed_bb
@@ -764,10 +764,10 @@ indexed_bb([X|Xs],N) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Function    : dep_arc
-%% Argument    : N   - Current node 
+%% Argument    : N   - Current node
 %%               Lat - Latency from current node to M
 %%               M   - The dependent node
-%%               DAG - The dependence graph. Consists of both DAG and 
+%%               DAG - The dependence graph. Consists of both DAG and
 %%                     predeccessors
 %% Returns     : A new DAG with the arc added and number of predeccessors for
 %%                 M increased.
@@ -775,7 +775,7 @@ indexed_bb([X|Xs],N) ->
 %%               it will be replaced with a new arc {max(OldLat, NewLat), M}.
 %%               Number of predeccessors for node M is increased.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-dep_arc(N, Lat, M, {Dag,Preds}) -> 
+dep_arc(N, Lat, M, {Dag,Preds}) ->
     OldDeps = hipe_vectors:get(Dag, N-1),
     %% io:format("{OldDeps} = {~p}~n",[OldDeps]),
     {NewDeps, Status} = add_arc(Lat, M, OldDeps),
@@ -785,7 +785,7 @@ dep_arc(N, Lat, M, {Dag,Preds}) ->
 		   added -> % just increase preds if new arc was added
 		       OldPreds = hipe_vectors:get(Preds, M-1),
 		       hipe_vectors:set(Preds, M-1, OldPreds + 1);
-		   non_added -> 
+		   non_added ->
 		       Preds
 	       end,
     {NewDag, NewPreds}.
@@ -795,9 +795,9 @@ dep_arc(N, Lat, M, {Dag,Preds}) ->
 %% Argument    : Lat  - The latency from current node to To.
 %%               To   - The instr-id of the node which the dependence goes to
 %%               Arcs - The dependecies that are already in the dep-graph
-%% Returns     : A dependence graph sorted by To. 
+%% Returns     : A dependence graph sorted by To.
 %% Description : A new arc that is added is sorted in the right place, and if
-%%               there is already an arc between nodes A and B, the one with 
+%%               there is already an arc between nodes A and B, the one with
 %%               the greatest latency is chosen.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 add_arc(Lat,To, []) -> {[{Lat, To}], added};
@@ -834,7 +834,7 @@ dd([{N,I}|Is],DAG0) ->
 %%               DAG       - dependence graph
 %% Returns     : {DepTab, BlockInfo, DAG} - with new values
 %% Description : Adds dependencies for node N to the graph. The registers that
-%%               node N defines and uses are used for computing the 
+%%               node N defines and uses are used for computing the
 %%               dependencies to the following nodes.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 add_deps(N,Instr,DepTab,DAG) ->
@@ -859,7 +859,7 @@ dd_type(Instr) ->
 	#store{} -> store;
 	#alu{} -> alu;
 	#move{} -> alu;
-	#multimove{} -> 
+	#multimove{} ->
 	    Src = hipe_sparc:multimove_src(Instr),
 	    Lat = round(length(Src)/2),
 	    {mmove,Lat};
@@ -895,7 +895,7 @@ add_write_deps([D|Ds],N,Ty,DepTab,DAG) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Function    : add_write_dep
 %% Description : Updates the dependence table with N as next writer, and
-%%               updates the DAG with the dependencies from N to subsequent 
+%%               updates the DAG with the dependencies from N to subsequent
 %%               nodes.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 add_write_dep(X,N,Ty,DepTab,DAG) ->
@@ -906,7 +906,7 @@ add_write_dep(X,N,Ty,DepTab,DAG) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Function    : write_deps
-%% Argument    : Instr      - Current instr 
+%% Argument    : Instr      - Current instr
 %%               Ty         - Type of current instr
 %%               NxtWriter  - The node that is the next writer of the ragister
 %%                            that Instr defines.
@@ -915,9 +915,9 @@ add_write_dep(X,N,Ty,DepTab,DAG) ->
 %%               DAG        - The dependence graph
 %% Returns     : Calls raw_deps that finally returns a new DAG with the new
 %%               dependence arcs added.
-%% Description : If a next writer exists a dependence arc for this node is 
-%%               added, and after this raw_deps is called to compute the 
-%%               arcs for read-after-write dependencies. 
+%% Description : If a next writer exists a dependence arc for this node is
+%%               added, and after this raw_deps is called to compute the
+%%               arcs for read-after-write dependencies.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 write_deps(Instr,Ty,NxtWriter,NxtReaders,DAG) ->
     DAG1 = case NxtWriter of
@@ -936,7 +936,7 @@ write_deps(Instr,Ty,NxtWriter,NxtReaders,DAG) ->
 %% Function    : raw_deps
 %% Argument    : Instr   - current instr
 %%               Type    - type of instr
-%%               Readers - subsequent readers 
+%%               Readers - subsequent readers
 %%               DAG     - dependence graph
 %% Returns     : DAG - A new DAG with read-after-write dependencies added
 %% Description : Updates the DAG with the dependence-arcs from Instr to the
@@ -956,8 +956,8 @@ raw_deps(Instr,Ty,[{Rd,RdTy}|Xs],DAG) ->
 %%               DepTab    - Dependence table
 %%               DAG       - Dependence graph
 %% Returns     : {DepTab, DAG} - with updated values.
-%% Description : Adds the read dependencies from node N to subsequent ones, 
-%%               according to the registers that N uses. 
+%% Description : Adds the read dependencies from node N to subsequent ones,
+%%               according to the registers that N uses.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 add_read_deps([],_N,_Ty,DepTab,DAG) -> {DepTab,DAG};
 add_read_deps([U|Us],N,Ty,DepTab,DAG) ->
@@ -973,7 +973,7 @@ add_read_deps([U|Us],N,Ty,DepTab,DAG) ->
 %%               DAG    - Dependence graph
 %% Returns     : {DepTab, DAG} - with updated values
 %% Description : Looks up what the next-writer/next-readers are, and adjusts
-%%               the table with current node as new reader. Finally 
+%%               the table with current node as new reader. Finally
 %%               read-dependencies are added to the DAG.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 add_read_dep(X,N,Ty,DepTab,DAG) ->
@@ -993,8 +993,8 @@ add_read_dep(X,N,Ty,DepTab,DAG) ->
 %%                        subsequent instr that writes this register next time,
 %%                        and WrType is the type of that instr.
 %%               DAG    - The dependence graph
-%% Returns     : DAG 
-%% Description : Returns a new DAG if a next-writer exists, otherwise the old 
+%% Returns     : DAG
+%% Description : Returns a new DAG if a next-writer exists, otherwise the old
 %%               DAG is returned.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 read_deps(_Instr,_Ty,none,DAG) ->
@@ -1017,7 +1017,7 @@ empty_deptab() ->
 %% Argument    : X      - key (register)
 %%               DepTab - dependence table
 %% Returns     : {NextWriter, NextReaders}
-%% Description : Returns next writer and a list of following readers on 
+%% Description : Returns next writer and a list of following readers on
 %%               register X.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 lookup(X, DepTab) ->
@@ -1075,7 +1075,7 @@ md([{N,I}|Is],St,DAG) ->
 	    md(Is,St,DAG);
 	{st,T} ->
 	    { WAW_nodes, WAR_nodes, NewSt } = st_overlap(N,T,St),
-	    md(Is,NewSt, 
+	    md(Is,NewSt,
 		md_war_deps(WAR_nodes,N,md_waw_deps(WAW_nodes,N,DAG)));
 	{ld,T} ->
 	    { RAW_nodes, NewSt } = ld_overlap(N,T,St),
@@ -1121,7 +1121,7 @@ md_raw_deps([M|Ms],N,DAG) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Function    : empty_md_state
-%% Description : Returns an empty memorydependence state, eg. 4 lists 
+%% Description : Returns an empty memorydependence state, eg. 4 lists
 %%               representing {StackStores, HeapStores, StackLoads, HeapLoads}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 empty_md_state() -> {[], [], [], []}.
@@ -1174,8 +1174,8 @@ md_type(I) ->
 %% NOTES:
 %%  The method mentioned above has now been changed because the assumption that
 %%  "heap stores never overwrite existing data" caused a bug when the
-%%   process-pointer was treated the same way as the heap. We were also told 
-%%   that the semantics can possibly change in the future, so it would be more 
+%%   process-pointer was treated the same way as the heap. We were also told
+%%   that the semantics can possibly change in the future, so it would be more
 %%   safe to treat the heap store/loads as the stack.
 %%   A future improvement can be to do an alias analysis to give more freedom
 %%   in reordering stuff...
@@ -1213,7 +1213,7 @@ st_overlap(N, {hp, Dst, Off}, {St_Sp, St_Hp, Ld_Sp, Ld_Hp}) ->
 %%               State - { [StackStrs], [HeapStrs], [StackLds], [HeapLds] }
 %%                       where StackStrs/StackLds = {InstrID, Offset}
 %%                       and    HeapStrs/HeapLds  = {InstrID, Reg, Offset}
-%% Returns     : { DepStrs, State } 
+%% Returns     : { DepStrs, State }
 %% Description : Adds dependencies for overlapping laods
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 ld_overlap(N, {sp, Off}, {St_Sp, St_Hp, Ld_Sp, Ld_Hp}) ->
@@ -1299,7 +1299,7 @@ hp_dep_only([{_N,Reg,Off_1}|Xs], Reg, Off) when Off_1 =/= Off ->
     hp_dep_only(Xs, Reg, Off);
 hp_dep_only([{N,_,_}|Xs], Reg, Off) ->
     [N|hp_dep_only(Xs, Reg, Off)].
-    
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Control dependences:
 %% - add dependences so that
@@ -1344,10 +1344,10 @@ cd([{N,I}|Xs], DAG, PrevBr, PrevUnsafe, PrevOthers) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Function    : cd_branch_to_other_deps
 %% Argument    : N   - index of branch
-%%               Ms  - list of indexes of "others" preceeding instrs
+%%               Ms  - list of indexes of "others" proceeding instrs
 %%               DAG - dependence graph
 %% Returns     : DAG - new graph
-%% Description : Makes preceeding instrs fixed so they don't bypass a branch
+%% Description : Makes proceeding instrs fixed so they don't bypass a branch
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cd_branch_to_other_deps(_, [], DAG) ->
     DAG;
@@ -1396,7 +1396,7 @@ cd_type(I) ->
 %%               PrevUnsafe - preceeding unsafe ops, eg, mem-ops
 %%               N          - current id.
 %%               Ty         - type of current instr
-%%               DAG        - dependence graph 
+%%               DAG        - dependence graph
 %% Returns     : DAG - new DAG
 %% Description : Adds arcs between branches and calls deps_to_unsafe that adds
 %%               arcs between branches and unsafe ops.
@@ -1433,7 +1433,7 @@ cd_unsafe_deps({Br,BrTy}, N, Ty, DAG) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Function    : def_use
-%% Argument    : Instr 
+%% Argument    : Instr
 %% Description : Returns the registers that Instr defines resp. uses as 2 lists
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 def_use(Instr) ->

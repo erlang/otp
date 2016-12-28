@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1997-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -34,13 +34,13 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 3}}].
 
-all() -> 
+all() ->
     [fpe, fp_drv, fp_drv_thread, otp_7178, denormalized,
      match, bad_float_unpack, write, {group, comparison}
      ,hidden_inf
      ,arith, t_mul_add_ops].
 
-groups() -> 
+groups() ->
     [{comparison, [parallel], [cmp_zero, cmp_integer, cmp_bignum]}].
 
 %%
@@ -208,7 +208,7 @@ span_cmp(Axis, Incr, Length) ->
 %% for both negative and positive numbers.
 %%
 %% Axis: The number around which to do the tests eg. (1 bsl 58) - 1.0
-%% Incr: How much to increment the test numbers inbetween each test.
+%% Incr: How much to increment the test numbers in-between each test.
 %% Length: Length/2 is the number of Incr away from Axis to test on the
 %%         negative and positive plane.
 %% Diff: How much the float and int should differ when comparing

@@ -108,7 +108,7 @@ user(Pid, User, Pass) ->
   gen_server:call(Pid, {user, User, Pass}, infinity).
 
 %% user(Pid, User, Pass,Acc)
-%% Purpose:  Login whith a supplied account name
+%% Purpose:  Login with a supplied account name
 %% Args:     Pid = pid(), User = Pass = Acc = string()
 %% Returns:  ok | {error, euser} | {error, econn} | {error, eacct}
 user(Pid, User, Pass,Acc) ->

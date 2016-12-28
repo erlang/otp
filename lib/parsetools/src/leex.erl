@@ -124,7 +124,7 @@ file(File, Opts0) ->
          catch #leex{}=St4 ->
              St4
          end,
-    leex_ret(St).             
+    leex_ret(St).
 
 format_error({file_error, Reason}) ->
     io_lib:fwrite("~ts",[file:format_error(Reason)]);
@@ -166,7 +166,7 @@ strip_extension(File, Ext) ->
     end.
 
 options(Options0) when is_list(Options0) ->
-    try 
+    try
         Options = flatmap(fun(return) -> short_option(return, true);
                              (report) -> short_option(report, true);
                              ({return,T}) -> short_option(return, T);
@@ -189,7 +189,7 @@ short_option(report, T) ->
 
 options(Options0, [Key|Keys], L) when is_list(Options0) ->
     Options = case member(Key, Options0) of
-                  true -> 
+                  true ->
                       [atom_option(Key)|delete(Key, Options0)];
                   false ->
                       Options0
@@ -198,9 +198,9 @@ options(Options0, [Key|Keys], L) when is_list(Options0) ->
             {Key, Filename0} when Key =:= includefile;
 				  Key =:= scannerfile ->
                 case is_filename(Filename0) of
-                    no -> 
+                    no ->
                         badarg;
-                    Filename -> 
+                    Filename ->
                         {ok,[{Key,Filename}]}
                 end;
             {Key, Bool} = KB when is_boolean(Bool) ->
@@ -247,7 +247,7 @@ atom_option(Key) -> Key.
 is_filename(T) ->
     try filename:flatten(T)
     catch error: _ -> no
-    end.    
+    end.
 
 shorten_filename(Name0) ->
     {ok,Cwd} = file:get_cwd(),
@@ -266,10 +266,10 @@ leex_ret(St) ->
     Es = pack_errors(St#leex.errors),
     Ws = pack_warnings(St#leex.warnings),
     Werror = werror(St),
-    if 
+    if
         Werror ->
             do_error_return(St, Es, Ws);
-        Es =:= [] -> 
+        Es =:= [] ->
             case member(return_warnings, St#leex.opts) of
                 true -> {ok, St#leex.efile, Ws};
                 false -> {ok, St#leex.efile}
@@ -292,18 +292,18 @@ pack_errors([{File,_} | _] = Es) ->
     [{File, flatmap(fun({_,E}) -> [E] end, sort(Es))}];
 pack_errors([]) ->
     [].
-    
+
 pack_warnings([{File,_} | _] = Ws) ->
     [{File, flatmap(fun({_,W}) -> [W] end, sort(Ws))}];
 pack_warnings([]) ->
     [].
 
 report_errors(St) ->
-    when_opt(fun () -> 
-                     foreach(fun({File,{none,Mod,E}}) -> 
+    when_opt(fun () ->
+                     foreach(fun({File,{none,Mod,E}}) ->
                                      io:fwrite("~ts: ~ts\n",
                                                [File,Mod:format_error(E)]);
-                                ({File,{Line,Mod,E}}) -> 
+                                ({File,{Line,Mod,E}}) ->
                                      io:fwrite("~ts:~w: ~ts\n",
                                                [File,Line,Mod:format_error(E)])
                              end, sort(St#leex.errors))
@@ -748,7 +748,7 @@ re_char($\\, [O1,O2,O3|S]) when
     {(O1*8 + O2)*8 + O3 - 73*$0,S};
 re_char($\\, [$x,H1,H2|S]) when ?IS_HEX(H1), ?IS_HEX(H2) ->
     {erlang:list_to_integer([H1,H2], 16),S};
-re_char($\\,[$x,${|S0]) -> 
+re_char($\\,[$x,${|S0]) ->
     re_hex(S0, []);
 re_char($\\,[$x|_]) ->
     parse_error({illegal_char,"\\x"});
@@ -757,7 +757,7 @@ re_char($\\, []) -> parse_error({unterminated,"\\"});
 re_char(C, S) -> {C,S}.                         % Just this character
 
 re_hex([C|Cs], L) when ?IS_HEX(C) -> re_hex(Cs, [C|L]);
-re_hex([$}|S], L0) -> 
+re_hex([$}|S], L0) ->
     L = lists:reverse(L0),
     case erlang:list_to_integer(L, 16) of
         C when C =< 16#10FFFF -> {C,S};
@@ -1264,7 +1264,7 @@ pack_dfa([], _, Rs, PDFA) -> {PDFA,Rs}.
 %%      {Action, AcceptLength, CurrTokLen, RestChars, Line, State}.
 
 %% The return CurrTokLen is always the current number of characters
-%% scanned in the current token. The returns have the follwoing
+%% scanned in the current token. The returns have the following
 %% meanings:
 %% {Action, AcceptLength, RestChars, Line} -
 %%  The scanner has reached an accepting end-state, for example after
@@ -1281,7 +1281,7 @@ pack_dfa([], _, Rs, PDFA) -> {PDFA,Rs}.
 %%
 %% {reject, AcceptLength, CurrTokLen, RestChars, Line, State} -
 %% {Action, AcceptLength, CurrTokLen, RestChars, Line, State} -
-%%  The scanner has reached a non-accepting transistion state. If
+%%  The scanner has reached a non-accepting transition state. If
 %%  RestChars == [] we need to get more characters to continue.
 %%  Otherwise if 'reject' then no accepting state has been reached it
 %%  is an error. If we have an Action and AcceptLength then these are
@@ -1299,7 +1299,7 @@ out_file(St0, DFA, DF, Actions, Code) ->
                 case file:open(St0#leex.efile, [write]) of
                     {ok,Ofile} ->
                         set_encoding(St0, Ofile),
-                        try 
+                        try
                             output_encoding_comment(Ofile, St0),
                             output_file_directive(Ofile, St0#leex.ifile, 0),
                             out_file(Ifile, Ofile, St0, DFA, DF, Actions,
@@ -1332,7 +1332,7 @@ inc_file_name([]) ->
     filename:join(Incdir, ?LEEXINC);
 inc_file_name(Filename) ->
     Filename.
-                    
+
 %% out_file(IncFile, OutFile, State, DFA, DfaStart, Actions, Code, Line) -> ok
 %%  Copy the include file line by line substituting special lines with
 %%  generated code. We cheat by only looking at the first 5
@@ -1364,7 +1364,7 @@ out_erlang_code(File, St, Code, L) ->
         set_encoding(St, Xfile),
         {ok,_} = file:position(Xfile, CodePos),
         ok = file_copy(Xfile, File)
-    after 
+    after
         ok = file:close(Xfile)
     end,
     io:nl(File),
@@ -1554,7 +1554,7 @@ out_action_code(File, XrlFile, {_A,Code,_Vars,Name,Args,ArgsChars}) ->
 %%  Prints the tokens keeping the line breaks of the original code.
 
 pp_tokens(Tokens, Line0) -> pp_tokens(Tokens, Line0, none).
-    
+
 pp_tokens([], _Line0, _) -> [];
 pp_tokens([T | Ts], Line0, Prev) ->
     Line = erl_scan:line(T),
@@ -1565,7 +1565,7 @@ pp_symbol({_,_,Symbol}) -> io_lib:fwrite("~p", [Symbol]);
 pp_symbol({dot, _}) -> ".";
 pp_symbol({Symbol, _}) -> atom_to_list(Symbol).
 
-pp_sep(Line, Line0, Prev, T) when Line > Line0 -> 
+pp_sep(Line, Line0, Prev, T) when Line > Line0 ->
     ["\n    " | pp_sep(Line - 1, Line0, Prev, T)];
 pp_sep(_, _, {'.',_}, _) -> "";        % No space after '.' (not a dot)
 pp_sep(_, _, {'#',_}, _) -> "";        % No space after '#'
@@ -1610,7 +1610,7 @@ out_dfa_state(File, DF, #dfa_state{no=DF, accept={accept,_}}) ->
 out_dfa_state(File, DF, #dfa_state{no=DF, accept=noaccept}) ->
     io:fwrite(File, "  ~b [shape=circle color=green];~n", [DF]);
 out_dfa_state(File, _, #dfa_state{no=S, accept={accept,_}}) ->
-    io:fwrite(File, "  ~b [shape=doublecircle];~n", [S]);    
+    io:fwrite(File, "  ~b [shape=doublecircle];~n", [S]);
 out_dfa_state(File, _, #dfa_state{no=S, accept=noaccept}) ->
     io:fwrite(File, "  ~b [shape=circle];~n", [S]).
 

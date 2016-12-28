@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2002-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 -module(estone_SUITE).
@@ -66,10 +66,10 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 4}}].
 
-all() -> 
+all() ->
     [estone].
 
-groups() -> 
+groups() ->
     [{estone_bench, [{repeat,50}],[estone_bench]}].
 
 
@@ -86,7 +86,7 @@ estone_bench(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
     L = ?MODULE:macro(?MODULE:micros(),DataDir),
     [ct_event:notify(
-       #event{name = benchmark_data, 
+       #event{name = benchmark_data,
 	      data = [{name,proplists:get_value(title,Mark)},
 		      {value,proplists:get_value(estones,Mark)}]})
      || Mark <- L],
@@ -158,14 +158,14 @@ pp(Mhz,Total,Stones,Ms) ->
     pp2(Ms).
 
 sum_micros([], Tot, Stones) -> {Tot, Stones};
-sum_micros([H|T], Tot, Sto) -> 
+sum_micros([H|T], Tot, Sto) ->
     sum_micros(T, ks(microsecs, H) + Tot, ks(estones, H) + Sto).
 
 pp2([]) ->   ok;
 pp2([R|Tail]) ->
     io:format("~-35s  ~-12w    ~-10w   ~-2w    ~-10w ~n",
-	      [ks(title,R), 
-	       round(ks(microsecs, R) / 1000), 
+	      [ks(title,R),
+	       round(ks(microsecs, R) / 1000),
 	       ks(estones, R),
 	       ks(weight_percentage, R),
 	       ks(loops, R)]),
@@ -179,9 +179,9 @@ ks(K, L) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% EStone test
-micro(lists) -> 
+micro(lists) ->
      #micro{function = lists,
-	    weight = 7, 
+	    weight = 7,
 	    loops = 6400,
 	    str = "list manipulation"};
 micro(msgp) ->
@@ -317,7 +317,7 @@ macro(Ms,DataDir) ->
     lists(500),  %% fixup cache on first round
     run_micros(Ms,DataDir).
 
-run_micros([],_) -> 
+run_micros([],_) ->
     io:nl(),
     [];
 run_micros([H|T],DataDir) ->
@@ -331,7 +331,7 @@ run_micro(M,DataDir) ->
     {value,{estones,Estones}} = lists:keysearch(estones,1,Reply),
     erlang:display({Title,Estones}),
     Res.
-    
+
 
 run_micro(Top, M, DataDir) ->
     EstoneCat = filename:join(DataDir,"estone_cat"),
@@ -388,9 +388,9 @@ lists(I, L1, L2) ->
     appt(10, L1, L2),
     lists(I-1, L1, L2).
 
-revt(0, _) -> 
+revt(0, _) ->
     done;
-revt(I, L) -> 
+revt(I, L) ->
     reverse(L),
     revt(I-1, L).
 
@@ -414,7 +414,7 @@ appt(I, L1, L2) ->
 msgp(I) ->
     msgp(I, small()).
 
-msgp(0, _) -> 
+msgp(0, _) ->
     0;
 msgp(I, Msg) ->
     P1 = spawn(?MODULE, p1, [self()]),
@@ -436,7 +436,7 @@ p1(To) ->
 
 msgp_loop(0, P, _) ->
     P ! stop,
-    receive 
+    receive
 	stop -> ok
     end;
 msgp_loop(I, P, Msg) ->
@@ -450,7 +450,7 @@ msgp_loop(I, P, Msg) ->
 msgp_medium(I) ->
         msgp_medium(I, big()).
 
-msgp_medium(0, _) -> 
+msgp_medium(0, _) ->
     0;
 msgp_medium(I, Msg) ->
     P1 = spawn(?MODULE , p1, [self()]),
@@ -466,7 +466,7 @@ msgp_medium(I, Msg) ->
 msgp_huge(I) ->
         msgp_huge(I, very_big(15)).
 
-msgp_huge(0, _) -> 
+msgp_huge(0, _) ->
     0;
 msgp_huge(I, Msg) ->
     P1 = spawn(?MODULE , p1, [self()]),
@@ -474,7 +474,7 @@ msgp_huge(I, Msg) ->
     msgp_loop(100, P4, Msg),
     msgp_huge(I-1, Msg).
 
-    
+
 %%%%%% typical protocol pattern matching %%%%%%%
 pattern(0) ->
     0;
@@ -488,13 +488,13 @@ pattern(I) ->
     pat_loop5(100, P1),
     pattern(I-1).
 
-pat_loop1(0, _) -> 
+pat_loop1(0, _) ->
     ok;
 pat_loop1(_I, [_, _X, _Y, 0 |_T])  ->
     ok;
 pat_loop1(_I, [_, _X, _Y, 1| _T]) ->
     ok;
-pat_loop1(_I, [_, _X, _Y, 2 | _T]) -> 
+pat_loop1(_I, [_, _X, _Y, 2 | _T]) ->
     ok;
 pat_loop1(I, [_, X, Y, 3 | T]) ->
     pat_loop1(I-1, [0, X,Y,3|T]).
@@ -511,13 +511,13 @@ pat_loop2(I, [X, Y | Tail]) when Y bsl 2 == 4 ->
 
 pat_loop3(0, _) ->
     ok;
-pat_loop3(_I, [{c, h} | _Tail]) -> 
+pat_loop3(_I, [{c, h} | _Tail]) ->
     ok;
 pat_loop3(_I, [1, 0 |_T]) ->
     ok;
 pat_loop3(_I, [X, _Y |_Tail]) when is_binary(X), size(X) == 1 ->
     ok;
-pat_loop3(_I, [no, _Y|_Tail]) -> 
+pat_loop3(_I, [no, _Y|_Tail]) ->
     ok;
 pat_loop3(_I, []) ->
     ok;
@@ -558,7 +558,7 @@ pat_loop4(_I, [24|_T]) -> ok;
 pat_loop4(_I, [25|_T]) -> ok;
 pat_loop4(_I, [26|_T]) -> ok;
 pat_loop4(_I, [27|_T]) -> ok;
-pat_loop4(I, [0|T]) -> 
+pat_loop4(I, [0|T]) ->
     pat_loop4(I-1, [0|T]).
 
 pat_loop5(0, _) -> ok;
@@ -577,7 +577,7 @@ pat_loop5(_I, [0, 9|_T]) -> ok;
 pat_loop5(_I, [0, 8|_T]) -> ok;
 pat_loop5(_I, [0, 7|_T]) -> ok;
 pat_loop5(_I, [0, 6|_T]) -> ok;
-pat_loop5(I, [0, 1|T]) -> 
+pat_loop5(I, [0, 1|T]) ->
     pat_loop5(I-1, [0,1|T]).
 
 %%%%%%%%%% term traversal representing simple pattern matchhing %%%
@@ -612,7 +612,7 @@ port_io(I) ->
     wait_for_pids(Pps),
     subtr(Before, After).
 
-make_port_pids(0, _, _) -> 
+make_port_pids(0, _, _) ->
     [];
 make_port_pids(NoPorts, J, EstoneCat) ->
     [spawn(?MODULE, ppp, [self(),J,EstoneCat]) | make_port_pids(NoPorts-1, J, EstoneCat)].
@@ -632,7 +632,7 @@ ppp(Top, I, EstoneCat) ->
 	    closed
     end,
     Top ! {self(), Res}.
-    
+
 ppp_loop(_P, 0, _) ->
     ok;
 ppp_loop(P, I, Cmd) ->
@@ -708,7 +708,7 @@ alloc(I) ->
 
 %% Time to call bif's
 %% Lot's of element stuff which reflects the record code which
-%% is becomming more and more common
+%% is becoming more and more common
 bif_dispatch(0) ->
     0;
 bif_dispatch(I) ->
@@ -755,8 +755,8 @@ disp() ->
     whereis(code_server),whereis(code_server),
     whereis(code_server),whereis(code_server),
     _W2 = whereis(code_server).
-    
-    
+
+
 %% Generic server like behaviour
 generic(I) ->
     register(funky, spawn(?MODULE, gserv, [funky, ?MODULE, [], []])),
@@ -822,7 +822,7 @@ handle_call(_From, State, [abc]) ->
     R = 1 + 3,
     {reply, R, [R | State]}.
 
-		    
+
 
 %% Binary handling, creating, manipulating and sending binaries
 binary_h(I) ->
@@ -833,7 +833,7 @@ binary_h(I) ->
     Compensate = subtr(Before, After),
     binary_h_2(I, P, B),
     Compensate.
-    
+
 binary_h_2(0, P, _B) ->
     exit(P, kill);
 binary_h_2(I, P, B) ->
@@ -841,7 +841,7 @@ binary_h_2(I, P, B) ->
     split_loop(B, {abc,1,2222,self(),"ancnd"}, 100),
     binary_h_2(I-1, P, B).
 
-split_loop(_B, _, 0) -> 
+split_loop(_B, _, 0) ->
     ok;
 split_loop(B, Term, I) ->
     {X, Y} = split_binary(B, I),
@@ -849,9 +849,9 @@ split_loop(B, Term, I) ->
     binary_to_list(Y, 1, 2),
     binary_to_term(term_to_binary(Term)),
     split_loop(B, Term, I-1).
-    
 
-echo_loop(_P, 0, _B) -> 
+
+echo_loop(_P, 0, _B) ->
     k;
 echo_loop(P, I, B) ->
     P ! B,
@@ -875,9 +875,9 @@ echo_loop(P, I, B) ->
     receive _ -> ok end,
     receive _ -> ok end,
     echo_loop(P, I-1, B).
-    
 
-ets(0) -> 
+
+ets(0) ->
     0;
 ets(I) ->
     T1 = ets:new(a, [set]),
@@ -913,10 +913,10 @@ run_tab(Tab, Beg, End, J) ->
     K = ets:first(Tab),
     _K2 = ets:next(Tab, K),
     run_tab(Tab, Beg+1, End, J).
-    
-    
+
+
 %%%% Integer arith %%%%%
-int_arith(0) -> 
+int_arith(0) ->
     0;
 int_arith(I) ->
     do_arith(I) +
@@ -931,7 +931,7 @@ int_arith(I) ->
 	66,
     int_arith(I-1).
 
-do_arith(I) ->    
+do_arith(I) ->
     do_arith2(I) -
     do_arith2(I) -
     do_arith2(I) -
@@ -949,9 +949,9 @@ do_arith2(I) ->
     U1 = Z + Z + Z + Z + X bsl 4 * 2 bsl 2,
     Z - U + U1 div 2.
 
-    
+
 %%%% Float arith %%%%%
-float_arith(0) -> 
+float_arith(0) ->
     0;
 float_arith(I) ->
     f_do_arith(I) +
@@ -966,7 +966,7 @@ float_arith(I) ->
 	66,
     float_arith(I-1).
 
-f_do_arith(I) ->    
+f_do_arith(I) ->
     X = 23.4,
     _Y = 789.99 + I,
     Z = I + 1.88,
@@ -975,7 +975,7 @@ f_do_arith(I) ->
     Z - U + U1 / 2.
 
 %%%% time to do various function calls
-fcalls(0) -> 
+fcalls(0) ->
     0;
 fcalls(I) ->
     local0(400),
@@ -1049,7 +1049,7 @@ links(I) ->
     wait_for_pids(L),
     0.
 
-mk_link_procs(0) -> 
+mk_link_procs(0) ->
     [];
 mk_link_procs(I) ->
     [spawn_link(?MODULE, lproc, [self()]) | mk_link_procs(I-1)].
@@ -1085,24 +1085,24 @@ echo(Pid) ->
 	     echo(Pid)
     end.
 
-very_big() -> 
+very_big() ->
     very_big(2).
 very_big(0) -> [];
 very_big(I) ->
-    {1,2,3,a,v,f,r,t,y,u,self(), self(), self(), 
-     "22222222222222222", {{"234", self()}}, 
+    {1,2,3,a,v,f,r,t,y,u,self(), self(), self(),
+     "22222222222222222", {{"234", self()}},
      [[very_big(I-1)]]}.
- 
+
 big() ->
     {self(), funky_stuff, baby, {1, [123, true,[]], "abcdef"}}.
 
-small() -> {self(), true}.    
-    
-%% Wait for a list of children to respond    
-wait_for_pids([]) -> 
+small() -> {self(), true}.
+
+%% Wait for a list of children to respond
+wait_for_pids([]) ->
     ok;
 wait_for_pids([P|Tail]) ->
-    receive 
+    receive
 	{P, _Res} -> wait_for_pids(Tail)
     end.
 

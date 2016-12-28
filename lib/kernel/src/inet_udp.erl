@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1997-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(inet_udp).
@@ -51,7 +51,7 @@ open(Port) -> open(Port, []).
 -spec open(_, _) -> {ok, inet:socket()} | {error, atom()}.
 open(Port, Opts) ->
     case inet:udp_options(
-	   [{port,Port}, {recbuf, ?RECBUF} | Opts], 
+	   [{port,Port}, {recbuf, ?RECBUF} | Opts],
 	   ?MODULE) of
 	{error, Reason} -> exit(Reason);
 	{ok,
@@ -72,7 +72,7 @@ send(S, {A,B,C,D} = Addr, P, Data)
 
 send(S, Data) ->
     prim_inet:sendto(S, {0,0,0,0}, 0, Data).
-    
+
 connect(S, Addr = {A,B,C,D}, P)
   when ?ip(A,B,C,D), ?port(P) ->
     prim_inet:connect(S, Addr, P).
@@ -91,7 +91,7 @@ close(S) ->
 %% Set controlling process:
 %% 1) First sync socket into a known state
 %% 2) Move all messages onto the new owners message queue
-%% 3) Commit the owner 
+%% 3) Commit the owner
 %% 4) Wait for ack of new Owner (since socket does some link and unlink)
 %%
 
@@ -99,7 +99,7 @@ controlling_process(Socket, NewOwner) ->
     inet:udp_controlling_process(Socket, NewOwner).
 
 %%
-%% Create a port/socket from a file descriptor 
+%% Create a port/socket from a file descriptor
 %%
 fdopen(Fd, Opts) ->
     inet:fdopen(
@@ -109,11 +109,11 @@ fdopen(Fd, Opts) ->
 
 %% Remove all duplicate options from an option list.
 %% The last occurring duplicate is used, and the order is preserved.
-%% 
+%%
 %% Here's how:
 %%   Reverse the list.
 %%   For each head option go through the tail and remove
-%%   all occurences of the same option from the tail.
+%%   all occurrences of the same option from the tail.
 %%   Store that head option and iterate using the new tail.
 %%   Return the list of stored head options.
 optuniquify(List) ->
@@ -122,8 +122,8 @@ optuniquify(List) ->
 optuniquify([], Result) ->
     Result;
 optuniquify([Opt | Tail], Result) ->
-    %% Remove all occurences of Opt in Tail, 
-    %% prepend Opt to Result, 
+    %% Remove all occurrences of Opt in Tail,
+    %% prepend Opt to Result,
     %% then iterate back here.
     optuniquify(Opt, Tail, [], Result).
 
@@ -133,7 +133,7 @@ optuniquify(Opt, [], Rest, Result) ->
     optuniquify(lists:reverse(Rest), [Opt | Result]);
 %% Duplicate option tuple
 optuniquify(Opt0, [Opt1 | Tail], Rest, Result)
-  when tuple_size(Opt0) =:= tuple_size(Opt1), 
+  when tuple_size(Opt0) =:= tuple_size(Opt1),
        element(1, Opt0) =:= element(1, Opt1) ->
     %% Waste duplicate
     optuniquify(Opt0, Tail, Rest, Result);

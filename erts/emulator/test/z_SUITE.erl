@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2006-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -42,7 +42,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 5}}].
 
-all() -> 
+all() ->
     [schedulers_alive, node_container_refc_check,
      long_timers, pollset_size, check_io_debug].
 
@@ -116,7 +116,7 @@ schedulers_alive(Config) when is_list(Config) ->
           end,
           erts_debug:set_internal_state(available_internal_state, true),
           %% node_and_dist_references will use emulator interal thread blocking...
-          erts_debug:get_internal_state(node_and_dist_references), 
+          erts_debug:get_internal_state(node_and_dist_references),
           erts_debug:set_internal_state(available_internal_state, false),
           io:format("Testing not blocked~n"),
           Ps2 = lists:map(
@@ -197,7 +197,7 @@ long_timers(Config) when is_list(Config) ->
 	missing_cpu_info -> {comment, "Ignored failures due to missing CPU utilization information"};
 	Fail -> ct:fail(Fail)
     end.
-	    
+
 
 pollset_size(Config) when is_list(Config) ->
     Name = pollset_size_testcase_initial_state_holder,
@@ -226,7 +226,7 @@ pollset_size(Config) when is_list(Config) ->
 				 "Pollset size information not available"}
 		  end;
 	      false ->
-		  %% Somtimes we have fewer descriptors in the
+		  %% Sometimes we have fewer descriptors in the
 		  %% pollset at the end than when we started, but
 		  %% that is ok as long as there are at least 2
 		  %% descriptors (dist listen socket and

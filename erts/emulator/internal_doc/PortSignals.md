@@ -204,7 +204,7 @@ high limit is 8 KB and the low limit is 4 KB.
 
 Previously all operations sending signals to ports began by acquiring
 the port lock, then performed preparations for sending the signal, and
-then finaly sent the signal. The preparations typically included
+then finally sent the signal. The preparations typically included
 inspecting the state of the port, and preparing the data to pass along
 with the signal. The preparation of data is frequently quite time
 consuming, and did not really depend on the port. That is we would

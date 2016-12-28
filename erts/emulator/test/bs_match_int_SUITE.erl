@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1999-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,12 +14,12 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 -module(bs_match_int_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 integer/1,signed_integer/1,dynamic/1,more_dynamic/1,mml/1,
 	 match_huge_int/1,bignum/1,unaligned_32_bit/1]).
@@ -30,11 +30,11 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [integer, signed_integer, dynamic, more_dynamic, mml,
      match_huge_int, bignum, unaligned_32_bit].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -87,7 +87,7 @@ get_int1(<<I:32>>) -> I.
 
 cmp128(<<I:128>>, I) -> equal;
 cmp128(_, _) -> not_equal.
-    
+
 signed_integer(Config) when is_list(Config) ->
     {no_match,_} = sint(mkbin([])),
     {no_match,_} = sint(mkbin([1,2,3])),
@@ -205,7 +205,7 @@ make_signed_int([1|_]=List0, N) ->
 
 reversed_sublist(_List, 0, Acc) -> Acc;
 reversed_sublist([H|T], N, Acc) -> reversed_sublist(T, N-1, [H|Acc]).
-    
+
 two_complement_and_reverse([H|T], Carry, Acc) ->
     Sum = 1-H+Carry,
     two_complement_and_reverse(T, Sum div 2, [Sum rem 2|Acc]);
@@ -213,7 +213,7 @@ two_complement_and_reverse([], Carry, Acc) -> [Carry|Acc].
 
 make_int(_List, 0, Acc) -> Acc;
 make_int([H|T], N, Acc) -> make_int(T, N-1, Acc bsl 1 bor H).
-    
+
 bits_to_list([_|T], 0) -> bits_to_list(T, 16#80);
 bits_to_list([H|_]=List, Mask) ->
     [case H band Mask of
@@ -224,7 +224,7 @@ bits_to_list([], _) -> [].
 
 fun_clause({'EXIT',{function_clause,_}}) -> ok.
 mkbin(L) when is_list(L) -> list_to_binary(L).
-    
+
 
 mml(Config) when is_list(Config) ->
     single_byte_binary = mml_choose(<<42>>),
@@ -247,7 +247,7 @@ match_huge_int(Config) when is_list(Config) ->
 	8 ->
 	    %% An attempt will be made to allocate heap space for
 	    %% the bignum (which will probably fail); only if the
-	    %% allocation succeds will the matching fail because
+	    %% allocation succeeds will the matching fail because
 	    %% the binary is too small.
 	    ok
     end,
@@ -348,5 +348,5 @@ unaligned_32_bit_1(_) ->
 unaligned_32_bit_verify([], 0) -> ok;
 unaligned_32_bit_verify([4294967295|T], N) when N > 0 ->
     unaligned_32_bit_verify(T, N-1).
-    
+
 id(I) -> I.

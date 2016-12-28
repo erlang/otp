@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1996-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -209,18 +209,18 @@ mk_tkw_child(DB,#gstkid{parent=P,objtype=Ot}) ->
 %%----------------------------------------------------------------------
 merge_default_options(ParOpts, BuildInOpts, Opts) ->
     %% parents options first
-    Tmp=merge_default_options(ParOpts, lists:sort(Opts)), 
+    Tmp=merge_default_options(ParOpts, lists:sort(Opts)),
     merge_default_options(BuildInOpts,Tmp).
 
-merge_default_options([Def|Ds],[Opt|Os]) 
+merge_default_options([Def|Ds],[Opt|Os])
   when element(1,Def) < element(1,Opt) ->
     [Def | merge_default_options(Ds,[Opt|Os])];
 
-merge_default_options([Def|Ds],[Opt|Os]) 
+merge_default_options([Def|Ds],[Opt|Os])
   when element(1,Def) > element(1,Opt) ->
     [Opt | merge_default_options([Def|Ds],Os)];
 
-merge_default_options([Def|Ds],[Opt|Os]) 
+merge_default_options([Def|Ds],[Opt|Os])
   when element(1,Def) == element(1,Opt) ->
     [Opt | merge_default_options(Ds,Os)];
 
@@ -232,7 +232,7 @@ merge_default_options(Defs,[]) -> Defs.
 
 opts_for_child(DB,Childtype,ParId) ->
     case gs_widgets:container(Childtype) of
-	true -> 
+	true ->
 	    gstk_db:default_container_opts(DB,ParId,Childtype);
 	false ->
 	    gstk_db:default_opts(DB,ParId,Childtype)
@@ -261,7 +261,7 @@ mk_cmd_and_exec(Options, Gstkid, TkW, SCmd, PCmd, DB,ExtraArg) ->
 %%----------------------------------------------------------------------
 %% SCmd: SimplePreCommand - prepended to simple (s) options
 %% PCmd: PlacePreCommand - prepended to placer (p) options
-%%       (should start with ';' (at least if preceeded with simple cmds))
+%%       (should start with ';' (at least if preceded with simple cmds))
 %% Comment: If some function changes the gstkid,
 %%          it's responsible for storing it in the DB.
 %%----------------------------------------------------------------------
@@ -442,13 +442,13 @@ gen_activefg(_Opt,_Gstkid,TkW,_DB,_ExtraArg) ->
 gen_default(Opt,Opts,Gstkid,TkW,DB,ExtraArg,S,P,C) ->
     case Opt of
 	{all, {font, Font}} ->
-	    C2 = ["option a *",tl(TkW), % have to remove preceeding dot
+	    C2 = ["option a *",tl(TkW), % have to remove preceding dot
 		  "*font ",gstk_font:choose_ascii(DB, Font)],
 	    gstk_db:insert_def(Gstkid,grid,{font,Font}),
 	    gstk_db:insert_def(Gstkid,text,{font,Font}),
 	    out_opts(Opts,Gstkid,TkW,DB,ExtraArg,S,P,[C2,$;|C]);
 	{buttons, {font, Font}} ->
-	    C2 = ["option a *",tl(TkW), % have to remove preceeding dot
+	    C2 = ["option a *",tl(TkW), % have to remove preceding dot
 		  ".Button.font ",gstk_font:choose_ascii(DB, Font)],
 	    out_opts(Opts,Gstkid,TkW,DB,ExtraArg,S,P,[C2,$;|C]);
 	{buttons,{Key,Val}} ->
@@ -525,14 +525,14 @@ gen_pack_xy({Col,Row},Opts,Gstkid,TkW,DB,ExtraArg,S,P,C) ->
     out_opts(Opts,Gstkid,TkW,DB,ExtraArg,S,P,C).
 
 
-gen_flush(_Opt,Opts,Gstkid,TkW,DB,ExtraArg,S,P,C)  -> 
+gen_flush(_Opt,Opts,Gstkid,TkW,DB,ExtraArg,S,P,C)  ->
     tcl2erl:ret_int(["update idletasks;expr 1+1"]),
     out_opts(Opts,Gstkid,TkW,DB,ExtraArg,S,P,C).
 gen_flush(_Opt,_Gstkid,_TkW,_DB,_ExtraArg) ->
     tcl2erl:ret_int(["update idletasks;expr 1+1"]).
 
 						% a hidden impl option.
-gen_keep_opt(Opt,Opts,Gstkid,TkW,DB,ExtraArg,S,P,C)  -> 
+gen_keep_opt(Opt,Opts,Gstkid,TkW,DB,ExtraArg,S,P,C)  ->
     gstk_db:insert_opt(DB,Gstkid,Opt),
     out_opts(Opts,Gstkid,TkW,DB,ExtraArg,S,P,C).
 
@@ -866,7 +866,7 @@ parse_scrolls(Gstkid, Opts) ->
     Hscroll = SO#so.hscroll,
     case parse_scrolls(Opts, Vscroll, Hscroll, []) of
 	{Vscroll, Hscroll, Opts} -> Opts;
-	{NewVscroll, NewHscroll, NewOpts} -> 
+	{NewVscroll, NewHscroll, NewOpts} ->
 	    [{scrolls, {NewVscroll, NewHscroll}} | NewOpts]
     end.
 
@@ -946,13 +946,13 @@ ebind(DB, Gstkid, TkW, Etype, WS, Edata) ->
 	      leave -> [P, " <Leave> {erlsend ", Eref, "}"];
 	      enter -> [P, " <Enter> {erlsend ", Eref, "}"];
 	      destroy ->
-		  [P, " <Destroy> {if {\"%W\"==\"", [TkW, WS], 
+		  [P, " <Destroy> {if {\"%W\"==\"", [TkW, WS],
 		   "\"} {erlsend ", Eref, "}}"];
 	      focus ->
 		  [P, " <FocusIn> {erlsend ", Eref, " 1};" ,
 		   P, " <FocusOut> {erlsend ", Eref, " 0}"];
 	      configure ->
-		  [P, " <Configure> {if {\"%W\"==\"", [TkW, WS], 
+		  [P, " <Configure> {if {\"%W\"==\"", [TkW, WS],
 		   "\"} {erlsend ", Eref, " %w %h %x %y}}"]
 	  end,
     Cmd.
@@ -972,12 +972,12 @@ eunbind(DB, Gstkid, TkW, Etype, WS, _Edata) ->
     Cmd = case Etype of
 	      motion ->
 		  [P, " <Motion> {}"];
-	      keypress -> 
+	      keypress ->
 		  [P, " <KeyPress> {};",
 		   P, " <Shift-KeyPress> {};",
 		   P, " <Control-KeyPress> {};",
 		   P, " <Control-Shift-KeyPress> {}"];
-	      keyrelease -> 
+	      keyrelease ->
 		  [P, " <KeyRelease> {};",
 		   P, " <Shift-KeyRelease> {};",
 		   P, " <Control-KeyRelease> {};",
@@ -1066,12 +1066,12 @@ item_eunbind(DB, Gstkid, Canvas, Item, Etype) ->
 	      enter         -> [P, " <Enter> {}"];
 	      leave         -> [P, " <Leave> {}"];
 	      motion        -> [P, " <Motion> {}"];
-	      keypress -> 
+	      keypress ->
 		  [P, " <KeyPress> {};",
 		   P, " <Shift-KeyPress> {};",
 		   P, " <Control-KeyPress> {};",
 		   P, " <Control-Shift-KeyPress> {}"];
-	      keyrelease -> 
+	      keyrelease ->
 		  [P, " <KeyRelease> {};",
 		   P, " <Shift-KeyRelease> {};",
 		   P, " <Control-KeyRelease> {};",

@@ -1,9 +1,9 @@
 %%--------------------------------------------------------------------
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1997-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,13 +15,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
 %%-----------------------------------------------------------------
 %% File: orber_initial_references.erl
-%% 
+%%
 %% Description:
 %%    This file contains the CORBA::InitialReferences interface
 %%
@@ -36,9 +36,9 @@
 %% External exports
 %%-----------------------------------------------------------------
 -export([start/1, shutdown/1, init/1,
-	 terminate/2, handle_call/3, code_change/3, 
-	 get/2, list/1, add/3, remove/2, 
-	 get/1, list/0, add/2, remove/1, 
+	 terminate/2, handle_call/3, code_change/3,
+	 get/2, list/1, add/3, remove/2,
+	 get/1, list/0, add/2, remove/1,
 	 typeID/0, install/2, oe_is_a/1, oe_tc/1, oe_get_interface/0]).
 
 %%-----------------------------------------------------------------
@@ -85,11 +85,11 @@ install(Timeout, Options) ->
 					    [{attributes,
 					      record_info(fields,
 							  orber_references)}
-					     |Options])	
+					     |Options])
 		end,
-    
+
     Wait = mnesia:wait_for_tables([orber_references], Timeout),
-    %% Check if any error has occured yet. If there are errors, return them.
+    %% Check if any error has occurred yet. If there are errors, return them.
     if
 	DB_Result == {atomic, ok},
 	Wait == ok ->
@@ -100,7 +100,7 @@ install(Timeout, Options) ->
 
 
 %%-----------------------------------------------------------------
-%% InitialReferences Interface 
+%% InitialReferences Interface
 %%-----------------------------------------------------------------
 'get'(Id) ->
     case read(Id) of
@@ -178,7 +178,7 @@ terminate(_Reason, _State) ->
 
 
 %%-----------------------------------------------------------------
-%% Handle incomming calls 
+%% Handle incomming calls
 handle_call({_EO_this, _OE_Context, 'get', [Id]}, _From, State) ->
     {'reply', read(Id), State};
 handle_call({_EO_this, _OE_Context, 'list', []}, _From, State) ->
@@ -196,13 +196,13 @@ handle_call(_Req, _From,State) ->
 
 oe_tc(get) ->
     {{'tk_objref', 12, "object"}, [{'tk_string', 0}], []};
-oe_tc(list) -> 
+oe_tc(list) ->
     {{'tk_sequence',{'tk_string', 0}, 0}, [], []};
 oe_tc(add) ->
     {'tk_boolean', [{'tk_string', 0}, {'tk_objref', 12, "object"}], []};
 oe_tc(remove) ->
     {'tk_boolean', [{'tk_string', 0}], []};
-oe_tc(_) -> 
+oe_tc(_) ->
     undefined.
 
 oe_get_interface() ->
@@ -233,12 +233,12 @@ code_change(_OldVsn, State, _Extra) ->
 read(Key) ->
     case mnesia:dirty_read({orber_references, Key}) of
 	[] ->
-	    corba:create_nil_objref();	    
+	    corba:create_nil_objref();
 	[#orber_references{objref = ObjRef}] ->
 	    ObjRef;
 	What ->
 	    orber:dbg("[~p] orber_initial_references:lookup(~p);~n"
-		      "Failed to read from DB: ~p", 
+		      "Failed to read from DB: ~p",
 		      [?LINE, Key, What], ?DEBUG_LEVEL),
 	    {'EXCEPTION', #'INTERNAL'{completion_status=?COMPLETED_NO}}
     end.
@@ -252,7 +252,7 @@ write(Key, ObjRef, Type) ->
 							 type=Type});
 		      [X] ->
 			  orber:dbg("[~p] orber_initial_references:write(~p);~n"
-				    "Already bound to: ~p", 
+				    "Already bound to: ~p",
 				    [?LINE, Key, X], ?DEBUG_LEVEL),
 			  false;
 		      Why ->
@@ -282,7 +282,7 @@ rewrite(Key, ObjRef, Type) ->
 	    true;
 	{aborted, Reason} ->
 	    orber:dbg("[~p] orber_initial_references:rewrite(~p);~n"
-		      "Error over writing in DB (~p)", 
+		      "Error over writing in DB (~p)",
 		      [?LINE, Key, Reason], ?DEBUG_LEVEL),
 	    corba:raise(#'INTERNAL'{completion_status=?COMPLETED_NO})
     end.
@@ -315,7 +315,7 @@ delete(Key) ->
 	    Reason
     end.
 
-list_keys() ->    
+list_keys() ->
     _LF = fun() -> mnesia:all_keys(orber_references) end,
     case mnesia:transaction(_LF) of
 	{atomic, Result} ->

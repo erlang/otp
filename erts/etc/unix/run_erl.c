@@ -1,8 +1,8 @@
 /*
  * %CopyrightBegin%
- * 
+ *
  * Copyright Ericsson AB 1996-2016. All Rights Reserved.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,24 +14,24 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
-/* 
+/*
  * Module: run_erl.c
- * 
- * This module implements a reader/writer process that opens two specified 
+ *
+ * This module implements a reader/writer process that opens two specified
  * FIFOs, one for reading and one for writing; reads from the read FIFO
  * and writes to stdout and the write FIFO.
  *
-  ________                            _________ 
+  ________                            _________
  |        |--<-- pipe.r (fifo1) --<--|         |
  | to_erl |                          | run_erl | (parent)
  |________|-->-- pipe.w (fifo2) -->--|_________|
                                           ^ master pty
                                           |
                                           | slave pty
-                                      ____V____ 
+                                      ____V____
                                      |         |
                                      |  "erl"  | (child)
                                      |_________|
@@ -198,13 +198,13 @@ static int outbuf_total;
 static char* outbuf_out;
 static char* outbuf_in;
 
-#if defined(NO_SYSCONF) || !defined(_SC_OPEN_MAX) 
+#if defined(NO_SYSCONF) || !defined(_SC_OPEN_MAX)
 #    if defined(OPEN_MAX)
 #        define HIGHEST_FILENO() OPEN_MAX
 #    else
 #        define HIGHEST_FILENO() 64 /* arbitrary value */
 #    endif
-#else 
+#else
 #    define HIGHEST_FILENO() sysconf(_SC_OPEN_MAX)
 #endif
 
@@ -289,7 +289,7 @@ int main(int argc, char **argv)
 	  ERROR1(LOG_ERR,"Minimum value for RUN_ERL_LOG_ACTIVITY_MINUTES is 1 "
 		 "(current value is %s)",p);
       }
-  } 
+  }
   if ((p = getenv("RUN_ERL_LOG_ALIVE_FORMAT"))) {
       if (strlen(p) > ALIVE_BUFFSIZ) {
 	  ERROR1(LOG_ERR, "RUN_ERL_LOG_ALIVE_FORMAT can contain a maximum of "
@@ -317,7 +317,7 @@ int main(int argc, char **argv)
   }
 
   /*
-   * Create FIFOs and open them 
+   * Create FIFOs and open them
    */
 
   if(*pipename && pipename[strlen(pipename)-1] == '/') {
@@ -334,14 +334,14 @@ int main(int argc, char **argv)
     }
 
     /* Check the directory for existing pipes */
-    
+
     while((direntp=readdir(dirp)) != NULL) {
       if(strncmp(direntp->d_name,PIPE_STUBNAME,PIPE_STUBLEN)==0) {
 	int num = atoi(direntp->d_name+PIPE_STUBLEN+1);
 	if(num > highest_pipe_num)
 	  highest_pipe_num = num;
       }
-    }	
+    }
     closedir(dirp);
     strn_catf(pipename, sizeof(pipename), "%s.%d",
 	      PIPE_STUBNAME, highest_pipe_num+1);
@@ -355,11 +355,11 @@ int main(int argc, char **argv)
 	  ERRNO_ERR1(LOG_ERR,"Cannot create FIFO %s for writing.", fifo1);
 	  exit(1);
       }
-      
+
       /* read FIFO - is write FIFO for `to_erl' program */
       strn_cpy(fifo2, sizeof(fifo2), pipename);
       strn_cat(fifo2, sizeof(fifo2), ".w");
-      
+
       /* Check that nobody is running run_erl already */
       if ((fd = sf_open(fifo2, O_WRONLY|DONT_BLOCK_PLEASE, 0)) >= 0) {
 	  /* Open as client succeeded -- run_erl is already running! */
@@ -369,11 +369,11 @@ int main(int argc, char **argv)
 	      strn_catf(pipename, sizeof(pipename), "%s.%d",
 			PIPE_STUBNAME, highest_pipe_num+1);
 	      continue;
-	  } 
+	  }
 	  fprintf(stderr, "Erlang already running on pipe %s.\n", pipename);
 	  exit(1);
       }
-      if (create_fifo(fifo2, PERM) < 0) { 
+      if (create_fifo(fifo2, PERM) < 0) {
 	  ERRNO_ERR1(LOG_ERR,"Cannot create FIFO %s for reading.", fifo2);
 	  exit(1);
       }
@@ -389,7 +389,7 @@ int main(int argc, char **argv)
     exit(1);
   }
 
-  /* 
+  /*
    * Now create a child process
    */
 
@@ -426,10 +426,10 @@ int main(int argc, char **argv)
     }
 #if defined(HAVE_OPENPTY) && defined(TIOCSCTTY)
     else {
-	/* sfd is from open_pty_master 
+	/* sfd is from open_pty_master
 	 * openpty -> fork -> login_tty (forkpty)
-	 * 
-	 * It would be preferable to implement a portable 
+	 *
+	 * It would be preferable to implement a portable
 	 * forkpty instead of open_pty_master / open_pty_slave
 	 */
 	/* login_tty(sfd);  <- FAIL */
@@ -439,7 +439,7 @@ int main(int argc, char **argv)
 
 #ifdef HAVE_SYSLOG_H
     /* Before fiddling with file descriptors we make sure syslog is turned off
-       or "closed". In the single case where we might want it again, 
+       or "closed". In the single case where we might want it again,
        we will open it again instead. Would not want syslog to
        go to some other fd... */
     if (run_daemon) {
@@ -502,27 +502,27 @@ static void pass_on(pid_t childpid)
     int maxfd;
     int ready;
     int got_some = 0; /* from to_erl */
-    
+
     /* Open the to_erl pipe for reading.
-     * We can't open the writing side because nobody is reading and 
+     * We can't open the writing side because nobody is reading and
      * we'd either hang or get an error.
      */
     if ((rfd = sf_open(fifo2, O_RDONLY|DONT_BLOCK_PLEASE, 0)) < 0) {
 	ERRNO_ERR1(LOG_ERR,"Could not open FIFO '%s' for reading.", fifo2);
 	exit(1);
     }
-    
+
 #ifdef DEBUG
     status("run_erl: %s opened for reading\n", fifo2);
 #endif
-    
+
     /* Open the log file */
-    
+
     lognum = find_next_log_num();
     lfd = open_log(lognum, O_RDWR|O_APPEND|O_CREAT|O_SYNC);
-    
+
     /* Enter the work loop */
-    
+
     while (1) {
 	int exit_status;
 	maxfd = MAX(rfd, mfd);
@@ -553,7 +553,7 @@ static void pass_on(pid_t childpid)
 		FD_ZERO(&readfds);
 		FD_ZERO(&writefds);
 	    } else {
-		/* Some error occured */
+		/* Some error occurred */
 		ERRNO_ERR0(LOG_ERR,"Error in select.");
 		exit(1);
 	    }
@@ -586,7 +586,7 @@ static void pass_on(pid_t childpid)
 		}
 		log_alive_buffer[ALIVE_BUFFSIZ] = '\0';
 
-		sn_printf(buf, sizeof(buf), "\n===== %s%s\n", 
+		sn_printf(buf, sizeof(buf), "\n===== %s%s\n",
 			  ready?"":"ALIVE ", log_alive_buffer);
 		write_to_log(&lfd, &lognum, buf, strlen(buf));
 	    }
@@ -618,7 +618,7 @@ static void pass_on(pid_t childpid)
 		outbuf_delete(written);
 	    }
 	}
-	
+
 	/*
 	 * Read master pty and write to FIFO.
 	 */
@@ -651,7 +651,7 @@ static void pass_on(pid_t childpid)
 	    if (wfd) {
 		outbuf_append(buf, len);
 	    }
-	}	    
+	}
 
 	/*
 	 * Read from FIFO, write to master pty
@@ -680,7 +680,7 @@ static void pass_on(pid_t childpid)
 		}
 		got_some = 0; /* reset for next session */
 	    }
-	    else { 
+	    else {
 		if(!wfd) {
 		    /* Try to open the write pipe to to_erl. Now that we got some data
 		     * from to_erl, to_erl should already be reading this pipe - open
@@ -696,7 +696,7 @@ static void pass_on(pid_t childpid)
 			    exit(1);
 			}
 			wfd = 0;
-		    } 
+		    }
 		    else {
 #ifdef DEBUG
 			status("run_erl: %s opened for writing\n", fifo1);
@@ -721,7 +721,7 @@ static void pass_on(pid_t childpid)
 
 		if(len==1 && buf[0] == '\003') {
 		    kill(childpid,SIGINT);
-		} 
+		}
 		else if (len>0 && write_all(mfd, buf, len) != len) {
 		    ERRNO_ERR0(LOG_ERR,"Error in writing to terminal.");
 		    sf_close(rfd);
@@ -792,7 +792,7 @@ static int find_next_log_num(void) {
 	continue;
       log_exists[num] = 1;
     }
-  }	
+  }
   closedir(dirp);
 
   /* Find out the next available log file number */
@@ -802,7 +802,7 @@ static int find_next_log_num(void) {
     if(log_exists[i])
       if(next_gen)
 	break;
-      else 
+      else
 	;
     else
       next_gen = i;
@@ -879,12 +879,12 @@ static void write_to_log(int* lfd, int* log_num, char* buf, int len)
   int size;
 
   /* Decide if new logfile needed, and open if so */
-  
+
   size = lseek(*lfd,0,SEEK_END);
   if(size+len > log_maxsize) {
     sf_close(*lfd);
     *log_num = next_log(*log_num);
-    *lfd = open_log(*log_num, O_RDWR|O_CREAT|O_TRUNC|O_SYNC); 
+    *lfd = open_log(*log_num, O_RDWR|O_CREAT|O_TRUNC|O_SYNC);
   }
 
   /* Write to log file */
@@ -929,7 +929,7 @@ static int open_pty_master(char **ptyslave, int *sfdp)
 {
   int mfd;
 
-/* Use the posix_openpt if working, as this guarantees creation of the 
+/* Use the posix_openpt if working, as this guarantees creation of the
    slave device properly. */
 #if defined(TRY_POSIX_OPENPT) || (defined(__sun) && defined(__SVR4))
 #  ifdef TRY_POSIX_OPENPT
@@ -940,7 +940,7 @@ static int open_pty_master(char **ptyslave, int *sfdp)
 
   if (mfd >= 0) {
       if ((*ptyslave = ptsname(mfd)) != NULL &&
-	  grantpt(mfd) == 0 && 
+	  grantpt(mfd) == 0 &&
 	  unlockpt(mfd) == 0) {
 
 	  return mfd;
@@ -1150,11 +1150,11 @@ static void status(const char *format,...)
   fflush(stdstatus);
 }
 
-static void daemon_init(void) 
-     /* As R Stevens wants it, to a certain extent anyway... */ 
+static void daemon_init(void)
+     /* As R Stevens wants it, to a certain extent anyway... */
 {
     pid_t pid;
-    int i, maxfd = HIGHEST_FILENO(); 
+    int i, maxfd = HIGHEST_FILENO();
 
     if ((pid = fork()) != 0)
 	exit(0);
@@ -1162,14 +1162,14 @@ static void daemon_init(void)
     setpgrp();
 #elif defined(USE_SETPGRP)
     setpgrp(0,getpid());
-#else                           
+#else
     setsid(); /* Seems to be the case on all current platforms */
 #endif
     signal(SIGHUP, SIG_IGN);
     if ((pid = fork()) != 0)
 	exit(0);
 
-    /* Should change working directory to "/" and change umask now, but that 
+    /* Should change working directory to "/" and change umask now, but that
        would be backward incompatible */
 
     for (i = 0; i < maxfd; ++i ) {
@@ -1209,7 +1209,7 @@ static void error_logf(int priority, int line, const char *format, ...)
 	vfprintf(stderr, format, args);
     }
     va_end(args);
-}	
+}
 
 static void usage(char *pname)
 {
@@ -1360,11 +1360,11 @@ static int extract_ctrl_seq(char* buf, int len)
     char* start = buf;
     char* command;
     char* end;
-    
+
     for (;;) {
 	start = find_str(start, bufend-start, prefix);
 	if (!start) break;
-	
+
 	command = start + strlen(prefix);
 	end = find_str(command, bufend-command, suffix);
 	if (end) {
@@ -1379,7 +1379,7 @@ static int extract_ctrl_seq(char* buf, int len)
 		ERROR2(LOG_ERR, "Ignoring unknown ctrl command '%.*s'\n",
 		       (int)(end-command), command);
 	    }
-	  
+
 	    /* Remove ctrl sequence from buf */
 	    end += strlen(suffix);
 	    memmove(start, end, bufend-end);
@@ -1396,7 +1396,7 @@ static int extract_ctrl_seq(char* buf, int len)
 
 static void set_window_size(unsigned col, unsigned row)
 {
-#ifdef TIOCSWINSZ	
+#ifdef TIOCSWINSZ
     struct winsize ws;
     ws.ws_col = col;
     ws.ws_row = row;

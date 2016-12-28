@@ -273,7 +273,7 @@ lowest_protocol_version(_,Version) ->
 
 %%--------------------------------------------------------------------
 -spec lowest_protocol_version([dtls_version()]) -> dtls_version().
-%%     
+%%
 %% Description: Lowest protocol version present in a list
 %%--------------------------------------------------------------------
 lowest_protocol_version([]) ->
@@ -393,7 +393,7 @@ init_connection_state_seq(_, ConnnectionStates) ->
 					    integer().
 %%
 %% Description: Returns the epoch the connection_state record
-%% that is currently defined as the current conection state.
+%% that is currently defined as the current connection state.
 %%--------------------------------------------------------------------
 current_connection_state_epoch(#{current_read := #{epoch := Epoch}},
 			       read) ->
@@ -429,11 +429,11 @@ highest_list_protocol_version(Ver, []) ->
 highest_list_protocol_version(Ver1,  [Ver2 | Rest]) ->
     highest_list_protocol_version(highest_protocol_version(Ver1, Ver2), Rest).
 
-encode_dtls_cipher_text(Type, {MajVer, MinVer}, Fragment, 
+encode_dtls_cipher_text(Type, {MajVer, MinVer}, Fragment,
 		       #{epoch := Epoch, sequence_number := Seq} = WriteState) ->
     Length = erlang:iolist_size(Fragment),
     {[<<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Epoch),
-	?UINT48(Seq), ?UINT16(Length)>>, Fragment], 
+	?UINT48(Seq), ?UINT16(Length)>>, Fragment],
      WriteState#{sequence_number => Seq + 1}}.
 
 encode_plain_text(Type, Version, Data, #{compression_state := CompS0,
@@ -467,7 +467,7 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 		     security_parameters :=
 			 #security_parameters{
 			    cipher_type = ?AEAD,
-			    compression_algorithm = CompAlg}} = ReadState0, 
+			    compression_algorithm = CompAlg}} = ReadState0,
 		   ConnnectionStates0) ->
     AAD = calc_aad(Type, Version, Epoch, Seq),
     case ssl_record:decipher_aead(dtls_v1:corresponding_tls_version(Version),
@@ -497,7 +497,7 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 	true ->
 	    {Plain, CompressionS1} = ssl_record:uncompress(CompAlg,
 							   PlainFragment, CompressionS0),
-	    
+
 	    ReadState = ReadState1#{compression_state => CompressionS1},
 	    ConnnectionStates = set_connection_state_by_epoch(ReadState, Epoch, ConnnectionStates0, read),
 	    {CipherText#ssl_tls{fragment = Plain}, ConnnectionStates};

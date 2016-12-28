@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2005-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -24,7 +24,7 @@
 %%----------------------------------------------------------------------
 
 %% -define(d(F,A), io:format("~w:" ++ F ++ "~n", [?MODULE|A])).
-	       
+
 -define(META_ENC(Type, Item), Item) .
 %% -define(META_ENC(Type, Item), megaco_meta_package:encode(text, Type, Item)).
 %% -define(META_DEC(Type, Item), megaco_meta_package:decode(text, Type, Item)).
@@ -33,13 +33,13 @@ enc_MegacoMessage(Val) ->
     State = ?INIT_INDENT,
     enc_MegacoMessage(Val, State).
 
-enc_MegacoMessage(#'MegacoMessage'{authHeader = asn1_NOVALUE, 
+enc_MegacoMessage(#'MegacoMessage'{authHeader = asn1_NOVALUE,
 				   mess       = Mess}, State) ->
     [
      ?LWSP,
      enc_Message(Mess, State)
     ];
-enc_MegacoMessage(#'MegacoMessage'{authHeader = Auth, 
+enc_MegacoMessage(#'MegacoMessage'{authHeader = Auth,
 				   mess       = Mess}, State) ->
     [
      ?LWSP,
@@ -139,7 +139,7 @@ enc_Message_messageBody({Tag, Val}, State) ->
 	    error({invalid_messageBody_tag, Tag})
     end.
 
-enc_Message_messageBody_transactions({'Message_messageBody_transactions',Val}, 
+enc_Message_messageBody_transactions({'Message_messageBody_transactions',Val},
 				     State) ->
     enc_Message_messageBody_transactions(Val, State);
 enc_Message_messageBody_transactions(Val, State)
@@ -201,7 +201,7 @@ enc_IP4Address(#'IP4Address'{portNumber = asn1_NOVALUE,
      ?DOT,
      enc_V4hex(A3, State),
      ?DOT,
-     enc_V4hex(A4, State),    
+     enc_V4hex(A4, State),
      $]
     ];
 enc_IP4Address(#'IP4Address'{portNumber = PortNumber,
@@ -214,17 +214,17 @@ enc_IP4Address(#'IP4Address'{portNumber = PortNumber,
      ?DOT,
      enc_V4hex(A3, State),
      ?DOT,
-     enc_V4hex(A4, State),    
+     enc_V4hex(A4, State),
      $],
      $:,
      enc_portNumber(PortNumber, State)
-    ].    
+    ].
 
 enc_V4hex(Val, State) ->
     enc_DIGIT(Val, State, 0, 255).
 
 enc_IP6Address(#'IP6Address'{portNumber = asn1_NOVALUE,
-			     address    = Addr}, State) 
+			     address    = Addr}, State)
   when is_list(Addr) andalso (length(Addr) =:= 16) ->
     [
      $[,
@@ -232,7 +232,7 @@ enc_IP6Address(#'IP6Address'{portNumber = asn1_NOVALUE,
      $]
     ];
 enc_IP6Address(#'IP6Address'{portNumber = PortNumber,
-			     address    = Addr}, State) 
+			     address    = Addr}, State)
   when is_list(Addr) andalso (length(Addr) =:= 16) ->
     [
      $[,
@@ -296,7 +296,7 @@ enc_IP6Address_address2([N1, N2|Ns], PadN, false, true, State) when PadN > 1 ->
      $:,
      enc_IP6Address_address2(Ns, 0, true, false, State)
     ];
-enc_IP6Address_address2([N1, N2|Ns], PadN, false, false, State) 
+enc_IP6Address_address2([N1, N2|Ns], PadN, false, false, State)
   when PadN > 1 ->
     [
      $:,  %% The other ':' has already added
@@ -324,7 +324,7 @@ enc_hex4([N1, N2], _State) ->
 enc_PathName({'PathName',Val}, State) ->
     enc_PathName(Val, State);
 enc_PathName(Val, State) ->
-    %% BUGBUG: ["*"] NAME *("/" / "*"/ ALPHA / DIGIT /"_" / "$" ) 
+    %% BUGBUG: ["*"] NAME *("/" / "*"/ ALPHA / DIGIT /"_" / "$" )
     %% BUGBUG: ["@" pathDomainName ]
     enc_STRING(Val, State, 1, 64).
 
@@ -363,7 +363,7 @@ enc_TransactionResponseAck([Mand | Opt], State) ->
       [[?COMMA_INDENT(State), enc_TransactionAck(Val, State)] || Val <- Opt]],
      ?RBRKT_INDENT(State)
     ].
-    
+
 enc_TransactionAck(Val, State)
   when is_record(Val, 'TransactionAck') ->
     [
@@ -416,10 +416,10 @@ enc_TransactionPending(Bin, _State) when is_binary(Bin) ->
 
 enc_TransactionReply(#'TransactionReply'{transactionId        = Tid,
 					 immAckRequired       = asn1_NOVALUE,
-					 transactionResult    = Res%% , 
+					 transactionResult    = Res%% ,
 %% 					 segmentationNumber   = SegNo,
 %% 					 segmentationComplete = SegCompl
-					}, 
+					},
 		     State) ->
     [
      ?ReplyToken,
@@ -431,15 +431,15 @@ enc_TransactionReply(#'TransactionReply'{transactionId        = Tid,
     ];
 enc_TransactionReply(#'TransactionReply'{transactionId        = Tid,
 					 immAckRequired       = Req,
-					 transactionResult    = Res, 
-					 %% These fields are actually not 
+					 transactionResult    = Res,
+					 %% These fields are actually not
 					 %% supported in this implementation,
-					 %% but because the messanger module
+					 %% but because the messenger module
 					 %% cannot see any diff between the
 					 %% various v3 implementations...
    					 segmentNumber        = asn1_NOVALUE,
    					 segmentationComplete = asn1_NOVALUE
-					}, 
+					},
 		     State) ->
     [
      ?ReplyToken,
@@ -455,9 +455,9 @@ enc_TransactionReply(Bin, _State) when is_binary(Bin) ->
 
 enc_immAckRequired(Val, _State) ->
     case Val of
-	asn1_NOVALUE -> 
+	asn1_NOVALUE ->
 	    [];
-	'NULL'       -> 
+	'NULL'       ->
 	    [?ImmAckRequiredToken, ?COMMA_INDENT(?INC_INDENT(_State))]
     end.
 
@@ -571,7 +571,7 @@ enc_ActionRequest(#'ActionRequest'{contextId           = CID,
 enc_ActionReply(#'ActionReply'{contextId       = Id,
 			       errorDescriptor = asn1_NOVALUE,
 			       contextReply    = asn1_NOVALUE,
-			       commandReply    = []}, 
+			       commandReply    = []},
 		State) ->
 %%     d("enc_ActionReply -> entry with"
 %%       "~n   Id: ~p", [Id]),
@@ -583,7 +583,7 @@ enc_ActionReply(#'ActionReply'{contextId       = Id,
 enc_ActionReply(#'ActionReply'{contextId       = Id,
 			       errorDescriptor = ED,
 			       contextReply    = CtxRep,
-			       commandReply    = CmdRep}, 
+			       commandReply    = CmdRep},
 		State) ->
 %%     d("enc_ActionReply -> entry with"
 %%       "~n   Id:     ~p"
@@ -599,52 +599,52 @@ enc_ActionReply(#'ActionReply'{contextId       = Id,
      ?RBRKT_INDENT(State)
     ].
 
-do_enc_ActionReply(asn1_NOVALUE, CtxRep, [], State) 
+do_enc_ActionReply(asn1_NOVALUE, CtxRep, [], State)
   when (CtxRep =/= asn1_NOVALUE) ->
     [
      enc_ContextRequest(CtxRep, ?INC_INDENT(State))
     ];
-do_enc_ActionReply(asn1_NOVALUE, CtxRep, CmdRep, State) 
+do_enc_ActionReply(asn1_NOVALUE, CtxRep, CmdRep, State)
   when (CtxRep =/= asn1_NOVALUE) andalso (CmdRep =/= []) ->
     [
      enc_ContextRequest(CtxRep, ?INC_INDENT(State)),
-     ?COMMA_INDENT(?INC_INDENT(State)), 
+     ?COMMA_INDENT(?INC_INDENT(State)),
      enc_list([{CmdRep, fun enc_CommandReply/2}],
 	      ?INC_INDENT(State))
     ];
-do_enc_ActionReply(asn1_NOVALUE, asn1_NOVALUE, CmdRep, State) 
+do_enc_ActionReply(asn1_NOVALUE, asn1_NOVALUE, CmdRep, State)
   when (CmdRep =/= []) ->
     [
      enc_list([{CmdRep, fun enc_CommandReply/2}],
 	      ?INC_INDENT(State))
     ];
-do_enc_ActionReply(ED, CtxRep, [], State) 
+do_enc_ActionReply(ED, CtxRep, [], State)
   when (ED =/= asn1_NOVALUE) andalso (CtxRep =/= asn1_NOVALUE) ->
     [
      enc_ContextRequest(CtxRep, ?INC_INDENT(State)),
-     ?COMMA_INDENT(?INC_INDENT(State)), 
+     ?COMMA_INDENT(?INC_INDENT(State)),
      enc_list([{[ED], fun enc_ErrorDescriptor/2}], % Indention cosmetics
  	      ?INC_INDENT(State))
     ];
-do_enc_ActionReply(ED, asn1_NOVALUE, CmdRep, State) 
+do_enc_ActionReply(ED, asn1_NOVALUE, CmdRep, State)
   when (ED =/= asn1_NOVALUE) andalso (CmdRep =/= []) ->
     [
      enc_list([{CmdRep, fun enc_CommandReply/2},
 	       {[ED],   fun enc_ErrorDescriptor/2}], % Indention cosmetics
  	      ?INC_INDENT(State))
     ];
-do_enc_ActionReply(ED, CtxRep, CmdRep, State) 
-  when (ED     =/= asn1_NOVALUE) andalso 
-       (CtxRep =/= asn1_NOVALUE) andalso 
+do_enc_ActionReply(ED, CtxRep, CmdRep, State)
+  when (ED     =/= asn1_NOVALUE) andalso
+       (CtxRep =/= asn1_NOVALUE) andalso
        (CmdRep =/= []) ->
     [
      enc_ContextRequest(CtxRep, ?INC_INDENT(State)),
-     ?COMMA_INDENT(?INC_INDENT(State)), 
+     ?COMMA_INDENT(?INC_INDENT(State)),
      enc_list([{CmdRep, fun enc_CommandReply/2},
 	       {[ED],   fun enc_ErrorDescriptor/2}], % Indention cosmetics
  	      ?INC_INDENT(State))
     ];
-do_enc_ActionReply(ED, asn1_NOVALUE, [], State) 
+do_enc_ActionReply(ED, asn1_NOVALUE, [], State)
   when (ED =/= asn1_NOVALUE) ->
     [
      enc_ErrorDescriptor(ED, ?INC_INDENT(State))
@@ -665,10 +665,10 @@ enc_ContextRequest_emergency(false, _State) ->
 
 enc_ContextRequest_topologyReq(asn1_NOVALUE, _State) ->
     {[], dummy};
-enc_ContextRequest_topologyReq({'ContextRequest_topologyReq', 
+enc_ContextRequest_topologyReq({'ContextRequest_topologyReq',
 				asn1_NOVALUE}, _State) ->
     {[], dummy};
-enc_ContextRequest_topologyReq({'ContextRequest_topologyReq', 
+enc_ContextRequest_topologyReq({'ContextRequest_topologyReq',
 				List}, _State) ->
     {List, fun enc_TopologyRequest/2};
 enc_ContextRequest_topologyReq(List, _State) ->
@@ -691,15 +691,15 @@ enc_ContextRequest_contextList(asn1_NOVALUE, _State) ->
 enc_ContextRequest_contextList([], _State) ->
     {[], dummy};
 enc_ContextRequest_contextList(Props, _State) ->
-    {[Props], fun(Elem, S) -> 
-		      enc_contextAttrDescriptor(Elem, contextList, S) 
+    {[Props], fun(Elem, S) ->
+		      enc_contextAttrDescriptor(Elem, contextList, S)
 	      end}.
 
 enc_contextAttrDescriptor([Mand|Opt], contextProps, State) ->
     [
      ?ContextAttrToken,
      ?LBRKT_INDENT(State),
-     [enc_PropertyParm(Mand, State) | 
+     [enc_PropertyParm(Mand, State) |
       [[?COMMA_INDENT(State), enc_PropertyParm(Val, State)] || Val <- Opt]],
      ?RBRKT_INDENT(State)
     ];
@@ -715,7 +715,7 @@ enc_contextIdList([Mand|Opt], State) ->
     State2 = ?INC_INDENT(State),
     [
      ?ContextListToken,
-     ?EQUAL, 
+     ?EQUAL,
      ?LBRKT_INDENT(State),
      [enc_ContextID(Mand, State2) |
       [[?COMMA_INDENT(State2), enc_ContextID(Val, State2)] || Val <- Opt]],
@@ -724,59 +724,59 @@ enc_contextIdList([Mand|Opt], State) ->
 
 enc_ContextRequest(asn1_NOVALUE, _State) ->
     [];
-enc_ContextRequest(#'ContextRequest'{priority    = asn1_NOVALUE, 
+enc_ContextRequest(#'ContextRequest'{priority    = asn1_NOVALUE,
 				     emergency   = asn1_NOVALUE,
 				     topologyReq = asn1_NOVALUE,
 				     iepscallind = asn1_NOVALUE,
 				     contextProp = asn1_NOVALUE,
 				     contextList = asn1_NOVALUE}, _State) ->
     [];
-enc_ContextRequest(#'ContextRequest'{priority    = asn1_NOVALUE, 
+enc_ContextRequest(#'ContextRequest'{priority    = asn1_NOVALUE,
 				     emergency   = asn1_NOVALUE,
 				     topologyReq = [],
 				     iepscallind = asn1_NOVALUE,
 				     contextProp = [],
 				     contextList = []}, _State) ->
     [];
-enc_ContextRequest(#'ContextRequest'{priority    = Prio, 
+enc_ContextRequest(#'ContextRequest'{priority    = Prio,
 				     emergency   = Em,
 				     topologyReq = TR,
 				     iepscallind = Ieps,
 				     contextProp = CP,
 				     contextList = CL}, State) ->
     [
-     enc_list([enc_ContextRequest_priority(Prio, State), 
-	       enc_ContextRequest_emergency(Em, State), 
-	       enc_ContextRequest_topologyReq(TR, State), 
-	       enc_ContextRequest_iepscallind(Ieps, State), 
-	       enc_ContextRequest_contextProp(CP, State), 
+     enc_list([enc_ContextRequest_priority(Prio, State),
+	       enc_ContextRequest_emergency(Em, State),
+	       enc_ContextRequest_topologyReq(TR, State),
+	       enc_ContextRequest_iepscallind(Ieps, State),
+	       enc_ContextRequest_contextProp(CP, State),
 	       enc_ContextRequest_contextList(CL, State)],
 	      State)
     ].
 
 
 %% -- contextAudit --
-%% contextAudit = ContextAuditToken LBRKT 
+%% contextAudit = ContextAuditToken LBRKT
 %%                  (contextAuditProperties *(COMMA contextAuditProperties)) /
-%%                  indAudcontextAttrDesscriptor 
+%%                  indAudcontextAttrDesscriptor
 %%                RBRKT
-%% contextAuditProperties = 
+%% contextAuditProperties =
 %%                (TopologyToken / EmergencyToken / PriorityToken /
 %%                 IEPSToken / pkgdName / contextAuditSelect)
-%% contextAuditSelect = 
+%% contextAuditSelect =
 %%                priority / emergencyValue / iepsValue /
 %%                contextAttrDescriptor / auditSelectLogic
-%% indAudcontextAttrDesscriptor = 
-%%                ContextAttrToken LBRKT 
-%%                  (contextAuditProperties *(COMMA contextAuditProperties)) 
+%% indAudcontextAttrDesscriptor =
+%%                ContextAttrToken LBRKT
+%%                  (contextAuditProperties *(COMMA contextAuditProperties))
 %%                RBRKT
-%% 
-%% This could actually either be 
-%% a) a list of contextAuditProperties: 
+%%
+%% This could actually either be
+%% a) a list of contextAuditProperties:
 %%    contextAuditProperties *(COMMA contextAuditProperties)
 %% b) a indAudcontextAttrDescriptor
-%% But since b) actually has the same content as a) with 
-%% the extra ContextAttrToken, there does not seem to be any 
+%% But since b) actually has the same content as a) with
+%% the extra ContextAttrToken, there does not seem to be any
 %% reason for using it.
 enc_ContextAttrAuditRequest(asn1_NOVALUE, _State) ->
     [];
@@ -820,9 +820,9 @@ enc_ContextAttrAuditRequest(
 	       {[Prio], fun('NULL', _) -> ?PriorityToken end},
 	       {[Ieps], fun('NULL', _) -> ?IEPSToken end},
 	       {CPA,    fun enc_IndAudPropertyParm/2},
-	       enc_ContextAttrAuditRequest_selectpriority(SPrio, State), 
-	       enc_ContextAttrAuditRequest_selectemergency(SEm, State), 
-	       enc_ContextAttrAuditRequest_selectiepscallind(SIeps, State), 
+	       enc_ContextAttrAuditRequest_selectpriority(SPrio, State),
+	       enc_ContextAttrAuditRequest_selectemergency(SEm, State),
+	       enc_ContextAttrAuditRequest_selectiepscallind(SIeps, State),
 	       enc_ContextAttrAuditRequest_selectLogic(SL, State)],
 	      ?INC_INDENT(State)),
      ?RBRKT_INDENT(State)
@@ -833,16 +833,16 @@ enc_ContextAttrAuditRequest_selectpriority(asn1_NOVALUE, _State) ->
 enc_ContextAttrAuditRequest_selectpriority(SPrio, _State) ->
     {[SPrio], fun(X,S) -> [?PriorityToken,?EQUAL,enc_UINT16(X, S)] end}.
 
-enc_ContextAttrAuditRequest_selectemergency(asn1_NOVALUE, _State) ->  
-    {[], dummy};    
+enc_ContextAttrAuditRequest_selectemergency(asn1_NOVALUE, _State) ->
+    {[], dummy};
 enc_ContextAttrAuditRequest_selectemergency(SEm, _State) ->
     {[SEm], fun(X,S) -> enc_emergencyValue(X, S) end}.
-    
-enc_ContextAttrAuditRequest_selectiepscallind(asn1_NOVALUE, _State) ->  
-    {[], dummy};    
+
+enc_ContextAttrAuditRequest_selectiepscallind(asn1_NOVALUE, _State) ->
+    {[], dummy};
 enc_ContextAttrAuditRequest_selectiepscallind(SEm, _State) ->
     {[SEm], fun(X,S) -> enc_iepsValue(X, S) end}.
-    
+
 enc_ContextAttrAuditRequest_selectLogic(asn1_NOVALUE, _State) ->
     {[], dummy};
 enc_ContextAttrAuditRequest_selectLogic({andAUDITSelect, 'NULL'}, _State) ->
@@ -854,7 +854,7 @@ enc_emergencyValue(true, _) ->
     [?EmergencyValueToken,?EQUAL,?EmergencyToken];
 enc_emergencyValue(_, _) ->
     [?EmergencyValueToken,?EQUAL,?EmergencyOffToken].
-    
+
 
 %% enc_IndAudContextAttrDescriptor(
 %%   #'ContextAttrAuditRequest'{topology          = Top,
@@ -890,14 +890,14 @@ enc_CommandRequest(#'CommandRequest'{optional       = 'NULL',
     [
      "O-",
      enc_Command(Cmd, State)
-    ]; 
+    ];
 enc_CommandRequest(#'CommandRequest'{optional       = asn1_NOVALUE,
 				     wildcardReturn = 'NULL',
 				     command        = Cmd}, State) ->
     [
      "W-",
      enc_Command(Cmd, State)
-    ]; 
+    ];
 enc_CommandRequest(#'CommandRequest'{optional       = 'NULL',
 				     wildcardReturn = 'NULL',
 				     command        = Cmd}, State) ->
@@ -905,7 +905,7 @@ enc_CommandRequest(#'CommandRequest'{optional       = 'NULL',
      "O-",
      "W-",
      enc_Command(Cmd, State)
-    ]. 
+    ].
 
 enc_Command({'Command',Val}, State) ->
     enc_Command(Val, State);
@@ -1037,14 +1037,14 @@ enc_TopologyRequest1(
 
 enc_TopologyDirection(bothway, _State) ->
     ?BothwayToken;
-enc_TopologyDirection(isolate, _State) -> 
+enc_TopologyDirection(isolate, _State) ->
     ?IsolateToken;
-enc_TopologyDirection(oneway, _State) ->  
+enc_TopologyDirection(oneway, _State) ->
     ?OnewayToken.
 
-enc_TopologyDirectionExtension(onewayexternal, _State) ->  
+enc_TopologyDirectionExtension(onewayexternal, _State) ->
     ?OnewayExternalToken;
-enc_TopologyDirectionExtension(onewayboth, _State) ->  
+enc_TopologyDirectionExtension(onewayboth, _State) ->
     ?OnewayBothToken.
 
 enc_iepsValue(Val, _State) ->
@@ -1073,31 +1073,31 @@ enc_AmmRequest(#'AmmRequest'{terminationID = TIDs,
 enc_ammDescriptor({Tag, Desc}, State) ->
     case Tag of
 	mediaDescriptor       -> enc_MediaDescriptor(Desc, State);
-        modemDescriptor       -> enc_ModemDescriptor(Desc, State);      
-        muxDescriptor         -> enc_MuxDescriptor(Desc, State);   
-        eventsDescriptor      -> enc_EventsDescriptor(Desc, State);      
-        eventBufferDescriptor -> enc_EventBufferDescriptor(Desc, State); 
-        signalsDescriptor     -> enc_SignalsDescriptor(Desc, State);    
-        digitMapDescriptor    -> enc_DigitMapDescriptor(Desc, State);    
+        modemDescriptor       -> enc_ModemDescriptor(Desc, State);
+        muxDescriptor         -> enc_MuxDescriptor(Desc, State);
+        eventsDescriptor      -> enc_EventsDescriptor(Desc, State);
+        eventBufferDescriptor -> enc_EventBufferDescriptor(Desc, State);
+        signalsDescriptor     -> enc_SignalsDescriptor(Desc, State);
+        digitMapDescriptor    -> enc_DigitMapDescriptor(Desc, State);
         auditDescriptor       -> enc_AuditDescriptor(Desc, State);
         statisticsDescriptor  -> enc_StatisticsDescriptor(Desc, State);
 	_ ->
 	    error({invalid_ammDescriptor_tag, Tag})
     end.
 
-enc_AmmsReply(#'AmmsReply'{terminationID    = TIDs, 
+enc_AmmsReply(#'AmmsReply'{terminationID    = TIDs,
 			   terminationAudit = asn1_NOVALUE}, State) ->
     [
      ?EQUAL,
      enc_termIDList(TIDs, State)
     ];
-enc_AmmsReply(#'AmmsReply'{terminationID    = TIDs, 
+enc_AmmsReply(#'AmmsReply'{terminationID    = TIDs,
 			   terminationAudit = []}, State) ->
     [
      ?EQUAL,
      enc_termIDList(TIDs, State)
     ];
-enc_AmmsReply(#'AmmsReply'{terminationID    = TIDs, 
+enc_AmmsReply(#'AmmsReply'{terminationID    = TIDs,
 			   terminationAudit = Res}, State) ->
     [
      ?EQUAL,
@@ -1107,7 +1107,7 @@ enc_AmmsReply(#'AmmsReply'{terminationID    = TIDs,
 	     [];
 	 L ->
 	     [
-	      ?LBRKT_INDENT(State), 
+	      ?LBRKT_INDENT(State),
 	      L,
 	      ?RBRKT_INDENT(State)
 	     ]
@@ -1115,7 +1115,7 @@ enc_AmmsReply(#'AmmsReply'{terminationID    = TIDs,
     ].
 
 enc_SubtractRequest(#'SubtractRequest'{terminationID   = TIDs,
-				       auditDescriptor = asn1_NOVALUE}, 
+				       auditDescriptor = asn1_NOVALUE},
 		    State) ->
     [
      %% Assume that Token is added elsewhere
@@ -1123,7 +1123,7 @@ enc_SubtractRequest(#'SubtractRequest'{terminationID   = TIDs,
      enc_termIDList(TIDs, State)
     ];
 enc_SubtractRequest(#'SubtractRequest'{terminationID   = TIDs,
-				       auditDescriptor = AD}, 
+				       auditDescriptor = AD},
 		    State) ->
     [
      %% Assume that Token is added elsewhere
@@ -1132,7 +1132,7 @@ enc_SubtractRequest(#'SubtractRequest'{terminationID   = TIDs,
      ?LBRKT_INDENT(State),
      enc_AuditDescriptor(AD, ?INC_INDENT(State)),
      ?RBRKT_INDENT(State)
-    ].    
+    ].
 
 enc_AuditRequest(#'AuditRequest'{terminationID     = TID,
 				 auditDescriptor   = asn1_NOVALUE,
@@ -1144,7 +1144,7 @@ enc_AuditRequest(#'AuditRequest'{terminationID     = TID,
     ];
 enc_AuditRequest(#'AuditRequest'{terminationID     = TID,
 				 auditDescriptor   = asn1_NOVALUE,
-				 terminationIDList = [TID|_] = TIDList}, 
+				 terminationIDList = [TID|_] = TIDList},
 		 State) ->
     [
      %% Assume that Token is added elsewhere
@@ -1153,7 +1153,7 @@ enc_AuditRequest(#'AuditRequest'{terminationID     = TID,
     ];
 enc_AuditRequest(#'AuditRequest'{terminationID     = TID,
 				 auditDescriptor   = asn1_NOVALUE,
-				 terminationIDList = TIDList}, 
+				 terminationIDList = TIDList},
 		 _State) ->
     error({invalid_terminationID, TID, TIDList});
 enc_AuditRequest(#'AuditRequest'{terminationID     = TID,
@@ -1169,7 +1169,7 @@ enc_AuditRequest(#'AuditRequest'{terminationID     = TID,
     ];
 enc_AuditRequest(#'AuditRequest'{terminationID     = TID,
 				 auditDescriptor   = AD,
-				 terminationIDList = [TID|_] = TIDList}, 
+				 terminationIDList = [TID|_] = TIDList},
 		 State) ->
     [
      %% Assume that Token is added elsewhere
@@ -1181,17 +1181,17 @@ enc_AuditRequest(#'AuditRequest'{terminationID     = TID,
     ];
 enc_AuditRequest(#'AuditRequest'{terminationID     = TID,
 				 auditDescriptor   = _AD,
-				 terminationIDList = TIDList}, 
+				 terminationIDList = TIDList},
 		 _State) ->
     error({invalid_terminationID, TID, TIDList}).
 
-%% auditReply           = (AuditValueToken / AuditCapToken ) 
+%% auditReply           = (AuditValueToken / AuditCapToken )
 %% 			  ( contextTerminationAudit  / auditOther)
-%% auditOther           = EQUAL TerminationID LBRKT 
+%% auditOther           = EQUAL TerminationID LBRKT
 %% 			  terminationAudit RBRKT
-%% terminationAudit     = auditReturnParameter *(COMMA auditReturnParameter) 
-%% 
-%% contextTerminationAudit = EQUAL CtxToken ( terminationIDList / 
+%% terminationAudit     = auditReturnParameter *(COMMA auditReturnParameter)
+%%
+%% contextTerminationAudit = EQUAL CtxToken ( terminationIDList /
 %% 			                      LBRKT errorDescriptor RBRKT )
 enc_AuditReply({Tag, Val}, State) ->
 %%     d("enc_AuditReply -> entry with"
@@ -1211,7 +1211,7 @@ enc_AuditReply({Tag, Val}, State) ->
 	     ?LBRKT_INDENT(State),
 	     enc_ErrorDescriptor(Val, ?INC_INDENT(State)),
 	     ?RBRKT_INDENT(State)
-	    ]; 
+	    ];
 	auditResult when is_record(Val, 'AuditResult') ->
 	    enc_auditOther(Val, State);
 	auditResult ->
@@ -1256,7 +1256,7 @@ enc_TermListAuditResult(
 	     [];
 	 L ->
 	     [
-	      ?LBRKT_INDENT(State), 
+	      ?LBRKT_INDENT(State),
 	      L,
 	      ?RBRKT_INDENT(State)
 	     ]
@@ -1285,16 +1285,16 @@ enc_auditOther(#'AuditResult'{terminationID          = TID,
 	     [];
 	 L ->
 	     [
-	      ?LBRKT_INDENT(State), 
+	      ?LBRKT_INDENT(State),
 	      L,
 	      ?RBRKT_INDENT(State)
 	     ]
      end
     ].
 
-    
+
 enc_AuditDescriptor(#'AuditDescriptor'{auditToken = asn1_NOVALUE,
-				       auditPropertyToken = asn1_NOVALUE}, 
+				       auditPropertyToken = asn1_NOVALUE},
 		    _State) ->
 %     d("enc_AuditDescriptor(asn1_NOVALUE) -> entry"),
     [
@@ -1302,7 +1302,7 @@ enc_AuditDescriptor(#'AuditDescriptor'{auditToken = asn1_NOVALUE,
      [?LBRKT, ?RBRKT]
     ];
 enc_AuditDescriptor(#'AuditDescriptor'{auditToken = [],
-				       auditPropertyToken = asn1_NOVALUE}, 
+				       auditPropertyToken = asn1_NOVALUE},
 		    _State) ->
 %     d("enc_AuditDescriptor([]) -> entry"),
     [
@@ -1310,7 +1310,7 @@ enc_AuditDescriptor(#'AuditDescriptor'{auditToken = [],
      [?LBRKT, ?RBRKT]
     ];
 enc_AuditDescriptor(#'AuditDescriptor'{auditToken = List,
-				       auditPropertyToken = asn1_NOVALUE}, 
+				       auditPropertyToken = asn1_NOVALUE},
 		    State) ->
     [
      ?AuditToken,
@@ -1322,7 +1322,7 @@ enc_AuditDescriptor(#'AuditDescriptor'{auditToken = List,
     ];
 %% - v2 -
 enc_AuditDescriptor(#'AuditDescriptor'{auditToken = asn1_NOVALUE,
-				       auditPropertyToken = Prop}, 
+				       auditPropertyToken = Prop},
 		    State) ->
     [
      ?AuditToken,
@@ -1333,14 +1333,14 @@ enc_AuditDescriptor(#'AuditDescriptor'{auditToken = asn1_NOVALUE,
      ]
     ];
 enc_AuditDescriptor(#'AuditDescriptor'{auditToken = List,
-				       auditPropertyToken = Prop}, 
+				       auditPropertyToken = Prop},
 		    State) ->
     [
      ?AuditToken,
      [
       ?LBRKT_INDENT(State),
       enc_list([{List, fun enc_auditItem/2}], ?INC_INDENT(State)),
-      ?COMMA_INDENT(State), 
+      ?COMMA_INDENT(State),
       enc_auditPropertyToken(Prop, ?INC_INDENT(State)),  % v2
       ?RBRKT_INDENT(State)
      ]
@@ -1348,7 +1348,7 @@ enc_AuditDescriptor(#'AuditDescriptor'{auditToken = List,
 
 enc_auditItem(signalsToken, _State) ->
     ?SignalsToken;
-enc_auditItem(eventBufferToken, _State) -> 
+enc_auditItem(eventBufferToken, _State) ->
     ?EventBufferToken;
 enc_auditItem(eventsToken, _State) ->
     ?EventsToken;
@@ -1378,7 +1378,7 @@ enc_auditPropertyToken([], _State) ->
     [];
 enc_auditPropertyToken([Param | Params], State) ->
     [enc_IndAudauditReturnParameter(Param, State),
-     [[?COMMA_INDENT(State), 
+     [[?COMMA_INDENT(State),
        enc_IndAudauditReturnParameter(P, State)] || P <- Params]].
 
 
@@ -1391,7 +1391,7 @@ enc_IndAudauditReturnParameter({Tag, Val}, State) ->
 	indAudSignalsDescriptor ->
 	    enc_IndAudSignalsDescriptor(Val, State);
 	indAudDigitMapDescriptor ->
-	    enc_IndAudDigitMapDescriptor(Val, State); 
+	    enc_IndAudDigitMapDescriptor(Val, State);
 	indAudEventBufferDescriptor ->
 	    enc_IndAudEventBufferDescriptor(Val, State);
 	indAudStatisticsDescriptor ->
@@ -1427,7 +1427,7 @@ enc_IndAudMediaDescriptor(
      ?MediaToken,
      ?LBRKT_INDENT(State),
      enc_IndAudTerminationStateDescriptor(TSD, ?INC_INDENT(State)),
-     ?COMMA_INDENT(State), 
+     ?COMMA_INDENT(State),
      enc_IndAudMediaDescriptor_streams(Streams, ?INC_INDENT(State)),
      ?RBRKT_INDENT(State)
     ].
@@ -1443,7 +1443,7 @@ enc_IndAudTerminationStateDescriptor(
   #'IndAudTerminationStateDescriptor'{propertyParms      = [],
 				      eventBufferControl = asn1_NOVALUE,
 				      serviceState       = 'NULL',
-				      serviceStateSel    = asn1_NOVALUE}, 
+				      serviceStateSel    = asn1_NOVALUE},
   _State) ->
     [
      ?TerminationStateToken,
@@ -1455,19 +1455,19 @@ enc_IndAudTerminationStateDescriptor(
   #'IndAudTerminationStateDescriptor'{propertyParms      = [],
 				      eventBufferControl = asn1_NOVALUE,
 				      serviceState       = asn1_NOVALUE,
-				      serviceStateSel    = SSS}, 
+				      serviceStateSel    = SSS},
   State) when (SSS =/= asn1_NOVALUE) ->
     [
      ?TerminationStateToken,
      ?LBRKT_INDENT(State),
-     enc_serviceState(SSS, State), 
+     enc_serviceState(SSS, State),
      ?RBRKT_INDENT(State)
     ];
 enc_IndAudTerminationStateDescriptor(
   #'IndAudTerminationStateDescriptor'{propertyParms      = [],
 				      eventBufferControl = 'NULL',
 				      serviceState       = asn1_NOVALUE,
-				      serviceStateSel    = asn1_NOVALUE}, 
+				      serviceStateSel    = asn1_NOVALUE},
   _State) ->
     [
      ?TerminationStateToken,
@@ -1479,7 +1479,7 @@ enc_IndAudTerminationStateDescriptor(
   #'IndAudTerminationStateDescriptor'{propertyParms      = [Parms],
 				      eventBufferControl = asn1_NOVALUE,
 				      serviceState       = asn1_NOVALUE,
-				      serviceStateSel    = asn1_NOVALUE}, 
+				      serviceStateSel    = asn1_NOVALUE},
   State) ->
     #'IndAudPropertyParm'{name = Name} = Parms,
     [
@@ -1491,14 +1491,14 @@ enc_IndAudTerminationStateDescriptor(
 
 enc_IndAudStreamParms(
   #'IndAudStreamParms'{localControlDescriptor = LCD,
-		       localDescriptor        = LD, 
-		       remoteDescriptor       = RD, 
+		       localDescriptor        = LD,
+		       remoteDescriptor       = RD,
 		       statisticsDescriptor   = SD}, State) ->
     [
      enc_list([{[LCD], fun enc_IndAudLocalControlDescriptor/2},
 	       {[LD],  fun enc_remoteDescriptor/2},
 	       {[RD],  fun enc_localDescriptor/2},
-	       {[SD],  fun enc_IndAudStatisticsDescriptor/2}], 
+	       {[SD],  fun enc_IndAudStatisticsDescriptor/2}],
 	      ?INC_INDENT(State))
     ].
 
@@ -1530,12 +1530,12 @@ enc_IndAudLocalControlDescriptor(
      enc_list([{[RV],  fun('NULL', _) -> ?ReservedValueToken end},
 	       {[RG],  fun('NULL', _) -> ?ReservedGroupToken end},
 	       { PP,   fun enc_IndAudPropertyParm/2},
-	       {[SMS], fun enc_StreamMode/2}], 
+	       {[SMS], fun enc_StreamMode/2}],
 	      ?INC_INDENT(State)),
      ?RBRKT_INDENT(State)
     ].
 
-enc_IndAudPropertyParm(#'IndAudPropertyParm'{name = Name, propertyParms = PP}, 
+enc_IndAudPropertyParm(#'IndAudPropertyParm'{name = Name, propertyParms = PP},
 		       State) ->
     [
      enc_list([{[Name], fun enc_PkgdName/2},
@@ -1550,7 +1550,7 @@ enc_IndAudMediaDescriptor_multiStream(Val, _State) ->
     error({invalid_IndAudMediaDescriptor_multiStream, Val}).
 
 enc_IndAudStreamDescriptor(#'IndAudStreamDescriptor'{streamID    = SID,
-						     streamParms = Parms}, 
+						     streamParms = Parms},
 			   State) ->
     [
      ?StreamToken,
@@ -1560,7 +1560,7 @@ enc_IndAudStreamDescriptor(#'IndAudStreamDescriptor'{streamID    = SID,
      enc_IndAudStreamParms(Parms, ?INC_INDENT(State)),
      ?RBRKT_INDENT(State)
     ].
-    
+
 enc_IndAudEventBufferDescriptor(
   #'IndAudEventBufferDescriptor'{eventName = EvName,
 				 streamID  = ID}, State) ->
@@ -1575,7 +1575,7 @@ enc_IndAudEventBufferDescriptor(
 enc_IndAudEventBufferDescriptor_eventSpec(asn1_NOVALUE, _State) ->
     [
     ];
-enc_IndAudEventBufferDescriptor_eventSpec({eventParameterName, ParamName}, 
+enc_IndAudEventBufferDescriptor_eventSpec({eventParameterName, ParamName},
 					  State) ->
     [
      ?LBRKT_INDENT(State),
@@ -1602,7 +1602,7 @@ enc_IndAudEventsDescriptor(
     [
      ?EventsToken,
      ?LBRKT_INDENT(State),
-     enc_PkgdName(Name, State), 
+     enc_PkgdName(Name, State),
      ?RBRKT_INDENT(State)
     ];
 enc_IndAudEventsDescriptor(
@@ -1614,7 +1614,7 @@ enc_IndAudEventsDescriptor(
      ?EQUAL,
      enc_RequestID(RID, State),
      ?LBRKT_INDENT(State),
-     enc_PkgdName(Name, State), 
+     enc_PkgdName(Name, State),
      ?RBRKT_INDENT(State)
     ].
 
@@ -1637,7 +1637,7 @@ enc_IndAudSignalsDescriptor_value({signal, Val}, State) ->
     enc_IndAudSignal(Val, State);
 enc_IndAudSignalsDescriptor_value({seqSigList, Val}, State) ->
     enc_IndAudSeqSigList(Val, State).
-    
+
 enc_IndAudSignal(#'IndAudSignal'{signalName      = SignalName,
 				 streamID        = asn1_NOVALUE,
 				 signalRequestID = asn1_NOVALUE}, State) ->
@@ -1653,11 +1653,11 @@ enc_IndAudSignal(#'IndAudSignal'{signalName      = SignalName,
      enc_list([{[SID],  fun enc_StreamID/2},
 	       {[SRID], fun enc_sigRequestID/2}],
 	      State),
-     ?RBRKT_INDENT(State)     
+     ?RBRKT_INDENT(State)
     ].
 
 enc_IndAudSeqSigList(#'IndAudSeqSigList'{id         = ID,
-					 signalList = asn1_NOVALUE}, 
+					 signalList = asn1_NOVALUE},
 		     State) ->
     [
      ?SignalListToken,
@@ -1665,7 +1665,7 @@ enc_IndAudSeqSigList(#'IndAudSeqSigList'{id         = ID,
      enc_UINT16(ID, State)
     ];
 enc_IndAudSeqSigList(#'IndAudSeqSigList'{id         = ID,
-					 signalList = SL}, 
+					 signalList = SL},
 		     State) ->
     [
      ?SignalListToken,
@@ -1676,7 +1676,7 @@ enc_IndAudSeqSigList(#'IndAudSeqSigList'{id         = ID,
      ?RBRKT_INDENT(State)
     ].
 
-enc_IndAudDigitMapDescriptor(#'IndAudDigitMapDescriptor'{digitMapName = Name}, 
+enc_IndAudDigitMapDescriptor(#'IndAudDigitMapDescriptor'{digitMapName = Name},
 			     State) ->
     [
      ?DigitMapToken,
@@ -1684,18 +1684,18 @@ enc_IndAudDigitMapDescriptor(#'IndAudDigitMapDescriptor'{digitMapName = Name},
      enc_DigitMapName(Name, State)
     ].
 
-enc_IndAudStatisticsDescriptor(#'IndAudStatisticsDescriptor'{statName = Name}, 
+enc_IndAudStatisticsDescriptor(#'IndAudStatisticsDescriptor'{statName = Name},
 			       State) ->
     [
      ?StatsToken,
      ?LBRKT_INDENT(State),
-     enc_PkgdName(Name, State),     
-     ?RBRKT_INDENT(State)    
+     enc_PkgdName(Name, State),
+     ?RBRKT_INDENT(State)
     ].
 
 
 enc_IndAudPackagesDescriptor(#'IndAudPackagesDescriptor'{packageName    = N,
-							 packageVersion = V}, 
+							 packageVersion = V},
 			     State) ->
     [
      ?PackagesToken,
@@ -1703,13 +1703,13 @@ enc_IndAudPackagesDescriptor(#'IndAudPackagesDescriptor'{packageName    = N,
      enc_Name(N, State),
      "-",
      enc_UINT16(V, State),
-     ?RBRKT_INDENT(State) 
+     ?RBRKT_INDENT(State)
     ].
 
 
 %% - v2 end -
 
-    
+
 enc_TerminationAudit({'TerminationAudit', Val}, State) ->
     enc_TerminationAudit(Val, State);
 enc_TerminationAudit([Mand | Opt], State) ->
@@ -1763,7 +1763,7 @@ enc_EmptyDescriptors(#'AuditDescriptor'{auditToken = List}, State) ->
 
 enc_NotifyRequest(#'NotifyRequest'{terminationID            = TIDs,
 				   observedEventsDescriptor = OED,
-				   errorDescriptor          = asn1_NOVALUE}, 
+				   errorDescriptor          = asn1_NOVALUE},
 		  State) ->
     [
      %% Assume that Token is added elsewhere
@@ -1822,10 +1822,10 @@ enc_observedEvents([Mand | Opt], State) ->
      [[?COMMA_INDENT(State), enc_ObservedEvent(Val, State)] || Val <- Opt]].
 
 %% ;time per event, because it might be buffered
-%% observedEvent        = [ TimeStamp LWSP COLON] LWSP 
+%% observedEvent        = [ TimeStamp LWSP COLON] LWSP
 %% 			  pkgdName [ LBRKT observedEventParameter
 %% 			  *(COMMA observedEventParameter) RBRKT ]
-%% 
+%%
 %% ;at-most-once eventStream, every eventParameterName at most once
 %% observedEventParameter = eventStream / eventOther
 enc_ObservedEvent(#'ObservedEvent'{eventName    = EN,
@@ -1873,7 +1873,7 @@ enc_eventStream(Val, State) ->
 
 %% The value is already encoded
 enc_eventOther(#megaco_event_parameter{name  = Name,
-				       value = Value}, State) 
+				       value = Value}, State)
   when is_list(Value) ->
     [
      enc_Name(Name, State),
@@ -1910,11 +1910,11 @@ enc_ServiceChangeRequest(
     ].
 
 %% serviceChangeReply   = ServiceChangeToken EQUAL TerminationID
-%% 			  [LBRKT (errorDescriptor / 
+%% 			  [LBRKT (errorDescriptor /
 %% 			  serviceChangeReplyDescriptor) RBRKT]
 %% serviceChangeReplyDescriptor = ServicesToken LBRKT
 %% 			  servChgReplyParm *(COMMA servChgReplyParm) RBRKT
-%% 
+%%
 %% ;at-most-once. Version is REQUIRED on first ServiceChange response
 %% servChgReplyParm     = (serviceChangeAddress / serviceChangeMgcId /
 %% 			  serviceChangeProfile / serviceChangeVersion )
@@ -1969,7 +1969,7 @@ enc_TerminationIDList({'TerminationIDList',Val}, State) ->
 enc_TerminationIDList([TID], State) ->
     [
      ?LBRKT_INDENT(State),
-     enc_TerminationID(TID, State), 
+     enc_TerminationID(TID, State),
      ?RBRKT_INDENT(State)
     ];
 enc_TerminationIDList(TIDs, State) ->
@@ -1983,7 +1983,7 @@ enc_termIDList({'TerminationIDList',Val}, State) ->
     enc_termIDList(Val, State);
 enc_termIDList([Singleton], State) ->
     enc_TerminationID(Singleton, State);
-enc_termIDList(TidList, State) 
+enc_termIDList(TidList, State)
   when is_list(TidList) andalso (length(TidList) > 1) ->
 %%     d("enc_termIDList -> entry with"
 %%       "~n   TidList: ~p", [TidList]),
@@ -1996,12 +1996,12 @@ enc_termIDList(TidList, State)
 
 %% TerminationID        = "ROOT" / pathNAME / "$" / "*"
 %% ; Total length of pathNAME must not exceed 64 chars.
-%% pathNAME             = ["*"] NAME *("/" / "*"/ ALPHA / DIGIT /"_" / "$" ) 
+%% pathNAME             = ["*"] NAME *("/" / "*"/ ALPHA / DIGIT /"_" / "$" )
 %% 			  ["@" pathDomainName ]
 enc_TerminationID(Tid, State)
   when is_record(Tid, megaco_term_id) ->
     List = [{Tid#megaco_term_id.id, fun enc_tid_component/2 }],
-    enc_list(List, State, fun(_S) -> ?SLASH end, false).    
+    enc_list(List, State, fun(_S) -> ?SLASH end, false).
 
 enc_tid_component(Component, State) when is_list(Component) ->
     [enc_tid_sub_component(Sub, State) || Sub <- Component];
@@ -2027,12 +2027,12 @@ enc_tid_sub_component(Invalid, _State) ->
 %% mediaDescriptor      = MediaToken LBRKT mediaParm *(COMMA mediaParm) RBRKT
 %% ; at-most-once per item
 %% ; and either streamParm or streamDescriptor but not both
-%% mediaParm            = (streamParm / streamDescriptor / 
+%% mediaParm            = (streamParm / streamDescriptor /
 %% 			   terminationStateDescriptor)
 %% ; at-most-once
-%% streamParm           = ( localDescriptor / remoteDescriptor / 
+%% streamParm           = ( localDescriptor / remoteDescriptor /
 %% 			   localControlDescriptor )
-%% streamDescriptor     = StreamToken EQUAL StreamID LBRKT streamParm 
+%% streamDescriptor     = StreamToken EQUAL StreamID LBRKT streamParm
 %% 			  *(COMMA streamParm) RBRKT
 enc_MediaDescriptor(#'MediaDescriptor'{termStateDescr = TSD,
 				       streams        = Streams}, State) ->
@@ -2072,7 +2072,7 @@ decompose_StreamParms(Val)
       fun enc_StatisticsDescriptor/2}
     ].
 
-enc_StreamDescriptor(Val, State) 
+enc_StreamDescriptor(Val, State)
     when is_record(Val, 'StreamDescriptor') ->
     [
      ?StreamToken,
@@ -2084,28 +2084,28 @@ enc_StreamDescriptor(Val, State)
      ?RBRKT_INDENT(State)
     ].
 
-%% localControlDescriptor = LocalControlToken LBRKT localParm 
+%% localControlDescriptor = LocalControlToken LBRKT localParm
 %% 			    *(COMMA localParm) RBRKT
-%% 
+%%
 %% ; at-most-once per item
 %% localParm            = ( streamMode / propertyParm /
-%%                          reservedValueMode  / reservedGroupMode ) 
-%% reservedValueMode       = ReservedValueToken EQUAL ( "ON" / "OFF" ) 
-%% reservedGroupMode       = ReservedGroupToken EQUAL ( "ON" / "OFF" ) 
-%% 
+%%                          reservedValueMode  / reservedGroupMode )
+%% reservedValueMode       = ReservedValueToken EQUAL ( "ON" / "OFF" )
+%% reservedGroupMode       = ReservedGroupToken EQUAL ( "ON" / "OFF" )
+%%
 %% reservedMode	     = ReservedToken EQUAL ( "ON" / "OFF" )
-%% 
+%%
 %% streamMode           = ModeToken EQUAL streamModes
 enc_LocalControlDescriptor(
-  #'LocalControlDescriptor'{streamMode    = asn1_NOVALUE, 
-			    reserveValue  = asn1_NOVALUE, 
-			    reserveGroup  = asn1_NOVALUE, 
+  #'LocalControlDescriptor'{streamMode    = asn1_NOVALUE,
+			    reserveValue  = asn1_NOVALUE,
+			    reserveGroup  = asn1_NOVALUE,
 			    propertyParms = []}, _State) ->
     error({invalid_LocalControlDescriptor, empty});
 enc_LocalControlDescriptor(
-  #'LocalControlDescriptor'{streamMode    = SM, 
-			    reserveValue  = RV, 
-			    reserveGroup  = RG, 
+  #'LocalControlDescriptor'{streamMode    = SM,
+			    reserveValue  = RV,
+			    reserveGroup  = RG,
 			    propertyParms = PPs}, State) ->
     [
      ?LocalControlToken,
@@ -2163,7 +2163,7 @@ enc_PkgdName({'PkgdName', Val}, State) ->
 enc_PkgdName(Val, _State) ->
     %% BUGBUG:  pkgdName =  (NAME / "*")  SLASH  (ItemID / "*" )
     %% enc_OCTET_STRING(Val, _State, 1, 64).
-    if 
+    if
 	is_list(Val) ->
 	    Length = length(Val),
 	    if
@@ -2181,7 +2181,7 @@ enc_PkgdName(Val, _State) ->
 	    error({invalid_PkgdName, Val})
     end.
 
-enc_localDescriptor(Val, State) 
+enc_localDescriptor(Val, State)
   when is_record(Val, 'LocalRemoteDescriptor') ->
     [
      ?LocalToken,
@@ -2190,7 +2190,7 @@ enc_localDescriptor(Val, State)
      ?RBRKT_INDENT(State)
     ].
 
-enc_remoteDescriptor(Val, State) 
+enc_remoteDescriptor(Val, State)
   when is_record(Val, 'LocalRemoteDescriptor') ->
     [
      ?RemoteToken,
@@ -2221,7 +2221,7 @@ enc_LocalRemoteDescriptor(Val, State)
 
 enc_PropertyGroup({'PropertyGroup',Val}, RequiresV, State) ->
     enc_PropertyGroup(Val, RequiresV, State);
-enc_PropertyGroup([H | _T] = List, mand_v, State) 
+enc_PropertyGroup([H | _T] = List, mand_v, State)
   when is_record(H, 'PropertyParm') andalso (H#'PropertyParm'.name =:= "v") ->
     enc_PropertyGroup(List, opt_v, State);
 enc_PropertyGroup(PG, opt_v, State) ->
@@ -2240,7 +2240,7 @@ enc_PropertyGroupParm(Val, State)
 
 %% propertyParm         = pkgdName parmValue
 %% parmValue            = (EQUAL alternativeValue/ INEQUAL VALUE)
-%% alternativeValue     = ( VALUE / LSBRKT VALUE *(COMMA VALUE) RSBRKT  / 
+%% alternativeValue     = ( VALUE / LSBRKT VALUE *(COMMA VALUE) RSBRKT  /
 %% 			  LSBRKT VALUE DOT DOT VALUE RSBRKT )
 enc_PropertyParm(Val, State)
   when is_record(Val, 'PropertyParm') ->
@@ -2253,7 +2253,7 @@ enc_PropertyParm(Val, State)
 			    Val#'PropertyParm'.extraInfo,
 			    State)
     ].
-     
+
 enc_propertyParmValues([Single], asn1_NOVALUE, State) ->
 %%     d("enc_PropertyParmValues -> entry with"
 %%       "~n   Single: ~p", [Single]),
@@ -2318,13 +2318,13 @@ enc_eventBufferControl(Val, _State) ->
     [
 
      ?BufferToken,
-     ?EQUAL,  
+     ?EQUAL,
      case Val of
 	 off      -> ?OffToken;
 	 lockStep -> ?LockStepToken
     end
     ].
-    
+
 enc_serviceState({'ServiceState',Val}, State) ->
     enc_serviceState(Val, State);
 enc_serviceState(Val, _State) ->
@@ -2370,7 +2370,7 @@ enc_EventsDescriptor(#'EventsDescriptor'{requestID = asn1_NOVALUE,
      ?EventsToken
     ];
 enc_EventsDescriptor(#'EventsDescriptor'{requestID = RID,
-					 eventList = Evs}, State) 
+					 eventList = Evs}, State)
   when (RID =/= asn1_NOVALUE) andalso (Evs =/= []) ->
     [
      ?EventsToken,
@@ -2418,9 +2418,9 @@ decompose_requestedActions(
 		      resetEventsDescriptor = asn1_NOVALUE}) ->
     [];
 
-%% 
-%% This in the ABNF: 
-%% at-most-once each of 
+%%
+%% This in the ABNF:
+%% at-most-once each of
 %%       - KeepActiveToken
 %%       - notifyBehaviour
 %%       - eventDM
@@ -2428,7 +2428,7 @@ decompose_requestedActions(
 %%       - eventStream
 %% at most one of either embedWithSig or embedNoSig but not both
 %% KeepActiveToken and embedWithSig must not both be present
-%% 
+%%
 
 %% embedWithSig
 decompose_requestedActions(#'RequestedActions'{keepActive            = KA,
@@ -2436,7 +2436,7 @@ decompose_requestedActions(#'RequestedActions'{keepActive            = KA,
 					       secondEvent           = SE,
 					       signalsDescriptor     = SD,
 					       notifyBehaviour       = NB,
-					       resetEventsDescriptor = RED}) 
+					       resetEventsDescriptor = RED})
   when (KA =/= true) andalso ((SD =/= asn1_NOVALUE) andalso (SD =/= [])) ->
     [
      {[EDM],      fun enc_EventDM/2},
@@ -2451,7 +2451,7 @@ decompose_requestedActions(#'RequestedActions'{keepActive            = KA,
 					       secondEvent           = SE,
 					       signalsDescriptor     = SD,
 					       notifyBehaviour       = NB,
-					       resetEventsDescriptor = RED}) 
+					       resetEventsDescriptor = RED})
   when (SD =:= asn1_NOVALUE) orelse (SD =:= []) ->
     [
      {[KA],  fun enc_keepActive/2},
@@ -2482,7 +2482,7 @@ enc_embedNoSig(#'SecondEventsDescriptor'{requestID = RID,
     [
      ?EmbedToken,
      ?LBRKT_INDENT(State),
-     enc_embedFirst(RID, Evs, ?INC_INDENT(State)), 
+     enc_embedFirst(RID, Evs, ?INC_INDENT(State)),
      ?RBRKT_INDENT(State)
     ].
 
@@ -2499,8 +2499,8 @@ enc_embedWithSig({#'SecondEventsDescriptor'{requestID = RID,
      ?EmbedToken,
      ?LBRKT_INDENT(State),
      enc_SignalsDescriptor(SD, ?INC_INDENT(State)),
-     ?COMMA_INDENT(?INC_INDENT(State)), 
-     enc_embedFirst(RID, Evs, ?INC_INDENT(State)), 
+     ?COMMA_INDENT(?INC_INDENT(State)),
+     enc_embedFirst(RID, Evs, ?INC_INDENT(State)),
      ?RBRKT_INDENT(State)
     ].
 
@@ -2509,7 +2509,7 @@ enc_keepActive(Val, _State) ->
 	true -> [?KeepActiveToken];
 	false -> []
     end.
-    
+
 enc_EventDM({'EventDM',Val}, State) ->
     enc_EventDM(Val, State);
 enc_EventDM({Tag, Val}, State) ->
@@ -2610,16 +2610,16 @@ enc_SecondRequestedEvent(#'SecondRequestedEvent'{pkgdName    = N,
      ?RBRKT_INDENT(State)
     ].
 
-%% 
-%% This in the ABNF: 
-%% at-most-once each of 
+%%
+%% This in the ABNF:
+%% at-most-once each of
 %%       - KeepActiveToken
 %%       - notifyBehaviour
 %%       - eventDM
 %%       - ResetEventsDescriptor
 %%       - eventStream
 %% KeepActiveToken and embedWithSig must not both be present
-%% 
+%%
 decompose_secondRequestedActions(asn1_NOVALUE) ->
     [];
 decompose_secondRequestedActions(
@@ -2635,7 +2635,7 @@ decompose_secondRequestedActions(
 			    eventDM               = EDM,
 			    signalsDescriptor     = SD,
 			    notifyBehaviour       = NB,
-			    resetEventsDescriptor = RED}) 
+			    resetEventsDescriptor = RED})
   when (KA =/= true) andalso ((SD =/= asn1_NOVALUE) andalso (SD =/= [])) ->
     [
      {[EDM], fun enc_EventDM/2},
@@ -2648,7 +2648,7 @@ decompose_secondRequestedActions(
 			    eventDM               = EDM,
 			    signalsDescriptor     = SD,
 			    notifyBehaviour       = NB,
-			    resetEventsDescriptor = RED}) 
+			    resetEventsDescriptor = RED})
   when (SD =:= asn1_NOVALUE) orelse (SD =:= []) ->
     [
      {[KA],  fun enc_keepActive/2},
@@ -2666,20 +2666,20 @@ enc_embedSig(Val, State) ->
      enc_SignalsDescriptor(Val, ?INC_INDENT(State)),
      ?RBRKT_INDENT(State)
     ].
-    
+
 enc_EventBufferDescriptor({'EventBufferDescriptor',Val}, State) ->
     enc_EventBufferDescriptor(Val, State);
 enc_EventBufferDescriptor([], _State) ->
     [
      ?EventBufferToken
     ];
-enc_EventBufferDescriptor(EvSpecs, State) 
+enc_EventBufferDescriptor(EvSpecs, State)
   when is_list(EvSpecs) andalso (length(EvSpecs) >= 1) ->
     [
      ?EventBufferToken,
      ?LBRKT_INDENT(State),
      enc_eventSpecs(EvSpecs, ?INC_INDENT(State)),
-     ?RBRKT_INDENT(State)   
+     ?RBRKT_INDENT(State)
     ];
 enc_EventBufferDescriptor(EvSpecs, _State) ->
     error({bad_eventSpecs, EvSpecs}).
@@ -2744,14 +2744,14 @@ enc_SeqSigList(Val, State)
      ?RBRKT_INDENT(State)
     ].
 
-enc_Signal(#'Signal'{signalName       = SN, 
-		     streamID         = SID, 
-		     sigType          = ST, 
-		     duration         = Du, 
-		     notifyCompletion = NC, 
-		     keepActive       = KA, 
-		     sigParList       = SPL, 
-		     direction        = Di, 
+enc_Signal(#'Signal'{signalName       = SN,
+		     streamID         = SID,
+		     sigType          = ST,
+		     duration         = Du,
+		     notifyCompletion = NC,
+		     keepActive       = KA,
+		     sigParList       = SPL,
+		     direction        = Di,
 		     requestID        = RID,
 		     intersigDelay    = ISD}, State) ->
     [
@@ -2773,7 +2773,7 @@ enc_Signal(#'Signal'{signalName       = SN,
 enc_sigStream(Val, State) ->
     [
      ?StreamToken,
-     ?EQUAL, 
+     ?EQUAL,
      enc_StreamID(Val, State)
     ].
 
@@ -2931,8 +2931,8 @@ enc_ModemDescriptor(MD, _State) ->
 %%     end.
 
 enc_DigitMapDescriptor(#'DigitMapDescriptor'{digitMapName  = asn1_NOVALUE,
-					     digitMapValue = Value} = Val, 
-		       State) 
+					     digitMapValue = Value} = Val,
+		       State)
   when (Value =/= asn1_NOVALUE) ->
     case is_empty_DigitMapValue(Value) of
 	true ->
@@ -2946,9 +2946,9 @@ enc_DigitMapDescriptor(#'DigitMapDescriptor'{digitMapName  = asn1_NOVALUE,
 	     ?RBRKT_INDENT(State)
 	    ]
     end;
-enc_DigitMapDescriptor(#'DigitMapDescriptor'{digitMapName  = Name, 
-					     digitMapValue = asn1_NOVALUE}, 
-		       State) 
+enc_DigitMapDescriptor(#'DigitMapDescriptor'{digitMapName  = Name,
+					     digitMapValue = asn1_NOVALUE},
+		       State)
   when (Name =/= asn1_NOVALUE) ->
     [
      ?DigitMapToken,
@@ -2956,8 +2956,8 @@ enc_DigitMapDescriptor(#'DigitMapDescriptor'{digitMapName  = Name,
      enc_DigitMapName(Name, State)
     ];
 enc_DigitMapDescriptor(#'DigitMapDescriptor'{digitMapName  = Name,
-					     digitMapValue = Value}, 
-		       State) 
+					     digitMapValue = Value},
+		       State)
   when (Name =/= asn1_NOVALUE) andalso (Value =/= asn1_NOVALUE) ->
     case is_empty_DigitMapValue(Value) of
 	true ->
@@ -2992,7 +2992,7 @@ is_empty_DigitMapValue(#'DigitMapValue'{startTimer    = asn1_NOVALUE,
     true;
 is_empty_DigitMapValue(#'DigitMapValue'{}) ->
     false.
-    
+
 enc_DigitMapValue(Val, State)
   when is_record(Val, 'DigitMapValue') ->
     [
@@ -3059,7 +3059,7 @@ enc_ServiceChangeMethod(Val, _State) ->
 	 handOff       -> ?HandOffToken;
 	 _ ->
 	     error({invalid_ServiceChangeMethod, Val})
-			 
+
      end
     ].
 
@@ -3095,7 +3095,7 @@ enc_serviceChangeVersion(Val, State) ->
     ].
 
 enc_ServiceChangeProfile(#'ServiceChangeProfile'{profileName = Name,
-						 version     = Version}, 
+						 version     = Version},
 			 State) ->
     [
      ?ProfileToken,
@@ -3133,7 +3133,7 @@ enc_serviceChangeMgcId(Val, State) ->
 
 enc_portNumber(Val, State) when is_integer(Val) andalso (Val >= 0) ->
     enc_UINT16(Val, State).
-     
+
 enc_ServiceChangeResParm(Val, State)
   when is_record(Val, 'ServiceChangeResParm') ->
     enc_list([{[Val#'ServiceChangeResParm'.serviceChangeAddress],
@@ -3154,8 +3154,8 @@ enc_PackagesDescriptor(Val, State) ->
     [
      ?PackagesToken,
      ?LBRKT_INDENT(State),
-     enc_list([{Val, fun enc_PackagesItem/2}], ?INC_INDENT(State)),  
-     ?RBRKT_INDENT(State)    
+     enc_list([{Val, fun enc_PackagesItem/2}], ?INC_INDENT(State)),
+     ?RBRKT_INDENT(State)
     ].
 
 enc_PackagesItem(Val, State)
@@ -3201,7 +3201,7 @@ enc_TimeNotation(Val, State)
      enc_STRING(Val#'TimeNotation'.time, State, 8, 8)  % "hhmmssss"
     ].
 
-%% BUGBUG: Does not verify that the string must contain at least one 
+%% BUGBUG: Does not verify that the string must contain at least one
 %% BUGBUG: char. This violation of is required in order to comply with
 %% BUGBUG: the dd/ce ds parameter that may possibly be empty.
 enc_Value({'Value',Val}, State) ->
@@ -3221,7 +3221,7 @@ enc_Value(String, _State) ->
 	    [String]
     end.
 
-%% needs_quoting(String) -> 
+%% needs_quoting(String) ->
 %%     case quoted_string_count(String, 0, true) of
 %% 	{_, 0} ->
 %% 	    true;
@@ -3261,10 +3261,10 @@ enc_DigitString(String, _State) when is_list(String) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Encode an octet string, escape } by \ if necessary 
+%% Encode an octet string, escape } by \ if necessary
 enc_OCTET_STRING(List, State, Min, Max) ->
     do_enc_OCTET_STRING(List, State, Min, Max, 0).
-    
+
 do_enc_OCTET_STRING([H | T], State, Min, Max, Count) ->
     case H of
 	$} ->
@@ -3292,15 +3292,15 @@ enc_QUOTED_STRING(String, _State) when is_list(String) ->
 enc_HEXDIG(Octets, State, Min, Max) when is_list(Octets) ->
     do_enc_HEXDIG(Octets, State, Min, Max, 0, []).
 
-do_enc_HEXDIG([Octet | Rest], State, Min, Max, Count, Acc) 
+do_enc_HEXDIG([Octet | Rest], State, Min, Max, Count, Acc)
   when (Octet >= 0) andalso (Octet =< 255)  ->
     Hex = hex(Octet), % OTP-4921
     if
 	Octet =< 15 ->
 	    Acc2 = [[$0|Hex]|Acc],  % OTP-4921
 	    do_enc_HEXDIG(Rest, State, Min, Max, Count + 2, ["0" | Acc2]);
-	true -> 
-	    Acc2 = [Hex|Acc], % OTP-4921    
+	true ->
+	    Acc2 = [Hex|Acc], % OTP-4921
 	    do_enc_HEXDIG(Rest, State, Min, Max, Count + 2, Acc2)
     end;
 do_enc_HEXDIG([], State, Min, Max, Count, Acc)

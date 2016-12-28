@@ -42,7 +42,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 2}}].
 
-all() -> 
+all() ->
     [process_count, system_version, misc_smoke_tests,
      heap_size, wordsize, memory, ets_limit].
 
@@ -78,7 +78,7 @@ process_count_test() ->
     check_procs(2346),
     process_flag(priority, OldPrio),
     ok.
-    
+
 
 check_procs(N) ->
     CP = length(processes()),
@@ -124,7 +124,7 @@ misc_smoke_tests(Config) when is_list(Config) ->
     ok = try erlang:system_info({cpu_topology,erts_get_cpu_topology_error_case}), fail catch error:badarg -> ok end,
     true = lists:member(erlang:system_info(tolerant_timeofday), [enabled, disabled]),
     ok.
-    
+
 
 heap_size(Config) when is_list(Config) ->
    {min_bin_vheap_size, VHmin} = erlang:system_info(min_bin_vheap_size),
@@ -173,10 +173,10 @@ memory(Config) when is_list(Config) ->
     %%
 
     erts_debug:set_internal_state(available_internal_state, true),
-    %% Use a large heap size on the controling process in
+    %% Use a large heap size on the controlling process in
     %% order to avoid changes in its heap size during
     %% comparisons.
-    MinHeapSize = process_flag(min_heap_size, 1024*1024), 
+    MinHeapSize = process_flag(min_heap_size, 1024*1024),
     Prio = process_flag(priority, max),
     try
 	erlang:memory(), %% first call will init stat atoms
@@ -210,7 +210,7 @@ memory_test(_Config) ->
 
     Ps = lists:flatten(DPs),
 
-    mem_workers_call(MWs, 
+    mem_workers_call(MWs,
 		     fun () ->
 			     lists:foreach(fun (P) -> link(P) end, Ps)
 		     end, []),
@@ -221,7 +221,7 @@ memory_test(_Config) ->
 		     end, []),
     cmp_memory(MWs, "unlink procs"),
 
-    mem_workers_call(MWs, 
+    mem_workers_call(MWs,
 		     fun () ->
 			     lists:foreach(
 			       fun (P) ->
@@ -238,7 +238,7 @@ memory_test(_Config) ->
 		     end, []),
     cmp_memory(MWs, "start BIF timer procs"),
 
-    mem_workers_call(MWs, 
+    mem_workers_call(MWs,
 		     fun () ->
 			     lists:foreach(fun (Tmr) ->
 						   true = is_reference(Tmr),
@@ -466,7 +466,7 @@ cmp_memory(MWs, Str) ->
     cmp_memory(system, EM, EDM, 1.05),
 
     ok.
-    
+
 mapn(_Fun, 0) ->
     [];
 mapn(Fun, N) ->

@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1997-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -31,7 +31,7 @@
 %%	now/0
 %%
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2, univ_to_local/1, local_to_univ/1,
 	 bad_univ_to_local/1, bad_local_to_univ/1,
 	 univ_to_seconds/1, seconds_to_univ/1,
@@ -74,9 +74,9 @@ end_per_testcase(_Func, _Config) ->
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [univ_to_local, local_to_univ, local_to_univ_utc,
-     bad_univ_to_local, bad_local_to_univ, 
+     bad_univ_to_local, bad_local_to_univ,
      univ_to_seconds, seconds_to_univ,
      consistency,
      {group, now}, timestamp,
@@ -87,7 +87,7 @@ all() ->
      signed_time_unit_conversion,
      erlang_timestamp].
 
-groups() -> 
+groups() ->
     [{now, [], [now_unique, now_update]}].
 
 init_per_suite(Config) ->
@@ -132,7 +132,7 @@ local_to_univ_utc(Config) when is_list(Config) ->
     end.
 
 
-%% Tests conversion from univeral to local time.
+%% Tests conversion from universal to local time.
 
 univ_to_local(Config) when is_list(Config) ->
     test_univ_to_local(test_data()).
@@ -193,7 +193,7 @@ test_univ_to_seconds([{Datetime, Seconds}|DSs]) ->
     io:format("universaltime = ~p -> seconds = ~p", [Datetime, Seconds]),
     Seconds = erlang:universaltime_to_posixtime(Datetime),
     test_univ_to_seconds(DSs);
-test_univ_to_seconds([]) -> 
+test_univ_to_seconds([]) ->
     ok.
 
 %% Test seconds to universaltime conversions
@@ -204,7 +204,7 @@ test_seconds_to_univ([{Datetime, Seconds}|DSs]) ->
     io:format("universaltime = ~p <- seconds = ~p", [Datetime, Seconds]),
     Datetime = erlang:posixtime_to_universaltime(Seconds),
     test_seconds_to_univ(DSs);
-test_seconds_to_univ([]) -> 
+test_seconds_to_univ([]) ->
     ok.
 
 
@@ -346,7 +346,7 @@ repeating_timestamp_check(N) ->
 	    ok
     end,
     repeating_timestamp_check(N-1).
-	    
+
 
 %% Test now/0.
 
@@ -635,7 +635,7 @@ time_unit_conversion(Config) when is_list(Config) ->
     start_check_res_convs(Mon, 2333333333333),
     start_check_res_convs(Mon, 5732678356789),
     erlang:demonitor(Mon, [flush]).
-    
+
 start_check_res_convs(Mon, Res) ->
     io:format("Checking ~p time_unit~n", [Res]),
     check_res_convs(Mon,
@@ -643,7 +643,7 @@ start_check_res_convs(Mon, Res) ->
 				       self(),
 				       timeout),
 		    Res).
-    
+
 
 check_res_convs(Mon, Done, Res) ->
     receive
@@ -743,7 +743,7 @@ chk_random_values(FR, TR) ->
                        end
                end,
     lists:foreach(CheckFun, Values).
-		       
+
 
 chk_values_per_value(_FromRes, _ToRes,
 	 EndValue, EndValue,
@@ -855,13 +855,13 @@ process_changed_time_offset(Mon, TO, Changed, Wait) ->
 		    end
 	    end
     end.
-    
+
 
 
 %% Returns the test data: a list of {Utc, Local} tuples.
 
 test_data() ->
-    {TZ,DSTTZ} = 
+    {TZ,DSTTZ} =
 	case os:type() of
 	    {unix,_} ->
 		case os:cmd("date '+%Z'") of
@@ -875,7 +875,7 @@ test_data() ->
 	end,
     test_data(nondst_dates(), TZ) ++
 	test_data(dst_dates(), DSTTZ) ++
-	crossover_test_data(crossover_dates(), TZ).    
+	crossover_test_data(crossover_dates(), TZ).
 
 
 %% test_data1() ->
@@ -909,7 +909,7 @@ test_data([Date|Rest], TimeZone) ->
     [{Utc, Local}|test_data(Rest, TimeZone)];
 test_data([], _) ->
     [].
-    
+
 nondst_dates() ->
     [{1996, 01, 30},
      {1997, 01, 30},
@@ -930,7 +930,7 @@ dst_dates() ->
      {1998, 06, 3},
      {1999, 06, 4}].
 
-%% exakt utc {date(), time()} which corresponds to the same seconds since 1 jan 1970 
+%% exakt utc {date(), time()} which corresponds to the same seconds since 1 jan 1970
 %% negative seconds are ok
 %% generated with date --date='1979-05-28 12:30:35 UTC' +%s
 ok_utc_seconds() -> [

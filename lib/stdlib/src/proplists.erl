@@ -94,7 +94,7 @@ property(Key, Value) ->
 
 %% ---------------------------------------------------------------------
 
-%% @doc Unfolds all occurences of atoms in <code>ListIn</code> to tuples
+%% @doc Unfolds all occurrences of atoms in <code>ListIn</code> to tuples
 %% <code>{Atom, true}</code>.
 %%
 %% @see compact/1
@@ -461,7 +461,7 @@ substitute_negations_1([{Key, Key1} | As], P) ->
 		    %% other tuple is interpreted as `false', as done in
 		    %% `get_bool'.
 		    property(Key1, true)
-	    end;		    
+	    end;
        true ->
 	    substitute_negations_1(As, P)
     end;

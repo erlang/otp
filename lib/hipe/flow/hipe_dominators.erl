@@ -29,7 +29,7 @@
 %%   Contains utilities for creating and manipulating dominator trees
 %%   and dominance frontiers from a CFG.
 %% @end
-%%------------------------------------------------------------------------ 
+%%------------------------------------------------------------------------
 -module(hipe_dominators).
 
 -export([domTree_create/1,
@@ -53,7 +53,7 @@
 		       semi = none     :: 'none' | cfg_lbl(),
 		       ancestor = none :: 'none' | cfg_lbl(),
 		       best = none     :: 'none' | cfg_lbl(),
-		       samedom = none  :: 'none' | cfg_lbl(), 
+		       samedom = none  :: 'none' | cfg_lbl(),
 		       bucket = []     :: [cfg_lbl()]}).
 
 -record(domTree, {root                     :: cfg_lbl(),
@@ -88,7 +88,7 @@ domTree_empty(Node) ->
 
 %%>----------------------------------------------------------------------<
 %% Procedure : domTree_createNode/2
-%% Purpose   : Creates a new node and inserts it into the dominator tree. 
+%% Purpose   : Creates a new node and inserts it into the dominator tree.
 %% Arguments : Node    - The new node
 %%             DomTree - The target dominator tree
 %% Returns   : A dominator tree
@@ -122,7 +122,7 @@ domTree_getNodes(#domTree{nodes=Nodes}) -> Nodes.
 
 %%>----------------------------------------------------------------------<
 %% Procedure : domTree_setNodes/2
-%% Purpose   : Replaces the set of nodes in a dominator tree with a 
+%% Purpose   : Replaces the set of nodes in a dominator tree with a
 %%             new set of nodes.
 %% Arguments : Nodes   - The new set of nodes
 %%             DomTree - The target dominator tree
@@ -133,7 +133,7 @@ domTree_setNodes(DomTree, Nodes) -> DomTree#domTree{nodes = Nodes}.
 
 %%>----------------------------------------------------------------------<
 %% Procedure : domTree_setSize/2
-%% Purpose   : Sets the size of the dominator tree, i.e. the number of 
+%% Purpose   : Sets the size of the dominator tree, i.e. the number of
 %%             nodes in it.
 %% Arguments : Size    - The new size of the target dominator tree
 %%             DomTree - The target dominator tree
@@ -155,7 +155,7 @@ domTree_incSize(DomTree) ->
 
 %%>----------------------------------------------------------------------<
 %% Procedure : get IDom/2
-%% Purpose   : Retrieves the immediate dominators of a node in the 
+%% Purpose   : Retrieves the immediate dominators of a node in the
 %%             dominator tree.
 %% Arguments : Node    - The new node
 %%             DomTree - The target dominator tree
@@ -223,7 +223,7 @@ domTree_addChild(Node, Child, DomTree) ->
 		       none ->
 			 {none, []}
 		     end,
-  Nodes = case lists:member(Child, Children) of 
+  Nodes = case lists:member(Child, Children) of
 	    true ->
 	      domTree_getNodes(DomTree);
 	    false ->
@@ -273,10 +273,10 @@ lookup({Field, Key}, Table) when is_integer(Key) ->
     ancestor -> WD#workDataCell.ancestor;
     best     -> WD#workDataCell.best;
     bucket   -> WD#workDataCell.bucket;
-    dfnum    -> WD#workDataCell.dfnum; 
-    dfparent -> WD#workDataCell.dfparent; 
+    dfnum    -> WD#workDataCell.dfnum;
+    dfparent -> WD#workDataCell.dfparent;
     samedom  -> WD#workDataCell.samedom;
-    semi     -> WD#workDataCell.semi    
+    semi     -> WD#workDataCell.semi
   end.
 
 lookup_table(Key, Table) when is_integer(Key) ->
@@ -289,7 +289,7 @@ lookup_table(Key, Table) when is_integer(Key) ->
 
 %%>----------------------------------------------------------------------<
 %% Procedure : update
-%% Purpose   : This function is used as a wrapper for the update function 
+%% Purpose   : This function is used as a wrapper for the update function
 %%             The main purpose of the update function is therefore
 %%             change a particular cell in the table (Table) to the
 %%             value given as an argument (Value).
@@ -297,7 +297,7 @@ lookup_table(Key, Table) when is_integer(Key) ->
 %%             Field - Value defined in the workDataCell record.
 %%             Value - The new value that should replace the old in the table
 %%             Table - Table storing workDataCells
-%% Returns   : NewTable               
+%% Returns   : NewTable
 %%>----------------------------------------------------------------------<
 
 update(Key, {Field, Value}, Table) ->
@@ -305,25 +305,25 @@ update(Key, {Field, Value}, Table) ->
 update(Key, List, Table) ->
   gb_trees:enter(Key, update(List, lookup_table(Key, Table)), Table).
 
-update([{Field, Value} | T], WD) -> 
+update([{Field, Value} | T], WD) ->
   update(T, updateCell(Value, Field, WD));
 update([], WD) -> WD.
 
 updateCell(Value, Field, WD) ->
   case Field of
-    dfnum    -> WD#workDataCell{dfnum   = Value}; 
-    dfparent -> WD#workDataCell{dfparent= Value}; 
-    semi     -> WD#workDataCell{semi    = Value}; 
-    ancestor -> WD#workDataCell{ancestor= Value}; 
-    best     -> WD#workDataCell{best    = Value}; 
-    samedom  -> WD#workDataCell{samedom = Value}; 
+    dfnum    -> WD#workDataCell{dfnum   = Value};
+    dfparent -> WD#workDataCell{dfparent= Value};
+    semi     -> WD#workDataCell{semi    = Value};
+    ancestor -> WD#workDataCell{ancestor= Value};
+    best     -> WD#workDataCell{best    = Value};
+    samedom  -> WD#workDataCell{samedom = Value};
     bucket   -> WD#workDataCell{bucket  = Value}
   end.
 
 %%>----------------------------------------------------------------------<
 %% Procedure : dfs/1
 %% Purpose   : The main purpose of this function is to traverse the CFG in
-%%             a depth first order. It is aslo used to initialize certain 
+%%             a depth first order. It is also used to initialize certain
 %%             elements defined in a workDataCell.
 %% Arguments : CFG - a Control Flow Graph representation
 %% Returns   : A table (WorkData) and the total number of elements in
@@ -331,17 +331,17 @@ updateCell(Value, Field, WD) ->
 %%>----------------------------------------------------------------------<
 
 dfs(CFG) ->
-  {WorkData, DFS, N} = dfs(CFG, hipe_gen_cfg:start_label(CFG), 
+  {WorkData, DFS, N} = dfs(CFG, hipe_gen_cfg:start_label(CFG),
 			   none, 1, gb_trees:empty(), gb_trees:empty()),
   {WorkData, DFS, N-1}.
 
 dfs(CFG, Node, Parent, N, WorkData, DFS) ->
   case lookup({dfnum, Node}, WorkData) of
-    0 -> 	  
-      WorkData2 = update(Node, [{dfnum, N}, {dfparent, Parent}, 
+    0 ->
+      WorkData2 = update(Node, [{dfnum, N}, {dfparent, Parent},
 				{semi, Node}, {best, Node}], WorkData),
       DFS2 = gb_trees:enter(N, Node, DFS),
-      dfsTraverse(hipe_gen_cfg:succ(CFG, Node), CFG, Node, 
+      dfsTraverse(hipe_gen_cfg:succ(CFG, Node), CFG, Node,
 		  N + 1, WorkData2, DFS2);
     _ -> {WorkData, DFS, N}
   end.
@@ -349,8 +349,8 @@ dfs(CFG, Node, Parent, N, WorkData, DFS) ->
 %%>----------------------------------------------------------------------<
 %% Procedure : dfsTraverse/6
 %% Purpose   : This function acts as a help function for the dfs algorithm
-%%             in the sence that it traverses a list of nodes given by the 
-%%             CFG. 
+%%             in the sence that it traverses a list of nodes given by the
+%%             CFG.
 %% Arguments : Node     - The first element in the node list
 %%             SuccLst  - The remainder of the node list
 %%             CFG      - Control Flow Graph representation
@@ -358,7 +358,7 @@ dfs(CFG, Node, Parent, N, WorkData, DFS) ->
 %%                        above.
 %%             N        - The total number of processed nodes.
 %%             WorkData - Table consisting of workDataCells
-%% Returns   : An updated version of the table (WorkData) and the 
+%% Returns   : An updated version of the table (WorkData) and the
 %%             total number of nodes processed.
 %%>----------------------------------------------------------------------<
 
@@ -371,13 +371,13 @@ dfsTraverse([], _, _, N, WorkData, DFS) -> {WorkData, DFS, N}.
 %% Procedure : getIdoms/6
 %% Purpose   : The purpose of this function is to compute the immediate
 %%             dominators. This is accomplished by traversing the CFG nodes
-%%             by their depth first number in a bottom up manner. That is, 
-%%             the nodes are processed in a backward order (highest to 
+%%             by their depth first number in a bottom up manner. That is,
+%%             the nodes are processed in a backward order (highest to
 %%             lowest number).
 %% Arguments : CFG      - Control Flow Graph representation
 %%             DomData  - Table consisting of domTree cells
 %%             WorkData - Table consisting of workDataCells
-%%             Index    - The index used for retrieving the node to be 
+%%             Index    - The index used for retrieving the node to be
 %%                        processed
 %% Returns   : An updated version of the tables DomData and WorkData
 %%>----------------------------------------------------------------------<
@@ -393,7 +393,7 @@ getIdoms(CFG, DomData, WorkData, Index, DFS)
   OldBucket = lookup({bucket, S}, WorkData3),
   WorkData4 = update(S, {bucket, [Node | OldBucket]}, WorkData3),
   WorkData5 = linkTrees(Par, Node, WorkData4),
-  {WorkData6, DomData2} = filterBucket(lookup({bucket, Par}, WorkData5), 
+  {WorkData6, DomData2} = filterBucket(lookup({bucket, Par}, WorkData5),
 				       Par, WorkData5, DomData),
   WorkData7 = update(Par, {bucket, []}, WorkData6),
   getIdoms(CFG, DomData2, WorkData7, Index - 1, DFS);
@@ -402,7 +402,7 @@ getIdoms(_, DomData, WorkData, 1, _) ->
 
 %%>----------------------------------------------------------------------<
 %% Procedure : getSemiDominator/4
-%% Purpose   : The main purpose of this algorithm is to compute the semi 
+%% Purpose   : The main purpose of this algorithm is to compute the semi
 %%             dominator of the node Node based on the Semidominator Theorem
 %% Arguments : Preds    - The list of predecessors of the node Node
 %%             Node     - Node in the CFG
@@ -413,12 +413,12 @@ getIdoms(_, DomData, WorkData, 1, _) ->
 %%>----------------------------------------------------------------------<
 
 getSemiDominator([Pred|Preds], DfNumChild, S, WorkData) ->
-  {Sp, WorkData3} = 
+  {Sp, WorkData3} =
     case lookup({dfnum, Pred}, WorkData) =< DfNumChild of
-      true  -> 
+      true  ->
 	{Pred, WorkData};
-      false ->  
-	{AncLowSemi, WorkData2} = getAncestorWithLowestSemi(Pred, WorkData),	
+      false ->
+	{AncLowSemi, WorkData2} = getAncestorWithLowestSemi(Pred, WorkData),
 	{lookup({semi, AncLowSemi}, WorkData2), WorkData2}
     end,
   S2 = case lookup({dfnum, Sp}, WorkData3) < lookup({dfnum, S}, WorkData3) of
@@ -431,7 +431,7 @@ getSemiDominator([], _, S, WorkData) ->
 
 %%>----------------------------------------------------------------------<
 %% Procedure : getAncestorWithLowestSemi/2
-%% Purpose   : The main purpose of this function is to retrieve the ancestor 
+%% Purpose   : The main purpose of this function is to retrieve the ancestor
 %%             of a node with the lowest depth first number (semi). The
 %%             function is also using path compression, i.e. it remembers the
 %%             best node (the one with the lowest semi number) and hence the
@@ -446,11 +446,11 @@ getAncestorWithLowestSemi(Node, WorkData) ->
   Best = lookup({best, Node}, WorkData),
   case lookup({ancestor, Node}, WorkData) of
     none -> {Best, WorkData};
-    A -> 
+    A ->
       case lookup({ancestor, A}, WorkData) of
-	none -> 
+	none ->
 	  {Best, WorkData};
-	_ -> 
+	_ ->
 	  {B, WorkData2} = getAncestorWithLowestSemi(A, WorkData),
 	  AncA = lookup({ancestor, A}, WorkData2),
 	  WorkData3 = update(Node, {ancestor, AncA}, WorkData2),
@@ -461,7 +461,7 @@ getAncestorWithLowestSemi(Node, WorkData) ->
 	  case DfSemiB < DfSemiBestN of
 	    true  ->
 	      {B, update(Node, {best, B}, WorkData3)};
-	    false -> 
+	    false ->
 	      {BestN, WorkData3}
 	  end
       end
@@ -470,7 +470,7 @@ getAncestorWithLowestSemi(Node, WorkData) ->
 %%>----------------------------------------------------------------------<
 %% Procedure : linkTrees/3
 %% Purpose   : The main purpose of this function is to combine two trees
-%%             into one (accomplished by setting the ancestor for node 
+%%             into one (accomplished by setting the ancestor for node
 %%             Node to Parent). The algorithm is also updating the best field
 %%             in the workDataCell for node Node to the value of itself.
 %% Arguments : Parent   - The parent of the node Node.
@@ -483,10 +483,10 @@ linkTrees(Parent, Node, WorkData) ->
   update(Node, [{ancestor, Parent}, {best, Node}], WorkData).
 
 %%>----------------------------------------------------------------------<
-%% Procedure : filterBucket/4 
+%% Procedure : filterBucket/4
 %% Purpose   : The purpose of this algorith is to compute the dominator of
 %%             the node Node by utilizing the first clause of the Dominator
-%%             Theorem. If the first clause of the theorem doesn't apply 
+%%             Theorem. If the first clause of the theorem doesn't apply
 %%             then the computation of that particular node is deferred to
 %%             a later stage (see finalize).
 %% Arguments : Nodes    - The list of CFG nodes that need to be computed.
@@ -498,14 +498,14 @@ linkTrees(Parent, Node, WorkData) ->
 
 filterBucket([Node|Nodes], Parent, WorkData, DomData) ->
   {Y, WorkData2} = getAncestorWithLowestSemi(Node, WorkData),
-  {WorkData3, DomData2} = 
+  {WorkData3, DomData2} =
     case lookup({semi, Y}, WorkData2) =:= lookup({semi, Node}, WorkData2) of
       true  -> {WorkData2, setIDom(Node, Parent, DomData)};
       false -> {update(Node, {samedom, Y}, WorkData2), DomData}
     end,
   filterBucket(Nodes, Parent, WorkData3, DomData2);
 filterBucket([], _, WorkData, DomData) ->
-  {WorkData, DomData}.	     
+  {WorkData, DomData}.
 
 %%>----------------------------------------------------------------------<
 %% Procedure : finalize/5
@@ -515,7 +515,7 @@ filterBucket([], _, WorkData, DomData) ->
 %%             in the filterBucket algorithm.
 %% Arguments : WorkData - Table consisting of workDataCells
 %%             DomData  - Table consisting of domTree cells
-%%             N        - The index used for retrieving the node to be 
+%%             N        - The index used for retrieving the node to be
 %%                        processed
 %%             Max      - Maximum node index
 %% Returns   : An updated version of the table DomData
@@ -526,7 +526,7 @@ finalize(WorkData, DomData, N, Max, DFS) when N =< Max ->
   case lookup({samedom, Node}, WorkData) of
     none ->
       finalize(WorkData, DomData, N + 1, Max, DFS);
-    SameDomN -> 
+    SameDomN ->
       case domTree_getIDom(SameDomN, DomData) of
 	IdomSameDomN when is_integer(IdomSameDomN) ->
 	  DomData2 = setIDom(Node, IdomSameDomN, DomData),
@@ -540,10 +540,10 @@ finalize(_, DomData, _, _, _) ->
 %% Procedure : domTree_dominates/3
 %% Purpose   : checks wheter Node1 dominates Node2 with respect to the
 %%             dominator tree DomTree
-%% Arguments : Node1 the possible dominator, Node2 which might be dominated 
+%% Arguments : Node1 the possible dominator, Node2 which might be dominated
 %%             and DomTree  - the target dominator tree.
 %% Notes     : Relies on lists:any to return false when the a list is empty
-%%>----------------------------------------------------------------------<     
+%%>----------------------------------------------------------------------<
 
 -spec domTree_dominates(cfg_lbl(), cfg_lbl(), domTree()) -> boolean().
 
@@ -558,7 +558,7 @@ domTree_dominates(Node1, Node2, DomTree) ->
 %% Purpose   : Pretty Printing a dominator tree.
 %% Arguments : DomTree  - the target dominator tree.
 %% Notes     : Uses pp/2 and pp_children to perform its task.
-%%>----------------------------------------------------------------------<     
+%%>----------------------------------------------------------------------<
 
 -ifdef(DEBUG).
 
@@ -618,7 +618,7 @@ df_create(Node, SuccMap, DomTree, DF) ->
 %% Purpose   : This function returns the Dominance Frontier for Node.
 %% Arguments : Node - The node whose Dominance Frontier we request
 %%             DF   - The Dominance Frontier structure
-%% Returns   : 
+%% Returns   :
 %%>----------------------------------------------------------------------<
 
 -spec domFrontier_get(cfg_lbl(), domFrontier()) -> [cfg_lbl()].

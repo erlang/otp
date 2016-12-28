@@ -31,7 +31,7 @@
 -include("ssh.hrl").
 
 -export([versions/2, hello_version_msg/1]).
--export([next_seqnum/1, 
+-export([next_seqnum/1,
 	 supported_algorithms/0, supported_algorithms/1,
 	 default_algorithms/0, default_algorithms/1,
 	 handle_packet_part/4,
@@ -41,7 +41,7 @@
 	 handle_kexinit_msg/3, handle_kexdh_init/2,
 	 handle_kex_dh_gex_group/2, handle_kex_dh_gex_init/2, handle_kex_dh_gex_reply/2,
 	 handle_new_keys/2, handle_kex_dh_gex_request/2,
-	 handle_kexdh_reply/2, 
+	 handle_kexdh_reply/2,
 	 handle_kex_ecdh_init/2,
 	 handle_kex_ecdh_reply/2,
 	 extract_public_key/1,
@@ -110,7 +110,7 @@ supported_algorithms(public_key) ->
        {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]},
        {'ssh-dss',              [{public_keys,dss},   {hashs,sha}                         ]}
       ]);
- 
+
 supported_algorithms(cipher) ->
     same(
       select_crypto_supported(
@@ -149,7 +149,7 @@ versions(server, Options) ->
     Vsn = proplists:get_value(vsn, Options, ?DEFAULT_SERVER_VERSION),
     {Vsn, format_version(Vsn, software_version(Options))}.
 
-software_version(Options) -> 
+software_version(Options) ->
     case proplists:get_value(id_string, Options) of
 	undefined ->
 	    "Erlang"++ssh_vsn();
@@ -162,14 +162,14 @@ software_version(Options) ->
 ssh_vsn() ->
     try {ok,L} = application:get_all_key(ssh),
 	 proplists:get_value(vsn,L,"")
-    of 
+    of
 	"" -> "";
 	VSN when is_list(VSN) -> "/" ++ VSN;
 	_ -> ""
     catch
 	_:_ -> ""
     end.
-    
+
 random_id(Nlo, Nup) ->
     [crypto:rand_uniform($a,$z+1) || _<- lists:duplicate(crypto:rand_uniform(Nlo,Nup+1),x)  ].
 
@@ -194,7 +194,7 @@ yes_no(Ssh, Prompt)  ->
     (Ssh#ssh.io_cb):yes_no(Prompt, Ssh).
 
 format_version({Major,Minor}, SoftwareVersion) ->
-    "SSH-" ++ integer_to_list(Major) ++ "." ++ 
+    "SSH-" ++ integer_to_list(Major) ++ "." ++
 	integer_to_list(Minor) ++ "-" ++ SoftwareVersion.
 
 handle_hello_version(Version) ->
@@ -224,7 +224,7 @@ kex_init(#ssh{role = Role, opts = Opts, available_host_keys = HostKeyAlgs}) ->
     Random = ssh_bits:random(16),
     PrefAlgs =
 	case proplists:get_value(preferred_algorithms,Opts) of
-	    undefined -> 
+	    undefined ->
 		default_algorithms();
 	    Algs0 ->
 		Algs0
@@ -262,17 +262,17 @@ get_algs(Key, Algs) -> proplists:get_value(Key, Algs, default_algorithms(Key)).
 to_strings(L) -> lists:map(fun erlang:atom_to_list/1, L).
 
 new_keys_message(Ssh0) ->
-    {SshPacket, Ssh} = 
+    {SshPacket, Ssh} =
 	ssh_packet(#ssh_msg_newkeys{}, Ssh0),
     {ok, SshPacket, Ssh}.
 
 
 handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
 			    #ssh{role = client} = Ssh0) ->
-    {ok, Algoritms} = select_algorithm(client, Own, CounterPart),  
+    {ok, Algoritms} = select_algorithm(client, Own, CounterPart),
     case verify_algorithm(Algoritms) of
 	true ->
-	    key_exchange_first_msg(Algoritms#alg.kex, 
+	    key_exchange_first_msg(Algoritms#alg.kex,
 				   Ssh0#ssh{algorithms = Algoritms});
 	_  ->
 	    %% TODO: Correct code?
@@ -318,21 +318,21 @@ key_exchange_first_msg(Kex, Ssh0) when Kex == 'diffie-hellman-group1-sha1' ;
     {G, P} = dh_group(Kex),
     {Public, Private} = generate_key(dh, [P,G]),
     {SshPacket, Ssh1} = ssh_packet(#ssh_msg_kexdh_init{e = Public}, Ssh0),
-    {ok, SshPacket, 
+    {ok, SshPacket,
      Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}}}};
 
 key_exchange_first_msg(Kex, Ssh0=#ssh{opts=Opts}) when Kex == 'diffie-hellman-group-exchange-sha1' ;
 						       Kex == 'diffie-hellman-group-exchange-sha256' ->
-    {Min,NBits,Max} = 
+    {Min,NBits,Max} =
 	proplists:get_value(dh_gex_limits, Opts, {?DEFAULT_DH_GROUP_MIN,
 						  ?DEFAULT_DH_GROUP_NBITS,
 						  ?DEFAULT_DH_GROUP_MAX}),
-    {SshPacket, Ssh1} = 
-	ssh_packet(#ssh_msg_kex_dh_gex_request{min = Min, 
+    {SshPacket, Ssh1} =
+	ssh_packet(#ssh_msg_kex_dh_gex_request{min = Min,
 					       n = NBits,
-					       max = Max}, 
+					       max = Max},
 		   Ssh0),
-    {ok, SshPacket, 
+    {ok, SshPacket,
      Ssh1#ssh{keyex_info = {Min, Max, NBits}}};
 
 key_exchange_first_msg(Kex, Ssh0) when Kex == 'ecdh-sha2-nistp256' ;
@@ -341,15 +341,15 @@ key_exchange_first_msg(Kex, Ssh0) when Kex == 'ecdh-sha2-nistp256' ;
     Curve = ecdh_curve(Kex),
     {Public, Private} = generate_key(ecdh, Curve),
     {SshPacket, Ssh1} = ssh_packet(#ssh_msg_kex_ecdh_init{q_c=Public},  Ssh0),
-    {ok, SshPacket, 
+    {ok, SshPacket,
      Ssh1#ssh{keyex_key = {{Public,Private},Curve}}}.
 
 %%%----------------------------------------------------------------
 %%%
 %%% diffie-hellman-group1-sha1
 %%% diffie-hellman-group14-sha1
-%%% 
-handle_kexdh_init(#ssh_msg_kexdh_init{e = E}, 
+%%%
+handle_kexdh_init(#ssh_msg_kexdh_init{e = E},
 		  Ssh0 = #ssh{algorithms = #alg{kex=Kex}}) ->
     %% server
     {G, P} = dh_group(Kex),
@@ -361,7 +361,7 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E},
 	    MyPubHostKey = extract_public_key(MyPrivHostKey),
 	    H = kex_h(Ssh0, MyPubHostKey, E, Public, K),
 	    H_SIG = sign_host_key(Ssh0, MyPrivHostKey, H),
-	    {SshPacket, Ssh1} = 
+	    {SshPacket, Ssh1} =
 		ssh_packet(#ssh_msg_kexdh_reply{public_host_key = MyPubHostKey,
 						f = Public,
 						h_sig = H_SIG
@@ -382,10 +382,10 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E},
 
 handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
 					f = F,
-					h_sig = H_SIG}, 
+					h_sig = H_SIG},
 		   #ssh{keyex_key = {{Private, Public}, {G, P}}} = Ssh0) ->
     %% client
-    if 
+    if
 	1=<F, F=<(P-1)->
 	    K = compute_key(dh, F, Private, [P,G]),
 	    H = kex_h(Ssh0, PeerPubHostKey, Public, F, K),
@@ -417,10 +417,10 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
 %%%----------------------------------------------------------------
 %%%
 %%% diffie-hellman-group-exchange-sha1
-%%% 
+%%%
 handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min0,
 						      n   = NBits,
-						      max = Max0}, 
+						      max = Max0},
 			  Ssh0=#ssh{opts=Opts}) when Min0=<NBits, NBits=<Max0 ->
     %% server
     {Min, Max} = adjust_gex_min_max(Min0, Max0, Opts),
@@ -428,9 +428,9 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min0,
 				 proplists:get_value(dh_gex_groups,Opts)) of
 	{ok, {_Sz, {G,P}}} ->
 	    {Public, Private} = generate_key(dh, [P,G]),
-	    {SshPacket, Ssh} = 
+	    {SshPacket, Ssh} =
 		ssh_packet(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0),
-	    {ok, SshPacket, 
+	    {ok, SshPacket,
 	     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}},
 		     keyex_info = {Min, Max, NBits}
 		    }};
@@ -442,14 +442,14 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min0,
 		})
     end;
 
-handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request_old{n = NBits}, 
+handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request_old{n = NBits},
 			  Ssh0=#ssh{opts=Opts}) ->
     %% server
     %%
     %% This message was in the draft-00 of rfc4419
     %% (https://tools.ietf.org/html/draft-ietf-secsh-dh-group-exchange-00)
     %% In later drafts and the rfc is "is used for backward compatibility".
-    %% Unfortunatly the rfc does not specify how to treat the parameter n
+    %% Unfortunately the rfc does not specify how to treat the parameter n
     %% if there is no group of that modulus length :(
     %% The draft-00 however specifies that n is the "... number of bits
     %% the subgroup should have at least".
@@ -463,9 +463,9 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request_old{n = NBits},
 				 proplists:get_value(dh_gex_groups,Opts)) of
 	{ok, {_Sz, {G,P}}} ->
 	    {Public, Private} = generate_key(dh, [P,G]),
-	    {SshPacket, Ssh} = 
+	    {SshPacket, Ssh} =
 		ssh_packet(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0),
-	    {ok, SshPacket, 
+	    {ok, SshPacket,
 	     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}},
 		     keyex_info = {-1, -1, NBits} % flag for kex_h hash calc
 		    }};
@@ -503,20 +503,20 @@ adjust_gex_min_max(Min0, Max0, Opts) ->
 			})
 	    end
     end.
-		    
+
 
 handle_kex_dh_gex_group(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0) ->
     %% client
     {Public, Private} = generate_key(dh, [P,G]),
-    {SshPacket, Ssh1} = 
+    {SshPacket, Ssh1} =
 	ssh_packet(#ssh_msg_kex_dh_gex_init{e = Public}, Ssh0),	% Pub = G^Priv mod P (def)
 
-    {ok, SshPacket, 
+    {ok, SshPacket,
      Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}}}}.
 
-handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E}, 
+handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E},
 		       #ssh{keyex_key = {{Private, Public}, {G, P}},
-			    keyex_info = {Min, Max, NBits}} = 
+			    keyex_info = {Min, Max, NBits}} =
 			   Ssh0) ->
     %% server
     if
@@ -528,7 +528,7 @@ handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E},
 		    MyPubHostKey = extract_public_key(MyPrivHostKey),
 		    H = kex_h(Ssh0, MyPubHostKey, Min, NBits, Max, P, G, E, Public, K),
 		    H_SIG = sign_host_key(Ssh0, MyPrivHostKey, H),
-		    {SshPacket, Ssh} = 
+		    {SshPacket, Ssh} =
 			ssh_packet(#ssh_msg_kex_dh_gex_reply{public_host_key = MyPubHostKey,
 							     f = Public,
 							     h_sig = H_SIG}, Ssh0),
@@ -551,14 +551,14 @@ handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E},
 	      bad_e_from_peer)
     end.
 
-handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostKey, 
+handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostKey,
 						  f = F,
 						  h_sig = H_SIG},
 			#ssh{keyex_key = {{Private, Public}, {G, P}},
-			     keyex_info = {Min, Max, NBits}} = 
+			     keyex_info = {Min, Max, NBits}} =
 			    Ssh0) ->
     %% client
-    if 
+    if
 	1=<F, F=<(P-1)->
 	    K = compute_key(dh, F, Private, [P,G]),
 	    if
@@ -598,7 +598,7 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostK
 %%%----------------------------------------------------------------
 %%%
 %%% diffie-hellman-ecdh-sha2-*
-%%% 
+%%%
 handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
 		     Ssh0 = #ssh{algorithms = #alg{kex=Kex}}) ->
     %% at server
@@ -612,7 +612,7 @@ handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
 	    MyPubHostKey = extract_public_key(MyPrivHostKey),
 	    H = kex_h(Ssh0, Curve, MyPubHostKey, PeerPublic, MyPublic, K),
 	    H_SIG = sign_host_key(Ssh0, MyPrivHostKey, H),
-	    {SshPacket, Ssh1} = 
+	    {SshPacket, Ssh1} =
 		ssh_packet(#ssh_msg_kex_ecdh_reply{public_host_key = MyPubHostKey,
 						   q_s = MyPublic,
 						   h_sig = H_SIG},
@@ -640,7 +640,7 @@ handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
 	compute_key(ecdh, PeerPublic, MyPrivate, Curve)
     of
 	K ->
-	    H = kex_h(Ssh0, Curve, PeerPubHostKey, MyPublic, PeerPublic, K), 
+	    H = kex_h(Ssh0, Curve, PeerPubHostKey, MyPublic, PeerPublic, K),
 	    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
 		ok ->
 		    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
@@ -669,18 +669,18 @@ handle_new_keys(#ssh_msg_newkeys{}, Ssh0) ->
     try install_alg(Ssh0) of
 	#ssh{} = Ssh ->
 	    {ok, Ssh}
-    catch 
+    catch
 	_C:_Error -> %% TODO: Throw earlier ....
 	    ssh_connection_handler:disconnect(
 	      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
 				  description = "Install alg failed"
 				 })
-    end. 
+    end.
 
 %% select session id
-sid(#ssh{session_id = undefined}, H) -> 
+sid(#ssh{session_id = undefined}, H) ->
     H;
-sid(#ssh{session_id = Id}, _) -> 
+sid(#ssh{session_id = Id}, _) ->
     Id.
 
 %%
@@ -729,7 +729,7 @@ host_key_sha({#'ECPoint'{},{namedCurve,OID}}) -> sha(OID).
 
 public_algo(#'RSAPublicKey'{}) ->   'ssh-rsa';
 public_algo({_, #'Dss-Parms'{}}) -> 'ssh-dss';
-public_algo({#'ECPoint'{},{namedCurve,OID}}) -> 
+public_algo({#'ECPoint'{},{namedCurve,OID}}) ->
     Curve = public_key:oid2ssh_curvename(OID),
     list_to_atom("ecdsa-sha2-" ++ binary_to_list(Curve)).
 
@@ -746,7 +746,7 @@ accepted_host(Ssh, PeerName, Public, Opts) ->
 	    yes == yes_no(Ssh, "New host " ++ PeerName ++ " accept")
     end.
 
-known_host_key(#ssh{opts = Opts, key_cb = Mod, peer = Peer} = Ssh, 
+known_host_key(#ssh{opts = Opts, key_cb = Mod, peer = Peer} = Ssh,
 	       Public, Alg) ->
     PeerName = peer_name(Peer),
     case Mod:is_host_key(Public, PeerName, Alg, Opts) of
@@ -760,7 +760,7 @@ known_host_key(#ssh{opts = Opts, key_cb = Mod, peer = Peer} = Ssh,
 		    {error, rejected}
 	    end
     end.
-	    
+
 
 %%   Each of the algorithm strings MUST be a comma-separated list of
 %%   algorithm names (see ''Algorithm Naming'' in [SSH-ARCH]).  Each
@@ -775,7 +775,7 @@ select_algorithm(Role, Client, Server) ->
     {Encrypt, SendMac} = aead_gcm_simultan(Encrypt0, SendMac0),
     {Decrypt, RecvMac} = aead_gcm_simultan(Decrypt0, RecvMac0),
 
-    {Compression, Decompression} = 
+    {Compression, Decompression} =
 	select_compression_decompression(Role, Client, Server),
 
     C_Lng = select(Client#ssh_msg_kexinit.languages_client_to_server,
@@ -789,11 +789,11 @@ select_algorithm(Role, Client, Server) ->
 	     [HK0|_] -> HK0
 	 end,
     %% Fixme verify Kex against HKey list and algorithms
-    
+
     Kex = select(Client#ssh_msg_kexinit.kex_algorithms,
 		 Server#ssh_msg_kexinit.kex_algorithms),
 
-    Alg = #alg{kex = Kex, 
+    Alg = #alg{kex = Kex,
 	       hkey = HK,
 	       encrypt = Encrypt,
 	       decrypt = Decrypt,
@@ -817,11 +817,11 @@ select_algorithm(Role, Client, Server) ->
 %%% From https://anongit.mindrot.org/openssh.git/plain/PROTOCOL
 %%% (read Nov 20, 2015)
 %%% 1.6 transport: AES-GCM
-%%% 
+%%%
 %%% OpenSSH supports the AES-GCM algorithm as specified in RFC 5647.
 %%% Because of problems with the specification of the key exchange
 %%% the behaviour of OpenSSH differs from the RFC as follows:
-%%% 
+%%%
 %%% AES-GCM is only negotiated as the cipher algorithms
 %%% "aes128-gcm@openssh.com" or "aes256-gcm@openssh.com" and never as
 %%% an MAC algorithm. Additionally, if AES-GCM is selected as the cipher
@@ -838,18 +838,18 @@ aead_gcm_simultan(Cipher, Mac) -> {Cipher,Mac}.
 
 
 select_encrypt_decrypt(client, Client, Server) ->
-    Encrypt = 
+    Encrypt =
 	select(Client#ssh_msg_kexinit.encryption_algorithms_client_to_server,
 	       Server#ssh_msg_kexinit.encryption_algorithms_client_to_server),
-    Decrypt = 
+    Decrypt =
 	select(Client#ssh_msg_kexinit.encryption_algorithms_server_to_client,
 	       Server#ssh_msg_kexinit.encryption_algorithms_server_to_client),
     {Encrypt, Decrypt};
 select_encrypt_decrypt(server, Client, Server) ->
-    Decrypt = 
+    Decrypt =
 	select(Client#ssh_msg_kexinit.encryption_algorithms_client_to_server,
 	       Server#ssh_msg_kexinit.encryption_algorithms_client_to_server),
-    Encrypt = 
+    Encrypt =
 	select(Client#ssh_msg_kexinit.encryption_algorithms_server_to_client,
 	       Server#ssh_msg_kexinit.encryption_algorithms_server_to_client),
     {Encrypt, Decrypt}.
@@ -868,18 +868,18 @@ select_send_recv_mac(server, Client, Server) ->
     {SendMac, RecvMac}.
 
 select_compression_decompression(client, Client, Server) ->
-    Compression = 
+    Compression =
 	select(Client#ssh_msg_kexinit.compression_algorithms_client_to_server,
 	       Server#ssh_msg_kexinit.compression_algorithms_client_to_server),
-    Decompression = 
+    Decompression =
 	select(Client#ssh_msg_kexinit.compression_algorithms_server_to_client,
 	       Server#ssh_msg_kexinit.compression_algorithms_server_to_client),
     {Compression, Decompression};
 select_compression_decompression(server, Client, Server) ->
-    Decompression = 
+    Decompression =
 	select(Client#ssh_msg_kexinit.compression_algorithms_client_to_server,
 	       Server#ssh_msg_kexinit.compression_algorithms_client_to_server),
-    Compression = 
+    Compression =
 	select(Client#ssh_msg_kexinit.compression_algorithms_server_to_client,
 	       Server#ssh_msg_kexinit.compression_algorithms_server_to_client),
     {Compression, Decompression}.
@@ -943,7 +943,7 @@ select(CL, SL) ->
 	    [ALG|_] -> ALG
 	end,
     C.
-	    
+
 ssh_packet(#ssh_msg_kexinit{} = Msg, Ssh0) ->
     BinMsg = ssh_message:encode(Msg),
     Ssh = key_init(Ssh0#ssh.role, Ssh0, BinMsg),
@@ -1014,7 +1014,7 @@ handle_packet_part(<<>>, Encrypted0, undefined, #ssh{decrypt = CryptoAlg} = Ssh0
 	{ok, PacketLen, _, _, _} when PacketLen > ?SSH_MAX_PACKET_SIZE ->
 	    %% far too long message than expected
 	    {error, {exceeds_max_size,PacketLen}};
-	
+
 	{ok, PacketLen, Decrypted, Encrypted1,
 	 #ssh{recv_mac_size = MacSize} = Ssh1} ->
 	    %% enough bytes so we got the length and can calculate how many
@@ -1023,12 +1023,12 @@ handle_packet_part(<<>>, Encrypted0, undefined, #ssh{decrypt = CryptoAlg} = Ssh0
 	    handle_packet_part(Decrypted, Encrypted1, TotalNeeded, Ssh1)
     end;
 
-handle_packet_part(DecryptedPfx, EncryptedBuffer, TotalNeeded, Ssh0) 
+handle_packet_part(DecryptedPfx, EncryptedBuffer, TotalNeeded, Ssh0)
   when (size(DecryptedPfx)+size(EncryptedBuffer)) < TotalNeeded ->
     %% need more bytes to finalize the packet
     {get_more, DecryptedPfx, EncryptedBuffer, TotalNeeded, Ssh0};
 
-handle_packet_part(DecryptedPfx, EncryptedBuffer, TotalNeeded, 
+handle_packet_part(DecryptedPfx, EncryptedBuffer, TotalNeeded,
 		   #ssh{recv_mac_size = MacSize,
 			decrypt = CryptoAlg} = Ssh0) ->
     %% enough bytes to decode the packet.
@@ -1056,13 +1056,13 @@ handle_packet_part(DecryptedPfx, EncryptedBuffer, TotalNeeded,
 		    {packet_decrypted, DecompressedPayload, NextPacketBytes, Ssh}
 	    end
     end.
-    
-    
+
+
 get_length(common, EncryptedBuffer, #ssh{decrypt_block_size = BlockSize} = Ssh0) ->
     case size(EncryptedBuffer) >= erlang:max(8, BlockSize) of
 	true ->
 	    <<EncBlock:BlockSize/binary, EncryptedRest/binary>> = EncryptedBuffer,
-	    {Ssh, 
+	    {Ssh,
 	     <<?UINT32(PacketLen),_/binary>> = Decrypted} = decrypt(Ssh0, EncBlock),
 	    {ok, PacketLen, Decrypted, EncryptedRest, Ssh};
 	false ->
@@ -1114,7 +1114,7 @@ verify(PlainText, Hash, Sig, Key) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% Encryption
-%%  
+%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 encrypt_init(#ssh{encrypt = none} = Ssh) ->
@@ -1211,7 +1211,7 @@ encrypt_init(#ssh{encrypt = 'aes256-ctr', role = server} = Ssh) ->
                  encrypt_ctx = State}}.
 
 encrypt_final(Ssh) ->
-    {ok, Ssh#ssh{encrypt = none, 
+    {ok, Ssh#ssh{encrypt = none,
 		 encrypt_keys = undefined,
 		 encrypt_block_size = 8,
 		 encrypt_ctx = undefined
@@ -1255,7 +1255,7 @@ encrypt(#ssh{encrypt = 'aes256-ctr',
             encrypt_ctx = State0} = Ssh, Data) ->
     {State, Enc} = crypto:stream_encrypt(State0,Data),
     {Ssh#ssh{encrypt_ctx = State}, Enc}.
-  
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Decryption
@@ -1292,7 +1292,7 @@ decrypt_init(#ssh{decrypt = '3des-cbc', role = client} = Ssh) ->
 		hash(Ssh, "D", 192)},
     <<K1:8/binary, K2:8/binary, K3:8/binary>> = KD,
     {ok, Ssh#ssh{decrypt_keys = {K1,K2,K3}, decrypt_ctx = IV,
-			 decrypt_block_size = 8}}; 
+			 decrypt_block_size = 8}};
 decrypt_init(#ssh{decrypt = '3des-cbc', role = server} = Ssh) ->
     {IV, KD} = {hash(Ssh, "A", 64),
 		hash(Ssh, "C", 192)},
@@ -1354,9 +1354,9 @@ decrypt_init(#ssh{decrypt = 'aes256-ctr', role = server} = Ssh) ->
 		 decrypt_block_size = 16,
                  decrypt_ctx = State}}.
 
-  
+
 decrypt_final(Ssh) ->
-    {ok, Ssh#ssh {decrypt = none, 
+    {ok, Ssh#ssh {decrypt = none,
 		  decrypt_keys = undefined,
 		  decrypt_ctx = undefined,
 		  decrypt_block_size = 8}}.
@@ -1368,13 +1368,13 @@ decrypt(#ssh{decrypt = none} = Ssh, Data) ->
 decrypt(#ssh{decrypt = 'AEAD_AES_128_GCM',
 	     decrypt_keys = K,
 	     decrypt_ctx = IV0} = Ssh, Data = {_AAD,_Ctext,_Ctag}) ->
-    Dec = crypto:block_decrypt(aes_gcm, K, IV0, Data), % Dec = PlainText | error 
+    Dec = crypto:block_decrypt(aes_gcm, K, IV0, Data), % Dec = PlainText | error
     IV = next_gcm_iv(IV0),
     {Ssh#ssh{decrypt_ctx = IV}, Dec};
 decrypt(#ssh{decrypt = 'AEAD_AES_256_GCM',
 	     decrypt_keys = K,
 	     decrypt_ctx = IV0} = Ssh, Data = {_AAD,_Ctext,_Ctag}) ->
-    Dec = crypto:block_decrypt(aes_gcm, K, IV0, Data), % Dec = PlainText | error 
+    Dec = crypto:block_decrypt(aes_gcm, K, IV0, Data), % Dec = PlainText | error
     IV = next_gcm_iv(IV0),
     {Ssh#ssh{decrypt_ctx = IV}, Dec};
 decrypt(#ssh{decrypt = '3des-cbc', decrypt_keys = Keys,
@@ -1511,7 +1511,7 @@ send_mac_init(SSH) ->
     end.
 
 send_mac_final(SSH) ->
-    {ok, SSH#ssh {send_mac = none, 
+    {ok, SSH#ssh {send_mac = none,
 		  send_mac_key = undefined }}.
 
 
@@ -1621,7 +1621,7 @@ kex_h(SSH, Key, Min, NBits, Max, Prime, Gen, E, F, K) ->
 		  ?Empint(Prime), ?Empint(Gen), ?Empint(E), ?Empint(F), ?Empint(K)>>
 	end,
     crypto:hash(sha((SSH#ssh.algorithms)#alg.kex), L).
-  
+
 
 sha('ssh-rsa') -> sha;
 sha('ssh-dss') -> sha;
@@ -1675,7 +1675,7 @@ generate_key(Algorithm, Args) ->
     {Public,Private} = crypto:generate_key(Algorithm, Args),
     {crypto:bytes_to_integer(Public), crypto:bytes_to_integer(Private)}.
 
-      
+
 compute_key(Algorithm, OthersPublic, MyPrivate, Args) ->
     Shared = crypto:compute_key(Algorithm, OthersPublic, MyPrivate, Args),
     crypto:bytes_to_integer(Shared).
@@ -1699,7 +1699,7 @@ supported_algorithms(Key, BlackList) ->
     supported_algorithms(Key) -- BlackList.
 
 
-select_crypto_supported(L) ->    
+select_crypto_supported(L) ->
     Sup = [{ec_curve,crypto_supported_curves()} | crypto:supports()],
     [Name || {Name,CryptoRequires} <- L,
 	     crypto_supported(CryptoRequires, Sup)].
@@ -1724,12 +1724,12 @@ len_supported(Name, Len) ->
     try
 	case Name of
 	    aes_ctr ->
-		{_, <<_/binary>>} = 
+		{_, <<_/binary>>} =
 		    %% Test encryption
 		    crypto:stream_encrypt(crypto:stream_init(Name, <<0:Len>>, <<0:128>>), <<"">>);
 	    aes_gcm ->
-		{<<_/binary>>, <<_/binary>>} = 
-		    crypto:block_encrypt(Name, 
+		{<<_/binary>>, <<_/binary>>} =
+		    crypto:block_encrypt(Name,
 					 _Key = <<0:Len>>,
 					 _IV = <<0:12/unsigned-unit:8>>,
 					 {<<"AAD">>,"PT"})
@@ -1739,7 +1739,7 @@ len_supported(Name, Len) ->
     catch
 	_:_ -> false
     end.
-	    
+
 
 same(Algs) ->  [{client2server,Algs}, {server2client,Algs}].
 

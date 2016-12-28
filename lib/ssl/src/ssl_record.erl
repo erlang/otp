@@ -67,7 +67,7 @@
 				      connection_state().
 %%
 %% Description: Returns the instance of the connection_state map
-%% that is currently defined as the current conection state.
+%% that is currently defined as the current connection state.
 %%--------------------------------------------------------------------
 current_connection_state(ConnectionStates, read) ->
     maps:get(current_read, ConnectionStates);
@@ -79,7 +79,7 @@ current_connection_state(ConnectionStates, write) ->
 				      connection_state().
 %%
 %% Description: Returns the instance of the connection_state map
-%% that is pendingly defined as the pending conection state.
+%% that is pendingly defined as the pending connection state.
 %%--------------------------------------------------------------------
 pending_connection_state(ConnectionStates, read) ->
     maps:get(pending_read, ConnectionStates);
@@ -128,7 +128,7 @@ activate_pending_connection_state(#{current_write := Current,
 %% Description: Creates a new instance of the connection_states record
 %% where the pending states gets its security parameters updated.
 %%--------------------------------------------------------------------
-set_security_params(ReadParams, WriteParams, 
+set_security_params(ReadParams, WriteParams,
 		    #{pending_read := Read,
 		      pending_write := Write} = States) ->
     States#{pending_read  => Read#{security_parameters => ReadParams},
@@ -318,7 +318,7 @@ cipher(Version, Fragment,
 	     #security_parameters{bulk_cipher_algorithm =
 				      BulkCipherAlgo}
 	} = WriteState0, MacHash) ->
-    
+
     {CipherFragment, CipherS1} =
 	ssl_cipher:cipher(BulkCipherAlgo, CipherS0, MacHash, Fragment, Version),
     {CipherFragment,  WriteState0#{cipher_state => CipherS1}}.
@@ -335,7 +335,7 @@ cipher_aead(Version, Fragment,
 		  #security_parameters{bulk_cipher_algorithm =
 					   BulkCipherAlgo}
 	     } = WriteState0, AAD) ->
-    
+
     {CipherFragment, CipherS1} =
 	ssl_cipher:cipher_aead(BulkCipherAlgo, CipherS0, SeqNo, AAD, Fragment, Version),
     {CipherFragment,  WriteState0#{cipher_state => CipherS1}}.
@@ -360,7 +360,7 @@ decipher(Version, CipherFragment,
 	    Alert
     end.
 %%--------------------------------------------------------------------
--spec decipher_aead(ssl_version(), binary(), connection_state(), binary()) -> 
+-spec decipher_aead(ssl_version(), binary(), connection_state(), binary()) ->
 			   {binary(), binary(), connection_state()} | #alert{}.
 %%
 %% Description: Payload decryption

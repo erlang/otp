@@ -115,8 +115,8 @@ extern int erts_is_alive;
  * erts_dsig_prepare() prepares a send of a distributed signal.
  * One of the values defined below are returned. If the returned
  * value is another than ERTS_DSIG_PREP_CONNECTED, the
- * distributed signal cannot be sent before apropriate actions
- * have been taken. Apropriate actions would typically be setting
+ * distributed signal cannot be sent before appropriate actions
+ * have been taken. Appropriate actions would typically be setting
  * up the connection.
  */
 
@@ -140,7 +140,7 @@ void erts_schedule_dist_command(Port *, DistEntry *);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-ERTS_GLB_INLINE int 
+ERTS_GLB_INLINE int
 erts_dsig_prepare(ErtsDSigData *dsdp,
 		  DistEntry *dep,
 		  Process *proc,
@@ -263,7 +263,7 @@ erts_destroy_dist_link(ErtsDistLinkData *dldp)
     if (dldp->d_lnk)
 	erts_destroy_link(dldp->d_lnk);
     if (dldp->d_sub_lnk)
-	erts_destroy_link(dldp->d_sub_lnk);	
+	erts_destroy_link(dldp->d_sub_lnk);
 }
 
 #endif

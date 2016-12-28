@@ -18,10 +18,10 @@
  * %CopyrightEnd%
  */
 /*
- * Erlang port program to do the name service lookup for the erlang 
+ * Erlang port program to do the name service lookup for the erlang
  * distribution and inet part of the kernel.
  * A pool of subprocess is kept, to which a pair of pipes is connected.
- * The main process schedules requests among the different subprocesses 
+ * The main process schedules requests among the different subprocesses
  * (created with fork()), to be able to handle as many requests as possible
  * simultaneously. The controlling erlang machine may request a "cancel",
  * in which case the process may be killed and restarted when the need arises.
@@ -30,24 +30,24 @@
  *
  * Windows:
  * There is instead of a pool of processes a pool of threads.
- * Communication is not done through pipes but via message queues between 
+ * Communication is not done through pipes but via message queues between
  * the threads. The only "pipes" involved are the ones used for communicating
- * with Erlang. 
+ * with Erlang.
  * Important note:
  * For unknown reasons, the combination of a thread doing blocking I/O on
  * a named pipe at the same time as another thread tries to resolve a hostname
- * may (with certain software configurations) block the gethostbyname call (!) 
+ * may (with certain software configurations) block the gethostbyname call (!)
  * For that reason, standard input (and standard output) should be opened
  * in asynchronous mode (FILE_FLAG_OVERLAPPED), which has to be done by Erlang.
  * A special flag to open_port is used to work around this behaviour in winsock
  * and the threads doing read and write handle asynchronous I/O.
- * The ReadFile and WriteFile calls try to cope with both types of I/O, why 
+ * The ReadFile and WriteFile calls try to cope with both types of I/O, why
  * the code is not really as Microsoft describes "the right way to do it" in
  * their documentation. Important to note is that **there is no supported way
- * to retrieve the information if the HANDLE was opened with 
- * FILE_FLAG_OVERLAPPED from the HANDLE itself**. 
+ * to retrieve the information if the HANDLE was opened with
+ * FILE_FLAG_OVERLAPPED from the HANDLE itself**.
  *
- */ 
+ */
 
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
@@ -123,7 +123,7 @@
 #else
 #define READ_PACKET_BYTES(X,Y) read_int32((X),(Y))
 #endif
-#define PUT_PACKET_BYTES(X,Y) put_int32((X),(Y)) 
+#define PUT_PACKET_BYTES(X,Y) put_int32((X),(Y))
 /* The serial numbers of the requests */
 typedef int SerialType;
 
@@ -155,11 +155,11 @@ typedef unsigned char UnitType;
 #define UNIT_IPV6 16
 
 /* And the byte type */
-typedef unsigned char AddrByte; /* Must be compatible with character 
+typedef unsigned char AddrByte; /* Must be compatible with character
 				   datatype */
 
-/* 
- * Marshalled format of request: 
+/*
+ * Marshalled format of request:
  *{
  *  Serial: 32 bit big endian
  *  Op:8 bit  [1,2,3]
@@ -173,13 +173,13 @@ typedef unsigned char AddrByte; /* Must be compatible with character
  *    } Else (proto == 2) {
  *      B0..B15: 16 bytes, most significant first
  *    }
- *  } 
+ *  }
  *  (No more if op == 3)
- *} 
+ *}
  * The request arrives as a packet, with 4 packet size bytes.
  */
 
-/* The main process unpackes the marshalled message and sends the data 
+/* The main process unpackes the marshalled message and sends the data
  * to a suitable port process or, in the case of a close request, kills the
  * suitable port process. There is also a que of requests linked together,
  * for when all subrocesses are busy.
@@ -236,7 +236,7 @@ MesQ *from_erlang;
 #define ERRCODE_NO_DATA 5
 #define ERRCODE_NETDB_INTERNAL 7
 
-/* 
+/*
  * Each worker process is represented in the parent by the following struct
  */
 
@@ -274,10 +274,10 @@ int num_free_workers;
 int num_stalled_workers;
 int max_workers;
 int greedy_threshold;
-Worker *busy_workers;  /* Workers doing any job that someone really is 
+Worker *busy_workers;  /* Workers doing any job that someone really is
 			  interested in */
 Worker *free_workers;  /* Really free workers */
-Worker *stalled_workers; /* May still deliver answers which we will 
+Worker *stalled_workers; /* May still deliver answers which we will
 			    discard */
 #define BEE_GREEDY() (num_busy_workers >= greedy_threshold)
 
@@ -292,7 +292,7 @@ static HANDLE debug_console_allocated = INVALID_HANDLE_VALUE;
 #define DEBUGF(L,P) /* Nothing */
 #else
 #define DEBUGF(Level,Printf) do { if (debug_level >= (Level)) \
-                                      debugf Printf;} while(0)  
+                                      debugf Printf;} while(0)
 #endif
 #define ALLOC(Size) my_malloc(Size)
 #define REALLOC(Old, Size) my_realloc((Old), (Size))
@@ -320,7 +320,7 @@ static int map_netdb_error(int netdb_code);
 static int map_netdb_error_ai(int netdb_code);
 #endif
 static char *errcode_to_string(int errcode);
-static size_t build_error_reply(SerialType serial, int errnum, 
+static size_t build_error_reply(SerialType serial, int errnum,
 				AddrByte **preply,
 				size_t *preply_size);
 #ifdef HAVE_GETADDRINFO
@@ -406,9 +406,9 @@ get_env_debug_level(void)
 static void do_allocate_console(void)
 {
     AllocConsole();
-    debug_console_allocated = CreateFile ("CONOUT$", GENERIC_WRITE, 
+    debug_console_allocated = CreateFile ("CONOUT$", GENERIC_WRITE,
 					  FILE_SHARE_WRITE, NULL,
-					  OPEN_EXISTING, 
+					  OPEN_EXISTING,
 					  FILE_ATTRIBUTE_NORMAL, NULL);
 }
 #ifdef HARDDEBUG
@@ -420,7 +420,7 @@ static void poll_gethost(int row);
 /*
  * Main
  */
-int main(int argc, char **argv) 
+int main(int argc, char **argv)
 {
     int num_workers = 1;
     char **ap = argv + 1;
@@ -481,7 +481,7 @@ int main(int argc, char **argv)
 	WSADATA wsa_data;
 	int wsa_error;
 	wr = MAKEWORD(2,0);
-	
+
 	wsa_error = WSAStartup(wr,&wsa_data);
 	if (wsa_error) {
 	    fatal("Could not open usable winsock library.");
@@ -539,7 +539,7 @@ static int handle_io_busy(int ndx)
 	    --num_busy_workers;
 	    busy_workers[ndx] = busy_workers[num_busy_workers];
 	}
-	return 1; 
+	return 1;
     } else if (res == 0) {
 	/* Erlang has closed */
 	return -1;
@@ -578,10 +578,10 @@ static int handle_io_stalled(int ndx)
 	kill_worker(&stalled_workers[ndx]);
 	--num_stalled_workers;
 	stalled_workers[ndx] = stalled_workers[num_stalled_workers];
-	return 1; 
+	return 1;
     } else {
 	DEBUGF(3,("Ignoring reply from stalled worker[%ld].",
-		  (long) stalled_workers[ndx].pid)); 
+		  (long) stalled_workers[ndx].pid));
 	free_workers[num_free_workers] = stalled_workers[ndx];
 	free_workers[num_free_workers].state = WORKER_FREE;
 	++num_free_workers;
@@ -591,7 +591,7 @@ static int handle_io_stalled(int ndx)
     }
 }
 
-static void check_que(void) 
+static void check_que(void)
 {
     /* Check if anything in the que can be handled */
     Worker *cw;
@@ -599,7 +599,7 @@ static void check_que(void)
     while (que_first) {
 	QueItem *qi,*nxt;
 	qi = que_first;
-	nxt = qi->next; /* Need to save before it's getting put in another que 
+	nxt = qi->next; /* Need to save before it's getting put in another que
 			   in threaded solution */
 	if ((cw = pick_worker()) == NULL) {
 	    break;
@@ -613,8 +613,8 @@ static void check_que(void)
 	    }
 	    cw->serial = save_serial;
 	}
-#else	    
-	if (send_request_to_worker(que_first->request, 
+#else
+	if (send_request_to_worker(que_first->request,
 				   que_first->req_size, cw) != 0) {
 	    /* Couldn't send request, kill the worker and retry */
 	    kill_last_picked_worker();
@@ -640,7 +640,7 @@ static int clean_que_of(SerialType s)
     QueItem **qi;
     int i;
 
-    for(qi=&que_first;*qi != NULL && 
+    for(qi=&que_first;*qi != NULL &&
 	    s != get_serial((*qi)->request); qi = &((*qi)->next))
 	;
     if(*qi != NULL) {
@@ -664,7 +664,7 @@ static int clean_que_of(SerialType s)
 	return 1;
     }
     for (i = 0; i < num_busy_workers; ++i) {
-	for(qi=&(busy_workers[i].que_first);*qi != NULL && 
+	for(qi=&(busy_workers[i].que_first);*qi != NULL &&
 		s != get_serial((*qi)->request); qi = &((*qi)->next))
 	    ;
 	if(*qi != NULL) {
@@ -689,8 +689,8 @@ static int clean_que_of(SerialType s)
 	    }
 	    --(busy_workers[i].que_size);
 	    DEBUGF(3,("Removing serial %d from worker[%ld] specific que "
-		      "on request, que %sempty", 
-		      s, (long) busy_workers[i].pid, 
+		      "on request, que %sempty",
+		      s, (long) busy_workers[i].pid,
 		      (busy_workers[i].que_first) ? "not " : ""));
 	    return 1;
 	}
@@ -719,7 +719,7 @@ static void main_loop(void)
     Worker *workers[3] = {free_workers, busy_workers, stalled_workers};
     int *wsizes[3] = {&num_free_workers, &num_busy_workers,
 		      &num_stalled_workers};
-    int (*handlers[3])(int) = {&handle_io_free, &handle_io_busy, 
+    int (*handlers[3])(int) = {&handle_io_free, &handle_io_busy,
 			       &handle_io_stalled};
     Worker *cw;
     AddrByte domainbuff[DOMAINNAME_MAX];
@@ -736,7 +736,7 @@ static void main_loop(void)
 	    == NULL) {
 	    fatal("Could not create writer thread! errno = %d.",GetLastError());
 	}
-	if (((HANDLE) _beginthreadex(NULL,0,reader,from_erlang,0,&dummy)) 
+	if (((HANDLE) _beginthreadex(NULL,0,reader,from_erlang,0,&dummy))
 	    == NULL) {
 	    fatal("Could not create reader thread! errno = %d.",GetLastError());
 	}
@@ -805,11 +805,11 @@ static void main_loop(void)
 		    if (hres < 0) {
 			return;
 		    } else {
-			i -= hres; /* We'll retry this position, if hres == 1. 
+			i -= hres; /* We'll retry this position, if hres == 1.
 				      The position is usually
-				      replaced with another worker, 
+				      replaced with another worker,
 				      a worker with
-				      I/O usually changes state as we 
+				      I/O usually changes state as we
 				      use blocking file I/O */
 		    }
 		}
@@ -835,7 +835,7 @@ static void main_loop(void)
 	    DEBUGF(4,("OPeration == %d.",get_op(inbuff)));
 #else
 	    insize = read_request(&inbuff, &inbuff_size);
-	    if (insize == 0) { /* Other errors taken care of in 
+	    if (insize == 0) { /* Other errors taken care of in
 				    read_request */
 		DEBUGF(1,("Erlang has closed."));
 		return;
@@ -846,7 +846,7 @@ static void main_loop(void)
 		SerialType serial = get_serial(inbuff);
 		if (!clean_que_of(serial)) {
 		    for (i = 0; i <  num_busy_workers; ++i) {
-			if (busy_workers[i].serial == serial) {		    
+			if (busy_workers[i].serial == serial) {
 			    if (busy_workers[i].que_size) {
 				restart_worker(&busy_workers[i]);
 				start_que_request(&busy_workers[i]);
@@ -873,7 +873,7 @@ static void main_loop(void)
 		    {
 			int tmp_debug_level = get_debug_level(inbuff);
 #ifdef WIN32
-			if (debug_console_allocated == INVALID_HANDLE_VALUE && 
+			if (debug_console_allocated == INVALID_HANDLE_VALUE &&
 			    tmp_debug_level > 0) {
 			    DWORD res;
 			    do_allocate_console();
@@ -914,7 +914,7 @@ static void main_loop(void)
 		    warning("Unknown control requested from erlang (%d), "
 			    "message discarded.", (int) ctl);
 		    break;
-		} 
+		}
 #ifdef WIN32
 		FREE(qi);
 #endif
@@ -946,14 +946,14 @@ static void main_loop(void)
 #endif
 		    continue;
 		}
-	    }   
+	    }
 
 	    if (BEE_GREEDY()) {
 		DEBUGF(4,("Beeing greedy!"));
 		if ((cw = pick_worker_greedy(domainbuff)) != NULL) {
-		    /* Put it in the worker specific que if the 
+		    /* Put it in the worker specific que if the
 		       domainname matches... */
-#ifndef WIN32		    
+#ifndef WIN32
 		    QueItem *qi = ALLOC(sizeof(QueItem) - 1 +
 					insize);
 		    qi->req_size = insize;
@@ -1046,12 +1046,12 @@ static void kill_worker(Worker *pw)
     int selret;
     static char buff[1024];
 
-    DEBUGF(3,("Killing worker[%ld] with fd %d, serial %d", 
+    DEBUGF(3,("Killing worker[%ld] with fd %d, serial %d",
 	      (long) pw->pid,
-	      (int) pw->readfrom, 
+	      (int) pw->readfrom,
 	      (int) pw->serial));
     kill(pw->pid, SIGUSR1);
-    /* This is all just to check that the child died, not 
+    /* This is all just to check that the child died, not
        really necessary */
     for(;;) {
 	FD_ZERO(&fds);
@@ -1090,7 +1090,7 @@ static void kill_worker(Worker *pw)
     /* Leave rest as is... */
 }
 
-static void kill_all_workers(void) 
+static void kill_all_workers(void)
 /* Emergency function, will not check that the children died... */
 {
     int i;
@@ -1124,14 +1124,14 @@ static Worker *pick_worker(void)
     } else {
 	if (num_busy_workers == max_workers) {
 	    return NULL;
-	} 
+	}
 	if (create_worker(&tmp,0) < 0) {
 	    warning("Unable to create worker process, insufficient "
 		    "resources");
 	    return NULL;
 	}
     }
-    /* tmp contains a worker now, make it busy and put it in the right 
+    /* tmp contains a worker now, make it busy and put it in the right
        array */
     tmp.state = WORKER_BUSY;
     busy_workers[num_busy_workers] = tmp;
@@ -1145,7 +1145,7 @@ static Worker *pick_worker_greedy(AddrByte *domainbuff)
     int found = -1;
     for (i=0; i < num_busy_workers; ++i) {
 	if (domaineq(busy_workers[i].domain, domainbuff)) {
-	    if ((found < 0) || (busy_workers[i].que_size < 
+	    if ((found < 0) || (busy_workers[i].que_size <
 				busy_workers[found].que_size)) {
 		found = i;
 	    }
@@ -1153,7 +1153,7 @@ static Worker *pick_worker_greedy(AddrByte *domainbuff)
     }
     if (found >= 0) {
 	return &busy_workers[found];
-    } 
+    }
     return NULL;
 }
 
@@ -1175,7 +1175,7 @@ static void kill_last_picked_worker(void)
  * Starts a request qued to a specific worker, check_que starts normally queued requests.
  * We expect a que here...
  */
-static void start_que_request(Worker *w) 
+static void start_que_request(Worker *w)
 {
     QueItem *qi;
     SerialType save_serial;
@@ -1195,7 +1195,7 @@ static void start_que_request(Worker *w)
 	restart_worker(w);
     }
 #else
-    while (send_request_to_worker(qi->request, 
+    while (send_request_to_worker(qi->request,
 				  qi->req_size, w) != 0) {
 	restart_worker(w);
     }
@@ -1203,7 +1203,7 @@ static void start_que_request(Worker *w)
     w->serial = save_serial;
     DEBUGF(3,("Did deque serial %d from worker[%ld] specific que, "
 	      "Que is %sempty",
-	      get_serial(qi->request), (long) w->pid, 
+	      get_serial(qi->request), (long) w->pid,
 	      (w->que_first) ? "not " : ""));
 #ifndef WIN32
     FREE(qi);
@@ -1260,7 +1260,7 @@ void reap_children(int ignored)
 
 static void init_signals(void)
 {
-    sys_sigset(SIGCHLD,&reap_children); /* SIG_IGN would give same result 
+    sys_sigset(SIGCHLD,&reap_children); /* SIG_IGN would give same result
 				       on most (?) platforms. */
     sys_sigset(SIGPIPE, SIG_IGN);
 }
@@ -1350,7 +1350,7 @@ static int get_debug_level(AddrByte *buff)
 }
 
 #ifdef WIN32
-static int send_mes_to_worker(QueItem *m, Worker *pw) 
+static int send_mes_to_worker(QueItem *m, Worker *pw)
 {
     if (!enque_mesq(pw->writeto, m)) {
 	warning("Unable to send to child process.");
@@ -1359,16 +1359,16 @@ static int send_mes_to_worker(QueItem *m, Worker *pw)
     return 0;
 }
 #else
-static int send_request_to_worker(AddrByte *pr, int rsize, Worker *pw)    
+static int send_request_to_worker(AddrByte *pr, int rsize, Worker *pw)
 {
     AddrByte hdr[PACKET_BYTES];
 
     PUT_PACKET_BYTES(hdr, rsize);
-    if (write_exact(pw->writeto, hdr, PACKET_BYTES) < 0) { 
+    if (write_exact(pw->writeto, hdr, PACKET_BYTES) < 0) {
 	warning("Unable to write to child process.");
 	return -1;
     }
-    if (write_exact(pw->writeto, (AddrByte *) pr, rsize) < 0) { 
+    if (write_exact(pw->writeto, (AddrByte *) pr, rsize) < 0) {
 	warning("Unable to write to child process.");
 	return -1;
     }
@@ -1402,7 +1402,7 @@ static int ignore_reply(Worker *pw) {
 #else
 
 /* Static buffers used by the next three functions */
-static AddrByte *relay_buff = NULL; 
+static AddrByte *relay_buff = NULL;
 static int relay_buff_size = 0;
 
 static int fillin_reply(Worker *pw)
@@ -1410,23 +1410,23 @@ static int fillin_reply(Worker *pw)
     int length;
 
     if (READ_PACKET_BYTES(pw->readfrom, &length) != PACKET_BYTES) {
-	warning("Malformed reply (header) from worker process %d.", 
+	warning("Malformed reply (header) from worker process %d.",
 		pw->pid);
 	return -1;
     }
-    
-    if (relay_buff_size < (length + PACKET_BYTES)) { 
+
+    if (relay_buff_size < (length + PACKET_BYTES)) {
 	if (!relay_buff_size) {
-	    relay_buff = 
+	    relay_buff =
 		ALLOC((relay_buff_size = (length + PACKET_BYTES)));
 	} else {
-	    relay_buff = 
+	    relay_buff =
 		REALLOC(relay_buff,
 			(relay_buff_size = (length + PACKET_BYTES)));
 	}
     }
     PUT_PACKET_BYTES(relay_buff, length);
-    if (read_exact(pw->readfrom, relay_buff + PACKET_BYTES, length) != 
+    if (read_exact(pw->readfrom, relay_buff + PACKET_BYTES, length) !=
 	length) {
 	warning("Malformed reply (data) from worker process %d.", pw->pid);
 	return -1;
@@ -1463,7 +1463,7 @@ static int ignore_reply(Worker *pw)
  */
 static void domaincopy(AddrByte *out, AddrByte *in)
 {
-    AddrByte *ptr = out; 
+    AddrByte *ptr = out;
     *ptr++ = *in++;
     *ptr++ = *in++;
     switch(*out) {
@@ -1476,8 +1476,8 @@ static void domaincopy(AddrByte *out, AddrByte *in)
 	return;
     case OP_GETHOSTBYADDR:
 	memcpy(ptr,in, ((out[1] == PROTO_IPV4) ? UNIT_IPV4 : UNIT_IPV6) - 1);
-	DEBUGF(4, ("Saved domain address: %s.", 
-		   format_address(((out[1] == PROTO_IPV4) ? 
+	DEBUGF(4, ("Saved domain address: %s.",
+		   format_address(((out[1] == PROTO_IPV4) ?
 				   UNIT_IPV4 : UNIT_IPV6) - 1,ptr)));
 	return;
     default:
@@ -1495,7 +1495,7 @@ static int domaineq(AddrByte *d1, AddrByte *d2)
     case OP_GETHOSTBYNAME:
 	return !strcmp((char*)d1+2,(char*)d2+2);
     case OP_GETHOSTBYADDR:
-	return !memcmp(d1+2,d2+2, ((d1[1] == PROTO_IPV4) 
+	return !memcmp(d1+2,d2+2, ((d1[1] == PROTO_IPV4)
 				   ? UNIT_IPV4 : UNIT_IPV6) - 1);
     default:
 	fatal("Trying to compare buffers not containing valid domain, "
@@ -1504,7 +1504,7 @@ static int domaineq(AddrByte *d1, AddrByte *d2)
 	return -1; /* Lint... */
     }
 }
-	    
+
 static int get_domainname(AddrByte *inbuff, int insize, AddrByte *domainbuff)
 {
     OpType op = get_op(inbuff);
@@ -1519,27 +1519,27 @@ static int get_domainname(AddrByte *inbuff, int insize, AddrByte *domainbuff)
 	for (i = (data - inbuff); i < insize && inbuff[i] != '\0'; ++i)
 	    ;
 	if (i < insize) {
-	    domaincopy(domainbuff, get_op_addr(inbuff)); 
+	    domaincopy(domainbuff, get_op_addr(inbuff));
 	    return 0;
 	}
 	DEBUGF(3, ("Could not pick valid domainname in "
-		   "gethostbyname operation")); 
+		   "gethostbyname operation"));
 	return -1;
     case OP_GETHOSTBYADDR:
 	proto = get_proto(inbuff);
-	i = insize - (data - inbuff); 
-	if ((proto == PROTO_IPV4 && i == UNIT_IPV4) || 
-	    (proto == PROTO_IPV6 && i == UNIT_IPV6)) { 
+	i = insize - (data - inbuff);
+	if ((proto == PROTO_IPV4 && i == UNIT_IPV4) ||
+	    (proto == PROTO_IPV6 && i == UNIT_IPV6)) {
 	    /* An address buffer */
 	    domaincopy(domainbuff, get_op_addr(inbuff));
 	    return 0;
 	}
 	DEBUGF(3, ("Could not pick valid domainname in gethostbyaddr "
-		   "operation")); 
+		   "operation"));
 	return -1;
     default:
 	DEBUGF(2, ("Could not pick valid domainname because of "
-		   "invalid opcode %d.", (int) op)); 
+		   "invalid opcode %d.", (int) op));
 	return -1;
     }
 }
@@ -1578,7 +1578,7 @@ static int create_worker(Worker *pworker, int save_que)
 	pworker->que_first = pworker->que_last = NULL;
 	pworker->que_size = 0;
     }
-    DEBUGF(3,("Created worker[%ld] with fd %d", 
+    DEBUGF(3,("Created worker[%ld] with fd %d",
 	      (long) pworker->pid, (int) pworker->readfrom));
     return 0;
 }
@@ -1623,7 +1623,7 @@ static int create_worker(Worker *pworker, int save_que)
 	    pworker->que_first = pworker->que_last = NULL;
 	    pworker->que_size = 0;
 	}
-	DEBUGF(3,("Created worker[%ld] with fd %d", 
+	DEBUGF(3,("Created worker[%ld] with fd %d",
 		  (long) pworker->pid, (int) pworker->readfrom));
 	return 0;
     } else { /* child */
@@ -1639,12 +1639,12 @@ static int create_worker(Worker *pworker, int save_que)
 	}
 	close(p1[0]);
 	close(p0[1]);
-	signal(SIGCHLD, SIG_IGN); 
+	signal(SIGCHLD, SIG_IGN);
 	return worker_loop();
     }
 }
 
-static void close_all_worker_fds(void) 
+static void close_all_worker_fds(void)
 {
     int w,i;
     Worker *workers[3] = {free_workers, busy_workers, stalled_workers};
@@ -1710,7 +1710,7 @@ static int worker_loop(void)
 	}
 	this_size = m->req_size;
 	req = m->request;
-#else	
+#else
 	if (READ_PACKET_BYTES(0,&this_size) != PACKET_BYTES) {
 	    DEBUGF(2,("Worker got error/EOF while reading size, exiting."));
 	    exit(0);
@@ -1738,7 +1738,7 @@ static int worker_loop(void)
 	    switch (ctl = get_ctl(req)) {
 	    case SETOPT_DEBUG_LEVEL:
 		debug_level = get_debug_level(req);
-		DEBUGF(debug_level, 
+		DEBUGF(debug_level,
 		       ("Worker debug_level = %d.", debug_level));
 		break;
 	    }
@@ -1752,12 +1752,12 @@ static int worker_loop(void)
 	switch (op) {
 	case OP_GETHOSTBYNAME:
 	    switch (proto) {
-		
+
 #ifdef HAVE_IN6
 	    case PROTO_IPV6: { /* switch (proto) { */
 #ifdef HAVE_GETADDRINFO
 		struct addrinfo hints;
-		
+
 		memset(&hints, 0, sizeof(hints));
 		hints.ai_flags = AI_CANONNAME;
 		hints.ai_socktype = SOCK_STREAM;
@@ -1794,7 +1794,7 @@ static int worker_loop(void)
 #endif /*#ifdef HAVE_GETADDRINFO */
 	    } break;
 #endif /*ifdef HAVE_IN6 */
-	    
+
 	    case PROTO_IPV4: { /* switch (proto) { */
 		DEBUGF(5,("Starting gethostbyname(%s)",data));
 		he = gethostbyname((char*)data);
@@ -1806,13 +1806,13 @@ static int worker_loop(void)
 		    DEBUGF(5,("gethostbyname error %d", h_errno));
 		}
 	    } break;
-	    
+
 	    default: /* switch (proto) { */
 		/* Not supported... */
 		error_num = ERRCODE_NOTSUP;
 		break;
 	    } /* switch (proto) { */
-	    
+
 	    if (he) {
 		data_size = build_reply(serial, he, &reply, &reply_size);
 #ifdef HAVE_GETIPNODEBYNAME
@@ -1827,7 +1827,7 @@ static int worker_loop(void)
 		freeaddrinfo(ai);
 #endif
 	    } else {
-		data_size = build_error_reply(serial, error_num, 
+		data_size = build_error_reply(serial, error_num,
 					      &reply, &reply_size);
 	    }
 	    break; /* case OP_GETHOSTBYNAME: */
@@ -1839,7 +1839,7 @@ static int worker_loop(void)
 #ifdef HAVE_GETNAMEINFO
 		struct sockaddr_in6 *sin;
 		socklen_t salen = sizeof(*sin);
-		
+
 		sin = ALLOC(salen);
 #ifndef NO_SA_LEN
 		sin->sin6_len = salen;
@@ -1885,7 +1885,7 @@ static int worker_loop(void)
 #endif /* #ifdef HAVE_GETNAMEINFO */
 	    } break; /* case PROTO_IPV6: { */
 #endif /* #ifdef HAVE_IN6 */
-			    
+
 	    case PROTO_IPV4: { /* switch(proto) { */
 		struct in_addr ia;
 		memcpy(&ia.s_addr, data, 4); /* Alignment required... */
@@ -1899,11 +1899,11 @@ static int worker_loop(void)
 		    DEBUGF(5,("gethostbyaddr OK"));
 		}
 	    } break;
-	    
+
 	    default:
 		error_num = ERRCODE_NOTSUP;
 	    } /* switch(proto) { */
-	    
+
 	    if (he) {
 		data_size = build_reply(serial, he, &reply, &reply_size);
 #ifdef HAVE_GETIPNODEBYADDR
@@ -1923,13 +1923,13 @@ static int worker_loop(void)
 		free(sa);
 #endif
 	    } else {
-		data_size = build_error_reply(serial, error_num, 
+		data_size = build_error_reply(serial, error_num,
 					      &reply, &reply_size);
 	    }
 	    break; /* case OP_GETHOSTBYADR: */
 
 	default:
-	    data_size = build_error_reply(serial, ERRCODE_NOTSUP, 
+	    data_size = build_error_reply(serial, ERRCODE_NOTSUP,
 					  &reply, &reply_size);
 	    break;
 	} /* switch (op) { */
@@ -1984,7 +1984,7 @@ static int map_netdb_error(int netdb_code)
     case NO_DATA:
 #endif
 #ifdef NO_ADDRESS
-#if !defined(NO_DATA) || (NO_DATA != NO_ADDRESS)	
+#if !defined(NO_DATA) || (NO_DATA != NO_ADDRESS)
     case NO_ADDRESS:
 #endif
 #endif
@@ -2036,11 +2036,11 @@ static char *errcode_to_string(int errcode)
     case ERRCODE_NOTSUP:
 	return "enotsup";
     case ERRCODE_HOST_NOT_FOUND:
-	/* 
-	 * I would preffer 
+	/*
+	 * I would preffer
 	 * return "host_not_found";
-	 * but have to keep compatibility with the old 
-	 * inet_gethost's error codes... 
+	 * but have to keep compatibility with the old
+	 * inet_gethost's error codes...
 	 */
 	return "notfound";
     case ERRCODE_TRY_AGAIN:
@@ -2054,8 +2054,8 @@ static char *errcode_to_string(int errcode)
 	return "netdb_internal";
     }
 }
-	
-static size_t build_error_reply(SerialType serial, int errnum, 
+
+static size_t build_error_reply(SerialType serial, int errnum,
 				AddrByte **preply,
 				size_t *preply_size)
 {
@@ -2069,7 +2069,7 @@ static size_t build_error_reply(SerialType serial, int errnum,
 	if (*preply_size == 0) {
 	    *preply = ALLOC((*preply_size = need));
 	} else {
-	    *preply = REALLOC(*preply, 
+	    *preply = REALLOC(*preply,
 			      (*preply_size = need));
 	}
     }
@@ -2082,10 +2082,10 @@ static size_t build_error_reply(SerialType serial, int errnum,
     strcpy((char*)ptr, errstring);
     return need;
 }
-    
 
 
-static size_t build_reply(SerialType serial, struct hostent *he, 
+
+static size_t build_reply(SerialType serial, struct hostent *he,
 			  AddrByte **preply, size_t *preply_size)
 {
     unsigned need;
@@ -2096,7 +2096,7 @@ static size_t build_reply(SerialType serial, struct hostent *he,
     AddrByte *ptr;
     int unit = he->h_length;
 
-    for (num_addresses = 0; he->h_addr_list[num_addresses] != NULL; 
+    for (num_addresses = 0; he->h_addr_list[num_addresses] != NULL;
 	 ++num_addresses)
 	;
     strings_need = strlen(he->h_name) + 1; /* 1 for null byte */
@@ -2107,8 +2107,8 @@ static size_t build_reply(SerialType serial, struct hostent *he,
 	    ++num_strings;
 	}
     }
-    
-    need = PACKET_BYTES + 
+
+    need = PACKET_BYTES +
 	4 /* Serial */ + 1 /* Unit */ + 4 /* Naddr */ +
 	(unit * num_addresses) /* Address bytes */ +
 	4 /* Nnames */ + strings_need /* The name and alias strings */;
@@ -2117,7 +2117,7 @@ static size_t build_reply(SerialType serial, struct hostent *he,
 	if (*preply_size == 0) {
 	    *preply = ALLOC((*preply_size = need));
 	} else {
-	    *preply = REALLOC(*preply, 
+	    *preply = REALLOC(*preply,
 			      (*preply_size = need));
 	}
     }
@@ -2220,10 +2220,10 @@ static size_t build_reply_ai(SerialType serial, int addrlen,
 
 
 /*
- * Encode/decode/read/write 
+ * Encode/decode/read/write
  */
 
-static int get_int32(AddrByte *b) 
+static int get_int32(AddrByte *b)
 {
     int res;
     res = (unsigned) b[3];
@@ -2270,7 +2270,7 @@ static int read_exact(HANDLE fd, void *vbuff, DWORD nbytes, HANDLE ev)
     OVERLAPPED ov;
     DWORD err;
 
-    
+
     got = 0;
     for(;;) {
 	memset(&ov,0,sizeof(ov));
@@ -2284,7 +2284,7 @@ static int read_exact(HANDLE fd, void *vbuff, DWORD nbytes, HANDLE ev)
 		stat = GetOverlappedResult(fd,&ov,&ret,TRUE);
 		DEBUGF(4,("Overlapped read, completed with status %d,"
 			  " result %d",stat,ret));
-	    } 
+	    }
 	    if (!stat) {
 		if (GetLastError() == ERROR_BROKEN_PIPE) {
 		    DEBUGF(1, ("End of file while reading from pipe."));
@@ -2298,7 +2298,7 @@ static int read_exact(HANDLE fd, void *vbuff, DWORD nbytes, HANDLE ev)
 	    }
 	} else {
 	    DEBUGF(4,("Read completed syncronously, result %d",ret));
-	}	    
+	}
 	if (ret == 0) {
 	    DEBUGF(1, ("End of file detected as zero read from pipe."));
 	    return 0;
@@ -2318,7 +2318,7 @@ static int read_exact(HANDLE fd, void *vbuff, DWORD nbytes, HANDLE ev)
  * but this code should handle both cases (although winsock
  * does not always..)
  */
-static int write_exact(HANDLE fd, AddrByte *buff, DWORD len, HANDLE ev) 
+static int write_exact(HANDLE fd, AddrByte *buff, DWORD len, HANDLE ev)
 {
     DWORD res,stat;
     DWORD x = len;
@@ -2349,7 +2349,7 @@ static int write_exact(HANDLE fd, AddrByte *buff, DWORD len, HANDLE ev)
 	} else {
 	    DEBUGF(4,("Write completed syncronously, result %d",res));
 	}
-	    
+
 	if (res < x) {
 	    /* Microsoft states this can happen as HANDLE is a pipe... */
 	    DEBUGF(4,("Not all data written to pipe, still %d bytes to write.",
@@ -2392,9 +2392,9 @@ DWORD WINAPI reader(void *data) {
 	     fatal("Reader could not talk to main thread!");
 	}
     }
-}	
+}
 
-DWORD WINAPI writer(void *data) 
+DWORD WINAPI writer(void *data)
 {
     MesQ *mq = (MesQ *) data;
     QueItem *m;
@@ -2474,7 +2474,7 @@ static ssize_t read_exact(int fd, void *vbuff, size_t nbytes)
     }
 }
 
-static int write_exact(int fd, AddrByte *buff, int len) 
+static int write_exact(int fd, AddrByte *buff, int len)
 {
     int res;
     int x = len;
@@ -2498,7 +2498,7 @@ static int write_exact(int fd, AddrByte *buff, int len)
 	    }
 	} else {
 	    /* Hmmm, blocking write but not all written, could this happen
-	       if the other end was closed during the operation? Well, 
+	       if the other end was closed during the operation? Well,
 	       it costs very little to handle anyway... */
 	    x -= res;
 	    buff += res;
@@ -2530,7 +2530,7 @@ static char *format_address(int siz, AddrByte *addr)
 	    }
 	}
 	return buff;
-    } 
+    }
     while(siz--) {
 	erts_snprintf(tmp, sizeof(tmp), "%02x",(int) *addr++);
 	strcat(buff,tmp);
@@ -2622,7 +2622,7 @@ static void fatal(char *format, ...)
 }
 
 static void *my_malloc(size_t size)
-{ 
+{
     void *ptr = malloc(size);
     if (!ptr) {
 	fatal("Cannot allocate %u bytes of memory.", (unsigned) size);
@@ -2644,7 +2644,7 @@ static void *my_realloc(void *old, size_t size)
 
 #ifdef WIN32
 
-BOOL create_mesq(MesQ **q) 
+BOOL create_mesq(MesQ **q)
 {
     MesQ *tmp = ALLOC(sizeof(MesQ));
     tmp->data_present = CreateEvent(NULL, TRUE, FALSE,NULL);
@@ -2687,7 +2687,7 @@ BOOL deque_mesq(MesQ *q, QueItem **m)
 {
     EnterCriticalSection(&(q->crit));
     if (q->first == NULL) { /* Usually shutdown from other end */
-	ResetEvent(q->data_present); 
+	ResetEvent(q->data_present);
 	LeaveCriticalSection(&(q->crit));
 	return FALSE;
     }
@@ -2717,7 +2717,7 @@ BOOL close_mesq(MesQ *q)
 	LeaveCriticalSection(&(q->crit));
 	return FALSE;
     }
-    /* Noone else is supposed to use this object any more */
+    /* No one else is supposed to use this object any more */
     LeaveCriticalSection(&(q->crit));
     DeleteCriticalSection(&(q->crit));
     CloseHandle(q->data_present);
@@ -2740,13 +2740,13 @@ HANDLE event_mesq(MesQ *q)
 DWORD WINAPI pseudo_worker_loop(void *v)
 {
     HOSTENT *hep;
-    
+
     DEBUGF(1,("gethostbyname(\"ftp.funet.fi\") starting"));
     hep = gethostbyname("ftp.funet.fi");
 
     DEBUGF(1,("gethostbyname(\"ftp.funet.fi\") -> %d OK",(int) hep));
     return 0;
-}    
+}
 
 static void poll_gethost(int row) {
     HANDLE h;
@@ -2761,5 +2761,5 @@ static void poll_gethost(int row) {
     }
 }
 #endif
-    
+
 #endif /* WIN32 */

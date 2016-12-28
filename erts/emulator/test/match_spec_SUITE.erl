@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1999-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -44,7 +44,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {seconds, 30}}].
 
-all() -> 
+all() ->
     case test_server:is_native(match_spec_SUITE) of
 	false ->
 	    [test_1, test_2, test_3, bad_match_spec_bin,
@@ -161,10 +161,10 @@ test_2(Config) when is_list(Config) ->
 
 %% Test the enable_trace/2 and caller/0 PAM instructions
 test_3(Config) when is_list(Config) ->
-    Fun1 = fun() -> 
+    Fun1 = fun() ->
 		   register(fnoppelklopfer,self()),
 		   ?MODULE:f2(a, b),
-		   ?MODULE:f2(a, b) 
+		   ?MODULE:f2(a, b)
 	   end,
     P1 = spawn(?MODULE, runner, [self(), Fun1]),
     Pat = [{['$1','$1'],[],[{message,
@@ -200,7 +200,7 @@ otp_9422(Config) when is_list(Config) ->
     stop_collect(P1),
     stop_collect(P2, abort),
     ok.
-    
+
 otp_9422_tracee() ->
     ?MODULE:f1(a),
     ?MODULE:f1(b),
@@ -212,8 +212,8 @@ otp_9422_trace_changer() ->
     Pat2 = [{[b], [], [{disable_trace, arity}]}],
     erlang:trace_pattern({?MODULE, f1, 1}, Pat2).
 
-    
-    
+
+
 
 
 bad_match_spec_bin(Config) when is_list(Config) ->
@@ -246,15 +246,15 @@ trace_control_word(Config) when is_list(Config) ->
        [{'_',[{'=:=', {get_tcw}, High}],[]}],
        [{call, {?MODULE, f1, [a]}}]),
     erlang:system_flag(trace_control_word, 0),
-    tr(fun() -> 
-               ?MODULE:f1(a), 
-               ?MODULE:f1(start), 
-               ?MODULE:f1(b), 
-               ?MODULE:f1(c), 
-               ?MODULE:f1(high), 
+    tr(fun() ->
+               ?MODULE:f1(a),
+               ?MODULE:f1(start),
+               ?MODULE:f1(b),
+               ?MODULE:f1(c),
+               ?MODULE:f1(high),
                ?MODULE:f1(d),
-               ?MODULE:f1(stop), 
-               ?MODULE:f1(e) 
+               ?MODULE:f1(stop),
+               ?MODULE:f1(e)
        end,
        {?MODULE, f1, 1},
        [{[start],
@@ -297,7 +297,7 @@ tcw_bits(Save, Prev, Bits) ->
 %% as well as the silent/0 PAM instruction
 silent(Config) when is_list(Config) ->
     %% Global call trace
-    tr(fun() -> 
+    tr(fun() ->
                ?MODULE:f1(a),     % No trace - not active
                ?MODULE:f1(miss),  % No trace - no activation
                ?MODULE:f1(b),     % No trace - still not active
@@ -329,7 +329,7 @@ silent(Config) when is_list(Config) ->
         {call, {?MODULE, f1, [miss]}, miss},
         {call, {?MODULE, f1, [e]}, e} ]),
     %% Local call trace
-    tr(fun() -> 
+    tr(fun() ->
                ?MODULE:f1(a),     % No trace - not active
                f1(b),             % No trace - not active
                ?MODULE:f1(start), % Trace    - activation
@@ -363,7 +363,7 @@ silent_no_ms(Config) when is_list(Config) ->
     %% Trace f2/2 and erlang:integer_to_list/1 without match spec
     %% and use match spec on f1/1 to control silent flag.
     tr(
-      fun () -> 
+      fun () ->
               ?MODULE:f1(a),
               ?MODULE:f2(b, c),
               _ = erlang:integer_to_list(id(1)),
@@ -399,7 +399,7 @@ silent_no_ms(Config) when is_list(Config) ->
     %% Trace f2/2 and erlang:integer_to_list/1 without match spec
     %% and use match spec on f1/1 to control silent flag.
     tr(
-      fun () -> 
+      fun () ->
               ?MODULE:f1(a),
               ?MODULE:f2(b, c),
               _ = erlang:integer_to_list(id(1)),
@@ -454,7 +454,7 @@ ms_trace2(Config) when is_list(Config) ->
     %% without match spec. Use match spec functions
     %% {trace/2} to control trace through fn/2,3.
     tr(
-      fun () -> 
+      fun () ->
               ?MODULE:f1(a),
               ?MODULE:f2(b, c),
               _ = erlang:integer_to_list(id(1)),
@@ -519,9 +519,9 @@ ms_trace3(Config) when is_list(Config) ->
     Controller =
     spawn_link(
       fun () ->
-              receive 
+              receive
                   {Tracee,Tag,start} ->
-                      fn(TraceeName, [all], 
+                      fn(TraceeName, [all],
                          [call,return_to,send,'receive',
                           {tracer,Tracer}]),
                       Tracee ! {self(),Tag,started},
@@ -646,7 +646,7 @@ destructive_in_test_bif(Config) when is_list(Config) ->
 			       ([],[{'_',[],[{message,{get_tcw}}]}],trace),
     ok.
 
-%% Test that the comparision between boxed and small does not crash emulator
+%% Test that the comparison between boxed and small does not crash emulator
 boxed_and_small(Config) when is_list(Config) ->
     {ok, Node} = start_node(match_spec_suite_other),
     ok = rpc:call(Node,?MODULE,do_boxed_and_small,[]),
@@ -736,7 +736,7 @@ unary_plus(Config) when is_list(Config) ->
     ok.
 
 
-    
+
 
 %% Checks that exceptions in guards are handled correctly
 guard_exceptions(Config) when is_list(Config) ->
@@ -802,10 +802,10 @@ guard_exceptions(Config) when is_list(Config) ->
 %% Checks floating point exceptions in match-specs
 fpe(Config) when is_list(Config) ->
     MS = [{{'$1'},[],[{'/','$1',0}]}],
-    case catch (['EXIT','EXIT'] = 
-		ets:match_spec_run([{1},{2}],ets:match_spec_compile(MS))) of 
+    case catch (['EXIT','EXIT'] =
+		ets:match_spec_run([{1},{2}],ets:match_spec_compile(MS))) of
 	{'EXIT',_} -> ct:fail({error, "Floating point exceptions faulty"});
-	_ -> ok 
+	_ -> ok
     end.
 
 %% Test maps in match-specs
@@ -886,7 +886,7 @@ moving_labels(Config) when is_list(Config) ->
     %% Force an andalso/orelse construction to be moved by placing it
     %% in a tuple followed by a constant term. Labels should still
     %% point at their correct target.
-    %% 
+    %%
     Ms = [{{'$1','$2'},[],[{{ok,{'andalso','$1','$2'},[1,2,3]}}]}],
     {ok,{ok,false,[1,2,3]},[],[]} =
 	erlang:match_spec_test({true,false}, Ms, table),
@@ -896,7 +896,7 @@ moving_labels(Config) when is_list(Config) ->
 	erlang:match_spec_test({true,false}, Ms2, table),
 
     ok.
-    
+
 tr(Fun, MFA, Pat, Expected) ->
     tr(Fun, MFA, [call], Pat, [global], Expected).
 
@@ -1054,7 +1054,7 @@ id(X) ->
 start_node(Name) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Cookie = atom_to_list(erlang:get_cookie()),
-    test_server:start_node(Name, slave, 
+    test_server:start_node(Name, slave,
                            [{args, "-setcookie " ++ Cookie ++" -pa " ++ Pa}]).
 
 stop_node(Node) ->

@@ -1427,7 +1427,7 @@ relocs_to_list(Relocs) ->
 %%         constants/labels.
 handle_relocations(Relocs, Data, Fun) ->
   RelocsList = relocs_to_list(Relocs),
-  %% Seperate Relocations according to their type
+  %% Separate Relocations according to their type
   {CallList, AtomList, ClosureList, ClosureLabels, SwitchList} =
     seperate_relocs(RelocsList),
   %% Create code to declare atoms
@@ -1470,7 +1470,7 @@ handle_relocations(Relocs, Data, Fun) ->
   LocalVariables = AtomLoad ++ ClosureLoad ++ ConstLoad,
   {Relocs4, ExternalDeclarations, LocalVariables}.
 
-%% @doc Seperate relocations according to their type.
+%% @doc Separate relocations according to their type.
 seperate_relocs(Relocs) ->
   seperate_relocs(Relocs, [], [], [], [], []).
 

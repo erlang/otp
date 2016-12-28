@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1996-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -22,7 +22,7 @@
 %% ------------------------------------------------------------
 %%
 %% Handle conversion from tcl string to erlang terms
-%% 
+%%
 %% ------------------------------------------------------------
 
 -module(tcl2erl).
@@ -87,7 +87,7 @@ fw([Char|R],Ack) ->
 %% If it is impossible to convert the string into
 %% a term the original string is just returned.
 %% str_to_term(Str)  <--->  {string, Str} or {term, Term}
-%% 'so that we can be able to tell if conversion succeded or not.'
+%% 'so that we can be able to tell if conversion succeeded or not.'
 %%
 
 str_to_term(Str) ->
@@ -157,7 +157,7 @@ parse_term_seq(Toks) ->
     p_term_seq(Toks,[]).
 
 p_term_seq([],Ack) ->
-    {term_seq, lists:reverse(Ack)};    % never any continuation left 
+    {term_seq, lists:reverse(Ack)};    % never any continuation left
 p_term_seq(Toks,Ack) ->
     {_Type,Term,C} = parse_term(Toks),
     p_term_seq(C,[Term|Ack]).
@@ -347,7 +347,7 @@ ret_label(Str) ->
     end.
 
 
-	
+
 ret_mapped(Str) ->
     case ret_int(Str) of
 	1     -> true;

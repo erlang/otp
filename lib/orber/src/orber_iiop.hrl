@@ -1,9 +1,9 @@
 %%--------------------------------------------------------------------
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1997-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,13 +15,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
 %%----------------------------------------------------------------------
 %% File: orber_iiop.hrl
-%% 
+%%
 %%----------------------------------------------------------------------
 -ifndef(orber_iiop_hrl).
 -define(orber_iiop_hrl, true).
@@ -162,7 +162,7 @@
 -define(UTF_8_ID, 16#05010001).
 
 %% The limited UTF-16 without the surrogate mechanism is called UCS-2.
-%% The two-byte subset which is identical with the original Unicode. 
+%% The two-byte subset which is identical with the original Unicode.
 %% UCS-2, Level 1. Used by JDK-1.3 as native wchar.
 -define(UCS_2_ID, 16#00010100).
 
@@ -197,24 +197,24 @@
 
 %%----------------------------------------------------------------------
 %% GIOP Message Header
-%% 
+%%
 %% magic: identifies the GIOP message headers, array of four characters.
-%% giop_version: contains the version number of the giop protocol being 
+%% giop_version: contains the version number of the giop protocol being
 %%		used in the message.
-%% byte_order: indicating the byte order being used in subsequent 
+%% byte_order: indicating the byte order being used in subsequent
 %%		elements of the message.
 %%	0 - big-endian byte ordering, 1 - little-endian byte ordering
 %% fragments: true if more fragments follow, otherwise false.
-%% message_type: indicating the type of the message 
-%% message_size: gives the length of the message following the message 
+%% message_type: indicating the type of the message
+%% message_size: gives the length of the message following the message
 %%		headerin octets.
 %%----------------------------------------------------------------------
--record(giop_message, {magic, 
-		       giop_version, 
+-record(giop_message, {magic,
+		       giop_version,
 		       byte_order,
 		       fragments = false,
-		       message_type, 
-		       message_size, 
+		       message_type,
+		       message_size,
 		       message}).
 
 
@@ -228,7 +228,7 @@
 %% response_expected: true if the request is expected to have a reply message.
 %% object_key: identifies the object wich is the target of the invocation.
 %% operation: contains the name of the operation being invoked.
-%% requesting_principal: contains a value that identifying the requesting 
+%% requesting_principal: contains a value that identifying the requesting
 %%		principal.
 %%----------------------------------------------------------------------
 -record(request_header, {service_context, request_id, response_expected, object_key, operation, requesting_principal}).
@@ -279,8 +279,8 @@
 %%----------------------------------------------------------------------
 %% Profile Body
 %%
-%% iiop_version: describes the version of IIOP that the agent at the 
-%%		specified adress is prepared to receive.
+%% iiop_version: describes the version of IIOP that the agent at the
+%%		specified address is prepared to receive.
 %% host: identifies the internet host to which the GIOP messages
 %%		for the specified object may be sent.
 %% port: contains the TCP?IP port number where the target agnet is listening
@@ -291,12 +291,12 @@
 
 %%----------------------------------------------------------------------
 %% Version
-%% 
-%% major: major version number of iiop protocol 
-%% minor: minor version number of iiop protocol. 
+%%
+%% major: major version number of iiop protocol
+%% minor: minor version number of iiop protocol.
 %%
 %% When an agnet generates profiles specifying a particular version,
-%% it must be able to accept messages complying with the specified 
+%% it must be able to accept messages complying with the specified
 %% version or any porevious minor version.
 %%----------------------------------------------------------------------
 -record(version, {major,minor}).
@@ -311,7 +311,7 @@
 
 %%----------------------------------------------------------------------
 %% ORB_FLAGS macros. Used in the local object references {_,_,_,_,_,Flags}.
-%% 
+%%
 %%----------------------------------------------------------------------
 
 %% Definition of flag positions:
@@ -326,7 +326,7 @@
 
 %%----------------------------------------------------------------------
 %% Flags used as configuration parameters (application env).
-%% 
+%%
 %%----------------------------------------------------------------------
 -define(ORB_ENV_EXCLUDE_CODESET_COMPONENT, 16#01). %% FIXED!!
 -define(ORB_ENV_LOCAL_TYPECHECKING,        16#02). %% FIXED!!
@@ -349,7 +349,7 @@
 
 -define(ORB_ENV_INIT_FLAGS,      16#00).
 
--define(ORB_ENV_FLAGS, 
+-define(ORB_ENV_FLAGS,
 	[{?ORB_ENV_EXCLUDE_CODESET_CTX, "Exclude CodeSet Ctx"},
 	 {?ORB_ENV_LOCAL_TYPECHECKING, "Local Typechecking"},
 	 {?ORB_ENV_HOSTNAME_IN_IOR, "Use Hostname in IOR"},
@@ -369,7 +369,7 @@
 
 %%----------------------------------------------------------------------
 %% Definition of flag operations
-%% 
+%%
 %%----------------------------------------------------------------------
 %% USAGE: Boolean = ?ORB_FLAG_TEST(Flags, ?ORB_SEC_ATTRIBUTES)
 -define(ORB_FLAG_TEST(_F1, _I1),   ((_F1 band _I1) == _I1)).
@@ -384,14 +384,14 @@
 -define(ORB_SET_FALSE_LIST(_F4, _IList1),
 	lists:foldl(fun(_I4, _F5) ->
 			    ((_I4 bxor 16#ff) band _F5)
-		    end, 
+		    end,
 		    _F4, _IList1)).
 
 %% USAGE: NewFlags = ?ORB_SET_TRUE_LIST(Flags, [?ORB_SEC_ATTRIBUTES, ?ORB_SOME])
 -define(ORB_SET_TRUE_LIST(_F6, _IList2),
 	lists:foldl(fun(_I6, _F7) ->
 			    (_I6 bor _F7)
-		    end, 
+		    end,
 		    _F6, _IList2)).
 
 %% USAGE: Boolean = ?ORB_FLAG_TEST_LIST(Flags, [?ORB_CONTEXT, ?ORB_THING])
@@ -403,7 +403,7 @@
 
 %%----------------------------------------------------------------------
 %% IOR
-%% 
+%%
 %%----------------------------------------------------------------------
 -record('IOP_IOR', {type_id, profiles}).
 -record('IOP_TaggedProfile', {tag, profile_data}).
@@ -463,7 +463,7 @@
 			       {"host", {'tk_string', 0}},
 			       {"port", 'tk_ushort'},
 			       {"object_key", {'tk_sequence', 'tk_octet', 0}}]}).
-			       
+
 -define(PROFILEBODY_1_1_TYPEDEF, {'tk_struct', ?SYSTEM_TYPE, 'IIOP_ProfileBody_1_1',
 			      [{"iiop_version",?IIOP_VERSION },
 			       {"host", {'tk_string', 0}},
@@ -477,7 +477,7 @@
 			       {"port", 'tk_ushort'},
 			       {"object_key", {'tk_sequence', 'tk_octet', 0}},
 			       {"components", ?IOP_TAGGEDCOMPONENT_SEQ}]}).
-			       
+
 -define(SSLIOP_SSL, {'tk_struct', ?SYSTEM_TYPE, 'SSLIOP_SSL',
 				 [{"target_supports", 'tk_ushort'},
 				  {"target_requires", 'tk_ushort'},
@@ -494,7 +494,7 @@
 					 [{"tag", 'tk_ulong'},
 					  {"profile_data",
 					   {'tk_sequence', 'tk_octet', 0}}]}},
-			 {?GIOP_ReferenceAddr, "ior", {'tk_struct', ?SYSTEM_TYPE, 
+			 {?GIOP_ReferenceAddr, "ior", {'tk_struct', ?SYSTEM_TYPE,
 				     'GIOP_IORAddressingInfo',
 				     [{"selected_profile_index", 'tk_ulong'},
 				      {"ior", ?IOR_TYPEDEF}]}}]}).
@@ -512,39 +512,39 @@
 
 -record('CONV_FRAME_CodeSetComponent', {native_code_set, conversion_code_sets}).
 -record('CONV_FRAME_CodeSetComponentInfo', {'ForCharData', 'ForWcharData'}).
--define(CONV_FRAME_CODESETCOMPONENT, {'tk_struct', ?SYSTEM_TYPE, 
+-define(CONV_FRAME_CODESETCOMPONENT, {'tk_struct', ?SYSTEM_TYPE,
 				      'CONV_FRAME_CodeSetComponent',
 				      [{"native_code_set", 'tk_ulong'},
-				       {"conversion_code_sets", 
+				       {"conversion_code_sets",
 					{'tk_sequence', 'tk_ulong', 0}}]}).
--define(CONV_FRAME_CODESETCOMPONENTINFO, {'tk_struct', ?SYSTEM_TYPE, 
+-define(CONV_FRAME_CODESETCOMPONENTINFO, {'tk_struct', ?SYSTEM_TYPE,
 					  'CONV_FRAME_CodeSetComponentInfo',
-					  [{"ForCharData", 
+					  [{"ForCharData",
 					    ?CONV_FRAME_CODESETCOMPONENT},
-					   {"ForWcharData", 
+					   {"ForWcharData",
 					    ?CONV_FRAME_CODESETCOMPONENT}]}).
 
 
 
 
--define(DEFAULT_FOR_CHAR,  #'CONV_FRAME_CodeSetComponent'{native_code_set=?ISO8859_1_ID, 
+-define(DEFAULT_FOR_CHAR,  #'CONV_FRAME_CodeSetComponent'{native_code_set=?ISO8859_1_ID,
 							  conversion_code_sets=[]}).
--define(DEFAULT_FOR_WCHAR, #'CONV_FRAME_CodeSetComponent'{native_code_set=?UTF_16_ID, 
+-define(DEFAULT_FOR_WCHAR, #'CONV_FRAME_CodeSetComponent'{native_code_set=?UTF_16_ID,
 							  conversion_code_sets=[]}).
--define(DEFAULT_CODESETS, 
-	#'CONV_FRAME_CodeSetComponentInfo'{'ForCharData' = ?DEFAULT_FOR_CHAR, 
+-define(DEFAULT_CODESETS,
+	#'CONV_FRAME_CodeSetComponentInfo'{'ForCharData' = ?DEFAULT_FOR_CHAR,
 					   'ForWcharData' = ?DEFAULT_FOR_WCHAR}).
 
-%% Fragmentation - IIOP-1.1 & 1.2	  
+%% Fragmentation - IIOP-1.1 & 1.2
 -record('GIOP_FragmentHeader_1_2', {request_id}).
 
--define(GIOP_FragmentHeader_1_2, {'tk_struct', ?SYSTEM_TYPE, 
+-define(GIOP_FragmentHeader_1_2, {'tk_struct', ?SYSTEM_TYPE,
 				  'GIOP_FragmentHeader_1_2',
 				  [{"request_id", 'tk_ulong'}]}).
 
 %%------ MISC Definitions -------
 %% TimeBase::TimeT (TimeBase.idl) is defined as
-%%    typedef unsigned long long TimeT; 
+%%    typedef unsigned long long TimeT;
 -define(TimeBase_TimeT, 'tk_ulonglong').
 
 %%------ Fault Tolerant Definitions -------
@@ -557,9 +557,9 @@
 %% with the CORBA-2.6 specification.
 %%  tag = TAG_FT_GROUP
 -record('FT_TagFTGroupTaggedComponent', {version = #'GIOP_Version'{major = 1,
-								   minor = 0}, 
+								   minor = 0},
 					 ft_domain_id, object_group_id,
-					 object_group_ref_version}). 
+					 object_group_ref_version}).
 -define(FT_TagFTGroupTaggedComponent, {'tk_struct', ?SYSTEM_TYPE, 'FT_TagFTGroupTaggedComponent',
 				       [{"version", ?GIOP_VERSION},
 					{"ft_domain_id", ?FT_FTDomainId},
@@ -684,9 +684,9 @@
 %% The AuthorizationElement contains one element of an authorization token.
 %% Each element of an authorization token is logically a PAC.
 %% The AuthorizationToken is made up of a sequence of AuthorizationElements
-%% --- NOTE --- 
+%% --- NOTE ---
 %% OMG only defines 'CSI_X509AttributeCertChain' so we use it as default value.
--record('CSI_AuthorizationElement', {the_type = ?CSI_X509AttributeCertChain, 
+-record('CSI_AuthorizationElement', {the_type = ?CSI_X509AttributeCertChain,
 				     the_element = []}).
 -define(CSIIOP_AuthorizationElement, {'tk_struct', ?SYSTEM_TYPE, 'CSI_AuthorizationElement',
 				      [{"the_type", ?CSI_AuthorizationElementType},
@@ -704,17 +704,17 @@
 
 -define(CSI_IdentityExtension, {'tk_sequence', 'tk_octet', 0}).
 -record('CSI_IdentityToken', {label, value}).
--define(CSI_IdentityToken, 
-	{'tk_union', ?SYSTEM_TYPE, 'CSI_IdentityToken', 
+-define(CSI_IdentityToken,
+	{'tk_union', ?SYSTEM_TYPE, 'CSI_IdentityToken',
 	 ?CSI_IdentityTokenType, 5,
-	 [{?CSI_IdentityTokenType_ITTAbsent, "absent", 'tk_boolean'},	
+	 [{?CSI_IdentityTokenType_ITTAbsent, "absent", 'tk_boolean'},
 	  {?CSI_IdentityTokenType_ITTAnonymous, "anonymous", 'tk_boolean'},
 	  {?CSI_IdentityTokenType_ITTPrincipalName, "principal_name", ?CSI_GSS_NT_ExportedName},
 	  {?CSI_IdentityTokenType_ITTX509CertChain, "certificate_chain", ?CSI_X509CertificateChain},
 	  {?CSI_IdentityTokenType_ITTDistinguishedName, "dn",  ?CSI_X501DistinguishedName},
 	  {default, "id", ?CSI_IdentityExtension}]}).
 
--record('CSI_EstablishContext', {client_context_id, authorization_token, 
+-record('CSI_EstablishContext', {client_context_id, authorization_token,
 				 identity_token, client_authentication_token}).
 -define(CSI_EstablishContext, {'tk_struct', ?SYSTEM_TYPE, 'CSI_EstablishContext',
 			       [{"client_context_id", ?CSI_ContextId},
@@ -729,14 +729,14 @@
 					{"context_stateful", 'tk_boolean'},
 					{"final_context_token", ?CSI_GSSToken}]}).
 
--record('CSI_ContextError', {client_context_id, major_status, 
+-record('CSI_ContextError', {client_context_id, major_status,
 			     minor_status, error_token}).
 -define(CSI_ContextError, {'tk_struct', ?SYSTEM_TYPE, 'CSI_ContextError',
 			   [{"client_context_id", ?CSI_ContextId},
 			    {"major_status", 'tk_long'},
 			    {"minor_status", 'tk_long'},
 			    {"error_token", ?CSI_GSSToken}]}).
-	
+
 % Not sent by stateless clients. If received by a stateless server, a
 % ContextError message should be returned, indicating the session does
 % not exist.
@@ -746,7 +746,7 @@
 				{"discard_context", 'tk_boolean'}]}).
 
 -record('CSI_SASContextBody', {label, value}).
--define(CSI_SASContextBody, 
+-define(CSI_SASContextBody,
 	{'tk_union', ?SYSTEM_TYPE, 'CSI_SASContextBody', ?CSI_MsgType, -1,
 	 [{?CSI_MsgType_MTEstablishContext, "establish_msg", ?CSI_EstablishContext},
 	  {?CSI_MsgType_MTCompleteEstablishContext, "complete_msg", ?CSI_CompleteEstablishContext},
@@ -888,7 +888,7 @@
 %% type used to define SAS layer functionality within a compound mechanism
 %% definition
 -record('CSIIOP_SAS_ContextSec', {target_supports = 0, target_requires = 0,
-				  privilege_authorities, 
+				  privilege_authorities,
 				  supported_naming_mechanisms,
 				  supported_identity_types}).
 -define(CSIIOP_SAS_ContextSec, {'tk_struct', ?SYSTEM_TYPE, 'CSIIOP_SAS_ContextSec',
@@ -943,10 +943,10 @@
 
 %%-- ServiceContext ID's ------------
 %% Describes what type of context included, i.e.,
-%% typedef unsigned long ServiceId; 
-%% struct ServiceContext { 
-%%	  ServiceId context_id; 
-%%	  sequence <octet> context_data; 
+%% typedef unsigned long ServiceId;
+%% struct ServiceContext {
+%%	  ServiceId context_id;
+%%	  sequence <octet> context_data;
 %%	 };
 
 %% The record is defined in include/corba.hrl.
@@ -969,7 +969,7 @@
 			    {"port", 'tk_ushort'}]}).
 
 -record('IIOP_BiDirIIOPServiceContext', {listen_points}).
--define(IIOP_BIDIRIIOPSERVICECONTEXT, 
+-define(IIOP_BIDIRIIOPSERVICECONTEXT,
 	{'tk_struct', ?SYSTEM_TYPE, 'IIOP_BiDirIIOPServiceContext',
 	 [{"listen_points", {'tk_sequence', ?IIOP_LISTENPOINT, 0}}]}).
 
@@ -1004,8 +1004,8 @@
 %%----------------------------------------------------------------------
 %% giop_env
 %%----------------------------------------------------------------------
--record(giop_env, {interceptors, type, version, bytes, ctx = [], 
-		   request_id, op, parameters = [], tc, response_expected, 
+-record(giop_env, {interceptors, type, version, bytes, ctx = [],
+		   request_id, op, parameters = [], tc, response_expected,
 		   objkey, reply_status, result, flags, host, iiop_port,
 		   iiop_ssl_port, domain, partial_security}).
 

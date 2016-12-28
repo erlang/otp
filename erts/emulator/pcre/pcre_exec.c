@@ -332,7 +332,7 @@ enum { RM1=1, RM2,  RM3,  RM4,  RM5,  RM6,  RM7,  RM8,  RM9,  RM10,
        RM31,  RM32, RM33, RM34, RM35, RM36, RM37, RM38, RM39, RM40,
        RM41,  RM42, RM43, RM44, RM45, RM46, RM47, RM48, RM49, RM50,
        RM51,  RM52, RM53, RM54, RM55, RM56, RM57, RM58, RM59, RM60,
-       RM61,  RM62, RM63, RM64, RM65, RM66, RM67, RM68 
+       RM61,  RM62, RM63, RM64, RM65, RM66, RM67, RM68
 };
 
 /* These versions of the macros use the stack, as normal. There are debugging
@@ -609,7 +609,7 @@ do {						\
 
 register int loop_count = 0;
 register int loop_limit = md->loop_limit;
-heapframe *frame; 
+heapframe *frame;
 if (md->state_save) {
   frame = md->state_save;
   EDEBUGF(("Break restore!"));
@@ -621,7 +621,7 @@ frame = (heapframe *)md->match_frames_base;
 #define COST_CHK(N)
 heapframe *frame = (heapframe *)md->match_frames_base;
 #endif
- 
+
 
 /* Copy in the original argument variables */
 
@@ -1134,7 +1134,7 @@ for (;;)
     the result of a recursive call to match() whatever happened so it was
     possible to reduce stack usage by turning this into a tail recursion,
     except in the case of a possibly empty group. However, now that there is
-    the possiblity of (*THEN) occurring in the final alternative, this
+    the possibility of (*THEN) occurring in the final alternative, this
     optimization is no longer always possible.
 
     We can optimize if we know there are no (*THEN)s in the pattern; at present
@@ -1936,7 +1936,7 @@ for (;;)
         if (recno == ri->group_num && eptr == ri->subject_position)
           RRETURN(PCRE_ERROR_RECURSELOOP);
 	COST(1);
-        } 
+        }
 
       /* Add to "recursing stack" */
 
@@ -5741,7 +5741,7 @@ for (;;)
             {
             int category;
             int len = 1;
-            if (eptr >= md->end_subject) 
+            if (eptr >= md->end_subject)
               {
               SCHECK_PARTIAL();
               break;
@@ -5855,14 +5855,14 @@ for (;;)
         /* eptr is now past the end of the maximum run */
 
         if (possessive) continue;    /* No backtracking */
-         
+
         for(;;) /* LOOP_COUNT: Ok */
           {
 #ifndef ERLANG_INTEGRATION
-          int lgb, rgb; 
+          int lgb, rgb;
 #endif
           PCRE_PUCHAR fptr;
-            
+
           if (eptr == pp) goto TAIL_RECURSE;   /* At start of char run */
           RMATCH(eptr, ecode, offset_top, md, eptrb, RM45);
           if (rrc != MATCH_NOMATCH) RRETURN(rrc);
@@ -5870,7 +5870,7 @@ for (;;)
           /* Backtracking over an extended grapheme cluster involves inspecting
           the previous two characters (if present) to see if a break is
           permitted between them. */
- 
+
           eptr--;
           if (!utf) c = *eptr; else
             {
@@ -5888,7 +5888,7 @@ for (;;)
               BACKCHAR(fptr);
               GETCHAR(c, fptr);
               }
-            lgb = UCD_GRAPHBREAK(c);        
+            lgb = UCD_GRAPHBREAK(c);
             if ((PRIV(ucp_gbtable)[lgb] & (1 << rgb)) == 0) break;
             eptr = fptr;
             rgb = lgb;
@@ -6498,7 +6498,7 @@ LOOP_COUNT_RETURN:
  {
    heapframe *newframe = frame;
    frame = newframe->Xprevframe;
-   rrc = newframe->Xop; 
+   rrc = newframe->Xop;
    i = newframe->Xfi;
    c = (pcre_uint32) newframe->Xfc;
    utf = newframe->Xcur_is_word;
@@ -6506,10 +6506,10 @@ LOOP_COUNT_RETURN:
    possessive = newframe->Xprev_is_word;
    caseless = (BOOL) newframe->Xcodelink;
    condcode = newframe->Xctype;
-   /* Note, the frame is not freed until the whole match is done, 
+   /* Note, the frame is not freed until the whole match is done,
       the function release_match_heapframes takes care of that */
    EDEBUGF(("LOOP_COUNT_RETURN: %d",frame->Xwhere));
-   switch (frame->Xwhere) 
+   switch (frame->Xwhere)
      {
 #include "pcre_exec_loop_break_cases.inc"
      default:
@@ -6519,9 +6519,9 @@ LOOP_COUNT_RETURN:
  }
 
 LOOP_COUNT_BREAK:
-  /* Save the local register variables in a dummy frame, to keep the 
+  /* Save the local register variables in a dummy frame, to keep the
    * every frame of equal size rule */
-  /* 
+  /*
    * Store Local                    in
    * ------------------------------ --------------
    * rrc                            Xop
@@ -6532,9 +6532,9 @@ LOOP_COUNT_BREAK:
    * possessive                     Xprev_is_word
    * caseless                       Xcodelink (cast)
    * condcode                       Xctype
-   */ 
-  {   
-    heapframe *newframe = frame->Xnextframe; 
+   */
+  {
+    heapframe *newframe = frame->Xnextframe;
     if (newframe == NULL)
     {
       newframe = (heapframe *)(PUBL(stack_malloc))(sizeof(heapframe));
@@ -6543,7 +6543,7 @@ LOOP_COUNT_BREAK:
       frame->Xnextframe = newframe;
     }
     newframe->Xprevframe = frame;
-    newframe->Xop = rrc; 
+    newframe->Xop = rrc;
     newframe->Xfi = i;
     newframe->Xfc = (unsigned int) c;
     newframe->Xcur_is_word = utf;
@@ -6556,7 +6556,7 @@ LOOP_COUNT_BREAK:
     EDEBUGF(("Break loop!"));
     return PCRE_ERROR_LOOP_LIMIT;
   }
-#endif 
+#endif
 #endif  /* NO_RECURSE */
 }
 
@@ -6699,8 +6699,8 @@ typedef struct {
     int Xoffsetcount;
     int *Xoffsets;
 } PcreExecContext;
-#endif  
-   
+#endif
+
 
 #if defined COMPILE_PCRE8
 #if defined(ERLANG_INTEGRATION)
@@ -6822,8 +6822,8 @@ pcre_uchar req_char;
 
 /* End special swapped variables */
 
- if (extra_data != NULL && 
-     (extra_data->flags & PCRE_EXTRA_LOOP_LIMIT) && 
+ if (extra_data != NULL &&
+     (extra_data->flags & PCRE_EXTRA_LOOP_LIMIT) &&
      *(extra_data->restart_data) != NULL) {
      /* we are restarting, every initialization is skipped and we jump directly into the loop */
    exec_context = (PcreExecContext *) *(extra_data->restart_data);
@@ -6831,15 +6831,15 @@ pcre_uchar req_char;
 
    goto RESTART_INTERRUPTED;
  } else {
-   if (extra_data != NULL && 
+   if (extra_data != NULL &&
        (extra_data->flags & PCRE_EXTRA_LOOP_LIMIT)) {
      exec_context = (PcreExecContext *) (erts_pcre_malloc)(sizeof(PcreExecContext));
-     *(extra_data->restart_data) = (void *) exec_context; 
+     *(extra_data->restart_data) = (void *) exec_context;
      /* need freeing by special routine from client */
    } else {
      exec_context = &internal_context;
    }
-   
+
    /* OK, no restart here, initialize variables instead */
    using_temporary_offsets = FALSE;
    has_first_char = FALSE;
@@ -6855,7 +6855,7 @@ pcre_uchar req_char;
    req_char_ptr = start_match - 1;
    re = (REAL_PCRE *)argument_re;
 
-   md->state_save = NULL; 
+   md->state_save = NULL;
 }
 
 #endif /* ERLANG_INTEGRATION */
@@ -6999,7 +6999,7 @@ if (extra_data != NULL)
     md->callout_data = extra_data->callout_data;
   if ((flags & PCRE_EXTRA_TABLES) != 0) tables = extra_data->tables;
 #ifdef ERLANG_INTEGRATION
-  if ((flags & PCRE_EXTRA_LOOP_LIMIT) != 0) 
+  if ((flags & PCRE_EXTRA_LOOP_LIMIT) != 0)
     {
     md->loop_limit = extra_data->loop_limit;
     }
@@ -7327,9 +7327,9 @@ for(;;)
           }
 #ifdef ERLANG_INTEGRATION
 	else {
-	if ((extra_data->flags & PCRE_EXTRA_LOOP_LIMIT) != 0) 
+	if ((extra_data->flags & PCRE_EXTRA_LOOP_LIMIT) != 0)
 	  {
-	  *extra_data->loop_counter_return = 
+	  *extra_data->loop_counter_return =
 	    (extra_data->loop_limit - md->loop_limit);
           }
         break;
@@ -7360,9 +7360,9 @@ for(;;)
       {
       rc = MATCH_NOMATCH;
 #ifdef ERLANG_INTEGRATION
-      if ((extra_data->flags & PCRE_EXTRA_LOOP_LIMIT) != 0) 
+      if ((extra_data->flags & PCRE_EXTRA_LOOP_LIMIT) != 0)
  	{
- 	*extra_data->loop_counter_return = 
+ 	*extra_data->loop_counter_return =
  	  (extra_data->loop_limit - md->loop_limit);
         }
 #endif
@@ -7415,9 +7415,9 @@ for(;;)
           {
           rc = MATCH_NOMATCH;
 #ifdef ERLANG_INTEGRATION
-	if ((extra_data->flags & PCRE_EXTRA_LOOP_LIMIT) != 0) 
+	if ((extra_data->flags & PCRE_EXTRA_LOOP_LIMIT) != 0)
 	  {
-	  *extra_data->loop_counter_return = 
+	  *extra_data->loop_counter_return =
 	    (extra_data->loop_limit - md->loop_limit);
           }
 #endif
@@ -7451,9 +7451,9 @@ for(;;)
   EDEBUGF(("Calling match..."));
   rc = match(start_match, md->start_code, start_match, 2, md, NULL, 0);
 #ifdef ERLANG_INTEGRATION
-  if ((extra_data->flags & PCRE_EXTRA_LOOP_LIMIT) != 0) 
+  if ((extra_data->flags & PCRE_EXTRA_LOOP_LIMIT) != 0)
     {
-    *extra_data->loop_counter_return = 
+    *extra_data->loop_counter_return =
        (extra_data->loop_limit - md->loop_limit);
     }
   SWAPOUT();
@@ -7463,7 +7463,7 @@ for(;;)
   RESTART_INTERRUPTED:
       md->loop_limit = extra_data->loop_limit;
       rc = match(NULL,NULL,NULL,0,md,NULL,0);
-      *extra_data->loop_counter_return = 
+      *extra_data->loop_counter_return =
 	  (extra_data->loop_limit - md->loop_limit);
   }
   md->state_save = NULL; /* So that next call to free_saved... does not crash */
@@ -7660,8 +7660,8 @@ if (using_temporary_offsets)
   {
   DPRINTF(("Freeing temporary memory\n"));
 #ifdef ERLANG_INTEGRATION
-  if (extra_data == NULL || 
-      !(extra_data->flags & PCRE_EXTRA_LOOP_LIMIT)) 
+  if (extra_data == NULL ||
+      !(extra_data->flags & PCRE_EXTRA_LOOP_LIMIT))
     {
       (PUBL(free))(md->offset_vector);
       md->offset_vector = NULL;

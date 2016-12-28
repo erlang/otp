@@ -469,7 +469,7 @@ get(Key, Env) ->
 -define(MINIMUM_RANGE, 1000).
 -define(START_RANGE_FACTOR, 50).
 -define(MAX_RETRIES, 2).      % retries before enlarging range
--define(ENLARGE_FACTOR, 10).  % range enlargment factor
+-define(ENLARGE_FACTOR, 10).  % range enlargement factor
 
 -ifdef(DEBUG).
 %% If you want to use these process dictionary counters, make sure to

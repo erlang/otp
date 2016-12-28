@@ -109,7 +109,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, ?MEDIUM_TEST_TIMEOUT}].
 
-all() -> 
+all() ->
     [register_name, register_name_ipv6,
      register_names_1, register_names_2,
      register_duplicate_name, unicode_name, long_unicode_name,
@@ -126,7 +126,7 @@ all() ->
      no_nonlocal_kill, no_live_killing,
      socket_reset_before_alive2_reply_is_written].
 
-groups() -> 
+groups() ->
     [{buffer_overrun, [],
       [buffer_overrun_1, buffer_overrun_2]}].
 
@@ -323,7 +323,7 @@ check_names_cmp([{Name,Port,_Sock} | Conn], [{Name,Port} | Reply]) ->
 % This code is taken directly from "erl_epmd.erl" in R3A01
 
 -define(int16(X), [(X bsr 8) band 16#ff, X band 16#ff]).
--define(u32(X1,X2,X3,X4), 
+-define(u32(X1,X2,X3,X4),
         (((X1) bsl 24) bor ((X2) bsl 16) bor ((X3) bsl 8) bor X4)).
 
 do_get_names(Socket) ->
@@ -838,7 +838,7 @@ no_live_killing(Config) when is_list(Config) ->
 %% sends TCP RST at wrong time
 socket_reset_before_alive2_reply_is_written(Config) when is_list(Config) ->
     %% - delay_write for easier triggering of race condition
-    %% - relaxed_command_check for gracefull shutdown of epmd even if there
+    %% - relaxed_command_check for graceful shutdown of epmd even if there
     %%   is stuck node.
     ok = epmdrun("-delay_write 1 -relaxed_command_check"),
 

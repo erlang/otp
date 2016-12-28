@@ -1,8 +1,8 @@
 /*
  * %CopyrightBegin%
- * 
+ *
  * Copyright Ericsson AB 2004-2016. All Rights Reserved.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,23 +14,23 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
 /**************************************************************************
  * Monitors and links data structure manipulation.
- * Monitors and links are organized as AVL trees with the reference as 
- * key in the monitor case and the pid of the linked process as key in the 
- * link case. Lookups the order of the references is somewhat special. Local 
- * references are strictly smaller than remote references and are sorted 
- * by inlined comparision functionality. Remote references are handled by the
+ * Monitors and links are organized as AVL trees with the reference as
+ * key in the monitor case and the pid of the linked process as key in the
+ * link case. Lookups the order of the references is somewhat special. Local
+ * references are strictly smaller than remote references and are sorted
+ * by inlined comparison functionality. Remote references are handled by the
  * usual cmp function.
- * Each Monitor is tagged with different tags depending on which end of the 
+ * Each Monitor is tagged with different tags depending on which end of the
  * monitor it is.
- * A monitor is removed either explicitly by reference or all monitors are 
+ * A monitor is removed either explicitly by reference or all monitors are
  * removed when the process exits. No need to access the monitor by pid.
- **************************************************************************/ 
+ **************************************************************************/
 
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
@@ -51,26 +51,26 @@
 
 #define DIR_LEFT 0
 #define DIR_RIGHT 1
-#define DIR_END 2 
+#define DIR_END 2
 
 static erts_smp_atomic_t tot_link_lh_size;
 
-/* Implements the sort order in monitor trees, which is different from 
+/* Implements the sort order in monitor trees, which is different from
    the ordinary term order.
-   No short local ref's should ever exist (the ref is created by the bif's 
+   No short local ref's should ever exist (the ref is created by the bif's
    in runtime), therefore:
    All local ref's are less than external ref's
    Local ref's are inline-compared,
    External ref's are compared by cmp */
 
-#if 0   
+#if 0
 #define CMP_MON_REF(Ref1,Ref2) \
 cmp((Ref1),(Ref2)) /* XXX, the inline comparision yet to be done */
 #else
 #define CMP_MON_REF(Ref1,Ref2) cmp_mon_ref((Ref1),(Ref2))
 #endif
 
-static ERTS_INLINE int cmp_mon_ref(Eterm ref1, Eterm ref2) 
+static ERTS_INLINE int cmp_mon_ref(Eterm ref1, Eterm ref2)
 {
     Eterm *b1, *b2;
 
@@ -88,7 +88,7 @@ static ERTS_INLINE int cmp_mon_ref(Eterm ref1, Eterm ref2)
     }
     return CMP(ref1,ref2);
 }
-	    
+
 #define CP_LINK_VAL(To, Hp, From)				\
 do {								\
     if (IS_CONST(From))						\
@@ -127,7 +127,7 @@ static ErtsMonitor *create_monitor(Uint type, Eterm ref, Eterm pid, Eterm name)
 	 n = (ErtsMonitor *) erts_alloc(ERTS_ALC_T_MONITOR_LH,
 					mon_size*sizeof(Uint));
 	 erts_smp_atomic_add_nob(&tot_link_lh_size, mon_size*sizeof(Uint));
-     } 
+     }
      hp = n->heap;
 
 
@@ -135,7 +135,7 @@ static ErtsMonitor *create_monitor(Uint type, Eterm ref, Eterm pid, Eterm name)
      n->type = (Uint16) type;
      n->balance = 0;            /* Always the same initial value */
      n->name = name; /* atom() or [] */
-     CP_LINK_VAL(n->ref, hp, ref); /*XXX Unneccesary check, never immediate*/
+     CP_LINK_VAL(n->ref, hp, ref); /*XXX Unnecessary check, never immediate*/
      CP_LINK_VAL(n->pid, hp, pid);
 
      return n;
@@ -158,7 +158,7 @@ static ErtsLink *create_link(Uint type, Eterm pid)
 	 n = (ErtsLink *) erts_alloc(ERTS_ALC_T_NLINK_LH,
 				     lnk_size*sizeof(Uint));
 	 erts_smp_atomic_add_nob(&tot_link_lh_size, lnk_size*sizeof(Uint));
-     } 
+     }
      hp = n->heap;
 
 
@@ -168,7 +168,7 @@ static ErtsLink *create_link(Uint type, Eterm pid)
      if (n->type == LINK_NODE) {
 	 ERTS_LINK_REFC(n) = 0;
      } else {
-	 ERTS_LINK_ROOT(n) = NULL; 
+	 ERTS_LINK_ROOT(n) = NULL;
      }
      CP_LINK_VAL(n->pid, hp, pid);
 
@@ -226,7 +226,7 @@ void erts_destroy_monitor(ErtsMonitor *mon)
 	erts_smp_atomic_add_nob(&tot_link_lh_size, -1*mon_size*sizeof(Uint));
     }
 }
-    
+
 void erts_destroy_link(ErtsLink *lnk)
 {
     Uint lnk_size = ERTS_LINK_SIZE;
@@ -253,11 +253,11 @@ void erts_destroy_suspend_monitor(ErtsSuspendMonitor *smon)
 {
     erts_free(ERTS_ALC_T_SUSPEND_MON, smon);
 }
-     
-static void insertion_rotation(int dstack[], int dpos, 
-			       void *tstack[], int tpos, 
+
+static void insertion_rotation(int dstack[], int dpos,
+			       void *tstack[], int tpos,
 			       int state) {
-    
+
     ErtsMonitorOrLink **this;
     ErtsMonitorOrLink *p1, *p2, *p;
     int dir;
@@ -321,7 +321,7 @@ static void insertion_rotation(int dstack[], int dpos,
 		    p1->balance = (p2->balance == -1) ? 1 : 0;
 		    (*this) = p2;
 		}
-		(*this)->balance = 0; 
+		(*this)->balance = 0;
 		state = 0;
 		break;
 	    }
@@ -329,7 +329,7 @@ static void insertion_rotation(int dstack[], int dpos,
     }
 }
 
-void erts_add_monitor(ErtsMonitor **root, Uint type, Eterm ref, Eterm pid, 
+void erts_add_monitor(ErtsMonitor **root, Uint type, Eterm ref, Eterm pid,
 		      Eterm name)
 {
     void *tstack[STACK_NEED];
@@ -339,14 +339,14 @@ void erts_add_monitor(ErtsMonitor **root, Uint type, Eterm ref, Eterm pid,
     int state = 0;
     ErtsMonitor **this = root;
     Sint c;
-  
+
     dstack[0] = DIR_END;
     for (;;) {
 	if (!*this) { /* Found our place */
 	    state = 1;
 	    *this = create_monitor(type,ref,pid,name);
 	    break;
-	} else if ((c = CMP_MON_REF(ref,(*this)->ref)) < 0) { 
+	} else if ((c = CMP_MON_REF(ref,(*this)->ref)) < 0) {
 	    /* go left */
 	    dstack[dpos++] = DIR_LEFT;
 	    tstack[tpos++] = this;
@@ -374,7 +374,7 @@ int erts_add_link(ErtsLink **root, Uint type, Eterm pid)
     int state = 0;
     ErtsLink **this = root;
     Sint c;
-  
+
     dstack[0] = DIR_END;
     for (;;) {
 	if (!*this) { /* Found our place */
@@ -409,7 +409,7 @@ erts_add_or_lookup_suspend_monitor(ErtsSuspendMonitor **root, Eterm pid)
     ErtsSuspendMonitor **this = root;
     ErtsSuspendMonitor *res;
     Sint c;
-  
+
     dstack[0] = DIR_END;
     for (;;) {
 	if (!*this) { /* Found our place */
@@ -475,11 +475,11 @@ ErtsLink *erts_add_or_lookup_link(ErtsLink **root, Uint type, Eterm pid)
 /*
  * Deletion helpers
  */
-static int balance_left(ErtsMonitorOrLink **this) 
+static int balance_left(ErtsMonitorOrLink **this)
 {
     ErtsMonitorOrLink *p, *p1, *p2;
     int b1, b2, h = 1;
-    
+
     p = *this;
     switch (p->balance) {
     case -1:
@@ -520,11 +520,11 @@ static int balance_left(ErtsMonitorOrLink **this)
     return h;
 }
 
-static int balance_right(ErtsMonitorOrLink **this) 
+static int balance_right(ErtsMonitorOrLink **this)
 {
     ErtsMonitorOrLink *p, *p1, *p2;
     int b1, b2, h = 1;
-    
+
     p = *this;
     switch (p->balance) {
     case 1:
@@ -564,7 +564,7 @@ static int balance_right(ErtsMonitorOrLink **this)
     return h;
 }
 
-static int delsub(ErtsMonitorOrLink **this) 
+static int delsub(ErtsMonitorOrLink **this)
 {
     ErtsMonitorOrLink **tstack[STACK_NEED];
     int tpos = 0;
@@ -573,12 +573,12 @@ static int delsub(ErtsMonitorOrLink **this)
     int h;
 
     /*
-     * Walk down the tree to the right and search 
+     * Walk down the tree to the right and search
      * for a void right child, pick that child out
-     * and return it to be put in the deleted 
+     * and return it to be put in the deleted
      * object's place.
      */
-    
+
     while ((*r)->right != NULL) {
 	tstack[tpos++] = r;
 	r = &((*r)->right);
@@ -597,7 +597,7 @@ static int delsub(ErtsMonitorOrLink **this)
     return h;
 }
 
-ErtsMonitor *erts_remove_monitor(ErtsMonitor **root, Eterm ref) 
+ErtsMonitor *erts_remove_monitor(ErtsMonitor **root, Eterm ref)
 {
     ErtsMonitor **tstack[STACK_NEED];
     int tpos = 0;
@@ -613,7 +613,7 @@ ErtsMonitor *erts_remove_monitor(ErtsMonitor **root, Eterm ref)
     for (;;) {
 	if (!*this) { /* Failure */
 	    return NULL;
-	} else if ((c = CMP_MON_REF(ref,(*this)->ref)) < 0) { 
+	} else if ((c = CMP_MON_REF(ref,(*this)->ref)) < 0) {
 	    dstack[dpos++] = DIR_LEFT;
 	    tstack[tpos++] = this;
 	    this = &((*this)->left);
@@ -648,7 +648,7 @@ ErtsMonitor *erts_remove_monitor(ErtsMonitor **root, Eterm ref)
     return q;
 }
 
-ErtsLink *erts_remove_link(ErtsLink **root, Eterm pid) 
+ErtsLink *erts_remove_link(ErtsLink **root, Eterm pid)
 {
     ErtsLink **tstack[STACK_NEED];
     int tpos = 0;
@@ -752,62 +752,62 @@ erts_delete_suspend_monitor(ErtsSuspendMonitor **root, Eterm pid)
     }
 }
 
-ErtsMonitor *erts_lookup_monitor(ErtsMonitor *root, Eterm ref) 
+ErtsMonitor *erts_lookup_monitor(ErtsMonitor *root, Eterm ref)
 {
     Sint c;
 
     for (;;) {
 	if (root == NULL || (c = CMP_MON_REF(ref,root->ref)) == 0) {
 	    return root;
-	} else if (c < 0) { 
+	} else if (c < 0) {
 	    root = root->left;
-	} else { /* c > 0 */ 
+	} else { /* c > 0 */
 	    root = root->right;
-	} 
+	}
     }
 }
 
-ErtsLink *erts_lookup_link(ErtsLink *root, Eterm pid) 
+ErtsLink *erts_lookup_link(ErtsLink *root, Eterm pid)
 {
     Sint c;
 
     for (;;) {
 	if (root == NULL || (c = CMP(pid,root->pid)) == 0) {
 	    return root;
-	} else if (c < 0) { 
+	} else if (c < 0) {
 	    root = root->left;
-	} else { /* c > 0 */ 
+	} else { /* c > 0 */
 	    root = root->right;
-	} 
+	}
     }
 }
 
 ErtsSuspendMonitor *
-erts_lookup_suspend_monitor(ErtsSuspendMonitor *root, Eterm pid) 
+erts_lookup_suspend_monitor(ErtsSuspendMonitor *root, Eterm pid)
 {
     Sint c;
 
     for (;;) {
 	if (root == NULL || (c = CMP(pid,root->pid)) == 0) {
 	    return root;
-	} else if (c < 0) { 
+	} else if (c < 0) {
 	    root = root->left;
-	} else { /* c > 0 */ 
+	} else { /* c > 0 */
 	    root = root->right;
-	} 
+	}
     }
 }
 
-void erts_sweep_monitors(ErtsMonitor *root, 
+void erts_sweep_monitors(ErtsMonitor *root,
 			 void (*doit)(ErtsMonitor *, void *),
-			 void *context) 
+			 void *context)
 {
     ErtsMonitor *tstack[STACK_NEED];
     int tpos = 0;
     int dstack[STACK_NEED+1];
     int dpos = 1;
     int dir;
-    
+
     dstack[0] = DIR_END;
 
     for (;;) {
@@ -821,7 +821,7 @@ void erts_sweep_monitors(ErtsMonitor *root,
 		root = (tstack[tpos-1])->right;
 	    } else {
 		/* stacktop is an object to be deleted */
-		(*doit)(tstack[--tpos],context); /* expeted to do the 
+		(*doit)(tstack[--tpos],context); /* expeted to do the
 						    deletion */
 		--dpos;
 		root = NULL;
@@ -834,16 +834,16 @@ void erts_sweep_monitors(ErtsMonitor *root,
     }
 }
 
-void erts_sweep_links(ErtsLink *root, 
+void erts_sweep_links(ErtsLink *root,
 		      void (*doit)(ErtsLink *, void *),
-		      void *context) 
+		      void *context)
 {
     ErtsLink *tstack[STACK_NEED];
     int tpos = 0;
     int dstack[STACK_NEED+1];
     int dpos = 1;
     int dir;
-    
+
     dstack[0] = DIR_END;
 
     for (;;) {
@@ -857,7 +857,7 @@ void erts_sweep_links(ErtsLink *root,
 		root = (tstack[tpos-1])->right;
 	    } else {
 		/* stacktop is an object to be deleted */
-		(*doit)(tstack[--tpos],context); /* expeted to do the 
+		(*doit)(tstack[--tpos],context); /* expeted to do the
 						    deletion */
 		--dpos;
 		root = NULL;
@@ -879,7 +879,7 @@ void erts_sweep_suspend_monitors(ErtsSuspendMonitor *root,
     int dstack[STACK_NEED+1];
     int dpos = 1;
     int dir;
-    
+
     dstack[0] = DIR_END;
 
     for (;;) {
@@ -893,7 +893,7 @@ void erts_sweep_suspend_monitors(ErtsSuspendMonitor *root,
 		root = (tstack[tpos-1])->right;
 	    } else {
 		/* stacktop is an object to be deleted */
-		(*doit)(tstack[--tpos],context); /* expeted to do the 
+		(*doit)(tstack[--tpos],context); /* expeted to do the
 						    deletion */
 		--dpos;
 		root = NULL;
@@ -905,10 +905,10 @@ void erts_sweep_suspend_monitors(ErtsSuspendMonitor *root,
 	}
     }
 }
-				
+
 
 /* Debug BIF, always present, but undocumented... */
-	    
+
 static void erts_dump_monitors(ErtsMonitor *root, int indent)
 {
     if (root == NULL)

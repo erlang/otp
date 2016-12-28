@@ -277,7 +277,7 @@ start_link() ->
 
 start_link(T) ->
     proc_lib:start_link(?MODULE, init, [T], infinity, []).
-    
+
 state() ->
     call(state).
 
@@ -865,7 +865,7 @@ init_cb(List) ->
                    V <- [proplists:get_value(F, List, D)]],
     #diameter_callback{} = list_to_tuple([diameter_callback | Values]).
 
-%% Retreive and validate.
+%% Retrieve and validate.
 get_opt(Key, List, Def, Other) ->
     init_opt(Key, get_opt(Key, List, Def), [Def|Other]).
 

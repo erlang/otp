@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1997-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -31,7 +31,7 @@
 %%% 2. Constructing terms (the erl_mk_xxx() functions and erl_copy_term()).
 %%% 3. Extracting & info functions (erl_hd(), erl_length() etc).
 %%% 4. I/O list functions.
-%%% 5. Miscellanous functions.
+%%% 5. Miscellaneous functions.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -export([all/0, suite/0,
@@ -78,7 +78,7 @@
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [build_terms, round_trip_conversion, decode_terms,
      decode_float, t_erl_mk_int, t_erl_mk_list, basic_copy,
      t_erl_mk_atom, t_erl_mk_binary, t_erl_mk_empty_list,
@@ -318,7 +318,7 @@ t_erl_mk_empty_list(Config) when is_list(Config) ->
 %% This tests the erl_mk_float() function.
 
 t_erl_mk_float(Config) when is_list(Config) ->
-    case os:type() of 
+    case os:type() of
         vxworks ->
             {skipped, "Floating point numbers never compare equal on PPC"};
         _ ->

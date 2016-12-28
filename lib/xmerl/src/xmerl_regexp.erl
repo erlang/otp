@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2006-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -67,7 +67,7 @@ setup([$\\,$s|S],Acc) -> setup(S,"]s\\t\\n\\r\\[" ++Acc);
 setup([$\\,$S|S],Acc) -> setup(S,"]\\s\\t\\n\\r^[" ++Acc);
 setup([$\\,$i|S],Acc) -> setup(S,"]z-aZ-A_:[" ++Acc);   %% Only Latin-1 now
 setup([$\\,$I|S],Acc) -> setup(S,"]z-aZ-A_:^[" ++Acc);
-setup([$\\,$c|S],Acc) -> setup(S,"]9-0z-aZ-A_:."++[183]++"-[" ++Acc); 
+setup([$\\,$c|S],Acc) -> setup(S,"]9-0z-aZ-A_:."++[183]++"-[" ++Acc);
 setup([$\\,$C|S],Acc) -> setup(S,"]9-0z-aZ-A_:."++[183]++"-^[" ++Acc);
 %% fixme setup([$\\,$w|S]) -> {{char_class,"\s\t\n\r"},S};
 %% fixme setup([$\\,$W|S]) -> {{comp_class,"\s\t\n\r"},S};
@@ -651,7 +651,7 @@ reg2p([C|S0], L, Sc0) when C /= $|, C /= $) ->
     {R,Sc1,S1} = reg3([C|S0], Sc0),
     %% reg2p(S1, {concat,L,R}, Sc1);
     case is_integer(R) of
- 	true -> 
+ 	true ->
  	    case L of
  		{literal,Lit} ->
  		    reg2p(S1, {literal,Lit ++[R]}, Sc1);
@@ -659,7 +659,7 @@ reg2p([C|S0], L, Sc0) when C /= $|, C /= $) ->
  		    reg2p(S1, {concat,S2,{literal,[Char,R]}}, Sc1);
  		{concat,S2,{literal,Lit}}  ->
  		    reg2p(S1, {concat,S2,{literal,Lit ++ [R]}}, Sc1);
- 		Char when is_integer(Char) -> 
+ 		Char when is_integer(Char) ->
  		    reg2p(S1, {literal,[Char,R]}, Sc1);
  		_ ->
  		    reg2p(S1, {concat,L,R}, Sc1)
@@ -780,7 +780,7 @@ char_class([C1|S0], Cc) when C1 /= $] ->
     case char(C1, S0) of
 	{Cf,[$-,C2|S1]} when C2 /= $] ->
 	    case char(C2, S1) of
-		{Cl,S2} when Cf < Cl -> char_class(S2, [{Cf,Cl}|Cc]); 
+		{Cl,S2} when Cf < Cl -> char_class(S2, [{Cf,Cl}|Cc]);
 		{_Cl,_S2} -> parse_error({char_class,[C1|S0]})
 	    end;
 	{C,S1} -> char_class(S1, [C|Cc])
@@ -1154,7 +1154,7 @@ comp_crs([], Last) -> [{Last,maxchar}].
 %% build_dfa(NFA, NfaStartState) -> {DFA,DfaStartState}.
 %%  Build a DFA from an NFA using "subset construction". The major
 %%  difference from the book is that we keep the marked and unmarked
-%%  DFA states in seperate lists. New DFA states are added to the
+%%  DFA states in separate lists. New DFA states are added to the
 %%  unmarked list and states are marked by moving them to the marked
 %%  list. We assume that the NFA accepting state numbers are in
 %%  ascending order for the rules and use ordsets to keep this order.
@@ -1246,7 +1246,7 @@ build_dfa([Cr|Crs], Set, Us, N, Ts, Ms, NFA) ->
     end;
 build_dfa([], _Set, Us, N, Ts, _Ms, _NFA) ->
     {Ts,Us,N}.
-   
+
 %% eclosure([State], NFA) -> [State].
 %% move([State], Char, NFA) -> [State].
 %%  These are straight out of the book. As eclosure uses ordsets then
@@ -1307,7 +1307,7 @@ minimise_dfa(DFA0, Start, N) ->
 min_dfa(DFA) -> min_dfa(DFA, [], []).
 
 min_dfa([D|DFA0], Rs0, MDFA) ->
-    {DFA1,Rs1} = min_delete(DFA0, D#dfa_state.trans, D#dfa_state.accept, 
+    {DFA1,Rs1} = min_delete(DFA0, D#dfa_state.trans, D#dfa_state.accept,
 			    D#dfa_state.no, Rs0, []),
     min_dfa(DFA1, Rs1, [D|MDFA]);
 min_dfa([], Rs, MDFA) -> {MDFA,Rs}.
@@ -1377,7 +1377,7 @@ comp_apply_sp(St, Cs, P, DFA, Accept, [_|Sp]) ->
     comp_apply_sp(St, Cs, P, DFA, Accept, Sp);
 comp_apply_sp(St, Cs, P, DFA, Accept, []) ->
     comp_apply_tr(St, Cs, P, DFA, Accept).
-    
+
 accept_value(true, Cs, P, _Accept) -> {match,P,Cs};
 accept_value(false, _Cs, _P, Accept) -> Accept.
 
@@ -1420,7 +1420,7 @@ build_trans(Ts0, NoAccept) ->
 	    {Trans,Tmax,Smax} = expand_trans(Ts3, Tmin, NoAccept),
 	    {list_to_tuple(Trans),Tmin,Smin,Tmax,Smax,Sp1}
     end.
-   
+
 min_trans([{{0,C2},S}|Crs], _Def) -> {C2,S,Crs};
 min_trans([{{C1,_C2},_S}|_]=Crs, Def) -> {C1-1,Def,Crs}.
 

@@ -452,7 +452,7 @@ handle_apply_or_call([{local, external}|Left], Args, ArgTypes, Map, Tree, State,
       none -> one;
       _ -> many
     end,
-  NewWarns = {NewHowMany, []},      
+  NewWarns = {NewHowMany, []},
   handle_apply_or_call(Left, Args, ArgTypes, Map, Tree, State,
 		       ArgTypes, t_any(), true, NewWarns);
 handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
@@ -1347,7 +1347,7 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State) ->
 		{{Tag, PatTypes}, false};
 	      false ->
 		%% Try to find out if this is a default clause in a list
-		%% comprehension and supress this. A real Hack(tm)
+		%% comprehension and suppress this. A real Hack(tm)
 		Force0 =
 		  case is_compiler_generated(cerl:get_ann(C)) of
 		    true ->
@@ -1494,16 +1494,16 @@ bind_pat_vars(Pats, Types, Acc, Map, State) ->
   try
     bind_pat_vars(Pats, Types, Acc, Map, State, false)
   catch
-    throw:Error -> 
+    throw:Error ->
       %% Error = {error, bind | opaque | record, ErrorPats, ErrorType}
-      Error 
+      Error
   end.
 
 bind_pat_vars_reverse(Pats, Types, Acc, Map, State) ->
   try
     bind_pat_vars(Pats, Types, Acc, Map, State, true)
   catch
-    throw:Error -> 
+    throw:Error ->
       %% Error = {error, bind | opaque | record, ErrorPats, ErrorType}
       Error
   end.

@@ -775,7 +775,7 @@ restore_tables([Rec | Recs], Header, Schema, State = {local, LocalTabs, L}) ->
 restore_tables([], _Header, _Schema, State) ->
     State.
 
-%% Creates all neccessary dat files and inserts
+%% Creates all necessary dat files and inserts
 %% the table definitions in the schema table
 %%
 %% Returns a list of local_tab tuples for all local tables

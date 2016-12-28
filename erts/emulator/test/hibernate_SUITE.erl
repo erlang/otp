@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2003-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -35,7 +35,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 3}}].
 
-all() -> 
+all() ->
     [basic, dynamic_call, min_heap_size, bad_args, messages_in_queue,
      undefined_mfa, no_heap, wake_up_and_bif_trap].
 
@@ -216,7 +216,7 @@ min_hibernator_recv(Parent) ->
 
 bad_args(Config) when is_list(Config) ->
     bad_args(?MODULE, {name,glurf}, [0]),
-    {'EXIT',{system_limit,_}} = 
+    {'EXIT',{system_limit,_}} =
 	(catch erlang:hibernate(x, y, lists:duplicate(5122, xxx))),
     bad_args(42, name, [0]),
     bad_args(xx, 42, [1]),
@@ -349,7 +349,7 @@ clean_dict() ->
     lists:foreach(fun ({Key, _}) -> erase(Key) end, Dict).
 
 %%
-%% Wake up and then immediatly bif trap with a lengthy computation.
+%% Wake up and then immediately bif trap with a lengthy computation.
 %%
 
 wake_up_and_bif_trap(Config) when is_list(Config) ->
@@ -390,7 +390,7 @@ flush() ->
     after 0 ->
 	    ok
     end.
-	   
+
 
 wait_until(Fun) ->
     case catch Fun() of

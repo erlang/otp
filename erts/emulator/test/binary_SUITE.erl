@@ -42,8 +42,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
+	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2,
 	 copy_terms/1, conversions/1, deep_lists/1, deep_bitstr_lists/1,
 	 bad_list_to_binary/1, bad_binary_to_list/1,
@@ -68,7 +68,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]},
 	    {timetrap,{minutes,4}}].
 
-all() -> 
+all() ->
     [copy_terms, conversions, deep_lists, deep_bitstr_lists,
      t_split_binary, bad_split,
      bad_list_to_binary, bad_binary_to_list, terms,
@@ -81,7 +81,7 @@ all() ->
      obsolete_funs, robustness, otp_8180, trapping, large,
      error_after_yield, cmp_old_impl].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -219,7 +219,7 @@ going_up(List, Bin, From, To) when From =< To ->
     going_up(tl(List), Bin, From+1, To);
 going_up(_List, _Bin, From, To) when From > To ->
     ok.
-    
+
 going_down(List, Bin, From, To) when To > 0->
     compare(List, binary_to_list(Bin, From, To), To-From+1),
     going_down(List, Bin, From, To-1);
@@ -270,7 +270,7 @@ bad_list_to_binary(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch list_to_binary(id(<<1,2,3>>))),
     {'EXIT',{badarg,_}} = (catch list_to_binary(id([<<42:7>>]))),
     {'EXIT',{badarg,_}} = (catch list_to_bitstring(id(<<1,2,3>>))),
-    
+
     %% Funs used to be implemented as a type of binary internally.
     test_bad_bin(fun(X, Y) -> X*Y end),
     test_bad_bin([1,fun(X) -> X + 1 end,2|fun() -> 0 end]),
@@ -321,8 +321,8 @@ bad_bin_to_list(BadBin) ->
 
 bad_bin_to_list(Bin, First, Last) ->
     {'EXIT',{badarg,_}} = (catch binary_to_list(Bin, First, Last)).
-    
-    
+
+
 %% Tries to split a binary at all possible positions.
 
 t_split_binary(Config) when is_list(Config) ->
@@ -339,7 +339,7 @@ t_split_binary(Config) when is_list(Config) ->
     split(L, make_unaligned_sub_binary(B), size(B)),
     {X,_Y} = split_binary(B, size(B) div 2),
     split(binary_to_list(X), X, size(X)),
-    
+
     %% Reference-counted binary.
     L2 = lists:seq(0, ?heap_binary_size+1),
     B2 = list_to_binary(L2),
@@ -375,7 +375,7 @@ bad_split(Config) when is_list(Config) ->
     %% Funs are a kind of binaries.
     bad_split(fun(_X) -> 1 end, 1),
     ok.
-    
+
 bad_split(Bin, Pos) ->
     {'EXIT',{badarg,_}} = (catch split_binary(Bin, Pos)).
 
@@ -680,10 +680,10 @@ corrupter(Bin, Pos) when Pos >= 0 ->
 
     %% Bit faults, shouldn't crash
     <<Byte,Tail/binary>> = Rest,
-    Fun = fun(M) -> FaultyByte = Byte bxor M,                    
+    Fun = fun(M) -> FaultyByte = Byte bxor M,
 		    catch binary_to_term_stress(<<ShorterBin/binary,
 					  FaultyByte, Tail/binary>>) end,
-    lists:foreach(Fun,[1,2,4,8,16,32,64,128,255]),    
+    lists:foreach(Fun,[1,2,4,8,16,32,64,128,255]),
     corrupter(Bin, Pos-1);
 corrupter(_Bin, _) ->
     ok.
@@ -736,7 +736,7 @@ otp_5484(Config) when is_list(Config) ->
 	(catch
 	     binary_to_term_stress(
 	       %% A new-type fun in a list containing a bad creator pid.
-	       %% 
+	       %%
 	       <<131,
 		108,0,0,0,1,			%List, 1 element
 		112,0,0,0,66,0,52,216,81,158,148,250,237,109,185,9,208,60,202,156,244,218,0,0,0,0,0,0,0,0,100,0,1,116,97,0,98,6,142,121,72,
@@ -781,46 +781,46 @@ otp_5484(Config) when is_list(Config) ->
 		103,100,0,13,110,111,110,111,100,101,64,110,111,104,111,115,116,0,0,0,48,0,0,0,0,0,97,42,97,7,106>>)),
 
     %% An absurdly large atom.
-    {'EXIT',_} = 
+    {'EXIT',_} =
 	(catch binary_to_term_stress(iolist_to_binary([<<131,100,65000:16>>|
 						lists:duplicate(65000, 42)]))),
 
     %% Longer than 255 characters.
-    {'EXIT',_} = 
+    {'EXIT',_} =
 	(catch binary_to_term_stress(iolist_to_binary([<<131,100,256:16>>|
 						lists:duplicate(256, 42)]))),
 
     %% OTP-7218. Thanks to Matthew Dempsky. Also make sure that we
     %% cover the other error cases for external funs (EXPORT_EXT).
-    {'EXIT',_} = 
+    {'EXIT',_} =
 	(catch binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  97,13,			%Integer: 13
 		  97,13,			%Integer: 13
 		  97,13>>)),			%Integer: 13
-    {'EXIT',_} = 
+    {'EXIT',_} =
 	(catch binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  100,0,1,64,			%Atom: '@'
 		  97,13,			%Integer: 13
 		  97,13>>)),			%Integer: 13
-    {'EXIT',_} = 
+    {'EXIT',_} =
 	(catch binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  100,0,1,64,			%Atom: '@'
 		  100,0,1,64,			%Atom: '@'
 		  106>>)),			%NIL
-    {'EXIT',_} = 
+    {'EXIT',_} =
 	(catch binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  100,0,1,64,			%Atom: '@'
 		  100,0,1,64,			%Atom: '@'
 		  98,255,255,255,255>>)),	%Integer: -1
-    {'EXIT',_} = 
+    {'EXIT',_} =
 	(catch binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
@@ -878,7 +878,7 @@ otp_6817(Config) when is_list(Config) ->
     %% {Binary,BadFloat}: When the error in float is discovered, a refc-binary
     %% has been allocated and the list of refc-binaries goes through the
     %% limbo area between the heap top and stack.
-    BinAndFloat = 
+    BinAndFloat =
 	<<131,104,2,109,0,0,1,0,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,
 	 21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,
 	 46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,
@@ -935,7 +935,7 @@ otp_8117(Config) when is_list(Config) ->
 otp_8117_do('fun',Neg) ->
     % Fun with negative num_free
     FunBin = term_to_binary(fun() -> ok end),
-    <<B1:27/binary,_NumFree:32,Rest/binary>> = FunBin,   
+    <<B1:27/binary,_NumFree:32,Rest/binary>> = FunBin,
     bad_bin_to_term(<<B1/binary,Neg:32,Rest/binary>>);
 otp_8117_do(named_fun,Neg) ->
     % Named fun with negative num_free
@@ -945,10 +945,10 @@ otp_8117_do(named_fun,Neg) ->
 otp_8117_do(list,Neg) ->
     %% List with negative length
     bad_bin_to_term(<<131,104,2,108,Neg:32,97,11,104,1,97,12,97,13,106,97,14>>);
-otp_8117_do(tuple,Neg) ->    
+otp_8117_do(tuple,Neg) ->
     %% Tuple with negative arity
     bad_bin_to_term(<<131,104,2,105,Neg:32,97,11,97,12,97,13,97,14>>).
-    
+
 
 %% Tests ordering of binaries.
 ordering(Config) when is_list(Config) ->
@@ -1010,10 +1010,10 @@ ordering(Config) when is_list(Config) ->
 
     ok.
 
-%% Test that comparisions between binaries with different alignment work.
+%% Test that compares between binaries with different alignment work.
 unaligned_order(Config) when is_list(Config) ->
     L = lists:seq(0, 7),
-    [test_unaligned_order(I, J) || I <- L, J <- L], 
+    [test_unaligned_order(I, J) || I <- L, J <- L],
     ok.
 
 test_unaligned_order(I, J) ->
@@ -1033,7 +1033,7 @@ test_unaligned_order(I, J) ->
 
 test_unaligned_order_1(Op, A, B, {Aa,Ba}) ->
     erlang:Op(unaligned_sub_bin(A, Aa), unaligned_sub_bin(B, Ba)).
-    
+
 test_terms(Test_Func) ->
     Test_Func(atom),
     Test_Func(''),
@@ -1316,7 +1316,7 @@ robustness(Config) when is_list(Config) ->
     %% Bignums fitting in 32 bits.
     16#7FFFFFFF = binary_to_term_stress(<<131,98,127,255,255,255>>),
     -1 = binary_to_term_stress(<<131,98,255,255,255,255>>),
-    
+
     ok.
 
 %% OTP-8180: Test several terms that have been known to crash the emulator.
@@ -1495,10 +1495,10 @@ error_after_yield_bad_ext_term() ->
 		    <<TupleSz:32/big>>, %% Tuple size
 		    lists:duplicate(TupleSz-1, AtomExt), %% Valid atoms
 		    BadAtomExt]). %% Invalid atom at the end
-	    
+
 cmp_old_impl(Config) when is_list(Config) ->
     %% Compare results from new yielding implementations with
-    %% old non yielding implementations 
+    %% old non yielding implementations
     Cookie = atom_to_list(erlang:get_cookie()),
     Rel = "r16b_latest",
     case test_server:is_release_available(Rel) of

@@ -627,7 +627,7 @@ decode_arg(N,#type{name="wxArrayString"},Place,A0) ->
     w(" int * ~sLen = (int *) bp; bp += 4;~n", [N]),
     case Place of
 	arg -> w(" wxArrayString ~s;~n", [N]);
-	opt -> ignore %% Allready declared
+	opt -> ignore %% Already declared
     end,
     w(" int ~sASz = 0, * ~sTemp;~n", [N,N]),
     w(" for(int i=0; i < *~sLen; i++) {~n", [N]),
