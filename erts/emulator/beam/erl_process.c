@@ -7165,16 +7165,8 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 
     ASSERT(sched_type != ERTS_SCHED_NORMAL || no != 1);
 
-    if (sched_type != ERTS_SCHED_NORMAL) {
-	if (erts_smp_mtx_trylock(&schdlr_sspnd.mtx) == EBUSY) {
-	    erts_smp_runq_unlock(esdp->run_queue);
-	    erts_smp_mtx_lock(&schdlr_sspnd.mtx);
-	    erts_smp_runq_lock(esdp->run_queue);
-	}
-	if (schdlr_sspnd.msb.ongoing)
-	    evacuate_run_queue(esdp->run_queue, &sbp);
+    if (sched_type != ERTS_SCHED_NORMAL)
 	erts_smp_runq_unlock(esdp->run_queue);
-    }
     else {
 	evacuate_run_queue(esdp->run_queue, &sbp);
 
@@ -7187,8 +7179,8 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 
 	sched_wall_time_change(esdp, 0);
 
-	erts_smp_mtx_lock(&schdlr_sspnd.mtx);
     }
+    erts_smp_mtx_lock(&schdlr_sspnd.mtx);
 
     flgs = sched_prep_spin_suspended(ssi, ERTS_SSI_FLG_SUSPENDED);
     if (flgs & ERTS_SSI_FLG_SUSPENDED) {
@@ -7304,24 +7296,14 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 
 	    while (1) {
 		ErtsMonotonicTime current_time;
-		erts_aint32_t qmask;
 		erts_aint32_t flgs;
 
-		qmask = (ERTS_RUNQ_FLGS_GET(esdp->run_queue)
-			 & ERTS_RUNQ_FLGS_QMASK);
-
-		if (sched_type != ERTS_SCHED_NORMAL) {
-		    if (qmask) {
-			erts_smp_mtx_lock(&schdlr_sspnd.mtx);
-			erts_smp_runq_lock(esdp->run_queue);
-			if (schdlr_sspnd.msb.ongoing)
-			    evacuate_run_queue(esdp->run_queue, &sbp);
-			erts_smp_runq_unlock(esdp->run_queue);
-			erts_smp_mtx_unlock(&schdlr_sspnd.mtx);
-		    }
+		if (sched_type != ERTS_SCHED_NORMAL)
 		    aux_work = 0;
-		}
 		else {
+		    erts_aint32_t qmask;
+		    qmask = (ERTS_RUNQ_FLGS_GET(esdp->run_queue)
+			     & ERTS_RUNQ_FLGS_QMASK);
 
 		    aux_work = erts_atomic32_read_acqb(&ssi->aux_work);
 
