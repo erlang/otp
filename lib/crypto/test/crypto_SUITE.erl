@@ -2249,16 +2249,49 @@ aes_gcm() ->
       1}                                                                 %% TagLength
     ].
 
-%% http://tools.ietf.org/html/draft-agl-tls-chacha20poly1305-04
+%% https://tools.ietf.org/html/rfc7539#appendix-A.5
 chacha20_poly1305() ->
     [
-     {chacha20_poly1305, hexstr2bin("4290bcb154173531f314af57f3be3b500"  %% Key
-				    "6da371ece272afa1b5dbdd1100a1007"),
-      hexstr2bin("86d09974840bded2a5ca"),                                %% PlainText
-      hexstr2bin("cd7cf67be39c794a"),                                    %% Nonce
-      hexstr2bin("87e229d4500845a079c0"),                                %% AAD
-      hexstr2bin("e3e446f7ede9a19b62a4"),                                %% CipherText
-      hexstr2bin("677dabf4e3d24b876bb284753896e1d6")}                   %% CipherTag
+     {chacha20_poly1305,
+      hexstr2bin("1c9240a5eb55d38af333888604f6b5f0"                      %% Key
+			"473917c1402b80099dca5cbc207075c0"),
+      hexstr2bin("496e7465726e65742d44726166747320"                      %% PlainText
+      "61726520647261667420646f63756d65"
+      "6e74732076616c696420666f72206120"
+      "6d6178696d756d206f6620736978206d"
+      "6f6e74687320616e64206d6179206265"
+      "20757064617465642c207265706c6163"
+      "65642c206f72206f62736f6c65746564"
+      "206279206f7468657220646f63756d65"
+      "6e747320617420616e792074696d652e"
+      "20497420697320696e617070726f7072"
+      "6961746520746f2075736520496e7465"
+      "726e65742d4472616674732061732072"
+      "65666572656e6365206d617465726961"
+      "6c206f7220746f206369746520746865"
+      "6d206f74686572207468616e20617320"
+      "2fe2809c776f726b20696e2070726f67"
+      "726573732e2fe2809d"),
+      hexstr2bin("000000000102030405060708"),                            %% Nonce
+      hexstr2bin("f33388860000000000004e91"),                            %% AAD
+      hexstr2bin("64a0861575861af460f062c79be643bd"                      %% CipherText
+      "5e805cfd345cf389f108670ac76c8cb2"
+      "4c6cfc18755d43eea09ee94e382d26b0"
+      "bdb7b73c321b0100d4f03b7f355894cf"
+      "332f830e710b97ce98c8a84abd0b9481"
+      "14ad176e008d33bd60f982b1ff37c855"
+      "9797a06ef4f0ef61c186324e2b350638"
+      "3606907b6a7c02b0f9f6157b53c867e4"
+      "b9166c767b804d46a59b5216cde7a4e9"
+      "9040c5a40433225ee282a1b0a06c523e"
+      "af4534d7f83fa1155b0047718cbc546a"
+      "0d072b04b3564eea1b422273f548271a"
+      "0bb2316053fa76991955ebd63159434e"
+      "cebb4e466dae5a1073a6727627097a10"
+      "49e617d91d361094fa68f0ff77987130"
+      "305beaba2eda04df997b714d6c6f2c29"
+      "a6ad5cb4022b02709b"),
+      hexstr2bin("eead9d67890cbb22392336fea1851f38")}                    %% CipherTag
     ].
 
 rsa_plain() ->

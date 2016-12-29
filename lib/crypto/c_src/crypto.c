@@ -120,7 +120,7 @@
 # endif
 #endif
 
-#if defined(NID_chacha20) && !defined(OPENSSL_NO_CHACHA) && !defined(OPENSSL_NO_POLY1305)
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 # define HAVE_CHACHA20_POLY1305
 #endif
 
@@ -137,27 +137,6 @@
 #include <openssl/ecdh.h>
 #include <openssl/ecdsa.h>
 #endif
-
-/*
- * FIXME: The support for ChaCha and Poly1305 is based on pre-releases
- * of OpenSSL 1.1.0. It is seriously broken when used with the released
- * OpenSSL 1.1.0 or later.
- */
-#undef HAVE_CHACHA20_POLY1305
-
-#if defined(HAVE_CHACHA20_POLY1305)
-#include <openssl/chacha.h>
-#include <openssl/poly1305.h>
-
-#if !defined(CHACHA20_NONCE_LEN)
-# define CHACHA20_NONCE_LEN 8
-#endif
-#if !defined(POLY1305_TAG_LEN)
-# define POLY1305_TAG_LEN 16
-#endif
-
-#endif
-
 
 #ifdef VALGRIND
     #  include <valgrind/memcheck.h>
@@ -2093,71 +2072,61 @@ out_err:
 }
 #endif /* HAVE_GCM_EVP_DECRYPT_BUG */
 
-#if defined(HAVE_CHACHA20_POLY1305)
-static void
-poly1305_update_with_length(poly1305_state *poly1305,
-			    const unsigned char *data, size_t data_len)
-{
-        size_t j = data_len;
-        unsigned char length_bytes[8];
-        unsigned i;
-
-        for (i = 0; i < sizeof(length_bytes); i++) {
-                length_bytes[i] = j;
-                j >>= 8;
-        }
-
-        CRYPTO_poly1305_update(poly1305, data, data_len);
-        CRYPTO_poly1305_update(poly1305, length_bytes, sizeof(length_bytes));
-}
-#endif
 
 static ERL_NIF_TERM chacha20_poly1305_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key,Iv,AAD,In) */
 #if defined(HAVE_CHACHA20_POLY1305)
+    EVP_CIPHER_CTX *ctx;
+    const EVP_CIPHER *cipher = NULL;
     ErlNifBinary key, iv, aad, in;
-    unsigned char *outp;
+    unsigned char *outp, *tagp;
     ERL_NIF_TERM out, out_tag;
-    ErlNifUInt64 in_len_64;
-    unsigned char poly1305_key[32];
-    poly1305_state poly1305;
+    int len;
 
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 32
-	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size != CHACHA20_NONCE_LEN
+	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0 || iv.size > 16
 	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
 	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)) {
 	return enif_make_badarg(env);
     }
 
-    /* Take from OpenSSL patch set/LibreSSL:
-     *
-     * The underlying ChaCha implementation may not overflow the block
-     * counter into the second counter word. Therefore we disallow
-     * individual operations that work on more than 2TB at a time.
-     * in_len_64 is needed because, on 32-bit platforms, size_t is only
-     * 32-bits and this produces a warning because it's always false.
-     * Casting to uint64_t inside the conditional is not sufficient to stop
-     * the warning. */
-    in_len_64 = in.size;
-    if (in_len_64 >= (1ULL << 32) * 64 - 64)
-	return enif_make_badarg(env);
+    cipher = EVP_chacha20_poly1305();
 
-    memset(poly1305_key, 0, sizeof(poly1305_key));
-    CRYPTO_chacha_20(poly1305_key, poly1305_key, sizeof(poly1305_key), key.data, iv.data, 0);
+    ctx = EVP_CIPHER_CTX_new();
+
+    if (EVP_EncryptInit_ex(ctx, cipher, NULL, NULL, NULL) != 1)
+        goto out_err;
+
+    EVP_CIPHER_CTX_set_padding(ctx, 0);
+
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, iv.size, NULL) != 1)
+        goto out_err;
+    if (EVP_EncryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1)
+        goto out_err;
+    if (EVP_EncryptUpdate(ctx, NULL, &len, aad.data, aad.size) != 1)
+        goto out_err;
 
     outp = enif_make_new_binary(env, in.size, &out);
 
-    CRYPTO_poly1305_init(&poly1305, poly1305_key);
-    poly1305_update_with_length(&poly1305, aad.data, aad.size);
-    CRYPTO_chacha_20(outp, in.data, in.size, key.data, iv.data, 1);
-    poly1305_update_with_length(&poly1305, outp, in.size);
+    if (EVP_EncryptUpdate(ctx, outp, &len, in.data, in.size) != 1)
+        goto out_err;
+    if (EVP_EncryptFinal_ex(ctx, outp+len, &len) != 1)
+        goto out_err;
 
-    CRYPTO_poly1305_finish(&poly1305, enif_make_new_binary(env, POLY1305_TAG_LEN, &out_tag));
+    tagp = enif_make_new_binary(env, 16, &out_tag);
+
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, 16, tagp) != 1)
+        goto out_err;
+
+    EVP_CIPHER_CTX_free(ctx);
 
     CONSUME_REDS(env, in);
 
     return enif_make_tuple2(env, out, out_tag);
 
+out_err:
+    EVP_CIPHER_CTX_free(ctx);
+    return atom_error;
 #else
     return enif_raise_exception(env, atom_notsup);
 #endif
@@ -2166,53 +2135,52 @@ static ERL_NIF_TERM chacha20_poly1305_encrypt(ErlNifEnv* env, int argc, const ER
 static ERL_NIF_TERM chacha20_poly1305_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key,Iv,AAD,In,Tag) */
 #if defined(HAVE_CHACHA20_POLY1305)
+    EVP_CIPHER_CTX *ctx;
+    const EVP_CIPHER *cipher = NULL;
     ErlNifBinary key, iv, aad, in, tag;
     unsigned char *outp;
     ERL_NIF_TERM out;
-    ErlNifUInt64 in_len_64;
-    unsigned char poly1305_key[32];
-    unsigned char mac[POLY1305_TAG_LEN];
-    poly1305_state poly1305;
+    int len;
 
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 32
-	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size != CHACHA20_NONCE_LEN
+	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0 || iv.size > 16
 	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
 	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)
-	|| !enif_inspect_iolist_as_binary(env, argv[4], &tag) || tag.size != POLY1305_TAG_LEN) {
+	|| !enif_inspect_iolist_as_binary(env, argv[4], &tag) || tag.size != 16) {
 	return enif_make_badarg(env);
     }
 
-    /* Take from OpenSSL patch set/LibreSSL:
-     *
-     * The underlying ChaCha implementation may not overflow the block
-     * counter into the second counter word. Therefore we disallow
-     * individual operations that work on more than 2TB at a time.
-     * in_len_64 is needed because, on 32-bit platforms, size_t is only
-     * 32-bits and this produces a warning because it's always false.
-     * Casting to uint64_t inside the conditional is not sufficient to stop
-     * the warning. */
-    in_len_64 = in.size;
-    if (in_len_64 >= (1ULL << 32) * 64 - 64)
-	return enif_make_badarg(env);
+    cipher = EVP_chacha20_poly1305();
 
-    memset(poly1305_key, 0, sizeof(poly1305_key));
-    CRYPTO_chacha_20(poly1305_key, poly1305_key, sizeof(poly1305_key), key.data, iv.data, 0);
+    ctx = EVP_CIPHER_CTX_new();
 
-    CRYPTO_poly1305_init(&poly1305, poly1305_key);
-    poly1305_update_with_length(&poly1305, aad.data, aad.size);
-    poly1305_update_with_length(&poly1305, in.data, in.size);
-    CRYPTO_poly1305_finish(&poly1305, mac);
-
-    if (memcmp(mac, tag.data, POLY1305_TAG_LEN) != 0)
-	return atom_error;
+    if (EVP_DecryptInit_ex(ctx, cipher, NULL, NULL, NULL) != 1)
+        goto out_err;
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, iv.size, NULL) != 1)
+        goto out_err;
+    if (EVP_DecryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1)
+        goto out_err;
+    if (EVP_DecryptUpdate(ctx, NULL, &len, aad.data, aad.size) != 1)
+        goto out_err;
 
     outp = enif_make_new_binary(env, in.size, &out);
 
-    CRYPTO_chacha_20(outp, in.data, in.size, key.data, iv.data, 1);
+    if (EVP_DecryptUpdate(ctx, outp, &len, in.data, in.size) != 1)
+        goto out_err;
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, tag.size, tag.data) != 1)
+        goto out_err;
+    if (EVP_DecryptFinal_ex(ctx, outp+len, &len) != 1)
+        goto out_err;
+
+    EVP_CIPHER_CTX_free(ctx);
 
     CONSUME_REDS(env, in);
 
     return out;
+
+out_err:
+    EVP_CIPHER_CTX_free(ctx);
+    return atom_error;
 #else
     return enif_raise_exception(env, atom_notsup);
 #endif
