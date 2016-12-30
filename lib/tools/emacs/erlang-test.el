@@ -2,7 +2,7 @@
 
 ;;; Unit tests for erlang.el.
 
-;; Author:   Johan Claesson
+;; Author: Johan Claesson
 ;; Created: 2016-05-07
 ;; Keywords: erlang, languages
 
@@ -59,11 +59,12 @@ concatenated to form an erlang file to test on.")
          tags-file-name
          tags-table-list
          tags-table-set-list
+         tags-add-tables
+         tags-completion-table
          erlang-buffer
          erlang-mode-hook
          prog-mode-hook
-         erlang-shell-mode-hook
-         tags-add-tables)
+         erlang-shell-mode-hook)
     (unwind-protect
         (progn
           (setq-default tags-file-name nil)
@@ -117,12 +118,20 @@ concatenated to form an erlang file to test on.")
            for line = 1 then (1+ line)
            do (when tagname
                 (switch-to-buffer erlang-buffer)
-                (xref-find-definitions tagname)
-                (erlang-test-verify-pos erlang-file line)
-                (xref-find-definitions (concat "erlang_test:" tagname))
-                (erlang-test-verify-pos erlang-file line)))
-  (xref-find-definitions "erlang_test:")
-  (erlang-test-verify-pos erlang-file 1))
+                (erlang-test-xref-jump tagname erlang-file line)
+                (erlang-test-xref-jump (concat "erlang_test:" tagname)
+                                       erlang-file line)))
+  (erlang-test-xref-jump "erlang_test:" erlang-file 1))
+
+(defun erlang-test-xref-jump (id expected-file expected-line)
+  (goto-char (point-max))
+  (insert "\n%% " id)
+  (save-buffer)
+  (if (fboundp 'xref-find-definitions)
+      (xref-find-definitions (erlang-id-to-string
+                              (erlang-get-identifier-at-point)))
+    (error "xref-find-definitions not defined (too old emacs?)"))
+  (erlang-test-verify-pos expected-file expected-line))
 
 (defun erlang-test-verify-pos (expected-file expected-line)
   (should (string-equal (file-truename expected-file)
@@ -177,6 +186,30 @@ concatenated to form an erlang file to test on.")
     (when expected-erlang
       (should (equal erlang expected-erlang)))
     erlang))
+
+
+(ert-deftest erlang-test-parse-id ()
+  (cl-loop for id-string in '("fun/10"
+                              "qualified-function module:fun/10"
+                              "record reko"
+                              "macro _SYMBOL"
+                              "macro MACRO/10"
+                              "module modula"
+                              "macro"
+                              nil)
+           for id-list in '((nil nil "fun" 10)
+                            (qualified-function "module" "fun" 10)
+                            (record nil "reko" nil)
+                            (macro nil "_SYMBOL" nil)
+                            (macro nil "MACRO" 10)
+                            (module nil "modula" nil)
+                            (nil nil "macro" nil)
+                            nil)
+           for id-list2 = (erlang-id-to-list id-string)
+           do (should (equal id-list id-list2))
+           for id-string2 = (erlang-id-to-string id-list)
+           do (should (equal id-string id-string2))
+           collect id-list2))
 
 
 (provide 'erlang-test)

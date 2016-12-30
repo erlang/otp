@@ -115,18 +115,15 @@ A function suitable for `eldoc-documentation-function'.\n\n(fn)" nil nil)
 
 ;;
 ;; Ignore files ending in ".jam", ".vee", and ".beam" when performing
-;; file completion.
+;; file completion and in dired omit mode.
 ;;
 
 ;;;###autoload
 (let ((erl-ext '(".jam" ".vee" ".beam")))
   (while erl-ext
-    (let ((cie completion-ignored-extensions))
-      (while (and cie (not (string-equal (car cie) (car erl-ext))))
-        (setq cie (cdr cie)))
-      (if (null cie)
-          (setq completion-ignored-extensions
-                (cons (car erl-ext) completion-ignored-extensions))))
+    (add-to-list 'completion-ignored-extensions (car erl-ext))
+    (when (boundp 'dired-omit-extensions)
+      (add-to-list 'dired-omit-extensions (car erl-ext)))
     (setq erl-ext (cdr erl-ext))))
 
 
