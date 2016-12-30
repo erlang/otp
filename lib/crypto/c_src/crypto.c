@@ -920,7 +920,7 @@ static ERL_NIF_TERM algo_hash[8];   /* increase when extending the list */
 static int algo_pubkey_cnt, algo_pubkey_fips_cnt;
 static ERL_NIF_TERM algo_pubkey[7]; /* increase when extending the list */
 static int algo_cipher_cnt, algo_cipher_fips_cnt;
-static ERL_NIF_TERM algo_cipher[23]; /* increase when extending the list */
+static ERL_NIF_TERM algo_cipher[24]; /* increase when extending the list */
 
 static void init_algorithms_types(ErlNifEnv* env)
 {
