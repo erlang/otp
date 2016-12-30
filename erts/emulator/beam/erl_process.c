@@ -7055,12 +7055,18 @@ typedef struct {
 } ErtsSchdlrSspndResume;
 
 static void
-schdlr_sspnd_resume_proc(Eterm pid)
+schdlr_sspnd_resume_proc(ErtsSchedType sched_type, Eterm pid)
 {
-    Process *p = erts_pid2proc(NULL, 0, pid, ERTS_PROC_LOCK_STATUS);
+    Process *p;
+    p = erts_pid2proc_opt(NULL, 0, pid, ERTS_PROC_LOCK_STATUS,
+                          (sched_type != ERTS_SCHED_NORMAL
+                           ? ERTS_P2P_FLG_INC_REFC
+                           : 0));
     if (p) {
 	resume_process(p, ERTS_PROC_LOCK_STATUS);
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+        if (sched_type != ERTS_SCHED_NORMAL)
+            erts_proc_dec_refc(p);
     }
 }
 
@@ -7069,17 +7075,20 @@ schdlr_sspnd_resume_procs(ErtsSchedType sched_type,
 			  ErtsSchdlrSspndResume *resume)
 {
     if (is_internal_pid(resume->onln.chngr)) {
-	schdlr_sspnd_resume_proc(resume->onln.chngr);
+	schdlr_sspnd_resume_proc(sched_type,
+                                 resume->onln.chngr);
 	resume->onln.chngr = NIL;
     }
     if (is_internal_pid(resume->onln.nxt)) {
-	schdlr_sspnd_resume_proc(resume->onln.nxt);
+	schdlr_sspnd_resume_proc(sched_type,
+                                 resume->onln.nxt);
 	resume->onln.nxt = NIL;
     }
     while (resume->msb.chngrs) {
 	ErtsProcList *plp = resume->msb.chngrs;
 	resume->msb.chngrs = plp->next;
-	schdlr_sspnd_resume_proc(plp->pid);
+	schdlr_sspnd_resume_proc(sched_type,
+                                 plp->pid);
 	proclist_destroy(plp);
     }
 }
@@ -7198,15 +7207,18 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 			(void) erts_proclist_fetch(&msb[i]->chngq, &end_plp);
 			/* resume processes that initiated the multi scheduling block... */
 			plp = msb[i]->chngq;
-			while (plp) {
-			    erts_proclist_store_last(&msb[i]->blckrs,
-						     proclist_copy(plp));
-			    plp = plp->next;
-			}
-			if (end_plp)
+			if (plp) {
+                            ASSERT(end_plp);
+                            ASSERT(msb[i]->ongoing);
+                            do {
+                                erts_proclist_store_last(&msb[i]->blckrs,
+                                                         proclist_copy(plp));
+                                plp = plp->next;
+                            } while (plp);
 			    end_plp->next = resume.msb.chngrs;
-			resume.msb.chngrs = msb[i]->chngq;
-			msb[i]->chngq = NULL;
+                            resume.msb.chngrs = msb[i]->chngq;
+                            msb[i]->chngq = NULL;
+                        }
 		    }
 		}
 	    }
@@ -7415,12 +7427,23 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 
 	schdlr_sspnd_inc_nscheds(&schdlr_sspnd.active, sched_type);
 	changing = erts_smp_atomic32_read_nob(&schdlr_sspnd.changing);
-	if ((changing & ERTS_SCHDLR_SSPND_CHNG_MSB)
-	    && schdlr_sspnd.online == schdlr_sspnd.active) {
-	    erts_smp_atomic32_read_band_nob(&schdlr_sspnd.changing,
-					    ~ERTS_SCHDLR_SSPND_CHNG_MSB);
-	}
-
+        if (changing) {
+            if ((changing & ERTS_SCHDLR_SSPND_CHNG_MSB)
+                && !schdlr_sspnd.msb.ongoing
+                && schdlr_sspnd.online == schdlr_sspnd.active) {
+                erts_smp_atomic32_read_band_nob(&schdlr_sspnd.changing,
+                                                ~ERTS_SCHDLR_SSPND_CHNG_MSB);
+            }
+            if ((changing & ERTS_SCHDLR_SSPND_CHNG_NMSB)
+                && !schdlr_sspnd.nmsb.ongoing
+                && (schdlr_sspnd_get_nscheds(&schdlr_sspnd.online,
+                                             ERTS_SCHED_NORMAL)
+                    == schdlr_sspnd_get_nscheds(&schdlr_sspnd.active,
+                                                ERTS_SCHED_NORMAL))) {
+                erts_smp_atomic32_read_band_nob(&schdlr_sspnd.changing,
+                                                ~ERTS_SCHDLR_SSPND_CHNG_NMSB);
+            }
+        }
 	ASSERT(no <= schdlr_sspnd_get_nscheds(&schdlr_sspnd.online, sched_type));
 	ASSERT((sched_type == ERTS_SCHED_NORMAL
 		? !(schdlr_sspnd.msb.ongoing|schdlr_sspnd.nmsb.ongoing)
@@ -7553,7 +7576,7 @@ abort_sched_onln_chng_waitq(Process *p)
     erts_smp_mtx_unlock(&schdlr_sspnd.mtx);
 
     if (is_internal_pid(resume))
-	schdlr_sspnd_resume_proc(resume);
+	schdlr_sspnd_resume_proc(ERTS_SCHED_NORMAL, resume);
 }
 
 ErtsSchedSuspendResult
@@ -7951,21 +7974,20 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int normal
     }
     else {  /* ------ UNBLOCK ------ */
 	if (p->flags & have_blckd_flg) {
-	    ErtsProcList *plps[2];
+	    ErtsProcList **plpps[3] = {0};
 	    ErtsProcList *plp;
-	    int limit = 0;
 
-	    plps[limit++] = erts_proclist_peek_first(msbp->blckrs);
-	    if (all)
-		plps[limit++] = erts_proclist_peek_first(msbp->chngq);
+            plpps[0] = &msbp->blckrs;
+            if (all)
+                plpps[1] = &msbp->chngq;
 
-	    for (ix = 0; ix < limit; ix++) {
-		plp = plps[ix];
+	    for (ix = 0; plpps[ix]; ix++) {
+                plp = erts_proclist_peek_first(*plpps[ix]);
 		while (plp) {
 		    ErtsProcList *tmp_plp = plp;
-		    plp = erts_proclist_peek_next(msbp->blckrs, plp);
+		    plp = erts_proclist_peek_next(*plpps[ix], plp);
 		    if (erts_proclist_same(tmp_plp, p)) {
-			erts_proclist_remove(&msbp->blckrs, tmp_plp);
+			erts_proclist_remove(plpps[ix], tmp_plp);
 			proclist_destroy(tmp_plp);
 			if (!all)
 			    break;
