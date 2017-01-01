@@ -31,7 +31,7 @@
 	 get_contract_return/2,
 	 %% get_contract_signature/1,
 	 is_overloaded/1,
-	 process_contract_remote_types/1,
+	 process_contract_remote_types/2,
 	 store_tmp_contract/5]).
 
 -export_type([file_contract/0, plt_contracts/0]).
@@ -146,13 +146,13 @@ sequence([], _Delimiter) -> "";
 sequence([H], _Delimiter) -> H;
 sequence([H|T], Delimiter) -> H ++ Delimiter ++ sequence(T, Delimiter).
 
--spec process_contract_remote_types(dialyzer_codeserver:codeserver()) ->
-	  dialyzer_codeserver:codeserver().
+-spec process_contract_remote_types(dialyzer_codeserver:codeserver(),
+                                    erl_types:mod_records()) ->
+                                       dialyzer_codeserver:codeserver().
 
-process_contract_remote_types(CodeServer) ->
+process_contract_remote_types(CodeServer, RecordDict) ->
   Mods = dialyzer_codeserver:contracts_modules(CodeServer),
   ExpTypes = dialyzer_codeserver:get_exported_types(CodeServer),
-  RecordDict = dialyzer_codeserver:get_records(CodeServer),
   ContractFun =
     fun({{_M, _F, _A}=MFA, {File, TmpContract, Xtra}}, C0) ->
         #tmp_contract{contract_funs = CFuns, forms = Forms} = TmpContract,
@@ -178,7 +178,6 @@ process_contract_remote_types(CodeServer) ->
                                             CodeServer)
     end,
   lists:foreach(ModuleFun, Mods),
-  %% erlang:garbage_collect(),
   dialyzer_codeserver:finalize_contracts(CodeServer).
 
 -type opaques_fun() :: fun((module()) -> [erl_types:erl_type()]).

@@ -143,8 +143,9 @@ extract(#analysis{macros = Macros,
       MergedRecords = dialyzer_utils:merge_records(NewRecords, OldRecords),
       CodeServer2 = dialyzer_codeserver:set_temp_records(MergedRecords, CodeServer1),
       CodeServer3 = dialyzer_codeserver:finalize_exported_types(NewExpTypes, CodeServer2),
-      CodeServer4 = dialyzer_utils:process_record_remote_types(CodeServer3),
-      dialyzer_contracts:process_contract_remote_types(CodeServer4)
+      {CodeServer4, RecordDict} =
+        dialyzer_utils:process_record_remote_types(CodeServer3),
+      dialyzer_contracts:process_contract_remote_types(CodeServer4, RecordDict)
     catch
       throw:{error, ErrorMsg} ->
 	compile_error(ErrorMsg)
@@ -851,8 +852,9 @@ collect_info(Analysis) ->
       TmpCServer1 = dialyzer_codeserver:set_temp_records(MergedRecords, TmpCServer),
       TmpCServer2 =
         dialyzer_codeserver:finalize_exported_types(MergedExpTypes, TmpCServer1),
-      TmpCServer3 = dialyzer_utils:process_record_remote_types(TmpCServer2),
-      dialyzer_contracts:process_contract_remote_types(TmpCServer3)
+      {TmpCServer3, RecordDict} =
+        dialyzer_utils:process_record_remote_types(TmpCServer2),
+      dialyzer_contracts:process_contract_remote_types(TmpCServer3, RecordDict)
     catch
       throw:{error, ErrorMsg} ->
 	fatal_error(ErrorMsg)

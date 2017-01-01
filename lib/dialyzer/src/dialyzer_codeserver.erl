@@ -30,6 +30,7 @@
 
 -export([delete/1,
 	 store_temp_contracts/4,
+         give_away/2,
 	 finalize_contracts/1,
          finalize_exported_types/2,
 	 finalize_records/2,
@@ -85,8 +86,8 @@
 
 -record(codeserver, {next_core_label = 0 :: label(),
 		     code		 :: dict_ets(),
-                     exported_types      :: set_ets() | 'undefined', % set(mfa())
-		     records             :: map_ets() | 'undefined',
+                     exported_types      :: set_ets(), % set(mfa())
+		     records             :: map_ets(),
 		     contracts           :: map_ets(),
 		     callbacks           :: map_ets(),
                      fun_meta_info       :: dict_ets(), % {mfa(), meta_info()}
@@ -132,9 +133,6 @@ ets_set_to_set(Table) ->
   Fold = fun({E}, Set) -> sets:add_element(E, Set) end,
   ets:foldl(Fold, sets:new(), Table).
 
-ets_read_concurrent_table(Name) ->
-  ets:new(Name, [compressed, {read_concurrency, true}]).
-
 %%--------------------------------------------------------------------
 
 -spec new() -> codeserver().
@@ -142,9 +140,14 @@ ets_read_concurrent_table(Name) ->
 new() ->
   CodeOptions = [compressed, public, {read_concurrency, true}],
   Code = ets:new(dialyzer_codeserver_code, CodeOptions),
+  ReadOptions = [compressed, {read_concurrency, true}],
+  [Contracts, Callbacks, Records, ExportedTypes] =
+    [ets:new(Name, ReadOptions) ||
+      Name <- [dialyzer_codeserver_contracts,
+               dialyzer_codeserver_callbacks,
+               dialyzer_codeserver_records,
+               dialyzer_codeserver_exported_types]],
   TempOptions = [public, {write_concurrency, true}],
-  Contracts = ets_read_concurrent_table(dialyzer_codeserver_contracts),
-  Callbacks = ets_read_concurrent_table(dialyzer_codeserver_callbacks),
   [Exports, FunMetaInfo, TempExportedTypes, TempRecords, TempContracts,
    TempCallbacks] =
     [ets:new(Name, TempOptions) ||
@@ -156,6 +159,8 @@ new() ->
   #codeserver{code                = Code,
 	      exports             = Exports,
               fun_meta_info       = FunMetaInfo,
+              exported_types      = ExportedTypes,
+              records             = Records,
               contracts           = Contracts,
               callbacks           = Callbacks,
 	      temp_exported_types = TempExportedTypes,
@@ -228,12 +233,12 @@ get_exports(#codeserver{exports = Exports}) ->
 
 -spec finalize_exported_types(sets:set(mfa()), codeserver()) -> codeserver().
 
-finalize_exported_types(Set, CS) ->
-  ExportedTypes = ets_read_concurrent_table(dialyzer_codeserver_exported_types),
+finalize_exported_types(Set,
+                        #codeserver{exported_types = ExportedTypes,
+                                    temp_exported_types = TempETypes} = CS) ->
   true = ets_set_insert_set(Set, ExportedTypes),
-  TempExpTypes = CS#codeserver.temp_exported_types,
-  true = ets:delete(TempExpTypes),
-  CS#codeserver{exported_types = ExportedTypes, temp_exported_types = clean}.
+  true = ets:delete(TempETypes),
+  CS#codeserver{temp_exported_types = clean}.
 
 -spec lookup_mod_code(atom(), codeserver()) -> cerl:c_module().
 
@@ -297,11 +302,11 @@ set_temp_records(Dict, CS) ->
 
 -spec finalize_records(mod_records(), codeserver()) -> codeserver().
 
-finalize_records(Dict, CS) ->
-  true = ets:delete(CS#codeserver.temp_records),
-  Records = ets_read_concurrent_table(dialyzer_codeserver_records),
+finalize_records(Dict, #codeserver{temp_records = TmpRecords,
+                                   records = Records} = CS) ->
+  true = ets:delete(TmpRecords),
   true = ets_dict_store_dict(Dict, Records),
-  CS#codeserver{records = Records, temp_records = clean}.
+  CS#codeserver{temp_records = clean}.
 
 -spec lookup_mod_contracts(atom(), codeserver()) -> contracts().
 
@@ -376,6 +381,20 @@ get_temp_contracts(Mod, #codeserver{temp_contracts = TempContDict,
   [{Mod, Callbacks}] = ets:lookup(TempCallDict, Mod),
   true = ets:delete(TempCallDict, Mod),
   {Contracts, Callbacks}.
+
+-spec give_away(codeserver(), pid()) -> 'ok'.
+
+give_away(#codeserver{temp_records = TempRecords,
+                      temp_contracts = TempContracts,
+                      temp_callbacks = TempCallbacks,
+                      records = Records,
+                      contracts = Contracts,
+                      callbacks = Callbacks}, Pid) ->
+  _ = [true = ets:give_away(Table, Pid, any) ||
+        Table <- [TempRecords, TempContracts, TempCallbacks,
+                  Records, Contracts, Callbacks],
+        Table =/= clean],
+  ok.
 
 -spec finalize_contracts(codeserver()) -> codeserver().
 

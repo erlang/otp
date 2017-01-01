@@ -160,12 +160,7 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
         dialyzer_codeserver:finalize_exported_types(MergedExpTypes, TmpCServer1),
       erlang:garbage_collect(),
       ?timing(State#analysis_state.timing_server, "remote",
-              begin
-                TmpCServer3 =
-                  dialyzer_utils:process_record_remote_types(TmpCServer2),
-                erlang:garbage_collect(),
-                dialyzer_contracts:process_contract_remote_types(TmpCServer3)
-              end)
+              contracts_and_records(TmpCServer2))
     catch
       throw:{error, _ErrorMsg} = Error -> exit(Error)
     end,
@@ -187,7 +182,6 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
       true -> dialyzer_callgraph:put_race_detection(true, Callgraph);
       false -> Callgraph
     end,
-  erlang:garbage_collect(),
   State2 = analyze_callgraph(NewCallgraph, State1),
   #analysis_state{plt = MiniPlt2, doc_plt = DocPlt} = State2,
   dialyzer_callgraph:dispose_race_server(NewCallgraph),
@@ -197,6 +191,30 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
   send_codeserver_plt(Parent, CServer, DummyPlt),
   MiniPlt3 = dialyzer_plt:delete_list(MiniPlt2, NonExportsList),
   send_analysis_done(Parent, MiniPlt3, DocPlt).
+
+contracts_and_records(CodeServer) ->
+  Fun = contrs_and_recs(CodeServer),
+  {Pid, Ref} = erlang:spawn_monitor(Fun),
+  dialyzer_codeserver:give_away(CodeServer, Pid),
+  Pid ! {self(), go},
+  receive {'DOWN', Ref, process, Pid, Return} ->
+      Return
+  end.
+
+-spec contrs_and_recs(dialyzer_codeserver:codeserver()) ->
+                         fun(() -> no_return()).
+
+contrs_and_recs(TmpCServer2) ->
+  fun() ->
+      Parent = receive {Pid, go} -> Pid end,
+      {TmpCServer3, RecordDict} =
+        dialyzer_utils:process_record_remote_types(TmpCServer2),
+      TmpServer4 =
+        dialyzer_contracts:process_contract_remote_types(TmpCServer3,
+                                                         RecordDict),
+      dialyzer_codeserver:give_away(TmpServer4, Parent),
+      exit(TmpServer4)
+  end.
 
 analyze_callgraph(Callgraph, #analysis_state{codeserver = Codeserver,
 					     doc_plt = DocPlt,

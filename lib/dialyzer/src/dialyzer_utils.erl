@@ -296,7 +296,8 @@ get_record_fields([{record_field, _Line, Name, _Init}|Left], RecDict, Acc) ->
 get_record_fields([], _RecDict, Acc) ->
   lists:reverse(Acc).
 
--spec process_record_remote_types(codeserver()) -> codeserver().
+-spec process_record_remote_types(codeserver()) ->
+                                     {codeserver(), mod_records()}.
 
 %% The field types are cached. Used during analysis when handling records.
 process_record_remote_types(CServer) ->
@@ -340,7 +341,7 @@ process_record_remote_types(CServer) ->
   NewRecordsList = lists:map(ModuleFun, dict:to_list(TempRecords1)),
   NewRecords = dict:from_list(NewRecordsList),
   check_record_fields(NewRecords, ExpTypes),
-  dialyzer_codeserver:finalize_records(NewRecords, CServer).
+  {dialyzer_codeserver:finalize_records(NewRecords, CServer), NewRecords}.
 
 %% erl_types:t_from_form() substitutes the declaration of opaque types
 %% for the expanded type in some cases. To make sure the initial type,
