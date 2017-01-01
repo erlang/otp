@@ -28,6 +28,27 @@
 ;;; Commentary:
 
 ;; This library require GNU Emacs 25 or later.
+;;
+;; There are two ways to run emacs unit tests.
+;;
+;; 1. Within a running emacs process.  Load this file.  Then to run
+;; all defined test cases:
+;;
+;; M-x ert RET t RET
+;;
+;; To run only the erlang test cases:
+;;
+;; M-x ert RET "^erlang" RET
+;;
+;;
+;; 2. In a new stand-alone emacs process.  This process exits
+;; when it executed the tests.  For example:
+;;
+;; emacs -Q -batch -L . -l erlang.el -l erlang-test.el \
+;;       -f ert-run-tests-batch-and-exit
+;;
+;; The -L option adds a directory to the load-path.  It should be the
+;; directory containing erlang.el and erlang-test.el.
 
 ;;; Code:
 
@@ -72,11 +93,14 @@ concatenated to form an erlang file to test on.")
           (erlang-test-create-erlang-file erlang-file)
           (erlang-test-compile-tags erlang-file tags-file)
           (setq erlang-buffer (find-file-noselect erlang-file))
-          (with-current-buffer erlang-buffer
-            (setq-local tags-file-name tags-file))
-          ;; Setting global tags-file-name is a workaround for
-          ;; GNU Emacs bug#23164.
-          (setq tags-file-name tags-file)
+          (if (< emacs-major-version 26)
+              (progn
+                (with-current-buffer erlang-buffer
+                  (setq-local tags-file-name tags-file))
+                ;; Setting global tags-file-name is a workaround for
+                ;; GNU Emacs bug#23164.
+                (setq tags-file-name tags-file))
+            (visit-tags-table tags-file t))
           (erlang-test-complete-at-point tags-file)
           (erlang-test-completion-table)
           (erlang-test-xref-find-definitions erlang-file erlang-buffer))
@@ -145,13 +169,13 @@ concatenated to form an erlang file to test on.")
     (setq-local tags-file-name tags-file)
     (insert "\nerlang_test:fun")
     (erlang-complete-tag)
-    (should (looking-back "erlang_test:function"))
+    (should (looking-back "erlang_test:function" (point-at-bol)))
     (insert "\nfun")
     (erlang-complete-tag)
-    (should (looking-back "function"))
+    (should (looking-back "function" (point-at-bol)))
     (insert "\nerlang_")
     (erlang-complete-tag)
-    (should (looking-back "erlang_test:"))))
+    (should (looking-back "erlang_test:" (point-at-bol)))))
 
 
 (ert-deftest erlang-test-compile-options ()
