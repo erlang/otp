@@ -1684,7 +1684,7 @@ ERTS_GLB_INLINE ErtsProcList *erts_proclist_fetch_first(ErtsProcList **list)
 	return NULL;
     else {
 	ErtsProcList *res = *list;
-	if (res == *list)
+	if (res->next == *list)
 	    *list = NULL;
 	else
 	    *list = res->next;
