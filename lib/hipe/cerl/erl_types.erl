@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -3067,88 +3067,91 @@ is_compat_args([A1|Args1], [A2|Args2]) ->
 is_compat_args([], []) -> true;
 is_compat_args(_, _) -> false.
 
-is_compat_arg(A1, A2) ->
-  is_specialization(A1, A2) orelse is_specialization(A2, A1).
+-spec is_compat_arg(erl_type(), erl_type()) -> boolean().
 
--spec is_specialization(erl_type(), erl_type()) -> boolean().
+%% The intention is that 'true' is to be returned iff one of the
+%% arguments is a specialization of the other argument in the sense
+%% that every type is a specialization of any(). For example, {_,_} is
+%% a specialization of any(), but not of tuple(). Does not handle
+%% variables, but any() and unions (sort of). However, the
+%% implementation is more relaxed as any() is compatible to anything.
 
-%% Returns true if the first argument is a specialization of the
-%% second argument in the sense that every type is a specialization of
-%% any(). For example, {_,_} is a specialization of any(), but not of
-%% tuple(). Does not handle variables, but any() and unions (sort of).
-
-is_specialization(T, T) -> true;
-is_specialization(_, ?any) -> true;
-is_specialization(?any, _) -> false;
-is_specialization(?function(Domain1, Range1), ?function(Domain2, Range2)) ->
-  (is_specialization(Domain1, Domain2) andalso
-   is_specialization(Range1, Range2));
-is_specialization(?list(Contents1, Termination1, Size1),
-                  ?list(Contents2, Termination2, Size2)) ->
+is_compat_arg(T, T) -> true;
+is_compat_arg(_, ?any) -> true;
+is_compat_arg(?any, _) -> true;
+is_compat_arg(?function(Domain1, Range1), ?function(Domain2, Range2)) ->
+  (is_compat_arg(Domain1, Domain2) andalso
+   is_compat_arg(Range1, Range2));
+is_compat_arg(?list(Contents1, Termination1, Size1),
+              ?list(Contents2, Termination2, Size2)) ->
   (Size1 =:= Size2 andalso
-   is_specialization(Contents1, Contents2) andalso
-   is_specialization(Termination1, Termination2));
-is_specialization(?product(Types1), ?product(Types2)) ->
-  specialization_list(Types1, Types2);
-is_specialization(?tuple(?any, ?any, ?any), ?tuple(_, _, _)) -> false;
-is_specialization(?tuple(_, _, _), ?tuple(?any, ?any, ?any)) -> false;
-is_specialization(?tuple(Elements1, Arity, _), 
-                  ?tuple(Elements2, Arity, _)) when Arity =/= ?any ->
-  specialization_list(Elements1, Elements2);
-is_specialization(?tuple_set([{Arity, List}]), 
-                  ?tuple(Elements2, Arity, _)) when Arity =/= ?any ->
-  specialization_list(sup_tuple_elements(List), Elements2);
-is_specialization(?tuple(Elements1, Arity, _),
-                  ?tuple_set([{Arity, List}])) when Arity =/= ?any ->
-  specialization_list(Elements1, sup_tuple_elements(List));
-is_specialization(?tuple_set(List1), ?tuple_set(List2)) ->
+   is_compat_arg(Contents1, Contents2) andalso
+   is_compat_arg(Termination1, Termination2));
+is_compat_arg(?product(Types1), ?product(Types2)) ->
+  is_compat_list(Types1, Types2);
+is_compat_arg(?map(Pairs1, DefK1, DefV1), ?map(Pairs2, DefK2, DefV2)) ->
+  (is_compat_list(Pairs1, Pairs2) andalso
+   is_compat_arg(DefK1, DefK2) andalso
+   is_compat_arg(DefV1, DefV2));
+is_compat_arg(?tuple(?any, ?any, ?any), ?tuple(_, _, _)) -> false;
+is_compat_arg(?tuple(_, _, _), ?tuple(?any, ?any, ?any)) -> false;
+is_compat_arg(?tuple(Elements1, Arity, _),
+              ?tuple(Elements2, Arity, _)) when Arity =/= ?any ->
+  is_compat_list(Elements1, Elements2);
+is_compat_arg(?tuple_set([{Arity, List}]),
+              ?tuple(Elements2, Arity, _)) when Arity =/= ?any ->
+  is_compat_list(sup_tuple_elements(List), Elements2);
+is_compat_arg(?tuple(Elements1, Arity, _),
+              ?tuple_set([{Arity, List}])) when Arity =/= ?any ->
+  is_compat_list(Elements1, sup_tuple_elements(List));
+is_compat_arg(?tuple_set(List1), ?tuple_set(List2)) ->
   try
-    specialization_list_list([sup_tuple_elements(T) || {_Arity, T} <- List1],
-                             [sup_tuple_elements(T) || {_Arity, T} <- List2])
+    is_compat_list_list([sup_tuple_elements(T) || {_Arity, T} <- List1],
+                        [sup_tuple_elements(T) || {_Arity, T} <- List2])
   catch _:_ -> false
   end;
-is_specialization(?opaque(_) = T1, T2) ->
-  is_specialization(t_opaque_structure(T1), T2);
-is_specialization(T1, ?opaque(_) = T2) ->
-  is_specialization(T1, t_opaque_structure(T2));
-is_specialization(?union(List1)=T1, ?union(List2)=T2) ->
-  case specialization_union2(T1, T2) of
-    {yes, Type1, Type2} -> is_specialization(Type1, Type2);
-    no -> specialization_list(List1, List2)
+is_compat_arg(?opaque(_) = T1, T2) ->
+  is_compat_arg(t_opaque_structure(T1), T2);
+is_compat_arg(T1, ?opaque(_) = T2) ->
+  is_compat_arg(T1, t_opaque_structure(T2));
+is_compat_arg(?union(List1)=T1, ?union(List2)=T2) ->
+  case is_compat_union2(T1, T2) of
+    {yes, Type1, Type2} -> is_compat_arg(Type1, Type2);
+    no -> is_compat_list(List1, List2)
   end;
-is_specialization(?union(List), T2) ->
+is_compat_arg(?union(List), T2) ->
   case unify_union(List) of
-      {yes, Type} -> is_specialization(Type, T2);
+      {yes, Type} -> is_compat_arg(Type, T2);
       no -> false
   end;
-is_specialization(T1, ?union(List)) ->
+is_compat_arg(T1, ?union(List)) ->
   case unify_union(List) of
-      {yes, Type} -> is_specialization(T1, Type);
+      {yes, Type} -> is_compat_arg(T1, Type);
       no -> false
   end;
-is_specialization(?var(_), _) -> exit(error);
-is_specialization(_, ?var(_)) -> exit(error);
-is_specialization(?none, _) -> false;
-is_specialization(_, ?none) -> false;
-is_specialization(?unit, _) -> false;
-is_specialization(_, ?unit) -> false;
-is_specialization(#c{}, #c{}) -> false.
+is_compat_arg(?var(_), _) -> exit(error);
+is_compat_arg(_, ?var(_)) -> exit(error);
+is_compat_arg(?none, _) -> false;
+is_compat_arg(_, ?none) -> false;
+is_compat_arg(?unit, _) -> false;
+is_compat_arg(_, ?unit) -> false;
+is_compat_arg(#c{}, #c{}) -> false.
 
-specialization_list_list(LL1, LL2) ->
-  length(LL1) =:= length(LL2) andalso specialization_list_list1(LL1, LL2).
+is_compat_list_list(LL1, LL2) ->
+  length(LL1) =:= length(LL2) andalso is_compat_list_list1(LL1, LL2).
 
-specialization_list_list1([], []) -> true;
-specialization_list_list1([L1|LL1], [L2|LL2]) ->
-  specialization_list(L1, L2) andalso specialization_list_list1(LL1, LL2).
+is_compat_list_list1([], []) -> true;
+is_compat_list_list1([L1|LL1], [L2|LL2]) ->
+  is_compat_list(L1, L2) andalso is_compat_list_list1(LL1, LL2).
 
-specialization_list(L1, L2) ->
-  length(L1) =:= length(L2) andalso specialization_list1(L1, L2).
+is_compat_list(L1, L2) ->
+  length(L1) =:= length(L2) andalso is_compat_list1(L1, L2).
 
-specialization_list1([], []) -> true;
-specialization_list1([T1|L1], [T2|L2]) ->
-  is_specialization(T1, T2) andalso specialization_list1(L1, L2).
+is_compat_list1([], []) -> true;
+is_compat_list1([T1|L1], [T2|L2]) ->
+  is_compat_arg(T1, T2) andalso is_compat_list1(L1, L2).
 
-specialization_union2(?union(List1)=T1, ?union(List2)=T2) ->
+is_compat_union2(?union(List1)=T1, ?union(List2)=T2) ->
   case {unify_union(List1), unify_union(List2)} of
     {{yes, Type1}, {yes, Type2}} -> {yes, Type1, Type2};
     {{yes, Type1}, no} -> {yes, Type1, T2};
