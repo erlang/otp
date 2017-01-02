@@ -127,6 +127,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"run_queue",				"address"		},
 #ifdef ERTS_DIRTY_SCHEDULERS
     {   "dirty_run_queue_sleep_list",		"address"		},
+    {	"dirty_gc_info",			NULL			},
 #endif
     {	"process_table",			NULL			},
     {	"cpu_info",				NULL			},
