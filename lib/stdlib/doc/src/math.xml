@@ -108,6 +108,14 @@ erf(X) = 2/sqrt(pi)*integral from 0 to X of exp(-t*t) dt.</pre>
       </desc>
     </func>
 
+    <func>
+      <name name="int_pow" arity="2"/>
+      <fsummary>Integer exponentiation function.</fsummary>
+      <desc>
+        <p>Right-to-left binary method. See Knuth, TAOCP Volume 2, section 4.6.3.</p>
+      </desc>
+    </func>
+
   </funcs>
 
   <section>
