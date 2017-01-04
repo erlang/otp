@@ -193,7 +193,7 @@ free_message_buffer(ErlHeapFragment* bp)
 
 	erts_cleanup_offheap(&bp->off_heap);
 	ERTS_HEAP_FREE(ERTS_ALC_T_HEAP_FRAG, (void *) bp,
-		       ERTS_HEAP_FRAG_SIZE(bp->size));	
+		       ERTS_HEAP_FRAG_SIZE(bp->alloc_size));	
 	bp = next_bp;
     }while (bp != NULL);
 }
