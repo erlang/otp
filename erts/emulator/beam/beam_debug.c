@@ -994,13 +994,20 @@ dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I)
 	Eterm *hp, *hp2;
 	Uint sz;
 	int i;
+	ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
+        int dirty_io = esdp->type == ERTS_SCHED_DIRTY_IO;
+
 	if (ERTS_PROC_IS_EXITING(real_c_p))
 	    goto badarg;
 	dirty_send_message(c_p, arg2, am_alive);
-	/* Wait until dead */
 
-	while (!ERTS_PROC_IS_EXITING(real_c_p))
-	    erts_thr_yield();
+	/* Wait until dead */
+	while (!ERTS_PROC_IS_EXITING(real_c_p)) {
+            if (dirty_io)
+                ms_wait(c_p, make_small(100), 0);
+            else
+                erts_thr_yield();
+        }
 
 	ms_wait(c_p, make_small(1000), 0);
 

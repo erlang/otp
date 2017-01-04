@@ -3385,7 +3385,12 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
     Eterm* hp;
 
     if (BIF_ARG_1 == am_scheduler_wall_time) {
-	res = erts_sched_wall_time_request(BIF_P, 0, 0);
+	res = erts_sched_wall_time_request(BIF_P, 0, 0, 1, 0);
+	if (is_non_value(res))
+	    BIF_RET(am_undefined);
+	BIF_TRAP1(gather_sched_wall_time_res_trap, BIF_P, res);
+    } else if (BIF_ARG_1 == am_scheduler_wall_time_all) {
+	res = erts_sched_wall_time_request(BIF_P, 0, 0, 1, 1);
 	if (is_non_value(res))
 	    BIF_RET(am_undefined);
 	BIF_TRAP1(gather_sched_wall_time_res_trap, BIF_P, res);

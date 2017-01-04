@@ -6415,12 +6415,17 @@ lists:map(
           <c><anno>TotalTime</anno></c> is the total time duration since
           <seealso marker="#system_flag_scheduler_wall_time">
           <c>scheduler_wall_time</c></seealso>
-          activation. The time unit is undefined and can be subject
-          to change between releases, OSs, and system restarts.
-          <c>scheduler_wall_time</c> is only to be used to
-          calculate relative values for scheduler-utilization.
-          <c><anno>ActiveTime</anno></c> can never exceed
-          <c><anno>TotalTime</anno></c>.</p>
+          activation for the specific scheduler. Note that
+	  activation time can differ significantly between
+	  schedulers. Currently dirty schedulers are activated
+	  at system start while normal schedulers are activated
+	  some time after the <c>scheduler_wall_time</c>
+	  functionality is enabled. The time unit is undefined
+	  and can be subject to change between releases, OSs,
+	  and system restarts. <c>scheduler_wall_time</c> is only
+	  to be used to calculate relative values for scheduler
+	  utilization. <c><anno>ActiveTime</anno></c> can never
+	  exceed <c><anno>TotalTime</anno></c>.</p>
         <p>The definition of a busy scheduler is when it is not idle
           and is not scheduling (selecting) a process or port,
           that is:</p>
@@ -6438,15 +6443,37 @@ lists:map(
           <c>scheduler_wall_time</c></seealso> is turned off.</p>
         <p>The list of scheduler information is unsorted and can
           appear in different order between calls.</p>
+	<p>As of ERTS version 9.0, also dirty CPU schedulers will
+	be included in the result. That is, all scheduler threads
+	that are expected to handle CPU bound work. If you also
+	want information about dirty I/O schedulers, use
+	<seealso marker="#statistics_scheduler_wall_time_all"><c>statistics(scheduler_wall_time_all)</c></seealso>
+	instead.</p>
+	
+	<p>Normal schedulers will have scheduler identifiers in
+	the range <c>1 =&lt; <anno>SchedulerId</anno> =&lt;
+	</c><seealso marker="#system_info_schedulers"><c>erlang:system_info(schedulers)</c></seealso>.
+	Dirty CPU schedulers will have scheduler identifiers in
+	the range <c>erlang:system_info(schedulers) &lt;
+	<anno>SchedulerId</anno> =&lt; erlang:system_info(schedulers)
+	+
+	</c><seealso marker="#system_info_dirty_cpu_schedulers"><c>erlang:system_info(dirty_cpu_schedulers)</c></seealso>.
+	</p>
+	<note><p>The different types of schedulers handle
+	specific types of jobs. Every job is assigned to a specific
+	scheduler type. Jobs can migrate between different schedulers
+	of the same type, but never between schedulers of different
+	types. This fact has to be taken under consideration when
+	evaluating the result returned.</p></note>
         <p>Using <c>scheduler_wall_time</c> to calculate
-          scheduler-utilization:</p>
+          scheduler utilization:</p>
         <pre>
 > <input>erlang:system_flag(scheduler_wall_time, true).</input>
 false
 > <input>Ts0 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.</input>
 ok</pre>
         <p>Some time later the user takes another snapshot and calculates
-          scheduler-utilization per scheduler, for example:</p>
+          scheduler utilization per scheduler, for example:</p>
         <pre>
 > <input>Ts1 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.</input>
 ok
@@ -6461,11 +6488,32 @@ ok
  {7,0.973237033077876},
  {8,0.9741297293248656}]</pre>
         <p>Using the same snapshots to calculate a total
-          scheduler-utilization:</p>
+          scheduler utilization:</p>
         <pre>
 > <input>{A, T} = lists:foldl(fun({{_, A0, T0}, {_, A1, T1}}, {Ai,Ti}) ->
-	{Ai + (A1 - A0), Ti + (T1 - T0)} end, {0, 0}, lists:zip(Ts0,Ts1)), A/T.</input>
+	{Ai + (A1 - A0), Ti + (T1 - T0)} end, {0, 0}, lists:zip(Ts0,Ts1)),
+	TotalSchedulerUtilization = A/T.</input>
 0.9769136803764825</pre>
+        <p>Total scheduler utilization will equal <c>1.0</c> when
+	all schedulers have been active all the time between the
+	two measurements.</p>
+	<p>Another (probably more) useful value is to calculate
+	total scheduler utilization weighted against maximum amount
+	of available CPU time:</p>
+        <pre>
+> <input>WeightedSchedulerUtilization = (TotalSchedulerUtilization
+                                  * (erlang:system_info(schedulers)
+                                     + erlang:system_info(dirty_cpu_schedulers)))
+                                 / erlang:system_info(logical_processors_available).</input>
+0.9769136803764825</pre>
+        <p>This weighted scheduler utilization will reach <c>1.0</c>
+	when schedulers are active the same amount of time as
+	maximum available CPU time. If more schedulers exist
+	than available logical processors, this value may
+	be greater than <c>1.0</c>.</p>
+	<p>As of ERTS version 9.0, the Erlang runtime system
+	with SMP support will as default have more schedulers
+	than logical processors. This due to the dirty schedulers.</p>
         <note>
           <p><c>scheduler_wall_time</c> is by default disabled. To
             enable it, use
@@ -6476,6 +6524,31 @@ ok
 
     <func>
       <name name="statistics" arity="1" clause_i="12"/>
+      <fsummary>Information about each schedulers work time.</fsummary>
+      <desc>
+        <marker id="statistics_scheduler_wall_time_all"></marker>
+	<p>The same as
+	<seealso marker="#statistics_scheduler_wall_time"><c>statistics(scheduler_wall_time)</c></seealso>,
+	except that it also include information about all dirty I/O
+	schedulers.</p>
+	<p>Dirty IO schedulers will have scheduler identifiers in
+	the range
+	<seealso marker="#system_info_schedulers"><c>erlang:system_info(schedulers)</c></seealso><c>
+	+
+	</c><seealso marker="#system_info_dirty_cpu_schedulers"><c>erlang:system_info(dirty_cpu_schedulers)</c></seealso><c> &lt;
+	<anno>SchedulerId</anno> =&lt; erlang:system_info(schedulers)
+	+ erlang:system_info(dirty_cpu_schedulers)
+	+
+	</c><seealso marker="#system_info_dirty_io_schedulers"><c>erlang:system_info(dirty_io_schedulers)</c></seealso>.</p>
+	<note><p>Note that work executing on dirty I/O schedulers
+	are expected to mainly wait for I/O. That is, when you
+	get high scheduler utilization on dirty I/O schedulers,
+	CPU utilization is <em>not</em> expected to be high due to
+	this work.</p></note>
+      </desc>
+    </func>
+    <func>
+      <name name="statistics" arity="1" clause_i="13"/>
       <fsummary>Information about active processes and ports.</fsummary>
       <desc><marker id="statistics_total_active_tasks"></marker>
         <p>Returns the total amount of active processes and ports in
@@ -6495,7 +6568,7 @@ ok
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="13"/>
+      <name name="statistics" arity="1" clause_i="14"/>
       <fsummary>Information about the run-queue lengths.</fsummary>
       <desc><marker id="statistics_total_run_queue_lengths"></marker>
         <p>Returns the total length of the run queues. That is, the number
@@ -6515,7 +6588,7 @@ ok
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="14"/>
+      <name name="statistics" arity="1" clause_i="15"/>
       <fsummary>Information about wall clock.</fsummary>
       <desc>
         <p>Returns information about wall clock. <c>wall_clock</c> can

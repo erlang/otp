@@ -2333,6 +2333,10 @@ spawn_opt(_Tuple) ->
       SchedulerId :: pos_integer(),
       ActiveTime  :: non_neg_integer(),
       TotalTime   :: non_neg_integer();
+                (scheduler_wall_time_all) -> [{SchedulerId, ActiveTime, TotalTime}] | undefined when
+      SchedulerId :: pos_integer(),
+      ActiveTime  :: non_neg_integer(),
+      TotalTime   :: non_neg_integer();
 		(total_active_tasks) -> ActiveTasks when
       ActiveTasks :: non_neg_integer();
                 (total_run_queue_lengths) -> TotalRunQueueLenghts when
@@ -4014,6 +4018,7 @@ sched_wall_time(Ref, N, undefined) ->
 sched_wall_time(Ref, N, Acc) ->
     receive
 	{Ref, undefined} -> sched_wall_time(Ref, N-1, undefined);
+	{Ref, SWTL} when erlang:is_list(SWTL) -> sched_wall_time(Ref, N-1, Acc ++ SWTL);
 	{Ref, SWT} -> sched_wall_time(Ref, N-1, [SWT|Acc])
     end.
 

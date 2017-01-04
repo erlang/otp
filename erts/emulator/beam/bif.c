@@ -4601,7 +4601,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    erts_aint32_t new = BIF_ARG_2 == am_true ? 1 : 0;
 	    erts_aint32_t old = erts_smp_atomic32_xchg_nob(&sched_wall_time,
 							   new);
-	    Eterm ref = erts_sched_wall_time_request(BIF_P, 1, new);
+	    Eterm ref = erts_sched_wall_time_request(BIF_P, 1, new, 0, 0);
 	    ASSERT(is_value(ref));
 	    BIF_TRAP2(await_sched_wall_time_mod_trap,
 		      BIF_P,

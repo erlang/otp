@@ -550,13 +550,15 @@ do {								\
 } while (0)
 
 typedef struct {
-    int need; /* "+sbu true" or scheduler_wall_time enabled */
+    union {
+        erts_atomic32_t mod; /* on dirty schedulers */
+        int need; /* "+sbu true" or scheduler_wall_time enabled */
+    } u;
     int enabled;
     Uint64 start;
     struct {
 	Uint64 total;
 	Uint64 start;
-	int currently;
     } working;
 } ErtsSchedWallTime;
 
@@ -1598,7 +1600,8 @@ void erts_init_scheduling(int, int
 void erts_execute_dirty_system_task(Process *c_p);
 #endif
 int erts_set_gc_state(Process *c_p, int enable);
-Eterm erts_sched_wall_time_request(Process *c_p, int set, int enable);
+Eterm erts_sched_wall_time_request(Process *c_p, int set, int enable,
+                                   int dirty_cpu, int want_dirty_io);
 Eterm erts_system_check_request(Process *c_p);
 Eterm erts_gc_info_request(Process *c_p);
 Uint64 erts_get_proc_interval(void);

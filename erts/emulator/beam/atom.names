@@ -574,6 +574,8 @@ atom safe
 atom save_calls
 atom scheduler 
 atom scheduler_id
+atom scheduler_wall_time
+atom scheduler_wall_time_all
 atom schedulers_online
 atom scheme
 atom scientific
@@ -678,7 +680,6 @@ atom waiting
 atom wall_clock
 atom warning
 atom warning_msg
-atom scheduler_wall_time
 atom wordsize
 atom write_concurrency
 atom xor
