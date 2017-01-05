@@ -765,6 +765,7 @@ do_major_collection:
 
     ASSERT(!p->mbuf);
     ASSERT(!ERTS_IS_GC_DESIRED(p));
+    ASSERT(need <= HEAP_LIMIT(p) - HEAP_TOP(p));
 
     return reds;
 }
