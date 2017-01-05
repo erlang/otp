@@ -1436,6 +1436,7 @@ void
 trace_gc(Process *p, Eterm what, Uint size, Eterm msg)
 {
     ErtsTracerNif *tnif = NULL;
+    Eterm* o_hp = NULL;
     Eterm* hp;
     Uint sz = 0;
     Eterm tup;
@@ -1446,7 +1447,7 @@ trace_gc(Process *p, Eterm what, Uint size, Eterm msg)
         if (is_non_value(msg)) {
 
             (void) erts_process_gc_info(p, &sz, NULL, 0, 0);
-            hp = HAlloc(p, sz + 3 + 2);
+            o_hp = hp = erts_alloc(ERTS_ALC_T_TMP, (sz + 3 + 2) * sizeof(Eterm));
 
             msg = erts_process_gc_info(p, NULL, &hp, 0, 0);
             tup = TUPLE2(hp, am_wordsize, make_small(size)); hp += 3;
@@ -1455,6 +1456,8 @@ trace_gc(Process *p, Eterm what, Uint size, Eterm msg)
 
         send_to_tracer_nif(p, &p->common, p->common.id, tnif, TRACE_FUN_T_GC,
                            what, msg, THE_NON_VALUE, am_true);
+        if (o_hp)
+            erts_free(ERTS_ALC_T_TMP, o_hp);
     }
 }
 
