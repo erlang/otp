@@ -1070,6 +1070,9 @@ void print_process_info(fmtfn_t, void *, Process*);
 void info(fmtfn_t, void *);
 void loaded(fmtfn_t, void *);
 
+/* sighandler sys.c */
+int erts_set_signal(Eterm signal, Eterm type);
+
 /* erl_arith.c */
 double erts_get_positive_zero_float(void);
 

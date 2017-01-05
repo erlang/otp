@@ -107,7 +107,7 @@ static volatile int have_prepared_crash_dump;
 erts_smp_atomic_t sys_misc_mem_sz;
 
 #if defined(ERTS_SMP)
-static void smp_sig_notify(char c);
+static void smp_sig_notify(int signum);
 static int sig_notify_fds[2] = {-1, -1};
 
 #if !defined(ETHR_UNUSABLE_SIGUSRX) && defined(ERTS_THR_HAVE_SIG_FUNCS)
@@ -395,14 +395,6 @@ erts_sys_pre_init(void)
     /* After creation in parent */
     eid.thread_create_parent_func = thr_create_cleanup,
 
-#ifdef ERTS_THR_HAVE_SIG_FUNCS
-    sigemptyset(&thr_create_sigmask);
-    sigaddset(&thr_create_sigmask, SIGINT);   /* block interrupt */
-    sigaddset(&thr_create_sigmask, SIGTERM);  /* block terminate signal */
-    sigaddset(&thr_create_sigmask, SIGHUP);   /* block sighups */
-    sigaddset(&thr_create_sigmask, SIGUSR1);  /* block user defined signal */
-#endif
-
     erts_thr_init(&eid);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -654,30 +646,12 @@ break_requested(void)
   ERTS_CHK_IO_AS_INTR(); /* Make sure we don't sleep in poll */
 }
 
-/* set up signal handlers for break and quit */
-#if (defined(SIG_SIGSET) || defined(SIG_SIGNAL))
-static RETSIGTYPE request_break(void)
-#else
 static RETSIGTYPE request_break(int signum)
-#endif
 {
 #ifdef ERTS_SMP
-    smp_sig_notify('I');
+    smp_sig_notify(signum);
 #else
     break_requested();
-#endif
-}
-
-#if (defined(SIG_SIGSET) || defined(SIG_SIGNAL))
-static RETSIGTYPE request_stop(void)
-#else
-static RETSIGTYPE request_stop(int signum)
-#endif
-{
-#ifdef ERTS_SMP
-    smp_sig_notify('T');
-#else
-    signal_notify_requested(am_sigterm);
 #endif
 }
 
@@ -701,19 +675,6 @@ sys_thr_resume(erts_tid_t tid) {
 }
 #endif
 
-#if (defined(SIG_SIGSET) || defined(SIG_SIGNAL))
-static RETSIGTYPE user_signal1(void)
-#else
-static RETSIGTYPE user_signal1(int signum)
-#endif
-{
-#ifdef ERTS_SMP
-   smp_sig_notify('1');
-#else
-   signal_notify_requested(am_sigusr1);
-#endif
-}
-
 #ifdef ERTS_SYS_SUSPEND_SIGNAL
 #if (defined(SIG_SIGSET) || defined(SIG_SIGNAL))
 static RETSIGTYPE suspend_signal(void)
@@ -733,43 +694,101 @@ static RETSIGTYPE suspend_signal(int signum)
 
 #endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
 
-static void
-quit_requested(void)
+/*
+ Signal      Action   Comment
+ ─────────────────────────────────────────────────────────────
+  SIGHUP     Term     Hangup detected on controlling terminal or death of controlling process
+  SIGINT     Term     Interrupt from keyboard
+  SIGQUIT    Core     Quit from keyboard
+  SIGILL     Core     Illegal Instruction
+  SIGABRT    Core     Abort signal from abort(3)
+ !SIGFPE     Core     Floating point exception
+ !SIGKILL    Term     Kill signal
+ !SIGSEGV    Core     Invalid memory reference
+ !SIGPIPE    Term     Broken pipe: write to pipe with no readers
+  SIGALRM    Term     Timer signal from alarm(2)
+  SIGTERM    Term     Termination signal
+  SIGUSR1    Term     User-defined signal 1
+  SIGUSR2    Term     User-defined signal 2
+ !SIGCHLD    Ign      Child stopped or terminated
+ !SIGCONT    Cont     Continue if stopped
+  SIGSTOP    Stop     Stop process
+  SIGTSTP    Stop     Stop typed at terminal
+ !SIGTTIN    Stop     Terminal input for background process
+ !SIGTTOU    Stop     Terminal output for background process
+*/
+
+
+static ERTS_INLINE int
+signalterm_to_signum(Eterm signal)
 {
-    erts_exit(ERTS_INTR_EXIT, "");
+    switch (signal) {
+    case am_sighup:  return SIGHUP;
+    case am_sigint:  return SIGINT;
+    case am_sigquit: return SIGQUIT;
+    case am_sigill:  return SIGILL;
+    case am_sigabrt: return SIGABRT;
+    /* case am_sigsegv: return SIGSEGV; */
+    case am_sigalrm: return SIGALRM;
+    case am_sigterm: return SIGTERM;
+    case am_sigusr1: return SIGUSR1;
+    case am_sigusr2: return SIGUSR2;
+    case am_sigchld: return SIGCHLD;
+    case am_sigstop: return SIGSTOP;
+    case am_sigtstp: return SIGTSTP;
+    default:         return 0;
+    }
 }
 
-#if (defined(SIG_SIGSET) || defined(SIG_SIGNAL))
-static RETSIGTYPE do_quit(void)
-#else
-static RETSIGTYPE do_quit(int signum)
-#endif
+static ERTS_INLINE Eterm
+signum_to_signalterm(int signum)
+{
+    switch (signum) {
+    case SIGHUP:  return am_sighup;
+    case SIGINT:  return am_sigint;    /* ^c */
+    case SIGILL:  return am_sigill;
+    case SIGABRT: return am_sigabrt;
+    /* case SIGSEGV: return am_sigsegv; */
+    case SIGALRM: return am_sigalrm;
+    case SIGTERM: return am_sigterm;
+    case SIGQUIT: return am_sigquit;   /* ^\ */
+    case SIGUSR1: return am_sigusr1;
+    case SIGUSR2: return am_sigusr2;
+    case SIGCHLD: return am_sigchld;
+    case SIGSTOP: return am_sigstop;
+    case SIGTSTP: return am_sigtstp;   /* ^z */
+    default:      return am_error;
+    }
+}
+
+static RETSIGTYPE generic_signal_handler(int signum)
 {
 #ifdef ERTS_SMP
-    smp_sig_notify('Q');
+    smp_sig_notify(signum);
 #else
-    quit_requested();
+    Eterm signal = signum_to_signalterm(signum);
+    signal_notify_requested(signal);
 #endif
 }
 
-#if (defined(SIG_SIGSET) || defined(SIG_SIGNAL))
-static RETSIGTYPE request_sighup(void)
-#else
-static RETSIGTYPE request_sighup(int signum)
-#endif
-{
-#ifdef ERTS_SMP
-    smp_sig_notify('H');
-#else
-    signal_notify_requested(am_sighup);
-#endif
+int erts_set_signal(Eterm signal, Eterm type) {
+    int signum;
+    if ((signum = signalterm_to_signum(signal)) > 0) {
+        if (type == am_ignore) {
+            sys_signal(signum, SIG_IGN);
+        } else if (type == am_default) {
+            sys_signal(signum, SIG_DFL);
+        } else {
+            sys_signal(signum, generic_signal_handler);
+        }
+        return 1;
+    }
+    return 0;
 }
 
 /* Disable break */
 void erts_set_ignore_break(void) {
     sys_signal(SIGINT,  SIG_IGN);
-    sys_signal(SIGTERM, SIG_IGN);
-    sys_signal(SIGHUP,  SIG_IGN);
     sys_signal(SIGQUIT, SIG_IGN);
     sys_signal(SIGTSTP, SIG_IGN);
 }
@@ -794,13 +813,13 @@ void erts_replace_intr(void) {
 
 void init_break_handler(void)
 {
-   sys_signal(SIGINT, request_break);
-   sys_signal(SIGTERM, request_stop);
-   sys_signal(SIGHUP, request_sighup);
+   sys_signal(SIGINT,  request_break);
+   sys_signal(SIGTERM, generic_signal_handler);
+   sys_signal(SIGHUP,  generic_signal_handler);
 #ifndef ETHR_UNUSABLE_SIGUSRX
-   sys_signal(SIGUSR1, user_signal1);
+   sys_signal(SIGUSR1, generic_signal_handler);
 #endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
-   sys_signal(SIGQUIT, do_quit);
+   sys_signal(SIGQUIT, generic_signal_handler);
 }
 
 void sys_init_suspend_handler(void)
@@ -1216,14 +1235,14 @@ erl_sys_schedule(int runnable)
 static erts_smp_tid_t sig_dispatcher_tid;
 
 static void
-smp_sig_notify(char c)
+smp_sig_notify(int signum)
 {
     int res;
     do {
 	/* write() is async-signal safe (according to posix) */
-	res = write(sig_notify_fds[1], &c, 1);
+	res = write(sig_notify_fds[1], &signum, sizeof(int));
     } while (res < 0 && errno == EINTR);
-    if (res != 1) {
+    if (res != sizeof(int)) {
 	char msg[] =
 	    "smp_sig_notify(): Failed to notify signal-dispatcher thread "
 	    "about received signal";
@@ -1239,63 +1258,55 @@ signal_dispatcher_thread_func(void *unused)
     erts_lc_set_thread_name("signal_dispatcher");
 #endif
     while (1) {
-	char buf[32];
-	int res, i;
+        union {int signum; char buf[4];} sb;
+        Eterm signal;
+	int res, i = 0;
 	/* Block on read() waiting for a signal notification to arrive... */
-	res = read(sig_notify_fds[0], (void *) &buf[0], 32);
+
+        do {
+            res = read(sig_notify_fds[0], (void *) &sb.buf[i], sizeof(int) - i);
+            i += res;
+        } while ((i != sizeof(int) && res >= 0) || (res < 0 && errno == EINTR));
+
 	if (res < 0) {
-	    if (errno == EINTR)
-		continue;
 	    erts_exit(ERTS_ABORT_EXIT,
 		     "signal-dispatcher thread got unexpected error: %s (%d)\n",
 		     erl_errno_id(errno),
 		     errno);
 	}
-	for (i = 0; i < res; i++) {
-	    /*
-	     * NOTE 1: The signal dispatcher thread should not do work
-	     *         that takes a substantial amount of time (except
-	     *         perhaps in test and debug builds). It needs to
-	     *         be responsive, i.e, it should only dispatch work
-	     *         to other threads.
-	     *
-	     * NOTE 2: The signal dispatcher thread is not a blockable
-	     *         thread (i.e., not a thread managed by the
-	     *         erl_thr_progress module). This is intentional.
-	     *         We want to be able to interrupt writing of a crash
-	     *         dump by hitting C-c twice. Since it isn't a
-	     *         blockable thread it is important that it doesn't
-	     *         change the state of any data that a blocking thread
-	     *         expects to have exclusive access to (unless the
-	     *         signal dispatcher itself explicitly is blocking all
-	     *         blockable threads).
-	     */
-	    switch (buf[i]) {
-	    case 0: /* Emulator initialized */
+        /*
+         * NOTE 1: The signal dispatcher thread should not do work
+         *         that takes a substantial amount of time (except
+         *         perhaps in test and debug builds). It needs to
+         *         be responsive, i.e, it should only dispatch work
+         *         to other threads.
+         *
+         * NOTE 2: The signal dispatcher thread is not a blockable
+         *         thread (i.e., not a thread managed by the
+         *         erl_thr_progress module). This is intentional.
+         *         We want to be able to interrupt writing of a crash
+         *         dump by hitting C-c twice. Since it isn't a
+         *         blockable thread it is important that it doesn't
+         *         change the state of any data that a blocking thread
+         *         expects to have exclusive access to (unless the
+         *         signal dispatcher itself explicitly is blocking all
+         *         blockable threads).
+         */
+        switch (sb.signum) {
+            case 0: continue;
+            case SIGINT:
+                break_requested();
                 break;
-            case 'H': /* SIGHUP */
-                signal_notify_requested(am_sighup);
-                break;
-	    case 'T': /* SIGTERM */
-                signal_notify_requested(am_sigterm);
-		break;
-	    case '1': /* SIGUSR1 */
-                signal_notify_requested(am_sigusr1);
-		break;
-	    case 'I': /* SIGINT */
-		break_requested();
-		break;
-	    case 'Q': /* SIGQUIT */
-		quit_requested();
-		break;
-	    default:
-		erts_exit(ERTS_ABORT_EXIT,
-			 "signal-dispatcher thread received unknown "
-			 "signal notification: '%c'\n",
-			 buf[i]);
-	    }
-	}
-	ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
+            default:
+                if ((signal = signum_to_signalterm(sb.signum)) == am_error) {
+                    erts_exit(ERTS_ABORT_EXIT,
+                            "signal-dispatcher thread received unknown "
+                            "signal notification: '%d'\n",
+                            sb.signum);
+                }
+                signal_notify_requested(signal);
+        }
+        ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
     }
     return NULL;
 }

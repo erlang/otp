@@ -5273,7 +5273,7 @@ BIF_RETTYPE dt_restore_tag_1(BIF_ALIST_1)
 	    SEQ_TRACE_TOKEN(BIF_P) = am_have_dt_utag;
 	}
     }
-#else    
+#else
     if (BIF_ARG_1 != am_true) {
 	BIF_ERROR(BIF_P,BADARG);
     }
@@ -5281,4 +5281,16 @@ BIF_RETTYPE dt_restore_tag_1(BIF_ALIST_1)
     BIF_RET(am_true);
 }
 
+BIF_RETTYPE erts_internal_set_signal_2(BIF_ALIST_2) {
+    if (is_atom(BIF_ARG_1) && ((BIF_ARG_2 == am_ignore) ||
+                               (BIF_ARG_2 == am_default) ||
+                               (BIF_ARG_2 == am_handle))) {
+        if (!erts_set_signal(BIF_ARG_1, BIF_ARG_2))
+            goto error;
 
+        BIF_RET(am_true);
+    }
+
+error:
+    BIF_ERROR(BIF_P, BADARG);
+}

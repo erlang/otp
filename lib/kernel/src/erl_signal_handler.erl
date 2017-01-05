@@ -31,6 +31,9 @@ init(_Args) ->
 handle_event(sigusr1, S) ->
     erlang:halt("Received SIGUSR1"),
     {ok, S};
+handle_event(sigquit, S) ->
+    erlang:halt(),
+    {ok, S};
 handle_event(sigterm, S) ->
     error_logger:info_msg("SIGTERM received - shutting down~n"),
     ok = init:stop(),
