@@ -60,7 +60,8 @@
 	 new/0,
 	 set_next_core_label/2,
 	 set_temp_records/2,
-	 store_temp_records/3]).
+	 store_temp_records/3,
+         translate_fake_file/3]).
 
 -export_type([codeserver/0, fun_meta_info/0, contracts/0]).
 
@@ -183,13 +184,15 @@ insert(Mod, ModCode, CS) ->
   Exports = cerl:module_exports(ModCode),
   Attrs = cerl:module_attrs(ModCode),
   Defs = cerl:module_defs(ModCode),
+  {Files, SmallDefs} = compress_file_anno(Defs),
   As = cerl:get_ann(ModCode),
   Funs =
     [{{Mod, cerl:fname_id(Var), cerl:fname_arity(Var)},
-      Val, {Var, cerl_trees:get_label(Fun)}} || Val = {Var, Fun} <- Defs],
+      Val, {Var, cerl_trees:get_label(Fun)}} || Val = {Var, Fun} <- SmallDefs],
   Keys = [Key || {Key, _Value, _Label} <- Funs],
   ModEntry = {Mod, {Name, Exports, Attrs, Keys, As}},
-  true = ets:insert(CS#codeserver.code, [ModEntry|Funs]),
+  ModFileEntry = {{mod, Mod}, Files},
+  true = ets:insert(CS#codeserver.code, [ModEntry, ModFileEntry|Funs]),
   CS.
 
 -spec get_temp_exported_types(codeserver()) -> sets:set(mfa()).
@@ -404,9 +407,39 @@ finalize_contracts(#codeserver{temp_contracts = TempContDict,
   true = ets:delete(TempCallDict),
   CS#codeserver{temp_contracts = clean, temp_callbacks = clean}.
 
+-spec translate_fake_file(codeserver(), module(), file:filename()) ->
+                             file:filename().
+
+translate_fake_file(#codeserver{code = Code}, Module, FakeFile) ->
+  Files = ets:lookup_element(Code, {mod, Module}, 2),
+  {FakeFile, File} = lists:keyfind(FakeFile, 1, Files),
+  File.
+
 table__lookup(TablePid, M) when is_atom(M) ->
   {Name, Exports, Attrs, Keys, As} = ets:lookup_element(TablePid, M, 2),
   Defs = [table__lookup(TablePid, Key) || Key <- Keys],
   cerl:ann_c_module(As, Name, Exports, Attrs, Defs);
 table__lookup(TablePid, MFA) ->
   ets:lookup_element(TablePid, MFA, 2).
+
+compress_file_anno(Term) ->
+  {Files, SmallTerm} = compress_file_anno(Term, []),
+  {[{FakeFile, File} || {File, {file, FakeFile}} <- Files], SmallTerm}.
+
+compress_file_anno({file, F}, Fs) when is_list(F) ->
+  case lists:keyfind(F, 1, Fs) of
+    false ->
+      I = integer_to_list(length(Fs)),
+      FileI = {file, I},
+      NFs = [{F, FileI}|Fs],
+      {NFs, FileI};
+    {F, FileI} -> {Fs, FileI}
+  end;
+compress_file_anno(T, Fs) when is_tuple(T) ->
+  {NFs, NL} = compress_file_anno(tuple_to_list(T), Fs),
+  {NFs, list_to_tuple(NL)};
+compress_file_anno([E|L], Fs) ->
+  {Fs1, NE} = compress_file_anno(E, Fs),
+  {NFs, NL} = compress_file_anno(L, Fs1),
+  {NFs, [NE|NL]};
+compress_file_anno(T, Fs) -> {Fs, T}.

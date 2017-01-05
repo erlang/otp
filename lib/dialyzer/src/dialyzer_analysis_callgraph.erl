@@ -628,14 +628,14 @@ format_bad_calls([{{_, _, _}, {_, module_info, A}}|Left], CodeServer, Acc)
 format_bad_calls([{FromMFA, {M, F, A} = To}|Left], CodeServer, Acc) ->
   {_Var, FunCode} = dialyzer_codeserver:lookup_mfa_code(FromMFA, CodeServer),
   Msg = {call_to_missing, [M, F, A]},
-  {File, Line} = find_call_file_and_line(FunCode, To),
+  {File, Line} = find_call_file_and_line(FromMFA, FunCode, To, CodeServer),
   WarningInfo = {File, Line, FromMFA},
   NewAcc = [{?WARN_CALLGRAPH, WarningInfo, Msg}|Acc],
   format_bad_calls(Left, CodeServer, NewAcc);
 format_bad_calls([], _CodeServer, Acc) ->
   Acc.
 
-find_call_file_and_line(Tree, MFA) ->
+find_call_file_and_line({Module, _, _}, Tree, MFA, CodeServer) ->
   Fun =
     fun(SubTree, Acc) ->
 	case cerl:is_c_call(SubTree) of
@@ -648,7 +648,7 @@ find_call_file_and_line(Tree, MFA) ->
 		case {cerl:concrete(M), cerl:concrete(F), A} of
 		  MFA ->
 		    Ann = cerl:get_ann(SubTree),
-		    [{get_file(Ann), get_line(Ann)}|Acc];
+		    [{get_file(CodeServer, Module, Ann), get_line(Ann)}|Acc];
 		  {erlang, make_fun, 3} ->
 		    [CA1, CA2, CA3] = cerl:call_args(SubTree),
 		    case
@@ -664,7 +664,8 @@ find_call_file_and_line(Tree, MFA) ->
 			of
 			  MFA ->
 			    Ann = cerl:get_ann(SubTree),
-			    [{get_file(Ann), get_line(Ann)}|Acc];
+			    [{get_file(CodeServer, Module, Ann),
+                              get_line(Ann)}|Acc];
 			  _ ->
 			    Acc
 			end;
@@ -684,8 +685,10 @@ get_line([Line|_]) when is_integer(Line) -> Line;
 get_line([_|Tail]) -> get_line(Tail);
 get_line([]) -> -1.
 
-get_file([{file, File}|_]) -> File;
-get_file([_|Tail]) -> get_file(Tail).
+get_file(Codeserver, Module, [{file, FakeFile}|_]) ->
+  dialyzer_codeserver:translate_fake_file(Codeserver, Module, FakeFile);
+get_file(Codeserver, Module, [_|Tail]) ->
+  get_file(Codeserver, Module, Tail).
 
 -spec dump_callgraph(dialyzer_callgraph:callgraph(), #analysis_state{}, #analysis{}) ->
   'ok'.
