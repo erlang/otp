@@ -89,6 +89,14 @@ static void add_readonly_check(ErlNifEnv*, unsigned char* ptr, unsigned sz);
 #  define ADD_READONLY_CHECK(ENV,PTR,SIZE) ((void)0)
 #endif
 
+#ifdef ERTS_NIF_ASSERT_IN_ENV
+#  define ASSERT_IN_ENV(ENV, TERM, NR, TYPE) dbg_assert_in_env(ENV, TERM, NR, TYPE, __func__)
+static void dbg_assert_in_env(ErlNifEnv*, Eterm term, int nr, const char* type, const char* func);
+#  include "erl_gc.h"
+#else
+#  define ASSERT_IN_ENV(ENV, TERM, NR, TYPE)
+#endif
+
 #ifdef DEBUG
 static int is_offheap(const ErlOffHeap* off_heap);
 #endif
@@ -196,6 +204,9 @@ void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif,
 
     ASSERT(p->common.id != ERTS_INVALID_PID);
 
+#ifdef ERTS_NIF_ASSERT_IN_ENV
+    env->dbg_disable_assert_in_env = 0;
+#endif
 #if defined(DEBUG) && defined(ERTS_DIRTY_SCHEDULERS)
     {
 	ErtsSchedulerData *esdp = erts_get_scheduler_data();
@@ -474,11 +485,15 @@ setup_nif_env(struct enif_msg_environment_t* msg_env,
     HEAP_END(&msg_env->phony_proc) = phony_heap;
     MBUF(&msg_env->phony_proc) = NULL;
     msg_env->phony_proc.common.id = ERTS_INVALID_PID;
+    msg_env->env.tracee = tracee;
+
 #ifdef FORCE_HEAP_FRAGS
     msg_env->phony_proc.space_verified = 0;
     msg_env->phony_proc.space_verified_from = NULL;
 #endif
-    msg_env->env.tracee = tracee;
+#ifdef ERTS_NIF_ASSERT_IN_ENV
+    msg_env->env.dbg_disable_assert_in_env = 0;
+#endif
 }
 
 ErlNifEnv* enif_alloc_env(void)
@@ -1586,6 +1601,9 @@ int enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len,
 
 ERL_NIF_TERM enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)
 {
+#ifdef ERTS_NIF_ASSERT_IN_ENV
+    int nr = 0;
+#endif
     Eterm* hp = alloc_heap(env,cnt+1);
     Eterm ret = make_tuple(hp);
     va_list ap;
@@ -1593,7 +1611,9 @@ ERL_NIF_TERM enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)
     *hp++ = make_arityval(cnt);
     va_start(ap,cnt);
     while (cnt--) {
-	*hp++ = va_arg(ap,Eterm);	   
+        Eterm elem = va_arg(ap,Eterm);
+        ASSERT_IN_ENV(env, elem, ++nr, "tuple");
+	*hp++ = elem;
     }
     va_end(ap);
     return ret;
@@ -1601,12 +1621,16 @@ ERL_NIF_TERM enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)
 
 ERL_NIF_TERM enif_make_tuple_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)
 {
+#ifdef ERTS_NIF_ASSERT_IN_ENV
+    int nr = 0;
+#endif
     Eterm* hp = alloc_heap(env,cnt+1);
     Eterm ret = make_tuple(hp);
     const Eterm* src = arr;
 
     *hp++ = make_arityval(cnt);
     while (cnt--) {
+        ASSERT_IN_ENV(env, *src, ++nr, "tuple");
 	*hp++ = *src++;	   
     }
     return ret;
@@ -1617,6 +1641,8 @@ ERL_NIF_TERM enif_make_list_cell(ErlNifEnv* env, Eterm car, Eterm cdr)
     Eterm* hp = alloc_heap(env,2);
     Eterm ret = make_list(hp);
 
+    ASSERT_IN_ENV(env, car, 0, "head of list cell");
+    ASSERT_IN_ENV(env, cdr, 0, "tail of list cell");
     CAR(hp) = car;
     CDR(hp) = cdr;
     return ret;
@@ -1628,6 +1654,9 @@ ERL_NIF_TERM enif_make_list(ErlNifEnv* env, unsigned cnt, ...)
 	return NIL;
     }
     else {
+#ifdef ERTS_NIF_ASSERT_IN_ENV
+        int nr = 0;
+#endif
 	Eterm* hp = alloc_heap(env,cnt*2);
 	Eterm ret = make_list(hp);
 	Eterm* last = &ret;
@@ -1635,8 +1664,10 @@ ERL_NIF_TERM enif_make_list(ErlNifEnv* env, unsigned cnt, ...)
 
 	va_start(ap,cnt);
 	while (cnt--) {
+            Eterm term = va_arg(ap,Eterm);
 	    *last = make_list(hp);
-	    *hp = va_arg(ap,Eterm);
+            ASSERT_IN_ENV(env, term, ++nr, "list");
+	    *hp = term;
 	    last = ++hp;
 	    ++hp;
 	}
@@ -1648,14 +1679,19 @@ ERL_NIF_TERM enif_make_list(ErlNifEnv* env, unsigned cnt, ...)
 
 ERL_NIF_TERM enif_make_list_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)
 {
+#ifdef ERTS_NIF_ASSERT_IN_ENV
+    int nr = 0;
+#endif
     Eterm* hp = alloc_heap(env,cnt*2);
     Eterm ret = make_list(hp);
     Eterm* last = &ret;
     const Eterm* src = arr;
 
     while (cnt--) {
+        Eterm term = *src++;
 	*last = make_list(hp);
-	*hp = *src++;
+        ASSERT_IN_ENV(env, term, ++nr, "list");
+	*hp = term;
 	last = ++hp;
 	++hp;
     }
@@ -2789,6 +2825,10 @@ int enif_make_map_put(ErlNifEnv* env,
     if (!is_map(map_in)) {
 	return 0;
     }
+    ASSERT_IN_ENV(env, map_in, 0, "old map");
+    ASSERT_IN_ENV(env, key, 0, "key");
+    ASSERT_IN_ENV(env, value, 0, "value");
+
     flush_env(env);
     *map_out = erts_maps_put(env->proc, key, value, map_in);
     cache_env(env);
@@ -2822,6 +2862,10 @@ int enif_make_map_update(ErlNifEnv* env,
     if (!is_map(map_in)) {
 	return 0;
     }
+
+    ASSERT_IN_ENV(env, map_in, 0, "old map");
+    ASSERT_IN_ENV(env, key, 0, "key");
+    ASSERT_IN_ENV(env, value, 0, "value");
 
     flush_env(env);
     res = erts_maps_update(env->proc, key, value, map_in, map_out);
@@ -3543,6 +3587,9 @@ Eterm erts_nif_call_function(Process *p, Process *tracee,
         clear_offheap(&MSO(p));
 
         erts_pre_nif(&env, p, mod, tracee);
+#ifdef ERTS_NIF_ASSERT_IN_ENV
+        env.dbg_disable_assert_in_env = 1;
+#endif
         nif_result = (*fun->fptr)(&env, argc, argv);
         if (env.exception_thrown)
             nif_result = THE_NON_VALUE;
@@ -3565,6 +3612,9 @@ Eterm erts_nif_call_function(Process *p, Process *tracee,
            so we create a phony one. */
         struct enif_msg_environment_t msg_env;
         pre_nif_noproc(&msg_env, mod, tracee);
+#ifdef ERTS_NIF_ASSERT_IN_ENV
+        msg_env.env.dbg_disable_assert_in_env = 1;
+#endif
         nif_result = (*fun->fptr)(&msg_env.env, argc, argv);
         if (msg_env.env.exception_thrown)
             nif_result = THE_NON_VALUE;
@@ -3628,6 +3678,55 @@ static unsigned calc_checksum(unsigned char* ptr, unsigned size)
 }
 
 #endif /* READONLY_CHECK */
+
+#ifdef ERTS_NIF_ASSERT_IN_ENV
+static void dbg_assert_in_env(ErlNifEnv* env, Eterm term,
+                              int nr, const char* type, const char* func)
+{
+    Uint saved_used_size;
+    Eterm* real_htop;
+
+    if (is_immed(term)
+        || (is_non_value(term) && env->exception_thrown)
+        || erts_is_literal(term, ptr_val(term)))
+        return;
+
+    if (env->dbg_disable_assert_in_env) {
+        /*
+         * Trace nifs may cheat as built terms are discarded after return.
+         * ToDo: Check if 'term' is part of argv[].
+         */
+        return;
+    }
+
+    if (env->heap_frag) {
+        ASSERT(env->heap_frag == MBUF(env->proc));
+        ASSERT(env->hp >= env->heap_frag->mem);
+        ASSERT(env->hp <= env->heap_frag->mem + env->heap_frag->alloc_size);
+        saved_used_size = env->heap_frag->used_size;
+        env->heap_frag->used_size = env->hp - env->heap_frag->mem;
+        real_htop = NULL;
+    }
+    else {
+        real_htop = env->hp;
+    }
+    if (!erts_dbg_within_proc(ptr_val(term), env->proc, real_htop)) {
+        fprintf(stderr, "\r\nFAILED ASSERTION in %s:\r\n", func);
+        if (nr) {
+            fprintf(stderr, "Term #%d of the %s is not from same ErlNifEnv.",
+                    nr, type);
+        }
+        else {
+            fprintf(stderr, "The %s is not from the same ErlNifEnv.", type);
+        }
+        fprintf(stderr, "\r\nABORTING\r\n");
+        abort();
+    }
+    if (env->heap_frag) {
+        env->heap_frag->used_size = saved_used_size;
+    }
+}
+#endif
 
 #ifdef HAVE_USE_DTRACE
 

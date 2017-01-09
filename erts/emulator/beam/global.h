@@ -45,6 +45,9 @@
 
 struct enif_func_t;
 
+#ifdef  DEBUG
+#  define ERTS_NIF_ASSERT_IN_ENV
+#endif
 struct enif_environment_t /* ErlNifEnv */
 {
     struct erl_module_nif* mod_nif;
@@ -57,6 +60,10 @@ struct enif_environment_t /* ErlNifEnv */
     int exception_thrown; /* boolean */
     Process *tracee;
     int exiting; /* boolean (dirty nifs might return in exiting state) */
+
+#ifdef ERTS_NIF_ASSERT_IN_ENV
+    int dbg_disable_assert_in_env;
+#endif
 };
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*, Process* tracee);
