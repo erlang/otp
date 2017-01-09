@@ -658,7 +658,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 	}
 	else if (modp->old.code_hdr) {
 	    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	    erts_dsprintf(dsbufp, "Module %T must be purged before loading\n",
+	    erts_dsprintf(dsbufp, "Module %T must be purged before deleting\n",
 			  BIF_ARG_1);
 	    erts_send_error_to_logger(BIF_P->group_leader, dsbufp);
 	    ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
