@@ -445,6 +445,10 @@ generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg)
 	      end,
     user_srp_gen_key(Private, Generator, Prime);
 
+generate_key(rsa, {ModulusSize, PublicExponent}, undefined) ->
+    Private = rsa_generate_key_nif(ModulusSize, ensure_int_as_bin(PublicExponent)),
+    { lists:sublist(Private, 2), Private };
+
 generate_key(ecdh, Curve, PrivKey) ->
     ec_key_generate(nif_curve_params(Curve), ensure_int_as_bin(PrivKey)).
 
@@ -780,6 +784,11 @@ rsa_verify_nif(_Type, _Digest, _Signature, _Key) -> ?nif_stub.
 ecdsa_verify_nif(_Type, _Digest, _Signature, _Curve, _Key) -> ?nif_stub.
 
 %% Public Keys  --------------------------------------------------------------------
+%% RSA Rivest-Shamir-Adleman functions
+%%
+
+rsa_generate_key_nif(_Bits, _Exp) -> ?nif_stub.
+
 %% DH Diffie-Hellman functions
 %% 
 

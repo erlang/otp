@@ -298,22 +298,25 @@
    <func>
       <name>generate_key(Type, Params) -> {PublicKey, PrivKeyOut} </name>
       <name>generate_key(Type, Params, PrivKeyIn) -> {PublicKey, PrivKeyOut} </name>
-      <fsummary>Generates a public keys of type <c>Type</c></fsummary>
+      <fsummary>Generates a public key of type <c>Type</c></fsummary>
       <type>
-	<v> Type = dh | ecdh | srp </v>
-	<v>Params = dh_params() | ecdh_params() | SrpUserParams | SrpHostParams </v>
+	<v> Type = dh | ecdh | rsa | srp </v>
+	<v>Params = dh_params() | ecdh_params() | RsaParams | SrpUserParams | SrpHostParams </v>
+	<v>RsaParams = {ModulusSizeInBits::integer(), PublicExponent::key_value()}</v>
 	<v>SrpUserParams = {user, [Generator::binary(), Prime::binary(), Version::atom()]}</v>
 	<v>SrpHostParams = {host, [Verifier::binary(), Generator::binary(), Prime::binary(), Version::atom()]}</v>
-	<v>PublicKey =  dh_public() | ecdh_public() | srp_public() </v>
+	<v>PublicKey =  dh_public() | ecdh_public() | rsa_public() | srp_public() </v>
 	<v>PrivKeyIn = undefined | dh_private() | ecdh_private() | srp_private() </v>
-	<v>PrivKeyOut =  dh_private() | ecdh_private() | srp_private() </v>
+	<v>PrivKeyOut =  dh_private() | ecdh_private() | rsa_private() | srp_private() </v>
       </type>
       <desc>
-	<p>Generates public keys of type <c>Type</c>.
+	<p>Generates a public key of type <c>Type</c>.
 	See also <seealso marker="public_key:public_key#generate_key-1">public_key:generate_key/1</seealso>
 	May throw exception <c>low_entropy</c> in case the random generator
 	failed due to lack of secure "randomness".
 	</p>
+	<note><p>RSA key generation is only available if the runtime was built with the
+	<strong>experimental</strong> dirty scheduler feature.</p></note>
       </desc>
     </func>
 
