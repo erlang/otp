@@ -183,15 +183,6 @@ explicit_map_pairs(Map, Xs0, Ys0) ->
        A fun contains an (indirect) pointer to the function that implements
        the fun.</p>
 
-       <warning><p><em>Tuples are not fun(s)</em>.
-       A "tuple fun", <c>{Module,Function}</c>, is not a fun.
-       The cost for calling a "tuple fun" is similar to that
-       of <c>apply/3</c> or worse.
-       Using "tuple funs" is <em>strongly discouraged</em>,
-       as they might not be supported in a future Erlang/OTP release,
-       and because there exists a superior alternative from R10B,
-       namely the <c>fun Module:Function/Arity</c> syntax.</p></warning>
-
        <p><c>apply/3</c> must look up the code for the function to execute
        in a hash table. It is therefore always slower than a
        direct call or a fun call.</p>
