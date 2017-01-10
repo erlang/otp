@@ -65,7 +65,7 @@ atom_map1(six) -> 6.</code>
      thus, quite efficient even if there are many values) to select which
      one of the first three clauses to execute (if any).</item>
 
-     <item>>If none of the first three clauses match, the fourth clause
+     <item>If none of the first three clauses match, the fourth clause
      match as a variable always matches.</item>
 
      <item>If the guard test <c>is_integer(Int)</c> succeeds, the fourth
