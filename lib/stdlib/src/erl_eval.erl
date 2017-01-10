@@ -1306,6 +1306,7 @@ partial_eval(Expr) ->
 ev_expr({op,_,Op,L,R}) -> erlang:Op(ev_expr(L), ev_expr(R));
 ev_expr({op,_,Op,A}) -> erlang:Op(ev_expr(A));
 ev_expr({integer,_,X}) -> X;
+ev_expr({char,_,X})    -> X;
 ev_expr({float,_,X})   -> X;
 ev_expr({atom,_,X})    -> X;
 ev_expr({tuple,_,Es}) ->
