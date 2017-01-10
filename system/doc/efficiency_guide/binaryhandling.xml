@@ -32,12 +32,9 @@
     <file>binaryhandling.xml</file>
   </header>
 
-  <p>In R12B, the most natural way to construct and match binaries is
-  significantly faster than in earlier releases.</p>
+  <p>Binaries can be efficiently built in the following way:</p>
 
-  <p>To construct a binary, you can simply write as follows:</p>
-
-  <p><em>DO</em> (in R12B) / <em>REALLY DO NOT</em> (in earlier releases)</p>
+  <p><em>DO</em></p>
   <code type="erl"><![CDATA[
 my_list_to_binary(List) ->
     my_list_to_binary(List, <<>>).
@@ -47,21 +44,13 @@ my_list_to_binary([H|T], Acc) ->
 my_list_to_binary([], Acc) ->
     Acc.]]></code>  
 
-  <p>In releases before R12B, <c>Acc</c> is copied in every iteration.
-  In R12B, <c>Acc</c> is copied only in the first iteration and extra
-  space is allocated at the end of the copied binary. In the next iteration,
-  <c>H</c> is written into the extra space. When the extra space runs out,
-  the binary is reallocated with more extra space. The extra space allocated
-  (or reallocated) is twice the size of the
-  existing binary data, or 256, whichever is larger.</p>
+  <p>Binaries can be efficiently matched like this:</p>
 
-  <p>The most natural way to match binaries is now the fastest:</p>
-
-  <p><em>DO</em> (in R12B)</p>
+  <p><em>DO</em></p>
   <code type="erl"><![CDATA[
 my_binary_to_list(<<H,T/binary>>) ->
     [H|my_binary_to_list(T)];
-my_binary_to_list(<<>>) -> [].]]></code>  
+my_binary_to_list(<<>>) -> [].]]></code>
 
   <section>
     <title>How Binaries are Implemented</title>
@@ -138,10 +127,7 @@ my_binary_to_list(<<>>) -> [].]]></code>
       pointer to the binary data. For each field that is matched out of
       a binary, the position in the match context is incremented.</p>
 
-    <p>In R11B, a match context was only used during a binary matching
-    operation.</p>
-
-    <p>In R12B, the compiler tries to avoid generating code that
+    <p>The compiler tries to avoid generating code that
     creates a sub binary, only to shortly afterwards create a new match
     context and discard the sub binary. Instead of creating a sub binary,
     the match context is kept.</p>
@@ -155,7 +141,7 @@ my_binary_to_list(<<>>) -> [].]]></code>
 
   <section>
     <title>Constructing Binaries</title>
-    <p>In R12B, appending to a binary or bitstring
+    <p>Appending to a binary or bitstring
     is specially optimized by the <em>runtime system</em>:</p>
 
   <code type="erl"><![CDATA[
@@ -292,7 +278,7 @@ Bin = <<Bin1,...>>  %% Bin1 will be COPIED
 
     <p>Let us revisit the example in the beginning of the previous section:</p>
 
-  <p><em>DO</em> (in R12B)</p>
+  <p><em>DO</em></p>
   <code type="erl"><![CDATA[
 my_binary_to_list(<<H,T/binary>>) ->
     [H|my_binary_to_list(T)];
@@ -304,15 +290,14 @@ my_binary_to_list(<<>>) -> [].]]></code>
   byte of the binary. 1 byte is matched out and the match context
   is updated to point to the second byte in the binary.</p>
 
-  <p>In R11B, at this point a
-  <seealso marker="#sub_binary">sub binary</seealso>
-  would be created. In R12B,
-  the compiler sees that there is no point in creating a sub binary,
-  because there will soon be a call to a function (in this case,
+  <p>At this point it would make sense to create a
+  <seealso marker="#sub_binary">sub binary</seealso>,
+  but in this particular example the compiler sees that
+  there will soon be a call to a function (in this case,
   to <c>my_binary_to_list/1</c> itself) that immediately will
   create a new match context and discard the sub binary.</p>
 
-  <p>Therefore, in R12B, <c>my_binary_to_list/1</c> calls itself
+  <p>Therefore <c>my_binary_to_list/1</c> calls itself
   with the match context instead of with a sub binary. The instruction
   that initializes the matching operation basically does nothing
   when it sees that it was passed a match context instead of a binary.</p>
@@ -321,34 +306,10 @@ my_binary_to_list(<<>>) -> [].]]></code>
   the match context will simply be discarded (removed in the next
   garbage collection, as there is no longer any reference to it).</p>
 
-  <p>To summarize, <c>my_binary_to_list/1</c> in R12B only needs to create
-  <em>one</em> match context and no sub binaries. In R11B, if the binary
-  contains <em>N</em> bytes, <em>N+1</em> match contexts and <em>N</em>
-  sub binaries are created.</p>
+  <p>To summarize, <c>my_binary_to_list/1</c> only needs to create
+  <em>one</em> match context and no sub binaries.</p>
 
-  <p>In R11B, the fastest way to match binaries is as follows:</p>
-
-  <p><em>DO NOT</em> (in R12B)</p>
-  <code type="erl"><![CDATA[
-my_complicated_binary_to_list(Bin) ->
-    my_complicated_binary_to_list(Bin, 0).
-
-my_complicated_binary_to_list(Bin, Skip) ->
-    case Bin of
-	<<_:Skip/binary,Byte,_/binary>> ->
-	    [Byte|my_complicated_binary_to_list(Bin, Skip+1)];
-	<<_:Skip/binary>> ->
-	    []
-    end.]]></code>
-
-  <p>This function cleverly avoids building sub binaries, but it cannot
-  avoid building a match context in each recursion step.
-  Therefore, in both R11B and R12B,
-  <c>my_complicated_binary_to_list/1</c> builds <em>N+1</em> match
-  contexts. (In a future Erlang/OTP release, the compiler might be able
-  to generate code that reuses the match context.)</p>
-
-  <p>Returning to <c>my_binary_to_list/1</c>, notice that the match context
+  <p>Notice that the match context in <c>my_binary_to_list/1</c>
   was discarded when the entire binary had been traversed. What happens if
   the iteration stops before it has reached the end of the binary? Will
   the optimization still work?</p>
@@ -544,5 +505,15 @@ count3(<<>>, Count) -> Count.]]></code>
   not matched out.</p>
   </section>
   </section>
+
+  <section>
+    <title>Historical Note</title>
+
+    <p>Binary handling was significantly improved in R12B. Because
+    code that was efficient in R11B might not be efficient in R12B,
+    and vice versa, earlier revisions of this Efficiency Guide contained
+    some information about binary handling in R11B.</p>
+  </section>
+
 </chapter>
 
