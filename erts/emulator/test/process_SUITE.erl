@@ -1622,6 +1622,7 @@ spawn_initial_hangarounds(_Cleaner, NP, Max, Len, HAs) when NP > Max ->
     {Len, HAs};
 spawn_initial_hangarounds(Cleaner, NP, Max, Len, HAs) ->
     Skip = 30,
+    wait_for_proc_slots(Skip+3),
     HA1 = spawn_opt(?MODULE, hangaround, [Cleaner, initial_hangaround],
 		    [{priority, low}]),
     HA2 = spawn_opt(?MODULE, hangaround, [Cleaner, initial_hangaround],
@@ -1630,6 +1631,15 @@ spawn_initial_hangarounds(Cleaner, NP, Max, Len, HAs) ->
 		    [{priority, high}]),
     spawn_drop(Skip),
     spawn_initial_hangarounds(Cleaner, NP+Skip, Max, Len+3, [HA1,HA2,HA3|HAs]).
+
+wait_for_proc_slots(MinFreeSlots) ->
+    case erlang:system_info(process_limit) - erlang:system_info(process_count) of
+        FreeSlots when FreeSlots < MinFreeSlots ->
+            receive after 10 -> ok end,
+            wait_for_proc_slots(MinFreeSlots);
+        _FreeSlots ->
+            ok
+    end.
 
 spawn_drop(N) when N =< 0 ->
     ok;
