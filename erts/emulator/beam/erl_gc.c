@@ -110,7 +110,7 @@ typedef struct {
 
 static Uint setup_rootset(Process*, Eterm*, int, Rootset*);
 static void cleanup_rootset(Rootset *rootset);
-static void remove_message_buffers(Process* p);
+static void deallocate_previous_young_generation(Process *c_p);
 static Eterm *full_sweep_heaps(Process *p,
 			       int hibernate,
 			       Eterm *n_heap, Eterm* n_htop,
@@ -153,7 +153,7 @@ static void init_gc_info(ErtsGCInfo *gcip);
 static Uint64 next_vheap_size(Process* p, Uint64 vheap, Uint64 vheap_sz);
 
 #ifdef HARDDEBUG
-static void disallow_heap_frag_ref_in_heap(Process* p);
+static void disallow_heap_frag_ref_in_heap(Process *p, Eterm *heap, Eterm *htop);
 static void disallow_heap_frag_ref_in_old_heap(Process* p);
 #endif
 
@@ -489,24 +489,26 @@ delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need, int
     hsz = ssz + need + ERTS_DELAY_GC_EXTRA_FREE;
 
     hfrag = new_message_buffer(hsz);
-    hfrag->next = p->mbuf;
-    p->mbuf = hfrag;
-    p->mbuf_sz += hsz;
     p->heap = p->htop = &hfrag->mem[0];
     p->hend = hend = &hfrag->mem[hsz];
     p->stop = stop = hend - ssz;
     sys_memcpy((void *) stop, (void *) orig_stop, ssz * sizeof(Eterm));
 
     if (p->abandoned_heap) {
-	/* Active heap already in a fragment; adjust it... */
-	ErlHeapFragment *hfrag = ((ErlHeapFragment *)
-				  (((char *) orig_heap)
-				   - offsetof(ErlHeapFragment, mem)));
-	Uint unused = orig_hend - orig_htop;
-	ASSERT(hfrag->used_size == hfrag->alloc_size);
-	ASSERT(hfrag->used_size >= unused);
-	hfrag->used_size -= unused;
-	p->mbuf_sz -= unused;
+	/*
+         * Active heap already in a fragment; adjust it and
+         * save it into mbuf list...
+         */
+        ErlHeapFragment *hfrag = ((ErlHeapFragment *)
+                                  (((char *) orig_heap)
+                                   - offsetof(ErlHeapFragment, mem)));
+        Uint used = orig_htop - orig_heap;
+        hfrag->used_size = used;
+        p->mbuf_sz += used;
+        ASSERT(hfrag->used_size <= hfrag->alloc_size);
+        ASSERT(!hfrag->off_heap.first && !hfrag->off_heap.overhead);
+        hfrag->next = p->mbuf;
+        p->mbuf = hfrag;
     }
     else {
 	/* Do not leave a hole in the abandoned heap... */
@@ -568,17 +570,14 @@ young_gen_usage(Process *p)
 	}
     }
 
+    hsz += p->htop - p->heap;
     aheap = p->abandoned_heap;
-    if (!aheap)
-	hsz += p->htop - p->heap;
-    else {
+    if (aheap) {
 	/* used in orig heap */
 	if (p->flags & F_ABANDONED_HEAP_USE)
 	    hsz += aheap[p->heap_sz-1];
 	else
 	    hsz += p->heap_sz;
-	/* Remove unused part in latest fragment */
-	hsz -= p->hend - p->htop;
     }
     return hsz;
 }
@@ -812,6 +811,7 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 	   >= erts_proc_sched_data(p)->virtual_reds);
 }
 
+
 /*
  * Place all living data on a the new heap; deallocate any old heap.
  * Meant to be used by hibernate/3.
@@ -858,11 +858,11 @@ erts_garbage_collect_hibernate(Process* p)
 			    p->arg_reg,
 			    p->arity);
 
-    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
-		   (p->abandoned_heap
-		    ? p->abandoned_heap
-		    : p->heap),
-		   p->heap_sz * sizeof(Eterm));
+#ifdef HARDDEBUG
+    disallow_heap_frag_ref_in_heap(p, heap, htop);
+#endif
+
+    deallocate_previous_young_generation(p);
 
     p->heap = heap;
     p->high_water = htop;
@@ -896,8 +896,6 @@ erts_garbage_collect_hibernate(Process* p)
     heap = ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP, sizeof(Eterm)*heap_size);
     sys_memcpy((void *) heap, (void *) p->heap, actual_size*sizeof(Eterm));
     ERTS_HEAP_FREE(ERTS_ALC_T_TMP_HEAP, p->heap, p->heap_sz*sizeof(Eterm));
-
-    remove_message_buffers(p);
 
     p->stop = p->hend = heap + heap_size;
 
@@ -1517,22 +1515,16 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
     }
 #endif
 
-    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
-		   (p->abandoned_heap
-		    ? p->abandoned_heap
-		    : HEAP_START(p)),
-		   HEAP_SIZE(p) * sizeof(Eterm));
-    p->abandoned_heap = NULL;
-    p->flags &= ~F_ABANDONED_HEAP_USE;
+#ifdef HARDDEBUG
+    disallow_heap_frag_ref_in_heap(p, n_heap, n_htop);
+#endif
+
+    deallocate_previous_young_generation(p);
+
     HEAP_START(p) = n_heap;
     HEAP_TOP(p) = n_htop;
     HEAP_SIZE(p) = new_sz;
     HEAP_END(p) = n_heap + new_sz;
-
-#ifdef HARDDEBUG
-    disallow_heap_frag_ref_in_heap(p);
-#endif
-    remove_message_buffers(p);
 }
 
 /*
@@ -1621,13 +1613,12 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
     }
 #endif
 
-    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
-		   (p->abandoned_heap
-		    ? p->abandoned_heap
-		    : HEAP_START(p)),
-		   p->heap_sz * sizeof(Eterm));
-    p->abandoned_heap = NULL;
-    p->flags &= ~F_ABANDONED_HEAP_USE;
+#ifdef HARDDEBUG
+    disallow_heap_frag_ref_in_heap(p, n_heap, n_htop);
+#endif
+
+    deallocate_previous_young_generation(p);
+
     HEAP_START(p) = n_heap;
     HEAP_TOP(p) = n_htop;
     HEAP_SIZE(p) = new_sz;
@@ -1635,11 +1626,6 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
     GEN_GCS(p) = 0;
 
     HIGH_WATER(p) = HEAP_TOP(p);
-
-#ifdef HARDDEBUG
-    disallow_heap_frag_ref_in_heap(p);
-#endif
-    remove_message_buffers(p);
 
     if (p->flags & F_ON_HEAP_MSGQ)
 	move_msgq_to_heap(p);
@@ -1793,22 +1779,56 @@ adjust_after_fullsweep(Process *p, int need, Eterm *objv, int nobj)
     return adjusted;
 }
 
-/*
- * Remove all message buffers.
- */
 static void
-remove_message_buffers(Process* p)
+deallocate_previous_young_generation(Process *c_p)
 {
-    if (MBUF(p) != NULL) {
-	free_message_buffer(MBUF(p));
-	MBUF(p) = NULL;
-    }    
-    if (p->msg_frag) {
-	erts_cleanup_messages(p->msg_frag);
-	p->msg_frag = NULL;
+    Eterm *orig_heap;
+
+    if (!c_p->abandoned_heap) {
+	orig_heap = c_p->heap;
+	ASSERT(!(c_p->flags & F_ABANDONED_HEAP_USE));
     }
-    MBUF_SIZE(p) = 0;    
+    else {
+	ErlHeapFragment *hfrag;
+
+	orig_heap = c_p->abandoned_heap;
+	c_p->abandoned_heap = NULL;
+	c_p->flags &= ~F_ABANDONED_HEAP_USE;
+
+	/*
+	 * Temporary heap located in heap fragment
+	 * only referred to by 'c_p->heap'. Add it to
+	 * 'c_p->mbuf' list and deallocate it as any
+	 * other heap fragment...
+	 */
+	hfrag = ((ErlHeapFragment *)
+		 (((char *) c_p->heap)
+		  - offsetof(ErlHeapFragment, mem)));
+
+	ASSERT(!hfrag->off_heap.first);
+	ASSERT(!hfrag->off_heap.overhead);
+	ASSERT(!hfrag->next);
+	ASSERT(c_p->htop - c_p->heap <= hfrag->alloc_size);
+
+	hfrag->next = c_p->mbuf;
+	c_p->mbuf = hfrag;
+    }
+
+    if (c_p->mbuf) {
+	free_message_buffer(c_p->mbuf);
+	c_p->mbuf = NULL;
+    }    
+    if (c_p->msg_frag) {
+	erts_cleanup_messages(c_p->msg_frag);
+	c_p->msg_frag = NULL;
+    }
+    c_p->mbuf_sz = 0;  
+
+    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
+		   orig_heap,
+		   c_p->heap_sz * sizeof(Eterm));
 }
+
 #ifdef HARDDEBUG
 
 /*
@@ -1820,19 +1840,15 @@ remove_message_buffers(Process* p)
  */
 
 static void
-disallow_heap_frag_ref_in_heap(Process* p)
+disallow_heap_frag_ref_in_heap(Process *p, Eterm *heap, Eterm *htop)
 {
     Eterm* hp;
-    Eterm* htop;
-    Eterm* heap;
     Uint heap_size;
 
     if (p->mbuf == 0) {
 	return;
     }
 
-    htop = p->htop;
-    heap = p->heap;
     heap_size = (htop - heap)*sizeof(Eterm);
 
     hp = heap;
@@ -3324,12 +3340,14 @@ within2(Eterm *ptr, Process *p, Eterm *real_htop)
     ErtsMessage* mp;
     Eterm *htop, *heap;
 
-    if (p->abandoned_heap)
+    if (p->abandoned_heap) {
 	ERTS_GET_ORIG_HEAP(p, heap, htop);
-    else {
-	heap = p->heap;
-	htop = real_htop ? real_htop : HEAP_TOP(p);
+	if (heap <= ptr && ptr < htop)
+	    return 1;
     }
+
+    heap = p->heap;
+    htop = real_htop ? real_htop : HEAP_TOP(p);
 
     if (OLD_HEAP(p) && (OLD_HEAP(p) <= ptr && ptr < OLD_HEND(p))) {
         return 1;
