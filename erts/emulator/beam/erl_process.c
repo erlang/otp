@@ -8642,8 +8642,15 @@ pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
 	     * from being selected for normal execution regardless
 	     * of locks held or not held on it...
 	     */
-	    ASSERT(!((ERTS_PSFLG_RUNNING|ERTS_PSFLG_DIRTY_RUNNING_SYS)
-		     & erts_smp_atomic32_read_nob(&rp->state)));
+#ifdef DEBUG
+	    {
+		erts_aint32_t state;
+		state = erts_smp_atomic32_read_nob(&rp->state);
+		ASSERT((state & ERTS_PSFLG_PENDING_EXIT)
+		       || !(state & (ERTS_PSFLG_RUNNING
+				     | ERTS_PSFLG_DIRTY_RUNNING_SYS)));
+	    }
+#endif
 
 	    if (!suspend)
 		resume_process(rp, pid_locks|ERTS_PROC_LOCK_STATUS);
