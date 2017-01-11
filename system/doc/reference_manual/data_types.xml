@@ -50,10 +50,7 @@
       <item><em><c>base</c></em><c>#</c><em><c>value</c></em>      <br></br>
 
        Integer with the base <em><c>base</c></em>, that must be an
-       integer in the range 2..36.      <br></br>
-
-       In Erlang 5.2/OTP R9B and earlier versions, the allowed range
-       is 2..16.</item>
+       integer in the range 2..36.</item>
     </list>
     <p><em>Examples:</em></p>
     <pre>
