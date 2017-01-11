@@ -90,8 +90,11 @@ Uint erts_process_memory(Process *p, int incl_msg_inq) {
   erts_doforall_links(ERTS_P_LINKS(p), &erts_one_link_size, &size);
   erts_doforall_monitors(ERTS_P_MONITORS(p), &erts_one_mon_size, &size);
   size += (p->heap_sz + p->mbuf_sz) * sizeof(Eterm);
+  if (p->abandoned_heap)
+      size += (p->hend - p->heap) * sizeof(Eterm);
   if (p->old_hend && p->old_heap)
     size += (p->old_hend - p->old_heap) * sizeof(Eterm);
+
 
   size += p->msg.len * sizeof(ErtsMessage);
 

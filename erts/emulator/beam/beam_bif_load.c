@@ -995,6 +995,12 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
     if (any_heap_refs(c_p->heap, c_p->htop, literals, lit_bsize))
 	goto literal_gc;
     *redsp += 1;
+    if (c_p->abandoned_heap) {
+	if (any_heap_refs(c_p->abandoned_heap, c_p->abandoned_heap + c_p->heap_sz,
+			  literals, lit_bsize))
+	    goto literal_gc;
+	*redsp += 1;
+    }
     if (any_heap_refs(c_p->old_heap, c_p->old_htop, literals, lit_bsize))
 	goto literal_gc;
 
@@ -1295,6 +1301,11 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
 #endif
 	if (any_heap_refs(rp->heap, rp->htop, literals, lit_bsize))
 	    goto try_literal_gc;
+	if (rp->abandoned_heap) {
+	    if (any_heap_refs(rp->abandoned_heap, rp->abandoned_heap + rp->heap_sz,
+			      literals, lit_bsize))
+		goto try_literal_gc;
+	}
 	if (any_heap_refs(rp->old_heap, rp->old_htop, literals, lit_bsize))
 	    goto try_literal_gc;
 
