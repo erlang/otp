@@ -3549,12 +3549,6 @@ do {						\
 	    ErlHeapFragment *live_hf_end;
             ErtsCodeMFA *codemfa;
 
-            if (!((FCALLS - 1) > 0 || (FCALLS - 1) > neg_o_reds)) {
-                /* If we have run out of reductions, we do a context
-                   switch before calling the nif */
-                goto context_switch;
-            }
-
 	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
 
 	    codemfa = erts_code_to_codemfa(I);
@@ -3563,8 +3557,8 @@ do {						\
 
 	    DTRACE_NIF_ENTRY(c_p, codemfa);
 
-	    SWAPOUT;
-	    c_p->fcalls = FCALLS - 1;
+	    HEAVY_SWAPOUT;
+
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
 	    bif_nif_arity = codemfa->arity;
 	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
