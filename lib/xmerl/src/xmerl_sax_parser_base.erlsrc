@@ -1,7 +1,7 @@
 %%-*-erlang-*-
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ parse(Xml, State) ->
 	{ok, Rest, State2} ->
 	    State3 =  event_callback(endDocument, State2),
 	    ets:delete(RefTable),
-	    {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
+            {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
 	{fatal_error, {State2, Reason}} ->
 	    State3 =  event_callback(endDocument, State2),
 	    ets:delete(RefTable),
@@ -81,6 +81,10 @@ parse(Xml, State) ->
 	    State3 =  event_callback(endDocument, State2),
 	    ets:delete(RefTable),
 	    format_error(Tag, State3, Reason);
+	{endDocument, Rest, State2} ->
+	    State3 =  event_callback(endDocument, State2),
+	    ets:delete(RefTable),
+	    {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
 	Other ->
 	    _State2 = event_callback(endDocument, State1),
 	    ets:delete(RefTable),
@@ -111,7 +115,7 @@ parse_dtd(Xml, State) ->
 	{Rest, State2} when is_record(State2, xmerl_sax_parser_state) ->
 	    State3 =  event_callback(endDocument, State2),
 	    ets:delete(RefTable),
-	    {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
+            {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
 	{endDocument, Rest, State2} when is_record(State2, xmerl_sax_parser_state) ->
 	    State3 =  event_callback(endDocument, State2),
 	    ets:delete(RefTable),
@@ -1024,16 +1028,21 @@ parse_etag(Bytes, State) ->
     unicode_incomplete_check([Bytes, State, fun parse_etag/2], 
 			     undefined).
 
-
 parse_etag_1(?STRING_REST(">", Rest), 
 	     #xmerl_sax_parser_state{end_tags=[{_ETag, Uri, LocalName, QName, OldNsList, NewNsList}
-					|RestOfETags]} = State, _Tag) ->
+					|RestOfETags],
+                                    input_type=InputType} = State, _Tag) ->
     State1 =  event_callback({endElement, Uri, LocalName, QName}, State),
     State2 =  send_end_prefix_mapping_event(NewNsList, State1),
-    parse_content(Rest, 
-		  State2#xmerl_sax_parser_state{end_tags=RestOfETags,
-					 ns = OldNsList},
-		  [], true);
+    case check_if_new_doc_allowed(InputType, RestOfETags) of
+        true ->
+            throw({endDocument, Rest, State2#xmerl_sax_parser_state{ns = OldNsList}});
+        false ->
+            parse_content(Rest, 
+                          State2#xmerl_sax_parser_state{end_tags=RestOfETags,
+                                                        ns = OldNsList},
+                          [], true)
+    end;
 parse_etag_1(?STRING_UNBOUND_REST(_C, _), State, Tag) ->
     {P,TN} = Tag,
     ?fatal_error(State, "Bad EndTag: " ++ P ++ ":" ++ TN);
@@ -1051,21 +1060,26 @@ parse_etag_1(Bytes, State, Tag) ->
 %% Description: Parsing the content part of tags
 %%              [43] content ::= (element | CharData | Reference | CDSect | PI | Comment)*
 %%----------------------------------------------------------------------
-
 parse_content(?STRING_EMPTY, State, Acc, IgnorableWS) ->
-    case catch cf(?STRING_EMPTY, State, Acc, IgnorableWS, fun parse_content/4) of
-	{Rest, State1} when is_record(State1, xmerl_sax_parser_state) ->
-	    {Rest, State1};
-	{fatal_error, {State1, Msg}} ->
-	    case check_if_document_complete(State1, Msg) of
-		true ->
-		    State2 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State1),
-		    {?STRING_EMPTY, State2};
-		false ->
-		    ?fatal_error(State1, Msg)
-	    end;
-	Other ->
-	    throw(Other)
+    case check_if_document_complete(State, "No more bytes") of
+	true ->
+	    State1 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State),
+	    {?STRING_EMPTY, State1};
+	false ->
+	    case catch cf(?STRING_EMPTY, State, Acc, IgnorableWS, fun parse_content/4) of
+		{Rest, State1} when is_record(State1, xmerl_sax_parser_state) ->
+		    {Rest, State1};
+		{fatal_error, {State1, Msg}} ->
+		    case check_if_document_complete(State1, Msg) of
+			true ->
+			    State2 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State1),
+			    {?STRING_EMPTY, State2};
+			false ->
+			    ?fatal_error(State1, Msg)
+		    end;
+		Other ->
+		    throw(Other)
+	    end
     end;
 parse_content(?STRING("\r") = Bytes, State, Acc, IgnorableWS) ->
     cf(Bytes, State, Acc, IgnorableWS, fun parse_content/4);
@@ -1094,7 +1108,7 @@ parse_content(?STRING_REST("<?", Rest), State, Acc, IgnorableWS) ->
 parse_content(?STRING_REST("<!", Rest1) = Rest, #xmerl_sax_parser_state{end_tags = ET} = State, Acc, IgnorableWS) ->
     case ET of 
 	[] ->
-	    {Rest, State}; %%LATH : Skicka ignorable WS ???
+	    {Rest, State}; %% Skicka ignorable WS ???
 	_ ->
 	    State1 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State),
 	    parse_cdata(Rest1, State1)
@@ -1102,7 +1116,7 @@ parse_content(?STRING_REST("<!", Rest1) = Rest, #xmerl_sax_parser_state{end_tags
 parse_content(?STRING_REST("<", Rest1) = Rest, #xmerl_sax_parser_state{end_tags = ET} = State, Acc, IgnorableWS) ->
     case ET of 
 	[] ->
-	    {Rest, State}; %%LATH :  Skicka ignorable WS ???
+	    {Rest, State}; %% Skicka ignorable WS ???
 	_ ->
 	    State1 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State),
 	    parse_stag(Rest1, State1)
@@ -3290,7 +3304,7 @@ cf(Rest, #xmerl_sax_parser_state{continuation_fun = CFun, continuation_state = C
 	catch
 	    throw:ErrorTerm ->
 		?fatal_error(State, ErrorTerm);
-	      exit:Reason ->
+            exit:Reason ->
 		?fatal_error(State, {'EXIT', Reason})
 	end,
     case Result of
