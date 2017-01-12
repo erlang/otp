@@ -522,7 +522,7 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
     case is_race_analysis_enabled(State) of
       true ->
         Ann = cerl:get_ann(Tree),
-        File = get_file(Ann),
+        File = get_file(Ann, State),
         Line = abs(get_line(Ann)),
         dialyzer_races:store_race_call(Fun, ArgTypes, Args,
                                        {File, Line}, State);
@@ -3083,7 +3083,7 @@ state__add_warning(#state{warnings = Warnings, warning_mode = true} = State,
   Ann = cerl:get_ann(Tree),
   case Force of
     true ->
-      WarningInfo = {get_file(Ann),
+      WarningInfo = {get_file(Ann, State),
                      abs(get_line(Ann)),
                      State#state.curr_fun},
       Warn = {Tag, WarningInfo, Msg},
@@ -3093,7 +3093,9 @@ state__add_warning(#state{warnings = Warnings, warning_mode = true} = State,
       case is_compiler_generated(Ann) of
         true -> State;
         false ->
-          WarningInfo = {get_file(Ann), get_line(Ann), State#state.curr_fun},
+          WarningInfo = {get_file(Ann, State),
+                         get_line(Ann),
+                         State#state.curr_fun},
           Warn = {Tag, WarningInfo, Msg},
           case Tag of
             ?WARN_CONTRACT_RANGE -> ok;
@@ -3492,6 +3494,12 @@ state__put_races(Races, State) ->
 state__records_only(#state{records = Records}) ->
   #state{records = Records}.
 
+-spec state__translate_file(file:filename(), state()) -> file:filename().
+
+state__translate_file(FakeFile, State) ->
+  #state{codeserver = CodeServer, module = Module} = State,
+  dialyzer_codeserver:translate_fake_file(CodeServer, Module, FakeFile).
+
 %%% ===========================================================================
 %%%
 %%%  Races
@@ -3563,9 +3571,11 @@ get_line([Line|_]) when is_integer(Line) -> Line;
 get_line([_|Tail]) -> get_line(Tail);
 get_line([]) -> -1.
 
-get_file([]) -> [];
-get_file([{file, File}|_]) -> File;
-get_file([_|Tail]) -> get_file(Tail).
+get_file([], _State) -> [];
+get_file([{file, FakeFile}|_], State) ->
+  state__translate_file(FakeFile, State);
+get_file([_|Tail], State) ->
+  get_file(Tail, State).
 
 is_compiler_generated(Ann) ->
   lists:member(compiler_generated, Ann) orelse (get_line(Ann) < 1).

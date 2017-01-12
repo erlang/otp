@@ -136,8 +136,9 @@ extract(#analysis{macros = Macros,
       MergedRecords = dialyzer_utils:merge_records(NewRecords, OldRecords),
       CodeServer2 = dialyzer_codeserver:set_temp_records(MergedRecords, CodeServer1),
       CodeServer3 = dialyzer_codeserver:finalize_exported_types(NewExpTypes, CodeServer2),
-      CodeServer4 = dialyzer_utils:process_record_remote_types(CodeServer3),
-      dialyzer_contracts:process_contract_remote_types(CodeServer4)
+      {CodeServer4, RecordDict} =
+        dialyzer_utils:process_record_remote_types(CodeServer3),
+      dialyzer_contracts:process_contract_remote_types(CodeServer4, RecordDict)
     catch
       throw:{error, ErrorMsg} ->
 	compile_error(ErrorMsg)
@@ -149,7 +150,7 @@ extract(#analysis{macros = Macros,
     fun(Module, TmpPlt) ->
 	{ok, ModuleContracts} = dict:find(Module, Contracts),
 	SpecList = [{MFA, Contract} 
-		    || {MFA, {_FileLine, Contract}} <- dict:to_list(ModuleContracts)],
+		    || {MFA, {_FileLine, Contract}} <- maps:to_list(ModuleContracts)],
 	dialyzer_plt:insert_contract_list(TmpPlt, SpecList)
     end,
   NewTrustPLT = lists:foldl(FoldFun, TrustPLT, Modules),
@@ -165,8 +166,10 @@ get_type_info(#analysis{callgraph = CallGraph,
   StrippedCallGraph = remove_external(CallGraph, TrustPLT),
   %% io:format("--- Analyzing callgraph... "),
   try 
-    NewPlt = dialyzer_succ_typings:analyze_callgraph(StrippedCallGraph, 
-						     TrustPLT, CodeServer),
+    NewMiniPlt = dialyzer_succ_typings:analyze_callgraph(StrippedCallGraph,
+                                                         TrustPLT,
+                                                         CodeServer),
+    NewPlt = dialyzer_plt:restore_full_plt(NewMiniPlt),
     Analysis#analysis{callgraph = StrippedCallGraph, trust_plt = NewPlt}
   catch
     error:What ->
@@ -217,7 +220,7 @@ get_external(Exts, Plt) ->
 -type fa()        :: {atom(), arity()}.
 -type func_info() :: {line(), atom(), arity()}.
 
--record(info, {records = map__new() :: map_dict(),
+-record(info, {records = maps:new() :: erl_types:type_table(),
 	       functions = []       :: [func_info()],
 	       types = map__new()   :: map_dict(),
 	       edoc = false	    :: boolean()}).
@@ -260,7 +263,7 @@ write_inc_files(Inc) ->
 	Functions = [Key || {Key, _} <- Val],
 	Val1 = [{{F,A},Type} || {{_Line,F,A},Type} <- Val],
 	Info = #info{types = map__from_list(Val1),
-		     records = map__new(),
+		     records = maps:new(),
 		     %% Note we need to sort functions here!
 		     functions = lists:keysort(1, Functions)},
 	%% io:format("Types ~p\n", [Info#info.types]),
@@ -842,8 +845,9 @@ collect_info(Analysis) ->
       TmpCServer1 = dialyzer_codeserver:set_temp_records(MergedRecords, TmpCServer),
       TmpCServer2 =
         dialyzer_codeserver:finalize_exported_types(MergedExpTypes, TmpCServer1),
-      TmpCServer3 = dialyzer_utils:process_record_remote_types(TmpCServer2),
-      dialyzer_contracts:process_contract_remote_types(TmpCServer3)
+      {TmpCServer3, RecordDict} =
+        dialyzer_utils:process_record_remote_types(TmpCServer2),
+      dialyzer_contracts:process_contract_remote_types(TmpCServer3, RecordDict)
     catch
       throw:{error, ErrorMsg} ->
 	fatal_error(ErrorMsg)
