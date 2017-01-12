@@ -80,8 +80,8 @@
       <item>A <em>list</em> is any number of items. For example,
        an argument list can consist of zero, one, or more arguments.</item>
     </list>
-    <p>If a feature has been added recently, in Erlang 5.0/OTP R7 or
-      later, this is mentioned in the text.</p>
+    <p>If a feature has been added in R13A or later,
+    this is mentioned in the text.</p>
   </section>
 
   <section>
