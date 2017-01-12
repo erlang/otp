@@ -1099,11 +1099,13 @@ int erl_print_term(FILE *fp, const ETERM *ep)
       break;
     case ERL_U_INTEGER:
     case ERL_U_SMALL_BIG:
-      ch_written += fprintf(fp, "%d", ERL_INT_UVALUE(ep));
+      ch_written += fprintf(fp, "%u", ERL_INT_UVALUE(ep));
       break;
     case ERL_LONGLONG:
+      ch_written += fprintf(fp, "%lld", ERL_LL_VALUE(ep));
+      break;
     case ERL_U_LONGLONG:
-      ch_written += fprintf(fp, "%lld", ERL_LL_UVALUE(ep));
+      ch_written += fprintf(fp, "%llu", ERL_LL_UVALUE(ep));
       break;
     case ERL_FLOAT:
       ch_written += fprintf(fp, "%f", ERL_FLOAT_VALUE(ep));
