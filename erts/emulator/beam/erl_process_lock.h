@@ -219,6 +219,10 @@ typedef struct erts_proc_lock_t_ {
 #define ERTS_PROC_LOCKS_ALL_MINOR	(ERTS_PROC_LOCKS_ALL \
                                          & ~ERTS_PROC_LOCK_MAIN)
 
+/* All locks we first must unlock to lock L */
+#define ERTS_PROC_LOCKS_HIGHER_THAN(L) \
+  (ERTS_PROC_LOCKS_ALL & (~(L) & ~((L)-1)))
+
 
 #define ERTS_PIX_LOCKS_BITS		10
 #define ERTS_NO_OF_PIX_LOCKS		(1 << ERTS_PIX_LOCKS_BITS)

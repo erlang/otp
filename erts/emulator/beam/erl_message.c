@@ -285,9 +285,11 @@ erts_queue_dist_message(Process *rcvr,
     if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ)) {
 	if (erts_smp_proc_trylock(rcvr, ERTS_PROC_LOCK_MSGQ) == EBUSY) {
 	    ErtsProcLocks need_locks = ERTS_PROC_LOCK_MSGQ;
-	    if (rcvr_locks & ERTS_PROC_LOCK_STATUS) {
-		erts_smp_proc_unlock(rcvr, ERTS_PROC_LOCK_STATUS);
-		need_locks |= ERTS_PROC_LOCK_STATUS;
+            ErtsProcLocks unlocks =
+                rcvr_locks & ERTS_PROC_LOCKS_HIGHER_THAN(ERTS_PROC_LOCK_MSGQ);
+	    if (unlocks) {
+		erts_smp_proc_unlock(rcvr, unlocks);
+		need_locks |= unlocks;
 	    }
 	    erts_smp_proc_lock(rcvr, need_locks);
 	}
@@ -406,7 +408,7 @@ queue_messages(Process* receiver,
 	    if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT))
 		goto exiting;
 
-            need_locks = receiver_locks & (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+            need_locks = receiver_locks & ERTS_PROC_LOCKS_HIGHER_THAN(ERTS_PROC_LOCK_MSGQ);
 	    if (need_locks) {
 		erts_smp_proc_unlock(receiver, need_locks);
 	    }
