@@ -6794,11 +6794,6 @@ ok
           down to 3. Similarly, the number of dirty CPU schedulers
           online increases proportionally to increases in the number of
           schedulers online.</p>
-        <note>
-          <p>The dirty schedulers functionality is experimental.
-            Enable support for dirty schedulers when building OTP to
-            try out the functionality.</p>
-        </note>
         <p>For more information, see
           <seealso marker="#system_info_dirty_cpu_schedulers">
           <c>erlang:system_info(dirty_cpu_schedulers)</c></seealso> and
@@ -7643,9 +7638,6 @@ ok
               <seealso marker="erts:erl#+SDcpu"><c>+SDcpu</c></seealso> or
               <seealso marker="erts:erl#+SDPcpu"><c>+SDPcpu</c></seealso> in
               <c>erl(1)</c>.</p>
-            <p>Notice that the dirty schedulers functionality is
-              experimental. Enable support for dirty schedulers when
-              building OTP to try out the functionality.</p>
             <p>See also
               <seealso marker="#system_flag_dirty_cpu_schedulers_online">
               <c>erlang:system_flag(dirty_cpu_schedulers_online,
@@ -7675,9 +7667,6 @@ ok
               startup by passing command-line flag
               <seealso marker="erts:erl#+SDcpu"><c>+SDcpu</c></seealso> in
               <c>erl(1)</c>.</p>
-	    <p>Notice that the dirty schedulers functionality is
-              experimental. Enable support for dirty schedulers when
-              building OTP to try out the functionality.</p>
             <p>For more information, see
               <seealso marker="#system_info_dirty_cpu_schedulers">
               <c>erlang:system_info(dirty_cpu_schedulers)</c></seealso>,
@@ -7699,9 +7688,6 @@ ok
             <p>This value can be set at startup by passing command-line
               argument <seealso marker="erts:erl#+SDio"><c>+SDio</c></seealso>
               in <c>erl(1)</c>.</p>
-            <p>Notice that the dirty schedulers functionality is
-              experimental. Enable support for dirty schedulers when
-              building OTP to try out the functionality.</p>
             <p>For more information, see
               <seealso marker="#system_info_dirty_cpu_schedulers">
               <c>erlang:system_info(dirty_cpu_schedulers)</c></seealso>,
