@@ -1,0 +1,44 @@
+OTP14145-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+       MODULE-IDENTITY, OBJECT-TYPE,
+       mib-2      FROM SNMPv2-SMI
+       InetAddressType, InetAddress     FROM INET-ADDRESS-MIB
+       MODULE-COMPLIANCE, OBJECT-GROUP  FROM SNMPv2-CONF;
+
+testMibId MODULE-IDENTITY
+       LAST-UPDATED "200608210000Z"  -- 21 August 2006
+       ORGANIZATION "a"
+       CONTACT-INFO "a"
+       DESCRIPTION "a"
+       REVISION "200608210000Z"  -- 21 August 2006
+       DESCRIPTION "a"
+       ::= { mib-2 67 }
+
+testObj OBJECT-TYPE
+       SYNTAX InetAddressType
+       -- SYNTAX InetAddress
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION "a"
+       ::= { testMibId 2 }
+
+testObjId OBJECT IDENTIFIER ::= { testMibId 3 }
+
+testMibCompliance MODULE-COMPLIANCE
+            STATUS  current
+            DESCRIPTION "a"
+            MODULE
+            OBJECT testObj
+            SYNTAX InetAddressType { ipv4(1), ipv6(2) }
+            -- SYNTAX InetAddress ( SIZE(4|16) )
+            DESCRIPTION "a"
+            ::= { testMibId 4 }
+
+testObjGroup OBJECT-GROUP
+  OBJECTS { testObj }
+  STATUS current
+  DESCRIPTION "a"
+  ::= { testObjId 1 }
+
+END
