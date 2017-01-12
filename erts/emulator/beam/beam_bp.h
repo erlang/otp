@@ -79,10 +79,8 @@ typedef struct generic_bp {
 #define ERTS_BP_CALL_TIME_SCHEDULE_OUT     (1)
 #define ERTS_BP_CALL_TIME_SCHEDULE_EXITING (2)
 
-#ifdef ERTS_SMP
-#define bp_sched2ix_proc(p) (erts_proc_sched_data(p)->thr_id - 1)
-#else
-#define bp_sched2ix_proc(p) (0)
+#ifdef ERTS_DIRTY_SCHEDULERS
+extern erts_smp_mtx_t erts_dirty_bp_ix_mtx;
 #endif
 
 enum erts_break_op{
