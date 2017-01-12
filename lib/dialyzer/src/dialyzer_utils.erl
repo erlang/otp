@@ -202,7 +202,7 @@ get_core_from_abstract_code(AbstrCode, Opts) ->
 
 get_record_and_type_info(AbstractCode) ->
   Module = get_module(AbstractCode),
-  get_record_and_type_info(AbstractCode, Module, dict:new()).
+  get_record_and_type_info(AbstractCode, Module, maps:new()).
 
 -spec get_record_and_type_info(abstract_code(), module(), type_table()) ->
 	{'ok', type_table()} | {'error', string()}.
@@ -215,7 +215,7 @@ get_record_and_type_info([{attribute, A, record, {Name, Fields0}}|Left],
   {ok, Fields} = get_record_fields(Fields0, RecDict),
   Arity = length(Fields),
   FN = {File, erl_anno:line(A)},
-  NewRecDict = dict:store({record, Name}, {FN, [{Arity,Fields}]}, RecDict),
+  NewRecDict = maps:put({record, Name}, {FN, [{Arity,Fields}]}, RecDict),
   get_record_and_type_info(Left, Module, NewRecDict, File);
 get_record_and_type_info([{attribute, A, type, {{record, Name}, Fields0, []}}
 			  |Left], Module, RecDict, File) ->
@@ -223,7 +223,7 @@ get_record_and_type_info([{attribute, A, type, {{record, Name}, Fields0, []}}
   {ok, Fields} = get_record_fields(Fields0, RecDict),
   Arity = length(Fields),
   FN = {File, erl_anno:line(A)},
-  NewRecDict = dict:store({record, Name}, {FN, [{Arity, Fields}]}, RecDict),
+  NewRecDict = maps:put({record, Name}, {FN, [{Arity, Fields}]}, RecDict),
   get_record_and_type_info(Left, Module, NewRecDict, File);
 get_record_and_type_info([{attribute, A, Attr, {Name, TypeForm}}|Left],
 			 Module, RecDict, File)
@@ -263,9 +263,9 @@ add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, FN,
     false ->
       try erl_types:t_var_names(ArgForms) of
         ArgNames ->
-	  dict:store({TypeOrOpaque, Name, Arity},
-                     {{Module, FN, TypeForm, ArgNames},
-                      erl_types:t_any()}, RecDict)
+	  maps:put({TypeOrOpaque, Name, Arity},
+                   {{Module, FN, TypeForm, ArgNames},
+                    erl_types:t_any()}, RecDict)
       catch
         _:_ ->
 	  throw({error, flat_format("Type declaration for ~w does not "
@@ -296,19 +296,18 @@ get_record_fields([{record_field, _Line, Name, _Init}|Left], RecDict, Acc) ->
 get_record_fields([], _RecDict, Acc) ->
   lists:reverse(Acc).
 
--spec process_record_remote_types(codeserver()) -> codeserver().
+-spec process_record_remote_types(codeserver()) ->
+                                     {codeserver(), mod_records()}.
 
 %% The field types are cached. Used during analysis when handling records.
 process_record_remote_types(CServer) ->
   TempRecords = dialyzer_codeserver:get_temp_records(CServer),
   ExpTypes = dialyzer_codeserver:get_exported_types(CServer),
-  Cache = erl_types:cache__new(),
-  {TempRecords1, Cache1} =
-    process_opaque_types0(TempRecords, ExpTypes, Cache),
+  TempRecords1 = process_opaque_types0(TempRecords, ExpTypes),
   %% A cache (not the field type cache) is used for speeding things up a bit.
   VarTable = erl_types:var_table__new(),
   ModuleFun =
-    fun({Module, Record}, C0) ->
+    fun({Module, Record}) ->
         RecordFun =
           fun({Key, Value}, C2) ->
               case Key of
@@ -334,24 +333,27 @@ process_record_remote_types(CServer) ->
                 _Other -> {{Key, Value}, C2}
               end
           end,
-        {RecordList, C1} =
-          lists:mapfoldl(RecordFun, C0, dict:to_list(Record)),
-        {{Module, dict:from_list(RecordList)}, C1}
+        Cache = erl_types:cache__new(),
+        {RecordList, _NewCache} =
+          lists:mapfoldl(RecordFun, Cache, maps:to_list(Record)),
+        {Module, maps:from_list(RecordList)}
     end,
-  {NewRecordsList, C1} =
-    lists:mapfoldl(ModuleFun, Cache1, dict:to_list(TempRecords1)),
+  NewRecordsList = lists:map(ModuleFun, dict:to_list(TempRecords1)),
   NewRecords = dict:from_list(NewRecordsList),
-  _C8 = check_record_fields(NewRecords, ExpTypes, C1),
-  dialyzer_codeserver:finalize_records(NewRecords, CServer).
+  check_record_fields(NewRecords, ExpTypes),
+  {dialyzer_codeserver:finalize_records(NewRecords, CServer), NewRecords}.
 
 %% erl_types:t_from_form() substitutes the declaration of opaque types
 %% for the expanded type in some cases. To make sure the initial type,
 %% any(), is not used, the expansion is done twice.
 %% XXX: Recursive opaque types are not handled well.
-process_opaque_types0(TempRecords0, TempExpTypes, Cache) ->
-  {TempRecords1, NewCache} =
+process_opaque_types0(TempRecords0, TempExpTypes) ->
+  Cache = erl_types:cache__new(),
+  {TempRecords1, Cache1} =
     process_opaque_types(TempRecords0, TempExpTypes, Cache),
-  process_opaque_types(TempRecords1, TempExpTypes, NewCache).
+  {TempRecords, _NewCache} =
+    process_opaque_types(TempRecords1, TempExpTypes, Cache1),
+  TempRecords.
 
 process_opaque_types(TempRecords, TempExpTypes, Cache) ->
   VarTable = erl_types:var_table__new(),
@@ -371,8 +373,8 @@ process_opaque_types(TempRecords, TempExpTypes, Cache) ->
               end
           end,
         {RecordList, C1} =
-          lists:mapfoldl(RecordFun, C0, dict:to_list(Record)),
-        {{Module, dict:from_list(RecordList)}, C1}
+          lists:mapfoldl(RecordFun, C0, maps:to_list(Record)),
+        {{Module, maps:from_list(RecordList)}, C1}
         %% dict:map(RecordFun, Record)
     end,
   {TempRecordList, NewCache} =
@@ -380,7 +382,8 @@ process_opaque_types(TempRecords, TempExpTypes, Cache) ->
   {dict:from_list(TempRecordList), NewCache}.
   %% dict:map(ModuleFun, TempRecords).
 
-check_record_fields(Records, TempExpTypes, Cache) ->
+check_record_fields(Records, TempExpTypes) ->
+  Cache = erl_types:cache__new(),
   VarTable = erl_types:var_table__new(),
   CheckFun =
     fun({Module, Element}, C0) ->
@@ -410,9 +413,10 @@ check_record_fields(Records, TempExpTypes, Cache) ->
                   msg_with_position(Fun, FileLine)
               end
           end,
-        lists:foldl(ElemFun, C0, dict:to_list(Element))
+        lists:foldl(ElemFun, C0, maps:to_list(Element))
     end,
-  lists:foldl(CheckFun, Cache, dict:to_list(Records)).
+  _NewCache = lists:foldl(CheckFun, Cache, dict:to_list(Records)),
+  ok.
 
 msg_with_position(Fun, FileLine) ->
   try Fun()
@@ -435,17 +439,17 @@ merge_records(NewRecords, OldRecords) ->
 %%
 %% ============================================================================
 
--type spec_dict()     :: dict:dict().
--type callback_dict() :: dict:dict().
+-type spec_map()     :: dialyzer_codeserver:contracts().
+-type callback_map() :: dialyzer_codeserver:contracts().
 
 -spec get_spec_info(module(), abstract_code(), type_table()) ->
-        {'ok', spec_dict(), callback_dict()} | {'error', string()}.
+        {'ok', spec_map(), callback_map()} | {'error', string()}.
 
-get_spec_info(ModName, AbstractCode, RecordsDict) ->
+get_spec_info(ModName, AbstractCode, RecordsMap) ->
   OptionalCallbacks0 = get_optional_callbacks(AbstractCode, ModName),
   OptionalCallbacks = gb_sets:from_list(OptionalCallbacks0),
-  get_spec_info(AbstractCode, dict:new(), dict:new(),
-		RecordsDict, ModName, OptionalCallbacks, "nofile").
+  get_spec_info(AbstractCode, maps:new(), maps:new(),
+		RecordsMap, ModName, OptionalCallbacks, "nofile").
 
 get_optional_callbacks(Abs, ModName) ->
   [{ModName, F, A} || {F, A} <- get_optional_callbacks(Abs)].
@@ -463,7 +467,7 @@ get_optional_callbacks(Abs) ->
 %%    are erl_types:erl_type()
 
 get_spec_info([{attribute, Anno, Contract, {Id, TypeSpec}}|Left],
-	      SpecDict, CallbackDict, RecordsDict, ModName, OptCb, File)
+	      SpecMap, CallbackMap, RecordsMap, ModName, OptCb, File)
   when ((Contract =:= 'spec') or (Contract =:= 'callback')),
        is_list(TypeSpec) ->
   Ln = erl_anno:line(Anno),
@@ -472,24 +476,24 @@ get_spec_info([{attribute, Anno, Contract, {Id, TypeSpec}}|Left],
 	  {F, A} -> {ModName, F, A}
 	end,
   Xtra = [optional_callback || gb_sets:is_member(MFA, OptCb)],
-  ActiveDict =
+  ActiveMap =
     case Contract of
-      spec     -> SpecDict;
-      callback -> CallbackDict
+      spec     -> SpecMap;
+      callback -> CallbackMap
     end,
-  try dict:find(MFA, ActiveDict) of
+  try maps:find(MFA, ActiveMap) of
     error ->
       SpecData = {TypeSpec, Xtra},
-      NewActiveDict =
+      NewActiveMap =
 	dialyzer_contracts:store_tmp_contract(MFA, {File, Ln}, SpecData,
-					      ActiveDict, RecordsDict),
-      {NewSpecDict, NewCallbackDict} =
+					      ActiveMap, RecordsMap),
+      {NewSpecMap, NewCallbackMap} =
 	case Contract of
-	  spec     -> {NewActiveDict, CallbackDict};
-	  callback -> {SpecDict, NewActiveDict}
+	  spec     -> {NewActiveMap, CallbackMap};
+	  callback -> {SpecMap, NewActiveMap}
 	end,
-      get_spec_info(Left, NewSpecDict, NewCallbackDict,
-		    RecordsDict, ModName, OptCb, File);
+      get_spec_info(Left, NewSpecMap, NewCallbackMap,
+		    RecordsMap, ModName, OptCb, File);
     {ok, {{OtherFile, L}, _D}} ->
       {Mod, Fun, Arity} = MFA,
       Msg = flat_format("  Contract/callback for function ~w:~w/~w "
@@ -502,16 +506,16 @@ get_spec_info([{attribute, Anno, Contract, {Id, TypeSpec}}|Left],
 			  [Ln, Error])}
   end;
 get_spec_info([{attribute, _, file, {IncludeFile, _}}|Left],
-	      SpecDict, CallbackDict, RecordsDict, ModName, OptCb, _File) ->
-  get_spec_info(Left, SpecDict, CallbackDict,
-		RecordsDict, ModName, OptCb, IncludeFile);
-get_spec_info([_Other|Left], SpecDict, CallbackDict,
-	      RecordsDict, ModName, OptCb, File) ->
-  get_spec_info(Left, SpecDict, CallbackDict,
-                RecordsDict, ModName, OptCb, File);
-get_spec_info([], SpecDict, CallbackDict,
-              _RecordsDict, _ModName, _OptCb, _File) ->
-  {ok, SpecDict, CallbackDict}.
+	      SpecMap, CallbackMap, RecordsMap, ModName, OptCb, _File) ->
+  get_spec_info(Left, SpecMap, CallbackMap,
+		RecordsMap, ModName, OptCb, IncludeFile);
+get_spec_info([_Other|Left], SpecMap, CallbackMap,
+	      RecordsMap, ModName, OptCb, File) ->
+  get_spec_info(Left, SpecMap, CallbackMap,
+                RecordsMap, ModName, OptCb, File);
+get_spec_info([], SpecMap, CallbackMap,
+              _RecordsMap, _ModName, _OptCb, _File) ->
+  {ok, SpecMap, CallbackMap}.
 
 -spec get_fun_meta_info(module(), abstract_code(), [dial_warn_tag()]) ->
                 dialyzer_codeserver:fun_meta_info() | {'error', string()}.
@@ -707,7 +711,7 @@ format_errors([]) ->
 -spec format_sig(erl_types:erl_type()) -> string().
 
 format_sig(Type) ->
-  format_sig(Type, dict:new()).
+  format_sig(Type, maps:new()).
 
 -spec format_sig(erl_types:erl_type(), type_table()) -> string().
 
@@ -959,9 +963,7 @@ label(Tree) ->
 -spec parallelism() -> integer().
 
 parallelism() ->
-  CPUs = erlang:system_info(logical_processors_available),
-  Schedulers = erlang:system_info(schedulers),
-  min(CPUs, Schedulers).
+  erlang:system_info(schedulers_online).
 
 -spec family([{K,V}]) -> [{K,[V]}].
 

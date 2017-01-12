@@ -96,7 +96,7 @@ analyze_callgraph(Callgraph, Plt, Codeserver, TimingServer, Solvers, Parent) ->
   NewState =
     init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
 				       TimingServer, Solvers, Parent),
-  dialyzer_plt:restore_full_plt(NewState#st.plt, Plt).
+  NewState#st.plt.
 
 %%--------------------------------------------------------------------
 
@@ -111,6 +111,7 @@ init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
 
 get_refined_success_typings(SCCs, #st{callgraph = Callgraph,
 				      timing_server = TimingServer} = State) ->
+  erlang:garbage_collect(),
   case find_succ_typings(SCCs, State) of
     {fixpoint, State1} -> State1;
     {not_fixpoint, NotFixpoint1, State1} ->
@@ -155,8 +156,8 @@ get_warnings(Callgraph, Plt, DocPlt, Codeserver,
     ?timing(TimingServer, "warning",
 	    get_warnings_from_modules(Mods, InitState, MiniDocPlt)),
   {postprocess_warnings(CWarns ++ ModWarns, Codeserver),
-   dialyzer_plt:restore_full_plt(MiniPlt, Plt),
-   dialyzer_plt:restore_full_plt(MiniDocPlt, DocPlt)}.
+   MiniPlt,
+   dialyzer_plt:restore_full_plt(MiniDocPlt)}.
 
 get_warnings_from_modules(Mods, State, DocPlt) ->
   #st{callgraph = Callgraph, codeserver = Codeserver,
@@ -174,10 +175,10 @@ collect_warnings(M, {Codeserver, Callgraph, Plt, DocPlt}) ->
   %% Check if there are contracts for functions that do not exist
   Warnings1 =
     dialyzer_contracts:contracts_without_fun(Contracts, AllFuns, Callgraph),
+  Attrs = cerl:module_attrs(ModCode),
   {Warnings2, FunTypes} =
     dialyzer_dataflow:get_warnings(ModCode, Plt, Callgraph, Codeserver,
 				   Records),
-  Attrs = cerl:module_attrs(ModCode),
   Warnings3 =
     dialyzer_behaviours:check_callbacks(M, Attrs, Records, Plt, Codeserver),
   DocPlt = insert_into_doc_plt(FunTypes, Callgraph, DocPlt),
@@ -262,7 +263,7 @@ refine_one_module(M, {CodeServer, Callgraph, Plt, _Solvers}) ->
   NewFunTypes =
     dialyzer_dataflow:get_fun_types(ModCode, Plt, Callgraph, CodeServer, Records),
   Contracts1 = dialyzer_codeserver:lookup_mod_contracts(M, CodeServer),
-  Contracts = orddict:from_list(dict:to_list(Contracts1)),
+  Contracts = orddict:from_list(maps:to_list(Contracts1)),
   FindOpaques = find_opaques_fun(Records),
   DecoratedFunTypes =
     decorate_succ_typings(Contracts, Callgraph, NewFunTypes, FindOpaques),
@@ -348,21 +349,25 @@ find_succ_typings(SCCs, #st{codeserver = Codeserver, callgraph = Callgraph,
 
 -spec find_succ_types_for_scc(scc(), typesig_init_data()) -> [mfa_or_funlbl()].
 
-find_succ_types_for_scc(SCC, {Codeserver, Callgraph, Plt, Solvers}) ->
-  SCC_Info = [{MFA, 
-	       dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
-	       dialyzer_codeserver:lookup_mod_records(M, Codeserver)}
-	      || {M, _, _} = MFA <- SCC],
+find_succ_types_for_scc(SCC0, {Codeserver, Callgraph, Plt, Solvers}) ->
+  SCC = [MFA || {_, _, _} = MFA <- SCC0],
   Contracts1 = [{MFA, dialyzer_codeserver:lookup_mfa_contract(MFA, Codeserver)}
-		|| {_, _, _} = MFA <- SCC],
+		|| MFA <- SCC],
   Contracts2 = [{MFA, Contract} || {MFA, {ok, Contract}} <- Contracts1],
   Contracts3 = orddict:from_list(Contracts2),
   Label = dialyzer_codeserver:get_next_core_label(Codeserver),
-  AllFuns = collect_fun_info([Fun || {_MFA, {_Var, Fun}, _Rec} <- SCC_Info]),
+  AllFuns = lists:append(
+              [begin
+                 {_Var, Fun} =
+                   dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
+                 collect_fun_info([Fun])
+               end || MFA <- SCC]),
+  erlang:garbage_collect(),
   PropTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
   %% Assume that the PLT contains the current propagated types
-  FunTypes = dialyzer_typesig:analyze_scc(SCC_Info, Label, Callgraph,
-                                          Plt, PropTypes, Solvers),
+  FunTypes = dialyzer_typesig:analyze_scc(SCC, Label, Callgraph,
+                                          Codeserver, Plt, PropTypes,
+                                          Solvers),
   AllFunSet = sets:from_list([X || {X, _} <- AllFuns]),
   FilteredFunTypes =
     dict:filter(fun(X, _) -> sets:is_element(X, AllFunSet) end, FunTypes),

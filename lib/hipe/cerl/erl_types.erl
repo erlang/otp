@@ -236,7 +236,8 @@
 -export([t_is_identifier/1]).
 -endif.
 
--export_type([erl_type/0, opaques/0, type_table/0, var_table/0, cache/0]).
+-export_type([erl_type/0, opaques/0, type_table/0, mod_records/0,
+              var_table/0, cache/0]).
 
 %%-define(DEBUG, true).
 
@@ -379,8 +380,9 @@
 -type type_value()   :: {{module(), {file:name(), erl_anno:line()},
                           erl_parse:abstract_type(), ArgNames :: [atom()]},
                          erl_type()}.
--type type_table() :: dict:dict(record_key() | type_key(),
-                                record_value() | type_value()).
+-type type_table() :: #{record_key() | type_key() =>
+                        record_value() | type_value()}.
+-type mod_records() :: dict:dict(module(), type_table()).
 
 -opaque var_table() :: #{atom() => erl_type()}.
 
@@ -749,16 +751,16 @@ decorate_tuples_in_sets([], _L, _Opaques, Acc) ->
 
 -spec t_opaque_from_records(type_table()) -> [erl_type()].
 
-t_opaque_from_records(RecDict) ->
-  OpaqueRecDict =
-    dict:filter(fun(Key, _Value) ->
+t_opaque_from_records(RecMap) ->
+  OpaqueRecMap =
+    maps:filter(fun(Key, _Value) ->
 		    case Key of
 		      {opaque, _Name, _Arity} -> true;
 		      _  -> false
 		    end
-		end, RecDict),
-  OpaqueTypeDict =
-    dict:map(fun({opaque, Name, _Arity},
+		end, RecMap),
+  OpaqueTypeMap =
+    maps:map(fun({opaque, Name, _Arity},
                  {{Module, _FileLine, _Form, ArgNames}, _Type}) ->
                  %% Args = args_to_types(ArgNames),
                  %% List = lists:zip(ArgNames, Args),
@@ -767,8 +769,8 @@ t_opaque_from_records(RecDict) ->
                  Rep = t_any(), % not used for anything right now
                  Args = [t_any() || _ <- ArgNames],
                  t_opaque(Module, Name, Args, Rep)
-	     end, OpaqueRecDict),
-  [OpaqueType || {_Key, OpaqueType} <- dict:to_list(OpaqueTypeDict)].
+	     end, OpaqueRecMap),
+  [OpaqueType || {_Key, OpaqueType} <- maps:to_list(OpaqueTypeMap)].
 
 %% Decompose opaque instances of type arg2 to structured types, in arg1
 %% XXX: Same as t_unopaque
@@ -800,10 +802,6 @@ t_struct_from_opaque(Type, _Opaques) -> Type.
 
 list_struct_from_opaque(Types, Opaques) ->
   [t_struct_from_opaque(Type, Opaques) || Type <- Types].
-
-%%-----------------------------------------------------------------------------
-
--type mod_records() :: dict:dict(module(), type_table()).
 
 %%-----------------------------------------------------------------------------
 %% Unit type. Signals non termination.
@@ -4184,7 +4182,7 @@ t_map(Fun, T) ->
 -spec t_to_string(erl_type()) -> string().
 
 t_to_string(T) ->
-  t_to_string(T, dict:new()).
+  t_to_string(T, maps:new()).
 
 -spec t_to_string(erl_type(), type_table()) -> string().
 
@@ -5246,7 +5244,7 @@ t_form_to_string({type, _L, union, Args}) ->
 t_form_to_string({type, _L, Name, []} = T) ->
    try
      M = mod,
-     D0 = dict:new(),
+     D0 = maps:new(),
      MR = dict:from_list([{M, D0}]),
      Site = {type, {M,Name,0}},
      V = var_table__new(),
@@ -5310,8 +5308,8 @@ is_erl_type(_) -> false.
 -spec lookup_record(atom(), type_table()) ->
         'error' | {'ok', [{atom(), parse_form(), erl_type()}]}.
 
-lookup_record(Tag, RecDict) when is_atom(Tag) ->
-  case dict:find({record, Tag}, RecDict) of
+lookup_record(Tag, Table) when is_atom(Tag) ->
+  case maps:find({record, Tag}, Table) of
     {ok, {_FileLine, [{_Arity, Fields}]}} ->
       {ok, Fields};
     {ok, {_FileLine, List}} when is_list(List) ->
@@ -5325,18 +5323,18 @@ lookup_record(Tag, RecDict) when is_atom(Tag) ->
 -spec lookup_record(atom(), arity(), type_table()) ->
         'error' | {'ok', [{atom(), parse_form(), erl_type()}]}.
 
-lookup_record(Tag, Arity, RecDict) when is_atom(Tag) ->
-  case dict:find({record, Tag}, RecDict) of
+lookup_record(Tag, Arity, Table) when is_atom(Tag) ->
+  case maps:find({record, Tag}, Table) of
     {ok, {_FileLine, [{Arity, Fields}]}} -> {ok, Fields};
     {ok, {_FileLine, OrdDict}} -> orddict:find(Arity, OrdDict);
     error -> error
   end.
 
 -spec lookup_type(_, _, _) -> {'type' | 'opaque', type_value()} | 'error'.
-lookup_type(Name, Arity, RecDict) ->
-  case dict:find({type, Name, Arity}, RecDict) of
+lookup_type(Name, Arity, Table) ->
+  case maps:find({type, Name, Arity}, Table) of
     error ->
-      case dict:find({opaque, Name, Arity}, RecDict) of
+      case maps:find({opaque, Name, Arity}, Table) of
 	error -> error;
 	{ok, Found} -> {opaque, Found}
       end;
@@ -5346,8 +5344,8 @@ lookup_type(Name, Arity, RecDict) ->
 -spec type_is_defined('type' | 'opaque', atom(), arity(), type_table()) ->
         boolean().
 
-type_is_defined(TypeOrOpaque, Name, Arity, RecDict) ->
-  dict:is_key({TypeOrOpaque, Name, Arity}, RecDict).
+type_is_defined(TypeOrOpaque, Name, Arity, Table) ->
+  maps:is_key({TypeOrOpaque, Name, Arity}, Table).
 
 cannot_have_opaque(Type, TypeName, TypeNames) ->
   t_is_none(Type) orelse is_recursive(TypeName, TypeNames).
