@@ -348,7 +348,7 @@ Export *export_list(int i, ErtsCodeIndex code_ix)
 
 int export_list_size(ErtsCodeIndex code_ix)
 {
-    return export_tables[code_ix].entries;
+    return erts_index_num_entries(&export_tables[code_ix]);
 }
 
 int export_table_sz(void)
