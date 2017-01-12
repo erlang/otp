@@ -64,7 +64,7 @@
          predef/1,
          maps/1,maps_type/1,maps_parallel_match/1,
          otp_11851/1,otp_11879/1,otp_13230/1,
-         record_errors/1]).
+         record_errors/1, otp_14070/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -84,7 +84,7 @@ all() ->
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
      maps, maps_type, maps_parallel_match,
      otp_11851, otp_11879, otp_13230,
-     record_errors].
+     record_errors, otp_14070].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -3867,6 +3867,55 @@ record_errors(Config) when is_list(Config) ->
            [],
            {errors,[{2,erl_lint,{redefine_field,r,a}},
 		    {3,erl_lint,{redefine_field,r,a}}],[]}}],
+    run(Config, Ts).
+
+otp_14070(Config) ->
+    Ts = [{constraint1,
+           <<"-export([t/1]).
+              -spec t(X) -> X when is_subtype(integer()).
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           {errors,
+            [{2,erl_parse,"unsupported constraint " ++ ["is_subtype"]}],
+            []}},
+          {constraint2,
+           <<"-export([t/1]).
+              -spec t(X) -> X when bad_atom(X, integer()).
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           {errors,
+            [{2,erl_parse,"unsupported constraint " ++ ["bad_atom"]}],
+            []}},
+          {constraint3,
+           <<"-export([t/1]).
+              -spec t(X) -> X when is_subtype(bad_variable, integer()).
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           {errors,[{2,erl_parse,"bad type variable"}],[]}},
+          {constraint4,
+           <<"-export([t/1]).
+              -spec t(X) -> X when is_subtype(atom(), integer()).
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           {errors,[{2,erl_parse,"bad type variable"}],[]}},
+          {constraint5,
+           <<"-export([t/1]).
+              -spec t(X) -> X when is_subtype(X, integer()).
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           []},
+          {constraint6,
+           <<"-export([t/1]).
+              -spec t(X) -> X when X :: integer().
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           []}],
     run(Config, Ts).
 
 run(Config, Tests) ->
