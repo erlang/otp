@@ -273,7 +273,7 @@ handle_info({portinfo_open, PortIdStr},
     Port = lists:keyfind(PortIdStr, #port.id_str, Ports),
     NewOpened =
         case Port of
-            undefined ->
+            false ->
                 Opened;
             _ ->
                 display_port_info(Grid, Port, Opened)
