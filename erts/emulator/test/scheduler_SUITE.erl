@@ -1095,16 +1095,13 @@ scheduler_threads(Config) when is_list(Config) ->
     end.
 
 dirty_scheduler_threads(Config) when is_list(Config) ->
-    SmpSupport = erlang:system_info(smp_support),
-    try
-	erlang:system_info(dirty_cpu_schedulers),
-	dirty_scheduler_threads_test(Config, SmpSupport)
-    catch
-	error:badarg ->
-	    {skipped, "No dirty scheduler support"}
+    case erlang:system_info(dirty_cpu_schedulers) of
+        0 -> {skipped, "No dirty scheduler support"};
+        _ -> dirty_scheduler_threads_test(Config)
     end.
 
-dirty_scheduler_threads_test(Config, SmpSupport) ->
+dirty_scheduler_threads_test(Config) ->
+    SmpSupport = erlang:system_info(smp_support),
     {Sched, SchedOnln, _} = get_dsstate(Config, ""),
     {HalfSched, HalfSchedOnln} = case SmpSupport of
                                      false -> {1,1};
@@ -1374,12 +1371,9 @@ sst2_loop(N) ->
     sst2_loop(N-1).
 
 sst3_loop(S, N) ->
-    try erlang:system_info(dirty_cpu_schedulers) of
-	DS ->
-	    sst3_loop_with_dirty_schedulers(S, DS, N)
-    catch
-	error:badarg ->
-	    sst3_loop_normal_schedulers_only(S, N)
+    case erlang:system_info(dirty_cpu_schedulers) of
+        0 -> sst3_loop_normal_schedulers_only(S, N);
+	DS -> sst3_loop_with_dirty_schedulers(S, DS, N)
     end.
 
 sst3_loop_normal_schedulers_only(_S, 0) ->

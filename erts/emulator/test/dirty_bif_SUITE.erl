@@ -67,10 +67,10 @@ all() ->
      code_purge].
 
 init_per_suite(Config) ->
-    try erlang:system_info(dirty_cpu_schedulers) of
-	N when is_integer(N), N > 0 ->
-	    Config
-    catch _:_ ->
+    case erlang:system_info(dirty_cpu_schedulers) of
+	N when N > 0 ->
+	    Config;
+        _ ->
 	    {skipped, "No dirty scheduler support"}
     end.
 

@@ -2680,20 +2680,30 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	erts_schedulers_state(NULL, NULL, &active, NULL, NULL, NULL, NULL, NULL);
 	BIF_RET(make_small(active));
 #endif
-#if defined(ERTS_SMP) && defined(ERTS_DIRTY_SCHEDULERS)
     } else if (ERTS_IS_ATOM_STR("dirty_cpu_schedulers", BIF_ARG_1)) {
 	Uint dirty_cpu;
+#ifdef ERTS_DIRTY_SCHEDULERS
 	erts_schedulers_state(NULL, NULL, NULL, &dirty_cpu, NULL, NULL, NULL, NULL);
+#else
+        dirty_cpu = 0;
+#endif
 	BIF_RET(make_small(dirty_cpu));
     } else if (ERTS_IS_ATOM_STR("dirty_cpu_schedulers_online", BIF_ARG_1)) {
 	Uint dirty_cpu_onln;
+#ifdef ERTS_DIRTY_SCHEDULERS
 	erts_schedulers_state(NULL, NULL, NULL, NULL, &dirty_cpu_onln, NULL, NULL, NULL);
+#else
+        dirty_cpu_onln = 0;
+#endif
 	BIF_RET(make_small(dirty_cpu_onln));
     } else if (ERTS_IS_ATOM_STR("dirty_io_schedulers", BIF_ARG_1)) {
 	Uint dirty_io;
+#ifdef ERTS_DIRTY_SCHEDULERS
 	erts_schedulers_state(NULL, NULL, NULL, NULL, NULL, NULL, &dirty_io, NULL);
-	BIF_RET(make_small(dirty_io));
+#else
+        dirty_io = 0;
 #endif
+	BIF_RET(make_small(dirty_io));
     } else if (ERTS_IS_ATOM_STR("run_queues", BIF_ARG_1)) {
 	res = make_small(erts_no_run_queues);
 	BIF_RET(res);

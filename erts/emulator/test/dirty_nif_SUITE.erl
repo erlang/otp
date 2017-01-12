@@ -54,8 +54,8 @@ all() ->
      dirty_nif_send_traced].
 
 init_per_suite(Config) ->
-    try erlang:system_info(dirty_cpu_schedulers) of
-	N when is_integer(N), N > 0 ->
+    case erlang:system_info(dirty_cpu_schedulers) of
+	N when N > 0 ->
 	    case lib_loaded() of
 		false ->
 		    ok = erlang:load_nif(
@@ -64,8 +64,8 @@ init_per_suite(Config) ->
 		true ->
 		    ok
 	    end,
-	    Config
-    catch _:_ ->
+	    Config;
+        _ ->
 	    {skipped, "No dirty scheduler support"}
     end.
 
