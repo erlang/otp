@@ -112,6 +112,10 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 	       on_load=[] :: [fa()],		%On-load function
 	       on_load_line=erl_anno:new(0)	%Line for on_load
                    :: erl_anno:anno(),
+               atoms=undefined                  %Declared atoms
+                   :: undefined
+                    | gb_sets:set(atom()),
+               typedef=false,                   %true for specs inside a -type
 	       clashes=[],			%Exported functions named as BIFs
                not_deprecated=[],               %Not considered deprecated
                func=[],                         %Current function
@@ -154,8 +158,6 @@ format_error(redefine_module) ->
     "redefining module";
 format_error(pmod_unsupported) ->
     "parameterized modules are no longer supported";
-%% format_error({redefine_mod_import, M, P}) ->
-%%     io_lib:format("module '~s' already imported from package '~s'", [M, P]);
 
 format_error(invalid_call) ->
     "invalid function call";
@@ -191,6 +193,8 @@ format_error({bad_on_load_arity,{F,A}}) ->
     io_lib:format("function ~w/~w has wrong arity (must be 0)", [F,A]);
 format_error({undefined_on_load,{F,A}}) ->
     io_lib:format("function ~w/~w undefined", [F,A]);
+format_error({unknown_atom,A}) ->
+    io_lib:format("unknown atom: '~s' (not part of any type declaration)", [A]);
 
 format_error(export_all) ->
     "export_all flag enabled - all functions will be exported";
@@ -527,6 +531,9 @@ start(File, Opts) ->
 	 {export_all,
 	  bool_option(warn_export_all, nowarn_export_all,
 		      true, Opts)},
+	 {unknown_atom,
+	  bool_option(warn_unknown_atom, nowarn_unknown_atom,
+		      false, Opts)},
 	 {export_vars,
 	  bool_option(warn_export_vars, nowarn_export_vars,
 		      false, Opts)},
@@ -572,6 +579,12 @@ start(File, Opts) ->
 		false ->
 		    undefined
 	    end,
+    Atoms = case ordsets:is_element(unknown_atom, Enabled) of
+		true ->
+		    gb_sets:from_list(default_atoms());
+		false ->
+		    undefined
+	    end,
     #lint{state = start,
           exports = gb_sets:from_list([{module_info,0},{module_info,1}]),
           compile = Opts,
@@ -583,7 +596,8 @@ start(File, Opts) ->
 				     nowarn_format, 0, Opts),
 	  enabled_warnings = Enabled,
           nowarn_bif_clash = nowarn_function(nowarn_bif_clash, Opts),
-          file = File
+          file = File,
+          atoms = Atoms
          }.
 
 %% is_warn_enabled(Category, St) -> boolean().
@@ -734,8 +748,8 @@ start_state({attribute,Line,module,{_,_}}=Form, St0) ->
     St1 = add_error(Line, pmod_unsupported, St0),
     attribute_state(Form, St1#lint{state=attribute});
 start_state({attribute,_,module,M}, St0) ->
-    St1 = St0#lint{module=M},
-    St1#lint{state=attribute};
+    St1 = seen_atom(M, St0),
+    St1#lint{module=M, state=attribute};
 start_state(Form, St) ->
     St1 = add_error(element(2, Form), undefined_module, St),
     attribute_state(Form, St1#lint{state=attribute}).
@@ -1466,7 +1480,7 @@ pattern({char,_Line,_C}, _Vt, _Old, _Bvt, St) -> {[],[],St};
 pattern({integer,_Line,_I}, _Vt, _Old, _Bvt, St) -> {[],[],St};
 pattern({float,_Line,_F}, _Vt, _Old, _Bvt, St) -> {[],[],St};
 pattern({atom,Line,A}, _Vt, _Old, _Bvt, St) ->
-    {[],[],keyword_warning(Line, A, St)};
+    {[],[],atom_warning(Line, A, keyword_warning(Line, A, St))};
 pattern({string,_Line,_S}, _Vt, _Old, _Bvt, St) -> {[],[],St};
 pattern({nil,_Line}, _Vt, _Old, _Bvt, St) -> {[],[],St};
 pattern({cons,_Line,H,T}, Vt, Old,  Bvt, St0) ->
@@ -1894,7 +1908,7 @@ gexpr({char,_Line,_C}, _Vt, St) -> {[],St};
 gexpr({integer,_Line,_I}, _Vt, St) -> {[],St};
 gexpr({float,_Line,_F}, _Vt, St) -> {[],St};
 gexpr({atom,Line,A}, _Vt, St) ->
-    {[],keyword_warning(Line, A, St)};
+    {[],atom_warning(Line, A, keyword_warning(Line, A, St))};
 gexpr({string,_Line,_S}, _Vt, St) -> {[],St};
 gexpr({nil,_Line}, _Vt, St) -> {[],St};
 gexpr({cons,_Line,H,T}, Vt, St) ->
@@ -2146,7 +2160,7 @@ expr({char,_Line,_C}, _Vt, St) -> {[],St};
 expr({integer,_Line,_I}, _Vt, St) -> {[],St};
 expr({float,_Line,_F}, _Vt, St) -> {[],St};
 expr({atom,Line,A}, _Vt, St) ->
-    {[],keyword_warning(Line, A, St)};
+    {[],atom_warning(Line, A, keyword_warning(Line, A, St))};
 expr({string,_Line,_S}, _Vt, St) -> {[],St};
 expr({nil,_Line}, _Vt, St) -> {[],St};
 expr({cons,_Line,H,T}, Vt, St) ->
@@ -2227,8 +2241,20 @@ expr({'fun',Line,Body}, Vt, St) ->
 	{function,M,F,A} when is_atom(M), is_atom(F), is_integer(A) ->
 	    %% Compatibility with pre-R15 abstract format.
 	    {[],St};
+	{function,{atom,Lm,M},{atom,Lf,F},A} ->
+            St1 = keyword_warning(Lm, M, St),
+            St2 = keyword_warning(Lf, F, St1),
+	    {Bvt, St3} = expr_list([A], Vt, St2),
+	    {vtupdate(Bvt, Vt),St3};
+	{function,{atom,Lm,M},F,A} ->
+            St1 = keyword_warning(Lm, M, St),
+	    {Bvt, St2} = expr_list([F,A], Vt, St1),
+	    {vtupdate(Bvt, Vt),St2};
+	{function,M,{atom,Lf,F},A} ->
+            St1 = keyword_warning(Lf, F, St),
+	    {Bvt, St2} = expr_list([M,A], Vt, St1),
+	    {vtupdate(Bvt, Vt),St2};
 	{function,M,F,A} ->
-	    %% New in R15.
 	    {Bvt, St1} = expr_list([M,F,A], Vt, St),
 	    {vtupdate(Bvt, Vt),St1}
     end;
@@ -2249,14 +2275,19 @@ expr({call,Line,{remote,_Lr,{atom,_Lm,erlang},{atom,Lf,is_record}},[E,A]},
     expr({call,Line,{atom,Lf,is_record},[E,A]}, Vt, St0);
 expr({call,L,{tuple,Lt,[{atom,Lm,erlang},{atom,Lf,is_record}]},As}, Vt, St) ->
     expr({call,L,{remote,Lt,{atom,Lm,erlang},{atom,Lf,is_record}},As}, Vt, St);
-expr({call,Line,{remote,_Lr,{atom,_Lm,M},{atom,Lf,F}},As}, Vt, St0) ->
+expr({call,Line,{remote,_Lr,{atom,Lm,M},{atom,Lf,F}},As}, Vt, St0) ->
+    St1 = keyword_warning(Lm, M, St0),
+    St2 = keyword_warning(Lf, F, St1),
+    St3 = check_remote_function(Line, M, F, As, St2),
+    expr_list(As, Vt, St3);
+expr({call,_Line,{remote,_Lr,{atom,Lm,M},F},As}, Vt, St0) ->
+    St1 = keyword_warning(Lm, M, St0),
+    expr_list([F|As], Vt, St1);
+expr({call,_Line,{remote,_Lr,M,{atom,Lf,F}},As}, Vt, St0) ->
     St1 = keyword_warning(Lf, F, St0),
-    St2 = check_remote_function(Line, M, F, As, St1),
-    expr_list(As, Vt, St2);
-expr({call,Line,{remote,_Lr,M,F},As}, Vt, St0) ->
-    St1 = keyword_warning(Line, M, St0),
-    St2 = keyword_warning(Line, F, St1),
-    expr_list([M,F|As], Vt, St2);
+    expr_list([M|As], Vt, St1);
+expr({call,_Line,{remote,_Lr,M,F},As}, Vt, St0) ->
+    expr_list([M,F|As], Vt, St0);
 expr({call,Line,{atom,La,F},As}, Vt, St0) ->
     St1 = keyword_warning(La, F, St0),
     {Asvt,St2} = expr_list(As, Vt, St1),
@@ -2499,53 +2530,69 @@ record_def(Line, Name, Fs0, St0) ->
     case dict:is_key(Name, St0#lint.records) of
         true -> add_error(Line, {redefine_record,Name}, St0);
         false ->
-            {Fs1,St1} = def_fields(normalise_fields(Fs0), Name, St0),
-            St2 = St1#lint{records=dict:store(Name, {Line,Fs1},
-                                              St1#lint.records)},
-            Types = [T || {typed_record_field, _, T} <- Fs0],
-            check_type({type, nowarn(), product, Types}, St2)
+            %% initializers cannot refer to the record being defined, but
+            %% types in typed record fields can be recursive, so we need to
+            %% set up a preliminary definition of the record being defined
+            NFs = lists:map(fun normalise_field/1, Fs0),
+            St1 = set_record_def(Name, {Line,NFs}, St0),
+            {Fs1,St2} = def_fields(NFs, Fs0, Name, [], St1),
+            set_record_def(Name, {Line,Fs1}, St2)
     end.
 
+set_record_def(Name, Def, St) ->
+    St#lint{records=dict:store(Name, Def, St#lint.records)}.
+
 %% def_fields([RecDef], RecordName, State) -> {[DefField],State}.
-%%  Check (normalised) fields for duplicates.  Return unduplicated
-%%  record and set State.
+%%  Check (normalised) fields for duplicates and check field types.
+%%  Return unduplicated record and set State.
 
-def_fields(Fs0, Name, St0) ->
-    foldl(fun ({record_field,Lf,{atom,La,F},V}, {Fs,St}) ->
-                  case exist_field(F, Fs) of
-                      true -> {Fs,add_error(Lf, {redefine_field,Name,F}, St)};
-                      false ->
-                          St1 = St#lint{recdef_top = true},
-                          {_,St2} = expr(V, [], St1),
-                          %% Warnings and errors found are kept, but
-                          %% updated calls, records, etc. are discarded.
-                          St3 = St1#lint{warnings = St2#lint.warnings,
-                                         errors = St2#lint.errors,
-                                         called = St2#lint.called,
-                                         recdef_top = false},
-                          %% This is one way of avoiding a loop for
-                          %% "recursive" definitions.
-                          NV = case St2#lint.errors =:= St1#lint.errors of
-                                   true -> V;
-                                   false -> {atom,La,undefined}
-                               end,
-                          {[{record_field,Lf,{atom,La,F},NV}|Fs],St3}
-                  end
-          end, {[],St0}, Fs0).
+def_fields([{record_field,Lf,{atom,La,A},V}|NFs], [F0 | Fs0], Name, Fs, St0) ->
+    case exist_field(A, Fs) of
+        true ->
+            def_fields(NFs, Fs0, Name, Fs,
+                       add_error(Lf, {redefine_field,Name,A}, St0));
+        false ->
+            St1 = St0#lint{recdef_top = true},
+            %% the type declaration has to be checked first so
+            %% it can be used when checking the value
+            {_,St2} = expr(V, [], check_type(field_type(F0), St1)),
+            %% Warnings and errors found are kept, but
+            %% updated calls, records, etc. are discarded.
+            St3 = St1#lint{warnings = St2#lint.warnings,
+                           errors = St2#lint.errors,
+                           called = St2#lint.called,
+                           usage = St2#lint.usage,
+                           atoms = St2#lint.atoms,
+                           recdef_top = false},
+            %% This is one way of avoiding a loop for
+            %% "recursive" definitions.
+            Nv = case St2#lint.errors =:= St1#lint.errors of
+                     true -> V;
+                     false -> {atom,La,undefined}
+                 end,
+            def_fields(NFs, Fs0, Name,
+                       [{record_field,Lf,{atom,La,A},Nv}|Fs], St3)
+    end;
+def_fields([], [], _Name, Fs, St) ->
+    {Fs, St}.
 
-%% normalise_fields([RecDef]) -> [Field].
-%%  Normalise the field definitions to always have a default value. If
-%%  none has been given then use 'undefined'.
-%%  Also, strip type information from typed record fields.
+%% Drop any type declaration
+normalise_field({typed_record_field, Field, _Type}) ->
+    normalise_field_1(Field);
+normalise_field(Field) ->
+    normalise_field_1(Field).
 
-normalise_fields(Fs) ->
-    map(fun ({record_field,Lf,Field}) ->
-		{record_field,Lf,Field,{atom,Lf,undefined}};
-	    ({typed_record_field,{record_field,Lf,Field},_Type}) ->
-		{record_field,Lf,Field,{atom,Lf,undefined}};
-	    ({typed_record_field,Field,_Type}) ->
-		Field;
-            (F) -> F end, Fs).
+%% If no initial value has been given for a field then use 'undefined'
+normalise_field_1({record_field, Lf, Field, Value}) ->
+    {record_field,Lf,Field,Value};
+normalise_field_1({record_field, Lf, Field}) ->
+    {record_field,Lf,Field,{atom,Lf,undefined}}.
+
+%% If no type is specified, then use any()
+field_type({typed_record_field, _Field, Type}) ->
+    Type;
+field_type(_) ->
+    {type,0,any}.
 
 %% exist_record(Line, RecordName, State) -> State.
 %%  Check if a record exists.  Set State.
@@ -2717,7 +2764,8 @@ type_def(Attr, Line, TypeName, ProtoType, Args, St0) ->
         fun(St) ->
                 NewDefs = dict:store(TypePair, Info, TypeDefs),
                 CheckType = {type, nowarn(), product, [ProtoType|Args]},
-                check_type(CheckType, St#lint{types=NewDefs})
+                (check_type(CheckType, St#lint{types=NewDefs,typedef=true}))
+                    #lint{typedef=false}
         end,
     case is_default_type(TypePair) of
         true ->
@@ -2781,7 +2829,10 @@ check_type({remote_type, L, [{atom, _, Mod}, {atom, _, Name}, Args]},
 			end, {SeenVars, St}, Args)
     end;
 check_type({integer, _L, _}, SeenVars, St) -> {SeenVars, St};
-check_type({atom, _L, _}, SeenVars, St) -> {SeenVars, St};
+check_type({atom, _L, A}, SeenVars, #lint{typedef=true}=St) ->
+    {SeenVars, seen_atom(A, St)};
+check_type({atom, L, A}, SeenVars, St) ->
+    {SeenVars, atom_warning(L, A, St)};
 check_type({var, _L, '_'}, SeenVars, St) -> {SeenVars, St};
 check_type({var, L, Name}, SeenVars, St) ->
     NewSeenVars =
@@ -3677,10 +3728,33 @@ test_overriden_by_local(Line, OldTest, Arity, St) ->
 	    St
     end.
 
+%% atoms commonly used throughout the Erlang standard libraries
+default_atoms() ->
+    [ok, true, false, undefined, error, exit, throw,
+     infinity, normal, trap_exit, kill, 'EXIT', 'DOWN',
+     process, local, global, ignore, reply, noreply, stop,
+     standard_io, standard_error].
+
+%% remembering atoms seen in type declarations
+seen_atom(A, #lint{atoms=undefined}=St) when is_atom(A) ->
+    St;
+seen_atom(A, #lint{atoms=As}=St) when is_atom(A) ->
+    St#lint{atoms=gb_sets:add_element(A, As)}.
+
+%% atom_warning(Line, Atom, State) -> State.
+%%  Add warning for atoms that have not occurred in a type declaration
+atom_warning(_Line, _A, #lint{atoms=undefined}=St) ->
+    St;
+atom_warning(Line, A, #lint{atoms=As}=St) ->
+    case gb_sets:is_element(A, As) of
+        true -> St;
+        false -> add_warning(Line,{unknown_atom, A}, St)
+    end.
+
 %% keyword_warning(Line, Atom, State) -> State.
 %%  Add warning for atoms that will be reserved keywords in the future.
 %%  (Currently, no such keywords to warn for.)
-keyword_warning(_Line, _A, St) -> St.
+keyword_warning(_Line, A, St) when is_atom(A) -> St.
 
 %% format_function(Line, ModName, FuncName, [Arg], State) -> State.
 %%  Add warning for bad calls to io:fwrite/format functions.
