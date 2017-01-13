@@ -32,6 +32,10 @@
 -import(lists, [reverse/1,foldl/3,foreach/2,dropwhile/2]).
 
 %% To be called by the compiler.
+
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs,Lc}=Code, _Opts)
   when is_atom(Mod), is_list(Exp), is_list(Attr), is_integer(Lc) ->
     case validate(Mod, Fs) of

@@ -49,12 +49,36 @@
 
 -import(lists, [reverse/1]).
 
+-type location() :: integer().
+-type category() :: atom().
+-type symbol() :: atom() | float() | integer() | string().
+-type token() :: {category(), Anno :: location(), symbol()}
+               | {category(), Anno :: location()}.
+-type tokens() :: [token()].
+-type error_description() :: term().
+-type error_info() :: {erl_anno:location(), module(), error_description()}.
+
 %% string([Char]) ->
 %% string([Char], StartPos) ->
 %%    {ok, [Tok], EndPos} |
 %%    {error, {Pos,core_scan,What}, EndPos}
 
+-spec string(String) -> Return when
+      String :: string(),
+      Return :: {'ok', Tokens :: tokens(), EndLocation}
+              | {'error', ErrorInfo :: error_info(), ErrorLocation},
+      EndLocation :: location(),
+      ErrorLocation :: location().
+
 string(Cs) -> string(Cs, 1).
+
+-spec string(String, StartLocation) -> Return when
+      String :: string(),
+      Return :: {'ok', Tokens :: tokens(), EndLocation}
+              | {'error', ErrorInfo :: error_info(), ErrorLocation},
+      StartLocation :: location(),
+      EndLocation :: location(),
+      ErrorLocation :: location().
 
 string(Cs, Sp) ->
     %% Add an 'eof' to always get correct handling.

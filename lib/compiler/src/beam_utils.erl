@@ -28,11 +28,31 @@
 	 live_opt/1,delete_live_annos/1,combine_heap_needs/2,
 	 split_even/1]).
 
+-export_type([code_index/0,module_code/0,instruction/0]).
+
 -import(lists, [member/2,sort/1,reverse/1,splitwith/2]).
 
+%% instruction() describes all instructions that are used during optimzation
+%% (from beam_a to beam_z).
+-type instruction() :: atom() | tuple().
+
+-type code_index() :: gb_trees:tree(beam_asm:label(), [instruction()]).
+
+-type int_function() :: {'function',beam_asm:function_name(),arity(),
+                         beam_asm:label(),[instruction()]}.
+
+-type module_code() ::
+        {module(),[_],[_],[int_function()],pos_integer()}.
+
+%% Internal types.
+-type fail() :: beam_asm:fail() | 'fail'.
+-type test() :: {'test',atom(),fail(),[beam_asm:src()]} |
+		{'test',atom(),fail(),integer(),list(),beam_asm:reg()}.
+-type result_cache() :: gb_trees:tree(beam_asm:label(), 'killed' | 'used').
+
 -record(live,
-	{lbl,					%Label to code index.
-	 res}).					%Result cache for each label.
+	{lbl :: code_index(),            %Label to code index.
+	 res :: result_cache()}).        %Result cache for each label.
 
 
 %% is_killed_block(Register, [Instruction]) -> true|false
@@ -43,6 +63,8 @@
 %%  referenced in ANY way (not even indirectly by an allocate instruction);
 %%  i.e. it is OK to enter the instruction sequence with Register
 %%  containing garbage.
+
+-spec is_killed_block(beam_asm:reg(), [instruction()]) -> boolean().
 
 is_killed_block({x,X}, [{set,_,_,{alloc,Live,_}}|_]) ->
     X >= Live;
@@ -65,6 +87,8 @@ is_killed_block(_, []) -> false.
 %%  The state (constructed by index_instructions/1) is used to allow us
 %%  to determine the kill state across branches.
 
+-spec is_killed(beam_asm:reg(), [instruction()], code_index()) -> boolean().
+
 is_killed(R, Is, D) ->
     St = #live{lbl=D,res=gb_trees:empty()},
     case check_liveness(R, Is, St) of
@@ -74,6 +98,8 @@ is_killed(R, Is, D) ->
 
 %% is_killed_at(Reg, Lbl, State) -> true|false
 %%  Determine whether Reg is killed at label Lbl.
+
+-spec is_killed_at(beam_asm:reg(), beam_asm:label(), code_index()) -> boolean().
 
 is_killed_at(R, Lbl, D) when is_integer(Lbl) ->
     St0 = #live{lbl=D,res=gb_trees:empty()},
@@ -89,6 +115,8 @@ is_killed_at(R, Lbl, D) when is_integer(Lbl) ->
 %%    The state is used to allow us to determine the usage state
 %%  across branches.
 
+-spec is_not_used(beam_asm:reg(), [instruction()], code_index()) -> boolean().
+
 is_not_used(R, Is, D) ->
     St = #live{lbl=D,res=gb_trees:empty()},
     case check_liveness(R, Is, St) of
@@ -100,17 +128,24 @@ is_not_used(R, Is, D) ->
 %%  Index the instruction sequence so that we can quickly
 %%  look up the instruction following a specific label.
 
+-spec index_labels([instruction()]) -> code_index().
+
 index_labels(Is) ->
     index_labels_1(Is, []).
 
 %% empty_label_index() -> State
 %%  Create an empty label index.
 
+-spec empty_label_index() -> code_index().
+
 empty_label_index() ->
     gb_trees:empty().
 
 %% index_label(Label, [Instruction], State) -> State
 %%  Add an index for a label.
+
+-spec index_label(beam_asm:label(), [instruction()], code_index()) ->
+   code_index().
 
 index_label(Lbl, Is0, Acc) ->
     Is = drop_labels(Is0),
@@ -120,11 +155,15 @@ index_label(Lbl, Is0, Acc) ->
 %% code_at(Label, State) -> [I].
 %%  Retrieve the code at the given label.
 
+-spec code_at(beam_asm:label(), code_index()) -> [instruction()].
+
 code_at(L, Ll) ->
     gb_trees:get(L, Ll).
 
 %% bif_to_test(Bif, [Op], Fail) -> {test,Test,Fail,[Op]}
 %%  Convert a BIF to a test. Fail if not possible.
+
+-spec bif_to_test(atom(), list(), fail()) -> test().
 
 bif_to_test(is_atom,     [_]=Ops, Fail) -> {test,is_atom,Fail,Ops};
 bif_to_test(is_boolean,  [_]=Ops, Fail) -> {test,is_boolean,Fail,Ops};
@@ -158,6 +197,9 @@ bif_to_test(is_record, [_,_,_]=Ops, Fail) -> {test,is_record,Fail,Ops}.
 %%  Return 'true' if the test instruction does not modify any
 %%  registers and/or bit syntax matching state.
 %%
+
+-spec is_pure_test(test()) -> boolean().
+
 is_pure_test({test,is_eq,_,[_,_]}) -> true;
 is_pure_test({test,is_ne,_,[_,_]}) -> true;
 is_pure_test({test,is_eq_exact,_,[_,_]}) -> true;
@@ -180,7 +222,9 @@ is_pure_test({test,Op,_,Ops}) ->
 %%  whose destination is a register that will not be used.
 %%  Also insert {'%live',Live,Regs} annotations at the beginning
 %%  and end of each block.
-%%
+
+-spec live_opt([instruction()]) -> [instruction()].
+
 live_opt(Is0) ->
     {[{label,Fail}|_]=Bef,[Fi|Is]} =
 	splitwith(fun({func_info,_,_,_}) -> false;
@@ -193,7 +237,9 @@ live_opt(Is0) ->
 
 %% delete_live_annos([Instruction]) -> [Instruction].
 %%  Delete all live annotations.
-%%
+
+-spec delete_live_annos([instruction()]) -> [instruction()].
+
 delete_live_annos([{block,Bl0}|Is]) ->
     case delete_live_annos(Bl0) of
 	[] -> delete_live_annos(Is);
@@ -208,6 +254,8 @@ delete_live_annos([]) -> [].
 %% combine_heap_needs(HeapNeed1, HeapNeed2) -> HeapNeed
 %%  Combine the heap need for two allocation instructions.
 
+-spec combine_heap_needs(term(), term()) -> term().
+
 combine_heap_needs({alloc,Alloc1}, {alloc,Alloc2}) ->
     {alloc,combine_alloc_lists(Alloc1, Alloc2)};
 combine_heap_needs({alloc,Alloc}, Words) when is_integer(Words) ->
@@ -219,6 +267,8 @@ combine_heap_needs(H1, H2) when is_integer(H1), is_integer(H2) ->
 
 %% split_even/1
 %% [1,2,3,4,5,6] -> {[1,3,5],[2,4,6]}
+
+-spec split_even(list()) -> {list(),list()}.
 
 split_even(Rs) -> split_even(Rs, [], []).
 

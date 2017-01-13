@@ -126,7 +126,7 @@ ERL_COMPILE_FLAGS += +native
 endif
 ERL_COMPILE_FLAGS += +inline +warn_unused_import \
  -Werror \
- -I../../stdlib/include -I$(EGEN) -W
+ -I../../stdlib/include -I$(EGEN) -W +warn_missing_spec
 
 # ----------------------------------------------------
 # Targets

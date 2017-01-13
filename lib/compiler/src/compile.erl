@@ -228,6 +228,8 @@ expand_opt(O, Os) -> [O|Os].
 
 %% format_error(ErrorDescriptor) -> string()
 
+-spec format_error(term()) -> iolist().
+
 format_error(no_native_support) ->
     "this system is not configured for native-code compilation.";
 format_error(no_crypto) ->
@@ -288,20 +290,22 @@ format_error_reason({Reason, Stack}) when is_list(Stack) ->
 format_error_reason(Reason) ->
     io_lib:format("~tp", [Reason]).
 
+-type err_warn_info() :: tuple().
+
 %% The compile state record.
 -record(compile, {filename="" :: file:filename(),
 		  dir=""      :: file:filename(),
 		  base=""     :: file:filename(),
 		  ifile=""    :: file:filename(),
 		  ofile=""    :: file:filename(),
-		  module=[],
-		  core_code=[],
-		  abstract_code=[],		%Abstract code for debugger.
-		  options=[]  :: [option()],	%Options for compilation
+		  module=[]   :: module() | [],
+		  core_code=[] :: cerl:c_module() | [],
+		  abstract_code=[] :: binary() | [], %Abstract code for debugger.
+		  options=[]  :: [option()],  %Options for compilation
 		  mod_options=[]  :: [option()], %Options for module_info
                   encoding=none :: none | epp:source_encoding(),
-		  errors=[],
-		  warnings=[]}).
+		  errors=[]     :: [err_warn_info()],
+		  warnings=[]   :: [err_warn_info()]}).
 
 internal({forms,Forms}, Opts0) ->
     {_,Ps} = passes(forms, Opts0),
@@ -1600,6 +1604,9 @@ list_errors(_F, []) -> ok.
 %% tmpfile(ObjFile) -> TmpFile
 %%  Work out the correct input and output file names.
 
+-spec iofile(atom() | file:filename_all()) ->
+                    {file:name_all(),file:name_all()}.
+
 iofile(File) when is_atom(File) ->
     iofile(atom_to_list(File));
 iofile(File) ->
@@ -1734,6 +1741,8 @@ help(_) ->
 %% compile(AbsFileName, Outfilename, Options)
 %%   Compile entry point for erl_compile.
 
+-spec compile(file:filename(), _, #options{}) -> 'ok' | 'error'.
+
 compile(File0, _OutFile, Options) ->
     pre_load(),
     File = shorten_filename(File0),
@@ -1742,6 +1751,8 @@ compile(File0, _OutFile, Options) ->
 	Other -> Other
     end.
 
+-spec compile_beam(file:filename(), _, #options{}) -> 'ok' | 'error'.
+
 compile_beam(File0, _OutFile, Opts) ->
     File = shorten_filename(File0),
     case file(File, [from_beam|make_erl_options(Opts)]) of
@@ -1749,12 +1760,16 @@ compile_beam(File0, _OutFile, Opts) ->
 	Other -> Other
     end.
 
+-spec compile_asm(file:filename(), _, #options{}) -> 'ok' | 'error'.
+
 compile_asm(File0, _OutFile, Opts) ->
     File = shorten_filename(File0),
     case file(File, [from_asm|make_erl_options(Opts)]) of
 	{ok,_Mod} -> ok;
 	Other -> Other
     end.
+
+-spec compile_core(file:filename(), _, #options{}) -> 'ok' | 'error'.
 
 compile_core(File0, _OutFile, Opts) ->
     File = shorten_filename(File0),

@@ -1584,6 +1584,8 @@ ann_make_list(_, [], Node) ->
 %% @doc Returns <code>true</code> if <code>Node</code> is an abstract
 %% map constructor, otherwise <code>false</code>.
 
+-type map_op() :: #c_literal{val::'assoc'} | #c_literal{val::'exact'}.
+
 -spec is_c_map(cerl()) -> boolean().
 
 is_c_map(#c_map{}) ->
@@ -1679,8 +1681,16 @@ update_c_map(#c_map{is_pat=true}=Old, M, Es) ->
 update_c_map(#c_map{is_pat=false}=Old, M, Es) ->
     ann_c_map(get_ann(Old), M, Es).
 
+-spec map_pair_key(c_map_pair()) -> cerl().
+
 map_pair_key(#c_map_pair{key=K}) -> K.
+
+-spec map_pair_val(c_map_pair()) -> cerl().
+
 map_pair_val(#c_map_pair{val=V}) -> V.
+
+-spec map_pair_op(c_map_pair()) -> map_op().
+
 map_pair_op(#c_map_pair{op=Op}) -> Op.
 
 -spec c_map_pair(cerl(), cerl()) -> c_map_pair().
@@ -1698,6 +1708,8 @@ c_map_pair_exact(Key,Val) ->
 
 ann_c_map_pair(As,Op,K,V) ->
     #c_map_pair{op=Op, key = K, val=V, anno = As}.
+
+-spec update_c_map_pair(c_map_pair(), map_op(), cerl(), cerl()) -> c_map_pair().
 
 update_c_map_pair(Old,Op,K,V) ->
     #c_map_pair{op=Op, key=K, val=V, anno = get_ann(Old)}.
