@@ -825,12 +825,13 @@ type_examples() ->
      %% is_subtype(V, T) syntax, we need a few examples of the syntax.
      {ex31,<<"-spec t1(FooBar :: t99()) -> t99();"
 	     "(t2()) -> t2();"
-	     "('\\'t::4'()) -> '\\'t::4'() when is_subtype('\\'t::4'(), t24);"
-	     "(t23()) -> t23() when is_subtype(t23(), atom()),"
-	     "                      is_subtype(t23(), t14());"
-	     "(t24()) -> t24() when is_subtype(t24(), atom()),"
-	     "                      is_subtype(t24(), t14()),"
-	     "                      is_subtype(t24(), '\\'t::4'()).">>},
+	     "('\\'t::4'()) -> {'\\'t::4'(), B}"
+             "             when is_subtype(B, '\\'t::4'());"
+	     "(t23()) -> C when is_subtype(C, atom()),"
+	     "                      is_subtype(C, t14());"
+	     "(t24()) -> D when is_subtype(D, atom()),"
+	     "                      is_subtype(D, t14()),"
+	     "                      is_subtype(D, '\\'t::4'()).">>},
      {ex32,<<"-spec mod:t2() -> any(). ">>},
      {ex33,<<"-opaque attributes_data() :: "
        "[{'column', column()} | {'line', info_line()} |"
