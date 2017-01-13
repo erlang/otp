@@ -110,7 +110,6 @@ typedef struct {
 
 static Uint setup_rootset(Process*, Eterm*, int, Rootset*);
 static void cleanup_rootset(Rootset *rootset);
-static void deallocate_previous_young_generation(Process *c_p);
 static Eterm *full_sweep_heaps(Process *p,
 			       int hibernate,
 			       Eterm *n_heap, Eterm* n_htop,
@@ -839,7 +838,7 @@ erts_garbage_collect_hibernate(Process* p)
     disallow_heap_frag_ref_in_heap(p, heap, htop);
 #endif
 
-    deallocate_previous_young_generation(p);
+    erts_deallocate_young_generation(p);
 
     p->heap = heap;
     p->high_water = htop;
@@ -1496,7 +1495,7 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
     disallow_heap_frag_ref_in_heap(p, n_heap, n_htop);
 #endif
 
-    deallocate_previous_young_generation(p);
+    erts_deallocate_young_generation(p);
 
     HEAP_START(p) = n_heap;
     HEAP_TOP(p) = n_htop;
@@ -1594,7 +1593,7 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
     disallow_heap_frag_ref_in_heap(p, n_heap, n_htop);
 #endif
 
-    deallocate_previous_young_generation(p);
+    erts_deallocate_young_generation(p);
 
     HEAP_START(p) = n_heap;
     HEAP_TOP(p) = n_htop;
@@ -1756,8 +1755,8 @@ adjust_after_fullsweep(Process *p, int need, Eterm *objv, int nobj)
     return adjusted;
 }
 
-static void
-deallocate_previous_young_generation(Process *c_p)
+void
+erts_deallocate_young_generation(Process *c_p)
 {
     Eterm *orig_heap;
 
