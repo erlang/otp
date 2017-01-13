@@ -350,7 +350,7 @@ gen_dec_pack(Typename, CompList) ->
 	    %% CompList is used here because we don't want
 	    %% ExtensionAdditionGroups to be wrapped in SEQUENCES when
 	    %% we are ordering the fields according to textual order
-	    mkvlist(textual_order(to_encoding_order(CompList),asn1ct_name:all(term))),
+	    mkvlist(textual_order(CompList, asn1ct_name:all(term))),
 	    emit("},")
     end,
     emit({{curr,bytes},"}"}).
@@ -378,17 +378,16 @@ filter_ext_add_groups([H|T], Acc) ->
     filter_ext_add_groups(T, [H|Acc]);
 filter_ext_add_groups([], Acc) -> Acc.
 
-textual_order([#'ComponentType'{textual_order=undefined}|_],TermList) ->
+textual_order([#'ComponentType'{textual_order=undefined}|_], TermList) ->
     TermList;
-textual_order(CompList,TermList) when is_list(CompList) ->
+textual_order(CompList, TermList) when is_list(CompList) ->
     OrderList = [Ix||#'ComponentType'{textual_order=Ix} <- CompList],
-    [Term||{_,Term}<-
-	       lists:sort(lists:zip(OrderList,
-				    lists:sublist(TermList,length(OrderList))))];
-	       %% sublist is just because Termlist can sometimes be longer than
-	       %% OrderList, which it really shouldn't
-textual_order({Root,Ext},TermList) ->
-    textual_order(Root ++ Ext,TermList).
+    Zipped = lists:sort(lists:zip(OrderList, TermList)),
+    [Term || {_,Term} <- Zipped];
+textual_order({Root,Ext}, TermList) ->
+    textual_order(Root ++ Ext, TermList);
+textual_order({R1,Ext,R2}, TermList) ->
+    textual_order(R1 ++ R2 ++ Ext, TermList).
 
 to_textual_order({Root,Ext}) ->
     {to_textual_order(Root),Ext};
@@ -777,13 +776,6 @@ get_optionality_pos(TextPos,OptTable) ->
 	_ ->
 	    no_num
     end.
-
-to_encoding_order(Cs) when is_list(Cs) ->
-    Cs;
-to_encoding_order(Cs = {_Root,_Ext}) ->
-    Cs;
-to_encoding_order({R1,Ext,R2}) ->
-    {R1++R2,Ext}.
 
 add_textual_order(Cs) when is_list(Cs) ->
     {NewCs,_} = add_textual_order1(Cs,1),
