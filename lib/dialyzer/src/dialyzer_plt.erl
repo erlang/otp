@@ -32,6 +32,7 @@
 	 from_file/1,
 	 get_default_plt/0,
 	 get_types/1,
+         get_module_types/2,
          get_exported_types/1,
 	 %% insert/3,
 	 insert_list/2,
@@ -198,6 +199,12 @@ insert_exported_types(PLT, Set) ->
 
 get_types(#plt{types = Types}) ->
   Types.
+
+-spec get_module_types(plt(), atom()) ->
+                          'none' | {'value', erl_types:type_table()}.
+
+get_module_types(#plt{types = Types}, M) when is_atom(M) ->
+  table_lookup(Types, M).
 
 -spec get_exported_types(plt()) -> sets:set().
 

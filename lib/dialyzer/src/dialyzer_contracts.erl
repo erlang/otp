@@ -24,7 +24,7 @@
 	 get_contract_return/2,
 	 %% get_contract_signature/1,
 	 is_overloaded/1,
-	 process_contract_remote_types/2,
+	 process_contract_remote_types/1,
 	 store_tmp_contract/5]).
 
 -export_type([file_contract/0, plt_contracts/0]).
@@ -139,18 +139,18 @@ sequence([], _Delimiter) -> "";
 sequence([H], _Delimiter) -> H;
 sequence([H|T], Delimiter) -> H ++ Delimiter ++ sequence(T, Delimiter).
 
--spec process_contract_remote_types(dialyzer_codeserver:codeserver(),
-                                    erl_types:mod_records()) ->
+-spec process_contract_remote_types(dialyzer_codeserver:codeserver()) ->
                                        dialyzer_codeserver:codeserver().
 
-process_contract_remote_types(CodeServer, RecordDict) ->
-  Mods = dialyzer_codeserver:contracts_modules(CodeServer),
+process_contract_remote_types(CodeServer) ->
+  Mods = dialyzer_codeserver:all_temp_modules(CodeServer),
+  RecordTable = dialyzer_codeserver:get_records_table(CodeServer),
   ExpTypes = dialyzer_codeserver:get_exported_types(CodeServer),
   ContractFun =
     fun({{_M, _F, _A}=MFA, {File, TmpContract, Xtra}}, C0) ->
         #tmp_contract{contract_funs = CFuns, forms = Forms} = TmpContract,
         {NewCs, C2} = lists:mapfoldl(fun(CFun, C1) ->
-                                         CFun(ExpTypes, RecordDict, C1)
+                                         CFun(ExpTypes, RecordTable, C1)
                                      end, C0, CFuns),
         Args = general_domain(NewCs),
         Contract = #contract{contracts = NewCs, args = Args, forms = Forms},
@@ -451,10 +451,10 @@ contract_from_form(Forms, MFA, RecDict, FileLine) ->
 contract_from_form([{type, _, 'fun', [_, _]} = Form | Left], MFA, RecDict,
 		   FileLine, TypeAcc, FormAcc) ->
   TypeFun =
-    fun(ExpTypes, AllRecords, Cache) ->
+    fun(ExpTypes, RecordTable, Cache) ->
 	{NewType, NewCache} =
 	  try
-            from_form_with_check(Form, ExpTypes, MFA, AllRecords, Cache)
+            from_form_with_check(Form, ExpTypes, MFA, RecordTable, Cache)
 	  catch
 	    throw:{error, Msg} ->
 	      {File, Line} = FileLine,
@@ -472,12 +472,12 @@ contract_from_form([{type, _L1, bounded_fun,
 		     [{type, _L2, 'fun', [_, _]} = Form, Constr]}| Left],
 		   MFA, RecDict, FileLine, TypeAcc, FormAcc) ->
   TypeFun =
-    fun(ExpTypes, AllRecords, Cache) ->
+    fun(ExpTypes, RecordTable, Cache) ->
 	{Constr1, VarTable, Cache1} =
-	  process_constraints(Constr, MFA, RecDict, ExpTypes, AllRecords,
+	  process_constraints(Constr, MFA, RecDict, ExpTypes, RecordTable,
                               Cache),
         {NewType, NewCache} =
-          from_form_with_check(Form, ExpTypes, MFA, AllRecords,
+          from_form_with_check(Form, ExpTypes, MFA, RecordTable,
                                VarTable, Cache1),
         NewTypeNoVars = erl_types:subst_all_vars_to_any(NewType),
 	{{NewTypeNoVars, Constr1}, NewCache}
@@ -488,28 +488,28 @@ contract_from_form([{type, _L1, bounded_fun,
 contract_from_form([], _MFA, _RecDict, _FileLine, TypeAcc, FormAcc) ->
   {lists:reverse(TypeAcc), lists:reverse(FormAcc)}.
 
-process_constraints(Constrs, MFA, RecDict, ExpTypes, AllRecords, Cache) ->
+process_constraints(Constrs, MFA, RecDict, ExpTypes, RecordTable, Cache) ->
   {Init0, NewCache} = initialize_constraints(Constrs, MFA, RecDict, ExpTypes,
-                                             AllRecords, Cache),
+                                             RecordTable, Cache),
   Init = remove_cycles(Init0),
-  constraints_fixpoint(Init, MFA, RecDict, ExpTypes, AllRecords, NewCache).
+  constraints_fixpoint(Init, MFA, RecDict, ExpTypes, RecordTable, NewCache).
 
-initialize_constraints(Constrs, MFA, RecDict, ExpTypes, AllRecords, Cache) ->
-  initialize_constraints(Constrs, MFA, RecDict, ExpTypes, AllRecords,
+initialize_constraints(Constrs, MFA, RecDict, ExpTypes, RecordTable, Cache) ->
+  initialize_constraints(Constrs, MFA, RecDict, ExpTypes, RecordTable,
                          Cache, []).
 
-initialize_constraints([], _MFA, _RecDict, _ExpTypes, _AllRecords,
+initialize_constraints([], _MFA, _RecDict, _ExpTypes, _RecordTable,
                        Cache, Acc) ->
   {Acc, Cache};
-initialize_constraints([Constr|Rest], MFA, RecDict, ExpTypes, AllRecords,
+initialize_constraints([Constr|Rest], MFA, RecDict, ExpTypes, RecordTable,
                        Cache, Acc) ->
   case Constr of
     {type, _, constraint, [{atom, _, is_subtype}, [Type1, Type2]]} ->
       VarTable = erl_types:var_table__new(),
       {T1, NewCache} =
-        final_form(Type1, ExpTypes, MFA, AllRecords, VarTable, Cache),
+        final_form(Type1, ExpTypes, MFA, RecordTable, VarTable, Cache),
       Entry = {T1, Type2},
-      initialize_constraints(Rest, MFA, RecDict, ExpTypes, AllRecords,
+      initialize_constraints(Rest, MFA, RecDict, ExpTypes, RecordTable,
                              NewCache, [Entry|Acc]);
     {type, _, constraint, [{atom,_,Name}, List]} ->
       N = length(List),
@@ -517,18 +517,18 @@ initialize_constraints([Constr|Rest], MFA, RecDict, ExpTypes, AllRecords,
 	     io_lib:format("Unsupported type guard ~w/~w\n", [Name, N])})
   end.
 
-constraints_fixpoint(Constrs, MFA, RecDict, ExpTypes, AllRecords, Cache) ->
+constraints_fixpoint(Constrs, MFA, RecDict, ExpTypes, RecordTable, Cache) ->
   VarTable = erl_types:var_table__new(),
   {VarTab, NewCache} =
-    constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, AllRecords,
+    constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, RecordTable,
                         VarTable, Cache),
   constraints_fixpoint(VarTab, MFA, Constrs, RecDict, ExpTypes,
-                       AllRecords, NewCache).
+                       RecordTable, NewCache).
 
 constraints_fixpoint(OldVarTab, MFA, Constrs, RecDict, ExpTypes,
-                     AllRecords, Cache) ->
+                     RecordTable, Cache) ->
   {NewVarTab, NewCache} =
-    constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, AllRecords,
+    constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, RecordTable,
                         OldVarTab, Cache),
   case NewVarTab of
     OldVarTab ->
@@ -540,38 +540,38 @@ constraints_fixpoint(OldVarTab, MFA, Constrs, RecDict, ExpTypes,
       {FinalConstrs, NewVarTab, NewCache};
     _Other ->
       constraints_fixpoint(NewVarTab, MFA, Constrs, RecDict, ExpTypes,
-                           AllRecords, NewCache)
+                           RecordTable, NewCache)
   end.
 
-final_form(Form, ExpTypes, MFA, AllRecords, VarTable, Cache) ->
-  from_form_with_check(Form, ExpTypes, MFA, AllRecords, VarTable, Cache).
+final_form(Form, ExpTypes, MFA, RecordTable, VarTable, Cache) ->
+  from_form_with_check(Form, ExpTypes, MFA, RecordTable, VarTable, Cache).
 
-from_form_with_check(Form, ExpTypes, MFA, AllRecords, Cache) ->
+from_form_with_check(Form, ExpTypes, MFA, RecordTable, Cache) ->
   VarTable = erl_types:var_table__new(),
-  from_form_with_check(Form, ExpTypes, MFA, AllRecords, VarTable, Cache).
+  from_form_with_check(Form, ExpTypes, MFA, RecordTable, VarTable, Cache).
 
-from_form_with_check(Form, ExpTypes, MFA, AllRecords, VarTable, Cache) ->
+from_form_with_check(Form, ExpTypes, MFA, RecordTable, VarTable, Cache) ->
   Site = {spec, MFA},
-  C1 = erl_types:t_check_record_fields(Form, ExpTypes, Site, AllRecords,
+  C1 = erl_types:t_check_record_fields(Form, ExpTypes, Site, RecordTable,
                                        VarTable, Cache),
-  erl_types:t_from_form(Form, ExpTypes, Site, AllRecords, VarTable, C1).
+  erl_types:t_from_form(Form, ExpTypes, Site, RecordTable, VarTable, C1).
 
-constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, AllRecords,
+constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, RecordTable,
                     VarTab, Cache) ->
   {Subtypes, NewCache} =
-    constraints_to_subs(Constrs, MFA, RecDict, ExpTypes, AllRecords,
+    constraints_to_subs(Constrs, MFA, RecDict, ExpTypes, RecordTable,
                         VarTab, Cache, []),
   {insert_constraints(Subtypes), NewCache}.
 
-constraints_to_subs([], _MFA, _RecDict, _ExpTypes, _AllRecords,
+constraints_to_subs([], _MFA, _RecDict, _ExpTypes, _RecordTable,
                     _VarTab, Cache, Acc) ->
   {Acc, Cache};
-constraints_to_subs([{T1, Form2}|Rest], MFA, RecDict, ExpTypes, AllRecords,
+constraints_to_subs([{T1, Form2}|Rest], MFA, RecDict, ExpTypes, RecordTable,
                     VarTab, Cache, Acc) ->
   {T2, NewCache} =
-    final_form(Form2, ExpTypes, MFA, AllRecords, VarTab, Cache),
+    final_form(Form2, ExpTypes, MFA, RecordTable, VarTab, Cache),
   NewAcc = [{subtype, T1, T2}|Acc],
-  constraints_to_subs(Rest, MFA, RecDict, ExpTypes, AllRecords,
+  constraints_to_subs(Rest, MFA, RecDict, ExpTypes, RecordTable,
                       VarTab, NewCache, NewAcc).
 
 %% Replaces variables with '_' when necessary to break up cycles among

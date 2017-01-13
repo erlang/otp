@@ -129,16 +129,14 @@ extract(#analysis{macros = Macros,
   %% Process remote types
   NewCodeServer =
     try
-      NewRecords = dialyzer_codeserver:get_temp_records(CodeServer1),
+      CodeServer2 =
+        dialyzer_utils:merge_types(CodeServer1,
+                                   TrustPLT), % XXX change to the PLT?
       NewExpTypes = dialyzer_codeserver:get_temp_exported_types(CodeServer1),
       case sets:size(NewExpTypes) of 0 -> ok end,
-      OldRecords = dialyzer_plt:get_types(TrustPLT), % XXX change to the PLT?
-      MergedRecords = dialyzer_utils:merge_records(NewRecords, OldRecords),
-      CodeServer2 = dialyzer_codeserver:set_temp_records(MergedRecords, CodeServer1),
       CodeServer3 = dialyzer_codeserver:finalize_exported_types(NewExpTypes, CodeServer2),
-      {CodeServer4, RecordDict} =
-        dialyzer_utils:process_record_remote_types(CodeServer3),
-      dialyzer_contracts:process_contract_remote_types(CodeServer4, RecordDict)
+      CodeServer4 = dialyzer_utils:process_record_remote_types(CodeServer3),
+      dialyzer_contracts:process_contract_remote_types(CodeServer4)
     catch
       throw:{error, ErrorMsg} ->
 	compile_error(ErrorMsg)
@@ -835,19 +833,14 @@ collect_info(Analysis) ->
   TmpCServer = NewAnalysis#analysis.codeserver,
   NewCServer =
     try
-      NewRecords = dialyzer_codeserver:get_temp_records(TmpCServer),
+      TmpCServer1 = dialyzer_utils:merge_types(TmpCServer, NewPlt),
       NewExpTypes = dialyzer_codeserver:get_temp_exported_types(TmpCServer),
-      OldRecords = dialyzer_plt:get_types(NewPlt),
       OldExpTypes = dialyzer_plt:get_exported_types(NewPlt),
-      MergedRecords = dialyzer_utils:merge_records(NewRecords, OldRecords),
       MergedExpTypes = sets:union(NewExpTypes, OldExpTypes),
-      %% io:format("Merged Records ~p",[MergedRecords]),
-      TmpCServer1 = dialyzer_codeserver:set_temp_records(MergedRecords, TmpCServer),
       TmpCServer2 =
         dialyzer_codeserver:finalize_exported_types(MergedExpTypes, TmpCServer1),
-      {TmpCServer3, RecordDict} =
-        dialyzer_utils:process_record_remote_types(TmpCServer2),
-      dialyzer_contracts:process_contract_remote_types(TmpCServer3, RecordDict)
+      TmpCServer3 = dialyzer_utils:process_record_remote_types(TmpCServer2),
+      dialyzer_contracts:process_contract_remote_types(TmpCServer3)
     catch
       throw:{error, ErrorMsg} ->
 	fatal_error(ErrorMsg)

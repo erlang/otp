@@ -114,7 +114,6 @@ loop(#server_state{parent = Parent} = State,
 %% The Analysis
 %%--------------------------------------------------------------------
 
-%% Calls to erlang:garbage_collect() help to reduce the heap size.
 analysis_start(Parent, Analysis, LegalWarnings) ->
   CServer = dialyzer_codeserver:new(),
   Plt = Analysis#analysis.plt,
@@ -136,11 +135,9 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
   %% Remote type postprocessing
   NewCServer =
     try
-      NewRecords = dialyzer_codeserver:get_temp_records(TmpCServer0),
+      TmpCServer1 = dialyzer_utils:merge_types(TmpCServer0, Plt),
       NewExpTypes = dialyzer_codeserver:get_temp_exported_types(TmpCServer0),
-      OldRecords = dialyzer_plt:get_types(Plt),
       OldExpTypes0 = dialyzer_plt:get_exported_types(Plt),
-      MergedRecords = dialyzer_utils:merge_records(NewRecords, OldRecords),
       RemMods =
         [case Analysis#analysis.start_from of
            byte_code -> list_to_atom(filename:basename(F, ".beam"));
@@ -148,10 +145,9 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
          end || F <- Files],
       OldExpTypes1 = dialyzer_utils:sets_filter(RemMods, OldExpTypes0),
       MergedExpTypes = sets:union(NewExpTypes, OldExpTypes1),
-      TmpCServer1 = dialyzer_codeserver:set_temp_records(MergedRecords, TmpCServer0),
       TmpCServer2 =
         dialyzer_codeserver:finalize_exported_types(MergedExpTypes, TmpCServer1),
-      erlang:garbage_collect(),
+      erlang:garbage_collect(), % reduce heap size
       ?timing(State#analysis_state.timing_server, "remote",
               contracts_and_records(TmpCServer2))
     catch
@@ -200,11 +196,9 @@ contracts_and_records(CodeServer) ->
 contrs_and_recs(TmpCServer2) ->
   fun() ->
       Parent = receive {Pid, go} -> Pid end,
-      {TmpCServer3, RecordDict} =
-        dialyzer_utils:process_record_remote_types(TmpCServer2),
+      TmpCServer3 = dialyzer_utils:process_record_remote_types(TmpCServer2),
       TmpServer4 =
-        dialyzer_contracts:process_contract_remote_types(TmpCServer3,
-                                                         RecordDict),
+        dialyzer_contracts:process_contract_remote_types(TmpCServer3),
       dialyzer_codeserver:give_away(TmpServer4, Parent),
       exit(TmpServer4)
   end.

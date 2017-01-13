@@ -26,18 +26,20 @@
          give_away/2,
 	 finalize_contracts/1,
          finalize_exported_types/2,
-	 finalize_records/2,
+	 finalize_records/1,
 	 get_contracts/1,
 	 get_callbacks/1,
          get_exported_types/1,
 	 get_exports/1,
 	 get_records/1,
+	 get_records_table/1,
 	 get_next_core_label/1,
          get_temp_contracts/2,
-         contracts_modules/1,
+         all_temp_modules/1,
          store_contracts/4,
          get_temp_exported_types/1,
-	 get_temp_records/1,
+         get_temp_records_table/1,
+	 lookup_temp_mod_records/2,
 	 insert/3,
 	 insert_exports/2,
          insert_temp_exported_types/2,
@@ -269,6 +271,11 @@ lookup_mod_records(Mod, #codeserver{records = RecDict}) when is_atom(Mod) ->
     {ok, Map} -> Map
   end.
 
+-spec get_records_table(codeserver()) -> map_ets().
+
+get_records_table(#codeserver{records = RecDict}) ->
+  RecDict.
+
 -spec get_records(codeserver()) -> mod_records().
 
 get_records(#codeserver{records = RecDict}) ->
@@ -283,10 +290,18 @@ store_temp_records(Mod, Map, #codeserver{temp_records = TempRecDict} = CS)
     false -> CS#codeserver{temp_records = ets_map_store(Mod, Map, TempRecDict)}
   end.
 
--spec get_temp_records(codeserver()) -> mod_records().
+-spec get_temp_records_table(codeserver()) -> map_ets().
 
-get_temp_records(#codeserver{temp_records = TempRecDict}) ->
-  ets_dict_to_dict(TempRecDict).
+get_temp_records_table(#codeserver{temp_records = TempRecDict}) ->
+  TempRecDict.
+
+-spec lookup_temp_mod_records(module(), codeserver()) -> types().
+
+lookup_temp_mod_records(Mod, #codeserver{temp_records = TempRecDict}) ->
+  case ets_dict_find(Mod, TempRecDict) of
+    error -> maps:new();
+    {ok, Map} -> Map
+  end.
 
 -spec set_temp_records(mod_records(), codeserver()) -> codeserver().
 
@@ -296,13 +311,13 @@ set_temp_records(Dict, CS) ->
   true = ets_dict_store_dict(Dict, TempRecords),
   CS#codeserver{temp_records = TempRecords}.
 
--spec finalize_records(mod_records(), codeserver()) -> codeserver().
+-spec finalize_records(codeserver()) -> codeserver().
 
-finalize_records(Dict, #codeserver{temp_records = TmpRecords,
-                                   records = Records} = CS) ->
-  true = ets:delete(TmpRecords),
-  true = ets_dict_store_dict(Dict, Records),
-  CS#codeserver{temp_records = clean}.
+finalize_records(#codeserver{temp_records = TmpRecords,
+                             records = Records} = CS) ->
+  true = ets:delete(Records),
+  ets:rename(TmpRecords, dialyzer_codeserver_records),
+  CS#codeserver{temp_records = clean, records = TmpRecords}.
 
 -spec lookup_mod_contracts(atom(), codeserver()) -> contracts().
 
@@ -348,12 +363,14 @@ store_temp_contracts(Mod, SpecMap, CallbackMap,
 		     #codeserver{temp_contracts = Cn,
 				 temp_callbacks = Cb} = CS)
   when is_atom(Mod) ->
+  %% Make sure Mod is stored even if there are not callbacks or
+  %% contracts.
   CS1 = CS#codeserver{temp_contracts = ets_map_store(Mod, SpecMap, Cn)},
   CS1#codeserver{temp_callbacks = ets_map_store(Mod, CallbackMap, Cb)}.
 
--spec contracts_modules(codeserver()) -> [module()].
+-spec all_temp_modules(codeserver()) -> [module()].
 
-contracts_modules(#codeserver{temp_contracts = TempContTable}) ->
+all_temp_modules(#codeserver{temp_contracts = TempContTable}) ->
   ets:select(TempContTable, [{{'$1', '$2'}, [], ['$1']}]).
 
 -spec store_contracts(module(), contracts(), contracts(), codeserver()) ->
