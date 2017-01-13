@@ -2225,16 +2225,18 @@ processed_whole_element(S=#xmerl_scanner{hook_fun = _Hook,
     AllAttrs =
 	case S#xmerl_scanner.default_attrs of
 	    true ->
-		[ #xmlAttribute{name = AttName,
-				parents = [{Name, Pos} | Parents],
-				language = Lang,
-				nsinfo = NSI,
-				namespace = Namespace,
-				value = AttValue,
-				normalized = true} ||
-		  {AttName, AttValue} <- get_default_attrs(S, Name),
-		  AttValue =/= no_value,
-		  not lists:keymember(AttName, #xmlAttribute.name, Attrs) ];
+            DefaultAttrs =
+                [ #xmlAttribute{name = AttName,
+                                parents = [{Name, Pos} | Parents],
+                                language = Lang,
+                                nsinfo = NSI,
+                                namespace = Namespace,
+                                value = AttValue,
+                                normalized = true} ||
+                  {AttName, AttValue} <- get_default_attrs(S, Name),
+                  AttValue =/= no_value,
+                  not lists:keymember(AttName, #xmlAttribute.name, Attrs) ],
+            lists:append(Attrs, DefaultAttrs);
 	    false ->
 		Attrs
 	end,
