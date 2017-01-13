@@ -306,34 +306,33 @@ gen_dec_constructed_imm(Erule, Typename, #type{}=D) ->
     {DecObjInf,_,_} = ObjSetInfo,
     EmitComp = gen_dec_components_call(Erule, Typename, CompList,
 				       DecObjInf, Ext, length(Optionals)),
-    EmitRest = fun({AccTerm,AccBytes}) ->
-		       gen_dec_constructed_imm_2(Erule, Typename,
-						 CompList,
-						 ObjSetInfo,
-						 AccTerm, AccBytes)
-	       end,
-    [EmitExt,EmitOpt|EmitComp++[{safe,EmitRest}]].
+    EmitObjSets = gen_dec_objsets_fun(Erule, ObjSetInfo),
+    EmitPack = fun(_) ->
+                       gen_dec_pack(Typename, CompList)
+               end,
+    RestGroup = {group,[{safe,EmitObjSets},{safe,EmitPack}]},
+    [EmitExt,EmitOpt|EmitComp++[RestGroup]].
 
-gen_dec_constructed_imm_2(Erule, Typename, CompList,
-			  ObjSetInfo, AccTerm, AccBytes) ->
-    {_,_UniqueFName,ValueIndex} = ObjSetInfo,
-    case {AccTerm,AccBytes} of
-	{[],[]} ->
-	    ok;
-	{_,[]} ->
-	    ok;
-	{[{ObjSet,LeadingAttr,Term}],ListOfOpenTypes} ->
-	    ValueMatch = value_match(ValueIndex, Term),
-	    _ = [begin
-		     gen_dec_open_type(Erule, ValueMatch, ObjSet,
-				       LeadingAttr, T),
-		     emit([com,nl])
-		 end || T <- ListOfOpenTypes],
-	    ok
-    end,
-    %% we don't return named lists any more   Cnames = mkcnamelist(CompList), 
-    demit({"Result = "}), %dbg
-    %% return value as record
+gen_dec_objsets_fun(Erule, ObjSetInfo) ->
+    fun({AccTerm,AccBytes}) ->
+            {_,_UniqueFName,ValueIndex} = ObjSetInfo,
+            case {AccTerm,AccBytes} of
+                {[],[]} ->
+                    ok;
+                {_,[]} ->
+                    ok;
+                {[{ObjSet,LeadingAttr,Term}],ListOfOpenTypes} ->
+                    ValueMatch = value_match(ValueIndex, Term),
+                    _ = [begin
+                             gen_dec_open_type(Erule, ValueMatch, ObjSet,
+                                               LeadingAttr, T),
+                             emit([com,nl])
+                         end || T <- ListOfOpenTypes],
+                    ok
+            end
+    end.
+
+gen_dec_pack(Typename, CompList) ->
     RecordName = record_name(Typename),
     case Typename of
 	['EXTERNAL'] ->
