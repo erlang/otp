@@ -274,6 +274,7 @@ handle_info({portinfo_open, PortIdStr},
     NewOpened =
         case Port of
             false ->
+                self() ! {error,"No such port: " ++ PortIdStr},
                 Opened;
             _ ->
                 display_port_info(Grid, Port, Opened)
@@ -304,8 +305,9 @@ handle_info(not_active, State = #state{timer = Timer0}) ->
     Timer = observer_lib:stop_timer(Timer0),
     {noreply, State#state{timer=Timer}};
 
-handle_info({error, Error}, State) ->
-    handle_error(Error),
+handle_info({error, Error}, #state{panel=Panel} = State) ->
+    Str = io_lib:format("ERROR: ~s~n",[Error]),
+    observer_lib:display_info_dialog(Panel, Str),
     {noreply, State};
 
 handle_info(_Event, State) ->
@@ -508,11 +510,6 @@ filter_monitor_info() ->
 	    Ms = proplists:get_value(monitors, Data),
 	    [Pid || {process, Pid} <- Ms]
     end.
-
-
-handle_error(Foo) ->
-    Str = io_lib:format("ERROR: ~s~n",[Foo]),
-    observer_lib:display_info_dialog(Str).
 
 update_grid(Grid, Opt, Ports) ->
     wx:batch(fun() -> update_grid2(Grid, Opt, Ports) end).

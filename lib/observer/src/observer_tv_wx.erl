@@ -238,8 +238,9 @@ handle_info(not_active, State = #state{timer = Timer0}) ->
     Timer = observer_lib:stop_timer(Timer0),
     {noreply, State#state{timer=Timer}};
 
-handle_info({error, Error}, #state{opt=Opt}=State) ->
-    handle_error(Error),
+handle_info({error, Error}, #state{panel=Panel,opt=Opt}=State) ->
+    Str = io_lib:format("ERROR: ~s~n",[Error]),
+    observer_lib:display_info_dialog(Panel,Str),
     case Opt#opt.type of
         mnesia -> wxMenuBar:check(observer_wx:get_menubar(), ?ID_ETS, true);
         _ -> ok
@@ -364,10 +365,6 @@ list_to_strings([]) -> "None";
 list_to_strings([A]) -> integer_to_list(A);
 list_to_strings([A|B]) ->
     integer_to_list(A) ++ " ," ++ list_to_strings(B).
-
-handle_error(Foo) ->
-    Str = io_lib:format("ERROR: ~s~n",[Foo]),
-    observer_lib:display_info_dialog(Str).
 
 update_grid(Grid, Opt, Tables) ->
     wx:batch(fun() -> update_grid2(Grid, Opt, Tables) end).

@@ -55,7 +55,7 @@ init([Id, Data, ParentFrame, Callback, Parent]) ->
 	    end,
 	    {stop,normal};
 	{info,Info} ->
-	    observer_lib:display_info_dialog(Info),
+	    observer_lib:display_info_dialog(ParentFrame,Info),
 	    {stop,normal}
     end.
 
