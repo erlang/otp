@@ -72,7 +72,6 @@
 -type mod_records()   :: erl_types:mod_records().
 
 -type contracts()     :: #{mfa() => dialyzer_contracts:file_contract()}.
--type mod_contracts() :: dict:dict(module(), contracts()).
 
 %% A property-list of data compiled from -compile and -dialyzer attributes.
 -type meta_info()     :: [{{'nowarn_function' | dial_warn_tag()},
@@ -346,10 +345,13 @@ lookup_meta_info(MorMFA, #codeserver{fun_meta_info = FunMetaInfo}) ->
     {ok, PropList} -> PropList
   end.
 
--spec get_contracts(codeserver()) -> mod_contracts().
+-spec get_contracts(codeserver()) ->
+                       dict:dict(mfa(), dialyzer_contracts:file_contract()).
 
 get_contracts(#codeserver{contracts = ContDict}) ->
-  ets_dict_to_dict(ContDict).
+  dict:filter(fun({_M, _F, _A}, _) -> true;
+                 (_, _) -> false
+              end, ets_dict_to_dict(ContDict)).
 
 -spec get_callbacks(codeserver()) -> list().
 

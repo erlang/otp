@@ -144,6 +144,10 @@ delete_list(#plt{info = Info, types = Types,
 
 -spec insert_contract_list(plt(), dialyzer_contracts:plt_contracts()) -> plt().
 
+insert_contract_list(#plt{contracts = Contracts} = PLT, List) ->
+  NewContracts = dict:merge(fun(_MFA, _Old, New) -> New end,
+                            Contracts, dict:from_list(List)),
+  PLT#plt{contracts = NewContracts};
 insert_contract_list(#mini_plt{contracts = Contracts} = PLT, List) ->
   true = ets:insert(Contracts, List),
   PLT.

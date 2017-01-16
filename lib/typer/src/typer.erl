@@ -142,16 +142,9 @@ extract(#analysis{macros = Macros,
 	compile_error(ErrorMsg)
     end,
   %% Create TrustPLT
-  Contracts = dialyzer_codeserver:get_contracts(NewCodeServer),
-  Modules = dict:fetch_keys(Contracts),
-  FoldFun =
-    fun(Module, TmpPlt) ->
-	{ok, ModuleContracts} = dict:find(Module, Contracts),
-	SpecList = [{MFA, Contract} 
-		    || {MFA, {_FileLine, Contract}} <- maps:to_list(ModuleContracts)],
-	dialyzer_plt:insert_contract_list(TmpPlt, SpecList)
-    end,
-  NewTrustPLT = lists:foldl(FoldFun, TrustPLT, Modules),
+  ContractsDict = dialyzer_codeserver:get_contracts(NewCodeServer),
+  Contracts = orddict:from_list(dict:to_list(ContractsDict)),
+  NewTrustPLT = dialyzer_plt:insert_contract_list(TrustPLT, Contracts),
   Analysis#analysis{trust_plt = NewTrustPLT}.
 
 %%--------------------------------------------------------------------

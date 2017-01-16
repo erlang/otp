@@ -177,7 +177,7 @@ process_contract_remote_types(CodeServer) ->
 
 -type fun_types() :: dict:dict(label(), erl_types:type_table()).
 
--spec check_contracts([{mfa(), file_contract()}],
+-spec check_contracts(orddict:orddict(mfa(), file_contract()),
 		      dialyzer_callgraph:callgraph(), fun_types(),
                       opaques_fun()) -> plt_contracts().
 
@@ -206,7 +206,7 @@ check_contracts(Contracts, Callgraph, FunTypes, FindOpaques) ->
 	  error -> NewContracts
 	end
     end,
-  dict:fold(FoldFun, [], FunTypes).
+  orddict:from_list(dict:fold(FoldFun, [], FunTypes)).
 
 %% Checks all components of a contract
 -spec check_contract(#contract{}, erl_types:erl_type()) -> 'ok' | {'error', term()}.
