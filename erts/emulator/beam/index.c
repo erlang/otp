@@ -91,9 +91,16 @@ index_put_entry(IndexTable* t, void* tmpl)
 	t->seg_table[ix>>INDEX_PAGE_SHIFT] = erts_alloc(t->type, sz);
 	t->size += INDEX_PAGE_SIZE;
     }
-    t->entries++;
     p->index = ix;
     t->seg_table[ix>>INDEX_PAGE_SHIFT][ix&INDEX_PAGE_MASK] = p;
+
+    /*
+     * Do a write barrier here to allow readers to do lock free iteration.
+     * erts_index_num_entries() does matching read barrier.
+     */
+    ERTS_SMP_WRITE_MEMORY_BARRIER;
+    t->entries++;
+
     return p;
 }
 

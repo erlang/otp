@@ -800,14 +800,14 @@ erts_finish_loading(Binary* magic, Process* c_p,
     } else {
 	ErtsCodeIndex code_ix = erts_staging_code_ix();
 	Eterm module = stp->module;
-	int i;
+	int i, num_exps;
 
 	/*
 	 * There is an -on_load() function. We will keep the current
 	 * code, but we must turn off any tracing.
 	 */
-
-	for (i = 0; i < export_list_size(code_ix); i++) {
+        num_exps = export_list_size(code_ix);
+	for (i = 0; i < num_exps; i++) {
 	    Export *ep = export_list(i, code_ix);
 	    if (ep == NULL || ep->info.mfa.module != module) {
 		continue;
@@ -5724,12 +5724,13 @@ exported_from_module(Process* p, /* Process whose heap to use. */
                      ErtsCodeIndex code_ix,
 		     Eterm mod) /* Tagged atom for module. */
 {
-    int i;
+    int i, num_exps;
     Eterm* hp = NULL;
     Eterm* hend = NULL;
     Eterm result = NIL;
 
-    for (i = 0; i < export_list_size(code_ix); i++) {
+    num_exps = export_list_size(code_ix);
+    for (i = 0; i < num_exps; i++) {
 	Export* ep = export_list(i,code_ix);
 	
 	if (ep->info.mfa.module == mod) {
