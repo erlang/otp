@@ -27,6 +27,7 @@ seq_roundtrip(I, D0) ->
     M = 'UniqueObjectSets',
     try
 	{ok,Enc} = M:encode('Seq', {'Seq',I,D0}),
+        asn1_test_lib:map_roundtrip(M, 'Seq', Enc),
 	{ok,{'Seq',I,D}} = M:decode('Seq', Enc),
 	D
     catch C:E ->

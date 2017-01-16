@@ -57,7 +57,7 @@
 %%===============================================================================
 %%===============================================================================
 
-gen_encode_sequence(Erules,Typename,D) when is_record(D,type) ->
+gen_encode_sequence(Gen, Typename, #type{}=D) ->
     asn1ct_name:start(),
     asn1ct_name:new(term),
     asn1ct_name:new(bytes),
@@ -67,8 +67,12 @@ gen_encode_sequence(Erules,Typename,D) when is_record(D,type) ->
     ValName = 
 	case Typename of
 	    ['EXTERNAL'] ->
+                Tr = case Gen of
+                         #gen{pack=record} -> transform_to_EXTERNAL1990;
+                         #gen{pack=map} -> transform_to_EXTERNAL1990_maps
+                     end,
 		emit([indent(4),"NewVal = ",
-		      {call,ext,transform_to_EXTERNAL1990,["Val"]},
+		      {call,ext,Tr,["Val"]},
 		      com,nl]),
 		"NewVal";
 	    _ ->
@@ -90,18 +94,9 @@ gen_encode_sequence(Erules,Typename,D) when is_record(D,type) ->
 		    {Rl,El} -> Rl ++ El;
 		    _ -> CompList
 		end,
-    
-%% don't match recordname for now, because of compatibility reasons
-%%    emit(["{'",asn1ct_gen:list2rname(Typename),"'"]),
-    emit(["{_"]),
-    case length(CompList1) of
-	0 -> 
-	    true;
-	CompListLen ->
-	    emit([","]),
-	    mkcindexlist([Tc || Tc <- lists:seq(1,CompListLen)])
-    end,
-    emit(["} = ",ValName,",",nl]),
+
+    enc_match_input(Gen, ValName, CompList1),
+
     EncObj =
 	case TableConsInfo of
 	    #simpletableattributes{usedclassfield=Used,
@@ -125,7 +120,7 @@ gen_encode_sequence(Erules,Typename,D) when is_record(D,type) ->
 			emit([ObjectEncode," = ",nl,
 			      "   ",{asis,ObjSetMod},":'getenc_",ObjSetName,
 			      "'("]),
-			ValueMatch = value_match(ValueIndex,
+			ValueMatch = value_match(Gen, ValueIndex,
 						 lists:concat(["Cindex",N])),
 			emit([indent(35),ValueMatch,"),",nl]),
 			{AttrN,ObjectEncode};
@@ -144,7 +139,7 @@ gen_encode_sequence(Erules,Typename,D) when is_record(D,type) ->
 		end
 	end,
 
-    gen_enc_sequence_call(Erules,Typename,CompList1,1,Ext,EncObj),
+    gen_enc_sequence_call(Gen, Typename, CompList1, 1, Ext, EncObj),
 
     emit([nl,"   BytesSoFar = "]),
     case SeqOrSet of
@@ -168,7 +163,36 @@ gen_encode_sequence(Erules,Typename,D) when is_record(D,type) ->
     call(encode_tags, ["TagIn","BytesSoFar","LenSoFar"]),
     emit([".",nl]).
 
-gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
+enc_match_input(#gen{pack=record}, ValName, CompList) ->
+    Len = length(CompList),
+    Vars = [lists:concat(["Cindex",N]) || N <- lists:seq(1, Len)],
+    RecordName = "_",
+    emit(["{",lists:join(",", [RecordName|Vars]),"} = ",ValName,com,nl]);
+enc_match_input(#gen{pack=map}, ValName, CompList) ->
+    Len = length(CompList),
+    Vars = [lists:concat(["Cindex",N]) || N <- lists:seq(1, Len)],
+    Zipped = lists:zip(CompList, Vars),
+    M = [[{asis,Name},":=",Var] ||
+            {#'ComponentType'{prop=mandatory,name=Name},Var} <- Zipped],
+    case M of
+        [] ->
+            ok;
+        [_|_] ->
+            emit(["#{",lists:join(",", M),"} = ",ValName,com,nl])
+    end,
+    Os0 = [{Name,Var} ||
+              {#'ComponentType'{prop=Prop,name=Name},Var} <- Zipped,
+              Prop =/= mandatory],
+    F = fun({Name,Var}) ->
+                [Var," = case ",ValName," of\n"
+                 "  #{",{asis,Name},":=",Var,"_0} -> ",
+                 Var,"_0;\n"
+                 "  _ -> ",atom_to_list(?MISSING_IN_MAP),"\n"
+                 "end"]
+        end,
+    emit(lists:join(",\n", [F(E) || E <- Os0]++[[]])).
+
+gen_decode_sequence(Gen, Typename, #type{}=D) ->
     asn1ct_name:start(),
     asn1ct_name:new(tag),
     #'SEQUENCE'{tablecinf=TableConsInfo,components=CList0} = D#type.def,
@@ -225,15 +249,20 @@ gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
 	    _ ->
 		{false,false}
 	end,
-    RecordName = lists:concat([get_record_name_prefix(Erules),
-			       asn1ct_gen:list2rname(Typename)]),
-    case gen_dec_sequence_call(Erules,Typename,CompList2,Ext,DecObjInf) of
-	no_terms -> % an empty sequence	    
-	    emit([nl,nl]),
-	    demit(["Result = "]), %dbg
-	    %% return value as record
+    RecordName0 = lists:concat([get_record_name_prefix(Gen),
+                                asn1ct_gen:list2rname(Typename)]),
+    RecordName = list_to_atom(RecordName0),
+    case gen_dec_sequence_call(Gen, Typename, CompList2, Ext, DecObjInf) of
+	no_terms ->                           % an empty sequence
 	    asn1ct_name:new(rb),
-	    emit(["   {'",RecordName,"'}.",nl,nl]);
+            case Gen of
+                #gen{pack=record} ->
+                    emit([nl,nl,
+                          "   {'",RecordName,"'}.",nl,nl]);
+                #gen{pack=map} ->
+                    emit([nl,nl,
+                          "   #{}.",nl,nl])
+            end;
 	{LeadingAttrTerm,PostponedDecArgs} ->
 	    emit([nl]),
 	    case {LeadingAttrTerm,PostponedDecArgs} of
@@ -243,7 +272,7 @@ gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
 		    ok;
 		{[{ObjSetRef,LeadingAttr,Term}],PostponedDecArgs} ->
 		    DecObj = asn1ct_gen:un_hyphen_var(lists:concat(['DecObj',LeadingAttr,Term])),
-		    ValueMatch = value_match(ValueIndex,Term),
+		    ValueMatch = value_match(Gen, ValueIndex,Term),
 		    {ObjSetMod,ObjSetName} = ObjSetRef,
 		    emit([DecObj," =",nl,
 			  "   ",{asis,ObjSetMod},":'getdec_",ObjSetName,"'(",
@@ -263,21 +292,63 @@ gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
 			  "end,",nl])
 	    end,
 	    asn1ct_name:new(rb),
-	    case Typename of
-		['EXTERNAL'] ->
-		    emit(["   OldFormat={'",RecordName,
-			  "', "]),
-		    mkvlist(asn1ct_name:all(term)),
-		    emit(["},",nl]),
-		    emit(["    ",
-			  {call,ext,transform_to_EXTERNAL1994,
-			   ["OldFormat"]},".",nl]);
-		_ ->
-		    emit(["   {'",RecordName,"', "]),
-		    mkvlist(asn1ct_name:all(term)),
-		    emit(["}.",nl,nl])
-	    end
+            gen_dec_pack(Gen, RecordName, Typename, CompList),
+            emit([".",nl])
     end.
+
+gen_dec_pack(Gen, RecordName, Typename, CompList) ->
+    case Typename of
+	['EXTERNAL'] ->
+            dec_external(Gen, RecordName);
+	_ ->
+            asn1ct_name:new(res),
+            gen_dec_do_pack(Gen, RecordName, CompList),
+            emit([com,nl,
+                  {curr,res}])
+    end.
+
+dec_external(#gen{pack=record}, RecordName) ->
+    All = [{var,Term} || Term <- asn1ct_name:all(term)],
+    Record = [{asis,RecordName}|All],
+    emit(["OldFormat={",lists:join(",", Record),"},",nl,
+          {call,ext,transform_to_EXTERNAL1994,
+           ["OldFormat"]}]);
+dec_external(#gen{pack=map}, _RecordName) ->
+    Vars = asn1ct_name:all(term),
+    Names = ['direct-reference','indirect-reference',
+             'data-value-descriptor',encoding],
+    Zipped = lists:zip(Names, Vars),
+    MapInit = lists:join(",", [["'",N,"'=>",{var,V}] || {N,V} <- Zipped]),
+    emit(["OldFormat = #{",MapInit,"}",com,nl,
+          "ASN11994Format =",nl,
+          {call,ext,transform_to_EXTERNAL1994_maps,
+           ["OldFormat"]}]).
+
+gen_dec_do_pack(#gen{pack=record}, RecordName, _CompList) ->
+    All = asn1ct_name:all(term),
+    L = [{asis,RecordName}|[{var,Var} || Var <- All]],
+    emit([{curr,res}," = {",lists:join(",", L),"}"]);
+gen_dec_do_pack(#gen{pack=map}, _, CompList) ->
+    Zipped = lists:zip(CompList, asn1ct_name:all(term)),
+    PF = fun({#'ComponentType'{prop='OPTIONAL'},_}) -> false;
+            ({_,_}) -> true
+         end,
+    {Mandatory,Optional} = lists:partition(PF, Zipped),
+    L = [[{asis,Name},"=>",{var,Var}] ||
+            {#'ComponentType'{name=Name},Var} <- Mandatory],
+    emit([{curr,res}," = #{",lists:join(",", L),"}"]),
+    gen_dec_map_optional(Optional).
+
+gen_dec_map_optional([{#'ComponentType'{name=Name},Var}|T]) ->
+    asn1ct_name:new(res),
+    emit([com,nl,
+          {curr,res}," = case ",{var,Var}," of",nl,
+          "  asn1_NOVALUE -> ",{prev,res},";",nl,
+          "  _ -> ",{prev,res},"#{",{asis,Name},"=>",{var,Var},"}",nl,
+          "end"]),
+    gen_dec_map_optional(T);
+gen_dec_map_optional([]) ->
+    ok.
 
 gen_dec_postponed_decs(_,[]) ->
     emit(nl);
@@ -327,7 +398,7 @@ emit_opt_or_mand_check(Value,TmpTerm) ->
 gen_encode_set(Erules,Typename,D) when is_record(D,type) ->
     gen_encode_sequence(Erules,Typename,D).
 
-gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
+gen_decode_set(Gen, Typename, #type{}=D) ->
     asn1ct_name:start(),
 %%    asn1ct_name:new(term),
     asn1ct_name:new(tag),
@@ -393,7 +464,7 @@ gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
 	_ ->
 	    emit(["SetFun = fun(FunTlv) ->", nl]),
 	    emit(["case FunTlv of ",nl]),
-	    NextNum = gen_dec_set_cases(Erules,Typename,CompList,1),
+	    NextNum = gen_dec_set_cases(Gen, Typename, CompList, 1),
 	    emit([indent(6), {curr,else}," -> ",nl,
 		  indent(9),"{",NextNum,", ",{curr,else},"}",nl]),
 	    emit([indent(3),"end",nl]),
@@ -405,14 +476,17 @@ gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
 	    asn1ct_name:new(tlv)
 
     end,
-    RecordName = lists:concat([get_record_name_prefix(Erules),
-			       asn1ct_gen:list2rname(Typename)]),
-    case gen_dec_sequence_call(Erules,Typename,CompList,Ext,DecObjInf) of
-	no_terms -> % an empty sequence	    
-	    emit([nl,nl]),
-	    demit(["Result = "]), %dbg
-	    %% return value as record
-	    emit(["   {'",RecordName,"'}.",nl]);
+    RecordName0 = lists:concat([get_record_name_prefix(Gen),
+                                asn1ct_gen:list2rname(Typename)]),
+    RecordName = list_to_atom(RecordName0),
+    case gen_dec_sequence_call(Gen, Typename, CompList, Ext, DecObjInf) of
+	no_terms ->                           % an empty SET
+            case Gen of
+                #gen{pack=record} ->
+                    emit([nl,nl,"   {'",RecordName,"'}.",nl,nl]);
+                #gen{pack=map} ->
+                    emit([nl,nl,"   #{}.",nl,nl])
+            end;
 	{LeadingAttrTerm,PostponedDecArgs} ->
 	    emit([nl]),
 	    case {LeadingAttrTerm,PostponedDecArgs} of
@@ -422,7 +496,7 @@ gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
 		    ok;
 		{[{ObjSetRef,LeadingAttr,Term}],PostponedDecArgs} ->
 		    DecObj = asn1ct_gen:un_hyphen_var(lists:concat(['DecObj',LeadingAttr,Term])),
-		    ValueMatch = value_match(ValueIndex,Term),
+		    ValueMatch = value_match(Gen, ValueIndex, Term),
 		    {ObjSetMod,ObjSetName} = ObjSetRef,
 		    emit([DecObj," =",nl,
 			  "   ",{asis,ObjSetMod},":'getdec_",ObjSetName,"'(",
@@ -441,9 +515,8 @@ gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
 			  "}}}) % extra fields not allowed",nl,
 			  "end,",nl])
 	    end,
-	    emit(["   {'",RecordName,"', "]),
-	    mkvlist(asn1ct_name:all(term)),
-	    emit(["}.",nl])
+            gen_dec_pack(Gen, RecordName, Typename, CompList),
+	    emit([".",nl])
     end.
 
 
@@ -1025,35 +1098,44 @@ gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,Assign,EncObj)
 	    emit([nl,indent(7),"end"])
     end.
 
-gen_optormand_case(mandatory, _Erules, _TopType, _Cname, _Type, _Element) ->
+gen_optormand_case(mandatory, _Gen, _TopType, _Cname, _Type, _Element) ->
     ok;
-gen_optormand_case('OPTIONAL', Erules, _TopType, _Cname, _Type, Element) ->
+gen_optormand_case('OPTIONAL', Gen, _TopType, _Cname, _Type, Element) ->
     emit([" case ",Element," of",nl]),
-    emit([indent(9),"asn1_NOVALUE -> {",
-	  empty_lb(Erules),",0};",nl]),
+    Missing = case Gen of
+                  #gen{pack=record} -> asn1_NOVALUE;
+                  #gen{pack=map} -> ?MISSING_IN_MAP
+              end,
+    emit([indent(9),Missing," -> {",
+	  empty_lb(Gen),",0};",nl]),
     emit([indent(9),"_ ->",nl,indent(12)]);
 gen_optormand_case({'DEFAULT',DefaultValue}, Gen, _TopType,
 		   _Cname, Type, Element) ->
     CurrMod = get(currmod),
     case Gen of
         #gen{erule=ber,der=true} ->
-	    asn1ct_gen_check:emit(Type, DefaultValue, Element);
-	#gen{erule=ber,der=false} ->
-	    emit([" case ",Element," of",nl]),
-	    emit([indent(9),"asn1_DEFAULT -> {",
-		  empty_lb(Gen),
-		  ",0};",nl]),
-	    case DefaultValue of 
-		#'Externalvaluereference'{module=CurrMod,
-					  value=V} ->
-		    emit([indent(9),"?",{asis,V}," -> {",
-			  empty_lb(Gen),",0};",nl]);
-		_ ->
-		    emit([indent(9),{asis,
-				     DefaultValue}," -> {",
-			  empty_lb(Gen),",0};",nl])
-	    end,
-	    emit([indent(9),"_ ->",nl,indent(12)])
+	    asn1ct_gen_check:emit(Gen, Type, DefaultValue, Element);
+	#gen{erule=ber,der=false,pack=Pack} ->
+            Ind9 = indent(9),
+            DefMarker = case Pack of
+                            record -> asn1_DEFAULT;
+                            map -> ?MISSING_IN_MAP
+                        end,
+	    emit([" case ",Element," of",nl,
+                  Ind9,{asis,DefMarker}," ->",nl,
+                  Ind9,indent(3),"{",empty_lb(Gen),",0};",nl,
+                  Ind9,"_ when ",Element," =:= "]),
+	    Dv = case DefaultValue of
+                     #'Externalvaluereference'{module=CurrMod,
+                                               value=V} ->
+                         ["?",{asis,V}];
+                     _ ->
+                         [{asis,DefaultValue}]
+                 end,
+            emit(Dv++[" ->",nl,
+                      Ind9,indent(3),"{",empty_lb(Gen),",0};",nl,
+                      Ind9,"_ ->",nl,
+                      indent(12)])
     end.
 
 %% Use for SEQUENCE OF and CHOICE.
@@ -1204,7 +1286,7 @@ gen_dec_call({typefield,_},_,_,Cname,Type,BytesVar,Tag,_,_,_DecObjInf,OptOrMandC
 	(Type#type.def)#'ObjectClassFieldType'.fieldname,
     [{Cname,RefedFieldName,asn1ct_gen:mk_var(asn1ct_name:curr(term)),
       asn1ct_gen:mk_var(asn1ct_name:curr(tmpterm)),Tag,OptOrMandComp}];
-gen_dec_call(InnerType, _Erules, TopType, Cname, Type, BytesVar,
+gen_dec_call(InnerType, Gen, TopType, Cname, Type, BytesVar,
 	     Tag, _PrimOptOrMand, _OptOrMand, DecObjInf,_) ->
     WhatKind = asn1ct_gen:type(InnerType),
     gen_dec_call1(WhatKind, InnerType, TopType, Cname,
@@ -1212,7 +1294,7 @@ gen_dec_call(InnerType, _Erules, TopType, Cname, Type, BytesVar,
     case DecObjInf of
 	{Cname,{_,OSet,_UniqueFName,ValIndex}} ->
 	    Term = asn1ct_gen:mk_var(asn1ct_name:curr(term)),
-	    ValueMatch = value_match(ValIndex,Term),
+	    ValueMatch = value_match(Gen, ValIndex, Term),
 	    {ObjSetMod,ObjSetName} = OSet,
 	    emit([",",nl,"ObjFun = ",{asis,ObjSetMod},":'getdec_",ObjSetName,
 		  "'(",ValueMatch,")"]);
@@ -1337,19 +1419,6 @@ gen_dec_call1(WhatKind, _, TopType, Cname, Type, BytesVar, Tag) ->
 indent(N) ->
     lists:duplicate(N,32). % 32 = space
 
-mkcindexlist([H,T1|T], Sep) -> % Sep is a string e.g ", " or "+ "
-    emit(["Cindex",H,Sep]),
-    mkcindexlist([T1|T], Sep);
-mkcindexlist([H|T], Sep) ->
-    emit(["Cindex",H]),
-    mkcindexlist(T, Sep);
-mkcindexlist([], _) ->
-    true.
-
-mkcindexlist(L) ->
-    mkcindexlist(L,", ").
-
-
 mkvlist([H,T1|T], Sep) -> % Sep is a string e.g ", " or "+ "
     emit([{var,H},Sep]),
     mkvlist([T1|T], Sep);
@@ -1429,16 +1498,22 @@ mkfuncname(TopType,Cname,WhatKind,Prefix,Suffix) ->
 empty_lb(#gen{erule=ber}) ->
     "<<>>".
 
-value_match(Index,Value) when is_atom(Value) ->
-    value_match(Index,atom_to_list(Value));
-value_match([],Value) ->
+value_match(#gen{pack=record}, VIs, Value) ->
+    value_match_rec(VIs, Value);
+value_match(#gen{pack=map}, VIs, Value) ->
+    value_match_map(VIs, Value).
+
+value_match_rec([], Value) ->
     Value;
-value_match([{VI,_}|VIs],Value) ->
-    value_match1(Value,VIs,lists:concat(["element(",VI,","]),1).
-value_match1(Value,[],Acc,Depth) ->
-    Acc ++ Value ++ lists:concat(lists:duplicate(Depth,")"));
-value_match1(Value,[{VI,_}|VIs],Acc,Depth) ->
-    value_match1(Value,VIs,Acc++lists:concat(["element(",VI,","]),Depth+1).
+value_match_rec([{VI,_}|VIs], Value0) ->
+    Value = value_match_rec(VIs, Value0),
+    lists:concat(["element(",VI,", ",Value,")"]).
+
+value_match_map([], Value) ->
+    Value;
+value_match_map([{_,Name}|VIs], Value0) ->
+    Value = value_match_map(VIs, Value0),
+    lists:concat(["maps:get(",Name,", ",Value,")"]).
 
 call(F, Args) ->
     asn1ct_func:call(ber, F, Args).

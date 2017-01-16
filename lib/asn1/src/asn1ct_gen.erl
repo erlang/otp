@@ -67,6 +67,7 @@ pgen(OutFile, #gen{options=Options}=Gen, Module, Contents) ->
 		   UnmatchedTypes})
     end,
     put(outfile,OutFile),
+    put(currmod, Module),
     HrlGenerated = pgen_hrl(Gen, Module, Contents),
     asn1ct_name:start(),
     ErlFile = lists:concat([OutFile,".erl"]),
@@ -650,7 +651,7 @@ gen_decode_constructed(Erules,Typename,InnerType,D) when is_record(D,typedef) ->
 
 pgen_exports(#gen{options=Options}=Gen, _Module, Contents) ->
     {Types,Values,_,_,Objects,ObjectSets} = Contents,
-    emit(["-export([encoding_rule/0,bit_string_format/0,",nl,
+    emit(["-export([encoding_rule/0,maps/0,bit_string_format/0,",nl,
 	  "         legacy_erlang_types/0]).",nl]),
     emit(["-export([",{asis,?SUPPRESSION_FUNC},"/1]).",nl]),
     case Types of
@@ -887,8 +888,14 @@ gen_info_functions(Gen) ->
                 #gen{erule=per,aligned=false} -> uper;
                 #gen{erule=per,aligned=true} -> per
             end,
+    Maps = case Gen of
+               #gen{pack=record} -> false;
+               #gen{pack=map} -> true
+           end,
     emit(["encoding_rule() -> ",
 	  {asis,Erule},".",nl,nl,
+          "maps() -> ",
+          {asis,Maps},".",nl,nl,
 	  "bit_string_format() -> ",
 	  {asis,asn1ct:get_bit_string_format()},".",nl,nl,
 	  "legacy_erlang_types() -> ",
@@ -1093,8 +1100,7 @@ open_output_file(F) ->
 close_output_file() ->
     ok = file:close(erase(gen_file_out)).
 
-pgen_hrl(Gen, Module, Contents) ->
-    put(currmod, Module),
+pgen_hrl(#gen{pack=record}=Gen, Module, Contents) ->
     {Types,Values,Ptypes,_,_,_} = Contents,
     Ret =
 	case pgen_hrltypes(Gen, Module, Ptypes++Types, 0) of
@@ -1103,7 +1109,7 @@ pgen_hrl(Gen, Module, Contents) ->
 		    [] ->
 			0;
 		    _ ->
-			open_hrl(get(outfile),get(currmod)),
+			open_hrl(get(outfile), Module),
 			pgen_macros(Gen, Module, Values),
 			1
 		end;
@@ -1122,7 +1128,9 @@ pgen_hrl(Gen, Module, Contents) ->
 			   [{generated,lists:concat([get(outfile),".hrl"])}],
 			   Gen),
 	    Y
-    end.
+    end;
+pgen_hrl(#gen{pack=map}, _, _) ->
+    0.
 
 pgen_macros(_,_,[]) ->
     true;

@@ -21,6 +21,9 @@
 
 -module(asn1_SUITE).
 
+%% Suppress compilation of an addititional module compiled for maps.
+-define(NO_MAPS_MODULE, asn1_test_lib_no_maps).
+
 -define(only_ber(Func),
     if Rule =:= ber -> Func;
        true -> ok
@@ -102,6 +105,7 @@ groups() ->
        testMultipleLevels,
        testOpt,
        testSeqDefault,
+       testMaps,
        % Uses 'External'
        {group, [], [testExternal,
                     testSeqExtension]},
@@ -176,8 +180,11 @@ groups() ->
 
      {performance, [],
       [testTimer_ber,
+       testTimer_ber_maps,
        testTimer_per,
-       testTimer_uper]}].
+       testTimer_per_maps,
+       testTimer_uper,
+       testTimer_uper_maps]}].
 
 %%------------------------------------------------------------------------------
 %% Init/end
@@ -441,6 +448,16 @@ testDEFAULT(Config, Rule, Opts) ->
     testDef:main(Rule),
     testSeqSetDefaultVal:main(Rule, Opts).
 
+testMaps(Config) ->
+    test(Config, fun testMaps/3,
+         [{ber,[maps,no_ok_wrapper]},
+          {ber,[maps,der,no_ok_wrapper]},
+          {per,[maps,no_ok_wrapper]},
+          {uper,[maps,no_ok_wrapper]}]).
+testMaps(Config, Rule, Opts) ->
+    asn1_test_lib:compile_all(['Maps'], Config, [Rule|Opts]),
+    testMaps:main(Rule).
+
 testOpt(Config) -> test(Config, fun testOpt/3).
 testOpt(Config, Rule, Opts) ->
     asn1_test_lib:compile("Opt", Config, [Rule|Opts]),
@@ -614,12 +631,12 @@ parse(Config) ->
     [asn1_test_lib:compile(M, Config, [abs]) || M <- test_modules()].
 
 per(Config) ->
-    test(Config, fun per/3, [per,uper]).
+    test(Config, fun per/3, [per,uper,{per,[maps]},{uper,[maps]}]).
 per(Config, Rule, Opts) ->
     [module_test(M, Config, Rule, Opts) || M <- per_modules()].
 
 ber_other(Config) ->
-    test(Config, fun ber_other/3, [ber]).
+    test(Config, fun ber_other/3, [ber,{ber,[maps]}]).
 
 ber_other(Config, Rule, Opts) ->
     [module_test(M, Config, Rule, Opts) || M <- ber_modules()].
@@ -628,7 +645,7 @@ der(Config) ->
     asn1_test_lib:compile_all(ber_modules(), Config, [der]).
 
 module_test(M0, Config, Rule, Opts) ->
-    asn1_test_lib:compile(M0, Config, [Rule|Opts]),
+    asn1_test_lib:compile(M0, Config, [Rule,?NO_MAPS_MODULE|Opts]),
     case list_to_atom(M0) of
 	'LDAP' ->
 	    %% Because of the recursive definition of 'Filter' in
@@ -995,7 +1012,9 @@ testS1AP(Config, Rule, Opts) ->
 testRfcs() ->
     [{timetrap,{minutes,90}}].
 
-testRfcs(Config) ->  test(Config, fun testRfcs/3, [{ber,[der]}]).
+testRfcs(Config) ->  test(Config, fun testRfcs/3,
+                          [{ber,[der,?NO_MAPS_MODULE]},
+                           {ber,[der,maps]}]).
 testRfcs(Config, Rule, Opts) ->
     case erlang:system_info(system_architecture) of
 	"sparc-sun-solaris2.10" ->
@@ -1010,7 +1029,8 @@ test_compile_options(Config) ->
     ok = test_compile_options:path(Config),
     ok = test_compile_options:noobj(Config),
     ok = test_compile_options:record_name_prefix(Config),
-    ok = test_compile_options:verbose(Config).
+    ok = test_compile_options:verbose(Config),
+    ok = test_compile_options:maps(Config).
 
 testDoubleEllipses(Config) -> test(Config, fun testDoubleEllipses/3).
 testDoubleEllipses(Config, Rule, Opts) ->
@@ -1069,7 +1089,7 @@ test_x691(Config, Rule, Opts) ->
     ok.
 
 ticket_6143(Config) ->
-    ok = test_compile_options:ticket_6143(Config).
+    asn1_test_lib:compile("AA1", Config, [?NO_MAPS_MODULE]).
 
 testExtensionAdditionGroup(Config) ->
     test(Config, fun testExtensionAdditionGroup/3).
@@ -1157,20 +1177,33 @@ END
     ok = asn1ct:compile(File, [{outdir, PrivDir}]).
 
 
-timer_compile(Config, Rule) ->
-    asn1_test_lib:compile_all(["H235-SECURITY-MESSAGES", "H323-MESSAGES"],
-                              Config, [no_ok_wrapper,Rule]).
+timer_compile(Config, Opts0) ->
+    Files = ["H235-SECURITY-MESSAGES", "H323-MESSAGES"],
+    Opts = [no_ok_wrapper,?NO_MAPS_MODULE|Opts0],
+    asn1_test_lib:compile_all(Files, Config, Opts).
 
 testTimer_ber(Config) ->
-    timer_compile(Config, ber),
+    timer_compile(Config, [ber]),
     testTimer:go().
 
 testTimer_per(Config) ->
-    timer_compile(Config, per),
+    timer_compile(Config, [per]),
     testTimer:go().
 
 testTimer_uper(Config) ->
-    timer_compile(Config, uper),
+    timer_compile(Config, [uper]),
+    testTimer:go().
+
+testTimer_ber_maps(Config) ->
+    timer_compile(Config, [ber,maps]),
+    testTimer:go().
+
+testTimer_per_maps(Config) ->
+    timer_compile(Config, [per,maps]),
+    testTimer:go().
+
+testTimer_uper_maps(Config) ->
+    timer_compile(Config, [uper,maps]),
     testTimer:go().
 
 %% Test of multiple-line comment, OTP-8043
@@ -1179,9 +1212,11 @@ testComment(Config) ->
     asn1_test_lib:roundtrip('Comment', 'Seq', {'Seq',12,true}).
 
 testName2Number(Config) ->
-    N2NOptions = [{n2n,Type} || Type <- ['CauseMisc', 'CauseProtocol',
-                                         'CauseRadioNetwork',
-                                         'CauseTransport','CauseNas']],
+    N2NOptions0 = [{n2n,Type} ||
+                     Type <- ['CauseMisc', 'CauseProtocol',
+                              'CauseRadioNetwork',
+                              'CauseTransport','CauseNas']],
+    N2NOptions = [?NO_MAPS_MODULE|N2NOptions0],
     asn1_test_lib:compile("S1AP-IEs", Config, N2NOptions),
 
     0 = 'S1AP-IEs':name2num_CauseMisc('control-processing-overload'),
@@ -1191,8 +1226,9 @@ testName2Number(Config) ->
     %% Test that n2n option generates name2num and num2name functions supporting
     %% values not within the extension root if the enumeration type has an
     %% extension marker.
-    N2NOptionsExt = [{n2n, 'NoExt'}, {n2n, 'Ext'}, {n2n, 'Ext2'}],
+    N2NOptionsExt = [?NO_MAPS_MODULE,{n2n,'NoExt'},{n2n,'Ext'},{n2n,'Ext2'}],
     asn1_test_lib:compile("EnumN2N", Config, N2NOptionsExt),
+
     %% Previously, name2num and num2name was not generated if the type didn't
     %% have an extension marker:
     0 = 'EnumN2N':name2num_NoExt('blue'),
@@ -1210,9 +1246,11 @@ testName2Number(Config) ->
     ok.
 
 ticket_7407(Config) ->
-    asn1_test_lib:compile("EUTRA-extract-7407", Config, [uper]),
+    Opts = [uper,?NO_MAPS_MODULE],
+    asn1_test_lib:compile("EUTRA-extract-7407", Config, Opts),
     ticket_7407_code(true),
-    asn1_test_lib:compile("EUTRA-extract-7407", Config, [uper,no_final_padding]),
+    asn1_test_lib:compile("EUTRA-extract-7407", Config,
+                          [no_final_padding|Opts]),
     ticket_7407_code(false).
 
 ticket_7407_code(FinalPadding) ->

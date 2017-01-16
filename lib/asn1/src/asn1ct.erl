@@ -193,7 +193,7 @@ check_pass(#st{code=M,file=File,includes=Includes,
 	       erule=Erule,dbfile=DbFile,opts=Opts,
 	       inputmodules=InputModules}=St) ->
     start(Includes),
-    case asn1ct_check:storeindb(#state{erule=Erule}, M) of
+    case asn1ct_check:storeindb(#state{erule=Erule,options=Opts}, M) of
 	ok ->
 	    Module = asn1_db:dbget(M#module.name, 'MODULE'),
 	    State = #state{mname=Module#module.name,
@@ -216,8 +216,8 @@ check_pass(#st{code=M,file=File,includes=Includes,
 	    {error,St#st{error=Reason}}
     end.
 
-save_pass(#st{code=M,erule=Erule}=St) ->
-    ok = asn1ct_check:storeindb(#state{erule=Erule}, M),
+save_pass(#st{code=M,erule=Erule,opts=Opts}=St) ->
+    ok = asn1ct_check:storeindb(#state{erule=Erule,options=Opts}, M),
     {ok,St}.
 
 parse_listing(#st{code=Code,outfile=OutFile0}=St) ->
@@ -842,6 +842,8 @@ generate({M,GenTOrV}, OutFile, EncodingRule, Options) ->
 
     Gen = init_gen_record(EncodingRule, Options),
 
+    check_maps_option(Gen),
+
     %% create decoding function names and taglists for partial decode
     try
         specialized_decode_prepare(Gen, M)
@@ -875,9 +877,13 @@ init_gen_record(EncodingRule, Options) ->
     Aligned = EncodingRule =:= per,
     RecPrefix = proplists:get_value(record_name_prefix, Options, ""),
     MacroPrefix = proplists:get_value(macro_name_prefix, Options, ""),
+    Pack = case proplists:get_value(maps, Options, false) of
+               true -> map;
+               false -> record
+           end,
     #gen{erule=Erule,der=Der,aligned=Aligned,
          rec_prefix=RecPrefix,macro_prefix=MacroPrefix,
-         options=Options}.
+         pack=Pack,options=Options}.
 
 
 setup_legacy_erlang_types(Opts) ->
@@ -924,6 +930,26 @@ cleanup_bit_string_format() ->
 get_bit_string_format() ->
     get(bit_string_format).
 
+check_maps_option(#gen{pack=map}) ->
+    case get_bit_string_format() of
+        bitstring ->
+            ok;
+        _ ->
+            Message1 = "The 'maps' option must not be combined with "
+                "'compact_bit_string' or 'legacy_bit_string'",
+            exit({error,{asn1,Message1}})
+    end,
+    case use_legacy_types() of
+        false ->
+            ok;
+        true ->
+            Message2 = "The 'maps' option must not be combined with "
+                "'legacy_erlang_types'",
+            exit({error,{asn1,Message2}})
+    end;
+check_maps_option(#gen{}) ->
+    ok.
+
 
 %% parse_and_save parses an asn1 spec and saves the unchecked parse
 %% tree in a data base file.
@@ -933,22 +959,27 @@ parse_and_save(Module,S) ->
     SourceDir = S#state.sourcedir,
     Includes = [I || {i,I} <- Options],
     Erule = S#state.erule,
+    Maps = lists:member(maps, Options),
     case get_input_file(Module, [SourceDir|Includes]) of
 	%% search for asn1 source
 	{file,SuffixedASN1source} ->
 	    Mtime = filelib:last_modified(SuffixedASN1source),
-	    case asn1_db:dbload(Module, Erule, Mtime) of
+	    case asn1_db:dbload(Module, Erule, Maps, Mtime) of
 		ok -> ok;
 		error -> parse_and_save1(S, SuffixedASN1source, Options)
 	    end;
-	Err ->
+	Err when not Maps ->
 	    case asn1_db:dbload(Module) of
 		ok ->
+                    %% FIXME: This should be an error.
 		    warning("could not do a consistency check of the ~p file: no asn1 source file was found.~n",
 			    [lists:concat([Module,".asn1db"])],Options);
 		error ->
 		    ok
 	    end,
+	    {error,{asn1,input_file_error,Err}};
+        Err ->
+            %% Always fail directly when the 'maps' option is used.
 	    {error,{asn1,input_file_error,Err}}
     end.
 

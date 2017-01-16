@@ -36,6 +36,7 @@
 
 -type type_name() :: any().
 
+
 %% ENCODE GENERATOR FOR SEQUENCE TYPE  ** **********
 
 
@@ -61,29 +62,20 @@ gen_encode_constructed(Erule, Typename, #type{}=D) ->
 
 gen_encode_constructed_imm(Gen, Typename, #type{}=D) ->
     {CompList,TableConsInfo} = enc_complist(D),
-    ExternalImm =
-	case Typename of
-	    ['EXTERNAL'] ->
-		Next = asn1ct_gen:mk_var(asn1ct_name:next(val)),
-		Curr = asn1ct_gen:mk_var(asn1ct_name:curr(val)),
-		asn1ct_name:new(val),
-		[{call,ext,transform_to_EXTERNAL1990,[{var,Curr}],{var,Next}}];
-	    _ ->
-		[]
-	end,
+    ExternalImm = external_imm(Gen, Typename),
     Optionals = optionals(to_textual_order(CompList)),
     ImmOptionals = enc_optionals(Gen, Optionals),
     Ext = extensible_enc(CompList),
     Aligned = is_aligned(Gen),
     ExtImm = case Ext of
 		 {ext,ExtPos,NumExt} when NumExt > 0 ->
-		     gen_encode_extaddgroup(CompList),
+		     gen_encode_extaddgroup(Gen, CompList),
 		     Value = make_var(val),
-		     asn1ct_imm:per_enc_extensions(Value, ExtPos,
-						   NumExt, Aligned);
+                     enc_extensions(Gen, Value, ExtPos, NumExt, Aligned);
 		 _ ->
 		     []
 	     end,
+    MatchImm = enc_map_match(Gen, CompList),
     {EncObj,ObjSetImm} = enc_table(Gen, TableConsInfo, D),
     ImmSetExt =
 	case Ext of
@@ -95,8 +87,28 @@ gen_encode_constructed_imm(Gen, Typename, #type{}=D) ->
 		[]
 	end,
     ImmBody = gen_enc_components_call(Gen, Typename, CompList, EncObj, Ext),
-    ExternalImm ++ ExtImm ++ ObjSetImm ++
+    ExternalImm ++ MatchImm ++ ExtImm ++ ObjSetImm ++
 	asn1ct_imm:enc_append([ImmSetExt] ++ ImmOptionals ++ ImmBody).
+
+external_imm(Gen, ['EXTERNAL']) ->
+    Next = asn1ct_gen:mk_var(asn1ct_name:next(val)),
+    Curr = asn1ct_gen:mk_var(asn1ct_name:curr(val)),
+    asn1ct_name:new(val),
+    F = case Gen of
+            #gen{pack=record} -> transform_to_EXTERNAL1990;
+            #gen{pack=map} -> transform_to_EXTERNAL1990_maps
+        end,
+    [{call,ext,F,[{var,Curr}],{var,Next}}];
+external_imm(_, _) ->
+    [].
+
+enc_extensions(#gen{pack=record}, Value, ExtPos, NumExt, Aligned) ->
+    asn1ct_imm:per_enc_extensions(Value, ExtPos, NumExt, Aligned);
+enc_extensions(#gen{pack=map}, Value, ExtPos, NumExt, Aligned) ->
+    Vars = [{var,lists:concat(["Input@",Pos])} ||
+               Pos <- lists:seq(ExtPos, ExtPos+NumExt-1)],
+    Undefined = atom_to_list(?MISSING_IN_MAP),
+    asn1ct_imm:per_enc_extensions_map(Value, Vars, Undefined, Aligned).
 
 enc_complist(#type{def=Def}) ->
     case Def of
@@ -127,7 +139,7 @@ enc_table(Gen, #simpletableattributes{objectsetname=ObjectSet,
         asn1_db:dbget(Module, ObjSetName),
     case MustGen of
         true ->
-            ValueIndex = ValueIndex0 ++ [{N+1,top}],
+            ValueIndex = ValueIndex0 ++ [{N+1,'ASN1_top'}],
             Val = make_var(val),
             {ObjSetImm,Dst} = enc_dig_out_value(Gen, ValueIndex, Val),
             {{AttrN,Dst},ObjSetImm};
@@ -151,41 +163,118 @@ enc_optionals(Gen, Optionals) ->
     Var = make_var(val),
     enc_optionals_1(Gen, Optionals, Var).
 
-enc_optionals_1(Gen, [{Pos,DefVals}|T], Var) ->
+enc_optionals_1(#gen{pack=record}=Gen, [{Pos,DefVals}|T], Var) ->
     {Imm0,Element} = asn1ct_imm:enc_element(Pos+1, Var),
     Imm = asn1ct_imm:per_enc_optional(Element, DefVals),
     [Imm0++Imm|enc_optionals_1(Gen, T, Var)];
+enc_optionals_1(#gen{pack=map}=Gen, [{Pos,DefVals0}|T], V) ->
+    Var = {var,lists:concat(["Input@",Pos])},
+    DefVals = translate_missing_value(Gen, DefVals0),
+    Imm = asn1ct_imm:per_enc_optional(Var, DefVals),
+    [Imm|enc_optionals_1(Gen, T, V)];
 enc_optionals_1(_, [], _) ->
     [].
 
-gen_encode_extaddgroup(CompList) ->
+enc_map_match(#gen{pack=record}, _Cs) ->
+    [];
+enc_map_match(#gen{pack=map}, Cs0) ->
+    Var0 = "Input",
+    Cs = enc_flatten_components(Cs0),
+    M = [[quote_atom(Name),":=",lists:concat([Var0,"@",Order])] ||
+            #'ComponentType'{prop=mandatory,name=Name,
+                             textual_order=Order} <- Cs],
+    Mand = case M of
+               [] ->
+                   [];
+               [_|_] ->
+                   Patt = {expr,lists:flatten(["#{",lists:join(",", M),"}"])},
+                   [{assign,Patt,{var,asn1ct_name:curr(val)}}]
+           end,
+
+    Os0 = [{Name,Order} ||
+              #'ComponentType'{prop=Prop,name=Name,
+                               textual_order=Order} <- Cs,
+              Prop =/= mandatory],
+    {var,Val} = make_var(val),
+    F = fun({Name,Order}) ->
+                Var = lists:concat([Var0,"@",Order]),
+                P0 = ["case ",Val," of\n"
+                      "  #{",quote_atom(Name),":=",Var,"_0} -> ",
+                      Var,"_0;\n"
+                      "  _ -> ",atom_to_list(?MISSING_IN_MAP),"\n"
+                      "end"],
+                P = lists:flatten(P0),
+                {assign,{var,Var},P}
+        end,
+    Os = [F(O) || O <- Os0],
+    Mand ++ Os.
+
+enc_flatten_components({Root1,Ext0,Root2}=CL) ->
+    {_,Gs} = extgroup_pos_and_length(CL),
+    Ext = wrap_extensionAdditionGroups(Ext0, Gs),
+    Root1 ++ Root2 ++ [mark_optional(C) || C <- Ext];
+enc_flatten_components({Root,Ext}) ->
+    enc_flatten_components({Root,Ext,[]});
+enc_flatten_components(Cs) ->
+    Cs.
+
+gen_encode_extaddgroup(#gen{pack=record}, CompList) ->
     case extgroup_pos_and_length(CompList) of
 	{extgrouppos,[]} ->
 	    ok;
 	{extgrouppos,ExtGroupPosLenList} ->
-	    _ = [do_gen_encode_extaddgroup(G) || G <- ExtGroupPosLenList],
+	    _ = [gen_encode_eag_record(G) ||
+                    G <- ExtGroupPosLenList],
 	    ok
-    end.
+    end;
+gen_encode_extaddgroup(#gen{pack=map}, Cs0) ->
+    Cs = enc_flatten_components(Cs0),
+    gen_encode_eag_map(Cs).
 
-do_gen_encode_extaddgroup({ActualGroupPos,GroupVirtualPos,GroupLen}) ->
+gen_encode_eag_map([#'ComponentType'{name=Group,typespec=Type}|Cs]) ->
+    case Type of
+        #type{def=#'SEQUENCE'{extaddgroup=G,components=GCs0}}
+          when is_integer(G) ->
+            Ns = [N || #'ComponentType'{name=N,prop=mandatory} <- GCs0],
+            test_for_mandatory(Ns, Group),
+            gen_encode_eag_map(Cs);
+        _ ->
+            gen_encode_eag_map(Cs)
+    end;
+gen_encode_eag_map([]) ->
+    ok.
+
+test_for_mandatory([Mand|_], Group) ->
+    emit([{next,val}," = case ",{curr,val}," of",nl,
+	  "#{",quote_atom(Mand),":=_} -> ",
+          {curr,val},"#{",{asis,Group},"=>",{curr,val},"};",nl,
+          "#{} -> ",{curr,val},nl,
+	  "end,",nl]),
+    asn1ct_name:new(val);
+test_for_mandatory([], _) ->
+    ok.
+
+gen_encode_eag_record({ActualPos,VirtualPos,Len}) ->
     Val = asn1ct_gen:mk_var(asn1ct_name:curr(val)),
-    Elements = make_elements(GroupVirtualPos+1,
-			     Val,
-			     lists:seq(1, GroupLen)),
-    Expr = any_non_value(GroupVirtualPos+1, Val, GroupLen, ""),
+    Elements = get_input_vars(Val, VirtualPos, Len),
+    Expr = any_non_value(Val, VirtualPos, Len),
     emit([{next,val}," = case ",Expr," of",nl,
-	  "false -> setelement(",{asis,ActualGroupPos+1},", ",
+	  "false -> setelement(",{asis,ActualPos+1},", ",
 	  {curr,val},", asn1_NOVALUE);",nl,
-	  "true -> setelement(",{asis,ActualGroupPos+1},", ",
+	  "true -> setelement(",{asis,ActualPos+1},", ",
 	  {curr,val},", {extaddgroup,", Elements,"})",nl,
 	  "end,",nl]),
     asn1ct_name:new(val).
 
-any_non_value(_, _, 0, _) ->
+any_non_value(Val, Pos, N) ->
+    L = any_non_value_1(Val, Pos, N),
+    lists:join(" orelse ", L).
+
+any_non_value_1(_, _, 0) ->
     [];
-any_non_value(Pos, Val, N, Sep) ->
-    Sep ++ [make_element(Pos, Val)," =/= asn1_NOVALUE"] ++
-	any_non_value(Pos+1, Val, N-1, [" orelse",nl]).
+any_non_value_1(Val, Pos, N) ->
+    Var = get_input_var(Val, Pos),
+    [Var ++ " =/= asn1_NOVALUE"|any_non_value_1(Val, Pos+1, N-1)].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% generate decode function for SEQUENCE and SET
@@ -346,27 +435,78 @@ gen_dec_objsets_fun(Gen, ObjSetInfo) ->
     end.
 
 gen_dec_pack(Gen, Typename, CompList) ->
-    RecordName = record_name(Gen, Typename),
     case Typename of
 	['EXTERNAL'] ->
-	    emit({"   OldFormat={'",RecordName,
-		  "'"}),
-	    mkvlist(asn1ct_name:all(term)),
-	    emit({"},",nl}),
-	    emit(["   ASN11994Format =",nl,
-		  "      ",
-		  {call,ext,transform_to_EXTERNAL1994,
-		   ["OldFormat"]},com,nl]),
-	    emit("   {ASN11994Format,");
+            dec_external(Gen, Typename);
 	_ ->
-	    emit(["{{'",RecordName,"'"]),
-	    %% CompList is used here because we don't want
-	    %% ExtensionAdditionGroups to be wrapped in SEQUENCES when
-	    %% we are ordering the fields according to textual order
-	    mkvlist(textual_order(CompList, asn1ct_name:all(term))),
-	    emit("},")
-    end,
-    emit({{curr,bytes},"}"}).
+            asn1ct_name:new(res),
+            gen_dec_do_pack(Gen, Typename, CompList),
+            emit([com,nl,
+                  "{",{curr,res},",",{curr,bytes},"}"])
+    end.
+
+dec_external(#gen{pack=record}=Gen, Typename) ->
+    RecordName = list_to_atom(record_name(Gen, Typename)),
+    All = [{var,Term} || Term <- asn1ct_name:all(term)],
+    Record = [{asis,RecordName}|All],
+    emit(["OldFormat={",lists:join(",", Record),"},",nl,
+          "ASN11994Format =",nl,
+          {call,ext,transform_to_EXTERNAL1994,
+           ["OldFormat"]},com,nl,
+          "{ASN11994Format,",{curr,bytes},"}"]);
+dec_external(#gen{pack=map}, _Typename) ->
+    Vars = asn1ct_name:all(term),
+    Names = ['direct-reference','indirect-reference',
+             'data-value-descriptor',encoding],
+    Zipped = lists:zip(Names, Vars),
+    MapInit = lists:join(",", [["'",N,"'=>",{var,V}] || {N,V} <- Zipped]),
+    emit(["OldFormat = #{",MapInit,"}",com,nl,
+          "ASN11994Format =",nl,
+          {call,ext,transform_to_EXTERNAL1994_maps,
+           ["OldFormat"]},com,nl,
+          "{ASN11994Format,",{curr,bytes},"}"]).
+
+gen_dec_do_pack(#gen{pack=record}=Gen, TypeName, CompList) ->
+    Zipped0 = zip_components(CompList, asn1ct_name:all(term)),
+    Zipped = textual_order(Zipped0),
+    RecordName = ["'",record_name(Gen, TypeName),"'"],
+    L = [RecordName|[{var,Var} || {_,Var} <- Zipped]],
+    emit([{curr,res}," = {",lists:join(",", L),"}"]);
+gen_dec_do_pack(#gen{pack=map}, _, CompList0) ->
+    CompList = enc_flatten_components(CompList0),
+    Zipped0 = zip_components(CompList, asn1ct_name:all(term)),
+    Zipped = textual_order(Zipped0),
+    PF = fun({#'ComponentType'{prop='OPTIONAL'},_}) -> false;
+            ({_,_}) -> true
+         end,
+    {Mandatory,Optional} = lists:partition(PF, Zipped),
+    L = [[{asis,Name},"=>",{var,Var}] ||
+            {#'ComponentType'{name=Name},Var} <- Mandatory],
+    emit([{curr,res}," = #{",lists:join(",", L),"}"]),
+    gen_dec_map_optional(Optional),
+    gen_dec_merge_maps(asn1ct_name:all(map)).
+
+gen_dec_map_optional([{#'ComponentType'{name=Name},Var}|T]) ->
+    asn1ct_name:new(res),
+    emit([com,nl,
+          {curr,res}," = case ",{var,Var}," of",nl,
+          "  asn1_NOVALUE -> ",{prev,res},";",nl,
+          "  _ -> ",{prev,res},"#{",{asis,Name},"=>",{var,Var},"}",nl,
+          "end"]),
+    gen_dec_map_optional(T);
+gen_dec_map_optional([]) ->
+    ok.
+
+gen_dec_merge_maps([M|Ms]) ->
+    asn1ct_name:new(res),
+    emit([com,nl,
+          {curr,res}," = maps:merge(",{prev,res},", ",{var,M},")"]),
+    gen_dec_merge_maps(Ms);
+gen_dec_merge_maps([]) ->
+    ok.
+
+quote_atom(A) when is_atom(A) ->
+    io_lib:format("~p", [A]).
 
 %% record_name([TypeName]) -> RecordNameString
 %%  Construct a record name for the constructed type, ignoring any
@@ -391,16 +531,26 @@ filter_ext_add_groups([H|T], Acc) ->
     filter_ext_add_groups(T, [H|Acc]);
 filter_ext_add_groups([], Acc) -> Acc.
 
-textual_order([#'ComponentType'{textual_order=undefined}|_], TermList) ->
-    TermList;
-textual_order(CompList, TermList) when is_list(CompList) ->
-    OrderList = [Ix||#'ComponentType'{textual_order=Ix} <- CompList],
-    Zipped = lists:sort(lists:zip(OrderList, TermList)),
-    [Term || {_,Term} <- Zipped];
-textual_order({Root,Ext}, TermList) ->
-    textual_order(Root ++ Ext, TermList);
-textual_order({R1,Ext,R2}, TermList) ->
-    textual_order(R1 ++ R2 ++ Ext, TermList).
+zip_components({Root,Ext}, Vars) ->
+    zip_components({Root,Ext,[]}, Vars);
+zip_components({R1,Ext0,R2}, Vars) ->
+    Ext = [mark_optional(C) || C <- Ext0],
+    zip_components(R1++R2++Ext, Vars);
+zip_components(Cs, Vars) when is_list(Cs) ->
+    zip_components_1(Cs, Vars).
+
+zip_components_1([#'ComponentType'{}=C|Cs], [V|Vs]) ->
+    [{C,V}|zip_components_1(Cs, Vs)];
+zip_components_1([_|Cs], Vs) ->
+    zip_components_1(Cs, Vs);
+zip_components_1([], []) ->
+    [].
+
+textual_order([{#'ComponentType'{textual_order=undefined},_}|_]=L) ->
+    L;
+textual_order(L0) ->
+    L = [{Ix,P} || {#'ComponentType'{textual_order=Ix},_}=P <- L0],
+    [C || {_,C} <- lists:sort(L)].
 
 to_textual_order({Root,Ext}) ->
     {to_textual_order(Root),Ext};
@@ -469,7 +619,7 @@ dec_objset_default(N, _, _, true) ->
 	  end]).
 
 dec_objset_1(Erule, N, {Id,Obj}, RestFields, Typename) ->
-    emit([{asis,N},"(Bytes, ",{asis,Id},") ->",nl]),
+    emit([{asis,N},"(Bytes, Id) when Id =:= ",{asis,Id}," ->",nl]),
     dec_objset_2(Erule, Obj, RestFields, Typename).
 
 dec_objset_2(Erule, Obj, RestFields0, Typename) ->
@@ -650,22 +800,7 @@ gen_decode_sof_components(Erule, Name, Typename, SeqOrSetOf, Cont) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% General and special help functions (not exported)
-
-mkvlist([H|T]) ->
-    emit(","),
-    mkvlist2([H|T]);
-mkvlist([]) ->
-    true.
-mkvlist2([H,T1|T]) ->
-    emit({{var,H},","}),
-    mkvlist2([T1|T]);
-mkvlist2([H|T]) ->
-    emit({{var,H}}),
-    mkvlist2(T);
-mkvlist2([]) ->
-    true.
-
+%% General and special help functions (not exported)
 
 extensible_dec(CompList) when is_list(CompList) ->
     noext;
@@ -837,31 +972,51 @@ mark_optional(#'ComponentType'{prop=Prop0}=C) ->
                'OPTIONAL'=Keep -> Keep;
                {'DEFAULT',_}=Keep -> Keep
            end,
-    C#'ComponentType'{prop=Prop}.
+    C#'ComponentType'{prop=Prop};
+mark_optional(Other) ->
+    Other.
 
-gen_enc_components_call1(Erule, TopType, [C|Rest], DynamicEnc, Ext) ->
+gen_enc_components_call1(Gen, TopType, [C|Rest], DynamicEnc, Ext) ->
     #'ComponentType'{name=Cname,typespec=Type,
-                     prop=Prop,textual_order=TermNo} = C,
-    Val = make_var(val),
-    {Imm0,Element} = asn1ct_imm:enc_element(TermNo+1, Val),
-    Imm1 = gen_enc_line_imm(Erule, TopType, Cname, Type,
+                     prop=Prop,textual_order=Num} = C,
+    {Imm0,Element} = enc_fetch_field(Gen, Num, Prop),
+    Imm1 = gen_enc_line_imm(Gen, TopType, Cname, Type,
                             Element, DynamicEnc, Ext),
     Imm2 = case Prop of
 	       mandatory ->
 		   Imm1;
 	       'OPTIONAL' ->
-		   asn1ct_imm:enc_absent(Element, [asn1_NOVALUE], Imm1);
+		   enc_absent(Gen, Element, [asn1_NOVALUE], Imm1);
 	       {'DEFAULT',Def} ->
 		   DefValues = def_values(Type, Def),
-		   asn1ct_imm:enc_absent(Element, DefValues, Imm1)
+		   enc_absent(Gen, Element, DefValues, Imm1)
 	   end,
     Imm = case Imm2 of
 	      [] -> [];
 	      _ -> Imm0 ++ Imm2
 	  end,
-    [Imm|gen_enc_components_call1(Erule, TopType, Rest, DynamicEnc, Ext)];
-gen_enc_components_call1(_Erule, _TopType, [], _, _) ->
+    [Imm|gen_enc_components_call1(Gen, TopType, Rest, DynamicEnc, Ext)];
+gen_enc_components_call1(_Gen, _TopType, [], _, _) ->
     [].
+
+enc_absent(Gen, Var, Absent0, Imm) ->
+    Absent = translate_missing_value(Gen, Absent0),
+    asn1ct_imm:enc_absent(Var, Absent, Imm).
+
+translate_missing_value(#gen{pack=record}, Optionals) ->
+    Optionals;
+translate_missing_value(#gen{pack=map}, Optionals) ->
+    case Optionals of
+        [asn1_NOVALUE|T] -> [?MISSING_IN_MAP|T];
+        [asn1_DEFAULT|T] -> [?MISSING_IN_MAP|T];
+        {call,_,_,_} -> Optionals
+    end.
+
+enc_fetch_field(#gen{pack=record}, Num, _Prop) ->
+    Val = make_var(val),
+    asn1ct_imm:enc_element(Num+1, Val);
+enc_fetch_field(#gen{pack=map}, Num, _) ->
+    {[],{var,lists:concat(["Input@",Num])}}.
 
 def_values(#type{def=#'Externaltypereference'{module=Mod,type=Type}}, Def) ->
     #typedef{typespec=T} = asn1_db:dbget(Mod, Type),
@@ -1171,7 +1326,7 @@ gen_dec_comp_calls([C|Cs], Erule, TopType, OptTable, DecInfObj,
 gen_dec_comp_calls([], _, _, _, _, _, _, Tpos, Acc) ->
     {lists:append(lists:reverse(Acc)),Tpos}.
 
-gen_dec_comp_call(Comp, Erule, TopType, Tpos, OptTable, DecInfObj,
+gen_dec_comp_call(Comp, Gen, TopType, Tpos, OptTable, DecInfObj,
 		  Ext, NumberOfOptionals) ->
     #'ComponentType'{typespec=Type,prop=Prop,textual_order=TextPos} = Comp,
     Pos = case Ext of
@@ -1212,15 +1367,9 @@ gen_dec_comp_call(Comp, Erule, TopType, Tpos, OptTable, DecInfObj,
 	_ ->
 	    case Type of
 		#type{def=#'SEQUENCE'{
-			extaddgroup=Number1,
-			components=ExtGroupCompList1}} when is_integer(Number1)->
-		    fun(St) ->
-			    emit(["{{_,"]),
-			    emit_extaddgroupTerms(term,ExtGroupCompList1),
-			    emit(["}"]),
-			    emit([",",{next,bytes},"} = "]),
-			    St
-		    end;
+                             extaddgroup=GroupNum,
+                             components=CompList}} when is_integer(GroupNum)->
+                    dec_match_extadd_fun(Gen, CompList);
 		_ ->
 		    fun(St) ->
 			    asn1ct_name:new(term),
@@ -1230,9 +1379,9 @@ gen_dec_comp_call(Comp, Erule, TopType, Tpos, OptTable, DecInfObj,
 		    end
 	    end
 	end,
-    {Pre,Post} = comp_call_pre_post(Ext, Prop, Pos, Type, TextPos,
+    {Pre,Post} = comp_call_pre_post(Gen, Ext, Prop, Pos, Type, TextPos,
 				    OptTable, NumberOfOptionals, Ext),
-    Lines = gen_dec_seq_line_imm(Erule, TopType, Comp, Tpos, DecInfObj, Ext),
+    Lines = gen_dec_seq_line_imm(Gen, TopType, Comp, Tpos, DecInfObj, Ext),
     AdvBuffer = {ignore,fun(St) ->
 				asn1ct_name:new(bytes),
 				St
@@ -1240,9 +1389,24 @@ gen_dec_comp_call(Comp, Erule, TopType, Tpos, OptTable, DecInfObj,
     [{group,[{safe,Comment},{safe,Preamble}] ++ Pre ++
 	  Lines ++ Post ++ [{safe,AdvBuffer}]}].
 
-comp_call_pre_post(noext, mandatory, _, _, _, _, _, _) ->
+dec_match_extadd_fun(#gen{pack=record}, CompList) ->
+    fun(St) ->
+            emit(["{{_,"]),
+            emit_extaddgroupTerms(term, CompList),
+            emit(["}"]),
+            emit([",",{next,bytes},"} = "]),
+            St
+    end;
+dec_match_extadd_fun(#gen{pack=map}, _CompList) ->
+    fun(St) ->
+            asn1ct_name:new(map),
+            emit(["{",{curr,map},",",{next,bytes},"} = "]),
+            St
+    end.
+
+comp_call_pre_post(_Gen, noext, mandatory, _, _, _, _, _, _) ->
     {[],[]};
-comp_call_pre_post(noext, Prop, _, Type, TextPos,
+comp_call_pre_post(_Gen, noext, Prop, _, Type, TextPos,
 		   OptTable, NumOptionals, Ext) ->
     %% OPTIONAL or DEFAULT
     OptPos = get_optionality_pos(TextPos, OptTable),
@@ -1266,32 +1430,53 @@ comp_call_pre_post(noext, Prop, _, Type, TextPos,
 		    "end"]),
 	      St
       end]};
-comp_call_pre_post({ext,_,_}, Prop, Pos, Type, _, _, _, Ext) ->
+comp_call_pre_post(Gen, {ext,_,_}, Prop, Pos, Type, _, _, _, Ext) ->
     %% Extension
     {[fun(St) ->
 	      emit(["case Extensions of",nl,
 		    "  <<_:",Pos-1,",1:1,_/bitstring>> ->",nl]),
 	      St
       end],
-     [fun(St) ->
-	      emit([";",nl,
-		    "_  ->",nl,
-		    "{"]),
-	      case Type of
-		  #type{def=#'SEQUENCE'{
-			       extaddgroup=Number2,
-			       components=ExtGroupCompList2}}
-		    when is_integer(Number2)->
-		      emit("{extAddGroup,"),
-		      gen_dec_extaddGroup_no_val(Ext, Type, ExtGroupCompList2),
-		      emit("}");
-		  _ ->
-		      gen_dec_component_no_val(Ext, Type, Prop)
-	      end,
-	      emit([",",{curr,bytes},"}",nl,
-		    "end"]),
-	      St
-      end]}.
+     [extadd_group_fun(Gen, Prop, Type, Ext)]}.
+
+extadd_group_fun(#gen{pack=record}, Prop, Type, Ext) ->
+    fun(St) ->
+            emit([";",nl,
+                  "_  ->",nl,
+                  "{"]),
+            case Type of
+                #type{def=#'SEQUENCE'{
+                             extaddgroup=Number2,
+                             components=ExtGroupCompList2}}
+                  when is_integer(Number2)->
+                    emit("{extAddGroup,"),
+                    gen_dec_extaddGroup_no_val(Ext, Type, ExtGroupCompList2),
+                    emit("}");
+                _ ->
+                    gen_dec_component_no_val(Ext, Type, Prop)
+            end,
+            emit([",",{curr,bytes},"}",nl,
+                  "end"]),
+            St
+    end;
+extadd_group_fun(#gen{pack=map}, Prop, Type, Ext) ->
+    fun(St) ->
+            emit([";",nl,
+                  "_  ->",nl,
+                  "{"]),
+            case Type of
+                #type{def=#'SEQUENCE'{
+                             extaddgroup=Number2,
+                             components=Comp}}
+                  when is_integer(Number2)->
+                    dec_map_extaddgroup_no_val(Ext, Type, Comp);
+                _ ->
+                    gen_dec_component_no_val(Ext, Type, Prop)
+            end,
+            emit([",",{curr,bytes},"}",nl,
+                  "end"]),
+            St
+    end.
 
 is_mandatory_predef_tab_c(noext, mandatory,
 			  {"got objfun through args","ObjFun"}) ->
@@ -1318,7 +1503,20 @@ gen_dec_component_no_val(_, _, 'OPTIONAL') ->
     emit({"asn1_NOVALUE"});
 gen_dec_component_no_val({ext,_,_}, _, mandatory) ->
     emit({"asn1_NOVALUE"}).
-    
+
+dec_map_extaddgroup_no_val(Ext, Type, Comp) ->
+    L0 = [dec_map_extaddgroup_no_val_1(N, P, Ext, Type) ||
+             #'ComponentType'{name=N,prop=P} <- Comp],
+    L = [E || E <- L0, E =/= []],
+    emit(["#{",lists:join(",", L),"}"]).
+
+dec_map_extaddgroup_no_val_1(Name, {'DEFAULT',DefVal0}, _Ext, Type) ->
+    DefVal = asn1ct_gen:conform_value(Type, DefVal0),
+    [Name,"=>",{asis,DefVal}];
+dec_map_extaddgroup_no_val_1(_Name, 'OPTIONAL', _, _) ->
+    [];
+dec_map_extaddgroup_no_val_1(_Name, mandatory, {ext,_,_}, _) ->
+    [].
 
 gen_dec_choice_line(Erule, TopType, Comp, Pre) ->
     Imm0 = gen_dec_line_imm(Erule, TopType, Comp, false, Pre),
@@ -1698,20 +1896,17 @@ gen_dec_choice2(Erule, TopType, [H0|T], Pos, Sep0, Pre) ->
     gen_dec_choice2(Erule, TopType, T, Pos+1, Sep, Pre);
 gen_dec_choice2(_, _, [], _, _, _)  -> ok.
 
-make_elements(I,Val,ExtCnames) ->
-    make_elements(I,Val,ExtCnames,[]).
+get_input_vars(Val, I, N) ->
+    L = get_input_vars_1(Val, I, N),
+    lists:join(",", L).
 
-make_elements(I,Val,[_ExtCname],Acc)-> % the last one, no comma needed
-    Element = make_element(I, Val),
-    make_elements(I+1,Val,[],[Element|Acc]);
-make_elements(I,Val,[_ExtCname|Rest],Acc)->
-    Element = make_element(I, Val),
-    make_elements(I+1,Val,Rest,[", ",Element|Acc]);
-make_elements(_I,_,[],Acc) ->
-    lists:reverse(Acc).
+get_input_vars_1(_Val, _I, 0) ->
+    [];
+get_input_vars_1(Val, I, N) ->
+    [get_input_var(Val, I)|get_input_vars_1(Val, I+1, N-1)].
 
-make_element(I, Val) ->
-    lists:flatten(io_lib:format("element(~w, ~s)", [I,Val])).
+get_input_var(Val, I) ->
+    lists:flatten(io_lib:format("element(~w, ~s)", [I+1,Val])).
 
 emit_extaddgroupTerms(VarSeries,[_]) ->
     asn1ct_name:new(VarSeries),
@@ -1728,57 +1923,66 @@ flat_complist({Rl1,El,Rl2}) -> Rl1 ++ El ++ Rl2;
 flat_complist({Rl,El}) -> Rl ++ El;
 flat_complist(CompList) -> CompList.
 
-%%wrap_compList({Root1,Ext,Root2}) ->
-%%    {Root1,wrap_extensionAdditionGroups(Ext),Root2};
-%%wrap_compList({Root1,Ext}) ->
-%%    {Root1,wrap_extensionAdditionGroups(Ext)};
-%%wrap_compList(CompList) ->
-%%    CompList.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%  Will convert all componentTypes following 'ExtensionAdditionGroup'
+%%  Convert all componentTypes following 'ExtensionAdditionGroup'
 %%  up to the matching 'ExtensionAdditionGroupEnd' into one componentType
-%% of type SEQUENCE with the componentTypes as components
+%%  of type SEQUENCE with the componentTypes as components.
 %%
-wrap_extensionAdditionGroups(ExtCompList,ExtGroupPosLen) ->
-    wrap_extensionAdditionGroups(ExtCompList,ExtGroupPosLen,[],0,0).
+wrap_extensionAdditionGroups(ExtCompList, ExtGroupPosLen) ->
+    wrap_eags(ExtCompList, ExtGroupPosLen, 0, 0).
 
-wrap_extensionAdditionGroups([{'ExtensionAdditionGroup',_Number}|Rest],
-			     [{ActualPos,_,_}|ExtGroupPosLenRest],Acc,_ExtAddGroupDiff,ExtGroupNum) ->
-    {ExtGroupCompList,['ExtensionAdditionGroupEnd'|Rest2]} =
+wrap_eags([{'ExtensionAdditionGroup',_Number}|T0],
+          [{ActualPos,_,_}|Gs], _ExtAddGroupDiff, ExtGroupNum) ->
+    {ExtGroupCompList,['ExtensionAdditionGroupEnd'|T]} =
 	lists:splitwith(fun(#'ComponentType'{}) -> true;
 			   (_) -> false
-			end,
-			Rest),
-    wrap_extensionAdditionGroups(Rest2,ExtGroupPosLenRest,
-				 [#'ComponentType'{
-				     name=list_to_atom("ExtAddGroup"++
-							integer_to_list(ExtGroupNum+1)), 
-				     typespec=#type{def=#'SEQUENCE'{
-						   extaddgroup=ExtGroupNum+1,
-						   components=ExtGroupCompList}},
-				     textual_order = ActualPos,
-				     prop='OPTIONAL'}|Acc],length(ExtGroupCompList)-1,
-				 ExtGroupNum+1);
-wrap_extensionAdditionGroups([H=#'ComponentType'{textual_order=Tord}|T],
-			     ExtAddGrpLenPos,Acc,ExtAddGroupDiff,ExtGroupNum) when is_integer(Tord) ->
-    wrap_extensionAdditionGroups(T,ExtAddGrpLenPos,[H#'ComponentType'{
-				      textual_order=Tord - ExtAddGroupDiff}|Acc],ExtAddGroupDiff,ExtGroupNum);
-wrap_extensionAdditionGroups([H|T],ExtAddGrpLenPos,Acc,ExtAddGroupDiff,ExtGroupNum) ->
-    wrap_extensionAdditionGroups(T,ExtAddGrpLenPos,[H|Acc],ExtAddGroupDiff,ExtGroupNum);
-wrap_extensionAdditionGroups([],_,Acc,_,_) ->
-    lists:reverse(Acc).
+			end, T0),
+    Name = list_to_atom(lists:concat(["ExtAddGroup",ExtGroupNum+1])),
+    Seq = #type{def=#'SEQUENCE'{extaddgroup=ExtGroupNum+1,
+                                components=ExtGroupCompList}},
+    Comp = #'ComponentType'{name=Name,
+                            typespec=Seq,
+                            textual_order=ActualPos,
+                            prop='OPTIONAL'},
+    [Comp|wrap_eags(T, Gs, length(ExtGroupCompList)-1, ExtGroupNum+1)];
+wrap_eags([#'ComponentType'{textual_order=Tord}=H|T],
+          ExtAddGrpLenPos, ExtAddGroupDiff, ExtGroupNum)
+  when is_integer(Tord) ->
+    Comp = H#'ComponentType'{textual_order=Tord - ExtAddGroupDiff},
+    [Comp|wrap_eags(T, ExtAddGrpLenPos, ExtAddGroupDiff, ExtGroupNum)];
+wrap_eags([H|T], ExtAddGrpLenPos, ExtAddGroupDiff, ExtGroupNum) ->
+    [H|wrap_eags(T, ExtAddGrpLenPos, ExtAddGroupDiff, ExtGroupNum)];
+wrap_eags([], _, _, _) ->
+    [].
 
-value_match(_Gen, [], Value) ->
+value_match(#gen{pack=record}, VIs, Value) ->
+    value_match_rec(VIs, Value);
+value_match(#gen{pack=map}, VIs, Value) ->
+    value_match_map(VIs, Value).
+
+value_match_rec([], Value) ->
     Value;
-value_match(Gen, [{VI,_}|VIs], Value0) ->
-    Value = value_match(Gen, VIs, Value0),
+value_match_rec([{VI,_}|VIs], Value0) ->
+    Value = value_match_rec(VIs, Value0),
     lists:concat(["element(",VI,", ",Value,")"]).
+
+value_match_map([], Value) ->
+    Value;
+value_match_map([{_,Name}|VIs], Value0) ->
+    Value = value_match_map(VIs, Value0),
+    lists:concat(["maps:get(",Name,", ",Value,")"]).
 
 enc_dig_out_value(_Gen, [], Value) ->
     {[],Value};
-enc_dig_out_value(Gen, [{N,_}|T], Value) ->
+enc_dig_out_value(#gen{pack=record}=Gen, [{N,_}|T], Value) ->
     {Imm0,Dst0} = enc_dig_out_value(Gen, T, Value),
     {Imm,Dst} = asn1ct_imm:enc_element(N, Dst0),
+    {Imm0++Imm,Dst};
+enc_dig_out_value(#gen{pack=map}, [{N,'ASN1_top'}], _Value) ->
+    {[],{var,lists:concat(["Input@",N-1])}};
+enc_dig_out_value(#gen{pack=map}=Gen, [{_,Name}|T], Value) ->
+    {Imm0,Dst0} = enc_dig_out_value(Gen, T, Value),
+    {Imm,Dst} = asn1ct_imm:enc_maps_get(Name, Dst0),
     {Imm0++Imm,Dst}.
 
 make_var(Base) ->

@@ -170,11 +170,24 @@ File3.asn</pre>
               as for <c>ber</c>.
 	    </p>
           </item>
+          <tag><c>maps</c></tag>
+          <item>
+	    <p>This option changes the representation of the types
+	    <c>SEQUENCE</c> and <c>SET</c> to use maps (instead of
+	    records).  This option also suppresses the generation of
+	    <c>.hrl</c> files.</p>
+	    <p>For details, see Section
+	      <seealso marker="asn1_getting_started#MAP_SEQ_SET">
+		Map representation for SEQUENCE and SET</seealso>
+		in the User's Guide.
+	    </p>
+	  </item>
           <tag><c>compact_bit_string</c></tag>
           <item>
             <p>
 	      The <c>BIT STRING</c> type is decoded to "compact notation".
 	      <em>This option is not recommended for new code.</em>
+	      This option cannot be combined with the option <c>maps</c>.
 	    </p>
 	    <p>For details, see Section
 	      <seealso marker="asn1_getting_started#BIT STRING">
@@ -188,6 +201,7 @@ File3.asn</pre>
 	      The <c>BIT STRING</c> type is decoded to the legacy
 	      format, that is, a list of zeroes and ones.
 	      <em>This option is not recommended for new code.</em>
+	      This option cannot be combined with the option <c>maps</c>.
 	    </p>
 	    <p>For details, see Section
 	      <seealso marker="asn1_getting_started#BIT STRING">BIT STRING</seealso>
@@ -202,7 +216,8 @@ File3.asn</pre>
             marker="asn1_getting_started#BIT STRING">BIT STRING</seealso> and Section
             <seealso marker="asn1_getting_started#OCTET STRING">OCTET
             STRING</seealso> in the User's Guide.</p>
-	    <p><em>This option is not recommended for new code.</em></p>
+	    <p><em>This option is not recommended for new code.</em>
+	    This option cannot be combined with the option <c>maps</c>.</p>
 	  </item>
           <tag><c>{n2n, EnumTypeName}</c></tag>
           <item>
