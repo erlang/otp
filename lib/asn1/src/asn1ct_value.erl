@@ -19,7 +19,6 @@
 %%
 %%
 -module(asn1ct_value).
--compile([{nowarn_deprecated_function,{asn1rt,utf8_list_to_binary,1}}]).
 
 %%  Generate Erlang values for ASN.1 types.
 %%  The value is randomized within it's constraints
@@ -292,8 +291,10 @@ from_type_prim(M, D) ->
 	'BMPString' ->
 	    adjust_list(size_random(C),c_string(C,"BMPString"));
 	'UTF8String' ->
-	    {ok,Res}=asn1rt:utf8_list_to_binary(adjust_list(random(50),[$U,$T,$F,$8,$S,$t,$r,$i,$n,$g,16#ffff,16#fffffff,16#ffffff,16#fffff,16#fff])),
-	    Res;
+            L = adjust_list(random(50),
+                            [$U,$T,$F,$8,$S,$t,$r,$i,$n,$g,
+                             16#ffff,16#ffee,16#10ffff,16#ffff,16#fff]),
+	    unicode:characters_to_binary(L);
 	'UniversalString' ->
 	    adjust_list(size_random(C),c_string(C,"UniversalString"));
 	XX ->
