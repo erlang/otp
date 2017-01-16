@@ -786,7 +786,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     }
 
     if (BIF_ARG_2 == am_true) {
-	int i;
+	int i, num_exps;
 
 	/*
 	 * Make the code with the on_load function current.
@@ -802,7 +802,8 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	/*
 	 * The on_load function succeded. Fix up export entries.
 	 */
-	for (i = 0; i < export_list_size(code_ix); i++) {
+	num_exps = export_list_size(code_ix);
+	for (i = 0; i < num_exps; i++) {
 	    Export *ep = export_list(i,code_ix);
 	    if (ep == NULL || ep->code[0] != BIF_ARG_1) {
 		continue;
@@ -822,14 +823,15 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	modp->curr.code_hdr->on_load_function_ptr = NULL;
 	set_default_trace_pattern(BIF_ARG_1);
     } else if (BIF_ARG_2 == am_false) {
-	int i;
+	int i, num_exps;
 
 	/*
 	 * The on_load function failed. Remove references to the
 	 * code that is about to be purged from the export entries.
 	 */
 
-	for (i = 0; i < export_list_size(code_ix); i++) {
+	num_exps = export_list_size(code_ix);
+	for (i = 0; i < num_exps; i++) {
 	    Export *ep = export_list(i,code_ix);
 	    if (ep == NULL || ep->code[0] != BIF_ARG_1) {
 		continue;
@@ -2033,9 +2035,9 @@ delete_code(Module* modp)
 {
     ErtsCodeIndex code_ix = erts_staging_code_ix();
     Eterm module = make_atom(modp->module);
-    int i;
+    int i, num_exps = export_list_size(code_ix);
 
-    for (i = 0; i < export_list_size(code_ix); i++) {
+    for (i = 0; i < num_exps; i++) {
 	Export *ep = export_list(i, code_ix);
         if (ep != NULL && (ep->code[0] == module)) {
 	    if (ep->addressv[code_ix] == ep->code+3) {

@@ -32,6 +32,26 @@
   <p>This document describes the changes made to the ERTS application.</p>
 
 
+<section><title>Erts 8.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a quite rare bug causing VM crash during code loading
+	    and the use of export funs (fun M:F/A) of not yet loaded
+	    modules. Requires a very specfic timing of concurrent
+	    scheduler threads. Has been seen on ARM but can probably
+	    also occure on other architectures. Bug has existed since
+	    OTP R16.</p>
+          <p>
+	    Own Id: OTP-14144 Aux Id: seq13242 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 8.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
