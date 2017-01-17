@@ -3323,8 +3323,8 @@ Eterm erts_nif_call_function(Process *p, Process *tracee,
 #endif
     if (p) {
         /* This is almost a normal nif call like in beam_emu,
-           except that any heap fragment created in the nif will be
-           discarded without checking if anything in it is live.
+           except that any heap consumed by the nif will be
+           released without checking if anything in it is live.
            This is because we cannot do a GC here as we don't know
            the number of live registers that have to be preserved.
            This means that any heap part of the returned term may
