@@ -796,58 +796,47 @@ add_textual_order1(Cs,NumIn) ->
 		   end,
 		   NumIn,Cs).
 
-gen_enc_components_call(Erule,TopType,{Root,ExtList}, DynamicEnc,Ext) ->
-    gen_enc_components_call(Erule,TopType,{Root,ExtList,[]}, DynamicEnc,Ext);
-gen_enc_components_call(Erule,TopType,CL={Root,ExtList,Root2}, DynamicEnc,Ext) ->
-    %% The type has extensionmarker
-    {Imm0,Rpos} = gen_enc_components_call1(Erule,TopType,Root++Root2,1, DynamicEnc,noext,[]),
+gen_enc_components_call(Erule, TopType, {Root,ExtList}, DynamicEnc, Ext) ->
+    gen_enc_components_call(Erule, TopType, {Root,ExtList,[]}, DynamicEnc, Ext);
+gen_enc_components_call(Erule, TopType, {R1,ExtList0,R2}=CL, DynamicEnc, Ext) ->
+    Root = R1 ++ R2,
+    Imm0 = gen_enc_components_call1(Erule, TopType, Root, DynamicEnc, noext),
     ExtImm = case Ext of
 		 {ext,_,ExtNum} when ExtNum > 0 ->
 		     [{var,"Extensions"}];
 		 _ ->
 		     []
 	     end,
-    %handle extensions
     {extgrouppos,ExtGroupPosLen}  = extgroup_pos_and_length(CL),
-    NewExtList = wrap_extensionAdditionGroups(ExtList,ExtGroupPosLen),
-    {Imm1,_} = gen_enc_components_call1(Erule,TopType,NewExtList,Rpos,DynamicEnc,Ext,[]),
+    ExtList1 = wrap_extensionAdditionGroups(ExtList0, ExtGroupPosLen),
+    ExtList = [mark_optional(C) || C <- ExtList1],
+    Imm1 = gen_enc_components_call1(Erule, TopType, ExtList, DynamicEnc, Ext),
     Imm0 ++ [ExtImm|Imm1];
-gen_enc_components_call(Erule,TopType, CompList, DynamicEnc, Ext) ->
-    %% The type has no extensionmarker
-    {Imm,_} = gen_enc_components_call1(Erule,TopType,CompList,1,DynamicEnc,Ext,[]),
-    Imm.
+gen_enc_components_call(Erule, TopType, CompList, DynamicEnc, Ext) ->
+    %% No extension marker.
+    gen_enc_components_call1(Erule, TopType, CompList, DynamicEnc, Ext).
 
-gen_enc_components_call1(Erule,TopType,
-			 [C=#'ComponentType'{name=Cname,typespec=Type,prop=Prop}|Rest],
-			 Tpos,
-			 DynamicEnc, Ext, Acc) ->
+mark_optional(#'ComponentType'{prop=Prop0}=C) ->
+    Prop = case Prop0 of
+               mandatory -> 'OPTIONAL';
+               'OPTIONAL'=Keep -> Keep;
+               {'DEFAULT',_}=Keep -> Keep
+           end,
+    C#'ComponentType'{prop=Prop}.
 
-    TermNo =
-	case C#'ComponentType'.textual_order of
-	    undefined ->
-		Tpos;
-	    CanonicalNum ->
-		CanonicalNum
-	end,
+gen_enc_components_call1(Erule, TopType, [C|Rest], DynamicEnc, Ext) ->
+    #'ComponentType'{name=Cname,typespec=Type,
+                     prop=Prop,textual_order=TermNo} = C,
     Val = make_var(val),
     {Imm0,Element} = asn1ct_imm:enc_element(TermNo+1, Val),
-    Imm1 = gen_enc_line_imm(Erule, TopType, Cname, Type, Element, DynamicEnc, Ext),
-    Category = case {Prop,Ext} of
-		   {'OPTIONAL',_} ->
-		       optional;
-		   {{'DEFAULT',DefVal},_} ->
-		       {default,DefVal};
-		   {_,{ext,ExtPos,_}} when Tpos >= ExtPos ->
-		       optional;
-		   {_,_} ->
-		       mandatory
-	       end,
-    Imm2 = case Category of
+    Imm1 = gen_enc_line_imm(Erule, TopType, Cname, Type,
+                            Element, DynamicEnc, Ext),
+    Imm2 = case Prop of
 	       mandatory ->
 		   Imm1;
-	       optional ->
+	       'OPTIONAL' ->
 		   asn1ct_imm:enc_absent(Element, [asn1_NOVALUE], Imm1);
-	       {default,Def} ->
+	       {'DEFAULT',Def} ->
 		   DefValues = def_values(Type, Def),
 		   asn1ct_imm:enc_absent(Element, DefValues, Imm1)
 	   end,
@@ -855,10 +844,9 @@ gen_enc_components_call1(Erule,TopType,
 	      [] -> [];
 	      _ -> Imm0 ++ Imm2
 	  end,
-    gen_enc_components_call1(Erule, TopType, Rest, Tpos+1, DynamicEnc, Ext, [Imm|Acc]);
-gen_enc_components_call1(_Erule,_TopType,[],Pos,_,_, Acc) ->
-    ImmList = lists:reverse(Acc),
-    {ImmList,Pos}.
+    [Imm|gen_enc_components_call1(Erule, TopType, Rest, DynamicEnc, Ext)];
+gen_enc_components_call1(_Erule, _TopType, [], _, _) ->
+    [].
 
 def_values(#type{def=#'Externaltypereference'{module=Mod,type=Type}}, Def) ->
     #typedef{typespec=T} = asn1_db:dbget(Mod, Type),
