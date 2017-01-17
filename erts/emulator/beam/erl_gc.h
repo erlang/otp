@@ -27,10 +27,6 @@
 
 #include "erl_map.h"
 
-#if defined(DEBUG) && !ERTS_GLB_INLINE_INCL_FUNC_DEF
-#  define HARDDEBUG 1
-#endif
-
 #define IS_MOVED_BOXED(x)	(!is_header((x)))
 #define IS_MOVED_CONS(x)	(is_non_value((x)))
 
