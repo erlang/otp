@@ -32,6 +32,7 @@
 #include "erl_binary.h"
 #include "beam_bp.h"
 #include "erl_term.h"
+#include "erl_nfunc_sched.h"
 
 /* *************************************************************************
 ** Macros
@@ -805,6 +806,30 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 
     result = func(p, args, I);
 
+    if (erts_nif_export_check_save_trace(p, result,
+					 applying, ep,
+					 cp, flags,
+					 flags_meta, I,
+					 meta_tracer)) {
+	/*
+	 * erts_bif_trace_epilogue() will be called
+	 * later when appropriate via the NIF export
+	 * scheduling functionality...
+	 */
+	return result;
+    }
+
+    return erts_bif_trace_epilogue(p, result, applying, ep, cp,
+				   flags, flags_meta, I,
+				   meta_tracer);
+}
+
+Eterm
+erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
+			Export* ep, BeamInstr *cp, Uint32 flags,
+			Uint32 flags_meta, BeamInstr* I,
+			ErtsTracer meta_tracer)
+{
     if (applying && (flags & MATCH_SET_RETURN_TO_TRACE)) {
 	BeamInstr i_return_trace      = beam_return_trace[0];
 	BeamInstr i_return_to_trace   = beam_return_to_trace[0];

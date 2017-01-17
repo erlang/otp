@@ -64,11 +64,11 @@ all() ->
 init_per_testcase(_Case, Config) ->
     %% main test process needs max prio
     Prio = process_flag(priority, max),
-    MS = erlang:system_flag(multi_scheduling, block),
+    MS = erlang:system_flag(multi_scheduling, block_normal),
     [{prio,Prio},{multi_scheduling, MS}|Config].
 
 end_per_testcase(_Case, Config) ->
-    erlang:system_flag(multi_scheduling, unblock),
+    erlang:system_flag(multi_scheduling, unblock_normal),
     Prio=proplists:get_value(prio, Config),
     process_flag(priority, Prio),
     ok.

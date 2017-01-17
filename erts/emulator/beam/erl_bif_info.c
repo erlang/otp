@@ -94,6 +94,9 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #if defined(ERTS_DIRTY_SCHEDULERS) && defined(ERTS_SMP)
 				     " [ds:%beu:%beu:%beu]"
 #endif
+#if defined(ERTS_DIRTY_SCHEDULERS_TEST)
+				     " [dirty-schedulers-TEST]"
+#endif
 				     " [async-threads:%d]"
 #endif
 #ifdef HIPE
@@ -2677,20 +2680,30 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	erts_schedulers_state(NULL, NULL, &active, NULL, NULL, NULL, NULL, NULL);
 	BIF_RET(make_small(active));
 #endif
-#if defined(ERTS_SMP) && defined(ERTS_DIRTY_SCHEDULERS)
     } else if (ERTS_IS_ATOM_STR("dirty_cpu_schedulers", BIF_ARG_1)) {
 	Uint dirty_cpu;
+#ifdef ERTS_DIRTY_SCHEDULERS
 	erts_schedulers_state(NULL, NULL, NULL, &dirty_cpu, NULL, NULL, NULL, NULL);
+#else
+        dirty_cpu = 0;
+#endif
 	BIF_RET(make_small(dirty_cpu));
     } else if (ERTS_IS_ATOM_STR("dirty_cpu_schedulers_online", BIF_ARG_1)) {
 	Uint dirty_cpu_onln;
+#ifdef ERTS_DIRTY_SCHEDULERS
 	erts_schedulers_state(NULL, NULL, NULL, NULL, &dirty_cpu_onln, NULL, NULL, NULL);
+#else
+        dirty_cpu_onln = 0;
+#endif
 	BIF_RET(make_small(dirty_cpu_onln));
     } else if (ERTS_IS_ATOM_STR("dirty_io_schedulers", BIF_ARG_1)) {
 	Uint dirty_io;
+#ifdef ERTS_DIRTY_SCHEDULERS
 	erts_schedulers_state(NULL, NULL, NULL, NULL, NULL, NULL, &dirty_io, NULL);
-	BIF_RET(make_small(dirty_io));
+#else
+        dirty_io = 0;
 #endif
+	BIF_RET(make_small(dirty_io));
     } else if (ERTS_IS_ATOM_STR("run_queues", BIF_ARG_1)) {
 	res = make_small(erts_no_run_queues);
 	BIF_RET(res);
@@ -3372,7 +3385,12 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
     Eterm* hp;
 
     if (BIF_ARG_1 == am_scheduler_wall_time) {
-	res = erts_sched_wall_time_request(BIF_P, 0, 0);
+	res = erts_sched_wall_time_request(BIF_P, 0, 0, 1, 0);
+	if (is_non_value(res))
+	    BIF_RET(am_undefined);
+	BIF_TRAP1(gather_sched_wall_time_res_trap, BIF_P, res);
+    } else if (BIF_ARG_1 == am_scheduler_wall_time_all) {
+	res = erts_sched_wall_time_request(BIF_P, 0, 0, 1, 1);
 	if (is_non_value(res))
 	    BIF_RET(am_undefined);
 	BIF_TRAP1(gather_sched_wall_time_res_trap, BIF_P, res);

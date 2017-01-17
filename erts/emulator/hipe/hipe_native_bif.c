@@ -42,8 +42,8 @@
  */
 
 /* for -Wmissing-prototypes :-( */
-extern Eterm hipe_erts_internal_check_process_code_1(BIF_ALIST_1);
-extern Eterm hipe_show_nstack_1(BIF_ALIST_1);
+extern Eterm nbif_impl_hipe_erts_internal_check_process_code_1(NBIF_ALIST_1);
+extern Eterm nbif_impl_hipe_show_nstack_1(NBIF_ALIST_1);
 
 /* Used when a BIF can trigger a stack walk. */
 static __inline__ void hipe_set_narity(Process *p, unsigned int arity)
@@ -51,22 +51,24 @@ static __inline__ void hipe_set_narity(Process *p, unsigned int arity)
     p->hipe.narity = arity;
 }
 
-Eterm hipe_erts_internal_check_process_code_1(BIF_ALIST_1)
+/* Called via standard_bif_interface_2 */
+Eterm nbif_impl_hipe_erts_internal_check_process_code_1(NBIF_ALIST_1)
 {
     Eterm ret;
 
     hipe_set_narity(BIF_P, 1);
-    ret = erts_internal_check_process_code_1(BIF_P, BIF__ARGS);
+    ret = nbif_impl_erts_internal_check_process_code_1(NBIF_CALL_ARGS);
     hipe_set_narity(BIF_P, 0);
     return ret;
 }
 
-Eterm hipe_show_nstack_1(BIF_ALIST_1)
+/* Called via standard_bif_interface_1 */
+Eterm nbif_impl_hipe_show_nstack_1(NBIF_ALIST_1)
 {
     Eterm ret;
 
     hipe_set_narity(BIF_P, 1);
-    ret = hipe_bifs_show_nstack_1(BIF_P, BIF__ARGS);
+    ret = nbif_impl_hipe_bifs_show_nstack_1(NBIF_CALL_ARGS);
     hipe_set_narity(BIF_P, 0);
     return ret;
 }
@@ -89,7 +91,7 @@ void hipe_gc(Process *p, Eterm need)
  *  has begun.
  * XXX: BUG: native code should check return status
  */
-BIF_RETTYPE hipe_set_timeout(BIF_ALIST_1)
+BIF_RETTYPE nbif_impl_hipe_set_timeout(NBIF_ALIST_1)
 {
     Process* p = BIF_P;
     Eterm timeout_value = BIF_ARG_1;
@@ -280,10 +282,10 @@ static struct StackTrace *get_trace_from_exc(Eterm exc)
  * This does what the (misnamed) Beam instruction 'raise_ss' does,
  * namely, a proper re-throw of an exception that was caught by 'try'.
  */
-
-BIF_RETTYPE hipe_rethrow(BIF_ALIST_2)
+/* Called via standard_bif_interface_2 */
+BIF_RETTYPE nbif_impl_hipe_rethrow(NBIF_ALIST_2)
 {
-    Process* c_p = BIF_P;
+    Process *c_p = BIF_P;
     Eterm exc = BIF_ARG_1;
     Eterm value = BIF_ARG_2;
 
@@ -407,7 +409,7 @@ Eterm hipe_bs_utf8_size(Eterm arg)
 	return make_small(4);
 }
 
-BIF_RETTYPE hipe_bs_put_utf8(BIF_ALIST_3)
+BIF_RETTYPE nbif_impl_hipe_bs_put_utf8(NBIF_ALIST_3)
 {
     Process* p = BIF_P;
     Eterm arg = BIF_ARG_1;
@@ -468,7 +470,7 @@ Eterm hipe_bs_put_utf16(Process *p, Eterm arg, byte *base, unsigned int offset, 
     return new_offset;
 }
 
-BIF_RETTYPE hipe_bs_put_utf16be(BIF_ALIST_3)
+BIF_RETTYPE nbif_impl_hipe_bs_put_utf16be(NBIF_ALIST_3)
 {
     Process *p = BIF_P;
     Eterm arg = BIF_ARG_1;
@@ -477,7 +479,7 @@ BIF_RETTYPE hipe_bs_put_utf16be(BIF_ALIST_3)
     return hipe_bs_put_utf16(p, arg, base, offset, 0);
 }
 
-BIF_RETTYPE hipe_bs_put_utf16le(BIF_ALIST_3)
+BIF_RETTYPE nbif_impl_hipe_bs_put_utf16le(NBIF_ALIST_3)
 {
     Process *p = BIF_P;
     Eterm arg = BIF_ARG_1;
@@ -495,7 +497,7 @@ static int validate_unicode(Eterm arg)
     return 1;
 }
 
-BIF_RETTYPE hipe_bs_validate_unicode(BIF_ALIST_1)
+BIF_RETTYPE nbif_impl_hipe_bs_validate_unicode(NBIF_ALIST_1)
 {
     Process *p = BIF_P;
     Eterm arg = BIF_ARG_1;
@@ -513,7 +515,8 @@ int hipe_bs_validate_unicode_retract(ErlBinMatchBuffer* mb, Eterm arg)
     return 1;
 }
 
-BIF_RETTYPE hipe_is_divisible(BIF_ALIST_2)
+/* Called via standard_bif_interface_2 */
+BIF_RETTYPE nbif_impl_hipe_is_divisible(NBIF_ALIST_2)
 {
     /* Arguments are Eterm-sized unsigned integers */
     Uint dividend = BIF_ARG_1;

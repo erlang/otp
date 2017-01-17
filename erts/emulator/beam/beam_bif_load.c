@@ -36,6 +36,7 @@
 #include "erl_nif.h"
 #include "erl_bits.h"
 #include "erl_thr_progress.h"
+#include "erl_nfunc_sched.h"
 #ifdef HIPE
 #  include "hipe_bif0.h"
 #  define IF_HIPE(X) (X)
@@ -914,7 +915,7 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
 
     la = ERTS_COPY_LITERAL_AREA();
     if (!la)
-	return am_ok;
+        goto return_ok;
 
     oh = la->off_heap;
     literals = (char *) &la->start[0];
@@ -978,6 +979,11 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
 	 * this is not completely certain). We go for
 	 * the GC directly instead of scanning everything
 	 * one more time...
+	 *
+	 * Also note that calling functions expect a
+	 * major GC to be performed if gc_allowed is set
+	 * to true. If you change this, you need to fix
+	 * callers...
 	 */
 	goto literal_gc;
     }
@@ -1052,6 +1058,13 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
 	}
     }
 
+return_ok:
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+    if (ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(c_p)))
+	c_p->flags &= ~F_DIRTY_CLA;
+#endif
+
     return am_ok;
 
 literal_gc:
@@ -1062,13 +1075,13 @@ literal_gc:
     if (c_p->flags & F_DISABLE_GC)
 	return THE_NON_VALUE;
 
-    FLAGS(c_p) |= F_NEED_FULLSWEEP;
+    *redsp += erts_garbage_collect_literals(c_p, (Eterm *) literals, lit_bsize,
+					    oh, fcalls);
 
-    *redsp += erts_garbage_collect_nobump(c_p, 0, c_p->arg_reg, c_p->arity, fcalls);
-
-    erts_garbage_collect_literals(c_p, (Eterm *) literals, lit_bsize, oh);
-
-    *redsp += lit_bsize / 64; /* Need, better value... */
+#ifdef ERTS_DIRTY_SCHEDULERS
+    if (c_p->flags & F_DIRTY_CLA)
+	return THE_NON_VALUE;
+#endif
 
     return am_ok;
 }
@@ -1102,6 +1115,11 @@ check_process_code(Process* rp, Module* modp, int *redsp, int fcalls)
 	return am_true;
     }
  
+    *redsp += 1;
+
+    if (erts_check_nif_export_in_area(rp, mod_start, mod_size))
+	return am_true;
+
     *redsp += 1;
 
     if (erts_check_nif_export_in_area(rp, mod_start, mod_size))

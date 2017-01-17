@@ -886,7 +886,7 @@ function_exported(_Module, _Function, _Arity) ->
 %% garbage_collect/0
 -spec garbage_collect() -> true.
 garbage_collect() ->
-    erlang:nif_error(undefined).
+    erts_internal:garbage_collect(major).
 
 %% garbage_collect/1
 -spec garbage_collect(Pid) -> GCResult when
@@ -2330,6 +2330,10 @@ spawn_opt(_Tuple) ->
       Total_Run_Time :: non_neg_integer(),
       Time_Since_Last_Call :: non_neg_integer();
                 (scheduler_wall_time) -> [{SchedulerId, ActiveTime, TotalTime}] | undefined when
+      SchedulerId :: pos_integer(),
+      ActiveTime  :: non_neg_integer(),
+      TotalTime   :: non_neg_integer();
+                (scheduler_wall_time_all) -> [{SchedulerId, ActiveTime, TotalTime}] | undefined when
       SchedulerId :: pos_integer(),
       ActiveTime  :: non_neg_integer(),
       TotalTime   :: non_neg_integer();
@@ -4014,6 +4018,7 @@ sched_wall_time(Ref, N, undefined) ->
 sched_wall_time(Ref, N, Acc) ->
     receive
 	{Ref, undefined} -> sched_wall_time(Ref, N-1, undefined);
+	{Ref, SWTL} when erlang:is_list(SWTL) -> sched_wall_time(Ref, N-1, Acc ++ SWTL);
 	{Ref, SWT} -> sched_wall_time(Ref, N-1, [SWT|Acc])
     end.
 

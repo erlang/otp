@@ -946,9 +946,7 @@
 	  schedulers was allowed to be unlimited, dirty CPU bound jobs would
 	  potentially starve normal jobs.</p>
         <p>This option is ignored if the emulator does not have threading
-          support enabled. <em>This option is experimental</em> and
-          is supported only if the emulator was configured and built with
-          support for dirty schedulers enabled (it is disabled by default).</p>
+          support enabled.</p>
       </item>
       <tag><marker id="+SDPcpu"/><c><![CDATA[+SDPcpu
         DirtyCPUSchedulersPercentage:DirtyCPUSchedulersOnlinePercentage]]></c></tag>
@@ -974,9 +972,7 @@
           either order) results in 2 dirty CPU scheduler threads (50% of 4) and
           1 dirty CPU scheduler thread online (25% of 4).</p>
         <p>This option is ignored if the emulator does not have threading
-          support enabled. <em>This option is experimental</em> and
-          is supported only if the emulator was configured and built with
-          support for dirty schedulers enabled (it is disabled by default).</p>
+          support enabled.</p>
       </item>
       <tag><marker id="+SDio"/><c><![CDATA[+SDio DirtyIOSchedulers]]></c></tag>
       <item>
@@ -992,9 +988,7 @@
 	  bound jobs on dirty I/O schedulers, these jobs might starve ordinary
 	  jobs executing on ordinary schedulers.</p>
         <p>This option is ignored if the emulator does not have threading
-          support enabled. <em>This option is experimental</em> and
-          is supported only if the emulator was configured and built with
-          support for dirty schedulers enabled (it is disabled by default).</p>
+          support enabled.</p>
       </item>
       <tag><c><![CDATA[+sFlag Value]]></c></tag>
       <item>

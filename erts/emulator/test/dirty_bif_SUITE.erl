@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
--module(dirty_nif_SUITE).
+-module(dirty_bif_SUITE).
 
 %%-define(line_trace,true).
 -define(CHECK(Exp,Got), check(Exp,Got,?LINE)).
@@ -29,41 +29,46 @@
 -export([all/0, suite/0,
 	 init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2,
-	 dirty_nif/1, dirty_nif_send/1,
-	 dirty_nif_exception/1, call_dirty_nif_exception/1,
-	 dirty_scheduler_exit/1, dirty_call_while_terminated/1,
-	 dirty_heap_access/1, dirty_process_info/1,
-	 dirty_process_register/1, dirty_process_trace/1,
-	 code_purge/1, dirty_nif_send_traced/1]).
-
--define(nif_stub,nif_stub_error(?LINE)).
+	 dirty_bif/1, dirty_bif_exception/1,
+	 dirty_bif_multischedule/1,
+	 dirty_bif_multischedule_exception/1,
+	 dirty_scheduler_exit/1,
+	 dirty_call_while_terminated/1,
+	 dirty_heap_access/1,
+	 dirty_process_info/1,
+	 dirty_process_register/1,
+	 dirty_process_trace/1,
+	 code_purge/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
+%%
+%% All these tests utilize the debug BIFs:
+%% - erts_debug:dirty_cpu/2 - Statically determined
+%%   to (begin to) execute on a dirty CPU scheduler.
+%% - erts_debug:dirty_io/2 - Statically determined
+%%   to (begin to) execute on a dirty IO scheduler.
+%% - erts_debug:dirty/3
+%% Their implementations are located in
+%% $ERL_TOP/erts/emulator/beam/beam_debug.c
+%%
+
 all() ->
-    [dirty_nif,
-     dirty_nif_send,
-     dirty_nif_exception,
+    [dirty_bif,
+     dirty_bif_multischedule,
+     dirty_bif_exception,
+     dirty_bif_multischedule_exception,
      dirty_scheduler_exit,
      dirty_call_while_terminated,
      dirty_heap_access,
      dirty_process_info,
      dirty_process_register,
      dirty_process_trace,
-     code_purge,
-     dirty_nif_send_traced].
+     code_purge].
 
 init_per_suite(Config) ->
     case erlang:system_info(dirty_cpu_schedulers) of
 	N when N > 0 ->
-	    case lib_loaded() of
-		false ->
-		    ok = erlang:load_nif(
-			   filename:join(?config(data_dir, Config),
-					 "dirty_nif_SUITE"), []);
-		true ->
-		    ok
-	    end,
 	    Config;
         _ ->
 	    {skipped, "No dirty scheduler support"}
@@ -78,76 +83,153 @@ init_per_testcase(Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
-dirty_nif(Config) when is_list(Config) ->
-    Val1 = 42,
-    Val2 = "Erlang",
-    Val3 = list_to_binary([Val2, 0]),
-    {Val1, Val2, Val3} = call_dirty_nif(Val1, Val2, Val3),
-    LargeArray = lists:duplicate(1000, ok),
-    LargeArray = call_dirty_nif_zero_args(),
+dirty_bif(Config) when is_list(Config) ->
+    dirty_cpu = erts_debug:dirty_cpu(scheduler,type),
+    dirty_io = erts_debug:dirty_io(scheduler,type),
+    normal = erts_debug:dirty(normal,scheduler,type),
+    dirty_cpu = erts_debug:dirty(dirty_cpu,scheduler,type),
+    dirty_io = erts_debug:dirty(dirty_io,scheduler,type),
     ok.
 
-dirty_nif_send(Config) when is_list(Config) ->
-    Parent = self(),
-    Pid = spawn_link(fun() ->
-			     Self = self(),
-			     {ok, Self} = receive_any(),
-			     Parent ! {ok, Self}
-		     end),
-    {ok, Pid} = send_from_dirty_nif(Pid),
-    {ok, Pid} = receive_any(),
+dirty_bif_multischedule(Config) when is_list(Config) ->
+    ok = erts_debug:dirty_cpu(reschedule,1000),
+    ok = erts_debug:dirty_io(reschedule,1000),
+    ok = erts_debug:dirty(normal,reschedule,1000),
+    ok.
+    
+
+dirty_bif_exception(Config) when is_list(Config) ->
+    lists:foreach(fun (Error) ->
+			  ErrorType = case Error of
+					  _ when is_atom(Error) -> Error;
+					  _ -> badarg
+				      end,
+			  try
+			      erts_debug:dirty_cpu(error, Error),
+			      ct:fail(expected_exception)
+			  catch
+			      error:ErrorType ->
+				  [{erts_debug,dirty_cpu,[error, Error],_}|_]
+				      = erlang:get_stacktrace(),
+				  ok
+			  end,
+			  try
+			      apply(erts_debug,dirty_cpu,[error, Error]),
+			      ct:fail(expected_exception)
+			  catch
+			      error:ErrorType ->
+				  [{erts_debug,dirty_cpu,[error, Error],_}|_]
+				      = erlang:get_stacktrace(),
+				  ok
+			  end,
+			  try
+			      erts_debug:dirty_io(error, Error),
+			      ct:fail(expected_exception)
+			  catch
+			      error:ErrorType ->
+				  [{erts_debug,dirty_io,[error, Error],_}|_]
+				      = erlang:get_stacktrace(),
+				  ok
+			  end,
+			  try
+			      apply(erts_debug,dirty_io,[error, Error]),
+			      ct:fail(expected_exception)
+			  catch
+			      error:ErrorType ->
+				  [{erts_debug,dirty_io,[error, Error],_}|_]
+				      = erlang:get_stacktrace(),
+				  ok
+			  end,
+			  try
+			      erts_debug:dirty(normal, error, Error),
+			      ct:fail(expected_exception)
+			  catch
+			      error:ErrorType ->
+				  [{erts_debug,dirty,[normal, error, Error],_}|_]
+				      = erlang:get_stacktrace(),
+				  ok
+			  end,
+			  try
+			      apply(erts_debug,dirty,[normal, error, Error]),
+			      ct:fail(expected_exception)
+			  catch
+			      error:ErrorType ->
+				  [{erts_debug,dirty,[normal, error, Error],_}|_]
+				      = erlang:get_stacktrace(),
+				  ok
+			  end,
+			  try
+			      erts_debug:dirty(dirty_cpu, error, Error),
+			      ct:fail(expected_exception)
+			  catch
+			      error:ErrorType ->
+				  [{erts_debug,dirty,[dirty_cpu, error, Error],_}|_]
+				      = erlang:get_stacktrace(),
+				  ok
+			  end,
+			  try
+			      apply(erts_debug,dirty,[dirty_cpu, error, Error]),
+			      ct:fail(expected_exception)
+			  catch
+			      error:ErrorType ->
+				  [{erts_debug,dirty,[dirty_cpu, error, Error],_}|_]
+				      = erlang:get_stacktrace(),
+				  ok
+			  end,
+			  try
+			      erts_debug:dirty(dirty_io, error, Error),
+			      ct:fail(expected_exception)
+			  catch
+			      error:ErrorType ->
+				  [{erts_debug,dirty,[dirty_io, error, Error],_}|_]
+				      = erlang:get_stacktrace(),
+				  ok
+			  end,
+			  try
+			      apply(erts_debug,dirty,[dirty_io, error, Error]),
+			      ct:fail(expected_exception)
+			  catch
+			      error:ErrorType ->
+				  [{erts_debug,dirty,[dirty_io, error, Error],_}|_]
+				      = erlang:get_stacktrace(),
+				  ok
+			  end
+		  end,
+		  [badarg, undef, badarith, system_limit, noproc,
+		   make_ref(), {another, "heap", term_to_binary("term")}]),
     ok.
 
-dirty_nif_exception(Config) when is_list(Config) ->
+
+dirty_bif_multischedule_exception(Config) when is_list(Config) ->
     try
-	%% this checks that the expected exception occurs when the
-	%% dirty NIF returns the result of enif_make_badarg
-	%% directly
-	call_dirty_nif_exception(1),
-	ct:fail(expected_badarg)
+	erts_debug:dirty_cpu(reschedule,1001)
     catch
 	error:badarg ->
-	    [{?MODULE,call_dirty_nif_exception,[1],_}|_] =
-		erlang:get_stacktrace(),
+	    [{erts_debug,dirty_cpu,[reschedule, 1001],_}|_]
+		= erlang:get_stacktrace(),
 	    ok
     end,
     try
-	%% this checks that the expected exception occurs when the
-	%% dirty NIF calls enif_make_badarg at some point but then
-	%% returns a value that isn't an exception
-	call_dirty_nif_exception(0),
-	ct:fail(expected_badarg)
+	erts_debug:dirty_io(reschedule,1001)
     catch
 	error:badarg ->
-	    [{?MODULE,call_dirty_nif_exception,[0],_}|_] =
-		erlang:get_stacktrace(),
+	    [{erts_debug,dirty_io,[reschedule, 1001],_}|_]
+		= erlang:get_stacktrace(),
 	    ok
     end,
-    %% this checks that a dirty NIF can raise various terms as
-    %% exceptions
-    ok = nif_raise_exceptions(call_dirty_nif_exception).
-
-nif_raise_exceptions(NifFunc) ->
-    ExcTerms = [{error, test}, "a string", <<"a binary">>,
-                42, [1,2,3,4,5], [{p,1},{p,2},{p,3}]],
-    lists:foldl(fun(Term, ok) ->
-                        try
-                            erlang:apply(?MODULE,NifFunc,[Term]),
-                            ct:fail({expected,Term})
-                        catch
-                            error:Term ->
-                                [{?MODULE,NifFunc,[Term],_}|_] = erlang:get_stacktrace(),
-                                ok
-                        end
-                end, ok, ExcTerms).
+    try
+	erts_debug:dirty(normal,reschedule,1001)
+    catch
+	error:badarg ->
+	    [{erts_debug,dirty,[normal,reschedule,1001],_}|_]
+		= erlang:get_stacktrace(),
+	    ok
+    end.
 
 dirty_scheduler_exit(Config) when is_list(Config) ->
     {ok, Node} = start_node(Config, "+SDio 1"),
-    Path = proplists:get_value(data_dir, Config),
-    NifLib = filename:join(Path, atom_to_list(?MODULE)),
     [ok] = mcall(Node,
                  [fun() ->
-                          ok = erlang:load_nif(NifLib, []),
 			  Start = erlang:monotonic_time(millisecond),
                           ok = test_dirty_scheduler_exit(),
 			  End = erlang:monotonic_time(millisecond),
@@ -164,7 +246,7 @@ test_dse(0,Pids) ->
     timer:sleep(100),
     kill_dse(Pids,[]);
 test_dse(N,Pids) ->
-    Pid = spawn_link(fun dirty_sleeper/0),
+    Pid = spawn_link(fun () -> erts_debug:dirty_io(wait, 5000) end),
     test_dse(N-1,[Pid|Pids]).
 
 kill_dse([],Killed) ->
@@ -190,11 +272,11 @@ dirty_call_while_terminated(Config) when is_list(Config) ->
 							  process_info(self(),
 								       binary))),
     {Dirty, DM} = spawn_opt(fun () ->
-				    dirty_call_while_terminated_nif(Me),
+				    erts_debug:dirty_cpu(alive_waitexiting, Me),
 				    blipp:blupp(Bin)
 			    end,
 			    [monitor,link]),
-    receive {dirty_alive, _Pid} -> ok end,
+    receive {alive, Dirty} -> ok end,
     {value, {BinAddr, 4711, 2}} = lists:keysearch(4711, 2,
 						  element(2,
 							  process_info(self(),
@@ -215,7 +297,7 @@ dirty_call_while_terminated(Config) when is_list(Config) ->
     false = erlang:is_process_alive(Dirty),
     false = lists:member(Dirty, processes()),
     %% Binary still refered by Dirty process not yet cleaned up
-    %% since the dirty nif has not yet returned...
+    %% since the dirty bif has not yet returned...
     {value, {BinAddr, 4711, 2}} = lists:keysearch(4711, 2,
 						  element(2,
 							  process_info(self(),
@@ -245,7 +327,7 @@ dirty_heap_access(Config) when is_list(Config) ->
     RGL = rpc:call(Node,erlang,whereis,[init]),
     Ref = rpc:call(Node,erlang,make_ref,[]),
     Dirty = spawn_link(fun () ->
-			       Res = dirty_heap_access_nif(Ref),
+			       Res = erts_debug:dirty_cpu(copy, Ref),
 			       garbage_collect(),
 			       Me ! {self(), Res},
 			       receive after infinity -> ok end
@@ -281,9 +363,9 @@ access_dirty_heap(Dirty, RGL, N, R) ->
     end.
 
 %% These tests verify that processes that access a process executing a
-%% dirty NIF where the main lock is needed for that access do not get
-%% blocked. Each test passes its pid to dirty_sleeper, which sends a
-%% 'ready' message when it's running on a dirty scheduler and just before
+%% dirty BIF where the main lock is needed for that access do not get
+%% blocked. Each test passes its pid to dirty_sleeper, which sends an
+%% 'alive' message when it's running on a dirty scheduler and just before
 %% it starts a 6 second sleep. When it receives the message, it verifies
 %% that access to the dirty process is as it expects.  After the dirty
 %% process finishes its 6 second sleep but before it returns from the dirty
@@ -296,9 +378,9 @@ dirty_process_info(Config) when is_list(Config) ->
     access_dirty_process(
       Config,
       fun() -> ok end,
-      fun(NifPid) ->
-	      PI = process_info(NifPid),
-	      {current_function,{?MODULE,dirty_sleeper,1}} =
+      fun(BifPid) ->
+	      PI = process_info(BifPid),
+	      {current_function,{erts_debug,dirty_io,2}} =
 		  lists:keyfind(current_function, 1, PI),
 	      ok
       end,
@@ -308,9 +390,9 @@ dirty_process_register(Config) when is_list(Config) ->
     access_dirty_process(
       Config,
       fun() -> ok end,
-      fun(NifPid) ->
-	      register(test_dirty_process_register, NifPid),
-	      NifPid = whereis(test_dirty_process_register),
+      fun(BifPid) ->
+	      register(test_dirty_process_register, BifPid),
+	      BifPid = whereis(test_dirty_process_register),
 	      unregister(test_dirty_process_register),
 	      false = lists:member(test_dirty_process_register,
 				   registered()),
@@ -322,33 +404,33 @@ dirty_process_trace(Config) when is_list(Config) ->
     access_dirty_process(
       Config,
       fun() ->
-	      erlang:trace_pattern({?MODULE,dirty_sleeper,1},
+	      erlang:trace_pattern({erts_debug,dirty_io,2},
 				   [{'_',[],[{return_trace}]}],
 				   [local,meta]),
 	      ok
       end,
-      fun(NifPid) ->
-	      erlang:trace(NifPid, true, [call,timestamp]),
+      fun(BifPid) ->
+	      erlang:trace(BifPid, true, [call,timestamp]),
 	      ok
       end,
-      fun(NifPid) ->
+      fun(BifPid) ->
 	      receive
-		  done ->
+		  {done, BifPid} ->
 		      receive
-			  {trace_ts,NifPid,call,{?MODULE,dirty_sleeper,_},_} ->
+			  {trace_ts,BifPid,call,{erts_debug,dirty_io,_},_} ->
 			      ok
 		      after
 			  0 ->
 			      error(missing_trace_call_message)
-		      end,
-		      receive
-			  {trace_ts,NifPid,return_from,{?MODULE,dirty_sleeper,1},
-			   ok,_} ->
-			      ok
-		      after
-			  100 ->
-			      error(missing_trace_return_message)
-		      end
+		      end %%,
+		      %% receive
+		      %% 	  {trace_ts,BifPid,return_from,{erts_debug,dirty_io,2},
+		      %% 	   ok,_} ->
+		      %% 	      ok
+		      %% after
+		      %% 	  100 ->
+		      %% 	      error(missing_trace_return_message)
+		      %% end
 	      after
 		  6500 ->
 		      error(missing_done_message)
@@ -378,16 +460,16 @@ code_purge(Config) when is_list(Config) ->
     {Pid1, Mon1} = spawn_monitor(fun () ->
 				       dirty_code_test:func(fun () ->
 								    %% Sleep for 6 seconds
-								    %% in dirty nif...
-								    dirty_sleeper()
+								    %% in dirty bif...
+								    erts_debug:dirty_io(wait,6000)
 							    end)
 			       end),
     {module, dirty_code_test} = erlang:load_module(dirty_code_test, Bin),
     {Pid2, Mon2} = spawn_monitor(fun () ->
 				       dirty_code_test:func(fun () ->
 								    %% Sleep for 6 seconds
-								    %% in dirty nif...
-								    dirty_sleeper()
+								    %% in dirty bif...
+								    erts_debug:dirty_io(wait,6000)
 							    end)
 				 end),
     receive
@@ -425,34 +507,6 @@ code_purge(Config) when is_list(Config) ->
     true = Time =< 1000,
     ok.
 
-dirty_nif_send_traced(Config) when is_list(Config) ->
-    Parent = self(),
-    Rcvr = spawn_link(fun() ->
-			      Self = self(),
-			      receive {ok, Self} -> ok end,
-			      Parent ! {Self, received}
-		      end),
-    Sndr = spawn_link(fun () ->
-			      receive {Parent, go} -> ok end,
-			      {ok, Rcvr} = send_wait_from_dirty_nif(Rcvr),
-			      Parent ! {self(), sent}
-		      end),
-    1 = erlang:trace(Sndr, true, [send]),
-    Start = erlang:monotonic_time(),
-    Sndr ! {self(), go},
-    receive {trace, Sndr, send, {ok, Rcvr}, Rcvr} -> ok end,
-    receive {Rcvr, received} -> ok end,
-    End1 = erlang:monotonic_time(),
-    Time1 = erlang:convert_time_unit(End1-Start, native, 1000),
-    io:format("Time1: ~p milliseconds~n", [Time1]),
-    true = Time1 < 500,
-    receive {Sndr, sent} -> ok end,
-    End2 = erlang:monotonic_time(),
-    Time2 = erlang:convert_time_unit(End2-Start, native, 1000),
-    io:format("Time2: ~p milliseconds~n", [Time2]),
-    true = Time2 >= 1900,
-    ok.
-
 %%
 %% Internal...
 %%
@@ -461,9 +515,6 @@ access_dirty_process(Config, Start, Test, Finish) ->
     {ok, Node} = start_node(Config, ""),
     [ok] = mcall(Node,
 		 [fun() ->
-                          Path = ?config(data_dir, Config),
-                          Lib = atom_to_list(?MODULE),
-                          ok = erlang:load_nif(filename:join(Path,Lib), []),
 			  ok = test_dirty_process_access(Start, Test, Finish)
 		  end]),
     stop_node(Node),
@@ -472,25 +523,25 @@ access_dirty_process(Config, Start, Test, Finish) ->
 test_dirty_process_access(Start, Test, Finish) ->
     ok = Start(),
     Self = self(),
-    NifPid = spawn_link(fun() ->
-				ok = dirty_sleeper(Self)
+    BifPid = spawn_link(fun() ->
+				ok = erts_debug:dirty_io(ready_wait6_done, Self)
 			end),
     ok = receive
-	     ready ->
-		 ok = Test(NifPid),
+	     {ready, BifPid} ->
+		 ok = Test(BifPid),
 		 receive
-		     done ->
+		     {done, BifPid} ->
 			 error(dirty_process_info_blocked)
 		 after
 		     0 ->
-			 true = erlang:is_process_alive(NifPid),
+			 true = erlang:is_process_alive(BifPid),
 			 ok
 		 end
 	 after
 	     3000 ->
 		 error(timeout)
 	 end,
-    ok = Finish(NifPid).
+    ok = Finish(BifPid).
 
 receive_any() ->
     receive M -> M end.
@@ -530,18 +581,3 @@ mcall(Node, Funs) ->
                               Res
                       end
               end, Refs).
-
-%% The NIFs:
-lib_loaded() -> false.
-call_dirty_nif(_,_,_) -> ?nif_stub.
-send_from_dirty_nif(_) -> ?nif_stub.
-send_wait_from_dirty_nif(_) -> ?nif_stub.
-call_dirty_nif_exception(_) -> ?nif_stub.
-call_dirty_nif_zero_args() -> ?nif_stub.
-dirty_call_while_terminated_nif(_) -> ?nif_stub.
-dirty_sleeper() -> ?nif_stub.
-dirty_sleeper(_) -> ?nif_stub.
-dirty_heap_access_nif(_) -> ?nif_stub.
-
-nif_stub_error(Line) ->
-    exit({nif_not_loaded,module,?MODULE,line,Line}).

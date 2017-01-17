@@ -1028,9 +1028,9 @@ low_prio(Config) when is_list(Config) ->
 	1 ->
 	    ok = low_prio_test(Config);
 	_ -> 
-	    erlang:system_flag(multi_scheduling, block),
+	    erlang:system_flag(multi_scheduling, block_normal),
 	    ok = low_prio_test(Config),
-	    erlang:system_flag(multi_scheduling, unblock),
+	    erlang:system_flag(multi_scheduling, unblock_normal),
 	    {comment,
 		   "Test not written for SMP runtime system. "
 		   "Multi scheduling blocked during test."}
@@ -1097,9 +1097,9 @@ yield(Config) when is_list(Config) ->
 	     ++ ") is enabled. Testcase gets messed up by modfied "
 	     "timing."};
 	_ ->
-	    MS = erlang:system_flag(multi_scheduling, block),
+	    MS = erlang:system_flag(multi_scheduling, block_normal),
 	    yield_test(),
-	    erlang:system_flag(multi_scheduling, unblock),
+	    erlang:system_flag(multi_scheduling, unblock_normal),
 	    case MS of
 		blocked ->
 		    {comment,
@@ -1679,7 +1679,7 @@ processes_bif_test() ->
 	true ->
 	    %% Do it again with a process suspended while
 	    %% in the processes/0 bif.
-	    erlang:system_flag(multi_scheduling, block),
+	    erlang:system_flag(multi_scheduling, block_normal),
 	    Suspendee = spawn_link(fun () ->
 						 Tester ! {suspend_me, self()},
 						 Tester ! {self(),
@@ -1692,7 +1692,7 @@ processes_bif_test() ->
 					 end),
 	    receive {suspend_me, Suspendee} -> ok end,
 	    erlang:suspend_process(Suspendee),
-	    erlang:system_flag(multi_scheduling, unblock),
+	    erlang:system_flag(multi_scheduling, unblock_normal),
 	    
 	    [{status,suspended},{current_function,{erlang,ptab_list_continue,2}}] =
 		process_info(Suspendee, [status, current_function]),
@@ -1732,10 +1732,10 @@ do_processes_bif_test(WantReds, DieTest, Processes) ->
 		    Splt = NoTestProcs div 10,
 		    {TP1, TP23} = lists:split(Splt, TestProcs),
 		    {TP2, TP3} = lists:split(Splt, TP23),
-		    erlang:system_flag(multi_scheduling, block),
+		    erlang:system_flag(multi_scheduling, block_normal),
 		    Tester ! DoIt,
 		    receive GetGoing -> ok end,
-		    erlang:system_flag(multi_scheduling, unblock),
+		    erlang:system_flag(multi_scheduling, unblock_normal),
 		    SpawnProcesses(high),
 		    lists:foreach( fun (P) ->
 				SpawnHangAround(),
@@ -1944,7 +1944,7 @@ processes_gc_trap(Config) when is_list(Config) ->
 	    processes()
     end,
 
-    erlang:system_flag(multi_scheduling, block),
+    erlang:system_flag(multi_scheduling, block_normal),
     Suspendee = spawn_link(fun () ->
 					 Tester ! {suspend_me, self()},
 					 Tester ! {self(),
@@ -1954,7 +1954,7 @@ processes_gc_trap(Config) when is_list(Config) ->
 				 end),
     receive {suspend_me, Suspendee} -> ok end,
     erlang:suspend_process(Suspendee),
-    erlang:system_flag(multi_scheduling, unblock),
+    erlang:system_flag(multi_scheduling, unblock_normal),
 	    
     [{status,suspended}, {current_function,{erlang,ptab_list_continue,2}}]
 	= process_info(Suspendee, [status, current_function]),
@@ -2161,7 +2161,7 @@ processes_term_proc_list_test(MustChk) ->
 		end)
     end,
     SpawnSuspendProcessesProc = fun () ->
-		  erlang:system_flag(multi_scheduling, block),
+		  erlang:system_flag(multi_scheduling, block_normal),
 		  P = spawn_link(fun () ->
 					 Tester ! {suspend_me, self()},
 					 Tester ! {self(),
@@ -2171,7 +2171,7 @@ processes_term_proc_list_test(MustChk) ->
 				 end),
 		  receive {suspend_me, P} -> ok end,
 		  erlang:suspend_process(P),
-		  erlang:system_flag(multi_scheduling, unblock),
+		  erlang:system_flag(multi_scheduling, unblock_normal),
 		  [{status,suspended},
 		   {current_function,{erlang,ptab_list_continue,2}}]
 		      = process_info(P, [status, current_function]),
@@ -2232,7 +2232,7 @@ processes_term_proc_list_test(MustChk) ->
     S8 = SpawnSuspendProcessesProc(),
     ?CHK_TERM_PROC_LIST(MustChk, 7),
 
-    erlang:system_flag(multi_scheduling, block),
+    erlang:system_flag(multi_scheduling, block_normal),
     Exit(S8),
     ?CHK_TERM_PROC_LIST(MustChk, 7),
     Exit(S5),
@@ -2241,7 +2241,7 @@ processes_term_proc_list_test(MustChk) ->
     ?CHK_TERM_PROC_LIST(MustChk, 6),
     Exit(S6),
     ?CHK_TERM_PROC_LIST(MustChk, 0),
-    erlang:system_flag(multi_scheduling, unblock),
+    erlang:system_flag(multi_scheduling, unblock_normal),
     as_expected.
 
 

@@ -402,14 +402,14 @@ return term;</code>
           <tag><marker id="dirty_nifs"/>Dirty NIF</tag>
           <item>
             <note>
-              <p><em>The dirty NIF functionality described here
-                is experimental</em>. Dirty NIF support is available only when
-                the emulator is configured with dirty schedulers enabled. This
-                feature is disabled by default. The Erlang runtime
-                without SMP support does not support dirty schedulers even when
-                the dirty scheduler support is enabled. To check at runtime for
-                the presence of dirty scheduler threads, code can use the
-                <seealso marker="#enif_system_info">
+              <p>Dirty NIF support is available only when the emulator is
+	        configured with dirty scheduler support. As of ERTS version
+		9.0, dirty scheduler support is enabled by default on the
+		runtime system with SMP support. The Erlang runtime without
+		SMP support does <em>not</em> support dirty schedulers even
+		when the dirty scheduler support is explicitly enabled. To
+		check at runtime for the presence of dirty scheduler threads,
+		code can use the <seealso marker="#enif_system_info">
                 <c>enif_system_info()</c></seealso> API function.</p>
             </note>
             <p>A NIF that cannot be split and cannot execute in a millisecond
@@ -642,9 +642,6 @@ typedef struct {
             <p><c>flags</c> can be used to indicate that the NIF is a
               <seealso marker="#dirty_nifs">dirty NIF</seealso> that is to be
               executed on a dirty scheduler thread.</p>
-            <p><em>The dirty NIF functionality described here is
-              experimental.</em> You have to enable support for dirty
-              schedulers when building OTP to try out the functionality.</p>
             <p>If the dirty NIF is expected to be CPU-bound, its <c>flags</c>
               field is to be set to <c>ERL_NIF_DIRTY_JOB_CPU_BOUND</c> or
               <c>ERL_NIF_DIRTY_JOB_IO_BOUND</c>.</p>
@@ -2450,9 +2447,6 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           application to break up long-running work into multiple regular NIF
           calls or to schedule a <seealso marker="#dirty_nifs">
           dirty NIF</seealso> to execute on a dirty scheduler thread.</p>
-        <p><em>The dirty NIF functionality described here is
-          experimental.</em> You have to enable support for dirty
-          schedulers when building OTP to try out the functionality.</p>
         <taglist>
           <tag><c>fun_name</c></tag>
           <item>
@@ -2463,7 +2457,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           <tag><c>flags</c></tag>
           <item>
             <p>Must be set to <c>0</c> for a regular NIF. If the emulator was
-              built with the experimental dirty scheduler support enabled,
+              built with dirty scheduler support enabled,
               <c>flags</c> can be set to either
               <c>ERL_NIF_DIRTY_JOB_CPU_BOUND</c> if the job is expected to be
               CPU-bound, or <c>ERL_NIF_DIRTY_JOB_IO_BOUND</c> for

@@ -61,12 +61,6 @@ struct enif_environment_t /* ErlNifEnv */
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*, Process* tracee);
 extern void erts_post_nif(struct enif_environment_t* env);
-#ifdef ERTS_DIRTY_SCHEDULERS
-extern void erts_pre_dirty_nif(ErtsSchedulerData *,
-			       struct enif_environment_t*, Process*,
-			       struct erl_module_nif*);
-extern void erts_post_dirty_nif(struct enif_environment_t* env);
-#endif
 extern Eterm erts_nif_taints(Process* p);
 extern void erts_print_nif_taints(fmtfn_t to, void* to_arg);
 void erts_unload_nif(struct erl_module_nif* nif);
@@ -77,6 +71,12 @@ extern Eterm erts_nif_call_function(Process *p, Process *tracee,
                                     struct erl_module_nif*,
                                     struct enif_func_t *,
                                     int argc, Eterm *argv);
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+int erts_call_dirty_nif(ErtsSchedulerData *esdp, Process *c_p,
+			BeamInstr *I, Eterm *reg);
+#endif /* ERTS_DIRTY_SCHEDULERS */
+
 
 /* Driver handle (wrapper for old plain handle) */
 #define ERL_DE_OK      0
@@ -993,7 +993,7 @@ void erts_queue_monitor_message(Process *,
 				Eterm,
 				Eterm);
 void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
-			   Eterm (*bif)(Process*,Eterm*));
+			   Eterm (*bif)(Process*, Eterm*, BeamInstr*));
 void erts_init_bif(void);
 Eterm erl_send(Process *p, Eterm to, Eterm msg);
 
