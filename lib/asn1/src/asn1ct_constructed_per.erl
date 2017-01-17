@@ -51,24 +51,7 @@ gen_encode_constructed(Erule, Typename, #type{}=D) ->
     emit([".",nl]).
 
 gen_encode_constructed_imm(Erule, Typename, #type{}=D) ->
-    {ExtAddGroup,TmpCompList,TableConsInfo} =
-	case D#type.def of
-	    #'SEQUENCE'{tablecinf=TCI,components=CL,extaddgroup=ExtAddGroup0} ->
-		{ExtAddGroup0,CL,TCI};
-	    #'SET'{tablecinf=TCI,components=CL} ->
-		{undefined,CL,TCI}
-	end,
-
-    CompList = case ExtAddGroup of
-		   undefined ->
-		       TmpCompList;
-		   _ when is_integer(ExtAddGroup) ->
-		       %% This is a fake SEQUENCE representing an ExtensionAdditionGroup
-		       %% Reset the textual order so we get the right
-		       %% index of the components
-		       [Comp#'ComponentType'{textual_order=undefined}||
-			   Comp<-TmpCompList]
-	       end,
+    {CompList,TableConsInfo} = enc_complist(D),
     ExternalImm =
 	case Typename of
 	    ['EXTERNAL'] ->
@@ -94,44 +77,7 @@ gen_encode_constructed_imm(Erule, Typename, #type{}=D) ->
 		 _ ->
 		     []
 	     end,
-    {EncObj,ObjSetImm} =
-	case TableConsInfo of
-	    #simpletableattributes{usedclassfield=Used,
-				   uniqueclassfield=Unique} when Used /= Unique ->
-		{false,[]};
-	    %% ObjectSet, name of the object set in constraints
-	    %% 
-	    %%{ObjectSet,AttrN,N,UniqueFieldName} -> %% N is index of attribute that determines constraint
-	    #simpletableattributes{objectsetname=ObjectSet,
-				   c_name=AttrN,
-				   c_index=N,
-				   usedclassfield=UniqueFieldName,
-				   uniqueclassfield=UniqueFieldName,
-				   valueindex=ValueIndex0
-				  } -> %% N is index of attribute that determines constraint
-		{Module,ObjSetName} = ObjectSet,
-		#typedef{typespec=#'ObjectSet'{gen=Gen}} =
-		    asn1_db:dbget(Module, ObjSetName),
-		case Gen of
-		    true ->
-			ValueIndex = ValueIndex0 ++ [{N+1,top}],
-			Val = make_var(val),
-			{ObjSetImm0,Dst} = enc_dig_out_value(ValueIndex, Val),
-			{{AttrN,Dst},ObjSetImm0};
-		    false ->
-			{false,[]}
-		end;
-	    _  ->
-		case D#type.tablecinf of
-		    [{objfun,_}|_] ->
-			%% when the simpletableattributes was at an outer
-			%% level and the objfun has been passed through the
-			%% function call
-			{{"got objfun through args",{var,"ObjFun"}},[]};
-		    _ ->
-			{false,[]}
-		end
-	end,
+    {EncObj,ObjSetImm} = enc_table(Gen, TableConsInfo, D),
     ImmSetExt =
 	case Ext of
 	    {ext,_Pos,NumExt2} when NumExt2 > 0 ->
@@ -144,6 +90,55 @@ gen_encode_constructed_imm(Erule, Typename, #type{}=D) ->
     ImmBody = gen_enc_components_call(Erule, Typename, CompList, EncObj, Ext),
     ExternalImm ++ ExtImm ++ ObjSetImm ++
 	asn1ct_imm:enc_append([ImmSetExt] ++ ImmOptionals ++ ImmBody).
+
+enc_complist(#type{def=Def}) ->
+    case Def of
+        #'SEQUENCE'{tablecinf=TCI,components=CL0,extaddgroup=ExtAddGroup} ->
+            case ExtAddGroup of
+                undefined ->
+                    {CL0,TCI};
+                _ when is_integer(ExtAddGroup) ->
+                    %% This is a fake SEQUENCE representing an
+                    %% ExtensionAdditionGroup.  Renumber the textual
+                    %% order so we get the right index of the
+                    %% components.
+                    CL = add_textual_order(CL0),
+                    {CL,TCI}
+            end;
+        #'SET'{tablecinf=TCI,components=CL} ->
+            {CL,TCI}
+    end.
+
+enc_table(Gen, #simpletableattributes{objectsetname=ObjectSet,
+                                      c_name=AttrN,
+                                      c_index=N,
+                                      usedclassfield=UniqueFieldName,
+                                      uniqueclassfield=UniqueFieldName,
+                                      valueindex=ValueIndex0}, _) ->
+    {Module,ObjSetName} = ObjectSet,
+    #typedef{typespec=#'ObjectSet'{gen=MustGen}} =
+        asn1_db:dbget(Module, ObjSetName),
+    case MustGen of
+        true ->
+            ValueIndex = ValueIndex0 ++ [{N+1,top}],
+            Val = make_var(val),
+            {ObjSetImm,Dst} = enc_dig_out_value(Gen, ValueIndex, Val),
+            {{AttrN,Dst},ObjSetImm};
+        false ->
+            {false,[]}
+    end;
+enc_table(_Gen, #simpletableattributes{}, _) ->
+    {false,[]};
+enc_table(_Gen, _, #type{tablecinf=TCInf}) ->
+    case TCInf of
+        [{objfun,_}|_] ->
+            %% The simpletableattributes was at an outer
+            %% level and the objfun has been passed through the
+            %% function call.
+            {{"got objfun through args",{var,"ObjFun"}},[]};
+        _ ->
+            {false,[]}
+    end.
 
 gen_encode_extaddgroup(CompList) ->
     case extgroup_pos_and_length(CompList) of
@@ -1777,10 +1772,10 @@ value_match1(Value,[],Acc,Depth) ->
 value_match1(Value,[{VI,_}|VIs],Acc,Depth) ->
     value_match1(Value,VIs,Acc++lists:concat(["element(",VI,","]),Depth+1).
 
-enc_dig_out_value([], Value) ->
+enc_dig_out_value(_Gen, [], Value) ->
     {[],Value};
-enc_dig_out_value([{N,_}|T], Value) ->
-    {Imm0,Dst0} = enc_dig_out_value(T, Value),
+enc_dig_out_value(Gen, [{N,_}|T], Value) ->
+    {Imm0,Dst0} = enc_dig_out_value(Gen, T, Value),
     {Imm,Dst} = asn1ct_imm:enc_element(N, Dst0),
     {Imm0++Imm,Dst}.
 
