@@ -252,9 +252,9 @@ static int zlib_output(ZLibData* d)
     return zlib_output_init(d);
 }
 
-#ifdef HAVE_ZLIB_INFLATEGETDICTIONARY
 static int zlib_inflate_get_dictionary(ZLibData* d)
 {
+#ifdef HAVE_ZLIB_INFLATEGETDICTIONARY
     ErlDrvBinary* dbin = driver_alloc_binary(INFL_DICT_SZ);
     uInt dlen = 0;
     int res = inflateGetDictionary(&d->s, (unsigned char*)dbin->orig_bytes, &dlen);
@@ -263,8 +263,11 @@ static int zlib_inflate_get_dictionary(ZLibData* d)
     }
     driver_free_binary(dbin);
     return res;
-}
+#else
+    abort(); /* never called, just to silence 'unresolved symbol'
+                for non-optimizing compiler */
 #endif
+}
 
 static int zlib_inflate(ZLibData* d, int flush)
 {
@@ -448,10 +451,35 @@ static void zlib_free(void* data, void* addr)
     driver_free(addr);
 }
 
+#if defined(__APPLE__) && defined(__MACH__) && defined(HAVE_ZLIB_INFLATEGETDICTIONARY)
+
+/* Work around broken build system with runtime version test */
+static int have_inflateGetDictionary;
+
+static int zlib_init()
+{
+    unsigned int v[4] = {0, 0, 0, 0};
+    unsigned hexver;
+
+    sscanf(zlibVersion(), "%u.%u.%u.%u", &v[0], &v[1], &v[2], &v[3]);
+
+    hexver = (v[0] << (8*3)) | (v[1] << (8*2)) | (v[2] << (8)) | v[3];
+
+    have_inflateGetDictionary = (hexver >= 0x1020701); /* 1.2.7.1 */
+
+    return 0;
+}
+#else /* trust configure got it right */
+#  ifdef HAVE_ZLIB_INFLATEGETDICTIONARY
+#    define have_inflateGetDictionary 1
+#  else
+#    define have_inflateGetDictionary 0
+#  endif
 static int zlib_init()
 {
     return 0;
 }
+#endif
 
 static ErlDrvData zlib_start(ErlDrvPort port, char* buf)
 {
@@ -605,14 +633,14 @@ static ErlDrvSSizeT zlib_ctl(ErlDrvData drv_data, unsigned int command, char *bu
 	return zlib_return(res, rbuf, rlen);
 
     case INFLATE_GETDICT:
-#ifdef HAVE_ZLIB_INFLATEGETDICTIONARY
-        if (d->state != ST_INFLATE) goto badarg;
-        res = zlib_inflate_get_dictionary(d);
+        if (have_inflateGetDictionary) {
+            if (d->state != ST_INFLATE) goto badarg;
+            res = zlib_inflate_get_dictionary(d);
+        } else {
+            errno = ENOTSUP;
+            res = Z_ERRNO;
+        }
         return zlib_return(res, rbuf, rlen);
-#else
-        errno = ENOTSUP;
-        return zlib_return(Z_ERRNO, rbuf, rlen);
-#endif
 
     case INFLATE_SYNC:
 	if (d->state != ST_INFLATE) goto badarg;
