@@ -4192,7 +4192,7 @@ iof_associated_type1(S,C) ->
 %%				fieldname=[{typefieldreference,'Type'}],
 				fieldname={'Type',[]},
 				type=Typefield_type},
-    IOFComponents =
+    IOFComponents0 =
 	[#'ComponentType'{name='type-id',
 			  typespec=#type{tag=C1TypeTag,
 					 def=ObjectIdentifier,
@@ -4209,6 +4209,7 @@ iof_associated_type1(S,C) ->
 					 tablecinf=Comp2tablecinf},
 			  prop=mandatory,
 			  tags=[{'CONTEXT',0}]}],
+    IOFComponents = textual_order(IOFComponents0),
     #'SEQUENCE'{tablecinf=TableCInf,
 		components=simplify_comps(IOFComponents)}.
 	   
