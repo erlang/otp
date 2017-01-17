@@ -616,7 +616,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     Uint reclaimed_now = 0;
     Eterm gc_trace_end_tag;
     int reds;
-    ErtsMonotonicTime start_time = 0; /* Shut up faulty warning... */
+    ErtsMonotonicTime start_time;
     ErtsSchedulerData *esdp;
     erts_aint32_t state;
     ERTS_MSACC_PUSH_STATE_M();
@@ -624,6 +624,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 #endif
 
+    ERTS_UNDEF(start_time, 0);
     ERTS_CHK_MBUF_SZ(p);
 
     ASSERT(CONTEXT_REDS - ERTS_REDS_LEFT(p, fcalls)
@@ -790,6 +791,7 @@ do_major_collection:
 
     ASSERT(!p->mbuf);
     ASSERT(!ERTS_IS_GC_DESIRED(p));
+    ASSERT(need <= HEAP_LIMIT(p) - HEAP_TOP(p));
 
     return reds;
 }
