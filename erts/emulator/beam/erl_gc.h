@@ -157,5 +157,6 @@ void erts_offset_heap(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_free_heap_frags(struct process* p);
 Eterm erts_max_heap_size_map(Sint, Uint, Eterm **, Uint *);
 int erts_max_heap_size(Eterm, Uint *, Uint *);
+void erts_deallocate_young_generation(Process *c_p);
 
 #endif /* __ERL_GC_H__ */

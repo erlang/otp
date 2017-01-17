@@ -11969,7 +11969,6 @@ erts_cleanup_empty_process(Process* p)
 static void
 delete_process(Process* p)
 {
-    Eterm *heap;
     ErtsPSD *psd;
     struct saved_calls *scb;
     process_breakpoint_time_t *pbt;
@@ -12024,13 +12023,8 @@ delete_process(Process* p)
     hipe_delete_process(&p->hipe);
 #endif
 
-    heap = p->abandoned_heap ? p->abandoned_heap : p->heap;
+    erts_deallocate_young_generation(p);
 
-#ifdef DEBUG
-    sys_memset(heap, DEBUG_BAD_BYTE, p->heap_sz*sizeof(Eterm));
-#endif
-
-    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP, (void*) heap, p->heap_sz*sizeof(Eterm));
     if (p->old_heap != NULL) {
 
 #ifdef DEBUG
@@ -12041,16 +12035,6 @@ delete_process(Process* p)
 		       p->old_heap,
 		       (p->old_hend-p->old_heap)*sizeof(Eterm));
     }
-
-    /*
-     * Free all pending message buffers.
-     */
-    if (p->mbuf != NULL) {	
-	free_message_buffer(p->mbuf);
-    }
-
-    if (p->msg_frag)
-	erts_cleanup_messages(p->msg_frag);
 
     erts_erase_dicts(p);
 
