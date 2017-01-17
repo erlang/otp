@@ -277,10 +277,11 @@ hmac_final_n(Context, HashLen) ->
                     des3_cbc | des3_cbf | des3_cfb | des_ede3 |
                     blowfish_cbc | blowfish_cfb64 | blowfish_ofb64 |
                     aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_cbc256 | aes_ige256 |
-		    aes_cbc |
+                    aes_cbc |
                     rc2_cbc,
-		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary();
-		   (aes_gcm | chacha20_poly1305, Key::iodata(), Ivec::binary(), {AAD::binary(), Data::iodata()}) -> {binary(), binary()}.
+                    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary();
+                   (aes_gcm | chacha20_poly1305, Key::iodata(), Ivec::binary(), {AAD::binary(), Data::iodata()}) -> {binary(), binary()};
+                   (aes_gcm, Key::iodata(), Ivec::binary(), {AAD::binary(), Data::iodata(), TagLength::1..16}) -> {binary(), binary()}.
 
 block_encrypt(Type, Key, Ivec, Data) when Type =:= des_cbc;
                                           Type =:= des_cfb;
