@@ -136,7 +136,8 @@ options_tests() ->
      honor_server_cipher_order,
      honor_client_cipher_order,
      unordered_protocol_versions_server,
-     unordered_protocol_versions_client
+     unordered_protocol_versions_client,
+     max_handshake_size
 ].
 
 options_tests_tls() ->
@@ -3858,6 +3859,29 @@ unordered_protocol_versions_client(Config) when is_list(Config) ->
     CipherSuite = first_rsa_suite(ssl:cipher_suites()),
     ServerMsg = ClientMsg = {ok, {'tlsv1.2', CipherSuite}},    
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg).
+  
+%%--------------------------------------------------------------------
+max_handshake_size() ->
+    [{doc,"Test that we can set max_handshake_size to max value."}].
+
+max_handshake_size(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),  
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options,  [{max_handshake_size, 8388607} |ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, [{max_handshake_size, 8388607} | ClientOpts]}]),
+ 
+    ssl_test_lib:check_result(Server, ok, Client, ok).
   
 %%--------------------------------------------------------------------
 
