@@ -228,11 +228,6 @@ void hipe_handle_exception(Process *c_p)
 
     ASSERT(c_p->freason != TRAP); /* Should have been handled earlier. */
 
-    if (c_p->mbuf) {
-	erts_printf("%s line %u: p==%p, p->mbuf==%p\n", __FUNCTION__, __LINE__, c_p, c_p->mbuf);
-	/* erts_garbage_collect(c_p, 0, NULL, 0); */
-    }
-
     /*
      * Check if we have an arglist for the top level call. If so, this
      * is encoded in Value, so we have to dig out the real Value as well
@@ -260,11 +255,6 @@ void hipe_handle_exception(Process *c_p)
 
     /* Synthesized to avoid having to generate code for it. */
     c_p->def_arg_reg[0] = exception_tag[GET_EXC_CLASS(c_p->freason)];
-
-    if (c_p->mbuf) {
-	/* erts_printf("%s line %u: p==%p, p->mbuf==%p, p->lastbif==%p\n", __FUNCTION__, __LINE__, c_p, c_p->mbuf, c_p->hipe.lastbif); */
-	erts_garbage_collect(c_p, 0, NULL, 0);
-    }
 
     hipe_find_handler(c_p);
 }
