@@ -153,16 +153,12 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
     catch
       throw:{error, _ErrorMsg} = Error -> exit(Error)
     end,
-  NewPlt0 = dialyzer_plt:insert_types(Plt, dialyzer_codeserver:get_records(NewCServer)),
-  ExpTypes = dialyzer_codeserver:get_exported_types(NewCServer),
-  NewPlt1 = dialyzer_plt:insert_exported_types(NewPlt0, ExpTypes),
-  State0 = State#analysis_state{plt = NewPlt1},
-  dump_callgraph(Callgraph, State0, Analysis),
+  dump_callgraph(Callgraph, State, Analysis),
   %% Remove all old versions of the files being analyzed
   AllNodes = dialyzer_callgraph:all_nodes(Callgraph),
-  Plt1_a = dialyzer_plt:delete_list(NewPlt1, AllNodes),
+  Plt1_a = dialyzer_plt:delete_list(Plt, AllNodes),
   Plt1 = dialyzer_plt:insert_callbacks(Plt1_a, NewCServer),
-  State1 = State0#analysis_state{codeserver = NewCServer, plt = Plt1},
+  State1 = State#analysis_state{codeserver = NewCServer, plt = Plt1},
   Exports = dialyzer_codeserver:get_exports(NewCServer),
   NonExports = sets:subtract(sets:from_list(AllNodes), Exports),
   NonExportsList = sets:to_list(NonExports),
@@ -172,14 +168,17 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
       false -> Callgraph
     end,
   State2 = analyze_callgraph(NewCallgraph, State1),
-  #analysis_state{plt = MiniPlt2, doc_plt = DocPlt} = State2,
+  #analysis_state{plt = MiniPlt2,
+                  doc_plt = DocPlt,
+                  codeserver = Codeserver0} = State2,
+  {Codeserver, MiniPlt3} = move_data(Codeserver0, MiniPlt2),
   dialyzer_callgraph:dispose_race_server(NewCallgraph),
   rcv_and_send_ext_types(Parent),
   %% Since the PLT is never used, a dummy is sent:
   DummyPlt = dialyzer_plt:new(),
-  send_codeserver_plt(Parent, CServer, DummyPlt),
-  MiniPlt3 = dialyzer_plt:delete_list(MiniPlt2, NonExportsList),
-  send_analysis_done(Parent, MiniPlt3, DocPlt).
+  send_codeserver_plt(Parent, Codeserver, DummyPlt),
+  MiniPlt4 = dialyzer_plt:delete_list(MiniPlt3, NonExportsList),
+  send_analysis_done(Parent, MiniPlt4, DocPlt).
 
 contracts_and_records(CodeServer) ->
   Fun = contrs_and_recs(CodeServer),
@@ -202,6 +201,13 @@ contrs_and_recs(TmpCServer2) ->
       dialyzer_codeserver:give_away(TmpServer4, Parent),
       exit(TmpServer4)
   end.
+
+move_data(CServer, MiniPlt) ->
+  {CServer1, Records} = dialyzer_codeserver:extract_records(CServer),
+  MiniPlt1 = dialyzer_plt:insert_types(MiniPlt, Records),
+  {NewCServer, ExpTypes} = dialyzer_codeserver:extract_exported_types(CServer1),
+  NewMiniPlt = dialyzer_plt:insert_exported_types(MiniPlt1, ExpTypes),
+  {NewCServer, NewMiniPlt}.
 
 analyze_callgraph(Callgraph, #analysis_state{codeserver = Codeserver,
 					     doc_plt = DocPlt,
@@ -597,6 +603,7 @@ send_ext_types(Parent, ExtTypes) ->
   ok.
 
 send_codeserver_plt(Parent, CServer, Plt) ->
+  ok = dialyzer_codeserver:give_away(CServer, Parent),
   Parent ! {self(), cserver, CServer, Plt},
   ok.
 

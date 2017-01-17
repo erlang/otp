@@ -31,10 +31,8 @@
 	 included_files/1,
 	 from_file/1,
 	 get_default_plt/0,
-	 get_types/1,
          get_module_types/2,
          get_exported_types/1,
-	 %% insert/3,
 	 insert_list/2,
 	 insert_contract_list/2,
 	 insert_callbacks/2,
@@ -189,20 +187,17 @@ lookup(Plt, Label) when is_integer(Label) ->
 lookup_1(#mini_plt{info = Info}, MFAorLabel) ->
   ets_table_lookup(Info, MFAorLabel).
 
--spec insert_types(plt(), erl_types:mod_records()) -> plt().
+-spec insert_types(plt(), ets:tid()) -> plt().
 
-insert_types(PLT, Rec) ->
-  PLT#plt{types = Rec}.
+insert_types(MiniPLT, Records) ->
+  ets:rename(Records, plt_types),
+  MiniPLT#mini_plt{types = Records}.
 
--spec insert_exported_types(plt(), sets:set()) -> plt().
+-spec insert_exported_types(plt(), ets:tid()) -> plt().
 
-insert_exported_types(PLT, Set) ->
-  PLT#plt{exported_types = Set}.
-
--spec get_types(plt()) -> erl_types:mod_records().
-
-get_types(#plt{types = Types}) ->
-  Types.
+insert_exported_types(MiniPLT, ExpTypes) ->
+  ets:rename(ExpTypes, plt_exported_types),
+  MiniPLT#mini_plt{exported_types = ExpTypes}.
 
 -spec get_module_types(plt(), atom()) ->
                           'none' | {'value', erl_types:type_table()}.
