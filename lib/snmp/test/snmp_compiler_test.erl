@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,7 +56,8 @@
 	 otp_8574/1, 
 	 otp_8595/1, 
 	 otp_10799/1, 
-	 otp_10808/1
+	 otp_10808/1,
+	 otp_14145/1
 
 	]).
 
@@ -135,7 +136,8 @@ all() ->
     ].
 
 groups() -> 
-    [{tickets, [], [otp_6150, otp_8574, otp_8595, otp_10799, otp_10808]}].
+    [{tickets, [],
+      [otp_6150, otp_8574, otp_8595, otp_10799, otp_10808, otp_14145]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -426,6 +428,30 @@ otp_10808(Config) when is_list(Config) ->
 				{verbosity,   trace}, 
 				{group_check, false}]),
     p("Mib: ~n~p~n", [Mib]),
+    ok.
+
+
+%%======================================================================
+
+otp_14145(suite) ->
+    [];
+otp_14145(Config) when is_list(Config) ->
+    put(tname, otp10808),
+    p("starting with Config: ~p~n", [Config]),
+
+    Dir     = ?config(case_top_dir, Config),
+    MibDir  = ?config(mib_dir,      Config),
+    MibName = "OTP14145-MIB",
+    MibFile = join(MibDir, MibName++".mib"),
+    ?line {ok, MibBin} =
+	snmpc:compile(MibFile, [{outdir, Dir},
+				{verbosity, trace},
+				{group_check, false},
+				module_compliance]),
+    p("Mib: ~n~p~n", [MibBin]),
+    MIB = read_mib(MibBin),
+    Oid = [1,3,6,1,2,1,67,4],
+    check_mib(MIB#mib.mes, Oid, undefined),
     ok.
 
 
