@@ -32,17 +32,26 @@
 -include("asn1_records.hrl").
 %-compile(export_all).
 
--import(asn1ct_gen, [emit/1,demit/1,get_record_name_prefix/0]).
--import(asn1ct_func, [call/3]).
+-import(asn1ct_gen, [emit/1,demit/1,get_record_name_prefix/1]).
+
+-type type_name() :: any().
 
 %% ENCODE GENERATOR FOR SEQUENCE TYPE  ** **********
 
 
-gen_encode_set(Erules,TypeName,D) ->
-    gen_encode_constructed(Erules,TypeName,D).
+-spec gen_encode_set(Gen, TypeName, #type{}) -> 'ok' when
+      Gen :: #gen{},
+      TypeName :: type_name().
 
-gen_encode_sequence(Erules,TypeName,D) ->
-    gen_encode_constructed(Erules,TypeName,D).
+gen_encode_set(Gen, TypeName, D) ->
+    gen_encode_constructed(Gen, TypeName, D).
+
+-spec gen_encode_sequence(Gen, TypeName, #type{}) -> 'ok' when
+      Gen :: #gen{},
+      TypeName :: type_name().
+
+gen_encode_sequence(Gen, TypeName, D) ->
+    gen_encode_constructed(Gen, TypeName, D).
 
 gen_encode_constructed(Erule, Typename, #type{}=D) ->
     asn1ct_name:start(),
@@ -303,7 +312,7 @@ gen_dec_constructed_imm(Erule, Typename, #type{}=D) ->
 				       DecObjInf, Ext, length(Optionals)),
     EmitObjSets = gen_dec_objsets_fun(Erule, ObjSetInfo),
     EmitPack = fun(_) ->
-                       gen_dec_pack(Typename, CompList)
+                       gen_dec_pack(Erule, Typename, CompList)
                end,
     RestGroup = {group,[{safe,EmitObjSets},{safe,EmitPack}]},
     [EmitExt,EmitOpt|EmitComp++[RestGroup]].
@@ -327,8 +336,8 @@ gen_dec_objsets_fun(Erule, ObjSetInfo) ->
             end
     end.
 
-gen_dec_pack(Typename, CompList) ->
-    RecordName = record_name(Typename),
+gen_dec_pack(Gen, Typename, CompList) ->
+    RecordName = record_name(Gen, Typename),
     case Typename of
 	['EXTERNAL'] ->
 	    emit({"   OldFormat={'",RecordName,
@@ -356,10 +365,10 @@ gen_dec_pack(Typename, CompList) ->
 %%  group. Such fake sequences never appear as a top type, and their
 %%  name always start with "ExtAddGroup".
 
-record_name(Typename0) ->
+record_name(Gen, Typename0) ->
     [TopType|Typename1] = lists:reverse(Typename0),
     Typename = filter_ext_add_groups(Typename1, [TopType]),
-    lists:concat([get_record_name_prefix(),
+    lists:concat([get_record_name_prefix(Gen),
 		  asn1ct_gen:list2rname(Typename)]).
 
 filter_ext_add_groups([H|T], Acc) when is_atom(H) ->
@@ -588,8 +597,7 @@ do_gen_decode_sof(Erules, Typename, SeqOrSetOf, D) ->
     emit([",",nl,
 	  {asis,F},"(",Num,", ",Buf,ObjFun,", [])"]).
 
-is_aligned(per) -> true;
-is_aligned(uper) -> false.
+is_aligned(#gen{erule=per,aligned=Aligned}) -> Aligned.
 
 gen_decode_length(Constraint, Erule) ->
     emit(["%% Length with constraint ",{asis,Constraint},nl]),
@@ -1089,27 +1097,31 @@ gen_dec_components_call(Erule, TopType, {Root,ExtList},
 			DecInfObj, Ext, NumberOfOptionals) ->
     gen_dec_components_call(Erule,TopType,{Root,ExtList,[]},
 			    DecInfObj,Ext,NumberOfOptionals);
-gen_dec_components_call(Erule,TopType,CL={Root1,ExtList,Root2},
-			DecInfObj,Ext,NumberOfOptionals) ->
+gen_dec_components_call(Gen, TopType, {Root1,ExtList,Root2}=CL,
+			DecInfObj, Ext, NumberOfOptionals) ->
     %% The type has extensionmarker
     OptTable = create_optionality_table(Root1++Root2),
     Init = {ignore,fun(_) -> {[],[]} end},
     {EmitRoot,Tpos} =
-	gen_dec_comp_calls(Root1++Root2, Erule, TopType, OptTable,
+	gen_dec_comp_calls(Root1++Root2, Gen, TopType, OptTable,
 			   DecInfObj, noext, NumberOfOptionals,
 			   1, []),
-    EmitGetExt = gen_dec_get_extension(Erule),
+    EmitGetExt = gen_dec_get_extension(Gen),
     {extgrouppos,ExtGroupPosLen}  = extgroup_pos_and_length(CL),
     NewExtList = wrap_extensionAdditionGroups(ExtList, ExtGroupPosLen),
-    {EmitExts,_} = gen_dec_comp_calls(NewExtList, Erule, TopType, OptTable,
+    {EmitExts,_} = gen_dec_comp_calls(NewExtList, Gen, TopType, OptTable,
 				      DecInfObj, Ext, NumberOfOptionals,
 				      Tpos, []),
     NumExtsToSkip = ext_length(ExtList),
     Finish =
 	fun(St) ->
 		emit([{next,bytes},"= "]),
-		call(Erule, skipextensions,
-		     [{curr,bytes},NumExtsToSkip+1,"Extensions"]),
+                Mod = case Gen of
+                          #gen{erule=per,aligned=false} -> uper;
+                          #gen{erule=per,aligned=true} -> per
+                      end,
+		asn1ct_func:call(Mod, skipextensions,
+                                 [{curr,bytes},NumExtsToSkip+1,"Extensions"]),
 		asn1ct_name:new(bytes),
 		St
 	end,

@@ -32,7 +32,7 @@
 
 -include("asn1_records.hrl").
 
--import(asn1ct_gen, [emit/1,demit/1,get_record_name_prefix/0]).
+-import(asn1ct_gen, [emit/1,demit/1,get_record_name_prefix/1]).
 
 -define(ASN1CT_GEN_BER,asn1ct_gen_ber_bin_v2).
 
@@ -225,7 +225,7 @@ gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
 	    _ ->
 		{false,false}
 	end,
-    RecordName = lists:concat([get_record_name_prefix(),
+    RecordName = lists:concat([get_record_name_prefix(Erules),
 			       asn1ct_gen:list2rname(Typename)]),
     case gen_dec_sequence_call(Erules,Typename,CompList2,Ext,DecObjInf) of
 	no_terms -> % an empty sequence	    
@@ -405,7 +405,7 @@ gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
 	    asn1ct_name:new(tlv)
 
     end,
-    RecordName = lists:concat([get_record_name_prefix(),
+    RecordName = lists:concat([get_record_name_prefix(Erules),
 			       asn1ct_gen:list2rname(Typename)]),
     case gen_dec_sequence_call(Erules,Typename,CompList,Ext,DecObjInf) of
 	no_terms -> % an empty sequence	    
@@ -504,10 +504,8 @@ gen_decode_sof(Erules,TypeName,_InnerTypeName,D) when is_record(D,type) ->
     emit([" || ",{curr,v}," <- ",{curr,tlv},"].",nl,nl,nl]).
     
 
-gen_encode_sof_components(Erules,Typename,SeqOrSetOf,Cont) 
-  when is_record(Cont,type)->
-
-    {Objfun,Objfun_novar,EncObj} = 
+gen_encode_sof_components(Gen, Typename, SeqOrSetOf, #type{}=Cont) ->
+    {Objfun,Objfun_novar,EncObj} =
 	case Cont#type.tablecinf of
 	    [{objfun,_}|_R] ->
 		{", ObjFun",", _",{no_attr,"ObjFun"}};
@@ -517,20 +515,19 @@ gen_encode_sof_components(Erules,Typename,SeqOrSetOf,Cont)
     emit(["'enc_",asn1ct_gen:list2name(Typename),
 	  "_components'([]",Objfun_novar,", AccBytes, AccLen) -> ",nl]),
 
-    case catch lists:member(der,get(encoding_options)) of
-	true when SeqOrSetOf=='SET OF'->
+    case {Gen,SeqOrSetOf} of
+        {#gen{der=true},'SET OF'} ->
 	    asn1ct_func:need({ber,dynamicsort_SETOF,1}),
 	    emit([indent(3),
 		  "{dynamicsort_SETOF(AccBytes),AccLen};",nl,nl]);
-	_ ->
+	{_,_} ->
 	    emit([indent(3),"{lists:reverse(AccBytes),AccLen};",nl,nl])
     end,
     emit(["'enc_",asn1ct_gen:list2name(Typename),
 	  "_components'([H|T]",Objfun,",AccBytes, AccLen) ->",nl]),
     TypeNameSuffix = asn1ct_gen:constructed_suffix(SeqOrSetOf,Cont#type.def),
-    gen_enc_line(Erules,Typename,TypeNameSuffix,Cont,"H",3,
-%		 mandatory,"{EncBytes,EncLen} = ",EncObj),
-		 mandatory,EncObj),
+    gen_enc_line(Gen, Typename, TypeNameSuffix, Cont, "H", 3,
+		 mandatory, EncObj),
     emit([",",nl]),
     emit([indent(3),"'enc_",asn1ct_gen:list2name(Typename),
 	  "_components'(T",Objfun,","]), 
@@ -1035,26 +1032,26 @@ gen_optormand_case('OPTIONAL', Erules, _TopType, _Cname, _Type, Element) ->
     emit([indent(9),"asn1_NOVALUE -> {",
 	  empty_lb(Erules),",0};",nl]),
     emit([indent(9),"_ ->",nl,indent(12)]);
-gen_optormand_case({'DEFAULT',DefaultValue}, Erules, _TopType,
+gen_optormand_case({'DEFAULT',DefaultValue}, Gen, _TopType,
 		   _Cname, Type, Element) ->
     CurrMod = get(currmod),
-    case catch lists:member(der,get(encoding_options)) of
-	true ->
+    case Gen of
+        #gen{erule=ber,der=true} ->
 	    asn1ct_gen_check:emit(Type, DefaultValue, Element);
-	_ ->
+	#gen{erule=ber,der=false} ->
 	    emit([" case ",Element," of",nl]),
 	    emit([indent(9),"asn1_DEFAULT -> {",
-		  empty_lb(Erules),
+		  empty_lb(Gen),
 		  ",0};",nl]),
 	    case DefaultValue of 
 		#'Externalvaluereference'{module=CurrMod,
 					  value=V} ->
 		    emit([indent(9),"?",{asis,V}," -> {",
-			  empty_lb(Erules),",0};",nl]);
+			  empty_lb(Gen),",0};",nl]);
 		_ ->
 		    emit([indent(9),{asis,
 				     DefaultValue}," -> {",
-			  empty_lb(Erules),",0};",nl])
+			  empty_lb(Gen),",0};",nl])
 	    end,
 	    emit([indent(9),"_ ->",nl,indent(12)])
     end.
@@ -1429,7 +1426,7 @@ mkfuncname(TopType,Cname,WhatKind,Prefix,Suffix) ->
 	    {F, "?MODULE", F}
     end.
 
-empty_lb(ber) ->
+empty_lb(#gen{erule=ber}) ->
     "<<>>".
 
 value_match(Index,Value) when is_atom(Value) ->

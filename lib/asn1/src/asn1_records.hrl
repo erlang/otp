@@ -96,6 +96,16 @@
 	 error_context				%Top-level thingie (contains line numbers)
 	}).
 
+%% Code generation parameters and options.
+-record(gen,
+        {erule=ber :: 'ber' | 'per',
+         der=false :: boolean(),
+         aligned=false :: boolean(),
+         rec_prefix="" :: string(),
+         macro_prefix="" :: string(),
+         options=[] :: [any()]
+        }).
+
 %% state record used by back-end at partial decode
 %% active is set to 'yes' when a partial decode function is generated.
 %% prefix is set to 'dec-inc-' or 'dec-partial-' is for
