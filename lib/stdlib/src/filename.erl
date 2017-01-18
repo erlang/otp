@@ -793,14 +793,7 @@ separators() ->
               | {'d', atom()},
       ErrorReason :: 'non_existing' | 'preloaded' | 'interpreted'.
 find_src(Mod) ->
-    Default = [{"", ""}, {"ebin", "src"}, {"ebin", "esrc"}],
-    Rules = 
-	case application:get_env(kernel, source_search_rules) of
-	    undefined -> Default;
-	    {ok, []} -> Default;
-	    {ok, R} when is_list(R) -> R
-	end,
-    find_src(Mod, Rules).
+    find_src(Mod, []).
 
 -spec find_src(Beam, Rules) -> {SourceFile, Options}
                              | {error, {ErrorReason, Module}} when
@@ -816,44 +809,46 @@ find_src(Mod) ->
       ErrorReason :: 'non_existing' | 'preloaded' | 'interpreted'.
 find_src(Mod, Rules) when is_atom(Mod) ->
     find_src(atom_to_list(Mod), Rules);
-find_src(File0, Rules) when is_list(File0) ->
-    Mod = list_to_atom(basename(File0, ".erl")),
-    File = rootname(File0, ".erl"),
-    case readable_file(File++".erl") of
-	true  ->
-	    try_file(File, Mod, Rules);
-	false ->
-	    try_file(undefined, Mod, Rules)
-    end.
-
-try_file(File, Mod, Rules) ->
+find_src(ModOrFile, Rules) when is_list(ModOrFile) ->
+    Extension = ".erl",
+    Mod = list_to_atom(basename(ModOrFile, Extension)),
     case code:which(Mod) of
 	Possibly_Rel_Path when is_list(Possibly_Rel_Path) ->
-	    {ok, Cwd} = file:get_cwd(),
-	    Path = join(Cwd, Possibly_Rel_Path),
-	    try_file(File, Path, Mod, Rules);
+            {ok, Cwd} = file:get_cwd(),
+            Dir = dirname(make_abs_path(Cwd, Possibly_Rel_Path)),
+            find_src_1(ModOrFile, Dir, Mod, Extension, Rules);
 	Ecode when is_atom(Ecode) -> % Ecode :: ecode()
 	    {error, {Ecode, Mod}}
     end.
 
 %% At this point, the Mod is known to be valid.
 %% If the source name is not known, find it.
-%% Then get the compilation options.
-%% Returns: {SrcFile, Options}
+find_src_1(ModOrFile, Dir, Mod, Extension, Rules) ->
+    %% The documentation says this function must return the found path
+    %% without extension in all cases. Also, ModOrFile could be given with
+    %% or without extension. Hence the calls to rootname below.
+    ModOrFileRoot = rootname(ModOrFile, Extension),
+    case readable_file(ModOrFileRoot++Extension) of
+        true  ->
+            find_src_2(ModOrFileRoot, Mod);
+        false ->
+            case get_source_file(Dir, atom_to_list(Mod)++Extension, Rules) of
+                {ok, Src} ->
+                    find_src_2(rootname(Src, Extension), Mod);
+                Error ->
+                    Error
+            end
+    end.
 
-try_file(undefined, ObjFilename, Mod, Rules) ->
-    case get_source_file(ObjFilename, Mod, Rules) of
-	{ok, File} -> try_file(File, ObjFilename, Mod, Rules);
-	Error -> Error
-    end;
-try_file(Src, _ObjFilename, Mod, _Rules) ->
+%% Get the compilation options and return {SrcFileRoot, Options}
+find_src_2(SrcRoot, Mod) ->
     List = case Mod:module_info(compile) of
 	       none -> [];
 	       List0 -> List0
 	   end,
     Options = proplists:get_value(options, List, []),
     {ok, Cwd} = file:get_cwd(),
-    AbsPath = make_abs_path(Cwd, Src),
+    AbsPath = make_abs_path(Cwd, SrcRoot),
     {AbsPath, filter_options(dirname(AbsPath), Options, [])}.
 
 %% Filters the options.
@@ -884,25 +879,36 @@ filter_options(Base, [_|Rest], Result) ->
 filter_options(_Base, [], Result) ->
     Result.
 
-%% Gets the source file given path of object code and module name.
+%% Gets the source file given the object directory.
 
-get_source_file(Obj, Mod, Rules) ->
-    source_by_rules(dirname(Obj), atom_to_list(Mod), Rules).
+get_source_file(Dir, Filename, []) ->
+    Rules =
+	case application:get_env(kernel, source_search_rules) of
+	    undefined -> default_source_search_rules();
+	    {ok, []} -> default_source_search_rules();
+	    {ok, R} when is_list(R) -> R
+	end,
+    get_source_file(Dir, Filename, Rules);
+get_source_file(Dir, Filename, Rules) ->
+    source_by_rules(Dir, Filename, Rules).
 
-source_by_rules(Dir, Base, [{From, To}|Rest]) ->
-    case try_rule(Dir, Base, From, To) of
+default_source_search_rules() ->
+    [{"", ""}, {"ebin", "src"}, {"ebin", "esrc"}].
+
+source_by_rules(Dir, Filename, [{From, To}|Rest]) ->
+    case try_rule(Dir, Filename, From, To) of
 	{ok, File} -> {ok, File};
-	error      -> source_by_rules(Dir, Base, Rest)
+	error      -> source_by_rules(Dir, Filename, Rest)
     end;
-source_by_rules(_Dir, _Base, []) ->
+source_by_rules(_Dir, _Filename, []) ->
     {error, source_file_not_found}.
 
-try_rule(Dir, Base, From, To) ->
+try_rule(Dir, Filename, From, To) ->
     case lists:suffix(From, Dir) of
 	true -> 
 	    NewDir = lists:sublist(Dir, 1, length(Dir)-length(From))++To,
-	    Src = join(NewDir, Base),
-	    case readable_file(Src++".erl") of
+	    Src = join(NewDir, Filename),
+	    case readable_file(Src) of
 		true -> {ok, Src};
 		false -> error
 	    end;
