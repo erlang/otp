@@ -99,9 +99,12 @@ supported_algorithms(kex) ->
        {'ecdh-sha2-nistp521',                   [{public_keys,ecdh}, {ec_curve,secp521r1}, {hashs,sha512}]},
        {'ecdh-sha2-nistp256',                   [{public_keys,ecdh}, {ec_curve,secp256r1}, {hashs,sha256}]},
        {'diffie-hellman-group-exchange-sha256', [{public_keys,dh},   {hashs,sha256}]},
-       {'diffie-hellman-group-exchange-sha1',   [{public_keys,dh},   {hashs,sha}]},
+       {'diffie-hellman-group16-sha512',        [{public_keys,dh},   {hashs,sha512}]}, % In OpenSSH 7.3.p1
+       {'diffie-hellman-group18-sha512',        [{public_keys,dh},   {hashs,sha512}]}, % In OpenSSH 7.3.p1
+       {'diffie-hellman-group14-sha256',        [{public_keys,dh},   {hashs,sha256}]}, % In OpenSSH 7.3.p1
        {'diffie-hellman-group14-sha1',          [{public_keys,dh},   {hashs,sha}]},
-       {'diffie-hellman-group1-sha1',           [{public_keys,dh},   {hashs,sha}]}
+       {'diffie-hellman-group-exchange-sha1',   [{public_keys,dh},   {hashs,sha}]},
+       {'diffie-hellman-group1-sha1',           [{public_keys,dh},   {hashs,sha}]} % Gone in OpenSSH 7.3.p1
       ]);
 supported_algorithms(public_key) ->
     select_crypto_supported(
@@ -110,7 +113,7 @@ supported_algorithms(public_key) ->
        {'ecdsa-sha2-nistp521',  [{public_keys,ecdsa}, {hashs,sha512}, {ec_curve,secp521r1}]},
        {'ecdsa-sha2-nistp256',  [{public_keys,ecdsa}, {hashs,sha256}, {ec_curve,secp256r1}]},
        {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]},
-       {'ssh-dss',              [{public_keys,dss},   {hashs,sha}                         ]}
+       {'ssh-dss',              [{public_keys,dss},   {hashs,sha}                         ]} % Gone in OpenSSH 7.3.p1
       ]);
  
 supported_algorithms(cipher) ->
@@ -314,7 +317,11 @@ verify_algorithm(#alg{kex = Kex}) -> lists:member(Kex, supported_algorithms(kex)
 %%% Key exchange initialization
 %%%
 key_exchange_first_msg(Kex, Ssh0) when Kex == 'diffie-hellman-group1-sha1' ;
-				       Kex == 'diffie-hellman-group14-sha1' ->
+				       Kex == 'diffie-hellman-group14-sha1' ;
+                                       Kex == 'diffie-hellman-group14-sha256' ;
+                                       Kex == 'diffie-hellman-group16-sha512' ;
+                                       Kex == 'diffie-hellman-group18-sha512'
+                                       ->
     {G, P} = dh_group(Kex),
     Sz = dh_bits(Ssh0#ssh.algorithms),
     {Public, Private} = generate_key(dh, [P,G,2*Sz]),
@@ -360,6 +367,9 @@ key_exchange_first_msg(Kex, Ssh0) when Kex == 'ecdh-sha2-nistp256' ;
 %%%
 %%% diffie-hellman-group1-sha1
 %%% diffie-hellman-group14-sha1
+%%% diffie-hellman-group14-sha256
+%%% diffie-hellman-group16-sha512
+%%% diffie-hellman-group18-sha512
 %%% 
 handle_kexdh_init(#ssh_msg_kexdh_init{e = E}, 
 		  Ssh0 = #ssh{algorithms = #alg{kex=Kex} = Algs}) ->
@@ -1614,6 +1624,12 @@ hash(SSH, Char, Bits) ->
 		fun(Data) -> crypto:hash(sha, Data) end;
 	    'diffie-hellman-group14-sha1' ->
 		fun(Data) -> crypto:hash(sha, Data) end;
+	    'diffie-hellman-group14-sha256' ->
+		fun(Data) -> crypto:hash(sha256, Data) end;
+	    'diffie-hellman-group16-sha512' ->
+		fun(Data) -> crypto:hash(sha512, Data) end;
+	    'diffie-hellman-group18-sha512' ->
+		fun(Data) -> crypto:hash(sha512, Data) end;
 
 	    'diffie-hellman-group-exchange-sha1' ->
 		fun(Data) -> crypto:hash(sha, Data) end;
@@ -1690,6 +1706,9 @@ sha(secp384r1) -> sha384;
 sha(secp521r1) -> sha512;
 sha('diffie-hellman-group1-sha1') -> sha;
 sha('diffie-hellman-group14-sha1') -> sha;
+sha('diffie-hellman-group14-sha256') -> sha256;
+sha('diffie-hellman-group16-sha512') -> sha512;
+sha('diffie-hellman-group18-sha512') -> sha512;
 sha('diffie-hellman-group-exchange-sha1')   -> sha;
 sha('diffie-hellman-group-exchange-sha256') -> sha256;
 sha(?'secp256r1') -> sha(secp256r1);
@@ -1727,7 +1746,10 @@ peer_name({Host, _}) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 dh_group('diffie-hellman-group1-sha1') ->  ?dh_group1;
-dh_group('diffie-hellman-group14-sha1') -> ?dh_group14.
+dh_group('diffie-hellman-group14-sha1') -> ?dh_group14;
+dh_group('diffie-hellman-group14-sha256') -> ?dh_group14;
+dh_group('diffie-hellman-group16-sha512') -> ?dh_group16;
+dh_group('diffie-hellman-group18-sha512') -> ?dh_group18.
 
 %%%----------------------------------------------------------------
 parallell_gen_key(Ssh = #ssh{keyex_key = {x, {G, P}},
