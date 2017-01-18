@@ -79,6 +79,10 @@ default_algorithms() -> [{K,default_algorithms(K)} || K <- algo_classes()].
 
 algo_classes() -> [kex, public_key, cipher, mac, compression].
 
+default_algorithms(kex) ->
+    supported_algorithms(kex, [
+                               'diffie-hellman-group1-sha1' % Gone in OpenSSH 7.3.p1
+                              ]);
 
 default_algorithms(cipher) ->
     supported_algorithms(cipher, same(['AEAD_AES_128_GCM',
@@ -104,7 +108,7 @@ supported_algorithms(kex) ->
        {'diffie-hellman-group14-sha256',        [{public_keys,dh},   {hashs,sha256}]}, % In OpenSSH 7.3.p1
        {'diffie-hellman-group14-sha1',          [{public_keys,dh},   {hashs,sha}]},
        {'diffie-hellman-group-exchange-sha1',   [{public_keys,dh},   {hashs,sha}]},
-       {'diffie-hellman-group1-sha1',           [{public_keys,dh},   {hashs,sha}]} % Gone in OpenSSH 7.3.p1
+       {'diffie-hellman-group1-sha1',           [{public_keys,dh},   {hashs,sha}]}
       ]);
 supported_algorithms(public_key) ->
     select_crypto_supported(
