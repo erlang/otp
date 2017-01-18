@@ -2506,10 +2506,13 @@ enif_schedule_nif(ErlNifEnv* env, const char* fun_name, int flags,
     if (flags == 0)
 	result = schedule(env, execute_nif, fp, proc->current->module,
 			  fun_name_atom, argc, argv);
+    else if (!(flags & ~(ERL_NIF_DIRTY_JOB_IO_BOUND|ERL_NIF_DIRTY_JOB_CPU_BOUND))) {
 #ifdef ERTS_DIRTY_SCHEDULERS
-    else if (!(flags & ~(ERL_NIF_DIRTY_JOB_IO_BOUND|ERL_NIF_DIRTY_JOB_CPU_BOUND)))
 	result = schedule_dirty_nif(env, flags, fp, fun_name_atom, argc, argv);
+#else
+        result = enif_raise_exception(env, am_notsup);
 #endif
+    }
     else
 	result = enif_make_badarg(env);
 
