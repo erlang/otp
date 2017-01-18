@@ -95,19 +95,20 @@ supported_algorithms() -> [{K,supported_algorithms(K)} || K <- algo_classes()].
 supported_algorithms(kex) ->
     select_crypto_supported(
       [
-       {'ecdh-sha2-nistp256',                   [{public_keys,ecdh}, {ec_curve,secp256r1}, {hashs,sha256}]},
        {'ecdh-sha2-nistp384',                   [{public_keys,ecdh}, {ec_curve,secp384r1}, {hashs,sha384}]},
-       {'diffie-hellman-group14-sha1',          [{public_keys,dh},   {hashs,sha}]},
+       {'ecdh-sha2-nistp521',                   [{public_keys,ecdh}, {ec_curve,secp521r1}, {hashs,sha512}]},
+       {'ecdh-sha2-nistp256',                   [{public_keys,ecdh}, {ec_curve,secp256r1}, {hashs,sha256}]},
        {'diffie-hellman-group-exchange-sha256', [{public_keys,dh},   {hashs,sha256}]},
        {'diffie-hellman-group-exchange-sha1',   [{public_keys,dh},   {hashs,sha}]},
-       {'ecdh-sha2-nistp521',                   [{public_keys,ecdh}, {ec_curve,secp521r1}, {hashs,sha512}]},
+       {'diffie-hellman-group14-sha1',          [{public_keys,dh},   {hashs,sha}]},
        {'diffie-hellman-group1-sha1',           [{public_keys,dh},   {hashs,sha}]}
       ]);
 supported_algorithms(public_key) ->
     select_crypto_supported(
-      [{'ecdsa-sha2-nistp256',  [{public_keys,ecdsa}, {hashs,sha256}, {ec_curve,secp256r1}]},
+      [
        {'ecdsa-sha2-nistp384',  [{public_keys,ecdsa}, {hashs,sha384}, {ec_curve,secp384r1}]},
        {'ecdsa-sha2-nistp521',  [{public_keys,ecdsa}, {hashs,sha512}, {ec_curve,secp521r1}]},
+       {'ecdsa-sha2-nistp256',  [{public_keys,ecdsa}, {hashs,sha256}, {ec_curve,secp256r1}]},
        {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]},
        {'ssh-dss',              [{public_keys,dss},   {hashs,sha}                         ]}
       ]);
@@ -115,14 +116,15 @@ supported_algorithms(public_key) ->
 supported_algorithms(cipher) ->
     same(
       select_crypto_supported(
-	[{'aes256-ctr',       [{ciphers,{aes_ctr,256}}]},
-	 {'aes192-ctr',       [{ciphers,{aes_ctr,192}}]},
-	 {'aes128-ctr',       [{ciphers,{aes_ctr,128}}]},
-	 {'aes128-cbc',       [{ciphers,aes_cbc128}]},
+	[
+         {'aes256-gcm@openssh.com', [{ciphers,{aes_gcm,256}}]},
+         {'aes256-ctr',       [{ciphers,{aes_ctr,256}}]},
+         {'aes192-ctr',       [{ciphers,{aes_ctr,192}}]},
 	 {'aes128-gcm@openssh.com', [{ciphers,{aes_gcm,128}}]},
-	 {'aes256-gcm@openssh.com', [{ciphers,{aes_gcm,256}}]},
-	 {'AEAD_AES_128_GCM', [{ciphers,{aes_gcm,128}}]},
+	 {'aes128-ctr',       [{ciphers,{aes_ctr,128}}]},
 	 {'AEAD_AES_256_GCM', [{ciphers,{aes_gcm,256}}]},
+	 {'AEAD_AES_128_GCM', [{ciphers,{aes_gcm,128}}]},
+	 {'aes128-cbc',       [{ciphers,aes_cbc128}]},
 	 {'3des-cbc',         [{ciphers,des3_cbc}]}
 	]
        ));
