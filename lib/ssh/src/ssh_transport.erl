@@ -84,6 +84,11 @@ default_algorithms(kex) ->
                                'diffie-hellman-group1-sha1' % Gone in OpenSSH 7.3.p1
                               ]);
 
+default_algorithms(public_key) ->
+    supported_algorithms(public_key, [
+                                      'ssh-dss' % Gone in OpenSSH 7.3.p1
+                                     ]);
+
 default_algorithms(cipher) ->
     supported_algorithms(cipher, same(['AEAD_AES_128_GCM',
 				       'AEAD_AES_256_GCM']));
