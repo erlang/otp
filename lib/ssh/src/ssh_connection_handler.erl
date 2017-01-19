@@ -1206,7 +1206,7 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
 	    catch
 		_C:_E  ->
 		    disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-						   description = "Encountered unexpected input"},
+						   description = "Bad packet"},
 			       StateName, D)
 	    end;
 
@@ -1221,13 +1221,12 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
 
 	{bad_mac, Ssh1} ->
 	    disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-					   description = "Bad mac"},
+					   description = "Bad packet"},
 		       StateName, D0#data{ssh_params=Ssh1});
 
-	{error, {exceeds_max_size,PacketLen}} ->
+	{error, {exceeds_max_size,_PacketLen}} ->
 	    disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-					   description = "Bad packet length "
-					   ++ integer_to_list(PacketLen)},
+					   description = "Bad packet"},
 		       StateName, D0)
     catch
 	_C:_E ->
