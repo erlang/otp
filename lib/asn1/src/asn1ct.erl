@@ -1105,16 +1105,27 @@ translate_options([H|T]) ->
 translate_options([]) -> [].
 
 remove_asn_flags(Options) ->
-    [X || X <- Options,
-	  X /= get_rule(Options),
-	  X /= optimize,
-	  X /= compact_bit_string,
-	  X /= legacy_bit_string,
-	  X /= legacy_erlang_types,
-	  X /= debug,
-	  X /= asn1config,
-	  X /= record_name_prefix].
-	  
+    [X || X <- Options, not is_asn1_flag(X)].
+
+is_asn1_flag(asn1config) -> true;
+is_asn1_flag(ber) -> true;
+is_asn1_flag(compact_bit_string) -> true;
+is_asn1_flag(debug) -> true;
+is_asn1_flag(der) -> true;
+is_asn1_flag(legacy_bit_string) -> true;
+is_asn1_flag({macro_name_prefix,_}) -> true;
+is_asn1_flag({n2n,_}) -> true;
+is_asn1_flag(noobj) -> true;
+is_asn1_flag(no_ok_wrapper) -> true;
+is_asn1_flag(optimize) -> true;
+is_asn1_flag(per) -> true;
+is_asn1_flag({record_name_prefix,_}) -> true;
+is_asn1_flag(undec_rec) -> true;
+is_asn1_flag(uper) -> true;
+is_asn1_flag(verbose) -> true;
+%% 'warnings_as_errors' is intentionally passed through to the compiler.
+is_asn1_flag(_) -> false.
+
 debug_on(Options) ->
     case lists:member(debug,Options) of
 	true ->
