@@ -1632,52 +1632,23 @@ mac('hmac-sha2-512', Key, SeqNum, Data) ->
 	crypto:hmac(sha512, Key, [<<?UINT32(SeqNum)>>, Data]).
 
 %% return N hash bytes (HASH)
-hash(SSH, Char, Bits) ->
-    HASH =
-	case SSH#ssh.kex of
-	    'diffie-hellman-group1-sha1' ->
-		fun(Data) -> crypto:hash(sha, Data) end;
-	    'diffie-hellman-group14-sha1' ->
-		fun(Data) -> crypto:hash(sha, Data) end;
-	    'diffie-hellman-group14-sha256' ->
-		fun(Data) -> crypto:hash(sha256, Data) end;
-	    'diffie-hellman-group16-sha512' ->
-		fun(Data) -> crypto:hash(sha512, Data) end;
-	    'diffie-hellman-group18-sha512' ->
-		fun(Data) -> crypto:hash(sha512, Data) end;
-
-	    'diffie-hellman-group-exchange-sha1' ->
-		fun(Data) -> crypto:hash(sha, Data) end;
-	    'diffie-hellman-group-exchange-sha256' ->
-		fun(Data) -> crypto:hash(sha256, Data) end;
-
-	    'ecdh-sha2-nistp256' ->
-		fun(Data) -> crypto:hash(sha256,Data) end;
-	    'ecdh-sha2-nistp384' ->
-		fun(Data) -> crypto:hash(sha384,Data) end;
-	    'ecdh-sha2-nistp521' ->
-		fun(Data) -> crypto:hash(sha512,Data) end;
-	    _ ->
-		exit({bad_algorithm,SSH#ssh.kex})
-	end,
-    hash(SSH, Char, Bits, HASH).
-
-hash(_SSH, _Char, 0, _HASH) ->
+hash(_SSH, _Char, 0) ->
     <<>>;
-hash(SSH, Char, N, HASH) ->
-K = SSH#ssh.shared_secret, %    K = ssh_bits:mpint(SSH#ssh.shared_secret),
+hash(SSH, Char, N) ->
+    HashAlg = sha(SSH#ssh.kex),
+    K = SSH#ssh.shared_secret,
     H = SSH#ssh.exchanged_hash,
-    SessionID = SSH#ssh.session_id,
-    K1 = HASH([K, H, Char, SessionID]),
+    K1 = crypto:hash(HashAlg, [K, H, Char,  SSH#ssh.session_id]),
     Sz = N div 8,
-    <<Key:Sz/binary, _/binary>> = hash(K, H, K1, N-128, HASH),
+    <<Key:Sz/binary, _/binary>> = hash(K, H, K1, N-128, HashAlg),
     Key.
 
-hash(_K, _H, Ki, N, _HASH) when N =< 0 ->
+hash(_K, _H, Ki, N, _HashAlg) when N =< 0 ->
     Ki;
-hash(K, H, Ki, N, HASH) ->
-    Kj = HASH([K, H, Ki]),
-    hash(K, H, <<Ki/binary, Kj/binary>>, N-128, HASH).
+hash(K, H, Ki, N, HashAlg) ->
+    Kj = crypto:hash(HashAlg, [K, H, Ki]),
+    hash(K, H, <<Ki/binary, Kj/binary>>, N-128, HashAlg).
+
 
 kex_h(SSH, Key, E, F, K) ->
     KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
@@ -1728,7 +1699,10 @@ sha('diffie-hellman-group-exchange-sha1')   -> sha;
 sha('diffie-hellman-group-exchange-sha256') -> sha256;
 sha(?'secp256r1') -> sha(secp256r1);
 sha(?'secp384r1') -> sha(secp384r1);
-sha(?'secp521r1') -> sha(secp521r1).
+sha(?'secp521r1') -> sha(secp521r1);
+sha('ecdh-sha2-nistp256') -> sha(secp256r1);
+sha('ecdh-sha2-nistp384') -> sha(secp384r1);
+sha('ecdh-sha2-nistp521') -> sha(secp521r1).
 
 
 mac_key_bytes('hmac-sha1')    -> 20;
