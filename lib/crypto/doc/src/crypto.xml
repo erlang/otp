@@ -315,8 +315,11 @@
 	May throw exception <c>low_entropy</c> in case the random generator
 	failed due to lack of secure "randomness".
 	</p>
-	<note><p>RSA key generation is only available if the runtime was built with the
-	<strong>experimental</strong> dirty scheduler feature.</p></note>
+	<note>
+	  <p>RSA key generation is only available if the runtime was
+	  built with dirty scheduler support. Otherwise, attempting to
+	  generate an RSA key will throw exception <c>notsup</c>.</p>
+	</note>
       </desc>
     </func>
 
