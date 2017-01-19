@@ -77,7 +77,7 @@
 
     <code>rsa_private() = [key_value()] = [E, N, D] | [E, N, D, P1, P2, E1, E2, C] </code>
     <p>Where E is the public exponent, N is public modulus and D is
-    the private exponent.The longer key format contains redundant
+    the private exponent. The longer key format contains redundant
     information that will make the calculation faster. P1,P2 are first
     and second prime factors. E1,E2 are first and second exponents. C
     is the CRT coefficient. Terminology is taken from <url href="http://www.ietf.org/rfc/rfc3477.txt"> RFC 3447</url>.</p>
@@ -311,7 +311,7 @@
       </type>
       <desc>
 	<p>Generates a public key of type <c>Type</c>.
-	See also <seealso marker="public_key:public_key#generate_key-1">public_key:generate_key/1</seealso>
+	See also <seealso marker="public_key:public_key#generate_key-1">public_key:generate_key/1</seealso>.
 	May throw exception <c>low_entropy</c> in case the random generator
 	failed due to lack of secure "randomness".
 	</p>
