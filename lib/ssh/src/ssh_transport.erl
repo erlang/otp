@@ -783,9 +783,8 @@ accepted_host(Ssh, PeerName, Public, Opts) ->
 	    yes == yes_no(Ssh, "New host " ++ PeerName ++ " accept")
     end.
 
-known_host_key(#ssh{opts = Opts, key_cb = Mod, peer = Peer} = Ssh, 
+known_host_key(#ssh{opts = Opts, key_cb = Mod, peer = {PeerName,_}} = Ssh, 
 	       Public, Alg) ->
-    PeerName = peer_name(Peer),
     case Mod:is_host_key(Public, PeerName, Alg, Opts) of
 	true ->
 	    ok;
@@ -1631,6 +1630,8 @@ mac('hmac-sha2-256', Key, SeqNum, Data) ->
 mac('hmac-sha2-512', Key, SeqNum, Data) ->
 	crypto:hmac(sha512, Key, [<<?UINT32(SeqNum)>>, Data]).
 
+
+%%%----------------------------------------------------------------
 %% return N hash bytes (HASH)
 hash(_SSH, _Char, 0) ->
     <<>>;
@@ -1649,7 +1650,7 @@ hash(K, H, Ki, N, HashAlg) ->
     Kj = crypto:hash(HashAlg, [K, H, Ki]),
     hash(K, H, <<Ki/binary, Kj/binary>>, N-128, HashAlg).
 
-
+%%%----------------------------------------------------------------
 kex_h(SSH, Key, E, F, K) ->
     KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
     L = <<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
@@ -1724,9 +1725,6 @@ mac_digest_size('hmac-sha2-512') -> 64;
 mac_digest_size('AEAD_AES_128_GCM') -> 16;
 mac_digest_size('AEAD_AES_256_GCM') -> 16;
 mac_digest_size(none) -> 0.
-
-peer_name({Host, _}) ->
-    Host.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
