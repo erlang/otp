@@ -289,11 +289,12 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
 	true ->
 	    key_exchange_first_msg(Algoritms#alg.kex, 
 				   Ssh0#ssh{algorithms = Algoritms});
-	_  ->
+	{false,Alg} ->
 	    %% TODO: Correct code?
     ssh_connection_handler:disconnect(
       #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-			  description = "Selection of key exchange algorithm failed"
+			  description = "Selection of key exchange algorithm failed: "
+                          ++ Alg
 			 })
     end;
 
@@ -303,23 +304,28 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
     case  verify_algorithm(Algoritms) of
 	true ->
 	    {ok, Ssh#ssh{algorithms = Algoritms}};
-	_ ->
+	{false,Alg} ->
     ssh_connection_handler:disconnect(
       #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-			  description = "Selection of key exchange algorithm failed"
+			  description = "Selection of key exchange algorithm failed: "
+                          ++ Alg
 			 })
     end.
 
 
-verify_algorithm(#alg{kex = undefined}) -> false;
-verify_algorithm(#alg{hkey = undefined}) -> false;
-verify_algorithm(#alg{send_mac = undefined}) -> false;
-verify_algorithm(#alg{recv_mac = undefined}) -> false;
-verify_algorithm(#alg{encrypt = undefined}) -> false;
-verify_algorithm(#alg{decrypt = undefined}) -> false;
-verify_algorithm(#alg{compress = undefined}) -> false;
-verify_algorithm(#alg{decompress = undefined}) -> false;
-verify_algorithm(#alg{kex = Kex}) -> lists:member(Kex, supported_algorithms(kex)).
+verify_algorithm(#alg{kex = undefined})       ->  {false, "kex"};
+verify_algorithm(#alg{hkey = undefined})      ->  {false, "hkey"};
+verify_algorithm(#alg{send_mac = undefined})  ->  {false, "send_mac"};
+verify_algorithm(#alg{recv_mac = undefined})  ->  {false, "recv_mac"};
+verify_algorithm(#alg{encrypt = undefined})   ->  {false, "encrypt"};
+verify_algorithm(#alg{decrypt = undefined})   ->  {false, "decrypt"};
+verify_algorithm(#alg{compress = undefined})  ->  {false, "compress"};
+verify_algorithm(#alg{decompress = undefined}) -> {false, "decompress"};
+verify_algorithm(#alg{kex = Kex}) -> 
+    case lists:member(Kex, supported_algorithms(kex)) of
+        true -> true;
+        false -> {false, "kex"}
+    end.
 
 %%%----------------------------------------------------------------
 %%%
