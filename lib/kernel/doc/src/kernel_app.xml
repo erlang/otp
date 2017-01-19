@@ -379,6 +379,28 @@ MaxT = TickTime + TickTime / 4</code>
           return as soon as possible for <c>application_controller</c>
           to terminate properly.</p>
       </item>
+      <tag><c>source_search_rules = [DirRule] | [SuffixRule] </c></tag>
+      <item>
+	<marker id="source_search_rules"></marker>
+        <p>Where:</p>
+        <list type="bulleted">
+          <item><c>DirRule = {ObjDirSuffix,SrcDirSuffix}</c></item>
+          <item><c>SuffixRule = {ObjSuffix,SrcSuffix,[DirRule]}</c></item>
+          <item><c>ObjDirSuffix = string()</c></item>
+          <item><c>SrcDirSuffix = string()</c></item>
+          <item><c>ObjSuffix = string()</c></item>
+          <item><c>SrcSuffix = string()</c></item>
+        </list>
+        <p>Specifies a list of rules for use by <c>filelib:find_file/2</c> and
+          <c>filelib:find_source/2</c>. If this is set to some other value
+          than the empty list, it replaces the default rules. Rules can be
+          simple pairs of directory suffixes, such as <c>{"ebin",
+          "src"}</c>, which are used by <c>filelib:find_file/2</c>, or
+          triples specifying separate directory suffix rules depending on
+          file name extensions, for example <c>[{".beam", ".erl", [{"ebin",
+          "src"}]}</c>, which are used by <c>filelib:find_source/2</c>. Both
+          kinds of rules can be mixed in the list.</p>
+      </item>
     </taglist>
   </section>
 
