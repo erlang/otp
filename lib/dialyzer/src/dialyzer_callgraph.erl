@@ -285,7 +285,7 @@ module_postorder(#callgraph{digraph = DG}) ->
   Nodes = sets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
   MDG = digraph:new([acyclic]),
   digraph_confirm_vertices(sets:to_list(Nodes), MDG),
-  Foreach = fun({M1,M2}) -> digraph:add_edge(MDG, M1, M2) end,
+  Foreach = fun({M1,M2}) -> _ = digraph:add_edge(MDG, M1, M2) end,
   lists:foreach(Foreach, sets:to_list(Edges)),
   {digraph_utils:topsort(MDG), {'d', MDG}}.
 
@@ -305,7 +305,7 @@ module_deps(#callgraph{digraph = DG}) ->
   Nodes = sets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
   MDG = digraph:new(),
   digraph_confirm_vertices(sets:to_list(Nodes), MDG),
-  Foreach = fun({M1,M2}) -> digraph:add_edge(MDG, M1, M2) end,
+  Foreach = fun({M1,M2}) -> check_add_edge(MDG, M1, M2) end,
   lists:foreach(Foreach, sets:to_list(Edges)),
   Deps = [{N, ordsets:from_list(digraph:in_neighbours(MDG, N))}
 	  || N <- sets:to_list(Nodes)],
@@ -552,8 +552,20 @@ digraph_add_edge(From, To, DG) ->
     false -> digraph:add_vertex(DG, To);
     {To, _} -> ok
   end,
-  digraph:add_edge(DG, {From, To}, From, To, []),
+  check_add_edge(DG, {From, To}, From, To, []),
   ok.
+
+check_add_edge(G, V1, V2) ->
+  case digraph:add_edge(G, V1, V2) of
+    {error, Error} -> exit({add_edge, V1, V2, Error});
+    _Edge -> ok
+  end.
+
+check_add_edge(G, E, V1, V2, L) ->
+  case digraph:add_edge(G, E, V1, V2, L) of
+    {error, Error} -> exit({add_edge, E, V1, V2, L, Error});
+    _Edge -> ok
+  end.
 
 digraph_confirm_vertices([MFA|Left], DG) ->
   digraph:add_vertex(DG, MFA, confirmed),
