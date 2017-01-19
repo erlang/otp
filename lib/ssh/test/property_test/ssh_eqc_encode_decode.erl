@@ -184,10 +184,7 @@ gen_byte(N) when N>0 -> [gen_byte() || _ <- lists:seq(1,N)].
     
 gen_char() -> choose($a,$z).
 
-gen_mpint() -> ?LET(Size, choose(1,20), 
-	       ?LET(Str, vector(Size, gen_byte()),
-		    gen_string( strip_0s(Str) )
-		   )).
+gen_mpint() -> ?LET(I, largeint(), ssh_bits:mpint(I)).
 
 strip_0s([0|T]) -> strip_0s(T);
 strip_0s(X) -> X.
