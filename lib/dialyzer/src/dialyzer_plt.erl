@@ -526,10 +526,12 @@ get_mini_plt(#plt{info = Info,
                   contracts = Contracts,
                   callbacks = Callbacks,
                   exported_types = ExpTypes}) ->
-  [ETSInfo, ETSTypes, ETSContracts, ETSCallbacks, ETSExpTypes] =
+  [ETSInfo, ETSContracts] =
     [ets:new(Name, [public]) ||
-      Name <- [plt_info, plt_types, plt_contracts, plt_callbacks,
-               plt_exported_types]],
+      Name <- [plt_info, plt_contracts]],
+  [ETSTypes, ETSCallbacks, ETSExpTypes] =
+    [ets:new(Name, [compressed, public]) ||
+      Name <- [plt_types, plt_callbacks, plt_exported_types]],
   CallbackList = dict:to_list(Callbacks),
   CallbacksByModule =
     [{M, [Cb || {{M1,_,_},_} = Cb <- CallbackList, M1 =:= M]} ||
