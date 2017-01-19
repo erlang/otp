@@ -148,6 +148,7 @@ init_per_group(hardening_tests, Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:setup_dsa(DataDir, PrivDir),
+    ssh_test_lib:setup_rsa(DataDir, PrivDir),
     Config;
 init_per_group(dir_options, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),

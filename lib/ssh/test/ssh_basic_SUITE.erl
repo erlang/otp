@@ -152,15 +152,27 @@ end_per_suite(_Config) ->
 
 %%--------------------------------------------------------------------
 init_per_group(dsa_key, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_dsa(DataDir, PrivDir),
-    Config;
+    case lists:member('ssh-dss',
+		      ssh_transport:default_algorithms(public_key)) of
+	true ->
+            DataDir = proplists:get_value(data_dir, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
+            ssh_test_lib:setup_dsa(DataDir, PrivDir),
+            Config;
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
 init_per_group(rsa_key, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_rsa(DataDir, PrivDir),
-    Config;
+    case lists:member('ssh-rsa',
+		      ssh_transport:default_algorithms(public_key)) of
+	true ->
+            DataDir = proplists:get_value(data_dir, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
+            ssh_test_lib:setup_rsa(DataDir, PrivDir),
+            Config;
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
 init_per_group(ecdsa_sha2_nistp256_key, Config) ->
     case lists:member('ecdsa-sha2-nistp256',
 		      ssh_transport:default_algorithms(public_key)) of
@@ -195,15 +207,27 @@ init_per_group(ecdsa_sha2_nistp521_key, Config) ->
 	    {skip, unsupported_pub_key}
     end;
 init_per_group(rsa_pass_key, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_rsa_pass_pharse(DataDir, PrivDir, "Password"),
-    [{pass_phrase, {rsa_pass_phrase, "Password"}}| Config];
+    case lists:member('ssh-rsa',
+		      ssh_transport:default_algorithms(public_key)) of
+	true ->
+            DataDir = proplists:get_value(data_dir, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
+            ssh_test_lib:setup_rsa_pass_pharse(DataDir, PrivDir, "Password"),
+            [{pass_phrase, {rsa_pass_phrase, "Password"}}| Config];
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
 init_per_group(dsa_pass_key, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_dsa_pass_pharse(DataDir, PrivDir, "Password"),
-    [{pass_phrase, {dsa_pass_phrase, "Password"}}| Config];
+    case lists:member('ssh-dss',
+		      ssh_transport:default_algorithms(public_key)) of
+	true ->
+            DataDir = proplists:get_value(data_dir, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
+            ssh_test_lib:setup_dsa_pass_pharse(DataDir, PrivDir, "Password"),
+            [{pass_phrase, {dsa_pass_phrase, "Password"}}| Config];
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
 init_per_group(host_user_key_differs, Config) ->
     Data = proplists:get_value(data_dir, Config),
     Sys = filename:join(proplists:get_value(priv_dir, Config), system_rsa),
@@ -220,10 +244,16 @@ init_per_group(host_user_key_differs, Config) ->
     ssh_test_lib:setup_rsa_known_host(Sys, Usr),
     Config;
 init_per_group(key_cb, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_dsa(DataDir, PrivDir),
-    Config;
+    case lists:member('ssh-rsa',
+		      ssh_transport:default_algorithms(public_key)) of
+	true ->
+            DataDir = proplists:get_value(data_dir, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
+            ssh_test_lib:setup_rsa(DataDir, PrivDir),
+            Config;
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
 init_per_group(internal_error, Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -293,7 +323,7 @@ end_per_group(rsa_pass_key, Config) ->
     Config;
 end_per_group(key_cb, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:clean_dsa(PrivDir),
+    ssh_test_lib:clean_rsa(PrivDir),
     Config;
 end_per_group(internal_error, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -750,7 +780,7 @@ key_callback_options(Config) when is_list(Config) ->
                                              {user_dir, UserDir},
                                              {failfun, fun ssh_test_lib:failfun/2}]),
 
-    {ok, PrivKey} = file:read_file(filename:join(UserDir, "id_dsa")),
+    {ok, PrivKey} = file:read_file(filename:join(UserDir, "id_rsa")),
 
     ConnectOpts = [{silently_accept_hosts, true},
                    {user_dir, NoPubKeyDir},

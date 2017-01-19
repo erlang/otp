@@ -33,7 +33,7 @@ add_host_key(_, _, _) ->
 is_host_key(_, _, _, _) ->
     true.
 
-user_key('ssh-dss', Opts) ->
+user_key('ssh-rsa', Opts) ->
     KeyCbOpts = proplists:get_value(key_cb_private, Opts),
     KeyBin = proplists:get_value(priv_key, KeyCbOpts),
     [Entry] = public_key:pem_decode(KeyBin),
