@@ -1006,6 +1006,41 @@ erts_pid2proc_opt(Process *c_p,
     return proc;
 }
 
+static ERTS_INLINE
+Process *proc_lookup_inc_refc(Eterm pid, int allow_exit)
+{
+    Process *proc;
+#ifdef ERTS_SMP
+    ErtsThrPrgrDelayHandle dhndl;
+
+    dhndl = erts_thr_progress_unmanaged_delay();
+#endif
+
+    proc = erts_proc_lookup_raw(pid);
+    if (proc) {
+        if (!allow_exit && ERTS_PROC_IS_EXITING(proc))
+            proc = NULL;
+        else
+            erts_proc_inc_refc(proc);
+    }
+
+#ifdef ERTS_SMP
+    erts_thr_progress_unmanaged_continue(dhndl);
+#endif
+
+    return proc;
+}
+
+Process *erts_proc_lookup_inc_refc(Eterm pid)
+{
+    return proc_lookup_inc_refc(pid, 0);
+}
+
+Process *erts_proc_lookup_raw_inc_refc(Eterm pid)
+{
+    return proc_lookup_inc_refc(pid, 1);
+}
+
 void
 erts_proc_lock_init(Process *p)
 {
