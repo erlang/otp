@@ -44,7 +44,7 @@ trusted_cert_and_path(CRL, issuer_not_found, {Db, DbRef} = DbHandle) ->
 	    {ok, Root, Chain} = ssl_certificate:certificate_chain(OtpCert, Db, DbRef),
 	    {ok, Root, lists:reverse(Chain)};
 	{error, issuer_not_found} ->
-	    {ok, unknown_crl_ca, []}
+	    {error, unknown_ca_crl}
     end.
 
 find_issuer(CRL, {Db,DbRef}) ->

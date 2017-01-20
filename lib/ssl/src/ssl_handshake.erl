@@ -2229,7 +2229,8 @@ dps_and_crls(OtpCert, Callback, CRLDbHandle, ext) ->
 	    no_dps;
 	DistPoints ->
 	    Issuer = OtpCert#'OTPCertificate'.tbsCertificate#'OTPTBSCertificate'.issuer,
-	    distpoints_lookup(DistPoints, Issuer, Callback, CRLDbHandle)
+	    CRLs = distpoints_lookup(DistPoints, Issuer, Callback, CRLDbHandle),
+            dps_and_crls(DistPoints, CRLs, [])
     end;
 
 dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer) ->    
@@ -2242,7 +2243,13 @@ dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer) ->
 			 end, GenNames),
     [{DP, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs].
 
-distpoints_lookup([], _, _, _) ->
+dps_and_crls([], _, Acc) ->
+    Acc;
+dps_and_crls([DP | Rest], CRLs, Acc) ->
+    DpCRL = [{DP, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs],
+    dps_and_crls(Rest, CRLs, DpCRL ++ Acc).
+    
+distpoints_lookup([],_, _, _) ->
     [];
 distpoints_lookup([DistPoint | Rest], Issuer, Callback, CRLDbHandle) ->
     Result =
@@ -2257,7 +2264,7 @@ distpoints_lookup([DistPoint | Rest], Issuer, Callback, CRLDbHandle) ->
 	not_available ->
 	    distpoints_lookup(Rest, Issuer, Callback, CRLDbHandle);
 	CRLs ->
-	    [{DistPoint, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs]
+	    CRLs
     end.	
 
 sign_algo(?rsaEncryption) ->
