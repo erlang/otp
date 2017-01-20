@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,15 +47,17 @@
 %% Type exports for templates and callback modules
 -export_type(
    [event_type/0,
-    init_result/0,
     callback_mode_result/0,
-    state_function_result/0,
-    handle_event_result/0,
+    init_result/1,
     state_enter_result/1,
     event_handler_result/1,
     reply_action/0,
     enter_action/0,
     action/0]).
+%% Old types, not advertised
+-export_type(
+   [state_function_result/0,
+    handle_event_result/0]).
 
 %% Type that is exported just to be documented
 -export_type([transition_option/0]).
@@ -143,9 +145,10 @@
 	{'reply', % Reply to a caller
 	 From :: from(), Reply :: term()}.
 
--type init_result() ::
-    {ok, state(), data()} |
-    {ok, state(), data(), [action()] | action()} |
+-type init_result(StateType) ::
+    {ok, State :: StateType, Data :: data()} |
+    {ok, State :: StateType, Data :: data(),
+     Actions :: [action()] | action()} |
     'ignore' |
     {'stop', Reason :: term()}.
 
@@ -201,7 +204,7 @@
 %% the server is not running until this function has returned
 %% an {ok, ...} tuple.  Thereafter the state callbacks are called
 %% for all events to this server.
--callback init(Args :: term()) -> init_result().
+-callback init(Args :: term()) -> init_result(state()).
 
 %% This callback shall return the callback mode of the callback module.
 %%

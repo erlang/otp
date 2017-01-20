@@ -1,7 +1,7 @@
 ;;
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 2010-2016. All Rights Reserved.
+;; Copyright Ericsson AB 2010-2017. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -915,11 +915,7 @@ Please see the function `tempo-define-template'.")
     "%% process to initialize." n
     (erlang-skel-separator-end 2)
     "-spec init(Args :: term()) ->" n>
-    "{ok, State :: term(), Data :: term()} |" n>
-    "{ok, State :: term(), Data :: term()," n>
-    "[gen_statem:action()] | gen_statem:action()} |" n>
-    "ignore |" n>
-    "{stop, Reason :: term()}." n
+    "gen_statem:init_result(atom())." n
     "init([]) ->" n>
     "process_flag(trap_exit, true)," n>
     "{ok, state_name, #data{}}." n
@@ -1028,11 +1024,7 @@ Please see the function `tempo-define-template'.")
     "%% process to initialize." n
     (erlang-skel-separator-end 2)
     "-spec init(Args :: term()) ->" n>
-    "{ok, State :: term(), Data :: term()} |" n>
-    "{ok, State :: term(), Data :: term()," n>
-    "[gen_statem:action()] | gen_statem:action()} |" n>
-    "ignore |" n>
-    "{stop, Reason :: term()}." n
+    "gen_statem:init_result(term())." n
     "init([]) ->" n>
     "process_flag(trap_exit, true)," n>
     "{ok, state_name, #data{}}." n

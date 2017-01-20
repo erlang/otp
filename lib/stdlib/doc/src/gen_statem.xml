@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2016</year>
+      <year>2016-2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -983,6 +983,33 @@ handle_event(_, _, State, Data) ->
       </desc>
     </datatype>
     <datatype>
+      <name name="init_result"/>
+      <desc>
+	<p>
+	  For a succesful initialization,
+	  <c><anno>State</anno></c> is the initial
+	  <seealso marker="#type-state"><c>state()</c></seealso>
+	  and <c><anno>Data</anno></c> the initial server
+	  <seealso marker="#type-data"><c>data()</c></seealso>
+	  of the <c>gen_statem</c>.
+	</p>
+	<p>
+	  The <seealso marker="#type-action"><c>Actions</c></seealso>
+	  are executed when entering the first
+	  <seealso marker="#type-state">state</seealso> just as for a
+	  <seealso marker="#state callback">state callback</seealso>,
+	  except that the action <c>postpone</c> is forced to
+	  <c>false</c> since there is no event to postpone.
+	</p>
+	<p>
+	  For an unsuccesful initialization,
+          <c>{stop,<anno>Reason</anno>}</c>
+	  or <c>ignore</c> should be used; see
+          <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="state_enter_result"/>
       <desc>
 	<p>
@@ -1613,25 +1640,16 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name>Module:init(Args) -> Result</name>
+      <name>Module:init(Args) -> Result(StateType)</name>
       <fsummary>
 	Optional function for initializing process and internal state.
       </fsummary>
       <type>
         <v>Args = term()</v>
-        <v>Result = {ok,State,Data}</v>
-	<v>&nbsp;| {ok,State,Data,Actions}</v>
-        <v>&nbsp;| {stop,Reason} | ignore</v>
-	<v>State = <seealso marker="#type-state">state()</seealso></v>
 	<v>
-	  Data = <seealso marker="#type-data">data()</seealso>
+	  Result(StateType) =
+	  <seealso marker="#type-init_result">init_result(StateType)</seealso>
 	</v>
-	<v>
-	  Actions =
-	  [<seealso marker="#type-action">action()</seealso>] |
-	  <seealso marker="#type-action">action()</seealso>
-	</v>
-	<v>Reason = term()</v>
       </type>
       <desc>
 	<marker id="Module:init-1"/>
@@ -1644,29 +1662,8 @@ handle_event(_, _, State, Data) ->
 	  the implementation state and server data.
 	</p>
 	<p>
-	  <c>Args</c> is the <c>Args</c> argument provided to the start
+	  <c>Args</c> is the <c>Args</c> argument provided to that start
 	  function.
-	</p>
-	<p>
-	  If the initialization is successful, the function is to
-	  return <c>{ok,State,Data}</c> or
-	  <c>{ok,State,Data,Actions}</c>.
-	  <c>State</c> is the initial
-	  <seealso marker="#type-state"><c>state()</c></seealso>
-	  and <c>Data</c> the initial server
-	  <seealso marker="#type-data"><c>data()</c></seealso>.
-	</p>
-	<p>
-	  The <seealso marker="#type-action"><c>Actions</c></seealso>
-	  are executed when entering the first
-	  <seealso marker="#type-state">state</seealso> just as for a
-	  <seealso marker="#state callback">state callback</seealso>.
-	</p>
-	<p>
-	  If the initialization fails,
-          the function is to return <c>{stop,Reason}</c>
-	  or <c>ignore</c>; see
-          <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>.
 	</p>
         <note>
 	  <p>
