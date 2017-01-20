@@ -717,6 +717,8 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
      * We have to be very very careful when doing this as the schedulers
      * could be anywhere.
      */
+    sys_init_suspend_handler();
+
     for (i = 0; i < erts_no_schedulers; i++) {
         erts_tid_t tid = ERTS_SCHEDULER_IX(i)->tid;
         if (!erts_equal_tids(tid,erts_thr_self()))

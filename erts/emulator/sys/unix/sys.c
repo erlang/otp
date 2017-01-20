@@ -110,9 +110,8 @@ erts_smp_atomic_t sys_misc_mem_sz;
 static void smp_sig_notify(int signum);
 static int sig_notify_fds[2] = {-1, -1};
 
-#if !defined(ETHR_UNUSABLE_SIGUSRX) && defined(ERTS_THR_HAVE_SIG_FUNCS)
+#ifdef ERTS_SYS_SUSPEND_SIGNAL
 static int sig_suspend_fds[2] = {-1, -1};
-#define ERTS_SYS_SUSPEND_SIGNAL SIGUSR2
 #endif
 
 #endif
