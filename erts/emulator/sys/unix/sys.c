@@ -698,7 +698,7 @@ static RETSIGTYPE suspend_signal(int signum)
  Signal      Action   Comment
  ─────────────────────────────────────────────────────────────
   SIGHUP     Term     Hangup detected on controlling terminal or death of controlling process
-  SIGINT     Term     Interrupt from keyboard
+ !SIGINT     Term     Interrupt from keyboard
   SIGQUIT    Core     Quit from keyboard
   SIGILL     Core     Illegal Instruction
   SIGABRT    Core     Abort signal from abort(3)
@@ -724,7 +724,7 @@ signalterm_to_signum(Eterm signal)
 {
     switch (signal) {
     case am_sighup:  return SIGHUP;
-    case am_sigint:  return SIGINT;
+    /* case am_sigint:  return SIGINT; */
     case am_sigquit: return SIGQUIT;
     case am_sigill:  return SIGILL;
     case am_sigabrt: return SIGABRT;
@@ -745,7 +745,7 @@ signum_to_signalterm(int signum)
 {
     switch (signum) {
     case SIGHUP:  return am_sighup;
-    case SIGINT:  return am_sigint;    /* ^c */
+    /* case SIGINT:  return am_sigint; */    /* ^c */
     case SIGILL:  return am_sigill;
     case SIGABRT: return am_sigabrt;
     /* case SIGSEGV: return am_sigsegv; */
