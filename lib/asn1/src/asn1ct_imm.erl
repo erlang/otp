@@ -37,7 +37,7 @@
 	 per_enc_open_type/2,
 	 per_enc_restricted_string/3,
 	 per_enc_small_number/2]).
--export([per_enc_extension_bit/2,per_enc_extensions/4,per_enc_optional/3]).
+-export([per_enc_extension_bit/2,per_enc_extensions/4,per_enc_optional/2]).
 -export([per_enc_sof/5]).
 -export([enc_absent/3,enc_append/1,enc_element/2]).
 -export([enc_cg/2]).
@@ -349,27 +349,18 @@ per_enc_extensions(Val0, Pos0, NumBits, Aligned) when NumBits > 0 ->
 			['_'|Length ++ PutBits]]}],
 	 {var,"Extensions"}}].
 
-per_enc_optional(Val0, {Pos,DefVals}, _Aligned) when is_integer(Pos),
-						     is_list(DefVals) ->
-    {B,Val} = enc_element(Pos, Val0),
+per_enc_optional(Val, DefVals) when is_list(DefVals) ->
     Zero = {put_bits,0,1,[1]},
     One = {put_bits,1,1,[1]},
-    B++[{'cond',
-	 [[{eq,Val,DefVal},Zero] || DefVal <- DefVals] ++ [['_',One]]}];
-per_enc_optional(Val0, {Pos,{call,M,F,A}}, _Aligned) when is_integer(Pos) ->
-    {B,Val} = enc_element(Pos, Val0),
+    [{'cond',
+      [[{eq,Val,DefVal},Zero] || DefVal <- DefVals] ++ [['_',One]]}];
+per_enc_optional(Val, {call,M,F,A}) ->
     {[],[[],Tmp]} = mk_vars([], [tmp]),
     Zero = {put_bits,0,1,[1]},
     One = {put_bits,1,1,[1]},
-    B++[{call,M,F,[Val|A],Tmp},
-	{'cond',
-	 [[{eq,Tmp,true},Zero],['_',One]]}];
-per_enc_optional(Val0, Pos, _Aligned) when is_integer(Pos) ->
-    {B,Val} = enc_element(Pos, Val0),
-    Zero = {put_bits,0,1,[1]},
-    One = {put_bits,1,1,[1]},
-    B++[{'cond',[[{eq,Val,asn1_NOVALUE},Zero],
-		 ['_',One]]}].
+    [{call,M,F,[Val|A],Tmp},
+     {'cond',
+      [[{eq,Tmp,true},Zero],['_',One]]}].
 
 per_enc_sof(Val0, Constraint, ElementVar, ElementImm, Aligned) ->
     {B,[Val,Len]} = mk_vars(Val0, [len]),

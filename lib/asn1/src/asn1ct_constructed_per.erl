@@ -59,7 +59,7 @@ gen_encode_constructed(Erule, Typename, #type{}=D) ->
     asn1ct_imm:enc_cg(Imm, is_aligned(Erule)),
     emit([".",nl]).
 
-gen_encode_constructed_imm(Erule, Typename, #type{}=D) ->
+gen_encode_constructed_imm(Gen, Typename, #type{}=D) ->
     {CompList,TableConsInfo} = enc_complist(D),
     ExternalImm =
 	case Typename of
@@ -71,12 +71,10 @@ gen_encode_constructed_imm(Erule, Typename, #type{}=D) ->
 	    _ ->
 		[]
 	end,
-    Aligned = is_aligned(Erule),
-    Value0 = make_var(val),
     Optionals = optionals(to_textual_order(CompList)),
-    ImmOptionals = [asn1ct_imm:per_enc_optional(Value0, Opt, Aligned) ||
-		       Opt <- Optionals],
+    ImmOptionals = enc_optionals(Gen, Optionals),
     Ext = extensible_enc(CompList),
+    Aligned = is_aligned(Gen),
     ExtImm = case Ext of
 		 {ext,ExtPos,NumExt} when NumExt > 0 ->
 		     gen_encode_extaddgroup(CompList),
@@ -96,7 +94,7 @@ gen_encode_constructed_imm(Erule, Typename, #type{}=D) ->
 	    _ ->
 		[]
 	end,
-    ImmBody = gen_enc_components_call(Erule, Typename, CompList, EncObj, Ext),
+    ImmBody = gen_enc_components_call(Gen, Typename, CompList, EncObj, Ext),
     ExternalImm ++ ExtImm ++ ObjSetImm ++
 	asn1ct_imm:enc_append([ImmSetExt] ++ ImmOptionals ++ ImmBody).
 
@@ -148,6 +146,17 @@ enc_table(_Gen, _, #type{tablecinf=TCInf}) ->
         _ ->
             {false,[]}
     end.
+
+enc_optionals(Gen, Optionals) ->
+    Var = make_var(val),
+    enc_optionals_1(Gen, Optionals, Var).
+
+enc_optionals_1(Gen, [{Pos,DefVals}|T], Var) ->
+    {Imm0,Element} = asn1ct_imm:enc_element(Pos+1, Var),
+    Imm = asn1ct_imm:per_enc_optional(Element, DefVals),
+    [Imm0++Imm|enc_optionals_1(Gen, T, Var)];
+enc_optionals_1(_, [], _) ->
+    [].
 
 gen_encode_extaddgroup(CompList) ->
     case extgroup_pos_and_length(CompList) of
@@ -729,28 +738,26 @@ gen_dec_optionals(Optionals) ->
     {imm,Imm0,E}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Produce a list with positions (in the Value record) where
-%% there are optional components, start with 2 because first element
-%% is the record name
 
-optionals({L1,Ext,L2}) ->
-    Opt1 = optionals(L1,[],2),
-    ExtComps = length([C||C = #'ComponentType'{}<-Ext]),
-    Opt2 = optionals(L2,[],2+length(L1)+ExtComps),
+optionals({Root1,Ext,Root2}) ->
+    Opt1 = optionals(Root1, 1),
+    ExtComps = length([C || C = #'ComponentType'{} <- Ext]),
+    Opt2 = optionals(Root2, 1 + length(Root1) + ExtComps),
     Opt1 ++ Opt2;
-optionals({L,_Ext}) -> optionals(L,[],2); 
-optionals(L) -> optionals(L,[],2).
+optionals({L,_Ext}) ->
+    optionals(L, 1);
+optionals(L) ->
+    optionals(L, 1).
 
-optionals([#'ComponentType'{prop='OPTIONAL'}|Rest], Acc, Pos) ->
-    optionals(Rest, [Pos|Acc], Pos+1);
-optionals([#'ComponentType'{typespec=T,prop={'DEFAULT',Val}}|Rest],
-	  Acc, Pos) ->
+optionals([#'ComponentType'{prop='OPTIONAL'}|Rest], Pos) ->
+    [{Pos,[asn1_NOVALUE]}|optionals(Rest, Pos+1)];
+optionals([#'ComponentType'{typespec=T,prop={'DEFAULT',Val}}|Cs], Pos) ->
     Vals = def_values(T, Val),
-    optionals(Rest, [{Pos,Vals}|Acc], Pos+1);
-optionals([#'ComponentType'{}|Rest], Acc, Pos) ->
-    optionals(Rest, Acc, Pos+1);
-optionals([], Acc, _) ->
-    lists:reverse(Acc).
+    [{Pos,Vals}|optionals(Cs, Pos+1)];
+optionals([#'ComponentType'{}|Rest], Pos) ->
+    optionals(Rest, Pos+1);
+optionals([], _) ->
+    [].
 
 %%%%%%%%%%%%%%%%%%%%%%
 %% create_optionality_table(Cs=[#'ComponentType'{textual_order=undefined}|_]) ->
