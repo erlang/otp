@@ -170,18 +170,16 @@ update_result(Mode, InitData, Job, Data, Result) ->
   end.
 
 -spec sccs_to_pids([scc() | module()], coordinator()) ->
-        {[dialyzer_worker:worker()], [scc() | module()]}.
+        [dialyzer_worker:worker()].
 
 sccs_to_pids(SCCs, {_Collector, _Regulator, SCCtoPID}) ->
   Fold =
-    fun(SCC, {Pids, Unknown}) ->
-	try ets:lookup_element(SCCtoPID, SCC, 2) of
-	    Result -> {[Result|Pids], Unknown}
-	catch
-	  _:_ -> {Pids, [SCC|Unknown]}
-	end
+    fun(SCC, Pids) ->
+        %% The SCCs that SCC depends on have always been started.
+	Result = ets:lookup_element(SCCtoPID, SCC, 2),
+        [Result|Pids]
     end,
-  lists:foldl(Fold, {[], []}, SCCs).
+  lists:foldl(Fold, [], SCCs).
 
 -spec job_done(job(), job_result(), coordinator()) -> ok.
 
