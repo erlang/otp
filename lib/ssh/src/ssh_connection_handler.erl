@@ -1481,30 +1481,35 @@ renegotiation(_) -> false.
 %%--------------------------------------------------------------------
 supported_host_keys(client, _, Options) ->
     try
-	case proplists:get_value(public_key,
-				 proplists:get_value(preferred_algorithms,Options,[])
-				) of
-	    undefined ->
-		ssh_transport:default_algorithms(public_key);
-	    L ->
-		L -- (L--ssh_transport:default_algorithms(public_key))
-	end
+        find_sup_hkeys(Options)
     of
 	[] ->
-	    {stop, {shutdown, "No public key algs"}};
+	    error({shutdown, "No public key algs"});
 	Algs ->
 	    [atom_to_list(A) || A<-Algs]
     catch
 	exit:Reason ->
-	    {stop, {shutdown, Reason}}
+	    error({shutdown, Reason})
     end;
 supported_host_keys(server, KeyCb, Options) ->
-    [atom_to_list(A) || A <- proplists:get_value(public_key,
-						 proplists:get_value(preferred_algorithms,Options,[]),
-						 ssh_transport:default_algorithms(public_key)
-						),
+    [atom_to_list(A) || A <- find_sup_hkeys(Options),
 			available_host_key(KeyCb, A, Options)
     ].
+
+
+find_sup_hkeys(Options) ->
+    case proplists:get_value(public_key,
+                             proplists:get_value(preferred_algorithms,Options,[])
+                            )
+    of
+        undefined ->
+            ssh_transport:default_algorithms(public_key);
+        L ->
+            NonSupported =  L--ssh_transport:supported_algorithms(public_key),
+            L -- NonSupported
+    end.
+
+
 
 %% Alg :: atom()
 available_host_key(KeyCb, Alg, Opts) ->
