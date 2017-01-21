@@ -140,6 +140,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
   border: 1px solid #dee2e6;
   padding: 0.5em 1em;
   margin: 1em 0;
+  font-size: 0.7em;
 }
 .extrafrontpageinfo {
   color: #C00;
@@ -187,6 +188,7 @@ footer       { }
 .doc-table, .doc-image{
  min-width: 50%;
  margin: 0 auto;
+ font-size: 0.7em;
 }
 
 .doc-table-caption, .doc-image-caption{
