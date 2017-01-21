@@ -2017,7 +2017,7 @@
             <a name="type-{$fname}"></a><span class="bold_code bc-8"><xsl:apply-templates/></span><br/>
 	  </xsl:when>
           <xsl:otherwise>
-            <a name="{$fname}-{$arity}"></a><span class="bold_code bc-9"><xsl:apply-templates/></span><br/>
+            <a name="{$fname}-{$arity}"></a><span class="bold_code fun-type"><xsl:apply-templates/></span><br/>
           </xsl:otherwise>
 	</xsl:choose>
       </xsl:when>
@@ -2064,7 +2064,7 @@
   <xsl:template match="v">
     <xsl:param name="partnum"/>
     <div class="REFTYPES rt-4">
-      <span class="bold_code bc-11">
+      <span class="bold_code fun-param-type">
         <xsl:apply-templates>
           <xsl:with-param name="partnum" select="$partnum"/>
         </xsl:apply-templates>
