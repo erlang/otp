@@ -1319,17 +1319,17 @@ handle_iolist:
 	Binary *mbp = erts_create_magic_binary(sizeof(RestartContext),
 					       cleanup_restart_context_bin);
 	RestartContext *restartp = ERTS_MAGIC_BIN_DATA(mbp);
-	Eterm magic_bin;
+	Eterm magic_ref;
 	Eterm *hp;
 	memcpy(restartp,&restart,sizeof(RestartContext));
 	BUMP_ALL_REDS(p);
-	hp = HAlloc(p, PROC_BIN_SIZE);
-	magic_bin = erts_mk_magic_binary_term(&hp, &MSO(p), mbp);
+	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+	magic_ref = erts_mk_magic_ref(&hp, &MSO(p), mbp);
 	BIF_TRAP3(&re_exec_trap_export, 
 		  p,
 		  arg1,
 		  arg2 /* To avoid GC of precompiled code, XXX: not utilized yet */,
-		  magic_bin);
+		  magic_ref);
     }
 
     res = build_exec_return(p, rc, &restart, arg1);
@@ -1366,9 +1366,7 @@ static BIF_RETTYPE re_exec_trap(BIF_ALIST_3)
     Uint loop_limit_tmp;
     Eterm res;
 
-    ASSERT(ERTS_TERM_IS_MAGIC_BINARY(BIF_ARG_3));
-
-    mbp = ((ProcBin *) binary_val(BIF_ARG_3))->val;
+    mbp = erts_magic_ref2bin(BIF_ARG_3);
 
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(mbp)
 	   == cleanup_restart_context_bin);
