@@ -771,18 +771,18 @@ erts_ptab_list(Process *c_p, ErtsPTab *ptab)
     }
     else {
 	Eterm *hp;
-	Eterm magic_bin;
+	Eterm magic_ref;
 	ERTS_PTAB_LIST_DBG_CHK_RESLIST(res_acc);
-	hp = HAlloc(c_p, PROC_BIN_SIZE);
-	ERTS_PTAB_LIST_DBG_SAVE_HEAP_ALLOC(ptlbdp, hp, PROC_BIN_SIZE);
-	magic_bin = erts_mk_magic_binary_term(&hp, &MSO(c_p), mbp);
+	hp = HAlloc(c_p, ERTS_MAGIC_REF_THING_SIZE);
+	ERTS_PTAB_LIST_DBG_SAVE_HEAP_ALLOC(ptlbdp, hp, ERTS_MAGIC_REF_THING_SIZE);
+	magic_ref = erts_mk_magic_ref(&hp, &MSO(c_p), mbp);
 	ERTS_PTAB_LIST_DBG_VERIFY_HEAP_ALLOC_USED(ptlbdp, hp);
 	ERTS_PTAB_LIST_DBG_TRACE(c_p->common.id, trap);
 	ERTS_BIF_PREP_YIELD2(ret_val,
 			     &ptab_list_continue_export,
 			     c_p,
 			     res_acc,
-			     magic_bin);
+			     magic_ref);
     }
     return ret_val;
 }
@@ -1287,9 +1287,7 @@ static BIF_RETTYPE ptab_list_continue(BIF_ALIST_2)
 
     res_acc = BIF_ARG_1;
 
-    ERTS_PTAB_LIST_ASSERT(ERTS_TERM_IS_MAGIC_BINARY(BIF_ARG_2));
-
-    mbp = ((ProcBin *) binary_val(BIF_ARG_2))->val;
+    mbp = erts_magic_ref2bin(BIF_ARG_2);
 
     ERTS_PTAB_LIST_ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(mbp)
 			  == cleanup_ptab_list_bif_data);
