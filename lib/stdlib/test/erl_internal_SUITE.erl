@@ -97,7 +97,8 @@ callbacks(supervisor) ->
 optional_callbacks(application) ->
     [];
 optional_callbacks(gen_server) ->
-    [{format_status,2}];
+    [{handle_call,3}, {handle_cast,2}, {handle_info,2},
+     {terminate,2}, {code_change,3}, {format_status,2}];
 optional_callbacks(gen_fsm) ->
     [{format_status,2}];
 optional_callbacks(gen_event) ->

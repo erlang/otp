@@ -504,6 +504,12 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>Reason = term()</v>
       </type>
       <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not
+            export it. The <c>gen_server</c> module provides a default
+            implementation of this function that returns
+            <c>{ok, State}</c>.</p>
+        </note>
         <p>This function is called by a <c>gen_server</c> process when it is
           to update its internal state during a release upgrade/downgrade,
           that is, when the instruction <c>{update,Module,Change,...}</c>,
@@ -606,6 +612,14 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>&nbsp;Reason = term()</v>
       </type>
       <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not
+            export it. If it is not exported in the callback module
+            the server will crash with an <c>undef</c> exit reason if
+            <seealso marker="#call/2"><c>call/2,3</c></seealso> or
+            <seealso marker="#multi_call/2"><c>multi_call/2,3,4</c></seealso>,
+            is called.</p>
+        </note>
         <p>Whenever a <c>gen_server</c> process receives a request sent using
           <seealso marker="#call/2"><c>call/2,3</c></seealso> or
           <seealso marker="#multi_call/2"><c>multi_call/2,3,4</c></seealso>,
@@ -666,6 +680,14 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>&nbsp;Reason = term()</v>
       </type>
       <desc>
+         <note>
+           <p>This callback is optional, so callback modules need not
+            export it. If it is not exported in the callback module
+            the server will crash with an <c>undef</c> exit reason if
+            <seealso marker="#cast/2"><c>cast/2</c></seealso> or
+            <seealso marker="#abcast/2"><c>abcast/2,3</c></seealso>,
+            is called.</p>
+        </note>
         <p>Whenever a <c>gen_server</c> process receives a request sent using
           <seealso marker="#cast/2"><c>cast/2</c></seealso> or
           <seealso marker="#abcast/2"><c>abcast/2,3</c></seealso>,
@@ -690,6 +712,12 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>&nbsp;Reason = normal | term()</v>
       </type>
       <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not
+            export it. The <c>gen_server</c> module provides a default
+            implementation of this function that drops the <c>Info</c>
+            message and returns <c>{noreply, State}</c>.</p>
+        </note>
         <p>This function is called by a <c>gen_server</c> process when a
           time-out occurs or when it receives any other message than a
           synchronous or asynchronous request (or a system message).</p>
@@ -750,6 +778,11 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>State = term()</v>
       </type>
       <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not
+            export it. The <c>gen_server</c> module provides a default
+            implementation without cleanup.</p>
+        </note>
         <p>This function is called by a <c>gen_server</c> process when it is
           about to terminate. It is to be the opposite of
           <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
