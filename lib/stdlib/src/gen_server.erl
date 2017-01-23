@@ -146,8 +146,8 @@
       State :: term(),
       Status :: term().
 
--optional_callbacks([format_status/2]).
-
+-optional_callbacks(
+    [handle_info/2, terminate/2, code_change/3, format_status/2]).
 
 %%%  -----------------------------------------------------------------
 %%% Starts a generic server.
@@ -602,6 +602,17 @@ try_dispatch(Mod, Func, Msg, State) ->
     catch
 	throw:R ->
 	    {ok, R};
+        error:undef = R when Func == handle_info ->
+            case erlang:function_exported(Mod, handle_info, 2) of
+                false ->
+                    error_logger:warning_msg("** Undefined handle_info in ~p~n"
+                                             "** Unhandled message: ~p~n",
+                                             [Mod, Msg]),
+                    {ok, {noreply, State}};
+                true ->
+                    Stacktrace = erlang:get_stacktrace(),
+                    {'EXIT', {R, Stacktrace}, {R, Stacktrace}}
+            end;
 	error:R ->
 	    Stacktrace = erlang:get_stacktrace(),
 	    {'EXIT', {R, Stacktrace}, {R, Stacktrace}};
@@ -625,17 +636,22 @@ try_handle_call(Mod, Msg, From, State) ->
     end.
 
 try_terminate(Mod, Reason, State) ->
-    try
-	{ok, Mod:terminate(Reason, State)}
-    catch
-	throw:R ->
-	    {ok, R};
-	error:R ->
-	    Stacktrace = erlang:get_stacktrace(),
-	    {'EXIT', {R, Stacktrace}, {R, Stacktrace}};
-	exit:R ->
-	    Stacktrace = erlang:get_stacktrace(),
-	    {'EXIT', R, {R, Stacktrace}}
+    case erlang:function_exported(Mod, terminate, 2) of
+	true ->
+	    try
+		{ok, Mod:terminate(Reason, State)}
+	    catch
+		throw:R ->
+		    {ok, R};
+		error:R ->
+		    Stacktrace = erlang:get_stacktrace(),
+		    {'EXIT', {R, Stacktrace}, {R, Stacktrace}};
+		exit:R ->
+		    Stacktrace = erlang:get_stacktrace(),
+		    {'EXIT', R, {R, Stacktrace}}
+	   end;
+	false ->
+	    {ok, ok}
     end.
 
 
