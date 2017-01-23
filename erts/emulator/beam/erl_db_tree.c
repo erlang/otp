@@ -935,17 +935,15 @@ static int db_select_continue_tree(Process *p,
     if (arityval(*tptr) != 8)
 	RET_TO_BIF(NIL,DB_ERROR_BADPARAM);
     
-    if (!is_small(tptr[4]) || !is_binary(tptr[5]) || 
+    if (!is_small(tptr[4]) ||
 	!(is_list(tptr[6]) || tptr[6] == NIL) || !is_small(tptr[7]) ||
 	!is_small(tptr[8]))
 	RET_TO_BIF(NIL,DB_ERROR_BADPARAM);
     
     lastkey = tptr[2];
     end_condition = tptr[3];
-    if (!(thing_subtag(*binary_val(tptr[5])) == REFC_BINARY_SUBTAG))
-	RET_TO_BIF(NIL,DB_ERROR_BADPARAM);
-    mp = ((ProcBin *) binary_val(tptr[5]))->val;
-    if (!IsMatchProgBinary(mp))
+    mp = erts_db_get_match_prog_binary(tptr[5]);
+    if (!mp)
 	RET_TO_BIF(NIL,DB_ERROR_BADPARAM);
     chunk_size = signed_val(tptr[4]);
 
@@ -1145,11 +1143,11 @@ static int db_select_tree(Process *p, DbTable *tbl,
 
     key = GETKEY(tb, sc.lastobj);
     sz = size_object(key);
-    hp = HAlloc(p, 9 + sz + PROC_BIN_SIZE);
+    hp = HAlloc(p, 9 + sz + ERTS_MAGIC_REF_THING_SIZE);
     key = copy_struct(key, sz, &hp, &MSO(p));
     if (mpi.all_objects)
 	(mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
-    mpb=db_make_mp_binary(p,mpi.mp,&hp);
+    mpb= erts_db_make_match_prog_ref(p,mpi.mp,&hp);
 	    
     continuation = TUPLE8
 	(hp,
@@ -1208,10 +1206,8 @@ static int db_select_count_continue_tree(Process *p,
     
     lastkey = tptr[2];
     end_condition = tptr[3];
-    if (!(thing_subtag(*binary_val(tptr[4])) == REFC_BINARY_SUBTAG))
-	RET_TO_BIF(NIL,DB_ERROR_BADPARAM);
-    mp = ((ProcBin *) binary_val(tptr[4]))->val;
-    if (!IsMatchProgBinary(mp))
+    mp = erts_db_get_match_prog_binary(tptr[4]);
+    if (!mp)
 	RET_TO_BIF(NIL,DB_ERROR_BADPARAM);
 
     sc.p = p;
@@ -1338,18 +1334,18 @@ static int db_select_count_tree(Process *p, DbTable *tbl,
     key = GETKEY(tb, sc.lastobj);
     sz = size_object(key);
     if (IS_USMALL(0, sc.got)) {
-	hp = HAlloc(p, sz + PROC_BIN_SIZE + 6);
+	hp = HAlloc(p, sz + ERTS_MAGIC_REF_THING_SIZE + 6);
 	egot = make_small(sc.got);
     }
     else {
-	hp = HAlloc(p, BIG_UINT_HEAP_SIZE + sz + PROC_BIN_SIZE + 6);
+	hp = HAlloc(p, BIG_UINT_HEAP_SIZE + sz + ERTS_MAGIC_REF_THING_SIZE + 6);
 	egot = uint_to_big(sc.got, hp);
 	hp += BIG_UINT_HEAP_SIZE;
     }
     key = copy_struct(key, sz, &hp, &MSO(p));
     if (mpi.all_objects)
 	(mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
-    mpb = db_make_mp_binary(p,mpi.mp,&hp);
+    mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
 	    
     continuation = TUPLE5
 	(hp,
@@ -1470,11 +1466,11 @@ static int db_select_chunk_tree(Process *p, DbTable *tbl,
 
 	key = GETKEY(tb, sc.lastobj);
 	sz = size_object(key);
-	hp = HAlloc(p, 9 + sz + PROC_BIN_SIZE);
+	hp = HAlloc(p, 9 + sz + ERTS_MAGIC_REF_THING_SIZE);
 	key = copy_struct(key, sz, &hp, &MSO(p));
 	if (mpi.all_objects)
 	    (mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
-	mpb = db_make_mp_binary(p,mpi.mp,&hp);
+	mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
 	
 	continuation = TUPLE8
 	    (hp,
@@ -1495,12 +1491,12 @@ static int db_select_chunk_tree(Process *p, DbTable *tbl,
 
     key = GETKEY(tb, sc.lastobj);
     sz = size_object(key);
-    hp = HAlloc(p, 9 + sz + PROC_BIN_SIZE);
+    hp = HAlloc(p, 9 + sz + ERTS_MAGIC_REF_THING_SIZE);
     key = copy_struct(key, sz, &hp, &MSO(p));
 
     if (mpi.all_objects)
 	(mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
-    mpb = db_make_mp_binary(p,mpi.mp,&hp);    
+    mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
     continuation = TUPLE8
 	(hp,
 	 tb->common.id,
@@ -1558,7 +1554,7 @@ static int db_select_delete_continue_tree(Process *p,
     sc.erase_lastterm = 0; /* Before first RET_TO_BIF */
     sc.lastterm = NULL;
 
-    mp = ((ProcBin *) binary_val(tptr[4]))->val;
+    mp = erts_db_get_match_prog_binary_unchecked(tptr[4]);
     sc.p = p;
     sc.tb = tb;
     if (is_big(tptr[5])) {
@@ -1682,16 +1678,16 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
     key = GETKEY(tb, (sc.lastterm)->dbterm.tpl);
     sz = size_object(key);
     if (IS_USMALL(0, sc.accum)) {
-	hp = HAlloc(p, sz + PROC_BIN_SIZE + 6);
+	hp = HAlloc(p, sz + ERTS_MAGIC_REF_THING_SIZE + 6);
 	eaccsum = make_small(sc.accum);
     }
     else {
-	hp = HAlloc(p, BIG_UINT_HEAP_SIZE + sz + PROC_BIN_SIZE + 6);
+	hp = HAlloc(p, BIG_UINT_HEAP_SIZE + sz + ERTS_MAGIC_REF_THING_SIZE + 6);
 	eaccsum = uint_to_big(sc.accum, hp);
 	hp += BIG_UINT_HEAP_SIZE;
     }
     key = copy_struct(key, sz, &hp, &MSO(p));
-    mpb = db_make_mp_binary(p,mpi.mp,&hp);
+    mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
     
     continuation = TUPLE5
 	(hp,

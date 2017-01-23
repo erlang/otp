@@ -3012,8 +3012,13 @@ repair_continuation(Config) ->
 
     MS = [{'_',[],[true]}],
 
-    {[true], C1} = dets:select(Tab, MS, 1),
-    C2 = binary_to_term(term_to_binary(C1)),
+    SRes = term_to_binary(dets:select(Tab, MS, 1)),
+    %% Get rid of compiled match spec
+    lists:foreach(fun (P) ->
+                          garbage_collect(P)
+                  end, processes()),
+    {[true], C2} = binary_to_term(SRes),
+
     {'EXIT', {badarg, _}} = (catch dets:select(C2)),
     C3 = dets:repair_continuation(C2, MS),
     {[true], C4} = dets:select(C3),

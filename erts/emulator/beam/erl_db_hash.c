@@ -1287,15 +1287,13 @@ static int db_select_continue_hash(Process *p,
     if (arityval(*tptr) != 6)
 	RET_TO_BIF(NIL,DB_ERROR_BADPARAM);
     
-    if (!is_small(tptr[2]) || !is_small(tptr[3]) || !is_binary(tptr[4]) || 
+    if (!is_small(tptr[2]) || !is_small(tptr[3]) || 
 	!(is_list(tptr[5]) || tptr[5] == NIL) || !is_small(tptr[6]))
 	RET_TO_BIF(NIL,DB_ERROR_BADPARAM);
     if ((chunk_size = signed_val(tptr[3])) < 0)
 	RET_TO_BIF(NIL,DB_ERROR_BADPARAM);
-    if (!(thing_subtag(*binary_val(tptr[4])) == REFC_BINARY_SUBTAG))
-	RET_TO_BIF(NIL,DB_ERROR_BADPARAM);
-    mp = ((ProcBin *) binary_val(tptr[4]))->val;
-    if (!IsMatchProgBinary(mp))
+    mp = erts_db_get_match_prog_binary(tptr[4]);
+    if (!mp)
 	RET_TO_BIF(NIL,DB_ERROR_BADPARAM);
     all_objects = mp->flags & BIN_FLAG_ALL_OBJECTS;
     match_list = tptr[5];
@@ -1554,8 +1552,8 @@ done:
 					 been in 'user space' */ 
 	}
 	if (rest != NIL || slot_ix >= 0) { /* Need more calls */
-	    hp = HAlloc(p,3+7+PROC_BIN_SIZE);
-	    mpb =db_make_mp_binary(p,(mpi.mp),&hp);
+	    hp = HAlloc(p,3+7+ERTS_MAGIC_REF_THING_SIZE);
+	    mpb = erts_db_make_match_prog_ref(p,(mpi.mp),&hp);
 	    if (mpi.all_objects)
 		(mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
 	    continuation = TUPLE6(hp, tb->common.id,make_small(slot_ix), 
@@ -1580,8 +1578,8 @@ trap:
     BUMP_ALL_REDS(p);
     if (mpi.all_objects)
 	(mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
-    hp = HAlloc(p,7+PROC_BIN_SIZE);
-    mpb =db_make_mp_binary(p,(mpi.mp),&hp);
+    hp = HAlloc(p,7+ERTS_MAGIC_REF_THING_SIZE);
+    mpb = erts_db_make_match_prog_ref(p,(mpi.mp),&hp);
     continuation = TUPLE6(hp, tb->common.id, make_small(slot_ix), 
 			  make_small(chunk_size), 
 			  mpb, match_list, 
@@ -1693,15 +1691,15 @@ done:
 trap:
     BUMP_ALL_REDS(p);
     if (IS_USMALL(0, got)) {
-	hp = HAlloc(p,  PROC_BIN_SIZE + 5);
+	hp = HAlloc(p,  ERTS_MAGIC_REF_THING_SIZE + 5);
 	egot = make_small(got);
     }
     else {
-	hp = HAlloc(p, BIG_UINT_HEAP_SIZE + PROC_BIN_SIZE + 5);
+	hp = HAlloc(p, BIG_UINT_HEAP_SIZE + ERTS_MAGIC_REF_THING_SIZE + 5);
 	egot = uint_to_big(got, hp);
 	hp += BIG_UINT_HEAP_SIZE;
     }
-    mpb = db_make_mp_binary(p,mpi.mp,&hp);
+    mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
     continuation = TUPLE4(hp, tb->common.id, make_small(slot_ix), 
 			  mpb, 
 			  egot);
@@ -1838,15 +1836,15 @@ done:
 trap:
     BUMP_ALL_REDS(p);
     if (IS_USMALL(0, got)) {
-	hp = HAlloc(p,  PROC_BIN_SIZE + 5);
+	hp = HAlloc(p,  ERTS_MAGIC_REF_THING_SIZE + 5);
 	egot = make_small(got);
     }
     else {
-	hp = HAlloc(p, BIG_UINT_HEAP_SIZE + PROC_BIN_SIZE + 5);
+	hp = HAlloc(p, BIG_UINT_HEAP_SIZE + ERTS_MAGIC_REF_THING_SIZE + 5);
 	egot = uint_to_big(got, hp);
 	hp += BIG_UINT_HEAP_SIZE;
     }
-    mpb = db_make_mp_binary(p,mpi.mp,&hp);
+    mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
     continuation = TUPLE4(hp, tb->common.id, make_small(slot_ix), 
 			  mpb, 
 			  egot);
@@ -1887,7 +1885,7 @@ static int db_select_delete_continue_hash(Process *p,
     
     tptr = tuple_val(continuation);
     slot_ix = unsigned_val(tptr[2]);
-    mp = ((ProcBin *) binary_val(tptr[3]))->val;
+    mp = erts_db_get_match_prog_binary_unchecked(tptr[3]);
     if (is_big(tptr[4])) {
 	got = big_to_uint32(tptr[4]);
     } else {
@@ -1999,7 +1997,7 @@ static int db_select_count_continue_hash(Process *p,
     
     tptr = tuple_val(continuation);
     slot_ix = unsigned_val(tptr[2]);
-    mp = ((ProcBin *) binary_val(tptr[3]))->val;
+    mp = erts_db_get_match_prog_binary_unchecked(tptr[3]);
     if (is_big(tptr[4])) {
 	got = big_to_uint32(tptr[4]);
     } else {

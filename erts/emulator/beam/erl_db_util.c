@@ -2545,14 +2545,6 @@ success:
 }
 
 
-/*
- * Convert a match program to a "magic" binary to return up to erlang
- */
-Eterm db_make_mp_binary(Process *p, Binary *mp, Eterm **hpp)
-{
-    return erts_mk_magic_binary_term(hpp, &MSO(p), mp);
-}
-
 DMCErrInfo *db_new_dmc_err_info(void) 
 {
     DMCErrInfo *ret = erts_alloc(ERTS_ALC_T_DB_DMC_ERR_INFO,
@@ -3264,13 +3256,6 @@ int db_has_variable(Eterm node) {
     }
     DESTROY_ESTACK(s);
     return 0;
-}
-
-int erts_db_is_compiled_ms(Eterm term)
-{
-    return (is_binary(term)
-	    && (thing_subtag(*binary_val(term)) == REFC_BINARY_SUBTAG)
-	    && IsMatchProgBinary((((ProcBin *) binary_val(term))->val)));
 }
 
 /* 
