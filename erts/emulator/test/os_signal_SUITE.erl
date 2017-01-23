@@ -86,7 +86,7 @@ end_per_suite(_Config) ->
 
 set_unset(_Config) ->
     Signals = [sighup, %sigint,
-               sigquit, sigill,
+               sigquit, %sigill,
                sigabrt,
                sigalrm, sigterm,
                sigusr1, sigusr2,
