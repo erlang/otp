@@ -101,7 +101,7 @@ optional_callbacks(gen_server) ->
 optional_callbacks(gen_fsm) ->
     [{format_status,2}];
 optional_callbacks(gen_event) ->
-    [{format_status,2}];
+    [{handle_info, 2}, {terminate, 2}, {code_change, 3}, {format_status, 2}];
 optional_callbacks(supervisor_bridge) ->
     [];
 optional_callbacks(supervisor) ->

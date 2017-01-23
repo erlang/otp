@@ -109,7 +109,8 @@
       State :: term(),
       Status :: term().
 
--optional_callbacks([format_status/2]).
+-optional_callbacks(
+    [handle_info/2, terminate/2, code_change/3, format_status/2]).
 
 %%---------------------------------------------------------------------------
 
@@ -577,6 +578,10 @@ server_update(Handler1, Func, Event, SName) ->
 	    do_terminate(Mod1, Handler1, remove_handler, State,
 			 remove, SName, normal),
 	    no;
+        {'EXIT', {undef, [{Mod1, handle_info, [_,_], _}|_]}} ->
+            error_logger:warning_msg("** Undefined handle_info in ~p~n"
+                                     "** Unhandled message: ~p~n", [Mod1, Event]),
+           {ok, Handler1};
 	Other ->
 	    do_terminate(Mod1, Handler1, {error, Other}, State,
 			 Event, SName, crash),
@@ -698,9 +703,15 @@ server_call_update(Handler1, Query, SName) ->
     end.
 
 do_terminate(Mod, Handler, Args, State, LastIn, SName, Reason) ->
-    Res = (catch Mod:terminate(Args, State)),
-    report_terminate(Handler, Reason, Args, State, LastIn, SName, Res),
-    Res.
+    case erlang:function_exported(Mod, terminate, 2) of
+	true ->
+	    Res = (catch Mod:terminate(Args, State)),
+	    report_terminate(Handler, Reason, Args, State, LastIn, SName, Res),
+	    Res;
+	false ->
+	    report_terminate(Handler, Reason, Args, State, LastIn, SName, ok),
+	    ok
+    end.
 
 report_terminate(Handler, crash, {error, Why}, State, LastIn, SName, _) ->
     report_terminate(Handler, Why, State, LastIn, SName);

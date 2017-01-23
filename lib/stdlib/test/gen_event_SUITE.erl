@@ -22,13 +22,17 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
-	 init_per_group/2,end_per_group/2]).
+	 init_per_group/2,end_per_group/2, init_per_testcase/2,
+         end_per_testcase/2]).
 -export([start/1, add_handler/1, add_sup_handler/1,
 	 delete_handler/1, swap_handler/1, swap_sup_handler/1,
 	 notify/1, sync_notify/1, call/1, info/1, hibernate/1,
 	 call_format_status/1, call_format_status_anon/1,
          error_format_status/1, get_state/1, replace_state/1,
-         start_opt/1]).
+         start_opt/1,
+         undef_init/1, undef_handle_call/1, undef_handle_event/1,
+         undef_handle_info/1, undef_code_change/1, undef_terminate/1,
+         undef_in_terminate/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -36,13 +40,16 @@ all() ->
     [start, {group, test_all}, hibernate,
      call_format_status, call_format_status_anon, error_format_status,
      get_state, replace_state,
-     start_opt].
+     start_opt, {group, undef_callbacks}, undef_in_terminate].
 
 groups() ->
     [{test_all, [],
       [add_handler, add_sup_handler, delete_handler,
        swap_handler, swap_sup_handler, notify, sync_notify,
-       call, info]}].
+       call, info]},
+     {undef_callbacks, [],
+      [undef_init, undef_handle_call, undef_handle_event, undef_handle_info,
+       undef_code_change, undef_terminate]}].
 
 init_per_suite(Config) ->
     Config.
@@ -50,12 +57,40 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
+init_per_group(undef_callbacks, Config) ->
+    DataDir = ?config(data_dir, Config),
+    Event1 = filename:join(DataDir, "oc_event.erl"),
+    {ok, oc_event} = compile:file(Event1),
+    Config;
 init_per_group(_GroupName, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(Case, Config) when Case == undef_handle_call;
+                                     Case == undef_handle_info;
+                                     Case == undef_handle_event;
+                                     Case == undef_code_change;
+                                     Case == undef_terminate ->
+    {ok, Pid} = oc_event:start(),
+    [{event_pid, Pid}|Config];
+init_per_testcase(undef_init, Config) ->
+    {ok, Pid} = gen_event:start({local, oc_init_event}),
+    [{event_pid, Pid}|Config];
+init_per_testcase(_Case, Config) ->
+    Config.
+
+end_per_testcase(Case, Config) when Case == undef_init;
+                                    Case == undef_handle_call;
+                                    Case == undef_handle_info;
+                                    Case == undef_handle_event;
+                                    Case == undef_code_change;
+                                    Case == undef_terminate ->
+    Pid = ?config(event_pid, Config),
+    gen_event:stop(Pid);
+end_per_testcase(_Case, _Config) ->
+    ok.
 
 %% --------------------------------------
 %% Start an event manager.
@@ -1055,3 +1090,92 @@ replace_state(Config) when is_list(Config) ->
     ok = sys:resume(Pid),
     [{dummy1_h,false,NState3}] = sys:get_state(Pid),
     ok.
+
+%% No default provided for init, so it should fail
+undef_init(Config) ->
+    Pid = ?config(event_pid, Config),
+    {'EXIT', {undef, [{oc_init_event, init, [_], _}|_]}}
+        = gen_event:add_handler(Pid, oc_init_event, []),
+    ok.
+
+%% No default provided for init, so it should fail
+undef_handle_call(Config) when is_list(Config) ->
+    Pid = ?config(event_pid, Config),
+    {error, {'EXIT', {undef, [{oc_event, handle_call, _, _}|_]}}}
+        = gen_event:call(Pid, oc_event, call_msg),
+    [] = gen_event:which_handlers(Pid),
+    ok.
+
+%% No default provided for init, so it should fail
+undef_handle_event(Config) ->
+    Pid = ?config(event_pid, Config),
+    ok = gen_event:sync_notify(Pid, event_msg),
+    [] = gen_event:which_handlers(Pid),
+
+    gen_event:add_handler(oc_event, oc_event, []),
+    [oc_event] = gen_event:which_handlers(Pid),
+
+    ok = gen_event:notify(Pid, event_msg),
+    [] = gen_event:which_handlers(Pid),
+    ok.
+
+%% Defaulting to doing nothing with a log warning.
+undef_handle_info(Config) when is_list(Config) ->
+    error_logger_forwarder:register(),
+    Pid = ?config(event_pid, Config),
+    Pid ! hej,
+    wait_until_processed(Pid, hej, 10),
+    [oc_event] = gen_event:which_handlers(Pid),
+    receive
+        {warning_msg, _GroupLeader,
+         {Pid, "** Undefined handle_info in " ++ _, [oc_event, hej]}} ->
+            ok;
+        Other ->
+            io:format("Unexpected: ~p", [Other]),
+            ct:fail(failed)
+    end.
+
+wait_until_processed(_Pid, _Message, 0) ->
+    ct:fail(not_processed);
+wait_until_processed(Pid, Message, N) ->
+    {messages, Messages} = erlang:process_info(Pid, messages),
+    case lists:member(Message, Messages) of
+        true ->
+            timer:sleep(100),
+            wait_until_processed(Pid, Message, N-1);
+        false ->
+            ok
+    end.
+
+%% No default provided for init, so it should fail
+undef_code_change(Config) when is_list(Config) ->
+    Pid = ?config(event_pid, Config),
+    {error, {'EXIT', {undef, [{oc_event, code_change, [_, _, _], _}|_]}}} =
+        fake_upgrade(Pid, oc_event),
+    [oc_event] = gen_event:which_handlers(Pid),
+    ok.
+
+%% Defaulting to doing nothing. Test that it works when not defined.
+undef_terminate(Config) when is_list(Config) ->
+    Pid = ?config(event_pid, Config),
+    ok = gen_event:delete_handler(Pid, oc_event, []),
+    [] = gen_event:which_handlers(Pid),
+    ok.
+
+%% Test that the default implementation doesn't catch the wrong undef error
+undef_in_terminate(_Config) ->
+    {ok, Pid} = gen_event:start({local, dummy}),
+    State = {undef_in_terminate, {dummy_h, terminate}},
+    ok = gen_event:add_handler(Pid, dummy_h, {state, State}),
+    [dummy_h] = gen_event:which_handlers(Pid),
+    {'EXIT', {undef, [{dummy_h, terminate, [], []}|_]}}
+        = gen_event:delete_handler(Pid, dummy_h, []),
+    [] = gen_event:which_handlers(Pid),
+    ok.
+
+fake_upgrade(Pid, Mod) ->
+    sys:suspend(Pid),
+    sys:replace_state(Pid, fun(S) -> {new, S} end),
+    Ret = sys:change_code(Pid, Mod, old_vsn, []),
+    ok = sys:resume(Pid),
+    Ret.
