@@ -6322,8 +6322,8 @@ erts_make_stub_module(Process* p, Eterm hipe_magic_bin, Eterm Beam, Eterm Info)
     stp = ERTS_MAGIC_BIN_DATA(magic);
     hipe_code = erts_alloc(ERTS_ALC_T_HIPE, sizeof(*hipe_code));
 
-    if (!ERTS_TERM_IS_MAGIC_BINARY(hipe_magic_bin) ||
-	!(hipe_magic = ((ProcBin*)binary_val(hipe_magic_bin))->val,
+    if (!is_internal_magic_ref(hipe_magic_bin) ||
+	!(hipe_magic = erts_magic_ref2bin(hipe_magic_bin),
 	  hipe_stp = hipe_get_loader_state(hipe_magic)) ||
 	hipe_stp->module == NIL || hipe_stp->text_segment == 0) {
 	goto error;
@@ -6568,8 +6568,8 @@ int erts_commit_hipe_patch_load(Eterm hipe_magic_bin)
     HipeModule *hipe_code;
     Module* modp;
 
-    if (!ERTS_TERM_IS_MAGIC_BINARY(hipe_magic_bin) ||
-	!(hipe_magic = ((ProcBin*)binary_val(hipe_magic_bin))->val,
+    if (!is_internal_magic_ref(hipe_magic_bin) ||
+	!(hipe_magic = erts_magic_ref2bin(hipe_magic_bin),
 	  hipe_stp = hipe_get_loader_state(hipe_magic)) ||
 	hipe_stp->module == NIL || hipe_stp->text_segment == 0) {
 	return 0;

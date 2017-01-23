@@ -381,12 +381,9 @@ BIF_RETTYPE hipe_bifs_ref_set_2(BIF_ALIST_2)
 
 static HipeLoaderState *get_loader_state(Eterm term)
 {
-    ProcBin *pb;
+    if (!is_internal_magic_ref(term)) return NULL;
 
-    if (!ERTS_TERM_IS_MAGIC_BINARY(term)) return NULL;
-
-    pb = (ProcBin*) binary_val(term);
-    return hipe_get_loader_state(pb->val);
+    return hipe_get_loader_state(erts_magic_ref2bin(term));
 }
 
 
@@ -1982,8 +1979,8 @@ BIF_RETTYPE hipe_bifs_alloc_loader_state_1(BIF_ALIST_1)
     if (!magic)
 	BIF_ERROR(BIF_P, BADARG);
 
-    hp = HAlloc(BIF_P, PROC_BIN_SIZE);
-    res = erts_mk_magic_binary_term(&hp, &MSO(BIF_P), magic);
+    hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
+    res = erts_mk_magic_ref(&hp, &MSO(BIF_P), magic);
     erts_refc_dec(&magic->refc, 1);
     BIF_RET(res);
 }
