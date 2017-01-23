@@ -67,10 +67,6 @@ do {                                                                    \
     while (nelts--) *HTOP++ = *PTR++;                                   \
 } while(0)
 
-#if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)
-int within(Eterm *ptr, Process *p);
-#endif
-
 #define ErtsInYoungGen(TPtr, Ptr, OldHeap, OldHeapSz)			\
     (!erts_is_literal((TPtr), (Ptr))					\
      & !ErtsInArea((Ptr), (OldHeap), (OldHeapSz)))
@@ -157,5 +153,8 @@ void erts_free_heap_frags(struct process* p);
 Eterm erts_max_heap_size_map(Sint, Uint, Eterm **, Uint *);
 int erts_max_heap_size(Eterm, Uint *, Uint *);
 void erts_deallocate_young_generation(Process *c_p);
+#if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)
+int erts_dbg_within_proc(Eterm *ptr, Process *p, Eterm* real_htop);
+#endif
 
 #endif /* __ERL_GC_H__ */
