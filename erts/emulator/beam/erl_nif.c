@@ -2209,34 +2209,40 @@ ERL_NIF_TERM enif_make_resource(ErlNifEnv* env, void* obj)
 {
     ErlNifResource* resource = DATA_TO_RESOURCE(obj);
     ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
-    Eterm* hp = alloc_heap(env,PROC_BIN_SIZE);
-    return erts_mk_magic_binary_term(&hp, &MSO(env->proc), &bin->binary);
+    Eterm* hp = alloc_heap(env, ERTS_MAGIC_REF_THING_SIZE);
+    return erts_mk_magic_ref(&hp, &MSO(env->proc), &bin->binary);
 }
 
 ERL_NIF_TERM enif_make_resource_binary(ErlNifEnv* env, void* obj,
 				       const void* data, size_t size)
 {
-    Eterm bin = enif_make_resource(env, obj);
-    ProcBin* pb = (ProcBin*) binary_val(bin);
+    ErlNifResource* resource = DATA_TO_RESOURCE(obj);
+    ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
+    Eterm* hp = alloc_heap(env,PROC_BIN_SIZE);
+    Eterm ebin = erts_mk_magic_binary_term(&hp, &MSO(env->proc), &bin->binary);
+    ProcBin* pb = (ProcBin*) binary_val(ebin);
     pb->bytes = (byte*) data;
     pb->size = size;
-    return bin;
+    return ebin;
 }
 
 int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* type,
 		      void** objp)
 {
-    ProcBin* pb;
     Binary* mbin;
     ErlNifResource* resource;
-    if (!ERTS_TERM_IS_MAGIC_BINARY(term)) {
-	return 0;
+    if (is_internal_magic_ref(term))
+	mbin = erts_magic_ref2bin(term);
+    else {
+	ProcBin* pb;
+	if (!ERTS_TERM_IS_MAGIC_BINARY(term))
+	    return 0;
+	pb = (ProcBin*) binary_val(term);
+	/*if (pb->size != 0) {	
+	  return 0; / * Or should we allow "resource binaries" as handles? * /
+	  }*/
+	mbin = pb->val;
     }
-    pb = (ProcBin*) binary_val(term);
-    /*if (pb->size != 0) {	
-	return 0; / * Or should we allow "resource binaries" as handles? * /
-    }*/
-    mbin = pb->val;
     resource = (ErlNifResource*) ERTS_MAGIC_BIN_UNALIGNED_DATA(mbin);
     if (ERTS_MAGIC_BIN_DESTRUCTOR(mbin) != &nif_resource_dtor
 	|| resource->type != type) {	
