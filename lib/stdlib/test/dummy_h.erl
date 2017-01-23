@@ -22,10 +22,12 @@
 %% Test event handler for gen_event_SUITE.erl
 
 -export([init/1, handle_event/2, handle_call/2, handle_info/2,
-	 terminate/2]).
+	 terminate/2, code_change/3]).
 
 init(make_error) ->
     {error, my_error};
+init({state, State}) ->
+    {ok, State};
 init([Parent]) ->
     {ok, Parent};  %% We will send special responses for every handled event.
 init([Parent,hibernate]) ->
@@ -73,6 +75,9 @@ handle_info(wake, _State) ->
     {ok, []};
 handle_info(gnurf, _State) ->
     {ok, []};
+handle_info({call_undef_fun, Mod, Fun}, State) ->
+    Mod:Fun(),
+    {ok, State};
 handle_info(Info, Parent) ->
     Parent ! {dummy_h, Info},
     {ok, Parent}.
@@ -83,7 +88,14 @@ terminate(swap, State) ->
     {ok, State};
 terminate({error, {return, faulty}}, Parent) ->
     Parent ! {dummy_h, returned_error};
+terminate(_Reason, {undef_in_terminate, {Mod, Fun}}) ->
+    Mod:Fun(),
+    ok;
 terminate(_Reason, _State) ->
     ok.
 
-
+code_change(_OldVsn, {undef_in_code_change, {Mod, Fun}} = State, _Extra) ->
+    Mod:Fun(),
+    {ok, State};
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
