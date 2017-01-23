@@ -40,7 +40,8 @@ all() ->
      shutdown, stop_and_reply, state_enter, event_order,
      state_timeout, event_types, generic_timers, code_change,
      {group, sys},
-     hibernate, enter_loop].
+     hibernate, enter_loop, {group, undef_callbacks},
+     undef_in_terminate].
 
 groups() ->
     [{start, [], tcs(start)},
@@ -50,7 +51,8 @@ groups() ->
      {abnormal, [], tcs(abnormal)},
      {abnormal_handle_event, [], tcs(abnormal)},
      {sys, [], tcs(sys)},
-     {sys_handle_event, [], tcs(sys)}].
+     {sys_handle_event, [], tcs(sys)},
+     {undef_callbacks, [], tcs(undef_callbacks)}].
 
 tcs(start) ->
     [start1, start2, start3, start4, start5, start6, start7,
@@ -62,8 +64,9 @@ tcs(abnormal) ->
 tcs(sys) ->
     [sys1, call_format_status,
      error_format_status, terminate_crash_format,
-     get_state, replace_state].
-
+     get_state, replace_state];
+tcs(undef_callbacks) ->
+    [undef_code_change, undef_terminate1, undef_terminate2].
 
 init_per_suite(Config) ->
     Config.
@@ -77,6 +80,11 @@ init_per_group(GroupName, Config)
        GroupName =:= abnormal_handle_event;
        GroupName =:= sys_handle_event ->
     [{callback_mode,handle_event_function}|Config];
+init_per_group(undef_callbacks, Config) ->
+    DataDir = ?config(data_dir, Config),
+    StatemPath = filename:join(DataDir, "oc_statem.erl"),
+    {ok, oc_statem} = compile:file(StatemPath),
+    Config;
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -1461,6 +1469,51 @@ enter_loop(Reg1, Reg2) ->
 	    gen_statem:enter_loop(?MODULE, [], state0, [])
     end.
 
+undef_code_change(_Config) ->
+    {ok, Statem} = gen_statem:start(oc_statem, [], []),
+    {error, {'EXIT',
+             {undef, [{oc_statem, code_change, [_, _, _, _], _}|_]}}}
+        = fake_upgrade(Statem, oc_statem).
+
+fake_upgrade(Pid, Mod) ->
+    sys:suspend(Pid),
+    sys:replace_state(Pid, fun(State) -> {new, State} end),
+    Ret = sys:change_code(Pid, Mod, old_vsn, []),
+    ok = sys:resume(Pid),
+    Ret.
+
+undef_terminate1(_Config) ->
+    {ok, Statem} = gen_statem:start(oc_statem, [], []),
+    MRef = monitor(process, Statem),
+    ok = gen_statem:stop(Statem),
+    verify_down(Statem, MRef, normal),
+    ok.
+
+undef_terminate2(_Config) ->
+    Reason = {error, test},
+    {ok, Statem} = oc_statem:start(),
+    MRef = monitor(process, Statem),
+    ok = gen_statem:stop(Statem, Reason, infinity),
+    verify_down(Statem, MRef, Reason).
+
+undef_in_terminate(_Config) ->
+    Data =  {undef_in_terminate, {?MODULE, terminate}},
+    {ok, Statem} = gen_statem:start(?MODULE, {data, Data}, []),
+    try
+        gen_statem:stop(Statem),
+        ct:fail(should_crash)
+    catch
+        exit:{undef, [{?MODULE, terminate, _, _}|_]} ->
+            ok
+    end.
+
+verify_down(Statem, MRef, Reason) ->
+    receive
+        {'DOWN', MRef, process, Statem, Reason} ->
+            ok
+    after 5000 ->
+        ct:fail(default_terminate_failed)
+    end.
 
 %% Test the order for multiple {next_event,T,C}
 next_events(Config) ->
@@ -1639,6 +1692,9 @@ callback_mode() ->
 
 terminate(_, _State, crash_terminate) ->
     exit({crash,terminate});
+terminate(_, _State, {undef_in_terminate, {Mod, Fun}}) ->
+    Mod:Fun(),
+    ok;
 terminate({From,stopped}, State, _Data) ->
     From ! {self(),{stopped,State}},
     ok;
