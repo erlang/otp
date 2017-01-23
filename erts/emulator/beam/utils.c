@@ -1838,7 +1838,7 @@ make_internal_hash(Eterm term)
 	    break;
 	    case REF_SUBTAG:
 		UINT32_HASH(internal_ref_numbers(term)[0], HCONST_7);
-                ASSERT(internal_ref_no_of_numbers(term) == 3);
+                ASSERT(internal_ref_no_numbers(term) == 3);
                 UINT32_HASH_2(internal_ref_numbers(term)[1],
                               internal_ref_numbers(term)[2], HCONST_8);
                 goto pop_next;
@@ -1847,7 +1847,7 @@ make_internal_hash(Eterm term)
             {
                 ExternalThing* thing = external_thing_ptr(term);
 
-                ASSERT(external_thing_ref_no_of_numbers(thing) == 3);
+                ASSERT(external_thing_ref_no_numbers(thing) == 3);
                 /* See limitation #2 */
             #ifdef ARCH_64
                 POINTER_HASH(thing->node, HCONST_7);
@@ -2486,22 +2486,20 @@ tailrecur_ne:
 
 		anum = external_thing_ref_numbers(athing);
 		bnum = external_thing_ref_numbers(bthing);
-		alen = external_thing_ref_no_of_numbers(athing);
-		blen = external_thing_ref_no_of_numbers(bthing);
+		alen = external_thing_ref_no_numbers(athing);
+		blen = external_thing_ref_no_numbers(bthing);
 
 		goto ref_common;
-	    case REF_SUBTAG:
-		    if (!is_internal_ref(b))
-			goto not_equal;
 
-		    {
-			RefThing* athing = ref_thing_ptr(a);
-			RefThing* bthing = ref_thing_ptr(b);
-			alen = internal_thing_ref_no_of_numbers(athing);
-			blen = internal_thing_ref_no_of_numbers(bthing);
-			anum = internal_thing_ref_numbers(athing);
-			bnum = internal_thing_ref_numbers(bthing);
-		    }
+	    case REF_SUBTAG:
+
+		if (!is_internal_ref(b))
+		    goto not_equal;
+
+		alen = internal_ref_no_numbers(a);
+		anum = internal_ref_numbers(a);
+		blen = internal_ref_no_numbers(b);
+		bnum = internal_ref_numbers(b);
 
 	    ref_common:
 		    ASSERT(alen > 0 && blen > 0);
@@ -3133,25 +3131,21 @@ tailrecur_ne:
 		 */
 
 		if (is_internal_ref(b)) {
-		    RefThing* bthing = ref_thing_ptr(b);
 		    bnode = erts_this_node;
-		    bnum = internal_thing_ref_numbers(bthing);
-		    blen = internal_thing_ref_no_of_numbers(bthing);
+		    blen = internal_ref_no_numbers(b);
+		    bnum = internal_ref_numbers(b);
 		} else if(is_external_ref(b)) {
 		    ExternalThing* bthing = external_thing_ptr(b);
 		    bnode = bthing->node;
 		    bnum = external_thing_ref_numbers(bthing);
-		    blen = external_thing_ref_no_of_numbers(bthing);
+		    blen = external_thing_ref_no_numbers(bthing);
 		} else {
 		    a_tag = REF_DEF;
 		    goto mixed_types;
 		}
-		{
-		    RefThing* athing = ref_thing_ptr(a);
-		    anode = erts_this_node;
-		    anum = internal_thing_ref_numbers(athing);
-		    alen = internal_thing_ref_no_of_numbers(athing);
-		}
+		anode = erts_this_node;
+		alen = internal_ref_no_numbers(a);
+		anum = internal_ref_numbers(a);
 
 	    ref_common:
 		CMP_NODES(anode, bnode);
@@ -3181,15 +3175,14 @@ tailrecur_ne:
 		goto pop_next;
 	    case (_TAG_HEADER_EXTERNAL_REF >> _TAG_PRIMARY_SIZE):
 		if (is_internal_ref(b)) {
-		    RefThing* bthing = ref_thing_ptr(b);
 		    bnode = erts_this_node;
-		    bnum = internal_thing_ref_numbers(bthing);
-		    blen = internal_thing_ref_no_of_numbers(bthing);
+		    blen = internal_ref_no_numbers(b);
+		    bnum = internal_ref_numbers(b);
 		} else if (is_external_ref(b)) {
 		    ExternalThing* bthing = external_thing_ptr(b);
 		    bnode = bthing->node;
 		    bnum = external_thing_ref_numbers(bthing);
-		    blen = external_thing_ref_no_of_numbers(bthing);
+		    blen = external_thing_ref_no_numbers(bthing);
 		} else {
 		    a_tag = EXTERNAL_REF_DEF;
 		    goto mixed_types;
@@ -3198,7 +3191,7 @@ tailrecur_ne:
 		    ExternalThing* athing = external_thing_ptr(a);
 		    anode = athing->node;
 		    anum = external_thing_ref_numbers(athing);
-		    alen = external_thing_ref_no_of_numbers(athing);
+		    alen = external_thing_ref_no_numbers(athing);
 		}
 		goto ref_common;
 	    default:
@@ -3575,40 +3568,39 @@ not_equal:
 Eterm
 store_external_or_ref_(Uint **hpp, ErlOffHeap* oh, Eterm ns)
 {
+    struct erl_off_heap_header *ohhp;
     Uint i;
     Uint size;
-    Uint *from_hp;
-    Uint *to_hp = *hpp;
+    Eterm *from_hp;
+    Eterm *to_hp = *hpp;
 
     ASSERT(is_external(ns) || is_internal_ref(ns));
 
-    if(is_external(ns)) {
-	from_hp = external_val(ns);
-	size = thing_arityval(*from_hp) + 1;
-	*hpp += size;
-
-	for(i = 0; i < size; i++)
-	    to_hp[i] = from_hp[i];
-
-	erts_smp_refc_inc(&((ExternalThing *) to_hp)->node->refc, 2);
-
-	((struct erl_off_heap_header*) to_hp)->next = oh->first;
-	oh->first = (struct erl_off_heap_header*) to_hp;
-
-	return make_external(to_hp);
-    }
-
-    /* Internal ref */
-    from_hp = internal_ref_val(ns);
-
+    from_hp = boxed_val(ns);
     size = thing_arityval(*from_hp) + 1;
-
     *hpp += size;
 
     for(i = 0; i < size; i++)
 	to_hp[i] = from_hp[i];
 
-    return make_internal_ref(to_hp);
+    if (is_external_header(*from_hp)) {
+	ExternalThing *etp = (ExternalThing *) from_hp;
+	ASSERT(is_external(ns));
+	erts_smp_refc_inc(&etp->node->refc, 2);
+    }
+    else if (is_ordinary_ref_thing(from_hp))
+	return make_internal_ref(to_hp);
+    else {
+	ErtsMRefThing *mreft = (ErtsMRefThing *) from_hp;
+	ASSERT(is_magic_ref_thing(from_hp));
+	erts_refc_inc(&mreft->mb->refc, 2);
+    }
+
+    ohhp = (struct erl_off_heap_header*) to_hp;
+    ohhp->next = oh->first;
+    oh->first = ohhp;
+
+    return make_boxed(to_hp);
 }
 
 Eterm

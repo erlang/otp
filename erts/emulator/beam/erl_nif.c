@@ -1721,7 +1721,7 @@ ERL_NIF_TERM enif_make_string_len(ErlNifEnv* env, const char* string,
 
 ERL_NIF_TERM enif_make_ref(ErlNifEnv* env)
 {
-    Eterm* hp = alloc_heap(env, REF_THING_SIZE);
+    Eterm* hp = alloc_heap(env, ERTS_REF_THING_SIZE);
     return erts_make_ref_in_buffer(hp);
 }
 
@@ -1967,7 +1967,6 @@ typedef struct enif_resource_t
     byte align__[4];
 # endif
 #endif
-
     char data[1];
 }ErlNifResource;
 
@@ -2166,6 +2165,7 @@ void* enif_alloc_resource(ErlNifResourceType* type, size_t size)
 {
     Binary* bin = erts_create_magic_binary_x(SIZEOF_ErlNifResource(size),
                                              &nif_resource_dtor,
+                                             ERTS_ALC_T_BINARY,
                                              1); /* unaligned */
     ErlNifResource* resource = ERTS_MAGIC_BIN_UNALIGNED_DATA(bin);
 

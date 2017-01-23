@@ -47,13 +47,8 @@ void
 erts_init_binary(void)
 {
     /* Verify Binary alignment... */
-    if ((((UWord) &((Binary *) 0)->orig_bytes[0]) % ((UWord) 8)) != 0) {
-	/* I assume that any compiler should be able to optimize this
-	   away. If not, this test is not very expensive... */
-	erts_exit(ERTS_ABORT_EXIT,
-		 "Internal error: Address of orig_bytes[0] of a Binary"
-		 " is *not* 8-byte aligned\n");
-    }
+    ERTS_CT_ASSERT((offsetof(Binary,orig_bytes) % 8) == 0);
+    ERTS_CT_ASSERT((offsetof(ErtsMagicBinary,u.aligned.data) % 8) == 0);
 
     erts_init_trap_export(&binary_to_list_continue_export,
 			  am_erts_internal, am_binary_to_list_continue, 1,

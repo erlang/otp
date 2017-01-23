@@ -45,6 +45,7 @@
 #include "bif.h"
 #include "big.h"
 #include "erl_monitors.h"
+#include "erl_bif_unique.h"
 
 #define STACK_NEED 50
 #define MAX_MONITORS 0xFFFFFFFFUL
@@ -79,7 +80,24 @@ static ERTS_INLINE int cmp_mon_ref(Eterm ref1, Eterm ref2)
     b2 = boxed_val(ref2);
     if (is_ref_thing_header(*b1)) {
 	if (is_ref_thing_header(*b2)) {
-	    return memcmp(b1+1,b2+1,ERTS_REF_WORDS*sizeof(Uint));
+	    Uint32 *num1, *num2;
+	    if (is_ordinary_ref_thing(b1)) {
+		ErtsORefThing *rtp = (ErtsORefThing *) b1;
+		num1 = rtp->num;
+	    }
+	    else {
+		ErtsMRefThing *mrtp = (ErtsMRefThing *) b1;
+		num1 = mrtp->mb->refn;
+	    }
+	    if (is_ordinary_ref_thing(b2)) {
+		ErtsORefThing *rtp = (ErtsORefThing *) b2;
+		num2 = rtp->num;
+	    }
+	    else {
+		ErtsMRefThing *mrtp = (ErtsMRefThing *) b2;
+		num2 = mrtp->mb->refn;
+	    }
+	    return erts_internal_ref_number_cmp(num1, num2);
 	}
 	return -1;
     }
@@ -97,7 +115,8 @@ do {								\
 	Uint i__;						\
 	Uint len__;						\
 	ASSERT((Hp));						\
-	ASSERT(is_internal_ref((From)) || is_external((From)));	\
+	ASSERT(is_internal_ordinary_ref((From))                 \
+               || is_external((From)));                         \
 	(To) = make_boxed((Hp));				\
 	len__ = thing_arityval(*boxed_val((From))) + 1;		\
 	for(i__ = 0; i__ < len__; i__++)			\
@@ -339,6 +358,8 @@ void erts_add_monitor(ErtsMonitor **root, Uint type, Eterm ref, Eterm pid,
     int state = 0;
     ErtsMonitor **this = root;
     Sint c;
+
+    ASSERT(is_internal_ordinary_ref(ref) || is_external_ref(ref));
   
     dstack[0] = DIR_END;
     for (;;) {

@@ -50,7 +50,8 @@
          port_wrap/1,
          bad_nc/1,
          unique_pid/1,
-         iter_max_procs/1]).
+         iter_max_procs/1,
+         magic_ref/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -62,7 +63,7 @@ all() ->
      node_table_gc, dist_link_refc, dist_monitor_refc,
      node_controller_refc, ets_refc, match_spec_refc,
      timer_refc, otp_4715, pid_wrap, port_wrap, bad_nc,
-     unique_pid, iter_max_procs].
+     unique_pid, iter_max_procs, magic_ref].
 
 init_per_suite(Config) ->
     Config.
@@ -889,9 +890,45 @@ chk_max_proc_line_until(NoMoreTests, Res) ->
               chk_max_proc_line_until(NoMoreTests, Res)
     end.
 
+magic_ref(Config) when is_list(Config) ->
+    {MRef0, Addr0} = erts_debug:set_internal_state(make, magic_ref),
+    true = is_reference(MRef0),
+    {Addr0, 1, true} = erts_debug:get_internal_state({magic_ref,MRef0}),
+    MRef1 = binary_to_term(term_to_binary(MRef0)),
+    {Addr0, 2, true} = erts_debug:get_internal_state({magic_ref,MRef1}),
+    MRef0 = MRef1,
+    Me = self(),
+    {Pid, Mon} = spawn_opt(fun () ->
+				   receive
+				       {Me, MRef} ->
+					   Me ! {self(), erts_debug:get_internal_state({magic_ref,MRef})}
+				   end
+			   end,
+			   [link, monitor]),
+    Pid ! {self(), MRef0},
+    receive
+	{Pid, Info} ->
+	    {Addr0, 3, true} = Info
+    end,
+    receive
+	{'DOWN', Mon, process, Pid, _} ->
+	    ok
+    end,
+    {Addr0, 2, true} = erts_debug:get_internal_state({magic_ref,MRef0}),
+    id(MRef0),
+    id(MRef1),
+    MRefExt = term_to_binary(erts_debug:set_internal_state(make, magic_ref)),
+    garbage_collect(),
+    {MRef2, _Addr2} = binary_to_term(MRefExt),
+    true = is_reference(MRef2),
+    true = erts_debug:get_internal_state({magic_ref,MRef2}),
+    ok.
 %%
 %% -- Internal utils ---------------------------------------------------------
 %%
+
+id(X) ->
+    X.
 
 -define(ND_REFS, erts_debug:get_internal_state(node_and_dist_references)).
 

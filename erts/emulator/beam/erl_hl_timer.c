@@ -1771,7 +1771,7 @@ setup_bif_timer(Process *c_p, ErtsMonotonicTime timeout_pos,
 
     esdp = erts_proc_sched_data(c_p);
 
-    hp = HAlloc(c_p, REF_THING_SIZE);
+    hp = HAlloc(c_p, ERTS_REF_THING_SIZE);
     ref = erts_sched_make_ref_in_buffer(esdp, hp);
 
     ASSERT(erts_get_ref_numbers_thr_id(
@@ -1939,7 +1939,7 @@ access_sched_local_btm(Process *c_p, Eterm pid,
 	Eterm *hp_end;
 #endif
 
-	hsz = REF_THING_SIZE;
+	hsz = ERTS_REF_THING_SIZE;
 	if (async) {
 	    refn = trefn; /* timer ref */
 	    hsz += 4; /* 3-tuple */
@@ -1973,7 +1973,7 @@ access_sched_local_btm(Process *c_p, Eterm pid,
 			refn[1],
 			refn[2]);
 	ref = make_internal_ref(hp);
-	hp += REF_THING_SIZE;
+	hp += ERTS_REF_THING_SIZE;
 
 	msg = (async
 	       ? TUPLE3(hp, (cancel
@@ -2087,7 +2087,7 @@ try_access_sched_remote_btm(ErtsSchedulerData *esdp,
 	ErtsProcLocks proc_locks = ERTS_PROC_LOCK_MAIN;
 	ErlOffHeap *ohp;
 
-	hsz = 4 + REF_THING_SIZE;
+	hsz = 4 + ERTS_REF_THING_SIZE;
 	if (time_left > (Sint64) MAX_SMALL)
 	    hsz += ERTS_SINT64_HEAP_SIZE(time_left);
 
@@ -2103,7 +2103,7 @@ try_access_sched_remote_btm(ErtsSchedulerData *esdp,
 			trefn[1],
 			trefn[2]);
 	tref = make_internal_ref(hp);
-	hp += REF_THING_SIZE;
+	hp += ERTS_REF_THING_SIZE;
 
 	if (time_left < 0)
 	    res = am_false;
@@ -2189,7 +2189,7 @@ access_bif_timer(Process *c_p, Eterm tref, int cancel, int async, int info)
 	    Eterm *hp, rref;
 	    Uint32 *rrefn;
 
-	    hp = HAlloc(c_p, REF_THING_SIZE);
+	    hp = HAlloc(c_p, ERTS_REF_THING_SIZE);
 	    rref = erts_sched_make_ref_in_buffer(esdp, hp);
 	    rrefn = internal_ref_numbers(rref);
 

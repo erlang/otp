@@ -176,6 +176,11 @@ erts_cleanup_offheap(ErlOffHeap *offheap)
 		erts_erase_fun_entry(u.fun->fe);		    
 	    }
 	    break;
+	case REF_SUBTAG:
+	    ASSERT(is_magic_ref_thing(u.hdr));
+	    if (erts_refc_dectest(&u.mref->mb->refc, 0) == 0)
+		erts_bin_free((Binary *)u.mref->mb);		    
+	    break;
 	default:
 	    ASSERT(is_external_header(u.hdr->thing_word));
 	    erts_deref_node_entry(u.ext->node);

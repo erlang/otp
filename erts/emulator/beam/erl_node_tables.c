@@ -1126,8 +1126,8 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 
     for (u.hdr = oh->first; u.hdr; u.hdr = u.hdr->next) {
 	switch (thing_subtag(u.hdr->thing_word)) {
-	case REFC_BINARY_SUBTAG:
-	    if(IsMatchProgBinary(u.pb->val)) {
+	case REF_SUBTAG:
+	    if(IsMatchProgBinary(u.mref->mb)) {
 		InsertedBin *ib;
 		int insert_bin = 1;
 		for (ib = inserted_bins; ib; ib = ib->next)
@@ -1152,6 +1152,7 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 		}
 	    }		
 	    break;
+	case REFC_BINARY_SUBTAG:
 	case FUN_SUBTAG:
 	    break; /* No need to */
 	default:

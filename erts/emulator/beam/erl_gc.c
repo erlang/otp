@@ -178,7 +178,7 @@ Uint erts_test_long_gc_sleep; /* Only used for testing... */
 typedef struct {
     Process *proc;
     Eterm ref;
-    Eterm ref_heap[REF_THING_SIZE];
+    Eterm ref_heap[ERTS_REF_THING_SIZE];
     Uint req_sched;
     erts_smp_atomic32_t refc;
 } ErtsGCInfoReq;
@@ -2354,6 +2354,9 @@ copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 	    switch (val & _HEADER_SUBTAG_MASK) {
 	    case ARITYVAL_SUBTAG:
 		break;
+	    case REF_SUBTAG:
+		if (is_ordinary_ref_thing(fhp - 1))
+		    goto the_default;
 	    case REFC_BINARY_SUBTAG:
 	    case FUN_SUBTAG:
 	    case EXTERNAL_PID_SUBTAG:
@@ -2363,6 +2366,7 @@ copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 		cpy_sz = thing_arityval(val);
 		goto cpy_words;
 	    default:
+	    the_default:
 		cpy_sz = header_arity(val);
 
 	    cpy_words:
@@ -2862,6 +2866,15 @@ sweep_off_heap(Process *p, int fullsweep)
 		    }
 		    break;
 		}
+	    case REF_SUBTAG:
+		{
+		    ErtsMagicBinary *bptr;
+		    ASSERT(is_magic_ref_thing(ptr));
+		    bptr = ((ErtsMRefThing *) ptr)->mb;
+		    if (erts_refc_dectest(&bptr->refc, 0) == 0)
+			erts_bin_free((Binary *) bptr);		    
+		    break;
+		}
 	    default:
 		ASSERT(is_external_header(ptr->thing_word));
 		erts_deref_node_entry(((ExternalThing*)ptr)->node);
@@ -2883,7 +2896,8 @@ sweep_off_heap(Process *p, int fullsweep)
 	}
 	else {
 	    ASSERT(is_fun_header(ptr->thing_word) ||
-		   is_external_header(ptr->thing_word));
+		   is_external_header(ptr->thing_word)
+		   || is_magic_ref_thing(ptr));
 	    prev = &ptr->next;
 	    ptr = ptr->next;
 	}
@@ -2978,6 +2992,9 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 	      }
 	      tari = thing_arityval(val);
 	      switch (thing_subtag(val)) {
+	      case REF_SUBTAG:
+		  if (is_ordinary_ref_thing(hp))
+		      break;
 	      case REFC_BINARY_SUBTAG:
 	      case FUN_SUBTAG:
 	      case EXTERNAL_PID_SUBTAG:
@@ -3175,7 +3192,7 @@ reply_gc_info(void *vgcirp)
 	if (hpp)
 	    ref_copy = STORE_NC(hpp, ohp, gcirp->ref);
 	else
-	    *szp += REF_THING_SIZE;
+	    *szp += ERTS_REF_THING_SIZE;
 
 	msg = erts_bld_tuple(hpp, szp, 3,
 			     make_small(esdp->no),
@@ -3525,6 +3542,10 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 	case EXTERNAL_PORT_SUBTAG:
 	case EXTERNAL_REF_SUBTAG:
 	    refc = erts_smp_refc_read(&u.ext->node->refc, 1);
+	    break;
+	case REF_SUBTAG:
+	    ASSERT(is_magic_ref_thing(u.hdr));
+	    refc = erts_refc_read(&u.mref->mb->refc, 1);
 	    break;
 	default:
 	    ASSERT(!"erts_check_off_heap2: Invalid thing_word");

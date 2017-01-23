@@ -5289,24 +5289,35 @@ void db_match_dis(Binary *bp)
 	case matchEqRef:
 	    ++t;
 	    {
-		RefThing *rt = (RefThing *) t;
+		Uint32 *num;
 		int ri;
-		n = thing_arityval(rt->header);
-		erts_printf("EqRef\t(%d) {", (int) n);
+
+		if (is_ordinary_ref_thing(t)) {
+		    ErtsORefThing *rt = (ErtsORefThing *) t;
+		    num = rt->num;
+		    t += TermWords(ERTS_REF_THING_SIZE);
+		}
+		else {
+		    ErtsMRefThing *mrt = (ErtsMRefThing *) t;
+		    ASSERT(is_magic_ref_thing(t));
+		    num = mrt->mb->refn;
+		    t += TermWords(ERTS_MAGIC_REF_THING_SIZE);
+		}
+
+		erts_printf("EqRef\t(%d) {", (int) ERTS_REF_NUMBERS);
 		first = 1;
-		for (ri = 0; ri < n; ++ri) {
+		for (ri = 0; ri < ERTS_REF_NUMBERS; ++ri) {
 		    if (first)
 			first = 0;
 		    else
 			erts_printf(", ");
 #if defined(ARCH_64)
-		    erts_printf("0x%016bex", rt->data.ui[ri]);
+		    erts_printf("0x%016bex", num[ri]);
 #else
-		    erts_printf("0x%08bex", rt->data.ui[ri]);
+		    erts_printf("0x%08bex", num[ri]);
 #endif
 		}
 	    }
-	    t += TermWords(REF_THING_SIZE);
 	    erts_printf("}\n");
 	    break;
 	case matchEqBig:
