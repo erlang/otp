@@ -38,7 +38,7 @@ all() ->
      {group, abnormal},
      {group, abnormal_handle_event},
      shutdown, stop_and_reply, state_enter, event_order,
-     state_timeout, code_change,
+     state_timeout, event_types, code_change,
      {group, sys},
      hibernate, enter_loop].
 
@@ -798,6 +798,74 @@ state_timeout(_Config) ->
     end,
 
     verify_empty_msgq().
+
+
+
+%% Test that all event types can be sent with {next_event,EventType,_}
+event_types(_Config) ->
+    process_flag(trap_exit, true),
+
+    Machine =
+	%% Abusing the internal format of From...
+	#{init =>
+	      fun () ->
+		      {ok, start, undefined}
+	      end,
+	  start =>
+	      fun ({call,_} = Call, Req, undefined) ->
+		      {next_state, state1, undefined,
+		       [{next_event,internal,1},
+			{next_event,state_timeout,2},
+			{next_event,timeout,3},
+			{next_event,info,4},
+			{next_event,cast,5},
+			{next_event,Call,Req}]}
+	      end,
+	  state1 =>
+	      fun (internal, 1, undefined) ->
+		      {next_state, state2, undefined}
+	      end,
+	  state2 =>
+	      fun (state_timeout, 2, undefined) ->
+		      {next_state, state3, undefined}
+	      end,
+	  state3 =>
+	      fun (timeout, 3, undefined) ->
+		      {next_state, state4, undefined}
+	      end,
+	  state4 =>
+	      fun (info, 4, undefined) ->
+		      {next_state, state5, undefined}
+	      end,
+	  state5 =>
+	      fun (cast, 5, undefined) ->
+		      {next_state, state6, undefined}
+	      end,
+	  state6 =>
+	      fun ({call,From}, stop, undefined) ->
+		      {stop_and_reply, shutdown,
+		       [{reply,From,stopped}]}
+	      end},
+    {ok,STM} =
+	gen_statem:start_link(
+	  ?MODULE, {map_statem,Machine,[]}, [{debug,[trace]}]),
+
+    stopped = gen_statem:call(STM, stop),
+    receive
+	{'EXIT',STM,shutdown} ->
+	    ok
+    after 500 ->
+	    ct:fail(did_not_stop)
+    end,
+
+    {noproc,_} =
+	?EXPECT_FAILURE(gen_statem:call(STM, hej), Reason),
+    case flush() of
+	[] ->
+	    ok;
+	Other2 ->
+	    ct:fail({unexpected,Other2})
+    end.
 
 
 

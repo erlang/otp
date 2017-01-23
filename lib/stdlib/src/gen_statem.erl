@@ -307,11 +307,15 @@ event_type({call,From}) ->
     from(From);
 event_type(Type) ->
     case Type of
+	{call,From} ->
+	    from(From);
 	cast ->
 	    true;
 	info ->
 	    true;
 	timeout ->
+	    true;
+	state_timeout ->
 	    true;
 	internal ->
 	    true;
