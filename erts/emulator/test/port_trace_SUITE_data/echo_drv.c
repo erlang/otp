@@ -2,23 +2,30 @@
 #include "erl_driver.h"
 #include <errno.h>
 #include <string.h>
+#include <assert.h>
 
 
 /* -------------------------------------------------------------------------
 ** Data types
 **/
 
+struct my_thread {
+    struct my_thread* next;
+    ErlDrvTid tid;
+};
 
 typedef struct _erl_drv_data {
     ErlDrvPort   erlang_port;
     ErlDrvTermData caller;
+    struct my_thread* threads;
 } EchoDrvData;
 
 struct remote_send_term {
-    char *buf;
-    int len;
+    struct my_thread thread;
     ErlDrvTermData port;
     ErlDrvTermData caller;
+    int len;
+    char buf[1]; /* buf[len] */
 };
 
 #define ECHO_DRV_NOOP                 0
@@ -86,7 +93,7 @@ static ErlDrvEntry echo_drv_entry = {
     NULL
 };
 
-static void send_term_thread(void *);
+static void* send_term_thread(void *);
 
 /* -------------------------------------------------------------------------
 ** Entry functions
@@ -111,10 +118,22 @@ static EchoDrvData *echo_drv_start(ErlDrvPort port, char *command)
     EchoDrvData *echo_drv_data_p = driver_alloc(sizeof(EchoDrvData));
     echo_drv_data_p->erlang_port = port;
     echo_drv_data_p->caller = driver_caller(port);
+    echo_drv_data_p->threads = NULL;
     return echo_drv_data_p;
 }
 
-static void echo_drv_stop(EchoDrvData *data_p) {
+static void echo_drv_stop(EchoDrvData *data_p)
+{
+    struct my_thread* thr = data_p->threads;
+
+    while (thr) {
+        struct my_thread* next = thr->next;
+        void* exit_value;
+        int ret = erl_drv_thread_join(thr->tid, &exit_value);
+        assert(ret == 0 && exit_value == NULL);
+        driver_free(thr);
+        thr = next;
+    }
     driver_free(data_p);
 }
 
@@ -212,14 +231,14 @@ static void echo_drv_output(ErlDrvData drv_data, char *buf, ErlDrvSizeT len) {
     }
     case ECHO_DRV_REMOTE_SEND_TERM:
     {
-        ErlDrvTid tid;
-        struct remote_send_term *t = malloc(sizeof(struct remote_send_term));
+        struct remote_send_term *t = driver_alloc(sizeof(struct remote_send_term) + len);
         t->len = len-1;
-        t->buf = malloc(len-1);
         t->port = driver_mk_port(port);
         t->caller = data_p->caller;
         memcpy(t->buf, buf+1, t->len);
-        erl_drv_thread_create("tmp_thread", &tid, send_term_thread, t, NULL);
+        erl_drv_thread_create("tmp_thread", &t->thread.tid, send_term_thread, t, NULL);
+        t->thread.next = data_p->threads;
+        data_p->threads = &t->thread;
         break;
     }
     case ECHO_DRV_SAVE_CALLER:
@@ -262,7 +281,7 @@ static ErlDrvSSizeT echo_drv_call(ErlDrvData drv_data,
     return len-command;
 }
 
-static void send_term_thread(void *a)
+static void* send_term_thread(void *a)
 {
     struct remote_send_term *t = (struct remote_send_term*)a;
     ErlDrvTermData term[] = {
@@ -273,5 +292,5 @@ static void send_term_thread(void *a)
             ERL_DRV_TUPLE, 3};
     erl_drv_send_term(t->port, t->caller,
                       term, sizeof(term) / sizeof(ErlDrvTermData));
-    return;
+    return NULL;
 }
