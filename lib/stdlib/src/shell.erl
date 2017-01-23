@@ -739,7 +739,8 @@ used_record_defs(E, RT) ->
 used_records(E, U0, RT) ->
     case used_records(E) of
         {name,Name,E1} ->
-            U = used_records(ets:lookup(RT, Name), [Name | U0], RT),
+            [{_,Attr}] = ets:lookup(RT, Name),
+            U = used_records(Attr, [Name | U0], RT),
             used_records(E1, U, RT);
         {expr,[E1 | Es]} ->
             used_records(Es, used_records(E1, U0, RT), RT);
