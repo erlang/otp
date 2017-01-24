@@ -237,41 +237,6 @@ typedef struct proc_bin {
  */
 #define PROC_BIN_SIZE (sizeof(ProcBin)/sizeof(Eterm))
 
-ERTS_GLB_INLINE Eterm erts_mk_magic_binary_term(Eterm **hpp,
-						ErlOffHeap *ohp,
-						Binary *mbp);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE Eterm
-erts_mk_magic_binary_term(Eterm **hpp, ErlOffHeap *ohp, Binary *mbp)
-{
-    ProcBin *pb = (ProcBin *) *hpp;
-    *hpp += PROC_BIN_SIZE;
-
-    ASSERT(mbp->flags & BIN_FLAG_MAGIC);
-
-    pb->thing_word = HEADER_PROC_BIN;
-    pb->size = 0;
-    pb->next = ohp->first;
-    ohp->first = (struct erl_off_heap_header*) pb;
-    pb->val = mbp;
-    pb->bytes = (byte *) mbp->orig_bytes;
-    pb->flags = 0;
-
-    erts_refc_inc(&mbp->refc, 1);
-
-    return make_binary(pb);    
-}
-
-#endif
-
-#define ERTS_TERM_IS_MAGIC_BINARY(T) \
-  (is_binary((T)) \
-   && (thing_subtag(*binary_val((T))) == REFC_BINARY_SUBTAG) \
-   && (((ProcBin *) binary_val((T)))->val->flags & BIN_FLAG_MAGIC))
-
-
 union erl_off_heap_ptr {
     struct erl_off_heap_header* hdr;
     ProcBin *pb;
