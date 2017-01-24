@@ -76,6 +76,8 @@
 		active     = 0 :: integer(),
 		result         :: result(),
 		next_label = 0 :: integer(),
+                jobs           :: [job()],
+                job_fun        :: fun(),
 		init_data      :: init_data(),
 		regulator      :: regulator(),
 		scc_to_pid     :: scc_to_pid()
@@ -108,16 +110,18 @@ spawn_jobs(Mode, Jobs, InitData, Timing) ->
       false -> unused
     end,
   Coordinator = {Collector, Regulator, SCCtoPID},
-  Fold =
-    fun(Job, Count) ->
-	Pid = dialyzer_worker:launch(Mode, Job, InitData, Coordinator),
-	case TypesigOrDataflow of
-	  true  -> true = ets:insert(SCCtoPID, {Job, Pid}), ok;
-	  false -> ok
-	end,
-	Count + 1
+  JobFun =
+    fun(Job) ->
+        Pid = dialyzer_worker:launch(Mode, Job, InitData, Coordinator),
+        case TypesigOrDataflow of
+          true  -> true = ets:insert(SCCtoPID, {Job, Pid});
+          false -> true
+        end
     end,
-  JobCount = lists:foldl(Fold, 0, Jobs),
+  JobCount = length(Jobs),
+  NumberOfInitJobs = min(JobCount, 20 * dialyzer_utils:parallelism()),
+  {InitJobs, RestJobs} = lists:split(NumberOfInitJobs, Jobs),
+  lists:foreach(JobFun, InitJobs),
   Unit =
     case Mode of
       'typesig'  -> "SCCs";
@@ -129,11 +133,13 @@ spawn_jobs(Mode, Jobs, InitData, Timing) ->
       'compile' -> dialyzer_analysis_callgraph:compile_init_result();
       _ -> []
     end,
-  #state{mode = Mode, active = JobCount, result = InitResult, next_label = 0,
-	 init_data = InitData, regulator = Regulator, scc_to_pid = SCCtoPID}.
+  #state{mode = Mode, active = JobCount, result = InitResult,
+         next_label = 0, job_fun = JobFun, jobs = RestJobs,
+         init_data = InitData, regulator = Regulator, scc_to_pid = SCCtoPID}.
 
 collect_result(#state{mode = Mode, active = Active, result = Result,
 		      next_label = NextLabel, init_data = InitData,
+                      jobs = JobsLeft, job_fun = JobFun,
 		      regulator = Regulator, scc_to_pid = SCCtoPID} = State) ->
   receive
     {next_label_request, Estimation, Pid} ->
@@ -141,20 +147,35 @@ collect_result(#state{mode = Mode, active = Active, result = Result,
       collect_result(State#state{next_label = NextLabel + Estimation});
     {done, Job, Data} ->
       NewResult = update_result(Mode, InitData, Job, Data, Result),
+      TypesigOrDataflow = (Mode =:= 'typesig') orelse (Mode =:= 'dataflow'),
       case Active of
 	1 ->
 	  kill_regulator(Regulator),
 	  case Mode of
 	    'compile' ->
 	      {NewResult, NextLabel};
-	    X when X =:= 'typesig'; X =:= 'dataflow' ->
+	    _ when TypesigOrDataflow ->
 	      ets:delete(SCCtoPID),
 	      NewResult;
 	    'warnings' ->
 	      NewResult
 	  end;
 	N ->
-	  collect_result(State#state{result = NewResult, active = N - 1})
+          case TypesigOrDataflow of
+            true -> true = ets:delete(SCCtoPID, Job);
+            false -> true
+          end,
+          NewJobsLeft =
+            case JobsLeft of
+              [] -> [];
+              [NewJob|JobsLeft1] ->
+                JobFun(NewJob),
+                JobsLeft1
+            end,
+          NewState = State#state{result = NewResult,
+                                 jobs = NewJobsLeft,
+                                 active = N - 1},
+          collect_result(NewState)
       end
   end.
 
@@ -176,8 +197,12 @@ sccs_to_pids(SCCs, {_Collector, _Regulator, SCCtoPID}) ->
   Fold =
     fun(SCC, Pids) ->
         %% The SCCs that SCC depends on have always been started.
-	Result = ets:lookup_element(SCCtoPID, SCC, 2),
-        [Result|Pids]
+        try ets:lookup_element(SCCtoPID, SCC, 2) of
+          Pid when is_pid(Pid) ->
+            [Pid|Pids]
+        catch
+          _:_ -> Pids
+        end
     end,
   lists:foldl(Fold, [], SCCs).
 

@@ -40,7 +40,7 @@
 	 module_postorder_from_funs/2,
 	 new/0,
 	 get_depends_on/2,
-	 get_required_by/2,
+	 %% get_required_by/2,
 	 in_neighbours/2,
 	 renew_race_info/4,
 	 renew_race_code/2,
@@ -250,12 +250,12 @@ get_depends_on(SCC, #callgraph{active_digraph = {'e', Out, _In, Maps}}) ->
 get_depends_on(SCC, #callgraph{active_digraph = {'d', DG}}) ->
   digraph:out_neighbours(DG, SCC).
 
--spec get_required_by(scc() | module(), callgraph()) -> [scc()].
+%% -spec get_required_by(scc() | module(), callgraph()) -> [scc()].
 
-get_required_by(SCC, #callgraph{active_digraph = {'e', _Out, In, Maps}}) ->
-  lookup_scc(SCC, In, Maps);
-get_required_by(SCC, #callgraph{active_digraph = {'d', DG}}) ->
-  digraph:in_neighbours(DG, SCC).
+%% get_required_by(SCC, #callgraph{active_digraph = {'e', _Out, In, Maps}}) ->
+%%   lookup_scc(SCC, In, Maps);
+%% get_required_by(SCC, #callgraph{active_digraph = {'d', DG}}) ->
+%%   digraph:in_neighbours(DG, SCC).
 
 lookup_scc(SCC, Table, Maps) ->
   case ets_lookup_dict({'scc', SCC}, Maps) of

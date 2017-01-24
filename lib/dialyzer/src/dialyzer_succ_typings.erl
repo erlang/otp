@@ -29,7 +29,7 @@
 -export([
 	 find_succ_types_for_scc/2,
 	 refine_one_module/2,
-	 find_required_by/2,
+	 %% find_required_by/2,
 	 find_depends_on/2,
 	 collect_warnings/2,
 	 lookup_names/2
@@ -236,10 +236,10 @@ refine_succ_typings(Modules, #st{codeserver = Codeserver,
 find_depends_on(SCC, {_Codeserver, Callgraph, _Plt, _Solvers}) ->
   dialyzer_callgraph:get_depends_on(SCC, Callgraph).
 
--spec find_required_by(scc() | module(), fixpoint_init_data()) -> [scc()].
+%% -spec find_required_by(scc() | module(), fixpoint_init_data()) -> [scc()].
 
-find_required_by(SCC, {_Codeserver, Callgraph, _Plt, _Solvers}) ->
-  dialyzer_callgraph:get_required_by(SCC, Callgraph).
+%% find_required_by(SCC, {_Codeserver, Callgraph, _Plt, _Solvers}) ->
+%%   dialyzer_callgraph:get_required_by(SCC, Callgraph).
 
 -spec lookup_names([label()], fixpoint_init_data()) -> [mfa_or_funlbl()].
 
