@@ -326,7 +326,7 @@ gen_dec_constructed_imm(Erule, Typename, #type{}=D) ->
     RestGroup = {group,[{safe,EmitObjSets},{safe,EmitPack}]},
     [EmitExt,EmitOpt|EmitComp++[RestGroup]].
 
-gen_dec_objsets_fun(Erule, ObjSetInfo) ->
+gen_dec_objsets_fun(Gen, ObjSetInfo) ->
     fun({AccTerm,AccBytes}) ->
             {_,_UniqueFName,ValueIndex} = ObjSetInfo,
             case {AccTerm,AccBytes} of
@@ -335,9 +335,9 @@ gen_dec_objsets_fun(Erule, ObjSetInfo) ->
                 {_,[]} ->
                     ok;
                 {[{ObjSet,LeadingAttr,Term}],ListOfOpenTypes} ->
-                    ValueMatch = value_match(ValueIndex, Term),
+                    ValueMatch = value_match(Gen, ValueIndex, Term),
                     _ = [begin
-                             gen_dec_open_type(Erule, ValueMatch, ObjSet,
+                             gen_dec_open_type(Gen, ValueMatch, ObjSet,
                                                LeadingAttr, T),
                              emit([com,nl])
                          end || T <- ListOfOpenTypes],
@@ -1454,29 +1454,29 @@ gen_dec_line_special(Erule, {typefield,_}, _TopType, Comp,
 		       Prop}],PrevSt}
 	    end
     end;
-gen_dec_line_special(Erule, Atype, TopType, Comp, DecInfObj) ->
-    case gen_dec_line_other(Erule, Atype, TopType, Comp) of
+gen_dec_line_special(Gen, Atype, TopType, Comp, DecInfObj) ->
+    case gen_dec_line_other(Gen, Atype, TopType, Comp) of
 	Fun when is_function(Fun, 1) ->
 	    fun({BytesVar,PrevSt}) ->
 		    Fun(BytesVar),
-		    gen_dec_line_dec_inf(Comp, DecInfObj),
+		    gen_dec_line_dec_inf(Gen,Comp, DecInfObj),
 		    {[],PrevSt}
 	    end;
 	Imm0 ->
 	    {imm,Imm0,
 	     fun(Imm, {BytesVar,PrevSt}) ->
 		     asn1ct_imm:dec_code_gen(Imm, BytesVar),
-		     gen_dec_line_dec_inf(Comp, DecInfObj),
+		     gen_dec_line_dec_inf(Gen, Comp, DecInfObj),
 		     {[],PrevSt}
 	     end}
     end.
 
-gen_dec_line_dec_inf(Comp, DecInfObj) ->
+gen_dec_line_dec_inf(Gen, Comp, DecInfObj) ->
     #'ComponentType'{name=Cname} = Comp,
     case DecInfObj of
 	{Cname,{_,_OSet,_UniqueFName,ValIndex}} ->
 	    Term = asn1ct_gen:mk_var(asn1ct_name:curr(term)),
-	    ValueMatch = value_match(ValIndex,Term),
+	    ValueMatch = value_match(Gen, ValIndex,Term),
 	    emit([",",nl,
 		  "ObjFun = ",ValueMatch]);
 	_ ->
@@ -1768,16 +1768,11 @@ wrap_extensionAdditionGroups([H|T],ExtAddGrpLenPos,Acc,ExtAddGroupDiff,ExtGroupN
 wrap_extensionAdditionGroups([],_,Acc,_,_) ->
     lists:reverse(Acc).
 
-value_match(Index,Value) when is_atom(Value) ->
-    value_match(Index,atom_to_list(Value));
-value_match([],Value) ->
+value_match(_Gen, [], Value) ->
     Value;
-value_match([{VI,_}|VIs],Value) ->
-    value_match1(Value,VIs,lists:concat(["element(",VI,","]),1).
-value_match1(Value,[],Acc,Depth) ->
-    Acc ++ Value ++ lists:concat(lists:duplicate(Depth,")"));
-value_match1(Value,[{VI,_}|VIs],Acc,Depth) ->
-    value_match1(Value,VIs,Acc++lists:concat(["element(",VI,","]),Depth+1).
+value_match(Gen, [{VI,_}|VIs], Value0) ->
+    Value = value_match(Gen, VIs, Value0),
+    lists:concat(["element(",VI,", ",Value,")"]).
 
 enc_dig_out_value(_Gen, [], Value) ->
     {[],Value};
