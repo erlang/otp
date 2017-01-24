@@ -1109,25 +1109,25 @@ void erts_ddll_decrement_port_count(DE_Handle *dh)
 static void first_ddll_reference(DE_Handle *dh) 
 {
     assert_drv_list_rwlocked();
-    erts_refc_init(&(dh->refc),1);
+    erts_smp_refc_init(&(dh->refc),1);
 }
 
 void erts_ddll_reference_driver(DE_Handle *dh)
 {
     assert_drv_list_locked();
-    if (erts_refc_inctest(&(dh->refc),1) == 1) {
-	erts_refc_inc(&(dh->refc),2); /* add a reference for the scheduled operation */
+    if (erts_smp_refc_inctest(&(dh->refc),1) == 1) {
+	erts_smp_refc_inc(&(dh->refc),2); /* add a reference for the scheduled operation */
     }
 }
 
 void erts_ddll_reference_referenced_driver(DE_Handle *dh)
 {
-    erts_refc_inc(&(dh->refc),2);
+    erts_smp_refc_inc(&(dh->refc),2);
 }
 
 void erts_ddll_dereference_driver(DE_Handle *dh)
 {
-    if (erts_refc_dectest(&(dh->refc),0) == 0) {
+    if (erts_smp_refc_dectest(&(dh->refc),0) == 0) {
 	/* No lock here, but if the driver is referenced again,
 	   the scheduled deletion is added as a reference too, see above */
 	erts_schedule_misc_op(ddll_no_more_references, (void *) dh);
@@ -1150,11 +1150,11 @@ static void restore_process_references(DE_Handle *dh)
 {
     DE_ProcEntry *p;
     assert_drv_list_rwlocked();
-    ASSERT(erts_refc_read(&(dh->refc),0) == 0);
+    ASSERT(erts_smp_refc_read(&(dh->refc),0) == 0);
     for(p  = dh->procs;p != NULL; p = p->next) {
 	if (p->awaiting_status == ERL_DE_PROC_LOADED) {
 	    ASSERT(p->flags & ERL_DE_FL_DEREFERENCED);
-	    erts_refc_inc(&(dh->refc),1);
+	    erts_smp_refc_inc(&(dh->refc),1);
 	    p->flags &= ~ERL_DE_FL_DEREFERENCED;
 	}
     }
@@ -1176,9 +1176,9 @@ static void ddll_no_more_references(void *vdh)
 
     lock_drv_list();
 
-    x = erts_refc_read(&(dh->refc),0);
+    x = erts_smp_refc_read(&(dh->refc),0);
     if (x > 0) {
-	x = erts_refc_dectest(&(dh->refc),0); /* delete the reference added for me */
+	x = erts_smp_refc_dectest(&(dh->refc),0); /* delete the reference added for me */
     }
 
 
@@ -1643,7 +1643,7 @@ static int load_driver_entry(DE_Handle **dhp, char *path, char *name)
     dh->handle = NULL;
     dh->procs = NULL;
     erts_smp_atomic32_init_nob(&dh->port_count, 0);
-    erts_refc_init(&(dh->refc), (erts_aint_t) 0);
+    erts_smp_refc_init(&(dh->refc), (erts_aint_t) 0);
     dh->status = -1;
     dh->reload_full_path = NULL;
     dh->reload_driver_name = NULL;
@@ -1681,7 +1681,7 @@ static int reload_driver_entry(DE_Handle *dh)
     dh->reload_full_path = NULL;
     dh->reload_driver_name = NULL;
 
-    ASSERT(erts_refc_read(&(dh->refc),0) == 0);
+    ASSERT(erts_smp_refc_read(&(dh->refc),0) == 0);
     ASSERT(dh->full_path != NULL);
     erts_free(ERTS_ALC_T_DDLL_HANDLE, (void *) dh->full_path);
     dh->full_path = NULL;

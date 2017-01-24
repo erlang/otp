@@ -107,7 +107,7 @@ typedef struct dist_entry_ {
     HashBucket hash_bucket;     /* Hash bucket */
     struct dist_entry_ *next;	/* Next entry in dist_table (not sorted) */
     struct dist_entry_ *prev;	/* Previous entry in dist_table (not sorted) */
-    erts_refc_t refc;		/* Reference count */
+    erts_smp_refc_t refc;		/* Reference count */
 
     erts_smp_rwmtx_t rwmtx;     /* Protects all fields below until lck_mtx. */
     Eterm sysname;		/* name@host atom for efficiency */
@@ -149,7 +149,7 @@ typedef struct dist_entry_ {
 
 typedef struct erl_node_ {
   HashBucket hash_bucket;	/* Hash bucket */
-  erts_refc_t refc;		/* Reference count */
+  erts_smp_refc_t refc;		/* Reference count */
   Eterm	sysname;		/* name@host atom for efficiency */
   Uint32 creation;		/* Creation */
   DistEntry *dist_entry;	/* Corresponding dist entry */
@@ -210,7 +210,7 @@ ERTS_GLB_INLINE void
 erts_deref_dist_entry(DistEntry *dep)
 {
     ASSERT(dep);
-    if (erts_refc_dectest(&dep->refc, 0) == 0)
+    if (erts_smp_refc_dectest(&dep->refc, 0) == 0)
 	erts_schedule_delete_dist_entry(dep);
 }
 
@@ -218,7 +218,7 @@ ERTS_GLB_INLINE void
 erts_deref_node_entry(ErlNode *np)
 {
     ASSERT(np);
-    if (erts_refc_dectest(&np->refc, 0) == 0)
+    if (erts_smp_refc_dectest(&np->refc, 0) == 0)
 	erts_schedule_delete_node(np);
 }
 

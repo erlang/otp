@@ -266,7 +266,7 @@ static void schedule_free_dbtable(DbTable* tb)
      *  	     Caller is *not* allowed to access the specialized part
      *  	     (hash or tree) of *tb after this function has returned.
      */
-    ASSERT(erts_refc_read(&tb->common.ref, 0) == 0);
+    ASSERT(erts_smp_refc_read(&tb->common.ref, 0) == 0);
     erts_schedule_thr_prgr_later_cleanup_op(free_dbtable,
 					    (void *) tb,
 					    &tb->release.data,
@@ -600,11 +600,11 @@ done:
 */
 static ERTS_INLINE void local_fix_table(DbTable* tb)
 {
-    erts_refc_inc(&tb->common.ref, 1);
+    erts_smp_refc_inc(&tb->common.ref, 1);
 }	    
 static ERTS_INLINE void local_unfix_table(DbTable* tb)
 {	
-    if (erts_refc_dectest(&tb->common.ref, 0) == 0) {
+    if (erts_smp_refc_dectest(&tb->common.ref, 0) == 0) {
 	ASSERT(IS_HASH_TABLE(tb->common.status));
 	db_unfix_table_hash(&(tb->hash));
     }
@@ -1487,7 +1487,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     tb->common.type = status & ERTS_ETS_TABLE_TYPES;
     /* Note, 'type' is *read only* from now on... */
 #endif
-    erts_refc_init(&tb->common.ref, 0);
+    erts_smp_refc_init(&tb->common.ref, 0);
     db_init_lock(tb, status & (DB_FINE_LOCKED|DB_FREQ_READ),
 		 "db_tab", "db_tab_fix");
     tb->common.keypos = keypos;
@@ -2990,7 +2990,7 @@ void init_db(ErtsDbSpinCount db_spin_count)
     meta_pid_to_tab->common.meth   = &db_hash;
     meta_pid_to_tab->common.compress = 0;
 
-    erts_refc_init(&meta_pid_to_tab->common.ref, 0);
+    erts_smp_refc_init(&meta_pid_to_tab->common.ref, 0);
     /* Neither rwlock or fixlock used
     db_init_lock(meta_pid_to_tab, "meta_pid_to_tab", "meta_pid_to_tab_FIX");*/
 
@@ -3021,7 +3021,7 @@ void init_db(ErtsDbSpinCount db_spin_count)
     meta_pid_to_fixed_tab->common.meth   = &db_hash;
     meta_pid_to_fixed_tab->common.compress = 0;
 
-    erts_refc_init(&meta_pid_to_fixed_tab->common.ref, 0);
+    erts_smp_refc_init(&meta_pid_to_fixed_tab->common.ref, 0);
     /* Neither rwlock or fixlock used
     db_init_lock(meta_pid_to_fixed_tab, "meta_pid_to_fixed_tab", "meta_pid_to_fixed_tab_FIX");*/
 
@@ -3382,7 +3382,7 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 			    if ((*pp)->pid == pid) {
 				DbFixation* fix = *pp;
 				erts_aint_t diff = -((erts_aint_t) fix->counter);
-				erts_refc_add(&tb->common.ref,diff,0);
+				erts_smp_refc_add(&tb->common.ref,diff,0);
 				*pp = fix->next;
 				erts_db_free(ERTS_ALC_T_DB_FIXATION,
 					     tb, fix, sizeof(DbFixation));
@@ -3458,7 +3458,7 @@ static void fix_table_locked(Process* p, DbTable* tb)
 #ifdef ERTS_SMP
     erts_smp_mtx_lock(&tb->common.fixlock);
 #endif
-    erts_refc_inc(&tb->common.ref,1);
+    erts_smp_refc_inc(&tb->common.ref,1);
     fix = tb->common.fixations;
     if (fix == NULL) {
 	tb->common.time.monotonic
@@ -3514,7 +3514,7 @@ static void unfix_table_locked(Process* p,  DbTable* tb,
     for (pp = &tb->common.fixations; *pp != NULL; pp = &(*pp)->next) {
 	if ((*pp)->pid == p->common.id) {
 	    DbFixation* fix = *pp;
-	    erts_refc_dec(&tb->common.ref,0);
+	    erts_smp_refc_dec(&tb->common.ref,0);
 	    --(fix->counter);
 	    ASSERT(fix->counter >= 0);
 	    if (fix->counter > 0) {
@@ -3563,7 +3563,7 @@ static void free_fixations_locked(DbTable *tb)
     fix = tb->common.fixations;
     while (fix != NULL) {
 	erts_aint_t diff = -((erts_aint_t) fix->counter);
-	erts_refc_add(&tb->common.ref,diff,0);
+	erts_smp_refc_add(&tb->common.ref,diff,0);
 	next_fix = fix->next;
 	db_meta_lock(meta_pid_to_fixed_tab, LCK_WRITE_REC);
 	db_erase_bag_exact2(meta_pid_to_fixed_tab,

@@ -443,7 +443,7 @@ heap_dump(fmtfn_t to, void *to_arg, Eterm x)
 			ProcBin* pb = (ProcBin *) binary_val(x);
 			Binary* val = pb->val;
 
-			if (erts_smp_atomic_xchg_nob(&val->refc, 0) != 0) {
+			if (erts_atomic_xchg_nob(&val->refc, 0) != 0) {
 			    val->flags = (UWord) all_binaries;
 			    all_binaries = val;
 			}

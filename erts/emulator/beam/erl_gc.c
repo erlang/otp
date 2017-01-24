@@ -2718,7 +2718,7 @@ sweep_off_heap(Process *p, int fullsweep)
 	    case FUN_SUBTAG:
 		{
 		    ErlFunEntry* fe = ((ErlFunThing*)ptr)->fe;
-		    if (erts_refc_dectest(&fe->refc, 0) == 0) {
+		    if (erts_smp_refc_dectest(&fe->refc, 0) == 0) {
 			erts_erase_fun_entry(fe);
 		    }
 		    break;
@@ -3374,12 +3374,12 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 	    refc = erts_refc_read(&u.pb->val->refc, 1);		
 	    break;
 	case FUN_SUBTAG:
-	    refc = erts_refc_read(&u.fun->fe->refc, 1);
+	    refc = erts_smp_refc_read(&u.fun->fe->refc, 1);
 	    break;
 	case EXTERNAL_PID_SUBTAG:
 	case EXTERNAL_PORT_SUBTAG:
 	case EXTERNAL_REF_SUBTAG:
-	    refc = erts_refc_read(&u.ext->node->refc, 1);
+	    refc = erts_smp_refc_read(&u.ext->node->refc, 1);
 	    break;
 	default:
 	    ASSERT(!"erts_check_off_heap2: Invalid thing_word");

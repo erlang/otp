@@ -3842,7 +3842,7 @@ store_external_or_ref_(Uint **hpp, ErlOffHeap* oh, Eterm ns)
 	for(i = 0; i < size; i++)
 	    to_hp[i] = from_hp[i];
 
-	erts_refc_inc(&((ExternalThing *) to_hp)->node->refc, 2);
+	erts_smp_refc_inc(&((ExternalThing *) to_hp)->node->refc, 2);
 
 	((struct erl_off_heap_header*) to_hp)->next = oh->first;
 	oh->first = (struct erl_off_heap_header*) to_hp;
