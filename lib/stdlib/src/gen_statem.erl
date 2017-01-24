@@ -185,12 +185,23 @@
 	'keep_state_and_data' | % {keep_state_and_data,[]}
 	{'keep_state_and_data', % Keep state and data -> only actions
 	 Actions :: [ActionType] | ActionType} |
+	%%
+	{'repeat_state', % {repeat_state,NewData,[]}
+	 NewData :: data()} |
+	{'repeat_state', % Repeat state, change data
+	 NewData :: data(),
+	 Actions :: [ActionType] | ActionType} |
+	'repeat_state_and_data' | % {repeat_state_and_data,[]}
+	{'repeat_state_and_data', % Repeat state and data -> only actions
+	 Actions :: [ActionType] | ActionType} |
+	%%
 	'stop' | % {stop,normal}
 	{'stop', % Stop the server
 	 Reason :: term()} |
 	{'stop', % Stop the server
 	 Reason :: term(),
 	 NewData :: data()} |
+	%%
 	{'stop_and_reply', % Reply then stop the server
 	 Reason :: term(),
 	 Replies :: [reply_action()] | reply_action()} |
@@ -602,13 +613,10 @@ enter(Module, Opts, State, Data, Server, Actions, Parent) ->
       name => Name,
       state => State,
       data => Data,
-      postponed => P,
+      postponed => P
       %% The rest of the fields are set from to the arguments to
-      %% loop_event_actions/10 when it finally loops back to loop/3
+      %% loop_event_actions/11 when it finally loops back to loop/3
       %% in loop_events/10
-      %%
-      %% Marker for initial state, cleared immediately when used
-      init_state => true
      },
     NewDebug = sys_debug(Debug, S, State, {enter,Event,State}),
     case call_callback_mode(S) of
@@ -617,7 +625,7 @@ enter(Module, Opts, State, Data, Server, Actions, Parent) ->
 	    TimerTypes = #{},
 	    loop_event_actions(
 	      Parent, NewDebug, NewS, TimerRefs, TimerTypes,
-	      Events, Event, State, Data, NewActions);
+	      Events, Event, State, Data, NewActions, true);
 	{Class,Reason,Stacktrace} ->
 	    terminate(
 	      Class, Reason, Stacktrace,
@@ -900,13 +908,13 @@ loop_event(
 	    {NewTimerRefs,NewTimerTypes} =
 		cancel_timer_by_type(
 		  timeout, TimerRefs, TimerTypes),
-	    {NewData,NextState,Actions} =
+	    {NewData,NextState,Actions,EnterCall} =
 		parse_event_result(
 		  true, Debug, NewS, Result,
 		  Events, Event, State, Data),
 	    loop_event_actions(
 	      Parent, Debug, S, NewTimerRefs, NewTimerTypes,
-	      Events, Event, NextState, NewData, Actions);
+	      Events, Event, NextState, NewData, Actions, EnterCall);
 	{Class,Reason,Stacktrace} ->
 	    terminate(
 	      Class, Reason, Stacktrace, Debug, S, [Event|Events])
@@ -915,31 +923,16 @@ loop_event(
 loop_event_actions(
   Parent, Debug,
   #{state := State, state_enter := StateEnter} = S, TimerRefs, TimerTypes,
-  Events, Event, NextState, NewData, Actions) ->
+  Events, Event, NextState, NewData,
+  Actions, EnterCall) ->
     case parse_actions(Debug, S, State, Actions) of
 	{ok,NewDebug,Hibernate,TimeoutsR,Postpone,NextEventsR} ->
 	    if
-		StateEnter, NextState =/= State ->
+		StateEnter, EnterCall ->
 		    loop_event_enter(
 		      Parent, NewDebug, S, TimerRefs, TimerTypes,
 		      Events, Event, NextState, NewData,
 		      Hibernate, TimeoutsR, Postpone, NextEventsR);
-		StateEnter ->
-		    case maps:is_key(init_state, S) of
-			true ->
-			    %% Avoid infinite loop in initial state
-			    %% with state entry events
-			    NewS = maps:remove(init_state, S),
-			    loop_event_enter(
-			      Parent, NewDebug, NewS, TimerRefs, TimerTypes,
-			      Events, Event, NextState, NewData,
-			      Hibernate, TimeoutsR, Postpone, NextEventsR);
-			false ->
-			    loop_event_result(
-			      Parent, NewDebug, S, TimerRefs, TimerTypes,
-			      Events, Event, NextState, NewData,
-			      Hibernate, TimeoutsR, Postpone, NextEventsR)
-		    end;
 		true ->
 		    loop_event_result(
 		      Parent, NewDebug, S, TimerRefs, TimerTypes,
@@ -958,14 +951,16 @@ loop_event_enter(
   Hibernate, TimeoutsR, Postpone, NextEventsR) ->
     case call_state_function(S, enter, State, NextState, NewData) of
 	{ok,Result,NewS} ->
-	    {NewerData,_,Actions} =
-		parse_event_result(
-		  false, Debug, NewS, Result,
-		  Events, Event, NextState, NewData),
-	    loop_event_enter_actions(
-	      Parent, Debug, NewS, TimerRefs, TimerTypes,
-	      Events, Event, NextState, NewerData,
-	      Hibernate, TimeoutsR, Postpone, NextEventsR, Actions);
+	    case parse_event_result(
+		   false, Debug, NewS, Result,
+		   Events, Event, NextState, NewData) of
+		{NewerData,_,Actions,EnterCall} ->
+		    loop_event_enter_actions(
+		      Parent, Debug, NewS, TimerRefs, TimerTypes,
+		      Events, Event, NextState, NewerData,
+		      Hibernate, TimeoutsR, Postpone, NextEventsR,
+		      Actions, EnterCall)
+	    end;
 	{Class,Reason,Stacktrace} ->
 	    terminate(
 	      Class, Reason, Stacktrace,
@@ -974,19 +969,27 @@ loop_event_enter(
     end.
 
 loop_event_enter_actions(
-  Parent, Debug, S, TimerRefs, TimerTypes,
+  Parent, Debug, #{state_enter := StateEnter} = S, TimerRefs, TimerTypes,
   Events, Event, NextState, NewData,
-  Hibernate, TimeoutsR, Postpone, NextEventsR, Actions) ->
+  Hibernate, TimeoutsR, Postpone, NextEventsR,
+  Actions, EnterCall) ->
     case
 	parse_enter_actions(
-	  Debug, S, NextState, Actions,
-	  Hibernate, TimeoutsR)
+	  Debug, S, NextState, Actions, Hibernate, TimeoutsR)
     of
 	{ok,NewDebug,NewHibernate,NewTimeoutsR,_,_} ->
-	    loop_event_result(
-	      Parent, NewDebug, S, TimerRefs, TimerTypes,
-	      Events, Event, NextState, NewData,
-	      NewHibernate, NewTimeoutsR, Postpone, NextEventsR);
+	    if
+		StateEnter, EnterCall ->
+		    loop_event_enter(
+		      Parent, NewDebug, S, TimerRefs, TimerTypes,
+		      Events, Event, NextState, NewData,
+		      NewHibernate, NewTimeoutsR, Postpone, NextEventsR);
+		true ->
+		    loop_event_result(
+		      Parent, NewDebug, S, TimerRefs, TimerTypes,
+		      Events, Event, NextState, NewData,
+		      NewHibernate, NewTimeoutsR, Postpone, NextEventsR)
+	    end;
 	{Class,Reason,Stacktrace} ->
 	    terminate(
 	      Class, Reason, Stacktrace,
@@ -1212,6 +1215,7 @@ parse_event_result(
 	    terminate(
 	      exit, Reason, ?STACKTRACE(),
 	      Debug, S#{data := NewData}, [Event|Events]);
+	%%
 	{stop_and_reply,Reason,Replies} ->
 	    Q = [Event|Events],
 	    reply_then_terminate(
@@ -1222,22 +1226,34 @@ parse_event_result(
 	    reply_then_terminate(
 	      exit, Reason, ?STACKTRACE(),
 	      Debug, S#{data := NewData}, Q, Replies);
+	%%
 	{next_state,State,NewData} ->
-	    {NewData,State,[]};
+	    {NewData,State,[],false};
 	{next_state,NextState,NewData} when AllowStateChange ->
-	    {NewData,NextState,[]};
+	    {NewData,NextState,[],true};
 	{next_state,State,NewData,Actions} ->
-	    {NewData,State,Actions};
+	    {NewData,State,Actions,false};
 	{next_state,NextState,NewData,Actions} when AllowStateChange ->
-	    {NewData,NextState,Actions};
+	    {NewData,NextState,Actions,true};
+	%%
 	{keep_state,NewData} ->
-	    {NewData,State,[]};
+	    {NewData,State,[],false};
 	{keep_state,NewData,Actions} ->
-	    {NewData,State,Actions};
+	    {NewData,State,Actions,false};
 	keep_state_and_data ->
-	    {Data,State,[]};
+	    {Data,State,[],false};
 	{keep_state_and_data,Actions} ->
-	    {Data,State,Actions};
+	    {Data,State,Actions,false};
+	%%
+	{repeat_state,NewData} ->
+	    {NewData,State,[],true};
+	{repeat_state,NewData,Actions} ->
+	    {NewData,State,Actions,true};
+	repeat_state_and_data ->
+	    {Data,State,[],true};
+	{repeat_state_and_data,Actions} ->
+	    {Data,State,Actions,true};
+	%%
 	_ ->
 	    terminate(
 	      error,

@@ -587,8 +587,8 @@ handle_event(_, _, State, Data) ->
       <name name="state_enter"/>
       <desc>
 	<p>
-	  If the state machine should use <em>state enter calls</em>
-	  is selected when starting the  <c>gen_statem</c>
+	  Whether the state machine should use <em>state enter calls</em>
+	  or not is selected when starting the  <c>gen_statem</c>
 	  and after code change using the return value from
 	  <seealso marker="#Module:callback_mode/0"><c>Module:callback_mode/0</c></seealso>.
 	</p>
@@ -606,7 +606,16 @@ handle_event(_, _, State, Data) ->
 	  See
 	  <seealso marker="#Module:StateName/3"><c>Module:StateName/3</c></seealso>
 	  and
-	      <seealso marker="#Module:handle_event/4"><c>Module:handle_event/4</c></seealso>.
+	  <seealso marker="#Module:handle_event/4"><c>Module:handle_event/4</c></seealso>.
+	  Such a call can be repeated by returning a
+	  <seealso marker="#type-state_callback_result">
+	    <c>repeat_state</c>
+	  </seealso>
+	  or
+	  <seealso marker="#type-state_callback_result">
+	    <c>repeat_state_and_data</c>
+	  </seealso>
+	  tuple from the state callback.
 	</p>
 	<p>
 	  If 
@@ -625,7 +634,8 @@ handle_event(_, _, State, Data) ->
 	  right before entering the initial state even though this
 	  formally is not a state change.
 	  In this case <c>OldState</c> will be the same as <c>State</c>,
-	  which can not happen for a subsequent state change.
+	  which can not happen for a subsequent state change,
+	  but will happen when repeating the state enter call.
 	</p>
       </desc>
     </datatype>
@@ -640,7 +650,15 @@ handle_event(_, _, State, Data) ->
 	<list type="ordered">
 	  <item>
             <p>
-	      If the state changes or is the initial state, and
+	      If the state changes, is the initial state,
+	      <seealso marker="#type-state_callback_result">
+		<c>repeat_state</c>
+	      </seealso>
+	      or
+	      <seealso marker="#type-state_callback_result">
+		<c>repeat_state_and_data</c>
+	      </seealso>
+	      is used, and also
 	      <seealso marker="#type-state_enter"><em>state enter calls</em></seealso>
 	      are used, the <c>gen_statem</c> calls
 	      the new state callback with arguments
@@ -1093,6 +1111,37 @@ handle_event(_, _, State, Data) ->
 	      and executes all <c><anno>Actions</anno></c>.
 	      This is the same as
 	      <c>{next_state,CurrentState,CurrentData,<anno>Actions</anno>}</c>.
+	    </p>
+	  </item>
+	  <tag><c>repeat_state</c></tag>
+	  <item>
+	    <p>
+	      The <c>gen_statem</c> keeps the current state, or
+	      does a state transition to the current state if you like,
+	      sets <c><anno>NewData</anno></c>,
+	      and executes all <c><anno>Actions</anno></c>.
+	      If the <c>gen_statem</c> runs with
+	      <seealso marker="#type-state_enter"><em>state enter calls</em></seealso>,
+	      the state enter call is repeated, see type
+	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>,
+	      otherwise <c>repeat_state</c> is the same as
+	      <c>keep_state</c>.
+	    </p>
+	  </item>
+	  <tag><c>repeat_state_and_data</c></tag>
+	  <item>
+	    <p>
+	      The <c>gen_statem</c> keeps the current state and data, or
+	      does a state transition to the current state if you like,
+	      and executes all <c><anno>Actions</anno></c>.
+	      This is the same as
+	      <c>{repeat_state,CurrentData,<anno>Actions</anno>}</c>.
+	      If the <c>gen_statem</c> runs with
+	      <seealso marker="#type-state_enter"><em>state enter calls</em></seealso>,
+	      the state enter call is repeated, see type
+	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>,
+	      otherwise <c>repeat_state_and_data</c> is the same as
+	      <c>keep_state_and_data</c>.
 	    </p>
 	  </item>
 	  <tag><c>stop</c></tag>
@@ -1870,22 +1919,33 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="#type-enter_action">actions</seealso>
 	  that may be returned:
 	  <seealso marker="#type-postpone"><c>postpone()</c></seealso>
-	  and 
+	  is not allowed since a <em>state enter call</em> is not
+	  an event so there is no event to postpone, and 
 	  <seealso marker="#type-action"><c>{next_event,_,_}</c></seealso>
-	  are not allowed.
+	  is not allowed since using <em>state enter calls</em>
+	  should not affect how events are consumed and produced.
 	  You may also not change states from this call.
 	  Should you return <c>{next_state,NextState, ...}</c>
 	  with <c>NextState =/= State</c> the <c>gen_statem</c> crashes.
-	  You are advised to use <c>{keep_state,...}</c> or
-	  <c>keep_state_and_data</c>.
+	  It is possible to use <c>{repeat_state, ...}</c>,
+	  <c>{repeat_state_and_data,_}</c> or
+	  <c>repeat_state_and_data</c> but all of them makes little
+	  sense since you immediately will be called again with a new
+	  <em>state enter call</em> making this just a weird way
+	  of looping, and there are better ways to loop in Erlang.
+	  You are advised to use <c>{keep_state,...}</c>,
+	  <c>{keep_state_and_data,_}</c> or
+	  <c>keep_state_and_data</c> since you can not change states
+	  from a <em>state enter call</em> anyway.
 	</p>
 	<p>
 	  Note the fact that you can use
 	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>
 	  to return the result, which can be useful.
 	  For example to bail out with <c>throw(keep_state_and_data)</c>
-	  from deep within complex code that is in no position to
-	  return <c>{next_state,State,Data}</c>.
+	  from deep within complex code that can not
+	  return <c>{next_state,State,Data}</c> because
+	  <c>State</c> or <c>Data</c> is no longer in scope.
 	</p>
       </desc>
     </func>

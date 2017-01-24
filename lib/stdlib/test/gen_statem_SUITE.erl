@@ -600,15 +600,26 @@ state_enter(_Config) ->
 		  (internal, Prev, N) ->
 		      Self ! {internal,start,Prev,N},
 		      {keep_state,N + 1};
+		  ({call,From}, repeat, N) ->
+		      {repeat_state,N + 1,
+		       [{reply,From,{repeat,start,N}}]};
 		  ({call,From}, echo, N) ->
-		      {next_state,wait,N + 1,{reply,From,{echo,start,N}}};
+		      {next_state,wait,N + 1,
+		       {reply,From,{echo,start,N}}};
 		  ({call,From}, {stop,Reason}, N) ->
-		      {stop_and_reply,Reason,[{reply,From,{stop,N}}],N + 1}
+		      {stop_and_reply,Reason,
+		       [{reply,From,{stop,N}}],N + 1}
 	      end,
 	  wait =>
-	      fun (enter, Prev, N) ->
+	      fun (enter, Prev, N) when N < 5 ->
+		      {repeat_state,N + 1,
+		       {reply,{Self,N},{enter,Prev}}};
+		  (enter, Prev, N) ->
 		      Self ! {enter,wait,Prev,N},
 		      {keep_state,N + 1};
+		  ({call,From}, repeat, N) ->
+		      {repeat_state_and_data,
+		       [{reply,From,{repeat,wait,N}}]};
 		  ({call,From}, echo, N) ->
 		      {next_state,start,N + 1,
 		       [{next_event,internal,wait},
@@ -620,11 +631,15 @@ state_enter(_Config) ->
 
     [{enter,start,start,1}] = flush(),
     {echo,start,2} = gen_statem:call(STM, echo),
-    [{enter,wait,start,3}] = flush(),
-    {wait,[4|_]} = sys:get_state(STM),
-    {echo,wait,4} = gen_statem:call(STM, echo),
-    [{enter,start,wait,5},{internal,start,wait,6}] = flush(),
-    {stop,7} = gen_statem:call(STM, {stop,bye}),
+    [{3,{enter,start}},{4,{enter,start}},{enter,wait,start,5}] = flush(),
+    {wait,[6|_]} = sys:get_state(STM),
+    {repeat,wait,6} = gen_statem:call(STM, repeat),
+    [{enter,wait,wait,6}] = flush(),
+    {echo,wait,7} = gen_statem:call(STM, echo),
+    [{enter,start,wait,8},{internal,start,wait,9}] = flush(),
+    {repeat,start,10} = gen_statem:call(STM, repeat),
+    [{enter,start,start,11}] = flush(),
+    {stop,12} = gen_statem:call(STM, {stop,bye}),
     [{'EXIT',STM,bye}] = flush(),
 
     {noproc,_} =
@@ -1790,6 +1805,10 @@ handle_event(
 	    {keep_state,[NewData|Machine]};
 	{keep_state,NewData,Ops} ->
 	    {keep_state,[NewData|Machine],Ops};
+	{repeat_state,NewData} ->
+	    {repeat_state,[NewData|Machine]};
+	{repeat_state,NewData,Ops} ->
+	    {repeat_state,[NewData|Machine],Ops};
 	Other ->
 	    Other
     end;
