@@ -40,7 +40,7 @@ In short:
 
 *   Go to the JIRA issue tracker at [bugs.erlang.org] [7] to
     see reported issues which you can contribute to.
-    Search for issues with the status *Contribution Needed*.
+    Search for issues with the status *Help Wanted*.
 
 
 Bug Reports
