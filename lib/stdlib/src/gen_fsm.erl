@@ -169,7 +169,9 @@
       State :: term(),
       Status :: term().
 
--optional_callbacks([format_status/2]).
+-optional_callbacks(
+    [handle_event/3, handle_sync_event/4, handle_info/3, terminate/3,
+     code_change/4, format_status/2]).
 
 %%% ---------------------------------------------------
 %%% Starts a generic state machine.
@@ -400,10 +402,15 @@ system_terminate(Reason, _Parent, Debug,
 
 system_code_change([Name, StateName, StateData, Mod, Time],
 		   _Module, OldVsn, Extra) ->
-    case catch Mod:code_change(OldVsn, StateName, StateData, Extra) of
-	{ok, NewStateName, NewStateData} ->
-	    {ok, [Name, NewStateName, NewStateData, Mod, Time]};
-	Else -> Else
+    case erlang:function_exported(Mod, code_change, 4) of
+	true ->
+	   case catch Mod:code_change(OldVsn, StateName, StateData, Extra) of
+		{ok, NewStateName, NewStateData} ->
+		    {ok, [Name, NewStateName, NewStateData, Mod, Time]};
+		Else -> Else
+	   end;
+	_ ->
+	    {ok, [Name, StateName, StateData, Mod, Time]}
     end.
 
 system_get_state([_Name, StateName, StateData, _Mod, _Time]) ->
@@ -466,6 +473,8 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time) -> %No debug her
 					   StateName, NStateData, [])),
 	    reply(From, Reply),
 	    exit(R);
+        {'EXIT', {undef, [{Mod, handle_info, [_,_,_], _}|_]}} ->
+            loop(Parent, Name, StateName, StateData, Mod, infinity, []);
 	{'EXIT', What} ->
 	    terminate(What, Name, Msg, Mod, StateName, StateData, []);
 	Reply ->
@@ -540,24 +549,30 @@ reply(Name, {To, Tag}, Reply, Debug, StateName) ->
 -spec terminate(term(), _, _, atom(), _, _, _) -> no_return().
 
 terminate(Reason, Name, Msg, Mod, StateName, StateData, Debug) ->
-    case catch Mod:terminate(Reason, StateName, StateData) of
-	{'EXIT', R} ->
-	    FmtStateData = format_status(terminate, Mod, get(), StateData),
-	    error_info(R, Name, Msg, StateName, FmtStateData, Debug),
-	    exit(R);
-	_ ->
-	    case Reason of
-		normal ->
-		    exit(normal);
-		shutdown ->
-		    exit(shutdown);
- 		{shutdown,_}=Shutdown ->
- 		    exit(Shutdown);
+    case erlang:function_exported(Mod, terminate, 3) of
+	true ->
+	    case catch Mod:terminate(Reason, StateName, StateData) of
+		{'EXIT', R} ->
+		    FmtStateData = format_status(terminate, Mod, get(), StateData),
+		    error_info(R, Name, Msg, StateName, FmtStateData, Debug),
+		    exit(R);
 		_ ->
-                    FmtStateData = format_status(terminate, Mod, get(), StateData),
-		    error_info(Reason,Name,Msg,StateName,FmtStateData,Debug),
-		    exit(Reason)
-	    end
+		    ok
+	    end;
+	_ ->
+	    ok
+    end,
+    case Reason of
+	normal ->
+	    exit(normal);
+	shutdown ->
+	    exit(shutdown);
+ 	{shutdown,_}=Shutdown ->
+ 	    exit(Shutdown);
+	_ ->
+	    FmtStateData1 = format_status(terminate, Mod, get(), StateData),
+	    error_info(Reason,Name,Msg,StateName,FmtStateData1,Debug),
+	    exit(Reason)
     end.
 
 error_info(Reason, Name, Msg, StateName, StateData, Debug) ->

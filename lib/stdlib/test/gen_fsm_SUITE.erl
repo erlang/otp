@@ -39,6 +39,11 @@
 	  call_format_status/1, error_format_status/1, terminate_crash_format/1,
 	  get_state/1, replace_state/1]).
 
+-export([oc_handle_event/1, oc_handle_sync_event/1, oc_handle_info/1,
+         oc_code_change/1, oc_terminate1/1, oc_terminate2/1]).
+
+-export([ui_handle_info/1, ui_code_change/1, ui_terminate/1]).
+
 -export([hibernate/1,hiber_idle/3,hiber_wakeup/3,hiber_idle/2,hiber_wakeup/2]).
 
 -export([enter_loop/1]).
@@ -48,7 +53,7 @@
 
 %% The gen_fsm behaviour
 -export([init/1, handle_event/3, handle_sync_event/4, terminate/3,
-	 handle_info/3, format_status/2]).
+	 handle_info/3, format_status/2, code_change/4]).
 -export([idle/2,	idle/3,
 	 timeout/2,
 	 wfor_conf/2,	wfor_conf/3,
@@ -63,7 +68,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [{group, start}, {group, abnormal}, shutdown,
-     {group, sys}, hibernate, enter_loop].
+     {group, sys}, hibernate, enter_loop, {group, optional_callbacks},
+     {group, undef_in_callbacks}].
 
 groups() ->
     [{start, [],
@@ -74,7 +80,12 @@ groups() ->
      {abnormal, [], [abnormal1, abnormal2]},
      {sys, [],
       [sys1, call_format_status, error_format_status, terminate_crash_format,
-       get_state, replace_state]}].
+       get_state, replace_state]},
+     {optional_callbacks, [],
+      [oc_handle_event, oc_handle_sync_event, oc_handle_info, oc_code_change,
+       oc_terminate1, oc_terminate2]},
+      {undef_in_callbacks, [],
+       [ui_handle_info, ui_code_change, ui_terminate]}].
 
 init_per_suite(Config) ->
     Config.
@@ -82,6 +93,11 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
+init_per_group(optional_callbacks, Config) ->
+    DataDir = ?config(data_dir, Config),
+    Server = filename:join(DataDir, "oc_fsm.erl"),
+    {ok, oc_fsm} = compile:file(Server),
+    Config;
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -868,6 +884,93 @@ enter_loop(Reg1, Reg2) ->
 	    gen_fsm:enter_loop(?MODULE, [], state0, [])
     end.
 
+
+%% Test that the server crashes correctly if the handle_event callback is
+%% not exported in the callback module
+oc_handle_event(Config) when is_list(Config) ->
+    {ok, FSM} = gen_fsm:start(oc_fsm, [], []),
+    MRef = monitor(process, FSM),
+    gen_fsm:send_all_state_event(FSM, state_name),
+    ok = verify_undef_down(MRef, FSM, oc_fsm, handle_event).
+
+%% Test that the server crashes correctly if the handle_sync_event callback is
+%% not exported in the callback module
+oc_handle_sync_event(Config) when is_list(Config) ->
+    {ok, FSM} = gen_fsm:start(oc_fsm, [], []),
+    try
+        gen_fsm:sync_send_all_state_event(FSM, state_name),
+        ct:fail(should_crash)
+    catch exit:{{undef, [{oc_fsm, handle_sync_event, _, _}|_]},_} ->
+        ok
+    end.
+
+%% Test the default implementation of handle_info if the callback module
+%% does not export it
+oc_handle_info(Config) when is_list(Config) ->
+    {ok, FSM} = gen_fsm:start(oc_fsm, [], []),
+    MRef = monitor(process, FSM),
+    FSM ! hej,
+    receive
+        {'DOWN', MRef, process, FSM, _} ->
+            ct:fail(should_not_crash)
+    after 500 ->
+        ok
+    end.
+
+%% Test the default implementation of code_change if the callback module
+%% does not export it
+oc_code_change(Config) when is_list(Config) ->
+    {ok, FSM} = gen_fsm:start(oc_fsm, [], []),
+    ok = fake_upgrade(FSM, oc_fsm),
+    ok.
+
+%% Test the default implementation of terminate with normal reason if the
+%% callback module does not export it
+oc_terminate1(Config) when is_list(Config) ->
+    {ok, FSM} = gen_fsm:start(oc_fsm, [], []),
+    MRef = monitor(process, FSM),
+    ok = gen_fsm:stop(FSM),
+    ok = verify_down_reason(MRef, FSM, normal).
+
+%% Test the default implementation of terminate with error reason if the
+%% callback module does not export it
+oc_terminate2(Config) when is_list(Config) ->
+    {ok, FSM} = gen_fsm:start(oc_fsm, [], []),
+    MRef = monitor(process, FSM),
+    ok = gen_fsm:stop(FSM, {error, test}, infinity),
+    ok = verify_down_reason(MRef, FSM, {error, test}).
+
+%% Test that the server crashes correctly if the handle_info callback is
+%% calling an undefined function
+ui_handle_info(Config) when is_list(Config) ->
+    {ok, FSM} = gen_fsm:start(?MODULE, [], []),
+    MRef = monitor(process, FSM),
+    FSM ! {call_undef_fun, {?MODULE, handle_info}},
+    verify_undef_down(MRef, FSM, ?MODULE, handle_info),
+    ok.
+
+%% Test that the server crashes correctly if the code_change callback is
+%% calling an undefined function
+ui_code_change(Config) when is_list(Config) ->
+    Data = {undef_in_code_change, {?MODULE, code_change}},
+    {ok, FSM} = gen_fsm:start(?MODULE, {state_data, Data}, []),
+    {error, {'EXIT', {undef, [{?MODULE, code_change, _, _}|_]}}}
+        = fake_upgrade(FSM, ?MODULE),
+    ok.
+
+%% Test that the server crashes correctly if the terminate callback is
+%% calling an undefined function
+ui_terminate(Config) when is_list(Config) ->
+    State = {undef_in_terminate, {?MODULE, terminate}},
+    {ok, FSM} = gen_fsm:start(?MODULE, {state_data, State}, []),
+    try
+        gen_fsm:stop(FSM),
+        ct:fail(failed)
+    catch
+        exit:{undef, [{?MODULE, terminate, _, _}|_]} ->
+            ok
+    end.
+
 %%
 %% Functionality check
 %%
@@ -962,7 +1065,31 @@ do_sync_disconnect(FSM) ->
     yes = gen_fsm:sync_send_event(FSM, disconnect),
     check_state(FSM, idle).
 
+verify_down_reason(MRef, Pid, Reason) ->
+    receive
+        {'DOWN', MRef, process, Pid, Reason} ->
+            ok;
+        {'DOWN', MRef, process, Pid, Other}->
+            ct:fail({wrong_down_reason, Other})
+    after 5000 ->
+        ct:fail(should_shutdown)
+    end.
 
+verify_undef_down(MRef, Pid, Mod, Fun) ->
+    ok = receive
+        {'DOWN', MRef, process, Pid,
+         {undef, [{Mod, Fun, _, _}|_]}} ->
+            ok
+    after 5000 ->
+        ct:fail(should_crash)
+    end.
+
+fake_upgrade(Pid, Mod) ->
+    sys:suspend(Pid),
+    sys:replace_state(Pid, fun(State) -> {new, State} end),
+    Ret = sys:change_code(Pid, Mod, old_vsn, []),
+    ok = sys:resume(Pid),
+    Ret.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -992,6 +1119,9 @@ init(_) ->
 
 terminate(_, _State, crash_terminate) ->
     exit({crash, terminate});
+terminate(_, _, {undef_in_terminate, {Mod, Fun}}) ->
+    Mod:Fun(),
+    ok;
 terminate({From, stopped}, State, _Data) ->
     From ! {self(), {stopped, State}},
     ok;
@@ -1089,7 +1219,9 @@ handle_info(hibernate_now, _SName, _State) ->
     {next_state, hiber_idle, [], hibernate};
 handle_info(hibernate_later, _SName, _State) ->
     {next_state, hiber_idle, hibernate_me, 1000};
-
+handle_info({call_undef_fun, {Mod, Fun}}, State, Data) ->
+    Mod:Fun(),
+    {next_state, State, Data};
 handle_info(Info, _State, Data) ->
     {stop, {unexpected,Info}, Data}.
 
@@ -1133,6 +1265,13 @@ format_status(terminate, [_Pdict, StateData]) ->
     {formatted, StateData};
 format_status(normal, [_Pdict, _StateData]) ->
     [format_status_called].
+
+code_change(_OldVsn, State,
+            {idle, {undef_in_code_change, {Mod, Fun}}} = Data, _Extra) ->
+    Mod:Fun(),
+    {ok, State, Data};
+code_change(_OldVsn, State, Data, _Extra) ->
+    {ok, State, Data}.
 
 get_messages() ->
     receive
