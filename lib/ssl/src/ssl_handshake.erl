@@ -397,14 +397,13 @@ verify_signature(_, Hash, {HashAlgo, _SignAlg}, Signature,
 %%--------------------------------------------------------------------
 certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
 	MaxPathLen, _Verify, ValidationFunAndState0, PartialChain, CRLCheck, CRLDbHandle, Role) ->
-    [PeerCert | _] = ASN1Certs,
-        
-    ValidationFunAndState = validation_fun_and_state(ValidationFunAndState0, Role, 
-						     CertDbHandle, CertDbRef,  CRLCheck, CRLDbHandle),
-
+    [PeerCert | _] = ASN1Certs,       
     try
 	{TrustedCert, CertPath}  =
 	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef, PartialChain),
+        ValidationFunAndState = validation_fun_and_state(ValidationFunAndState0, Role, 
+                                                         CertDbHandle, CertDbRef,  
+                                                         CRLCheck, CRLDbHandle, CertPath),
 	case public_key:pkix_path_validation(TrustedCert,
 					     CertPath,
 					     [{max_path_length, MaxPathLen},
@@ -1541,7 +1540,8 @@ sni1(Hostname) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle) ->
+validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef, 
+                         CRLCheck, CRLDbHandle, CertPath) ->
     {fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
 	     case ssl_certificate:validate(OtpCert,
 					   Extension,
@@ -1550,22 +1550,25 @@ validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef, CRLC
 		     {valid, {NewSslState, UserState}};
 		 {fail, Reason} ->
 		     apply_user_fun(Fun, OtpCert, Reason, UserState,
-				    SslState);
+				    SslState, CertPath);
 		 {unknown, _} ->
 		     apply_user_fun(Fun, OtpCert,
-				    Extension, UserState, SslState)
+				    Extension, UserState, SslState, CertPath)
 	     end;
 	(OtpCert, VerifyResult, {SslState, UserState}) ->
 	     apply_user_fun(Fun, OtpCert, VerifyResult, UserState,
-			    SslState)
+			    SslState, CertPath)
      end, {{Role, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle}, UserState0}};
-validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle) ->
+validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef, 
+                         CRLCheck, CRLDbHandle, CertPath) ->
     {fun(OtpCert, {extension, _} = Extension, SslState) ->
 	     ssl_certificate:validate(OtpCert,
 				      Extension,
 				      SslState);
-	(OtpCert, VerifyResult, SslState) when (VerifyResult == valid) or (VerifyResult == valid_peer) -> 
-	     case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, CRLDbHandle, VerifyResult) of
+	(OtpCert, VerifyResult, SslState) when (VerifyResult == valid) or 
+                                               (VerifyResult == valid_peer) -> 
+	     case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, 
+                            CRLDbHandle, VerifyResult, CertPath) of
 		 valid ->
 		     {VerifyResult, SslState};
 		 Reason ->
@@ -1578,20 +1581,21 @@ validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef, CRLCheck, CRL
      end, {Role, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle}}.
 
 apply_user_fun(Fun, OtpCert, VerifyResult, UserState0, 
-	       {_, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle} = SslState) when
+	       {_, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle} = SslState, CertPath) when
       (VerifyResult == valid) or (VerifyResult == valid_peer) ->
     case Fun(OtpCert, VerifyResult, UserState0) of
 	{Valid, UserState} when (Valid == valid) or (Valid == valid_peer) ->
-	    case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, CRLDbHandle, VerifyResult) of
+	    case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, 
+                           CRLDbHandle, VerifyResult, CertPath) of
 		valid ->
 		    {Valid, {SslState, UserState}};
 		Result ->
-		    apply_user_fun(Fun, OtpCert, Result, UserState, SslState)
+		    apply_user_fun(Fun, OtpCert, Result, UserState, SslState, CertPath)
 	    end;
 	{fail, _} = Fail ->
 	    Fail
     end;
-apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState) ->
+apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState, _CertPath) ->
     case Fun(OtpCert, ExtensionOrError, UserState0) of
 	{Valid, UserState} when (Valid == valid) or (Valid == valid_peer)->
 	    {Valid, {SslState, UserState}};
@@ -2187,13 +2191,14 @@ handle_psk_identity(_PSKIdentity, LookupFun)
 handle_psk_identity(PSKIdentity, {Fun, UserState}) ->
     Fun(psk, PSKIdentity, UserState).
 
-crl_check(_, false, _,_,_, _) ->
+crl_check(_, false, _,_,_, _, _) ->
     valid;
-crl_check(_, peer, _, _,_, valid) -> %% Do not check CAs with this option.
+crl_check(_, peer, _, _,_, valid, _) -> %% Do not check CAs with this option.
     valid;
-crl_check(OtpCert, Check, CertDbHandle, CertDbRef, {Callback, CRLDbHandle}, _) ->
+crl_check(OtpCert, Check, CertDbHandle, CertDbRef, {Callback, CRLDbHandle}, _, CertPath) ->
     Options = [{issuer_fun, {fun(_DP, CRL, Issuer, DBInfo) ->
-				     ssl_crl:trusted_cert_and_path(CRL, Issuer, DBInfo)
+				     ssl_crl:trusted_cert_and_path(CRL, Issuer, {CertPath,
+                                                                                 DBInfo})
 			     end, {CertDbHandle, CertDbRef}}}, 
 	       {update_crl, fun(DP, CRL) -> Callback:fresh_crl(DP, CRL) end}
 	      ],
