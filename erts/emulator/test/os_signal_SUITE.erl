@@ -92,9 +92,9 @@ set_unset(_Config) ->
                sigusr1, sigusr2,
                sigchld,
                sigstop, sigtstp],
-    F1 = fun(Sig) -> true = erts_internal:set_signal(Sig,handle) end,
-    F2 = fun(Sig) -> true = erts_internal:set_signal(Sig,default) end,
-    F3 = fun(Sig) -> true = erts_internal:set_signal(Sig,ignore) end,
+    F1 = fun(Sig) -> ok = os:set_signal(Sig,handle) end,
+    F2 = fun(Sig) -> ok = os:set_signal(Sig,default) end,
+    F3 = fun(Sig) -> ok = os:set_signal(Sig,ignore) end,
     %% set handle
     ok = lists:foreach(F1, Signals),
     %% set ignore
@@ -106,7 +106,7 @@ set_unset(_Config) ->
 t_sighup(_Config) ->
     Pid1 = setup_service(),
     OsPid = os:getpid(),
-    erts_internal:set_signal(sighup, handle),
+    os:set_signal(sighup, handle),
     ok = kill("HUP", OsPid),
     ok = kill("HUP", OsPid),
     ok = kill("HUP", OsPid),
@@ -121,7 +121,7 @@ t_sighup(_Config) ->
     ok = kill("HUP", OsPid),
     %% ignore
     Pid2 = setup_service(),
-    erts_internal:set_signal(sighup, ignore),
+    os:set_signal(sighup, ignore),
     ok = kill("HUP", OsPid),
     ok = kill("HUP", OsPid),
     ok = kill("HUP", OsPid),
@@ -129,13 +129,13 @@ t_sighup(_Config) ->
     io:format("Msgs2: ~p~n", [Msgs2]),
     [] = Msgs2,
     %% reset to handle (it's the default)
-    erts_internal:set_signal(sighup, handle),
+    os:set_signal(sighup, handle),
     ok.
 
 t_sigusr1(_Config) ->
     Pid1 = setup_service(),
     OsPid = os:getpid(),
-    erts_internal:set_signal(sigusr1, handle),
+    os:set_signal(sigusr1, handle),
     ok = kill("USR1", OsPid),
     ok = kill("USR1", OsPid),
     ok = kill("USR1", OsPid),
@@ -150,7 +150,7 @@ t_sigusr1(_Config) ->
     ok = kill("USR1", OsPid),
     %% ignore
     Pid2 = setup_service(),
-    erts_internal:set_signal(sigusr1, ignore),
+    os:set_signal(sigusr1, ignore),
     ok = kill("USR1", OsPid),
     ok = kill("USR1", OsPid),
     ok = kill("USR1", OsPid),
@@ -158,13 +158,13 @@ t_sigusr1(_Config) ->
     io:format("Msgs2: ~p~n", [Msgs2]),
     [] = Msgs2,
     %% reset to ignore (it's the default)
-    erts_internal:set_signal(sigusr1, handle),
+    os:set_signal(sigusr1, handle),
     ok.
 
 t_sigusr2(_Config) ->
     Pid1 = setup_service(),
     OsPid = os:getpid(),
-    erts_internal:set_signal(sigusr2, handle),
+    os:set_signal(sigusr2, handle),
     ok = kill("USR2", OsPid),
     ok = kill("USR2", OsPid),
     ok = kill("USR2", OsPid),
@@ -179,7 +179,7 @@ t_sigusr2(_Config) ->
     ok = kill("USR2", OsPid),
     %% ignore
     Pid2 = setup_service(),
-    erts_internal:set_signal(sigusr2, ignore),
+    os:set_signal(sigusr2, ignore),
     ok = kill("USR2", OsPid),
     ok = kill("USR2", OsPid),
     ok = kill("USR2", OsPid),
@@ -187,13 +187,13 @@ t_sigusr2(_Config) ->
     io:format("Msgs2: ~p~n", [Msgs2]),
     [] = Msgs2,
     %% reset to ignore (it's the default)
-    erts_internal:set_signal(sigusr2, ignore),
+    os:set_signal(sigusr2, ignore),
     ok.
 
 t_sigterm(_Config) ->
     Pid1 = setup_service(),
     OsPid = os:getpid(),
-    erts_internal:set_signal(sigterm, handle),
+    os:set_signal(sigterm, handle),
     ok = kill("TERM", OsPid),
     ok = kill("TERM", OsPid),
     ok = kill("TERM", OsPid),
@@ -208,7 +208,7 @@ t_sigterm(_Config) ->
     ok = kill("TERM", OsPid),
     %% ignore
     Pid2 = setup_service(),
-    erts_internal:set_signal(sigterm, ignore),
+    os:set_signal(sigterm, ignore),
     ok = kill("TERM", OsPid),
     ok = kill("TERM", OsPid),
     ok = kill("TERM", OsPid),
@@ -216,13 +216,13 @@ t_sigterm(_Config) ->
     io:format("Msgs2: ~p~n", [Msgs2]),
     [] = Msgs2,
     %% reset to handle (it's the default)
-    erts_internal:set_signal(sigterm, handle),
+    os:set_signal(sigterm, handle),
     ok.
 
 t_sigchld(_Config) ->
     Pid1 = setup_service(),
     OsPid = os:getpid(),
-    erts_internal:set_signal(sigchld, handle),
+    os:set_signal(sigchld, handle),
     ok = kill("CHLD", OsPid),
     ok = kill("CHLD", OsPid),
     ok = kill("CHLD", OsPid),
@@ -237,7 +237,7 @@ t_sigchld(_Config) ->
     ok = kill("CHLD", OsPid),
     %% ignore
     Pid2 = setup_service(),
-    erts_internal:set_signal(sigchld, ignore),
+    os:set_signal(sigchld, ignore),
     ok = kill("CHLD", OsPid),
     ok = kill("CHLD", OsPid),
     ok = kill("CHLD", OsPid),
@@ -245,19 +245,19 @@ t_sigchld(_Config) ->
     io:format("Msgs2: ~p~n", [Msgs2]),
     [] = Msgs2,
     %% reset to handle (it's the default)
-    erts_internal:set_signal(sigchld, ignore),
+    os:set_signal(sigchld, ignore),
     ok.
 
 
 t_sigalrm(_Config) ->
     Pid1 = setup_service(),
-    true = erts_internal:set_signal(sigalrm, handle),
+    ok = os:set_signal(sigalrm, handle),
     ok = os_signal_SUITE:set_alarm(1),
     receive after 3000 -> ok end,
     Msgs1 = fetch_msgs(Pid1),
     [{notify,sigalrm}] = Msgs1,
     io:format("Msgs1: ~p~n", [Msgs1]),
-    erts_internal:set_signal(sigalrm, ignore),
+    os:set_signal(sigalrm, ignore),
     Pid2 = setup_service(),
     ok = os_signal_SUITE:set_alarm(1),
     receive after 3000 -> ok end,
@@ -265,18 +265,18 @@ t_sigalrm(_Config) ->
     [] = Msgs2,
     io:format("Msgs2: ~p~n", [Msgs2]),
     Pid3 = setup_service(),
-    erts_internal:set_signal(sigalrm, handle),
+    os:set_signal(sigalrm, handle),
     ok = os_signal_SUITE:set_alarm(1),
     receive after 3000 -> ok end,
     Msgs3 = fetch_msgs(Pid3),
     [{notify,sigalrm}] = Msgs3,
     io:format("Msgs3: ~p~n", [Msgs3]),
-    erts_internal:set_signal(sigalrm, ignore),
+    os:set_signal(sigalrm, ignore),
     ok.
 
 t_sigchld_fork(_Config) ->
     Pid1 = setup_service(),
-    true = erts_internal:set_signal(sigchld, handle),
+    ok = os:set_signal(sigchld, handle),
     {ok,OsPid} = os_signal_SUITE:fork(),
     receive after 3000 -> ok end,
     Msgs1 = fetch_msgs(Pid1),
@@ -286,7 +286,7 @@ t_sigchld_fork(_Config) ->
     io:format("exit status from ~w : ~w~n", [OsPid,Status]),
     42 = Status,
     %% reset to ignore (it's the default)
-    erts_internal:set_signal(sigchld, ignore),
+    os:set_signal(sigchld, ignore),
     ok.
 
 
