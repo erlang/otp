@@ -129,13 +129,9 @@ static void cleanup_restart_context_bin(Binary *bp)
     cleanup_restart_context(rc);
 }
 
-static RestartContext *get_rc_from_bin(Eterm bin)
+static RestartContext *get_rc_from_bin(Eterm mref)
 {
-    Binary *mbp;
-    ASSERT(ERTS_TERM_IS_MAGIC_BINARY(bin));
-
-    mbp = ((ProcBin *) binary_val(bin))->val;
-
+    Binary *mbp = erts_magic_ref2bin(mref);
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(mbp)
 	   == cleanup_restart_context_bin);
     return (RestartContext *) ERTS_MAGIC_BIN_DATA(mbp);    
@@ -148,8 +144,8 @@ static Eterm make_magic_bin_for_restart(Process *p, RestartContext *rc)
     RestartContext *restartp = ERTS_MAGIC_BIN_DATA(mbp);
     Eterm *hp;
     memcpy(restartp,rc,sizeof(RestartContext));
-    hp = HAlloc(p, PROC_BIN_SIZE);
-    return erts_mk_magic_binary_term(&hp, &MSO(p), mbp);
+    hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+    return erts_mk_magic_ref(&hp, &MSO(p), mbp);
 }
 
 	
