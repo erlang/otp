@@ -1079,7 +1079,7 @@ static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1)
     Eterm *tp = tuple_val(BIF_ARG_1);
     Eterm Term = tp[1];
     Eterm bt = tp[2];
-    Binary *bin = ((ProcBin *) binary_val(bt))->val;
+    Binary *bin = erts_magic_ref2bin(bt);
     Eterm res = erts_term_to_binary_int(BIF_P, Term, 0, 0,bin);
     if (is_tuple(res)) {
 	ASSERT(BIF_P->flags & F_DISABLE_GC);
@@ -1408,7 +1408,7 @@ static void b2t_context_destructor(Binary *context_bin)
 
 static BIF_RETTYPE binary_to_term_trap_1(BIF_ALIST_1)
 {
-    Binary *context_bin = ((ProcBin *) binary_val(BIF_ARG_1))->val;
+    Binary *context_bin = erts_magic_ref2bin(BIF_ARG_1);
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(context_bin) == b2t_context_destructor);
 
     return binary_to_term_int(BIF_P, 0, THE_NON_VALUE, context_bin, NULL,
@@ -1442,8 +1442,8 @@ static B2TContext* b2t_export_context(Process* p, B2TContext* src)
     if (ctx->state >= B2TDecode && ctx->u.dc.next == &src->u.dc.res) {
         ctx->u.dc.next = &ctx->u.dc.res;
     }
-    hp = HAlloc(p, PROC_BIN_SIZE);
-    ctx->trap_bin = erts_mk_magic_binary_term(&hp, &MSO(p), context_b);
+    hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+    ctx->trap_bin = erts_mk_magic_ref(&hp, &MSO(p), context_b);
     return ctx;
 }
 
@@ -1871,8 +1871,8 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 
 #define RETURN_STATE()							\
     do {								\
-	hp = HAlloc(p, PROC_BIN_SIZE+3);				\
-	c_term = erts_mk_magic_binary_term(&hp, &MSO(p), context_b);	\
+	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE+3);                    \
+	c_term = erts_mk_magic_ref(&hp, &MSO(p), context_b);            \
 	res = TUPLE2(hp, Term, c_term);					\
 	BUMP_ALL_REDS(p);                                               \
 	return res;							\
