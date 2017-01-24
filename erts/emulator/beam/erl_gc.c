@@ -2800,6 +2800,16 @@ link_live_proc_bin(struct shrink_cand_data *shrink,
     *prevppp = &pbp->next;
 }
 
+#ifdef ERTS_MAGIC_REF_THING_HEADER
+/*
+ * ERTS_MAGIC_REF_THING_HEADER only defined when there
+ * is a size difference between magic and ordinary references...
+ */
+# define ERTS_USED_MAGIC_REF_THING_HEADER__ ERTS_MAGIC_REF_THING_HEADER
+#else
+# define ERTS_USED_MAGIC_REF_THING_HEADER__ ERTS_REF_THING_HEADER
+#endif
+
 
 static void
 sweep_off_heap(Process *p, int fullsweep)
@@ -2832,7 +2842,8 @@ sweep_off_heap(Process *p, int fullsweep)
 	    ASSERT(!ErtsInArea(ptr, oheap, oheap_sz));
 	    *prev = ptr = (struct erl_off_heap_header*) boxed_val(ptr->thing_word);
 	    ASSERT(!IS_MOVED_BOXED(ptr->thing_word));
-	    if (ptr->thing_word == HEADER_PROC_BIN) {
+	    switch (ptr->thing_word) {
+	    case HEADER_PROC_BIN: {
 		int to_new_heap = !ErtsInArea(ptr, oheap, oheap_sz);
 		ASSERT(to_new_heap == !seen_mature || (!to_new_heap && (seen_mature=1)));
 		if (to_new_heap) {
@@ -2841,13 +2852,28 @@ sweep_off_heap(Process *p, int fullsweep)
 		    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
 		}		
 		link_live_proc_bin(&shrink, &prev, &ptr, to_new_heap);
-	    }
-	    else {
+                break;
+            }
+            case ERTS_USED_MAGIC_REF_THING_HEADER__: {
+                Uint size;
+		int to_new_heap = !ErtsInArea(ptr, oheap, oheap_sz);
+                ASSERT(is_magic_ref_thing(ptr));
+		ASSERT(to_new_heap == !seen_mature || (!to_new_heap && (seen_mature=1)));
+                size = (Uint) ((ErtsMRefThing *) ptr)->mb->orig_size;
+		if (to_new_heap)
+		    bin_vheap += size / sizeof(Eterm);
+                else
+		    BIN_OLD_VHEAP(p) += size / sizeof(Eterm); /* for binary gc (words)*/
+                /* fall through... */
+            }
+            default:
 		prev = &ptr->next;
 		ptr = ptr->next;
 	    }
 	}
-	else if (!ErtsInArea(ptr, oheap, oheap_sz)) {
+	else if (ErtsInArea(ptr, oheap, oheap_sz))
+            break; /* and let old-heap loop continue */
+        else {
 	    /* garbage */
 	    switch (thing_subtag(ptr->thing_word)) {
 	    case REFC_BINARY_SUBTAG:
@@ -2881,7 +2907,6 @@ sweep_off_heap(Process *p, int fullsweep)
 	    }
 	    *prev = ptr = ptr->next;
 	}
-	else break; /* and let old-heap loop continue */
     }
 
     /* The rest of the list resides on old-heap, and we just did a
@@ -2890,16 +2915,24 @@ sweep_off_heap(Process *p, int fullsweep)
     while (ptr) {
 	ASSERT(ErtsInArea(ptr, oheap, oheap_sz));
 	ASSERT(!IS_MOVED_BOXED(ptr->thing_word));       
-	if (ptr->thing_word == HEADER_PROC_BIN) {
+        switch (ptr->thing_word) {
+        case HEADER_PROC_BIN:
 	    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
 	    link_live_proc_bin(&shrink, &prev, &ptr, 0);
-	}
-	else {
-	    ASSERT(is_fun_header(ptr->thing_word) ||
-		   is_external_header(ptr->thing_word)
-		   || is_magic_ref_thing(ptr));
-	    prev = &ptr->next;
-	    ptr = ptr->next;
+            break;
+        case ERTS_USED_MAGIC_REF_THING_HEADER__:
+            ASSERT(is_magic_ref_thing(ptr));
+            BIN_OLD_VHEAP(p) +=
+                (((Uint) ((ErtsMRefThing *) ptr)->mb->orig_size)
+                 / sizeof(Eterm)); /* for binary gc (words)*/
+            /* fall through... */
+        default:
+            ASSERT(is_fun_header(ptr->thing_word) ||
+                   is_external_header(ptr->thing_word)
+                   || is_magic_ref_thing(ptr));
+            prev = &ptr->next;
+            ptr = ptr->next;
+            break;
 	}
     }
 

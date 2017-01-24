@@ -3510,6 +3510,8 @@ dec_term_atom_common:
 			ASSERT(rtp);
 			hp = (Eterm *) rtp;
 			write_magic_ref_thing(hp, factory->off_heap, mb);
+                        OH_OVERHEAD(factory->off_heap,
+                                    mb->orig_size / sizeof(Eterm));
 			hp += ERTS_MAGIC_REF_THING_SIZE;
 		    }
 		}

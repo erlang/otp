@@ -182,6 +182,7 @@ erts_mk_magic_ref(Eterm **hpp, ErlOffHeap *ohp, Binary *bp)
     write_magic_ref_thing(hp, ohp, (ErtsMagicBinary *) bp);
     *hpp += ERTS_MAGIC_REF_THING_SIZE;
     erts_refc_inc(&bp->refc, 1);
+    OH_OVERHEAD(ohp, bp->orig_size / sizeof(Eterm));
     return make_internal_ref(hp);
 }
 
@@ -329,6 +330,7 @@ erts_iref_storage_make_ref(ErtsIRefStorage *iref,
     }
     else {
 	write_magic_ref_thing(hp, ohp, iref->u.mb);
+        OH_OVERHEAD(ohp, iref->u.mb->orig_size / sizeof(Eterm));
 	*hpp += ERTS_MAGIC_REF_THING_SIZE;
 	/*
 	 * If we clean storage, the term inherits the
