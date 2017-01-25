@@ -19,7 +19,7 @@
 %%
 
 
--module(fail_pre_suite_cth).
+-module(fallback_cth).
 
 
 -include_lib("common_test/src/ct_util.hrl").
@@ -29,12 +29,14 @@
 %% CT Hooks
 -compile(export_all).
 
+id(Opts) ->
+    empty_cth:id(Opts).
+
 init(Id, Opts) ->
     empty_cth:init(Id, Opts).
 
 pre_init_per_suite(Suite, Config, State) ->
-    empty_cth:pre_init_per_suite(Suite,Config,State),
-    {{fail, "Test failure"}, State}.
+    empty_cth:pre_init_per_suite(Suite,Config,State).
 
 post_init_per_suite(Suite,Config,Return,State) ->
     empty_cth:post_init_per_suite(Suite,Config,Return,State).
@@ -45,35 +47,35 @@ pre_end_per_suite(Suite,Config,State) ->
 post_end_per_suite(Suite,Config,Return,State) ->
     empty_cth:post_end_per_suite(Suite,Config,Return,State).
 
-pre_init_per_group(Suite,Group,Config,State) ->
-    empty_cth:pre_init_per_group(Suite,Group,Config,State).
+pre_init_per_group(Group,Config,State) ->
+    empty_cth:pre_init_per_group(fallback_nosuite,Group,Config,State).
 
-post_init_per_group(Suite,Group,Config,Return,State) ->
-    empty_cth:post_init_per_group(Suite,Group,Config,Return,State).
+post_init_per_group(Group,Config,Return,State) ->
+    empty_cth:post_init_per_group(fallback_nosuite,Group,Config,Return,State).
 
-pre_end_per_group(Suite,Group,Config,State) ->
-    empty_cth:pre_end_per_group(Suite,Group,Config,State).
+pre_end_per_group(Group,Config,State) ->
+    empty_cth:pre_end_per_group(fallback_nosuite,Group,Config,State).
 
-post_end_per_group(Suite,Group,Config,Return,State) ->
-    empty_cth:post_end_per_group(Suite,Group,Config,Return,State).
+post_end_per_group(Group,Config,Return,State) ->
+    empty_cth:post_end_per_group(fallback_nosuite,Group,Config,Return,State).
 
-pre_init_per_testcase(Suite,TC,Config,State) ->
-    empty_cth:pre_init_per_testcase(Suite,TC,Config,State).
+pre_init_per_testcase(TC,Config,State) ->
+    empty_cth:pre_init_per_testcase(fallback_nosuite,TC,Config,State).
 
-post_init_per_testcase(Suite,TC,Config,Return,State) ->
-    empty_cth:post_init_per_testcase(Suite,TC,Config,Return,State).
+post_init_per_testcase(TC,Config,Return,State) ->
+    empty_cth:post_init_per_testcase(fallback_nosuite,TC,Config,Return,State).
 
-pre_end_per_testcase(Suite,TC,Config,State) ->
-    empty_cth:pre_end_per_testcase(Suite,TC,Config,State).
+pre_end_per_testcase(TC,Config,State) ->
+    empty_cth:pre_end_per_testcase(fallback_nosuite,TC,Config,State).
 
-post_end_per_testcase(Suite,TC,Config,Return,State) ->
-    empty_cth:post_end_per_testcase(Suite,TC,Config,Return,State).
+post_end_per_testcase(TC,Config,Return,State) ->
+    empty_cth:post_end_per_testcase(fallback_nosuite,TC,Config,Return,State).
 
-on_tc_fail(Suite,TC, Reason, State) ->
-    empty_cth:on_tc_fail(Suite,TC,Reason,State).
+on_tc_fail(TC, Reason, State) ->
+    empty_cth:on_tc_fail(fallback_nosuite,TC,Reason,State).
 
-on_tc_skip(Suite,TC, Reason, State) ->
-    empty_cth:on_tc_skip(Suite,TC,Reason,State).
+on_tc_skip(TC, Reason, State) ->
+    empty_cth:on_tc_skip(fallback_nosuite,TC,Reason,State).
 
 terminate(State) ->
     empty_cth:terminate(State).
