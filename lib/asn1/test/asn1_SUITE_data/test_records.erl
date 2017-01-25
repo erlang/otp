@@ -25,7 +25,7 @@
 
 -define(line,put(test_server_loc,{?MODULE,?LINE}),).
 
--include("NBAP-PDU-Discriptions.hrl").
+-include("NBAP-PDU-Descriptions.hrl").
 -include("NBAP-PDU-Contents.hrl").
 -include("NBAP-Containers.hrl").
 -include("NBAP-CommonDataTypes.hrl").

@@ -4,7 +4,7 @@
 --
 -- **************************************************************
 
-NBAP-PDU-Discriptions {
+NBAP-PDU-Descriptions {
 itu-t (0) identified-organization (4) etsi (0) mobileDomain (0) 
 umts-Access (20) modules (3) nbap (2) version1 (1) nbap-PDU-Descriptions (0) }
 
