@@ -2243,16 +2243,21 @@ t_has_var_list([]) -> false.
 -spec t_collect_vars(erl_type()) -> [erl_type()].
 
 t_collect_vars(T) ->
-  t_collect_vars(T, []).
+  Vs = t_collect_vars(T, maps:new()),
+  [V || {V, _} <- maps:to_list(Vs)].
 
--spec t_collect_vars(erl_type(), [erl_type()]) -> [erl_type()].
+-type ctab() :: #{erl_type() => 'any'}.
+
+-spec t_collect_vars(erl_type(), ctab()) -> ctab().
 
 t_collect_vars(?var(_) = Var, Acc) ->
-  ordsets:add_element(Var, Acc);
+  maps:put(Var, any, Acc);
 t_collect_vars(?function(Domain, Range), Acc) ->
-  ordsets:union(t_collect_vars(Domain, Acc), t_collect_vars(Range, []));
+  Acc1 = t_collect_vars(Domain, Acc),
+  t_collect_vars(Range, Acc1);
 t_collect_vars(?list(Contents, Termination, _), Acc) ->
-  ordsets:union(t_collect_vars(Contents, Acc), t_collect_vars(Termination, []));
+  Acc1 = t_collect_vars(Contents, Acc),
+  t_collect_vars(Termination, Acc1);
 t_collect_vars(?product(Types), Acc) ->
   t_collect_vars_list(Types, Acc);
 t_collect_vars(?tuple(?any, ?any, ?any), Acc) ->
