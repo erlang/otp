@@ -88,7 +88,6 @@ end_per_testcase(_Func, _Conf) ->
 -define(FPROF_SERVER, false).
 -define(EPROF_CLIENT, false).
 -define(EPROF_SERVER, false).
--define(PERCEPT_SERVER, false).
 
 %% Current numbers gives roughly a testcase per minute on todays hardware..
 
@@ -190,7 +189,6 @@ server_init(ssl, setup_connection, _, _, Server) ->
     ?FPROF_SERVER andalso start_profile(fprof, [whereis(ssl_manager), new]),
     %%?EPROF_SERVER andalso start_profile(eprof, [ssl_connection_sup, ssl_manager]),
     ?EPROF_SERVER andalso start_profile(eprof, [ssl_manager]),
-    ?PERCEPT_SERVER andalso percept:profile("/tmp/ssl_server.percept"),
     Server ! {self(), {init, Host, Port}},
     Test = fun(TSocket) ->
 		   ok = ssl:ssl_accept(TSocket),
@@ -247,7 +245,6 @@ setup_server_connection(LSocket, Test) ->
     receive quit ->
 	    ?FPROF_SERVER andalso stop_profile(fprof, "test_server_res.fprof"),
 	    ?EPROF_SERVER andalso stop_profile(eprof, "test_server_res.eprof"),
-	    ?PERCEPT_SERVER andalso stop_profile(percept, "/tmp/ssl_server.percept"),
 	    ok
     after 0 ->
 	    case ssl:transport_accept(LSocket, 2000) of
@@ -388,13 +385,6 @@ start_profile(fprof, Procs) ->
     fprof:trace([start, {procs, Procs}]),
     io:format("(F)Profiling ...",[]).
 
-stop_profile(percept, File) ->
-    percept:stop_profile(),
-    percept:analyze(File),
-    {started, _Host, Port} = percept:start_webserver(),
-    wx:new(),
-    wx_misc:launchDefaultBrowser("http://" ++ net_adm:localhost() ++ ":" ++ integer_to_list(Port)),
-    ok;
 stop_profile(eprof, File) ->
     profiling_stopped = eprof:stop_profiling(),
     eprof:log(File),
