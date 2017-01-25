@@ -41,9 +41,11 @@ init(SslOpts, Role) ->
     {ok, CertDbRef, CertDbHandle, FileRefHandle, CacheHandle, CRLDbHandle, OwnCert, PrivateKey, DHParams}.
 
 init_manager_name(false) ->
-    put(ssl_manager, ssl_manager:manager_name(normal));
+    put(ssl_manager, ssl_manager:name(normal)),
+    put(ssl_cache, ssl_pem_cache:name(normal));
 init_manager_name(true) ->
-    put(ssl_manager, ssl_manager:manager_name(dist)).
+    put(ssl_manager, ssl_manager:name(dist)),
+    put(ssl_cache, ssl_pem_cache:name(dist)).
 
 init_certificates(#ssl_options{cacerts = CaCerts,
 			       cacertfile = CACertFile,
@@ -134,6 +136,8 @@ private_key(Key) ->
 file_error(File, Throw) ->
     case Throw of
 	{Opt,{badmatch, {error, {badmatch, Error}}}} ->
+	    throw({options, {Opt, binary_to_list(File), Error}});
+	{Opt, {badmatch, Error}} ->
 	    throw({options, {Opt, binary_to_list(File), Error}});
 	_ ->
 	    throw(Throw)

@@ -28,11 +28,11 @@
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([create/0, add_crls/3, remove_crls/2, remove/1, add_trusted_certs/3, 
+-export([create/0, create_pem_cache/0, 
+	 add_crls/3, remove_crls/2, remove/1, add_trusted_certs/3, 
 	 extract_trusted_certs/1,
 	 remove_trusted_certs/2, insert/3, remove/2, clear/1, db_size/1,
 	 ref_count/3, lookup_trusted_cert/4, foldl/3, select_cert_by_issuer/2,
-	 lookup_cached_pem/2, cache_pem_file/2, cache_pem_file/3,
 	 decode_pem_file/1, lookup/2]).
 
 %%====================================================================
@@ -52,12 +52,18 @@ create() ->
      %% on DER format to ssl:connect/listen.)
      ets:new(ssl_otp_cacertificate_db, [set, public]),
      %% Let connection processes call ref_count/3 directly
-     ets:new(ssl_otp_ca_file_ref, [set, public]),
-     ets:new(ssl_otp_pem_cache, [set, protected]),
+     {ets:new(ssl_otp_ca_file_ref, [set, public]),
+      ets:new(ssl_otp_ca_ref_file_mapping, [set, protected])
+     },
+     %% Lookups in named table owned by ssl_pem_cache process
+     ssl_otp_pem_cache,
      %% Default cache
      {ets:new(ssl_otp_crl_cache, [set, protected]),
       ets:new(ssl_otp_crl_issuer_mapping, [bag, protected])}
     ].
+
+create_pem_cache() ->
+    ets:new(ssl_otp_pem_cache, [named_table, set, protected]).
 
 %%--------------------------------------------------------------------
 -spec remove([db_handle()]) -> ok. 
@@ -69,6 +75,8 @@ remove(Dbs) ->
 			  true = ets:delete(Db0),
 			  true = ets:delete(Db1);
 		     (undefined) -> 
+			  ok;
+		     (ssl_otp_pem_cache) -> 
 			  ok;
 		     (Db) ->
 			  true = ets:delete(Db)
@@ -101,11 +109,6 @@ lookup_trusted_cert(_DbHandle, {extracted,Certs}, SerialNumber, Issuer) ->
 	    {ok, Cert}
     end.
 
-lookup_cached_pem([_, _, PemChache | _], File) ->
-    lookup_cached_pem(PemChache, File);
-lookup_cached_pem(PemChache, File) ->
-    lookup(File, PemChache).
-
 %%--------------------------------------------------------------------
 -spec add_trusted_certs(pid(), {erlang:timestamp(), string()} |
 			{der, list()}, [db_handle()]) -> {ok, [db_handle()]}.
@@ -122,16 +125,10 @@ add_trusted_certs(_Pid, {der, DerList}, [CertDb, _,_ | _]) ->
     add_certs_from_der(DerList, NewRef, CertDb),
     {ok, NewRef};
 
-add_trusted_certs(_Pid, File, [CertsDb, RefDb, PemChache | _] = Db) ->
-    case lookup_cached_pem(Db, File) of
-	[{_Content, Ref}] ->
+add_trusted_certs(_Pid, File, [ _, {RefDb, FileMapDb} | _] = Db) ->
+    case lookup(File, FileMapDb) of
+	[Ref] ->
 	    ref_count(Ref, RefDb, 1),
-	    {ok, Ref};
-	[Content] ->
-	    Ref = make_ref(),
-	    update_counter(Ref, 1, RefDb),
-	    insert(File, {Content, Ref}, PemChache),
-	    add_certs_from_pem(Content, Ref, CertsDb),
 	    {ok, Ref};
 	undefined ->
 	    new_trusted_cert_entry(File, Db)
@@ -150,25 +147,6 @@ extract_trusted_certs(File) ->
             %% external handlers.
             {error, {badmatch, Error}}
     end.
-
-%%--------------------------------------------------------------------
-%%
-%% Description: Cache file as binary in DB
-%%--------------------------------------------------------------------
--spec cache_pem_file(binary(), [db_handle()]) -> {ok, term()}.
-cache_pem_file(File, [_CertsDb, _RefDb, PemChache | _]) ->
-    {ok, PemBin} = file:read_file(File),
-    Content = public_key:pem_decode(PemBin),
-    insert(File, Content, PemChache),
-    {ok, Content}.
-
-
--spec cache_pem_file(reference(), binary(), [db_handle()]) -> {ok, term()}.
-cache_pem_file(Ref, File, [_CertsDb, _RefDb, PemChache| _]) ->
-    {ok, PemBin} = file:read_file(File),
-    Content = public_key:pem_decode(PemBin),
-    insert(File, {Content, Ref}, PemChache),
-    {ok, Content}.
 
 -spec decode_pem_file(binary()) -> {ok, term()}.
 decode_pem_file(File) ->
@@ -246,6 +224,8 @@ select_cert_by_issuer(Cache, Issuer) ->
 %%--------------------------------------------------------------------
 ref_count({extracted, _}, _Db, _N) ->
     not_cached;
+ref_count(Key, {Db, _}, N) ->
+    ref_count(Key, Db, N);
 ref_count(Key, Db, N) ->
     ets:update_counter(Db,Key,N).
 
@@ -278,9 +258,9 @@ insert(Key, Data, Db) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-update_counter(Key, Count, Db) ->
-    true = ets:insert(Db, {Key, Count}),
-    ok.
+init_ref_db(Ref, File, {RefDb, FileMapDb}) ->
+    true = ets:insert(RefDb, {Ref, 1}),
+    true = ets:insert(FileMapDb, {File, Ref}).
 
 remove_certs(Ref, CertsDb) ->
     true = ets:match_delete(CertsDb, {{Ref, '_', '_'}, '_'}),
@@ -326,10 +306,10 @@ decode_certs(Ref, Cert) ->
 	    undefined
     end.
 
-new_trusted_cert_entry(File, [CertsDb, RefDb, _ | _] = Db) ->
+new_trusted_cert_entry(File, [CertsDb, RefsDb, _ | _]) ->
     Ref = make_ref(),
-    update_counter(Ref, 1, RefDb),
-    {ok, Content} = cache_pem_file(Ref, File, Db),
+    init_ref_db(Ref, File, RefsDb),
+    {ok, Content} = ssl_pem_cache:insert(File),
     add_certs_from_pem(Content, Ref, CertsDb),
     {ok, Ref}.
 
@@ -361,4 +341,3 @@ crl_issuer(DerCRL) ->
     CRL = public_key:der_decode('CertificateList', DerCRL),
     TBSCRL = CRL#'CertificateList'.tbsCertList,
     TBSCRL#'TBSCertList'.issuer.
-
