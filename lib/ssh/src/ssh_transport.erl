@@ -424,7 +424,7 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min0,
 		ssh_packet(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0),
 	    {ok, SshPacket, 
 	     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}},
-		     keyex_info = {Min, Max, NBits}
+		     keyex_info = {Min0, Max0, NBits}
 		    }};
 	{error,_} ->
 	    throw(#ssh_msg_disconnect{
