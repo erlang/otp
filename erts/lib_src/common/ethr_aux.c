@@ -220,7 +220,7 @@ ethr_init_common__(ethr_init_data *id)
     ethr_min_stack_size__ += ethr_pagesize__;
 #endif
     /* The system may think that we need more stack */
-#if defined(PTHREAD_STACK_MIN)
+#if defined(ETHR_HAVE_USABLE_PTHREAD_STACK_MIN)
     if (ethr_min_stack_size__ < PTHREAD_STACK_MIN)
 	ethr_min_stack_size__ = PTHREAD_STACK_MIN;
 #elif defined(_SC_THREAD_STACK_MIN)
