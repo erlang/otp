@@ -24,5 +24,7 @@
 
 main(_) ->
     Data = {'Top',{short,"abc"},{long,"a long string follows here"}},
-    {ok,B} = 'MultipleLevels':encode('Top', Data),
-    {ok,Data} = 'MultipleLevels':decode('Top', iolist_to_binary(B)).
+    roundtrip('Top', Data).
+
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip('MultipleLevels', T, V).
