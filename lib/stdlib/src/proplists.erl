@@ -39,6 +39,7 @@
 %% etc.</p>
 %%
 %% % @type property() = atom() | tuple()
+%% % @type proplist() = [property()]
 
 -module(proplists).
 
