@@ -20,7 +20,7 @@
 
 %%
 
--module(ssl_sup).
+-module(ssl_dist_connection_sup).
 
 -behaviour(supervisor).
 
@@ -44,28 +44,36 @@ start_link() ->
 %%%=========================================================================
 
 init([]) ->    
-    {ok, {{rest_for_one, 10, 3600}, [ssl_admin_child_spec(),
-				     ssl_connection_sup()
-				    ]}}.
+  
+    TLSConnetionManager = tls_connection_manager_child_spec(),
+    %% Handles emulated options so that they inherited by the accept
+    %% socket, even when setopts is performed on the listen socket
+    ListenOptionsTracker = listen_options_tracker_child_spec(), 
+    
+    {ok, {{one_for_one, 10, 3600}, [TLSConnetionManager, 
+				    ListenOptionsTracker
+				   ]}}.
 
+    
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-ssl_admin_child_spec() ->
-    Name = ssl_admin_sup,  
-    StartFunc = {ssl_admin_sup, start_link, []},
+
+tls_connection_manager_child_spec() ->
+    Name = dist_tls_connection,  
+    StartFunc = {tls_connection_sup, start_link_dist, []},
     Restart = permanent, 
     Shutdown = 4000,
-    Modules = [ssl_admin_sup],
+    Modules = [tls_connection_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-ssl_connection_sup() ->
-    Name = ssl_connection_sup,
-    StartFunc = {ssl_connection_sup, start_link, []},
-    Restart = permanent,
+listen_options_tracker_child_spec() ->
+    Name = dist_tls_socket,  
+    StartFunc = {ssl_listen_tracker_sup, start_link_dist, []},
+    Restart = permanent, 
     Shutdown = 4000,
-    Modules = [ssl_connection_sup],
+    Modules = [tls_socket],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 

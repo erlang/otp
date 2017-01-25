@@ -44,34 +44,29 @@ start_link() ->
 %%%=========================================================================
 
 init([]) ->    
-    SessionCertManager = session_and_cert_manager_child_spec(),
-    ConnetionManager = connection_manager_child_spec(),
-    ListenOptionsTracker = listen_options_tracker_child_spec(), 
+    AdminSup = ssl_admin_child_spec(),
+    ConnectionSup = ssl_connection_sup(),
     ProxyServer = proxy_server_child_spec(),
-
-    {ok, {{one_for_all, 10, 3600}, [SessionCertManager, ConnetionManager, 
-				    ListenOptionsTracker,
-				    ProxyServer]}}.
+    {ok, {{one_for_all, 10, 3600}, [AdminSup, ProxyServer, ConnectionSup]}}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-session_and_cert_manager_child_spec() ->
-    Opts = ssl_sup:manager_opts(),
-    Name = ssl_manager_dist,  
-    StartFunc = {ssl_manager, start_link_dist, [Opts]},
+ssl_admin_child_spec() ->
+    Name = ssl_dist_admin_sup,  
+    StartFunc = {ssl_dist_admin_sup, start_link , []},
     Restart = permanent, 
     Shutdown = 4000,
-    Modules = [ssl_manager],
-    Type = worker,
+    Modules = [ssl_admin_sup],
+    Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-connection_manager_child_spec() ->
-    Name = ssl_connection_dist,  
-    StartFunc = {tls_connection_sup, start_link_dist, []},
-    Restart = permanent, 
-    Shutdown = infinity,
-    Modules = [tls_connection_sup],
+ssl_connection_sup() ->
+    Name = ssl_dist_connection_sup,
+    StartFunc = {ssl_dist_connection_sup, start_link, []},
+    Restart = permanent,
+    Shutdown = 4000,
+    Modules = [ssl_connection_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
@@ -82,13 +77,4 @@ proxy_server_child_spec() ->
     Shutdown = 4000,
     Modules = [ssl_tls_dist_proxy],
     Type = worker,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-listen_options_tracker_child_spec() ->
-    Name = tls_socket_dist,  
-    StartFunc = {ssl_listen_tracker_sup, start_link_dist, []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [tls_socket],
-    Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.

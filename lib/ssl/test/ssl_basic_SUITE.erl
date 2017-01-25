@@ -961,9 +961,9 @@ clear_pem_cache(Config) when is_list(Config) ->
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
-    [_,FilRefDb |_] = element(6, State),
+    [_,{FilRefDb, _} |_] = element(6, State),
     {Server, Client} = basic_verify_test_no_close(Config),
-    CountReferencedFiles = fun({_,-1}, Acc) ->
+    CountReferencedFiles = fun({_, -1}, Acc) ->
 				   Acc;
 			      ({_, N}, Acc) ->
 				   N + Acc
