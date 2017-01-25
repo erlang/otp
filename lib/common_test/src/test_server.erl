@@ -1156,7 +1156,7 @@ do_end_tc_call(Mod, IPTC={init_per_testcase,Func}, Res, Return) ->
 		     {ok,EPTCInitConfig} when is_list(EPTCInitConfig) ->
 			 {Return,EPTCInitConfig};
 		     _ ->
-			 Return
+                         {Return,IPTCEndRes}
 		 end,
 	     do_end_tc_call1(Mod, {end_per_testcase,Func},
 			     EPTCInitRes, Return);
