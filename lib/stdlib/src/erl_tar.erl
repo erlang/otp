@@ -339,6 +339,8 @@ add1(TarFile, Name, NameInArchive, Opts) ->
 	    {error, {Name, Reason}}
     end.
 
+add1(_Tar, _Name, {error, _} = Err, _Bin, _Opts) ->
+  Err;
 add1(Tar, Name, Header, chunked, Options) ->
     add_verbose(Options, "a ~ts [chunked ", [Name]),
     try
@@ -393,11 +395,15 @@ add_directory(TarFile, DirName, NameInArchive, Info, Options) ->
 %% Creates a header for file in a tar file.
 
 create_header(Name, Info) ->
-    create_header(Name, Info, []).
-create_header(Name, #file_info {mode=Mode, uid=Uid, gid=Gid,
+    case split_filename(Name) of
+      {error, _} = Err ->
+        Err;
+      Split ->
+        create_header(Split, Info, [])
+    end.
+create_header({Prefix, Suffix}, #file_info {mode=Mode, uid=Uid, gid=Gid,
 				size=Size, mtime=Mtime0, type=Type}, Linkname) ->
     Mtime = posix_time(erlang:localtime_to_universaltime(Mtime0)),
-    {Prefix,Suffix} = split_filename(Name),
     H0 = [to_string(Suffix, 100),
 	  to_octal(Mode, 8),
 	  to_octal(Uid, 8),
@@ -459,16 +465,27 @@ pad_file(File) ->
 
 split_filename(Name) when length(Name) =< ?th_name_len ->
     {"", Name};
-split_filename(Name0) ->
-    split_filename(lists:reverse(filename:split(Name0)), [], [], 0).
+split_filename(Name) when length(Name) > (?th_name_len + ?th_prefix_len) ->
+    {error, {filename_too_long, Name}};
+split_filename(Name) ->
+    split_filename(lists:reverse(filename:split(Name)), [], [], 0).
 
-split_filename([Comp|Rest], Prefix, Suffix, Len) 
-  when Len+length(Comp) < ?th_name_len ->
-    split_filename(Rest, Prefix, [Comp|Suffix], Len+length(Comp)+1);
+%% The first component is the file name, if it's too long
+%% to fit in the name field, we have to raise an error
+split_filename([Comp|_Rest], [], [], 0)
+  when length(Comp) >= ?th_name_len ->
+    {error, {path_component_too_long, Comp}};
+%% Otherwise attempt to put as much as possible in the name field,
+%% then put the remainder in the prefix field
+split_filename([Comp|Rest], Prefix, Suffix, Len)
+  when length(Comp)+Len =< ?th_name_len ->
+    split_filename(Rest, Prefix, [Comp|Suffix], Len+length(Comp));
 split_filename([Comp|Rest], Prefix, Suffix, Len) ->
-    split_filename(Rest, [Comp|Prefix], Suffix, Len+length(Comp)+1);
-split_filename([], Prefix, Suffix, _) ->
-    {filename:join(Prefix),filename:join(Suffix)}.
+    split_filename(Rest, [Comp|Prefix], Suffix, Len+length(Comp));
+split_filename([], Prefix, [], _Len) ->
+    {filename:join(Prefix), ""};
+split_filename([], Prefix, Suffix, _Len) ->
+    {filename:join(Prefix), filename:join(Suffix)}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
