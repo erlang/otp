@@ -127,11 +127,13 @@ runq_got_work_to_execute_flags(Uint32 flags)
     return !ERTS_IS_RUNQ_EMPTY_FLGS(flags);
 }
 
+#ifdef ERTS_SMP
 static ERTS_INLINE int
 runq_got_work_to_execute(ErtsRunQueue *rq)
 {
     return runq_got_work_to_execute_flags(ERTS_RUNQ_FLGS_GET_NOB(rq));
 }
+#endif
 
 #undef RUNQ_READ_RQ
 #undef RUNQ_SET_RQ
