@@ -270,12 +270,14 @@ init({call, From}, {start, Timeout},
 			  session =
 			      Session0#session{session_id = Hello#client_hello.session_id},
 			  start_or_recv_from = From,
-			  timer = Timer},
+			  timer = Timer,
+                          flight_state = {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT}
+                         },
     {Record, State} = next_record(State3),
     next_event(hello, Record, State);
 init({call, _} = Type, Event, #state{role = server, transport_cb = gen_udp} = State) ->
     ssl_connection:init(Type, Event, 
-			State#state{flight_state = {waiting, undefined, ?INITIAL_RETRANSMIT_TIMEOUT}},
+			State#state{flight_state = {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT}},
 			?MODULE);
 init({call, _} = Type, Event, #state{role = server} = State) ->
     %% I.E. DTLS over sctp
@@ -446,15 +448,15 @@ downgrade(Type, Event, State) ->
 
 %% raw data from socket, unpack records
 handle_info({_,flight_retransmission_timeout}, connection, _) ->
-    {next_state, keep_state_and_data};
+    {keep_state_and_data, []};
 handle_info({Ref, flight_retransmission_timeout}, StateName, 
 	    #state{flight_state = {waiting, Ref, NextTimeout}} = State0) ->
-    State1 = send_handshake_flight(State0#state{flight_state = {retransmit_timer, NextTimeout}}, 
+    State1 = send_handshake_flight(State0#state{flight_state = {retransmit, NextTimeout}}, 
 				   retransmit_epoch(StateName, State0)),
     {Record, State} = next_record(State1),
     next_event(StateName, Record, State);
 handle_info({_, flight_retransmission_timeout}, _, _) ->
-    {next_state, keep_state_and_data};
+    {keep_state_and_data, []};
 handle_info({Protocol, _, _, _, Data}, StateName,
             #state{data_tag = Protocol} = State0) ->
     case next_dtls_record(Data, State0) of
@@ -775,17 +777,21 @@ next_flight(Flight) ->
     Flight#{handshakes => [],
 	    change_cipher_spec => undefined,
 	    handshakes_after_change_cipher_spec => []}.
-
 	
 start_flight(#state{transport_cb = gen_udp,
-		    flight_state = {retransmit_timer, Timeout}} = State) ->
-    Ref = erlang:make_ref(),
-    _ = erlang:send_after(Timeout, self(), {Ref, flight_retransmission_timeout}),    
-    State#state{flight_state = {waiting, Ref, new_timeout(Timeout)}};
-
+		    flight_state = {retransmit, Timeout}} = State) ->
+    start_retransmision_timer(Timeout, State);
+start_flight(#state{transport_cb = gen_udp,
+		    flight_state = {waiting, _, Timeout}} = State) ->
+    start_retransmision_timer(Timeout, State);
 start_flight(State) ->
     %% No retransmision needed i.e DTLS over SCTP
     State#state{flight_state = reliable}.
+
+start_retransmision_timer(Timeout, State) ->
+    Ref = erlang:make_ref(),
+    _ = erlang:send_after(Timeout, self(), {Ref, flight_retransmission_timeout}),    
+    State#state{flight_state = {waiting, Ref, new_timeout(Timeout)}}.
 
 new_timeout(N) when N =< 30 -> 
     N * 2;
