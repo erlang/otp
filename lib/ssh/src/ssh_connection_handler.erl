@@ -429,14 +429,16 @@ key_exchange(#ssh_msg_kexdh_reply{} = Msg,
 
 key_exchange(#ssh_msg_kex_dh_gex_request{} = Msg, 
 	     #state{ssh_params = #ssh{role = server} = Ssh0} = State) ->
-    {ok, GexGroup, Ssh} = ssh_transport:handle_kex_dh_gex_request(Msg, Ssh0),
+    {ok, GexGroup, Ssh1} = ssh_transport:handle_kex_dh_gex_request(Msg, Ssh0),
     send_msg(GexGroup, State),
+    Ssh = ssh_transport:parallell_gen_key(Ssh1),
     {next_state, key_exchange_dh_gex_init, next_packet(State#state{ssh_params = Ssh})};
 
 key_exchange(#ssh_msg_kex_dh_gex_request_old{} = Msg, 
 	     #state{ssh_params = #ssh{role = server} = Ssh0} = State) ->
-    {ok, GexGroup, Ssh} = ssh_transport:handle_kex_dh_gex_request(Msg, Ssh0),
+    {ok, GexGroup, Ssh1} = ssh_transport:handle_kex_dh_gex_request(Msg, Ssh0),
     send_msg(GexGroup, State),
+    Ssh = ssh_transport:parallell_gen_key(Ssh1),
     {next_state, key_exchange_dh_gex_init, next_packet(State#state{ssh_params = Ssh})};
 
 key_exchange(#ssh_msg_kex_dh_gex_group{} = Msg, 
