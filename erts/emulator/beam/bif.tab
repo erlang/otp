@@ -670,9 +670,3 @@ gcbif erlang:ceil/1
 bif math:floor/1
 bif math:ceil/1
 bif math:fmod/2
-
-#
-# Obsolete
-#
-
-bif erlang:hash/2

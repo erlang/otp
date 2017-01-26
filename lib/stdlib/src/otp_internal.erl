@@ -47,9 +47,6 @@ obsolete(Module, Name, Arity) ->
 obsolete_1(net, _, _) ->
     {deprecated, "module 'net' obsolete; use 'net_adm'"};
 
-obsolete_1(erlang, hash, 2) ->
-    {deprecated, {erlang, phash2, 2}};
-
 obsolete_1(erlang, now, 0) ->
     {deprecated,
      "Deprecated BIF. See the \"Time and Time Correction in Erlang\" "
@@ -552,6 +549,13 @@ obsolete_1(overload, _, _) ->
     {removed, "removed in OTP 19"};
 obsolete_1(rpc, safe_multi_server_call, A) when A =:= 2; A =:= 3 ->
     {removed, {rpc, multi_server_call, A}};
+
+%% Removed in OTP 20.
+
+obsolete_1(erlang, hash, 2) ->
+    {removed, {erlang, phash2, 2}, "20.0"};
+
+%% not obsolete
 
 obsolete_1(_, _, _) ->
     no.

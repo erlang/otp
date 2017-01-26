@@ -316,7 +316,6 @@ ms() ->
      mnesia_loader,
      mnesia_frag,
      mnesia_frag_hash,
-     mnesia_frag_old_hash,
      mnesia_index,
      mnesia_kernel_sup,
      mnesia_late_loader,
