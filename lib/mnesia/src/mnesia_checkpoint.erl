@@ -909,7 +909,7 @@ retainer_loop(Cp = #checkpoint_args{name=Name}) ->
 	    retainer_loop(Cp2);
 
 	{From, {iter_end, Iter}}  ->
-	    retainer_fixtable(Iter#iter.oid_tab, false),
+	    ?SAFE(retainer_fixtable(Iter#iter.oid_tab, false)),
 	    Iters = Cp#checkpoint_args.iterators -- [Iter],
 	    reply(From, Name, ok),
 	    retainer_loop(Cp#checkpoint_args{iterators = Iters});
@@ -971,7 +971,8 @@ do_stop(Cp) ->
     unset({checkpoint, Name}),
     lists:foreach(fun deactivate_tab/1, Cp#checkpoint_args.retainers),
     Iters = Cp#checkpoint_args.iterators,
-    lists:foreach(fun(I) -> retainer_fixtable(I#iter.oid_tab, false) end, Iters).
+    [?SAFE(retainer_fixtable(Tab, false)) || #iter{main_tab=Tab} <- Iters],
+    ok.
 
 deactivate_tab(R) ->
     Name = R#retainer.cp_name,
@@ -1151,7 +1152,7 @@ do_change_copy(Cp, Tab, FromType, ToType) ->
     Cp#checkpoint_args{retainers = Rs, nodes = writers(Rs)}.
 
 check_iter(From, Iter) when Iter#iter.pid == From ->
-    retainer_fixtable(Iter#iter.oid_tab, false),
+    ?SAFE(retainer_fixtable(Iter#iter.oid_tab, false)),
     false;
 check_iter(_From, _Iter) ->
     true.
