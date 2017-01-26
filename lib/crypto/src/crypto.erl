@@ -547,9 +547,15 @@ exor(Bin1, Bin2) ->
 generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
 
-generate_key(dh, DHParameters, PrivateKey) ->
+generate_key(dh, DHParameters0, PrivateKey) ->
+    {DHParameters, Len} =
+        case DHParameters0 of
+            [P,G,L] -> {[P,G], L};
+            [P,G] -> {[P,G], 0}
+        end,
     dh_generate_key_nif(ensure_int_as_bin(PrivateKey),
-			map_ensure_int_as_bin(DHParameters), 0);
+			map_ensure_int_as_bin(DHParameters),
+                        0, Len);
 
 generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, PrivArg)
   when is_binary(Verifier), is_binary(Generator), is_binary(Prime), is_atom(Version) ->
@@ -1201,11 +1207,11 @@ dh_check([_Prime,_Gen]) -> ?nif_stub.
 			     {binary(),binary()}.
 
 dh_generate_key(DHParameters) ->
-    dh_generate_key_nif(undefined, map_mpint_to_bin(DHParameters), 4).
+    dh_generate_key_nif(undefined, map_mpint_to_bin(DHParameters), 4, 0).
 dh_generate_key(PrivateKey, DHParameters) ->
-    dh_generate_key_nif(mpint_to_bin(PrivateKey), map_mpint_to_bin(DHParameters), 4).
+    dh_generate_key_nif(mpint_to_bin(PrivateKey), map_mpint_to_bin(DHParameters), 4, 0).
 
-dh_generate_key_nif(_PrivateKey, _DHParameters, _Mpint) -> ?nif_stub.
+dh_generate_key_nif(_PrivateKey, _DHParameters, _Mpint, _Length) -> ?nif_stub.
 
 %% DHParameters = [P (Prime)= mpint(), G(Generator) = mpint()]
 %% MyPrivKey, OthersPublicKey = mpint()
