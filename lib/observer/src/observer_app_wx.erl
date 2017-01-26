@@ -191,8 +191,8 @@ handle_event(#wx{event=#wxMouse{type=Type, x=X0, y=Y0}},
     end;
 
 handle_event(#wx{event=#wxCommand{type=command_menu_selected}},
-	     State = #state{sel=undefined}) ->
-    observer_lib:display_info_dialog("Select process first"),
+	     State = #state{panel=Panel,sel=undefined}) ->
+    observer_lib:display_info_dialog(Panel,"Select process first"),
     {noreply, State};
 
 handle_event(#wx{id=?ID_PROC_INFO, event=#wxCommand{type=command_menu_selected}},
@@ -205,7 +205,7 @@ handle_event(#wx{id=?ID_PROC_MSG, event=#wxCommand{type=command_menu_selected}},
     case observer_lib:user_term(Panel, "Enter message", "") of
 	cancel ->         ok;
 	{ok, Term} ->     Pid ! Term;
-	{error, Error} -> observer_lib:display_info_dialog(Error)
+	{error, Error} -> observer_lib:display_info_dialog(Panel,Error)
     end,
     {noreply, State};
 
@@ -214,7 +214,7 @@ handle_event(#wx{id=?ID_PROC_KILL, event=#wxCommand{type=command_menu_selected}}
     case observer_lib:user_term(Panel, "Enter Exit Reason", "kill") of
 	cancel ->         ok;
 	{ok, Term} ->     exit(Pid, Term);
-	{error, Error} -> observer_lib:display_info_dialog(Error)
+	{error, Error} -> observer_lib:display_info_dialog(Panel,Error)
     end,
     {noreply, State};
 
