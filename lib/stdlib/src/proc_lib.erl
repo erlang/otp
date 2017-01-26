@@ -511,7 +511,7 @@ my_info_1(Class, Reason) ->
      get_process_info(self(), registered_name),         
      {error_info, {Class,Reason,erlang:get_stacktrace()}}, 
      get_ancestors(self()),        
-     get_process_info(self(), messages),
+     get_process_messages(self()),
      get_process_info(self(), links),
      get_cleaned_dictionary(self()),
      get_process_info(self(), trap_exit),
@@ -530,6 +530,12 @@ get_ancestors(Pid) ->
 	_ ->
 	    {ancestors,[]}
     end.
+
+-spec get_process_messages(pid()) -> {messages, list()}.
+
+get_process_messages(Pid) ->
+    {messages, L} = get_process_info(Pid, messages),
+    {messages, lists:sublist(L, 8)}.
 
 get_cleaned_dictionary(Pid) ->
     case get_process_info(Pid,dictionary) of
@@ -580,7 +586,7 @@ make_neighbour_report(Pid) ->
    get_initial_call(Pid),
    get_process_info(Pid, current_function),
    get_ancestors(Pid),
-   get_process_info(Pid, messages),
+   get_process_messages(Pid),
    get_process_info(Pid, links),
    get_cleaned_dictionary(Pid),
    get_process_info(Pid, trap_exit),
