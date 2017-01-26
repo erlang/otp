@@ -125,10 +125,10 @@ file_to_crls(File, DbHandle) ->
 %% Description:  Validates ssl/tls specific extensions
 %%--------------------------------------------------------------------
 validate(_,{extension, #'Extension'{extnID = ?'id-ce-extKeyUsage',
-				    extnValue = KeyUse}}, {Role, _,_, _, _}) ->
+				    extnValue = KeyUse}}, R = {Role, _,_, _, _}) ->
     case is_valid_extkey_usage(KeyUse, Role) of
 	true ->
-	    {valid, Role};
+	    {valid, R};
 	false ->
 	    {fail, {bad_cert, invalid_ext_key_usage}}
     end;
