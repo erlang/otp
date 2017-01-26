@@ -48,6 +48,7 @@
 	 pkix_issuer_id/2,
 	 pkix_normalize_name/1,
 	 pkix_path_validation/3,
+	 pkix_verify_hostname/2, pkix_verify_hostname/3,
 	 ssh_decode/2, ssh_encode/2,
 	 ssh_hostkey_fingerprint/1, ssh_hostkey_fingerprint/2,
 	 ssh_curvename2oid/1, oid2ssh_curvename/1,
@@ -763,6 +764,76 @@ pkix_crls_validate(OtpCert, DPAndCRLs0, Options) ->
     pkix_crls_validate(OtpCert, DPAndCRLs, DPAndCRLs,
 		       Options, pubkey_crl:init_revokation_state()).
 
+%--------------------------------------------------------------------
+-spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
+			   ReferenceIDs :: [{uri_id | dns_id | oid(),  string()}]) -> boolean().
+
+-spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
+			   ReferenceIDs :: [{uri_id | dns_id | oid(),  string()}],
+			   Options :: proplists:proplist()) -> boolean().
+
+%% Description: Validates a hostname to RFC 6125
+%%--------------------------------------------------------------------
+pkix_verify_hostname(Cert, ReferenceIDs) ->
+    pkix_verify_hostname(Cert, ReferenceIDs, []).
+
+pkix_verify_hostname(BinCert, ReferenceIDs, Options)  when is_binary(BinCert) ->
+    pkix_verify_hostname(pkix_decode_cert(BinCert,otp), ReferenceIDs, Options);
+
+pkix_verify_hostname(Cert = #'OTPCertificate'{tbsCertificate = TbsCert}, ReferenceIDs0, Opts) ->
+    MatchFun = proplists:get_value(match_fun,     Opts, undefined),
+    FailCB   = proplists:get_value(fail_callback, Opts, fun(_Cert) -> false end),
+    FqdnFun  = proplists:get_value(fqdn_fun,      Opts, fun verify_hostname_extract_fqdn_default/1),
+
+    ReferenceIDs = [{T,to_string(V)} || {T,V} <- ReferenceIDs0],
+    PresentedIDs =
+	try lists:keyfind(?'id-ce-subjectAltName',
+			  #'Extension'.extnID,
+			  TbsCert#'OTPTBSCertificate'.extensions)
+	of
+	    #'Extension'{extnValue = ExtVals} ->
+		[{T,to_string(V)} || {T,V} <- ExtVals];
+	    false ->
+		[]
+	catch
+	    _:_ -> []
+	end,
+    %% PresentedIDs example: [{dNSName,"ewstest.ericsson.com"}, {dNSName,"www.ericsson.com"}]}
+    case PresentedIDs of
+	[] ->
+	    %% Fallback to CN-ids [rfc6125, ch6]
+	    case TbsCert#'OTPTBSCertificate'.subject of
+		{rdnSequence,RDNseq} ->
+		    PresentedCNs =
+			[{cn, to_string(V)}
+			 || ATVs <- RDNseq, % RDNseq is list-of-lists
+			    #'AttributeTypeAndValue'{type = ?'id-at-commonName',
+						     value = {_T,V}} <- ATVs
+						% _T = kind of string (teletexString etc)
+			],
+		    %% Example of PresentedCNs:  [{cn,"www.ericsson.se"}]
+		    %% match ReferenceIDs to PresentedCNs
+		    verify_hostname_match_loop(verify_hostname_fqnds(ReferenceIDs, FqdnFun),
+					       PresentedCNs,
+					       MatchFun, FailCB, Cert);
+		
+		_ ->
+		    false
+	    end;
+	_ ->
+	    %% match ReferenceIDs to PresentedIDs
+	    case verify_hostname_match_loop(ReferenceIDs, PresentedIDs,
+					    MatchFun, FailCB, Cert) of
+		false ->
+		    %% Try to extract DNS-IDs from URIs etc
+		    DNS_ReferenceIDs =
+			[{dns_is,X} || X <- verify_hostname_fqnds(ReferenceIDs, FqdnFun)],
+		    verify_hostname_match_loop(DNS_ReferenceIDs, PresentedIDs,
+					       MatchFun, FailCB, Cert);
+		true ->
+		    true
+	    end
+    end.
 
 %%--------------------------------------------------------------------
 -spec ssh_decode(binary(), public_key | ssh_file()) -> [{public_key(), Attributes::list()}]
@@ -1197,3 +1268,96 @@ ascii_to_lower(String) ->
           end)>>
        ||
         <<C>> <= iolist_to_binary(String) >>.
+
+%%%----------------------------------------------------------------
+%%% pkix_verify_hostname help functions
+verify_hostname_extract_fqdn_default({dns_id,S}) ->
+    S;
+verify_hostname_extract_fqdn_default({uri_id,URI}) ->
+    {ok,{https,_,Host,_,_,_}} = http_uri:parse(URI),
+    Host.
+
+
+verify_hostname_fqnds(L, FqdnFun) ->
+    [E || E0 <- L,
+	  E <- [try case FqdnFun(E0) of
+			default -> verify_hostname_extract_fqdn_default(E0);
+                        undefined -> undefined; % will make the "is_list(E)" test fail
+			Other -> Other
+		    end
+		catch _:_-> undefined % will make the "is_list(E)" test fail
+		end],
+	  is_list(E),
+	  E =/= "",
+	  {error,einval} == inet:parse_address(E)
+    ].
+
+
+-define(srvName_OID, {1,3,6,1,4,1,434,2,2,1,37,0}).
+
+verify_hostname_match_default(Ref, Pres) ->
+    verify_hostname_match_default0(to_lower_ascii(Ref), to_lower_ascii(Pres)).
+
+verify_hostname_match_default0(FQDN=[_|_], {cn,FQDN}) -> 
+    not lists:member($*, FQDN);
+verify_hostname_match_default0(FQDN=[_|_], {cn,Name=[_|_]}) -> 
+    [F1|Fs] = string:tokens(FQDN, "."),
+    [N1|Ns] = string:tokens(Name, "."),
+    match_wild(F1,N1) andalso Fs==Ns;
+verify_hostname_match_default0({dns_id,R}, {dNSName,P}) ->
+    R==P;
+verify_hostname_match_default0({uri_id,R}, {uniformResourceIdentifier,P}) ->
+    R==P;
+verify_hostname_match_default0({srv_id,R}, {T,P}) when T == srvName ;
+                                                       T == ?srvName_OID ->
+    R==P;
+verify_hostname_match_default0(_, _) ->
+    false.
+
+
+match_wild(A,     [$*|B]) -> match_wild_suffixes(A, B);
+match_wild([C|A], [ C|B]) -> match_wild(A, B);
+match_wild([],        []) -> true;
+match_wild(_,          _) -> false.
+
+%% Match the parts after the only wildcard by comparing them from the end
+match_wild_suffixes(A, B) -> match_wild_sfx(lists:reverse(A), lists:reverse(B)).
+
+match_wild_sfx([$*|_],      _) -> false; % Bad name (no wildcards alowed)
+match_wild_sfx(_,      [$*|_]) -> false; % Bad pattern (no more wildcards alowed)
+match_wild_sfx([A|Ar], [A|Br]) -> match_wild_sfx(Ar, Br);
+match_wild_sfx(Ar,         []) -> not lists:member($*, Ar); % Chk for bad name (= wildcards)
+match_wild_sfx(_,           _) -> false.
+    
+
+verify_hostname_match_loop(Refs0, Pres0, undefined, FailCB, Cert) ->
+    Pres = lists:map(fun to_lower_ascii/1, Pres0),
+    Refs = lists:map(fun to_lower_ascii/1, Refs0),
+    lists:any(
+      fun(R) ->
+	      lists:any(fun(P) ->
+                                verify_hostname_match_default(R,P) orelse FailCB(Cert)
+			end, Pres)
+      end, Refs);
+verify_hostname_match_loop(Refs, Pres, MatchFun, FailCB, Cert) ->
+    lists:any(
+      fun(R) ->
+	      lists:any(fun(P) ->
+				(case MatchFun(R,P) of
+				     default -> verify_hostname_match_default(R,P);
+				     Bool -> Bool
+				 end) orelse FailCB(Cert)
+			end,
+			Pres)
+      end,
+      Refs).
+
+
+to_lower_ascii(S) when is_list(S) -> lists:map(fun to_lower_ascii/1, S);
+to_lower_ascii({T,S}) -> {T, to_lower_ascii(S)};
+to_lower_ascii(C) when $A =< C,C =< $Z -> C + ($a-$A);
+to_lower_ascii(C) -> C.
+
+to_string(S) when is_list(S) -> S;
+to_string(B) when is_binary(B) -> binary_to_list(B).
+
