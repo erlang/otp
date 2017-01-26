@@ -148,19 +148,19 @@ socket_control(Connection, Socket, Pid, Transport) ->
 %%--------------------------------------------------------------------	    
 socket_control(Connection, Socket, Pid, Transport, udp_listner) ->
     %% dtls listner process must have the socket control
-    {ok, dtls_socket:socket(Pid, Transport, Socket, Connection)};
+    {ok, Connection:socket(Pid, Transport, Socket, Connection, undefined)};
 
 socket_control(tls_connection = Connection, Socket, Pid, Transport, ListenTracker) ->
     case Transport:controlling_process(Socket, Pid) of
 	ok ->
-	    {ok, tls_socket:socket(Pid, Transport, Socket, Connection, ListenTracker)};
+	    {ok, Connection:socket(Pid, Transport, Socket, Connection, ListenTracker)};
 	{error, Reason}	->
 	    {error, Reason}
     end;
 socket_control(dtls_connection = Connection, {_, Socket}, Pid, Transport, ListenTracker) ->
     case Transport:controlling_process(Socket, Pid) of
 	ok ->
-	    {ok, tls_socket:socket(Pid, Transport, Socket, Connection, ListenTracker)};
+	    {ok, Connection:socket(Pid, Transport, Socket, Connection, ListenTracker)};
 	{error, Reason}	->
 	    {error, Reason}
     end.
@@ -363,11 +363,13 @@ init({call, From}, {start, Timeout}, State0, Connection) ->
 							  timer = Timer}),
     Connection:next_event(hello, Record, State);
 init({call, From}, {start, {Opts, EmOpts}, Timeout}, 
-     #state{role = Role} = State0, Connection) ->
+     #state{role = Role, ssl_options = OrigSSLOptions,
+            socket_options = SockOpts} = State0, Connection) ->
     try 
-	State = ssl_config(Opts, Role, State0),
+        SslOpts = ssl:handle_options(Opts, OrigSSLOptions),
+	State = ssl_config(SslOpts, Role, State0),
 	init({call, From}, {start, Timeout}, 
-	     State#state{ssl_options = Opts, socket_options = EmOpts}, Connection)
+	     State#state{ssl_options = SslOpts, socket_options = new_emulated(EmOpts, SockOpts)}, Connection)
     catch throw:Error ->
 	    {stop_and_reply, normal, {reply, From, {error, Error}}}
     end;
@@ -2305,7 +2307,7 @@ format_reply(_, _,#socket_options{active = false, mode = Mode, packet = Packet,
     {ok, do_format_reply(Mode, Packet, Header, Data)};
 format_reply(Transport, Socket, #socket_options{active = _, mode = Mode, packet = Packet,
 						header = Header}, Data, Tracker, Connection) ->
-    {ssl, tls_socket:socket(self(), Transport, Socket, Connection, Tracker), 
+    {ssl, Connection:socket(self(), Transport, Socket, Connection, Tracker), 
      do_format_reply(Mode, Packet, Header, Data)}.
 
 deliver_packet_error(Transport, Socket, SO= #socket_options{active = Active}, Data, Pid, From, Tracker, Connection) ->
@@ -2314,7 +2316,7 @@ deliver_packet_error(Transport, Socket, SO= #socket_options{active = Active}, Da
 format_packet_error(_, _,#socket_options{active = false, mode = Mode}, Data, _, _) ->
     {error, {invalid_packet, do_format_reply(Mode, raw, 0, Data)}};
 format_packet_error(Transport, Socket, #socket_options{active = _, mode = Mode}, Data, Tracker, Connection) ->
-    {ssl_error, tls_socket:socket(self(), Transport, Socket, Connection, Tracker), 
+    {ssl_error, Connection:socket(self(), Transport, Socket, Connection, Tracker), 
      {invalid_packet, do_format_reply(Mode, raw, 0, Data)}}.
 
 do_format_reply(binary, _, N, Data) when N > 0 ->  % Header mode
@@ -2369,11 +2371,11 @@ alert_user(Transport, Tracker, Socket, Active, Pid, From, Alert, Role, Connectio
     case ssl_alert:reason_code(Alert, Role) of
 	closed ->
 	    send_or_reply(Active, Pid, From,
-			  {ssl_closed, tls_socket:socket(self(), 
+			  {ssl_closed, Connection:socket(self(), 
 							 Transport, Socket, Connection, Tracker)});
 	ReasonCode ->
 	    send_or_reply(Active, Pid, From,
-			  {ssl_error, tls_socket:socket(self(), 
+			  {ssl_error, Connection:socket(self(), 
 							Transport, Socket, Connection, Tracker), ReasonCode})
     end.
 
@@ -2472,3 +2474,8 @@ update_ssl_options_from_sni(OrigSSLOptions, SNIHostname) ->
         _ ->
             ssl:handle_options(SSLOption, OrigSSLOptions)
     end.
+
+new_emulated([], EmOpts) ->
+    EmOpts;
+new_emulated(NewEmOpts, _) ->
+    NewEmOpts.

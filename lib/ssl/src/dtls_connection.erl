@@ -53,7 +53,7 @@
 %% Data handling
 
 -export([encode_data/3, passive_receive/2,  next_record_if_active/1, handle_common_event/4,
-	 send/3]).
+	 send/3, socket/5]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -212,6 +212,9 @@ select_sni_extension(#client_hello{extensions = HelloExtensions}) ->
     HelloExtensions#hello_extensions.sni;
 select_sni_extension(_) ->
     undefined.
+
+socket(Pid,  Transport, Socket, Connection, _) ->
+    dtls_socket:socket(Pid, Transport, Socket, Connection).
 
 %%====================================================================
 %% tls_connection_sup API
@@ -846,3 +849,4 @@ unprocessed_events(Events) ->
     %% handshake events left to process before we should
     %% process more TLS-records received on the socket. 
     erlang:length(Events)-1.
+

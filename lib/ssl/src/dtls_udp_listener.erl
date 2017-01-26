@@ -24,7 +24,8 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/4, active_once/3, accept/2, sockname/1]).
+-export([start_link/4, active_once/3, accept/2, sockname/1, close/1,
+        get_all_opts/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -39,7 +40,8 @@
 	 clients = set_new(),
 	 dtls_processes = kv_new(),
 	 accepters  = queue:new(),
-	 first
+	 first,
+         close
 	}).
 
 %%%===================================================================
@@ -53,10 +55,14 @@ active_once(UDPConnection, Client, Pid) ->
     gen_server:cast(UDPConnection, {active_once, Client, Pid}).
 
 accept(UDPConnection, Accepter) ->
-    gen_server:call(UDPConnection, {accept, Accepter}, infinity).
+    call(UDPConnection, {accept, Accepter}).
 
 sockname(UDPConnection) ->
-    gen_server:call(UDPConnection, sockname, infinity).
+    call(UDPConnection, sockname).
+close(UDPConnection) ->
+    call(UDPConnection, close).
+get_all_opts(UDPConnection) ->
+    call(UDPConnection, get_all_opts).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -69,10 +75,13 @@ init([Port, EmOpts, InetOptions, DTLSOptions]) ->
 		    first = true,
 		    dtls_options = DTLSOptions,
 		    emulated_options = EmOpts,
-		    listner = Socket}}
+		    listner = Socket,
+                    close = false}}
     catch _:_ ->
 	    {error, closed}
     end.
+handle_call({accept, _}, _, #state{close = true} = State) ->
+    {reply, {error, closed}, State};
 
 handle_call({accept, Accepter}, From, #state{first = true,
 					     accepters = Accepters,
@@ -87,7 +96,21 @@ handle_call({accept, Accepter}, From, #state{accepters = Accepters} = State0) ->
     {noreply, State};
 handle_call(sockname, _, #state{listner = Socket} = State) ->
     Reply = inet:sockname(Socket),
-    {reply, Reply, State}.
+    {reply, Reply, State};
+handle_call(close, _, #state{dtls_processes = Processes,
+                             accepters = Accepters} = State) ->
+    case kv_empty(Processes) of
+        true ->
+            {stop, normal, ok, State#state{close=true}};
+        false -> 
+            lists:foreach(fun({_, From}) ->
+                                  gen_server:reply(From, {error, closed})
+                          end, queue:to_list(Accepters)),
+            {reply, ok,  State#state{close = true, accepters = queue:new()}}
+    end;
+handle_call(get_all_opts, _, #state{dtls_options = DTLSOptions,
+                                    emulated_options = EmOpts} = State) ->
+    {reply, {ok, EmOpts, DTLSOptions}, State}.
 
 handle_cast({active_once, Client, Pid}, State0) ->
     State = handle_active_once(Client, Pid, State0),
@@ -99,11 +122,17 @@ handle_info({udp, Socket, IP, InPortNo, _} = Msg, #state{listner = Socket} = Sta
     {noreply, State};
 
 handle_info({'DOWN', _, process, Pid, _}, #state{clients = Clients,
-						 dtls_processes = Processes0} = State) ->
+						 dtls_processes = Processes0,
+                                                 close = ListenClosed} = State) ->
     Client = kv_get(Pid, Processes0),
     Processes = kv_delete(Pid, Processes0),
-    {noreply, State#state{clients = set_delete(Client, Clients),
-			  dtls_processes = Processes}}.
+    case ListenClosed andalso kv_empty(Processes) of
+        true ->
+            {stop, normal, State};
+        false ->
+            {noreply, State#state{clients = set_delete(Client, Clients),
+                                  dtls_processes = Processes}}
+    end.
 
 terminate(_Reason, _State) ->
     ok.
@@ -182,6 +211,7 @@ setup_new_connection(User, From, Client, Msg, #state{dtls_processes = Processes,
 	    gen_server:reply(From, {error, Reason}),
 	    State
     end.
+
 kv_update(Key, Value, Store) ->
     gb_trees:update(Key, Value, Store).
 kv_lookup(Key, Store) ->
@@ -194,6 +224,8 @@ kv_delete(Key, Store) ->
     gb_trees:delete(Key, Store).
 kv_new() ->
     gb_trees:empty().
+kv_empty(Store) ->
+    gb_trees:is_empty(Store).
 
 set_new() ->
     gb_sets:empty().
@@ -203,3 +235,15 @@ set_delete(Item, Set) ->
     gb_sets:delete(Item, Set).
 set_is_member(Item, Set) ->
     gb_sets:is_member(Item, Set).
+
+call(Server, Msg) ->
+    try
+        gen_server:call(Server, Msg, infinity)
+    catch
+	exit:{noproc, _} ->
+	    {error, closed};
+        exit:{normal, _} ->
+            {error, closed};
+        exit:{{shutdown, _},_} ->
+            {error, closed}
+    end.

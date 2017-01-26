@@ -71,11 +71,14 @@ connect(Address, Port, #config{transport_info = {Transport, _, _, _} = CbInfo,
 close(gen_udp, {_Client, _Socket}) ->
     ok.
 
+socket(Pid, gen_udp = Transport, {{_, _}, Socket}, ConnectionCb) ->
+    #sslsocket{pid = Pid, 
+	       %% "The name "fd" is keept for backwards compatibility
+	       fd = {Transport, Socket, ConnectionCb}};
 socket(Pid, Transport, Socket, ConnectionCb) ->
     #sslsocket{pid = Pid, 
 	       %% "The name "fd" is keept for backwards compatibility
-	       fd = {Transport, Socket, ConnectionCb}}.	
-
+	       fd = {Transport, Socket, ConnectionCb}}.
 %% Vad göra med emulerade
 setopts(gen_udp, #sslsocket{pid = {Socket, _}}, Options) ->
     {SockOpts, _} = tls_socket:split_options(Options),
@@ -108,11 +111,15 @@ getstat(gen_udp, {_,Socket}, Options) ->
 	inet:getstat(Socket, Options);
 getstat(Transport, Socket, Options) ->
 	Transport:getstat(Socket, Options).
+peername(udp, _) ->
+    {error, enotconn};
 peername(gen_udp, {_, {Client, _Socket}}) ->
     {ok, Client};
 peername(Transport, Socket) ->
     Transport:peername(Socket).
-sockname(gen_udp, {_,Socket}) ->
+sockname(gen_udp, {_, {_,Socket}}) ->
+    inet:sockname(Socket);
+sockname(gen_udp, Socket) ->
     inet:sockname(Socket);
 sockname(Transport, Socket) ->
     Transport:sockname(Socket).

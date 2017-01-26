@@ -288,8 +288,6 @@ do_handle_fragments(_, [], Buffers, Acc) ->
     {lists:reverse(Acc), Buffers};
 do_handle_fragments(Version, [Fragment | Fragments], Buffers0, Acc) ->
     case reassemble(Version, Fragment, Buffers0) of
-	{more_data, _} = More when Acc == []->
-	    More;
 	{more_data, Buffers} when Fragments == [] ->
 	    {lists:reverse(Acc), Buffers};
 	{more_data, Buffers} ->

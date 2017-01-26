@@ -407,20 +407,16 @@ cert_options(Config) ->
 		   {user_lookup_fun, {fun user_lookup/3, PskSharedSecret}}]},
      {server_psk, [{ssl_imp, new},{reuseaddr, true},
 		   {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
-		   {user_lookup_fun, {fun user_lookup/3, PskSharedSecret}},
-		   {ciphers, psk_suites()}]},
+		   {user_lookup_fun, {fun user_lookup/3, PskSharedSecret}}]},
      {server_psk_hint, [{ssl_imp, new},{reuseaddr, true},
 			{certfile, ServerCertFile}, {keyfile, ServerKeyFile},
 			{psk_identity, "HINT"},
-			{user_lookup_fun, {fun user_lookup/3, PskSharedSecret}},
-			{ciphers, psk_suites()}]},
+			{user_lookup_fun, {fun user_lookup/3, PskSharedSecret}}]},
      {server_psk_anon, [{ssl_imp, new},{reuseaddr, true},
-			{user_lookup_fun, {fun user_lookup/3, PskSharedSecret}},
-			{ciphers, psk_anon_suites()}]},
+			{user_lookup_fun, {fun user_lookup/3, PskSharedSecret}}]},
      {server_psk_anon_hint, [{ssl_imp, new},{reuseaddr, true},
 			     {psk_identity, "HINT"},
-			     {user_lookup_fun, {fun user_lookup/3, PskSharedSecret}},
-			     {ciphers, psk_anon_suites()}]},
+			     {user_lookup_fun, {fun user_lookup/3, PskSharedSecret}}]},
      {client_srp, [{ssl_imp, new},{reuseaddr, true},
 		   {srp_identity, {"Test-User", "secret"}}]},
      {server_srp, [{ssl_imp, new},{reuseaddr, true},
@@ -830,17 +826,17 @@ rsa_suites(CounterPart) ->
 		    ({dhe_rsa, des_cbc, sha}) when FIPS == true ->
 			 false;
 		    ({rsa, Cipher, _}) ->
-			 lists:member(Cipher, Ciphers);
+			 lists:member(cipher_atom(Cipher), Ciphers);
 		    ({dhe_rsa, Cipher, _}) ->
-			 lists:member(Cipher, Ciphers);
+			 lists:member(cipher_atom(Cipher), Ciphers);
 		    ({ecdhe_rsa, Cipher, _}) when ECC == true ->
-			 lists:member(Cipher, Ciphers);
+			 lists:member(cipher_atom(Cipher), Ciphers);
 		    ({rsa, Cipher, _, _}) ->
-			 lists:member(Cipher, Ciphers);
+			 lists:member(cipher_atom(Cipher), Ciphers);
 		    ({dhe_rsa, Cipher, _,_}) ->
-			 lists:member(Cipher, Ciphers);
+			 lists:member(cipher_atom(Cipher), Ciphers);
 		    ({ecdhe_rsa, Cipher, _,_}) when ECC == true ->
-			 lists:member(Cipher, Ciphers);
+			 lists:member(cipher_atom(Cipher), Ciphers);
 		    (_) ->
 			 false
 		 end,
@@ -933,44 +929,12 @@ anonymous_suites(Version) ->
     Suites = ssl_cipher:anonymous_suites(Version),
     ssl_cipher:filter_suites(Suites).
 
-psk_suites() ->
-    Suites =
-	[{psk, rc4_128, sha},
-	 {psk, '3des_ede_cbc', sha},
-	 {psk, aes_128_cbc, sha},
-	 {psk, aes_256_cbc, sha},
-	 {psk, aes_128_cbc, sha256},
-	 {psk, aes_256_cbc, sha384},
-	 {dhe_psk, rc4_128, sha},
-	 {dhe_psk, '3des_ede_cbc', sha},
-	 {dhe_psk, aes_128_cbc, sha},
-	 {dhe_psk, aes_256_cbc, sha},
-	 {dhe_psk, aes_128_cbc, sha256},
-	 {dhe_psk, aes_256_cbc, sha384},
-	 {rsa_psk, rc4_128, sha},
-	 {rsa_psk, '3des_ede_cbc', sha},
-	 {rsa_psk, aes_128_cbc, sha},
-	 {rsa_psk, aes_256_cbc, sha},
-	 {rsa_psk, aes_128_cbc, sha256},
-	 {rsa_psk, aes_256_cbc, sha384},
-	 {psk, aes_128_gcm, null, sha256},
-	 {psk, aes_256_gcm, null, sha384},
-	 {dhe_psk, aes_128_gcm, null, sha256},
-	 {dhe_psk, aes_256_gcm, null, sha384},
-	 {rsa_psk, aes_128_gcm, null, sha256},
-	 {rsa_psk, aes_256_gcm, null, sha384}],
+psk_suites(Version) ->
+    Suites = ssl_cipher:psk_suites(Version),
     ssl_cipher:filter_suites(Suites).
 
-psk_anon_suites() ->
-    Suites =
-	[{psk, rc4_128, sha},
-	 {psk, '3des_ede_cbc', sha},
-	 {psk, aes_128_cbc, sha},
-	 {psk, aes_256_cbc, sha},
-	 {dhe_psk, rc4_128, sha},
-	 {dhe_psk, '3des_ede_cbc', sha},
-	 {dhe_psk, aes_128_cbc, sha},
-	 {dhe_psk, aes_256_cbc, sha}],
+psk_anon_suites(Version) ->
+    Suites = [Suite || Suite <- psk_suites(Version), is_psk_anon_suite(Suite)],
     ssl_cipher:filter_suites(Suites).
 
 srp_suites() ->
@@ -1258,8 +1222,8 @@ version_flag(sslv3) ->
 version_flag(sslv2) ->
     "-ssl2".
 
-filter_suites(Ciphers0) ->
-    Version = tls_record:highest_protocol_version([]),
+filter_suites(Ciphers0, AtomVersion) ->
+    Version = tls_version(AtomVersion),
     Supported0 = ssl_cipher:suites(Version)
 	++ ssl_cipher:anonymous_suites(Version)
 	++ ssl_cipher:psk_suites(Version)
@@ -1341,7 +1305,7 @@ protocol_version(Config) ->
 protocol_version(Config, tuple) ->
     case proplists:get_value(protocol, Config) of
 	dtls ->
-	    dtls_record:protocol_version(dtls_record:highest_protocol_version([]));
+	    dtls_record:highest_protocol_version(dtls_record:supported_protocol_versions());
 	_ ->
 	    tls_record:highest_protocol_version(tls_record:supported_protocol_versions())
    end;
@@ -1375,6 +1339,7 @@ clean_env() ->
     application:unset_env(ssl, session_cache_client_max),
     application:unset_env(ssl, session_cache_server_max),
     application:unset_env(ssl, ssl_pem_cache_clean),
+    application:unset_env(ssl, bypass_pem_cache),
     application:unset_env(ssl, alert_timeout).
 
 clean_start() ->
@@ -1382,3 +1347,29 @@ clean_start() ->
     application:load(ssl),
     clean_env(),
     ssl:start().
+
+is_psk_anon_suite({psk, _,_}) ->
+    true;
+is_psk_anon_suite({dhe_psk,_,_}) ->
+    true;
+is_psk_anon_suite({psk, _,_,_}) ->
+    true;
+is_psk_anon_suite({dhe_psk, _,_,_}) ->
+    true;
+is_psk_anon_suite(_) ->
+    false.
+
+cipher_atom(aes_256_cbc) ->
+    aes_cbc256;
+cipher_atom(aes_128_cbc) ->
+    aes_cbc128;
+cipher_atom('3des_ede_cbc') ->
+    des_ede3;
+cipher_atom(Atom) ->
+    Atom.
+tls_version('dtlsv1' = Atom) ->
+    dtls_v1:corresponding_tls_version(dtls_record:protocol_version(Atom));
+tls_version('dtlsv1.2' = Atom) ->
+    dtls_v1:corresponding_tls_version(dtls_record:protocol_version(Atom));
+tls_version(Atom) ->
+    tls_record:protocol_version(Atom).
