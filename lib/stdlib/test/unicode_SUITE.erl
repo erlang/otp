@@ -33,7 +33,9 @@
 	 ex_binaries_errors_utf16_little/1,
 	 ex_binaries_errors_utf16_big/1,
 	 ex_binaries_errors_utf32_little/1,
-	 ex_binaries_errors_utf32_big/1]).
+	 ex_binaries_errors_utf32_big/1,
+         normalize/1
+        ]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -44,6 +46,7 @@ all() ->
      utf16_illegal_sequences_bif, random_lists, roundtrips,
      latin1, exceptions,
      binaries_errors_limit,
+     normalize,
      {group,binaries_errors}].
 
 groups() -> 
@@ -919,6 +922,84 @@ fail_bif_1(Bin,Coding) ->
 	_ ->
 	    ok
     end.
+
+
+normalize(_) ->
+    %% More tests are in unicode_util_SUITE.erl and str_SUITE.erl
+    {'EXIT', _} = (catch unicode:characters_to_nfc_list({tuple})),
+    {'EXIT', _} = (catch unicode:characters_to_nfd_list({tuple})),
+    {'EXIT', _} = (catch unicode:characters_to_nfkc_list({tuple})),
+    {'EXIT', _} = (catch unicode:characters_to_nfkd_list({tuple})),
+    {'EXIT', _} = (catch unicode:characters_to_nfc_binary({tuple})),
+    {'EXIT', _} = (catch unicode:characters_to_nfd_binary({tuple})),
+    {'EXIT', _} = (catch unicode:characters_to_nfkc_binary({tuple})),
+    {'EXIT', _} = (catch unicode:characters_to_nfkd_binary({tuple})),
+    String = ["abc..åäö", <<"Ωµe`è"/utf8>>, "œŒþæÆħ§ß ホンダ"],
+    NFD_l = unicode:characters_to_nfd_list(String),
+    NFD_b = unicode:characters_to_nfd_binary(String),
+    NFC_l = unicode:characters_to_nfc_list(String),
+    NFC_b = unicode:characters_to_nfc_binary(String),
+
+    NFD_l = unicode:characters_to_nfd_list(NFD_l),
+    NFD_l = unicode:characters_to_nfd_list(NFD_b),
+    NFD_l = unicode:characters_to_nfd_list(NFC_l),
+    NFD_l = unicode:characters_to_nfd_list(NFC_b),
+
+    NFD_b = unicode:characters_to_nfd_binary(NFD_b),
+    NFD_b = unicode:characters_to_nfd_binary(NFD_l),
+    NFD_b = unicode:characters_to_nfd_binary(NFC_b),
+    NFD_b = unicode:characters_to_nfd_binary(NFC_l),
+
+    NFC_l = unicode:characters_to_nfc_list(NFD_l),
+    NFC_l = unicode:characters_to_nfc_list(NFD_b),
+    NFC_l = unicode:characters_to_nfc_list(NFC_l),
+    NFC_l = unicode:characters_to_nfc_list(NFC_b),
+
+    NFC_b = unicode:characters_to_nfc_binary(NFD_b),
+    NFC_b = unicode:characters_to_nfc_binary(NFD_l),
+    NFC_b = unicode:characters_to_nfc_binary(NFC_b),
+    NFC_b = unicode:characters_to_nfc_binary(NFC_l),
+
+    Str = [lists:duplicate(20,lists:seq($a, $q))|String],
+    StrD_bin = unicode:characters_to_binary(unicode:characters_to_nfd_list(Str)),
+    StrD_bin = unicode:characters_to_nfd_binary(Str),
+    StrC_bin = unicode:characters_to_binary(unicode:characters_to_nfc_list(StrD_bin)),
+    StrC_bin = unicode:characters_to_nfc_binary(Str),
+
+    NFKD_l = unicode:characters_to_nfkd_list(String),
+    NFKD_b = unicode:characters_to_nfkd_binary(String),
+    NFKC_l = unicode:characters_to_nfkc_list(String),
+    NFKC_b = unicode:characters_to_nfkc_binary(String),
+
+    NFKD_l = unicode:characters_to_nfkd_list(NFKD_l),
+    NFKD_l = unicode:characters_to_nfkd_list(NFKD_b),
+    NFKD_l = unicode:characters_to_nfkd_list(NFKC_l),
+    NFKD_l = unicode:characters_to_nfkd_list(NFKC_b),
+
+    NFKD_b = unicode:characters_to_nfd_binary(NFKD_b),
+    NFKD_b = unicode:characters_to_nfd_binary(NFKD_l),
+    NFKD_b = unicode:characters_to_nfd_binary(NFKC_b),
+    NFKD_b = unicode:characters_to_nfd_binary(NFKC_l),
+
+    NFKC_l = unicode:characters_to_nfc_list(NFKD_l),
+    NFKC_l = unicode:characters_to_nfc_list(NFKD_b),
+    NFKC_l = unicode:characters_to_nfc_list(NFKC_l),
+    NFKC_l = unicode:characters_to_nfc_list(NFKC_b),
+
+    NFKC_b = unicode:characters_to_nfc_binary(NFKD_b),
+    NFKC_b = unicode:characters_to_nfc_binary(NFKD_l),
+    NFKC_b = unicode:characters_to_nfc_binary(NFKC_b),
+    NFKC_b = unicode:characters_to_nfc_binary(NFKC_l),
+
+    StrKD_bin = unicode:characters_to_binary(unicode:characters_to_nfkd_list(Str)),
+    StrKD_bin = unicode:characters_to_nfkd_binary(Str),
+    StrKC_bin = unicode:characters_to_binary(unicode:characters_to_nfkc_list(StrD_bin)),
+    StrKC_bin = unicode:characters_to_nfkc_binary(Str),
+
+    true = unicode:characters_to_nfkc_list("ホンダ") =:= unicode:characters_to_nfkc_list("ﾎﾝﾀﾞ"),
+    true = unicode:characters_to_nfkd_list("32") =:= unicode:characters_to_nfkd_list("３２"),
+    ok.
+
 
 %%
 %% Diverse utilities

@@ -50,8 +50,35 @@
     external entities where this is required. When working inside the
     Erlang/OTP environment, it is recommended to keep binaries in UTF-8 when
     representing Unicode characters. ISO Latin-1 encoding is supported both
-    for backward compatibility and for communication 
-    with external entities not supporting Unicode character sets.</p>
+    for backward compatibility and for communication
+  with external entities not supporting Unicode character sets.</p>
+  <p>Programs should always operate on a normalized form and compare
+  canonical-equivalent Unicode characters as equal. All characters
+  should thus be normalized to one form once on the system borders.
+  One of the following functions can convert characters to their
+  normalized forms <seealso marker="#characters_to_nfc_list/1">
+  <c>characters_to_nfc_list/1</c></seealso>,
+  <seealso marker="#characters_to_nfc_binary/1">
+    <c>characters_to_nfc_binary/1</c></seealso>,
+    <seealso marker="#characters_to_nfd_list/1">
+    <c>characters_to_nfd_list/1</c></seealso> or
+    <seealso marker="#characters_to_nfd_binary/1">
+      <c>characters_to_nfd_binary/1</c></seealso>.
+  For general text
+  <seealso marker="#characters_to_nfc_list/1">
+    <c>characters_to_nfc_list/1</c></seealso> or
+    <seealso marker="#characters_to_nfc_binary/1">
+      <c>characters_to_nfc_binary/1</c></seealso> is preferred, and
+      for identifiers one of the compatibility normalization
+      functions, such as
+      <seealso marker="#characters_to_nfkc_list/1">
+      <c>characters_to_nfkc_list/1</c></seealso>,
+      is preferred for security reasons.
+      The normalization functions where introduced in OTP 20.
+      Additional information on normalization can be found in the
+      <url href="http://unicode.org/faq/normalization.html">Unicode FAQ</url>.
+  </p>
+
   </description>
 
   <datatypes>
@@ -331,6 +358,154 @@ decode_data(Data) ->
           <item>The list structure is invalid (a number as tail).</item>
           <item>The binaries do not contain whole bytes (bit strings).</item>
         </list>
+      </desc>
+    </func>
+
+    <func>
+      <name name="characters_to_nfc_list" arity="1"/>
+      <fsummary>Normalize characters to a list of canonical equivalent
+      composed Unicode characters.</fsummary>
+      <desc>
+        <p>Converts a possibly deep list of characters and binaries
+        into a Normalized Form of canonical equivalent Composed
+        characters according to the Unicode standard.</p>
+	<p>Any binaries in the input must be encoded with utf8
+        encoding.
+	</p>
+	<p>The result is a list of characters.</p>
+        <code>
+3> unicode:characters_to_nfc_list([&lt;&lt;"abc..a">>,[778],$a,[776],$o,[776]]).
+"abc..åäö"
+</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="characters_to_nfc_binary" arity="1"/>
+      <fsummary>Normalize characters to a utf8 binary of canonical equivalent
+      composed Unicode characters.</fsummary>
+      <desc>
+        <p>Converts a possibly deep list of characters and binaries
+        into a Normalized Form of canonical equivalent Composed
+        characters according to the Unicode standard.</p>
+	<p>Any binaries in the input must be encoded with utf8
+        encoding.</p>
+	<p>The result is an utf8 encoded binary.</p>
+        <code>
+4> unicode:characters_to_nfc_binary([&lt;&lt;"abc..a">>,[778],$a,[776],$o,[776]]).
+&lt;&lt;"abc..åäö"/utf8>>
+</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="characters_to_nfd_list" arity="1"/>
+      <fsummary>Normalize characters to a list of canonical equivalent
+      decomposed Unicode characters.</fsummary>
+      <desc>
+        <p>Converts a possibly deep list of characters and binaries
+        into a Normalized Form of canonical equivalent Decomposed
+        characters according to the Unicode standard.</p>
+	<p>Any binaries in the input must be encoded with utf8
+        encoding.
+	</p>
+	<p>The result is a list of characters.</p>
+        <code>
+1> unicode:characters_to_nfd_list("abc..åäö").
+[97,98,99,46,46,97,778,97,776,111,776]
+</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="characters_to_nfd_binary" arity="1"/>
+      <fsummary>Normalize characters to a utf8 binary of canonical equivalent
+      decomposed Unicode characters.</fsummary>
+      <desc>
+        <p>Converts a possibly deep list of characters and binaries
+        into a Normalized Form of canonical equivalent Decomposed
+        characters according to the Unicode standard.</p>
+	<p>Any binaries in the input must be encoded with utf8
+        encoding.</p>
+	<p>The result is an utf8 encoded binary.</p>
+        <code>
+2> unicode:characters_to_nfd_binary("abc..åäö").
+&lt;&lt;97,98,99,46,46,97,204,138,97,204,136,111,204,136>>
+</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="characters_to_nfkc_list" arity="1"/>
+      <fsummary>Normalize characters to a list of canonical equivalent
+      composed Unicode characters.</fsummary>
+      <desc>
+        <p>Converts a possibly deep list of characters and binaries
+        into a Normalized Form of compatibly equivalent Composed
+        characters according to the Unicode standard.</p>
+	<p>Any binaries in the input must be encoded with utf8
+        encoding.
+	</p>
+	<p>The result is a list of characters.</p>
+        <code>
+3> unicode:characters_to_nfkc_list([&lt;&lt;"abc..a">>,[778],$a,[776],$o,[776],[65299,65298]]).
+"abc..åäö32"
+</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="characters_to_nfkc_binary" arity="1"/>
+      <fsummary>Normalize characters to a utf8 binary of compatibly equivalent
+      composed Unicode characters.</fsummary>
+      <desc>
+        <p>Converts a possibly deep list of characters and binaries
+        into a Normalized Form of compatibly equivalent Composed
+        characters according to the Unicode standard.</p>
+	<p>Any binaries in the input must be encoded with utf8
+        encoding.</p>
+	<p>The result is an utf8 encoded binary.</p>
+        <code>
+4> unicode:characters_to_nfkc_binary([&lt;&lt;"abc..a">>,[778],$a,[776],$o,[776],[65299,65298]]).
+&lt;&lt;"abc..åäö32"/utf8>>
+</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="characters_to_nfkd_list" arity="1"/>
+      <fsummary>Normalize characters to a list of compatibly equivalent
+      decomposed Unicode characters.</fsummary>
+      <desc>
+        <p>Converts a possibly deep list of characters and binaries
+        into a Normalized Form of compatibly equivalent Decomposed
+        characters according to the Unicode standard.</p>
+	<p>Any binaries in the input must be encoded with utf8
+        encoding.
+	</p>
+	<p>The result is a list of characters.</p>
+        <code>
+1> unicode:characters_to_nfkd_list(["abc..åäö",[65299,65298]]).
+[97,98,99,46,46,97,778,97,776,111,776,51,50]
+</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="characters_to_nfkd_binary" arity="1"/>
+      <fsummary>Normalize characters to a utf8 binary of compatibly equivalent
+      decomposed Unicode characters.</fsummary>
+      <desc>
+        <p>Converts a possibly deep list of characters and binaries
+        into a Normalized Form of compatibly equivalent Decomposed
+        characters according to the Unicode standard.</p>
+	<p>Any binaries in the input must be encoded with utf8
+        encoding.</p>
+	<p>The result is an utf8 encoded binary.</p>
+        <code>
+2> unicode:characters_to_nfkd_binary(["abc..åäö",[65299,65298]]).
+&lt;&lt;97,98,99,46,46,97,204,138,97,204,136,111,204,136,51,50>>
+</code>
       </desc>
     </func>
 

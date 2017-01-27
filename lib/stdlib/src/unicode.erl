@@ -22,7 +22,12 @@
 -export([characters_to_list/1, characters_to_list_int/2,
 	 characters_to_binary/1, characters_to_binary_int/2,
 	 characters_to_binary/3,
-	 bom_to_encoding/1, encoding_to_bom/1]).
+	 bom_to_encoding/1, encoding_to_bom/1,
+         characters_to_nfd_list/1, characters_to_nfd_binary/1,
+         characters_to_nfc_list/1, characters_to_nfc_binary/1,
+         characters_to_nfkd_list/1, characters_to_nfkd_binary/1,
+         characters_to_nfkc_list/1, characters_to_nfkc_binary/1
+        ]).
 
 -export_type([chardata/0, charlist/0, encoding/0, external_chardata/0,
               external_charlist/0, latin1_char/0, latin1_chardata/0,
@@ -242,6 +247,92 @@ encoding_to_bom({utf32,little}) ->
 encoding_to_bom(latin1) ->
     <<>>.
 
+-define(GC_N, 200). %% arbitrary number
+
+%% Canonical decompose string to list of chars
+-spec characters_to_nfd_list(chardata()) -> [char()].
+characters_to_nfd_list(CD) ->
+    case unicode_util:nfd(CD) of
+        [GC|Str] when is_list(GC) -> GC++characters_to_nfd_list(Str);
+        [CP|Str] -> [CP|characters_to_nfd_list(Str)];
+        [] -> []
+    end.
+
+-spec characters_to_nfd_binary(chardata()) -> unicode_binary().
+characters_to_nfd_binary(CD) ->
+    list_to_binary(characters_to_nfd_binary(CD, ?GC_N, [])).
+
+characters_to_nfd_binary(CD, N, Row) when N > 0 ->
+    case unicode_util:nfd(CD) of
+        [GC|Str] -> characters_to_nfd_binary(Str, N-1, [GC|Row]);
+        [] -> [characters_to_binary(lists:reverse(Row))]
+    end;
+characters_to_nfd_binary(CD, _, Row) ->
+    [characters_to_binary(lists:reverse(Row))|characters_to_nfd_binary(CD,?GC_N,[])].
+
+%% Compability Canonical decompose string to list of chars.
+-spec characters_to_nfkd_list(chardata()) -> [char()].
+characters_to_nfkd_list(CD) ->
+    case unicode_util:nfkd(CD) of
+        [GC|Str] when is_list(GC) -> GC++characters_to_nfkd_list(Str);
+        [CP|Str] -> [CP|characters_to_nfkd_list(Str)];
+        [] -> []
+    end.
+
+-spec characters_to_nfkd_binary(chardata()) -> unicode_binary().
+characters_to_nfkd_binary(CD) ->
+    list_to_binary(characters_to_nfkd_binary(CD, ?GC_N, [])).
+
+characters_to_nfkd_binary(CD, N, Row) when N > 0 ->
+    case unicode_util:nfkd(CD) of
+        [GC|Str] -> characters_to_nfkd_binary(Str, N-1, [GC|Row]);
+        [] -> [characters_to_binary(lists:reverse(Row))]
+    end;
+characters_to_nfkd_binary(CD, _, Row) ->
+    [characters_to_binary(lists:reverse(Row))|characters_to_nfkd_binary(CD,?GC_N,[])].
+
+
+%% Canonical compose string to list of chars
+-spec characters_to_nfc_list(chardata()) -> [char()].
+characters_to_nfc_list(CD) ->
+    case unicode_util:nfc(CD) of
+        [CPs|Str] when is_list(CPs) -> CPs ++ characters_to_nfc_list(Str);
+        [CP|Str] -> [CP|characters_to_nfc_list(Str)];
+        [] -> []
+    end.
+
+-spec characters_to_nfc_binary(chardata()) -> unicode_binary().
+characters_to_nfc_binary(CD) ->
+    list_to_binary(characters_to_nfc_binary(CD, ?GC_N, [])).
+
+characters_to_nfc_binary(CD, N, Row) when N > 0 ->
+    case unicode_util:nfc(CD) of
+        [GC|Str] -> characters_to_nfc_binary(Str, N-1, [GC|Row]);
+        [] -> [characters_to_binary(lists:reverse(Row))]
+    end;
+characters_to_nfc_binary(CD, _, Row) ->
+    [characters_to_binary(lists:reverse(Row))|characters_to_nfc_binary(CD,?GC_N,[])].
+
+%% Compability Canonical compose string to list of chars
+-spec characters_to_nfkc_list(chardata()) -> [char()].
+characters_to_nfkc_list(CD) ->
+    case unicode_util:nfkc(CD) of
+        [CPs|Str] when is_list(CPs) -> CPs ++ characters_to_nfkc_list(Str);
+        [CP|Str] -> [CP|characters_to_nfkc_list(Str)];
+        [] -> []
+    end.
+
+-spec characters_to_nfkc_binary(chardata()) -> unicode_binary().
+characters_to_nfkc_binary(CD) ->
+    list_to_binary(characters_to_nfkc_binary(CD, ?GC_N, [])).
+
+characters_to_nfkc_binary(CD, N, Row) when N > 0 ->
+    case unicode_util:nfkc(CD) of
+        [GC|Str] -> characters_to_nfkc_binary(Str, N-1, [GC|Row]);
+        [] -> [characters_to_binary(lists:reverse(Row))]
+    end;
+characters_to_nfkc_binary(CD, _, Row) ->
+    [characters_to_binary(lists:reverse(Row))|characters_to_nfkc_binary(CD,?GC_N,[])].
 
 %% internals
 
