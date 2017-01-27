@@ -302,6 +302,8 @@ format_error_reason(Reason) ->
 
 -type err_warn_info() :: tuple().
 
+-type fa() :: {atom(),integer()}.
+
 %% The compile state record.
 -record(compile, {filename="" :: file:filename(),
 		  dir=""      :: file:filename(),
@@ -310,7 +312,9 @@ format_error_reason(Reason) ->
 		  ofile=""    :: file:filename(),
 		  module=[]   :: module() | [],
 		  core_code=[] :: cerl:c_module() | [],
-                  records=[]  :: [erl_parse:abstract_form()],
+                  records=[]  :: [{atom(),string()}],
+                  types=[]  :: [{fa(), string()}],
+                  specs=[]  :: [{fa()|mfa(), string()}],
 		  abstract_code=[] :: binary() | [], %Abstract code for debugger.
 		  options=[]  :: [option()],  %Options for compilation
 		  mod_options=[]  :: [option()], %Options for module_info
@@ -675,6 +679,8 @@ standard_passes() ->
 
      ?pass(expand_records),
      ?pass(collect_records),
+     ?pass(collect_types),
+     ?pass(collect_specs),
      {iff,'dexp',{listing,"expand"}},
      {iff,'E',{src_listing,"E"}},
      {iff,'to_exp',{done,"E"}},
@@ -1264,8 +1270,49 @@ expand_records(Code0, #compile{options=Opts}=St) ->
     {ok,Code,St}.
 
 collect_records(Forms, St) ->
-    Recs = [R || {attribute,_,record,_}=R <- Forms],
+    Recs = [{Name, rec_decl(R)} || {attribute,_,record,{Name,_}}=R <- Forms],
     {ok,Forms,St#compile{records=Recs}}.
+
+rec_decl({attribute,L,record,{Name,Fs}}) ->
+    attr_to_text({attribute,L,record,{Name,sanitize_fields(Fs)}}).
+
+sanitize_fields(Fs) ->
+    lists:map(fun ({record_field,L,F,E}) ->
+                      {record_field,L,F,sanitize_initializer(L,E)};
+                  ({typed_record_field,{record_field,L,F,E},T}) ->
+                      {typed_record_field,
+                       {record_field,L,F,sanitize_initializer(L,E)},T};
+                  (F) -> F end, Fs).
+
+sanitize_initializer(L, Expr) ->
+    %% TODO: better sanitization - this only works for numerical exprs
+    case erl_eval:is_constant_expr(Expr) of
+        true -> Expr;
+        false -> {atom,L,undefined}
+    end.
+
+collect_types(Forms, St) ->
+    ExpTs = ordsets:from_list(
+              lists:flatten([Ts || {attribute,_,export_type,Ts} <- Forms])),
+    Types = [{TA,type_decl(R)}
+             || {attribute,_,T,{TName,_,TAs}}=R <- Forms, T =:= type orelse T =:= opaque,
+                TA <- [{TName,length(TAs)}],
+                ordsets:is_element(TA, ExpTs)],
+    {ok,Forms,St#compile{types=Types}}.
+
+%% rewrite opaque declarations to hide implementation details
+type_decl({attribute,L,opaque,{TName,_TDef,TAs}}) ->
+    attr_to_text({attribute,L,opaque,{TName,{type,0,any,[]},TAs}});
+type_decl(R) ->
+    attr_to_text(R).
+
+attr_to_text(Attr) ->
+    lists:flatten(erl_pp:attribute(Attr,[{encoding,utf8}])).
+
+collect_specs(Forms, St) ->
+    Specs = [{FName, attr_to_text(R)}
+             || {attribute,_,spec,{FName,_}}=R <- Forms],
+    {ok,Forms,St#compile{specs=Specs}}.
 
 core(Forms, #compile{options=Opts0}=St) ->
     Opts1 = lists:flatten([C || {attribute,_,compile,C} <- Forms] ++ Opts0),
@@ -1392,16 +1439,32 @@ encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
 save_core_code(Code, St) ->
     {ok,Code,St#compile{core_code=cerl:from_records(Code)}}.
 
-beam_asm(Code0, #compile{ifile=File, records=Records, abstract_code=Abst,
+beam_asm(Code0, #compile{ifile=File, types=Types, specs=Specs0,
+                         records=Records, abstract_code=Abst,
 			 options=CompilerOpts, mod_options=Opts0}=St) ->
     Source = paranoid_absname(File),
     Opts1 = lists:map(fun({debug_info_key,_}) -> {debug_info_key,'********'};
 			 (Other) -> Other
 		      end, Opts0),
     Opts2 = [O || O <- Opts1, effects_code_generation(O)],
-    case beam_asm:module(Code0, Records, Abst, Source, Opts2, CompilerOpts) of
+    {Mod,Exp0,_,_,_} = Code0,
+    Specs = filter_specs(Specs0, Mod, Exp0),
+    case beam_asm:module(Code0, Types, Specs, Records, Abst, Source, Opts2, CompilerOpts) of
 	{ok,Code} -> {ok,Code,St#compile{abstract_code=[]}}
     end.
+
+filter_specs(Specs0, Mod, Exp0) ->
+    %% Ensure all function names are F/A, not M:F/A, and drop any specs for
+    %% other modules than the current one
+    Specs = [{Name, Spec}
+             || {Name, Spec} <- Specs0,
+                (is_tuple(Name)
+                 andalso (tuple_size(Name) =:= 2
+                          orelse (tuple_size(Name) =:= 3
+                                  andalso element(1,Name) =:= Mod))) ],
+    %% Keep only specs for exported functions
+    Exp = cerl_sets:from_list(Exp0),
+    lists:filter(fun ({FA, _}) -> cerl_sets:is_element(FA, Exp) end, Specs).
 
 paranoid_absname(""=File) ->
     File;
