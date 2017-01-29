@@ -1843,6 +1843,7 @@ static int db_select_replace_tree(Process *p, DbTable *tbl,
                                   Eterm pattern, Eterm *ret)
 {
     DbTableTree *tb = &tbl->tree;
+    Eterm tid = NIL; // TODO
     DbTreeStack* stack;
     struct select_replace_context sc;
     struct mp_info mpi;
@@ -1937,7 +1938,7 @@ static int db_select_replace_tree(Process *p, DbTable *tbl,
 
     continuation = TUPLE5
         (hp,
-         tb->common.id,
+         tid,
          key,
          sc.end_condition, /* From the match program, needn't be copied */
          mpb,
