@@ -12447,9 +12447,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->msg_inq.len = 0;
 #endif
     p->bif_timers = NULL;
-#ifdef ERTS_BTM_ACCESSOR_SUPPORT
-    p->accessor_bif_timers = NULL;
-#endif
     p->mbuf = NULL;
     p->msg_frag = NULL;
     p->mbuf_sz = 0;
@@ -12648,9 +12645,6 @@ void erts_init_empty_process(Process *p)
     p->msg.save = &p->msg.first;
     p->msg.len = 0;
     p->bif_timers = NULL;
-#ifdef ERTS_BTM_ACCESSOR_SUPPORT
-    p->accessor_bif_timers = NULL;
-#endif
     p->dictionary = NULL;
     p->seq_trace_clock = 0;
     p->seq_trace_lastcnt = 0;
@@ -12751,9 +12745,6 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(p->msg.first == NULL);
     ASSERT(p->msg.len == 0);
     ASSERT(p->bif_timers == NULL);
-#ifdef ERTS_BTM_ACCESSOR_SUPPORT
-    ASSERT(p->accessor_bif_timers == NULL);
-#endif
     ASSERT(p->dictionary == NULL);
     ASSERT(p->catches == 0);
     ASSERT(p->cp == NULL);
@@ -13826,19 +13817,6 @@ erts_continue_exit_process(Process *p)
 	ASSERT(erts_proc_read_refc(p) > 0);
 	p->bif_timers = NULL;
     }
-
-#ifdef ERTS_BTM_ACCESSOR_SUPPORT
-    if (p->accessor_bif_timers) {
-	if (erts_detach_accessor_bif_timers(p,
-					    p->accessor_bif_timers,
-					    &p->u.terminate)) {
-	    ASSERT(erts_proc_read_refc(p) > 0);
-	    goto yield;
-	}
-	ASSERT(erts_proc_read_refc(p) > 0);
-	p->accessor_bif_timers = NULL;
-    }
-#endif
 
 #ifdef ERTS_SMP
     if (p->flags & F_SCHDLR_ONLN_WAITQ)
