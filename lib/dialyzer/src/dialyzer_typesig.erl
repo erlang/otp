@@ -209,7 +209,8 @@ traverse_scc([{M,_,_}=MFA|Left], Codeserver, DefSet, ModRecs, AccState) ->
   {M, Rec} = lists:keyfind(M, 1, ModRecs),
   TmpState1 = state__set_rec_dict(AccState, Rec),
   DummyLetrec = cerl:c_letrec([Def], cerl:c_atom(foo)),
-  {NewAccState, _} = traverse(DummyLetrec, DefSet, TmpState1),
+  TmpState2 = state__new_constraint_context(TmpState1),
+  {NewAccState, _} = traverse(DummyLetrec, DefSet, TmpState2),
   traverse_scc(Left, Codeserver, DefSet, ModRecs, NewAccState);
 traverse_scc([], _Codeserver, _DefSet, _ModRecs, AccState) ->
   AccState.
@@ -2927,8 +2928,9 @@ state__get_rec_var(Fun, #state{fun_map = Map}) ->
   maps:find(Fun, Map).
 
 state__finalize(State) ->
-  State1 = enumerate_constraints(State),
-  order_fun_constraints(State1).
+  State1 = state__new_constraint_context(State),
+  State2 = enumerate_constraints(State1),
+  order_fun_constraints(State2).
 
 %% ============================================================================
 %%
