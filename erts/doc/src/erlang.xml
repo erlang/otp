@@ -3832,10 +3832,6 @@ RealSystem = system + MissedSystem</code>
       <desc>
         <p>Returns a string corresponding to the text
           representation of <c><anno>Pid</anno></c>.</p>
-        <warning>
-          <p>This BIF is intended for debugging and is not to be used
-            in application programs.</p>
-        </warning>
       </desc>
     </func>
 
@@ -4408,10 +4404,6 @@ RealSystem = system + MissedSystem</code>
       <desc>
         <p>Returns a string corresponding to the text
           representation of the port identifier <c><anno>Port</anno></c>.</p>
-        <warning>
-          <p>This BIF is intended for debugging. It is not to be used
-            in application programs.</p>
-        </warning>
       </desc>
     </func>
 
