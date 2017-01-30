@@ -622,14 +622,22 @@ enter(Module, Opts, State, Data, Server, Actions, Parent) ->
     case call_callback_mode(S) of
 	{ok,NewS} ->
 	    TimerRefs = #{},
+	    %% S map key: timer_refs
+	    %% Key: timer ref
+	    %% Value: the timer type i.e the timer's event type
+	    %%
 	    TimerTypes = #{},
+	    %% S map key: timer_types
+	    %% Key: timer type i.e the timer's event type
+	    %% Value: timer ref
+	    %%
 	    loop_event_actions(
 	      Parent, NewDebug, NewS, TimerRefs, TimerTypes,
 	      Events, Event, State, Data, NewActions, true);
 	{Class,Reason,Stacktrace} ->
 	    terminate(
-	      Class, Reason, Stacktrace,
-	      NewDebug, S, [Event|Events])
+	      Class, Reason, Stacktrace, NewDebug,
+	      S, [Event|Events])
     end.
 
 %%%==========================================================================
@@ -698,9 +706,7 @@ system_continue(Parent, Debug, S) ->
     loop(Parent, Debug, S).
 
 system_terminate(Reason, _Parent, Debug, S) ->
-    terminate(
-      exit, Reason, ?STACKTRACE(),
-      Debug, S, []).
+    terminate(exit, Reason, ?STACKTRACE(), Debug, S, []).
 
 system_code_change(
   #{module := Module,
@@ -827,22 +833,26 @@ loop(Parent, Debug, #{hibernate := Hibernate} = S) ->
 
 %% Entry point for wakeup_from_hibernate/3
 loop_receive(
-  Parent, Debug, #{timer_refs := TimerRefs, timer_types := TimerTypes} = S) ->
+  Parent, Debug,
+  #{timer_refs := TimerRefs,
+    timer_types := TimerTypes,
+    hibernate := Hibernate} = S) ->
     receive
 	Msg ->
 	    case Msg of
 		{system,Pid,Req} ->
-		    #{hibernate := Hibernate} = S,
 		    %% Does not return but tail recursively calls
 		    %% system_continue/3 that jumps to loop/3
 		    sys:handle_system_msg(
-		      Req, Pid, Parent, ?MODULE, Debug, S, Hibernate);
+		      Req, Pid, Parent, ?MODULE, Debug,
+		      S, Hibernate);
 		{'EXIT',Parent,Reason} = EXIT ->
 		    %% EXIT is not a 2-tuple and therefore
 		    %% not an event and has no event_type(),
 		    %% but this will stand out in the crash report...
 		    terminate(
-		      exit, Reason, ?STACKTRACE(), Debug, S, [EXIT]);
+		      exit, Reason, ?STACKTRACE(), Debug,
+		      S, [EXIT]);
 		{timeout,TimerRef,TimerMsg} ->
 		    case TimerRefs of
 			#{TimerRef := TimerType} ->
@@ -906,18 +916,22 @@ loop_event(
 	{ok,Result,NewS} ->
 	    %% Cancel event timeout
 	    {NewTimerRefs,NewTimerTypes} =
-		cancel_timer_by_type(
-		  timeout, TimerRefs, TimerTypes),
+		cancel_timer_by_type(timeout, TimerRefs, TimerTypes),
 	    {NewData,NextState,Actions,EnterCall} =
 		parse_event_result(
-		  true, Debug, NewS, Result,
-		  Events, Event, State, Data),
+		  true, Debug, NewS, NewTimerRefs, NewTimerTypes,
+		  Events, Event, State, Data, Hibernate, Result),
 	    loop_event_actions(
-	      Parent, Debug, S, NewTimerRefs, NewTimerTypes,
+	      Parent, Debug, NewS, TimerRefs, NewTimerTypes,
 	      Events, Event, NextState, NewData, Actions, EnterCall);
 	{Class,Reason,Stacktrace} ->
 	    terminate(
-	      Class, Reason, Stacktrace, Debug, S, [Event|Events])
+	      Class, Reason, Stacktrace, Debug,
+	      S#{
+		timer_refs := TimerRefs,
+		timer_types := TimerTypes,
+		hibernate := Hibernate},
+	      [Event|Events])
     end.
 
 loop_event_actions(
@@ -941,8 +955,13 @@ loop_event_actions(
 	    end;
 	{Class,Reason,Stacktrace} ->
 	    terminate(
-	      Class, Reason, Stacktrace,
-	      Debug, S#{data := NewData}, [Event|Events])
+	      Class, Reason, Stacktrace, Debug,
+	      S#{
+		data := NewData,
+		timer_refs := TimerRefs,
+		timer_types := TimerTypes,
+		hibernate := false},
+	      [Event|Events])
     end.
 
 loop_event_enter(
@@ -952,8 +971,8 @@ loop_event_enter(
     case call_state_function(S, enter, State, NextState, NewData) of
 	{ok,Result,NewS} ->
 	    case parse_event_result(
-		   false, Debug, NewS, Result,
-		   Events, Event, NextState, NewData) of
+		   false, Debug, NewS, TimerRefs, TimerTypes,
+		   Events, Event, NextState, NewData, Hibernate, Result) of
 		{NewerData,_,Actions,EnterCall} ->
 		    loop_event_enter_actions(
 		      Parent, Debug, NewS, TimerRefs, TimerTypes,
@@ -963,8 +982,13 @@ loop_event_enter(
 	    end;
 	{Class,Reason,Stacktrace} ->
 	    terminate(
-	      Class, Reason, Stacktrace,
-	      Debug, S#{state := NextState, data := NewData},
+	      Class, Reason, Stacktrace, Debug,
+	      S#{
+		state := NextState,
+		data := NewData,
+		timer_refs := TimerRefs,
+		timer_types := TimerTypes,
+		hibernate := Hibernate},
 	      [Event|Events])
     end.
 
@@ -992,8 +1016,13 @@ loop_event_enter_actions(
 	    end;
 	{Class,Reason,Stacktrace} ->
 	    terminate(
-	      Class, Reason, Stacktrace,
-	      Debug, S#{state := NextState, data := NewData},
+	      Class, Reason, Stacktrace, Debug,
+	      S#{
+		state := NextState,
+		data := NewData,
+		timer_refs := TimerRefs,
+		timer_types := TimerTypes,
+		hibernate := Hibernate},
 	      [Event|Events])
     end.
 
@@ -1020,7 +1049,8 @@ loop_event_result(
 	%% state timeout if the state changes
 	if
 	    NextState =:= State ->
-		{Events,P_1,{TimerRefs_0,TimerTypes_0}};
+		{Events,P_1,
+		 {TimerRefs_0,TimerTypes_0}};
 	    true ->
 		{lists:reverse(P_1, Events),[],
 		 cancel_timer_by_type(
@@ -1051,9 +1081,9 @@ loop_events(
 	  state := State,
 	  data := Data,
 	  postponed := P,
-	  hibernate => Hibernate,
 	  timer_refs => TimerRefs,
-	  timer_types => TimerTypes},
+	  timer_types => TimerTypes,
+	  hibernate => Hibernate},
     loop(Parent, Debug, NewS);
 loop_events(
   Parent, Debug, S, TimerRefs, TimerTypes,
@@ -1203,29 +1233,54 @@ call_state_function(
 
 %% Interpret all callback return variants
 parse_event_result(
-  AllowStateChange, Debug, S, Result, Events, Event, State, Data) ->
+  AllowStateChange, Debug, S, TimerRefs, TimerTypes,
+  Events, Event, State, Data, Hibernate, Result) ->
     case Result of
 	stop ->
 	    terminate(
-	      exit, normal, ?STACKTRACE(), Debug, S, [Event|Events]);
+	      exit, normal, ?STACKTRACE(), Debug,
+	      S#{
+		timer_refs := TimerRefs,
+		timer_types := TimerTypes,
+		hibernate := Hibernate},
+	      [Event|Events]);
 	{stop,Reason} ->
 	    terminate(
-	      exit, Reason, ?STACKTRACE(), Debug, S, [Event|Events]);
+	      exit, Reason, ?STACKTRACE(), Debug,
+	      S#{
+		timer_refs := TimerRefs,
+		timer_types := TimerTypes,
+		hibernate := Hibernate},
+	      [Event|Events]);
 	{stop,Reason,NewData} ->
 	    terminate(
-	      exit, Reason, ?STACKTRACE(),
-	      Debug, S#{data := NewData}, [Event|Events]);
+	      exit, Reason, ?STACKTRACE(), Debug,
+	      S#{
+		data := NewData,
+		timer_refs := TimerRefs,
+		timer_types := TimerTypes,
+		hibernate := Hibernate},
+	      [Event|Events]);
 	%%
 	{stop_and_reply,Reason,Replies} ->
 	    Q = [Event|Events],
 	    reply_then_terminate(
-	      exit, Reason, ?STACKTRACE(),
-	      Debug, S, Q, Replies);
+	      exit, Reason, ?STACKTRACE(), Debug,
+	      S#{
+		timer_refs := TimerRefs,
+		timer_types := TimerTypes,
+		hibernate := Hibernate},
+	      Q, Replies);
 	{stop_and_reply,Reason,Replies,NewData} ->
 	    Q = [Event|Events],
 	    reply_then_terminate(
-	      exit, Reason, ?STACKTRACE(),
-	      Debug, S#{data := NewData}, Q, Replies);
+	      exit, Reason, ?STACKTRACE(), Debug,
+	      S#{
+		data := NewData,
+		timer_refs := TimerRefs,
+		timer_types := TimerTypes,
+		hibernate := Hibernate},
+	      Q, Replies);
 	%%
 	{next_state,State,NewData} ->
 	    {NewData,State,[],false};
@@ -1259,7 +1314,12 @@ parse_event_result(
 	      error,
 	      {bad_return_from_state_function,Result},
 	      ?STACKTRACE(),
-	      Debug, S, [Event|Events])
+	      Debug,
+	      S#{
+		timer_refs := TimerRefs,
+		timer_types := TimerTypes,
+		hibernate := Hibernate},
+	      [Event|Events])
     end.
 
 
@@ -1471,17 +1531,17 @@ process_timeout_events(
 %% Server helpers
 
 reply_then_terminate(
-  Class, Reason, Stacktrace,
-  Debug, #{state := State} = S, Q, Replies) ->
+  Class, Reason, Stacktrace, Debug,
+  #{state := State} = S, Q, Replies) ->
     if
 	is_list(Replies) ->
 	    do_reply_then_terminate(
-	      Class, Reason, Stacktrace,
-	      Debug, S, Q, Replies, State);
+	      Class, Reason, Stacktrace, Debug,
+	      S, Q, Replies, State);
 	true ->
 	    do_reply_then_terminate(
-	      Class, Reason, Stacktrace,
-	      Debug, S, Q, [Replies], State)
+	      Class, Reason, Stacktrace, Debug,
+	      S, Q, [Replies], State)
     end.
 %%
 do_reply_then_terminate(
@@ -1508,8 +1568,7 @@ do_reply(Debug, S, State, From, Reply) ->
 
 
 terminate(
-  Class, Reason, Stacktrace,
-  Debug,
+  Class, Reason, Stacktrace, Debug,
   #{module := Module, state := State, data := Data, postponed := P} = S,
   Q) ->
     try Module:terminate(Reason, State, Data) of
@@ -1670,8 +1729,6 @@ cancel_timer_by_type(TimerType, TimerRefs, TimerTypes) ->
 	    {TimerRefs,TimerTypes}
     end.
 
-%%cancel_timer(undefined) ->
-%%    ok;
 cancel_timer(TRef) ->
     case erlang:cancel_timer(TRef) of
 	false ->
