@@ -61,7 +61,6 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
-
 /* Helper macro to construct a OPENSSL_VERSION_NUMBER.
  * See openssl/opensslv.h
  */
@@ -326,7 +325,7 @@ static ErlNifFunc nif_funcs[] = {
     {"rsa_private_crypt", 4, rsa_private_crypt},
     {"dh_generate_parameters_nif", 2, dh_generate_parameters_nif},
     {"dh_check", 1, dh_check},
-    {"dh_generate_key_nif", 3, dh_generate_key_nif},
+    {"dh_generate_key_nif", 4, dh_generate_key_nif},
     {"dh_compute_key_nif", 3, dh_compute_key_nif},
     {"srp_value_B_nif", 5, srp_value_B_nif},
     {"srp_user_secret_nif", 7, srp_user_secret_nif},
@@ -2727,12 +2726,13 @@ static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 }   
 
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (PrivKey, DHParams=[P,G], Mpint) */
+{/* (PrivKey|undefined, DHParams=[P,G], Mpint, Len|0) */
     DH* dh_params;
     int pub_len, prv_len;
     unsigned char *pub_ptr, *prv_ptr;
     ERL_NIF_TERM ret, ret_pub, ret_prv, head, tail;
     int mpint; /* 0 or 4 */
+    unsigned long len = 0;
 
     dh_params = DH_new();
 
@@ -2743,9 +2743,19 @@ static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 	|| !enif_get_list_cell(env, tail, &head, &tail)
 	|| !get_bn_from_bin(env, head, &dh_params->g)
 	|| !enif_is_empty_list(env, tail)
-	|| !enif_get_int(env, argv[2], &mpint) || (mpint & ~4)) {
+	|| !enif_get_int(env, argv[2], &mpint) || (mpint & ~4)
+	|| !enif_get_ulong(env, argv[3], &len)  ) {
 	DH_free(dh_params);
 	return enif_make_badarg(env);
+    }
+
+    if (len) {
+        if (len < BN_num_bits(dh_params->p))
+            dh_params->length = len;
+        else {
+            DH_free(dh_params);
+            return enif_make_badarg(env);
+        }
     }
 
     if (DH_generate_key(dh_params)) {
