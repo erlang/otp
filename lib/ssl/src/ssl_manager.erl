@@ -128,7 +128,7 @@ cache_pem_file(File, DbHandle) ->
 	[Content]  ->
 	    {ok, Content};
 	undefined ->
-	  ssl_pem_cache:insert(File)
+            ssl_pem_cache:insert(File)
     end.
 
 %%--------------------------------------------------------------------
@@ -224,7 +224,7 @@ init([ManagerName, PemCacheName, Opts]) ->
     CacheCb = proplists:get_value(session_cb, Opts, ssl_session_cache),
     SessionLifeTime =  
 	proplists:get_value(session_lifetime, Opts, ?'24H_in_sec'),
-    CertDb = ssl_pkix_db:create(),
+    CertDb = ssl_pkix_db:create(PemCacheName),
     ClientSessionCache = 
 	CacheCb:init([{role, client} | 
 		      proplists:get_value(session_cb_init_args, Opts, [])]),

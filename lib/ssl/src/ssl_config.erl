@@ -42,10 +42,10 @@ init(SslOpts, Role) ->
 
 init_manager_name(false) ->
     put(ssl_manager, ssl_manager:name(normal)),
-    put(ssl_cache, ssl_pem_cache:name(normal));
+    put(ssl_pem_cache, ssl_pem_cache:name(normal));
 init_manager_name(true) ->
     put(ssl_manager, ssl_manager:name(dist)),
-    put(ssl_cache, ssl_pem_cache:name(dist)).
+    put(ssl_pem_cache, ssl_pem_cache:name(dist)).
 
 init_certificates(#ssl_options{cacerts = CaCerts,
 			       cacertfile = CACertFile,

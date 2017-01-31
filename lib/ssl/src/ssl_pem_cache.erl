@@ -133,7 +133,7 @@ invalidate_pem(File) ->
 init([Name]) ->
     put(ssl_pem_cache, Name),
     process_flag(trap_exit, true),
-    PemCache = ssl_pkix_db:create_pem_cache(),
+    PemCache = ssl_pkix_db:create_pem_cache(Name),
     Interval = pem_check_interval(),
     erlang:send_after(Interval, self(), clear_pem_cache),
     {ok, #state{pem_cache = PemCache,
