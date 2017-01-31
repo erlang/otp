@@ -370,7 +370,8 @@ try_bad(Name0, Reason, Config) ->
     Name = Name0 ++ ".tar",
     io:format("~nTrying ~s", [Name]),
     Full = filename:join(DataDir, Name),
-    Opts = [verbose, {cwd, PrivDir}],
+    Dest = filename:join(PrivDir, Name0),
+    Opts = [verbose, {cwd, Dest}],
     Expected = {error, Reason},
     case {erl_tar:table(Full, Opts), erl_tar:extract(Full, Opts)} of
 	{Expected, Expected} ->
@@ -619,11 +620,15 @@ long_symlink(Dir) ->
     ok = file:set_cwd(Dir),
 
     AFile = "long_symlink",
-    FarTooLong = "/tmp/aarrghh/this/path/is/far/longer/than/one/hundred/characters/which/is/the/maximum/number/of/characters/allowed",
-    ok = file:make_symlink(FarTooLong, AFile),
-    {error,Error} = erl_tar:create(Tar, [AFile], [verbose]),
-    io:format("Error: ~s\n", [erl_tar:format_error(Error)]),
-    {FarTooLong,symbolic_link_too_long} = Error,
+    RequiresPAX = "/tmp/aarrghh/this/path/is/far/longer/than/one/hundred/characters/which/is/the/maximum/number/of/characters/allowed",
+    ok = file:make_symlink(RequiresPAX, AFile),
+    ok = erl_tar:create(Tar, [AFile], [verbose]),
+    NewDir = filename:join(Dir, "extracted"),
+    _ = file:make_dir(NewDir),
+    ok = erl_tar:extract(Tar, [{cwd, NewDir}, verbose]),
+    ok = file:set_cwd(NewDir),
+    {ok, #file_info{type=symlink}} = file:read_link_info(AFile),
+    {ok, RequiresPAX} = file:read_link(AFile),
     ok.
 
 open_add_close(Config) when is_list(Config) ->
