@@ -684,6 +684,8 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	= sizeof(NifExportTrace);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MREF_NSCHED_ENT)]
 	= sizeof(ErtsNSchedMagicRefTableEntry);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MINDIRECTION)]
+	= ERTS_MAGIC_BIN_UNALIGNED_SIZE(sizeof(ErtsMagicIndirectionWord));
 
 #ifdef HARD_DEBUG
     hdbg_init();
