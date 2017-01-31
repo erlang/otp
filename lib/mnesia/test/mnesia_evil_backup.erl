@@ -723,18 +723,18 @@ bup_records(File, Mod) ->
 	    exit(Reason)
     end.
 
-sops_with_checkpoint(doc) -> 
+sops_with_checkpoint(doc) ->
     ["Test schema operations during a checkpoint"];
 sops_with_checkpoint(suite) -> [];
 sops_with_checkpoint(Config) when is_list(Config) ->
-    Ns = ?acquire_nodes(2, Config),
-    
+    Ns = [N1,N2] = ?acquire_nodes(2, Config),
+
     ?match({ok, cp1, Ns}, mnesia:activate_checkpoint([{name, cp1},{max,mnesia:system_info(tables)}])),
-    Tab = tab, 
+    Tab = tab,
     ?match({atomic, ok}, mnesia:create_table(Tab, [{disc_copies,Ns}])),
     OldRecs = [{Tab, K, -K} || K <- lists:seq(1, 5)],
     [mnesia:dirty_write(R) || R <- OldRecs],
-    
+
     ?match({ok, cp2, Ns}, mnesia:activate_checkpoint([{name, cp2},{max,mnesia:system_info(tables)}])),
     File1 = "cp1_delete_me.BUP",
     ?match(ok, mnesia:dirty_write({Tab,6,-6})),
@@ -742,16 +742,16 @@ sops_with_checkpoint(Config) when is_list(Config) ->
     ?match(ok, mnesia:dirty_write({Tab,7,-7})),
     File2 = "cp2_delete_me.BUP",
     ?match(ok, mnesia:backup_checkpoint(cp2, File2)),
-    
+
     ?match(ok, mnesia:deactivate_checkpoint(cp1)),
     ?match(ok, mnesia:backup_checkpoint(cp2, File1)),
     ?match(ok, mnesia:dirty_write({Tab,8,-8})),
-    
+
     ?match({atomic,ok}, mnesia:delete_table(Tab)),
     ?match({error,_}, mnesia:backup_checkpoint(cp2, File2)),
     ?match({'EXIT',_}, mnesia:dirty_write({Tab,9,-9})),
 
-    ?match({atomic,_}, mnesia:restore(File1, [{default_op, recreate_tables}])), 
+    ?match({atomic,_}, mnesia:restore(File1, [{default_op, recreate_tables}])),
     Test = fun(N) when N > 5 -> ?error("To many records in backup ~p ~n", [N]);
 	      (N) -> case mnesia:dirty_read(Tab,N) of
 			 [{Tab,N,B}] when -B =:= N -> ok;
@@ -759,8 +759,29 @@ sops_with_checkpoint(Config) when is_list(Config) ->
 		     end
 	   end,
     [Test(N) || N <- mnesia:dirty_all_keys(Tab)],
-    ?match({aborted,enoent}, mnesia:restore(File2, [{default_op, recreate_tables}])), 
-    
+    ?match({aborted,enoent}, mnesia:restore(File2, [{default_op, recreate_tables}])),
+
+    %% Mnesia crashes when deleting a table during backup
+    ?match([], mnesia_test_lib:stop_mnesia([N2])),
+    Tab2 = ram,
+    ?match({atomic, ok}, mnesia:create_table(Tab2, [{ram_copies,[N1]}])),
+    ?match({ok, cp3, _}, mnesia:activate_checkpoint([{name, cp3},
+                                                     {ram_overrides_dump,true},
+                                                     {min,[Tab2]}])),
+    Write = fun Loop (N) ->
+                   case N > 0 of
+                       true ->
+                           mnesia:dirty_write({Tab2, N+100, N+100}),
+                           Loop(N-1);
+                       false ->
+                           ok
+                   end
+           end,
+    ok = Write(100000),
+    spawn_link(fun() -> ?match({atomic, ok},mnesia:delete_table(Tab2)) end),
+
+    %% We don't check result here, depends on timing of above call
+    mnesia:backup_checkpoint(cp3, File2),
     file:delete(File1), file:delete(File2),
 
-    ?verify_mnesia(Ns, []).
+    ?verify_mnesia([N1], [N2]).
