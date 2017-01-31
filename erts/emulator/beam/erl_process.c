@@ -13810,7 +13810,7 @@ erts_continue_exit_process(Process *p)
 
     ASSERT(erts_proc_read_refc(p) > 0);
     if (p->bif_timers) {
-	if (erts_cancel_bif_timers(p, p->bif_timers, &p->u.terminate)) {
+	if (erts_cancel_bif_timers(p, &p->bif_timers, &p->u.terminate)) {
 	    ASSERT(erts_proc_read_refc(p) > 0);
 	    goto yield;
 	}

@@ -29,6 +29,8 @@
 #  include "config.h"
 #endif
 
+#define ERTS_MAGIC_REF_BIF_TIMERS
+
 #include "sys.h"
 #include "global.h"
 #include "bif.h"
@@ -36,6 +38,9 @@
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
 #include "erl_hl_timer.h"
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+#include "erl_binary.h"
+#endif
 
 #define ERTS_TMR_CHECK_CANCEL_ON_CREATE 0
 
@@ -125,6 +130,11 @@ typedef struct ErtsHLTimer_ ErtsHLTimer;
 #define ERTS_HLT_PFIELD_NOT_IN_TABLE	(~((UWord) 0))
 
 typedef struct {
+    ErtsHLTimer *next;
+    ErtsHLTimer *prev;    
+} ErtsHLTimerList;
+
+typedef struct {
     UWord parent; /* parent pointer and flags... */
     union {
 	struct {
@@ -140,11 +150,6 @@ typedef struct {
 } ErtsHLTimerTimeTree;
 
 typedef struct {
-    UWord parent; /* parent pointer and flags... */
-    ErtsHLTimer *right;
-    ErtsHLTimer *left;
-} ErtsHLTimerTree;
-
 typedef struct {
     Uint32 roflgs;
     erts_smp_atomic32_t refc;
@@ -176,9 +181,14 @@ struct ErtsHLTimer_ {
 
     /* BIF timer only fields follow... */
     struct {
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+        ErtsMagicBinary *mbin;
+        ErtsHLTimerList proc_list;
+#else
 	Uint32 refn[ERTS_REF_NUMBERS];
 	ErtsHLTimerTree proc_tree;
 	ErtsHLTimerTree tree;
+#endif
 	Eterm message;
 	ErlHeapFragment *bp;
     } btm;
@@ -282,11 +292,15 @@ struct ErtsHLTimerService_ {
     ErtsHLTCncldTmrQ canceled_queue;
 #endif
     ErtsHLTimer *time_tree;
+#ifndef ERTS_MAGIC_REF_BIF_TIMERS
     ErtsHLTimer *btm_tree;
+#endif
     ErtsHLTimer *next_timeout;
     ErtsYieldingTimeoutState yield;
     ErtsTWheelTimer service_timer;
 };
+
+#ifndef ERTS_MAGIC_REF_BIF_TIMERS
 
 static ERTS_INLINE int
 refn_is_lt(Uint32 *x, Uint32 *y)
@@ -302,6 +316,14 @@ refn_is_lt(Uint32 *x, Uint32 *y)
 	return 0;
     return x[0] < y[0];
 }
+
+static ERTS_INLINE int
+refn_is_eq(Uint32 *x, Uint32 *y)
+{
+    return (x[0] == y[0]) & (x[1] == y[1]) & (x[2] == y[2]);
+}
+
+#endif
 
 #define ERTS_RBT_PREFIX time
 #define ERTS_RBT_T ErtsHLTimer
@@ -492,6 +514,14 @@ same_time_list_lookup(ErtsHLTimer *root, ErtsHLTimer *x)
 
 #endif /* ERTS_HLT_HARD_DEBUG */
 
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+#define ERTS_BTM_HLT2REFN(T) ((T)->btm.mbin->refn)
+#else
+#define ERTS_BTM_HLT2REFN(T) ((T)->btm.refn)
+#endif
+
+#ifndef ERTS_MAGIC_REF_BIF_TIMERS
+
 #define ERTS_RBT_PREFIX btm
 #define ERTS_RBT_T ErtsHLTimer
 #define ERTS_RBT_KEY_T Uint32 *
@@ -530,17 +560,91 @@ same_time_list_lookup(ErtsHLTimer *root, ErtsHLTimer *x)
 #define ERTS_RBT_SET_RIGHT(T, R) ((T)->btm.tree.right = (R))
 #define ERTS_RBT_GET_LEFT(T) ((T)->btm.tree.left)
 #define ERTS_RBT_SET_LEFT(T, L) ((T)->btm.tree.left = (L))
-#define ERTS_RBT_GET_KEY(T) ((T)->btm.refn)
+#define ERTS_RBT_GET_KEY(T) ERTS_BTM_HLT2REFN((T))
 #define ERTS_RBT_IS_LT(KX, KY) refn_is_lt((KX), (KY))
-#define ERTS_RBT_IS_EQ(KX, KY) \
-    (((KX)[0] == (KY)[0]) & ((KX)[1] == (KY)[1]) & ((KX)[2] == (KY)[2]))
+#define ERTS_RBT_IS_EQ(KX, KY) refn_is_eq((KX), (KY))
 #define ERTS_RBT_WANT_DELETE
 #define ERTS_RBT_WANT_INSERT
+#ifndef ERTS_MAGIC_REF_BIF_TIMERS
 #define ERTS_RBT_WANT_LOOKUP
+#endif
 #define ERTS_RBT_WANT_FOREACH
 #define ERTS_RBT_UNDEF
 
 #include "erl_rbtree.h"
+
+#endif /* !ERTS_MAGIC_REF_BIF_TIMERS */
+
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+
+static ERTS_INLINE void
+proc_btm_list_insert(ErtsHLTimer **list, ErtsHLTimer *x)
+{
+    ErtsHLTimer *y = *list;
+    if (!y) {
+        x->btm.proc_list.next = x;
+        x->btm.proc_list.prev = x;
+        *list = x;
+    }
+    else {
+        ERTS_HLT_ASSERT(y->btm.proc_list.prev->btm.proc_list.next == y);
+        x->btm.proc_list.next = y;
+        x->btm.proc_list.prev = y->btm.proc_list.prev;
+        y->btm.proc_list.prev->btm.proc_list.next = x;
+        y->btm.proc_list.prev = x;
+    }
+}
+
+static ERTS_INLINE void
+proc_btm_list_delete(ErtsHLTimer **list, ErtsHLTimer *x)
+{
+    ErtsHLTimer *y = *list;
+    if (y == x && x->btm.proc_list.next == x) {
+        ERTS_HLT_ASSERT(x->btm.proc_list.prev == x);
+        *list = NULL;
+    }
+    else {
+        if (y == x)
+            *list = x->btm.proc_list.next;
+        ERTS_HLT_ASSERT(x->btm.proc_list.prev->btm.proc_list.next == x);
+        ERTS_HLT_ASSERT(x->btm.proc_list.next->btm.proc_list.prev == x);
+        x->btm.proc_list.prev->btm.proc_list.next = x->btm.proc_list.next;
+        x->btm.proc_list.next->btm.proc_list.prev = x->btm.proc_list.prev;
+    }
+    x->btm.proc_list.next = NULL;
+}
+
+static ERTS_INLINE int
+proc_btm_list_foreach_destroy_yielding(ErtsHLTimer **list,
+                                       void (*destroy)(ErtsHLTimer *, void *),
+                                       void *arg,
+                                       int limit)
+{
+    int i;
+    ErtsHLTimer *first, *last;
+
+    first = *list;
+    if (!first)
+        return 0;
+
+    last = first->btm.proc_list.prev;
+    for (i = 0; i < limit; i++) {
+        ErtsHLTimer *x = last;
+        last = last->btm.proc_list.prev;
+        (*destroy)(x, arg);
+        x->btm.proc_list.next = NULL;
+        if (x == first) {
+            *list = NULL;
+            return 0;
+        }
+    }
+
+    last->btm.proc_list.next = first;
+    first->btm.proc_list.prev = last;
+    return 1;
+}
+
+#else /* !ERTS_MAGIC_REF_BIF_TIMERS */
 
 #define ERTS_RBT_PREFIX proc_btm
 #define ERTS_RBT_T ErtsHLTimer
@@ -580,17 +684,20 @@ same_time_list_lookup(ErtsHLTimer *root, ErtsHLTimer *x)
 #define ERTS_RBT_SET_RIGHT(T, R) ((T)->btm.proc_tree.right = (R))
 #define ERTS_RBT_GET_LEFT(T) ((T)->btm.proc_tree.left)
 #define ERTS_RBT_SET_LEFT(T, L) ((T)->btm.proc_tree.left = (L))
-#define ERTS_RBT_GET_KEY(T) ((T)->btm.refn)
+#define ERTS_RBT_GET_KEY(T) ERTS_BTM_HLT2REFN((T))
 #define ERTS_RBT_IS_LT(KX, KY) refn_is_lt((KX), (KY))
-#define ERTS_RBT_IS_EQ(KX, KY) \
-    (((KX)[0] == (KY)[0]) & ((KX)[1] == (KY)[1]) & ((KX)[2] == (KY)[2]))
+#define ERTS_RBT_IS_EQ(KX, KY) refn_is_eq((KX), (KY))
 #define ERTS_RBT_WANT_DELETE
 #define ERTS_RBT_WANT_INSERT
+#ifndef ERTS_MAGIC_REF_BIF_TIMERS
 #define ERTS_RBT_WANT_LOOKUP
+#endif
 #define ERTS_RBT_WANT_FOREACH_DESTROY_YIELDING
 #define ERTS_RBT_UNDEF
 
 #include "erl_rbtree.h"
+
+#endif /* !ERTS_MAGIC_REF_BIF_TIMERS */
 
 #ifdef ERTS_SMP
 static void init_canceled_queue(ErtsHLTCncldTmrQ *cq);
@@ -612,7 +719,9 @@ erts_create_timer_service(void)
     srv = erts_alloc_permanent_cache_aligned(ERTS_ALC_T_TIMER_SERVICE,
 					     sizeof(ErtsHLTimerService));
     srv->time_tree = NULL;
+#ifndef ERTS_MAGIC_REF_BIF_TIMERS
     srv->btm_tree = NULL;
+#endif
     srv->next_timeout = NULL;
     srv->yield = init_yield;
     erts_twheel_init_timer(&srv->service_timer);
@@ -847,6 +956,11 @@ hl_timer_destroy(ErtsHLTimer *tmr)
     if (!(roflgs & ERTS_TMR_ROFLG_BIF_TMR))
 	erts_free(ERTS_ALC_T_HL_PTIMER, tmr);
     else {
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+        Binary *bp = (Binary *) tmr->btm.mbin;
+        if (erts_refc_dectest(&bp->refc, 0) == 0)
+            erts_bin_free(bp);
+#endif
 	if (roflgs & ERTS_TMR_ROFLG_PRE_ALC)
 	    bif_timer_pre_free(tmr);
 	else
@@ -892,6 +1006,7 @@ schedule_hl_timer_destroy(ErtsHLTimer *tmr, Uint32 roflgs)
 	 * once...
 	 */
 	size = sizeof(ErtsHLTimer);
+
     }
 
     erts_schedule_thr_prgr_later_cleanup_op(
@@ -943,12 +1058,64 @@ check_canceled_queue(ErtsSchedulerData *esdp, ErtsHLTimerService *srv)
 #endif
 }
 
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+
+static erts_smp_atomic_t *
+mbin_to_btmref__(ErtsMagicBinary *mbin)
+{
+    return erts_smp_binary_to_magic_indirection((Binary *) mbin);
+}
+
+static ERTS_INLINE void
+magic_binary_init(ErtsMagicBinary *mbin, ErtsHLTimer *tmr)
+{
+    erts_smp_atomic_t *aptr = mbin_to_btmref__(mbin);
+    erts_smp_atomic_init_nob(aptr, (erts_aint_t) tmr);
+}
+
+static ERTS_INLINE ErtsHLTimer *
+magic_binary_to_btm(ErtsMagicBinary *mbin)
+{
+    erts_smp_atomic_t *aptr = mbin_to_btmref__(mbin);
+    ErtsHLTimer *tmr = (ErtsHLTimer *) erts_smp_atomic_read_nob(aptr);
+    ERTS_HLT_ASSERT(!tmr || tmr->btm.mbin == mbin);
+    return tmr;
+}
+
+static ERTS_INLINE void
+btm_clear_magic_binary(ErtsHLTimer *tmr)
+{
+    erts_smp_atomic_t *aptr = mbin_to_btmref__(tmr->btm.mbin);
+#ifdef ERTS_HLT_DEBUG
+    erts_aint_t tval = erts_smp_atomic_xchg_nob(aptr,
+                                                (erts_aint_t) NULL);
+    ERTS_HLT_ASSERT(tval == (erts_aint_t) tmr);
+#else
+    erts_smp_atomic_set_nob(aptr, (erts_aint_t) NULL);
+#endif
+    hl_timer_dec_refc(tmr, tmr->head.roflgs);
+}
+
+static int
+bif_timer_ref_destructor(Binary *unused)
+{
+    return 1;
+}
+
+#endif
+
+
 static ErtsHLTimer *
 create_hl_timer(ErtsSchedulerData *esdp,
 		ErtsMonotonicTime timeout_pos,
 		int short_time, ErtsTmrType type,
 		void *rcvrp, Eterm rcvr, Eterm acsr,
-		Eterm msg, Uint32 *refn,
+		Eterm msg,
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+                ErtsMagicBinary *mbin,
+#else
+                Uint32 *refn,
+#endif
 		void (*callback)(void *), void *arg)
 {
     ErtsHLTimerService *srv = esdp->timer_service;
@@ -1043,6 +1210,13 @@ create_hl_timer(ErtsSchedulerData *esdp,
 	    tmr->btm.message = copy_struct(msg, hsz, &hp, &bp->off_heap);
 	    tmr->btm.bp = bp;
 	}
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+        tmr->btm.mbin = mbin;
+        erts_refc_inc(&mbin->refc, 1);
+        magic_binary_init(mbin, tmr);
+        refc += 1; /* from magic binary... */
+	tmr->btm.proc_list.next = NULL;
+#else
 	tmr->btm.refn[0] = refn[0];
 	tmr->btm.refn[1] = refn[1];
 	tmr->btm.refn[2] = refn[2];
@@ -1050,6 +1224,7 @@ create_hl_timer(ErtsSchedulerData *esdp,
 	tmr->btm.proc_tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
 
 	btm_rbt_insert(&srv->btm_tree, tmr);
+#endif
     }
 
     tmr->head.roflgs = roflgs;
@@ -1094,6 +1269,10 @@ hlt_bif_timer_timeout(ErtsHLTimer *tmr, Uint32 roflgs)
     Uint32 is_reg_name = (roflgs & ERTS_TMR_ROFLG_REG_NAME);
     ERTS_HLT_ASSERT(roflgs & ERTS_TMR_ROFLG_BIF_TMR);
 
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+    btm_clear_magic_binary(tmr);
+#endif
+
     if (is_reg_name) {
 	Eterm pid;
 	ERTS_HLT_ASSERT(is_atom(tmr->receiver.name));
@@ -1123,11 +1302,18 @@ hlt_bif_timer_timeout(ErtsHLTimer *tmr, Uint32 roflgs)
 	    queued_message = 1;
 	    proc_locks &= ~ERTS_PROC_LOCKS_MSG_SEND;
 	    tmr->btm.bp = NULL;
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+            if (tmr->btm.proc_list.next) {
+                proc_btm_list_delete(&proc->bif_timers, tmr);
+		dec_refc = 1;
+            }
+#else
 	    if (tmr->btm.proc_tree.parent != ERTS_HLT_PFIELD_NOT_IN_TABLE) {
 		proc_btm_rbt_delete(&proc->bif_timers, tmr);
 		tmr->btm.proc_tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
 		dec_refc = 1;
 	    }
+#endif
 	}
 	if (proc_locks)
 	    erts_smp_proc_unlock(proc, proc_locks);
@@ -1154,7 +1340,9 @@ hlt_port_timeout(ErtsHLTimer *tmr)
 
 static void hlt_timeout(ErtsHLTimer *tmr, void *vsrv)
 {
+#if !defined(ERTS_MAGIC_REF_BIF_TIMERS) || defined(ERTS_HLT_HARD_DEBUG)
     ErtsHLTimerService *srv = (ErtsHLTimerService *) vsrv;
+#endif
     Uint32 roflgs;
     erts_aint32_t state;
 
@@ -1186,11 +1374,14 @@ static void hlt_timeout(ErtsHLTimer *tmr, void *vsrv)
     }
 
     tmr->time.tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
+
+#ifndef ERTS_MAGIC_REF_BIF_TIMERS
     if ((roflgs & ERTS_TMR_ROFLG_BIF_TMR)
 	&& tmr->btm.tree.parent != ERTS_HLT_PFIELD_NOT_IN_TABLE) {
 	btm_rbt_delete(&srv->btm_tree, tmr);
 	tmr->btm.tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
     }
+#endif
 
     ERTS_HLT_HDBG_CHK_SRV(srv);
 
@@ -1269,6 +1460,7 @@ hlt_delete_timer(ErtsSchedulerData *esdp, ErtsHLTimer *tmr)
 
     ERTS_HLT_HDBG_CHK_SRV(srv);
 
+#ifndef ERTS_MAGIC_REF_BIF_TIMERS
     if (tmr->head.roflgs & ERTS_TMR_ROFLG_BIF_TMR) {
 
 	if (tmr->btm.tree.parent != ERTS_HLT_PFIELD_NOT_IN_TABLE) {
@@ -1277,6 +1469,7 @@ hlt_delete_timer(ErtsSchedulerData *esdp, ErtsHLTimer *tmr)
 	}
 
     }
+#endif
 
     if (tmr->time.tree.parent == ERTS_HLT_PFIELD_NOT_IN_TABLE) {
 	/* Already removed... */
@@ -1613,6 +1806,7 @@ continue_cancel_ptimer(ErtsSchedulerData *esdp, ErtsTimer *tmr)
  * BIF timer specific
  */
 
+
 Uint erts_bif_timer_memory_size(void)
 {
     return (Uint) 0;
@@ -1627,41 +1821,59 @@ setup_bif_timer(Process *c_p, ErtsMonotonicTime timeout_pos,
     Eterm ref, tmo_msg, *hp;
     ErtsHLTimer *tmr;
     ErtsSchedulerData *esdp;
-    DeclareTmpHeap(tmp_hp, 4, c_p);
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+    Binary *mbin;
+#endif
+    Eterm tmp_hp[4];
 
     if (is_not_internal_pid(rcvr) && is_not_atom(rcvr))
 	goto badarg;
 
     esdp = erts_proc_sched_data(c_p);
 
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+    mbin = erts_create_magic_indirection(bif_timer_ref_destructor);
+    hp = HAlloc(c_p, ERTS_MAGIC_REF_THING_SIZE);
+    ref = erts_mk_magic_ref(&hp, &c_p->off_heap, mbin);
+    ASSERT(erts_get_ref_numbers_thr_id(((ErtsMagicBinary *)mbin)->refn)
+           == (Uint32) esdp->no);
+#else
     hp = HAlloc(c_p, ERTS_REF_THING_SIZE);
     ref = erts_sched_make_ref_in_buffer(esdp, hp);
-
-    ASSERT(erts_get_ref_numbers_thr_id(
-	       internal_ref_numbers(ref)) == (Uint32) esdp->no);
-
-    UseTmpHeap(4, c_p);
+    ASSERT(erts_get_ref_numbers_thr_id(internal_ordinary_ref_numbers(ref))
+           == (Uint32) esdp->no);
+#endif
 
     tmo_msg = wrap ? TUPLE3(tmp_hp, am_timeout, ref, msg) : msg;
 
     tmr = create_hl_timer(esdp, timeout_pos, short_time,
 			  ERTS_TMR_BIF, NULL,  rcvr, acsr, tmo_msg,
-			  internal_ref_numbers(ref), NULL, NULL);
-
-    UnUseTmpHeap(4, c_p);
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+                          (ErtsMagicBinary *) mbin,
+#else
+                          internal_ordinary_ref_numbers(ref),
+#endif
+                          NULL, NULL);
 
     if (is_internal_pid(rcvr)) {
 	Process *proc = erts_pid2proc_opt(c_p, ERTS_PROC_LOCK_MAIN,
 					  rcvr, ERTS_PROC_LOCK_BTM,
 					  ERTS_P2P_FLG_INC_REFC);
 	if (!proc) {
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+            btm_clear_magic_binary(tmr);
+#endif
 	    if (tmr->btm.bp)
 		free_message_buffer(tmr->btm.bp);
 	    hlt_delete_timer(esdp, tmr);
 	    hl_timer_destroy(tmr);
 	}
 	else {
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+            proc_btm_list_insert(&proc->bif_timers, tmr);
+#else
 	    proc_btm_rbt_insert(&proc->bif_timers, tmr);
+#endif
 	    erts_smp_proc_unlock(proc, ERTS_PROC_LOCK_BTM);
 	    tmr->receiver.proc = proc;
 	}
@@ -1689,6 +1901,10 @@ cancel_bif_timer(ErtsHLTimer *tmr)
     if (state != ERTS_TMR_STATE_ACTIVE)
 	return 0;
 
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+    btm_clear_magic_binary(tmr);
+#endif
+
     if (tmr->btm.bp)
 	free_message_buffer(tmr->btm.bp);
 
@@ -1705,25 +1921,215 @@ cancel_bif_timer(ErtsHLTimer *tmr)
 	 * the btm tree by itself (it may be in
 	 * the middle of tree destruction).
 	 */
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+        if (!ERTS_PROC_IS_EXITING(proc) && tmr->btm.proc_list.next) {
+            proc_btm_list_delete(&proc->bif_timers, tmr);
+            res = 1;
+        }
+#else
 	if (!ERTS_PROC_IS_EXITING(proc)
 	    && tmr->btm.proc_tree.parent != ERTS_HLT_PFIELD_NOT_IN_TABLE) {
 	    proc_btm_rbt_delete(&proc->bif_timers, tmr);
 	    tmr->btm.proc_tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
 	    res = 1;
 	}
+#endif
 	erts_smp_proc_unlock(proc, ERTS_PROC_LOCK_BTM);
     }
 
     return res;
 }
 
+static ERTS_INLINE Sint64
+access_btm(ErtsHLTimer *tmr, Uint32 sid, ErtsSchedulerData *esdp, int cancel)
+{
+    int cncl_res;
+    Sint64 time_left;
+
+    if (!tmr)
+        return -1;
+
+    if (!cancel) {
+        erts_aint32_t state = erts_smp_atomic32_read_acqb(&tmr->state);
+        if (state == ERTS_TMR_STATE_ACTIVE)
+            return get_time_left(esdp, tmr->timeout);
+        return -1;
+    }
+
+    cncl_res = cancel_bif_timer(tmr);
+    if (!cncl_res)
+        return -1;
+
+    time_left = get_time_left(esdp, tmr->timeout);
+
+    if (sid != (Uint32) esdp->no) {
+        if (cncl_res > 0)
+            queue_canceled_timer(esdp, sid, (ErtsTimer *) tmr);
+    }
+    else {
+        if (cncl_res > 0)
+            hl_timer_dec_refc(tmr, tmr->head.roflgs);
+
+        hlt_delete_timer(esdp, tmr);
+    }
+
+    return time_left;
+}
+
+static ERTS_INLINE Eterm
+return_info(Process *c_p, Sint64 time_left)
+{
+    Uint hsz;
+    Eterm *hp;
+
+    if (time_left < 0)
+        return am_false;
+
+    if (time_left <= (Sint64) MAX_SMALL)
+        return make_small((Sint) time_left);
+
+    hsz = ERTS_SINT64_HEAP_SIZE(time_left);
+    hp = HAlloc(c_p, hsz);
+    return erts_sint64_to_big(time_left, &hp);
+}
+
+static ERTS_INLINE Eterm
+send_async_info(Process *proc, ErtsProcLocks initial_locks,
+                Eterm tref, int cancel, Sint64 time_left)
+{
+    ErtsProcLocks locks = initial_locks;
+    ErtsMessage *mp;
+    Eterm tag, res, msg, ref;
+    Uint hsz;
+    Eterm *hp;
+    ErlOffHeap *ohp;
+
+    hsz = 4;
+    hsz += NC_HEAP_SIZE(tref);
+
+    if (time_left > (Sint64) MAX_SMALL)
+        hsz += ERTS_SINT64_HEAP_SIZE(time_left);
+
+    mp = erts_alloc_message_heap(proc, &locks, hsz, &hp, &ohp);
+
+    if (cancel)
+        tag = am_cancel_timer;
+    else
+        tag = am_read_timer;
+
+    ref = STORE_NC(&hp, ohp, tref);
+
+    if (time_left < 0)
+        res = am_false;
+    else if (time_left <= (Sint64) MAX_SMALL)
+        res = make_small((Sint) time_left);
+    else
+        res = erts_sint64_to_big(time_left, &hp);
+
+    msg = TUPLE3(hp, tag, ref, res);
+
+    erts_queue_message(proc, locks, mp, msg, am_clock_service);
+
+    locks &= ~initial_locks;
+    if (locks)
+        erts_smp_proc_unlock(proc, locks);
+
+    return am_ok;
+}
+
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+
+static BIF_RETTYPE
+access_bif_timer(Process *c_p, Eterm tref, int cancel, int async, int info)
+{
+    BIF_RETTYPE ret;
+    Eterm res;
+    Sint64 time_left;
+
+    if (!is_internal_magic_ref(tref)) {
+	if (is_not_ref(tref)) {
+            ERTS_BIF_PREP_ERROR(ret, c_p, BADARG);
+            return ret;
+        }
+        time_left = -1;
+    }
+    else {
+        ErtsMagicBinary *mbin;
+        mbin = (ErtsMagicBinary *) erts_magic_ref2bin(tref);
+        if (mbin->destructor != bif_timer_ref_destructor)
+            time_left = -1;
+        else {
+            ErtsHLTimer *tmr;
+            Uint32 sid;
+            tmr = magic_binary_to_btm(mbin);
+            sid = erts_get_ref_numbers_thr_id(internal_magic_ref_numbers(tref));
+            ASSERT(1 <= sid && sid <= erts_no_schedulers);
+            time_left = access_btm(tmr, sid, erts_proc_sched_data(c_p), cancel);
+        }
+    }
+
+    if (!info)
+        res = am_ok;
+    else if (!async)
+        res = return_info(c_p, time_left);
+    else
+        res = send_async_info(c_p, ERTS_PROC_LOCK_MAIN,
+                              tref, cancel, time_left);
+
+    ERTS_BIF_PREP_RET(ret, res);
+
+    return ret;
+}
+
+#else /* !ERTS_MAGIC_REF_BIF_TIMERS */
+
+static ERTS_INLINE Eterm
+send_sync_info(Process *proc, ErtsProcLocks initial_locks,
+               Uint32 *refn, int cancel, Sint64 time_left)
+{
+    ErtsProcLocks locks = initial_locks;
+    ErtsMessage *mp;
+    Eterm res, msg, ref;
+    Uint hsz;
+    Eterm *hp;
+    ErlOffHeap *ohp;
+
+    hsz = 3 + ERTS_REF_THING_SIZE;
+
+    if (time_left > (Sint64) MAX_SMALL)
+        hsz += ERTS_SINT64_HEAP_SIZE(time_left);
+
+    mp = erts_alloc_message_heap(proc, &locks, hsz, &hp, &ohp);
+
+    write_ref_thing(hp, refn[0], refn[1], refn[2]);
+    ref = make_internal_ref(hp);
+    hp += ERTS_REF_THING_SIZE;
+
+    if (time_left < 0)
+        res = am_false;
+    else if (time_left <= (Sint64) MAX_SMALL)
+        res = make_small((Sint) time_left);
+    else
+        res = erts_sint64_to_big(time_left, &hp);
+
+    msg = TUPLE2(hp, ref, res);
+
+    erts_queue_message(proc, locks, mp, msg, am_clock_service);
+
+    locks &= ~initial_locks;
+    if (locks)
+        erts_smp_proc_unlock(proc, locks);
+
+    return am_ok;
+}
+
 static ERTS_INLINE Eterm
 access_sched_local_btm(Process *c_p, Eterm pid,
-		       Eterm tref, Uint32 *trefn,
-		       Uint32 *rrefn,
-		       int async, int cancel,
-		       int return_res,
-		       int info)
+                       Eterm tref, Uint32 *trefn,
+                       Uint32 *rrefn,
+                       int async, int cancel,
+                       int return_res,
+                       int info)
 {
     ErtsSchedulerData *esdp;
     ErtsHLTimerService *srv;
@@ -1747,111 +2153,40 @@ access_sched_local_btm(Process *c_p, Eterm pid,
     srv = esdp->timer_service;
 
     tmr = btm_rbt_lookup(srv->btm_tree, trefn);
-    if (tmr) {
-	if (!cancel) {
-	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&tmr->state);
-	    if (state == ERTS_TMR_STATE_ACTIVE)
-		time_left = get_time_left(esdp, tmr->timeout);
-	}
-	else {
-	    int cncl_res = cancel_bif_timer(tmr);
-	    if (cncl_res) {
 
-		time_left = get_time_left(esdp, tmr->timeout);
-
-		if (cncl_res > 0)
-		    hl_timer_dec_refc(tmr, tmr->head.roflgs);
-
-		hlt_delete_timer(esdp, tmr);
-	    }
-	}
-    }
+    time_left = access_btm(tmr, (Uint32) esdp->no, esdp, cancel);
 
     if (!info)
-	return am_ok;
-
-    if (return_res) {
-	ERTS_HLT_ASSERT(c_p);
-	if (time_left < 0)
-	    return am_false;
-	else if (time_left <= (Sint64) MAX_SMALL)
-	    return make_small((Sint) time_left);
-	else {
-	    Uint hsz = ERTS_SINT64_HEAP_SIZE(time_left);
-	    Eterm *hp = HAlloc(c_p, hsz);
-	    return erts_sint64_to_big(time_left, &hp);
-	}
-    }
+        return am_ok;
 
     if (c_p) {
-	proc = c_p;
-	proc_locks = ERTS_PROC_LOCK_MAIN;
+        proc = c_p;
+        proc_locks = ERTS_PROC_LOCK_MAIN;
     }
     else {
-	proc = erts_proc_lookup(pid);
-	proc_locks = 0;
+        proc = erts_proc_lookup(pid);
+        proc_locks = 0;
     }
 
-    if (proc) {
-	Uint hsz;
-	ErtsMessage *mp;
-	Eterm *hp, msg, ref, result;
-	ErlOffHeap *ohp;
-	Uint32 *refn;
-#ifdef ERTS_HLT_DEBUG
-	Eterm *hp_end;
-#endif
+    if (!async) {
+        if (c_p)
+            return return_info(c_p, time_left);
 
-	hsz = ERTS_REF_THING_SIZE;
-	if (async) {
-	    refn = trefn; /* timer ref */
-	    hsz += 4; /* 3-tuple */
-	}
-	else {
-	    refn = rrefn; /* request ref */
-	    hsz += 3; /* 2-tuple */
-	}
-
-	ERTS_HLT_ASSERT(refn);
-
-	if (time_left > (Sint64) MAX_SMALL)
-	    hsz += ERTS_SINT64_HEAP_SIZE(time_left);
-
-	mp = erts_alloc_message_heap(proc, &proc_locks,
-				     hsz, &hp, &ohp);
-
-#ifdef ERTS_HLT_DEBUG
-	hp_end = hp + hsz;
-#endif
-
-	if (time_left < 0)
-	    result = am_false;
-	else if (time_left <= (Sint64) MAX_SMALL)
-	    result = make_small((Sint) time_left);
-	else
-	    result = erts_sint64_to_big(time_left, &hp);
-
-	write_ref_thing(hp,
-			refn[0],
-			refn[1],
-			refn[2]);
-	ref = make_internal_ref(hp);
-	hp += ERTS_REF_THING_SIZE;
-
-	msg = (async
-	       ? TUPLE3(hp, (cancel
-			     ? am_cancel_timer
-			     : am_read_timer), ref, result)
-	       : TUPLE2(hp, ref, result));
-
-	ERTS_HLT_ASSERT(hp + (async ? 4 : 3) == hp_end);
-
-	erts_queue_message(proc, proc_locks, mp, msg, am_clock_service);
-
-	if (c_p)
-	    proc_locks &= ~ERTS_PROC_LOCK_MAIN;
-	if (proc_locks)
-	    erts_smp_proc_unlock(proc, proc_locks);
+        if (proc)
+            return send_sync_info(proc, proc_locks,
+                                  rrefn, cancel, time_left);
+    }
+    else if (proc) {
+        Eterm ref;
+        Eterm heap[ERTS_REF_THING_SIZE];
+        if (is_value(tref))
+            ref = tref;
+        else {
+            write_ref_thing(&heap[0], trefn[0], trefn[1], trefn[2]);
+            ref = make_internal_ref(&heap[0]);
+        }
+        return send_async_info(proc, proc_locks,
+                               ref, cancel, time_left);
     }
 
     return am_ok;
@@ -1884,7 +2219,7 @@ bif_timer_access_request(void *vreq)
 static int
 try_access_sched_remote_btm(ErtsSchedulerData *esdp,
 			    Process *c_p, Uint32 sid,
-			    Uint32 *trefn,
+			    Eterm tref, Uint32 *trefn,
 			    int async, int cancel,
 			    int info, Eterm *resp)
 {
@@ -1903,84 +2238,45 @@ try_access_sched_remote_btm(ErtsSchedulerData *esdp,
     if (!tmr)
 	return 0;
 
-    if (!cancel) {
-	erts_aint32_t state = erts_smp_atomic32_read_acqb(&tmr->state);
-	if (state == ERTS_TMR_STATE_ACTIVE)
-	    time_left = get_time_left(esdp, tmr->timeout);
-	else
-	    time_left = -1;
-    }
-    else {
-	int cncl_res = cancel_bif_timer(tmr);
-	if (!cncl_res)
-	    time_left = -1;
-	else {
-	    time_left = get_time_left(esdp, tmr->timeout);
-	    if (cncl_res > 0)
-		queue_canceled_timer(esdp, sid, (ErtsTimer *) tmr);
-	}
-    }
+    time_left = access_btm(tmr, sid, esdp, cancel);
 
-    if (!info) {
+    if (!info)
 	*resp = am_ok;
-	return 1;
-    }
+    else if (!async)
+        *resp = return_info(c_p, time_left);
+    else
+        *resp = send_async_info(c_p, ERTS_PROC_LOCK_MAIN,
+                                tref, cancel, time_left);
 
-    if (!async) {
-	if (time_left < 0)
-	    *resp = am_false;
-	else if (time_left <= (Sint64) MAX_SMALL)
-	    *resp = make_small((Sint) time_left);
-	else {
-	    Uint hsz = ERTS_SINT64_HEAP_SIZE(time_left);
-	    Eterm *hp = HAlloc(c_p, hsz);
-	    *resp = erts_sint64_to_big(time_left, &hp);
-	}
-    }
-    else {
-	ErtsMessage *mp;
-	Eterm tag, res, msg, tref;
-	Uint hsz;
-	Eterm *hp;
-	ErtsProcLocks proc_locks = ERTS_PROC_LOCK_MAIN;
-	ErlOffHeap *ohp;
-
-	hsz = 4 + ERTS_REF_THING_SIZE;
-	if (time_left > (Sint64) MAX_SMALL)
-	    hsz += ERTS_SINT64_HEAP_SIZE(time_left);
-
-	mp = erts_alloc_message_heap(c_p, &proc_locks,
-				     hsz, &hp, &ohp);
-	if (cancel)
-	    tag = am_cancel_timer;
-	else
-	    tag = am_read_timer;
-
-	write_ref_thing(hp,
-			trefn[0],
-			trefn[1],
-			trefn[2]);
-	tref = make_internal_ref(hp);
-	hp += ERTS_REF_THING_SIZE;
-
-	if (time_left < 0)
-	    res = am_false;
-	else if (time_left <= (Sint64) MAX_SMALL)
-	    res = make_small((Sint) time_left);
-	else
-	    res = erts_sint64_to_big(time_left, &hp);
-
-	msg = TUPLE3(hp, tag, tref, res);
-
-        erts_queue_message(c_p, proc_locks, mp, msg, am_clock_service);
-
-	proc_locks &= ~ERTS_PROC_LOCK_MAIN;
-	if (proc_locks)
-	    erts_smp_proc_unlock(c_p, proc_locks);
-
-	*resp = am_ok;
-    }
     return 1;
+}
+
+static Eterm
+no_timer_result(Process *c_p, Eterm tref, int cancel, int async, int info)
+{
+    ErtsMessage *mp;
+    Uint hsz;
+    Eterm *hp, msg, ref, tag;
+    ErlOffHeap *ohp;
+    ErtsProcLocks locks;
+
+    if (!async)
+        return am_false;
+    if (!info)
+        return am_ok;
+
+    hsz = 4;
+    hsz += NC_HEAP_SIZE(tref);
+    locks = ERTS_PROC_LOCK_MAIN;
+    mp = erts_alloc_message_heap(c_p, &locks, hsz, &hp, &ohp);
+    ref = STORE_NC(&hp, ohp, tref);
+    tag = cancel ? am_cancel_timer : am_read_timer;
+    msg = TUPLE3(hp, tag, ref, am_false);
+    erts_queue_message(c_p, locks, mp, msg, am_clock_service);
+    locks &= ~ERTS_PROC_LOCK_MAIN;
+    if (locks)
+        erts_smp_proc_unlock(c_p, locks);
+    return am_ok;
 }
 
 static BIF_RETTYPE
@@ -2014,7 +2310,7 @@ access_bif_timer(Process *c_p, Eterm tref, int cancel, int async, int info)
 	ERTS_BIF_PREP_RET(ret, res);
     }
     else if (try_access_sched_remote_btm(esdp, c_p,
-					 sid, trefn,
+					 sid, tref, trefn,
 					 async, cancel,
 					 info, &res)) {
 	ERTS_BIF_PREP_RET(ret, res);
@@ -2093,10 +2389,10 @@ badarg:
     return ret;
 
 no_timer:
-    ERTS_BIF_PREP_RET(ret, am_false);
-    return ret;
-    
+    return no_timer_result(c_p, tref, cancel, async, info);
 }
+
+#endif /* !ERTS_MAGIC_REF_BIF_TIMERS */
 
 static ERTS_INLINE int
 bool_arg(Eterm val, int *argp)
@@ -2174,14 +2470,20 @@ exit_cancel_bif_timer(ErtsHLTimer *tmr, void *vesdp)
     roflgs = tmr->head.roflgs;
     sid = roflgs & ERTS_TMR_ROFLG_SID_MASK;
 
-    ERTS_HLT_ASSERT(sid == erts_get_ref_numbers_thr_id(tmr->btm.refn));
+    ERTS_HLT_ASSERT(sid == erts_get_ref_numbers_thr_id(ERTS_BTM_HLT2REFN(tmr)));
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+    ERTS_HLT_ASSERT(tmr->btm.proc_list.next);
+#else
     ERTS_HLT_ASSERT(tmr->btm.proc_tree.parent
 		    != ERTS_HLT_PFIELD_NOT_IN_TABLE);
-
     tmr->btm.proc_tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
+#endif
 
     if (sid == (Uint32) esdp->no) {
 	if (state == ERTS_TMR_STATE_ACTIVE) {
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+            btm_clear_magic_binary(tmr);
+#endif
 	    if (tmr->btm.bp)
 		free_message_buffer(tmr->btm.bp);
 	    hlt_delete_timer(esdp, tmr);
@@ -2190,6 +2492,9 @@ exit_cancel_bif_timer(ErtsHLTimer *tmr, void *vesdp)
     }
     else {
 	if (state == ERTS_TMR_STATE_ACTIVE) {
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+            btm_clear_magic_binary(tmr);
+#endif
 	    if (tmr->btm.bp)
 		free_message_buffer(tmr->btm.bp);
 	    queue_canceled_timer(esdp, sid, (ErtsTimer *) tmr);
@@ -2205,17 +2510,29 @@ exit_cancel_bif_timer(ErtsHLTimer *tmr, void *vesdp)
 #  define ERTS_BTM_MAX_DESTROY_LIMIT 50
 #endif
 
+#ifndef ERTS_MAGIC_REF_BIF_TIMERS
 typedef struct {
     ErtsBifTimers *bif_timers;
     union {
 	proc_btm_rbt_yield_state_t proc_btm_yield_state;
     } u;
 } ErtsBifTimerYieldState;
+#endif
 
-int erts_cancel_bif_timers(Process *p, ErtsBifTimers *btm, void **vyspp)
+int erts_cancel_bif_timers(Process *p, ErtsBifTimers **btm, void **vyspp)
 {
     ErtsSchedulerData *esdp = erts_proc_sched_data(p);
-    ErtsBifTimerYieldState ys = {btm, {ERTS_RBT_YIELD_STAT_INITER}};
+
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+
+    return proc_btm_list_foreach_destroy_yielding(btm,
+                                                  exit_cancel_bif_timer,
+                                                  (void *) esdp,
+                                                  ERTS_BTM_MAX_DESTROY_LIMIT);
+
+#else /* !ERTS_MAGIC_REF_BIF_TIMERS */
+
+    ErtsBifTimerYieldState ys = {*btm, {ERTS_RBT_YIELD_STAT_INITER}};
     ErtsBifTimerYieldState *ysp;
     int res;
 
@@ -2247,6 +2564,8 @@ int erts_cancel_bif_timers(Process *p, ErtsBifTimers *btm, void **vyspp)
     }
 
     return res;
+
+#endif /* !ERTS_MAGIC_REF_BIF_TIMERS */
 }
 
 static ERTS_INLINE int
@@ -2663,6 +2982,11 @@ btm_print(ErtsHLTimer *tmr, void *vbtmp)
     ErtsMonotonicTime left;
     Eterm receiver;
 
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+    if (!(tmr->head.roflgs & ERTS_TMR_ROFLG_BIF_TMR))
+        return;
+#endif
+
     if (tmr->timeout <= btmp->now)
 	left = 0;
     else
@@ -2698,7 +3022,11 @@ erts_print_bif_timer_info(fmtfn_t to, void *to_arg)
     for (six = 0; six < erts_no_schedulers; six++) {
 	ErtsHLTimerService *srv =
 	    erts_aligned_scheduler_data[six].esd.timer_service;
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+	time_rbt_foreach(srv->time_tree, btm_print, (void *) &btmp);
+#else
 	btm_rbt_foreach(srv->btm_tree, btm_print, (void *) &btmp);
+#endif
     }
 }
 
@@ -2713,6 +3041,10 @@ typedef struct {
 static void
 debug_btm_foreach(ErtsHLTimer *tmr, void *vbtmfd)
 {
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+    if (!(tmr->head.roflgs & ERTS_TMR_ROFLG_BIF_TMR))
+        return;
+#endif
     if (erts_smp_atomic32_read_nob(&tmr->state) == ERTS_TMR_STATE_ACTIVE) {
 	ErtsBTMForeachDebug *btmfd = (ErtsBTMForeachDebug *) vbtmfd;
 	(*btmfd->func)(((tmr->head.roflgs & ERTS_TMR_ROFLG_REG_NAME)
@@ -2743,9 +3075,16 @@ erts_debug_bif_timer_foreach(void (*func)(Eterm,
     for (six = 0; six < erts_no_schedulers; six++) {
 	ErtsHLTimerService *srv =
 	    erts_aligned_scheduler_data[six].esd.timer_service;
+#ifdef ERTS_MAGIC_REF_BIF_TIMERS
+        time_rbt_foreach(srv->time_tree,
+                         debug_btm_foreach,
+                         (void *) &btmfd);
+            
+#else
 	btm_rbt_foreach(srv->btm_tree,
 			debug_btm_foreach,
 			(void *) &btmfd);
+#endif
     }
 }
 
@@ -2868,7 +3207,9 @@ st_hdbg_func(ErtsHLTimer *tmr, void *vhdbg)
     }
     ERTS_HLT_ASSERT(tmr->time.tree.u.l.next->time.tree.u.l.prev == tmr);
     ERTS_HLT_ASSERT(tmr->time.tree.u.l.prev->time.tree.u.l.next == tmr);
-    ERTS_HLT_ASSERT(btm_rbt_lookup(hdbg->srv->btm_tree, tmr->btm.refn) == tmr);
+#ifndef ERTS_MAGIC_REF_BIF_TIMERS
+    ERTS_HLT_ASSERT(btm_rbt_lookup(hdbg->srv->btm_tree, ERTS_BTM_HLT2REFN(tmr)) == tmr);
+#endif
 }
 
 static void
@@ -2897,8 +3238,10 @@ tt_hdbg_func(ErtsHLTimer *tmr, void *vhdbg)
 				& ~ERTS_HLT_PFLGS_MASK);
 	ERTS_HLT_ASSERT(tmr == prnt);
     }
+#ifndef ERTS_MAGIC_REF_BIF_TIMERS
     if (tmr->head.roflgs & ERTS_TMR_ROFLG_BIF_TMR)
-	ERTS_HLT_ASSERT(btm_rbt_lookup(hdbg->srv->btm_tree, tmr->btm.refn) == tmr);
+	ERTS_HLT_ASSERT(btm_rbt_lookup(hdbg->srv->btm_tree, ERTS_BTM_HLT2REFN(tmr)) == tmr);
+#endif
     if (tmr->time.tree.same_time) {
 	ErtsHdbgHLT st_hdbg;
 	st_hdbg.srv = hdbg->srv;
@@ -2964,6 +3307,7 @@ hdbg_chk_srv(ErtsHLTimerService *srv)
 	time_rbt_foreach(srv->time_tree, tt_hdbg_func, (void *) &hdbg);
 	ERTS_HLT_ASSERT(hdbg.found_root);
     }
+#ifndef ERTS_MAGIC_REF_BIF_TIMERS
     if (srv->btm_tree) {
 	ErtsHdbgHLT hdbg;
 	hdbg.srv = srv;
@@ -2972,6 +3316,7 @@ hdbg_chk_srv(ErtsHLTimerService *srv)
 	btm_rbt_foreach(srv->btm_tree, bt_hdbg_func, (void *) &hdbg);
 	ERTS_HLT_ASSERT(hdbg.found_root);
     }
+#endif
 }
 
 #endif /* ERTS_HLT_HARD_DEBUG */
