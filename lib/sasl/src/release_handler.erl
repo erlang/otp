@@ -831,7 +831,7 @@ do_unpack_release(Root, RelDir, ReleaseName, Releases) ->
     Tar = filename:join(RelDir, ReleaseName ++ ".tar.gz"),
     do_check_file(Tar, regular),
     Rel = ReleaseName ++ ".rel",
-    extract_rel_file(filename:join("releases", Rel), Tar, Root),
+    _ = extract_rel_file(filename:join("releases", Rel), Tar, Root),
     RelFile = filename:join(RelDir, Rel),
     Release = check_rel(Root, RelFile, false),
     #release{vsn = Vsn} = Release,
@@ -1841,14 +1841,12 @@ do_check_file(Master, FileName, Type) ->
 %% by the user in another way, i.e. ignore this here.
 %%-----------------------------------------------------------------
 extract_rel_file(Rel, Tar, Root) ->
-    erl_tar:extract(Tar, [{files, [Rel]}, {cwd, Root}, compressed]).
+    _ = erl_tar:extract(Tar, [{files, [Rel]}, {cwd, Root}, compressed]).
 
 extract_tar(Root, Tar) ->
     case erl_tar:extract(Tar, [keep_old_files, {cwd, Root}, compressed]) of
 	ok ->
 	    ok;
-	{error, Reason, Name} ->		% Old erl_tar.
-	    throw({error, {cannot_extract_file, Name, Reason}});
 	{error, {Name, Reason}} ->		% New erl_tar (R3A).
 	    throw({error, {cannot_extract_file, Name, Reason}})
     end.
