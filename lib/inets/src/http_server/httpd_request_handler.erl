@@ -240,9 +240,9 @@ handle_info({tcp_closed, _}, State) ->
 handle_info({ssl_closed, _}, State) ->
     {stop, normal, State};
 handle_info({tcp_error, _, _} = Reason, State) ->
-    {stop, Reason, State};
+    {stop, {shutdown, Reason}, State};
 handle_info({ssl_error, _, _} = Reason, State) ->
-    {stop, Reason, State};
+    {stop, {shutdown, Reason}, State};
 
 %% Timeouts
 handle_info(timeout, #state{mfa = {_, parse, _}} = State) ->
