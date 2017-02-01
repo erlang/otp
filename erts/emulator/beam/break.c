@@ -684,7 +684,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
        crash dump. */
     erts_thr_progress_fatal_error_block(&tpd_buf);
 
-#ifdef ERTS_THR_HAVE_SIG_FUNCS
+#ifdef ERTS_SYS_SUSPEND_SIGNAL
     /*
      * We suspend all scheduler threads so that we can dump some
      * data about the currently running processes and scheduler data.
@@ -818,7 +818,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 
 #ifdef ERTS_SMP
 
-#if defined(ERTS_THR_HAVE_SIG_FUNCS)
+#ifdef ERTS_SYS_SUSPEND_SIGNAL
 
     /* We resume all schedulers so that we are in a known safe state
        when we write the rest of the crash dump */
