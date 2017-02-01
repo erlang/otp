@@ -265,7 +265,10 @@ control($W, [A,Depth], F, Adj, P, Pad, _Enc, _Str, _I) when is_integer(Depth) ->
     term(io_lib:write(A, Depth), F, Adj, P, Pad);
 control($P, [A,Depth], F, Adj, P, Pad, Enc, Str, I) when is_integer(Depth) ->
     print(A, Depth, F, Adj, P, Pad, Enc, Str, I);
-control($s, [A], F, Adj, P, Pad, _Enc, _Str, _I) when is_atom(A) ->
+control($s, [A], F, Adj, P, Pad, latin1, _Str, _I) when is_atom(A) ->
+    L = iolist_to_chars(atom_to_list(A)),
+    string(L, F, Adj, P, Pad);
+control($s, [A], F, Adj, P, Pad, unicode, _Str, _I) when is_atom(A) ->
     string(atom_to_list(A), F, Adj, P, Pad);
 control($s, [L0], F, Adj, P, Pad, latin1, _Str, _I) ->
     L = iolist_to_chars(L0),
