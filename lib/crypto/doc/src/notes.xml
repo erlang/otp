@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 3.6.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Key exchange algorithms
+	    diffie-hellman-group-exchange-sha* optimized, up to a
+	    factor of 11 for the slowest ( = biggest and safest) one.</p>
+          <p>
+	    Own Id: OTP-14169 Aux Id: seq-13261 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 3.6.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
