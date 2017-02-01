@@ -214,11 +214,21 @@ expand_opt(report, Os) ->
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
 expand_opt(r12, Os) ->
-    [no_recv_opt,no_line_info|Os];
+    [no_recv_opt,no_line_info,no_utf8_atoms|Os];
 expand_opt(r13, Os) ->
-    [no_recv_opt,no_line_info|Os];
+    [no_recv_opt,no_line_info,no_utf8_atoms|Os];
 expand_opt(r14, Os) ->
-    [no_line_info|Os];
+    [no_line_info,no_utf8_atoms|Os];
+expand_opt(r15, Os) ->
+    [no_utf8_atoms|Os];
+expand_opt(r16, Os) ->
+    [no_utf8_atoms|Os];
+expand_opt(r17, Os) ->
+    [no_utf8_atoms|Os];
+expand_opt(r18, Os) ->
+    [no_utf8_atoms|Os];
+expand_opt(r19, Os) ->
+    [no_utf8_atoms|Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(no_float_opt, Os) ->
@@ -1376,13 +1386,14 @@ encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
 save_core_code(Code, St) ->
     {ok,Code,St#compile{core_code=cerl:from_records(Code)}}.
 
-beam_asm(Code0, #compile{ifile=File,abstract_code=Abst,mod_options=Opts0}=St) ->
+beam_asm(Code0, #compile{ifile=File,abstract_code=Abst,
+			 options=CompilerOpts,mod_options=Opts0}=St) ->
     Source = paranoid_absname(File),
     Opts1 = lists:map(fun({debug_info_key,_}) -> {debug_info_key,'********'};
 			 (Other) -> Other
 		      end, Opts0),
     Opts2 = [O || O <- Opts1, effects_code_generation(O)],
-    case beam_asm:module(Code0, Abst, Source, Opts2) of
+    case beam_asm:module(Code0, Abst, Source, Opts2, CompilerOpts) of
 	{ok,Code} -> {ok,Code,St#compile{abstract_code=[]}}
     end.
 

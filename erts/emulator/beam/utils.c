@@ -3671,6 +3671,68 @@ intlist_to_buf(Eterm list, char *buf, Sint len)
     return -2;			/* not enough space */
 }
 
+/* Fill buf with the contents of the unicode list.
+ * Return the number of bytes in the buffer,
+ * or -1 for type error,
+ * or -2 for not enough buffer space (buffer contains truncated result).
+ */
+Sint
+erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len)
+{
+    Eterm* listptr;
+    Sint sz = 0;
+
+    if (is_nil(list)) {
+	return 0;
+    }
+    if (is_not_list(list)) {
+	return -1;
+    }
+    listptr = list_val(list);
+
+    while (len-- > 0) {
+	Sint val;
+
+	if (is_not_small(CAR(listptr))) {
+	    return -1;
+	}
+	val = signed_val(CAR(listptr));
+	if (0 <= val && val < 0x80) {
+	    buf[sz] = val;
+	    sz++;
+	} else if (val < 0x800) {
+	    buf[sz+0] = 0xC0 | (val >> 6);
+	    buf[sz+1] = 0x80 | (val & 0x3F);
+	    sz += 2;
+	} else if (val < 0x10000UL) {
+	    if (0xD800 <= val && val <= 0xDFFF) {
+		return -1;
+	    }
+	    buf[sz+0] = 0xE0 | (val >> 12);
+	    buf[sz+1] = 0x80 | ((val >> 6) & 0x3F);
+	    buf[sz+2] = 0x80 | (val & 0x3F);
+	    sz += 3;
+	} else if (val < 0x110000) {
+	    buf[sz+0] = 0xF0 | (val >> 18);
+	    buf[sz+1] = 0x80 | ((val >> 12) & 0x3F);
+	    buf[sz+2] = 0x80 | ((val >> 6) & 0x3F);
+	    buf[sz+3] = 0x80 | (val & 0x3F);
+	    sz += 4;
+	} else {
+	    return -1;
+	}
+	list = CDR(listptr);
+	if (is_nil(list)) {
+	    return sz;
+	}
+	if (is_not_list(list)) {
+	    return -1;
+	}
+	listptr = list_val(list);
+    }
+    return -2;			/* not enough space */
+}
+
 /*
 ** Convert an integer to a byte list
 ** return pointer to converted stuff (need not to be at start of buf!)

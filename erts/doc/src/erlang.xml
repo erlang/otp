@@ -325,16 +325,11 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
           is <c>latin1</c>, one byte exists for each character
           in the text representation. If <c><anno>Encoding</anno></c> is
           <c>utf8</c> or
-          <c>unicode</c>, the characters are encoded using UTF-8
-          (that is, characters from 128 through 255 are
-          encoded in two bytes).</p>
+          <c>unicode</c>, the characters are encoded using UTF-8 where
+          characters may require multiple bytes.</p>
         <note>
-          <p><c>atom_to_binary(<anno>Atom</anno>, latin1)</c> never
-            fails, as the text representation of an atom can only
-            contain characters from 0 through 255. In a future release,
-            the text representation
-            of atoms can be allowed to contain any Unicode character and
-            <c>atom_to_binary(<anno>Atom</anno>, latin1)</c> then fails if the
+          <p>As from Erlang/OTP 20, atoms can contain any Unicode character
+            and <c>atom_to_binary(<anno>Atom</anno>, latin1)</c> may fail if the
             text representation for <c><anno>Atom</anno></c> contains a Unicode
             character &gt; 255.</p>
         </note>
@@ -402,13 +397,11 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
           translation of bytes in the binary is done.
           If <c><anno>Encoding</anno></c>
           is <c>utf8</c> or <c>unicode</c>, the binary must contain
-          valid UTF-8 sequences. Only Unicode characters up
-          to 255 are allowed.</p>
+          valid UTF-8 sequences.</p>
         <note>
-          <p><c>binary_to_atom(<anno>Binary</anno>, utf8)</c> fails if
-            the binary contains Unicode characters &gt; 255.
-            In a future release, such Unicode characters can be allowed and
-            <c>binary_to_atom(<anno>Binary</anno>, utf8)</c> does then not fail.
+          <p>As from Erlang/OTP 20, <c>binary_to_atom(<anno>Binary</anno>, utf8)</c>
+            is capable of encoding any Unicode character. Earlier versions would
+            fail if the binary contained Unicode characters &gt; 255.
             For more information about Unicode support in atoms, see the
             <seealso marker="erl_ext_dist#utf8_atoms">note on UTF-8
             encoded atoms</seealso>
@@ -419,9 +412,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
 > <input>binary_to_atom(&lt;&lt;"Erlang"&gt;&gt;, latin1).</input>
 'Erlang'
 > <input>binary_to_atom(&lt;&lt;1024/utf8&gt;&gt;, utf8).</input>
-** exception error: bad argument
-     in function  binary_to_atom/2
-        called as binary_to_atom(&lt;&lt;208,128&gt;&gt;,utf8)</pre>
+'Ѐ'</pre>
       </desc>
     </func>
 
@@ -2381,10 +2372,10 @@ os_prompt%</pre>
       <desc>
         <p>Returns the atom whose text representation is
           <c><anno>String</anno></c>.</p>
-        <p><c><anno>String</anno></c> can only contain ISO-latin-1
-          characters (that is, numbers &lt; 256) as the implementation does not
-          allow Unicode characters equal to or above 256 in atoms.
-          For more information on Unicode support in atoms, see
+        <p>As from Erlang/OTP 20, <c><anno>String</anno></c> may contain
+          any Unicode character. Earlier versions allowed only ISO-latin-1
+          characters as the implementation did not allow Unicode characters
+          above 255. For more information on Unicode support in atoms, see
           <seealso marker="erl_ext_dist#utf8_atoms">note on UTF-8
           encoded atoms</seealso>
           in section "External Term Format" in the User's Guide.</p>
