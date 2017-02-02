@@ -85,7 +85,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
   background-color: #2b8a3e;
   color: #fefefe;
   font-weight: bold;
-  padding: 5px 10px;
+  padding: 0.5em 1em;
 }
 .note .content {
   background: #f8f9fa;
@@ -97,7 +97,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
   background: #c92a2a;
   color: #fefefe;
   font-weight: bold;
-  padding: 5px 10px;
+  padding: 0.5em 1em;
 }
 .warning .content {
   background-color: #f8f9fa;
@@ -109,25 +109,25 @@ a:visited      { color: #1b6ec2; text-decoration: none }
   background-color: #2b8a3e;
   color: #fefefe;
   font-weight: bold;
-  padding: 5px 10px;
+  padding: 0.5em 1em;
 }
 .do .content {
   background: #f8f9fa;
   line-height: 120%;
   font-size: 90%;
-  padding: 5px 10px;
+  padding: 0.5em 1em;
 }
 .dont .label {
   background: #c92a2a;
   color: #fefefe;
   font-weight: bold;
-  padding: 5px 10px;
+  padding: 0.5em 1em;
 }
 .dont .content {
   background-color: #f8f9fa;
   line-height: 120%;
   font-size: 90%;
-  padding: 5px 10px;
+  padding: 0.5em 1em;
 }
 
 .quote {
