@@ -107,8 +107,7 @@ start_link_dist(Opts) ->
 %%--------------------------------------------------------------------
 -spec connection_init(binary()| {der, list()}, client | server, 
 		      {Cb :: atom(), Handle:: term()}) ->
-			     {ok, certdb_ref(), db_handle(), db_handle(), 
-			      db_handle(), db_handle(), CRLInfo::term()}.
+			     {ok, map()}.
 %%			     
 %% Description: Do necessary initializations for a new connection.
 %%--------------------------------------------------------------------
@@ -128,7 +127,7 @@ cache_pem_file(File, DbHandle) ->
 	[Content]  ->
 	    {ok, Content};
 	undefined ->
-	  ssl_pem_cache:insert(File)
+            ssl_pem_cache:insert(File)
     end.
 
 %%--------------------------------------------------------------------
@@ -224,7 +223,7 @@ init([ManagerName, PemCacheName, Opts]) ->
     CacheCb = proplists:get_value(session_cb, Opts, ssl_session_cache),
     SessionLifeTime =  
 	proplists:get_value(session_lifetime, Opts, ?'24H_in_sec'),
-    CertDb = ssl_pkix_db:create(),
+    CertDb = ssl_pkix_db:create(PemCacheName),
     ClientSessionCache = 
 	CacheCb:init([{role, client} | 
 		      proplists:get_value(session_cb_init_args, Opts, [])]),
@@ -261,18 +260,25 @@ init([ManagerName, PemCacheName, Opts]) ->
 handle_call({{connection_init, <<>>, Role, {CRLCb, UserCRLDb}}, _Pid}, _From,
 	    #state{certificate_db = [CertDb, FileRefDb, PemChace | _] = Db} = State) ->
     Ref = make_ref(), 
-    Result = {ok, Ref, CertDb, FileRefDb, PemChace, 
-	      session_cache(Role, State), {CRLCb, crl_db_info(Db, UserCRLDb)}},
-    {reply, Result, State#state{certificate_db = Db}};
+    {reply, {ok, #{cert_db_ref => Ref, 
+                   cert_db_handle => CertDb, 
+                   fileref_db_handle => FileRefDb, 
+                   pem_cache => PemChace, 
+                   session_cache => session_cache(Role, State), 
+                   crl_db_info => {CRLCb, crl_db_info(Db, UserCRLDb)}}}, State};
 
 handle_call({{connection_init, Trustedcerts, Role, {CRLCb, UserCRLDb}}, Pid}, _From,
 	    #state{certificate_db = [CertDb, FileRefDb, PemChace | _] = Db} = State) ->
     case add_trusted_certs(Pid, Trustedcerts, Db) of
 	{ok, Ref} ->
-	    {reply, {ok, Ref, CertDb, FileRefDb, PemChace, session_cache(Role, State), 
-		     {CRLCb, crl_db_info(Db, UserCRLDb)}}, State};
-	{error, _} = Error ->
-	    {reply, Error, State}
+	    {reply, {ok, #{cert_db_ref => Ref, 
+                           cert_db_handle => CertDb, 
+                           fileref_db_handle => FileRefDb, 
+                           pem_cache => PemChace, 
+                           session_cache => session_cache(Role, State), 
+                           crl_db_info => {CRLCb, crl_db_info(Db, UserCRLDb)}}}, State};
+        {error, _} = Error ->
+            {reply, Error, State}
     end;
 
 handle_call({{insert_crls, Path, CRLs}, _}, _From,   

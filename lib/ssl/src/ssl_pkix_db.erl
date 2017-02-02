@@ -28,7 +28,7 @@
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([create/0, create_pem_cache/0, 
+-export([create/1, create_pem_cache/1, 
 	 add_crls/3, remove_crls/2, remove/1, add_trusted_certs/3, 
 	 extract_trusted_certs/1,
 	 remove_trusted_certs/2, insert/3, remove/2, clear/1, db_size/1,
@@ -40,13 +40,13 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec create() -> [db_handle(),...].
+-spec create(atom()) -> [db_handle(),...].
 %% 
 %% Description: Creates a new certificate db.
 %% Note: lookup_trusted_cert/4 may be called from any process but only
 %% the process that called create may call the other functions.
 %%--------------------------------------------------------------------
-create() ->
+create(PEMCacheName) ->
     [%% Let connection process delete trusted certs
      %% that can only belong to one connection. (Supplied directly
      %% on DER format to ssl:connect/listen.)
@@ -56,14 +56,14 @@ create() ->
       ets:new(ssl_otp_ca_ref_file_mapping, [set, protected])
      },
      %% Lookups in named table owned by ssl_pem_cache process
-     ssl_otp_pem_cache,
+     PEMCacheName,
      %% Default cache
      {ets:new(ssl_otp_crl_cache, [set, protected]),
       ets:new(ssl_otp_crl_issuer_mapping, [bag, protected])}
     ].
 
-create_pem_cache() ->
-    ets:new(ssl_otp_pem_cache, [named_table, set, protected]).
+create_pem_cache(Name) ->
+    ets:new(Name, [named_table, set, protected]).
 
 %%--------------------------------------------------------------------
 -spec remove([db_handle()]) -> ok. 
@@ -76,7 +76,9 @@ remove(Dbs) ->
 			  true = ets:delete(Db1);
 		     (undefined) -> 
 			  ok;
-		     (ssl_otp_pem_cache) -> 
+		     (ssl_pem_cache) -> 
+			  ok;
+                     (ssl_pem_cache_dist) -> 
 			  ok;
 		     (Db) ->
 			  true = ets:delete(Db)
@@ -341,3 +343,4 @@ crl_issuer(DerCRL) ->
     CRL = public_key:der_decode('CertificateList', DerCRL),
     TBSCRL = CRL#'CertificateList'.tbsCertList,
     TBSCRL#'TBSCertList'.issuer.
+
