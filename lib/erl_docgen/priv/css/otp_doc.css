@@ -90,7 +90,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 .note .content {
   background: #f8f9fa;
   line-height: 120%;
-  font-size: 90%;
+  font-size: 0.9em;
   padding: 0.5em 1em;
 }
 .warning .label {
@@ -102,7 +102,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 .warning .content {
   background-color: #f8f9fa;
   line-height: 120%;
-  font-size: 90%;
+  font-size: 0.9em;
   padding: 0.5em 1em;
 }
 .do .label {
@@ -114,7 +114,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 .do .content {
   background: #f8f9fa;
   line-height: 120%;
-  font-size: 90%;
+  font-size: 0.9em;
   padding: 0.5em 1em;
 }
 .dont .label {
@@ -126,7 +126,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 .dont .content {
   background-color: #f8f9fa;
   line-height: 120%;
-  font-size: 90%;
+  font-size: 0.9em;
   padding: 0.5em 1em;
 }
 
@@ -144,7 +144,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 .extrafrontpageinfo {
   color: #C00;
   font-weight: bold;
-  font-size: 120%;
+  font-size: 1.2em;
 }
 
 pre {
