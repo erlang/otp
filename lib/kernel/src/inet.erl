@@ -702,7 +702,7 @@ connect_options() ->
      header, active, packet, packet_size, buffer, mode, deliver, line_delimiter,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send, raw,
-     show_econnreset].
+     show_econnreset, bind_to_device].
     
 connect_options(Opts, Mod) ->
     BaseOpts = 
@@ -770,7 +770,7 @@ listen_options() ->
      header, active, packet, buffer, mode, deliver, backlog, ipv6_v6only,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send,
-     packet_size, raw, show_econnreset].
+     packet_size, raw, show_econnreset, bind_to_device].
 
 listen_options(Opts, Mod) ->
     BaseOpts = 
@@ -850,7 +850,7 @@ udp_options() ->
      deliver, ipv6_v6only,
      broadcast, dontroute, multicast_if, multicast_ttl, multicast_loop,
      add_membership, drop_membership, read_packets,raw,
-     high_msgq_watermark, low_msgq_watermark].
+     high_msgq_watermark, low_msgq_watermark, bind_to_device].
 
 
 udp_options(Opts, Mod) ->
@@ -919,6 +919,7 @@ sctp_options() ->
 [   % The following are generic inet options supported for SCTP sockets:
     mode, active, buffer, tos, tclass, priority, dontroute, reuseaddr, linger, sndbuf,
     recbuf, ipv6_v6only, high_msgq_watermark, low_msgq_watermark,
+    bind_to_device,
 
     % Other options are SCTP-specific (though they may be similar to their
     % TCP and UDP counter-parts):
@@ -1054,7 +1055,6 @@ binary2filename(Bin) ->
 	    %% depending on emulator flag instead.
 	    Bin
     end.
-
 
 translate_ip(any,      inet) -> {0,0,0,0};
 translate_ip(loopback, inet) -> {127,0,0,1};

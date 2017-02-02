@@ -897,6 +897,32 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
 	      <seealso marker="file#native_name_encoding/0"><c>file:native_name_encoding/0</c></seealso>.</p></item>
 	    </list>
           </item>
+	  <tag><c>{bind_to_device, Ifname :: binary()}</c></tag>
+	  <item>
+	    <p>Binds a socket to a specific network interface. This option
+	      must be used in a function call that creates a socket, that is,
+	      <seealso marker="gen_tcp#connect/3"><c>gen_tcp:connect/3,4</c></seealso>,
+	      <seealso marker="gen_tcp#listen/2"><c>gen_tcp:listen/2</c></seealso>,
+	      <seealso marker="gen_udp#open/1"><c>gen_udp:open/1,2</c></seealso>, or
+	      <seealso marker="gen_sctp#open/0"><c>gen_sctp:open/0,1,2</c></seealso>.</p>
+	    <p>Unlike <seealso marker="#getifaddrs/0"><c>getifaddrs/0</c></seealso>, Ifname
+	      is encoded a binary. In the unlikely case that a system is using
+	      non-7-bit-ASCII characters in network device names, special care
+	      has to be taken when encoding this argument.</p>
+	    <p>This option uses the Linux-specific socket option
+	      <c>SO_BINDTODEVICE</c>, such as in Linux kernel 2.0.30 or later,
+	      and therefore only exists when the runtime system
+	      is compiled for such an operating system.</p>
+	    <p>Before Linux 3.8, this socket option could be set, but could not retrieved
+	      with <seealso marker="#getopts/2"><c>getopts/2</c></seealso>. Since Linux 3.8,
+	      it is readable.</p>
+	    <p>The virtual machine also needs elevated privileges, either
+	      running as superuser or (for Linux) having capability
+	    <c>CAP_NET_RAW</c>.</p>
+	    <p>The primary use case for this option is to bind sockets into
+	      <url href="http://www.kernel.org/doc/Documentation/networking/vrf.txt">Linux VRF instances</url>.
+	    </p>
+	  </item>
           <tag><c>list</c></tag>
           <item>
             <p>Received <c>Packet</c> is delivered as a list.</p>
