@@ -198,8 +198,6 @@ try_exec_simple_group(Group, Config) ->
 %%--------------------------------------------------------------------
 %% Testing all default groups
 
-simple_exec_groups() -> [{timetrap,{minutes,8}}].
-
 simple_exec_groups(Config) ->
     Sizes = interpolate( public_key:dh_gex_group_sizes() ),
     lists:foreach(
