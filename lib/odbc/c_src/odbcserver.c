@@ -1747,9 +1747,9 @@ static Boolean decode_params(db_state *state, byte *buffer, int *index, param_ar
 		return FALSE;
 	}
 	if (strncmp((char*)atomarray,"true",4) == 0)
-	    param->values.bool[j] = TRUE;
+	    param->values.boolean[j] = TRUE;
 	else if (strncmp((char*)atomarray,"false",5) == 0)
-	    param->values.bool[j] = FALSE;
+	    param->values.boolean[j] = FALSE;
 	else
 	    return -1;
 	break;
@@ -2337,7 +2337,7 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
 	params->type.c = SQL_C_BIT;
 	params->type.len = sizeof(byte);
 	params->type.col_size = params->type.len;
-	params->values.bool =
+	params->values.boolean =
 		(byte *)safe_malloc(num_param_values * params->type.len);
 	break;
     }
@@ -2581,7 +2581,7 @@ static void * retrive_param_values(param_array *Param)
     case SQL_C_DOUBLE: 
 	return (void *)Param->values.floating;
     case SQL_C_BIT:
-	return (void *)Param->values.bool;
+	return (void *)Param->values.boolean;
     default:
 	DO_EXIT(EXIT_FAILURE); /* Should not happen */
     }
