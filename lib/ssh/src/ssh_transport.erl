@@ -79,6 +79,15 @@ default_algorithms() -> [{K,default_algorithms(K)} || K <- algo_classes()].
 
 algo_classes() -> [kex, public_key, cipher, mac, compression].
 
+default_algorithms(kex) ->
+    supported_algorithms(kex, [
+                               'diffie-hellman-group1-sha1' % Gone in OpenSSH 7.3.p1
+                              ]);
+
+default_algorithms(public_key) ->
+    supported_algorithms(public_key, [
+                                      'ssh-dss' % Gone in OpenSSH 7.3.p1
+                                     ]);
 
 default_algorithms(cipher) ->
     supported_algorithms(cipher, same(['AEAD_AES_128_GCM',
@@ -95,34 +104,39 @@ supported_algorithms() -> [{K,supported_algorithms(K)} || K <- algo_classes()].
 supported_algorithms(kex) ->
     select_crypto_supported(
       [
-       {'ecdh-sha2-nistp256',                   [{public_keys,ecdh}, {ec_curve,secp256r1}, {hashs,sha256}]},
        {'ecdh-sha2-nistp384',                   [{public_keys,ecdh}, {ec_curve,secp384r1}, {hashs,sha384}]},
-       {'diffie-hellman-group14-sha1',          [{public_keys,dh},   {hashs,sha}]},
-       {'diffie-hellman-group-exchange-sha256', [{public_keys,dh},   {hashs,sha256}]},
-       {'diffie-hellman-group-exchange-sha1',   [{public_keys,dh},   {hashs,sha}]},
        {'ecdh-sha2-nistp521',                   [{public_keys,ecdh}, {ec_curve,secp521r1}, {hashs,sha512}]},
+       {'ecdh-sha2-nistp256',                   [{public_keys,ecdh}, {ec_curve,secp256r1}, {hashs,sha256}]},
+       {'diffie-hellman-group-exchange-sha256', [{public_keys,dh},   {hashs,sha256}]},
+       {'diffie-hellman-group16-sha512',        [{public_keys,dh},   {hashs,sha512}]}, % In OpenSSH 7.3.p1
+       {'diffie-hellman-group18-sha512',        [{public_keys,dh},   {hashs,sha512}]}, % In OpenSSH 7.3.p1
+       {'diffie-hellman-group14-sha256',        [{public_keys,dh},   {hashs,sha256}]}, % In OpenSSH 7.3.p1
+       {'diffie-hellman-group14-sha1',          [{public_keys,dh},   {hashs,sha}]},
+       {'diffie-hellman-group-exchange-sha1',   [{public_keys,dh},   {hashs,sha}]},
        {'diffie-hellman-group1-sha1',           [{public_keys,dh},   {hashs,sha}]}
       ]);
 supported_algorithms(public_key) ->
     select_crypto_supported(
-      [{'ecdsa-sha2-nistp256',  [{public_keys,ecdsa}, {hashs,sha256}, {ec_curve,secp256r1}]},
+      [
        {'ecdsa-sha2-nistp384',  [{public_keys,ecdsa}, {hashs,sha384}, {ec_curve,secp384r1}]},
        {'ecdsa-sha2-nistp521',  [{public_keys,ecdsa}, {hashs,sha512}, {ec_curve,secp521r1}]},
+       {'ecdsa-sha2-nistp256',  [{public_keys,ecdsa}, {hashs,sha256}, {ec_curve,secp256r1}]},
        {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]},
-       {'ssh-dss',              [{public_keys,dss},   {hashs,sha}                         ]}
+       {'ssh-dss',              [{public_keys,dss},   {hashs,sha}                         ]} % Gone in OpenSSH 7.3.p1
       ]);
  
 supported_algorithms(cipher) ->
     same(
       select_crypto_supported(
-	[{'aes256-ctr',       [{ciphers,{aes_ctr,256}}]},
-	 {'aes192-ctr',       [{ciphers,{aes_ctr,192}}]},
-	 {'aes128-ctr',       [{ciphers,{aes_ctr,128}}]},
-	 {'aes128-cbc',       [{ciphers,aes_cbc128}]},
+	[
+         {'aes256-gcm@openssh.com', [{ciphers,{aes_gcm,256}}]},
+         {'aes256-ctr',       [{ciphers,{aes_ctr,256}}]},
+         {'aes192-ctr',       [{ciphers,{aes_ctr,192}}]},
 	 {'aes128-gcm@openssh.com', [{ciphers,{aes_gcm,128}}]},
-	 {'aes256-gcm@openssh.com', [{ciphers,{aes_gcm,256}}]},
-	 {'AEAD_AES_128_GCM', [{ciphers,{aes_gcm,128}}]},
+	 {'aes128-ctr',       [{ciphers,{aes_ctr,128}}]},
 	 {'AEAD_AES_256_GCM', [{ciphers,{aes_gcm,256}}]},
+	 {'AEAD_AES_128_GCM', [{ciphers,{aes_gcm,128}}]},
+	 {'aes128-cbc',       [{ciphers,aes_cbc128}]},
 	 {'3des-cbc',         [{ciphers,des3_cbc}]}
 	]
        ));
@@ -275,11 +289,12 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
 	true ->
 	    key_exchange_first_msg(Algoritms#alg.kex, 
 				   Ssh0#ssh{algorithms = Algoritms});
-	_  ->
+	{false,Alg} ->
 	    %% TODO: Correct code?
     ssh_connection_handler:disconnect(
       #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-			  description = "Selection of key exchange algorithm failed"
+			  description = "Selection of key exchange algorithm failed: "
+                          ++ Alg
 			 })
     end;
 
@@ -289,30 +304,39 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
     case  verify_algorithm(Algoritms) of
 	true ->
 	    {ok, Ssh#ssh{algorithms = Algoritms}};
-	_ ->
+	{false,Alg} ->
     ssh_connection_handler:disconnect(
       #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-			  description = "Selection of key exchange algorithm failed"
+			  description = "Selection of key exchange algorithm failed: "
+                          ++ Alg
 			 })
     end.
 
 
-verify_algorithm(#alg{kex = undefined}) -> false;
-verify_algorithm(#alg{hkey = undefined}) -> false;
-verify_algorithm(#alg{send_mac = undefined}) -> false;
-verify_algorithm(#alg{recv_mac = undefined}) -> false;
-verify_algorithm(#alg{encrypt = undefined}) -> false;
-verify_algorithm(#alg{decrypt = undefined}) -> false;
-verify_algorithm(#alg{compress = undefined}) -> false;
-verify_algorithm(#alg{decompress = undefined}) -> false;
-verify_algorithm(#alg{kex = Kex}) -> lists:member(Kex, supported_algorithms(kex)).
+verify_algorithm(#alg{kex = undefined})       ->  {false, "kex"};
+verify_algorithm(#alg{hkey = undefined})      ->  {false, "hkey"};
+verify_algorithm(#alg{send_mac = undefined})  ->  {false, "send_mac"};
+verify_algorithm(#alg{recv_mac = undefined})  ->  {false, "recv_mac"};
+verify_algorithm(#alg{encrypt = undefined})   ->  {false, "encrypt"};
+verify_algorithm(#alg{decrypt = undefined})   ->  {false, "decrypt"};
+verify_algorithm(#alg{compress = undefined})  ->  {false, "compress"};
+verify_algorithm(#alg{decompress = undefined}) -> {false, "decompress"};
+verify_algorithm(#alg{kex = Kex}) -> 
+    case lists:member(Kex, supported_algorithms(kex)) of
+        true -> true;
+        false -> {false, "kex"}
+    end.
 
 %%%----------------------------------------------------------------
 %%%
 %%% Key exchange initialization
 %%%
 key_exchange_first_msg(Kex, Ssh0) when Kex == 'diffie-hellman-group1-sha1' ;
-				       Kex == 'diffie-hellman-group14-sha1' ->
+				       Kex == 'diffie-hellman-group14-sha1' ;
+                                       Kex == 'diffie-hellman-group14-sha256' ;
+                                       Kex == 'diffie-hellman-group16-sha512' ;
+                                       Kex == 'diffie-hellman-group18-sha512'
+                                       ->
     {G, P} = dh_group(Kex),
     Sz = dh_bits(Ssh0#ssh.algorithms),
     {Public, Private} = generate_key(dh, [P,G,2*Sz]),
@@ -358,6 +382,9 @@ key_exchange_first_msg(Kex, Ssh0) when Kex == 'ecdh-sha2-nistp256' ;
 %%%
 %%% diffie-hellman-group1-sha1
 %%% diffie-hellman-group14-sha1
+%%% diffie-hellman-group14-sha256
+%%% diffie-hellman-group16-sha512
+%%% diffie-hellman-group18-sha512
 %%% 
 handle_kexdh_init(#ssh_msg_kexdh_init{e = E}, 
 		  Ssh0 = #ssh{algorithms = #alg{kex=Kex} = Algs}) ->
@@ -756,9 +783,8 @@ accepted_host(Ssh, PeerName, Public, Opts) ->
 	    yes == yes_no(Ssh, "New host " ++ PeerName ++ " accept")
     end.
 
-known_host_key(#ssh{opts = Opts, key_cb = Mod, peer = Peer} = Ssh, 
+known_host_key(#ssh{opts = Opts, key_cb = Mod, peer = {PeerName,_}} = Ssh, 
 	       Public, Alg) ->
-    PeerName = peer_name(Peer),
     case Mod:is_host_key(Public, PeerName, Alg, Opts) of
 	true ->
 	    ok;
@@ -1604,48 +1630,27 @@ mac('hmac-sha2-256', Key, SeqNum, Data) ->
 mac('hmac-sha2-512', Key, SeqNum, Data) ->
 	crypto:hmac(sha512, Key, [<<?UINT32(SeqNum)>>, Data]).
 
+
+%%%----------------------------------------------------------------
 %% return N hash bytes (HASH)
-hash(SSH, Char, Bits) ->
-    HASH =
-	case SSH#ssh.kex of
-	    'diffie-hellman-group1-sha1' ->
-		fun(Data) -> crypto:hash(sha, Data) end;
-	    'diffie-hellman-group14-sha1' ->
-		fun(Data) -> crypto:hash(sha, Data) end;
-
-	    'diffie-hellman-group-exchange-sha1' ->
-		fun(Data) -> crypto:hash(sha, Data) end;
-	    'diffie-hellman-group-exchange-sha256' ->
-		fun(Data) -> crypto:hash(sha256, Data) end;
-
-	    'ecdh-sha2-nistp256' ->
-		fun(Data) -> crypto:hash(sha256,Data) end;
-	    'ecdh-sha2-nistp384' ->
-		fun(Data) -> crypto:hash(sha384,Data) end;
-	    'ecdh-sha2-nistp521' ->
-		fun(Data) -> crypto:hash(sha512,Data) end;
-	    _ ->
-		exit({bad_algorithm,SSH#ssh.kex})
-	end,
-    hash(SSH, Char, Bits, HASH).
-
-hash(_SSH, _Char, 0, _HASH) ->
+hash(_SSH, _Char, 0) ->
     <<>>;
-hash(SSH, Char, N, HASH) ->
-K = SSH#ssh.shared_secret, %    K = ssh_bits:mpint(SSH#ssh.shared_secret),
+hash(SSH, Char, N) ->
+    HashAlg = sha(SSH#ssh.kex),
+    K = SSH#ssh.shared_secret,
     H = SSH#ssh.exchanged_hash,
-    SessionID = SSH#ssh.session_id,
-    K1 = HASH([K, H, Char, SessionID]),
+    K1 = crypto:hash(HashAlg, [K, H, Char,  SSH#ssh.session_id]),
     Sz = N div 8,
-    <<Key:Sz/binary, _/binary>> = hash(K, H, K1, N-128, HASH),
+    <<Key:Sz/binary, _/binary>> = hash(K, H, K1, N-128, HashAlg),
     Key.
 
-hash(_K, _H, Ki, N, _HASH) when N =< 0 ->
+hash(_K, _H, Ki, N, _HashAlg) when N =< 0 ->
     Ki;
-hash(K, H, Ki, N, HASH) ->
-    Kj = HASH([K, H, Ki]),
-    hash(K, H, <<Ki/binary, Kj/binary>>, N-128, HASH).
+hash(K, H, Ki, N, HashAlg) ->
+    Kj = crypto:hash(HashAlg, [K, H, Ki]),
+    hash(K, H, <<Ki/binary, Kj/binary>>, N-128, HashAlg).
 
+%%%----------------------------------------------------------------
 kex_h(SSH, Key, E, F, K) ->
     KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
     L = <<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
@@ -1688,11 +1693,17 @@ sha(secp384r1) -> sha384;
 sha(secp521r1) -> sha512;
 sha('diffie-hellman-group1-sha1') -> sha;
 sha('diffie-hellman-group14-sha1') -> sha;
+sha('diffie-hellman-group14-sha256') -> sha256;
+sha('diffie-hellman-group16-sha512') -> sha512;
+sha('diffie-hellman-group18-sha512') -> sha512;
 sha('diffie-hellman-group-exchange-sha1')   -> sha;
 sha('diffie-hellman-group-exchange-sha256') -> sha256;
 sha(?'secp256r1') -> sha(secp256r1);
 sha(?'secp384r1') -> sha(secp384r1);
-sha(?'secp521r1') -> sha(secp521r1).
+sha(?'secp521r1') -> sha(secp521r1);
+sha('ecdh-sha2-nistp256') -> sha(secp256r1);
+sha('ecdh-sha2-nistp384') -> sha(secp384r1);
+sha('ecdh-sha2-nistp521') -> sha(secp521r1).
 
 
 mac_key_bytes('hmac-sha1')    -> 20;
@@ -1715,9 +1726,6 @@ mac_digest_size('AEAD_AES_128_GCM') -> 16;
 mac_digest_size('AEAD_AES_256_GCM') -> 16;
 mac_digest_size(none) -> 0.
 
-peer_name({Host, _}) ->
-    Host.
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% Diffie-Hellman utils
@@ -1725,7 +1733,10 @@ peer_name({Host, _}) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 dh_group('diffie-hellman-group1-sha1') ->  ?dh_group1;
-dh_group('diffie-hellman-group14-sha1') -> ?dh_group14.
+dh_group('diffie-hellman-group14-sha1') -> ?dh_group14;
+dh_group('diffie-hellman-group14-sha256') -> ?dh_group14;
+dh_group('diffie-hellman-group16-sha512') -> ?dh_group16;
+dh_group('diffie-hellman-group18-sha512') -> ?dh_group18.
 
 %%%----------------------------------------------------------------
 parallell_gen_key(Ssh = #ssh{keyex_key = {x, {G, P}},
