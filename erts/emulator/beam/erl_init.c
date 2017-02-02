@@ -117,6 +117,11 @@ const int etp_big_endian = 1;
 const int etp_big_endian = 0;
 #endif
 const Eterm etp_the_non_value = THE_NON_VALUE;
+#ifdef ERTS_HOLE_MARKER
+const Eterm etp_hole_marker = ERTS_HOLE_MARKER;
+#else
+const Eterm etp_hole_marker = 0;
+#endif
 
 /*
  * Note about VxWorks: All variables must be initialized by executable code,
