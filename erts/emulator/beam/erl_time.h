@@ -420,21 +420,18 @@ void erts_sched_init_time_sup(ErtsSchedulerData *esdp);
 */
 typedef struct erl_timer {
     ErtsMonotonicTime timeout_pos; /* Timeout in absolute clock ticks */
-    struct erl_timer* next;	/* next entry tiw slot or chain */
+    struct erl_timer* next;     /* next entry tiw slot or chain */
     struct erl_timer* prev;	/* prev entry tiw slot or chain */
     void (*timeout)(void*); /* called when timeout */
-    void (*cancel)(void*);  /* called when cancel (may be NULL) */
     void* arg;              /* argument to timeout/cancel procs */
     int slot;
 } ErtsTWheelTimer;
 
 typedef void (*ErlTimeoutProc)(void*);
-typedef void (*ErlCancelProc)(void*);
 
 void erts_twheel_set_timer(ErtsTimerWheel *tiw,
 			   ErtsTWheelTimer *p, ErlTimeoutProc timeout,
-			   ErlCancelProc cancel, void *arg,
-			   ErtsMonotonicTime timeout_pos);
+			   void *arg, ErtsMonotonicTime timeout_pos);
 void erts_twheel_cancel_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p);
 ErtsTimerWheel *erts_create_timer_wheel(ErtsSchedulerData *esdp);
 

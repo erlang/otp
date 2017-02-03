@@ -2815,7 +2815,6 @@ start_aux_work_timer(ErtsSchedulerData *esdp)
     erts_twheel_set_timer(esdp->timer_wheel,
 			  &aux_work_tmo->timer.data,
 			  aux_work_timeout,
-			  NULL,
 			  (void *) esdp,
 			  tmo);
 }

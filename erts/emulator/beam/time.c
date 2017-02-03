@@ -543,7 +543,6 @@ erts_create_timer_wheel(ErtsSchedulerData *esdp)
     tiw->sentinel.next = &tiw->sentinel;
     tiw->sentinel.prev = &tiw->sentinel;
     tiw->sentinel.timeout = NULL;
-    tiw->sentinel.cancel = NULL;
     tiw->sentinel.arg = NULL;
     return tiw;
 }
@@ -577,14 +576,12 @@ erts_init_time(int time_correction, ErtsTimeWarpMode time_warp_mode)
 void
 erts_twheel_set_timer(ErtsTimerWheel *tiw,
 		      ErtsTWheelTimer *p, ErlTimeoutProc timeout,
-		      ErlCancelProc cancel, void *arg,
-		      ErtsMonotonicTime timeout_pos)
+		      void *arg, ErtsMonotonicTime timeout_pos)
 {
     ErtsMonotonicTime timeout_time;
     ERTS_MSACC_PUSH_AND_SET_STATE_M_X(ERTS_MSACC_STATE_TIMERS);
 
     p->timeout = timeout;
-    p->cancel = cancel;
     p->arg = arg;
 
     ERTS_TW_ASSERT(p->slot == ERTS_TWHEEL_SLOT_INACTIVE);
@@ -632,14 +629,8 @@ void
 erts_twheel_cancel_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p)
 {
     if (p->slot != ERTS_TWHEEL_SLOT_INACTIVE) {
-	ErlCancelProc cancel;
-	void *arg;
         ERTS_MSACC_PUSH_AND_SET_STATE_M_X(ERTS_MSACC_STATE_TIMERS);
 	remove_timer(tiw, p);
-	cancel = p->cancel;
-	arg = p->arg;
-	if (cancel)
-	    (*cancel)(arg);
         ERTS_MSACC_POP_STATE_M_X();
     }
 }

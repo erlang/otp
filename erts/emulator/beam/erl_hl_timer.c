@@ -996,17 +996,12 @@ tw_port_timeout(void *vtwtp)
 }
 
 static void
-tw_ptimer_cancel(void *vtwtp)
-{
-    tw_timer_dec_refc((ErtsTWTimer *) vtwtp);    
-}
-
-static void
 cancel_tw_timer(ErtsSchedulerData *esdp, ErtsTWTimer *tmr)
 {
     ERTS_HLT_ASSERT((tmr->head.roflgs & ERTS_TMR_ROFLG_SID_MASK)
 		    == (Uint32) esdp->no);
     erts_twheel_cancel_timer(esdp->timer_wheel, &tmr->u.tw_tmr);
+    tw_timer_dec_refc(tmr);
 }
 
 static void
@@ -1034,7 +1029,6 @@ create_tw_timer(ErtsSchedulerData *esdp,
 {
     ErtsTWTimer *tmr;
     void (*timeout_func)(void *);
-    void (*cancel_func)(void *);
     erts_aint32_t refc;
 
     if (type != ERTS_TMR_BIF) {
@@ -1068,7 +1062,6 @@ create_tw_timer(ErtsSchedulerData *esdp,
 	tmr->head.receiver.proc = (Process *) rcvrp;
 	tmr->head.roflgs |= ERTS_TMR_ROFLG_PROC;
 	timeout_func = tw_proc_timeout;
-	cancel_func = tw_ptimer_cancel;
 	erts_proc_inc_refc((Process *) rcvrp);
 	refc = 2;
 	break;
@@ -1077,7 +1070,6 @@ create_tw_timer(ErtsSchedulerData *esdp,
 	tmr->head.receiver.port = (Port *) rcvrp;
 	tmr->head.roflgs |= ERTS_TMR_ROFLG_PORT;
 	timeout_func = tw_port_timeout;
-	cancel_func = tw_ptimer_cancel;
 	erts_port_inc_refc((Port *) rcvrp);
 	refc = 2;
 	break;
@@ -1088,14 +1080,12 @@ create_tw_timer(ErtsSchedulerData *esdp,
 
 	tmr->head.roflgs |= ERTS_TMR_ROFLG_CALLBACK;
 	timeout_func = tw_callback_timeout;
-	cancel_func = NULL;
 	refc = 1;
 	break;
 
     case ERTS_TMR_BIF:
 
 	timeout_func = tw_bif_timer_timeout;
-	cancel_func = NULL;
 	if (is_internal_pid(rcvr)) {
 	    tmr->head.roflgs |= ERTS_TMR_ROFLG_PROC;
 	    tmr->head.receiver.proc = (Process *) rcvrp;
@@ -1129,7 +1119,6 @@ create_tw_timer(ErtsSchedulerData *esdp,
     erts_twheel_set_timer(esdp->timer_wheel,
 			  &tmr->u.tw_tmr,
 			  timeout_func,
-			  cancel_func,
 			  tmr,
 			  timeout_pos);
 
@@ -1452,7 +1441,6 @@ create_hl_timer(ErtsSchedulerData *esdp,
 	erts_twheel_set_timer(esdp->timer_wheel,
 			      &srv->service_timer,
 			      hlt_service_timeout,
-			      NULL,
 			      (void *) esdp,
 			      tmr->timeout);
 	srv->next_timeout = tmr;
@@ -1574,7 +1562,6 @@ hlt_service_timeout(void *vesdp)
 	erts_twheel_set_timer(esdp->timer_wheel,
 			      &srv->service_timer,
 			      hlt_service_timeout,
-			      NULL,
 			      vesdp,
 			      tmr->timeout);
 }
@@ -1631,7 +1618,6 @@ hlt_delete_timer(ErtsSchedulerData *esdp, ErtsHLTimer *tmr)
 		erts_twheel_set_timer(esdp->timer_wheel,
 				      &srv->service_timer,
 				      hlt_service_timeout,
-				      NULL,
 				      (void *) esdp,
 				      smlst->timeout);
 	    }
