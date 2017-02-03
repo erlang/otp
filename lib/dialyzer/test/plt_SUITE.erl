@@ -26,6 +26,8 @@ build_plt(Config) ->
   end.
 
 beam_tests(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Plt = filename:join(PrivDir, "beam_tests.plt"),
     Prog = <<"
               -module(no_auto_import).
 
@@ -42,10 +44,12 @@ beam_tests(Config) when is_list(Config) ->
              ">>,
     Opts = [no_auto_import],
     {ok, BeamFile} = compile(Config, Prog, no_auto_import, Opts),
-    [] = run_dialyzer(plt_build, [BeamFile], []),
+    [] = run_dialyzer(plt_build, [BeamFile], [{output_plt, Plt}]),
     ok.
 
 run_plt_check(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Plt = filename:join(PrivDir, "run_plt_check.plt"),
     Mod1 = <<"
 	      -module(run_plt_check1).
 	     ">>,
@@ -56,7 +60,7 @@ run_plt_check(Config) when is_list(Config) ->
 
     {ok, BeamFile1} = compile(Config, Mod1, run_plt_check1, []),
     {ok, BeamFile2} = compile(Config, Mod2A, run_plt_check2, []),
-    [] = run_dialyzer(plt_build, [BeamFile1, BeamFile2], []),
+    [] = run_dialyzer(plt_build, [BeamFile1, BeamFile2], [{output_plt, Plt}]),
 
     Mod2B = <<"
 	       -module(run_plt_check2).
@@ -70,11 +74,13 @@ run_plt_check(Config) when is_list(Config) ->
 
     % callgraph warning as run_plt_check2:call/1 makes a call to unexported
     % function run_plt_check1:call/1.
-    [_] = run_dialyzer(plt_check, [], []),
+    [_] = run_dialyzer(plt_check, [], [{init_plt, Plt}]),
 
     ok.
 
 run_succ_typings(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Plt = filename:join(PrivDir, "run_succ_typings.plt"),
     Mod1A = <<"
 	       -module(run_succ_typings1).
 
@@ -84,7 +90,7 @@ run_succ_typings(Config) when is_list(Config) ->
 	      ">>,
 
     {ok, BeamFile1} = compile(Config, Mod1A, run_succ_typings1, []),
-    [] = run_dialyzer(plt_build, [BeamFile1], []),
+    [] = run_dialyzer(plt_build, [BeamFile1], [{output_plt, Plt}]),
 
     Mod1B = <<"
 	       -module(run_succ_typings1).
@@ -107,9 +113,11 @@ run_succ_typings(Config) when is_list(Config) ->
     {ok, BeamFile2} = compile(Config, Mod2, run_succ_typings2, []),
     % contract types warning as run_succ_typings2:call/0 makes a call to
     % run_succ_typings1:call/0, which returns a (not b) in the PLT.
-    [_] = run_dialyzer(succ_typings, [BeamFile2], [{check_plt, false}]),
+    [_] = run_dialyzer(succ_typings, [BeamFile2],
+                       [{check_plt, false}, {init_plt, Plt}]),
     % warning not returned as run_succ_typings1 is updated in the PLT.
-    [] = run_dialyzer(succ_typings, [BeamFile2], [{check_plt, true}]),
+    [] = run_dialyzer(succ_typings, [BeamFile2],
+                      [{check_plt, true}, {init_plt, Plt}]),
 
     ok.
 
@@ -252,12 +260,9 @@ remove_plt(Config) ->
     ok.
 
 bad_dialyzer_attr(Config) ->
-    PrivDir = ?config(priv_dir, Config),
-
     Prog1 = <<"-module(dial).
                -dialyzer({no_return, [undef/0]}).">>,
     {ok, Beam1} = compile(Config, Prog1, dial, []),
-    Plt = filename:join(PrivDir, "bad_attr.plt"),
     {dialyzer_error,
      "Analysis failed with error:\n"
      "Could not scan the following file(s):\n"
