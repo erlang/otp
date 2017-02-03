@@ -2109,7 +2109,7 @@ static void rollback_opened_resource_types(void)
 }
 
 
-static void nif_resource_dtor(Binary* bin)
+static int nif_resource_dtor(Binary* bin)
 {
     ErlNifResource* resource = (ErlNifResource*) ERTS_MAGIC_BIN_UNALIGNED_DATA(bin);
     ErlNifResourceType* type = resource->type;
@@ -2128,6 +2128,7 @@ static void nif_resource_dtor(Binary* bin)
 	steal_resource_type(type);
 	erts_free(ERTS_ALC_T_NIF, type);
     }
+    return 1;
 }
 
 void erts_resource_stop(ErlNifResource* resource, ErlNifEvent e,

@@ -355,9 +355,10 @@ typedef struct {
     Uint bitoffs;
 } ErtsB2LState;
 
-static void b2l_state_destructor(Binary *mbp)
+static int b2l_state_destructor(Binary *mbp)
 {
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(mbp) == b2l_state_destructor);
+    return 1;
 }
 
 static BIF_RETTYPE
@@ -729,12 +730,13 @@ list_to_binary_engine(ErtsL2BState *sp)
     }
 }
 
-static void
+static int
 l2b_state_destructor(Binary *mbp)
 {
     ErtsL2BState *sp = ERTS_MAGIC_BIN_DATA(mbp); 
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(mbp) == l2b_state_destructor);
     DESTROY_SAVED_ESTACK(&sp->buf.iolist.estack);
+    return 1;
 }
 
 static ERTS_INLINE Eterm

@@ -189,10 +189,10 @@ ERTS_GLB_INLINE Binary *erts_bin_realloc_fnf(Binary *bp, Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_realloc(Binary *bp, Uint size);
 ERTS_GLB_INLINE void erts_bin_free(Binary *bp);
 ERTS_GLB_INLINE Binary *erts_create_magic_binary_x(Uint size,
-                                                  void (*destructor)(Binary *),
+                                                  int (*destructor)(Binary *),
                                                   int unaligned);
 ERTS_GLB_INLINE Binary *erts_create_magic_binary(Uint size,
-						 void (*destructor)(Binary *));
+						 int (*destructor)(Binary *));
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -320,8 +320,12 @@ erts_bin_realloc(Binary *bp, Uint size)
 ERTS_GLB_INLINE void
 erts_bin_free(Binary *bp)
 {
-    if (bp->flags & BIN_FLAG_MAGIC)
-	ERTS_MAGIC_BIN_DESTRUCTOR(bp)(bp);
+    if (bp->flags & BIN_FLAG_MAGIC) {
+	if (!ERTS_MAGIC_BIN_DESTRUCTOR(bp)(bp)) {
+            /* Destructor took control of the deallocation */
+            return;
+        }
+    }
     if (bp->flags & BIN_FLAG_DRV)
 	erts_free(ERTS_ALC_T_DRV_BINARY, (void *) bp);
     else
@@ -329,7 +333,7 @@ erts_bin_free(Binary *bp)
 }
 
 ERTS_GLB_INLINE Binary *
-erts_create_magic_binary_x(Uint size, void (*destructor)(Binary *),
+erts_create_magic_binary_x(Uint size, int (*destructor)(Binary *),
                            int unaligned)
 {
     Uint bsize = unaligned ? ERTS_MAGIC_BIN_UNALIGNED_SIZE(size)
@@ -348,7 +352,7 @@ erts_create_magic_binary_x(Uint size, void (*destructor)(Binary *),
 }
 
 ERTS_GLB_INLINE Binary *
-erts_create_magic_binary(Uint size, void (*destructor)(Binary *))
+erts_create_magic_binary(Uint size, int (*destructor)(Binary *))
 {
     return erts_create_magic_binary_x(size, destructor, 0);
 }

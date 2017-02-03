@@ -600,10 +600,11 @@ static void cleanup_restart_context(RestartContext *rc)
     }
 }
 
-static void cleanup_restart_context_bin(Binary *bp)
+static int cleanup_restart_context_bin(Binary *bp)
 {
     RestartContext *rc = ERTS_MAGIC_BIN_DATA(bp);
     cleanup_restart_context(rc);
+    return 1;
 }
 
 /*

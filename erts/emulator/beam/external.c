@@ -1387,12 +1387,13 @@ static void b2t_destroy_context(B2TContext* context)
     }
 }
 
-static void b2t_context_destructor(Binary *context_bin)
+static int b2t_context_destructor(Binary *context_bin)
 {
     B2TContext* ctx = (B2TContext*) ERTS_MAGIC_BIN_DATA(context_bin);
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(context_bin) == b2t_context_destructor);
 
     b2t_destroy_context(ctx);
+    return 1;
 }
 
 static BIF_RETTYPE binary_to_term_trap_1(BIF_ALIST_1)
@@ -1797,7 +1798,7 @@ erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags) {
 #endif
 #define TERM_TO_BINARY_MEMCPY_FACTOR 8
 
-static void ttb_context_destructor(Binary *context_bin)
+static int ttb_context_destructor(Binary *context_bin)
 {
     TTBContext *context = ERTS_MAGIC_BIN_DATA(context_bin);
     if (context->alive) {
@@ -1831,6 +1832,7 @@ static void ttb_context_destructor(Binary *context_bin)
 	    break;
 	}
     }
+    return 1;
 }
 
 static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint flags, 

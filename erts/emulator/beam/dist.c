@@ -713,7 +713,7 @@ static void clear_dist_entry(DistEntry *dep)
     }
 }
 
-void erts_dsend_context_dtor(Binary* ctx_bin)
+int erts_dsend_context_dtor(Binary* ctx_bin)
 {
     ErtsSendContext* ctx = ERTS_MAGIC_BIN_DATA(ctx_bin);
     switch (ctx->dss.phase) {
@@ -730,6 +730,8 @@ void erts_dsend_context_dtor(Binary* ctx_bin)
     }
     if (ctx->dep_to_deref)
 	erts_deref_dist_entry(ctx->dep_to_deref);
+
+    return 1;
 }
 
 Eterm erts_dsend_export_trap_context(Process* p, ErtsSendContext* ctx)

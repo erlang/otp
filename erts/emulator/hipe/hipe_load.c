@@ -61,7 +61,7 @@ void hipe_free_loader_state(HipeLoaderState *stp)
     stp->module = NIL;
 }
 
-static void
+static int
 hipe_loader_state_dtor(Binary* magic)
 {
     HipeLoaderState* stp = ERTS_MAGIC_BIN_DATA(magic);
@@ -69,6 +69,7 @@ hipe_loader_state_dtor(Binary* magic)
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(magic) == hipe_loader_state_dtor);
 
     hipe_free_loader_state(stp);
+    return 1;
 }
 
 Binary *hipe_alloc_loader_state(Eterm module)

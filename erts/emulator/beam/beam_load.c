@@ -481,7 +481,7 @@ typedef struct LoaderState {
 static void free_loader_state(Binary* magic);
 static ErlHeapFragment* new_literal_fragment(Uint size);
 static void free_literal_fragment(ErlHeapFragment*);
-static void loader_state_dtor(Binary* magic);
+static int loader_state_dtor(Binary* magic);
 #ifdef HIPE
 static Eterm stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 				  Eterm group_leader, Eterm module,
@@ -1012,7 +1012,7 @@ static void free_literal_fragment(ErlHeapFragment* bp)
 /*
  * This destructor function can safely be called multiple times.
  */
-static void
+static int
 loader_state_dtor(Binary* magic)
 {
     LoaderState* stp = ERTS_MAGIC_BIN_DATA(magic);
@@ -1097,6 +1097,7 @@ loader_state_dtor(Binary* magic)
      */
 
     ASSERT(stp->genop_blocks == 0);
+    return 1;
 }
 
 #ifdef HIPE

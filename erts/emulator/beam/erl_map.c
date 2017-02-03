@@ -1188,12 +1188,13 @@ typedef struct HashmapMergeContext_ {
 #endif
 } HashmapMergeContext;
 
-static void hashmap_merge_ctx_destructor(Binary* ctx_bin)
+static int hashmap_merge_ctx_destructor(Binary* ctx_bin)
 {
     HashmapMergeContext* ctx = (HashmapMergeContext*) ERTS_MAGIC_BIN_DATA(ctx_bin);
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(ctx_bin) == hashmap_merge_ctx_destructor);
 
     PSTACK_DESTROY_SAVED(&ctx->pstack);
+    return 1;
 }
 
 BIF_RETTYPE maps_merge_trap_1(BIF_ALIST_1) {

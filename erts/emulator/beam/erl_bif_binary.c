@@ -239,13 +239,13 @@ static void dump_ac_node(ACNode *node, int indent, int ch);
 /*
  * Callback for the magic binary
  */
-static void cleanup_my_data_ac(Binary *bp)
+static int cleanup_my_data_ac(Binary *bp)
 {
-    return;
+    return 1;
 }
-static void cleanup_my_data_bm(Binary *bp)
+static int cleanup_my_data_bm(Binary *bp)
 {
-    return;
+    return 1;
 }
 
 /*
@@ -2066,7 +2066,7 @@ static int do_search_backward(CommonData *cd, Uint *posp, Uint *redsp)
     }
 }
 
-static void cleanup_common_data(Binary *bp)
+static int cleanup_common_data(Binary *bp)
 {
     int i;
     CommonData *cd;
@@ -2083,7 +2083,7 @@ static void cleanup_common_data(Binary *bp)
 	    break;
 	}
     }
-    return;
+    return 1;
 }
 
 static BIF_RETTYPE do_longest_common(Process *p, Eterm list, int direction)
@@ -2563,7 +2563,7 @@ typedef struct {
 
 #define BINARY_COPY_LOOP_FACTOR 100
 
-static void cleanup_copy_bin_state(Binary *bp)
+static int cleanup_copy_bin_state(Binary *bp)
 {
     CopyBinState *cbs = (CopyBinState *) ERTS_MAGIC_BIN_DATA(bp);
     if (cbs->result != NULL) {
@@ -2583,6 +2583,7 @@ static void cleanup_copy_bin_state(Binary *bp)
 	break;
     }
     cbs->source_type =  BC_TYPE_EMPTY;
+    return 1;
 }
 
 /*

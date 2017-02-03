@@ -274,7 +274,7 @@ typedef struct binary {
 typedef struct {
     ERTS_INTERNAL_BINARY_FIELDS
     SWord orig_size;
-    void (*destructor)(Binary *);
+    int (*destructor)(Binary *);
     union {
         struct {
             ERTS_BINARY_STRUCT_ALIGNMENT
