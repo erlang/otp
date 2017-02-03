@@ -21,7 +21,7 @@
 #ifndef ERL_HL_TIMER_H__
 #define ERL_HL_TIMER_H__
 
-typedef struct ErtsHLTimer_ ErtsBifTimers;
+typedef struct ErtsBifTimer_ ErtsBifTimers;
 typedef struct ErtsHLTimerService_ ErtsHLTimerService;
 
 #include "sys.h"
