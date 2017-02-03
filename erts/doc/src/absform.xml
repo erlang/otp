@@ -886,7 +886,7 @@
         Rep(Fc) = <c>[Rep(C_1), ..., Rep(C_k)]</c>.</p>
 
       <list type="bulleted">
-        <item>If C is a constraint <c>is_subtype(V, T)</c> or <c>V :: T</c>,
+        <item>If C is a constraint <c>V :: T</c>,
           where <c>V</c> is a type variable
           and <c>T</c> is a type, then Rep(C) =
           <c>{type,LINE,constraint,[{atom,LINE,is_subtype},[Rep(V),Rep(T)]]}</c>.

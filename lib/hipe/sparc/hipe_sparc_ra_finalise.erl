@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,21 +11,19 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_sparc_ra_finalise).
 -export([finalise/3]).
 -include("hipe_sparc.hrl").
 
-finalise(Defun, TempMap, FPMap0) ->
-  Code = hipe_sparc:defun_code(Defun),
-  {_, SpillLimit} = hipe_sparc:defun_var_range(Defun),
+finalise(CFG, TempMap, FPMap0) ->
+  {_, SpillLimit} = hipe_gensym:var_range(sparc),
   Map = mk_ra_map(TempMap, SpillLimit),
   FPMap1 = mk_ra_map_fp(FPMap0, SpillLimit),
-  NewCode = ra_code(Code, Map, FPMap1, []),
-  Defun#defun{code=NewCode}.
+  hipe_sparc_cfg:map_bbs(fun(_Lbl, BB) -> ra_bb(BB, Map, FPMap1) end, CFG).
+
+ra_bb(BB, Map, FpMap) ->
+  hipe_bb:code_update(BB, ra_code(hipe_bb:code(BB), Map, FpMap, [])).
 
 ra_code([I|Insns], Map, FPMap, Accum) ->
   ra_code(Insns, Map, FPMap, [ra_insn(I, Map, FPMap) | Accum]);

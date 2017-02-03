@@ -375,12 +375,14 @@ crash(Config) when is_list(Config) ->
     %% from gen_server.
     {ok,Pid4} = gen_server:start(?MODULE, {state,state4}, []),
     {'EXIT',{crashed,_}} = (catch gen_server:call(Pid4, crash)),
+    ClientPid = self(),
     receive
 	{error,_GroupLeader4,{Pid4,
 			      "** Generic server"++_,
 			      [Pid4,crash,{formatted, state4},
 			       {crashed,[{?MODULE,handle_call,3,_}
-					 |_Stacktrace]}]}} ->
+					 |_Stacktrace]},
+			       ClientPid, [_|_] = _ClientStack]}} ->
 	    ok;
 	Other4a ->
 	    io:format("Unexpected: ~p", [Other4a]),
@@ -1115,12 +1117,14 @@ error_format_status(Config) when is_list(Config) ->
 	{'EXIT', Pid, crashed} ->
 	    ok
     end,
+    ClientPid = self(),
     receive
 	{error,_GroupLeader,{Pid,
 			     "** Generic server"++_,
 			     [Pid,crash,{formatted, State},
 			      {crashed,[{?MODULE,handle_call,3,_}
-					|_Stacktrace]}]}} ->
+					|_Stacktrace]},
+			       ClientPid, [_|_] = _ClientStack]}} ->
 	    ok;
 	Other ->
 	    io:format("Unexpected: ~p", [Other]),
@@ -1138,12 +1142,14 @@ terminate_crash_format(Config) when is_list(Config) ->
     {ok, Pid} = gen_server:start_link(?MODULE, {state, State}, []),
     gen_server:call(Pid, stop),
     receive {'EXIT', Pid, {crash, terminate}} -> ok end,
+    ClientPid = self(),
     receive
 	{error,_GroupLeader,{Pid,
 			     "** Generic server"++_,
 			     [Pid,stop, {formatted, State},
-			      {{crash, terminate},[{?MODULE,terminate,2,_}
-						   |_Stacktrace]}]}} ->
+			      {{crash, terminate},
+			       [{?MODULE,terminate,2,_}|_Stacktrace]},
+			       ClientPid, [_|_] = _ClientStack]}} ->
 	    ok;
 	Other ->
 	    io:format("Unexpected: ~p", [Other]),

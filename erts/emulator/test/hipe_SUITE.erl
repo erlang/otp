@@ -19,12 +19,17 @@
 %%
 
 -module(hipe_SUITE).
--export([all/0, t_copy_literals/1]).
+-export([all/0
+	,t_copy_literals/1
+	,t_purge/1
+	]).
 
 all() ->
     case erlang:system_info(hipe_architecture) of
 	undefined -> {skip, "HiPE is disabled"};
-	_ -> [t_copy_literals]
+	_ -> [t_copy_literals
+	     ,t_purge
+	     ]
     end.
 
 t_copy_literals(doc) ->
@@ -65,3 +70,51 @@ t_copy_literals(Config) when is_list(Config) ->
     true = erlang:delete_module(ref_cell),
     true = erlang:purge_module(ref_cell),
     ok.
+
+t_purge(doc) -> "Checks that native code is properly found and purged";
+t_purge(Config) when is_list(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
+    SrcFile = filename:join(Data, "ref_cell"),
+    BeamFile = filename:join(Priv, "ref_cell"),
+    {ok,ref_cell} = c:c(SrcFile, [{outdir,Priv},native]),
+    true = code:is_module_native(ref_cell),
+
+    PA = ref_cell:start_link(),
+
+    %% Unload, PA should still be running
+    true = erlang:delete_module(ref_cell),
+    %% Can't use ref_cel:call/2, it's in old code!
+    call(PA, {put_res_of, fun()-> hej end}),
+    hej = call(PA, get),
+
+    %% Load same module again
+    code:load_abs(BeamFile),
+    true = code:is_module_native(ref_cell),
+    PB = ref_cell:start_link(),
+
+    %% Purge old code, PA should be killed, PB should survive
+    unlink(PA),
+    ARef = monitor(process, PA),
+    true = erlang:purge_module(ref_cell),
+    receive {'DOWN', ARef, process, PA, killed} -> ok
+    after 1 -> ct:fail("PA was not killed")
+    end,
+
+    %% Unload, PB should still be running
+    true = erlang:delete_module(ref_cell),
+    call(PB, {put_res_of, fun()-> svejs end}),
+    svejs = call(PB, get),
+
+    unlink(PB),
+    BRef = monitor(process, PB),
+    true = erlang:purge_module(ref_cell),
+    receive {'DOWN', BRef, process, PB, killed} -> ok
+    after 1 -> ct:fail("PB was not killed")
+    end,
+
+    ok.
+
+call(Pid, Call) ->
+    Pid ! {Call, self()},
+    receive {Pid, Res} -> Res end.

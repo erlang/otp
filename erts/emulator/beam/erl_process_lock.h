@@ -219,6 +219,10 @@ typedef struct erts_proc_lock_t_ {
 #define ERTS_PROC_LOCKS_ALL_MINOR	(ERTS_PROC_LOCKS_ALL \
                                          & ~ERTS_PROC_LOCK_MAIN)
 
+/* All locks we first must unlock to lock L */
+#define ERTS_PROC_LOCKS_HIGHER_THAN(L) \
+  (ERTS_PROC_LOCKS_ALL & (~(L) & ~((L)-1)))
+
 
 #define ERTS_PIX_LOCKS_BITS		10
 #define ERTS_NO_OF_PIX_LOCKS		(1 << ERTS_PIX_LOCKS_BITS)
@@ -940,6 +944,8 @@ void erts_proc_safelock(Process *a_proc,
 #define erts_pid2proc(PROC, HL, PID, NL) \
   erts_pid2proc_opt((PROC), (HL), (PID), (NL), 0)
 
+Process *erts_proc_lookup_inc_refc(Eterm pid);
+Process *erts_proc_lookup_raw_inc_refc(Eterm pid);
 
 ERTS_GLB_INLINE Process *erts_pix2proc(int ix);
 ERTS_GLB_INLINE Process *erts_proc_lookup_raw(Eterm pid);

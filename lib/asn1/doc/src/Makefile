@@ -37,8 +37,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
-XML_REF3_FILES = asn1ct.xml \
-	asn1rt.xml
+XML_REF3_FILES = asn1ct.xml
 
 GEN_XML = \
 	asn1_spec.xml

@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %% ====================================================================
 %%  Module   : hipe_rtl_binary_construct
@@ -429,8 +423,8 @@ realloc_binary(SizeReg, ProcBin, Base) ->
    hipe_tagscheme:set_field_from_term(ProcBinFlagsTag, ProcBin, Flags),
    hipe_tagscheme:get_field_from_term(ProcBinValTag, ProcBin, BinPointer),
    hipe_tagscheme:get_field_from_pointer(BinOrigSizeTag, BinPointer, OrigSize),
-   hipe_rtl:mk_branch(OrigSize, 'ltu', ResultingSize,
-		      ReallocLblName, NoReallocLblName),
+   hipe_rtl:mk_branch(OrigSize, 'geu', ResultingSize, NoReallocLblName,
+		      ReallocLblName),
    NoReallocLbl,
    hipe_tagscheme:get_field_from_term(ProcBinBytesTag, ProcBin, Base),
    hipe_rtl:mk_goto(ContLblName),
@@ -757,9 +751,9 @@ test_alignment(SrcOffset, NumBits, Offset, AlignedCode, CCode) ->
   [AlignedLbl, CLbl] = create_lbls(2),
    [hipe_rtl:mk_alu(Tmp, SrcOffset, 'or', NumBits),
    hipe_rtl:mk_alu(Tmp, Tmp, 'or', Offset),
-   hipe_rtl:mk_alub(Tmp, Tmp, 'and', ?LOW_BITS, 'eq',
-		    hipe_rtl:label_name(AlignedLbl),
-		    hipe_rtl:label_name(CLbl)),
+   hipe_rtl:mk_branch(Tmp, 'and', ?LOW_BITS, 'eq',
+		      hipe_rtl:label_name(AlignedLbl),
+		      hipe_rtl:label_name(CLbl), 0.5),
    AlignedLbl,
    AlignedCode,
    CLbl,
@@ -1284,8 +1278,7 @@ is_divisible(Dividend, Divisor, SuccLbl, FailLbl) ->
     true -> %% Divisor is a power of 2
       %% Test that the Log2-1 lowest bits are clear
       Mask = hipe_rtl:mk_imm(Divisor - 1),
-      [Tmp] = create_regs(1),
-      [hipe_rtl:mk_alub(Tmp, Dividend, 'and', Mask, eq, SuccLbl, FailLbl, 0.99)];
+      [hipe_rtl:mk_branch(Dividend, 'and', Mask, eq, SuccLbl, FailLbl, 0.99)];
     false ->
       %% We need division, fall back to a primop
       [hipe_rtl:mk_call([], is_divisible, [Dividend, hipe_rtl:mk_imm(Divisor)],

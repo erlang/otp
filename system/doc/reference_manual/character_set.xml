@@ -32,9 +32,9 @@
 
   <section>
     <title>Character Set</title>
-    <p>Since Erlang 4.8/OTP R5A, the syntax of Erlang tokens is extended to
-      allow the use of the full ISO-8859-1 (Latin-1) character set. This
-      is noticeable in the following ways:</p>
+    <p>The syntax of Erlang tokens allow the use of the full
+    ISO-8859-1 (Latin-1) character set. This is noticeable in the
+    following ways:</p>
     <list type="bulleted">
       <item>
         <p>All the Latin-1 printable characters can be used and are

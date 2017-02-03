@@ -1099,7 +1099,7 @@ void erts_ddll_increment_port_count(DE_Handle *dh)
 void erts_ddll_decrement_port_count(DE_Handle *dh)
 {
     assert_drv_list_locked();
-#if DEBUG
+#ifdef DEBUG
     ASSERT(erts_smp_atomic32_dec_read_nob(&dh->port_count) >= 0);
 #else
     erts_smp_atomic32_dec_nob(&dh->port_count);

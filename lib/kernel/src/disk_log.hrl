@@ -39,6 +39,7 @@
 -define(MAX_FILES, 65000).
 -define(MAX_BYTES, ((1 bsl 64) - 1)).
 -define(MAX_CHUNK_SIZE, 65536).
+-define(MAX_FWRITE_CACHE, 65536).
 
 %% Object defines
 -define(LOGMAGIC, <<1,2,3,4>>). 
@@ -54,11 +55,10 @@
 %% Types -- alphabetically
 %%------------------------------------------------------------------------
 
--type dlog_byte()        :: [dlog_byte()] | byte().
 -type dlog_format()      :: 'external' | 'internal'.
 -type dlog_format_type() :: 'halt_ext' | 'halt_int' | 'wrap_ext' | 'wrap_int'.
 -type dlog_head()        :: 'none' | {'ok', binary()} | mfa().
--type dlog_head_opt()    :: none | term() | binary() | [dlog_byte()].
+-type dlog_head_opt()    :: none | term() | iodata().
 -type log()              :: term().  % XXX: refine
 -type dlog_mode()        :: 'read_only' | 'read_write'.
 -type dlog_name()        :: atom() | string().

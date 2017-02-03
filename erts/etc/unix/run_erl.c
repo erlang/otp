@@ -863,7 +863,7 @@ static int open_log(int log_num, int flags)
   if (write_all(lfd, buf, strlen(buf)) < 0)
       status("Error in writing to log.\n");
 
-#if USE_FSYNC
+#ifdef USE_FSYNC
   fsync(lfd);
 #endif
 
@@ -893,7 +893,7 @@ static void write_to_log(int* lfd, int* log_num, char* buf, int len)
     status("Error in writing to log.\n");
   }
 
-#if USE_FSYNC
+#ifdef USE_FSYNC
   fsync(*lfd);
 #endif
 }

@@ -45,6 +45,9 @@ typedef struct erl_fun_entry {
     erts_refc_t refc;		/* Reference count: One for code + one for each
 				   fun object in each process. */
     BeamInstr *pend_purge_address; /* address stored during a pending purge */
+#ifdef HIPE
+    UWord* pend_purge_native_address;
+#endif
 } ErlFunEntry;
 
 /*
@@ -57,9 +60,6 @@ typedef struct erl_fun_thing {
     Eterm thing_word;		/* Subtag FUN_SUBTAG. */
     ErlFunEntry* fe;		/* Pointer to fun entry. */
     struct erl_off_heap_header* next;
-#ifdef HIPE
-    UWord* native_address;	/* Native code for the fun. */
-#endif
     Uint arity;			/* The arity of the fun. */
     Uint num_free;		/* Number of free variables (in env). */
   /* -- The following may be compound Erlang terms ---------------------- */

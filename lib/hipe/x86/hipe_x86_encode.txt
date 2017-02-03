@@ -1,5 +1,3 @@
-$Id$
-
 hipe_x86_encode USAGE GUIDE
 Revision 0.4, 2001-10-09
 

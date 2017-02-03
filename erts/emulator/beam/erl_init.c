@@ -2260,7 +2260,6 @@ erl_start(int argc, char **argv)
 	ASSERT(erts_code_purger && erts_code_purger->common.id == pid);
 	erts_proc_inc_refc(erts_code_purger); 
 
-#ifdef ERTS_NEW_PURGE_STRATEGY
 	pid = erl_system_process_otp(otp_ring0_pid, "erts_literal_area_collector");
 	erts_literal_area_collector
 	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
@@ -2268,7 +2267,6 @@ erl_start(int argc, char **argv)
 	ASSERT(erts_literal_area_collector
 	       && erts_literal_area_collector->common.id == pid);
 	erts_proc_inc_refc(erts_literal_area_collector);
-#endif
 
 #ifdef ERTS_DIRTY_SCHEDULERS
 	pid = erl_system_process_otp(otp_ring0_pid, "erts_dirty_process_code_checker");
@@ -2298,7 +2296,7 @@ erl_start(int argc, char **argv)
 #endif
 	set_main_stack_size();
 	erts_sched_init_time_sup(esdp);
-	process_main();
+	process_main(esdp->x_reg_array, esdp->f_reg_array);
     }
 #endif
 }

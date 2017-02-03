@@ -1222,6 +1222,9 @@ read2(Conf) when is_list(Conf) ->
               f() ->
                   %% Duplicated unresolved calls are ignored:
                   (f())(foo,bar),(f())(foo,bar). % POS1
+
+              %% Warning forms must be ignored.
+              -warning(must_not_crash).
              ">>,
     ok = file:write_file(File, Test),
     {ok, read2} = compile:file(File, [debug_info,{outdir,Dir}]),

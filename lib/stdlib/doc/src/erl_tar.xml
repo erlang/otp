@@ -37,12 +37,13 @@
   </modulesummary>
   <description>
     <p>This module archives and extract files to and from
-      a tar file. This module supports the <c>ustar</c> format
-      (IEEE Std 1003.1 and ISO/IEC&nbsp;9945-1). All modern <c>tar</c>
-      programs (including GNU tar) can read this format. To ensure that
-      that GNU tar produces a tar file that <c>erl_tar</c> can read,
-      specify option <c>--format=ustar</c> to GNU tar.</p>
-
+    a tar file. This module supports reading most common tar formats,
+    namely v7, STAR, USTAR, and PAX, as well as some of GNU tar's extensions
+    to the USTAR format (sparse files most notably). It produces tar archives
+    in USTAR format, unless the files being archived require PAX format due to
+    restrictions in USTAR (such as unicode metadata, filename length, and more).
+    As such, <c>erl_tar</c> supports tar archives produced by most all modern
+    tar utilities, and produces tarballs which should be similarly portable.</p>
     <p>By convention, the name of a tar file is to end in "<c>.tar</c>".
       To abide to the convention, add "<c>.tar</c>" to the name.</p>
 
@@ -104,21 +105,18 @@
     <title>Limitations</title>
     <list type="bulleted">
       <item>
-        <p>For maximum compatibility, it is safe to archive files with names
-          up to 100 characters in length. Such tar files can generally be
-          extracted by any <c>tar</c> program.</p>
-      </item>
-      <item>
-        <p>For filenames exceeding 100 characters in length, the resulting tar
-          file can only be correctly extracted by a POSIX-compatible <c>tar</c>
+        <p>For filenames exceeding 100 bytes in length (not counting use of the prefix field),
+          the resulting tar file can only be correctly extracted by a USTAR-compatible <c>tar</c>
           program (such as Solaris <c>tar</c> or a modern GNU <c>tar</c>).</p>
       </item>
       <item>
-        <p>Files with longer names than 256 bytes cannot be stored.</p>
+        <p>For filenames which exceed 255 bytes in length, including the prefix,
+          the resulting tar file can only be correctly extracted by a PAX-compatible <c>tar</c>
+          program (such as modern GNU tar, or BSD tar/libarchive)</p>
       </item>
       <item>
-        <p>The file name a symbolic link points is always limited
-          to 100 characters.</p>
+        <p>To remain USTAR compatible, the path for symbolic links must be 100 bytes or less,
+          otherwise PAX headers will be used.</p>
       </item>
     </list>
   </section>

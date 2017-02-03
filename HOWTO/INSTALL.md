@@ -429,10 +429,6 @@ Some of the available `configure` options are:
     and **not supported**. This functionality **will** be subject to backward
     incompatible changes. Note that you should **not** enable the dirty scheduler
     functionality on production systems. It is only provided for testing.
-    This switch also imply `--enable-new-purge-strategy` (see below).
-*   `--enable-new-purge-strategy` - Enable the purge strategy that will be
-    introduced in ERTS version 9.0 (OTP 20). Note that this switch will be
-    removed in OTP 20.
 
 If you or your system has special requirements please read the `Makefile` for
 additional configuration information.

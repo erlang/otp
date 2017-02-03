@@ -29,6 +29,10 @@
 
 -import(lists, [mapfoldl/3,reverse/1]).
 
+
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs0,_}, _Opts) ->
     {Fs1,Lc1} = beam_clean:clean_labels(Fs0),
     {Fs,Lc} = mapfoldl(fun function/2, Lc1, Fs1),
@@ -266,20 +270,42 @@ backward([{jump,{f,To0}},{move,Src,Reg}=Move|Is], D, Acc) ->
 	false -> backward([Move|Is], D, [Jump|Acc]);
 	true -> backward([Jump|Is], D, Acc)
     end;
-backward([{jump,{f,To}}=J|[{bif,Op,_,Ops,Reg}|Is]=Is0], D, Acc) ->
+backward([{jump,{f,To}}=J|[{bif,Op,{f,BifFail},Ops,Reg}|Is]=Is0], D, Acc) ->
     try replace_comp_op(To, Reg, Op, Ops, D) of
 	I -> backward(Is, D, I++Acc)
     catch
-	throw:not_possible -> backward(Is0, D, [J|Acc])
+	throw:not_possible ->
+	    case To =:= BifFail of
+		true ->
+		    %% The bif instruction is redundant. See the comment
+		    %% in the next clause for why there is no need to
+		    %% test for liveness of Reg at label To.
+		    backward([J|Is], D, Acc);
+		false ->
+		    backward(Is0, D, [J|Acc])
+	    end
     end;
-backward([{test,bs_start_match2,F,_,[R,_],Ctxt}=I|Is], D,
+backward([{jump,{f,To}}=J|[{gc_bif,_,{f,To},_,_,_Dst}|Is]], D, Acc) ->
+    %% The gc_bif instruction is redundant, since either the gc_bif
+    %% instruction itself or the jump instruction will transfer control
+    %% to label To. Note that a gc_bif instruction does not assign its
+    %% destination register if the failure branch is taken; therefore,
+    %% the code at label To is not allowed to assume that the destination
+    %% register is initialized, and it is therefore no need to test
+    %% for liveness of the destination register at label To.
+    backward([J|Is], D, Acc);
+backward([{test,bs_start_match2,F,Live,[R,_]=Args,Ctxt}|Is], D,
 	 [{test,bs_match_string,F,[Ctxt,Bs]},
 	  {test,bs_test_tail2,F,[Ctxt,0]}|Acc0]=Acc) ->
+    {f,To0} = F,
     case beam_utils:is_killed(Ctxt, Acc0, D) of
 	true ->
-	    Eq = {test,is_eq_exact,F,[R,{literal,Bs}]},
+	    To = shortcut_bs_context_to_binary(To0, R, D),
+	    Eq = {test,is_eq_exact,{f,To},[R,{literal,Bs}]},
 	    backward(Is, D, [Eq|Acc0]);
 	false ->
+	    To = shortcut_bs_start_match(To0, R, D),
+	    I = {test,bs_start_match2,{f,To},Live,Args,Ctxt},
 	    backward(Is, D, [I|Acc])
     end;
 backward([{test,bs_start_match2,{f,To0},Live,[Src|_]=Info,Dst}|Is], D, Acc) ->
@@ -357,6 +383,14 @@ backward([{kill,_}=I|Is], D, [{line,_},Exit|_]=Acc) ->
 	false -> backward(Is, D, [I|Acc]);
 	true -> backward(Is, D, Acc)
     end;
+backward([{bif,'or',{f,To0},[Dst,{atom,false}],Dst}=I|Is], D,
+	 [{test,is_eq_exact,{f,To},[Dst,{atom,true}]}|_]=Acc) ->
+    case shortcut_label(To0, D) of
+	To ->
+	    backward(Is, D, Acc);
+	_ ->
+	    backward(Is, D, [I|Acc])
+    end;
 backward([I|Is], D, Acc) ->
     backward(Is, D, [I|Acc]);
 backward([], _D, Acc) -> Acc.
@@ -375,6 +409,8 @@ shortcut_select_list([Lit,{f,To0}|T], Reg, D, Acc) ->
     shortcut_select_list(T, Reg, D, [{f,To},Lit|Acc]);
 shortcut_select_list([], _, _, Acc) -> reverse(Acc).
 
+shortcut_label(0, _) ->
+    0;
 shortcut_label(To0, D) ->
     case beam_utils:code_at(To0, D) of
   	[{jump,{f,To}}|_] -> shortcut_label(To, D);
@@ -549,6 +585,21 @@ shortcut_bs_start_match_1([{test,bs_start_match2,{f,To},_,[Reg|_],_}|_],
     Code = beam_utils:code_at(To, D),
     shortcut_bs_start_match_1(Code, Reg, To, D);
 shortcut_bs_start_match_1(_, _, To, _) ->
+    To.
+
+%% shortcut_bs_context_to_binary(TargetLabel, Reg) -> TargetLabel
+%%  If a bs_start_match2 instruction has been eliminated, the
+%%  bs_context_to_binary instruction can be eliminated too.
+
+shortcut_bs_context_to_binary(To, Reg, D) ->
+    shortcut_bs_ctb_1(beam_utils:code_at(To, D), Reg, To, D).
+
+shortcut_bs_ctb_1([{bs_context_to_binary,Reg}|Is], Reg, To, D) ->
+    shortcut_bs_ctb_1(Is, Reg, To, D);
+shortcut_bs_ctb_1([{jump,{f,To}}|_], Reg, _, D) ->
+    Code = beam_utils:code_at(To, D),
+    shortcut_bs_ctb_1(Code, Reg, To, D);
+shortcut_bs_ctb_1(_, _, To, _) ->
     To.
 
 %% shortcut_rel_op(FailLabel, Operator, [Operand], D) -> FailLabel'

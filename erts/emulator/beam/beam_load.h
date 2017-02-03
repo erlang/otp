@@ -35,15 +35,7 @@ typedef struct gen_op_entry {
    int transform;
 } GenOpEntry;
 
-extern GenOpEntry gen_opc[];
-
-#ifdef NO_JUMP_TABLE 
-#define BeamOp(Op) (Op)
-#else
-extern void** beam_ops;
-#define BeamOp(Op) beam_ops[(Op)]
-#endif
-
+extern const GenOpEntry gen_opc[];
 
 extern BeamInstr beam_debug_apply[];
 extern BeamInstr* em_call_error_handler;
@@ -115,9 +107,15 @@ typedef struct beam_code_header {
      * The actual loaded code (for the first function) start just beyond
      * this table.
      */
-    BeamInstr* functions[1];
+    ErtsCodeInfo* functions[1];
 
 }BeamCodeHeader;
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+#  define BEAM_NIF_MIN_FUNC_SZ 4
+#else
+#  define BEAM_NIF_MIN_FUNC_SZ 3
+#endif
 
 void erts_release_literal_area(struct ErtsLiteralArea_* literal_area);
 int erts_is_module_native(BeamCodeHeader* code);
@@ -151,5 +149,35 @@ struct BeamCodeLineTab_ {
 #define MAKE_LOCATION(File, Line) (((File) << 24) | (Line))
 #define LOC_FILE(Loc) ((Loc) >> 24)
 #define LOC_LINE(Loc) ((Loc) & ((1 << 24)-1))
+
+
+/*
+ * MFA event debug "tracing" usage:
+ *
+ * #define ENABLE_DBG_TRACE_MFA
+ * call dbg_set_traced_mfa("mymod","myfunc",arity)
+ * for the function(s) to trace, in some init function.
+ *
+ * Run and get stderr printouts when interesting things happen to your MFA.
+ */
+#ifdef  ENABLE_DBG_TRACE_MFA
+
+void dbg_set_traced_mfa(const char* m, const char* f, Uint a);
+int dbg_is_traced_mfa(Eterm m, Eterm f, Uint a);
+void dbg_vtrace_mfa(unsigned ix, const char* format, ...);
+#define DBG_TRACE_MFA(M,F,A,FMT, ...) do {\
+    unsigned ix;\
+    if ((ix=dbg_is_traced_mfa(M,F,A))) \
+        dbg_vtrace_mfa(ix, FMT"\n", ##__VA_ARGS__);\
+  }while(0)
+
+#define DBG_TRACE_MFA_P(MFA, FMT, ...) \
+        DBG_TRACE_MFA((MFA)->module, (MFA)->function, (MFA)->arity, FMT, ##__VA_ARGS__)
+
+#else
+#  define dbg_set_traced_mfa(M,F,A)
+#  define DBG_TRACE_MFA(M,F,A,FMT, ...)
+#  define DBG_TRACE_MFA_P(MFA,FMT, ...)
+#endif /* ENABLE_DBG_TRACE_MFA */
 
 #endif /* _BEAM_LOAD_H */

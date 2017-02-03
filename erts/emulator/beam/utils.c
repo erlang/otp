@@ -56,6 +56,8 @@
 #ifdef HIPE
 #  include "hipe_mode_switch.h"
 #endif
+#define ERTS_WANT_NFUNC_SCHED_INTERNALS__
+#include "erl_nfunc_sched.h"
 
 #undef M_TRIM_THRESHOLD
 #undef M_TOP_PAD
@@ -204,9 +206,8 @@ erl_grow_wstack(ErtsWStack* s, Uint need)
 void
 erl_grow_pstack(ErtsPStack* s, void* default_pstack, unsigned need_bytes)
 {
-    Uint old_size = s->pend - s->pstart;
+    Uint old_size = s->size;
     Uint new_size;
-    Uint sp_offs = s->psp - s->pstart;
 
     if (need_bytes < old_size)
 	new_size = 2 * old_size;
@@ -220,8 +221,7 @@ erl_grow_pstack(ErtsPStack* s, void* default_pstack, unsigned need_bytes)
 	sys_memcpy(new_ptr, s->pstart, old_size);
 	s->pstart = new_ptr;
     }
-    s->pend = s->pstart + new_size;
-    s->psp = s->pstart + sp_offs;
+    s->size = new_size;
 }
 
 /*
@@ -700,12 +700,7 @@ erts_bld_atom_2uint_3tup_list(Uint **hpp, Uint *szp, Sint length,
 /* make a hash index from an erlang term */
 
 /*
-** There are three hash functions.
-** make_broken_hash: the one used for backward compatibility
-** is called from the bif erlang:hash/2. Should never be used
-** as it a) hashes only a part of binaries, b) hashes bignums really poorly,
-** c) hashes bignums differently on different endian processors and d) hashes 
-** small integers with different weights on different bytes.
+** There are two hash functions.
 **
 ** make_hash: A hash function that will give the same values for the same
 ** terms regardless of the internal representation. Small integers are 
@@ -894,11 +889,11 @@ tail_recur:
 	{
 	    Export* ep = *((Export **) (export_val(term) + 1));
 
-	    hash = hash * FUNNY_NUMBER11 + ep->code[2];
+	    hash = hash * FUNNY_NUMBER11 + ep->info.mfa.arity;
 	    hash = hash*FUNNY_NUMBER1 +
-		(atom_tab(atom_val(ep->code[0]))->slot.bucket.hvalue);
+		(atom_tab(atom_val(ep->info.mfa.module))->slot.bucket.hvalue);
 	    hash = hash*FUNNY_NUMBER1 +
-		(atom_tab(atom_val(ep->code[1]))->slot.bucket.hvalue);
+		(atom_tab(atom_val(ep->info.mfa.function))->slot.bucket.hvalue);
 	    break;
 	}
 
@@ -1045,6 +1040,10 @@ tail_recur:
     DESTROY_WSTACK(stack);
     return hash;
 
+#undef MAKE_HASH_TUPLE_OP
+#undef MAKE_HASH_TERM_ARRAY_OP
+#undef MAKE_HASH_CDR_PRE_OP
+#undef MAKE_HASH_CDR_POST_OP
 #undef UINT32_HASH_STEP
 #undef UINT32_HASH_RET
 }
@@ -1331,11 +1330,11 @@ make_hash2(Eterm term)
 	    {
 		Export* ep = *((Export **) (export_val(term) + 1));
 		UINT32_HASH_2
-		    (ep->code[2],
-		     atom_tab(atom_val(ep->code[0]))->slot.bucket.hvalue,
+		    (ep->info.mfa.arity,
+		     atom_tab(atom_val(ep->info.mfa.module))->slot.bucket.hvalue,
 		     HCONST);
 		UINT32_HASH
-		    (atom_tab(atom_val(ep->code[1]))->slot.bucket.hvalue,
+		    (atom_tab(atom_val(ep->info.mfa.function))->slot.bucket.hvalue,
 		     HCONST_14);
 		goto hash2_common;
 	    }
@@ -1953,259 +1952,6 @@ make_internal_hash(Eterm term)
 
 #undef HCONST
 #undef MIX
-
-
-Uint32 make_broken_hash(Eterm term)
-{
-    Uint32 hash = 0;
-    DECLARE_WSTACK(stack);
-    unsigned op;
-tail_recur:
-    op = tag_val_def(term);
-    for (;;) {
-    switch (op) {
-    case NIL_DEF:
-	hash = hash*FUNNY_NUMBER3 + 1;
-	break;
-    case ATOM_DEF:
-	hash = hash*FUNNY_NUMBER1 +
-	    (atom_tab(atom_val(term))->slot.bucket.hvalue);
-	break;
-    case SMALL_DEF:
-#if defined(ARCH_64)
-    {
-	Sint y1 = signed_val(term);
-	Uint y2 = y1 < 0 ? -(Uint)y1 : y1;
-	Uint32 y3 = (Uint32) (y2 >> 32);
-	int arity = 1;
-
-#if defined(WORDS_BIGENDIAN)
-	if (!IS_SSMALL28(y1))
-	{   /* like a bignum */
-	    Uint32 y4 = (Uint32) y2;
-	    hash = hash*FUNNY_NUMBER2 + ((y4 << 16) | (y4 >> 16));
-	    if (y3) {
-		hash = hash*FUNNY_NUMBER2 + ((y3 << 16) | (y3 >> 16));
-		arity++;
-	    }
-	    hash = hash * (y1 < 0 ? FUNNY_NUMBER3 : FUNNY_NUMBER2) + arity;
-	} else {
-	    hash = hash*FUNNY_NUMBER2 + (((Uint) y1) & 0xfffffff);
-	}
-#else
-	if  (!IS_SSMALL28(y1))
-	{   /* like a bignum */
-	    hash = hash*FUNNY_NUMBER2 + ((Uint32) y2);
-	    if (y3)
-	    {
-		hash = hash*FUNNY_NUMBER2 + y3;
-		arity++;
-	    }
-	    hash = hash * (y1 < 0 ? FUNNY_NUMBER3 : FUNNY_NUMBER2) + arity;
-	} else {
-	    hash = hash*FUNNY_NUMBER2 + (((Uint) y1) & 0xfffffff);
-	}
-#endif
-    }
-#else
-	hash = hash*FUNNY_NUMBER2 + unsigned_val(term);
-#endif
-	break;
-
-    case BINARY_DEF:
-	{
-	    size_t sz = binary_size(term);
-	    size_t i = (sz < 15) ? sz : 15;
-
-	    hash = hash_binary_bytes(term, i, hash);
-	    hash = hash*FUNNY_NUMBER4 + sz;
-	    break;
-	}
-
-    case EXPORT_DEF:
-	{
-	    Export* ep = *((Export **) (export_val(term) + 1));
-
-	    hash = hash * FUNNY_NUMBER11 + ep->code[2];
-	    hash = hash*FUNNY_NUMBER1 +
-		(atom_tab(atom_val(ep->code[0]))->slot.bucket.hvalue);
-	    hash = hash*FUNNY_NUMBER1 +
-		(atom_tab(atom_val(ep->code[1]))->slot.bucket.hvalue);
-	    break;
-	}
-
-    case FUN_DEF:
-	{
-	    ErlFunThing* funp = (ErlFunThing *) fun_val(term);
-	    Uint num_free = funp->num_free;
-
-	    hash = hash * FUNNY_NUMBER10 + num_free;
-	    hash = hash*FUNNY_NUMBER1 +
-		(atom_tab(atom_val(funp->fe->module))->slot.bucket.hvalue);
-	    hash = hash*FUNNY_NUMBER2 + funp->fe->old_index;
-	    hash = hash*FUNNY_NUMBER2 + funp->fe->old_uniq;
-	    if (num_free > 0) {
-		if (num_free > 1) {
-		    WSTACK_PUSH3(stack, (UWord) &funp->env[1], (num_free-1), MAKE_HASH_TERM_ARRAY_OP);
-		}
-		term = funp->env[0];
-		goto tail_recur;
-	    }
-	    break;
-	}
-
-    case PID_DEF:
-	hash = hash*FUNNY_NUMBER5 + internal_pid_number(term);
-	break;
-    case EXTERNAL_PID_DEF:
-	hash = hash*FUNNY_NUMBER5 + external_pid_number(term);
-        break;
-    case PORT_DEF:
-	hash = hash*FUNNY_NUMBER9 + internal_port_number(term);
-	break;
-    case EXTERNAL_PORT_DEF:
-	hash = hash*FUNNY_NUMBER9 + external_port_number(term);
-	break;
-    case REF_DEF:
-	hash = hash*FUNNY_NUMBER9 + internal_ref_numbers(term)[0];
-	break;
-    case EXTERNAL_REF_DEF:
-	hash = hash*FUNNY_NUMBER9 + external_ref_numbers(term)[0];
-	break;
-    case FLOAT_DEF:
-	{
-            FloatDef ff;
-            GET_DOUBLE(term, ff);
-            if (ff.fd == 0.0f) {
-                /* ensure positive 0.0 */
-                ff.fd = erts_get_positive_zero_float();
-            }
-            hash = hash*FUNNY_NUMBER6 + (ff.fw[0] ^ ff.fw[1]);
-	}
-	break;
-    case MAKE_HASH_CDR_PRE_OP:
-	term = (Eterm) WSTACK_POP(stack);
-	if (is_not_list(term)) {
-	    WSTACK_PUSH(stack, (UWord) MAKE_HASH_CDR_POST_OP);
-	    goto tail_recur;
-	}
-	/*fall through*/
-    case LIST_DEF:
-	{
-	    Eterm* list = list_val(term);
-	    WSTACK_PUSH2(stack, (UWord) CDR(list),
-			 (UWord) MAKE_HASH_CDR_PRE_OP);
-	    term = CAR(list);
-	    goto tail_recur;
-	}
-
-    case MAKE_HASH_CDR_POST_OP:
-	hash *= FUNNY_NUMBER8;
-	break;
-
-     case BIG_DEF:
-	{
-	    Eterm* ptr  = big_val(term);
-	    int is_neg = BIG_SIGN(ptr);
-	    Uint arity = BIG_ARITY(ptr);
-	    Uint i = arity;
-	    ptr++;
-#if D_EXP == 16
-	    /* hash over 32 bit LE */
-
-	    while(i--) {
-		hash = hash*FUNNY_NUMBER2 + *ptr++;
-	    }
-#elif D_EXP == 32
-
-#if defined(WORDS_BIGENDIAN)
-	    while(i--) {
-		Uint d = *ptr++;
-		hash = hash*FUNNY_NUMBER2 + ((d << 16) | (d >> 16));
-	    }
-#else
-	    while(i--) {
-		hash = hash*FUNNY_NUMBER2 + *ptr++;
-	    }
-#endif
-
-#elif D_EXP == 64
-	    {
-	      Uint32 h = 0, l;
-#if defined(WORDS_BIGENDIAN)
-	      while(i--) {
-		  Uint d = *ptr++;
-		  l = d & 0xffffffff;
-		  h = d >> 32;
-		  hash = hash*FUNNY_NUMBER2 + ((l << 16) | (l >> 16));
-		  if (h || i)
-		      hash = hash*FUNNY_NUMBER2 + ((h << 16) | (h >> 16));
-	      }
-#else
-	      while(i--) {
-		  Uint d = *ptr++;
-		  l = d & 0xffffffff;
-		  h = d >> 32;
-		  hash = hash*FUNNY_NUMBER2 + l;
-		  if (h || i)
-		      hash = hash*FUNNY_NUMBER2 + h;
-	      }
-#endif
-	      /* adjust arity to match 32 bit mode */
-	      arity = (arity << 1) - (h == 0);
-	    }
-
-#else
-#error "unsupported D_EXP size"
-#endif
-	    hash = hash * (is_neg ? FUNNY_NUMBER3 : FUNNY_NUMBER2) + arity;
-	}
-	break;
-
-    case MAP_DEF:
-        hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + make_hash2(term);
-        break;
-    case TUPLE_DEF:
-	{
-	    Eterm* ptr = tuple_val(term);
-	    Uint arity = arityval(*ptr);
-
-	    WSTACK_PUSH3(stack, (UWord) arity, (UWord) (ptr+1), (UWord) arity);
-	    op = MAKE_HASH_TUPLE_OP;
-	}/*fall through*/
-    case MAKE_HASH_TUPLE_OP:
-    case MAKE_HASH_TERM_ARRAY_OP:
-	{
-	    Uint i = (Uint) WSTACK_POP(stack);
-	    Eterm* ptr = (Eterm*) WSTACK_POP(stack);
-	    if (i != 0) {
-		term = *ptr;
-		WSTACK_PUSH3(stack, (UWord)(ptr+1), (UWord) i-1, (UWord) op);
-		goto tail_recur;
-	    }
-	    if (op == MAKE_HASH_TUPLE_OP) {
-		Uint32 arity = (UWord) WSTACK_POP(stack);
-		hash = hash*FUNNY_NUMBER9 + arity;
-	    }
-	    break;
-	}
-
-    default:
-	erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_broken_hash\n");
-	return 0;
-      }
-      if (WSTACK_ISEMPTY(stack)) break;
-      op = (Uint) WSTACK_POP(stack);
-    }
-
-    DESTROY_WSTACK(stack);
-    return hash;
-
-#undef MAKE_HASH_TUPLE_OP
-#undef MAKE_HASH_TERM_ARRAY_OP
-#undef MAKE_HASH_CDR_PRE_OP
-#undef MAKE_HASH_CDR_POST_OP
-}
 
 static Eterm
 do_allocate_logger_message(Eterm gleader, Eterm **hp, ErlOffHeap **ohp,
@@ -3307,13 +3053,15 @@ tailrecur_ne:
 		    Export* a_exp = *((Export **) (export_val(a) + 1));
 		    Export* b_exp = *((Export **) (export_val(b) + 1));
 
-		    if ((j = erts_cmp_atoms(a_exp->code[0], b_exp->code[0])) != 0) {
+		    if ((j = erts_cmp_atoms(a_exp->info.mfa.module,
+                                            b_exp->info.mfa.module)) != 0) {
 			RETURN_NEQ(j);
 		    }
-		    if ((j = erts_cmp_atoms(a_exp->code[1], b_exp->code[1])) != 0) {
+		    if ((j = erts_cmp_atoms(a_exp->info.mfa.function,
+                                            b_exp->info.mfa.function)) != 0) {
 			RETURN_NEQ(j);
 		    }
-		    ON_CMP_GOTO((Sint) a_exp->code[2] - (Sint) b_exp->code[2]);
+		    ON_CMP_GOTO((Sint) a_exp->info.mfa.arity - (Sint) b_exp->info.mfa.arity);
 		}
 		break;
 	    case (_TAG_HEADER_FUN >> _TAG_PRIMARY_SIZE):
@@ -3919,6 +3667,68 @@ intlist_to_buf(Eterm list, char *buf, Sint len)
 	if (is_not_list(*(listptr + 1)))
 	    return -1;
 	listptr = list_val(*(listptr + 1));
+    }
+    return -2;			/* not enough space */
+}
+
+/* Fill buf with the contents of the unicode list.
+ * Return the number of bytes in the buffer,
+ * or -1 for type error,
+ * or -2 for not enough buffer space (buffer contains truncated result).
+ */
+Sint
+erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len)
+{
+    Eterm* listptr;
+    Sint sz = 0;
+
+    if (is_nil(list)) {
+	return 0;
+    }
+    if (is_not_list(list)) {
+	return -1;
+    }
+    listptr = list_val(list);
+
+    while (len-- > 0) {
+	Sint val;
+
+	if (is_not_small(CAR(listptr))) {
+	    return -1;
+	}
+	val = signed_val(CAR(listptr));
+	if (0 <= val && val < 0x80) {
+	    buf[sz] = val;
+	    sz++;
+	} else if (val < 0x800) {
+	    buf[sz+0] = 0xC0 | (val >> 6);
+	    buf[sz+1] = 0x80 | (val & 0x3F);
+	    sz += 2;
+	} else if (val < 0x10000UL) {
+	    if (0xD800 <= val && val <= 0xDFFF) {
+		return -1;
+	    }
+	    buf[sz+0] = 0xE0 | (val >> 12);
+	    buf[sz+1] = 0x80 | ((val >> 6) & 0x3F);
+	    buf[sz+2] = 0x80 | (val & 0x3F);
+	    sz += 3;
+	} else if (val < 0x110000) {
+	    buf[sz+0] = 0xF0 | (val >> 18);
+	    buf[sz+1] = 0x80 | ((val >> 12) & 0x3F);
+	    buf[sz+2] = 0x80 | ((val >> 6) & 0x3F);
+	    buf[sz+3] = 0x80 | (val & 0x3F);
+	    sz += 4;
+	} else {
+	    return -1;
+	}
+	list = CDR(listptr);
+	if (is_nil(list)) {
+	    return sz;
+	}
+	if (is_not_list(list)) {
+	    return -1;
+	}
+	listptr = list_val(list);
     }
     return -2;			/* not enough space */
 }

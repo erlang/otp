@@ -22,6 +22,17 @@ limitations under the License.
 %CopyrightEnd%
 
 ---------------------------------------------------------------------------
+[stdlib, compiler]
+
+* assert.hrl is Copyright (C) 2004-1016 Richard Carlsson, Mickaël Rémond
+* array.erl is Copyright (C) 2006-2016 Richard Carlsson and Ericsson AB
+* gb_trees.erl is Copyright (C) 1999-2001 Sven-Olof Nyström, Richard Carlsson
+* gb_sets.erl is Copyright (C) 1999-2001 Richard Carlsson, Sven-Olof Nyström
+* proplists.erl is Copyright (C) 2000-2003 Richard Carlsson
+* cerl{_trees,_clauses}.erl are Copyright (C) 1999-2002 Richard Carlsson
+* cerl_inline.erl is Copyright (C) 1999-2002 Richard Carlsson
+
+---------------------------------------------------------------------------
 [PCRE]
 
 PCRE LICENCE
@@ -190,32 +201,108 @@ terms specified in this license.
 */
 
 ---------------------------------------------------------------------------
+[dialyzer]
+
+%% Copyright 1997-2016 Tobias Lindahl, Stavros Aronis, Kostis Sagonas,
+%% Richard Carlsson, et al.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+
+---------------------------------------------------------------------------
+[typer]
+
+%% Copyright 2006-2016 Bingwen He, Tobias Lindahl, Kostis Sagonas
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+
+---------------------------------------------------------------------------
+[hipe]
+
+%% Copyright 1997-2016 Erik Stenman (Johansson), Kostis Sagonas,
+%% Richard Carlsson, Tobias Lindahl, Per Gustafsson, et al.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+
+---------------------------------------------------------------------------
 [edoc, syntax_tools]
 
-%% =====================================================================
-%% This library is free software; you can redistribute it and/or modify
-%% it under the terms of the GNU Lesser General Public License as
-%% published by the Free Software Foundation; either version 2 of the
-%% License, or (at your option) any later version.
+%% Copyright 1997-2016 Richard Carlsson <carlsson.richard@gmail.com>
 %%
-%% This library is distributed in the hope that it will be useful, but
-%% WITHOUT ANY WARRANTY; without even the implied warranty of
-%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-%% Lesser General Public License for more details.
+%% Licensed under the Apache License, Version 2.0 (the "License"); you may
+%% not use this file except in compliance with the License. You may obtain
+%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
 %%
-%% You should have received a copy of the GNU Lesser General Public
-%% License along with this library; if not, write to the Free Software
-%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-%% USA
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
-%% $Id$
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
+
+---------------------------------------------------------------------------
+[eunit]
+
+%% Copyright 2004-2016 Richard Carlsson <carlsson.richard@gmail.com>,
+%% Mickaël Rémond <mickael.remond@process-one.net>
 %%
-%% @copyright 2001-2003 Richard Carlsson
-%% @author Richard Carlsson <richardc@csd.uu.se>
-%%   [http://www.csd.uu.se/~richardc/]
-%% @version {@vsn}
-%% @end
-%% =====================================================================
+%% Licensed under the Apache License, Version 2.0 (the "License"); you may
+%% not use this file except in compliance with the License. You may obtain
+%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
 
 ---------------------------------------------------------------------------
 [leex]
@@ -269,3 +356,4 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 ---------------------------------------------------------------------------
+[typer]

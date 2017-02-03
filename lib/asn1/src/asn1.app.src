@@ -2,7 +2,6 @@
  [{description, "The Erlang ASN1 compiler version %VSN%"},
   {vsn, "%VSN%"},
   {modules, [
-	asn1rt,
         asn1rt_nif
              ]},
   {registered, [

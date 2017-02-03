@@ -94,6 +94,9 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #if defined(ERTS_DIRTY_SCHEDULERS) && defined(ERTS_SMP)
 				     " [ds:%beu:%beu:%beu]"
 #endif
+#if defined(ERTS_DIRTY_SCHEDULERS_TEST)
+				     " [dirty-schedulers-TEST]"
+#endif
 				     " [async-threads:%d]"
 #endif
 #ifdef HIPE
@@ -1114,9 +1117,9 @@ process_info_aux(Process *BIF_P,
     case am_initial_call:
 	hp = HAlloc(BIF_P, 3+4);
 	res = TUPLE3(hp,
-		     rp->u.initial[INITIAL_MOD],
-		     rp->u.initial[INITIAL_FUN],
-		     make_small(rp->u.initial[INITIAL_ARI]));
+		     rp->u.initial.module,
+		     rp->u.initial.function,
+		     make_small(rp->u.initial.arity));
 	hp += 4;
 	break;
 
@@ -1563,9 +1566,9 @@ process_info_aux(Process *BIF_P,
 		    term = am_timeout;
 		else {
 		    term = TUPLE3(hp,
-				  scb->ct[j]->code[0],
-				  scb->ct[j]->code[1],
-				  make_small(scb->ct[j]->code[2]));
+				  scb->ct[j]->info.mfa.module,
+				  scb->ct[j]->info.mfa.function,
+				  make_small(scb->ct[j]->info.mfa.arity));
 		    hp += 4;
 		}
 		list = CONS(hp, term, list);
@@ -1614,10 +1617,10 @@ current_function(Process* BIF_P, Process* rp, Eterm** hpp, int full_info)
 
     if (rp->current == NULL) {
 	erts_lookup_function_info(&fi, rp->i, full_info);
-	rp->current = fi.current;
+	rp->current = fi.mfa;
     } else if (full_info) {
 	erts_lookup_function_info(&fi, rp->i, full_info);
-	if (fi.current == NULL) {
+	if (fi.mfa == NULL) {
 	    /* Use the current function without location info */
 	    erts_set_current_function(&fi, rp->current);
 	}
@@ -1633,9 +1636,9 @@ current_function(Process* BIF_P, Process* rp, Eterm** hpp, int full_info)
 	 * instead if it can be looked up.
 	 */
 	erts_lookup_function_info(&fi2, rp->cp, full_info);
-	if (fi2.current) {
+	if (fi2.mfa) {
 	    fi = fi2;
-	    rp->current = fi2.current;
+	    rp->current = fi2.mfa;
 	}
     }
 
@@ -1650,8 +1653,9 @@ current_function(Process* BIF_P, Process* rp, Eterm** hpp, int full_info)
 	hp = erts_build_mfa_item(&fi, hp, am_true, &res);
     } else {
 	hp = HAlloc(BIF_P, 3+4);
-	res = TUPLE3(hp, rp->current[0],
-		     rp->current[1], make_small(rp->current[2]));
+	res = TUPLE3(hp, rp->current->module,
+		     rp->current->function,
+                     make_small(rp->current->arity));
 	hp += 4;
     }
     *hpp = hp;
@@ -1692,7 +1696,7 @@ current_stacktrace(Process* p, Process* rp, Eterm** hpp)
     heap_size = 3;
     for (i = 0; i < depth; i++) {
 	erts_lookup_function_info(stkp, s->trace[i], 1);
-	if (stkp->current) {
+	if (stkp->mfa) {
 	    heap_size += stkp->needed + 2;
 	    stkp++;
 	}
@@ -2391,7 +2395,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 							     ERTS_ATOM_ENC_LATIN1,
 							     1),
 					       erts_bld_uint(hpp, hszp,
-							     opc[i].count)),
+							     erts_instr_count[i])),
 				res);
 	}
 
@@ -2676,20 +2680,30 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	erts_schedulers_state(NULL, NULL, &active, NULL, NULL, NULL, NULL, NULL);
 	BIF_RET(make_small(active));
 #endif
-#if defined(ERTS_SMP) && defined(ERTS_DIRTY_SCHEDULERS)
     } else if (ERTS_IS_ATOM_STR("dirty_cpu_schedulers", BIF_ARG_1)) {
 	Uint dirty_cpu;
+#ifdef ERTS_DIRTY_SCHEDULERS
 	erts_schedulers_state(NULL, NULL, NULL, &dirty_cpu, NULL, NULL, NULL, NULL);
+#else
+        dirty_cpu = 0;
+#endif
 	BIF_RET(make_small(dirty_cpu));
     } else if (ERTS_IS_ATOM_STR("dirty_cpu_schedulers_online", BIF_ARG_1)) {
 	Uint dirty_cpu_onln;
+#ifdef ERTS_DIRTY_SCHEDULERS
 	erts_schedulers_state(NULL, NULL, NULL, NULL, &dirty_cpu_onln, NULL, NULL, NULL);
+#else
+        dirty_cpu_onln = 0;
+#endif
 	BIF_RET(make_small(dirty_cpu_onln));
     } else if (ERTS_IS_ATOM_STR("dirty_io_schedulers", BIF_ARG_1)) {
 	Uint dirty_io;
+#ifdef ERTS_DIRTY_SCHEDULERS
 	erts_schedulers_state(NULL, NULL, NULL, NULL, NULL, NULL, &dirty_io, NULL);
-	BIF_RET(make_small(dirty_io));
+#else
+        dirty_io = 0;
 #endif
+	BIF_RET(make_small(dirty_io));
     } else if (ERTS_IS_ATOM_STR("run_queues", BIF_ARG_1)) {
 	res = make_small(erts_no_run_queues);
 	BIF_RET(res);
@@ -2859,6 +2873,12 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     else if (ERTS_IS_ATOM_STR("ets_limit",BIF_ARG_1)) {
         BIF_RET(make_small(erts_db_get_max_tabs()));
     }
+    else if (ERTS_IS_ATOM_STR("atom_limit",BIF_ARG_1)) {
+        BIF_RET(make_small(erts_get_atom_limit()));
+    }
+    else if (ERTS_IS_ATOM_STR("atom_count",BIF_ARG_1)) {
+        BIF_RET(make_small(atom_table_size()));
+    }
     else if (ERTS_IS_ATOM_STR("tolerant_timeofday",BIF_ARG_1)) {
 	if (erts_has_time_correction()
 	    && erts_time_offset_state() == ERTS_TIME_OFFSET_FINAL) {
@@ -2882,27 +2902,6 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	DECL_AM(tag);
 	BIF_RET(AM_tag);
 #endif
-    }
-    else if (ERTS_IS_ATOM_STR("check_process_code",BIF_ARG_1)) {
-	Eterm terms[3];
-	Sint length = 1;
-	Uint sz = 0;
-	Eterm *hp, res;
-	DECL_AM(direct_references);
-
-	terms[0] = AM_direct_references;
-#if !defined(ERTS_NEW_PURGE_STRATEGY)
-	{
-	    DECL_AM(indirect_references);
-	    terms[1] = AM_indirect_references;
-	    terms[2] = am_copy_literals;
-	    length = 3;
-	}
-#endif
-	erts_bld_list(NULL, &sz, length, terms);
-	hp = HAlloc(BIF_P, sz);
-	res = erts_bld_list(&hp, NULL, length, terms);
-	BIF_RET(res);
     }
 
     BIF_ERROR(BIF_P, BADARG);
@@ -3248,7 +3247,7 @@ fun_info_2(BIF_ALIST_2)
 	    break;
 	case am_module:
 	    hp = HAlloc(p, 3);
-	    val = exp->code[0];
+	    val = exp->info.mfa.module;
 	    break;
 	case am_new_index:
 	    hp = HAlloc(p, 3);
@@ -3276,11 +3275,11 @@ fun_info_2(BIF_ALIST_2)
 	    break;
 	case am_arity:
 	    hp = HAlloc(p, 3);
-	    val = make_small(exp->code[2]);
+	    val = make_small(exp->info.mfa.arity);
 	    break;
 	case am_name:
 	    hp = HAlloc(p, 3);
-	    val = exp->code[1];
+	    val = exp->info.mfa.function;
 	    break;
 	default:
 	    goto error;
@@ -3306,7 +3305,9 @@ fun_info_mfa_1(BIF_ALIST_1)
     } else if (is_export(fun)) {
 	Export* exp = (Export *) ((UWord) (export_val(fun))[1]);
 	hp = HAlloc(p, 4);
-	BIF_RET(TUPLE3(hp,exp->code[0],exp->code[1],make_small(exp->code[2])));
+	BIF_RET(TUPLE3(hp,exp->info.mfa.module,
+                       exp->info.mfa.function,
+                       make_small(exp->info.mfa.arity)));
     }
     BIF_ERROR(p, BADARG);
 }
@@ -3384,7 +3385,12 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
     Eterm* hp;
 
     if (BIF_ARG_1 == am_scheduler_wall_time) {
-	res = erts_sched_wall_time_request(BIF_P, 0, 0);
+	res = erts_sched_wall_time_request(BIF_P, 0, 0, 1, 0);
+	if (is_non_value(res))
+	    BIF_RET(am_undefined);
+	BIF_TRAP1(gather_sched_wall_time_res_trap, BIF_P, res);
+    } else if (BIF_ARG_1 == am_scheduler_wall_time_all) {
+	res = erts_sched_wall_time_request(BIF_P, 0, 0, 1, 1);
 	if (is_non_value(res))
 	    BIF_RET(am_undefined);
 	BIF_TRAP1(gather_sched_wall_time_res_trap, BIF_P, res);
@@ -3563,8 +3569,14 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	else if (ERTS_IS_ATOM_STR("DbTable_words", BIF_ARG_1)) {
 	    /* Used by ets_SUITE (stdlib) */
 	    size_t words = (sizeof(DbTable) + sizeof(Uint) - 1)/sizeof(Uint);
-	    BIF_RET(make_small((Uint) words));
+            Eterm* hp = HAlloc(BIF_P ,3);
+	    BIF_RET(TUPLE2(hp, make_small((Uint) words),
+                           erts_ets_hash_sizeof_ext_segtab()));
 	}
+        else if (ERTS_IS_ATOM_STR("DbTable_meta", BIF_ARG_1)) {
+            /* Used by ets_SUITE (stdlib) */
+            BIF_RET(erts_ets_get_meta_state(BIF_P));
+        }
 	else if (ERTS_IS_ATOM_STR("check_io_debug", BIF_ARG_1)) {
 	    /* Used by driver_SUITE (emulator) */
 	    Uint sz, *szp;
@@ -4297,6 +4309,10 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
                 FLAGS(BIF_P) |= F_NEED_FULLSWEEP;
             }
             BIF_RET(am_ok);
+        }
+        else if (ERTS_IS_ATOM_STR("DbTable_meta", BIF_ARG_1)) {
+            /* Used by ets_SUITE (stdlib) */
+            BIF_RET(erts_ets_restore_meta_state(BIF_P, BIF_ARG_2));
         }
     }
 

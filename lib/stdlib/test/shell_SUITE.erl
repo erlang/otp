@@ -573,7 +573,7 @@ otp_5327(Config) when is_list(Config) ->
         (catch evaluate(<<"<<32/unit:8>>.">>, [])),
     ok.
 
-%% OTP-5435. sys_pre_expand not in the path.
+%% OTP-5435. compiler application not in the path.
 otp_5435(Config) when is_list(Config) ->
     true = <<103133:64/float>> =:=
         evaluate(<<"<<103133:64/float>> = <<103133:64/float>>.">>, []),
@@ -591,8 +591,9 @@ start_node(Name) ->
 
 otp_5435_2() ->
     true = code:del_path(compiler),
-    %% sys_pre_expand can no longer be found
-    %% OTP-5876. But erl_expand_records can!
+    %% Make sure record evaluation is not dependent on the compiler
+    %% application being in the path.
+    %% OTP-5876.
     [{attribute,_,record,{bar,_}},ok] =
         scan(<<"rd(foo,{bar}), 
                 rd(bar,{foo = (#foo{})#foo.bar}),
@@ -1793,7 +1794,7 @@ Test1_shell =
 Test2 =
 <<"-module(recs).
           -record(person, {name, age, phone = [], dict = []}).
--compile(export_all).
+-export([t/0]).
 
 t() -> ok.
 
@@ -1960,7 +1961,7 @@ ok.
 progex_funs(Config) when is_list(Config) ->
     Test1 = 
 	<<"-module(funs).
-          -compile(export_all).
+          -export([t/0]).
 
 double([H|T]) -> [2*H|double(T)];
 double([])    -> [].
@@ -3030,7 +3031,7 @@ run_file(Config, Module, Test) ->
     ok.
 
 compile_file(Config, File, Test, Opts0) ->
-    Opts = [export_all,return,{outdir,proplists:get_value(priv_dir, Config)}|Opts0],
+    Opts = [export_all,nowarn_export_all,return,{outdir,proplists:get_value(priv_dir, Config)}|Opts0],
     ok = file:write_file(File, Test),
     case compile:file(File, Opts) of
               {ok, _M, _Ws} -> ok;

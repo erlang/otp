@@ -534,11 +534,6 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
           the function call fails.</p>
         <p>Return value <c>Reply</c> is defined in the return value
           of <c>Module:StateName/3</c>.</p>
-	<note>
-          <p>The ancient behavior of sometimes consuming the server
-          exit message if the server died during the call while
-          linked to the client was removed in Erlang 5.6/OTP R12B.</p>
-	</note>
       </desc>
     </func>
   </funcs>

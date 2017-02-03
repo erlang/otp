@@ -936,7 +936,7 @@ enqueue_port(ErtsRunQueue *runq, Port *pp)
     erts_smp_inc_runq_len(runq, &runq->ports.info, ERTS_PORT_PRIO_LEVEL);
 
 #ifdef ERTS_SMP
-    if (runq->halt_in_progress)
+    if (ERTS_RUNQ_FLGS_GET_NOB(runq) & ERTS_RUNQ_FLG_HALTING)
 	erts_non_empty_runq(runq);
 #endif
 }

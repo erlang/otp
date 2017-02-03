@@ -32,9 +32,12 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 mixed/1,
+         literals/1,
 	 simple/1, complicated/1, heavy/1, simple_all_keys/1, info/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export([other_process/2]).
+
+-export([put_do/2, get_do/1, erase_do/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -48,6 +51,7 @@ suite() ->
 
 all() -> 
     [simple, complicated, heavy, simple_all_keys, info,
+     literals,
      mixed].
 
 groups() -> 
@@ -418,3 +422,59 @@ do_mixed([GoalN | _]=Goals, CurrN, Array0, C, Rand0) ->
 	    Array2 = array:resize(CurrN-1, Array1),
 	    do_mixed(Goals, CurrN-1, Array2, C+1, Rand2)
     end.
+
+%% Test hash precalculation of literal keys
+literals(_Config) ->
+    %% Put literal -> get variable
+    put(1742, "1742"),
+    "1742" = ?MODULE:get_do(1742),
+    "1742" = ?MODULE:erase_do(1742),
+
+    put(-1742, "-1742"),
+    "-1742" = ?MODULE:get_do(-1742),
+    "-1742" = ?MODULE:erase_do(-1742),
+
+    put([], "NIL"),
+    "NIL" = ?MODULE:get_do([]),
+    "NIL" = ?MODULE:erase_do([]),
+
+    put(<<"binary">>, "binary"),
+    "binary" = ?MODULE:get_do(<<"binary">>),
+    "binary" = ?MODULE:erase_do(<<"binary">>),
+
+    BigBin = <<"A large binary with a lot of bytes to make it go off heap as shared and reference counted">>,
+    put(BigBin, "bigbin"),
+    "bigbin" = ?MODULE:get_do(BigBin),
+    "bigbin" = ?MODULE:erase_do(BigBin),
+
+    %% Put variable -> get literal
+    ?MODULE:put_do(4217, "4217"),
+    "4217" = get(4217),
+    "4217" = erase(4217),
+
+    ?MODULE:put_do(-4217, "-4217"),
+    "-4217" = get(-4217),
+    "-4217" = erase(-4217),
+
+    ?MODULE:put_do([], "NIL"),
+    "NIL" = get([]),
+    "NIL" = erase([]),
+
+    ?MODULE:put_do(<<"bytes">>, "bytes"),
+    "bytes" = get(<<"bytes">>),
+    "bytes" = erase(<<"bytes">>),
+
+    ?MODULE:put_do(BigBin, "BigBin"),
+    "BigBin" = get(BigBin),
+    "BigBin" = erase(BigBin),
+
+    ok.
+
+put_do(K, V) ->
+    put(K, V).
+
+get_do(K) ->
+    get(K).
+
+erase_do(K) ->
+    erase(K).

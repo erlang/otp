@@ -643,6 +643,8 @@ get_items([], _Dict) ->
 
 check_item({_,{mod,{M,A}}},_) when is_atom(M) ->
     {M,A};
+check_item({_,{mod,[]}},_) -> % default mod is [], so accept as entry
+    [];
 check_item({_,{vsn,Vsn}},I) ->
     case string_p(Vsn) of
 	true -> Vsn;
@@ -678,6 +680,8 @@ check_item({_,{modules,Mods}},I) ->
 	true -> Mods;
 	_ -> throw({bad_param, I})
     end;
+check_item({_,{start_phases,undefined}},_) -> % default start_phase is undefined,
+    undefined;                                % so accept as entry
 check_item({_,{start_phases,Phase}},I) ->
     case t_list_p(Phase) of
 	true -> Phase;

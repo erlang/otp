@@ -24,7 +24,6 @@
 #include "config.h"
 #endif
 #include "global.h"
-#include <sys/mman.h>
 
 #include "hipe_arch.h"
 #include "hipe_native_bif.h"	/* nbif_callemu() */
@@ -88,8 +87,8 @@ int hipe_patch_call(void *callAddress, void *destAddress, void *trampoline)
 {
     Uint32 relDest, newI;
 
-    if (trampoline)
-	return -1;
+    ASSERT(trampoline == NULL);
+
     relDest = (Uint32)((Sint32)destAddress - (Sint32)callAddress);
     newI = (1 << 30) | (relDest >> 2);
     *(Uint32*)callAddress = newI;
@@ -97,105 +96,9 @@ int hipe_patch_call(void *callAddress, void *destAddress, void *trampoline)
     return 0;
 }
 
-/*
- * Memory allocator for executable code.
- *
- * This is required on x86 because some combinations
- * of Linux kernels and CPU generations default to
- * non-executable memory mappings, causing ordinary
- * malloc() memory to be non-executable.
- */
-static unsigned int code_bytes;
-static char *code_next;
-
-#if 0	/* change to non-zero to get allocation statistics at exit() */
-static unsigned int total_mapped, nr_joins, nr_splits, total_alloc, nr_allocs, nr_large, total_lost;
-static unsigned int atexit_done;
-
-static void alloc_code_stats(void)
-{
-    printf("\r\nalloc_code_stats: %u bytes mapped, %u joins, %u splits, %u bytes allocated, %u average alloc, %u large allocs, %u bytes lost\r\n",
-	   total_mapped, nr_joins, nr_splits, total_alloc, nr_allocs ? total_alloc/nr_allocs : 0, nr_large, total_lost);
-}
-
-static void atexit_alloc_code_stats(void)
-{
-    if (!atexit_done) {
-	atexit_done = 1;
-	(void)atexit(alloc_code_stats);
-    }
-}
-
-#define ALLOC_CODE_STATS(X)	do{X;}while(0)
-#else
-#define ALLOC_CODE_STATS(X)	do{}while(0)
-#endif
-
-static int morecore(unsigned int alloc_bytes)
-{
-    unsigned int map_bytes;
-    char *map_hint, *map_start;
-
-    /* Page-align the amount to allocate. */
-    map_bytes = (alloc_bytes + 4095) & ~4095;
-
-    /* Round up small allocations. */
-    if (map_bytes < 1024*1024)
-	map_bytes = 1024*1024;
-    else
-	ALLOC_CODE_STATS(++nr_large);
-
-    /* Create a new memory mapping, ensuring it is executable
-       and in the low 2GB of the address space. Also attempt
-       to make it adjacent to the previous mapping. */
-    map_hint = code_next + code_bytes;
-    if ((unsigned long)map_hint & 4095)
-	abort();
-    map_start = mmap(map_hint, map_bytes,
-		     PROT_EXEC|PROT_READ|PROT_WRITE,
-		     MAP_PRIVATE|MAP_ANONYMOUS
-#ifdef __x86_64__
-		     |MAP_32BIT
-#endif
-		     ,
-		     -1, 0);
-    if (map_start == MAP_FAILED)
-	return -1;
-
-    ALLOC_CODE_STATS(total_mapped += map_bytes);
-
-    /* Merge adjacent mappings, so the trailing portion of the previous
-       mapping isn't lost. In practice this is quite successful. */
-    if (map_start == map_hint) {
-	ALLOC_CODE_STATS(++nr_joins);
-	code_bytes += map_bytes;
-    } else {
-	ALLOC_CODE_STATS(++nr_splits);
-	ALLOC_CODE_STATS(total_lost += code_bytes);
-	code_next = map_start;
-	code_bytes = map_bytes;
-    }
-
-    ALLOC_CODE_STATS(atexit_alloc_code_stats());
-
-    return 0;
-}
-
 static void *alloc_code(unsigned int alloc_bytes)
 {
-    void *res;
-
-    /* Align function entries. */
-    alloc_bytes = (alloc_bytes + 3) & ~3;
-
-    if (code_bytes < alloc_bytes && morecore(alloc_bytes) != 0)
-	return NULL;
-    ALLOC_CODE_STATS(++nr_allocs);
-    ALLOC_CODE_STATS(total_alloc += alloc_bytes);
-    res = code_next;
-    code_next += alloc_bytes;
-    code_bytes -= alloc_bytes;
-    return res;
+    return erts_alloc(ERTS_ALC_T_HIPE_EXEC, alloc_bytes);
 }
 
 void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *p)
@@ -204,6 +107,11 @@ void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *
 	return NULL;
     *trampolines = NIL;
     return alloc_code(nrbytes);
+}
+
+void hipe_free_code(void* code, unsigned int nrbytes)
+{
+    erts_free(ERTS_ALC_T_HIPE_EXEC, code);
 }
 
 void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
@@ -233,6 +141,11 @@ void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
 	hipe_flush_icache_word(&code[i]);
 
     return code;
+}
+
+void hipe_free_native_stub(void* stub)
+{
+    erts_free(ERTS_ALC_T_HIPE_EXEC, stub);
 }
 
 void hipe_arch_print_pcb(struct hipe_process_state *p)

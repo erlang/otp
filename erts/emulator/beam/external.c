@@ -2174,12 +2174,8 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
  * We use this atom as sysname in local pid/port/refs
  * for the ETS compressed format (DFLAG_INTERNAL_TAGS).
  *
- * We used atom '' earlier but that turned out to cause problems
- * for buggy erl_interface/ic usage of c-nodes with empty node names.
- * A long atom reduces risk of nodes actually called this and the length
- * does not matter anyway as it's encoded with atom index (ATOM_INTERNAL_REF2).
  */
-#define INTERNAL_LOCAL_SYSNAME am_await_microstate_accounting_modifications
+#define INTERNAL_LOCAL_SYSNAME am_ErtsSecretAtom
 
 static byte*
 enc_pid(ErtsAtomCacheMap *acmp, Eterm pid, byte* ep, Uint32 dflags)
@@ -2837,9 +2833,10 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		Export* exp = *((Export **) (export_val(obj) + 1));
 		if ((dflags & DFLAG_EXPORT_PTR_TAG) != 0) {
 		    *ep++ = EXPORT_EXT;
-		    ep = enc_atom(acmp, exp->code[0], ep, dflags);
-		    ep = enc_atom(acmp, exp->code[1], ep, dflags);
-		    ep = enc_term(acmp, make_small(exp->code[2]), ep, dflags, off_heap);
+		    ep = enc_atom(acmp, exp->info.mfa.module, ep, dflags);
+		    ep = enc_atom(acmp, exp->info.mfa.function, ep, dflags);
+		    ep = enc_term(acmp, make_small(exp->info.mfa.arity),
+                                  ep, dflags, off_heap);
 		} else {
 		    /* Tag, arity */
 		    *ep++ = SMALL_TUPLE_EXT;
@@ -2847,10 +2844,10 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    ep += 1;
 
 		    /* Module name */
-		    ep = enc_atom(acmp, exp->code[0], ep, dflags);
+		    ep = enc_atom(acmp, exp->info.mfa.module, ep, dflags);
 
 		    /* Function name */
-		    ep = enc_atom(acmp, exp->code[1], ep, dflags);
+		    ep = enc_atom(acmp, exp->info.mfa.function, ep, dflags);
 		}
 		break;
 	    }
@@ -3758,9 +3755,8 @@ dec_term_atom_common:
 		funp->arity = arity;
 #ifdef HIPE
 		if (funp->fe->native_address == NULL) {
-		    hipe_set_closure_stub(funp->fe, num_free);
+		    hipe_set_closure_stub(funp->fe);
 		}
-		funp->native_address = funp->fe->native_address;
 #endif
 		hp = factory->hp;
 
@@ -3832,9 +3828,6 @@ dec_term_atom_common:
 
 		funp->fe = erts_put_fun_entry(module, old_uniq, old_index);
 		funp->arity = funp->fe->address[-1] - num_free;
-#ifdef HIPE
-		funp->native_address = funp->fe->native_address;
-#endif
 		hp = factory->hp;
 
 		/* Environment */
@@ -4273,9 +4266,9 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    {
 		Export* ep = *((Export **) (export_val(obj) + 1));
 		result += 1;
-		result += encode_size_struct2(acmp, ep->code[0], dflags);
-		result += encode_size_struct2(acmp, ep->code[1], dflags);
-		result += encode_size_struct2(acmp, make_small(ep->code[2]), dflags);
+		result += encode_size_struct2(acmp, ep->info.mfa.module, dflags);
+		result += encode_size_struct2(acmp, ep->info.mfa.function, dflags);
+		result += encode_size_struct2(acmp, make_small(ep->info.mfa.arity), dflags);
 	    }
 	    break;
 

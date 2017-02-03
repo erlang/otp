@@ -1,0 +1,117 @@
+Date: Sun, 13 Nov 2016 09:40:36 +0100
+Subject: [PATCH] Rename and fix up LFE test suites
+
+---
+ test/{andor_SUITE.lfe => lfe_andor_SUITE.lfe} | 16 ++++++++--------
+ test/{guard_SUITE.lfe => lfe_guard_SUITE.lfe} |  8 ++++----
+ 2 files changed, 12 insertions(+), 12 deletions(-)
+ rename test/{andor_SUITE.lfe => lfe_andor_SUITE.lfe} (97%)
+ rename test/{guard_SUITE.lfe => lfe_guard_SUITE.lfe} (99%)
+
+diff --git a/test/andor_SUITE.lfe b/test/lfe_andor_SUITE.lfe
+similarity index 97%
+rename from test/andor_SUITE.lfe
+rename to test/lfe_andor_SUITE.lfe
+index 64feddd..1802b3f 100644
+--- a/test/andor_SUITE.lfe
++++ b/test/lfe_andor_SUITE.lfe
+@@ -26,14 +26,14 @@
+ 
+ (include-file "test_server.lfe")
+ 
+-(defmodule andor_SUITE
++(defmodule lfe_andor_SUITE
+   (export (all 0) (suite 0) (groups 0) (init_per_suite 1) (end_per_suite 1)
+       (init_per_group 2) (end_per_group 2)
+       (t_case 1) (t_and_or 1) (t_andalso 1) (t_orelse 1) (inside 1)
+       (overlap 1) (combined 1) (in_case 1) (before_and_inside_if 1)
+       ))
+ 
+-(defmacro MODULE () `'andor_SUITE)
++(defmacro MODULE () `'lfe_andor_SUITE)
+ 
+ (defun all ()
+   ;; (: test_lib recompile (MODULE))
+@@ -206,7 +206,7 @@
+ 
+ (defun t-andalso-1
+   ([(tuple x y)]
+-   (: lfe_io format '"(andalso ~w ~w): " (list x y))
++   (: io format '"(andalso ~w ~w): " (list x y))
+    (let* ((v0 (andalso (echo x) (echo y)))
+       (v1 (when (=:= v0 v1))
+           (eif (andalso x y) 'true 'true 'false)))
+@@ -248,7 +248,7 @@
+ 
+ (defun t-orelse-1
+   ([(tuple x y)]
+-   (: lfe_io format '"(orelse ~w ~w): " (list x y))
++   (: io format '"(orelse ~w ~w): " (list x y))
+    (let* ((v0 (orelse (echo x) (echo y)))
+       (v1 (when (=:= v0 v1))
+           (eif (orelse x y) 'true 'true 'false)))
+@@ -289,7 +289,7 @@
+        (when (=:= r1 r2) (=:= xm xm2) (=:= ym ym2) (=:= x x2)
+          (=:= y y2) (=:= w w2) (=:= h h2))
+        (inside-guard xm ym x y w h)))
+-      (: lfe_io fwrite
++      (: io fwrite
+     '"(andalso (=< ~p ~p) (< ~p ~p) (=< ~p ~p) (< ~p ~p)) ==> ~p\n"
+     (list x xm xm (+ x w) y ym ym (+ y h) r1)))
+     r1))
+@@ -499,12 +499,12 @@
+ ;; Utilities
+ 
+ (defun check (v1 v0)
+-  (eif (/= v1 v0) (progn (: lfe_io fwrite '"error: ~w.\n" (list v1))
++  (eif (/= v1 v0) (progn (: io fwrite '"error: ~w.\n" (list v1))
+              (exit 'suite_failed))
+-       'true (: lfe_io fwrite '"ok: ~w.\n" (list v1))))
++       'true (: io fwrite '"ok: ~w.\n" (list v1))))
+ 
+ (defun echo (x)
+-  (: lfe_io fwrite '"(eval ~w); " (list x))
++  (: io fwrite '"(eval ~w); " (list x))
+   x)
+ 
+ ;; Call this function to turn off constant propagation.
+diff --git a/test/guard_SUITE.lfe b/test/lfe_guard_SUITE.lfe
+similarity index 99%
+rename from test/guard_SUITE.lfe
+rename to test/lfe_guard_SUITE.lfe
+index 33b1344..2eeb1a6 100644
+--- a/test/guard_SUITE.lfe
++++ b/test/lfe_guard_SUITE.lfe
+@@ -26,7 +26,7 @@
+ 
+ (include-file "test_server.lfe")
+ 
+-(defmodule guard_SUITE
++(defmodule lfe_guard_SUITE
+   (export (all 0) (suite 0) (groups 0) (init_per_suite 1) (end_per_suite 1)
+       (init_per_group 2) (end_per_group 2)
+       (misc 1) (const_cond 1) (basic_not 1) (complex_not 1) (nested_nots 1)
+@@ -42,7 +42,7 @@
+       (check_qlc_hrl 1) (andalso_semi 1) (t_tuple_size 1) (binary_part 1)
+       ))
+ 
+-(defmacro MODULE () `'guard_SUITE)
++(defmacro MODULE () `'lfe_guard_SUITE)
+ 
+ (defun all ()
+   ;; (: test_lib recompile (MODULE))
+@@ -764,9 +764,9 @@
+ 
+ (defun is_function_2
+   ([config] (when (is_list config))
+-   (line (test-pat 'true (is_function (id (function guard_SUITE all 1)) 1)))
++   (line (test-pat 'true (is_function (id (function lfe_guard_SUITE all 1)) 1)))
+    (line (test-pat 'true (is_function (id (lambda () 'ok)) 0)))
+-   (line (test-pat 'false (is_function (id (function guard_SUITE all 1)) 0)))
++   (line (test-pat 'false (is_function (id (function lfe_guard_SUITE all 1)) 0)))
+    (line (test-pat 'false (is_function (id (lambda () 'ok)) 1)))
+ 
+    (let ((F (lambda (_) 'ok)))
+-- 
+2.7.4 (Apple Git-66)
+

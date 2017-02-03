@@ -101,11 +101,11 @@ void erts_send_sys_msg_proc(Eterm, Eterm, Eterm, ErlHeapFragment *);
 
 void trace_send(Process*, Eterm, Eterm);
 void trace_receive(Process*, Eterm, Eterm, ErtsTracingEvent*);
-Uint32 erts_call_trace(Process *p, BeamInstr mfa[], struct binary *match_spec,
+Uint32 erts_call_trace(Process *p, ErtsCodeInfo *info, struct binary *match_spec,
                        Eterm* args, int local, ErtsTracer *tracer);
-void erts_trace_return(Process* p, BeamInstr* fi, Eterm retval,
+void erts_trace_return(Process* p, ErtsCodeMFA *mfa, Eterm retval,
                        ErtsTracer *tracer);
-void erts_trace_exception(Process* p, BeamInstr mfa[], Eterm class, Eterm value,
+void erts_trace_exception(Process* p, ErtsCodeMFA *mfa, Eterm class, Eterm value,
                           ErtsTracer *tracer);
 void erts_trace_return_to(Process *p, BeamInstr *pc);
 void trace_sched(Process*, ErtsProcLocks, Eterm);
@@ -134,7 +134,8 @@ void erts_system_profile_setup_active_schedulers(void);
 
 /* system_monitor */
 void monitor_long_gc(Process *p, Uint time);
-void monitor_long_schedule_proc(Process *p, BeamInstr *in_i, BeamInstr *out_i, Uint time);
+void monitor_long_schedule_proc(Process *p, ErtsCodeMFA *in_i,
+                                ErtsCodeMFA *out_i, Uint time);
 void monitor_long_schedule_port(Port *pp, ErtsPortTaskType type, Uint time);
 void monitor_large_heap(Process *p);
 void monitor_generic(Process *p, Eterm type, Eterm spec);
@@ -142,6 +143,11 @@ Uint erts_trace_flag2bit(Eterm flag);
 int erts_trace_flags(Eterm List, 
 		 Uint *pMask, ErtsTracer *pTracer, int *pCpuTimestamp);
 Eterm erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr *I);
+Eterm
+erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
+			Export* ep, BeamInstr *cp, Uint32 flags,
+			Uint32 flags_meta, BeamInstr* I,
+			ErtsTracer meta_tracer);
 
 #ifdef ERTS_SMP
 void erts_send_pending_trace_msgs(ErtsSchedulerData *esdp);
@@ -176,7 +182,7 @@ struct trace_pattern_flags {
 };
 extern const struct trace_pattern_flags erts_trace_pattern_flags_off;
 extern int erts_call_time_breakpoint_tracing;
-int erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
+int erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 			   struct binary* match_prog_set,
 			   struct binary *meta_match_prog_set,
 			   int on, struct trace_pattern_flags,

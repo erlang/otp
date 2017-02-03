@@ -26,6 +26,9 @@
 -import(lists, [filter/2,foldl/3,keyfind/3,member/2,
 		reverse/1,reverse/2,sort/1]).
 
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs0,Lc}, _Opts) ->
     Fs = [function(F) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
@@ -34,7 +37,8 @@ function({function,Name,Arity,CLabel,Asm0}) ->
     try
 	Asm1 = beam_utils:live_opt(Asm0),
 	Asm2 = opt(Asm1, [], tdb_new()),
-	Asm = beam_utils:delete_live_annos(Asm2),
+	Asm3 = beam_utils:live_opt(Asm2),
+	Asm = beam_utils:delete_live_annos(Asm3),
 	{function,Name,Arity,CLabel,Asm}
     catch
 	Class:Error ->
@@ -592,6 +596,9 @@ is_math_bif(log10, 1) -> true;
 is_math_bif(sqrt, 1) -> true;
 is_math_bif(atan2, 2) -> true;
 is_math_bif(pow, 2) -> true;
+is_math_bif(ceil, 1) -> true;
+is_math_bif(floor, 1) -> true;
+is_math_bif(fmod, 2) -> true;
 is_math_bif(pi, 0) -> true;
 is_math_bif(_, _) -> false.
 

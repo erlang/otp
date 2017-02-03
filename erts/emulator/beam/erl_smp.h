@@ -1065,7 +1065,7 @@ ERTS_GLB_INLINE void
 erts_smp_mtx_init_x(erts_smp_mtx_t *mtx, char *name, Eterm extra)
 {
 #ifdef ERTS_SMP
-    erts_mtx_init_x(mtx, name, extra, 1);
+    erts_mtx_init_x(mtx, name, extra);
 #endif
 }
 
@@ -1073,7 +1073,7 @@ ERTS_GLB_INLINE void
 erts_smp_mtx_init_locked_x(erts_smp_mtx_t *mtx, char *name, Eterm extra)
 {
 #ifdef ERTS_SMP
-    erts_mtx_init_locked_x(mtx, name, extra, 1);
+    erts_mtx_init_locked_x(mtx, name, extra);
 #endif
 }
 

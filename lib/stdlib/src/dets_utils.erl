@@ -20,13 +20,13 @@
 -module(dets_utils).
 
 %% Utility functions common to several dets file formats.
-%% To be used from dets, dets_v8 and dets_v9 only.
+%% To be used from modules dets and dets_v9 only.
 
 -export([cmp/2, msort/1, mkeysort/2, mkeysearch/3, family/1]).
 
 -export([rename/2, pread/2, pread/4, ipread/3, pwrite/2, write/2,
          truncate/2, position/2, sync/1, open/2, truncate/3, fwrite/3,
-         write_file/2, position/3, position_close/3, pwrite/4,
+         write_file/2, position/3, position_close/3,
          pwrite/3, pread_close/4, read_n/2, pread_n/3, read_4/2]).
 
 -export([code_to_type/1, type_to_code/1]).
@@ -43,8 +43,6 @@
          free/3, get_freelists/1, all_free/1, all_allocated/1,
          all_allocated_as_list/1, find_allocated/4, find_next_allocated/3,
          log2/1, make_zeros/1]).
-
--export([init_slots_from_old_file/2]).
 
 -export([list_to_tree/1, tree_to_bin/5]).
 
@@ -308,12 +306,6 @@ position_close(Fd, FileName, Pos) ->
 	OK -> OK
     end.
 	    
-pwrite(Fd, FileName, Position, B) ->
-    case file:pwrite(Fd, Position, B) of
-	ok -> ok;
-	Error -> file_error(FileName, {error, Error})
-    end.
-
 pwrite(Fd, FileName, Bins) ->
     case file:pwrite(Fd, Bins) of
 	ok ->
@@ -477,20 +469,6 @@ new_cache({Delay, Size}) ->
 %%%             Data structures and algorithms by Aho, Hopcroft and
 %%%             Ullman. I think buddy systems were invented by Knuth, a long
 %%%             time ago.
-
-init_slots_from_old_file([{Slot,Addr} | T], Ftab) ->
-    init_slot(Slot+1,[{Slot,Addr} | T], Ftab);
-init_slots_from_old_file([], Ftab) ->
-    Ftab.
-
-init_slot(_Slot,[], Ftab) ->
-    Ftab; % should never happen
-init_slot(_Slot,[{_Addr,0}|T], Ftab) ->
-    init_slots_from_old_file(T, Ftab);
-init_slot(Slot,[{_Slot1,Addr}|T], Ftab) ->
-    Stree = element(Slot, Ftab),
-    %%    io:format("init_slot ~p:~p~n",[Slot, Addr]),
-    init_slot(Slot,T,setelement(Slot, Ftab, bplus_insert(Stree, Addr))).
 
 %%% The free lists are kept in RAM, and written to the end of the file
 %%% from time to time. It is possible that a considerable amount of

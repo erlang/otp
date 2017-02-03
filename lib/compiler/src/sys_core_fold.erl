@@ -83,10 +83,11 @@
 -ifdef(DEBUG).
 -define(ASSERT(E),
 	case E of
-	    true -> ok;
+	    true ->
+		ok;
 	    false ->
 		io:format("~p, line ~p: assertion failed\n", [?MODULE,?LINE]),
-		exit(assertion_failed)
+		error(assertion_failed)
 	end).
 -else.
 -define(ASSERT(E), ignore).
@@ -120,13 +121,24 @@ module(#c_module{defs=Ds0}=Mod, Opts) ->
 
 function_1({#c_var{name={F,Arity}}=Name,B0}) ->
     try
-	B = expr(B0, value, sub_new()),			%This must be a fun!
+	B = find_fixpoint(fun(Core) ->
+				  %% This must be a fun!
+				  expr(Core, value, sub_new())
+			  end, B0, 20),
 	{Name,B}
     catch
 	Class:Error ->
 	    Stack = erlang:get_stacktrace(),
 	    io:fwrite("Function: ~w/~w\n", [F,Arity]),
 	    erlang:raise(Class, Error, Stack)
+    end.
+
+find_fixpoint(_OptFun, Core, 0) ->
+    Core;
+find_fixpoint(OptFun, Core0, Max) ->
+    case OptFun(Core0) of
+	Core0 -> Core0;
+	Core -> find_fixpoint(OptFun, Core, Max-1)
     end.
 
 %% body(Expr, Sub) -> Expr.
@@ -160,13 +172,23 @@ guard(Expr, Sub) ->
 %%
 opt_guard_try(#c_seq{arg=Arg,body=Body0}=Seq) ->
     Body = opt_guard_try(Body0),
-    case {Arg,Body} of
-	{#c_call{module=#c_literal{val=Mod},
-		 name=#c_literal{val=Name},
-		 args=Args},#c_literal{val=false}} ->
+    WillFail = case Body of
+		   #c_call{module=#c_literal{val=erlang},
+			   name=#c_literal{val=error},
+			   args=[_]} ->
+		       true;
+		   #c_literal{val=false} ->
+		       true;
+		   _ ->
+		       false
+	       end,
+    case Arg of
+	#c_call{module=#c_literal{val=Mod},
+		name=#c_literal{val=Name},
+		args=Args} when WillFail ->
 	    %% We have sequence consisting of a call (evaluated
 	    %% for a possible exception and/or side effect only),
-	    %% followed by 'false'.
+	    %% followed by 'false' or a call to error/1.
 	    %%   Since the sequence is inside a try block that will
 	    %% default to 'false' if any exception occurs, not
 	    %% evalutating the call will not change the behaviour
@@ -181,7 +203,7 @@ opt_guard_try(#c_seq{arg=Arg,body=Body0}=Seq) ->
 		    %% be safely removed.
 		    Body
 	    end;
-	{_,_} ->
+	_ ->
 	    Seq#c_seq{body=Body}
     end;
 opt_guard_try(#c_case{clauses=Cs}=Term) ->
@@ -239,7 +261,7 @@ expr(#c_cons{anno=Anno,hd=H0,tl=T0}=Cons, Ctxt, Sub) ->
     case Ctxt of
 	effect ->
 	    add_warning(Cons, useless_building),
-	    expr(make_effect_seq([H1,T1], Sub), Ctxt, Sub);
+	    make_effect_seq([H1,T1], Sub);
 	value ->
 	    ann_c_cons(Anno, H1, T1)
     end;
@@ -248,7 +270,7 @@ expr(#c_tuple{anno=Anno,es=Es0}=Tuple, Ctxt, Sub) ->
     case Ctxt of
 	effect ->
 	    add_warning(Tuple, useless_building),
-	    expr(make_effect_seq(Es, Sub), Ctxt, Sub);
+	    make_effect_seq(Es, Sub);
 	value ->
 	    ann_c_tuple(Anno, Es)
     end;
@@ -257,7 +279,7 @@ expr(#c_map{anno=Anno,arg=V0,es=Es0}=Map, Ctxt, Sub) ->
     case Ctxt of
 	effect ->
 	    add_warning(Map, useless_building),
-	    expr(make_effect_seq(Es, Sub), Ctxt, Sub);
+	    make_effect_seq(Es, Sub);
 	value ->
 	    V = expr(V0, Ctxt, Sub),
 	    ann_c_map(Anno,V,Es)
@@ -310,7 +332,7 @@ expr(#c_let{}=Let0, Ctxt, Sub) ->
 	Expr ->
 	    %% The let body was successfully moved into the let argument.
 	    %% Now recursively re-process the new expression.
-	    expr(Expr, Ctxt, sub_new_preserve_types(Sub))
+	    Expr
     end;
 expr(#c_letrec{body=#c_var{}}=Letrec, effect, _Sub) ->
     %% This is named fun in an 'effect' context. Warn and ignore.
@@ -351,7 +373,7 @@ expr(#c_case{}=Case0, Ctxt, Sub) ->
     %%   (in addition to any warnings that may have been emitted
     %%   according to the rules above).
     %%
-    case opt_bool_case(Case0) of
+    case opt_bool_case(Case0, Sub) of
 	#c_case{arg=Arg0,clauses=Cs0}=Case1 ->
 	    Arg1 = body(Arg0, value, Sub),
 	    LitExpr = cerl:is_literal(Arg1),
@@ -364,7 +386,7 @@ expr(#c_case{}=Case0, Ctxt, Sub) ->
                 impossible ->
                     bsm_an(Expr);
                 Other ->
-                    expr(Other, Ctxt, sub_new_preserve_types(Sub))
+		    Other
             end;
 	Other ->
 	    expr(Other, Ctxt, Sub)
@@ -1403,9 +1425,6 @@ sub_new() -> #sub{v=orddict:new(),s=cerl_sets:new(),t=#{}}.
 sub_new(#sub{}=Sub) ->
     Sub#sub{v=orddict:new(),t=#{}}.
 
-sub_new_preserve_types(#sub{}=Sub) ->
-    Sub#sub{v=orddict:new()}.
-
 sub_get_var(#c_var{name=V}=Var, #sub{v=S}) ->
     case orddict:find(V, S) of
 	{ok,Val} -> Val;
@@ -1535,9 +1554,11 @@ will_match(E, [P]) ->
 will_match_1({false,_}) -> maybe;
 will_match_1({true,_}) -> yes.
 
-%% opt_bool_case(CoreExpr) - CoreExpr'.
-%%  Do various optimizations to case statement that has a
-%%  boolean case expression.
+%% opt_bool_case(CoreExpr, Sub) - CoreExpr'.
+%%
+%%  In bodies, do various optimizations to case statements that have
+%%  boolean case expressions. We don't do the optimizations in guards,
+%%  because they would thwart the optimization in v3_kernel.
 %%
 %%  We start with some simple optimizations and normalization
 %%  to facilitate later optimizations.
@@ -1546,7 +1567,7 @@ will_match_1({true,_}) -> yes.
 %%  (or fail), we can remove any clause that cannot
 %%  possibly match 'true' or 'false'. Also, any clause
 %%  following both 'true' and 'false' clause can
-%%  be removed. If successful, we will end up this:
+%%  be removed. If successful, we will end up like this:
 %%
 %%  case BoolExpr of           	    case BoolExpr of
 %%     true ->			       false ->
@@ -1557,8 +1578,11 @@ will_match_1({true,_}) -> yes.
 %%
 %%  We give up if there are clauses with guards, or if there
 %%  is a variable clause that matches anything.
-%%
-opt_bool_case(#c_case{arg=Arg}=Case0) ->
+
+opt_bool_case(#c_case{}=Case, #sub{in_guard=true}) ->
+    %% v3_kernel does a better job without "help".
+    Case;
+opt_bool_case(#c_case{arg=Arg}=Case0, #sub{in_guard=false}) ->
     case is_bool_expr(Arg) of
 	false ->
 	    Case0;
@@ -1570,8 +1594,7 @@ opt_bool_case(#c_case{arg=Arg}=Case0) ->
 		impossible ->
 		    Case0
 	    end
-    end;
-opt_bool_case(Core) -> Core.
+    end.
 
 opt_bool_clauses(#c_case{clauses=Cs}=Case) ->
     Case#c_case{clauses=opt_bool_clauses(Cs, false, false)}.
@@ -1587,16 +1610,14 @@ opt_bool_clauses(Cs, true, true) ->
 	    []
     end;
 opt_bool_clauses([#c_clause{pats=[#c_literal{val=Lit}],
-			    guard=#c_literal{val=true},
-			    body=B}=C0|Cs], SeenT, SeenF) ->
+			    guard=#c_literal{val=true}}=C|Cs], SeenT, SeenF) ->
     case is_boolean(Lit) of
 	false ->
 	    %% Not a boolean - this clause can't match.
-	    add_warning(C0, nomatch_clause_type),
+	    add_warning(C, nomatch_clause_type),
 	    opt_bool_clauses(Cs, SeenT, SeenF);
 	true ->
 	    %% This clause will match.
-	    C = C0#c_clause{body=opt_bool_case(B)},
 	    case {Lit,SeenT,SeenF} of
                 {false,_,false} ->
                     [C|opt_bool_clauses(Cs, SeenT, true)];
@@ -1872,10 +1893,10 @@ case_opt_arg_1(E0, Cs0, LitExpr) ->
 	true ->
 	    E = case_opt_compiler_generated(E0),
 	    Cs = case_opt_nomatch(E, Cs0, LitExpr),
-	    case cerl:data_type(E) of
-		{atomic,_} ->
+            case cerl:is_literal(E) of
+                true ->
 		    case_opt_lit(E, Cs);
-		_ ->
+		false ->
 		    case_opt_data(E, Cs)
 	    end
     end.
@@ -2023,10 +2044,10 @@ case_opt_lit_1(_, []) -> [].
 %%  the clauses where it is actually needed.
 
 case_opt_data(E, Cs0) ->
-    Es = cerl:data_es(E),
     TypeSig = {cerl:data_type(E),cerl:data_arity(E)},
-    try case_opt_data_1(Cs0, Es, TypeSig) of
+    try case_opt_data_1(Cs0, TypeSig) of
 	Cs ->
+	    Es = cerl:data_es(E),
 	    {ok,Es,Cs}
     catch
 	throw:impossible ->
@@ -2034,44 +2055,47 @@ case_opt_data(E, Cs0) ->
 	    {error,Cs0}
     end.
 
-case_opt_data_1([{[P0|Ps0],C,PsAcc,Bs0}|Cs], Es, TypeSig) ->
+case_opt_data_1([{[P0|Ps0],C,PsAcc,Bs0}|Cs], TypeSig) ->
     P = case_opt_compiler_generated(P0),
-    BindTo = #c_var{name=dummy},
-    {Ps1,[{BindTo,_}|Bs1]} = case_data_pat_alias(P, BindTo, TypeSig, []),
-    [{Ps1++Ps0,C,PsAcc,Bs1++Bs0}|case_opt_data_1(Cs, Es, TypeSig)];
-case_opt_data_1([], _, _) -> [].
+    {Ps1,Bs} = case_opt_data_2(P, TypeSig, Bs0),
+    [{Ps1++Ps0,C,PsAcc,Bs}|case_opt_data_1(Cs, TypeSig)];
+case_opt_data_1([], _) -> [].
 
-case_data_pat_alias(P, BindTo0, TypeSig, Bs0) ->
-    case cerl:type(P) of
-	alias ->
-	    %% Recursively handle the pattern and bind to
-	    %% the alias variable.
-	    BindTo = cerl:alias_var(P),
-	    Apat0 = cerl:alias_pat(P),
-	    Ann = [compiler_generated],
-	    Apat = cerl:set_ann(Apat0, Ann),
-	    {Ps,Bs} = case_data_pat_alias(Apat, BindTo, TypeSig, Bs0),
-	    {Ps,[{BindTo0,BindTo}|Bs]};
-	var ->
-	    %% Here we will need to actually build the data and bind
-	    %% it to the variable.
+case_opt_data_2(P, TypeSig, Bs0) ->
+    case case_analyze_pat(P) of
+	{[],Pat} when Pat =/= none ->
+	    DataEs = cerl:data_es(P),
+	    {DataEs,Bs0};
+	{[V|Vs],none} ->
 	    {Type,Arity} = TypeSig,
 	    Ann = [compiler_generated],
 	    Vars = make_vars(Ann, Arity),
 	    Data = cerl:ann_make_data(Ann, Type, Vars),
-	    Bs = [{BindTo0,P},{P,Data}|Bs0],
+	    Bs = [{V,Data} | [{Var,V} || Var <- Vs] ++ Bs0],
 	    {Vars,Bs};
-	_ ->
-	    %% Since case_opt_nomatch/3 has removed all clauses that
-	    %% cannot match, we KNOW that this clause must match and
-	    %% that the pattern must be a data constructor.
-	    %% Here we must build the data and bind it to the variable.
+	{[V|Vs],Pat} when Pat =/= none ->
 	    {Type,_} = TypeSig,
-	    DataEs = cerl:data_es(P),
+	    DataEs = cerl:data_es(Pat),
 	    Vars = pat_to_expr_list(DataEs),
 	    Ann = [compiler_generated],
 	    Data = cerl:ann_make_data(Ann, Type, Vars),
-	    {DataEs,[{BindTo0,Data}]}
+	    Bs = [{V,Data} | [{Var,V} || Var <- Vs] ++ Bs0],
+	    {DataEs,Bs}
+    end.
+
+case_analyze_pat(P) ->
+    case_analyze_pat_1(P, [], none).
+
+case_analyze_pat_1(P, Vs, Pat) ->
+    case cerl:type(P) of
+	alias ->
+	    V = cerl:alias_var(P),
+	    Apat = cerl:alias_pat(P),
+	    case_analyze_pat_1(Apat, [V|Vs], Pat);
+	var ->
+	    {[P|Vs],Pat};
+	_ ->
+	    {Vs,P}
     end.
 
 %% pat_to_expr(Pattern) -> Expression.
@@ -2115,7 +2139,7 @@ make_var(A) ->
 make_var_name() ->
     N = get(new_var_num),
     put(new_var_num, N+1),
-    list_to_atom("fol"++integer_to_list(N)).
+    list_to_atom("@f"++integer_to_list(N)).
 
 letify(Bs, Body) ->
     Ann = cerl:get_ann(Body),
@@ -2129,7 +2153,7 @@ letify(Bs, Body) ->
 -spec opt_not_in_let(cerl:c_let()) -> cerl:cerl().
 
 opt_not_in_let(#c_let{vars=[_]=Vs0,arg=Arg0,body=Body0}=Let) ->
-    case opt_not_in_let(Vs0, Arg0, Body0) of
+    case opt_not_in_let_0(Vs0, Arg0, Body0) of
 	{[],#c_values{es=[]},Body} ->
 	    Body;
 	{Vs,Arg,Body} ->
@@ -2137,13 +2161,7 @@ opt_not_in_let(#c_let{vars=[_]=Vs0,arg=Arg0,body=Body0}=Let) ->
     end;
 opt_not_in_let(Let) -> Let.
 
-%% opt_not_in_let(Vs, Arg, Body) -> {Vs',Arg',Body'}
-%%  Try to optimize away a 'not' operator in a 'let'.
-
--spec opt_not_in_let([cerl:c_var()], cerl:cerl(), cerl:cerl()) ->
-			    {[cerl:c_var()],cerl:cerl(),cerl:cerl()}.
-
-opt_not_in_let([#c_var{name=V}]=Vs0, Arg0, Body0) ->
+opt_not_in_let_0([#c_var{name=V}]=Vs0, Arg0, Body0) ->
     case cerl:type(Body0) of
 	call ->
 	    %% let <V> = Expr in not V  ==>
@@ -2174,9 +2192,7 @@ opt_not_in_let([#c_var{name=V}]=Vs0, Arg0, Body0) ->
 	    end;
 	_ ->
 	    {Vs0,Arg0,Body0}
-    end;
-opt_not_in_let(Vs, Arg, Body) ->
-    {Vs,Arg,Body}.
+    end.
 
 opt_not_in_let_1(V, Call, Body) ->
     case Call of
@@ -2222,24 +2238,24 @@ inverse_rel_op('=<') -> '>';
 inverse_rel_op(_) -> no.
 
 
-%% opt_bool_case_in_let(LetExpr, Sub) -> Core
+%% opt_bool_case_in_let(LetExpr) -> Core
 
 opt_bool_case_in_let(#c_let{vars=Vs,arg=Arg,body=B}=Let, Sub) ->
-    opt_case_in_let_1(Vs, Arg, B, Let, Sub).
+    opt_bool_case_in_let_1(Vs, Arg, B, Let, Sub).
 
-opt_case_in_let_1([#c_var{name=V}], Arg,
+opt_bool_case_in_let_1([#c_var{name=V}], Arg,
 		  #c_case{arg=#c_var{name=V}}=Case0, Let, Sub) ->
     case is_simple_case_arg(Arg) of
 	true ->
-	    Case = opt_bool_case(Case0#c_case{arg=Arg}),
+	    Case = opt_bool_case(Case0#c_case{arg=Arg}, Sub),
 	    case core_lib:is_var_used(V, Case) of
-		false -> expr(Case, sub_new(Sub));
+		false -> Case;
 		true -> Let
 	    end;
 	false ->
 	    Let
     end;
-opt_case_in_let_1(_, _, _, Let, _) -> Let.
+opt_bool_case_in_let_1(_, _, _, Let, _) -> Let.
 
 %% is_simple_case_arg(Expr) -> true|false
 %%  Determine whether the Expr is simple enough to be worth
@@ -2372,9 +2388,7 @@ is_safe_bool_expr_list([], _, _) -> true.
 %%  as a let or a sequence, move the original let body into the complex
 %%  expression.
 
-simplify_let(#c_let{arg=Arg0}=Let0, Sub) ->
-    Arg = opt_bool_case(Arg0),
-    Let = Let0#c_let{arg=Arg},
+simplify_let(#c_let{arg=Arg}=Let, Sub) ->
     move_let_into_expr(Let, Arg, Sub).
 
 move_let_into_expr(#c_let{vars=InnerVs0,body=InnerBody0}=Inner,
@@ -2630,11 +2644,10 @@ opt_simple_let_0(#c_let{arg=Arg0}=Let, Ctxt, Sub) ->
 
 opt_simple_let_1(#c_let{vars=Vs0,body=B0}=Let, Arg0, Ctxt, Sub0) ->
     %% Optimise let and add new substitutions.
-    {Vs1,Args,Sub1} = let_substs(Vs0, Arg0, Sub0),
-    BodySub = update_let_types(Vs1, Args, Sub1),
-    B1 = body(B0, Ctxt, BodySub),
-    Arg1 = core_lib:make_values(Args),
-    {Vs,Arg,B} = opt_not_in_let(Vs1, Arg1, B1),
+    {Vs,Args,Sub1} = let_substs(Vs0, Arg0, Sub0),
+    BodySub = update_let_types(Vs, Args, Sub1),
+    B = body(B0, Ctxt, BodySub),
+    Arg = core_lib:make_values(Args),
     opt_simple_let_2(Let, Vs, Arg, B, B0, Ctxt, Sub1).
 
 opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
@@ -2647,25 +2660,23 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 		false ->
 		    %% let <Var> = Arg in <OtherVar>  ==>  seq Arg OtherVar
 		    Arg = maybe_suppress_warnings(Arg1, Vs0, PrevBody),
-		    expr(#c_seq{arg=Arg,body=Body}, Ctxt,
-			 sub_new_preserve_types(Sub))
+		    #c_seq{arg=Arg,body=Body}
 	    end;
 	{[],#c_values{es=[]},_} ->
 	    %% No variables left.
 	    Body;
 	{Vs,Arg1,#c_literal{}} ->
 	    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody),
-	    E = case Ctxt of
-		    effect ->
-			%% Throw away the literal body.
-			Arg;
-		    value ->
-			%% Since the variable is not used in the body, we
-			%% can rewrite the let to a sequence.
-			%%  let <Var> = Arg in Literal ==> seq Arg Literal
-			#c_seq{arg=Arg,body=Body}
-		end,
-	    expr(E, Ctxt, sub_new_preserve_types(Sub));
+	    case Ctxt of
+		effect ->
+		    %% Throw away the literal body.
+		    Arg;
+		value ->
+		    %% Since the variable is not used in the body, we
+		    %% can rewrite the let to a sequence.
+		    %%  let <Var> = Arg in Literal ==> seq Arg Literal
+		    #c_seq{arg=Arg,body=Body}
+	    end;
 	{Vs,Arg1,Body} ->
 	    %% If none of the variables are used in the body, we can
 	    %% rewrite the let to a sequence:
@@ -2674,12 +2685,10 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 	    case is_any_var_used(Vs, Body) of
 		false ->
 		    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody),
-		    expr(#c_seq{arg=Arg,body=Body}, Ctxt,
-			 sub_new_preserve_types(Sub));
+		    #c_seq{arg=Arg,body=Body};
 		true ->
 		    Let1 = Let0#c_let{vars=Vs,arg=Arg1,body=Body},
-		    Let2 = opt_bool_case_in_let(Let1, Sub),
-		    opt_case_in_let_arg(Let2, Ctxt, Sub)
+		    opt_bool_case_in_let(Let1, Sub)
 	    end
     end.
 
@@ -2807,48 +2816,6 @@ move_case_into_arg(#c_case{arg=#c_seq{arg=OuterArg,body=InnerArg}=Outer,
 move_case_into_arg(_, _) ->
     impossible.
 
-%% In guards only, rewrite a case in a let argument like
-%%
-%%    let <Var> = case <> of
-%%                    <> when AnyGuard -> Literal1;
-%%                    <> when AnyGuard -> Literal2
-%%                end
-%%    in LetBody
-%%
-%% to
-%%
-%%    case <> of
-%%         <> when AnyGuard ->
-%%              let <Var> = Literal1 in LetBody
-%%         <> when 'true' ->
-%%              let <Var> = Literal2 in LetBody
-%%    end
-%%
-%% In the worst case, the size of the code could increase.
-%% In practice, though, substituting the literals into
-%% LetBody and doing constant folding will decrease the code
-%% size. (Doing this transformation outside of guards could
-%% lead to a substantational increase in code size.)
-%%
-opt_case_in_let_arg(#c_let{arg=#c_case{}=Case}=Let, Ctxt,
-		    #sub{in_guard=true}=Sub) ->
-    opt_case_in_let_arg_1(Let, Case, Ctxt, Sub);
-opt_case_in_let_arg(Let, _, _) -> Let.
-
-opt_case_in_let_arg_1(Let0, #c_case{arg=#c_values{es=[]},
-				   clauses=Cs}=Case0, Ctxt, Sub) ->
-    Let = mark_compiler_generated(Let0),
-    case Cs of
-	[#c_clause{body=#c_literal{}=BodyA}=Ca0,
-	 #c_clause{body=#c_literal{}=BodyB}=Cb0] ->
-	    Ca = Ca0#c_clause{body=Let#c_let{arg=BodyA}},
-	    Cb = Cb0#c_clause{body=Let#c_let{arg=BodyB}},
-	    Case = Case0#c_case{clauses=[Ca,Cb]},
-	    expr(Case, Ctxt, sub_new_preserve_types(Sub));
-	_ -> Let
-    end;
-opt_case_in_let_arg_1(Let, _, _, _) -> Let.
-
 is_any_var_used([#c_var{name=V}|Vs], Expr) ->
     case core_lib:is_var_used(V, Expr) of
 	false -> is_any_var_used(Vs, Expr);
@@ -2956,7 +2923,9 @@ returns_integer(bit_size, [_]) -> true;
 returns_integer('bsl', [_,_]) -> true;
 returns_integer('bsr', [_,_]) -> true;
 returns_integer(byte_size, [_]) -> true;
+returns_integer(ceil, [_]) -> true;
 returns_integer('div', [_,_]) -> true;
+returns_integer(floor, [_]) -> true;
 returns_integer(length, [_]) -> true;
 returns_integer('rem', [_,_]) -> true;
 returns_integer('round', [_]) -> true;
@@ -3277,13 +3246,6 @@ bsm_problem(Where, What) ->
 %%% Handling of warnings.
 %%%
 
-mark_compiler_generated(Term) ->
-    cerl_trees:map(fun mark_compiler_generated_1/1, Term).
-
-mark_compiler_generated_1(#c_call{anno=Anno}=Term) ->
-    Term#c_call{anno=[compiler_generated|Anno--[compiler_generated]]};
-mark_compiler_generated_1(Term) -> Term.
-
 init_warnings() ->
     put({?MODULE,warnings}, []).
 
@@ -3446,12 +3408,18 @@ format_error(bin_var_used_in_guard) ->
 verify_scope(E, #sub{s=Scope}) ->
     Free0 = cerl_trees:free_variables(E),
     Free = [V || V <- Free0, not is_tuple(V)],	%Ignore function names.
-    case ordsets:is_subset(Free, cerl_sets:to_list(Scope)) of
-	true -> true;
+    case is_subset_of_scope(Free, Scope) of
+	true ->
+	    true;
 	false ->
 	    io:format("~p\n", [E]),
 	    io:format("~p\n", [Free]),
-	    io:format("~p\n", [cerl_sets:to_list(Scope)]),
+	    io:format("~p\n", [ordsets:from_list(cerl_sets:to_list(Scope))]),
 	    false
     end.
+
+is_subset_of_scope([V|Vs], Scope) ->
+    cerl_sets:is_element(V, Scope) andalso is_subset_of_scope(Vs, Scope);
+is_subset_of_scope([], _) -> true.
+
 -endif.

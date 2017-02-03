@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -97,11 +91,13 @@ visit_expression(Instruction, Environment) ->
       visit_begin_handler     (Instruction, EvaluatedArguments, Environment);
     #icode_begin_try{} ->
       visit_begin_try         (Instruction, EvaluatedArguments, Environment);
-    #icode_fail{} ->                
+    #icode_fail{} ->
       visit_fail              (Instruction, EvaluatedArguments, Environment);
-    _ ->
-      %% label, end_try, comment, return,
-      {[], [], Environment}
+    #icode_comment{} -> {[], [], Environment};
+    #icode_end_try{} -> {[], [], Environment};
+    #icode_enter{} ->   {[], [], Environment};
+    #icode_label{} ->   {[], [], Environment};
+    #icode_return{} ->  {[], [], Environment}
   end.
 
 %%-----------------------------------------------------------------------------
@@ -463,11 +459,15 @@ update_instruction(Instruction, Environment) ->
       update_type(Instruction, Environment);
     #icode_switch_tuple_arity{} ->
       update_switch_tuple_arity(Instruction, Environment);
-    _ ->
-      %% goto, comment, label, return, begin_handler, end_try,
-      %% begin_try, fail
-      %% We could but don't handle: catch?, fail?
-      [Instruction]
+    %% We could but don't handle: catch?, fail?
+    #icode_begin_handler{} -> [Instruction];
+    #icode_begin_try{} ->     [Instruction];
+    #icode_comment{} ->       [Instruction];
+    #icode_end_try{} ->       [Instruction];
+    #icode_fail{} ->          [Instruction];
+    #icode_goto{} ->          [Instruction];
+    #icode_label{} ->         [Instruction];
+    #icode_return{} ->        [Instruction]
   end.
 
 %%-----------------------------------------------------------------------------
@@ -502,14 +502,12 @@ update_call(Instruction, Environment) ->
 			  [Instruction, NewInstructions]),
 	  NewInstructions
       end;
-%%     %% [] ->  %% No destination; we don't touch this
-%%     [] -> 
-%%       NewArguments = update_arguments(hipe_icode:call_args(Instruction),
-%%                                       Environment),
-%%       [hipe_icode:call_args_update(Instruction, NewArguments)];
+    %% [] ->  %% No destination; we don't touch this
     %% List-> %% Means register allocation; not implemented at this point
     _ ->
-      [Instruction]
+      NewArguments = update_arguments(hipe_icode:call_args(Instruction),
+                                      Environment),
+      [hipe_icode:call_args_update(Instruction, NewArguments)]
   end.
 
 %%-----------------------------------------------------------------------------
@@ -574,7 +572,9 @@ update_if(Instruction, Environment) ->
       %% Convert the if-test to a type test if possible.
       Op = hipe_icode:if_op(Instruction),
       case Op =:= '=:=' orelse Op =:= '=/=' of
-	false -> [Instruction];
+	false ->
+	  [hipe_icode:if_args_update(
+	     Instruction, update_arguments(Args, Environment))];
 	true ->
 	  [Arg1, Arg2] = Args,
 	  case EvaluatedArguments of
@@ -604,8 +604,9 @@ conv_if_to_type(I, Const, Arg) when is_atom(Const);
   NewI = hipe_icode:mk_type([Arg], Test, T, F),
   ?CONST_PROP_MSG("if: ~w ---> type ~w\n", [I, NewI]),
   [NewI];
-conv_if_to_type(I, _, _) ->
-  [I].
+conv_if_to_type(I, Const, Arg) ->
+  %% Note: we are potentially commuting the (equality) comparison here
+  [hipe_icode:if_args_update(I, [Arg, hipe_icode:mk_const(Const)])].
 
 %%-----------------------------------------------------------------------------
 

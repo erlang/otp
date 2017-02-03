@@ -718,12 +718,9 @@ void hipe_empty_nstack(Process *p)
     p->hipe.nstend = NULL;
 }
 
-void hipe_set_closure_stub(ErlFunEntry *fe, unsigned num_free)
+void hipe_set_closure_stub(ErlFunEntry *fe)
 {
-    unsigned arity;
-
-    arity = fe->arity;
-    fe->native_address = (Eterm*) hipe_closure_stub_address(arity);
+    fe->native_address = (Eterm*) hipe_closure_stub_address(fe->arity);
 }
 
 Eterm hipe_build_stacktrace(Process *p, struct StackTrace *s)

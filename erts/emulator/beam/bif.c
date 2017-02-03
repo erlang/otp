@@ -3022,8 +3022,8 @@ BIF_RETTYPE atom_to_list_1(BIF_ALIST_1)
 BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
 {
     Eterm res;
-    char *buf = (char *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_CHARACTERS);
-    Sint i = intlist_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS);
+    byte *buf = (byte *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_SZ_LIMIT);
+    Sint i = erts_unicode_list_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS);
 
     if (i < 0) {
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
@@ -3033,7 +3033,7 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
 	}
 	BIF_ERROR(BIF_P, BADARG);
     }
-    res = erts_atom_put((byte *) buf, i, ERTS_ATOM_ENC_LATIN1, 1);
+    res = erts_atom_put(buf, i, ERTS_ATOM_ENC_UTF8, 1);
     ASSERT(is_atom(res));
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
     BIF_RET(res);
@@ -3043,17 +3043,17 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
  
 BIF_RETTYPE list_to_existing_atom_1(BIF_ALIST_1)
 {
-    Sint i;
-    char *buf = (char *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_CHARACTERS);
+    byte *buf = (byte *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_SZ_LIMIT);
+    Sint i = erts_unicode_list_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS);
 
-    if ((i = intlist_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS)) < 0) {
+    if (i < 0) {
     error:
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	BIF_ERROR(BIF_P, BADARG);
     } else {
 	Eterm a;
 	
-	if (erts_atom_get(buf, i, &a, ERTS_ATOM_ENC_LATIN1)) {
+	if (erts_atom_get((char *) buf, i, &a, ERTS_ATOM_ENC_UTF8)) {
 	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	    BIF_RET(a);
 	} else {
@@ -3865,11 +3865,21 @@ BIF_RETTYPE now_0(BIF_ALIST_0)
 
 /**********************************************************************/
 
-BIF_RETTYPE garbage_collect_0(BIF_ALIST_0)
+/*
+ * Pass atom 'minor' for relaxed generational GC run. This is only
+ * recommendation, major run may still be chosen by VM.
+ * Pass atom 'major' for default behaviour - major GC run (fullsweep)
+ */
+BIF_RETTYPE
+erts_internal_garbage_collect_1(BIF_ALIST_1)
 {
-    FLAGS(BIF_P) |= F_NEED_FULLSWEEP;
+    switch (BIF_ARG_1) {
+    case am_minor:  break;
+    case am_major:  FLAGS(BIF_P) |= F_NEED_FULLSWEEP; break;
+    default:        BIF_ERROR(BIF_P, BADARG);
+    }
     erts_garbage_collect(BIF_P, 0, NULL, 0);
-    BIF_RET(am_true);
+    return am_true;
 }
 
 /**********************************************************************/
@@ -4307,7 +4317,7 @@ BIF_RETTYPE group_leader_2(BIF_ALIST_2)
 		erts_smp_proc_unlock(new_member, ERTS_PROC_LOCK_STATUS);
 		if (new_member == BIF_P
 		    || !(erts_smp_atomic32_read_nob(&new_member->state)
-			 & (ERTS_PSFLG_DIRTY_RUNNING|ERTS_PSFLG_DIRTY_RUNNING_SYS))) {
+			 & ERTS_PSFLG_DIRTY_RUNNING)) {
 		    new_member->group_leader = STORE_NC_IN_PROC(new_member,
 								BIF_ARG_1);
 		}
@@ -4591,7 +4601,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    erts_aint32_t new = BIF_ARG_2 == am_true ? 1 : 0;
 	    erts_aint32_t old = erts_smp_atomic32_xchg_nob(&sched_wall_time,
 							   new);
-	    Eterm ref = erts_sched_wall_time_request(BIF_P, 1, new);
+	    Eterm ref = erts_sched_wall_time_request(BIF_P, 1, new, 0, 0);
 	    ASSERT(is_value(ref));
 	    BIF_TRAP2(await_sched_wall_time_mod_trap,
 		      BIF_P,
@@ -4712,25 +4722,6 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 }
 
 /**********************************************************************/
-
-BIF_RETTYPE hash_2(BIF_ALIST_2)
-{
-    Uint32 hash;
-    Sint range;
-
-    if (is_not_small(BIF_ARG_2)) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    if ((range = signed_val(BIF_ARG_2)) <= 0) {  /* [1..MAX_SMALL] */
-	BIF_ERROR(BIF_P, BADARG);
-    }
-#if defined(ARCH_64)
-    if (range > ((1L << 27) - 1))
-	BIF_ERROR(BIF_P, BADARG);
-#endif
-    hash = make_broken_hash(BIF_ARG_1);
-    BIF_RET(make_small(1 + (hash % range)));   /* [1..range] */
-}
 
 BIF_RETTYPE phash_2(BIF_ALIST_2)
 {
@@ -4941,18 +4932,18 @@ erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
 Export bif_return_trap_export;
 
 void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
-			   Eterm (*bif)(BIF_ALIST_0))
+			   Eterm (*bif)(BIF_ALIST))
 {
     int i;
     sys_memset((void *) ep, 0, sizeof(Export));
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-	ep->addressv[i] = &ep->code[3];
+	ep->addressv[i] = ep->beam;
     }
-    ep->code[0] = m;
-    ep->code[1] = f;
-    ep->code[2] = a;
-    ep->code[3] = (BeamInstr) em_apply_bif;
-    ep->code[4] = (BeamInstr) bif;
+    ep->info.mfa.module = m;
+    ep->info.mfa.function = f;
+    ep->info.mfa.arity = a;
+    ep->beam[0] = (BeamInstr) em_apply_bif;
+    ep->beam[1] = (BeamInstr) bif;
 }
 
 void erts_init_bif(void)
@@ -5001,6 +4992,314 @@ void erts_init_bif(void)
     erts_smp_atomic32_init_nob(&sched_wall_time, 0);
     erts_smp_atomic32_init_nob(&msacc, ERTS_MSACC_IS_ENABLED());
 }
+
+/*
+ * Scheduling of BIFs via NifExport...
+ */
+#define ERTS_WANT_NFUNC_SCHED_INTERNALS__
+#include "erl_nfunc_sched.h"
+
+#define ERTS_SCHED_BIF_TRAP_MARKER ((void *) (UWord) 1)
+
+static ERTS_INLINE void
+schedule(Process *c_p, Process *dirty_shadow_proc,
+	 ErtsCodeMFA *mfa, BeamInstr *pc,
+	 ErtsBifFunc dfunc, void *ifunc,
+	 Eterm module, Eterm function,
+	 int argc, Eterm *argv)
+{
+    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
+    (void) erts_nif_export_schedule(c_p, dirty_shadow_proc,
+				    mfa, pc, (BeamInstr) em_apply_bif,
+				    dfunc, ifunc,
+				    module, function,
+				    argc, argv);
+}
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+
+static BIF_RETTYPE dirty_bif_result(BIF_ALIST_1)
+{
+    NifExport *nep = (NifExport *) ERTS_PROC_GET_NIF_TRAP_EXPORT(BIF_P);
+    erts_nif_export_restore(BIF_P, nep, BIF_ARG_1);
+    BIF_RET(BIF_ARG_1);
+}
+
+static BIF_RETTYPE dirty_bif_trap(BIF_ALIST)
+{
+    NifExport *nep = (NifExport *) ERTS_PROC_GET_NIF_TRAP_EXPORT(BIF_P);
+
+    /*
+     * Arity and argument registers already set
+     * correct by call to dirty_bif_trap()...
+     */
+
+    ASSERT(BIF_P->arity == nep->exp.info.mfa.arity);
+
+    erts_nif_export_restore(BIF_P, nep, THE_NON_VALUE);
+
+    BIF_P->i = (BeamInstr *) nep->func;
+    BIF_P->freason = TRAP;
+    return THE_NON_VALUE;
+}
+
+static BIF_RETTYPE dirty_bif_exception(BIF_ALIST_2)
+{
+    Eterm freason;
+
+    ASSERT(is_small(BIF_ARG_1));
+
+    freason = signed_val(BIF_ARG_1);
+
+    /* Restore orig info for error and clear nif export in handle_error() */
+    freason |= EXF_RESTORE_NIF;
+
+    BIF_P->fvalue = BIF_ARG_2;
+
+    BIF_ERROR(BIF_P, freason);
+}
+
+#endif /* ERTS_DIRTY_SCHEDULERS */
+
+extern BeamInstr* em_call_bif_e;
+static BIF_RETTYPE call_bif(Process *c_p, Eterm *reg, BeamInstr *I);
+
+BIF_RETTYPE
+erts_schedule_bif(Process *proc,
+		  Eterm *argv,
+		  BeamInstr *i,
+		  ErtsBifFunc bif,
+		  ErtsSchedType sched_type,
+		  Eterm mod,
+		  Eterm func,
+		  int argc)
+{
+    Process *c_p, *dirty_shadow_proc;
+    ErtsCodeMFA *mfa;
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+    if (proc->static_flags & ERTS_STC_FLG_SHADOW_PROC) {
+	dirty_shadow_proc = proc;
+	c_p = proc->next;
+	ASSERT(c_p->common.id == dirty_shadow_proc->common.id);
+	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+    }
+    else
+#endif
+    {
+	dirty_shadow_proc = NULL;
+	c_p = proc;
+    }
+
+    if (!ERTS_PROC_IS_EXITING(c_p)) {
+	Export *exp;
+	BifFunction dbif, ibif;
+	BeamInstr *pc;
+
+	/*
+	 * dbif - direct bif
+	 * ibif - indirect bif
+	 */
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+	erts_aint32_t set, mask;
+	mask = (ERTS_PSFLG_DIRTY_CPU_PROC
+		| ERTS_PSFLG_DIRTY_IO_PROC);
+	switch (sched_type) {
+	case ERTS_SCHED_DIRTY_CPU:
+	    set = ERTS_PSFLG_DIRTY_CPU_PROC;
+	    dbif = bif;
+	    ibif = NULL;
+	    break;
+	case ERTS_SCHED_DIRTY_IO:
+	    set = ERTS_PSFLG_DIRTY_IO_PROC;
+	    dbif = bif;
+	    ibif = NULL;
+	    break;
+	case ERTS_SCHED_NORMAL:
+	default:
+	    set = 0;
+	    dbif = call_bif;
+	    ibif = bif;
+	    break;
+	}
+
+	(void) erts_smp_atomic32_read_bset_nob(&c_p->state, mask, set);
+#else
+	dbif = call_bif;
+	ibif = bif;
+#endif
+
+	if (i == NULL) {
+	    ERTS_INTERNAL_ERROR("Missing instruction pointer");
+	}
+#ifdef HIPE
+	else if (proc->flags & F_HIPE_MODE) {
+	    /* Pointer to bif export in i */
+	    exp = (Export *) i;
+	    pc = c_p->cp;
+	    mfa = &exp->info.mfa;
+	}
+#endif
+	else if (em_call_bif_e == (BeamInstr *) *i) {
+	    /* Pointer to bif export in i+1 */
+	    exp = (Export *) i[1];
+	    pc = i;
+	    mfa = &exp->info.mfa;
+	}
+	else if (em_apply_bif == (BeamInstr *) *i) {
+	    /* Pointer to bif in i+1, and mfa in i-3 */	    
+	    pc = c_p->cp;
+	    mfa = erts_code_to_codemfa(i);
+	}
+	else {
+	    ERTS_INTERNAL_ERROR("erts_schedule_bif() called "
+				"from unexpected instruction");
+	}
+	ASSERT(bif);
+
+	if (argc < 0) { /* reschedule original call */
+	    mod = mfa->module;
+	    func = mfa->function;
+	    argc = (int) mfa->arity;
+	}
+
+	schedule(c_p, dirty_shadow_proc, mfa, pc, dbif, ibif,
+		 mod, func, argc, argv);
+    }
+
+    if (dirty_shadow_proc)
+	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+
+    return THE_NON_VALUE;
+}
+
+static BIF_RETTYPE
+call_bif(Process *c_p, Eterm *reg, BeamInstr *I)
+{
+    NifExport *nep = ERTS_I_BEAM_OP_TO_NIF_EXPORT(I);
+    ErtsBifFunc bif = (ErtsBifFunc) nep->func;
+    BIF_RETTYPE ret;
+
+    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()));
+
+    nep->func = ERTS_SCHED_BIF_TRAP_MARKER;
+
+    ASSERT(bif);
+
+    ret = (*bif)(c_p, reg, I);
+
+    if (is_value(ret))
+	erts_nif_export_restore(c_p, nep, ret);
+    else if (c_p->freason != TRAP)
+	c_p->freason |= EXF_RESTORE_NIF; /* restore in handle_error() */
+    else if (nep->func == ERTS_SCHED_BIF_TRAP_MARKER) {
+	/* BIF did an ordinary trap... */
+	erts_nif_export_restore(c_p, nep, ret);
+    }
+    /* else:
+     *   BIF rescheduled itself using erts_schedule_bif().
+     */
+
+    return ret;
+}
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+
+int
+erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *reg)
+{
+    BIF_RETTYPE result;
+    int exiting;
+    Process *dirty_shadow_proc;
+    ErtsBifFunc bf;
+    NifExport *nep;
+#ifdef DEBUG
+    Eterm *c_p_htop;
+    erts_aint32_t state;
+
+    ASSERT(!c_p->scheduler_data);
+    state = erts_smp_atomic32_read_nob(&c_p->state);
+    ASSERT((state & ERTS_PSFLG_DIRTY_RUNNING)
+	   && !(state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS)));
+    ASSERT(esdp);
+
+#endif
+
+    nep = ERTS_I_BEAM_OP_TO_NIF_EXPORT(I);
+    ASSERT(nep == ERTS_PROC_GET_NIF_TRAP_EXPORT(c_p));
+
+    nep->func = ERTS_SCHED_BIF_TRAP_MARKER;
+
+    bf = (ErtsBifFunc) I[1];
+
+    erts_smp_atomic32_read_band_mb(&c_p->state, ~(ERTS_PSFLG_DIRTY_CPU_PROC
+						  | ERTS_PSFLG_DIRTY_IO_PROC));
+
+    dirty_shadow_proc = erts_make_dirty_shadow_proc(esdp, c_p);
+
+    dirty_shadow_proc->freason = c_p->freason;
+    dirty_shadow_proc->fvalue = c_p->fvalue;
+    dirty_shadow_proc->ftrace = c_p->ftrace;
+    dirty_shadow_proc->cp = c_p->cp;
+    dirty_shadow_proc->i = c_p->i;
+
+#ifdef DEBUG
+    c_p_htop = c_p->htop;
+#endif
+
+    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+
+    result = (*bf)(dirty_shadow_proc, reg, I);
+
+    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+
+    ASSERT(c_p_htop == c_p->htop);
+    ASSERT(dirty_shadow_proc->static_flags & ERTS_STC_FLG_SHADOW_PROC);
+    ASSERT(dirty_shadow_proc->next == c_p);
+
+    exiting = ERTS_PROC_IS_EXITING(c_p);
+
+    if (!exiting) {
+	if (is_value(result))
+	    schedule(c_p, dirty_shadow_proc, NULL, NULL, dirty_bif_result,
+		     NULL, am_erts_internal, am_dirty_bif_result, 1, &result);
+	else if (dirty_shadow_proc->freason != TRAP) {
+	    Eterm argv[2];
+	    ASSERT(dirty_shadow_proc->freason <= MAX_SMALL);
+	    argv[0] = make_small(dirty_shadow_proc->freason);
+	    argv[1] = dirty_shadow_proc->fvalue;
+	    schedule(c_p, dirty_shadow_proc, NULL, NULL,
+		     dirty_bif_exception, NULL, am_erts_internal,
+		     am_dirty_bif_exception, 2, argv);
+	}
+	else if (nep->func == ERTS_SCHED_BIF_TRAP_MARKER) {
+	    /* Dirty BIF did an ordinary trap... */
+	    ASSERT(!(erts_smp_atomic32_read_nob(&c_p->state)
+		     & (ERTS_PSFLG_DIRTY_CPU_PROC|ERTS_PSFLG_DIRTY_IO_PROC)));
+	    schedule(c_p, dirty_shadow_proc, NULL, NULL,
+		     dirty_bif_trap, (void *) dirty_shadow_proc->i,
+		     am_erts_internal, am_dirty_bif_trap,
+		     dirty_shadow_proc->arity, reg);
+	}
+	/* else:
+	 *   BIF rescheduled itself using erts_schedule_bif().
+	 */
+	c_p->freason = dirty_shadow_proc->freason;
+	c_p->fvalue = dirty_shadow_proc->fvalue;
+	c_p->ftrace = dirty_shadow_proc->ftrace;
+	c_p->cp = dirty_shadow_proc->cp;
+	c_p->i = dirty_shadow_proc->i;
+	c_p->arity = dirty_shadow_proc->arity;
+    }
+
+    erts_flush_dirty_shadow_proc(dirty_shadow_proc);
+
+    return exiting;
+}
+
+#endif /* ERTS_DIRTY_SCHEDULERS */
+
 
 #ifdef HARDDEBUG
 /*

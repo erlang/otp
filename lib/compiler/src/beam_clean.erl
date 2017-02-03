@@ -26,6 +26,9 @@
 -export([clean_labels/1]).
 -import(lists, [map/2,foldl/3,reverse/1,filter/2]).
 
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs0,_}, Opts) ->
     Order = [Lbl || {function,_,_,Lbl,_} <- Fs0],
     All = foldl(fun({function,_,_,Lbl,_}=Func,D) -> dict:store(Lbl, Func, D) end,
@@ -39,6 +42,10 @@ module({Mod,Exp,Attr,Fs0,_}, Opts) ->
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
 %% Remove all bs_save2/2 instructions not referenced by a bs_restore2/2.
+
+-spec bs_clean_saves([beam_utils:instruction()]) ->
+                            [beam_utils:instruction()].
+
 bs_clean_saves(Is) ->
     Needed = bs_restores(Is, []),
     bs_clean_saves_1(Is, gb_sets:from_list(Needed), []).
@@ -98,13 +105,18 @@ add_to_work_list(F, {Fs,Used}=Sets) ->
 %%% want to see the expanded code in a .S file.
 %%%
 
--record(st, {lmap,				%Translation tables for labels.
-	     entry,				%Number of entry label.
-	     lc					%Label counter
+-type label() :: beam_asm:label().
+
+-record(st, {lmap :: [{label(),label()}], %Translation tables for labels.
+	     entry :: beam_asm:label(),   %Number of entry label.
+	     lc :: non_neg_integer()      %Label counter
 	     }).
 
+-spec clean_labels([beam_utils:instruction()]) ->
+                          {[beam_utils:instruction()],pos_integer()}.
+
 clean_labels(Fs0) ->
-    St0 = #st{lmap=[],lc=1},
+    St0 = #st{lmap=[],entry=1,lc=1},
     {Fs1,#st{lmap=Lmap0,lc=Lc}} = function_renumber(Fs0, St0, []),
     Lmap = gb_trees:from_orddict(ordsets:from_list(Lmap0)),
     Fs = function_replace(Fs1, Lmap, []),

@@ -1312,27 +1312,30 @@ document etpf-msgq
 %---------------------------------------------------------------------------
 end
 
-
+define etp-stack-preamble
+  set $etp_stack_p = ($arg0)->stop
+  set $etp_stack_end = ($arg0)->hend
+  printf "%% Stacktrace (%u)\n", $etp_stack_end-$etp_stack_p
+  etp-1 ((Eterm)($arg0)->i) 0
+  printf "  (I)\n"
+  if ($arg0)->cp != 0
+    etp-1 ((Eterm)($arg0)->cp) 0
+    printf "  (cp)\n"
+  end
+end
 
 define etp-stacktrace
 # Args: Process*
 #
 # Non-reentrant
 #
-  set $etp_stacktrace_p = ($arg0)->stop
-  set $etp_stacktrace_end = ($arg0)->hend
-  printf "%% Stacktrace (%u): ", $etp_stacktrace_end-$etp_stacktrace_p
-  if ($arg0)->cp == 0x0
-    printf "NULL\n"
-  else
-    etp ($arg0)->cp
-  end
-  while $etp_stacktrace_p < $etp_stacktrace_end
-    if ($etp_stacktrace_p[0] & 0x3) == 0x0
+  etp-stack-preamble ($arg0)
+  while $etp_stack_p < $etp_stack_end
+    if ($etp_stack_p[0] & 0x3) == 0x0
       # Continuation pointer
-      etp $etp_stacktrace_p[0]
+      etp $etp_stack_p[0]
     end
-    set $etp_stacktrace_p++
+    set $etp_stack_p++
   end
 end
 
@@ -1351,17 +1354,10 @@ define etp-stackdump
 #
 # Non-reentrant
 #
-  set $etp_stackdump_p = ($arg0)->stop
-  set $etp_stackdump_end = ($arg0)->hend
-  printf "%% Stackdump (%u): ", $etp_stackdump_end-$etp_stackdump_p
-  if ($arg0)->cp == 0x0
-    printf "NULL\n"
-  else
-    etp ($arg0)->cp
-  end
-  while $etp_stackdump_p < $etp_stackdump_end
-    etp $etp_stackdump_p[0]
-    set $etp_stackdump_p++
+  etp-stack-preamble ($arg0)
+  while $etp_stack_p < $etp_stack_end
+    etp $etp_stack_p[0]
+    set $etp_stack_p++
   end
 end
 
@@ -1821,6 +1817,262 @@ document etp-proc-state
 % Print state of process
 %---------------------------------------------------------------------------
 end
+define etp-proc-state-int
+# Args: int
+#
+  if ($arg0 & 0x80000000)
+    printf "GARBAGE<0x80000000> | "
+  end
+  if ($arg0 & 0x40000000)
+    printf "dirty-running-sys | "
+  end
+  if ($arg0 & 0x20000000)
+    printf "dirty-running | "
+  end
+  if ($arg0 & 0x10000000)
+    printf "dirty-active-sys | "
+  end
+  if ($arg0 & 0x8000000)
+    printf "dirty-io-proc | "
+  end
+  if ($arg0 & 0x4000000)
+    printf "dirty-cpu-proc | "
+  end
+  if ($arg0 & 0x2000000)
+    printf "on-heap-msgq | "
+  end
+  if ($arg0 & 0x1000000)
+    printf "off-heap-msgq | "
+  end
+  if ($arg0 & 0x800000)
+    printf "delayed-sys | "
+  end
+  if ($arg0 & 0x400000)
+    printf "proxy | "
+    set $proxy_process = 1
+  else
+    set $proxy_process = 0
+  end
+  if ($arg0 & 0x200000)
+    printf "running-sys | "
+  end
+  if ($arg0 & 0x100000)
+    printf "active-sys | "
+  end
+  if ($arg0 & 0x80000)
+    printf "trapping-exit | "
+  end
+  if ($arg0 & 0x40000)
+    printf "bound | "
+  end
+  if ($arg0 & 0x20000)
+    printf "garbage-collecting | "
+  end
+  if ($arg0 & 0x10000)
+    printf "suspended | "
+  end
+  if ($arg0 & 0x8000)
+    printf "running | "
+  end
+  if ($arg0 & 0x4000)
+    printf "in-run-queue | "
+  end
+  if ($arg0 & 0x2000)
+    printf "active | "
+  end
+  if ($arg0 & 0x1000)
+    printf "pending-exit | "
+  end
+  if ($arg0 & 0x800)
+    printf "exiting | "
+  end
+  if ($arg0 & 0x400)
+    printf "free | "
+  end
+  if ($arg0 & 0x200)
+    printf "in-prq-low | "
+  end
+  if ($arg0 & 0x100)
+    printf "in-prq-normal | "
+  end
+  if ($arg0 & 0x80)
+    printf "in-prq-high | "
+  end
+  if ($arg0 & 0x40)
+    printf "in-prq-max | "
+  end
+  if ($arg0 & 0x30) == 0x0
+    printf "prq-prio-max | "
+  else
+    if ($arg0 & 0x30) == 0x10
+      printf "prq-prio-high | "
+    else
+      if ($arg0 & 0x30) == 0x20
+        printf "prq-prio-normal | "
+      else
+        printf "prq-prio-low | "
+      end
+    end
+  end
+  if ($arg0 & 0xc) == 0x0
+    printf "usr-prio-max | "
+  else
+    if ($arg0 & 0xc) == 0x4
+      printf "usr-prio-high | "
+    else
+      if ($arg0 & 0xc) == 0x8
+        printf "usr-prio-normal | "
+      else
+        printf "usr-prio-low | "
+      end
+    end
+  end
+  if ($arg0 & 0x3) == 0x0
+    printf "act-prio-max\n"
+  else
+    if ($arg0 & 0x3) == 0x1
+      printf "act-prio-high\n"
+    else
+      if ($arg0 & 0x3) == 0x2
+        printf "act-prio-normal\n"
+      else
+        printf "act-prio-low\n"
+      end
+    end
+  end
+end
+
+document etp-proc-state-int
+%---------------------------------------------------------------------------
+% etp-proc-state-int int
+% 
+% Print state of process state value
+%---------------------------------------------------------------------------
+end
+
+
+define etp-proc-state
+# Args: Process*
+#
+  set $state_int = *(((Uint32 *) &(((Process *) $arg0)->state)))
+  etp-proc-state-int $state_int
+end
+
+document etp-proc-state
+%---------------------------------------------------------------------------
+% etp-proc-state Process*
+% 
+% Print state of process
+%---------------------------------------------------------------------------
+end
+
+define etp-proc-flags-int
+# Args: int
+#
+  if ($arg0 & ~0x1ffffff)
+    printf "GARBAGE<%x> ", ($arg0 & ~0x1ffffff)
+  end
+  if ($arg0 & 0x1000000)
+    printf "dirty-minor-gc "
+  end
+  if ($arg0 & 0x800000)
+    printf "dirty-major-gc "
+  end
+  if ($arg0 & 0x400000)
+    printf "dirty-gc-hibernate "
+  end
+  if ($arg0 & 0x200000)
+    printf "dirty-cla "
+  end
+  if ($arg0 & 0x100000)
+    printf "delayed-del-proc "
+  end
+  if ($arg0 & 0x80000)
+    printf "hipe-mode "
+  end
+  if ($arg0 & 0x40000)
+    printf "have-blocked-nmsb "
+  end
+  if ($arg0 & 0x20000)
+    printf "shdlr-onln-wait-q "
+  end
+  if ($arg0 & 0x10000)
+    printf "delay-gc "
+  end
+  if ($arg0 & 0x8000)
+    printf "abandoned-heap-use "
+  end
+  if ($arg0 & 0x4000)
+    printf "off-heap-msgq-chng "
+  end
+  if ($arg0 & 0x2000)
+    printf "on-heap-msgq "
+  end
+  if ($arg0 & 0x1000)
+    printf "off-heap-msgq "
+  end
+  if ($arg0 & 0x800)
+    printf "disable-gc "
+  end
+  if ($arg0 & 0x400)
+    printf "force-gc "
+  end
+  if ($arg0 & 0x200)
+    printf "p2pnr-resched "
+  end
+  if ($arg0 & 0x100)
+    printf "have-blocked-msb "
+  end
+  if ($arg0 & 0x80)
+    printf "using-ddll "
+  end
+  if ($arg0 & 0x40)
+    printf "distribution "
+  end
+  if ($arg0 & 0x20)
+    printf "using-db "
+  end
+  if ($arg0 & 0x10)
+    printf "need-fullsweep "
+  end
+  if ($arg0 & 0x8)
+    printf "heap-grow "
+  end
+  if ($arg0 & 0x4)
+    printf "timo "
+  end
+  if ($arg0 & 0x2)
+    printf "inslpqueue "
+  end
+  if ($arg0 & 0x1)
+    printf "hibernate-sched "
+  end
+  printf "\n"
+end
+
+document etp-proc-flags-int
+%---------------------------------------------------------------------------
+% etp-proc-flags-int int
+% 
+% Print flags of process flags value
+%---------------------------------------------------------------------------
+end
+
+
+define etp-proc-flags
+# Args: Process*
+#
+  set $flags_int = ((Process *) $arg0)->flags
+  etp-proc-flags-int $flags_int
+end
+
+document etp-proc-flags
+%---------------------------------------------------------------------------
+% etp-proc-flags Process*
+% 
+% Print flags of process
+%---------------------------------------------------------------------------
+end
 
 define etp-process-info
 # Args: Process*
@@ -1830,6 +2082,8 @@ define etp-process-info
   etp-1 $etp_proc->common.id
   printf "\n  State: "
   etp-proc-state $etp_proc
+  printf "\n  Flags: "
+  etp-proc-flags $etp_proc
   if $proxy_process != 0
     printf "  Pointer: (Process *) %p\n", $etp_proc
     printf "  *** PROXY process struct *** refer to: \n"
@@ -1843,26 +2097,35 @@ define etp-process-info
       printf "\n"
     end
   end
+  printf "  Current function: "
   if ($etp_proc->current)
-    printf "  Current function: "
-    etp-1 $etp_proc->current[0]
+    etp-1 $etp_proc->current->module
     printf ":"
-    etp-1 $etp_proc->current[1]
-    printf "/%d\n", $etp_proc->current[2]
+    etp-1 $etp_proc->current->function
+    printf "/%d\n", $etp_proc->current->arity
+  else
+    printf "unknown\n"
   end
+  printf "  CP: "
   if ($etp_proc->cp)
-    printf "  CP: "
     etp-cp-1 $etp_proc->cp
     printf "\n"
+  else
+    printf "unknown\n"
   end
+  printf "  I: "
   if ($etp_proc->i)
-    printf "  I: "
     etp-cp-1 $etp_proc->i
     printf "\n"
+  else
+    printf "unknown\n"
   end
   printf "  Heap size: %ld\n", $etp_proc->heap_sz
+  printf "  Old-heap size: "
   if ($etp_proc->old_heap)
-    printf "  Old-heap size: %ld\n", $etp_proc->old_hend - $etp_proc->old_heap
+    printf "%ld\n", $etp_proc->old_hend - $etp_proc->old_heap
+  else
+    printf "0\n"
   end
   printf "  Mbuf size: %ld\n", $etp_proc->mbuf_sz
   if (etp_smp_compiled)
@@ -2351,8 +2614,20 @@ define etp-rq-flags-int
     if ($arg0 & 0x4000000)
       printf " protected"
     end
-    if ($arg0 & ~0x7ffffff)
-      printf " GARBAGE(0x%x)", ($arg0 & ~0x3ffffff)
+    if ($arg0 & 0x8000000)
+      printf " exec"
+    end
+    if ($arg0 & 0x10000000)
+      printf " msb_exec"
+    end
+    if ($arg0 & 0x20000000)
+      printf " misc_op"
+    end
+    if ($arg0 & 0x40000000)
+      printf " halting"
+    end
+    if ($arg0 & ~0x7fffffff)
+      printf " GARBAGE(0x%x)", ($arg0 & ~0x7fffffff)
     end
     printf "\n"
   end
@@ -2383,6 +2658,9 @@ define etp-ssi-flags
   end
   if ($arg0 & 0x10)
     printf " suspended"
+  end
+  if ($arg0 & 0x20)
+    printf " msb_exec"
   end
   printf "\n"
 end
@@ -2551,7 +2829,7 @@ define etp-run-queue-info-internal
   set $rq_flags = *((Uint32 *) &($runq->flags))
   etp-rq-flags-int $rq_flags
   printf "  Pointer: (ErtsRunQueue *) %p\n", $runq
-
+end
 
 define etp-disasm-1
   set $code_ptr = ((BeamInstr*)$arg0)

@@ -2115,7 +2115,7 @@ call_RQprotected(Module, Obj, Func, Args, GroupID, RQCtx) ->
 			 sticky_write),
 	    Reply;
 	% retransmitted request
-	#ft_reply_retention{reply = Reply} ->
+	[#ft_reply_retention{reply = Reply}] ->
 	    Reply
     end.
 

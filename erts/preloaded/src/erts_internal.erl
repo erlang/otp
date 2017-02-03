@@ -39,6 +39,7 @@
          gather_system_check_result/1]).
 
 -export([request_system_task/3, request_system_task/4]).
+-export([garbage_collect/1]).
 
 -export([check_process_code/3]).
 -export([check_dirty_process_code/2]).
@@ -60,7 +61,7 @@
 -export([trace/3, trace_pattern/3]).
 
 %% Auto import name clash
--export([check_process_code/2]).
+-export([check_process_code/1]).
 
 %%
 %% Await result of send to port
@@ -205,8 +206,9 @@ port_info(_Result, _Item) ->
 
 -spec request_system_task(Pid, Prio, Request) -> 'ok' when
       Prio :: 'max' | 'high' | 'normal' | 'low',
-      Request :: {'garbage_collect', term()}
-	       | {'check_process_code', term(), module(), non_neg_integer()}
+      Type :: 'major' | 'minor',
+      Request :: {'garbage_collect', term(), Type}
+	       | {'check_process_code', term(), module()}
 	       | {'copy_literals', term(), boolean()},
       Pid :: pid().
 
@@ -216,7 +218,7 @@ request_system_task(_Pid, _Prio, _Request) ->
 -spec request_system_task(RequesterPid, TargetPid, Prio, Request) -> 'ok' | 'dirty_execution' when
       Prio :: 'max' | 'high' | 'normal' | 'low',
       Request :: {'garbage_collect', term()}
-	       | {'check_process_code', term(), module(), non_neg_integer()}
+	       | {'check_process_code', term(), module()}
 	       | {'copy_literals', term(), boolean()},
       RequesterPid :: pid(),
       TargetPid :: pid().
@@ -224,12 +226,14 @@ request_system_task(_Pid, _Prio, _Request) ->
 request_system_task(_RequesterPid, _TargetPid, _Prio, _Request) ->
     erlang:nif_error(undefined).
 
--define(ERTS_CPC_ALLOW_GC, (1 bsl 0)).
+-spec garbage_collect(Mode) -> 'true' when Mode :: 'major' | 'minor'.
 
--spec check_process_code(Module, Flags) -> boolean() when
-      Module :: module(),
-      Flags :: non_neg_integer().
-check_process_code(_Module, _Flags) ->
+garbage_collect(_Mode) ->
+    erlang:nif_error(undefined).
+
+-spec check_process_code(Module) -> boolean() when
+      Module :: module().
+check_process_code(_Module) ->
     erlang:nif_error(undefined).
 
 -spec check_process_code(Pid, Module, OptionList) -> CheckResult | async when
@@ -240,7 +244,7 @@ check_process_code(_Module, _Flags) ->
       OptionList :: [Option],
       CheckResult :: boolean() | aborted.
 check_process_code(Pid, Module, OptionList)  ->
-    {Async, Flags} = get_cpc_opts(OptionList, sync, ?ERTS_CPC_ALLOW_GC),
+    Async = get_cpc_opts(OptionList, sync),
     case Async of
 	{async, ReqId} ->
 	    {priority, Prio} = erlang:process_info(erlang:self(),
@@ -249,13 +253,12 @@ check_process_code(Pid, Module, OptionList)  ->
 					      Prio,
 					      {check_process_code,
 					       ReqId,
-					       Module,
-					       Flags}),
+					       Module}),
 	    async;
 	sync ->
 	    case Pid == erlang:self() of
 		true ->
-		    erts_internal:check_process_code(Module, Flags);
+		    erts_internal:check_process_code(Module);
 		false ->
 		    {priority, Prio} = erlang:process_info(erlang:self(),
 							   priority),
@@ -264,8 +267,7 @@ check_process_code(Pid, Module, OptionList)  ->
 						      Prio,
 						      {check_process_code,
 						       ReqId,
-						       Module,
-						       Flags}),
+						       Module}),
 		    receive
 			{check_process_code, ReqId, CheckResult} ->
 			    CheckResult
@@ -273,18 +275,14 @@ check_process_code(Pid, Module, OptionList)  ->
 	    end
     end.
 
-% gets async and flag opts and verify valid option list
-get_cpc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync, Flags) ->
-    get_cpc_opts(Options, AsyncTuple, Flags);
-get_cpc_opts([{allow_gc, AllowGC} | Options], Async, Flags) ->
-    get_cpc_opts(Options, Async, cpc_flags(Flags, ?ERTS_CPC_ALLOW_GC, AllowGC));
-get_cpc_opts([], Async, Flags) ->
-    {Async, Flags}.
-
-cpc_flags(OldFlags, Bit, true) ->
-    OldFlags bor Bit;
-cpc_flags(OldFlags, Bit, false) ->
-    OldFlags band (bnot Bit).
+% gets async opt and verify valid option list
+get_cpc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync) ->
+    get_cpc_opts(Options, AsyncTuple);
+get_cpc_opts([{allow_gc, AllowGC} | Options], Async) when AllowGC == true;
+							  AllowGC == false ->
+    get_cpc_opts(Options, Async);
+get_cpc_opts([], Async) ->
+    Async.
 
 -spec check_dirty_process_code(Pid,Module) -> 'true' | 'false' when
       Pid :: pid(),

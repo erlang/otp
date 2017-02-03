@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,9 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_ppc_pp).
 -export([pp/1, pp/2, pp_insn/1]).
@@ -170,6 +163,12 @@ pp_insn(Dev, I, Pre) ->
       io:format(Dev, ", ", []),
       pp_temp(Dev, Base2),
       io:format(Dev, "\n", []);
+    #unary{unop={UnOp,I1,I2,I3}, dst=Dst, src=Src} ->
+      io:format(Dev, "\t~s ", [UnOp]),
+      pp_temp(Dev, Dst),
+      io:format(Dev, ", ", []),
+      pp_temp(Dev, Src),
+      io:format(Dev, ", ~s, ~s, ~s\n", [to_hex(I1),to_hex(I2),to_hex(I3)]);
     #unary{unop=UnOp, dst=Dst, src=Src} ->
       io:format(Dev, "\t~w ", [unop_name(UnOp)]),
       pp_temp(Dev, Dst),

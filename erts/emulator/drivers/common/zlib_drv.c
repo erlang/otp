@@ -44,29 +44,33 @@
 #define INFLATE_INIT    8
 #define INFLATE_INIT2   9
 #define INFLATE_SETDICT 10
-#define INFLATE_SYNC    11
-#define INFLATE_RESET   12
-#define INFLATE_END     13
-#define INFLATE         14
+#define INFLATE_GETDICT 11
+#define INFLATE_SYNC    12
+#define INFLATE_RESET   13
+#define INFLATE_END     14
+#define INFLATE         15
 
-#define CRC32_0         15
-#define CRC32_1         16
-#define CRC32_2         17
+#define CRC32_0         16
+#define CRC32_1         17
+#define CRC32_2         18
 
-#define SET_BUFSZ       18
-#define GET_BUFSZ       19
-#define GET_QSIZE       20
+#define SET_BUFSZ       19
+#define GET_BUFSZ       20
+#define GET_QSIZE       21
 
-#define ADLER32_1       21
-#define ADLER32_2       22
+#define ADLER32_1       22
+#define ADLER32_2       23
 
-#define CRC32_COMBINE   23
-#define ADLER32_COMBINE 24
+#define CRC32_COMBINE   24
+#define ADLER32_COMBINE 25
 
-#define INFLATE_CHUNK   25
+#define INFLATE_CHUNK   26
 
 
 #define DEFAULT_BUFSZ   4000
+
+/* According to zlib documentation, it can never exceed this */
+#define INFL_DICT_SZ    32768
 
 /* This flag is used in the same places, where zlib return codes
  * (Z_OK, Z_STREAM_END, Z_NEED_DICT) are. So, we need to set it to
@@ -246,6 +250,23 @@ static int zlib_output(ZLibData* d)
 	d->binsz = 0;
     }
     return zlib_output_init(d);
+}
+
+static int zlib_inflate_get_dictionary(ZLibData* d)
+{
+#ifdef HAVE_ZLIB_INFLATEGETDICTIONARY
+    ErlDrvBinary* dbin = driver_alloc_binary(INFL_DICT_SZ);
+    uInt dlen = 0;
+    int res = inflateGetDictionary(&d->s, (unsigned char*)dbin->orig_bytes, &dlen);
+    if ((res == Z_OK) && (driver_output_binary(d->port, NULL, 0, dbin, 0, dlen) < 0)) {
+        res = Z_ERRNO;
+    }
+    driver_free_binary(dbin);
+    return res;
+#else
+    abort(); /* never called, just to silence 'unresolved symbol'
+                for non-optimizing compiler */
+#endif
 }
 
 static int zlib_inflate(ZLibData* d, int flush)
@@ -430,10 +451,35 @@ static void zlib_free(void* data, void* addr)
     driver_free(addr);
 }
 
+#if defined(__APPLE__) && defined(__MACH__) && defined(HAVE_ZLIB_INFLATEGETDICTIONARY)
+
+/* Work around broken build system with runtime version test */
+static int have_inflateGetDictionary;
+
+static int zlib_init()
+{
+    unsigned int v[4] = {0, 0, 0, 0};
+    unsigned hexver;
+
+    sscanf(zlibVersion(), "%u.%u.%u.%u", &v[0], &v[1], &v[2], &v[3]);
+
+    hexver = (v[0] << (8*3)) | (v[1] << (8*2)) | (v[2] << (8)) | v[3];
+
+    have_inflateGetDictionary = (hexver >= 0x1020701); /* 1.2.7.1 */
+
+    return 0;
+}
+#else /* trust configure got it right */
+#  ifdef HAVE_ZLIB_INFLATEGETDICTIONARY
+#    define have_inflateGetDictionary 1
+#  else
+#    define have_inflateGetDictionary 0
+#  endif
 static int zlib_init()
 {
     return 0;
 }
+#endif
 
 static ErlDrvData zlib_start(ErlDrvPort port, char* buf)
 {
@@ -585,6 +631,16 @@ static ErlDrvSSizeT zlib_ctl(ErlDrvData drv_data, unsigned int command, char *bu
 	if (d->state != ST_INFLATE) goto badarg;
 	res = inflateSetDictionary(&d->s, (unsigned char*)buf, len);
 	return zlib_return(res, rbuf, rlen);
+
+    case INFLATE_GETDICT:
+        if (have_inflateGetDictionary) {
+            if (d->state != ST_INFLATE) goto badarg;
+            res = zlib_inflate_get_dictionary(d);
+        } else {
+            errno = ENOTSUP;
+            res = Z_ERRNO;
+        }
+        return zlib_return(res, rbuf, rlen);
 
     case INFLATE_SYNC:
 	if (d->state != ST_INFLATE) goto badarg;

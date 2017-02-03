@@ -21,14 +21,24 @@
 
 -export([module/2]).
 
+-include("core_parse.hrl").
+-include("v3_kernel.hrl").
 -include("v3_life.hrl").
 
 -import(lists, [foreach/2]).
 
-module(File, Core) when element(1, Core) == c_module ->
+-type code() :: cerl:c_module()
+              | beam_utils:module_code()
+              | #k_mdef{}
+              | {module(),_,_,_}                %v3_life
+              | [_].                            %form-based format
+
+-spec module(file:io_device(), code()) -> 'ok'.
+
+module(File, #c_module{}=Core) ->
     %% This is a core module.
     io:put_chars(File, core_pp:format(Core));
-module(File, Kern) when element(1, Kern) == k_mdef ->
+module(File, #k_mdef{}=Kern) ->
     %% This is a kernel module.
     io:put_chars(File, v3_kernel_pp:format(Kern));
     %%io:put_chars(File, io_lib:format("~p~n", [Kern]));
@@ -49,10 +59,6 @@ module(Stream, {Mod,Exp,Attr,Code,NumLabels}) ->
 			[Name, Arity, Entry]),
 	      io:put_chars(Stream, format_asm(Asm))
       end, Code);
-module(Stream, {Mod,Exp,Inter}) ->
-    %% Other kinds of intermediate formats.
-    io:fwrite(Stream, "~w.~n~p.~n", [Mod,Exp]),
-    foreach(fun (F) -> io:format(Stream, "~p.\n", [F]) end, Inter);
 module(Stream, [_|_]=Fs) ->
     %% Form-based abstract format.
     foreach(fun (F) -> io:format(Stream, "~p.\n", [F]) end, Fs).

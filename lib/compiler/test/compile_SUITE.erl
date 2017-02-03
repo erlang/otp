@@ -29,10 +29,10 @@
 	 app_test/1,appup_test/1,
 	 file_1/1, forms_2/1, module_mismatch/1, big_file/1, outdir/1,
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
-	 other_output/1, encrypted_abstr/1,
-	 strict_record/1,
+	 other_output/1, kernel_listing/1, encrypted_abstr/1,
+	 strict_record/1, utf8_atoms/1,
 	 cover/1, env/1, core/1,
-	 core_roundtrip/1, asm/1,
+	 core_roundtrip/1, asm/1, optimized_guards/1,
 	 sys_pre_attributes/1, dialyzer/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1
 	]).
@@ -47,9 +47,9 @@ all() ->
     test_lib:recompile(?MODULE),
     [app_test, appup_test, file_1, forms_2, module_mismatch, big_file, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
-     other_output, encrypted_abstr,
-     strict_record,
-     cover, env, core, core_roundtrip, asm,
+     other_output, kernel_listing, encrypted_abstr,
+     strict_record, utf8_atoms,
+     cover, env, core, core_roundtrip, asm, optimized_guards,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
      env_compiler_options].
 
@@ -104,6 +104,14 @@ file_1(Config) when is_list(Config) ->
     {ok,simple} = compile:file(Simple, [no_line_info]), %Coverage
 
     {ok,simple} = compile:file(Simple, [{eprof,beam_z}]), %Coverage
+
+
+    %% Test option 'deterministic'.
+    {ok,simple} = compile:file(Simple, [deterministic]),
+    {module,simple} = c:l(simple),
+    [{version,_}] = simple:module_info(compile),
+    true = code:delete(simple),
+    false = code:purge(simple),
 
     ok = file:set_cwd(Cwd),
     true = exists(Target),
@@ -342,7 +350,6 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     do_listing(Simple, TargetDir, dblk, ".block"),
     do_listing(Simple, TargetDir, dexcept, ".except"),
     do_listing(Simple, TargetDir, dbs, ".bs"),
-    do_listing(Simple, TargetDir, dbool, ".bool"),
     do_listing(Simple, TargetDir, dtype, ".type"),
     do_listing(Simple, TargetDir, ddead, ".dead"),
     do_listing(Simple, TargetDir, djmp, ".jump"),
@@ -403,12 +410,11 @@ other_output(Config) when is_list(Config) ->
 	       end],
 
     io:put_chars("to_exp (file)"),
-    {ok,simple,Expand} = compile:file(Simple, [to_exp,binary,time]),
-    case Expand of
-	{simple,Exports,Forms} when is_list(Exports), is_list(Forms) -> ok
-    end,
+    {ok,[],Expand} = compile:file(Simple, [to_exp,binary,time]),
+    true = is_list(Expand),
+    {attribute,_,module,simple} = lists:keyfind(module, 3, Expand),
     io:put_chars("to_exp (forms)"),
-    {ok,simple,Expand} = compile:forms(PP, [to_exp,binary,time]),
+    {ok,[],Expand} = compile:forms(PP, [to_exp,binary,time]),
 
     io:put_chars("to_core (file)"),
     {ok,simple,Core} = compile:file(Simple, [to_core,binary,time]),
@@ -430,6 +436,34 @@ other_output(Config) when is_list(Config) ->
     {ok,simple,Asm} = compile:forms(PP, [to_asm,binary,time]),
 
     ok.
+
+%% Smoke test and cover of pretty-printing of Kernel code.
+kernel_listing(_Config) ->
+    TestBeams = get_unique_beam_files(),
+    Abstr = [begin {ok,{Mod,[{abstract_code,
+			      {raw_abstract_v1,Abstr}}]}} =
+		       beam_lib:chunks(Beam, [abstract_code]),
+		   {Mod,Abstr} end || Beam <- TestBeams],
+    test_lib:p_run(fun(F) -> do_kernel_listing(F) end, Abstr).
+
+do_kernel_listing({M,A}) ->
+    try
+	{ok,M,Kern} = compile:forms(A, [to_kernel]),
+	IoList = v3_kernel_pp:format(Kern),
+	case unicode:characters_to_binary(IoList) of
+	    Bin when is_binary(Bin) ->
+		ok
+	end
+    catch
+	throw:{error,Error} ->
+	    io:format("*** compilation failure '~p' for module ~s\n",
+		      [Error,M]),
+	    error;
+	Class:Error ->
+	    io:format("~p: ~p ~p\n~p\n",
+		      [M,Class,Error,erlang:get_stacktrace()]),
+	    error
+    end.
 
 encrypted_abstr(Config) when is_list(Config) ->
     {Simple,Target} = get_files(Config, simple, "encrypted_abstr"),
@@ -648,6 +682,23 @@ test_sloppy() ->
     {1,2} = record_access:test(Turtle),
     Turtle.
 
+utf8_atoms(Config) when is_list(Config) ->
+    Anno = erl_anno:new(1),
+    Atom = binary_to_atom(<<"こんにちは"/utf8>>, utf8),
+    Forms = [{attribute,Anno,compile,[export_all]},
+	     {function,Anno,atom,0,[{clause,Anno,[],[],[{atom,Anno,Atom}]}]}],
+
+    Utf8AtomForms = [{attribute,Anno,module,utf8_atom}|Forms],
+    {ok,utf8_atom,Utf8AtomBin} =
+	compile:forms(Utf8AtomForms, [binary]),
+    {ok,{utf8_atom,[{atoms,_}]}} =
+	beam_lib:chunks(Utf8AtomBin, [atoms]),
+    code:load_binary(utf8_atom, "compile_SUITE", Utf8AtomBin),
+    Atom = utf8_atom:atom(),
+
+    NoUtf8AtomForms = [{attribute,Anno,module,no_utf8_atom}|Forms],
+    error = compile:forms(NoUtf8AtomForms, [binary, r19]).
+
 env(Config) when is_list(Config) ->
     {Simple,Target} = get_files(Config, simple, env),
     {ok,Cwd} = file:get_cwd(),
@@ -719,7 +770,7 @@ do_core_1(M, A, Outdir) ->
     {ok,M,Core0} = compile:forms(A, [to_core]),
     CoreFile = filename:join(Outdir, atom_to_list(M)++".core"),
     CorePP = core_pp:format(Core0),
-    ok = file:write_file(CoreFile, CorePP),
+    ok = file:write_file(CoreFile, unicode:characters_to_binary(CorePP)),
 
     %% Parse the .core file and return the result as Core Erlang Terms.
     Core = case compile:file(CoreFile, [report_errors,from_core,no_copt,to_core,binary]) of
@@ -791,7 +842,7 @@ do_core_roundtrip_1(Mod, Abstr, Outdir) ->
 do_core_roundtrip_2(M, Core0, Outdir) ->
     CoreFile = filename:join(Outdir, atom_to_list(M)++".core"),
     CorePP = core_pp:format_all(Core0),
-    ok = file:write_file(CoreFile, CorePP),
+    ok = file:write_file(CoreFile, unicode:characters_to_binary(CorePP)),
 
     %% Parse the .core file and return the result as Core Erlang Terms.
     Core2 = case compile:file(CoreFile, [report_errors,from_core,
@@ -901,6 +952,96 @@ do_asm(Beam, Outdir) ->
 		      [M,Class,Error,erlang:get_stacktrace()]),
 	    error
     end.
+
+%% Make sure that guards are fully optimized. Guards should
+%% should use 'test' instructions, not 'bif' instructions.
+
+optimized_guards(_Config) ->
+    TestBeams = get_unique_beam_files(),
+    test_lib:p_run(fun(F) -> do_opt_guards(F) end, TestBeams).
+
+do_opt_guards(Beam) ->
+    {ok,{M,[{abstract_code,{raw_abstract_v1,A}}]}} =
+	beam_lib:chunks(Beam, [abstract_code]),
+    try
+	{ok,M,Asm} = compile:forms(A, ['S']),
+	do_opt_guards_mod(Asm)
+    catch Class:Error ->
+	    io:format("~p: ~p ~p\n~p\n",
+		      [M,Class,Error,erlang:get_stacktrace()]),
+	    error
+    end.
+
+do_opt_guards_mod({Mod,_Exp,_Attr,Asm,_NumLabels}) ->
+    case do_opt_guards_fs(Mod, Asm) of
+	[] ->
+	    ok;
+	[_|_]=Bifs ->
+	    io:format("ERRORS FOR ~p:\n~p\n", [Mod,Bifs]),
+	    error
+    end.
+
+do_opt_guards_fs(Mod, [{function,Name,Arity,_,Is}|Fs]) ->
+    Bifs0 = do_opt_guards_fun(Is),
+
+    %% The compiler does not attempt to optimize 'xor'.
+    %% Therefore, ignore all functions that use 'xor' in
+    %% a guard.
+    Bifs = case lists:any(fun({bif,'xor',_,_,_}) -> true;
+			     (_) -> false
+			  end, Bifs0) of
+	       true -> [];
+	       false -> Bifs0
+	   end,
+
+    %% Filter out the allowed exceptions.
+    FA = {Name,Arity},
+    case {Bifs,is_exception(Mod, FA)} of
+	{[_|_],true} ->
+	    io:format("~p:~p/~p IGNORED:\n~p\n",
+		      [Mod,Name,Arity,Bifs]),
+	    do_opt_guards_fs(Mod, Fs);
+	{[_|_],false} ->
+	    [{FA,Bifs}|do_opt_guards_fs(Mod, Fs)];
+	{[],false} ->
+	    do_opt_guards_fs(Mod, Fs);
+	{[],true} ->
+	    io:format("Redundant exception for ~p:~p/~p\n",
+		      [Mod,Name,Arity]),
+	    error(redundant)
+    end;
+do_opt_guards_fs(_, []) -> [].
+
+do_opt_guards_fun([{bif,Name,{f,F},As,_}=I|Is]) when F =/= 0 ->
+    Arity = length(As),
+    case erl_internal:comp_op(Name, Arity) orelse
+	erl_internal:bool_op(Name, Arity) orelse
+	erl_internal:new_type_test(Name, Arity) of
+	true ->
+	    [I|do_opt_guards_fun(Is)];
+	false ->
+	    do_opt_guards_fun(Is)
+    end;
+do_opt_guards_fun([_|Is]) ->
+    do_opt_guards_fun(Is);
+do_opt_guards_fun([]) -> [].
+
+is_exception(bs_match_SUITE, {matching_and_andalso_2,2}) -> true;
+is_exception(bs_match_SUITE, {matching_and_andalso_3,2}) -> true;
+is_exception(guard_SUITE, {'-complex_not/1-fun-4-',1}) -> true;
+is_exception(guard_SUITE, {'-complex_not/1-fun-5-',1}) -> true;
+is_exception(guard_SUITE, {basic_andalso_orelse,1}) -> true;
+is_exception(guard_SUITE, {bad_guards,1}) -> true;
+is_exception(guard_SUITE, {bad_guards_2,2}) -> true;
+is_exception(guard_SUITE, {bad_guards_3,2}) -> true;
+is_exception(guard_SUITE, {cqlc,4}) -> true;
+is_exception(guard_SUITE, {csemi7,3}) -> true;
+is_exception(guard_SUITE, {misc,1}) -> true;
+is_exception(guard_SUITE, {nested_not_2b,4}) -> true;
+is_exception(guard_SUITE, {tricky_1,2}) -> true;
+is_exception(map_SUITE, {map_guard_update,2}) -> true;
+is_exception(map_SUITE, {map_guard_update_variables,3}) -> true;
+is_exception(_, _) -> false.
 
 sys_pre_attributes(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
@@ -1127,8 +1268,15 @@ get_unique_beam_files() ->
 
 get_unique_files(Ext) ->
     Wc = filename:join(filename:dirname(code:which(?MODULE)), "*"++Ext),
-    [F || F <- filelib:wildcard(Wc), not is_cloned(F, Ext)].
+    [F || F <- filelib:wildcard(Wc),
+	  not is_cloned(F, Ext), not is_lfe_module(F, Ext)].
 
 is_cloned(File, Ext) ->
     Mod = list_to_atom(filename:basename(File, Ext)),
     test_lib:is_cloned_mod(Mod).
+
+is_lfe_module(File, Ext) ->
+    case filename:basename(File, Ext) of
+	"lfe_" ++ _ -> true;
+	_ -> false
+    end.

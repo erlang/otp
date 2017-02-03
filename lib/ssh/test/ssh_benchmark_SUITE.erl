@@ -70,9 +70,12 @@ init_per_group(opensshc_erld, Config) ->
 	    ssh_test_lib:setup_dsa(DataDir, UserDir),
 	    ssh_test_lib:setup_rsa(DataDir, UserDir),
 	    ssh_test_lib:setup_ecdsa("256", DataDir, UserDir),
+            AlgsD = ssh:default_algorithms(),
+            AlgsC = ssh_test_lib:default_algorithms(sshc),
 	    Common = ssh_test_lib:intersect_bi_dir(
-		       ssh_test_lib:intersection(ssh:default_algorithms(),
-						 ssh_test_lib:default_algorithms(sshc))),
+		       ssh_test_lib:intersection(AlgsD, AlgsC)),
+            ct:pal("~p~n~nErld:~n~p~n~nOpenSSHc:~n~p~n~nCommon:~n~p",
+                   [inet:gethostname(), AlgsD, AlgsC, Common]),
 	    [{c_kexs, ssh_test_lib:sshc(kex)},
 	     {c_ciphers, ssh_test_lib:sshc(cipher)},
 	     {common_algs, Common}
@@ -427,13 +430,20 @@ function_algs_times_sizes(EncDecs, L) ->
      || {Alg,Size,Time} <- lists:foldl(fun increment/2, [], Raw)].
 
 function_ats_result({ssh_transport,encrypt,2}, #call{args=[S,Data]}) ->
-    {{encrypt,S#ssh.encrypt}, size(Data)};
+    {{encrypt,S#ssh.encrypt}, binsize(Data)};
 function_ats_result({ssh_transport,decrypt,2}, #call{args=[S,Data]}) ->
-    {{decrypt,S#ssh.decrypt}, size(Data)};
+    {{decrypt,S#ssh.decrypt}, binsize(Data)};
 function_ats_result({ssh_message,encode,1}, #call{result=Data}) ->
     {encode, size(Data)};
 function_ats_result({ssh_message,decode,1}, #call{args=[Data]}) ->
     {decode, size(Data)}.
+
+binsize(B) when is_binary(B) -> size(B);
+binsize({B1,B2}) when is_binary(B1), is_binary(B2) -> size(B1) + size(B2);
+binsize({B1,B2,_}) when is_binary(B1), is_binary(B2) -> size(B1) + size(B2).
+                         
+                          
+    
     
 
 increment({Alg,Sz,T}, [{Alg,SumSz,SumT}|Acc]) ->

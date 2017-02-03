@@ -33,7 +33,6 @@ list tail
 list_comprehension lc_expr lc_exprs
 binary_comprehension
 tuple
-%struct
 record_expr record_tuple record_field record_fields
 map_expr map_tuple map_field map_field_assoc map_field_exact map_fields map_key
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
@@ -108,9 +107,8 @@ type_sig -> fun_type 'when' type_guards   : {type, ?anno('$1'), bounded_fun,
 type_guards -> type_guard                 : ['$1'].
 type_guards -> type_guard ',' type_guards : ['$1'|'$3'].
 
-type_guard -> atom '(' top_types ')'      : {type, ?anno('$1'), constraint,
-                                             ['$1', '$3']}.
-type_guard -> var '::' top_type           : build_def('$1', '$3').
+type_guard -> atom '(' top_types ')'   : build_compat_constraint('$1', '$3').
+type_guard -> var '::' top_type        : build_constraint('$1', '$3').
 
 top_types -> top_type                     : ['$1'].
 top_types -> top_type ',' top_types       : ['$1'|'$3'].
@@ -269,7 +267,6 @@ expr_max -> binary : '$1'.
 expr_max -> list_comprehension : '$1'.
 expr_max -> binary_comprehension : '$1'.
 expr_max -> tuple : '$1'.
-%%expr_max -> struct : '$1'.
 expr_max -> '(' expr ')' : '$2'.
 expr_max -> 'begin' exprs 'end' : {block,?anno('$1'),'$2'}.
 expr_max -> if_expr : '$1'.
@@ -327,10 +324,6 @@ lc_expr -> binary '<=' expr : {b_generate,?anno('$2'),'$1','$3'}.
 
 tuple -> '{' '}' : {tuple,?anno('$1'),[]}.
 tuple -> '{' exprs '}' : {tuple,?anno('$1'),'$2'}.
-
-
-%%struct -> atom tuple :
-%%	{struct,?anno('$1'),element(3, '$1'),element(3, '$2')}.
 
 map_expr -> '#' map_tuple :
 	{map, ?anno('$1'),'$2'}.
@@ -516,6 +509,22 @@ comp_op -> '>=' : '$1'.
 comp_op -> '>' : '$1'.
 comp_op -> '=:=' : '$1'.
 comp_op -> '=/=' : '$1'.
+
+Header
+"%% This file was automatically generated from the file \"erl_parse.yrl\"."
+"%%"
+"%% Copyright Ericsson AB 1996-2015. All Rights Reserved."
+"%%"
+"%% Licensed under the Apache License, Version 2.0 (the \"License\"); you may"
+"%% not use this file except in compliance with the License. You may obtain"
+"%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>"
+"%%"
+"%% Unless required by applicable law or agreed to in writing, software"
+"%% distributed under the License is distributed on an \"AS IS\" BASIS,"
+"%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied."
+"%% See the License for the specific language governing permissions and"
+"%% limitations under the License."
+"".
 
 Erlang code.
 
@@ -1041,13 +1050,13 @@ build_typed_attribute({atom,Aa,Attr},_) ->
     end.
 
 build_type_spec({Kind,Aa}, {SpecFun, TypeSpecs})
-  when (Kind =:= spec) or (Kind =:= callback) ->
+  when Kind =:= spec ; Kind =:= callback ->
     NewSpecFun =
 	case SpecFun of
 	    {atom, _, Fun} ->
 		{Fun, find_arity_from_specs(TypeSpecs)};
-	    {{atom,_, Mod}, {atom,_, Fun}} ->
-		{Mod,Fun,find_arity_from_specs(TypeSpecs)}
+	    {{atom, _, Mod}, {atom, _, Fun}} ->
+		{Mod, Fun, find_arity_from_specs(TypeSpecs)}
         end,
     {attribute,Aa,Kind,{NewSpecFun, TypeSpecs}}.
 
@@ -1061,11 +1070,24 @@ find_arity_from_specs([Spec|_]) ->
     {type, _, 'fun', [{type, _, product, Args},_]} = Fun,
     length(Args).
 
-build_def({var, A, '_'}, _Types) ->
+%% The 'is_subtype(V, T)' syntax is not supported as of Erlang/OTP
+%% 19.0, but is kept for backward compatibility.
+build_compat_constraint({atom, _, is_subtype}, [{var, _, _}=LHS, Type]) ->
+    build_constraint(LHS, Type);
+build_compat_constraint({atom, _, is_subtype}, [LHS, _Type]) ->
+    ret_err(?anno(LHS), "bad type variable");
+build_compat_constraint({atom, A, Atom}, _Types) ->
+    ret_err(A, io_lib:format("unsupported constraint ~w", [Atom])).
+
+build_constraint({atom, _, is_subtype}, [{var, _, _}=LHS, Type]) ->
+    build_constraint(LHS, Type);
+build_constraint({atom, A, Atom}, _Foo) ->
+    ret_err(A, io_lib:format("unsupported constraint ~w", [Atom]));
+build_constraint({var, A, '_'}, _Types) ->
     ret_err(A, "bad type variable");
-build_def(LHS, Types) ->
+build_constraint(LHS, Type) ->
     IsSubType = {atom, ?anno(LHS), is_subtype},
-    {type, ?anno(LHS), constraint, [IsSubType, [LHS, Types]]}.
+    {type, ?anno(LHS), constraint, [IsSubType, [LHS, Type]]}.
 
 lift_unions(T1, {type, _Aa, union, List}) ->
     {type, ?anno(T1), union, [T1|List]};
@@ -1571,19 +1593,6 @@ anno_from_term(Term) ->
     NewTerm.
 
 %% Forms.
-%% Recognize what sys_pre_expand does:
-modify_anno1({'fun',A,F,{_,_,_}=Id}, Ac, Mf) ->
-    {A1,Ac1} = Mf(A, Ac),
-    {F1,Ac2} = modify_anno1(F, Ac1, Mf),
-    {{'fun',A1,F1,Id},Ac2};
-modify_anno1({named_fun,A,N,F,{_,_,_}=Id}, Ac, Mf) ->
-    {A1,Ac1} = Mf(A, Ac),
-    {F1,Ac2} = modify_anno1(F, Ac1, Mf),
-    {{named_fun,A1,N,F1,Id},Ac2};
-modify_anno1({attribute,A,N,[V]}, Ac, Mf) ->
-    {{attribute,A1,N1,V1},Ac1} = modify_anno1({attribute,A,N,V}, Ac, Mf),
-    {{attribute,A1,N1,[V1]},Ac1};
-%% End of sys_pre_expand special forms.
 modify_anno1({function,F,A}, Ac, _Mf) ->
     {{function,F,A},Ac};
 modify_anno1({function,M,F,A}, Ac, Mf) ->

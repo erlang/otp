@@ -23,15 +23,26 @@
 -module(gc_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("eunit/include/eunit.hrl").
+
 -export([all/0, suite/0]).
 
--export([grow_heap/1, grow_stack/1, grow_stack_heap/1, max_heap_size/1]).
+-export([
+    grow_heap/1,
+    grow_stack/1,
+    grow_stack_heap/1,
+    max_heap_size/1,
+    minor_major_gc_option_async/1,
+    minor_major_gc_option_self/1
+]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [grow_heap, grow_stack, grow_stack_heap, max_heap_size].
+    [grow_heap, grow_stack, grow_stack_heap, max_heap_size,
+    minor_major_gc_option_self,
+    minor_major_gc_option_async].
 
 
 %% Produce a growing list of elements,
@@ -190,3 +201,91 @@ long_receive() ->
     after 10000 ->
             ok
     end.
+
+minor_major_gc_option_self(_Config) ->
+    Endless = fun Endless() ->
+                receive
+                    {gc, Type} -> erlang:garbage_collect(self(), [{type, Type}])
+                    after 100 -> ok end,
+                Endless()
+              end,
+
+    %% Try as major, a test process will self-trigger GC
+    P1 = spawn(Endless),
+    erlang:garbage_collect(P1, []),
+    erlang:trace(P1, true, [garbage_collection]),
+    P1 ! {gc, major},
+    expect_trace_messages(P1, [gc_major_start, gc_major_end]),
+    erlang:trace(P1, false, [garbage_collection]),
+    erlang:exit(P1, kill),
+
+    %% Try as minor, a test process will self-trigger GC
+    P2 = spawn(Endless),
+    erlang:garbage_collect(P2, []),
+    erlang:trace(P2, true, [garbage_collection]),
+    P2 ! {gc, minor},
+    expect_trace_messages(P2, [gc_minor_start, gc_minor_end]),
+    erlang:trace(P2, false, [garbage_collection]),
+    erlang:exit(P2, kill).
+
+minor_major_gc_option_async(_Config) ->
+    Endless = fun Endless() ->
+                  receive after 100 -> ok end,
+                  Endless()
+              end,
+
+    %% Try with default option, must be major gc
+    P1 = spawn(Endless),
+    erlang:garbage_collect(P1, []),
+    erlang:trace(P1, true, [garbage_collection]),
+    erlang:garbage_collect(P1, []),
+    expect_trace_messages(P1, [gc_major_start, gc_major_end]),
+    erlang:trace(P1, false, [garbage_collection]),
+    erlang:exit(P1, kill),
+
+    %% Try with the 'major' type
+    P2 = spawn(Endless),
+    erlang:garbage_collect(P2, []),
+    erlang:trace(P2, true, [garbage_collection]),
+    erlang:garbage_collect(P2, [{type, major}]),
+    expect_trace_messages(P2, [gc_major_start, gc_major_end]),
+    erlang:trace(P2, false, [garbage_collection]),
+    erlang:exit(P2, kill),
+
+    %% Try with 'minor' option, once
+    P3 = spawn(Endless),
+    erlang:garbage_collect(P3, []),
+    erlang:trace(P3, true, [garbage_collection]),
+    erlang:garbage_collect(P3, [{type, minor}]),
+    expect_trace_messages(P3, [gc_minor_start, gc_minor_end]),
+    erlang:trace(P3, false, [garbage_collection]),
+    erlang:exit(P3, kill),
+
+    %% Try with 'minor' option, once, async
+    P4 = spawn(Endless),
+    Ref = erlang:make_ref(),
+    erlang:garbage_collect(P4, []),
+    erlang:trace(P4, true, [garbage_collection]),
+    ?assertEqual(async,
+                 erlang:garbage_collect(P4, [{type, minor}, {async, Ref}])),
+    expect_trace_messages(P4, [gc_minor_start, gc_minor_end]),
+    erlang:trace(P4, false, [garbage_collection]),
+    receive {garbage_collect, Ref, true} -> ok;
+        Other4 -> ct:pal("Unexpected message: ~p~n"
+                         ++ "while waiting for async gc result", [Other4])
+    after 2000 -> ?assert(false)
+    end,
+    erlang:exit(P4, kill).
+
+%% Given a list of atoms, trace tags - receives messages and checks if they are
+%% trace events, and if the tag matches. Else will crash failing the test.
+expect_trace_messages(_Pid, []) -> ok;
+expect_trace_messages(Pid, [Tag | TraceTags]) ->
+    receive
+        {trace, Pid, Tag, _Data} -> ok;
+        AnythingElse ->
+            ct:pal("Unexpected message: ~p~nWhile expected {trace, _, ~p, _}",
+                   [AnythingElse, Tag]),
+            ?assert(false)
+    end,
+    expect_trace_messages(Pid, TraceTags).

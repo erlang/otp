@@ -199,7 +199,7 @@ atom_alloc(Atom* tmpl)
 static void
 atom_free(Atom* obj)
 {
-    erts_free(ERTS_ALC_T_ATOM, (void*) obj);
+    ASSERT(obj->slot.index == atom_val(am_ErtsSecretAtom));
 }
 
 static void latin1_to_utf8(byte* conv_buf, const byte** srcp, int* lenp)
@@ -233,10 +233,10 @@ need_convertion:
 }
 
 /*
- * erts_atom_put() may fail. If it fails THE_NON_VALUE is returned!
+ * erts_atom_put_index() may fail. Returns negative indexes for errors.
  */
-Eterm
-erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
+int
+erts_atom_put_index(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
 {
     byte utf8_copy[MAX_ATOM_SZ_FROM_LATIN1];
     const byte *text = name;
@@ -253,7 +253,7 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
 	if (trunc)
 	    tlen = 0;
 	else
-	    return THE_NON_VALUE;
+	    return ATOM_MAX_CHARS_ERROR;
     }
 
     switch (enc) {
@@ -262,7 +262,7 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
 	    if (trunc)
 		tlen = MAX_ATOM_CHARACTERS;
 	    else
-		return THE_NON_VALUE;
+		return ATOM_MAX_CHARS_ERROR;
 	}
 #ifdef DEBUG
 	for (aix = 0; aix < len; aix++) {
@@ -276,7 +276,7 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
 	    if (trunc)
 		tlen = MAX_ATOM_CHARACTERS;
 	    else
-		return THE_NON_VALUE;
+		return ATOM_MAX_CHARS_ERROR;
 	}
 	no_latin1_chars = tlen;
 	latin1_to_utf8(utf8_copy, &text, &tlen);
@@ -284,7 +284,7 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
     case ERTS_ATOM_ENC_UTF8:
 	/* First sanity check; need to verify later */
 	if (tlen > MAX_ATOM_SZ_LIMIT && !trunc)
-	    return THE_NON_VALUE;
+	    return ATOM_MAX_CHARS_ERROR;
 	break;
     }
 
@@ -295,7 +295,7 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
     atom_read_unlock();
     if (aix >= 0) {
 	/* Already in table no need to verify it */
-	return make_atom(aix);
+	return aix;
     }
 
     if (enc == ERTS_ATOM_ENC_UTF8) {
@@ -314,13 +314,13 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
 	case ERTS_UTF8_OK_MAX_CHARS:
 	    /* Truncated... */
 	    if (!trunc)
-		return THE_NON_VALUE;
+		return ATOM_MAX_CHARS_ERROR;
 	    ASSERT(no_chars == MAX_ATOM_CHARACTERS);
 	    tlen = err_pos - text;
 	    break;
 	default:
 	    /* Bad utf8... */
-	    return THE_NON_VALUE;
+	    return ATOM_BAD_ENCODING_ERROR;
 	}
     }
 
@@ -333,7 +333,20 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
     atom_write_lock();
     aix = index_put(&erts_atom_table, (void*) &a);
     atom_write_unlock();
-    return make_atom(aix);
+    return aix;
+}
+
+/*
+ * erts_atom_put() may fail. If it fails THE_NON_VALUE is returned!
+ */
+Eterm
+erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
+{
+    int aix = erts_atom_put_index(name, len, enc, trunc);
+    if (aix >= 0)
+	return make_atom(aix);
+    else
+	return THE_NON_VALUE;
 }
 
 Eterm
@@ -467,6 +480,9 @@ init_atom_table(void)
 	atom_space -= a.len;
 	atom_tab(ix)->name = (byte*)erl_atom_names[i];
     }
+
+    /* Hide am_ErtsSecretAtom */
+    hash_erase(&erts_atom_table.htable, atom_tab(atom_val(am_ErtsSecretAtom)));
 }
 
 void
@@ -482,4 +498,10 @@ dump_atoms(fmtfn_t to, void *to_arg)
 	    erts_print(to, to_arg, "%T\n", make_atom(i));
 	}
     }
+}
+
+Uint
+erts_get_atom_limit(void)
+{
+    return erts_atom_table.limit;
 }

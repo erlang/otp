@@ -35,7 +35,8 @@
          dump_monitors/1, dump_links/1, flat_size/1,
          get_internal_state/1, instructions/0, lock_counters/1,
          map_info/1, same/2, set_internal_state/2,
-         size_shared/1, copy_shared/1]).
+         size_shared/1, copy_shared/1, dirty_cpu/2, dirty_io/2,
+	 dirty/3]).
 
 -spec breakpoint(MFA, Flag) -> non_neg_integer() when
       MFA :: {Module :: module(),
@@ -180,6 +181,28 @@ same(_, _) ->
                            (wait, deallocations) -> ok.
 
 set_internal_state(_, _) ->
+    erlang:nif_error(undef).
+
+-spec dirty_cpu(Term1, Term2) -> term() when
+      Term1 :: term(),
+      Term2 :: term().
+
+dirty_cpu(_, _) ->
+    erlang:nif_error(undef).
+
+-spec dirty_io(Term1, Term2) -> term() when
+      Term1 :: term(),
+      Term2 :: term().
+
+dirty_io(_, _) ->
+    erlang:nif_error(undef).
+
+-spec dirty(Term1, Term2, Term3) -> term() when
+      Term1 :: term(),
+      Term2 :: term(),
+      Term3 :: term().
+
+dirty(_, _, _) ->
     erlang:nif_error(undef).
 
 %%% End of BIFs

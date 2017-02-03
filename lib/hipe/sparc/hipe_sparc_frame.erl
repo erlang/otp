@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,9 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_sparc_frame).
 -export([frame/1]).
@@ -25,16 +18,14 @@
 -include("hipe_sparc.hrl").
 -include("../rtl/hipe_literals.hrl").
 
-frame(Defun) ->
-  Formals = fix_formals(hipe_sparc:defun_formals(Defun)),
-  Temps0 = all_temps(hipe_sparc:defun_code(Defun), Formals),
-  MinFrame = defun_minframe(Defun),
+frame(CFG) ->
+  Formals = fix_formals(hipe_sparc_cfg:params(CFG)),
+  Temps0 = all_temps(CFG, Formals),
+  MinFrame = defun_minframe(CFG),
   Temps = ensure_minframe(MinFrame, Temps0),
-  ClobbersRA = clobbers_ra(hipe_sparc:defun_code(Defun)),
-  CFG0 = hipe_sparc_cfg:init(Defun),
-  Liveness = hipe_sparc_liveness_all:analyse(CFG0),
-  CFG1 = do_body(CFG0, Liveness, Formals, Temps, ClobbersRA),
-  hipe_sparc_cfg:linearise(CFG1).
+  ClobbersRA = clobbers_ra(CFG),
+  Liveness = hipe_sparc_liveness_all:analyse(CFG),
+  do_body(CFG, Liveness, Formals, Temps, ClobbersRA).
 
 fix_formals(Formals) ->
   fix_formals(hipe_sparc_registers:nr_args(), Formals).
@@ -112,7 +103,10 @@ do_pseudo_move(I, Context, FPoff) ->
 	  Offset = pseudo_offset(Src, FPoff, Context),
 	  mk_load(hipe_sparc:mk_sp(), Offset, Dst, []);
 	_ ->
-	  [hipe_sparc:mk_mov(Src, Dst)]
+	  case hipe_sparc:temp_reg(Dst) =:= hipe_sparc:temp_reg(Src) of
+	    true -> [];
+	    false -> [hipe_sparc:mk_mov(Src, Dst)]
+	  end
       end
   end.
 
@@ -550,29 +544,41 @@ temp_is_pseudo(Temp) ->
 %%% Detect if a Defun's body clobbers RA.
 %%%
 
-clobbers_ra(Insns) ->
-  case Insns of
-    [#pseudo_call{}|_] -> true;
-    %% moves to RA cannot occur yet
-    [_|Rest] -> clobbers_ra(Rest);
-    [] -> false
+clobbers_ra(CFG) ->
+  any_insn(fun(#pseudo_call{}) -> true;
+	      (_) -> false
+	   end, CFG).
+
+any_insn(Pred, CFG) ->
+  %% Abuse fold to do an efficient "any"-operation using nonlocal control flow
+  FoundSatisfying = make_ref(),
+  try fold_insns(fun (I, _) ->
+		     case Pred(I) of
+		       true -> throw(FoundSatisfying);
+		       false -> false
+		     end
+		 end, false, CFG)
+  of _ -> false
+  catch FoundSatisfying -> true
   end.
 
 %%%
 %%% Build the set of all temps used in a Defun's body.
 %%%
 
-all_temps(Code, Formals) ->
-  S0 = find_temps(Code, tset_empty()),
+all_temps(CFG, Formals) ->
+  S0 = fold_insns(fun find_temps/2, tset_empty(), CFG),
   S1 = tset_del_list(S0, Formals),
   tset_filter(S1, fun(T) -> temp_is_pseudo(T) end).
 
-find_temps([I|Insns], S0) ->
+find_temps(I, S0) ->
   S1 = tset_add_list(S0, hipe_sparc_defuse:insn_def_all(I)),
-  S2 = tset_add_list(S1, hipe_sparc_defuse:insn_use_all(I)),
-  find_temps(Insns, S2);
-find_temps([], S) ->
-  S.
+  tset_add_list(S1, hipe_sparc_defuse:insn_use_all(I)).
+
+fold_insns(Fun, InitAcc, CFG) ->
+  hipe_sparc_cfg:fold_bbs(
+    fun(_, BB, Acc0) -> lists:foldl(Fun, Acc0, hipe_bb:code(BB)) end,
+    InitAcc, CFG).
 
 tset_empty() ->
   gb_sets:new().
@@ -601,15 +607,10 @@ tset_to_list(S) ->
 %%% in the middle of a tailcall.
 %%%
 
-defun_minframe(Defun) ->
-  MaxTailArity = body_mta(hipe_sparc:defun_code(Defun), 0),
-  MyArity = length(fix_formals(hipe_sparc:defun_formals(Defun))),
+defun_minframe(CFG) ->
+  MaxTailArity = fold_insns(fun insn_mta/2, 0, CFG),
+  MyArity = length(fix_formals(hipe_sparc_cfg:params(CFG))),
   erlang:max(MaxTailArity - MyArity, 0).
-
-body_mta([I|Code], MTA) ->
-  body_mta(Code, insn_mta(I, MTA));
-body_mta([], MTA) ->
-  MTA.
 
 insn_mta(I, MTA) ->
   case I of

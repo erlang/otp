@@ -2066,13 +2066,13 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
     StartedTime = (erlang:monotonic_time(microsecond) - Start)/1000000,
     io:format("StartedTime = ~p~n", [StartedTime]),
     true = StartedTime < SleepSecs,
-    erlang:system_flag(multi_scheduling, block),
+    erlang:system_flag(multi_scheduling, block_normal),
     lists:foreach(fun (P) -> receive {P, done} -> ok end end, Procs),
     DoneTime = (erlang:monotonic_time(microsecond) - Start)/1000000,
     io:format("DoneTime = ~p~n", [DoneTime]),
     true = DoneTime > SleepSecs,
     ok = verify_multi_scheduling_blocked(),
-    erlang:system_flag(multi_scheduling, unblock),
+    erlang:system_flag(multi_scheduling, unblock_normal),
     case {length(lists:usort(lists:flatten(SIds))), NoSchedsOnln} of
         {N, N} ->
             ok;

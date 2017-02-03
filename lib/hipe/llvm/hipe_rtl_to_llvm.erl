@@ -156,9 +156,6 @@ translate_instr(I, Relocs, Data) ->
     #alub{} ->
       {I2, Relocs2} = trans_alub(I, Relocs),
       {I2, Relocs2, Data};
-    #branch{} ->
-      {I2, Relocs2} = trans_branch(I, Relocs),
-      {I2, Relocs2, Data};
     #call{} ->
       {I2, Relocs2} =
         case hipe_rtl:call_fun(I) of
@@ -255,10 +252,9 @@ trans_alub(I, Relocs) ->
 trans_alub_overflow(I, Sign, Relocs) ->
   {Src1, I1} = trans_src(hipe_rtl:alub_src1(I)),
   {Src2, I2} = trans_src(hipe_rtl:alub_src2(I)),
-  RtlDst = hipe_rtl:alub_dst(I),
   TmpDst = mk_temp(),
   Name = trans_alub_op(I, Sign),
-  NewRelocs = relocs_store(Name, {call, {llvm, Name, 2}}, Relocs),
+  NewRelocs = relocs_store(Name, {call, remote, {llvm, Name, 2}}, Relocs),
   WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   ReturnType = hipe_llvm:mk_struct([WordTy, hipe_llvm:mk_int(1)]),
   T1 = mk_temp(),
@@ -266,7 +262,10 @@ trans_alub_overflow(I, Sign, Relocs) ->
 			                   [{WordTy, Src1}, {WordTy, Src2}], []),
   %% T1{0}: result of the operation
   I4 = hipe_llvm:mk_extractvalue(TmpDst, ReturnType, T1 , "0", []),
-  I5 = store_stack_dst(TmpDst, RtlDst),
+  I5 = case hipe_rtl:alub_has_dst(I) of
+	 false -> [];
+	 true -> store_stack_dst(TmpDst, hipe_rtl:alub_dst(I))
+       end,
   T2 = mk_temp(),
   %% T1{1}: Boolean variable indicating overflow
   I6 = hipe_llvm:mk_extractvalue(T2, ReturnType, T1, "1", []),
@@ -311,42 +310,35 @@ trans_alub_op(I, Sign) ->
   Name ++ Type.
 
 trans_alub_no_overflow(I, Relocs) ->
-  %% alu
-  T = hipe_rtl:mk_alu(hipe_rtl:alub_dst(I), hipe_rtl:alub_src1(I),
-                      hipe_rtl:alub_op(I), hipe_rtl:alub_src2(I)),
-  %% A trans_alu instruction cannot change relocations
-  {I1, _} = trans_alu(T, Relocs),
-  %% icmp
-  %% Translate destination as src, to match with the semantics of instruction
-  {Dst, I2} = trans_src(hipe_rtl:alub_dst(I)),
-  Cond = trans_rel_op(hipe_rtl:alub_cond(I)),
-  T3 = mk_temp(),
+  {Src1, I1} = trans_src(hipe_rtl:alub_src1(I)),
+  {Src2, I2} = trans_src(hipe_rtl:alub_src2(I)),
   WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
-  I5 = hipe_llvm:mk_icmp(T3, Cond, WordTy, Dst, "0"),
+  %% alu
+  {CmpLhs, CmpRhs, I5, Cond} =
+    case {hipe_rtl:alub_has_dst(I), hipe_rtl:alub_op(I)} of
+      {false, 'sub'} ->
+	Cond0 = trans_branch_rel_op(hipe_rtl:alub_cond(I)),
+	{Src1, Src2, [], Cond0};
+      {HasDst, AlubOp} ->
+	TmpDst = mk_temp(),
+	Op = trans_op(AlubOp),
+	I3 = hipe_llvm:mk_operation(TmpDst, Op, WordTy, Src1, Src2, []),
+	I4 = case HasDst of
+	       false -> [];
+	       true -> store_stack_dst(TmpDst, hipe_rtl:alub_dst(I))
+	     end,
+	Cond0 = trans_alub_rel_op(hipe_rtl:alub_cond(I)),
+	{TmpDst, "0", [I4, I3], Cond0}
+    end,
+  %% icmp
+  T3 = mk_temp(),
+  I6 = hipe_llvm:mk_icmp(T3, Cond, WordTy, CmpLhs, CmpRhs),
   %% br
   Metadata = branch_metadata(hipe_rtl:alub_pred(I)),
   True_label = mk_jump_label(hipe_rtl:alub_true_label(I)),
   False_label = mk_jump_label(hipe_rtl:alub_false_label(I)),
-  I6 = hipe_llvm:mk_br_cond(T3, True_label, False_label, Metadata),
-  {[I6, I5, I2, I1], Relocs}.
-
-%%
-%% branch
-%%
-trans_branch(I, Relocs) ->
-  {Src1, I1} = trans_src(hipe_rtl:branch_src1(I)),
-  {Src2, I2} = trans_src(hipe_rtl:branch_src2(I)),
-  Cond = trans_rel_op(hipe_rtl:branch_cond(I)),
-  %% icmp
-  T1 = mk_temp(),
-  WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
-  I3 = hipe_llvm:mk_icmp(T1, Cond, WordTy, Src1, Src2),
-  %% br
-  True_label = mk_jump_label(hipe_rtl:branch_true_label(I)),
-  False_label = mk_jump_label(hipe_rtl:branch_false_label(I)),
-  Metadata = branch_metadata(hipe_rtl:branch_pred(I)),
-  I4 = hipe_llvm:mk_br_cond(T1, True_label, False_label, Metadata),
-  {[I4, I3, I2, I1], Relocs}.
+  I7 = hipe_llvm:mk_br_cond(T3, True_label, False_label, Metadata),
+  {[I7, I6, I5, I2, I1], Relocs}.
 
 branch_metadata(X) when X =:= 0.5 -> [];
 branch_metadata(X) when X > 0.5 -> ?BRANCH_META_TAKEN;
@@ -365,7 +357,7 @@ trans_call(I, Relocs) ->
   {LoadedFixedRegs, I2} = load_fixed_regs(FixedRegs),
   FinalArgs = fix_reg_args(LoadedFixedRegs) ++ CallArgs,
   {Name, I3, Relocs2} =
-    trans_call_name(RtlCallName, Relocs1, CallArgs, FinalArgs),
+    trans_call_name(RtlCallName, hipe_rtl:call_type(I), Relocs1, CallArgs, FinalArgs),
   T1 = mk_temp(),
   WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   FunRetTy = hipe_llvm:mk_struct(lists:duplicate(?NR_PINNED_REGS + 1, WordTy)),
@@ -431,17 +423,17 @@ expose_closure(CallName, CallArgs, Relocs) ->
       {[], Relocs}
   end.
 
-trans_call_name(RtlCallName, Relocs, CallArgs, FinalArgs) ->
+trans_call_name(RtlCallName, RtlCallType, Relocs, CallArgs, FinalArgs) ->
   case RtlCallName of
     PrimOp when is_atom(PrimOp) ->
       LlvmName = trans_prim_op(PrimOp),
       Relocs1 =
-        relocs_store(LlvmName, {call, {bif, PrimOp, length(CallArgs)}}, Relocs),
+        relocs_store(LlvmName, {call, not_remote, {bif, PrimOp, length(CallArgs)}}, Relocs),
       {"@" ++ LlvmName, [], Relocs1};
     {M, F, A} when is_atom(M), is_atom(F), is_integer(A) ->
-      LlvmName = trans_mfa_name({M, F, A}),
+      LlvmName = trans_mfa_name({M, F, A}, RtlCallType),
       Relocs1 =
-        relocs_store(LlvmName, {call, {M, F, length(CallArgs)}}, Relocs),
+        relocs_store(LlvmName, {call, RtlCallType, {M, F, length(CallArgs)}}, Relocs),
       {"@" ++ LlvmName, [], Relocs1};
     Reg ->
       case hipe_rtl:is_reg(Reg) of
@@ -502,7 +494,7 @@ trans_enter(I, Relocs) ->
   {LoadedFixedRegs, I1} = load_fixed_regs(FixedRegs),
   FinalArgs = fix_reg_args(LoadedFixedRegs) ++ CallArgs,
   {Name, I2, NewRelocs} =
-    trans_call_name(hipe_rtl:enter_fun(I), Relocs, CallArgs, FinalArgs),
+    trans_call_name(hipe_rtl:enter_fun(I), hipe_rtl:enter_type(I), Relocs, CallArgs, FinalArgs),
   T1 = mk_temp(),
   WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   FunRetTy = hipe_llvm:mk_struct(lists:duplicate(?NR_PINNED_REGS + 1, WordTy)),
@@ -1036,8 +1028,12 @@ llvm_id(C) ->
  io_lib:format("_~2.16.0B_",[C]).
 
 %% @doc Create an acceptable LLVM identifier for an MFA.
-trans_mfa_name({M,F,A}) ->
-  N = atom_to_list(M) ++ "." ++ atom_to_list(F) ++ "." ++ integer_to_list(A),
+trans_mfa_name({M,F,A}, Linkage) ->
+  N0 = atom_to_list(M) ++ "." ++ atom_to_list(F) ++ "." ++ integer_to_list(A),
+  N = case Linkage of
+	not_remote -> N0;
+	remote -> "rem." ++ N0
+      end,
   make_llvm_id(N).
 
 %%------------------------------------------------------------------------------
@@ -1158,7 +1154,7 @@ trans_dst(A) ->
 		       true ->
 			 "%DL" ++ integer_to_list(hipe_rtl:const_label_label(A)) ++ "_var";
 		       false ->
-			 exit({?MODULE, trans_dst, {"Bad RTL argument",A}})
+			 error(badarg, [A])
 		     end
 		 end
 	     end,
@@ -1256,14 +1252,19 @@ trans_op(Op) ->
     Other -> exit({?MODULE, trans_op, {"Unknown RTL operator", Other}})
   end.
 
-trans_rel_op(Op) ->
+trans_branch_rel_op(Op) ->
   case Op of
-    eq -> eq;
-    ne -> ne;
     gtu -> ugt;
     geu -> uge;
     ltu -> ult;
     leu -> ule;
+    _ -> trans_alub_rel_op(Op)
+  end.
+
+trans_alub_rel_op(Op) ->
+  case Op of
+    eq -> eq;
+    ne -> ne;
     gt -> sgt;
     ge -> sge;
     lt -> slt;
@@ -1296,7 +1297,10 @@ insn_dst(I) ->
     #alu{} ->
       [hipe_rtl:alu_dst(I)];
     #alub{} ->
-      [hipe_rtl:alub_dst(I)];
+      case hipe_rtl:alub_has_dst(I) of
+	true -> [hipe_rtl:alub_dst(I)];
+	false -> []
+      end;
     #call{} ->
       case hipe_rtl:call_dstlist(I) of
         [] -> [];
@@ -1339,7 +1343,7 @@ llvm_type_from_size(Size) ->
 %%      precoloured registers that are passed as arguments must be stored to
 %%      the corresonding stack slots.
 create_function_definition(Fun, Params, Code, LocalVars) ->
-  FunctionName = trans_mfa_name(Fun),
+  FunctionName = trans_mfa_name(Fun, not_remote),
   FixedRegs = fixed_registers(),
   %% Reverse parameters to match with the Erlang calling convention
   ReversedParams =
@@ -1458,9 +1462,9 @@ handle_relocations(Relocs, Data, Fun) ->
   Relocs2 = lists:foldl(fun const_to_dict/2, Relocs1, ConstLabels),
   %% Temporary Store inc_stack and llvm_fix_pinned_regs to Dictionary
   %% TODO: Remove this
-  Relocs3 = dict:store("inc_stack_0", {call, {bif, inc_stack_0, 0}}, Relocs2),
+  Relocs3 = dict:store("inc_stack_0", {call, not_remote, {bif, inc_stack_0, 0}}, Relocs2),
   Relocs4 = dict:store("hipe_bifs.llvm_fix_pinned_regs.0",
-                       {call, {hipe_bifs, llvm_fix_pinned_regs, 0}}, Relocs3),
+                       {call, remote, {hipe_bifs, llvm_fix_pinned_regs, 0}}, Relocs3),
   BranchMetaData = [
     hipe_llvm:mk_meta(?BRANCH_META_TAKEN,     ["branch_weights", 99, 1])
   , hipe_llvm:mk_meta(?BRANCH_META_NOT_TAKEN, ["branch_weights", 1, 99])
@@ -1478,9 +1482,10 @@ seperate_relocs([], CallAcc, AtomAcc, ClosureAcc, LabelAcc, JmpTableAcc) ->
   {CallAcc, AtomAcc, ClosureAcc, LabelAcc, JmpTableAcc};
 seperate_relocs([R|Rs], CallAcc, AtomAcc, ClosureAcc, LabelAcc, JmpTableAcc) ->
   case R of
-    {_, {call, _}} ->
+    {_, {call, _, _}} ->
       seperate_relocs(Rs, [R | CallAcc], AtomAcc, ClosureAcc, LabelAcc,
                       JmpTableAcc);
+
     {_, {atom, _}} ->
       seperate_relocs(Rs, CallAcc, [R | AtomAcc], ClosureAcc, LabelAcc,
                       JmpTableAcc);
@@ -1525,7 +1530,7 @@ load_closure({ClosureName, _})->
 
 %% @doc Declaration of a local variable for a switch jump table.
 declare_switches(JumpTableList, Fun) ->
-  FunName = trans_mfa_name(Fun),
+  FunName = trans_mfa_name(Fun, not_remote),
   [declare_switch_table(X, FunName) || X <- JumpTableList].
 
 declare_switch_table({Name, {switch, {TableType, Labels, _, _}, _}}, FunName) ->
@@ -1541,7 +1546,7 @@ declare_switch_table({Name, {switch, {TableType, Labels, _, _}, _}}, FunName) ->
 declare_closure_labels([], Relocs, _Fun) ->
   {[], Relocs};
 declare_closure_labels(ClosureLabels, Relocs, Fun) ->
-  FunName = trans_mfa_name(Fun),
+  FunName = trans_mfa_name(Fun, not_remote),
   {LabelList, ArityList} =
     lists:unzip([{mk_jump_label(Label), A} ||
 		  {_, {closure_label, Label, A}} <- ClosureLabels]),
@@ -1557,13 +1562,13 @@ declare_closure_labels(ClosureLabels, Relocs, Fun) ->
     hipe_llvm:mk_const_decl("@table_closures", "constant", TableType, List4),
   {[ConstDecl], Relocs1}.
 
-%% @doc A call is treated as non external only in a case of a recursive
+%% @doc A call is treated as non external only in a case of a local recursive
 %%      function.
-is_external_call({_, {call, Fun}}, Fun) -> false;
+is_external_call({_, {call, not_remote, MFA}}, MFA) -> false;
 is_external_call(_, _) -> true.
 
 %% @doc External declaration of a function.
-call_to_decl({Name, {call, MFA}}) ->
+call_to_decl({Name, {call, _, MFA}}) ->
   {M, _F, A} = MFA,
   CConv = "cc 11",
   WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),

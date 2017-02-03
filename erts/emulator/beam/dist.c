@@ -25,6 +25,7 @@
 
 /* define this to get a lot of debug output */
 /* #define ERTS_DIST_MSG_DBG */
+/* #define ERTS_RAW_DIST_MSG_DBG */
 
 #ifdef HAVE_CONFIG_H
 #  include "config.h"

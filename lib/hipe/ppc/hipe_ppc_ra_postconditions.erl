@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,9 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_ppc_ra_postconditions).
 
@@ -25,17 +18,13 @@
 
 -include("hipe_ppc.hrl").
 
-check_and_rewrite(Defun, Coloring, Allocator) ->
-  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_ppc_specific),
-  check_and_rewrite2(Defun, TempMap, Allocator).
+check_and_rewrite(CFG, Coloring, Allocator) ->
+  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_ppc_specific, no_context),
+  check_and_rewrite2(CFG, TempMap, Allocator).
 
-check_and_rewrite2(Defun, TempMap, Allocator) ->
+check_and_rewrite2(CFG, TempMap, Allocator) ->
   Strategy = strategy(Allocator),
-  #defun{code=Code0} = Defun,
-  {Code1,DidSpill} = do_insns(Code0, TempMap, Strategy, [], false),
-  VarRange = {0, hipe_gensym:get_var(ppc)},
-  {Defun#defun{code=Code1, var_range=VarRange},
-   DidSpill}.
+  do_bbs(hipe_ppc_cfg:labels(CFG), TempMap, Strategy, CFG, false).
 
 strategy(Allocator) ->
   case Allocator of
@@ -43,6 +32,13 @@ strategy(Allocator) ->
     'linearscan' -> 'fixed';
     'naive' -> 'fixed'
   end.
+
+do_bbs([], _, _, CFG, DidSpill) -> {CFG, DidSpill};
+do_bbs([Lbl|Lbls], TempMap, Strategy, CFG0, DidSpill0) ->
+  Code0 = hipe_bb:code(BB = hipe_ppc_cfg:bb(CFG0, Lbl)),
+  {Code, DidSpill} = do_insns(Code0, TempMap, Strategy, [], DidSpill0),
+  CFG = hipe_ppc_cfg:bb_add(CFG0, Lbl, hipe_bb:code_update(BB, Code)),
+  do_bbs(Lbls, TempMap, Strategy, CFG, DidSpill).
 
 do_insns([I|Insns], TempMap, Strategy, Accum, DidSpill0) ->
   {NewIs, DidSpill1} = do_insn(I, TempMap, Strategy),

@@ -39,6 +39,7 @@
 #include "beam_bp.h"
 #include "erl_binary.h"
 #include "erl_thr_progress.h"
+#include "erl_nfunc_sched.h"
 
 #ifdef ARCH_64
 # define HEXF "%016bpX"
@@ -51,6 +52,7 @@ void dbg_bt(Process* p, Eterm* sp);
 void dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg);
 
 static int print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr);
+static void print_bif_name(fmtfn_t to, void* to_arg, BifFunction bif);
 
 BIF_RETTYPE
 erts_debug_same_2(BIF_ALIST_2)
@@ -115,7 +117,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     Eterm MFA = BIF_ARG_1;
     Eterm boolean = BIF_ARG_2;
     Eterm* tp;
-    Eterm mfa[3];
+    ErtsCodeMFA mfa;
     int i;
     int specified = 0;
     Eterm res;
@@ -131,23 +133,24 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     if (*tp != make_arityval(3)) {
 	goto error;
     }
-    mfa[0] = tp[1];
-    mfa[1] = tp[2];
-    mfa[2] = tp[3];
-    if (!is_atom(mfa[0]) || !is_atom(mfa[1]) ||
-	(!is_small(mfa[2]) && mfa[2] != am_Underscore)) {
+    if (!is_atom(tp[1]) || !is_atom(tp[2]) ||
+	(!is_small(tp[3]) && tp[3] != am_Underscore)) {
 	goto error;
     }
-    for (i = 0; i < 3 && mfa[i] != am_Underscore; i++, specified++) {
+    for (i = 0; i < 3 && tp[i+1] != am_Underscore; i++, specified++) {
 	/* Empty loop body */
     }
     for (i = specified; i < 3; i++) {
-	if (mfa[i] != am_Underscore) {
+	if (tp[i+1] != am_Underscore) {
 	    goto error;
 	}
     }
-    if (is_small(mfa[2])) {
-	mfa[2] = signed_val(mfa[2]);
+
+    mfa.module = tp[1];
+    mfa.function = tp[2];
+
+    if (is_small(tp[3])) {
+        mfa.arity = signed_val(tp[3]);
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
@@ -157,7 +160,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
-    erts_bp_match_functions(&f, mfa, specified);
+    erts_bp_match_functions(&f, &mfa, specified);
     if (boolean == am_true) {
 	erts_set_debug_break(&f);
 	erts_install_breakpoints(&f);
@@ -241,9 +244,9 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     Eterm* tp;
     Eterm bin;
     Eterm mfa;
-    BeamInstr* funcinfo = NULL;	/* Initialized to eliminate warning. */
+    ErtsCodeMFA *cmfa = NULL;
     BeamCodeHeader* code_hdr;
-    BeamInstr* code_ptr = NULL;	/* Initialized to eliminate warning. */
+    BeamInstr *code_ptr;
     BeamInstr instr;
     BeamInstr uaddr;
     Uint hsz;
@@ -251,7 +254,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 
     if (term_to_UWord(addr, &uaddr)) {
 	code_ptr = (BeamInstr *) uaddr;
-	if ((funcinfo = find_function_from_pc(code_ptr)) == NULL) {
+	if ((cmfa = find_function_from_pc(code_ptr)) == NULL) {
 	    BIF_RET(am_false);
 	}
     } else if (is_tuple(addr)) {
@@ -282,24 +285,22 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	 * such as erts_debug:apply/4.  Then search for it in the module.
 	 */
 	if ((ep = erts_find_function(mod, name, arity, code_ix)) != NULL) {
-	    /* XXX: add "&& ep->address != ep->code+3" condition?
+	    /* XXX: add "&& ep->address != ep->code" condition?
 	     * Consider a traced function.
-	     * Its ep will have ep->address == ep->code+3.
+	     * Its ep will have ep->address == ep->code.
 	     * erts_find_function() will return the non-NULL ep.
 	     * Below we'll try to derive a code_ptr from ep->address.
 	     * But this code_ptr will point to the start of the Export,
 	     * not the function's func_info instruction. BOOM !?
 	     */
-	    code_ptr = ((BeamInstr *) ep->addressv[code_ix]) - 5;
-	    funcinfo = code_ptr+2;
+	    cmfa = erts_code_to_codemfa(ep->addressv[code_ix]);
 	} else if (modp == NULL || (code_hdr = modp->curr.code_hdr) == NULL) {
 	    BIF_RET(am_undef);
 	} else {
 	    n = code_hdr->num_functions;
 	    for (i = 0; i < n; i++) {
-		code_ptr = code_hdr->functions[i];
-		if (code_ptr[3] == name && code_ptr[4] == arity) {
-		    funcinfo = code_ptr+2;
+		cmfa = &code_hdr->functions[i]->mfa;
+		if (cmfa->function == name && cmfa->arity == arity) {
 		    break;
 		}
 	    }
@@ -307,6 +308,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 		BIF_RET(am_undef);
 	    }
 	}
+        code_ptr = erts_codemfa_to_code(cmfa);
     } else {
 	goto error;
     }
@@ -332,9 +334,10 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     (void) erts_bld_uword(NULL, &hsz, (BeamInstr) code_ptr);
     hp = HAlloc(p, hsz);
     addr = erts_bld_uword(&hp, NULL, (BeamInstr) code_ptr);
-    ASSERT(is_atom(funcinfo[0]) || funcinfo[0] == NIL);
-    ASSERT(is_atom(funcinfo[1]) || funcinfo[1] == NIL);
-    mfa = TUPLE3(hp, (Eterm) funcinfo[0], (Eterm) funcinfo[1], make_small((Eterm) funcinfo[2]));
+    ASSERT(is_atom(cmfa->module) || is_nil(cmfa->module));
+    ASSERT(is_atom(cmfa->function) || is_nil(cmfa->function));
+    mfa = TUPLE3(hp, cmfa->module, cmfa->function,
+                 make_small(cmfa->arity));
     hp += 4;
     return TUPLE3(hp, addr, bin, mfa);
 }
@@ -346,11 +349,12 @@ dbg_bt(Process* p, Eterm* sp)
 
     while (sp < stack) {
 	if (is_CP(*sp)) {
-	    BeamInstr* addr = find_function_from_pc(cp_val(*sp));
-	    if (addr)
+	    ErtsCodeMFA* cmfa = find_function_from_pc(cp_val(*sp));
+	    if (cmfa)
 		erts_fprintf(stderr,
 			     HEXF ": %T:%T/%bpu\n",
-			     addr, (Eterm) addr[0], (Eterm) addr[1], addr[2]);
+			     &cmfa->module, cmfa->module,
+                             cmfa->function, cmfa->arity);
 	}
 	sp++;
     }
@@ -359,17 +363,17 @@ dbg_bt(Process* p, Eterm* sp)
 void
 dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg)
 {
-    BeamInstr* f = find_function_from_pc(addr);
+    ErtsCodeMFA* cmfa = find_function_from_pc(addr);
 
-    if (f == NULL) {
+    if (cmfa == NULL) {
 	erts_fprintf(stderr, "???\n");
     } else {
 	int arity;
 	int i;
 
-	addr = f;
-	arity = addr[2];
-	erts_fprintf(stderr, HEXF ": %T:%T(", addr, (Eterm) addr[0], (Eterm) addr[1]);
+	arity = cmfa->arity;
+	erts_fprintf(stderr, HEXF ": %T:%T(", addr,
+                     cmfa->module, cmfa->function);
 	for (i = 0; i < arity; i++)
 	    erts_fprintf(stderr, i ? ", %T" : "%T", i ? reg[i] : x0);
 	erts_fprintf(stderr, ")\n");
@@ -520,27 +524,49 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    break;
 	case 'I':		/* Untagged integer. */
 	case 't':
-	    erts_print(to, to_arg, "%d", *ap);
+	    switch (op) {
+	    case op_i_gc_bif1_jIsId:
+	    case op_i_gc_bif2_jIIssd:
+	    case op_i_gc_bif3_jIIssd:
+		{
+		    const ErtsGcBif* p;
+		    BifFunction gcf = (BifFunction) *ap;
+		    for (p = erts_gc_bifs; p->bif != 0; p++) {
+			if (p->gc_bif == gcf) {
+			    print_bif_name(to, to_arg, p->bif);
+			    break;
+			}
+		    }
+		    if (p->bif == 0) {
+			erts_print(to, to_arg, "%d", (Uint)gcf);
+		    }
+		    break;
+		}
+	    default:
+		erts_print(to, to_arg, "%d", *ap);
+	    }
 	    ap++;
 	    break;
 	case 'f':		/* Destination label */
 	    {
-		BeamInstr* f = find_function_from_pc((BeamInstr *)*ap);
-		if (f+3 != (BeamInstr *) *ap) {
+		ErtsCodeMFA* cmfa = find_function_from_pc((BeamInstr *)*ap);
+		if (!cmfa || erts_codemfa_to_code(cmfa) != (BeamInstr *) *ap) {
 		    erts_print(to, to_arg, "f(" HEXF ")", *ap);
 		} else {
-		    erts_print(to, to_arg, "%T:%T/%bpu", (Eterm) f[0], (Eterm) f[1], f[2]);
+		    erts_print(to, to_arg, "%T:%T/%bpu", cmfa->module,
+                               cmfa->function, cmfa->arity);
 		}
 		ap++;
 	    }
 	    break;
 	case 'p':		/* Pointer (to label) */
 	    {
-		BeamInstr* f = find_function_from_pc((BeamInstr *)*ap);
-		if (f+3 != (BeamInstr *) *ap) {
+		ErtsCodeMFA* cmfa = find_function_from_pc((BeamInstr *)*ap);
+		if (!cmfa || erts_codemfa_to_code(cmfa) != (BeamInstr *) *ap) {
 		    erts_print(to, to_arg, "p(" HEXF ")", *ap);
 		} else {
-		    erts_print(to, to_arg, "%T:%T/%bpu", (Eterm) f[0], (Eterm) f[1], f[2]);
+		    erts_print(to, to_arg, "%T:%T/%bpu", cmfa->module,
+                               cmfa->function, cmfa->arity);
 		}
 		ap++;
 	    }
@@ -553,26 +579,16 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    {
 		Export* ex = (Export *) *ap;
 		erts_print(to, to_arg,
-			   "%T:%T/%bpu", (Eterm) ex->code[0], (Eterm) ex->code[1], ex->code[2]);
+			   "%T:%T/%bpu", (Eterm) ex->info.mfa.module,
+                           (Eterm) ex->info.mfa.function,
+                           ex->info.mfa.arity);
 		ap++;
 	    }
 	    break;
 	case 'F':		/* Function definition */
 	    break;
 	case 'b':
-	    for (i = 0; i < BIF_SIZE; i++) {
-		BifFunction bif = (BifFunction) *ap;
-		if (bif == bif_table[i].f) {
-		    break;
-		}
-	    }
-	    if (i == BIF_SIZE) {
-		erts_print(to, to_arg, "b(%d)", (Uint) *ap);
-	    } else {
-		Eterm name = bif_table[i].name;
-		unsigned arity = bif_table[i].arity;
-		erts_print(to, to_arg, "%T/%u", name, arity);
-	    }
+	    print_bif_name(to, to_arg, (BifFunction) *ap);
 	    ap++;
 	    break;
 	case 'P':	/* Byte offset into tuple (see beam_load.c) */
@@ -731,3 +747,374 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 
     return size;
 }
+
+static void print_bif_name(fmtfn_t to, void* to_arg, BifFunction bif)
+{
+    int i;
+
+    for (i = 0; i < BIF_SIZE; i++) {
+	if (bif == bif_table[i].f) {
+	    break;
+	}
+    }
+    if (i == BIF_SIZE) {
+	erts_print(to, to_arg, "b(%d)", (Uint) bif);
+    } else {
+	Eterm name = bif_table[i].name;
+	unsigned arity = bif_table[i].arity;
+	erts_print(to, to_arg, "%T/%u", name, arity);
+    }
+}
+
+/*
+ * Dirty BIF testing.
+ *
+ * The erts_debug:dirty_cpu/2, erts_debug:dirty_io/1, and
+ * erts_debug:dirty/3 BIFs are used by the dirty_bif_SUITE
+ * test suite.
+ */
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+static int ms_wait(Process *c_p, Eterm etimeout, int busy);
+static int dirty_send_message(Process *c_p, Eterm to, Eterm tag);
+#endif
+static BIF_RETTYPE dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I);
+
+/*
+ * erts_debug:dirty_cpu/2 is statically determined to execute on
+ * a dirty CPU scheduler (see erts_dirty_bif.tab).
+ */
+BIF_RETTYPE
+erts_debug_dirty_cpu_2(BIF_ALIST_2)
+{
+    return dirty_test(BIF_P, am_dirty_cpu, BIF_ARG_1, BIF_ARG_2, BIF_I);
+}
+
+/*
+ * erts_debug:dirty_io/2 is statically determined to execute on
+ * a dirty I/O scheduler (see erts_dirty_bif.tab).
+ */
+BIF_RETTYPE
+erts_debug_dirty_io_2(BIF_ALIST_2)
+{
+    return dirty_test(BIF_P, am_dirty_io, BIF_ARG_1, BIF_ARG_2, BIF_I);
+}
+
+/*
+ * erts_debug:dirty/3 executes on a normal scheduler.
+ */
+BIF_RETTYPE
+erts_debug_dirty_3(BIF_ALIST_3)
+{
+#ifdef ERTS_DIRTY_SCHEDULERS
+    Eterm argv[2];
+    switch (BIF_ARG_1) {
+    case am_normal:
+	return dirty_test(BIF_P, am_normal, BIF_ARG_2, BIF_ARG_3, BIF_I);
+    case am_dirty_cpu:
+	argv[0] = BIF_ARG_2;
+	argv[1] = BIF_ARG_3;
+	return erts_schedule_bif(BIF_P,
+				 argv,
+				 BIF_I,
+				 erts_debug_dirty_cpu_2,
+				 ERTS_SCHED_DIRTY_CPU,
+				 am_erts_debug,
+				 am_dirty_cpu,
+				 2);
+    case am_dirty_io:
+	argv[0] = BIF_ARG_2;
+	argv[1] = BIF_ARG_3;
+	return erts_schedule_bif(BIF_P,
+				 argv,
+				 BIF_I,
+				 erts_debug_dirty_io_2,
+				 ERTS_SCHED_DIRTY_IO,
+				 am_erts_debug,
+				 am_dirty_io,
+				 2);
+    default:
+	BIF_ERROR(BIF_P, EXC_BADARG);
+    }
+#else
+	BIF_ERROR(BIF_P, EXC_UNDEF);
+#endif
+}
+
+
+static BIF_RETTYPE
+dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I)
+{
+    BIF_RETTYPE ret;
+#ifdef ERTS_DIRTY_SCHEDULERS
+    if (am_scheduler == arg1) {
+	ErtsSchedulerData *esdp;
+	if (arg2 != am_type) 
+	    goto badarg;
+	esdp = erts_proc_sched_data(c_p);
+	if (!esdp)
+	    ERTS_BIF_PREP_RET(ret, am_error);
+	else if (!ERTS_SCHEDULER_IS_DIRTY(esdp))
+	    ERTS_BIF_PREP_RET(ret, am_normal);
+	else if (ERTS_SCHEDULER_IS_DIRTY_CPU(esdp))
+	    ERTS_BIF_PREP_RET(ret, am_dirty_cpu);
+	else if (ERTS_SCHEDULER_IS_DIRTY_IO(esdp))
+	    ERTS_BIF_PREP_RET(ret, am_dirty_io);
+	else
+	    ERTS_BIF_PREP_RET(ret, am_error);
+    }
+    else if (am_error == arg1) {
+	switch (arg2) {
+	case am_notsup:
+	    ERTS_BIF_PREP_ERROR(ret, c_p, EXC_NOTSUP);
+	    break;
+	case am_undef:
+	    ERTS_BIF_PREP_ERROR(ret, c_p, EXC_UNDEF);
+	    break;
+	case am_badarith:
+	    ERTS_BIF_PREP_ERROR(ret, c_p, EXC_BADARITH);
+	    break;
+	case am_noproc:
+	    ERTS_BIF_PREP_ERROR(ret, c_p, EXC_NOPROC);
+	    break;
+	case am_system_limit:
+	    ERTS_BIF_PREP_ERROR(ret, c_p, SYSTEM_LIMIT);
+	    break;
+	case am_badarg:
+	default:
+	    goto badarg;
+	}
+    }
+    else if (am_copy == arg1) {
+	int i;
+	Eterm res;
+
+	for (res = NIL, i = 0; i < 1000; i++) {
+	    Eterm *hp, sz;
+	    Eterm cpy;
+	    /* We do not want this to be optimized,
+	       but rather the oposite... */
+	    sz = size_object(arg2);
+	    hp = HAlloc(c_p, sz);
+	    cpy = copy_struct(arg2, sz, &hp, &c_p->off_heap);
+	    hp = HAlloc(c_p, 2);
+	    res = CONS(hp, cpy, res);
+	}
+
+	ERTS_BIF_PREP_RET(ret, res);
+    }
+    else if (am_send == arg1) {
+	dirty_send_message(c_p, arg2, am_ok);
+	ERTS_BIF_PREP_RET(ret, am_ok);
+    }
+    else if (ERTS_IS_ATOM_STR("wait", arg1)) {
+	if (!ms_wait(c_p, arg2, type == am_dirty_cpu))
+	    goto badarg;
+	ERTS_BIF_PREP_RET(ret, am_ok);
+    }
+    else if (ERTS_IS_ATOM_STR("reschedule", arg1)) {
+	/*
+	 * Reschedule operation after decrement of two until we reach
+	 * zero. Switch between dirty scheduler types when 'n' is
+	 * evenly divided by 4. If the initial value wasn't evenly
+	 * dividable by 2, throw badarg exception.
+	 */
+	Eterm next_type;
+	Sint n;
+	if (!term_to_Sint(arg2, &n) || n < 0)
+	    goto badarg;
+	if (n == 0)
+	    ERTS_BIF_PREP_RET(ret, am_ok);
+	else {
+	    Eterm argv[3];
+	    Eterm eint = erts_make_integer((Uint) (n - 2), c_p);
+	    if (n % 4 != 0)
+		next_type = type;
+	    else {
+		switch (type) {
+		case am_dirty_cpu: next_type = am_dirty_io; break;
+		case am_dirty_io: next_type = am_normal; break;
+		case am_normal: next_type = am_dirty_cpu; break;
+		default: goto badarg;
+		}
+	    }
+	    switch (next_type) {
+	    case am_dirty_io:
+		argv[0] = arg1;
+		argv[1] = eint;
+		ret = erts_schedule_bif(c_p,
+					argv,
+					I,
+					erts_debug_dirty_io_2,
+					ERTS_SCHED_DIRTY_IO,
+					am_erts_debug,
+					am_dirty_io,
+					2);
+		break;
+	    case am_dirty_cpu:
+		argv[0] = arg1;
+		argv[1] = eint;
+		ret = erts_schedule_bif(c_p,
+					argv,
+					I,
+					erts_debug_dirty_cpu_2,
+					ERTS_SCHED_DIRTY_CPU,
+					am_erts_debug,
+					am_dirty_cpu,
+					2);
+		break;
+	    case am_normal:
+		argv[0] = am_normal;
+		argv[1] = arg1;
+		argv[2] = eint;
+		ret = erts_schedule_bif(c_p,
+					argv,
+					I,
+					erts_debug_dirty_3,
+					ERTS_SCHED_NORMAL,
+					am_erts_debug,
+					am_dirty,
+					3);
+		break;
+	    default:
+		goto badarg;
+	    }
+	}
+    }
+    else if (ERTS_IS_ATOM_STR("ready_wait6_done", arg1)) {
+	ERTS_DECL_AM(ready);
+	ERTS_DECL_AM(done);
+	dirty_send_message(c_p, arg2, AM_ready);
+	ms_wait(c_p, make_small(6000), 0);
+	dirty_send_message(c_p, arg2, AM_done);
+	ERTS_BIF_PREP_RET(ret, am_ok);
+    }
+    else if (ERTS_IS_ATOM_STR("alive_waitexiting", arg1)) {
+	Process *real_c_p = erts_proc_shadow2real(c_p);
+	Eterm *hp, *hp2;
+	Uint sz;
+	int i;
+	ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
+        int dirty_io = esdp->type == ERTS_SCHED_DIRTY_IO;
+
+	if (ERTS_PROC_IS_EXITING(real_c_p))
+	    goto badarg;
+	dirty_send_message(c_p, arg2, am_alive);
+
+	/* Wait until dead */
+	while (!ERTS_PROC_IS_EXITING(real_c_p)) {
+            if (dirty_io)
+                ms_wait(c_p, make_small(100), 0);
+            else
+                erts_thr_yield();
+        }
+
+	ms_wait(c_p, make_small(1000), 0);
+
+	/* Should still be able to allocate memory */
+	hp = HAlloc(c_p, 3); /* Likely on heap */
+	sz = 10000;
+	hp2 = HAlloc(c_p, sz); /* Likely in heap fragment */
+	*hp2 = make_pos_bignum_header(sz);
+	for (i = 1; i < sz; i++)
+	    hp2[i] = (Eterm) 4711;
+	ERTS_BIF_PREP_RET(ret, TUPLE2(hp, am_ok, make_big(hp2)));
+    }
+    else {
+    badarg:
+	ERTS_BIF_PREP_ERROR(ret, c_p, BADARG);
+    }
+#else
+    ERTS_BIF_PREP_ERROR(ret, c_p, EXC_UNDEF);
+#endif
+    return ret;
+}
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+
+static int
+dirty_send_message(Process *c_p, Eterm to, Eterm tag)
+{
+    ErtsProcLocks c_p_locks, rp_locks;
+    Process *rp, *real_c_p;
+    Eterm msg, *hp;
+    ErlOffHeap *ohp;
+    ErtsMessage *mp;
+
+    ASSERT(is_immed(tag));
+
+    real_c_p = erts_proc_shadow2real(c_p);
+    if (real_c_p != c_p)
+	c_p_locks = 0;
+    else
+	c_p_locks = ERTS_PROC_LOCK_MAIN;
+
+    ASSERT(real_c_p->common.id == c_p->common.id);
+
+    rp = erts_pid2proc_opt(real_c_p, c_p_locks,
+			   to, 0,
+			   ERTS_P2P_FLG_INC_REFC);
+
+    if (!rp)
+	return 0;
+
+    rp_locks = 0;
+    mp = erts_alloc_message_heap(rp, &rp_locks, 3, &hp, &ohp);
+
+    msg = TUPLE2(hp, tag, c_p->common.id);
+    erts_queue_message(rp, rp_locks, mp, msg, c_p->common.id);
+
+    if (rp == real_c_p)
+	rp_locks &= ~c_p_locks;
+    if (rp_locks)
+	erts_smp_proc_unlock(rp, rp_locks);
+
+    erts_proc_dec_refc(rp);
+
+    return 1;
+}
+
+static int
+ms_wait(Process *c_p, Eterm etimeout, int busy)
+{
+    ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
+    ErtsMonotonicTime time, timeout_time;
+    Sint64 ms;
+
+    if (!term_to_Sint64(etimeout, &ms))
+	return 0;
+
+    time = erts_get_monotonic_time(esdp);
+
+    if (ms < 0)
+	timeout_time = time;
+    else
+	timeout_time = time + ERTS_MSEC_TO_MONOTONIC(ms);
+
+    while (time < timeout_time) {
+	if (busy)
+	    erts_thr_yield();
+	else {
+	    ErtsMonotonicTime timeout = timeout_time - time;
+
+#ifdef __WIN32__
+	    Sleep((DWORD) ERTS_MONOTONIC_TO_MSEC(timeout));
+#else
+	    {
+		ErtsMonotonicTime to = ERTS_MONOTONIC_TO_USEC(timeout);
+		struct timeval tv;
+
+		tv.tv_sec = (long) to / (1000*1000);
+		tv.tv_usec = (long) to % (1000*1000);
+
+		select(0, NULL, NULL, NULL, &tv);
+	    }
+#endif
+	}
+
+	time = erts_get_monotonic_time(esdp);
+    }
+    return 1;
+}
+
+#endif /* ERTS_DIRTY_SCHEDULERS */
