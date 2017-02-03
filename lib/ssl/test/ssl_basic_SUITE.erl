@@ -83,13 +83,13 @@ groups() ->
     ].
 
 tls_versions_groups ()->
-    [{group, api_tls},
+    [{group, renegotiate}, %% Should be in all_versions_groups not fixed for DTLS yet
+     {group, api_tls},
      {group, tls_ciphers},
      {group, error_handling_tests_tls}].
 
 all_versions_groups ()->
     [{group, api},
-     %%{group, renegotiate},
      {group, ciphers},
      {group, ciphers_ec},
      {group, error_handling_tests}].
@@ -3336,11 +3336,11 @@ hibernate(Config) ->
         process_info(Pid, current_function),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
+    
     timer:sleep(1500),
-
     {current_function, {erlang, hibernate, 3}} =
 	process_info(Pid, current_function),
-
+    
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -3373,13 +3373,12 @@ hibernate_right_away(Config) ->
                     [{port, Port1}, {options, [{hibernate_after, 0}|ClientOpts]}]),
 
     ssl_test_lib:check_result(Server1, ok, Client1, ok),
-
-    {current_function, {erlang, hibernate, 3}} =
+  
+     {current_function, {erlang, hibernate, 3}} =
 	process_info(Pid1, current_function),
-
     ssl_test_lib:close(Server1),
     ssl_test_lib:close(Client1),
-
+    
     Server2 = ssl_test_lib:start_server(StartServerOpts),
     Port2 = ssl_test_lib:inet_port(Server2),
     {Client2, #sslsocket{pid = Pid2}} = ssl_test_lib:start_client(StartClientOpts ++
@@ -3387,8 +3386,8 @@ hibernate_right_away(Config) ->
 
     ssl_test_lib:check_result(Server2, ok, Client2, ok),
 
-    timer:sleep(1000), %% Schedule out
-
+    ct:sleep(1000), %% Schedule out
+    
     {current_function, {erlang, hibernate, 3}} =
 	process_info(Pid2, current_function),
 

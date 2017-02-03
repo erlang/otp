@@ -434,11 +434,11 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
         verified ->
 	    ConnectionStates1 =
 		ssl_record:set_server_verify_data(current_read, Data, ConnectionStates0),
-	    State1 =
+	    {State1, Actions} =
 		finalize_handshake(State0#state{connection_states = ConnectionStates1},
 				   abbreviated, Connection),
 	    {Record, State} = prepare_connection(State1#state{expecting_finished = false}, Connection),
-	    Connection:next_event(connection, Record, State);
+	    Connection:next_event(connection, Record, State, Actions);
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, abbreviated, State0)
     end;
@@ -858,6 +858,7 @@ handle_common_event(internal, #change_cipher_spec{type = <<1>>}, StateName,
 				StateName, State);
 handle_common_event(_Type, Msg, StateName, #state{negotiated_version = Version} = State, 
 		    _) ->
+    ct:pal("Unexpected msg ~p", [Msg]),
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE),
     handle_own_alert(Alert, Version, {StateName, Msg}, State).
 
@@ -1238,13 +1239,13 @@ new_server_hello(#server_hello{cipher_suite = CipherSuite,
 		       negotiated_version = Version} = State0, Connection) ->
     try server_certify_and_key_exchange(State0, Connection) of
         #state{} = State1 ->
-            State2 = server_hello_done(State1, Connection),
+            {State2, Actions} = server_hello_done(State1, Connection),
 	    Session =
 		Session0#session{session_id = SessionId,
 				 cipher_suite = CipherSuite,
 				 compression_method = Compression},
 	    {Record, State} = Connection:next_record(State2#state{session = Session}),
-	    Connection:next_event(certify, Record, State)
+	    Connection:next_event(certify, Record, State, Actions)
     catch
         #alert{} = Alert ->
 	    handle_own_alert(Alert, Version, hello, State0)
@@ -1259,10 +1260,10 @@ resumed_server_hello(#state{session = Session,
 	{_, ConnectionStates1} ->
 	    State1 = State0#state{connection_states = ConnectionStates1,
 				  session = Session},
-	    State2 =
+	    {State2, Actions} =
 		finalize_handshake(State1, abbreviated, Connection),
 	    {Record, State} = Connection:next_record(State2),
-	    Connection:next_event(abbreviated, Record, State);
+	    Connection:next_event(abbreviated, Record, State, Actions);
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, hello, State0)
     end.
@@ -1345,12 +1346,12 @@ client_certify_and_key_exchange(#state{negotiated_version = Version} =
 				State0, Connection) ->
     try do_client_certify_and_key_exchange(State0, Connection) of
         State1 = #state{} ->
-	    State2 = finalize_handshake(State1, certify, Connection),
+	    {State2, Actions} = finalize_handshake(State1, certify, Connection),
             State3 = State2#state{
 		       %% Reinitialize
 		       client_certificate_requested = false},
 	    {Record, State} = Connection:next_record(State3),
-	    Connection:next_event(cipher, Record, State)
+	    Connection:next_event(cipher, Record, State, Actions)
     catch
         throw:#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, certify, State0)
@@ -1872,11 +1873,11 @@ cipher_role(server, Data, Session,  #state{connection_states = ConnectionStates0
 	    Connection) ->
     ConnectionStates1 = ssl_record:set_client_verify_data(current_read, Data, 
 							  ConnectionStates0),
-    State1 =
+    {State1, Actions} =
 	finalize_handshake(State0#state{connection_states = ConnectionStates1,
 					session = Session}, cipher, Connection),
     {Record, State} = prepare_connection(State1, Connection),
-    Connection:next_event(connection, Record, State).
+    Connection:next_event(connection, Record, State, Actions).
 
 is_anonymous(Algo) when Algo == dh_anon;
 			Algo == ecdh_anon;
