@@ -277,7 +277,7 @@ Eshell V5.7.3  (abort with ^G)
                         disk_log_sup,dist_ac,dist_util,erl_boot_server|...]},
              {path,["$ROOT/lib/stdlib-1.16/ebin"]},
              {primLoad,[array,base64,beam_lib,c,calendar,dets,
-                        dets_server,dets_sup,dets_utils,dets_v8,dets_v9,dict|...]},
+                        dets_server,dets_sup,dets_utils,dets_v9,dict|...]},
              {path,["$ROOT/lib/sasl-2.1.6/ebin"]},
              {primLoad,[alarm_handler,erlsrv,format_lib_supp,misc_supp,
                         overload,rb,rb_format_supp,release_handler,

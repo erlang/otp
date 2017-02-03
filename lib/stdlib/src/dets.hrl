@@ -21,7 +21,7 @@
 -define(DEFAULT_MIN_NO_SLOTS, 256).
 -define(DEFAULT_MAX_NO_SLOTS, 32*1024*1024).
 -define(DEFAULT_AUTOSAVE, 3). % minutes
--define(DEFAULT_CACHE, {3000, 14000}). % {delay,size} in {milliseconds,bytes}
+-define(DEFAULT_CACHE, {3000, 14000}). % cache_parms()
 
 %% Type.
 -define(SET, 1).
@@ -46,83 +46,111 @@
 
 -define(DETS_CALL(Pid, Req), {'$dets_call', Pid, Req}).
 
+-type access()      :: 'read' | 'read_write'.
+-type auto_save()   :: 'infinity' | non_neg_integer().
+-type hash_bif()    :: 'phash' | 'phash2'.
+-type keypos()      :: pos_integer().
+-type no_colls()    :: [{LogSize :: non_neg_integer(),
+                         NoCollections :: non_neg_integer()}].
+-type no_slots()    :: 'default' | non_neg_integer().
+-type tab_name()    :: term().
+-type type()        :: 'bag' | 'duplicate_bag' | 'set'.
+-type update_mode() :: 'dirty'
+                     | 'new_dirty'
+                     | 'saved'
+                     | {'error', Reason :: term()}.
+
 %% Record holding the file header and more.
 -record(head,  {
-	  m,               % size
-	  m2,              % m * 2
-	  next,            % next position for growth (segm mgmt only)
-	  fptr,            % the file descriptor
-	  no_objects,      % number of objects in table,
-	  no_keys,         % number of keys (version 9 only)
-	  maxobjsize,      % 2-log of the size of the biggest object
-                           % collection (version 9 only)
+	  m :: non_neg_integer(),    % size
+	  m2 :: non_neg_integer(),   % m * 2
+	  next :: non_neg_integer(), % next position for growth
+                                     % (segm mgmt only)
+	  fptr :: file:fd(),         % the file descriptor
+	  no_objects :: non_neg_integer() , % number of objects in table,
+	  no_keys :: non_neg_integer(),     % number of keys
+	  maxobjsize :: 'undefined' | non_neg_integer(), % 2-log of
+                           % the size of the biggest object collection
 	  n,               % split indicator
-	  type,            % set | bag | duplicate_bag
-	  keypos,          % default is 1 as for ets
-	  freelists,       % tuple of free lists of buddies
-	                   % if fixed =/= false, then a pair of freelists
-	  freelists_p,     % cached FreelistsPointer
-	  no_collections,  % [{LogSize,NoCollections}] | undefined; number of
-	                   % object collections per size (version 9(b))
-	  auto_save,       % Integer | infinity 
-	  update_mode,     % saved | dirty | new_dirty | {error, Reason}
-	  fixed = false,   % false | {now_time(), [{pid(),Counter}]}
-                           % time of first fix, and number of fixes per process
-	  hash_bif,        % hash bif used for this file (phash2, phash, hash)
-          has_md5,         % whether the header has an MD5 sum (version 9(c))
-	  min_no_slots,    % minimum number of slots (default or integer)
-	  max_no_slots,    % maximum number of slots (default or integer)
-	  cache,           % cache(). Write cache.
+	  type :: type(),
+	  keypos :: keypos(), % default is 1 as for ets
+	  freelists :: 'undefined'
+                     | tuple(), % tuple of free lists of buddies
+	                        % if fixed =/= false, then a pair of freelists
+	  freelists_p :: 'undefined'
+                       | non_neg_integer(),  % cached FreelistsPointer
+	  no_collections :: 'undefined'
+                          | no_colls(), % number of object collections
+                                        % per size (version 9(b))
+	  auto_save :: auto_save(),
+	  update_mode :: update_mode(),
+	  fixed = false :: 'false'
+                         | {{integer(), integer()}, % time of first fix,
+                            [{pid(),   % and number of fixes per process
+                              non_neg_integer()}]},
+	  hash_bif :: hash_bif(),  % hash bif used for this file
+          has_md5 :: boolean(),    % whether the header has
+                                   % an MD5 sum (version 9(c))
+	  min_no_slots :: no_slots(),  % minimum number of slots
+	  max_no_slots :: no_slots(),  % maximum number of slots
+	  cache :: 'undefined' | cache(), % Write cache.
 
-	  filename,             % name of the file being used
-	  access = read_write,  % read | read_write
-	  ram_file = false,     % true | false
-	  name,                 % the name of the table
+	  filename :: file:name(), % name of the file being used
+	  access = read_write :: access(),
+	  ram_file = false :: boolean(),
+	  name :: tab_name(),      % the name of the table
 
-	  parent,               % The supervisor of Dets processes.
-	  server,               % The creator of Dets processes.
+	  parent :: 'undefined' | pid(), % The supervisor of Dets processes.
+	  server :: 'undefined' | pid(), % The creator of Dets processes.
 
-          %% Depending on the file format:
-          version,
-          mod,
-          bump,
-          base
+          bump :: non_neg_integer(),
+          base :: non_neg_integer()
 
 	 }).
 
 %% Info extracted from the file header.
 -record(fileheader, {
-	  freelist,
-          fl_base,
-	  cookie,
-	  closed_properly,
-	  type,
-	  version,
-	  m,
-	  next,
-	  keypos,
-	  no_objects,
-	  no_keys,
-	  min_no_slots,
-	  max_no_slots,
-	  no_colls,
-	  hash_method,
-          read_md5,
-          has_md5,
-          md5,
-	  trailer,
-	  eof,
-	  n,
-	  mod
+	  freelist :: non_neg_integer(),
+          fl_base :: non_neg_integer(),
+	  cookie :: non_neg_integer(),
+	  closed_properly :: non_neg_integer(),
+	  type :: 'badtype' | type(),
+	  version :: non_neg_integer(),
+	  m :: non_neg_integer(),
+	  next :: non_neg_integer(),
+	  keypos :: keypos(),
+	  no_objects :: non_neg_integer(),
+	  no_keys :: non_neg_integer(),
+	  min_no_slots :: non_neg_integer(),
+	  max_no_slots :: non_neg_integer(),
+	  no_colls :: 'undefined' | no_colls(),
+	  hash_method :: non_neg_integer(),
+          read_md5 :: binary(),
+          has_md5 :: boolean(),
+          md5 :: binary(),
+	  trailer :: non_neg_integer(),
+	  eof :: non_neg_integer(),
+	  n
 	}).
+
+-type delay() :: non_neg_integer().
+-type threshold() :: non_neg_integer().
+-type cache_parms() ::
+        {Delay :: delay(), % max time items are kept in RAM only,
+                           % in milliseconds
+         Size :: threshold()}. % threshold size of cache, in bytes
 
 %% Write Cache.
 -record(cache, {
-	 cache,   % [{Key,{Seq,Item}}], write cache, last item first
-         csize,   % current size of the cached items
-         inserts, % upper limit on number of inserted keys
-	 wrtime,  % last write or update time
-	 tsize,   % threshold size of cache, in bytes
-	 delay    % max time items are kept in RAM only, in milliseconds
+	 cache :: % write cache, last item first
+                 [{Key :: term(),
+                   {Seq :: non_neg_integer(), Item :: term()}}],
+         csize :: non_neg_integer(), % current size of the cached items
+         inserts :: % upper limit on number of inserted keys
+                    non_neg_integer(),
+	 wrtime :: 'undefined' | integer(),  % last write or update time
+	 tsize :: threshold(), % threshold size of cache
+	 delay :: delay()      % max time items are kept in RAM only
 	 }).
 
+-type cache() :: #cache{}.

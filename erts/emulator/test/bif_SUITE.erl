@@ -32,7 +32,8 @@
 	 binary_to_atom/1,binary_to_existing_atom/1,
 	 atom_to_binary/1,min_max/1, erlang_halt/1,
          erl_crash_dump_bytes/1,
-	 is_builtin/1]).
+	 is_builtin/1, error_stacktrace/1,
+	 error_stacktrace_during_call_trace/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -44,8 +45,8 @@ all() ->
      t_list_to_existing_atom, os_env, otp_7526,
      display,
      atom_to_binary, binary_to_atom, binary_to_existing_atom,
-     erl_crash_dump_bytes,
-     min_max, erlang_halt, is_builtin].
+     erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
+     error_stacktrace, error_stacktrace_during_call_trace].
 
 %% Uses erlang:display to test that erts_printf does not do deep recursion
 display(Config) when is_list(Config) ->
@@ -726,6 +727,172 @@ is_builtin(_Config) ->
     _ = [false = erlang:is_builtin(M, F, A) || {M,F,A} <- NotBuiltin],
 
     ok.
+
+error_stacktrace(Config) when is_list(Config) ->
+    error_stacktrace_test().
+
+error_stacktrace_during_call_trace(Config) when is_list(Config) ->
+    Tracer = spawn_link(fun () ->
+				receive after infinity -> ok end
+			end),
+    Mprog = [{'_',[],[{exception_trace}]}],
+    erlang:trace_pattern({?MODULE,'_','_'}, Mprog, [local]),
+    1 = erlang:trace_pattern({erlang,error,2}, Mprog, [local]),
+    1 = erlang:trace_pattern({erlang,error,1}, Mprog, [local]),
+    erlang:trace(all, true, [call,return_to,timestamp,{tracer, Tracer}]),
+    try
+	error_stacktrace_test()
+    after
+	erlang:trace(all, false, [call,return_to,timestamp,{tracer, Tracer}]),
+	erlang:trace_pattern({erlang,error,2}, false, [local]),
+	erlang:trace_pattern({erlang,error,1}, false, [local]),
+	erlang:trace_pattern({?MODULE,'_','_'}, false, [local]),
+	unlink(Tracer),
+	exit(Tracer, kill),
+	Mon = erlang:monitor(process, Tracer),
+	receive
+	    {'DOWN', Mon, process, Tracer, _} -> ok
+	end
+    end,
+    ok.
+    
+
+error_stacktrace_test() ->
+    Types = [apply_const_last, apply_const, apply_last,
+	     apply, double_apply_const_last, double_apply_const,
+	     double_apply_last, double_apply, multi_apply_const_last,
+	     multi_apply_const, multi_apply_last, multi_apply,
+	     call_const_last, call_last, call_const, call],
+    lists:foreach(fun (Type) ->
+			  {Pid, Mon} = spawn_monitor(
+					 fun () ->
+						 stk([a,b,c,d], Type, error_2)
+					 end),
+			  receive
+			      {'DOWN', Mon, process, Pid, Reason} ->
+				  {oops, Stack} = Reason,
+%%				  io:format("Type: ~p Stack: ~p~n",
+%%					    [Type, Stack]),
+				  [{?MODULE, do_error_2, [Type], _},
+				   {?MODULE, stk, 3, _},
+				   {?MODULE, stk, 3, _}] = Stack
+			  end
+		  end,
+		  Types),
+    lists:foreach(fun (Type) ->
+			  {Pid, Mon} = spawn_monitor(
+					 fun () ->
+						 stk([a,b,c,d], Type, error_1)
+					 end),
+			  receive
+			      {'DOWN', Mon, process, Pid, Reason} ->
+				  {oops, Stack} = Reason,
+%%				  io:format("Type: ~p Stack: ~p~n",
+%%					    [Type, Stack]),
+				  [{?MODULE, do_error_1, 1, _},
+				   {?MODULE, stk, 3, _},
+				   {?MODULE, stk, 3, _}] = Stack
+			  end
+		  end,
+		  Types),
+    ok.
+
+stk([], Type, Func) ->
+    tail(Type, Func, jump),
+    ok;
+stk([_|L], Type, Func) ->
+    stk(L, Type, Func),
+    ok.
+
+tail(Type, Func, jump) ->
+    tail(Type, Func, do);
+tail(Type, error_1, do) ->
+    do_error_1(Type);
+tail(Type, error_2, do) ->
+    do_error_2(Type).
+
+do_error_2(apply_const_last) ->
+    erlang:apply(erlang, error, [oops, [apply_const_last]]);
+do_error_2(apply_const) ->
+    erlang:apply(erlang, error, [oops, [apply_const]]),
+    ok;
+do_error_2(apply_last) ->
+    erlang:apply(id(erlang), id(error), id([oops, [apply_last]]));
+do_error_2(apply) ->
+    erlang:apply(id(erlang), id(error), id([oops, [apply]])),
+    ok;
+do_error_2(double_apply_const_last) ->
+    erlang:apply(erlang, apply, [erlang, error, [oops, [double_apply_const_last]]]);
+do_error_2(double_apply_const) ->
+    erlang:apply(erlang, apply, [erlang, error, [oops, [double_apply_const]]]),
+    ok;
+do_error_2(double_apply_last) ->
+    erlang:apply(id(erlang), id(apply), [id(erlang), id(error), id([oops, [double_apply_last]])]);
+do_error_2(double_apply) ->
+    erlang:apply(id(erlang), id(apply), [id(erlang), id(error), id([oops, [double_apply]])]),
+    ok;
+do_error_2(multi_apply_const_last) ->
+    erlang:apply(erlang, apply, [erlang, apply, [erlang, apply, [erlang, error, [oops, [multi_apply_const_last]]]]]);
+do_error_2(multi_apply_const) ->
+    erlang:apply(erlang, apply, [erlang, apply, [erlang, apply, [erlang, error, [oops, [multi_apply_const]]]]]),
+    ok;
+do_error_2(multi_apply_last) ->
+    erlang:apply(id(erlang), id(apply), [id(erlang), id(apply), [id(erlang), id(apply), [id(erlang), id(error), id([oops, [multi_apply_last]])]]]);
+do_error_2(multi_apply) ->
+    erlang:apply(id(erlang), id(apply), [id(erlang), id(apply), [id(erlang), id(apply), [id(erlang), id(error), id([oops, [multi_apply]])]]]),
+    ok;
+do_error_2(call_const_last) ->
+    erlang:error(oops, [call_const_last]);
+do_error_2(call_last) ->
+    erlang:error(id(oops), id([call_last]));
+do_error_2(call_const) ->
+    erlang:error(oops, [call_const]),
+    ok;
+do_error_2(call) ->
+    erlang:error(id(oops), id([call])).
+
+
+do_error_1(apply_const_last) ->
+    erlang:apply(erlang, error, [oops]);
+do_error_1(apply_const) ->
+    erlang:apply(erlang, error, [oops]),
+    ok;
+do_error_1(apply_last) ->
+    erlang:apply(id(erlang), id(error), id([oops]));
+do_error_1(apply) ->
+    erlang:apply(id(erlang), id(error), id([oops])),
+    ok;
+do_error_1(double_apply_const_last) ->
+    erlang:apply(erlang, apply, [erlang, error, [oops]]);
+do_error_1(double_apply_const) ->
+    erlang:apply(erlang, apply, [erlang, error, [oops]]),
+    ok;
+do_error_1(double_apply_last) ->
+    erlang:apply(id(erlang), id(apply), [id(erlang), id(error), id([oops])]);
+do_error_1(double_apply) ->
+    erlang:apply(id(erlang), id(apply), [id(erlang), id(error), id([oops])]),
+    ok;
+do_error_1(multi_apply_const_last) ->
+    erlang:apply(erlang, apply, [erlang, apply, [erlang, apply, [erlang, error, [oops]]]]);
+do_error_1(multi_apply_const) ->
+    erlang:apply(erlang, apply, [erlang, apply, [erlang, apply, [erlang, error, [oops]]]]),
+    ok;
+do_error_1(multi_apply_last) ->
+    erlang:apply(id(erlang), id(apply), [id(erlang), id(apply), [id(erlang), id(apply), [id(erlang), id(error), id([oops])]]]);
+do_error_1(multi_apply) ->
+    erlang:apply(id(erlang), id(apply), [id(erlang), id(apply), [id(erlang), id(apply), [id(erlang), id(error), id([oops])]]]),
+    ok;
+do_error_1(call_const_last) ->
+    erlang:error(oops);
+do_error_1(call_last) ->
+    erlang:error(id(oops));
+do_error_1(call_const) ->
+    erlang:error(oops),
+    ok;
+do_error_1(call) ->
+    erlang:error(id(oops)).
+
+
 
 
 %% Helpers

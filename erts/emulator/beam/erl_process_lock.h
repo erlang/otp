@@ -940,6 +940,8 @@ void erts_proc_safelock(Process *a_proc,
 #define erts_pid2proc(PROC, HL, PID, NL) \
   erts_pid2proc_opt((PROC), (HL), (PID), (NL), 0)
 
+Process *erts_proc_lookup_inc_refc(Eterm pid);
+Process *erts_proc_lookup_raw_inc_refc(Eterm pid);
 
 ERTS_GLB_INLINE Process *erts_pix2proc(int ix);
 ERTS_GLB_INLINE Process *erts_proc_lookup_raw(Eterm pid);

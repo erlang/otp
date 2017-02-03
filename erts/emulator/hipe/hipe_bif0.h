@@ -30,7 +30,7 @@ extern Uint *hipe_bifs_find_pc_from_mfa(Eterm mfa);
 
 extern void hipe_mfa_info_table_init(void);
 extern void *hipe_get_remote_na(Eterm m, Eterm f, unsigned int a);
-extern BIF_RETTYPE hipe_find_na_or_make_stub(BIF_ALIST_3);
+extern BIF_RETTYPE nbif_impl_hipe_find_na_or_make_stub(NBIF_ALIST_3);
 extern int hipe_find_mfa_from_ra(const void *ra, Eterm *m, Eterm *f, unsigned int *a);
 
 /* needed in beam_load.c */

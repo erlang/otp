@@ -60,7 +60,7 @@ init(_O) ->
     StartFunc = {dtls_connection, start_link, []},
     Restart = temporary, % E.g. should not be restarted
     Shutdown = 4000,
-    Modules = [dtls_connection],
+    Modules = [dtls_connection, ssl_connection],
     Type = worker,
     
     ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},

@@ -199,6 +199,4 @@ close(#state{server = Server,
 		connection = undefined}.
 
 
-random_contents() -> list_to_binary( random_chars(3) ).
-
-random_chars(N) -> [crypto:rand_uniform($a,$z) || _<-lists:duplicate(N,x)].
+random_contents() -> list_to_binary( ssh_test_lib:random_chars(3) ).

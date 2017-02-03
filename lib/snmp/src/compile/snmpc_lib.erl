@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ make_ASN1type({{type_with_size,Type,{range,Lo,Hi}},Line}) ->
 	    print_error("Undefined type '~w'",[Type],Line),
 	    guess_string_type()
     end;
-make_ASN1type({{integer_with_enum,Type,Enums},Line}) ->
+make_ASN1type({{type_with_enum,Type,Enums},Line}) ->
     case lookup_vartype(Type) of
         {value,ASN1type} ->  ASN1type#asn1_type{assocList = [{enums, Enums}]};
 	false ->

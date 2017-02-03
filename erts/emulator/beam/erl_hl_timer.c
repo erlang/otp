@@ -2666,7 +2666,7 @@ erts_start_timer_callback(ErtsMonotonicTime tmo,
 				  tmo);
     twt = tmo < ERTS_TIMER_WHEEL_MSEC;
 
-    if (esdp)
+    if (esdp && !ERTS_SCHEDULER_IS_DIRTY(esdp))
 	start_callback_timer(esdp,
 			     twt,
 			     timeout_pos,
@@ -2865,7 +2865,8 @@ btm_print(ErtsHLTimer *tmr, void *vbtmp)
 
     if (tmr->timeout <= btmp->now)
 	left = 0;
-    left = ERTS_CLKTCKS_TO_MSEC(tmr->timeout - btmp->now);
+    else
+        left = ERTS_CLKTCKS_TO_MSEC(tmr->timeout - btmp->now);
 
     receiver = ((tmr->head.roflgs & ERTS_TMR_ROFLG_REG_NAME)
 		? tmr->receiver.name

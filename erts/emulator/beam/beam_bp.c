@@ -32,6 +32,7 @@
 #include "erl_binary.h"
 #include "beam_bp.h"
 #include "erl_term.h"
+#include "erl_nfunc_sched.h"
 
 /* *************************************************************************
 ** Macros
@@ -74,6 +75,9 @@ extern BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
 
 erts_smp_atomic32_t erts_active_bp_index;
 erts_smp_atomic32_t erts_staging_bp_index;
+#ifdef ERTS_DIRTY_SCHEDULERS
+erts_smp_mtx_t erts_dirty_bp_ix_mtx;
+#endif
 
 /*
  * Inlined helpers
@@ -84,6 +88,31 @@ get_mtime(Process *c_p)
 {
     return erts_get_monotonic_time(erts_proc_sched_data(c_p));
 }
+
+static ERTS_INLINE Uint32
+acquire_bp_sched_ix(Process *c_p)
+{
+    ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
+    ASSERT(esdp);
+#ifdef ERTS_DIRTY_SCHEDULERS
+    if (ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+	erts_smp_mtx_lock(&erts_dirty_bp_ix_mtx);
+        return (Uint32) erts_no_schedulers;
+    }
+#endif
+    return (Uint32) esdp->no - 1;
+}
+
+static ERTS_INLINE void
+release_bp_sched_ix(Uint32 ix)
+{
+#ifdef ERTS_DIRTY_SCHEDULERS
+    if (ix == (Uint32) erts_no_schedulers)
+        erts_smp_mtx_unlock(&erts_dirty_bp_ix_mtx);
+#endif
+}
+
+
 
 /* *************************************************************************
 ** Local prototypes
@@ -135,6 +164,9 @@ void
 erts_bp_init(void) {
     erts_smp_atomic32_init_nob(&erts_active_bp_index, 0);
     erts_smp_atomic32_init_nob(&erts_staging_bp_index, 1);
+#ifdef ERTS_DIRTY_SCHEDULERS
+    erts_smp_mtx_init(&erts_dirty_bp_ix_mtx, "dirty_break_point_index");
+#endif
 }
 
 
@@ -774,6 +806,30 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 
     result = func(p, args, I);
 
+    if (erts_nif_export_check_save_trace(p, result,
+					 applying, ep,
+					 cp, flags,
+					 flags_meta, I,
+					 meta_tracer)) {
+	/*
+	 * erts_bif_trace_epilogue() will be called
+	 * later when appropriate via the NIF export
+	 * scheduling functionality...
+	 */
+	return result;
+    }
+
+    return erts_bif_trace_epilogue(p, result, applying, ep, cp,
+				   flags, flags_meta, I,
+				   meta_tracer);
+}
+
+Eterm
+erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
+			Export* ep, BeamInstr *cp, Uint32 flags,
+			Uint32 flags_meta, BeamInstr* I,
+			ErtsTracer meta_tracer)
+{
     if (applying && (flags & MATCH_SET_RETURN_TO_TRACE)) {
 	BeamInstr i_return_trace      = beam_return_trace[0];
 	BeamInstr i_return_to_trace   = beam_return_to_trace[0];
@@ -983,6 +1039,7 @@ erts_trace_time_call(Process* c_p, ErtsCodeInfo *info, BpDataTime* bdt)
     bp_data_time_item_t sitem, *item = NULL;
     bp_time_hash_t *h = NULL;
     BpDataTime *pbdt = NULL;
+    Uint32 six = acquire_bp_sched_ix(c_p);
 
     ASSERT(c_p);
     ASSERT(erts_smp_atomic32_read_acqb(&c_p->state) & (ERTS_PSFLG_RUNNING
@@ -990,7 +1047,7 @@ erts_trace_time_call(Process* c_p, ErtsCodeInfo *info, BpDataTime* bdt)
 
     /* get previous timestamp and breakpoint
      * from the process psd  */
-
+    
     pbt = ERTS_PROC_GET_CALL_TIME(c_p);
     time = get_mtime(c_p);
 
@@ -1016,7 +1073,7 @@ erts_trace_time_call(Process* c_p, ErtsCodeInfo *info, BpDataTime* bdt)
 
 	/* if null then the breakpoint was removed */
 	if (pbdt) {
-	    h = &(pbdt->hash[bp_sched2ix_proc(c_p)]);
+	    h = &(pbdt->hash[six]);
 
 	    ASSERT(h);
 	    ASSERT(h->item);
@@ -1037,7 +1094,7 @@ erts_trace_time_call(Process* c_p, ErtsCodeInfo *info, BpDataTime* bdt)
 
     /* this breakpoint */
     ASSERT(bdt);
-    h = &(bdt->hash[bp_sched2ix_proc(c_p)]);
+    h = &(bdt->hash[six]);
 
     ASSERT(h);
     ASSERT(h->item);
@@ -1051,6 +1108,8 @@ erts_trace_time_call(Process* c_p, ErtsCodeInfo *info, BpDataTime* bdt)
 
     pbt->ci = info;
     pbt->time = time;
+
+    release_bp_sched_ix(six);
 }
 
 void
@@ -1061,6 +1120,7 @@ erts_trace_time_return(Process *p, ErtsCodeInfo *ci)
     bp_data_time_item_t sitem, *item = NULL;
     bp_time_hash_t *h = NULL;
     BpDataTime *pbdt = NULL;
+    Uint32 six = acquire_bp_sched_ix(p);
 
     ASSERT(p);
     ASSERT(erts_smp_atomic32_read_acqb(&p->state) & (ERTS_PSFLG_RUNNING
@@ -1081,6 +1141,7 @@ erts_trace_time_return(Process *p, ErtsCodeInfo *ci)
      */
 
     if (pbt) {
+
 	/* might have been removed due to
 	 * trace_pattern(false)
 	 */
@@ -1095,7 +1156,8 @@ erts_trace_time_return(Process *p, ErtsCodeInfo *ci)
 
 	/* beware, the trace_pattern might have been removed */
 	if (pbdt) {
-	    h = &(pbdt->hash[bp_sched2ix_proc(p)]);
+
+	    h = &(pbdt->hash[six]);
 
 	    ASSERT(h);
 	    ASSERT(h->item);
@@ -1106,11 +1168,15 @@ erts_trace_time_return(Process *p, ErtsCodeInfo *ci)
 	    } else {
 		BP_TIME_ADD(item, &sitem);
 	    }
+
 	}
 
 	pbt->ci = ci;
 	pbt->time = time;
+
     }
+
+    release_bp_sched_ix(six);
 }
 
 int 
@@ -1362,6 +1428,7 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
     bp_data_time_item_t sitem, *item = NULL;
     bp_time_hash_t *h = NULL;
     BpDataTime *pbdt = NULL;
+    Uint32 six = acquire_bp_sched_ix(p);
 
     ASSERT(p);
 
@@ -1384,7 +1451,7 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
 		sitem.pid   = p->common.id;
 		sitem.count = 0;
 
-		h = &(pbdt->hash[bp_sched2ix_proc(p)]);
+		h = &(pbdt->hash[six]);
 
 		ASSERT(h);
 		ASSERT(h->item);
@@ -1410,6 +1477,8 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
 	    break;
 	}
     } /* pbt */
+
+    release_bp_sched_ix(six);
 }
 
 /* *************************************************************************
@@ -1526,7 +1595,11 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 	ASSERT((bp->flags & ERTS_BPF_TIME_TRACE) == 0);
 	bdt = Alloc(sizeof(BpDataTime));
 	erts_refc_init(&bdt->refc, 1);
-	bdt->n = erts_no_total_schedulers;
+#ifdef ERTS_DIRTY_SCHEDULERS
+	bdt->n = erts_no_schedulers + 1;
+#else
+	bdt->n = erts_no_schedulers;
+#endif
 	bdt->hash = Alloc(sizeof(bp_time_hash_t)*(bdt->n));
 	for (i = 0; i < bdt->n; i++) {
 	    bp_hash_init(&(bdt->hash[i]), 32);

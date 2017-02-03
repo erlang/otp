@@ -42,7 +42,7 @@ TARGET_FILES= \
 
 SPEC_FILES = eldap.spec
 
-# COVER_FILE = eldap.cover
+COVER_FILE = eldap.cover
 
 
 # ----------------------------------------------------

@@ -831,9 +831,12 @@ supported_hash(HashAlg) ->
 
 really_do_hostkey_fingerprint_check(Config, HashAlg) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
-    file:make_dir(UserDir),
+    UserDirServer = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDirServer),
     SysDir = proplists:get_value(data_dir, Config),
+
+    UserDirClient = 
+	ssh_test_lib:create_random_dir(Config), % Ensure no 'known_hosts' disturbs
 
     %% All host key fingerprints.  Trust that public_key has checked the ssh_hostkey_fingerprint
     %% function since that function is used by the ssh client...
@@ -857,7 +860,7 @@ really_do_hostkey_fingerprint_check(Config, HashAlg) ->
 
     %% Start daemon with the public keys that we got fingerprints from
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-					     {user_dir, UserDir},
+					     {user_dir, UserDirServer},
 					     {password, "morot"}]),
     
     FP_check_fun = fun(PeerName, FP) ->
@@ -876,7 +879,7 @@ really_do_hostkey_fingerprint_check(Config, HashAlg) ->
 				       end},
 				      {user, "foo"},
 				      {password, "morot"},
-				      {user_dir, UserDir},
+				      {user_dir, UserDirClient},
 				      {user_interaction, false}]),
     ssh:stop_daemon(Pid).
 

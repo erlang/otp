@@ -25,11 +25,9 @@
 
 /* GC declarations shared by beam/erl_gc.c and hipe/hipe_gc.c */
 
-#include "erl_map.h"
+#define ERTS_POTENTIALLY_LONG_GC_HSIZE (128*1024) /* Words */
 
-#if defined(DEBUG) && !ERTS_GLB_INLINE_INCL_FUNC_DEF
-#  define HARDDEBUG 1
-#endif
+#include "erl_map.h"
 
 #define IS_MOVED_BOXED(x)	(!is_header((x)))
 #define IS_MOVED_CONS(x)	(is_non_value((x)))
@@ -145,9 +143,10 @@ void erts_garbage_collect_hibernate(struct process* p);
 Eterm erts_gc_after_bif_call_lhf(struct process* p, ErlHeapFragment *live_hf_end,
 				 Eterm result, Eterm* regs, Uint arity);
 Eterm erts_gc_after_bif_call(struct process* p, Eterm result, Eterm* regs, Uint arity);
-void erts_garbage_collect_literals(struct process* p, Eterm* literals,
-				   Uint lit_size,
-				   struct erl_off_heap_header* oh);
+int erts_garbage_collect_literals(struct process* p, Eterm* literals,
+				  Uint lit_size,
+				  struct erl_off_heap_header* oh,
+				  int fcalls);
 Uint erts_next_heap_size(Uint, Uint);
 Eterm erts_heap_sizes(struct process* p);
 
@@ -157,5 +156,6 @@ void erts_offset_heap(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_free_heap_frags(struct process* p);
 Eterm erts_max_heap_size_map(Sint, Uint, Eterm **, Uint *);
 int erts_max_heap_size(Eterm, Uint *, Uint *);
+void erts_deallocate_young_generation(Process *c_p);
 
 #endif /* __ERL_GC_H__ */

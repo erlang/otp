@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014-2015. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -137,8 +137,8 @@ void erts_msacc_init_thread(char *type, int id, int managed) {
 void erts_msacc_set_bif_state(ErtsMsAcc *__erts_msacc_cache, Eterm mod, void *fn) {
 
 #ifdef ERTS_MSACC_EXTENDED_BIFS
-#define BIF_LIST(Mod,Func,Arity,FuncAddr,Num)                           \
-    if (fn == &FuncAddr) {                                             \
+#define BIF_LIST(Mod,Func,Arity,BifFuncAddr,FuncAddr,Num)	       \
+    if (fn == &BifFuncAddr) {                                             \
         ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATIC_STATE_COUNT + Num); \
     } else
 #include "erl_bif_list.h"

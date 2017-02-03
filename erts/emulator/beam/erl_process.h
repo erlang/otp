@@ -170,8 +170,14 @@ extern int erts_sched_thread_suggested_stack_size;
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 6))
 #define ERTS_RUNQ_FLG_EXEC \
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 7))
+#define ERTS_RUNQ_FLG_MSB_EXEC \
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 8))
+#define ERTS_RUNQ_FLG_MISC_OP \
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 9))
+#define ERTS_RUNQ_FLG_HALTING \
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 10))
 
-#define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 8)
+#define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 11)
 
 #define ERTS_RUNQ_FLGS_MIGRATION_QMASKS	\
   (ERTS_RUNQ_FLGS_EMIGRATE_QMASK	\
@@ -262,8 +268,9 @@ typedef enum {
 #define ERTS_SSI_FLG_TSE_SLEEPING 	(((erts_aint32_t) 1) << 2)
 #define ERTS_SSI_FLG_WAITING		(((erts_aint32_t) 1) << 3)
 #define ERTS_SSI_FLG_SUSPENDED	 	(((erts_aint32_t) 1) << 4)
+#define ERTS_SSI_FLG_MSB_EXEC	 	(((erts_aint32_t) 1) << 5)
 
-#define ERTS_SSI_FLGS_MAX                                       5
+#define ERTS_SSI_FLGS_MAX                                       6
 
 #define ERTS_SSI_FLGS_SLEEP_TYPE			\
  (ERTS_SSI_FLG_TSE_SLEEPING|ERTS_SSI_FLG_POLL_SLEEPING)
@@ -274,7 +281,8 @@ typedef enum {
 #define ERTS_SSI_FLGS_ALL				\
  (ERTS_SSI_FLGS_SLEEP					\
   | ERTS_SSI_FLG_WAITING				\
-  | ERTS_SSI_FLG_SUSPENDED)
+  | ERTS_SSI_FLG_SUSPENDED                              \
+  | ERTS_SSI_FLG_MSB_EXEC)
 
 /*
  * Keep ERTS_SSI_AUX_WORK flags ordered in expected frequency
@@ -393,6 +401,12 @@ typedef struct {
     Process* last;
 } ErtsRunPrioQueue;
 
+typedef enum {
+    ERTS_SCHED_NORMAL,
+    ERTS_SCHED_DIRTY_CPU,
+    ERTS_SCHED_DIRTY_IO
+} ErtsSchedType;
+
 typedef struct ErtsSchedulerData_ ErtsSchedulerData;
 
 typedef struct ErtsRunQueue_ ErtsRunQueue;
@@ -478,7 +492,6 @@ struct ErtsRunQueue_ {
     erts_smp_atomic32_t len;
     int wakeup_other;
     int wakeup_other_reds;
-    int halt_in_progress;
 
     struct {
 	ErtsProcList *pending_exiters;
@@ -537,13 +550,15 @@ do {								\
 } while (0)
 
 typedef struct {
-    int need; /* "+sbu true" or scheduler_wall_time enabled */
+    union {
+        erts_atomic32_t mod; /* on dirty schedulers */
+        int need; /* "+sbu true" or scheduler_wall_time enabled */
+    } u;
     int enabled;
     Uint64 start;
     struct {
 	Uint64 total;
 	Uint64 start;
-	int currently;
     } working;
 } ErtsSchedWallTime;
 
@@ -642,6 +657,7 @@ struct ErtsSchedulerData_ {
 #endif
     ErtsSchedulerSleepInfo *ssi;
     Process *current_process;
+    ErtsSchedType type;
     Uint no;			/* Scheduler number for normal schedulers */
 #ifdef ERTS_DIRTY_SCHEDULERS
     ErtsDirtySchedId dirty_no;  /* Scheduler number for dirty schedulers */
@@ -838,8 +854,8 @@ typedef struct {
 #define ERTS_PSD_DELAYED_GC_TASK_QS_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_DELAYED_GC_TASK_QS_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
-#define ERTS_PSD_NIF_TRAP_EXPORT_GET_LOCKS ((ErtsProcLocks) 0)
-#define ERTS_PSD_NIF_TRAP_EXPORT_SET_LOCKS ((ErtsProcLocks) 0)
+#define ERTS_PSD_NIF_TRAP_EXPORT_GET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_NIF_TRAP_EXPORT_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
 typedef struct {
     ErtsProcLocks get_locks;
@@ -1060,6 +1076,9 @@ struct process {
     Uint64 bin_old_vheap;	/* Virtual old heap size for binaries */
 
     ErtsProcSysTaskQs *sys_task_qs;
+#ifdef ERTS_DIRTY_SCHEDULERS
+    ErtsProcSysTask *dirty_sys_tasks;
+#endif
 
     erts_smp_atomic32_t state;  /* Process state flags (see ERTS_PSFLG_*) */
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -1384,14 +1403,18 @@ extern int erts_system_profile_ts_type;
 #define F_FORCE_GC           (1 << 10) /* Force gc at process in-scheduling */
 #define F_DISABLE_GC         (1 << 11) /* Disable GC (see below) */
 #define F_OFF_HEAP_MSGQ      (1 << 12) /* Off heap msg queue */
-#define F_ON_HEAP_MSGQ       (1 << 13) /* Off heap msg queue */
+#define F_ON_HEAP_MSGQ       (1 << 13) /* On heap msg queue */
 #define F_OFF_HEAP_MSGQ_CHNG (1 << 14) /* Off heap msg queue changing */
 #define F_ABANDONED_HEAP_USE (1 << 15) /* Have usage of abandoned heap */
 #define F_DELAY_GC           (1 << 16) /* Similar to disable GC (see below) */
 #define F_SCHDLR_ONLN_WAITQ  (1 << 17) /* Process enqueued waiting to change schedulers online */
 #define F_HAVE_BLCKD_NMSCHED (1 << 18) /* Process has blocked normal multi-scheduling */
-#define F_HIPE_MODE          (1 << 19)
+#define F_HIPE_MODE          (1 << 19) /* Process is executing in HiPE mode */
 #define F_DELAYED_DEL_PROC   (1 << 20) /* Delay delete process (dirty proc exit case) */
+#define F_DIRTY_CLA          (1 << 21) /* Dirty copy literal area scheduled */
+#define F_DIRTY_GC_HIBERNATE (1 << 22) /* Dirty GC hibernate scheduled */
+#define F_DIRTY_MAJOR_GC     (1 << 23) /* Dirty major GC scheduled */
+#define F_DIRTY_MINOR_GC     (1 << 24) /* Dirty minor GC scheduled */
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent
@@ -1573,18 +1596,17 @@ void erts_init_scheduling(int, int
 			  , int, int, int
 #endif
 			  );
-
+#ifdef ERTS_DIRTY_SCHEDULERS
+void erts_execute_dirty_system_task(Process *c_p);
+#endif
 int erts_set_gc_state(Process *c_p, int enable);
-Eterm erts_sched_wall_time_request(Process *c_p, int set, int enable);
+Eterm erts_sched_wall_time_request(Process *c_p, int set, int enable,
+                                   int dirty_cpu, int want_dirty_io);
 Eterm erts_system_check_request(Process *c_p);
 Eterm erts_gc_info_request(Process *c_p);
 Uint64 erts_get_proc_interval(void);
 Uint64 erts_ensure_later_proc_interval(Uint64);
 Uint64 erts_step_proc_interval(void);
-
-int erts_setup_nif_gc(Process* proc, Eterm** objv, int* nobj); /* see erl_nif.c */
-void erts_destroy_nif_export(void *); /* see erl_nif.c */
-int erts_check_nif_export_in_area(Process *p, char *start, Uint size);
 
 ErtsProcList *erts_proclist_create(Process *);
 ErtsProcList *erts_proclist_copy(ErtsProcList *);
@@ -1681,7 +1703,7 @@ ERTS_GLB_INLINE ErtsProcList *erts_proclist_fetch_first(ErtsProcList **list)
 	return NULL;
     else {
 	ErtsProcList *res = *list;
-	if (res == *list)
+	if (res->next == *list)
 	    *list = NULL;
 	else
 	    *list = res->next;
@@ -1922,6 +1944,8 @@ ErtsSchedulerData *erts_get_scheduler_data(void)
 void erts_schedule_process(Process *, erts_aint32_t, ErtsProcLocks);
 
 ERTS_GLB_INLINE void erts_proc_notify_new_message(Process *p, ErtsProcLocks locks);
+ERTS_GLB_INLINE void erts_schedule_dirty_sys_execution(Process *c_p);
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE void
 erts_proc_notify_new_message(Process *p, ErtsProcLocks locks)
@@ -1931,6 +1955,34 @@ erts_proc_notify_new_message(Process *p, ErtsProcLocks locks)
     if (!(state & ERTS_PSFLG_ACTIVE))
 	erts_schedule_process(p, state, locks);
 }
+
+ERTS_GLB_INLINE void
+erts_schedule_dirty_sys_execution(Process *c_p)
+{
+    erts_aint32_t a, n, e;
+
+    a = erts_smp_atomic32_read_nob(&c_p->state);
+
+    /*
+     * Only a currently executing process schedules
+     * itself for dirty-sys execution...
+     */
+
+    ASSERT(a & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS));
+
+    /* Don't set dirty-active-sys if we are about to exit... */
+
+    while (!(a & (ERTS_PSFLG_DIRTY_ACTIVE_SYS
+                  | ERTS_PSFLG_EXITING
+                  | ERTS_PSFLG_PENDING_EXIT))) {
+        e = a;
+        n = a | ERTS_PSFLG_DIRTY_ACTIVE_SYS;
+        a = erts_smp_atomic32_cmpxchg_mb(&c_p->state, n, e);
+        if (a == e)
+            break; /* dirty-active-sys set */
+    }
+}
+
 #endif
 
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)

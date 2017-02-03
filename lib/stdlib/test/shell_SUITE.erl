@@ -1794,7 +1794,7 @@ Test1_shell =
 Test2 =
 <<"-module(recs).
           -record(person, {name, age, phone = [], dict = []}).
--compile(export_all).
+-export([t/0]).
 
 t() -> ok.
 
@@ -1961,7 +1961,7 @@ ok.
 progex_funs(Config) when is_list(Config) ->
     Test1 = 
 	<<"-module(funs).
-          -compile(export_all).
+          -export([t/0]).
 
 double([H|T]) -> [2*H|double(T)];
 double([])    -> [].
@@ -2326,7 +2326,7 @@ otp_6554(Config) when is_list(Config) ->
 			  "[unproper | list]).">>),
 	    %% Cheating:
 	    "exception error: no function clause matching "
-		"erl_eval:do_apply(4)" ++ _ =
+		"shell:apply_fun(4)" ++ _ =
 		comm_err(<<"erlang:error(function_clause, [4]).">>),
 		"exception error: no function clause matching "
 		"lists:reverse(" ++ _ =
@@ -3031,7 +3031,7 @@ run_file(Config, Module, Test) ->
     ok.
 
 compile_file(Config, File, Test, Opts0) ->
-    Opts = [export_all,return,{outdir,proplists:get_value(priv_dir, Config)}|Opts0],
+    Opts = [export_all,nowarn_export_all,return,{outdir,proplists:get_value(priv_dir, Config)}|Opts0],
     ok = file:write_file(File, Test),
     case compile:file(File, Opts) of
               {ok, _M, _Ws} -> ok;

@@ -113,19 +113,27 @@ std_simple_exec(Host, Port, Config) ->
     std_simple_exec(Host, Port, Config, []).
 
 std_simple_exec(Host, Port, Config, Opts) ->
+    ct:log("~p:~p std_simple_exec",[?MODULE,?LINE]),
     ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, Opts),
+    ct:log("~p:~p connected! ~p",[?MODULE,?LINE,ConnectionRef]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    success = ssh_connection:exec(ConnectionRef, ChannelId, "23+21-2.", infinity),
-    Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"42\n">>}},
-    case ssh_test_lib:receive_exec_result(Data) of
-	expected ->
-	    ok;
-	Other ->
-	    ct:fail(Other)
-    end,
-    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
-    ssh:close(ConnectionRef).
-
+    ct:log("~p:~p session_channel ok ~p",[?MODULE,?LINE,ChannelId]),
+    ExecResult = ssh_connection:exec(ConnectionRef, ChannelId, "23+21-2.", infinity),
+    ct:log("~p:~p exec ~p",[?MODULE,?LINE,ExecResult]),
+    case ExecResult of
+	success ->
+	    Expected = {ssh_cm, ConnectionRef, {data,ChannelId,0,<<"42\n">>}},
+	    case receive_exec_result(Expected) of
+		expected ->
+		    ok;
+		Other ->
+		    ct:fail(Other)
+	    end,
+	    receive_exec_end(ConnectionRef, ChannelId),
+	    ssh:close(ConnectionRef);
+	_ ->
+	    ct:fail(ExecResult)
+    end.
 
 start_shell(Port, IOServer) ->
     start_shell(Port, IOServer, []).
@@ -834,3 +842,20 @@ get_kex_init(Conn, Ref, TRef) ->
 	    end
     end.
     
+%%%----------------------------------------------------------------
+%%% Return a string with N random characters
+%%%
+random_chars(N) -> [crypto:rand_uniform($a,$z) || _<-lists:duplicate(N,x)].
+
+
+create_random_dir(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Name = filename:join(PrivDir, random_chars(15)),
+    case file:make_dir(Name) of
+	ok -> 
+	    Name;
+	{error,eexist} ->
+	    %% The Name already denotes an existing file system object, try again.
+	    %% The likelyhood of always generating an existing file name is low
+	    create_random_dir(Config)
+    end.

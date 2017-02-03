@@ -437,10 +437,21 @@ t_process_info(Config) when is_list(Config) ->
     verify_loc(Line2, Res2),
     pi_stacktrace([{?MODULE,t_process_info,1,?LINE}]),
 
+    verify_stacktrace_depth(),
+
     Gleader = group_leader(),
     {group_leader, Gleader} = process_info(self(), group_leader),
     {'EXIT',{badarg,_Info}} = (catch process_info('not_a_pid')),
     ok.
+
+verify_stacktrace_depth() ->
+    CS = current_stacktrace,
+    OldDepth = erlang:system_flag(backtrace_depth, 0),
+    {CS,[]} = erlang:process_info(self(), CS),
+    _ = erlang:system_flag(backtrace_depth, 8),
+    {CS,[{?MODULE,verify_stacktrace_depth,0,_},_|_]} =
+        erlang:process_info(self(), CS),
+    _ = erlang:system_flag(backtrace_depth, OldDepth).
 
 pi_stacktrace(Expected0) ->
     {Line,Res} = {?LINE,erlang:process_info(self(), current_stacktrace)},
@@ -1017,9 +1028,9 @@ low_prio(Config) when is_list(Config) ->
 	1 ->
 	    ok = low_prio_test(Config);
 	_ -> 
-	    erlang:system_flag(multi_scheduling, block),
+	    erlang:system_flag(multi_scheduling, block_normal),
 	    ok = low_prio_test(Config),
-	    erlang:system_flag(multi_scheduling, unblock),
+	    erlang:system_flag(multi_scheduling, unblock_normal),
 	    {comment,
 		   "Test not written for SMP runtime system. "
 		   "Multi scheduling blocked during test."}
@@ -1086,9 +1097,9 @@ yield(Config) when is_list(Config) ->
 	     ++ ") is enabled. Testcase gets messed up by modfied "
 	     "timing."};
 	_ ->
-	    MS = erlang:system_flag(multi_scheduling, block),
+	    MS = erlang:system_flag(multi_scheduling, block_normal),
 	    yield_test(),
-	    erlang:system_flag(multi_scheduling, unblock),
+	    erlang:system_flag(multi_scheduling, unblock_normal),
 	    case MS of
 		blocked ->
 		    {comment,
@@ -1611,6 +1622,7 @@ spawn_initial_hangarounds(_Cleaner, NP, Max, Len, HAs) when NP > Max ->
     {Len, HAs};
 spawn_initial_hangarounds(Cleaner, NP, Max, Len, HAs) ->
     Skip = 30,
+    wait_for_proc_slots(Skip+3),
     HA1 = spawn_opt(?MODULE, hangaround, [Cleaner, initial_hangaround],
 		    [{priority, low}]),
     HA2 = spawn_opt(?MODULE, hangaround, [Cleaner, initial_hangaround],
@@ -1619,6 +1631,15 @@ spawn_initial_hangarounds(Cleaner, NP, Max, Len, HAs) ->
 		    [{priority, high}]),
     spawn_drop(Skip),
     spawn_initial_hangarounds(Cleaner, NP+Skip, Max, Len+3, [HA1,HA2,HA3|HAs]).
+
+wait_for_proc_slots(MinFreeSlots) ->
+    case erlang:system_info(process_limit) - erlang:system_info(process_count) of
+        FreeSlots when FreeSlots < MinFreeSlots ->
+            receive after 10 -> ok end,
+            wait_for_proc_slots(MinFreeSlots);
+        _FreeSlots ->
+            ok
+    end.
 
 spawn_drop(N) when N =< 0 ->
     ok;
@@ -1658,7 +1679,7 @@ processes_bif_test() ->
 	true ->
 	    %% Do it again with a process suspended while
 	    %% in the processes/0 bif.
-	    erlang:system_flag(multi_scheduling, block),
+	    erlang:system_flag(multi_scheduling, block_normal),
 	    Suspendee = spawn_link(fun () ->
 						 Tester ! {suspend_me, self()},
 						 Tester ! {self(),
@@ -1671,7 +1692,7 @@ processes_bif_test() ->
 					 end),
 	    receive {suspend_me, Suspendee} -> ok end,
 	    erlang:suspend_process(Suspendee),
-	    erlang:system_flag(multi_scheduling, unblock),
+	    erlang:system_flag(multi_scheduling, unblock_normal),
 	    
 	    [{status,suspended},{current_function,{erlang,ptab_list_continue,2}}] =
 		process_info(Suspendee, [status, current_function]),
@@ -1711,10 +1732,10 @@ do_processes_bif_test(WantReds, DieTest, Processes) ->
 		    Splt = NoTestProcs div 10,
 		    {TP1, TP23} = lists:split(Splt, TestProcs),
 		    {TP2, TP3} = lists:split(Splt, TP23),
-		    erlang:system_flag(multi_scheduling, block),
+		    erlang:system_flag(multi_scheduling, block_normal),
 		    Tester ! DoIt,
 		    receive GetGoing -> ok end,
-		    erlang:system_flag(multi_scheduling, unblock),
+		    erlang:system_flag(multi_scheduling, unblock_normal),
 		    SpawnProcesses(high),
 		    lists:foreach( fun (P) ->
 				SpawnHangAround(),
@@ -1923,7 +1944,7 @@ processes_gc_trap(Config) when is_list(Config) ->
 	    processes()
     end,
 
-    erlang:system_flag(multi_scheduling, block),
+    erlang:system_flag(multi_scheduling, block_normal),
     Suspendee = spawn_link(fun () ->
 					 Tester ! {suspend_me, self()},
 					 Tester ! {self(),
@@ -1933,7 +1954,7 @@ processes_gc_trap(Config) when is_list(Config) ->
 				 end),
     receive {suspend_me, Suspendee} -> ok end,
     erlang:suspend_process(Suspendee),
-    erlang:system_flag(multi_scheduling, unblock),
+    erlang:system_flag(multi_scheduling, unblock_normal),
 	    
     [{status,suspended}, {current_function,{erlang,ptab_list_continue,2}}]
 	= process_info(Suspendee, [status, current_function]),
@@ -2140,7 +2161,7 @@ processes_term_proc_list_test(MustChk) ->
 		end)
     end,
     SpawnSuspendProcessesProc = fun () ->
-		  erlang:system_flag(multi_scheduling, block),
+		  erlang:system_flag(multi_scheduling, block_normal),
 		  P = spawn_link(fun () ->
 					 Tester ! {suspend_me, self()},
 					 Tester ! {self(),
@@ -2150,7 +2171,7 @@ processes_term_proc_list_test(MustChk) ->
 				 end),
 		  receive {suspend_me, P} -> ok end,
 		  erlang:suspend_process(P),
-		  erlang:system_flag(multi_scheduling, unblock),
+		  erlang:system_flag(multi_scheduling, unblock_normal),
 		  [{status,suspended},
 		   {current_function,{erlang,ptab_list_continue,2}}]
 		      = process_info(P, [status, current_function]),
@@ -2211,7 +2232,7 @@ processes_term_proc_list_test(MustChk) ->
     S8 = SpawnSuspendProcessesProc(),
     ?CHK_TERM_PROC_LIST(MustChk, 7),
 
-    erlang:system_flag(multi_scheduling, block),
+    erlang:system_flag(multi_scheduling, block_normal),
     Exit(S8),
     ?CHK_TERM_PROC_LIST(MustChk, 7),
     Exit(S5),
@@ -2220,7 +2241,7 @@ processes_term_proc_list_test(MustChk) ->
     ?CHK_TERM_PROC_LIST(MustChk, 6),
     Exit(S6),
     ?CHK_TERM_PROC_LIST(MustChk, 0),
-    erlang:system_flag(multi_scheduling, unblock),
+    erlang:system_flag(multi_scheduling, unblock_normal),
     as_expected.
 
 

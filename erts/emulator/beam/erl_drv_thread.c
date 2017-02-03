@@ -54,6 +54,9 @@ fatal_error(int err, char *func)
 
 struct ErlDrvMutex_ {
     ethr_mutex mtx;
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_lock_t lcnt;
+#endif
     char *name;
 };
 
@@ -64,6 +67,9 @@ struct ErlDrvCond_ {
 
 struct ErlDrvRWLock_ {
     ethr_rwmutex rwmtx;
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_lock_t lcnt;
+#endif
     char *name;
 };
 
@@ -161,14 +167,17 @@ erl_drv_mutex_create(char *name)
 	opt.posix_compliant = 1;
 	if (ethr_mutex_init_opt(&dmtx->mtx, &opt) != 0) {
 	    erts_free(ERTS_ALC_T_DRV_MTX, (void *) dmtx);
-	    dmtx = NULL;
+	    return NULL;
 	}
-	else if (!name)
-	    dmtx->name = no_name;
-	else {
+	if (name) {
 	    dmtx->name = ((char *) dmtx) + sizeof(ErlDrvMutex);
 	    sys_strcpy(dmtx->name, name);
+        } else {
+	    dmtx->name = no_name;
 	}
+#ifdef ERTS_ENABLE_LOCK_COUNT
+        erts_lcnt_init_lock(&dmtx->lcnt, dmtx->name, ERTS_LCNT_LT_MUTEX);
+#endif
     }
     return dmtx;
 #else
@@ -180,7 +189,11 @@ void
 erl_drv_mutex_destroy(ErlDrvMutex *dmtx)
 {
 #ifdef USE_THREADS
-    int res = dmtx ? ethr_mutex_destroy(&dmtx->mtx) : EINVAL;
+    int res;
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_destroy_lock(&dmtx->lcnt);
+#endif
+    res = dmtx ? ethr_mutex_destroy(&dmtx->mtx) : EINVAL;
     if (res != 0)
 	fatal_error(res, "erl_drv_mutex_destroy()");
     erts_free(ERTS_ALC_T_DRV_MTX, (void *) dmtx);
@@ -202,9 +215,14 @@ int
 erl_drv_mutex_trylock(ErlDrvMutex *dmtx)
 {
 #ifdef USE_THREADS
+    int res;
     if (!dmtx)
 	fatal_error(EINVAL, "erl_drv_mutex_trylock()");
-    return ethr_mutex_trylock(&dmtx->mtx);
+    res = ethr_mutex_trylock(&dmtx->mtx);
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_trylock(&dmtx->lcnt, res);
+#endif
+    return res;
 #else
     return 0;
 #endif
@@ -216,7 +234,13 @@ erl_drv_mutex_lock(ErlDrvMutex *dmtx)
 #ifdef USE_THREADS
     if (!dmtx)
 	fatal_error(EINVAL, "erl_drv_mutex_lock()");
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_lock(&dmtx->lcnt);
+#endif
     ethr_mutex_lock(&dmtx->mtx);
+#endif
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_lock_post(&dmtx->lcnt);
 #endif
 }
 
@@ -226,6 +250,9 @@ erl_drv_mutex_unlock(ErlDrvMutex *dmtx)
 #ifdef USE_THREADS
     if (!dmtx)
 	fatal_error(EINVAL, "erl_drv_mutex_unlock()");
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_unlock(&dmtx->lcnt);
+#endif
     ethr_mutex_unlock(&dmtx->mtx);
 #endif
 }
@@ -306,10 +333,18 @@ erl_drv_cond_wait(ErlDrvCond *dcnd, ErlDrvMutex *dmtx)
     if (!dcnd || !dmtx) {
 	fatal_error(EINVAL, "erl_drv_cond_wait()");
     }
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_unlock(&dmtx->lcnt);
+#endif
     while (1) {
 	int res = ethr_cond_wait(&dcnd->cnd, &dmtx->mtx);
-	if (res == 0)
+	if (res == 0) {
+#ifdef ERTS_ENABLE_LOCK_COUNT
+            erts_lcnt_lock(&dmtx->lcnt);
+            erts_lcnt_lock_post(&dmtx->lcnt);
+#endif
 	    break;
+        }
     }
 #endif
 }
@@ -324,14 +359,17 @@ erl_drv_rwlock_create(char *name)
     if (drwlck) {
 	if (ethr_rwmutex_init(&drwlck->rwmtx) != 0) {
 	    erts_free(ERTS_ALC_T_DRV_RWLCK, (void *) drwlck);
-	    drwlck = NULL;
+	    return NULL;
 	}
-	else if (!name)
-	    drwlck->name = no_name;
-	else {
+	if (name) {
 	    drwlck->name = ((char *) drwlck) + sizeof(ErlDrvRWLock);
 	    sys_strcpy(drwlck->name, name);
+        } else {
+	    drwlck->name = no_name;
 	}
+#ifdef ERTS_ENABLE_LOCK_COUNT
+        erts_lcnt_init_lock(&drwlck->lcnt, drwlck->name, ERTS_LCNT_LT_RWMUTEX);
+#endif
     }
     return drwlck;
 #else
@@ -343,7 +381,11 @@ void
 erl_drv_rwlock_destroy(ErlDrvRWLock *drwlck)
 {
 #ifdef USE_THREADS
-    int res = drwlck ? ethr_rwmutex_destroy(&drwlck->rwmtx) : EINVAL;
+    int res;
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_destroy_lock(&drwlck->lcnt);
+#endif
+    res = drwlck ? ethr_rwmutex_destroy(&drwlck->rwmtx) : EINVAL;
     if (res != 0)
 	fatal_error(res, "erl_drv_rwlock_destroy()");
     erts_free(ERTS_ALC_T_DRV_RWLCK, (void *) drwlck);
@@ -364,9 +406,14 @@ int
 erl_drv_rwlock_tryrlock(ErlDrvRWLock *drwlck)
 {
 #ifdef USE_THREADS
+    int res;
     if (!drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_tryrlock()");
-    return ethr_rwmutex_tryrlock(&drwlck->rwmtx);
+    res = ethr_rwmutex_tryrlock(&drwlck->rwmtx);
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_trylock_opt(&drwlck->lcnt, res, ERTS_LCNT_LO_READ);
+#endif
+    return res;
 #else
     return 0;
 #endif
@@ -378,7 +425,13 @@ erl_drv_rwlock_rlock(ErlDrvRWLock *drwlck)
 #ifdef USE_THREADS
     if (!drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_rlock()");
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_lock_opt(&drwlck->lcnt, ERTS_LCNT_LO_READ);
+#endif
     ethr_rwmutex_rlock(&drwlck->rwmtx);
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_lock_post(&drwlck->lcnt);
+#endif
 #endif
 }
 
@@ -388,6 +441,9 @@ erl_drv_rwlock_runlock(ErlDrvRWLock *drwlck)
 #ifdef USE_THREADS
     if (!drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_runlock()");
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_unlock_opt(&drwlck->lcnt, ERTS_LCNT_LO_READ);
+#endif
     ethr_rwmutex_runlock(&drwlck->rwmtx);
 #endif
 }
@@ -396,9 +452,14 @@ int
 erl_drv_rwlock_tryrwlock(ErlDrvRWLock *drwlck)
 {
 #ifdef USE_THREADS
+    int res;
     if (!drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_tryrwlock()");
-    return ethr_rwmutex_tryrwlock(&drwlck->rwmtx);
+    res = ethr_rwmutex_tryrwlock(&drwlck->rwmtx);
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_trylock_opt(&drwlck->lcnt, res, ERTS_LCNT_LO_READ_WRITE);
+#endif
+    return res;
 #else
     return 0;
 #endif
@@ -410,7 +471,13 @@ erl_drv_rwlock_rwlock(ErlDrvRWLock *drwlck)
 #ifdef USE_THREADS
     if (!drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_rwlock()");
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_lock_opt(&drwlck->lcnt, ERTS_LCNT_LO_READ_WRITE);
+#endif
     ethr_rwmutex_rwlock(&drwlck->rwmtx);
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_lock_post(&drwlck->lcnt);
+#endif
 #endif
 }
 
@@ -420,6 +487,9 @@ erl_drv_rwlock_rwunlock(ErlDrvRWLock *drwlck)
 #ifdef USE_THREADS
     if (!drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_rwunlock()");
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_unlock_opt(&drwlck->lcnt, ERTS_LCNT_LO_READ_WRITE);
+#endif
     ethr_rwmutex_rwunlock(&drwlck->rwmtx);
 #endif
 }

@@ -31,6 +31,46 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 3.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The crypto application has been fixed to not use RC2
+	    against OpenSSL built with RC2 disabled.</p>
+          <p>
+	    Own Id: OTP-13895 Aux Id: PR-1163 </p>
+        </item>
+        <item>
+          <p>
+	    The crypto application has been fixed to not use RC4
+	    against OpenSSL built with RC4 disabled.</p>
+          <p>
+	    Own Id: OTP-13896 Aux Id: PR-1169 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    To ease troubleshooting, <c>erlang:load_nif/2</c> now
+	    includes the return value from a failed call to
+	    load/reload/upgrade in the text part of the error tuple.
+	    The <c>crypto</c> NIF makes use of this feature by
+	    returning the source line where/if the initialization
+	    fails.</p>
+          <p>
+	    Own Id: OTP-13951</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 3.7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

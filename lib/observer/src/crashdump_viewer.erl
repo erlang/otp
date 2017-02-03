@@ -90,6 +90,7 @@
 
 
 %% All possible tags - use macros in order to avoid misspelling in the code
+-define(abort,abort).
 -define(allocated_areas,allocated_areas).
 -define(allocator,allocator).
 -define(atoms,atoms).
@@ -321,8 +322,16 @@ handle_call(general_info,_From,State=#state{file=File}) ->
     NumAtoms = GenInfo#general_info.num_atoms,
     WS = parse_vsn_str(GenInfo#general_info.system_vsn,4),
     TW = case get(truncated) of
-	     true -> ["WARNING: The crash dump is truncated. "
-		      "Some information might be missing."];
+	     true ->
+                 case get(truncated_reason) of
+                     undefined ->
+                         ["WARNING: The crash dump is truncated. "
+                          "Some information might be missing."];
+                     Reason ->
+                         ["WARNING: The crash dump is truncated "
+                          "("++Reason++"). "
+                          "Some information might be missing."]
+                 end;
 	     false -> []
 	 end,
     ets:insert(cdv_reg_proc_table,
@@ -515,8 +524,15 @@ truncated_warning([Tag|Tags]) ->
 	false -> truncated_warning(Tags)
     end.
 truncated_warning() ->
-    ["WARNING: The crash dump is truncated here. "
-     "Some information might be missing."].
+    case get(truncated_reason) of
+        undefined ->
+            ["WARNING: The crash dump is truncated here. "
+             "Some information might be missing."];
+        Reason ->
+            ["WARNING: The crash dump is truncated here "
+             "("++Reason++"). "
+             "Some information might be missing."]
+    end.
 
 truncated_here(Tag) ->
     case get(truncated) of
@@ -692,6 +708,7 @@ val(Fd, NoExist) ->
 	{eof,[]} -> NoExist;
 	[] -> NoExist;
 	{eof,Val} -> Val;
+        "=abort:"++_ -> NoExist;
 	Val -> Val
     end.
 
@@ -787,7 +804,7 @@ do_read_file(File) ->
 			?erl_crash_dump ->
 			    reset_index_table(),
 			    insert_index(Tag,Id,N1+1),
-			    put(last_tag,{Tag,""}),
+			    put_last_tag(Tag,""),
 			    indexify(Fd,Rest,N1),
 			    end_progress(),
 			    check_if_truncated(),
@@ -831,7 +848,7 @@ indexify(Fd,Bin,N) ->
 	    <<_:Pos/binary,TagAndRest/binary>> = Bin,
 	    {Tag,Id,Rest,N1} = tag(Fd,TagAndRest,N+Pos),
 	    insert_index(Tag,Id,N1+1), % +1 to get past newline
-	    put(last_tag,{Tag,Id}),
+	    put_last_tag(Tag,Id),
 	    indexify(Fd,Rest,N1);
 	nomatch ->
 	    case progress_read(Fd) of
@@ -911,7 +928,10 @@ general_info(File) ->
 		  WholeLine -> WholeLine
 	      end,
 
-    GI = get_general_info(Fd,#general_info{created=Created}),
+    {Slogan,SysVsn} = get_slogan_and_sysvsn(Fd,[]),
+    GI = get_general_info(Fd,#general_info{created=Created,
+                                           slogan=Slogan,
+                                           system_vsn=SysVsn}),
 
     {MemTot,MemMax} = 
 	case lookup_index(?memory) of
@@ -965,12 +985,20 @@ general_info(File) ->
 		    mem_max=MemMax,
 		    instr_info=InstrInfo}.
 
+get_slogan_and_sysvsn(Fd,Acc) ->
+    case val(Fd,eof) of
+        "Slogan: " ++ SloganPart when Acc==[] ->
+            get_slogan_and_sysvsn(Fd,[SloganPart]);
+        "System version: " ++ SystemVsn ->
+            {lists:append(lists:reverse(Acc)),SystemVsn};
+        eof ->
+            {lists:append(lists:reverse(Acc)),"-1"};
+        SloganPart ->
+            get_slogan_and_sysvsn(Fd,[[$\n|SloganPart]|Acc])
+    end.
+
 get_general_info(Fd,GenInfo) ->
     case line_head(Fd) of
-	"Slogan" ->
-	    get_general_info(Fd,GenInfo#general_info{slogan=val(Fd)});
-	"System version" ->
-	    get_general_info(Fd,GenInfo#general_info{system_vsn=val(Fd)});
 	"Compiled" ->
 	    get_general_info(Fd,GenInfo#general_info{compile_time=val(Fd)});
 	"Taints" ->
@@ -1174,7 +1202,11 @@ parse_link_list("{from,"++Str,Links,Monitors,MonitoredBy) ->
 parse_link_list(", "++Rest,Links,Monitors,MonitoredBy) ->
     parse_link_list(Rest,Links,Monitors,MonitoredBy);
 parse_link_list([],Links,Monitors,MonitoredBy) ->
-    {lists:reverse(Links),lists:reverse(Monitors),lists:reverse(MonitoredBy)}.
+    {lists:reverse(Links),lists:reverse(Monitors),lists:reverse(MonitoredBy)};
+parse_link_list(Unexpected,Links,Monitors,MonitoredBy) ->
+    io:format("WARNING: found unexpected data in link list:~n~s~n",[Unexpected]),
+    parse_link_list([],Links,Monitors,MonitoredBy).
+
 
 parse_port(Str) ->
     {Port,Rest} = parse_link(Str,[]),
@@ -1813,16 +1845,16 @@ main_modinfo(_Fd,LM,_LineHead) ->
 all_modinfo(Fd,LM,LineHead) ->
     case LineHead of
 	"Current attributes" ->
-	    Str = hex_to_str(val(Fd)),
+	    Str = hex_to_str(val(Fd,"")),
 	    LM#loaded_mod{current_attrib=Str};
 	"Current compilation info" ->
-	    Str = hex_to_str(val(Fd)),
+	    Str = hex_to_str(val(Fd,"")),
 	    LM#loaded_mod{current_comp_info=Str};
 	"Old attributes" ->
-	    Str = hex_to_str(val(Fd)),
+	    Str = hex_to_str(val(Fd,"")),
 	    LM#loaded_mod{old_attrib=Str};
 	"Old compilation info" ->
-	    Str = hex_to_str(val(Fd)),
+	    Str = hex_to_str(val(Fd,"")),
 	    LM#loaded_mod{old_comp_info=Str};
 	Other ->
 	    unexpected(Fd,Other,"loaded modules info"),
@@ -1848,7 +1880,12 @@ hex_to_term([],Acc) ->
 	     Bin};
 	Term ->
 	    Term
-    end.
+    end;
+hex_to_term(Rest,Acc) ->
+    {"WARNING: The term is probably truncated!",
+     "I can not convert hex to term.",
+     Rest,list_to_binary(lists:reverse(Acc))}.
+
 
 hex_to_dec("F") -> 15;
 hex_to_dec("E") -> 14;
@@ -2159,7 +2196,8 @@ sort_allocator_types([{Name,Data}|Allocators],Acc,DoTotal) ->
     Type =
 	case string:tokens(Name,"[]") of
 	    [T,_Id] -> T;
-	    [Name] -> Name
+	    [Name] -> Name;
+            Other -> Other
 	end,
     TypeData = proplists:get_value(Type,Acc,[]),
     {NewTypeData,NewDoTotal} = sort_type_data(Type,Data,TypeData,DoTotal),
@@ -2686,6 +2724,7 @@ count_index(Tag) ->
 %%-----------------------------------------------------------------
 %% Convert tags read from crashdump to atoms used as first part of key
 %% in cdv_dump_index_table
+tag_to_atom("abort") -> ?abort;
 tag_to_atom("allocated_areas") -> ?allocated_areas;
 tag_to_atom("allocator") -> ?allocator;
 tag_to_atom("atoms") -> ?atoms;
@@ -2718,6 +2757,14 @@ tag_to_atom("visible_node") -> ?visible_node;
 tag_to_atom(UnknownTag) ->
     io:format("WARNING: Found unexpected tag:~s~n",[UnknownTag]),
     list_to_atom(UnknownTag).
+
+%%%-----------------------------------------------------------------
+%%% Store last tag for use when truncated, and reason if aborted
+put_last_tag(?abort,Reason) ->
+    %% Don't overwrite the real last tag
+    put(truncated_reason,Reason);
+put_last_tag(Tag,Id) ->
+    put(last_tag,{Tag,Id}).
 
 %%%-----------------------------------------------------------------
 %%% Fetch next chunk from crashdump file
@@ -2815,7 +2862,16 @@ collect(Pids,Acc) ->
 	    update_progress(),
 	    collect(Pids,Acc);
 	{'DOWN', _Ref, process, Pid, {pmap_done,Result}} ->
-	    collect(lists:delete(Pid,Pids),[Result|Acc])
+	    collect(lists:delete(Pid,Pids),[Result|Acc]);
+        {'DOWN', _Ref, process, Pid, _Error} ->
+            Warning =
+                "WARNING: an error occured while parsing data.\n" ++
+                case get(truncated) of
+                    true -> "This might be because the dump is truncated.\n";
+                    false -> ""
+                end,
+            io:format(Warning),
+            collect(lists:delete(Pid,Pids),Acc)
     end.
 
 %%%-----------------------------------------------------------------

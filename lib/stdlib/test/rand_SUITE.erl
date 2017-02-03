@@ -283,13 +283,13 @@ gen(_, _, Acc) -> lists:reverse(Acc).
 %% Check that the algorithms generate sound values.
 
 basic_stats_uniform_1(Config) when is_list(Config) ->
-    ct:timetrap({minutes,6}), %% valgrind needs a lot of time
+    ct:timetrap({minutes,15}), %% valgrind needs a lot of time
     [basic_uniform_1(?LOOP, rand:seed_s(Alg), 0.0, array:new([{default, 0}]))
      || Alg <- algs()],
     ok.
 
 basic_stats_uniform_2(Config) when is_list(Config) ->
-    ct:timetrap({minutes,6}), %% valgrind needs a lot of time
+    ct:timetrap({minutes,15}), %% valgrind needs a lot of time
     [basic_uniform_2(?LOOP, rand:seed_s(Alg), 0, array:new([{default, 0}]))
      || Alg <- algs()],
     ok.
@@ -396,7 +396,7 @@ crypto_uniform_n(N, State0) ->
 %% Not a test but measures the time characteristics of the different algorithms
 measure(Suite) when is_atom(Suite) -> [];
 measure(_Config) ->
-    ct:timetrap({minutes,6}), %% valgrind needs a lot of time
+    ct:timetrap({minutes,15}), %% valgrind needs a lot of time
     Algos = [crypto64|algs()],
     io:format("RNG uniform integer performance~n",[]),
     _ = measure_1(random, fun(State) -> {int, random:uniform_s(10000, State)} end),

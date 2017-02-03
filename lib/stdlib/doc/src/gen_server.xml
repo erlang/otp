@@ -162,11 +162,6 @@ gen_server:abcast     -----> Module:handle_cast/2
           of <c>Module:handle_call/3</c>.</p>
         <p>The call can fail for many reasons, including time-out and the
           called <c>gen_server</c> process dying before or during the call.</p>
-	<note>
-        <p>The ancient behavior of sometimes consuming the server
-          exit message if the server died during the call while
-          linked to the client was removed in Erlang 5.6/OTP R12B.</p>
-	</note>
       </desc>
     </func>
 

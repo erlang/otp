@@ -78,7 +78,7 @@
   '(("^%+\\s-*\\(@\\w+\\)\\_>" 1 'erlang-edoc-tag prepend)
     ("^%+\\s-*" ("{\\(@\\w+\\)\\_>" nil nil (1 'erlang-edoc-macro prepend)))
     ("^%+\\s-*" ("\\(?:@@\\)*\\(@[@{}]\\)" nil nil (1 'escape-glyph prepend)))
-    ("^%+\\s-*@\\(deprecated\\)\\_>" 1 font-lock-warning-face prepend)
+    ("^%+\\s-*\\(@deprecated\\)\\_>" 1 font-lock-warning-face prepend)
     ;; http://www.erlang.org/doc/apps/edoc/chapter.html#Wiki_notation
     ("^%+\\s-*" ("[^`]`\\([^`]?\\|[^`].*?[^']\\)'"
                  (forward-char -1) nil (1 'erlang-edoc-verbatim prepend)))

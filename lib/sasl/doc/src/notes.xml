@@ -31,6 +31,24 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 3.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>code:add_pathsa/1</c> and command line option
+	    <c>-pa</c> both revert the given list of directories when
+	    adding it at the beginning of the code path. This is now
+	    documented.</p>
+          <p>
+	    Own Id: OTP-13920 Aux Id: ERL-267 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 3.0.1</title>
 
     <section><title>Improvements and New Features</title>

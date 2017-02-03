@@ -106,6 +106,16 @@
     </func>
 
     <func>
+      <name name="take" arity="2"/>
+      <fsummary>Return value and new dictionary without element with this value.</fsummary>
+      <desc>
+        <p>This function returns value from dictionary and a
+        new dictionary without this value.
+        Returns <c>error</c> if the key is not present in the dictionary.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="filter" arity="2"/>
       <fsummary>Select elements that satisfy a predicate.</fsummary>
       <desc>

@@ -111,6 +111,12 @@ typedef struct beam_code_header {
 
 }BeamCodeHeader;
 
+#ifdef ERTS_DIRTY_SCHEDULERS
+#  define BEAM_NIF_MIN_FUNC_SZ 4
+#else
+#  define BEAM_NIF_MIN_FUNC_SZ 3
+#endif
+
 void erts_release_literal_area(struct ErtsLiteralArea_* literal_area);
 int erts_is_module_native(BeamCodeHeader* code);
 void erts_beam_bif_load_init(void);

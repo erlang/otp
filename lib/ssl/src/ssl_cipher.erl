@@ -40,7 +40,7 @@
 	 ec_keyed_suites/0, anonymous_suites/1, psk_suites/1, srp_suites/0,
 	 rc4_suites/1, des_suites/1, openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
-	 random_bytes/1]).
+	 random_bytes/1, calc_aad/3, calc_mac_hash/4]).
 
 -export_type([cipher_suite/0,
 	      erl_cipher_suite/0, openssl_cipher_suite/0,
@@ -311,7 +311,9 @@ aead_decipher(Type, #cipher_state{key = Key, iv = IV} = CipherState,
 suites({3, 0}) ->
     ssl_v3:suites();
 suites({3, N}) ->
-    tls_v1:suites(N).
+    tls_v1:suites(N);
+suites(Version) ->
+    suites(dtls_v1:corresponding_tls_version(Version)).
 
 all_suites(Version) ->
     suites(Version)
@@ -1525,9 +1527,32 @@ is_fallback(CipherSuites)->
 random_bytes(N) ->
     crypto:strong_rand_bytes(N).
 
+calc_aad(Type, {MajVer, MinVer},
+	 #{sequence_number := SeqNo}) ->
+    <<SeqNo:64/integer, ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.
+
+calc_mac_hash(Type, Version,
+	      PlainFragment, #{sequence_number := SeqNo,
+			       mac_secret := MacSecret,
+			       security_parameters:=
+				   SecPars}) ->
+    Length = erlang:iolist_size(PlainFragment),
+    mac_hash(Version, SecPars#security_parameters.mac_algorithm,
+	     MacSecret, SeqNo, Type,
+	     Length, PlainFragment).
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+mac_hash({_,_}, ?NULL, _MacSecret, _SeqNo, _Type,
+	 _Length, _Fragment) ->
+    <<>>;
+mac_hash({3, 0}, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
+    ssl_v3:mac_hash(MacAlg, MacSecret, SeqNo, Type, Length, Fragment);
+mac_hash({3, N} = Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)  
+  when N =:= 1; N =:= 2; N =:= 3 ->
+    tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
+		      Length, Fragment).
 
 bulk_cipher_algorithm(null) ->
     ?NULL;

@@ -112,7 +112,11 @@
 
 -opaque callgraph() :: #callgraph{}.
 
--type active_digraph() :: {'d', digraph:graph()} | {'e', ets:tid(), ets:tid()}.
+-type active_digraph() :: {'d', digraph:graph()}
+                        | {'e',
+                           Out :: ets:tid(),
+                           In :: ets:tid(),
+                           Map :: ets:tid()}.
 
 %%----------------------------------------------------------------------
 
@@ -241,23 +245,29 @@ find_non_local_calls([], Set) ->
 
 -spec get_depends_on(scc() | module(), callgraph()) -> [scc()].
 
-get_depends_on(SCC, #callgraph{active_digraph = {'e', Out, _In}}) ->
-  case ets_lookup_dict(SCC, Out) of
-    {ok, Value} -> Value;
-    error -> []
-  end;
+get_depends_on(SCC, #callgraph{active_digraph = {'e', Out, _In, Maps}}) ->
+  lookup_scc(SCC, Out, Maps);
 get_depends_on(SCC, #callgraph{active_digraph = {'d', DG}}) ->
   digraph:out_neighbours(DG, SCC).
 
 -spec get_required_by(scc() | module(), callgraph()) -> [scc()].
 
-get_required_by(SCC, #callgraph{active_digraph = {'e', _Out, In}}) ->
-  case ets_lookup_dict(SCC, In) of
-    {ok, Value} -> Value;
-    error -> []
-  end;
+get_required_by(SCC, #callgraph{active_digraph = {'e', _Out, In, Maps}}) ->
+  lookup_scc(SCC, In, Maps);
 get_required_by(SCC, #callgraph{active_digraph = {'d', DG}}) ->
   digraph:in_neighbours(DG, SCC).
+
+lookup_scc(SCC, Table, Maps) ->
+  case ets_lookup_dict({'scc', SCC}, Maps) of
+    {ok, SCCInt} ->
+      case ets_lookup_dict(SCCInt, Table) of
+        {ok, Ints} ->
+          [ets:lookup_element(Maps, Int, 2) || Int <- Ints];
+        error ->
+          []
+      end;
+    error -> []
+  end.
 
 %%----------------------------------------------------------------------
 %% Handling of modules & SCCs
@@ -575,9 +585,10 @@ digraph_delete(DG) ->
 
 active_digraph_delete({'d', DG}) ->
   digraph:delete(DG);
-active_digraph_delete({'e', Out, In}) ->
+active_digraph_delete({'e', Out, In, Maps}) ->
   ets:delete(Out),
-  ets:delete(In).
+  ets:delete(In),
+  ets:delete(Maps).
 
 digraph_edges(DG) ->
   digraph:edges(DG).
@@ -751,37 +762,28 @@ to_ps(#callgraph{} = CG, File, Args) ->
   ok.
 
 condensation(G) ->
-  SCs = digraph_utils:strong_components(G),
-  V2I = ets:new(condensation_v2i, []),
-  I2C = ets:new(condensation_i2c, []),
-  I2I = ets:new(condensation_i2i, [bag]),
-  CFun =
-    fun(SC, N) ->
-	lists:foreach(fun(V) -> true = ets:insert(V2I, {V,N}) end, SC),
-	true = ets:insert(I2C, {N, SC}),
-	N + 1
-    end,
-  lists:foldl(CFun, 1, SCs),
-  Fun1 =
-    fun({V1, V2}) ->
-        I1 = ets:lookup_element(V2I, V1, 2),
-        I2 = ets:lookup_element(V2I, V2, 2),
-	I1 =:= I2 orelse ets:insert(I2I, {I1, I2})
-    end,
-  lists:foreach(Fun1, digraph:edges(G)),
-  Fun3 =
-    fun({I1, I2}, {Out, In}) ->
-        SC1 = ets:lookup_element(I2C, I1, 2),
-        SC2 = ets:lookup_element(I2C, I2, 2),
-        {dict:append(SC1, SC2, Out), dict:append(SC2, SC1, In)}
-    end,
-  {OutDict, InDict} = ets:foldl(Fun3, {dict:new(), dict:new()}, I2I),
-  [OutETS, InETS] =
+  SCCs = digraph_utils:strong_components(G),
+  %% Assign unique numbers to SCCs:
+  Ints = lists:seq(1, length(SCCs)),
+  IntToSCC = lists:zip(Ints, SCCs),
+  IntScc = sofs:relation(IntToSCC, [{int, scc}]),
+  %% Subsitute strong components for vertices in edges using the
+  %% unique numbers:
+  C2V = sofs:relation([{SC, V} || SC <- SCCs, V <- SC], [{scc, v}]),
+  I2V = sofs:relative_product(IntScc, C2V), % [{v, int}]
+  Es = sofs:relation(digraph:edges(G), [{v, v}]),
+  R1 = sofs:relative_product(I2V, Es),
+  R2 = sofs:relative_product(I2V, sofs:converse(R1)),
+  %% Create in- and out-neighbours:
+  In = sofs:relation_to_family(sofs:strict_relation(R2)),
+  R3 = sofs:converse(R2),
+  Out = sofs:relation_to_family(sofs:strict_relation(R3)),
+  [OutETS, InETS, MapsETS] =
     [ets:new(Name,[{read_concurrency, true}]) ||
-      Name <- [callgraph_deps_out, callgraph_deps_in]],
-  ets:insert(OutETS, dict:to_list(OutDict)),
-  ets:insert(InETS, dict:to_list(InDict)),
-  ets:delete(V2I),
-  ets:delete(I2C),
-  ets:delete(I2I),
-  {{'e', OutETS, InETS}, SCs}.
+      Name <- [callgraph_deps_out, callgraph_deps_in, callgraph_scc_map]],
+  ets:insert(OutETS, sofs:to_external(Out)),
+  ets:insert(InETS, sofs:to_external(In)),
+  %% Create mappings from SCCs to unique integers, and the inverse:
+  ets:insert(MapsETS, lists:zip([{'scc', SCC} || SCC<- SCCs], Ints)),
+  ets:insert(MapsETS, IntToSCC),
+  {{'e', OutETS, InETS, MapsETS}, SCCs}.

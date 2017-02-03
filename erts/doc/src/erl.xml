@@ -946,9 +946,7 @@
 	  schedulers was allowed to be unlimited, dirty CPU bound jobs would
 	  potentially starve normal jobs.</p>
         <p>This option is ignored if the emulator does not have threading
-          support enabled. <em>This option is experimental</em> and
-          is supported only if the emulator was configured and built with
-          support for dirty schedulers enabled (it is disabled by default).</p>
+          support enabled.</p>
       </item>
       <tag><marker id="+SDPcpu"/><c><![CDATA[+SDPcpu
         DirtyCPUSchedulersPercentage:DirtyCPUSchedulersOnlinePercentage]]></c></tag>
@@ -974,9 +972,7 @@
           either order) results in 2 dirty CPU scheduler threads (50% of 4) and
           1 dirty CPU scheduler thread online (25% of 4).</p>
         <p>This option is ignored if the emulator does not have threading
-          support enabled. <em>This option is experimental</em> and
-          is supported only if the emulator was configured and built with
-          support for dirty schedulers enabled (it is disabled by default).</p>
+          support enabled.</p>
       </item>
       <tag><marker id="+SDio"/><c><![CDATA[+SDio DirtyIOSchedulers]]></c></tag>
       <item>
@@ -992,9 +988,7 @@
 	  bound jobs on dirty I/O schedulers, these jobs might starve ordinary
 	  jobs executing on ordinary schedulers.</p>
         <p>This option is ignored if the emulator does not have threading
-          support enabled. <em>This option is experimental</em> and
-          is supported only if the emulator was configured and built with
-          support for dirty schedulers enabled (it is disabled by default).</p>
+          support enabled.</p>
       </item>
       <tag><c><![CDATA[+sFlag Value]]></c></tag>
       <item>
@@ -1592,6 +1586,25 @@
           All nodes in a cluster must use the same <c>epmd</c> port number.</p>
       </item>
     </taglist>
+  </section>
+
+  <section>
+      <marker id="signals"></marker>
+      <title>Signals</title>
+      <p>On Unix systems, the Erlang runtime will interpret two types of signals.</p>
+      <taglist>
+          <tag><c>SIGUSR1</c></tag>
+          <item>
+              <p>A <c>SIGUSR1</c> signal forces a crash dump.</p>
+          </item>
+          <tag><c>SIGTERM</c></tag>
+          <item>
+              <p>A <c>SIGTERM</c> will produce a <c>stop</c> message to the <c>init</c> process.
+                  This is equivalent to a <c>init:stop/0</c> call.</p>
+              <p>Introduced in ERTS 8.3 (Erlang/OTP 19.3)</p>
+          </item>
+      </taglist>
+      <p>The signal <c>SIGUSR2</c> is reserved for internal usage. No other signals are handled.</p>
   </section>
 
   <section>

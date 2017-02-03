@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -573,9 +573,16 @@ print_mod_info(Prefix, {Module, Info}) ->
     CompDate =
         case key1search(compile_time, Info) of
             {value, {Year, Month, Day, Hour, Min, Sec}} ->
-                lists:flatten(
-                  io_lib:format("~w-~2..0w-~2..0w ~2..0w:~2..0w:~2..0w",
-                                [Year, Month, Day, Hour, Min, Sec]));
+                io_lib:format(
+		  "~w-~2..0w-~2..0w ~2..0w:~2..0w:~2..0w",
+		  [Year, Month, Day, Hour, Min, Sec]);
+            _ ->
+                "Not found"
+        end,
+    Digest =
+        case key1search(md5, Info) of
+            {value, MD5} when is_binary(MD5) ->
+		[io_lib:format("~2.16.0b", [Byte]) || <<Byte>> <= MD5];
             _ ->
                 "Not found"
         end,
@@ -583,12 +590,14 @@ print_mod_info(Prefix, {Module, Info}) ->
               "~s      Vsn:          ~s~n"
               "~s      App vsn:      ~s~n"
               "~s      Compiler ver: ~s~n"
-              "~s      Compile time: ~s~n",
+	      "~s      Compile time: ~s~n"
+              "~s      MD5 digest:   ~s~n",
               [Prefix, Module, 
 	       Prefix, Vsn, 
 	       Prefix, AppVsn, 
-	       Prefix, CompVer, 
-	       Prefix, CompDate]),
+	       Prefix, CompVer,
+	       Prefix, CompDate,
+	       Prefix, Digest]),
     ok.
 
 key1search(Key, Vals) ->
@@ -617,7 +626,7 @@ versions1() ->
         Error ->
             Error
     end.
- 
+
 versions2() ->
     case ms2() of
         {ok, Mods} ->
@@ -625,25 +634,56 @@ versions2() ->
         Error ->
             Error
     end.
- 
+
 version_info(Mods) ->
     SysInfo = sys_info(),
     OsInfo  = os_info(),
     ModInfo = [mod_version_info(Mod) || Mod <- Mods],
     [{sys_info, SysInfo}, {os_info, OsInfo}, {mod_info, ModInfo}].
-     
+
 mod_version_info(Mod) ->
     Info = Mod:module_info(),
-    {value, {attributes, Attr}}   = lists:keysearch(attributes, 1, Info),
-    {value, {vsn,        [Vsn]}}  = lists:keysearch(vsn,        1, Attr),
-    {value, {app_vsn,    AppVsn}} = lists:keysearch(app_vsn,    1, Attr),
-    {value, {compile,    Comp}}   = lists:keysearch(compile,    1, Info),
-    {value, {version,    Ver}}    = lists:keysearch(version,    1, Comp),
-    {value, {time,       Time}}   = lists:keysearch(time,       1, Comp),
-    {Mod, [{vsn,              Vsn},
-           {app_vsn,          AppVsn},
-           {compiler_version, Ver},
-           {compile_time,     Time}]}.
+    {Mod,
+     case key1search(attributes, Info) of
+	 {value, Attr} ->
+	     case key1search(vsn, Attr) of
+		 {value, [Vsn]} ->
+		     [{vsn, Vsn}];
+		 not_found ->
+		     []
+	     end ++
+		 case key1search(app_vsn, Attr) of
+		     {value, AppVsn} ->
+			 [{app_vsn, AppVsn}];
+		     not_found ->
+			 []
+		 end;
+	 not_found ->
+	     []
+     end ++
+	 case key1search(compile, Info) of
+	     {value, Comp} ->
+		 case key1search(version, Comp) of
+		     {value, Ver} ->
+			 [{compiler_version, Ver}];
+		     not_found ->
+			 []
+		 end ++
+		     case key1search(time, Comp) of
+			 {value, Ver} ->
+			     [{compile_time, Ver}];
+			 not_found ->
+			     []
+		     end;
+	     not_found ->
+		 []
+	 end ++
+	 case key1search(md5, Info) of
+	     {value, Bin} ->
+		 [{md5, Bin}];
+	     not_found ->
+		 []
+	 end}.
 
 sys_info() ->
     SysArch = string:strip(erlang:system_info(system_architecture),right,$\n),

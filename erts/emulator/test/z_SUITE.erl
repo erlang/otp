@@ -68,8 +68,8 @@ schedulers_alive(Config) when is_list(Config) ->
               enabled ->
                   io:format("Testing blocking process exit~n"),
                   BF = fun () ->
-                               blocked = erlang:system_flag(multi_scheduling,
-                                                            block),
+                               blocked_normal = erlang:system_flag(multi_scheduling,
+								   block_normal),
                                Master ! {self(), blocking},
                                receive after infinity -> ok end
                        end,
@@ -77,21 +77,21 @@ schedulers_alive(Config) when is_list(Config) ->
                   Mon = erlang:monitor(process, Blocker),
                   receive {Blocker, blocking} -> ok end,
                   [Blocker]
-                  = erlang:system_info(multi_scheduling_blockers),
+                  = erlang:system_info(normal_multi_scheduling_blockers),
                   unlink(Blocker),
                   exit(Blocker, kill),
                   receive {'DOWN', Mon, _, _, _} -> ok end,
                   enabled = erlang:system_info(multi_scheduling),
-                  [] = erlang:system_info(multi_scheduling_blockers),
+                  [] = erlang:system_info(normal_multi_scheduling_blockers),
                   ok
           end,
           io:format("Testing blocked~n"),
-          erlang:system_flag(multi_scheduling, block),
+          erlang:system_flag(multi_scheduling, block_normal),
           case erlang:system_info(multi_scheduling) of
               enabled ->
                   ct:fail(multi_scheduling_enabled);
-              blocked ->
-                  [Master] = erlang:system_info(multi_scheduling_blockers);
+              blocked_normal ->
+                  [Master] = erlang:system_info(normal_multi_scheduling_blockers);
               disabled -> ok
           end,
           Ps = lists:map(
@@ -109,8 +109,8 @@ schedulers_alive(Config) when is_list(Config) ->
                                 unlink(P),
                                 exit(P, bang)
                         end, Ps),
-          case erlang:system_flag(multi_scheduling, unblock) of
-              blocked -> ct:fail(multi_scheduling_blocked);
+          case erlang:system_flag(multi_scheduling, unblock_normal) of
+              blocked_normal -> ct:fail(multi_scheduling_blocked);
               disabled -> ok;
               enabled -> ok
           end,

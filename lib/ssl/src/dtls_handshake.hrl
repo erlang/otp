@@ -46,12 +46,13 @@
 	  cookie
 	 }).
 
--record(dtls_hs_state,
-	{current_read_seq,
-	 starting_read_seq,
-	 highest_record_seq,
-	 fragments,
-	 completed
-	}).
+-record(handshake_fragment, {
+	  type,
+	  length,
+	  message_seq,               
+	  fragment_offset,           
+	  fragment_length,
+	  fragment
+	 }).
 
 -endif. % -ifdef(dtls_handshake).

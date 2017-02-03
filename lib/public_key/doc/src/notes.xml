@@ -35,6 +35,23 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New function
+	    <c>public_key:ssh_hostkey_fingerprint/1,2</c> to
+	    calculate the SSH host key fingerprint string.</p>
+          <p>
+	    Own Id: OTP-13888 Aux Id: OTP-13887 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -800,14 +800,14 @@ erts_finish_loading(Binary* magic, Process* c_p,
     } else {
 	ErtsCodeIndex code_ix = erts_staging_code_ix();
 	Eterm module = stp->module;
-	int i;
+	int i, num_exps;
 
 	/*
 	 * There is an -on_load() function. We will keep the current
 	 * code, but we must turn off any tracing.
 	 */
-
-	for (i = 0; i < export_list_size(code_ix); i++) {
+        num_exps = export_list_size(code_ix);
+	for (i = 0; i < num_exps; i++) {
 	    Export *ep = export_list(i, code_ix);
 	    if (ep == NULL || ep->info.mfa.module != module) {
 		continue;
@@ -2546,15 +2546,10 @@ load_code(LoaderState* stp)
 
 		if (stp->may_load_nif) {
 		    const int finfo_ix = ci - FUNC_INFO_SZ;
-#ifdef ERTS_DIRTY_SCHEDULERS
-		    enum { MIN_FUNC_SZ = 4 };
-#else
-		    enum { MIN_FUNC_SZ = 3 };
-#endif
-		    if (finfo_ix - last_func_start < MIN_FUNC_SZ && last_func_start) {		   
+		    if (finfo_ix - last_func_start < BEAM_NIF_MIN_FUNC_SZ && last_func_start) {
 			/* Must make room for call_nif op */
-			int pad = MIN_FUNC_SZ - (finfo_ix - last_func_start);
-			ASSERT(pad > 0 && pad < MIN_FUNC_SZ);
+			int pad = BEAM_NIF_MIN_FUNC_SZ - (finfo_ix - last_func_start);
+			ASSERT(pad > 0 && pad < BEAM_NIF_MIN_FUNC_SZ);
 			CodeNeed(pad);
 			sys_memmove(&code[finfo_ix+pad], &code[finfo_ix],
 				    FUNC_INFO_SZ*sizeof(BeamInstr));
@@ -5729,12 +5724,13 @@ exported_from_module(Process* p, /* Process whose heap to use. */
                      ErtsCodeIndex code_ix,
 		     Eterm mod) /* Tagged atom for module. */
 {
-    int i;
+    int i, num_exps;
     Eterm* hp = NULL;
     Eterm* hend = NULL;
     Eterm result = NIL;
 
-    for (i = 0; i < export_list_size(code_ix); i++) {
+    num_exps = export_list_size(code_ix);
+    for (i = 0; i < num_exps; i++) {
 	Export* ep = export_list(i,code_ix);
 	
 	if (ep->info.mfa.module == mod) {

@@ -31,6 +31,35 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>ei_connect_init</c> and <c>ei_connect_xinit</c> to
+	    adjust the <c>creation</c> argument to be compatible with
+	    nodes older than OTP-19.</p>
+          <p>
+	    Own Id: OTP-13981</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Editorial documentation changes</p>
+          <p>
+	    Own Id: OTP-13980</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -740,7 +740,7 @@
         <v>Format = string()</v>
         <v>FormatArgs = list()</v>
         <v>Opts = [Opt]</v>
-	<v>Opt = no_css | esc_chars</v>
+	<v>Opt = {heading,string()} | no_css | esc_chars</v>
       </type>
       <desc><marker id="log-5"/>
         <p>Prints from a test case to the log file.</p>
@@ -798,53 +798,71 @@
 
     <func>
       <name>pal(Format) -&gt; ok</name>
-      <fsummary>Equivalent to pal(default, 50, Format, []).</fsummary>
+      <fsummary>Equivalent to pal(default, 50, Format, [], []).</fsummary>
       <desc><marker id="pal-1"/>
         <p>Equivalent to
-          <seealso marker="#pal-4"><c>ct:pal(default, 50, Format,
-            [])</c></seealso>.</p>
+          <seealso marker="#pal-5"><c>ct:pal(default, 50, Format,
+            [], [])</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
       <name>pal(X1, X2) -&gt; ok</name>
       <fsummary>Equivalent to pal(Category, Importance, Format,
-        FormatArgs).</fsummary>
+        FormatArgs, []).</fsummary>
       <type>
         <v>X1 = Category | Importance | Format</v>
         <v>X2 = Format | FormatArgs</v>
       </type>
       <desc><marker id="pal-2"/>
-        <p>Equivalent to <seealso marker="#pal-4"><c>ct:pal(Category,
-          Importance, Format, FormatArgs)</c></seealso>.</p>
+        <p>Equivalent to <seealso marker="#pal-5"><c>ct:pal(Category,
+          Importance, Format, FormatArgs, [])</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
       <name>pal(X1, X2, X3) -&gt; ok</name>
       <fsummary>Equivalent to pal(Category, Importance, Format,
-        FormatArgs).</fsummary>
+        FormatArgs, Opts).</fsummary>
       <type>
         <v>X1 = Category | Importance</v>
         <v>X2 = Importance | Format</v>
-        <v>X3 = Format | FormatArgs</v>
+        <v>X3 = Format | FormatArgs | Opts</v>
       </type>
       <desc><marker id="pal-3"/>
-        <p>Equivalent to <seealso marker="#pal-4"><c>ct:pal(Category,
-          Importance, Format, FormatArgs)</c></seealso>.</p>
+        <p>Equivalent to <seealso marker="#pal-5"><c>ct:pal(Category,
+          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
-      <name>pal(Category, Importance, Format, FormatArgs) -&gt; ok</name>
+      <name>pal(X1, X2, X3, X4) -&gt; ok</name>
+      <fsummary>Equivalent to pal(Category, Importance, Format,
+        FormatArgs, Opts).</fsummary>
+      <type>
+        <v>X1 = Category | Importance</v>
+        <v>X2 = Importance | Format</v>
+        <v>X3 = Format | FormatArgs</v>
+	<v>X4 = FormatArgs | Opts</v>
+      </type>
+      <desc><marker id="pal-4"/>
+        <p>Equivalent to <seealso marker="#pal-5"><c>ct:pal(Category,
+          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>pal(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
       <fsummary>Prints and logs from a test case.</fsummary>
       <type>
         <v>Category = atom()</v>
         <v>Importance = integer()</v>
         <v>Format = string()</v>
         <v>FormatArgs = list()</v>
+        <v>Opts = [Opt]</v>
+	<v>Opt = {heading,string()} | no_css</v>
       </type>
-      <desc><marker id="pal-4"/>
+      <desc><marker id="pal-5"/>
         <p>Prints and logs from a test case.</p>
 
         <p>This function is meant for printing a string from a test case,
@@ -888,52 +906,70 @@
 
     <func>
       <name>print(Format) -&gt; ok</name>
-      <fsummary>Equivalent to print(default, 50, Format, []).</fsummary>
+      <fsummary>Equivalent to print(default, 50, Format, [], []).</fsummary>
       <desc><marker id="print-1"/>
-        <p>Equivalent to <seealso marker="#print-4"><c>ct:print(default,
-        50, Format, [])</c></seealso>.</p>
+        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(default,
+        50, Format, [], [])</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
       <name>print(X1, X2) -&gt; ok</name>
       <fsummary>Equivalent to print(Category, Importance, Format,
-        FormatArgs).</fsummary>
+        FormatArgs, []).</fsummary>
       <type>
         <v>X1 = Category | Importance | Format</v>
         <v>X2 = Format | FormatArgs</v>
       </type>
       <desc><marker id="print-2"/>
-        <p>Equivalent to <seealso marker="#print-4"><c>ct:print(Category,
-          Importance, Format, FormatArgs)</c></seealso>.</p>
+        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(Category,
+          Importance, Format, FormatArgs, [])</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
       <name>print(X1, X2, X3) -&gt; ok</name>
       <fsummary>Equivalent to print(Category, Importance, Format,
-        FormatArgs).</fsummary>
+        FormatArgs, Opts).</fsummary>
       <type>
         <v>X1 = Category | Importance</v>
         <v>X2 = Importance | Format</v>
-        <v>X3 = Format | FormatArgs</v>
+        <v>X3 = Format | FormatArgs | Opts</v>
       </type>
       <desc><marker id="print-3"/>
-        <p>Equivalent to <seealso marker="#print-4"><c>ct:print(Category,
-          Importance, Format, FormatArgs)</c></seealso>.</p>
+        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(Category,
+          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
-      <name>print(Category, Importance, Format, FormatArgs) -&gt; ok</name>
+      <name>print(X1, X2, X3, X4) -&gt; ok</name>
+      <fsummary>Equivalent to print(Category, Importance, Format,
+        FormatArgs, Opts).</fsummary>
+      <type>
+        <v>X1 = Category | Importance</v>
+        <v>X2 = Importance | Format</v>
+        <v>X3 = Format | FormatArgs</v>
+	<v>X4 = FormatArgs | Opts</v>
+      </type>
+      <desc><marker id="print-4"/>
+        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(Category,
+          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>print(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
       <fsummary>Prints from a test case to the console.</fsummary>
       <type>
         <v>Category = atom()</v>
         <v>Importance = integer()</v>
         <v>Format = string()</v>
         <v>FormatArgs = list()</v>
+        <v>Opts = [Opt]</v>
+	<v>Opt = {heading,string()}</v>
       </type>
-      <desc><marker id="print-4"/>
+      <desc><marker id="print-5"/>
         <p>Prints from a test case to the console.</p>
 
         <p>This function is meant for printing a string from a test case to

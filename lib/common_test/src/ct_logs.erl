@@ -45,8 +45,8 @@
 %% Logging stuff directly from testcase
 -export([tc_log/3, tc_log/4, tc_log/5, tc_log/6,
 	 tc_log_async/3, tc_log_async/5,
-	 tc_print/3, tc_print/4,
-	 tc_pal/3, tc_pal/4, ct_log/3,
+	 tc_print/3, tc_print/4, tc_print/5,
+	 tc_pal/3, tc_pal/4, tc_pal/5, ct_log/3,
 	 basic_html/0]).
 
 %% Simulate logger process for use without ct environment running
@@ -447,10 +447,10 @@ tc_log(Category,Importance,Format,Args,Opts) ->
     tc_log(Category,Importance,"User",Format,Args,Opts).
 
 %%%-----------------------------------------------------------------
-%%% @spec tc_log(Category,Importance,Printer,Format,Args,Opts) -> ok
+%%% @spec tc_log(Category,Importance,Heading,Format,Args,Opts) -> ok
 %%%      Category = atom()
 %%%      Importance = integer()
-%%%      Printer = string()
+%%%      Heading = string()
 %%%      Format = string()
 %%%      Args = list()
 %%%      Opts = list()
@@ -460,13 +460,18 @@ tc_log(Category,Importance,Format,Args,Opts) ->
 %%% <p>This function is called by <code>ct</code> when logging
 %%% stuff directly from a testcase (i.e. not from within the CT
 %%% framework).</p>
-tc_log(Category,Importance,Printer,Format,Args,Opts) ->
+tc_log(Category,Importance,Heading,Format,Args,Opts) ->
     Data = 
 	case lists:member(no_css, Opts) of
 	    true ->
 		[{Format,Args}];
 	    false ->
-		[{hd,div_header(Category,Printer),[]},
+                Heading1 =
+                    case proplists:get_value(heading, Opts) of
+                        undefined -> Heading;
+                        Str       -> Str
+                    end,
+		[{hd,div_header(Category,Heading1),[]},
 		 {Format,Args},
 		 {ft,div_footer(),[]}]
 	end,
@@ -484,7 +489,7 @@ tc_log_async(Category,Format,Args) ->
 %%% @spec tc_log_async(Category,Importance,Format,Args) -> ok
 %%%      Category = atom()
 %%%      Importance = integer()
-%%%      Printer = string()
+%%%      Heading = string()
 %%%      Format = string()
 %%%      Args = list()
 %%%
@@ -495,31 +500,38 @@ tc_log_async(Category,Format,Args) ->
 %%% to avoid deadlocks when e.g. the hook that handles SASL printouts
 %%% prints to the test case log file at the same time test server
 %%% asks ct_logs for an html wrapper.</p>
-tc_log_async(Category,Importance,Printer,Format,Args) ->
+tc_log_async(Category,Importance,Heading,Format,Args) ->
     cast({log,async,self(),group_leader(),Category,Importance,
-	  [{hd,div_header(Category,Printer),[]},
+	  [{hd,div_header(Category,Heading),[]},
 	   {Format,Args},
 	   {ft,div_footer(),[]}],
 	  true}),
     ok.
 %%%-----------------------------------------------------------------
 %%% @spec tc_print(Category,Format,Args)
-%%% @equiv tc_print(Category,?STD_IMPORTANCE,Format,Args)
+%%% @equiv tc_print(Category,?STD_IMPORTANCE,Format,Args,[])
 tc_print(Category,Format,Args) ->
-    tc_print(Category,?STD_IMPORTANCE,Format,Args).
+    tc_print(Category,?STD_IMPORTANCE,Format,Args,[]).
 
 %%%-----------------------------------------------------------------
-%%% @spec tc_print(Category,Importance,Format,Args) -> ok
+%%% @spec tc_print(Category,Importance,Format,Args)
+%%% @equiv tc_print(Category,Importance,Format,Args,[])
+tc_print(Category,Importance,Format,Args) ->
+    tc_print(Category,Importance,Format,Args,[]).
+
+%%%-----------------------------------------------------------------
+%%% @spec tc_print(Category,Importance,Format,Args,Opts) -> ok
 %%%      Category = atom()
 %%%      Importance = integer()
 %%%      Format = string()
 %%%      Args = list()
+%%%      Opts = list()
 %%%
 %%% @doc Console printout from a testcase. 
 %%%
 %%% <p>This function is called by <code>ct</code> when printing
 %%% stuff from a testcase on the user console.</p>
-tc_print(Category,Importance,Format,Args) ->
+tc_print(Category,Importance,Format,Args,Opts) ->
     VLvl = case ct_util:get_verbosity(Category) of
 	       undefined -> 
 		   ct_util:get_verbosity('$unspecified');
@@ -531,7 +543,12 @@ tc_print(Category,Importance,Format,Args) ->
 		   Val
 	   end,
     if Importance >= (100-VLvl) ->
-            Str = lists:concat([get_heading(Category),Format,"\n\n"]),
+            Heading =
+                case proplists:get_value(heading, Opts) of
+                    undefined -> atom_to_list(Category);
+                    Hd        -> Hd
+                end,
+            Str = lists:concat([get_header(Heading),Format,"\n\n"]),
             try
                 io:format(?def_gl, Str, Args)
             catch
@@ -543,43 +560,44 @@ tc_print(Category,Importance,Format,Args) ->
 	    ok
     end.
 
-get_heading(default) ->
+get_header("default") ->
     io_lib:format("\n-----------------------------"
 		  "-----------------------\n~s\n",
 		  [log_timestamp(?now)]);
-get_heading(Category) ->
+get_header(Heading) ->
     io_lib:format("\n-----------------------------"
-		  "-----------------------\n~s  ~w\n",
-		  [log_timestamp(?now),Category]).    
+		  "-----------------------\n~s ~s\n",
+		  [Heading,log_timestamp(?now)]).    
     
 
 %%%-----------------------------------------------------------------
 %%% @spec tc_pal(Category,Format,Args) -> ok
-%%% @equiv tc_pal(Category,?STD_IMPORTANCE,Format,Args) -> ok
+%%% @equiv tc_pal(Category,?STD_IMPORTANCE,Format,Args,[]) -> ok
 tc_pal(Category,Format,Args) ->
-    tc_pal(Category,?STD_IMPORTANCE,Format,Args).
+    tc_pal(Category,?STD_IMPORTANCE,Format,Args,[]).
 
 %%%-----------------------------------------------------------------
 %%% @spec tc_pal(Category,Importance,Format,Args) -> ok
+%%% @equiv tc_pal(Category,Importance,Format,Args,[]) -> ok
+tc_pal(Category,Importance,Format,Args) ->
+    tc_pal(Category,Importance,Format,Args,[]).
+
+%%%-----------------------------------------------------------------
+%%% @spec tc_pal(Category,Importance,Format,Args,Opts) -> ok
 %%%      Category = atom()
 %%%      Importance = integer()
 %%%      Format = string()
 %%%      Args = list()
+%%%      Opts = list()
 %%%
 %%% @doc Print and log from a testcase. 
 %%%
 %%% <p>This function is called by <code>ct</code> when logging
 %%% stuff directly from a testcase. The info is written both in the
 %%% log and on the console.</p>
-tc_pal(Category,Importance,Format,Args) ->
-    tc_print(Category,Importance,Format,Args),
-    cast({log,sync,self(),group_leader(),Category,Importance,
-	  [{hd,div_header(Category),[]},
-	   {Format,Args},
-	   {ft,div_footer(),[]}],
-	  true}),
-    ok.
-
+tc_pal(Category,Importance,Format,Args,Opts) ->
+    tc_print(Category,Importance,Format,Args,Opts),
+    tc_log(Category,Importance,"User",Format,Args,[esc_chars|Opts]).
 
 %%%-----------------------------------------------------------------
 %%% @spec ct_log(Category,Format,Args) -> ok
@@ -608,9 +626,9 @@ int_footer() ->
 
 div_header(Class) ->
     div_header(Class,"User").
-div_header(Class,Printer) ->
+div_header(Class,Heading) ->
     "\n</pre>\n<div class=\"" ++ atom_to_list(Class) ++ "\"><pre><b>*** "
-	++ Printer ++ " " ++ log_timestamp(?now) ++ " ***</b>".
+	++ Heading ++ " " ++ log_timestamp(?now) ++ " ***</b>".
 div_footer() ->
     "</pre></div>\n<pre>".
 

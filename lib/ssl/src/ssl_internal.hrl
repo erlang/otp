@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -142,7 +142,8 @@
 	  signature_algs,
 	  eccs,
 	  honor_ecc_order            :: boolean(),
-	  v2_hello_compatible        :: boolean()
+	  v2_hello_compatible        :: boolean(),
+          max_handshake_size         :: integer()
 	  }).
 
 -record(socket_options,
@@ -156,7 +157,8 @@
 
 -record(config, {ssl,               %% SSL parameters
 		 inet_user,         %% User set inet options
-		 emulated,          %% Emulated option list or "inherit_tracker" pid 
+		 emulated,          %% Emulated option list or "inherit_tracker" pid
+		 udp_handler,
 		 inet_ssl,          %% inet options for internal ssl socket
 		 transport_info,                 %% Callback info
 		 connection_cb

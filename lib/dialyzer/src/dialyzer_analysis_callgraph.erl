@@ -94,9 +94,9 @@ loop(#server_state{parent = Parent} = State,
     {AnalPid, cserver, CServer, Plt} ->
       send_codeserver_plt(Parent, CServer, Plt),
       loop(State, Analysis, ExtCalls);
-    {AnalPid, done, Plt, DocPlt} ->
+    {AnalPid, done, MiniPlt, DocPlt} ->
       send_ext_calls(Parent, ExtCalls),
-      send_analysis_done(Parent, Plt, DocPlt);
+      send_analysis_done(Parent, MiniPlt, DocPlt);
     {AnalPid, ext_calls, NewExtCalls} ->
       loop(State, Analysis, NewExtCalls);
     {AnalPid, ext_types, ExtTypes} ->
@@ -114,6 +114,7 @@ loop(#server_state{parent = Parent} = State,
 %% The Analysis
 %%--------------------------------------------------------------------
 
+%% Calls to erlang:garbage_collect() help to reduce the heap size.
 analysis_start(Parent, Analysis, LegalWarnings) ->
   CServer = dialyzer_codeserver:new(),
   Plt = Analysis#analysis.plt,
@@ -150,12 +151,9 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
       TmpCServer1 = dialyzer_codeserver:set_temp_records(MergedRecords, TmpCServer0),
       TmpCServer2 =
         dialyzer_codeserver:finalize_exported_types(MergedExpTypes, TmpCServer1),
+      erlang:garbage_collect(),
       ?timing(State#analysis_state.timing_server, "remote",
-              begin
-                TmpCServer3 =
-                  dialyzer_utils:process_record_remote_types(TmpCServer2),
-                dialyzer_contracts:process_contract_remote_types(TmpCServer3)
-              end)
+              contracts_and_records(TmpCServer2))
     catch
       throw:{error, _ErrorMsg} = Error -> exit(Error)
     end,
@@ -164,48 +162,75 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
   NewPlt1 = dialyzer_plt:insert_exported_types(NewPlt0, ExpTypes),
   State0 = State#analysis_state{plt = NewPlt1},
   dump_callgraph(Callgraph, State0, Analysis),
-  State1 = State0#analysis_state{codeserver = NewCServer},
   %% Remove all old versions of the files being analyzed
   AllNodes = dialyzer_callgraph:all_nodes(Callgraph),
-  Plt1 = dialyzer_plt:delete_list(NewPlt1, AllNodes),
+  Plt1_a = dialyzer_plt:delete_list(NewPlt1, AllNodes),
+  Plt1 = dialyzer_plt:insert_callbacks(Plt1_a, NewCServer),
+  State1 = State0#analysis_state{codeserver = NewCServer, plt = Plt1},
   Exports = dialyzer_codeserver:get_exports(NewCServer),
+  NonExports = sets:subtract(sets:from_list(AllNodes), Exports),
+  NonExportsList = sets:to_list(NonExports),
   NewCallgraph =
     case Analysis#analysis.race_detection of
       true -> dialyzer_callgraph:put_race_detection(true, Callgraph);
       false -> Callgraph
     end,
-  State2 = analyze_callgraph(NewCallgraph, State1#analysis_state{plt = Plt1}),
+  State2 = analyze_callgraph(NewCallgraph, State1),
+  #analysis_state{plt = MiniPlt2, doc_plt = DocPlt} = State2,
   dialyzer_callgraph:dispose_race_server(NewCallgraph),
   rcv_and_send_ext_types(Parent),
-  NonExports = sets:subtract(sets:from_list(AllNodes), Exports),
-  NonExportsList = sets:to_list(NonExports),
-  Plt2 = dialyzer_plt:delete_list(State2#analysis_state.plt, NonExportsList),
-  send_codeserver_plt(Parent, CServer, State2#analysis_state.plt),
-  send_analysis_done(Parent, Plt2, State2#analysis_state.doc_plt).
+  %% Since the PLT is never used, a dummy is sent:
+  DummyPlt = dialyzer_plt:new(),
+  send_codeserver_plt(Parent, CServer, DummyPlt),
+  MiniPlt3 = dialyzer_plt:delete_list(MiniPlt2, NonExportsList),
+  send_analysis_done(Parent, MiniPlt3, DocPlt).
+
+contracts_and_records(CodeServer) ->
+  Fun = contrs_and_recs(CodeServer),
+  {Pid, Ref} = erlang:spawn_monitor(Fun),
+  dialyzer_codeserver:give_away(CodeServer, Pid),
+  Pid ! {self(), go},
+  receive {'DOWN', Ref, process, Pid, Return} ->
+      Return
+  end.
+
+-spec contrs_and_recs(dialyzer_codeserver:codeserver()) ->
+                         fun(() -> no_return()).
+
+contrs_and_recs(TmpCServer2) ->
+  fun() ->
+      Parent = receive {Pid, go} -> Pid end,
+      {TmpCServer3, RecordDict} =
+        dialyzer_utils:process_record_remote_types(TmpCServer2),
+      TmpServer4 =
+        dialyzer_contracts:process_contract_remote_types(TmpCServer3,
+                                                         RecordDict),
+      dialyzer_codeserver:give_away(TmpServer4, Parent),
+      exit(TmpServer4)
+  end.
 
 analyze_callgraph(Callgraph, #analysis_state{codeserver = Codeserver,
 					     doc_plt = DocPlt,
+                                             plt = Plt,
 					     timing_server = TimingServer,
 					     parent = Parent,
                                              solvers = Solvers} = State) ->
-  Plt = dialyzer_plt:insert_callbacks(State#analysis_state.plt, Codeserver),
-  {NewPlt, NewDocPlt} =
-    case State#analysis_state.analysis_type of
-      plt_build ->
-	NewPlt0 =
-	  dialyzer_succ_typings:analyze_callgraph(Callgraph, Plt, Codeserver,
-						  TimingServer, Solvers, Parent),
-	{NewPlt0, DocPlt};
-      succ_typings ->
-	{Warnings, NewPlt0, NewDocPlt0} =
-	  dialyzer_succ_typings:get_warnings(Callgraph, Plt, DocPlt, Codeserver,
-					     TimingServer, Solvers, Parent),
-        Warnings1 = filter_warnings(Warnings, Codeserver),
-	send_warnings(State#analysis_state.parent, Warnings1),
-	{NewPlt0, NewDocPlt0}
-    end,
-  dialyzer_callgraph:delete(Callgraph),
-  State#analysis_state{plt = NewPlt, doc_plt = NewDocPlt}.
+  case State#analysis_state.analysis_type of
+    plt_build ->
+      NewMiniPlt =
+        dialyzer_succ_typings:analyze_callgraph(Callgraph, Plt, Codeserver,
+                                                TimingServer, Solvers, Parent),
+      dialyzer_callgraph:delete(Callgraph),
+      State#analysis_state{plt = NewMiniPlt, doc_plt = DocPlt};
+    succ_typings ->
+      {Warnings, NewMiniPlt, NewDocPlt} =
+        dialyzer_succ_typings:get_warnings(Callgraph, Plt, DocPlt, Codeserver,
+                                           TimingServer, Solvers, Parent),
+      dialyzer_callgraph:delete(Callgraph),
+      Warnings1 = filter_warnings(Warnings, Codeserver),
+      send_warnings(State#analysis_state.parent, Warnings1),
+      State#analysis_state{plt = NewMiniPlt, doc_plt = NewDocPlt}
+    end.
 
 %%--------------------------------------------------------------------
 %% Build the callgraph and fill the codeserver.
@@ -562,8 +587,9 @@ is_ok_fun({_Filename, _Line, {_M, _F, _A} = MFA}, Codeserver) ->
 is_ok_tag(Tag, {_F, _L, MorMFA}, Codeserver) ->
   not dialyzer_utils:is_suppressed_tag(MorMFA, Tag, Codeserver).
   
-send_analysis_done(Parent, Plt, DocPlt) ->
-  Parent ! {self(), done, Plt, DocPlt},
+send_analysis_done(Parent, MiniPlt, DocPlt) ->
+  ok = dialyzer_plt:give_away(MiniPlt, Parent),
+  Parent ! {self(), done, MiniPlt, DocPlt},
   ok.
 
 send_ext_calls(_Parent, none) ->
@@ -576,7 +602,7 @@ send_ext_types(Parent, ExtTypes) ->
   Parent ! {self(), ext_types, ExtTypes},
   ok.
 
-send_codeserver_plt(Parent, CServer, Plt ) ->
+send_codeserver_plt(Parent, CServer, Plt) ->
   Parent ! {self(), cserver, CServer, Plt},
   ok.
 
@@ -595,14 +621,14 @@ format_bad_calls([{{_, _, _}, {_, module_info, A}}|Left], CodeServer, Acc)
 format_bad_calls([{FromMFA, {M, F, A} = To}|Left], CodeServer, Acc) ->
   {_Var, FunCode} = dialyzer_codeserver:lookup_mfa_code(FromMFA, CodeServer),
   Msg = {call_to_missing, [M, F, A]},
-  {File, Line} = find_call_file_and_line(FunCode, To),
+  {File, Line} = find_call_file_and_line(FromMFA, FunCode, To, CodeServer),
   WarningInfo = {File, Line, FromMFA},
   NewAcc = [{?WARN_CALLGRAPH, WarningInfo, Msg}|Acc],
   format_bad_calls(Left, CodeServer, NewAcc);
 format_bad_calls([], _CodeServer, Acc) ->
   Acc.
 
-find_call_file_and_line(Tree, MFA) ->
+find_call_file_and_line({Module, _, _}, Tree, MFA, CodeServer) ->
   Fun =
     fun(SubTree, Acc) ->
 	case cerl:is_c_call(SubTree) of
@@ -615,7 +641,7 @@ find_call_file_and_line(Tree, MFA) ->
 		case {cerl:concrete(M), cerl:concrete(F), A} of
 		  MFA ->
 		    Ann = cerl:get_ann(SubTree),
-		    [{get_file(Ann), get_line(Ann)}|Acc];
+		    [{get_file(CodeServer, Module, Ann), get_line(Ann)}|Acc];
 		  {erlang, make_fun, 3} ->
 		    [CA1, CA2, CA3] = cerl:call_args(SubTree),
 		    case
@@ -631,7 +657,8 @@ find_call_file_and_line(Tree, MFA) ->
 			of
 			  MFA ->
 			    Ann = cerl:get_ann(SubTree),
-			    [{get_file(Ann), get_line(Ann)}|Acc];
+			    [{get_file(CodeServer, Module, Ann),
+                              get_line(Ann)}|Acc];
 			  _ ->
 			    Acc
 			end;
@@ -651,8 +678,10 @@ get_line([Line|_]) when is_integer(Line) -> Line;
 get_line([_|Tail]) -> get_line(Tail);
 get_line([]) -> -1.
 
-get_file([{file, File}|_]) -> File;
-get_file([_|Tail]) -> get_file(Tail).
+get_file(Codeserver, Module, [{file, FakeFile}|_]) ->
+  dialyzer_codeserver:translate_fake_file(Codeserver, Module, FakeFile);
+get_file(Codeserver, Module, [_|Tail]) ->
+  get_file(Codeserver, Module, Tail).
 
 -spec dump_callgraph(dialyzer_callgraph:callgraph(), #analysis_state{}, #analysis{}) ->
   'ok'.

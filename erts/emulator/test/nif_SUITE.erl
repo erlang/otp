@@ -1814,7 +1814,7 @@ consume_timeslice(Config) when is_list(Config) ->
 
 consume_timeslice_test(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
-    CONTEXT_REDS = 2000,
+    CONTEXT_REDS = 4000,
     Me = self(),
     Go = make_ref(),
     RedDiff = make_ref(),

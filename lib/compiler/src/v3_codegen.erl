@@ -69,6 +69,10 @@
 	     stk=[],				%Stack table
 	     res=[]}).				%Reserved regs: [{reserved,I,V}]
 
+-type life_module() :: {module(),_,_,[_]}.
+
+-spec module(life_module(), [compile:option()]) -> {'ok',beam_asm:module_code()}.
+
 module({Mod,Exp,Attr,Forms}, _Options) ->
     {Fs,St} = functions(Forms, {atom,Mod}),
     {ok,{Mod,Exp,Attr,Fs,St#cg.lcount}}.

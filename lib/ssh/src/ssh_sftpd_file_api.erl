@@ -36,7 +36,7 @@
 -callback list_dir(file:name(), State::term()) ->
     {{ok, Filenames::term()}, State::term()} | {{error, Reason::term()}, State::term()}.
 -callback make_dir(Dir::term(), State::term()) ->
-    {{ok, State::term()},State::term()} | {{error, Reason::term()}, State::term()}.
+    {ok, State::term()} | {{error, Reason::term()}, State::term()}.
 -callback make_symlink(Path2::term(), Path::term(), State::term()) ->
     {ok, State::term()} | {{error, Reason::term()}, State::term()}.
 -callback open(Path::term(), Flags::term(), State::term()) ->

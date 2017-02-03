@@ -350,13 +350,18 @@ gen_event:stop             ----->  Module:terminate/2
 
     <func>
       <name>start() -> Result</name>
-      <name>start(EventMgrName) -> Result</name>
+      <name>start(EventMgrName | Options) -> Result</name>
+      <name>start(EventMgrName, Options) -> Result</name>
       <fsummary>Create a stand-alone event manager process.</fsummary>
       <type>
-        <v>EventMgrName = {local,Name} | {global,GlobalName}
-	| {via,Module,ViaName}</v>
+        <v>EventMgrName = {local,Name} | {global,GlobalName} | {via,Module,ViaName}</v>
         <v>&nbsp;Name = atom()</v>
         <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>Options = [Option]</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {spawn_opt,SOpts}</v>
+        <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
+        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
+        <v>&nbsp;&nbsp;SOpts = [term()]</v>
         <v>Result = {ok,Pid} | {error,{already_started,Pid}}</v>
         <v>&nbsp;Pid = pid()</v>
       </type>
@@ -371,14 +376,19 @@ gen_event:stop             ----->  Module:terminate/2
 
     <func>
       <name>start_link() -> Result</name>
-      <name>start_link(EventMgrName) -> Result</name>
+      <name>start_link(EventMgrName | Options) -> Result</name>
+      <name>start_link(EventMgrName, Options) -> Result</name>
       <fsummary>Create a generic event manager process in a supervision tree.
       </fsummary>
       <type>
-        <v>EventMgrName = {local,Name} | {global,GlobalName}
-	| {via,Module,ViaName}</v>
+        <v>EventMgrName = {local,Name} | {global,GlobalName} | {via,Module,ViaName}</v>
         <v>&nbsp;Name = atom()</v>
         <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>Options = [Option]</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {spawn_opt,SOpts}</v>
+        <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
+        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
+        <v>&nbsp;&nbsp;SOpts = [term()]</v>
         <v>Result = {ok,Pid} | {error,{already_started,Pid}}</v>
         <v>&nbsp;Pid = pid()</v>
       </type>

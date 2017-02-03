@@ -52,9 +52,14 @@
 -include("v3_kernel.hrl").
 -include("v3_life.hrl").
 
+-type fa() :: {atom(),arity()}.
+
 %% These are not defined in v3_kernel.hrl.
 get_kanno(Kthing) -> element(2, Kthing).
 %%set_kanno(Kthing, Anno) -> setelement(2, Kthing, Anno).
+
+-spec module(#k_mdef{}, [compile:option()]) ->
+                    {'ok',{module(),[fa()],[_],[_]}}.
 
 module(#k_mdef{name=M,exports=Es,attributes=As,body=Fs0}, _Opts) ->
     Fs1 = functions(Fs0, []),
@@ -415,6 +420,10 @@ add_var(V, F, L, Vdb) ->
 
 vdb_new(Vs) ->
     sort([{V,0,0} || {var,V} <- Vs]).
+
+-type var() :: atom().
+
+-spec vdb_find(var(), [vdb_entry()]) -> 'error' | vdb_entry().
 
 vdb_find(V, Vdb) ->
     case lists:keyfind(V, 1, Vdb) of

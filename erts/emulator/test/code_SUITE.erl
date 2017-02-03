@@ -65,9 +65,9 @@ versions(Config) when is_list(Config) ->
     2 = versions:version(),
 
     %% Kill processes, unload code.
-    P1 ! P2 ! done,
     _ = monitor(process, P1),
     _ = monitor(process, P2),
+    P1 ! P2 ! done,
     receive
         {'DOWN',_,process,P1,normal} -> ok
     end,
@@ -155,7 +155,7 @@ call_purged_fun_code_there(Config) when is_list(Config) ->
 call_purged_fun_test(Priv, Data, Type) ->
     OptsList = case erlang:system_info(hipe_architecture) of
                    undefined -> [[]];
-                   _ -> [[], [native]]
+                   _ -> [[], [native,{d,hipe}]]
                end,
     [call_purged_fun_test_do(Priv, Data, Type, CO, FO)
      || CO <- OptsList, FO <- OptsList].

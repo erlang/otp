@@ -526,7 +526,7 @@ start(File, Opts) ->
 		      true, Opts)},
 	 {export_all,
 	  bool_option(warn_export_all, nowarn_export_all,
-		      false, Opts)},
+		      true, Opts)},
 	 {export_vars,
 	  bool_option(warn_export_vars, nowarn_export_vars,
 		      false, Opts)},

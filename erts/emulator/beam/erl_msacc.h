@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014-2015. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -122,7 +122,7 @@ static char *erts_msacc_states[] = {
     "sleep",
     "timers"
 #ifdef ERTS_MSACC_EXTENDED_BIFS
-#define BIF_LIST(Mod,Func,Arity,FuncAddr,Num)   \
+#define BIF_LIST(Mod,Func,Arity,BifFuncAddr,FuncAddr,Num)	\
         ,"bif_" #Mod "_" #Func "_" #Arity
 #include "erl_bif_list.h"
 #undef BIF_LIST

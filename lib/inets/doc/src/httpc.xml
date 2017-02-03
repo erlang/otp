@@ -83,7 +83,7 @@
     <title>HTTP DATA TYPES</title>
     <p>Type definitions related to HTTP:</p>
 
-    <p><c>method() = head | get | put | post | trace | options | delete</c></p>
+    <p><c>method() = head | get | put | post | trace | options | delete | patch</c></p>
     <taglist>
       <tag><c>request()</c></tag>
       <item><p>= <c>{url(), headers()}</c></p>

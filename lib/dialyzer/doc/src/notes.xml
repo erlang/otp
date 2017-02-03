@@ -32,6 +32,37 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 3.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix bugs regarding opaque types. </p>
+          <p>
+	    Own Id: OTP-13693</p>
+        </item>
+        <item>
+	    <p> Fix error handling of bad <c>-dialyzer()</c>
+	    attributes. </p>
+          <p>
+	    Own Id: OTP-13979 Aux Id: ERL-283 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> A few warning messages have been improved. </p>
+          <p>
+	    Own Id: OTP-11403</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 3.0.2</title>
 
     <section><title>Improvements and New Features</title>

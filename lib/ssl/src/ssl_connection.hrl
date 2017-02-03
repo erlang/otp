@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@
 	  error_tag             :: atom(),   % ex tcp_error
           host                  :: string() | inet:ip_address(),
           port                  :: integer(),
-          socket                :: port(),
+          socket                :: port() | tuple(), %% TODO: dtls socket
           ssl_options           :: #ssl_options{},
           socket_options        :: #socket_options{},
           connection_states     :: ssl_record:connection_states() | secret_printout(),
@@ -81,17 +81,18 @@
 	  allow_renegotiate = true                    ::boolean(),
           expecting_next_protocol_negotiation = false ::boolean(),
 	  expecting_finished =                  false ::boolean(),
-          negotiated_protocol = undefined             :: undefined | binary(),
+          next_protocol = undefined                   :: undefined | binary(),
+	  negotiated_protocol,
 	  tracker              :: pid() | 'undefined', %% Tracker process for listen socket
 	  sni_hostname = undefined,
 	  downgrade,
-	  flight_buffer = []   :: list()  %% Buffer of TLS/DTLS records, used during the TLS handshake
-				          %% to when possible pack more than on TLS record into the 
-                                          %% underlaying packet format. Introduced by DTLS - RFC 4347.
-				          %% The mecahnism is also usefull in TLS although we do not
-				          %% need to worry about packet loss in TLS.
+	  flight_buffer = []   :: list() | map(),  %% Buffer of TLS/DTLS records, used during the TLS handshake
+				   %% to when possible pack more than on TLS record into the 
+				   %% underlaying packet format. Introduced by DTLS - RFC 4347.
+				   %% The mecahnism is also usefull in TLS although we do not
+				   %% need to worry about packet loss in TLS. In DTLS we need to track DTLS handshake seqnr
+	 flight_state = reliable  %% reliable | {retransmit, integer()}| {waiting, ref(), integer()} - last two is used in DTLS over udp.   
 	 }).
-
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS,
 	#'DHParameter'{prime = ?DEFAULT_DIFFIE_HELLMAN_PRIME,
 		       base = ?DEFAULT_DIFFIE_HELLMAN_GENERATOR}).

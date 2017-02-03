@@ -80,6 +80,9 @@
 -define(CLIENT_KEY_EXCHANGE, 16).
 -define(FINISHED, 20).
 
+-define(MAX_UNIT24, 8388607).
+-define(DEFAULT_MAX_HANDSHAKE_SIZE,  (256*1024)).
+
 -record(random, {
 	  gmt_unix_time, % uint32
 	  random_bytes   % opaque random_bytes[28]

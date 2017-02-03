@@ -176,6 +176,14 @@
               <seealso marker="stdlib:beam_lib#debug_info">beam_lib(3)</seealso>.</p>
           </item>
 
+          <tag><c>deterministic</c></tag>
+          <item>
+            <p>Omit the <c>options</c> and <c>source</c> tuples in
+	    the list returned by <c>Module:module_info(compile)</c>.
+	    This option will make it easier to achieve reproducible builds.
+	    </p>
+          </item>
+
           <tag><c>makedep</c></tag>
           <item>
             <p>Produces a Makefile rule to track headers dependencies.
@@ -498,9 +506,11 @@ module.beam: module.erl \
 	    </warning>
           </item>
 
-	  <tag><c>warn_export_all</c></tag>
+	  <tag><c>nowarn_export_all</c></tag>
           <item>
-	      <p>Emits a warning if option <c>export_all</c> is also given.</p>
+	      <p>Turns off warnings for uses of the <c>export_all</c>
+	      option. Default is to emit a warning if option
+	      <c>export_all</c> is also given.</p>
           </item>
 
 	  <tag><c>warn_export_vars</c></tag>
@@ -574,7 +584,7 @@ module.beam: module.erl \
 	    such as <c>pid/1</c> and <c>list/1</c>. See the
 	    <seealso marker="doc/reference_manual:expressions#guards">Erlang Reference Manual</seealso>
 	      for a complete list of type testing BIFs and their old
-	      equivalents. Default is to emit no warnings for calls to 
+	      equivalents. Default is to emit warnings for calls to
 	      old type testing BIFs.</p>
           </item>
 

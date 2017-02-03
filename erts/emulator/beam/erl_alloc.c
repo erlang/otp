@@ -44,6 +44,7 @@
 #include "erl_hl_timer.h"
 #include "erl_cpu_topology.h"
 #include "erl_thr_queue.h"
+#include "erl_nfunc_sched.h"
 #if defined(ERTS_ALC_T_DRV_SEL_D_STATE) || defined(ERTS_ALC_T_DRV_EV_D_STATE)
 #include "erl_check_io.h"
 #endif
@@ -681,6 +682,8 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_ABIF_TIMER)]
 	= erts_timer_type_size(ERTS_ALC_T_ABIF_TIMER);
 #endif
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_NIF_EXP_TRACE)]
+	= sizeof(NifExportTrace);
 
 #ifdef HARD_DEBUG
     hdbg_init();
@@ -2439,6 +2442,10 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 		       fi,
 		       ERTS_ALC_T_ABIF_TIMER);
 #endif
+	add_fix_values(&size.processes,
+		       &size.processes_used,
+		       fi,
+		       ERTS_ALC_T_NIF_EXP_TRACE);
     }
 
     if (want.atom || want.atom_used) {

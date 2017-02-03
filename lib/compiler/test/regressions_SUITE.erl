@@ -24,7 +24,7 @@
 -export([all/0,groups/0,init_per_testcase/2,end_per_testcase/2,suite/0]).
 -export([maps/1]).
 
-groups() -> 
+groups() ->
     [{p,test_lib:parallel(),
       [maps]}].
 
@@ -38,7 +38,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,2}}].
 
-all() -> 
+all() ->
     test_lib:recompile(?MODULE),
     [{group,p}].
 
@@ -48,7 +48,18 @@ maps(Config) when is_list(Config) ->
     Ts = [{beam_bool_get_elements,
            <<"century(#{ron := operator}, _century) ->
                   if 0.0; _century, _century, _century -> _century end.
-           ">>}],
+           ">>},
+          {empty_map_clauses,
+           <<"politics(#{}, researchers) -> concerned;
+              politics(#{[] := _}, workers) -> dot;
+              politics(#{[] := ct}, counsel) -> calls.
+             ">>},
+          {empty_map_clauses_variable,
+           <<"georgia(#{a := effectively}, ratio, is, eventually) -> teens;
+              georgia(#{a := government}, knowledge, poker, partly) -> signed;
+              georgia(#{}, recording, bring, vital) -> divided;
+              georgia(#{0 := 0}, articles, brought, #{true := true, a := There}) -> There.
+             ">>}],
     ok = run(Config, Ts),
     ok.
 
@@ -58,7 +69,7 @@ run(Config, Tests) ->
     F = fun({N,P}) ->
                 io:format("Compiling test for: ~w~n", [N]),
                 case catch run_test(Config, P) of
-                    {'EXIT', Reason} -> 
+                    {'EXIT', Reason} ->
                         io:format("~nTest ~p failed.~nReason: ~p~n",
 				  [N, Reason]),
                         fail();

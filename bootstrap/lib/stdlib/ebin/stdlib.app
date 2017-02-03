@@ -20,7 +20,7 @@
 %%
 {application, stdlib,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "3.1"},
+  {vsn, "3.2"},
   {modules, [array,
 	     base64,
 	     beam_lib,
@@ -31,7 +31,6 @@
              dets_server,
 	     dets_sup,
 	     dets_utils,
-	     dets_v8,
 	     dets_v9,
 	     dict,
 	     digraph,

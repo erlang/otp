@@ -56,6 +56,8 @@
 #ifdef HIPE
 #  include "hipe_mode_switch.h"
 #endif
+#define ERTS_WANT_NFUNC_SCHED_INTERNALS__
+#include "erl_nfunc_sched.h"
 
 #undef M_TRIM_THRESHOLD
 #undef M_TOP_PAD

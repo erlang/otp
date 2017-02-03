@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2015. All Rights Reserved.
+# Copyright Ericsson AB 1999-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@ MODULES= \
 	ssl_app \
 	ssl_dist_sup\
 	ssl_sup \
+	dtls_udp_sup \
 	inet_tls_dist \
 	inet6_tls_dist \
 	ssl_certificate\
@@ -71,7 +72,9 @@ MODULES= \
 	ssl_crl\
 	ssl_crl_cache \
 	ssl_crl_hash_dir \
-	ssl_socket \
+	tls_socket \
+	dtls_socket \
+	dtls_udp_listener\
 	ssl_listen_tracker_sup \
 	tls_record \
 	dtls_record \

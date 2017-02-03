@@ -39,6 +39,7 @@
 #include "beam_bp.h"
 #include "erl_binary.h"
 #include "erl_thr_progress.h"
+#include "erl_nfunc_sched.h"
 
 #ifdef ARCH_64
 # define HEXF "%016bpX"
@@ -764,3 +765,356 @@ static void print_bif_name(fmtfn_t to, void* to_arg, BifFunction bif)
 	erts_print(to, to_arg, "%T/%u", name, arity);
     }
 }
+
+/*
+ * Dirty BIF testing.
+ *
+ * The erts_debug:dirty_cpu/2, erts_debug:dirty_io/1, and
+ * erts_debug:dirty/3 BIFs are used by the dirty_bif_SUITE
+ * test suite.
+ */
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+static int ms_wait(Process *c_p, Eterm etimeout, int busy);
+static int dirty_send_message(Process *c_p, Eterm to, Eterm tag);
+#endif
+static BIF_RETTYPE dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I);
+
+/*
+ * erts_debug:dirty_cpu/2 is statically determined to execute on
+ * a dirty CPU scheduler (see erts_dirty_bif.tab).
+ */
+BIF_RETTYPE
+erts_debug_dirty_cpu_2(BIF_ALIST_2)
+{
+    return dirty_test(BIF_P, am_dirty_cpu, BIF_ARG_1, BIF_ARG_2, BIF_I);
+}
+
+/*
+ * erts_debug:dirty_io/2 is statically determined to execute on
+ * a dirty I/O scheduler (see erts_dirty_bif.tab).
+ */
+BIF_RETTYPE
+erts_debug_dirty_io_2(BIF_ALIST_2)
+{
+    return dirty_test(BIF_P, am_dirty_io, BIF_ARG_1, BIF_ARG_2, BIF_I);
+}
+
+/*
+ * erts_debug:dirty/3 executes on a normal scheduler.
+ */
+BIF_RETTYPE
+erts_debug_dirty_3(BIF_ALIST_3)
+{
+#ifdef ERTS_DIRTY_SCHEDULERS
+    Eterm argv[2];
+    switch (BIF_ARG_1) {
+    case am_normal:
+	return dirty_test(BIF_P, am_normal, BIF_ARG_2, BIF_ARG_3, BIF_I);
+    case am_dirty_cpu:
+	argv[0] = BIF_ARG_2;
+	argv[1] = BIF_ARG_3;
+	return erts_schedule_bif(BIF_P,
+				 argv,
+				 BIF_I,
+				 erts_debug_dirty_cpu_2,
+				 ERTS_SCHED_DIRTY_CPU,
+				 am_erts_debug,
+				 am_dirty_cpu,
+				 2);
+    case am_dirty_io:
+	argv[0] = BIF_ARG_2;
+	argv[1] = BIF_ARG_3;
+	return erts_schedule_bif(BIF_P,
+				 argv,
+				 BIF_I,
+				 erts_debug_dirty_io_2,
+				 ERTS_SCHED_DIRTY_IO,
+				 am_erts_debug,
+				 am_dirty_io,
+				 2);
+    default:
+	BIF_ERROR(BIF_P, EXC_BADARG);
+    }
+#else
+	BIF_ERROR(BIF_P, EXC_UNDEF);
+#endif
+}
+
+
+static BIF_RETTYPE
+dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I)
+{
+    BIF_RETTYPE ret;
+#ifdef ERTS_DIRTY_SCHEDULERS
+    if (am_scheduler == arg1) {
+	ErtsSchedulerData *esdp;
+	if (arg2 != am_type) 
+	    goto badarg;
+	esdp = erts_proc_sched_data(c_p);
+	if (!esdp)
+	    ERTS_BIF_PREP_RET(ret, am_error);
+	else if (!ERTS_SCHEDULER_IS_DIRTY(esdp))
+	    ERTS_BIF_PREP_RET(ret, am_normal);
+	else if (ERTS_SCHEDULER_IS_DIRTY_CPU(esdp))
+	    ERTS_BIF_PREP_RET(ret, am_dirty_cpu);
+	else if (ERTS_SCHEDULER_IS_DIRTY_IO(esdp))
+	    ERTS_BIF_PREP_RET(ret, am_dirty_io);
+	else
+	    ERTS_BIF_PREP_RET(ret, am_error);
+    }
+    else if (am_error == arg1) {
+	switch (arg2) {
+	case am_notsup:
+	    ERTS_BIF_PREP_ERROR(ret, c_p, EXC_NOTSUP);
+	    break;
+	case am_undef:
+	    ERTS_BIF_PREP_ERROR(ret, c_p, EXC_UNDEF);
+	    break;
+	case am_badarith:
+	    ERTS_BIF_PREP_ERROR(ret, c_p, EXC_BADARITH);
+	    break;
+	case am_noproc:
+	    ERTS_BIF_PREP_ERROR(ret, c_p, EXC_NOPROC);
+	    break;
+	case am_system_limit:
+	    ERTS_BIF_PREP_ERROR(ret, c_p, SYSTEM_LIMIT);
+	    break;
+	case am_badarg:
+	default:
+	    goto badarg;
+	}
+    }
+    else if (am_copy == arg1) {
+	int i;
+	Eterm res;
+
+	for (res = NIL, i = 0; i < 1000; i++) {
+	    Eterm *hp, sz;
+	    Eterm cpy;
+	    /* We do not want this to be optimized,
+	       but rather the oposite... */
+	    sz = size_object(arg2);
+	    hp = HAlloc(c_p, sz);
+	    cpy = copy_struct(arg2, sz, &hp, &c_p->off_heap);
+	    hp = HAlloc(c_p, 2);
+	    res = CONS(hp, cpy, res);
+	}
+
+	ERTS_BIF_PREP_RET(ret, res);
+    }
+    else if (am_send == arg1) {
+	dirty_send_message(c_p, arg2, am_ok);
+	ERTS_BIF_PREP_RET(ret, am_ok);
+    }
+    else if (ERTS_IS_ATOM_STR("wait", arg1)) {
+	if (!ms_wait(c_p, arg2, type == am_dirty_cpu))
+	    goto badarg;
+	ERTS_BIF_PREP_RET(ret, am_ok);
+    }
+    else if (ERTS_IS_ATOM_STR("reschedule", arg1)) {
+	/*
+	 * Reschedule operation after decrement of two until we reach
+	 * zero. Switch between dirty scheduler types when 'n' is
+	 * evenly divided by 4. If the initial value wasn't evenly
+	 * dividable by 2, throw badarg exception.
+	 */
+	Eterm next_type;
+	Sint n;
+	if (!term_to_Sint(arg2, &n) || n < 0)
+	    goto badarg;
+	if (n == 0)
+	    ERTS_BIF_PREP_RET(ret, am_ok);
+	else {
+	    Eterm argv[3];
+	    Eterm eint = erts_make_integer((Uint) (n - 2), c_p);
+	    if (n % 4 != 0)
+		next_type = type;
+	    else {
+		switch (type) {
+		case am_dirty_cpu: next_type = am_dirty_io; break;
+		case am_dirty_io: next_type = am_normal; break;
+		case am_normal: next_type = am_dirty_cpu; break;
+		default: goto badarg;
+		}
+	    }
+	    switch (next_type) {
+	    case am_dirty_io:
+		argv[0] = arg1;
+		argv[1] = eint;
+		ret = erts_schedule_bif(c_p,
+					argv,
+					I,
+					erts_debug_dirty_io_2,
+					ERTS_SCHED_DIRTY_IO,
+					am_erts_debug,
+					am_dirty_io,
+					2);
+		break;
+	    case am_dirty_cpu:
+		argv[0] = arg1;
+		argv[1] = eint;
+		ret = erts_schedule_bif(c_p,
+					argv,
+					I,
+					erts_debug_dirty_cpu_2,
+					ERTS_SCHED_DIRTY_CPU,
+					am_erts_debug,
+					am_dirty_cpu,
+					2);
+		break;
+	    case am_normal:
+		argv[0] = am_normal;
+		argv[1] = arg1;
+		argv[2] = eint;
+		ret = erts_schedule_bif(c_p,
+					argv,
+					I,
+					erts_debug_dirty_3,
+					ERTS_SCHED_NORMAL,
+					am_erts_debug,
+					am_dirty,
+					3);
+		break;
+	    default:
+		goto badarg;
+	    }
+	}
+    }
+    else if (ERTS_IS_ATOM_STR("ready_wait6_done", arg1)) {
+	ERTS_DECL_AM(ready);
+	ERTS_DECL_AM(done);
+	dirty_send_message(c_p, arg2, AM_ready);
+	ms_wait(c_p, make_small(6000), 0);
+	dirty_send_message(c_p, arg2, AM_done);
+	ERTS_BIF_PREP_RET(ret, am_ok);
+    }
+    else if (ERTS_IS_ATOM_STR("alive_waitexiting", arg1)) {
+	Process *real_c_p = erts_proc_shadow2real(c_p);
+	Eterm *hp, *hp2;
+	Uint sz;
+	int i;
+	ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
+        int dirty_io = esdp->type == ERTS_SCHED_DIRTY_IO;
+
+	if (ERTS_PROC_IS_EXITING(real_c_p))
+	    goto badarg;
+	dirty_send_message(c_p, arg2, am_alive);
+
+	/* Wait until dead */
+	while (!ERTS_PROC_IS_EXITING(real_c_p)) {
+            if (dirty_io)
+                ms_wait(c_p, make_small(100), 0);
+            else
+                erts_thr_yield();
+        }
+
+	ms_wait(c_p, make_small(1000), 0);
+
+	/* Should still be able to allocate memory */
+	hp = HAlloc(c_p, 3); /* Likely on heap */
+	sz = 10000;
+	hp2 = HAlloc(c_p, sz); /* Likely in heap fragment */
+	*hp2 = make_pos_bignum_header(sz);
+	for (i = 1; i < sz; i++)
+	    hp2[i] = (Eterm) 4711;
+	ERTS_BIF_PREP_RET(ret, TUPLE2(hp, am_ok, make_big(hp2)));
+    }
+    else {
+    badarg:
+	ERTS_BIF_PREP_ERROR(ret, c_p, BADARG);
+    }
+#else
+    ERTS_BIF_PREP_ERROR(ret, c_p, EXC_UNDEF);
+#endif
+    return ret;
+}
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+
+static int
+dirty_send_message(Process *c_p, Eterm to, Eterm tag)
+{
+    ErtsProcLocks c_p_locks, rp_locks;
+    Process *rp, *real_c_p;
+    Eterm msg, *hp;
+    ErlOffHeap *ohp;
+    ErtsMessage *mp;
+
+    ASSERT(is_immed(tag));
+
+    real_c_p = erts_proc_shadow2real(c_p);
+    if (real_c_p != c_p)
+	c_p_locks = 0;
+    else
+	c_p_locks = ERTS_PROC_LOCK_MAIN;
+
+    ASSERT(real_c_p->common.id == c_p->common.id);
+
+    rp = erts_pid2proc_opt(real_c_p, c_p_locks,
+			   to, 0,
+			   ERTS_P2P_FLG_INC_REFC);
+
+    if (!rp)
+	return 0;
+
+    rp_locks = 0;
+    mp = erts_alloc_message_heap(rp, &rp_locks, 3, &hp, &ohp);
+
+    msg = TUPLE2(hp, tag, c_p->common.id);
+    erts_queue_message(rp, rp_locks, mp, msg, c_p->common.id);
+
+    if (rp == real_c_p)
+	rp_locks &= ~c_p_locks;
+    if (rp_locks)
+	erts_smp_proc_unlock(rp, rp_locks);
+
+    erts_proc_dec_refc(rp);
+
+    return 1;
+}
+
+static int
+ms_wait(Process *c_p, Eterm etimeout, int busy)
+{
+    ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
+    ErtsMonotonicTime time, timeout_time;
+    Sint64 ms;
+
+    if (!term_to_Sint64(etimeout, &ms))
+	return 0;
+
+    time = erts_get_monotonic_time(esdp);
+
+    if (ms < 0)
+	timeout_time = time;
+    else
+	timeout_time = time + ERTS_MSEC_TO_MONOTONIC(ms);
+
+    while (time < timeout_time) {
+	if (busy)
+	    erts_thr_yield();
+	else {
+	    ErtsMonotonicTime timeout = timeout_time - time;
+
+#ifdef __WIN32__
+	    Sleep((DWORD) ERTS_MONOTONIC_TO_MSEC(timeout));
+#else
+	    {
+		ErtsMonotonicTime to = ERTS_MONOTONIC_TO_USEC(timeout);
+		struct timeval tv;
+
+		tv.tv_sec = (long) to / (1000*1000);
+		tv.tv_usec = (long) to % (1000*1000);
+
+		select(0, NULL, NULL, NULL, &tv);
+	    }
+#endif
+	}
+
+	time = erts_get_monotonic_time(esdp);
+    }
+    return 1;
+}
+
+#endif /* ERTS_DIRTY_SCHEDULERS */
