@@ -819,6 +819,11 @@ void init_break_handler(void)
 }
 
 void sys_init_suspend_handler(void)
+<<<<<<< HEAD
+{
+#ifdef ERTS_SYS_SUSPEND_SIGNAL
+   sys_signal(ERTS_SYS_SUSPEND_SIGNAL, suspend_signal);
+=======
 {
 #ifdef ERTS_SYS_SUSPEND_SIGNAL
    sys_signal(ERTS_SYS_SUSPEND_SIGNAL, suspend_signal);
@@ -828,6 +833,47 @@ void sys_init_suspend_handler(void)
 int sys_max_files(void)
 {
    return(max_files);
+}
+
+static void block_signals(void)
+{
+#if !CHLDWTHR
+   sys_sigblock(SIGCHLD);
+#endif
+#ifndef ERTS_SMP
+   sys_sigblock(SIGINT);
+#ifndef ETHR_UNUSABLE_SIGUSRX
+   sys_sigblock(SIGUSR1);
+#endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
+#endif /* #ifndef ERTS_SMP */
+
+#ifdef ERTS_SYS_SUSPEND_SIGNAL
+   sys_sigblock(ERTS_SYS_SUSPEND_SIGNAL);
+>>>>>>> maint-18
+#endif
+}
+
+int sys_max_files(void)
+{
+<<<<<<< HEAD
+   return(max_files);
+=======
+    /* Update erl_child_setup.c if changed */
+#if !CHLDWTHR
+   sys_sigrelease(SIGCHLD);
+#endif
+#ifndef ERTS_SMP
+   sys_sigrelease(SIGINT);
+#ifndef ETHR_UNUSABLE_SIGUSRX
+   sys_sigrelease(SIGUSR1);
+#endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
+#endif /* #ifndef ERTS_SMP */
+
+#ifdef ERTS_SYS_SUSPEND_SIGNAL
+   sys_sigrelease(ERTS_SYS_SUSPEND_SIGNAL);
+#endif
+
+>>>>>>> maint-18
 }
 
 /************************** OS info *******************************/
