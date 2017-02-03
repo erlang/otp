@@ -71,7 +71,7 @@ struct enif_resource_type_t
     Eterm module;
     Eterm name;
 };
-typedef struct enif_resource_t
+typedef struct
 {
     struct enif_resource_type_t* type;
 #ifdef DEBUG
@@ -82,14 +82,14 @@ typedef struct enif_resource_t
 #endif
 
     char data[1];
-}ErlNifResource;
+}ErtsResource;
 
-#define DATA_TO_RESOURCE(PTR) ((ErlNifResource*)((char*)(PTR) - offsetof(ErlNifResource,data)))
+#define DATA_TO_RESOURCE(PTR) ((ErtsResource*)((char*)(PTR) - offsetof(ErtsResource,data)))
 
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*, Process* tracee);
 extern void erts_post_nif(struct enif_environment_t* env);
-extern void erts_resource_stop(ErlNifResource*, ErlNifEvent, int is_direct_call);
+extern void erts_resource_stop(ErtsResource*, ErlNifEvent, int is_direct_call);
 extern Eterm erts_nif_taints(Process* p);
 extern void erts_print_nif_taints(fmtfn_t to, void* to_arg);
 void erts_unload_nif(struct erl_module_nif* nif);

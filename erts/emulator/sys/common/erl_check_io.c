@@ -127,7 +127,7 @@ typedef struct {
         ErtsNifSelectDataState *nif;      /* ERTS_EV_TYPE_NIF */
         union {
             erts_driver_t*  drv_ptr;    /* ERTS_EV_TYPE_STOP_USE */
-            ErlNifResource* resource;   /* ERTS_EV_TYPE_STOP_NIF */
+            ErtsResource* resource;   /* ERTS_EV_TYPE_STOP_NIF */
         }stop;
     } driver;
     ErtsPollEvents events;
@@ -220,16 +220,16 @@ static void stale_drv_select(Eterm id, ErtsDrvEventState *state, int mode);
 static void drv_select_steal(ErlDrvPort ix, ErtsDrvEventState *state,
                              int mode, int on);
 static void nif_select_steal(ErtsDrvEventState *state, int mode,
-                             ErlNifResource* resource, Eterm ref);
+                             ErtsResource* resource, Eterm ref);
 
 static void print_drv_select_op(erts_dsprintf_buf_t *dsbufp,
                                 ErlDrvPort ix, ErtsSysFdType fd, int mode, int on);
 static void print_nif_select_op(erts_dsprintf_buf_t*, ErtsSysFdType,
-                                int mode, ErlNifResource*, Eterm ref);
+                                int mode, ErtsResource*, Eterm ref);
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
 static void drv_select_large_fd_error(ErlDrvPort, ErtsSysFdType, int, int);
-static void nif_select_large_fd_error(ErtsSysFdType, int, ErlNifResource*,Eterm ref);
+static void nif_select_large_fd_error(ErtsSysFdType, int, ErtsResource*,Eterm ref);
 #endif
 #if ERTS_CIO_HAVE_DRV_EVENT
 static void drv_event_steal(ErlDrvPort ix, ErtsDrvEventState *state,
@@ -244,7 +244,7 @@ static void
 steal_pending_stop_use(erts_dsprintf_buf_t*, ErlDrvPort, ErtsDrvEventState*,
                        int mode, int on);
 static void
-steal_pending_stop_nif(erts_dsprintf_buf_t *dsbufp, ErlNifResource*,
+steal_pending_stop_nif(erts_dsprintf_buf_t *dsbufp, ErtsResource*,
                        ErtsDrvEventState *state, int mode, int on);
 
 #ifdef ERTS_SMP
@@ -387,7 +387,7 @@ forget_removed(struct pollset_info* psi)
     erts_smp_spin_unlock(&psi->removed_list_lock);
 
     while (fdlp) {
-        ErlNifResource* resource = NULL;
+        ErtsResource* resource = NULL;
 	erts_driver_t* drv_ptr = NULL;
 	erts_smp_mtx_t* mtx;
 	ErtsSysFdType fd;
@@ -1207,7 +1207,7 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
 {
     int on;
     const Eterm id = env->proc->common.id;
-    ErlNifResource* resource = DATA_TO_RESOURCE(obj);
+    ErtsResource* resource = DATA_TO_RESOURCE(obj);
     ErtsSysFdType fd = (ErtsSysFdType) e;
     ErtsPollEvents ctl_events = (ErtsPollEvents) 0;
     ErtsPollEvents new_events, old_events;
@@ -1769,7 +1769,7 @@ print_drv_select_op(erts_dsprintf_buf_t *dsbufp,
 static void
 print_nif_select_op(erts_dsprintf_buf_t *dsbufp,
                     ErtsSysFdType fd, int mode,
-                    ErlNifResource* resource, Eterm ref)
+                    ErtsResource* resource, Eterm ref)
 {
     erts_dsprintf(dsbufp,
 		  "enif_select(_, %d,%s%s%s, %T:%T, %T) ",
@@ -1796,7 +1796,7 @@ drv_select_steal(ErlDrvPort ix, ErtsDrvEventState *state, int mode, int on)
 
 static void
 nif_select_steal(ErtsDrvEventState *state, int mode,
-                 ErlNifResource* resource, Eterm ref)
+                 ErtsResource* resource, Eterm ref)
 {
     if (need2steal(state, mode)) {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
@@ -1826,7 +1826,7 @@ drv_select_large_fd_error(ErlDrvPort ix, ErtsSysFdType fd, int mode, int on)
 }
 static void
 nif_select_large_fd_error(ErtsSysFdType fd, int mode,
-                          ErlNifResource* resource, Eterm ref)
+                          ErtsResource* resource, Eterm ref)
 {
     erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
     print_nif_select_op(dsbufp, fd, mode, resource, ref);
@@ -1878,7 +1878,7 @@ steal_pending_stop_use(erts_dsprintf_buf_t *dsbufp, ErlDrvPort ix,
 }
 
 static void
-steal_pending_stop_nif(erts_dsprintf_buf_t *dsbufp, ErlNifResource* resource,
+steal_pending_stop_nif(erts_dsprintf_buf_t *dsbufp, ErtsResource* resource,
                        ErtsDrvEventState *state, int mode, int on)
 {
     int cancel = 0;
@@ -2046,7 +2046,7 @@ oready(Eterm id, ErtsDrvEventState *state, erts_aint_t current_cio_time)
 }
 
 static ERTS_INLINE void
-send_event_tuple(struct erts_nif_select_event* e, ErlNifResource* resource,
+send_event_tuple(struct erts_nif_select_event* e, ErtsResource* resource,
                  Eterm event_atom)
 {
     Process* rp = erts_proc_lookup(e->pid);
@@ -2289,7 +2289,7 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
         case ERTS_EV_TYPE_NIF: { /* Requested via enif_select()... */
             struct erts_nif_select_event in = {NIL};
             struct erts_nif_select_event out = {NIL};
-            ErlNifResource* resource;
+            ErtsResource* resource;
             ErtsPollEvents revents = pollres[i].events;
 
             if (revents & ERTS_POLL_EV_ERR) {
@@ -2916,7 +2916,7 @@ static void doit_erts_check_io_debug(void *vstate, void *vcounters)
 	    }
 	}
         else if (state->type == ERTS_EV_TYPE_NIF) {
-            ErlNifResource* r;
+            ErtsResource* r;
             erts_printf("enif_select ");
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS

@@ -1913,7 +1913,7 @@ int enif_snprintf(char *buffer, size_t size, const char* format, ...)
 /* dummy node in circular list */
 struct enif_resource_type_t resource_type_list; 
 
-#define SIZEOF_ErlNifResource(SIZE) (offsetof(ErlNifResource,data) + (SIZE))
+#define SIZEOF_ErlNifResource(SIZE) (offsetof(ErtsResource,data) + (SIZE))
 
 static ErlNifResourceType* find_resource_type(Eterm module, Eterm name)
 {
@@ -2111,7 +2111,7 @@ static void rollback_opened_resource_types(void)
 
 static int nif_resource_dtor(Binary* bin)
 {
-    ErlNifResource* resource = (ErlNifResource*) ERTS_MAGIC_BIN_UNALIGNED_DATA(bin);
+    ErtsResource* resource = (ErtsResource*) ERTS_MAGIC_BIN_UNALIGNED_DATA(bin);
     ErlNifResourceType* type = resource->type;
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == &nif_resource_dtor);
 
@@ -2131,7 +2131,7 @@ static int nif_resource_dtor(Binary* bin)
     return 1;
 }
 
-void erts_resource_stop(ErlNifResource* resource, ErlNifEvent e,
+void erts_resource_stop(ErtsResource* resource, ErlNifEvent e,
                         int is_direct_call)
 {
     struct enif_msg_environment_t msg_env;
@@ -2146,7 +2146,7 @@ void* enif_alloc_resource(ErlNifResourceType* type, size_t size)
     Binary* bin = erts_create_magic_binary_x(SIZEOF_ErlNifResource(size),
                                              &nif_resource_dtor,
                                              1); /* unaligned */
-    ErlNifResource* resource = ERTS_MAGIC_BIN_UNALIGNED_DATA(bin);
+    ErtsResource* resource = ERTS_MAGIC_BIN_UNALIGNED_DATA(bin);
 
     ASSERT(type->owner && type->next && type->prev); /* not allowed in load/upgrade */
     resource->type = type;
@@ -2160,7 +2160,7 @@ void* enif_alloc_resource(ErlNifResourceType* type, size_t size)
 
 void enif_release_resource(void* obj)
 {
-    ErlNifResource* resource = DATA_TO_RESOURCE(obj);
+    ErtsResource* resource = DATA_TO_RESOURCE(obj);
     ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
 
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == &nif_resource_dtor);
@@ -2174,7 +2174,7 @@ void enif_release_resource(void* obj)
 
 void enif_keep_resource(void* obj)
 {
-    ErlNifResource* resource = DATA_TO_RESOURCE(obj);
+    ErtsResource* resource = DATA_TO_RESOURCE(obj);
     ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
 
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == &nif_resource_dtor);
@@ -2186,7 +2186,7 @@ void enif_keep_resource(void* obj)
 
 ERL_NIF_TERM enif_make_resource(ErlNifEnv* env, void* obj)
 {
-    ErlNifResource* resource = DATA_TO_RESOURCE(obj);
+    ErtsResource* resource = DATA_TO_RESOURCE(obj);
     ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
     Eterm* hp = alloc_heap(env,PROC_BIN_SIZE);
     return erts_mk_magic_binary_term(&hp, &MSO(env->proc), &bin->binary);
@@ -2207,7 +2207,7 @@ int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* typ
 {
     ProcBin* pb;
     Binary* mbin;
-    ErlNifResource* resource;
+    ErtsResource* resource;
     if (!ERTS_TERM_IS_MAGIC_BINARY(term)) {
 	return 0;
     }
@@ -2216,7 +2216,7 @@ int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* typ
 	return 0; / * Or should we allow "resource binaries" as handles? * /
     }*/
     mbin = pb->val;
-    resource = (ErlNifResource*) ERTS_MAGIC_BIN_UNALIGNED_DATA(mbin);
+    resource = (ErtsResource*) ERTS_MAGIC_BIN_UNALIGNED_DATA(mbin);
     if (ERTS_MAGIC_BIN_DESTRUCTOR(mbin) != &nif_resource_dtor
 	|| resource->type != type) {	
 	return 0;
@@ -2227,9 +2227,9 @@ int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* typ
 
 size_t enif_sizeof_resource(void* obj)
 {
-    ErlNifResource* resource = DATA_TO_RESOURCE(obj);
+    ErtsResource* resource = DATA_TO_RESOURCE(obj);
     Binary* bin = &ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource)->binary;
-    return ERTS_MAGIC_BIN_UNALIGNED_DATA_SIZE(bin) - offsetof(ErlNifResource,data);
+    return ERTS_MAGIC_BIN_UNALIGNED_DATA_SIZE(bin) - offsetof(ErtsResource,data);
 }
 
 
@@ -3303,7 +3303,7 @@ erts_unload_nif(struct erl_module_nif* lib)
 
 void erl_nif_init()
 {
-    ERTS_CT_ASSERT((offsetof(ErlNifResource,data) % 8) == ERTS_MAGIC_BIN_BYTES_TO_ALIGN);
+    ERTS_CT_ASSERT((offsetof(ErtsResource,data) % 8) == ERTS_MAGIC_BIN_BYTES_TO_ALIGN);
 
     resource_type_list.next = &resource_type_list;
     resource_type_list.prev = &resource_type_list;
