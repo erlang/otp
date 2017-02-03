@@ -670,3 +670,4 @@ gcbif erlang:ceil/1
 bif math:floor/1
 bif math:ceil/1
 bif math:fmod/2
+bif os:set_signal/2

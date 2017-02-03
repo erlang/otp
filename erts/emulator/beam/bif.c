@@ -5555,12 +5555,10 @@ BIF_RETTYPE dt_restore_tag_1(BIF_ALIST_1)
 	    SEQ_TRACE_TOKEN(BIF_P) = am_have_dt_utag;
 	}
     }
-#else    
+#else
     if (BIF_ARG_1 != am_true) {
 	BIF_ERROR(BIF_P,BADARG);
     }
 #endif
     BIF_RET(am_true);
 }
-
-

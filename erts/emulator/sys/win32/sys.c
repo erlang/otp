@@ -294,6 +294,10 @@ int erts_sys_prepare_crash_dump(int secs)
     return 0;
 }
 
+int erts_set_signal(Eterm signal, Eterm type) {
+    return 0;
+}
+
 static void
 init_console(void)
 {

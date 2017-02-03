@@ -195,6 +195,7 @@ atom current_stacktrace
 atom data
 atom debug_flags
 atom decimals
+atom default
 atom delay_trap
 atom dexit
 atom depth
@@ -245,6 +246,7 @@ atom Eq='=:='
 atom Eqeq='=='
 atom erl_tracer
 atom erlang
+atom erl_signal_server
 atom ERROR='ERROR'
 atom error_handler
 atom error_logger
@@ -312,6 +314,7 @@ atom global
 atom Gt='>'
 atom grun
 atom group_leader
+atom handle
 atom have_dt_utag
 atom heap_block_size
 atom heap_size
@@ -572,7 +575,7 @@ atom running_procs
 atom runtime
 atom safe
 atom save_calls
-atom scheduler 
+atom scheduler
 atom scheduler_id
 atom scheduler_wall_time
 atom scheduler_wall_time_all
@@ -600,6 +603,19 @@ atom set_tcw
 atom set_tcw_fake
 atom separate
 atom shared
+atom sighup
+atom sigterm
+atom sigusr1
+atom sigusr2
+atom sigill
+atom sigchld
+atom sigabrt
+atom sigalrm
+atom sigstop
+atom sigint
+atom sigsegv
+atom sigtstp
+atom sigquit
 atom silent
 atom size
 atom sl_alloc
