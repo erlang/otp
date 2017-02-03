@@ -130,7 +130,7 @@ handle_event(EventType, EventContent, State, Data) ->
     {next_state, NewState, NewData}
 	</pre>
 	<p>
-	  Se section
+	  See section
 	  <seealso marker="#One Event Handler">One Event Handler</seealso>
 	  for an example.
 	</p>
@@ -887,7 +887,7 @@ stop() ->
     </p>
     <p>
       This type of time-out is useful to for example act on inactivity.
-      Let us start restart the code sequence
+      Let us restart the code sequence
       if no button is pressed for say 30 seconds:
     </p>
     <code type="erl"><![CDATA[
