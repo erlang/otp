@@ -216,7 +216,7 @@ memory_check_summary(_Config) ->
 	    receive {get_failed_memchecks, FailedMemchecks} -> ok end,
 	    io:format("Failed memchecks: ~p\n",[FailedMemchecks]),
 	    NoFailedMemchecks = length(FailedMemchecks),
-	    if NoFailedMemchecks > 3 ->
+	    if NoFailedMemchecks > 1 ->
 		    ct:fail("Too many failed (~p) memchecks", [NoFailedMemchecks]);
 	       true ->
 		    ok
@@ -590,12 +590,6 @@ select_fail_do(Opts) ->
 
 
 -define(S(T),ets:info(T,memory)).
--define(TAB_STRUCT_SZ, erts_debug:get_internal_state('DbTable_words')).
-%%-define(NORMAL_TAB_STRUCT_SZ, 26). %% SunOS5.8, 32-bit, non smp, private heap
-%%
-%% The hardcoded expected memory sizes (in words) are the ones we expect on:
-%%   SunOS5.8, 32-bit, non smp, private heap
-%%
 
 %% Whitebox test of ets:info(X, memory).
 memory(Config) when is_list(Config) ->
@@ -606,11 +600,11 @@ memory(Config) when is_list(Config) ->
 memory_do(Opts) ->
     L = [T1,T2,T3,T4] = fill_sets_int(1000,Opts),
     XR1 = case mem_mode(T1) of
-	      {normal,_} ->     {13836,13046,13046,13052}; %{13862,13072,13072,13078};
-	      {compressed,4} -> {11041,10251,10251,10252}; %{11067,10277,10277,10278};
-	      {compressed,8} -> {10050,9260,9260,9260} %{10076,9286,9286,9286}
+	      {normal,_} ->     {13836, 15346, 15346, 15346+6};
+	      {compressed,4} -> {11041, 12551, 12551, 12551+1};
+	      {compressed,8} -> {10050, 11560, 11560, 11560}
 	  end,
-    XRes1 = adjust_xmem(L, XR1),
+    XRes1 = adjust_xmem(L, XR1, 1),
     Res1 = {?S(T1),?S(T2),?S(T3),?S(T4)},
     lists:foreach(fun(T) ->
 			  Before = ets:info(T,size),
@@ -622,11 +616,11 @@ memory_do(Opts) ->
 		  end,
 		  L),
     XR2 = case mem_mode(T1) of
-	      {normal,_} ->     {13826,13037,13028,13034}; %{13852,13063,13054,13060};
-	      {compressed,4} -> {11031,10242,10233,10234}; %{11057,10268,10259,10260};
-	      {compressed,8} -> {10040,9251,9242,9242}     %10066,9277,9268,9268}
+	      {normal,_} ->     {13826, 15337, 15337-9, 15337-3};
+	      {compressed,4} -> {11031, 12542, 12542-9, 12542-8};
+	      {compressed,8} -> {10040, 11551, 11551-9, 11551-9}
 	  end,
-    XRes2 = adjust_xmem(L, XR2),
+    XRes2 = adjust_xmem(L, XR2, 1),
     Res2 = {?S(T1),?S(T2),?S(T3),?S(T4)},
     lists:foreach(fun(T) ->
 			  Before = ets:info(T,size),
@@ -638,17 +632,17 @@ memory_do(Opts) ->
 		  end,
 		  L),
     XR3 = case mem_mode(T1) of
-	      {normal,_} ->     {13816,13028,13010,13016}; %{13842,13054,13036,13042};
-	      {compressed,4} -> {11021,10233,10215,10216}; %{11047,10259,10241,10242};
-	      {compressed,8} -> {10030,9242,9224,9224} %{10056,9268,9250,9250}
+	      {normal,_} ->     {13816, 15328, 15328-18, 15328-12};
+	      {compressed,4} -> {11021, 12533, 12533-18, 12533-17};
+	      {compressed,8} -> {10030, 11542, 11542-18, 11542-18}
 	  end,
-    XRes3 = adjust_xmem(L, XR3),
+    XRes3 = adjust_xmem(L, XR3, 1),
     Res3 = {?S(T1),?S(T2),?S(T3),?S(T4)},
     lists:foreach(fun(T) ->
 			  ets:delete_all_objects(T)
 		  end,
 		  L),
-    XRes4 = adjust_xmem(L, {50,260,260,260}), %{76,286,286,286}),
+    XRes4 = adjust_xmem(L, {50, 256, 256, 256}, 0),
     Res4 = {?S(T1),?S(T2),?S(T3),?S(T4)},
     lists:foreach(fun(T) ->
 			  ets:delete(T)
@@ -659,7 +653,7 @@ memory_do(Opts) ->
 			  ets:select_delete(T,[{'_',[],[true]}])
 		  end,
 		  L2),
-    XRes5 = adjust_xmem(L2, {50,260,260,260}), %{76,286,286,286}),
+    XRes5 = adjust_xmem(L2, {50, 256, 256, 256}, 0),
     Res5 = {?S(T11),?S(T12),?S(T13),?S(T14)},
     io:format("XRes1 = ~p~n"
 	      " Res1 = ~p~n~n"
@@ -697,15 +691,15 @@ chk_normal_tab_struct_size() ->
 	      erlang:system_info(smp_support),
 	      erlang:system_info(heap_type)},
     io:format("System = ~p~n", [System]),
-    io:format("?TAB_STRUCT_SZ=~p~n", [?TAB_STRUCT_SZ]),
     ok.
 
-adjust_xmem([_T1,_T2,_T3,_T4], {A0,B0,C0,D0} = _Mem0) ->
+adjust_xmem([_T1,_T2,_T3,_T4], {A0,B0,C0,D0} = _Mem0, EstCnt) ->
     %% Adjust for 64-bit, smp, and os:
     %%   Table struct size may differ.
 
-    TabDiff = ?TAB_STRUCT_SZ,
-    {A0+TabDiff, B0+TabDiff, C0+TabDiff, D0+TabDiff}.
+    {TabSz, EstSz} = erts_debug:get_internal_state('DbTable_words'),
+    HTabSz = TabSz + EstCnt*EstSz,
+    {A0+TabSz, B0+HTabSz, C0+HTabSz, D0+HTabSz}.
 
 %% Misc. whitebox tests
 t_whitebox(Config) when is_list(Config) ->
@@ -1908,7 +1902,7 @@ evil_counter(I,Opts) ->
 	     end,
     Start = Start0 + rand:uniform(100000),
     ets:insert(T, {dracula,Start}),
-    Iter = 40000,
+    Iter = 40000 div syrup_factor(),
     End = Start + Iter,
     End = evil_counter_1(Iter, T),
     ets:delete(T).
@@ -3300,7 +3294,8 @@ evil_delete_owner(Name, Flags, Data, Fix) ->
 
 exit_large_table_owner(Config) when is_list(Config) ->
     %%Data = [{erlang:phash2(I, 16#ffffff),I} || I <- lists:seq(1, 500000)],
-    FEData = fun(Do) -> repeat_while(fun(500000) -> {false,ok};
+    Laps = 500000 div syrup_factor(),
+    FEData = fun(Do) -> repeat_while(fun(I) when I =:= Laps -> {false,ok};
 					(I) -> Do({erlang:phash2(I, 16#ffffff),I}),
 					       {true, I+1}
 				     end, 1)
@@ -3316,7 +3311,8 @@ exit_large_table_owner_do(Opts,{FEData,Config}) ->
 exit_many_large_table_owner(Config) when is_list(Config) ->
     ct:timetrap({minutes,30}), %% valgrind needs a lot
     %%Data = [{erlang:phash2(I, 16#ffffff),I} || I <- lists:seq(1, 500000)],
-    FEData = fun(Do) -> repeat_while(fun(500000) -> {false,ok};
+    Laps = 500000 div syrup_factor(),
+    FEData = fun(Do) -> repeat_while(fun(I) when I =:= Laps -> {false,ok};
 					(I) -> Do({erlang:phash2(I, 16#ffffff),I}),
 					       {true, I+1}
 				     end, 1)
@@ -4268,7 +4264,8 @@ heavy_lookup_element_do(Opts) ->
     Tab = ets_new(foobar_table, [set, protected, {keypos, 2} | Opts]),
     ok = fill_tab2(Tab, 0, 7000),
     %% lookup ALL elements 50 times
-    _ = [do_lookup_element(Tab, 6999, 1) || _ <- lists:seq(1, 50)],
+    Laps = 50 div syrup_factor(),
+    _ = [do_lookup_element(Tab, 6999, 1) || _ <- lists:seq(1, Laps)],
     true = ets:delete(Tab),
     verify_etsmem(EtsMem).
 
@@ -4292,6 +4289,7 @@ heavy_concurrent(Config) when is_list(Config) ->
 
 do_heavy_concurrent(Opts) ->
     Size = 10000,
+    Laps = 10000 div syrup_factor(),
     EtsMem = etsmem(),
     Tab = ets_new(blupp, [set, public, {keypos, 2} | Opts]),
     ok = fill_tab2(Tab, 0, Size),
@@ -4299,7 +4297,7 @@ do_heavy_concurrent(Opts) ->
 	      fun (N) ->
 		      my_spawn_link(
 			fun () ->
-				do_heavy_concurrent_proc(Tab, Size, N)
+				do_heavy_concurrent_proc(Tab, Laps, N)
 			end)
 	      end,
 	      lists:seq(1, 500)),
@@ -4441,15 +4439,15 @@ build_table2(L1,L2,Num) ->
     T.
 
 time_match_object(Tab,Match, Res) ->
-    T1 = erlang:monotonic_time(micro_seconds),
+    T1 = erlang:monotonic_time(microsecond),
     Res = ets:match_object(Tab,Match),
-    T2 = erlang:monotonic_time(micro_seconds),
+    T2 = erlang:monotonic_time(microsecond),
     T2 - T1.
 
 time_match(Tab,Match) ->
-    T1 = erlang:monotonic_time(micro_seconds),
+    T1 = erlang:monotonic_time(microsecond),
     ets:match(Tab,Match),
-    T2 = erlang:monotonic_time(micro_seconds),
+    T2 = erlang:monotonic_time(microsecond),
     T2 - T1.
 
 seventyfive_percent_success(_,S,Fa,0) ->
@@ -5359,12 +5357,12 @@ verify_table_load(T) ->
     Stats = ets:info(T,stats),
     {Buckets,AvgLen,StdDev,ExpSD,_MinLen,_MaxLen,_} = Stats,
     ok = if
-	     AvgLen > 7 ->
+	     AvgLen > 1.2 ->
 		 io:format("Table overloaded: Stats=~p\n~p\n",
 			   [Stats, ets:info(T)]),
 		 false;
 
-	     Buckets>256, AvgLen < 6 ->
+	     Buckets>256, AvgLen < 0.47 ->
 		 io:format("Table underloaded: Stats=~p\n~p\n",
 			   [Stats, ets:info(T)]),
 		 false;
@@ -5438,7 +5436,8 @@ smp_select_delete(Config) when is_list(Config) ->
 			Eq+1
 		end,
 		0, TotCnts),
-    verify_table_load(T),
+    %% May fail as select_delete does not shrink table (enough)
+    %%verify_table_load(T),
     LeftInTab = ets:select_delete(T, [{{'$1','$1'}, [], [true]}]),
     0 = ets:info(T,size),
     false = ets:info(T,fixed),
@@ -5714,27 +5713,45 @@ etsmem() ->
 			   {Bl0+Bl,BlSz0+BlSz}
 		   end, {0,0}, CS)
 	 end},
-    {Mem,AllTabs}.
+    {Mem,AllTabs, erts_debug:get_internal_state('DbTable_meta')}.
 
-verify_etsmem({MemInfo,AllTabs}) ->
+verify_etsmem(EtsMem) ->
     wait_for_test_procs(),
+    verify_etsmem(EtsMem, false).
+
+verify_etsmem({MemInfo,AllTabs,MetaState}=EtsMem, Adjusted) ->
     case etsmem() of
-	{MemInfo,_} ->
+	{MemInfo,_,_} ->
 	    io:format("Ets mem info: ~p", [MemInfo]),
 	    case MemInfo of
 		{ErlMem,EtsAlloc} when ErlMem == notsup; EtsAlloc == undefined ->
 		    %% Use 'erl +Mea max' to do more complete memory leak testing.
 		    {comment,"Incomplete or no mem leak testing"};
 		_ ->
-		    ok
+		    case Adjusted of
+			true ->
+			    {comment, "Meta state adjusted"};
+			false ->
+			    ok
+		    end
 	    end;
-	{MemInfo2, AllTabs2} ->
+
+	{MemInfo2, AllTabs2, MetaState2} ->
 	    io:format("Expected: ~p", [MemInfo]),
 	    io:format("Actual:   ~p", [MemInfo2]),
 	    io:format("Changed tables before: ~p\n",[AllTabs -- AllTabs2]),
 	    io:format("Changed tables after: ~p\n", [AllTabs2 -- AllTabs]),
-	    ets_test_spawn_logger ! {failed_memcheck, get('__ETS_TEST_CASE__')},
-	    {comment, "Failed memory check"}
+	    io:format("Meta state before: ~p\n", [MetaState]),
+	    io:format("Meta state after:  ~p\n", [MetaState2]),
+	    case {MetaState =:= MetaState2, Adjusted} of
+		{false, false} ->
+		    io:format("Adjust meta state and retry...\n\n",[]),
+		    {ok,ok} = erts_debug:set_internal_state('DbTable_meta', MetaState),
+		    verify_etsmem(EtsMem, true);
+		_ ->
+		    ets_test_spawn_logger ! {failed_memcheck, get('__ETS_TEST_CASE__')},
+		    {comment, "Failed memory check"}
+	    end
     end.
 
 
@@ -6255,5 +6272,11 @@ do_tc(Do, Report) ->
     T1 = erlang:monotonic_time(),
     Do(),
     T2 = erlang:monotonic_time(),
-    Elapsed = erlang:convert_time_unit(T2 - T1, native, milli_seconds),
+    Elapsed = erlang:convert_time_unit(T2 - T1, native, millisecond),
     Report(Elapsed).
+
+syrup_factor() ->
+    case erlang:system_info(build_type) of
+        valgrind -> 20;
+        _ -> 1
+    end.

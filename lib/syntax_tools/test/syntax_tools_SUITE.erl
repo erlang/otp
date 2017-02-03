@@ -9,13 +9,11 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
 %% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 %% AB. All Rights Reserved.''
-%% 
-%%     $Id$
-%%
+
 -module(syntax_tools_SUITE).
 
 -include_lib("common_test/include/ct.hrl").

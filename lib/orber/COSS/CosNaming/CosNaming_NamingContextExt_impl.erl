@@ -624,12 +624,7 @@ destroy(OE_THIS, OE_State) ->
 				orber:dbg("[~p] ~p:destroy(~p);~n"
 					  "DB access returned ~p", 
 					  [?LINE, ?MODULE, SubobjKey, Other], ?DEBUG_LEVEL),
-				{'EXCEPTION', #'CosNaming_NamingContext_NotEmpty'{}};
-			    Other ->
-				orber:dbg("[~p] ~p:destroy(~p);~n"
-					  "DB access returned ~p", 
-					  [?LINE, ?MODULE, SubobjKey, Other], ?DEBUG_LEVEL),
-				{'EXCEPTION', #'INTERNAL'{completion_status=?COMPLETED_NO}}
+				{'EXCEPTION', #'CosNaming_NamingContext_NotEmpty'{}}
 			end
 		end,
 	    case mnesia:transaction(_DF) of 

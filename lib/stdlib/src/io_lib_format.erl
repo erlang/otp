@@ -343,7 +343,8 @@ term(T, F, Adj, P0, Pad) ->
 
 %% print(Term, Depth, Field, Adjust, Precision, PadChar, Encoding,
 %%       Indentation)
-%%  Print a term.
+%% Print a term. Field width sets maximum line length, Precision sets
+%% initial indentation.
 
 print(T, D, none, Adj, P, Pad, E, Str, I) ->
     print(T, D, 80, Adj, P, Pad, E, Str, I);

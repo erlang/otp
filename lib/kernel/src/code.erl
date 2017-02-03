@@ -70,7 +70,9 @@
 	 where_is_file/2,
 	 set_primary_archive/4,
 	 clash/0,
-     get_mode/0]).
+         module_status/1,
+         modified_modules/0,
+         get_mode/0]).
 
 -deprecated({rehash,0,next_major_release}).
 
@@ -116,8 +118,8 @@ get_chunk(_, _) ->
 is_module_native(_) ->
     erlang:nif_error(undef).
 
--spec make_stub_module(Module, Beam, Info) -> Module when
-      Module :: module(),
+-spec make_stub_module(LoaderState, Beam, Info) -> module() when
+      LoaderState :: binary(),
       Beam :: binary(),
       Info :: {list(), list(), binary()}.
 
@@ -719,38 +721,14 @@ start_get_mode() ->
 which(Module) when is_atom(Module) ->
     case is_loaded(Module) of
 	false ->
-	    which2(Module);
+            which(Module, get_path());
 	{file, File} ->
 	    File
     end.
 
-which2(Module) ->
-    Base = atom_to_list(Module),
-    File = filename:basename(Base) ++ objfile_extension(),
-    Path = get_path(),
-    which(File, filename:dirname(Base), Path).
-
--spec which(file:filename(), file:filename(), [file:filename()]) ->
-        'non_existing' | file:filename().
-
-which(_, _, []) ->
-    non_existing;
-which(File, Base, [Directory|Tail]) ->
-    Path = if
-	       Base =:= "." -> Directory;
-	       true -> filename:join(Directory, Base)
-	   end,
-    case erl_prim_loader:list_dir(Path) of
-	{ok,Files} ->
-	    case lists:member(File,Files) of
-		true ->
-		    filename:append(Path, File);
-		false ->
-		    which(File, Base, Tail)
-	    end;
-	_Error ->
-	    which(File, Base, Tail)
-    end.
+which(Module, Path) when is_atom(Module) ->
+    File = atom_to_list(Module) ++ objfile_extension(),
+    where_is_file(Path, File).
 
 %% Search the code path for a specific file. Try to locate
 %% it in the code path cache if possible.
@@ -760,13 +738,33 @@ which(File, Base, [Directory|Tail]) ->
       Absname :: file:filename().
 where_is_file(File) when is_list(File) ->
     Path = get_path(),
-    which(File, ".", Path).
+    where_is_file(Path, File).
 
--spec where_is_file(Path :: file:filename(), Filename :: file:filename()) ->
-        file:filename() | 'non_existing'.
+%% To avoid unnecessary work when looking at many modules, this also
+%% accepts pairs of directories and pre-fetched contents in the path
+-spec where_is_file(Path :: [Dir|{Dir,Files}], Filename :: file:filename()) ->
+          'non_existing' | file:filename() when
+      Dir :: file:filename(), Files :: [file:filename()].
 
-where_is_file(Path, File) when is_list(Path), is_list(File) ->
-    which(File, ".", Path).
+where_is_file([], _) ->
+    non_existing;
+where_is_file([{Path, Files}|Tail], File) ->
+    where_is_file(Tail, File, Path, Files);
+where_is_file([Path|Tail], File) ->
+    case erl_prim_loader:list_dir(Path) of
+	{ok,Files} ->
+            where_is_file(Tail, File, Path, Files);
+	_Error ->
+	    where_is_file(Tail, File)
+    end.
+
+where_is_file(Tail, File, Path, Files) ->
+    case lists:member(File, Files) of
+        true ->
+            filename:append(Path, File);
+        false ->
+            where_is_file(Tail, File)
+    end.
 
 -spec set_primary_archive(ArchiveFile :: file:filename(),
 			  ArchiveBin :: binary(),
@@ -899,3 +897,97 @@ load_all_native_1([{Mod,BeamFilename}|T], ChunkTag) ->
     load_all_native_1(T, ChunkTag);
 load_all_native_1([], _) ->
     ok.
+
+%% Returns the status of the module in relation to object file on disk.
+-spec module_status(Module :: module()) -> not_loaded | loaded | modified | removed.
+module_status(Module) ->
+    module_status(Module, code:get_path()).
+
+%% Note that we don't want to go via which/1, since it doesn't look at the
+%% disk contents at all if the module is already loaded.
+module_status(Module, PathFiles) ->
+    case code:is_loaded(Module) of
+        false -> not_loaded;
+        {file, preloaded} -> loaded;
+        {file, cover_compiled} ->
+            %% cover compilation loads directly to memory and does not
+            %% create a beam file, so report 'modified' if a file exists
+            case which(Module, PathFiles) of
+                non_existing -> removed;
+                _File -> modified
+            end;
+        {file, []} -> loaded;  % no beam file - generated code
+        {file, OldFile} when is_list(OldFile) ->
+            %% we don't care whether or not the file is in the same location
+            %% as when last loaded, as long as it can be found in the path
+            case which(Module, PathFiles) of
+                non_existing -> removed;
+                Path ->
+                    case module_changed_on_disk(Module, Path) of
+                        true -> modified;
+                        false -> loaded
+                    end
+            end
+    end.
+
+%% Detects actual code changes only, e.g. to decide whether a module should
+%% be reloaded; does not care about file timestamps or compilation time
+module_changed_on_disk(Module, Path) ->
+    MD5 = erlang:get_module_info(Module, md5),
+    case erlang:system_info(hipe_architecture) of
+        undefined ->
+            %% straightforward, since native is not supported
+            MD5 =/= beam_file_md5(Path);
+        Architecture ->
+            case code:is_module_native(Module) of
+                true ->
+                    %% MD5 is for native code, so we check only the native
+                    %% code on disk, ignoring the beam code
+                    MD5 =/= beam_file_native_md5(Path, Architecture);
+                _ ->
+                    %% MD5 is for beam code, so check only the beam code on
+                    %% disk, even if the file contains native code as well
+                    MD5 =/= beam_file_md5(Path)
+            end
+    end.
+
+beam_file_md5(Path) ->
+    case beam_lib:md5(Path) of
+        {ok,{_Mod,MD5}} -> MD5;
+        _ -> undefined
+    end.
+
+beam_file_native_md5(Path, Architecture) ->
+    try
+        get_beam_chunk(Path, hipe_unified_loader:chunk_name(Architecture))
+    of
+        NativeCode when is_binary(NativeCode) ->
+            erlang:md5(NativeCode)
+    catch
+        _:_ -> undefined
+    end.
+
+get_beam_chunk(Path, Chunk) ->
+    {ok, {_, [{_, Bin}]}} = beam_lib:chunks(Path, [Chunk]),
+    Bin.
+
+%% Returns a list of all modules modified on disk.
+-spec modified_modules() -> [module()].
+modified_modules() ->
+    PathFiles = path_files(),
+    [M || {M, _} <- code:all_loaded(),
+          module_status(M, PathFiles) =:= modified].
+
+%% prefetch the directory contents of code path directories
+path_files() ->
+    path_files(code:get_path()).
+
+path_files([]) ->
+    [];
+path_files([Path|Tail]) ->
+    case erl_prim_loader:list_dir(Path) of
+        {ok, Files} ->
+            [{Path,Files} | path_files(Tail)];
+        _Error ->
+            path_files(Tail)
+    end.

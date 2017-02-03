@@ -44,6 +44,7 @@
 #include "erl_hl_timer.h"
 #include "erl_cpu_topology.h"
 #include "erl_thr_queue.h"
+#include "erl_nfunc_sched.h"
 #if defined(ERTS_ALC_T_DRV_SEL_D_STATE) || defined(ERTS_ALC_T_DRV_EV_D_STATE)
 #include "erl_check_io.h"
 #endif
@@ -373,10 +374,16 @@ set_default_exec_alloc_opts(struct au_init *ip)
     ip->init.util.rmbcmt	= 0;
     ip->init.util.acul		= 0;
 
+# ifdef ERTS_HAVE_EXEC_MMAPPER
     ip->init.util.mseg_alloc    = &erts_alcu_mmapper_mseg_alloc;
     ip->init.util.mseg_realloc  = &erts_alcu_mmapper_mseg_realloc;
     ip->init.util.mseg_dealloc  = &erts_alcu_mmapper_mseg_dealloc;
     ip->init.util.mseg_mmapper  = &erts_exec_mmapper;
+# else
+    ip->init.util.mseg_alloc    = &erts_alcu_exec_mseg_alloc;
+    ip->init.util.mseg_realloc  = &erts_alcu_exec_mseg_realloc;
+    ip->init.util.mseg_dealloc  = &erts_alcu_exec_mseg_dealloc;
+# endif
 }
 #endif /* ERTS_ALC_A_EXEC */
 
@@ -673,6 +680,8 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_ABIF_TIMER)]
 	= erts_timer_type_size(ERTS_ALC_T_ABIF_TIMER);
 #endif
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_NIF_EXP_TRACE)]
+	= sizeof(NifExportTrace);
 
 #ifdef HARD_DEBUG
     hdbg_init();
@@ -1571,7 +1580,7 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 		    break;
                 case 'X':
                     if (has_prefix("scs", argv[i]+3)) {
-#ifdef ERTS_ALC_A_EXEC
+#ifdef ERTS_HAVE_EXEC_MMAPPER
                         init->mseg.exec_mmap.scs =
 #endif
                             get_mb_value(argv[i]+6, argv, &i);
@@ -2431,6 +2440,10 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 		       fi,
 		       ERTS_ALC_T_ABIF_TIMER);
 #endif
+	add_fix_values(&size.processes,
+		       &size.processes_used,
+		       fi,
+		       ERTS_ALC_T_NIF_EXP_TRACE);
     }
 
     if (want.atom || want.atom_used) {
@@ -2852,7 +2865,7 @@ erts_allocator_info(fmtfn_t to, void *arg)
         erts_print(to, arg, "=allocator:erts_mmap.literal_mmap\n");
         erts_mmap_info(&erts_literal_mmapper, &to, arg, NULL, NULL, &emis);
 #endif
-#ifdef ERTS_ALC_A_EXEC
+#ifdef ERTS_HAVE_EXEC_MMAPPER
         erts_print(to, arg, "=allocator:erts_mmap.exec_mmap\n");
         erts_mmap_info(&erts_exec_mmapper, &to, arg, NULL, NULL, &emis);
 #endif
@@ -3010,7 +3023,7 @@ erts_allocator_options(void *proc)
 #if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
     terms[length++] = ERTS_MAKE_AM("literal_mmap");
 #endif
-#ifdef ERTS_ALC_A_EXEC
+#ifdef ERTS_HAVE_EXEC_MMAPPER
     terms[length++] = ERTS_MAKE_AM("exec_mmap");
 #endif
     features = length ? erts_bld_list(hpp, szp, length, terms) : NIL;
@@ -3102,7 +3115,7 @@ reply_alloc_info(void *vair)
 # if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
     struct erts_mmap_info_struct mmap_info_literal;
 # endif
-# ifdef ERTS_ALC_A_EXEC
+# ifdef ERTS_HAVE_EXEC_MMAPPER
     struct erts_mmap_info_struct mmap_info_exec;
 # endif
 #endif
@@ -3232,7 +3245,7 @@ reply_alloc_info(void *vair)
                                             erts_bld_atom(hpp,szp,"literal_mmap"),
                                             ainfo);
 #  endif
-#  ifdef ERTS_ALC_A_EXEC
+#  ifdef ERTS_HAVE_EXEC_MMAPPER
                     ai_list = erts_bld_cons(hpp, szp,
                                             ainfo, ai_list);
                     ainfo = (air->only_sz ? NIL :
@@ -4129,12 +4142,20 @@ debug_free(ErtsAlcType_t n, void *extra, void *ptr)
     ErtsAllocatorFunctions_t *real_af = (ErtsAllocatorFunctions_t *) extra;
     void *dptr;
     Uint size;
+    int free_pattern = n;
 
     ASSERT(ERTS_ALC_N_MIN <= n && n <= ERTS_ALC_N_MAX);
 
     dptr = check_memory_fence(ptr, &size, n, ERTS_ALC_O_FREE);
 
-    sys_memset((void *) dptr, n, size + FENCE_SZ);
+#ifdef ERTS_ALC_A_EXEC
+# if defined(__i386__) || defined(__x86_64__)
+    if (ERTS_ALC_T2A(ERTS_ALC_N2T(n)) == ERTS_ALC_A_EXEC) {
+        free_pattern = 0x0f; /* Illegal instruction */
+    }
+# endif
+#endif
+    sys_memset((void *) dptr, free_pattern, size + FENCE_SZ);
 
     (*real_af->free)(n, real_af->extra, dptr);
 

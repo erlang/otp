@@ -1,4 +1,4 @@
-#include "erl_nif.h"
+#include <erl_nif.h>
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -53,7 +53,7 @@ void testcase_free(void *ptr)
 
 void testcase_run(TestCaseState_t *tcs);
 
-static int reload(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
+static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info)
 {
     return 0;
 }
@@ -70,5 +70,5 @@ static ErlNifFunc nif_funcs[] =
     {"run", 0, run}
 };
 
-ERL_NIF_INIT(tester,nif_funcs,NULL,reload,NULL,NULL)
+ERL_NIF_INIT(tester,nif_funcs,NULL,NULL,upgrade,NULL)
 

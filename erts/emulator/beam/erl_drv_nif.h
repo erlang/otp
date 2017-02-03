@@ -69,10 +69,6 @@ typedef enum {
 #  define SIZEOF_LONG_LONG_SAVED__ SIZEOF_LONG_LONG
 #  undef SIZEOF_LONG_LONG
 #endif
-#ifdef HALFWORD_HEAP_EMULATOR
-#  define HALFWORD_HEAP_EMULATOR_SAVED__ HALFWORD_HEAP_EMULATOR
-#  undef HALFWORD_HEAP_EMULATOR
-#endif
 #include "erl_int_sizes_config.h"
 #if defined(SIZEOF_CHAR_SAVED__) && SIZEOF_CHAR_SAVED__ != SIZEOF_CHAR
 #  error SIZEOF_CHAR mismatch

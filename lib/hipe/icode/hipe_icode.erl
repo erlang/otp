@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%
-%% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% HiPE Intermediate Code
@@ -30,9 +24,6 @@
 %%              2003-03-15 ES (happi@acm.org):
 %%                             Started commenting in Edoc.
 %%                             Moved pretty printer to separate file.
-%%
-%% $Id$
-%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%@doc
@@ -438,6 +429,7 @@
 	 if_true_label/1,
 	 if_false_label/1,
 	 if_args/1,
+	 if_args_update/2,
 	 if_pred/1,
 	 %% is_if/1,
 	 
@@ -594,6 +586,7 @@
 	 uses/1,
 	 defines/1,
 	 is_safe/1,
+	 reduce_unused/1,
 	 strip_comments/1,
 	 subst/2,
 	 subst_uses/2,
@@ -712,6 +705,9 @@ if_op_update(IF, NewOp) -> IF#icode_if{op=NewOp}.
 
 -spec if_args(#icode_if{}) -> [icode_term_arg()].
 if_args(#icode_if{args=Args}) -> Args.
+
+-spec if_args_update(#icode_if{}, [icode_term_arg()]) -> #icode_if{}.
+if_args_update(IF, Args) -> IF#icode_if{args=Args}.
 
 -spec if_true_label(#icode_if{}) -> icode_lbl().
 if_true_label(#icode_if{true_label=TrueLbl}) -> TrueLbl.
@@ -1763,6 +1759,18 @@ is_safe(Instr) ->
     #icode_comment{} -> false;
     #icode_begin_try{} -> false;
     #icode_end_try{} -> false
+  end.
+
+%% @doc Produces a simplified instruction sequence that is equivalent to [Instr]
+%% under the assumption that all results of Instr are unused, or 'false' if
+%% there is no such sequence (other than [Instr] itself).
+
+-spec reduce_unused(icode_instr()) -> false | [icode_instr()].
+
+reduce_unused(Instr) ->
+  case is_safe(Instr) of
+    true -> [];
+    false -> false
   end.
 
 %%-----------------------------------------------------------------------

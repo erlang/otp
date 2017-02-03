@@ -1,8 +1,4 @@
 %% -*- erlang-indent-level: 2 -*-
-%%--------------------------------------------------------------------
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,9 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%
-%% %CopyrightEnd%
-%%
 
 %%%-------------------------------------------------------------------
 %%% File    : dialyzer_dataflow.erl
@@ -3617,6 +3610,7 @@ format_arg(Arg) ->
       case cerl:var_name(Arg) of
 	Atom when is_atom(Atom) ->
 	  case atom_to_list(Atom) of
+	    "@"++_ -> Default;
 	    "cor"++_ -> Default;
 	    "rec"++_ -> Default;
 	    Name -> Name ++ "::"
@@ -3677,6 +3671,7 @@ map_pats(Pats) ->
 		case cerl:var_name(Tree) of
 		  Atom when is_atom(Atom) ->
 		    case atom_to_list(Atom) of
+		      "@"++_ -> cerl:c_var('');
 		      "cor"++_ -> cerl:c_var('');
 		      "rec"++_ -> cerl:c_var('');
 		      _ -> cerl:set_ann(Tree, [])

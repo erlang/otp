@@ -52,15 +52,14 @@ void hipe_print_nstack(Process *p)
 {
     Eterm *nsp;
     Eterm *nsp_end;
-    struct sdesc sdesc0;
-    const struct sdesc *sdesc1;
-    const struct sdesc *sdesc;
+    struct hipe_sdesc sdesc0;
+    const struct hipe_sdesc *sdesc1;
+    const struct hipe_sdesc *sdesc;
     unsigned long ra;
     unsigned long exnra;
     unsigned int mask;
     unsigned int sdesc_size;
     unsigned int i;
-    unsigned int nstkarity;
     static const char dashes[2*sizeof(long)+5] = {
 	[0 ... 2*sizeof(long)+3] = '-'
     };
@@ -68,10 +67,10 @@ void hipe_print_nstack(Process *p)
     nsp = p->hipe.nsp;
     nsp_end = p->hipe.nstend;
 
-    nstkarity = p->hipe.narity - NR_ARG_REGS;
-    if ((int)nstkarity < 0)
-	nstkarity = 0;
-    sdesc0.summary = nstkarity;
+    sdesc0.fsize = 0;
+    sdesc0.has_exnra = 0;
+    sdesc0.stk_nargs = (p->hipe.narity < NR_ARG_REGS ? 0 :
+                        p->hipe.narity - NR_ARG_REGS);
     sdesc0.livebits[0] = ~1;
     sdesc = &sdesc0;
 
@@ -158,7 +157,7 @@ void hipe_print_nstack(Process *p)
 #define MINSTACK	128
 #define NSKIPFRAMES	4
 
-void hipe_update_stack_trap(Process *p, const struct sdesc *sdesc)
+void hipe_update_stack_trap(Process *p, const struct hipe_sdesc *sdesc)
 {
     Eterm *nsp;
     Eterm *nsp_end;
@@ -199,7 +198,7 @@ void hipe_update_stack_trap(Process *p, const struct sdesc *sdesc)
 void (*hipe_handle_stack_trap(Process *p))(void)
 {
     void (*ngra)(void) = p->hipe.ngra;
-    const struct sdesc *sdesc = hipe_find_sdesc((unsigned long)ngra);
+    const struct hipe_sdesc *sdesc = hipe_find_sdesc((unsigned long)ngra);
     hipe_update_stack_trap(p, sdesc);
     return ngra;
 }
@@ -220,7 +219,7 @@ void hipe_find_handler(Process *p)
     unsigned long ra;
     unsigned long exnra;
     unsigned int arity;
-    const struct sdesc *sdesc;
+    const struct hipe_sdesc *sdesc;
     unsigned int nstkarity;
 
     nsp = p->hipe.nsp;
@@ -262,7 +261,7 @@ int hipe_fill_stacktrace(Process *p, int depth, Eterm **trace)
     Eterm *nsp_end;
     unsigned long ra, prev_ra;
     unsigned int arity;
-    const struct sdesc *sdesc;
+    const struct hipe_sdesc *sdesc;
     unsigned int nstkarity;
     int i;
 

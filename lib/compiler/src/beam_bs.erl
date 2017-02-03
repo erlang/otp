@@ -25,6 +25,9 @@
 -export([module/2]).
 -import(lists, [mapfoldl/3,reverse/1]).
 
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs0,Lc0}, _Opt) ->
     {Fs,Lc} = mapfoldl(fun function/2, Lc0, Fs0),
     {ok,{Mod,Exp,Attr,Fs,Lc}}.

@@ -19,12 +19,11 @@
 
 {application, compiler,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "7.0.2"},
+  {vsn, "7.0.3"},
   {modules, [
 	     beam_a,
 	     beam_asm,
 	     beam_block,
-	     beam_bool,
 	     beam_bs,
 	     beam_bsm,
 	     beam_clean,
@@ -63,7 +62,6 @@
 	     sys_core_fold_lists,
 	     sys_core_inline,
 	     sys_pre_attributes,
-	     sys_pre_expand,
 	     v3_codegen,
 	     v3_core,
 	     v3_kernel,
@@ -73,5 +71,5 @@
   {registered, []},
   {applications, [kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-2.5","kernel-4.0","hipe-3.12","erts-7.0",
+  {runtime_dependencies, ["stdlib-2.5","kernel-4.0","hipe-3.12","erts-9.0",
 			  "crypto-3.6"]}]}.

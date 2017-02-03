@@ -47,9 +47,6 @@ obsolete(Module, Name, Arity) ->
 obsolete_1(net, _, _) ->
     {deprecated, "module 'net' obsolete; use 'net_adm'"};
 
-obsolete_1(erlang, hash, 2) ->
-    {deprecated, {erlang, phash2, 2}};
-
 obsolete_1(erlang, now, 0) ->
     {deprecated,
      "Deprecated BIF. See the \"Time and Time Correction in Erlang\" "
@@ -408,7 +405,7 @@ obsolete_1(docb_xml_check, _, _) ->
 
 %% Added in R15B
 obsolete_1(asn1rt, F, _) when F == load_driver; F == unload_driver ->
-    {deprecated,"deprecated (will be removed in OTP 18); has no effect as drivers are no longer used"};
+    {removed,"removed (will be removed in OTP 18); has no effect as drivers are no longer used"};
 obsolete_1(ssl, pid, 1) ->
     {removed,"was removed in R16; is no longer needed"};
 obsolete_1(inviso, _, _) ->
@@ -416,7 +413,7 @@ obsolete_1(inviso, _, _) ->
 
 %% Added in R15B01.
 obsolete_1(gs, _, _) ->
-    {deprecated,"the gs application has been deprecated and will be removed in OTP 18; use the wx application instead"};
+    {removed,"the gs application has been removed; use the wx application instead"};
 obsolete_1(ssh, sign_data, 2) ->
     {deprecated,"deprecated (will be removed in R16A); use public_key:pem_decode/1, public_key:pem_entry_decode/1 "
      "and public_key:sign/3 instead"};
@@ -463,21 +460,23 @@ obsolete_1(wxCursor, new, 4) ->
 
 %% Added in OTP 17.
 obsolete_1(asn1ct, decode,3) ->
-    {deprecated,"deprecated; use Mod:decode/2 instead"};
+    {removed,"removed; use Mod:decode/2 instead"};
+obsolete_1(asn1ct, encode, 2) ->
+    {removed,"removed; use Mod:encode/2 instead"};
 obsolete_1(asn1ct, encode, 3) ->
-    {deprecated,"deprecated; use Mod:encode/2 instead"};
+    {removed,"removed; use Mod:encode/2 instead"};
 obsolete_1(asn1rt, decode,3) ->
-    {deprecated,"deprecated; use Mod:decode/2 instead"};
+    {removed,"removed; use Mod:decode/2 instead"};
 obsolete_1(asn1rt, encode, 2) ->
-    {deprecated,"deprecated; use Mod:encode/2 instead"};
+    {removed,"removed; use Mod:encode/2 instead"};
 obsolete_1(asn1rt, encode, 3) ->
-    {deprecated,"deprecated; use Mod:encode/2 instead"};
+    {removed,"removed; use Mod:encode/2 instead"};
 obsolete_1(asn1rt, info, 1) ->
-    {deprecated,"deprecated; use Mod:info/0 instead"};
+    {removed,"removed; use Mod:info/0 instead"};
 obsolete_1(asn1rt, utf8_binary_to_list, 1) ->
-    {deprecated,{unicode,characters_to_list,1}};
+    {removed,{unicode,characters_to_list,1},"OTP 20"};
 obsolete_1(asn1rt, utf8_list_to_binary, 1) ->
-    {deprecated,{unicode,characters_to_binary,1}};
+    {removed,{unicode,characters_to_binary,1},"OTP 20"};
 
 %% Added in OTP 18.
 obsolete_1(core_lib, get_anno, 1) ->
@@ -550,6 +549,13 @@ obsolete_1(overload, _, _) ->
     {removed, "removed in OTP 19"};
 obsolete_1(rpc, safe_multi_server_call, A) when A =:= 2; A =:= 3 ->
     {removed, {rpc, multi_server_call, A}};
+
+%% Removed in OTP 20.
+
+obsolete_1(erlang, hash, 2) ->
+    {removed, {erlang, phash2, 2}, "20.0"};
+
+%% not obsolete
 
 obsolete_1(_, _, _) ->
     no.

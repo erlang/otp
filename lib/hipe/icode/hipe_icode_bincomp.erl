@@ -1,9 +1,5 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%% %CopyrightBegin%
-%%% 
-%%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
-%%% 
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
-%%% 
-%%% %CopyrightEnd%
 %%%
 %%%-------------------------------------------------------------------
 %%% File    : hipe_icode_bincomp.erl
@@ -40,8 +34,8 @@
 -spec cfg(cfg()) -> cfg().
 
 cfg(Cfg1) ->
-  StartLbls = ordsets:from_list([hipe_icode_cfg:start_label(Cfg1)]),
-  find_bs_get_integer(StartLbls, Cfg1, StartLbls).
+  StartLbl = hipe_icode_cfg:start_label(Cfg1),
+  find_bs_get_integer([StartLbl], Cfg1, set_from_list([StartLbl])).
 
 find_bs_get_integer([Lbl|Rest], Cfg, Visited) ->
   BB = hipe_icode_cfg:bb(Cfg, Lbl),
@@ -55,10 +49,10 @@ find_bs_get_integer([Lbl|Rest], Cfg, Visited) ->
        not_ok ->
 	 Cfg
      end,
-  Succs = ordsets:from_list(hipe_icode_cfg:succ(NewCfg, Lbl)),
-  NewSuccs = ordsets:subtract(Succs, Visited),
-  NewLbls = ordsets:union(NewSuccs, Rest),
-  NewVisited = ordsets:union(NewSuccs, Visited),
+  Succs = hipe_icode_cfg:succ(NewCfg, Lbl),
+  NewSuccs = not_visited(Succs, Visited),
+  NewLbls = NewSuccs ++ Rest,
+  NewVisited = set_union(set_from_list(NewSuccs), Visited),
   find_bs_get_integer(NewLbls, NewCfg, NewVisited);
 find_bs_get_integer([], Cfg, _) ->
   Cfg.
@@ -177,3 +171,19 @@ make_butlast([{Res, Size}|Rest], Var) ->
 			[Var, hipe_icode:mk_const((1 bsl Size)-1)]),
    hipe_icode:mk_primop([NewVar], 'bsr', [Var, hipe_icode:mk_const(Size)])
    |make_butlast(Rest, NewVar)].
+
+%%--------------------------------------------------------------------
+%% Sets
+
+set_from_list([]) -> #{};
+set_from_list(L) ->
+  maps:from_list([{E, []} || E <- L]).
+
+not_visited([], _) -> [];
+not_visited([E|T], M) ->
+  case M of
+    #{E := _} -> not_visited(T, M);
+    _ -> [E|not_visited(T, M)]
+  end.
+
+set_union(A, B) -> maps:merge(A, B).

@@ -913,8 +913,6 @@ mnesia_read(State) ->
     case mnesia:wread({oe_CosPropertyService, ?get_DBKey(State)}) of
 	[#oe_CosPropertyService{properties = X}] ->
 	    X;
-        {atomic, []} ->
-            {'EXCEPTION', #'OBJECT_NOT_EXIST'{completion_status=?COMPLETED_NO}};
         _Other ->
 	    {'EXCEPTION', #'INTERNAL'{completion_status=?COMPLETED_NO}}
     end.

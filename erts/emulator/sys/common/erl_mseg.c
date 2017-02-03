@@ -1414,7 +1414,7 @@ erts_mseg_init(ErtsMsegInit_t *init)
 
     erts_mtx_init(&init_atoms_mutex, "mseg_init_atoms");
 
-#ifdef ERTS_ALC_A_EXEC
+#ifdef ERTS_HAVE_EXEC_MMAPPER
     /* Initialize erts_exec_mapper *FIRST*, to increase probability
      * of getting low memory for HiPE AMD64's small code model.
      */

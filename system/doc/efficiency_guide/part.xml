@@ -39,5 +39,6 @@
   <xi:include href="drivers.xml"/>
   <xi:include href="advanced.xml"/>
   <xi:include href="profiling.xml"/>
+  <xi:include href="retired_myths.xml"/>
 </part>
 

@@ -17,7 +17,7 @@
  *
  * %CopyrightEnd%
  */
-#include "erl_nif.h"
+#include <erl_nif.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -104,20 +104,22 @@ struct binary_resource {
 
 static int get_pointer(ErlNifEnv* env, ERL_NIF_TERM term, void** pp)
 {
-    ErlNifUInt64 i64;
-    int r = enif_get_uint64(env, term, &i64);
+    ErlNifBinary bin;
+    int r = enif_inspect_binary(env, term, &bin);
     if (r) {
-	*pp = (void*)i64;
+	*pp = *(void**)bin.data;
     }
     return r;
 }
 
 static ERL_NIF_TERM make_pointer(ErlNifEnv* env, void* p)
 {
-    ErlNifUInt64 i64 = (ErlNifUInt64) p;
-    return enif_make_uint64(env, i64);
+    void** bin_data;
+    ERL_NIF_TERM res;
+    bin_data = (void**)enif_make_new_binary(env, sizeof(void*), &res);
+    *bin_data = p;
+    return res;
 }
-
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
@@ -182,14 +184,6 @@ static void resource_takeover(ErlNifEnv* env, PrivData* priv)
     assert(tried == ERL_NIF_RT_TAKEOVER);
     assert(msgenv_resource_type==NULL || msgenv_resource_type == rt); 
     msgenv_resource_type = rt;
-}
-
-static int reload(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
-{
-    PrivData* priv = (PrivData*) *priv_data;
-    add_call(env, priv, "reload");
-    resource_takeover(env,priv);
-    return 0;
 }
 
 static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info)
@@ -394,8 +388,7 @@ static ERL_NIF_TERM type_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     ErlNifSInt64 sint64;
     ErlNifUInt64 uint64;
     double d;
-    ERL_NIF_TERM atom, ref1, ref2, term;
-    size_t len;
+    ERL_NIF_TERM atom, ref1, ref2;
 
     sint = INT_MIN;
     do {
@@ -1029,6 +1022,7 @@ struct make_term_info
 {
     ErlNifEnv* caller_env;
     ErlNifEnv* dst_env;
+    int dst_env_valid;
     ERL_NIF_TERM reuse[MAKE_TERM_REUSE_LEN];
     unsigned reuse_push;
     unsigned reuse_pull;
@@ -1058,6 +1052,7 @@ static ERL_NIF_TERM pull_term(struct make_term_info* mti)
 	mti->reuse_push < MAKE_TERM_REUSE_LEN) {
 	mti->reuse_pull = 0;
 	if (mti->reuse_push == 0) {
+            assert(mti->dst_env_valid);
 	    mti->reuse[0] = enif_make_list(mti->dst_env, 0);
 	}
     }
@@ -1246,6 +1241,7 @@ static unsigned num_of_make_funcs()
 static int make_term_n(struct make_term_info* mti, int n, ERL_NIF_TERM* res)
 {
     if (n < num_of_make_funcs()) {
+        assert(mti->dst_env_valid);
 	*res = make_funcs[n](mti, n);
 	push_term(mti, *res);
 	return 1;
@@ -1262,6 +1258,7 @@ static ERL_NIF_TERM make_blob(ErlNifEnv* caller_env, ErlNifEnv* dst_env,
     struct make_term_info mti;
     mti.caller_env = caller_env;
     mti.dst_env = dst_env;
+    mti.dst_env_valid = 1;
     mti.reuse_push = 0;
     mti.reuse_pull = 0;
     mti.resource_type = priv->rt_arr[0].t;
@@ -1302,6 +1299,7 @@ static ERL_NIF_TERM alloc_msgenv(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 						       sizeof(*mti));
     mti->caller_env = NULL;
     mti->dst_env = enif_alloc_env();
+    mti->dst_env_valid = 1;
     mti->reuse_push = 0;
     mti->reuse_pull = 0;
     mti->resource_type = priv->rt_arr[0].t;
@@ -1333,6 +1331,7 @@ static ERL_NIF_TERM clear_msgenv(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 	return enif_make_badarg(env);
     }
     enif_clear_env(mti.p->dst_env);
+    mti.p->dst_env_valid = 1;
     mti.p->reuse_pull = 0;
     mti.p->reuse_push = 0;
     mti.p->blob = enif_make_list(mti.p->dst_env, 0);
@@ -1367,6 +1366,8 @@ static ERL_NIF_TERM send_blob(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     }
     copy = enif_make_copy(env, mti.p->blob);
     res = enif_send(env, &to, mti.p->dst_env, mti.p->blob);
+    if (res)
+        mti.p->dst_env_valid = 0;
     return enif_make_tuple3(env, atom_ok, enif_make_int(env,res), copy);
 }
 
@@ -1374,7 +1375,6 @@ static ERL_NIF_TERM send3_blob(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 {
     mti_t mti;
     ErlNifPid to;
-    ERL_NIF_TERM copy;
     int res;
     if (!enif_get_resource(env, argv[0], msgenv_resource_type, &mti.vp)
 	|| !enif_get_local_pid(env, argv[1], &to)) {
@@ -1384,6 +1384,8 @@ static ERL_NIF_TERM send3_blob(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 				   enif_make_copy(mti.p->dst_env, argv[2]),
 				   mti.p->blob);
     res = enif_send(env, &to, mti.p->dst_env, mti.p->blob);
+    if (res)
+        mti.p->dst_env_valid = 0;
     return enif_make_int(env,res);
 }
 
@@ -1400,6 +1402,8 @@ void* threaded_sender(void *arg)
     mti.p->send_it = 0;
     enif_mutex_unlock(mti.p->mtx);
     mti.p->send_res = enif_send(NULL, &mti.p->to_pid, mti.p->dst_env, mti.p->blob);
+    if (mti.p->send_res)
+        mti.p->dst_env_valid = 0;
     return NULL;
 }
 
@@ -2094,4 +2098,4 @@ static ErlNifFunc nif_funcs[] =
     {"format_term_nif", 2, format_term}
 };
 
-ERL_NIF_INIT(nif_SUITE,nif_funcs,load,reload,upgrade,unload)
+ERL_NIF_INIT(nif_SUITE,nif_funcs,load,NULL,upgrade,unload)

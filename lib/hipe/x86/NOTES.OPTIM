@@ -1,5 +1,3 @@
-$Id$
-
 Partial x86 code optimisation guide
 ===================================
 Priority should be given to P6 and P4, then K7,

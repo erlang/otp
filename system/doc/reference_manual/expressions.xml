@@ -123,10 +123,9 @@ member(_Elem, []) ->
       or <c>receive</c> expression must be bound in all branches 
       to have a value outside the expression. Otherwise they
       are regarded as 'unsafe' outside the expression.</p>
-    <p>For the <c>try</c> expression introduced in 
-      Erlang 5.4/OTP R10B, variable scoping is limited so that
+    <p>For the <c>try</c> expression variable scoping is limited so that
       variables bound in the expression are always 'unsafe' outside 
-      the expression. This is to be improved.</p>
+      the expression.</p>
   </section>
 
   <section>
@@ -189,7 +188,6 @@ f([$p,$r,$e,$f,$i,$x | Str]) -> ...</pre>
       <pre>
 case {Value, Result} of
     {?THRESHOLD+1, ok} -> ...</pre>
-      <p>This feature was added in Erlang 5.0/OTP R7.</p>
     </section>
   </section>
 
@@ -1348,8 +1346,8 @@ catch
         ExceptionBodyN
 end</code>
     <p>This is an enhancement of
-      <seealso marker="#catch">catch</seealso> that appeared in
-      Erlang 5.4/OTP R10B. It gives the possibility to:</p>
+      <seealso marker="#catch">catch</seealso>.
+      It gives the possibility to:</p>
     <list type="bulleted">
       <item>Distinguish between different exception classes.</item>
       <item>Choose to handle only the desired ones.</item>

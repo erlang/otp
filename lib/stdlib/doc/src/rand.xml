@@ -41,6 +41,11 @@
       Sebastiano Vigna</url>. The normal distribution algorithm uses the
       <url href="http://www.jstatsoft.org/v05/i08">Ziggurat Method by Marsaglia
       and Tsang</url>.</p>
+    <p>For some algorithms, jump functions are provided for generating
+        non-overlapping sequences for parallel computations.
+        The jump functions perform calculations
+        equivalent to perform a large number of repeated calls
+        for calculating new states. </p>
 
     <p>The following algorithms are provided:</p>
 
@@ -48,14 +53,17 @@
       <tag><c>exsplus</c></tag>
       <item>
         <p>Xorshift116+, 58 bits precision and period of 2^116-1</p>
+        <p>Jump function: equivalent to 2^64 calls</p>
       </item>
       <tag><c>exs64</c></tag>
       <item>
         <p>Xorshift64*, 64 bits precision and a period of 2^64-1</p>
+        <p>Jump function: not available</p>
       </item>
       <tag><c>exs1024</c></tag>
       <item>
         <p>Xorshift1024*, 64 bits precision and a period of 2^1024-1</p>
+        <p>Jump function: equivalent to 2^512 calls</p>
       </item>
     </taglist>
 
@@ -152,6 +160,33 @@ S0 = rand:seed_s(exsplus),
       <desc><marker id="export_seed_s-1"/>
         <p>Returns the random number generator state in an external format.
           To be used with <seealso marker="#seed-1"><c>seed/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="jump" arity="0"/>
+      <fsummary>Return the seed after performing jump calculation
+          to the state in the process dictionary.</fsummary>
+      <desc><marker id="jump-0" />
+          <p>Returns the state
+              after performing jump calculation
+              to the state in the process dictionary.</p>
+      <p>This function generates a <c>not_implemented</c> error exception
+           when the jump function is not implemented for
+           the algorithm specified in the state
+           in the process dictionary.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="jump" arity="1"/>
+      <fsummary>Return the seed after performing jump calculation.</fsummary>
+      <desc><marker id="jump-1" />
+          <p>Returns the state after performing jump calculation
+              to the given state. </p>
+      <p>This function generates a <c>not_implemented</c> error exception
+           when the jump function is not implemented for
+           the algorithm specified in the state.</p>
       </desc>
     </func>
 

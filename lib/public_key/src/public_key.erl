@@ -1100,19 +1100,16 @@ do_pkix_crls_validate(OtpCert, [{DP, CRL, DeltaCRL} | Rest],  All, Options, Revo
     end.
 
 sort_dp_crls(DpsAndCrls, FreshCB) ->
-    Sorted = do_sort_dp_crls(DpsAndCrls, dict:new()),
-    sort_crls(Sorted, FreshCB, []).
+    sort_crls(maps:to_list(lists:foldl(fun group_dp_crls/2,
+                                       #{},
+                                       DpsAndCrls)),
+              FreshCB, []).
 
-do_sort_dp_crls([], Dict) ->
-    dict:to_list(Dict);
-do_sort_dp_crls([{DP, CRL} | Rest], Dict0) ->
-    Dict = try dict:fetch(DP, Dict0) of
-	       _ ->
-		   dict:append(DP, CRL, Dict0)
-	   catch _:_ ->
-		   dict:store(DP, [CRL], Dict0)
-	   end,
-    do_sort_dp_crls(Rest, Dict).
+group_dp_crls({DP,CRL}, M) ->
+    case M of
+        #{DP := CRLs} -> M#{DP := [CRL|CRLs]};
+        _ -> M#{DP => [CRL]}
+    end.
 
 sort_crls([], _, Acc) ->
     Acc;

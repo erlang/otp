@@ -1,8 +1,3 @@
-%%%
-%%% %CopyrightBegin%
-%%% 
-%%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%%% 
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -14,9 +9,6 @@
 %%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
-%%% 
-%%% %CopyrightEnd%
-%%%
 %%%
 %%% TODO:
 %%% - Do we need a pseudo reg for the condition codes?
@@ -224,6 +216,8 @@ ret(N) ->
 	    exit({?MODULE, ret, N})
     end.
 
+%% Note: the fact that (allocatable() UNION allocatable_x87()) is a subset of
+%% call_clobbered() is hard-coded in hipe_x86_defuse:insn_defs_all/1
 call_clobbered() ->
     [{?EAX,tagged},{?EAX,untagged},	% does the RA strip the type or not?
      {?EDX,tagged},{?EDX,untagged},

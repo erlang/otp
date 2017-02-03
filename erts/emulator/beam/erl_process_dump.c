@@ -337,8 +337,8 @@ stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, int yreg)
 static void
 print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
 {
-    BeamInstr* addr = find_function_from_pc(x);
-    if (addr == NULL) {
+    ErtsCodeMFA* cmfa = find_function_from_pc(x);
+    if (cmfa == NULL) {
         if (x == beam_exit) {
             erts_print(to, to_arg, "<terminate process>");
         } else if (x == beam_continue_exit) {
@@ -350,7 +350,8 @@ print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
         }
     } else {
 	erts_print(to, to_arg, "%T:%T/%bpu + %bpu",
-		   addr[0], addr[1], addr[2], ((x-addr)-2) * sizeof(Eterm));
+		   cmfa->module, cmfa->function, cmfa->arity,
+                   (x-(BeamInstr*)cmfa) * sizeof(Eterm));
     }
 }
 

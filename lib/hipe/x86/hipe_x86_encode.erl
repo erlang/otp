@@ -1,8 +1,3 @@
-%%%
-%%% %CopyrightBegin%
-%%% 
-%%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%%% 
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -14,8 +9,6 @@
 %%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
-%%% 
-%%% %CopyrightEnd%
 %%%
 %%% Copyright (C) 2000-2005 Mikael Pettersson
 %%%
@@ -65,6 +58,7 @@
 	 cc/1,
 	 % 8-bit registers
 	 %% al/0, cl/0, dl/0, bl/0, ah/0, ch/0, dh/0, bh/0,
+	 reg_has_8bit/1,
 	 % 32-bit registers
 	 %% eax/0, ecx/0, edx/0, ebx/0, esp/0, ebp/0, esi/0, edi/0,
 	 % operands
@@ -142,6 +136,8 @@ cc(g) -> ?CC_G.
 %% ch() -> ?CH.
 %% dh() -> ?DH.
 %% bh() -> ?BH.
+
+reg_has_8bit(Reg) -> Reg =< ?BL.
 
 %%% 32-bit registers
 
@@ -700,8 +696,16 @@ shd_op_sizeof(Opnds) ->
 
 test_encode(Opnds) ->
     case Opnds of
+	{al, {imm8,Imm8}} ->
+	    [16#A8, Imm8];
+	{ax, {imm16,Imm16}} ->
+	    [?PFX_OPND, 16#A9 | le16(Imm16, [])];
 	{eax, {imm32,Imm32}} ->
 	    [16#A9 | le32(Imm32, [])];
+	{{rm8,RM8}, {imm8,Imm8}} ->
+	    [16#F6 | encode_rm(RM8, 2#000, [Imm8])];
+	{{rm16,RM16}, {imm16,Imm16}} ->
+	    [?PFX_OPND, 16#F7 | encode_rm(RM16, 2#000, le16(Imm16, []))];
 	{{rm32,RM32}, {imm32,Imm32}} ->
 	    [16#F7 | encode_rm(RM32, 2#000, le32(Imm32, []))];
 	{{rm32,RM32}, {reg32,Reg32}} ->
@@ -710,8 +714,16 @@ test_encode(Opnds) ->
 
 test_sizeof(Opnds) ->
     case Opnds of
+	{al, {imm8,_}} ->
+	    1 + 1;
+	{ax, {imm16,_}} ->
+	    2 + 2;
 	{eax, {imm32,_}} ->
 	    1 + 4;
+	{{rm8,RM8}, {imm8,_}} ->
+	    1 + sizeof_rm(RM8) + 1;
+	{{rm16,RM16}, {imm16,_}} ->
+	    2 + sizeof_rm(RM16) + 2;
 	{{rm32,RM32}, {imm32,_}} ->
 	    1 + sizeof_rm(RM32) + 4;
 	{{rm32,RM32}, {reg32,_}} ->
@@ -1283,7 +1295,11 @@ dotest1(OS) ->
     t(OS,'sub',{RM32,Imm8}),
     t(OS,'sub',{RM32,Reg32}),
     t(OS,'sub',{Reg32,RM32}),
+    t(OS,'test',{al,Imm8}),
+    t(OS,'test',{ax,Imm16}),
     t(OS,'test',{eax,Imm32}),
+    t(OS,'test',{RM8,Imm8}),
+    t(OS,'test',{RM16,Imm16}),
     t(OS,'test',{RM32,Imm32}),
     t(OS,'test',{RM32,Reg32}),
     t(OS,'xor',{eax,Imm32}),

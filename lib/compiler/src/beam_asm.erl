@@ -21,23 +21,56 @@
 
 -module(beam_asm).
 
--export([module/4]).
+-export([module/5]).
 -export([encode/2]).
+
+-export_type([fail/0,label/0,reg/0,src/0,module_code/0,function_name/0]).
 
 -import(lists, [map/2,member/2,keymember/3,duplicate/2,splitwith/2]).
 -include("beam_opcodes.hrl").
 
-module(Code, Abst, SourceFile, Opts) ->
-    {ok,assemble(Code, Abst, SourceFile, Opts)}.
+%% Common types for describing operands for BEAM instructions.
+-type reg_num() :: 0..1023.
+-type reg() :: {'x',reg_num()} | {'y',reg_num()}.
+-type src() :: reg() |
+	       {'literal',term()} |
+	       {'atom',atom()} |
+	       {'integer',integer()} |
+	       'nil' |
+	       {'float',float()}.
+-type label() :: pos_integer().
+-type fail() :: {'f',label() | 0}.
 
-assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, Abst, SourceFile, Opts) ->
+%% asm_instruction() describes only the instructions that
+%% are used in BEAM files (as opposed to internal instructions
+%% used only during optimization).
+
+-type asm_instruction() :: atom() | tuple().
+
+-type function_name() :: atom().
+
+-type exports() :: [{function_name(),arity()}].
+
+-type asm_function() ::
+        {'function',function_name(),arity(),label(),[asm_instruction()]}.
+
+-type module_code() ::
+        {module(),[_],[_],[asm_function()],pos_integer()}.
+
+-spec module(module_code(), exports(), [_], [compile:option()], [compile:option()]) ->
+                    {'ok',binary()}.
+
+module(Code, Abst, SourceFile, Opts, CompilerOpts) ->
+    {ok,assemble(Code, Abst, SourceFile, Opts, CompilerOpts)}.
+
+assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, Abst, SourceFile, Opts, CompilerOpts) ->
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
     {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
     Exp = cerl_sets:from_list(Exp0),
     {Code,Dict2} = assemble_1(Asm, Exp, Dict1, []),
-    build_file(Code, Attr, Dict2, NumLabels, NumFuncs, Abst, SourceFile, Opts).
+    build_file(Code, Attr, Dict2, NumLabels, NumFuncs, Abst, SourceFile, Opts, CompilerOpts).
 
 on_load(Fs0, Attr0) ->
     case proplists:get_value(on_load, Attr0) of
@@ -80,7 +113,7 @@ assemble_function([H|T], Acc, Dict0) ->
 assemble_function([], Code, Dict) ->
     {Code, Dict}.
 
-build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
+build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts, CompilerOpts) ->
     %% Create the code chunk.
 
     CodeChunk = chunk(<<"Code">>,
@@ -92,9 +125,9 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
 		      Code),
 
     %% Create the atom table chunk.
-
-    {NumAtoms, AtomTab} = beam_dict:atom_table(Dict),
-    AtomChunk = chunk(<<"Atom">>, <<NumAtoms:32>>, AtomTab),
+    AtomEncoding = atom_encoding(CompilerOpts),
+    {NumAtoms, AtomTab} = beam_dict:atom_table(Dict, AtomEncoding),
+    AtomChunk = chunk(atom_chunk_name(AtomEncoding), <<NumAtoms:32>>, AtomTab),
 
     %% Create the import table chunk.
 
@@ -170,6 +203,15 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
 	     end,
     build_form(<<"BEAM">>, Chunks).
 
+atom_encoding(Opts) ->
+    case proplists:get_bool(no_utf8_atoms, Opts) of
+	false -> utf8;
+	true -> latin1
+    end.
+
+atom_chunk_name(utf8) -> <<"AtU8">>;
+atom_chunk_name(latin1) -> <<"Atom">>.
+
 %% finalize_fun_table(Essentials, MD5) -> FinalizedEssentials
 %%  Update the 'old_uniq' field in the entry for each fun in the
 %%  'FunT' chunk. We'll use part of the MD5 for the module as a
@@ -233,7 +275,12 @@ build_attributes(Opts, SourceFile, Attr, MD5) ->
 	       false -> Misc0;
 	       true -> []
 	   end,
-    Compile = [{options,Opts},{version,?COMPILER_VSN}|Misc],
+    Compile = case member(deterministic, Opts) of
+		  false ->
+		      [{options,Opts},{version,?COMPILER_VSN}|Misc];
+		  true ->
+		      [{version,?COMPILER_VSN}]
+	      end,
     {term_to_binary(set_vsn_attribute(Attr, MD5)),term_to_binary(Compile)}.
 
 build_line_table(Dict) ->
@@ -433,6 +480,8 @@ encode_alloc_list_1([{floats,Floats}|T], Dict, Acc0) ->
     encode_alloc_list_1(T, Dict, Acc);
 encode_alloc_list_1([], Dict, Acc) ->
     {iolist_to_binary(Acc),Dict}.
+
+-spec encode(non_neg_integer(), pos_integer()) -> iodata().
 
 encode(Tag, N) when N < 0 ->
     encode1(Tag, negative_to_bytes(N));

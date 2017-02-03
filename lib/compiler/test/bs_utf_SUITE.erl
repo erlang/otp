@@ -235,6 +235,7 @@ utf32_to_unicode(<<>>) -> [].
 literals(Config) when is_list(Config) ->
     abc_utf8 = match_literal(<<"abc"/utf8>>),
     abc_utf8 = match_literal(<<$a,$b,$c>>),
+    abc_utf8 = match_literal(<<$a/utf8,$b/utf8,$c/utf8>>),
 
     abc_utf16be = match_literal(<<"abc"/utf16>>),
     abc_utf16be = match_literal(<<$a:16,$b:16,$c:16>>),

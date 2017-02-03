@@ -576,7 +576,15 @@ grab_bag_remove_failure([{stretch,_,Mi}=Stretch | Specs], Unit, _MaxFailure) ->
 
 %% Regression in 19.0, reported by Alexei Sholik
 literal_binary(_Config) ->
-    3 = literal_binary_match(bar,<<"y">>),
+    3 = literal_binary_match(bar, <<"y">>),
+
+    %% While we are at it, also test the remaining code paths
+    %% in literal_binary_match/2.
+    1 = literal_binary_match(bar, <<"x">>),
+    2 = literal_binary_match(foo, <<"x">>),
+    3 = literal_binary_match(foo, <<"y">>),
+    fail = literal_binary_match(bar, <<"z">>),
+    fail = literal_binary_match(foo, <<"z">>),
     ok.
 
 literal_binary_match(bar, <<"x">>) -> 1;

@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,13 +11,11 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_ppc_defuse).
 -export([insn_def_all/1, insn_use_all/1]).
 -export([insn_def_gpr/1, insn_use_gpr/1]).
+-export([insn_defs_all_gpr/1, insn_defs_all_fpr/1]).
 -export([insn_def_fpr/1, insn_use_fpr/1]).
 -include("hipe_ppc.hrl").
 
@@ -51,6 +45,9 @@ insn_def_gpr(I) ->
     #unary{dst=Dst} -> [Dst];
     _ -> []
   end.
+
+insn_defs_all_gpr(#pseudo_call{}) -> true;
+insn_defs_all_gpr(_) -> false.
 
 call_clobbered_gpr() ->
   [hipe_ppc:mk_temp(R, T)
@@ -115,6 +112,9 @@ insn_def_fpr(I) ->
     #pseudo_fmove{dst=Dst} -> [Dst];
     _ -> []
   end.
+
+insn_defs_all_fpr(#pseudo_call{}) -> true;
+insn_defs_all_fpr(_) -> false.
 
 call_clobbered_fpr() ->
   [hipe_ppc:mk_temp(R, 'double') || R <- hipe_ppc_registers:allocatable_fpr()].

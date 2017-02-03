@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,16 +11,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_x86_cfg).
 
 -export([init/1,
          labels/1, start_label/1,
          succ/2, pred/2,
-         bb/2, bb_add/3]).
+         bb/2, bb_add/3, map_bbs/2, fold_bbs/3]).
 -export([postorder/1, reverse_postorder/1]).
 -export([linearise/1, params/1, arity/1, redirect_jmp/3]).
 
@@ -33,6 +26,7 @@
 -define(BREADTH_ORDER,true).
 -define(PARAMS_NEEDED,true).
 -define(START_LABEL_UPDATE_NEEDED,true).
+-define(MAP_FOLD_NEEDED,true).
 
 -include("hipe_x86.hrl").
 -include("../flow/cfg.hrl").
@@ -107,7 +101,7 @@ mk_goto(Label) ->
   hipe_x86:mk_jmp_label(Label).
 
 is_label(I) ->
-  hipe_x86:is_label(I).
+  case I of #label{} -> true; _ -> false end.
 
 label_name(Label) ->
   hipe_x86:label_label(Label).

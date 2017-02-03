@@ -49,7 +49,6 @@ MODULES =  \
 	beam_a \
 	beam_asm \
 	beam_block \
-	beam_bool \
 	beam_bs \
 	beam_bsm \
 	beam_clean \
@@ -88,7 +87,6 @@ MODULES =  \
 	sys_core_fold_lists \
 	sys_core_inline \
 	sys_pre_attributes \
-	sys_pre_expand \
 	v3_codegen \
 	v3_core \
 	v3_kernel \
@@ -128,7 +126,7 @@ ERL_COMPILE_FLAGS += +native
 endif
 ERL_COMPILE_FLAGS += +inline +warn_unused_import \
  -Werror \
- -I../../stdlib/include -I$(EGEN) -W
+ -I../../stdlib/include -I$(EGEN) -W +warn_missing_spec
 
 # ----------------------------------------------------
 # Targets
@@ -198,7 +196,6 @@ $(EBIN)/sys_core_dsetel.beam: core_parse.hrl
 $(EBIN)/sys_core_fold.beam: core_parse.hrl
 $(EBIN)/sys_core_fold_lists.beam: core_parse.hrl
 $(EBIN)/sys_core_inline.beam: core_parse.hrl
-$(EBIN)/sys_pre_expand.beam: ../../stdlib/include/erl_bits.hrl
 $(EBIN)/v3_codegen.beam: v3_life.hrl
 $(EBIN)/v3_core.beam: core_parse.hrl
 $(EBIN)/v3_kernel.beam: core_parse.hrl v3_kernel.hrl

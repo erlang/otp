@@ -81,12 +81,8 @@ normal(Conf) when is_list(Conf) ->
     NoOfTables = length(ets:all()),
     P0 = pps(),
 
-    CompileFlags = [{outdir,PrivDir}, debug_info],
-    {ok,_} = compile:file(Source, CompileFlags),
-    {ok, Binary} = file:read_file(BeamFile),
-
-    do_normal(BeamFile),
-    do_normal(Binary),
+    do_normal(Source, PrivDir, BeamFile, []),
+    do_normal(Source, PrivDir, BeamFile, [no_utf8_atoms]),
 
     {ok,_} = compile:file(Source, [{outdir,PrivDir}, no_debug_info]),
     {ok, {simple, [{abstract_code, no_abstract_code}]}} =
@@ -101,7 +97,15 @@ normal(Conf) when is_list(Conf) ->
     true = (P0 == pps()),
     ok.
 
-do_normal(BeamFile) ->
+do_normal(Source, PrivDir, BeamFile, Opts) ->
+    CompileFlags = [{outdir,PrivDir}, debug_info | Opts],
+    {ok,_} = compile:file(Source, CompileFlags),
+    {ok, Binary} = file:read_file(BeamFile),
+
+    do_normal(BeamFile, Opts),
+    do_normal(Binary, Opts).
+
+do_normal(BeamFile, Opts) ->
     Imports = {imports, [{erlang, get_module_info, 1},
 			 {erlang, get_module_info, 2},
 			 {lists, member, 2}]},
@@ -130,20 +134,31 @@ do_normal(BeamFile) ->
 	beam_lib:chunks(BeamFile, [abstract_code]),
 
     %% Test reading optional chunks.
-    All = ["Atom", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT"],
+    All = ["Atom", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT", "AtU8"],
     {ok,{simple,Chunks}} = beam_lib:chunks(BeamFile, All, [allow_missing_chunks]),
-    verify_simple(Chunks).
+    case {verify_simple(Chunks),Opts} of
+	{{missing_chunk, AtomBin}, []} when is_binary(AtomBin) -> ok;
+	{{AtomBin, missing_chunk}, [no_utf8_atoms]} when is_binary(AtomBin) -> ok
+    end,
 
-verify_simple([{"Atom", AtomBin},
+    %% Make sure that reading the atom chunk works when the 'allow_missing_chunks'
+    %% option is used.
+    Some = ["Code",atoms,"ExpT","LitT"],
+    {ok,{simple,SomeChunks}} = beam_lib:chunks(BeamFile, Some, [allow_missing_chunks]),
+    [{"Code",<<_/binary>>},{atoms,[_|_]},{"ExpT",<<_/binary>>},{"LitT",missing_chunk}] =
+	SomeChunks.
+
+verify_simple([{"Atom", PlainAtomChunk},
 	       {"Code", CodeBin},
 	       {"StrT", StrBin},
 	       {"ImpT", ImpBin},
 	       {"ExpT", ExpBin},
 	       {"FunT", missing_chunk},
-	       {"LitT", missing_chunk}])
-  when is_binary(AtomBin), is_binary(CodeBin), is_binary(StrBin),
+	       {"LitT", missing_chunk},
+	       {"AtU8", AtU8Chunk}])
+  when is_binary(CodeBin), is_binary(StrBin),
        is_binary(ImpBin), is_binary(ExpBin) ->
-    ok.
+    {PlainAtomChunk, AtU8Chunk}.
 
 %% Read invalid beam files.
 error(Conf) when is_list(Conf) ->
@@ -211,7 +226,7 @@ last_chunk(Bin) ->
 do_error(BeamFile, ACopy) ->
     %% evil tests
     Chunks = chunk_info(BeamFile),
-    {value, {_, AtomStart, _}} = lists:keysearch("Atom", 1, Chunks),
+    {value, {_, AtomStart, _}} = lists:keysearch("AtU8", 1, Chunks),
     {value, {_, ImportStart, _}} = lists:keysearch("ImpT", 1, Chunks),
     {value, {_, AbstractStart, _}} = lists:keysearch("Abst", 1, Chunks),
     {value, {_, AttributesStart, _}} =
@@ -234,7 +249,7 @@ do_error(BeamFile, ACopy) ->
     verify(not_a_beam_file, beam_lib:info(BF7)),
 
     BF8 = set_byte(ACopy, BeamFile, 13, 17),
-    verify(missing_chunk, beam_lib:chunks(BF8, ["Atom"])),
+    verify(missing_chunk, beam_lib:chunks(BF8, ["AtU8"])),
 
     BF9 = set_byte(ACopy, BeamFile, CompileInfoStart+10, 17),
     verify(invalid_chunk, beam_lib:chunks(BF9, [compile_info])).

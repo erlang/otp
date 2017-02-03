@@ -306,7 +306,7 @@ otp_5362(Config) when is_list(Config) ->
     File_Back_hrl = filename:join(Dir, "back_5362.hrl"),
     Back = <<"-module(back_5362).
 
-              -compile(export_all).
+              -export([foo/1]).
 
               -file(?FILE, 1).
               -include(\"back_5362.hrl\").
@@ -334,7 +334,7 @@ otp_5362(Config) when is_list(Config) ->
 
                 -file(?FILE, 100).
 
-                -compile(export_all).
+                -export([foo/1,bar/1]).
 
                 -file(\"other.file\", ?LINE). % like an included file...
                 foo(A) -> % line 105
@@ -362,7 +362,7 @@ otp_5362(Config) when is_list(Config) ->
 
     Blank = <<"-module(blank_5362).
 
-               -compile(export_all).
+               -export([q/1,a/1,b/1,c/1]).
 
                -
                file(?FILE, 18). q(Q) -> foo. % line 18
@@ -1258,7 +1258,7 @@ do_otp_8911(Config) ->
 
     File = "i.erl",
     Cont = <<"-module(i).
-              -compile(export_all).
+              -export([t/0]).
               -file(\"fil1\", 100).
               -include(\"i1.erl\").
               t() ->
@@ -1391,7 +1391,7 @@ otp_11728(Config) when is_list(Config) ->
     HrlFile = filename:join(Dir, "otp_11728.hrl"),
     ok = file:write_file(HrlFile, H),
     C = <<"-module(otp_11728).
-           -compile(export_all).
+           -export([function_name/0]).
 
            -include(\"otp_11728.hrl\").
 
@@ -1599,12 +1599,12 @@ check_test(Config, Test) ->
     end.
 
 compile_test(Config, Test0) ->
-    Test = [<<"-module(epp_test). -compile(export_all). ">>, Test0],
+    Test = [<<"-module(epp_test). ">>, Test0],
     Filename = "epp_test.erl",
     PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join(PrivDir, Filename),
     ok = file:write_file(File, Test),
-    Opts = [export_all,return,nowarn_unused_record,{outdir,PrivDir}],
+    Opts = [export_all,nowarn_export_all,return,nowarn_unused_record,{outdir,PrivDir}],
     case compile_file(File, Opts) of
         {ok, Ws} -> warnings(File, Ws);
         Else -> Else
@@ -1653,7 +1653,7 @@ unopaque_forms(Forms) ->
     [erl_parse:anno_to_term(Form) || Form <- Forms].
 
 run_test(Config, Test0) ->
-    Test = [<<"-module(epp_test). -compile(export_all). ">>, Test0],
+    Test = [<<"-module(epp_test). -export([t/0]). ">>, Test0],
     Filename = "epp_test.erl",
     PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join(PrivDir, Filename),

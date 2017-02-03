@@ -14,7 +14,6 @@ test() ->
 	    "hi2" => lists:subtract([1,2],[1]),
 	    "hi3" => +3,
 	    "hi1" => erlang:min(1,2),
-	    "hi1" => erlang:hash({1,2},35),
 	    "hi1" => erlang:phash({1,2},33),
 	    "hi1" => erlang:phash2({1,2},34),
 	    "hi1" => erlang:integer_to_binary(1337),

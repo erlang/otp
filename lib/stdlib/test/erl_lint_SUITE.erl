@@ -64,7 +64,7 @@
          predef/1,
          maps/1,maps_type/1,maps_parallel_match/1,
          otp_11851/1,otp_11879/1,otp_13230/1,
-         record_errors/1]).
+         record_errors/1, otp_xxxxx/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -84,7 +84,7 @@ all() ->
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
      maps, maps_type, maps_parallel_match,
      otp_11851, otp_11879, otp_13230,
-     record_errors].
+     record_errors, otp_xxxxx].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -1554,7 +1554,15 @@ guard(Config) when is_list(Config) ->
             [],
             {errors,[{1,erl_lint,illegal_guard_expr},
                      {2,erl_lint,illegal_guard_expr}],
-             []}}
+             []}},
+           {guard10,
+            <<"is_port(_) -> false.
+               t(P) when port(P) -> ok.
+            ">>,
+            [],
+            {error,
+	     [{2,erl_lint,{obsolete_guard_overridden,port}}],
+	     [{2,erl_lint,{obsolete_guard,{port,1}}}]}}
 	  ],
     [] = run(Config, Ts1),
     ok.
@@ -1855,7 +1863,7 @@ otp_5276(Config) when is_list(Config) ->
 %% OTP-5917. Check the 'deprecated' attributed.
 otp_5917(Config) when is_list(Config) ->
     Ts = [{otp_5917_1,
-          <<"-compile(export_all).
+          <<"-export([t/0]).
 
              -deprecated({t,0}).
 
@@ -1870,7 +1878,7 @@ otp_5917(Config) when is_list(Config) ->
 %% OTP-6585. Check the deprecated guards list/1, pid/1, ....
 otp_6585(Config) when is_list(Config) ->
     Ts = [{otp_6585_1,
-          <<"-compile(export_all).
+          <<"-export([t/0]).
 
              -record(r, {}).
 
@@ -1994,22 +2002,22 @@ otp_5362(Config) when is_list(Config) ->
            <<"-compile(nowarn_deprecated_function).
               -compile(nowarn_bif_clash).
               spawn(A) ->
-                  erlang:hash(A, 3000),
+                  erlang:now(),
                   spawn(A).
            ">>,
-           {[nowarn_unused_function, 
+           {[nowarn_unused_function,
              warn_deprecated_function,
              warn_bif_clash]},
            {error,
             [{5,erl_lint,{call_to_redefined_old_bif,{spawn,1}}}],
-	    [{4,erl_lint,{deprecated,{erlang,hash,2},{erlang,phash2,2},
-			  "a future release"}}]}},
-
+            [{4,erl_lint,{deprecated,{erlang,now,0},
+                          "Deprecated BIF. See the \"Time and Time Correction in Erlang\" "
+                          "chapter of the ERTS User's Guide for more information."}}]}},
           {otp_5362_5,
            <<"-compile(nowarn_deprecated_function).
               -compile(nowarn_bif_clash).
               spawn(A) ->
-                  erlang:hash(A, 3000),
+                  erlang:now(),
                   spawn(A).
            ">>,
            {[nowarn_unused_function]},
@@ -2018,37 +2026,37 @@ otp_5362(Config) when is_list(Config) ->
 
           %% The special nowarn_X are not affected by general warn_X.
           {otp_5362_6,
-           <<"-compile({nowarn_deprecated_function,{erlang,hash,2}}).
+           <<"-compile({nowarn_deprecated_function,{erlang,now,0}}).
               -compile({nowarn_bif_clash,{spawn,1}}).
               spawn(A) ->
-                  erlang:hash(A, 3000),
+                  erlang:now(),
                   spawn(A).
            ">>,
-           {[nowarn_unused_function, 
-             warn_deprecated_function, 
+           {[nowarn_unused_function,
+             warn_deprecated_function,
              warn_bif_clash]},
            {errors,
             [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}},
 
           {otp_5362_7,
            <<"-export([spawn/1]).
-              -compile({nowarn_deprecated_function,{erlang,hash,2}}).
+              -compile({nowarn_deprecated_function,{erlang,now,0}}).
               -compile({nowarn_bif_clash,{spawn,1}}).
               -compile({nowarn_bif_clash,{spawn,2}}). % bad
               -compile([{nowarn_deprecated_function, 
-                                [{erlang,hash,-1},{3,hash,-1}]}, % 2 bad
-                     {nowarn_deprecated_function, {{a,b,c},hash,-1}}]). % bad
+                                [{erlang,now,-1},{3,now,-1}]}, % 2 bad
+                     {nowarn_deprecated_function, {{a,b,c},now,-1}}]). % bad
               spawn(A) ->
-                  erlang:hash(A, 3000),
+                  erlang:now(),
                   spawn(A).
            ">>,
            {[nowarn_unused_function]},
            {error,[{3,erl_lint,disallowed_nowarn_bif_clash},
 		   {4,erl_lint,disallowed_nowarn_bif_clash},
 		   {4,erl_lint,{bad_nowarn_bif_clash,{spawn,2}}}],
-            [{5,erl_lint,{bad_nowarn_deprecated_function,{3,hash,-1}}},
-             {5,erl_lint,{bad_nowarn_deprecated_function,{erlang,hash,-1}}},
-             {5,erl_lint,{bad_nowarn_deprecated_function,{{a,b,c},hash,-1}}}]}
+            [{5,erl_lint,{bad_nowarn_deprecated_function,{3,now,-1}}},
+             {5,erl_lint,{bad_nowarn_deprecated_function,{erlang,now,-1}}},
+             {5,erl_lint,{bad_nowarn_deprecated_function,{{a,b,c},now,-1}}}]}
            },
 
           {otp_5362_8,
@@ -2056,14 +2064,15 @@ otp_5362(Config) when is_list(Config) ->
               -compile(warn_deprecated_function).
               -compile(warn_bif_clash).
               spawn(A) ->
-                  erlang:hash(A, 3000),
+                  erlang:now(),
                   spawn(A).
            ">>,
            {[nowarn_unused_function,
              {nowarn_bif_clash,{spawn,1}}]}, % has no effect
            {warnings,
-            [{5,erl_lint,{deprecated,{erlang,hash,2},{erlang,phash2,2},
-			  "a future release"}}]}},
+            [{5,erl_lint,{deprecated,{erlang,now,0},
+                          "Deprecated BIF. See the \"Time and Time Correction in Erlang\" "
+                          "chapter of the ERTS User's Guide for more information."}}]}},
 
           {otp_5362_9,
            <<"-include_lib(\"stdlib/include/qlc.hrl\").
@@ -2075,11 +2084,11 @@ otp_5362(Config) when is_list(Config) ->
            []},
 
           {otp_5362_10,
-           <<"-compile({nowarn_deprecated_function,{erlang,hash,2}}).
+           <<"-compile({nowarn_deprecated_function,{erlang,now,0}}).
               -compile({nowarn_bif_clash,{spawn,1}}).
               -import(x,[spawn/1]).
               spin(A) ->
-                  erlang:hash(A, 3000),
+                  erlang:now(),
                   spawn(A).
            ">>,
            {[nowarn_unused_function,
@@ -2089,11 +2098,11 @@ otp_5362(Config) when is_list(Config) ->
             [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}},
 
 	  {call_deprecated_function,
-	   <<"t(X) -> erlang:hash(X, 2000).">>,
+	   <<"t(X) -> crypto:md5(X).">>,
 	   [],
 	   {warnings,
-            [{1,erl_lint,{deprecated,{erlang,hash,2},
-			  {erlang,phash2,2},"a future release"}}]}},
+            [{1,erl_lint,{deprecated,{crypto,md5,1},
+			  {crypto,hash,2}, "a future release"}}]}},
 
 	  {call_removed_function,
 	   <<"t(X) -> regexp:match(X).">>,
@@ -2619,7 +2628,7 @@ otp_11772(Config) when is_list(Config) ->
     Ts = <<"
             -module(newly).
 
-            -compile(export_all).
+            -export([t/0]).
 
             %% Built-in:
             -type node() :: node().
@@ -2644,7 +2653,7 @@ otp_11771(Config) when is_list(Config) ->
     Ts = <<"
             -module(newly).
 
-            -compile(export_all).
+            -export([t/0]).
 
             %% No longer allowed in 17.0:
             -type arity() :: atom().
@@ -2671,7 +2680,7 @@ otp_11872(Config) when is_list(Config) ->
     Ts = <<"
             -module(map).
 
-            -compile(export_all).
+            -export([t/0]).
 
             -export_type([map/0, product/0]).
 
@@ -2694,9 +2703,9 @@ export_all(Config) when is_list(Config) ->
 
             id(I) -> I.
            ">>,
-    [] = run_test2(Config, Ts, []),
+    [] = run_test2(Config, Ts, [nowarn_export_all]),
     {warnings,[{2,erl_lint,export_all}]} =
-	run_test2(Config, Ts, [warn_export_all]),
+	run_test2(Config, Ts, []),
     ok.
 
 %% Test warnings for functions that clash with BIFs.
@@ -2997,7 +3006,7 @@ behaviour_basic(Config) when is_list(Config) ->
 
           {behaviour4,
            <<"-behavior(application).  %% Test callbacks with export_all
-              -compile(export_all).
+              -compile([export_all, nowarn_export_all]).
               stop(_) -> ok.
              ">>,
            [],
@@ -3859,6 +3868,55 @@ record_errors(Config) when is_list(Config) ->
            [],
            {errors,[{2,erl_lint,{redefine_field,r,a}},
 		    {3,erl_lint,{redefine_field,r,a}}],[]}}],
+    run(Config, Ts).
+
+otp_xxxxx(Config) ->
+    Ts = [{constraint1,
+           <<"-export([t/1]).
+              -spec t(X) -> X when is_subtype(integer()).
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           {errors,
+            [{2,erl_parse,"unsupported constraint " ++ ["is_subtype"]}],
+            []}},
+          {constraint2,
+           <<"-export([t/1]).
+              -spec t(X) -> X when bad_atom(X, integer()).
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           {errors,
+            [{2,erl_parse,"unsupported constraint " ++ ["bad_atom"]}],
+            []}},
+          {constraint3,
+           <<"-export([t/1]).
+              -spec t(X) -> X when is_subtype(bad_variable, integer()).
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           {errors,[{2,erl_parse,"bad type variable"}],[]}},
+          {constraint4,
+           <<"-export([t/1]).
+              -spec t(X) -> X when is_subtype(atom(), integer()).
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           {errors,[{2,erl_parse,"bad type variable"}],[]}},
+          {constraint5,
+           <<"-export([t/1]).
+              -spec t(X) -> X when is_subtype(X, integer()).
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           []},
+          {constraint6,
+           <<"-export([t/1]).
+              -spec t(X) -> X when X :: integer().
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           []}],
     run(Config, Ts).
 
 run(Config, Tests) ->

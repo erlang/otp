@@ -69,6 +69,10 @@
 	     stk=[],				%Stack table
 	     res=[]}).				%Reserved regs: [{reserved,I,V}]
 
+-type life_module() :: {module(),_,_,[_]}.
+
+-spec module(life_module(), [compile:option()]) -> {'ok',beam_asm:module_code()}.
+
 module({Mod,Exp,Attr,Forms}, _Options) ->
     {Fs,St} = functions(Forms, {atom,Mod}),
     {ok,{Mod,Exp,Attr,Fs,St#cg.lcount}}.
@@ -151,6 +155,8 @@ cg({bif,Bif,As,Rs}, Le, Vdb, Bef, St) ->
     bif_cg(Bif, As, Rs, Le, Vdb, Bef, St);
 cg({gc_bif,Bif,As,Rs}, Le, Vdb, Bef, St) ->
     gc_bif_cg(Bif, As, Rs, Le, Vdb, Bef, St);
+cg({internal,Bif,As,Rs}, Le, Vdb, Bef, St) ->
+    internal_cg(Bif, As, Rs, Le, Vdb, Bef, St);
 cg({receive_loop,Te,Rvar,Rm,Tes,Rs}, Le, Vdb, Bef, St) ->
     recv_loop_cg(Te, Rvar, Rm, Tes, Rs, Le, Vdb, Bef, St);
 cg(receive_next, Le, Vdb, Bef, St) ->
@@ -208,15 +214,10 @@ need_heap_1(#l{ke={set,_,Val}}, H) ->
 		{tuple,Es} -> 1 + length(Es);
 		_Other -> 0
 	    end};
-need_heap_1(#l{ke={bif,dsetelement,_As,_Rs},i=I}, H) ->
-    {need_heap_need(I, H),0};
-need_heap_1(#l{ke={bif,{make_fun,_,_,_,_},_As,_Rs},i=I}, H) ->
-    {need_heap_need(I, H),0};
-need_heap_1(#l{ke={bif,bs_init_writable,_As,_Rs},i=I}, H) ->
-    {need_heap_need(I, H),0};
 need_heap_1(#l{ke={bif,_Bif,_As,_Rs}}, H) ->
     {[],H};
 need_heap_1(#l{i=I}, H) ->
+    %% Call or call-like instruction such as set_tuple_element/3.
     {need_heap_need(I, H),0}.
 
 need_heap_need(_I, 0) -> [];
@@ -366,7 +367,7 @@ bsm_rename_ctx(#l{ke={match,Ms0,Rs}}=L, Old, New, InProt) ->
 bsm_rename_ctx(#l{ke={guard_match,Ms0,Rs}}=L, Old, New, InProt) ->
     Ms = bsm_rename_ctx(Ms0, Old, New, InProt),
     L#l{ke={guard_match,Ms,Rs}};
-bsm_rename_ctx(#l{ke={test,_,_}}=L, _, _, _) -> L;
+bsm_rename_ctx(#l{ke={test,_,_,_}}=L, _, _, _) -> L;
 bsm_rename_ctx(#l{ke={bif,_,_,_}}=L, _, _, _) -> L;
 bsm_rename_ctx(#l{ke={gc_bif,_,_,_}}=L, _, _, _) -> L;
 bsm_rename_ctx(#l{ke={set,_,_}}=L, _, _, _) -> L;
@@ -1054,8 +1055,15 @@ guard_cg(#l{ke={protected,Ts,Rs},i=I,vdb=Pdb}, Fail, _Vdb, Bef, St) ->
     protected_cg(Ts, Rs, Fail, I, Pdb, Bef, St);
 guard_cg(#l{ke={block,Ts},i=I,vdb=Bdb}, Fail, _Vdb, Bef, St) ->
     guard_cg_list(Ts, Fail, I, Bdb, Bef, St);
-guard_cg(#l{ke={test,Test,As},i=I,vdb=_Tdb}, Fail, Vdb, Bef, St) ->
-    test_cg(Test, As, Fail, I, Vdb, Bef, St);
+guard_cg(#l{ke={test,Test,As,Inverted},i=I,vdb=_Tdb}, Fail, Vdb, Bef, St0) ->
+    case Inverted of
+	false ->
+	    test_cg(Test, As, Fail, I, Vdb, Bef, St0);
+	true ->
+	    {Psucc,St1} = new_label(St0),
+	    {Is,Aft,St2} = test_cg(Test, As, Psucc, I, Vdb, Bef, St1),
+	    {Is++[{jump,{f,Fail}},{label,Psucc}],Aft,St2}
+    end;
 guard_cg(G, _Fail, Vdb, Bef, St) ->
     %%ok = io:fwrite("cg ~w: ~p~n", [?LINE,{G,Fail,Vdb,Bef}]),
     {Gis,Aft,St1} = cg(G, Vdb, Bef, St),
@@ -1106,6 +1114,13 @@ test_cg(is_map, [A], Fail, I, Vdb, Bef, St) ->
     Arg = cg_reg_arg_prefer_y(A, Bef),
     Aft = clear_dead(Bef, I, Vdb),
     {[{test,is_map,{f,Fail},[Arg]}],Aft,St};
+test_cg(is_boolean, [{atom,Val}], Fail, I, Vdb, Bef, St) ->
+    Aft = clear_dead(Bef, I, Vdb),
+    Is = case is_boolean(Val) of
+	     true -> [];
+	     false -> [{jump,{f,Fail}}]
+	 end,
+    {Is,Aft,St};
 test_cg(Test, As, Fail, I, Vdb, Bef, St) ->
     Args = cg_reg_args(As, Bef),
     Aft = clear_dead(Bef, I, Vdb),
@@ -1301,10 +1316,10 @@ trap_bif(erlang, group_leader, 2) -> true;
 trap_bif(erlang, exit, 2) -> true;
 trap_bif(_, _, _) -> false.
 
-%% bif_cg(Bif, [Arg], [Ret], Le, Vdb, StackReg, State) ->
+%% internal_cg(Bif, [Arg], [Ret], Le, Vdb, StackReg, State) ->
 %%      {[Ainstr],StackReg,State}.
 
-bif_cg(bs_context_to_binary=Instr, [Src0], [], Le, Vdb, Bef, St0) ->
+internal_cg(bs_context_to_binary=Instr, [Src0], [], Le, Vdb, Bef, St0) ->
     [Src] = cg_reg_args([Src0], Bef),
     case is_register(Src) of
 	false ->
@@ -1312,25 +1327,34 @@ bif_cg(bs_context_to_binary=Instr, [Src0], [], Le, Vdb, Bef, St0) ->
 	true ->
 	    {[{Instr,Src}],clear_dead(Bef, Le#l.i, Vdb), St0}
     end;
-bif_cg(dsetelement, [Index0,Tuple0,New0], _Rs, Le, Vdb, Bef, St0) ->
+internal_cg(dsetelement, [Index0,Tuple0,New0], _Rs, Le, Vdb, Bef, St0) ->
     [New,Tuple,{integer,Index1}] = cg_reg_args([New0,Tuple0,Index0], Bef),
     Index = Index1-1,
     {[{set_tuple_element,New,Tuple,Index}],
      clear_dead(Bef, Le#l.i, Vdb), St0};
-bif_cg({make_fun,Func,Arity,Index,Uniq}, As, Rs, Le, Vdb, Bef, St0) ->
+internal_cg(make_fun, [Func0,Arity0|As], Rs, Le, Vdb, Bef, St0) ->
     %% This behaves more like a function call.
+    {atom,Func} = Func0,
+    {integer,Arity} = Arity0,
     {Sis,Int} = cg_setup_call(As, Bef, Le#l.i, Vdb),
     Reg = load_vars(Rs, clear_regs(Int#sr.reg)),
     {FuncLbl,St1} = local_func_label(Func, Arity, St0),
-    MakeFun = {make_fun2,{f,FuncLbl},Index,Uniq,length(As)},
+    MakeFun = {make_fun2,{f,FuncLbl},0,0,length(As)},
     {Sis ++ [MakeFun],
      clear_dead(Int#sr{reg=Reg}, Le#l.i, Vdb),
      St1};
-bif_cg(bs_init_writable=I, As, Rs, Le, Vdb, Bef, St) ->
+internal_cg(bs_init_writable=I, As, Rs, Le, Vdb, Bef, St) ->
     %% This behaves like a function call.
     {Sis,Int} = cg_setup_call(As, Bef, Le#l.i, Vdb),
     Reg = load_vars(Rs, clear_regs(Int#sr.reg)),
     {Sis++[I],clear_dead(Int#sr{reg=Reg}, Le#l.i, Vdb),St};
+internal_cg(raise, As, Rs, Le, Vdb, Bef, St) ->
+    %% raise can be treated like a guard BIF.
+    bif_cg(raise, As, Rs, Le, Vdb, Bef, St).
+
+%% bif_cg(Bif, [Arg], [Ret], Le, Vdb, StackReg, State) ->
+%%      {[Ainstr],StackReg,State}.
+
 bif_cg(Bif, As, [{var,V}], Le, Vdb, Bef, St0) ->
     Ars = cg_reg_args(As, Bef),
 

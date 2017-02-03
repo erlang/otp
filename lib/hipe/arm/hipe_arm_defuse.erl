@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,13 +11,11 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_arm_defuse).
 -export([insn_def_all/1, insn_use_all/1]).
 -export([insn_def_gpr/1, insn_use_gpr/1]).
+-export([insn_defs_all_gpr/1]).
 -include("hipe_arm.hrl").
 
 %%%
@@ -53,6 +47,12 @@ insn_def_gpr(I) ->
       %% it as DstLo or DstHi.
       [DstLo, DstHi, Src1];
     _ -> []
+  end.
+
+insn_defs_all_gpr(I) ->
+  case I of
+    #pseudo_call{} -> true;
+    _ -> false
   end.
 
 call_clobbered_gpr() ->

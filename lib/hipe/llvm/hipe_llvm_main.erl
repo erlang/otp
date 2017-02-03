@@ -265,15 +265,11 @@ fix_relocations(Relocs, RelocsDict, MFA) ->
 
 fix_reloc(#elf_rel{symbol=#elf_sym{name=Name, section=undefined, type=notype},
 		   offset=Offset, type=?PCREL_T, addend=?PCREL_A},
-	  RelocsDict, {ModName,_,_}) when Name =/= "" ->
+	  RelocsDict, {_,_,_}) when Name =/= "" ->
   case dict:fetch(Name, RelocsDict) of
-    {call, {bif, BifName, _}} -> {?CALL_LOCAL, Offset, BifName};
-    %% MFA calls to functions in the same module are of type 3, while all
-    %% other MFA calls are of type 2.
-    %% XXX: Does this code break hot code loading (by transforming external
-    %% calls into local calls?)
-    {call, {ModName,_F,_A}=CallMFA} -> {?CALL_LOCAL,  Offset, CallMFA};
-    {call,                 CallMFA} -> {?CALL_REMOTE, Offset, CallMFA}
+    {call, _, {bif, BifName, _}} -> {?CALL_LOCAL, Offset, BifName};
+    {call, not_remote,  CallMFA} -> {?CALL_LOCAL,  Offset, CallMFA};
+    {call, remote, CallMFA} -> {?CALL_REMOTE, Offset, CallMFA}
   end;
 fix_reloc(#elf_rel{symbol=#elf_sym{name=Name, section=undefined, type=notype},
 		   offset=Offset, type=?ABS_T, addend=?ABS_A},
@@ -288,7 +284,7 @@ fix_reloc(#elf_rel{symbol=#elf_sym{name=Name, section=#elf_shdr{name=?TEXT},
 		   offset=Offset, type=?PCREL_T, addend=?PCREL_A},
 	  RelocsDict, MFA) when Name =/= "" ->
   case dict:fetch(Name, RelocsDict) of
-    {call, MFA} -> {?CALL_LOCAL, Offset, MFA}
+    {call, not_remote, MFA} -> {?CALL_LOCAL, Offset, MFA}
   end;
 fix_reloc(#elf_rel{symbol=#elf_sym{name=Name, section=#elf_shdr{name=?RODATA},
 				   type=object},
@@ -416,7 +412,7 @@ calls_with_stack_args(Dict) ->
   calls_with_stack_args(dict:to_list(Dict), []).
 
 calls_with_stack_args([], Calls) -> Calls;
-calls_with_stack_args([ {_Name, {call, {M, F, A}}} | Rest], Calls)
+calls_with_stack_args([ {_Name, {call, _, {M, F, A}}} | Rest], Calls)
   when A > ?NR_ARG_REGS ->
   Call =
     case M of

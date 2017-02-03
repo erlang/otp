@@ -1,9 +1,5 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%% %CopyrightBegin%
-%%% 
-%%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
-%%% 
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
-%%% 
-%%% %CopyrightEnd%
 %%%
 %%%----------------------------------------------------------------------
 %%% File    : hipe_x86_postpass.erl
@@ -120,19 +114,15 @@ peep([#move{src=Src1, dst=Dst},
 
 %% ElimCmp0
 %% --------
-peep([C=#cmp{src=Src, dst=Dst},J=#jcc{cc=Cond, label=Lab}|Insns],Res,Lst) ->
-    case (((Src =:= #x86_imm{value=0}) or (Dst =:= #x86_imm{value=0})) and
-	  ((Cond =:= 'eq') or (Cond =:= 'neq'))) of
-	true ->
-	    Src2 = case Src of #x86_imm{value=0} -> Src; _ -> Dst end, 
-	    Cond2 = case Cond of 'eq' -> 'z'; 'neq' -> 'nz' end,
-	    Test = #test{src=Src2, dst=#x86_imm{value=0}},
-	    Jump = #jcc{cc=Cond2, label=Lab},
-	    peep(Insns, [Jump, Test|Res], [elimCmp0|Lst]);
-	_ ->
-	    peep(Insns, [J,C|Res], Lst)
-    end;
-
+peep([#cmp{src=#x86_imm{value=0}, dst=Dst=#x86_temp{}}|Insns],Res,Lst) ->
+  %% TEST leaves the adjust flag undefined, whereas CMP sets it properly (in
+  %% this case to 0). However, since HiPE does not use any instructions that
+  %% read the adjust flag, we can do this transform safely.
+  peep(Insns, [#test{src=Dst, dst=Dst} | Res], [elimCmp0_1|Lst]);
+peep([#cmp{src=Src=#x86_temp{}, dst=#x86_imm{value=0}},
+      J=#jcc{cc=Cond}|Insns],Res,Lst)
+  when Cond =:= 'e'; Cond =:= 'ne' -> % We're commuting the comparison
+  peep(Insns, [J, #test{src=Src, dst=Src} | Res], [elimCmp0_2|Lst]);
 
 %% ElimCmpTest
 %% -----------
@@ -187,6 +177,18 @@ peep([B = #alu{aluop=Op,src=#x86_imm{value=Val},dst=Dst}|Insns], Res, Lst) ->
 	    peep(Insns, [B|Res], Lst)
     end;
 
+%% LeaToAdd
+%% This rule transforms lea into add when the destination is the same as one of
+%% the operands. Sound because lea is never used where the condition codes are
+%% live (and would be clobbered by add).
+%% ----------
+peep([#lea{mem=#x86_mem{base=#x86_temp{reg=DstR},off=Src},
+	   temp=Dst=#x86_temp{reg=DstR}}|Insns], Res, Lst) ->
+     peep(Insns, [#alu{aluop='add',src=Src,dst=Dst}|Res], [leaToAdd|Lst]);
+peep([#lea{mem=#x86_mem{base=Src,off=#x86_temp{reg=DstR}},
+	   temp=Dst=#x86_temp{reg=DstR}}|Insns], Res, Lst) ->
+     peep(Insns, [#alu{aluop='add',src=Src,dst=Dst}|Res], [leaToAdd|Lst]);
+
 %% SubToDec
 %% This rule turns "subl $1,Dst; jl Lab" into "decl Dst; jl Lab", which
 %% changes reduction counter tests to use decl instead of subl.
@@ -209,6 +211,11 @@ trivial_goto_elimination(Insns) -> goto_elim(Insns, []).
 
 goto_elim([#jmp_label{label=Label}, I = #label{label=Label}|Insns], Res) ->
   goto_elim([I|Insns], Res);
+goto_elim([#jcc{cc=CC, label=Label} = IJCC,
+	   #jmp_label{label=BranchTgt},
+	   #label{label=Label} = ILBL|Insns], Res) ->
+  goto_elim([IJCC#jcc{cc=hipe_x86:neg_cc(CC), label=BranchTgt},
+	     ILBL|Insns], Res);
 goto_elim([I | Insns], Res) ->
   goto_elim(Insns, [I|Res]);
 goto_elim([], Res) ->

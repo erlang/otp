@@ -541,10 +541,6 @@ Error: fun containing local Erlang function calls
           <c><anno>Tab</anno></c> is
           not of the correct type, or if <c><anno>Item</anno></c> is not
           one of the allowed values, a <c>badarg</c> exception is raised.</p>
-        <warning>
-          <p>In Erlang/OTP R11B and earlier, this function would not fail but
-            return <c>undefined</c> for invalid values for <c>Item</c>.</p>
-        </warning>
           <p>In addition to the <c>{<anno>Item</anno>,<anno>Value</anno>}</c>
             pairs defined for <seealso marker="#info/1"><c>info/1</c></seealso>,
             the following items are allowed:</p>

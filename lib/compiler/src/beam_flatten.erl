@@ -25,6 +25,9 @@
 
 -import(lists, [reverse/1,reverse/2]).
 
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs,Lc}, _Opt) ->
     {ok,{Mod,Exp,Attr,[function(F) || F <- Fs],Lc}}.
 

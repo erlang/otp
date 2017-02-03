@@ -51,6 +51,7 @@ MODULES = hipe_ig hipe_ig_moves hipe_moves \
 	  hipe_coalescing_regalloc \
 	  hipe_graph_coloring_regalloc \
 	  hipe_regalloc_loop \
+	  hipe_regalloc_prepass \
 	  hipe_ls_regalloc \
 	  hipe_ppc_specific hipe_ppc_specific_fp \
 	  hipe_sparc_specific hipe_sparc_specific_fp \
@@ -123,7 +124,6 @@ $(EBIN)/hipe_amd64_specific_x87.beam: hipe_x86_specific_x87.erl
 $(EBIN)/hipe_coalescing_regalloc.beam: ../main/hipe.hrl
 $(EBIN)/hipe_graph_coloring_regalloc.beam: ../main/hipe.hrl
 $(EBIN)/hipe_ig.beam: ../main/hipe.hrl ../flow/cfg.hrl hipe_spillcost.hrl
-$(EBIN)/hipe_ig_moves.beam: ../util/hipe_vectors.hrl
 $(EBIN)/hipe_ls_regalloc.beam: ../main/hipe.hrl
 $(EBIN)/hipe_optimistic_regalloc.beam: ../main/hipe.hrl
 $(EBIN)/hipe_regalloc_loop.beam: ../main/hipe.hrl

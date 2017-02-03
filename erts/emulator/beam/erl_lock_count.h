@@ -148,13 +148,13 @@ typedef struct erts_lcnt_lock_stats_s {
 typedef struct erts_lcnt_lock_s {
     char *name;            /* lock name */
     Uint16 flag;           /* lock type */
-    Eterm id;              /* id if possible */ 
+    Eterm id;              /* id if possible */
 
 #ifdef DEBUG
     ethr_atomic_t flowstate;
 #endif
 
-    /* lock states */    
+    /* lock states */
     ethr_atomic_t w_state; /* 0 not taken, otherwise n threads waiting */
     ethr_atomic_t r_state; /* 0 not taken, > 0 -> writes will wait */
 

@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,21 +11,20 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_sparc_main).
 -export([rtl_to_sparc/3]).
 
 rtl_to_sparc(MFA, RTL, Options) ->
   Defun1 = hipe_rtl_to_sparc:translate(RTL),
+  CFG1 = hipe_sparc_cfg:init(Defun1),
   %% io:format("~w: after translate\n", [?MODULE]),
   %% hipe_sparc_pp:pp(Defun1),
-  Defun2 = hipe_sparc_ra:ra(Defun1, Options),
+  CFG2 = hipe_sparc_ra:ra(CFG1, Options),
   %% io:format("~w: after regalloc\n", [?MODULE]),
-  %% hipe_sparc_pp:pp(Defun2),
-  Defun3 = hipe_sparc_frame:frame(Defun2),
+  %% hipe_sparc_pp:pp(hipe_sparc_cfg:linearise(CFG2)),
+  CFG3 = hipe_sparc_frame:frame(CFG2),
+  Defun3 = hipe_sparc_cfg:linearise(CFG3),
   %% io:format("~w: after frame\n", [?MODULE]),
   %% hipe_sparc_pp:pp(Defun3),
   Defun4 = hipe_sparc_finalise:finalise(Defun3),

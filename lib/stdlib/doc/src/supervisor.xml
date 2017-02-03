@@ -133,8 +133,10 @@ sup_flags() = #{strategy => strategy(),         % optional
       map. Assuming the values <c>MaxR</c> for <c>intensity</c>
       and <c>MaxT</c> for <c>period</c>, then, if more than <c>MaxR</c>
       restarts occur within <c>MaxT</c> seconds, the supervisor
-      terminates all child processes and then itself. <c>intensity</c>
-      defaults to <c>1</c> and <c>period</c> defaults to <c>5</c>.</p>
+      terminates all child processes and then itself. The termination
+      reason for the supervisor itself in that case will be <c>shutdown</c>.
+      <c>intensity</c> defaults to <c>1</c> and <c>period</c> defaults to
+      <c>5</c>.</p>
 
     <marker id="child_spec"/>
     <p>The type definition of a child specification is as follows:</p>
