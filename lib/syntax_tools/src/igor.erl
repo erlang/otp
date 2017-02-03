@@ -417,7 +417,7 @@ merge_files(Name, Files, Options) ->
 %%
 %%     <dd>Specifies a list of rules for associating object files with
 %%     source files, to be passed to the function
-%%     `filename:find_src/2'. This can be used to change the
+%%     `filelib:find_source/2'. This can be used to change the
 %%     way Igor looks for source files. If this option is not specified,
 %%     the default system rules are used. The first occurrence of this
 %%     option completely overrides any later in the option list.</dd>
@@ -462,7 +462,7 @@ merge_files(Name, Files, Options) ->
 %% @see merge/3
 %% @see merge_files/3
 %% @see merge_sources/3
-%% @see //stdlib/filename:find_src/2
+%% @see //stdlib/filelib:find_source/2
 %% @see epp_dodger
 
 -spec merge_files(atom(), erl_syntax:forms(), [file:filename()], [option()]) ->
@@ -2746,8 +2746,8 @@ read_module(Name, Options) ->
 		    %% It seems that we have no file - go on anyway,
 		    %% just to get a decent error message.
 		    read_module_1(Name, Options);
-		{Name1, _} ->
-		    read_module_1(Name1 ++ ".erl", Options)
+		{ok, Name1} ->
+		    read_module_1(Name1, Options)
 	    end
     end.
 
@@ -2807,9 +2807,9 @@ check_forms([], _) ->
     ok.
 
 find_src(Name, undefined) ->
-    filename:find_src(filename(Name));
+    filelib:find_source(filename(Name));
 find_src(Name, Rules) ->
-    filename:find_src(filename(Name), Rules).
+    filelib:find_source(filename(Name), Rules).
 
 %% file_type(filename()) -> {value, Type} | none
 
