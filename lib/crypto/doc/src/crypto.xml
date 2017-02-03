@@ -103,7 +103,7 @@
 
     <code>dh_private() = key_value() </code>
 
-    <code>dh_params() = [key_value()] = [P, G] </code>
+    <code>dh_params() = [key_value()] = [P, G] | [P, G, PrivateKeyBitLength]</code>
 
     <code>ecdh_public() = key_value() </code>
 
