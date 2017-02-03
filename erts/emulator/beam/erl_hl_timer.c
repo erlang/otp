@@ -164,21 +164,21 @@ typedef struct {
 	void *arg;
 	erts_atomic_t next;
     } u;
-} ErtsTmrHead;
-
-struct ErtsHLTimer_ {
-    ErtsTmrHead head; /* NEED to be first! */
-    union {
-	ErtsThrPrgrLaterOp cleanup;
-	ErtsHLTimerTimeTree tree;
-    } time;
-    ErtsMonotonicTime timeout;
     union {
 	Process *proc;
 	Port *port;
 	Eterm name;
 	void (*callback)(void *);
     } receiver;
+} ErtsTmrHead;
+
+struct ErtsHLTimer_ {
+    ErtsTmrHead head; /* NEED to be first! */
+    ErtsMonotonicTime timeout;
+    union {
+	ErtsThrPrgrLaterOp cleanup;
+	ErtsHLTimerTimeTree tree;
+    } time;
 
 #ifdef ERTS_HLT_HARD_DEBUG
     int pending_timeout;
@@ -188,12 +188,9 @@ struct ErtsHLTimer_ {
 typedef struct {
     ErtsTmrHead head; /* NEED to be first! */
     union {
-        Eterm name;
-	Process *proc;
-        Port *port;
-	void (*callback)(void *);
-    } receiver;
-    ErtsTWheelTimer tw_tmr;
+        ErtsTWheelTimer tw_tmr;
+	ErtsThrPrgrLaterOp cleanup;
+    } u;
 } ErtsTWTimer;
 
 struct ErtsBifTimer_ {
@@ -948,9 +945,9 @@ schedule_tw_timer_destroy(ErtsTWTimer *tmr)
      * dropped at once...
      */
     if (tmr->head.roflgs & ERTS_TMR_ROFLG_PROC)
-	erts_proc_dec_refc(tmr->receiver.proc);
+	erts_proc_dec_refc(tmr->head.receiver.proc);
     else if (tmr->head.roflgs & ERTS_TMR_ROFLG_PORT)
-	erts_port_dec_refc(tmr->receiver.port);
+	erts_port_dec_refc(tmr->head.receiver.port);
 
     if (!(tmr->head.roflgs & ERTS_TMR_ROFLG_BIF_TMR))
 	size = sizeof(ErtsHLTimer);
@@ -965,7 +962,7 @@ schedule_tw_timer_destroy(ErtsTWTimer *tmr)
     erts_schedule_thr_prgr_later_cleanup_op(
 	scheduled_tw_timer_destroy,
 	(void *) tmr,
-	&tmr->tw_tmr.u.cleanup,
+	&tmr->u.cleanup,
 	size);
 }
 
@@ -982,7 +979,7 @@ static void
 tw_proc_timeout(void *vtwtp)
 {
     ErtsTWTimer *twtp = (ErtsTWTimer *) vtwtp;
-    Process *proc = twtp->receiver.proc;
+    Process *proc = twtp->head.receiver.proc;
     if (proc_timeout_common(proc, vtwtp))
 	tw_timer_dec_refc(twtp);
     tw_timer_dec_refc(twtp);
@@ -992,7 +989,7 @@ static void
 tw_port_timeout(void *vtwtp)
 {
     ErtsTWTimer *twtp = (ErtsTWTimer *) vtwtp;
-    Port *port = twtp->receiver.port;
+    Port *port = twtp->head.receiver.port;
     if (port_timeout_common(port, vtwtp))
 	tw_timer_dec_refc(twtp);
     tw_timer_dec_refc(twtp);
@@ -1009,14 +1006,14 @@ cancel_tw_timer(ErtsSchedulerData *esdp, ErtsTWTimer *tmr)
 {
     ERTS_HLT_ASSERT((tmr->head.roflgs & ERTS_TMR_ROFLG_SID_MASK)
 		    == (Uint32) esdp->no);
-    erts_twheel_cancel_timer(esdp->timer_wheel, &tmr->tw_tmr);
+    erts_twheel_cancel_timer(esdp->timer_wheel, &tmr->u.tw_tmr);
 }
 
 static void
 tw_callback_timeout(void *vtwtp)
 {
     ErtsTWTimer *twtp = (ErtsTWTimer *) vtwtp;
-    void (*callback)(void *) = twtp->receiver.callback;
+    void (*callback)(void *) = twtp->head.receiver.callback;
     void *arg = twtp->head.u.arg;
     tw_timer_dec_refc(twtp);
     (*callback)(arg);
@@ -1060,7 +1057,7 @@ create_tw_timer(ErtsSchedulerData *esdp,
         }
     }
 
-    erts_twheel_init_timer(&tmr->tw_tmr);
+    erts_twheel_init_timer(&tmr->u.tw_tmr);
     tmr->head.roflgs |= (Uint32) esdp->no;
     ERTS_HLT_ASSERT((((Uint32) esdp->no)
                      & ~ERTS_TMR_ROFLG_SID_MASK) == 0);
@@ -1068,7 +1065,7 @@ create_tw_timer(ErtsSchedulerData *esdp,
     switch (type) {
 
     case ERTS_TMR_PROC:
-	tmr->receiver.proc = (Process *) rcvrp;
+	tmr->head.receiver.proc = (Process *) rcvrp;
 	tmr->head.roflgs |= ERTS_TMR_ROFLG_PROC;
 	timeout_func = tw_proc_timeout;
 	cancel_func = tw_ptimer_cancel;
@@ -1077,7 +1074,7 @@ create_tw_timer(ErtsSchedulerData *esdp,
 	break;
 
     case ERTS_TMR_PORT:
-	tmr->receiver.port = (Port *) rcvrp;
+	tmr->head.receiver.port = (Port *) rcvrp;
 	tmr->head.roflgs |= ERTS_TMR_ROFLG_PORT;
 	timeout_func = tw_port_timeout;
 	cancel_func = tw_ptimer_cancel;
@@ -1087,7 +1084,7 @@ create_tw_timer(ErtsSchedulerData *esdp,
 
     case ERTS_TMR_CALLBACK:
 	tmr->head.u.arg = arg;
-	tmr->receiver.callback = callback;
+	tmr->head.receiver.callback = callback;
 
 	tmr->head.roflgs |= ERTS_TMR_ROFLG_CALLBACK;
 	timeout_func = tw_callback_timeout;
@@ -1101,13 +1098,13 @@ create_tw_timer(ErtsSchedulerData *esdp,
 	cancel_func = NULL;
 	if (is_internal_pid(rcvr)) {
 	    tmr->head.roflgs |= ERTS_TMR_ROFLG_PROC;
-	    tmr->receiver.proc = (Process *) rcvrp;
+	    tmr->head.receiver.proc = (Process *) rcvrp;
 	    refc = 2;
 	}
 	else {
 	    ERTS_HLT_ASSERT(is_atom(rcvr));
 	    tmr->head.roflgs |= ERTS_TMR_ROFLG_REG_NAME;
-	    tmr->receiver.name = (Eterm) rcvr;
+	    tmr->head.receiver.name = (Eterm) rcvr;
 	    refc = 1;
 	}
 
@@ -1130,7 +1127,7 @@ create_tw_timer(ErtsSchedulerData *esdp,
     erts_smp_atomic32_init_nob(&tmr->head.refc, refc);
 
     erts_twheel_set_timer(esdp->timer_wheel,
-			  &tmr->tw_tmr,
+			  &tmr->u.tw_tmr,
 			  timeout_func,
 			  cancel_func,
 			  tmr,
@@ -1164,15 +1161,15 @@ schedule_hl_timer_destroy(ErtsHLTimer *tmr, Uint32 roflgs)
     ERTS_HLT_ASSERT(erts_smp_atomic32_read_nob(&tmr->head.refc) == 0);
 
     if (roflgs & ERTS_TMR_ROFLG_REG_NAME) {
-	ERTS_HLT_ASSERT(is_atom(tmr->receiver.name));
+	ERTS_HLT_ASSERT(is_atom(tmr->head.receiver.name));
     }
     else if (roflgs & ERTS_TMR_ROFLG_PROC) {
-	ERTS_HLT_ASSERT(tmr->receiver.proc);
-	erts_proc_dec_refc(tmr->receiver.proc);
+	ERTS_HLT_ASSERT(tmr->head.receiver.proc);
+	erts_proc_dec_refc(tmr->head.receiver.proc);
     }
     else if (roflgs & ERTS_TMR_ROFLG_PORT) {
-	ERTS_HLT_ASSERT(tmr->receiver.port);
-	erts_port_dec_refc(tmr->receiver.port);
+	ERTS_HLT_ASSERT(tmr->head.receiver.port);
+	erts_port_dec_refc(tmr->head.receiver.port);
     }
 
     if (!(roflgs & ERTS_TMR_ROFLG_BIF_TMR))
@@ -1251,14 +1248,14 @@ btm_clear_magic_binary(ErtsBifTimer *tmr)
 #endif /* ERTS_MAGIC_REF_BIF_TIMERS */
 
 static ERTS_INLINE void
-bif_timer_timeout(ErtsHLTimerService *srv, ErtsBifTimer *tmr,
-                  Uint32 roflgs, int is_hlt)
+bif_timer_timeout(ErtsHLTimerService *srv,
+                  ErtsBifTimer *tmr,
+                  Uint32 roflgs)
 {
     erts_aint32_t state;
 
     ERTS_HLT_ASSERT(tmr->type.head.roflgs == roflgs);    
     ERTS_HLT_ASSERT(roflgs & ERTS_TMR_ROFLG_BIF_TMR);
-    ERTS_HLT_ASSERT(!!is_hlt == !!(roflgs & ERTS_TMR_ROFLG_HLT));
 
     state = erts_smp_atomic32_cmpxchg_acqb(&tmr->btm.state,
 					   ERTS_TMR_STATE_TIMED_OUT,
@@ -1269,40 +1266,32 @@ bif_timer_timeout(ErtsHLTimerService *srv, ErtsBifTimer *tmr,
 
     if (state == ERTS_TMR_STATE_ACTIVE) {
         Process *proc;
-        int dec_refc = 0;
-        Uint32 is_reg_name = (roflgs & ERTS_TMR_ROFLG_REG_NAME);
 
 #ifdef ERTS_MAGIC_REF_BIF_TIMERS
         btm_clear_magic_binary(tmr);
 #endif
 
-        if (is_reg_name) {
+        if (roflgs & ERTS_TMR_ROFLG_REG_NAME) {
             Eterm term;
-            if (is_hlt)
-                term = tmr->type.hlt.receiver.name;
-            else
-                term = tmr->type.twt.receiver.name;
+            term = tmr->type.head.receiver.name;
             ERTS_HLT_ASSERT(is_atom(term));
             term = erts_whereis_name_to_id(NULL, term);
             proc = erts_proc_lookup(term);
         }
         else {
             ERTS_HLT_ASSERT(roflgs & ERTS_TMR_ROFLG_PROC);
-            if (is_hlt)
-                proc = tmr->type.hlt.receiver.proc;
-            else
-                proc = tmr->type.twt.receiver.proc;
+            proc = tmr->type.head.receiver.proc;
             ERTS_HLT_ASSERT(proc);
         }
         if (proc) {
             if (!ERTS_PROC_IS_EXITING(proc)) {
-                ErtsMessage *mp;
-                erts_smp_proc_lock(proc, ERTS_PROC_LOCK_BTM);
-                mp = erts_alloc_message(0, NULL);
+                int dec_refc = 0;
+                ErtsMessage *mp = erts_alloc_message(0, NULL);
                 mp->data.heap_frag = tmr->btm.bp;
-                erts_queue_message(proc, ERTS_PROC_LOCK_BTM, mp,
-                                   tmr->btm.message, am_clock_service);
                 tmr->btm.bp = NULL;
+                erts_queue_message(proc, 0, mp, tmr->btm.message,
+                                   am_clock_service);
+                erts_smp_proc_lock(proc, ERTS_PROC_LOCK_BTM);
 #ifdef ERTS_MAGIC_REF_BIF_TIMERS
                 if (tmr->btm.proc_list.next) {
                     proc_btm_list_delete(&proc->bif_timers, tmr);
@@ -1316,9 +1305,9 @@ bif_timer_timeout(ErtsHLTimerService *srv, ErtsBifTimer *tmr,
                 }
 #endif
                 erts_smp_proc_unlock(proc, ERTS_PROC_LOCK_BTM);
+                if (dec_refc)
+                    timer_pre_dec_refc((ErtsTimer *) tmr);
             }
-            if (dec_refc)
-                timer_pre_dec_refc((ErtsTimer *) tmr);
         }
         if (tmr->btm.bp)
             free_message_buffer(tmr->btm.bp);
@@ -1344,7 +1333,7 @@ tw_bif_timer_timeout(void *vbtmp)
     ErtsHLTimerService *srv = esdp->timer_service;
 #endif
     ErtsBifTimer *btmp = (ErtsBifTimer *) vbtmp;
-    bif_timer_timeout(srv, btmp, btmp->type.head.roflgs, 0);
+    bif_timer_timeout(srv, btmp, btmp->type.head.roflgs);
     tw_timer_dec_refc(&btmp->type.twt);
 }
 
@@ -1386,7 +1375,7 @@ create_hl_timer(ErtsSchedulerData *esdp,
 	    ERTS_HLT_ASSERT(is_internal_pid(rcvr));
 
 	    erts_proc_inc_refc((Process *) rcvrp);
-	    tmr->receiver.proc = (Process *) rcvrp;
+	    tmr->head.receiver.proc = (Process *) rcvrp;
 	    roflgs |= ERTS_TMR_ROFLG_PROC;
 	    refc = 2;
 	    break;
@@ -1394,14 +1383,14 @@ create_hl_timer(ErtsSchedulerData *esdp,
 	case ERTS_TMR_PORT:
 	    ERTS_HLT_ASSERT(is_internal_port(rcvr));
 	    erts_port_inc_refc((Port *) rcvrp);
-	    tmr->receiver.port = (Port *) rcvrp;
+	    tmr->head.receiver.port = (Port *) rcvrp;
 	    roflgs |= ERTS_TMR_ROFLG_PORT;
 	    refc = 2;
 	    break;
 
 	case ERTS_TMR_CALLBACK:
 	    roflgs |= ERTS_TMR_ROFLG_CALLBACK;
-	    tmr->receiver.callback = callback;
+	    tmr->head.receiver.callback = callback;
 	    tmr->head.u.arg = arg;
 	    refc = 1;
 	    break;
@@ -1431,13 +1420,13 @@ create_hl_timer(ErtsSchedulerData *esdp,
 	roflgs |= ERTS_TMR_ROFLG_BIF_TMR;
 	if (is_internal_pid(rcvr)) {
 	    roflgs |= ERTS_TMR_ROFLG_PROC;
-	    tmr->receiver.proc = (Process *) rcvrp;
+	    tmr->head.receiver.proc = (Process *) rcvrp;
 	    refc = 2;
 	}
 	else {
 	    ERTS_HLT_ASSERT(is_atom(rcvr));
 	    roflgs |= ERTS_TMR_ROFLG_REG_NAME;
-	    tmr->receiver.name = rcvr;
+	    tmr->head.receiver.name = rcvr;
 	    refc = 1;
 	}
 
@@ -1486,14 +1475,14 @@ create_hl_timer(ErtsSchedulerData *esdp,
 static ERTS_INLINE void
 hlt_proc_timeout(ErtsHLTimer *tmr)
 {
-    if (proc_timeout_common(tmr->receiver.proc, (void *) tmr))
+    if (proc_timeout_common(tmr->head.receiver.proc, (void *) tmr))
 	hl_timer_dec_refc(tmr, tmr->head.roflgs);
 }
 
 static ERTS_INLINE void
 hlt_port_timeout(ErtsHLTimer *tmr)
 {
-    if (port_timeout_common(tmr->receiver.port, (void *) tmr))
+    if (port_timeout_common(tmr->head.receiver.port, (void *) tmr))
 	hl_timer_dec_refc(tmr, tmr->head.roflgs);
 }
 
@@ -1508,14 +1497,14 @@ static void hlt_timeout(ErtsHLTimer *tmr, void *vsrv)
     ERTS_HLT_ASSERT(roflgs & ERTS_TMR_ROFLG_HLT);
 
     if (roflgs & ERTS_TMR_ROFLG_BIF_TMR)
-        bif_timer_timeout(srv, (ErtsBifTimer *) tmr, roflgs, 1);
+        bif_timer_timeout(srv, (ErtsBifTimer *) tmr, roflgs);
     else if (roflgs & ERTS_TMR_ROFLG_PROC)
         hlt_proc_timeout(tmr);
     else if (roflgs & ERTS_TMR_ROFLG_PORT)
         hlt_port_timeout(tmr);
     else {
         ERTS_HLT_ASSERT(roflgs & ERTS_TMR_ROFLG_CALLBACK);
-        (*tmr->receiver.callback)(tmr->head.u.arg);
+        (*tmr->head.receiver.callback)(tmr->head.u.arg);
     }
 
     tmr->time.tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
@@ -2022,10 +2011,7 @@ setup_bif_timer(Process *c_p, int twheel, ErtsMonotonicTime timeout_pos,
 	    proc_btm_rbt_insert(&proc->bif_timers, tmr);
 #endif
 	    erts_smp_proc_unlock(proc, ERTS_PROC_LOCK_BTM);
-            if (twheel)
-                tmr->type.twt.receiver.proc = proc;
-            else
-                tmr->type.hlt.receiver.proc = proc;
+            tmr->type.head.receiver.proc = proc;
 	}
     }
 
@@ -2064,9 +2050,7 @@ cancel_bif_timer(ErtsBifTimer *tmr)
     if (roflgs & ERTS_TMR_ROFLG_PROC) {
 	Process *proc;
 
-        proc = ((tmr->type.head.roflgs & ERTS_TMR_ROFLG_HLT)
-                ? tmr->type.hlt.receiver.proc
-                : tmr->type.twt.receiver.proc);
+        proc = tmr->type.head.receiver.proc;
 	ERTS_HLT_ASSERT(!(tmr->type.head.roflgs & ERTS_TMR_ROFLG_REG_NAME));
 
 	erts_smp_proc_lock(proc, ERTS_PROC_LOCK_BTM);
@@ -2108,7 +2092,7 @@ access_btm(ErtsBifTimer *tmr, Uint32 sid, ErtsSchedulerData *esdp, int cancel)
     is_hlt = !!(tmr->type.head.roflgs & ERTS_TMR_ROFLG_HLT);
     timeout = (is_hlt
                ? tmr->type.hlt.timeout
-               : tmr->type.twt.tw_tmr.timeout_pos);
+               : erts_tweel_read_timeout(&tmr->type.twt.u.tw_tmr));
 
     if (!cancel) {
         erts_aint32_t state = erts_smp_atomic32_read_acqb(&tmr->btm.state);
@@ -3147,7 +3131,7 @@ erts_read_port_timer(Port *c_prt)
     if (tmr->head.roflgs & ERTS_TMR_ROFLG_HLT)
 	timeout_pos = tmr->hlt.timeout;
     else
-	timeout_pos = tmr->twt.tw_tmr.timeout_pos;
+	timeout_pos = erts_tweel_read_timeout(&tmr->twt.u.tw_tmr);
     return get_time_left(NULL, timeout_pos);
 }
 
@@ -3179,10 +3163,6 @@ btm_print(ErtsBifTimer *tmr, void *vbtmp, ErtsMonotonicTime tpos, int is_hlt)
             left = 0;
         else
             left = ERTS_CLKTCKS_TO_MSEC(tmr->type.hlt.timeout - btmp->now);
-
-        receiver = ((tmr->type.head.roflgs & ERTS_TMR_ROFLG_REG_NAME)
-                    ? tmr->type.hlt.receiver.name
-                    : tmr->type.hlt.receiver.proc->common.id);
     }
     else {
         ERTS_HLT_ASSERT(!(tmr->type.head.roflgs & ERTS_TMR_ROFLG_HLT));
@@ -3190,11 +3170,11 @@ btm_print(ErtsBifTimer *tmr, void *vbtmp, ErtsMonotonicTime tpos, int is_hlt)
             left = 0;
         else
             left = ERTS_CLKTCKS_TO_MSEC(tpos - btmp->now);
-
-        receiver = ((tmr->type.head.roflgs & ERTS_TMR_ROFLG_REG_NAME)
-                    ? tmr->type.twt.receiver.name
-                    : tmr->type.twt.receiver.proc->common.id);
     }
+
+    receiver = ((tmr->type.head.roflgs & ERTS_TMR_ROFLG_REG_NAME)
+                ? tmr->type.head.receiver.name
+                : tmr->type.head.receiver.proc->common.id);
 
     erts_print(btmp->to, btmp->to_arg,
 	       "=timer:%T\n"
@@ -3229,7 +3209,7 @@ btm_tree_print(ErtsBifTimer *tmr, void *vbtmp)
     if (is_hlt)
         tpos = 0;
     else
-        tpos = tmr->type.twt.tw_tmr.timeout_pos;
+        tpos = erts_tweel_read_timeout(&tmr->type.twt.u.tw_tmr);
     btm_print(tmr, vbtmp, tpos, is_hlt);
 }
 
@@ -3273,7 +3253,7 @@ typedef struct {
 } ErtsBTMForeachDebug;
 
 static void
-debug_btm_foreach(ErtsBifTimer *tmr, void *vbtmfd, int is_hlt)
+debug_btm_foreach(ErtsBifTimer *tmr, void *vbtmfd)
 {
 #ifdef ERTS_MAGIC_REF_BIF_TIMERS
     if (!(tmr->type.head.roflgs & ERTS_TMR_ROFLG_BIF_TMR))
@@ -3281,15 +3261,9 @@ debug_btm_foreach(ErtsBifTimer *tmr, void *vbtmfd, int is_hlt)
 #endif
     if (erts_smp_atomic32_read_nob(&tmr->btm.state) == ERTS_TMR_STATE_ACTIVE) {
 	ErtsBTMForeachDebug *btmfd = (ErtsBTMForeachDebug *) vbtmfd;
-        Eterm id;
-        if (is_hlt)
-            id = ((tmr->type.head.roflgs & ERTS_TMR_ROFLG_REG_NAME)
-                  ? tmr->type.hlt.receiver.name
-                  : tmr->type.hlt.receiver.proc->common.id);
-        else
-            id = ((tmr->type.head.roflgs & ERTS_TMR_ROFLG_REG_NAME)
-                  ? tmr->type.twt.receiver.name
-                  : tmr->type.twt.receiver.proc->common.id);
+        Eterm id = ((tmr->type.head.roflgs & ERTS_TMR_ROFLG_REG_NAME)
+                    ? tmr->type.head.receiver.name
+                    : tmr->type.head.receiver.proc->common.id);
 	(*btmfd->func)(id, tmr->btm.message, tmr->btm.bp, btmfd->arg);
     }
 }
@@ -3299,22 +3273,13 @@ debug_btm_foreach(ErtsBifTimer *tmr, void *vbtmfd, int is_hlt)
 static void
 hlt_debug_btm_foreach(ErtsHLTimer *tmr, void *vbtmfd)
 {
-    debug_btm_foreach((ErtsBifTimer *) tmr, vbtmfd, 1);
+    debug_btm_foreach((ErtsBifTimer *) tmr, vbtmfd);
 }
 
 static void
 twt_debug_btm_foreach(void *vbtmfd, ErtsMonotonicTime tpos, void *vtwtp)
 {
-    debug_btm_foreach((ErtsBifTimer *) vtwtp, vbtmfd, 0);    
-}
-
-#else
-
-static void
-debug_btm_tree_foreach(ErtsBifTimer *tmr, void *vbtmfd)
-{
-    debug_btm_foreach(tmr, vbtmfd, !!(tmr->type.head.roflgs
-                                      & ERTS_TMR_ROFLG_HLT));
+    debug_btm_foreach((ErtsBifTimer *) vtwtp, vbtmfd);
 }
 
 #endif
@@ -3349,7 +3314,7 @@ erts_debug_bif_timer_foreach(void (*func)(Eterm,
                          (void *) &btmfd);
 #else
 	btm_rbt_foreach(srv->btm_tree,
-			debug_btm_tree_foreach,
+			debug_btm_foreach,
 			(void *) &btmfd);
 #endif
     }
@@ -3370,7 +3335,7 @@ debug_callback_timer_foreach_list(ErtsHLTimer *tmr, void *vdfct)
 	= (ErtsDebugForeachCallbackTimer *) vdfct;
 
     if ((tmr->head.roflgs & ERTS_TMR_ROFLG_CALLBACK)
-	&& (tmr->receiver.callback == dfct->tclbk))
+	&& (tmr->head.receiver.callback == dfct->tclbk))
 	(*dfct->func)(dfct->arg,
 		      tmr->timeout,
 		      tmr->head.u.arg);
@@ -3388,7 +3353,7 @@ debug_callback_timer_foreach(ErtsHLTimer *tmr, void *vdfct)
 			       vdfct);
 
     if ((tmr->head.roflgs & ERTS_TMR_ROFLG_CALLBACK)
-	&& (tmr->receiver.callback == dfct->tclbk))
+	&& (tmr->head.receiver.callback == dfct->tclbk))
 	(*dfct->func)(dfct->arg,
 		      tmr->timeout,
 		      tmr->head.u.arg);
@@ -3403,7 +3368,7 @@ debug_tw_callback_timer(void *vdfct,
     ErtsDebugForeachCallbackTimer *dfct
 	= (ErtsDebugForeachCallbackTimer *) vdfct;
 
-    if (twtp->receiver.callback == dfct->tclbk)
+    if (twtp->head.receiver.callback == dfct->tclbk)
 	(*dfct->func)(dfct->arg,
 		      timeout_pos,
 		      twtp->head.u.arg);

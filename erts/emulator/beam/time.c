@@ -330,8 +330,8 @@ timeout_timer(ErtsTWheelTimer *p)
     ErlTimeoutProc timeout;
     void *arg;
     p->slot = ERTS_TWHEEL_SLOT_INACTIVE;
-    timeout = p->u.func.timeout;
-    arg = p->u.func.arg;
+    timeout = p->timeout;
+    arg = p->arg;
     (*timeout)(arg);
     ASSERT_NO_LOCKED_LOCKS;
 }
@@ -542,9 +542,9 @@ erts_create_timer_wheel(ErtsSchedulerData *esdp)
     tiw->next_timeout_time = mtime + ERTS_MONOTONIC_DAY;
     tiw->sentinel.next = &tiw->sentinel;
     tiw->sentinel.prev = &tiw->sentinel;
-    tiw->sentinel.u.func.timeout = NULL;
-    tiw->sentinel.u.func.cancel = NULL;
-    tiw->sentinel.u.func.arg = NULL;
+    tiw->sentinel.timeout = NULL;
+    tiw->sentinel.cancel = NULL;
+    tiw->sentinel.arg = NULL;
     return tiw;
 }
 
@@ -583,9 +583,9 @@ erts_twheel_set_timer(ErtsTimerWheel *tiw,
     ErtsMonotonicTime timeout_time;
     ERTS_MSACC_PUSH_AND_SET_STATE_M_X(ERTS_MSACC_STATE_TIMERS);
 
-    p->u.func.timeout = timeout;
-    p->u.func.cancel = cancel;
-    p->u.func.arg = arg;
+    p->timeout = timeout;
+    p->cancel = cancel;
+    p->arg = arg;
 
     ERTS_TW_ASSERT(p->slot == ERTS_TWHEEL_SLOT_INACTIVE);
 
@@ -636,8 +636,8 @@ erts_twheel_cancel_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p)
 	void *arg;
         ERTS_MSACC_PUSH_AND_SET_STATE_M_X(ERTS_MSACC_STATE_TIMERS);
 	remove_timer(tiw, p);
-	cancel = p->u.func.cancel;
-	arg = p->u.func.arg;
+	cancel = p->cancel;
+	arg = p->arg;
 	if (cancel)
 	    (*cancel)(arg);
         ERTS_MSACC_POP_STATE_M_X();
@@ -657,22 +657,22 @@ erts_twheel_debug_foreach(ErtsTimerWheel *tiw,
 
     tmr = tiw->sentinel.next;
     while (tmr != &tiw->sentinel) {
-	if (tmr->u.func.timeout == tclbk)
-	    (*func)(arg, tmr->timeout_pos, tmr->u.func.arg);
+	if (tmr->timeout == tclbk)
+	    (*func)(arg, tmr->timeout_pos, tmr->arg);
 	tmr = tmr->next;
     }
 
     for (tmr = tiw->at_once.head; tmr; tmr = tmr->next) {
-	if (tmr->u.func.timeout == tclbk)
-	    (*func)(arg, tmr->timeout_pos, tmr->u.func.arg);
+	if (tmr->timeout == tclbk)
+	    (*func)(arg, tmr->timeout_pos, tmr->arg);
     }
 
     for (ix = 0; ix < ERTS_TIW_SIZE; ix++) {
 	tmr = tiw->w[ix];
 	if (tmr) {
 	    do {
-		if (tmr->u.func.timeout == tclbk)
-		    (*func)(arg, tmr->timeout_pos, tmr->u.func.arg);
+		if (tmr->timeout == tclbk)
+		    (*func)(arg, tmr->timeout_pos, tmr->arg);
 		tmr = tmr->next;
 	    } while (tmr != tiw->w[ix]);
 	}

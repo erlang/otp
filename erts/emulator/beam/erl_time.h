@@ -419,17 +419,12 @@ void erts_sched_init_time_sup(ErtsSchedulerData *esdp);
 ** Timer entry:
 */
 typedef struct erl_timer {
+    ErtsMonotonicTime timeout_pos; /* Timeout in absolute clock ticks */
     struct erl_timer* next;	/* next entry tiw slot or chain */
     struct erl_timer* prev;	/* prev entry tiw slot or chain */
-    union {
-	struct {
-	    void (*timeout)(void*); /* called when timeout */
-	    void (*cancel)(void*);  /* called when cancel (may be NULL) */
-	    void* arg;              /* argument to timeout/cancel procs */
-	} func;
-	ErtsThrPrgrLaterOp cleanup;
-    } u;
-    ErtsMonotonicTime timeout_pos; /* Timeout in absolute clock ticks */
+    void (*timeout)(void*); /* called when timeout */
+    void (*cancel)(void*);  /* called when cancel (may be NULL) */
+    void* arg;              /* argument to timeout/cancel procs */
     int slot;
 } ErtsTWheelTimer;
 
@@ -447,6 +442,7 @@ ErtsMonotonicTime erts_check_next_timeout_time(ErtsSchedulerData *);
 
 ERTS_GLB_INLINE void erts_twheel_init_timer(ErtsTWheelTimer *p);
 ERTS_GLB_INLINE ErtsMonotonicTime erts_next_timeout_time(ErtsNextTimeoutRef);
+ERTS_GLB_INLINE ErtsMonotonicTime erts_tweel_read_timeout(ErtsTWheelTimer *twt);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -458,6 +454,12 @@ ERTS_GLB_INLINE void erts_twheel_init_timer(ErtsTWheelTimer *p)
 ERTS_GLB_INLINE ErtsMonotonicTime erts_next_timeout_time(ErtsNextTimeoutRef nxt_tmo_ref)
 {
     return *((ErtsMonotonicTime *) nxt_tmo_ref);
+}
+
+ERTS_GLB_INLINE ErtsMonotonicTime
+erts_tweel_read_timeout(ErtsTWheelTimer *twt)
+{
+    return twt->timeout_pos;
 }
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
