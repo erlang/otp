@@ -2081,6 +2081,8 @@ v2_solve_disjunct(Disj, Map, V2State0) ->
 var_occurs_everywhere(V, Masks, NotFailed) ->
   ordsets:is_subset(NotFailed, get_mask(V, Masks)).
 
+-dialyzer({no_improper_lists, [v2_solve_disj/10, v2_solve_conj/12]}).
+
 v2_solve_disj([I|Is], [C|Cs], I, Map0, V2State0, UL, MapL, Eval, Uneval,
               Failed0) ->
   Id = C#constraint_list.id,
