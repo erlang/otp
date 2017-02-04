@@ -19,6 +19,9 @@
 %%
 -module(filename).
 
+-deprecated({find_src,1,next_major_release}).
+-deprecated({find_src,2,next_major_release}).
+
 %% Purpose: Provides generic manipulation of filenames.
 %%
 %% Generally, these functions accept filenames in the native format

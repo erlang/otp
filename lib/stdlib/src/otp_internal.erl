@@ -550,6 +550,13 @@ obsolete_1(overload, _, _) ->
 obsolete_1(rpc, safe_multi_server_call, A) when A =:= 2; A =:= 3 ->
     {removed, {rpc, multi_server_call, A}};
 
+%% Added in OTP 20.
+
+obsolete_1(filename, find_src, 1) ->
+    {deprecated, "deprecated; use filelib:find_source/1 instead"};
+obsolete_1(filename, find_src, 2) ->
+    {deprecated, "deprecated; use filelib:find_source/3 instead"};
+
 %% Removed in OTP 20.
 
 obsolete_1(erlang, hash, 2) ->
