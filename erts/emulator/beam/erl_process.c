@@ -9647,7 +9647,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
             esdp->current_process = NULL;
 #ifdef ERTS_SMP
-            p->scheduler_data = NULL;
+            if (is_normal_sched)
+                p->scheduler_data = NULL;
 #endif
 
             erts_smp_proc_unlock(p, (ERTS_PROC_LOCK_MAIN
@@ -10070,8 +10071,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	state = erts_smp_atomic32_read_nob(&p->state);
 
-	ASSERT(!p->scheduler_data);
 #ifndef ERTS_DIRTY_SCHEDULERS
+	ASSERT(!p->scheduler_data);
 	p->scheduler_data = esdp;
 #else /* ERTS_DIRTY_SCHEDULERS */
 	if (is_normal_sched) {
@@ -10082,6 +10083,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 		erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 		goto sched_out_proc;
 	    }
+	    ASSERT(!p->scheduler_data);
 	    p->scheduler_data = esdp;
 	}
 	else {
