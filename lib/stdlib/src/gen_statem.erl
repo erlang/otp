@@ -948,20 +948,38 @@ loop_receive(Parent, Debug, S) ->
     end.
 
 loop_receive_result(
-  Parent, Debug, #{state := State} = S, Hibernate, Event) ->
+  Parent, Debug,
+  #{state := State,
+    timer_types := TimerTypes, cancel_timers := CancelTimers} = S,
+  Hibernate, Event) ->
     %% From now the 'hibernate' field in S is invalid
     %% and will be restored when looping back
     %% in loop_event_result/11
     NewDebug = sys_debug(Debug, S, State, {in,Event}),
     %% Here is the queue of not yet handled events created
     Events = [],
-    loop_event(Parent, NewDebug, S, Events, Event, Hibernate).
+    %% Cancel any running event timer
+    case
+	cancel_timer_by_type(timeout, TimerTypes, CancelTimers)
+    of
+	{_,CancelTimers} ->
+	    %% No timer cancelled
+	    loop_event(Parent, NewDebug, S, Events, Event, Hibernate);
+	{NewTimerTypes,NewCancelTimers} ->
+	    %% The timer is removed from NewTimerTypes but
+	    %% remains in TimerRefs until we get
+	    %% the cancel_timer msg
+	    NewS =
+		S#{
+		  timer_types := NewTimerTypes,
+		  cancel_timers := NewCancelTimers},
+	    loop_event(Parent, NewDebug, NewS, Events, Event, Hibernate)
+    end.
 
 %% Entry point for handling an event, received or enqueued
 loop_event(
   Parent, Debug,
-  #{state := State, data := Data, timer_types := TimerTypes,
-    cancel_timers := CancelTimers} = S_0,
+  #{state := State, data := Data} = S,
   Events, {Type,Content} = Event, Hibernate) ->
     %%
     %% If (this old) Hibernate is true here it can only be
@@ -972,34 +990,18 @@ loop_event(
     %% would have happened if we actually hibernated
     %% and immediately was awakened
     Hibernate andalso garbage_collect(),
-    case call_state_function(S_0, Type, Content, State, Data) of
-	{ok,Result,S_1} ->
-	    %% Cancel event timeout
-	    S_2 =
-		case
-		    cancel_timer_by_type(timeout, TimerTypes, CancelTimers)
-		of
-		    {_,CancelTimers} ->
-			%% No timer cancelled
-			S_1;
-		    {NewTimerTypes,NewCancelTimers} ->
-			%% The timer is removed from NewTimerTypes but
-			%% remains in TimerRefs until we get
-			%% the cancel_timer msg
-			S_1#{
-			  timer_types := NewTimerTypes,
-			  cancel_timers := NewCancelTimers}
-		end,
+    case call_state_function(S, Type, Content, State, Data) of
+	{ok,Result,NewS} ->
 	    {NextState,NewData,Actions,EnterCall} =
 		parse_event_result(
-		  true, Debug, S_2,
+		  true, Debug, NewS,
 		  Events, Event, State, Data, Result),
 	    loop_event_actions(
-	      Parent, Debug, S_2,
+	      Parent, Debug, NewS,
 	      Events, Event, NextState, NewData, Actions, EnterCall);
 	{Class,Reason,Stacktrace} ->
 	    terminate(
-	      Class, Reason, Stacktrace, Debug, S_0,
+	      Class, Reason, Stacktrace, Debug, S,
 	      [Event|Events])
     end.
 
@@ -1412,7 +1414,7 @@ parse_actions(
 	     {bad_action_from_state_function,Action},
 	     ?STACKTRACE()};
 	{timeout,infinity,_} ->
-	    %% Ignore - timeout will never happen and already cancelled
+	    %% Ignore - timeout will never happen and is already cancelled
 	    parse_actions(
 	      Debug, S, State, Actions,
 	      Hibernate, TimeoutsR, Postpone, NextEventsR);
@@ -1467,7 +1469,6 @@ parse_actions(
 	     ?STACKTRACE()}
     end.
 
-
 %% Stop and start timers as well as create timeout zero events
 %% and pending event timer
 %%
@@ -1491,36 +1492,52 @@ parse_timers(
 	#{} ->
 	    %% Unseen type - handle
 	    NewSeen = Seen#{TimerType => true},
-	    %% Cancel any running timer
-	    {NewTimerTypes,NewCancelTimers} =
-		cancel_timer_by_type(TimerType, TimerTypes, CancelTimers),
-	    %% This removes it from NewTimerTypes but its ref stays
-	    %% in TimerRefs until we get the cancel_timer msg
 	    if
-		Time =:= infinity ->
-		    %% Ignore - timer will never fire
-		    parse_timers(
-		      TimerRefs, NewTimerTypes, NewCancelTimers, TimeoutsR,
-		      NewSeen, TimeoutEvents);
 		TimerType =:= timeout ->
 		    %% Handle event timer later
 		    parse_timers(
-		      TimerRefs, NewTimerTypes, NewCancelTimers, TimeoutsR,
+		      TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
 		      NewSeen, [Timeout|TimeoutEvents]);
+		Time =:= infinity ->
+		    %% Cancel any running timer
+		    {NewTimerTypes,NewCancelTimers} =
+			cancel_timer_by_type(
+			  TimerType, TimerTypes, CancelTimers),
+		    parse_timers(
+		      TimerRefs, NewTimerTypes, NewCancelTimers, TimeoutsR,
+		      NewSeen, TimeoutEvents);
 		Time =:= 0 ->
+		    %% Cancel any running timer
+		    {NewTimerTypes,NewCancelTimers} =
+			cancel_timer_by_type(
+			  TimerType, TimerTypes, CancelTimers),
 		    %% Handle zero time timeouts later
 		    TimeoutEvent = {TimerType,TimerMsg},
 		    parse_timers(
 		      TimerRefs, NewTimerTypes, NewCancelTimers, TimeoutsR,
 		      NewSeen, [TimeoutEvent|TimeoutEvents]);
 		true ->
-		    %% Start a new timer
-		    TimerRef = erlang:start_timer(Time, self(), TimerMsg),
-		    %% Insert it both into TimerRefs and TimerTypes
-		    parse_timers(
-		      TimerRefs#{TimerRef => TimerType},
-		      NewTimerTypes#{TimerType => TimerRef},
-		      NewCancelTimers, TimeoutsR, NewSeen, TimeoutEvents)
+		    %% (Re)start the timer
+		    TimerRef =
+			erlang:start_timer(Time, self(), TimerMsg),
+		    case TimerTypes of
+			#{TimerType := OldTimerRef} ->
+			    %% Cancel the running timer
+			    cancel_timer(OldTimerRef),
+			    %% Insert the new timer into
+			    %% both TimerRefs and TimerTypes
+			    parse_timers(
+			      TimerRefs#{TimerRef => TimerType},
+			      TimerTypes#{TimerType => TimerRef},
+			      CancelTimers + 1,
+			      TimeoutsR, NewSeen, TimeoutEvents);
+			#{} ->
+			    parse_timers(
+			      TimerRefs#{TimerRef => TimerType},
+			      TimerTypes#{TimerType => TimerRef},
+			      CancelTimers,
+			      TimeoutsR, NewSeen, TimeoutEvents)
+		    end
 	    end
     end.
 
@@ -1762,8 +1779,11 @@ listify(Item) ->
 cancel_timer_by_type(TimerType, TimerTypes, CancelTimers) ->
     case TimerTypes of
 	#{TimerType := TimerRef} ->
-	    _ = erlang:cancel_timer(TimerRef, [{async,true}]),
+	    cancel_timer(TimerRef),
 	    {maps:remove(TimerType, TimerTypes),CancelTimers + 1};
 	#{} ->
 	    {TimerTypes,CancelTimers}
     end.
+
+cancel_timer(TimerRef) ->
+    ok = erlang:cancel_timer(TimerRef, [{async,true}]).
