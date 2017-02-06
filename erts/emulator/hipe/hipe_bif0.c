@@ -992,7 +992,7 @@ BIF_RETTYPE hipe_bifs_set_native_address_in_fe_2(BIF_ALIST_2)
 	BIF_ERROR(BIF_P, BADARG);
 
     fe->native_address = native_address;
-    if (erts_refc_dectest(&fe->refc, 0) == 0)
+    if (erts_smp_refc_dectest(&fe->refc, 0) == 0)
 	erts_erase_fun_entry(fe);
     BIF_RET(am_true);
 }

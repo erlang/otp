@@ -647,7 +647,7 @@ bin_check(void)
 		erts_printf("%p orig_size: %bpd, norefs = %bpd\n",
 			    bp->val, 
 			    bp->val->orig_size, 
-			    erts_smp_atomic_read_nob(&bp->val->refc));
+			    erts_refc_read(&bp->val->refc, 1));
 	    }
 	}
 	if (printed) {

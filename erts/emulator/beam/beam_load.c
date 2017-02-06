@@ -4867,7 +4867,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 		/*
 		 * We are hiding a pointer into older code.
 		 */
-		erts_refc_dec(&fe->refc, 1);
+		erts_smp_refc_dec(&fe->refc, 1);
 	    }
 	    fe->address = code_ptr;
 #ifdef HIPE
@@ -6287,7 +6287,7 @@ patch_funentries(Eterm Patchlist)
      *
      * Reproduced on a debug emulator with stdlib_test/qlc_SUITE:join_merge
      *
-     * erts_refc_dec(&fe->refc, 1);
+     * erts_smp_refc_dec(&fe->refc, 1);
      */
 
     if (!patch(Addresses, (Uint) fe))

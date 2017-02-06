@@ -42,7 +42,7 @@ typedef struct erl_fun_entry {
 
     Uint arity;			/* The arity of the fun. */
     Eterm module;		/* Tagged atom for module. */
-    erts_refc_t refc;		/* Reference count: One for code + one for each
+    erts_smp_refc_t refc;		/* Reference count: One for code + one for each
 				   fun object in each process. */
     BeamInstr *pend_purge_address; /* address stored during a pending purge */
 } ErlFunEntry;

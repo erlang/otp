@@ -104,7 +104,7 @@ do {								\
 	    (*((Hp)++)) = boxed_val((From))[i__];		\
 	if (is_external((To))) {				\
 	    external_thing_ptr((To))->next = NULL;		\
-	    erts_refc_inc(&(external_thing_ptr((To))->node->refc), 2);\
+	    erts_smp_refc_inc(&(external_thing_ptr((To))->node->refc), 2);\
 	}							\
     }								\
 } while (0)

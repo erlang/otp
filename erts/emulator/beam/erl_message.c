@@ -172,7 +172,7 @@ erts_cleanup_offheap(ErlOffHeap *offheap)
 	    }
 	    break;
 	case FUN_SUBTAG:
-	    if (erts_refc_dectest(&u.fun->fe->refc, 0) == 0) {
+	    if (erts_smp_refc_dectest(&u.fun->fe->refc, 0) == 0) {
 		erts_erase_fun_entry(u.fun->fe);		    
 	    }
 	    break;

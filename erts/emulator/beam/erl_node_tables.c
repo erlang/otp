@@ -98,7 +98,7 @@ dist_table_alloc(void *dep_tmpl)
     dist_entries++;
 
     dep->prev				= NULL;
-    erts_refc_init(&dep->refc, -1);
+    erts_smp_refc_init(&dep->refc, -1);
     erts_smp_rwmtx_init_opt_x(&dep->rwmtx, &rwmtx_opt, "dist_entry", chnl_nr);
     dep->sysname			= sysname;
     dep->cid				= NIL;
@@ -208,7 +208,7 @@ erts_channel_no_to_dist_entry(Uint cno)
  * to the node name is used as channel no.
  */
     if(cno == ERST_INTERNAL_CHANNEL_NO) {
-	erts_refc_inc(&erts_this_dist_entry->refc, 2);
+	erts_smp_refc_inc(&erts_this_dist_entry->refc, 2);
 	return erts_this_dist_entry;
     }
 
@@ -231,16 +231,16 @@ erts_sysname_to_connected_dist_entry(Eterm sysname)
     de.sysname = sysname;
   
     if(erts_this_dist_entry->sysname == sysname) {
-	erts_refc_inc(&erts_this_dist_entry->refc, 2);
+	erts_smp_refc_inc(&erts_this_dist_entry->refc, 2);
 	return erts_this_dist_entry;
     }
 
     erts_smp_rwmtx_rlock(&erts_dist_table_rwmtx);
     res_dep = (DistEntry *) hash_get(&erts_dist_table, (void *) &de);
     if (res_dep) {
-	erts_aint_t refc = erts_refc_inctest(&res_dep->refc, 1);
+	erts_aint_t refc = erts_smp_refc_inctest(&res_dep->refc, 1);
 	if (refc < 2) /* Pending delete */
-	    erts_refc_inc(&res_dep->refc, 1);
+	    erts_smp_refc_inc(&res_dep->refc, 1);
     }
     erts_smp_rwmtx_runlock(&erts_dist_table_rwmtx);
     if (res_dep) {
@@ -267,9 +267,9 @@ DistEntry *erts_find_or_insert_dist_entry(Eterm sysname)
     de.sysname = sysname;
     erts_smp_rwmtx_rwlock(&erts_dist_table_rwmtx);
     res = hash_put(&erts_dist_table, (void *) &de);
-    refc = erts_refc_inctest(&res->refc, 0);
+    refc = erts_smp_refc_inctest(&res->refc, 0);
     if (refc < 2) /* New or pending delete */
-	erts_refc_inc(&res->refc, 1);
+	erts_smp_refc_inc(&res->refc, 1);
     erts_smp_rwmtx_rwunlock(&erts_dist_table_rwmtx);
     return res;
 }
@@ -282,9 +282,9 @@ DistEntry *erts_find_dist_entry(Eterm sysname)
     erts_smp_rwmtx_rlock(&erts_dist_table_rwmtx);
     res = hash_get(&erts_dist_table, (void *) &de);
     if (res) {
-	erts_aint_t refc = erts_refc_inctest(&res->refc, 1);
+	erts_aint_t refc = erts_smp_refc_inctest(&res->refc, 1);
 	if (refc < 2) /* Pending delete */
-	    erts_refc_inc(&res->refc, 1);
+	    erts_smp_refc_inc(&res->refc, 1);
     }
     erts_smp_rwmtx_runlock(&erts_dist_table_rwmtx);
     return res;
@@ -311,7 +311,7 @@ static void try_delete_dist_entry(void *vdep)
      *
      * If refc > 0, the entry is in use. Keep the entry.
      */
-    refc = erts_refc_dectest(&dep->refc, -1);
+    refc = erts_smp_refc_dectest(&dep->refc, -1);
     if (refc == -1)
 	(void) hash_erase(&erts_dist_table, (void *) dep);
     erts_smp_rwmtx_rwunlock(&erts_dist_table_rwmtx);
@@ -518,7 +518,7 @@ node_table_alloc(void *venp_tmpl)
 
     node_entries++;
 
-    erts_refc_init(&enp->refc, -1);
+    erts_smp_refc_init(&enp->refc, -1);
     enp->creation = ((ErlNode *) venp_tmpl)->creation;
     enp->sysname = ((ErlNode *) venp_tmpl)->sysname;
     enp->dist_entry = erts_find_or_insert_dist_entry(((ErlNode *) venp_tmpl)->sysname);
@@ -585,9 +585,9 @@ ErlNode *erts_find_or_insert_node(Eterm sysname, Uint32 creation)
     erts_smp_rwmtx_rlock(&erts_node_table_rwmtx);
     res = hash_get(&erts_node_table, (void *) &ne);
     if (res && res != erts_this_node) {
-	erts_aint_t refc = erts_refc_inctest(&res->refc, 0);
+	erts_aint_t refc = erts_smp_refc_inctest(&res->refc, 0);
 	if (refc < 2) /* New or pending delete */
-	    erts_refc_inc(&res->refc, 1);
+	    erts_smp_refc_inc(&res->refc, 1);
     }
     erts_smp_rwmtx_runlock(&erts_node_table_rwmtx);
     if (res)
@@ -597,9 +597,9 @@ ErlNode *erts_find_or_insert_node(Eterm sysname, Uint32 creation)
     res = hash_put(&erts_node_table, (void *) &ne);
     ASSERT(res);
     if (res != erts_this_node) {
-	erts_aint_t refc = erts_refc_inctest(&res->refc, 0);
+	erts_aint_t refc = erts_smp_refc_inctest(&res->refc, 0);
 	if (refc < 2) /* New or pending delete */
-	    erts_refc_inc(&res->refc, 1);
+	    erts_smp_refc_inc(&res->refc, 1);
     }
     erts_smp_rwmtx_rwunlock(&erts_node_table_rwmtx);
     return res;
@@ -626,7 +626,7 @@ static void try_delete_node(void *venp)
      *
      * If refc > 0, the entry is in use. Keep the entry.
      */
-    refc = erts_refc_dectest(&enp->refc, -1);
+    refc = erts_smp_refc_dectest(&enp->refc, -1);
     if (refc == -1)
 	(void) hash_erase(&erts_node_table, (void *) enp);
     erts_smp_rwmtx_rwunlock(&erts_node_table_rwmtx);
@@ -672,7 +672,7 @@ static void print_node(void *venp, void *vpndp)
 	erts_print(pndp->to, pndp->to_arg, " %d", enp->creation);
 #ifdef DEBUG
 	erts_print(pndp->to, pndp->to_arg, " (refc=%ld)",
-		   erts_refc_read(&enp->refc, 0));
+		   erts_smp_refc_read(&enp->refc, 0));
 #endif
 	pndp->no_sysname++;
     }
@@ -715,19 +715,19 @@ void
 erts_set_this_node(Eterm sysname, Uint creation)
 {
     ERTS_SMP_LC_ASSERT(erts_thr_progress_is_blocking());
-    ASSERT(erts_refc_read(&erts_this_dist_entry->refc, 2));
+    ASSERT(erts_smp_refc_read(&erts_this_dist_entry->refc, 2));
 
-    if (erts_refc_dectest(&erts_this_node->refc, 0) == 0)
+    if (erts_smp_refc_dectest(&erts_this_node->refc, 0) == 0)
         try_delete_node(erts_this_node);
 
-    if (erts_refc_dectest(&erts_this_dist_entry->refc, 0) == 0)
+    if (erts_smp_refc_dectest(&erts_this_dist_entry->refc, 0) == 0)
         try_delete_dist_entry(erts_this_dist_entry);
 
     erts_this_node = NULL; /* to make sure refc is bumped for this node */
     erts_this_node = erts_find_or_insert_node(sysname, creation);
     erts_this_dist_entry = erts_this_node->dist_entry;
 
-    erts_refc_inc(&erts_this_dist_entry->refc, 2);
+    erts_smp_refc_inc(&erts_this_dist_entry->refc, 2);
 
     erts_this_node_sysname = erts_this_node_sysname_BUFFER;
     erts_snprintf(erts_this_node_sysname, sizeof(erts_this_node_sysname_BUFFER),
@@ -789,13 +789,13 @@ void erts_init_node_tables(int dd_sec)
     node_tmpl.creation = 0;
     erts_this_node = hash_put(&erts_node_table, &node_tmpl);
      /* +1 for erts_this_node */
-    erts_refc_init(&erts_this_node->refc, 1);
+    erts_smp_refc_init(&erts_this_node->refc, 1);
 
     ASSERT(erts_this_node->dist_entry != NULL);
     erts_this_dist_entry = erts_this_node->dist_entry;
     /* +1 for erts_this_dist_entry */
     /* +1 for erts_this_node->dist_entry */
-    erts_refc_init(&erts_this_dist_entry->refc, 2);
+    erts_smp_refc_init(&erts_this_dist_entry->refc, 2);
 
 
     erts_this_node_sysname = erts_this_node_sysname_BUFFER;
@@ -1623,7 +1623,7 @@ reference_table_term(Uint **hpp, Uint *szp)
 
 	tup = MK_2TUP(referred_nodes[i].node->sysname,
 		      MK_UINT(referred_nodes[i].node->creation));
-	tup = MK_3TUP(tup, MK_UINT(erts_refc_read(&referred_nodes[i].node->refc, 0)), nril);
+	tup = MK_3TUP(tup, MK_UINT(erts_smp_refc_read(&referred_nodes[i].node->refc, 0)), nril);
 	nl = MK_CONS(tup, nl);
     }
 
@@ -1684,7 +1684,7 @@ reference_table_term(Uint **hpp, Uint *szp)
 
 	/* DistList = [{Dist, Refc, ReferenceIdList}] */
 	tup = MK_3TUP(referred_dists[i].dist->sysname,
-		      MK_UINT(erts_refc_read(&referred_dists[i].dist->refc, 0)),
+		      MK_UINT(erts_smp_refc_read(&referred_dists[i].dist->refc, 0)),
 		      dril);
 	dl = MK_CONS(tup, dl);
     }

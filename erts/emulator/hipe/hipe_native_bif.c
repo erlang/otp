@@ -321,7 +321,7 @@ char *hipe_bs_allocate(int len)
     Binary *bptr;
 
     bptr = erts_bin_nrml_alloc(len);
-    erts_smp_atomic_init_nob(&bptr->refc, 1);
+    erts_refc_init(&bptr->refc, 1);
     return bptr->orig_bytes;
 }
 
