@@ -690,13 +690,16 @@ ssh_type() ->
 
 ssh_type1() ->
     try 
+        ct:log("~p:~p os:find_executable(\"ssh\")",[?MODULE,?LINE]),
 	case os:find_executable("ssh") of
 	    false -> 
 		ct:log("~p:~p Executable \"ssh\" not found",[?MODULE,?LINE]),
 		not_found;
-	    _ ->
+	    Path ->
+		ct:log("~p:~p Found \"ssh\" at ~p",[?MODULE,?LINE,Path]),
 		case os:cmd("ssh -V") of
-		    "OpenSSH" ++ _ ->
+		    Version = "OpenSSH" ++ _ ->
+                        ct:log("~p:~p Found OpenSSH  ~p",[?MODULE,?LINE,Version]),
 			openSSH;
 		    Str -> 
 			ct:log("ssh client ~p is unknown",[Str]),
