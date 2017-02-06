@@ -175,13 +175,6 @@ struct erl_drv_event_data {
 #endif
 typedef struct erl_drv_event_data *ErlDrvEventData; /* Event data */
 
-/*
- * A driver monitor
- */
-typedef struct {
-    unsigned char data[sizeof(void *)*4];
-} ErlDrvMonitor;
-
 typedef struct {
     unsigned long megasecs;
     unsigned long secs;

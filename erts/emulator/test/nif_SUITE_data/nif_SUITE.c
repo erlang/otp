@@ -31,6 +31,27 @@
 
 #include "nif_mod.h"
 
+#if 0
+static ErlNifMutex* dbg_trace_lock;
+#define DBG_TRACE_INIT dbg_trace_lock = enif_mutex_create("nif_SUITE.DBG_TRACE")
+#define DBG_TRACE_FINI enif_mutex_destroy(dbg_trace_lock)
+#define DBG_TRACE_LOCK enif_mutex_lock(dbg_trace_lock)
+#define DBG_TRACE_UNLOCK enif_mutex_unlock(dbg_trace_lock)
+#define DBG_TRACE0(FMT) do {DBG_TRACE_LOCK; enif_fprintf(stderr, FMT); DBG_TRACE_UNLOCK; }while(0)
+#define DBG_TRACE1(FMT, A) do {DBG_TRACE_LOCK; enif_fprintf(stderr, FMT, A); DBG_TRACE_UNLOCK; }while(0)
+#define DBG_TRACE2(FMT, A, B) do {DBG_TRACE_LOCK; enif_fprintf(stderr, FMT, A, B); DBG_TRACE_UNLOCK; }while(0)
+#define DBG_TRACE3(FMT, A, B, C) do {DBG_TRACE_LOCK; enif_fprintf(stderr, FMT, A, B, C); DBG_TRACE_UNLOCK; }while(0)
+#define DBG_TRACE4(FMT, A, B, C, D) do {DBG_TRACE_LOCK; enif_fprintf(stderr, FMT, A, B, C, D); DBG_TRACE_UNLOCK; }while(0)
+#else
+#define DBG_TRACE_INIT
+#define DBG_TRACE_FINI
+#define DBG_TRACE0(FMT)
+#define DBG_TRACE1(FMT, A)
+#define DBG_TRACE2(FMT, A, B)
+#define DBG_TRACE3(FMT, A, B, C)
+#define DBG_TRACE4(FMT, A, B, C, D)
+#endif
+
 static int static_cntA; /* zero by default */
 static int static_cntB = NIF_SUITE_LIB_VER * 100;
 
@@ -48,6 +69,12 @@ static ERL_NIF_TERM atom_eagain;
 static ERL_NIF_TERM atom_eof;
 static ERL_NIF_TERM atom_error;
 static ERL_NIF_TERM atom_fd_resource_stop;
+static ERL_NIF_TERM atom_monitor_resource_type;
+static ERL_NIF_TERM atom_monitor_resource_down;
+static ERL_NIF_TERM atom_init;
+static ERL_NIF_TERM atom_stats;
+static ERL_NIF_TERM atom_done;
+static ERL_NIF_TERM atom_stop;
 
 typedef struct
 {
@@ -120,6 +147,27 @@ struct fd_resource {
     ErlNifPid pid;
 };
 
+static ErlNifResourceType* monitor_resource_type;
+static void monitor_resource_dtor(ErlNifEnv* env, void* obj);
+static void monitor_resource_down(ErlNifEnv*, void* obj, ErlNifPid*, ErlNifMonitor*);
+static ErlNifResourceTypeInit monitor_rt_init = {
+    monitor_resource_dtor,
+    NULL,
+    monitor_resource_down
+};
+struct monitor_resource {
+    ErlNifPid receiver;
+    int use_msgenv;
+};
+
+static ErlNifResourceType* frenzy_resource_type;
+static void frenzy_resource_dtor(ErlNifEnv* env, void* obj);
+static void frenzy_resource_down(ErlNifEnv*, void* obj, ErlNifPid*, ErlNifMonitor*);
+static ErlNifResourceTypeInit frenzy_rt_init = {
+    frenzy_resource_dtor,
+    NULL,
+    frenzy_resource_down
+};
 
 static int get_pointer(ErlNifEnv* env, ERL_NIF_TERM term, void** pp)
 {
@@ -148,6 +196,8 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     data->call_history = NULL;
     data->nif_mod = NULL;
 
+    DBG_TRACE_INIT;
+
     add_call(env, data, "load");
 
     data->rt_arr[0].t = enif_open_resource_type(env,NULL,"Gold",resource_dtor,
@@ -165,6 +215,13 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     fd_resource_type =  enif_open_resource_type_x(env, "nif_SUITE.fd",
                                                   &fd_rt_init,
                                                   ERL_NIF_RT_CREATE, NULL);
+    monitor_resource_type = enif_open_resource_type_x(env, "nif_SUITE.monitor",
+                                                      &monitor_rt_init,
+                                                      ERL_NIF_RT_CREATE, NULL);
+    frenzy_resource_type = enif_open_resource_type_x(env, "nif_SUITE.monitor_frenzy",
+						      &frenzy_rt_init,
+						      ERL_NIF_RT_CREATE, NULL);
+
     atom_false = enif_make_atom(env,"false");
     atom_true = enif_make_atom(env,"true");
     atom_self = enif_make_atom(env,"self");
@@ -179,6 +236,12 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_eof = enif_make_atom(env, "eof");
     atom_error = enif_make_atom(env, "error");
     atom_fd_resource_stop = enif_make_atom(env, "fd_resource_stop");
+    atom_monitor_resource_type = enif_make_atom(env, "monitor_resource_type");
+    atom_monitor_resource_down = enif_make_atom(env, "monitor_resource_down");
+    atom_init = enif_make_atom(env,"init");
+    atom_stats = enif_make_atom(env,"stats");
+    atom_done = enif_make_atom(env,"done");
+    atom_stop = enif_make_atom(env,"stop");
 
     *priv_data = data;
     return 0;
@@ -232,6 +295,7 @@ static void unload(ErlNifEnv* env, void* priv_data)
 	}
 	enif_free(priv_data);
     }
+    DBG_TRACE_FINI;
 }
 
 static ERL_NIF_TERM lib_version(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -854,6 +918,9 @@ static ERL_NIF_TERM get_resource(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     type.t = NULL;
     if (enif_is_identical(argv[0], atom_binary_resource_type)) {
 	type.t = binary_resource_type;
+    }
+    else if (enif_is_identical(argv[0], atom_monitor_resource_type)) {
+	type.t = monitor_resource_type;
     }
     else {
 	get_pointer(env, argv[0], &type.vp);
@@ -1496,7 +1563,6 @@ static ERL_NIF_TERM send_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 
 static ERL_NIF_TERM send_copy_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    ErlNifEnv* menv;
     ErlNifPid pid;
     int ret;
     if (!enif_get_local_pid(env, argv[0], &pid)) {
@@ -2236,6 +2302,472 @@ static ERL_NIF_TERM last_fd_stop_call(ErlNifEnv* env, int argc, const ERL_NIF_TE
 }
 
 
+static void monitor_resource_dtor(ErlNifEnv* env, void* obj)
+{
+    resource_dtor(env, obj);
+}
+
+static ERL_NIF_TERM make_monitor(ErlNifEnv* env, const ErlNifMonitor* mon)
+{
+    ERL_NIF_TERM mon_bin;
+    memcpy(enif_make_new_binary(env, sizeof(ErlNifMonitor), &mon_bin),
+           mon, sizeof(ErlNifMonitor));
+    return mon_bin;
+}
+
+static int get_monitor(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifMonitor* mon)
+{
+    ErlNifBinary bin;
+    if (!enif_inspect_binary(env, term, &bin)
+        || bin.size != sizeof(ErlNifMonitor))
+        return 0;
+    memcpy(mon, bin.data, bin.size);
+    return 1;
+}
+
+static void monitor_resource_down(ErlNifEnv* env, void* obj, ErlNifPid* pid,
+                                  ErlNifMonitor* mon)
+{
+    struct monitor_resource* rsrc = (struct monitor_resource*)obj;
+    ErlNifEnv* build_env;
+    ErlNifEnv* msg_env;
+    ERL_NIF_TERM msg;
+
+    if (rsrc->use_msgenv) {
+        msg_env = enif_alloc_env();
+        build_env = msg_env;
+    }
+    else {
+        msg_env = NULL;
+        build_env = env;
+    }
+
+    msg = enif_make_tuple4(build_env,
+                           atom_monitor_resource_down,
+                           make_pointer(build_env, obj),
+                           enif_make_pid(build_env, pid),
+                           make_monitor(build_env, mon));
+
+    enif_send(env, &rsrc->receiver, msg_env, msg);
+    if (msg_env)
+        enif_free_env(msg_env);
+}
+
+static ERL_NIF_TERM alloc_monitor_resource_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    struct monitor_resource* rsrc;
+
+    rsrc  = enif_alloc_resource(monitor_resource_type, sizeof(struct monitor_resource));
+
+    return make_pointer(env,rsrc);
+}
+
+static ERL_NIF_TERM monitor_process_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    struct monitor_resource* rsrc;
+    ErlNifPid target;
+    ErlNifMonitor mon;
+    int res;
+
+    if (!get_pointer(env, argv[0], (void**)&rsrc)
+        || !enif_get_local_pid(env, argv[1], &target)
+        || !enif_get_local_pid(env, argv[3], &rsrc->receiver)) {
+        return enif_make_badarg(env);
+    }
+
+    rsrc->use_msgenv = (argv[2] == atom_true);
+    res = enif_monitor_process(env, rsrc, &target, &mon);
+
+    return enif_make_tuple2(env, enif_make_int(env, res), make_monitor(env, &mon));
+}
+
+static ERL_NIF_TERM demonitor_process_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    struct monitor_resource* rsrc;
+    ErlNifMonitor mon;
+    int res;
+
+    if (!get_pointer(env, argv[0], (void**)&rsrc)
+        || !get_monitor(env, argv[1], &mon)) {
+        return enif_make_badarg(env);
+    }
+
+    res = enif_demonitor_process(env, rsrc, &mon);
+
+    return enif_make_int(env, res);
+}
+
+/*********** monitor_frenzy ************/
+
+struct frenzy_rand_bits
+{
+    unsigned int source;
+    unsigned int bits_consumed;
+};
+
+static unsigned int frenzy_rand_bits_max;
+
+unsigned rand_bits(struct frenzy_rand_bits* rnd, unsigned int nbits)
+{
+    unsigned int res;
+
+    rnd->bits_consumed += nbits;
+    assert(rnd->bits_consumed <= frenzy_rand_bits_max);
+    res = rnd->source & ((1 << nbits)-1);
+    rnd->source >>= nbits;
+    return res;
+}
+
+#define FRENZY_PROCS_MAX_BITS 4
+#define FRENZY_PROCS_MAX (1 << FRENZY_PROCS_MAX_BITS)
+
+#define FRENZY_RESOURCES_MAX_BITS 4
+#define FRENZY_RESOURCES_MAX (1 << FRENZY_RESOURCES_MAX_BITS)
+
+#define FRENZY_MONITORS_MAX_BITS 4
+#define FRENZY_MONITORS_MAX (1 << FRENZY_MONITORS_MAX_BITS)
+
+struct frenzy_monitor {
+    ErlNifMutex* lock;
+    enum { 
+        MON_FREE, MON_FREE_DOWN, MON_FREE_DEMONITOR,
+        MON_TRYING, MON_ACTIVE, MON_PENDING
+    } state;
+    ErlNifMonitor mon;
+    ErlNifPid pid;
+    unsigned int use_cnt;
+};
+
+struct frenzy_resource {
+    unsigned int rix;
+    struct frenzy_monitor monv[FRENZY_MONITORS_MAX];
+};
+struct frenzy_reslot {
+    ErlNifMutex* lock;
+    struct frenzy_resource* obj;
+    unsigned long alloc_cnt;
+    unsigned long release_cnt;
+};
+static struct frenzy_reslot resv[FRENZY_RESOURCES_MAX];
+
+static ERL_NIF_TERM monitor_frenzy_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    struct frenzy_proc {
+        ErlNifPid pid;
+        int is_free;
+    };
+    static struct frenzy_proc procs[FRENZY_PROCS_MAX];
+    static struct frenzy_proc* proc_refs[FRENZY_PROCS_MAX];
+    static unsigned int nprocs, old_nprocs;
+    static ErlNifMutex* procs_lock;
+    static unsigned long spawn_cnt = 0;
+    static unsigned long kill_cnt = 0;
+    static unsigned long proc_histogram[FRENZY_PROCS_MAX];
+
+    static const unsigned int primes[] = {7, 13, 17, 19};
+
+    struct frenzy_resource* r;
+    struct frenzy_rand_bits rnd;
+    unsigned int op, inc, my_nprocs;
+    unsigned int mix;  /* r->monv[] index */
+    unsigned int rix;  /* resv[] index */
+    unsigned int pix;  /* procs[] index */
+    unsigned int ref_ix; /* proc_refs[] index */
+    int self_pix, rv;
+    ERL_NIF_TERM retval = atom_error;
+    const ERL_NIF_TERM Op = argv[0];
+    const ERL_NIF_TERM Rnd = argv[1];
+    const ERL_NIF_TERM SelfPix = argv[2];
+    const ERL_NIF_TERM NewPid = argv[3];
+
+    if (enif_is_atom(env, Op)) {
+        if (Op == atom_init) {
+            if (procs_lock || !enif_get_uint(env, Rnd, &frenzy_rand_bits_max))
+                return enif_make_badarg(env);
+
+            procs_lock = enif_mutex_create("nif_SUITE:monitor_frenzy.procs");
+            nprocs = 0;
+            old_nprocs = 0;
+            for (pix = 0; pix < FRENZY_PROCS_MAX; pix++) {
+                proc_refs[pix] = &procs[pix];
+                procs[pix].is_free = 1;
+                proc_histogram[pix] = 0;
+            }
+            for (rix = 0; rix < FRENZY_RESOURCES_MAX; rix++) {
+                resv[rix].lock = enif_mutex_create("nif_SUITE:monitor_frenzy.resv.lock");
+                resv[rix].obj = NULL;
+                resv[rix].alloc_cnt = 0;
+                resv[rix].release_cnt = 0;
+            }
+
+            /* Add self as first process */
+            enif_self(env, &procs[0].pid);
+            procs[0].is_free = 0;
+            old_nprocs = ++nprocs;
+
+            spawn_cnt = 1;
+            kill_cnt = 0;
+            return enif_make_uint(env, 0);  /* SelfPix */
+        }
+        else if (Op == atom_stats) {
+            ERL_NIF_TERM hist[FRENZY_PROCS_MAX];
+            unsigned long res_alloc_cnt = 0;
+            unsigned long res_release_cnt = 0;
+            for (ref_ix = 0; ref_ix < FRENZY_PROCS_MAX; ref_ix++) {
+                hist[ref_ix] = enif_make_ulong(env, proc_histogram[ref_ix]);
+            }
+            for (rix = 0; rix < FRENZY_RESOURCES_MAX; rix++) {
+                res_alloc_cnt += resv[rix].alloc_cnt;
+                res_release_cnt += resv[rix].release_cnt;
+            }
+
+            return
+            enif_make_list4(env,
+                            enif_make_tuple2(env, enif_make_string(env, "proc_histogram", ERL_NIF_LATIN1),
+                                             enif_make_list_from_array(env, hist, FRENZY_PROCS_MAX)),
+                            enif_make_tuple2(env, enif_make_string(env, "spawn_cnt", ERL_NIF_LATIN1),
+                                             enif_make_ulong(env, spawn_cnt)),
+                            enif_make_tuple2(env, enif_make_string(env, "kill_cnt", ERL_NIF_LATIN1),
+                                             enif_make_ulong(env, kill_cnt)),
+                            enif_make_tuple3(env, enif_make_string(env, "resource_alloc", ERL_NIF_LATIN1),
+                                             enif_make_ulong(env, res_alloc_cnt),
+                                             enif_make_ulong(env, res_release_cnt)));
+
+        }
+        else if (Op == atom_stop && procs_lock) {  /* stop all */
+            retval = enif_make_list(env, 0);
+            enif_mutex_lock(procs_lock);
+            for (ref_ix = 0; ref_ix < nprocs; ref_ix++) {
+                assert(!proc_refs[ref_ix]->is_free);
+                retval = enif_make_list_cell(env, enif_make_pid(env, &proc_refs[ref_ix]->pid),
+                                             retval);
+                proc_refs[ref_ix]->is_free = 1;
+            }
+            kill_cnt += nprocs;
+            nprocs = 0;
+            old_nprocs = 0;
+            enif_mutex_unlock(procs_lock);
+            return retval;
+        }
+        return enif_make_badarg(env);
+    }
+
+    if (!enif_get_int(env, SelfPix, &self_pix) ||
+        !enif_get_uint(env, Op, &op) ||
+        !enif_get_uint(env, Rnd, &rnd.source))
+        return enif_make_badarg(env);
+
+    rnd.bits_consumed = 0;
+    switch (op) {
+    case 0:  { /* add/remove process */
+        ErlNifPid self;
+        enif_self(env, &self);
+
+        ref_ix = rand_bits(&rnd, FRENZY_PROCS_MAX_BITS) % FRENZY_PROCS_MAX;
+        enif_mutex_lock(procs_lock);
+        if (procs[self_pix].is_free || procs[self_pix].pid.pid != self.pid) {
+            /* Some one already removed me */
+            enif_mutex_unlock(procs_lock);
+            return atom_done;
+        }
+        if (ref_ix >= nprocs || nprocs < 2) { /* add process */
+            ref_ix = nprocs++;
+            pix = proc_refs[ref_ix] - procs;
+            assert(procs[pix].is_free);
+            if (!enif_get_local_pid(env, NewPid, &procs[pix].pid))
+                abort();
+            procs[pix].is_free = 0;
+            spawn_cnt++;
+            proc_histogram[ref_ix]++;
+            old_nprocs = nprocs;
+            enif_mutex_unlock(procs_lock);
+            DBG_TRACE2("Add pid %T, nprocs = %u\n", NewPid, nprocs);
+            retval = enif_make_uint(env, pix);
+        }
+        else { /* remove process */
+            pix = proc_refs[ref_ix] - procs;
+            if (pix == self_pix) {
+                ref_ix = (ref_ix + 1) % nprocs;
+                pix = proc_refs[ref_ix] - procs;
+            }
+            assert(procs[pix].pid.pid != self.pid);
+            assert(!procs[pix].is_free);
+            retval = enif_make_pid(env, &procs[pix].pid);
+            --nprocs;
+            assert(!proc_refs[nprocs]->is_free);
+            if (ref_ix != nprocs) {
+                struct frenzy_proc* tmp = proc_refs[ref_ix];
+                proc_refs[ref_ix] = proc_refs[nprocs];
+                proc_refs[nprocs] = tmp;
+            }
+            procs[pix].is_free = 1;
+            proc_histogram[nprocs]++;
+            kill_cnt++;
+            enif_mutex_unlock(procs_lock);
+            DBG_TRACE2("Removed pid %T, nprocs = %u\n", retval, nprocs);
+        }
+	break;
+    }
+    case 1:
+    case 2: /* create/delete/lookup resource */
+	rix = rand_bits(&rnd, FRENZY_RESOURCES_MAX_BITS) % FRENZY_RESOURCES_MAX;
+	inc = primes[rand_bits(&rnd, 2)];
+	while (enif_mutex_trylock(resv[rix].lock) == EBUSY) {
+	    rix = (rix + inc) % FRENZY_RESOURCES_MAX;
+	}
+	if (resv[rix].obj == NULL) {
+	    r = enif_alloc_resource(frenzy_resource_type,
+				    sizeof(struct frenzy_resource));
+	    resv[rix].obj = r;
+            resv[rix].alloc_cnt++;
+	    r->rix = rix;
+            for (mix = 0; mix < FRENZY_MONITORS_MAX; mix++) {
+                r->monv[mix].lock = enif_mutex_create("nif_SUITE:monitor_frenzy.monv.lock");
+                r->monv[mix].state = MON_FREE;
+                r->monv[mix].use_cnt = 0;
+                r->monv[mix].pid.pid = 0; /* null-pid */
+            }
+            DBG_TRACE2("New resource at r=%p rix=%u\n", r, rix);
+	}
+	else if (rand_bits(&rnd, 3) == 0) {
+            r = resv[rix].obj;
+            resv[rix].obj = NULL;
+            resv[rix].release_cnt++;
+	    enif_mutex_unlock(resv[rix].lock);
+            DBG_TRACE2("Delete resource at r=%p rix=%u\n", r, rix);
+	    enif_release_resource(r);
+	    retval = atom_ok;
+	    break;
+	}
+	else {
+	    r = resv[rix].obj;
+	}
+        enif_keep_resource(r);
+        enif_mutex_unlock(resv[rix].lock);
+
+        /* monitor/demonitor */
+
+        mix = rand_bits(&rnd, FRENZY_MONITORS_MAX_BITS) % FRENZY_MONITORS_MAX;
+        inc = primes[rand_bits(&rnd, 2)];
+        while (enif_mutex_trylock(r->monv[mix].lock) == EBUSY) {
+            mix = (mix + inc) % FRENZY_MONITORS_MAX;
+        }
+        switch (r->monv[mix].state) {
+        case MON_FREE:
+        case MON_FREE_DOWN:
+        case MON_FREE_DEMONITOR: {   /* do monitor */
+            /*
+             * Use an old possibly larger value of 'nprocs', to increase
+             * probability of monitoring an already terminated process
+             */
+            my_nprocs = old_nprocs;
+            if (my_nprocs > 0) {
+                int save_state = r->monv[mix].state;
+                ref_ix = rand_bits(&rnd, FRENZY_PROCS_MAX_BITS) % my_nprocs;
+                pix = proc_refs[ref_ix] - procs;
+                r->monv[mix].pid.pid = procs[pix].pid.pid; /* "atomic" */
+                r->monv[mix].state = MON_TRYING;
+                rv = enif_monitor_process(env, r, &r->monv[mix].pid, &r->monv[mix].mon);
+                if (rv == 0) {
+                    r->monv[mix].state = MON_ACTIVE;
+                    r->monv[mix].use_cnt++;
+                    DBG_TRACE3("Monitor from r=%p rix=%u to %T\n",
+                                 r, r->rix, r->monv[mix].pid.pid);
+                }
+                else {
+                    r->monv[mix].state = save_state;
+                    DBG_TRACE4("Monitor from r=%p rix=%u to %T FAILED with %d\n",
+                               r, r->rix, r->monv[mix].pid.pid, rv);
+                }
+                retval = enif_make_int(env,rv);
+            }
+            else {
+                DBG_TRACE0("No pids to monitor\n");
+                retval = atom_ok;
+            }
+            break;
+        }
+        case MON_ACTIVE: /* do demonitor */
+            rv = enif_demonitor_process(env, r, &r->monv[mix].mon);
+            if (rv == 0) {
+                DBG_TRACE3("Demonitor from r=%p rix=%u to %T\n",
+                           r, r->rix, r->monv[mix].pid.pid);
+                r->monv[mix].state = MON_FREE_DEMONITOR;
+            }
+            else {
+                DBG_TRACE4("Demonitor from r=%p rix=%u to %T FAILED with %d\n",
+                           r, r->rix, r->monv[mix].pid.pid, rv);
+                r->monv[mix].state = MON_PENDING;
+            }
+            retval = enif_make_int(env,rv);
+            break;
+
+        case MON_PENDING: /* waiting for 'down' callback, do nothing */
+            retval = atom_ok;
+            break;
+        default:
+            abort();
+            break;
+        }
+        enif_mutex_unlock(r->monv[mix].lock);
+        enif_release_resource(r);
+	break;
+
+    case 3: /* no-op */
+        retval = atom_ok;
+        break;
+    }
+
+    {
+        int percent = (rand_bits(&rnd, 6) + 1) * 2;  /* 2 to 128 */
+        if (percent <= 100)
+            enif_consume_timeslice(env, percent);
+    }
+
+    return retval;
+}
+
+static void frenzy_resource_dtor(ErlNifEnv* env, void* obj)
+{
+    struct frenzy_resource* r = (struct frenzy_resource*) obj;
+    unsigned int mix;
+
+    DBG_TRACE2("DTOR r=%p rix=%u\n", r, r->rix);
+
+    for (mix = 0; mix < FRENZY_MONITORS_MAX; mix++) {
+        assert(r->monv[mix].state != MON_PENDING);
+        enif_mutex_destroy(r->monv[mix].lock);
+        r->monv[mix].lock = NULL;
+    }
+
+}
+
+static void frenzy_resource_down(ErlNifEnv* env, void* obj, ErlNifPid* pid,
+                                 ErlNifMonitor* mon)
+{
+    struct frenzy_resource* r = (struct frenzy_resource*) obj;
+    unsigned int mix;
+
+    DBG_TRACE3("DOWN pid=%T, r=%p rix=%u\n", pid->pid, r, r->rix);
+
+    for (mix = 0; mix < FRENZY_MONITORS_MAX; mix++) {
+        if (r->monv[mix].pid.pid == pid->pid && r->monv[mix].state >= MON_TRYING) {
+            enif_mutex_lock(r->monv[mix].lock);
+            if (memcmp(mon, &r->monv[mix].mon, sizeof(*mon)) == 0) {
+                assert(r->monv[mix].state >= MON_ACTIVE);
+                r->monv[mix].state = MON_FREE_DOWN;
+                enif_mutex_unlock(r->monv[mix].lock);
+                return;
+            }
+            enif_mutex_unlock(r->monv[mix].lock);
+        }
+    }
+    enif_fprintf(stderr, "DOWN called for unknown monitor\n");
+    abort();
+}
+
+
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -2318,7 +2850,11 @@ static ErlNifFunc nif_funcs[] =
     {"write_nif", 2, write_nif},
     {"read_nif", 2, read_nif},
     {"is_closed_nif", 1, is_closed_nif},
-    {"last_fd_stop_call", 0, last_fd_stop_call}
+    {"last_fd_stop_call", 0, last_fd_stop_call},
+    {"alloc_monitor_resource_nif", 0, alloc_monitor_resource_nif},
+    {"monitor_process_nif", 4, monitor_process_nif},
+    {"demonitor_process_nif", 2, demonitor_process_nif},
+    {"monitor_frenzy_nif", 4, monitor_frenzy_nif}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,NULL,upgrade,unload)

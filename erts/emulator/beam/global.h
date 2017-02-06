@@ -66,30 +66,47 @@ struct enif_resource_type_t
     struct erl_module_nif* owner;  /* that created this type and thus implements the destructor*/
     ErlNifResourceDtor* dtor;      /* user destructor function */
     ErlNifResourceStop* stop;
+    ErlNifResourceDown* down;
     erts_refc_t refc;  /* num of resources of this type (HOTSPOT warning)
                           +1 for active erl_module_nif */
     Eterm module;
     Eterm name;
 };
+
 typedef struct
 {
+    erts_smp_mtx_t lock;
+    ErtsMonitor* root;
+    size_t user_data_sz;
+} ErtsResourceMonitors;
+
+typedef struct ErtsResource_
+{
     struct enif_resource_type_t* type;
+    ErtsResourceMonitors* monitors;
+#ifdef ARCH_32
+    byte align__[4];
+#endif
 #ifdef DEBUG
     erts_refc_t nif_refc;
-# ifdef ARCH_32
-    byte align__[4];
+    int dbg_is_dying;
+# ifdef ARCH_64
+    byte dbg_align__[4];
 # endif
 #endif
-
     char data[1];
 }ErtsResource;
 
-#define DATA_TO_RESOURCE(PTR) ((ErtsResource*)((char*)(PTR) - offsetof(ErtsResource,data)))
+#define DATA_TO_RESOURCE(PTR) ErtsContainerStruct(PTR, ErtsResource, data)
+#define erts_resource_ref_size(P) PROC_BIN_SIZE
+
+extern Eterm erts_bld_resource_ref(Eterm** hp, ErlOffHeap*, ErtsResource*);
 
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*, Process* tracee);
 extern void erts_post_nif(struct enif_environment_t* env);
 extern void erts_resource_stop(ErtsResource*, ErlNifEvent, int is_direct_call);
+void erts_fire_nif_monitor(ErtsResource*, Eterm pid, Eterm ref);
 extern Eterm erts_nif_taints(Process* p);
 extern void erts_print_nif_taints(fmtfn_t to, void* to_arg);
 void erts_unload_nif(struct erl_module_nif* nif);
@@ -286,11 +303,9 @@ typedef struct {
     } u;
 } ErtsMagicBinary;
 
-#ifdef ARCH_32
-#define ERTS_MAGIC_BIN_BYTES_TO_ALIGN 4
-#else
-#define ERTS_MAGIC_BIN_BYTES_TO_ALIGN 0
-#endif
+#define ERTS_MAGIC_BIN_BYTES_TO_ALIGN \
+  (offsetof(ErtsMagicBinary,u.aligned.data) - \
+   offsetof(ErtsMagicBinary,u.unaligned.data))
 
 typedef union {
     Binary binary;
@@ -1306,6 +1321,7 @@ void erts_stale_drv_select(Eterm, ErlDrvPort, ErlDrvEvent, int, int);
 
 Port *erts_get_heart_port(void);
 void erts_emergency_close_ports(void);
+void erts_ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon);
 
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_COUNT)
 void erts_lcnt_enable_io_lock_count(int enable);

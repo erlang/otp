@@ -4192,8 +4192,8 @@ static void sweep_one_monitor(ErtsMonitor *mon, void *vpsc)
         ErtsMonitor *rmon;
         Process *rp;
 
-        ASSERT(is_internal_pid(mon->pid));
-        rp = erts_pid2proc(NULL, 0, mon->pid, ERTS_PROC_LOCK_LINK);
+        ASSERT(is_internal_pid(mon->u.pid));
+        rp = erts_pid2proc(NULL, 0, mon->u.pid, ERTS_PROC_LOCK_LINK);
         if (!rp) {
             goto done;
         }
@@ -4294,7 +4294,7 @@ port_fire_one_monitor(ErtsMonitor *mon, void *ctx0)
     Process      *origin;
     ErtsProcLocks origin_locks;
 
-    if (mon->type != MON_TARGET || ! is_pid(mon->pid)) {
+    if (mon->type != MON_TARGET || ! is_pid(mon->u.pid)) {
         return;
     }
     /*
@@ -4303,7 +4303,7 @@ port_fire_one_monitor(ErtsMonitor *mon, void *ctx0)
      */
     origin_locks = ERTS_PROC_LOCKS_MSG_SEND | ERTS_PROC_LOCK_LINK;
 
-    origin = erts_pid2proc(NULL, 0, mon->pid, origin_locks);
+    origin = erts_pid2proc(NULL, 0, mon->u.pid, origin_locks);
     if (origin) {
         DeclareTmpHeapNoproc(lhp,3);
         SweepContext    *ctx = (SweepContext *)ctx0;
@@ -5485,7 +5485,7 @@ typedef struct {
 static void prt_one_monitor(ErtsMonitor *mon, void *vprtd)
 {
     prt_one_lnk_data *prtd = (prt_one_lnk_data *) vprtd;
-    erts_print(prtd->to, prtd->arg, "(%T,%T)", mon->pid,mon->ref);
+    erts_print(prtd->to, prtd->arg, "(%T,%T)", mon->u.pid, mon->ref);
 }
 
 static void prt_one_lnk(ErtsLink *lnk, void *vprtd)
@@ -7630,7 +7630,7 @@ erl_drv_convert_time_unit(ErlDrvTime val,
 						    (int) to);
 }
 
-static void ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon)
+void erts_ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon)
 {
     RefThing *refp;
     ASSERT(is_internal_ref(ref));
@@ -7664,7 +7664,7 @@ static int do_driver_monitor_process(Port *prt,
     erts_add_monitor(&ERTS_P_MONITORS(rp), MON_TARGET, ref, prt->common.id, NIL);
 
     erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-    ref_to_driver_monitor(ref,monitor);
+    erts_ref_to_driver_monitor(ref,monitor);
     return 0;
 }
 
@@ -7713,7 +7713,7 @@ static int do_driver_demonitor_process(Port *prt, Eterm *buf,
 	return 1;
     }
     ASSERT(mon->type == MON_ORIGIN);
-    to = mon->pid;
+    to = mon->u.pid;
     ASSERT(is_internal_pid(to));
     rp = erts_pid2proc_opt(NULL,
 			   0,
@@ -7775,7 +7775,7 @@ static ErlDrvTermData do_driver_get_monitored_process(Port *prt, Eterm *buf,
 	return driver_term_nil;
     }
     ASSERT(mon->type == MON_ORIGIN);
-    to = mon->pid;
+    to = mon->u.pid;
     ASSERT(is_internal_pid(to));
     return (ErlDrvTermData) to;
 }
@@ -7831,7 +7831,7 @@ void erts_fire_port_monitor(Port *prt, Eterm ref)
     }
     callback = prt->drv_ptr->process_exit;
     ASSERT(callback != NULL);
-    ref_to_driver_monitor(ref,&drv_monitor);
+    erts_ref_to_driver_monitor(ref,&drv_monitor);
     ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
     DRV_MONITOR_UNLOCK_PDL(prt);
 #ifdef USE_VM_PROBES

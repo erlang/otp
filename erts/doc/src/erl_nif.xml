@@ -711,6 +711,21 @@ typedef struct {
         <code type="none">
 typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);</code>
         <p>The function prototype of a resource destructor function.</p>
+	<p>The <c>obj</c> argument is a pointer to the resource. The only
+	allowed use for the resource in the destructor is to access its
+	user data one final time. The destructor is guaranteed to be the
+	last callback before the resource is deallocated.</p>
+      </item>
+      <tag><marker id="ErlNifResourceDown"/><c>ErlNifResourceDown</c></tag>
+      <item>
+        <code type="none">
+typedef void ErlNifResourceDown(ErlNifEnv* env, void* obj, const ErlNifPid* pid, const ErlNifMonitor* mon);</code>
+        <p>The function prototype of a resource down function,
+	  called on the behalf of <seealso marker="#enif_monitor_process">
+	  enif_monitor_process</seealso>. <c>obj</c> is the resource, <c>pid</c>
+	  is the identity of the monitored process that is exiting, and <c>mon</c>
+	  is the identity of the monitor.
+	</p>
       </item>
       <tag><marker id="ErlNifResourceStop"/><c>ErlNifResourceStop</c></tag>
       <item>
@@ -1018,6 +1033,29 @@ typedef enum {
           fetching this value, <c>enif_cpu_time</c> invokes
           <seealso marker="#enif_make_badarg">
           <c>enif_make_badarg</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_demonitor_process(ErlNifEnv* env, void* obj,
+      const ErlNifMonitor* mon)</nametext></name>
+      <fsummary>Cancel a process monitor.</fsummary>
+      <desc>
+        <marker id="enif_demonitor_process"></marker>
+        <p>Cancels a monitor created earlier with <seealso marker="enif_monitor_process">
+	<c>enif_monitor_process</c></seealso>. Argument <c>obj</c> is a pointer
+	to the resource holding the monitor and	<c>*mon</c> identifies the monitor.</p>
+        <p>Returns <c>0</c> if the monitor was successfully identified and removed.
+	Returns	a non-zero value if the monitor could not be identified, which means
+	it was either</p>
+	<list type="bulleted">
+          <item>never created for this resource</item>
+          <item>already triggered</item>
+          <item>just about to be triggered by a concurrent thread</item>
+        </list>
+        <p>This function is only thread-safe when the emulator with SMP support
+          is used. It can only be used in a non-SMP emulator from a NIF-calling
+          thread.</p>
       </desc>
     </func>
 
@@ -2137,6 +2175,31 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
+      <name><ret>int</ret><nametext>enif_monitor_process(ErlNifEnv* env, void* obj,
+      const ErlNifPid* target_pid, ErlNifMonitor* mon)</nametext></name>
+      <fsummary>Monitor a process from a resource.</fsummary>
+      <desc>
+        <marker id="enif_monitor_process"></marker>
+        <p>Starts monitoring a process from a resource. When a process is
+          monitored, a process exit results in a call to the provided
+          <seealso marker="ErlNifResourceDown">
+          <c>down</c></seealso> callback associated with the resource type.</p>
+	<p>Argument <c>obj</c> is pointer to the resource to hold the monitor and
+	<c>*target_pid</c> identifies the local process to be monitored.</p>
+	<p>If <c>mon</c> is not <c>NULL</c>, a successful call stores the
+	identity of the monitor	in the struct pointed to by <c>mon</c>.
+	This identifier is used to refer to the monitor for later removal or
+	compare. A monitor is automatically removed when it triggers or when
+	the resource is deallocated.</p>
+        <p>Returns <c>0</c> on success, &lt; 0 if no <c>down</c> callback is
+          provided, and &gt; 0 if the process is no longer alive.</p>
+        <p>This function is only thread-safe when the emulator with SMP support
+          is used. It can only be used in a non-SMP emulator from a NIF-calling
+          thread.</p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>ErlNifTime</ret>
         <nametext>enif_monotonic_time(ErlNifTimeUnit time_unit)</nametext>
       </name>
@@ -2268,8 +2331,8 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	  used together with <seealso marker="#enif_select"><c>enif_select</c></seealso>.</p>
 	<p>Argument <c>init</c> is a pointer to an
 	  <seealso marker="#ErlNifResourceTypeInit"><c>ErlNifResourceTypeInit</c></seealso>
-	  structure that contains the function pointers for the destructor and the stop callback
-	  of the resource type.</p>
+	  structure that contains the function pointers for destructor, down and stop callbacks
+	  for the resource type.</p>
       </desc>
     </func>
 

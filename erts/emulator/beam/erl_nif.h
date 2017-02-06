@@ -142,15 +142,6 @@ typedef struct
 typedef int ErlNifEvent; /* An event to be selected on. */
 //#endif
 
-typedef struct enif_resource_type_t ErlNifResourceType;
-typedef void ErlNifResourceDtor(ErlNifEnv*, void*);
-typedef void ErlNifResourceStop(ErlNifEnv*, void*, ErlNifEvent, int is_direct_call);
-
-typedef struct {
-    ErlNifResourceDtor* dtor;
-    ErlNifResourceStop* stop;  /* at ERL_NIF_SELECT_STOP event */
-} ErlNifResourceTypeInit;
-
 typedef enum
 {
     ERL_NIF_RT_CREATE = 1,
@@ -171,6 +162,19 @@ typedef struct
 {
     ERL_NIF_TERM port_id;  /* internal, may change */
 }ErlNifPort;
+
+typedef ErlDrvMonitor ErlNifMonitor;
+
+typedef struct enif_resource_type_t ErlNifResourceType;
+typedef void ErlNifResourceDtor(ErlNifEnv*, void*);
+typedef void ErlNifResourceStop(ErlNifEnv*, void*, ErlNifEvent, int is_direct_call);
+typedef void ErlNifResourceDown(ErlNifEnv*, void*, ErlNifPid*, ErlNifMonitor*);
+
+typedef struct {
+    ErlNifResourceDtor* dtor;
+    ErlNifResourceStop* stop;  /* at ERL_NIF_SELECT_STOP event */
+    ErlNifResourceDown* down;  /* enif_monitor_process */
+} ErlNifResourceTypeInit;
 
 typedef ErlDrvSysInfo ErlNifSysInfo;
 

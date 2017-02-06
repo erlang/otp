@@ -1866,7 +1866,7 @@ save_time_offset_monitor(ErtsMonitor *mon, void *vcntxt)
 
     cntxt = (ErtsTimeOffsetMonitorContext *) vcntxt;
     mix = (cntxt->ix)++;
-    cntxt->to_mon_info[mix].pid = mon->pid;
+    cntxt->to_mon_info[mix].pid = mon->u.pid;
     to_hp = &cntxt->to_mon_info[mix].heap[0];
 
     ASSERT(is_internal_ref(mon->ref));

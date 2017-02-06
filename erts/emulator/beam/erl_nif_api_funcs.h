@@ -177,6 +177,8 @@ ERL_NIF_API_FUNC_DECL(int,enif_thread_type,(void));
 ERL_NIF_API_FUNC_DECL(int,enif_snprintf,(char * buffer, size_t size, const char *format, ...));
 ERL_NIF_API_FUNC_DECL(int,enif_select,(ErlNifEnv* env, ErlNifEvent e, enum ErlNifSelectFlags flags, void* obj, ERL_NIF_TERM ref));
 ERL_NIF_API_FUNC_DECL(ErlNifResourceType*,enif_open_resource_type_x,(ErlNifEnv*, const char* name_str, const ErlNifResourceTypeInit*, ErlNifResourceFlags flags, ErlNifResourceFlags* tried));
+ERL_NIF_API_FUNC_DECL(int, enif_monitor_process,(ErlNifEnv*,void* obj,const ErlNifPid*,ErlDrvMonitor *monitor));
+ERL_NIF_API_FUNC_DECL(int, enif_demonitor_process,(ErlNifEnv*,void* obj,const ErlDrvMonitor *monitor));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -336,6 +338,8 @@ ERL_NIF_API_FUNC_DECL(ErlNifResourceType*,enif_open_resource_type_x,(ErlNifEnv*,
 #  define enif_snprintf ERL_NIF_API_FUNC_MACRO(enif_snprintf)
 #  define enif_select ERL_NIF_API_FUNC_MACRO(enif_select)
 #  define enif_open_resource_type_x ERL_NIF_API_FUNC_MACRO(enif_open_resource_type_x)
+#  define enif_monitor_process ERL_NIF_API_FUNC_MACRO(enif_monitor_process)
+#  define enif_demonitor_process ERL_NIF_API_FUNC_MACRO(enif_demonitor_process)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

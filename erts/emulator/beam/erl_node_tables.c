@@ -1165,8 +1165,8 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 static void doit_insert_monitor(ErtsMonitor *monitor, void *p)
 {
     Eterm *idp = p;
-    if(is_external(monitor->pid))
-	insert_node(external_thing_ptr(monitor->pid)->node, MONITOR_REF, *idp);
+    if(monitor->type != MON_NIF_TARGET && is_external(monitor->u.pid))
+	insert_node(external_thing_ptr(monitor->u.pid)->node, MONITOR_REF, *idp);
     if(is_external(monitor->ref))
 	insert_node(external_thing_ptr(monitor->ref)->node, MONITOR_REF, *idp);
 }

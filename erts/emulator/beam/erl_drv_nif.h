@@ -64,6 +64,14 @@ enum ErlNifSelectReturn {
     ERL_NIF_SELECT_FAILED         = (1 << 4)
 };
 
+/*
+ * A driver monitor
+ */
+typedef struct {
+    unsigned char data[sizeof(void *)*4];
+} ErlDrvMonitor;
+
+
 #ifdef SIZEOF_CHAR
 #  define SIZEOF_CHAR_SAVED__ SIZEOF_CHAR
 #  undef SIZEOF_CHAR

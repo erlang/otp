@@ -89,6 +89,9 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"hipe_mfait_lock",			NULL			},
 #endif
     {	"nodes_monitors",			NULL			},
+#ifdef ERTS_SMP
+    {	"resource_monitors",			"address"	        },
+#endif
     {   "driver_list",                          NULL                    },
     {	"proc_link",				"pid"			},
     {	"proc_msgq",				"pid"			},
