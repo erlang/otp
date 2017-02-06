@@ -81,7 +81,7 @@
 -record(constraint_list, {type :: 'conj' | 'disj',
 			  list :: [constr()],
                           deps :: deps(),
-                          masks = maps:new() :: #{dep() => mask()},
+                          masks ::  #{dep() => mask()} | 'undefined',
 			  id   :: {'list', dep()} | 'undefined'}).
 
 -type constraint_list() :: #constraint_list{}.
@@ -181,7 +181,6 @@ analyze_scc(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers0) ->
               M <- lists:usort([M || {M, _, _} <- SCC])],
   State2 = traverse_scc(SCC, CServer, DefSet, ModRecs, State1),
   State3 = state__finalize(State2),
-  erlang:garbage_collect(),
   Funs = state__scc(State3),
   pp_constrs_scc(Funs, State3),
   constraints_to_dot_scc(Funs, State3),
@@ -3210,7 +3209,8 @@ order_fun_constraints(State) ->
 
 order_fun_constraints([#constraint_ref{id = Id}|Tail], State) ->
   Cs = state__get_cs(Id, State),
-  {[NewCs], State1} = order_fun_constraints([Cs], [], [], State),
+  {[Cs1], State1} = order_fun_constraints([Cs], [], [], State),
+  NewCs = Cs1#constraint_list{deps = Cs#constraint_list.deps},
   NewState = state__store_constrs(Id, NewCs, State1),
   order_fun_constraints(Tail, NewState);
 order_fun_constraints([], State) ->
@@ -3218,23 +3218,31 @@ order_fun_constraints([], State) ->
 
 order_fun_constraints([#constraint_ref{} = C|Tail], Funs, Acc, State) ->
   order_fun_constraints(Tail, [C|Funs], Acc, State);
-order_fun_constraints([#constraint_list{list = List, type = Type} = C|Tail],
+order_fun_constraints([#constraint_list{list = List,
+                                        type = Type,
+                                        masks = OldMasks} = C|Tail],
 		      Funs, Acc, State) ->
-  {NewList, NewState} =
-    case Type of
-      conj -> order_fun_constraints(List, [], [], State);
-      disj ->
-	FoldFun = fun(X, AccState) ->
-		      {[NewX], NewAccState} =
-			order_fun_constraints([X], [], [], AccState),
-		      {NewX, NewAccState}
-		  end,
-	lists:mapfoldl(FoldFun, State, List)
-    end,
-  C1 = update_constraint_list(C, NewList),
-  Masks = calculate_masks(NewList, 1, []),
-  NewAcc = [update_masks(C1, Masks)|Acc],
-  order_fun_constraints(Tail, Funs, NewAcc, NewState);
+  case OldMasks of
+    undefined ->
+      {NewList, NewState} =
+        case Type of
+          conj -> order_fun_constraints(List, [], [], State);
+          disj ->
+            FoldFun = fun(X, AccState) ->
+                          {[NewX], NewAccState} =
+                            order_fun_constraints([X], [], [], AccState),
+                          {NewX, NewAccState}
+                      end,
+            lists:mapfoldl(FoldFun, State, List)
+        end,
+      NewList2 = reset_deps(NewList, State),
+      C1 = update_constraint_list(C, NewList2),
+      Masks = calculate_masks(NewList, 1, []),
+      NewAcc = [update_masks(C1, Masks)|Acc],
+      order_fun_constraints(Tail, Funs, NewAcc, NewState);
+    M when is_map(M) ->
+      order_fun_constraints(Tail, Funs, [C|Acc], State)
+  end;
 order_fun_constraints([#constraint{} = C|Tail], Funs, Acc, State) ->
   order_fun_constraints(Tail, Funs, [C|Acc], State);
 order_fun_constraints([], Funs, Acc, State) ->
@@ -3243,6 +3251,18 @@ order_fun_constraints([], Funs, Acc, State) ->
 
 update_masks(C, Masks) ->
   C#constraint_list{masks = Masks}.
+
+reset_deps(ConstrList, #state{solvers = Solvers}) ->
+  case lists:member(v1, Solvers) of
+    true ->
+      ConstrList;
+    false ->
+      [reset_deps(Constr) || Constr <- ConstrList]
+  end.
+
+reset_deps(#constraint{}=C) -> C#constraint{deps = []};
+reset_deps(#constraint_list{}=C) -> C#constraint_list{deps = []};
+reset_deps(#constraint_ref{}=C) -> C#constraint_ref{deps = []}.
 
 calculate_masks([C|Cs], I, L0) ->
   calculate_masks(Cs, I+1, [{V, I} || V <- get_deps(C)] ++ L0);

@@ -31,9 +31,8 @@
 	 included_files/1,
 	 from_file/1,
 	 get_default_plt/0,
-	 get_types/1,
+         get_module_types/2,
          get_exported_types/1,
-	 %% insert/3,
 	 insert_list/2,
 	 insert_contract_list/2,
 	 insert_callbacks/2,
@@ -143,6 +142,10 @@ delete_list(#plt{info = Info, types = Types,
 
 -spec insert_contract_list(plt(), dialyzer_contracts:plt_contracts()) -> plt().
 
+insert_contract_list(#plt{contracts = Contracts} = PLT, List) ->
+  NewContracts = dict:merge(fun(_MFA, _Old, New) -> New end,
+                            Contracts, dict:from_list(List)),
+  PLT#plt{contracts = NewContracts};
 insert_contract_list(#mini_plt{contracts = Contracts} = PLT, List) ->
   true = ets:insert(Contracts, List),
   PLT.
@@ -184,20 +187,23 @@ lookup(Plt, Label) when is_integer(Label) ->
 lookup_1(#mini_plt{info = Info}, MFAorLabel) ->
   ets_table_lookup(Info, MFAorLabel).
 
--spec insert_types(plt(), erl_types:mod_records()) -> plt().
+-spec insert_types(plt(), ets:tid()) -> plt().
 
-insert_types(PLT, Rec) ->
-  PLT#plt{types = Rec}.
+insert_types(MiniPLT, Records) ->
+  ets:rename(Records, plt_types),
+  MiniPLT#mini_plt{types = Records}.
 
--spec insert_exported_types(plt(), sets:set()) -> plt().
+-spec insert_exported_types(plt(), ets:tid()) -> plt().
 
-insert_exported_types(PLT, Set) ->
-  PLT#plt{exported_types = Set}.
+insert_exported_types(MiniPLT, ExpTypes) ->
+  ets:rename(ExpTypes, plt_exported_types),
+  MiniPLT#mini_plt{exported_types = ExpTypes}.
 
--spec get_types(plt()) -> erl_types:mod_records().
+-spec get_module_types(plt(), atom()) ->
+                          'none' | {'value', erl_types:type_table()}.
 
-get_types(#plt{types = Types}) ->
-  Types.
+get_module_types(#plt{types = Types}, M) when is_atom(M) ->
+  table_lookup(Types, M).
 
 -spec get_exported_types(plt()) -> sets:set().
 
@@ -520,10 +526,12 @@ get_mini_plt(#plt{info = Info,
                   contracts = Contracts,
                   callbacks = Callbacks,
                   exported_types = ExpTypes}) ->
-  [ETSInfo, ETSTypes, ETSContracts, ETSCallbacks, ETSExpTypes] =
+  [ETSInfo, ETSContracts] =
     [ets:new(Name, [public]) ||
-      Name <- [plt_info, plt_types, plt_contracts, plt_callbacks,
-               plt_exported_types]],
+      Name <- [plt_info, plt_contracts]],
+  [ETSTypes, ETSCallbacks, ETSExpTypes] =
+    [ets:new(Name, [compressed, public]) ||
+      Name <- [plt_types, plt_callbacks, plt_exported_types]],
   CallbackList = dict:to_list(Callbacks),
   CallbacksByModule =
     [{M, [Cb || {{M1,_,_},_} = Cb <- CallbackList, M1 =:= M]} ||

@@ -40,7 +40,7 @@
 	 module_postorder_from_funs/2,
 	 new/0,
 	 get_depends_on/2,
-	 get_required_by/2,
+	 %% get_required_by/2,
 	 in_neighbours/2,
 	 renew_race_info/4,
 	 renew_race_code/2,
@@ -250,12 +250,12 @@ get_depends_on(SCC, #callgraph{active_digraph = {'e', Out, _In, Maps}}) ->
 get_depends_on(SCC, #callgraph{active_digraph = {'d', DG}}) ->
   digraph:out_neighbours(DG, SCC).
 
--spec get_required_by(scc() | module(), callgraph()) -> [scc()].
+%% -spec get_required_by(scc() | module(), callgraph()) -> [scc()].
 
-get_required_by(SCC, #callgraph{active_digraph = {'e', _Out, In, Maps}}) ->
-  lookup_scc(SCC, In, Maps);
-get_required_by(SCC, #callgraph{active_digraph = {'d', DG}}) ->
-  digraph:in_neighbours(DG, SCC).
+%% get_required_by(SCC, #callgraph{active_digraph = {'e', _Out, In, Maps}}) ->
+%%   lookup_scc(SCC, In, Maps);
+%% get_required_by(SCC, #callgraph{active_digraph = {'d', DG}}) ->
+%%   digraph:in_neighbours(DG, SCC).
 
 lookup_scc(SCC, Table, Maps) ->
   case ets_lookup_dict({'scc', SCC}, Maps) of
@@ -285,9 +285,11 @@ module_postorder(#callgraph{digraph = DG}) ->
   Nodes = sets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
   MDG = digraph:new([acyclic]),
   digraph_confirm_vertices(sets:to_list(Nodes), MDG),
-  Foreach = fun({M1,M2}) -> digraph:add_edge(MDG, M1, M2) end,
+  Foreach = fun({M1,M2}) -> _ = digraph:add_edge(MDG, M1, M2) end,
   lists:foreach(Foreach, sets:to_list(Edges)),
-  {digraph_utils:topsort(MDG), {'d', MDG}}.
+  %% The out-neighbors of a vertex are the vertices called directly.
+  %% The used vertices are to occur *before* the calling vertex:
+  {lists:reverse(digraph_utils:topsort(MDG)), {'d', MDG}}.
 
 edge_fold({{M1,_,_},{M2,_,_}}, Set) ->
   case M1 =/= M2 of
@@ -305,7 +307,7 @@ module_deps(#callgraph{digraph = DG}) ->
   Nodes = sets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
   MDG = digraph:new(),
   digraph_confirm_vertices(sets:to_list(Nodes), MDG),
-  Foreach = fun({M1,M2}) -> digraph:add_edge(MDG, M1, M2) end,
+  Foreach = fun({M1,M2}) -> check_add_edge(MDG, M1, M2) end,
   lists:foreach(Foreach, sets:to_list(Edges)),
   Deps = [{N, ordsets:from_list(digraph:in_neighbours(MDG, N))}
 	  || N <- sets:to_list(Nodes)],
@@ -552,8 +554,20 @@ digraph_add_edge(From, To, DG) ->
     false -> digraph:add_vertex(DG, To);
     {To, _} -> ok
   end,
-  digraph:add_edge(DG, {From, To}, From, To, []),
+  check_add_edge(DG, {From, To}, From, To, []),
   ok.
+
+check_add_edge(G, V1, V2) ->
+  case digraph:add_edge(G, V1, V2) of
+    {error, Error} -> exit({add_edge, V1, V2, Error});
+    _Edge -> ok
+  end.
+
+check_add_edge(G, E, V1, V2, L) ->
+  case digraph:add_edge(G, E, V1, V2, L) of
+    {error, Error} -> exit({add_edge, E, V1, V2, L, Error});
+    _Edge -> ok
+  end.
 
 digraph_confirm_vertices([MFA|Left], DG) ->
   digraph:add_vertex(DG, MFA, confirmed),
@@ -762,28 +776,53 @@ to_ps(#callgraph{} = CG, File, Args) ->
   ok.
 
 condensation(G) ->
-  SCCs = digraph_utils:strong_components(G),
-  %% Assign unique numbers to SCCs:
-  Ints = lists:seq(1, length(SCCs)),
-  IntToSCC = lists:zip(Ints, SCCs),
-  IntScc = sofs:relation(IntToSCC, [{int, scc}]),
-  %% Subsitute strong components for vertices in edges using the
-  %% unique numbers:
-  C2V = sofs:relation([{SC, V} || SC <- SCCs, V <- SC], [{scc, v}]),
-  I2V = sofs:relative_product(IntScc, C2V), % [{v, int}]
-  Es = sofs:relation(digraph:edges(G), [{v, v}]),
-  R1 = sofs:relative_product(I2V, Es),
-  R2 = sofs:relative_product(I2V, sofs:converse(R1)),
-  %% Create in- and out-neighbours:
-  In = sofs:relation_to_family(sofs:strict_relation(R2)),
-  R3 = sofs:converse(R2),
-  Out = sofs:relation_to_family(sofs:strict_relation(R3)),
-  [OutETS, InETS, MapsETS] =
-    [ets:new(Name,[{read_concurrency, true}]) ||
-      Name <- [callgraph_deps_out, callgraph_deps_in, callgraph_scc_map]],
-  ets:insert(OutETS, sofs:to_external(Out)),
-  ets:insert(InETS, sofs:to_external(In)),
-  %% Create mappings from SCCs to unique integers, and the inverse:
-  ets:insert(MapsETS, lists:zip([{'scc', SCC} || SCC<- SCCs], Ints)),
-  ets:insert(MapsETS, IntToSCC),
-  {{'e', OutETS, InETS, MapsETS}, SCCs}.
+  erlang:garbage_collect(), % reduce heap size
+  {Pid, Ref} = erlang:spawn_monitor(do_condensation(G, self())),
+  receive {'DOWN', Ref, process, Pid, Result} ->
+      {SCCInts, OutETS, InETS, MapsETS} = Result,
+      NewSCCs = [ets:lookup_element(MapsETS, SCCInt, 2) || SCCInt <- SCCInts],
+      {{'e', OutETS, InETS, MapsETS}, NewSCCs}
+  end.
+
+-spec do_condensation(digraph:graph(), pid()) -> fun(() -> no_return()).
+
+do_condensation(G, Parent) ->
+  fun() ->
+      [OutETS, InETS, MapsETS] =
+        [ets:new(Name,[{read_concurrency, true}]) ||
+          Name <- [callgraph_deps_out, callgraph_deps_in, callgraph_scc_map]],
+      SCCs = digraph_utils:strong_components(G),
+      %% Assign unique numbers to SCCs:
+      Ints = lists:seq(1, length(SCCs)),
+      IntToSCC = lists:zip(Ints, SCCs),
+      IntScc = sofs:relation(IntToSCC, [{int, scc}]),
+      %% Create mapping from unique integers to SCCs:
+      ets:insert(MapsETS, IntToSCC),
+      %% Subsitute strong components for vertices in edges using the
+      %% unique numbers:
+      C2V = sofs:relation([{SC, V} || SC <- SCCs, V <- SC], [{scc, v}]),
+      I2V = sofs:relative_product(IntScc, C2V), % [{v, int}]
+      Es = sofs:relation(digraph:edges(G), [{v, v}]),
+      R1 = sofs:relative_product(I2V, Es),
+      R2 = sofs:relative_product(I2V, sofs:converse(R1)),
+      R2Strict = sofs:strict_relation(R2),
+      %% Create out-neighbours:
+      Out = sofs:relation_to_family(sofs:converse(R2Strict)),
+      ets:insert(OutETS, sofs:to_external(Out)),
+      %% Sort the SCCs topologically:
+      DG = sofs:family_to_digraph(Out),
+      lists:foreach(fun(I) -> digraph:add_vertex(DG, I) end, Ints),
+      SCCInts0 = digraph_utils:topsort(DG),
+      digraph:delete(DG),
+      %% The out-neighbors of a vertex are the vertices called directly.
+      %% The used vertices are to occur *before* the calling vertex:
+      SCCInts = lists:reverse(SCCInts0),
+      %% Create in-neighbours:
+      In = sofs:relation_to_family(R2Strict),
+      ets:insert(InETS, sofs:to_external(In)),
+      %% Create mapping from SCCs to unique integers:
+      ets:insert(MapsETS, lists:zip([{'scc', SCC} || SCC<- SCCs], Ints)),
+      lists:foreach(fun(E) -> true = ets:give_away(E, Parent, any)
+                    end, [OutETS, InETS, MapsETS]),
+      exit({SCCInts, OutETS, InETS, MapsETS})
+  end.

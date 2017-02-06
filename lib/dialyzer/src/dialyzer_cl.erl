@@ -30,6 +30,8 @@
 
 -record(cl_state,
 	{backend_pid                      :: pid() | 'undefined',
+         code_server     = none           :: 'none'
+                                           | dialyzer_codeserver:codeserver(),
 	 erlang_mode     = false          :: boolean(),
 	 external_calls  = []             :: [mfa()],
          external_types  = []             :: [mfa()],
@@ -630,6 +632,9 @@ cl_loop(State, LogCache) ->
     {BackendPid, warnings, Warnings} ->
       NewState = store_warnings(State, Warnings),
       cl_loop(NewState, LogCache);
+    {BackendPid, cserver, CodeServer, _Plt} -> % Plt is ignored
+      NewState = State#cl_state{code_server = CodeServer},
+      cl_loop(NewState, LogCache);
     {BackendPid, done, NewMiniPlt, _NewDocPlt} ->
       return_value(State, NewMiniPlt);
     {BackendPid, ext_calls, ExtCalls} ->
@@ -647,7 +652,6 @@ cl_loop(State, LogCache) ->
       cl_error(State, Msg);
     _Other ->
       %% io:format("Received ~p\n", [_Other]),
-      %% Note: {BackendPid, cserver, CodeServer, Plt} is ignored.
       cl_loop(State, LogCache)
   end.
 
@@ -688,18 +692,34 @@ cl_error(State, Msg) ->
   maybe_close_output_file(State),
   throw({dialyzer_error, lists:flatten(Msg)}).
 
-return_value(State = #cl_state{erlang_mode = ErlangMode,
+return_value(State = #cl_state{code_server = CodeServer,
+                               erlang_mode = ErlangMode,
 			       mod_deps = ModDeps,
 			       output_plt = OutputPlt,
 			       plt_info = PltInfo,
 			       stored_warnings = StoredWarnings},
 	     MiniPlt) ->
+  %% Just for now:
+  case CodeServer =:= none of
+    true ->
+      ok;
+    false ->
+      dialyzer_codeserver:delete(CodeServer)
+  end,
   case OutputPlt =:= none of
     true ->
       dialyzer_plt:delete(MiniPlt);
     false ->
-      Plt = dialyzer_plt:restore_full_plt(MiniPlt),
-      dialyzer_plt:to_file(OutputPlt, Plt, ModDeps, PltInfo)
+      Fun = to_file_fun(OutputPlt, MiniPlt, ModDeps, PltInfo),
+      {Pid, Ref} = erlang:spawn_monitor(Fun),
+      dialyzer_plt:give_away(MiniPlt, Pid),
+      Pid ! go,
+      receive {'DOWN', Ref, process, Pid, Result} ->
+          case Result of
+            ok -> ok;
+            Thrown -> throw(Thrown)
+          end
+      end
   end,
   UnknownWarnings = unknown_warnings(State),
   RetValue =
@@ -718,6 +738,16 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
       AllWarnings =
         UnknownWarnings ++ process_warnings(StoredWarnings),
       {RetValue, set_warning_id(AllWarnings)}
+  end.
+
+-spec to_file_fun(_, _, _, _) -> fun(() -> no_return()).
+
+to_file_fun(Filename, MiniPlt, ModDeps, PltInfo) ->
+  fun() ->
+      receive go -> ok end,
+      Plt = dialyzer_plt:restore_full_plt(MiniPlt),
+      dialyzer_plt:to_file(Filename, Plt, ModDeps, PltInfo),
+      exit(ok)
   end.
 
 unknown_warnings(State = #cl_state{legal_warnings = LegalWarnings}) ->

@@ -37,9 +37,9 @@
          get_fun_meta_info/3,
          is_suppressed_fun/2,
          is_suppressed_tag/3,
-	 merge_records/2,
 	 pp_hook/0,
 	 process_record_remote_types/1,
+         merge_types/2,
          sets_filter/2,
 	 src_compiler_opts/0,
 	 refold_pattern/1,
@@ -188,7 +188,6 @@ get_core_from_abstract_code(AbstrCode, Opts) ->
 %% ============================================================================
 
 -type type_table() :: erl_types:type_table().
--type mod_records()   :: dict:dict(module(), type_table()).
 
 -spec get_record_and_type_info(abstract_code()) ->
 	{'ok', type_table()} | {'error', string()}.
@@ -289,18 +288,18 @@ get_record_fields([{record_field, _Line, Name, _Init}|Left], RecDict, Acc) ->
 get_record_fields([], _RecDict, Acc) ->
   lists:reverse(Acc).
 
--spec process_record_remote_types(codeserver()) ->
-                                     {codeserver(), mod_records()}.
+-spec process_record_remote_types(codeserver()) -> codeserver().
 
 %% The field types are cached. Used during analysis when handling records.
 process_record_remote_types(CServer) ->
-  TempRecords = dialyzer_codeserver:get_temp_records(CServer),
   ExpTypes = dialyzer_codeserver:get_exported_types(CServer),
-  TempRecords1 = process_opaque_types0(TempRecords, ExpTypes),
-  %% A cache (not the field type cache) is used for speeding things up a bit.
+  Mods = dialyzer_codeserver:all_temp_modules(CServer),
+  process_opaque_types0(Mods, CServer, ExpTypes),
   VarTable = erl_types:var_table__new(),
+  RecordTable = dialyzer_codeserver:get_temp_records_table(CServer),
   ModuleFun =
-    fun({Module, Record}) ->
+    fun(Module) ->
+        RecordMap = dialyzer_codeserver:lookup_temp_mod_records(Module, CServer),
         RecordFun =
           fun({Key, Value}, C2) ->
               case Key of
@@ -313,7 +312,7 @@ process_record_remote_types(CServer) ->
                                              {FieldT, C6} =
                                                erl_types:t_from_form
                                                  (Field, ExpTypes, Site,
-                                                  TempRecords1, VarTable,
+                                                  RecordTable, VarTable,
                                                   C5),
                                           {{FieldName, Field, FieldT}, C6}
                                       end, C4, Fields),
@@ -328,30 +327,29 @@ process_record_remote_types(CServer) ->
           end,
         Cache = erl_types:cache__new(),
         {RecordList, _NewCache} =
-          lists:mapfoldl(RecordFun, Cache, maps:to_list(Record)),
-        {Module, maps:from_list(RecordList)}
+          lists:mapfoldl(RecordFun, Cache, maps:to_list(RecordMap)),
+        dialyzer_codeserver:store_temp_records(Module,
+                                               maps:from_list(RecordList),
+                                               CServer)
     end,
-  NewRecordsList = lists:map(ModuleFun, dict:to_list(TempRecords1)),
-  NewRecords = dict:from_list(NewRecordsList),
-  check_record_fields(NewRecords, ExpTypes),
-  {dialyzer_codeserver:finalize_records(NewRecords, CServer), NewRecords}.
+  lists:foreach(ModuleFun, Mods),
+  check_record_fields(Mods, CServer, ExpTypes),
+  dialyzer_codeserver:finalize_records(CServer).
 
 %% erl_types:t_from_form() substitutes the declaration of opaque types
 %% for the expanded type in some cases. To make sure the initial type,
 %% any(), is not used, the expansion is done twice.
 %% XXX: Recursive opaque types are not handled well.
-process_opaque_types0(TempRecords0, TempExpTypes) ->
-  Cache = erl_types:cache__new(),
-  {TempRecords1, Cache1} =
-    process_opaque_types(TempRecords0, TempExpTypes, Cache),
-  {TempRecords, _NewCache} =
-    process_opaque_types(TempRecords1, TempExpTypes, Cache1),
-  TempRecords.
+process_opaque_types0(AllModules, CServer, TempExpTypes) ->
+  process_opaque_types(AllModules, CServer, TempExpTypes),
+  process_opaque_types(AllModules, CServer, TempExpTypes).
 
-process_opaque_types(TempRecords, TempExpTypes, Cache) ->
+process_opaque_types(AllModules, CServer, TempExpTypes) ->
   VarTable = erl_types:var_table__new(),
+  RecordTable = dialyzer_codeserver:get_temp_records_table(CServer),
   ModuleFun =
-    fun({Module, Record}, C0) ->
+    fun(Module) ->
+        RecordMap = dialyzer_codeserver:lookup_temp_mod_records(Module, CServer),
         RecordFun =
           fun({Key, Value}, C2) ->
               case Key of
@@ -360,32 +358,32 @@ process_opaque_types(TempRecords, TempExpTypes, Cache) ->
                   Site = {type, {Module, Name, NArgs}},
                   {Type, C3} =
                     erl_types:t_from_form(Form, TempExpTypes, Site,
-                                          TempRecords, VarTable, C2),
+                                          RecordTable, VarTable, C2),
                   {{Key, {F, Type}}, C3};
                 _Other -> {{Key, Value}, C2}
               end
           end,
-        {RecordList, C1} =
-          lists:mapfoldl(RecordFun, C0, maps:to_list(Record)),
-        {{Module, maps:from_list(RecordList)}, C1}
-        %% dict:map(RecordFun, Record)
+        C0 = erl_types:cache__new(),
+        {RecordList, _NewCache} =
+          lists:mapfoldl(RecordFun, C0, maps:to_list(RecordMap)),
+        dialyzer_codeserver:store_temp_records(Module,
+                                               maps:from_list(RecordList),
+                                               CServer)
     end,
-  {TempRecordList, NewCache} =
-    lists:mapfoldl(ModuleFun, Cache, dict:to_list(TempRecords)),
-  {dict:from_list(TempRecordList), NewCache}.
-  %% dict:map(ModuleFun, TempRecords).
+  lists:foreach(ModuleFun, AllModules).
 
-check_record_fields(Records, TempExpTypes) ->
-  Cache = erl_types:cache__new(),
+check_record_fields(AllModules, CServer, TempExpTypes) ->
   VarTable = erl_types:var_table__new(),
+  RecordTable = dialyzer_codeserver:get_temp_records_table(CServer),
   CheckFun =
-    fun({Module, Element}, C0) ->
+    fun(Module) ->
         CheckForm = fun(Form, Site, C1) ->
                         erl_types:t_check_record_fields(Form, TempExpTypes,
-                                                        Site, Records,
+                                                        Site, RecordTable,
                                                         VarTable, C1)
                   end,
-        ElemFun =
+        RecordMap = dialyzer_codeserver:lookup_temp_mod_records(Module, CServer),
+        RecordFun =
           fun({Key, Value}, C2) ->
               case Key of
                 {record, Name} ->
@@ -406,10 +404,10 @@ check_record_fields(Records, TempExpTypes) ->
                   msg_with_position(Fun, FileLine)
               end
           end,
-        lists:foldl(ElemFun, C0, maps:to_list(Element))
+        C0 = erl_types:cache__new(),
+        _ = lists:foldl(RecordFun, C0, maps:to_list(RecordMap))
     end,
-  _NewCache = lists:foldl(CheckFun, Cache, dict:to_list(Records)),
-  ok.
+  lists:foreach(CheckFun, AllModules).
 
 msg_with_position(Fun, FileLine) ->
   try Fun()
@@ -421,10 +419,37 @@ msg_with_position(Fun, FileLine) ->
       throw({error, NewMsg})
   end.
 
--spec merge_records(mod_records(), mod_records()) -> mod_records().
+-spec merge_types(codeserver(), dialyzer_plt:plt()) -> codeserver().
 
-merge_records(NewRecords, OldRecords) ->
-  dict:merge(fun(_Key, NewVal, _OldVal) -> NewVal end, NewRecords, OldRecords).
+merge_types(CServer, Plt) ->
+  AllNewModules = dialyzer_codeserver:all_temp_modules(CServer),
+  AllNewModulesSet = sets:from_list(AllNewModules),
+  AllOldModulesSet = dialyzer_plt:all_modules(Plt),
+  AllModulesSet = sets:union(AllNewModulesSet, AllOldModulesSet),
+  ModuleFun =
+    fun(Module) ->
+        KeepOldFun =
+          fun() ->
+              case dialyzer_plt:get_module_types(Plt, Module) of
+                none -> no;
+                {value, OldRecords} ->
+                  case sets:is_element(Module, AllNewModulesSet) of
+                    true -> no;
+                    false -> {yes, OldRecords}
+                  end
+              end
+          end,
+        Records =
+          case KeepOldFun() of
+            no ->
+              dialyzer_codeserver:lookup_temp_mod_records(Module, CServer);
+            {yes, OldRecords} ->
+              OldRecords
+          end,
+        dialyzer_codeserver:store_temp_records(Module, Records, CServer)
+    end,
+  lists:foreach(ModuleFun, sets:to_list(AllModulesSet)),
+  CServer.
 
 %% ============================================================================
 %%

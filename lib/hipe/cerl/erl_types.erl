@@ -4429,9 +4429,17 @@ mod_name(Mod, Name) ->
 -type site()  :: {'type', mta()} | {'spec', mfa()} | {'record', mra()}.
 -type cache_key() :: {module(), atom(), expand_depth(),
                       [erl_type()], type_names()}.
--opaque cache() :: #{cache_key() => {erl_type(), expand_limit()}}.
+-type mod_type_table() :: ets:tid().
+-record(cache,
+        {
+          types = maps:new() :: #{cache_key() => {erl_type(), expand_limit()}},
+          mod_recs = {mrecs, dict:new()} :: 'undefined'
+                                          | {'mrecs', mod_records()}
+        }).
 
--spec t_from_form(parse_form(), sets:set(mfa()), site(), mod_records(),
+-opaque cache() :: #cache{}.
+
+-spec t_from_form(parse_form(), sets:set(mfa()), site(), mod_type_table(),
                   var_table(), cache()) -> {erl_type(), cache()}.
 
 t_from_form(Form, ExpTypes, Site, RecDict, VarTab, Cache) ->
@@ -4443,11 +4451,12 @@ t_from_form(Form, ExpTypes, Site, RecDict, VarTab, Cache) ->
 
 t_from_form_without_remote(Form, Site, TypeTable) ->
   Module = site_module(Site),
-  RecDict = dict:from_list([{Module, TypeTable}]),
+  ModRecs = dict:from_list([{Module, TypeTable}]),
   ExpTypes = replace_by_none,
   VarTab = var_table__new(),
-  Cache = cache__new(),
-  t_from_form1(Form, ExpTypes, Site, RecDict, VarTab, Cache).
+  Cache0 = cache__new(),
+  Cache = Cache0#cache{mod_recs = {mrecs, ModRecs}},
+  t_from_form1(Form, ExpTypes, Site, undefined, VarTab, Cache).
 
 %% REC_TYPE_LIMIT is used for limiting the depth of recursive types.
 %% EXPAND_LIMIT is used for limiting the size of types by
@@ -4462,13 +4471,13 @@ t_from_form_without_remote(Form, Site, TypeTable) ->
 
 -record(from_form, {site   :: site(),
                     xtypes :: sets:set(mfa()) | 'replace_by_none',
-                    mrecs  :: mod_records(),
+                    mrecs  :: 'undefined' | mod_type_table(),
                     vtab   :: var_table(),
                     tnames :: type_names()}).
 
 -spec t_from_form1(parse_form(), sets:set(mfa()) | 'replace_by_none',
-                   site(), mod_records(), var_table(), cache()) ->
-                      {erl_type(), cache()}.
+                   site(), 'undefined' | mod_type_table(), var_table(),
+                   cache()) -> {erl_type(), cache()}.
 
 t_from_form1(Form, ET, Site, MR, V, C) ->
   TypeNames = initial_typenames(Site),
@@ -4714,13 +4723,13 @@ from_form({opaque, _L, Name, {Mod, Args, Rep}}, _S, _D, L, C) ->
 builtin_type(Name, Type, S, D, L, C) ->
   #from_form{site = Site, mrecs = MR} = S,
   M = site_module(Site),
-  case dict:find(M, MR) of
-    {ok, R} ->
+  case lookup_module_types(M, MR, C) of
+    {R, C1} ->
       case lookup_type(Name, 0, R) of
         {_, {{_M, _FL, _F, _A}, _T}} ->
-          type_from_form(Name, [], S, D, L, C);
+          type_from_form(Name, [], S, D, L, C1);
         error ->
-          {Type, L, C}
+          {Type, L, C1}
       end;
     error ->
       {Type, L, C}
@@ -4733,9 +4742,9 @@ type_from_form(Name, Args, S, D, L, C) ->
   TypeName = {type, {Module, Name, ArgsLen}},
   case can_unfold_more(TypeName, TypeNames) of
     true ->
-      {ok, R} = dict:find(Module, MR),
+      {R, C1} = lookup_module_types(Module, MR, C),
       type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames,
-                      S, D, L, C);
+                      S, D, L, C1);
     false ->
       {t_any(), L, C}
   end.
@@ -4787,24 +4796,24 @@ remote_from_form(RemMod, Name, Args, S, D, L, C) ->
     true ->
       ArgsLen = length(Args),
       MFA = {RemMod, Name, ArgsLen},
-      case dict:find(RemMod, MR) of
+      case lookup_module_types(RemMod, MR, C) of
         error ->
           self() ! {self(), ext_types, MFA},
           {t_any(), L, C};
-        {ok, RemDict} ->
+        {RemDict, C1} ->
           case sets:is_element(MFA, ET) of
             true ->
               RemType = {type, MFA},
               case can_unfold_more(RemType, TypeNames) of
                 true ->
                   remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict,
-                                    RemType, TypeNames, S, D, L, C);
+                                    RemType, TypeNames, S, D, L, C1);
                 false ->
-                  {t_any(), L, C}
+                  {t_any(), L, C1}
               end;
             false ->
               self() ! {self(), ext_types, {RemMod, Name, ArgsLen}},
-              {t_any(), L, C}
+              {t_any(), L, C1}
           end
       end
   end.
@@ -4879,15 +4888,15 @@ record_from_form({atom, _, Name}, ModFields, S, D0, L0, C) ->
   case can_unfold_more(RecordType, TypeNames) of
     true ->
       M = site_module(Site),
-      {ok, R} = dict:find(M, MR),
+      {R, C1} = lookup_module_types(M, MR, C),
       case lookup_record(Name, R) of
         {ok, DeclFields} ->
           NewTypeNames = [RecordType|TypeNames],
           Site1 = {record, {M, Name, length(DeclFields)}},
           S1 = S#from_form{site = Site1, tnames = NewTypeNames},
           Fun = fun(D, L) ->
-                    {GetModRec, L1, C1} =
-                      get_mod_record(ModFields, DeclFields, S1, D, L, C),
+                    {GetModRec, L1, C2} =
+                      get_mod_record(ModFields, DeclFields, S1, D, L, C1),
                     case GetModRec of
                       {error, FieldName} ->
                         throw({error,
@@ -4895,12 +4904,12 @@ record_from_form({atom, _, Name}, ModFields, S, D0, L0, C) ->
                                              [Name, FieldName])});
                       {ok, NewFields} ->
                         S2 = S1#from_form{vtab = var_table__new()},
-                        {NewFields1, L2, C2} =
-                          fields_from_form(NewFields, S2, D, L1, C1),
+                        {NewFields1, L2, C3} =
+                          fields_from_form(NewFields, S2, D, L1, C2),
                         Rec = t_tuple(
                                 [t_atom(Name)|[Type
                                                || {_FieldName, Type} <- NewFields1]]),
-                        {Rec, L2, C2}
+                        {Rec, L2, C3}
                     end
                 end,
           recur_limit(Fun, D0, L0, RecordType, TypeNames);
@@ -5031,7 +5040,7 @@ recur_limit(Fun, D, L, TypeName, TypeNames) ->
   end.
 
 -spec t_check_record_fields(parse_form(), sets:set(mfa()), site(),
-                            mod_records(), var_table(), cache()) -> cache().
+                            mod_type_table(), var_table(), cache()) -> cache().
 
 t_check_record_fields(Form, ExpTypes, Site, RecDict, VarTable, Cache) ->
   State = #from_form{site   = Site,
@@ -5075,13 +5084,13 @@ check_record_fields({user_type, _L, _Name, Args}, S, C) ->
 check_record({atom, _, Name}, ModFields, S, C) ->
   #from_form{site = Site, mrecs = MR} = S,
   M = site_module(Site),
-  {ok, R} = dict:find(M, MR),
+  {R, C1} = lookup_module_types(M, MR, C),
   {ok, DeclFields} = lookup_record(Name, R),
-  case check_fields(Name, ModFields, DeclFields, S, C) of
+  case check_fields(Name, ModFields, DeclFields, S, C1) of
     {error, FieldName} ->
        throw({error, io_lib:format("Illegal declaration of #~w{~w}\n",
                                    [Name, FieldName])});
-    C1 -> C1
+    C2 -> C2
   end.
 
 check_fields(RecName, [{type, _, field_type, [{atom, _, Name}, Abstr]}|Left],
@@ -5111,7 +5120,7 @@ site_module({_, {Module, _, _}}) ->
 -spec cache__new() -> cache().
 
 cache__new() ->
-  maps:new().
+  #cache{}.
 
 -spec cache_key(module(), atom(), [erl_type()],
                 type_names(), expand_depth()) -> cache_key().
@@ -5128,8 +5137,8 @@ cache_key(Module, Name, ArgTypes, TypeNames, D) ->
 -spec cache_find(cache_key(), cache()) ->
                     {erl_type(), expand_limit()} | 'error'.
 
-cache_find(Key, Cache) ->
-  case maps:find(Key, Cache) of
+cache_find(Key, #cache{types = Types}) ->
+  case maps:find(Key, Types) of
     {ok, Value} ->
       Value;
     error ->
@@ -5141,8 +5150,9 @@ cache_find(Key, Cache) ->
 cache_put(_Key, _Type, DeltaL, Cache) when DeltaL < 0 ->
   %% The type is truncated; do not reuse it.
   Cache;
-cache_put(Key, Type, DeltaL, Cache) ->
-  maps:put(Key, {Type, DeltaL}, Cache).
+cache_put(Key, Type, DeltaL, #cache{types = Types} = Cache) ->
+  NewTypes = maps:put(Key, {Type, DeltaL}, Types),
+  Cache#cache{types = NewTypes}.
 
 -spec t_var_names([erl_type()]) -> [atom()].
 
@@ -5241,14 +5251,12 @@ t_form_to_string({type, _L, union, Args}) ->
 t_form_to_string({type, _L, Name, []} = T) ->
    try
      M = mod,
-     D0 = maps:new(),
-     MR = dict:from_list([{M, D0}]),
      Site = {type, {M,Name,0}},
      V = var_table__new(),
      C = cache__new(),
      State = #from_form{site   = Site,
                         xtypes = sets:new(),
-                        mrecs  = MR,
+                        mrecs  = 'undefined',
                         vtab   = V,
                         tnames = []},
      {T1, _, _} = from_form(T, State, _Deep=1000, _ALot=1000000, C),
@@ -5301,6 +5309,28 @@ is_erl_type(?none) -> true;
 is_erl_type(?unit) -> true;
 is_erl_type(#c{}) -> true;
 is_erl_type(_) -> false.
+
+-spec lookup_module_types(module(), mod_type_table(), cache()) ->
+                             'error' | {type_table(), cache()}.
+
+lookup_module_types(Module, CodeTable, Cache) ->
+  #cache{mod_recs = ModRecs} = Cache,
+  case ModRecs of
+    undefined -> error;
+    {mrecs, MRecs} ->
+      case dict:find(Module, MRecs) of
+        {ok, R} ->
+          {R, Cache};
+        error ->
+          try ets:lookup_element(CodeTable, Module, 2) of
+            R ->
+              NewMRecs = dict:store(Module, R, MRecs),
+              {R, Cache#cache{mod_recs = {mrecs, NewMRecs}}}
+          catch
+            _:_ -> error
+          end
+      end
+  end.
 
 -spec lookup_record(atom(), type_table()) ->
         'error' | {'ok', [{atom(), parse_form(), erl_type()}]}.

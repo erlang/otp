@@ -114,7 +114,6 @@ loop(#server_state{parent = Parent} = State,
 %% The Analysis
 %%--------------------------------------------------------------------
 
-%% Calls to erlang:garbage_collect() help to reduce the heap size.
 analysis_start(Parent, Analysis, LegalWarnings) ->
   CServer = dialyzer_codeserver:new(),
   Plt = Analysis#analysis.plt,
@@ -136,11 +135,9 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
   %% Remote type postprocessing
   NewCServer =
     try
-      NewRecords = dialyzer_codeserver:get_temp_records(TmpCServer0),
+      TmpCServer1 = dialyzer_utils:merge_types(TmpCServer0, Plt),
       NewExpTypes = dialyzer_codeserver:get_temp_exported_types(TmpCServer0),
-      OldRecords = dialyzer_plt:get_types(Plt),
       OldExpTypes0 = dialyzer_plt:get_exported_types(Plt),
-      MergedRecords = dialyzer_utils:merge_records(NewRecords, OldRecords),
       RemMods =
         [case Analysis#analysis.start_from of
            byte_code -> list_to_atom(filename:basename(F, ".beam"));
@@ -148,25 +145,20 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
          end || F <- Files],
       OldExpTypes1 = dialyzer_utils:sets_filter(RemMods, OldExpTypes0),
       MergedExpTypes = sets:union(NewExpTypes, OldExpTypes1),
-      TmpCServer1 = dialyzer_codeserver:set_temp_records(MergedRecords, TmpCServer0),
       TmpCServer2 =
         dialyzer_codeserver:finalize_exported_types(MergedExpTypes, TmpCServer1),
-      erlang:garbage_collect(),
+      erlang:garbage_collect(), % reduce heap size
       ?timing(State#analysis_state.timing_server, "remote",
               contracts_and_records(TmpCServer2))
     catch
       throw:{error, _ErrorMsg} = Error -> exit(Error)
     end,
-  NewPlt0 = dialyzer_plt:insert_types(Plt, dialyzer_codeserver:get_records(NewCServer)),
-  ExpTypes = dialyzer_codeserver:get_exported_types(NewCServer),
-  NewPlt1 = dialyzer_plt:insert_exported_types(NewPlt0, ExpTypes),
-  State0 = State#analysis_state{plt = NewPlt1},
-  dump_callgraph(Callgraph, State0, Analysis),
+  dump_callgraph(Callgraph, State, Analysis),
   %% Remove all old versions of the files being analyzed
   AllNodes = dialyzer_callgraph:all_nodes(Callgraph),
-  Plt1_a = dialyzer_plt:delete_list(NewPlt1, AllNodes),
+  Plt1_a = dialyzer_plt:delete_list(Plt, AllNodes),
   Plt1 = dialyzer_plt:insert_callbacks(Plt1_a, NewCServer),
-  State1 = State0#analysis_state{codeserver = NewCServer, plt = Plt1},
+  State1 = State#analysis_state{codeserver = NewCServer, plt = Plt1},
   Exports = dialyzer_codeserver:get_exports(NewCServer),
   NonExports = sets:subtract(sets:from_list(AllNodes), Exports),
   NonExportsList = sets:to_list(NonExports),
@@ -176,14 +168,17 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
       false -> Callgraph
     end,
   State2 = analyze_callgraph(NewCallgraph, State1),
-  #analysis_state{plt = MiniPlt2, doc_plt = DocPlt} = State2,
+  #analysis_state{plt = MiniPlt2,
+                  doc_plt = DocPlt,
+                  codeserver = Codeserver0} = State2,
+  {Codeserver, MiniPlt3} = move_data(Codeserver0, MiniPlt2),
   dialyzer_callgraph:dispose_race_server(NewCallgraph),
   rcv_and_send_ext_types(Parent),
   %% Since the PLT is never used, a dummy is sent:
   DummyPlt = dialyzer_plt:new(),
-  send_codeserver_plt(Parent, CServer, DummyPlt),
-  MiniPlt3 = dialyzer_plt:delete_list(MiniPlt2, NonExportsList),
-  send_analysis_done(Parent, MiniPlt3, DocPlt).
+  send_codeserver_plt(Parent, Codeserver, DummyPlt),
+  MiniPlt4 = dialyzer_plt:delete_list(MiniPlt3, NonExportsList),
+  send_analysis_done(Parent, MiniPlt4, DocPlt).
 
 contracts_and_records(CodeServer) ->
   Fun = contrs_and_recs(CodeServer),
@@ -200,14 +195,19 @@ contracts_and_records(CodeServer) ->
 contrs_and_recs(TmpCServer2) ->
   fun() ->
       Parent = receive {Pid, go} -> Pid end,
-      {TmpCServer3, RecordDict} =
-        dialyzer_utils:process_record_remote_types(TmpCServer2),
+      TmpCServer3 = dialyzer_utils:process_record_remote_types(TmpCServer2),
       TmpServer4 =
-        dialyzer_contracts:process_contract_remote_types(TmpCServer3,
-                                                         RecordDict),
+        dialyzer_contracts:process_contract_remote_types(TmpCServer3),
       dialyzer_codeserver:give_away(TmpServer4, Parent),
       exit(TmpServer4)
   end.
+
+move_data(CServer, MiniPlt) ->
+  {CServer1, Records} = dialyzer_codeserver:extract_records(CServer),
+  MiniPlt1 = dialyzer_plt:insert_types(MiniPlt, Records),
+  {NewCServer, ExpTypes} = dialyzer_codeserver:extract_exported_types(CServer1),
+  NewMiniPlt = dialyzer_plt:insert_exported_types(MiniPlt1, ExpTypes),
+  {NewCServer, NewMiniPlt}.
 
 analyze_callgraph(Callgraph, #analysis_state{codeserver = Codeserver,
 					     doc_plt = DocPlt,
@@ -603,6 +603,7 @@ send_ext_types(Parent, ExtTypes) ->
   ok.
 
 send_codeserver_plt(Parent, CServer, Plt) ->
+  ok = dialyzer_codeserver:give_away(CServer, Parent),
   Parent ! {self(), cserver, CServer, Plt},
   ok.
 
