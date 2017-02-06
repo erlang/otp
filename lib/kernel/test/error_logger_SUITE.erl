@@ -30,6 +30,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
+         off_heap/1,
 	 error_report/1, info_report/1, error/1, info/1,
 	 emulator/1, tty/1, logfile/1, add/1, delete/1]).
 
@@ -45,7 +46,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [error_report, info_report, error, info, emulator, tty,
+    [off_heap, error_report, info_report, error, info, emulator, tty,
      logfile, add, delete].
 
 groups() -> 
@@ -63,6 +64,16 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+
+%%-----------------------------------------------------------------
+
+off_heap(_Config) ->
+    %% The error_logger process may receive a huge amount of
+    %% messages. Make sure that they are stored off heap to
+    %% avoid exessive GCs.
+    MQD = message_queue_data,
+    {MQD,off_heap} = process_info(whereis(error_logger), MQD),
+    ok.
 
 %%-----------------------------------------------------------------
 

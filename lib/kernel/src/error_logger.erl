@@ -360,8 +360,12 @@ init(Max) when is_integer(Max) ->
 %% go back.
 init({go_back, _PostState}) ->  
     {ok, {?buffer_size, 0, []}};
-init(_) ->  %% Start and just relay to other
-    {ok, []}.             %% node if node(GLeader) =/= node().
+init(_) ->
+    %% The error logger process may receive a huge amount of
+    %% messages. Make sure that they are stored off heap to
+    %% avoid exessive GCs.
+    process_flag(message_queue_data, off_heap),
+    {ok, []}.
 
 -spec handle_event(term(), state()) -> {'ok', state()}.
 
