@@ -110,8 +110,21 @@
 #define HeapWordsLeft(p) (HEAP_LIMIT(p) - HEAP_TOP(p))
 
 #if defined(DEBUG) || defined(CHECK_FOR_HOLES)
-# define ERTS_HOLE_MARKER (((0xdeadbeef << 24) << 8) | 0xdeadbeef)
-#endif /* egil: 32-bit ? */
+
+/*
+ * ERTS_HOLE_MARKER must *not* be mistaken for a valid term
+ * on the heap...
+ */
+#  ifdef ARCH_64
+#    define ERTS_HOLE_MARKER \
+    make_catch(UWORD_CONSTANT(0xdeadbeaf00000000) >> _TAG_IMMED2_SIZE)
+/* Will (at the time of writing) appear as 0xdeadbeaf0000001b */
+#  else
+#    define ERTS_HOLE_MARKER \
+    make_catch(UWORD_CONSTANT(0xdead0000) >> _TAG_IMMED2_SIZE)
+/* Will (at the time of writing) appear as 0xdead001b */
+#  endif
+#endif
 
 /*
  * Allocate heap memory on the ordinary heap, NEVER in a heap
