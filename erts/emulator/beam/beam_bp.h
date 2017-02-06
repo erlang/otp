@@ -41,7 +41,7 @@ typedef struct {
 typedef struct bp_data_time {     /* Call time */
     Uint n;
     bp_time_hash_t *hash;
-    erts_refc_t refc;
+    erts_smp_refc_t refc;
 } BpDataTime;
 
 typedef struct {
@@ -51,12 +51,12 @@ typedef struct {
 
 typedef struct {
     erts_smp_atomic_t acount;
-    erts_refc_t refc;
+    erts_smp_refc_t refc;
 } BpCount;
 
 typedef struct {
     erts_smp_atomic_t tracer;
-    erts_refc_t refc;
+    erts_smp_refc_t refc;
 } BpMetaTracer;
 
 typedef struct generic_bp_data {

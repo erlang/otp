@@ -1103,8 +1103,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
         <marker id="driver_binary_dec_refc"></marker>
         <p>Decrements the reference count on <c>bin</c> and returns
           the reference count reached after the decrement.</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
+        <p>This function is thread-safe.</p>
         <note>
           <p>The reference count of driver binary is normally to be decremented
             by calling <seealso marker="#driver_free_binary">
@@ -1124,8 +1123,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
       <desc>
         <marker id="driver_binary_get_refc"></marker>
         <p>Returns the current reference count on <c>bin</c>.</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 
@@ -1137,8 +1135,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
         <marker id="driver_binary_inc_refc"></marker>
         <p>Increments the reference count on <c>bin</c> and returns
           the reference count reached after the increment.</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 
@@ -1434,8 +1431,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
         <seealso marker="#driver_alloc_binary">
         <c>driver_alloc_binary</c></seealso>. As binaries
           in Erlang are reference counted, the binary can still be around.</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 
@@ -1872,8 +1868,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
         <p>Resizes a driver binary, while keeping the data.</p>
         <p>Returns the resized driver binary on success. Returns <c>NULL</c>
           on failure (out of memory).</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 

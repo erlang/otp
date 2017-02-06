@@ -134,7 +134,7 @@ typedef struct {
     void         *handle;             /* Handle for DLL or SO (for dyn. drivers). */
     DE_ProcEntry *procs;              /* List of pids that have loaded this driver,
 				         or that wait for it to change state */
-    erts_refc_t  refc;                /* Number of ports/processes having
+    erts_smp_refc_t  refc;                /* Number of ports/processes having
 					 references to the driver */
     erts_smp_atomic32_t port_count;   /* Number of ports using the driver */
     Uint         flags;               /* ERL_DE_FL_KILL_PORTS */

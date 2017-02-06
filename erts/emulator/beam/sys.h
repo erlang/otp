@@ -889,7 +889,7 @@ void sys_alloc_stat(SysAllocStat *);
 #define ERTS_REFC_DEBUG
 #endif
 
-typedef erts_smp_atomic_t erts_refc_t;
+typedef erts_atomic_t erts_refc_t;
 
 ERTS_GLB_INLINE void erts_refc_init(erts_refc_t *refcp, erts_aint_t val);
 ERTS_GLB_INLINE void erts_refc_inc(erts_refc_t *refcp, erts_aint_t min_val);
@@ -908,27 +908,27 @@ ERTS_GLB_INLINE erts_aint_t erts_refc_read(erts_refc_t *refcp,
 ERTS_GLB_INLINE void
 erts_refc_init(erts_refc_t *refcp, erts_aint_t val)
 {
-    erts_smp_atomic_init_nob((erts_smp_atomic_t *) refcp, val);
+    erts_atomic_init_nob((erts_atomic_t *) refcp, val);
 }
 
 ERTS_GLB_INLINE void
 erts_refc_inc(erts_refc_t *refcp, erts_aint_t min_val)
 {
 #ifdef ERTS_REFC_DEBUG
-    erts_aint_t val = erts_smp_atomic_inc_read_nob((erts_smp_atomic_t *) refcp);
+    erts_aint_t val = erts_atomic_inc_read_nob((erts_atomic_t *) refcp);
     if (val < min_val)
 	erts_exit(ERTS_ABORT_EXIT,
 		 "erts_refc_inc(): Bad refc found (refc=%ld < %ld)!\n",
 		 val, min_val);
 #else
-    erts_smp_atomic_inc_nob((erts_smp_atomic_t *) refcp);
+    erts_atomic_inc_nob((erts_atomic_t *) refcp);
 #endif
 }
 
 ERTS_GLB_INLINE erts_aint_t
 erts_refc_inctest(erts_refc_t *refcp, erts_aint_t min_val)
 {
-    erts_aint_t val = erts_smp_atomic_inc_read_nob((erts_smp_atomic_t *) refcp);
+    erts_aint_t val = erts_atomic_inc_read_nob((erts_atomic_t *) refcp);
 #ifdef ERTS_REFC_DEBUG
     if (val < min_val)
 	erts_exit(ERTS_ABORT_EXIT,
@@ -942,20 +942,20 @@ ERTS_GLB_INLINE void
 erts_refc_dec(erts_refc_t *refcp, erts_aint_t min_val)
 {
 #ifdef ERTS_REFC_DEBUG
-    erts_aint_t val = erts_smp_atomic_dec_read_nob((erts_smp_atomic_t *) refcp);
+    erts_aint_t val = erts_atomic_dec_read_nob((erts_atomic_t *) refcp);
     if (val < min_val)
 	erts_exit(ERTS_ABORT_EXIT,
 		 "erts_refc_dec(): Bad refc found (refc=%ld < %ld)!\n",
 		 val, min_val);
 #else
-    erts_smp_atomic_dec_nob((erts_smp_atomic_t *) refcp);
+    erts_atomic_dec_nob((erts_atomic_t *) refcp);
 #endif
 }
 
 ERTS_GLB_INLINE erts_aint_t
 erts_refc_dectest(erts_refc_t *refcp, erts_aint_t min_val)
 {
-    erts_aint_t val = erts_smp_atomic_dec_read_nob((erts_smp_atomic_t *) refcp);
+    erts_aint_t val = erts_atomic_dec_read_nob((erts_atomic_t *) refcp);
 #ifdef ERTS_REFC_DEBUG
     if (val < min_val)
 	erts_exit(ERTS_ABORT_EXIT,
@@ -969,20 +969,20 @@ ERTS_GLB_INLINE void
 erts_refc_add(erts_refc_t *refcp, erts_aint_t diff, erts_aint_t min_val)
 {
 #ifdef ERTS_REFC_DEBUG
-    erts_aint_t val = erts_smp_atomic_add_read_nob((erts_smp_atomic_t *) refcp, diff);
+    erts_aint_t val = erts_atomic_add_read_nob((erts_atomic_t *) refcp, diff);
     if (val < min_val)
 	erts_exit(ERTS_ABORT_EXIT,
 		 "erts_refc_add(%ld): Bad refc found (refc=%ld < %ld)!\n",
 		 diff, val, min_val);
 #else
-    erts_smp_atomic_add_nob((erts_smp_atomic_t *) refcp, diff);
+    erts_atomic_add_nob((erts_atomic_t *) refcp, diff);
 #endif
 }
 
 ERTS_GLB_INLINE erts_aint_t
 erts_refc_read(erts_refc_t *refcp, erts_aint_t min_val)
 {
-    erts_aint_t val = erts_smp_atomic_read_nob((erts_smp_atomic_t *) refcp);
+    erts_aint_t val = erts_atomic_read_nob((erts_atomic_t *) refcp);
 #ifdef ERTS_REFC_DEBUG
     if (val < min_val)
 	erts_exit(ERTS_ABORT_EXIT,
@@ -993,6 +993,112 @@ erts_refc_read(erts_refc_t *refcp, erts_aint_t min_val)
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
+typedef erts_smp_atomic_t erts_smp_refc_t;
+
+ERTS_GLB_INLINE void erts_smp_refc_init(erts_smp_refc_t *refcp, erts_aint_t val);
+ERTS_GLB_INLINE void erts_smp_refc_inc(erts_smp_refc_t *refcp, erts_aint_t min_val);
+ERTS_GLB_INLINE erts_aint_t erts_smp_refc_inctest(erts_smp_refc_t *refcp,
+                                                  erts_aint_t min_val);
+ERTS_GLB_INLINE void erts_smp_refc_dec(erts_smp_refc_t *refcp, erts_aint_t min_val);
+ERTS_GLB_INLINE erts_aint_t erts_smp_refc_dectest(erts_smp_refc_t *refcp,
+                                                  erts_aint_t min_val);
+ERTS_GLB_INLINE void erts_smp_refc_add(erts_smp_refc_t *refcp, erts_aint_t diff,
+                                       erts_aint_t min_val);
+ERTS_GLB_INLINE erts_aint_t erts_smp_refc_read(erts_smp_refc_t *refcp,
+                                               erts_aint_t min_val);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE void
+erts_smp_refc_init(erts_smp_refc_t *refcp, erts_aint_t val)
+{
+    erts_smp_atomic_init_nob((erts_smp_atomic_t *) refcp, val);
+}
+
+ERTS_GLB_INLINE void
+erts_smp_refc_inc(erts_smp_refc_t *refcp, erts_aint_t min_val)
+{
+#ifdef ERTS_REFC_DEBUG
+    erts_aint_t val = erts_smp_atomic_inc_read_nob((erts_smp_atomic_t *) refcp);
+    if (val < min_val)
+	erts_exit(ERTS_ABORT_EXIT,
+		 "erts_smp_refc_inc(): Bad refc found (refc=%ld < %ld)!\n",
+		 val, min_val);
+#else
+    erts_smp_atomic_inc_nob((erts_smp_atomic_t *) refcp);
+#endif
+}
+
+ERTS_GLB_INLINE erts_aint_t
+erts_smp_refc_inctest(erts_smp_refc_t *refcp, erts_aint_t min_val)
+{
+    erts_aint_t val = erts_smp_atomic_inc_read_nob((erts_smp_atomic_t *) refcp);
+#ifdef ERTS_REFC_DEBUG
+    if (val < min_val)
+	erts_exit(ERTS_ABORT_EXIT,
+		 "erts_smp_refc_inctest(): Bad refc found (refc=%ld < %ld)!\n",
+		 val, min_val);
+#endif
+    return val;
+}
+
+ERTS_GLB_INLINE void
+erts_smp_refc_dec(erts_smp_refc_t *refcp, erts_aint_t min_val)
+{
+#ifdef ERTS_REFC_DEBUG
+    erts_aint_t val = erts_smp_atomic_dec_read_nob((erts_smp_atomic_t *) refcp);
+    if (val < min_val)
+	erts_exit(ERTS_ABORT_EXIT,
+		 "erts_smp_refc_dec(): Bad refc found (refc=%ld < %ld)!\n",
+		 val, min_val);
+#else
+    erts_smp_atomic_dec_nob((erts_smp_atomic_t *) refcp);
+#endif
+}
+
+ERTS_GLB_INLINE erts_aint_t
+erts_smp_refc_dectest(erts_smp_refc_t *refcp, erts_aint_t min_val)
+{
+    erts_aint_t val = erts_smp_atomic_dec_read_nob((erts_smp_atomic_t *) refcp);
+#ifdef ERTS_REFC_DEBUG
+    if (val < min_val)
+	erts_exit(ERTS_ABORT_EXIT,
+		 "erts_smp_refc_dectest(): Bad refc found (refc=%ld < %ld)!\n",
+		 val, min_val);
+#endif
+    return val;
+}
+
+ERTS_GLB_INLINE void
+erts_smp_refc_add(erts_smp_refc_t *refcp, erts_aint_t diff, erts_aint_t min_val)
+{
+#ifdef ERTS_REFC_DEBUG
+    erts_aint_t val = erts_smp_atomic_add_read_nob((erts_smp_atomic_t *) refcp, diff);
+    if (val < min_val)
+	erts_exit(ERTS_ABORT_EXIT,
+		 "erts_smp_refc_add(%ld): Bad refc found (refc=%ld < %ld)!\n",
+		 diff, val, min_val);
+#else
+    erts_smp_atomic_add_nob((erts_smp_atomic_t *) refcp, diff);
+#endif
+}
+
+ERTS_GLB_INLINE erts_aint_t
+erts_smp_refc_read(erts_smp_refc_t *refcp, erts_aint_t min_val)
+{
+    erts_aint_t val = erts_smp_atomic_read_nob((erts_smp_atomic_t *) refcp);
+#ifdef ERTS_REFC_DEBUG
+    if (val < min_val)
+	erts_exit(ERTS_ABORT_EXIT,
+		 "erts_smp_refc_read(): Bad refc found (refc=%ld < %ld)!\n",
+		 val, min_val);
+#endif
+    return val;
+}
+
+#endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
 
 #ifdef ERTS_ENABLE_KERNEL_POLL
 extern int erts_use_kernel_poll;

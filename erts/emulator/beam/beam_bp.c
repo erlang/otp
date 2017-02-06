@@ -392,17 +392,17 @@ consolidate_bp_data(Module* modp, ErtsCodeInfo *ci, int local)
     }
     if (flags & ERTS_BPF_META_TRACE) {
 	dst->meta_tracer = src->meta_tracer;
-	erts_refc_inc(&dst->meta_tracer->refc, 1);
+	erts_smp_refc_inc(&dst->meta_tracer->refc, 1);
 	dst->meta_ms = src->meta_ms;
 	MatchSetRef(dst->meta_ms);
     }
     if (flags & ERTS_BPF_COUNT) {
 	dst->count = src->count;
-	erts_refc_inc(&dst->count->refc, 1);
+	erts_smp_refc_inc(&dst->count->refc, 1);
     }
     if (flags & ERTS_BPF_TIME_TRACE) {
 	dst->time = src->time;
-	erts_refc_inc(&dst->time->refc, 1);
+	erts_smp_refc_inc(&dst->time->refc, 1);
 	ASSERT(dst->time->hash);
     }
 }
@@ -1576,7 +1576,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 	MatchSetRef(match_spec);
 	bp->meta_ms = match_spec;
 	bmt = Alloc(sizeof(BpMetaTracer));
-	erts_refc_init(&bmt->refc, 1);
+	erts_smp_refc_init(&bmt->refc, 1);
         erts_tracer_update(&meta_tracer, tracer); /* copy tracer */
 	erts_smp_atomic_init_nob(&bmt->tracer, (erts_aint_t)meta_tracer);
 	bp->meta_tracer = bmt;
@@ -1585,7 +1585,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 
 	ASSERT((bp->flags & ERTS_BPF_COUNT) == 0);
 	bcp = Alloc(sizeof(BpCount));
-	erts_refc_init(&bcp->refc, 1);
+	erts_smp_refc_init(&bcp->refc, 1);
 	erts_smp_atomic_init_nob(&bcp->acount, 0);
 	bp->count = bcp;
     } else if (break_flags & ERTS_BPF_TIME_TRACE) {
@@ -1594,7 +1594,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 
 	ASSERT((bp->flags & ERTS_BPF_TIME_TRACE) == 0);
 	bdt = Alloc(sizeof(BpDataTime));
-	erts_refc_init(&bdt->refc, 1);
+	erts_smp_refc_init(&bdt->refc, 1);
 #ifdef ERTS_DIRTY_SCHEDULERS
 	bdt->n = erts_no_schedulers + 1;
 #else
@@ -1664,7 +1664,7 @@ clear_function_break(ErtsCodeInfo *ci, Uint break_flags)
 static void
 bp_meta_unref(BpMetaTracer* bmt)
 {
-    if (erts_refc_dectest(&bmt->refc, 0) <= 0) {
+    if (erts_smp_refc_dectest(&bmt->refc, 0) <= 0) {
         ErtsTracer trc = erts_smp_atomic_read_nob(&bmt->tracer);
         ERTS_TRACER_CLEAR(&trc);
 	Free(bmt);
@@ -1674,7 +1674,7 @@ bp_meta_unref(BpMetaTracer* bmt)
 static void
 bp_count_unref(BpCount* bcp)
 {
-    if (erts_refc_dectest(&bcp->refc, 0) <= 0) {
+    if (erts_smp_refc_dectest(&bcp->refc, 0) <= 0) {
 	Free(bcp);
     }
 }
@@ -1682,7 +1682,7 @@ bp_count_unref(BpCount* bcp)
 static void
 bp_time_unref(BpDataTime* bdt)
 {
-    if (erts_refc_dectest(&bdt->refc, 0) <= 0) {
+    if (erts_smp_refc_dectest(&bdt->refc, 0) <= 0) {
 	Uint i = 0;
 	Uint j = 0;
 	Process *h_p = NULL;

@@ -2082,7 +2082,7 @@ erts_dist_command(Port *prt, int reds_limit)
 
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
 
-    erts_refc_inc(&dep->refc, 1); /* Otherwise dist_entry might be
+    erts_smp_refc_inc(&dep->refc, 1); /* Otherwise dist_entry might be
 				     removed if port command fails */
 
     erts_smp_atomic_set_mb(&dep->dist_cmd_scheduled, 0);
@@ -2515,7 +2515,7 @@ info_dist_entry(fmtfn_t to, void *arg, DistEntry *dep, int visible, int connecte
 
   erts_print(to, arg, "Name: %T", dep->sysname);
 #ifdef DEBUG
-  erts_print(to, arg, " (refc=%d)", erts_refc_read(&dep->refc, 0));
+  erts_print(to, arg, " (refc=%d)", erts_smp_refc_read(&dep->refc, 0));
 #endif
   erts_print(to, arg, "\n");
   if (!connected && is_nil(dep->cid)) {

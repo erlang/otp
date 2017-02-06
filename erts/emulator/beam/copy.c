@@ -850,7 +850,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 		    funp = (ErlFunThing *) tp;
 		    funp->next = off_heap->first;
 		    off_heap->first = (struct erl_off_heap_header*) funp;
-		    erts_refc_inc(&funp->fe->refc, 2);
+		    erts_smp_refc_inc(&funp->fe->refc, 2);
 		    *argp = make_fun(tp);
 		}
 		break;
@@ -869,7 +869,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 
 		  etp->next = off_heap->first;
 		  off_heap->first = (struct erl_off_heap_header*)etp;
-		  erts_refc_inc(&etp->node->refc, 2);
+		  erts_smp_refc_inc(&etp->node->refc, 2);
 
 		  *argp = make_external(tp);
 		}
@@ -1525,7 +1525,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		}
 		funp->next = off_heap->first;
 		off_heap->first = (struct erl_off_heap_header*) funp;
-		erts_refc_inc(&funp->fe->refc, 2);
+		erts_smp_refc_inc(&funp->fe->refc, 2);
 		goto cleanup_next;
 	    }
 	    case MAP_SUBTAG:
@@ -1660,7 +1660,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		}
 		etp->next = off_heap->first;
 		off_heap->first = (struct erl_off_heap_header*) etp;
-		erts_refc_inc(&etp->node->refc, 2);
+		erts_smp_refc_inc(&etp->node->refc, 2);
 		goto cleanup_next;
 	    }
 	    default:
@@ -1836,7 +1836,7 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	    case FUN_SUBTAG:
 		{
 		    ErlFunThing* funp = (ErlFunThing *) (tp-1);
-		    erts_refc_inc(&funp->fe->refc, 2);
+		    erts_smp_refc_inc(&funp->fe->refc, 2);
 		}
 		goto off_heap_common;
 	    case EXTERNAL_PID_SUBTAG:
@@ -1844,7 +1844,7 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	    case EXTERNAL_REF_SUBTAG:
 		{
 		    ExternalThing* etp = (ExternalThing *) (tp-1);
-		    erts_refc_inc(&etp->node->refc, 2);
+		    erts_smp_refc_inc(&etp->node->refc, 2);
 		}
 	    off_heap_common:
 		{

@@ -6888,12 +6888,6 @@ ErlDrvSizeT driver_vec_to_buf(ErlIOVec *vec, char *buf, ErlDrvSizeT len)
     return (orig_len - len);
 }
 
-
-/*
- * - driver_alloc_binary() is thread safe (efile driver depend on it).
- * - driver_realloc_binary(), and driver_free_binary() are *not* thread safe.
- */
-
 /*
  * reference count on driver binaries...
  */
@@ -6936,26 +6930,15 @@ driver_alloc_binary(ErlDrvSizeT size)
     return Binary2ErlDrvBinary(bin);
 }
 
-/* Reallocate space hold by binary */
+/* Reallocate space held by binary */
 
 ErlDrvBinary* driver_realloc_binary(ErlDrvBinary* bin, ErlDrvSizeT size)
 {
     Binary* oldbin;
     Binary* newbin;
 
-    if (!bin) {
-	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp,
-		      "Bad use of driver_realloc_binary(%p, %lu): "
-		      "called with ",
-		      bin, (unsigned long)size);
-	if (!bin) {
-	    erts_dsprintf(dsbufp, "NULL pointer as first argument");
-	}
-	erts_send_warning_to_logger_nogl(dsbufp);
-	if (!bin)
-	    return driver_alloc_binary(size);
-    }
+    if (!bin)
+	return driver_alloc_binary(size);
 
     oldbin = ErlDrvBinary2Binary(bin);
     newbin = (Binary *) erts_bin_realloc_fnf(oldbin, size);
@@ -6969,14 +6952,8 @@ ErlDrvBinary* driver_realloc_binary(ErlDrvBinary* bin, ErlDrvSizeT size)
 void driver_free_binary(ErlDrvBinary* dbin)
 {
     Binary *bin;
-    if (!dbin) {
-	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp,
-		      "Bad use of driver_free_binary(%p): called with "
-		      "NULL pointer as argument", dbin);
-	erts_send_warning_to_logger_nogl(dsbufp);
+    if (!dbin)
 	return;
-    }
 
     bin = ErlDrvBinary2Binary(dbin);
     if (erts_refc_dectest(&bin->refc, 0) == 0)
