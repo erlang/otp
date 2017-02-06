@@ -1911,7 +1911,25 @@ case X$erl_xcomp_bigendian in
     *) AC_MSG_ERROR([Bad erl_xcomp_bigendian value: $erl_xcomp_bigendian]);;
 esac
 
-AC_C_BIGENDIAN
+AC_C_BIGENDIAN(
+	[
+	 AC_DEFINE([WORDS_BIGENDIAN], [1], [Define if big-endian])
+	 AC_DEFINE([ERTS_ENDIANNESS], [1], [Define > 0 if big-endian < 0 if little-endian, or 0 if unknown])
+	],
+	[
+	 AC_DEFINE([ERTS_ENDIANNESS], [-1], [Define > 0 if big-endian < 0 if little-endian, or 0 if unknown])
+	],
+	[
+	  case "$erl_xcomp_bigendian" in
+	    yes)
+	     AC_DEFINE([ERTS_ENDIANNESS], [1], [Define > 0 if big-endian < 0 if little-endian, or 0 if unknown]);;
+	    no)
+	     AC_DEFINE([ERTS_ENDIANNESS], [-1], [Define > 0 if big-endian < 0 if little-endian, or 0 if unknown]);;
+	    *)
+	     AC_DEFINE([ERTS_ENDIANNESS], [0], [Define > 0 if big-endian < 0 if little-endian, or 0 if unknown]);;
+	  esac
+	])	
+
 AC_C_DOUBLE_MIDDLE_ENDIAN
 
 dnl fdatasync syscall (Unix only)

@@ -199,7 +199,7 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 		goto res_no_proc;
 	    case ERTS_PORT_OP_SCHEDULED:
 		if (refp) {
-		    ASSERT(is_internal_ref(ref));
+		    ASSERT(is_internal_ordinary_ref(ref));
 		    BIF_TRAP3(await_port_send_result_trap, BIF_P, ref, am_true, am_true);
 		}
 	    default:
@@ -782,7 +782,7 @@ local_name_monitor(Process *self, Eterm type, Eterm target_name)
         case ERTS_PORT_OP_DONE:
             return ret;
         case ERTS_PORT_OP_SCHEDULED: { /* Scheduled a signal */
-            ASSERT(is_internal_ref(ret));
+            ASSERT(is_internal_ordinary_ref(ret));
             BIF_TRAP3(await_port_send_result_trap, self,
                       ret, am_true, ret);
             /* bif_trap returns */
@@ -1180,7 +1180,7 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 		res = erts_port_unlink(BIF_P, prt, BIF_P->common.id, refp);
 
 		if (refp && res == ERTS_PORT_OP_SCHEDULED) {
-		    ASSERT(is_internal_ref(ref));
+		    ASSERT(is_internal_ordinary_ref(ref));
 		    BIF_TRAP3(await_port_send_result_trap, BIF_P, ref, am_true, am_true);
 		}
 	    }
@@ -1586,7 +1586,7 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
 	     ERTS_BIF_CHK_EXITED(BIF_P);
 
 	     if (refp && res == ERTS_PORT_OP_SCHEDULED) {
-		 ASSERT(is_internal_ref(ref));
+		 ASSERT(is_internal_ordinary_ref(ref));
 		 BIF_TRAP3(await_port_send_result_trap, BIF_P, ref, am_true, am_true);
 	     }
 
@@ -2221,7 +2221,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
 		/* Fall through */
 	    case ERTS_PORT_OP_SCHEDULED:
 		if (is_not_nil(*refp)) {
-		    ASSERT(is_internal_ref(*refp));
+		    ASSERT(is_internal_ordinary_ref(*refp));
 		    ret_val = SEND_AWAIT_RESULT;
 		}
 		break;
@@ -2409,7 +2409,7 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 	ERTS_BIF_PREP_YIELD_RETURN(retval, p, am_ok);
         break;
     case SEND_AWAIT_RESULT:
-	ASSERT(is_internal_ref(ref));
+	ASSERT(is_internal_ordinary_ref(ref));
 	ERTS_BIF_PREP_TRAP3(retval, await_port_send_result_trap, p, ref, am_nosuspend, am_ok);
 	break;
     case SEND_BADARG:
@@ -2446,7 +2446,7 @@ BIF_RETTYPE send_2(BIF_ALIST_2)
 
 static BIF_RETTYPE dsend_continue_trap_1(BIF_ALIST_1)
 {
-    Binary* bin = ((ProcBin*) binary_val(BIF_ARG_1))->val;
+    Binary* bin = erts_magic_ref2bin(BIF_ARG_1);
     ErtsSendContext* ctx = (ErtsSendContext*) ERTS_MAGIC_BIN_DATA(bin);
     Sint initial_reds = (Sint) (ERTS_BIF_REDS_LEFT(BIF_P) * TERM_TO_BINARY_LOOP_FACTOR);
     int result;
@@ -2526,7 +2526,7 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
 	ERTS_BIF_PREP_YIELD_RETURN(retval, p, msg);
         break;
     case SEND_AWAIT_RESULT:
-	ASSERT(is_internal_ref(ref));
+	ASSERT(is_internal_ordinary_ref(ref));
 	ERTS_BIF_PREP_TRAP3(retval,
 			    await_port_send_result_trap, p, ref, msg, msg);
 	break;
@@ -4109,6 +4109,7 @@ BIF_RETTYPE ref_to_list_1(BIF_ALIST_1)
 {
     if (is_not_ref(BIF_ARG_1))
 	BIF_ERROR(BIF_P, BADARG);
+    erts_magic_ref_save_bin(BIF_ARG_1);
     BIF_RET(term2list_dsprintf(BIF_P, BIF_ARG_1));
 }
 

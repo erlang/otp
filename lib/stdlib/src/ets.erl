@@ -51,8 +51,8 @@
 -type tab()        :: atom() | tid().
 -type type()       :: set | ordered_set | bag | duplicate_bag.
 -type continuation() :: '$end_of_table'
-                      | {tab(),integer(),integer(),binary(),list(),integer()}
-                      | {tab(),_,_,integer(),binary(),list(),integer(),integer()}.
+                      | {tab(),integer(),integer(),comp_match_spec(),list(),integer()}
+                      | {tab(),_,_,integer(),comp_match_spec(),list(),integer(),integer()}.
 
 -opaque tid()      :: integer().
 
@@ -488,7 +488,7 @@ update_element(_, _, _) ->
 
 %%% End of BIFs
 
--opaque comp_match_spec() :: binary().  %% this one is REALLY opaque
+-opaque comp_match_spec() :: reference().
 
 -spec match_spec_run(List, CompiledMatchSpec) -> list() when
       List :: [tuple()],
@@ -505,28 +505,28 @@ match_spec_run(List, CompiledMS) ->
 repair_continuation('$end_of_table', _) ->
     '$end_of_table';
 %% ordered_set
-repair_continuation(Untouched = {Table,Lastkey,EndCondition,N2,Bin,L2,N3,N4}, MS)
+repair_continuation(Untouched = {Table,Lastkey,EndCondition,N2,MSRef,L2,N3,N4}, MS)
   when %% (is_atom(Table) or is_integer(Table)),
        is_integer(N2),
-       byte_size(Bin) =:= 0,
+      %% is_reference(MSRef),
        is_list(L2),
        is_integer(N3),
        is_integer(N4) ->
-    case ets:is_compiled_ms(Bin) of
+    case ets:is_compiled_ms(MSRef) of
 	true ->
 	    Untouched;
 	false ->
 	    {Table,Lastkey,EndCondition,N2,ets:match_spec_compile(MS),L2,N3,N4}
     end;
 %% set/bag/duplicate_bag
-repair_continuation(Untouched = {Table,N1,N2,Bin,L,N3}, MS)
+repair_continuation(Untouched = {Table,N1,N2,MSRef,L,N3}, MS)
   when %% (is_atom(Table) or is_integer(Table)),
        is_integer(N1),
        is_integer(N2),
-       byte_size(Bin) =:= 0,
+      %% is_reference(MSRef),
        is_list(L),
        is_integer(N3) ->
-    case ets:is_compiled_ms(Bin) of
+    case ets:is_compiled_ms(MSRef) of
 	true ->
 	    Untouched;
 	false ->

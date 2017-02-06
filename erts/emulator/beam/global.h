@@ -42,6 +42,9 @@
 #include "erl_utils.h"
 #include "erl_port.h"
 #include "erl_gc.h"
+#define ERTS_BINARY_TYPES_ONLY__
+#include "erl_binary.h"
+#undef ERTS_BINARY_TYPES_ONLY__
 
 struct enif_func_t;
 
@@ -126,7 +129,7 @@ typedef struct de_proc_entry {
 			                PROC_AWAIT_LOAD == Wants to be notified when we
 			                reloaded the driver (old was locked) */
     Uint    flags;                   /* ERL_FL_DE_DEREFERENCED when reload in progress */
-    Eterm   heap[REF_THING_SIZE];    /* "ref heap" */
+    Eterm   heap[ERTS_REF_THING_SIZE];    /* "ref heap" */
     struct  de_proc_entry *next;
 } DE_ProcEntry;
 
@@ -214,118 +217,6 @@ extern Eterm erts_ddll_monitor_driver(Process *p,
 				      ErtsProcLocks plocks);
 
 /*
-** Just like the driver binary but with initial flags
-** Note that the two structures Binary and ErlDrvBinary HAVE to
-** be equal except for extra fields in the beginning of the struct.
-** ErlDrvBinary is defined in erl_driver.h.
-** When driver_alloc_binary is called, a Binary is allocated, but 
-** the pointer returned is to the address of the first element that
-** also occurs in the ErlDrvBinary struct (driver.*binary takes care if this).
-** The driver need never know about additions to the internal Binary of the
-** emulator. One should however NEVER be sloppy when mixing ErlDrvBinary
-** and Binary, the macros below can convert one type to the other, as they both
-** in reality are equal.
-*/
-
-#ifdef ARCH_32
- /* *DO NOT USE* only for alignment. */
-#define ERTS_BINARY_STRUCT_ALIGNMENT Uint32 align__;
-#else
-#define ERTS_BINARY_STRUCT_ALIGNMENT
-#endif
-
-/* Add fields in ERTS_INTERNAL_BINARY_FIELDS, otherwise the drivers crash */
-#define ERTS_INTERNAL_BINARY_FIELDS				\
-    UWord flags;							\
-    erts_refc_t refc;						\
-    ERTS_BINARY_STRUCT_ALIGNMENT
-
-typedef struct binary {
-    ERTS_INTERNAL_BINARY_FIELDS
-    SWord orig_size;
-    char orig_bytes[1]; /* to be continued */
-} Binary;
-
-#define ERTS_SIZEOF_Binary(Sz) \
-    (offsetof(Binary,orig_bytes) + (Sz))
-
-typedef struct {
-    ERTS_INTERNAL_BINARY_FIELDS
-    SWord orig_size;
-    void (*destructor)(Binary *);
-    union {
-        struct {
-            ERTS_BINARY_STRUCT_ALIGNMENT
-            char data[1];
-        } aligned;
-        struct {
-            char data[1];
-        } unaligned;
-    } u;
-} ErtsMagicBinary;
-
-#ifdef ARCH_32
-#define ERTS_MAGIC_BIN_BYTES_TO_ALIGN 4
-#else
-#define ERTS_MAGIC_BIN_BYTES_TO_ALIGN 0
-#endif
-
-typedef union {
-    Binary binary;
-    ErtsMagicBinary magic_binary;
-    struct {
-	ERTS_INTERNAL_BINARY_FIELDS
-	ErlDrvBinary binary;
-    } driver;
-} ErtsBinary;
-
-/*
- * 'Binary' alignment:
- *   Address of orig_bytes[0] of a Binary should always be 8-byte aligned.
- * It is assumed that the flags, refc, and orig_size fields are 4 bytes on
- * 32-bits architectures and 8 bytes on 64-bits architectures.
- */
-
-#define ERTS_MAGIC_BIN_DESTRUCTOR(BP) \
-  ((ErtsBinary *) (BP))->magic_binary.destructor
-#define ERTS_MAGIC_BIN_DATA(BP) \
-  ((void *) ((ErtsBinary *) (BP))->magic_binary.u.aligned.data)
-#define ERTS_MAGIC_DATA_OFFSET \
-  (offsetof(ErtsMagicBinary,u.aligned.data) - offsetof(Binary,orig_bytes))
-#define ERTS_MAGIC_BIN_ORIG_SIZE(Sz) \
-  (ERTS_MAGIC_DATA_OFFSET + (Sz))
-#define ERTS_MAGIC_BIN_SIZE(Sz) \
-  (offsetof(ErtsMagicBinary,u.aligned.data) + (Sz))
-
-/* On 32-bit arch these macro variants will save memory
-   by not forcing 8-byte alignment for the magic payload.
-*/
-#define ERTS_MAGIC_BIN_UNALIGNED_DATA(BP) \
-  ((void *) ((ErtsBinary *) (BP))->magic_binary.u.unaligned.data)
-#define ERTS_MAGIC_UNALIGNED_DATA_OFFSET \
-  (offsetof(ErtsMagicBinary,u.unaligned.data) - offsetof(Binary,orig_bytes))
-#define ERTS_MAGIC_BIN_UNALIGNED_DATA_SIZE(BP) \
-  ((BP)->orig_size - ERTS_MAGIC_UNALIGNED_DATA_OFFSET)
-#define ERTS_MAGIC_BIN_UNALIGNED_ORIG_SIZE(Sz) \
-  (ERTS_MAGIC_UNALIGNED_DATA_OFFSET + (Sz))
-#define ERTS_MAGIC_BIN_UNALIGNED_SIZE(Sz) \
-  (offsetof(ErtsMagicBinary,u.unaligned.data) + (Sz))
-#define ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(DATA) \
-  ((ErtsBinary*)((char*)(DATA) - offsetof(ErtsMagicBinary,u.unaligned.data)))
-
-
-#define Binary2ErlDrvBinary(B) (&((ErtsBinary *) (B))->driver.binary)
-#define ErlDrvBinary2Binary(D) ((Binary *) \
-				(((char *) (D)) \
-				 - offsetof(ErtsBinary, driver.binary)))
-
-/* A "magic" binary flag */
-#define BIN_FLAG_MAGIC      1
-#define BIN_FLAG_USR1       2 /* Reserved for use by different modules too mark */
-#define BIN_FLAG_USR2       4 /*  certain binaries as special (used by ets) */
-#define BIN_FLAG_DRV        8
-
-/*
  * This structure represents one type of a binary in a process.
  */
 
@@ -346,46 +237,12 @@ typedef struct proc_bin {
  */
 #define PROC_BIN_SIZE (sizeof(ProcBin)/sizeof(Eterm))
 
-ERTS_GLB_INLINE Eterm erts_mk_magic_binary_term(Eterm **hpp,
-						ErlOffHeap *ohp,
-						Binary *mbp);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE Eterm
-erts_mk_magic_binary_term(Eterm **hpp, ErlOffHeap *ohp, Binary *mbp)
-{
-    ProcBin *pb = (ProcBin *) *hpp;
-    *hpp += PROC_BIN_SIZE;
-
-    ASSERT(mbp->flags & BIN_FLAG_MAGIC);
-
-    pb->thing_word = HEADER_PROC_BIN;
-    pb->size = 0;
-    pb->next = ohp->first;
-    ohp->first = (struct erl_off_heap_header*) pb;
-    pb->val = mbp;
-    pb->bytes = (byte *) mbp->orig_bytes;
-    pb->flags = 0;
-
-    erts_refc_inc(&mbp->refc, 1);
-
-    return make_binary(pb);    
-}
-
-#endif
-
-#define ERTS_TERM_IS_MAGIC_BINARY(T) \
-  (is_binary((T)) \
-   && (thing_subtag(*binary_val((T))) == REFC_BINARY_SUBTAG) \
-   && (((ProcBin *) binary_val((T)))->val->flags & BIN_FLAG_MAGIC))
-
-
 union erl_off_heap_ptr {
     struct erl_off_heap_header* hdr;
     ProcBin *pb;
     struct erl_fun_thing* fun;
     struct external_thing_* ext;
+    ErtsMRefThing *mref;
     Eterm* ep;
     void* voidp;
 };
@@ -977,21 +834,6 @@ erts_bld_port_info(Eterm **hpp,
 void erts_bif_info_init(void);
 
 /* bif.c */
-
-ERTS_GLB_INLINE Eterm
-erts_proc_store_ref(Process *c_p, Uint32 ref[ERTS_MAX_REF_NUMBERS]);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE Eterm
-erts_proc_store_ref(Process *c_p, Uint32 ref[ERTS_MAX_REF_NUMBERS])
-{
-    Eterm *hp = HAlloc(c_p, REF_THING_SIZE);
-    write_ref_thing(hp, ref[0], ref[1], ref[2]);
-    return make_internal_ref(hp);
-}
-
-#endif
 
 void erts_queue_monitor_message(Process *,
 				ErtsProcLocks*,

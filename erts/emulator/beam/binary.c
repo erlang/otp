@@ -47,13 +47,8 @@ void
 erts_init_binary(void)
 {
     /* Verify Binary alignment... */
-    if ((((UWord) &((Binary *) 0)->orig_bytes[0]) % ((UWord) 8)) != 0) {
-	/* I assume that any compiler should be able to optimize this
-	   away. If not, this test is not very expensive... */
-	erts_exit(ERTS_ABORT_EXIT,
-		 "Internal error: Address of orig_bytes[0] of a Binary"
-		 " is *not* 8-byte aligned\n");
-    }
+    ERTS_CT_ASSERT((offsetof(Binary,orig_bytes) % 8) == 0);
+    ERTS_CT_ASSERT((offsetof(ErtsMagicBinary,u.aligned.data) % 8) == 0);
 
     erts_init_trap_export(&binary_to_list_continue_export,
 			  am_erts_internal, am_binary_to_list_continue, 1,
@@ -445,18 +440,17 @@ binary_to_list(Process *c_p, Eterm *hp, Eterm tail, byte *bytes,
 	sp->size = size;
 	sp->bitoffs = bitoffs;
 
-	hp = HAlloc(c_p, PROC_BIN_SIZE);
-	mb = erts_mk_magic_binary_term(&hp, &MSO(c_p), mbp);
+	hp = HAlloc(c_p, ERTS_MAGIC_REF_THING_SIZE);
+	mb = erts_mk_magic_ref(&hp, &MSO(c_p), mbp);
 	return binary_to_list_chunk(c_p, mb, sp, reds_left, 0);
     }
 }
 
 static BIF_RETTYPE binary_to_list_continue(BIF_ALIST_1)
 {
-    Binary *mbp = ((ProcBin *) binary_val(BIF_ARG_1))->val;
+    Binary *mbp = erts_magic_ref2bin(BIF_ARG_1);
 
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(mbp) == b2l_state_destructor);
-
     ASSERT(BIF_P->flags & F_DISABLE_GC);
 
     return binary_to_list_chunk(BIF_P,
@@ -792,8 +786,8 @@ list_to_binary_chunk(Eterm mb_eterm,
 	    ERTS_L2B_STATE_MOVE(new_sp, sp);
 	    sp = new_sp;
 
-	    hp = HAlloc(c_p, PROC_BIN_SIZE);
-	    mb_eterm = erts_mk_magic_binary_term(&hp, &MSO(c_p), mbp);
+	    hp = HAlloc(c_p, ERTS_MAGIC_REF_THING_SIZE);
+	    mb_eterm = erts_mk_magic_ref(&hp, &MSO(c_p), mbp);
 
 	    ASSERT(is_value(mb_eterm));
 
@@ -839,9 +833,9 @@ list_to_binary_chunk(Eterm mb_eterm,
 
 static BIF_RETTYPE list_to_binary_continue(BIF_ALIST_1)
 {
-    Binary *mbp = ((ProcBin *) binary_val(BIF_ARG_1))->val;
-    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(mbp) == l2b_state_destructor);
+    Binary *mbp = erts_magic_ref2bin(BIF_ARG_1);
 
+    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(mbp) == l2b_state_destructor);
     ASSERT(BIF_P->flags & F_DISABLE_GC);
 
     return list_to_binary_chunk(BIF_ARG_1,

@@ -741,7 +741,7 @@ Eterm erts_dsend_export_trap_context(Process* p, ErtsSendContext* ctx)
     Binary* ctx_bin = erts_create_magic_binary(sizeof(struct exported_ctx),
 					       erts_dsend_context_dtor);
     struct exported_ctx* dst = ERTS_MAGIC_BIN_DATA(ctx_bin);
-    Eterm* hp = HAlloc(p, PROC_BIN_SIZE);
+    Eterm* hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
 
     sys_memcpy(&dst->ctx, ctx, sizeof(ErtsSendContext));
     ASSERT(ctx->dss.ctl == make_tuple(ctx->ctl_heap));
@@ -750,7 +750,7 @@ Eterm erts_dsend_export_trap_context(Process* p, ErtsSendContext* ctx)
 	sys_memcpy(&dst->acm, ctx->dss.acmp, sizeof(ErtsAtomCacheMap));
 	dst->ctx.dss.acmp = &dst->acm;
     }
-    return erts_mk_magic_binary_term(&hp, &MSO(p), ctx_bin);
+    return erts_mk_magic_ref(&hp, &MSO(p), ctx_bin);
 }
 
 

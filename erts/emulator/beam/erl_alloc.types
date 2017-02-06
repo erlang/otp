@@ -280,6 +280,10 @@ type    TRACE_MSG_QUEUE SHORT_LIVED     SYSTEM          trace_message_queue
 type    SCHED_ASYNC_JOB SHORT_LIVED     SYSTEM          async_calls
 type    DIRTY_START     STANDARD	PROCESSES       dirty_start
 type    DIRTY_SL	SHORT_LIVED	SYSTEM		dirty_short_lived
+type    MREF_NSCHED_ENT	FIXED_SIZE	SYSTEM		nsched_magic_ref_entry
+type    MREF_ENT	STANDARD	SYSTEM		magic_ref_entry
+type	MREF_TAB_BKTS	STANDARD	SYSTEM		magic_ref_table_buckets
+type	MREF_TAB	LONG_LIVED	SYSTEM		magic_ref_table
 
 +if threads_no_smp
 # Need thread safe allocs, but std_alloc and fix_alloc are not;

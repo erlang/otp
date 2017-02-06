@@ -178,7 +178,7 @@ Uint erts_test_long_gc_sleep; /* Only used for testing... */
 typedef struct {
     Process *proc;
     Eterm ref;
-    Eterm ref_heap[REF_THING_SIZE];
+    Eterm ref_heap[ERTS_REF_THING_SIZE];
     Uint req_sched;
     erts_smp_atomic32_t refc;
 } ErtsGCInfoReq;
@@ -2354,6 +2354,9 @@ copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 	    switch (val & _HEADER_SUBTAG_MASK) {
 	    case ARITYVAL_SUBTAG:
 		break;
+	    case REF_SUBTAG:
+		if (is_ordinary_ref_thing(fhp - 1))
+		    goto the_default;
 	    case REFC_BINARY_SUBTAG:
 	    case FUN_SUBTAG:
 	    case EXTERNAL_PID_SUBTAG:
@@ -2363,6 +2366,7 @@ copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 		cpy_sz = thing_arityval(val);
 		goto cpy_words;
 	    default:
+	    the_default:
 		cpy_sz = header_arity(val);
 
 	    cpy_words:
@@ -2796,6 +2800,16 @@ link_live_proc_bin(struct shrink_cand_data *shrink,
     *prevppp = &pbp->next;
 }
 
+#ifdef ERTS_MAGIC_REF_THING_HEADER
+/*
+ * ERTS_MAGIC_REF_THING_HEADER only defined when there
+ * is a size difference between magic and ordinary references...
+ */
+# define ERTS_USED_MAGIC_REF_THING_HEADER__ ERTS_MAGIC_REF_THING_HEADER
+#else
+# define ERTS_USED_MAGIC_REF_THING_HEADER__ ERTS_REF_THING_HEADER
+#endif
+
 
 static void
 sweep_off_heap(Process *p, int fullsweep)
@@ -2828,7 +2842,8 @@ sweep_off_heap(Process *p, int fullsweep)
 	    ASSERT(!ErtsInArea(ptr, oheap, oheap_sz));
 	    *prev = ptr = (struct erl_off_heap_header*) boxed_val(ptr->thing_word);
 	    ASSERT(!IS_MOVED_BOXED(ptr->thing_word));
-	    if (ptr->thing_word == HEADER_PROC_BIN) {
+	    switch (ptr->thing_word) {
+	    case HEADER_PROC_BIN: {
 		int to_new_heap = !ErtsInArea(ptr, oheap, oheap_sz);
 		ASSERT(to_new_heap == !seen_mature || (!to_new_heap && (seen_mature=1)));
 		if (to_new_heap) {
@@ -2837,13 +2852,28 @@ sweep_off_heap(Process *p, int fullsweep)
 		    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
 		}		
 		link_live_proc_bin(&shrink, &prev, &ptr, to_new_heap);
-	    }
-	    else {
+                break;
+            }
+            case ERTS_USED_MAGIC_REF_THING_HEADER__: {
+                Uint size;
+		int to_new_heap = !ErtsInArea(ptr, oheap, oheap_sz);
+                ASSERT(is_magic_ref_thing(ptr));
+		ASSERT(to_new_heap == !seen_mature || (!to_new_heap && (seen_mature=1)));
+                size = (Uint) ((ErtsMRefThing *) ptr)->mb->orig_size;
+		if (to_new_heap)
+		    bin_vheap += size / sizeof(Eterm);
+                else
+		    BIN_OLD_VHEAP(p) += size / sizeof(Eterm); /* for binary gc (words)*/
+                /* fall through... */
+            }
+            default:
 		prev = &ptr->next;
 		ptr = ptr->next;
 	    }
 	}
-	else if (!ErtsInArea(ptr, oheap, oheap_sz)) {
+	else if (ErtsInArea(ptr, oheap, oheap_sz))
+            break; /* and let old-heap loop continue */
+        else {
 	    /* garbage */
 	    switch (thing_subtag(ptr->thing_word)) {
 	    case REFC_BINARY_SUBTAG:
@@ -2862,13 +2892,21 @@ sweep_off_heap(Process *p, int fullsweep)
 		    }
 		    break;
 		}
+	    case REF_SUBTAG:
+		{
+		    ErtsMagicBinary *bptr;
+		    ASSERT(is_magic_ref_thing(ptr));
+		    bptr = ((ErtsMRefThing *) ptr)->mb;
+		    if (erts_refc_dectest(&bptr->refc, 0) == 0)
+			erts_bin_free((Binary *) bptr);		    
+		    break;
+		}
 	    default:
 		ASSERT(is_external_header(ptr->thing_word));
 		erts_deref_node_entry(((ExternalThing*)ptr)->node);
 	    }
 	    *prev = ptr = ptr->next;
 	}
-	else break; /* and let old-heap loop continue */
     }
 
     /* The rest of the list resides on old-heap, and we just did a
@@ -2877,15 +2915,24 @@ sweep_off_heap(Process *p, int fullsweep)
     while (ptr) {
 	ASSERT(ErtsInArea(ptr, oheap, oheap_sz));
 	ASSERT(!IS_MOVED_BOXED(ptr->thing_word));       
-	if (ptr->thing_word == HEADER_PROC_BIN) {
+        switch (ptr->thing_word) {
+        case HEADER_PROC_BIN:
 	    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
 	    link_live_proc_bin(&shrink, &prev, &ptr, 0);
-	}
-	else {
-	    ASSERT(is_fun_header(ptr->thing_word) ||
-		   is_external_header(ptr->thing_word));
-	    prev = &ptr->next;
-	    ptr = ptr->next;
+            break;
+        case ERTS_USED_MAGIC_REF_THING_HEADER__:
+            ASSERT(is_magic_ref_thing(ptr));
+            BIN_OLD_VHEAP(p) +=
+                (((Uint) ((ErtsMRefThing *) ptr)->mb->orig_size)
+                 / sizeof(Eterm)); /* for binary gc (words)*/
+            /* fall through... */
+        default:
+            ASSERT(is_fun_header(ptr->thing_word) ||
+                   is_external_header(ptr->thing_word)
+                   || is_magic_ref_thing(ptr));
+            prev = &ptr->next;
+            ptr = ptr->next;
+            break;
 	}
     }
 
@@ -2978,6 +3025,9 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 	      }
 	      tari = thing_arityval(val);
 	      switch (thing_subtag(val)) {
+	      case REF_SUBTAG:
+		  if (is_ordinary_ref_thing(hp))
+		      break;
 	      case REFC_BINARY_SUBTAG:
 	      case FUN_SUBTAG:
 	      case EXTERNAL_PID_SUBTAG:
@@ -3175,7 +3225,7 @@ reply_gc_info(void *vgcirp)
 	if (hpp)
 	    ref_copy = STORE_NC(hpp, ohp, gcirp->ref);
 	else
-	    *szp += REF_THING_SIZE;
+	    *szp += ERTS_REF_THING_SIZE;
 
 	msg = erts_bld_tuple(hpp, szp, 3,
 			     make_small(esdp->no),
@@ -3525,6 +3575,10 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 	case EXTERNAL_PORT_SUBTAG:
 	case EXTERNAL_REF_SUBTAG:
 	    refc = erts_smp_refc_read(&u.ext->node->refc, 1);
+	    break;
+	case REF_SUBTAG:
+	    ASSERT(is_magic_ref_thing(u.hdr));
+	    refc = erts_refc_read(&u.mref->mb->refc, 1);
 	    break;
 	default:
 	    ASSERT(!"erts_check_off_heap2: Invalid thing_word");

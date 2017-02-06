@@ -379,6 +379,7 @@ atom long_schedule
 atom low
 atom Lt='<'
 atom machine
+atom magic_ref
 atom major
 atom match
 atom match_limit

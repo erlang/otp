@@ -83,6 +83,10 @@
       | 'micro_seconds'
       | 'nano_seconds'.
 
+-opaque prepared_code() :: reference().
+
+-export_type([prepared_code/0]).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Native code BIF stubs and their types
 %% (BIF's actually implemented in this module goes last in the file)
@@ -791,9 +795,9 @@ external_size(_Term, _Options) ->
     erlang:nif_error(undefined).
 
 %% finish_loading/2
--spec erlang:finish_loading(PreparedCodeBinaries) -> ok | Error when
-      PreparedCodeBinaries :: [PreparedCodeBinary],
-      PreparedCodeBinary :: binary(),
+-spec erlang:finish_loading(PreparedCodeList) -> ok | Error when
+      PreparedCodeList :: [PreparedCode],
+      PreparedCode :: prepared_code(),
       ModuleList :: [module()],
       Error :: {not_purged,ModuleList} | {on_load,ModuleList}.
 finish_loading(_List) ->
@@ -1030,7 +1034,7 @@ halt(_Status, _Options) ->
 
 %% has_prepared_code_on_load/1
 -spec erlang:has_prepared_code_on_load(PreparedCode) -> boolean() when
-      PreparedCode :: binary().
+      PreparedCode :: prepared_code().
 has_prepared_code_on_load(_PreparedCode) ->
     erlang:nif_error(undefined).
 
@@ -1447,7 +1451,7 @@ timestamp() ->
 -spec erlang:prepare_loading(Module, Code) -> PreparedCode | {error, Reason} when
       Module :: module(),
       Code :: binary(),
-      PreparedCode :: binary(),
+      PreparedCode :: prepared_code(),
       Reason :: bad_file.
 prepare_loading(_Module, _Code) ->
     erlang:nif_error(undefined).
@@ -2007,8 +2011,8 @@ load_module(Mod, Code) ->
     case erlang:prepare_loading(Mod, Code) of
 	{error,_}=Error ->
 	    Error;
-	Bin when erlang:is_binary(Bin) ->
-	    case erlang:finish_loading([Bin]) of
+	Prep when erlang:is_reference(Prep) ->
+	    case erlang:finish_loading([Prep]) of
 		ok ->
 		    {module,Mod};
 		{Error,[Mod]} ->

@@ -24,7 +24,7 @@
 
 -export_type([cp/0]).
 
--opaque cp() :: {'am' | 'bm', binary()}.
+-opaque cp() :: {'am' | 'bm', reference()}.
 -type part() :: {Start :: non_neg_integer(), Length :: integer()}.
 
 %%% BIFs.

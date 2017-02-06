@@ -156,11 +156,13 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     Module* modp;
     Eterm res, mod;
 
-    if (!ERTS_TERM_IS_MAGIC_BINARY(BIF_ARG_1) ||
-	is_not_atom(mod = erts_module_for_prepared_code
-		    (((ProcBin*)binary_val(BIF_ARG_1))->val))) {
+    if (!is_internal_magic_ref(BIF_ARG_1))
 	BIF_ERROR(BIF_P, BADARG);
-    }
+
+    mod = erts_module_for_prepared_code(erts_magic_ref2bin(BIF_ARG_1));
+
+    if (is_not_atom(mod))
+	BIF_ERROR(BIF_P, BADARG);
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
 	ERTS_BIF_YIELD3(bif_export[BIF_code_make_stub_module_3],
@@ -229,8 +231,8 @@ prepare_loading_2(BIF_ALIST_2)
 	res = TUPLE2(hp, am_error, reason);
 	BIF_RET(res);
     }
-    hp = HAlloc(BIF_P, PROC_BIN_SIZE);
-    res = erts_mk_magic_binary_term(&hp, &MSO(BIF_P), magic);
+    hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
+    res = erts_mk_magic_ref(&hp, &MSO(BIF_P), magic);
     erts_refc_dec(&magic->refc, 1);
     BIF_RET(res);
 }
@@ -239,15 +241,13 @@ BIF_RETTYPE
 has_prepared_code_on_load_1(BIF_ALIST_1)
 {
     Eterm res;
-    ProcBin* pb;
 
-    if (!ERTS_TERM_IS_MAGIC_BINARY(BIF_ARG_1)) {
+    if (!is_internal_magic_ref(BIF_ARG_1)) {
     error:
 	BIF_ERROR(BIF_P, BADARG);
     }
 
-    pb = (ProcBin*) binary_val(BIF_ARG_1);
-    res = erts_has_code_on_load(pb->val);
+    res = erts_has_code_on_load(erts_magic_ref2bin(BIF_ARG_1));
     if (res == NIL) {
 	goto error;
     }
@@ -333,13 +333,11 @@ finish_loading_1(BIF_ALIST_1)
     for (i = 0; i < n; i++) {
 	Eterm* cons = list_val(BIF_ARG_1);
 	Eterm term = CAR(cons);
-	ProcBin* pb;
 
-	if (!ERTS_TERM_IS_MAGIC_BINARY(term)) {
+	if (!is_internal_magic_ref(term)) {
 	    goto badarg;
 	}
-	pb = (ProcBin*) binary_val(term);
-	p[i].code = pb->val;
+	p[i].code = erts_magic_ref2bin(term);
 	p[i].module = erts_module_for_prepared_code(p[i].code);
 	if (p[i].module == NIL) {
 	    goto badarg;

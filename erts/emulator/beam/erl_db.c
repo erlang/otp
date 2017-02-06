@@ -2779,7 +2779,7 @@ BIF_RETTYPE ets_info_2(BIF_ALIST_2)
 
 BIF_RETTYPE ets_is_compiled_ms_1(BIF_ALIST_1)
 {
-    if (erts_db_is_compiled_ms(BIF_ARG_1)) {
+    if (erts_db_get_match_prog_binary(BIF_ARG_1)) {
 	BIF_RET(am_true);
     } else {
 	BIF_RET(am_false);
@@ -2794,9 +2794,9 @@ BIF_RETTYPE ets_match_spec_compile_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
-    hp = HAlloc(BIF_P, PROC_BIN_SIZE);
+    hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
 
-    BIF_RET(erts_mk_magic_binary_term(&hp, &MSO(BIF_P), mp));
+    BIF_RET(erts_db_make_match_prog_ref(BIF_P, mp, &hp));
 }
 
 BIF_RETTYPE ets_match_spec_run_r_3(BIF_ALIST_3)
@@ -2805,24 +2805,18 @@ BIF_RETTYPE ets_match_spec_run_r_3(BIF_ALIST_3)
     int i = 0;
     Eterm *hp;
     Eterm lst;
-    ProcBin *bp;
     Binary *mp;
     Eterm res;
     Uint32 dummy;
 
-    if (!(is_list(BIF_ARG_1) || BIF_ARG_1 == NIL) || !is_binary(BIF_ARG_2)) {
+    if (!(is_list(BIF_ARG_1) || BIF_ARG_1 == NIL)) {
     error:
 	BIF_ERROR(BIF_P, BADARG);
     }
     
-    bp = (ProcBin*) binary_val(BIF_ARG_2);
-    if (thing_subtag(bp->thing_word) != REFC_BINARY_SUBTAG) {
+    mp = erts_db_get_match_prog_binary(BIF_ARG_2);
+    if (!mp)
 	goto error;
-    }
-    mp = bp->val;
-    if (!IsMatchProgBinary(mp)) {
-	goto error;
-    }
 
     if (BIF_ARG_1 == NIL) {
 	BIF_RET(BIF_ARG_3);

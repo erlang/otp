@@ -1126,12 +1126,12 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 
     for (u.hdr = oh->first; u.hdr; u.hdr = u.hdr->next) {
 	switch (thing_subtag(u.hdr->thing_word)) {
-	case REFC_BINARY_SUBTAG:
-	    if(IsMatchProgBinary(u.pb->val)) {
+	case REF_SUBTAG:
+	    if(IsMatchProgBinary(u.mref->mb)) {
 		InsertedBin *ib;
 		int insert_bin = 1;
 		for (ib = inserted_bins; ib; ib = ib->next)
-		    if(ib->bin_val == u.pb->val) {
+		    if(ib->bin_val == (Binary *) u.mref->mb) {
 			insert_bin = 0;
 			break;
 		    }
@@ -1140,18 +1140,19 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 		    Uint *hp = &id_heap[0];
 		    InsertedBin *nib;
 		    UseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
-		    a.id = erts_bld_uint(&hp, NULL, (Uint) u.pb->val);
-		    erts_match_prog_foreach_offheap(u.pb->val,
+		    a.id = erts_bld_uint(&hp, NULL, (Uint) u.mref->mb);
+		    erts_match_prog_foreach_offheap((Binary *) u.mref->mb,
 						    insert_offheap2,
 						    (void *) &a);
 		    nib = erts_alloc(ERTS_ALC_T_NC_TMP, sizeof(InsertedBin));
-		    nib->bin_val = u.pb->val;
+		    nib->bin_val = (Binary *) u.mref->mb;
 		    nib->next = inserted_bins;
 		    inserted_bins = nib;
 		    UnUseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
 		}
 	    }		
 	    break;
+	case REFC_BINARY_SUBTAG:
 	case FUN_SUBTAG:
 	    break; /* No need to */
 	default:

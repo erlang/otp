@@ -1173,7 +1173,7 @@ typedef struct {
     int enable;
     Process *proc;
     Eterm ref;
-    Eterm ref_heap[REF_THING_SIZE];
+    Eterm ref_heap[ERTS_REF_THING_SIZE];
     Uint req_sched;
     erts_smp_atomic32_t refc;
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -1185,7 +1185,7 @@ typedef struct {
 typedef struct {
     Process *proc;
     Eterm ref;
-    Eterm ref_heap[REF_THING_SIZE];
+    Eterm ref_heap[ERTS_REF_THING_SIZE];
     Uint req_sched;
     erts_smp_atomic32_t refc;
 } ErtsSystemCheckReq;
@@ -1297,7 +1297,7 @@ reply_sched_wall_time(void *vswtrp)
             if (hpp)
                 ref_copy = STORE_NC(hpp, ohp, swtrp->ref);
             else
-                *szp += REF_THING_SIZE;
+                *szp += ERTS_REF_THING_SIZE;
 
             ASSERT(!swtrp->set);
 
@@ -1342,7 +1342,7 @@ reply_sched_wall_time(void *vswtrp)
             if (hpp)
                 ref_copy = STORE_NC(hpp, ohp, swtrp->ref);
             else
-                *szp += REF_THING_SIZE;
+                *szp += ERTS_REF_THING_SIZE;
 
             if (swtrp->set)
                 msg = ref_copy;
@@ -1444,7 +1444,7 @@ reply_system_check(void *vscrp)
     ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
 #endif
 
-    sz = REF_THING_SIZE;
+    sz = ERTS_REF_THING_SIZE;
     mp = erts_alloc_message_heap(rp, &rp_locks, sz, &hp, &ohp);
     hpp = &hp;
     msg = STORE_NC(hpp, ohp, scrp->ref);
@@ -6381,7 +6381,6 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online
 	erts_tsd_set(sched_data_key, (void *) esdp);
 #endif
     }
-    erts_no_schedulers = 1;
     erts_no_dirty_cpu_schedulers = 0;
     erts_no_dirty_io_schedulers = 0;
 #endif
