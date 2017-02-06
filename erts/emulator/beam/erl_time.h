@@ -21,18 +21,51 @@
 #ifndef ERL_TIME_H__
 #define ERL_TIME_H__
 
-/* timer wheel size NEED to be a power of 2 */
-#ifdef SMALL_MEMORY
-#define ERTS_TIW_SIZE (1 << 13)
-#else
-#define ERTS_TIW_SIZE (1 << 16)
+#if 0
+#  define ERTS_TW_DEBUG
+#endif
+#if defined(DEBUG) && !defined(ERTS_TW_DEBUG)
+#  define ERTS_TW_DEBUG
 #endif
 
-#if defined(DEBUG) || 0
+#if defined(ERTS_TW_DEBUG)
 #define ERTS_TIME_ASSERT(B) ERTS_ASSERT(B)
 #else
 #define ERTS_TIME_ASSERT(B) ((void) 1)
 #endif
+
+#ifdef ERTS_TW_DEBUG
+/*
+ * Soon wheel will handle about 1 seconds
+ * Later wheel will handle about 8 minutes
+ */
+#  define ERTS_TW_SOON_WHEEL_BITS 10
+#  define ERTS_TW_LATER_WHEEL_BITS 10
+#else
+#  ifdef SMALL_MEMORY
+/*
+ * Soon wheel will handle about 4 seconds
+ * Later wheel will handle about 2 hours and 19 minutes
+ */
+#    define ERTS_TW_SOON_WHEEL_BITS 12
+#    define ERTS_TW_LATER_WHEEL_BITS 12
+#  else
+/*
+ * Soon wheel will handle about 16 seconds
+ * Later wheel will handle about 37 hours and 16 minutes
+ */
+#    define ERTS_TW_SOON_WHEEL_BITS 14
+#    define ERTS_TW_LATER_WHEEL_BITS 14
+#  endif
+#endif
+
+/*
+ * Number of slots in each timer wheel...
+ *
+ * These *need* to be a power of 2
+ */
+#define ERTS_TW_SOON_WHEEL_SIZE (1 << ERTS_TW_SOON_WHEEL_BITS)
+#define ERTS_TW_LATER_WHEEL_SIZE (1 << ERTS_TW_LATER_WHEEL_BITS)
 
 typedef enum {
     ERTS_NO_TIME_WARP_MODE,
@@ -103,7 +136,10 @@ Eterm erts_system_time_source(struct process*c_p);
 #define ERTS_CLKTCK_RESOLUTION (erts_time_sup__.r.o.clktck_resolution)
 #endif
 
-#define ERTS_TIMER_WHEEL_MSEC (ERTS_TIW_SIZE/(ERTS_CLKTCK_RESOLUTION/1000))
+#define ERTS_TW_SOON_WHEEL_MSEC (ERTS_TW_SOON_WHEEL_SIZE/(ERTS_CLKTCK_RESOLUTION/1000))
+#define ERTS_TW_LATER_WHEEL_MSEC (ERTS_TW_LATER_WHEEL_SIZE*ERTS_TW_SOON_WHEEL_MSEC/2)
+
+#define ERTS_TIMER_WHEEL_MSEC ERTS_TW_LATER_WHEEL_MSEC
 
 struct erts_time_sup_read_only__ {
     ErtsMonotonicTime monotonic_time_unit;
