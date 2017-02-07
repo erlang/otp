@@ -27,7 +27,7 @@
          memory/0,memory/1,uptime/0,
 	 erlangrc/1,bi/1, regs/0, flush/0,pwd/0,ls/0,ls/1,cd/1, 
          y/1, y/2,
-	 xm/1, bt/1, q/0,
+	 xm/1, bt/1, q/0, cc/1, cc/2, cc/3,
 	 ni/0, nregs/0]).
 
 -export([ih/0,iv/0,im/0,ii/1,ii/2,iq/1,ini/1,ini/2,inq/1,ib/2,ib/3,
@@ -72,6 +72,9 @@ bi(I) 		-> c:bi(I).
 bt(Pid)		-> c:bt(Pid).
 c(File) 	-> c:c(File).
 c(File, Opt)    -> c:c(File, Opt).
+cc(File)        -> c:cc(File).
+cc(File, Opt)   -> c:cc(File, Opt).
+cc(File, Opt, Filter) -> c:cc(File, Opt, Filter).
 cd(D)           -> c:cd(D).
 erlangrc(X) 	-> c:erlangrc(X).
 flush()         -> c:flush().

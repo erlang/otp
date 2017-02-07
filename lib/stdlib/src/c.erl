@@ -27,7 +27,7 @@
          y/1, y/2,
 	 lc_batch/0, lc_batch/1,
 	 i/3,pid/3,m/0,m/1,mm/0,lm/0,
-	 bt/1, q/0,
+	 bt/1, q/0, cc/1, cc/2, cc/3,
 	 erlangrc/0,erlangrc/1,bi/1, flush/0, regs/0, uptime/0,
 	 nregs/0,pwd/0,ls/0,ls/1,cd/1,memory/1,memory/0, xm/1]).
 
@@ -45,6 +45,7 @@
 help() ->
     io:put_chars(<<"bt(Pid)    -- stack backtrace for a process\n"
 		   "c(File)    -- compile and load code in <File>\n"
+		   "cc(Mod)    -- recompile and load module <Mod>\n"
 		   "cd(Dir)    -- change working directory\n"
 		   "flush()    -- flush any messages sent to the shell\n"
 		   "help()     -- help info\n"
@@ -266,6 +267,131 @@ nl(Mod) ->
             rpc:eval_everywhere(code, load_binary, [Mod, Fname, Bin]);
 	Other ->
 	    Other
+    end.
+
+%% Smart recompilation of a module
+%% The c() shortcut will only compile a module given the exact path and
+%% requires that you pass all the necessary options manually. This tries to
+%% find an existing object file and use its compile_info and source path to
+%% recompile the module, overwriting the old object file.
+-spec cc(Module) -> {'ok', Module} | 'error' when
+      Module :: module().
+cc(M) ->
+    cc(M, []).
+
+-spec cc(Module, Options) -> {'ok', Module} | 'error' when
+      Module :: module(),
+      Options :: [compile:option()].
+cc(Module, NewOpts) ->
+    cc(Module, NewOpts, fun (_) -> true end).
+
+%% The extra Filter parameter is applied to the old compile options
+-spec cc(Module, Options, Filter) -> {'ok', Module} | 'error' when
+      Module :: module(),
+      Options :: [compile:option()],
+      Filter :: fun ((compile:option()) -> boolean()).
+cc(Module, NewOpts, Filter) ->
+    case find_beam(Module) of
+        Beam when is_list(Beam) ->
+            cc(Module, NewOpts, Filter, Beam);
+        Error ->
+            {error, Error}
+    end.
+
+cc(Module, NewOpts, Filter, Beam) ->
+    case compile_info(Module, Beam) of
+        Info when is_list(Info) ->
+            case lists:keyfind(source, 1, Info) of
+                {source, Source} ->
+                    cc(Source, NewOpts, Filter, Beam, Info);
+                _ ->
+                    {error, no_source}
+            end;
+        Error ->
+            Error
+    end.
+
+cc(Module, NewOpts, Filter, Beam, Info) ->
+    io:format("recompiling ~s\n", [Module]),
+    %% filter old options; also remove those that will be replaced
+    F = fun (debug_info) -> false;  % always added by shellc/3
+            (Tuple) when element(1, Tuple) =:= outdir -> false;
+            (Opt) -> Filter(Opt)
+        end,
+    Options = NewOpts ++ case lists:keyfind(options, 1, Info) of
+                             {options, Opts} -> lists:filter(F, Opts);
+                             false -> []
+                         end,
+    safe_recompile(Module, Options, Beam).
+
+%% find the beam file for a module, preferring the path reported by code:which()
+%% if it still exists, or otherwise by searching the code path
+find_beam(Module) when is_atom(Module) ->
+    case code:which(Module) of
+        Beam when is_list(Beam), Beam =/= "" ->
+            case erlang:module_loaded(Module) of
+                false ->
+                    Beam;  % code:which/1 found this in the path
+                true ->
+                    case filelib:is_file(Beam) of
+                        true -> Beam;
+                        false -> find_beam_1(Module)  % file moved?
+                    end
+            end;
+        Other when Other =:= ""; Other =:= cover_compiled ->
+            %% module is loaded but not compiled directly from source
+            find_beam_1(Module);
+        Error ->
+            Error
+    end.
+
+find_beam_1(Module) ->
+    File = atom_to_list(Module) ++ code:objfile_extension(),
+    case code:where_is_file(File) of
+        Beam when is_list(Beam) ->
+            Beam;
+        Error ->
+            Error
+    end.
+
+%% get the compile_info for a module
+%% -will report the info for the module in memory, if loaded
+%% -will try to find and examine the beam file if not in memory
+%% -will not cause a module to become loaded by accident
+compile_info(Module, Beam) when is_atom(Module) ->
+    case erlang:module_loaded(Module) of
+        true ->
+            %% getting the compile info for a loaded module should normally
+            %% work, but return an empty info list if it fails
+            try erlang:get_module_info(Module, compile)
+            catch _:_ -> []
+            end;
+        false ->
+            case beam_lib:chunks(Beam, [compile_info]) of
+                {ok, {_Module, [{compile_info, Info}]}} ->
+                    Info;
+                Error ->
+                    Error
+            end
+    end.
+
+%% compile module overwriting an existing beam file, but restoring
+%% the old version if compilation fails
+safe_recompile(Module, Options, Beam) ->
+    Backup = Beam ++ ".bak",
+    case file:rename(Beam, Backup) of
+        Status when Status =:= ok; Status =:= {error,enoent} ->
+            Dir = filename:dirname(Beam),
+            case c(Module, Options ++ [{outdir, Dir}]) of
+                {ok, _} = Result ->
+                    _ = file:delete(Backup),
+                    Result;
+                Error ->
+                    _ = file:rename(Backup, Beam),
+                    Error
+            end;
+        Error ->
+            Error
     end.
 
 -spec i() -> 'ok'.
