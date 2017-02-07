@@ -65,7 +65,8 @@ all() ->
      ver3_open_flags,
      relpath, 
      sshd_read_file,
-     ver6_basic].
+     ver6_basic,
+     relative_path].
 
 groups() -> 
     [].
@@ -116,6 +117,9 @@ init_per_testcase(TestCase, Config) ->
     {ok, Sftpd} = case TestCase of
 		      ver6_basic ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([{sftpd_vsn, 6}])],
+			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
+		      relative_path ->
+			  SubSystems = [ssh_sftpd:subsystem_spec([{cwd, PrivDir}])],
 			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
 		      _ ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([])],
@@ -646,6 +650,23 @@ ver6_basic(Config) when is_list(Config) ->
 	open_file(PrivDir, Cm, Channel, ReqId,
 		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
 		  ?SSH_FXF_OPEN_EXISTING).
+
+%%--------------------------------------------------------------------
+relative_path() ->
+    [{doc, "Test paths relative to CWD when opening a file handle."}].
+relative_path(Config) when is_list(Config) ->
+    PrivDir =  proplists:get_value(priv_dir, Config),
+    FileName = "test_relative_path.txt",
+    FilePath = filename:join(PrivDir, FileName),
+    ok = filelib:ensure_dir(FilePath),
+    ok = file:write_file(FilePath, <<>>),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    ReqId = 0,
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), _Handle/binary>>, _} =
+        open_file(FileName, Cm, Channel, ReqId,
+                  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+                  ?SSH_FXF_OPEN_EXISTING).
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
