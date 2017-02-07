@@ -1597,8 +1597,9 @@ idle({call,From}, {delayed_answer,T}, Data) ->
 	    throw({keep_state,Data})
     end;
 idle({call,From}, {timeout,Time}, _Data) ->
+    AbsTime = erlang:monotonic_time(millisecond) + Time,
     {next_state,timeout,{From,Time},
-     {timeout,Time,idle}};
+     {timeout,AbsTime,idle,[{abs,true}]}};
 idle(cast, next_event, _Data) ->
     {next_state,next_events,[a,b,c],
      [{next_event,internal,a},

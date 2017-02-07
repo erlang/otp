@@ -785,28 +785,38 @@ handle_event(_, _, State, Data) ->
       <name name="event_timeout"/>
       <desc>
 	<p>
-	  Generates an event of
+	  Starts a timer set by
+	  <seealso marker="#type-enter_action"><c>enter_action()</c></seealso>
+	  <c>timeout</c>.
+	  When the timer expires an event of
 	  <seealso marker="#type-event_type"><c>event_type()</c></seealso>
-	  <c>timeout</c>
-	  after this time (in milliseconds) unless another
-	  event arrives or has arrived
-	  in which case this time-out is cancelled.
+	  <c>timeout</c> will be generated.
+	  See
+	  <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer/4</c></seealso>
+	  for how <c>Time</c> and
+	  <seealso marker="#type-timeout_option"><c>Options</c></seealso>
+	  are interpreted.  All <c>Options</c> of <c>erlang:start_timer/4</c>
+	  will not necessarily be supported in the future.
+	</p>
+	<p>
+	  Any event that arrives cancels this time-out.
 	  Note that a retried or inserted event counts as arrived.
 	  So does a state time-out zero event, if it was generated
-	  before this timer is requested.
+	  before this time-out is requested.
 	</p>
 	<p>
-	  If the value is <c>infinity</c>, no timer is started, as
-	  it never would trigger anyway.
+	  If <c>Time</c> is <c>infinity</c>,
+	  no timer is started, as it never would expire anyway.
 	</p>
 	<p>
-	  If the value is <c>0</c> no timer is actually started,
+	  If <c>Time</c> is relative and <c>0</c>
+	  no timer is actually started,
 	  instead the the time-out event is enqueued to ensure
 	  that it gets processed before any not yet
 	  received external event.
 	</p>
 	<p>
-	  Note that it is not possible or needed to cancel this time-out,
+	  Note that it is not possible nor needed to cancel this time-out,
 	  as it is cancelled automatically by any other event.
 	</p>
       </desc>
@@ -815,19 +825,26 @@ handle_event(_, _, State, Data) ->
       <name name="state_timeout"/>
       <desc>
 	<p>
-	  Generates an event of
+	  Starts a timer set by
+	  <seealso marker="#type-enter_action"><c>enter_action()</c></seealso>
+	  <c>state_timeout</c>.
+	  When the timer expires an event of
 	  <seealso marker="#type-event_type"><c>event_type()</c></seealso>
-	  <c>state_timeout</c>
-	  after this time (in milliseconds) unless the <c>gen_statem</c>
-	  changes states (<c>NewState =/= OldState</c>)
-	  which case this time-out is cancelled.
+	  <c>state_timeout</c> will be generated.
+	  See
+	  <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer/4</c></seealso>
+	  for how <c>Time</c> and
+	  <seealso marker="#type-timeout_option"><c>Options</c></seealso>
+	  are interpreted.  All <c>Options</c> of <c>erlang:start_timer/4</c>
+	  will not necessarily be supported in the future.
 	</p>
 	<p>
-	  If the value is <c>infinity</c>, no timer is started, as
-	  it never would trigger anyway.
+	  If <c>Time</c> is <c>infinity</c>,
+	  no timer is started, as it never would expire anyway.
 	</p>
 	<p>
-	  If the value is <c>0</c> no timer is actually started,
+	  If <c>Time</c> is relative and <c>0</c>
+	  no timer is actually started,
 	  instead the the time-out event is enqueued to ensure
 	  that it gets processed before any not yet
 	  received external event.
@@ -836,6 +853,20 @@ handle_event(_, _, State, Data) ->
 	  Setting this timer while it is running will restart it with
 	  the new time-out value.  Therefore it is possible to cancel
 	  this time-out by setting it to <c>infinity</c>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="timeout_option"/>
+      <desc>
+	<p>
+	  If <c>Abs</c> is <c>true</c> an absolute timer is started,
+	  and if it <c>false</c> a relative, which is the default.
+	  See
+	  <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer/4</c></seealso>
+	  for details.
+	</p>
+	<p>
 	</p>
       </desc>
     </datatype>
@@ -954,7 +985,9 @@ handle_event(_, _, State, Data) ->
 	      Sets the
 	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>
 	      <seealso marker="#type-event_timeout"><c>event_timeout()</c></seealso>
-	      to <c><anno>Time</anno></c> with <c><anno>EventContent</anno></c>.
+	      to <c><anno>Time</anno></c> with <c><anno>EventContent</anno></c>
+	      and options
+	      <seealso marker="#type-timeout_option"><c><anno>Options</anno></c></seealso>.
 	    </p>
 	  </item>
 	  <tag><c>state_timeout</c></tag>
@@ -963,7 +996,9 @@ handle_event(_, _, State, Data) ->
 	      Sets the
 	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>
 	      <seealso marker="#type-state_timeout"><c>state_timeout()</c></seealso>
-	      to <c><anno>Time</anno></c> with <c><anno>EventContent</anno></c>.
+	      to <c><anno>Time</anno></c> with <c><anno>EventContent</anno></c>
+	      and options
+	      <seealso marker="#type-timeout_option"><c><anno>Options</anno></c></seealso>.
 	    </p>
 	  </item>
 	</taglist>
