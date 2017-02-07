@@ -2119,7 +2119,7 @@ eready(Eterm id, ErtsDrvEventState *state, ErlDrvEventData event_data,
 }
 #endif
 
-static void bad_fd_in_pollset( ErtsDrvEventState *, Eterm, Eterm, ErtsPollEvents);
+static void bad_fd_in_pollset(ErtsDrvEventState *, Eterm inport, Eterm outport);
 
 #ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
 void
@@ -2280,9 +2280,8 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 	    }
 	    else if (revents & ERTS_POLL_EV_NVAL) {
 		bad_fd_in_pollset(state,
-				  state->driver.select->inport,
-				  state->driver.select->outport,
-				  state->events);
+                                  state->driver.select->inport,
+                                  state->driver.select->outport);
 		add_active_fd(state->fd);
 	    }
 	    break;
@@ -2336,7 +2335,8 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
                 }
             }
             else if (revents & ERTS_POLL_EV_NVAL) {
-                abort();
+                bad_fd_in_pollset(state, NIL, NIL);
+                add_active_fd(state->fd);
             }
 
 #ifdef ERTS_SMP
@@ -2400,9 +2400,9 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 }
 
 static void
-bad_fd_in_pollset(ErtsDrvEventState *state, Eterm inport, 
-		  Eterm outport, ErtsPollEvents events)
+bad_fd_in_pollset(ErtsDrvEventState *state, Eterm inport, Eterm outport)
 {
+    ErtsPollEvents events = state->events;
     erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 
     if (events & (ERTS_POLL_EV_IN|ERTS_POLL_EV_OUT)) {
@@ -2426,27 +2426,36 @@ bad_fd_in_pollset(ErtsDrvEventState *state, Eterm inport,
 	erts_dsprintf(dsbufp,
 		      "Bad %s fd in erts_poll()! fd=%d, ",
 		      io_str, (int) state->fd);
-	if (is_nil(port)) {
-	    ErtsPortNames *ipnp = erts_get_port_names(inport, ERTS_INVALID_ERL_DRV_PORT);
-	    ErtsPortNames *opnp = erts_get_port_names(outport, ERTS_INVALID_ERL_DRV_PORT);
-	    erts_dsprintf(dsbufp, "ports=%T/%T, drivers=%s/%s, names=%s/%s\n",
-			  is_nil(inport) ? am_undefined : inport,
-			  is_nil(outport) ? am_undefined : outport,
-			  ipnp->driver_name ? ipnp->driver_name : "<unknown>",
-			  opnp->driver_name ? opnp->driver_name : "<unknown>",
-			  ipnp->name ? ipnp->name : "<unknown>",
-			  opnp->name ? opnp->name : "<unknown>");
-	    erts_free_port_names(ipnp);
-	    erts_free_port_names(opnp);
-	}
-	else {
-	    ErtsPortNames *pnp = erts_get_port_names(port, ERTS_INVALID_ERL_DRV_PORT);
-	    erts_dsprintf(dsbufp, "port=%T, driver=%s, name=%s\n",
-			  is_nil(port) ? am_undefined : port,
-			  pnp->driver_name ? pnp->driver_name : "<unknown>",
-			  pnp->name ? pnp->name : "<unknown>");
-	    erts_free_port_names(pnp);
-	}
+        if (state->type == ERTS_EV_TYPE_DRV_SEL) {
+            if (is_nil(port)) {
+                ErtsPortNames *ipnp = erts_get_port_names(inport, ERTS_INVALID_ERL_DRV_PORT);
+                ErtsPortNames *opnp = erts_get_port_names(outport, ERTS_INVALID_ERL_DRV_PORT);
+                erts_dsprintf(dsbufp, "ports=%T/%T, drivers=%s/%s, names=%s/%s\n",
+                              is_nil(inport) ? am_undefined : inport,
+                              is_nil(outport) ? am_undefined : outport,
+                              ipnp->driver_name ? ipnp->driver_name : "<unknown>",
+                              opnp->driver_name ? opnp->driver_name : "<unknown>",
+                              ipnp->name ? ipnp->name : "<unknown>",
+                              opnp->name ? opnp->name : "<unknown>");
+                erts_free_port_names(ipnp);
+                erts_free_port_names(opnp);
+            }
+            else {
+                ErtsPortNames *pnp = erts_get_port_names(port, ERTS_INVALID_ERL_DRV_PORT);
+                erts_dsprintf(dsbufp, "port=%T, driver=%s, name=%s\n",
+                              is_nil(port) ? am_undefined : port,
+                              pnp->driver_name ? pnp->driver_name : "<unknown>",
+                              pnp->name ? pnp->name : "<unknown>");
+                erts_free_port_names(pnp);
+            }
+        }
+        else {
+            ErlNifResourceType* rt;
+            ASSERT(state->type == ERTS_EV_TYPE_NIF);
+            ASSERT(state->driver.stop.resource);
+            rt = state->driver.stop.resource->type;
+            erts_dsprintf(dsbufp, "resource={%T,%T}\n", rt->module, rt->name);
+        }
     }
     else {
 	erts_dsprintf(dsbufp, "Bad fd in erts_poll()! fd=%d\n", (int) state->fd);
