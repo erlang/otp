@@ -1131,16 +1131,14 @@ loop_event_result(
     %% Place next events last in reversed queue
     Events_2R = lists:reverse(Events_1, NextEventsR),
     %% Enqueue immediate timeout events and start event timer
-    {TimerRefs_3,TimerTypes_3,Events_3R} =
-	process_timeout_events(
-	  TimerRefs_2, TimerTypes_2, TimeoutEvents, Events_2R),
+    Events_3R =	prepend_timeout_events(TimeoutEvents, Events_2R),
     S_1 =
 	S_0#{
 	  state := NextState,
 	  data := NewData,
 	  postponed := P_2,
-	  timer_refs := TimerRefs_3,
-	  timer_types := TimerTypes_3,
+	  timer_refs := TimerRefs_2,
+	  timer_types := TimerTypes_2,
 	  cancel_timers := CancelTimers_2,
 	  hibernate := Hibernate},
     case lists:reverse(Events_3R) of
@@ -1361,7 +1359,7 @@ parse_enter_actions(Debug, S, State, Actions, Hibernate, TimeoutsR) ->
     
 parse_actions(Debug, S, State, Actions) ->
     Hibernate = false,
-    TimeoutsR = [],
+    TimeoutsR = [{timeout,infinity,infinity}], %% Will cancel event timer
     Postpone = false,
     NextEventsR = [],
     parse_actions(
@@ -1413,12 +1411,9 @@ parse_actions(
 	    {error,
 	     {bad_action_from_state_function,Action},
 	     ?STACKTRACE()};
-	{timeout,infinity,_} ->
-	    %% Ignore - timeout will never happen and is already cancelled
-	    parse_actions(
-	      Debug, S, State, Actions,
-	      Hibernate, TimeoutsR, Postpone, NextEventsR);
-	{timeout,Time,_} = Timeout when is_integer(Time), Time >= 0 ->
+	{timeout,Time,_} = Timeout
+	  when is_integer(Time), Time >= 0;
+	       Time =:= infinity ->
 	    parse_actions(
 	      Debug, S, State, Actions,
 	      Hibernate, [Timeout|TimeoutsR], Postpone, NextEventsR);
@@ -1426,11 +1421,9 @@ parse_actions(
 	    {error,
 	     {bad_action_from_state_function,Action},
 	     ?STACKTRACE()};
-	infinity -> % Ignore - timeout will never happen
-	    parse_actions(
-	      Debug, S, State, Actions,
-	      Hibernate, TimeoutsR, Postpone, NextEventsR);
-	Time when is_integer(Time), Time >= 0 ->
+	Time
+	  when is_integer(Time), Time >= 0;
+	       Time =:= infinity ->
 	    Timeout = {timeout,Time,Time},
 	    parse_actions(
 	      Debug, S, State, Actions,
@@ -1493,11 +1486,6 @@ parse_timers(
 	    %% Unseen type - handle
 	    NewSeen = Seen#{TimerType => true},
 	    if
-		TimerType =:= timeout ->
-		    %% Handle event timer later
-		    parse_timers(
-		      TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
-		      NewSeen, [Timeout|TimeoutEvents]);
 		Time =:= infinity ->
 		    %% Cancel any running timer
 		    {NewTimerTypes,NewCancelTimers} =
@@ -1541,39 +1529,27 @@ parse_timers(
 	    end
     end.
 
-%% Enqueue immediate timeout events and start event timer
-process_timeout_events(TimerRefs, TimerTypes, [], EventsR) ->
-    {TimerRefs, TimerTypes, EventsR};
-process_timeout_events(
-  TimerRefs, TimerTypes,
-  [{timeout,0,TimerMsg}|TimeoutEvents], []) ->
-    %% No enqueued events - insert a timeout zero event
-    TimeoutEvent = {timeout,TimerMsg},
-    process_timeout_events(
-      TimerRefs, TimerTypes,
-      TimeoutEvents, [TimeoutEvent]);
-process_timeout_events(
-  TimerRefs, TimerTypes,
-  [{timeout,Time,TimerMsg}], []) ->
-    %% No enqueued events - start event timer
-    TimerRef = erlang:start_timer(Time, self(), TimerMsg),
-    process_timeout_events(
-      TimerRefs#{TimerRef => timeout}, TimerTypes#{timeout => TimerRef},
-      [], []);
-process_timeout_events(
-  TimerRefs, TimerTypes,
-  [{timeout,_Time,_TimerMsg}|TimeoutEvents], EventsR) ->
-    %% There will be some other event so optimize by not starting
-    %% an event timer to just have to cancel it again
-    process_timeout_events(
-      TimerRefs, TimerTypes,
-      TimeoutEvents, EventsR);
-process_timeout_events(
-  TimerRefs, TimerTypes,
-  [{_TimeoutType,_TimeoutMsg} = TimeoutEvent|TimeoutEvents], EventsR) ->
-    process_timeout_events(
-      TimerRefs, TimerTypes,
-      TimeoutEvents, [TimeoutEvent|EventsR]).
+%% Enqueue immediate timeout events (timeout 0 events)
+%%
+%% Event timer timeout 0 events gets special treatment since
+%% an event timer is cancelled by any received event,
+%% so if there are enqueued events before the event timer
+%% timeout 0 event - the event timer is cancelled hence no event.
+%%
+%% Other (state_timeout) timeout 0 events that are after
+%% the event timer timeout 0 events are considered to
+%% belong to timers that were started after the event timer
+%% timeout 0 event fired, so they do not cancel the event timer.
+%%
+prepend_timeout_events([], EventsR) ->
+    EventsR;
+prepend_timeout_events([{timeout,_} = TimeoutEvent|TimeoutEvents], []) ->
+    prepend_timeout_events(TimeoutEvents, [TimeoutEvent]);
+prepend_timeout_events([{timeout,_}|TimeoutEvents], EventsR) ->
+    prepend_timeout_events(TimeoutEvents, EventsR);
+prepend_timeout_events([TimeoutEvent|TimeoutEvents], EventsR) ->
+    %% Just prepend all others
+    prepend_timeout_events(TimeoutEvents, [TimeoutEvent|EventsR]).
 
 
 
