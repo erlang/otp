@@ -1356,7 +1356,7 @@ parse_enter_actions(Debug, S, State, Actions, Hibernate, TimeoutsR) ->
     parse_actions(
       Debug, S, State, listify(Actions),
       Hibernate, TimeoutsR, Postpone, NextEventsR).
-    
+
 parse_actions(Debug, S, State, Actions) ->
     Hibernate = false,
     TimeoutsR = [{timeout,infinity,infinity}], %% Will cancel event timer
@@ -1387,61 +1387,29 @@ parse_actions(
 		     {bad_action_from_state_function,Action},
 		     ?STACKTRACE()}
 	    end;
+	%%
 	%% Actions that set options
 	{hibernate,NewHibernate} when is_boolean(NewHibernate) ->
 	    parse_actions(
 	      Debug, S, State, Actions,
 	      NewHibernate, TimeoutsR, Postpone, NextEventsR);
-	{hibernate,_} ->
-	    {error,
-	     {bad_action_from_state_function,Action},
-	     ?STACKTRACE()};
 	hibernate ->
 	    NewHibernate = true,
 	    parse_actions(
 	      Debug, S, State, Actions,
 	      NewHibernate, TimeoutsR, Postpone, NextEventsR);
-	{state_timeout,Time,_} = StateTimeout
-	  when is_integer(Time), Time >= 0;
-	       Time =:= infinity ->
-	    parse_actions(
-	      Debug, S, State, Actions,
-	      Hibernate, [StateTimeout|TimeoutsR], Postpone, NextEventsR);
-	{state_timeout,_,_} ->
-	    {error,
-	     {bad_action_from_state_function,Action},
-	     ?STACKTRACE()};
-	{timeout,Time,_} = Timeout
-	  when is_integer(Time), Time >= 0;
-	       Time =:= infinity ->
-	    parse_actions(
-	      Debug, S, State, Actions,
-	      Hibernate, [Timeout|TimeoutsR], Postpone, NextEventsR);
-	{timeout,_,_} ->
-	    {error,
-	     {bad_action_from_state_function,Action},
-	     ?STACKTRACE()};
-	Time
-	  when is_integer(Time), Time >= 0;
-	       Time =:= infinity ->
-	    Timeout = {timeout,Time,Time},
-	    parse_actions(
-	      Debug, S, State, Actions,
-	      Hibernate, [Timeout|TimeoutsR], Postpone, NextEventsR);
+	%%
 	{postpone,NewPostpone}
 	  when is_boolean(NewPostpone), Postpone =/= forbidden ->
 	    parse_actions(
 	      Debug, S, State, Actions,
 	      Hibernate, TimeoutsR, NewPostpone, NextEventsR);
-	{postpone,_} ->
-	    {error,
-	     {bad_action_from_state_function,Action},
-	     ?STACKTRACE()};
 	postpone when Postpone =/= forbidden ->
 	    NewPostpone = true,
 	    parse_actions(
 	      Debug, S, State, Actions,
 	      Hibernate, TimeoutsR, NewPostpone, NextEventsR);
+	%%
 	{next_event,Type,Content} ->
 	    case event_type(Type) of
 		true when NextEventsR =/= forbidden ->
@@ -1456,11 +1424,44 @@ parse_actions(
 		     {bad_action_from_state_function,Action},
 		     ?STACKTRACE()}
 	    end;
-	_ ->
+	%%
+	{state_timeout,_,_} = Timeout ->
+	    parse_actions_timeout(
+	      Debug, S, State, Actions,
+	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
+	{timeout,_,_} = Timeout ->
+	    parse_actions_timeout(
+	      Debug, S, State, Actions,
+	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
+	Time ->
+	    parse_actions_timeout(
+	      Debug, S, State, Actions,
+	      Hibernate, TimeoutsR, Postpone, NextEventsR, Time)
+    end.
+
+parse_actions_timeout(
+  Debug, S, State, Actions,
+  Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout) ->
+    Time =
+	case Timeout of
+	    {_,T,_} -> T;
+	    T -> T
+	end,
+    case validate_time(Time) of
+	true ->
+	    parse_actions(
+	      Debug, S, State, Actions,
+	      Hibernate, [Timeout|TimeoutsR],
+	      Postpone, NextEventsR);
+	false ->
 	    {error,
-	     {bad_action_from_state_function,Action},
+	     {bad_action_from_state_function,Timeout},
 	     ?STACKTRACE()}
     end.
+
+validate_time(Time) when is_integer(Time), Time >= 0 -> true;
+validate_time(infinity) -> true;
+validate_time(_) -> false.
 
 %% Stop and start timers as well as create timeout zero events
 %% and pending event timer
@@ -1475,7 +1476,23 @@ parse_timers(
 parse_timers(
   TimerRefs, TimerTypes, CancelTimers, [Timeout|TimeoutsR],
   Seen, TimeoutEvents) ->
-    {TimerType,Time,TimerMsg} = Timeout,
+    case Timeout of
+	{TimerType,Time,TimerMsg} ->
+	    parse_timers(
+              TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
+              Seen, TimeoutEvents,
+              TimerType, Time, TimerMsg);
+	Time ->
+	    parse_timers(
+              TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
+              Seen, TimeoutEvents,
+              timeout, Time, Time)
+    end.
+
+parse_timers(
+  TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
+  Seen, TimeoutEvents,
+  TimerType, Time, TimerMsg) ->
     case Seen of
 	#{TimerType := _} ->
 	    %% Type seen before - ignore
@@ -1485,8 +1502,8 @@ parse_timers(
 	#{} ->
 	    %% Unseen type - handle
 	    NewSeen = Seen#{TimerType => true},
-	    if
-		Time =:= infinity ->
+	    case Time of
+		infinity ->
 		    %% Cancel any running timer
 		    {NewTimerTypes,NewCancelTimers} =
 			cancel_timer_by_type(
@@ -1494,7 +1511,7 @@ parse_timers(
 		    parse_timers(
 		      TimerRefs, NewTimerTypes, NewCancelTimers, TimeoutsR,
 		      NewSeen, TimeoutEvents);
-		Time =:= 0 ->
+		0 ->
 		    %% Cancel any running timer
 		    {NewTimerTypes,NewCancelTimers} =
 			cancel_timer_by_type(
@@ -1504,7 +1521,7 @@ parse_timers(
 		    parse_timers(
 		      TimerRefs, NewTimerTypes, NewCancelTimers, TimeoutsR,
 		      NewSeen, [TimeoutEvent|TimeoutEvents]);
-		true ->
+		_ ->
 		    %% (Re)start the timer
 		    TimerRef =
 			erlang:start_timer(Time, self(), TimerMsg),
@@ -1512,19 +1529,20 @@ parse_timers(
 			#{TimerType := OldTimerRef} ->
 			    %% Cancel the running timer
 			    cancel_timer(OldTimerRef),
+			    NewCancelTimers = CancelTimers + 1,
 			    %% Insert the new timer into
 			    %% both TimerRefs and TimerTypes
 			    parse_timers(
 			      TimerRefs#{TimerRef => TimerType},
 			      TimerTypes#{TimerType => TimerRef},
-			      CancelTimers + 1,
-			      TimeoutsR, NewSeen, TimeoutEvents);
+			      NewCancelTimers, TimeoutsR,
+			      NewSeen, TimeoutEvents);
 			#{} ->
 			    parse_timers(
 			      TimerRefs#{TimerRef => TimerType},
 			      TimerTypes#{TimerType => TimerRef},
-			      CancelTimers,
-			      TimeoutsR, NewSeen, TimeoutEvents)
+			      CancelTimers, TimeoutsR,
+			      NewSeen, TimeoutEvents)
 		    end
 	    end
     end.
@@ -1559,16 +1577,9 @@ prepend_timeout_events([TimeoutEvent|TimeoutEvents], EventsR) ->
 reply_then_terminate(
   Class, Reason, Stacktrace, Debug,
   #{state := State} = S, Q, Replies) ->
-    if
-	is_list(Replies) ->
-	    do_reply_then_terminate(
-	      Class, Reason, Stacktrace, Debug,
-	      S, Q, Replies, State);
-	true ->
-	    do_reply_then_terminate(
-	      Class, Reason, Stacktrace, Debug,
-	      S, Q, [Replies], State)
-    end.
+    do_reply_then_terminate(
+      Class, Reason, Stacktrace, Debug,
+      S, Q, listify(Replies), State).
 %%
 do_reply_then_terminate(
   Class, Reason, Stacktrace, Debug, S, Q, [], _State) ->
