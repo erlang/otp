@@ -1197,18 +1197,36 @@ check_sane_openssl_version(Version) ->
 enough_openssl_crl_support("OpenSSL 0." ++ _) -> false;
 enough_openssl_crl_support(_) -> true.
 
-wait_for_openssl_server(Port) ->
-    wait_for_openssl_server(Port, 10).
-wait_for_openssl_server(_, 0) ->
+wait_for_openssl_server(Port, tls) ->
+    do_wait_for_openssl_tls_server(Port, 10);
+wait_for_openssl_server(Port, dtls) ->
+    do_wait_for_openssl_dtls_server(Port, 10).
+
+do_wait_for_openssl_tls_server(_, 0) ->
     exit(failed_to_connect_to_openssl);
-wait_for_openssl_server(Port, N) ->
+do_wait_for_openssl_tls_server(Port, N) ->
     case gen_tcp:connect("localhost", Port, []) of
 	{ok, S} ->
 	    gen_tcp:close(S);
 	_  ->
 	    ct:sleep(?SLEEP),
-	    wait_for_openssl_server(Port, N-1)
+	    do_wait_for_openssl_tls_server(Port, N-1)
     end.
+
+do_wait_for_openssl_dtls_server(_, 0) ->
+    %%exit(failed_to_connect_to_openssl);
+    ok;
+do_wait_for_openssl_dtls_server(Port, N) ->
+    %% case gen_udp:open(0) of
+    %%     {ok, S} ->
+    %%         gen_udp:connect(S, "localhost", Port),
+    %%         gen_udp:close(S);
+    %%     _  ->
+    %%         ct:sleep(?SLEEP),
+    %%         do_wait_for_openssl_dtls_server(Port, N-1)
+    %% end.
+    ct:sleep(500),
+    do_wait_for_openssl_dtls_server(Port, N-1).
 
 version_flag(tlsv1) ->
     "-tls1";
@@ -1219,7 +1237,11 @@ version_flag('tlsv1.2') ->
 version_flag(sslv3) ->
     "-ssl3";
 version_flag(sslv2) ->
-    "-ssl2".
+    "-ssl2";
+version_flag('dtlsv1.2') ->
+    "-dtls1_2";
+version_flag('dtlsv1') ->
+    "-dtls1".
 
 filter_suites(Ciphers0, AtomVersion) ->
     Version = tls_version(AtomVersion),
@@ -1372,3 +1394,79 @@ tls_version('dtlsv1.2' = Atom) ->
     dtls_v1:corresponding_tls_version(dtls_record:protocol_version(Atom));
 tls_version(Atom) ->
     tls_record:protocol_version(Atom).
+
+dtls_hello() ->
+    [1,
+     <<0,1,4>>,
+     <<0,0>>,
+     <<0,0,0>>,
+     <<0,1,4>>,
+     <<254,253,88,
+       156,129,61,
+       131,216,15,
+       131,194,242,
+       46,154,190,
+       20,228,234,
+       234,150,44,
+       62,96,96,103,
+       127,95,103,
+       23,24,42,138,
+       13,142,32,57,
+       230,177,32,
+       210,154,152,
+       188,121,134,
+       136,53,105,
+       118,96,106,
+       103,231,223,
+       133,10,165,
+       50,32,211,
+       227,193,14,
+       181,143,48,
+       66,0,0,100,0,
+       255,192,44,
+       192,48,192,
+       36,192,40,
+       192,46,192,
+       50,192,38,
+       192,42,0,159,
+       0,163,0,107,
+       0,106,0,157,
+       0,61,192,43,
+       192,47,192,
+       35,192,39,
+       192,45,192,
+       49,192,37,
+       192,41,0,158,
+       0,162,0,103,
+       0,64,0,156,0,
+       60,192,10,
+       192,20,0,57,
+       0,56,192,5,
+       192,15,0,53,
+       192,8,192,18,
+       0,22,0,19,
+       192,3,192,13,
+       0,10,192,9,
+       192,19,0,51,
+       0,50,192,4,
+       192,14,0,47,
+       1,0,0,86,0,0,
+       0,14,0,12,0,
+       0,9,108,111,
+       99,97,108,
+       104,111,115,
+       116,0,10,0,
+       58,0,56,0,14,
+       0,13,0,25,0,
+       28,0,11,0,12,
+       0,27,0,24,0,
+       9,0,10,0,26,
+       0,22,0,23,0,
+       8,0,6,0,7,0,
+       20,0,21,0,4,
+       0,5,0,18,0,
+       19,0,1,0,2,0,
+       3,0,15,0,16,
+       0,17,0,11,0,
+       2,1,0>>].
+
