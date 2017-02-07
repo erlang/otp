@@ -1342,87 +1342,84 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
 
     state->events = new_events;
     if (on) {
-            Uint32* refn;
-	    if (!state->driver.nif)
-		state->driver.nif = alloc_nif_select_data();
-	    if (state->type == ERTS_EV_TYPE_NONE) {
-		state->type = ERTS_EV_TYPE_NIF;
-                state->driver.stop.resource = resource;
-                enif_keep_resource(resource->data);
+        Uint32* refn;
+        if (!state->driver.nif)
+            state->driver.nif = alloc_nif_select_data();
+        if (state->type == ERTS_EV_TYPE_NONE) {
+            state->type = ERTS_EV_TYPE_NIF;
+            state->driver.stop.resource = resource;
+            enif_keep_resource(resource->data);
+        }
+        ASSERT(state->type == ERTS_EV_TYPE_NIF);
+        ASSERT(state->driver.stop.resource == resource);
+        if (ctl_events & ERTS_POLL_EV_IN) {
+            state->driver.nif->in.pid = id;
+            if (is_immed(ref)) {
+                state->driver.nif->in.immed = ref;
+            } else {
+                ASSERT(is_internal_ref(ref));
+                refn = internal_ref_numbers(ref);
+                state->driver.nif->in.immed = THE_NON_VALUE;
+                state->driver.nif->in.refn[0] = refn[0];
+                state->driver.nif->in.refn[1] = refn[1];
+                state->driver.nif->in.refn[2] = refn[2];
             }
-            ASSERT(state->type == ERTS_EV_TYPE_NIF);
-            ASSERT(state->driver.stop.resource == resource);
-	    if (ctl_events & ERTS_POLL_EV_IN) {
-		state->driver.nif->in.pid = id;
-                if (is_immed(ref)) {
-                    state->driver.nif->in.immed = ref;
-                } else {
-                    ASSERT(is_internal_ref(ref));
-                    refn = internal_ref_numbers(ref);
-                    state->driver.nif->in.immed = THE_NON_VALUE;
-                    state->driver.nif->in.refn[0] = refn[0];
-                    state->driver.nif->in.refn[1] = refn[1];
-                    state->driver.nif->in.refn[2] = refn[2];
-                }
-                state->driver.nif->in.ddeselect_cnt = 0;
+            state->driver.nif->in.ddeselect_cnt = 0;
+        }
+        if (ctl_events & ERTS_POLL_EV_OUT) {
+            state->driver.nif->out.pid = id;
+            if (is_immed(ref)) {
+                state->driver.nif->out.immed = ref;
+            } else {
+                ASSERT(is_internal_ref(ref));
+                refn = internal_ref_numbers(ref);
+                state->driver.nif->out.immed = THE_NON_VALUE;
+                state->driver.nif->out.refn[0] = refn[0];
+                state->driver.nif->out.refn[1] = refn[1];
+                state->driver.nif->out.refn[2] = refn[2];
             }
-	    if (ctl_events & ERTS_POLL_EV_OUT) {
-		state->driver.nif->out.pid = id;
-                if (is_immed(ref)) {
-                    state->driver.nif->out.immed = ref;
-                } else {
-                    ASSERT(is_internal_ref(ref));
-                    refn = internal_ref_numbers(ref);
-                    state->driver.nif->out.immed = THE_NON_VALUE;
-                    state->driver.nif->out.refn[0] = refn[0];
-                    state->driver.nif->out.refn[1] = refn[1];
-                    state->driver.nif->out.refn[2] = refn[2];
-                }
-                state->driver.nif->out.ddeselect_cnt = 0;
-            }
-            ret = 0;
+            state->driver.nif->out.ddeselect_cnt = 0;
+        }
+        ret = 0;
     }
     else { /* off */
-	    if (state->type == ERTS_EV_TYPE_NIF) {
-                //erts_fprintf(stderr, "SVERK: enif select clear fd=%d inpid=%T inrsrc=%p\n",
-                //             state->fd, state->driver.nif->inpid,
-                //             state->driver.nif->in.resource);
-                state->driver.nif->in.pid = NIL;
-                state->driver.nif->out.pid = NIL;
-                state->driver.nif->in.ddeselect_cnt = 0;
-                state->driver.nif->out.ddeselect_cnt = 0;
-                if (old_events != 0) {
-                    remember_removed(state, &pollset);
-                }
-	    }
-            ASSERT(new_events==0);
-            if (state->remove_cnt == 0 || !wake_poller) {
-                /* Safe to close fd now as it is not in pollset
-		   or there was no need to eject fd (kernel poll) */
-                //erts_fprintf(stderr, "SVERK : enif_select calling stop before return\n");
-                if (state->type == ERTS_EV_TYPE_NIF) {
-                    ASSERT(state->driver.stop.resource == resource);
-                    call_stop = CALL_STOP_AND_RELEASE;
-                    state->driver.stop.resource = NULL;
-                }
-                else {
-                    ASSERT(!state->driver.stop.resource);
-                    call_stop = CALL_STOP;
-                }
-                state->type = ERTS_EV_TYPE_NONE;
-                ret = ERL_NIF_SELECT_STOP_CALLED;
+        if (state->type == ERTS_EV_TYPE_NIF) {
+            state->driver.nif->in.pid = NIL;
+            state->driver.nif->out.pid = NIL;
+            state->driver.nif->in.ddeselect_cnt = 0;
+            state->driver.nif->out.ddeselect_cnt = 0;
+            if (old_events != 0) {
+                remember_removed(state, &pollset);
+            }
+        }
+        ASSERT(new_events==0);
+        if (state->remove_cnt == 0 || !wake_poller) {
+            /*
+             * Safe to close fd now as it is not in pollset
+             * or there was no need to eject fd (kernel poll)
+             */
+            if (state->type == ERTS_EV_TYPE_NIF) {
+                ASSERT(state->driver.stop.resource == resource);
+                call_stop = CALL_STOP_AND_RELEASE;
+                state->driver.stop.resource = NULL;
             }
             else {
-                /* Not safe to close fd, postpone stop_select callback. */
-                //erts_fprintf(stderr, "SVERK: enif_select schedule stop\n");
-                if (state->type == ERTS_EV_TYPE_NONE) {
-                    ASSERT(!state->driver.stop.resource);
-                    state->driver.stop.resource = resource;
-                    enif_keep_resource(resource);
-                }
-                state->type = ERTS_EV_TYPE_STOP_NIF;
-                ret = ERL_NIF_SELECT_STOP_SCHEDULED;
-	    }
+                ASSERT(!state->driver.stop.resource);
+                call_stop = CALL_STOP;
+            }
+            state->type = ERTS_EV_TYPE_NONE;
+            ret = ERL_NIF_SELECT_STOP_CALLED;
+        }
+        else {
+            /* Not safe to close fd, postpone stop_select callback. */
+            if (state->type == ERTS_EV_TYPE_NONE) {
+                ASSERT(!state->driver.stop.resource);
+                state->driver.stop.resource = resource;
+                enif_keep_resource(resource);
+            }
+            state->type = ERTS_EV_TYPE_STOP_NIF;
+            ret = ERL_NIF_SELECT_STOP_SCHEDULED;
+        }
     }
 
 done:
