@@ -401,8 +401,7 @@ cert_options(Config) ->
 				{ssl_imp, new}]},
      {server_opts, [{ssl_imp, new},{reuseaddr, true}, {cacertfile, ServerCaCertFile}, 
 		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
-     %%{server_anon, [{ssl_imp, new},{reuseaddr, true}, {ciphers, anonymous_suites()}]},
-     {client_psk, [{ssl_imp, new},{reuseaddr, true},
+     {client_psk, [{ssl_imp, new},
 		   {psk_identity, "Test-User"},
 		   {user_lookup_fun, {fun user_lookup/3, PskSharedSecret}}]},
      {server_psk, [{ssl_imp, new},{reuseaddr, true},
@@ -417,7 +416,7 @@ cert_options(Config) ->
      {server_psk_anon_hint, [{ssl_imp, new},{reuseaddr, true},
 			     {psk_identity, "HINT"},
 			     {user_lookup_fun, {fun user_lookup/3, PskSharedSecret}}]},
-     {client_srp, [{ssl_imp, new},{reuseaddr, true},
+     {client_srp, [{ssl_imp, new},
 		   {srp_identity, {"Test-User", "secret"}}]},
      {server_srp, [{ssl_imp, new},{reuseaddr, true},
 		   {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
@@ -472,7 +471,7 @@ make_dsa_cert(Config) ->
 			       {cacertfile, ClientCaCertFile},
 			       {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
 			       {verify, verify_peer}]},
-     {client_dsa_opts, [{ssl_imp, new},{reuseaddr, true}, 
+     {client_dsa_opts, [{ssl_imp, new},
 			{cacertfile, ClientCaCertFile},
 			{certfile, ClientCertFile}, {keyfile, ClientKeyFile}]},
      {server_srp_dsa, [{ssl_imp, new},{reuseaddr, true}, 
@@ -480,7 +479,7 @@ make_dsa_cert(Config) ->
 		       {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
 		       {user_lookup_fun, {fun user_lookup/3, undefined}},
 		       {ciphers, srp_dss_suites()}]},
-     {client_srp_dsa, [{ssl_imp, new},{reuseaddr, true}, 
+     {client_srp_dsa, [{ssl_imp, new},
 		       {srp_identity, {"Test-User", "secret"}},
 		       {cacertfile, ClientCaCertFile},
 		       {certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
@@ -501,7 +500,7 @@ make_ecdsa_cert(Config) ->
 					 {cacertfile, ClientCaCertFile},
 					 {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
 					 {verify, verify_peer}]},
-	     {client_ecdsa_opts, [{ssl_imp, new},{reuseaddr, true},
+	     {client_ecdsa_opts, [{ssl_imp, new},
 				  {cacertfile, ClientCaCertFile},
 				  {certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
 	     | Config];
@@ -536,7 +535,7 @@ make_ecdh_rsa_cert(Config) ->
 					    {cacertfile, ClientCaCertFile},
 					    {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
 					    {verify, verify_peer}]},
-	     {client_ecdh_rsa_opts, [{ssl_imp, new},{reuseaddr, true},
+	     {client_ecdh_rsa_opts, [{ssl_imp, new},
 				     {cacertfile, ClientCaCertFile},
 				     {certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
 	     | Config];
@@ -556,7 +555,7 @@ make_mix_cert(Config) ->
 			       {cacertfile, ClientCaCertFile},
 			       {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
 			       {verify, verify_peer}]},
-     {client_mix_opts, [{ssl_imp, new},{reuseaddr, true},
+     {client_mix_opts, [{ssl_imp, new},
 			{cacertfile, ClientCaCertFile},
 			{certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
      | Config].

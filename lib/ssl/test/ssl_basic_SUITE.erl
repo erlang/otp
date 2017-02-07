@@ -53,7 +53,8 @@ all() ->
      {group, options_tls},
      {group, session},
      {group, 'dtlsv1.2'},
-     {group, 'dtlsv1'},
+     %%     {group, 'dtlsv1'}, Breaks dtls in cert_verify_SUITE enable later when 
+     %% problem is identified and fixed
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
