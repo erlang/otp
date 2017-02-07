@@ -39,7 +39,10 @@ suite() ->
      {timetrap,{minutes,60}}].
 
 all() ->
-    [{group, compile},
+    [xref,
+     xref_export_all,
+
+     {group, compile},
      {group, parallel},
 
      % TODO: Investigate parallel running of these:
@@ -64,7 +67,6 @@ groups() ->
 
      {parallel, Parallel,
       [cover,
-       xref,
        {group, ber},
        % Uses 'P-Record', 'Constraints', 'MEDIA-GATEWAY-CONTROL'...
        {group, [], [parse,
@@ -1269,16 +1271,72 @@ ticket7904(Config) ->
     {ok,_} = 'RANAPextract1':encode('InitiatingMessage', Val1),
     {ok,_} = 'RANAPextract1':encode('InitiatingMessage', Val1).
 
+
+%% Make sure that functions exported from other modules are
+%% actually used.
+
 xref(_Config) ->
-    xref:start(s),
-    xref:set_default(s, [{verbose,false},{warnings,false},{builtins,true}]),
+    S = ?FUNCTION_NAME,
+    xref:start(S),
+    xref:set_default(S, [{verbose,false},{warnings,false},{builtins,true}]),
     Test = filename:dirname(code:which(?MODULE)),
-    {ok,_PMs} = xref:add_directory(s, Test),
-    UnusedExports = "X - XU - \".*_SUITE\" : Mod",
-    case xref:q(s, UnusedExports) of
+    {ok,_PMs} = xref:add_directory(S, Test),
+    Q = "X - XU - \".*_SUITE\" : Mod",
+    UnusedExports = xref:q(S, Q),
+    xref:stop(S),
+    case UnusedExports of
 	{ok,[]} ->
 	    ok;
 	{ok,[_|_]=Res} ->
 	    io:format("Exported, but unused: ~p\n", [Res]),
 	    ?t:fail()
     end.
+
+%% Ensure that all functions that are implicitly exported by
+%% 'export_all' in this module are actually used.
+
+xref_export_all(_Config) ->
+    S = ?FUNCTION_NAME,
+    xref:start(S),
+    xref:set_default(S, [{verbose,false},{warnings,false},{builtins,true}]),
+    {ok,_PMs} = xref:add_module(S, code:which(?MODULE)),
+    AllCalled = all_called(),
+    Def = "Called := " ++ lists:flatten(io_lib:format("~p", [AllCalled])),
+    {ok,_} = xref:q(S, Def),
+    {ok,Unused} = xref:q(S, "X - Called - range (closure E | Called)"),
+    xref:stop(S),
+    case Unused of
+        [] ->
+            ok;
+        [_|_] ->
+            S = [io_lib:format("~p:~p/~p\n", [M,F,A]) || {M,F,A} <- Unused],
+            io:format("There are unused functions:\n\n~s\n", [S]),
+            ?t:fail(unused_functions)
+    end.
+
+%% Collect all functions that common_test will call in this module.
+
+all_called() ->
+    [{?MODULE,end_per_group,2},
+     {?MODULE,end_per_suite,1},
+     {?MODULE,end_per_testcase,2},
+     {?MODULE,init_per_group,2},
+     {?MODULE,init_per_suite,1},
+     {?MODULE,init_per_testcase,2},
+     {?MODULE,suite,0}] ++
+        all_called_1(all() ++ groups()).
+
+all_called_1([{_,_}|T]) ->
+    all_called_1(T);
+all_called_1([{_Name,_Flags,Fs}|T]) ->
+    all_called_1(Fs ++ T);
+all_called_1([F|T]) when is_atom(F) ->
+    L = case erlang:function_exported(?MODULE, F, 0) of
+            false ->
+                [{?MODULE,F,1}];
+            true ->
+                [{?MODULE,F,0},{?MODULE,F,1}]
+        end,
+    L ++ all_called_1(T);
+all_called_1([]) ->
+    [].
