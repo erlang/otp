@@ -36,7 +36,7 @@
   "Tags that can be used anywhere within a module.")
 
 (defvar erlang-edoc-overview-tags
-  '("author" "copyright" "reference" "see" "since" "title" "version")
+  '("author" "copyright" "doc" "reference" "see" "since" "title" "version")
   "Tags that can be used in an overview file.")
 
 (defvar erlang-edoc-module-tags
@@ -45,8 +45,8 @@
   "Tags that can be used before a module declaration.")
 
 (defvar erlang-edoc-function-tags
-  '("deprecated" "doc" "equiv" "hidden" "private" "see" "since" "spec"
-    "throws" "type")
+  '("deprecated" "doc" "equiv" "hidden" "param" "private" "returns"
+    "see" "since" "spec" "throws" "type")
   "Tags that can be used before a function definition.")
 
 (defvar erlang-edoc-predefined-macros
