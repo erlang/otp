@@ -21,23 +21,24 @@
 %%----------------------------------------------------------------------
 %% Purpose: Verify the application specifics of the asn1 application
 %%----------------------------------------------------------------------
--module(asn1_app_test).
-
--compile(export_all).
+-module(asn1_app_SUITE).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
+         init_per_suite/1,end_per_suite/1,
+         appup/1,fields/1,modules/1,export_all/1,app_depend/1]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all() -> 
-    [fields, modules, exportall, app_depend].
+all() ->
+    [appup, fields, modules, export_all, app_depend].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -65,12 +66,15 @@ is_app(App) ->
 end_per_suite(Config) when is_list(Config) ->
     Config.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+appup(Config) when is_list(Config) ->
+    ok = test_server:appup_test(asn1).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% .
 fields(Config) when is_list(Config) ->
-    AppFile = key1search(app_file, Config),
+    AppFile = key1find(app_file, Config),
     Fields = [vsn, description, modules, registered, applications],
     case check_fields(Fields, AppFile, []) of
 	[] ->
@@ -96,10 +100,9 @@ check_field(Name, AppFile, Missing) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% .
 modules(Config) when is_list(Config) ->
-    AppFile  = key1search(app_file, Config),
-    Mods     = key1search(modules, AppFile),
+    AppFile  = key1find(app_file, Config),
+    Mods     = key1find(modules, AppFile),
     EbinList = get_ebin_mods(asn1),
     case missing_modules(Mods, EbinList, []) of
 	[] ->
@@ -112,10 +115,9 @@ modules(Config) when is_list(Config) ->
 	    ok;
 	Extra ->
 	    check_asn1ct_modules(Extra)
-%	    throw({error, {extra_modules, Extra}})
     end,
     {ok, Mods}.
-	    
+
 get_ebin_mods(App) ->
     LibDir  = code:lib_dir(App),
     EbinDir = filename:join([LibDir,"ebin"]),
@@ -166,10 +168,9 @@ extra_modules(Mods, [Mod|Ebins], Extra) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-%% .
-exportall(Config) when is_list(Config) ->
-    AppFile = key1search(app_file, Config),
-    Mods    = key1search(modules, AppFile),
+export_all(Config) when is_list(Config) ->
+    AppFile = key1find(app_file, Config),
+    Mods    = key1find(modules, AppFile),
     check_export_all(Mods).
 
 
@@ -180,10 +181,10 @@ check_export_all([Mod|Mods]) ->
 	{'EXIT', {undef, _}} ->
 	    check_export_all(Mods);
 	O ->
-            case lists:keysearch(options, 1, O) of
+            case lists:keyfind(options, 1, O) of
                 false ->
                     check_export_all(Mods);
-                {value, {options, List}} ->
+                {options, List} ->
                     case lists:member(export_all, List) of
                         true ->
 			    throw({error, {export_all, Mod}});
@@ -193,13 +194,12 @@ check_export_all([Mod|Mods]) ->
             end
     end.
 
-	    
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% .
 app_depend(Config) when is_list(Config) ->
-    AppFile = key1search(app_file, Config),
-    Apps    = key1search(applications, AppFile),
+    AppFile = key1find(app_file, Config),
+    Apps    = key1find(applications, AppFile),
     check_apps(Apps).
 
 
@@ -220,10 +220,10 @@ check_apps([App|Apps]) ->
 fail(Reason) ->
     exit({suite_failed, Reason}).
 
-key1search(Key, L) ->
-    case lists:keysearch(Key, 1, L) of
-	undefined ->
+key1find(Key, L) ->
+    case lists:keyfind(Key, 1, L) of
+	false ->
 	    fail({not_found, Key, L});
-	{value, {Key, Value}} ->
+	{Key, Value} ->
 	    Value
     end.

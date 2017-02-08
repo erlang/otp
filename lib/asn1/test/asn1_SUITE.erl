@@ -41,8 +41,6 @@ suite() ->
 all() ->
     [{group, compile},
      {group, parallel},
-     {group, app_test},
-     {group, appup_test},
 
      % TODO: Investigate parallel running of these:
      testComment,
@@ -63,10 +61,6 @@ groups() ->
        % Uses 'SOpttest'
        ber_optional,
        tagdefault_automatic]},
-
-     {app_test, [], [{asn1_app_test, all}]},
-
-     {appup_test, [], [{asn1_appup_test, all}]},
 
      {parallel, Parallel,
       [cover,
@@ -1280,7 +1274,7 @@ xref(_Config) ->
     xref:set_default(s, [{verbose,false},{warnings,false},{builtins,true}]),
     Test = filename:dirname(code:which(?MODULE)),
     {ok,_PMs} = xref:add_directory(s, Test),
-    UnusedExports = "X - XU - asn1_appup_test - asn1_app_test - \".*_SUITE\" : Mod",
+    UnusedExports = "X - XU - \".*_SUITE\" : Mod",
     case xref:q(s, UnusedExports) of
 	{ok,[]} ->
 	    ok;
