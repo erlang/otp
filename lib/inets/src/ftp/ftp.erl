@@ -1477,10 +1477,7 @@ handle_info({Trpt, Socket, Data}, #state{dsock = {Trpt,Socket}} = State0) when T
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
 				  caller = {recv_file, Fd}} = State)
   when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
-    case file_close(Fd) of
-	ok -> ok;
-	{error,einval} -> ok
-    end,
+    file_close(Fd),
     progress_report({transfer_size, 0}, State),
     activate_ctrl_connection(State),
     {noreply, State#state{dsock = undefined, data = <<>>}};
@@ -2066,10 +2063,7 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {recv_file, _}} = State0) ->
     end;
 
 handle_ctrl_result({Status, _}, #state{caller = {recv_file, Fd}} = State) ->
-    case file_close(Fd) of
-	ok -> ok;
-	{error, einval} -> ok
-    end,
+    file_close(Fd),
     close_data_connection(State),
     ctrl_result_response(Status, State#state{dsock = undefined}, 
 			 {error, epath});
@@ -2345,7 +2339,7 @@ accept_data_connection(#state{mode = passive} = State) ->
 send_ctrl_message(_S=#state{csock = Socket, verbose = Verbose}, Message) ->
     verbose(lists:flatten(Message),Verbose,send),
     ?DBG('<--ctrl ~p ---- ~s~p~n',[Socket,Message,_S]),
-    ok = send_message(Socket, Message).
+    _ = send_message(Socket, Message).
 
 send_data_message(_S=#state{dsock = Socket}, Message) ->
     ?DBG('<==data ~p ==== ~s~n~p~n',[Socket,Message,_S]),
@@ -2366,14 +2360,28 @@ send_message({tcp, Socket}, Message) ->
 send_message({ssl, Socket}, Message) ->
     ssl:send(Socket, Message).
 
-activate_ctrl_connection(#state{csock = Socket, ctrl_data = {<<>>, _, _}}) ->
-    ok = activate_connection(Socket);
-activate_ctrl_connection(#state{csock = Socket}) ->
-    ok = activate_connection(Socket),
+activate_ctrl_connection(#state{csock = CSock, ctrl_data = {<<>>, _, _}}) ->
+    activate_connection(CSock);
+activate_ctrl_connection(#state{csock = CSock}) ->
+    activate_connection(CSock),
     %% We have already received at least part of the next control message,
     %% that has been saved in ctrl_data, process this first.
-    self() ! {socket_type(Socket), unwrap_socket(Socket), <<>>},
+    self() ! {socket_type(CSock), unwrap_socket(CSock), <<>>},
     ok.
+
+activate_data_connection(#state{dsock = DSock} = State) ->
+    activate_connection(DSock),
+    State.
+
+activate_connection(Socket) ->
+    ignore_return_value(
+      case socket_type(Socket) of
+          tcp -> inet:setopts(unwrap_socket(Socket), [{active, once}]);
+          ssl -> ssl:setopts(unwrap_socket(Socket), [{active, once}])
+      end).
+
+
+ignore_return_value(_) -> ok.
 
 unwrap_socket({tcp,Socket}) -> Socket;
 unwrap_socket({ssl,Socket}) -> Socket.
@@ -2381,22 +2389,15 @@ unwrap_socket({ssl,Socket}) -> Socket.
 socket_type({tcp,_Socket}) -> tcp;
 socket_type({ssl,_Socket}) -> ssl.
 
-activate_data_connection(#state{dsock = Socket} = State) ->
-    ok = activate_connection(Socket),
-    State.
-
-activate_connection({tcp, Socket}) -> inet:setopts(Socket, [{active, once}]);
-activate_connection({ssl, Socket}) -> ssl:setopts(Socket, [{active, once}]).
-
 close_ctrl_connection(#state{csock = undefined}) -> ok;
 close_ctrl_connection(#state{csock = Socket}) -> close_connection(Socket).
 
 close_data_connection(#state{dsock = undefined}) -> ok;
 close_data_connection(#state{dsock = Socket}) -> close_connection(Socket).
 
-close_connection({lsock,Socket}) -> gen_tcp:close(Socket);
-close_connection({tcp, Socket}) -> gen_tcp:close(Socket);
-close_connection({ssl, Socket}) -> ssl:close(Socket).
+close_connection({lsock,Socket}) -> ignore_return_value( gen_tcp:close(Socket) );
+close_connection({tcp, Socket})  -> ignore_return_value( gen_tcp:close(Socket) );
+close_connection({ssl, Socket})  -> ignore_return_value( ssl:close(Socket) ).
 
 %%  ------------ FILE HANDLING  ----------------------------------------   
 send_file(#state{tls_upgrading_data_connection = {true, CTRL, _}} = State, Fd) ->
@@ -2408,7 +2409,7 @@ send_file(State, Fd) ->
 	    progress_report({binary, Bin}, State),
 	    send_file(State, Fd);
 	{ok, _, _} ->
-	    ok = file_close(Fd),
+	    file_close(Fd),
 	    close_data_connection(State),
 	    progress_report({transfer_size, 0}, State),
 	    activate_ctrl_connection(State),
@@ -2423,7 +2424,7 @@ file_open(File, Option) ->
   file:open(File, [raw, binary, Option]).
 
 file_close(Fd) ->
-  file:close(Fd).
+    ignore_return_value( file:close(Fd) ).
 
 file_read(Fd) ->				
     case file:read(Fd, ?FILE_BUFSIZE) of
