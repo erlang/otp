@@ -65,7 +65,8 @@ all() ->
      ver3_open_flags,
      relpath, 
      sshd_read_file,
-     ver6_basic].
+     ver6_basic,
+     root_with_cwd].
 
 groups() -> 
     [].
@@ -116,6 +117,11 @@ init_per_testcase(TestCase, Config) ->
     {ok, Sftpd} = case TestCase of
 		      ver6_basic ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([{sftpd_vsn, 6}])],
+			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
+		      root_with_cwd ->
+			  RootDir = filename:join(PrivDir, root_with_cwd),
+			  CWD     = filename:join(RootDir, home),
+			  SubSystems = [ssh_sftpd:subsystem_spec([{root, RootDir}, {cwd, CWD}])],
 			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
 		      _ ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([])],
@@ -646,6 +652,37 @@ ver6_basic(Config) when is_list(Config) ->
 	open_file(PrivDir, Cm, Channel, ReqId,
 		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
 		  ?SSH_FXF_OPEN_EXISTING).
+
+%%--------------------------------------------------------------------
+root_with_cwd() ->
+    [{doc, "Check if files are found, if the CWD and Root are specified"}].
+root_with_cwd(Config) when is_list(Config) ->
+    PrivDir =  proplists:get_value(priv_dir, Config),
+    RootDir = filename:join(PrivDir, root_with_cwd),
+    CWD     = filename:join(RootDir, home),
+    FileName = "root_with_cwd.txt",
+    FilePath = filename:join(CWD, FileName),
+    ok = filelib:ensure_dir(FilePath),
+    ok = file:write_file(FilePath ++ "0", <<>>),
+    ok = file:write_file(FilePath ++ "1", <<>>),
+    ok = file:write_file(FilePath ++ "2", <<>>),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    ReqId0 = 0,
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId0), _Handle0/binary>>, _} =
+	open_file(FileName ++ "0", Cm, Channel, ReqId0,
+		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+		  ?SSH_FXF_OPEN_EXISTING),
+    ReqId1 = 1,
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId1), _Handle1/binary>>, _} =
+	open_file("./" ++ FileName ++ "1", Cm, Channel, ReqId1,
+		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+		  ?SSH_FXF_OPEN_EXISTING),
+    ReqId2 = 2,
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId2), _Handle2/binary>>, _} =
+	open_file("/home/" ++ FileName ++ "2", Cm, Channel, ReqId2,
+		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+		  ?SSH_FXF_OPEN_EXISTING).
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
