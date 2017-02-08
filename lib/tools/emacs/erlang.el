@@ -4,6 +4,8 @@
 ;; Author:   Anders Lindgren
 ;; Keywords: erlang, languages, processes
 ;; Date:     2011-12-11
+;; Version:  2.7.0
+;; Package-Requires: ((emacs "24.1"))
 
 ;; %CopyrightBegin%
 ;;
@@ -24,7 +26,7 @@
 ;; %CopyrightEnd%
 ;;
 
-;; Lars Thorsén's modifications of 2000-06-07 included.
+;; Lars ThorsÃ©n's modifications of 2000-06-07 included.
 ;; The original version of this package was written by Robert Virding.
 ;;
 ;;; Commentary:
@@ -85,30 +87,15 @@
 (defconst erlang-version "2.7"
   "The version number of Erlang mode.")
 
-(defvar erlang-root-dir nil
+(defcustom erlang-root-dir nil
   "The directory where the Erlang system is installed.
 The name should not contain the trailing slash.
 
 Should this variable be nil, no manual pages will show up in the
-Erlang mode menu.")
-
-(eval-and-compile
-  (defconst erlang-emacs-major-version
-    (if (boundp 'emacs-major-version)
-        emacs-major-version
-      (string-match "\\([0-9]+\\)\\.\\([0-9]+\\)" emacs-version)
-      (erlang-string-to-int (substring emacs-version
-                                       (match-beginning 1) (match-end 1))))
-    "Major version number of Emacs."))
-
-(eval-and-compile
-  (defconst erlang-emacs-minor-version
-    (if (boundp 'emacs-minor-version)
-        emacs-minor-version
-      (string-match "\\([0-9]+\\)\\.\\([0-9]+\\)" emacs-version)
-      (erlang-string-to-int (substring emacs-version
-                                       (match-beginning 2) (match-end 2))))
-    "Minor version number of Emacs."))
+Erlang mode menu."
+  :group 'erlang
+  :type '(restricted-sexp :match-alternatives (stringp 'nil))
+  :safe (lambda (val) (or (eq nil val) (stringp val))))
 
 (defconst erlang-xemacs-p (string-match "Lucid\\|XEmacs" emacs-version)
   "Non-nil when running under XEmacs or Lucid Emacs.")
@@ -129,7 +116,7 @@ Never EVER set this variable!")
                             erlang-menu-man-items
                             erlang-menu-personal-items
                             erlang-menu-version-items)
-  "*List of menu item list to combine to create Erlang mode menu.
+  "List of menu item list to combine to create Erlang mode menu.
 
 External programs which temporarily add menu items to the Erlang mode
 menu may use this variable.  Please use the function `add-hook' to add
@@ -238,7 +225,7 @@ This variable is added to the list of Erlang menus stored in
 The menu is in the form described by the variable `erlang-menu-base-items'.")
 
 (defvar erlang-mode-hook nil
-  "*Functions to run when Erlang mode is activated.
+  "Functions to run when Erlang mode is activated.
 
 This hook is used to change the behaviour of Erlang mode.  It is
 normally used by the user to personalise the programming environment.
@@ -272,7 +259,7 @@ To use the example, copy the following lines to your `~/.emacs' file:
           (imenu-add-to-menubar \"Imenu\")))")
 
 (defvar erlang-load-hook nil
-  "*Functions to run when Erlang mode is loaded.
+  "Functions to run when Erlang mode is loaded.
 
 This hook is used to change the behaviour of Erlang mode.  It is
 normally used by the user to personalise the programming environment.
@@ -304,17 +291,20 @@ manual pages can be retrieved (note that you must set the value of
 A useful function is `tempo-template-erlang-normal-header'.
 \(This function only exists when the `tempo' package is available.)")
 
-(defvar erlang-check-module-name 'ask
-  "*Non-nil means check that module name and file name agrees when saving.
+(defcustom erlang-check-module-name 'ask
+  "Non-nil means check that module name and file name agrees when saving.
 
-If the value of this variable is the atom `ask', the user is
-prompted.  If the value is t the source is silently changed.")
+If the value of this variable is the symbol `ask', the user is
+prompted.  If the value is t the source is silently changed."
+  :group 'erlang
+  :type '(choice (const :tag "Check on save" 'ask)
+                 (const :tag "Don't check on save" t)))
 
 (defvar erlang-electric-commands
   '(erlang-electric-comma
     erlang-electric-semicolon
     erlang-electric-gt)
-  "*List of activated electric commands.
+  "List of activated electric commands.
 
 The list should contain the electric commands which should be active.
 Currently, the available electric commands are:
@@ -328,8 +318,8 @@ are activated.
 
 To deactivate all electric commands, set this variable to nil.")
 
-(defvar erlang-electric-newline-inhibit t
-  "*Set to non-nil to inhibit newline after electric command.
+(defcustom erlang-electric-newline-inhibit t
+  "Set to non-nil to inhibit newline after electric command.
 
 This is useful since a lot of people press return after executing an
 electric command.
@@ -339,28 +329,32 @@ list `erlang-electric-newline-inhibit-list'.
 
 Note that commands in this list are required to set the variable
 `erlang-electric-newline-inhibit' to nil when the newline shouldn't be
-inhibited.")
+inhibited."
+  :group 'erlang
+  :type 'boolean
+  :safe 'booleanp)
 
 (defvar erlang-electric-newline-inhibit-list
   '(erlang-electric-semicolon
     erlang-electric-comma
     erlang-electric-gt)
-  "*Commands which can inhibit the next newline.")
+  "Commands which can inhibit the next newline.")
 
-(defvar erlang-electric-semicolon-insert-blank-lines nil
-  "*Number of blank lines inserted before header, or nil.
+(defcustom erlang-electric-semicolon-insert-blank-lines nil
+  "Number of blank lines inserted before header, or nil.
 
 This variable controls the behaviour of `erlang-electric-semicolon'
 when a new function header is generated.  When nil, no blank line is
 inserted between the current line and the new header.  When bound to a
 number it represents the number of blank lines which should be
-inserted.")
+inserted."
+  :group 'erlang)
 
 (defvar erlang-electric-semicolon-criteria
   '(erlang-next-lines-empty-p
     erlang-at-keyword-end-p
     erlang-at-end-of-function-p)
-  "*List of functions controlling `erlang-electric-semicolon'.
+  "List of functions controlling `erlang-electric-semicolon'.
 The functions in this list are called, in order, whenever a semicolon
 is typed.  Each function in the list is called with no arguments,
 and should return one of the following values:
@@ -381,7 +375,7 @@ The test is performed by the function `erlang-test-criteria-list'.")
     erlang-at-keyword-end-p
     erlang-at-end-of-clause-p
     erlang-at-end-of-function-p)
-  "*List of functions controlling `erlang-electric-comma'.
+  "List of functions controlling `erlang-electric-comma'.
 The functions in this list are called, in order, whenever a comma
 is typed.  Each function in the list is called with no arguments,
 and should return one of the following values:
@@ -399,7 +393,7 @@ The test is performed by the function `erlang-test-criteria-list'.")
   '(erlang-stop-when-in-type-spec
     erlang-next-lines-empty-p
     erlang-at-end-of-function-p)
-  "*List of functions controlling the arrow aspect of `erlang-electric-gt'.
+  "List of functions controlling the arrow aspect of `erlang-electric-gt'.
 The functions in this list are called, in order, whenever a `>'
 is typed.  Each function in the list is called with no arguments,
 and should return one of the following values:
@@ -415,7 +409,7 @@ The test is performed by the function `erlang-test-criteria-list'.")
 
 (defvar erlang-electric-newline-criteria
   '(t)
-  "*List of functions controlling `erlang-electric-newline'.
+  "List of functions controlling `erlang-electric-newline'.
 
 The electric newline commands indents the next line.  Should the
 current line begin with a comment the comment start is copied to
@@ -435,8 +429,8 @@ list, it is treated as a function triggering the electric command.
 
 The test is performed by the function `erlang-test-criteria-list'.")
 
-(defvar erlang-next-lines-empty-threshold 2
-  "*Number of blank lines required to activate an electric command.
+(defcustom erlang-next-lines-empty-threshold 2
+  "Number of blank lines required to activate an electric command.
 
 Actually, this value controls the behaviour of the function
 `erlang-next-lines-empty-p' which normally is a member of the
@@ -457,46 +451,67 @@ function `erlang-next-lines-empty-p' would be removed from the criteria
 lists.
 
 Note that even if `erlang-next-lines-empty-p' should not trigger an
-electric command, other functions in the criteria list could.")
+electric command, other functions in the criteria list could."
+  :group 'erlang
+  :type '(restricted-sexp :match-alternatives (integerp 'nil))
+  :safe (lambda (val) (or (eq val nil) (integerp val))))
 
-(defvar erlang-new-clause-with-arguments nil
-  "*Non-nil means that the arguments are cloned when a clause is generated.
+(defcustom erlang-new-clause-with-arguments nil
+  "Non-nil means that the arguments are cloned when a clause is generated.
 
 A new function header can be generated by calls to the function
-`erlang-generate-new-clause' and by use of the electric semicolon.")
+`erlang-generate-new-clause' and by use of the electric semicolon."
+  :group 'erlang
+  :type 'boolean
+  :safe 'booleanp)
 
-(defvar erlang-compile-use-outdir t
-  "*When nil, go to the directory containing source file when compiling.
+(defcustom erlang-compile-use-outdir t
+  "When nil, go to the directory containing source file when compiling.
 
 This is a workaround for a bug in the `outdir' option of compile.  If the
 outdir is not in the current load path, Erlang doesn't load the object
 module after it has been compiled.
 
 To activate the workaround, place the following in your `~/.emacs' file:
-    (setq erlang-compile-use-outdir nil)")
+    (setq erlang-compile-use-outdir nil)"
+  :group 'erlang
+  :type 'boolean
+  :safe 'booleanp)
 
-(defvar erlang-indent-level 4
-  "*Indentation of Erlang calls/clauses within blocks.")
-(put 'erlang-indent-level 'safe-local-variable 'integerp)
+(defcustom erlang-indent-level 4
+  "Indentation of Erlang calls/clauses within blocks."
+  :group 'erlang
+  :type 'integer
+  :safe 'integerp)
 
-(defvar erlang-icr-indent nil
-  "*Indentation of Erlang if/case/receive/ patterns.  `nil' means
-  keeping default behavior.  When non-nil, indent to th column of
-  if/case/receive.")
+(defcustom erlang-icr-indent nil
+  "Indentation of Erlang if/case/receive patterns.
+nil means keeping default behavior.  When non-nil, indent to the column of
+if/case/receive."
+  :group 'erlang
+  :type 'boolean
+  :safe 'booleanp)
 
-(defvar erlang-indent-guard 2
-  "*Indentation of Erlang guards.")
-(put 'erlang-indent-guard 'safe-local-variable 'integerp)
+(defcustom erlang-indent-guard 2
+  "Indentation of Erlang guards."
+  :group 'erlang
+  :type 'integer
+  :safe 'integerp)
 
-(defvar erlang-argument-indent 2
-  "*Indentation of the first argument in a function call.
+(defcustom erlang-argument-indent 2
+  "Indentation of the first argument in a function call.
 When nil, indent to the column after the `(' of the
-function.")
-(put 'erlang-argument-indent 'safe-local-variable '(lambda (val) (or (null val) (integerp val))))
+function."
+  :group 'erlang
+  :type '(restricted-sexp :match-alternatives (integerp 'nil))
+  :safe (lambda (val) (or (eq val nil) (integerp val))))
 
-(defvar erlang-tab-always-indent t
-  "*Non-nil means TAB in Erlang mode should always re-indent the current line,
-regardless of where in the line point is when the TAB command is used.")
+(defcustom erlang-tab-always-indent t
+  "Non-nil means TAB in Erlang mode should always re-indent the current line,
+regardless of where in the line point is when the TAB command is used."
+  :group 'erlang
+  :type 'boolean
+  :safe 'booleanp)
 
 (defvar erlang-man-inhibit (eq system-type 'windows-nt)
   "Inhibit the creation of the Erlang Manual Pages menu.
@@ -509,7 +524,7 @@ there is no attempt to create the menu.")
     ("Man - Modules" "/man/man3" t)
     ("Man - Files" "/man/man4" t)
     ("Man - Applications" "/man/man6" t))
-  "*The man directories displayed in the Erlang menu.
+  "The man directories displayed in the Erlang menu.
 
 Each item in the list should be a list with three elements, the first
 the name of the menu, the second the directory, and the last a flag.
@@ -517,17 +532,17 @@ Should the flag the nil, the directory is absolute, should it be non-nil
 the directory is relative to the variable `erlang-root-dir'.")
 
 (defvar erlang-man-max-menu-size 35
-  "*The maximum number of menu items in one menu allowed.")
+  "The maximum number of menu items in one menu allowed.")
 
 (defvar erlang-man-display-function 'erlang-man-display
-  "*Function used to display man page.
+  "Function used to display man page.
 
 The function is called with one argument, the name of the file
 containing the man page.  Use this variable when the default
 function, `erlang-man-display', does not work on your system.")
 
 (defvar erlang-compile-extra-opts '()
-  "*Additional options to the compilation command.
+  "Additional options to the compilation command.
 This is an elisp list of options. Each option can be either:
 - an atom
 - a dotted pair
@@ -539,7 +554,7 @@ Example: '(bin_opt_info (i . \"/path1/include\") (i . \"/path2/include\"))")
     (".xrl\\'" . inferior-erlang-compute-leex-compile-command)
     (".yrl\\'" . inferior-erlang-compute-yecc-compile-command)
     ("." . inferior-erlang-compute-erl-compile-command))
-  "*Alist of filename patterns vs corresponding compilation functions.
+  "Alist of filename patterns vs corresponding compilation functions.
 Each element looks like (REGEXP . FUNCTION). Compiling a file whose name
 matches REGEXP specifies FUNCTION to use to compute the compilation
 command. The FUNCTION will be called with two arguments: module name and
@@ -547,14 +562,14 @@ default compilation options, like output directory. The FUNCTION
 is expected to return a string.")
 
 (defvar erlang-leex-compile-opts '()
-  "*Options to pass to leex when compiling xrl files.
+  "Options to pass to leex when compiling xrl files.
 This is an elisp list of options. Each option can be either:
 - an atom
 - a dotted pair
 - a string")
 
 (defvar erlang-yecc-compile-opts '()
-  "*Options to pass to yecc when compiling yrl files.
+  "Options to pass to yecc when compiling yrl files.
 This is an elisp list of options. Each option can be either:
 - an atom
 - a dotted pair
@@ -562,7 +577,7 @@ This is an elisp list of options. Each option can be either:
 
 (eval-and-compile
   (defvar erlang-regexp-modern-p
-    (if (> erlang-emacs-major-version 21) t nil)
+    (if (> emacs-major-version 21) t nil)
     "Non-nil when this version of Emacs uses a modern version of regexp.
 Supporting \_< and \_> This is determined by checking the version of Emacs used."))
 
@@ -983,7 +998,7 @@ resulting regexp is surrounded by \\_< and \\_>."
   "Regexp which should match beginning of a clause.")
 
 (defvar erlang-file-name-extension-regexp "\\.erl$"
-  "*Regexp which should match an Erlang file name.
+  "Regexp which should match an Erlang file name.
 
 This regexp is used when an Erlang module name is extracted from the
 name of an Erlang source file.
@@ -997,7 +1012,7 @@ tags system should interpret tags on the form `module:tag' for
 files written in other languages than Erlang.")
 
 (defvar erlang-inferior-shell-split-window t
-  "*If non-nil, when starting an inferior shell, split windows.
+  "If non-nil, when starting an inferior shell, split windows.
 If nil, the inferior shell replaces the window. This is the traditional
 behaviour.")
 
@@ -1043,7 +1058,7 @@ behaviour.")
     (unless inferior-erlang-use-cmm
       (define-key map "\C-x`"    'erlang-next-error))
     map)
-  "*Keymap used in Erlang mode.")
+  "Keymap used in Erlang mode.")
 (defvar erlang-mode-abbrev-table nil
   "Abbrev table in use in Erlang-mode buffers.")
 (defvar erlang-mode-syntax-table nil
@@ -1310,29 +1325,6 @@ replaced by `erlang-etags-tags-completion-table'.")
 
 ;;; Avoid errors while compiling this file.
 
-;; `eval-when-compile' is not defined in Emacs 18.  We define it as a
-;; no-op.
-(or (fboundp 'eval-when-compile)
-    (defmacro eval-when-compile (&rest rest) nil))
-
-;; These umm...functions are new in Emacs 20. And, yes, until version
-;; 19.27 Emacs backquotes were this ugly.
-
-(or (fboundp 'unless)
-    (defmacro unless (condition &rest body)
-      "(unless CONDITION BODY...): If CONDITION is false, do BODY, else return nil."
-      `((if (, condition) nil ,@body))))
-
-(or (fboundp 'when)
-    (defmacro when (condition &rest body)
-      "(when CONDITION BODY...): If CONDITION is true, do BODY, else return nil."
-      `((if (, condition) (progn ,@body) nil))))
-
-(or (fboundp 'char-before)
-    (defmacro char-before (&optional pos)
-      "Return the character in the current buffer just before POS."
-      `( (char-after (1- (or ,pos (point)))))))
-
 ;; defvar some obsolete variables, which we still support for
 ;; backwards compatibility reasons.
 (eval-when-compile
@@ -1360,19 +1352,10 @@ replaced by `erlang-etags-tags-completion-table'.")
 (defun erlang-version ()
   "Return the current version of Erlang mode."
   (interactive)
-  (if (erlang-interactive-p)
+  (if (called-interactively-p 'interactive)
       (message "Erlang mode version %s, written by Anders Lindgren"
                erlang-version))
   erlang-version)
-
-(defun erlang-interactive-p ()
-  (if (fboundp 'called-interactively-p)
-      (called-interactively-p 'interactive)
-    (funcall (symbol-function 'interactive-p))))
-
-(unless (fboundp 'prog-mode)
-  (defun prog-mode ()
-    (use-local-map (make-keymap))))
 
 ;;;###autoload
 (define-derived-mode erlang-mode prog-mode "Erlang"
@@ -1541,7 +1524,7 @@ Other commands:
   (make-local-variable 'indent-region-function)
   (setq indent-region-function 'erlang-indent-region)
   (set (make-local-variable 'comment-indent-function) 'erlang-comment-indent)
-  (if (<= erlang-emacs-major-version 18)
+  (if (<= emacs-major-version 18)
       (set (make-local-variable 'comment-indent-hook) 'erlang-comment-indent))
   (set (make-local-variable 'parse-sexp-ignore-comments) t)
   (set (make-local-variable 'dabbrev-case-fold-search) nil)
@@ -1778,7 +1761,7 @@ Please see the variable `erlang-menu-base-items'."
            (if (and popup (boundp 'mode-popup-menu))
                (funcall (symbol-function 'set)
                         'mode-popup-menu erlang-xemacs-popup-menu))))
-        ((>= erlang-emacs-major-version 19)
+        ((>= emacs-major-version 19)
          (define-key keymap (vector 'menu-bar (intern name))
            (erlang-menu-make-keymap name items)))
         (t nil)))
@@ -2243,8 +2226,8 @@ to be used."
                 (setq process-environment (cons (concat "MANPATH=" dir)
                                                 process-environment)))
               (cond ((not (and (not erlang-xemacs-p)
-                               (= erlang-emacs-major-version 19)
-                               (< erlang-emacs-minor-version 29)))
+                               (= emacs-major-version 19)
+                               (< emacs-minor-version 29)))
                      (manual-entry page))
                     (t
                      ;; Emacs 19.28 and earlier versions of 19:
@@ -2394,7 +2377,7 @@ can contain other `tempo' attributes.  Please see the function
 The first character of DD is space if the value is less than 10."
   (let ((date (current-time-string)))
     (format "%2d %s %s"
-            (erlang-string-to-int (substring date 8 10))
+            (string-to-number (substring date 8 10))
             (substring date 4 7)
             (substring date -4))))
 
@@ -2959,7 +2942,7 @@ Return nil if inside string, t if in a comment."
                       ;; Removed it made multi clause fun's look to bad
                       (setq off (+ erlang-indent-level (if (not erlang-icr-indent)
                                                            erlang-indent-level
-                                                         erlang-icr-indent))))) 
+                                                         erlang-icr-indent)))))
                (let ((base (erlang-indent-find-base stack indent-point off skip)))
                  ;; Special cases
                  (goto-char indent-point)
@@ -3597,7 +3580,7 @@ corresponds to the order of the parsed Erlang list."
                                (erlang-remove-quotes
                                 (erlang-buffer-substring
                                  (match-beginning 1) (match-end 1)))
-                               (erlang-string-to-int
+                               (string-to-number
                                 (erlang-buffer-substring
                                  (match-beginning
                                   (+ 1 erlang-atom-regexp-matches))
@@ -3822,10 +3805,10 @@ In the future the list may contain more elements."
   "Returns non-nil if there is an exported function in the current
 buffer between point and MAX."
   (block nil
-    (while (and (not erlang-inhibit-exported-function-name-face)
-                (erlang-match-next-function max))
-      (when (erlang-last-match-exported-p)
-        (return (match-data))))))
+         (while (and (not erlang-inhibit-exported-function-name-face)
+                     (erlang-match-next-function max))
+           (when (erlang-last-match-exported-p)
+             (return (match-data))))))
 
 (defun erlang-match-next-function (max)
   "Searches forward in current buffer for the next erlang function,
@@ -4084,7 +4067,7 @@ non-whitespace characters following the point on the current line."
     nil)))
 
 
-(defun erlang-electric-arrow\ off (&optional arg)
+(defun erlang-electric-arrow (&optional arg)
   "Insert a '>'-sign and possibly a new indented line.
 
 This command is only `electric' when the `>' is part of an `->' arrow.
@@ -4369,7 +4352,7 @@ This function only works under Emacs 18 and Emacs 19.  Currently, It
 is not implemented under XEmacs.  (Hint: The Emacs 19 etags module
 works under XEmacs.)"
   (interactive)
-  (cond ((= erlang-emacs-major-version 18)
+  (cond ((= emacs-major-version 18)
          (require 'tags)
          (erlang-tags-define-keys (current-local-map))
          (setq erlang-tags-installed t))
@@ -4633,7 +4616,7 @@ Tags can be given on the forms `tag', `module:', `module:tag'."
   ;; Make sure our functions are installed in TAGS files loaded
   ;; into Emacs while searching.
   (cond
-   ((>= erlang-emacs-major-version 20)
+   ((>= emacs-major-version 20)
     (setq erlang-tags-orig-format-functions
           (symbol-value 'tags-table-format-functions))
     (funcall (symbol-function 'set) 'tags-table-format-functions
@@ -4711,7 +4694,7 @@ Tags can be given on the forms `tag', `module:', `module:tag'."
 (defun erlang-tags-remove-module-check ()
   "Remove our own tags search functions."
   (cond
-   ((>= erlang-emacs-major-version 20)
+   ((>= emacs-major-version 20)
     (funcall (symbol-function 'set)
              'tags-table-format-functions
              erlang-tags-orig-format-functions)
@@ -5174,7 +5157,7 @@ future, a new shell on an already running host will be started."
 
 
 (defvar erlang-shell-mode-hook nil
-  "*User functions to run when an Erlang shell is started.
+  "User functions to run when an Erlang shell is started.
 
 This hook is used to change the behaviour of Erlang mode.  It is
 normally used by the user to personalise the programming environment.
@@ -5190,7 +5173,7 @@ Erlang source file is loaded into Emacs.")
 
 
 (defvar erlang-input-ring-file-name "~/.erlang_history"
-  "*When non-nil, file name used to store Erlang shell history information.")
+  "When non-nil, file name used to store Erlang shell history information.")
 
 
 (defun erlang-shell-mode ()
@@ -5290,7 +5273,7 @@ Selects Comint or Compilation mode command as appropriate."
 ;;;
 
 (defvar inferior-erlang-display-buffer-any-frame nil
-  "*When nil, `inferior-erlang-display-buffer' use only selected frame.
+  "When nil, `inferior-erlang-display-buffer' use only selected frame.
 When t, all frames are searched.  When 'raise, the frame is raised.")
 
 (defvar inferior-erlang-shell-type 'newshell
@@ -5303,10 +5286,10 @@ nil, the default shell is used.
 This variable influence the setting of other variables.")
 
 (defvar inferior-erlang-machine "erl"
-  "*The name of the Erlang shell.")
+  "The name of the Erlang shell.")
 
 (defvar inferior-erlang-machine-options '()
-  "*The options used when activating the Erlang shell.
+  "The options used when activating the Erlang shell.
 
 This must be a list of strings.")
 
@@ -5317,7 +5300,7 @@ This must be a list of strings.")
   "The name of the inferior Erlang buffer.")
 
 (defvar inferior-erlang-prompt-timeout 60
-  "*Number of seconds before `inferior-erlang-wait-prompt' timeouts.
+  "Number of seconds before `inferior-erlang-wait-prompt' timeouts.
 
 The time specified is waited after every output made by the inferior
 Erlang shell.  When this variable is t, we assume that we always have
@@ -5383,7 +5366,7 @@ editing control characters:
 
   (setq inferior-erlang-process
         (get-buffer-process inferior-erlang-buffer))
-  (if (> 21 erlang-emacs-major-version) ; funcalls to avoid compiler warnings
+  (if (> 21 emacs-major-version) ; funcalls to avoid compiler warnings
       (funcall (symbol-function 'set-process-query-on-exit-flag)
                inferior-erlang-process nil)
     (funcall (symbol-function 'process-kill-without-query) inferior-erlang-process))
@@ -5454,7 +5437,7 @@ frame will become deselected before the next command."
 (defun inferior-erlang-window (&optional all-frames)
   "Return the window containing the inferior Erlang, or nil."
   (and (inferior-erlang-running-p)
-       (if (and all-frames (>= erlang-emacs-major-version 19))
+       (if (and all-frames (>= emacs-major-version 19))
            (get-buffer-window inferior-erlang-buffer t)
          (get-buffer-window inferior-erlang-buffer))))
 
@@ -5551,7 +5534,7 @@ Return the position after the newly inserted command."
            (boundp 'comint-last-output-start))
       (save-excursion
         (goto-char
-         (if (erlang-interactive-p)
+         (if (called-interactively-p 'interactive)
              (symbol-value 'comint-last-input-end)
            (symbol-value 'comint-last-output-start)))
         (while (progn (skip-chars-forward "^\C-h")
@@ -5570,7 +5553,7 @@ Return the position after the newly inserted command."
       (let ((pmark (process-mark (get-buffer-process (current-buffer)))))
         (save-excursion
           (goto-char
-           (if (erlang-interactive-p)
+           (if (called-interactively-p 'interactive)
                (symbol-value 'comint-last-input-end)
              (symbol-value 'comint-last-output-start)))
           (while (re-search-forward "\r+$" pmark t)
@@ -5938,12 +5921,6 @@ it assumes that NEWDEF is loaded."
             (ad-unadvise 'Man-notify-when-ready)
             (ad-unadvise 'set-visited-file-name)))))
 
-
-(defun erlang-string-to-int (string)
-  (if (fboundp 'string-to-number)
-      (string-to-number string)
-    (funcall (symbol-function 'string-to-int) string)))
-
 ;; The end...
 
 (provide 'erlang)
@@ -5951,7 +5928,7 @@ it assumes that NEWDEF is loaded."
 (run-hooks 'erlang-load-hook)
 
 ;; Local variables:
-;; coding: iso-8859-1
+;; coding: utf-8
 ;; indent-tabs-mode: nil
 ;; End:
 

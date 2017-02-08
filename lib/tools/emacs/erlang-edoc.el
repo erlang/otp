@@ -169,4 +169,10 @@
   (jit-lock-refontify))
 
 (provide 'erlang-edoc)
+
+;; Local variables:
+;; coding: utf-8
+;; indent-tabs-mode: nil
+;; End:
+
 ;;; erlang-edoc.el ends here
