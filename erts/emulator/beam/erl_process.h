@@ -1830,6 +1830,7 @@ void erts_schedule_multi_misc_aux_work(int ignore_self,
 				       void (*func)(void *),
 				       void *arg);
 erts_aint32_t erts_set_aux_work_timeout(int, erts_aint32_t, int);
+void erts_aux_work_timeout_late_init(ErtsSchedulerData *esdp);
 void erts_sched_notify_check_cpu_bind(void);
 Uint erts_active_schedulers(void);
 void erts_init_process(int, int, int);
