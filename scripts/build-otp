@@ -1,0 +1,20 @@
+#!/bin/bash
+
+function do_and_log {
+    log="scripts/latest-log.$$"
+    echo -n "$1... "
+    if ./otp_build $2 $3 >$log 2>&1; then
+        echo "done."
+    else
+        echo "failed."
+        tail -n 200 $log
+        echo "*** Failed ***"
+        exit 1
+    fi
+}
+
+do_and_log "Autoconfing" autoconf
+do_and_log "Configuring" configure
+do_and_log "Building OTP" boot -a
+
+exit 0

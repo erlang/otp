@@ -29,7 +29,7 @@ before_script:
   - kerl_deactivate
 
 script:
-  - ./otp_build all -a
+  - ./scripts/build-otp
   
 after_success:
   - $ERL_TOP/bin/dialyzer --build_plt --apps asn1 compiler crypto dialyzer edoc erts et hipe inets kernel mnesia observer public_key runtime_tools snmp ssh ssl stdlib syntax_tools wx xmerl --statistics
