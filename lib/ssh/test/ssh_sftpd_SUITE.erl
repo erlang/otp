@@ -65,7 +65,8 @@ all() ->
      ver3_open_flags,
      relpath, 
      sshd_read_file,
-     ver6_basic].
+     ver6_basic,
+     access_outside_root].
 
 groups() -> 
     [].
@@ -117,6 +118,16 @@ init_per_testcase(TestCase, Config) ->
 		      ver6_basic ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([{sftpd_vsn, 6}])],
 			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
+                      access_outside_root ->
+                          %% Build RootDir/access_outside_root/a/b and set Root and CWD
+                          BaseDir = filename:join(PrivDir, access_outside_root),
+                          RootDir = filename:join(BaseDir, a),
+                          CWD     = filename:join(RootDir, b),
+                          %% Make the directory chain:
+                          ok = filelib:ensure_dir(filename:join(CWD, tmp)),
+                          SubSystems = [ssh_sftpd:subsystem_spec([{root, RootDir},
+                                                                  {cwd, CWD}])],
+                          ssh:daemon(0, [{subsystems, SubSystems}|Options]);
 		      _ ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([])],
 			  ssh:daemon(0, [{subsystems, SubSystems}|Options])
@@ -646,6 +657,51 @@ ver6_basic(Config) when is_list(Config) ->
 	open_file(PrivDir, Cm, Channel, ReqId,
 		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
 		  ?SSH_FXF_OPEN_EXISTING).
+
+%%--------------------------------------------------------------------
+access_outside_root(Config) when is_list(Config) ->
+    PrivDir  =  proplists:get_value(priv_dir, Config),
+    BaseDir  = filename:join(PrivDir, access_outside_root),
+    %% A file outside the tree below RootDir which is BaseDir/a
+    %% Make the file  BaseDir/bad :
+    BadFilePath = filename:join([BaseDir, bad]),
+    ok = file:write_file(BadFilePath, <<>>),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    %% Try to access a file parallell to the RootDir:
+    try_access("/../bad",   Cm, Channel, 0),
+    %% Try to access the same file via the CWD which is /b relative to the RootDir:
+    try_access("../../bad", Cm, Channel, 1).
+
+
+try_access(Path, Cm, Channel, ReqId) ->
+    Return = 
+        open_file(Path, Cm, Channel, ReqId, 
+                  ?ACE4_READ_DATA bor ?ACE4_READ_ATTRIBUTES,
+                  ?SSH_FXF_OPEN_EXISTING),
+    ct:log("Try open ~p -> ~p",[Path,Return]),
+    case Return of
+        {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), _Handle0/binary>>, _} ->
+            ct:fail("Could open a file outside the root tree!");
+        {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId), ?UINT32(Code), Rest/binary>>, <<>>} ->
+            case Code of
+                ?SSH_FX_FILE_IS_A_DIRECTORY ->
+                    ct:pal("Got the expected SSH_FX_FILE_IS_A_DIRECTORY status",[]),
+                    ok;
+                ?SSH_FX_FAILURE ->
+                    ct:pal("Got the expected SSH_FX_FAILURE status",[]),
+                    ok;
+                _ ->
+                    case Rest of
+                        <<?UINT32(Len), Txt:Len/binary, _/binary>> ->
+                            ct:fail("Got unexpected SSH_FX_code: ~p (~p)",[Code,Txt]);
+                        _ ->
+                            ct:fail("Got unexpected SSH_FX_code: ~p",[Code])
+                    end
+            end;
+        _ ->
+            ct:fail("Completly unexpected return: ~p", [Return])
+    end.
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -688,9 +744,7 @@ reply(Cm, Channel, RBuf) ->
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
-
 open_file(File, Cm, Channel, ReqId, Access, Flags) ->
-
     Data = list_to_binary([?uint32(ReqId),
 			   ?binary(list_to_binary(File)),
 			   ?uint32(Access),
