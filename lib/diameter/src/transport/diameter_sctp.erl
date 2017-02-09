@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,6 +52,7 @@
 %% Keys into process dictionary.
 -define(INFO_KEY, info).
 -define(REF_KEY,  ref).
+-define(TRANSPORT_KEY, transport).
 
 -define(ERROR(T), erlang:error({T, ?MODULE, ?LINE})).
 
@@ -92,7 +93,14 @@
                    | undefined,
          streams  :: {uint(), uint()}      %% {InStream, OutStream} counts
                    | undefined,
-         os = 0   :: uint()}).             %% next output stream
+         os = 0   :: uint(),               %% next output stream
+         monitor  :: pid() | undefined}).  %% sending process
+
+%% Monitor process state.
+-record(monitor,
+        {transport :: pid(),
+         socket :: gen_sctp:sctp_socket(),
+         assoc_id :: gen_sctp:assoc_id()}).  %% next output stream
 
 %% Listener process state.
 -record(listener,
@@ -215,6 +223,12 @@ init(T) ->
     gen_server:enter_loop(?MODULE, [], i(T)).
 
 %% i/1
+
+i(#monitor{transport = TPid} = S) ->
+    monitor(process, TPid),
+    putr(?TRANSPORT_KEY, TPid),
+    proc_lib:init_ack({ok, self()}),
+    S;
 
 %% A process owning a listening socket.
 i({listen, Ref, {Opts, Addrs}}) ->
@@ -382,6 +396,10 @@ handle_call({{accept, _} = T, Pid, SPid}, From, #listener{service = P} = S) ->
                                         S
                                 end);
 
+%% Transport is telling us of parent death.
+handle_call({stop, _Pid} = Reason, _From, #monitor{} = S) ->
+    {stop, {shutdown, Reason}, ok, S};
+
 handle_call(_, _, State) ->
     {reply, nok, State}.
 
@@ -400,7 +418,11 @@ handle_info(T, #transport{} = S) ->
     {noreply, #transport{} = t(T,S)};
 
 handle_info(T, #listener{} = S) ->
-    {noreply, #listener{} = l(T,S)}.
+    {noreply, #listener{} = l(T,S)};
+
+handle_info(T, #monitor{} = S) ->
+    m(T,S),
+    {noreply, S}.
 
 %% Prior to the possiblity of setting pool_size on in transport
 %% configuration, a new accepting transport was only started following
@@ -421,6 +443,9 @@ code_change(_, State, _) ->
 %% ---------------------------------------------------------------------------
 %% # terminate/2
 %% ---------------------------------------------------------------------------
+
+terminate(_, #monitor{}) ->
+    ok;
 
 terminate(_, #transport{assoc_id = undefined}) ->
     ok;
@@ -522,8 +547,17 @@ transition({diameter, {close, Pid}}, #transport{parent = Pid}) ->
 transition({diameter, {tls, _Ref, _Type, _Bool}}, _) ->
     stop;
 
-%% Parent process has died.
-transition({'DOWN', _, process, Pid, _}, #transport{parent = Pid}) ->
+%% Parent process has died: call the monitor to not close the socket
+%% during an ongoing send, but don't let it take forever.
+transition({'DOWN', _, process, Pid, _}, #transport{parent = Pid,
+                                                    monitor = MPid}) ->
+    undefined == MPid
+        orelse ok == (catch gen_server:call(MPid, {stop, Pid}))
+        orelse exit(MPid, kill),
+    stop;
+
+%% Monitor process has died.
+transition({'DOWN', _, process, MPid, _}, #transport{monitor = MPid}) ->
     stop;
 
 %% Timeout after transport process has been started.
@@ -535,6 +569,14 @@ transition({resolve_port, Pid}, #transport{socket = Sock})
   when is_pid(Pid) ->
     Pid ! inet:port(Sock),
     ok.
+
+%% m/2
+
+m({Bin, StreamId}, #monitor{} = S) ->
+    send(StreamId, Bin, S);
+
+m({'DOWN', _, process, TPid, _} = T, #monitor{transport = TPid}) ->
+    x(T).
 
 %% Crash on anything unexpected.
 
@@ -578,6 +620,17 @@ q(Ref, Pid, #listener{pending = {_,Q}}) ->
 
 %% send/2
 
+%% Start monitor process on first send.
+send(Msg, #transport{monitor = undefined,
+                     socket = Sock,
+                     assoc_id = AId}
+          = S) ->
+    {ok, MPid} = diameter_sctp_sup:start_child(#monitor{transport = self(),
+                                                        socket = Sock,
+                                                        assoc_id = AId}),
+    monitor(process, MPid),
+    send(Msg, S#transport{monitor = MPid});
+
 %% Outbound Diameter message on a specified stream ...
 send(#diameter_packet{bin = Bin, transport_data = {outstream, SId}},
      #transport{streams = {_, OS}}
@@ -597,14 +650,13 @@ send(Bin, #transport{streams = {_, OS},
 
 %% send/3
 
-send(StreamId, Bin, #transport{socket = Sock,
-                               assoc_id = AId}) ->
-    send(Sock, AId, StreamId, Bin).
+send(StreamId, Bin, #transport{monitor = MPid}) ->
+    MPid ! {Bin, StreamId},
+    MPid;
 
-%% send/4
-
-send(Sock, AssocId, Stream, Bin) ->
-    case gen_sctp:send(Sock, AssocId, Stream, Bin) of
+send(StreamId, Bin, #monitor{socket = Sock,
+                             assoc_id = AId}) ->
+    case gen_sctp:send(Sock, AId, StreamId, Bin) of
         ok ->
             ok;
         {error, Reason} ->

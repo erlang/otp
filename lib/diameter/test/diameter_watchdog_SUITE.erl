@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -569,12 +569,12 @@ send(_, Sock, <<_:32, 1:1, _:7, 280:24, _:32, EId:32, HId:32, _/binary>>) ->
                                          {'Origin-Host', "XXX"},
                                          {'Origin-Realm', ?REALM}]},
     #diameter_packet{bin = Bin} = diameter_codec:encode(?BASE, Pkt),
-    self() ! {tcp, Sock, Bin},
+    tpid(Sock) ! {tcp, Sock, Bin},
     ok;
 
 %% First outgoing DWA.
 send(init, Sock, Bin) ->
-    [{{?MODULE, _, T}, _}] = diameter_reg:wait({?MODULE, self(), '_'}),
+    [{{?MODULE, _, T}, _}] = diameter_reg:wait({?MODULE, tpid(Sock), '_'}),
     putr(config, T),
     send(Sock, Bin);
 
@@ -606,6 +606,14 @@ send(0, _Sock, _Bin) ->
 send(N, Sock, <<_:32, 0:1, _:7, 280:24, _/binary>> = Bin) ->
     putr(config, N-1),
     gen_tcp:send(Sock, Bin).
+
+%% tpid/1
+
+tpid(Sock) ->
+    {connected, Pid} = erlang:port_info(Sock, connected),
+    Pid.
+
+%%failback/5
 
 failback(Tmo, Msg, Sock, Bin, Origin) ->
     timer:sleep(Tmo),
