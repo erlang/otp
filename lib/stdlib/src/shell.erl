@@ -1216,7 +1216,13 @@ read_file_records(File, Opts) ->
         ".beam" ->
             case beam_lib:chunks(File, [records]) of
                 {ok,{_Mod,[{records,Records}]}} ->
-                    Records;
+                    try
+                        parse_record_decls(Records)
+                    catch
+                        _:_ ->
+                            %% broken "Recs" chunk
+                            try_abstract_code(File)
+                    end;
                 _ ->
                     %% could be that the "Recs" chunk is missing
                     try_abstract_code(File)
@@ -1224,6 +1230,13 @@ read_file_records(File, Opts) ->
         _ ->
             parse_file(File, Opts)
     end.
+
+parse_record_decls(Records) ->
+    lists:map(fun({_,Decl}) ->
+                      {ok, Ts, _} = erl_scan:string(Decl),
+                      {ok, Form} = erl_parse:parse_form(Ts),
+                      Form
+              end, Records).
 
 try_abstract_code(File) ->
     case beam_lib:chunks(File, [abstract_code,"CInf"]) of
