@@ -165,12 +165,12 @@
       <item>
         <p>Evaluates <c>shell_default:help()</c>.</p>
       </item>
-      <tag><c>c(File)</c></tag>
+      <tag><c>c(Mod)</c></tag>
       <item>
-        <p>Evaluates <c>shell_default:c(File)</c>. This compiles
-          and loads code in <c>File</c> and purges old versions of
-          code, if necessary. Assumes that the file and module names
-          are the same.</p>
+        <p>Evaluates <c>shell_default:c(Mod)</c>. This compiles and
+          loads the module <c>Mod</c> and purges old versions of the
+          code, if necessary. <c>Mod</c> can be either a module name or a
+          a source file path, with or without <c>.erl</c> extension.</p>
       </item>
       <tag><c>catch_exception(Bool)</c></tag>
       <item>

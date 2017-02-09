@@ -356,10 +356,12 @@ true
         <p>Finds the source filename and compiler options for a module.
           The result can be fed to <seealso marker="compiler:compile#file/2">
           <c>compile:file/2</c></seealso> to compile the file again.</p>
-        <warning><p>It is not recommended to use this function. If possible,
-          use the <seealso marker="beam_lib"><c>beam_lib(3)</c></seealso>
-          module to extract the abstract code format from the Beam file and
-          compile that instead.</p></warning>
+        <warning>
+          <p>This function is deprecated. Use <seealso marker="filelib#find_source/1">
+            <c>filelib:find_source/1</c></seealso> instead for finding source files.</p>
+          <p>If possible, use the <seealso marker="beam_lib"><c>beam_lib(3)</c></seealso>
+          module to extract the compiler options and the abstract code
+          format from the Beam file and compile that instead.</p></warning>
         <p>Argument <c><anno>Beam</anno></c>, which can be a string or an atom,
           specifies either the module name or the path to the source
           code, with or without extension <c>".erl"</c>. In either

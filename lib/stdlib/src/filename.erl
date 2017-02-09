@@ -19,6 +19,9 @@
 %%
 -module(filename).
 
+-deprecated({find_src,1,next_major_release}).
+-deprecated({find_src,2,next_major_release}).
+
 %% Purpose: Provides generic manipulation of filenames.
 %%
 %% Generally, these functions accept filenames in the native format
@@ -34,8 +37,8 @@
 -export([absname/1, absname/2, absname_join/2, 
 	 basename/1, basename/2, dirname/1,
 	 extension/1, join/1, join/2, pathtype/1,
-	 rootname/1, rootname/2, split/1, nativename/1]).
--export([find_src/1, find_src/2, flatten/1]).
+	 rootname/1, rootname/2, split/1, flatten/1, nativename/1]).
+-export([find_src/1, find_src/2]). % deprecated
 -export([basedir/2, basedir/3]).
 
 %% Undocumented and unsupported exports.
@@ -750,8 +753,12 @@ separators() ->
 	_ -> {false, false}
     end.
 
-
-
+%% NOTE: The find_src/1/2 functions are deprecated; they try to do too much
+%% at once and are not a good fit for this module. Parts of the code have
+%% been moved to filelib:find_file/2 instead. Only this part of this
+%% module is allowed to call the filelib module; such mutual dependency
+%% should otherwise be avoided! This code should eventually be removed.
+%%
 %% find_src(Module) --
 %% find_src(Module, Rules) --
 %%
@@ -793,14 +800,7 @@ separators() ->
               | {'d', atom()},
       ErrorReason :: 'non_existing' | 'preloaded' | 'interpreted'.
 find_src(Mod) ->
-    Default = [{"", ""}, {"ebin", "src"}, {"ebin", "esrc"}],
-    Rules = 
-	case application:get_env(kernel, source_search_rules) of
-	    undefined -> Default;
-	    {ok, []} -> Default;
-	    {ok, R} when is_list(R) -> R
-	end,
-    find_src(Mod, Rules).
+    find_src(Mod, []).
 
 -spec find_src(Beam, Rules) -> {SourceFile, Options}
                              | {error, {ErrorReason, Module}} when
@@ -816,44 +816,47 @@ find_src(Mod) ->
       ErrorReason :: 'non_existing' | 'preloaded' | 'interpreted'.
 find_src(Mod, Rules) when is_atom(Mod) ->
     find_src(atom_to_list(Mod), Rules);
-find_src(File0, Rules) when is_list(File0) ->
-    Mod = list_to_atom(basename(File0, ".erl")),
-    File = rootname(File0, ".erl"),
-    case readable_file(File++".erl") of
-	true  ->
-	    try_file(File, Mod, Rules);
-	false ->
-	    try_file(undefined, Mod, Rules)
-    end.
-
-try_file(File, Mod, Rules) ->
+find_src(ModOrFile, Rules) when is_list(ModOrFile) ->
+    Extension = ".erl",
+    Mod = list_to_atom(basename(ModOrFile, Extension)),
     case code:which(Mod) of
 	Possibly_Rel_Path when is_list(Possibly_Rel_Path) ->
-	    {ok, Cwd} = file:get_cwd(),
-	    Path = join(Cwd, Possibly_Rel_Path),
-	    try_file(File, Path, Mod, Rules);
+            {ok, Cwd} = file:get_cwd(),
+            ObjPath = make_abs_path(Cwd, Possibly_Rel_Path),
+            find_src_1(ModOrFile, ObjPath, Mod, Extension, Rules);
 	Ecode when is_atom(Ecode) -> % Ecode :: ecode()
 	    {error, {Ecode, Mod}}
     end.
 
 %% At this point, the Mod is known to be valid.
 %% If the source name is not known, find it.
-%% Then get the compilation options.
-%% Returns: {SrcFile, Options}
+find_src_1(ModOrFile, ObjPath, Mod, Extension, Rules) ->
+    %% The documentation says this function must return the found path
+    %% without extension in all cases. Also, ModOrFile could be given with
+    %% or without extension. Hence the calls to rootname below.
+    ModOrFileRoot = rootname(ModOrFile, Extension),
+    case filelib:is_regular(ModOrFileRoot++Extension) of
+        true  ->
+            find_src_2(ModOrFileRoot, Mod);
+        false ->
+            SrcName = basename(ObjPath, code:objfile_extension()) ++ Extension,
+            case filelib:find_file(SrcName, dirname(ObjPath), Rules) of
+                {ok, SrcFile} ->
+                    find_src_2(rootname(SrcFile, Extension), Mod);
+                Error ->
+                    Error
+            end
+    end.
 
-try_file(undefined, ObjFilename, Mod, Rules) ->
-    case get_source_file(ObjFilename, Mod, Rules) of
-	{ok, File} -> try_file(File, ObjFilename, Mod, Rules);
-	Error -> Error
-    end;
-try_file(Src, _ObjFilename, Mod, _Rules) ->
+%% Get the compilation options and return {SrcFileRoot, Options}
+find_src_2(SrcRoot, Mod) ->
     List = case Mod:module_info(compile) of
 	       none -> [];
 	       List0 -> List0
 	   end,
     Options = proplists:get_value(options, List, []),
     {ok, Cwd} = file:get_cwd(),
-    AbsPath = make_abs_path(Cwd, Src),
+    AbsPath = make_abs_path(Cwd, SrcRoot),
     {AbsPath, filter_options(dirname(AbsPath), Options, [])}.
 
 %% Filters the options.
@@ -883,42 +886,6 @@ filter_options(Base, [_|Rest], Result) ->
     filter_options(Base, Rest, Result);
 filter_options(_Base, [], Result) ->
     Result.
-
-%% Gets the source file given path of object code and module name.
-
-get_source_file(Obj, Mod, Rules) ->
-    source_by_rules(dirname(Obj), atom_to_list(Mod), Rules).
-
-source_by_rules(Dir, Base, [{From, To}|Rest]) ->
-    case try_rule(Dir, Base, From, To) of
-	{ok, File} -> {ok, File};
-	error      -> source_by_rules(Dir, Base, Rest)
-    end;
-source_by_rules(_Dir, _Base, []) ->
-    {error, source_file_not_found}.
-
-try_rule(Dir, Base, From, To) ->
-    case lists:suffix(From, Dir) of
-	true -> 
-	    NewDir = lists:sublist(Dir, 1, length(Dir)-length(From))++To,
-	    Src = join(NewDir, Base),
-	    case readable_file(Src++".erl") of
-		true -> {ok, Src};
-		false -> error
-	    end;
-	false ->
-	    error
-    end.
-
-readable_file(File) ->
-    case file:read_file_info(File) of
-	{ok, #file_info{type=regular, access=read}} ->
-	    true;
-	{ok, #file_info{type=regular, access=read_write}} ->
-	    true;
-	_Other ->
-	    false
-    end.
 
 make_abs_path(BasePath, Path) ->
     join(BasePath, Path).

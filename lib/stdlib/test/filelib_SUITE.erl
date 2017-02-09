@@ -25,7 +25,8 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 wildcard_one/1,wildcard_two/1,wildcard_errors/1,
 	 fold_files/1,otp_5960/1,ensure_dir_eexist/1,ensure_dir_symlink/1,
-	 wildcard_symlink/1, is_file_symlink/1, file_props_symlink/1]).
+	 wildcard_symlink/1, is_file_symlink/1, file_props_symlink/1,
+         find_source/1]).
 
 -import(lists, [foreach/2]).
 
@@ -45,7 +46,8 @@ suite() ->
 all() -> 
     [wildcard_one, wildcard_two, wildcard_errors,
      fold_files, otp_5960, ensure_dir_eexist, ensure_dir_symlink,
-     wildcard_symlink, is_file_symlink, file_props_symlink].
+     wildcard_symlink, is_file_symlink, file_props_symlink,
+     find_source].
 
 groups() -> 
     [].
@@ -503,3 +505,52 @@ file_props_symlink(Config) ->
 	    FileSize = filelib:file_size(Alias, erl_prim_loader),
 	    FileSize = filelib:file_size(Alias, prim_file)
     end.
+
+find_source(Config) when is_list(Config) ->
+    BeamFile = code:which(lists),
+    BeamName = filename:basename(BeamFile),
+    BeamDir = filename:dirname(BeamFile),
+    SrcName = filename:basename(BeamFile, ".beam") ++ ".erl",
+
+    {ok, BeamFile} = filelib:find_file(BeamName, BeamDir),
+    {ok, BeamFile} = filelib:find_file(BeamName, BeamDir, []),
+    {ok, BeamFile} = filelib:find_file(BeamName, BeamDir, [{"",""},{"ebin","src"}]),
+    {error, not_found} = filelib:find_file(BeamName, BeamDir, [{"ebin","src"}]),
+
+    {ok, SrcFile} = filelib:find_file(SrcName, BeamDir),
+    {ok, SrcFile} = filelib:find_file(SrcName, BeamDir, []),
+    {ok, SrcFile} = filelib:find_file(SrcName, BeamDir, [{"foo","bar"},{"ebin","src"}]),
+    {error, not_found} = filelib:find_file(SrcName, BeamDir, [{"",""}]),
+
+    {ok, SrcFile} = filelib:find_source(BeamFile),
+    {ok, SrcFile} = filelib:find_source(BeamName, BeamDir),
+    {ok, SrcFile} = filelib:find_source(BeamName, BeamDir,
+                                         [{".erl",".yrl",[{"",""}]},
+                                          {".beam",".erl",[{"ebin","src"}]}]),
+    {error, not_found} = filelib:find_source(BeamName, BeamDir,
+                                              [{".erl",".yrl",[{"",""}]}]),
+
+    {ok, ParserErl} = filelib:find_source(code:which(erl_parse)),
+    {ok, ParserYrl} = filelib:find_source(ParserErl),
+    "lry." ++ _ = lists:reverse(ParserYrl),
+    {ok, ParserYrl} = filelib:find_source(ParserErl,
+                                           [{".beam",".erl",[{"ebin","src"}]},
+                                            {".erl",".yrl",[{"",""}]}]),
+
+    %% find_source automatically checks the local directory regardless of rules
+    {ok, ParserYrl} = filelib:find_source(ParserErl),
+    {ok, ParserYrl} = filelib:find_source(ParserErl,
+                                          [{".beam",".erl",[{"ebin","src"}]}]),
+
+    %% find_file does not check the local directory unless in the rules
+    ParserYrlName = filename:basename(ParserYrl),
+    ParserYrlDir = filename:dirname(ParserYrl),
+    {ok, ParserYrl} = filelib:find_file(ParserYrlName, ParserYrlDir,
+                                        [{"",""}]),
+    {error, not_found} = filelib:find_file(ParserYrlName, ParserYrlDir,
+                                           [{"ebin","src"}]),
+
+    %% local directory is in the default list for find_file
+    {ok, ParserYrl} = filelib:find_file(ParserYrlName, ParserYrlDir),
+    {ok, ParserYrl} = filelib:find_file(ParserYrlName, ParserYrlDir, []),
+    ok.
