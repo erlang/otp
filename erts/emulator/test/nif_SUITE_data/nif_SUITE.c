@@ -75,6 +75,7 @@ static ERL_NIF_TERM atom_init;
 static ERL_NIF_TERM atom_stats;
 static ERL_NIF_TERM atom_done;
 static ERL_NIF_TERM atom_stop;
+static ERL_NIF_TERM atom_null;
 
 typedef struct
 {
@@ -242,6 +243,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_stats = enif_make_atom(env,"stats");
     atom_done = enif_make_atom(env,"done");
     atom_stop = enif_make_atom(env,"stop");
+    atom_null = enif_make_atom(env,"null");
 
     *priv_data = data;
     return 0;
@@ -2119,6 +2121,7 @@ static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     struct fd_resource* fdr;
     enum ErlNifSelectFlags mode;
     void* obj;
+    ErlNifPid nifpid, *pid = NULL;
     ERL_NIF_TERM ref;
     enum ErlNifSelectReturn retval;
 
@@ -2129,11 +2132,16 @@ static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         return enif_make_badarg(env);
     }
 
-    ref = argv[3];
+    if (argv[3] != atom_null) {
+	if (!enif_get_local_pid(env, argv[3], &nifpid))
+	    return enif_make_badarg(env);
+	pid = &nifpid;
+    }
+    ref = argv[4];
 
     fdr->was_selected = 1;
     enif_self(env, &fdr->pid);
-    retval = enif_select(env, fdr->fd, mode, obj, ref);
+    retval = enif_select(env, fdr->fd, mode, obj, pid, ref);
 
     return enif_make_int(env, (int)retval);
 }
@@ -2160,7 +2168,9 @@ static ERL_NIF_TERM pipe_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     read_rsrc  = enif_alloc_resource(fd_resource_type, sizeof(struct fd_resource));
     write_rsrc = enif_alloc_resource(fd_resource_type, sizeof(struct fd_resource));
     read_rsrc->fd  = fds[0];
+    read_rsrc->was_selected = 0;
     write_rsrc->fd = fds[1];
+    write_rsrc->was_selected = 0;
     read_fd  = enif_make_resource(env, read_rsrc);
     write_fd = enif_make_resource(env, write_rsrc);
     enif_release_resource(read_rsrc);
@@ -2845,7 +2855,7 @@ static ErlNifFunc nif_funcs[] =
     {"binary_to_term_nif", 3, binary_to_term},
     {"port_command_nif", 2, port_command},
     {"format_term_nif", 2, format_term},
-    {"select_nif", 4, select_nif},
+    {"select_nif", 5, select_nif},
     {"pipe_nif", 0, pipe_nif},
     {"write_nif", 2, write_nif},
     {"read_nif", 2, read_nif},

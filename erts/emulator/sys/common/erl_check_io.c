@@ -1203,10 +1203,10 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
                              ErlNifEvent e,
                              enum ErlNifSelectFlags mode,
                              void* obj,
+                             const ErlNifPid* pid,
                              Eterm ref)
 {
     int on;
-    const Eterm id = env->proc->common.id;
     ErtsResource* resource = DATA_TO_RESOURCE(obj);
     ErtsSysFdType fd = (ErtsSysFdType) e;
     ErtsPollEvents ctl_events = (ErtsPollEvents) 0;
@@ -1342,6 +1342,7 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
 
     state->events = new_events;
     if (on) {
+        const Eterm recipient = pid ? pid->pid : env->proc->common.id;
         Uint32* refn;
         if (!state->driver.nif)
             state->driver.nif = alloc_nif_select_data();
@@ -1353,7 +1354,7 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
         ASSERT(state->type == ERTS_EV_TYPE_NIF);
         ASSERT(state->driver.stop.resource == resource);
         if (ctl_events & ERTS_POLL_EV_IN) {
-            state->driver.nif->in.pid = id;
+            state->driver.nif->in.pid = recipient;
             if (is_immed(ref)) {
                 state->driver.nif->in.immed = ref;
             } else {
@@ -1367,7 +1368,7 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
             state->driver.nif->in.ddeselect_cnt = 0;
         }
         if (ctl_events & ERTS_POLL_EV_OUT) {
-            state->driver.nif->out.pid = id;
+            state->driver.nif->out.pid = recipient;
             if (is_immed(ref)) {
                 state->driver.nif->out.immed = ref;
             } else {

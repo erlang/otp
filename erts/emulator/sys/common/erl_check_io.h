@@ -34,8 +34,8 @@
 
 int driver_select_kp(ErlDrvPort, ErlDrvEvent, int, int);
 int driver_select_nkp(ErlDrvPort, ErlDrvEvent, int, int);
-enum ErlNifSelectReturn enif_select_kp(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, Eterm);
-enum ErlNifSelectReturn enif_select_nkp(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, Eterm);
+enum ErlNifSelectReturn enif_select_kp(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, const ErlNifPid*, Eterm);
+enum ErlNifSelectReturn enif_select_nkp(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, const ErlNifPid*, Eterm);
 int driver_event_kp(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
 int driver_event_nkp(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
 Uint erts_check_io_size_kp(void);

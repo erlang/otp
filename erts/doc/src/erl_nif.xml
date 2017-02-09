@@ -2584,8 +2584,8 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 
     <func>
       <name><ret>enum ErlNifSelectReturn</ret>
-        <nametext>enif_select(ErlNifEnv* env, ErlNifEvent event,
-	                      enum ErlNifSelectFlags mode, void* obj, Eterm ref)</nametext>
+        <nametext>enif_select(ErlNifEnv* env, ErlNifEvent event, enum ErlNifSelectFlags mode,
+	void* obj, const ErlNifPid* pid, ERL_NIF_TERM ref)</nametext>
       </name>
       <fsummary>Manage subscription on IO event.</fsummary>
       <desc>
@@ -2599,11 +2599,12 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	  <c>ERL_NIF_SELECT_READ</c>, <c>ERL_NIF_SELECT_WRITE</c> or a bitwise
 	  OR combination to wait for both. It can also be <c>ERL_NIF_SELECT_STOP</c>
 	  which is described further below. When a read or write event is triggerred,
-	  a notification message like this is sent to the Erlang process that called
-	  <c>enif_select</c>:</p>
+	  a notification message like this is sent to the process identified by
+	  <c>pid</c>:</p>
 	<code type="none"><c>{select, Obj, Ref, ready_input | ready_output}</c></code>
 	<p><c>ready_input</c> or <c>ready_output</c> indicates if the event object
 	  is ready for reading or writing.</p>
+	<p>Argument <c>pid</c> may be <c>NULL</c> to indicate the calling process.</p>
 	<p>Argument <c>obj</c> is a resource object obtained from
           <seealso marker="#enif_alloc_resource"><c>enif_alloc_resource</c></seealso>.
 	  The purpose of the resource objects is as a container of the event object
@@ -2616,7 +2617,8 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	  then a reference created just before the <c>receive</c> will exploit a runtime
 	  optimization that bypasses all earlier received messages in the queue.</p>
 	<p>The notifications are one-shot only. To receive further notifications of the same
-	  type (read or write), repeated calls to <c>enif_select</c> must be made.</p>
+	  type (read or write), repeated calls to <c>enif_select</c> must be made
+	  after receiving each notification.</p>
 	<p>Use <c>ERL_NIF_SELECT_STOP</c> as <c>mode</c> in order to safely
 	  close an event object that has been passed to <c>enif_select</c>. The
 	  <seealso marker="#ErlNifResourceStop"><c>stop</c></seealso> callback
