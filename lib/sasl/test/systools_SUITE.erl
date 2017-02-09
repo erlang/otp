@@ -29,6 +29,8 @@
 
 -module(systools_SUITE).
 
+-compile(export_all).
+
 %%-define(debug, true).
 
 -include_lib("common_test/include/ct.hrl").
@@ -38,31 +40,6 @@
 -define(copydir, ?config(copy_dir, Config)).
 
 -include_lib("kernel/include/file.hrl").
-
--export([all/0,suite/0,groups/0,init_per_group/2,end_per_group/2]).
-
--export([script_options/1, normal_script/1, unicode_script/1,
-	 unicode_script/2, no_mod_vsn_script/1,
-	 wildcard_script/1, variable_script/1, no_sasl_script/1,
-	 no_dot_erlang_script/1,
-	 abnormal_script/1, src_tests_script/1, crazy_script/1,
-	 included_script/1, included_override_script/1,
-	 included_fail_script/1, included_bug_script/1, exref_script/1,
-	 duplicate_modules_script/1,
-	 otp_3065_circular_dependenies/1, included_and_used_sort_script/1]).
--export([tar_options/1, normal_tar/1, no_mod_vsn_tar/1, system_files_tar/1,
-	 system_files_tar/2, invalid_system_files_tar/1,
-	 invalid_system_files_tar/2, variable_tar/1,
-	 src_tests_tar/1, var_tar/1, exref_tar/1, link_tar/1,
-	 otp_9507_path_ebin/1]).
--export([normal_relup/1, restart_relup/1, abnormal_relup/1, no_sasl_relup/1,
-	 no_appup_relup/1, bad_appup_relup/1, app_start_type_relup/1,
-	 regexp_relup/1]).
--export([normal_hybrid/1,hybrid_no_old_sasl/1,hybrid_no_new_sasl/1]).
--export([otp_6226_outdir/1]).
--export([init_per_suite/1, end_per_suite/1, 
-	 init_per_testcase/2, end_per_testcase/2]).
--export([delete_tree/1]).
 
 -import(lists, [foldl/3]).
 
@@ -91,7 +68,8 @@ groups() ->
      {tar, [],
       [tar_options, normal_tar, no_mod_vsn_tar, system_files_tar,
        invalid_system_files_tar, variable_tar,
-       src_tests_tar, var_tar, exref_tar, link_tar, otp_9507_path_ebin]},
+       src_tests_tar, var_tar, exref_tar, link_tar, no_sasl_tar,
+       otp_9507_path_ebin]},
      {relup, [],
       [normal_relup, restart_relup, abnormal_relup, no_sasl_relup,
        no_appup_relup, bad_appup_relup, app_start_type_relup, regexp_relup
@@ -238,6 +216,7 @@ normal_script(Config) when is_list(Config) ->
 
     %% Check the same but w. silent flag
     {ok, _, []} = systools:make_script(LatestName, [silent]),
+    {ok, _, []} = systools:make_script(LatestName, [silent,warnings_as_errors]),
 
     %% Use the local option
     ok = systools:make_script(LatestName, [local]),
@@ -456,8 +435,15 @@ no_sasl_script(Config) when is_list(Config) ->
     {ok, _ , [{warning,missing_sasl}]} =
 	systools:make_script(LatestName,[{path, P},silent]),
 
+    {error, systools_make, {warnings_treated_as_errors,[missing_sasl]}} =
+	systools:make_script(LatestName,[{path, P},silent,warnings_as_errors]),
+
     {ok, _ , []} =
 	systools:make_script(LatestName,[{path, P},silent, no_warn_sasl]),
+
+    {ok, _ , []} =
+	systools:make_script(LatestName,[{path, P},silent, no_warn_sasl,
+                                         warnings_as_errors]),
 
     ok = file:set_cwd(OldDir),
     ok.
@@ -525,7 +511,9 @@ src_tests_script(Config) when is_list(Config) ->
     ok = file:delete(BootFile),
     false = filelib:is_regular(BootFile),
     %% With warnings_as_errors and src_tests option, an error should be issued
-    error =
+    {error, systools_make,
+     {warnings_treated_as_errors, [{obj_out_of_date,_},
+                                   {source_not_found,_}]}} =
 	systools:make_script(LatestName, [silent, {path, N}, src_tests,
 					  warnings_as_errors]),
     error =
@@ -745,7 +733,7 @@ exref_script(Config) when is_list(Config) ->
 
     ok = file:set_cwd(LatestDir),
 
-    {ok, _, _} = systools:make_script(LatestName, [{path,P}, silent]),
+    {ok, _, []} = systools:make_script(LatestName, [{path,P}, silent]),
 
     %% Complete exref
     {ok, _, W1} =
@@ -894,10 +882,10 @@ normal_tar(Config) when is_list(Config) ->
 
     ok = file:set_cwd(LatestDir),
 
-    {ok, _, _} = systools:make_script(LatestName, [silent, {path, P}]),
+    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}]),
     ok = systools:make_tar(LatestName, [{path, P}]),
     ok = check_tar(fname([lib,'db-2.1',ebin,'db.app']), LatestName),
-    {ok, _, _} = systools:make_tar(LatestName, [{path, P}, silent]),
+    {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent]),
     ok = check_tar(fname([lib,'fe-3.1',ebin,'fe.app']), LatestName),
 
     ok = file:set_cwd(OldDir),
@@ -918,10 +906,10 @@ no_mod_vsn_tar(Config) when is_list(Config) ->
 
     ok = file:set_cwd(LatestDir),
 
-    {ok, _, _} = systools:make_script(LatestName, [silent, {path, P}]),
+    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}]),
     ok = systools:make_tar(LatestName, [{path, P}]),
     ok = check_tar(fname([lib,'db-3.1',ebin,'db.app']), LatestName),
-    {ok, _, _} = systools:make_tar(LatestName, [{path, P}, silent]),
+    {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent]),
     ok = check_tar(fname([lib,'fe-3.1',ebin,'fe.app']), LatestName),
 
     ok = file:set_cwd(OldDir),
@@ -945,11 +933,11 @@ system_files_tar(Config) ->
     ok = file:write_file("sys.config","[].\n"),
     ok = file:write_file("relup","{\"LATEST\",[],[]}.\n"),
 
-    {ok, _, _} = systools:make_script(LatestName, [silent, {path, P}]),
+    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}]),
     ok = systools:make_tar(LatestName, [{path, P}]),
     ok = check_tar(fname(["releases","LATEST","sys.config"]), LatestName),
     ok = check_tar(fname(["releases","LATEST","relup"]), LatestName),
-    {ok, _, _} = systools:make_tar(LatestName, [{path, P}, silent]),
+    {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent]),
     ok = check_tar(fname(["releases","LATEST","sys.config"]), LatestName),
     ok = check_tar(fname(["releases","LATEST","relup"]), LatestName),
 
@@ -978,7 +966,7 @@ invalid_system_files_tar(Config) ->
 
     ok = file:set_cwd(LatestDir),
 
-    {ok, _, _} = systools:make_script(LatestName, [silent, {path, P}]),
+    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}]),
 
     %% Add dummy relup and sys.config - faulty sys.config
     ok = file:write_file("sys.config","[]\n"), %!!! syntax error - missing '.'
@@ -1036,7 +1024,7 @@ variable_tar(Config) when is_list(Config) ->
 
     ok = file:set_cwd(LatestDir),
 
-    {ok, _, _} = systools:make_script(LatestName,
+    {ok, _, []} = systools:make_script(LatestName,
 				      [silent,
 				       {path, P},
 				       {variables,[{"TEST", LibDir}]}]),
@@ -1045,7 +1033,7 @@ variable_tar(Config) when is_list(Config) ->
 					{variables,[{"TEST", LibDir}]}]),
     ok = check_var_tar("TEST", LatestName),
 
-    {ok, _, _} = systools:make_tar(LatestName,
+    {ok, _, []} = systools:make_tar(LatestName,
 				   [{path, P}, silent,
 				    {variables,[{"TEST", LibDir}]}]),
     ok = check_var_tar("TEST", LatestName),
@@ -1174,7 +1162,7 @@ var_tar(Config) when is_list(Config) ->
 
     ok = file:set_cwd(LatestDir),
 
-    {ok, _, _} = systools:make_script(LatestName,
+    {ok, _, []} = systools:make_script(LatestName,
 				      [silent,
 				       {path, P},
 				       {variables,[{"TEST", LibDir}]}]),
@@ -1218,7 +1206,7 @@ exref_tar(Config) when is_list(Config) ->
 
     ok = file:set_cwd(LatestDir),
 
-    {ok, _, _} = systools:make_script(LatestName, [silent, {path, P}]),
+    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}]),
 
     %% Complete exref
     {ok, _, W1} =
@@ -1248,7 +1236,41 @@ exref_tar(Config) when is_list(Config) ->
     ok = file:set_cwd(OldDir),
     ok.
 
+%% make_tar:  Create tar without sasl appl. Check warning.
+no_sasl_tar(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
 
+    {LatestDir, LatestName} = create_script(latest1_no_sasl,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, '*', ebin]),
+	 fname([DataDir, lib, kernel, ebin]),
+	 fname([DataDir, lib, stdlib, ebin]),
+	 fname([DataDir, lib, sasl, ebin])],
+
+    ok = file:set_cwd(LatestDir),
+
+    {ok, _, _} = systools:make_script(LatestName, [silent, {path, P}]),
+    ok = systools:make_tar(LatestName, [{path, P}]),
+    {ok, _, [{warning,missing_sasl}]} =
+        systools:make_tar(LatestName, [{path, P}, silent]),
+    {ok, _, []} =
+        systools:make_tar(LatestName, [{path, P}, silent, no_warn_sasl]),
+    {ok, _, []} =
+        systools:make_tar(LatestName, [{path, P}, silent, no_warn_sasl,
+                                       warnings_as_errors]),
+    TarFile = LatestName ++ ".tar.gz",
+    true = filelib:is_regular(TarFile),
+    ok = file:delete(TarFile),
+    {error, systools_make, {warnings_treated_as_errors,[missing_sasl]}} =
+        systools:make_tar(LatestName, [{path, P}, silent, warnings_as_errors]),
+    error =
+        systools:make_tar(LatestName, [{path, P}, warnings_as_errors]),
+    false = filelib:is_regular(TarFile),
+
+    ok = file:set_cwd(OldDir),
+    ok.
 
 %% make_tar: OTP-9507 - make_tar failed when path given as just 'ebin'.
 otp_9507_path_ebin(Config) when is_list(Config) ->
@@ -1268,7 +1290,7 @@ otp_9507_path_ebin(Config) when is_list(Config) ->
 	  fname([DataDir, lib, kernel, ebin]),
 	  fname([DataDir, lib, stdlib, ebin]),
 	  fname([DataDir, lib, sasl, ebin])],
-    {ok, _, _} = systools:make_script(RelName, [silent, {path, P1}]),
+    {ok, _, []} = systools:make_script(RelName, [silent, {path, P1}]),
     ok = systools:make_tar(RelName, [{path, P1}]),
     Content1 = tar_contents(RelName),
 
@@ -1309,7 +1331,7 @@ normal_relup(Config) when is_list(Config) ->
     ok = systools:make_relup(LatestName, [LatestName1], [LatestName1],
 			     [{path, P}]),
     ok = check_relup([{db, "2.1"}], [{db, "1.0"}]),
-    {ok, _, _, []} =
+    {ok, Relup, _, []} =
 	systools:make_relup(LatestName, [LatestName1], [LatestName1],
 			    [{path, P}, silent]),
     ok = check_relup([{db, "2.1"}], [{db, "1.0"}]),
@@ -1322,7 +1344,9 @@ normal_relup(Config) when is_list(Config) ->
     error =
 	systools:make_relup(LatestName, [LatestName2], [LatestName1],
 			    [{path, P}, warnings_as_errors]),
-    error =
+    {error, systools_relup,
+     {warnings_treated_as_errors,[pre_R15_emulator_upgrade,
+                                  {erts_vsn_changed, _}]}} =
 	systools:make_relup(LatestName, [LatestName2], [LatestName1],
 			    [{path, P}, silent, warnings_as_errors]),
 
@@ -1340,6 +1364,14 @@ normal_relup(Config) when is_list(Config) ->
 
     %% relup file should exist now
     true = filelib:is_regular("relup"),
+
+    %% file should not be written if noexec option is used.
+    %% delete before running tests.
+    ok = file:delete("relup"),
+    {ok,Relup,_,[]} =
+        systools:make_relup(LatestName, [LatestName1], [LatestName1],
+                            [{path, P}, noexec]),
+    false = filelib:is_regular("relup"),
 
     ok = file:set_cwd(OldDir),
     ok.
