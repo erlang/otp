@@ -58,7 +58,7 @@ binary_to_term_fun(Bin) ->
 	    try binary_to_term(Bin) of
 		Term -> plain_html(io_lib:format("~p",[Term]))
 	    catch error:badarg ->
-		    Warning = "This binary can not be coverted to an Erlang term",
+		    Warning = "This binary can not be converted to an Erlang term",
 		    observer_html_lib:warning(Warning)
 	    end
     end.
