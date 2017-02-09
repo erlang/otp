@@ -193,7 +193,7 @@ check_pass(#st{code=M,file=File,includes=Includes,
 	       erule=Erule,dbfile=DbFile,opts=Opts,
 	       inputmodules=InputModules}=St) ->
     start(Includes),
-    case asn1ct_check:storeindb(#state{erule=Erule}, M) of
+    case asn1ct_check:storeindb(#state{erule=Erule,options=Opts}, M) of
 	ok ->
 	    Module = asn1_db:dbget(M#module.name, 'MODULE'),
 	    State = #state{mname=Module#module.name,
@@ -216,8 +216,8 @@ check_pass(#st{code=M,file=File,includes=Includes,
 	    {error,St#st{error=Reason}}
     end.
 
-save_pass(#st{code=M,erule=Erule}=St) ->
-    ok = asn1ct_check:storeindb(#state{erule=Erule}, M),
+save_pass(#st{code=M,erule=Erule,opts=Opts}=St) ->
+    ok = asn1ct_check:storeindb(#state{erule=Erule,options=Opts}, M),
     {ok,St}.
 
 parse_listing(#st{code=Code,outfile=OutFile0}=St) ->
@@ -838,33 +838,53 @@ generate({M,GenTOrV}, OutFile, EncodingRule, Options) ->
     debug_on(Options),
     setup_bit_string_format(Options),
     setup_legacy_erlang_types(Options),
-    put(encoding_options,Options),
     asn1ct_table:new(check_functions),
 
+    Gen = init_gen_record(EncodingRule, Options),
+
+    check_maps_option(Gen),
+
     %% create decoding function names and taglists for partial decode
-    case (catch specialized_decode_prepare(EncodingRule,M,GenTOrV,Options)) of
-        {error, Reason}  -> warning("Error in configuration file: ~n~p~n",
-                                    [Reason], Options,
-                                    "Error in configuration file");
-        _                -> ok
+    try
+        specialized_decode_prepare(Gen, M)
+    catch
+        throw:{error, Reason} ->
+            warning("Error in configuration file: ~n~p~n",
+                    [Reason], Options,
+                    "Error in configuration file")
     end,
 
-    Result = 
-	case (catch asn1ct_gen:pgen(OutFile,EncodingRule,
-				   M#module.name,GenTOrV,Options)) of
-	    {'EXIT',Reason2} ->
-		error("~p~n",[Reason2],Options),
-		{error,Reason2};
-	    _ ->
-		ok
-	end,
+    Res = case catch asn1ct_gen:pgen(OutFile, Gen, M#module.name, GenTOrV) of
+              {'EXIT',Reason2} ->
+                  error("~p~n",[Reason2],Options),
+                  {error,Reason2};
+              _ ->
+                  ok
+          end,
     debug_off(Options),
-    erase(encoding_options),
     cleanup_bit_string_format(),
     erase(tlv_format), % used in ber
     erase(class_default_type),% used in ber
     asn1ct_table:delete(check_functions),
-    Result.
+    Res.
+
+init_gen_record(EncodingRule, Options) ->
+    Erule = case EncodingRule of
+                uper -> per;
+                _ -> EncodingRule
+            end,
+    Der = proplists:get_bool(der, Options),
+    Aligned = EncodingRule =:= per,
+    RecPrefix = proplists:get_value(record_name_prefix, Options, ""),
+    MacroPrefix = proplists:get_value(macro_name_prefix, Options, ""),
+    Pack = case proplists:get_value(maps, Options, false) of
+               true -> map;
+               false -> record
+           end,
+    #gen{erule=Erule,der=Der,aligned=Aligned,
+         rec_prefix=RecPrefix,macro_prefix=MacroPrefix,
+         pack=Pack,options=Options}.
+
 
 setup_legacy_erlang_types(Opts) ->
     F = case lists:member(legacy_erlang_types, Opts) of
@@ -910,6 +930,26 @@ cleanup_bit_string_format() ->
 get_bit_string_format() ->
     get(bit_string_format).
 
+check_maps_option(#gen{pack=map}) ->
+    case get_bit_string_format() of
+        bitstring ->
+            ok;
+        _ ->
+            Message1 = "The 'maps' option must not be combined with "
+                "'compact_bit_string' or 'legacy_bit_string'",
+            exit({error,{asn1,Message1}})
+    end,
+    case use_legacy_types() of
+        false ->
+            ok;
+        true ->
+            Message2 = "The 'maps' option must not be combined with "
+                "'legacy_erlang_types'",
+            exit({error,{asn1,Message2}})
+    end;
+check_maps_option(#gen{}) ->
+    ok.
+
 
 %% parse_and_save parses an asn1 spec and saves the unchecked parse
 %% tree in a data base file.
@@ -919,22 +959,27 @@ parse_and_save(Module,S) ->
     SourceDir = S#state.sourcedir,
     Includes = [I || {i,I} <- Options],
     Erule = S#state.erule,
+    Maps = lists:member(maps, Options),
     case get_input_file(Module, [SourceDir|Includes]) of
 	%% search for asn1 source
 	{file,SuffixedASN1source} ->
 	    Mtime = filelib:last_modified(SuffixedASN1source),
-	    case asn1_db:dbload(Module, Erule, Mtime) of
+	    case asn1_db:dbload(Module, Erule, Maps, Mtime) of
 		ok -> ok;
 		error -> parse_and_save1(S, SuffixedASN1source, Options)
 	    end;
-	Err ->
+	Err when not Maps ->
 	    case asn1_db:dbload(Module) of
 		ok ->
+                    %% FIXME: This should be an error.
 		    warning("could not do a consistency check of the ~p file: no asn1 source file was found.~n",
 			    [lists:concat([Module,".asn1db"])],Options);
 		error ->
 		    ok
 	    end,
+	    {error,{asn1,input_file_error,Err}};
+        Err ->
+            %% Always fail directly when the 'maps' option is used.
 	    {error,{asn1,input_file_error,Err}}
     end.
 
@@ -997,9 +1042,8 @@ input_file_type(File) ->
 		    end
 	    end;
 	".asn1config" ->
-	    case read_config_file(File,asn1_module) of
+	    case read_config_file_info(File, asn1_module) of
 		{ok,Asn1Module} -> 
-%		    put(asn1_config_file,File),
 		    input_file_type(Asn1Module);
 		Error ->
 		    Error
@@ -1092,16 +1136,27 @@ translate_options([H|T]) ->
 translate_options([]) -> [].
 
 remove_asn_flags(Options) ->
-    [X || X <- Options,
-	  X /= get_rule(Options),
-	  X /= optimize,
-	  X /= compact_bit_string,
-	  X /= legacy_bit_string,
-	  X /= legacy_erlang_types,
-	  X /= debug,
-	  X /= asn1config,
-	  X /= record_name_prefix].
-	  
+    [X || X <- Options, not is_asn1_flag(X)].
+
+is_asn1_flag(asn1config) -> true;
+is_asn1_flag(ber) -> true;
+is_asn1_flag(compact_bit_string) -> true;
+is_asn1_flag(debug) -> true;
+is_asn1_flag(der) -> true;
+is_asn1_flag(legacy_bit_string) -> true;
+is_asn1_flag({macro_name_prefix,_}) -> true;
+is_asn1_flag({n2n,_}) -> true;
+is_asn1_flag(noobj) -> true;
+is_asn1_flag(no_ok_wrapper) -> true;
+is_asn1_flag(optimize) -> true;
+is_asn1_flag(per) -> true;
+is_asn1_flag({record_name_prefix,_}) -> true;
+is_asn1_flag(undec_rec) -> true;
+is_asn1_flag(uper) -> true;
+is_asn1_flag(verbose) -> true;
+%% 'warnings_as_errors' is intentionally passed through to the compiler.
+is_asn1_flag(_) -> false.
+
 debug_on(Options) ->
     case lists:member(debug,Options) of
 	true ->
@@ -1370,25 +1425,26 @@ prepare_bytes(Bytes) -> list_to_binary(Bytes).
 vsn() ->
     ?vsn.
 
-specialized_decode_prepare(Erule,M,TsAndVs,Options) ->
-    case lists:member(asn1config,Options) of
+specialized_decode_prepare(#gen{erule=ber,options=Options}=Gen, M) ->
+    case lists:member(asn1config, Options) of
 	true ->
-	    partial_decode_prepare(Erule,M,TsAndVs,Options);
-	_ ->
+	    special_decode_prepare_1(Gen, M);
+	false ->
 	    ok
-    end.
+    end;
+specialized_decode_prepare(_, _) ->
+    ok.
+
 %% Reads the configuration file if it exists and stores information
 %% about partial decode and incomplete decode
-partial_decode_prepare(ber,M,TsAndVs,Options) when is_tuple(TsAndVs) ->
+special_decode_prepare_1(#gen{options=Options}=Gen, M) ->
     %% read configure file
-
-    ModName =
-	case lists:keysearch(asn1config,1,Options) of
-	    {value,{_,MName}} -> MName;
-	    _ -> M#module.name
-	end,
+    ModName = case lists:keyfind(asn1config, 1, Options) of
+                  {_,MName} -> MName;
+                  false -> M#module.name
+              end,
 %%    io:format("ModName: ~p~nM#module.name: ~p~n~n",[ModName,M#module.name]),
-    case read_config_file(ModName) of
+    case read_config_file(Gen, ModName) of
         no_config_file ->
             ok;
         CfgList ->
@@ -1407,11 +1463,7 @@ partial_decode_prepare(ber,M,TsAndVs,Options) when is_tuple(TsAndVs) ->
             Part_inc_tlv_tags = tlv_tags(CommandList2),
             save_config(partial_incomplete_decode,Part_inc_tlv_tags),
             save_gen_state(exclusive_decode,ExclusiveDecode,Part_inc_tlv_tags)
-    end;
-partial_decode_prepare(_,_,_,_) ->
-    ok.
-
-
+    end.
 
 %% create_partial_inc_decode_gen_info/2
 %%
@@ -1863,46 +1915,38 @@ tlv_tag1(<<0:1,PartialTag:7>>,Acc) ->
 tlv_tag1(<<1:1,PartialTag:7,Buffer/binary>>,Acc) ->
     tlv_tag1(Buffer,(Acc bsl 7) bor PartialTag).
     
-%% reads the content from the configuration file and returns the
-%% selected part choosen by InfoType. Assumes that the config file
+%% Reads the content from the configuration file and returns the
+%% selected part chosen by InfoType. Assumes that the config file
 %% content is an Erlang term.
-read_config_file(ModuleName,InfoType) when is_atom(InfoType) ->
-    CfgList = read_config_file(ModuleName),
-    get_config_info(CfgList,InfoType).
+read_config_file_info(ModuleName, InfoType) when is_atom(InfoType) ->
+    Name = ensure_ext(ModuleName, ".asn1config"),
+    CfgList = read_config_file0(Name, []),
+    get_config_info(CfgList, InfoType).
 
+read_config_file(#gen{options=Options}, ModuleName) ->
+    Name = ensure_ext(ModuleName, ".asn1config"),
+    Includes = [I || {i,I} <- Options],
+    read_config_file0(Name, ["."|Includes]).
 
-read_config_file(ModuleName) ->
-    case file:consult(lists:concat([ModuleName,'.asn1config'])) of
+read_config_file0(Name, [D|Dirs]) ->
+    case file:consult(filename:join(D, Name)) of
 	{ok,CfgList} ->
 	    CfgList;
 	{error,enoent} ->
-	    Options = get(encoding_options),
-	    Includes = [I || {i,I} <- Options],
-	    read_config_file1(ModuleName,Includes);
+            read_config_file0(Name, Dirs);
 	{error,Reason} ->
 	    Error = "error reading asn1 config file: " ++
 		file:format_error(Reason),
 	    throw({error,Error})
-    end.
-read_config_file1(ModuleName,[]) ->
-    case filename:extension(ModuleName) of
-	".asn1config" ->
-            no_config_file;
-	_ ->
-	    read_config_file(lists:concat([ModuleName,".asn1config"]))
     end;
-read_config_file1(ModuleName,[H|T]) ->
-%    File = filename:join([H,lists:concat([ModuleName,'.asn1config'])]),
-    File = filename:join([H,ModuleName]),
-    case file:consult(File) of
-	{ok,CfgList} ->
-	    CfgList;
-	{error,enoent} ->
-	    read_config_file1(ModuleName,T);
-	{error,Reason} ->
-	    Error = "error reading asn1 config file: " ++
-		file:format_error(Reason),
-	    throw({error,Error})
+read_config_file0(_, []) ->
+    no_config_file.
+
+ensure_ext(ModuleName, Ext) ->
+    Name = filename:join([ModuleName]),
+    case filename:extension(Name) of
+        Ext -> Name;
+        _ -> Name ++ Ext
     end.
     
 get_config_info(CfgList,InfoType) ->
@@ -2382,8 +2426,10 @@ format_error({write_error,File,Reason}) ->
     io_lib:format("writing output file ~s failed: ~s",
 		  [File,file:format_error(Reason)]).
 
-is_error(S) when is_record(S, state) ->
-    is_error(S#state.options);
+is_error(#state{options=Opts}) ->
+    is_error(Opts);
+is_error(#gen{options=Opts}) ->
+    is_error(Opts);
 is_error(O) ->
     lists:member(errors, O) orelse is_verbose(O).
 
@@ -2392,8 +2438,10 @@ is_warning(S) when is_record(S, state) ->
 is_warning(O) ->
     lists:member(warnings, O) orelse is_verbose(O).
 
-is_verbose(S) when is_record(S, state) ->
-    is_verbose(S#state.options);
+is_verbose(#state{options=Opts}) ->
+    is_verbose(Opts);
+is_verbose(#gen{options=Opts}) ->
+    is_verbose(Opts);
 is_verbose(O) ->
     lists:member(verbose, O).
 

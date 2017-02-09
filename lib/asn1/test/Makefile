@@ -82,6 +82,7 @@ MODULES= \
 	testInfObjExtract \
 	testParameterizedInfObj \
 	testFragmented \
+	testMaps \
 	testMergeCompile \
 	testMultipleLevels \
 	testDeepTConstr \

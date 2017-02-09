@@ -1200,11 +1200,13 @@ gen_objset_enc(Erules, ObjSetName, UniqueName,
 	    {no_mod,no_name} ->
 		gen_inlined_enc_funs(Fields, ClFields, ObjSetName, Val, NthObj);
 	    {CurrMod,Name} ->
-		emit(["'getenc_",ObjSetName,"'(",{asis,Val},") ->",nl,
+		emit(["'getenc_",ObjSetName,"'(Id) when Id =:= ",
+                      {asis,Val}," ->",nl,
 		      "    fun 'enc_",Name,"'/3;",nl]),
 		{[],NthObj};
 	    {ModuleName,Name} ->
-		emit(["'getenc_",ObjSetName,"'(",{asis,Val},") ->",nl]),
+		emit(["'getenc_",ObjSetName,"'(Id) when Id =:= ",
+                      {asis,Val}," ->",nl]),
 		emit_ext_fun(enc,ModuleName,Name),
 		emit([";",nl]),
 		{[],NthObj};
@@ -1382,11 +1384,13 @@ gen_objset_dec(Erules, ObjSName, UniqueName, [{ObjName,Val,Fields}|T],
 	    {no_mod,no_name} ->
 		gen_inlined_dec_funs(Fields,ClFields,ObjSName,Val,NthObj);
 	    {CurrMod,Name} ->
-		emit(["'getdec_",ObjSName,"'(",{asis,Val},") ->",nl,
+		emit(["'getdec_",ObjSName,"'(Id) when Id =:= ",
+                      {asis,Val}," ->",nl,
 		      "    fun 'dec_",Name,"'/3;", nl]),
 		NthObj;
 	    {ModuleName,Name} ->
-		emit(["'getdec_",ObjSName,"'(",{asis,Val},") ->",nl]),
+		emit(["'getdec_",ObjSName,"'(Id) when Id =:= ",
+                      {asis,Val}," ->",nl]),
 		emit_ext_fun(dec,ModuleName,Name),
 		emit([";",nl]),
 		NthObj;

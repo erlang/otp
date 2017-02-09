@@ -37,9 +37,11 @@
 	 per_enc_open_type/2,
 	 per_enc_restricted_string/3,
 	 per_enc_small_number/2]).
--export([per_enc_extension_bit/2,per_enc_extensions/4,per_enc_optional/3]).
+-export([per_enc_extension_bit/2,per_enc_extensions/4,
+         per_enc_extensions_map/4,
+         per_enc_optional/2]).
 -export([per_enc_sof/5]).
--export([enc_absent/3,enc_append/1,enc_element/2]).
+-export([enc_absent/3,enc_append/1,enc_element/2,enc_maps_get/2]).
 -export([enc_cg/2]).
 -export([optimize_alignment/1,optimize_alignment/2,
 	 dec_slim_cg/2,dec_code_gen/2]).
@@ -349,27 +351,32 @@ per_enc_extensions(Val0, Pos0, NumBits, Aligned) when NumBits > 0 ->
 			['_'|Length ++ PutBits]]}],
 	 {var,"Extensions"}}].
 
-per_enc_optional(Val0, {Pos,DefVals}, _Aligned) when is_integer(Pos),
-						     is_list(DefVals) ->
-    {B,Val} = enc_element(Pos, Val0),
+per_enc_extensions_map(Val0, Vars, Undefined, Aligned) ->
+    NumBits = length(Vars),
+    {B,[_Val,Bitmap]} = mk_vars(Val0, [bitmap]),
+    Length = per_enc_small_length(NumBits, Aligned),
+    PutBits = case NumBits of
+		  1 -> [{put_bits,1,1,[1]}];
+		  _ -> [{put_bits,Bitmap,NumBits,[1]}]
+	      end,
+    BitmapExpr = extensions_bitmap(Vars, Undefined),
+    B++[{assign,Bitmap,BitmapExpr},
+	{list,[{'cond',[[{eq,Bitmap,0}],
+			['_'|Length ++ PutBits]]}],
+	 {var,"Extensions"}}].
+
+per_enc_optional(Val, DefVals) when is_list(DefVals) ->
     Zero = {put_bits,0,1,[1]},
     One = {put_bits,1,1,[1]},
-    B++[{'cond',
-	 [[{eq,Val,DefVal},Zero] || DefVal <- DefVals] ++ [['_',One]]}];
-per_enc_optional(Val0, {Pos,{call,M,F,A}}, _Aligned) when is_integer(Pos) ->
-    {B,Val} = enc_element(Pos, Val0),
+    [{'cond',
+      [[{eq,Val,DefVal},Zero] || DefVal <- DefVals] ++ [['_',One]]}];
+per_enc_optional(Val, {call,M,F,A}) ->
     {[],[[],Tmp]} = mk_vars([], [tmp]),
     Zero = {put_bits,0,1,[1]},
     One = {put_bits,1,1,[1]},
-    B++[{call,M,F,[Val|A],Tmp},
-	{'cond',
-	 [[{eq,Tmp,true},Zero],['_',One]]}];
-per_enc_optional(Val0, Pos, _Aligned) when is_integer(Pos) ->
-    {B,Val} = enc_element(Pos, Val0),
-    Zero = {put_bits,0,1,[1]},
-    One = {put_bits,1,1,[1]},
-    B++[{'cond',[[{eq,Val,asn1_NOVALUE},Zero],
-		 ['_',One]]}].
+    [{call,M,F,[Val|A],Tmp},
+     {'cond',
+      [[{eq,Tmp,true},Zero],['_',One]]}].
 
 per_enc_sof(Val0, Constraint, ElementVar, ElementImm, Aligned) ->
     {B,[Val,Len]} = mk_vars(Val0, [len]),
@@ -422,6 +429,13 @@ enc_append([]) -> [].
 enc_element(N, Val0) ->
     {[],[Val,Dst]} = mk_vars(Val0, [element]),
     {[{call,erlang,element,[N,Val],Dst}],Dst}.
+
+enc_maps_get(N, Val0) ->
+    {[],[Val,Dst0]} = mk_vars(Val0, [element]),
+    {var,Dst} = Dst0,
+    DstExpr = {expr,lists:concat(["#{",N,":=",Dst,"}"])},
+    {var,SrcVar} = Val,
+    {[{assign,DstExpr,SrcVar}],Dst0}.
 
 enc_cg(Imm0, false) ->
     Imm1 = enc_cse(Imm0),
@@ -1239,6 +1253,20 @@ enc_length(Len, {Lb,Ub}, Aligned) when is_integer(Lb) ->
     build_length_cond(Prefix, [[Check|PutLen]]);
 enc_length(Len, Sv, _Aligned) when is_integer(Sv) ->
     [{'cond',[[{eq,Len,Sv}]]}].
+
+extensions_bitmap(Vs, Undefined) ->
+    Highest = 1 bsl (length(Vs)-1),
+    Cs = extensions_bitmap_1(Vs, Undefined, Highest),
+    lists:flatten(lists:join(" bor ", Cs)).
+
+extensions_bitmap_1([{var,V}|Vs], Undefined, Power) ->
+    S = ["case ",V," of\n",
+         "  ",Undefined," -> 0;\n"
+         "  _ -> ",integer_to_list(Power),"\n"
+         "end"],
+    [S|extensions_bitmap_1(Vs, Undefined, Power bsr 1)];
+extensions_bitmap_1([], _, _) ->
+    [].
 
 put_bits_binary(Bin, _Unit, Aligned) when is_binary(Bin) ->
     Sz = byte_size(Bin),

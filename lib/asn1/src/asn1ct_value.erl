@@ -64,7 +64,11 @@ from_type(M,Typename,Type) when is_record(Type,type) ->
 	    end;
 	{constructed,bif} when Typename == ['EXTERNAL'] ->
 	    Val=from_type_constructed(M,Typename,InnerType,Type),
-	    asn1ct_eval_ext:transform_to_EXTERNAL1994(Val);
+            T = case M:maps() of
+                    false -> transform_to_EXTERNAL1994;
+                    true -> transform_to_EXTERNAL1994_maps
+                end,
+            asn1ct_eval_ext:T(Val);
 	{constructed,bif} ->
 	    from_type_constructed(M,Typename,InnerType,Type)
     end;
@@ -118,11 +122,13 @@ get_sequence(M,Typename,Type) ->
 	    #'SEQUENCE'{components=Cl} -> {'SEQUENCE',Cl};
 	    #'SET'{components=Cl} -> {'SET',to_textual_order(Cl)}
 	end,
-    case get_components(M,Typename,CompList) of
-        [] ->
-            {list_to_atom(asn1ct_gen:list2rname(Typename))};
-        C ->
-            list_to_tuple([list_to_atom(asn1ct_gen:list2rname(Typename))|C])
+    Cs = get_components(M, Typename, CompList),
+    case M:maps() of
+        false ->
+            RecordTag = list_to_atom(asn1ct_gen:list2rname(Typename)),
+            list_to_tuple([RecordTag|[Val || {_,Val} <- Cs]]);
+        true ->
+            maps:from_list(Cs)
     end.
 
 get_components(M,Typename,{Root,Ext}) ->
@@ -130,9 +136,9 @@ get_components(M,Typename,{Root,Ext}) ->
 
 %% Should enhance this *** HERE *** with proper handling of extensions
 
-get_components(M,Typename,[H|T]) ->
-    [from_type(M,Typename,H)|
-    get_components(M,Typename,T)];
+get_components(M, Typename, [H|T]) ->
+    #'ComponentType'{name=Name} = H,
+    [{Name,from_type(M, Typename, H)}|get_components(M, Typename, T)];
 get_components(_,_,[]) ->
     [].
 
