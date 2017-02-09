@@ -753,10 +753,6 @@ check_cleanup_active_fd(ErtsSysFdType fd,
 	}
 
         if (state->driver.nif) {
-#if ERTS_CIO_DEFER_ACTIVE_EVENTS
-#  error Windows
-#endif
-            int do_wake = 0;
             ErtsPollEvents rm_events = 0;
             if (state->driver.nif->in.ddeselect_cnt) {
                 ASSERT(state->type == ERTS_EV_TYPE_NIF);
@@ -777,7 +773,9 @@ check_cleanup_active_fd(ErtsSysFdType fd,
                 }
             }
             if (rm_events) {
-                state->events = ERTS_CIO_POLL_CTL(pollset.ps, state->fd, rm_events, 0, &do_wake);
+                int do_wake = 0;
+                state->events = ERTS_CIO_POLL_CTL(pollset.ps, state->fd,
+                                                  rm_events, 0, &do_wake);
             }
             if (state->events)
                 active = 1;
@@ -2140,11 +2138,16 @@ ERTS_CIO_EXPORT(erts_check_io_interrupt_timed)(int set,
     ERTS_CIO_POLL_INTR_TMD(pollset.ps, set, timeout_time);
 }
 
+#if !ERTS_CIO_DEFER_ACTIVE_EVENTS
 /*
  * Number of ignored events, for a lingering fd added by enif_select(),
  * until we deselect fd-event from pollset.
  */
-#define ERTS_NIF_DELAYED_DESELECT 20
+# define ERTS_NIF_DELAYED_DESELECT 20
+#else
+/* Disable delayed deselect as pollset cannot handle active events */
+# define ERTS_NIF_DELAYED_DESELECT 1
+#endif
 
 void
 ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
