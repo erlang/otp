@@ -142,6 +142,12 @@ typedef struct
 typedef int ErlNifEvent; /* An event to be selected on. */
 //#endif
 
+/* Return bits from enif_select: */
+#define ERL_NIF_SELECT_STOP_CALLED    (1 << 0)
+#define ERL_NIF_SELECT_STOP_SCHEDULED (1 << 1)
+#define ERL_NIF_SELECT_INVALID_EVENT  (1 << 2)
+#define ERL_NIF_SELECT_FAILED         (1 << 3)
+
 typedef enum
 {
     ERL_NIF_RT_CREATE = 1,

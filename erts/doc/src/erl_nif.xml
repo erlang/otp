@@ -2583,7 +2583,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>enum ErlNifSelectReturn</ret>
+      <name><ret>int</ret>
         <nametext>enif_select(ErlNifEnv* env, ErlNifEvent event, enum ErlNifSelectFlags mode,
 	void* obj, const ErlNifPid* pid, ERL_NIF_TERM ref)</nametext>
       </name>
@@ -2626,36 +2626,36 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	  the event object. This safe way of closing event objects must be used
 	  even if all notifications have been received and no further calls to
 	  <c>enif_select</c> have been made.</p>
-	<p>Returns an integer where different bits indicate the outcome of the call:</p>
+	<p>Returns a non-negative value on success where the following bits can be set:</p>
         <taglist>
-          <tag><c>ERL_NIF_SELECT_ERROR</c></tag>
-          <item>The master error bit. It will always be set if the call failed for
-	    any reason.</item>
           <tag><c>ERL_NIF_SELECT_STOP_CALLED</c></tag>
           <item>The stop callback was called directly by <c>enif_select</c>.</item>
           <tag><c>ERL_NIF_SELECT_STOP_SCHEDULED</c></tag>
           <item>The stop callback was scheduled to run on some other thread
 	    or later by this thread.</item>
+	</taglist>
+	<p>Returns a negative value if the call failed where the follwing bits can be set:</p>
+        <taglist>
           <tag><c>ERL_NIF_SELECT_INVALID_EVENT</c></tag>
           <item>Argument <c>event</c> is not a valid OS event object.</item>
           <tag><c>ERL_NIF_SELECT_FAILED</c></tag>
           <item>The system call failed to add the event object to the poll set.</item>
         </taglist>
-	<p>The return value from a successful call with <c>mode</c> as <c>ERL_NIF_SELECT_STOP</c>,
-	will contain either bit <c>ERL_NIF_SELECT_STOP_CALLED</c> or
-	<c>ERL_NIF_SELECT_STOP_SCHEDULED</c>.</p>
         <note>
-          <p>Always use bitwise AND to test the return value. New significant bits
-	  may be added in future releases to give more detailed information for both
-	  failed and successful calls. Do NOT use equallity tests like <c>==</c>, as
-	  that may cause your application to stop working.</p>
+          <p>Use bitwise AND to test for specific bits in the return vaue.
+	  New significant bits may be added in future releases to give more detailed
+	  information for both failed and successful calls. Do NOT use equallity tests
+	  like <c>==</c>, as that may cause your application to stop working.</p>
 	  <p>Example:</p>
 	  <code type="none">
-retval = enif_select(env, fd, ERL_NIF_SELECT_READ, resource, ref);
-if (retval &amp; ERL_NIF_SELECT_ERROR) {
+retval = enif_select(env, fd, ERL_NIF_SELECT_STOP, resource, ref);
+if (retval < 0) {
     /* handle error */
 }
 /* Success! */
+if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
+    /* ... */
+}
 </code>
         </note>
       </desc>

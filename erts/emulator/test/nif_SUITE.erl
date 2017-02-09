@@ -457,11 +457,10 @@ t_on_load(Config) when is_list(Config) ->
 -define(ERL_NIF_SELECT_WRITE, (1 bsl 1)).
 -define(ERL_NIF_SELECT_STOP, (1 bsl 2)).
 
--define(ERL_NIF_SELECT_ERROR, (1 bsl 0)).
--define(ERL_NIF_SELECT_STOP_CALLED, (1 bsl 1)).
--define(ERL_NIF_SELECT_STOP_SCHEDULED, (1 bsl 2)).
--define(ERL_NIF_SELECT_INVALID_EVENT, (1 bsl 3)).
--define(ERL_NIF_SELECT_FAILED, (1 bsl 4)).
+-define(ERL_NIF_SELECT_STOP_CALLED, (1 bsl 0)).
+-define(ERL_NIF_SELECT_STOP_SCHEDULED, (1 bsl 1)).
+-define(ERL_NIF_SELECT_INVALID_EVENT, (1 bsl 2)).
+-define(ERL_NIF_SELECT_FAILED, (1 bsl 3)).
 
 
 select(Config) when is_list(Config) ->

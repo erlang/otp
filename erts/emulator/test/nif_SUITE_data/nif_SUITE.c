@@ -2123,7 +2123,7 @@ static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     void* obj;
     ErlNifPid nifpid, *pid = NULL;
     ERL_NIF_TERM ref;
-    enum ErlNifSelectReturn retval;
+    int retval;
 
     if (!get_fd(env, argv[0], &fdr)
         || !enif_get_uint(env, argv[1], &mode)
@@ -2143,7 +2143,7 @@ static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     enif_self(env, &fdr->pid);
     retval = enif_select(env, fdr->fd, mode, obj, pid, ref);
 
-    return enif_make_int(env, (int)retval);
+    return enif_make_int(env, retval);
 }
 
 static ERL_NIF_TERM pipe_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])

@@ -1198,7 +1198,7 @@ done_unknown:
     return ret;
 }
 
-enum ErlNifSelectReturn
+int
 ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
                              ErlNifEvent e,
                              enum ErlNifSelectFlags mode,
@@ -1213,7 +1213,7 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
     ErtsPollEvents new_events, old_events;
     ErtsDrvEventState *state;
     int wake_poller;
-    enum ErlNifSelectReturn ret;
+    int ret;
     enum { NO_STOP=0, CALL_STOP, CALL_STOP_AND_RELEASE } call_stop = NO_STOP;
 #if ERTS_CIO_HAVE_DRV_EVENT
     ErtsDrvEventDataState *free_event = NULL;
@@ -1229,11 +1229,11 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     if ((unsigned)fd >= (unsigned)erts_smp_atomic_read_nob(&drv_ev_state_len)) {
 	if (fd < 0) {
-	    return ERL_NIF_SELECT_ERROR | ERL_NIF_SELECT_INVALID_EVENT;
+	    return INT_MIN | ERL_NIF_SELECT_INVALID_EVENT;
 	}
 	if (fd >= max_fds) {
 	    nif_select_large_fd_error(fd, mode, resource, ref);
-            return ERL_NIF_SELECT_ERROR | ERL_NIF_SELECT_INVALID_EVENT;
+            return INT_MIN | ERL_NIF_SELECT_INVALID_EVENT;
 	}
 	grow_drv_ev_state(fd);
     }
@@ -1327,7 +1327,7 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
             state->driver.nif->out.ddeselect_cnt = 0;
             state->driver.stop.resource = NULL;
 	}
-	ret = ERL_NIF_SELECT_ERROR | ERL_NIF_SELECT_FAILED;
+	ret = INT_MIN | ERL_NIF_SELECT_FAILED;
 	goto done;
     }
 
@@ -2518,6 +2518,10 @@ static void drv_ev_state_free(void *des)
 void
 ERTS_CIO_EXPORT(erts_init_check_io)(void)
 {
+    ERTS_CT_ASSERT((INT_MIN & (ERL_NIF_SELECT_STOP_CALLED |
+                               ERL_NIF_SELECT_STOP_SCHEDULED |
+                               ERL_NIF_SELECT_INVALID_EVENT |
+                               ERL_NIF_SELECT_FAILED)) == 0);
     erts_smp_atomic_init_nob(&erts_check_io_time, 0);
     erts_smp_atomic_init_nob(&pollset.in_poll_wait, 0);
 
