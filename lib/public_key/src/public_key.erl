@@ -893,21 +893,31 @@ oid2ssh_curvename(?'secp521r1') -> <<"nistp521">>.
 
 %%--------------------------------------------------------------------
 -spec ssh_hostkey_fingerprint(public_key()) -> string().
--spec ssh_hostkey_fingerprint(digest_type(), public_key()) -> string().
+-spec ssh_hostkey_fingerprint( digest_type(),  public_key()) ->  string()
+                           ; ([digest_type()], public_key())   -> [string()]
+                           .
 
 ssh_hostkey_fingerprint(Key) ->
-    sshfp_string(md5, Key).
+    sshfp_string(md5, public_key:ssh_encode(Key,ssh2_pubkey) ).
 
-ssh_hostkey_fingerprint(HashAlg, Key) ->
-    lists:concat([sshfp_alg_name(HashAlg),
-		  [$: | sshfp_string(HashAlg, Key)]
-		 ]).
+ssh_hostkey_fingerprint(HashAlgs, Key) when is_list(HashAlgs) ->
+    EncKey = public_key:ssh_encode(Key, ssh2_pubkey),
+    [sshfp_full_string(HashAlg,EncKey) || HashAlg <- HashAlgs];
+ssh_hostkey_fingerprint(HashAlg, Key) when is_atom(HashAlg) ->
+    EncKey = public_key:ssh_encode(Key, ssh2_pubkey),
+    sshfp_full_string(HashAlg, EncKey).
 
-sshfp_string(HashAlg, Key) ->
+
+sshfp_string(HashAlg, EncodedKey) ->
     %% Other HashAlgs than md5 will be printed with
     %% other formats than hextstr by
     %%    ssh-keygen -E <alg> -lf <file>
-    fp_fmt(sshfp_fmt(HashAlg), crypto:hash(HashAlg, public_key:ssh_encode(Key,ssh2_pubkey))).
+    fp_fmt(sshfp_fmt(HashAlg), crypto:hash(HashAlg, EncodedKey)).
+
+sshfp_full_string(HashAlg, EncKey) ->
+    lists:concat([sshfp_alg_name(HashAlg),
+		  [$: | sshfp_string(HashAlg, EncKey)]
+		 ]).
 
 sshfp_alg_name(sha) -> "SHA1";
 sshfp_alg_name(Alg) -> string:to_upper(atom_to_list(Alg)).
