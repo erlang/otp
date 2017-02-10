@@ -121,7 +121,7 @@ groups() ->
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
 			 filter_partition, suffix, subtract, join,
-			 hof]}
+			 hof, droplast]}
     ].
 
 init_per_suite(Config) ->
