@@ -620,11 +620,22 @@ handle_ssh_option({silently_accept_hosts, Value} = Opt) when is_boolean(Value) -
 handle_ssh_option({silently_accept_hosts, Value} = Opt) when is_function(Value,2) ->
     Opt;
 handle_ssh_option({silently_accept_hosts, {DigestAlg,Value}} = Opt) when is_function(Value,2) ->
-    case lists:member(DigestAlg, [md5, sha, sha224, sha256, sha384, sha512]) of
-	true ->
-	    Opt;
-	false ->
-	    throw({error, {eoptions, Opt}})
+    Algs = if is_atom(DigestAlg) -> [DigestAlg];
+              is_list(DigestAlg) -> DigestAlg;
+              true -> throw({error, {eoptions, Opt}})
+           end,
+    case [A || A <- Algs,
+               not lists:member(A, [md5, sha, sha224, sha256, sha384, sha512])] of
+        [_|_] = UnSup1 ->
+            throw({error, {{eoptions, Opt}, {not_fingerprint_algos,UnSup1}}});
+        [] ->
+            CryptoHashAlgs = proplists:get_value(hashs, crypto:supports(), []),
+            case [A || A <- Algs,
+                       not lists:member(A, CryptoHashAlgs)] of
+                [_|_] = UnSup2 ->
+                    throw({error, {{eoptions, Opt}, {unsupported_algo,UnSup2}}});
+                [] -> Opt
+            end
     end;
 handle_ssh_option({user_interaction, Value} = Opt) when is_boolean(Value) ->
     Opt;

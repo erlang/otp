@@ -67,7 +67,8 @@
 	 hostkey_fingerprint_check_sha/1,
 	 hostkey_fingerprint_check_sha256/1,
 	 hostkey_fingerprint_check_sha384/1,
-	 hostkey_fingerprint_check_sha512/1
+	 hostkey_fingerprint_check_sha512/1,
+	 hostkey_fingerprint_check_list/1
 	]).
 
 %%% Common test callbacks
@@ -112,6 +113,7 @@ all() ->
      hostkey_fingerprint_check_sha256,
      hostkey_fingerprint_check_sha384,
      hostkey_fingerprint_check_sha512,
+     hostkey_fingerprint_check_list,
      id_string_no_opt_client,
      id_string_own_string_client,
      id_string_random_client,
@@ -812,6 +814,8 @@ hostkey_fingerprint_check_sha384(Config) ->
 hostkey_fingerprint_check_sha512(Config) ->
     do_hostkey_fingerprint_check(Config, sha512).
 
+hostkey_fingerprint_check_list(Config) ->
+    do_hostkey_fingerprint_check(Config, [sha,md5,sha256]).
 
 %%%----
 do_hostkey_fingerprint_check(Config, HashAlg) ->
@@ -824,9 +828,10 @@ do_hostkey_fingerprint_check(Config, HashAlg) ->
 
 supported_hash(old) -> true;
 supported_hash(HashAlg) ->
-   proplists:get_value(HashAlg,
-		       proplists:get_value(hashs, crypto:supports(), []),
-		       false).
+    Hs = if is_atom(HashAlg) -> [HashAlg];
+            is_list(HashAlg) -> HashAlg
+         end,
+    [] == (Hs -- proplists:get_value(hashs, crypto:supports(), [])).
 
 
 really_do_hostkey_fingerprint_check(Config, HashAlg) ->
@@ -840,7 +845,7 @@ really_do_hostkey_fingerprint_check(Config, HashAlg) ->
 
     %% All host key fingerprints.  Trust that public_key has checked the ssh_hostkey_fingerprint
     %% function since that function is used by the ssh client...
-    FPs = [case HashAlg of
+    FPs0 = [case HashAlg of
 	       old -> public_key:ssh_hostkey_fingerprint(Key);
 	       _ -> public_key:ssh_hostkey_fingerprint(HashAlg, Key)
 	   end
@@ -856,6 +861,9 @@ really_do_hostkey_fingerprint_check(Config, HashAlg) ->
 				      _:_ -> []
 				  end
 			      end],
+    FPs = if is_atom(HashAlg) -> FPs0;
+             is_list(HashAlg) -> lists:concat(FPs0)
+          end,
     ct:log("Fingerprints(~p) = ~p",[HashAlg,FPs]),
 
     %% Start daemon with the public keys that we got fingerprints from
@@ -866,8 +874,12 @@ really_do_hostkey_fingerprint_check(Config, HashAlg) ->
     FP_check_fun = fun(PeerName, FP) ->
 			   ct:pal("PeerName = ~p, FP = ~p",[PeerName,FP]),
 			   HostCheck = (Host == PeerName),
-			   FPCheck = lists:member(FP, FPs),
-			   ct:log("check ~p == ~p (~p) and ~n~p in ~p (~p)~n",
+			   FPCheck = 
+                               if is_atom(HashAlg) -> lists:member(FP, FPs);
+                                  is_list(HashAlg) -> lists:all(fun(FP1) -> lists:member(FP1,FPs) end,
+                                                                FP)
+                               end,
+			   ct:log("check ~p == ~p (~p) and ~n~p~n in ~p (~p)~n",
 				  [PeerName,Host,HostCheck,FP,FPs,FPCheck]),
 			   HostCheck and FPCheck
 		   end,
