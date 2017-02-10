@@ -18,7 +18,6 @@
  * %CopyrightEnd%
  */
  
-
 /*
  * TIMER WHEEL
  *
@@ -134,6 +133,32 @@
  * bump operation is performed thise timers will be triggered
  * at once.
  *
+ * -- Searching for Next Timeout --
+ *
+ * In order to limit the amount of work needed in order to find
+ * next timeout, we keep track of total amount of timers in the
+ * wheels, total amount of timers in soon wheel, and the total
+ * amount of timers in each range of slots. Each slot range
+ * currently contain 512 slots.
+ *
+ * When next timeout is less than half the soon wheel width away
+ * we determine the exact timeout. Due to the timer counts of
+ * slot ranges, we currently at most need to search 1024 slots
+ * in the soon wheel. This besides inspecting slot range counts
+ * and two slots in the later wheel which potentially might trigger
+ * timeouts for moving timers from the later wheel to the soon wheel
+ * earlier than timeouts in the soon wheel.
+ *
+ * When next timeout is further away than half the soon wheel
+ * width we settle for the earliest possible timeout in the first
+ * non-empty slot range. The further away the next timeout is, the
+ * more likely it is that the next timeout change before we
+ * actually get there. That is, a change due to another timer is
+ * set to an earlier time and/or the timer is cancelled. It is
+ * therefore in this case no point determining next timeout
+ * exactly. If the state should not change, we will wake up a bit
+ * early and do a recalculation of next timeout and eventually
+ * we will be so close to it that we determine it exactly.
  *
  */
 
@@ -147,8 +172,8 @@
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
 
-#define ERTS_MONOTONIC_DAY ERTS_SEC_TO_MONOTONIC(60*60*24)
-#define ERTS_CLKTCKS_DAY ERTS_MONOTONIC_TO_CLKTCKS(ERTS_MONOTONIC_DAY)
+#define ERTS_MONOTONIC_WEEK ERTS_SEC_TO_MONOTONIC(7*60*60*24)
+#define ERTS_CLKTCKS_WEEK ERTS_MONOTONIC_TO_CLKTCKS(ERTS_MONOTONIC_WEEK)
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
 #define ASSERT_NO_LOCKED_LOCKS		erts_lc_check_exact(NULL, 0)
@@ -211,6 +236,21 @@
 
 #define ERTS_TW_LATER_WHEEL_MASK (ERTS_TW_LATER_WHEEL_SIZE-1)
 
+#define ERTS_TW_SCNT_BITS 9
+#define ERTS_TW_SCNT_SHIFT 
+#define ERTS_TW_SCNT_SIZE \
+    ((ERTS_TW_SOON_WHEEL_SIZE + ERTS_TW_LATER_WHEEL_SIZE) \
+     >> ERTS_TW_SCNT_BITS)
+
+#ifdef __GNUC__
+#if ERTS_TW_SOON_WHEEL_BITS < ERTS_TW_SCNT_BITS
+#  warning Consider larger soon timer wheel
+#endif
+#if ERTS_TW_SOON_WHEEL_BITS < ERTS_TW_SCNT_BITS
+#  warning Consider larger later timer wheel
+#endif
+#endif
+
 /* Actual interval time chosen by sys_init_time() */
 
 #if SYS_CLOCK_RESOLUTION == 1
@@ -223,6 +263,8 @@ static int tiw_itime; /* Constant after init */
 
 struct ErtsTimerWheel_ {
     ErtsTWheelTimer *w[ERTS_TW_SOON_WHEEL_SIZE + ERTS_TW_LATER_WHEEL_SIZE];
+    Sint scnt[ERTS_TW_SCNT_SIZE];
+    Sint bump_scnt[ERTS_TW_SCNT_SIZE];
     ErtsMonotonicTime pos;
     Uint nto;
     struct {
@@ -247,6 +289,108 @@ struct ErtsTimerWheel_ {
     ((tiw)->pos + ERTS_TW_LATER_WHEEL_SLOT_SIZE >= (TIW)->later.pos)
 
 static int bump_later_wheel(ErtsTimerWheel *tiw, int *yield_count_p);
+
+static ERTS_INLINE int
+scnt_get_ix(int slot)
+{
+    return slot >> ERTS_TW_SCNT_BITS;
+}
+
+static ERTS_INLINE void
+scnt_inc(Sint *scnt, int slot)
+{
+    scnt[slot >> ERTS_TW_SCNT_BITS]++;
+}
+
+#ifdef ERTS_TW_HARD_DEBUG
+
+static ERTS_INLINE void
+scnt_ix_inc(Sint *scnt, int six)
+{
+    scnt[six]++;
+}
+
+#endif
+
+static ERTS_INLINE void
+scnt_dec(Sint *scnt, int slot)
+{
+    scnt[slot >> ERTS_TW_SCNT_BITS]--;
+    ERTS_TW_ASSERT(scnt[slot >> ERTS_TW_SCNT_BITS] >= 0);
+}
+
+static ERTS_INLINE void
+scnt_ix_dec(Sint *scnt, int six)
+{
+    scnt[six]--;
+    ERTS_TW_ASSERT(scnt[six] >= 0);
+}
+
+static ERTS_INLINE void
+scnt_wheel_next(int *slotp, int *leftp, ErtsMonotonicTime *posp,
+                int *sixp, Sint *scnt, int first_slot,
+                int end_slot, ErtsMonotonicTime slot_sz)
+{
+    int slot = *slotp;
+    int left = *leftp;
+    int ix;
+
+    ERTS_TW_ASSERT(*leftp >= 0);
+
+    left--;
+    slot++;
+    if (slot == end_slot)
+        slot = first_slot;
+    ix = slot >> ERTS_TW_SCNT_BITS;
+
+    while (!scnt[ix] && left > 0) {
+        int diff, old_slot = slot;
+        ix++;
+        slot = (ix << ERTS_TW_SCNT_BITS);
+        diff = slot - old_slot;
+        if (left < diff) {
+            slot = old_slot + left;
+            diff = left;
+        }
+        if (slot < end_slot)
+            left -= diff;
+        else {
+            left -= end_slot - old_slot;
+            slot = first_slot;
+            ix = slot >> ERTS_TW_SCNT_BITS;
+        }
+    }
+
+    ERTS_TW_ASSERT(left >= -1);
+
+    if (posp)
+        *posp += slot_sz * ((ErtsMonotonicTime) (*leftp - left));
+    if (sixp)
+        *sixp = slot >> ERTS_TW_SCNT_BITS;
+    *leftp = left;
+    *slotp = slot;
+}
+
+
+static ERTS_INLINE void
+scnt_soon_wheel_next(int *slotp, int *leftp, ErtsMonotonicTime *posp,
+                    int *sixp, Sint *scnt)
+{
+    scnt_wheel_next(slotp, leftp, posp, sixp, scnt,
+                    ERTS_TW_SOON_WHEEL_FIRST_SLOT,
+                    ERTS_TW_SOON_WHEEL_END_SLOT, 1);
+}
+
+static ERTS_INLINE void
+scnt_later_wheel_next(int *slotp, int *leftp, ErtsMonotonicTime *posp,
+                    int *sixp, Sint *scnt)
+{
+    scnt_wheel_next(slotp, leftp, posp, sixp, scnt,
+                    ERTS_TW_LATER_WHEEL_FIRST_SLOT,
+                    ERTS_TW_LATER_WHEEL_END_SLOT,
+                    ERTS_TW_LATER_WHEEL_SLOT_SIZE);
+}
+
 
 static ERTS_INLINE int
 soon_slot(ErtsMonotonicTime soon_pos)
@@ -282,14 +426,10 @@ static void hrd_dbg_check_wheels(ErtsTimerWheel *tiw, int check_min_tpos);
 #define ERTS_HARD_DBG_CHK_WHEELS(TIW, CHK_MIN_TPOS)
 #endif
 
-static ERTS_INLINE ErtsMonotonicTime
-find_next_timeout(ErtsSchedulerData *esdp,
-		  ErtsTimerWheel *tiw,
-		  int search_all,
-		  ErtsMonotonicTime curr_time,       /* When !search_all */
-		  ErtsMonotonicTime max_search_time) /* When !search_all */
+static ErtsMonotonicTime
+find_next_timeout(ErtsSchedulerData *esdp, ErtsTimerWheel *tiw, int thorough)
 {
-    int start_ix, tiw_pos_ix, pos_inc, wheel_start_ix, wheel_end_ix;
+    int slot, slots;
     int true_min_timeout = 0;
     ErtsMonotonicTime min_timeout, min_timeout_pos, slot_timeout_pos;
 
@@ -298,32 +438,51 @@ find_next_timeout(ErtsSchedulerData *esdp,
     ERTS_TW_ASSERT(tiw->yield_slot == ERTS_TWHEEL_SLOT_INACTIVE);
 
     if (tiw->nto == 0) { /* no timeouts in wheel */
-	if (!search_all)
+	if (!thorough)
 	    min_timeout_pos = tiw->pos;
 	else {
-	    curr_time = erts_get_monotonic_time(esdp);
+	    ErtsMonotonicTime curr_time = erts_get_monotonic_time(esdp);
 	    tiw->pos = min_timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(curr_time);
 	}
-	min_timeout_pos += ERTS_MONOTONIC_TO_CLKTCKS(ERTS_MONOTONIC_DAY);
+	min_timeout_pos += ERTS_MONOTONIC_TO_CLKTCKS(ERTS_MONOTONIC_WEEK);
 	goto done;
     }
 
-    if (search_all)
-        min_timeout_pos = tiw->pos + ERTS_MONOTONIC_TO_CLKTCKS(ERTS_MONOTONIC_DAY);
+    min_timeout_pos = tiw->pos;
+    if (thorough)
+        min_timeout_pos += ERTS_MONOTONIC_TO_CLKTCKS(ERTS_MONOTONIC_WEEK);
     else
-        min_timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(curr_time + max_search_time);
+        min_timeout_pos += ERTS_TW_SOON_WHEEL_SIZE/2;
 
     if (!tiw->soon.nto) {
+        ErtsMonotonicTime tmp;
         /* Select later wheel... */
         slot_timeout_pos = tiw->later.pos;
-        start_ix = tiw_pos_ix = later_slot(slot_timeout_pos);
-        pos_inc = ERTS_TW_LATER_WHEEL_SLOT_SIZE;
-        wheel_start_ix = ERTS_TW_LATER_WHEEL_FIRST_SLOT;
-        wheel_end_ix = ERTS_TW_LATER_WHEEL_END_SLOT;
+        slot = later_slot(slot_timeout_pos);
         /* Pre-timeout for move from later to soon wheel... */
         slot_timeout_pos -= ERTS_TW_LATER_WHEEL_SLOT_SIZE;
+        tmp = min_timeout_pos - slot_timeout_pos;
+        tmp /= ERTS_TW_LATER_WHEEL_SLOT_SIZE;
+        tmp++;
+        if (tmp > ERTS_TW_LATER_WHEEL_SIZE)
+            slots = ERTS_TW_LATER_WHEEL_SIZE;
+        else
+            slots = (int) tmp;
+
+        /*
+         * We never search for an exact timeout in the
+         * later wheel, but instead settle for the first
+         * scnt range used.
+         */
+        if (tiw->w[slot])
+            true_min_timeout = 1;
+        else
+            scnt_later_wheel_next(&slot, &slots, &slot_timeout_pos,
+                                NULL, tiw->scnt);
+        min_timeout_pos = slot_timeout_pos;
     }
     else {
+        ErtsMonotonicTime tmp;
         /* Select soon wheel... */
 
         /*
@@ -355,30 +514,31 @@ find_next_timeout(ErtsSchedulerData *esdp,
         }
 
         slot_timeout_pos = tiw->pos;
-        start_ix = tiw_pos_ix = soon_slot(tiw->pos);
-        pos_inc = 1;
-        wheel_start_ix = ERTS_TW_SOON_WHEEL_FIRST_SLOT;
-        wheel_end_ix = ERTS_TW_SOON_WHEEL_END_SLOT;
-    }
+        slot = soon_slot(tiw->pos);
+        tmp = min_timeout_pos - slot_timeout_pos;
+        if (tmp > ERTS_TW_SOON_WHEEL_SIZE)
+            slots = ERTS_TW_SOON_WHEEL_SIZE;
+        else
+            slots = (int) tmp;
 
-    /*
-     * Scan selected wheel...
-     */
-    do {
-        if (tiw->w[tiw_pos_ix]) {
-            min_timeout_pos = slot_timeout_pos;
-            true_min_timeout = 1;
-            break;
+        while (slot_timeout_pos < min_timeout_pos) {
+            if (tiw->w[slot]) {
+                ERTS_TW_ASSERT(tiw->w[slot]->timeout_pos == slot_timeout_pos);
+                min_timeout_pos = slot_timeout_pos;
+                true_min_timeout = 1;
+                break;
+            }
+            scnt_soon_wheel_next(&slot, &slots, &slot_timeout_pos,
+                                 NULL, tiw->scnt);
         }
 
-        slot_timeout_pos += pos_inc;
-        if (slot_timeout_pos >= min_timeout_pos)
-            break;
-
-        tiw_pos_ix++;
-        if (tiw_pos_ix == wheel_end_ix)
-            tiw_pos_ix = wheel_start_ix;
-    } while (start_ix != tiw_pos_ix);
+        if (slots > 0 && !true_min_timeout) {
+            /* Find first non-empty range... */
+            scnt_soon_wheel_next(&slot, &slots, &slot_timeout_pos,
+                                 NULL, tiw->scnt);
+            min_timeout_pos = slot_timeout_pos;
+        }
+    }
 
 done:
 
@@ -433,6 +593,7 @@ insert_timer_into_slot(ErtsTimerWheel *tiw, int slot, ErtsTWheelTimer *p)
         ERTS_TW_ASSERT(p->timeout_pos < tiw->pos + ERTS_TW_SOON_WHEEL_SIZE);
         tiw->soon.nto++;
     }
+    scnt_inc(tiw->scnt, slot);
 }
 
 static ERTS_INLINE void
@@ -461,6 +622,7 @@ remove_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p)
 	}
         if (slot < ERTS_TW_SOON_WHEEL_END_SLOT)
             tiw->soon.nto--;
+        scnt_dec(tiw->scnt, slot);
     }
     else {
 	/* Timer in "at once" queue... */
@@ -480,7 +642,6 @@ remove_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p)
 	ERTS_TW_ASSERT(tiw->at_once.nto > 0);
 	tiw->at_once.nto--;
     }
-
     p->slot = ERTS_TWHEEL_SLOT_INACTIVE;
 }
 
@@ -493,7 +654,7 @@ erts_check_next_timeout_time(ErtsSchedulerData *esdp)
     if (tiw->true_next_timeout_time)
 	return tiw->next_timeout_time;
     ERTS_MSACC_PUSH_AND_SET_STATE_CACHED_X(ERTS_MSACC_STATE_TIMERS);
-    time = find_next_timeout(esdp, tiw, 1, 0, 0);
+    time = find_next_timeout(esdp, tiw, 1);
     ERTS_MSACC_POP_STATE_M_X();
     return time;
 }
@@ -535,9 +696,10 @@ debug_check_safe_to_skip_to(ErtsTimerWheel *tiw, ErtsMonotonicTime skip_to_pos)
     ix = later_slot(tiw->later.pos);
     tmp = skip_to_pos;
     tmp &= ERTS_TW_LATER_WHEEL_POS_MASK;
-    if (tmp > tiw->later.pos) {
+    if (tmp >= tiw->later.pos) {
         tmp -= tiw->later.pos;
         tmp /= ERTS_TW_LATER_WHEEL_SLOT_SIZE;
+        tmp++;
         ERTS_TW_ASSERT(tmp >= 0);
         if (tmp < (ErtsMonotonicTime) ERTS_TW_LATER_WHEEL_SIZE)
             slots = (int) tmp;
@@ -580,11 +742,15 @@ timeout_timer(ErtsTWheelTimer *p)
 void
 erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 {
-    int tiw_pos_ix, yielded_slot_restarted, yield_count, slots;
+    int slot, yielded_slot_restarted, yield_count, slots, scnt_ix;
     ErtsMonotonicTime bump_to;
+    Sint *scnt, *bump_scnt;
     ERTS_MSACC_PUSH_AND_SET_STATE_M_X(ERTS_MSACC_STATE_TIMERS);
 
     yield_count = ERTS_TWHEEL_BUMP_YIELD_LIMIT;
+
+    scnt = &tiw->scnt[0];
+    bump_scnt = &tiw->bump_scnt[0];
 
     /*
      * In order to be fair we always continue with work
@@ -596,7 +762,8 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 	bump_to = tiw->pos;
         if (tiw->yield_slot >= ERTS_TW_LATER_WHEEL_FIRST_SLOT)
             goto restart_yielded_later_slot;
-	tiw_pos_ix = tiw->yield_slot;
+	slot = tiw->yield_slot;
+        scnt_ix = scnt_get_ix(slot);
 	slots = tiw->yield_slots_left;
         ASSERT(0 <= slots && slots <= ERTS_TW_SOON_WHEEL_SIZE);
         tiw->yield_slot = ERTS_TWHEEL_SLOT_INACTIVE;
@@ -616,7 +783,7 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 	    empty_wheel:
 		ERTS_DBG_CHK_SAFE_TO_SKIP_TO(tiw, bump_to);
 		tiw->true_next_timeout_time = 0;
-		tiw->next_timeout_time = curr_time + ERTS_MONOTONIC_DAY;
+		tiw->next_timeout_time = curr_time + ERTS_MONOTONIC_WEEK;
 		tiw->pos = bump_to;
 		tiw->yield_slot = ERTS_TWHEEL_SLOT_INACTIVE;
                 ERTS_MSACC_POP_STATE_M_X();
@@ -660,6 +827,22 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 	    if (tiw->nto == 0)
 		goto empty_wheel;
 
+            /*
+             * Save slot counts in bump operation local
+             * array.
+             *
+             * The amount of timers to trigger (or move)
+             * will only decrease from now until we have
+             * completed this bump operation (even if we
+             * yield in the middle of it).
+             *
+             * The amount of timers in the wheels may
+             * however increase due to timers being set
+             * by timeout callbacks.
+             */
+            sys_memcpy((void *) bump_scnt, (void *) scnt,
+                       sizeof(Sint) * ERTS_TW_SCNT_SIZE);
+
 	    if (tiw->true_next_timeout_time) {
 		ErtsMonotonicTime skip_until_pos;
 		/*
@@ -694,15 +877,17 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
                     slots = ERTS_TW_SOON_WHEEL_SIZE;
             }
 
-            tiw_pos_ix = soon_slot(tiw->pos+1);
+            slot = soon_slot(tiw->pos+1);
 	    tiw->pos = bump_to;
 
+            scnt_ix = scnt_get_ix(slot);
+
             /* Timeout timers in soon wheel */
-	    while (slots) {
+	    while (slots > 0) {
 
                 yield_count -= ERTS_TW_COST_SLOT;
 
-		p = tiw->w[tiw_pos_ix];
+		p = tiw->w[slot];
 		if (p) {
                     /* timeout callback need tiw->pos to be up to date */
 		    if (p->next == p) {
@@ -715,21 +900,23 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 			tiw->sentinel.next->prev = &tiw->sentinel;
 			tiw->sentinel.prev->next = &tiw->sentinel;
 		    }
-		    tiw->w[tiw_pos_ix] = NULL;
+		    tiw->w[slot] = NULL;
 
 		    while (1) {
 
                         ERTS_TW_ASSERT(ERTS_TW_SOON_WHEEL_FIRST_SLOT <= p->slot
                                        && p->slot < ERTS_TW_SOON_WHEEL_END_SLOT);
                         tiw->soon.nto--;
+                        scnt_ix_dec(scnt, scnt_ix);
                         if (p->timeout_pos <= bump_to) {
                             timeout_timer(p);
                             tiw->nto--;
+                            scnt_ix_dec(bump_scnt, scnt_ix);
                             yield_count -= ERTS_TW_COST_TIMEOUT;
                         }
                         else {
                             /* uncommon case */
-                            insert_timer_into_slot(tiw, tiw_pos_ix, p);
+                            insert_timer_into_slot(tiw, slot, p);
                             yield_count -= ERTS_TW_COST_SLOT_MOVE;
                         }
 
@@ -744,7 +931,7 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 			if (yield_count <= 0) {
 			    tiw->true_next_timeout_time = 1;
 			    tiw->next_timeout_time = ERTS_CLKTCKS_TO_MONOTONIC(bump_to);
-			    tiw->yield_slot = tiw_pos_ix;
+			    tiw->yield_slot = slot;
 			    tiw->yield_slots_left = slots;
                             ERTS_MSACC_POP_STATE_M_X();
 			    return; /* Yield! */
@@ -755,10 +942,7 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 		    }
 		}
 
-                tiw_pos_ix++;
-                if (tiw_pos_ix == ERTS_TW_SOON_WHEEL_END_SLOT)
-                    tiw_pos_ix = ERTS_TW_SOON_WHEEL_FIRST_SLOT;
-                slots--;
+                scnt_soon_wheel_next(&slot, &slots, NULL, &scnt_ix, bump_scnt);
 	    }
 
             if (ERTS_TW_BUMP_LATER_WHEEL(tiw)) {
@@ -771,10 +955,9 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
     } while (yielded_slot_restarted);
 
     tiw->true_next_timeout_time = 0;
-    tiw->next_timeout_time = curr_time + ERTS_MONOTONIC_DAY;
+    tiw->next_timeout_time = curr_time + ERTS_MONOTONIC_WEEK;
 
-    /* Search at most two seconds ahead... */
-    (void) find_next_timeout(NULL, tiw, 0, curr_time, ERTS_SEC_TO_MONOTONIC(2));
+    (void) find_next_timeout(NULL, tiw, 0);
     ERTS_MSACC_POP_STATE_M_X();
 }
 
@@ -784,12 +967,17 @@ bump_later_wheel(ErtsTimerWheel *tiw, int *ycount_p)
     ErtsMonotonicTime cpos = tiw->pos;
     ErtsMonotonicTime later_pos = tiw->later.pos;
     int ycount = *ycount_p;
-    int slots, fslot;
+    int slots, fslot, scnt_ix;
+    Sint *scnt, *bump_scnt;
+
+    scnt = &tiw->scnt[0];
+    bump_scnt = &tiw->bump_scnt[0];
 
     ERTS_HARD_DBG_CHK_WHEELS(tiw, 0);
 
     if (tiw->yield_slot >= ERTS_TW_LATER_WHEEL_FIRST_SLOT) {
         fslot = tiw->yield_slot;
+        scnt_ix = scnt_get_ix(fslot);
         slots = tiw->yield_slots_left;
         ASSERT(0 <= slots && slots <= ERTS_TW_LATER_WHEEL_SIZE);
         tiw->yield_slot = ERTS_TWHEEL_SLOT_INACTIVE;
@@ -800,16 +988,17 @@ bump_later_wheel(ErtsTimerWheel *tiw, int *ycount_p)
         tmp_slots += ERTS_TW_LATER_WHEEL_SLOT_SIZE;
         tmp_slots -= later_pos;
         tmp_slots /= ERTS_TW_LATER_WHEEL_SLOT_SIZE;
+        tmp_slots++;
         if (tmp_slots < ERTS_TW_LATER_WHEEL_SIZE)
             slots = (int) tmp_slots;
         else
             slots = ERTS_TW_LATER_WHEEL_SIZE;
+        fslot = later_slot(later_pos);
+        scnt_ix = scnt_get_ix(fslot);
     }
 
-    while (slots >= 0) {
+    while (slots > 0) {
         ErtsTWheelTimer *p;
-
-        fslot = later_slot(later_pos);
 
         ycount -= ERTS_TW_COST_SLOT;
 
@@ -835,12 +1024,15 @@ bump_later_wheel(ErtsTimerWheel *tiw, int *ycount_p)
                 ERTS_TW_ASSERT(tpos >= later_pos);
                 ERTS_TW_ASSERT(p->slot == fslot);
 
+                scnt_ix_dec(scnt, scnt_ix);
+
                 if (tpos >= later_pos + ERTS_TW_LATER_WHEEL_SLOT_SIZE) {
                     /* keep in later slot; very uncommon... */
                     insert_timer_into_slot(tiw, fslot, p);
                     ycount -= ERTS_TW_COST_SLOT_MOVE;
                 }
                 else {
+                    scnt_ix_dec(bump_scnt, scnt_ix);
                     ERTS_TW_ASSERT(tpos < cpos + ERTS_TW_SOON_WHEEL_SIZE);
                     if (tpos > cpos) {
                         /* move into soon wheel */
@@ -878,8 +1070,8 @@ bump_later_wheel(ErtsTimerWheel *tiw, int *ycount_p)
                 p->next->prev = &tiw->sentinel;
             }
         }
-        slots--;
-        later_pos += ERTS_TW_LATER_WHEEL_SLOT_SIZE;
+
+        scnt_later_wheel_next(&fslot, &slots, &later_pos, &scnt_ix, bump_scnt);
     }
 
     ERTS_HARD_DBG_CHK_WHEELS(tiw, 0);
@@ -908,6 +1100,9 @@ erts_create_timer_wheel(ErtsSchedulerData *esdp)
     for(; i < ERTS_TW_LATER_WHEEL_END_SLOT; i++)
 	tiw->w[i] = NULL;
 
+    for (i = 0; i < ERTS_TW_SCNT_SIZE; i++)
+        tiw->scnt[i] = 0;
+
     mtime = erts_get_monotonic_time(esdp);
     tiw->pos = ERTS_MONOTONIC_TO_CLKTCKS(mtime);
     tiw->nto = 0;
@@ -920,7 +1115,7 @@ erts_create_timer_wheel(ErtsSchedulerData *esdp)
     tiw->later.pos += ERTS_TW_LATER_WHEEL_SLOT_SIZE;
     tiw->yield_slot = ERTS_TWHEEL_SLOT_INACTIVE;
     tiw->true_next_timeout_time = 0;
-    tiw->next_timeout_time = mtime + ERTS_MONOTONIC_DAY;
+    tiw->next_timeout_time = mtime + ERTS_MONOTONIC_WEEK;
     tiw->sentinel.next = &tiw->sentinel;
     tiw->sentinel.prev = &tiw->sentinel;
     tiw->sentinel.timeout = NULL;
@@ -1063,24 +1258,37 @@ erts_twheel_debug_foreach(ErtsTimerWheel *tiw,
 static void
 hrd_dbg_check_wheels(ErtsTimerWheel *tiw, int check_min_tpos)
 {
-    int ix, soon_tmo, later_tmo, at_once_tmo;
+    int ix, six, soon_tmo, later_tmo, at_once_tmo,
+        scnt_slot, scnt_slots, scnt_six;
     ErtsMonotonicTime min_tpos;
+    Sint scnt[ERTS_TW_SCNT_SIZE];
+
+    for (six = 0; six < ERTS_TW_SCNT_SIZE; six++)
+        scnt[six] = 0;
 
     min_tpos = ERTS_MONOTONIC_TO_CLKTCKS(tiw->next_timeout_time);
 
     soon_tmo = 0;
+    scnt_slot = ERTS_TW_SOON_WHEEL_END_SLOT-1;
+    scnt_slots = ERTS_TW_SOON_WHEEL_SIZE;
+    scnt_six = 0;
+    scnt_soon_wheel_next(&scnt_slot, &scnt_slots,
+                         NULL, &scnt_six, tiw->scnt);
     for (ix = ERTS_TW_SOON_WHEEL_FIRST_SLOT;
          ix < ERTS_TW_SOON_WHEEL_END_SLOT;
          ix++) {
         ErtsTWheelTimer *p;
 
         p = tiw->w[ix];
+        six = scnt_get_ix(ix);
+        ERTS_TW_ASSERT(!p || six == scnt_six);
         if (p) {
             ErtsTWheelTimer *first = p;
             do {
                 ErtsMonotonicTime tpos = p->timeout_pos;
-                ERTS_TW_ASSERT(p->slot == ix);
                 soon_tmo++;
+                scnt_ix_inc(scnt, six);
+                ERTS_TW_ASSERT(p->slot == ix);
                 ERTS_TW_ASSERT(ix == soon_slot(tpos));
                 ERTS_TW_ASSERT(p->timeout_pos < tiw->pos + ERTS_TW_SOON_WHEEL_SIZE);
                 ERTS_TW_ASSERT(!check_min_tpos || tpos >= min_tpos);
@@ -1088,21 +1296,33 @@ hrd_dbg_check_wheels(ErtsTimerWheel *tiw, int check_min_tpos)
                 p = p->next;
             } while (p != first);
         }
+        if (ix == scnt_slot)
+            scnt_soon_wheel_next(&scnt_slot, &scnt_slots,
+                                 NULL, &scnt_six, tiw->scnt);
     }
 
     later_tmo = 0;
+    scnt_slot = ERTS_TW_SOON_WHEEL_END_SLOT-1;
+    scnt_slots = ERTS_TW_SOON_WHEEL_SIZE;
+    scnt_six = 0;
+    scnt_later_wheel_next(&scnt_slot, &scnt_slots,
+                         NULL, &scnt_six, tiw->scnt);
     for (ix = ERTS_TW_LATER_WHEEL_FIRST_SLOT;
          ix < ERTS_TW_LATER_WHEEL_END_SLOT;
          ix++) {
         ErtsTWheelTimer *p;
 
         p = tiw->w[ix];
+        six = scnt_get_ix(ix);
+        ERTS_TW_ASSERT(!p || six == scnt_six);
         if (p) {
             ErtsTWheelTimer *first = p;
+            six = scnt_get_ix(ix);
             do {
                 ErtsMonotonicTime tpos = p->timeout_pos;
-                ERTS_TW_ASSERT(p->slot == ix);
                 later_tmo++;
+                scnt_ix_inc(scnt, six);
+                ERTS_TW_ASSERT(p->slot == ix);
                 ERTS_TW_ASSERT(later_slot(tpos) == ix);
                 tpos &= ERTS_TW_LATER_WHEEL_POS_MASK;
                 tpos -= ERTS_TW_LATER_WHEEL_SLOT_SIZE;
@@ -1111,19 +1331,24 @@ hrd_dbg_check_wheels(ErtsTimerWheel *tiw, int check_min_tpos)
                 p = p->next;
             } while (p != first);
         }
+        if (ix == scnt_slot)
+            scnt_later_wheel_next(&scnt_slot, &scnt_slots,
+                                NULL, &scnt_six, tiw->scnt);
     }
 
     if (tiw->yield_slot >= 0) {
         ErtsTWheelTimer *p = tiw->sentinel.next;
+        ix = tiw->yield_slot;
         while (p != &tiw->sentinel) {
             ErtsMonotonicTime tpos = p->timeout_pos;
-            if (tiw->yield_slot >= ERTS_TW_SOON_WHEEL_SIZE) {
+            scnt_inc(scnt, ix);
+            if (ix >= ERTS_TW_LATER_WHEEL_FIRST_SLOT) {
                 later_tmo++;
-                ERTS_TW_ASSERT(p->slot == later_slot(tpos));
+                ERTS_TW_ASSERT(ix == later_slot(tpos));
             }
             else {
                 soon_tmo++;
-                ERTS_TW_ASSERT(p->slot == (tpos & ERTS_TW_SOON_WHEEL_MASK));
+                ERTS_TW_ASSERT(ix == (tpos & ERTS_TW_SOON_WHEEL_MASK));
                 ERTS_TW_ASSERT(tpos < tiw->pos + ERTS_TW_SOON_WHEEL_SIZE);
             }
             p = p->next;
@@ -1144,6 +1369,9 @@ hrd_dbg_check_wheels(ErtsTimerWheel *tiw, int check_min_tpos)
     ERTS_TW_ASSERT(tiw->at_once.nto == at_once_tmo);
     ERTS_TW_ASSERT(tiw->soon.nto == soon_tmo);
     ERTS_TW_ASSERT(tiw->nto == soon_tmo + later_tmo + at_once_tmo);
+
+    for (six = 0; six < ERTS_TW_SCNT_SIZE; six++)
+        ERTS_TW_ASSERT(scnt[six] == tiw->scnt[six]);
 }
 
 #endif
