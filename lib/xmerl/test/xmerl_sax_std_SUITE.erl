@@ -2,7 +2,7 @@
 %%----------------------------------------------------------------------
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -507,11 +507,8 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-036'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/036.xml"]),
-   %% Special case becase we returns everything after a legal document 
-   %% as an rest instead of giving and error to let the user handle 
-   %% multipple docs on a stream.
-   {ok,_,<<"Illegal data\r\n">>} = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]).
-   %%check_result(R, "not-wf").
+   R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+   check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -522,11 +519,8 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-037'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/037.xml"]),
-   %% Special case becase we returns everything after a legal document 
-   %% as an rest instead of giving and error to let the user handle 
-   %% multipple docs on a stream.
-   {ok,_,<<"&#32;\r\n">>} = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]).
-   %%check_result(R, "not-wf").
+   R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+   check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -561,11 +555,8 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-040'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/040.xml"]),
-   %% Special case becase we returns everything after a legal document 
-   %% as an rest instead of giving and error to let the user handle 
-   %% multipple docs on a stream.
-   {ok,_,<<"<doc></doc>\r\n">>} = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]).
-   %%check_result(R, "not-wf").
+   R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+   check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -576,11 +567,8 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-041'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/041.xml"]),
-   %% Special case becase we returns everything after a legal document 
-   %% as an rest instead of giving and error to let the user handle 
-   %% multipple docs on a stream.
-   {ok,_,<<"<doc></doc>\r\n">>} = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]).
-   %%check_result(R, "not-wf").
+   R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+   check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -603,11 +591,8 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-043'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/043.xml"]),
-   %% Special case becase we returns everything after a legal document 
-   %% as an rest instead of giving and error to let the user handle 
-   %% multipple docs on a stream.
-   {ok,_,<<"Illegal data\r\n">>} = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]).
-   %%check_result(R, "not-wf").
+   R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+   check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -618,11 +603,8 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-044'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/044.xml"]),
-   %% Special case becase we returns everything after a legal document 
-   %% as an rest instead of giving and error to let the user handle 
-   %% multipple docs on a stream.
-   {ok,_,<<"<doc/>\r\n">>} = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]).
-   %%check_result(R, "not-wf").
+   R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+   check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -669,11 +651,8 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-048'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/048.xml"]),
-   %% Special case becase we returns everything after a legal document 
-   %% as an rest instead of giving and error to let the user handle 
-   %% multipple docs on a stream.
-   {ok,_,<<"<![CDATA[]]>\r\n">>} = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]).
-   %%check_result(R, "not-wf").
+   R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+   check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -1416,11 +1395,8 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-110'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/110.xml"]),
-   %% Special case becase we returns everything after a legal document 
-   %% as an rest instead of giving and error to let the user handle 
-   %% multipple docs on a stream.
-   {ok,_,<<"&e;\r\n">>} = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]).
-   %%check_result(R, "not-wf").
+   R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+   check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -1914,9 +1890,9 @@ end_per_testcase(_Func,_Config) ->
    %% Special case becase we returns everything after a legal document 
    %% as an rest instead of giving and error to let the user handle 
    %% multipple docs on a stream.
-   {ok,_,<<"<?xml version=\"1.0\"?>\r\n">>} = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]).
-   % R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-   % check_result(R, "not-wf").
+   %{ok,_,<<"<?xml version=\"1.0\"?>\r\n">>} = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]).
+   R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+   check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -7784,11 +7760,8 @@ end_per_testcase(_Func,_Config) ->
 'o-p01fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p01fail3.xml"]),
-   %% Special case becase we returns everything after a legal document 
-   %% as an rest instead of giving and error to let the user handle 
-   %% multipple docs on a stream.
-   {ok,_, <<"<bad/>", _/binary>>} = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]).
-   %%check_result(R, "not-wf").
+   R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+   check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -11417,12 +11390,8 @@ end_per_testcase(_Func,_Config) ->
 'ibm-not-wf-P01-ibm01n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P01/ibm01n02.xml"]),
-   %% Special case becase we returns everything after a legal document 
-   %% as an rest instead of giving and error to let the user handle 
-   %% multipple docs on a stream.
-   {ok,_, <<"<?xml version=\"1.0\"?>", _/binary>>} = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]).
-   % R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-   % check_result(R, "not-wf").
+   R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+   check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -11433,11 +11402,8 @@ end_per_testcase(_Func,_Config) ->
 'ibm-not-wf-P01-ibm01n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P01/ibm01n03.xml"]),
-   %% Special case becase we returns everything after a legal document 
-   %% as an rest instead of giving and error to let the user handle 
-   %% multipple docs on a stream.
-   {ok,_, <<"<title>Wrong combination!</title>", _/binary>>} = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]).
-   %%check_result(R, "not-wf").
+   R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+   check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Cases 
@@ -13027,11 +12993,8 @@ end_per_testcase(_Func,_Config) ->
 'ibm-not-wf-P27-ibm27n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P27/ibm27n01.xml"]),
-   %% Special case becase we returns everything after a legal document 
-   %% as an rest instead of giving and error to let the user handle 
-   %% multipple docs on a stream.
-   {ok,_, <<"<!ELEMENT cat EMPTY>">>} = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]).
-   %%check_result(R, "not-wf").
+   R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+   check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Cases 
@@ -13461,11 +13424,8 @@ end_per_testcase(_Func,_Config) ->
 'ibm-not-wf-P39-ibm39n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P39/ibm39n06.xml"]),
-   %% Special case becase we returns everything after a legal document 
-   %% as an rest instead of giving and error to let the user handle 
-   %% multipple docs on a stream.
-   {ok,_,<<"content after end tag\r\n">>} = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]).
-   %%check_result(R, "not-wf").
+   R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+   check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Cases 

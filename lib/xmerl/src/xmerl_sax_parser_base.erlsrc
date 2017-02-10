@@ -72,7 +72,12 @@ parse(Xml, State) ->
 	{ok, Rest, State2} ->
 	    State3 =  event_callback(endDocument, State2),
 	    ets:delete(RefTable),
-            {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
+            case check_if_rest_ok(State3#xmerl_sax_parser_state.input_type, Rest) of
+                true ->
+                    {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
+                false ->
+                    format_error(fatal_error, State3, "Input found after legal document")
+            end;
 	{fatal_error, {State2, Reason}} ->
 	    State3 =  event_callback(endDocument, State2),
 	    ets:delete(RefTable),
@@ -444,6 +449,15 @@ parse_pi(Bytes, State) ->
 check_if_new_doc_allowed(stream, []) ->
     true;
 check_if_new_doc_allowed(_, _) ->
+    false.
+
+check_if_rest_ok(file, []) ->
+    true;
+check_if_rest_ok(file, <<>>) ->
+    true;
+check_if_rest_ok(stream, _) ->
+    true;
+check_if_rest_ok(_, _) ->
     false.
 
 %%----------------------------------------------------------------------
