@@ -19,10 +19,15 @@
 %%
 -module(ets_tough_SUITE).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,ex1/1]).
--export([init/1,terminate/2,handle_call/3,handle_info/2]).
+	 init_per_group/2,end_per_group/2,
+         ex1/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
--compile([export_all]).
+
+%% gen_server behavior.
+-behavior(gen_server).
+-export([init/1,terminate/2,handle_call/3,handle_cast/2,
+         handle_info/2,code_change/3]).
+
 -include_lib("common_test/include/ct.hrl").
 
 suite() ->
@@ -602,8 +607,14 @@ handle_call(stop,_From,Admin) ->
     ?ets_delete(Admin), % Make sure table is gone before reply is sent.
     {stop, normal, ok, []}.
 
+handle_cast(_Req, Admin) ->
+    {noreply, Admin}.
+
 handle_info({'EXIT',_Pid,_Reason},Admin) ->
     {stop,normal,Admin}.
+
+code_change(_OldVsn, StateData, _Extra) ->
+    {ok, StateData}.
 
 handle_delete(Class, Key, Admin) ->
     handle_call({handle_delete,Class,Key},from,Admin).
