@@ -235,33 +235,6 @@ random_element(T) ->
     I = rand:uniform(tuple_size(T)),
     element(I,T).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-show_table(N) ->
-    FileName = ["etsdump.",integer_to_list(N)],
-    case file:open(FileName,read) of
-	{ok,Fd} ->
-	    show_entries(Fd);
-	_ ->
-	    error
-    end.
-
-show_entries(Fd) ->
-    case phys_read_len(Fd) of
-	{ok,Len} ->
-	    case phys_read_entry(Fd,Len) of
-		{ok,ok} ->
-		    ok;
-		{ok,{Key,Val}} ->
-		    io:format("~w\n",[{Key,Val}]),
-		    show_entries(Fd);
-		_ ->
-		    error
-	    end;
-	_ ->
-	    error
-    end.
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -377,20 +350,6 @@ dget_class(ServerPid,Class,Condition) ->
 
 derase_class(ServerPid,Class) ->
     gen_server:call(ServerPid,{handle_delete_class,Class}, infinity).
-
-%%% dmodify(ServerPid,Application) -> ok
-%%%
-%%% Applies a function on every instance in the database.
-%%% The user provided function must always return one of the
-%%% terms {ok,NewItem}, true, or false.
-%%% Aug 96, this is only used to reset all timestamp values
-%%% in the database.
-%%% The function is supplied as Application = {Mod, Fun, ExtraArgs},
-%%% where the instance will be prepended to ExtraArgs before each
-%%% call is made.
-
-dmodify(ServerPid,Application) ->
-    gen_server:call(ServerPid,{handle_dmodify,Application}, infinity).
 
 %%% ddump_first(ServerPid,DumpDir) -> {dump_more,Ticket} | already_dumping
 %%%
