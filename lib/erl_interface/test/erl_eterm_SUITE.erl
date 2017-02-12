@@ -31,7 +31,7 @@
 %%% 2. Constructing terms (the erl_mk_xxx() functions and erl_copy_term()).
 %%% 3. Extracting & info functions (erl_hd(), erl_length() etc).
 %%% 4. I/O list functions.
-%%% 5. Miscellanous functions.
+%%% 5. Miscellaneous functions.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -export([all/0, suite/0,

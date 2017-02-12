@@ -1626,7 +1626,7 @@ static int cmp_refs(unsigned char **e1, unsigned char **e2)
     if (cre1 != cre2)
 	return cre1 < cre2 ? -1 : 1;
 
-    /* ... and then finaly ids. */
+    /* ... and then finally ids. */
     if (n1 != n2) {
 	unsigned char zero[] = {0, 0, 0, 0};
 	if (n1 > n2)
@@ -1791,7 +1791,7 @@ static int cmp_exe2(unsigned char **e1, unsigned char **e2)
         if      (port1.creation < port2.creation) return -1;
         else if (port1.creation > port2.creation) return 1;
 
-      /* ... and then finaly ids. */
+      /* ... and then finally ids. */
         if      (port1.id < port2.id) return -1;
         else if (port1.id > port2.id) return 1;
 
