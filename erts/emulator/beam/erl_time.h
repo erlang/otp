@@ -448,8 +448,7 @@ erts_time_unit_conversion(Uint64 value,
 void erts_sched_init_time_sup(ErtsSchedulerData *esdp);
 
 
-#define ERTS_TWHEEL_SLOT_AT_ONCE -1
-#define ERTS_TWHEEL_SLOT_INACTIVE -2
+#define ERTS_TW_SLOT_INACTIVE (-2)
 
 /*
 ** Timer entry:
@@ -481,7 +480,7 @@ ERTS_GLB_INLINE ErtsMonotonicTime erts_tweel_read_timeout(ErtsTWheelTimer *twt);
 
 ERTS_GLB_INLINE void erts_twheel_init_timer(ErtsTWheelTimer *p)
 {
-    p->slot = ERTS_TWHEEL_SLOT_INACTIVE;
+    p->slot = ERTS_TW_SLOT_INACTIVE;
 }
 
 ERTS_GLB_INLINE ErtsMonotonicTime erts_next_timeout_time(ErtsNextTimeoutRef nxt_tmo_ref)
