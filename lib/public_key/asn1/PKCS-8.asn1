@@ -26,7 +26,7 @@ BEGIN
 
 -- This import is really unnecessary since ALGORITHM-IDENTIFIER is defined as a 
 -- TYPE-IDENTIFIER
--- Renome this import and replace all occurences of ALGORITHM-IDENTIFIER with
+-- Rename this import and replace all occurrences of ALGORITHM-IDENTIFIER with
 -- TYPE-IDENTIFIER as a workaround for weaknesses in the ASN.1 compiler
 --AlgorithmIdentifier, ALGORITHM-IDENTIFIER
 --        FROM PKCS5v2-0 {iso(1) member-body(2) us(840) rsadsi(113549)
