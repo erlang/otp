@@ -2871,6 +2871,81 @@ define etp-disasm
   end
 end
 
+############################################################################
+#
+# Timer Wheel
+#
+
+define etp-timer-wheel
+# Args: TimerWheel
+  if (!erts_initialized)
+    printf "System not initialized!\n"
+  else
+    set $tiw = $arg0
+    printf "Number of timers: %d\n", $tiw->nto
+    printf "Min timeout pos: %d\n", $tiw->next_timeout_pos
+    printf "\n--- Soon Wheel ---\n"
+    set $ix = $tiw->pos & etp_tw_soon_wheel_mask
+    printf "Position: %ld (%d)\n", $tiw->pos, $ix
+    printf "Min timeout position: %ld (%d)\n", $tiw->soon.min_tpos, $tiw->soon.min_tpos & etp_tw_soon_wheel_mask
+    printf "Number of timers: %d\n", $tiw->soon.nto
+    set $slots = etp_tw_soon_wheel_size
+    while $slots > 0
+      set $tmr = $tiw->w[$ix]
+      if ($tmr != (ErtsTWheelTimer *) 0x0)
+        printf "---\n"
+        printf "Slot: %d\n", $ix
+        printf "\n"
+        while 1
+           printf "- Timeout pos: %ld\n", $tmr->timeout_pos
+	   printf "  Pointer: (ErtsTWheelTimer *) %p\n", $tmr
+           set $tmr = $tmr->next
+           if ($tmr == $tiw->w[$ix])
+             loop_break
+           end
+        end
+      end
+      set $ix++
+      if ($ix == (etp_tw_soon_wheel_first_slot + etp_tw_soon_wheel_size))
+        set $ix = etp_tw_soon_wheel_first_slot
+      end
+      set $slots--
+    end
+    printf "\n--- Later Wheel ---\n"
+    set $ix = (($tiw->later.pos >> etp_tw_later_wheel_shift) & etp_tw_later_wheel_mask) + etp_tw_later_wheel_first_slot
+    printf "Position: %ld (%d)\n", $tiw->later.pos, $ix
+    printf "Min timeout position: %ld (%d)\n", $tiw->later.min_tpos, (($tiw->later.min_tpos >> etp_tw_later_wheel_shift) & etp_tw_later_wheel_mask) + etp_tw_later_wheel_first_slot
+    printf "Number of timers: %d\n", $tiw->later.nto
+    set $slots = etp_tw_later_wheel_size
+    set $slot_pos = $tiw->later.pos
+    while $slots > 0
+      set $tmr = $tiw->w[$ix]
+      if ($tmr != (ErtsTWheelTimer *) 0x0)
+        printf "---\n"
+        printf "Slot: %d\n", $ix
+        printf "Slot Range: [%ld, %ld]\n", $slot_pos, $slot_pos + etp_tw_later_wheel_slot_size
+        printf "Pre timeout pos: %ld\n", $slot_pos - etp_tw_later_wheel_slot_size
+        printf "\n"
+        while 1
+           printf "- Timeout pos: %ld\n", $tmr->timeout_pos
+	   printf "  Pointer: (ErtsTWheelTimer *) %p\n", $tmr
+           set $tmr = $tmr->next
+           if ($tmr == $tiw->w[$ix])
+             loop_break
+           end
+        end
+      end
+      set $ix++
+      if ($ix == (etp_tw_later_wheel_first_slot + etp_tw_later_wheel_size))
+        set $ix = etp_tw_later_wheel_first_slot
+      end
+      set $slot_pos = $slot_pos + etp_tw_later_wheel_slot_size
+      set $slots--
+    end
+  end
+  printf "---\n"
+end
+
 document etp-disasm
 %---------------------------------------------------------------------------
 % etp-disasm StartI EndI
