@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
-%% This is a developement feature when developing a new file module,
+%% This is a development feature when developing a new file module,
 %% ugly but practical.
 -ifndef(FILE_MODULE).
 -define(FILE_MODULE, file).

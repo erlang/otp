@@ -233,7 +233,7 @@ time_ping(Node) ->
     erlang:convert_time_unit(T1 - T0, native, millisecond).
 
 %% Keep the connection with the client node up.
-%% This is neccessary as the client node runs with much shorter
+%% This is necessary as the client node runs with much shorter
 %% tick time !!
 keep_conn(Node) ->
     sleep(1),
@@ -1059,7 +1059,7 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
     RemotePid = spawn(Node,
 		      fun () ->
 			      receive after 1500 -> ok end,
-			      %% infinit loop of msgs
+			      %% infinite loop of msgs
 			      %% we want an endless stream of messages and the kill
 			      %% the node mercilessly.
 			      %% We then want to ensure that the nodedown message arrives

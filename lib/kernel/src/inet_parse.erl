@@ -701,8 +701,8 @@ dup(N, E, L) when is_integer(N), N >= 1 ->
 
 
 
-%% Convert IPv4 adress to ascii
-%% Convert IPv6 / IPV4 adress to ascii (plain format)
+%% Convert IPv4 address to ascii
+%% Convert IPv6 / IPV4 address to ascii (plain format)
 ntoa({A,B,C,D}) ->
     integer_to_list(A) ++ "." ++ integer_to_list(B) ++ "." ++ 
 	integer_to_list(C) ++ "." ++ integer_to_list(D);
