@@ -89,7 +89,7 @@ install(Timeout, Options) ->
 		end,
     
     Wait = mnesia:wait_for_tables([orber_references], Timeout),
-    %% Check if any error has occured yet. If there are errors, return them.
+    %% Check if any error has occurred yet. If there are errors, return them.
     if
 	DB_Result == {atomic, ok},
 	Wait == ok ->

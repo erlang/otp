@@ -279,8 +279,8 @@
 %%----------------------------------------------------------------------
 %% Profile Body
 %%
-%% iiop_version: describes the version of IIOP that the agent at the 
-%%		specified adress is prepared to receive.
+%% iiop_version: describes the version of IIOP that the agent at the
+%%		specified address is prepared to receive.
 %% host: identifies the internet host to which the GIOP messages
 %%		for the specified object may be sent.
 %% port: contains the TCP?IP port number where the target agnet is listening
