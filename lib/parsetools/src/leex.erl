@@ -1264,7 +1264,7 @@ pack_dfa([], _, Rs, PDFA) -> {PDFA,Rs}.
 %%      {Action, AcceptLength, CurrTokLen, RestChars, Line, State}.
 
 %% The return CurrTokLen is always the current number of characters
-%% scanned in the current token. The returns have the follwoing
+%% scanned in the current token. The returns have the following
 %% meanings:
 %% {Action, AcceptLength, RestChars, Line} -
 %%  The scanner has reached an accepting end-state, for example after
@@ -1281,7 +1281,7 @@ pack_dfa([], _, Rs, PDFA) -> {PDFA,Rs}.
 %%
 %% {reject, AcceptLength, CurrTokLen, RestChars, Line, State} -
 %% {Action, AcceptLength, CurrTokLen, RestChars, Line, State} -
-%%  The scanner has reached a non-accepting transistion state. If
+%%  The scanner has reached a non-accepting transition state. If
 %%  RestChars == [] we need to get more characters to continue.
 %%  Otherwise if 'reject' then no accepting state has been reached it
 %%  is an error. If we have an Action and AcceptLength then these are
