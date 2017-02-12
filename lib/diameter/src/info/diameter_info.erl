@@ -195,7 +195,7 @@ format(Tables, SFun, CFun)
 %%%
 %%% Description: Pretty-print records in a named tables as collected
 %%%              from local and remote nodes. Each table listing is
-%%%              preceeded by a banner.
+%%%              preceded by a banner.
 %%% ----------------------------------------------------------
 
 format(Local, Remote, SFun) ->
