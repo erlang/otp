@@ -60,7 +60,7 @@
 %	  request_line,        % string() Request Line
 	  headers,             % #req_headers{} Parsed request headers
 	  entity_body= <<>>,   % binary() Body of request
-	  connection,          % boolean() true if persistant connection
+	  connection,          % boolean() true if persistent connection
 	  status_code,         % int() Status code
 	  logging              % int() 0=No logging
 	                       %       1=Only mod_log present

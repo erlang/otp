@@ -4028,7 +4028,7 @@ check_sequence(S,Type,Comps)  ->
 	    {CRelInf,NewComps2} = componentrelation_leadingattr(S,NewComps),
 %	    io:format("CRelInf: ~p~n",[CRelInf]),
 %	    io:format("NewComps2: ~p~n",[NewComps2]),
-	    %% CompListWithTblInf has got a lot unecessary info about
+	    %% CompListWithTblInf has got a lot unnecessary info about
 	    %% the involved class removed, as the class of the object
 	    %% set.
 	    CompListWithTblInf = get_tableconstraint_info(S,Type,NewComps2),
@@ -4686,7 +4686,7 @@ any_component_relation(_,[],_,_,Acc) ->
 %% evaluate_atpath/4 finds out whether the at notation refers to the
 %% search level. The list of referenced names in the AtNot list shall
 %% begin with a name that exists on the level it refers to. If the
-%% found AtPath is refering to the same sub-branch as the simple table
+%% found AtPath is referring to the same sub-branch as the simple table
 %% has, then there shall not be any leading attribute info on this
 %% level.
 evaluate_atpath(_,[],Cnames,{innermost,AtPath=[Ref|_Refs]}) ->
@@ -4857,7 +4857,7 @@ innertype_comprel1(S,T = #type{def=Def,constraint=Cons,tablecinf=TCI},Path) ->
 	case Cons of
 	    [{componentrelation,{_,_,ObjectSet},AtList}|_Rest] ->
 		%% This AtList must have an "outermost" at sign to be
-		%% relevent here.
+		%% relevant here.
 		[{_,AL=[#'Externalvaluereference'{value=_Attr}|_R1]}|_R2]
 		    = AtList,
 %%		#'ObjectClassFieldType'{class=ClassDef} = Def,

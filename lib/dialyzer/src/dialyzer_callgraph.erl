@@ -365,7 +365,7 @@ ets_lookup_set(Key, Table) ->
 
 %% The core tree must be labeled as by cerl_trees:label/1 (or /2).
 %% The set of labels in the tree must be disjoint from the set of
-%% labels already occuring in the callgraph.
+%% labels already occurring in the callgraph.
 
 -spec scan_core_tree(cerl:c_module(), callgraph()) ->
         {[mfa_or_funlbl()], [callgraph_edge()]}.
