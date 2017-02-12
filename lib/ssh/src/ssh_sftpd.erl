@@ -667,7 +667,8 @@ do_open(ReqId, State0, Path, Flags) ->
     #state{file_handler = FileMod, file_state = FS0, xf = #ssh_xfer{vsn = Vsn}} = State0,
     XF = State0#state.xf,
     F = [binary | Flags],
-    {IsDir, _FS1} = FileMod:is_dir(Path, FS0),
+    AbsPath = relate_file_name(Path, State0),
+    {IsDir, _FS1} = FileMod:is_dir(AbsPath, FS0),
     case IsDir of 
 	true when Vsn > 5 ->
 	    ssh_xfer:xf_send_status(State0#state.xf, ReqId,
@@ -676,7 +677,6 @@ do_open(ReqId, State0, Path, Flags) ->
 	    ssh_xfer:xf_send_status(State0#state.xf, ReqId,
     				    ?SSH_FX_FAILURE, "File is a directory");
 	false ->
-	    AbsPath = relate_file_name(Path, State0),
 	    {Res, FS1} = FileMod:open(AbsPath, F, FS0),
 	    State1 = State0#state{file_state = FS1},
 	    case Res of

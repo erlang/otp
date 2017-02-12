@@ -66,7 +66,9 @@ all() ->
      relpath, 
      sshd_read_file,
      ver6_basic,
-     relative_path].
+     relative_path,
+     open_file_dir_v5,
+     open_file_dir_v6].
 
 groups() -> 
     [].
@@ -120,6 +122,13 @@ init_per_testcase(TestCase, Config) ->
 			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
 		      relative_path ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([{cwd, PrivDir}])],
+			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
+		      open_file_dir_v5 ->
+			  SubSystems = [ssh_sftpd:subsystem_spec([{cwd, PrivDir}])],
+			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
+		      open_file_dir_v6 ->
+			  SubSystems = [ssh_sftpd:subsystem_spec([{cwd, PrivDir},
+								  {sftpd_vsn, 6}])],
 			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
 		      _ ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([])],
@@ -663,6 +672,40 @@ relative_path(Config) when is_list(Config) ->
     {Cm, Channel} = proplists:get_value(sftp, Config),
     ReqId = 0,
     {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), _Handle/binary>>, _} =
+        open_file(FileName, Cm, Channel, ReqId,
+                  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+                  ?SSH_FXF_OPEN_EXISTING).
+
+%%--------------------------------------------------------------------
+open_file_dir_v5() ->
+    [{doc, "Test if open_file fails when opening existing directory."}].
+open_file_dir_v5(Config) when is_list(Config) ->
+    PrivDir =  proplists:get_value(priv_dir, Config),
+    FileName = "open_file_dir_v5",
+    FilePath = filename:join(PrivDir, FileName),
+    ok = filelib:ensure_dir(FilePath),
+    ok = file:make_dir(FilePath),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    ReqId = 0,
+    {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),
+	   ?UINT32(?SSH_FX_FAILURE), _/binary>>, _} =
+        open_file(FileName, Cm, Channel, ReqId,
+                  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+                  ?SSH_FXF_OPEN_EXISTING).
+
+%%--------------------------------------------------------------------
+open_file_dir_v6() ->
+    [{doc, "Test if open_file fails when opening existing directory."}].
+open_file_dir_v6(Config) when is_list(Config) ->
+    PrivDir =  proplists:get_value(priv_dir, Config),
+    FileName = "open_file_dir_v6",
+    FilePath = filename:join(PrivDir, FileName),
+    ok = filelib:ensure_dir(FilePath),
+    ok = file:make_dir(FilePath),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    ReqId = 0,
+    {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),
+	   ?UINT32(?SSH_FX_FILE_IS_A_DIRECTORY), _/binary>>, _} =
         open_file(FileName, Cm, Channel, ReqId,
                   ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
                   ?SSH_FXF_OPEN_EXISTING).
