@@ -203,7 +203,7 @@ replace_and_remove([$; | R], Acc) ->
 replace_and_remove([$@ | R], Acc) ->
     replace_and_remove(R, [directive|Acc]);
 
-replace_and_remove([_E|R], Acc) ->       %% Ignore everthing else
+replace_and_remove([_E|R], Acc) ->       %% Ignore everything else
     replace_and_remove(R, Acc);
 replace_and_remove([], Acc) ->
     Acc.
