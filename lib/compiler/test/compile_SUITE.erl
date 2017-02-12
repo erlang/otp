@@ -30,7 +30,7 @@
 	 file_1/1, forms_2/1, module_mismatch/1, big_file/1, outdir/1,
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, kernel_listing/1, encrypted_abstr/1,
-	 strict_record/1, utf8_atoms/1,
+	 strict_record/1, utf8_atoms/1, extra_chunks/1,
 	 cover/1, env/1, core/1,
 	 core_roundtrip/1, asm/1, optimized_guards/1,
 	 sys_pre_attributes/1, dialyzer/1,
@@ -48,7 +48,7 @@ all() ->
     [app_test, appup_test, file_1, forms_2, module_mismatch, big_file, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, kernel_listing, encrypted_abstr,
-     strict_record, utf8_atoms,
+     strict_record, utf8_atoms, extra_chunks,
      cover, env, core, core_roundtrip, asm, optimized_guards,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
      env_compiler_options].
@@ -698,6 +698,15 @@ utf8_atoms(Config) when is_list(Config) ->
 
     NoUtf8AtomForms = [{attribute,Anno,module,no_utf8_atom}|Forms],
     error = compile:forms(NoUtf8AtomForms, [binary, r19]).
+
+extra_chunks(Config) when is_list(Config) ->
+    Anno = erl_anno:new(1),
+    Forms = [{attribute,Anno,module,extra_chunks}],
+
+    {ok,extra_chunks,ExtraChunksBinary} =
+	compile:forms(Forms, [binary, {extra_chunks, [{<<"ExCh">>, <<"Contents">>}]}]),
+    {ok,{extra_chunks,[{"ExCh",<<"Contents">>}]}} =
+	beam_lib:chunks(ExtraChunksBinary, ["ExCh"]).
 
 env(Config) when is_list(Config) ->
     {Simple,Target} = get_files(Config, simple, env),
