@@ -273,7 +273,7 @@ start_timer(Time, Msg) ->
 send_event_after(Time, Event) ->
     erlang:start_timer(Time, self(), {'$gen_event', Event}).
 
-%% Returns the remaing time for the timer if Ref referred to 
+%% Returns the remaining time for the timer if Ref referred to
 %% an active timer/send_event_after, false otherwise.
 cancel_timer(Ref) ->
     case erlang:cancel_timer(Ref) of
