@@ -1548,8 +1548,8 @@ type_preop_prec('#') -> {700,800}.
       Fun :: fun((Anno) -> NewAnno),
       Anno :: erl_anno:anno(),
       NewAnno :: erl_anno:anno(),
-      Abstr :: erl_parse_tree(),
-      NewAbstr :: erl_parse_tree().
+      Abstr :: erl_parse_tree() | form_info(),
+      NewAbstr :: erl_parse_tree() | form_info().
 
 map_anno(F0, Abstr) ->
     F = fun(A, Acc) -> {F0(A), Acc} end,
@@ -1563,7 +1563,7 @@ map_anno(F0, Abstr) ->
       Acc1 :: term(),
       AccIn :: term(),
       AccOut :: term(),
-      Abstr :: erl_parse_tree().
+      Abstr :: erl_parse_tree() | form_info().
 
 fold_anno(F0, Acc0, Abstr) ->
     F = fun(A, Acc) -> {A, F0(A, Acc)} end,
@@ -1578,15 +1578,15 @@ fold_anno(F0, Acc0, Abstr) ->
       Acc1 :: term(),
       AccIn :: term(),
       AccOut :: term(),
-      Abstr :: erl_parse_tree(),
-      NewAbstr :: erl_parse_tree().
+      Abstr :: erl_parse_tree() | form_info(),
+      NewAbstr :: erl_parse_tree() | form_info().
 
 mapfold_anno(F, Acc0, Abstr) ->
     modify_anno1(Abstr, Acc0, F).
 
 -spec new_anno(Term) -> Abstr when
       Term :: term(),
-      Abstr :: erl_parse_tree().
+      Abstr :: erl_parse_tree() | form_info().
 
 new_anno(Term) ->
     F = fun(L, Acc) -> {erl_anno:new(L), Acc} end,
@@ -1594,14 +1594,14 @@ new_anno(Term) ->
     NewAbstr.
 
 -spec anno_to_term(Abstr) -> term() when
-      Abstr :: erl_parse_tree().
+      Abstr :: erl_parse_tree() | form_info().
 
 anno_to_term(Abstract) ->
     F = fun(Anno, Acc) -> {erl_anno:to_term(Anno), Acc} end,
     {NewAbstract, []} = modify_anno1(Abstract, [], F),
     NewAbstract.
 
--spec anno_from_term(Term) -> erl_parse_tree() when
+-spec anno_from_term(Term) -> erl_parse_tree() | form_info() when
       Term :: term().
 
 anno_from_term(Term) ->
@@ -1646,6 +1646,8 @@ modify_anno1({warning,W}, Ac, _Mf) ->
     {{warning,W},Ac};
 modify_anno1({error,W}, Ac, _Mf) ->
     {{error,W},Ac};
+modify_anno1({eof,L}, Ac, _Mf) ->
+    {{eof,L},Ac};
 %% Expressions.
 modify_anno1({clauses,Cs}, Ac, Mf) ->
     {Cs1,Ac1} = modify_anno1(Cs, Ac, Mf),
