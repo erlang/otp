@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1084,7 +1084,7 @@ start_it({eval,Bin}) ->
     {ok,Ts,_} = erl_scan:string(Str),
     Ts1 = case reverse(Ts) of
 	      [{dot,_}|_] -> Ts;
-	      TsR -> reverse([{dot,1} | TsR])
+	      TsR -> reverse([{dot,erl_anno:new(1)} | TsR])
 	  end,
     {ok,Expr} = erl_parse:parse_exprs(Ts1),
     {value, _Value, _Bs} = erl_eval:exprs(Expr, erl_eval:new_bindings()),
