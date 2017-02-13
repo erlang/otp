@@ -300,6 +300,17 @@ BIF_RETTYPE erts_gc_binary_part(Process *p, Eterm *reg, Eterm live, int range_is
 BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen);
 
 
+typedef union {
+    /*
+     * These two are almost always of
+     * the same size, but when fallback
+     * atomics are used they might
+     * differ in size.
+     */
+    erts_smp_atomic_t smp_atomic_word;
+    erts_atomic_t atomic_word;
+} ErtsMagicIndirectionWord;
+
 #if defined(__i386__) || !defined(__GNUC__)
 /*
  * Doubles aren't required to be 8-byte aligned on intel x86.
@@ -329,6 +340,9 @@ ERTS_GLB_INLINE Binary *erts_create_magic_binary_x(Uint size,
                                                   int unaligned);
 ERTS_GLB_INLINE Binary *erts_create_magic_binary(Uint size,
 						 void (*destructor)(Binary *));
+ERTS_GLB_INLINE Binary *erts_create_magic_indirection(void (*destructor)(Binary *));
+ERTS_GLB_INLINE erts_smp_atomic_t *erts_smp_binary_to_magic_indirection(Binary *bp);
+ERTS_GLB_INLINE erts_atomic_t *erts_binary_to_magic_indirection(Binary *bp);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -494,6 +508,36 @@ erts_create_magic_binary(Uint size, void (*destructor)(Binary *))
 {
     return erts_create_magic_binary_x(size, destructor,
                                       ERTS_ALC_T_BINARY, 0);
+}
+
+ERTS_GLB_INLINE Binary *
+erts_create_magic_indirection(void (*destructor)(Binary *))
+{
+    return erts_create_magic_binary_x(sizeof(ErtsMagicIndirectionWord),
+                                      destructor,
+                                      ERTS_ALC_T_MINDIRECTION,
+                                      1); /* Not 64-bit aligned,
+                                             but word aligned */
+}
+
+ERTS_GLB_INLINE erts_smp_atomic_t *
+erts_smp_binary_to_magic_indirection(Binary *bp)
+{
+    ErtsMagicIndirectionWord *mip;
+    ASSERT(bp->flags & BIN_FLAG_MAGIC);
+    ASSERT(ERTS_MAGIC_BIN_ATYPE(bp) == ERTS_ALC_T_MINDIRECTION);
+    mip = ERTS_MAGIC_BIN_UNALIGNED_DATA(bp);
+    return &mip->smp_atomic_word;
+}
+
+ERTS_GLB_INLINE erts_atomic_t *
+erts_binary_to_magic_indirection(Binary *bp)
+{
+    ErtsMagicIndirectionWord *mip;
+    ASSERT(bp->flags & BIN_FLAG_MAGIC);
+    ASSERT(ERTS_MAGIC_BIN_ATYPE(bp) == ERTS_ALC_T_MINDIRECTION);
+    mip = ERTS_MAGIC_BIN_UNALIGNED_DATA(bp);
+    return &mip->atomic_word;
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
