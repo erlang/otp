@@ -43,6 +43,7 @@
 #include "erl_db.h"
 #include "bif.h"
 #include "big.h"
+#include "erl_binary.h"
 
 
 erts_smp_atomic_t erts_ets_misc_mem_size;
@@ -112,6 +113,75 @@ static struct {
 #define SET_NEXT_FREE_SLOT(i,next) (meta_main_tab[(i)].u.next_free = ((next)<<2)|1)
 #define MARK_SLOT_DEAD(i) (meta_main_tab[(i)].u.next_free |= 2)
 #define GET_ANY_SLOT_TAB(i) ((DbTable*)(meta_main_tab[(i)].u.next_free & ~(1|2))) /* dead or alive */
+
+static void schedule_free_dbtable(DbTable* tb);
+
+static void table_dec_refc(DbTable *tb, erts_aint_t min_val)
+{
+    if (erts_smp_refc_dectest(&tb->common.refc, min_val) == 0)
+	schedule_free_dbtable(tb);
+}
+
+static int
+db_table_tid_destructor(Binary *unused)
+{
+    return 1;
+}
+
+static ERTS_INLINE void
+make_btid(DbTable *tb)
+{
+    Binary *btid = erts_create_magic_indirection(db_table_tid_destructor);
+    erts_smp_atomic_t *tbref = erts_smp_binary_to_magic_indirection(btid);
+    erts_smp_atomic_init_nob(tbref, (erts_aint_t) tb);
+    tb->common.btid = btid;
+    /*
+     * Table and magic indirection refer eachother,
+     * and table is refered once by being alive...
+     */
+    erts_smp_refc_init(&tb->common.refc, 2);
+    erts_refc_inc(&btid->refc, 1);
+}
+
+static DbTable *
+tid2tab(Eterm tid)
+{
+    DbTable *tb;
+    Binary *btid;
+    erts_smp_atomic_t *tbref;
+    if (!is_internal_magic_ref(tid))
+        return NULL;
+
+    btid = erts_magic_ref2bin(tid);
+    if (ERTS_MAGIC_BIN_DESTRUCTOR(btid) != db_table_tid_destructor)
+        return NULL;
+
+    tbref = erts_smp_binary_to_magic_indirection(btid);
+    tb = (DbTable *) erts_smp_atomic_read_nob(tbref);
+
+    ASSERT(!tb || tb->common.btid == btid);
+
+    return tb;
+}
+
+static ERTS_INLINE void
+tid_clear(DbTable *tb)
+{
+    DbTable *rtb;
+    Binary *btid = tb->common.btid;
+    erts_smp_atomic_t *tbref = erts_smp_binary_to_magic_indirection(btid);
+    rtb = (DbTable *) erts_smp_atomic_xchg_nob(tbref, (erts_aint_t) NULL);
+    ASSERT(!rtb || tb == rtb);
+    if (rtb)
+        table_dec_refc(tb, 1);
+}
+
+static ERTS_INLINE Eterm
+make_tid(Process *c_p, DbTable *tb)
+{
+    Eterm *hp = HAlloc(c_p, ERTS_MAGIC_REF_THING_SIZE);
+    return erts_mk_magic_ref(&hp, &c_p->off_heap, tb->common.btid);
+}
 
 static ERTS_INLINE erts_smp_rwmtx_t *
 get_meta_main_tab_lock(unsigned slot)
@@ -252,6 +322,10 @@ free_dbtable(void *vtb)
 	erts_smp_mtx_destroy(&tb->common.fixlock);
 #endif
 	ASSERT(is_immed(tb->common.heir_data));
+
+        if (tb->common.btid && erts_refc_dectest(&tb->common.btid->refc, 0) == 0)
+            erts_bin_free(tb->common.btid);
+
 	erts_db_free(ERTS_ALC_T_DB_TABLE, tb, (void *) tb, sizeof(DbTable));
 }
 
@@ -266,6 +340,7 @@ static void schedule_free_dbtable(DbTable* tb)
      *  	     Caller is *not* allowed to access the specialized part
      *  	     (hash or tree) of *tb after this function has returned.
      */
+    ASSERT(erts_smp_refc_read(&tb->common.refc, 0) == 0);
     ASSERT(erts_smp_refc_read(&tb->common.ref, 0) == 0);
     erts_schedule_thr_prgr_later_cleanup_op(free_dbtable,
 					    (void *) tb,
@@ -375,7 +450,7 @@ DbTable* db_get_table_aux(Process *p,
 			  db_lock_kind_t kind,
 			  int meta_already_locked)
 {
-    DbTable *tb = NULL;
+    DbTable *tb;
     erts_smp_rwmtx_t *mtl = NULL;
 
     /*
@@ -385,7 +460,10 @@ DbTable* db_get_table_aux(Process *p,
      */
     ASSERT(erts_get_scheduler_data());
 
-    if (is_small(id)) {
+    tb = tid2tab(id);
+    if (tb)
+        id = tb->common.id;
+    else if (is_small(id)) {
 	Uint slot = unsigned_val(id) & meta_main_tab_slot_mask;
 	if (!meta_already_locked) {
 	    mtl = get_meta_main_tab_lock(slot);
@@ -1505,6 +1583,8 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	meth->db_create(BIF_P, tb);
     ASSERT(cret == DB_ERROR_NONE);
 
+    make_btid(tb);
+
     erts_smp_spin_lock(&meta_main_tab_main_lock);
 
     if (meta_main_tab_cnt >= db_max_tabs) {
@@ -1539,6 +1619,9 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     tb->common.id = ret;
     tb->common.slot = slot;           /* store slot for erase */
 
+    if (!is_named)
+        ret = make_tid(BIF_P, tb);
+
     mmtl = get_meta_main_tab_lock(slot);
     erts_smp_rwmtx_rwlock(mmtl);
     meta_main_tab[slot].u.tb = tb;
@@ -1551,11 +1634,13 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	free_slot(slot);
 	erts_smp_rwmtx_rwunlock(mmtl);
 
+        tid_clear(tb);
+
 	db_lock(tb,LCK_WRITE);
 	free_heir_data(tb);
 	tb->common.meth->db_free_table(tb);
-	schedule_free_dbtable(tb);
 	db_unlock(tb,LCK_WRITE);
+        table_dec_refc(tb, 0);
 	BIF_ERROR(BIF_P, BADARG);
     }
     
@@ -1739,6 +1824,8 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 	db_meta_unlock(meta_pid_to_tab, LCK_WRITE_REC);
 	UnUseTmpHeap(3,BIF_P);
     }    
+
+    tid_clear(tb);
 
     mmtl = get_meta_main_tab_lock(tb->common.slot);
 #ifdef ERTS_SMP
@@ -2969,6 +3056,7 @@ void init_db(ErtsDbSpinCount db_spin_count)
 			     erts_smp_atomic_read_nob(&init_tb.common.memory_size));
 
     meta_pid_to_tab->common.id = NIL;
+    meta_pid_to_tab->common.btid = NULL;
     meta_pid_to_tab->common.the_name = am_true;
     meta_pid_to_tab->common.status = (DB_NORMAL | DB_BAG | DB_PUBLIC | DB_FINE_LOCKED);
 #ifdef ERTS_SMP
@@ -3000,6 +3088,7 @@ void init_db(ErtsDbSpinCount db_spin_count)
 			     erts_smp_atomic_read_nob(&init_tb.common.memory_size));
 
     meta_pid_to_fixed_tab->common.id = NIL;
+    meta_pid_to_fixed_tab->common.btid = NULL;
     meta_pid_to_fixed_tab->common.the_name = am_true;
     meta_pid_to_fixed_tab->common.status = (DB_NORMAL | DB_BAG | DB_PUBLIC | DB_FINE_LOCKED);
 #ifdef ERTS_SMP
@@ -3295,6 +3384,7 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 #endif
 			first_call = (tb->common.status & DB_DELETE) == 0;
 			if (first_call) {
+                            tid_clear(tb);
 			    /* Clear all access bits. */
 			    tb->common.status &= ~(DB_PROTECTED
 						   | DB_PUBLIC
@@ -3707,7 +3797,7 @@ static int free_table_cont(Process *p,
 				make_small(tb->common.slot));
 	    db_meta_unlock(meta_pid_to_tab, LCK_WRITE_REC);
 	}
-	schedule_free_dbtable(tb);
+        table_dec_refc(tb, 0);
 	BUMP_REDS(p, 100);
 	return 0;
     }

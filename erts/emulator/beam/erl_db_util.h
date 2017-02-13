@@ -212,6 +212,7 @@ typedef struct db_fixation {
  */
 
 typedef struct db_table_common {
+    erts_smp_refc_t refc;     /* reference count of table struct */
     erts_smp_refc_t ref;          /* fixation counter */
 #ifdef ERTS_SMP
     erts_smp_rwmtx_t rwlock;  /* rw lock on table */
@@ -225,6 +226,7 @@ typedef struct db_table_common {
     Uint64 heir_started_interval;  /* To further identify the heir */
     Eterm the_name;           /* an atom */
     Eterm id;                 /* atom | integer */
+    Binary *btid;
     DbTableMethod* meth;      /* table methods */
     erts_smp_atomic_t nitems; /* Total number of items in table */
     erts_smp_atomic_t memory_size;/* Total memory size. NOTE: in bytes! */
