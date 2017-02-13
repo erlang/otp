@@ -742,7 +742,12 @@ monitor_frenzy(Config) ->
     Pids = monitor_frenzy_nif(stop, 0, 0, 0),
     io:format("stats = ~p\n", [monitor_frenzy_nif(stats, 0, 0, 0)]),
 
-    lists:foreach(fun(P) -> exit(P, stop) end, Pids),
+    lists:foreach(fun(P) ->
+                          MRef = monitor(process, P),
+                          exit(P, stop),
+                          {'DOWN', MRef, process, P, _} = receive_any()
+                  end,
+                  Pids),
 
     io:format("stats = ~p\n", [monitor_frenzy_nif(stats, 0, 0, 0)]),
 

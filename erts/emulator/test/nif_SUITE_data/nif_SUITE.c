@@ -2484,9 +2484,11 @@ struct frenzy_resource {
 };
 struct frenzy_reslot {
     ErlNifMutex* lock;
+    int stopped;
     struct frenzy_resource* obj;
     unsigned long alloc_cnt;
     unsigned long release_cnt;
+    unsigned long dtor_cnt;
 };
 static struct frenzy_reslot resv[FRENZY_RESOURCES_MAX];
 
@@ -2536,8 +2538,10 @@ static ERL_NIF_TERM monitor_frenzy_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
             for (rix = 0; rix < FRENZY_RESOURCES_MAX; rix++) {
                 resv[rix].lock = enif_mutex_create("nif_SUITE:monitor_frenzy.resv.lock");
                 resv[rix].obj = NULL;
+                resv[rix].stopped = 0;
                 resv[rix].alloc_cnt = 0;
                 resv[rix].release_cnt = 0;
+                resv[rix].dtor_cnt = 0;
             }
 
             /* Add self as first process */
@@ -2553,12 +2557,14 @@ static ERL_NIF_TERM monitor_frenzy_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
             ERL_NIF_TERM hist[FRENZY_PROCS_MAX];
             unsigned long res_alloc_cnt = 0;
             unsigned long res_release_cnt = 0;
+            unsigned long res_dtor_cnt = 0;
             for (ref_ix = 0; ref_ix < FRENZY_PROCS_MAX; ref_ix++) {
                 hist[ref_ix] = enif_make_ulong(env, proc_histogram[ref_ix]);
             }
             for (rix = 0; rix < FRENZY_RESOURCES_MAX; rix++) {
                 res_alloc_cnt += resv[rix].alloc_cnt;
                 res_release_cnt += resv[rix].release_cnt;
+                res_dtor_cnt += resv[rix].dtor_cnt;
             }
 
             return
@@ -2569,12 +2575,29 @@ static ERL_NIF_TERM monitor_frenzy_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
                                              enif_make_ulong(env, spawn_cnt)),
                             enif_make_tuple2(env, enif_make_string(env, "kill_cnt", ERL_NIF_LATIN1),
                                              enif_make_ulong(env, kill_cnt)),
-                            enif_make_tuple3(env, enif_make_string(env, "resource_alloc", ERL_NIF_LATIN1),
+                            enif_make_tuple4(env, enif_make_string(env, "resource_alloc", ERL_NIF_LATIN1),
                                              enif_make_ulong(env, res_alloc_cnt),
-                                             enif_make_ulong(env, res_release_cnt)));
+                                             enif_make_ulong(env, res_release_cnt),
+                                             enif_make_ulong(env, res_dtor_cnt)));
 
         }
         else if (Op == atom_stop && procs_lock) {  /* stop all */
+
+            /* Release all resources */
+            for (rix = 0; rix < FRENZY_RESOURCES_MAX; rix++) {
+                enif_mutex_lock(resv[rix].lock);
+                r = resv[rix].obj;
+                if (r) {
+                    resv[rix].obj =  NULL;
+                    resv[rix].release_cnt++;
+                }
+                resv[rix].stopped = 1;
+                enif_mutex_unlock(resv[rix].lock);
+                if (r)
+                    enif_release_resource(r);
+            }
+
+            /* Remove and return all pids */
             retval = enif_make_list(env, 0);
             enif_mutex_lock(procs_lock);
             for (ref_ix = 0; ref_ix < nprocs; ref_ix++) {
@@ -2587,6 +2610,7 @@ static ERL_NIF_TERM monitor_frenzy_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
             nprocs = 0;
             old_nprocs = 0;
             enif_mutex_unlock(procs_lock);
+
             return retval;
         }
         return enif_make_badarg(env);
@@ -2655,7 +2679,12 @@ static ERL_NIF_TERM monitor_frenzy_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 	while (enif_mutex_trylock(resv[rix].lock) == EBUSY) {
 	    rix = (rix + inc) % FRENZY_RESOURCES_MAX;
 	}
-	if (resv[rix].obj == NULL) {
+        if (resv[rix].stopped) {
+            retval = atom_done;
+            enif_mutex_unlock(resv[rix].lock);
+            break;
+        }
+        else if (resv[rix].obj == NULL) {
 	    r = enif_alloc_resource(frenzy_resource_type,
 				    sizeof(struct frenzy_resource));
 	    resv[rix].obj = r;
@@ -2778,6 +2807,10 @@ static void frenzy_resource_dtor(ErlNifEnv* env, void* obj)
     unsigned int mix;
 
     DBG_TRACE2("DTOR r=%p rix=%u\n", r, r->rix);
+
+    enif_mutex_lock(resv[r->rix].lock);
+    resv[r->rix].dtor_cnt++;
+    enif_mutex_unlock(resv[r->rix].lock);
 
     for (mix = 0; mix < FRENZY_MONITORS_MAX; mix++) {
         assert(r->monv[mix].state != MON_PENDING);
