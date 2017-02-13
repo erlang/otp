@@ -38,7 +38,7 @@ all() ->
      {group, abnormal},
      {group, abnormal_handle_event},
      shutdown, stop_and_reply, state_enter, event_order,
-     state_timeout, event_types, code_change,
+     state_timeout, event_types, generic_timers, code_change,
      {group, sys},
      hibernate, enter_loop].
 
@@ -834,6 +834,7 @@ event_types(_Config) ->
 			{next_event,timeout,3},
 			{next_event,info,4},
 			{next_event,cast,5},
+			{next_event,{timeout,6}, 6},
 			{next_event,Call,Req}]}
 	      end,
 	  state1 =>
@@ -857,7 +858,74 @@ event_types(_Config) ->
 		      {next_state, state6, undefined}
 	      end,
 	  state6 =>
+	      fun ({timeout,6}, 6, undefined) ->
+		      {next_state, state7, undefined}
+	      end,
+	  state7 =>
 	      fun ({call,From}, stop, undefined) ->
+		      {stop_and_reply, shutdown,
+		       [{reply,From,stopped}]}
+	      end},
+    {ok,STM} =
+	gen_statem:start_link(
+	  ?MODULE, {map_statem,Machine,[]}, [{debug,[trace]}]),
+
+    stopped = gen_statem:call(STM, stop),
+    receive
+	{'EXIT',STM,shutdown} ->
+	    ok
+    after 500 ->
+	    ct:fail(did_not_stop)
+    end,
+
+    {noproc,_} =
+	?EXPECT_FAILURE(gen_statem:call(STM, hej), Reason),
+    case flush() of
+	[] ->
+	    ok;
+	Other2 ->
+	    ct:fail({unexpected,Other2})
+    end.
+
+
+
+generic_timers(_Config) ->
+    process_flag(trap_exit, true),
+
+    Machine =
+	%% Abusing the internal format of From...
+	#{init =>
+	      fun () ->
+		      {ok, start, undefined}
+	      end,
+	  start =>
+	      fun ({call,_} = Call, Req, undefined) ->
+		      {next_state, state1, undefined,
+		       [{{timeout,a},1500,1},
+			{state_timeout,1500,1},
+			{{timeout,b},1000,1},
+			{next_event,Call,Req}]}
+	      end,
+	  state1 =>
+	      fun ({call,_} = Call, Req, undefined) ->
+		      T = erlang:monotonic_time(millisecond) + 500,
+		      {next_state, state2, undefined,
+		       [{{timeout,c},T,2,{abs,true}},
+			{{timeout,d},0,2,[{abs,false}]},
+			{timeout,0,2},
+			{{timeout,b},infinity,2},
+			{{timeout,a},1000,{Call,Req}}]}
+	      end,
+	  state2 =>
+	      fun ({timeout,d}, 2, undefined) ->
+		      {next_state, state3, undefined}
+	      end,
+	  state3 =>
+	      fun ({timeout,c}, 2, undefined) ->
+		      {next_state, state4, undefined}
+	      end,
+	  state4 =>
+	      fun ({timeout,a}, {{call,From},stop}, undefined) ->
 		      {stop_and_reply, shutdown,
 		       [{reply,From,stopped}]}
 	      end},

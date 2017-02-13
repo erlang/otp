@@ -67,13 +67,16 @@
       It has the same features and adds some really useful:
     </p>
     <list type="bulleted">
-      <item>State code is gathered.</item>
-      <item>The state can be any term.</item>
-      <item>Events can be postponed.</item>
-      <item>Events can be self-generated.</item>
-      <item>Automatic state enter code can be called.</item>
-      <item>A reply can be sent from a later state.</item>
-      <item>There can be multiple <c>sys</c> traceable replies.</item>
+      <item>Gathered state code.</item>
+      <item>Arbitrary term state.</item>
+      <item>Event postponing.</item>
+      <item>Self-generated events.</item>
+      <item>State time-out.</item>
+      <item>Multiple generic named time-outs.</item>
+      <item>Absolute time-out time.</item>
+      <item>Automatic state enter calls.</item>
+      <item>Reply from other state than the request.</item>
+      <item>Multiple <c>sys</c> traceable replies.</item>
     </list>
     <p>
       The callback model(s) for <c>gen_statem</c> differs from
@@ -531,10 +534,12 @@ handle_event(_, _, State, Data) ->
 	  originate from the corresponding API functions.
 	  For calls, the event contains whom to reply to.
 	  Type <c>info</c> originates from regular process messages sent
-	  to the <c>gen_statem</c>. Also, the state machine
-	  implementation can generate events of types
-	  <c>timeout</c>, <c>state_timeout</c>,
-	  and <c>internal</c> to itself.
+	  to the <c>gen_statem</c>. The state machine
+	  implementation can, in addition to the above,
+	  generate
+	  <seealso marker="#type-event_type"><c>events of types</c></seealso>
+	  <c>timeout</c>, <c>{timeout,<anno>Name</anno>}</c>,
+	  <c>state_timeout</c>, and <c>internal</c> to itself.
 	</p>
       </desc>
     </datatype>
@@ -701,13 +706,14 @@ handle_event(_, _, State, Data) ->
 	  </item>
 	  <item>
 	    <p>
-	      Timeout timers 
-              <seealso marker="#type-state_timeout"><c>state_timeout()</c></seealso>
+	      Time-out timers 
+              <seealso marker="#type-event_timeout"><c>event_timeout()</c></seealso>,
+              <seealso marker="#type-generic_timeout"><c>generic_timeout()</c></seealso>
 	      and 
-              <seealso marker="#type-event_timeout"><c>event_timeout()</c></seealso>
+              <seealso marker="#type-state_timeout"><c>state_timeout()</c></seealso>
 	      are handled.  Time-outs with zero time are guaranteed to be
 	      delivered to the state machine before any external
-	      not yet received event so if there is such a timeout requested,
+	      not yet received event so if there is such a time-out requested,
 	      the corresponding time-out zero event is enqueued as
 	      the newest event.
 	    </p>
@@ -795,8 +801,8 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer/4</c></seealso>
 	  for how <c>Time</c> and
 	  <seealso marker="#type-timeout_option"><c>Options</c></seealso>
-	  are interpreted.  All <c>Options</c> of <c>erlang:start_timer/4</c>
-	  will not necessarily be supported in the future.
+	  are interpreted.  Future <c>erlang:start_timer/4</c> <c>Options</c>
+	  will not necessarily be supported.
 	</p>
 	<p>
 	  Any event that arrives cancels this time-out.
@@ -822,6 +828,42 @@ handle_event(_, _, State, Data) ->
       </desc>
     </datatype>
     <datatype>
+      <name name="generic_timeout"/>
+      <desc>
+	<p>
+	  Starts a timer set by
+	  <seealso marker="#type-enter_action"><c>enter_action()</c></seealso>
+	  <c>{timeout,Name}</c>.
+	  When the timer expires an event of
+	  <seealso marker="#type-event_type"><c>event_type()</c></seealso>
+	  <c>{timeout,Name}</c> will be generated.
+	  See
+	  <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer/4</c></seealso>
+	  for how <c>Time</c> and
+	  <seealso marker="#type-timeout_option"><c>Options</c></seealso>
+	  are interpreted.  Future <c>erlang:start_timer/4</c> <c>Options</c>
+	  will not necessarily be supported.
+	</p>
+	<p>
+	  If <c>Time</c> is <c>infinity</c>,
+	  no timer is started, as it never would expire anyway.
+	</p>
+	<p>
+	  If <c>Time</c> is relative and <c>0</c>
+	  no timer is actually started,
+	  instead the the time-out event is enqueued to ensure
+	  that it gets processed before any not yet
+	  received external event.
+	</p>
+	<p>
+	  Setting a timer with the same <c>Name</c> while it is running
+	  will restart it with the new time-out value.
+	  Therefore it is possible to cancel
+	  a specific time-out by setting it to <c>infinity</c>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="state_timeout"/>
       <desc>
 	<p>
@@ -835,8 +877,8 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer/4</c></seealso>
 	  for how <c>Time</c> and
 	  <seealso marker="#type-timeout_option"><c>Options</c></seealso>
-	  are interpreted.  All <c>Options</c> of <c>erlang:start_timer/4</c>
-	  will not necessarily be supported in the future.
+	  are interpreted.  Future <c>erlang:start_timer/4</c> <c>Options</c>
+	  will not necessarily be supported.
 	</p>
 	<p>
 	  If <c>Time</c> is <c>infinity</c>,
@@ -861,7 +903,7 @@ handle_event(_, _, State, Data) ->
       <desc>
 	<p>
 	  If <c>Abs</c> is <c>true</c> an absolute timer is started,
-	  and if it <c>false</c> a relative, which is the default.
+	  and if it is <c>false</c> a relative, which is the default.
 	  See
 	  <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer/4</c></seealso>
 	  for details.
@@ -986,7 +1028,19 @@ handle_event(_, _, State, Data) ->
 	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>
 	      <seealso marker="#type-event_timeout"><c>event_timeout()</c></seealso>
 	      to <c><anno>Time</anno></c> with <c><anno>EventContent</anno></c>
-	      and options
+	      and time-out options
+	      <seealso marker="#type-timeout_option"><c><anno>Options</anno></c></seealso>.
+	    </p>
+	  </item>
+	  <tag><c>{timeout,<anno>Name</anno>}</c></tag>
+	  <item>
+	    <p>
+	      Sets the
+	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>
+	      <seealso marker="#type-generic_timeout"><c>generic_timeout()</c></seealso>
+	      to <c><anno>Time</anno></c> for <c><anno>Name</anno></c>
+	      with <c><anno>EventContent</anno></c>
+	      and time-out options
 	      <seealso marker="#type-timeout_option"><c><anno>Options</anno></c></seealso>.
 	    </p>
 	  </item>
@@ -997,7 +1051,7 @@ handle_event(_, _, State, Data) ->
 	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>
 	      <seealso marker="#type-state_timeout"><c>state_timeout()</c></seealso>
 	      to <c><anno>Time</anno></c> with <c><anno>EventContent</anno></c>
-	      and options
+	      and time-out options
 	      <seealso marker="#type-timeout_option"><c><anno>Options</anno></c></seealso>.
 	    </p>
 	  </item>
@@ -1270,7 +1324,7 @@ handle_event(_, _, State, Data) ->
 	    to avoid that the calling process dies when the call
 	    times out, you will have to be prepared to handle
 	    a late reply.
-	    So why not just allow the calling process to die?
+	    So why not just let the calling process die?
 	  </p>
 	</note>
 	<p>

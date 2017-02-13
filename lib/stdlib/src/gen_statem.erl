@@ -78,8 +78,9 @@
 -type data() :: term().
 
 -type event_type() ::
-	{'call',From :: from()} | 'cast' |
-	'info' | 'timeout' | 'state_timeout' | 'internal'.
+	{'call',From :: from()} | 'cast' | 'info' |
+	'timeout' | {'timeout', Name :: term()} | 'state_timeout' |
+	'internal'.
 
 -type callback_mode_result() ::
 	callback_mode() | [callback_mode() | state_enter()].
@@ -88,7 +89,7 @@
 
 -type transition_option() ::
 	postpone() | hibernate() |
-	event_timeout() | state_timeout().
+	event_timeout() | generic_timeout() | state_timeout().
 -type postpone() ::
 	%% If 'true' postpone the current event
 	%% and retry it when the state changes (=/=)
@@ -99,6 +100,9 @@
 -type event_timeout() ::
 	%% Generate a ('timeout', EventContent, ...) event
 	%% unless some other event is delivered
+	Time :: timeout() | integer().
+-type generic_timeout() ::
+	%% Generate a ({'timeout',Name}, EventContent, ...) event
 	Time :: timeout() | integer().
 -type state_timeout() ::
 	%% Generate a ('state_timeout', EventContent, ...) event
@@ -142,6 +146,14 @@
 	 Time :: event_timeout(),
 	 EventContent :: term(),
 	 Options :: (timeout_option() | [timeout_option()])} |
+	%%
+	{{'timeout', Name :: term()}, % Set the generic_timeout option
+	 Time :: generic_timeout(), EventContent :: term()} |
+	{{'timeout', Name :: term()}, % Set the generic_timeout option
+	 Time :: generic_timeout(),
+	 EventContent :: term(),
+	 Options :: (timeout_option() | [timeout_option()])} |
+	%%
 	{'state_timeout', % Set the state_timeout option
 	 Time :: state_timeout(), EventContent :: term()} |
 	{'state_timeout', % Set the state_timeout option
@@ -311,37 +323,26 @@
 %% Type validation functions
 callback_mode(CallbackMode) ->
     case CallbackMode of
-	state_functions ->
-	    true;
-	handle_event_function ->
-	    true;
-	_ ->
-	    false
+	state_functions -> true;
+	handle_event_function -> true;
+	_ -> false
     end.
 %%
-from({Pid,_}) when is_pid(Pid) ->
-    true;
-from(_) ->
-    false.
+from({Pid,_}) when is_pid(Pid) -> true;
+from(_) -> false.
 %%
 event_type({call,From}) ->
     from(From);
 event_type(Type) ->
     case Type of
-	{call,From} ->
-	    from(From);
-	cast ->
-	    true;
-	info ->
-	    true;
-	timeout ->
-	    true;
-	state_timeout ->
-	    true;
-	internal ->
-	    true;
-	_ ->
-	    false
+	{call,From} -> from(From);
+	cast -> true;
+	info -> true;
+	timeout -> true;
+	state_timeout -> true;
+	internal -> true;
+	{timeout,_} -> true;
+	_ -> false
     end.
 
 
@@ -1387,15 +1388,27 @@ parse_actions(
 		     ?STACKTRACE()}
 	    end;
 	%%
-	{TimerType,_,_} = Timeout
-	  when TimerType =:= timeout;
-	       TimerType =:= state_timeout ->
+	{{timeout,_},_,_} = Timeout ->
 	    parse_actions_timeout(
 	      Debug, S, State, Actions,
 	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
-	{TimerType,_,_,_} = Timeout
-	  when TimerType =:= timeout;
-	       TimerType =:= state_timeout ->
+	{{timeout,_},_,_,_} = Timeout ->
+	    parse_actions_timeout(
+	      Debug, S, State, Actions,
+	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
+	{timeout,_,_} = Timeout ->
+	    parse_actions_timeout(
+	      Debug, S, State, Actions,
+	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
+	{timeout,_,_,_} = Timeout ->
+	    parse_actions_timeout(
+	      Debug, S, State, Actions,
+	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
+	{state_timeout,_,_} = Timeout ->
+	    parse_actions_timeout(
+	      Debug, S, State, Actions,
+	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
+	{state_timeout,_,_,_} = Timeout ->
 	    parse_actions_timeout(
 	      Debug, S, State, Actions,
 	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
