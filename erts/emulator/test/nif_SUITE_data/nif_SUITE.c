@@ -2669,19 +2669,24 @@ static ERL_NIF_TERM monitor_frenzy_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
             }
             DBG_TRACE2("New resource at r=%p rix=%u\n", r, rix);
 	}
-	else if (rand_bits(&rnd, 3) == 0) {
+        else {
+            unsigned int resource_op = rand_bits(&rnd, 3);
             r = resv[rix].obj;
-            resv[rix].obj = NULL;
-            resv[rix].release_cnt++;
-	    enif_mutex_unlock(resv[rix].lock);
-            DBG_TRACE2("Delete resource at r=%p rix=%u\n", r, rix);
-	    enif_release_resource(r);
-	    retval = atom_ok;
-	    break;
-	}
-	else {
-	    r = resv[rix].obj;
-	}
+            if (resource_op == 0) {
+                resv[rix].obj = NULL;
+                resv[rix].release_cnt++;
+                enif_mutex_unlock(resv[rix].lock);
+                DBG_TRACE2("Delete resource at r=%p rix=%u\n", r, rix);
+                enif_release_resource(r);
+                retval = atom_ok;
+                break;
+            }
+            else if (resource_op == 1) {
+                retval = enif_make_resource(env, r);
+                enif_mutex_unlock(resv[rix].lock);
+                break;
+            }
+        }
         enif_keep_resource(r);
         enif_mutex_unlock(resv[rix].lock);
 

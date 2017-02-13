@@ -720,6 +720,8 @@ monitored_by(Pid) ->
 
 -define(FRENZY_RAND_BITS, 25).
 
+%% Exercise monitoring from NIF resources by randomly
+%% create/destruct processes, resources and monitors.
 monitor_frenzy(Config) ->
     ensure_lib_loaded(Config),
 
@@ -731,7 +733,7 @@ monitor_frenzy(Config) ->
     spawn_link(fun() ->
                        SelfPix = monitor_frenzy_nif(init, ?FRENZY_RAND_BITS, 0, 0),
                        unlink(Master),
-                       frenzy(SelfPix, undefined)
+                       frenzy(SelfPix, {undefined, []})
           end),
     receive after 5*1000 -> ok end,
 
@@ -757,7 +759,7 @@ frenzy(SelfPix, State0) ->
     State1 = frenzy_do_op(SelfPix, Op, (Rnd bsr 2), State0),
     frenzy(SelfPix, State1).
 
-frenzy_do_op(SelfPix, Op, Rnd, Pid0) ->
+frenzy_do_op(SelfPix, Op, Rnd, {Pid0,RBins}=State0) ->
     case Op of
         0 -> % add/remove process
             Papa = self(),
@@ -778,24 +780,36 @@ frenzy_do_op(SelfPix, Op, Rnd, Pid0) ->
                      end,
             case monitor_frenzy_nif(Op, Rnd, SelfPix, NewPid) of
                 NewPix when is_integer(NewPix) ->
-                    NewPid ! {go, NewPix, undefined},
-                    undefined;
+                    NewPid ! {go, NewPix, {undefined, []}},
+                    {undefined, RBins};
                 ExitPid when is_pid(ExitPid) ->
                     false = (ExitPid =:= self()),
                     exit(ExitPid,die),
-                    NewPid;
+                    {NewPid, RBins};
                 done ->
                     done
             end;
+
+        3 ->
+            %% Try provoke revival-race of resource from magic ref external format
+            _ = [binary_to_term(B) || B <- RBins],
+            {Pid0, []};
         _ ->
             case monitor_frenzy_nif(Op, Rnd, SelfPix, undefined) of
-                ok -> Pid0;
-                0 -> Pid0;
-                1 -> Pid0;
+                Rsrc when ?is_resource(Rsrc) ->
+                    %% Store resource in ext format only, for later revival
+                    State1 = {Pid0, [term_to_binary(Rsrc) | RBins]},
+                    gc_and_return(State1);
+                ok -> State0;
+                0 -> State0;
+                1 -> State0;
                 done -> done
             end
     end.
 
+gc_and_return(RetVal) ->
+    erlang:garbage_collect(),
+    RetVal.
 
 hipe(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
@@ -1171,7 +1185,7 @@ resource_new_do2(Type) ->
     ResB = make_new_resource(Type, BinB),
     true = is_reference(ResA),
     true = is_reference(ResB),
-    ResA /= ResB,
+    true = (ResA /= ResB),
     {PtrA,BinA} = get_resource(Type, ResA),
     {PtrB,BinB} = get_resource(Type, ResB),
     true = (PtrA =/= PtrB),
