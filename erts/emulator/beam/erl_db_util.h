@@ -213,7 +213,7 @@ typedef struct db_fixation {
 
 typedef struct db_table_common {
     erts_smp_refc_t refc;     /* reference count of table struct */
-    erts_smp_refc_t ref;          /* fixation counter */
+    erts_smp_refc_t fix_count;/* fixation counter */
 #ifdef ERTS_SMP
     erts_smp_rwmtx_t rwlock;  /* rw lock on table */
     erts_smp_mtx_t fixlock;   /* Protects fixations,megasec,sec,microsec */
@@ -263,7 +263,7 @@ typedef struct db_table_common {
 				  (DB_BAG | DB_SET | DB_DUPLICATE_BAG)))
 #define IS_TREE_TABLE(Status) (!!((Status) & \
 				  DB_ORDERED_SET))
-#define NFIXED(T) (erts_smp_refc_read(&(T)->common.ref,0))
+#define NFIXED(T) (erts_smp_refc_read(&(T)->common.fix_count,0))
 #define IS_FIXED(T) (NFIXED(T) != 0) 
 
 /*
