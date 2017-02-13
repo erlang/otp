@@ -51,6 +51,15 @@
 %-define(DEBUG, true).
 
 -ifdef(DEBUG).
+-define(FORM_TEST(T),
+        _ = case T of
+                {eof, _Line} -> ok;
+                {warning, _W} -> ok;
+                {error, _E} -> ok;
+                _ -> ?TEST(T)
+            end).
+-define(EXPRS_TEST(L),
+        [?TEST(E) || E <- L]).
 -define(TEST(T),
         %% Assumes that erl_anno has been compiled with DEBUG=true.
         %% erl_pp does not use the annoations, but test it anyway.
@@ -62,6 +71,8 @@
                     erlang:error(badarg, [T])
             end).
 -else.
+-define(FORM_TEST(T), ok).
+-define(EXPRS_TEST(T), ok).
 -define(TEST(T), ok).
 -endif.
 
@@ -80,7 +91,7 @@ form(Thing) ->
       Options :: options()).
 
 form(Thing, Options) ->
-    ?TEST(Thing),
+    ?FORM_TEST(Thing),
     State = state(Options),
     frmt(lform(Thing, options(Options)), State).
 
@@ -124,7 +135,7 @@ guard(Gs) ->
       Options :: options()).
 
 guard(Gs, Options) ->
-    ?TEST(Gs),
+    ?EXPRS_TEST(Gs),
     frmt(lguard(Gs, options(Options)), state(Options)).
 
 -spec(exprs(Expressions) -> io_lib:chars() when
@@ -146,7 +157,7 @@ exprs(Es, Options) ->
       Options :: options()).
 
 exprs(Es, I, Options) ->
-    ?TEST(Es),
+    ?EXPRS_TEST(Es),
     frmt({seq,[],[],[$,],lexprs(Es, options(Options))}, I, state(Options)).
 
 -spec(expr(Expression) -> io_lib:chars() when
