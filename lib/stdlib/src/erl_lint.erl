@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -737,7 +737,12 @@ start_state({attribute,_,module,M}, St0) ->
     St1 = St0#lint{module=M},
     St1#lint{state=attribute};
 start_state(Form, St) ->
-    St1 = add_error(element(2, Form), undefined_module, St),
+    Anno = case Form of
+               {eof, L} -> erl_anno:new(L);
+               %% {warning, Warning} and {error, Error} not possible here.
+               _ -> element(2, Form)
+           end,
+    St1 = add_error(Anno, undefined_module, St),
     attribute_state(Form, St1#lint{state=attribute}).
 
 %% attribute_state(Form, State) ->

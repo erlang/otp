@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2549,7 +2549,7 @@ otp_5878(Config) when is_list(Config) ->
                    {function,9,t,0,[{clause,9,[],[],[{record,10,r,[]}]}]},
                    {eof,11}],
     {error,[{"rec.erl",[{7,erl_lint,old_abstract_code}]}],[]} =
-        compile:forms(OldAbstract, [return, report]),
+        compile_forms(OldAbstract, [return, report]),
 
     ok.
 
@@ -3848,8 +3848,12 @@ otp_11879(_Config) ->
              [{1,erl_lint,{spec_fun_undefined,{f,1}}},
               {2,erl_lint,spec_wrong_arity},
               {22,erl_lint,callback_wrong_arity}]}],
-     []} = compile:forms(Fs, [return,report]),
+     []} = compile_forms(Fs, [return,report]),
     ok.
+
+compile_forms(Terms, Opts) ->
+    Forms = [erl_parse:anno_from_term(Term) || Term <- Terms],
+    compile:forms(Forms, Opts).
 
 %% OTP-13230: -deprecated without -module.
 otp_13230(Config) when is_list(Config) ->
