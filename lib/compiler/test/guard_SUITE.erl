@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1538,7 +1538,7 @@ literal_type_tests_1(Config) ->
     Func = {function, Anno, test, 0, [{clause,Anno,[],[],Tests}]},
     Form = [{attribute,Anno,module,Mod},
             {attribute,Anno,compile,export_all},
-            Func, {eof,Anno}],
+            Func, {eof,999}],
 
     %% Print generated code for inspection.
     lists:foreach(fun (F) -> io:put_chars([erl_pp:form(F),"\n"]) end, Form),
