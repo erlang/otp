@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@
 
 -record(rule, {
           n,             % rule n in the grammar file
-          line,
+          anno,
           symbols,       % the names of symbols
           tokens,
           is_guard,      % the action is a guard (not used)
@@ -105,7 +105,7 @@
 
 -record(user_code, {state, terminal, funname, action}).
 
--record(symbol, {line = none, name}).
+-record(symbol, {anno = none, name}).
 
 %% ACCEPT is neither an atom nor a non-terminal.
 -define(ACCEPT, {}).
@@ -517,7 +517,7 @@ parse_grammar(Grammar, Inport, NextLine, St0) ->
     parse_grammar(Inport, NextLine, St).
 
 parse_grammar({error,ErrorLine,Error}, St) ->
-    add_error(ErrorLine, Error, St);
+    add_error(erl_anno:new(ErrorLine), Error, St);
 parse_grammar({rule, Rule, Tokens}, St0) ->
     NmbrOfDaughters = case Rule of
                           [_, #symbol{name = '$empty'}]  -> 0;
@@ -534,15 +534,15 @@ parse_grammar({rule, Rule, Tokens}, St0) ->
     St#yecc{rules_list = [RuleDef | St#yecc.rules_list]};
 parse_grammar({prec, Prec}, St) ->
     St#yecc{prec = Prec ++ St#yecc.prec};
-parse_grammar({#symbol{}, [{string,Line,String}]}, St) ->
-    add_error(Line, {bad_symbol, String}, St);
-parse_grammar({#symbol{line = Line, name = Name}, Symbols}, St) ->
+parse_grammar({#symbol{}, [{string,Anno,String}]}, St) ->
+    add_error(Anno, {bad_symbol, String}, St);
+parse_grammar({#symbol{anno = Anno, name = Name}, Symbols}, St) ->
     CF = fun(I) ->
                  case element(I, St) of
                      [] -> 
                          setelement(I, St, Symbols);
                      _ -> 
-                         add_error(Line, {duplicate_declaration, Name}, St)
+                         add_error(Anno, {duplicate_declaration, Name}, St)
                  end
          end,
     OneSymbol = length(Symbols) =:= 1,
@@ -553,7 +553,7 @@ parse_grammar({#symbol{line = Line, name = Name}, Symbols}, St) ->
         'Endsymbol' when OneSymbol ->  CF(#yecc.endsymbol);
         'Expect' when OneSymbol -> CF(#yecc.expect_shift_reduce);
         'States' when OneSymbol -> CF(#yecc.expect_n_states); % undocumented
-        _ -> add_warning(Line, bad_declaration, St)
+        _ -> add_warning(Anno, bad_declaration, St)
     end.
 
 read_grammar(Inport, St, Line) ->
@@ -599,7 +599,7 @@ precedence(_) -> unknown.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 check_grammar(St0) ->
-    Empty = #symbol{line = none, name = '$empty'},
+    Empty = #symbol{anno = none, name = '$empty'},
     AllSymbols = St0#yecc.nonterminals ++ St0#yecc.terminals ++ [Empty],
     St1 = St0#yecc{all_symbols = AllSymbols},
     Cs = [fun check_nonterminals/1, fun check_terminals/1, 
@@ -640,12 +640,12 @@ check_rootsymbol(St) ->
     case St#yecc.rootsymbol of
         [] ->
             add_error(rootsymbol_missing, St);
-        [#symbol{line = Line, name = SymName}] ->
+        [#symbol{anno = Anno, name = SymName}] ->
             case kind_of_symbol(St, SymName) of
                 nonterminal ->
                     St#yecc{rootsymbol = SymName};
                 _ ->
-                    add_error(Line, {bad_rootsymbol, SymName}, St)
+                    add_error(Anno, {bad_rootsymbol, SymName}, St)
             end
     end.
 
@@ -653,12 +653,12 @@ check_endsymbol(St) ->
     case St#yecc.endsymbol of
         [] ->
             St#yecc{endsymbol = '$end'};
-        [#symbol{line = Line, name = SymName}] ->
+        [#symbol{anno = Anno, name = SymName}] ->
             case kind_of_symbol(St, SymName) of
                 nonterminal ->
-                    add_error(Line, {endsymbol_is_nonterminal, SymName}, St);
+                    add_error(Anno, {endsymbol_is_nonterminal, SymName}, St);
                 terminal ->
-                    add_error(Line, {endsymbol_is_terminal, SymName}, St);
+                    add_error(Anno, {endsymbol_is_terminal, SymName}, St);
                 _ ->
                     St#yecc{endsymbol = SymName}
             end
@@ -670,8 +670,8 @@ check_expect(St0) ->
             St0#yecc{expect_shift_reduce = 0};
         [#symbol{name = Expect}] when is_integer(Expect) ->
             St0#yecc{expect_shift_reduce = Expect};
-        [#symbol{line = Line, name = Name}] ->
-            St1 = add_error(Line, {bad_expect, Name}, St0),
+        [#symbol{anno = Anno, name = Name}] ->
+            St1 = add_error(Anno, {bad_expect, Name}, St0),
             St1#yecc{expect_shift_reduce = 0}
     end.
 
@@ -681,27 +681,27 @@ check_states(St) ->
             St;
         [#symbol{name = NStates}] when is_integer(NStates) ->
             St#yecc{expect_n_states = NStates};
-        [#symbol{line = Line, name = Name}] ->
-            add_error(Line, {bad_states, Name}, St)
+        [#symbol{anno = Anno, name = Name}] ->
+            add_error(Anno, {bad_states, Name}, St)
     end.
 
 check_precedences(St0) ->
     {St1, _} = 
-        foldr(fun({#symbol{line = Line, name = Op},_I,_A}, {St,Ps}) ->
+        foldr(fun({#symbol{anno = Anno, name = Op},_I,_A}, {St,Ps}) ->
                       case member(Op, Ps) of
                           true ->
-                              {add_error(Line, {duplicate_precedence,Op}, St),
+                              {add_error(Anno, {duplicate_precedence,Op}, St),
                                Ps};
                           false ->
                               {St, [Op | Ps]}
                       end
               end, {St0,[]}, St0#yecc.prec),
-    foldl(fun({#symbol{line = Line, name = Op},I,A}, St) ->
+    foldl(fun({#symbol{anno = Anno, name = Op},I,A}, St) ->
                   case kind_of_symbol(St, Op) of
                       endsymbol ->
-                          add_error(Line,{precedence_op_is_endsymbol,Op}, St);
+                          add_error(Anno,{precedence_op_is_endsymbol,Op}, St);
                       unknown ->
-                          add_error(Line, {precedence_op_is_unknown, Op}, St);
+                          add_error(Anno, {precedence_op_is_unknown, Op}, St);
                       _ -> 
                           St#yecc{prec = [{Op,I,A} | St#yecc.prec]}
                   end
@@ -709,13 +709,13 @@ check_precedences(St0) ->
 
 check_rule(Rule0, {St0,Rules}) ->
     Symbols = Rule0#rule.symbols,
-    #symbol{line = HeadLine, name = Head} = hd(Symbols),
+    #symbol{anno = HeadAnno, name = Head} = hd(Symbols),
     case member(Head, St0#yecc.nonterminals) of
         false -> 
-            {add_error(HeadLine, {undefined_nonterminal, Head}, St0), Rules};
+            {add_error(HeadAnno, {undefined_nonterminal, Head}, St0), Rules};
         true ->
             St = check_rhs(tl(Symbols), St0),
-            Rule = Rule0#rule{line = HeadLine, symbols = names(Symbols)},
+            Rule = Rule0#rule{anno = HeadAnno, symbols = names(Symbols)},
             {St, [Rule | Rules]}
     end.
 
@@ -725,7 +725,7 @@ check_rules(St0) ->
         [] ->
             add_error(no_grammar_rules, St);
         _ ->
-            Rule = #rule{line = none, 
+            Rule = #rule{anno = none,
                          symbols = [?ACCEPT, St#yecc.rootsymbol],
                          tokens = []},
             Rules1 = [Rule | Rules0],
@@ -740,9 +740,9 @@ duplicates(List) ->
 names(Symbols) ->
     map(fun(Symbol) -> Symbol#symbol.name end, Symbols).
 
-symbol_line(Name, St) ->
-    #symbol{line = Line} = symbol_find(Name, St#yecc.all_symbols),
-    Line.
+symbol_anno(Name, St) ->
+    #symbol{anno = Anno} = symbol_find(Name, St#yecc.all_symbols),
+    Anno.
 
 symbol_member(Symbol, Symbols) ->
     symbol_find(Symbol#symbol.name, Symbols) =/= false.
@@ -894,31 +894,33 @@ report_warnings(St) ->
 add_error(E, St) ->
     add_error(none, E, St).
 
-add_error(Line, E, St) ->
-    add_error(St#yecc.infile, Line, E, St).
+add_error(Anno, E, St) ->
+    add_error(St#yecc.infile, Anno, E, St).
 
-add_error(File, Line, E, St) ->
-    St#yecc{errors = [{File,{Line,?MODULE,E}}|St#yecc.errors]}.    
+add_error(File, Anno, E, St) ->
+    Loc = location(Anno),
+    St#yecc{errors = [{File,{Loc,?MODULE,E}}|St#yecc.errors]}.
 
 add_errors(SymNames, E0, St0) ->
     foldl(fun(SymName, St) ->
-                  add_error(symbol_line(SymName, St), {E0, SymName}, St)
+                  add_error(symbol_anno(SymName, St), {E0, SymName}, St)
           end, St0, SymNames).
 
-add_warning(Line, W, St) ->
-    St#yecc{warnings = [{St#yecc.infile,{Line,?MODULE,W}}|St#yecc.warnings]}.
+add_warning(Anno, W, St) ->
+    Loc = location(Anno),
+    St#yecc{warnings = [{St#yecc.infile,{Loc,?MODULE,W}}|St#yecc.warnings]}.
 
 add_warnings(SymNames, W0, St0) ->
     foldl(fun(SymName, St) ->
-                  add_warning(symbol_line(SymName, St), {W0, SymName}, St)
+                  add_warning(symbol_anno(SymName, St), {W0, SymName}, St)
           end, St0, SymNames).
 
 check_rhs([#symbol{name = '$empty'}], St) ->
     St;
 check_rhs(Rhs, St0) ->
     case symbol_find('$empty', Rhs) of
-        #symbol{line = Line} ->
-            add_error(Line, illegal_empty, St0);
+        #symbol{anno = Anno} ->
+            add_error(Anno, illegal_empty, St0);
         false ->
             foldl(fun(Sym, St) ->
                           case symbol_member(Sym, St#yecc.all_symbols) of
@@ -926,13 +928,13 @@ check_rhs(Rhs, St0) ->
                                   St;
                               false -> 
                                   E = {undefined_symbol,Sym#symbol.name},
-                                  add_error(Sym#symbol.line, E, St)
+                                  add_error(Sym#symbol.anno, E, St)
                           end
                   end, St0, Rhs)
     end.
 
 check_action(Tokens) ->
-    case erl_parse:parse_exprs(add_roberts_dot(Tokens, 0)) of
+    case erl_parse:parse_exprs(add_roberts_dot(Tokens, erl_anno:new(0))) of
         {error, _Error} ->
             {false, false};
         {ok, [Expr | Exprs]} ->
@@ -940,10 +942,10 @@ check_action(Tokens) ->
             {IsGuard, true}
     end.
 
-add_roberts_dot([], Line) ->
-    [{'dot', Line}];
-add_roberts_dot([{'dot', Line} | _], _) ->
-    [{'dot', Line}];
+add_roberts_dot([], Anno) ->
+    [{'dot', Anno}];
+add_roberts_dot([{'dot', Anno} | _], _) ->
+    [{'dot', Anno}];
 add_roberts_dot([Token | Tokens], _) ->
     [Token | add_roberts_dot(Tokens, element(2, Token))].
 
@@ -953,21 +955,22 @@ subst_pseudo_vars([H0 | T0], NmbrOfDaughters, St0) ->
     {H, St1} = subst_pseudo_vars(H0, NmbrOfDaughters, St0),
     {T, St} = subst_pseudo_vars(T0, NmbrOfDaughters, St1),
     {[H | T], St};
-subst_pseudo_vars({atom, Line, Atom}, NmbrOfDaughters, St0) ->
+subst_pseudo_vars({atom, Anno, Atom}, NmbrOfDaughters, St0) ->
     case atom_to_list(Atom) of
         [$$ | Rest] ->
             try list_to_integer(Rest) of
                 N when N > 0, N =< NmbrOfDaughters ->
-                    {{var, Line, list_to_atom(append("__", Rest))}, St0};
+                    {{var, Anno, list_to_atom(append("__", Rest))}, St0};
                 _ ->
-                    St = add_error(Line, {undefined_pseudo_variable, Atom}, 
+                    St = add_error(Anno,
+                                   {undefined_pseudo_variable, Atom},
                                    St0),
-                    {{atom, Line, '$undefined'}, St}
+                    {{atom, Anno, '$undefined'}, St}
             catch 
-                error: _ -> {{atom, Line, Atom}, St0}
+                error: _ -> {{atom, Anno, Atom}, St0}
             end;
         _ ->
-            {{atom, Line, Atom}, St0}
+            {{atom, Anno, Atom}, St0}
     end;
 subst_pseudo_vars(Tuple, NmbrOfDaughters, St0) when is_tuple(Tuple) ->
     {L, St} = subst_pseudo_vars(tuple_to_list(Tuple), NmbrOfDaughters, St0),
@@ -2295,9 +2298,9 @@ function_name(Name, Suf) ->
     list_to_atom(concat([Name, '_' | quoted_atom(Suf)])).
 
 rule(RulePointer, St) ->
-    #rule{n = N, line = Line, symbols = Symbols} = 
+    #rule{n = N, anno = Anno, symbols = Symbols} =
         dict:fetch(RulePointer, St#yecc.rule_pointer2rule),
-    {Symbols, Line, N}.
+    {Symbols, Anno, N}.
 
 get_rule(RuleNmbr, St) ->
     dict:fetch(RuleNmbr, St#yecc.rule_pointer2rule).
@@ -2463,7 +2466,7 @@ include(St, File, Outport) ->
 include1(eof, _, _, _File, L, _St) ->
     L;
 include1({error, _}=_Error, _Inport, _Outport, File, L, St) ->
-    throw(add_error(File, L, cannot_parse, St));
+    throw(add_error(File, erl_anno:new(L), cannot_parse, St));
 include1(Line, Inport, Outport, File, L, St) ->
     Incr = case member($\n, Line) of
                true -> 1;
@@ -2488,7 +2491,7 @@ includefile_version(Includefile) ->
 
 parse_file(Epp) ->
     case epp:parse_erl_form(Epp) of
-        {ok, {function,_Line,yeccpars1,7,_Clauses}} ->
+        {ok, {function,_Anno,yeccpars1,7,_Clauses}} ->
             {1,4};
         {eof,_Line} ->
             {1,1};
@@ -2503,7 +2506,7 @@ pp_tokens(Tokens, Line0, Enc) ->
 pp_tokens1([], _Line0, _Enc, _T0) ->
     [];
 pp_tokens1([T | Ts], Line0, Enc, T0) ->
-    Line = element(2, T),
+    Line = location(anno(T)),
     [pp_sep(Line, Line0, T0), pp_symbol(T, Enc)|pp_tokens1(Ts, Line, Enc, T)].
 
 pp_symbol({var,_,Var}, _Enc) -> Var;
@@ -2538,10 +2541,17 @@ output_file_directive(St, _Filename, _Line) ->
     St.
 
 first_line(Tokens) ->
-    element(2, hd(Tokens)).
+    location(anno(hd(Tokens))).
 
 last_line(Tokens) ->
-    element(2, lists:last(Tokens)).
+    location(anno(lists:last(Tokens))).
+
+location(none) -> none;
+location(Anno) ->
+    erl_anno:line(Anno).
+
+anno(Token) ->
+    element(2, Token).
 
 %% Keep track of the current line in the generated file.
 fwrite(#yecc{outport = Outport, line = Line}=St, Format, Args) ->
