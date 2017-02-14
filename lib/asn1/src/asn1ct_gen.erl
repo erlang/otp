@@ -1148,55 +1148,16 @@ gen_record(Gen, TorPtype, Name, #type{}=Type, Num) ->
 		0 -> open_hrl(get(outfile),get(currmod));
 		_ -> true
 	    end,
-	    Prefix = get_record_name_prefix(Gen),
-	    emit({"-record('",Prefix,list2name(Name),"',{",nl}),
-	    RootList = case CompList of
-			   _ when is_list(CompList) ->
-			       CompList;
-			   {Rl,_} -> Rl;
-			   {Rl1,_Ext,_Rl2} -> Rl1
-		       end,
-	    gen_record2(Name,'SEQUENCE',RootList),
-	    NewCompList = 
+            do_gen_record(Gen, Name, CompList),
+	    NewCompList =
 		case CompList of
 		    {CompList1,[]} ->
-			emit({"}). % with extension mark",nl,nl}),
 			CompList1;
 		    {Tr,ExtensionList2} ->
-			case Tr of
-			    [] -> true;
-			    _ -> emit({",",nl})
-			end,
-			emit({"%% with extensions",nl}),
-			gen_record2(Name, 'SEQUENCE', ExtensionList2,
-				    "", ext),
-			emit({"}).",nl,nl}),
 			Tr ++ ExtensionList2;
 		    {Rootl1,Extl,Rootl2} ->
-			case Rootl1 =/= [] andalso Extl++Rootl2 =/= [] of
-			    true -> emit([com]);
-			    false -> ok
-			end,
-			case Rootl1 of
-			    [_|_] -> emit([nl]);
-			    [] -> ok
-			end,
-			emit(["%% with extensions",nl]),
-			gen_record2(Name,'SEQUENCE',Extl,"",ext),
-			case Extl =/= [] andalso Rootl2 =/= [] of
-			    true -> emit([com]);
-			    false -> ok
-			end,
-			case Extl of
-			    [_|_] -> emit([nl]);
-			    [] -> ok
-			end,
-			emit(["%% end of extensions",nl]),
-			gen_record2(Name,'SEQUENCE',Rootl2,"",noext),
-			emit(["}).",nl,nl]),
 			Rootl1++Extl++Rootl2;
-		    _ -> 
-			emit({"}).",nl,nl}),
+		    _ ->
 			CompList
 		end,
 	    gen_record(Gen, TorPtype, Name, NewCompList, Num+1);
@@ -1207,6 +1168,51 @@ gen_record(Gen, TorPtype, Name, #type{}=Type, Num) ->
     end;
 gen_record(_, _, _, _, NumRecords) ->        % skip CLASS etc for now.
      NumRecords.
+
+do_gen_record(Gen, Name, CL0) ->
+    CL = case CL0 of
+             {Root,[]} ->
+                 Root ++ [{comment,"with extension mark"}];
+             {Root,Ext} ->
+                 Root ++ [{comment,"with exensions"}] ++
+                     only_components(Ext);
+             {Root1,Ext,Root2} ->
+                 Root1 ++ [{comment,"with exensions"}] ++
+                     only_components(Ext) ++
+                     [{comment,"end of extensions"}] ++ Root2;
+             _ when is_list(CL0) ->
+                 CL0
+         end,
+    Prefix = get_record_name_prefix(Gen),
+    emit(["-record('",Prefix,list2name(Name),"', {"] ++
+             do_gen_record_1(CL) ++
+             [nl,"}).",nl,nl]).
+
+only_components(CL) ->
+    [C || #'ComponentType'{}=C <- CL].
+
+do_gen_record_1([#'ComponentType'{name=Name,prop=Prop}|T]) ->
+    Val = case Prop of
+              'OPTIONAL' ->
+                  " = asn1_NOVALUE";
+              {'DEFAULT',_} ->
+                  " = asn1_DEFAULT";
+              _ ->
+                  []
+          end,
+    Com = case needs_trailing_comma(T) of
+        true -> [com];
+        false -> []
+    end,
+    [nl,"  ",{asis,Name},Val,Com|do_gen_record_1(T)];
+do_gen_record_1([{comment,Text}|T]) ->
+    [nl,"  %% ",Text|do_gen_record_1(T)];
+do_gen_record_1([]) ->
+    [].
+
+needs_trailing_comma([#'ComponentType'{}|_]) -> true;
+needs_trailing_comma([_|T]) -> needs_trailing_comma(T);
+needs_trailing_comma([]) -> false.
 
 gen_head(#gen{options=Options}=Gen, Mod, Hrl) ->
     Name = case Gen of
@@ -1239,31 +1245,6 @@ gen_hrlhead(Mod) ->
     emit({"%% SEQUENCE and SET, and macro definitions for each value",nl}),
     emit({"%% definition,in module ",Mod,nl,nl}),
     emit({nl,nl}).
-
-gen_record2(Name,SeqOrSet,Comps) ->
-    gen_record2(Name,SeqOrSet,Comps,"",noext).
-
-gen_record2(_Name,_SeqOrSet,[],_Com,_Extension) ->
-    true;
-gen_record2(_Name,_SeqOrSet,[H = #'ComponentType'{name=Cname}],Com,Extension) ->
-    emit(Com),
-    emit({asis,Cname}),
-    gen_record_default(H, Extension);
-gen_record2(Name,SeqOrSet,[H = #'ComponentType'{name=Cname}|T],Com, Extension) ->
-    emit(Com),
-    emit({asis,Cname}),
-    gen_record_default(H, Extension),
-    gen_record2(Name,SeqOrSet,T,", ", Extension);
-gen_record2(Name,SeqOrSet,[_|T],Com,Extension) ->
-    %% skip EXTENSIONMARK, ExtensionAdditionGroup and other markers
-    gen_record2(Name,SeqOrSet,T,Com,Extension).
-
-gen_record_default(#'ComponentType'{prop='OPTIONAL'}, _)->
-    emit(" = asn1_NOVALUE"); 
-gen_record_default(#'ComponentType'{prop={'DEFAULT',_}}, _)->
-    emit(" = asn1_DEFAULT"); 
-gen_record_default(_, _) ->
-    true.
 
 %% May only be a list or a two-tuple.
 to_textual_order({Root,Ext}) ->
