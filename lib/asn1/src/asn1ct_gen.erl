@@ -37,7 +37,7 @@
 	 get_record_name_prefix/1,
 	 conform_value/2,
 	 named_bitstring_value/2]).
--export([pgen/4,
+-export([pgen/3,
 	 mk_var/1, 
 	 un_hyphen_var/1]).
 -export([gen_encode_constructed/4,
@@ -50,14 +50,13 @@
 %% Generate Erlang module (.erl) and (.hrl) file corresponding to
 %% an ASN.1 module. The .hrl file is only generated if necessary.
 
--spec pgen(Outfile, Gen, Module, Contents) -> 'ok' when
+-spec pgen(Outfile, Gen, Code) -> 'ok' when
       Outfile :: any(),
       Gen :: #gen{},
-      Module :: module(),
-      Contents :: tuple().
+      Code :: #abst{}.
 
-pgen(OutFile, #gen{options=Options}=Gen, Module, Contents) ->
-    {Types,_Values,_Ptypes,_Classes,_Objects,_ObjectSets} = Contents,
+pgen(OutFile, #gen{options=Options}=Gen, Code) ->
+    #abst{name=Module,types=Types} = Code,
     N2nConvEnums = [CName|| {n2n,CName} <- Options],
     case N2nConvEnums -- Types of
 	[] ->
@@ -66,18 +65,18 @@ pgen(OutFile, #gen{options=Options}=Gen, Module, Contents) ->
 	    exit({"Non existing ENUMERATION types used in n2n option",
 		   UnmatchedTypes})
     end,
-    put(outfile,OutFile),
+    put(outfile, OutFile),
     put(currmod, Module),
-    HrlGenerated = pgen_hrl(Gen, Module, Contents),
+    HrlGenerated = pgen_hrl(Gen, Code),
     asn1ct_name:start(),
     ErlFile = lists:concat([OutFile,".erl"]),
     _ = open_output_file(ErlFile),
     asn1ct_func:start_link(),
     gen_head(Gen, Module, HrlGenerated),
-    pgen_exports(Gen, Module, Contents),
-    pgen_dispatcher(Gen, Contents),
+    pgen_exports(Gen, Code),
+    pgen_dispatcher(Gen, Types),
     pgen_info(),
-    pgen_typeorval(Gen, Module, N2nConvEnums, Contents),
+    pgen_typeorval(Gen, N2nConvEnums, Code),
     pgen_partial_incomplete_decode(Gen),
     emit([nl,
 	  "%%%",nl,
@@ -88,7 +87,8 @@ pgen(OutFile, #gen{options=Options}=Gen, Module, Contents) ->
     asn1ct_func:generate(Fd),
     close_output_file(),
     _ = erase(outfile),
-    asn1ct:verbose("--~p--~n", [{generated,ErlFile}], Gen).
+    asn1ct:verbose("--~p--~n", [{generated,ErlFile}], Gen),
+    ok.
 
 dialyzer_suppressions(Erules) ->
     emit([nl,
@@ -96,7 +96,9 @@ dialyzer_suppressions(Erules) ->
     Rtmod = ct_gen_module(Erules),
     Rtmod:dialyzer_suppressions(Erules).
 
-pgen_typeorval(Erules,Module,N2nConvEnums,{Types,Values,_Ptypes,_Classes,Objects,ObjectSets}) ->
+pgen_typeorval(Erules, N2nConvEnums, Code) ->
+    #abst{name=Module,types=Types,values=Values,
+          objects=Objects,objsets=ObjectSets} = Code,
     Rtmod = ct_gen_module(Erules),
     pgen_types(Rtmod,Erules,N2nConvEnums,Module,Types),
     pgen_values(Values, Module),
@@ -642,8 +644,8 @@ gen_decode_constructed(Erules,Typename,InnerType,D) when is_record(D,typedef) ->
     gen_decode_constructed(Erules,Typename,InnerType,D#typedef.typespec).
 
 
-pgen_exports(#gen{options=Options}=Gen, _Module, Contents) ->
-    {Types,Values,_,_,Objects,ObjectSets} = Contents,
+pgen_exports(#gen{options=Options}=Gen, Code) ->
+    #abst{types=Types,values=Values,objects=Objects,objsets=ObjectSets} = Code,
     emit(["-export([encoding_rule/0,maps/0,bit_string_format/0,",nl,
 	  "         legacy_erlang_types/0]).",nl]),
     emit(["-export([",{asis,?SUPPRESSION_FUNC},"/1]).",nl]),
@@ -703,9 +705,9 @@ gen_exports([_|_]=L0, Prefix, Arity) ->
           L,nl,
           "]).",nl,nl]).
 
-pgen_dispatcher(Erules, {[],_Values,_,_,_Objects,_ObjectSets}) ->
+pgen_dispatcher(Erules, []) ->
     gen_info_functions(Erules);
-pgen_dispatcher(Gen, {Types,_Values,_,_,_Objects,_ObjectSets}) ->
+pgen_dispatcher(Gen, Types) ->
     emit(["-export([encode/2,decode/2]).",nl,nl]),
     gen_info_functions(Gen),
 
@@ -1033,8 +1035,8 @@ open_output_file(F) ->
 close_output_file() ->
     ok = file:close(erase(gen_file_out)).
 
-pgen_hrl(#gen{pack=record}=Gen, Module, Contents) ->
-    {Types,Values,Ptypes,_,_,_} = Contents,
+pgen_hrl(#gen{pack=record}=Gen, Code) ->
+    #abst{name=Module,types=Types,values=Values,ptypes=Ptypes} = Code,
     Ret =
 	case pgen_hrltypes(Gen, Module, Ptypes++Types, 0) of
 	    0 -> 
@@ -1062,7 +1064,7 @@ pgen_hrl(#gen{pack=record}=Gen, Module, Contents) ->
 			   Gen),
 	    Y
     end;
-pgen_hrl(#gen{pack=map}, _, _) ->
+pgen_hrl(#gen{pack=map}, _) ->
     0.
 
 pgen_macros(_,_,[]) ->

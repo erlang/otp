@@ -236,12 +236,8 @@ abs_listing(#st{code={M,_},outfile=OutFile}) ->
 
 generate_pass(#st{code=Code,outfile=OutFile,erule=Erule,opts=Opts}=St0) ->
     St = St0#st{code=undefined},		%Reclaim heap space
-    case generate(Code, OutFile, Erule, Opts) of
-	{error,Reason} ->
-	    {error,St#st{error=Reason}};
-	ok ->
-	    {ok,St}
-    end.
+    generate(Code, OutFile, Erule, Opts),
+    {ok,St}.
 
 compile_pass(#st{outfile=OutFile,opts=Opts0}=St) ->
     asn1_db:dbstop(),				%Reclaim memory.
@@ -834,7 +830,11 @@ delete_double_of_symbol1([],Acc) ->
 
 %%***********************************
 
-generate({M,GenTOrV}, OutFile, EncodingRule, Options) ->
+generate({M,CodeTuple}, OutFile, EncodingRule, Options) ->
+    {Types,Values,Ptypes,Classes,Objects,ObjectSets} = CodeTuple,
+    Code = #abst{name=M#module.name,
+                 types=Types,values=Values,ptypes=Ptypes,
+                 classes=Classes,objects=Objects,objsets=ObjectSets},
     debug_on(Options),
     setup_bit_string_format(Options),
     setup_legacy_erlang_types(Options),
@@ -854,19 +854,13 @@ generate({M,GenTOrV}, OutFile, EncodingRule, Options) ->
                     "Error in configuration file")
     end,
 
-    Res = case catch asn1ct_gen:pgen(OutFile, Gen, M#module.name, GenTOrV) of
-              {'EXIT',Reason2} ->
-                  error("~p~n",[Reason2],Options),
-                  {error,Reason2};
-              _ ->
-                  ok
-          end,
+    asn1ct_gen:pgen(OutFile, Gen, Code),
     debug_off(Options),
     cleanup_bit_string_format(),
     erase(tlv_format), % used in ber
     erase(class_default_type),% used in ber
     asn1ct_table:delete(check_functions),
-    Res.
+    ok.
 
 init_gen_record(EncodingRule, Options) ->
     Erule = case EncodingRule of
