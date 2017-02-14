@@ -21,7 +21,7 @@
 
 -module(beam_asm).
 
--export([module/5]).
+-export([module/8]).
 -export([encode/2]).
 
 -export_type([fail/0,label/0,reg/0,src/0,module_code/0,function_name/0]).
@@ -57,20 +57,30 @@
 -type module_code() ::
         {module(),[_],[_],[asm_function()],pos_integer()}.
 
--spec module(module_code(), exports(), [_], [compile:option()], [compile:option()]) ->
+-type records() :: [erl_parse:abstract_form()].
+
+-type fa()   :: {atom(), arity()}.   % function+arity
+-type ta()   :: {atom(), arity()}.   % type+arity
+
+-type types() :: [{ta(), string()}].
+
+-type specs() :: [{fa(), string()}].
+
+-spec module(module_code(), types(), specs(), records(), exports(), [_],
+             [compile:option()], [compile:option()]) ->
                     {'ok',binary()}.
 
-module(Code, Abst, SourceFile, Opts, CompilerOpts) ->
-    {ok,assemble(Code, Abst, SourceFile, Opts, CompilerOpts)}.
+module(Code, Types, Specs, Records, Abst, SourceFile, Opts, CompilerOpts) ->
+    {ok, assemble(Code, Types, Specs, Records, Abst, SourceFile, Opts, CompilerOpts)}.
 
-assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, Abst, SourceFile, Opts, CompilerOpts) ->
+assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, Types, Specs, Records, Abst, SourceFile, Opts, CompilerOpts) ->
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
     {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
     Exp = cerl_sets:from_list(Exp0),
     {Code,Dict2} = assemble_1(Asm, Exp, Dict1, []),
-    build_file(Code, Attr, Dict2, NumLabels, NumFuncs, Abst, SourceFile, Opts, CompilerOpts).
+    build_file(Code, Attr, Dict2, NumLabels, NumFuncs, Types, Specs, Records, Abst, SourceFile, Opts, CompilerOpts).
 
 on_load(Fs0, Attr0) ->
     case proplists:get_value(on_load, Attr0) of
@@ -113,7 +123,7 @@ assemble_function([H|T], Acc, Dict0) ->
 assemble_function([], Code, Dict) ->
     {Code, Dict}.
 
-build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts, CompilerOpts) ->
+build_file(Code, Attr, Dict, NumLabels, NumFuncs, Types, Specs, Records, Abst, SourceFile, Opts, CompilerOpts) ->
     %% Create the code chunk.
 
     CodeChunk = chunk(<<"Code">>,
@@ -186,6 +196,9 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts, Compil
     Essentials = finalize_fun_table(Essentials1, MD5),
     {Attributes,Compile} = build_attributes(Opts, SourceFile, Attr, MD5),
     AttrChunk = chunk(<<"Attr">>, Attributes),
+    TypesChunk = types_chunk(Types),
+    SpecsChunk = specs_chunk(Specs),
+    RecsChunk = records_chunk(Records),
     CompileChunk = chunk(<<"CInf">>, Compile),
 
     %% Create the abstract code chunk.
@@ -193,12 +206,12 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts, Compil
     AbstChunk = chunk(<<"Abst">>, Abst),
 
     %% Create IFF chunk.
-
     Chunks = case member(slim, Opts) of
 		 true ->
 		     [Essentials,AttrChunk,AbstChunk];
 		 false ->
 		     [Essentials,LocChunk,AttrChunk,
+                      TypesChunk,SpecsChunk,RecsChunk,
 		      CompileChunk,AbstChunk,LineChunk]
 	     end,
     build_form(<<"BEAM">>, Chunks).
@@ -211,6 +224,21 @@ atom_encoding(Opts) ->
 
 atom_chunk_name(utf8) -> <<"AtU8">>;
 atom_chunk_name(latin1) -> <<"Atom">>.
+
+types_chunk([]) ->
+    <<>>;
+types_chunk(Types) ->
+    chunk(<<"Type">>, term_to_binary({raw_types_v1, Types})).
+
+specs_chunk([]) ->
+    <<>>;
+specs_chunk(Specs) ->
+    chunk(<<"Spec">>, term_to_binary({raw_specs_v1, Specs})).
+
+records_chunk([]) ->
+    <<>>;
+records_chunk(Records) ->
+    chunk(<<"Recs">>, term_to_binary({raw_records_v1, Records})).
 
 %% finalize_fun_table(Essentials, MD5) -> FinalizedEssentials
 %%  Update the 'old_uniq' field in the entry for each fun in the
