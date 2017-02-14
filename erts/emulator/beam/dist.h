@@ -375,7 +375,7 @@ extern int erts_dsig_send_monitor(ErtsDSigData *, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_m_exit(ErtsDSigData *, Eterm, Eterm, Eterm, Eterm);
 
 extern int erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx);
-extern void erts_dsend_context_dtor(Binary*);
+extern int erts_dsend_context_dtor(Binary*);
 extern Eterm erts_dsend_export_trap_context(Process* p, ErtsSendContext* ctx);
 
 extern int erts_dist_command(Port *prt, int reds);

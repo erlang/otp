@@ -1702,17 +1702,18 @@ error: /* Here is were we land when compilation failed. */
 /*
 ** Free a match program (in a binary)
 */
-void erts_db_match_prog_destructor(Binary *bprog)
+int erts_db_match_prog_destructor(Binary *bprog)
 {
     MatchProg *prog;
     if (bprog == NULL)
-	return;
+	return 1;
     prog = Binary2MatchProg(bprog);
     if (prog->term_save != NULL) {
 	free_message_buffer(prog->term_save); 
     }
     if (prog->saved_program_buf != NULL)
 	free_message_buffer(prog->saved_program_buf);
+    return 1;
 }
 
 void

@@ -356,7 +356,7 @@ Eterm db_add_counter(Eterm** hpp, Wterm counter, Eterm incr);
 Eterm db_match_set_lint(Process *p, Eterm matchexpr, Uint flags);
 Binary *db_match_set_compile(Process *p, Eterm matchexpr, 
 			     Uint flags);
-void erts_db_match_prog_destructor(Binary *);
+int erts_db_match_prog_destructor(Binary *);
 
 typedef struct match_prog {
     ErlHeapFragment *term_save; /* Only if needed, a list of message 

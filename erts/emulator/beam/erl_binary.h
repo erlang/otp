@@ -65,7 +65,7 @@ typedef struct magic_binary ErtsMagicBinary;
 struct magic_binary {
     ERTS_INTERNAL_BINARY_FIELDS
     SWord orig_size;
-    void (*destructor)(Binary *);
+    int (*destructor)(Binary *);
     Uint32 refn[ERTS_REF_NUMBERS];
     ErtsAlcType_t alloc_type;
     union {
@@ -335,12 +335,12 @@ ERTS_GLB_INLINE Binary *erts_bin_realloc_fnf(Binary *bp, Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_realloc(Binary *bp, Uint size);
 ERTS_GLB_INLINE void erts_bin_free(Binary *bp);
 ERTS_GLB_INLINE Binary *erts_create_magic_binary_x(Uint size,
-                                                  void (*destructor)(Binary *),
+                                                  int (*destructor)(Binary *),
                                                    ErtsAlcType_t alloc_type,
                                                   int unaligned);
 ERTS_GLB_INLINE Binary *erts_create_magic_binary(Uint size,
-						 void (*destructor)(Binary *));
-ERTS_GLB_INLINE Binary *erts_create_magic_indirection(void (*destructor)(Binary *));
+						 int (*destructor)(Binary *));
+ERTS_GLB_INLINE Binary *erts_create_magic_indirection(int (*destructor)(Binary *));
 ERTS_GLB_INLINE erts_smp_atomic_t *erts_smp_binary_to_magic_indirection(Binary *bp);
 ERTS_GLB_INLINE erts_atomic_t *erts_binary_to_magic_indirection(Binary *bp);
 
@@ -471,7 +471,10 @@ ERTS_GLB_INLINE void
 erts_bin_free(Binary *bp)
 {
     if (bp->flags & BIN_FLAG_MAGIC) {
-	ERTS_MAGIC_BIN_DESTRUCTOR(bp)(bp);
+        if (!ERTS_MAGIC_BIN_DESTRUCTOR(bp)(bp)) {
+            /* Destructor took control of the deallocation */
+            return;
+        }
 	erts_magic_ref_remove_bin(ERTS_MAGIC_BIN_REFN(bp));
         erts_free(ERTS_MAGIC_BIN_ATYPE(bp), (void *) bp);
     }
@@ -482,7 +485,7 @@ erts_bin_free(Binary *bp)
 }
 
 ERTS_GLB_INLINE Binary *
-erts_create_magic_binary_x(Uint size, void (*destructor)(Binary *),
+erts_create_magic_binary_x(Uint size, int (*destructor)(Binary *),
                            ErtsAlcType_t alloc_type,
                            int unaligned)
 {
@@ -504,14 +507,14 @@ erts_create_magic_binary_x(Uint size, void (*destructor)(Binary *),
 }
 
 ERTS_GLB_INLINE Binary *
-erts_create_magic_binary(Uint size, void (*destructor)(Binary *))
+erts_create_magic_binary(Uint size, int (*destructor)(Binary *))
 {
     return erts_create_magic_binary_x(size, destructor,
                                       ERTS_ALC_T_BINARY, 0);
 }
 
 ERTS_GLB_INLINE Binary *
-erts_create_magic_indirection(void (*destructor)(Binary *))
+erts_create_magic_indirection(int (*destructor)(Binary *))
 {
     return erts_create_magic_binary_x(sizeof(ErtsMagicIndirectionWord),
                                       destructor,

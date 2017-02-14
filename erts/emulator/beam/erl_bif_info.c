@@ -3567,9 +3567,9 @@ BIF_RETTYPE error_logger_warning_map_0(BIF_ALIST_0)
 
 static erts_smp_atomic_t available_internal_state;
 
-static void empty_magic_ref_destructor(Binary *bin)
+static int empty_magic_ref_destructor(Binary *bin)
 {
-
+    return 1;
 }
 
 BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
