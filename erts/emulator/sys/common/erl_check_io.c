@@ -1223,7 +1223,7 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
     DTRACE_CHARBUF(name, 64);
 #endif
 
-    ASSERT(!resource->dbg_is_dying);
+    ASSERT(!(resource->monitors && resource->monitors->is_dying));
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     if ((unsigned)fd >= (unsigned)erts_smp_atomic_read_nob(&drv_ev_state_len)) {

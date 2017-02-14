@@ -87,6 +87,9 @@ typedef struct
 {
     erts_smp_mtx_t lock;
     ErtsMonitor* root;
+    int pending_failed_fire;
+    int is_dying;
+
     size_t user_data_sz;
 } ErtsResourceMonitors;
 
@@ -94,14 +97,11 @@ typedef struct ErtsResource_
 {
     struct enif_resource_type_t* type;
     ErtsResourceMonitors* monitors;
-#ifdef ARCH_32
-    byte align__[4];
-#endif
 #ifdef DEBUG
     erts_refc_t nif_refc;
-    int dbg_is_dying;
-# ifdef ARCH_64
-    byte dbg_align__[4];
+#else
+# ifdef ARCH_32
+    byte align__[4];
 # endif
 #endif
     char data[1];
