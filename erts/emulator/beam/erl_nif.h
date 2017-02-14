@@ -138,9 +138,11 @@ typedef struct
     void* ref_bin;
 }ErlNifBinary;
 
-//#ifndef ERL_SYS_DRV
-typedef int ErlNifEvent; /* An event to be selected on. */
-//#endif
+#if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
+typedef void* ErlNifEvent; /* FIXME: Use 'HANDLE' somehow without breaking existing source */
+#else
+typedef int ErlNifEvent;
+#endif
 
 /* Return bits from enif_select: */
 #define ERL_NIF_SELECT_STOP_CALLED    (1 << 0)

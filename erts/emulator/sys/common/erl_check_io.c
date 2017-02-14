@@ -201,7 +201,8 @@ static ERTS_INLINE ErtsDrvEventState* hash_new_drv_ev_state(ErtsSysFdType fd)
 #if ERTS_CIO_HAVE_DRV_EVENT
     tmpl.driver.event = NULL;
 #endif
-    tmpl.driver.drv_ptr = NULL;
+    tmpl.driver.nif = NULL;
+    tmpl.driver.stop.drv_ptr = NULL;
     tmpl.events = 0;
     tmpl.remove_cnt = 0;
     tmpl.type = ERTS_EV_TYPE_NONE;
