@@ -5050,7 +5050,7 @@ check_balance(ErtsRunQueue *c_rq)
 	    sched_util_balancing = 1;
 	    /*
 	     * In order to avoid renaming a large amount of fields
-	     * we write utilization values instead of lenght values
+	     * we write utilization values instead of length values
 	     * in the 'max_len' and 'migration_limit' fields...
 	     */
 	    for (qix = 0; qix < blnc_no_rqs; qix++) {

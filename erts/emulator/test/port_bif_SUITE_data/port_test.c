@@ -39,7 +39,7 @@ extern int errno;
 typedef struct {
     char* progname;	        /* Name of this program (from argv[0]). */
     int header_size;	        /* Number of bytes in each packet header:
-				 * 1, 2, or 4, or 0 for a continous byte stream. */
+				 * 1, 2, or 4, or 0 for a continuous byte stream. */
     int fd_from_erl;	        /* File descriptor from Erlang. */
     int fd_to_erl;	        /* File descriptor to Erlang. */
     unsigned char* io_buf;      /* Buffer for file i/o. */

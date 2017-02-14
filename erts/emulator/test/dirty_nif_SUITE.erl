@@ -214,7 +214,7 @@ dirty_call_while_terminated(Config) when is_list(Config) ->
     undefined = process_info(Dirty, status),
     false = erlang:is_process_alive(Dirty),
     false = lists:member(Dirty, processes()),
-    %% Binary still refered by Dirty process not yet cleaned up
+    %% Binary still referred by Dirty process not yet cleaned up
     %% since the dirty nif has not yet returned...
     {value, {BinAddr, 4711, 2}} = lists:keysearch(4711, 2,
 						  element(2,

@@ -2331,9 +2331,9 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	free_read(data);
 	break;
       case FILE_READ_LINE:
-	  /* The read_line stucture differs from the read structure.
-	     The data->read_offset and d->c.read_line.read_offset are copies, as are 
-	     data->read_size and d->c.read_line.read_size 
+	  /* The read_line structure differs from the read structure.
+	     The data->read_offset and d->c.read_line.read_offset are copies, as are
+	     data->read_size and d->c.read_line.read_size
              The read_line function does not kniow in advance how large the binary has to be,
 	     why new allocation (but not reallocation of the old binary, for obvious reasons) 
 	     may happen in the worker thread. */

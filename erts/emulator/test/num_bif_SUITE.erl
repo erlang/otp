@@ -108,7 +108,7 @@ t_float(Config) when is_list(Config) ->
     4294967305.0 = float(id(4294967305)),
     -4294967305.0 = float(id(-4294967305)),
 
-    %% Extremly big bignums.
+    %% Extremely big bignums.
     Big = id(list_to_integer(id(lists:duplicate(2000, $1)))),
     {'EXIT', {badarg, _}} = (catch float(Big)),
 

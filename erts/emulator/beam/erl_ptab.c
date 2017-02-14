@@ -474,7 +474,7 @@ erts_ptab_init_table(ErtsPTab *ptab,
 	 * we don't want to shrink the size to ERTS_PTAB_MAX_SIZE/2.
 	 *
 	 * In order to fix this, we insert a pointer from the table
-	 * to the invalid_element, wich will be interpreted as a
+	 * to the invalid_element, which will be interpreted as a
 	 * slot currently being modified. This way we will be able to
 	 * have ERTS_PTAB_MAX_SIZE-1 valid elements in the table while
 	 * still having a table size of the power of 2.

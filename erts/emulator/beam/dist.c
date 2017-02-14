@@ -264,7 +264,7 @@ static void doit_monitor_net_exits(ErtsMonitor *mon, void *vnecp)
 	goto done;
 
     if (mon->type == MON_ORIGIN) {
-	/* local pid is beeing monitored */
+	/* local pid is being monitored */
 	rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), mon->ref);
 	/* ASSERT(rmon != NULL); nope, can happen during process exit */
 	if (rmon != NULL) {
@@ -795,7 +795,7 @@ erts_dsig_send_unlink(ErtsDSigData *dsdp, Eterm local, Eterm remote)
 }
 
 
-/* A local process that's beeing monitored by a remote one exits. We send:
+/* A local process that's being monitored by a remote one exits. We send:
    {DOP_MONITOR_P_EXIT, Local pid or name, Remote pid, ref, reason},
    which is rather sad as only the ref is needed, no pid's... */
 int

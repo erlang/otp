@@ -153,7 +153,7 @@ ttbtteq_do_remote(RNode) ->
 %%
 %% Test case: round_trip_eq
 %%
-%% Tests that node containers that are sent beteen nodes stay equal to themselves.
+%% Tests that node containers that are sent between nodes stay equal to themselves.
 round_trip_eq(Config) when is_list(Config) ->
     ThisNode = {node(), erlang:system_info(creation)},
     NodeFirstName = get_nodefirstname(),

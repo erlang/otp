@@ -24,7 +24,7 @@
  * key in the monitor case and the pid of the linked process as key in the 
  * link case. Lookups the order of the references is somewhat special. Local 
  * references are strictly smaller than remote references and are sorted 
- * by inlined comparision functionality. Remote references are handled by the
+ * by inlined comparison functionality. Remote references are handled by the
  * usual cmp function.
  * Each Monitor is tagged with different tags depending on which end of the 
  * monitor it is.
@@ -154,7 +154,7 @@ static ErtsMonitor *create_monitor(Uint type, Eterm ref, Eterm pid, Eterm name)
      n->type = (Uint16) type;
      n->balance = 0;            /* Always the same initial value */
      n->name = name; /* atom() or [] */
-     CP_LINK_VAL(n->ref, hp, ref); /*XXX Unneccesary check, never immediate*/
+     CP_LINK_VAL(n->ref, hp, ref); /*XXX Unnecessary check, never immediate*/
      CP_LINK_VAL(n->pid, hp, pid);
 
      return n;

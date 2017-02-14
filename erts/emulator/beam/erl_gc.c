@@ -2834,7 +2834,7 @@ sweep_off_heap(Process *p, int fullsweep)
     prev = &MSO(p).first;
     ptr = MSO(p).first;
 
-    /* Firts part of the list will reside on the (old) new-heap.
+    /* First part of the list will reside on the (old) new-heap.
      * Keep if moved, otherwise deref.
      */
     while (ptr) {

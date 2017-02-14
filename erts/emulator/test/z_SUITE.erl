@@ -226,7 +226,7 @@ pollset_size(Config) when is_list(Config) ->
 				 "Pollset size information not available"}
 		  end;
 	      false ->
-		  %% Somtimes we have fewer descriptors in the
+		  %% Sometimes we have fewer descriptors in the
 		  %% pollset at the end than when we started, but
 		  %% that is ok as long as there are at least 2
 		  %% descriptors (dist listen socket and

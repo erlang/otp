@@ -115,8 +115,8 @@ extern int erts_is_alive;
  * erts_dsig_prepare() prepares a send of a distributed signal.
  * One of the values defined below are returned. If the returned
  * value is another than ERTS_DSIG_PREP_CONNECTED, the
- * distributed signal cannot be sent before apropriate actions
- * have been taken. Apropriate actions would typically be setting
+ * distributed signal cannot be sent before appropriate actions
+ * have been taken. Appropriate actions would typically be setting
  * up the connection.
  */
 

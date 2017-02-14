@@ -467,7 +467,7 @@ demonitor_local_port(Process *origin, Eterm ref, Eterm target)
 }
 
 /* Can return atom true, false, yield, internal_error, badarg or
- * THE_NON_VALUE if error occured or trap has been set up
+ * THE_NON_VALUE if error occurred or trap has been set up
  */
 static
 BIF_RETTYPE demonitor(Process *c_p, Eterm ref, Eterm *multip)
@@ -597,7 +597,7 @@ BIF_RETTYPE demonitor_2(BIF_ALIST_2)
 
     switch (demonitor(BIF_P, BIF_ARG_1, &multi)) {
     case THE_NON_VALUE:
-        /* If other error occured or trap has been set up - pass through */
+        /* If other error occurred or trap has been set up - pass through */
         BIF_RET(THE_NON_VALUE);
     case am_false:
 	if (info)

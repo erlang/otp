@@ -42,7 +42,7 @@ Note that the Install script will terminate if it detects problems -
 you will have to correct them and re-run the script. If everything
 goes well, the last printout should be:
 
-Erlang installation sucessfully completed
+Erlang installation successfully completed
 
 If it isn't, something went wrong - check the printouts to find out
 what it was.

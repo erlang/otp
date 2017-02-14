@@ -151,7 +151,7 @@ To find the smallest free segment that will satisfy a carrier allocation
 size (`stree`). We search in this tree at allocation. If no free segment of
 sufficient size was found, the area (`sa` or `sua`) is instead expanded.
 If two or more free segments with equal size exist, the one at lowest
-address is choosen for `sa` and highest address for `sua`.
+address is chosen for `sa` and highest address for `sua`.
 
 At carrier deallocation, we want to coalesce with any adjacent free
 segments, to form one large free segment. To do that, all free

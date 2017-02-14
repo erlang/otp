@@ -17,7 +17,7 @@
  * 
  * %CopyrightEnd%
  *
- * This file defines the interface inbetween erts and child_setup.
+ * This file defines the interface between erts and child_setup.
  */
 
 #ifndef _ERL_UNIX_FORKER_H

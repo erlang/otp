@@ -708,7 +708,7 @@ alloc(I) ->
 
 %% Time to call bif's
 %% Lot's of element stuff which reflects the record code which
-%% is becomming more and more common
+%% is becoming more and more common
 bif_dispatch(0) ->
     0;
 bif_dispatch(I) ->

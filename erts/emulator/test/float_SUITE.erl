@@ -208,7 +208,7 @@ span_cmp(Axis, Incr, Length) ->
 %% for both negative and positive numbers.
 %%
 %% Axis: The number around which to do the tests eg. (1 bsl 58) - 1.0
-%% Incr: How much to increment the test numbers inbetween each test.
+%% Incr: How much to increment the test numbers in-between each test.
 %% Length: Length/2 is the number of Incr away from Axis to test on the
 %%         negative and positive plane.
 %% Diff: How much the float and int should differ when comparing
