@@ -2621,7 +2621,7 @@ icode_switch_val(Arg, Fail, Length, Cases) ->
     hipe_icode:mk_switch_val(Arg, Fail, Length, Cases).
 
 icode_switch_tuple_arity(Arg, Fail, Length, Cases) ->
-    SortedCases = lists:keysort(1, Cases), %% immitate BEAM compiler - Kostis
+    SortedCases = lists:keysort(1, Cases), %% imitate BEAM compiler - Kostis
     hipe_icode:mk_switch_tuple_arity(Arg, Fail, Length, SortedCases).
 
 

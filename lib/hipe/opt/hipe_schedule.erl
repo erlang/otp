@@ -1337,10 +1337,10 @@ cd([{N,I}|Xs], DAG, PrevBr, PrevUnsafe, PrevOthers) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Function    : cd_branch_to_other_deps
 %% Argument    : N   - index of branch
-%%               Ms  - list of indexes of "others" preceeding instrs
+%%               Ms  - list of indexes of "others" preceding instrs
 %%               DAG - dependence graph
 %% Returns     : DAG - new graph
-%% Description : Makes preceeding instrs fixed so they don't bypass a branch
+%% Description : Makes preceding instrs fixed so they don't bypass a branch
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cd_branch_to_other_deps(_, [], DAG) ->
     DAG;
