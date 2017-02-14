@@ -278,8 +278,11 @@ check_result(Server, ServerMsg, Client, ClientMsg) ->
 	    check_result(Server, ServerMsg);
 
 	{Port, {data,Debug}} when is_port(Port) ->
-	    ct:log("~p:~p~nopenssl ~s~n",[?MODULE,?LINE, Debug]),
+	    ct:log("~p:~p~n Openssl ~s~n",[?MODULE,?LINE, Debug]),
 	    check_result(Server, ServerMsg, Client, ClientMsg);
+        {Port,closed} when is_port(Port) ->
+            ct:log("~p:~p~n Openssl port ~n",[?MODULE,?LINE]),
+            check_result(Server, ServerMsg, Client, ClientMsg);
 	Unexpected ->
 	    Reason = {{expected, {Client, ClientMsg}},
 		      {expected, {Server, ServerMsg}}, {got, Unexpected}},
@@ -291,11 +294,11 @@ check_result(Pid, Msg) ->
 	{Pid, Msg} -> 
 	    ok;
 	{Port, {data,Debug}} when is_port(Port) ->
-	    ct:log("~p:~p~nopenssl ~s~n",[?MODULE,?LINE, Debug]),
+	    ct:log("~p:~p~n Openssl ~s~n",[?MODULE,?LINE, Debug]),
 	    check_result(Pid,Msg);
-	%% {Port, {exit_status, Status}} when is_port(Port) ->
-	%%     ct:log("~p:~p Exit status: ~p~n",[?MODULE,?LINE, Status]),
-	%%    check_result(Pid, Msg);
+        {Port,closed} when is_port(Port)->
+            ct:log("~p:~p Openssl port closed ~n",[?MODULE,?LINE]),
+            check_result(Pid, Msg);
 	Unexpected ->
 	    Reason = {{expected, {Pid, Msg}}, 
 		      {got, Unexpected}},
