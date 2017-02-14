@@ -355,7 +355,7 @@ create_html_report(ResultList) ->
 
     {ok, OutputFile} = file:open("index.html", [write]),
 
-    %% Create the begining of the result html-file.
+    %% Create the beginning of the result html-file.
     Head = Title = "Benchmark Results",
     io:put_chars(OutputFile, "<html>\n"),
     io:put_chars(OutputFile, "<head>\n"),
