@@ -739,7 +739,8 @@ used_record_defs(E, RT) ->
 used_records(E, U0, RT) ->
     case used_records(E) of
         {name,Name,E1} ->
-            U = used_records(ets:lookup(RT, Name), [Name | U0], RT),
+            [{_,Attr}] = ets:lookup(RT, Name),
+            U = used_records(Attr, [Name | U0], RT),
             used_records(E1, U, RT);
         {expr,[E1 | Es]} ->
             used_records(Es, used_records(E1, U0, RT), RT);
@@ -1213,26 +1214,35 @@ find_file(File) ->
 read_file_records(File, Opts) ->
     case filename:extension(File) of
         ".beam" ->
-            case beam_lib:chunks(File, [abstract_code,"CInf"]) of
-                {ok,{_Mod,[{abstract_code,{Version,Forms}},{"CInf",CB}]}} ->
-                    case record_attrs(Forms) of
-                        [] when Version =:= raw_abstract_v1 ->
-                            [];
-                        [] -> 
-                            %% If the version is raw_X, then this test
-                            %% is unnecessary.
-                            try_source(File, CB);
-                        Records -> 
-                            Records
-                    end;
-                {ok,{_Mod,[{abstract_code,no_abstract_code},{"CInf",CB}]}} ->
-                    try_source(File, CB);
-                Error ->
-                    %% Could be that the "Abst" chunk is missing (pre R6).
-                    Error
+            case beam_lib:chunks(File, [records]) of
+                {ok,{_Mod,[{records,Records}]}} ->
+                    Records;
+                _ ->
+                    %% could be that the "Recs" chunk is missing
+                    try_abstract_code(File)
             end;
         _ ->
             parse_file(File, Opts)
+    end.
+
+try_abstract_code(File) ->
+    case beam_lib:chunks(File, [abstract_code,"CInf"]) of
+        {ok,{_Mod,[{abstract_code,{Version,Forms}},{"CInf",CB}]}} ->
+            case record_attrs(Forms) of
+                [] when Version =:= raw_abstract_v1 ->
+                    [];
+                [] -> 
+                    %% If the version is raw_X, then this test
+                    %% is unnecessary.
+                    try_source(File, CB);
+                Records -> 
+                    Records
+            end;
+        {ok,{_Mod,[{abstract_code,no_abstract_code},{"CInf",CB}]}} ->
+            try_source(File, CB);
+        Error ->
+            %% Could be that the "Abst" chunk is missing (pre R6).
+            Error
     end.
 
 %% This is how the debugger searches for source files. See int.erl.

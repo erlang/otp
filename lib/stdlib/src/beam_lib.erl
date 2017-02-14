@@ -68,7 +68,7 @@
                    | 'exports' | 'labeled_exports'
                    | 'imports' | 'indexed_imports'
                    | 'locals' | 'labeled_locals'
-                   | 'atoms'.
+                   | 'atoms' | 'records'.
 -type chunkref()  :: chunkname() | chunkid().
 
 -type attrib_entry()   :: {Attribute :: atom(), [AttributeValue :: term()]}.
@@ -85,6 +85,7 @@
                    | {'indexed_imports', [{index(), module(), Function :: atom(), arity()}]}
                    | {'locals', [{atom(), arity()}]}
                    | {'labeled_locals', [labeled_entry()]}
+                   | {'records', [{atom(), [atom()]}]}
                    | {'atoms', [{integer(), atom()}]}.
 
 %% Error reasons
@@ -685,6 +686,14 @@ chunk_to_data(atoms=Id, _Chunk, _File, Cs, AtomTable0, _Mod) ->
     AtomTable = ensure_atoms(AtomTable0, Cs),
     Atoms = ets:tab2list(AtomTable),
     {AtomTable, {Id, lists:sort(Atoms)}};
+chunk_to_data(records=Id, Chunk, File, _Cs, AtomTable, _Mod) ->
+    try
+	{raw_records_v1, Records} = binary_to_term(Chunk),
+	{AtomTable, {Id, lists:sort(Records)}}
+    catch
+	error:_ ->
+	    error({invalid_chunk, File, chunk_name_to_id(Id, File)})
+    end;
 chunk_to_data(ChunkName, Chunk, File,
 	      Cs, AtomTable, _Mod) when is_atom(ChunkName) ->
     case catch symbols(Chunk, AtomTable, Cs, ChunkName) of
@@ -706,6 +715,7 @@ chunk_name_to_id(labeled_locals, _)  -> "LocT";
 chunk_name_to_id(attributes, _)      -> "Attr";
 chunk_name_to_id(abstract_code, _)   -> "Abst";
 chunk_name_to_id(compile_info, _)    -> "CInf";
+chunk_name_to_id(records, _)         -> "Recs";
 chunk_name_to_id(Other, File) -> 
     error({unknown_chunk, File, Other}).
 
