@@ -1017,7 +1017,7 @@ terminate(_, _, #state{terminated = true}) ->
     %% Happens when user closes the connection using ssl:close/1
     %% we want to guarantee that Transport:close has been called
     %% when ssl:close/1 returns unless it is a downgrade where
-    %% we want to guarantee that close alert is recived before 
+    %% we want to guarantee that close alert is received before
     %% returning. In both cases terminate has been run manually
     %% before run by gen_statem which will end up here
     ok;

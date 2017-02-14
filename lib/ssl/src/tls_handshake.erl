@@ -88,7 +88,7 @@ client_hello(Host, Port, ConnectionStates,
 		    #hello_extensions{}, {ssl_cipher:hash(), ssl_cipher:sign_algo()} | undefined} |
 		   #alert{}.
 %%
-%% Description: Handles a recieved hello message
+%% Description: Handles a received hello message
 %%--------------------------------------------------------------------
 hello(#server_hello{server_version = Version, random = Random,
 		    cipher_suite = CipherSuite,
