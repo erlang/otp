@@ -55,7 +55,7 @@ groups() ->
      {misc, [],
       [latin1_alias, syntax_bug1, syntax_bug2, syntax_bug3,
        pe_ref1, copyright, testXSEIF, export_simple1, export,
-       default_attrs_bug]},
+       default_attrs_bug, implicit_xml_ns, explicit_xml_ns]},
      {eventp_tests, [], [sax_parse_and_export]},
      {ticket_tests, [],
       [ticket_5998, ticket_7211, ticket_7214, ticket_7430,
@@ -238,6 +238,34 @@ default_attrs_bug(Config) ->
                                #xmlAttribute{name = a, value = "explicit"}]},
      []
     } = xmerl_scan:string(Doc2, [{default_attrs, true}]).
+
+implicit_xml_ns(Config) ->
+    {#xmlElement{attributes = [#xmlAttribute{
+        name = 'xml:lang',
+        expanded_name = {'http://www.w3.org/XML/1998/namespace', lang},
+        nsinfo = {"xml", "lang"},
+        namespace = #xmlNamespace{default = [], nodes = []}
+     }]},
+     []
+    } = xmerl_scan:string("<a xml:lang='en_US'/>", [{namespace_conformant, true}]).
+
+explicit_xml_ns(Config) ->
+    {#xmlElement{attributes = [
+      #xmlAttribute{
+        name = 'xml:lang',
+        expanded_name = {'http://www.w3.org/XML/1998/namespace', lang},
+        nsinfo = {"xml", "lang"},
+        namespace = #xmlNamespace{default = [], nodes = [{"xml", 'http://www.w3.org/XML/1998/namespace'}]}
+      },
+      #xmlAttribute{
+        name = 'xmlns:xml',
+        expanded_name = {"xmlns", "xml"},
+        nsinfo = {"xmlns", "xml"},
+        namespace = #xmlNamespace{default = [], nodes = [{"xml", 'http://www.w3.org/XML/1998/namespace'}]}
+      }
+     ]},
+     []
+    } = xmerl_scan:string("<a xml:lang='en_US' xmlns:xml='http://www.w3.org/XML/1998/namespace'/>", [{namespace_conformant, true}]).
 
 pe_ref1(Config) ->
     file:set_cwd(datadir(Config)),

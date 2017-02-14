@@ -2309,6 +2309,8 @@ expanded_name(Name, [], #xmlNamespace{default = URI}, S) ->
 expanded_name(Name, N = {"xmlns", Local}, #xmlNamespace{nodes = Ns}, S) ->
     {_, Value} = lists:keyfind(Local, 1, Ns),
     case Name of
+	'xmlns:xml' when Value =:= 'http://www.w3.org/XML/1998/namespace' ->
+	    N;
 	'xmlns:xml' when Value =/= 'http://www.w3.org/XML/1998/namespace' ->
 	    ?fatal({xml_prefix_cannot_be_redeclared, Value}, S);
 	'xmlns:xmlns' ->
@@ -2323,6 +2325,9 @@ expanded_name(Name, N = {"xmlns", Local}, #xmlNamespace{nodes = Ns}, S) ->
 		    N
 	    end
     end;
+expanded_name(_Name, {"xml", Local}, _NS, _S) ->
+    % XML namespace can be implicit.
+    {'http://www.w3.org/XML/1998/namespace', list_to_atom(Local)};
 expanded_name(_Name, {Prefix, Local}, #xmlNamespace{nodes = Ns}, S) ->
     case lists:keysearch(Prefix, 1, Ns) of
 	{value, {_, URI}} ->
