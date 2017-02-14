@@ -981,6 +981,16 @@ Erlang code.
 %% keep track of annotation info in tokens
 -define(anno(Tup), element(2, Tup)).
 
+%-define(DEBUG, true).
+
+-ifdef(DEBUG).
+%% Assumes that erl_anno has been compiled with DEBUG=true.
+-define(ANNO_CHECK(Tokens),
+        [] = [T || T <- Tokens, not is_list(element(2, T))]).
+-else.
+-define(ANNO_CHECK(Tokens), ok).
+-endif.
+
 %% Entry points compatible to old erl_parse.
 %% These really suck and are only here until Calle gets multiple
 %% entry points working.
@@ -990,10 +1000,15 @@ Erlang code.
       AbsForm :: abstract_form(),
       ErrorInfo :: error_info().
 parse_form([{'-',A1},{atom,A2,spec}|Tokens]) ->
-    parse([{'-',A1},{'spec',A2}|Tokens]);
+    NewTokens = [{'-',A1},{'spec',A2}|Tokens],
+    ?ANNO_CHECK(NewTokens),
+    parse(NewTokens);
 parse_form([{'-',A1},{atom,A2,callback}|Tokens]) ->
-    parse([{'-',A1},{'callback',A2}|Tokens]);
+    NewTokens = [{'-',A1},{'callback',A2}|Tokens],
+    ?ANNO_CHECK(NewTokens),
+    parse(NewTokens);
 parse_form(Tokens) ->
+    ?ANNO_CHECK(Tokens),
     parse(Tokens).
 
 -spec parse_exprs(Tokens) -> {ok, ExprList} | {error, ErrorInfo} when
@@ -1001,6 +1016,7 @@ parse_form(Tokens) ->
       ExprList :: [abstract_expr()],
       ErrorInfo :: error_info().
 parse_exprs(Tokens) ->
+    ?ANNO_CHECK(Tokens),
     A = erl_anno:new(0),
     case parse([{atom,A,f},{'(',A},{')',A},{'->',A}|Tokens]) of
 	{ok,{function,_Lf,f,0,[{clause,_Lc,[],[],Exprs}]}} ->
@@ -1013,6 +1029,7 @@ parse_exprs(Tokens) ->
       Term :: term(),
       ErrorInfo :: error_info().
 parse_term(Tokens) ->
+    ?ANNO_CHECK(Tokens),
     A = erl_anno:new(0),
     case parse([{atom,A,f},{'(',A},{')',A},{'->',A}|Tokens]) of
 	{ok,{function,_Af,f,0,[{clause,_Ac,[],[],[Expr]}]}} ->
