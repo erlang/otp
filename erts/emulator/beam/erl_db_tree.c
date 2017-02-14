@@ -1779,11 +1779,7 @@ static int db_select_replace_continue_tree(Process *p,
 
     lastkey = tptr[2];
     end_condition = tptr[3];
-    if (!(thing_subtag(*binary_val(tptr[4])) == REFC_BINARY_SUBTAG))
-        RET_TO_BIF(NIL,DB_ERROR_BADPARAM);
-    mp = ((ProcBin *) binary_val(tptr[4]))->val;
-    if (!IsMatchProgBinary(mp))
-        RET_TO_BIF(NIL,DB_ERROR_BADPARAM);
+    mp = erts_db_get_match_prog_binary_unchecked(tptr[4]);
 
     sc.p = p;
     sc.mp = mp;
@@ -1923,18 +1919,18 @@ static int db_select_replace_tree(Process *p, DbTable *tbl,
     key = GETKEY(tb, sc.lastobj);
     sz = size_object(key);
     if (IS_USMALL(0, sc.replaced)) {
-        hp = HAlloc(p, sz + PROC_BIN_SIZE + 6);
+        hp = HAlloc(p, sz + ERTS_MAGIC_REF_THING_SIZE + 6);
         ereplaced = make_small(sc.replaced);
     }
     else {
-        hp = HAlloc(p, BIG_UINT_HEAP_SIZE + sz + PROC_BIN_SIZE + 6);
+        hp = HAlloc(p, BIG_UINT_HEAP_SIZE + sz + ERTS_MAGIC_REF_THING_SIZE + 6);
         ereplaced = uint_to_big(sc.replaced, hp);
         hp += BIG_UINT_HEAP_SIZE;
     }
     key = copy_struct(key, sz, &hp, &MSO(p));
     if (mpi.all_objects)
         (mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
-    mpb = db_make_mp_binary(p,mpi.mp,&hp);
+    mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
 
     continuation = TUPLE5
         (hp,

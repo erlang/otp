@@ -1495,7 +1495,7 @@ static ERTS_INLINE int on_mtraversal_simple_trap(Export* trap_function,
     Eterm mpb = NIL;
     Eterm continuation = NIL;
     int is_first_trap = (prev_continuation_tptr == NULL);
-    size_t base_halloc_sz = (is_first_trap ? PROC_BIN_SIZE : 0);
+    size_t base_halloc_sz = (is_first_trap ? ERTS_MAGIC_REF_THING_SIZE : 0);
 
     BUMP_ALL_REDS(p);
     if (IS_USMALL(0, got)) {
@@ -1509,7 +1509,7 @@ static ERTS_INLINE int on_mtraversal_simple_trap(Export* trap_function,
     }
 
     if (is_first_trap) {
-        mpb = db_make_mp_binary(p, *mpp, &hp);
+        mpb = erts_db_make_match_prog_ref(p, *mpp, &hp);
         *mpp = NULL; /* otherwise the caller will destroy it */
     }
     else {
@@ -1539,17 +1539,14 @@ static ERTS_INLINE int unpack_simple_mtraversal_continuation(Eterm continuation,
     if (arityval(*tptr) != 4)
         return 1;
 
-    if (! is_small(tptr[2])
-            || !(is_binary(tptr[3]) && thing_subtag(*binary_val(tptr[3])) == REFC_BINARY_SUBTAG)
-            || !(is_big(tptr[4]) || is_small(tptr[4])))
-    {
+    if (! is_small(tptr[2]) || !(is_big(tptr[4]) || is_small(tptr[4]))) {
         return 1;
     }
 
     *tptr_ptr = tptr;
     *tid_ptr = tptr[1];
     *slot_ix_p = unsigned_val(tptr[2]);
-    *mpp = ((ProcBin *) binary_val(tptr[3]))->val;
+    *mpp = erts_db_get_match_prog_binary_unchecked(tptr[3]);
     if (is_big(tptr[4])) {
         *got_p = big_to_uint32(tptr[4]);
     }
@@ -1629,8 +1626,8 @@ static int mtraversal_select_chunk_on_loop_ended(void* context_ptr, Sint slot_ix
                                              been in 'user space' */
             }
             if (rest != NIL || slot_ix >= 0) { /* Need more calls */
-                sc_context_ptr->hp = HAlloc(sc_context_ptr->p, 3 + 7 + PROC_BIN_SIZE);
-                mpb = db_make_mp_binary(sc_context_ptr->p, *mpp, &sc_context_ptr->hp);
+                sc_context_ptr->hp = HAlloc(sc_context_ptr->p, 3 + 7 + ERTS_MAGIC_REF_THING_SIZE);
+                mpb = erts_db_make_match_prog_ref(sc_context_ptr->p, *mpp, &sc_context_ptr->hp);
                 continuation = TUPLE6(
                         sc_context_ptr->hp,
                         sc_context_ptr->tid,
@@ -1671,8 +1668,8 @@ static int mtraversal_select_chunk_on_trap(void* context_ptr, Sint slot_ix, Sint
 
     if (sc_context_ptr->prev_continuation_tptr == NULL) {
         /* First time we're trapping */
-        hp = HAlloc(sc_context_ptr->p, 7 + PROC_BIN_SIZE);
-        mpb = db_make_mp_binary(sc_context_ptr->p, *mpp, &hp);
+        hp = HAlloc(sc_context_ptr->p, 7 + ERTS_MAGIC_REF_THING_SIZE);
+        mpb = erts_db_make_match_prog_ref(sc_context_ptr->p, *mpp, &hp);
         continuation = TUPLE6(
                 hp,
                 sc_context_ptr->tid,
@@ -1807,16 +1804,14 @@ static int db_select_continue_hash(Process* p, DbTable* tbl, Eterm continuation,
     if (arityval(*tptr) != 6)
         return DB_ERROR_BADPARAM;
 
-    if (!is_small(tptr[2]) || !is_small(tptr[3]) || !is_binary(tptr[4]) ||
+    if (!is_small(tptr[2]) || !is_small(tptr[3]) ||
             !(is_list(tptr[5]) || tptr[5] == NIL) || !is_small(tptr[6]))
         return DB_ERROR_BADPARAM;
     if ((chunk_size = signed_val(tptr[3])) < 0)
         return DB_ERROR_BADPARAM;
-    if (!(thing_subtag(*binary_val(tptr[4])) == REFC_BINARY_SUBTAG))
-        return DB_ERROR_BADPARAM;
 
-    mp = ((ProcBin *) binary_val(tptr[4]))->val;
-    if (!IsMatchProgBinary(mp))
+    mp = erts_db_get_match_prog_binary(tptr[4]);
+    if (mp == NULL)
         return DB_ERROR_BADPARAM;
 
     if ((got = signed_val(tptr[6])) < 0)
