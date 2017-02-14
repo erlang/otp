@@ -99,17 +99,22 @@ dialyzer_suppressions(Erules) ->
 pgen_typeorval(Erules,Module,N2nConvEnums,{Types,Values,_Ptypes,_Classes,Objects,ObjectSets}) ->
     Rtmod = ct_gen_module(Erules),
     pgen_types(Rtmod,Erules,N2nConvEnums,Module,Types),
-    pgen_values(Erules,Module,Values),
+    pgen_values(Values, Module),
     pgen_objects(Rtmod,Erules,Module,Objects),
     pgen_objectsets(Rtmod,Erules,Module,ObjectSets),
     pgen_partial_decode(Rtmod,Erules,Module).
 
-pgen_values(_,_,[]) ->
-    true;
-pgen_values(Erules,Module,[H|T]) ->
-    Valuedef = asn1_db:dbget(Module,H),
-    gen_value(Valuedef),
-    pgen_values(Erules,Module,T).
+%% Generate a function 'V'/0 for each Value V defined in the ASN.1 module.
+%% The function returns the value in an Erlang representation which can be
+%% used as input to the runtime encode functions.
+
+pgen_values([H|T], Module) ->
+    #valuedef{name=Name,value=Value} = asn1_db:dbget(Module, H),
+    emit([{asis,Name},"() ->",nl,
+          {asis,Value},".",nl,nl]),
+    pgen_values(T, Module);
+pgen_values([], _) ->
+    ok.
 
 pgen_types(_, _, _, _, []) ->
     true;
@@ -572,18 +577,6 @@ un_hyphen_var([H|T]) ->
     [H|un_hyphen_var(T)];
 un_hyphen_var([]) ->
     [].
-
-%% Generate value functions ***************
-%% ****************************************
-%% Generates a function 'V'/0 for each Value V defined in the ASN.1 module
-%% the function returns the value in an Erlang representation which can be
-%% used as  input to the runtime encode functions
-
-gen_value(Value) when is_record(Value,valuedef) ->
-%%    io:format(" ~w ",[Value#valuedef.name]),
-    emit({"'",Value#valuedef.name,"'() ->",nl}),
-    V = Value#valuedef.value,
-    emit([{asis,V},".",nl,nl]).
 
 gen_encode_constructed(Erules,Typename,InnerType,D) when is_record(D,type) ->
     Rtmod = ct_constructed_module(Erules),
