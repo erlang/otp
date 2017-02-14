@@ -647,74 +647,27 @@ pgen_exports(#gen{options=Options}=Gen, _Module, Contents) ->
     emit(["-export([encoding_rule/0,maps/0,bit_string_format/0,",nl,
 	  "         legacy_erlang_types/0]).",nl]),
     emit(["-export([",{asis,?SUPPRESSION_FUNC},"/1]).",nl]),
-    case Types of
-	[] -> ok;
-	_ ->
-	    emit({"-export([",nl}),
-	    case Gen of
-		#gen{erule=ber} ->
-		    gen_exports1(Types,"enc_",2);
-		_ ->
-		    gen_exports1(Types,"enc_",1)
-	    end,
-	    emit({"-export([",nl}),
-	    case Gen of
-		#gen{erule=ber} ->
-		    gen_exports1(Types, "dec_", 2);
-		_ ->
-		    gen_exports1(Types, "dec_", 1)
-	    end
+    case Gen of
+        #gen{erule=ber} ->
+            gen_exports(Types, "enc_", 2),
+            gen_exports(Types, "dec_", 2),
+            gen_exports(Objects, "enc_", 3),
+            gen_exports(Objects, "dec_", 3),
+            gen_exports(ObjectSets, "getenc_", 1),
+            gen_exports(ObjectSets, "getdec_", 1);
+        #gen{erule=per} ->
+            gen_exports(Types, "enc_", 1),
+            gen_exports(Types, "dec_", 1)
     end,
-    case [X || {n2n,X} <- Options] of
-	[] -> ok;
-	A2nNames ->
-	    emit({"-export([",nl}),
-	    gen_exports1(A2nNames,"name2num_",1),
-	    emit({"-export([",nl}),
-	    gen_exports1(A2nNames,"num2name_",1)	    
-    end,
-    case Values of
-	[] -> ok;
-	_ ->
-	    emit({"-export([",nl}),
-	    gen_exports1(Values,"",0)
-    end,
-    case Objects of
-	[] -> ok;
-	_ ->
-            case Gen of
-                #gen{erule=per} ->
-                    ok;
-                #gen{erule=ber} ->
-		    emit({"-export([",nl}),
-		    gen_exports1(Objects,"enc_",3),
-		    emit({"-export([",nl}),
-		    gen_exports1(Objects,"dec_",3)
-	    end
-    end,
-    case ObjectSets of
-	[] -> ok;
-	_ ->
-            case Gen of
-                #gen{erule=per} ->
-                    ok;
-                #gen{erule=ber} ->
-		    emit({"-export([",nl}),
-		    gen_exports1(ObjectSets, "getenc_",1),
-		    emit({"-export([",nl}),
-		    gen_exports1(ObjectSets, "getdec_",1)
-	    end
-    end,
-    emit({"-export([info/0]).",nl}),
-    gen_partial_inc_decode_exports(),
-    gen_selected_decode_exports(),
-    emit({nl,nl}).
 
-gen_exports1([F1,F2|T],Prefix,Arity) ->
-	emit({"'",Prefix,F1,"'/",Arity,com,nl}),
-	gen_exports1([F2|T],Prefix,Arity);
-gen_exports1([Flast|_T],Prefix,Arity) ->
-	emit({"'",Prefix,Flast,"'/",Arity,nl,"]).",nl,nl}).
+    A2nNames = [X || {n2n,X} <- Options],
+    gen_exports(A2nNames, "name2num_", 1),
+    gen_exports(A2nNames, "num2name_", 1),
+
+    gen_exports(Values, "", 0),
+    emit(["-export([info/0]).",nl,nl]),
+    gen_partial_inc_decode_exports(),
+    gen_selected_decode_exports().
 
 gen_partial_inc_decode_exports() ->
     case {asn1ct:read_config_data(partial_incomplete_decode),
@@ -723,45 +676,32 @@ gen_partial_inc_decode_exports() ->
 	    ok;
 	{_,undefined} ->
 	    ok;
-	{Data,_} ->
-	    gen_partial_inc_decode_exports0(Data),
-	    emit(["-export([decode_part/2]).",nl])
+	{Data0,_} ->
+            Data = [Name || {Name,_,_} <- Data0],
+            gen_exports(Data, "", 1),
+            emit(["-export([decode_part/2]).",nl,nl])
     end.
-
-gen_partial_inc_decode_exports0([]) ->
-    ok;
-gen_partial_inc_decode_exports0([{Name,_,_}|Rest]) ->
-    emit(["-export([",Name,"/1"]),
-    gen_partial_inc_decode_exports1(Rest);
-gen_partial_inc_decode_exports0([_|Rest]) ->
-    gen_partial_inc_decode_exports0(Rest).
-
-gen_partial_inc_decode_exports1([]) ->
-    emit(["]).",nl]);
-gen_partial_inc_decode_exports1([{Name,_,_}|Rest]) ->
-    emit([", ",Name,"/1"]),
-    gen_partial_inc_decode_exports1(Rest);
-gen_partial_inc_decode_exports1([_|Rest]) ->
-    gen_partial_inc_decode_exports1(Rest).
 
 gen_selected_decode_exports() ->
     case asn1ct:get_gen_state_field(type_pattern) of
 	undefined ->
 	    ok;
-	L ->
-	   gen_selected_decode_exports(L)
+	Data0 ->
+            Data = [Name || {Name,_} <- Data0],
+            gen_exports(Data, "", 1)
     end.
 
-gen_selected_decode_exports([]) ->
+gen_exports([], _Prefix, _Arity) ->
     ok;
-gen_selected_decode_exports([{FuncName,_}|Rest]) ->
-    emit(["-export([",FuncName,"/1"]),
-    gen_selected_decode_exports1(Rest).
-gen_selected_decode_exports1([]) ->
-    emit(["]).",nl,nl]);
-gen_selected_decode_exports1([{FuncName,_}|Rest]) ->
-    emit([",",nl,"          ",FuncName,"/1"]),
-    gen_selected_decode_exports1(Rest).
+gen_exports([_|_]=L0, Prefix, Arity) ->
+    FF = fun(F0) ->
+                 F = list_to_atom(lists:concat([Prefix,F0])),
+                 [{asis,F},"/",Arity]
+         end,
+    L = lists:join(",\n", [FF(F) || F <- L0]),
+    emit(["-export([",nl,
+          L,nl,
+          "]).",nl,nl]).
 
 pgen_dispatcher(Erules, {[],_Values,_,_,_Objects,_ObjectSets}) ->
     gen_info_functions(Erules);
