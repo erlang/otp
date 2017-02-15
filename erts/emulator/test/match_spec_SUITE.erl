@@ -646,7 +646,7 @@ destructive_in_test_bif(Config) when is_list(Config) ->
 			       ([],[{'_',[],[{message,{get_tcw}}]}],trace),
     ok.
 
-%% Test that the comparision between boxed and small does not crash emulator
+%% Test that the comparison between boxed and small does not crash emulator
 boxed_and_small(Config) when is_list(Config) ->
     {ok, Node} = start_node(match_spec_suite_other),
     ok = rpc:call(Node,?MODULE,do_boxed_and_small,[]),

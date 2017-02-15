@@ -838,7 +838,7 @@ no_live_killing(Config) when is_list(Config) ->
 %% sends TCP RST at wrong time
 socket_reset_before_alive2_reply_is_written(Config) when is_list(Config) ->
     %% - delay_write for easier triggering of race condition
-    %% - relaxed_command_check for gracefull shutdown of epmd even if there
+    %% - relaxed_command_check for graceful shutdown of epmd even if there
     %%   is stuck node.
     ok = epmdrun("-delay_write 1 -relaxed_command_check"),
 

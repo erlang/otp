@@ -294,7 +294,7 @@ read(Pid, Handle, Len) ->
 read(Pid, Handle, Len, FileOpTimeout) ->
     call(Pid, {read,false,Handle, Len}, FileOpTimeout).
 
-%% TODO this ought to be a cast! Is so in all practial meaning
+%% TODO this ought to be a cast! Is so in all practical meaning
 %% even if it is obscure!
 apread(Pid, Handle, Offset, Len) ->
     call(Pid, {pread,true,Handle, Offset, Len}, infinity).
@@ -313,12 +313,12 @@ write(Pid, Handle, Data) ->
 write(Pid, Handle, Data, FileOpTimeout) ->
     call(Pid, {write,false,Handle,Data}, FileOpTimeout).
 
-%% TODO this ought to be a cast! Is so in all practial meaning
+%% TODO this ought to be a cast! Is so in all practical meaning
 %% even if it is obscure!
 apwrite(Pid, Handle, Offset, Data) ->
     call(Pid, {pwrite,true,Handle,Offset,Data}, infinity).
 
-%% TODO this ought to be a cast!  Is so in all practial meaning
+%% TODO this ought to be a cast!  Is so in all practical meaning
 %% even if it is obscure!
 awrite(Pid, Handle, Data) ->
     call(Pid, {write,true,Handle,Data}, infinity).

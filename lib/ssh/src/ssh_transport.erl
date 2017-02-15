@@ -481,7 +481,7 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request_old{n = NBits},
     %% This message was in the draft-00 of rfc4419
     %% (https://tools.ietf.org/html/draft-ietf-secsh-dh-group-exchange-00)
     %% In later drafts and the rfc is "is used for backward compatibility".
-    %% Unfortunatly the rfc does not specify how to treat the parameter n
+    %% Unfortunately the rfc does not specify how to treat the parameter n
     %% if there is no group of that modulus length :(
     %% The draft-00 however specifies that n is the "... number of bits
     %% the subgroup should have at least".

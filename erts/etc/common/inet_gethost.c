@@ -2717,7 +2717,7 @@ BOOL close_mesq(MesQ *q)
 	LeaveCriticalSection(&(q->crit));
 	return FALSE;
     }
-    /* Noone else is supposed to use this object any more */
+    /* No one else is supposed to use this object any more */
     LeaveCriticalSection(&(q->crit));
     DeleteCriticalSection(&(q->crit));
     CloseHandle(q->data_present);

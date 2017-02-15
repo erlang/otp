@@ -1265,7 +1265,7 @@ make_change_table_copy_type(Tab, Node, ToS) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% change index functions ....
-%% Pos is allready added by 1 in both of these functions
+%% Pos is already added by 1 in both of these functions
 
 add_table_index(Tab, Pos) ->
     schema_transaction(fun() -> do_add_table_index(Tab, Pos) end).

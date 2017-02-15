@@ -356,7 +356,7 @@ handle_info(T, #state{} = State) ->
 
 %% Note that there's no guarantee that the service and transport
 %% capabilities are good enough to build a CER/CEA that can be
-%% succesfully encoded. It's not checked at diameter:add_transport/2
+%% successfully encoded. It's not checked at diameter:add_transport/2
 %% since this can be called before creating the service.
 
 %% terminate/2

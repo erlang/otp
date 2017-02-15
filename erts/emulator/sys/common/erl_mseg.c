@@ -378,7 +378,7 @@ static ERTS_INLINE int cache_bless_segment(ErtsMsegAllctr_t *ma, void *seg, UWor
 
     ASSERT(!MSEG_FLG_IS_2POW(flags) || (MSEG_FLG_IS_2POW(flags) && MAP_IS_ALIGNED(seg) && IS_2POW(size)));
 
-    /* The idea is that sbc caching is prefered over mbc caching.
+    /* The idea is that sbc caching is preferred over mbc caching.
      * Blocks are normally allocated in mb carriers and thus cached there.
      * Large blocks has no such cache and it is up to mseg to cache them to speed things up.
      */

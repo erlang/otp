@@ -53,7 +53,7 @@ store_directory_data(Directory, DirData) ->
 %% API
 %%
 
-%% Compability API
+%% Compatibility API
 
 
 store_user(UserName, Password, Port, Dir, AccessPassword) ->

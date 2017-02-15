@@ -393,7 +393,7 @@ init_connection_state_seq(_, ConnnectionStates) ->
 					    integer().
 %%
 %% Description: Returns the epoch the connection_state record
-%% that is currently defined as the current conection state.
+%% that is currently defined as the current connection state.
 %%--------------------------------------------------------------------
 current_connection_state_epoch(#{current_read := #{epoch := Epoch}},
 			       read) ->

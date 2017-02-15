@@ -82,7 +82,7 @@ base64_decode(Config) when is_list(Config) ->
     Alphabet = list_to_binary(lists:seq(0, 255)),
     Alphabet = base64:decode(base64:encode(Alphabet)),
 
-    %% Encoded base 64 strings may be devided by non base 64 chars.
+    %% Encoded base 64 strings may be divided by non base 64 chars.
     %% In this cases whitespaces.
     "0123456789!@#0^&*();:<>,. []{}" =
 	base64:decode_to_string(

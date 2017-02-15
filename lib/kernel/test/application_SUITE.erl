@@ -1498,7 +1498,7 @@ otp_5363(Conf) when is_list(Conf) ->
 %% Ticket: OTP-5606
 %% Slogan: Problems with starting a distributed application
 %%-----------------------------------------------------------------
-%% Test of several processes simultanously starting the same
+%% Test of several processes simultaneously starting the same
 %% distributed application.
 otp_5606(Conf) when is_list(Conf) ->
 

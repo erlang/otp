@@ -2875,7 +2875,7 @@ document etp-disasm
 %---------------------------------------------------------------------------
 % etp-disasm StartI EndI
 %
-% Disassemble the code inbetween StartI and EndI
+% Disassemble the code between StartI and EndI
 %---------------------------------------------------------------------------
 end
 

@@ -132,7 +132,7 @@ local_to_univ_utc(Config) when is_list(Config) ->
     end.
 
 
-%% Tests conversion from univeral to local time.
+%% Tests conversion from universal to local time.
 
 univ_to_local(Config) when is_list(Config) ->
     test_univ_to_local(test_data()).

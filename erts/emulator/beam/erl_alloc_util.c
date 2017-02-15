@@ -5186,7 +5186,7 @@ erts_alcu_sz_info(Allctr_t *allctr,
 
     ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
 
-    /* Update sbc values not continously updated */
+    /* Update sbc values not continuously updated */
     allctr->sbcs.blocks.curr.no
 	= allctr->sbcs.curr.norm.mseg.no + allctr->sbcs.curr.norm.sys_alloc.no;
     allctr->sbcs.blocks.max.no = allctr->sbcs.max.no;
@@ -5272,7 +5272,7 @@ erts_alcu_info(Allctr_t *allctr,
 
     ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
 
-    /* Update sbc values not continously updated */
+    /* Update sbc values not continuously updated */
     allctr->sbcs.blocks.curr.no
 	= allctr->sbcs.curr.norm.mseg.no + allctr->sbcs.curr.norm.sys_alloc.no;
     allctr->sbcs.blocks.max.no = allctr->sbcs.max.no;

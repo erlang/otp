@@ -22,7 +22,7 @@
 
 -record(hostent,
 	{
-	 h_name		  :: inet:hostname(),	%% offical name of host
+	 h_name		  :: inet:hostname(),	%% official name of host
 	 h_aliases = []   :: [inet:hostname()],	%% alias list
 	 h_addrtype	  :: 'inet' | 'inet6',	%% host address type
 	 h_length	  :: non_neg_integer(),	%% length of address

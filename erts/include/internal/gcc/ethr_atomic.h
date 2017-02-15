@@ -28,7 +28,7 @@
  *
  *       Due to this we cannot use the __ATOMIC_SEQ_CST
  *       memory model. For more information see the comment
- *       in the begining of ethr_membar.h in this directory.
+ *       in the beginning of ethr_membar.h in this directory.
  */
 
 #undef ETHR_INCLUDE_ATOMIC_IMPL__

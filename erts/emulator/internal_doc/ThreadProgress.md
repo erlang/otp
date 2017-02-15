@@ -60,7 +60,7 @@ threads are managed threads.
 ### Thread Progress Events ###
 
 Any thread in the system may use the thread progress functionality in
-order to determine when the following events have occured at least
+order to determine when the following events have occurred at least
 once in all managed threads:
 
 1.  The thread has returned from other code to a known state in the
@@ -160,7 +160,7 @@ calling the following functions:
 *   `int erts_thr_progress_leader_update(ErtsSchedulerData *esdp)` -
     Leader update thread progress.
 
-Unmanaged threads can delay thread progress beeing made:
+Unmanaged threads can delay thread progress being made:
 
 *   `ErtsThrPrgrDelayHandle erts_thr_progress_unmanaged_delay(void)` -
     Delay thread progress.
@@ -251,7 +251,7 @@ doing so. If not zero, the leader isn't allowed to increment the
 global counter, and needs to wait before it can do this. When it is
 zero, it swaps the `waiting` and `current` counters before increasing
 the global counter. From now on the new `waiting` counter will
-decrease, so that it eventualy will reach zero, making it possible to
+decrease, so that it eventually will reach zero, making it possible to
 increment the global counter the next time. If we only used one
 reference counter it would potentially be held above zero for ever by
 different unmanaged threads.
@@ -261,7 +261,7 @@ prevent the next increment of the global counter, but instead the
 increment after that. This is sufficient since the global counter
 needs to be incremented two times before thread progress has been
 made. It is also desirable not to prevent the first increment, since
-the likelyhood increases that the delay is withdrawn before any
+the likelihood increases that the delay is withdrawn before any
 increment of the global counter is delayed. That is, the operation
 will cause as little disruption as possible.
 

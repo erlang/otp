@@ -1502,7 +1502,7 @@ static time_t gregday(int year, int month, int day)
     pyear = gyear - 1;
     ndays = (pyear/4) - (pyear/100) + (pyear/400) + pyear*365 + 366;
   }
-  /* number of days in all months preceeding month */
+  /* number of days in all months preceding month */
   for (m = 1; m < month; m++)
     ndays += mdays[m];
   /* Extra day if leap year and March or later */

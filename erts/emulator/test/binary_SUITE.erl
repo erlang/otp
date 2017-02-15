@@ -1008,7 +1008,7 @@ ordering(Config) when is_list(Config) ->
 
     ok.
 
-%% Test that comparisions between binaries with different alignment work.
+%% Test that comparison between binaries with different alignment work.
 unaligned_order(Config) when is_list(Config) ->
     L = lists:seq(0, 7),
     [test_unaligned_order(I, J) || I <- L, J <- L], 

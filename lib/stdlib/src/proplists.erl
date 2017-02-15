@@ -83,7 +83,7 @@ property(Key, Value) ->
 
 %% ---------------------------------------------------------------------
 
-%% @doc Unfolds all occurences of atoms in <code>ListIn</code> to tuples
+%% @doc Unfolds all occurrences of atoms in <code>ListIn</code> to tuples
 %% <code>{Atom, true}</code>.
 %%
 %% @see compact/1

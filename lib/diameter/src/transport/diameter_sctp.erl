@@ -402,7 +402,7 @@ handle_info(T, #transport{} = S) ->
 handle_info(T, #listener{} = S) ->
     {noreply, #listener{} = l(T,S)}.
 
-%% Prior to the possiblity of setting pool_size on in transport
+%% Prior to the possibility of setting pool_size on in transport
 %% configuration, a new accepting transport was only started following
 %% the death of a predecessor, so that there was only at most one
 %% previously started transport process waiting for an association.

@@ -35,7 +35,7 @@
 %% in a callback applied to the atom-valued callback name and argument
 %% list. For all callbacks not to this module, the 'extra' field is a
 %% list of additional arguments, following arguments supplied by
-%% diameter but preceeding those of the diameter:evaluable() being
+%% diameter but preceding those of the diameter:evaluable() being
 %% applied.
 %%
 %% For example, the following config to diameter:start_service/2, in

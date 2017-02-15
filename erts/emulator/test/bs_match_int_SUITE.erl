@@ -247,7 +247,7 @@ match_huge_int(Config) when is_list(Config) ->
 	8 ->
 	    %% An attempt will be made to allocate heap space for
 	    %% the bignum (which will probably fail); only if the
-	    %% allocation succeds will the matching fail because
+	    %% allocation succeeds will the matching fail because
 	    %% the binary is too small.
 	    ok
     end,

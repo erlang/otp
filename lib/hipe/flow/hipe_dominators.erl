@@ -317,7 +317,7 @@ updateCell(Value, Field, WD) ->
 %%>----------------------------------------------------------------------<
 %% Procedure : dfs/1
 %% Purpose   : The main purpose of this function is to traverse the CFG in
-%%             a depth first order. It is aslo used to initialize certain 
+%%             a depth first order. It is also used to initialize certain
 %%             elements defined in a workDataCell.
 %% Arguments : CFG - a Control Flow Graph representation
 %% Returns   : A table (WorkData) and the total number of elements in

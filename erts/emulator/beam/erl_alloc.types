@@ -65,7 +65,7 @@
 
 # --- Allocator declarations -------------------------------------------------
 #
-# If, and only if, the same thread performes *all* allocations,
+# If, and only if, the same thread performs *all* allocations,
 # reallocations and deallocations of all memory types that are handled
 # by a specific allocator (<ALLOCATOR> in type declaration), set 
 # <MULTI_THREAD> for this specific allocator to false; otherwise, set

@@ -102,7 +102,7 @@ new_binary(Process *p, byte *buf, Uint len)
     pb->flags = 0;
 
     /*
-     * Miscellanous updates. Return the tagged binary.
+     * Miscellaneous updates. Return the tagged binary.
      */
     OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
     return make_binary(pb);
@@ -139,7 +139,7 @@ Eterm erts_new_mso_binary(Process *p, byte *buf, Uint len)
     pb->flags = 0;
 
     /*
-     * Miscellanous updates. Return the tagged binary.
+     * Miscellaneous updates. Return the tagged binary.
      */
     OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
     return make_binary(pb);

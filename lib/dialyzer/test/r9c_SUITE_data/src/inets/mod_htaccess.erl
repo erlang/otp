@@ -272,10 +272,10 @@ controlIfAllowed(AllowedNetworks,UserNetwork,IfAllowed,IfDenied)->
     end.
 
 
-%---------------------------------------------------------------------%
-%The Denycontrol isn't neccessary to preform since the allow control  %
-%override the deny control                                            %
-%---------------------------------------------------------------------%
+%--------------------------------------------------------------------%
+%The Denycontrol isn't necessary to preform since the allow control  %
+%override the deny control                                           %
+%--------------------------------------------------------------------%
 controlDenyAllow(DeniedNetworks,AllowedNetworks,UserNetwork)->
     case AllowedNetworks of
 	[{allow,all}]->
@@ -657,7 +657,7 @@ getData2(HtAccessFileNames,SplittedPath,Info)->
 
 %----------------------------------------------------------------------
 %HtAccessFilenames is a list the names the accesssfiles can have
-%Path is the shortest match agains all alias and documentroot
+%Path is the shortest match against all alias and documentroot
 %rest of splitted path is a list of the parts of the path
 %Info is the mod recod from the server
 %----------------------------------------------------------------------

@@ -1363,7 +1363,7 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
 		{{Tag, PatTypes}, false};
 	      false ->
 		%% Try to find out if this is a default clause in a list
-		%% comprehension and supress this. A real Hack(tm)
+		%% comprehension and suppress this. A real Hack(tm)
 		Force0 =
 		  case is_compiler_generated(cerl:get_ann(C)) of
 		    true ->

@@ -3431,7 +3431,7 @@ void erts_init_io(int port_tab_size,
 			 NULL,
 			 (ErtsPTabElementCommon *) &erts_invalid_port.common,
 			 port_tab_size,
-			 common_element_size, /* Doesn't need to be excact */
+			 common_element_size, /* Doesn't need to be exact */
 			 "port_table",
 			 legacy_port_tab,
 			 1);

@@ -4591,7 +4591,7 @@ RealSystem = system + MissedSystem</code>
         <p>If the process potentially can get many messages,
           you are advised to set the flag to <c>off_heap</c>. This
           because a garbage collection with many messages placed on
-          the heap can become extremly expensive and the process can
+          the heap can become extremely expensive and the process can
           consume large amounts of memory. Performance of the
           actual message passing is however generally better when not
           using flag <c>off_heap</c>.</p>

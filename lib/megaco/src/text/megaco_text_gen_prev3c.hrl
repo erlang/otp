@@ -434,7 +434,7 @@ enc_TransactionReply(#'TransactionReply'{transactionId        = Tid,
 					 transactionResult    = Res, 
 					 %% These fields are actually not 
 					 %% supported in this implementation,
-					 %% but because the messanger module
+					 %% but because the messenger module
 					 %% cannot see any diff between the
 					 %% various v3 implementations...
    					 segmentNumber        = asn1_NOVALUE,

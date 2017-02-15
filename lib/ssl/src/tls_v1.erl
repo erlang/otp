@@ -407,7 +407,7 @@ is_pair(Hash, rsa, Hashs) ->
     AtLeastMd5 = Hashs -- [md2,md4],
     lists:member(Hash, AtLeastMd5).
 
-%% list ECC curves in prefered order
+%% list ECC curves in preferred order
 -spec ecc_curves(1..3 | all) -> [named_curve()].
 ecc_curves(all) ->
     [sect571r1,sect571k1,secp521r1,brainpoolP512r1,
