@@ -216,7 +216,8 @@ per_enc_legacy_bit_string(Val0, NNL0, Constraint0, Aligned) ->
 per_enc_boolean(Val0, _Aligned) ->
     {B,[Val]} = mk_vars(Val0, []),
     B++build_cond([[{eq,Val,false},{put_bits,0,1,[1]}],
-		   [{eq,Val,true},{put_bits,1,1,[1]}]]).
+		   [{eq,Val,true},{put_bits,1,1,[1]}],
+                   ['_',{error,{illegal_boolean,Val}}]]).
 
 per_enc_choice(Val0, Cs0, _Aligned) ->
     {B,[Val]} = mk_vars(Val0, []),
@@ -237,7 +238,7 @@ per_enc_enumerated(Val0, Root, Aligned) ->
     B++[{'cond',Cs++enumerated_error(Val)}].
 
 enumerated_error(Val) ->
-    [['_',{error,Val}]].
+    [['_',{error,{illegal_enumerated,Val}}]].
 
 per_enc_integer(Val0, Constraint0, Aligned) ->
     {B,[Val]} = mk_vars(Val0, []),
@@ -1107,7 +1108,7 @@ per_enc_integer_1(Val0, [{{_,_}=Constr,[]}], Aligned) ->
 per_enc_integer_1(Val0, [Constr], Aligned) ->
     {Prefix,Check,Action} = per_enc_integer_2(Val0, Constr, Aligned),
     Prefix++build_cond([[Check|Action],
-			['_',{error,Val0}]]).
+			['_',{error,{illegal_integer,Val0}}]]).
 
 per_enc_integer_2(Val, {'SingleValue',Sv}, Aligned) when is_integer(Sv) ->
     per_enc_constrained(Val, Sv, Sv, Aligned);
@@ -2353,9 +2354,9 @@ enc_cg({'cond',Cs}) ->
     enc_cg_cond(Cs);
 enc_cg({error,Error}) when is_function(Error, 0) ->
     Error();
-enc_cg({error,Var0}) ->
+enc_cg({error,{Tag,Var0}}) ->
     Var = mk_val(Var0),
-    emit(["exit({error,{asn1,{illegal_value,",Var,"}}})"]);
+    emit(["exit({error,{asn1,{",Tag,",",Var,"}}})"]);
 enc_cg({integer,Int}) ->
     emit(mk_val(Int));
 enc_cg({lc,Body,Var,List}) ->

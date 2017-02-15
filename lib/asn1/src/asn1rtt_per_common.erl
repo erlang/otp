@@ -140,6 +140,8 @@ encode_relative_oid(Val) when is_tuple(Val) ->
 encode_relative_oid(Val) when is_list(Val) ->
     list_to_binary([e_object_element(X)||X <- Val]).
 
+encode_unconstrained_number(Val) when not is_integer(Val) ->
+    exit({error,{asn1,{illegal_integer,Val}}});
 encode_unconstrained_number(Val) when Val >= 0 ->
     if
 	Val < 16#80 ->
