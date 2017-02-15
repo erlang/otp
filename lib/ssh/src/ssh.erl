@@ -317,6 +317,7 @@ start_daemon(Socket, Options) ->
 			do_start_daemon(Socket, [{role,server}|SshOptions], SocketOptions)
 		    catch
 			throw:bad_fd -> {error,bad_fd};
+			throw:bad_socket -> {error,bad_socket};
 			_C:_E -> {error,{cannot_start_daemon,_C,_E}}
 		    end;
 		{error,SockError} ->
@@ -333,6 +334,7 @@ start_daemon(Host, Port, Options, Inet) ->
 		do_start_daemon(Host, Port, [{role,server}|SshOptions] , [Inet|SocketOptions])
 	    catch
 		throw:bad_fd -> {error,bad_fd};
+		throw:bad_socket -> {error,bad_socket};
 		_C:_E -> {error,{cannot_start_daemon,_C,_E}}
 	    end
     end.
