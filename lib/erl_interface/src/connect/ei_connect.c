@@ -497,7 +497,8 @@ int ei_connect_init(ei_cnode* ec, const char* this_node_name,
     }
 #endif /* _REENTRANT */
     
-    if (gethostname(thishostname, EI_MAXHOSTNAMELEN) == -1) {
+    /* gethostname requires len to be max(hostname) + 1 */
+    if (gethostname(thishostname, EI_MAXHOSTNAMELEN+1) == -1) {
 #ifdef __WIN32__
 	EI_TRACE_ERR1("ei_connect_init","Failed to get host name: %d",
 		      WSAGetLastError());
@@ -613,7 +614,8 @@ int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms)
     hp = ei_gethostbyname_r(hostname,&host,buffer,1024,&ei_h_errno);
     if (hp == NULL) {
 	char thishostname[EI_MAXHOSTNAMELEN+1];
-	if (gethostname(thishostname,EI_MAXHOSTNAMELEN) < 0) {
+        /* gethostname requies len to be max(hostname) + 1*/
+	if (gethostname(thishostname,EI_MAXHOSTNAMELEN+1) < 0) {
 	    EI_TRACE_ERR0("ei_connect_tmo",
 			  "Failed to get name of this host");
 	    erl_errno = EHOSTUNREACH;
@@ -636,7 +638,8 @@ int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms)
 #else /* __WIN32__ */
     if ((hp = ei_gethostbyname(hostname)) == NULL) {
 	char thishostname[EI_MAXHOSTNAMELEN+1];
-	if (gethostname(thishostname,EI_MAXHOSTNAMELEN) < 0) {
+        /* gethostname requires len to be max(hostname) + 1 */
+	if (gethostname(thishostname,EI_MAXHOSTNAMELEN+1) < 0) {
 	    EI_TRACE_ERR1("ei_connect_tmo",
 			  "Failed to get name of this host: %d", 
 			  WSAGetLastError());
