@@ -266,6 +266,10 @@ asn1ct:compile("H323-MESSAGES.asn1",[per]).      </pre>
         <c>{error, {asn1, Description}}</c> where
         <c>Description</c> is
         an Erlang term describing the error.</p>
+	<p>Currently, <c>Description</c> looks like this:
+	<c>{ErrorDescription, StackTrace}</c>. Applications should
+	not depend on the exact contents of <c>Description</c> as it
+	could change in the future.</p>
     </section>
   </section>
 

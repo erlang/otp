@@ -195,7 +195,8 @@ roundtrip(Type, Value, ExpectedValue) ->
 enc_error(T, V) ->
     case get(no_ok_wrapper) of
 	false ->
-	    {error,{asn1,Reason}} = 'Prim':encode(T, V),
+	    {error,{asn1,{Reason,Stk}}} = 'Prim':encode(T, V),
+            [{_,_,_,_}|_] = Stk,
             Reason;
 	true ->
 	    try 'Prim':encode(T, V) of

@@ -802,11 +802,12 @@ result_line_1(Items) ->
 try_catch() ->
     ["  catch",nl,
      "    Class:Exception when Class =:= error; Class =:= exit ->",nl,
+     "      Stk = erlang:get_stacktrace(),",nl,
      "      case Exception of",nl,
-     "        {error,Reason}=Error ->",nl,
-     "          Error;",nl,
+     "        {error,{asn1,Reason}} ->",nl,
+     "          {error,{asn1,{Reason,Stk}}};",nl,
      "        Reason ->",nl,
-     "         {error,{asn1,Reason}}",nl,
+     "         {error,{asn1,{Reason,Stk}}}",nl,
      "      end",nl,
      "end."].
 
