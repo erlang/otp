@@ -226,7 +226,7 @@
 	    supplying a password. Defaults to <c>true</c>.
 	    Even if user interaction is allowed it can be
 	    suppressed by other options, such as <c>silently_accept_hosts</c>
-	    and <c>password</c>. However, those optins are not always desirable
+	    and <c>password</c>. However, those options are not always desirable
 	    to use from a security point of view.</p>
 	  </item>
 
