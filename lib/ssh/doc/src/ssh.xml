@@ -153,7 +153,7 @@
 	  <item>
 	  <p>IP version to use.</p>
 	  </item>
-          <tag><c><![CDATA[{user_dir, string()}]]></c></tag>
+          <tag><marker id="opt_user_dir"></marker><c><![CDATA[{user_dir, string()}]]></c></tag>
 	  <item>
 	    <p>Sets the user directory, that is, the directory containing
 	    <c>ssh</c> configuration files for the user, such as
@@ -175,29 +175,48 @@
 	    supplied with this option.
 	    </p>
 	  </item>
-          <tag><c><![CDATA[{silently_accept_hosts, boolean() | accept_fun() | {HashAlgoSpec, accept_fun()} }]]></c>
-	  <br/>
-	  <c><![CDATA[HashAlgoSpec :: crypto:digest_type() | [crypto:digest_type()] ]]></c>
-	  <br/>
-	  <c><![CDATA[accept_fun() :: fun(PeerName::string(), FingerPrint:: string()|[string()]) -> boolean()]]></c>
+          <tag>
+            <c><![CDATA[{silently_accept_hosts, boolean()}]]></c> <br/>
+            <c><![CDATA[{silently_accept_hosts, CallbackFun}]]></c> <br/>
+            <c><![CDATA[{silently_accept_hosts, {HashAlgoSpec, CallbackFun} }]]></c> <br/>
+            <br/>
+	    <c><![CDATA[HashAlgoSpec = crypto:digest_type() | [ crypto:digest_type() ] ]]></c><br/>
+	    <c><![CDATA[CallbackFun = fun(PeerName, FingerPrint) -> boolean()]]></c><br/>
+	    <c><![CDATA[PeerName = string()]]></c><br/>
+	    <c><![CDATA[FingerPrint = string() | [ string() ] ]]></c>
 	  </tag>
 	  <item>
-	    <p>When <c>true</c>, hosts are added to the
-	    file <c><![CDATA[known_hosts]]></c> without asking the user.
-	    Defaults to <c>false</c> which will give a user question on stdio of whether to accept or reject a previously
-	    unseen host.</p>
-	    <p>If the option value is has an <c>accept_fun()</c>, that fun will called with the arguments
-	    <c>(PeerName, PeerHostKeyFingerPrint)</c>.  The fingerprint is calculated on the Peer's Host Key with
-	    <seealso marker="public_key:public_key#ssh_hostkey_fingerprint-1">public_key:ssh_hostkey_fingerprint/1</seealso>.
-	    </p>
-	    <p>If the <c>HashAlgoSpec</c> is present and is an <c>crypto:digest_type()</c>, the fingerprint is calculated
-            with that digest type by the function
-	    <seealso marker="public_key:public_key#ssh_hostkey_fingerprint-2">public_key:ssh_hostkey_fingerprint/2</seealso>.
+            <p>This option guides the <c>connect</c> function how to act when the connected server presents a Host 
+            Key that the client has not seen before. The default is to ask the user with a question on stdio of whether to
+            accept or reject the new Host Key.
+            See also the option <seealso marker="#opt_user_dir"><c>user_dir</c></seealso>
+            for the path to the file <c>known_hosts</c> where previously accepted Host Keys are recorded.
             </p>
-            <p>If the <c>HashAlgoSpec</c> is present and is a list of <c>crypto:digest_type()</c>, the fingerprint is calulated for
-            each digest_type and <c>PeerHostKeyFingerPrint</c> is the list of the results in order corresponding to the 
-            <c>HashAlgoSpec</c>.
-	    </p>
+            <p>The option can be given in three different forms as seen above:</p>
+	    <list>
+	      <item>The value is a <c>boolean()</c>.  The value <c>true</c> will make the client accept any unknown
+              Host Key without any user interaction.  The value <c>false</c> keeps the default behaviour of asking the
+              the user on stdio.
+              </item>
+              <item>A <c>CallbackFun</c> will be called and the boolean return value <c>true</c> will make the client
+              accept the Host Key. A reurn value of <c>false</c> will make the client to reject the Host Key and therefore
+              also the connection will be closed. The arguments to the fun are:
+              <list type="bulleted">
+	        <item><c>PeerName</c> - a string with the name or address of the remote host.</item>
+                <item><c>FingerPrint</c> - the fingerprint of the Host Key as 
+                <seealso marker="public_key:public_key#ssh_hostkey_fingerprint-1">public_key:ssh_hostkey_fingerprint/1</seealso>
+                calculates it.
+                </item>
+              </list>
+              </item>
+              <item>A tuple <c>{HashAlgoSpec, CallbackFun}</c>. The <c>HashAlgoSpec</c> specifies which hash algorithm
+                shall be used to calculate the fingerprint used in the call of the <c>CallbackFun</c>. The <c>HashALgoSpec</c>
+                is either an atom or a list of atoms as the first argument in
+                <seealso marker="public_key:public_key#ssh_hostkey_fingerprint-2">public_key:ssh_hostkey_fingerprint/2</seealso>.
+                If it is a list of hash algorithm names, the <c>FingerPrint</c> argument in the <c>CallbackFun</c> will be 
+                a list of fingerprints in the same order as the corresponding name in the <c>HashAlgoSpec</c> list.
+              </item>
+            </list>
 	  </item>
 	  <tag><c><![CDATA[{user_interaction, boolean()}]]></c></tag>
 	  <item>
