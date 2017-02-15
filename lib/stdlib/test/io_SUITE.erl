@@ -30,7 +30,7 @@
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
          otp_10836/1, io_lib_width_too_small/1,
          io_with_huge_message_queue/1, format_string/1,
-	 maps/1, coverage/1]).
+	 maps/1, coverage/1, otp_14178_unicode_atoms/1]).
 
 -export([pretty/2]).
 
@@ -61,7 +61,7 @@ all() ->
      printable_range, bad_printable_range,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue,
-     format_string, maps, coverage].
+     format_string, maps, coverage, otp_14178_unicode_atoms].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -2106,3 +2106,24 @@ coverage(_Config) ->
     io:format("~s\n", [S2]),
 
     ok.
+
+%% Test UTF-8 atoms.
+otp_14178_unicode_atoms(_Config) ->
+    "atom" = fmt("~ts", ['atom']),
+    "кирилли́ческий атом" = fmt("~ts", ['кирилли́ческий атом']),
+    [16#10FFFF] = fmt("~ts", ['\x{10FFFF}']),
+
+    %% ~s must not accept code points greater than 255.
+    bad_io_lib_format("~s", ['\x{100}']),
+    bad_io_lib_format("~s", ['кирилли́ческий атом']),
+
+    ok.
+
+bad_io_lib_format(F, S) ->
+    try io_lib:format(F, S) of
+        _ ->
+            ct:fail({should_fail,F,S})
+    catch
+        error:badarg ->
+            ok
+    end.
