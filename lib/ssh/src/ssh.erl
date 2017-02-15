@@ -280,9 +280,11 @@ valid_socket_to_use(Socket, Options) ->
 	    {error, {unsupported,L4}}
     end.
 
-is_tcp_socket(Socket) -> {ok,[]} =/= inet:getopts(Socket, [delay_send]).
-
-
+is_tcp_socket(Socket) ->
+    case inet:getopts(Socket, [delay_send]) of
+        {ok,[_]} -> true;
+        _ -> false
+    end.
 
 daemon_shell_opt(Options) ->
      case proplists:get_value(shell, Options) of
