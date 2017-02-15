@@ -105,7 +105,10 @@
  * <ERTS_RBT_PREFIX>_rbt_yield_state_t.
  *
  * The yield state should be statically initialized by
- * ERTS_RBT_YIELD_STAT_INITER.
+ * ERTS_RBT_YIELD_STAT_INITER
+ *
+ * or dynamically initialized with
+ * ERTS_RBT_YIELD_STAT_INIT(<ERTS_RBT_PREFIX>_rbt_yield_state_t *ystate)
  *
  *
  * The following API functions are implemented if corresponding
@@ -421,6 +424,13 @@
 
 #ifndef ERTS_RBT_YIELD_STAT_INITER
 #  define ERTS_RBT_YIELD_STAT_INITER {NULL, 0}
+#endif
+#ifndef ERTS_RBT_YIELD_STAT_INIT
+#  define ERTS_RBT_YIELD_STAT_INIT(YS) \
+    do {                               \
+        (YS)->x = NULL;                \
+        (YS)->up = 0;                  \
+    } while (0)
 #endif
 
 #define ERTS_RBT_CONCAT_MACRO_VALUES___(X, Y) \
