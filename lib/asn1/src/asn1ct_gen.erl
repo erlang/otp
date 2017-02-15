@@ -747,7 +747,7 @@ pgen_dispatcher(Gen, Types) ->
 	       false -> "Data"
 	   end,
 
-    emit(["decode(Type,",Data,") ->",nl]),
+    emit(["decode(Type, ",Data,") ->",nl]),
     DecWrap =
 	case {Gen,ReturnRest} of
 	    {#gen{erule=ber},false} ->
@@ -782,17 +782,10 @@ pgen_dispatcher(Gen, Types) ->
     end,
 
     gen_decode_partial_incomplete(Gen),
+    gen_partial_inc_dispatcher(Gen),
 
-    case Gen of
-	#gen{erule=ber} ->
-	    gen_dispatcher(Types,"encode_disp","enc_",""),
-	    gen_dispatcher(Types,"decode_disp","dec_",""),
-	    gen_partial_inc_dispatcher();
-	#gen{} ->
-	    gen_dispatcher(Types,"encode_disp","enc_",""),
-	    gen_dispatcher(Types,"decode_disp","dec_","")
-    end,
-    emit([nl,nl]).
+    gen_dispatcher(Types, "encode_disp", "enc_"),
+    gen_dispatcher(Types, "decode_disp", "dec_").
 
 result_line(NoOkWrapper, Items) ->
     S = ["    "|case NoOkWrapper of
@@ -877,7 +870,7 @@ gen_decode_partial_incomplete(#gen{erule=ber}) ->
 gen_decode_partial_incomplete(#gen{}) ->
     ok.
 
-gen_partial_inc_dispatcher() ->
+gen_partial_inc_dispatcher(#gen{erule=ber}) ->
     case {asn1ct:read_config_data(partial_incomplete_decode),
 	  asn1ct:get_gen_state_field(inc_type_pattern)} of
 	{undefined,_} ->
@@ -887,7 +880,9 @@ gen_partial_inc_dispatcher() ->
 	{Data1,Data2} ->
 %	    io:format("partial_incomplete_decode: ~p~ninc_type_pattern: ~p~n",[Data,Data2]),
 	    gen_partial_inc_dispatcher(Data1, Data2, "")
-    end.
+    end;
+gen_partial_inc_dispatcher(#gen{}) ->
+    ok.
 
 gen_partial_inc_dispatcher([{FuncName,TopType,_Pattern}|Rest], TypePattern, Sep) ->
     TPattern =
@@ -911,12 +906,18 @@ gen_partial_inc_dispatcher([{FuncName,TopType,_Pattern}|Rest], TypePattern, Sep)
 gen_partial_inc_dispatcher([], _, _) ->
     emit([".",nl]).
 
-gen_dispatcher([F1,F2|T],FuncName,Prefix,ExtraArg) ->
-	emit([FuncName,"('",F1,"',Data) -> '",Prefix,F1,"'(Data",ExtraArg,")",";",nl]),
-	gen_dispatcher([F2|T],FuncName,Prefix,ExtraArg);
-gen_dispatcher([Flast|_T],FuncName,Prefix,ExtraArg) ->
-	emit([FuncName,"('",Flast,"',Data) -> '",Prefix,Flast,"'(Data",ExtraArg,")",";",nl]),
-	emit([FuncName,"(","Type",",_Data) -> exit({error,{asn1,{undefined_type,Type}}}).",nl,nl,nl]).
+gen_dispatcher(L, DispFunc, Prefix) ->
+    gen_dispatcher_1(L, DispFunc, Prefix),
+    emit([DispFunc,"(","Type",", _Data) ->"
+          " exit({error,{asn1,{undefined_type,Type}}}).",nl,nl]).
+
+gen_dispatcher_1([F|T], FuncName, Prefix) ->
+    Func = list_to_atom(lists:concat([Prefix,F])),
+    emit([FuncName,"(",{asis,F},", Data) -> ",
+          {asis,Func},"(Data)",";",nl]),
+    gen_dispatcher_1(T, FuncName, Prefix);
+gen_dispatcher_1([], _, _) ->
+    ok.
 
 pgen_info() ->
     emit(["info() ->",nl,
