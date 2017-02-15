@@ -199,7 +199,7 @@
               the user on stdio.
               </item>
               <item>A <c>CallbackFun</c> will be called and the boolean return value <c>true</c> will make the client
-              accept the Host Key. A reurn value of <c>false</c> will make the client to reject the Host Key and therefore
+              accept the Host Key. A return value of <c>false</c> will make the client to reject the Host Key and therefore
               also the connection will be closed. The arguments to the fun are:
               <list type="bulleted">
 	        <item><c>PeerName</c> - a string with the name or address of the remote host.</item>
