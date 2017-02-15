@@ -49,28 +49,26 @@
 
 -type function_name() :: atom().
 
--type exports() :: [{function_name(),arity()}].
-
 -type asm_function() ::
         {'function',function_name(),arity(),label(),[asm_instruction()]}.
 
 -type module_code() ::
         {module(),[_],[_],[asm_function()],pos_integer()}.
 
--spec module(module_code(), exports(), [_], [compile:option()], [compile:option()]) ->
+-spec module(module_code(), [{binary(), binary()}], [_], [compile:option()], [compile:option()]) ->
                     {'ok',binary()}.
 
-module(Code, Abst, SourceFile, Opts, CompilerOpts) ->
-    {ok,assemble(Code, Abst, SourceFile, Opts, CompilerOpts)}.
+module(Code, ExtraChunks, SourceFile, Opts, CompilerOpts) ->
+    {ok,assemble(Code, ExtraChunks, SourceFile, Opts, CompilerOpts)}.
 
-assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, Abst, SourceFile, Opts, CompilerOpts) ->
+assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, ExtraChunks, SourceFile, Opts, CompilerOpts) ->
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
     {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
     Exp = cerl_sets:from_list(Exp0),
     {Code,Dict2} = assemble_1(Asm, Exp, Dict1, []),
-    build_file(Code, Attr, Dict2, NumLabels, NumFuncs, Abst, SourceFile, Opts, CompilerOpts).
+    build_file(Code, Attr, Dict2, NumLabels, NumFuncs, ExtraChunks, SourceFile, Opts, CompilerOpts).
 
 on_load(Fs0, Attr0) ->
     case proplists:get_value(on_load, Attr0) of
@@ -113,7 +111,7 @@ assemble_function([H|T], Acc, Dict0) ->
 assemble_function([], Code, Dict) ->
     {Code, Dict}.
 
-build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts, CompilerOpts) ->
+build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, SourceFile, Opts, CompilerOpts) ->
     %% Create the code chunk.
 
     CodeChunk = chunk(<<"Code">>,
@@ -188,18 +186,18 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts, Compil
     AttrChunk = chunk(<<"Attr">>, Attributes),
     CompileChunk = chunk(<<"CInf">>, Compile),
 
-    %% Create the abstract code chunk.
+    %% Compile all extra chunks.
 
-    AbstChunk = chunk(<<"Abst">>, Abst),
+    CheckedChunks = [chunk(Key, Value) || {Key, Value} <- ExtraChunks],
 
     %% Create IFF chunk.
 
     Chunks = case member(slim, Opts) of
 		 true ->
-		     [Essentials,AttrChunk,AbstChunk];
+		     [Essentials,AttrChunk,CheckedChunks];
 		 false ->
 		     [Essentials,LocChunk,AttrChunk,
-		      CompileChunk,AbstChunk,LineChunk]
+		      CompileChunk,CheckedChunks,LineChunk]
 	     end,
     build_form(<<"BEAM">>, Chunks).
 

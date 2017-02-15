@@ -315,18 +315,24 @@ format_error_reason(Reason) ->
 		  mod_options=[]  :: [option()], %Options for module_info
                   encoding=none :: none | epp:source_encoding(),
 		  errors=[]     :: [err_warn_info()],
-		  warnings=[]   :: [err_warn_info()]}).
+		  warnings=[]   :: [err_warn_info()],
+		  extra_chunks=[] :: [{binary(), binary()}]}).
 
 internal({forms,Forms}, Opts0) ->
     {_,Ps} = passes(forms, Opts0),
     Source = proplists:get_value(source, Opts0, ""),
     Opts1 = proplists:delete(source, Opts0),
-    Compile = #compile{options=Opts1,mod_options=Opts1},
+    Compile = build_compile(Opts1),
     internal_comp(Ps, Forms, Source, "", Compile);
 internal({file,File}, Opts) ->
     {Ext,Ps} = passes(file, Opts),
-    Compile = #compile{options=Opts,mod_options=Opts},
+    Compile = build_compile(Opts),
     internal_comp(Ps, none, File, Ext, Compile).
+
+build_compile(Opts0) ->
+    ExtraChunks = proplists:get_value(extra_chunks, Opts0, []),
+    Opts1 = proplists:delete(extra_chunks, Opts0),
+    #compile{options=Opts1,mod_options=Opts1,extra_chunks=ExtraChunks}.
 
 internal_comp(Passes, Code0, File, Suffix, St0) ->
     Dir = filename:dirname(File),
@@ -1386,14 +1392,15 @@ encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
 save_core_code(Code, St) ->
     {ok,Code,St#compile{core_code=cerl:from_records(Code)}}.
 
-beam_asm(Code0, #compile{ifile=File,abstract_code=Abst,
+beam_asm(Code0, #compile{ifile=File,abstract_code=Abst,extra_chunks=ExtraChunks,
 			 options=CompilerOpts,mod_options=Opts0}=St) ->
     Source = paranoid_absname(File),
     Opts1 = lists:map(fun({debug_info_key,_}) -> {debug_info_key,'********'};
 			 (Other) -> Other
 		      end, Opts0),
     Opts2 = [O || O <- Opts1, effects_code_generation(O)],
-    case beam_asm:module(Code0, Abst, Source, Opts2, CompilerOpts) of
+    Chunks = [{<<"Abst">>, Abst} | ExtraChunks],
+    case beam_asm:module(Code0, Chunks, Source, Opts2, CompilerOpts) of
 	{ok,Code} -> {ok,Code,St#compile{abstract_code=[]}}
     end.
 
