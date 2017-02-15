@@ -366,8 +366,7 @@ do_start_daemon(Socket, SshOptions, SocketOptions) ->
 		{error, {already_started, _}} ->
 		    {error, eaddrinuse};
 		Result = {ok,_} ->
-		    ssh_acceptor:handle_connection(Callback, Host, Port, Opts, Socket),
-		    Result;
+		    call_ssh_acceptor_handle_connection(Callback, Host, Port, Opts, Socket, Result);
 		Result = {error, _} ->
 		    Result
 	    catch
@@ -380,8 +379,7 @@ do_start_daemon(Socket, SshOptions, SocketOptions) ->
 		{error, {already_started, _}} ->
 		    {error, eaddrinuse};
 		{ok, _} ->
-		    ssh_acceptor:handle_connection(Callback, Host, Port, Opts, Socket),
-		    {ok, Sup};
+		    call_ssh_acceptor_handle_connection(Callback, Host, Port, Opts, Socket, {ok, Sup});
 		Other ->
 		    Other
 	    end
@@ -450,6 +448,16 @@ do_start_daemon(Host0, Port0, SshOptions, SocketOptions) ->
 		    Other
 	    end
     end.
+
+call_ssh_acceptor_handle_connection(Callback, Host, Port, Opts, Socket, DefaultResult) ->
+    try ssh_acceptor:handle_connection(Callback, Host, Port, Opts, Socket)
+    of
+        {error,Error} -> {error,Error};
+        _ -> DefaultResult
+    catch
+        C:R -> {error,{could_not_start_connection,{C,R}}}
+    end.
+             
 
 sync_request_control(false) ->
     ok;
