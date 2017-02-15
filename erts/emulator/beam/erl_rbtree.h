@@ -181,8 +181,8 @@
  *         Operate by calling the operator 'op' on each element.
  *         Order is undefined.
  *
- *         Yield when 'ylimit' elements has been processed. Zero is
- *         returned when yielding, and a non-zero value is returned when
+ *         Yield when 'ylimit' elements has been processed. True is
+ *         returned when yielding, and false is returned when
  *         the whole tree has been processed. The tree should not be
  *         modified until all of it has been processed.
  *
@@ -198,8 +198,8 @@
  *         Order is undefined. Each element should be destroyed
  *         by 'op'.
  *
- *         Yield when 'ylimit' elements has been processed. Zero is
- *         returned when yielding, and a non-zero value is returned when
+ *         Yield when 'ylimit' elements has been processed. True is
+ *         returned when yielding, and false is returned when
  *         the whole tree has been processed.
  *
  *         'arg' is passed as argument to 'op'.
@@ -231,8 +231,8 @@
  *         Operate by calling the operator 'op' on each element from
  *         smallest towards larger elements.
  *
- *         Yield when 'ylimit' elements has been processed. Zero is
- *         returned when yielding, and a non-zero value is returned when
+ *         Yield when 'ylimit' elements has been processed. True is
+ *         returned when yielding, and false is returned when
  *         the whole tree has been processed. The tree should not be
  *         modified until all of it has been processed.
  *
@@ -247,8 +247,8 @@
  *         Operate by calling the operator 'op' on each element from
  *         largest towards smaller elements.
  *
- *         Yield when 'ylimit' elements has been processed. Zero is
- *         returned when yielding, and a non-zero value is returned when
+ *         Yield when 'ylimit' elements has been processed. True is
+ *         returned when yielding, and false is returned when
  *         the whole tree has been processed. The tree should not be
  *         modified until all of it has been processed.
  *
@@ -299,8 +299,8 @@
  *         Note that elements are often destroyed in another order
  *         than the order that the elements are operated on.
  *
- *         Yield when 'ylimit' elements has been processed. Zero is
- *         returned when yielding, and a non-zero value is returned when
+ *         Yield when 'ylimit' elements has been processed. True is
+ *         returned when yielding, and false is returned when
  *         the whole tree has been processed. The tree should not be
  *         modified until all of it has been processed.
  *
@@ -321,8 +321,8 @@
  *         Note that elements are often destroyed in another order
  *         than the order that the elements are operated on.
  *
- *         Yield when 'ylimit' elements has been processed. Zero is
- *         returned when yielding, and a non-zero value is returned when
+ *         Yield when 'ylimit' elements has been processed. True is
+ *         returned when yielding, and false is returned when
  *         the whole tree has been processed. The tree should not be
  *         modified until all of it has been processed.
  *
@@ -1374,7 +1374,7 @@ ERTS_RBT_FUNC__(foreach_ordered__)(ERTS_RBT_T **root,
 		    ystate->x = NULL;
 		    ystate->up = 0;
 		}
-		return 1; /* Done */
+		return 0; /* Done */
 	    }
 	    x = p;
 	}
