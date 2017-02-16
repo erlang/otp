@@ -1908,8 +1908,10 @@ del_tar(Tar, TarName) ->
     file:delete(TarName).
 
 add_to_tar(Tar, FromFile, ToFile) ->
-    case erl_tar:add(Tar, FromFile, ToFile, [compressed, dereference]) of
+    case catch erl_tar:add(Tar, FromFile, ToFile, [compressed, dereference]) of
 	ok -> ok;
+        {'EXIT', Reason} ->
+            throw({error, {tar_error, {add, FromFile, Reason}}});
 	{error, Error} ->
 	    throw({error, {tar_error, {add, FromFile, Error}}})
     end.
