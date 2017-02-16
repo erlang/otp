@@ -1386,25 +1386,25 @@ report(What,Data) ->
 	    ok;
 	tc_done ->
 	    {Suite,{Func,GrName},Result} = Data,
-	    Data1 = if GrName == undefined -> {Suite,Func,Result};
-		       true                -> Data
-	    end,
+            FuncSpec = if GrName == undefined -> Func;
+                          true                -> {Func,GrName}
+                       end,
 	    %% Register the group leader for the process calling the report
 	    %% function, making it possible for a hook function to print
 	    %% in the test case log file
 	    ReportingPid = self(),
 	    ct_logs:register_groupleader(ReportingPid, group_leader()),
 	    case Result of
-		{failed, _} ->
-		    ct_hooks:on_tc_fail(What, Data1);
-		{skipped,{failed,{_,init_per_testcase,_}}} ->
-		    ct_hooks:on_tc_skip(tc_auto_skip, Data1);
-		{skipped,{require_failed,_}} ->
-		    ct_hooks:on_tc_skip(tc_auto_skip, Data1);
-		{skipped,_} ->
-		    ct_hooks:on_tc_skip(tc_user_skip, Data1);
-		{auto_skipped,_} ->
-		    ct_hooks:on_tc_skip(tc_auto_skip, Data1);
+		{failed, Reason} ->
+		    ct_hooks:on_tc_fail(What, {Suite,FuncSpec,Reason});
+		{skipped,{failed,{_,init_per_testcase,_}}=Reason} ->
+		    ct_hooks:on_tc_skip(tc_auto_skip,  {Suite,FuncSpec,Reason});
+		{skipped,{require_failed,_}=Reason} ->
+		    ct_hooks:on_tc_skip(tc_auto_skip, {Suite,FuncSpec,Reason});
+		{skipped,Reason} ->
+		    ct_hooks:on_tc_skip(tc_user_skip, {Suite,FuncSpec,Reason});
+		{auto_skipped,Reason} ->
+		    ct_hooks:on_tc_skip(tc_auto_skip, {Suite,FuncSpec,Reason});
 		_Else ->
 		    ok
 	    end,
