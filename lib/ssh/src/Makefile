@@ -51,6 +51,7 @@ MODULES= \
 	ssh_sup \
 	sshc_sup \
 	sshd_sup \
+	ssh_options \
 	ssh_connection_sup \
 	ssh_connection \
 	ssh_connection_handler \

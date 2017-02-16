@@ -45,12 +45,12 @@
 %%%=========================================================================
 %%% Internal  API
 %%%=========================================================================
-start_link(ServerOpts) ->
-    Address = proplists:get_value(address, ServerOpts),
-    Port = proplists:get_value(port, ServerOpts),
-    Profile = proplists:get_value(profile,  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+start_link(Options) ->
+    Address = ?GET_INTERNAL_OPT(address, Options),
+    Port =    ?GET_INTERNAL_OPT(port, Options),
+    Profile = ?GET_OPT(profile, Options),
     Name = make_name(Address, Port, Profile),
-    supervisor:start_link({local, Name}, ?MODULE, [ServerOpts]).
+    supervisor:start_link({local, Name}, ?MODULE, [Options]).
 
 stop_listener(SysSup) ->
     stop_acceptor(SysSup). 
@@ -127,12 +127,12 @@ restart_acceptor(Address, Port, Profile) ->
 %%%=========================================================================
 -spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
 
-init([ServerOpts]) ->
+init([Options]) ->
     RestartStrategy = one_for_one,
     MaxR = 0,
     MaxT = 3600,
-    Children = case proplists:get_value(asocket,ServerOpts) of
-		   undefined -> child_specs(ServerOpts);
+    Children = case ?GET_INTERNAL_OPT(asocket,Options,undefined) of
+		   undefined -> child_specs(Options);
 		   _ -> []
 	       end,
     {ok, {{RestartStrategy, MaxR, MaxT}, Children}}.
@@ -140,24 +140,24 @@ init([ServerOpts]) ->
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-child_specs(ServerOpts) ->
-    [ssh_acceptor_child_spec(ServerOpts)]. 
+child_specs(Options) ->
+    [ssh_acceptor_child_spec(Options)]. 
   
-ssh_acceptor_child_spec(ServerOpts) ->
-    Address = proplists:get_value(address, ServerOpts),
-    Port = proplists:get_value(port, ServerOpts),
-    Profile = proplists:get_value(profile,  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+ssh_acceptor_child_spec(Options) ->
+    Address = ?GET_INTERNAL_OPT(address, Options),
+    Port =    ?GET_INTERNAL_OPT(port, Options),
+    Profile = ?GET_OPT(profile, Options),
     Name = id(ssh_acceptor_sup, Address, Port, Profile),
-    StartFunc = {ssh_acceptor_sup, start_link, [ServerOpts]},
+    StartFunc = {ssh_acceptor_sup, start_link, [Options]},
     Restart = transient, 
     Shutdown = infinity,
     Modules = [ssh_acceptor_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-ssh_subsystem_child_spec(ServerOpts) ->
+ssh_subsystem_child_spec(Options) ->
     Name = make_ref(),
-    StartFunc = {ssh_subsystem_sup, start_link, [ServerOpts]},
+    StartFunc = {ssh_subsystem_sup, start_link, [Options]},
     Restart = temporary,
     Shutdown = infinity,
     Modules = [ssh_subsystem_sup],

@@ -25,55 +25,62 @@
 -include("ssh.hrl").
 
 %% Internal application API
--export([start_link/5,
+-export([start_link/4,
 	 number_of_connections/1,
-	 callback_listen/3,
+	 callback_listen/2,
 	 handle_connection/5]).
 
 %% spawn export  
--export([acceptor_init/6, acceptor_loop/6]).
+-export([acceptor_init/5, acceptor_loop/6]).
 
 -define(SLEEP_TIME, 200).
 
 %%====================================================================
 %% Internal application API
 %%====================================================================
-start_link(Port, Address, SockOpts, Opts, AcceptTimeout) ->
-    Args = [self(), Port, Address, SockOpts, Opts, AcceptTimeout],
+start_link(Port, Address, Options, AcceptTimeout) ->
+    Args = [self(), Port, Address, Options, AcceptTimeout],
     proc_lib:start_link(?MODULE, acceptor_init, Args).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-acceptor_init(Parent, Port, Address, SockOpts, Opts, AcceptTimeout) ->
-    {_, Callback, _} =  
-	proplists:get_value(transport, Opts, {tcp, gen_tcp, tcp_closed}),
-
-    SockOwner = proplists:get_value(lsock_owner, Opts),
-    LSock = proplists:get_value(lsocket, Opts),
-    UseExistingSocket =
-	case catch inet:sockname(LSock) of
-	    {ok,{_,Port}} -> is_pid(SockOwner);
-	    _ -> false
-	end,
-
-    case UseExistingSocket of
-	true ->
-	    proc_lib:init_ack(Parent, {ok, self()}),
+acceptor_init(Parent, Port, Address, Opts, AcceptTimeout) ->
+    {_, Callback, _} =  ?GET_OPT(transport, Opts),
+    try
+        {LSock0,SockOwner0} = ?GET_INTERNAL_OPT(lsocket, Opts),
+        true = is_pid(SockOwner0),
+        {ok,{_,Port}} = inet:sockname(LSock0),
+        {LSock0, SockOwner0}
+    of
+        {LSock, SockOwner} ->
+            %% Use existing socket
+            proc_lib:init_ack(Parent, {ok, self()}),
 	    request_ownership(LSock, SockOwner),
-	    acceptor_loop(Callback, Port, Address, Opts, LSock, AcceptTimeout);
+	    acceptor_loop(Callback, Port, Address, Opts, LSock, AcceptTimeout)
+    catch
+        error:{badkey,lsocket} ->
+            %% Open new socket
+            try
+                socket_listen(Port, Opts)
+            of
+                {ok, ListenSocket} ->
+                    proc_lib:init_ack(Parent, {ok, self()}),
+                    {_, Callback, _} = ?GET_OPT(transport, Opts),
+                    acceptor_loop(Callback, 
+                                  Port, Address, Opts, ListenSocket, AcceptTimeout);
+                {error,Error} ->
+                    proc_lib:init_ack(Parent, Error),
+                    {error,Error}
+            catch
+                _:_ ->
+                    {error,listen_socket_failed}
+            end;
 
-	false -> 
-	    case (catch do_socket_listen(Callback, Port, SockOpts)) of
-		{ok, ListenSocket} ->
-		    proc_lib:init_ack(Parent, {ok, self()}),
-		    acceptor_loop(Callback, 
-				  Port, Address, Opts, ListenSocket, AcceptTimeout);
-		Error ->
-		    proc_lib:init_ack(Parent, Error),
-		    error
-	    end
+        _:_ ->
+            {error,use_existing_socket_failed}
     end.
+
 
 request_ownership(LSock, SockOwner) ->
     SockOwner ! {request_control,LSock,self()},
@@ -82,23 +89,25 @@ request_ownership(LSock, SockOwner) ->
     end.
     
    
-do_socket_listen(Callback, Port0, Opts) ->
-    Port =
-	case proplists:get_value(fd, Opts) of
-	    undefined -> Port0;
-	    _ -> 0
-	end,
-    callback_listen(Callback, Port, Opts).
+socket_listen(Port0, Opts) ->
+    Port = case ?GET_SOCKET_OPT(fd, Opts) of
+               undefined -> Port0;
+               _ -> 0
+           end,
+    callback_listen(Port, Opts).
 
-callback_listen(Callback, Port, Opts0) ->
-    Opts = [{active, false}, {reuseaddr,true} | Opts0],
-    case Callback:listen(Port, Opts) of
+
+callback_listen(Port, Opts0) ->
+    {_, Callback, _} = ?GET_OPT(transport, Opts0),
+    Opts = ?PUT_SOCKET_OPT([{active, false}, {reuseaddr,true}], Opts0),
+    SockOpts = ?GET_OPT(socket_options, Opts),
+    case Callback:listen(Port, SockOpts) of
 	{error, nxdomain} ->
-	    Callback:listen(Port, lists:delete(inet6, Opts));
+	    Callback:listen(Port, lists:delete(inet6, SockOpts));
 	{error, enetunreach} ->
-	    Callback:listen(Port, lists:delete(inet6, Opts));
+	    Callback:listen(Port, lists:delete(inet6, SockOpts));
 	{error, eafnosupport} ->
-	    Callback:listen(Port, lists:delete(inet6, Opts));
+	    Callback:listen(Port, lists:delete(inet6, SockOpts));
 	Other ->
 	    Other
     end.
@@ -120,21 +129,21 @@ acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout) ->
     end.
 
 handle_connection(Callback, Address, Port, Options, Socket) ->
-    SSHopts = proplists:get_value(ssh_opts, Options, []),
-    Profile =  proplists:get_value(profile, SSHopts, ?DEFAULT_PROFILE),
+    Profile =  ?GET_OPT(profile, Options),
     SystemSup = ssh_system_sup:system_supervisor(Address, Port, Profile),
 
-    MaxSessions = proplists:get_value(max_sessions,SSHopts,infinity),
+    MaxSessions = ?GET_OPT(max_sessions, Options),
     case number_of_connections(SystemSup) < MaxSessions of
 	true ->
 	    {ok, SubSysSup} = ssh_system_sup:start_subsystem(SystemSup, Options),
 	    ConnectionSup = ssh_subsystem_sup:connection_supervisor(SubSysSup),
-	    Timeout = proplists:get_value(negotiation_timeout, SSHopts, 2*60*1000),
+	    NegTimeout = ?GET_OPT(negotiation_timeout, Options),
 	    ssh_connection_handler:start_connection(server, Socket,
-						    [{supervisors, [{system_sup, SystemSup},
-								    {subsystem_sup, SubSysSup},
-								    {connection_sup, ConnectionSup}]}
-						     | Options], Timeout);
+                                                    ?PUT_INTERNAL_OPT(
+                                                       {supervisors, [{system_sup, SystemSup},
+                                                                      {subsystem_sup, SubSysSup},
+                                                                      {connection_sup, ConnectionSup}]},
+                                                       Options), NegTimeout);
 	false ->
 	    Callback:close(Socket),
 	    IPstr = if is_tuple(Address) -> inet:ntoa(Address);

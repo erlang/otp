@@ -27,17 +27,17 @@
 -export([yes_no/2, read_password/2, read_line/2, format/2]).
 -include("ssh.hrl").
 
-read_line(Prompt, Ssh) ->
+read_line(Prompt, Opts) ->
     format("~s", [listify(Prompt)]),
-    proplists:get_value(user_pid, Ssh) ! {self(), question},
+    ?GET_INTERNAL_OPT(user_pid, Opts) ! {self(), question},
     receive
 	Answer when is_list(Answer) ->
 	    Answer
     end.
 
-yes_no(Prompt, Ssh) ->
+yes_no(Prompt, Opts) ->
     format("~s [y/n]?", [Prompt]),
-    proplists:get_value(user_pid, Ssh#ssh.opts) ! {self(), question},
+    ?GET_INTERNAL_OPT(user_pid, Opts) ! {self(), question},
     receive
 	%% I can't see that the atoms y and n are ever received, but it must
 	%% be investigated before removing
@@ -52,15 +52,13 @@ yes_no(Prompt, Ssh) ->
 		"N" -> no;
 		_ ->
 		    format("please answer y or n\n",[]),
-		    yes_no(Prompt, Ssh)
+		    yes_no(Prompt, Opts)
 	    end
     end.
 
-
-read_password(Prompt, #ssh{opts=Opts}) -> read_password(Prompt, Opts);
-read_password(Prompt, Opts) when is_list(Opts) ->
+read_password(Prompt, Opts) ->
     format("~s", [listify(Prompt)]),
-    proplists:get_value(user_pid, Opts) ! {self(), user_password},
+    ?GET_INTERNAL_OPT(user_pid, Opts) ! {self(), user_password},
     receive
 	Answer when is_list(Answer) ->
 	     case trim(Answer) of
