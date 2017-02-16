@@ -101,6 +101,9 @@ post_end_per_group(Suite,Group,Config,Return,State) ->
 pre_init_per_testcase(Suite,TC,Config,State) ->
     (Suite==skip_case_SUITE andalso (TC==skip_in_init
                                      orelse TC==fail_in_init
+                                     orelse TC==exit_in_init
+                                     orelse TC==fail_in_end
+                                     orelse TC==exit_in_end
                                      orelse TC==skip_in_case))
         orelse (Suite==seq_SUITE andalso TC==test_case_1)
         orelse (Suite==repeat_SUITE andalso TC==test_case_1)
@@ -110,6 +113,9 @@ pre_init_per_testcase(Suite,TC,Config,State) ->
 post_init_per_testcase(Suite,TC,Config,Return,State) ->
     (Suite==skip_case_SUITE andalso (TC==skip_in_init
                                      orelse TC==fail_in_init
+                                     orelse TC==exit_in_init
+                                     orelse TC==fail_in_end
+                                     orelse TC==exit_in_end
                                      orelse TC==skip_in_case))
         orelse (Suite==seq_SUITE andalso TC==test_case_1)
         orelse (Suite==repeat_SUITE andalso TC==test_case_1)
@@ -117,14 +123,18 @@ post_init_per_testcase(Suite,TC,Config,Return,State) ->
     empty_cth:post_init_per_testcase(Suite,TC,Config,Return,State).
 
 pre_end_per_testcase(Suite,TC,Config,State) ->
-    (Suite==skip_case_SUITE andalso TC==skip_in_case)
+    (Suite==skip_case_SUITE andalso (TC==skip_in_case
+                                     orelse TC==fail_in_end
+                                     orelse TC==exit_in_end))
         orelse (Suite==seq_SUITE andalso TC==test_case_1)
         orelse (Suite==repeat_SUITE andalso TC==test_case_1)
         orelse ?fail({Suite,TC}),
     empty_cth:pre_end_per_testcase(Suite,TC,Config,State).
 
 post_end_per_testcase(Suite,TC,Config,Return,State) ->
-    (Suite==skip_case_SUITE andalso TC==skip_in_case)
+    (Suite==skip_case_SUITE andalso (TC==skip_in_case
+                                     orelse TC==fail_in_end
+                                     orelse TC==exit_in_end))
         orelse (Suite==seq_SUITE andalso TC==test_case_1)
         orelse (Suite==repeat_SUITE andalso TC==test_case_1)
         orelse ?fail({Suite,TC}),
@@ -155,6 +165,7 @@ on_tc_skip(skip_case_SUITE=Suite,TC,Reason,State)
   when TC==skip_in_spec;
        TC==skip_in_init;
        TC==fail_in_init;
+       TC==exit_in_init;
        TC==skip_in_case;
        TC==req_auto_skip;
        TC==fail_auto_skip ->

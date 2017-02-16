@@ -2939,22 +2939,21 @@ run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status)
 	    exit(framework_error);
 	%% sequential execution of test case finished
 	{Time,RetVal,_} ->
+            RetTag =
+                if is_tuple(RetVal) -> element(1,RetVal);
+                   true -> undefined
+                end,
 	    {Failed,Status1} =
-		case Time of
-		    died ->
-			{true,update_status(failed, Mod, Func, Status)};
-		    _ when is_tuple(RetVal) ->
-			case element(1, RetVal) of
-			    R when R=='EXIT'; R==failed ->
-				{true,update_status(failed, Mod, Func, Status)};
-			    R when R==skip; R==skipped ->
-				{false,update_status(skipped, Mod, Func, Status)};
-			    _ ->
-				{false,update_status(ok, Mod, Func, Status)}
-			end;
-		    _ ->
-			{false,update_status(ok, Mod, Func, Status)}
-		end,
+                case RetTag of
+                    Skip when Skip==skip; Skip==skipped ->
+                        {false,update_status(skipped, Mod, Func, Status)};
+                    Fail when Fail=='EXIT'; Fail==failed ->
+                        {true,update_status(failed, Mod, Func, Status)};
+                    _ when Time==died, RetVal=/=ok ->
+                        {true,update_status(failed, Mod, Func, Status)};
+                    _ ->
+                        {false,update_status(ok, Mod, Func, Status)}
+                end,
 	    case check_prop(sequence, Mode) of
 		false ->
 		    stop_minor_log_file(),
@@ -3809,7 +3808,15 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 	    {died,{timetrap_timeout,TimetrapTimeout}} ->
 		progress(failed, Num, Mod, Func, GrName, Loc,
 			 timetrap_timeout, TimetrapTimeout, Comment, Style);
-	    {died,Reason} ->
+	    {died,{Skip,Reason}} when Skip==skip; Skip==skipped ->
+                %% died in init_per_testcase
+		progress(skip, Num, Mod, Func, GrName, Loc, Reason,
+			 Time, Comment, Style);
+	    {died,Reason} when Reason=/=ok ->
+                %% (If Reason==ok it means that process died in
+                %% end_per_testcase after successfully completing the
+                %% test case itself - then we shall not fail, but a
+                %% warning will be issued in the comment field.)
 		progress(failed, Num, Mod, Func, GrName, Loc, Reason,
 			 Time, Comment, Style);
 	    {_,{'EXIT',{Skip,Reason}}} when Skip==skip; Skip==skipped;
@@ -3958,6 +3965,9 @@ progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},
 						     {ReportTag,Reason1}}]),
+    TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
+			       true -> "~w"
+			    end, [Time]),
     ReasonStr = escape_chars(reason_to_string(Reason1)),
     ReasonStr1 = lists:flatten([string:strip(S,left) ||
 				S <- string:tokens(ReasonStr,[$\n])]),
@@ -3972,10 +3982,10 @@ progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 		   _ -> xhtml("<br>(","<br />(") ++ to_string(Comment) ++ ")"
 	       end,
     print(html,
-	  "<td>" ++ St0 ++ "~.3fs" ++ St1 ++ "</td>"
+	  "<td>" ++ St0 ++ "~ts" ++ St1 ++ "</td>"
 	  "<td><font color=\"~ts\">SKIPPED</font></td>"
 	  "<td>~ts~ts</td></tr>\n",
-	  [Time,Color,ReasonStr2,Comment1]),
+	  [TimeStr,Color,ReasonStr2,Comment1]),
     FormatLoc = test_server_sup:format_loc(Loc),
     print(minor, "=== Location: ~ts", [FormatLoc]),
     print(minor, "=== Reason: ~ts", [ReasonStr1]),
@@ -4113,6 +4123,9 @@ progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
 	 Comment0, {St0,St1}) ->
     print(minor, "successfully completed test case", []),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},ok}]),
+    TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
+			       true -> "~w"
+			    end, [Time]),
     Comment =
 	case RetVal of
 	    {comment,RetComment} ->
@@ -4131,10 +4144,10 @@ progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
 	end,
     print(major, "=elapsed       ~p", [Time]),
     print(html,
-	  "<td>" ++ St0 ++ "~.3fs" ++ St1 ++ "</td>"
+	  "<td>" ++ St0 ++ "~ts" ++ St1 ++ "</td>"
 	  "<td><font color=\"green\">Ok</font></td>"
 	  "~ts</tr>\n",
-	  [Time,Comment]),
+	  [TimeStr,Comment]),
     print(minor,
 	  escape_chars(io_lib:format("=== Returned value: ~tp", [RetVal])),
 	  []),

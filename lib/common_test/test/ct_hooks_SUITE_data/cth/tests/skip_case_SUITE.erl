@@ -43,9 +43,15 @@ init_per_testcase(skip_in_init,Config) ->
     {skip,"Skipped in init_per_testcase/2"};
 init_per_testcase(fail_in_init,Config) ->
     ct:fail("Failed in init_per_testcase/2");
+init_per_testcase(exit_in_init,Config) ->
+    exit(self(),"Exit in init_per_testcase/2");
 init_per_testcase(_,Config) ->
     Config.
 
+end_per_testcase(fail_in_end,_) ->
+    ct:fail("Failed in end_per_testcase/2");
+end_per_testcase(exit_in_end,_) ->
+    exit(self(),"Exit in end_per_testcase/2");
 end_per_testcase(_,_) ->
     ok.
 
@@ -53,6 +59,9 @@ all() ->
     [skip_in_spec,
      skip_in_init,
      fail_in_init,
+     exit_in_init,
+     fail_in_end,
+     exit_in_end,
      skip_in_case,
      req_auto_skip,
      fail_auto_skip
@@ -70,6 +79,16 @@ skip_in_init(Config) ->
 fail_in_init(Config) ->
     ct:fail("This test shall never be run. "
             "It shall fail in init_per_testcase/2.").
+
+exit_in_init(Config) ->
+    ct:fail("This test shall never be run. "
+            "It shall exit in init_per_testcase/2.").
+
+fail_in_end(Config) ->
+    ok.
+
+exit_in_end(Config) ->
+    ok.
 
 skip_in_case(Config) ->
     {skip,"Skipped in test case function"}.

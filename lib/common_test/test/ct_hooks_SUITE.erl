@@ -1644,7 +1644,7 @@ test_events(callbacks_on_skip) ->
          {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
          {?eh,cth,{empty_cth,id,[[]]}},
          {?eh,cth,{empty_cth,init,[{'_','_','_'},[]]}},
-         {?eh,start_info,{6,6,12}},
+         {?eh,start_info,{6,6,15}},
 
          %% all_hook_callbacks_SUITE is skipped in spec
          %% Only the on_tc_skip callback shall be called
@@ -1923,6 +1923,86 @@ test_events(callbacks_on_skip) ->
                     []]}},
          {?eh,test_stats,{0,0,{5,5}}},
 
+         %% Exit in init_per_testcase -> pre/post_end_per_testcase
+         %% shall not be called
+         {?eh,tc_start,{skip_case_SUITE,exit_in_init}},
+         {?eh,cth,{empty_cth,pre_init_per_testcase,
+                   [skip_case_SUITE,exit_in_init,
+                    '$proplist',
+                    []]}},
+         {?eh,cth,{empty_cth,post_init_per_testcase,
+                   [skip_case_SUITE,exit_in_init,
+                    '$proplist',
+                    {skip,{failed,'_'}},
+                    []]}},
+         {?eh,tc_done,{skip_case_SUITE,exit_in_init,
+                       {auto_skipped,{failed,'_'}}}},
+         {?eh,cth,{empty_cth,on_tc_skip,
+                   [skip_case_SUITE,exit_in_init,
+                    {tc_auto_skip,{auto_skipped,{failed,'_'}}},
+                    []]}},
+         {?eh,test_stats,{0,0,{5,6}}},
+
+         %% Fail in end_per_testcase -> all hooks shall be called and
+         %% test shall succeed.
+         {?eh,tc_start,{skip_case_SUITE,fail_in_end}},
+         {?eh,cth,{empty_cth,pre_init_per_testcase,
+                   [skip_case_SUITE,fail_in_end,
+                    '$proplist',
+                    []]}},
+         {?eh,cth,{empty_cth,post_init_per_testcase,
+                   [skip_case_SUITE,fail_in_end,
+                    '$proplist',
+                    ok,
+                    []]}},
+         {?eh,cth,{empty_cth,pre_end_per_testcase,
+                   [skip_case_SUITE,fail_in_end,
+                    '$proplist',
+                    []]}},
+         {?eh,cth,{empty_cth,post_end_per_testcase,
+                   [skip_case_SUITE,fail_in_end,
+                    '$proplist',
+                    {failed,
+                     {skip_case_SUITE,end_per_testcase,
+                      {'EXIT',
+                       {test_case_failed,"Failed in end_per_testcase/2"}}}},
+                    []]}},
+         {?eh,tc_done,{skip_case_SUITE,fail_in_end,
+                       {failed,
+                        {skip_case_SUITE,end_per_testcase,
+                         {'EXIT',
+                          {test_case_failed,"Failed in end_per_testcase/2"}}}}}},
+         {?eh,test_stats,{1,0,{5,6}}},
+
+         %% Exit in end_per_testcase -> all hooks shall be called and
+         %% test shall succeed.
+         {?eh,tc_start,{skip_case_SUITE,exit_in_end}},
+         {?eh,cth,{empty_cth,pre_init_per_testcase,
+                   [skip_case_SUITE,exit_in_end,
+                    '$proplist',
+                    []]}},
+         {?eh,cth,{empty_cth,post_init_per_testcase,
+                   [skip_case_SUITE,exit_in_end,
+                    '$proplist',
+                    ok,
+                    []]}},
+         {?eh,cth,{empty_cth,pre_end_per_testcase,
+                   [skip_case_SUITE,exit_in_end,
+                    '$proplist',
+                    []]}},
+         {?eh,cth,{empty_cth,post_end_per_testcase,
+                   [skip_case_SUITE,exit_in_end,
+                    '$proplist',
+                    {failed,
+                     {skip_case_SUITE,end_per_testcase,
+                      {'EXIT',"Exit in end_per_testcase/2"}}},
+                    []]}},
+         {?eh,tc_done,{skip_case_SUITE,exit_in_end,
+                       {failed,
+                        {skip_case_SUITE,end_per_testcase,
+                         {'EXIT',"Exit in end_per_testcase/2"}}}}},
+         {?eh,test_stats,{2,0,{5,6}}},
+
          %% Skip in testcase function -> all callbacks shall be called
          {?eh,tc_start,{skip_case_SUITE,skip_in_case}},
          {?eh,cth,{empty_cth,pre_init_per_testcase,
@@ -1948,7 +2028,7 @@ test_events(callbacks_on_skip) ->
                    [skip_case_SUITE,skip_in_case,
                     {tc_user_skip,{skipped,"Skipped in test case function"}},
                     []]}},
-         {?eh,test_stats,{0,0,{6,5}}},
+         {?eh,test_stats,{2,0,{6,6}}},
 
          %% Auto skip due to failed 'require' -> only the on_tc_skip
          %% callback shall be called
@@ -1960,7 +2040,7 @@ test_events(callbacks_on_skip) ->
                     {tc_auto_skip,
                      {auto_skipped,{require_failed,{not_available,whatever}}}},
                     []]}},
-         {?eh,test_stats,{0,0,{6,6}}},
+         {?eh,test_stats,{2,0,{6,7}}},
 
          %% Auto skip due to failed testcase/0 function -> only the
          %% on_tc_skip callback shall be called
@@ -1972,7 +2052,7 @@ test_events(callbacks_on_skip) ->
                     {tc_auto_skip,
                      {auto_skipped,{testcase0_failed,bad_return_value}}},
                     []]}},
-         {?eh,test_stats,{0,0,{6,7}}},
+         {?eh,test_stats,{2,0,{6,8}}},
 
          {?eh,tc_start,{skip_case_SUITE,end_per_suite}},
          {?eh,cth,{empty_cth,pre_end_per_suite,
