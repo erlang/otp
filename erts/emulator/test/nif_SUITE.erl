@@ -128,6 +128,13 @@ init_per_testcase(hipe, Config) ->
 	undefined -> {skip, "HiPE is disabled"};
 	_ -> Config
     end;
+init_per_testcase(select, Config) ->
+    case os:type() of
+        {win32,_} ->
+            {skip, "Test not yet implemented for windows"};
+        _ ->
+            Config
+    end;
 init_per_testcase(_Case, Config) ->
     Config.
 

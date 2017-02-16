@@ -23,10 +23,10 @@
 #include <string.h>
 #include <assert.h>
 #include <limits.h>
+#include <errno.h>
 #ifndef __WIN32__
 #include <unistd.h>
 #include <fcntl.h>
-#include <errno.h>
 #endif
 
 #include "nif_mod.h"
@@ -143,7 +143,7 @@ static ErlNifResourceTypeInit fd_rt_init = {
     fd_resource_stop
 };
 struct fd_resource {
-    int fd;
+    ErlNifEvent fd;
     int was_selected;
     ErlNifPid pid;
 };
@@ -2144,7 +2144,7 @@ static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     int retval;
 
     if (!get_fd(env, argv[0], &fdr)
-        || !enif_get_uint(env, argv[1], &mode)
+        || !enif_get_uint(env, argv[1], (unsigned int*)&mode)
         || !enif_get_resource(env, argv[2], fd_resource_type, &obj))
     {
         return enif_make_badarg(env);
@@ -2164,6 +2164,7 @@ static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     return enif_make_int(env, retval);
 }
 
+#ifndef __WIN32__
 static ERL_NIF_TERM pipe_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     struct fd_resource* read_rsrc;
@@ -2274,15 +2275,21 @@ static ERL_NIF_TERM is_closed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
     return fdr->fd < 0 ? atom_true : atom_false;
 }
+#endif /* !__WIN32__ */
+
 
 static void fd_resource_dtor(ErlNifEnv* env, void* obj)
 {
     struct fd_resource* fdr = (struct fd_resource*)obj;
     resource_dtor(env, obj);
+#ifdef __WIN32__
+    abort();
+#else
     if (fdr->fd >= 0) {
         assert(!fdr->was_selected);
         close(fdr->fd);
     }
+#endif
 }
 
 static struct {
@@ -2924,10 +2931,12 @@ static ErlNifFunc nif_funcs[] =
     {"port_command_nif", 2, port_command},
     {"format_term_nif", 2, format_term},
     {"select_nif", 5, select_nif},
+#ifndef __WIN32__
     {"pipe_nif", 0, pipe_nif},
     {"write_nif", 2, write_nif},
     {"read_nif", 2, read_nif},
     {"is_closed_nif", 1, is_closed_nif},
+#endif
     {"last_fd_stop_call", 0, last_fd_stop_call},
     {"alloc_monitor_resource_nif", 0, alloc_monitor_resource_nif},
     {"monitor_process_nif", 4, monitor_process_nif},
