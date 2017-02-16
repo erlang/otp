@@ -723,7 +723,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
         Uint sz;
         INITIALIZE_LITERAL_PURGE_AREA(litarea);
         sz = size_object_litopt(msg, &litarea);
-	if (env && !env->tracee) {
+	if (c_p && !env->tracee) {
 	    full_flush_env(env);
 	    mp = erts_alloc_message_heap(rp, &rp_locks, sz, &hp, &ohp);
 	    full_cache_env(env);
