@@ -7609,10 +7609,21 @@ erl_drv_convert_time_unit(ErlDrvTime val,
 
 static void ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon)
 {
-    ERTS_CT_ASSERT(sizeof(ErtsOIRefStorage) <= sizeof(ErlDrvMonitor));
-    erts_oiref_storage_save((ErtsOIRefStorage *) mon, ref);
+    ERTS_CT_ASSERT(ERTS_REF_THING_SIZE*sizeof(Uint) <= sizeof(ErlDrvMonitor));
+    ASSERT(is_internal_ordinary_ref(ref));
+    sys_memcpy((void *) mon, (void *) internal_ref_val(ref),
+               ERTS_REF_THING_SIZE*sizeof(Uint));
 }
 
+static Eterm driver_monitor_to_ref(Eterm *hp, const ErlDrvMonitor *mon)
+{
+    Eterm ref;
+    ERTS_CT_ASSERT(ERTS_REF_THING_SIZE*sizeof(Uint) <= sizeof(ErlDrvMonitor));
+    sys_memcpy((void *) hp, (void *) mon, ERTS_REF_THING_SIZE*sizeof(Uint));
+    ref = make_internal_ref(hp);
+    ASSERT(is_internal_ordinary_ref(ref));
+    return ref;
+}
 
 static int do_driver_monitor_process(Port *prt,
 				     ErlDrvTermData process,
@@ -7669,13 +7680,12 @@ int driver_monitor_process(ErlDrvPort drvport,
 static int do_driver_demonitor_process(Port *prt, const ErlDrvMonitor *monitor)
 {
     Eterm heap[ERTS_REF_THING_SIZE];
-    Eterm *hp = &heap[0];
     Process *rp;
     Eterm ref;
     ErtsMonitor *mon;
     Eterm to;
 
-    ref = erts_oiref_storage_make_ref((ErtsOIRefStorage *) monitor, &hp),
+    ref = driver_monitor_to_ref(heap, monitor);
 
     mon = erts_lookup_monitor(ERTS_P_MONITORS(prt), ref);
     if (mon == NULL) {
@@ -7731,9 +7741,8 @@ static ErlDrvTermData do_driver_get_monitored_process(Port *prt,const ErlDrvMoni
     ErtsMonitor *mon;
     Eterm to;
     Eterm heap[ERTS_REF_THING_SIZE];
-    Eterm *hp = &heap[0];
 
-    ref = erts_oiref_storage_make_ref((ErtsOIRefStorage *) monitor, &hp),
+    ref = driver_monitor_to_ref(heap, monitor);
 
     mon = erts_lookup_monitor(ERTS_P_MONITORS(prt), ref);
     if (mon == NULL) {
@@ -7767,12 +7776,11 @@ ErlDrvTermData driver_get_monitored_process(ErlDrvPort drvport,
     return ret;
 }
 
-
 int driver_compare_monitors(const ErlDrvMonitor *monitor1,
 			    const ErlDrvMonitor *monitor2)
 {
-    return erts_oiref_storage_cmp((ErtsOIRefStorage *) monitor1,
-				  (ErtsOIRefStorage *) monitor2);
+    return sys_memcmp((void *) monitor1, (void *) monitor2,
+                      ERTS_REF_THING_SIZE*sizeof(Eterm));
 }
 
 void erts_fire_port_monitor(Port *prt, Eterm ref)
