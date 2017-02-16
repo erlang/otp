@@ -190,7 +190,7 @@ BIF_RETTYPE round_1(BIF_ALIST_1)
     GET_DOUBLE(BIF_ARG_1, f);
 
     /* round it and return the resultant integer */
-    res = double_to_integer(BIF_P, (f.fd > 0.0) ? f.fd + 0.5 : f.fd - 0.5);
+    res = double_to_integer(BIF_P, round(f.fd));
     BIF_RET(res);
 }
 
@@ -630,8 +630,7 @@ Eterm erts_gc_round_1(Process* p, Eterm* reg, Uint live)
     }
     GET_DOUBLE(arg, f);
 
-    return gc_double_to_integer(p, (f.fd > 0.0) ? f.fd + 0.5 : f.fd - 0.5,
-				reg, live);
+    return gc_double_to_integer(p, round(f.fd), reg, live);
 }
 
 Eterm erts_gc_trunc_1(Process* p, Eterm* reg, Uint live)
