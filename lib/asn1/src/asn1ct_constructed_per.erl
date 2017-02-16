@@ -979,6 +979,10 @@ mark_optional(Other) ->
 gen_enc_components_call1(Gen, TopType, [C|Rest], DynamicEnc, Ext) ->
     #'ComponentType'{name=Cname,typespec=Type,
                      prop=Prop,textual_order=Num} = C,
+    InnerType = asn1ct_gen:get_inner(Type#type.def),
+    CommentString = attribute_comment(InnerType, Num, Cname),
+    ImmComment = asn1ct_imm:enc_comment(CommentString),
+
     {Imm0,Element} = enc_fetch_field(Gen, Num, Prop),
     Imm1 = gen_enc_line_imm(Gen, TopType, Cname, Type,
                             Element, DynamicEnc, Ext),
@@ -993,7 +997,7 @@ gen_enc_components_call1(Gen, TopType, [C|Rest], DynamicEnc, Ext) ->
 	   end,
     Imm = case Imm2 of
 	      [] -> [];
-	      _ -> Imm0 ++ Imm2
+	      _ -> [ImmComment|Imm0 ++ Imm2]
 	  end,
     [Imm|gen_enc_components_call1(Gen, TopType, Rest, DynamicEnc, Ext)];
 gen_enc_components_call1(_Gen, _TopType, [], _, _) ->
@@ -1328,27 +1332,17 @@ gen_dec_comp_calls([], _, _, _, _, _, _, Tpos, Acc) ->
 
 gen_dec_comp_call(Comp, Gen, TopType, Tpos, OptTable, DecInfObj,
 		  Ext, NumberOfOptionals) ->
-    #'ComponentType'{typespec=Type,prop=Prop,textual_order=TextPos} = Comp,
+    #'ComponentType'{name=Cname,typespec=Type,
+                     prop=Prop,textual_order=TextPos} = Comp,
     Pos = case Ext of
 	      noext -> Tpos;
 	      {ext,Epos,_Enum} -> Tpos - Epos + 1
 	  end,
-    InnerType = 
-	case Type#type.def of
-	    #'ObjectClassFieldType'{type=InType} ->
-		InType;
-	    Def ->
-		asn1ct_gen:get_inner(Def)
-	end,
+    InnerType = asn1ct_gen:get_inner(Type#type.def),
 
-    DispType = case InnerType of
-		   #'Externaltypereference'{type=T} -> T;
-		   IT when is_tuple(IT) -> element(2,IT);
-		   _ -> InnerType
-	       end,
+    CommentString = attribute_comment(InnerType, TextPos, Cname),
     Comment = fun(St) ->
-		      emit([nl,"%% attribute number ",TextPos,
-			    " with type ",DispType,nl]),
+		      emit([nl,"%% ",CommentString,nl]),
 		      St
 	      end,
 
@@ -1987,3 +1981,12 @@ enc_dig_out_value(#gen{pack=map}=Gen, [{_,Name}|T], Value) ->
 
 make_var(Base) ->
     {var,atom_to_list(asn1ct_gen:mk_var(asn1ct_name:curr(Base)))}.
+
+attribute_comment(InnerType, TextPos, Cname) ->
+    DispType = case InnerType of
+		   #'Externaltypereference'{type=T} -> T;
+		   IT when is_tuple(IT) -> element(2,IT);
+		   _ -> InnerType
+	       end,
+    Comment = ["attribute ",Cname,"(",TextPos,") with type ",DispType],
+    lists:concat(Comment).
