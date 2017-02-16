@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -128,6 +128,10 @@ max_cs(M, _Len) ->
     M.
 
 -define(ATM(T), is_list(element(1, T))).
+-define(ATM_PAIR(Pair),
+        ?ATM(element(2, element(1, Pair))) % Key
+        andalso
+        ?ATM(element(3, element(1, Pair)))). % Value
 -define(ATM_FLD(Field), ?ATM(element(4, element(1, Field)))).
 
 pp({_S, Len} = If, Col, Ll, M, _TInd, _Ind, LD, W) 
@@ -140,9 +144,8 @@ pp({{tuple,true,L}, _Len}, Col, Ll, M, TInd, Ind, LD, W) ->
 pp({{tuple,false,L}, _Len}, Col, Ll, M, TInd, Ind, LD, W) ->
     [${, pp_list(L, Col + 1, Ll, M, TInd, indent(1, Ind), LD, $,, W + 1), $}];
 pp({{map,Pairs},_Len}, Col, Ll, M, TInd, Ind, LD, W) ->
-    [$#,${, pp_list(Pairs, Col + 2, Ll, M, TInd, indent(2, Ind), LD, $,, W + 1), $}];
-pp({{map_pair,K,V},_Len}, Col, Ll, M, TInd, Ind, LD, W) ->
-    [pp(K, Col, Ll, M, TInd, Ind, LD, W), " => ", pp(V, Col, Ll, M, TInd, Ind, LD, W)];
+    [$#, ${, pp_map(Pairs, Col + 2, Ll, M, TInd, indent(2, Ind), LD, W + 1),
+     $}];
 pp({{record,[{Name,NLen} | L]}, _Len}, Col, Ll, M, TInd, Ind, LD, W) ->
     [Name, ${, pp_record(L, NLen, Col, Ll, M, TInd, Ind, LD, W + NLen+1), $}];
 pp({{bin,S}, _Len}, Col, Ll, M, _TInd, Ind, LD, W) ->
@@ -165,6 +168,46 @@ pp_tag_tuple([{Tag,Tlen} | L], Col, Ll, M, TInd, Ind, LD, W) ->
             Indent = indent(TagInd, Ind),
             [Tag, S | pp_list(L, Tcol, Ll, M, TInd, Indent, LD, S, W+Tlen+1)]
     end.
+
+pp_map([], _Col, _Ll, _M, _TInd, _Ind, _LD, _W) ->
+    "";
+pp_map({dots, _}, _Col, _Ll, _M, _TInd, _Ind, _LD, _W) ->
+    "...";
+pp_map([P | Ps], Col, Ll, M, TInd, Ind, LD, W) ->
+    {PS, PW} = pp_pair(P, Col, Ll, M, TInd, Ind, last_depth(Ps, LD), W),
+    [PS | pp_pairs_tail(Ps, Col, Col + PW, Ll, M, TInd, Ind, LD, PW)].
+
+pp_pairs_tail([], _Col0, _Col, _Ll, _M, _TInd, _Ind, _LD, _W) ->
+    "";
+pp_pairs_tail({dots, _}, _Col0, _Col, _M, _Ll, _TInd, _Ind, _LD, _W) ->
+    ",...";
+pp_pairs_tail([{_, Len}=P | Ps], Col0, Col, Ll, M, TInd, Ind, LD, W) ->
+    LD1 = last_depth(Ps, LD),
+    ELen = 1 + Len,
+    if
+        LD1 =:= 0, ELen + 1 < Ll - Col, W + ELen + 1 =< M, ?ATM_PAIR(P);
+        LD1 > 0, ELen < Ll - Col - LD1, W + ELen + LD1 =< M, ?ATM_PAIR(P) ->
+            [$,, write_pair(P) |
+             pp_pairs_tail(Ps, Col0, Col+ELen, Ll, M, TInd, Ind, LD, W+ELen)];
+        true ->
+            {PS, PW} = pp_pair(P, Col0, Ll, M, TInd, Ind, LD1, 0),
+            [$,, $\n, Ind, PS |
+             pp_pairs_tail(Ps, Col0, Col0 + PW, Ll, M, TInd, Ind, LD, PW)]
+    end.
+
+pp_pair({_, Len}=Pair, Col, Ll, M, _TInd, _Ind, LD, W)
+         when Len < Ll - Col - LD, Len + W + LD =< M ->
+    {write_pair(Pair), if
+                          ?ATM_PAIR(Pair) ->
+                              Len;
+                          true ->
+                              Ll % force nl
+                      end};
+pp_pair({{map_pair, K, V}, _Len}, Col0, Ll, M, TInd, Ind0, LD, W) ->
+    I = map_value_indent(TInd),
+    Ind = indent(I, Ind0),
+    {[pp(K, Col0, Ll, M, TInd, Ind0, LD, W), " =>\n",
+      Ind | pp(V, Col0 + I, Ll, M, TInd, Ind, LD, 0)], Ll}. % force nl
 
 pp_record([], _Nlen, _Col, _Ll, _M, _TInd, _Ind, _LD, _W) ->
     "";
@@ -204,7 +247,11 @@ pp_field({_, Len}=Fl, Col, Ll, M, _TInd, _Ind, LD, W)
                       end};
 pp_field({{field, Name, NameL, F}, _Len}, Col0, Ll, M, TInd, Ind0, LD, W0) ->
     {Col, Ind, S, W} = rec_indent(NameL, TInd, Col0, Ind0, W0 + NameL),
-    {[Name, " = ", S | pp(F, Col, Ll, M, TInd, Ind, LD, W)], Ll}. % force nl
+    Sep = case S of
+              [$\n | _] -> " =";
+              _ -> " = "
+          end,
+    {[Name, Sep, S | pp(F, Col, Ll, M, TInd, Ind, LD, W)], Ll}. % force nl
 
 rec_indent(RInd, TInd, Col0, Ind0, W0) ->
     Nl = (TInd > 0) and (RInd > TInd),
@@ -291,14 +338,17 @@ write({{list, L}, _}) ->
     [$[, write_list(L, $|), $]];
 write({{map, Pairs}, _}) ->
     [$#,${, write_list(Pairs, $,), $}];
-write({{map_pair, K, V}, _}) ->
-    [write(K)," => ",write(V)];
+write({{map_pair, _K, _V}, _}=Pair) ->
+    write_pair(Pair);
 write({{record, [{Name,_} | L]}, _}) ->
     [Name, ${, write_fields(L), $}];
 write({{bin, S}, _}) ->
     S;
 write({S, _}) ->
     S.
+
+write_pair({{map_pair, K, V}, _}) ->
+    [write(K), " => ", write(V)].
 
 write_fields([]) ->
     "";
@@ -333,7 +383,7 @@ write_tail(E, S) ->
 
 %% The depth (D) is used for extracting and counting the characters to
 %% print. The structure is kept so that the returned intermediate
-%% format can be formatted. The separators (list, tuple, record) are
+%% format can be formatted. The separators (list, tuple, record, map) are
 %% counted but need to be added later.
 
 %% D =/= 0
@@ -406,21 +456,32 @@ print_length(Term, _D, _RF, _Enc, _Str) ->
 print_length_map(_Map, 1, _RF, _Enc, _Str) ->
     {"#{...}", 6};
 print_length_map(Map, D, RF, Enc, Str) when is_map(Map) ->
-    Pairs = print_length_map_pairs(maps:to_list(Map), D, RF, Enc, Str),
+    Pairs = print_length_map_pairs(maps_to_list(Map, D), D, RF, Enc, Str),
     {{map, Pairs}, list_length(Pairs, 3)}.
+
+maps_to_list(Map, D) when D < 0; map_size(Map) =< D ->
+    maps:to_list(Map);
+maps_to_list(Map, D) ->
+    F = fun(_K, _V, {N, L}) when N =:= D ->
+                throw(L);
+           (K, V, {N, L}) ->
+                {N+1, [{K, V} | L]}
+        end,
+    lists:reverse(catch maps:fold(F, {0, []}, Map)).
 
 print_length_map_pairs([], _D, _RF, _Enc, _Str) ->
     [];
 print_length_map_pairs(_Pairs, 1, _RF, _Enc, _Str) ->
     {dots, 3};
-print_length_map_pairs([{K,V}|Pairs], D, RF, Enc, Str) ->
-    [print_length_map_pair(K,V,D-1,RF,Enc,Str) |
-     print_length_map_pairs(Pairs,D-1,RF,Enc,Str)].
+print_length_map_pairs([{K, V} | Pairs], D, RF, Enc, Str) ->
+    [print_length_map_pair(K, V, D - 1, RF, Enc, Str) |
+     print_length_map_pairs(Pairs, D - 1, RF, Enc, Str)].
 
 print_length_map_pair(K, V, D, RF, Enc, Str) ->
     {KS, KL} = print_length(K, D, RF, Enc, Str),
     {VS, VL} = print_length(V, D, RF, Enc, Str),
-    {{map_pair, {KS,KL}, {VS,VL}}, KL + VL}.
+    KL1 = KL + 4,
+    {{map_pair, {KS, KL1}, {VS, VL}}, KL1 + VL}.
 
 print_length_tuple(_Tuple, 1, _RF, _Enc, _Str) ->
     {"{...}", 5};
@@ -612,6 +673,8 @@ cind({{tuple,true,L}, _Len}, Col, Ll, M, Ind, LD, W) ->
     cind_tag_tuple(L, Col, Ll, M, Ind, LD, W + 1);
 cind({{tuple,false,L}, _Len}, Col, Ll, M, Ind, LD, W) ->
     cind_list(L, Col + 1, Ll, M, Ind, LD, W + 1);
+cind({{map,Pairs},_Len}, Col, Ll, M, Ind, LD, W) ->
+    cind_map(Pairs, Col + 2, Ll, M, Ind, LD, W + 2);
 cind({{record,[{_Name,NLen} | L]}, _Len}, Col, Ll, M, Ind, LD, W) ->
     cind_record(L, NLen, Col, Ll, M, Ind, LD, W + NLen + 1);
 cind({{bin,_S}, _Len}, _Col, _Ll, _M, Ind, _LD, _W) ->
@@ -635,6 +698,48 @@ cind_tag_tuple([{_Tag,Tlen} | L], Col, Ll, M, Ind, LD, W) ->
             cind_list(L, Tcol, Ll, M, Ind, LD, W + Tlen + 1);
         true ->
             throw(no_good)
+    end.
+
+cind_map([P | Ps], Col, Ll, M, Ind, LD, W) ->
+    PW = cind_pair(P, Col, Ll, M, Ind, last_depth(Ps, LD), W),
+    cind_pairs_tail(Ps, Col, Col + PW, Ll, M, Ind, LD, W + PW);
+cind_map(_, _Col, _Ll, _M, Ind, _LD, _W) ->
+    Ind.
+
+cind_pairs_tail([{_, Len}=P | Ps], Col0, Col, Ll, M, Ind, LD, W) ->
+    LD1 = last_depth(Ps, LD),
+    ELen = 1 + Len,
+    if
+        LD1 =:= 0, ELen + 1 < Ll - Col, W + ELen + 1 =< M, ?ATM_PAIR(P);
+        LD1 > 0, ELen < Ll - Col - LD1, W + ELen + LD1 =< M, ?ATM_PAIR(P) ->
+            cind_pairs_tail(Ps, Col0, Col + ELen, Ll, M, Ind, LD, W + ELen);
+        true ->
+            PW = cind_pair(P, Col0, Ll, M, Ind, LD1, 0),
+            cind_pairs_tail(Ps, Col0, Col0 + PW, Ll, M, Ind, LD, PW)
+    end;
+cind_pairs_tail(_, _Col0, _Col, _Ll, _M, Ind, _LD, _W) ->
+    Ind.
+
+cind_pair({{map_pair, _Key, _Value}, Len}=Pair, Col, Ll, M, _Ind, LD, W)
+         when Len < Ll - Col - LD, Len + W + LD =< M ->
+    if
+        ?ATM_PAIR(Pair) ->
+            Len;
+        true ->
+            Ll
+    end;
+cind_pair({{map_pair, K, V}, _Len}, Col0, Ll, M, Ind, LD, W0) ->
+    cind(K, Col0, Ll, M, Ind, LD, W0),
+    I = map_value_indent(Ind),
+    cind(V, Col0 + I, Ll, M, Ind, LD, 0),
+    Ll.
+
+map_value_indent(TInd) ->
+    case TInd > 0 of
+        true ->
+            TInd;
+        false ->
+            4
     end.
 
 cind_record([F | Fs], Nlen, Col0, Ll, M, Ind, LD, W0) ->
