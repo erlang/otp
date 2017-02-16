@@ -379,6 +379,16 @@ info(fmtfn_t to, void *to_arg)
 
 }
 
+static int code_size(struct erl_module_instance* modi)
+{
+    ErtsLiteralArea* lit = modi->code_hdr->literal_area;
+    int size = modi->code_length;
+    if (lit) {
+        size += (lit->end - lit->start) * sizeof(Eterm);
+    }
+    return size;
+}
+
 void
 loaded(fmtfn_t to, void *to_arg)
 {
@@ -399,9 +409,9 @@ loaded(fmtfn_t to, void *to_arg)
 	if ((modp = module_code(i, code_ix)) != NULL &&
 	    ((modp->curr.code_length != 0) ||
 	     (modp->old.code_length != 0))) {
-	    cur += modp->curr.code_length;
+	    cur += code_size(&modp->curr);
 	    if (modp->old.code_length != 0) {
-		old += modp->old.code_length;
+		old += code_size(&modp->old);
 	    }
 	}
     }
@@ -422,12 +432,12 @@ loaded(fmtfn_t to, void *to_arg)
 	    ((modp->curr.code_length != 0) ||
 	     (modp->old.code_length != 0))) {
 		erts_print(to, to_arg, "%T", make_atom(modp->module));
-		cur += modp->curr.code_length;
-		erts_print(to, to_arg, " %d", modp->curr.code_length );
+		cur += code_size(&modp->curr);
+		erts_print(to, to_arg, " %d", code_size(&modp->curr));
 		if (modp->old.code_length != 0) {
 		    erts_print(to, to_arg, " (%d old)",
-			       modp->old.code_length );
-		    old += modp->old.code_length;
+			       code_size(&modp->old));
+		    old += code_size(&modp->old);
 		}
 		erts_print(to, to_arg, "\n");
 	    }
@@ -442,7 +452,7 @@ loaded(fmtfn_t to, void *to_arg)
 		erts_print(to, to_arg, "%T", make_atom(modp->module));
 		erts_print(to, to_arg, "\n");
 		erts_print(to, to_arg, "Current size: %d\n",
-			   modp->curr.code_length);
+			   code_size(&modp->curr));
 		code = modp->curr.code_hdr;
 		if (code != NULL && code->attr_ptr) {
 		    erts_print(to, to_arg, "Current attributes: ");
@@ -456,7 +466,7 @@ loaded(fmtfn_t to, void *to_arg)
 		}
 
 		if (modp->old.code_length != 0) {
-		    erts_print(to, to_arg, "Old size: %d\n", modp->old.code_length);
+		    erts_print(to, to_arg, "Old size: %d\n", code_size(&modp->old));
 		    code = modp->old.code_hdr;
 		    if (code->attr_ptr) {
 			erts_print(to, to_arg, "Old attributes: ");
