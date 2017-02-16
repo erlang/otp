@@ -690,7 +690,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
         Uint sz = size_object(msg);
 	ErlOffHeap *ohp;
         Eterm *hp;
-	if (env && !env->tracee) {
+	if (c_p && !env->tracee) {
 	    full_flush_env(env);
 	    mp = erts_alloc_message_heap(rp, &rp_locks, sz, &hp, &ohp);
 	    full_cache_env(env);
