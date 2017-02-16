@@ -511,6 +511,33 @@ true
     </func>
 
     <func>
+      <name name="safe_relative_path" arity="1"/>
+      <fsummary>Sanitize a relative path to avoid directory traversal attacks.</fsummary>
+      <desc>
+        <p>Sanitizes the relative path by eliminating ".." and "."
+        components to protect against directory traversal attacks.
+        Either returns the sanitized path name, or the atom
+        <c>unsafe</c> if the path is unsafe.
+        The path is considered unsafe in the following circumstances:</p>
+        <list type="bulleted">
+          <item><p>The path is not relative.</p></item>
+          <item><p>A ".." component would climb up above the root of
+          the relative path.</p></item>
+        </list>
+        <p><em>Examples:</em></p>
+        <pre>
+1> <input>filename:safe_relative_path("dir/sub_dir/..").</input>
+"dir"
+2> <input>filename:safe_relative_path("dir/..").</input>
+[]
+3> <input>filename:safe_relative_path("dir/../..").</input>
+unsafe
+4> <input>filename:safe_relative_path("/abs/path").</input>
+unsafe</pre>
+       </desc>
+    </func>
+
+    <func>
       <name name="split" arity="1"/>
       <fsummary>Split a filename into its path components.</fsummary>
       <desc>
