@@ -88,12 +88,15 @@ init_tc(Mod,Func0,Args) ->
 	andalso Func=/=end_per_group
 	andalso ct_util:get_testdata(skip_rest) of
 	true ->
+            initialize(false,Mod,Func,Args),
 	    {auto_skip,"Repeated test stopped by force_stop option"};
 	_ ->
 	    case ct_util:get_testdata(curr_tc) of
 		{Suite,{suite0_failed,{require,Reason}}} ->
+                    initialize(false,Mod,Func,Args),
 		    {auto_skip,{require_failed_in_suite0,Reason}};
 		{Suite,{suite0_failed,_}=Failure} ->
+                    initialize(false,Mod,Func,Args),
 		    {fail,Failure};
 		_ ->
 		    ct_util:update_testdata(curr_tc,
@@ -122,16 +125,14 @@ init_tc(Mod,Func0,Args) ->
 			    end,
 			    init_tc1(Mod,Suite,Func,HookFunc,Args);
 			{failed,Seq,BadFunc} ->
-			    {auto_skip,{sequence_failed,Seq,BadFunc}}
+                            initialize(false,Mod,Func,Args),
+                            {auto_skip,{sequence_failed,Seq,BadFunc}}
 		    end
 	    end
     end.
 
 init_tc1(?MODULE,_,error_in_suite,_,[Config0]) when is_list(Config0) ->
-    ct_logs:init_tc(false),
-    ct_event:notify(#event{name=tc_start,
-			   node=node(),
-			   data={?MODULE,error_in_suite}}),
+    initialize(false,?MODULE,error_in_suite),
     _ = ct_suite_init(?MODULE,error_in_suite,[],Config0),
     case ?val(error,Config0) of
 	undefined ->
@@ -181,27 +182,21 @@ init_tc1(Mod,Suite,Func,HookFunc,[Config0]) when is_list(Config0) ->
 		ct_config:delete_default_config(testcase),
 		HookFunc
 	end,
-    Initialize = fun() -> 
-			 ct_logs:init_tc(false),
-			 ct_event:notify(#event{name=tc_start,
-						node=node(),
-						data={Mod,FuncSpec}})
-		 end,
     case add_defaults(Mod,Func,AllGroups) of
 	Error = {suite0_failed,_} ->
-	    Initialize(),
+	    initialize(false,Mod,FuncSpec),
 	    ct_util:set_testdata({curr_tc,{Suite,Error}}),
 	    {error,Error};
 	Error = {group0_failed,_} ->
-	    Initialize(),
+	    initialize(false,Mod,FuncSpec),
 	    {auto_skip,Error};
 	Error = {testcase0_failed,_} ->
-	    Initialize(),
+	    initialize(false,Mod,FuncSpec),
 	    {auto_skip,Error};
 	{SuiteInfo,MergeResult} ->
 	    case MergeResult of
 		{error,Reason} ->
-		    Initialize(),
+		    initialize(false,Mod,FuncSpec),
 		    {fail,Reason};
 		_ ->
 		    init_tc2(Mod,Suite,Func,HookFunc1,
@@ -240,11 +235,8 @@ init_tc2(Mod,Suite,Func,HookFunc,SuiteInfo,MergeResult,Config) ->
 	Conns ->
 	    ct_util:silence_connections(Conns)
     end,
-    ct_logs:init_tc(Func == init_per_suite),
     FuncSpec = group_or_func(Func,Config),
-    ct_event:notify(#event{name=tc_start,
-			   node=node(),
-			   data={Mod,FuncSpec}}),
+    initialize((Func==init_per_suite),Mod,FuncSpec),
 
     case catch configure(MergedInfo,MergedInfo,SuiteInfo,
 			 FuncSpec,[],Config) of
@@ -271,6 +263,18 @@ init_tc2(Mod,Suite,Func,HookFunc,SuiteInfo,MergeResult,Config) ->
 		    end
 	    end
     end.
+
+initialize(RefreshLogs,Mod,Func,[Config]) when is_list(Config) ->
+    initialize(RefreshLogs,Mod,group_or_func(Func,Config));
+initialize(RefreshLogs,Mod,Func,_) ->
+    initialize(RefreshLogs,Mod,Func).
+
+initialize(RefreshLogs,Mod,FuncSpec) ->
+    ct_logs:init_tc(RefreshLogs),
+    ct_event:notify(#event{name=tc_start,
+			   node=node(),
+			   data={Mod,FuncSpec}}).
+
 
 ct_suite_init(Suite,HookFunc,PostInitHook,Config) when is_list(Config) ->
     case ct_hooks:init_tc(Suite,HookFunc,Config) of
