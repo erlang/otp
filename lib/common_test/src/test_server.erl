@@ -778,9 +778,9 @@ spawn_fw_call(Mod,IPTC={init_per_testcase,Func},CurrConf,Pid,
 		%% if init_per_testcase fails, the test case
 		%% should be skipped
 		try begin do_end_tc_call(Mod,IPTC, {Pid,Skip,[CurrConf]}, Why),
-			  do_init_tc_call(Mod,{end_per_testcase,Func},
+			  do_init_tc_call(Mod,{end_per_testcase_not_run,Func},
 					  [CurrConf],{ok,[CurrConf]}),
-			  do_end_tc_call(Mod,{end_per_testcase,Func}, 
+			  do_end_tc_call(Mod,{end_per_testcase_not_run,Func},
 					 {Pid,Skip,[CurrConf]}, Why) end of
 		    _ -> ok
 		catch
@@ -1151,14 +1151,14 @@ do_end_tc_call(Mod, IPTC={init_per_testcase,Func}, Res, Return) ->
 			 Args
 		 end,
 	     EPTCInitRes =
-		 case do_init_tc_call(Mod,{end_per_testcase,Func},
+		 case do_init_tc_call(Mod,{end_per_testcase_not_run,Func},
 				      IPTCEndRes,Return) of
 		     {ok,EPTCInitConfig} when is_list(EPTCInitConfig) ->
 			 {Return,EPTCInitConfig};
 		     _ ->
                          {Return,IPTCEndRes}
 		 end,
-	     do_end_tc_call1(Mod, {end_per_testcase,Func},
+	     do_end_tc_call1(Mod, {end_per_testcase_not_run,Func},
 			     EPTCInitRes, Return);
 	 _Ok ->
 	     do_end_tc_call1(Mod, IPTC, Res, Return)

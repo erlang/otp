@@ -52,6 +52,10 @@
 %%%
 %%% @doc Test server framework callback, called by the test_server
 %%% when a new test case is started.
+init_tc(_,{end_per_testcase_not_run,_},[Config]) ->
+    %% Testcase is completed (skipped or failed), but end_per_testcase
+    %% is not run - don't call pre-hook.
+    {ok,[Config]};
 init_tc(Mod,EPTC={end_per_testcase,_},[Config]) ->
     %% in case Mod == ct_framework, lookup the suite name
     Suite = get_suite_name(Mod, Config),
@@ -62,7 +66,7 @@ init_tc(Mod,EPTC={end_per_testcase,_},[Config]) ->
 	    Other
     end;
 
-init_tc(Mod,Func0,Args) ->    
+init_tc(Mod,Func0,Args) ->
     %% in case Mod == ct_framework, lookup the suite name
     Suite = get_suite_name(Mod, Args),
     {Func,HookFunc} = case Func0 of
@@ -675,22 +679,35 @@ end_tc(Mod,Func,{Result,[Args]}, Return) ->
     end_tc(Mod,Func,self(),Result,Args,Return).
 
 end_tc(Mod,IPTC={init_per_testcase,_Func},_TCPid,Result,Args,Return) ->
-    %% in case Mod == ct_framework, lookup the suite name
-    Suite = get_suite_name(Mod, Args),
-    case ct_hooks:end_tc(Suite,IPTC,Args,Result,Return) of
-	    '$ct_no_change' ->
-		ok;
-	    HookResult ->
-		HookResult
+    case end_hook_func(IPTC,Return,IPTC) of
+        undefined -> ok;
+        _ ->
+            %% in case Mod == ct_framework, lookup the suite name
+            Suite = get_suite_name(Mod, Args),
+            case ct_hooks:end_tc(Suite,IPTC,Args,Result,Return) of
+                '$ct_no_change' ->
+                    ok;
+                HookResult ->
+                    HookResult
+            end
     end;
 
 end_tc(Mod,Func0,TCPid,Result,Args,Return) ->
     %% in case Mod == ct_framework, lookup the suite name
     Suite = get_suite_name(Mod, Args),
-    {EPTC,Func} = case Func0 of
-		      {end_per_testcase,F} -> {true,F};
-		      _                    -> {false,Func0}
-		  end,
+    {Func,FuncSpec,HookFunc} =
+        case Func0 of
+            {end_per_testcase_not_run,F} ->
+                %% Testcase is completed (skipped or failed), but
+                %% end_per_testcase is not run - don't call post-hook.
+                {F,F,undefined};
+            {end_per_testcase,F} ->
+                {F,F,Func0};
+            _ ->
+                FS = group_or_func(Func0,Args),
+                HF = end_hook_func(Func0,Return,FS),
+                {Func0,FS,HF}
+        end,
 
     test_server:timetrap_cancel(),
 
@@ -717,20 +734,18 @@ end_tc(Mod,Func0,TCPid,Result,Args,Return) ->
     end,
     ct_util:delete_suite_data(last_saved_config),
 
-    {FuncSpec,HookFunc} =
-	if not EPTC ->
-		FS = group_or_func(Func,Args),
-		{FS,FS};
-	   true ->
-		{Func,Func0}
-	end,
     {Result1,FinalNotify} =
-	case ct_hooks:end_tc(Suite,HookFunc,Args,Result,Return) of
-	    '$ct_no_change' ->
-		{ok,Result};
-	    HookResult ->
-		{HookResult,HookResult}
-	end,
+        case HookFunc of
+            undefined ->
+                {ok,Result};
+            _ ->
+                case ct_hooks:end_tc(Suite,HookFunc,Args,Result,Return) of
+                    '$ct_no_change' ->
+                        {ok,Result};
+                    HookResult ->
+                        {HookResult,HookResult}
+                end
+        end,
     FinalResult =
 	case get('$test_server_framework_test') of
 	    undefined ->
@@ -820,6 +835,34 @@ end_tc(Mod,Func0,TCPid,Result,Args,Return) ->
 	    ok
     end,
     FinalResult.	    
+
+%% This is to make sure that no post_init_per_* is ever called if the
+%% corresponding pre_init_per_* was not called.
+%% The skip or fail reasons are those that can be returned from
+%% init_tc above in situations where we never came to call
+%% ct_hooks:init_tc/3, e.g. if suite/0 fails, then we never call
+%% ct_hooks:init_tc for init_per_suite, and thus we must not call
+%% ct_hooks:end_tc for init_per_suite either.
+end_hook_func({init_per_testcase,_},{auto_skip,{sequence_failed,_,_}},_) ->
+    undefined;
+end_hook_func({init_per_testcase,_},{auto_skip,"Repeated test stopped by force_stop option"},_) ->
+    undefined;
+end_hook_func({init_per_testcase,_},{fail,{config_name_already_in_use,_}},_) ->
+    undefined;
+end_hook_func({init_per_testcase,_},{auto_skip,{InfoFuncError,_}},_)
+  when InfoFuncError==testcase0_failed;
+       InfoFuncError==require_failed ->
+    undefined;
+end_hook_func(init_per_group,{auto_skip,{InfoFuncError,_}},_)
+  when InfoFuncError==group0_failed;
+       InfoFuncError==require_failed ->
+    undefined;
+end_hook_func(init_per_suite,{auto_skip,{require_failed_in_suite0,_}},_) ->
+    undefined;
+end_hook_func(init_per_suite,{auto_skip,{failed,{error,{suite0_failed,_}}}},_) ->
+    undefined;
+end_hook_func(_,_,Default) ->
+    Default.
 
 %% {error,Reason} | {skip,Reason} | {timetrap_timeout,TVal} | 
 %% {testcase_aborted,Reason} | testcase_aborted_or_killed | 

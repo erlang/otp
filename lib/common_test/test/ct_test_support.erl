@@ -765,23 +765,23 @@ locate({parallel,TEvs}, Node, Evs, Config) ->
 				  {Done,RemEvs2,length(RemEvs2)}
 			  end;
 		     %% end_per_group auto- or user skipped
-		     (TEv={TEH,AutoOrUserSkip,{M,end_per_group,R}}, {Done,RemEvs,_RemSize})
+		     (TEv={TEH,AutoOrUserSkip,{M,{end_per_group,G},R}}, {Done,RemEvs,_RemSize})
 			when AutoOrUserSkip == tc_auto_skip;
 			     AutoOrUserSkip == tc_user_skip ->
 			  RemEvs1 = 
 			      lists:dropwhile(
 				fun({EH,#event{name=tc_auto_skip,
 					       node=EvNode,
-					       data={Mod,end_per_group,Reason}}}) when
-				   EH == TEH, EvNode == Node, Mod == M ->
+					       data={Mod,{end_per_group,EvGroupName},Reason}}}) when
+				   EH == TEH, EvNode == Node, Mod == M, EvGroupName == G ->
 					case match_data(R, Reason) of
 					    match -> false;
 					    _ -> true
 					end;
 				   ({EH,#event{name=tc_user_skip,
 					       node=EvNode,
-					       data={Mod,end_per_group,Reason}}}) when
-				   EH == TEH, EvNode == Node, Mod == M ->
+					       data={Mod,{end_per_group,EvGroupName},Reason}}}) when
+				   EH == TEH, EvNode == Node, Mod == M, EvGroupName == G ->
 					case match_data(R, Reason) of
 					    match -> false;
 					    _ -> true
@@ -1008,20 +1008,20 @@ locate({shuffle,TEvs}, Node, Evs, Config) ->
 				  {Done,RemEvs2,length(RemEvs2)}
 			  end;
 		     %% end_per_group auto-or user skipped
-		     (TEv={TEH,AutoOrUserSkip,{M,end_per_group,R}}, {Done,RemEvs,_RemSize})
+		     (TEv={TEH,AutoOrUserSkip,{M,{end_per_group,G},R}}, {Done,RemEvs,_RemSize})
 			when AutoOrUserSkip == tc_auto_skip;
 			     AutoOrUserSkip == tc_user_skip ->
 			  RemEvs1 = 
 			      lists:dropwhile(
 				fun({EH,#event{name=tc_auto_skip,
 					       node=EvNode,
-					       data={Mod,end_per_group,Reason}}}) when
-				   EH == TEH, EvNode == Node, Mod == M, Reason == R ->
+					       data={Mod,{end_per_group,EvGroupName},Reason}}}) when
+				   EH == TEH, EvNode == Node, Mod == M, EvGroupName == G, Reason == R ->
 					false;
 				   ({EH,#event{name=tc_user_skip,
 					       node=EvNode,
-					       data={Mod,end_per_group,Reason}}}) when
-				   EH == TEH, EvNode == Node, Mod == M, Reason == R ->
+					       data={Mod,{end_per_group,EvGroupName},Reason}}}) when
+				   EH == TEH, EvNode == Node, Mod == M, EvGroupName == G, Reason == R ->
 					false;
 				   ({EH,#event{name=stop_logging,
 					       node=EvNode,data=_}}) when
@@ -1264,10 +1264,10 @@ log_events1([E={_EH,tc_done,{_M,{end_per_group,_GrName,Props},_R}} | Evs], Dev, 
 	    io:format(Dev, "~s~p]},~n", [Ind,E]),
 	    log_events1(Evs, Dev, Ind--"  ")
     end;
-log_events1([E={_EH,tc_auto_skip,{_M,end_per_group,_Reason}} | Evs], Dev, Ind) ->
+log_events1([E={_EH,tc_auto_skip,{_M,{end_per_group,_GrName},_Reason}} | Evs], Dev, Ind) ->
     io:format(Dev, "~s~p],~n", [Ind,E]),
     log_events1(Evs, Dev, Ind--" ");
-log_events1([E={_EH,tc_user_skip,{_M,end_per_group,_Reason}} | Evs], Dev, Ind) ->
+log_events1([E={_EH,tc_user_skip,{_M,{end_per_group,_GrName},_Reason}} | Evs], Dev, Ind) ->
     io:format(Dev, "~s~p],~n", [Ind,E]),
     log_events1(Evs, Dev, Ind--" ");
 log_events1([E], Dev, Ind) ->
