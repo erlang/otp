@@ -54,7 +54,8 @@ all() ->
      ssh_hostkey_fingerprint_sha,
      ssh_hostkey_fingerprint_sha256,
      ssh_hostkey_fingerprint_sha384,
-     ssh_hostkey_fingerprint_sha512
+     ssh_hostkey_fingerprint_sha512,
+     ssh_hostkey_fingerprint_list
     ].
 
 groups() -> 
@@ -93,20 +94,21 @@ end_per_group(_GroupName, Config) ->
 %%-------------------------------------------------------------------
 init_per_testcase(TestCase, Config) ->
     case TestCase of
-	ssh_hostkey_fingerprint_md5_implicit -> init_fingerprint_testcase(md5, Config);
-	ssh_hostkey_fingerprint_md5 ->    init_fingerprint_testcase(md5, Config);
-	ssh_hostkey_fingerprint_sha ->    init_fingerprint_testcase(sha, Config);
-	ssh_hostkey_fingerprint_sha256 -> init_fingerprint_testcase(sha256, Config);
-	ssh_hostkey_fingerprint_sha384 -> init_fingerprint_testcase(sha384, Config);
-	ssh_hostkey_fingerprint_sha512 -> init_fingerprint_testcase(sha512, Config);
+	ssh_hostkey_fingerprint_md5_implicit -> init_fingerprint_testcase([md5], Config);
+	ssh_hostkey_fingerprint_md5 ->    init_fingerprint_testcase([md5], Config);
+	ssh_hostkey_fingerprint_sha ->    init_fingerprint_testcase([sha], Config);
+	ssh_hostkey_fingerprint_sha256 -> init_fingerprint_testcase([sha256], Config);
+	ssh_hostkey_fingerprint_sha384 -> init_fingerprint_testcase([sha384], Config);
+	ssh_hostkey_fingerprint_sha512 -> init_fingerprint_testcase([sha512], Config);
+	ssh_hostkey_fingerprint_list   -> init_fingerprint_testcase([sha,md5], Config);
 	_ -> init_common_per_testcase(Config)
     end.
 	
-init_fingerprint_testcase(Alg, Config) ->
-    CryptoSupports = lists:member(Alg, proplists:get_value(hashs, crypto:supports())),
-    case CryptoSupports of
-	false -> {skip,{Alg,not_supported}};
-	true -> init_common_per_testcase(Config)
+init_fingerprint_testcase(Algs, Config) ->
+    Hashs = proplists:get_value(hashs, crypto:supports(), []),
+    case Algs -- Hashs of
+        [] -> init_common_per_testcase(Config);
+        UnsupportedAlgs ->  {skip,{UnsupportedAlgs,not_supported}}
     end.
 
 init_common_per_testcase(Config0) ->
@@ -598,6 +600,14 @@ ssh_hostkey_fingerprint_sha384(_Config) ->
 ssh_hostkey_fingerprint_sha512(_Config) ->
     Expected = "SHA512:ezUismvm3ADQQb6Nm0c1DwQ6ydInlJNfsnSQejFkXNmABg1Aenk9oi45CXeBOoTnlfTsGG8nFDm0smP10PBEeA",
     Expected = public_key:ssh_hostkey_fingerprint(sha512, ssh_hostkey(rsa)).
+
+%%--------------------------------------------------------------------
+%% Since this kind of fingerprint is not available yet on standard
+%% distros, we do like this instead.
+ssh_hostkey_fingerprint_list(_Config) ->
+    Expected = ["SHA1:Soammnaqg06jrm2jivMSnzQGlmk",
+                "MD5:4b:0b:63:de:0f:a7:3a:ab:2c:cc:2d:d1:21:37:1d:3a"],
+    Expected = public_key:ssh_hostkey_fingerprint([sha,md5], ssh_hostkey(rsa)).
 
 %%--------------------------------------------------------------------
 encrypt_decrypt() ->
