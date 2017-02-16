@@ -293,6 +293,9 @@ t_round(Config) when is_list(Config) ->
     4294967297 = round(id(4294967296.9)),
     -4294967296 = -round(id(4294967296.1)),
     -4294967297 = -round(id(4294967296.9)),
+
+    6209607916799025 = round(id(6209607916799025.0)),
+    -6209607916799025 = round(id(-6209607916799025.0)),
     ok.
 
 t_trunc(Config) when is_list(Config) ->
