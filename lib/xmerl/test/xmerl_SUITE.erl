@@ -55,7 +55,7 @@ groups() ->
      {misc, [],
       [latin1_alias, syntax_bug1, syntax_bug2, syntax_bug3,
        pe_ref1, copyright, testXSEIF, export_simple1, export,
-       default_attrs_bug]},
+       default_attrs_bug, xml_ns]},
      {eventp_tests, [], [sax_parse_and_export]},
      {ticket_tests, [],
       [ticket_5998, ticket_7211, ticket_7214, ticket_7430,
@@ -237,7 +237,36 @@ default_attrs_bug(Config) ->
     {#xmlElement{attributes = [#xmlAttribute{name = b, value = "also explicit"},
                                #xmlAttribute{name = a, value = "explicit"}]},
      []
-    } = xmerl_scan:string(Doc2, [{default_attrs, true}]).
+    } = xmerl_scan:string(Doc2, [{default_attrs, true}]),
+    ok.
+
+
+xml_ns(Config) ->
+    Doc = "<?xml version='1.0'?>\n"
+        "<doc xml:attr1=\"implicit xml ns\"/>",
+    {#xmlElement{namespace=#xmlNamespace{default = [], nodes = []},
+                 attributes = [#xmlAttribute{name = 'xml:attr1',
+                                             expanded_name = {'http://www.w3.org/XML/1998/namespace',attr1},
+                                             nsinfo = {"xml","attr1"},
+                                             namespace = #xmlNamespace{default = [], nodes = []}}]},
+     []
+    } = xmerl_scan:string(Doc, [{namespace_conformant, true}]),
+    Doc2 = "<?xml version='1.0'?>\n"
+        "<doc xmlns:xml=\"http://www.w3.org/XML/1998/namespace\" xml:attr1=\"explicit xml ns\"/>",
+    {#xmlElement{namespace=#xmlNamespace{default = [], nodes = [{"xml",'http://www.w3.org/XML/1998/namespace'}]},
+                 attributes = [#xmlAttribute{name = 'xmlns:xml',
+                                             expanded_name = {"xmlns","xml"},
+                                             nsinfo = {"xmlns","xml"},
+                                             namespace = #xmlNamespace{default = [], 
+                                                                       nodes = [{"xml",'http://www.w3.org/XML/1998/namespace'}]}},
+                               #xmlAttribute{name = 'xml:attr1',
+                                             expanded_name = {'http://www.w3.org/XML/1998/namespace',attr1},
+                                             nsinfo = {"xml","attr1"},
+                                             namespace = #xmlNamespace{default = [], 
+                                                                       nodes = [{"xml",'http://www.w3.org/XML/1998/namespace'}]}}]},
+     []
+    } = xmerl_scan:string(Doc2, [{namespace_conformant, true}]),
+    ok.
 
 pe_ref1(Config) ->
     file:set_cwd(datadir(Config)),
