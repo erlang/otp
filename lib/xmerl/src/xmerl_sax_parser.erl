@@ -99,7 +99,7 @@ stream(Xml, Options) ->
 
 stream(Xml, Options, InputType) when is_list(Xml), is_list(Options) ->
     State = parse_options(Options, initial_state()),
-    case  State#xmerl_sax_parser_state.file_type of
+    case State#xmerl_sax_parser_state.file_type of
 	dtd ->
 	    xmerl_sax_parser_list:parse_dtd(Xml, 
 					    State#xmerl_sax_parser_state{encoding = list,
@@ -231,12 +231,12 @@ check_encoding_option(E) ->
 %% Description: Detects which character set is used in a binary stream.
 %%----------------------------------------------------------------------
 detect_charset(<<>>, #xmerl_sax_parser_state{continuation_fun = undefined} = _) ->
-    throw({error, "Can't detect character encoding due to no indata"});
+    {error, "Can't detect character encoding due to no indata"};
 detect_charset(<<>>, #xmerl_sax_parser_state{continuation_fun = CFun, 
 				      continuation_state = CState} = State) ->
     case CFun(CState) of
 	{<<>>,  _} ->
-	    throw({error, "Can't detect character encoding due to lack of indata"});
+	    {error, "Can't detect character encoding due to lack of indata"};
 	{NewBytes, NewContState} ->
 	    detect_charset(NewBytes, State#xmerl_sax_parser_state{continuation_state = NewContState})
     end;

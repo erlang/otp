@@ -93,7 +93,7 @@ parse(Xml, State) ->
 	Other ->
 	    _State2 = event_callback(endDocument, State1),
 	    ets:delete(RefTable),
-	    throw(Other)
+	    {fatal_error, Other}
     end.
 
 %%----------------------------------------------------------------------
@@ -128,7 +128,7 @@ parse_dtd(Xml, State) ->
 	Other ->
 	    _State2 = event_callback(endDocument, State1),
 	    ets:delete(RefTable),
-	    throw(Other)
+	    {fatal_error, Other}
     end.
 
 
