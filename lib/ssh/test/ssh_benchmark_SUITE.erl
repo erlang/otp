@@ -139,7 +139,6 @@ openssh_client_shell(Config, Options) ->
     {ok, TracerPid} = erlang_trace(),
     {ServerPid, _Host, Port} =
 	ssh_test_lib:daemon([{system_dir, SystemDir},
-			     {public_key_alg, ssh_dsa},
 			     {failfun, fun ssh_test_lib:failfun/2} |
 			     Options]),
     ct:sleep(500),
@@ -215,7 +214,6 @@ openssh_client_sftp(Config, Options) ->
     {ok, TracerPid} = erlang_trace(),
     {ServerPid, _Host, Port} =
 	ssh_test_lib:daemon([{system_dir, SystemDir},
-			     {public_key_alg, ssh_dsa},
 			     {subsystems,[ssh_sftpd:subsystem_spec([%{cwd,  SftpSrcDir},
 								    {root, SftpSrcDir}])]},
 			     {failfun, fun ssh_test_lib:failfun/2} 

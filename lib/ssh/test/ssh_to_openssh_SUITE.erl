@@ -381,7 +381,6 @@ erlang_server_openssh_client_public_key_X(Config, PubKeyAlg) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {public_key_alg, PubKeyAlg},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
 
     ct:sleep(500),
@@ -402,7 +401,6 @@ erlang_server_openssh_client_renegotiate(Config) ->
     KnownHosts = filename:join(PrivDir, "known_hosts"),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {public_key_alg, PubKeyAlg},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
 

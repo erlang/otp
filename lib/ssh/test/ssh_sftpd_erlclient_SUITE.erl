@@ -189,7 +189,6 @@ quit(Config) when is_list(Config) ->
     timer:sleep(5000),
     {ok, NewSftp, _Conn} = ssh_sftp:start_channel(Host, Port,
 						 [{silently_accept_hosts, true},
-						  {pwdfun, fun(_,_) -> true end},
 						  {user_dir, UserDir},
 						  {user, ?USER}, {password, ?PASSWD}]),
 
