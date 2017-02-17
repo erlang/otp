@@ -664,29 +664,25 @@ open(Vsn, ReqId, Data, State) when Vsn >= 4 ->
     do_open(ReqId, State, Path, Flags).
 
 do_open(ReqId, State0, Path, Flags) ->
-    #state{file_handler = FileMod, file_state = FS0, root = Root, xf = #ssh_xfer{vsn = Vsn}} = State0,
-    XF = State0#state.xf,
-    F = [binary | Flags],
-    {IsDir, _FS1} = FileMod:is_dir(Path, FS0),
+    #state{file_handler = FileMod, file_state = FS0, xf = #ssh_xfer{vsn = Vsn}} = State0,
+    AbsPath = relate_file_name(Path, State0),
+    {IsDir, _FS1} = FileMod:is_dir(AbsPath, FS0),
     case IsDir of 
 	true when Vsn > 5 ->
 	    ssh_xfer:xf_send_status(State0#state.xf, ReqId,
-    				    ?SSH_FX_FILE_IS_A_DIRECTORY, "File is a directory");
+				    ?SSH_FX_FILE_IS_A_DIRECTORY, "File is a directory"),
+	    State0;
 	true ->
 	    ssh_xfer:xf_send_status(State0#state.xf, ReqId,
-    				    ?SSH_FX_FAILURE, "File is a directory");
+				    ?SSH_FX_FAILURE, "File is a directory"),
+	    State0;
 	false ->
-	    AbsPath = case Root of
-			  "" ->
-			      Path;
-			  _ ->
-			      relate_file_name(Path, State0)  
-		      end,
-	    {Res, FS1} = FileMod:open(AbsPath, F, FS0),
+	    OpenFlags = [binary | Flags],
+	    {Res, FS1} = FileMod:open(AbsPath, OpenFlags, FS0),
 	    State1 = State0#state{file_state = FS1},
 	    case Res of
 		{ok, IoDevice} ->
-		    add_handle(State1, XF, ReqId, file, {Path,IoDevice});
+		    add_handle(State1, State0#state.xf, ReqId, file, {Path,IoDevice});
 		{error, Error} ->
 		    ssh_xfer:xf_send_status(State1#state.xf, ReqId,
 					    ssh_xfer:encode_erlang_status(Error)),
