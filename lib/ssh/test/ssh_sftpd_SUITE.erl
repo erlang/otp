@@ -66,7 +66,8 @@ all() ->
      relpath, 
      sshd_read_file,
      ver6_basic,
-     access_outside_root].
+     access_outside_root,
+     root_with_cwd].
 
 groups() -> 
     [].
@@ -128,6 +129,11 @@ init_per_testcase(TestCase, Config) ->
                           SubSystems = [ssh_sftpd:subsystem_spec([{root, RootDir},
                                                                   {cwd, CWD}])],
                           ssh:daemon(0, [{subsystems, SubSystems}|Options]);
+		      root_with_cwd ->
+			  RootDir = filename:join(PrivDir, root_with_cwd),
+			  CWD     = filename:join(RootDir, home),
+			  SubSystems = [ssh_sftpd:subsystem_spec([{root, RootDir}, {cwd, CWD}])],
+			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
 		      _ ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([])],
 			  ssh:daemon(0, [{subsystems, SubSystems}|Options])
@@ -659,6 +665,8 @@ ver6_basic(Config) when is_list(Config) ->
 		  ?SSH_FXF_OPEN_EXISTING).
 
 %%--------------------------------------------------------------------
+access_outside_root() ->
+    [{doc, "Try access files outside the tree below RootDir"}].
 access_outside_root(Config) when is_list(Config) ->
     PrivDir  =  proplists:get_value(priv_dir, Config),
     BaseDir  = filename:join(PrivDir, access_outside_root),
@@ -701,6 +709,36 @@ try_access(Path, Cm, Channel, ReqId) ->
         _ ->
             ct:fail("Completly unexpected return: ~p", [Return])
     end.
+
+%%--------------------------------------------------------------------
+root_with_cwd() ->
+    [{doc, "Check if files are found, if the CWD and Root are specified"}].
+root_with_cwd(Config) when is_list(Config) ->
+    PrivDir =  proplists:get_value(priv_dir, Config),
+    RootDir = filename:join(PrivDir, root_with_cwd),
+    CWD     = filename:join(RootDir, home),
+    FileName = "root_with_cwd.txt",
+    FilePath = filename:join(CWD, FileName),
+    ok = filelib:ensure_dir(FilePath),
+    ok = file:write_file(FilePath ++ "0", <<>>),
+    ok = file:write_file(FilePath ++ "1", <<>>),
+    ok = file:write_file(FilePath ++ "2", <<>>),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    ReqId0 = 0,
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId0), _Handle0/binary>>, _} =
+	open_file(FileName ++ "0", Cm, Channel, ReqId0,
+		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+		  ?SSH_FXF_OPEN_EXISTING),
+    ReqId1 = 1,
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId1), _Handle1/binary>>, _} =
+	open_file("./" ++ FileName ++ "1", Cm, Channel, ReqId1,
+		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+		  ?SSH_FXF_OPEN_EXISTING),
+    ReqId2 = 2,
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId2), _Handle2/binary>>, _} =
+	open_file("/home/" ++ FileName ++ "2", Cm, Channel, ReqId2,
+		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+		  ?SSH_FXF_OPEN_EXISTING).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

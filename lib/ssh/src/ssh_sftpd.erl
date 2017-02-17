@@ -742,6 +742,10 @@ resolve_symlinks_2([], State, _LinkCnt, AccPath) ->
     {{ok, AccPath}, State}.
 
 
+%% The File argument is always in a user visible file system, i.e.
+%% is under Root and is relative to CWD or Root, if starts with "/".
+%% The result of the function is always an absolute path in a
+%% "backend" file system.
 relate_file_name(File, State) ->
     relate_file_name(File, State, _Canonicalize=true).
 
@@ -749,19 +753,20 @@ relate_file_name(File, State, Canonicalize) when is_binary(File) ->
     relate_file_name(unicode:characters_to_list(File), State, Canonicalize);
 relate_file_name(File, #state{cwd = CWD, root = ""}, Canonicalize) ->
     relate_filename_to_path(File, CWD, Canonicalize);
-relate_file_name(File, #state{root = Root}, Canonicalize) ->
-    case is_within_root(Root, File) of
-	true ->
-	    File;
-	false ->
-	    RelFile = make_relative_filename(File),
-	    NewFile = relate_filename_to_path(RelFile, Root, Canonicalize),
-	    case is_within_root(Root, NewFile) of
-		true ->
-		    NewFile;
-		false ->
-		    Root
-	    end
+relate_file_name(File, #state{cwd = CWD, root = Root}, Canonicalize) ->
+    CWD1 = case is_within_root(Root, CWD) of
+	       true  -> CWD;
+	       false -> Root
+	   end,
+    AbsFile = case make_relative_filename(File) of
+		  File ->
+		       relate_filename_to_path(File, CWD1, Canonicalize);
+		  RelFile ->
+		       relate_filename_to_path(RelFile, Root, Canonicalize)
+	      end,
+    case is_within_root(Root, AbsFile) of
+	true  -> AbsFile;
+	false -> Root
     end.
 
 is_within_root(Root, File) ->
