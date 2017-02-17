@@ -324,7 +324,7 @@ bif erlang:match_spec_test/3
 # Bifs in ets module.
 #
 
-bif ets:all/0
+bif ets:internal_request_all/0
 bif ets:new/2
 bif ets:delete/1
 bif ets:delete/2

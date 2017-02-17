@@ -602,6 +602,7 @@ dbg_chk_aux_work_val(erts_aint32_t value)
     valid |= ERTS_SSI_AUX_WORK_REAP_PORTS;
 #endif
     valid |= ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED;
+    valid |= ERTS_SSI_AUX_WORK_YIELD;
 
     if (~valid & value)
 	erts_exit(ERTS_ABORT_EXIT,
@@ -690,6 +691,8 @@ erts_pre_init_process(void)
 	= "SET_TMO";
     erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK_IX]
 	= "MSEG_CACHE_CHECK";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_YIELD_IX]
+	= "YIELD";
     erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_REAP_PORTS_IX]
 	= "REAP_PORTS";
     erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED_IX]
@@ -2557,6 +2560,48 @@ handle_reap_ports(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
     return aux_work & ~ERTS_SSI_AUX_WORK_REAP_PORTS;
 }
 
+void
+erts_notify_new_aux_yield_work(ErtsSchedulerData *esdp)
+{
+    ASSERT(esdp == erts_get_scheduler_data());
+    /* Always called by the scheduler itself... */
+    set_aux_work_flags_wakeup_nob(esdp->ssi, ERTS_SSI_AUX_WORK_YIELD);
+}
+
+static ERTS_INLINE erts_aint32_t
+handle_yield(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
+{
+    int yield = 0;
+    /*
+     * Yield operations are always requested by the scheduler itself.
+     *
+     * The following handlers should *not* set the ERTS_SSI_AUX_WORK_YIELD
+     * flag in order to indicate more work. They should instead return
+     * information so this "main handler" can manipulate the flag...
+     *
+     * The following handlers should be able to handle being called
+     * even though no work is to be done...
+     */
+
+    /* Various yielding operations... */
+
+    yield |= erts_handle_yielded_ets_all_request(awdp->esdp,
+                                                 &awdp->yield.ets_all);
+
+    /*
+     * Other yielding operations...
+     *
+     */
+
+    if (!yield) {
+        unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_YIELD);
+        return aux_work & ~ERTS_SSI_AUX_WORK_YIELD;
+    }
+
+    return aux_work;
+}
+
+
 #if HAVE_ERTS_MSEG
 
 static ERTS_INLINE erts_aint32_t
@@ -2696,6 +2741,9 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work, int waiting)
     HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK,
 		    handle_mseg_cache_check);
 #endif
+
+    HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_YIELD,
+		    handle_yield);
 
     HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_REAP_PORTS,
 		    handle_reap_ports);
@@ -8726,6 +8774,8 @@ sched_thread_func(void *vesdp)
 	    &esdp->verify_unused_temp_alloc_data);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(NULL);
 #endif
+
+    erts_ets_sched_spec_data_init(esdp);
 
     process_main(esdp->x_reg_array, esdp->f_reg_array);
 

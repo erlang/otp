@@ -75,10 +75,28 @@
          take/2,
          update_counter/3, update_counter/4, update_element/3]).
 
+%% internal exports
+-export([internal_request_all/0]).
+
 -spec all() -> [Tab] when
       Tab :: tab().
 
 all() ->
+    receive_all(ets:internal_request_all(),
+                erlang:system_info(schedulers),
+                []).
+
+receive_all(_Ref, 0, All) ->
+    All;
+receive_all(Ref, N, All) ->
+    receive
+        {Ref, SchedAll} ->
+            receive_all(Ref, N-1, SchedAll ++ All)
+    end.
+
+-spec internal_request_all() -> reference().
+
+internal_request_all() ->
     erlang:nif_error(undef).
 
 -spec delete(Tab) -> true when

@@ -75,9 +75,6 @@ typedef struct db_term {
      */
 } DbTerm;
 
-union db_table;
-typedef union db_table DbTable;
-
 #define DB_MUST_RESIZE 1
 #define DB_NEW_OBJECT 2
 #define DB_INC_TRY_GROW 4
@@ -203,6 +200,11 @@ typedef struct db_fixation {
     struct db_fixation *next;
 } DbFixation;
 
+typedef struct {
+    DbTable *next;
+    DbTable *prev;
+} DbTableList;
+
 /*
  * This structure contains data for all different types of database
  * tables. Note that these fields must match the same fields
@@ -214,6 +216,7 @@ typedef struct db_fixation {
 typedef struct db_table_common {
     erts_smp_refc_t refc;     /* reference count of table struct */
     erts_smp_refc_t fix_count;/* fixation counter */
+    DbTableList all;
 #ifdef ERTS_SMP
     erts_smp_rwmtx_t rwlock;  /* rw lock on table */
     erts_smp_mtx_t fixlock;   /* Protects fixations,megasec,sec,microsec */

@@ -76,6 +76,7 @@
 -export([otp_10182/1]).
 -export([ets_all/1]).
 -export([memory_check_summary/1]).
+-export([massive_ets_all/1]).
 -export([take/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -134,6 +135,7 @@ all() ->
      otp_9932,
      otp_9423,
      ets_all,
+     massive_ets_all,
      take,
 
      memory_check_summary]. % MUST BE LAST
@@ -5544,6 +5546,68 @@ ets_all_run() ->
     ets:delete(Table),
     false = lists:member(Table, ets:all()),
     ets_all_run().
+
+create_tables(N) ->
+    create_tables(N, []).
+
+create_tables(0, Ts) ->
+    Ts;
+create_tables(N, Ts) ->
+    create_tables(N-1, [ets:new(tjo, [])|Ts]).
+
+massive_ets_all(Config) when is_list(Config) ->
+    Me = self(),
+    InitTables = lists:sort(ets:all()),
+    io:format("InitTables=~p~n", [InitTables]),
+    PMs0 = lists:map(fun (Sid) ->
+                             my_spawn_opt(fun () ->
+                                                  Ts = create_tables(250),
+                                                  Me ! {self(), up, Ts},
+                                                  receive {Me, die} -> ok end
+                                          end,
+                                          [link, monitor, {scheduler, Sid}])
+                     end,
+                     lists:seq(1, erlang:system_info(schedulers_online))),
+    AllRes = lists:sort(lists:foldl(fun ({P, _M}, Ts) ->
+                                            receive
+                                                {P, up, PTs} ->
+                                                    PTs ++ Ts
+                                            end
+                                    end,
+                                    InitTables,
+                                    PMs0)),
+    AllRes = lists:sort(ets:all()),
+    PMs1 = lists:map(fun (_) ->
+                             my_spawn_opt(fun () ->
+                                                  AllRes = lists:sort(ets:all())
+                                          end,
+                                          [link, monitor])
+                     end, lists:seq(1, 50)),
+    lists:foreach(fun ({P, M}) ->
+                          receive
+                              {'DOWN', M, process, P, _} ->
+                                  ok
+                          end
+                  end, PMs1),
+    PMs2 = lists:map(fun (_) ->
+                             my_spawn_opt(fun () ->
+                                                  _ = ets:all()
+                                          end,
+                                          [link, monitor])
+                     end, lists:seq(1, 50)),
+    lists:foreach(fun ({P, _M}) ->
+                          P ! {Me, die}
+                  end, PMs0),
+    lists:foreach(fun ({P, M}) ->
+                          receive
+                              {'DOWN', M, process, P, _} ->
+                                  ok
+                          end
+                  end, PMs0 ++ PMs2),
+    EndTables = lists:sort(ets:all()),
+    io:format("EndTables=~p~n", [EndTables]),
+    InitTables = EndTables,
+    ok.
 
 
 take(Config) when is_list(Config) ->

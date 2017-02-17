@@ -24,8 +24,37 @@
  *
  */
 
-#ifndef __DB_H__
-#define __DB_H__
+#ifndef ERTS_DB_SCHED_SPEC_TYPES__
+#define ERTS_DB_SCHED_SPEC_TYPES__
+
+union db_table;
+typedef union db_table DbTable;
+
+typedef struct ErtsEtsAllReq_ ErtsEtsAllReq;
+
+typedef struct {
+    ErtsEtsAllReq *next;
+    ErtsEtsAllReq *prev;
+} ErtsEtsAllReqList;
+
+typedef struct {
+    ErtsEtsAllReq *ongoing;
+    ErlHeapFragment *hfrag;
+    DbTable *tab;
+    ErtsEtsAllReq *queue;
+} ErtsEtsAllYieldData;
+
+typedef struct {
+    Uint count;
+    DbTable *clist;
+} ErtsEtsTables;
+
+#endif /* ERTS_DB_SCHED_SPEC_TYPES__ */
+
+#ifndef ERTS_ONLY_SCHED_SPEC_ETS_DATA
+
+#ifndef ERL_DB_H__
+#define ERL_DB_H__
 
 #include "sys.h"
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
@@ -45,6 +74,12 @@ typedef struct {
     DbTableCommon common;
     ErtsThrPrgrLaterOp data;
 } DbTableRelease;
+
+struct ErtsSchedulerData_;
+int erts_handle_yielded_ets_all_request(struct ErtsSchedulerData_ *esdp,
+                                        ErtsEtsAllYieldData *eadp);
+
+void erts_ets_sched_spec_data_init(struct ErtsSchedulerData_ *esdp);
 
 /*
  * So, the structure for a database table, NB this is only
@@ -95,7 +130,7 @@ Eterm erts_ets_restore_meta_state(Process* p, Eterm target_state);
 
 Uint erts_db_get_max_tabs(void);
 
-#endif
+#endif /* ERL_DB_H__ */
 
 #if defined(ERTS_WANT_DB_INTERNAL__) && !defined(ERTS_HAVE_DB_INTERNAL__)
 #define ERTS_HAVE_DB_INTERNAL__
@@ -271,3 +306,4 @@ erts_db_free_nt(ErtsAlcType_t type, void *ptr, Uint size)
 
 #endif /* #if defined(ERTS_WANT_DB_INTERNAL__) && !defined(ERTS_HAVE_DB_INTERNAL__) */
 
+#endif /* !ERTS_ONLY_SCHED_SPEC_ETS_DATA */

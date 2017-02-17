@@ -227,6 +227,7 @@ type	DB_DMC_ERROR	ETS		ETS		db_dmc_error
 type	DB_DMC_ERR_INFO	ETS		ETS		db_dmc_error_info
 type	DB_TERM		ETS		ETS		db_term
 type	DB_PROC_CLEANUP SHORT_LIVED	ETS		db_proc_cleanup_state
+type	ETS_ALL_REQ	SHORT_LIVED	ETS		ets_all_request
 type	INSTR_INFO	LONG_LIVED	SYSTEM		instr_info
 type	LOGGER_DSBUF	TEMPORARY	SYSTEM		logger_dsbuf
 type	TMP_DSBUF	TEMPORARY	SYSTEM		tmp_dsbuf

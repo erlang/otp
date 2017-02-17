@@ -63,6 +63,9 @@ typedef struct process Process;
 #define ERTS_ONLY_INCLUDE_TRACE_FLAGS
 #include "erl_trace.h"
 #undef ERTS_ONLY_INCLUDE_TRACE_FLAGS
+#define ERTS_ONLY_SCHED_SPEC_ETS_DATA
+#include "erl_db.h"
+#undef ERTS_ONLY_SCHED_SPEC_ETS_DATA
 
 #ifdef HIPE
 #include "hipe_process.h"
@@ -312,6 +315,7 @@ typedef enum {
     ERTS_SSI_AUX_WORK_PENDING_EXITERS_IX,
     ERTS_SSI_AUX_WORK_SET_TMO_IX,
     ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK_IX,
+    ERTS_SSI_AUX_WORK_YIELD_IX,
     ERTS_SSI_AUX_WORK_REAP_PORTS_IX,
     ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED_IX, /* SHOULD be last flag index */
 
@@ -348,6 +352,8 @@ typedef enum {
     (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_SET_TMO_IX)
 #define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK \
     (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK_IX)
+#define ERTS_SSI_AUX_WORK_YIELD \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_YIELD_IX)
 #define ERTS_SSI_AUX_WORK_REAP_PORTS \
     (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_REAP_PORTS_IX)
 #define ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED \
@@ -613,6 +619,10 @@ typedef struct {
     } delayed_wakeup;
 #endif
     struct {
+        ErtsEtsAllYieldData ets_all;
+        /* Other yielding operations... */
+    } yield;
+    struct {
 	struct {
 	    erts_aint32_t flags;
 	    void (*callback)(void *);
@@ -620,6 +630,10 @@ typedef struct {
 	} wait_completed;
     } debug;
 } ErtsAuxWorkData;
+
+#define ERTS_SCHED_AUX_YIELD_DATA(ESDP, NAME) \
+    (&(ESDP)->aux_work_data.yield.NAME)
+void erts_notify_new_aux_yield_work(ErtsSchedulerData *esdp);
 
 #ifdef ERTS_DIRTY_SCHEDULERS
 typedef enum {
@@ -688,7 +702,7 @@ struct ErtsSchedulerData_ {
     ErtsSchedWallTime sched_wall_time;
     ErtsGCInfo gc_info;
     ErtsPortTaskHandle nosuspend_port_task_handle;
-
+    ErtsEtsTables ets_tables;
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
     erts_alloc_verify_func_t verify_unused_temp_alloc;
     Allctr_t *verify_unused_temp_alloc_data;
