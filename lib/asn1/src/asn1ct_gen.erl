@@ -37,7 +37,7 @@
 	 get_record_name_prefix/1,
 	 conform_value/2,
 	 named_bitstring_value/2]).
--export([pgen/4,
+-export([pgen/3,
 	 mk_var/1, 
 	 un_hyphen_var/1]).
 -export([gen_encode_constructed/4,
@@ -50,14 +50,13 @@
 %% Generate Erlang module (.erl) and (.hrl) file corresponding to
 %% an ASN.1 module. The .hrl file is only generated if necessary.
 
--spec pgen(Outfile, Gen, Module, Contents) -> 'ok' when
+-spec pgen(Outfile, Gen, Code) -> 'ok' when
       Outfile :: any(),
       Gen :: #gen{},
-      Module :: module(),
-      Contents :: tuple().
+      Code :: #abst{}.
 
-pgen(OutFile, #gen{options=Options}=Gen, Module, Contents) ->
-    {Types,_Values,_Ptypes,_Classes,_Objects,_ObjectSets} = Contents,
+pgen(OutFile, #gen{options=Options}=Gen, Code) ->
+    #abst{name=Module,types=Types} = Code,
     N2nConvEnums = [CName|| {n2n,CName} <- Options],
     case N2nConvEnums -- Types of
 	[] ->
@@ -66,18 +65,18 @@ pgen(OutFile, #gen{options=Options}=Gen, Module, Contents) ->
 	    exit({"Non existing ENUMERATION types used in n2n option",
 		   UnmatchedTypes})
     end,
-    put(outfile,OutFile),
+    put(outfile, OutFile),
     put(currmod, Module),
-    HrlGenerated = pgen_hrl(Gen, Module, Contents),
+    HrlGenerated = pgen_hrl(Gen, Code),
     asn1ct_name:start(),
     ErlFile = lists:concat([OutFile,".erl"]),
     _ = open_output_file(ErlFile),
     asn1ct_func:start_link(),
     gen_head(Gen, Module, HrlGenerated),
-    pgen_exports(Gen, Module, Contents),
-    pgen_dispatcher(Gen, Contents),
+    pgen_exports(Gen, Code),
+    pgen_dispatcher(Gen, Types),
     pgen_info(),
-    pgen_typeorval(Gen, Module, N2nConvEnums, Contents),
+    pgen_typeorval(Gen, N2nConvEnums, Code),
     pgen_partial_incomplete_decode(Gen),
     emit([nl,
 	  "%%%",nl,
@@ -88,7 +87,8 @@ pgen(OutFile, #gen{options=Options}=Gen, Module, Contents) ->
     asn1ct_func:generate(Fd),
     close_output_file(),
     _ = erase(outfile),
-    asn1ct:verbose("--~p--~n", [{generated,ErlFile}], Gen).
+    asn1ct:verbose("--~p--~n", [{generated,ErlFile}], Gen),
+    ok.
 
 dialyzer_suppressions(Erules) ->
     emit([nl,
@@ -96,20 +96,27 @@ dialyzer_suppressions(Erules) ->
     Rtmod = ct_gen_module(Erules),
     Rtmod:dialyzer_suppressions(Erules).
 
-pgen_typeorval(Erules,Module,N2nConvEnums,{Types,Values,_Ptypes,_Classes,Objects,ObjectSets}) ->
+pgen_typeorval(Erules, N2nConvEnums, Code) ->
+    #abst{name=Module,types=Types,values=Values,
+          objects=Objects,objsets=ObjectSets} = Code,
     Rtmod = ct_gen_module(Erules),
     pgen_types(Rtmod,Erules,N2nConvEnums,Module,Types),
-    pgen_values(Erules,Module,Values),
+    pgen_values(Values, Module),
     pgen_objects(Rtmod,Erules,Module,Objects),
     pgen_objectsets(Rtmod,Erules,Module,ObjectSets),
     pgen_partial_decode(Rtmod,Erules,Module).
 
-pgen_values(_,_,[]) ->
-    true;
-pgen_values(Erules,Module,[H|T]) ->
-    Valuedef = asn1_db:dbget(Module,H),
-    gen_value(Valuedef),
-    pgen_values(Erules,Module,T).
+%% Generate a function 'V'/0 for each Value V defined in the ASN.1 module.
+%% The function returns the value in an Erlang representation which can be
+%% used as input to the runtime encode functions.
+
+pgen_values([H|T], Module) ->
+    #valuedef{name=Name,value=Value} = asn1_db:dbget(Module, H),
+    emit([{asis,Name},"() ->",nl,
+          {asis,Value},".",nl,nl]),
+    pgen_values(T, Module);
+pgen_values([], _) ->
+    ok.
 
 pgen_types(_, _, _, _, []) ->
     true;
@@ -573,18 +580,6 @@ un_hyphen_var([H|T]) ->
 un_hyphen_var([]) ->
     [].
 
-%% Generate value functions ***************
-%% ****************************************
-%% Generates a function 'V'/0 for each Value V defined in the ASN.1 module
-%% the function returns the value in an Erlang representation which can be
-%% used as  input to the runtime encode functions
-
-gen_value(Value) when is_record(Value,valuedef) ->
-%%    io:format(" ~w ",[Value#valuedef.name]),
-    emit({"'",Value#valuedef.name,"'() ->",nl}),
-    V = Value#valuedef.value,
-    emit([{asis,V},".",nl,nl]).
-
 gen_encode_constructed(Erules,Typename,InnerType,D) when is_record(D,type) ->
     Rtmod = ct_constructed_module(Erules),
     case InnerType of
@@ -649,79 +644,32 @@ gen_decode_constructed(Erules,Typename,InnerType,D) when is_record(D,typedef) ->
     gen_decode_constructed(Erules,Typename,InnerType,D#typedef.typespec).
 
 
-pgen_exports(#gen{options=Options}=Gen, _Module, Contents) ->
-    {Types,Values,_,_,Objects,ObjectSets} = Contents,
+pgen_exports(#gen{options=Options}=Gen, Code) ->
+    #abst{types=Types,values=Values,objects=Objects,objsets=ObjectSets} = Code,
     emit(["-export([encoding_rule/0,maps/0,bit_string_format/0,",nl,
 	  "         legacy_erlang_types/0]).",nl]),
     emit(["-export([",{asis,?SUPPRESSION_FUNC},"/1]).",nl]),
-    case Types of
-	[] -> ok;
-	_ ->
-	    emit({"-export([",nl}),
-	    case Gen of
-		#gen{erule=ber} ->
-		    gen_exports1(Types,"enc_",2);
-		_ ->
-		    gen_exports1(Types,"enc_",1)
-	    end,
-	    emit({"-export([",nl}),
-	    case Gen of
-		#gen{erule=ber} ->
-		    gen_exports1(Types, "dec_", 2);
-		_ ->
-		    gen_exports1(Types, "dec_", 1)
-	    end
+    case Gen of
+        #gen{erule=ber} ->
+            gen_exports(Types, "enc_", 2),
+            gen_exports(Types, "dec_", 2),
+            gen_exports(Objects, "enc_", 3),
+            gen_exports(Objects, "dec_", 3),
+            gen_exports(ObjectSets, "getenc_", 1),
+            gen_exports(ObjectSets, "getdec_", 1);
+        #gen{erule=per} ->
+            gen_exports(Types, "enc_", 1),
+            gen_exports(Types, "dec_", 1)
     end,
-    case [X || {n2n,X} <- Options] of
-	[] -> ok;
-	A2nNames ->
-	    emit({"-export([",nl}),
-	    gen_exports1(A2nNames,"name2num_",1),
-	    emit({"-export([",nl}),
-	    gen_exports1(A2nNames,"num2name_",1)	    
-    end,
-    case Values of
-	[] -> ok;
-	_ ->
-	    emit({"-export([",nl}),
-	    gen_exports1(Values,"",0)
-    end,
-    case Objects of
-	[] -> ok;
-	_ ->
-            case Gen of
-                #gen{erule=per} ->
-                    ok;
-                #gen{erule=ber} ->
-		    emit({"-export([",nl}),
-		    gen_exports1(Objects,"enc_",3),
-		    emit({"-export([",nl}),
-		    gen_exports1(Objects,"dec_",3)
-	    end
-    end,
-    case ObjectSets of
-	[] -> ok;
-	_ ->
-            case Gen of
-                #gen{erule=per} ->
-                    ok;
-                #gen{erule=ber} ->
-		    emit({"-export([",nl}),
-		    gen_exports1(ObjectSets, "getenc_",1),
-		    emit({"-export([",nl}),
-		    gen_exports1(ObjectSets, "getdec_",1)
-	    end
-    end,
-    emit({"-export([info/0]).",nl}),
-    gen_partial_inc_decode_exports(),
-    gen_selected_decode_exports(),
-    emit({nl,nl}).
 
-gen_exports1([F1,F2|T],Prefix,Arity) ->
-	emit({"'",Prefix,F1,"'/",Arity,com,nl}),
-	gen_exports1([F2|T],Prefix,Arity);
-gen_exports1([Flast|_T],Prefix,Arity) ->
-	emit({"'",Prefix,Flast,"'/",Arity,nl,"]).",nl,nl}).
+    A2nNames = [X || {n2n,X} <- Options],
+    gen_exports(A2nNames, "name2num_", 1),
+    gen_exports(A2nNames, "num2name_", 1),
+
+    gen_exports(Values, "", 0),
+    emit(["-export([info/0]).",nl,nl]),
+    gen_partial_inc_decode_exports(),
+    gen_selected_decode_exports().
 
 gen_partial_inc_decode_exports() ->
     case {asn1ct:read_config_data(partial_incomplete_decode),
@@ -730,49 +678,36 @@ gen_partial_inc_decode_exports() ->
 	    ok;
 	{_,undefined} ->
 	    ok;
-	{Data,_} ->
-	    gen_partial_inc_decode_exports0(Data),
-	    emit(["-export([decode_part/2]).",nl])
+	{Data0,_} ->
+            Data = [Name || {Name,_,_} <- Data0],
+            gen_exports(Data, "", 1),
+            emit(["-export([decode_part/2]).",nl,nl])
     end.
-
-gen_partial_inc_decode_exports0([]) ->
-    ok;
-gen_partial_inc_decode_exports0([{Name,_,_}|Rest]) ->
-    emit(["-export([",Name,"/1"]),
-    gen_partial_inc_decode_exports1(Rest);
-gen_partial_inc_decode_exports0([_|Rest]) ->
-    gen_partial_inc_decode_exports0(Rest).
-
-gen_partial_inc_decode_exports1([]) ->
-    emit(["]).",nl]);
-gen_partial_inc_decode_exports1([{Name,_,_}|Rest]) ->
-    emit([", ",Name,"/1"]),
-    gen_partial_inc_decode_exports1(Rest);
-gen_partial_inc_decode_exports1([_|Rest]) ->
-    gen_partial_inc_decode_exports1(Rest).
 
 gen_selected_decode_exports() ->
     case asn1ct:get_gen_state_field(type_pattern) of
 	undefined ->
 	    ok;
-	L ->
-	   gen_selected_decode_exports(L)
+	Data0 ->
+            Data = [Name || {Name,_} <- Data0],
+            gen_exports(Data, "", 1)
     end.
 
-gen_selected_decode_exports([]) ->
+gen_exports([], _Prefix, _Arity) ->
     ok;
-gen_selected_decode_exports([{FuncName,_}|Rest]) ->
-    emit(["-export([",FuncName,"/1"]),
-    gen_selected_decode_exports1(Rest).
-gen_selected_decode_exports1([]) ->
-    emit(["]).",nl,nl]);
-gen_selected_decode_exports1([{FuncName,_}|Rest]) ->
-    emit([",",nl,"          ",FuncName,"/1"]),
-    gen_selected_decode_exports1(Rest).
+gen_exports([_|_]=L0, Prefix, Arity) ->
+    FF = fun(F0) ->
+                 F = list_to_atom(lists:concat([Prefix,F0])),
+                 [{asis,F},"/",Arity]
+         end,
+    L = lists:join(",\n", [FF(F) || F <- L0]),
+    emit(["-export([",nl,
+          L,nl,
+          "]).",nl,nl]).
 
-pgen_dispatcher(Erules, {[],_Values,_,_,_Objects,_ObjectSets}) ->
+pgen_dispatcher(Erules, []) ->
     gen_info_functions(Erules);
-pgen_dispatcher(Gen, {Types,_Values,_,_,_Objects,_ObjectSets}) ->
+pgen_dispatcher(Gen, Types) ->
     emit(["-export([encode/2,decode/2]).",nl,nl]),
     gen_info_functions(Gen),
 
@@ -812,7 +747,7 @@ pgen_dispatcher(Gen, {Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	       false -> "Data"
 	   end,
 
-    emit(["decode(Type,",Data,") ->",nl]),
+    emit(["decode(Type, ",Data,") ->",nl]),
     DecWrap =
 	case {Gen,ReturnRest} of
 	    {#gen{erule=ber},false} ->
@@ -847,17 +782,10 @@ pgen_dispatcher(Gen, {Types,_Values,_,_,_Objects,_ObjectSets}) ->
     end,
 
     gen_decode_partial_incomplete(Gen),
+    gen_partial_inc_dispatcher(Gen),
 
-    case Gen of
-	#gen{erule=ber} ->
-	    gen_dispatcher(Types,"encode_disp","enc_",""),
-	    gen_dispatcher(Types,"decode_disp","dec_",""),
-	    gen_partial_inc_dispatcher();
-	#gen{} ->
-	    gen_dispatcher(Types,"encode_disp","enc_",""),
-	    gen_dispatcher(Types,"decode_disp","dec_","")
-    end,
-    emit([nl,nl]).
+    gen_dispatcher(Types, "encode_disp", "enc_"),
+    gen_dispatcher(Types, "decode_disp", "dec_").
 
 result_line(NoOkWrapper, Items) ->
     S = ["    "|case NoOkWrapper of
@@ -942,7 +870,7 @@ gen_decode_partial_incomplete(#gen{erule=ber}) ->
 gen_decode_partial_incomplete(#gen{}) ->
     ok.
 
-gen_partial_inc_dispatcher() ->
+gen_partial_inc_dispatcher(#gen{erule=ber}) ->
     case {asn1ct:read_config_data(partial_incomplete_decode),
 	  asn1ct:get_gen_state_field(inc_type_pattern)} of
 	{undefined,_} ->
@@ -952,7 +880,9 @@ gen_partial_inc_dispatcher() ->
 	{Data1,Data2} ->
 %	    io:format("partial_incomplete_decode: ~p~ninc_type_pattern: ~p~n",[Data,Data2]),
 	    gen_partial_inc_dispatcher(Data1, Data2, "")
-    end.
+    end;
+gen_partial_inc_dispatcher(#gen{}) ->
+    ok.
 
 gen_partial_inc_dispatcher([{FuncName,TopType,_Pattern}|Rest], TypePattern, Sep) ->
     TPattern =
@@ -976,12 +906,18 @@ gen_partial_inc_dispatcher([{FuncName,TopType,_Pattern}|Rest], TypePattern, Sep)
 gen_partial_inc_dispatcher([], _, _) ->
     emit([".",nl]).
 
-gen_dispatcher([F1,F2|T],FuncName,Prefix,ExtraArg) ->
-	emit([FuncName,"('",F1,"',Data) -> '",Prefix,F1,"'(Data",ExtraArg,")",";",nl]),
-	gen_dispatcher([F2|T],FuncName,Prefix,ExtraArg);
-gen_dispatcher([Flast|_T],FuncName,Prefix,ExtraArg) ->
-	emit([FuncName,"('",Flast,"',Data) -> '",Prefix,Flast,"'(Data",ExtraArg,")",";",nl]),
-	emit([FuncName,"(","Type",",_Data) -> exit({error,{asn1,{undefined_type,Type}}}).",nl,nl,nl]).
+gen_dispatcher(L, DispFunc, Prefix) ->
+    gen_dispatcher_1(L, DispFunc, Prefix),
+    emit([DispFunc,"(","Type",", _Data) ->"
+          " exit({error,{asn1,{undefined_type,Type}}}).",nl,nl]).
+
+gen_dispatcher_1([F|T], FuncName, Prefix) ->
+    Func = list_to_atom(lists:concat([Prefix,F])),
+    emit([FuncName,"(",{asis,F},", Data) -> ",
+          {asis,Func},"(Data)",";",nl]),
+    gen_dispatcher_1(T, FuncName, Prefix);
+gen_dispatcher_1([], _, _) ->
+    ok.
 
 pgen_info() ->
     emit(["info() ->",nl,
@@ -1100,8 +1036,8 @@ open_output_file(F) ->
 close_output_file() ->
     ok = file:close(erase(gen_file_out)).
 
-pgen_hrl(#gen{pack=record}=Gen, Module, Contents) ->
-    {Types,Values,Ptypes,_,_,_} = Contents,
+pgen_hrl(#gen{pack=record}=Gen, Code) ->
+    #abst{name=Module,types=Types,values=Values,ptypes=Ptypes} = Code,
     Ret =
 	case pgen_hrltypes(Gen, Module, Ptypes++Types, 0) of
 	    0 -> 
@@ -1129,7 +1065,7 @@ pgen_hrl(#gen{pack=record}=Gen, Module, Contents) ->
 			   Gen),
 	    Y
     end;
-pgen_hrl(#gen{pack=map}, _, _) ->
+pgen_hrl(#gen{pack=map}, _) ->
     0.
 
 pgen_macros(_,_,[]) ->
@@ -1215,55 +1151,16 @@ gen_record(Gen, TorPtype, Name, #type{}=Type, Num) ->
 		0 -> open_hrl(get(outfile),get(currmod));
 		_ -> true
 	    end,
-	    Prefix = get_record_name_prefix(Gen),
-	    emit({"-record('",Prefix,list2name(Name),"',{",nl}),
-	    RootList = case CompList of
-			   _ when is_list(CompList) ->
-			       CompList;
-			   {Rl,_} -> Rl;
-			   {Rl1,_Ext,_Rl2} -> Rl1
-		       end,
-	    gen_record2(Name,'SEQUENCE',RootList),
-	    NewCompList = 
+            do_gen_record(Gen, Name, CompList),
+	    NewCompList =
 		case CompList of
 		    {CompList1,[]} ->
-			emit({"}). % with extension mark",nl,nl}),
 			CompList1;
 		    {Tr,ExtensionList2} ->
-			case Tr of
-			    [] -> true;
-			    _ -> emit({",",nl})
-			end,
-			emit({"%% with extensions",nl}),
-			gen_record2(Name, 'SEQUENCE', ExtensionList2,
-				    "", ext),
-			emit({"}).",nl,nl}),
 			Tr ++ ExtensionList2;
 		    {Rootl1,Extl,Rootl2} ->
-			case Rootl1 =/= [] andalso Extl++Rootl2 =/= [] of
-			    true -> emit([com]);
-			    false -> ok
-			end,
-			case Rootl1 of
-			    [_|_] -> emit([nl]);
-			    [] -> ok
-			end,
-			emit(["%% with extensions",nl]),
-			gen_record2(Name,'SEQUENCE',Extl,"",ext),
-			case Extl =/= [] andalso Rootl2 =/= [] of
-			    true -> emit([com]);
-			    false -> ok
-			end,
-			case Extl of
-			    [_|_] -> emit([nl]);
-			    [] -> ok
-			end,
-			emit(["%% end of extensions",nl]),
-			gen_record2(Name,'SEQUENCE',Rootl2,"",noext),
-			emit(["}).",nl,nl]),
 			Rootl1++Extl++Rootl2;
-		    _ -> 
-			emit({"}).",nl,nl}),
+		    _ ->
 			CompList
 		end,
 	    gen_record(Gen, TorPtype, Name, NewCompList, Num+1);
@@ -1275,6 +1172,51 @@ gen_record(Gen, TorPtype, Name, #type{}=Type, Num) ->
 gen_record(_, _, _, _, NumRecords) ->        % skip CLASS etc for now.
      NumRecords.
 
+do_gen_record(Gen, Name, CL0) ->
+    CL = case CL0 of
+             {Root,[]} ->
+                 Root ++ [{comment,"with extension mark"}];
+             {Root,Ext} ->
+                 Root ++ [{comment,"with exensions"}] ++
+                     only_components(Ext);
+             {Root1,Ext,Root2} ->
+                 Root1 ++ [{comment,"with exensions"}] ++
+                     only_components(Ext) ++
+                     [{comment,"end of extensions"}] ++ Root2;
+             _ when is_list(CL0) ->
+                 CL0
+         end,
+    Prefix = get_record_name_prefix(Gen),
+    emit(["-record('",Prefix,list2name(Name),"', {"] ++
+             do_gen_record_1(CL) ++
+             [nl,"}).",nl,nl]).
+
+only_components(CL) ->
+    [C || #'ComponentType'{}=C <- CL].
+
+do_gen_record_1([#'ComponentType'{name=Name,prop=Prop}|T]) ->
+    Val = case Prop of
+              'OPTIONAL' ->
+                  " = asn1_NOVALUE";
+              {'DEFAULT',_} ->
+                  " = asn1_DEFAULT";
+              _ ->
+                  []
+          end,
+    Com = case needs_trailing_comma(T) of
+        true -> [com];
+        false -> []
+    end,
+    [nl,"  ",{asis,Name},Val,Com|do_gen_record_1(T)];
+do_gen_record_1([{comment,Text}|T]) ->
+    [nl,"  %% ",Text|do_gen_record_1(T)];
+do_gen_record_1([]) ->
+    [].
+
+needs_trailing_comma([#'ComponentType'{}|_]) -> true;
+needs_trailing_comma([_|T]) -> needs_trailing_comma(T);
+needs_trailing_comma([]) -> false.
+
 gen_head(#gen{options=Options}=Gen, Mod, Hrl) ->
     Name = case Gen of
                #gen{erule=per,aligned=false} ->
@@ -1285,15 +1227,15 @@ gen_head(#gen{options=Options}=Gen, Mod, Hrl) ->
                    "BER"
            end,
     emit(["%% Generated by the Erlang ASN.1 ",Name,
-          "compiler. Version:",asn1ct:vsn(),nl,
-          "%% Purpose: encoder and decoder of the types in ",Mod,nl,nl,
-          "-module('",Mod,"').",nl]),
-    put(currmod,Mod),
-    emit({"-compile(nowarn_unused_vars).",nl}),
-    emit({"-dialyzer(no_improper_lists).",nl}),
+          " compiler. Version: ",asn1ct:vsn(),nl,
+          "%% Purpose: Encoding and decoding of the types in ",
+          Mod,".",nl,nl,
+          "-module('",Mod,"').",nl,
+          "-compile(nowarn_unused_vars).",nl,
+          "-dialyzer(no_improper_lists).",nl]),
     case Hrl of
 	0 -> ok;
-	_ -> emit({"-include(\"",Mod,".hrl\").",nl})
+	_ -> emit(["-include(\"",Mod,".hrl\").",nl])
     end,
     emit(["-asn1_info([{vsn,'",asn1ct:vsn(),"'},",nl,
 	  "            {module,'",Mod,"'},",nl,
@@ -1301,36 +1243,11 @@ gen_head(#gen{options=Options}=Gen, Mod, Hrl) ->
 
 
 gen_hrlhead(Mod) ->
-    emit({"%% Generated by the Erlang ASN.1 compiler version:",asn1ct:vsn(),nl}),
-    emit({"%% Purpose: Erlang record definitions for each named and unnamed",nl}),
-    emit({"%% SEQUENCE and SET, and macro definitions for each value",nl}),
-    emit({"%% definition,in module ",Mod,nl,nl}),
-    emit({nl,nl}).
-
-gen_record2(Name,SeqOrSet,Comps) ->
-    gen_record2(Name,SeqOrSet,Comps,"",noext).
-
-gen_record2(_Name,_SeqOrSet,[],_Com,_Extension) ->
-    true;
-gen_record2(_Name,_SeqOrSet,[H = #'ComponentType'{name=Cname}],Com,Extension) ->
-    emit(Com),
-    emit({asis,Cname}),
-    gen_record_default(H, Extension);
-gen_record2(Name,SeqOrSet,[H = #'ComponentType'{name=Cname}|T],Com, Extension) ->
-    emit(Com),
-    emit({asis,Cname}),
-    gen_record_default(H, Extension),
-    gen_record2(Name,SeqOrSet,T,", ", Extension);
-gen_record2(Name,SeqOrSet,[_|T],Com,Extension) ->
-    %% skip EXTENSIONMARK, ExtensionAdditionGroup and other markers
-    gen_record2(Name,SeqOrSet,T,Com,Extension).
-
-gen_record_default(#'ComponentType'{prop='OPTIONAL'}, _)->
-    emit(" = asn1_NOVALUE"); 
-gen_record_default(#'ComponentType'{prop={'DEFAULT',_}}, _)->
-    emit(" = asn1_DEFAULT"); 
-gen_record_default(_, _) ->
-    true.
+    emit(["%% Generated by the Erlang ASN.1 compiler. Version: ",
+          asn1ct:vsn(),nl,
+          "%% Purpose: Erlang record definitions for each named and unnamed",nl,
+          "%% SEQUENCE and SET, and macro definitions for each value",nl,
+          "%% definition in module ",Mod,".",nl,nl]).
 
 %% May only be a list or a two-tuple.
 to_textual_order({Root,Ext}) ->

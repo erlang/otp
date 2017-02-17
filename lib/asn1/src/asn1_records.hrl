@@ -108,6 +108,17 @@
          options=[] :: [any()]
         }).
 
+%% Abstract intermediate representation.
+-record(abst,
+        {name :: module(),                      %Name of module.
+         types,                                 %Types.
+         values,                                %Values.
+         ptypes,                                %Parameterized types.
+         classes,                               %Classes.
+         objects,                               %Objects.
+         objsets                                %Object sets.
+        }).
+
 %% state record used by back-end at partial decode
 %% active is set to 'yes' when a partial decode function is generated.
 %% prefix is set to 'dec-inc-' or 'dec-partial-' is for
