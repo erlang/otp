@@ -958,9 +958,11 @@ struct process {
     Eterm* stop;		/* Stack top */
     Eterm* heap;		/* Heap start */
     Eterm* hend;		/* Heap end */
+    Eterm* abandoned_heap;
     Uint heap_sz;		/* Size of heap in words */
     Uint min_heap_size;         /* Minimum size of heap (in words). */
     Uint min_vheap_size;        /* Minimum size of virtual heap (in words). */
+    Uint max_heap_size;         /* Maximum size of heap (in words). */
 
 #if !defined(NO_FPE_SIGNALS) || defined(HIPE)
     volatile unsigned long fp_exception;
@@ -971,16 +973,6 @@ struct process {
        to enable smaller & faster addressing modes on the x86. */
     struct hipe_process_state hipe;
 #endif
-
-    /*
-     * Moved to after "struct hipe_process_state hipe", as a temporary fix for
-     * LLVM hard-coding offsetof(struct process, hipe.nstack) (sic!)
-     * (see void X86FrameLowering::adjustForHiPEPrologue(...) in
-     * lib/Target/X86/X86FrameLowering.cpp).
-     *
-     * Used to be below "Eterm* hend".
-     */
-    Eterm* abandoned_heap;
 
     /*
      * Saved x registers.
@@ -1061,7 +1053,6 @@ struct process {
     Eterm *old_hend;            /* Heap pointers for generational GC. */
     Eterm *old_htop;
     Eterm *old_heap;
-    Uint max_heap_size;         /* Maximum size of heap (in words). */
     Uint16 gen_gcs;		/* Number of (minor) generational GCs. */
     Uint16 max_gen_gcs;		/* Max minor gen GCs before fullsweep. */
     ErlOffHeap off_heap;	/* Off-heap data updated by copy_struct(). */
