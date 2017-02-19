@@ -655,7 +655,7 @@ run_compiler_1(Name, DisasmFun, IcodeFun, Options) ->
 	      case proplists:get_bool(to_llvm, Opts0) andalso
 		not llvm_support_available() of
 		true ->
-		  ?error_msg("No LLVM version 3.4 or greater "
+		  ?error_msg("No LLVM version 3.9 or greater "
 			     "found in $PATH; aborting "
 			     "native code compilation.\n", []),
 		  ?EXIT(cant_find_required_llvm_version);
@@ -1585,7 +1585,7 @@ check_options(Opts) ->
 -spec llvm_support_available() -> boolean().
 
 llvm_support_available() ->
-  get_llvm_version() >= {3,4}.
+  get_llvm_version() >= {3,9}.
 
 -type llvm_version() :: {Major :: integer(), Minor :: integer()}.
 
