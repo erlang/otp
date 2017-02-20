@@ -207,19 +207,14 @@ allocatable_x87() ->
 
 nr_args() -> ?AMD64_NR_ARG_REGS.
 
-arg(N) ->
-  if N < ?AMD64_NR_ARG_REGS ->
-      case N of
-	0 -> ?ARG0;
-	1 -> ?ARG1;
-	2 -> ?ARG2;
-	3 -> ?ARG3;
-	4 -> ?ARG4;
-	5 -> ?ARG5;
-	_ -> exit({?MODULE, arg, N})
-      end;
-     true ->
-      exit({?MODULE, arg, N})
+arg(N) when N < ?AMD64_NR_ARG_REGS ->
+  case N of
+    0 -> ?ARG0;
+    1 -> ?ARG1;
+    2 -> ?ARG2;
+    3 -> ?ARG3;
+    4 -> ?ARG4;
+    5 -> ?ARG5
   end.
 
 is_arg(R) ->
@@ -240,11 +235,7 @@ args(Arity) when is_integer(Arity), Arity >= 0 ->
 args(I, Rest) when I < 0 -> Rest;
 args(I, Rest) -> args(I-1, [arg(I) | Rest]).
 
-ret(N) ->
-  case N of
-    0 -> ?RAX;
-    _ -> exit({?MODULE, ret, N})
-  end.
+ret(0) -> ?RAX.
 
 %% Note: the fact that (allocatable() UNION allocatable_x87() UNION
 %% allocatable_sse2()) is a subset of call_clobbered() is hard-coded in
