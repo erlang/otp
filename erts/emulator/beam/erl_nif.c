@@ -3202,6 +3202,11 @@ int enif_demonitor_process(ErlNifEnv* env, void* obj, const ErlNifMonitor* monit
     return 0;
 }
 
+int enif_compare_monitors(const ErlNifMonitor *monitor1,
+                          const ErlNifMonitor *monitor2)
+{
+    return memcmp(monitor1,monitor2,sizeof(ErlNifMonitor));
+}
 
 /***************************************************************************
  **                              load_nif/2                               **

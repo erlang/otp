@@ -598,10 +598,11 @@ monitor_process_a(Config) ->
                                     end
                             end),
                 R_ptr = alloc_monitor_resource_nif(),
-                {0, Mon} = monitor_process_nif(R_ptr, Pid, UseMsgEnv, self()),
+                {0, Mon1} = monitor_process_nif(R_ptr, Pid, UseMsgEnv, self()),
                 [R_ptr] = monitored_by(Pid),
                 Terminator(Pid),
-                [{monitor_resource_down, R_ptr, Pid, Mon}] = flush(),
+                [{monitor_resource_down, R_ptr, Pid, Mon2}] = flush(),
+                0 = compare_monitors_nif(Mon1, Mon2),
                 [] = last_resource_dtor_call(),
                 ok = release_resource(R_ptr),
                 {R_ptr, _, 1} = last_resource_dtor_call()
@@ -650,8 +651,9 @@ monitor_process_c(Config) ->
                              Papa ! {self(), done, R_ptr, Mon},
                              exit
                      end),
-    [{Pid, done, R_ptr, Mon},
-     {monitor_resource_down, R_ptr, Pid, Mon}] = flush(),
+    [{Pid, done, R_ptr, Mon1},
+     {monitor_resource_down, R_ptr, Pid, Mon2}] = flush(),
+    compare_monitors_nif(Mon1, Mon2),
     {R_ptr, _, 1} = last_resource_dtor_call(),
     ok.
 
@@ -2657,6 +2659,7 @@ last_fd_stop_call() -> ?nif_stub.
 alloc_monitor_resource_nif() -> ?nif_stub.
 monitor_process_nif(_,_,_,_) -> ?nif_stub.
 demonitor_process_nif(_,_) -> ?nif_stub.
+compare_monitors_nif(_,_) -> ?nif_stub.
 monitor_frenzy_nif(_,_,_,_) -> ?nif_stub.
 
 %% maps

@@ -179,6 +179,7 @@ ERL_NIF_API_FUNC_DECL(int,enif_select,(ErlNifEnv* env, ErlNifEvent e, enum ErlNi
 ERL_NIF_API_FUNC_DECL(ErlNifResourceType*,enif_open_resource_type_x,(ErlNifEnv*, const char* name_str, const ErlNifResourceTypeInit*, ErlNifResourceFlags flags, ErlNifResourceFlags* tried));
 ERL_NIF_API_FUNC_DECL(int, enif_monitor_process,(ErlNifEnv*,void* obj,const ErlNifPid*,ErlDrvMonitor *monitor));
 ERL_NIF_API_FUNC_DECL(int, enif_demonitor_process,(ErlNifEnv*,void* obj,const ErlDrvMonitor *monitor));
+ERL_NIF_API_FUNC_DECL(int, enif_compare_monitors,(const ErlNifMonitor*,const ErlNifMonitor*));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -340,6 +341,7 @@ ERL_NIF_API_FUNC_DECL(int, enif_demonitor_process,(ErlNifEnv*,void* obj,const Er
 #  define enif_open_resource_type_x ERL_NIF_API_FUNC_MACRO(enif_open_resource_type_x)
 #  define enif_monitor_process ERL_NIF_API_FUNC_MACRO(enif_monitor_process)
 #  define enif_demonitor_process ERL_NIF_API_FUNC_MACRO(enif_demonitor_process)
+#  define enif_compare_monitors ERL_NIF_API_FUNC_MACRO(enif_compare_monitors)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

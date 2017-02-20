@@ -2407,6 +2407,18 @@ static ERL_NIF_TERM demonitor_process_nif(ErlNifEnv* env, int argc, const ERL_NI
     return enif_make_int(env, res);
 }
 
+static ERL_NIF_TERM compare_monitors_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifMonitor m1, m2;
+    if (!get_monitor(env, argv[0], &m1)
+        || !get_monitor(env, argv[1], &m2)) {
+        return enif_make_badarg(env);
+    }
+
+    return enif_make_int(env, enif_compare_monitors(&m1, &m2));
+}
+
+
 /*********** monitor_frenzy ************/
 
 struct frenzy_rand_bits
@@ -2763,7 +2775,7 @@ static void frenzy_resource_down(ErlNifEnv* env, void* obj, ErlNifPid* pid,
     for (mix = 0; mix < FRENZY_MONITORS_MAX; mix++) {
         if (r->monv[mix].pid.pid == pid->pid && r->monv[mix].state >= MON_TRYING) {
             enif_mutex_lock(r->monv[mix].lock);
-            if (memcmp(mon, &r->monv[mix].mon, sizeof(*mon)) == 0) {
+            if (enif_compare_monitors(mon, &r->monv[mix].mon) == 0) {
                 assert(r->monv[mix].state >= MON_ACTIVE);
                 r->monv[mix].state = MON_FREE_DOWN;
                 enif_mutex_unlock(r->monv[mix].lock);
@@ -2864,6 +2876,7 @@ static ErlNifFunc nif_funcs[] =
     {"alloc_monitor_resource_nif", 0, alloc_monitor_resource_nif},
     {"monitor_process_nif", 4, monitor_process_nif},
     {"demonitor_process_nif", 2, demonitor_process_nif},
+    {"compare_monitors_nif", 2, compare_monitors_nif},
     {"monitor_frenzy_nif", 4, monitor_frenzy_nif}
 };
 
