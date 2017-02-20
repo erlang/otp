@@ -2305,9 +2305,6 @@ void erts_resource_stop(ErtsResource* resource, ErlNifEvent e,
     post_nif_noproc(&msg_env);
 }
 
-/* SVERK SVERK: Move to ?.h */
-void erts_ref_to_driver_monitor(Eterm ref, ErlDrvMonitor*);
-
 void erts_fire_nif_monitor(ErtsResource* resource, Eterm pid, Eterm ref)
 {
     ErtsMonitor* rmon;
@@ -3207,8 +3204,8 @@ int enif_demonitor_process(ErlNifEnv* env, void* obj, const ErlNifMonitor* monit
 
     execution_state(env, NULL, &scheduler);
 
-    memcpy(ref_heap, monitor, sizeof(Eterm)*ERTS_REF_THING_SIZE);
-    ref = make_internal_ref(ref_heap);
+    ref = erts_driver_monitor_to_ref(ref_heap, monitor);
+
     erts_smp_mtx_lock(&rsrc->monitors->lock);
     mon = erts_remove_monitor(&rsrc->monitors->root, ref);
 

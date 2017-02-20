@@ -1176,6 +1176,7 @@ void erts_stale_drv_select(Eterm, ErlDrvPort, ErlDrvEvent, int, int);
 Port *erts_get_heart_port(void);
 void erts_emergency_close_ports(void);
 void erts_ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon);
+Eterm erts_driver_monitor_to_ref(Eterm* hp, const ErlDrvMonitor *mon);
 
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_COUNT)
 void erts_lcnt_enable_io_lock_count(int enable);

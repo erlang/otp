@@ -7615,7 +7615,7 @@ void erts_ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon)
                ERTS_REF_THING_SIZE*sizeof(Uint));
 }
 
-static Eterm driver_monitor_to_ref(Eterm *hp, const ErlDrvMonitor *mon)
+Eterm erts_driver_monitor_to_ref(Eterm *hp, const ErlDrvMonitor *mon)
 {
     Eterm ref;
     ERTS_CT_ASSERT(ERTS_REF_THING_SIZE*sizeof(Uint) <= sizeof(ErlDrvMonitor));
@@ -7685,7 +7685,7 @@ static int do_driver_demonitor_process(Port *prt, const ErlDrvMonitor *monitor)
     ErtsMonitor *mon;
     Eterm to;
 
-    ref = driver_monitor_to_ref(heap, monitor);
+    ref = erts_driver_monitor_to_ref(heap, monitor);
 
     mon = erts_lookup_monitor(ERTS_P_MONITORS(prt), ref);
     if (mon == NULL) {
@@ -7742,7 +7742,7 @@ static ErlDrvTermData do_driver_get_monitored_process(Port *prt,const ErlDrvMoni
     Eterm to;
     Eterm heap[ERTS_REF_THING_SIZE];
 
-    ref = driver_monitor_to_ref(heap, monitor);
+    ref = erts_driver_monitor_to_ref(heap, monitor);
 
     mon = erts_lookup_monitor(ERTS_P_MONITORS(prt), ref);
     if (mon == NULL) {

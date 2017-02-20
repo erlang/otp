@@ -2708,7 +2708,7 @@ static ERL_NIF_TERM monitor_frenzy_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
         else {
             unsigned int resource_op = rand_bits(&rnd, 3);
             r = resv[rix].obj;
-            if (resource_op == 0) {
+            if (resource_op == 0) {      /* delete resource */
                 resv[rix].obj = NULL;
                 resv[rix].release_cnt++;
                 enif_mutex_unlock(resv[rix].lock);
@@ -2717,7 +2717,7 @@ static ERL_NIF_TERM monitor_frenzy_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
                 retval = atom_ok;
                 break;
             }
-            else if (resource_op == 1) {
+            else if (resource_op == 1) {  /* return resource */
                 retval = enif_make_resource(env, r);
                 enif_mutex_unlock(resv[rix].lock);
                 break;
