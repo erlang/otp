@@ -647,14 +647,13 @@ unsafe_update_element(Tuple, Index, Value) ->   % Index is an immediate
 element(Dst, Index, Tuple, FailLabName, {tuple, A}, IndexInfo) ->
   FixnumOkLab = hipe_rtl:mk_new_label(),
   IndexOkLab = hipe_rtl:mk_new_label(),
-  Ptr = hipe_rtl:mk_new_reg(), % offset from Tuple
   UIndex = hipe_rtl:mk_new_reg_gcsafe(),
   Arity = hipe_rtl:mk_imm(A),
-  InvIndex = hipe_rtl:mk_new_reg_gcsafe(),
-  Offset = hipe_rtl:mk_new_reg_gcsafe(),
   case IndexInfo of
     valid ->
       %% This is no branch, 1 load and 3 alus = 4 instr
+      Offset = hipe_rtl:mk_new_reg_gcsafe(),
+      Ptr = hipe_rtl:mk_new_reg(), % offset from Tuple
       [untag_fixnum(UIndex, Index),
        hipe_rtl:mk_alu(Ptr, Tuple, 'sub', hipe_rtl:mk_imm(?TAG_PRIMARY_BOXED)),
        hipe_rtl:mk_alu(Offset, UIndex, 'sll', 
@@ -663,72 +662,56 @@ element(Dst, Index, Tuple, FailLabName, {tuple, A}, IndexInfo) ->
     fixnums ->
       %% This is 1 branch, 1 load and 4 alus = 6 instr
       [untag_fixnum(UIndex, Index),
-       hipe_rtl:mk_alu(Ptr, Tuple, 'sub',hipe_rtl:mk_imm(?TAG_PRIMARY_BOXED))|
-       gen_element_tail(Dst, Ptr, InvIndex, Arity, Offset, UIndex, 
-			FailLabName, IndexOkLab)];
+       gen_element_tail(Dst, Tuple, Arity, UIndex, FailLabName, IndexOkLab)];
     _ ->
       %% This is 3 branches, 1 load and 5 alus = 9 instr
       [test_fixnum(Index, hipe_rtl:label_name(FixnumOkLab),
 		   FailLabName, 0.99),
        FixnumOkLab,
        untag_fixnum(UIndex, Index),
-       hipe_rtl:mk_alu(Ptr, Tuple, 'sub',hipe_rtl:mk_imm(?TAG_PRIMARY_BOXED))|
-       gen_element_tail(Dst, Ptr, InvIndex, Arity, Offset, UIndex, 
-			FailLabName, IndexOkLab)]
+       gen_element_tail(Dst, Tuple, Arity, UIndex, FailLabName, IndexOkLab)]
   end;
 element(Dst, Index, Tuple, FailLabName, tuple, IndexInfo) ->
   FixnumOkLab = hipe_rtl:mk_new_label(),
   IndexOkLab = hipe_rtl:mk_new_label(),
-  Ptr = hipe_rtl:mk_new_reg(), % offset from Tuple
   Header = hipe_rtl:mk_new_reg_gcsafe(),
   UIndex = hipe_rtl:mk_new_reg_gcsafe(),
   Arity = hipe_rtl:mk_new_reg_gcsafe(),
-  InvIndex = hipe_rtl:mk_new_reg_gcsafe(),
-  Offset = hipe_rtl:mk_new_reg_gcsafe(),
   case IndexInfo of
     fixnums ->
       %% This is 1 branch, 2 loads and 5 alus = 8 instr
-      [hipe_rtl:mk_alu(Ptr, Tuple, 'sub', hipe_rtl:mk_imm(?TAG_PRIMARY_BOXED)),
-       hipe_rtl:mk_load(Header, Ptr, hipe_rtl:mk_imm(0)),
+      [get_header(Header, Tuple),
        untag_fixnum(UIndex, Index),
        hipe_rtl:mk_alu(Arity,Header,'srl',hipe_rtl:mk_imm(?HEADER_ARITY_OFFS))|
-       gen_element_tail(Dst, Ptr, InvIndex, Arity, Offset, UIndex, 
-			FailLabName, IndexOkLab)];
+       gen_element_tail(Dst, Tuple, Arity, UIndex, FailLabName, IndexOkLab)];
     Num when is_integer(Num) ->
       %% This is 1 branch, 1 load and 3 alus = 5 instr
-      [hipe_rtl:mk_alu(Ptr, Tuple, 'sub', hipe_rtl:mk_imm(?TAG_PRIMARY_BOXED))|
-       gen_element_tail(Dst, Ptr, InvIndex, hipe_rtl:mk_imm(Num), 
-			Offset, UIndex, FailLabName, IndexOkLab)];
+      gen_element_tail(Dst, Tuple, hipe_rtl:mk_imm(Num), UIndex, FailLabName,
+		       IndexOkLab);
     _ ->
       %% This is 2 branches, 2 loads and 6 alus = 10 instr
       [test_fixnum(Index, hipe_rtl:label_name(FixnumOkLab), FailLabName, 0.99),
        FixnumOkLab,
-       hipe_rtl:mk_alu(Ptr, Tuple, 'sub', hipe_rtl:mk_imm(?TAG_PRIMARY_BOXED)),
-       hipe_rtl:mk_load(Header, Ptr, hipe_rtl:mk_imm(0)),
+       get_header(Header, Tuple),
        untag_fixnum(UIndex, Index),
        hipe_rtl:mk_alu(Arity,Header,'srl',hipe_rtl:mk_imm(?HEADER_ARITY_OFFS))|
-       gen_element_tail(Dst, Ptr, InvIndex, Arity, Offset, UIndex, 
-			FailLabName, IndexOkLab)]
+       gen_element_tail(Dst, Tuple, Arity, UIndex, FailLabName, IndexOkLab)]
   end;
 element(Dst, Index, Tuple, FailLabName, unknown, IndexInfo) ->
   FixnumOkLab = hipe_rtl:mk_new_label(),
   BoxedOkLab = hipe_rtl:mk_new_label(),
   TupleOkLab = hipe_rtl:mk_new_label(),
   IndexOkLab = hipe_rtl:mk_new_label(),
-  Ptr = hipe_rtl:mk_new_reg(), % offset from Tuple
   Header = hipe_rtl:mk_new_reg_gcsafe(),
   UIndex = hipe_rtl:mk_new_reg_gcsafe(),
   Arity = hipe_rtl:mk_new_reg_gcsafe(),
-  InvIndex = hipe_rtl:mk_new_reg_gcsafe(),
-  Offset = hipe_rtl:mk_new_reg_gcsafe(),
   case IndexInfo of
     fixnums ->
       %% This is 3 branches, 2 loads and 5 alus = 10 instr
       [test_is_boxed(Tuple, hipe_rtl:label_name(BoxedOkLab),
 		     FailLabName, 0.99),
        BoxedOkLab,
-       hipe_rtl:mk_alu(Ptr, Tuple, 'sub', hipe_rtl:mk_imm(?TAG_PRIMARY_BOXED)),
-       hipe_rtl:mk_load(Header, Ptr, hipe_rtl:mk_imm(0)),
+       get_header(Header, Tuple),
        hipe_rtl:mk_branch(Header, 'and',
 			  hipe_rtl:mk_imm(?TAG_HEADER_MASK), 'eq',
 			  hipe_rtl:label_name(TupleOkLab), FailLabName, 0.99),
@@ -736,23 +719,21 @@ element(Dst, Index, Tuple, FailLabName, unknown, IndexInfo) ->
        untag_fixnum(UIndex, Index),
        hipe_rtl:mk_alu(Arity, Header, 'srl',
 		       hipe_rtl:mk_imm(?HEADER_ARITY_OFFS))|
-       gen_element_tail(Dst, Ptr, InvIndex, Arity, Offset, 
-			UIndex, FailLabName, IndexOkLab)];
+       gen_element_tail(Dst, Tuple, Arity, UIndex, FailLabName, IndexOkLab)];
     Num when is_integer(Num) ->
       %% This is 3 branches, 2 loads and 4 alus = 9 instr
       [test_is_boxed(Tuple, hipe_rtl:label_name(BoxedOkLab),
 		     FailLabName, 0.99),
        BoxedOkLab,
-       hipe_rtl:mk_alu(Ptr, Tuple, 'sub', hipe_rtl:mk_imm(?TAG_PRIMARY_BOXED)),
-       hipe_rtl:mk_load(Header, Ptr, hipe_rtl:mk_imm(0)),
+       get_header(Header, Tuple),
        hipe_rtl:mk_branch(Header, 'and',
 			  hipe_rtl:mk_imm(?TAG_HEADER_MASK), 'eq',
 			  hipe_rtl:label_name(TupleOkLab), FailLabName, 0.99),
        TupleOkLab,
        hipe_rtl:mk_alu(Arity, Header, 'srl', 
 		       hipe_rtl:mk_imm(?HEADER_ARITY_OFFS))|
-       gen_element_tail(Dst, Ptr, InvIndex, Arity, Offset, 
-			hipe_rtl:mk_imm(Num), FailLabName, IndexOkLab)];
+       gen_element_tail(Dst, Tuple, Arity, hipe_rtl:mk_imm(Num), FailLabName,
+			IndexOkLab)];
     _ ->
       %% This is 4 branches, 2 loads, and 6 alus = 12 instr :(
       [test_fixnum(Index, hipe_rtl:label_name(FixnumOkLab),
@@ -761,8 +742,7 @@ element(Dst, Index, Tuple, FailLabName, unknown, IndexInfo) ->
        test_is_boxed(Tuple, hipe_rtl:label_name(BoxedOkLab),
 		     FailLabName, 0.99),
        BoxedOkLab,
-       hipe_rtl:mk_alu(Ptr, Tuple, 'sub', hipe_rtl:mk_imm(?TAG_PRIMARY_BOXED)),
-       hipe_rtl:mk_load(Header, Ptr, hipe_rtl:mk_imm(0)),
+       get_header(Header, Tuple),
        hipe_rtl:mk_branch(Header, 'and',
 			  hipe_rtl:mk_imm(?TAG_HEADER_MASK), 'eq',
 			  hipe_rtl:label_name(TupleOkLab), FailLabName, 0.99),
@@ -770,20 +750,21 @@ element(Dst, Index, Tuple, FailLabName, unknown, IndexInfo) ->
        untag_fixnum(UIndex, Index),
        hipe_rtl:mk_alu(Arity, Header, 'srl',
 		       hipe_rtl:mk_imm(?HEADER_ARITY_OFFS))|
-       gen_element_tail(Dst, Ptr, InvIndex, Arity, Offset,
-			UIndex, FailLabName, IndexOkLab)]
+       gen_element_tail(Dst, Tuple, Arity, UIndex, FailLabName, IndexOkLab)]
   end.
 
-gen_element_tail(Dst, Ptr, InvIndex, Arity, Offset, 
-		 UIndex, FailLabName, IndexOkLab) ->
+gen_element_tail(Dst, Tuple, Arity, UIndex, FailLabName, IndexOkLab) ->
+  ZeroIndex = hipe_rtl:mk_new_reg_gcsafe(),
+  Offset = hipe_rtl:mk_new_reg_gcsafe(),
+  Ptr = hipe_rtl:mk_new_reg(), % offset from Tuple
   %% now check that 1 <= UIndex <= Arity
-  %% if UIndex < 1, then (Arity - UIndex) >= Arity
-  %% if UIndex > Arity, then (Arity - UIndex) < 0, which is >=u Arity
-  %% otherwise, 0 <= (Arity - UIndex) < Arity
-  [hipe_rtl:mk_alu(InvIndex, Arity, 'sub', UIndex),
-   hipe_rtl:mk_branch(InvIndex, 'geu', Arity, FailLabName,
+  %% by checking the equivalent (except for when Arity>=2^(WordSize-1))
+  %% (UIndex - 1) <u Arity
+  [hipe_rtl:mk_alu(ZeroIndex, UIndex, 'sub', hipe_rtl:mk_imm(1)),
+   hipe_rtl:mk_branch(ZeroIndex, 'geu', Arity, FailLabName,
 		      hipe_rtl:label_name(IndexOkLab), 0.01),
    IndexOkLab,
+   hipe_rtl:mk_alu(Ptr, Tuple, 'sub', hipe_rtl:mk_imm(?TAG_PRIMARY_BOXED)),
    hipe_rtl:mk_alu(Offset, UIndex, 'sll',
                    hipe_rtl:mk_imm(hipe_rtl_arch:log2_word_size())),
    hipe_rtl:mk_load(Dst, Ptr, Offset)].
