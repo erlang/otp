@@ -453,13 +453,19 @@ move_cursor(From, To, #ssh_pty{width=Width, term=Type}) ->
 %% %%% make sure that there is data to send
 %% %%% before calling ssh_connection:send
 write_chars(ConnectionHandler, ChannelId, Chars) ->
-    case erlang:iolist_size(Chars) of
-	0 ->
-	    ok;
-       _ ->
-	    ssh_connection:send(ConnectionHandler, ChannelId,
-				?SSH_EXTENDED_DATA_DEFAULT, Chars)
+    case has_chars(Chars) of
+        false -> ok;
+        true -> ssh_connection:send(ConnectionHandler,
+                                    ChannelId,
+                                    ?SSH_EXTENDED_DATA_DEFAULT,
+                                    Chars)
     end.
+
+has_chars([C|_]) when is_integer(C) -> true;
+has_chars([H|T]) when is_list(H) ; is_binary(H) -> has_chars(H) orelse has_chars(T);
+has_chars(<<_:8,_/binary>>) -> true;
+has_chars(_) -> false.
+    
 
 %%% tail, works with empty lists
 tl1([_|A]) -> A;
