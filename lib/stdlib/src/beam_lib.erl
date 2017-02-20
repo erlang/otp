@@ -63,7 +63,7 @@
 -type label()     :: integer().
 
 -type chunkid()   :: nonempty_string(). % approximation of the strings below
-%% "Abst" | "Attr" | "CInf" | "ExpT" | "ImpT" | "LocT" | "Atom".
+%% "Abst" | "Attr" | "CInf" | "ExpT" | "ImpT" | "LocT" | "Atom" | "AtU8".
 -type chunkname() :: 'abstract_code' | 'attributes' | 'compile_info'
                    | 'exports' | 'labeled_exports'
                    | 'imports' | 'indexed_imports'
@@ -520,6 +520,8 @@ read_chunk_data(File0, ChunkNames0, Options)
     end.
 
 %% -> {ok, list()} | throw(Error)
+check_chunks([atoms | Ids], File, IL, L) ->
+    check_chunks(Ids, File, ["Atom", "AtU8" | IL], [{atom_chunk, atoms} | L]);
 check_chunks([ChunkName | Ids], File, IL, L) when is_atom(ChunkName) ->
     ChunkId = chunk_name_to_id(ChunkName, File),
     check_chunks(Ids, File, [ChunkId | IL], [{ChunkId, ChunkName} | L]);
@@ -537,6 +539,10 @@ scan_beam(File, What0, AllowMissingChunks) ->
     case scan_beam1(File, What0) of
 	{missing, _FD, Mod, Data, What} when AllowMissingChunks ->
 	    {ok, Mod, [{Id, missing_chunk} || Id <- What] ++ Data};
+	{missing, _FD, Mod, Data, ["Atom"]} ->
+	    {ok, Mod, Data};
+	{missing, _FD, Mod, Data, ["AtU8"]} ->
+	    {ok, Mod, Data};
 	{missing, FD, _Mod, _Data, What} ->
 	    error({missing_chunk, filename(FD), hd(What)});
 	R ->
@@ -581,18 +587,23 @@ scan_beam(FD, Pos, What, Mod, Data) ->
 	    error({invalid_beam_file, filename(FD), Pos})
     end.
 
-get_data(Cs, "Atom"=Id, FD, Size, Pos, Pos2, _Mod, Data) ->
+get_atom_data(Cs, Id, FD, Size, Pos, Pos2, Data, Encoding) ->
     NewCs = del_chunk(Id, Cs),
     {NFD, Chunk} = get_chunk(Id, Pos, Size, FD),
     <<_Num:32, Chunk2/binary>> = Chunk,
-    {Module, _} = extract_atom(Chunk2),
+    {Module, _} = extract_atom(Chunk2, Encoding),
     C = case Cs of
 	    info -> 
 		{Id, Pos, Size};
 	    _ -> 
 		{Id, Chunk}
 	end,
-    scan_beam(NFD, Pos2, NewCs, Module, [C | Data]);
+    scan_beam(NFD, Pos2, NewCs, Module, [C | Data]).
+
+get_data(Cs, "Atom" = Id, FD, Size, Pos, Pos2, _Mod, Data) ->
+    get_atom_data(Cs, Id, FD, Size, Pos, Pos2, Data, latin1);
+get_data(Cs, "AtU8" = Id, FD, Size, Pos, Pos2, _Mod, Data) ->
+    get_atom_data(Cs, Id, FD, Size, Pos, Pos2, Data, utf8);
 get_data(info, Id, FD, Size, Pos, Pos2, Mod, Data) ->
     scan_beam(FD, Pos2, info, Mod, [{Id, Pos, Size} | Data]);
 get_data(Chunks, Id, FD, Size, Pos, Pos2, Mod, Data) ->
@@ -624,6 +635,9 @@ get_chunk(Id, Pos, Size, FD) ->
 	    {NFD, Chunk}
     end.
 
+chunks_to_data([{atom_chunk, Name} | CNs], Chunks, File, Cs, Module, Atoms, L) ->
+    {NewAtoms, Ret} = chunk_to_data(Name, <<"">>, File, Cs, Atoms, Module),
+    chunks_to_data(CNs, Chunks, File, Cs, Module, NewAtoms, [Ret | L]);
 chunks_to_data([{Id, Name} | CNs], Chunks, File, Cs, Module, Atoms, L) ->
     {_Id, Chunk} = lists:keyfind(Id, 1, Chunks),
     {NewAtoms, Ret} = chunk_to_data(Name, Chunk, File, Cs, Atoms, Module),
@@ -651,7 +665,7 @@ chunk_to_data(abstract_code=Id, Chunk, File, _Cs, AtomTable, Mod) ->
 	<<>> ->
 	    {AtomTable, {Id, no_abstract_code}};
 	<<0:8,N:8,Mode0:N/binary,Rest/binary>> ->
-	    Mode = list_to_atom(binary_to_list(Mode0)),
+	    Mode = binary_to_atom(Mode0, utf8),
 	    decrypt_abst(Mode, Mod, File, Id, AtomTable, Rest);
 	_ ->
 	    case catch binary_to_term(Chunk) of
@@ -683,7 +697,6 @@ chunk_to_data(ChunkId, Chunk, _File,
 	      _Cs, AtomTable, _Module) when is_list(ChunkId) ->
     {AtomTable, {ChunkId, Chunk}}. % Chunk is a binary
 
-chunk_name_to_id(atoms, _)           -> "Atom";
 chunk_name_to_id(indexed_imports, _) -> "ImpT";
 chunk_name_to_id(imports, _)         -> "ImpT";
 chunk_name_to_id(exports, _)         -> "ExpT";
@@ -738,25 +751,30 @@ atm(AT, N) ->
 
 %% AT is updated.
 ensure_atoms({empty, AT}, Cs) ->
-    {_Id, AtomChunk} = lists:keyfind("Atom", 1, Cs),
-    extract_atoms(AtomChunk, AT),
+    case lists:keyfind("AtU8", 1, Cs) of
+	{_Id, AtomChunk} when is_binary(AtomChunk) ->
+	    extract_atoms(AtomChunk, AT, utf8);
+	_ ->
+	    {_Id, AtomChunk} = lists:keyfind("Atom", 1, Cs),
+	    extract_atoms(AtomChunk, AT, latin1)
+    end,
     AT;
 ensure_atoms(AT, _Cs) ->
     AT.
 
-extract_atoms(<<_Num:32, B/binary>>, AT) ->
-    extract_atoms(B, 1, AT).
+extract_atoms(<<_Num:32, B/binary>>, AT, Encoding) ->
+    extract_atoms(B, 1, AT, Encoding).
 
-extract_atoms(<<>>, _I, _AT) ->
+extract_atoms(<<>>, _I, _AT, _Encoding) ->
     true;
-extract_atoms(B, I, AT) ->
-    {Atom, B1} = extract_atom(B),
+extract_atoms(B, I, AT, Encoding) ->
+    {Atom, B1} = extract_atom(B, Encoding),
     true = ets:insert(AT, {I, Atom}),
-    extract_atoms(B1, I+1, AT).
+    extract_atoms(B1, I+1, AT, Encoding).
 
-extract_atom(<<Len, B/binary>>) ->
+extract_atom(<<Len, B/binary>>, Encoding) ->
     <<SB:Len/binary, Tail/binary>> = B,
-    {list_to_atom(binary_to_list(SB)), Tail}.
+    {binary_to_atom(SB, Encoding), Tail}.
 
 %%% Utils.
 
@@ -856,12 +874,12 @@ significant_chunks() ->
 %% for a module. They are listed in the order that they should be MD5:ed.
 
 md5_chunks() ->
-    ["Atom", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT"].
+    ["Atom", "AtU8", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT"].
 
 %% The following chunks are mandatory in every Beam file.
 
 mandatory_chunks() ->
-    ["Code", "ExpT", "ImpT", "StrT", "Atom"].
+    ["Code", "ExpT", "ImpT", "StrT"].
 
 %%% ====================================================================
 %%% The rest of the file handles encrypted debug info.

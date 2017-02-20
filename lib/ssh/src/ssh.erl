@@ -280,9 +280,11 @@ valid_socket_to_use(Socket, Options) ->
 	    {error, {unsupported,L4}}
     end.
 
-is_tcp_socket(Socket) -> {ok,[]} =/= inet:getopts(Socket, [delay_send]).
-
-
+is_tcp_socket(Socket) ->
+    case inet:getopts(Socket, [delay_send]) of
+        {ok,[_]} -> true;
+        _ -> false
+    end.
 
 daemon_shell_opt(Options) ->
      case proplists:get_value(shell, Options) of
@@ -317,6 +319,7 @@ start_daemon(Socket, Options) ->
 			do_start_daemon(Socket, [{role,server}|SshOptions], SocketOptions)
 		    catch
 			throw:bad_fd -> {error,bad_fd};
+			throw:bad_socket -> {error,bad_socket};
 			_C:_E -> {error,{cannot_start_daemon,_C,_E}}
 		    end;
 		{error,SockError} ->
@@ -333,6 +336,7 @@ start_daemon(Host, Port, Options, Inet) ->
 		do_start_daemon(Host, Port, [{role,server}|SshOptions] , [Inet|SocketOptions])
 	    catch
 		throw:bad_fd -> {error,bad_fd};
+		throw:bad_socket -> {error,bad_socket};
 		_C:_E -> {error,{cannot_start_daemon,_C,_E}}
 	    end
     end.
@@ -362,8 +366,7 @@ do_start_daemon(Socket, SshOptions, SocketOptions) ->
 		{error, {already_started, _}} ->
 		    {error, eaddrinuse};
 		Result = {ok,_} ->
-		    ssh_acceptor:handle_connection(Callback, Host, Port, Opts, Socket),
-		    Result;
+		    call_ssh_acceptor_handle_connection(Callback, Host, Port, Opts, Socket, Result);
 		Result = {error, _} ->
 		    Result
 	    catch
@@ -376,8 +379,7 @@ do_start_daemon(Socket, SshOptions, SocketOptions) ->
 		{error, {already_started, _}} ->
 		    {error, eaddrinuse};
 		{ok, _} ->
-		    ssh_acceptor:handle_connection(Callback, Host, Port, Opts, Socket),
-		    {ok, Sup};
+		    call_ssh_acceptor_handle_connection(Callback, Host, Port, Opts, Socket, {ok, Sup});
 		Other ->
 		    Other
 	    end
@@ -446,6 +448,16 @@ do_start_daemon(Host0, Port0, SshOptions, SocketOptions) ->
 		    Other
 	    end
     end.
+
+call_ssh_acceptor_handle_connection(Callback, Host, Port, Opts, Socket, DefaultResult) ->
+    try ssh_acceptor:handle_connection(Callback, Host, Port, Opts, Socket)
+    of
+        {error,Error} -> {error,Error};
+        _ -> DefaultResult
+    catch
+        C:R -> {error,{could_not_start_connection,{C,R}}}
+    end.
+             
 
 sync_request_control(false) ->
     ok;
@@ -620,11 +632,22 @@ handle_ssh_option({silently_accept_hosts, Value} = Opt) when is_boolean(Value) -
 handle_ssh_option({silently_accept_hosts, Value} = Opt) when is_function(Value,2) ->
     Opt;
 handle_ssh_option({silently_accept_hosts, {DigestAlg,Value}} = Opt) when is_function(Value,2) ->
-    case lists:member(DigestAlg, [md5, sha, sha224, sha256, sha384, sha512]) of
-	true ->
-	    Opt;
-	false ->
-	    throw({error, {eoptions, Opt}})
+    Algs = if is_atom(DigestAlg) -> [DigestAlg];
+              is_list(DigestAlg) -> DigestAlg;
+              true -> throw({error, {eoptions, Opt}})
+           end,
+    case [A || A <- Algs,
+               not lists:member(A, [md5, sha, sha224, sha256, sha384, sha512])] of
+        [_|_] = UnSup1 ->
+            throw({error, {{eoptions, Opt}, {not_fingerprint_algos,UnSup1}}});
+        [] ->
+            CryptoHashAlgs = proplists:get_value(hashs, crypto:supports(), []),
+            case [A || A <- Algs,
+                       not lists:member(A, CryptoHashAlgs)] of
+                [_|_] = UnSup2 ->
+                    throw({error, {{eoptions, Opt}, {unsupported_algo,UnSup2}}});
+                [] -> Opt
+            end
     end;
 handle_ssh_option({user_interaction, Value} = Opt) when is_boolean(Value) ->
     Opt;

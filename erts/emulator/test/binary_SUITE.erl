@@ -19,7 +19,6 @@
 %%
 
 -module(binary_SUITE).
--compile({nowarn_deprecated_function, {erlang,hash,2}}).
 
 %% Tests binaries and the BIFs:
 %%	list_to_binary/1
@@ -392,7 +391,6 @@ test_hash(List) ->
     Bin = list_to_binary(List),
     Sbin = make_sub_binary(List),
     Unaligned = make_unaligned_sub_binary(Sbin),
-    test_hash_1(Bin, Sbin, Unaligned, fun erlang:hash/2),
     test_hash_1(Bin, Sbin, Unaligned, fun erlang:phash/2),
     test_hash_1(Bin, Sbin, Unaligned, fun erlang:phash2/2).
 
@@ -1010,7 +1008,7 @@ ordering(Config) when is_list(Config) ->
 
     ok.
 
-%% Test that comparisions between binaries with different alignment work.
+%% Test that comparison between binaries with different alignment work.
 unaligned_order(Config) when is_list(Config) ->
     L = lists:seq(0, 7),
     [test_unaligned_order(I, J) || I <- L, J <- L], 

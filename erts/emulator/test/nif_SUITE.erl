@@ -63,7 +63,7 @@
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
--define(is_resource, is_binary).  % to be is_reference
+-define(is_resource, is_reference).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -1112,7 +1112,7 @@ resource_hugo_do(Type) ->
     HugoBin = <<"Hugo Hacker">>,
     HugoPtr = alloc_resource(Type, HugoBin),
     Hugo = make_resource(HugoPtr),
-    <<>> = Hugo,
+    true = is_reference(Hugo),
     release_resource(HugoPtr),
     erlang:garbage_collect(),
     {HugoPtr,HugoBin} = get_resource(Type,Hugo),
@@ -1146,7 +1146,7 @@ resource_otto_do(Type) ->
     OttoBin = <<"Otto Ordonnans">>,
     OttoPtr = alloc_resource(Type, OttoBin),
     Otto = make_resource(OttoPtr),
-    <<>> = Otto,
+    true = is_reference(Otto),
     %% forget resource term but keep referenced by NIF
     {OttoPtr, OttoBin}.    
 
@@ -1169,8 +1169,9 @@ resource_new_do2(Type) ->
     BinB = <<"NewB">>,
     ResA = make_new_resource(Type, BinA),
     ResB = make_new_resource(Type, BinB),
-    <<>> = ResA,
-    <<>> = ResB,
+    true = is_reference(ResA),
+    true = is_reference(ResB),
+    ResA /= ResB,
     {PtrA,BinA} = get_resource(Type, ResA),
     {PtrB,BinB} = get_resource(Type, ResB),
     true = (PtrA =/= PtrB),

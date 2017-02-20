@@ -805,7 +805,7 @@ reference_count(Config) when is_list(Config) ->
 
     Pid1 ! {self(), die},
     test_server:sleep(200),   % Give time to unload.
-    % Verify that the driver was automaticly unloaded when the
+    % Verify that the driver was automatically unloaded when the
     % process died.
     {error, not_loaded}=erl_ddll:unload_driver(echo_drv),
     ok.

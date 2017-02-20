@@ -467,10 +467,10 @@ handle_info(_Info, State) ->
 
 stop_servers(#state{node=Node, log=LogOn, sys_panel=Sys, pro_panel=Procs, tv_panel=TVs,
 		    trace_panel=Trace, app_panel=Apps, perf_panel=Perfs,
-		    allc_panel=Alloc} = _State) ->
+		    allc_panel=Alloc, port_panel=Ports} = _State) ->
     LogOn andalso rpc:block_call(Node, rb, stop, []),
     Me = self(),
-    Tabs = [Sys, Procs, TVs, Trace, Apps, Perfs, Alloc],
+    Tabs = [Sys, Procs, Ports, TVs, Trace, Apps, Perfs, Alloc],
     Stop = fun() ->
 		   try
 		       _ = [wx_object:stop(Panel) || Panel <- Tabs],
@@ -580,9 +580,10 @@ get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys,
 
 pid2panel(Pid, #state{pro_panel=Pro, sys_panel=Sys,
 		      tv_panel=Tv, trace_panel=Trace, app_panel=App,
-		      perf_panel=Perf, allc_panel=Alloc}) ->
+		      perf_panel=Perf, allc_panel=Alloc, port_panel=Port}) ->
     case Pid of
 	Pro -> "Processes";
+        Port -> "Ports";
 	Sys -> "System";
 	Tv -> "Table Viewer" ;
 	Trace -> ?TRACE_STR;

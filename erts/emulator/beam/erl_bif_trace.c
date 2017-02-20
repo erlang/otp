@@ -2363,7 +2363,7 @@ BIF_RETTYPE system_profile_2(BIF_ALIST_2)
 typedef struct {
     Process *proc;
     Eterm ref;
-    Eterm ref_heap[REF_THING_SIZE];
+    Eterm ref_heap[ERTS_REF_THING_SIZE];
     Eterm target;
     erts_smp_atomic32_t refc;
 } ErtsTraceDeliveredAll;

@@ -119,7 +119,7 @@ color_heuristic(IG, Min, Max, Safe, MaxNodes, Target, MaxDepth) ->
       end;
     _ ->
       %% This can be increased from 2, and by this the heuristic can be
-      %% exited earlier, but the same can be achived by decreasing the
+      %% exited earlier, but the same can be achieved by decreasing the
       %% recursion depth. This should not be decreased below 2.
       case (Max - Min) < 2 of
         true ->

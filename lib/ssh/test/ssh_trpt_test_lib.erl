@@ -93,7 +93,10 @@ exec(Op, S0=#s{}) ->
 
 	exit:Exit ->
 	    report_trace(exit, Exit, S1),
-	    exit(Exit)
+	    exit(Exit);
+        Cls:Err ->
+            ct:pal("Class=~p, Error=~p", [Cls,Err]),
+            error("fooooooO")
     end;
 exec(Op, {ok,S=#s{}}) -> exec(Op, S);
 exec(_, Error) -> Error.

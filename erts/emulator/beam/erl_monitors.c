@@ -24,7 +24,7 @@
  * key in the monitor case and the pid of the linked process as key in the 
  * link case. Lookups the order of the references is somewhat special. Local 
  * references are strictly smaller than remote references and are sorted 
- * by inlined comparision functionality. Remote references are handled by the
+ * by inlined comparison functionality. Remote references are handled by the
  * usual cmp function.
  * Each Monitor is tagged with different tags depending on which end of the 
  * monitor it is.
@@ -45,6 +45,7 @@
 #include "bif.h"
 #include "big.h"
 #include "erl_monitors.h"
+#include "erl_bif_unique.h"
 
 #define STACK_NEED 50
 #define MAX_MONITORS 0xFFFFFFFFUL
@@ -79,7 +80,24 @@ static ERTS_INLINE int cmp_mon_ref(Eterm ref1, Eterm ref2)
     b2 = boxed_val(ref2);
     if (is_ref_thing_header(*b1)) {
 	if (is_ref_thing_header(*b2)) {
-	    return memcmp(b1+1,b2+1,ERTS_REF_WORDS*sizeof(Uint));
+	    Uint32 *num1, *num2;
+	    if (is_ordinary_ref_thing(b1)) {
+		ErtsORefThing *rtp = (ErtsORefThing *) b1;
+		num1 = rtp->num;
+	    }
+	    else {
+		ErtsMRefThing *mrtp = (ErtsMRefThing *) b1;
+		num1 = mrtp->mb->refn;
+	    }
+	    if (is_ordinary_ref_thing(b2)) {
+		ErtsORefThing *rtp = (ErtsORefThing *) b2;
+		num2 = rtp->num;
+	    }
+	    else {
+		ErtsMRefThing *mrtp = (ErtsMRefThing *) b2;
+		num2 = mrtp->mb->refn;
+	    }
+	    return erts_internal_ref_number_cmp(num1, num2);
 	}
 	return -1;
     }
@@ -97,14 +115,15 @@ do {								\
 	Uint i__;						\
 	Uint len__;						\
 	ASSERT((Hp));						\
-	ASSERT(is_internal_ref((From)) || is_external((From)));	\
+	ASSERT(is_internal_ordinary_ref((From))                 \
+               || is_external((From)));                         \
 	(To) = make_boxed((Hp));				\
 	len__ = thing_arityval(*boxed_val((From))) + 1;		\
 	for(i__ = 0; i__ < len__; i__++)			\
 	    (*((Hp)++)) = boxed_val((From))[i__];		\
 	if (is_external((To))) {				\
 	    external_thing_ptr((To))->next = NULL;		\
-	    erts_refc_inc(&(external_thing_ptr((To))->node->refc), 2);\
+	    erts_smp_refc_inc(&(external_thing_ptr((To))->node->refc), 2);\
 	}							\
     }								\
 } while (0)
@@ -135,7 +154,7 @@ static ErtsMonitor *create_monitor(Uint type, Eterm ref, UWord entity, Eterm nam
      n->type = (Uint16) type;
      n->balance = 0;            /* Always the same initial value */
      n->name = name; /* atom() or [] */
-     CP_LINK_VAL(n->ref, hp, ref); /*XXX Unneccesary check, never immediate*/
+     CP_LINK_VAL(n->ref, hp, ref); /*XXX Unnecessary check, never immediate*/
      if (type == MON_NIF_TARGET)
          n->u.resource = (ErtsResource*)entity;
      else
@@ -342,6 +361,8 @@ void erts_add_monitor(ErtsMonitor **root, Uint type, Eterm ref, UWord entity,
     int state = 0;
     ErtsMonitor **this = root;
     Sint c;
+
+    ASSERT(is_internal_ordinary_ref(ref) || is_external_ref(ref));
   
     dstack[0] = DIR_END;
     for (;;) {

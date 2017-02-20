@@ -92,7 +92,7 @@
 
 /* Size of a monitor without heap, in words (fixalloc) */
 #define ERTS_MONITOR_SIZE ((sizeof(ErtsMonitor) - sizeof(Uint))/sizeof(Uint))
-#define ERTS_MONITOR_SH_SIZE (ERTS_MONITOR_SIZE + REF_THING_SIZE)
+#define ERTS_MONITOR_SH_SIZE (ERTS_MONITOR_SIZE + ERTS_REF_THING_SIZE)
 #define ERTS_LINK_SIZE ((sizeof(ErtsLink) - sizeof(Uint))/sizeof(Uint))
 #define ERTS_LINK_SH_SIZE ERTS_LINK_SIZE /* Size of fix-alloced links */
 

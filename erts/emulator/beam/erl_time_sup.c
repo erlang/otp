@@ -1502,7 +1502,7 @@ static time_t gregday(int year, int month, int day)
     pyear = gyear - 1;
     ndays = (pyear/4) - (pyear/100) + (pyear/400) + pyear*365 + 366;
   }
-  /* number of days in all months preceeding month */
+  /* number of days in all months preceding month */
   for (m = 1; m < month; m++)
     ndays += mdays[m];
   /* Extra day if leap year and March or later */
@@ -1831,7 +1831,10 @@ erts_demonitor_time_offset(Eterm ref)
     ErtsMonitor *mon;
     ASSERT(is_internal_ref(ref));
     erts_smp_mtx_lock(&erts_get_time_mtx);
-    mon = erts_remove_monitor(&time_offset_monitors, ref);
+    if (is_internal_ordinary_ref(ref))
+        mon = erts_remove_monitor(&time_offset_monitors, ref);
+    else
+        mon = NULL;
     if (!mon)
 	res = 0;
     else {
@@ -1848,7 +1851,7 @@ erts_demonitor_time_offset(Eterm ref)
 typedef struct {
     Eterm pid;
     Eterm ref;
-    Eterm heap[REF_THING_SIZE];
+    Eterm heap[ERTS_REF_THING_SIZE];
 } ErtsTimeOffsetMonitorInfo;
 
 typedef struct {
@@ -1869,11 +1872,11 @@ save_time_offset_monitor(ErtsMonitor *mon, void *vcntxt)
     cntxt->to_mon_info[mix].pid = mon->u.pid;
     to_hp = &cntxt->to_mon_info[mix].heap[0];
 
-    ASSERT(is_internal_ref(mon->ref));
+    ASSERT(is_internal_ordinary_ref(mon->ref));
     from_hp = internal_ref_val(mon->ref);
-    ASSERT(thing_arityval(*from_hp) + 1 == REF_THING_SIZE);
+    ASSERT(thing_arityval(*from_hp) + 1 == ERTS_REF_THING_SIZE);
 
-    for (hix = 0; hix < REF_THING_SIZE; hix++)
+    for (hix = 0; hix < ERTS_REF_THING_SIZE; hix++)
 	to_hp[hix] = from_hp[hix];
 
     cntxt->to_mon_info[mix].ref
@@ -1933,7 +1936,7 @@ send_time_offset_changed_notifications(void *new_offsetp)
 	hp = (Eterm *) (tmp + no_monitors*sizeof(ErtsTimeOffsetMonitorInfo));
 
 	hsz = 6; /* 5-tuple */
-	hsz += REF_THING_SIZE;
+	hsz += ERTS_REF_THING_SIZE;
 	hsz += ERTS_SINT64_HEAP_SIZE(new_offset);
 
 	if (IS_SSMALL(new_offset))

@@ -58,9 +58,11 @@ groups() ->
 	 || {Tag,Algs} <- ErlAlgos,
 	    lists:member(Tag,tags())
 	],
+ 
+    TypeSSH = ssh_test_lib:ssh_type(),
 
     AlgoTcSet =
-	[{Alg, [parallel], specific_test_cases(Tag,Alg,SshcAlgos,SshdAlgos)}
+	[{Alg, [parallel], specific_test_cases(Tag,Alg,SshcAlgos,SshdAlgos,TypeSSH)}
 	 || {Tag,Algs} <- ErlAlgos ++ DoubleAlgos,
 	    Alg <- Algs],
 
@@ -198,8 +200,6 @@ try_exec_simple_group(Group, Config) ->
 %%--------------------------------------------------------------------
 %% Testing all default groups
 
-simple_exec_groups() -> [{timetrap,{minutes,8}}].
-
 simple_exec_groups(Config) ->
     Sizes = interpolate( public_key:dh_gex_group_sizes() ),
     lists:foreach(
@@ -315,18 +315,13 @@ concat(A1, A2) -> list_to_atom(lists:concat([A1," + ",A2])).
 
 split(Alg) -> ssh_test_lib:to_atoms(string:tokens(atom_to_list(Alg), " + ")).
 
-specific_test_cases(Tag, Alg, SshcAlgos, SshdAlgos) -> 
+specific_test_cases(Tag, Alg, SshcAlgos, SshdAlgos, TypeSSH) -> 
     [simple_exec, simple_sftp] ++
 	case supports(Tag, Alg, SshcAlgos) of
-	    true ->
-		case ssh_test_lib:ssh_type() of
-		    openSSH ->
-			[sshc_simple_exec_os_cmd];
-		    _ ->
-			[]
-		end;
-	    false ->
-		[]
+	    true when TypeSSH == openSSH ->
+                [sshc_simple_exec_os_cmd];
+            _ ->
+                []
 	end ++
 	case supports(Tag, Alg, SshdAlgos) of
 	    true ->

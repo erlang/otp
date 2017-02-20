@@ -526,14 +526,6 @@
 /orber/src/oe_erlang.erl
 /orber/src/oe_erlang.hrl
 
-# percept
-
-/percept/doc/src/egd.xml
-/percept/doc/src/egd_ug.xml
-/percept/doc/src/percept.xml
-/percept/doc/src/percept_profile.xml
-/percept/doc/src/percept_ug.xml
-
 # snmp
 
 snmp/doc/intex.html

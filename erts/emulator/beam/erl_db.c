@@ -266,7 +266,7 @@ static void schedule_free_dbtable(DbTable* tb)
      *  	     Caller is *not* allowed to access the specialized part
      *  	     (hash or tree) of *tb after this function has returned.
      */
-    ASSERT(erts_refc_read(&tb->common.ref, 0) == 0);
+    ASSERT(erts_smp_refc_read(&tb->common.ref, 0) == 0);
     erts_schedule_thr_prgr_later_cleanup_op(free_dbtable,
 					    (void *) tb,
 					    &tb->release.data,
@@ -600,11 +600,11 @@ done:
 */
 static ERTS_INLINE void local_fix_table(DbTable* tb)
 {
-    erts_refc_inc(&tb->common.ref, 1);
+    erts_smp_refc_inc(&tb->common.ref, 1);
 }	    
 static ERTS_INLINE void local_unfix_table(DbTable* tb)
 {	
-    if (erts_refc_dectest(&tb->common.ref, 0) == 0) {
+    if (erts_smp_refc_dectest(&tb->common.ref, 0) == 0) {
 	ASSERT(IS_HASH_TABLE(tb->common.status));
 	db_unfix_table_hash(&(tb->hash));
     }
@@ -1487,7 +1487,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     tb->common.type = status & ERTS_ETS_TABLE_TYPES;
     /* Note, 'type' is *read only* from now on... */
 #endif
-    erts_refc_init(&tb->common.ref, 0);
+    erts_smp_refc_init(&tb->common.ref, 0);
     db_init_lock(tb, status & (DB_FINE_LOCKED|DB_FREQ_READ),
 		 "db_tab", "db_tab_fix");
     tb->common.keypos = keypos;
@@ -2779,7 +2779,7 @@ BIF_RETTYPE ets_info_2(BIF_ALIST_2)
 
 BIF_RETTYPE ets_is_compiled_ms_1(BIF_ALIST_1)
 {
-    if (erts_db_is_compiled_ms(BIF_ARG_1)) {
+    if (erts_db_get_match_prog_binary(BIF_ARG_1)) {
 	BIF_RET(am_true);
     } else {
 	BIF_RET(am_false);
@@ -2794,9 +2794,9 @@ BIF_RETTYPE ets_match_spec_compile_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
-    hp = HAlloc(BIF_P, PROC_BIN_SIZE);
+    hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
 
-    BIF_RET(erts_mk_magic_binary_term(&hp, &MSO(BIF_P), mp));
+    BIF_RET(erts_db_make_match_prog_ref(BIF_P, mp, &hp));
 }
 
 BIF_RETTYPE ets_match_spec_run_r_3(BIF_ALIST_3)
@@ -2805,24 +2805,18 @@ BIF_RETTYPE ets_match_spec_run_r_3(BIF_ALIST_3)
     int i = 0;
     Eterm *hp;
     Eterm lst;
-    ProcBin *bp;
     Binary *mp;
     Eterm res;
     Uint32 dummy;
 
-    if (!(is_list(BIF_ARG_1) || BIF_ARG_1 == NIL) || !is_binary(BIF_ARG_2)) {
+    if (!(is_list(BIF_ARG_1) || BIF_ARG_1 == NIL)) {
     error:
 	BIF_ERROR(BIF_P, BADARG);
     }
     
-    bp = (ProcBin*) binary_val(BIF_ARG_2);
-    if (thing_subtag(bp->thing_word) != REFC_BINARY_SUBTAG) {
+    mp = erts_db_get_match_prog_binary(BIF_ARG_2);
+    if (!mp)
 	goto error;
-    }
-    mp = bp->val;
-    if (!IsMatchProgBinary(mp)) {
-	goto error;
-    }
 
     if (BIF_ARG_1 == NIL) {
 	BIF_RET(BIF_ARG_3);
@@ -2990,7 +2984,7 @@ void init_db(ErtsDbSpinCount db_spin_count)
     meta_pid_to_tab->common.meth   = &db_hash;
     meta_pid_to_tab->common.compress = 0;
 
-    erts_refc_init(&meta_pid_to_tab->common.ref, 0);
+    erts_smp_refc_init(&meta_pid_to_tab->common.ref, 0);
     /* Neither rwlock or fixlock used
     db_init_lock(meta_pid_to_tab, "meta_pid_to_tab", "meta_pid_to_tab_FIX");*/
 
@@ -3021,7 +3015,7 @@ void init_db(ErtsDbSpinCount db_spin_count)
     meta_pid_to_fixed_tab->common.meth   = &db_hash;
     meta_pid_to_fixed_tab->common.compress = 0;
 
-    erts_refc_init(&meta_pid_to_fixed_tab->common.ref, 0);
+    erts_smp_refc_init(&meta_pid_to_fixed_tab->common.ref, 0);
     /* Neither rwlock or fixlock used
     db_init_lock(meta_pid_to_fixed_tab, "meta_pid_to_fixed_tab", "meta_pid_to_fixed_tab_FIX");*/
 
@@ -3382,7 +3376,7 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 			    if ((*pp)->pid == pid) {
 				DbFixation* fix = *pp;
 				erts_aint_t diff = -((erts_aint_t) fix->counter);
-				erts_refc_add(&tb->common.ref,diff,0);
+				erts_smp_refc_add(&tb->common.ref,diff,0);
 				*pp = fix->next;
 				erts_db_free(ERTS_ALC_T_DB_FIXATION,
 					     tb, fix, sizeof(DbFixation));
@@ -3458,7 +3452,7 @@ static void fix_table_locked(Process* p, DbTable* tb)
 #ifdef ERTS_SMP
     erts_smp_mtx_lock(&tb->common.fixlock);
 #endif
-    erts_refc_inc(&tb->common.ref,1);
+    erts_smp_refc_inc(&tb->common.ref,1);
     fix = tb->common.fixations;
     if (fix == NULL) {
 	tb->common.time.monotonic
@@ -3514,7 +3508,7 @@ static void unfix_table_locked(Process* p,  DbTable* tb,
     for (pp = &tb->common.fixations; *pp != NULL; pp = &(*pp)->next) {
 	if ((*pp)->pid == p->common.id) {
 	    DbFixation* fix = *pp;
-	    erts_refc_dec(&tb->common.ref,0);
+	    erts_smp_refc_dec(&tb->common.ref,0);
 	    --(fix->counter);
 	    ASSERT(fix->counter >= 0);
 	    if (fix->counter > 0) {
@@ -3563,7 +3557,7 @@ static void free_fixations_locked(DbTable *tb)
     fix = tb->common.fixations;
     while (fix != NULL) {
 	erts_aint_t diff = -((erts_aint_t) fix->counter);
-	erts_refc_add(&tb->common.ref,diff,0);
+	erts_smp_refc_add(&tb->common.ref,diff,0);
 	next_fix = fix->next;
 	db_meta_lock(meta_pid_to_fixed_tab, LCK_WRITE_REC);
 	db_erase_bag_exact2(meta_pid_to_fixed_tab,

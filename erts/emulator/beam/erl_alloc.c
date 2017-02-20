@@ -48,6 +48,7 @@
 #if defined(ERTS_ALC_T_DRV_SEL_D_STATE) || defined(ERTS_ALC_T_DRV_EV_D_STATE)
 #include "erl_check_io.h"
 #endif
+#include "erl_bif_unique.h"
 
 #define GET_ERL_GF_ALLOC_IMPL
 #include "erl_goodfit_alloc.h"
@@ -152,8 +153,7 @@ typedef struct {
     int internal;
     Uint req_sched;
     Process *proc;
-    Eterm ref;
-    Eterm ref_heap[REF_THING_SIZE];
+    ErtsIRefStorage iref;
     int allocs[ERTS_ALC_INFO_A_END - ERTS_ALC_A_MIN + 1];
 } ErtsAllocInfoReq;
 
@@ -684,6 +684,10 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 #endif
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_NIF_EXP_TRACE)]
 	= sizeof(NifExportTrace);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MREF_NSCHED_ENT)]
+	= sizeof(ErtsNSchedMagicRefTableEntry);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MINDIRECTION)]
+	= ERTS_MAGIC_BIN_UNALIGNED_SIZE(sizeof(ErtsMagicIndirectionWord));
 
 #ifdef HARD_DEBUG
     hdbg_init();
@@ -3141,9 +3145,10 @@ reply_alloc_info(void *vair)
     while (1) {
 
 	if (hpp)
-	    ref_copy = STORE_NC(hpp, ohp, air->ref);
+	    ref_copy = erts_iref_storage_make_ref(&air->iref,
+                                                  hpp, ohp, 0);
 	else
-	    *szp += REF_THING_SIZE;
+	    *szp += erts_iref_storage_heap_size(&air->iref);
 
 	ai_list = NIL;
 	for (i = 0; air->allocs[i] != ERTS_ALC_A_INVALID; i++);
@@ -3372,8 +3377,10 @@ reply_alloc_info(void *vair)
     erts_smp_proc_unlock(rp, rp_locks);
     erts_proc_dec_refc(rp);
 
-    if (erts_smp_atomic32_dec_read_nob(&air->refc) == 0)
+    if (erts_smp_atomic32_dec_read_nob(&air->refc) == 0) {
+        erts_iref_storage_clean(&air->iref);
 	aireq_free(air);
+    }
 }
 
 int
@@ -3386,7 +3393,6 @@ erts_request_alloc_info(struct process *c_p,
     ErtsAllocInfoReq *air = aireq_alloc();
     Eterm req_ai[ERTS_ALC_INFO_A_END] = {0};
     Eterm alist;
-    Eterm *hp;
     int airix = 0, ai;
 
     air->req_sched = erts_get_scheduler_id();
@@ -3400,8 +3406,7 @@ erts_request_alloc_info(struct process *c_p,
     if (is_not_internal_ref(ref))
 	return 0;
 
-    hp = &air->ref_heap[0];
-    air->ref = STORE_NC(&hp, NULL, ref);
+    erts_iref_storage_save(&air->iref, ref);
 
     if (is_not_list(allocs))
 	return 0;

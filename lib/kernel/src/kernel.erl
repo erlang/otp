@@ -32,6 +32,14 @@
 start(_, []) ->
     case supervisor:start_link({local, kernel_sup}, kernel, []) of
 	{ok, Pid} ->
+            %% add signal handler
+            case whereis(erl_signal_server) of
+                %% in case of minimal mode
+                undefined -> ok;
+                _ ->
+                    ok = gen_event:add_handler(erl_signal_server, erl_signal_handler, [])
+            end,
+            %% add error handler
 	    Type = get_error_logger_type(),
             case error_logger:swap_handler(Type) of
                 ok -> {ok, Pid, []};
@@ -131,6 +139,9 @@ init([]) ->
 		      permanent, 2000, worker, [inet_db]},
 	    NetSup = {net_sup, {erl_distribution, start_link, []}, 
 		      permanent, infinity, supervisor,[erl_distribution]},
+            SigSrv = #{id => erl_signal_server,
+                       start => {gen_event, start_link, [{local, erl_signal_server}]},
+                       type => worker, restart => permanent, shutdown => 2000, modules => dynamic},
 	    DistAC = start_dist_ac(),
 
 	    Timer = start_timer(),
@@ -141,7 +152,7 @@ init([]) ->
 			      permanent, infinity, supervisor, [?MODULE]},
 	    {ok, {SupFlags,
 		  [Code, Rpc, Global, InetDb | DistAC] ++
-		  [NetSup, Glo_grp, File,
+		  [NetSup, Glo_grp, File, SigSrv,
 		   StdError, User, Config, SafeSupervisor] ++ Timer}}
     end;
 init(safe) ->

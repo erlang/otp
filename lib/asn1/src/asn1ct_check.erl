@@ -2239,12 +2239,18 @@ normalized_record(SorS,S,Value,Components,NameList) ->
     case is_record_normalized(S,NewName,Value,length(Components)) of
 	true ->
 	    Value;
-	_ ->
+	false ->
 	    NoComps = length(Components),
 	    ListOfVals = normalize_seq_or_set(SorS,S,Value,Components,NameList,[]),
-	    NoComps = length(ListOfVals), %% Assert
-	    list_to_tuple([NewName|ListOfVals])
+	    NoComps = length(ListOfVals),       %Assertion.
+            case use_maps(S) of
+                false ->
+                    list_to_tuple([NewName|ListOfVals]);
+                true ->
+                    create_map_value(Components, ListOfVals)
+            end
     end.
+
 is_record_normalized(S,Name,V = #'Externalvaluereference'{},NumComps) ->
     case get_referenced_type(S,V) of
 	{_M,#valuedef{type=_T1,value=V2}} ->
@@ -2253,8 +2259,19 @@ is_record_normalized(S,Name,V = #'Externalvaluereference'{},NumComps) ->
     end;
 is_record_normalized(_S,Name,Value,NumComps) when is_tuple(Value) ->
     (tuple_size(Value) =:= (NumComps + 1)) andalso (element(1, Value) =:= Name);
+is_record_normalized(_S, _Name, Value, _NumComps) when is_map(Value) ->
+    true;
 is_record_normalized(_,_,_,_) ->
     false.
+
+use_maps(#state{options=Opts}) ->
+    lists:member(maps, Opts).
+
+create_map_value(Components, ListOfVals) ->
+    Zipped = lists:zip(Components, ListOfVals),
+    L = [{Name,V} || {#'ComponentType'{name=Name},V} <- Zipped,
+                     V =/= asn1_NOVALUE],
+    maps:from_list(L).
 
 normalize_seq_or_set(SorS, S,
 		     [{#seqtag{val=Cname},V}|Vs],
@@ -4192,7 +4209,7 @@ iof_associated_type1(S,C) ->
 %%				fieldname=[{typefieldreference,'Type'}],
 				fieldname={'Type',[]},
 				type=Typefield_type},
-    IOFComponents =
+    IOFComponents0 =
 	[#'ComponentType'{name='type-id',
 			  typespec=#type{tag=C1TypeTag,
 					 def=ObjectIdentifier,
@@ -4209,6 +4226,7 @@ iof_associated_type1(S,C) ->
 					 tablecinf=Comp2tablecinf},
 			  prop=mandatory,
 			  tags=[{'CONTEXT',0}]}],
+    IOFComponents = textual_order(IOFComponents0),
     #'SEQUENCE'{tablecinf=TableCInf,
 		components=simplify_comps(IOFComponents)}.
 	   
@@ -5673,7 +5691,8 @@ storeindb(S0, #module{name=ModName,typeorval=TVlist0}=M) ->
 
 storeindb_1(S, #module{name=ModName}=M, TVlist0, TVlist) ->
     NewM = M#module{typeorval=findtypes_and_values(TVlist0)},
-    asn1_db:dbnew(ModName, S#state.erule),
+    Maps = lists:member(maps, S#state.options),
+    asn1_db:dbnew(ModName, S#state.erule, Maps),
     asn1_db:dbput(ModName, 'MODULE',  NewM),
     asn1_db:dbput(ModName, TVlist),
     include_default_class(S, NewM#module.name),

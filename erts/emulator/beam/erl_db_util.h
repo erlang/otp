@@ -23,6 +23,7 @@
 
 #include "global.h"
 #include "erl_message.h"
+#include "erl_bif_unique.h"
 
 /*#define HARDDEBUG 1*/
 
@@ -211,7 +212,7 @@ typedef struct db_fixation {
  */
 
 typedef struct db_table_common {
-    erts_refc_t ref;          /* fixation counter */
+    erts_smp_refc_t ref;          /* fixation counter */
 #ifdef ERTS_SMP
     erts_smp_rwmtx_t rwlock;  /* rw lock on table */
     erts_smp_mtx_t fixlock;   /* Protects fixations,megasec,sec,microsec */
@@ -260,7 +261,7 @@ typedef struct db_table_common {
 				  (DB_BAG | DB_SET | DB_DUPLICATE_BAG)))
 #define IS_TREE_TABLE(Status) (!!((Status) & \
 				  DB_ORDERED_SET))
-#define NFIXED(T) (erts_refc_read(&(T)->common.ref,0))
+#define NFIXED(T) (erts_smp_refc_read(&(T)->common.ref,0))
 #define IS_FIXED(T) (NFIXED(T) != 0) 
 
 /*
@@ -456,10 +457,44 @@ Eterm db_format_dmc_err_info(Process *p, DMCErrInfo *ei);
 void db_free_dmc_err_info(DMCErrInfo *ei);
 /* Completely free's an error info structure, including all recorded 
    errors */
-Eterm db_make_mp_binary(Process *p, Binary *mp, Eterm **hpp);
-/* Convert a match program to a erlang "magic" binary to be returned to userspace,
-   increments the reference counter. */
-int erts_db_is_compiled_ms(Eterm term);
+
+ERTS_GLB_INLINE Eterm erts_db_make_match_prog_ref(Process *p, Binary *mp, Eterm **hpp);
+ERTS_GLB_INLINE Binary *erts_db_get_match_prog_binary(Eterm term);
+ERTS_GLB_INLINE Binary *erts_db_get_match_prog_binary_unchecked(Eterm term);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+/*
+ * Convert a match program to a "magic" ref to return up to erlang
+ */
+ERTS_GLB_INLINE Eterm erts_db_make_match_prog_ref(Process *p, Binary *mp, Eterm **hpp)
+{
+    return erts_mk_magic_ref(hpp, &MSO(p), mp);
+}
+
+ERTS_GLB_INLINE Binary *
+erts_db_get_match_prog_binary_unchecked(Eterm term)
+{
+    Binary *bp = erts_magic_ref2bin(term);
+    ASSERT(bp->flags & BIN_FLAG_MAGIC);
+    ASSERT((ERTS_MAGIC_BIN_DESTRUCTOR(bp) == erts_db_match_prog_destructor));
+    return bp;
+}
+
+ERTS_GLB_INLINE Binary *
+erts_db_get_match_prog_binary(Eterm term)
+{
+    Binary *bp;
+    if (!is_internal_magic_ref(term))
+	return NULL;
+    bp = erts_magic_ref2bin(term);
+    ASSERT(bp->flags & BIN_FLAG_MAGIC);
+    if (ERTS_MAGIC_BIN_DESTRUCTOR(bp) != erts_db_match_prog_destructor)
+	return NULL;
+    return bp;
+}
+
+#endif
 
 /*
 ** Convenience when compiling into Binary structures

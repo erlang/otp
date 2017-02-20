@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>kernel</title>
@@ -55,6 +55,60 @@
     <p>Two standard error logger event handlers are defined in
       the Kernel application. These are described in
       <seealso marker="error_logger"><c>error_logger(3)</c></seealso>.</p>
+  </section>
+
+  <section>
+      <title>OS Signal Event Handler</title>
+      <p>Asynchronous OS signals may be subscribed to via the Kernel applications event manager
+          (see <seealso marker="doc/design_principles:des_princ">OTP Design Principles</seealso> and
+          <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>) registered as <c>erl_signal_server</c>.
+          A default signal handler is installed which handles the following signals:</p>
+          <taglist>
+              <tag><c>sigusr1</c></tag>
+              <item><p>The default handler will halt Erlang and produce a crashdump
+                      with slogan "Received SIGUSR1".
+                      This is equivalent to calling <c>erlang:halt("Received SIGUSR1")</c>.
+              </p></item>
+
+              <tag><c>sigquit</c></tag>
+              <item><p>The default handler will halt Erlang immediately.
+                      This is equivalent to calling <c>erlang:halt()</c>.
+              </p></item>
+
+              <tag><c>sigterm</c></tag>
+              <item><p>The default handler will terminate Erlang normally.
+                      This is equivalent to calling <c>init:stop()</c>.
+              </p></item>
+          </taglist>
+
+          <section>
+              <title>Events</title>
+              <p>Any event handler added to <c>erl_signal_server</c> must handle the following events.</p>
+              <taglist>
+                  <tag><c>sighup</c></tag>
+                  <item><p>Hangup detected on controlling terminal or death of controlling process</p></item>
+                  <tag><c>sigquit</c></tag>
+                  <item><p>Quit from keyboard</p></item>
+                  <tag><c>sigabrt</c></tag>
+                  <item><p>Abort signal from abort</p></item>
+                  <tag><c>sigalrm</c></tag>
+                  <item><p>Timer signal from alarm</p></item>
+                  <tag><c>sigterm</c></tag>
+                  <item><p>Termination signal</p></item>
+                  <tag><c>sigusr1</c></tag>
+                  <item><p>User-defined signal 1</p></item>
+                  <tag><c>sigusr2</c></tag>
+                  <item><p>User-defined signal 2</p></item>
+                  <tag><c>sigchld</c></tag>
+                  <item><p>Child process stopped or terminated</p></item>
+                  <tag><c>sigstop</c></tag>
+                  <item><p>Stop process</p></item>
+                  <tag><c>sigtstp</c></tag>
+                  <item><p>Stop typed at terminal</p></item>
+              </taglist>
+
+              <p>Setting OS signals are described in <seealso marker="os#set_signal/2"><c>os:set_signal/2</c></seealso>.</p>
+          </section>
   </section>
 
   <section>
@@ -379,6 +433,28 @@ MaxT = TickTime + TickTime / 4</code>
           return as soon as possible for <c>application_controller</c>
           to terminate properly.</p>
       </item>
+      <tag><c>source_search_rules = [DirRule] | [SuffixRule] </c></tag>
+      <item>
+	<marker id="source_search_rules"></marker>
+        <p>Where:</p>
+        <list type="bulleted">
+          <item><c>DirRule = {ObjDirSuffix,SrcDirSuffix}</c></item>
+          <item><c>SuffixRule = {ObjSuffix,SrcSuffix,[DirRule]}</c></item>
+          <item><c>ObjDirSuffix = string()</c></item>
+          <item><c>SrcDirSuffix = string()</c></item>
+          <item><c>ObjSuffix = string()</c></item>
+          <item><c>SrcSuffix = string()</c></item>
+        </list>
+        <p>Specifies a list of rules for use by <c>filelib:find_file/2</c> and
+          <c>filelib:find_source/2</c>. If this is set to some other value
+          than the empty list, it replaces the default rules. Rules can be
+          simple pairs of directory suffixes, such as <c>{"ebin",
+          "src"}</c>, which are used by <c>filelib:find_file/2</c>, or
+          triples specifying separate directory suffix rules depending on
+          file name extensions, for example <c>[{".beam", ".erl", [{"ebin",
+          "src"}]}</c>, which are used by <c>filelib:find_source/2</c>. Both
+          kinds of rules can be mixed in the list.</p>
+      </item>
     </taglist>
   </section>
 
@@ -405,4 +481,3 @@ MaxT = TickTime + TickTime / 4</code>
       <seealso marker="stdlib:timer"><c>timer(3)</c></seealso></p>
   </section>
 </appref>
-

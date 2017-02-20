@@ -22,7 +22,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 -export([default/1,setbag/1,badnew/1,verybadnew/1,named/1,keypos2/1,
-	 privacy/1,privacy_owner/2]).
+	 privacy/1]).
 -export([empty/1,badinsert/1]).
 -export([time_lookup/1,badlookup/1,lookup_order/1]).
 -export([delete_elem/1,delete_tab/1,delete_large_tab/1,
@@ -81,27 +81,6 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% Convenience for manual testing
 -export([random_test/0]).
-
-%% internal exports
--export([dont_make_worse_sub/0, make_better_sub1/0, make_better_sub2/0]).
--export([t_repair_continuation_do/1, t_bucket_disappears_do/1,
-	 select_fail_do/1, whitebox_1/1, whitebox_2/1, t_delete_all_objects_do/1,
-	 t_delete_object_do/1, t_init_table_do/1, t_insert_list_do/1,
-	 update_element_opts/1, update_element_opts/4, update_element/4, update_element_do/4,
-	 update_element_neg/1, update_element_neg_do/1, update_counter_do/1, update_counter_neg/1,
-	 evil_update_counter_do/1, fixtable_next_do/1, heir_do/1, give_away_do/1, setopts_do/1,
-	 rename_do/1, rename_unnamed_do/1, interface_equality_do/1, ordered_match_do/1,
-	 ordered_do/1, privacy_do/1, empty_do/1, badinsert_do/1, time_lookup_do/1,
-	 lookup_order_do/1, lookup_element_mult_do/1, delete_tab_do/1, delete_elem_do/1,
-	 match_delete_do/1, match_delete3_do/1, firstnext_do/1,
-	 slot_do/1, match1_do/1, match2_do/1, match_object_do/1, match_object2_do/1,
-	 misc1_do/1, safe_fixtable_do/1, info_do/1, dups_do/1, heavy_lookup_do/1,
-	 heavy_lookup_element_do/1, member_do/1, otp_5340_do/1, otp_7665_do/1, meta_wb_do/1,
-	 do_heavy_concurrent/1, tab2file2_do/2, exit_large_table_owner_do/2,
-         types_do/1, sleeper/0, memory_do/1, update_counter_with_default_do/1,
-	 update_counter_table_growth_do/1,
-	 ms_tracee_dummy/1, ms_tracee_dummy/2, ms_tracee_dummy/3, ms_tracee_dummy/4
-	]).
 
 -export([t_select_reverse/1]).
 
@@ -228,7 +207,7 @@ memory_check_summary(_Config) ->
 
 %% Test that a disappearing bucket during select of a non-fixed table works.
 t_bucket_disappears(Config) when is_list(Config) ->
-    repeat_for_opts(t_bucket_disappears_do).
+    repeat_for_opts(fun t_bucket_disappears_do/1).
 
 t_bucket_disappears_do(Opts) ->
     EtsMem = etsmem(),
@@ -396,11 +375,16 @@ ms_tracer_collect(Tracee, Ref, Acc) ->
 ms_tracee(Parent, CallArgList) ->
     Parent ! {self(), ready},
     receive start -> ok end,
-    lists:foreach(fun(Args) ->
-			  erlang:apply(?MODULE, ms_tracee_dummy, tuple_to_list(Args))
-		  end, CallArgList).
-
-
+    F = fun({A1}) ->
+                ms_tracee_dummy(A1);
+           ({A1,A2}) ->
+                   ms_tracee_dummy(A1, A2);
+           ({A1,A2,A3}) ->
+                ms_tracee_dummy(A1, A2, A3);
+           ({A1,A2,A3,A4}) ->
+                ms_tracee_dummy(A1, A2, A3, A4)
+        end,
+    lists:foreach(F, CallArgList).
 
 ms_tracee_dummy(_) -> ok.
 ms_tracee_dummy(_,_) -> ok.
@@ -418,7 +402,7 @@ assert_eq(A,B) ->
 
 %% Test ets:repair_continuation/2.
 t_repair_continuation(Config) when is_list(Config) ->
-    repeat_for_opts(t_repair_continuation_do).
+    repeat_for_opts(fun t_repair_continuation_do/1).
 
 
 t_repair_continuation_do(Opts) ->
@@ -564,7 +548,8 @@ default(Config) when is_list(Config) ->
 %% Test that select fails even if nothing can match.
 select_fail(Config) when is_list(Config) ->
     EtsMem = etsmem(),
-    repeat_for_opts(select_fail_do, [all_types,write_concurrency]),
+    repeat_for_opts(fun select_fail_do/1,
+                    [all_types,write_concurrency]),
     verify_etsmem(EtsMem).
 
 select_fail_do(Opts) ->
@@ -594,7 +579,7 @@ select_fail_do(Opts) ->
 %% Whitebox test of ets:info(X, memory).
 memory(Config) when is_list(Config) ->
     ok = chk_normal_tab_struct_size(),
-    repeat_for_opts(memory_do,[compressed]),
+    repeat_for_opts(fun memory_do/1, [compressed]),
     catch erts_debug:set_internal_state(available_internal_state, false).
 
 memory_do(Opts) ->
@@ -704,12 +689,12 @@ adjust_xmem([_T1,_T2,_T3,_T4], {A0,B0,C0,D0} = _Mem0, EstCnt) ->
 %% Misc. whitebox tests
 t_whitebox(Config) when is_list(Config) ->
     EtsMem = etsmem(),
-    repeat_for_opts(whitebox_1),
-    repeat_for_opts(whitebox_1),
-    repeat_for_opts(whitebox_1),
-    repeat_for_opts(whitebox_2),
-    repeat_for_opts(whitebox_2),
-    repeat_for_opts(whitebox_2),
+    repeat_for_opts(fun whitebox_1/1),
+    repeat_for_opts(fun whitebox_1/1),
+    repeat_for_opts(fun whitebox_1/1),
+    repeat_for_opts(fun whitebox_2/1),
+    repeat_for_opts(fun whitebox_2/1),
+    repeat_for_opts(fun whitebox_2/1),
     verify_etsmem(EtsMem).
 
 whitebox_1(Opts) ->
@@ -774,7 +759,7 @@ check_badarg({'EXIT', {badarg, [{M,F,A,_} | _]}}, M, F, Args)  ->
 %% Test ets:delete_all_objects/1.
 t_delete_all_objects(Config) when is_list(Config) ->
     EtsMem = etsmem(),
-    repeat_for_opts(t_delete_all_objects_do),
+    repeat_for_opts(fun t_delete_all_objects_do/1),
     verify_etsmem(EtsMem).
 
 get_kept_objects(T) ->
@@ -808,7 +793,7 @@ t_delete_all_objects_do(Opts) ->
 %% Test ets:delete_object/2.
 t_delete_object(Config) when is_list(Config) ->
     EtsMem = etsmem(),
-    repeat_for_opts(t_delete_object_do),
+    repeat_for_opts(fun t_delete_object_do/1),
     verify_etsmem(EtsMem).
 
 t_delete_object_do(Opts) ->
@@ -881,7 +866,7 @@ make_init_fun(N) ->
 %% Test ets:init_table/2.
 t_init_table(Config) when is_list(Config)->
     EtsMem = etsmem(),
-    repeat_for_opts(t_init_table_do),
+    repeat_for_opts(fun t_init_table_do/1),
     verify_etsmem(EtsMem).
 
 t_init_table_do(Opts) ->
@@ -957,7 +942,7 @@ t_insert_new(Config) when is_list(Config) ->
 %% Test ets:insert/2 with list of objects.
 t_insert_list(Config) when is_list(Config) ->
     EtsMem = etsmem(),
-    repeat_for_opts(t_insert_list_do),
+    repeat_for_opts(fun t_insert_list_do/1),
     verify_etsmem(EtsMem).
 
 t_insert_list_do(Opts) ->
@@ -1187,7 +1172,7 @@ partly_bound(Config) when is_list(Config) ->
     end.
 
 dont_make_worse() ->
-    seventyfive_percent_success({?MODULE,dont_make_worse_sub,[]},0,0,10).
+    seventyfive_percent_success(fun dont_make_worse_sub/0, 0, 0, 10).
 
 dont_make_worse_sub() ->
     T = build_table([a,b],[a,b],15000),
@@ -1199,8 +1184,9 @@ dont_make_worse_sub() ->
     ok.
 
 make_better() ->
-    fifty_percent_success({?MODULE,make_better_sub2,[]},0,0,10),
-    fifty_percent_success({?MODULE,make_better_sub1,[]},0,0,10).
+    fifty_percent_success(fun make_better_sub2/0, 0, 0, 10),
+    fifty_percent_success(fun make_better_sub1/0, 0, 0, 10).
+
 make_better_sub1() ->
     T = build_table2([a,b],[a,b],15000),
     T1 = time_match_object(T,{'_',1500,a,a}, [{{1500,a,a},1500,a,a}]),
@@ -1485,7 +1471,7 @@ do_random_test() ->
 %% Ttest various variants of update_element.
 update_element(Config) when is_list(Config) ->
     EtsMem = etsmem(),
-    repeat_for_opts(update_element_opts),
+    repeat_for_opts(fun update_element_opts/1),
     verify_etsmem(EtsMem).
 
 update_element_opts(Opts) ->
@@ -1647,7 +1633,7 @@ update_element_neg_do(T) ->
 %% test various variants of update_counter.
 update_counter(Config) when is_list(Config) ->
     EtsMem = etsmem(),
-    repeat_for_opts(update_counter_do),
+    repeat_for_opts(fun update_counter_do/1),
     verify_etsmem(EtsMem).
 
 update_counter_do(Opts) ->
@@ -1868,7 +1854,7 @@ evil_update_counter(Config) when is_list(Config) ->
     ordsets:module_info(),
     rand:module_info(),
 
-    repeat_for_opts(evil_update_counter_do).
+    repeat_for_opts(fun evil_update_counter_do/1).
 
 evil_update_counter_do(Opts) ->
     EtsMem = etsmem(),
@@ -1915,7 +1901,7 @@ evil_counter_1(Iter, T) ->
     evil_counter_1(Iter-1, T).
 
 update_counter_with_default(Config) when is_list(Config) ->
-    repeat_for_opts(update_counter_with_default_do).
+    repeat_for_opts(fun update_counter_with_default_do/1).
 
 update_counter_with_default_do(Opts) ->
     T1 = ets_new(a, [set | Opts]),
@@ -1953,7 +1939,7 @@ update_counter_with_default_do(Opts) ->
     ok.
 
 update_counter_table_growth(_Config) ->
-    repeat_for_opts(update_counter_table_growth_do).
+    repeat_for_opts(fun update_counter_table_growth_do/1).
 
 update_counter_table_growth_do(Opts) ->
     Set = ets_new(b, [set | Opts]),
@@ -1964,7 +1950,8 @@ update_counter_table_growth_do(Opts) ->
 
 %% Check that a first-next sequence always works on a fixed table.
 fixtable_next(Config) when is_list(Config) ->
-    repeat_for_opts(fixtable_next_do, [write_concurrency,all_types]).
+    repeat_for_opts(fun fixtable_next_do/1,
+                    [write_concurrency,all_types]).
 
 fixtable_next_do(Opts) ->
     EtsMem = etsmem(),
@@ -2104,7 +2091,7 @@ write_concurrency(Config) when is_list(Config) ->
 
 %% The 'heir' option.
 heir(Config) when is_list(Config) ->
-    repeat_for_opts(heir_do).
+    repeat_for_opts(fun heir_do/1).
 
 heir_do(Opts) ->
     EtsMem = etsmem(),
@@ -2244,7 +2231,7 @@ heir_1(HeirData,Mode,Opts) ->
 
 %% Test ets:give_way/3.
 give_away(Config) when is_list(Config) ->
-    repeat_for_opts(give_away_do).
+    repeat_for_opts(fun give_away_do/1).
 
 give_away_do(Opts) ->
     T = ets_new(foo,[named_table, private | Opts]),
@@ -2325,7 +2312,7 @@ give_away_receiver(T, Giver) ->
 
 %% Test ets:setopts/2.
 setopts(Config) when is_list(Config) ->
-    repeat_for_opts(setopts_do,[write_concurrency,all_types]).
+    repeat_for_opts(fun setopts_do/1, [write_concurrency,all_types]).
 
 setopts_do(Opts) ->
     Self = self(),
@@ -2475,7 +2462,7 @@ bad_table_call(T,{F,Args,_,{return,Return}}) ->
 
 %% Check rename of ets tables.
 rename(Config) when is_list(Config) ->
-    repeat_for_opts(rename_do, [write_concurrency, all_types]).
+    repeat_for_opts(fun rename_do/1, [write_concurrency, all_types]).
 
 rename_do(Opts) ->
     EtsMem = etsmem(),
@@ -2490,7 +2477,8 @@ rename_do(Opts) ->
 
 %% Check rename of unnamed ets table.
 rename_unnamed(Config) when is_list(Config) ->
-    repeat_for_opts(rename_unnamed_do,[write_concurrency,all_types]).
+    repeat_for_opts(fun rename_unnamed_do/1,
+                    [write_concurrency,all_types]).
 
 rename_unnamed_do(Opts) ->
     EtsMem = etsmem(),
@@ -2565,7 +2553,7 @@ evil_create_fixed_tab() ->
 %% Tests that the return values and errors are equal for set's and
 %% ordered_set's where applicable.
 interface_equality(Config) when is_list(Config) ->
-    repeat_for_opts(interface_equality_do).
+    repeat_for_opts(fun interface_equality_do/1).
 
 interface_equality_do(Opts) ->
     EtsMem = etsmem(),
@@ -2629,7 +2617,7 @@ maybe_sort(Any) ->
 
 %% Test match, match_object and match_delete in ordered set's.
 ordered_match(Config) when is_list(Config)->
-    repeat_for_opts(ordered_match_do).
+    repeat_for_opts(fun ordered_match_do/1).
 
 ordered_match_do(Opts) ->
     EtsMem = etsmem(),
@@ -2675,7 +2663,7 @@ ordered_match_do(Opts) ->
 
 %% Test basic functionality in ordered_set's.
 ordered(Config) when is_list(Config) ->
-    repeat_for_opts(ordered_do).
+    repeat_for_opts(fun ordered_do/1).
 
 ordered_do(Opts) ->
     EtsMem = etsmem(),
@@ -2801,12 +2789,13 @@ keypos2(Config) when is_list(Config) ->
 %% Privacy check. Check that a named(public/private/protected) table
 %% cannot be read by the wrong process(es).
 privacy(Config) when is_list(Config) ->
-    repeat_for_opts(privacy_do).
+    repeat_for_opts(fun privacy_do/1).
 
 privacy_do(Opts) ->
     EtsMem = etsmem(),
     process_flag(trap_exit,true),
-    Owner = my_spawn_link(?MODULE,privacy_owner,[self(),Opts]),
+    Parent = self(),
+    Owner = my_spawn_link(fun() -> privacy_owner(Parent, Opts) end),
     receive
 	{'EXIT',Owner,Reason} ->
 	    exit({privacy_test,Reason});
@@ -2886,7 +2875,7 @@ rotate_tuple(Tuple, N) ->
 
 %% Check lookup in an empty table and lookup of a non-existing key.
 empty(Config) when is_list(Config) ->
-    repeat_for_opts(empty_do).
+    repeat_for_opts(fun empty_do/1).
 
 empty_do(Opts) ->
     EtsMem = etsmem(),
@@ -2899,7 +2888,7 @@ empty_do(Opts) ->
 
 %% Check proper return values for illegal insert operations.
 badinsert(Config) when is_list(Config) ->
-    repeat_for_opts(badinsert_do).
+    repeat_for_opts(fun badinsert_do/1).
 
 badinsert_do(Opts) ->
     EtsMem = etsmem(),
@@ -2923,7 +2912,7 @@ badinsert_do(Opts) ->
 time_lookup(Config) when is_list(Config) ->
     %% just for timing, really
     EtsMem = etsmem(),
-    Values = repeat_for_opts(time_lookup_do),
+    Values = repeat_for_opts(fun time_lookup_do/1),
     verify_etsmem(EtsMem),
     {comment,lists:flatten(io_lib:format(
 			     "~p ets lookups/s",[Values]))}.
@@ -2957,7 +2946,8 @@ badlookup(Config) when is_list(Config) ->
 %% Test that lookup returns objects in order of insertion for bag and dbag.
 lookup_order(Config) when is_list(Config) ->
     EtsMem = etsmem(),
-    repeat_for_opts(lookup_order_do, [write_concurrency,[bag,duplicate_bag]]),
+    repeat_for_opts(fun lookup_order_do/1,
+                    [write_concurrency,[bag,duplicate_bag]]),
     verify_etsmem(EtsMem),
     ok.
 
@@ -3048,7 +3038,7 @@ fill_tab(Tab,Val) ->
 
 %% OTP-2386. Multiple return elements.
 lookup_element_mult(Config) when is_list(Config) ->
-    repeat_for_opts(lookup_element_mult_do).
+    repeat_for_opts(fun lookup_element_mult_do/1).
 
 lookup_element_mult_do(Opts) ->
     EtsMem = etsmem(),
@@ -3086,7 +3076,8 @@ lem_crash_3(T) ->
 
 %% Check delete of an element inserted in a `filled' table.
 delete_elem(Config) when is_list(Config) ->
-    repeat_for_opts(delete_elem_do, [write_concurrency, all_types]).
+    repeat_for_opts(fun delete_elem_do/1,
+                    [write_concurrency, all_types]).
 
 delete_elem_do(Opts) ->
     EtsMem = etsmem(),
@@ -3103,7 +3094,8 @@ delete_elem_do(Opts) ->
 %% Check that ets:delete() works and releases the name of the
 %% deleted table.
 delete_tab(Config) when is_list(Config) ->
-    repeat_for_opts(delete_tab_do,[write_concurrency,all_types]).
+    repeat_for_opts(fun delete_tab_do/1,
+                    [write_concurrency,all_types]).
 
 delete_tab_do(Opts) ->
     Name = foo,
@@ -3301,10 +3293,14 @@ exit_large_table_owner(Config) when is_list(Config) ->
 				     end, 1)
 	     end,
     EtsMem = etsmem(),
-    repeat_for_opts({exit_large_table_owner_do,{FEData,Config}}),
+    repeat_for_opts(fun(Opts) ->
+                            exit_large_table_owner_do(Opts,
+                                                      FEData,
+                                                      Config)
+                    end),
     verify_etsmem(EtsMem).
 
-exit_large_table_owner_do(Opts,{FEData,Config}) ->
+exit_large_table_owner_do(Opts, FEData, Config) ->
     verify_rescheduling_exit(Config, FEData, [named_table | Opts], true, 1, 1),
     verify_rescheduling_exit(Config, FEData, Opts, false, 1, 1).
 
@@ -3472,7 +3468,8 @@ baddelete(Config) when is_list(Config) ->
 %% Check that match_delete works. Also tests tab2list function.
 match_delete(Config) when is_list(Config) ->
     EtsMem = etsmem(),
-    repeat_for_opts(match_delete_do,[write_concurrency,all_types]),
+    repeat_for_opts(fun match_delete_do/1,
+                    [write_concurrency,all_types]),
     verify_etsmem(EtsMem).
 
 match_delete_do(Opts) ->
@@ -3489,7 +3486,7 @@ match_delete_do(Opts) ->
 
 %% OTP-3005: check match_delete with constant argument.
 match_delete3(Config) when is_list(Config) ->
-    repeat_for_opts(match_delete3_do).
+    repeat_for_opts(fun match_delete3_do/1).
 
 match_delete3_do(Opts) ->
     EtsMem = etsmem(),
@@ -3514,7 +3511,7 @@ match_delete3_do(Opts) ->
 
 %% Test ets:first/1 & ets:next/2.
 firstnext(Config) when is_list(Config) ->
-    repeat_for_opts(firstnext_do).
+    repeat_for_opts(fun firstnext_do/1).
 
 firstnext_do(Opts) ->
     EtsMem = etsmem(),
@@ -3572,7 +3569,7 @@ dyn_lookup(T, K) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 slot(Config) when is_list(Config) ->
-    repeat_for_opts(slot_do).
+    repeat_for_opts(fun slot_do/1).
 
 slot_do(Opts) ->
     EtsMem = etsmem(),
@@ -3597,7 +3594,7 @@ slot_loop(Tab,SlotNo,EltsSoFar) ->
 
 
 match1(Config) when is_list(Config) ->
-    repeat_for_opts(match1_do).
+    repeat_for_opts(fun match1_do/1).
 
 match1_do(Opts) ->
     EtsMem = etsmem(),
@@ -3633,7 +3630,7 @@ match1_do(Opts) ->
 
 %% Test match with specified keypos bag table.
 match2(Config) when is_list(Config) ->
-    repeat_for_opts(match2_do).
+    repeat_for_opts(fun match2_do/1).
 
 match2_do(Opts) ->
     EtsMem = etsmem(),
@@ -3660,7 +3657,7 @@ match2_do(Opts) ->
 
 %% Some ets:match_object tests.
 match_object(Config) when is_list(Config) ->
-    repeat_for_opts(match_object_do).
+    repeat_for_opts(fun match_object_do/1).
 
 match_object_do(Opts) ->
     EtsMem = etsmem(),
@@ -3760,7 +3757,7 @@ match_object_do(Opts) ->
 %% Tests that db_match_object does not generate a `badarg' when
 %% resuming a search with no previous matches.
 match_object2(Config) when is_list(Config) ->
-    repeat_for_opts(match_object2_do).
+    repeat_for_opts(fun match_object2_do/1).
 
 match_object2_do(Opts) ->
     EtsMem = etsmem(),
@@ -3796,7 +3793,7 @@ tab2list(Config) when is_list(Config) ->
 %% Simple general small test.  If this fails, ets is in really bad
 %% shape.
 misc1(Config) when is_list(Config) ->
-    repeat_for_opts(misc1_do).
+    repeat_for_opts(fun misc1_do/1).
 
 misc1_do(Opts) ->
     EtsMem = etsmem(),
@@ -3814,7 +3811,7 @@ misc1_do(Opts) ->
 
 %% Check the safe_fixtable function.
 safe_fixtable(Config) when is_list(Config) ->
-    repeat_for_opts(safe_fixtable_do).
+    repeat_for_opts(fun safe_fixtable_do/1).
 
 safe_fixtable_do(Opts) ->
     EtsMem = etsmem(),
@@ -3872,7 +3869,7 @@ safe_fixtable_do(Opts) ->
 
 %% Tests ets:info result for required tuples.
 info(Config) when is_list(Config) ->
-    repeat_for_opts(info_do).
+    repeat_for_opts(fun info_do/1).
 
 info_do(Opts) ->
     EtsMem = etsmem(),
@@ -3904,7 +3901,7 @@ info_do(Opts) ->
 
 %% Test various duplicate_bags stuff.
 dups(Config) when is_list(Config) ->
-    repeat_for_opts(dups_do).
+    repeat_for_opts(fun dups_do/1).
 
 dups_do(Opts) ->
     EtsMem = etsmem(),
@@ -3970,7 +3967,9 @@ tab2file_do(FName, Opts) ->
 
 %% Check the ets:tab2file function on a filled set/bag type ets table.
 tab2file2(Config) when is_list(Config) ->
-    repeat_for_opts({tab2file2_do,Config}, [[set,bag],compressed]).
+    repeat_for_opts(fun(Opts) ->
+                            tab2file2_do(Opts, Config)
+                    end, [[set,bag],compressed]).
 
 tab2file2_do(Opts, Config) ->
     EtsMem = etsmem(),
@@ -4234,7 +4233,7 @@ make_sub_binary(List, Num) when is_list(List) ->
 
 %% Perform multiple lookups for every key in a large table.
 heavy_lookup(Config) when is_list(Config) ->
-    repeat_for_opts(heavy_lookup_do).
+    repeat_for_opts(fun heavy_lookup_do/1).
 
 heavy_lookup_do(Opts) ->
     EtsMem = etsmem(),
@@ -4257,7 +4256,7 @@ do_lookup(Tab, N) ->
 
 %% Perform multiple lookups for every element in a large table.
 heavy_lookup_element(Config) when is_list(Config) ->
-    repeat_for_opts(heavy_lookup_element_do).
+    repeat_for_opts(fun heavy_lookup_element_do/1).
 
 heavy_lookup_element_do(Opts) ->
     EtsMem = etsmem(),
@@ -4285,7 +4284,7 @@ do_lookup_element(Tab, N, M) ->
 
 heavy_concurrent(Config) when is_list(Config) ->
     ct:timetrap({minutes,30}), %% valgrind needs a lot of time
-    repeat_for_opts(do_heavy_concurrent).
+    repeat_for_opts(fun do_heavy_concurrent/1).
 
 do_heavy_concurrent(Opts) ->
     Size = 10000,
@@ -4370,7 +4369,7 @@ foldr_ordered(Config) when is_list(Config) ->
 
 %% Test ets:member BIF.
 member(Config) when is_list(Config) ->
-    repeat_for_opts(member_do, [write_concurrency, all_types]).
+    repeat_for_opts(fun member_do/1, [write_concurrency, all_types]).
 
 member_do(Opts) ->
     EtsMem = etsmem(),
@@ -4453,25 +4452,25 @@ time_match(Tab,Match) ->
 seventyfive_percent_success(_,S,Fa,0) ->
     true = (S > ((S + Fa) * 0.75));
 
-seventyfive_percent_success({M,F,A},S,Fa,N) ->
-    case (catch apply(M,F,A)) of
-	{'EXIT', _} ->
-	    seventyfive_percent_success({M,F,A},S,Fa+1,N-1);
-	_ ->
-	    seventyfive_percent_success({M,F,A},S+1,Fa,N-1)
+seventyfive_percent_success(F, S, Fa, N) when is_function(F, 0) ->
+    try F() of
+        _ ->
+	    seventyfive_percent_success(F, S+1, Fa, N-1)
+    catch error:_ ->
+	    seventyfive_percent_success(F, S, Fa+1, N-1)
     end.
 
 fifty_percent_success(_,S,Fa,0) ->
     true = (S > ((S + Fa) * 0.5));
 
-fifty_percent_success({M,F,A},S,Fa,N) ->
-    case (catch apply(M,F,A)) of
-	{'EXIT', _} ->
-	    fifty_percent_success({M,F,A},S,Fa+1,N-1);
-	_ ->
-	    fifty_percent_success({M,F,A},S+1,Fa,N-1)
+fifty_percent_success(F, S, Fa, N) when is_function(F, 0) ->
+    try F() of
+        _ ->
+	    fifty_percent_success(F, S+1, Fa, N-1)
+    catch
+        error:_ ->
+	    fifty_percent_success(F, S, Fa+1, N-1)
     end.
-
 
 create_random_string(0) ->
     [];
@@ -4811,7 +4810,7 @@ otp_6338(Config) when is_list(Config) ->
 
 %% Elements could come in the wrong order in a bag if a rehash occurred.
 otp_5340(Config) when is_list(Config) ->
-    repeat_for_opts(otp_5340_do).
+    repeat_for_opts(fun otp_5340_do/1).
 
 otp_5340_do(Opts) ->
     N = 3000,
@@ -4847,7 +4846,7 @@ verify2(_Err, _) ->
 
 %% delete_object followed by delete on fixed bag failed to delete objects.
 otp_7665(Config) when is_list(Config) ->
-    repeat_for_opts(otp_7665_do).
+    repeat_for_opts(fun otp_7665_do/1).
 
 otp_7665_do(Opts) ->
     Tab = ets_new(otp_7665,[bag | Opts]),
@@ -4877,7 +4876,7 @@ otp_7665_act(Tab,Min,Max,DelNr) ->
 %% Whitebox testing of meta name table hashing.
 meta_wb(Config) when is_list(Config) ->
     EtsMem = etsmem(),
-    repeat_for_opts(meta_wb_do),
+    repeat_for_opts(fun meta_wb_do/1),
     verify_etsmem(EtsMem).
 
 
@@ -5446,7 +5445,7 @@ smp_select_delete(Config) when is_list(Config) ->
 %% Test different types.
 types(Config) when is_list(Config) ->
     init_externals(),
-    repeat_for_opts(types_do,[[set,ordered_set],compressed]).
+    repeat_for_opts(fun types_do/1, [[set,ordered_set],compressed]).
 
 types_do(Opts) ->
     EtsMem = etsmem(),
@@ -5848,12 +5847,8 @@ log_test_proc(Proc) when is_pid(Proc) ->
     Proc.
 
 my_spawn(Fun) -> log_test_proc(spawn(Fun)).
-%%my_spawn(M,F,A) -> log_test_proc(spawn(M,F,A)).
-%%my_spawn(N,M,F,A) -> log_test_proc(spawn(N,M,F,A)).
 
 my_spawn_link(Fun) -> log_test_proc(spawn_link(Fun)).
-my_spawn_link(M,F,A) -> log_test_proc(spawn_link(M,F,A)).
-%%my_spawn_link(N,M,F,A) -> log_test_proc(spawn_link(N,M,F,A)).
 
 my_spawn_opt(Fun,Opts) ->
     case spawn_opt(Fun,Opts) of
@@ -6096,7 +6091,7 @@ make_port() ->
     open_port({spawn, "efile"}, [eof]).
 
 make_pid() ->
-    spawn_link(?MODULE, sleeper, []).
+    spawn_link(fun sleeper/0).
 
 sleeper() ->
     receive after infinity -> ok end.
@@ -6232,11 +6227,7 @@ make_unaligned_sub_binary(List) ->
 repeat_for_opts(F) ->
     repeat_for_opts(F, [write_concurrency, read_concurrency, compressed]).
 
-repeat_for_opts(F, OptGenList) when is_atom(F) ->
-    repeat_for_opts(fun(Opts) -> ?MODULE:F(Opts) end, OptGenList);
-repeat_for_opts({F,Args}, OptGenList) when is_atom(F) ->
-    repeat_for_opts(fun(Opts) -> ?MODULE:F(Opts,Args) end, OptGenList);
-repeat_for_opts(F, OptGenList) ->
+repeat_for_opts(F, OptGenList) when is_function(F, 1) ->
     repeat_for_opts(F, OptGenList, []).
 
 repeat_for_opts(F, [], Acc) ->

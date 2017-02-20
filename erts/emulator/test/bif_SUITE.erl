@@ -26,7 +26,7 @@
 -export([all/0, suite/0,
 	 display/1, display_huge/0,
 	 erl_bif_types/1,guard_bifs_in_erl_bif_types/1,
-	 shadow_comments/1,
+	 shadow_comments/1,list_to_utf8_atom/1,
 	 specs/1,improper_bif_stubs/1,auto_imports/1,
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 binary_to_atom/1,binary_to_existing_atom/1,
@@ -43,7 +43,7 @@ all() ->
     [erl_bif_types, guard_bifs_in_erl_bif_types, shadow_comments,
      specs, improper_bif_stubs, auto_imports,
      t_list_to_existing_atom, os_env, otp_7526,
-     display,
+     display, list_to_utf8_atom,
      atom_to_binary, binary_to_atom, binary_to_existing_atom,
      erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
      error_stacktrace, error_stacktrace_during_call_trace].
@@ -339,6 +339,38 @@ check_stub({_,F,A}, B) ->
 	    ct:fail(invalid_body)
     end.
 
+list_to_utf8_atom(Config) when is_list(Config) ->
+    'hello' = atom_roundtrip("hello"),
+    'こんにちは' = atom_roundtrip("こんにちは"),
+
+    %% Test all edge cases.
+    _ = atom_roundtrip([16#80]),
+    _ = atom_roundtrip([16#7F]),
+    _ = atom_roundtrip([16#FF]),
+    _ = atom_roundtrip([16#100]),
+    _ = atom_roundtrip([16#7FF]),
+    _ = atom_roundtrip([16#800]),
+    _ = atom_roundtrip([16#D7FF]),
+    atom_badarg([16#D800]),
+    atom_badarg([16#DFFF]),
+    _ = atom_roundtrip([16#E000]),
+    _ = atom_roundtrip([16#FFFF]),
+    _ = atom_roundtrip([16#1000]),
+    _ = atom_roundtrip([16#10FFFF]),
+    atom_badarg([16#110000]),
+    ok.
+
+atom_roundtrip(String) ->
+    Atom = list_to_atom(String),
+    Atom = list_to_existing_atom(String),
+    String = atom_to_list(Atom),
+    Atom.
+
+atom_badarg(String) ->
+    {'EXIT',{badarg,_}} = (catch list_to_atom(String)),
+    {'EXIT',{badarg,_}} = (catch list_to_existing_atom(String)),
+    ok.
+
 t_list_to_existing_atom(Config) when is_list(Config) ->
     all = list_to_existing_atom("all"),
     ?MODULE = list_to_existing_atom(?MODULE_STRING),
@@ -429,6 +461,8 @@ binary_to_atom(Config) when is_list(Config) ->
     Long = lists:seq(0, 254),
     LongAtom = list_to_atom(Long),
     LongBin = list_to_binary(Long),
+    UnicodeLongAtom = list_to_atom([$é || _ <- lists:seq(0, 254)]),
+    UnicodeLongBin = << <<"é"/utf8>> || _ <- lists:seq(0, 254)>>,
 
     %% latin1
     '' = test_binary_to_atom(<<>>, latin1),
@@ -440,11 +474,16 @@ binary_to_atom(Config) when is_list(Config) ->
     '' = test_binary_to_atom(<<>>, utf8),
     HalfLongAtom = test_binary_to_atom(HalfLongBin, utf8),
     HalfLongAtom = test_binary_to_atom(HalfLongBin, unicode),
+    UnicodeLongAtom = test_binary_to_atom(UnicodeLongBin, utf8),
+    UnicodeLongAtom = test_binary_to_atom(UnicodeLongBin, unicode),
     [] = [C || C <- lists:seq(128, 255),
 		     begin
 			 list_to_atom([C]) =/=
 			     test_binary_to_atom(<<C/utf8>>, utf8)
 		     end],
+
+    <<"こんにちは"/utf8>> =
+	atom_to_binary(test_binary_to_atom(<<"こんにちは"/utf8>>, utf8), utf8),
 
     %% badarg failures.
     fail_binary_to_atom(atom),
@@ -464,10 +503,6 @@ binary_to_atom(Config) when is_list(Config) ->
     ?BADARG(binary_to_atom(id(<<255>>), utf8)),
     ?BADARG(binary_to_atom(id(<<255,0>>), utf8)),
     ?BADARG(binary_to_atom(id(<<16#C0,16#80>>), utf8)), %Overlong 0.
-    [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(256, 16#D7FF)],
-    [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(16#E000, 16#FFFD)],
-    [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(16#10000, 16#8FFFF)],
-    [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(16#90000, 16#10FFFF)],
 
     %% system_limit failures.
     ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255>>), utf8)),

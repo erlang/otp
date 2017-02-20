@@ -81,7 +81,7 @@
 -record(constraint_list, {type :: 'conj' | 'disj',
 			  list :: [constr()],
                           deps :: deps(),
-                          masks = maps:new() :: #{dep() => mask()},
+                          masks ::  #{dep() => mask()} | 'undefined',
 			  id   :: {'list', dep()} | 'undefined'}).
 
 -type constraint_list() :: #constraint_list{}.
@@ -181,7 +181,6 @@ analyze_scc(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers0) ->
               M <- lists:usort([M || {M, _, _} <- SCC])],
   State2 = traverse_scc(SCC, CServer, DefSet, ModRecs, State1),
   State3 = state__finalize(State2),
-  erlang:garbage_collect(),
   Funs = state__scc(State3),
   pp_constrs_scc(Funs, State3),
   constraints_to_dot_scc(Funs, State3),
@@ -202,7 +201,8 @@ traverse_scc([{M,_,_}=MFA|Left], Codeserver, DefSet, ModRecs, AccState) ->
   {M, Rec} = lists:keyfind(M, 1, ModRecs),
   TmpState1 = state__set_rec_dict(AccState, Rec),
   DummyLetrec = cerl:c_letrec([Def], cerl:c_atom(foo)),
-  {NewAccState, _} = traverse(DummyLetrec, DefSet, TmpState1),
+  TmpState2 = state__new_constraint_context(TmpState1),
+  {NewAccState, _} = traverse(DummyLetrec, DefSet, TmpState2),
   traverse_scc(Left, Codeserver, DefSet, ModRecs, NewAccState);
 traverse_scc([], _Codeserver, _DefSet, _ModRecs, AccState) ->
   AccState.
@@ -2080,6 +2080,8 @@ v2_solve_disjunct(Disj, Map, V2State0) ->
 var_occurs_everywhere(V, Masks, NotFailed) ->
   ordsets:is_subset(NotFailed, get_mask(V, Masks)).
 
+-dialyzer({no_improper_lists, [v2_solve_disj/10, v2_solve_conj/12]}).
+
 v2_solve_disj([I|Is], [C|Cs], I, Map0, V2State0, UL, MapL, Eval, Uneval,
               Failed0) ->
   Id = C#constraint_list.id,
@@ -2098,6 +2100,12 @@ v2_solve_disj([I|Is], [C|Cs], I, Map0, V2State0, UL, MapL, Eval, Uneval,
   end;
 v2_solve_disj([], [], _I, _Map, V2State, UL, MapL, Eval, Uneval, Failed) ->
   {ok, V2State, lists:reverse(Eval), UL, MapL, lists:reverse(Uneval), Failed};
+v2_solve_disj(every_i, Cs, I, Map, V2State, UL, MapL, Eval, Uneval, Failed) ->
+  NewIs = case Cs of
+            [] -> [];
+            _ -> [I|every_i]
+          end,
+  v2_solve_disj(NewIs, Cs, I, Map, V2State, UL, MapL, Eval, Uneval, Failed);
 v2_solve_disj(Is, [C|Cs], I, Map, V2State, UL, MapL, Eval, Uneval0, Failed) ->
   Uneval = [{I,C#constraint_list.id} ||
              not is_failed_list(C, V2State)] ++ Uneval0,
@@ -2169,7 +2177,7 @@ v2_solve_conj([I|Is], [Cs|Tail], I, Map0, Conj, IsFlat, V2State0,
       M = lists:keydelete(I, 1, vars_per_child(U, Masks)),
       {V2State2, NewF0} = save_updated_vars_list(AllCs, M, V2State1),
       {NewF, F} = lists:splitwith(fun(J) -> J < I end, NewF0),
-      Is1 = lists:umerge(Is, F),
+      Is1 = umerge_mask(Is, F),
       NewFs = [NewF|NewFs0],
       v2_solve_conj(Is1, Tail, I+1, Map, Conj, IsFlat, V2State2,
                     [U|UL], NewFs, VarsUp, LastMap, LastFlags)
@@ -2191,6 +2199,14 @@ v2_solve_conj([], _Cs, _I, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
       v2_solve_conj(NewFlags, Cs, 1, Map, Conj, IsFlat, V2State,
                     [], [], [U|VarsUp], Map, NewFlags)
   end;
+v2_solve_conj(every_i, Cs, I, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
+              LastMap, LastFlags) ->
+  NewIs = case Cs of
+            [] -> [];
+            _ -> [I|every_i]
+          end,
+  v2_solve_conj(NewIs, Cs, I, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
+                LastMap, LastFlags);
 v2_solve_conj(Is, [_|Tail], I, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
              LastMap, LastFlags) ->
   v2_solve_conj(Is, Tail, I+1, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
@@ -2207,7 +2223,12 @@ report_detected_loop(_) ->
 add_mask_to_flags(Flags, [Im|M], I, L) when I > Im ->
   add_mask_to_flags(Flags, M, I, [Im|L]);
 add_mask_to_flags(Flags, [_|M], _I, L) ->
-  {lists:umerge(M, Flags), lists:reverse(L)}.
+  {umerge_mask(Flags, M), lists:reverse(L)}.
+
+umerge_mask(every_i, _F) ->
+  every_i;
+umerge_mask(Is, F) ->
+  lists:umerge(Is, F).
 
 get_mask(V, Masks) ->
   case maps:find(V, Masks) of
@@ -2221,7 +2242,7 @@ get_flags(#v2_state{constr_data = ConData}=V2State0, C) ->
     error ->
       ?debug("get_flags Id=~w Flags=all ~w\n", [Id, length(Cs)]),
       V2State = V2State0#v2_state{constr_data = maps:put(Id, {[],[]}, ConData)},
-      {V2State, lists:seq(1, length(Cs))};
+      {V2State, every_i};
     {ok, failed} ->
       {V2State0, failed_list};
     {ok, {Part,U}} when U =/= [] ->
@@ -2901,8 +2922,9 @@ state__get_rec_var(Fun, #state{fun_map = Map}) ->
   maps:find(Fun, Map).
 
 state__finalize(State) ->
-  State1 = enumerate_constraints(State),
-  order_fun_constraints(State1).
+  State1 = state__new_constraint_context(State),
+  State2 = enumerate_constraints(State1),
+  order_fun_constraints(State2).
 
 %% ============================================================================
 %%
@@ -2982,7 +3004,7 @@ find_constraint_deps([Type|Tail], Acc) ->
   NewAcc = [[t_var_name(D) || D <- t_collect_vars(Type)]|Acc],
   find_constraint_deps(Tail, NewAcc);
 find_constraint_deps([], Acc) ->
-  lists:flatten(Acc).
+  lists:append(Acc).
 
 mk_constraint_1(Lhs, eq, Rhs, Deps) when Lhs < Rhs ->
   #constraint{lhs = Lhs, op = eq, rhs = Rhs, deps = Deps};
@@ -3090,8 +3112,8 @@ expand_to_conjunctions(#constraint_list{type = disj, list = List}) ->
   List1 = [C || C <- List, is_simple_constraint(C)],
   %% Just an assert.
   [] = [C || #constraint{} = C <- List1],
-  Expanded = lists:flatten([expand_to_conjunctions(C)
-			    || #constraint_list{} = C <- List]),
+  Expanded = lists:append([expand_to_conjunctions(C)
+                           || #constraint_list{} = C <- List]),
   ReturnList = Expanded ++ List1,
   if length(ReturnList) > ?DISJ_NORM_FORM_LIMIT -> throw(too_many_disj);
      true -> ReturnList
@@ -3116,8 +3138,10 @@ calculate_deps(List) ->
 calculate_deps([H|Tail], Acc) ->
   Deps = get_deps(H),
   calculate_deps(Tail, [Deps|Acc]);
+calculate_deps([], []) -> [];
+calculate_deps([], [L]) -> L;
 calculate_deps([], Acc) ->
-  ordsets:from_list(lists:flatten(Acc)).
+  lists:umerge(Acc).
 
 mk_conj_constraint_list(List) ->
   mk_constraint_list(conj, List).
@@ -3185,7 +3209,8 @@ order_fun_constraints(State) ->
 
 order_fun_constraints([#constraint_ref{id = Id}|Tail], State) ->
   Cs = state__get_cs(Id, State),
-  {[NewCs], State1} = order_fun_constraints([Cs], [], [], State),
+  {[Cs1], State1} = order_fun_constraints([Cs], [], [], State),
+  NewCs = Cs1#constraint_list{deps = Cs#constraint_list.deps},
   NewState = state__store_constrs(Id, NewCs, State1),
   order_fun_constraints(Tail, NewState);
 order_fun_constraints([], State) ->
@@ -3193,23 +3218,31 @@ order_fun_constraints([], State) ->
 
 order_fun_constraints([#constraint_ref{} = C|Tail], Funs, Acc, State) ->
   order_fun_constraints(Tail, [C|Funs], Acc, State);
-order_fun_constraints([#constraint_list{list = List, type = Type} = C|Tail],
+order_fun_constraints([#constraint_list{list = List,
+                                        type = Type,
+                                        masks = OldMasks} = C|Tail],
 		      Funs, Acc, State) ->
-  {NewList, NewState} =
-    case Type of
-      conj -> order_fun_constraints(List, [], [], State);
-      disj ->
-	FoldFun = fun(X, AccState) ->
-		      {[NewX], NewAccState} =
-			order_fun_constraints([X], [], [], AccState),
-		      {NewX, NewAccState}
-		  end,
-	lists:mapfoldl(FoldFun, State, List)
-    end,
-  C1 = update_constraint_list(C, NewList),
-  Masks = calculate_masks(NewList, 1, []),
-  NewAcc = [update_masks(C1, Masks)|Acc],
-  order_fun_constraints(Tail, Funs, NewAcc, NewState);
+  case OldMasks of
+    undefined ->
+      {NewList, NewState} =
+        case Type of
+          conj -> order_fun_constraints(List, [], [], State);
+          disj ->
+            FoldFun = fun(X, AccState) ->
+                          {[NewX], NewAccState} =
+                            order_fun_constraints([X], [], [], AccState),
+                          {NewX, NewAccState}
+                      end,
+            lists:mapfoldl(FoldFun, State, List)
+        end,
+      NewList2 = reset_deps(NewList, State),
+      C1 = update_constraint_list(C, NewList2),
+      Masks = calculate_masks(NewList, 1, []),
+      NewAcc = [update_masks(C1, Masks)|Acc],
+      order_fun_constraints(Tail, Funs, NewAcc, NewState);
+    M when is_map(M) ->
+      order_fun_constraints(Tail, Funs, [C|Acc], State)
+  end;
 order_fun_constraints([#constraint{} = C|Tail], Funs, Acc, State) ->
   order_fun_constraints(Tail, Funs, [C|Acc], State);
 order_fun_constraints([], Funs, Acc, State) ->
@@ -3218,6 +3251,18 @@ order_fun_constraints([], Funs, Acc, State) ->
 
 update_masks(C, Masks) ->
   C#constraint_list{masks = Masks}.
+
+reset_deps(ConstrList, #state{solvers = Solvers}) ->
+  case lists:member(v1, Solvers) of
+    true ->
+      ConstrList;
+    false ->
+      [reset_deps(Constr) || Constr <- ConstrList]
+  end.
+
+reset_deps(#constraint{}=C) -> C#constraint{deps = []};
+reset_deps(#constraint_list{}=C) -> C#constraint_list{deps = []};
+reset_deps(#constraint_ref{}=C) -> C#constraint_ref{deps = []}.
 
 calculate_masks([C|Cs], I, L0) ->
   calculate_masks(Cs, I+1, [{V, I} || V <- get_deps(C)] ++ L0);

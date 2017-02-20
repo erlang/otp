@@ -489,13 +489,13 @@ prepare_check_uniq_1([], [_|_]=Errors) ->
     {error,Errors}.
 
 partition_on_load(Prep) ->
-    P = fun({_,{Bin,_,_}}) ->
-		erlang:has_prepared_code_on_load(Bin)
+    P = fun({_,{PC,_,_}}) ->
+		erlang:has_prepared_code_on_load(PC)
 	end,
     lists:partition(P, Prep).
 
 verify_prepared([{M,{Prep,Name,_Native}}|T])
-  when is_atom(M), is_binary(Prep), is_list(Name) ->
+  when is_atom(M), is_list(Name) ->
     try erlang:has_prepared_code_on_load(Prep) of
 	false ->
 	    verify_prepared(T);
@@ -562,10 +562,10 @@ prepare_loading_fun() ->
     GetNative = get_native_fun(),
     fun(Mod, FullName, Beam) ->
 	    case erlang:prepare_loading(Mod, Beam) of
-		Prepared when is_binary(Prepared) ->
-		    {ok,{Prepared,FullName,GetNative(Beam)}};
 		{error,_}=Error ->
-		    Error
+		    Error;
+		Prepared ->
+		    {ok,{Prepared,FullName,GetNative(Beam)}}
 	    end
     end.
 

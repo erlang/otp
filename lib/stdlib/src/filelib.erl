@@ -24,6 +24,7 @@
 -export([fold_files/5, last_modified/1, file_size/1, ensure_dir/1]).
 -export([wildcard/3, is_dir/2, is_file/2, is_regular/2]).
 -export([fold_files/6, last_modified/2, file_size/2]).
+-export([find_file/2, find_file/3, find_source/1, find_source/2, find_source/3]).
 
 %% For debugging/testing.
 -export([compile_wildcard/1]).
@@ -517,3 +518,124 @@ eval_list_dir(Dir, erl_prim_loader) ->
     end;
 eval_list_dir(Dir, Mod) ->
     Mod:list_dir(Dir).
+
+%% Getting the rules to use for file search
+
+keep_dir_search_rules(Rules) ->
+    [T || {_,_}=T <- Rules].
+
+keep_suffix_search_rules(Rules) ->
+    [T || {_,_,_}=T <- Rules].
+
+get_search_rules() ->
+    case application:get_env(kernel, source_search_rules) of
+        undefined -> default_search_rules();
+        {ok, []}  -> default_search_rules();
+        {ok, R} when is_list(R) -> R
+    end.
+
+default_search_rules() ->
+    [%% suffix-speficic rules for source search
+     {".beam", ".erl", erl_source_search_rules()},
+     {".erl", ".yrl", []},
+     {"", ".src", erl_source_search_rules()},
+     {".so", ".c", c_source_search_rules()},
+     {".o", ".c", c_source_search_rules()},
+     {"", ".c", c_source_search_rules()},
+     {"", ".in", basic_source_search_rules()},
+     %% plain old directory rules, backwards compatible
+     {"", ""},
+     {"ebin","src"},
+     {"ebin","esrc"}
+    ].
+
+basic_source_search_rules() ->
+    (erl_source_search_rules()
+     ++ c_source_search_rules()).
+
+erl_source_search_rules() ->
+    [{"ebin","src"}, {"ebin","esrc"}].
+
+c_source_search_rules() ->
+    [{"priv","c_src"}, {"priv","src"}, {"bin","c_src"}, {"bin","src"}, {"", "src"}].
+
+%% Looks for a file relative to a given directory
+
+-type find_file_rule() :: {ObjDirSuffix::string(), SrcDirSuffix::string()}.
+
+-spec find_file(filename(), filename()) ->
+        {ok, filename()} | {error, not_found}.
+find_file(Filename, Dir) ->
+    find_file(Filename, Dir, []).
+
+-spec find_file(filename(), filename(), [find_file_rule()]) ->
+        {ok, filename()} | {error, not_found}.
+find_file(Filename, Dir, []) ->
+    find_file(Filename, Dir, get_search_rules());
+find_file(Filename, Dir, Rules) ->
+    try_dir_rules(keep_dir_search_rules(Rules), Filename, Dir).
+
+%% Looks for a source file relative to the object file name and directory
+
+-type find_source_rule() :: {ObjExtension::string(), SrcExtension::string(),
+                             [find_file_rule()]}.
+
+-spec find_source(filename()) ->
+        {ok, filename()} | {error, not_found}.
+find_source(FilePath) ->
+    find_source(filename:basename(FilePath), filename:dirname(FilePath)).
+
+-spec find_source(filename(), filename()) ->
+        {ok, filename()} | {error, not_found}.
+find_source(Filename, Dir) ->
+    find_source(Filename, Dir, []).
+
+-spec find_source(filename(), filename(), [find_source_rule()]) ->
+        {ok, filename()} | {error, not_found}.
+find_source(Filename, Dir, []) ->
+    find_source(Filename, Dir, get_search_rules());
+find_source(Filename, Dir, Rules) ->
+    try_suffix_rules(keep_suffix_search_rules(Rules), Filename, Dir).
+
+try_suffix_rules(Rules, Filename, Dir) ->
+    Ext = filename:extension(Filename),
+    try_suffix_rules(Rules, filename:rootname(Filename, Ext), Dir, Ext).
+
+try_suffix_rules([{Ext,Src,Rules}|Rest], Root, Dir, Ext)
+  when is_list(Src), is_list(Rules) ->
+    case try_dir_rules(add_local_search(Rules), Root ++ Src, Dir) of
+        {ok, File} -> {ok, File};
+        _Other ->
+            try_suffix_rules(Rest, Root, Dir, Ext)
+    end;
+try_suffix_rules([_|Rest], Root, Dir, Ext) ->
+    try_suffix_rules(Rest, Root, Dir, Ext);
+try_suffix_rules([], _Root, _Dir, _Ext) ->
+    {error, not_found}.
+
+%% ensuring we check the directory of the object file before any other directory
+add_local_search(Rules) ->
+    Local = {"",""},
+    [Local] ++ lists:filter(fun (X) -> X =/= Local end, Rules).
+
+try_dir_rules([{From, To}|Rest], Filename, Dir)
+  when is_list(From), is_list(To) ->
+    case try_dir_rule(Dir, Filename, From, To) of
+	{ok, File} -> {ok, File};
+	error      -> try_dir_rules(Rest, Filename, Dir)
+    end;
+try_dir_rules([], _Filename, _Dir) ->
+    {error, not_found}.
+
+try_dir_rule(Dir, Filename, From, To) ->
+    case lists:suffix(From, Dir) of
+	true ->
+	    NewDir = lists:sublist(Dir, 1, length(Dir)-length(From))++To,
+	    Src = filename:join(NewDir, Filename),
+	    case is_regular(Src) of
+		true -> {ok, Src};
+		false -> error
+	    end;
+	false ->
+	    error
+    end.

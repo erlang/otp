@@ -36,7 +36,7 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{timetrap,{seconds,20}}].
+    [{timetrap,{seconds,60}}].
 
 all() -> 
     case os:find_executable("ssh") of
@@ -442,7 +442,7 @@ erlang_server_openssh_client_renegotiate(Config) ->
 	ssh_test_lib:rcv_expected(Expect, OpenSsh, ?TIMEOUT)
     of
 	_ ->
-	    %% Unfortunatly we can't check that there has been a renegotiation, just trust OpenSSH.
+	    %% Unfortunately we can't check that there has been a renegotiation, just trust OpenSSH.
 	    ssh:stop_daemon(Pid)
     catch
 	throw:{skip,R} -> {skip,R}

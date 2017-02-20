@@ -452,7 +452,7 @@
             utilization value &gt; 0 is used, allocator instances
             are allowed to abandon multiblock carriers. If <c>de</c> (default
             enabled) is passed instead of a <c><![CDATA[<utilization>]]></c>,
-            a recomended non-zero utilization value is used. The value
+            a recommended non-zero utilization value is used. The value
             chosen depends on the allocator type and can be changed between
             ERTS versions. Defaults to <c>de</c>, but this
             can be changed in the future.</p>

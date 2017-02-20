@@ -1122,6 +1122,7 @@ struct make_term_info
     unsigned reuse_push;
     unsigned reuse_pull;
     ErlNifResourceType* resource_type;
+    void *resource;
     ERL_NIF_TERM other_term;
     ERL_NIF_TERM blob;
     ErlNifPid to_pid;
@@ -1230,12 +1231,7 @@ static ERL_NIF_TERM make_term_list0(struct make_term_info* mti, int n)
 }
 static ERL_NIF_TERM make_term_resource(struct make_term_info* mti, int n)
 {
-    void* resource = enif_alloc_resource(mti->resource_type, 10);
-    ERL_NIF_TERM term;
-    fill(resource, 10, n); 
-    term = enif_make_resource(mti->dst_env, resource);
-    enif_release_resource(resource);
-    return term;
+    return enif_make_resource(mti->dst_env, mti->resource);
 }
 static ERL_NIF_TERM make_term_new_binary(struct make_term_info* mti, int n)
 {
@@ -1339,23 +1335,39 @@ static int make_term_n(struct make_term_info* mti, int n, ERL_NIF_TERM* res)
     return 0;
 }
 
-static ERL_NIF_TERM make_blob(ErlNifEnv* caller_env, ErlNifEnv* dst_env,
-			      ERL_NIF_TERM other_term)
+
+static void
+init_make_blob(struct make_term_info *mti,
+	       ErlNifEnv* caller_env,
+	       ERL_NIF_TERM other_term)
 {
     PrivData* priv = (PrivData*) enif_priv_data(caller_env);
+    mti->caller_env = caller_env;
+    mti->resource_type = priv->rt_arr[0].t;
+    mti->resource = enif_alloc_resource(mti->resource_type, 10);
+    fill(mti->resource, 10, 17); 
+    mti->other_term = other_term;
+}
+
+static void
+fini_make_blob(struct make_term_info *mti)
+{
+    enif_release_resource(mti->resource);
+}
+
+static ERL_NIF_TERM make_blob(struct make_term_info *mti,
+			      ErlNifEnv* dst_env)
+{
     ERL_NIF_TERM term, list;
     int n = 0;
-    struct make_term_info mti;
-    mti.caller_env = caller_env;
-    mti.dst_env = dst_env;
-    mti.dst_env_valid = 1;
-    mti.reuse_push = 0;
-    mti.reuse_pull = 0;
-    mti.resource_type = priv->rt_arr[0].t;
-    mti.other_term = other_term;
+
+    mti->reuse_push = 0;
+    mti->reuse_pull = 0;
+    mti->dst_env = dst_env;
+    mti->dst_env_valid = 1;
 
     list = enif_make_list(dst_env, 0); 
-    while (make_term_n(&mti, n++, &term)) {
+    while (make_term_n(mti, n++, &term)) {
 	list = enif_make_list_cell(dst_env, term, list);
     }
     return list;
@@ -1367,13 +1379,16 @@ static ERL_NIF_TERM send_new_blob(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ERL_NIF_TERM msg, copy;
     ErlNifEnv* msg_env;
     int res;
+    struct make_term_info mti;
     
     if (!enif_get_local_pid(env, argv[0], &to)) {
 	return enif_make_badarg(env);
     }
     msg_env = enif_alloc_env();
-    msg = make_blob(env,msg_env, argv[1]);
-    copy = make_blob(env,env, argv[1]);
+    init_make_blob(&mti, env, argv[1]);
+    msg = make_blob(&mti,msg_env);
+    copy = make_blob(&mti,env);
+    fini_make_blob(&mti);
     res = enif_send(env, &to, msg_env, msg);
     enif_free_env(msg_env);
     return enif_make_tuple3(env, atom_ok, enif_make_int(env,res), copy);
@@ -1393,6 +1408,8 @@ static ERL_NIF_TERM alloc_msgenv(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     mti->reuse_push = 0;
     mti->reuse_pull = 0;
     mti->resource_type = priv->rt_arr[0].t;
+    mti->resource = enif_alloc_resource(mti->resource_type, 10);
+    fill(mti->resource, 10, 17); 
     mti->other_term = enif_make_list(mti->dst_env, 0);
     mti->blob = enif_make_list(mti->dst_env, 0);
     mti->mtx = enif_mutex_create("nif_SUITE:mtx");
@@ -1410,6 +1427,7 @@ static void msgenv_dtor(ErlNifEnv* env, void* obj)
     if (mti->dst_env != NULL) {
 	enif_free_env(mti->dst_env);
     }
+    enif_release_resource(mti->resource);
     enif_mutex_destroy(mti->mtx);
     enif_cond_destroy(mti->cond);
 }

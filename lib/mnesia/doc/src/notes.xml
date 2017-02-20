@@ -39,7 +39,23 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.14.2</title>
+  <section><title>Mnesia 4.14.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed crash in checkpoint handling when table was deleted
+	    during backup.</p>
+          <p>
+	    Own Id: OTP-14167</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.14.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

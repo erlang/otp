@@ -61,7 +61,6 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
-
 /* Helper macro to construct a OPENSSL_VERSION_NUMBER.
  * See openssl/opensslv.h
  */
@@ -285,6 +284,7 @@ static INLINE int DSA_set0_pqg(DSA *d, BIGNUM *p, BIGNUM *q, BIGNUM *g)
 
 static INLINE int DH_set0_key(DH *dh, BIGNUM *pub_key, BIGNUM *priv_key);
 static INLINE int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g);
+static INLINE int DH_set_length(DH *dh, long length);
 static INLINE void DH_get0_pqg(const DH *dh,
 			       const BIGNUM **p, const BIGNUM **q, const BIGNUM **g);
 static INLINE void DH_get0_key(const DH *dh,
@@ -302,6 +302,12 @@ static INLINE int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g)
     dh->p = p;
     dh->q = q;
     dh->g = g;
+    return 1;
+}
+
+static INLINE int DH_set_length(DH *dh, long length)
+{
+    dh->length = length;
     return 1;
 }
 
@@ -430,7 +436,7 @@ static ErlNifFunc nif_funcs[] = {
     {"rsa_private_crypt", 4, rsa_private_crypt},
     {"dh_generate_parameters_nif", 2, dh_generate_parameters_nif},
     {"dh_check", 1, dh_check},
-    {"dh_generate_key_nif", 3, dh_generate_key_nif},
+    {"dh_generate_key_nif", 4, dh_generate_key_nif},
     {"dh_compute_key_nif", 3, dh_compute_key_nif},
     {"srp_value_B_nif", 5, srp_value_B_nif},
     {"srp_user_secret_nif", 7, srp_user_secret_nif},
@@ -2867,7 +2873,7 @@ static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 }   
 
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (PrivKey, DHParams=[P,G], Mpint) */
+{/* (PrivKey|undefined, DHParams=[P,G], Mpint, Len|0) */
     DH* dh_params;
     int pub_len, prv_len;
     unsigned char *pub_ptr, *prv_ptr;
@@ -2875,6 +2881,7 @@ static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     int mpint; /* 0 or 4 */
     BIGNUM *priv_key = NULL;
     BIGNUM *dh_p = NULL, *dh_g = NULL;
+    unsigned long len = 0;
 
     if (!(get_bn_from_bin(env, argv[0], &priv_key)
 	  || argv[0] == atom_undefined)
@@ -2883,8 +2890,10 @@ static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 	|| !enif_get_list_cell(env, tail, &head, &tail)
 	|| !get_bn_from_bin(env, head, &dh_g)
 	|| !enif_is_empty_list(env, tail)
-	|| !enif_get_int(env, argv[2], &mpint) || (mpint & ~4)) {
-	if (priv_key) BN_free(priv_key);
+	|| !enif_get_int(env, argv[2], &mpint) || (mpint & ~4)
+	|| !enif_get_ulong(env, argv[3], &len)  ) {
+
+        if (priv_key) BN_free(priv_key);
 	if (dh_p) BN_free(dh_p);
 	if (dh_g) BN_free(dh_g);
 	return enif_make_badarg(env);
@@ -2893,6 +2902,15 @@ static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     dh_params = DH_new();
     DH_set0_key(dh_params, NULL, priv_key);
     DH_set0_pqg(dh_params, dh_p, NULL, dh_g);
+
+    if (len) {
+        if (len < BN_num_bits(dh_p))
+            DH_set_length(dh_params, len);
+        else {
+            DH_free(dh_params);
+            return enif_make_badarg(env);
+        }
+    }
 
     if (DH_generate_key(dh_params)) {
 	const BIGNUM *pub_key, *priv_key;

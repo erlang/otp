@@ -95,7 +95,7 @@ abort_session(Addr,Sid,Msg) ->
 next_request(Addr,Sid) ->
     gen_server:call(?HMACALL,{next_request,Addr,Sid},infinity).
 
-%%% Session handler has succeded to set up a new session, now register
+%%% Session handler has succeed to set up a new session, now register
 %%% the socket
 register_socket(Addr,Sid,Socket) ->
     gen_server:cast(?HMACALL,{register_socket,Addr,Sid,Socket}).

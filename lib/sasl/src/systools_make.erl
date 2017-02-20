@@ -94,7 +94,11 @@ make_script(RelName, Output, Flags) when is_list(RelName),
 		    Warnings = wsasl(Flags, Warnings0),
 		    case systools_lib:werror(Flags, Warnings) of
 			true ->
-			    return(ok,Warnings,Flags);
+                            Warnings1 = [W || {warning,W}<-Warnings],
+			    return({error,?MODULE,
+                                    {warnings_treated_as_errors,Warnings1}},
+                                   Warnings,
+                                   Flags);
 			false ->
 			    case generate_script(Output,Release,Appls,Flags) of
 				ok ->
@@ -114,7 +118,6 @@ make_script(RelName, _Output, Flags) when is_list(Flags) ->
     badarg(RelName,[RelName, Flags]);
 make_script(RelName, _Output, Flags) ->
     badarg(Flags,[RelName, Flags]).
-
 
 wsasl(Options, Warnings) ->
     case lists:member(no_warn_sasl,Options) of
@@ -148,21 +151,10 @@ get_outdir(Flags) ->
 return(ok,Warnings,Flags) ->
     case member(silent,Flags) of
 	true ->
-	    case systools_lib:werror(Flags, Warnings) of
-		true ->
-		    error;
-		false ->
-		    {ok,?MODULE,Warnings}
-	    end;
+            {ok,?MODULE,Warnings};
 	_ ->
-	    case member(warnings_as_errors,Flags) of
-		true ->
-		    io:format("~ts",[format_warning(Warnings, true)]),
-		    error;
-		false ->
-		    io:format("~ts",[format_warning(Warnings)]),
-		    ok
-	    end
+            io:format("~ts",[format_warning(Warnings)]),
+            ok
     end;
 return({error,Mod,Error},_,Flags) ->
     case member(silent,Flags) of
@@ -300,6 +292,8 @@ add_apply_upgrade(Script,Args) ->
 %%              {variables,[{Name,AbsString}]}
 %%              {machine, jam | beam | vee}
 %%              {var_tar, include | ownfile | omit}
+%%              no_warn_sasl
+%%              warnings_as_errors
 %%
 %% The tar file contains:
 %%         lib/App-Vsn/ebin
@@ -332,13 +326,23 @@ make_tar(RelName, Flags) when is_list(RelName), is_list(Flags) ->
 	    Path  = make_set(Path1 ++ code:get_path()),
 	    ModTestP = {member(src_tests, Flags),xref_p(Flags)},
 	    case get_release(RelName, Path, ModTestP, machine(Flags)) of
-		{ok, Release, Appls, Warnings} ->
-		    case catch mk_tar(RelName, Release, Appls, Flags, Path1) of
-			ok ->
-			    return(ok,Warnings,Flags);
-			Error ->
-			    return(Error,Warnings,Flags)
-		    end;
+		{ok, Release, Appls, Warnings0} ->
+		    Warnings = wsasl(Flags, Warnings0),
+		    case systools_lib:werror(Flags, Warnings) of
+			true ->
+                            Warnings1 = [W || {warning,W}<-Warnings],
+			    return({error,?MODULE,
+                                    {warnings_treated_as_errors,Warnings1}},
+                                   Warnings,
+                                   Flags);
+			false ->
+                            case catch mk_tar(RelName, Release, Appls, Flags, Path1) of
+                                ok ->
+                                    return(ok,Warnings,Flags);
+                                Error ->
+                                    return(Error,Warnings,Flags)
+                            end
+                    end;
 		Error ->
 		    return(Error,[],Flags)
 	    end;
@@ -1904,8 +1908,10 @@ del_tar(Tar, TarName) ->
     file:delete(TarName).
 
 add_to_tar(Tar, FromFile, ToFile) ->
-    case erl_tar:add(Tar, FromFile, ToFile, [compressed, dereference]) of
+    case catch erl_tar:add(Tar, FromFile, ToFile, [compressed, dereference]) of
 	ok -> ok;
+        {'EXIT', Reason} ->
+            throw({error, {tar_error, {add, FromFile, Reason}}});
 	{error, Error} ->
 	    throw({error, {tar_error, {add, FromFile, Error}}})
     end.
@@ -2113,90 +2119,80 @@ cas([Y | Args], X) ->
 
 %% Check Options for make_tar
 check_args_tar(Args) ->
-    cat(Args, {undef, undef, undef, undef, undef, undef, undef, undef, undef, undef, []}). 
+    cat(Args, []).
 
-cat([], {_Path,_Sil,_Dirs,_Erts,_Test,_Var,_VarTar,_Mach,_Xref,_XrefApps, X}) ->
+cat([], X) ->
     X;
 %%% path ---------------------------------------------------------------
-cat([{path, P} | Args], {Path, Sil, Dirs, Erts, Test, 
-			 Var, VarTar, Mach, Xref, XrefApps, X}) when is_list(P) -> 
+cat([{path, P} | Args], X) when is_list(P) ->
     case check_path(P) of
 	ok ->
-	    cat(Args, {P, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X});
+	    cat(Args, X);
 	error ->
-	    cat(Args, {Path, Sil, Dirs, Erts, Test, 
-		       Var, VarTar, Mach, Xref, XrefApps, X++[{path,P}]})
+	    cat(Args, X++[{path,P}])
     end;
 %%% silent -------------------------------------------------------------
-cat([silent | Args], {Path, _Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X}) ->
-    cat(Args, {Path, silent, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X});
+cat([silent | Args], X) ->
+    cat(Args, X);
 %%% dirs ---------------------------------------------------------------
-cat([{dirs, D} | Args], {Path, Sil, Dirs, Erts, Test, 
-			    Var, VarTar, Mach, Xref, XrefApps, X}) ->
+cat([{dirs, D} | Args], X) ->
     case check_dirs(D) of
 	ok ->
-	    cat(Args, {Path, Sil, D, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X});
+	    cat(Args, X);
 	error ->
-	    cat(Args, {Path, Sil, Dirs, Erts, Test, 
-		       Var, VarTar, Mach, Xref, XrefApps, X++[{dirs, D}]})
+	    cat(Args, X++[{dirs, D}])
     end;
 %%% erts ---------------------------------------------------------------
-cat([{erts, E} | Args], {Path, Sil, Dirs, _Erts, Test, 
-			 Var, VarTar, Mach, Xref, XrefApps, X}) when is_list(E)->
-    cat(Args, {Path, Sil, Dirs, E, Test, Var, VarTar, Mach, Xref, XrefApps, X});
+cat([{erts, E} | Args], X) when is_list(E)->
+    cat(Args, X);
 %%% src_tests ----------------------------------------------------
-cat([src_tests | Args], {Path, Sil, Dirs, Erts, _Test, Var, VarTar, Mach, Xref, XrefApps, X}) ->
-    cat(Args, {Path, Sil, Dirs, Erts, src_tests, Var, VarTar, Mach, 
-	       Xref, XrefApps, X});
+cat([src_tests | Args], X) ->
+    cat(Args, X);
 %%% variables ----------------------------------------------------------
-cat([{variables, V} | Args], {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X}) when is_list(V) ->
+cat([{variables, V} | Args], X) when is_list(V) ->
     case check_vars(V) of
 	ok ->
-	    cat(Args, {Path, Sil, Dirs, Erts, Test, V, VarTar, Mach, Xref, XrefApps, X});
+	    cat(Args, X);
 	error ->
-	    cat(Args, {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, 
-			     Xref, XrefApps, X++[{variables, V}]})
+	    cat(Args, X++[{variables, V}])
     end;
 %%% var_tar ------------------------------------------------------------
-cat([{var_tar, VT} | Args], {Path, Sil, Dirs, Erts, Test, 
-			    Var, _VarTar, Mach, Xref, XrefApps, X}) when VT == include ->
-    cat(Args, {Path, Sil, Dirs, Erts, Test, Var, include, Mach, Xref, XrefApps, X});
-cat([{var_tar, VT} | Args], {Path, Sil, Dirs, Erts, Test, 
-			    Var, _VarTar, Mach, Xref, XrefApps, X}) when VT == ownfile ->
-    cat(Args, {Path, Sil, Dirs, Erts, Test, Var, ownfile, Mach, Xref, XrefApps, X});
-cat([{var_tar, VT} | Args], {Path, Sil, Dirs, Erts, Test, 
-			    Var, _VarTar, Mach, Xref, XrefApps, X}) when VT == omit ->
-    cat(Args, {Path, Sil, Dirs, Erts, Test, Var, omit, Mach, Xref, XrefApps, X});
+cat([{var_tar, VT} | Args], X) when VT == include;
+                                    VT == ownfile;
+                                    VT == omit ->
+    cat(Args, X);
 %%% machine ------------------------------------------------------------
-cat([{machine, M} | Args], {Path, Sil, Dirs, Erts, Test, 
-			    Var, VarTar, Mach, Xref, XrefApps, X}) when is_atom(M) ->
-    cat(Args, {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X});
+cat([{machine, M} | Args], X) when is_atom(M) ->
+    cat(Args, X);
 %%% exref --------------------------------------------------------------
-cat([exref | Args], {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, _Xref, XrefApps, X})  ->
-    cat(Args, {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, exref, XrefApps, X});
+cat([exref | Args], X)  ->
+    cat(Args, X);
 %%% exref Apps ---------------------------------------------------------
-cat([{exref, Apps} | Args], {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X}) when is_list(Apps) ->
+cat([{exref, Apps} | Args], X) when is_list(Apps) ->
     case check_apps(Apps) of 
 	ok ->
-	    cat(Args, {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, 
-			     Xref, Apps, X});
+	    cat(Args, X);
 	error ->
-	    cat(Args, {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, 
-			     Xref, XrefApps, X++[{exref, Apps}]})
+	    cat(Args, X++[{exref, Apps}])
     end;
 %%% outdir Dir ---------------------------------------------------------
-cat([{outdir, Dir} | Args], {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X}) when is_list(Dir) ->
-    cat(Args, {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach,
-	       Xref, XrefApps, X});
+cat([{outdir, Dir} | Args], X) when is_list(Dir) ->
+    cat(Args, X);
 %%% otp_build (secret, not documented) ---------------------------------
-cat([otp_build | Args], {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X})  ->
-    cat(Args, {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X});
+cat([otp_build | Args], X)  ->
+    cat(Args, X);
+%%% warnings_as_errors ----
+cat([warnings_as_errors | Args], X) ->
+    cat(Args, X);
+%%% no_warn_sasl ----
+cat([no_warn_sasl | Args], X) ->
+    cat(Args, X);
 %%% no_module_tests (kept for backwards compatibility, but ignored) ----
-cat([no_module_tests | Args], {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X}) ->
-    cat(Args, {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X});
+cat([no_module_tests | Args], X) ->
+    cat(Args, X);
 %%% ERROR --------------------------------------------------------------
-cat([Y | Args], {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X}) ->
-    cat(Args, {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X++[Y]}).
+cat([Y | Args], X) ->
+    cat(Args, X++[Y]).
 
 check_path([]) ->
     ok;
@@ -2296,6 +2292,9 @@ format_error({delete,File,Error}) ->
 		  [File,file:format_error(Error)]);
 format_error({tar_error,What}) ->
     form_tar_err(What);
+format_error({warnings_treated_as_errors,Warnings}) ->
+    io_lib:format("Warnings being treated as errors:~n~ts",
+                  [map(fun(W) -> form_warn("",W) end, Warnings)]);
 format_error(ListOfErrors) when is_list(ListOfErrors) ->
     format_errors(ListOfErrors);
 format_error(E) -> io_lib:format("~p~n",[E]).
@@ -2352,24 +2351,15 @@ form_tar_err({add, File, Error}) ->
 %% Format warning
 
 format_warning(Warnings) ->
-    format_warning(Warnings, false).
+    map(fun({warning,W}) -> form_warn("*WARNING* ", W) end, Warnings).
 
-format_warning(Warnings, Werror) ->
-    Prefix = case Werror of
-		 true ->
-		     "";
-		 false ->
-		     "*WARNING* "
-	     end,
-    map(fun({warning,W}) -> form_warn(Prefix, W) end, Warnings).
-
-form_warn(Prefix, {source_not_found,{Mod,_,App,_,_}}) ->
+form_warn(Prefix, {source_not_found,{Mod,App,_}}) ->
     io_lib:format("~ts~w: Source code not found: ~w.erl~n",
 		  [Prefix,App,Mod]);
 form_warn(Prefix, {{parse_error, File},{_,_,App,_,_}}) ->
     io_lib:format("~ts~w: Parse error: ~p~n",
 		  [Prefix,App,File]);
-form_warn(Prefix, {obj_out_of_date,{Mod,_,App,_,_}}) ->
+form_warn(Prefix, {obj_out_of_date,{Mod,App,_}}) ->
     io_lib:format("~ts~w: Object code (~w) out of date~n",
 		  [Prefix,App,Mod]);
 form_warn(Prefix, {exref_undef, Undef}) ->
@@ -2379,8 +2369,8 @@ form_warn(Prefix, {exref_undef, Undef}) ->
 	end,
     map(F, Undef);
 form_warn(Prefix, missing_sasl) ->
-    io_lib:format("~ts: Missing application sasl. "
+    io_lib:format("~tsMissing application sasl. "
 		  "Can not upgrade with this release~n",
 		  [Prefix]);
 form_warn(Prefix, What) ->
-    io_lib:format("~ts ~p~n", [Prefix,What]).
+    io_lib:format("~ts~p~n", [Prefix,What]).

@@ -24,7 +24,7 @@
 -export([new/0,opcode/2,highest_opcode/1,
 	 atom/2,local/4,export/4,import/4,
 	 string/2,lambda/3,literal/2,line/2,fname/2,
-	 atom_table/1,local_table/1,export_table/1,import_table/1,
+	 atom_table/2,local_table/1,export_table/1,import_table/1,
 	 string_table/1,lambda_table/1,literal_table/1,
 	 line_table/1]).
 
@@ -197,15 +197,15 @@ fname(Name, #asm{fnames=Fnames}=Dict) ->
     end.
 
 %% Returns the atom table.
-%%    atom_table(Dict) -> {LastIndex,[Length,AtomString...]}
--spec atom_table(bdict()) -> {non_neg_integer(), [[non_neg_integer(),...]]}.
+%%    atom_table(Dict, Encoding) -> {LastIndex,[Length,AtomString...]}
+-spec atom_table(bdict(), latin1 | utf8) -> {non_neg_integer(), [[non_neg_integer(),...]]}.
 
-atom_table(#asm{atoms=Atoms}) ->
+atom_table(#asm{atoms=Atoms}, Encoding) ->
     NumAtoms = maps:size(Atoms),
     Sorted = lists:keysort(2, maps:to_list(Atoms)),
     {NumAtoms,[begin
-                   L = atom_to_list(A),
-                   [length(L)|L]
+                   L = atom_to_binary(A, Encoding),
+                   [byte_size(L),L]
                end || {A,_} <- Sorted]}.
 
 %% Returns the table of local functions.

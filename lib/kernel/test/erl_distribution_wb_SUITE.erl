@@ -30,7 +30,7 @@
 
 %% 1)
 %%
-%% Connections are now always set up symetrically with respect to
+%% Connections are now always set up symmetrically with respect to
 %% publication. If connecting node doesn't send DFLAG_PUBLISHED
 %% the other node wont send DFLAG_PUBLISHED. If the connecting
 %% node send DFLAG_PUBLISHED but the other node doesn't send

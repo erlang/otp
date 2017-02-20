@@ -67,7 +67,7 @@
 				      connection_state().
 %%
 %% Description: Returns the instance of the connection_state map
-%% that is currently defined as the current conection state.
+%% that is currently defined as the current connection state.
 %%--------------------------------------------------------------------
 current_connection_state(ConnectionStates, read) ->
     maps:get(current_read, ConnectionStates);
@@ -79,7 +79,7 @@ current_connection_state(ConnectionStates, write) ->
 				      connection_state().
 %%
 %% Description: Returns the instance of the connection_state map
-%% that is pendingly defined as the pending conection state.
+%% that is pendingly defined as the pending connection state.
 %%--------------------------------------------------------------------
 pending_connection_state(ConnectionStates, read) ->
     maps:get(pending_read, ConnectionStates);

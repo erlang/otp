@@ -67,17 +67,27 @@
 
 %%------------------------------------------------------------------------
 
+
+%% The rex server may receive a huge amount of
+%% messages. Make sure that they are stored off heap to
+%% avoid exessive GCs.
+
+-define(SPAWN_OPTS, [{spawn_opt,[{message_queue_data,off_heap}]}]).
+
 %% Remote execution and broadcasting facility
 
 -spec start() -> {'ok', pid()} | 'ignore' | {'error', term()}.
 
 start() ->
-    gen_server:start({local,?NAME}, ?MODULE, [], []).
+    gen_server:start({local,?NAME}, ?MODULE, [], ?SPAWN_OPTS).
 
 -spec start_link() -> {'ok', pid()} | 'ignore' | {'error', term()}.
 
 start_link() ->
-    gen_server:start_link({local,?NAME}, ?MODULE, [], []).
+    %% The rex server process may receive a huge amount of
+    %% messages. Make sure that they are stored off heap to
+    %% avoid exessive GCs.
+    gen_server:start_link({local,?NAME}, ?MODULE, [], ?SPAWN_OPTS).
 
 -spec stop() -> term().
 

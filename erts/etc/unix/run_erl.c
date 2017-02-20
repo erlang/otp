@@ -553,7 +553,7 @@ static void pass_on(pid_t childpid)
 		FD_ZERO(&readfds);
 		FD_ZERO(&writefds);
 	    } else {
-		/* Some error occured */
+		/* Some error occurred */
 		ERRNO_ERR0(LOG_ERR,"Error in select.");
 		exit(1);
 	    }

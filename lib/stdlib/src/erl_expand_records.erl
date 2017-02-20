@@ -30,13 +30,13 @@
 
 -import(lists, [map/2,foldl/3,foldr/3,sort/1,reverse/1,duplicate/2]).
 
--record(exprec, {compile=[],          % Compile flags
-                 vcount=0,            % Variable counter
-		 calltype=#{},	      % Call types
-                 records=dict:new(),  % Record definitions
-                 strict_ra=[],        % strict record accesses
-                 checked_ra=[]        % successfully accessed records
-                }).
+-record(exprec, {compile=[],	% Compile flags
+		 vcount=0,	% Variable counter
+		 calltype=#{},	% Call types
+		 records=#{},	% Record definitions
+		 strict_ra=[],	% strict record accesses
+		 checked_ra=[]	% successfully accessed records
+		}).
 
 -spec(module(AbsForms, CompileOptions) -> AbsForms2 when
       AbsForms :: [erl_parse:abstract_form()],
@@ -72,7 +72,7 @@ init_calltype_imports([], Ctype) -> Ctype.
 
 forms([{attribute,_,record,{Name,Defs}}=Attr | Fs], St0) ->
     NDefs = normalise_fields(Defs),
-    St = St0#exprec{records=dict:store(Name, NDefs, St0#exprec.records)},
+    St = St0#exprec{records=maps:put(Name, NDefs, St0#exprec.records)},
     {Fs1, St1} = forms(Fs, St),
     {[Attr | Fs1], St1};
 forms([{function,L,N,A,Cs0} | Fs0], St0) ->
@@ -546,7 +546,7 @@ normalise_fields(Fs) ->
 %% record_fields(RecordName, State)
 %% find_field(FieldName, Fields)
 
-record_fields(R, St) -> dict:fetch(R, St#exprec.records).
+record_fields(R, St) -> maps:get(R, St#exprec.records).
 
 find_field(F, [{record_field,_,{atom,_,F},Val} | _]) -> {ok,Val};
 find_field(F, [_ | Fs]) -> find_field(F, Fs);

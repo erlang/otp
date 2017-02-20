@@ -2546,14 +2546,6 @@ success:
 }
 
 
-/*
- * Convert a match program to a "magic" binary to return up to erlang
- */
-Eterm db_make_mp_binary(Process *p, Binary *mp, Eterm **hpp)
-{
-    return erts_mk_magic_binary_term(hpp, &MSO(p), mp);
-}
-
 DMCErrInfo *db_new_dmc_err_info(void) 
 {
     DMCErrInfo *ret = erts_alloc(ERTS_ALC_T_DB_DMC_ERR_INFO,
@@ -3108,9 +3100,14 @@ void db_cleanup_offheap_comp(DbTerm* obj)
 	    break;
 	case FUN_SUBTAG:
 	    ASSERT(u.pb != &tmp);
-	    if (erts_refc_dectest(&u.fun->fe->refc, 0) == 0) {
+	    if (erts_smp_refc_dectest(&u.fun->fe->refc, 0) == 0) {
 		erts_erase_fun_entry(u.fun->fe);
 	    }
+	    break;
+	case REF_SUBTAG:
+	    ASSERT(is_magic_ref_thing(u.hdr));
+	    if (erts_refc_dectest(&u.mref->mb->refc, 0) == 0)
+		erts_bin_free((Binary *)u.mref->mb);		    
 	    break;
 	default:
 	    ASSERT(is_external_header(u.hdr->thing_word));
@@ -3265,13 +3262,6 @@ int db_has_variable(Eterm node) {
     }
     DESTROY_ESTACK(s);
     return 0;
-}
-
-int erts_db_is_compiled_ms(Eterm term)
-{
-    return (is_binary(term)
-	    && (thing_subtag(*binary_val(term)) == REFC_BINARY_SUBTAG)
-	    && IsMatchProgBinary((((ProcBin *) binary_val(term))->val)));
 }
 
 /* 
@@ -5290,24 +5280,35 @@ void db_match_dis(Binary *bp)
 	case matchEqRef:
 	    ++t;
 	    {
-		RefThing *rt = (RefThing *) t;
+		Uint32 *num;
 		int ri;
-		n = thing_arityval(rt->header);
-		erts_printf("EqRef\t(%d) {", (int) n);
+
+		if (is_ordinary_ref_thing(t)) {
+		    ErtsORefThing *rt = (ErtsORefThing *) t;
+		    num = rt->num;
+		    t += TermWords(ERTS_REF_THING_SIZE);
+		}
+		else {
+		    ErtsMRefThing *mrt = (ErtsMRefThing *) t;
+		    ASSERT(is_magic_ref_thing(t));
+		    num = mrt->mb->refn;
+		    t += TermWords(ERTS_MAGIC_REF_THING_SIZE);
+		}
+
+		erts_printf("EqRef\t(%d) {", (int) ERTS_REF_NUMBERS);
 		first = 1;
-		for (ri = 0; ri < n; ++ri) {
+		for (ri = 0; ri < ERTS_REF_NUMBERS; ++ri) {
 		    if (first)
 			first = 0;
 		    else
 			erts_printf(", ");
 #if defined(ARCH_64)
-		    erts_printf("0x%016bex", rt->data.ui[ri]);
+		    erts_printf("0x%016bex", num[ri]);
 #else
-		    erts_printf("0x%08bex", rt->data.ui[ri]);
+		    erts_printf("0x%08bex", num[ri]);
 #endif
 		}
 	    }
-	    t += TermWords(REF_THING_SIZE);
 	    erts_printf("}\n");
 	    break;
 	case matchEqBig:

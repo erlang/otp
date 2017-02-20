@@ -1424,7 +1424,7 @@ path_open_first([Path|Rest], Name, Mode, LastError) ->
 	    case open(FileName, Mode) of
 		{ok, Fd} ->
 		    {ok, Fd, FileName};
-		{error, enoent} ->
+		{error, Reason} when Reason =:= enoent; Reason =:= enotdir ->
 		    path_open_first(Rest, Name, Mode, LastError);
 		Error ->
 		    Error

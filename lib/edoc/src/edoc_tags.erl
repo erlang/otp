@@ -227,7 +227,7 @@ filter_tags([#tag{name = N, line = L} = T | Ts], Tags, Where, Ts1) ->
 filter_tags([], _, _, Ts) ->
     lists:reverse(Ts).
 
-%% Check occurrances of tags.
+%% Check occurrences of tags.
 
 check_tags(Ts, Allow, Single, Where) ->
     check_tags(Ts, Allow, Single, Where, false, sets:new()).

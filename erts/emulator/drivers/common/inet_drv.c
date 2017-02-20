@@ -728,7 +728,7 @@ static int is_nonzero(const char *s, size_t n)
 #define TCP_ADDF_PENDING_SHUTDOWN \
 		(TCP_ADDF_PENDING_SHUT_WR | TCP_ADDF_PENDING_SHUT_RDWR)
 #define TCP_ADDF_SHOW_ECONNRESET   64 /* Tell user about incoming RST */
-#define TCP_ADDF_DELAYED_ECONNRESET 128 /* An ECONNRESET error occured on send or shutdown */
+#define TCP_ADDF_DELAYED_ECONNRESET 128 /* An ECONNRESET error occurred on send or shutdown */
 #define TCP_ADDF_SHUTDOWN_WR_DONE 256 /* A shutdown(sock, SHUT_WR) or SHUT_RDWR was made */
 #define TCP_ADDF_LINGER_ZERO 	  512 /* Discard driver queue on port close */
 
@@ -4132,8 +4132,8 @@ static char *inet_set_faddress(int family, inet_address* dst,
 
 /* Get a inaddr structure
 ** src = inaddr structure
-** *len is the lenght of structure
 ** dst is filled with [F,P1,P0,X1,....] 
+** *len is the length of structure
 ** where F is the family code (coded)
 ** and *len is the length of dst on return 
 ** (suitable to deliver to erlang)

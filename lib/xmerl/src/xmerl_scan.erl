@@ -2309,7 +2309,9 @@ expanded_name(Name, [], #xmlNamespace{default = URI}, S) ->
 expanded_name(Name, N = {"xmlns", Local}, #xmlNamespace{nodes = Ns}, S) ->
     {_, Value} = lists:keyfind(Local, 1, Ns),
     case Name of
-	'xmlns:xml' when Value =/= 'http://www.w3.org/XML/1998/namespace' ->
+	'xmlns:xml' when Value =:= 'http://www.w3.org/XML/1998/namespace' ->
+	    N;
+        'xmlns:xml' when Value =/= 'http://www.w3.org/XML/1998/namespace' ->
 	    ?fatal({xml_prefix_cannot_be_redeclared, Value}, S);
 	'xmlns:xmlns' ->
 	    ?fatal({xmlns_prefix_cannot_be_declared, Value}, S);
@@ -2323,6 +2325,8 @@ expanded_name(Name, N = {"xmlns", Local}, #xmlNamespace{nodes = Ns}, S) ->
 		    N
 	    end
     end;
+expanded_name(_Name, {"xml", Local}, _NS, _S) ->
+    {'http://www.w3.org/XML/1998/namespace', list_to_atom(Local)};
 expanded_name(_Name, {Prefix, Local}, #xmlNamespace{nodes = Ns}, S) ->
     case lists:keysearch(Prefix, 1, Ns) of
 	{value, {_, URI}} ->
@@ -2332,9 +2336,6 @@ expanded_name(_Name, {Prefix, Local}, #xmlNamespace{nodes = Ns}, S) ->
 	    %% must be declared
 	    ?fatal({namespace_prefix_not_declared, Prefix}, S)
     end.
-
-
-
 
 keyreplaceadd(K, Pos, [H|T], Obj) when K == element(Pos, H) ->
     [Obj|T];

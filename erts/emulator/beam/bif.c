@@ -199,7 +199,7 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 		goto res_no_proc;
 	    case ERTS_PORT_OP_SCHEDULED:
 		if (refp) {
-		    ASSERT(is_internal_ref(ref));
+		    ASSERT(is_internal_ordinary_ref(ref));
 		    BIF_TRAP3(await_port_send_result_trap, BIF_P, ref, am_true, am_true);
 		}
 	    default:
@@ -467,7 +467,7 @@ demonitor_local_port(Process *origin, Eterm ref, Eterm target)
 }
 
 /* Can return atom true, false, yield, internal_error, badarg or
- * THE_NON_VALUE if error occured or trap has been set up
+ * THE_NON_VALUE if error occurred or trap has been set up
  */
 static
 BIF_RETTYPE demonitor(Process *c_p, Eterm ref, Eterm *multip)
@@ -597,7 +597,7 @@ BIF_RETTYPE demonitor_2(BIF_ALIST_2)
 
     switch (demonitor(BIF_P, BIF_ARG_1, &multi)) {
     case THE_NON_VALUE:
-        /* If other error occured or trap has been set up - pass through */
+        /* If other error occurred or trap has been set up - pass through */
         BIF_RET(THE_NON_VALUE);
     case am_false:
 	if (info)
@@ -782,7 +782,7 @@ local_name_monitor(Process *self, Eterm type, Eterm target_name)
         case ERTS_PORT_OP_DONE:
             return ret;
         case ERTS_PORT_OP_SCHEDULED: { /* Scheduled a signal */
-            ASSERT(is_internal_ref(ret));
+            ASSERT(is_internal_ordinary_ref(ret));
             BIF_TRAP3(await_port_send_result_trap, self,
                       ret, am_true, ret);
             /* bif_trap returns */
@@ -1180,7 +1180,7 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 		res = erts_port_unlink(BIF_P, prt, BIF_P->common.id, refp);
 
 		if (refp && res == ERTS_PORT_OP_SCHEDULED) {
-		    ASSERT(is_internal_ref(ref));
+		    ASSERT(is_internal_ordinary_ref(ref));
 		    BIF_TRAP3(await_port_send_result_trap, BIF_P, ref, am_true, am_true);
 		}
 	    }
@@ -1586,7 +1586,7 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
 	     ERTS_BIF_CHK_EXITED(BIF_P);
 
 	     if (refp && res == ERTS_PORT_OP_SCHEDULED) {
-		 ASSERT(is_internal_ref(ref));
+		 ASSERT(is_internal_ordinary_ref(ref));
 		 BIF_TRAP3(await_port_send_result_trap, BIF_P, ref, am_true, am_true);
 	     }
 
@@ -2221,7 +2221,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
 		/* Fall through */
 	    case ERTS_PORT_OP_SCHEDULED:
 		if (is_not_nil(*refp)) {
-		    ASSERT(is_internal_ref(*refp));
+		    ASSERT(is_internal_ordinary_ref(*refp));
 		    ret_val = SEND_AWAIT_RESULT;
 		}
 		break;
@@ -2409,7 +2409,7 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 	ERTS_BIF_PREP_YIELD_RETURN(retval, p, am_ok);
         break;
     case SEND_AWAIT_RESULT:
-	ASSERT(is_internal_ref(ref));
+	ASSERT(is_internal_ordinary_ref(ref));
 	ERTS_BIF_PREP_TRAP3(retval, await_port_send_result_trap, p, ref, am_nosuspend, am_ok);
 	break;
     case SEND_BADARG:
@@ -2446,7 +2446,7 @@ BIF_RETTYPE send_2(BIF_ALIST_2)
 
 static BIF_RETTYPE dsend_continue_trap_1(BIF_ALIST_1)
 {
-    Binary* bin = ((ProcBin*) binary_val(BIF_ARG_1))->val;
+    Binary* bin = erts_magic_ref2bin(BIF_ARG_1);
     ErtsSendContext* ctx = (ErtsSendContext*) ERTS_MAGIC_BIN_DATA(bin);
     Sint initial_reds = (Sint) (ERTS_BIF_REDS_LEFT(BIF_P) * TERM_TO_BINARY_LOOP_FACTOR);
     int result;
@@ -2526,7 +2526,7 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
 	ERTS_BIF_PREP_YIELD_RETURN(retval, p, msg);
         break;
     case SEND_AWAIT_RESULT:
-	ASSERT(is_internal_ref(ref));
+	ASSERT(is_internal_ordinary_ref(ref));
 	ERTS_BIF_PREP_TRAP3(retval,
 			    await_port_send_result_trap, p, ref, msg, msg);
 	break;
@@ -3022,8 +3022,8 @@ BIF_RETTYPE atom_to_list_1(BIF_ALIST_1)
 BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
 {
     Eterm res;
-    char *buf = (char *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_CHARACTERS);
-    Sint i = intlist_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS);
+    byte *buf = (byte *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_SZ_LIMIT);
+    Sint i = erts_unicode_list_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS);
 
     if (i < 0) {
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
@@ -3033,7 +3033,7 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
 	}
 	BIF_ERROR(BIF_P, BADARG);
     }
-    res = erts_atom_put((byte *) buf, i, ERTS_ATOM_ENC_LATIN1, 1);
+    res = erts_atom_put(buf, i, ERTS_ATOM_ENC_UTF8, 1);
     ASSERT(is_atom(res));
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
     BIF_RET(res);
@@ -3043,17 +3043,17 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
  
 BIF_RETTYPE list_to_existing_atom_1(BIF_ALIST_1)
 {
-    Sint i;
-    char *buf = (char *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_CHARACTERS);
+    byte *buf = (byte *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_SZ_LIMIT);
+    Sint i = erts_unicode_list_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS);
 
-    if ((i = intlist_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS)) < 0) {
+    if (i < 0) {
     error:
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	BIF_ERROR(BIF_P, BADARG);
     } else {
 	Eterm a;
 	
-	if (erts_atom_get(buf, i, &a, ERTS_ATOM_ENC_LATIN1)) {
+	if (erts_atom_get((char *) buf, i, &a, ERTS_ATOM_ENC_UTF8)) {
 	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	    BIF_RET(a);
 	} else {
@@ -4109,6 +4109,7 @@ BIF_RETTYPE ref_to_list_1(BIF_ALIST_1)
 {
     if (is_not_ref(BIF_ARG_1))
 	BIF_ERROR(BIF_P, BADARG);
+    erts_magic_ref_save_bin(BIF_ARG_1);
     BIF_RET(term2list_dsprintf(BIF_P, BIF_ARG_1));
 }
 
@@ -4722,25 +4723,6 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 }
 
 /**********************************************************************/
-
-BIF_RETTYPE hash_2(BIF_ALIST_2)
-{
-    Uint32 hash;
-    Sint range;
-
-    if (is_not_small(BIF_ARG_2)) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    if ((range = signed_val(BIF_ARG_2)) <= 0) {  /* [1..MAX_SMALL] */
-	BIF_ERROR(BIF_P, BADARG);
-    }
-#if defined(ARCH_64)
-    if (range > ((1L << 27) - 1))
-	BIF_ERROR(BIF_P, BADARG);
-#endif
-    hash = make_broken_hash(BIF_ARG_1);
-    BIF_RET(make_small(1 + (hash % range)));   /* [1..range] */
-}
 
 BIF_RETTYPE phash_2(BIF_ALIST_2)
 {
@@ -5574,12 +5556,10 @@ BIF_RETTYPE dt_restore_tag_1(BIF_ALIST_1)
 	    SEQ_TRACE_TOKEN(BIF_P) = am_have_dt_utag;
 	}
     }
-#else    
+#else
     if (BIF_ARG_1 != am_true) {
 	BIF_ERROR(BIF_P,BADARG);
     }
 #endif
     BIF_RET(am_true);
 }
-
-

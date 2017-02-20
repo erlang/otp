@@ -382,12 +382,15 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	    break;
 	}
 	case REF_DEF:
+            if (!ERTS_IS_CRASH_DUMPING)
+                erts_magic_ref_save_bin(obj);
+            /* fall through... */
 	case EXTERNAL_REF_DEF:
 	    PRINT_STRING(res, fn, arg, "#Ref<");
 	    PRINT_UWORD(res, fn, arg, 'u', 0, 1,
 			(ErlPfUWord) ref_channel_no(wobj));
 	    ref_num = ref_numbers(wobj);
-	    for (i = ref_no_of_numbers(wobj)-1; i >= 0; i--) {
+	    for (i = ref_no_numbers(wobj)-1; i >= 0; i--) {
 		PRINT_CHAR(res, fn, arg, '.');
 		PRINT_UWORD(res, fn, arg, 'u', 0, 1, (ErlPfUWord) ref_num[i]);
 	    }

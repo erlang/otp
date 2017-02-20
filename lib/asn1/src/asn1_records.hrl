@@ -28,6 +28,7 @@
 -define('COMPLETE_ENCODE',1).
 -define('TLV_DECODE',2).
 
+-define(MISSING_IN_MAP, asn1__MISSING_IN_MAP).
 
 -record(module,{pos,name,defid,tagdefault='EXPLICIT',exports={exports,[]},imports={imports,[]}, extensiondefault=empty,typeorval}).
 
@@ -95,6 +96,28 @@
 	 sourcedir,
 	 error_context				%Top-level thingie (contains line numbers)
 	}).
+
+%% Code generation parameters and options.
+-record(gen,
+        {erule=ber :: 'ber' | 'per',
+         der=false :: boolean(),
+         aligned=false :: boolean(),
+         rec_prefix="" :: string(),
+         macro_prefix="" :: string(),
+         pack=record :: 'record' | 'map',
+         options=[] :: [any()]
+        }).
+
+%% Abstract intermediate representation.
+-record(abst,
+        {name :: module(),                      %Name of module.
+         types,                                 %Types.
+         values,                                %Values.
+         ptypes,                                %Parameterized types.
+         classes,                               %Classes.
+         objects,                               %Objects.
+         objsets                                %Object sets.
+        }).
 
 %% state record used by back-end at partial decode
 %% active is set to 'yes' when a partial decode function is generated.

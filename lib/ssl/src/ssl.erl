@@ -577,7 +577,7 @@ prf(#sslsocket{pid = {Listen,_}}, _,_,_,_) when is_port(Listen) ->
 %% Description: Clear the PEM cache
 %%--------------------------------------------------------------------
 clear_pem_cache() ->
-    ssl_manager:clear_pem_cache().
+    ssl_pem_cache:clear().
 
 %%---------------------------------------------------------------
 -spec format_error({error, term()}) -> list().

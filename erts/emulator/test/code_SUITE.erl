@@ -296,16 +296,16 @@ get_chunk(Config) when is_list(Config) ->
     {ok,my_code_test,Code} = compile:file(File, [binary]),
 
     %% Should work.
-    Chunk = get_chunk_ok("Atom", Code),
-    Chunk = get_chunk_ok("Atom", make_sub_binary(Code)),
-    Chunk = get_chunk_ok("Atom", make_unaligned_sub_binary(Code)),
+    Chunk = get_chunk_ok("AtU8", Code),
+    Chunk = get_chunk_ok("AtU8", make_sub_binary(Code)),
+    Chunk = get_chunk_ok("AtU8", make_unaligned_sub_binary(Code)),
 
     %% Should fail.
-    {'EXIT',{badarg,_}} = (catch code:get_chunk(bit_sized_binary(Code), "Atom")),
+    {'EXIT',{badarg,_}} = (catch code:get_chunk(bit_sized_binary(Code), "AtU8")),
     {'EXIT',{badarg,_}} = (catch code:get_chunk(Code, "bad chunk id")),
 
     %% Invalid beam code or missing chunk should return 'undefined'.
-    undefined = code:get_chunk(<<"not a beam module">>, "Atom"),
+    undefined = code:get_chunk(<<"not a beam module">>, "AtU8"),
     undefined = code:get_chunk(Code, "XXXX"),
 
     ok.

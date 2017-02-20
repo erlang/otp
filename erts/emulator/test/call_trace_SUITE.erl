@@ -233,7 +233,7 @@ basic() ->
     trace_func({'_','_','_'}, false),
     [b,a] = lists:reverse([a,b]),
 
-    %% Read out the remaing trace messages.
+    %% Read out the remaining trace messages.
 
     ?MODULE:expect({trace,Self,call,{lists,seq,[1,10]}}),
     ?MODULE:expect({trace,Self,call,{erlang,list_to_integer,["777"]}}),

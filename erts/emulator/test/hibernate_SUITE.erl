@@ -349,7 +349,7 @@ clean_dict() ->
     lists:foreach(fun ({Key, _}) -> erase(Key) end, Dict).
 
 %%
-%% Wake up and then immediatly bif trap with a lengthy computation.
+%% Wake up and then immediately bif trap with a lengthy computation.
 %%
 
 wake_up_and_bif_trap(Config) when is_list(Config) ->

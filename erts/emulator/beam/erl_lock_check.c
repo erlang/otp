@@ -159,6 +159,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"tracer_mtx", 				NULL			},
     {   "port_table",                           NULL                    },
 #endif
+    {	"magic_ref_table",			"address"		},
     {	"mtrace_op",				NULL			},
     {	"instr_x",				NULL			},
     {	"instr",				NULL			},

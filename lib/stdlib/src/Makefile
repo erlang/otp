@@ -130,7 +130,7 @@ HRL_FILES= \
 	../include/qlc.hrl \
 	../include/zip.hrl
 
-INTERNAL_HRL_FILES= dets.hrl
+INTERNAL_HRL_FILES= dets.hrl erl_tar.hrl
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -228,7 +228,7 @@ $(EBIN)/dets_v9.beam: dets.hrl
 $(EBIN)/erl_bits.beam: ../include/erl_bits.hrl
 $(EBIN)/erl_compile.beam: ../include/erl_compile.hrl ../../kernel/include/file.hrl
 $(EBIN)/erl_lint.beam: ../include/erl_bits.hrl
-$(EBIN)/erl_tar.beam: ../../kernel/include/file.hrl
+$(EBIN)/erl_tar.beam: ../../kernel/include/file.hrl erl_tar.hrl
 $(EBIN)/file_sorter.beam: ../../kernel/include/file.hrl
 $(EBIN)/filelib.beam: ../../kernel/include/file.hrl
 $(EBIN)/filename.beam: ../../kernel/include/file.hrl

@@ -113,11 +113,7 @@ gen_encode_prim(Erules, D) ->
     Value = {var,atom_to_list(asn1ct_gen:mk_var(asn1ct_name:curr(val)))},
     gen_encode_prim(Erules, D, Value).
 
-gen_encode_prim(Erules, #type{}=D, Value) ->
-    Aligned = case Erules of
-		  uper -> false;
-		  per -> true
-	      end,
+gen_encode_prim(#gen{erule=per,aligned=Aligned}, #type{}=D, Value) ->
     Imm = gen_encode_prim_imm(Value, D, Aligned),
     asn1ct_imm:enc_cg(Imm, Aligned).
 
@@ -284,11 +280,7 @@ gen_dec_external(Ext, BytesVar) ->
 	      _ -> [{asis,Mod},":"]
 	  end,{asis,dec_func(Type)},"(",BytesVar,")"]).
 
-gen_dec_imm(Erule, #type{def=Name,constraint=C}) ->
-    Aligned = case Erule of
-		  uper -> false;
-		  per -> true
-	      end,
+gen_dec_imm(#gen{erule=per,aligned=Aligned}, #type{def=Name,constraint=C}) ->
     gen_dec_imm_1(Name, C, Aligned).
 
 gen_dec_imm_1('ASN1_OPEN_TYPE', Constraint, Aligned) ->

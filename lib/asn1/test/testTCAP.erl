@@ -92,5 +92,6 @@ test_asn1config() ->
 enc_dec(T, V0) ->
     M = 'TCAPPackage',
     {ok,Enc} = M:encode(T, V0),
+    asn1_test_lib:map_roundtrip(M, T, Enc),
     {ok,V} = M:decode(T, Enc),
     V.

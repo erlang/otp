@@ -172,8 +172,8 @@ revoke(Root, CA, User, C) ->
     gencrl(Root, CA, C).
 
 gencrl(Root, CA, C) ->
-    %% By default, the CRL is valid for 24 hours from now.
-    gencrl(Root, CA, C, 24).
+    %% By default, the CRL is valid for a week from now.
+    gencrl(Root, CA, C, 24*7).
 
 gencrl(Root, CA, C, CrlHours) ->
     CACnfFile = filename:join([Root, CA, "ca.cnf"]),

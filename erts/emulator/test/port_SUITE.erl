@@ -2131,7 +2131,7 @@ ping(Config, Sizes, HSize, CmdLine, Options) ->
 %% Sizes = Size of packets to generated.
 %% HSize = Header size: 1, 2, or 4
 %% CmdLine = Additional command line options.
-%% Options = Addtional port options.
+%% Options = Additional port options.
 
 expect_input(Config, Sizes, HSize, CmdLine, Options) ->
     expect_input1(Config, Sizes, {HSize, CmdLine, Options}, [], []).

@@ -2564,7 +2564,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
               CPU-bound, or <c>ERL_NIF_DIRTY_JOB_IO_BOUND</c> for
               jobs that will be I/O-bound. If dirty scheduler threads are not
               available in the emulator, an attempt to schedule such a job
-              results in a <c>badarg</c> exception.</p>
+              results in a <c>notsup</c> exception.</p>
           </item>
           <tag><c>argc</c> and <c>argv</c></tag>
           <item>

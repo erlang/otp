@@ -20,7 +20,7 @@
 -module(observer_lib).
 
 -export([get_wx_parent/1,
-	 display_info_dialog/1, display_yes_no_dialog/1,
+	 display_info_dialog/2, display_yes_no_dialog/1,
 	 display_progress_dialog/2, destroy_progress_dialog/0,
 	 wait_for_progress/0, report_progress/1,
 	 user_term/3, user_term_multiline/3,
@@ -105,10 +105,10 @@ setup_timer(Bool, {Timer, Old}) ->
     timer:cancel(Timer),
     setup_timer(Bool, {false, Old}).
 
-display_info_dialog(Str) ->
-    display_info_dialog("",Str).
-display_info_dialog(Title,Str) ->
-    Dlg = wxMessageDialog:new(wx:null(), Str, [{caption,Title}]),
+display_info_dialog(Parent,Str) ->
+    display_info_dialog(Parent,"",Str).
+display_info_dialog(Parent,Title,Str) ->
+    Dlg = wxMessageDialog:new(Parent, Str, [{caption,Title}]),
     wxMessageDialog:showModal(Dlg),
     wxMessageDialog:destroy(Dlg),
     ok.
@@ -724,7 +724,7 @@ progress_loop(Title,PD,Caller) ->
 		if is_list(Reason) -> Reason;
 		   true -> file:format_error(Reason)
 		end,
-	    display_info_dialog("Crashdump Viewer Error",FailMsg),
+	    display_info_dialog(PD,"Crashdump Viewer Error",FailMsg),
 	    Caller ! error,
 	    unregister(?progress_handler),
 	    unlink(Caller);

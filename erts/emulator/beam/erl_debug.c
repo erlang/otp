@@ -130,7 +130,7 @@ pdisplay1(fmtfn_t to, void *to_arg, Process* p, Eterm obj)
 	Uint32 *ref_num;
 	erts_print(to, to_arg, "#Ref<%lu", ref_channel_no(obj));
 	ref_num = ref_numbers(obj);
-	for (i = ref_no_of_numbers(obj)-1; i >= 0; i--)
+	for (i = ref_no_numbers(obj)-1; i >= 0; i--)
 	    erts_print(to, to_arg, ",%lu", ref_num[i]);
 	erts_print(to, to_arg, ">");
 	break;

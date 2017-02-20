@@ -421,8 +421,10 @@ t_nativename(Config) when is_list(Config) ->
 find_src(Config) when is_list(Config) ->
     {Source,_} = filename:find_src(file),
     ["file"|_] = lists:reverse(filename:split(Source)),
-    {_,_} = filename:find_src(init, [{".","."}, {"ebin","src"}]),
-    
+    {Source,_} = filename:find_src(file, [{"",""}, {"ebin","src"}]),
+    {Source,_} = filename:find_src(Source),
+    {Source,_} = filename:find_src(Source ++ ".erl"),
+
     %% Try to find the source for a preloaded module.
     {error,{preloaded,init}} = filename:find_src(init),
 

@@ -50,50 +50,61 @@ messages(Write, MangleArg) when is_function(Write,2),
 				is_function(MangleArg,1) ->
     catch dbg:start(),
     setup_tracer(Write, MangleArg),
-    dbg:p(new,c),
+    dbg:p(new,[c,timestamp]),
     dbg_ssh_messages().
 
 dbg_ssh_messages() ->
     dbg:tp(ssh_message,encode,1, x),
     dbg:tp(ssh_message,decode,1, x),
-    dbg:tpl(ssh_transport,select_algorithm,3, x).
-
+    dbg:tpl(ssh_transport,select_algorithm,3, x),
+    dbg:tp(ssh_transport,hello_version_msg,1, x),
+    dbg:tp(ssh_transport,handle_hello_version,1, x).
+   
 %%%----------------------------------------------------------------
 stop() ->
     dbg:stop().
 
 %%%================================================================
-msg_formater({trace,Pid,call,{ssh_message,encode,[Msg]}}, D) ->
-    fmt("~nSEND ~p ~s~n", [Pid,wr_record(shrink_bin(Msg))], D);
-msg_formater({trace,_Pid,return_from,{ssh_message,encode,1},_Res}, D) -> 
+msg_formater({trace_ts,Pid,call,{ssh_message,encode,[Msg]},TS}, D) ->
+    fmt("~n~s SEND ~p ~s~n", [ts(TS),Pid,wr_record(shrink_bin(Msg))], D);
+msg_formater({trace_ts,_Pid,return_from,{ssh_message,encode,1},_Res,_TS}, D) -> 
     D;
 	
-msg_formater({trace,_Pid,call,{ssh_message,decode,_}}, D) ->
+msg_formater({trace_ts,_Pid,call,{ssh_message,decode,_},_TS}, D) ->
     D;
-msg_formater({trace,Pid,return_from,{ssh_message,decode,1},Msg}, D) -> 
-    fmt("~n~p RECV ~s~n", [Pid,wr_record(shrink_bin(Msg))], D);
+msg_formater({trace_ts,Pid,return_from,{ssh_message,decode,1},Msg,TS}, D) -> 
+    fmt("~n~s ~p RECV ~s~n", [ts(TS),Pid,wr_record(shrink_bin(Msg))], D);
 	
-msg_formater({trace,_Pid,call,{ssh_transport,select_algorithm,_}}, D) ->
+msg_formater({trace_ts,_Pid,call,{ssh_transport,select_algorithm,_},_TS}, D) ->
     D;
-msg_formater({trace,Pid,return_from,{ssh_transport,select_algorithm,3},{ok,Alg}}, D) ->
-    fmt("~n~p ALGORITHMS~n~s~n", [Pid, wr_record(Alg)], D);
+msg_formater({trace_ts,Pid,return_from,{ssh_transport,select_algorithm,3},{ok,Alg},TS}, D) ->
+    fmt("~n~s ~p ALGORITHMS~n~s~n", [ts(TS),Pid, wr_record(Alg)], D);
+
+msg_formater({trace_ts,_Pid,call,{ssh_transport,hello_version_msg,_},_TS}, D) ->
+    D;
+msg_formater({trace_ts,Pid,return_from,{ssh_transport,hello_version_msg,1},Hello,TS}, D) -> 
+    fmt("~n~s ~p TCP SEND HELLO~n  ~p~n", [ts(TS),Pid,lists:flatten(Hello)], D);
+
+msg_formater({trace_ts,Pid,call,{ssh_transport,handle_hello_version,[Hello]},TS}, D) ->
+    fmt("~n~s ~p RECV HELLO~n  ~p~n", [ts(TS),Pid,lists:flatten(Hello)], D);
+msg_formater({trace_ts,_Pid,return_from,{ssh_transport,handle_hello_version,1},_,_TS}, D) -> 
+    D;
+
+msg_formater({trace_ts,Pid,send,{tcp,Sock,Bytes},Pid,TS}, D) ->
+    fmt("~n~s ~p TCP SEND on ~p~n ~p~n", [ts(TS),Pid,Sock, shrink_bin(Bytes)], D);
+
+msg_formater({trace_ts,Pid,send,{tcp,Sock,Bytes},Dest,TS}, D) ->
+    fmt("~n~s ~p TCP SEND from ~p TO ~p~n ~p~n", [ts(TS),Pid,Sock,Dest, shrink_bin(Bytes)], D);
+
+msg_formater({trace_ts,Pid,send,ErlangMsg,Dest,TS}, D) ->
+    fmt("~n~s ~p ERL MSG SEND TO ~p~n ~p~n", [ts(TS),Pid,Dest, shrink_bin(ErlangMsg)], D);
 
 
-msg_formater({trace,Pid,send,{tcp,Sock,Bytes},Pid}, D) ->
-    fmt("~n~p TCP SEND on ~p~n ~p~n", [Pid,Sock, shrink_bin(Bytes)], D);
+msg_formater({trace_ts,Pid,'receive',{tcp,Sock,Bytes},TS}, D) ->
+    fmt("~n~s ~p TCP RECEIVE on ~p~n ~p~n", [ts(TS),Pid,Sock,shrink_bin(Bytes)], D);
 
-msg_formater({trace,Pid,send,{tcp,Sock,Bytes},Dest}, D) ->
-    fmt("~n~p TCP SEND from ~p TO ~p~n ~p~n", [Pid,Sock,Dest, shrink_bin(Bytes)], D);
-
-msg_formater({trace,Pid,send,ErlangMsg,Dest}, D) ->
-    fmt("~n~p ERL MSG SEND TO ~p~n ~p~n", [Pid,Dest, shrink_bin(ErlangMsg)], D);
-
-
-msg_formater({trace,Pid,'receive',{tcp,Sock,Bytes}}, D) ->
-    fmt("~n~p TCP RECEIVE on ~p~n ~p~n", [Pid,Sock,shrink_bin(Bytes)], D);
-
-msg_formater({trace,Pid,'receive',ErlangMsg}, D) ->
-    fmt("~n~p ERL MSG RECEIVE~n ~p~n", [Pid,shrink_bin(ErlangMsg)], D);
+msg_formater({trace_ts,Pid,'receive',ErlangMsg,TS}, D) ->
+    fmt("~n~s ~p ERL MSG RECEIVE~n ~p~n", [ts(TS),Pid,shrink_bin(ErlangMsg)], D);
 
 
 msg_formater(M, D) ->
@@ -106,6 +117,11 @@ msg_formater(M, D) ->
 fmt(Fmt, Args,  D=#data{writer=Write,acc=Acc}) ->
     D#data{acc = Write(io_lib:format(Fmt, Args), Acc)}.
 
+ts({_,_,Usec}=Now) ->
+    {_Date,{HH,MM,SS}} = calendar:now_to_local_time(Now),
+    io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.6.0w",[HH,MM,SS,Usec]);
+ts(_) ->
+    "-".
 %%%----------------------------------------------------------------
 setup_tracer(Write, MangleArg) ->
     Handler = fun(Arg, D) ->
@@ -116,11 +132,11 @@ setup_tracer(Write, MangleArg) ->
     ok.
 
 %%%----------------------------------------------------------------
-shrink_bin(B) when is_binary(B), size(B)>100 -> {'*** SHRINKED BIN',
+shrink_bin(B) when is_binary(B), size(B)>256 -> {'*** SHRINKED BIN',
 						 size(B),
-						 element(1,split_binary(B,20)),
+						 element(1,split_binary(B,64)),
 						 '...',
-						 element(2,split_binary(B,size(B)-20))
+						 element(2,split_binary(B,size(B)-64))
 						};
 shrink_bin(L) when is_list(L) -> lists:map(fun shrink_bin/1, L);
 shrink_bin(T) when is_tuple(T) -> list_to_tuple(shrink_bin(tuple_to_list(T)));

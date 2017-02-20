@@ -197,5 +197,6 @@ roundtrip(M, T, V) ->
 
 enc_dec(M, T, V0) ->
     {ok,Enc} = M:encode(T, V0),
+    asn1_test_lib:map_roundtrip(M, T, Enc),
     {ok,V} = M:decode(T, Enc),
     V.

@@ -212,7 +212,7 @@ info_update(CFG, I) ->
 -ifndef(GEN_CFG).
 
 -spec other_entrypoints(cfg()) -> [cfg_lbl()].
-%% @doc Returns a list of labels that are refered to from the data section.
+%% @doc Returns a list of labels that are referred to from the data section.
 
 other_entrypoints(CFG) ->
   hipe_consttab:referred_labels(data(CFG)).

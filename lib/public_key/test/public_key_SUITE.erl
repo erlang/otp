@@ -45,13 +45,17 @@ all() ->
      {group, sign_verify},
      pkix, pkix_countryname, pkix_emailaddress, pkix_path_validation,
      pkix_iso_rsa_oid, pkix_iso_dsa_oid, pkix_crl, general_name,
+     pkix_verify_hostname_cn,
+     pkix_verify_hostname_subjAltName,
+     pkix_verify_hostname_options,
      short_cert_issuer_hash, short_crl_issuer_hash,
      ssh_hostkey_fingerprint_md5_implicit,
      ssh_hostkey_fingerprint_md5,
      ssh_hostkey_fingerprint_sha,
      ssh_hostkey_fingerprint_sha256,
      ssh_hostkey_fingerprint_sha384,
-     ssh_hostkey_fingerprint_sha512
+     ssh_hostkey_fingerprint_sha512,
+     ssh_hostkey_fingerprint_list
     ].
 
 groups() -> 
@@ -90,20 +94,21 @@ end_per_group(_GroupName, Config) ->
 %%-------------------------------------------------------------------
 init_per_testcase(TestCase, Config) ->
     case TestCase of
-	ssh_hostkey_fingerprint_md5_implicit -> init_fingerprint_testcase(md5, Config);
-	ssh_hostkey_fingerprint_md5 ->    init_fingerprint_testcase(md5, Config);
-	ssh_hostkey_fingerprint_sha ->    init_fingerprint_testcase(sha, Config);
-	ssh_hostkey_fingerprint_sha256 -> init_fingerprint_testcase(sha256, Config);
-	ssh_hostkey_fingerprint_sha384 -> init_fingerprint_testcase(sha384, Config);
-	ssh_hostkey_fingerprint_sha512 -> init_fingerprint_testcase(sha512, Config);
+	ssh_hostkey_fingerprint_md5_implicit -> init_fingerprint_testcase([md5], Config);
+	ssh_hostkey_fingerprint_md5 ->    init_fingerprint_testcase([md5], Config);
+	ssh_hostkey_fingerprint_sha ->    init_fingerprint_testcase([sha], Config);
+	ssh_hostkey_fingerprint_sha256 -> init_fingerprint_testcase([sha256], Config);
+	ssh_hostkey_fingerprint_sha384 -> init_fingerprint_testcase([sha384], Config);
+	ssh_hostkey_fingerprint_sha512 -> init_fingerprint_testcase([sha512], Config);
+	ssh_hostkey_fingerprint_list   -> init_fingerprint_testcase([sha,md5], Config);
 	_ -> init_common_per_testcase(Config)
     end.
 	
-init_fingerprint_testcase(Alg, Config) ->
-    CryptoSupports = lists:member(Alg, proplists:get_value(hashs, crypto:supports())),
-    case CryptoSupports of
-	false -> {skip,{Alg,not_supported}};
-	true -> init_common_per_testcase(Config)
+init_fingerprint_testcase(Algs, Config) ->
+    Hashs = proplists:get_value(hashs, crypto:supports(), []),
+    case Algs -- Hashs of
+        [] -> init_common_per_testcase(Config);
+        UnsupportedAlgs ->  {skip,{UnsupportedAlgs,not_supported}}
     end.
 
 init_common_per_testcase(Config0) ->
@@ -597,6 +602,14 @@ ssh_hostkey_fingerprint_sha512(_Config) ->
     Expected = public_key:ssh_hostkey_fingerprint(sha512, ssh_hostkey(rsa)).
 
 %%--------------------------------------------------------------------
+%% Since this kind of fingerprint is not available yet on standard
+%% distros, we do like this instead.
+ssh_hostkey_fingerprint_list(_Config) ->
+    Expected = ["SHA1:Soammnaqg06jrm2jivMSnzQGlmk",
+                "MD5:4b:0b:63:de:0f:a7:3a:ab:2c:cc:2d:d1:21:37:1d:3a"],
+    Expected = public_key:ssh_hostkey_fingerprint([sha,md5], ssh_hostkey(rsa)).
+
+%%--------------------------------------------------------------------
 encrypt_decrypt() ->
     [{doc, "Test public_key:encrypt_private and public_key:decrypt_public"}].
 encrypt_decrypt(Config) when is_list(Config) -> 
@@ -812,6 +825,114 @@ pkix_path_validation(Config) when is_list(Config) ->
 	public_key:pkix_path_validation(unknown_ca, [Cert1], [{verify_fun,
 							      VerifyFunAndState1}]),
     ok.
+
+%%--------------------------------------------------------------------
+%% To generate the PEM file contents:
+%%
+%% openssl req -x509 -nodes -newkey rsa:1024 -keyout /dev/null -subj '/C=SE/CN=example.com/CN=*.foo.example.com/CN=a*b.bar.example.com/O=erlang.org' > public_key_SUITE_data/pkix_verify_hostname_cn.pem
+%%
+%% Note that the same pem-file is used in pkix_verify_hostname_options/1
+%%
+%% Subject: C=SE, CN=example.com, CN=*.foo.example.com, CN=a*b.bar.example.com, O=erlang.org
+%% extensions = no subjAltName
+
+pkix_verify_hostname_cn(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Bin} = file:read_file(filename:join(DataDir,"pkix_verify_hostname_cn.pem")),
+    Cert = public_key:pkix_decode_cert(element(2,hd(public_key:pem_decode(Bin))), otp),
+
+    %% Check that 1) only CNs are checked,
+    %%            2) an empty label does not match a wildcard and
+    %%            3) a wildcard does not match more than one label
+    false = public_key:pkix_verify_hostname(Cert, [{dns_id,"erlang.org"},
+						   {dns_id,"foo.EXAMPLE.com"},
+						   {dns_id,"b.a.foo.EXAMPLE.com"}]),
+
+    %% Check that a hostname is extracted from a https-uri and used for checking:
+    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"HTTPS://EXAMPLE.com"}]),
+
+    %% Check wildcard matching one label:
+    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"a.foo.EXAMPLE.com"}]),
+
+    %% Check wildcard with surrounding chars matches one label:
+    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"accb.bar.EXAMPLE.com"}]),
+
+    %% Check that a wildcard with surrounding chars matches an empty string:
+    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://ab.bar.EXAMPLE.com"}]).
+
+%%--------------------------------------------------------------------
+%% To generate the PEM file contents:
+%%
+%% openssl req -x509 -nodes -newkey rsa:1024 -keyout /dev/null -extensions SAN -config  public_key_SUITE_data/verify_hostname.conf 2>/dev/null > public_key_SUITE_data/pkix_verify_hostname_subjAltName.pem
+%%
+%% Subject: C=SE, CN=example.com
+%% Subject Alternative Name: DNS:kb.example.org, URI:http://www.example.org, URI:https://wws.example.org
+
+pkix_verify_hostname_subjAltName(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Bin} = file:read_file(filename:join(DataDir,"pkix_verify_hostname_subjAltName.pem")),
+    Cert = public_key:pkix_decode_cert(element(2,hd(public_key:pem_decode(Bin))), otp),
+
+    %% Check that neither a uri nor dns hostname matches a CN if subjAltName is present:
+    false = public_key:pkix_verify_hostname(Cert, [{uri_id,"https://example.com"},
+						   {dns_id,"example.com"}]),
+
+    %% Check that a uri_id matches a URI subjAltName:
+    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://wws.example.org"}]),
+
+    %% Check that a dns_id does not match a URI subjAltName:
+    false = public_key:pkix_verify_hostname(Cert, [{dns_id,"www.example.org"},
+						   {dns_id,"wws.example.org"}]),
+
+    %% Check that a dns_id matches a DNS subjAltName:
+    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"kb.example.org"}]).
+
+%%--------------------------------------------------------------------
+%% Uses the pem-file for pkix_verify_hostname_cn
+%% Subject: C=SE, CN=example.com, CN=*.foo.example.com, CN=a*b.bar.example.com, O=erlang.org
+pkix_verify_hostname_options(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Bin} = file:read_file(filename:join(DataDir,"pkix_verify_hostname_cn.pem")),
+    Cert = public_key:pkix_decode_cert(element(2,hd(public_key:pem_decode(Bin))), otp),
+    
+    %% Check that the fail_callback is called and is presented the correct certificate:
+    true = public_key:pkix_verify_hostname(Cert, [{dns_id,"erlang.org"}],
+					   [{fail_callback,
+					     fun(#'OTPCertificate'{}=C) when C==Cert -> 
+						     true; % To test the return value matters
+						(#'OTPCertificate'{}=C) -> 
+						     ct:log("~p:~p: Wrong cert:~n~p~nExpect~n~p",
+							    [?MODULE, ?LINE, C, Cert]),
+						     ct:fail("Wrong cert, see log");
+						(C) -> 
+						     ct:log("~p:~p: Bad cert: ~p",[?MODULE,?LINE,C]),
+						     ct:fail("Bad cert, see log")
+					     end}]),
+    
+    %% Check the callback for user-provided match functions:
+    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"very.wrong.domain"}],
+					    [{match_fun,
+					      fun("very.wrong.domain", {cn,"example.com"}) ->
+						      true;
+						 (_, _) ->
+						      false
+					      end}]),
+    false = public_key:pkix_verify_hostname(Cert, [{dns_id,"not.example.com"}],
+					    [{match_fun, fun(_, _) -> default end}]),
+    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"example.com"}],
+					    [{match_fun, fun(_, _) -> default end}]),
+
+    %% Check the callback for user-provided fqdn extraction:
+    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"some://very.wrong.domain"}],
+					    [{fqdn_fun,
+					      fun({uri_id, "some://very.wrong.domain"}) ->
+						      "example.com";
+						 (_) ->
+						      ""
+					      end}]),
+    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://example.com"}],
+					    [{fqdn_fun, fun(_) -> default end}]),
+    false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"some://very.wrong.domain"}]).
 
 %%--------------------------------------------------------------------
 pkix_iso_rsa_oid() ->

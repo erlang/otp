@@ -92,7 +92,7 @@ init([Pid, ParentFrame, Parent]) ->
 	    observer_wx:return_to_localnode(ParentFrame, node(Pid)),
 	    {stop, badrpc};
 	  process_undefined ->
-	    observer_lib:display_info_dialog("No such alive process"),
+	    observer_lib:display_info_dialog(ParentFrame,"No such alive process"),
 	    {stop, normal}
     end.
 

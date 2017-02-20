@@ -28,7 +28,7 @@
 %% Most of the code here is derived from the original prolog versions and
 %% from similar code written by Joe Armstrong and myself.
 %%
-%% This module has been split into seperate modules:
+%% This module has been split into separate modules:
 %% io_lib        - basic write and utilities
 %% io_lib_format - formatted output
 %% io_lib_fread  - formatted input

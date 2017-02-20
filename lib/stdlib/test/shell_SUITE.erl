@@ -282,7 +282,7 @@ restricted_local(Config) when is_list(Config) ->
 	comm_err(<<"begin F=fun() -> hello end, foo(F) end.">>),
     "exception error: undefined shell command banan/1" =
 	comm_err(<<"begin F=fun() -> hello end, banan(F) end.">>),
-    "{error,"++_ = t(<<"begin F=fun() -> hello end, c(F) end.">>),
+    "Recompiling "++_ = t(<<"c(shell_SUITE).">>),
     "exception exit: restricted shell does not allow l(" ++ _ =
 	comm_err(<<"begin F=fun() -> hello end, l(F) end.">>),
     "exception error: variable 'F' is unbound" =

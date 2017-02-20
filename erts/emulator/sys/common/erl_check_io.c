@@ -38,6 +38,7 @@
 #include "erl_port.h"
 #include "erl_check_io.h"
 #include "erl_thr_progress.h"
+#include "erl_bif_unique.h"
 #include "dtrace-wrapper.h"
 #include "lttng-wrapper.h"
 #define ERTS_WANT_TIMER_WHEEL_API
@@ -2065,15 +2066,15 @@ send_event_tuple(struct erts_nif_select_event* e, ErtsResource* resource,
 
      /* {select, Resource, Ref, EventAtom} */
     if (is_value(e->immed)) {
-        hsz = 5 + PROC_BIN_SIZE;
+        hsz = 5 + ERTS_MAGIC_REF_THING_SIZE;
     }
     else {
-        hsz = 5 + PROC_BIN_SIZE + REF_THING_SIZE;
+        hsz = 5 + ERTS_MAGIC_REF_THING_SIZE + ERTS_REF_THING_SIZE;
     }
 
     mp = erts_alloc_message_heap(rp, &rp_locks, hsz, &hp, &ohp);
 
-    resource_term = erts_mk_magic_binary_term(&hp, ohp, &bin->binary);
+    resource_term = erts_mk_magic_ref(&hp, ohp, &bin->binary);
     if (is_value(e->immed)) {
         ASSERT(is_immed(e->immed));
         ref_term = e->immed;
@@ -2081,7 +2082,7 @@ send_event_tuple(struct erts_nif_select_event* e, ErtsResource* resource,
     else {
         write_ref_thing(hp, e->refn[0], e->refn[1], e->refn[2]);
         ref_term = make_internal_ref(hp);
-        hp += REF_THING_SIZE;
+        hp += ERTS_REF_THING_SIZE;
     }
     tuple = TUPLE4(hp, am_select, resource_term, ref_term, event_atom);
 

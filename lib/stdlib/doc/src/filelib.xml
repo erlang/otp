@@ -60,6 +60,12 @@
     <datatype>
       <name name="filename_all"/>
     </datatype>
+    <datatype>
+      <name name="find_file_rule"/>
+    </datatype>
+    <datatype>
+      <name name="find_source_rule"/>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -226,7 +232,51 @@ filelib:wildcard("lib/**/*.{erl,hrl}")</code>
           directory.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="find_file" arity="2"/>
+      <name name="find_file" arity="3"/>
+      <fsummary>Find a file relative to a given directory.</fsummary>
+      <desc>
+        <p>Looks for a file of the given name by applying suffix rules to
+        the given directory path. For example, a rule <c>{"ebin", "src"}</c>
+        means that if the directory path ends with <c>"ebin"</c>, the
+        corresponding path ending in <c>"src"</c> should be searched.</p>
+        <p>If <c><anno>Rules</anno></c> is left out or is an empty list, the
+        default system rules are used. See also the Kernel application
+        parameter <seealso
+        marker="kernel:kernel_app#source_search_rules"><c>source_search_rules</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="find_source" arity="1"/>
+      <fsummary>Find the source file for a given object file.</fsummary>
+      <desc>
+        <p>Equivalent to <c>find_source(Base, Dir)</c>, where <c>Dir</c> is
+        <c>filename:dirname(<anno>FilePath</anno>)</c> and <c>Base</c> is
+        <c>filename:basename(<anno>FilePath</anno>)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="find_source" arity="2"/>
+      <name name="find_source" arity="3"/>
+      <fsummary>Find a source file relative to a given directory.</fsummary>
+      <desc>
+        <p>Applies file extension specific rules to find the source file for
+        a given object file relative to the object directory. For example,
+        for a file with the extension <c>.beam</c>, the default rule is to
+        look for a file with a corresponding extension <c>.erl</c> by
+        replacing the suffix <c>"ebin"</c> of the object directory path with
+        <c>"src"</c>.
+        The file search is done through <seealso
+        marker="#find_file/3"><c>find_file/3</c></seealso>. The directory of
+        the object file is always tried before any other directory specified
+        by the rules.</p>
+        <p>If <c><anno>Rules</anno></c> is left out or is an empty list, the
+        default system rules are used. See also the Kernel application
+        parameter <seealso
+        marker="kernel:kernel_app#source_search_rules"><c>source_search_rules</c></seealso>.</p>
+      </desc>
+    </func>
   </funcs>
 </erlref>
-
-

@@ -1445,7 +1445,7 @@ finalize_force_imm_drv_call(ErtsTryImmDrvCallState *sp)
     erts_unblock_fpe(sp->fpe_was_unmasked);
 }
 
-#define ERTS_QUEUE_PORT_SCHED_OP_REPLY_SIZE (REF_THING_SIZE + 3)
+#define ERTS_QUEUE_PORT_SCHED_OP_REPLY_SIZE (ERTS_REF_THING_SIZE + 3)
 
 static ERTS_INLINE void
 queue_port_sched_op_reply(Process *rp,
@@ -1460,7 +1460,7 @@ queue_port_sched_op_reply(Process *rp,
 
     ref= make_internal_ref(hp);
     write_ref_thing(hp, ref_num[0], ref_num[1], ref_num[2]);
-    hp += REF_THING_SIZE;
+    hp += ERTS_REF_THING_SIZE;
 
     msg = TUPLE2(hp, ref, msg);
 
@@ -3099,7 +3099,7 @@ port_monitor(Port *prt, erts_aint32_t state, Eterm origin,
 
     ASSERT(is_pid(origin));
     ASSERT(is_atom(name) || is_port(name) || name == NIL);
-    ASSERT(is_internal_ref(ref));
+    ASSERT(is_internal_ordinary_ref(ref));
 
     if (!(state & ERTS_PORT_SFLGS_INVALID_LOOKUP)) {
         ErtsProcLocks p_locks = ERTS_PROC_LOCK_LINK;
@@ -3124,7 +3124,7 @@ static int
 port_sig_monitor(Port *prt, erts_aint32_t state, int op,
                  ErtsProc2PortSigData *sigdp)
 {
-    Eterm hp[REF_THING_SIZE];
+    Eterm hp[ERTS_REF_THING_SIZE];
     Eterm ref = make_internal_ref(&hp);
     write_ref_thing(hp, sigdp->ref[0], sigdp->ref[1], sigdp->ref[2]);
 
@@ -3245,7 +3245,7 @@ static int
 port_sig_demonitor(Port *prt, erts_aint32_t state, int op,
                    ErtsProc2PortSigData *sigdp)
 {
-    Eterm hp[REF_THING_SIZE];
+    Eterm hp[ERTS_REF_THING_SIZE];
     Eterm ref = make_internal_ref(&hp);
     write_ref_thing(hp, sigdp->u.demonitor.ref[0],
                     sigdp->u.demonitor.ref[1],
@@ -3302,10 +3302,10 @@ ErtsPortOpResult erts_port_demonitor(Process *origin, ErtsDemonitorMode mode,
     sigdp->u.demonitor.origin = origin->common.id;
     sigdp->u.demonitor.name = target->common.id;
     {
-        RefThing *reft = ref_thing_ptr(ref);
+	Uint32 *nums = internal_ref_numbers(ref);
         /* Start from 1 skip ref arity */
         sys_memcpy(sigdp->u.demonitor.ref,
-                   internal_thing_ref_numbers(reft),
+		   nums,
                    sizeof(sigdp->u.demonitor.ref));
     }
 
@@ -3431,7 +3431,7 @@ void erts_init_io(int port_tab_size,
 			 NULL,
 			 (ErtsPTabElementCommon *) &erts_invalid_port.common,
 			 port_tab_size,
-			 common_element_size, /* Doesn't need to be excact */
+			 common_element_size, /* Doesn't need to be exact */
 			 "port_table",
 			 legacy_port_tab,
 			 1);
@@ -5413,7 +5413,7 @@ reply_io_bytes(void *vreq)
 	    rp_locks = ERTS_PROC_LOCK_MAIN;
 	}
 
-	hsz = 5 /* 4-tuple */ + REF_THING_SIZE;
+	hsz = 5 /* 4-tuple */ + ERTS_REF_THING_SIZE;
 
 	erts_bld_uint64(NULL, &hsz, in);
 	erts_bld_uint64(NULL, &hsz, out);
@@ -5422,7 +5422,7 @@ reply_io_bytes(void *vreq)
 
 	ref = make_internal_ref(hp);
 	write_ref_thing(hp, req->refn[0], req->refn[1], req->refn[2]);
-	hp += REF_THING_SIZE;
+	hp += ERTS_REF_THING_SIZE;
 
 	ein = erts_bld_uint64(&hp, NULL, in);
 	eout = erts_bld_uint64(&hp, NULL, out);
@@ -5451,7 +5451,7 @@ erts_request_io_bytes(Process *c_p)
     ErtsIOBytesReq *req = erts_alloc(ERTS_ALC_T_IOB_REQ,
 				     sizeof(ErtsIOBytesReq));
 
-    hp = HAlloc(c_p, REF_THING_SIZE);
+    hp = HAlloc(c_p, ERTS_REF_THING_SIZE);
     ref = erts_sched_make_ref_in_buffer(esdp, hp);
     refn = internal_ref_numbers(ref);
 
@@ -6888,12 +6888,6 @@ ErlDrvSizeT driver_vec_to_buf(ErlIOVec *vec, char *buf, ErlDrvSizeT len)
     return (orig_len - len);
 }
 
-
-/*
- * - driver_alloc_binary() is thread safe (efile driver depend on it).
- * - driver_realloc_binary(), and driver_free_binary() are *not* thread safe.
- */
-
 /*
  * reference count on driver binaries...
  */
@@ -6936,26 +6930,15 @@ driver_alloc_binary(ErlDrvSizeT size)
     return Binary2ErlDrvBinary(bin);
 }
 
-/* Reallocate space hold by binary */
+/* Reallocate space held by binary */
 
 ErlDrvBinary* driver_realloc_binary(ErlDrvBinary* bin, ErlDrvSizeT size)
 {
     Binary* oldbin;
     Binary* newbin;
 
-    if (!bin) {
-	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp,
-		      "Bad use of driver_realloc_binary(%p, %lu): "
-		      "called with ",
-		      bin, (unsigned long)size);
-	if (!bin) {
-	    erts_dsprintf(dsbufp, "NULL pointer as first argument");
-	}
-	erts_send_warning_to_logger_nogl(dsbufp);
-	if (!bin)
-	    return driver_alloc_binary(size);
-    }
+    if (!bin)
+	return driver_alloc_binary(size);
 
     oldbin = ErlDrvBinary2Binary(bin);
     newbin = (Binary *) erts_bin_realloc_fnf(oldbin, size);
@@ -6969,14 +6952,8 @@ ErlDrvBinary* driver_realloc_binary(ErlDrvBinary* bin, ErlDrvSizeT size)
 void driver_free_binary(ErlDrvBinary* dbin)
 {
     Binary *bin;
-    if (!dbin) {
-	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp,
-		      "Bad use of driver_free_binary(%p): called with "
-		      "NULL pointer as argument", dbin);
-	erts_send_warning_to_logger_nogl(dsbufp);
+    if (!dbin)
 	return;
-    }
 
     bin = ErlDrvBinary2Binary(dbin);
     if (erts_refc_dectest(&bin->refc, 0) == 0)
@@ -7632,20 +7609,27 @@ erl_drv_convert_time_unit(ErlDrvTime val,
 
 void erts_ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon)
 {
-    RefThing *refp;
-    ASSERT(is_internal_ref(ref));
-    ERTS_CT_ASSERT(sizeof(RefThing) <= sizeof(ErlDrvMonitor));
-    refp = ref_thing_ptr(ref);
-    memset(mon,0,sizeof(ErlDrvMonitor));
-    memcpy(mon,refp,sizeof(RefThing));
+    ERTS_CT_ASSERT(ERTS_REF_THING_SIZE*sizeof(Uint) <= sizeof(ErlDrvMonitor));
+    ASSERT(is_internal_ordinary_ref(ref));
+    sys_memcpy((void *) mon, (void *) internal_ref_val(ref),
+               ERTS_REF_THING_SIZE*sizeof(Uint));
 }
 
+static Eterm driver_monitor_to_ref(Eterm *hp, const ErlDrvMonitor *mon)
+{
+    Eterm ref;
+    ERTS_CT_ASSERT(ERTS_REF_THING_SIZE*sizeof(Uint) <= sizeof(ErlDrvMonitor));
+    sys_memcpy((void *) hp, (void *) mon, ERTS_REF_THING_SIZE*sizeof(Uint));
+    ref = make_internal_ref(hp);
+    ASSERT(is_internal_ordinary_ref(ref));
+    return ref;
+}
 
 static int do_driver_monitor_process(Port *prt,
-				     Eterm *buf,
 				     ErlDrvTermData process,
 				     ErlDrvMonitor *monitor)
 {
+    Eterm buf[ERTS_REF_THING_SIZE];
     Process *rp;
     Eterm ref;
 
@@ -7688,26 +7672,21 @@ int driver_monitor_process(ErlDrvPort drvport,
     /* Now (in SMP) we should have either the port lock (if we have a scheduler) or the port data lock
        (if we're a driver thread) */
     ERTS_SMP_LC_ASSERT((sched != NULL || prt->port_data_lock));
-    {
-	DeclareTmpHeapNoproc(buf,REF_THING_SIZE);
-	UseTmpHeapNoproc(REF_THING_SIZE);
-	ret = do_driver_monitor_process(prt,buf,process,monitor);
-	UnUseTmpHeapNoproc(REF_THING_SIZE);
-    }
+    ret = do_driver_monitor_process(prt,process,monitor);
     DRV_MONITOR_UNLOCK_PDL(prt);
     return ret;
 }
 
-static int do_driver_demonitor_process(Port *prt, Eterm *buf,
-				       const ErlDrvMonitor *monitor)
+static int do_driver_demonitor_process(Port *prt, const ErlDrvMonitor *monitor)
 {
+    Eterm heap[ERTS_REF_THING_SIZE];
     Process *rp;
     Eterm ref;
     ErtsMonitor *mon;
     Eterm to;
 
-    memcpy(buf,monitor,sizeof(Eterm)*REF_THING_SIZE);
-    ref = make_internal_ref(buf);
+    ref = driver_monitor_to_ref(heap, monitor);
+
     mon = erts_lookup_monitor(ERTS_P_MONITORS(prt), ref);
     if (mon == NULL) {
 	return 1;
@@ -7751,25 +7730,20 @@ int driver_demonitor_process(ErlDrvPort drvport,
     /* Now we should have either the port lock (if we have a scheduler) or the port data lock
        (if we're a driver thread) */
     ERTS_SMP_LC_ASSERT((sched != NULL || prt->port_data_lock));
-    {
-	DeclareTmpHeapNoproc(buf,REF_THING_SIZE);
-	UseTmpHeapNoproc(REF_THING_SIZE);
-	ret = do_driver_demonitor_process(prt,buf,monitor);
-	UnUseTmpHeapNoproc(REF_THING_SIZE);
-    }
+    ret = do_driver_demonitor_process(prt,monitor);
     DRV_MONITOR_UNLOCK_PDL(prt);
     return ret;
 }
 
-static ErlDrvTermData do_driver_get_monitored_process(Port *prt, Eterm *buf,
-					    const ErlDrvMonitor *monitor)
+static ErlDrvTermData do_driver_get_monitored_process(Port *prt,const ErlDrvMonitor *monitor)
 {
     Eterm ref;
     ErtsMonitor *mon;
     Eterm to;
+    Eterm heap[ERTS_REF_THING_SIZE];
 
-    memcpy(buf,monitor,sizeof(Eterm)*REF_THING_SIZE);
-    ref = make_internal_ref(buf);
+    ref = driver_monitor_to_ref(heap, monitor);
+
     mon = erts_lookup_monitor(ERTS_P_MONITORS(prt), ref);
     if (mon == NULL) {
 	return driver_term_nil;
@@ -7797,21 +7771,16 @@ ErlDrvTermData driver_get_monitored_process(ErlDrvPort drvport,
     /* Now we should have either the port lock (if we have a scheduler) or the port data lock
        (if we're a driver thread) */
     ERTS_SMP_LC_ASSERT((sched != NULL || prt->port_data_lock));
-    {
-	DeclareTmpHeapNoproc(buf,REF_THING_SIZE);
-	UseTmpHeapNoproc(REF_THING_SIZE);
-	ret = do_driver_get_monitored_process(prt,buf,monitor);
-	UnUseTmpHeapNoproc(REF_THING_SIZE);
-    }
+    ret = do_driver_get_monitored_process(prt,monitor);
     DRV_MONITOR_UNLOCK_PDL(prt);
     return ret;
 }
 
-
 int driver_compare_monitors(const ErlDrvMonitor *monitor1,
 			    const ErlDrvMonitor *monitor2)
 {
-    return memcmp(monitor1,monitor2,sizeof(ErlDrvMonitor));
+    return sys_memcmp((void *) monitor1, (void *) monitor2,
+                      ERTS_REF_THING_SIZE*sizeof(Eterm));
 }
 
 void erts_fire_port_monitor(Port *prt, Eterm ref)

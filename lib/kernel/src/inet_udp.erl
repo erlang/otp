@@ -113,7 +113,7 @@ fdopen(Fd, Opts) ->
 %% Here's how:
 %%   Reverse the list.
 %%   For each head option go through the tail and remove
-%%   all occurences of the same option from the tail.
+%%   all occurrences of the same option from the tail.
 %%   Store that head option and iterate using the new tail.
 %%   Return the list of stored head options.
 optuniquify(List) ->
@@ -122,8 +122,8 @@ optuniquify(List) ->
 optuniquify([], Result) ->
     Result;
 optuniquify([Opt | Tail], Result) ->
-    %% Remove all occurences of Opt in Tail, 
-    %% prepend Opt to Result, 
+    %% Remove all occurrences of Opt in Tail,
+    %% prepend Opt to Result,
     %% then iterate back here.
     optuniquify(Opt, Tail, [], Result).
 

@@ -33,9 +33,9 @@ add_host_key(_, _, _) ->
 is_host_key(_, _, _, _) ->
     true.
 
-user_key('ssh-dss', Opts) ->
+user_key('ssh-rsa', Opts) ->
     UserDir = proplists:get_value(user_dir, Opts),
-    KeyFile = filename:join(filename:dirname(UserDir), "id_dsa"),
+    KeyFile = filename:join(filename:dirname(UserDir), "id_rsa"),
     {ok, KeyBin} = file:read_file(KeyFile),
     [Entry] = public_key:pem_decode(KeyBin),
     Key = public_key:pem_entry_decode(Entry),

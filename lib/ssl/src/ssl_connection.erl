@@ -323,8 +323,14 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
 -spec ssl_config(#ssl_options{}, client | server, #state{}) -> #state{}.
 %%--------------------------------------------------------------------
 ssl_config(Opts, Role, State) ->
-    {ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, CRLDbInfo, 
-     OwnCert, Key, DHParams} = 
+    {ok, #{cert_db_ref := Ref, 
+           cert_db_handle := CertDbHandle, 
+           fileref_db_handle := FileRefHandle, 
+           session_cache := CacheHandle, 
+           crl_db_info := CRLDbHandle,
+           private_key := Key,
+           dh_params := DHParams,
+           own_certificate := OwnCert}} =
 	ssl_config:init(Opts, Role), 
     Handshake = ssl_handshake:init_handshake_history(),
     TimeStamp = erlang:monotonic_time(),
@@ -335,7 +341,7 @@ ssl_config(Opts, Role, State) ->
 		file_ref_db = FileRefHandle,
 		cert_db_ref = Ref,
 		cert_db = CertDbHandle,
-		crl_db = CRLDbInfo,
+		crl_db = CRLDbHandle,
 		session_cache = CacheHandle,
 		private_key = Key,
 		diffie_hellman_params = DHParams,
@@ -1011,7 +1017,7 @@ terminate(_, _, #state{terminated = true}) ->
     %% Happens when user closes the connection using ssl:close/1
     %% we want to guarantee that Transport:close has been called
     %% when ssl:close/1 returns unless it is a downgrade where
-    %% we want to guarantee that close alert is recived before 
+    %% we want to guarantee that close alert is received before
     %% returning. In both cases terminate has been run manually
     %% before run by gen_statem which will end up here
     ok;
@@ -2428,16 +2434,23 @@ handle_sni_extension(#sni{hostname = Hostname}, State0) ->
 	undefined ->
 	    State0;
 	_ ->
-	    {ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, CRLDbHandle, OwnCert, Key, DHParams} = 
-		ssl_config:init(NewOptions, State0#state.role),
-	    State0#state{
-	      session = State0#state.session#session{own_certificate = OwnCert},
-	      file_ref_db = FileRefHandle,
-	      cert_db_ref = Ref,
-	      cert_db = CertDbHandle,
-	      crl_db = CRLDbHandle,
-	      session_cache = CacheHandle,
-	      private_key = Key,
+	    {ok, #{cert_db_ref := Ref, 
+                   cert_db_handle := CertDbHandle, 
+                   fileref_db_handle := FileRefHandle, 
+                   session_cache := CacheHandle, 
+                   crl_db_info := CRLDbHandle,
+                   private_key := Key,
+                   dh_params := DHParams,
+                   own_certificate := OwnCert}} =
+                 ssl_config:init(NewOptions, State0#state.role),
+             State0#state{
+               session = State0#state.session#session{own_certificate = OwnCert},
+               file_ref_db = FileRefHandle,
+               cert_db_ref = Ref,
+               cert_db = CertDbHandle,
+               crl_db = CRLDbHandle,
+               session_cache = CacheHandle,
+               private_key = Key,
 	      diffie_hellman_params = DHParams,
 	      ssl_options = NewOptions,
 	      sni_hostname = Hostname

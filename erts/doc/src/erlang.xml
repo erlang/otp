@@ -325,16 +325,11 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
           is <c>latin1</c>, one byte exists for each character
           in the text representation. If <c><anno>Encoding</anno></c> is
           <c>utf8</c> or
-          <c>unicode</c>, the characters are encoded using UTF-8
-          (that is, characters from 128 through 255 are
-          encoded in two bytes).</p>
+          <c>unicode</c>, the characters are encoded using UTF-8 where
+          characters may require multiple bytes.</p>
         <note>
-          <p><c>atom_to_binary(<anno>Atom</anno>, latin1)</c> never
-            fails, as the text representation of an atom can only
-            contain characters from 0 through 255. In a future release,
-            the text representation
-            of atoms can be allowed to contain any Unicode character and
-            <c>atom_to_binary(<anno>Atom</anno>, latin1)</c> then fails if the
+          <p>As from Erlang/OTP 20, atoms can contain any Unicode character
+            and <c>atom_to_binary(<anno>Atom</anno>, latin1)</c> may fail if the
             text representation for <c><anno>Atom</anno></c> contains a Unicode
             character &gt; 255.</p>
         </note>
@@ -402,13 +397,11 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
           translation of bytes in the binary is done.
           If <c><anno>Encoding</anno></c>
           is <c>utf8</c> or <c>unicode</c>, the binary must contain
-          valid UTF-8 sequences. Only Unicode characters up
-          to 255 are allowed.</p>
+          valid UTF-8 sequences.</p>
         <note>
-          <p><c>binary_to_atom(<anno>Binary</anno>, utf8)</c> fails if
-            the binary contains Unicode characters &gt; 255.
-            In a future release, such Unicode characters can be allowed and
-            <c>binary_to_atom(<anno>Binary</anno>, utf8)</c> does then not fail.
+          <p>As from Erlang/OTP 20, <c>binary_to_atom(<anno>Binary</anno>, utf8)</c>
+            is capable of encoding any Unicode character. Earlier versions would
+            fail if the binary contained Unicode characters &gt; 255.
             For more information about Unicode support in atoms, see the
             <seealso marker="erl_ext_dist#utf8_atoms">note on UTF-8
             encoded atoms</seealso>
@@ -419,9 +412,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
 > <input>binary_to_atom(&lt;&lt;"Erlang"&gt;&gt;, latin1).</input>
 'Erlang'
 > <input>binary_to_atom(&lt;&lt;1024/utf8&gt;&gt;, utf8).</input>
-** exception error: bad argument
-     in function  binary_to_atom/2
-        called as binary_to_atom(&lt;&lt;208,128&gt;&gt;,utf8)</pre>
+'Ѐ'</pre>
       </desc>
     </func>
 
@@ -1955,26 +1946,6 @@ os_prompt%</pre>
     </func>
 
     <func>
-      <name name="hash" arity="2"/>
-      <fsummary>Hash function (deprecated).</fsummary>
-      <desc>
-        <p>Returns a hash value for <c><anno>Term</anno></c> within the range
-          <c>1..<anno>Range</anno></c>. The maximum range is 1..2^27-1.</p>
-        <warning>
-          <p><em>This BIF is deprecated, as the hash value can differ on
-            different architectures.</em> The hash values for integer
-            terms &gt; 2^27 and large binaries are
-            poor. The BIF is retained for backward compatibility
-            reasons (it can have been used to hash records into a file),
-            but all new code is to use one of the BIFs
-            <seealso marker="#phash/2"><c>erlang:phash/2</c></seealso> or
-            <seealso marker="#phash2/1"><c>erlang:phash2/1,2</c></seealso>
-            instead.</p>
-        </warning>
-      </desc>
-    </func>
-
-    <func>
       <name name="hd" arity="1"/>
       <fsummary>Head of a list.</fsummary>
       <desc>
@@ -2401,10 +2372,10 @@ os_prompt%</pre>
       <desc>
         <p>Returns the atom whose text representation is
           <c><anno>String</anno></c>.</p>
-        <p><c><anno>String</anno></c> can only contain ISO-latin-1
-          characters (that is, numbers &lt; 256) as the implementation does not
-          allow Unicode characters equal to or above 256 in atoms.
-          For more information on Unicode support in atoms, see
+        <p>As from Erlang/OTP 20, <c><anno>String</anno></c> may contain
+          any Unicode character. Earlier versions allowed only ISO-latin-1
+          characters as the implementation did not allow Unicode characters
+          above 255. For more information on Unicode support in atoms, see
           <seealso marker="erl_ext_dist#utf8_atoms">note on UTF-8
           encoded atoms</seealso>
           in section "External Term Format" in the User's Guide.</p>
@@ -3818,9 +3789,6 @@ RealSystem = system + MissedSystem</code>
           <c><anno>Term</anno></c> within the range
           <c>1..<anno>Range</anno></c>. The maximum value for
           <c><anno>Range</anno></c> is 2^32.</p>
-        <p>This BIF can be used instead of the old deprecated BIF
-          <c>erlang:hash/2</c>, as it calculates better hashes for
-          all data types, but consider using <c>phash2/1,2</c> instead.</p>
       </desc>
     </func>
 
@@ -3855,10 +3823,6 @@ RealSystem = system + MissedSystem</code>
       <desc>
         <p>Returns a string corresponding to the text
           representation of <c><anno>Pid</anno></c>.</p>
-        <warning>
-          <p>This BIF is intended for debugging and is not to be used
-            in application programs.</p>
-        </warning>
       </desc>
     </func>
 
@@ -4431,10 +4395,6 @@ RealSystem = system + MissedSystem</code>
       <desc>
         <p>Returns a string corresponding to the text
           representation of the port identifier <c><anno>Port</anno></c>.</p>
-        <warning>
-          <p>This BIF is intended for debugging. It is not to be used
-            in application programs.</p>
-        </warning>
       </desc>
     </func>
 
@@ -4631,7 +4591,7 @@ RealSystem = system + MissedSystem</code>
         <p>If the process potentially can get many messages,
           you are advised to set the flag to <c>off_heap</c>. This
           because a garbage collection with many messages placed on
-          the heap can become extremly expensive and the process can
+          the heap can become extremely expensive and the process can
           consume large amounts of memory. Performance of the
           actual message passing is however generally better when not
           using flag <c>off_heap</c>.</p>

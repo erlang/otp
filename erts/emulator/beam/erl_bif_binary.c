@@ -380,7 +380,7 @@ static void ac_compute_failure_functions(ACTrie *act, ACNode **qbuff)
 		qbuff[qt++] = child;
 		/* Search for correct failure function, follow the parent's
 		   failure function until you find a similar transition
-		   funtion to this child's */
+		   function to this child's */
 		r =  parent->h;
 		while (r != NULL && r->g[i] == NULL) {
 		    r = r->h;
@@ -1010,8 +1010,8 @@ BIF_RETTYPE binary_compile_pattern_1(BIF_ALIST_1)
     if (do_binary_match_compile(BIF_ARG_1,&tag,&bin)) {
 	BIF_ERROR(BIF_P,BADARG);
     }
-    hp = HAlloc(BIF_P, PROC_BIN_SIZE+3);
-    ret = erts_mk_magic_binary_term(&hp, &MSO(BIF_P), bin);
+    hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE+3);
+    ret = erts_mk_magic_ref(&hp, &MSO(BIF_P), bin);
     ret = TUPLE2(hp, tag, ret);
     BIF_RET(ret);
 }
@@ -1426,11 +1426,11 @@ binary_match(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, Uint flags)
 	    goto badarg;
 	}
 	if (((tp[1] != am_bm) && (tp[1] != am_ac)) ||
-	    !ERTS_TERM_IS_MAGIC_BINARY(tp[2])) {
+	    !is_internal_magic_ref(tp[2])) {
 	    goto badarg;
 	}
 	bfs.type = tp[1];
-	bin = ((ProcBin *) binary_val(tp[2]))->val;
+	bin = erts_magic_ref2bin(tp[2]);
 	if (bfs.type == am_bm &&
 	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_bm) {
 	    goto badarg;
@@ -1448,8 +1448,8 @@ binary_match(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, Uint flags)
     bfs.global_result = &do_match_global_result;
     runres = do_binary_find(p, arg1, &bfs, bin, NIL, &result);
     if (runres == DO_BIN_MATCH_RESTART && bin_term == NIL) {
-	Eterm *hp = HAlloc(p, PROC_BIN_SIZE);
-	bin_term = erts_mk_magic_binary_term(&hp, &MSO(p), bin);
+	Eterm *hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+	bin_term = erts_mk_magic_ref(&hp, &MSO(p), bin);
     } else if (bin_term == NIL) {
 	erts_bin_free(bin);
     }
@@ -1512,11 +1512,11 @@ binary_split(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 	    goto badarg;
 	}
 	if (((tp[1] != am_bm) && (tp[1] != am_ac)) ||
-	    !ERTS_TERM_IS_MAGIC_BINARY(tp[2])) {
+	    !is_internal_magic_ref(tp[2])) {
 	    goto badarg;
 	}
 	bfs.type = tp[1];
-	bin = ((ProcBin *) binary_val(tp[2]))->val;
+	bin = erts_magic_ref2bin(tp[2]);
 	if (bfs.type == am_bm &&
 	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_bm) {
 	    goto badarg;
@@ -1534,8 +1534,8 @@ binary_split(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
     bfs.global_result = &do_split_global_result;
     runres = do_binary_find(p, arg1, &bfs, bin, NIL, &result);
     if (runres == DO_BIN_MATCH_RESTART && bin_term == NIL) {
-	Eterm *hp = HAlloc(p, PROC_BIN_SIZE);
-	bin_term = erts_mk_magic_binary_term(&hp, &MSO(p), bin);
+	Eterm *hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+	bin_term = erts_mk_magic_ref(&hp, &MSO(p), bin);
     } else if (bin_term == NIL) {
 	erts_bin_free(bin);
     }
@@ -1767,7 +1767,8 @@ static BIF_RETTYPE binary_find_trap(BIF_ALIST_3)
 {
     int runres;
     Eterm result;
-    Binary *bin = ((ProcBin *) binary_val(BIF_ARG_3))->val;
+    Binary *bin = erts_magic_ref2bin(BIF_ARG_3);
+
     runres = do_binary_find(BIF_P, BIF_ARG_1, NULL, bin, BIF_ARG_2, &result);
     if (runres == DO_BIN_MATCH_OK) {
 	BIF_RET(result);
@@ -2186,8 +2187,8 @@ static BIF_RETTYPE do_longest_common(Process *p, Eterm list, int direction)
 		cd[i].type = CL_TYPE_HEAP;
 	    }
 	}
-	hp = HAlloc(p, PROC_BIN_SIZE);
-	bin_term = erts_mk_magic_binary_term(&hp, &MSO(p), mb);
+	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+	bin_term = erts_mk_magic_ref(&hp, &MSO(p), mb);
 	BUMP_ALL_REDS(p);
 	BIF_TRAP3(trapper, p, bin_term, epos,list);
     }
@@ -2214,8 +2215,7 @@ static BIF_RETTYPE do_longest_common_trap(Process *p, Eterm bin_term, Eterm curr
 #else
     term_to_Uint(current_pos, &pos);
 #endif
-    ASSERT(ERTS_TERM_IS_MAGIC_BINARY(bin_term));
-    bin = ((ProcBin *) binary_val(bin_term))->val;
+    bin = erts_magic_ref2bin(bin_term);
     cd = (CommonData *) ERTS_MAGIC_BIN_DATA(bin);
     if (direction == DIRECTION_PREFIX) {
 	trapper = &binary_longest_prefix_trap_export;
@@ -2681,8 +2681,8 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
 	cbs->source_size = size;
 	cbs->result_pos = pos;
 	cbs->times_left = n-i;
-	hp = HAlloc(p,PROC_BIN_SIZE);
-	trap_term = erts_mk_magic_binary_term(&hp, &MSO(p), mb);
+	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+	trap_term = erts_mk_magic_ref(&hp, &MSO(p), mb);
 	BUMP_ALL_REDS(p);
 	BIF_TRAP2(&binary_copy_trap_export, p, bin, trap_term);
     } else {
@@ -2717,7 +2717,7 @@ BIF_RETTYPE binary_copy_trap(BIF_ALIST_2)
     Uint reds = get_reds(BIF_P, BINARY_COPY_LOOP_FACTOR);
     byte *t;
     Uint pos;
-    Binary *mb = ((ProcBin *) binary_val(BIF_ARG_2))->val;
+    Binary *mb = erts_magic_ref2bin(BIF_ARG_2);
     CopyBinState *cbs = (CopyBinState *) ERTS_MAGIC_BIN_DATA(mb);
     Uint opos;
 

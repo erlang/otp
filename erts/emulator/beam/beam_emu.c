@@ -126,7 +126,7 @@ do {                                     \
 
 /*
  * We reuse some of fields in the save area in the process structure.
- * This is safe to do, since this space is only activly used when
+ * This is safe to do, since this space is only actively used when
  * the process is switched out.
  */
 #define REDS_IN(p)  ((p)->def_arg_reg[5])
@@ -220,7 +220,7 @@ BeamInstr* em_call_bif_e;
 
 /* NOTE These should be the only variables containing trace instructions.
 **      Sometimes tests are form the instruction value, and sometimes
-**      for the refering variable (one of these), and rouge references
+**      for the referring variable (one of these), and rouge references
 **      will most likely cause chaos.
 */
 BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
@@ -2993,7 +2993,7 @@ do {						\
  }
 
  /*
-  * An error occured in an arithmetic operation or test that could
+  * An error occurred in an arithmetic operation or test that could
   * appear either in a head or in a body.
   * In a head, execution should continue at failure address in Arg(0).
   * In a body, Arg(0) == 0 and an exception should be raised.
@@ -6268,7 +6268,7 @@ apply_bif_error_adjustment(Process *p, Export *ep,
 	 * stackframe correct. Without the following adjustment,
 	 * 'p->cp' will point into the function that called
 	 * current function when handling the error. We add a
-	 * dummy stackframe in order to achive this.
+	 * dummy stackframe in order to achieve this.
 	 *
 	 * Note that these BIFs unconditionally will cause
 	 * an exception to be raised. That is, our modifications
@@ -6612,7 +6612,7 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
 #ifndef ERTS_SMP
 	if (ERTS_PROC_IS_EXITING(c_p)) {
 	    /*
-	     * See comment in the begining of the function...
+	     * See comment in the beginning of the function...
 	     *
 	     * This second test is needed since gc might be traced.
 	     */
@@ -6846,7 +6846,7 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     p->htop = hp + needed;
     funp = (ErlFunThing *) hp;
     hp = funp->env;
-    erts_refc_inc(&fe->refc, 2);
+    erts_smp_refc_inc(&fe->refc, 2);
     funp->thing_word = HEADER_FUN;
     funp->next = MSO(p).first;
     MSO(p).first = (struct erl_off_heap_header*) funp;

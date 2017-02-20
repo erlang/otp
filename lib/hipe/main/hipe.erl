@@ -441,7 +441,7 @@ compile(Name, File, Opts0) when is_atom(Name) ->
       ?error_msg("Cannot get Core Erlang code from BEAM binary.",[]),
       ?EXIT({cant_compile_core_from_binary});
     true ->
-      case filename:find_src(filename:rootname(File, ".beam")) of
+      case filelib:find_source(filename:rootname(File,".beam") ++ ".beam") of
 	{error, _} ->
 	  ?error_msg("Cannot find source code for ~p.", [File]),
 	  ?EXIT({cant_find_source_code});

@@ -609,13 +609,15 @@ handle_event(_, #ssh_msg_kexdh_reply{} = Msg, {key_exchange,client,ReNeg}, D) ->
 
 %%%---- diffie-hellman group exchange
 handle_event(_, #ssh_msg_kex_dh_gex_request{} = Msg, {key_exchange,server,ReNeg}, D) ->
-    {ok, GexGroup, Ssh} = ssh_transport:handle_kex_dh_gex_request(Msg, D#data.ssh_params),
+    {ok, GexGroup, Ssh1} = ssh_transport:handle_kex_dh_gex_request(Msg, D#data.ssh_params),
     send_bytes(GexGroup, D),
+    Ssh = ssh_transport:parallell_gen_key(Ssh1),
     {next_state, {key_exchange_dh_gex_init,server,ReNeg}, D#data{ssh_params=Ssh}};
 
 handle_event(_, #ssh_msg_kex_dh_gex_request_old{} = Msg, {key_exchange,server,ReNeg}, D) ->
-    {ok, GexGroup, Ssh} = ssh_transport:handle_kex_dh_gex_request(Msg, D#data.ssh_params),
+    {ok, GexGroup, Ssh1} = ssh_transport:handle_kex_dh_gex_request(Msg, D#data.ssh_params),
     send_bytes(GexGroup, D),
+    Ssh = ssh_transport:parallell_gen_key(Ssh1),
     {next_state, {key_exchange_dh_gex_init,server,ReNeg}, D#data{ssh_params=Ssh}};
 
 handle_event(_, #ssh_msg_kex_dh_gex_group{} = Msg, {key_exchange,client,ReNeg}, D) ->
@@ -1206,7 +1208,7 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
 	    catch
 		_C:_E  ->
 		    disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-						   description = "Encountered unexpected input"},
+						   description = "Bad packet"},
 			       StateName, D)
 	    end;
 
@@ -1221,13 +1223,12 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
 
 	{bad_mac, Ssh1} ->
 	    disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-					   description = "Bad mac"},
+					   description = "Bad packet"},
 		       StateName, D0#data{ssh_params=Ssh1});
 
-	{error, {exceeds_max_size,PacketLen}} ->
+	{error, {exceeds_max_size,_PacketLen}} ->
 	    disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-					   description = "Bad packet length "
-					   ++ integer_to_list(PacketLen)},
+					   description = "Bad packet"},
 		       StateName, D0)
     catch
 	_C:_E ->
@@ -1480,30 +1481,35 @@ renegotiation(_) -> false.
 %%--------------------------------------------------------------------
 supported_host_keys(client, _, Options) ->
     try
-	case proplists:get_value(public_key,
-				 proplists:get_value(preferred_algorithms,Options,[])
-				) of
-	    undefined ->
-		ssh_transport:default_algorithms(public_key);
-	    L ->
-		L -- (L--ssh_transport:default_algorithms(public_key))
-	end
+        find_sup_hkeys(Options)
     of
 	[] ->
-	    {stop, {shutdown, "No public key algs"}};
+	    error({shutdown, "No public key algs"});
 	Algs ->
 	    [atom_to_list(A) || A<-Algs]
     catch
 	exit:Reason ->
-	    {stop, {shutdown, Reason}}
+	    error({shutdown, Reason})
     end;
 supported_host_keys(server, KeyCb, Options) ->
-    [atom_to_list(A) || A <- proplists:get_value(public_key,
-						 proplists:get_value(preferred_algorithms,Options,[]),
-						 ssh_transport:default_algorithms(public_key)
-						),
+    [atom_to_list(A) || A <- find_sup_hkeys(Options),
 			available_host_key(KeyCb, A, Options)
     ].
+
+
+find_sup_hkeys(Options) ->
+    case proplists:get_value(public_key,
+                             proplists:get_value(preferred_algorithms,Options,[])
+                            )
+    of
+        undefined ->
+            ssh_transport:default_algorithms(public_key);
+        L ->
+            NonSupported =  L--ssh_transport:supported_algorithms(public_key),
+            L -- NonSupported
+    end.
+
+
 
 %% Alg :: atom()
 available_host_key(KeyCb, Alg, Opts) ->

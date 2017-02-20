@@ -82,8 +82,8 @@ pem_cleanup() ->
     [{doc, "Test pem cache invalidate mechanism"}].
 pem_cleanup(Config)when is_list(Config) ->
     process_flag(trap_exit, true),
-    ClientOpts = proplists:get_value(client_opts, Config),
-    ServerOpts = proplists:get_value(server_opts, Config),
+    ClientOpts = proplists:get_value(client_verification_opts, Config),
+    ServerOpts = proplists:get_value(server_verification_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server =

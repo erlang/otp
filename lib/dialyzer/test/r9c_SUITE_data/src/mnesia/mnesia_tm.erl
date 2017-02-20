@@ -1615,7 +1615,7 @@ commit_participant(Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
 
 do_abort(Tid, Bin) when binary(Bin) ->
     %% Possible optimization:
-    %% If we want we could pass arround a flag
+    %% If we want we could pass around a flag
     %% that tells us whether the binary contains
     %% schema ops or not. Only if the binary
     %% contains schema ops there are meningful

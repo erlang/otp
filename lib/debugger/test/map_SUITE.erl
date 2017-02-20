@@ -1714,10 +1714,8 @@ t_bif_map_values(Config) when is_list(Config) ->
 
 
 t_erlang_hash(Config) when is_list(Config) ->
-
     ok = t_bif_erlang_phash2(),
     ok = t_bif_erlang_phash(),
-    ok = t_bif_erlang_hash(),
     ok.
 
 t_bif_erlang_phash2() ->
@@ -1757,26 +1755,6 @@ t_bif_erlang_phash() ->
     2620391445 = erlang:phash(M0,Sz), % 3590546636
     1670235874 = erlang:phash(M1,Sz), % 4066388227
     2620391445 = erlang:phash(M2,Sz), % 3590546636
-    ok.
-
-t_bif_erlang_hash() ->
-    Sz = 1 bsl 27 - 1,
-    39684169 = erlang:hash(#{},Sz),  % 5158
-    33673142 = erlang:hash(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 },Sz), % 71555838
-    95337869 = erlang:hash(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} },Sz), % 5497225
-    108959561 = erlang:hash(#{ 1 => a },Sz), % 126071654
-    59623150 = erlang:hash(#{ a => 1 },Sz), % 126426236
-
-    42775386 = erlang:hash(#{{} => <<>>},Sz), % 101655720
-    71692856 = erlang:hash(#{<<>> => {}},Sz), % 101655720
-
-    M0 = #{ a => 1, "key" => <<"value">> },
-    M1 = maps:remove("key",M0),
-    M2 = M1#{ "key" => <<"value">> },
-
-    70254632 = erlang:hash(M0,Sz), % 38260486
-    59623150 = erlang:hash(M1,Sz), % 126426236
-    70254632 = erlang:hash(M2,Sz), % 38260486
     ok.
 
 t_map_encode_decode(Config) when is_list(Config) ->

@@ -111,12 +111,19 @@ const int etp_lock_check = 1;
 #else
 const int etp_lock_check = 0;
 #endif
-#ifdef WORDS_BIGENDIAN
-const int etp_big_endian = 1;
+const int etp_endianness = ERTS_ENDIANNESS;
+const Eterm etp_ref_header = ERTS_REF_THING_HEADER;
+#ifdef ERTS_MAGIC_REF_THING_HEADER
+const Eterm etp_magic_ref_header = ERTS_MAGIC_REF_THING_HEADER;
 #else
-const int etp_big_endian = 0;
+const Eterm etp_magic_ref_header = ERTS_REF_THING_HEADER;
 #endif
 const Eterm etp_the_non_value = THE_NON_VALUE;
+#ifdef ERTS_HOLE_MARKER
+const Eterm etp_hole_marker = ERTS_HOLE_MARKER;
+#else
+const Eterm etp_hole_marker = 0;
+#endif
 
 /*
  * Note about VxWorks: All variables must be initialized by executable code,
@@ -767,6 +774,8 @@ early_init(int *argc, char **argv) /*
     H_MAX_SIZE = H_DEFAULT_MAX_SIZE;
     H_MAX_FLAGS = MAX_HEAP_SIZE_KILL|MAX_HEAP_SIZE_LOG;
 
+    erts_term_init();
+
     erts_initialized = 0;
 
     erts_use_sender_punish = 1;
@@ -1138,6 +1147,8 @@ early_init(int *argc, char **argv) /*
     no_schedulers_online = schdlrs_onln;
 
     erts_no_schedulers = (Uint) no_schedulers;
+#else
+    erts_no_schedulers = 1;
 #endif
 #ifdef ERTS_DIRTY_SCHEDULERS
     erts_no_dirty_cpu_schedulers = no_dirty_cpu_schedulers = dirty_cpu_scheds;
@@ -2220,7 +2231,6 @@ erl_start(int argc, char **argv)
 	init_break_handler();
     if (replace_intr)
 	erts_replace_intr();
-    sys_init_suspend_handler();
 #endif
 
     boot_argc = argc - i;  /* Number of arguments to init */

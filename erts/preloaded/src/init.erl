@@ -932,15 +932,15 @@ load_rest([], _) ->
 prepare_loading_fun() ->
     fun(Mod, FullName, Beam) ->
 	    case erlang:prepare_loading(Mod, Beam) of
-		Prepared when is_binary(Prepared) ->
+		{error,_}=Error ->
+		    Error;
+		Prepared ->
 		    case erlang:has_prepared_code_on_load(Prepared) of
 			true ->
 			    {ok,{on_load,Beam,FullName}};
 			false ->
 			    {ok,{prepared,Prepared,FullName}}
-		    end;
-		{error,_}=Error ->
-		    Error
+		    end
 	    end
     end.
 

@@ -129,7 +129,7 @@ typedef struct {
 
 typedef struct erts_lcnt_lock_stats_s {
     /* "tries" and "colls" needs to be atomic since
-     * trylock busy does not aquire a lock and there
+     * trylock busy does not acquire a lock and there
      * is no post action to rectify the situation
      */
 

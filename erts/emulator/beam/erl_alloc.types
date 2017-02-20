@@ -65,7 +65,7 @@
 
 # --- Allocator declarations -------------------------------------------------
 #
-# If, and only if, the same thread performes *all* allocations,
+# If, and only if, the same thread performs *all* allocations,
 # reallocations and deallocations of all memory types that are handled
 # by a specific allocator (<ALLOCATOR> in type declaration), set 
 # <MULTI_THREAD> for this specific allocator to false; otherwise, set
@@ -280,6 +280,11 @@ type    TRACE_MSG_QUEUE SHORT_LIVED     SYSTEM          trace_message_queue
 type    SCHED_ASYNC_JOB SHORT_LIVED     SYSTEM          async_calls
 type    DIRTY_START     STANDARD	PROCESSES       dirty_start
 type    DIRTY_SL	SHORT_LIVED	SYSTEM		dirty_short_lived
+type    MREF_NSCHED_ENT	FIXED_SIZE	SYSTEM		nsched_magic_ref_entry
+type    MREF_ENT	STANDARD	SYSTEM		magic_ref_entry
+type	MREF_TAB_BKTS	STANDARD	SYSTEM		magic_ref_table_buckets
+type	MREF_TAB	LONG_LIVED	SYSTEM		magic_ref_table
+type	MINDIRECTION	FIXED_SIZE	SYSTEM		magic_indirection
 
 +if threads_no_smp
 # Need thread safe allocs, but std_alloc and fix_alloc are not;

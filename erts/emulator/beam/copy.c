@@ -850,7 +850,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 		    funp = (ErlFunThing *) tp;
 		    funp->next = off_heap->first;
 		    off_heap->first = (struct erl_off_heap_header*) funp;
-		    erts_refc_inc(&funp->fe->refc, 2);
+		    erts_smp_refc_inc(&funp->fe->refc, 2);
 		    *argp = make_fun(tp);
 		}
 		break;
@@ -858,20 +858,24 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 	    case EXTERNAL_PORT_SUBTAG:
 	    case EXTERNAL_REF_SUBTAG:
 		{
-		  ExternalThing *etp = (ExternalThing *) htop;
-
+		  ExternalThing *etp = (ExternalThing *) objp;
+		  erts_smp_refc_inc(&etp->node->refc, 2);
+		}
+	    L_off_heap_node_container_common:
+		{
+		  struct erl_off_heap_header *ohhp;
+		  ohhp = (struct erl_off_heap_header *) htop;
 		  i  = thing_arityval(hdr) + 1;
+		  *argp = make_boxed(htop);
 		  tp = htop;
 
 		  while (i--)  {
 		    *htop++ = *objp++;
 		  }
 
-		  etp->next = off_heap->first;
-		  off_heap->first = (struct erl_off_heap_header*)etp;
-		  erts_refc_inc(&etp->node->refc, 2);
+		  ohhp->next = off_heap->first;
+		  off_heap->first = ohhp;
 
-		  *argp = make_external(tp);
 		}
 		break;
 	    case MAP_SUBTAG:
@@ -899,6 +903,13 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 	    case BIN_MATCHSTATE_SUBTAG:
 		erts_exit(ERTS_ABORT_EXIT,
 			 "copy_struct: matchstate term not allowed");
+	    case REF_SUBTAG:
+		if (is_magic_ref_thing(objp)) {
+		    ErtsMRefThing *mreft = (ErtsMRefThing *) objp;
+		    erts_refc_inc(&mreft->mb->refc, 2);
+		    goto L_off_heap_node_container_common;
+		}
+		/* Fall through... */
 	    default:
 		i = thing_arityval(hdr)+1;
 		hbot -= i;
@@ -1525,7 +1536,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		}
 		funp->next = off_heap->first;
 		off_heap->first = (struct erl_off_heap_header*) funp;
-		erts_refc_inc(&funp->fe->refc, 2);
+		erts_smp_refc_inc(&funp->fe->refc, 2);
 		goto cleanup_next;
 	    }
 	    case MAP_SUBTAG:
@@ -1649,20 +1660,33 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 	    }
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
-	    case EXTERNAL_REF_SUBTAG: {
-		ExternalThing *etp = (ExternalThing *) hp;
+	    case EXTERNAL_REF_SUBTAG:
+	    {
+		ExternalThing *etp = (ExternalThing *) ptr;
+		erts_smp_refc_inc(&etp->node->refc, 2);
+	    }
+	  off_heap_node_container_common:
+	    {
+		struct erl_off_heap_header *ohhp;
+		ohhp = (struct erl_off_heap_header *) hp;
 		sz = thing_arityval(hdr);
-		*resp = make_external(hp);
+		*resp = make_boxed(hp);
 		*hp++ = hdr;
 		ptr++;
 		while (sz-- > 0) {
 		    *hp++ = *ptr++;
 		}
-		etp->next = off_heap->first;
-		off_heap->first = (struct erl_off_heap_header*) etp;
-		erts_refc_inc(&etp->node->refc, 2);
+		ohhp->next = off_heap->first;
+		off_heap->first = ohhp;
 		goto cleanup_next;
 	    }
+	    case REF_SUBTAG:
+		if (is_magic_ref_thing(ptr)) {
+		    ErtsMRefThing *mreft = (ErtsMRefThing *) ptr;
+		    erts_refc_inc(&mreft->mb->refc, 2);
+		    goto off_heap_node_container_common;
+		}
+		/* Fall through... */
 	    default:
 		sz = thing_arityval(hdr);
 		*resp = make_boxed(hp);
@@ -1836,7 +1860,7 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	    case FUN_SUBTAG:
 		{
 		    ErlFunThing* funp = (ErlFunThing *) (tp-1);
-		    erts_refc_inc(&funp->fe->refc, 2);
+		    erts_smp_refc_inc(&funp->fe->refc, 2);
 		}
 		goto off_heap_common;
 	    case EXTERNAL_PID_SUBTAG:
@@ -1844,7 +1868,7 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	    case EXTERNAL_REF_SUBTAG:
 		{
 		    ExternalThing* etp = (ExternalThing *) (tp-1);
-		    erts_refc_inc(&etp->node->refc, 2);
+		    erts_smp_refc_inc(&etp->node->refc, 2);
 		}
 	    off_heap_common:
 		{
@@ -1859,6 +1883,15 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    off_heap->first = ohh;
 		}
 		break;
+	    case REF_SUBTAG: {
+		ErtsRefThing *rtp = (ErtsRefThing *) (tp - 1);
+		if (is_magic_ref_thing(rtp)) {
+		    ErtsMRefThing *mreft = (ErtsMRefThing *) rtp;
+		    erts_refc_inc(&mreft->mb->refc, 2);
+		    goto off_heap_common;
+		}
+		/* Fall through... */
+	    }
 	    default:
 		{
 		    int tari = header_arity(val);
@@ -1959,6 +1992,9 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
 	    ASSERT(ptr + header_arity(val) < end);
 	    MOVE_BOXED(ptr, val, hp, &dummy_ref);
 	    switch (val & _HEADER_SUBTAG_MASK) {
+	    case REF_SUBTAG:
+		if (is_ordinary_ref_thing(hdr))
+		    break;
 	    case REFC_BINARY_SUBTAG:
 	    case FUN_SUBTAG:
 	    case EXTERNAL_PID_SUBTAG:

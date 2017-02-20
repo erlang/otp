@@ -1259,7 +1259,7 @@ gen_dec_line(Erules,TopType,Cname,CTags,Type,OptOrMand,DecObjInf)  ->
 	end,
     case DecObjInf of
 	{Cname,ObjSet} -> % this must be the component were an object is
-	    %% choosen from the object set according to the table
+	    %% chosen from the object set according to the table
 	    %% constraint.
 	    {[{ObjSet,Cname,asn1ct_gen:mk_var(asn1ct_name:curr(term))}],
 	     PostpDec};

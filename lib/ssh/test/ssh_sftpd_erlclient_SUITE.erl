@@ -65,6 +65,7 @@ init_per_suite(Config) ->
 	   {ok, FileInfo} = file:read_file_info(FileName),
 	   ok = file:write_file_info(FileName,
 				     FileInfo#file_info{mode = 8#400}),
+	   ssh_test_lib:setup_rsa(DataDir, PrivDir),
 	   ssh_test_lib:setup_dsa(DataDir, PrivDir),
 	   Config
        end).
@@ -73,6 +74,7 @@ end_per_suite(Config) ->
     UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),
     file:del_dir(UserDir),
     SysDir = proplists:get_value(priv_dir, Config),
+    ssh_test_lib:clean_rsa(SysDir),
     ssh_test_lib:clean_dsa(SysDir),
     ok.
 

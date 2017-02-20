@@ -1063,11 +1063,8 @@ foldl_bins([Bin | Bins], MP, Terms) ->
 compile_match_spec(select, ?PATTERN_TO_OBJECT_MATCH_SPEC('_') = Spec) ->
     {Spec, true};
 compile_match_spec(select, Spec) ->
-    case catch ets:match_spec_compile(Spec) of
-	X when is_binary(X) ->
-	    {Spec, {match_spec, X}};
-	_ ->
-	    badarg
+    try {Spec, {match_spec, ets:match_spec_compile(Spec)}}
+    catch error:_ -> badarg
     end;
 compile_match_spec(object, Pat) ->
     compile_match_spec(select, ?PATTERN_TO_OBJECT_MATCH_SPEC(Pat));

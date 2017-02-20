@@ -114,7 +114,8 @@ handle_table_event({Oper, Record, TransId}, State) ->
 handle_system_event({mnesia_checkpoint_activated, _Checkpoint}, State) ->
     {ok, State};
 
-handle_system_event({mnesia_checkpoint_deactivated, _Checkpoint}, State) ->
+handle_system_event({mnesia_checkpoint_deactivated, Checkpoint}, State) ->
+    report_error("Checkpoint '~p' has been deactivated, last table copy deleted.\n",[Checkpoint]),
     {ok, State};
 
 handle_system_event({mnesia_up, Node}, State) ->

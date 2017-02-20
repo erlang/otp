@@ -259,10 +259,6 @@ true
     The estone benchmark, for example, is entirely sequential. So is
     the most common implementation of the "ring benchmark"; usually one process
     is active, while the others wait in a <c>receive</c> statement.</p>
-
-    <p>The <seealso marker="percept:percept">percept</seealso> application
-    can be used to profile your application to see how much potential (or lack
-    thereof) it has for concurrency.</p>
   </section>
 </chapter>
 

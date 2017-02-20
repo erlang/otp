@@ -177,7 +177,33 @@ bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh)
 	    if (szp)
 		*szp += 4+2;
 	    if (hpp) {
-		Uint refc = (Uint) erts_smp_atomic_read_nob(&pb->val->refc);
+		Uint refc = (Uint) erts_refc_read(&pb->val->refc, 1);
+		tuple = TUPLE3(*hpp, val, orig_size, make_small(refc));
+		res = CONS(*hpp + 4, tuple, res);
+		*hpp += 4+2;
+	    }
+	}
+    }
+    return res;
+}
+
+static Eterm
+bld_magic_ref_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh)
+{
+    struct erl_off_heap_header* ohh;
+    Eterm res = NIL;
+    Eterm tuple;
+
+    for (ohh = oh->first; ohh; ohh = ohh->next) {
+	if (is_ref_thing_header((*((Eterm *) ohh)))) {
+            ErtsMRefThing *mrtp = (ErtsMRefThing *) ohh;
+	    Eterm val = erts_bld_uword(hpp, szp, (UWord) mrtp->mb);
+	    Eterm orig_size = erts_bld_uint(hpp, szp, mrtp->mb->orig_size);
+    
+	    if (szp)
+		*szp += 4+2;
+	    if (hpp) {
+		Uint refc = (Uint) erts_refc_read(&mrtp->mb->refc, 1);
 		tuple = TUPLE3(*hpp, val, orig_size, make_small(refc));
 		res = CONS(*hpp + 4, tuple, res);
 		*hpp += 4+2;
@@ -627,7 +653,8 @@ static Eterm pi_args[] = {
     am_current_location,
     am_current_stacktrace,
     am_message_queue_data,
-    am_garbage_collection_info
+    am_garbage_collection_info,
+    am_magic_ref
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(Eterm)))
@@ -678,6 +705,7 @@ pi_arg2ix(Eterm arg)
     case am_current_stacktrace:			return 31;
     case am_message_queue_data:			return 32;
     case am_garbage_collection_info:		return 33;
+    case am_magic_ref:                          return 34;
     default:					return -1;
     }
 }
@@ -1617,6 +1645,14 @@ process_info_aux(Process *BIF_P,
 	}
 	hp = HAlloc(BIF_P, 3);
 	break;
+
+    case am_magic_ref: {
+	Uint sz = 3;
+	(void) bld_magic_ref_bin_list(NULL, &sz, &MSO(rp));
+	hp = HAlloc(BIF_P, sz);
+	res = bld_magic_ref_bin_list(&hp, NULL, &MSO(rp));
+	break;
+    }
 
     default:
 	return THE_NON_VALUE; /* will produce badarg */
@@ -3551,6 +3587,11 @@ BIF_RETTYPE error_logger_warning_map_0(BIF_ALIST_0)
 
 static erts_smp_atomic_t available_internal_state;
 
+static int empty_magic_ref_destructor(Binary *bin)
+{
+    return 1;
+}
+
 BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 {
     /*
@@ -3916,6 +3957,34 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 		}
 		return make_atom(ix);
 	    }
+	    else if (ERTS_IS_ATOM_STR("magic_ref", tp[1])) {
+                Binary *bin;
+                UWord bin_addr, refc;
+                Eterm bin_addr_term, refc_term, test_type;
+                Uint sz;
+                Eterm *hp;
+                if (!is_internal_magic_ref(tp[2])) {
+                    if (is_internal_ordinary_ref(tp[2])) {
+                        ErtsORefThing *rtp;
+                        rtp = (ErtsORefThing *) internal_ref_val(tp[2]);
+                        if (erts_is_ref_numbers_magic(rtp->num))
+                            BIF_RET(am_true);
+                    }
+                    BIF_RET(am_false);
+                }
+                bin = erts_magic_ref2bin(tp[2]);
+                refc = erts_refc_read(&bin->refc, 1);
+                bin_addr = (UWord) bin;
+                sz = 4;
+                erts_bld_uword(NULL, &sz, bin_addr);
+                erts_bld_uword(NULL, &sz, refc);
+                hp = HAlloc(BIF_P, sz);
+                bin_addr_term = erts_bld_uword(&hp, NULL, bin_addr);
+                refc_term = erts_bld_uword(&hp, NULL, refc);
+                test_type = (ERTS_MAGIC_BIN_DESTRUCTOR(bin) == empty_magic_ref_destructor
+                             ? am_true : am_false);
+                BIF_RET(TUPLE3(hp, bin_addr_term, refc_term, test_type));
+	    }
 
 	    break;
 	}
@@ -4003,7 +4072,6 @@ static void broken_halt_test(Eterm bif_arg_2)
 #endif
     erts_exit(ERTS_DUMP_EXIT, "%T", bif_arg_2);
 }
-
 
 BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 {
@@ -4333,6 +4401,21 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
         else if (ERTS_IS_ATOM_STR("DbTable_meta", BIF_ARG_1)) {
             /* Used by ets_SUITE (stdlib) */
             BIF_RET(erts_ets_restore_meta_state(BIF_P, BIF_ARG_2));
+        }
+        else if (ERTS_IS_ATOM_STR("make", BIF_ARG_1)) {
+            if (ERTS_IS_ATOM_STR("magic_ref", BIF_ARG_2)) {
+                Binary *bin = erts_create_magic_binary(0, empty_magic_ref_destructor);
+                UWord bin_addr = (UWord) bin;
+                Eterm bin_addr_term, magic_ref, res;
+                Eterm *hp;
+                Uint sz = ERTS_MAGIC_REF_THING_SIZE + 3;
+                erts_bld_uword(NULL, &sz, bin_addr);
+                hp = HAlloc(BIF_P, sz);
+                bin_addr_term = erts_bld_uword(&hp, NULL, bin_addr);
+                magic_ref = erts_mk_magic_ref(&hp, &BIF_P->off_heap, bin);
+                res = TUPLE2(hp, magic_ref, bin_addr_term);
+                BIF_RET(res);
+            }
         }
     }
 

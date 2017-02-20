@@ -638,7 +638,7 @@
           this value also applies to command-line parameters and environment
           variables (see section <seealso
           marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">
-          Unicode in Enviroment and Parameters</seealso> in the STDLIB
+          Unicode in Environment and Parameters</seealso> in the STDLIB
           User's Guide).</p>
       </item>
       <tag><c><![CDATA[+fnu[{w|i|e}]]]></c></tag>
@@ -674,7 +674,7 @@
           this value also applies to command-line parameters and environment
           variables (see section <seealso
           marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">
-          Unicode in Enviroment and Parameters</seealso> in the STDLIB
+          Unicode in Environment and Parameters</seealso> in the STDLIB
           User's Guide).</p>
       </item>
       <tag><c><![CDATA[+fna[{w|i|e}]]]></c></tag>
@@ -695,7 +695,7 @@
           this value also applies to command-line parameters and environment
           variables (see section <seealso
           marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">
-          Unicode in Enviroment and Parameters</seealso> in the STDLIB
+          Unicode in Environment and Parameters</seealso> in the STDLIB
           User's Guide).</p>
       </item>
       <tag><c><![CDATA[+hms Size]]></c></tag>

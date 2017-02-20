@@ -18,7 +18,7 @@
  * %CopyrightEnd%
  */
 
-/* Purpose: demonstrate how to include interupt handlers in erlang */
+/* Purpose: demonstrate how to include interrupt handlers in erlang */
 
 #ifdef HAVE_CONFIG_H
 #  include "config.h"

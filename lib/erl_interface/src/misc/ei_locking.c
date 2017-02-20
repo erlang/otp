@@ -76,8 +76,8 @@ ei_mutex_t *ei_mutex_create(void)
   return l;
 }
 
-/* 
- * Free a mutex and the structure asociated with it.
+/*
+ * Free a mutex and the structure associated with it.
  *
  * This function attempts to obtain the mutex before releasing it;
  * If nblock == 1 and the mutex was unavailable, the function will

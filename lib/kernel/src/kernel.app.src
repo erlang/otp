@@ -34,6 +34,7 @@
 	     erl_boot_server,
 	     erl_distribution,
 	     erl_reply,
+             erl_signal_handler,
 	     error_handler,
 	     error_logger,
 	     file,

@@ -842,9 +842,9 @@ event_happened:
 	    ASSERT(WAIT_OBJECT_0 < i && i < WAIT_OBJECT_0+w->active_events);
 	    notify_io_ready(ps);
 
-	    /* 
-	     * The main thread wont start working on our arrays untill we're
-	     * stopped, so we can work in peace although the main thread runs 
+	    /*
+	     * The main thread wont start working on our arrays until we're
+	     * stopped, so we can work in peace although the main thread runs
 	     */
 	    ASSERT(i >= WAIT_OBJECT_0+1);
 	    i -= WAIT_OBJECT_0;

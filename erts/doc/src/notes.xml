@@ -32,8 +32,35 @@
   <p>This document describes the changes made to the ERTS application.</p>
 
 
-<section><title>Erts 8.2.1</title>
+<section><title>Erts 8.2.2</title>
 
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in <c>binary_to_term</c> for binaries created by
+	    <c>term_to_binary </c> with option <c>compressed</c>. The
+	    bug can cause <c>badarg</c> exception for a valid binary
+	    when Erlang VM is linked against a <c>zlib</c> library of
+	    version 1.2.9 or newer. Bug exists since OTP 17.0.</p>
+          <p>
+	    Own Id: OTP-14159 Aux Id: ERL-340 </p>
+        </item>
+        <item>
+          <p>
+	    The driver efile_drv when opening a file now use fstat()
+	    on the open file instead of stat() before opening, if
+	    fstat() exists. This avoids a race when the file happens
+	    to change between stat() and open().</p>
+          <p>
+	    Own Id: OTP-14184 Aux Id: seq-13266 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 8.2.1</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
@@ -537,7 +564,7 @@
       <list>
         <item>
           <p>
-	    Fixed a VM crash that occured in a garbage collection of
+	    Fixed a VM crash that occurred in a garbage collection of
 	    a process when it had received binaries. This bug was
 	    introduced in ERTS version 8.0 (OTP 19.0).</p>
           <p>
@@ -554,7 +581,7 @@
       <list>
         <item>
           <p>
-	    Fixed a VM crash that occured in garbage collection of a
+	    Fixed a VM crash that occurred in garbage collection of a
 	    process when it had received maps over the distribution.
 	    This bug was introduced in ERTS version 8.0 (OTP 19.0).</p>
           <p>
@@ -5655,7 +5682,7 @@
 	    dependent, so applications aiming to be portable should
 	    consider using <c>{ipv6_v6only,true}</c> when creating an
 	    <c>inet6</c> listening/destination socket, and if
-	    neccesary also create an <c>inet</c> socket on the same
+	    necessary also create an <c>inet</c> socket on the same
 	    port for IPv4 traffic. See the documentation.</p>
           <p>
 	    Own Id: OTP-8928 Aux Id: kunagi-193 [104] </p>
@@ -6036,7 +6063,7 @@
 	    This change of default value will reduce lock contention
 	    on ETS tables using the <c>read_concurrency</c> option at
 	    the expense of memory consumption when the amount of
-	    schedulers and logical processors are beween 8 and 64.
+	    schedulers and logical processors are between 8 and 64.
 	    For more information, see documentation of the <c>+rg</c>
 	    command line argument of <c>erl(1)</c>.</p>
           <p>
@@ -7013,7 +7040,7 @@
           <p>
 	    For the subsection about process_flag(save_calls, N)
 	    there's an unrelated paragraph about process priorities
-	    which was copied from the preceeding subsection regarding
+	    which was copied from the preceding subsection regarding
 	    process_flag(priority, Level). (Thanks to Filipe David
 	    Manana)</p>
           <p>
@@ -8228,7 +8255,7 @@
         <item>
           <p>
 	    Wx on MacOS X generated complains on stderr about certain
-	    cocoa functions not beeing called from the "Main thread".
+	    cocoa functions not being called from the "Main thread".
 	    This is now corrected.</p>
           <p>
 	    Own Id: OTP-9081</p>
@@ -9219,7 +9246,7 @@
         </item>
         <item>
 	    <p>The <c>empd</c> program could loop and consume 100%
-	    CPU time if an unexpected error ocurred in
+	    CPU time if an unexpected error occurred in
 	    <c>listen()</c> or <c>accept()</c>. Now <c>epmd</c> will
 	    terminate if a non-recoverable error occurs. (Thanks to
 	    Michael Santos.)</p>

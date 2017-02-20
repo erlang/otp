@@ -29,7 +29,7 @@
 
 -export([getenv/0, getenv/1, getenv/2, getpid/0,
          perf_counter/0, perf_counter/1,
-         putenv/2, system_time/0, system_time/1,
+         putenv/2, set_signal/2, system_time/0, system_time/1,
 	 timestamp/0, unsetenv/1]).
 
 -spec getenv() -> [string()].
@@ -102,6 +102,15 @@ timestamp() ->
       VarName :: string().
 
 unsetenv(_) ->
+    erlang:nif_error(undef).
+
+-spec set_signal(Signal, Option) -> 'ok' when
+      Signal :: 'sighup'  | 'sigquit' | 'sigabrt' | 'sigalrm' |
+                'sigterm' | 'sigusr1' | 'sigusr2' | 'sigchld' |
+                'sigstop' | 'sigtstp',
+      Option :: 'default' | 'handle' | 'ignore'.
+
+set_signal(_Signal, _Option) ->
     erlang:nif_error(undef).
 
 %%% End of BIFs
