@@ -588,20 +588,28 @@ sticky_compiler(Files, PrivDir) ->
     [R || R <- Rets, R =/= ok].
 
 do_sticky_compile(Mod, Dir) ->
-    %% Make sure that the module is loaded. A module being sticky
-    %% only prevents it from begin reloaded, not from being loaded
-    %% from the wrong place to begin with.
-    Mod = Mod:module_info(module),
-    File = filename:append(Dir, atom_to_list(Mod)),
-    Src = io_lib:format("-module(~s).\n"
-			"-export([test/1]).\n"
-			"test(me) -> fail.\n", [Mod]),
-    ok = file:write_file(File++".erl", Src),
-    case c:c(File, [{outdir,Dir}]) of
-	{ok,Module} ->
-	    Module:test(me);
-	{error,sticky_directory} ->
-	    ok
+    case code:is_sticky(Mod) of
+        true ->
+            %% Make sure that the module is loaded. A module being sticky
+            %% only prevents it from begin reloaded, not from being loaded
+            %% from the wrong place to begin with.
+            Mod = Mod:module_info(module),
+            File = filename:append(Dir, atom_to_list(Mod)),
+            Src = io_lib:format("-module(~s).\n"
+                                "-export([test/1]).\n"
+                                "test(me) -> fail.\n", [Mod]),
+            ok = file:write_file(File++".erl", Src),
+            case c:c(File, [{outdir,Dir}]) of
+                {ok,Module} ->
+                    Module:test(me);
+                {error,sticky_directory} ->
+                    ok
+            end;
+        false ->
+            %% For some reason the module is not sticky
+            %% could be that the .erlang file has
+            %% unstuck it?
+            {Mod, is_not_sticky}
     end.
 
 %% Test that the -pa and -pz options work as expected.
