@@ -381,10 +381,12 @@ info(fmtfn_t to, void *to_arg)
 
 static int code_size(struct erl_module_instance* modi)
 {
-    ErtsLiteralArea* lit = modi->code_hdr->literal_area;
     int size = modi->code_length;
-    if (lit) {
-        size += (lit->end - lit->start) * sizeof(Eterm);
+
+    if (modi->code_hdr) {
+        ErtsLiteralArea* lit = modi->code_hdr->literal_area;
+        if (lit)
+            size += (lit->end - lit->start) * sizeof(Eterm);
     }
     return size;
 }
