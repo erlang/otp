@@ -879,10 +879,8 @@ flatten_map_cs_1([integer_default], {Int,_}) ->
     [{'_',Int}];
 flatten_map_cs_1([enum_default], {Int,_}) ->
     [{'_',["{asn1_enum,",Int,"}"]}];
-flatten_map_cs_1([enum_error], {Var,Cs}) ->
-    Vs = [V || {_,V} <- Cs],
-    [{'_',["exit({error,{asn1,{decode_enumerated,{",Var,",",
-	   {asis,Vs},"}}}})"]}];
+flatten_map_cs_1([enum_error], {Var,_}) ->
+    [{'_',["exit({error,{asn1,{decode_enumerated,",Var,"}}})"]}];
 flatten_map_cs_1([], _) -> [].
 
 flatten_hoist_align([[{align_bits,_,_}=Ab|T]|Cs]) ->
