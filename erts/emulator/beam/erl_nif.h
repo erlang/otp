@@ -50,9 +50,10 @@
 ** 2.9: 18.2 enif_getenv
 ** 2.10: Time API
 ** 2.11: 19.0 enif_snprintf 
+** 2.12: ErlNifEntry destructor
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 11
+#define ERL_NIF_MINOR_VERSION 12
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -122,6 +123,11 @@ typedef struct enif_entry_t
 
     /* Added in 2.7 */
     unsigned options;   /* Unused. Can be set to 0 or 1 (dirty sched config) */
+
+    /* Added in 2.12 */
+    void (*dtor) (void*); /* destructor for this structure. For non-C NIF modules. */
+    void* dtor_data;
+
 }ErlNifEntry;
 
 
@@ -278,6 +284,10 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 
 
 #define ERL_NIF_INIT(NAME, FUNCS, LOAD, RELOAD, UPGRADE, UNLOAD) \
+ERL_NIF_INIT2(NAME, FUNCS, LOAD, RELOAD, UPGRADE, UNLOAD, NULL, NULL) \
+
+/* DTOR parameters are intended for use by test_server and non-C NIF modules */
+#define ERL_NIF_INIT2(NAME, FUNCS, LOAD, RELOAD, UPGRADE, UNLOAD, DTOR, DTOR_DATA) \
 ERL_NIF_INIT_PROLOGUE                   \
 ERL_NIF_INIT_GLOB                       \
 ERL_NIF_INIT_DECL(NAME);		\
@@ -292,7 +302,9 @@ ERL_NIF_INIT_DECL(NAME)			\
 	FUNCS,				\
 	LOAD, RELOAD, UPGRADE, UNLOAD,	\
 	ERL_NIF_VM_VARIANT,		\
-	1		                \
+	1,		                \
+    DTOR,                   \
+    DTOR_DATA               \
     };                                  \
     ERL_NIF_INIT_BODY;                  \
     return &entry;			\
