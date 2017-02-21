@@ -449,7 +449,8 @@ typedef enum {
     ERTS_PSTT_CPC,	/* Check Process Code */
     ERTS_PSTT_CLA,	/* Copy Literal Area */
     ERTS_PSTT_COHMQ,    /* Change off heap message queue */
-    ERTS_PSTT_FTMQ      /* Flush trace msg queue */
+    ERTS_PSTT_FTMQ,     /* Flush trace msg queue */
+    ERTS_PSTT_ETS_FREE_FIXATION
 } ErtsProcSysTaskType;
 
 #define ERTS_MAX_PROC_SYS_TASK_ARGS 2
@@ -729,6 +730,16 @@ erts_pre_init_process(void)
 	= ERTS_PSD_NIF_TRAP_EXPORT_GET_LOCKS;
     erts_psd_required_locks[ERTS_PSD_NIF_TRAP_EXPORT].set_locks
 	= ERTS_PSD_NIF_TRAP_EXPORT_SET_LOCKS;
+
+    erts_psd_required_locks[ERTS_PSD_ETS_OWNED_TABLES].get_locks
+        = ERTS_PSD_ETS_OWNED_TABLES_GET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_ETS_OWNED_TABLES].set_locks
+        = ERTS_PSD_ETS_OWNED_TABLES_SET_LOCKS;
+
+    erts_psd_required_locks[ERTS_PSD_ETS_FIXED_TABLES].get_locks
+        = ERTS_PSD_ETS_FIXED_TABLES_GET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_ETS_FIXED_TABLES].set_locks
+        = ERTS_PSD_ETS_FIXED_TABLES_SET_LOCKS;
 #endif
 }
 
@@ -11198,6 +11209,12 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    st_res = am_true;
 	    break;
 #endif
+#ifdef ERTS_SMP
+        case ERTS_PSTT_ETS_FREE_FIXATION:
+	    reds -= erts_db_execute_free_fixation(c_p, (DbFixation*)st->arg[0]);
+	    st_res = am_true;
+	    break;
+#endif
 	default:
 	    ERTS_INTERNAL_ERROR("Invalid process sys task type");
 	    st_res = am_false;
@@ -11249,7 +11266,8 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
         case ERTS_PSTT_GC_MAJOR:
         case ERTS_PSTT_GC_MINOR:
 	case ERTS_PSTT_CPC:
-	case ERTS_PSTT_COHMQ:
+        case ERTS_PSTT_COHMQ:
+        case ERTS_PSTT_ETS_FREE_FIXATION:
 	    st_res = am_false;
 	    break;
 	case ERTS_PSTT_CLA:
@@ -11603,13 +11621,12 @@ erts_internal_request_system_task_4(BIF_ALIST_4)
 }
 
 static void
-erts_schedule_generic_sys_task(Eterm pid, ErtsProcSysTaskType type)
+erts_schedule_generic_sys_task(Eterm pid, ErtsProcSysTaskType type, void* arg)
 {
     Process *rp = erts_proc_lookup(pid);
     if (rp) {
 	ErtsProcSysTask *st;
 	erts_aint32_t state, fail_state;
-	int i;
 
 	st = erts_alloc(ERTS_ALC_T_PROC_SYS_TSK,
 			ERTS_PROC_SYS_TASK_SIZE(0));
@@ -11618,8 +11635,7 @@ erts_schedule_generic_sys_task(Eterm pid, ErtsProcSysTaskType type)
 	st->reply_tag = NIL;
 	st->req_id = NIL;
 	st->req_id_sz = 0;
-	for (i = 0; i < ERTS_MAX_PROC_SYS_TASK_ARGS; i++)
-	    st->arg[i] = NIL;
+        st->arg[0] = (Eterm)arg;
 	ERTS_INIT_OFF_HEAP(&st->off_heap);
 	state = erts_smp_atomic32_read_nob(&rp->state);
 
@@ -11635,7 +11651,13 @@ erts_schedule_generic_sys_task(Eterm pid, ErtsProcSysTaskType type)
 void
 erts_schedule_complete_off_heap_message_queue_change(Eterm pid)
 {
-    erts_schedule_generic_sys_task(pid, ERTS_PSTT_COHMQ);
+    erts_schedule_generic_sys_task(pid, ERTS_PSTT_COHMQ, NULL);
+}
+
+void
+erts_schedule_ets_free_fixation(Eterm pid, DbFixation* fix)
+{
+    erts_schedule_generic_sys_task(pid, ERTS_PSTT_ETS_FREE_FIXATION, fix);
 }
 
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -11683,7 +11705,7 @@ erts_schedule_flush_trace_messages(Process *proc, int force_on_proc)
     dhndl = erts_thr_progress_unmanaged_delay();
 #endif
 
-    erts_schedule_generic_sys_task(pid, ERTS_PSTT_FTMQ);
+    erts_schedule_generic_sys_task(pid, ERTS_PSTT_FTMQ, NULL);
 
 #ifdef ERTS_SMP
     erts_thr_progress_unmanaged_continue(dhndl);

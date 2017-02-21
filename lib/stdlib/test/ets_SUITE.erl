@@ -5776,45 +5776,28 @@ etsmem() ->
 			   {Bl0+Bl,BlSz0+BlSz}
 		   end, {0,0}, CS)
 	 end},
-    {Mem,AllTabs, erts_debug:get_internal_state('DbTable_meta')}.
+    {Mem,AllTabs}.
 
-verify_etsmem(EtsMem) ->
+verify_etsmem({MemInfo,AllTabs}) ->
     wait_for_test_procs(),
-    verify_etsmem(EtsMem, false).
-
-verify_etsmem({MemInfo,AllTabs,MetaState}=EtsMem, Adjusted) ->
     case etsmem() of
-	{MemInfo,_,_} ->
+	{MemInfo,_} ->
 	    io:format("Ets mem info: ~p", [MemInfo]),
 	    case MemInfo of
 		{ErlMem,EtsAlloc} when ErlMem == notsup; EtsAlloc == undefined ->
 		    %% Use 'erl +Mea max' to do more complete memory leak testing.
 		    {comment,"Incomplete or no mem leak testing"};
 		_ ->
-		    case Adjusted of
-			true ->
-			    {comment, "Meta state adjusted"};
-			false ->
-			    ok
-		    end
+                    ok
 	    end;
 
-	{MemInfo2, AllTabs2, MetaState2} ->
+	{MemInfo2, AllTabs2} ->
 	    io:format("Expected: ~p", [MemInfo]),
 	    io:format("Actual:   ~p", [MemInfo2]),
 	    io:format("Changed tables before: ~p\n",[AllTabs -- AllTabs2]),
 	    io:format("Changed tables after: ~p\n", [AllTabs2 -- AllTabs]),
-	    io:format("Meta state before: ~p\n", [MetaState]),
-	    io:format("Meta state after:  ~p\n", [MetaState2]),
-	    case {MetaState =:= MetaState2, Adjusted} of
-		{false, false} ->
-		    io:format("Adjust meta state and retry...\n\n",[]),
-		    {ok,ok} = erts_debug:set_internal_state('DbTable_meta', MetaState),
-		    verify_etsmem(EtsMem, true);
-		_ ->
-		    ets_test_spawn_logger ! {failed_memcheck, get('__ETS_TEST_CASE__')},
-		    {comment, "Failed memory check"}
-	    end
+            ets_test_spawn_logger ! {failed_memcheck, get('__ETS_TEST_CASE__')},
+            {comment, "Failed memory check"}
     end.
 
 

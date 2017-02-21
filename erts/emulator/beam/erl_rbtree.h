@@ -486,12 +486,12 @@ typedef struct {
 #if defined(ERTS_RBT_HARD_DEBUG) \
     && (defined(ERTS_RBT_WANT_DELETE) \
 	|| defined(ERTS_RBT_NEED_INSERT__))
-static void ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root);
+static void ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root, ERTS_RBT_T *node);
 #  define ERTS_RBT_NEED_HDBG_CHECK_TREE__
-#  define ERTS_RBT_HDBG_CHECK_TREE__(R) \
-    ERTS_RBT_FUNC__(hdbg_check_tree)((R))
+#  define ERTS_RBT_HDBG_CHECK_TREE__(R,N) \
+    ERTS_RBT_FUNC__(hdbg_check_tree)((R),(N))
 #else
-#  define ERTS_RBT_HDBG_CHECK_TREE__(R) ((void) 1)
+#  define ERTS_RBT_HDBG_CHECK_TREE__(R,N) ((void) 1)
 #endif
 
 #ifdef ERTS_RBT_NEED_ROTATE__
@@ -644,7 +644,7 @@ ERTS_RBT_FUNC__(delete)(ERTS_RBT_T **root, ERTS_RBT_T *n)
     ERTS_RBT_T null_x; /* null_x is used to get the fixup started when we
 			  splice out a node without children. */
 
-    ERTS_RBT_HDBG_CHECK_TREE__(*root);
+    ERTS_RBT_HDBG_CHECK_TREE__(*root, n);
 
     ERTS_RBT_INIT_EMPTY_TNODE(&null_x);
 
@@ -862,7 +862,7 @@ ERTS_RBT_FUNC__(delete)(ERTS_RBT_T **root, ERTS_RBT_T *n)
 	}
     }
 
-    ERTS_RBT_HDBG_CHECK_TREE__(*root);
+    ERTS_RBT_HDBG_CHECK_TREE__(*root, NULL);
 
 }
 
@@ -992,7 +992,7 @@ ERTS_RBT_FUNC__(insert_aux__)(ERTS_RBT_T **root, ERTS_RBT_T *n, int lookup)
 {
     ERTS_RBT_KEY_T kn = ERTS_RBT_GET_KEY(n);
 
-    ERTS_RBT_HDBG_CHECK_TREE__(*root);
+    ERTS_RBT_HDBG_CHECK_TREE__(*root, NULL);
 
     ERTS_RBT_INIT_EMPTY_TNODE(n);	
 
@@ -1014,7 +1014,7 @@ ERTS_RBT_FUNC__(insert_aux__)(ERTS_RBT_T **root, ERTS_RBT_T *n, int lookup)
 
 	    if (lookup && ERTS_RBT_IS_EQ(kn, kx)) {
 
-		ERTS_RBT_HDBG_CHECK_TREE__(*root);
+		ERTS_RBT_HDBG_CHECK_TREE__(*root, NULL);
 
 		return x;
 	    }
@@ -1048,7 +1048,7 @@ ERTS_RBT_FUNC__(insert_aux__)(ERTS_RBT_T **root, ERTS_RBT_T *n, int lookup)
 	    ERTS_RBT_FUNC__(insert_fixup__)(root, n);
     }
 
-    ERTS_RBT_HDBG_CHECK_TREE__(*root);
+    ERTS_RBT_HDBG_CHECK_TREE__(*root, n);
 
     return NULL;
 }
@@ -1589,15 +1589,17 @@ ERTS_RBT_FUNC__(debug_print)(FILE *filep, ERTS_RBT_T *x, int indent,
 #ifdef ERTS_RBT_NEED_HDBG_CHECK_TREE__
 
 static void
-ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root)
+ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root, ERTS_RBT_T *n)
 {
     int black_depth = -1, no_black = 0;
     ERTS_RBT_T *c, *p, *x = root;
     ERTS_RBT_KEY_T kx;
     ERTS_RBT_KEY_T kc;
 
-    if (!x)
+    if (!x) {
+        ERTS_RBT_ASSERT(!n);
 	return;
+    }
 
     ERTS_RBT_ASSERT(!ERTS_RBT_GET_PARENT(x));
 
@@ -1606,6 +1608,9 @@ ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root)
 	while (1) {
 
 	    while (1) {
+
+                if (x == n)
+                    n = NULL;
 
 		if (ERTS_RBT_IS_BLACK(x))
 		    no_black++;
@@ -1678,6 +1683,7 @@ ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root)
 	    if (!p) {
 		ERTS_RBT_ASSERT(root == x);
 		ERTS_RBT_ASSERT(no_black == 0);
+                ERTS_RBT_ASSERT(!n);
 		return; /* Done */
 	    }
 

@@ -903,70 +903,6 @@ done:
     RUNLOCK_HASH(lck);
     return DB_ERROR_NONE;
 }
-
-int db_get_element_array(DbTable *tbl, 
-			 Eterm key,
-			 int ndex, 
-			 Eterm *ret,
-			 int *num_ret)
-{
-    DbTableHash *tb = &tbl->hash;
-    HashValue hval;
-    int ix;
-    HashDbTerm* b1;
-    int num = 0;
-    int retval;
-    erts_smp_rwmtx_t* lck;
-
-    ASSERT(!IS_FIXED(tbl)); /* no support for fixed tables here */
-
-    hval = MAKE_HASH(key);
-    lck = RLOCK_HASH(tb, hval);
-    ix = hash_to_ix(tb, hval);
-    b1 = BUCKET(tb, ix);
-
-    while(b1 != 0) {
-	if (has_live_key(tb,b1,key,hval)) {
-	    if (tb->common.status & (DB_BAG | DB_DUPLICATE_BAG)) {
-		HashDbTerm* b;
-		HashDbTerm* b2 = b1->next;
-
-		while(b2 != NULL && has_live_key(tb,b2,key,hval)) {
-		    if (ndex > arityval(b2->dbterm.tpl[0])) {
-			retval = DB_ERROR_BADITEM;
-			goto done;
-		    }
-		    b2 = b2->next;
-		}
-
-		b = b1;
-		while(b != b2) {
-		    if (num < *num_ret) {
-			ret[num++] = b->dbterm.tpl[ndex];
-		    } else {
-			retval = DB_ERROR_NONE;
-			goto done;
-		    }
-		    b = b->next;
-		}
-		*num_ret = num;
-	    }
-	    else {
-		ASSERT(*num_ret > 0);
-		ret[0] = b1->dbterm.tpl[ndex];
-		*num_ret = 1;
-	    }
-	    retval = DB_ERROR_NONE;
-	    goto done;
-	}
-	b1 = b1->next;
-    }
-    retval = DB_ERROR_BADKEY;
-done:
-    RUNLOCK_HASH(lck);
-    return retval;
-}
-    
     
 static int db_member_hash(DbTable *tbl, Eterm key, Eterm *ret)
 {
@@ -1058,54 +994,6 @@ done:
     return retval;
 }
 
-/*
- * Very internal interface, removes elements of arity two from 
- * BAG. Used for the PID meta table
- */
-int db_erase_bag_exact2(DbTable *tbl, Eterm key, Eterm value)
-{
-    DbTableHash *tb = &tbl->hash;
-    HashValue hval;
-    int ix;
-    HashDbTerm** bp;
-    HashDbTerm* b;
-    erts_smp_rwmtx_t* lck;
-    int found = 0;
-
-    hval = MAKE_HASH(key);
-    lck = WLOCK_HASH(tb,hval);
-    ix = hash_to_ix(tb, hval);
-    bp = &BUCKET(tb, ix);
-    b = *bp;
-
-    ASSERT(!IS_FIXED(tb));
-    ASSERT((tb->common.status & DB_BAG));
-    ASSERT(!tb->common.compress);
-
-    while(b != 0) {
-	if (has_live_key(tb,b,key,hval)) {
-	    found = 1;
-	    if ((arityval(b->dbterm.tpl[0]) == 2) && 
-		EQ(value, b->dbterm.tpl[2])) {
-		*bp = b->next;
-		free_term(tb, b);
-		erts_smp_atomic_dec_nob(&tb->common.nitems);
-		b = *bp;
-		break;
-	    }
-	} else if (found) {
-		break;
-	}
-	bp = &b->next;
-	b = b->next;
-    }
-    WUNLOCK_HASH(lck);
-    if (found) {
-	try_shrink(tb);
-    }
-    return DB_ERROR_NONE;
-}
-	
 /*
 ** NB, this is for the db_erase/2 bif.
 */
@@ -2207,7 +2095,7 @@ static int db_free_table_continue_hash(DbTable *tbl)
     DbTableHash *tb = &tbl->hash;
     int done;
     FixedDeletion* fixdel = (FixedDeletion*) erts_smp_atomic_read_acqb(&tb->fixdel);
-    ERTS_SMP_LC_ASSERT(IS_TAB_WLOCKED(tb));
+    ERTS_SMP_LC_ASSERT(IS_TAB_WLOCKED(tb) || (tb->common.status & DB_DELETE));
 
     done = 0;
     while (fixdel != NULL) {
@@ -3006,44 +2894,6 @@ void db_calc_stats_hash(DbTableHash* tb, DbHashStats* stats)
 Eterm erts_ets_hash_sizeof_ext_segtab(void)
 {
     return make_small(((SIZEOF_EXT_SEGTAB(0)-1) / sizeof(UWord)) + 1);
-}
-/* For testing only */
-Eterm erts_ets_hash_get_memstate(Process* p, DbTableHash* tb)
-{
-    Eterm seg_cnt;
-    while (!begin_resizing(tb))
-        /*spinn*/;
-
-    seg_cnt = make_small(SLOT_IX_TO_SEG_IX(tb->nslots));
-    done_resizing(tb);
-    return seg_cnt;
-}
-/* For testing only */
-Eterm erts_ets_hash_restore_memstate(DbTableHash* tb, Eterm memstate)
-{
-    int seg_cnt, target;
-
-    if (!is_small(memstate))
-        return make_small(__LINE__);
-
-    target = signed_val(memstate);
-    if (target < 1)
-        return make_small(__LINE__);
-    while (1) {
-        while (!begin_resizing(tb))
-            /*spin*/;
-        seg_cnt = SLOT_IX_TO_SEG_IX(tb->nslots);
-        done_resizing(tb);
-
-        if (target == seg_cnt)
-            return am_ok;
-        if (IS_FIXED(tb))
-            return make_small(__LINE__);
-        if (target < seg_cnt)
-            shrink(tb, 0);
-        else
-            grow(tb, INT_MAX);
-    }
 }
 
 #ifdef HARDDEBUG

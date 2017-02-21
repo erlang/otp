@@ -195,9 +195,20 @@ typedef struct db_table_method
 } DbTableMethod;
 
 typedef struct db_fixation {
-    Eterm pid;
+    /* Node in fixed_tabs list */
+    struct {
+        struct db_fixation *next, *prev;
+        Binary* btid;
+    } tabs;
+
+    /* Node in fixing_procs tree */
+    struct {
+        struct db_fixation *left, *right, *parent;
+        int is_red;
+        Process* p;
+    } procs;
+
     Uint counter;
-    struct db_fixation *next;
 } DbFixation;
 
 typedef struct {
@@ -217,9 +228,10 @@ typedef struct db_table_common {
     erts_smp_refc_t refc;     /* reference count of table struct */
     erts_smp_refc_t fix_count;/* fixation counter */
     DbTableList all;
+    DbTableList owned;
 #ifdef ERTS_SMP
     erts_smp_rwmtx_t rwlock;  /* rw lock on table */
-    erts_smp_mtx_t fixlock;   /* Protects fixations,megasec,sec,microsec */
+    erts_smp_mtx_t fixlock;   /* Protects fixing_procs and time */
     int is_thread_safe;       /* No fine locking inside table needed */
     Uint32 type;              /* table type, *read only* after creation */
 #endif
@@ -237,7 +249,7 @@ typedef struct db_table_common {
 	ErtsMonotonicTime monotonic;
 	ErtsMonotonicTime offset;
     } time;
-    DbFixation* fixations;    /* List of processes who have done safe_fixtable,
+    DbFixation* fixing_procs; /* Tree of processes who have done safe_fixtable,
                                  "local" fixations not included. */ 
     /* All 32-bit fields */
     Uint32 status;            /* bit masks defined  below */

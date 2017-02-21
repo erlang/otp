@@ -109,6 +109,7 @@ typedef enum {
 
 void init_db(ErtsDbSpinCount);
 int erts_db_process_exiting(Process *, ErtsProcLocks);
+int erts_db_execute_free_fixation(Process*, DbFixation*);
 void db_info(fmtfn_t, void *, int);
 void erts_db_foreach_table(void (*)(DbTable *, void *), void *);
 void erts_db_foreach_offheap(DbTable *,
@@ -125,9 +126,6 @@ extern Export ets_select_continue_exp;
 extern erts_smp_atomic_t erts_ets_misc_mem_size;
 
 Eterm erts_ets_colliding_names(Process*, Eterm name, Uint cnt);
-Eterm erts_ets_get_meta_state(Process* p);
-Eterm erts_ets_restore_meta_state(Process* p, Eterm target_state);
-
 Uint erts_db_get_max_tabs(void);
 
 #endif /* ERL_DB_H__ */
