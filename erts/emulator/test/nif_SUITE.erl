@@ -500,13 +500,8 @@ select(Config) when is_list(Config) ->
     Written = write_full(W, $a),
     0 = select_nif(W,?ERL_NIF_SELECT_WRITE,W,self(),Ref),
     [] = flush(),
-    Half = byte_size(Written) div 2,
-    <<First:Half/binary,Second/binary>> = Written,
-    First = read_nif(R,Half),
+    Written = read_nif(R,byte_size(Written)),
     [{select, W, Ref, ready_output}] = flush(),
-    Third = write_full(W, $A),
-    Half2 = byte_size(Second),
-    <<Second:Half2/binary, Third/binary>> = read_nif(R, byte_size(Written)),
 
     %% Close write and wait for EOF
     eagain = read_nif(R, 1),
