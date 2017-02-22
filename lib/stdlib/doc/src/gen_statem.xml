@@ -1685,6 +1685,19 @@ handle_event(_, _, State, Data) ->
 	  It is recommended to use an atom as <c>Reason</c> since
 	  it will be wrapped in an <c>{error,Reason}</c> tuple.
 	</p>
+	<p>
+	  Also note when upgrading a <c>gen_statem</c>,
+	  this function and hence
+	  the <c>Change={advanced,Extra}</c> parameter in the
+	  <seealso marker="sasl:appup"><c>appup</c></seealso> file
+	  is not only needed to update the internal state
+	  or to act on the <c>Extra</c> argument.
+	  It is also needed if an upgrade or downgrade should change 
+	  <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>,
+	  or else the callback mode after the code change
+	  will not be honoured,
+	  most probably causing a server crash.
+	</p>
       </desc>
     </func>
 
