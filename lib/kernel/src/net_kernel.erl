@@ -349,8 +349,8 @@ request(Req) ->
 start(Args) ->
     erl_distribution:start(Args).
 
-%% This is the main startup routine for net_kernel (only for internal
-%% use by the Kernel application.
+%% This is the main startup routine for net_kernel
+%% The defaults are longnames and a ticktime of 15 secs to the tcp_drv.
 
 start_link([Name], CleanHalt) ->
     start_link([Name, longnames], CleanHalt);
@@ -497,7 +497,7 @@ handle_call({publish_on_node, Node}, From, State) ->
     NewState = case State#state.publish_on_nodes of
 		   undefined ->
 		       State#state{publish_on_nodes =
-				   global_group:publish_on_nodes()};
+				   s_group:publish_on_nodes()};
 		   _ ->
 		       State
 	       end,
@@ -1729,4 +1729,3 @@ merge_opts([H|T], B0) ->
 
 getopts(Node, Opts) when is_atom(Node), is_list(Opts) ->
     request({getopts, Node, Opts}).
-
