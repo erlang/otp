@@ -26,7 +26,8 @@
 
 -export([prepare_tests/1, prepare_tests/2, 
 	 collect_tests_from_list/2, collect_tests_from_list/3,
-	 collect_tests_from_file/2, collect_tests_from_file/3]).
+	 collect_tests_from_file/2, collect_tests_from_file/3,
+         get_tests/1]).
 
 -export([testspec_rec2list/1, testspec_rec2list/2]).
 
@@ -802,6 +803,31 @@ save_nodes(Nodes,Spec=#testspec{nodes=NodeRefs}) ->
 list_nodes(#testspec{nodes=NodeRefs}) ->
     lists:map(fun({_Ref,Node}) -> Node end, NodeRefs).		      
 
+
+%%%-----------------------------------------------------------------
+%%% Parse the given test specs and return the complete set of specs
+%%% and tests to run/skip.
+%%% [Spec1,Spec2,...] means create separate tests per spec
+%%% [[Spec1,Spec2,...]] means merge all specs into one
+-spec get_tests(Specs) -> {ok,[{Specs,Tests}]} | {error,Reason} when
+      Specs :: [string()] | [[string()]],
+      Tests :: {Node,Run,Skip},
+      Node :: atom(),
+      Run :: {Dir,Suites,Cases},
+      Skip :: {Dir,Suites,Comment} | {Dir,Suites,Cases,Comment},
+      Dir :: string(),
+      Suites :: atom | [atom()] | all,
+      Cases :: atom | [atom()] | all,
+      Comment :: string(),
+      Reason :: term().
+
+get_tests(Specs) ->
+    case collect_tests_from_file(Specs,true) of
+        Tests when is_list(Tests) ->
+            {ok,[{S,prepare_tests(R)} || {S,R} <- Tests]};
+        Error ->
+            Error
+    end.
 
 %%     -----------------------------------------------------
 %%   /                                                       \
