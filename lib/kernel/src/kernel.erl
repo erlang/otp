@@ -152,7 +152,7 @@ init([]) ->
 			      permanent, infinity, supervisor, [?MODULE]},
 	    {ok, {SupFlags,
 		  [Code, Rpc, Global, InetDb | DistAC] ++
-		  [NetSup, Glo_grp, File, SigSrv,
+		  [NetSup, SGrp, File, SigSrv,
 		   StdError, User, Config, SafeSupervisor] ++ Timer}}
     end;
 init(safe) ->
