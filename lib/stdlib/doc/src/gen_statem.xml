@@ -1973,6 +1973,11 @@ handle_event(_, _, State, Data) ->
 	<v>Ignored = term()</v>
       </type>
       <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not
+          export it. The <c>gen_statem</c> module provides a default
+          implementation without cleanup.</p>
+        </note>
 	<p>
 	  This function is called by a <c>gen_statem</c>
 	  when it is about to terminate. It is to be the opposite of

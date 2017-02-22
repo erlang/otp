@@ -289,6 +289,7 @@
 -optional_callbacks(
    [init/1, % One may use enter_loop/5,6,7 instead
     format_status/2, % Has got a default implementation
+    terminate/3, % Has got a default implementation
     %%
     state_name/3, % Example for callback_mode() =:= state_functions:
     %% there has to be a StateName/3 callback function
@@ -1560,17 +1561,22 @@ terminate(
   Class, Reason, Stacktrace, Debug,
   #{module := Module, state := State, data := Data, postponed := P} = S,
   Q) ->
-    try Module:terminate(Reason, State, Data) of
-	_ -> ok
-    catch
-	_ -> ok;
-	C:R ->
-	    ST = erlang:get_stacktrace(),
-	    error_info(
-	      C, R, ST, S, Q, P,
-	      format_status(terminate, get(), S)),
-	    sys:print_log(Debug),
-	    erlang:raise(C, R, ST)
+    case erlang:function_exported(Module, terminate, 3) of
+	true ->
+	    try Module:terminate(Reason, State, Data) of
+		_ -> ok
+	    catch
+		_ -> ok;
+		C:R ->
+		    ST = erlang:get_stacktrace(),
+		    error_info(
+		      C, R, ST, S, Q, P,
+		      format_status(terminate, get(), S)),
+		    sys:print_log(Debug),
+		    erlang:raise(C, R, ST)
+	    end;
+	false ->
+	    ok
     end,
     _ =
 	case Reason of
