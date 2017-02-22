@@ -4884,10 +4884,16 @@ erts_port_control(Process* c_p,
 	ASSERT(!tmp_alloced);
 	if (*ebinp == HEADER_SUB_BIN)
 	    ebinp = binary_val(((ErlSubBin *) ebinp)->orig);
+
 	if (*ebinp != HEADER_PROC_BIN)
 	    copy = 1;
 	else {
-	    binp = ((ProcBin *) ebinp)->val;
+            ProcBin *pb = (ProcBin *) ebinp;
+
+            if (pb->flags)
+                erts_emasculate_writable_binary(pb);
+
+	    binp = pb->val;
 	    ASSERT(bufp <= bufp + size);
 	    ASSERT(binp->orig_bytes <= bufp
 		   && bufp + size <= binp->orig_bytes + binp->orig_size);
