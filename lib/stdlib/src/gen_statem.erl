@@ -1161,19 +1161,6 @@ call_callback_mode(#{module := Module} = S) ->
     catch
 	CallbackMode ->
 	    callback_mode_result(S, CallbackMode);
-	error:undef ->
-	    %% Process undef to check for the simple mistake
-	    %% of calling a nonexistent state function
-	    %% to make the undef more precise
-	    case erlang:get_stacktrace() of
-		[{Module,callback_mode,[]=Args,_}
-		 |Stacktrace] ->
-		    {error,
-		     {undef_callback,{Module,callback_mode,Args}},
-		     Stacktrace};
-		Stacktrace ->
-		    {error,undef,Stacktrace}
-	    end;
 	Class:Reason ->
 	    {Class,Reason,erlang:get_stacktrace()}
     end.
@@ -1231,7 +1218,7 @@ call_state_function(
     try
 	case CallbackMode of
 	    state_functions ->
-		erlang:apply(Module, State, [Type,Content,Data]);
+		Module:State(Type, Content, Data);
 	    handle_event_function ->
 		Module:handle_event(Type, Content, State, Data)
 	end
@@ -1241,41 +1228,6 @@ call_state_function(
     catch
 	Result ->
 	    {ok,Result,S};
-	error:badarg ->
-	    case erlang:get_stacktrace() of
-		[{erlang,apply,
-		  [Module,State,[Type,Content,Data]=Args],
-		  _}
-		 |Stacktrace]
-		  when CallbackMode =:= state_functions ->
-		    %% We get here e.g if apply fails
-		    %% due to State not being an atom
-		    {error,
-		     {undef_state_function,{Module,State,Args}},
-		     Stacktrace};
-		Stacktrace ->
-		    {error,badarg,Stacktrace}
-	    end;
-	error:undef ->
-	    %% Process undef to check for the simple mistake
-	    %% of calling a nonexistent state function
-	    %% to make the undef more precise
-	    case erlang:get_stacktrace() of
-		[{Module,State,[Type,Content,Data]=Args,_}
-		 |Stacktrace]
-		  when CallbackMode =:= state_functions ->
-		    {error,
-		     {undef_state_function,{Module,State,Args}},
-		     Stacktrace};
-		[{Module,handle_event,[Type,Content,State,Data]=Args,_}
-		 |Stacktrace]
-		  when CallbackMode =:= handle_event_function ->
-		    {error,
-		     {undef_state_function,{Module,handle_event,Args}},
-		     Stacktrace};
-		Stacktrace ->
-		    {error,undef,Stacktrace}
-	    end;
 	Class:Reason ->
 	    {Class,Reason,erlang:get_stacktrace()}
     end.
