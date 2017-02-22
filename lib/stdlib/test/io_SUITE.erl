@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
          otp_10836/1, io_lib_width_too_small/1,
          io_with_huge_message_queue/1, format_string/1,
-	 maps/1, coverage/1, otp_14178_unicode_atoms/1]).
+	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1]).
 
 -export([pretty/2]).
 
@@ -61,7 +61,7 @@ all() ->
      printable_range, bad_printable_range,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue,
-     format_string, maps, coverage, otp_14178_unicode_atoms].
+     format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -415,13 +415,13 @@ otp_6354(Config) when is_list(Config) ->
     bt(<<"#rrrrr{\n"
 	 "    f1 = 1,\n"
 	 "    f2 = #rrrrr{f1 = a,f2 = b,f3 = c},\n"
-	 "    f3 = \n"
+	 "    f3 =\n"
 	 "        #rrrrr{\n"
 	 "            f1 = h,f2 = i,\n"
-	 "            f3 = \n"
+	 "            f3 =\n"
 	 "                #rrrrr{\n"
 	 "                    f1 = aa,\n"
-	 "                    f2 = \n"
+	 "                    f2 =\n"
 	 "                        #rrrrr{\n"
 	 "                            f1 = #rrrrr{f1 = a,f2 = b,f3 = c},\n"
 	 "                            f2 = 2,f3 = 3},\n"
@@ -431,17 +431,17 @@ otp_6354(Config) when is_list(Config) ->
 					    2,3},bb}}},
 	 -1)),
     bt(<<"#d{aaaaaaaaaaaaaaaaaaaa = 1,\n"
-	 "   bbbbbbbbbbbbbbbbbbbb = \n"
+	 "   bbbbbbbbbbbbbbbbbbbb =\n"
 	 "       #d{aaaaaaaaaaaaaaaaaaaa = a,bbbbbbbbbbbbbbbbbbbb = b,\n"
 	 "          cccccccccccccccccccc = c,dddddddddddddddddddd = d,\n"
 	 "          eeeeeeeeeeeeeeeeeeee = e},\n"
 	 "   cccccccccccccccccccc = 3,\n"
-	 "   dddddddddddddddddddd = \n"
+	 "   dddddddddddddddddddd =\n"
 	 "       #d{aaaaaaaaaaaaaaaaaaaa = h,bbbbbbbbbbbbbbbbbbbb = i,\n"
-	 "          cccccccccccccccccccc = \n"
+	 "          cccccccccccccccccccc =\n"
 	 "              #d{aaaaaaaaaaaaaaaaaaaa = aa,"
 	 "bbbbbbbbbbbbbbbbbbbb = bb,\n"
-	 "                 cccccccccccccccccccc = \n"
+	 "                 cccccccccccccccccccc =\n"
 	 "                     #d{aaaaaaaaaaaaaaaaaaaa = 1,"
 	 "bbbbbbbbbbbbbbbbbbbb = 2,\n"
 	 "                        cccccccccccccccccccc = 3,"
@@ -534,21 +534,21 @@ otp_6354(Config) when is_list(Config) ->
        p({A,{A,{A,{A,{A,{A,{A,
 			    {g,{h,{i,{j,{k,{l,{m,{n,{o,{a}}}}}}}}}}}}}}}}}, 100)),
     bt(<<"#c{\n"
-	 " f1 = \n"
+	 " f1 =\n"
 	 "  #c{\n"
-	 "   f1 = \n"
+	 "   f1 =\n"
 	 "    #c{\n"
-	 "     f1 = \n"
+	 "     f1 =\n"
 	 "      #c{\n"
-	 "       f1 = \n"
+	 "       f1 =\n"
 	 "        #c{\n"
-	 "         f1 = \n"
+	 "         f1 =\n"
 	 "          #c{\n"
-	 "           f1 = \n"
+	 "           f1 =\n"
 	 "            #c{\n"
-	 "             f1 = \n"
+	 "             f1 =\n"
 	 "              #c{\n"
-	 "               f1 = \n"
+	 "               f1 =\n"
 	 "                #c{\n"
 	 "                 f1 = #c{f1 = #c{f1 = #c{f1 = a,"
 	 "f2 = b},f2 = b},f2 = b},\n"
@@ -564,13 +564,13 @@ otp_6354(Config) when is_list(Config) ->
        p({c,{c,{c,{c,{c,{c,{c,{c,{c,{c,{c,{c,a,b},b},b},b},b},b},
 			 b},b},b},b},b},b}, -1)),
     bt(<<"#rrrrr{\n"
-	 " f1 = \n"
+	 " f1 =\n"
 	 "  #rrrrr{\n"
-	 "   f1 = \n"
+	 "   f1 =\n"
 	 "    #rrrrr{\n"
-	 "     f1 = \n"
+	 "     f1 =\n"
 	 "      #rrrrr{\n"
-	 "       f1 = \n"
+	 "       f1 =\n"
 	 "        {rrrrr,{rrrrr,a,#rrrrr{f1 = {rrrrr,1,2},f2 = a,"
 	 "f3 = b}},b},\n"
 	 "       f2 = {rrrrr,c,d},\n"
@@ -2127,3 +2127,200 @@ bad_io_lib_format(F, S) ->
         error:badarg ->
             ok
     end.
+
+otp_14175(_Config) ->
+    "..." = p(#{}, 0),
+    "#{}" = p(#{}, 1),
+    "#{...}" = p(#{a => 1}, 1),
+    "#{#{} => a}" = p(#{#{} => a}, 2),
+    "#{a => 1,...}" = p(#{a => 1, b => 2}, 2),
+    "#{a => 1,b => 2}" = p(#{a => 1, b => 2}, -1),
+
+    M = #{kaaaaaaaaaaaaaaaaaaa => v1,kbbbbbbbbbbbbbbbbbbb => v2,
+          kccccccccccccccccccc => v3,kddddddddddddddddddd => v4,
+          keeeeeeeeeeeeeeeeeee => v5},
+    "#{...}" = p(M, 1),
+    mt("#{kaaaaaaaaaaaaaaaaaaaa => v1,...}", p(M, 2)),
+    mt("#{kaaaaaaaaaaaaaaaaaaaa => 1,kbbbbbbbbbbbbbbbbbbbb => 2,...}",
+       p(M, 3)),
+
+    mt("#{kaaaaaaaaaaaaaaaaaaa => v1,kbbbbbbbbbbbbbbbbbbb => v2,\n"
+       "  kccccccccccccccccccc => v3,...}", p(M, 4)),
+
+    mt("#{kaaaaaaaaaaaaaaaaaaa => v1,kbbbbbbbbbbbbbbbbbbb => v2,\n"
+       "  kccccccccccccccccccc => v3,kddddddddddddddddddd => v4,...}",
+       p(M, 5)),
+
+    mt("#{kaaaaaaaaaaaaaaaaaaa => v1,kbbbbbbbbbbbbbbbbbbb => v2,\n"
+       "  kccccccccccccccccccc => v3,kddddddddddddddddddd => v4,\n"
+       "  keeeeeeeeeeeeeeeeeee => v5}", p(M, 6)),
+
+    weak("#{aaaaaaaaaaaaaaaaaaa => 1,bbbbbbbbbbbbbbbbbbbb => 2,\n"
+         "  cccccccccccccccccccc => {3},\n"
+         "  dddddddddddddddddddd => 4,eeeeeeeeeeeeeeeeeeee => 5}",
+       p(#{aaaaaaaaaaaaaaaaaaa => 1,bbbbbbbbbbbbbbbbbbbb => 2,
+           cccccccccccccccccccc => {3},
+           dddddddddddddddddddd => 4,eeeeeeeeeeeeeeeeeeee => 5}, -1)),
+
+    M2 = #{dddddddddddddddddddd => {1}, {aaaaaaaaaaaaaaaaaaaa} => 2,
+           {bbbbbbbbbbbbbbbbbbbb} => 3,{cccccccccccccccccccc} => 4,
+           {eeeeeeeeeeeeeeeeeeee} => 5},
+    "#{...}" = p(M2, 1),
+    weak("#{dddddddddddddddddddd => {...},...}", p(M2, 2)),
+    weak("#{dddddddddddddddddddd => {1},{...} => 2,...}", p(M2, 3)),
+
+    weak("#{dddddddddddddddddddd => {1},\n"
+         "  {aaaaaaaaaaaaaaaaaaaa} => 2,\n"
+         "  {...} => 3,...}", p(M2, 4)),
+
+    weak("#{dddddddddddddddddddd => {1},\n"
+         "  {aaaaaaaaaaaaaaaaaaaa} => 2,\n"
+         "  {bbbbbbbbbbbbbbbbbbbb} => 3,\n"
+         "  {...} => 4,...}", p(M2, 5)),
+
+    weak("#{dddddddddddddddddddd => {1},\n"
+         "  {aaaaaaaaaaaaaaaaaaaa} => 2,\n"
+         "  {bbbbbbbbbbbbbbbbbbbb} => 3,\n"
+         "  {cccccccccccccccccccc} => 4,\n"
+         "  {...} => 5}", p(M2, 6)),
+
+    weak("#{dddddddddddddddddddd => {1},\n"
+         "  {aaaaaaaaaaaaaaaaaaaa} => 2,\n"
+         "  {bbbbbbbbbbbbbbbbbbbb} => 3,\n"
+         "  {cccccccccccccccccccc} => 4,\n"
+         "  {eeeeeeeeeeeeeeeeeeee} => 5}", p(M2, 7)),
+
+    M3 = #{kaaaaaaaaaaaaaaaaaaa => vuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu,
+           kbbbbbbbbbbbbbbbbbbb => vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv,
+           kccccccccccccccccccc => vxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx,
+           kddddddddddddddddddd => vyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy,
+           keeeeeeeeeeeeeeeeeee => vzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz},
+
+    mt("#{aaaaaaaaaaaaaaaaaaaa =>\n"
+       "      uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu,\n"
+       "  bbbbbbbbbbbbbbbbbbbb =>\n"
+       "      vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv,\n"
+       "  cccccccccccccccccccc =>\n"
+       "      xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx,\n"
+       "  dddddddddddddddddddd =>\n"
+       "      yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy,\n"
+       "  eeeeeeeeeeeeeeeeeeee =>\n"
+       "      zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz}", p(M3, -1)),
+
+    R4 = {c,{c,{c,{c,{c,{c,{c,{c,{c,{c,{c,{c,a,b},b},b},b},b},b},
+			 b},b},b},b},b},b},
+    M4 = #{aaaaaaaaaaaaaaaaaaaa => R4,
+           bbbbbbbbbbbbbbbbbbbb => R4,
+           cccccccccccccccccccc => R4,
+           dddddddddddddddddddd => R4,
+           eeeeeeeeeeeeeeeeeeee => R4},
+
+    weak("#{aaaaaaaaaaaaaaaaaaaa =>\n"
+         "      #c{f1 = #c{f1 = #c{...},f2 = b},f2 = b},\n"
+         "  bbbbbbbbbbbbbbbbbbbb => #c{f1 = #c{f1 = {...},...},f2 = b},\n"
+         "  cccccccccccccccccccc => #c{f1 = #c{...},f2 = b},\n"
+         "  dddddddddddddddddddd => #c{f1 = {...},...},\n"
+         "  eeeeeeeeeeeeeeeeeeee => #c{...}}", p(M4, 7)),
+
+    M5 = #{aaaaaaaaaaaaaaaaaaaa => R4},
+    mt("#{aaaaaaaaaaaaaaaaaaaa =>\n"
+       "   #c{\n"
+       "    f1 =\n"
+       "     #c{\n"
+       "      f1 =\n"
+       "       #c{\n"
+       "        f1 =\n"
+       "         #c{\n"
+       "          f1 =\n"
+       "           #c{\n"
+       "            f1 =\n"
+       "             #c{\n"
+       "              f1 =\n"
+       "               #c{\n"
+       "                f1 =\n"
+       "                 #c{\n"
+       "                  f1 =\n"
+       "                   #c{\n"
+       "                    f1 = #c{f1 = #c{f1 = #c{f1 = a,f2 = b},f2 = b},"
+                                        "f2 = b},\n"
+       "                    f2 = b},\n"
+       "                  f2 = b},\n"
+       "                f2 = b},\n"
+       "              f2 = b},\n"
+       "            f2 = b},\n"
+       "          f2 = b},\n"
+       "        f2 = b},\n"
+       "      f2 = b},\n"
+       "    f2 = b}}", p(M5, -1)),
+    ok.
+
+%% Just check number of newlines and dots ('...').
+-define(WEAK, true).
+
+-ifdef(WEAK).
+
+weak(S, R) ->
+    (nl(S) =:= nl(R) andalso
+     dots(S) =:= dots(S)).
+
+nl(S) ->
+    [C || C <- S, C =:= $\n].
+
+dots(S) ->
+    [C || C <- S, C =:= $\.].
+
+-else. % WEAK
+
+weak(S, R) ->
+    mt(S, R).
+
+-endif. % WEAK
+
+%% If EXACT is defined: mt() matches strings exactly.
+%%
+%% if EXACT is not defined: do not match the strings exactly, but
+%% compare them assuming that all map keys and all map values are
+%% equal (by assuming all map keys and all map values have the same
+%% length and begin with $k and $v respectively).
+
+%-define(EXACT, true).
+
+-ifdef(EXACT).
+
+mt(S, R) ->
+    S =:= R.
+
+-else. % EXACT
+
+mt(S, R) ->
+    anon(S) =:= anon(R).
+
+anon(S) ->
+    {ok, Ts0, _} = erl_scan:string(S, 1, [text]),
+    Ts = anon1(Ts0),
+    text(Ts).
+
+anon1([]) -> [];
+anon1([{atom,Anno,Atom}=T|Ts]) ->
+    case erl_anno:text(Anno) of
+        "k" ++ _ ->
+            NewAnno = erl_anno:set_text("key", Anno),
+            [{atom,NewAnno,Atom}|anon1(Ts)];
+        "v" ++ _ ->
+            NewAnno = erl_anno:set_text("val", Anno),
+            [{atom,NewAnno,Atom}|anon1(Ts)];
+        _ ->
+            [T|anon1(Ts)]
+    end;
+anon1([T|Ts]) ->
+    [T|anon1(Ts)].
+
+text(Ts) ->
+    lists:append(text1(Ts)).
+
+text1([]) -> [];
+text1([T|Ts]) ->
+    Anno = element(2, T),
+    [erl_anno:text(Anno) | text1(Ts)].
+
+-endif. % EXACT
