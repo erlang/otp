@@ -220,7 +220,24 @@ basic_compatible_no_nodes(_Config) ->
 					    {tc2,{skip,"skipped"}}]}]}],
 		       merge_tests = true},
 
-    verify_result(Verify,ListResult,FileResult).
+    verify_result(Verify,ListResult,FileResult),
+
+    {ok,Tests} = ct_testspec:get_tests([SpecFile]),
+    ct:pal("ct_testspec:get_tests/1:~n~p~n", [Tests]),
+    [{[SpecFile],[{Node,Run,Skip}]}] = Tests,
+    [{Alias1V,x_SUITE,all},
+     {Alias1V,y_SUITE,[{g1,all},{g2,all},tc1,tc2]},
+     {Alias1V,z_SUITE,all},
+     {Alias2V,x_SUITE,all},
+     {Alias2V,y_SUITE,all}] = lists:sort(Run),
+    [{Alias1V,z_SUITE,"skipped"},
+     {Alias2V,x_SUITE,{g1,all},"skipped"},
+     {Alias2V,x_SUITE,{g2,all},"skipped"},
+     {Alias2V,y_SUITE,tc1,"skipped"},
+     {Alias2V,y_SUITE,tc2,"skipped"}] = lists:sort(Skip),
+
+    ok.
+
 
 %%%-----------------------------------------------------------------
 %%%
@@ -346,7 +363,25 @@ basic_compatible_nodes(_Config) ->
 					    {tc2,{skip,"skipped"}}]}]}],
 		       merge_tests = true},
 
-    verify_result(Verify,ListResult,FileResult).
+    verify_result(Verify,ListResult,FileResult),
+
+    {ok,Tests} = ct_testspec:get_tests([SpecFile]),
+    ct:pal("ct_testspec:get_tests/1:~n~p~n", [Tests]),
+    [{[SpecFile],[{Node,[],[]},
+                  {Node1,Run1,Skip1},
+                  {Node2,Run2,Skip2}]}] = Tests,
+    [{TO1V,x_SUITE,all},
+     {TO1V,y_SUITE,[{g1,all},{g2,all},tc1,tc2]},
+     {TO1V,z_SUITE,all}] = lists:sort(Run1),
+    [{TO2V,x_SUITE,all},
+     {TO2V,y_SUITE,all}] = lists:sort(Run2),
+    [{TO1V,z_SUITE,"skipped"}] = lists:sort(Skip1),
+    [{TO2V,x_SUITE,{g1,all},"skipped"},
+     {TO2V,x_SUITE,{g2,all},"skipped"},
+     {TO2V,y_SUITE,tc1,"skipped"},
+     {TO2V,y_SUITE,tc2,"skipped"}] = lists:sort(Skip2),
+
+    ok.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -439,7 +474,28 @@ no_merging(_Config) ->
 				 [{y_SUITE,[{tc1,{skip,"skipped"}},
 					    {tc2,{skip,"skipped"}}]}]}]},
 		       
-    verify_result(Verify,ListResult,FileResult).
+    verify_result(Verify,ListResult,FileResult),
+
+    {ok,Tests} = ct_testspec:get_tests([SpecFile]),
+    ct:pal("ct_testspec:get_tests/1:~n~p~n", [Tests]),
+    [{[SpecFile],[{Node,[],[]},
+                  {Node1,Run1,Skip1},
+                  {Node2,Run2,Skip2}]}] = Tests,
+    [{TO1V,x_SUITE,all},
+     {TO1V,y_SUITE,[tc1,tc2]},
+     {TO1V,y_SUITE,[{g1,all},{g2,all}]},
+     {TO1V,z_SUITE,all}] = lists:sort(Run1),
+    [{TO2V,x_SUITE,all},
+     {TO2V,x_SUITE,[{skipped,g1,all},{skipped,g2,all}]},
+     {TO2V,y_SUITE,all},
+     {TO2V,y_SUITE,[{skipped,tc1},{skipped,tc2}]}] = lists:sort(Run2),
+    [{TO1V,z_SUITE,"skipped"}] = lists:sort(Skip1),
+    [{TO2V,x_SUITE,{g1,all},"skipped"},
+     {TO2V,x_SUITE,{g2,all},"skipped"},
+     {TO2V,y_SUITE,tc1,"skipped"},
+     {TO2V,y_SUITE,tc2,"skipped"}] = lists:sort(Skip2),
+
+    ok.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -510,7 +566,25 @@ multiple_specs(_Config) ->
 				  {y_SUITE,[all,{tc1,{skip,"skipped"}},
 					    {tc2,{skip,"skipped"}}]}]}]},
 		       
-    verify_result(Verify,FileResult,FileResult).
+    verify_result(Verify,FileResult,FileResult),
+
+    {ok,Tests} = ct_testspec:get_tests([[SpecFile1,SpecFile2]]),
+    ct:pal("ct_testspec:get_tests/1:~n~p~n", [Tests]),
+    [{[SpecFile1,SpecFile2],[{Node,[],[]},
+                             {Node1,Run1,Skip1},
+                             {Node2,Run2,Skip2}]}] = Tests,
+    [{TO1V,x_SUITE,all},
+     {TO1V,y_SUITE,[{g1,all},{g2,all},tc1,tc2]},
+     {TO1V,z_SUITE,all}] = lists:sort(Run1),
+    [{TO2V,x_SUITE,all},
+     {TO2V,y_SUITE,all}] = lists:sort(Run2),
+    [{TO1V,z_SUITE,"skipped"}] = lists:sort(Skip1),
+    [{TO2V,x_SUITE,{g1,all},"skipped"},
+     {TO2V,x_SUITE,{g2,all},"skipped"},
+     {TO2V,y_SUITE,tc1,"skipped"},
+     {TO2V,y_SUITE,tc2,"skipped"}] = lists:sort(Skip2),
+
+    ok.
 
 %%%-----------------------------------------------------------------
 %%% 
