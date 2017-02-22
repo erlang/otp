@@ -35,7 +35,7 @@
 -export([appcall/4]).
 
 -import(lists, [reverse/1,flatten/1,sublist/3,sort/1,keysort/2,
-		concat/1,max/1,min/1,foreach/2,foldl/3,flatmap/2]).
+		max/1,min/1,foreach/2,foldl/3,flatmap/2]).
 -import(io, [format/1, format/2]).
 
 %%-----------------------------------------------------------------------
