@@ -675,6 +675,18 @@ typedef struct {
         <p>When receiving data from untrusted sources, use option
           <c>ERL_NIF_BIN2TERM_SAFE</c>.</p>
       </item>
+      <tag><marker id="ErlNifMonitor"/><c>ErlNifMonitor</c></tag>
+      <item>
+        <p>This is an opaque data type that identifies a monitor.</p>
+        <p>The nif writer is to provide the memory for storing the
+          monitor when calling <seealso marker="#enif_monitor_process">
+          <c>enif_monitor_process</c></seealso>. The
+          address of the data is not stored by the runtime system, so
+          <c>ErlNifMonitor</c> can be used as any other data, it
+          can be copied, moved in memory, forgotten, and so on.
+	  To compare two monitors, <seealso marker="#enif_compare_monitors">
+          <c>enif_compare_monitors</c></seealso> must be used.</p>
+      </item>
       <tag><marker id="ErlNifPid"/><c>ErlNifPid</c></tag>
       <item>
         <p>A process identifier (pid). In contrast to pid terms (instances of
@@ -910,6 +922,21 @@ typedef enum {
     </func>
 
     <func>
+      <name><ret>int</ret><nametext>enif_compare_monitors(const ErlNifMonitor
+        *monitor1, const ErlNifMonitor *monitor2)</nametext></name>
+      <fsummary>Compare two monitors.</fsummary>
+      <desc>
+        <marker id="enif_compare_monitors"></marker>
+        <p>Compares two <seealso marker="#ErlNifMonitor"><c>ErlNifMonitor</c></seealso>s.
+          Can also be used to imply some artificial order on monitors,
+          for whatever reason.</p>
+        <p>Returns <c>0</c> if <c>monitor1</c> and <c>monitor2</c> are equal,
+          &lt; <c>0</c> if <c>monitor1</c> &lt; <c>monitor2</c>, and
+          &gt; <c>0</c> if <c>monitor1</c> &gt; <c>monitor2</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>void</ret>
         <nametext>enif_cond_broadcast(ErlNifCond *cnd)</nametext></name>
       <fsummary></fsummary>
@@ -1042,7 +1069,7 @@ typedef enum {
       <fsummary>Cancel a process monitor.</fsummary>
       <desc>
         <marker id="enif_demonitor_process"></marker>
-        <p>Cancels a monitor created earlier with <seealso marker="enif_monitor_process">
+        <p>Cancels a monitor created earlier with <seealso marker="#enif_monitor_process">
 	<c>enif_monitor_process</c></seealso>. Argument <c>obj</c> is a pointer
 	to the resource holding the monitor and	<c>*mon</c> identifies the monitor.</p>
         <p>Returns <c>0</c> if the monitor was successfully identified and removed.
@@ -1050,6 +1077,7 @@ typedef enum {
 	it was either</p>
 	<list type="bulleted">
           <item>never created for this resource</item>
+          <item>already cancelled</item>
           <item>already triggered</item>
           <item>just about to be triggered by a concurrent thread</item>
         </list>
@@ -2182,14 +2210,19 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
         <marker id="enif_monitor_process"></marker>
         <p>Starts monitoring a process from a resource. When a process is
           monitored, a process exit results in a call to the provided
-          <seealso marker="ErlNifResourceDown">
+          <seealso marker="#ErlNifResourceDown">
           <c>down</c></seealso> callback associated with the resource type.</p>
 	<p>Argument <c>obj</c> is pointer to the resource to hold the monitor and
 	<c>*target_pid</c> identifies the local process to be monitored.</p>
 	<p>If <c>mon</c> is not <c>NULL</c>, a successful call stores the
-	identity of the monitor	in the struct pointed to by <c>mon</c>.
-	This identifier is used to refer to the monitor for later removal or
-	compare. A monitor is automatically removed when it triggers or when
+	identity of the monitor	in the
+	<seealso marker="#ErlNifMonitor"><c>ErlNifMonitor</c></seealso>
+	struct pointed to by <c>mon</c>. This identifier is used to refer to the
+	monitor for later removal with
+	<seealso marker="#enif_demonitor_process"><c>enif_demonitor_process</c></seealso>
+	or compare with
+	<seealso marker="#enif_compare_monitors"><c>enif_compare_monitors</c></seealso>.
+	A monitor is automatically removed when it triggers or when
 	the resource is deallocated.</p>
         <p>Returns <c>0</c> on success, &lt; 0 if no <c>down</c> callback is
           provided, and &gt; 0 if the process is no longer alive.</p>
