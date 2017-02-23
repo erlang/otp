@@ -88,6 +88,7 @@ bif erlang:list_to_binary/1
 bif erlang:list_to_float/1
 bif erlang:list_to_integer/1
 bif erlang:list_to_pid/1
+bif erlang:list_to_ref/1
 bif erlang:list_to_tuple/1
 bif erlang:loaded/0
 bif erlang:localtime/0
