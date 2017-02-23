@@ -196,7 +196,6 @@ static void doit_print_monitor(ErtsMonitor *mon, void *vpcontext)
 	break;
     case MON_NIF_TARGET: {
         ErtsResource* rsrc = mon->u.resource;
-	/*SVERK: Print resource-ref? */
         erts_print(to, to_arg, "%s{from,{%T,%T},%T}", prefix, rsrc->type->module,
                    rsrc->type->name, mon->ref);
 	break;

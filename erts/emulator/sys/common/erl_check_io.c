@@ -2059,7 +2059,6 @@ send_event_tuple(struct erts_nif_select_event* e, ErtsResource* resource,
     Eterm resource_term, ref_term, tuple;
 
     if (!rp) {
-        erts_fprintf(stderr, "SVERK: Process %T not alive for msg %T\n", e->pid, event_atom);
         return;
     }
 
