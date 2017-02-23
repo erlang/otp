@@ -90,7 +90,25 @@
 -define(PUT_SOCKET_OPT(KeyVal,Opts),    ?do_put_opt(socket_options,  KeyVal,Opts) ).
 
 %% Types
+-type role()                :: client | server .
 -type ok_error(SuccessType) :: {ok, SuccessType} | {error, any()} .
+-type daemon_ref()          :: pid() .
+
+-type subsystem_spec()      :: {subsystem_name(), {channel_callback(), channel_init_args()}} .
+-type subsystem_name()      :: string() .
+-type channel_callback()    :: atom() .
+-type channel_init_args()   :: list() .
+
+-type algs_list()           :: list( alg_entry() ).
+-type alg_entry()           :: {kex, simple_algs()} 
+                             | {public_key, simple_algs()}
+                             | {cipher, double_algs()}
+                             | {mac, double_algs()}
+                             | {compression, double_algs()} .
+-type simple_algs()         :: list( atom() ) .
+-type double_algs()         :: list( {client2serverlist,simple_algs()} | {server2client,simple_algs()} )
+                             | simple_algs() .
+
 
 %% Records
 -record(ssh,

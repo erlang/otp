@@ -58,8 +58,6 @@
 
 -type option_declarations() :: #{ {option_key(),def} := option_declaration() }.
 
--type role() :: client | server .
-
 -type error() :: {error,{eoptions,any()}} .
 
 %%%================================================================

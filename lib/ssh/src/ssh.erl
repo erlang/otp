@@ -40,10 +40,23 @@
 	]).
 
 %%% Type exports
--export_type([connection_ref/0,
-	      channel_id/0,
-              role/0
+-export_type([ssh_daemon_ref/0,
+              ssh_connection_ref/0,
+	      ssh_channel_id/0,
+              role/0,
+              subsystem_spec/0,
+              subsystem_name/0,
+              channel_callback/0,
+              channel_init_args/0,
+              algs_list/0,
+              alg_entry/0,
+              simple_algs/0,
+              double_algs/0
 	     ]).
+
+-opaque ssh_daemon_ref()     :: daemon_ref() .
+-opaque ssh_connection_ref() :: connection_ref() .
+-opaque ssh_channel_id()     :: channel_id().
 
 %%--------------------------------------------------------------------
 -spec start() -> ok | {error, term()}.
@@ -157,10 +170,10 @@ channel_info(ConnectionRef, ChannelId, Options) ->
     ssh_connection_handler:channel_info(ConnectionRef, ChannelId, Options).
 
 %%--------------------------------------------------------------------
--spec daemon(inet:port_number()) ->  ok_error(pid()).
--spec daemon(inet:port_number()|inet:socket(), proplists:proplist()) -> ok_error(pid()).
--spec daemon(any | inet:ip_address(), inet:port_number(), proplists:proplist()) -> ok_error(pid())
-           ;(socket, inet:socket(), proplists:proplist()) -> ok_error(pid())
+-spec daemon(inet:port_number()) ->  ok_error(daemon_ref()).
+-spec daemon(inet:port_number()|inet:socket(), proplists:proplist()) -> ok_error(daemon_ref()).
+-spec daemon(any | inet:ip_address(), inet:port_number(), proplists:proplist()) -> ok_error(daemon_ref())
+           ;(socket, inet:socket(), proplists:proplist()) -> ok_error(daemon_ref())
             .
 
 %% Description: Starts a server listening for SSH connections
@@ -182,7 +195,7 @@ daemon(Host0, Port, UserOptions0) ->
     start_daemon(Host, Port, ssh_options:handle_options(server, UserOptions)).
 
 %%--------------------------------------------------------------------
--spec daemon_info(pid()) -> ok_error( [{atom(), term()}] ).
+-spec daemon_info(daemon_ref()) -> ok_error( [{atom(), term()}] ).
 
 daemon_info(Pid) ->
     case catch ssh_system_sup:acceptor_supervisor(Pid) of
@@ -197,7 +210,7 @@ daemon_info(Pid) ->
     end.
 
 %%--------------------------------------------------------------------
--spec stop_listener(pid()) -> ok.
+-spec stop_listener(daemon_ref()) -> ok.
 -spec stop_listener(inet:ip_address(), inet:port_number()) -> ok.
 %%
 %% Description: Stops the listener, but leaves
@@ -211,7 +224,7 @@ stop_listener(Address, Port, Profile) ->
     ssh_system_sup:stop_listener(Address, Port, Profile).
 
 %%--------------------------------------------------------------------
--spec stop_daemon(pid()) -> ok.
+-spec stop_daemon(daemon_ref()) -> ok.
 -spec stop_daemon(inet:ip_address(), inet:port_number()) -> ok.
 -spec stop_daemon(inet:ip_address(), inet:port_number(), atom()) -> ok.
 %%
@@ -269,6 +282,7 @@ start_shell(Error) ->
     Error.
 
 %%--------------------------------------------------------------------
+-spec default_algorithms() -> algs_list() .
 %%--------------------------------------------------------------------
 default_algorithms() ->
     ssh_transport:default_algorithms().

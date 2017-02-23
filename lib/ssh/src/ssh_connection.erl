@@ -56,8 +56,8 @@
 %%--------------------------------------------------------------------
 
 %%--------------------------------------------------------------------
--spec session_channel(pid(), timeout()) -> {ok, channel_id()} | {error, timeout | closed}.
--spec session_channel(pid(), integer(), integer(), timeout()) -> {ok, channel_id()} | {error, timeout | closed}.
+-spec session_channel(connection_ref(), timeout()) -> {ok, channel_id()} | {error, timeout | closed}.
+-spec session_channel(connection_ref(), integer(), integer(), timeout()) -> {ok, channel_id()} | {error, timeout | closed}.
 
 %% Description: Opens a channel for a ssh session. A session is a
 %% remote execution of a program. The program may be a shell, an
@@ -81,7 +81,7 @@ session_channel(ConnectionHandler, InitialWindowSize,
     end.
 
 %%--------------------------------------------------------------------
--spec exec(pid(), channel_id(), string(), timeout()) -> 
+-spec exec(connection_ref(), channel_id(), string(), timeout()) -> 
 		  success | failure | {error, timeout | closed}.
 
 %% Description: Will request that the server start the
@@ -92,7 +92,7 @@ exec(ConnectionHandler, ChannelId, Command, TimeOut) ->
 				   true, [?string(Command)], TimeOut).
 
 %%--------------------------------------------------------------------
--spec shell(pid(), channel_id()) -> _.
+-spec shell(connection_ref(), channel_id()) -> _.
 
 %% Description: Will request that the user's default shell (typically
 %% defined in /etc/passwd in UNIX systems) be started at the other
@@ -102,7 +102,7 @@ shell(ConnectionHandler, ChannelId) ->
     ssh_connection_handler:request(ConnectionHandler, self(), ChannelId,
  				   "shell", false, <<>>, 0).
 %%--------------------------------------------------------------------
--spec subsystem(pid(), channel_id(), string(), timeout()) -> 
+-spec subsystem(connection_ref(), channel_id(), string(), timeout()) -> 
 		       success | failure | {error, timeout | closed}.
 %%
 %% Description: Executes a predefined subsystem.
@@ -112,11 +112,11 @@ subsystem(ConnectionHandler, ChannelId, SubSystem, TimeOut) ->
 				    ChannelId, "subsystem", 
 				    true, [?string(SubSystem)], TimeOut).
 %%--------------------------------------------------------------------
--spec send(pid(), channel_id(), iodata()) ->
+-spec send(connection_ref(), channel_id(), iodata()) ->
 		  ok | {error, closed}.
--spec send(pid(), channel_id(), integer()| iodata(), timeout() | iodata()) ->
+-spec send(connection_ref(), channel_id(), integer()| iodata(), timeout() | iodata()) ->
 		  ok | {error, timeout} | {error, closed}.
--spec send(pid(), channel_id(), integer(), iodata(), timeout()) ->
+-spec send(connection_ref(), channel_id(), integer(), iodata(), timeout()) ->
 		  ok | {error, timeout} | {error, closed}.
 %%
 %%
@@ -134,7 +134,7 @@ send(ConnectionHandler, ChannelId, Type, Data, TimeOut) ->
     ssh_connection_handler:send(ConnectionHandler, ChannelId,
 				Type, Data, TimeOut).
 %%--------------------------------------------------------------------
--spec send_eof(pid(), channel_id()) -> ok | {error, closed}.
+-spec send_eof(connection_ref(), channel_id()) -> ok | {error, closed}.
 %%
 %%
 %% Description: Sends eof on the channel <ChannelId>.
@@ -143,7 +143,7 @@ send_eof(ConnectionHandler, Channel) ->
     ssh_connection_handler:send_eof(ConnectionHandler, Channel).
 
 %%--------------------------------------------------------------------
--spec adjust_window(pid(), channel_id(), integer()) -> ok |  {error, closed}.
+-spec adjust_window(connection_ref(), channel_id(), integer()) -> ok |  {error, closed}.
 %%
 %%
 %% Description: Adjusts the ssh flowcontrol window.
@@ -152,7 +152,7 @@ adjust_window(ConnectionHandler, Channel, Bytes) ->
     ssh_connection_handler:adjust_window(ConnectionHandler, Channel, Bytes).
 
 %%--------------------------------------------------------------------
--spec setenv(pid(), channel_id(), string(), string(), timeout()) ->  
+-spec setenv(connection_ref(), channel_id(), string(), string(), timeout()) ->  
 		    success | failure | {error, timeout | closed}.
 %%
 %%
@@ -165,7 +165,7 @@ setenv(ConnectionHandler, ChannelId, Var, Value, TimeOut) ->
 
 
 %%--------------------------------------------------------------------
--spec close(pid(), channel_id()) -> ok.
+-spec close(connection_ref(), channel_id()) -> ok.
 %%
 %%
 %% Description: Sends a close message on the channel <ChannelId>.
@@ -174,7 +174,7 @@ close(ConnectionHandler, ChannelId) ->
     ssh_connection_handler:close(ConnectionHandler, ChannelId).
 
 %%--------------------------------------------------------------------
--spec reply_request(pid(), boolean(), success | failure, channel_id()) -> ok.
+-spec reply_request(connection_ref(), boolean(), success | failure, channel_id()) -> ok.
 %%
 %%
 %% Description: Send status replies to requests that want such replies.
@@ -185,9 +185,9 @@ reply_request(_,false, _, _) ->
     ok.
 
 %%--------------------------------------------------------------------
--spec ptty_alloc(pid(), channel_id(), proplists:proplist()) -> 
+-spec ptty_alloc(connection_ref(), channel_id(), proplists:proplist()) -> 
 			success | failiure | {error, closed}.
--spec ptty_alloc(pid(), channel_id(), proplists:proplist(), timeout()) -> 
+-spec ptty_alloc(connection_ref(), channel_id(), proplists:proplist(), timeout()) -> 
 			success | failiure | {error, timeout} | {error, closed}.
 
 %%
