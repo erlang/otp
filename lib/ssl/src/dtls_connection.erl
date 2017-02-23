@@ -77,20 +77,6 @@ start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = false},_, Tracker} 
     catch
 	error:{badmatch, {error, _} = Error} ->
 	    Error
-    end;
-
-start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = true},_, Tracker} = Opts,
-	  User, {CbModule, _,_, _} = CbInfo, 
-	  Timeout) -> 
-    try 
-	{ok, Pid} = dtls_connection_sup:start_child_dist([Role, Host, Port, Socket, 
-							  Opts, User, CbInfo]), 
-	{ok, SslSocket} = ssl_connection:socket_control(?MODULE, Socket, Pid, CbModule, Tracker),
-	ok = ssl_connection:handshake(SslSocket, Timeout),
-	{ok, SslSocket} 
-    catch
-	error:{badmatch, {error, _} = Error} ->
-	    Error
     end.
 
 send_handshake(Handshake, #state{connection_states = ConnectionStates} = States) ->
