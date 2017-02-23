@@ -178,19 +178,28 @@ static void doit_print_monitor(ErtsMonitor *mon, void *vpcontext)
 	prefix = "";
     }
 
-    if (mon->type == MON_ORIGIN) {
-	if (is_atom(mon->pid)) { /* dist by name */
-	    ASSERT(is_node_name_atom(mon->pid));
+    switch (mon->type) {
+    case MON_ORIGIN:
+	if (is_atom(mon->u.pid)) { /* dist by name */
+	    ASSERT(is_node_name_atom(mon->u.pid));
 	    erts_print(to, to_arg, "%s{to,{%T,%T},%T}", prefix, mon->name,
-		       mon->pid, mon->ref);
+		       mon->u.pid, mon->ref);
 	} else if (is_atom(mon->name)){ /* local by name */
 	    erts_print(to, to_arg, "%s{to,{%T,%T},%T}", prefix, mon->name,
 		       erts_this_dist_entry->sysname, mon->ref);
 	} else { /* local and distributed by pid */
-	    erts_print(to, to_arg, "%s{to,%T,%T}", prefix, mon->pid, mon->ref);
+	    erts_print(to, to_arg, "%s{to,%T,%T}", prefix, mon->u.pid, mon->ref);
 	}
-    } else { /* MON_TARGET */
-	erts_print(to, to_arg, "%s{from,%T,%T}", prefix, mon->pid, mon->ref);
+	break;
+    case MON_TARGET:
+	erts_print(to, to_arg, "%s{from,%T,%T}", prefix, mon->u.pid, mon->ref);
+	break;
+    case MON_NIF_TARGET: {
+        ErtsResource* rsrc = mon->u.resource;
+        erts_print(to, to_arg, "%s{from,{%T,%T},%T}", prefix, rsrc->type->module,
+                   rsrc->type->name, mon->ref);
+	break;
+    }
     }
 }
 			       

@@ -60,7 +60,7 @@
 
 % These are to be kept in sync with erl_monitors.h 
 -define(MON_ORIGIN, 1).
--define(MON_TARGET, 3).
+-define(MON_TARGET, 2).
 
 
 -record(erl_link, {type = ?LINK_UNDEF,
@@ -69,7 +69,7 @@
 
 % This is to be kept in sync with erl_bif_info.c (make_monitor_list)
 
--record(erl_monitor, {type,        % MON_ORIGIN or MON_TARGET (1 or 3)
+-record(erl_monitor, {type,        % MON_ORIGIN or MON_TARGET
                       ref,
                       pid,         % Process or nodename
                       name = []}). % registered name or []

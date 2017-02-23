@@ -31,6 +31,13 @@
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload_error/1, upgrade/1, heap_frag/1,
          t_on_load/1,
+         select/1,
+         monitor_process_a/1,
+         monitor_process_b/1,
+         monitor_process_c/1,
+         monitor_process_d/1,
+         demonitor_process/1,
+         monitor_frenzy/1,
          hipe/1,
 	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1,
 	 maps/1,
@@ -56,6 +63,8 @@
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
+-define(is_resource, is_reference).
+
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
@@ -64,6 +73,9 @@ all() ->
     [{group, G} || G <- api_groups()]
         ++
     [reload_error, heap_frag, types, many_args,
+     select,
+     {group, monitor},
+     monitor_frenzy,
      hipe,
      binaries, get_string, get_atom, maps, api_macros, from_array,
      iolist_as_binary, resource, resource_binary,
@@ -81,13 +93,19 @@ all() ->
      nif_snprintf].
 
 groups() ->
-    [{G, [], api_repeaters()} || G <- api_groups()].
+    [{G, [], api_repeaters()} || G <- api_groups()]
+        ++
+    [{monitor, [], [monitor_process_a,
+                    monitor_process_b,
+                    monitor_process_c,
+                    monitor_process_d,
+                    demonitor_process]}].
+
 
 api_groups() -> [api_latest, api_2_4, api_2_0].
 
 api_repeaters() -> [upgrade, resource_takeover, t_on_load].
 
-init_per_group(api_latest, Config) -> Config;
 init_per_group(api_2_4, Config) ->
     [{nif_api_version, ".2_4"} | Config];
 init_per_group(api_2_0, Config) ->
@@ -97,7 +115,8 @@ init_per_group(api_2_0, Config) ->
             {skip, "API 2.0 buggy on Windows 64-bit"};
         _ ->
             [{nif_api_version, ".2_0"} | Config]
-    end.
+    end;
+init_per_group(_, Config) -> Config.
 
 end_per_group(_,_) -> ok.
 
@@ -108,6 +127,13 @@ init_per_testcase(hipe, Config) ->
     case erlang:system_info(hipe_architecture) of
 	undefined -> {skip, "HiPE is disabled"};
 	_ -> Config
+    end;
+init_per_testcase(select, Config) ->
+    case os:type() of
+        {win32,_} ->
+            {skip, "Test not yet implemented for windows"};
+        _ ->
+            Config
     end;
 init_per_testcase(_Case, Config) ->
     Config.
@@ -434,6 +460,364 @@ t_on_load(Config) when is_list(Config) ->
     verify_tmpmem(TmpMem),
     ok.
 
+-define(ERL_NIF_SELECT_READ, (1 bsl 0)).
+-define(ERL_NIF_SELECT_WRITE, (1 bsl 1)).
+-define(ERL_NIF_SELECT_STOP, (1 bsl 2)).
+
+-define(ERL_NIF_SELECT_STOP_CALLED, (1 bsl 0)).
+-define(ERL_NIF_SELECT_STOP_SCHEDULED, (1 bsl 1)).
+-define(ERL_NIF_SELECT_INVALID_EVENT, (1 bsl 2)).
+-define(ERL_NIF_SELECT_FAILED, (1 bsl 3)).
+
+
+select(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+
+    Ref = make_ref(),
+    Ref2 = make_ref(),
+    {{R, R_ptr}, {W, W_ptr}} = pipe_nif(),
+    ok = write_nif(W, <<"hej">>),
+    <<"hej">> = read_nif(R, 3),
+
+    %% Wait for read
+    eagain = read_nif(R, 3),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref),
+    [] = flush(),
+    ok = write_nif(W, <<"hej">>),
+    [{select, R, Ref, ready_input}] = flush(),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,self(),Ref2),
+    [{select, R, Ref2, ready_input}] = flush(),
+    Papa = self(),
+    Pid = spawn_link(fun() ->
+                             [{select, R, Ref, ready_input}] = flush(),
+                             Papa ! {self(), done}
+                     end),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,Pid,Ref),
+    {Pid, done} = receive_any(1000),
+    <<"hej">> = read_nif(R, 3),
+
+    %% Wait for write
+    Written = write_full(W, $a),
+    0 = select_nif(W,?ERL_NIF_SELECT_WRITE,W,self(),Ref),
+    [] = flush(),
+    Written = read_nif(R,byte_size(Written)),
+    [{select, W, Ref, ready_output}] = flush(),
+
+    %% Close write and wait for EOF
+    eagain = read_nif(R, 1),
+    check_stop_ret(select_nif(W,?ERL_NIF_SELECT_STOP,W,null,Ref)),
+    [{fd_resource_stop, W_ptr, _}] = flush(),
+    {1, {W_ptr,_}} = last_fd_stop_call(),
+    true = is_closed_nif(W),
+    [] = flush(),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,self(),Ref),
+    [{select, R, Ref, ready_input}] = flush(),
+    eof = read_nif(R,1),
+
+    check_stop_ret(select_nif(R,?ERL_NIF_SELECT_STOP,R,null,Ref)),
+    [{fd_resource_stop, R_ptr, _}] = flush(),
+    {1, {R_ptr,_}} = last_fd_stop_call(),
+    true = is_closed_nif(R),
+
+    select_2(Config).
+
+select_2(Config) ->
+    erlang:garbage_collect(),
+    {_,_,2} = last_resource_dtor_call(),
+
+    Ref1 = make_ref(),
+    Ref2 = make_ref(),
+    {{R, R_ptr}, {W, W_ptr}} = pipe_nif(),
+
+    %% Change ref
+    eagain = read_nif(R, 1),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref1),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,self(),Ref2),
+
+    [] = flush(),
+    ok = write_nif(W, <<"hej">>),
+    [{select, R, Ref2, ready_input}] = flush(),
+    <<"hej">> = read_nif(R, 3),
+
+    %% Change pid
+    eagain = read_nif(R, 1),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref1),
+    Papa = self(),
+    spawn_link(fun() ->
+                       0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref1),
+                       [] = flush(),
+                       Papa ! sync,
+                       [{select, R, Ref1, ready_input}] = flush(),
+                       <<"hej">> = read_nif(R, 3),
+                       Papa ! done
+               end),
+    sync = receive_any(),
+    ok = write_nif(W, <<"hej">>),
+    done = receive_any(),
+    [] = flush(),
+
+    check_stop_ret(select_nif(R,?ERL_NIF_SELECT_STOP,R,null,Ref1)),
+    [{fd_resource_stop, R_ptr, _}] = flush(),
+    {1, {R_ptr,_}} = last_fd_stop_call(),
+    true = is_closed_nif(R),
+
+    %% Stop without previous read/write select
+    ?ERL_NIF_SELECT_STOP_CALLED = select_nif(W,?ERL_NIF_SELECT_STOP,W,null,Ref1),
+    [{fd_resource_stop, W_ptr, 1}] = flush(),
+    {1, {W_ptr,1}} = last_fd_stop_call(),
+    true = is_closed_nif(W),
+
+    select_3(Config).
+
+select_3(_Config) ->
+    erlang:garbage_collect(),
+    {_,_,2} = last_resource_dtor_call(),
+    ok.
+
+check_stop_ret(?ERL_NIF_SELECT_STOP_CALLED) -> ok;    
+check_stop_ret(?ERL_NIF_SELECT_STOP_SCHEDULED) -> ok.
+
+write_full(W, C) ->
+    write_full(W, C, <<>>).
+write_full(W, C, Acc) ->
+    case write_nif(W, <<C>>) of
+        ok ->
+            write_full(W, (C+1) band 255, <<Acc/binary, C>>);
+        {eagain,0} ->
+            Acc
+    end.
+
+%% Basic monitoring of one process that terminates 
+monitor_process_a(Config) ->
+    ensure_lib_loaded(Config),
+
+    F = fun(Terminator, UseMsgEnv) ->
+                Pid = spawn(fun() ->
+                                    receive
+                                        {exit, Arg} -> exit(Arg);
+                                        return -> ok;
+                                        BadMatch -> goodmatch = BadMatch
+                                    end
+                            end),
+                R_ptr = alloc_monitor_resource_nif(),
+                {0, Mon1} = monitor_process_nif(R_ptr, Pid, UseMsgEnv, self()),
+                [R_ptr] = monitored_by(Pid),
+                Terminator(Pid),
+                [{monitor_resource_down, R_ptr, Pid, Mon2}] = flush(),
+                0 = compare_monitors_nif(Mon1, Mon2),
+                [] = last_resource_dtor_call(),
+                ok = release_resource(R_ptr),
+                {R_ptr, _, 1} = last_resource_dtor_call()
+        end,
+
+    T1 = fun(Pid) -> Pid ! {exit, 17} end,
+    T2 = fun(Pid) -> Pid ! return end,
+    T3 = fun(Pid) -> Pid ! badmatch end,
+    T4 = fun(Pid) -> exit(Pid, 18) end,
+
+    [F(T, UME) || T <- [T1,T2,T3,T4], UME <- [true, false]],
+
+    ok.
+
+%% Test auto-demonitoring at resource destruction
+monitor_process_b(Config) ->
+    ensure_lib_loaded(Config),
+
+    Pid = spawn_link(fun() ->
+                             receive
+                                 return -> ok
+                             end
+                     end),
+    R_ptr = alloc_monitor_resource_nif(),
+    {0,_} = monitor_process_nif(R_ptr, Pid, true, self()),
+    [R_ptr] = monitored_by(Pid),
+    ok = release_resource(R_ptr),
+    [] = flush(),
+    {R_ptr, _, 1} = last_resource_dtor_call(),
+    [] = monitored_by(Pid),
+    Pid ! return,
+    ok.
+
+%% Test termination of monitored process holding last resource ref
+monitor_process_c(Config) ->
+    ensure_lib_loaded(Config),
+
+    Papa = self(),
+    Pid = spawn_link(fun() ->
+                             R_ptr = alloc_monitor_resource_nif(),
+                             {0,Mon} = monitor_process_nif(R_ptr, self(), true, Papa),
+                             [R_ptr] = monitored_by(self()),
+                             put(store, make_resource(R_ptr)),
+                             ok = release_resource(R_ptr),
+                             [] = last_resource_dtor_call(),
+                             Papa ! {self(), done, R_ptr, Mon},
+                             exit
+                     end),
+    [{Pid, done, R_ptr, Mon1},
+     {monitor_resource_down, R_ptr, Pid, Mon2}] = flush(),
+    compare_monitors_nif(Mon1, Mon2),
+    {R_ptr, _, 1} = last_resource_dtor_call(),
+    ok.
+
+%% Test race of resource dtor called when monitored process is exiting
+monitor_process_d(Config) ->
+    ensure_lib_loaded(Config),
+
+    Papa = self(),
+    {Target,TRef} = spawn_monitor(fun() ->
+                                          nothing = receive_any()
+                                  end),
+    
+    R_ptr = alloc_monitor_resource_nif(),
+    {0,_} = monitor_process_nif(R_ptr, Target, true, self()),
+    [Papa, R_ptr] = monitored_by(Target),
+    
+    exit(Target, die),
+    ok = release_resource(R_ptr),
+
+    [{'DOWN', TRef, process, Target, die}] = flush(),  %% no monitor_resource_down
+    {R_ptr, _, 1} = last_resource_dtor_call(),
+
+    ok.
+
+%% Test basic demonitoring
+demonitor_process(Config) ->
+    ensure_lib_loaded(Config),
+
+    Pid = spawn_link(fun() ->
+                             receive
+                                 return -> ok
+                             end
+                     end),
+    R_ptr = alloc_monitor_resource_nif(),
+    {0,MonBin1} = monitor_process_nif(R_ptr, Pid, true, self()),
+    [R_ptr] = monitored_by(Pid),
+    {0,MonBin2} = monitor_process_nif(R_ptr, Pid, true, self()),
+    [R_ptr, R_ptr] = monitored_by(Pid),
+    0 = demonitor_process_nif(R_ptr, MonBin1),
+    [R_ptr] = monitored_by(Pid),
+    1 = demonitor_process_nif(R_ptr, MonBin1),
+    0 = demonitor_process_nif(R_ptr, MonBin2),
+    [] = monitored_by(Pid),
+    1 = demonitor_process_nif(R_ptr, MonBin2),
+
+    ok = release_resource(R_ptr),
+    [] = flush(),
+    {R_ptr, _, 1} = last_resource_dtor_call(),
+    [] = monitored_by(Pid),
+    Pid ! return,
+    ok.
+
+
+monitored_by(Pid) ->
+    {monitored_by, List0} = process_info(Pid, monitored_by),
+    List1 = lists:map(fun(E) when ?is_resource(E) ->
+                              {Ptr, _} = get_resource(monitor_resource_type, E),
+                              Ptr;
+                         (E) -> E
+                      end,
+                      List0),
+    erlang:garbage_collect(),
+    lists:sort(List1).
+
+-define(FRENZY_RAND_BITS, 25).
+
+%% Exercise monitoring from NIF resources by randomly
+%% create/destruct processes, resources and monitors.
+monitor_frenzy(Config) ->
+    ensure_lib_loaded(Config),
+
+    Procs1 = processes(),
+    io:format("~p processes before: ~p\n", [length(Procs1), Procs1]),
+
+    %% Spawn first worker process
+    Master = self(),
+    spawn_link(fun() ->
+                       SelfPix = monitor_frenzy_nif(init, ?FRENZY_RAND_BITS, 0, 0),
+                       unlink(Master),
+                       frenzy(SelfPix, {undefined, []})
+          end),
+    receive after 5*1000 -> ok end,
+
+    io:format("stats = ~p\n", [monitor_frenzy_nif(stats, 0, 0, 0)]),
+
+    Pids = monitor_frenzy_nif(stop, 0, 0, 0),
+    io:format("stats = ~p\n", [monitor_frenzy_nif(stats, 0, 0, 0)]),
+
+    lists:foreach(fun(P) ->
+                          MRef = monitor(process, P),
+                          exit(P, stop),
+                          {'DOWN', MRef, process, P, _} = receive_any()
+                  end,
+                  Pids),
+
+    io:format("stats = ~p\n", [monitor_frenzy_nif(stats, 0, 0, 0)]),
+
+    Procs2 = processes(),
+    io:format("~p processes after: ~p\n", [length(Procs2), Procs2]),
+    ok.
+
+
+frenzy(_SelfPix, done) ->
+    ok;
+frenzy(SelfPix, State0) ->
+    Rnd = rand:uniform(1 bsl (?FRENZY_RAND_BITS+2)) - 1,
+    Op = Rnd band 3,
+    State1 = frenzy_do_op(SelfPix, Op, (Rnd bsr 2), State0),
+    frenzy(SelfPix, State1).
+
+frenzy_do_op(SelfPix, Op, Rnd, {Pid0,RBins}=State0) ->
+    case Op of
+        0 -> % add/remove process
+            Papa = self(),
+            NewPid = case Pid0 of
+                         undefined -> % Prepare new process to be added
+                             spawn(fun() ->
+                                           MRef = monitor(process, Papa),
+                                           case receive_any() of
+                                               {go, MyPix, MyState} ->
+                                                   demonitor(MRef, [flush]),
+                                                   frenzy(MyPix, MyState);
+                                               {'DOWN', MRef, process, Papa, _} ->
+                                                   ok
+                                           end
+                                   end);
+                         _ ->
+                             Pid0
+                     end,
+            case monitor_frenzy_nif(Op, Rnd, SelfPix, NewPid) of
+                NewPix when is_integer(NewPix) ->
+                    NewPid ! {go, NewPix, {undefined, []}},
+                    {undefined, RBins};
+                ExitPid when is_pid(ExitPid) ->
+                    false = (ExitPid =:= self()),
+                    exit(ExitPid,die),
+                    {NewPid, RBins};
+                done ->
+                    done
+            end;
+
+        3 ->
+            %% Try provoke revival-race of resource from magic ref external format
+            _ = [binary_to_term(B) || B <- RBins],
+            {Pid0, []};
+        _ ->
+            case monitor_frenzy_nif(Op, Rnd, SelfPix, undefined) of
+                Rsrc when ?is_resource(Rsrc) ->
+                    %% Store resource in ext format only, for later revival
+                    State1 = {Pid0, [term_to_binary(Rsrc) | RBins]},
+                    gc_and_return(State1);
+                ok -> State0;
+                0 -> State0;
+                1 -> State0;
+                done -> done
+            end
+    end.
+
+gc_and_return(RetVal) ->
+    erlang:garbage_collect(),
+    RetVal.
+
 hipe(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     Priv = proplists:get_value(priv_dir, Config),
@@ -689,6 +1073,7 @@ maps(Config) when is_list(Config) ->
     {1, M2} = make_map_remove_nif(M2, "key3"),
     {0, undefined} = make_map_remove_nif(self(), key),
 
+    verify_tmpmem(TmpMem),
     ok.
  
 %% Test macros enif_make_list<N> and enif_make_tuple<N>
@@ -807,7 +1192,7 @@ resource_new_do2(Type) ->
     ResB = make_new_resource(Type, BinB),
     true = is_reference(ResA),
     true = is_reference(ResB),
-    ResA /= ResB,
+    true = (ResA /= ResB),
     {PtrA,BinA} = get_resource(Type, ResA),
     {PtrB,BinB} = get_resource(Type, ResB),
     true = (PtrA =/= PtrB),
@@ -1178,7 +1563,7 @@ resource_takeover(Config) when is_list(Config) ->
     [{load,1,1,101},{get_priv_data_ptr,1,2,102}] = nif_mod_call_history(),
 
     {NA7,BinNA7} = make_resource(0, Holder, "NA7"),
-    {AN7,BinAN7} = make_resource(1, Holder, "AN7"),
+    {AN7,_BinAN7} = make_resource(1, Holder, "AN7"),
 
     ok = forget_resource(NA7),
     [{{resource_dtor_A_v1,BinNA7},1,_,_}] = nif_mod_call_history(),
@@ -1669,7 +2054,7 @@ otp_9828(Config) ->
     ensure_lib_loaded(Config, 1),
     otp_9828_loop(<<"I'm alive!">>, 1000).
 
-otp_9828_loop(Bin, 0) ->
+otp_9828_loop(_Bin, 0) ->
     ok;
 otp_9828_loop(Bin, Val) ->
     WrtBin = <<Bin/binary, Val:32>>,
@@ -1911,6 +2296,19 @@ call(Pid,Cmd) ->
 receive_any() ->
     receive M -> M end.	     
 
+receive_any(Timeout) ->
+    receive M -> M
+    after Timeout -> timeout end.
+
+flush() ->
+    flush(10).
+flush(Timeout) ->
+    receive M ->
+            [M | flush(Timeout)]
+    after Timeout ->
+            []
+    end.
+
 repeat(0, _, Arg) ->
     Arg;
 repeat(N, Fun, Arg0) ->
@@ -1942,7 +2340,7 @@ nif_raise_exceptions(NifFunc) ->
 -define(ERL_NIF_TIME_ERROR, -9223372036854775808).
 -define(TIME_UNITS, [second, millisecond, microsecond, nanosecond]).
 
-nif_monotonic_time(Config) ->
+nif_monotonic_time(_Config) ->
     ?ERL_NIF_TIME_ERROR = monotonic_time(invalid_time_unit),
     mtime_loop(1000000).
 
@@ -1967,7 +2365,7 @@ chk_mtime([TU|TUs]) ->
     end,
     chk_mtime(TUs).
 
-nif_time_offset(Config) ->
+nif_time_offset(_Config) ->
     ?ERL_NIF_TIME_ERROR = time_offset(invalid_time_unit),
     toffs_loop(1000000).
 
@@ -2005,7 +2403,7 @@ chk_toffs([TU|TUs]) ->
     end,
     chk_toffs(TUs).
 
-nif_convert_time_unit(Config) ->
+nif_convert_time_unit(_Config) ->
     ?ERL_NIF_TIME_ERROR = convert_time_unit(0, second, invalid_time_unit),
     ?ERL_NIF_TIME_ERROR = convert_time_unit(0, invalid_time_unit, second),
     ?ERL_NIF_TIME_ERROR = convert_time_unit(0, invalid_time_unit, invalid_time_unit),
@@ -2274,6 +2672,17 @@ term_to_binary_nif(_, _) -> ?nif_stub.
 binary_to_term_nif(_, _, _) -> ?nif_stub.
 port_command_nif(_, _) -> ?nif_stub.
 format_term_nif(_,_) -> ?nif_stub.
+select_nif(_,_,_,_,_) -> ?nif_stub.
+pipe_nif() -> ?nif_stub.
+write_nif(_,_) -> ?nif_stub.
+read_nif(_,_) -> ?nif_stub.
+is_closed_nif(_) -> ?nif_stub.
+last_fd_stop_call() -> ?nif_stub.
+alloc_monitor_resource_nif() -> ?nif_stub.
+monitor_process_nif(_,_,_,_) -> ?nif_stub.
+demonitor_process_nif(_,_) -> ?nif_stub.
+compare_monitors_nif(_,_) -> ?nif_stub.
+monitor_frenzy_nif(_,_,_,_) -> ?nif_stub.
 
 %% maps
 is_map_nif(_) -> ?nif_stub.

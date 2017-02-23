@@ -52,7 +52,7 @@
 ** 2.11: 19.0 enif_snprintf 
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 11
+#define ERL_NIF_MINOR_VERSION 12
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -122,6 +122,9 @@ typedef struct enif_entry_t
 
     /* Added in 2.7 */
     unsigned options;   /* Unused. Can be set to 0 or 1 (dirty sched config) */
+
+    /* Added in 2.12 */
+    size_t sizeof_ErlNifResourceTypeInit;
 }ErlNifEntry;
 
 
@@ -135,8 +138,18 @@ typedef struct
     void* ref_bin;
 }ErlNifBinary;
 
-typedef struct enif_resource_type_t ErlNifResourceType;
-typedef void ErlNifResourceDtor(ErlNifEnv*, void*);
+#if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
+typedef void* ErlNifEvent; /* FIXME: Use 'HANDLE' somehow without breaking existing source */
+#else
+typedef int ErlNifEvent;
+#endif
+
+/* Return bits from enif_select: */
+#define ERL_NIF_SELECT_STOP_CALLED    (1 << 0)
+#define ERL_NIF_SELECT_STOP_SCHEDULED (1 << 1)
+#define ERL_NIF_SELECT_INVALID_EVENT  (1 << 2)
+#define ERL_NIF_SELECT_FAILED         (1 << 3)
+
 typedef enum
 {
     ERL_NIF_RT_CREATE = 1,
@@ -157,6 +170,19 @@ typedef struct
 {
     ERL_NIF_TERM port_id;  /* internal, may change */
 }ErlNifPort;
+
+typedef ErlDrvMonitor ErlNifMonitor;
+
+typedef struct enif_resource_type_t ErlNifResourceType;
+typedef void ErlNifResourceDtor(ErlNifEnv*, void*);
+typedef void ErlNifResourceStop(ErlNifEnv*, void*, ErlNifEvent, int is_direct_call);
+typedef void ErlNifResourceDown(ErlNifEnv*, void*, ErlNifPid*, ErlNifMonitor*);
+
+typedef struct {
+    ErlNifResourceDtor* dtor;
+    ErlNifResourceStop* stop;  /* at ERL_NIF_SELECT_STOP event */
+    ErlNifResourceDown* down;  /* enif_monitor_process */
+} ErlNifResourceTypeInit;
 
 typedef ErlDrvSysInfo ErlNifSysInfo;
 
@@ -292,7 +318,8 @@ ERL_NIF_INIT_DECL(NAME)			\
 	FUNCS,				\
 	LOAD, RELOAD, UPGRADE, UNLOAD,	\
 	ERL_NIF_VM_VARIANT,		\
-	1		                \
+        1,                              \
+        sizeof(ErlNifResourceTypeInit)  \
     };                                  \
     ERL_NIF_INIT_BODY;                  \
     return &entry;			\

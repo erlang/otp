@@ -79,11 +79,9 @@ struct magic_binary {
     } u;
 };
 
-#ifdef ARCH_32
-#define ERTS_MAGIC_BIN_BYTES_TO_ALIGN 4
-#else
-#define ERTS_MAGIC_BIN_BYTES_TO_ALIGN 0
-#endif
+#define ERTS_MAGIC_BIN_BYTES_TO_ALIGN \
+    (offsetof(ErtsMagicBinary,u.aligned.data) - \
+     offsetof(ErtsMagicBinary,u.unaligned.data))
 
 typedef union {
     Binary binary;

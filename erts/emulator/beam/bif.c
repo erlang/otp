@@ -361,7 +361,7 @@ remote_demonitor(Process *c_p, DistEntry *dep, Eterm ref, Eterm to)
 					    c_p->common.id, 
 					    (mon->name != NIL
 					     ? mon->name
-					     : mon->pid), 
+					     : mon->u.pid), 
 					    ref,
 					    0);
             res = (code == ERTS_DSIG_SEND_YIELD ? am_yield : am_true);
@@ -498,7 +498,7 @@ BIF_RETTYPE demonitor(Process *c_p, Eterm ref, Eterm *multip)
        res = am_true;
        break;
    case MON_ORIGIN:
-       to = mon->pid;
+       to = mon->u.pid;
        *multip = am_false;
        if (is_atom(to)) {
            /* Monitoring a name at node to */

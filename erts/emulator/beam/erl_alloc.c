@@ -664,6 +664,8 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	= sizeof(ErtsDrvEventDataState);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_DRV_SEL_D_STATE)]
 	= sizeof(ErtsDrvSelectDataState);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_NIF_SEL_D_STATE)]
+        = sizeof(ErtsNifSelectDataState);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MSG_REF)]
 	= sizeof(ErtsMessageRef);
 #ifdef ERTS_SMP

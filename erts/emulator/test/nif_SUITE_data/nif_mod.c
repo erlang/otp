@@ -176,6 +176,7 @@ static void do_load_info(ErlNifEnv* env, ERL_NIF_TERM load_info, int* retvalp)
     CHECK(enif_is_empty_list(env, head));
 }
 
+#if NIF_LIB_VER != 3
 static int load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
 {
     NifModPrivData* data;
@@ -230,6 +231,7 @@ static void unload(ErlNifEnv* env, void* priv)
     add_call(env, data, "unload");
     NifModPrivData_release(data);
 }
+#endif /*  NIF_LIB_VER != 3 */
 
 static ERL_NIF_TERM lib_version(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {

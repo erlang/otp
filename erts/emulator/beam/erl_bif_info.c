@@ -228,8 +228,10 @@ bld_magic_ref_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh)
 static void do_calc_mon_size(ErtsMonitor *mon, void *vpsz)
 {
     Uint *psz = vpsz;
-    *psz += IS_CONST(mon->ref) ? 0 : NC_HEAP_SIZE(mon->ref);
-    *psz += IS_CONST(mon->pid) ? 0 : NC_HEAP_SIZE(mon->pid);
+    *psz += NC_HEAP_SIZE(mon->ref);
+    *psz += (mon->type == MON_NIF_TARGET ?
+	     erts_resource_ref_size(mon->u.resource) :
+	     (is_immed(mon->u.pid) ? 0 : NC_HEAP_SIZE(mon->u.pid)));
     *psz += 8; /* CONS + 5-tuple */ 
 }
 
@@ -244,12 +246,11 @@ static void do_make_one_mon_element(ErtsMonitor *mon, void * vpmlc)
 {
     MonListContext *pmlc = vpmlc;
     Eterm tup;
-    Eterm r = (IS_CONST(mon->ref)
-	       ? mon->ref
-	       : STORE_NC(&(pmlc->hp), &MSO(pmlc->p), mon->ref));
-    Eterm p = (IS_CONST(mon->pid)
-	       ? mon->pid
-	       : STORE_NC(&(pmlc->hp), &MSO(pmlc->p), mon->pid));
+    Eterm r = STORE_NC(&(pmlc->hp), &MSO(pmlc->p), mon->ref);
+    Eterm p = (mon->type == MON_NIF_TARGET ?
+	       erts_bld_resource_ref(&(pmlc->hp), &MSO(pmlc->p), mon->u.resource)
+	       : (is_immed(mon->u.pid) ? mon->u.pid
+		  : STORE_NC(&(pmlc->hp), &MSO(pmlc->p), mon->u.pid)));
     tup = TUPLE5(pmlc->hp, pmlc->tag, make_small(mon->type), r, p, mon->name);
     pmlc->hp += 6;
     pmlc->res = CONS(pmlc->hp, tup, pmlc->res);
@@ -288,7 +289,7 @@ make_monitor_list(Process *p, ErtsMonitor *root)
 static void do_calc_lnk_size(ErtsLink *lnk, void *vpsz)
 {
     Uint *psz = vpsz;
-    *psz += IS_CONST(lnk->pid) ? 0 : NC_HEAP_SIZE(lnk->pid);
+    *psz += is_immed(lnk->pid) ? 0 : NC_HEAP_SIZE(lnk->pid);
     if (lnk->type != LINK_NODE && ERTS_LINK_ROOT(lnk) != NULL) { 
 	/* Node links use this pointer as ref counter... */
 	erts_doforall_links(ERTS_LINK_ROOT(lnk),&do_calc_lnk_size,vpsz);
@@ -308,7 +309,7 @@ static void do_make_one_lnk_element(ErtsLink *lnk, void * vpllc)
     LnkListContext *pllc = vpllc;
     Eterm tup;
     Eterm old_res, targets = NIL;
-    Eterm p = (IS_CONST(lnk->pid)
+    Eterm p = (is_immed(lnk->pid)
 	       ? lnk->pid
 	       : STORE_NC(&(pllc->hp), &MSO(pllc->p), lnk->pid));
     if (lnk->type == LINK_NODE) {
@@ -392,8 +393,12 @@ erts_print_system_version(fmtfn_t to, void *arg, Process *c_p)
 typedef struct {
     /* {Entity,Node} = {monitor.Name,monitor.Pid} for external by name
      * {Entity,Node} = {monitor.Pid,NIL} for external/external by pid
-     * {Entity,Node} = {monitor.Name,erlang:node()} for internal by name */
-    Eterm entity;
+     * {Entity,Node} = {monitor.Name,erlang:node()} for internal by name 
+     * {Entity,Node} = {monitor.resource,MON_NIF_TARGET}*/
+    union {
+	Eterm term;
+	ErtsResource* resource;
+    }entity;
     Eterm node;
     /* pid is actual target being monitored, no matter pid/port or name */
     Eterm pid;
@@ -439,7 +444,7 @@ static void collect_one_link(ErtsLink *lnk, void *vmicp)
     if (!(lnk->type == LINK_PID)) {
 	return;
     }
-    micp->mi[micp->mi_i].entity = lnk->pid;
+    micp->mi[micp->mi_i].entity.term = lnk->pid;
     micp->sz += 2 + NC_HEAP_SIZE(lnk->pid);
     micp->mi_i++;
 } 
@@ -452,20 +457,20 @@ static void collect_one_origin_monitor(ErtsMonitor *mon, void *vmicp)
 	return;
     }
     EXTEND_MONITOR_INFOS(micp);
-    if (is_atom(mon->pid)) { /* external by name */
-	micp->mi[micp->mi_i].entity = mon->name;
-        micp->mi[micp->mi_i].node = mon->pid;
+    if (is_atom(mon->u.pid)) { /* external by name */
+	micp->mi[micp->mi_i].entity.term = mon->name;
+        micp->mi[micp->mi_i].node = mon->u.pid;
         micp->sz += 3; /* need one 2-tuple */
-    } else if (is_external_pid(mon->pid)) { /* external by pid */
-	micp->mi[micp->mi_i].entity = mon->pid;
+    } else if (is_external_pid(mon->u.pid)) { /* external by pid */
+	micp->mi[micp->mi_i].entity.term = mon->u.pid;
         micp->mi[micp->mi_i].node = NIL;
-        micp->sz += NC_HEAP_SIZE(mon->pid);
+        micp->sz += NC_HEAP_SIZE(mon->u.pid);
     } else if (!is_nil(mon->name)) { /* internal by name */
-	micp->mi[micp->mi_i].entity = mon->name;
+	micp->mi[micp->mi_i].entity.term = mon->name;
         micp->mi[micp->mi_i].node = erts_this_dist_entry->sysname;
         micp->sz += 3; /* need one 2-tuple */
     } else { /* internal by pid */
-	micp->mi[micp->mi_i].entity = mon->pid;
+	micp->mi[micp->mi_i].entity.term = mon->u.pid;
         micp->mi[micp->mi_i].node = NIL;
 	/* no additional heap space needed */
     }
@@ -473,7 +478,7 @@ static void collect_one_origin_monitor(ErtsMonitor *mon, void *vmicp)
     /* have always pid at hand, to assist with figuring out if its a port or
      * a process, when we monitored by name and process_info is requested.
      * See: erl_bif_info.c:process_info_aux section for am_monitors */
-    micp->mi[micp->mi_i].pid = mon->pid;
+    micp->mi[micp->mi_i].pid = mon->u.pid;
 
     micp->mi_i++;
     micp->sz += 2 + 3; /* For a cons cell and a 2-tuple */
@@ -483,15 +488,24 @@ static void collect_one_target_monitor(ErtsMonitor *mon, void *vmicp)
 {
     MonitorInfoCollection *micp = vmicp;
  
-    if (mon->type != MON_TARGET) {
-	return;
+    if (mon->type != MON_TARGET && mon->type != MON_NIF_TARGET) {
+        return;
     }
 
     EXTEND_MONITOR_INFOS(micp);
   
-    micp->mi[micp->mi_i].node = NIL;
-    micp->mi[micp->mi_i].entity = mon->pid;
-    micp->sz += (NC_HEAP_SIZE(mon->pid) + 2 /* cons */);
+
+    if (mon->type == MON_NIF_TARGET) {
+	micp->mi[micp->mi_i].entity.resource = mon->u.resource;
+        micp->mi[micp->mi_i].node = make_small(MON_NIF_TARGET);
+        micp->sz += erts_resource_ref_size(mon->u.resource);
+    }
+    else {
+	micp->mi[micp->mi_i].entity.term = mon->u.pid;
+        micp->mi[micp->mi_i].node = NIL;
+        micp->sz += NC_HEAP_SIZE(mon->u.pid);
+    }
+    micp->sz += 2; /* cons */;
     micp->mi_i++;
 }
 
@@ -1222,7 +1236,7 @@ process_info_aux(Process *BIF_P,
 	hp = HAlloc(BIF_P, 3 + mic.sz);
 	res = NIL;
 	for (i = 0; i < mic.mi_i; i++) {
-	    item = STORE_NC(&hp, &MSO(BIF_P), mic.mi[i].entity); 
+	    item = STORE_NC(&hp, &MSO(BIF_P), mic.mi[i].entity.term); 
 	    res = CONS(hp, item, res);
 	    hp += 2;
 	}
@@ -1240,7 +1254,7 @@ process_info_aux(Process *BIF_P,
         hp = HAlloc(BIF_P, 3 + mic.sz);
 	res = NIL;
 	for (i = 0; i < mic.mi_i; i++) {
-	    if (is_atom(mic.mi[i].entity)) {
+	    if (is_atom(mic.mi[i].entity.term)) {
 		/* Monitor by name. 
                  * Build {process|port, {Name, Node}} and cons it.
 		 */
@@ -1252,7 +1266,7 @@ process_info_aux(Process *BIF_P,
                     || is_port(mic.mi[i].pid)
                     || is_atom(mic.mi[i].pid));
 
-		t1 = TUPLE2(hp, mic.mi[i].entity, mic.mi[i].node);
+		t1 = TUPLE2(hp, mic.mi[i].entity.term, mic.mi[i].node);
 		hp += 3;
                 t2 = TUPLE2(hp, m_type, t1);
 		hp += 3;
@@ -1262,7 +1276,7 @@ process_info_aux(Process *BIF_P,
 	    else {
                 /* Monitor by pid. Build {process|port, Pid} and cons it. */
 		Eterm t;
-		Eterm pid = STORE_NC(&hp, &MSO(BIF_P), mic.mi[i].entity);
+		Eterm pid = STORE_NC(&hp, &MSO(BIF_P), mic.mi[i].entity.term);
 
                 Eterm m_type = is_port(mic.mi[i].pid) ? am_port : am_process;
                 ASSERT(is_pid(mic.mi[i].pid)
@@ -1289,7 +1303,12 @@ process_info_aux(Process *BIF_P,
 
 	res = NIL;
 	for (i = 0; i < mic.mi_i; ++i) {
-	    item = STORE_NC(&hp, &MSO(BIF_P), mic.mi[i].entity); 
+            if (mic.mi[i].node == make_small(MON_NIF_TARGET)) {
+                item = erts_bld_resource_ref(&hp, &MSO(BIF_P), mic.mi[i].entity.resource);
+            }
+            else {
+                item = STORE_NC(&hp, &MSO(BIF_P), mic.mi[i].entity.term);
+            }
 	    res = CONS(hp, item, res);
 	    hp += 2;
 	}
@@ -2986,7 +3005,7 @@ erts_bld_port_info(Eterm **hpp, ErlOffHeap *ohp, Uint *szp, Port *prt,
 	if (hpp) {
 	    res = NIL;
 	    for (i = 0; i < mic.mi_i; i++) {
-		item = STORE_NC(hpp, ohp, mic.mi[i].entity);
+		item = STORE_NC(hpp, ohp, mic.mi[i].entity.term);
 		res = CONS(*hpp, item, res);
 		*hpp += 2;
 	    }
@@ -3017,7 +3036,7 @@ erts_bld_port_info(Eterm **hpp, ErlOffHeap *ohp, Uint *szp, Port *prt,
 		Eterm t;
                 Eterm m_type;
 
-                item = STORE_NC(hpp, ohp, mic.mi[i].entity);
+                item = STORE_NC(hpp, ohp, mic.mi[i].entity.term);
                 m_type = is_port(item) ? am_port : am_process;
                 t = TUPLE2(*hpp, m_type, item);
 		*hpp += 3;
@@ -3046,7 +3065,8 @@ erts_bld_port_info(Eterm **hpp, ErlOffHeap *ohp, Uint *szp, Port *prt,
         if (hpp) {
             res = NIL;
             for (i = 0; i < mic.mi_i; ++i) {
-                item = STORE_NC(hpp, ohp, mic.mi[i].entity);
+                ASSERT(mic.mi[i].node == NIL);
+                item = STORE_NC(hpp, ohp, mic.mi[i].entity.term);
                 res = CONS(*hpp, item, res);
                 *hpp += 2;
             }

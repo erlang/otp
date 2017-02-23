@@ -13323,9 +13323,9 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
     switch (mon->type) {
     case MON_ORIGIN:
 	/* We are monitoring someone else, we need to demonitor that one.. */
-	if (is_atom(mon->pid)) { /* remote by name */
-	    ASSERT(is_node_name_atom(mon->pid));
-	    dep = erts_sysname_to_connected_dist_entry(mon->pid);
+	if (is_atom(mon->u.pid)) { /* remote by name */
+	    ASSERT(is_node_name_atom(mon->u.pid));
+	    dep = erts_sysname_to_connected_dist_entry(mon->u.pid);
 	    if (dep) {
 		erts_smp_de_links_lock(dep);
 		rmon = erts_remove_monitor(&(dep->monitors), mon->ref);
@@ -13336,7 +13336,7 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 						 ERTS_DSP_NO_LOCK, 0);
 		    if (code == ERTS_DSIG_PREP_CONNECTED) {
 			code = erts_dsig_send_demonitor(&dsd,
-							rmon->pid,
+							rmon->u.pid,
 							mon->name,
 							mon->ref,
 							1);
@@ -13347,10 +13347,10 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		erts_deref_dist_entry(dep);
 	    }
 	} else {
-            ASSERT(is_pid(mon->pid) || is_port(mon->pid));
+            ASSERT(is_pid(mon->u.pid) || is_port(mon->u.pid));
             /* if is local by pid or name */
-            if (is_internal_pid(mon->pid)) {
-                Process *rp = erts_pid2proc(NULL, 0, mon->pid, ERTS_PROC_LOCK_LINK);
+            if (is_internal_pid(mon->u.pid)) {
+                Process *rp = erts_pid2proc(NULL, 0, mon->u.pid, ERTS_PROC_LOCK_LINK);
 		if (!rp) {
 		    goto done;
 		}
@@ -13360,9 +13360,9 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		    goto done;
 		}
 		erts_destroy_monitor(rmon);
-            } else if (is_internal_port(mon->pid)) {
+            } else if (is_internal_port(mon->u.pid)) {
                 /* Is a local port */
-                Port *prt = erts_port_lookup_raw(mon->pid);
+                Port *prt = erts_port_lookup_raw(mon->u.pid);
                 if (!prt) {
                     goto done;
                 }
@@ -13370,8 +13370,8 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
                                     ERTS_PORT_DEMONITOR_ORIGIN_ON_DEATHBED,
                                     prt, mon->ref, NULL);
             } else { /* remote by pid */
-		ASSERT(is_external_pid(mon->pid));
-		dep = external_pid_dist_entry(mon->pid);
+		ASSERT(is_external_pid(mon->u.pid));
+		dep = external_pid_dist_entry(mon->u.pid);
 		ASSERT(dep != NULL);
 		if (dep) {
 		    erts_smp_de_links_lock(dep);
@@ -13383,8 +13383,8 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 						     ERTS_DSP_NO_LOCK, 0);
 			if (code == ERTS_DSIG_PREP_CONNECTED) {
 			    code = erts_dsig_send_demonitor(&dsd,
-							    rmon->pid,
-							    mon->pid,
+							    rmon->u.pid,
+							    mon->u.pid,
 							    mon->ref,
 							    1);
 			    ASSERT(code == ERTS_DSIG_SEND_OK);
@@ -13396,22 +13396,21 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 	}
 	break;
     case MON_TARGET:
-	ASSERT(mon->type == MON_TARGET);
-	ASSERT(is_pid(mon->pid) || is_internal_port(mon->pid));
-	if (is_internal_port(mon->pid)) {
-	    Port *prt = erts_id2port(mon->pid);
+	ASSERT(is_pid(mon->u.pid) || is_internal_port(mon->u.pid));
+	if (is_internal_port(mon->u.pid)) {
+	    Port *prt = erts_id2port(mon->u.pid);
 	    if (prt == NULL) {
 		goto done;
 	    }
 	    erts_fire_port_monitor(prt, mon->ref);
 	    erts_port_release(prt); 
-	} else if (is_internal_pid(mon->pid)) {/* local by name or pid */
+	} else if (is_internal_pid(mon->u.pid)) {/* local by name or pid */
 	    Eterm watched;
             Process *rp;
 	    DeclareTmpHeapNoproc(lhp,3);
 	    ErtsProcLocks rp_locks = (ERTS_PROC_LOCK_LINK
 				      | ERTS_PROC_LOCKS_MSG_SEND);
-	    rp = erts_pid2proc(NULL, 0, mon->pid, rp_locks);
+	    rp = erts_pid2proc(NULL, 0, mon->u.pid, rp_locks);
 	    if (rp == NULL) {
 		goto done;
 	    }
@@ -13430,8 +13429,8 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 	    /* else: demonitor while we exited, i.e. do nothing... */
 	    erts_smp_proc_unlock(rp, rp_locks);
 	} else { /* external by pid or name */
-	    ASSERT(is_external_pid(mon->pid));    
-	    dep = external_pid_dist_entry(mon->pid);
+	    ASSERT(is_external_pid(mon->u.pid));    
+	    dep = external_pid_dist_entry(mon->u.pid);
 	    ASSERT(dep != NULL);
 	    if (dep) {
 		erts_smp_de_links_lock(dep);
@@ -13443,10 +13442,10 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 						 ERTS_DSP_NO_LOCK, 0);
 		    if (code == ERTS_DSIG_PREP_CONNECTED) {
 			code = erts_dsig_send_m_exit(&dsd,
-						     mon->pid,
+						     mon->u.pid,
 						     (rmon->name != NIL
 						      ? rmon->name
-						      : rmon->pid),
+						      : rmon->u.pid),
 						     mon->ref,
 						     pcontext->reason);
 			ASSERT(code == ERTS_DSIG_SEND_OK);
@@ -13456,6 +13455,11 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 	    }
 	}
 	break;
+    case MON_NIF_TARGET:
+        erts_fire_nif_monitor(mon->u.resource,
+                              pcontext->p->common.id,
+                              mon->ref);
+        break;
     case MON_TIME_OFFSET:
 	erts_demonitor_time_offset(mon->ref);
 	break;

@@ -49,6 +49,21 @@ typedef enum {
     ERL_DIRTY_JOB_IO_BOUND  = 2
 } ErlDirtyJobFlags;
 
+/* Values for enif_select AND mode arg for driver_select() */
+enum ErlNifSelectFlags {
+    ERL_NIF_SELECT_READ      = (1 << 0),
+    ERL_NIF_SELECT_WRITE     = (1 << 1),
+    ERL_NIF_SELECT_STOP      = (1 << 2)
+};
+
+/*
+ * A driver monitor
+ */
+typedef struct {
+    unsigned char data[sizeof(void *)*4];
+} ErlDrvMonitor;
+
+
 #ifdef SIZEOF_CHAR
 #  define SIZEOF_CHAR_SAVED__ SIZEOF_CHAR
 #  undef SIZEOF_CHAR
