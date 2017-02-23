@@ -381,10 +381,12 @@ info(fmtfn_t to, void *to_arg)
 
 static int code_size(struct erl_module_instance* modi)
 {
-    ErtsLiteralArea* lit = modi->code_hdr->literal_area;
     int size = modi->code_length;
-    if (lit) {
-        size += (lit->end - lit->start) * sizeof(Eterm);
+
+    if (modi->code_hdr) {
+        ErtsLiteralArea* lit = modi->code_hdr->literal_area;
+        if (lit)
+            size += (lit->end - lit->start) * sizeof(Eterm);
     }
     return size;
 }
@@ -406,13 +408,9 @@ loaded(fmtfn_t to, void *to_arg)
      * Calculate and print totals.
      */
     for (i = 0; i < module_code_size(code_ix); i++) {
-	if ((modp = module_code(i, code_ix)) != NULL &&
-	    ((modp->curr.code_length != 0) ||
-	     (modp->old.code_length != 0))) {
+	if ((modp = module_code(i, code_ix)) != NULL) {
 	    cur += code_size(&modp->curr);
-	    if (modp->old.code_length != 0) {
-		old += code_size(&modp->old);
-	    }
+            old += code_size(&modp->old);
 	}
     }
     erts_print(to, to_arg, "Current code: %d\n", cur);
@@ -428,26 +426,20 @@ loaded(fmtfn_t to, void *to_arg)
 	    /*
 	     * Interactive dump; keep it brief.
 	     */
-	    if (modp != NULL &&
-	    ((modp->curr.code_length != 0) ||
-	     (modp->old.code_length != 0))) {
-		erts_print(to, to_arg, "%T", make_atom(modp->module));
-		cur += code_size(&modp->curr);
-		erts_print(to, to_arg, " %d", code_size(&modp->curr));
-		if (modp->old.code_length != 0) {
-		    erts_print(to, to_arg, " (%d old)",
-			       code_size(&modp->old));
-		    old += code_size(&modp->old);
-		}
+	    if (modp != NULL && ((modp->curr.code_length != 0) ||
+                                 (modp->old.code_length != 0))) {
+		erts_print(to, to_arg, "%T %d", make_atom(modp->module),
+                           code_size(&modp->curr));
+		if (modp->old.code_length != 0)
+		    erts_print(to, to_arg, " (%d old)", code_size(&modp->old));
 		erts_print(to, to_arg, "\n");
 	    }
 	} else {
 	    /*
 	     * To crash dump; make it parseable.
 	     */
-	    if (modp != NULL &&
-		((modp->curr.code_length != 0) ||
-		 (modp->old.code_length != 0))) {
+	    if (modp != NULL && ((modp->curr.code_length != 0) ||
+                                 (modp->old.code_length != 0))) {
 		erts_print(to, to_arg, "=mod:");
 		erts_print(to, to_arg, "%T", make_atom(modp->module));
 		erts_print(to, to_arg, "\n");
