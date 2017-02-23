@@ -1769,47 +1769,24 @@ get_repl(X, Acc) ->
     exit({get_repl,X,Acc}).
 
 %%%----------------------------------------------------------------
-disconnect_fun({disconnect,Msg}, D) ->
-    disconnect_fun(Msg, D);
-disconnect_fun(Reason,  #data{opts=Opts}) ->
-    case ?GET_OPT(disconnectfun, Opts) of
-	undefined ->
-	    ok;
-	Fun ->
-	    catch Fun(Reason)
-     end.
+-define(CALL_FUN(Key,D), catch (?GET_OPT(Key, D#data.opts)) ).
 
-unexpected_fun(UnexpectedMessage, #data{opts = Opts,
-					ssh_params = #ssh{peer = {_,Peer} }
-				       } ) ->
-    case ?GET_OPT(unexpectedfun, Opts) of
-	undefined ->
-	    report;
-	Fun ->
-	    catch Fun(UnexpectedMessage, Peer)
-    end.
+disconnect_fun({disconnect,Msg}, D) -> ?CALL_FUN(disconnectfun,D)(Msg);
+disconnect_fun(Reason, D)           -> ?CALL_FUN(disconnectfun,D)(Reason).
 
+unexpected_fun(UnexpectedMessage, #data{ssh_params = #ssh{peer = {_,Peer} }} = D) ->
+    ?CALL_FUN(unexpectedfun,D)(UnexpectedMessage, Peer).
 
 debug_fun(#ssh_msg_debug{always_display = Display,
 			 message = DbgMsg,
 			 language = Lang},
-	  #data{opts = Opts}) ->
-    case ?GET_OPT(ssh_msg_debug_fun, Opts) of
-	undefined ->
-	    ok;
-	Fun ->
-	    catch Fun(self(), Display, DbgMsg, Lang)
-    end.
+	  D) ->
+    ?CALL_FUN(ssh_msg_debug_fun,D)(self(), Display, DbgMsg, Lang).
 
 
-connected_fun(User, Method, #data{ssh_params = #ssh{peer = {_,Peer}},
-				  opts = Opts}) ->
-    case ?GET_OPT(connectfun, Opts) of
-	undefined ->
-	    ok;
-	Fun ->
-	    catch Fun(User, Peer, Method)
-    end.
+connected_fun(User, Method, #data{ssh_params = #ssh{peer = {_,Peer}}} = D) ->
+    ?CALL_FUN(connectfun,D)(User, Peer, Method).
+
 
 retry_fun(_, undefined, _) ->
     ok;
