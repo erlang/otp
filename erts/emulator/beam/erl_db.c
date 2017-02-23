@@ -4261,7 +4261,19 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 
 static void print_table(fmtfn_t to, void *to_arg, int show,  DbTable* tb)
 {
-    erts_print(to, to_arg, "Table: %T\n", tb->common.id);
+    Eterm tid;
+    Eterm heap[ERTS_MAGIC_REF_THING_SIZE];
+
+    if (is_atom(tb->common.id)) {
+        tid = tb->common.id;
+    } else {
+        ErlOffHeap oh;
+        ERTS_INIT_OFF_HEAP(&oh);
+        write_magic_ref_thing(heap, &oh, (ErtsMagicBinary *) tb->common.btid);
+        tid = make_internal_ref(heap);
+    }
+
+    erts_print(to, to_arg, "Table: %T\n", tid);
     erts_print(to, to_arg, "Name: %T\n", tb->common.the_name);
 
     tb->common.meth->db_print(to, to_arg, show, tb);
