@@ -147,6 +147,14 @@ static int conn_to_epmd(EpmdVars *g)
     connect_sock = socket(AF_INET6, SOCK_STREAM, 0);
     if (connect_sock>=0) {
 
+#if defined(SO_BINDTODEVICE)
+    if (g->interface && g->interface[0]) {
+        if (setsockopt(connect_sock, SOL_SOCKET, SO_BINDTODEVICE, g->interface,
+                       strlen(g->interface) + 1) < 0)
+            goto error;
+    }
+#endif
+
     if (connect(connect_sock, (struct sockaddr*)&address, salen) == 0)
 	return connect_sock;
 
@@ -159,6 +167,14 @@ static int conn_to_epmd(EpmdVars *g)
     connect_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (connect_sock<0)
 	goto error;
+
+#if defined(SO_BINDTODEVICE)
+    if (g->interface && g->interface[0]) {
+        if (setsockopt(connect_sock, SOL_SOCKET, SO_BINDTODEVICE, g->interface,
+                       strlen(g->interface) + 1) < 0)
+            goto error;
+    }
+#endif
 
     if (connect(connect_sock, (struct sockaddr*)&address, salen) < 0)
 	goto error;

@@ -347,6 +347,9 @@ typedef struct {
   fd_set orig_read_mask;
   int listenfd[MAX_LISTEN_SOCKETS];
   char *addresses;
+#if defined(SO_BINDTODEVICE)
+  char *interface;
+#endif
   char **argv;
 #ifdef HAVE_SYSTEMD_DAEMON
   int is_systemd;

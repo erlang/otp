@@ -127,6 +127,22 @@
 	  <c><![CDATA[ERL_EPMD_PORT]]></c>; see section <seealso
 	  marker="#environment_variables">Environment Variables</seealso>.</p>
       </item>
+      <tag><c><![CDATA[-interface Name]]></c></tag>
+      <item>
+	<p>Bind this instance of <c>epmd</c> listen socket to the specified
+	  interface. This can also be set using environment variable
+	  <c><![CDATA[ERL_EPMD_INTERFACE]]></c>; see section <seealso
+	  marker="#environment_variables">Environment Variables</seealso>.</p>
+	<p>This option uses the Linux-specific socket option
+	  <c>SO_BINDTODEVICE</c>, such as in Linux kernel 2.0.30 or later,
+	  and therefore only exists when the runtime system
+	  is compiled for such an operating system.</p>
+	<p>epmd also needs elevated privileges, either running as superuser or
+	  (for Linux) having capability <c>CAP_NET_RAW</c>.</p>
+	<p>The primary use case for this option is to bind epmd into a
+	  <url href="http://www.kernel.org/doc/Documentation/networking/vrf.txt">Linux VRF instance</url>.
+	</p>
+      </item>
       <tag><c><![CDATA[-d | -debug]]></c></tag>
       <item>
 	<p>Enables debug output. The more <c>-d</c> flags specified, the more
@@ -272,6 +288,12 @@
 	  be specified to allow several instances of <c>epmd</c>, representing
 	  independent clusters of nodes, to co-exist on the same host.
 	  All nodes in a cluster must use the same <c>epmd</c> port number.</p>
+      </item>
+      <tag><c><![CDATA[ERL_EPMD_INTERFACE]]></c></tag>
+      <item>
+	<p>If set, <c>epmd</c> will bind it sockets to that interface (Linux only).
+	  See <seealso marker="#daemon_flags">Option -interface</seealso> for
+	  additional restrictions.</p>
       </item>
       <tag><c><![CDATA[ERL_EPMD_RELAXED_COMMAND_CHECK]]></c></tag>
       <item>
