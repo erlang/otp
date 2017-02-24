@@ -344,6 +344,78 @@ return term;</code>
             <c>enif_convert_time_unit()</c></seealso></item>
       </list>
       </item>
+      <tag><marker id="enif_ioq"/>I/O Queues</tag>
+      <item>
+        <p>The Erlang nif library contains function for easily working
+          with I/O vectors as used by the unix system call <c>writev</c>.
+          The I/O Queue is not thread safe, so some other synchronization
+          mechanism has to be used.</p>
+          <list type="bulleted">
+            <item><seealso marker="#SysIOVec">
+            <c>SysIOVec</c></seealso></item>
+            <item><seealso marker="#ErlNifIOVec">
+            <c>ErlNifIOVec</c></seealso></item>
+            <item><seealso marker="#enif_ioq_create">
+            <c>enif_ioq_create()</c></seealso></item>
+            <item><seealso marker="#enif_ioq_destroy">
+            <c>enif_ioq_destroy()</c></seealso></item>
+            <item><seealso marker="#enif_ioq_enq">
+            <c>enif_ioq_enq()</c></seealso></item>
+            <item><seealso marker="#enif_ioq_deq">
+            <c>enif_ioq_deq()</c></seealso></item>
+            <item><seealso marker="#enif_ioq_peek">
+            <c>enif_ioq_peek()</c></seealso></item>
+            <item><seealso marker="#enif_inspect_iolist_as_iovec">
+            <c>enif_inspect_iolist_as_iovec()</c></seealso></item>
+            <item><seealso marker="#enif_free_iovec">
+            <c>enif_free_iovec()</c></seealso></item>
+          </list>
+        <p>Typical usage when writing to a file descriptor looks like this:</p>
+          <code type="none"><![CDATA[
+int writeiolist(ErlNifEnv *env, ERL_NIF_TERM term, ErlNifIOQueue *q, int fd) {
+    ErlNifIOVec vec, *iovec = &vec;
+    SysIOVec *sysiovec;
+    int iovcnt, n;
+    size_t skipbytes = 0;
+    int myerrno;
+
+    if (enif_ioq_size(q) == 0) {
+        /* If I/O queue is empty we just inspect the iolist. */
+        if (!enif_inspect_iolist_as_iovec(env, term, &iovec))
+            return -2; /* invalid iolist */
+        sysiovec = iovec->iov;
+        iovcnt = iovec->iovcnt;
+    } else {
+        /* If I/O contains data we enqueue the iolist and then
+           peek the data to write out of the queue. */
+        if (!enif_ioq_enq(env, q, term, 0))
+            return -2; /* invalid iolist */
+        sysiovec = enif_ioq_peek(q, &iovcnt);
+    }
+
+    /* Attempt to write the data */
+    n = writev(fd, iovec->iov, iovec->iovcnt);
+    myerrno = errno;
+
+    if (enif_ioq_size(q) == 0) {
+        /* If the I/O queue was initially empty we enqueue any
+           remaining data into the queue for writing later. */
+        if (n >= 0) {
+            if (n < iovec->size)
+                enif_ioq_enqv(q, iovec, n);
+        }
+    } else {
+        /* Dequeue any data that was written from the queue. */
+        if (n > 0)
+            enif_ioq_deq(q, n, NULL);
+    }
+
+    /* return n, which is either number of bytes written or -1 if
+       some error happened */
+    errno = myerrno;
+    return n;
+}]]></code>
+      </item>
       <tag><marker id="lengthy_work"/>Long-running NIFs</tag>
       <item>
         <p>As mentioned in the <seealso marker="#WARNING">warning</seealso> text
@@ -813,6 +885,36 @@ typedef enum {
           </item>
         </taglist>
       </item>
+      <tag><marker id="SysIOVec"/><c>SysIOVec</c></tag>
+      <item>
+        <p>A system I/O vector, as used by <c>writev</c> on
+          Unix and <c>WSASend</c> on Win32. It is used in
+          <c>ErlNifIOVec</c> and by
+          <seealso marker="#enif_ioq_peek"><c>enif_ioq_peek</c></seealso>.</p>
+      </item>
+      <tag><marker id="ErlNifIOVec"/><c>ErlNifIOVec</c></tag>
+      <item>
+        <code type="none">
+typedef struct {
+  int iovcnt;
+  size_t size;
+  SysIOVec* iov;
+} ErlNifIOVec;</code>
+        <p>An I/O vector containing <c>iovcnt</c> <c>SysIOVec</c>s
+          pointing to the data. It is used by
+          <seealso marker="#enif_inspect_iolist_as_iovec">
+            <c>enif_inspect_iolist_as_iovec</c></seealso> and
+          <seealso marker="#enif_ioq_enqv">
+            <c>enif_ioq_enqv</c></seealso>.</p>
+      </item>
+      <tag><marker id="ErlNifIOQueueOpts"/><c>ErlNifIOQueueOpts</c></tag>
+      <item>
+        Options to configure a <c>ErlNifIOQueue</c>.
+        <taglist>
+          <tag>ERL_NIF_IOQ_NORMAL</tag>
+          <item><p>Create a normal I/O Queue</p></item>
+        </taglist>
+      </item>
     </taglist>
   </section>
 
@@ -1119,6 +1221,29 @@ typedef enum {
     </func>
 
     <func>
+      <name><ret>void</ret>
+        <nametext>enif_free_iovec(ErlNifIOvec* iov)</nametext></name>
+      <fsummary>Free an ErlIOVec</fsummary>
+      <desc>
+        <p>Frees an io vector returned from
+          <seealso marker="#enif_inspect_iolist_as_iovec">
+            <c>enif_inspect_iolist_as_iovec</c></seealso>.
+          This is needed only if a <c>NULL</c> environment is passed to
+          <seealso marker="#enif_inspect_iolist_as_iovec">
+          <c>enif_inspect_iolist_as_iovec</c></seealso>.</p>
+          <code type="none"><![CDATA[
+ErlNifIOVec *iovec = NULL;
+if (!enif_inspect_iolist_as_iovec(NULL, term, iovec))
+  return 0;
+
+// Do things with the iovec
+
+/* Free the iovector, possibly in another thread or nif function call */
+enif_free_iovec(iovec);]]></code>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>int</ret><nametext>enif_get_atom(ErlNifEnv* env, ERL_NIF_TERM
         term, char* buf, unsigned size, ErlNifCharEncoding encode)</nametext>
       </name>
@@ -1410,6 +1535,131 @@ typedef enum {
         <p>Returns <c>true</c> on success, or <c>false</c> if <c>iolist</c> is
           not an iolist.</p>
       </desc> 
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_inspect_iolist_as_iovec(ErlNifEnv*
+        env, ERL_NIF_TERM iolist, ErlNifIOVec** iovec)</nametext></name>
+      <fsummary>Inspect the content of an iolist.</fsummary>
+      <desc>
+        <p>Inspects the iolist and returns it's contents as one or more
+           contigious buffers returned in <c>iovec</c>.
+           When calling this function, <c>iovec</c> should contain a
+           pointer to <c>NULL</c> or a ErlNifIOVec structure that should
+           be used if possible. e.g.
+        </p>
+
+        <code type="none">
+/* Don't use a pre-allocated structure */
+ErlNifIOVec *iovec = NULL;
+enif_inspect_iolist_as_iovec(env, term, &amp;iovec)
+
+/* Use a stack-allocated vector as an optimization vectors with few elements */
+ErlNifIOVec vec, *iovec = &amp;vec;
+enif_inspect_iolist_as_iovec(env, term, &amp;iovec);</code>
+        <p>The contents of the <c>iovec</c> is valid until the called nif
+           function returns. If the <c>iovec</c> should be valid
+           after the nif call returns, it is possible to call this function
+           with a <c>NULL</c> environment. If no environment is given
+           the <c>iovec</c> owns the data in the vector and it has to be
+           expicitly free's using <seealso marker="#enif_free_iovec">
+           <c>enif_free_iovec</c></seealso>.</p>
+        <p>Returns <c>true</c> on success, or <c>false</c> if <c>iolist</c> is
+          not an iolist.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ErlNifIOQueue *</ret>
+      <nametext>enif_ioq_create(ErlNifIOQueueOpts opts)</nametext></name>
+      <fsummary>Create a new IO Queue</fsummary>
+      <desc>
+        <p>Create a new I/O Queue that can be used to store data.
+          <c>opts</c> has to be set to <c>ERL_NIF_IOQ_NORMAL</c>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void</ret>
+      <nametext>enif_ioq_destroy(ErlNifIOQueue *q)</nametext></name>
+      <fsummary>Destroy an IO Queue and free it's content</fsummary>
+      <desc>
+        <p>Destroy the I/O queue and free all of it's contents</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_ioq_deq(ErlNifIOQueue *q, size_t count, size_t *size)</nametext></name>
+      <fsummary>Dequeue count bytes from the IO Queue</fsummary>
+      <desc>
+        <p>Dequeue <c>count</c> bytes from the I/O queue.
+          If <c>size</c> is not <c>NULL</c>, the new size of the queue
+          is placed there.</p>
+        <p>Returns <c>true</c> on success, or <c>false</c> if the I/O does
+          not contain <c>count</c> bytes. On failure the queue is left un-altered.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_ioq_enq(ErlNifEnv *env, ErlNifIOQueue *q, ERL_NIF_TERM iolist,
+      size_t skip)</nametext></name>
+      <fsummary>Enqueue the iolist into the IO Queue</fsummary>
+      <desc>
+        <p>Enqueue the <c>iolist</c> into <c>q</c> skipping the first <c>skip</c> bytes.</p>
+        <p><c>env</c> can be either <c>NULL</c> or a valid nif environment.</p>
+        <p>Returns <c>true</c> on success, or <c>false</c> if the <c>iolist</c>
+          is not a valid iolist, or <c>skip</c> is more then or equal to the size
+          of <c>iolist</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_ioq_enq_binary(ErlNifIOQueue *q, ErlNifBinary *bin, size_t skip)</nametext></name>
+      <fsummary>Enqueue the binary into the IO Queue</fsummary>
+      <desc>
+        <p>Enqueue the <c>bin</c> into <c>q</c> skipping the first <c>skip</c> bytes.</p>
+        <p>Returns <c>true</c> on success, or <c>false</c> if <c>skip</c> is more
+        then or equal to the size of <c>bin</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_ioq_enqv(ErlNifIOQueue *q, ErlNifIOVec *iovec, size_t skip)</nametext></name>
+      <fsummary>Enqueue the iovec into the IO Queue</fsummary>
+      <desc>
+        <p>Enqueue the <c>iovec</c> into <c>q</c> skipping the first <c>skip</c> bytes.</p>
+        <p>Returns <c>true</c> on success, or <c>false</c> if <c>skip</c> is more
+        then or equal to the size of <c>iovec</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>SysIOVec *</ret>
+      <nametext>enif_ioq_peek(ErlNifIOQueue *q, int *iovlen)</nametext></name>
+      <fsummary>Peek inside the IO Queue</fsummary>
+      <desc>
+        <p>Get the I/O queue as a pointer to an array of <c>SysIOVec</c>s.
+          It also returns the number of elements in <c>iovlen</c>.
+          This is the only way to get data out of the queue.</p>
+        <p>Nothing is removed from the queue by this function, that must be done
+          with <seealso marker="#enif_ioq_deq"><c>enif_ioq_deq</c></seealso>.</p>
+         <p>The returned array is suitable to use with the Unix system
+          call <c>writev</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>size_t</ret>
+      <nametext>enif_ioq_size(ErlNifIOQueue *q)</nametext></name>
+      <fsummary>Get the current size of the IO Queue</fsummary>
+      <desc>
+        <p>Get the size of <c>q</c>.</p>
+      </desc>
     </func>
 
     <func>
