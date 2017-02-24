@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1292,6 +1292,10 @@ abstr_term(Fun, Line) when is_function(Fun) ->
     end;
 abstr_term(PPR, Line) when is_pid(PPR); is_port(PPR); is_reference(PPR) ->
     {special, Line, lists:flatten(io_lib:write(PPR))};    
+abstr_term(Map, Line) when is_map(Map) ->
+    {map,Line,
+     [{map_field_assoc,Line,abstr_term(K, Line),abstr_term(V, Line)} ||
+         {K,V} <- maps:to_list(Map)]};
 abstr_term(Simple, Line) ->
     erl_parse:abstract(Simple, erl_anno:line(Line)).
 
