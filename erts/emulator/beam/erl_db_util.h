@@ -185,7 +185,6 @@ typedef struct db_table_method
     void (*db_foreach_offheap)(DbTable* db,  /* [in out] */ 
 			       void (*func)(ErlOffHeap *, void *),
 			       void *arg);
-    void (*db_check_table)(DbTable* tb);
 
     /* Lookup a dbterm for updating. Return false if not found. */
     int (*db_lookup_dbterm)(Process *, DbTable *, Eterm key, Eterm obj,
@@ -257,7 +256,6 @@ typedef struct db_table_common {
                                  "local" fixations not included. */ 
     /* All 32-bit fields */
     Uint32 status;            /* bit masks defined  below */
-    int slot;                 /* slot index in meta_main_tab */
     int keypos;               /* defaults to 1 */
     int compress;
 } DbTableCommon;
@@ -527,14 +525,5 @@ erts_db_get_match_prog_binary(Eterm term)
 #define Binary2MatchProg(BP) \
   (ASSERT(IsMatchProgBinary((BP))), \
    ((MatchProg *) ERTS_MAGIC_BIN_DATA((BP))))
-/*
-** Debugging 
-*/
-#ifdef HARDDEBUG
-void db_check_tables(void); /* in db.c */
-#define CHECK_TABLES() db_check_tables()
-#else 
-#define CHECK_TABLES()
-#endif
 
 #endif /* _DB_UTIL_H */

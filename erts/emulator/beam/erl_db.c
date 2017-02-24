@@ -179,45 +179,12 @@ static int fixed_tabs_find(DbFixation* first, DbFixation* fix)
 
 #include "erl_rbtree.h"
 
-
-
-/* 
-** The main meta table, containing all ets tables.
-*/
-#ifdef ERTS_SMP
-
-#define ERTS_META_MAIN_TAB_LOCK_TAB_BITS 8
-#define ERTS_META_MAIN_TAB_LOCK_TAB_SIZE (1 << ERTS_META_MAIN_TAB_LOCK_TAB_BITS)
-#define ERTS_META_MAIN_TAB_LOCK_TAB_MASK (ERTS_META_MAIN_TAB_LOCK_TAB_SIZE - 1)
-
-typedef union {
-    erts_smp_rwmtx_t rwmtx;
-    byte cache_line_align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(
-				sizeof(erts_smp_rwmtx_t))];
-} erts_meta_main_tab_lock_t;
-
-static erts_meta_main_tab_lock_t *meta_main_tab_locks;
-
+#ifdef HARDDEBUG
+# error Do something useful with CHECK_TABLES maybe
+#else
+# define CHECK_TABLES()
 #endif
-static struct {
-    union {
-	DbTable *tb;     /* Only directly readable if slot is ALIVE */
-	UWord next_free;  /* (index<<2)|1 if slot is FREE */
-    }u;
-} *meta_main_tab;
 
-/* A slot in meta_main_tab can have three states:
- * FREE : Free to use for new table. Part of linked free-list.
- * ALIVE: Contains a table
- * DEAD : Contains a table that is being removed.
- */
-#define IS_SLOT_FREE(i)	(meta_main_tab[(i)].u.next_free & 1)
-#define IS_SLOT_DEAD(i) (meta_main_tab[(i)].u.next_free & 2)
-#define IS_SLOT_ALIVE(i) (!(meta_main_tab[(i)].u.next_free & (1|2)))
-#define GET_NEXT_FREE_SLOT(i) (meta_main_tab[(i)].u.next_free >> 2)
-#define SET_NEXT_FREE_SLOT(i,next) (meta_main_tab[(i)].u.next_free = ((next)<<2)|1)
-#define MARK_SLOT_DEAD(i) (meta_main_tab[(i)].u.next_free |= 2)
-#define GET_ANY_SLOT_TAB(i) ((DbTable*)(meta_main_tab[(i)].u.next_free & ~(1|2))) /* dead or alive */
 
 static void
 send_ets_transfer_message(Process *c_p, Process *proc,
@@ -315,23 +282,6 @@ make_tid(Process *c_p, DbTable *tb)
     return erts_mk_magic_ref(&hp, &c_p->off_heap, tb->common.btid);
 }
 
-static ERTS_INLINE erts_smp_rwmtx_t *
-get_meta_main_tab_lock(unsigned slot)
-{
-#ifdef ERTS_SMP
-    return &meta_main_tab_locks[slot & ERTS_META_MAIN_TAB_LOCK_TAB_MASK].rwmtx;
-#else
-    return NULL;
-#endif
-}
-
-static erts_smp_spinlock_t meta_main_tab_main_lock;
-static Uint meta_main_tab_first_free;   /* Index of first free slot */
-static int meta_main_tab_cnt;		/* Number of active tables */
-static int meta_main_tab_top;           /* Highest ever used slot + 1 */
-static Uint meta_main_tab_slot_mask;    /* The slot index part of an unnamed table id */
-static Uint meta_main_tab_seq_incr;
-static Uint meta_main_tab_seq_cnt = 0;  /* To give unique(-ish) table identifiers */
 
 /* 
 ** The meta hash table of all NAMED ets tables
@@ -713,22 +663,6 @@ DbTable* db_get_table_aux(Process *p,
     tb = tid2tab(id);
     if (tb)
         id = tb->common.id;
-    else if (is_small(id)) {
-	Uint slot = unsigned_val(id) & meta_main_tab_slot_mask;
-	if (!meta_already_locked) {
-	    mtl = get_meta_main_tab_lock(slot);
-	    erts_smp_rwmtx_rlock(mtl);
-	}
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
-	else {
-	    erts_smp_rwmtx_t *test_mtl = get_meta_main_tab_lock(slot);
-	    ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rlocked(test_mtl)
-			       || erts_lc_rwmtx_is_rwlocked(test_mtl));
-	}
-#endif
-	if (slot < db_max_tabs && IS_SLOT_ALIVE(slot))
-	    tb = meta_main_tab[slot].u.tb;
-    }
     else if (is_atom(id)) {
 	struct meta_name_tab_entry* bucket = meta_name_tab_bucket(id,&mtl);
 	if (!meta_already_locked)
@@ -777,18 +711,6 @@ DbTable* db_get_table(Process *p,
 		      db_lock_kind_t kind)
 {
     return db_get_table_aux(p, id, what, kind, 0);
-}
-
-/* Requires meta_main_tab_locks[slot] locked.
-*/
-static ERTS_INLINE void free_slot(int slot)
-{
-    ASSERT(!IS_SLOT_FREE(slot));
-    erts_smp_spin_lock(&meta_main_tab_main_lock);
-    SET_NEXT_FREE_SLOT(slot,meta_main_tab_first_free);
-    meta_main_tab_first_free = slot;
-    meta_main_tab_cnt--;
-    erts_smp_spin_unlock(&meta_main_tab_main_lock);
 }
 
 static int insert_named_tab(Eterm name_atom, DbTable* tb, int have_lock)
@@ -1602,7 +1524,6 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
 	}
     }
     else {
-        Uint slot;
         tb = tid2tab(BIF_ARG_1);
         if (!tb)
             BIF_ERROR(BIF_P, BADARG);
@@ -1611,8 +1532,7 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
                 old_name = tb->common.id;
                 goto named_tab;
             }
-            slot = unsigned_val(tb->common.id) & meta_main_tab_slot_mask;
-            lck2 = get_meta_main_tab_lock(slot);
+            lck2 = NULL;
         }
     }
 
@@ -1665,7 +1585,6 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
 BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 {
     DbTable* tb = NULL;
-    int slot;
     Eterm list;
     Eterm val;
     Eterm ret;
@@ -1681,7 +1600,6 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     int cret;
 #endif
     DbTableMethod* meth;
-    erts_smp_rwmtx_t *mmtl;
 
     if (is_not_atom(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P, BADARG);
@@ -1847,57 +1765,21 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 
     make_btid(tb);
 
-    erts_smp_spin_lock(&meta_main_tab_main_lock);
-
-    if (meta_main_tab_cnt >= db_max_tabs) {
-	erts_smp_spin_unlock(&meta_main_tab_main_lock);
-	erts_send_error_to_logger_str(BIF_P->group_leader,
-				      "** Too many db tables **\n");
-	free_heir_data(tb);
-	tb->common.meth->db_free_table(tb);
-	free_dbtable((void *) tb);
-	BIF_ERROR(BIF_P, SYSTEM_LIMIT);
-    }
-
-    slot = meta_main_tab_first_free;
-    ASSERT(slot>=0 && slot<db_max_tabs);
-    meta_main_tab_first_free = GET_NEXT_FREE_SLOT(slot);
-    meta_main_tab_cnt++;
-    if (slot >= meta_main_tab_top) {
-	ASSERT(slot == meta_main_tab_top);
-	meta_main_tab_top = slot + 1;
-    }
-
     if (is_named) {
 	ret = BIF_ARG_1;
+        tb->common.id = ret;
     }
     else {
-	ret = make_small(slot | meta_main_tab_seq_cnt);
-	meta_main_tab_seq_cnt += meta_main_tab_seq_incr;
-	ASSERT((unsigned_val(ret) & meta_main_tab_slot_mask) == slot);
+        ret = make_tid(BIF_P, tb);
+        tb->common.id = THE_NON_VALUE;  /* or what? */
     }
-    erts_smp_spin_unlock(&meta_main_tab_main_lock);
-
-    tb->common.id = ret;
-    tb->common.slot = slot;           /* store slot for erase */
 
     if (!is_named)
         ret = make_tid(BIF_P, tb);
 
     save_sched_table(BIF_P, tb);
 
-    mmtl = get_meta_main_tab_lock(slot);
-    erts_smp_rwmtx_rwlock(mmtl);
-    meta_main_tab[slot].u.tb = tb;
-    ASSERT(IS_SLOT_ALIVE(slot));
-    erts_smp_rwmtx_rwunlock(mmtl);
-
     if (is_named && !insert_named_tab(BIF_ARG_1, tb, 0)) {
-	mmtl = get_meta_main_tab_lock(slot);
-	erts_smp_rwmtx_rwlock(mmtl);
-	free_slot(slot);
-	erts_smp_rwmtx_rwunlock(mmtl);
-
         tid_clear(BIF_P, tb);
 
 	db_lock(tb,LCK_WRITE);
@@ -2024,7 +1906,6 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 {
     int trap;
     DbTable* tb;
-    erts_smp_rwmtx_t *mmtl;
 
 #ifdef HARDDEBUG
     erts_fprintf(stderr,
@@ -2070,21 +1951,6 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 
     tid_clear(BIF_P, tb);
 
-    mmtl = get_meta_main_tab_lock(tb->common.slot);
-#ifdef ERTS_SMP
-    if (erts_smp_rwmtx_tryrwlock(mmtl) == EBUSY) {
-	/*
-	 * We keep our increased refc over this op in order to
-	 * prevent the table from disapearing.
-	 */
-	db_unlock(tb, LCK_WRITE);
-	erts_smp_rwmtx_rwlock(mmtl);
-	db_lock(tb, LCK_WRITE);
-    }
-#endif
-    /* We must keep the slot, to be found by db_proc_dead() if process dies */
-    MARK_SLOT_DEAD(tb->common.slot);
-    erts_smp_rwmtx_rwunlock(mmtl);
     if (is_atom(tb->common.id))
 	remove_named_tab(tb, 0);
     
@@ -3425,16 +3291,6 @@ void init_db(ErtsDbSpinCount db_spin_count)
     if (erts_ets_rwmtx_spin_count >= 0)
 	rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
 
-    meta_main_tab_locks =
-	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_DB_TABLES,
-					   sizeof(erts_meta_main_tab_lock_t)
-					   * ERTS_META_MAIN_TAB_LOCK_TAB_SIZE);
-
-    for (i = 0; i < ERTS_META_MAIN_TAB_LOCK_TAB_SIZE; i++) {
-	erts_smp_rwmtx_init_opt_x(&meta_main_tab_locks[i].rwmtx, &rwmtx_opt,
-				  "meta_main_tab_slot", make_small(i));
-    }
-    erts_smp_spinlock_init(&meta_main_tab_main_lock, "meta_main_tab_main");
     for (i=0; i<META_NAME_TAB_LOCK_CNT; i++) {
 	erts_smp_rwmtx_init_opt_x(&meta_name_tab_rwlocks[i].lck, &rwmtx_opt,
 				  "meta_name_tab", make_small(i));
@@ -3454,20 +3310,6 @@ void init_db(ErtsDbSpinCount db_spin_count)
 	erts_exit(ERTS_ERROR_EXIT,"Max limit for ets tabled too high %u (max %u).",
 		 db_max_tabs, ((Uint)1)<<SMALL_BITS);
     }
-    meta_main_tab_slot_mask = (((Uint)1)<<bits) - 1;
-    meta_main_tab_seq_incr = (((Uint)1)<<bits);
-
-    size = sizeof(*meta_main_tab)*db_max_tabs;
-    meta_main_tab = erts_db_alloc_nt(ERTS_ALC_T_DB_TABLES, size);
-    ERTS_ETS_MISC_MEM_ADD(size);
-
-    meta_main_tab_cnt = 0;
-    meta_main_tab_top = 0;
-    for (i=1; i<db_max_tabs; i++) {
-	SET_NEXT_FREE_SLOT(i-1,i);
-    }
-    SET_NEXT_FREE_SLOT(db_max_tabs-1, (Uint)-1);
-    meta_main_tab_first_free = 0;
 
     meta_name_tab_mask = (((Uint) 1)<<(bits-1)) - 1; /* At least half the size of main tab */
     size = sizeof(struct meta_name_tab_entry)*(meta_name_tab_mask+1);
@@ -4059,7 +3901,6 @@ static BIF_RETTYPE ets_delete_trap(BIF_ALIST_1)
 static int free_table_cont(Process *p, DbTable *tb)
 {
     Eterm result;
-    erts_smp_rwmtx_t *mmtl;
 
     result = tb->common.meth->db_free_table_continue(tb);
 
@@ -4078,13 +3919,6 @@ static int free_table_cont(Process *p, DbTable *tb)
 		     tb->common.id);
 #endif
 	/* Completely done - we will not get called again. */
-	mmtl = get_meta_main_tab_lock(tb->common.slot);
-#ifdef ERTS_SMP
-        erts_smp_rwmtx_rwlock(mmtl);
-#endif
-	free_slot(tb->common.slot);
-	erts_smp_rwmtx_rwunlock(mmtl);
-
         delete_owned_table(p, tb);
         table_dec_refc(tb, 0);
 	BUMP_REDS(p, 100);
@@ -4393,22 +4227,3 @@ erts_ets_colliding_names(Process* p, Eterm name, Uint cnt)
     return list;
 }
 
-#ifdef HARDDEBUG   /* Here comes some debug functions */
-
-void db_check_tables(void)
-{
-#ifdef ERTS_SMP
-    return;
-#else
-    int i;
-
-    for (i = 0; i < db_max_tabs; i++) {
-	if (IS_SLOT_ALIVE(i)) {
-	    DbTable* tb = meta_main_tab[i].t; 
-	    tb->common.meth->db_check_table(tb);
-	}
-    }
-#endif
-}
-
-#endif /* HARDDEBUG */

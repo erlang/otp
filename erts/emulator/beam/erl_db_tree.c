@@ -180,7 +180,6 @@ static ERTS_INLINE TreeDbTerm* replace_dbterm(DbTableTree *tb, TreeDbTerm* old,
 static TreeDbTerm *traverse_until(TreeDbTerm *t, int *current, int to);
 static void check_slot_pos(DbTableTree *tb);
 static void check_saved_stack(DbTableTree *tb);
-static int check_table_tree(DbTableTree* tb, TreeDbTerm *t);
 
 #define TREE_DEBUG
 #endif
@@ -442,11 +441,6 @@ DbTableMethod db_tree =
     db_free_table_continue_tree,
     db_print_tree,
     db_foreach_offheap_tree,
-#ifdef HARDDEBUG
-    db_check_table_tree,
-#else
-    NULL,
-#endif
     db_lookup_dbterm_tree,
     db_finalize_dbterm_tree
 
@@ -3130,6 +3124,9 @@ static void do_dump_tree2(DbTableTree* tb, int to, void *to_arg, int show,
 
 #ifdef HARDDEBUG
 
+/*
+ * No called, but kept as it might come to use
+ */
 void db_check_table_tree(DbTable *tbl)
 {
     DbTableTree *tb = &tbl->tree;

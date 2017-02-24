@@ -529,11 +529,6 @@ DbTableMethod db_hash =
     db_free_table_continue_hash,
     db_print_hash,
     db_foreach_offheap_hash,
-#ifdef HARDDEBUG
-    db_check_table_hash,
-#else
-    NULL,
-#endif
     db_lookup_dbterm_hash,
     db_finalize_dbterm_hash
 };
@@ -846,7 +841,6 @@ Lnew:
 	    grow(tb, nitems);
 	}
     }
-    CHECK_TABLES();
     return DB_ERROR_NONE;
 
 Ldone:
@@ -871,7 +865,6 @@ get_term_list(Process *p, DbTableHash *tb, Eterm key, HashValue hval,
         }
     }
     copy = build_term_list(p, b1, b2, sz, tb);
-    CHECK_TABLES();
     if (bend) {
         *bend = b2;
     }
@@ -2898,24 +2891,3 @@ Eterm erts_ets_hash_sizeof_ext_segtab(void)
     return make_small(((SIZEOF_EXT_SEGTAB(0)-1) / sizeof(UWord)) + 1);
 }
 
-#ifdef HARDDEBUG
-
-void db_check_table_hash(DbTable *tbl)
-{
-    DbTableHash *tb = &tbl->hash;
-    HashDbTerm* list;
-    int j;
-    
-    for (j = 0; j < NACTIVE(tb); j++) {
-	if ((list = BUCKET(tb,j)) != 0) {
-	    while (list != 0) {
-		if (!is_tuple(make_tuple(list->dbterm.tpl))) {
-		    erts_exit(ERTS_ERROR_EXIT, "Bad term in slot %d of ets table", j);
-		}
-		list = list->next;
-	    }
-	}
-    }
-}
-
-#endif
