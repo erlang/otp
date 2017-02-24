@@ -34,7 +34,8 @@
 -export([absname/1, absname/2, absname_join/2, 
 	 basename/1, basename/2, dirname/1,
 	 extension/1, join/1, join/2, pathtype/1,
-	 rootname/1, rootname/2, split/1, nativename/1]).
+         rootname/1, rootname/2, split/1, nativename/1,
+         safe_relative_path/1]).
 -export([find_src/1, find_src/2, flatten/1]).
 -export([basedir/2, basedir/3]).
 
@@ -749,6 +750,39 @@ separators() ->
 	{win32, _} -> {$\\, $:};
 	_ -> {false, false}
     end.
+
+-spec safe_relative_path(Filename) -> 'unsafe' | SafeFilename when
+      Filename :: file:name_all(),
+      SafeFilename :: file:name_all().
+
+safe_relative_path(Path) ->
+    case pathtype(Path) of
+        relative ->
+            Cs0 = split(Path),
+            safe_relative_path_1(Cs0, []);
+        _ ->
+            unsafe
+    end.
+
+safe_relative_path_1(["."|T], Acc) ->
+    safe_relative_path_1(T, Acc);
+safe_relative_path_1([<<".">>|T], Acc) ->
+    safe_relative_path_1(T, Acc);
+safe_relative_path_1([".."|T], Acc) ->
+    climb(T, Acc);
+safe_relative_path_1([<<"..">>|T], Acc) ->
+    climb(T, Acc);
+safe_relative_path_1([H|T], Acc) ->
+    safe_relative_path_1(T, [H|Acc]);
+safe_relative_path_1([], []) ->
+    [];
+safe_relative_path_1([], Acc) ->
+    join(lists:reverse(Acc)).
+
+climb(_, []) ->
+    unsafe;
+climb(T, [_|Acc]) ->
+    safe_relative_path_1(T, Acc).
 
 
 
