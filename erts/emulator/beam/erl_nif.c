@@ -56,6 +56,7 @@
 #include "erl_process.h"
 #include "erl_bif_unique.h"
 #include "erl_utils.h"
+#include "erl_io_queue.h"
 #undef ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #define ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #include "erl_nfunc_sched.h"
@@ -66,6 +67,13 @@
 #include <limits.h>
 #include <stddef.h> /* offsetof */
 
+#ifndef MAX
+#define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
+#endif
+
+#ifndef MIN
+#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
+#endif
 
 /* Information about a loaded nif library.
  * Each successful call to erlang:load_nif will allocate an instance of
@@ -3342,6 +3350,363 @@ int enif_compare_monitors(const ErlNifMonitor *monitor1,
 {
     return sys_memcmp((void *) monitor1, (void *) monitor2,
                       ERTS_REF_THING_SIZE*sizeof(Eterm));
+}
+
+ErlNifIOQueue *enif_ioq_create(ErlNifIOQueueOpts opts)
+{
+    ErlNifIOQueue *q;
+
+    if (opts != ERL_NIF_IOQ_NORMAL)
+        return NULL;
+
+    q = enif_alloc(sizeof(ErlNifIOQueue));
+    if (!q) return NULL;
+    erts_ioq_init(q, ERTS_ALC_T_NIF, 0);
+
+    return q;
+}
+
+void enif_ioq_destroy(ErlNifIOQueue *q)
+{
+    erts_ioq_clear(q);
+    enif_free(q);
+}
+
+/* If the iovec was preallocated (Stack or otherwise) it needs to be marked as
+ * such to perform a proper free. */
+#define ERL_NIF_IOVEC_FLAGS_PREALLOC (1 << 0)
+
+void enif_free_iovec(ErlNifIOVec *iov)
+{
+    int i;
+    /* Decrement the refc of all the binaries */
+    for (i = 0; i < iov->iovcnt; i++) {
+        Binary *bptr = ((Binary**)iov->ref_bins)[i];
+        /* bptr can be null if enq_binary was used */
+        if (bptr && erts_refc_dectest(&bptr->intern.refc, 0) == 0) {
+            erts_bin_free(bptr);
+        }
+    }
+
+    if (!(iov->flags & ERL_NIF_IOVEC_FLAGS_PREALLOC)) {
+        enif_free(iov);
+    }
+}
+
+typedef struct {
+    UWord sublist_length;
+    Eterm sublist_start;
+    Eterm sublist_end;
+
+    UWord offheap_size;
+    UWord onheap_size;
+
+    UWord iovec_len;
+} iovec_slice_t;
+
+static int examine_iovec_term(Eterm list, UWord max_length, iovec_slice_t *result) {
+    Eterm lookahead;
+
+    result->sublist_start = list;
+    result->sublist_length = 0;
+    result->offheap_size = 0;
+    result->onheap_size = 0;
+    result->iovec_len = 0;
+
+    lookahead = result->sublist_start;
+
+    while (is_list(lookahead)) {
+        Eterm *binary_header, binary;
+        Eterm *cell;
+        UWord size;
+
+        cell = list_val(lookahead);
+        binary = CAR(cell);
+
+        if (!is_binary(binary)) {
+            return 0;
+        }
+
+        size = binary_size(binary);
+        binary_header = binary_val(binary);
+
+        /* If we're a sub-binary we'll need to check our underlying binary to
+         * determine whether we're on-heap or not. */
+        if(thing_subtag(*binary_header) == SUB_BINARY_SUBTAG) {
+            ErlSubBin *sb = (ErlSubBin*)binary_header;
+
+            /* Reject bitstrings */
+            if((sb->bitoffs + sb->bitsize) > 0) {
+                return 0;
+            }
+
+            ASSERT(size <= binary_size(sb->orig));
+            binary_header = binary_val(sb->orig);
+        }
+
+        if(thing_subtag(*binary_header) == HEAP_BINARY_SUBTAG) {
+            ASSERT(size <= ERL_ONHEAP_BIN_LIMIT);
+
+            result->iovec_len += 1;
+            result->onheap_size += size;
+        } else {
+            ASSERT(thing_subtag(*binary_header) == REFC_BINARY_SUBTAG);
+
+            result->iovec_len += 1 + size / MAX_SYSIOVEC_IOVLEN;
+            result->offheap_size += size;
+        }
+
+        result->sublist_length += 1;
+        lookahead = CDR(cell);
+
+        if(result->sublist_length >= max_length) {
+            break;
+        }
+    }
+
+    if (!is_nil(lookahead) && !is_list(lookahead)) {
+        return 0;
+    }
+
+    result->sublist_end = lookahead;
+
+    return 1;
+}
+
+static void inspect_raw_binary_data(Eterm binary, ErlNifBinary *result) {
+    Eterm *parent_header;
+    Eterm parent_binary;
+
+    int bit_offset, bit_size;
+    Uint byte_offset;
+
+    ASSERT(is_binary(binary));
+
+    ERTS_GET_REAL_BIN(binary, parent_binary, byte_offset, bit_offset, bit_size);
+
+    parent_header = binary_val(parent_binary);
+
+    result->size = binary_size(binary);
+    result->bin_term = binary;
+
+    if (thing_subtag(*parent_header) == REFC_BINARY_SUBTAG) {
+        ProcBin *pb = (ProcBin*)parent_header;
+
+        ASSERT(pb->val != NULL);
+        ASSERT(byte_offset < pb->size);
+        ASSERT(&pb->bytes[byte_offset] >= (byte*)(pb->val)->orig_bytes);
+
+        result->data = (unsigned char*)&pb->bytes[byte_offset];
+        result->ref_bin = (void*)pb->val;
+    } else {
+        ErlHeapBin *hb = (ErlHeapBin*)parent_header;
+
+        ASSERT(thing_subtag(*parent_header) == HEAP_BINARY_SUBTAG);
+
+        result->data = &((unsigned char*)&hb->data)[byte_offset];
+        result->ref_bin = NULL;
+    }
+}
+
+static int fill_iovec_with_slice(ErlNifEnv *env,
+                                 iovec_slice_t *slice,
+                                 ErlNifIOVec *iovec) {
+    UWord onheap_offset, iovec_idx;
+    ErlNifBinary onheap_data;
+    Eterm sublist_iterator;
+
+    /* Set up a common refc binary for all on-heap binaries. */
+    if (slice->onheap_size > 0) {
+        if (!enif_alloc_binary(slice->onheap_size, &onheap_data)) {
+            return 0;
+        }
+    }
+
+    sublist_iterator = slice->sublist_start;
+    onheap_offset = 0;
+    iovec_idx = 0;
+
+    while (sublist_iterator != slice->sublist_end) {
+        ErlNifBinary raw_data;
+        Eterm *cell;
+
+        cell = list_val(sublist_iterator);
+        inspect_raw_binary_data(CAR(cell), &raw_data);
+
+        /* If this isn't a refc binary, copy its contents to the onheap buffer
+         * and reference that instead. */
+        if (raw_data.ref_bin == NULL) {
+            ASSERT(onheap_offset < onheap_data.size);
+            ASSERT(slice->onheap_size > 0);
+
+            sys_memcpy(&onheap_data.data[onheap_offset],
+                       raw_data.data, raw_data.size);
+
+            raw_data.data = &onheap_data.data[onheap_offset];
+            raw_data.ref_bin = onheap_data.ref_bin;
+        }
+
+        ASSERT(raw_data.ref_bin != NULL);
+
+        while (raw_data.size > 0) {
+            UWord chunk_len = MIN(raw_data.size, MAX_SYSIOVEC_IOVLEN);
+
+            ASSERT(iovec_idx < iovec->iovcnt);
+
+            iovec->iov[iovec_idx].iov_base = raw_data.data;
+            iovec->iov[iovec_idx].iov_len = chunk_len;
+
+            iovec->ref_bins[iovec_idx] = raw_data.ref_bin;
+
+            raw_data.data += chunk_len;
+            raw_data.size -= chunk_len;
+
+            iovec_idx += 1;
+        }
+
+        sublist_iterator = CDR(cell);
+    }
+
+    ASSERT(iovec_idx == iovec->iovcnt);
+
+    if (env == NULL) {
+        int i;
+        for (i = 0; i < iovec->iovcnt; i++) {
+            Binary *refc_binary = (Binary*)(iovec->ref_bins[i]);
+            erts_refc_inc(&refc_binary->intern.refc, 1);
+        }
+
+        if (slice->onheap_size > 0) {
+            /* Transfer ownership to the iovec; we've taken references to it in
+             * the above loop. */
+            enif_release_binary(&onheap_data);
+        }
+    } else {
+        if (slice->onheap_size > 0) {
+            /* Attach the binary to our environment and let the GC take care of
+             * it after returning. */
+            enif_make_binary(env, &onheap_data);
+        }
+    }
+
+    return 1;
+}
+
+static int create_iovec_from_slice(ErlNifEnv *env,
+                                   iovec_slice_t *slice,
+                                   ErlNifIOVec **result) {
+    ErlNifIOVec *iovec = *result;
+
+    if (iovec && slice->iovec_len < ERL_NIF_IOVEC_SIZE) {
+        iovec->iov = iovec->small_iov;
+        iovec->ref_bins = iovec->small_ref_bin;
+        iovec->flags = ERL_NIF_IOVEC_FLAGS_PREALLOC;
+    } else {
+        UWord iov_offset, binv_offset, alloc_size;
+        char *alloc_base;
+
+        iov_offset = ERTS_ALC_DATA_ALIGN_SIZE(sizeof(ErlNifIOVec));
+        binv_offset = iov_offset;
+        binv_offset += ERTS_ALC_DATA_ALIGN_SIZE(slice->iovec_len * sizeof(SysIOVec));
+        alloc_size = binv_offset;
+        alloc_size += slice->iovec_len * sizeof(Binary*);
+
+        /* If we have an environment we'll attach the allocated data to it. The
+         * GC will take care of releasing it later on. */
+        if (env != NULL) {
+            ErlNifBinary gc_bin;
+
+            if (!enif_alloc_binary(alloc_size, &gc_bin)) {
+                return 0;
+            }
+
+            alloc_base = (char*)gc_bin.data;
+            enif_make_binary(env, &gc_bin);
+        } else {
+            alloc_base = enif_alloc(alloc_size);
+        }
+
+        iovec = (ErlNifIOVec*)alloc_base;
+        iovec->iov = (SysIOVec*)(alloc_base + iov_offset);
+        iovec->ref_bins = (void**)(alloc_base + binv_offset);
+        iovec->flags = 0;
+    }
+
+    iovec->size = slice->offheap_size + slice->onheap_size;
+    iovec->iovcnt = slice->iovec_len;
+
+    if(!fill_iovec_with_slice(env, slice, iovec)) {
+        if (env == NULL && !(iovec->flags & ERL_NIF_IOVEC_FLAGS_PREALLOC)) {
+            enif_free(iovec);
+        }
+
+        return 0;
+    }
+
+    *result = iovec;
+
+    return 1;
+}
+
+int enif_inspect_iovec(ErlNifEnv *env, size_t max_elements,
+                       ERL_NIF_TERM list, ERL_NIF_TERM *tail,
+                       ErlNifIOVec **iov) {
+    iovec_slice_t slice;
+
+    if(!examine_iovec_term(list, max_elements, &slice)) {
+        return 0;
+    } else if(!create_iovec_from_slice(env, &slice, iov)) {
+        return 0;
+    }
+
+    (*tail) = slice.sublist_end;
+
+    return 1;
+}
+
+/* */
+int enif_ioq_enqv(ErlNifIOQueue *q, ErlNifIOVec *iov, size_t skip)
+{
+    if(skip <= iov->size) {
+        return !erts_ioq_enqv(q, (ErtsIOVec*)iov, skip);
+    }
+
+    return 0;
+}
+
+int enif_ioq_enq_binary(ErlNifIOQueue *q, ErlNifBinary *bin, size_t skip)
+{
+    ErlNifIOVec vec = {1, bin->size, NULL, NULL, ERL_NIF_IOVEC_FLAGS_PREALLOC };
+    Binary *ref_bin = (Binary*)bin->ref_bin;
+    int res;
+    vec.iov = vec.small_iov;
+    vec.ref_bins = vec.small_ref_bin;
+    vec.iov[0].iov_base = bin->data;
+    vec.iov[0].iov_len = bin->size;
+    ((Binary**)(vec.ref_bins))[0] = ref_bin;
+
+    res = enif_ioq_enqv(q, &vec, skip);
+    enif_release_binary(bin);
+    return res;
+}
+
+size_t enif_ioq_size(ErlNifIOQueue *q)
+{
+    return erts_ioq_size(q);
+}
+
+int enif_ioq_deq(ErlNifIOQueue *q, size_t elems, size_t *size)
+{
+    if (erts_ioq_deq(q, elems) == -1)
+        return 0;
+    if (size)
+        *size = erts_ioq_size(q);
+    return 1;
+}
+
+SysIOVec *enif_ioq_peek(ErlNifIOQueue *q, int *iovlen)
+{
+    return erts_ioq_peekq(q, iovlen);
 }
 
 /***************************************************************************
