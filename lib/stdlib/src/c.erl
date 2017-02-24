@@ -35,7 +35,7 @@
 -export([appcall/4]).
 
 -import(lists, [reverse/1,flatten/1,sublist/3,sort/1,keysort/2,
-		concat/1,max/1,min/1,foreach/2,foldl/3,flatmap/2]).
+		max/1,min/1,foreach/2,foldl/3,flatmap/2]).
 -import(io, [format/1, format/2]).
 
 %%-----------------------------------------------------------------------
@@ -83,9 +83,11 @@ c(Module) -> c(Module, []).
 
 -spec c(Module, Options) -> {'ok', ModuleName} | 'error' when
       Module :: file:name(),
-      Options :: [compile:option()],
+      Options :: [compile:option()] | compile:option(),
       ModuleName :: module().
 
+c(Module, SingleOption) when not is_list(SingleOption) ->
+    c(Module, [SingleOption]);
 c(Module, Opts) when is_atom(Module) ->
     %% either a module name or a source file name (possibly without
     %% suffix); if such a source file exists, it is used to compile from
