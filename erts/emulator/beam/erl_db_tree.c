@@ -369,18 +369,18 @@ static int db_erase_tree(DbTable *tbl, Eterm key, Eterm *ret);
 static int db_erase_object_tree(DbTable *tbl, Eterm object,Eterm *ret);
 static int db_slot_tree(Process *p, DbTable *tbl, 
 			Eterm slot_term,  Eterm *ret);
-static int db_select_tree(Process *p, DbTable *tbl, 
+static int db_select_tree(Process *p, DbTable *tbl, Eterm tid,
 			  Eterm pattern, int reversed, Eterm *ret);
-static int db_select_count_tree(Process *p, DbTable *tbl, 
+static int db_select_count_tree(Process *p, DbTable *tbl, Eterm tid,
 				Eterm pattern,  Eterm *ret);
-static int db_select_chunk_tree(Process *p, DbTable *tbl, 
+static int db_select_chunk_tree(Process *p, DbTable *tbl, Eterm tid,
 				Eterm pattern, Sint chunk_size,
 				int reversed, Eterm *ret);
 static int db_select_continue_tree(Process *p, DbTable *tbl,
 				   Eterm continuation, Eterm *ret);
 static int db_select_count_continue_tree(Process *p, DbTable *tbl,
 					 Eterm continuation, Eterm *ret);
-static int db_select_delete_tree(Process *p, DbTable *tbl, 
+static int db_select_delete_tree(Process *p, DbTable *tbl, Eterm tid,
 				 Eterm pattern,  Eterm *ret);
 static int db_select_delete_continue_tree(Process *p, DbTable *tbl, 
 					  Eterm continuation, Eterm *ret);
@@ -1058,7 +1058,7 @@ static int db_select_continue_tree(Process *p,
 }
 
 
-static int db_select_tree(Process *p, DbTable *tbl, 
+static int db_select_tree(Process *p, DbTable *tbl, Eterm tid,
 			  Eterm pattern, int reverse, Eterm *ret)
 {
     /* Strategy: Traverse backwards to build resulting list from tail to head */
@@ -1151,7 +1151,7 @@ static int db_select_tree(Process *p, DbTable *tbl,
 	    
     continuation = TUPLE8
 	(hp,
-	 tb->common.id,
+	 tid,
 	 key,
 	 sc.end_condition, /* From the match program, needn't be copied */
 	 make_small(0), /* Chunk size of zero means not chunked to the
@@ -1263,7 +1263,7 @@ static int db_select_count_continue_tree(Process *p,
 }
 
 
-static int db_select_count_tree(Process *p, DbTable *tbl, 
+static int db_select_count_tree(Process *p, DbTable *tbl, Eterm tid,
 				Eterm pattern, Eterm *ret)
 {
     DbTableTree *tb = &tbl->tree;
@@ -1349,7 +1349,7 @@ static int db_select_count_tree(Process *p, DbTable *tbl,
 	    
     continuation = TUPLE5
 	(hp,
-	 tb->common.id,
+	 tid,
 	 key,
 	 sc.end_condition, /* From the match program, needn't be copied */
 	 mpb,
@@ -1363,7 +1363,7 @@ static int db_select_count_tree(Process *p, DbTable *tbl,
 
 }
 
-static int db_select_chunk_tree(Process *p, DbTable *tbl, 
+static int db_select_chunk_tree(Process *p, DbTable *tbl, Eterm tid,
 				Eterm pattern, Sint chunk_size,
 				int reverse,
 				Eterm *ret)
@@ -1474,7 +1474,7 @@ static int db_select_chunk_tree(Process *p, DbTable *tbl,
 	
 	continuation = TUPLE8
 	    (hp,
-	     tb->common.id,
+	     tid,
 	     key,
 	     sc.end_condition, /* From the match program, 
 				  needn't be copied */
@@ -1499,7 +1499,7 @@ static int db_select_chunk_tree(Process *p, DbTable *tbl,
     mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
     continuation = TUPLE8
 	(hp,
-	 tb->common.id,
+	 tid,
 	 key,
 	 sc.end_condition, /* From the match program, needn't be copied */
 	 make_small(chunk_size),
@@ -1605,7 +1605,7 @@ static int db_select_delete_continue_tree(Process *p,
 #undef RET_TO_BIF
 }
 
-static int db_select_delete_tree(Process *p, DbTable *tbl, 
+static int db_select_delete_tree(Process *p, DbTable *tbl, Eterm tid,
 				 Eterm pattern, Eterm *ret)
 {
     DbTableTree *tb = &tbl->tree;
@@ -1691,7 +1691,7 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
     
     continuation = TUPLE5
 	(hp,
-	 tb->common.id,
+	 tid,
 	 key,
 	 sc.end_condition, /* From the match program, needn't be copied */
 	 mpb,

@@ -135,30 +135,34 @@ typedef struct db_table_method
 		   Eterm slot, 
 		   Eterm* ret);
     int (*db_select_chunk)(Process* p, 
-			   DbTable* tb, /* [in out] */ 
+			   DbTable* tb, /* [in out] */
+                           Eterm tid,
 			   Eterm pattern,
 			   Sint chunk_size,
 			   int reverse,
 			   Eterm* ret);
     int (*db_select)(Process* p, 
-		     DbTable* tb, /* [in out] */ 
+		     DbTable* tb, /* [in out] */
+                     Eterm tid,
 		     Eterm pattern,
 		     int reverse,
 		     Eterm* ret);
     int (*db_select_delete)(Process* p, 
-			    DbTable* tb, /* [in out] */ 
+			    DbTable* tb, /* [in out] */
+                            Eterm tid,
 			    Eterm pattern,
 			    Eterm* ret);
     int (*db_select_continue)(Process* p, 
-			      DbTable* tb, /* [in out] */ 
+			      DbTable* tb, /* [in out] */
 			      Eterm continuation,
 			      Eterm* ret);
     int (*db_select_delete_continue)(Process* p, 
-				     DbTable* tb, /* [in out] */ 
+				     DbTable* tb, /* [in out] */
 				     Eterm continuation,
 				     Eterm* ret);
     int (*db_select_count)(Process* p, 
-			   DbTable* tb, /* [in out] */ 
+			   DbTable* tb, /* [in out] */
+                           Eterm tid,
 			   Eterm pattern, 
 			   Eterm* ret);
     int (*db_select_count_continue)(Process* p, 

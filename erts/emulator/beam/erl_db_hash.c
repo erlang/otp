@@ -393,20 +393,20 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object,Eterm *ret);
 static int db_slot_hash(Process *p, DbTable *tbl, 
 			Eterm slot_term, Eterm *ret);
 
-static int db_select_chunk_hash(Process *p, DbTable *tbl, 
+static int db_select_chunk_hash(Process *p, DbTable *tbl, Eterm tid,
 				Eterm pattern, Sint chunk_size,
 				int reverse, Eterm *ret);
-static int db_select_hash(Process *p, DbTable *tbl, 
+static int db_select_hash(Process *p, DbTable *tbl, Eterm tid,
 			  Eterm pattern, int reverse, Eterm *ret);
-static int db_select_count_hash(Process *p, DbTable *tbl, 
+static int db_select_count_hash(Process *p, DbTable *tbl,  Eterm tid,
 				Eterm pattern, Eterm *ret);
-static int db_select_delete_hash(Process *p, DbTable *tbl, 
+static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid,
 				 Eterm pattern, Eterm *ret);
 
 static int db_select_continue_hash(Process *p, DbTable *tbl, 
 				   Eterm continuation, Eterm *ret);
 
-static int db_select_count_continue_hash(Process *p, DbTable *tbl, 
+static int db_select_count_continue_hash(Process *p, DbTable *tbl,
 					 Eterm continuation, Eterm *ret);
 
 static int db_select_delete_continue_hash(Process *p, DbTable *tbl,
@@ -1289,14 +1289,14 @@ trap:
 
 }
 
-static int db_select_hash(Process *p, DbTable *tbl, 
+static int db_select_hash(Process *p, DbTable *tbl, Eterm tid,
 			  Eterm pattern, int reverse,
 			  Eterm *ret)
 {
-    return db_select_chunk_hash(p, tbl, pattern, 0, reverse, ret);
+    return db_select_chunk_hash(p, tbl, tid, pattern, 0, reverse, ret);
 }
 
-static int db_select_chunk_hash(Process *p, DbTable *tbl, 
+static int db_select_chunk_hash(Process *p, DbTable *tbl, Eterm tid,
 				Eterm pattern, Sint chunk_size, 
 				int reverse, /* not used */
 				Eterm *ret)
@@ -1444,7 +1444,7 @@ done:
 	    mpb = erts_db_make_match_prog_ref(p,(mpi.mp),&hp);
 	    if (mpi.all_objects)
 		(mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
-	    continuation = TUPLE6(hp, tb->common.id,make_small(slot_ix), 
+	    continuation = TUPLE6(hp, tid, make_small(slot_ix),
 				  make_small(chunk_size),  
 				  mpb, rest, 
 				  make_small(rest_size));
@@ -1468,7 +1468,7 @@ trap:
 	(mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
     hp = HAlloc(p,7+ERTS_MAGIC_REF_THING_SIZE);
     mpb = erts_db_make_match_prog_ref(p,(mpi.mp),&hp);
-    continuation = TUPLE6(hp, tb->common.id, make_small(slot_ix), 
+    continuation = TUPLE6(hp, tid, make_small(slot_ix),
 			  make_small(chunk_size), 
 			  mpb, match_list, 
 			  make_small(got));
@@ -1482,7 +1482,8 @@ trap:
 }
 
 static int db_select_count_hash(Process *p, 
-				DbTable *tbl, 
+				DbTable *tbl,
+                                Eterm tid,
 				Eterm pattern,
 				Eterm *ret)
 {
@@ -1588,7 +1589,7 @@ trap:
 	hp += BIG_UINT_HEAP_SIZE;
     }
     mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
-    continuation = TUPLE4(hp, tb->common.id, make_small(slot_ix), 
+    continuation = TUPLE4(hp, tid, make_small(slot_ix),
 			  mpb, 
 			  egot);
     mpi.mp = NULL; /*otherwise the return macro will destroy it */
@@ -1601,6 +1602,7 @@ trap:
 
 static int db_select_delete_hash(Process *p,
 				 DbTable *tbl,
+                                 Eterm tid,
 				 Eterm pattern,
 				 Eterm *ret)
 {
@@ -1733,7 +1735,7 @@ trap:
 	hp += BIG_UINT_HEAP_SIZE;
     }
     mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
-    continuation = TUPLE4(hp, tb->common.id, make_small(slot_ix), 
+    continuation = TUPLE4(hp, tid, make_small(slot_ix),
 			  mpb, 
 			  egot);
     mpi.mp = NULL; /*otherwise the return macro will destroy it */
@@ -1847,7 +1849,7 @@ trap:
 	egot = uint_to_big(got, hp);
 	hp += BIG_UINT_HEAP_SIZE;
     }
-    continuation = TUPLE4(hp, tb->common.id, make_small(slot_ix), 
+    continuation = TUPLE4(hp, tptr[1], make_small(slot_ix),
 			  tptr[3], 
 			  egot);
     RET_TO_BIF(bif_trap1(&ets_select_delete_continue_exp, p, 
@@ -1938,7 +1940,7 @@ trap:
 	egot = uint_to_big(got, hp);
 	hp += BIG_UINT_HEAP_SIZE;
     }
-    continuation = TUPLE4(hp, tb->common.id, make_small(slot_ix), 
+    continuation = TUPLE4(hp, tptr[1], make_small(slot_ix),
 			  tptr[3], 
 			  egot);
     RET_TO_BIF(bif_trap1(&ets_select_count_continue_exp, p, 

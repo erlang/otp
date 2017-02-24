@@ -2391,7 +2391,7 @@ BIF_RETTYPE ets_select_delete_2(BIF_ALIST_2)
     if (safety == ITER_UNSAFE) {
 	local_fix_table(tb);
     }
-    cret = tb->common.meth->db_select_delete(BIF_P, tb, BIF_ARG_2, &ret);
+    cret = tb->common.meth->db_select_delete(BIF_P, tb, BIF_ARG_1, BIF_ARG_2, &ret);
 
     if (DID_TRAP(BIF_P,ret) && safety != ITER_SAFE) {
 	fix_table_locked(BIF_P,tb);
@@ -2770,7 +2770,7 @@ ets_select3(Process* p, Eterm arg1, Eterm arg2, Eterm arg3)
     if (safety == ITER_UNSAFE) {
 	local_fix_table(tb);
     }
-    cret = tb->common.meth->db_select_chunk(p, tb,
+    cret = tb->common.meth->db_select_chunk(p, tb, arg1,
 					    arg2, chunk_size,
 					    0 /* not reversed */,
 					    &ret);
@@ -2939,8 +2939,7 @@ ets_select2(Process* p, Eterm arg1, Eterm arg2)
 	local_fix_table(tb);
     }
 
-    cret = tb->common.meth->db_select(p, tb, arg2,
-				      0, &ret);
+    cret = tb->common.meth->db_select(p, tb, arg1, arg2, 0, &ret);
 
     if (DID_TRAP(p,ret) && safety != ITER_SAFE) {
 	fix_table_locked(p, tb);
@@ -3031,7 +3030,7 @@ BIF_RETTYPE ets_select_count_2(BIF_ALIST_2)
     if (safety == ITER_UNSAFE) {
 	local_fix_table(tb);
     }
-    cret = tb->common.meth->db_select_count(BIF_P,tb,BIF_ARG_2, &ret);
+    cret = tb->common.meth->db_select_count(BIF_P,tb, BIF_ARG_1, BIF_ARG_2, &ret);
 
     if (DID_TRAP(BIF_P,ret) && safety != ITER_SAFE) {
 	fix_table_locked(BIF_P, tb);
@@ -3085,7 +3084,7 @@ BIF_RETTYPE ets_select_reverse_3(BIF_ALIST_3)
     if (safety == ITER_UNSAFE) {
 	local_fix_table(tb);
     }
-    cret = tb->common.meth->db_select_chunk(BIF_P,tb,
+    cret = tb->common.meth->db_select_chunk(BIF_P,tb, BIF_ARG_1,
 					    BIF_ARG_2, chunk_size, 
 					    1 /* reversed */, &ret);
     if (DID_TRAP(BIF_P,ret) && safety != ITER_SAFE) {
@@ -3135,7 +3134,7 @@ BIF_RETTYPE ets_select_reverse_2(BIF_ALIST_2)
     if (safety == ITER_UNSAFE) {
 	local_fix_table(tb);
     }
-    cret = tb->common.meth->db_select(BIF_P,tb,BIF_ARG_2,
+    cret = tb->common.meth->db_select(BIF_P,tb, BIF_ARG_1, BIF_ARG_2,
 				      1 /*reversed*/, &ret);
 
     if (DID_TRAP(BIF_P,ret) && safety != ITER_SAFE) {
