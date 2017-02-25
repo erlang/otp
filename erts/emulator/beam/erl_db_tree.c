@@ -300,6 +300,9 @@ struct select_replace_context {
     Sint replaced;
 };
 
+/* Used by select_replace on analyze_pattern */
+typedef int (*extra_match_validator_t)(int keypos, Eterm match, Eterm guard, Eterm body);
+
 /*
 ** Forward declarations 
 */
@@ -351,7 +354,8 @@ static Sint cmp_partly_bound(Eterm partly_bound_key, Eterm bound_key);
 static Sint do_cmp_partly_bound(Eterm a, Eterm b, int *done);
 
 static int analyze_pattern(DbTableTree *tb, Eterm pattern, 
-			   struct mp_info *mpi);
+                           extra_match_validator_t extra_validator, /* Optional callback */
+                           struct mp_info *mpi);
 static int doit_select(DbTableTree *tb,
 		       TreeDbTerm *this,
 		       void *ptr,
@@ -1132,7 +1136,7 @@ static int db_select_tree(Process *p, DbTable *tbl, Eterm tid,
     sc.got = 0;
     sc.chunk_size = 0;
 
-    if ((errcode = analyze_pattern(tb, pattern, &mpi)) != DB_ERROR_NONE) {
+    if ((errcode = analyze_pattern(tb, pattern, NULL, &mpi)) != DB_ERROR_NONE) {
 	RET_TO_BIF(NIL,errcode);
     }
 
@@ -1335,7 +1339,7 @@ static int db_select_count_tree(Process *p, DbTable *tbl, Eterm tid,
     sc.keypos = tb->common.keypos;
     sc.got = 0;
 
-    if ((errcode = analyze_pattern(tb, pattern, &mpi)) != DB_ERROR_NONE) {
+    if ((errcode = analyze_pattern(tb, pattern, NULL, &mpi)) != DB_ERROR_NONE) {
 	RET_TO_BIF(NIL,errcode);
     }
 
@@ -1438,7 +1442,7 @@ static int db_select_chunk_tree(Process *p, DbTable *tbl, Eterm tid,
     sc.got = 0;
     sc.chunk_size = chunk_size;
 
-    if ((errcode = analyze_pattern(tb, pattern, &mpi)) != DB_ERROR_NONE) {
+    if ((errcode = analyze_pattern(tb, pattern, NULL, &mpi)) != DB_ERROR_NONE) {
 	RET_TO_BIF(NIL,errcode);
     }
 
@@ -1680,7 +1684,7 @@ static int db_select_delete_tree(Process *p, DbTable *tbl, Eterm tid,
     sc.keypos = tb->common.keypos;
     sc.tb = tb;
     
-    if ((errcode = analyze_pattern(tb, pattern, &mpi)) != DB_ERROR_NONE) {
+    if ((errcode = analyze_pattern(tb, pattern, NULL, &mpi)) != DB_ERROR_NONE) {
 	RET_TO_BIF(0,errcode);
     }
 
@@ -1872,7 +1876,7 @@ static int db_select_replace_tree(Process *p, DbTable *tbl,
     sc.keypos = tb->common.keypos;
     sc.replaced = 0;
 
-    if ((errcode = analyze_pattern(tb, pattern, &mpi)) != DB_ERROR_NONE) {
+    if ((errcode = analyze_pattern(tb, pattern, db_match_keeps_key, &mpi)) != DB_ERROR_NONE) {
         RET_TO_BIF(NIL,errcode);
     }
 
@@ -2193,8 +2197,9 @@ static TreeDbTerm *linkout_object_tree(DbTableTree *tb,
 ** For the select functions, analyzes the pattern and determines which
 ** part of the tree should be searched. Also compiles the match program
 */
-static int analyze_pattern(DbTableTree *tb, Eterm pattern, 
-			   struct mp_info *mpi)
+static int analyze_pattern(DbTableTree *tb, Eterm pattern,
+                           extra_match_validator_t extra_validator, /* Optional callback */
+                           struct mp_info *mpi)
 {
     Eterm lst, tpl, ttpl;
     Eterm *matches,*guards, *bodies;
@@ -2232,7 +2237,10 @@ static int analyze_pattern(DbTableTree *tb, Eterm pattern,
 
     i = 0;
     for(lst = pattern; is_list(lst); lst = CDR(list_val(lst))) {
-	Eterm body;
+        Eterm match = NIL;
+        Eterm guard = NIL;
+        Eterm body = NIL;
+
 	ttpl = CAR(list_val(lst));
 	if (!is_tuple(ttpl)) {
 	    if (buff != sbuff) { 
@@ -2247,9 +2255,17 @@ static int analyze_pattern(DbTableTree *tb, Eterm pattern,
 	    }
 	    return DB_ERROR_BADPARAM;
 	}
-	matches[i] = tpl = ptpl[1];
-	guards[i] = ptpl[2];
+	matches[i] = match = tpl = ptpl[1];
+	guards[i] = guard = ptpl[2];
 	bodies[i] = body = ptpl[3];
+
+        if(extra_validator != NULL && !extra_validator(tb->common.keypos, match, guard, body)) {
+	    if (buff != sbuff) {
+		erts_free(ERTS_ALC_T_DB_TMP, buff);
+	    }
+            return DB_ERROR_BADPARAM;
+        }
+
 	if (!is_list(body) || CDR(list_val(body)) != NIL ||
 	    CAR(list_val(body)) != am_DollarUnderscore) {
 	    mpi->all_objects = 0;
@@ -3443,7 +3459,10 @@ static int doit_select_replace(DbTableTree *tb, TreeDbTerm **this, void *ptr,
                                int forward)
 {
     struct select_replace_context *sc = (struct select_replace_context *) ptr;
-    Eterm ret, key;
+    Eterm ret = NIL;
+#ifdef DEBUG
+    Eterm key = NIL;
+#endif
 
     sc->lastobj = (*this)->dbterm.tpl;
 
@@ -3456,10 +3475,11 @@ static int doit_select_replace(DbTableTree *tb, TreeDbTerm **this, void *ptr,
     ret = db_match_dbterm(&tb->common, sc->p, sc->mp, 0,
 			  &(*this)->dbterm, NULL, 0);
 
-    if (is_value(ret) &&
-        is_value(key = db_getkey(tb->common.keypos, ret)) &&
-        (cmp_key(tb, key, *this) == 0))
-    {
+    if (is_value(ret)) {
+#ifdef DEBUG
+        ASSERT(is_value(key = db_getkey(tb->common.keypos, ret)));
+        ASSERT(cmp_key(tb, key, *this) == 0);
+#endif
         *this = replace_dbterm(tb, *this, ret);
         sc->lastobj = (*this)->dbterm.tpl;
         ++(sc->replaced);

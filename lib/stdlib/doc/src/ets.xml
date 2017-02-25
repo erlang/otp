@@ -1492,25 +1492,21 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
 
     <func>
       <name name="select_replace" arity="2"/>
-      <fsummary>Match the objects in an ETS table against a match_spec and
-        replaces matching objects with the match_spec result</fsummary>
+      <fsummary>Match and replace objects atomically in an ETS table</fsummary>
       <desc>
         <warning>
           <p>For the moment, due to performance and semantic constraints,
             tables of type <c>bag</c> are not yet supported.</p>
         </warning>
         <p>Matches the objects in the table <c><anno>Tab</anno></c> using a
-          <seealso marker="#match_spec">match_spec</seealso>. If the
-          an object is matched, and the match_spec result is an object with the
-          same key, the existing object is replaced with the match_spec result.
-          For any other result from the match_spec the object is kept
-          unchanged.</p>
-        <p>The function returns the number of objects actually
-          replaced in the table.</p>
+          <seealso marker="#match_spec">match specification</seealso>. If the
+          an object is matched, the existing object is replaced with
+          the match specificatoin result.</p>
+        <p>The function returns the total number of replaced objects.</p>
         <note>
-          <p>The <c>match_spec</c> has to return an object with the same key if
-            the object is to be replaced. No other return value will get the
-            object replaced.</p>
+          <p>If there's a risk a match specification might return
+            a tuple with a different key, the whole operation will fail
+            with <c>badarg</c>.</p>
         </note>
       </desc>
     </func>

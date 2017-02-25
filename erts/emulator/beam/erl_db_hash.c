@@ -355,6 +355,9 @@ static ERTS_INLINE void SET_SEGTAB(DbTableHash* tb,
 	erts_smp_atomic_set_nob(&tb->segtab, (erts_aint_t) segtab);
 }
 
+/* Used by select_replace on analyze_pattern */
+typedef int (*extra_match_validator_t)(int keypos, Eterm match, Eterm guard, Eterm body);
+
 /*
 ** Forward decl's (static functions)
 */
@@ -369,8 +372,9 @@ static void shrink(DbTableHash* tb, int nitems);
 static void grow(DbTableHash* tb, int nitems);
 static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
 			   Uint sz, DbTableHash*);
-static int analyze_pattern(DbTableHash *tb, Eterm pattern, 
-			   struct mp_info *mpi);
+static int analyze_pattern(DbTableHash *tb, Eterm pattern,
+                           extra_match_validator_t extra_validator, /* Optional callback */
+                           struct mp_info *mpi);
 
 /*
  *  Method interface functions
@@ -1202,7 +1206,9 @@ typedef int (*mtraversal_on_trap_t)(void* context_ptr, Sint slot_ix, Sint got, B
 /*
  * Begin hash table match traversal
  */
-static int match_traverse(Process* p, DbTableHash* tb, Eterm pattern,
+static int match_traverse(Process* p, DbTableHash* tb,
+                          Eterm pattern,
+                          extra_match_validator_t extra_match_validator, /* Optional */
                           Sint chunk_size,      /* If 0, no chunking */
                           Sint iterations_left, /* Nr. of iterations left */
                           Eterm** hpp,          /* Heap */
@@ -1240,7 +1246,9 @@ static int match_traverse(Process* p, DbTableHash* tb, Eterm pattern,
 
     *ret = NIL;
 
-    if ((ret_value = analyze_pattern(tb, pattern, &mpi)) != DB_ERROR_NONE) {
+    if ((ret_value = analyze_pattern(tb, pattern, extra_match_validator, &mpi))
+            != DB_ERROR_NONE)
+    {
         goto done;
     }
 
@@ -1713,7 +1721,9 @@ static int db_select_chunk_hash(Process *p, DbTable *tbl, Eterm tid, Eterm patte
     sc_context.prev_continuation_tptr = NULL;
 
     return match_traverse(
-            sc_context.p, sc_context.tb, pattern, sc_context.chunk_size,
+            sc_context.p, sc_context.tb,
+            pattern, NULL,
+            sc_context.chunk_size,
             MAX_SELECT_CHUNK_ITERATIONS,
             &sc_context.hp, 0,
             mtraversal_select_chunk_on_nothing_can_match,
@@ -1906,8 +1916,8 @@ static int db_select_count_hash(Process *p, DbTable *tbl, Eterm tid, Eterm patte
 
     return match_traverse(
             scnt_context.p, scnt_context.tb,
-            pattern, chunk_size,
-            iterations_left, NULL, 0,
+            pattern, NULL,
+            chunk_size, iterations_left, NULL, 0,
             mtraversal_select_count_on_nothing_can_match,
             mtraversal_select_count_on_match_res,
             mtraversal_select_count_on_loop_ended,
@@ -2046,7 +2056,9 @@ static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid, Eterm patt
     sd_context.last_pseudo_delete = (Uint) -1;
 
     return match_traverse(
-            sd_context.p, sd_context.tb, pattern, chunk_size,
+            sd_context.p, sd_context.tb,
+            pattern, NULL,
+            chunk_size,
             MAX_SELECT_DELETE_ITERATIONS, NULL, 1,
             mtraversal_select_delete_on_nothing_can_match,
             mtraversal_select_delete_on_match_res,
@@ -2120,15 +2132,18 @@ static int mtraversal_select_replace_on_match_res(void* context_ptr, Sint slot_i
 {
     mtraversal_select_replace_context_t* sr_context_ptr = (mtraversal_select_replace_context_t*) context_ptr;
     DbTableHash* tb = sr_context_ptr->tb;
+#ifdef DEBUG
     Eterm key = NIL;
+#endif
     HashDbTerm* new = NULL;
     HashDbTerm* next = NULL;
     HashValue hval = INVALID_HASH;
 
-    if (is_value(match_res) &&
-            is_value(key = db_getkey(tb->common.keypos, match_res)) &&
-            eq(key, GETKEY(tb, (**current_ptr_ptr)->dbterm.tpl)))
-    {
+    if (is_value(match_res)) {
+#ifdef DEBUG
+        ASSERT(is_value(key = db_getkey(tb->common.keypos, match_res)));
+        ASSERT(eq(key, GETKEY(tb, (**current_ptr_ptr)->dbterm.tpl)));
+#endif
         next = (**current_ptr_ptr)->next;
         hval = (**current_ptr_ptr)->hvalue;
         new = replace_dbterm(tb, **current_ptr_ptr, match_res);
@@ -2184,7 +2199,9 @@ static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm pattern, Eterm
     sr_context.prev_continuation_tptr = NULL;
 
     return match_traverse(
-            sr_context.p, sr_context.tb, pattern, chunk_size,
+            sr_context.p, sr_context.tb,
+            pattern, db_match_keeps_key,
+            chunk_size,
             MAX_SELECT_REPLACE_ITERATIONS, NULL, 1,
             mtraversal_select_replace_on_nothing_can_match,
             mtraversal_select_replace_on_match_res,
@@ -2428,7 +2445,8 @@ static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds)
 ** slots should be searched. Also compiles the match program
 */
 static int analyze_pattern(DbTableHash *tb, Eterm pattern, 
-			   struct mp_info *mpi)
+                           extra_match_validator_t extra_validator, /* Optional callback */
+                           struct mp_info *mpi)
 {
     Eterm *ptpl;
     Eterm lst, tpl, ttpl;
@@ -2466,7 +2484,10 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
 
     i = 0;
     for(lst = pattern; is_list(lst); lst = CDR(list_val(lst))) {
-	Eterm body;
+        Eterm match = NIL;
+        Eterm guard = NIL;
+        Eterm body = NIL;
+
 	ttpl = CAR(list_val(lst));
 	if (!is_tuple(ttpl)) {
 	    if (buff != sbuff) { 
@@ -2481,9 +2502,17 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
 	    }
 	    return DB_ERROR_BADPARAM;
 	}
-	matches[i] = tpl = ptpl[1];
-	guards[i] = ptpl[2];
+	matches[i] = match = tpl = ptpl[1];
+	guards[i] = guard = ptpl[2];
 	bodies[i] = body = ptpl[3];
+
+        if(extra_validator != NULL && !extra_validator(tb->common.keypos, match, guard, body)) {
+	    if (buff != sbuff) {
+		erts_free(ERTS_ALC_T_DB_TMP, buff);
+	    }
+            return DB_ERROR_BADPARAM;
+        }
+
 	if (!is_list(body) || CDR(list_val(body)) != NIL ||
 	    CAR(list_val(body)) != am_DollarUnderscore) {
 	    mpi->all_objects = 0;

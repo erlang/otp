@@ -1119,6 +1119,100 @@ error:
     return NULL;
 }
 
+/* This is used by select_replace */
+int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body) {
+    Eterm match_key = NIL;
+    int match_key_variable = -1;
+    Eterm* body_list = NULL;
+    Eterm single_body_term = NIL;
+    Eterm* single_body_term_tpl = NULL;
+    Eterm single_body_subterm = NIL;
+    Eterm single_body_subterm_key = NIL;
+    int single_body_subterm_key_variable = -1;
+    Eterm* single_body_subterm_key_tpl = NULL;
+
+    if (!is_list(body)) {
+        return 0;
+    }
+
+    body_list = list_val(body);
+    if (CDR(body_list) != NIL) {
+        return 0;
+    }
+
+    single_body_term = CAR(body_list);
+    if (single_body_term == am_DollarUnderscore) {
+        /* same tuple is returned */
+        return 1;
+    }
+
+    if (!is_tuple(single_body_term)) {
+        return 0;
+    }
+
+    single_body_term_tpl = tuple_val(single_body_term);
+    if (arityval(*single_body_term_tpl) != 1) {
+        // not the 1-element tuple we're expecting
+        return 0;
+    }
+
+    match_key = db_getkey(keypos, match);
+    if (!is_value(match_key)) {
+        // can't get key out of match
+        return 0;
+    }
+
+    single_body_subterm = single_body_term_tpl[1];
+    single_body_subterm_key = db_getkey(keypos, single_body_subterm);
+    if (!is_value(single_body_subterm_key)) {
+        // can't get key out of single body subterm
+        return 0;
+    }
+
+    match_key_variable = db_is_variable(match_key);
+    single_body_subterm_key_variable = db_is_variable(single_body_subterm_key);
+    if (match_key_variable != -1 && match_key_variable == single_body_subterm_key_variable) {
+        /* tuple with same key is returned */
+        return 1;
+    }
+
+    if (!is_tuple(single_body_subterm_key)) {
+        /* can't possibly be an element instruction */
+        return 0;
+    }
+
+    single_body_subterm_key_tpl = tuple_val(single_body_subterm_key);
+    if (arityval(*single_body_subterm_key_tpl) != 3) {
+        /* can't possibly be an element instruction */
+        return 0;
+    }
+
+    if (single_body_subterm_key_tpl[1] != am_element) {
+        /* tag is not of an element instruction */
+        return 0;
+    }
+    if (single_body_subterm_key_tpl[3] != am_DollarUnderscore) {
+        /* even if it's an element instruction, it's not fetching from the original tuple */
+        return 0;
+    }
+
+    if (is_big(single_body_subterm_key_tpl[2])
+        && (big_to_uint32(single_body_subterm_key_tpl[2]) != keypos))
+    {
+        /* the key comes from a different position */
+        return 0;
+    }
+
+    if (is_small(single_body_subterm_key_tpl[2])
+        && (unsigned_val(single_body_subterm_key_tpl[2]) != keypos))
+    {
+        /* the key comes from a different position */
+        return 0;
+    }
+
+    return 1;
+}
+
 /* This is used when tracing */
 Eterm erts_match_set_lint(Process *p, Eterm matchexpr) {
     return db_match_set_lint(p, matchexpr, DCOMP_TRACE);
