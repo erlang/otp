@@ -2190,7 +2190,7 @@ static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm pattern, Eterm
     /* Bag implementation presented both semantic consistency and performance issues,
      * unsupported for now
      */
-    ASSERT(!(tb->common.status & DB_BAG));
+    ASSERT(!(tbl->hash.common.status & DB_BAG));
 
     sr_context.p = p;
     sr_context.tb = &tbl->hash;
