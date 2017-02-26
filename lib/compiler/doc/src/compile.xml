@@ -669,7 +669,7 @@ module.beam: module.erl \
       <fsummary>Compiles a list of forms.</fsummary>
       <desc>
         <p>Is the same as
-	  <c>forms(File, [verbose,report_errors,report_warnings])</c>.
+	  <c>forms(Forms, [verbose,report_errors,report_warnings])</c>.
 	</p>
       </desc>
     </func>
