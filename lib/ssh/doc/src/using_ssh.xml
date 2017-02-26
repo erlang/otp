@@ -305,7 +305,7 @@ ok = erl_tar:close(HandleRead),
 
     <code type="erl" >
 -module(ssh_echo_server).
--behaviour(ssh_subsystem).
+-behaviour(ssh_daemon_channel).
 -record(state, {
 	  n,
 	  id,
