@@ -3256,6 +3256,39 @@ reply_gc_info(void *vgcirp)
 	gcireq_free(vgcirp);
 }
 
+void erts_sub_binary_to_heap_binary(Eterm **pp, Eterm **hpp, Eterm *orig) {
+    Eterm *ptr = *pp;
+    Eterm *htop = *hpp;
+    Eterm gval;
+    ErlSubBin *sb = (ErlSubBin *)ptr;
+    ErlHeapBin *hb = (ErlHeapBin *)htop;
+    Eterm *real_bin;
+    byte *bs;
+
+    real_bin = binary_val(follow_moved(sb->orig, (Eterm)0));
+
+    if (*real_bin == HEADER_PROC_BIN) {
+        bs = ((ProcBin *) real_bin)->bytes + sb->offs;
+    } else {
+        bs = (byte *)(&(((ErlHeapBin *) real_bin)->data)) + sb->offs;
+    }
+
+    hb->thing_word = header_heap_bin(sb->size);
+    hb->size = sb->size;
+    sys_memcpy((byte *)hb->data, bs, sb->size);
+
+    gval  = make_boxed(htop);
+    *orig = gval;
+    *ptr  = gval;
+
+    ptr  += ERL_SUB_BIN_SIZE;
+    htop += heap_bin_size(sb->size);
+
+    *hpp = htop;
+    *pp  = ptr;
+}
+
+
 Eterm
 erts_gc_info_request(Process *c_p)
 {

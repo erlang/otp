@@ -22,6 +22,23 @@
 #define __ERL_BITS_H__
 
 /*
+ * This structure represents a SUB_BINARY.
+ *
+ * Note: The last field (orig) is not counted in arityval in the header.
+ * This simplifies garbage collection.
+ */
+
+typedef struct erl_sub_bin {
+    Eterm thing_word;		/* Subtag SUB_BINARY_SUBTAG. */
+    Uint size;			/* Binary size in bytes. */
+    Uint offs;			/* Offset into original binary. */
+    byte bitsize;
+    byte bitoffs;
+    byte is_writable;		/* The underlying binary is writable */
+    Eterm orig;			/* Original binary (REFC or HEAP binary). */
+} ErlSubBin;
+
+/*
  * This structure represents a binary to be matched.
  */
 
