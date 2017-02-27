@@ -34,6 +34,7 @@
 
 -include_lib("orber/include/corba.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
+-define(ORBVSN, case os:getenv("ORBER_VSN") of false -> ""; Vsn -> Vsn end).
 
 %%-----------------------------------------------------------------
 %% External exports
