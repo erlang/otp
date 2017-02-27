@@ -210,8 +210,8 @@
         <p>Returns the empty list [] if <c>memsup</c> is not available,
           or if the memory check times out.</p>
 	<note><p>
-	On linux the memory available to the emulator is <c>cached_memory</c> and <c>buffered_memory</c> in addition to 
-	<c>free_memory</c>.</p>
+	  On linux the memory available to the emulator in <c>free_memory</c>
+	  includes <c>cached_memory</c> and <c>buffered_memory</c>.</p>
 	</note>
       </desc>
     </func>

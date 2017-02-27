@@ -447,7 +447,9 @@ get_basic_mem(unsigned long *tot, unsigned long *used, unsigned long *pagesize){
     }
     *tot      = me.total;
     *pagesize = me.pagesize;
-    *used     = me.total - me.free;
+    *used     = me.total - me.free
+      + (me.flag & F_MEM_BUFFERS ? me.buffered : 0)
+      + (me.flag & F_MEM_CACHED  ? me.cached   : 0);
 #elif defined(BSD4_4)
     struct vmtotal vt;
     long pgsz;
