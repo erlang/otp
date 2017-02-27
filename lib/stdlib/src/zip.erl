@@ -368,9 +368,12 @@ do_unzip(F, Options) ->
     {Info, In1} = get_central_dir(In0, RawIterator, Input),
     %% get rid of zip-comment
     Z = zlib:open(),
-    Files = get_z_files(Info, Z, In1, Opts, []),
-    zlib:close(Z),
-    Input(close, In1),
+    Files = try
+                get_z_files(Info, Z, In1, Opts, [])
+            after
+                zlib:close(Z),
+                Input(close, In1)
+            end,
     {ok, Files}.
 
 %% Iterate over all files in a zip archive
@@ -447,11 +450,20 @@ do_zip(F, Files, Options) ->
     #zip_opts{output = Output, open_opts = OpO} = Opts,
     Out0 = Output({open, F, OpO}, []),
     Z = zlib:open(),
-    {Out1, LHS, Pos} = put_z_files(Files, Z, Out0, 0, Opts, []),
-    zlib:close(Z),
-    Out2 = put_central_dir(LHS, Pos, Out1, Opts),
-    Out3 = Output({close, F}, Out2),
-    {ok, Out3}.
+    try
+        {Out1, LHS, Pos} = put_z_files(Files, Z, Out0, 0, Opts, []),
+        zlib:close(Z),
+        Out2 = put_central_dir(LHS, Pos, Out1, Opts),
+        Out3 = Output({close, F}, Out2),
+        {ok, Out3}
+    catch
+        C:R ->
+            Stk = erlang:get_stacktrace(),
+            zlib:close(Z),
+            Output({close, F}, Out0),
+            erlang:raise(C, R, Stk)
+    end.
+
 
 %% List zip directory contents
 %%
