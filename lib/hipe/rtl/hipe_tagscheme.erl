@@ -364,14 +364,17 @@ test_matchstate(X, TrueLab, FalseLab, Pred) ->
    mask_and_compare(Tmp, ?TAG_HEADER_MASK, ?TAG_HEADER_BIN_MATCHSTATE, 
 		    TrueLab, FalseLab, Pred)].
 
+test_bitstr_header(HdrTmp, TrueLab, FalseLab, Pred) ->
+  Mask = ?TAG_HEADER_MASK - ?BINARY_XXX_MASK,
+  mask_and_compare(HdrTmp, Mask, ?TAG_HEADER_REFC_BIN, TrueLab, FalseLab, Pred).
+
 test_bitstr(X, TrueLab, FalseLab, Pred) ->
   Tmp = hipe_rtl:mk_new_reg_gcsafe(),
   HalfTrueLab = hipe_rtl:mk_new_label(),
-  Mask = ?TAG_HEADER_MASK - ?BINARY_XXX_MASK,
   [test_is_boxed(X, hipe_rtl:label_name(HalfTrueLab), FalseLab, Pred),
    HalfTrueLab,
    get_header(Tmp, X),
-   mask_and_compare(Tmp, Mask, ?TAG_HEADER_REFC_BIN, TrueLab, FalseLab, Pred)].
+   test_bitstr_header(Tmp, TrueLab, FalseLab, Pred)].
 
 test_binary(X, TrueLab, FalseLab, Pred) ->
   Tmp1 = hipe_rtl:mk_new_reg_gcsafe(),
@@ -379,12 +382,10 @@ test_binary(X, TrueLab, FalseLab, Pred) ->
   IsBoxedLab = hipe_rtl:mk_new_label(),
   IsBitStrLab = hipe_rtl:mk_new_label(),
   IsSubBinLab =  hipe_rtl:mk_new_label(),
-  Mask = ?TAG_HEADER_MASK - ?BINARY_XXX_MASK,
   [test_is_boxed(X, hipe_rtl:label_name(IsBoxedLab), FalseLab, Pred),
    IsBoxedLab,
    get_header(Tmp1, X),
-   mask_and_compare(Tmp1, Mask, ?TAG_HEADER_REFC_BIN,
-		    hipe_rtl:label_name(IsBitStrLab), FalseLab, Pred),
+   test_bitstr_header(Tmp1, hipe_rtl:label_name(IsBitStrLab), FalseLab, Pred),
    IsBitStrLab,
    mask_and_compare(Tmp1, ?TAG_HEADER_MASK, ?TAG_HEADER_SUB_BIN,
 		    hipe_rtl:label_name(IsSubBinLab), TrueLab, 0.5),
@@ -454,6 +455,10 @@ test_fixnums_1([Arg1, Arg2|Args], Acc) ->
   Tmp = hipe_rtl:mk_new_reg_gcsafe(),
   test_fixnums_1([Tmp|Args], [hipe_rtl:mk_alu(Tmp, Arg1, 'and', Arg2)|Acc]).
 
+test_two_fixnums(Arg, Arg, FalseLab) ->
+  TrueLab = hipe_rtl:mk_new_label(),
+  [test_fixnum(Arg, hipe_rtl:label_name(TrueLab), FalseLab, 0.99),
+   TrueLab];
 test_two_fixnums(Arg1, Arg2, FalseLab) ->
   TrueLab = hipe_rtl:mk_new_label(),
   case hipe_rtl:is_imm(Arg1) orelse hipe_rtl:is_imm(Arg2) of
@@ -568,8 +573,8 @@ fixnum_andorxor(AluOp, Arg1, Arg2, Res) ->
   case AluOp of
     'xor' ->
       Tmp = hipe_rtl:mk_new_reg_gcsafe(),
-      [hipe_rtl:mk_alu(Tmp, Arg1, 'xor', Arg2),	% clears tag :-(
-       hipe_rtl:mk_alu(Res, Tmp, 'or', hipe_rtl:mk_imm(?TAG_IMMED1_SMALL))];
+      [hipe_rtl:mk_alu(Tmp, Arg1, 'sub', hipe_rtl:mk_imm(?TAG_IMMED1_SMALL)),
+       hipe_rtl:mk_alu(Res, Tmp, 'xor', Arg2)];
     _ -> hipe_rtl:mk_alu(Res, Arg1, AluOp, Arg2)
   end.
 
