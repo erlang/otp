@@ -179,19 +179,6 @@
 			 external_attr,
 			 local_header_offset}).
 
-%% Unix extra fields (not yet supported)
--define(UNIX_EXTRA_FIELD_TAG, 16#000d).
--record(unix_extra_field, {atime,
-			   mtime,
-			   uid,
-			   gid}).
-
-%% extended timestamps (not yet supported)
--define(EXTENDED_TIMESTAMP_TAG, 16#5455).
-%% -record(extended_timestamp, {mtime,
-%% 			     atime,
-%% 			     ctime}).
-
 -define(END_OF_CENTRAL_DIR_MAGIC, 16#06054b50).
 -define(END_OF_CENTRAL_DIR_SZ, (4+2+2+2+2+4+4+2)).
 
@@ -1379,12 +1366,7 @@ cd_file_header_to_file_info(FileName,
 		    gid = 0},
     add_extra_info(FI, ExtraField).
 
-%% add extra info to file (some day when we implement it)
-add_extra_info(FI, <<?EXTENDED_TIMESTAMP_TAG:16/little, _Rest/binary>>) ->
-    FI;     % not yet supported, some other day...
-add_extra_info(FI, <<?UNIX_EXTRA_FIELD_TAG:16/little, Rest/binary>>) ->
-    _UnixExtra = unix_extra_field_and_var_from_bin(Rest),
-    FI;     % not yet supported, and not widely used
+%% Currently, we ignore all the extra fields.
 add_extra_info(FI, _) ->
     FI.
 
@@ -1571,20 +1553,6 @@ dos_date_time_from_datetime({{Year, Month, Day}, {Hour, Min, Sec}}) ->
     <<DosTime:16>> = <<Hour:5, Min:6, Sec:5>>,
     <<DosDate:16>> = <<YearFrom1980:7, Month:4, Day:5>>,
     {DosDate, DosTime}.
-
-unix_extra_field_and_var_from_bin(<<TSize:16/little,
-				   ATime:32/little,
-				   MTime:32/little,
-				   UID:16/little,
-				   GID:16/little,
-				   Var:TSize/binary>>) ->
-    {#unix_extra_field{atime = ATime,
-		       mtime = MTime,
-		       uid = UID,
-		       gid = GID},
-     Var};
-unix_extra_field_and_var_from_bin(_) ->
-    throw(bad_unix_extra_field).
 
 %% A pwrite-like function for iolists (used by memory-option)
 
