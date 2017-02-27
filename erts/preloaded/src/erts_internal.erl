@@ -31,7 +31,8 @@
 
 -export([await_port_send_result/3]).
 -export([cmp_term/2]).
--export([map_to_tuple_keys/1, term_type/1, map_hashmap_children/1]).
+-export([map_to_tuple_keys/1, term_type/1, map_hashmap_children/1,
+         maps_to_list/2]).
 -export([open_port/2, port_command/3, port_connect/2, port_close/1,
 	 port_control/3, port_call/3, port_info/1, port_info/2]).
 
@@ -368,6 +369,15 @@ map_hashmap_children(_M) ->
       Ref :: reference(),
       Multi :: boolean(),
       Res :: term().
+
+%% return a list of key value pairs, at most of length N
+-spec maps_to_list(M,N) -> Pairs when
+    M :: map(),
+    N :: integer(),
+    Pairs :: list().
+
+maps_to_list(_M, _N) ->
+    erlang:nif_error(undefined).
 
 %% erlang:demonitor(Ref, [flush]) traps to
 %% erts_internal:flush_monitor_messages(Ref, Res) when
