@@ -243,7 +243,6 @@ typedef struct db_table_common {
     UWord heir_data;          /* To send in ETS-TRANSFER (is_immed or (DbTerm*) */
     Uint64 heir_started_interval;  /* To further identify the heir */
     Eterm the_name;           /* an atom */
-    Eterm id;                 /* atom | integer */
     Binary *btid;
     DbTableMethod* meth;      /* table methods */
     erts_smp_atomic_t nitems; /* Total number of items in table */
@@ -273,8 +272,10 @@ typedef struct db_table_common {
 #define DB_ORDERED_SET   (1 << 9)
 #define DB_DELETE        (1 << 10) /* table is being deleted */
 #define DB_FREQ_READ     (1 << 11)
+#define DB_NAMED_TABLE   (1 << 12)
 
-#define ERTS_ETS_TABLE_TYPES (DB_BAG|DB_SET|DB_DUPLICATE_BAG|DB_ORDERED_SET|DB_FINE_LOCKED|DB_FREQ_READ)
+#define ERTS_ETS_TABLE_TYPES (DB_BAG|DB_SET|DB_DUPLICATE_BAG|DB_ORDERED_SET\
+                              |DB_FINE_LOCKED|DB_FREQ_READ|DB_NAMED_TABLE)
 
 #define IS_HASH_TABLE(Status) (!!((Status) & \
 				  (DB_BAG | DB_SET | DB_DUPLICATE_BAG)))

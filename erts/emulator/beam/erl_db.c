@@ -261,6 +261,17 @@ is_table_alive(DbTable *tb)
     return !!rtb;
 }
 
+static ERTS_INLINE int
+is_table_named(DbTable *tb)
+{
+#ifdef ERTS_SMP
+    return tb->common.type & DB_NAMED_TABLE;
+#else
+    return tb->common.status & DB_NAMED_TABLE;
+#endif
+}
+
+
 static ERTS_INLINE void
 tid_clear(Process *c_p, DbTable *tb)
 {
@@ -660,10 +671,7 @@ DbTable* db_get_table_aux(Process *p,
      */
     ASSERT(erts_get_scheduler_data());
 
-    tb = tid2tab(id);
-    if (tb)
-        id = tb->common.id;
-    else if (is_atom(id)) {
+    if (is_atom(id)) {
 	struct meta_name_tab_entry* bucket = meta_name_tab_bucket(id,&mtl);
 	if (!meta_already_locked)
 	    erts_smp_rwmtx_rlock(mtl);
@@ -672,7 +680,7 @@ DbTable* db_get_table_aux(Process *p,
 			       || erts_lc_rwmtx_is_rwlocked(mtl));
 	    mtl = NULL;
 	}
-
+        tb = NULL;
 	if (bucket->pu.tb != NULL) {
 	    if (is_atom(bucket->u.name_atom)) { /* single */
 		if (bucket->u.name_atom == id)
@@ -690,11 +698,13 @@ DbTable* db_get_table_aux(Process *p,
 	    }
 	}
     }
+    else
+        tb = tid2tab(id);
+
     if (tb) {
 	db_lock(tb, kind);
-	if (tb->common.id != id
-	    || ((tb->common.status & what) == 0
-		&& p->common.id != tb->common.owner)) {
+	if ((tb->common.status & what) == 0
+            && p->common.id != tb->common.owner) {
 	    db_unlock(tb, kind);
 	    tb = NULL;
 	}
@@ -777,9 +787,10 @@ static int remove_named_tab(DbTable *tb, int have_lock)
 {
     int ret = 0;
     erts_smp_rwmtx_t* rwlock;
-    Eterm name_atom = tb->common.id;
+    Eterm name_atom = tb->common.the_name;
     struct meta_name_tab_entry* bucket = meta_name_tab_bucket(name_atom,
 							      &rwlock);
+    ASSERT(is_table_named(tb));
 #ifdef ERTS_SMP
     if (!have_lock && erts_smp_rwmtx_tryrwlock(rwlock) == EBUSY) {
 	db_unlock(tb, LCK_WRITE);
@@ -1528,8 +1539,8 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
         if (!tb)
             BIF_ERROR(BIF_P, BADARG);
         else {
-            if (is_atom(tb->common.id)) {
-                old_name = tb->common.id;
+            if (is_table_named(tb)) {
+                old_name = tb->common.the_name;
                 goto named_tab;
             }
             lck2 = NULL;
@@ -1544,24 +1555,19 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
     if (!tb)
 	goto badarg;
 
-    if (is_not_atom(tb->common.id)) { /* Not a named table */
-	tb->common.the_name = BIF_ARG_2;
-	goto done;
+    if (is_table_named(tb)) {
+        if (!insert_named_tab(BIF_ARG_2, tb, 1))
+            goto badarg;
+
+        if (!remove_named_tab(tb, 1))
+            erts_exit(ERTS_ERROR_EXIT,"Could not find named tab %s", tb->common.the_name);
+        ret = BIF_ARG_2;
     }
-
-    if (!insert_named_tab(BIF_ARG_2, tb, 1))
-	goto badarg;
-
-    if (!remove_named_tab(tb, 1))
-	erts_exit(ERTS_ERROR_EXIT,"Could not find named tab %s", tb->common.id);
-
-    tb->common.id = tb->common.the_name = BIF_ARG_2;
-
- done:
-    if (is_atom(tb->common.id))
-        ret = tb->common.id;
-    else
+    else { /* Not a named table */
         ret = BIF_ARG_1;
+    }
+    tb->common.the_name = BIF_ARG_2;
+
     db_unlock(tb, LCK_WRITE);
     erts_smp_rwmtx_rwunlock(lck1);
     if (lck2)
@@ -1691,6 +1697,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	}
 	else if (val == am_named_table) {
 	    is_named = 1;
+            status |= DB_NAMED_TABLE;
 	}
 	else if (val == am_compressed) {
 	    is_compressed = 1;
@@ -1765,16 +1772,9 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 
     make_btid(tb);
 
-    if (is_named) {
-	ret = BIF_ARG_1;
-        tb->common.id = ret;
-    }
-    else {
-        ret = make_tid(BIF_P, tb);
-        tb->common.id = THE_NON_VALUE;  /* or what? */
-    }
-
-    if (!is_named)
+    if (is_named)
+        ret = BIF_ARG_1;
+    else
         ret = make_tid(BIF_P, tb);
 
     save_sched_table(BIF_P, tb);
@@ -1951,7 +1951,7 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 
     tid_clear(BIF_P, tb);
 
-    if (is_atom(tb->common.id))
+    if (is_table_named(tb))
 	remove_named_tab(tb, 0);
     
     /* disable inheritance */
@@ -2385,8 +2385,8 @@ ets_all_reply(ErtsSchedulerData *esdp, ErtsEtsAllReq **reqpp,
         while (1) {
             if (is_table_alive(tb)) {
                 Eterm tid;
-                if (is_atom(tb->common.id))
-                    tid = tb->common.id;
+                if (is_table_named(tb))
+                    tid = tb->common.the_name;
                 else
                     tid = erts_mk_magic_ref(&hp, ohp, tb->common.btid);
                 list = CONS(hp, tid, list);
@@ -3446,7 +3446,7 @@ send_ets_transfer_message(Process *c_p, Process *proc,
     Eterm tid, hd_copy, msg, sender;
 
     hsz = 5;
-    if (is_not_atom(tb->common.id))
+    if (!is_table_named(tb))
         hsz += ERTS_MAGIC_REF_THING_SIZE;
     if (is_immed(heir_data))
         hd_sz = 0;
@@ -3456,8 +3456,8 @@ send_ets_transfer_message(Process *c_p, Process *proc,
     }
 
     mp = erts_alloc_message_heap(proc, locks, hsz, &hp, &ohp);
-    if (is_atom(tb->common.id))
-        tid = tb->common.id;
+    if (is_table_named(tb))
+        tid = tb->common.the_name;
     else
         tid = erts_mk_magic_ref(&hp, ohp, tb->common.btid);
     if (!hd_sz)
@@ -3584,7 +3584,7 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
             tb->common.status &= ~(DB_PROTECTED | DB_PUBLIC | DB_PRIVATE);
             tb->common.status |= DB_DELETE;
 
-            if (is_atom(tb->common.id))
+            if (is_table_named(tb))
                 remove_named_tab(tb, 0);
 
             free_heir_data(tb);
@@ -3990,7 +3990,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
     } else if (What == am_node) {
 	ret = erts_this_dist_entry->sysname;
     } else if (What == am_named_table) {
-	ret = is_atom(tb->common.id) ? am_true : am_false;
+	ret = is_table_named(tb) ? am_true : am_false;
     } else if (What == am_compressed) {
 	ret = tb->common.compress ? am_true : am_false;
     }
@@ -4097,8 +4097,8 @@ static void print_table(fmtfn_t to, void *to_arg, int show,  DbTable* tb)
     Eterm tid;
     Eterm heap[ERTS_MAGIC_REF_THING_SIZE];
 
-    if (is_atom(tb->common.id)) {
-        tid = tb->common.id;
+    if (is_table_named(tb)) {
+        tid = tb->common.the_name;
     } else {
         ErlOffHeap oh;
         ERTS_INIT_OFF_HEAP(&oh);
