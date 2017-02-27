@@ -124,7 +124,6 @@ conv_insn(I, Map, Data) ->
 		     hipe_rtl:call_continuation(I),
 		     hipe_rtl:call_fail(I),
 		     hipe_rtl:call_type(I)),
-      %% XXX Fixme: this ++ is probably inefficient.
       {FixArgs++I2, Map2, Data};
     #comment{} ->
       I2 = [hipe_x86:mk_comment(hipe_rtl:comment_text(I))],

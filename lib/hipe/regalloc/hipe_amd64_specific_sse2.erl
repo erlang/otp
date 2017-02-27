@@ -126,8 +126,8 @@ temp0(_) ->
 all_precoloured(Ctx) ->
   allocatable(Ctx).
 
-is_precoloured(Reg, Ctx) ->
-  lists:member(Reg,all_precoloured(Ctx)).
+is_precoloured(Reg, _) ->
+  hipe_amd64_registers:is_precoloured_sse2(Reg).
 
 physical_name(Reg, _) ->
   Reg.
