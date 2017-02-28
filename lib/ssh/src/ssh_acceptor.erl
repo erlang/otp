@@ -66,7 +66,6 @@ acceptor_init(Parent, Port, Address, Opts, AcceptTimeout) ->
             of
                 {ok, ListenSocket} ->
                     proc_lib:init_ack(Parent, {ok, self()}),
-                    {_, Callback, _} = ?GET_OPT(transport, Opts),
                     acceptor_loop(Callback, 
                                   Port, Address, Opts, ListenSocket, AcceptTimeout);
                 {error,Error} ->

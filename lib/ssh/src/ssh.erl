@@ -368,8 +368,7 @@ do_start_daemon(Socket, Options) ->
 	    _:_ -> throw(bad_socket)
 	end,
     Host = fmt_host(IP),
-    Opts = ?PUT_INTERNAL_OPT([{asocket, Socket},
-                              {asock_owner,self()},
+    Opts = ?PUT_INTERNAL_OPT([{connected_socket, Socket},
                               {address, Host},
                               {port, Port},
                               {role, server}], Options),
