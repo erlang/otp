@@ -543,14 +543,22 @@ t_find_opaque_mismatch(?list(T1, Tl1, _), ?list(T2, Tl2, _), TopType, Opaques) -
   t_find_opaque_mismatch_ordlists([T1, Tl1], [T2, Tl2], TopType, Opaques);
 t_find_opaque_mismatch(T1, ?opaque(_) = T2, TopType, Opaques) ->
   case is_opaque_type(T2, Opaques) of
-    false -> {ok, TopType, T2};
+    false ->
+      case t_is_opaque(T1) andalso compatible_opaque_types(T1, T2) =/= [] of
+        true  -> error;
+        false -> {ok, TopType, T2}
+      end;
     true ->
       t_find_opaque_mismatch(T1, t_opaque_structure(T2), TopType, Opaques)
   end;
 t_find_opaque_mismatch(?opaque(_) = T1, T2, TopType, Opaques) ->
   %% The generated message is somewhat misleading:
   case is_opaque_type(T1, Opaques) of
-    false -> {ok, TopType, T1};
+    false ->
+      case t_is_opaque(T2) andalso compatible_opaque_types(T1, T2) =/= [] of
+        true  -> error;
+        false -> {ok, TopType, T1}
+      end;
     true ->
       t_find_opaque_mismatch(t_opaque_structure(T1), T2, TopType, Opaques)
   end;
@@ -3054,6 +3062,9 @@ inf_opaque_types(IsOpaque1, T1, IsOpaque2, T2, Opaques) ->
         {false, false} -> t_none()
       end
   end.
+
+compatible_opaque_types(?opaque(Es1), ?opaque(Es2)) ->
+  [{O1, O2} || O1 <- Es1, O2 <- Es2, is_compat_opaque_names(O1, O2)].
 
 is_compat_opaque_names(Opaque1, Opaque2) ->
   #opaque{mod = Mod1, name = Name1, args = Args1} = Opaque1,
