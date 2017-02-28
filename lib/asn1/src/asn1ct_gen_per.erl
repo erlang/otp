@@ -42,8 +42,12 @@
 %% Generate ENCODING ******************************
 %%****************************************x
 
-dialyzer_suppressions(Erules) ->
-    case asn1ct_func:is_used({Erules,complete,1}) of
+dialyzer_suppressions(#gen{erule=per,aligned=Aligned}) ->
+    Mod = case Aligned of
+              false -> uper;
+              true -> per
+          end,
+    case asn1ct_func:is_used({Mod,complete,1}) of
 	false ->
 	    ok;
 	true ->

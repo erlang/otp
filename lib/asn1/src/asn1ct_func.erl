@@ -65,7 +65,7 @@ generate(Fd) ->
     Funcs = sofs:to_external(Funcs0),
     ok = file:write(Fd, Funcs).
 
-is_used({_,_,_}=MFA) ->
+is_used({M,F,A}=MFA) when is_atom(M), is_atom(F), is_integer(A) ->
     req({is_used,MFA}).
 
 
