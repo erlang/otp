@@ -18,6 +18,8 @@ BEGIN
   IntExpPri ::=  [PRIVATE 51] EXPLICIT INTEGER
   IntExpApp ::=  [APPLICATION 52] EXPLICIT INTEGER
 
+  IntConstrained ::= INTEGER (0..255)
+
   IntEnum ::=  INTEGER {first(1),last(31)}
 
   Enum ::=  ENUMERATED {monday(1),tuesday(2),wednesday(3),thursday(4),
