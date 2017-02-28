@@ -526,7 +526,8 @@ list_contains_opaque(List, Opaques) ->
   lists:any(fun(E) -> t_contains_opaque(E, Opaques) end, List).
 
 %% t_find_opaque_mismatch/2 of two types should only be used if their
-%% t_inf is t_none() due to some opaque type violation.
+%% t_inf is t_none() due to some opaque type violation. However,
+%% 'error' is returned if a structure mismatch is found.
 %%
 %% The first argument of the function is the pattern and its second
 %% argument the type we are matching against the pattern.
@@ -535,10 +536,10 @@ list_contains_opaque(List, Opaques) ->
                                 'error' | {'ok', erl_type(), erl_type()}.
 
 t_find_opaque_mismatch(T1, T2, Opaques) ->
-  t_find_opaque_mismatch(T1, T2, T2, Opaques).
+  catch t_find_opaque_mismatch(T1, T2, T2, Opaques).
 
 t_find_opaque_mismatch(?any, _Type, _TopType, _Opaques) -> error;
-t_find_opaque_mismatch(?none, _Type, _TopType, _Opaques) -> error;
+t_find_opaque_mismatch(?none, _Type, _TopType, _Opaques) -> throw(error);
 t_find_opaque_mismatch(?list(T1, Tl1, _), ?list(T2, Tl2, _), TopType, Opaques) ->
   t_find_opaque_mismatch_ordlists([T1, Tl1], [T2, Tl2], TopType, Opaques);
 t_find_opaque_mismatch(T1, ?opaque(_) = T2, TopType, Opaques) ->
@@ -574,7 +575,11 @@ t_find_opaque_mismatch(?tuple(_, _, _) = T1, ?tuple_set(_) = T2,
   t_find_opaque_mismatch_lists(Tuples1, Tuples2, TopType, Opaques);
 t_find_opaque_mismatch(T1, ?union(U2), TopType, Opaques) ->
   t_find_opaque_mismatch_lists([T1], U2, TopType, Opaques);
-t_find_opaque_mismatch(_T1, _T2, _TopType, _Opaques) -> error.
+t_find_opaque_mismatch(T1, T2, _TopType, Opaques) ->
+  case t_is_none(t_inf(T1, T2, Opaques)) of
+    false -> error;
+    true  -> throw(error)
+  end.
 
 t_find_opaque_mismatch_ordlists(L1, L2, TopType, Opaques) ->
   List = lists:zipwith(fun(T1, T2) ->
@@ -583,10 +588,11 @@ t_find_opaque_mismatch_ordlists(L1, L2, TopType, Opaques) ->
   t_find_opaque_mismatch_list(List).
 
 t_find_opaque_mismatch_lists(L1, L2, _TopType, Opaques) ->
-  List = [t_find_opaque_mismatch(T1, T2, T2, Opaques) || T1 <- L1, T2 <- L2],
+  List = [catch t_find_opaque_mismatch(T1, T2, T2, Opaques) ||
+           T1 <- L1, T2 <- L2],
   t_find_opaque_mismatch_list(List).
 
-t_find_opaque_mismatch_list([]) -> error;
+t_find_opaque_mismatch_list([]) -> throw(error);
 t_find_opaque_mismatch_list([H|T]) ->
   case H of
     {ok, _T1, _T2} -> H;
