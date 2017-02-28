@@ -47,11 +47,6 @@ do {									\
     HTOP += 2;			/* update tospace htop */		\
 } while(0)
 
-#define MOVE_BOXED(PTR,HDR,HTOP,ORIG) \
-    do { \
-        move_boxed(&(PTR), HDR, &(HTOP), ORIG); \
-    } while(0)
-
 void erts_sub_binary_to_heap_binary(Eterm **pp, Eterm **hpp, Eterm *orig);
 ERTS_GLB_INLINE void move_boxed(Eterm **pp, Eterm hdr, Eterm **hpp, Eterm *orig);
 
