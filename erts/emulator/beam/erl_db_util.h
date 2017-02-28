@@ -260,19 +260,17 @@ typedef struct db_table_common {
 } DbTableCommon;
 
 /* These are status bit patterns */
-#define DB_NORMAL        (1 << 0)
-#define DB_PRIVATE       (1 << 1)
-#define DB_PROTECTED     (1 << 2)
-#define DB_PUBLIC        (1 << 3)
-#define DB_BAG           (1 << 4)
-#define DB_SET           (1 << 5)
-/*#define DB_LHASH         (1 << 6)*/
-#define DB_FINE_LOCKED   (1 << 7)  /* fine grained locking enabled */
-#define DB_DUPLICATE_BAG (1 << 8)
-#define DB_ORDERED_SET   (1 << 9)
-#define DB_DELETE        (1 << 10) /* table is being deleted */
-#define DB_FREQ_READ     (1 << 11)
-#define DB_NAMED_TABLE   (1 << 12)
+#define DB_PRIVATE       (1 << 0)
+#define DB_PROTECTED     (1 << 1)
+#define DB_PUBLIC        (1 << 2)
+#define DB_DELETE        (1 << 3) /* table is being deleted */
+#define DB_SET           (1 << 4)
+#define DB_BAG           (1 << 5)
+#define DB_DUPLICATE_BAG (1 << 6)
+#define DB_ORDERED_SET   (1 << 7)
+#define DB_FINE_LOCKED   (1 << 8) /* write_concurrency */
+#define DB_FREQ_READ     (1 << 9) /* read_concurrency */
+#define DB_NAMED_TABLE   (1 << 10)
 
 #define ERTS_ETS_TABLE_TYPES (DB_BAG|DB_SET|DB_DUPLICATE_BAG|DB_ORDERED_SET\
                               |DB_FINE_LOCKED|DB_FREQ_READ|DB_NAMED_TABLE)

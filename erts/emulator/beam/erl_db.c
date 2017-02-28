@@ -1614,7 +1614,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
-    status = DB_NORMAL | DB_SET | DB_PROTECTED;
+    status = DB_SET | DB_PROTECTED;
     keypos = 1;
     is_named = 0;
 #ifdef ERTS_SMP
