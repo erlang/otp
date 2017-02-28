@@ -34,6 +34,7 @@
          equal/1,
          pad/1, trim/1, chomp/1, take/1,
          uppercase/1, lowercase/1, titlecase/1, casefold/1,
+         to_integer/1,to_float/1,
          prefix/1, split/1, replace/1, find/1,
          lexemes/1, nth_lexeme/1, cd_gc/1, meas/1
         ]).
@@ -42,7 +43,7 @@
 -export([span_cspan/1,substr/1,old_tokens/1,chars/1]).
 -export([copies/1,words/1,strip/1,sub_word/1,left_right/1]).
 -export([sub_string/1,centre/1, join/1]).
--export([to_integer/1,to_float/1]).
+-export([old_to_integer/1,old_to_float/1]).
 -export([to_upper_to_lower/1]).
 
 %% Run tests when debugging them
@@ -61,14 +62,15 @@ groups() ->
        equal, reverse, slice,
        pad, trim, chomp, take,
        lexemes, nth_lexeme,
+       to_integer, to_float,
        uppercase, lowercase, titlecase, casefold,
        prefix, find, split, replace, cd_gc,
        meas]},
      {list_string,
       [len, old_equal, old_concat, chr_rchr, str_rstr, span_cspan,
        substr, old_tokens, chars, copies, words, strip, sub_word,
-       left_right, sub_string, centre, join, to_integer,
-       to_float, to_upper_to_lower]}].
+       left_right, sub_string, centre, join, old_to_integer,
+       old_to_float, to_upper_to_lower]}].
 
 init_per_suite(Config) ->
     Config.
@@ -454,6 +456,31 @@ casefold(_) ->
     ?TEST("ß SHARP S", [], "ss sharp s"),
     ?TEST("ẞ SHARP S", [], "ss sharp s"),
     ?TEST("İ I WITH DOT ABOVE", [], "i̇ i with dot above"),
+    ok.
+
+
+to_integer(_) ->
+    ?TEST("", [], {error, no_integer}),
+    ?TEST("-", [], {error, no_integer}),
+    ?TEST("01", [], {1, ""}),
+    ?TEST("1.53", [], {1, ".53"}),
+    ?TEST("+01.53", [], {1, ".53"}),
+    ?TEST("-1.53", [], {-1, ".53"}),
+    ?TEST("-13#16FF", [], {-13, "#16FF"}),
+    ?TEST("13xFF", [], {13, "xFF"}),
+    ?TEST(["234", <<"3+4-234">>], [], {2343, "+4-234"}),
+    ok.
+
+to_float(_) ->
+    ?TEST("", [], {error, no_float}),
+    ?TEST("1.53", [], {1.53, ""}),
+    ?TEST("+01.53foo", [], {1.53, "foo"}),
+    ?TEST("-1.53foo", [], {-1.53, "foo"}),
+    ?TEST("-1,53foo", [], {-1.53, "foo"}),
+    ?TEST("-1,53e1foo", [], {-15.3, "foo"}),
+    ?TEST("-1,53e-1", [], {-0.153, ""}),
+    ?TEST("-1,53E-1+2", [], {-0.153, "+2"}),
+    ?TEST(["-1,53", <<"E-1+2">>], [], {-0.153, "+2"}),
     ok.
 
 prefix(_) ->
@@ -848,6 +875,8 @@ check_types_1({list, deep}, _) ->
     ok;
 check_types_1({list, {list, deep}}, _) ->
     ok;
+check_types_1(_, {error,_}) ->
+    ok;
 check_types_1(T1,T2) ->
     {T1,T2}.
 
@@ -876,6 +905,11 @@ type(List) when is_list(List) ->
                 false -> mixed
             end
     end;
+type({Number, String}) when is_number(Number) ->
+    %% to_integer or to_float
+    type(String);
+type({Atom, _}=What) when is_atom(Atom) ->
+    What;
 type({R1,R2}) ->
     case {type(R1),type(R2)} of
         {T,T} -> T;
@@ -1192,7 +1226,7 @@ centre(Config) when is_list(Config) ->
     {'EXIT',_} = (catch string:centre(hello, 10)),
     ok.
 
-to_integer(Config) when is_list(Config) ->
+old_to_integer(Config) when is_list(Config) ->
     {1,""} = test_to_integer("1"),
     {1,""} = test_to_integer("+1"),
     {-1,""} = test_to_integer("-1"),
@@ -1205,9 +1239,10 @@ to_integer(Config) when is_list(Config) ->
     {error,no_integer} = test_to_integer(""),
     {error,no_integer} = test_to_integer("!1"),
     {error,no_integer} = test_to_integer("F1"),
-    {error,not_a_list} = test_to_integer('23'),
-    {3,[[]]} = test_to_integer([$3,[]]),
-    {3,[hello]} = test_to_integer([$3,hello]),
+    {error,badarg} = test_to_integer('23'),
+    %% {3,[[]]} = test_to_integer([$3,[]]),
+    %% {3,[hello]} = test_to_integer([$3,hello]),
+    {error,badarg} = test_to_integer([$3,hello]),
     ok.
 
 test_to_integer(Str) ->
@@ -1221,7 +1256,7 @@ test_to_integer(Str) ->
 	    Res
     end.
 
-to_float(Config) when is_list(Config) ->
+old_to_float(Config) when is_list(Config) ->
     {1.2,""} = test_to_float("1.2"),
     {1.2,""} = test_to_float("1,2"),
     {120.0,""} = test_to_float("1.2e2"),
@@ -1248,9 +1283,11 @@ to_float(Config) when is_list(Config) ->
     {error,no_float} = test_to_float("1"),
     {error,no_float} = test_to_float("1e"),
     {error,no_float} = test_to_float("2."),
-    {error,not_a_list} = test_to_float('2.3'),
-    {2.3,[[]]} = test_to_float([$2,$.,$3,[]]),
-    {2.3,[hello]} = test_to_float([$2,$.,$3,hello]),
+    {error,badarg} = test_to_float('2.3'),
+    %{2.3,[[]]} = test_to_float([$2,$.,$3,[]]),
+    {2.3,[]} = test_to_float([$2,$.,$3,[]]),
+    %%{2.3,[hello]} = test_to_float([$2,$.,$3,hello]),
+    {error, badarg} = test_to_float([$2,$.,$3,hello]),
     ok.
 
 test_to_float(Str) ->
@@ -1265,22 +1302,31 @@ test_to_float(Str) ->
     end.
 
 to_upper_to_lower(Config) when is_list(Config) ->
-    "1234ABCDEFÅÄÖ=" = string:to_upper("1234abcdefåäö="),
-    "éèíúùòóåäöabc()" = string:to_lower("ÉÈÍÚÙÒÓÅÄÖabc()"),
+    "1234ABCDEFÅÄÖ=" = string_to_upper("1234abcdefåäö="),
+    "éèíúùòóåäöabc()" = string_to_lower("ÉÈÍÚÙÒÓÅÄÖabc()"),
     All = lists:seq(0, 255),
 
-    UC = string:to_upper(All),
+    UC = string_to_upper(All),
     256 = erlang:length(UC),
     all_upper_latin1(UC, 0),
 
-    LC = string:to_lower(All),
+    LC = string_to_lower(All),
     all_lower_latin1(LC, 0),
 
-    LC = string:to_lower(string:to_upper(LC)),
-    LC = string:to_lower(string:to_upper(UC)),
-    UC = string:to_upper(string:to_lower(LC)),
-    UC = string:to_upper(string:to_lower(UC)),
+    LC = string_to_lower(string_to_upper(LC)),
+    LC = string_to_lower(string_to_upper(UC)),
+    UC = string_to_upper(string_to_lower(LC)),
+    UC = string_to_upper(string_to_lower(UC)),
+
     ok.
+
+string_to_lower(Str) ->
+    Res = string:to_lower(Str),
+    Res = [string:to_lower(C) || C <- Str].
+
+string_to_upper(Str) ->
+    Res = string:to_upper(Str),
+    Res = [string:to_upper(C) || C <- Str].
 
 all_upper_latin1([C|T], C) when 0 =< C, C < $a;
 				$z < C, C < 16#E0;

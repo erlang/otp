@@ -47,9 +47,9 @@ t_list_to_integer(Config) when is_list(Config) ->
     {12373281903728109372810937209817320981321,"ABC"} = string:to_integer("12373281903728109372810937209817320981321ABC"),
     {-12373281903728109372810937209817320981321,"ABC"} = string:to_integer("-12373281903728109372810937209817320981321ABC"),
     {12,[345]} = string:to_integer([$1,$2,345]),
-    {12,[a]} = string:to_integer([$1,$2,a]),
+    {error, badarg} = string:to_integer([$1,$2,a]),
     {error,no_integer} = string:to_integer([$A]),
-    {error,not_a_list} = string:to_integer($A),
+    {error,badarg} = string:to_integer($A),
     ok.
 
 %% Test hd/1 with correct and incorrect arguments.

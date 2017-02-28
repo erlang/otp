@@ -61,6 +61,8 @@
          next_codepoint/1, next_grapheme/1
         ]).
 
+-export([to_float/1, to_integer/1]).
+
 %% Old (will be deprecated) lists/string API kept for backwards compability
 -export([len/1, concat/2, % equal/2, (extended in the new api)
          chr/2,rchr/2,str/2,rstr/2,
@@ -80,26 +82,28 @@
 -type grapheme_cluster() :: char() | [char()].
 -type direction() :: 'leading' | 'trailing'.
 
-%%% BIFs
--export([to_float/1, to_integer/1]).
 -dialyzer({no_improper_lists, stack/2}).
+%%% BIFs internal (not documented) should not to be used outside of this module
+%%% May be removed
+-export([list_to_float/1, list_to_integer/1]).
 
--spec to_float(String) -> {Float, Rest} | {error, Reason} when
+%% Uses bifs: string:list_to_float/1 and string:list_to_integer/1
+-spec list_to_float(String) -> {Float, Rest} | {'error', Reason} when
       String :: string(),
       Float :: float(),
       Rest :: string(),
-      Reason :: no_float | not_a_list.
+      Reason :: 'no_float' | 'not_a_list'.
 
-to_float(_) ->
+list_to_float(_) ->
     erlang:nif_error(undef).
 
--spec to_integer(String) -> {Int, Rest} | {error, Reason} when
+-spec list_to_integer(String) -> {Int, Rest} | {'error', Reason} when
       String :: string(),
       Int :: integer(),
       Rest :: string(),
-      Reason :: no_integer | not_a_list.
+      Reason :: 'no_integer' | 'not_a_list'.
 
-to_integer(_) ->
+list_to_integer(_) ->
     erlang:nif_error(undef).
 
 %%% End of BIFs
@@ -334,6 +338,57 @@ casefold(CD) when is_list(CD) ->
     casefold_list(CD);
 casefold(CD) when is_binary(CD) ->
     casefold_bin(CD,<<>>).
+
+-spec to_integer(String) -> {Int, Rest} | {'error', Reason} when
+      String :: unicode:chardata(),
+      Int :: integer(),
+      Rest :: unicode:chardata(),
+      Reason :: 'no_integer' | badarg.
+
+to_integer(String) ->
+    try take(String, "+-0123456789") of
+        {Head, Tail} ->
+            case is_empty(Head) of
+                true -> {error, no_integer};
+                false ->
+                    List = unicode:characters_to_list(Head),
+                    case string:list_to_integer(List) of
+                        {error, _} = Err -> Err;
+                        {Int, Rest} ->
+                            to_number(String, Int, Rest, List, Tail)
+                    end
+            end
+    catch _:_ -> {error, badarg}
+    end.
+
+-spec to_float(String) -> {Float, Rest} | {'error', Reason} when
+      String :: unicode:chardata(),
+      Float :: float(),
+      Rest :: unicode:chardata(),
+      Reason :: 'no_float' | 'badarg'.
+
+to_float(String) ->
+    try take(String, "+-0123456789eE.,") of
+        {Head, Tail} ->
+            case is_empty(Head) of
+                true -> {error, no_float};
+                false ->
+                    List = unicode:characters_to_list(Head),
+                    case string:list_to_float(List) of
+                        {error, _} = Err -> Err;
+                        {Float, Rest} ->
+                            to_number(String, Float, Rest, List, Tail)
+                    end
+            end
+    catch _:_ -> {error, badarg}
+    end.
+
+to_number(String, Number, Rest, List, _Tail) when is_binary(String) ->
+    BSz = length(List)-length(Rest),
+    <<_:BSz/binary, Cont/binary>> = String,
+    {Number, Cont};
+to_number(_, Number, Rest, _, Tail) ->
+    {Number, concat(Rest,Tail)}.
 
 %% Return the remaining string with prefix removed or else nomatch
 -spec prefix(String::unicode:chardata(), Prefix::unicode:chardata()) ->

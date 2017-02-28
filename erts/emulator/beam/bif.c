@@ -3109,7 +3109,7 @@ BIF_RETTYPE integer_to_list_1(BIF_ALIST_1)
  * On error returns: {error,not_a_list}, or {error, no_integer}
  */
 
-BIF_RETTYPE string_to_integer_1(BIF_ALIST_1)
+BIF_RETTYPE string_list_to_integer_1(BIF_ALIST_1)
 {
      Eterm res;
      Eterm tail;
@@ -3295,7 +3295,7 @@ BIF_RETTYPE float_to_binary_2(BIF_ALIST_2)
 #define LOAD_E(xi,xim,xl,xlm) ((xi)=(xim), (xl)=(xlm))
 
 #define STRING_TO_FLOAT_BUF_INC_SZ (128)
-BIF_RETTYPE string_to_float_1(BIF_ALIST_1)
+BIF_RETTYPE string_list_to_float_1(BIF_ALIST_1)
 {
     Eterm orig = BIF_ARG_1;
     Eterm list = orig;
