@@ -1,0 +1,3 @@
+
+weird_warning1.erl:15: The attempt to match a term of type #b{q::queue:queue(_)} against the pattern {'a', Dict} breaks the opacity of queue:queue(_)
+weird_warning2.erl:13: The attempt to match a term of type <#a{d::dict:dict(_,_)},'my_key','my_value'> against the pattern <{'b', Queue}, Key, Value> breaks the opacity of dict:dict(_,_)
