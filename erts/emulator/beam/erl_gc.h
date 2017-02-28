@@ -33,23 +33,27 @@
 
 #define IS_MOVED_BOXED(x)	(!is_header((x)))
 #define IS_MOVED_CONS(x)	(is_non_value((x)))
-
-#define MOVE_CONS(PTR,CAR,HTOP,ORIG)					\
-do {									\
-    Eterm gval;								\
-									\
-    HTOP[0] = CAR;		/* copy car */				\
-    HTOP[1] = PTR[1];		/* copy cdr */				\
-    gval = make_list(HTOP);	/* new location */			\
-    *ORIG = gval;		/* redirect original reference */	\
-    PTR[0] = THE_NON_VALUE;	/* store forwarding indicator */	\
-    PTR[1] = gval;		/* store forwarding address */		\
-    HTOP += 2;			/* update tospace htop */		\
-} while(0)
-
 void erts_sub_binary_to_heap_binary(Eterm **pp, Eterm **hpp, Eterm *orig);
-ERTS_GLB_INLINE void move_boxed(Eterm **pp, Eterm hdr, Eterm **hpp, Eterm *orig);
 
+ERTS_GLB_INLINE void move_cons(Eterm **pp, Eterm car, Eterm **hpp, Eterm *orig);
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE void move_cons(Eterm **pp, Eterm car, Eterm **hpp, Eterm *orig)
+{
+    Eterm *ptr  = *pp;
+    Eterm *htop = *hpp;
+    Eterm gval;
+
+    htop[0] = car;               /* copy car */
+    htop[1] = ptr[1];            /* copy cdr */
+    gval    = make_list(htop);   /* new location */
+    *orig   = gval;              /* redirect original reference */
+    ptr[0]  = THE_NON_VALUE;     /* store forwarding indicator */
+    ptr[1]  = gval;              /* store forwarding address */
+    *hpp   += 2;                 /* update tospace htop */
+}
+#endif
+
+ERTS_GLB_INLINE void move_boxed(Eterm **pp, Eterm hdr, Eterm **hpp, Eterm *orig);
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE void move_boxed(Eterm **pp, Eterm hdr, Eterm **hpp, Eterm *orig)
 {

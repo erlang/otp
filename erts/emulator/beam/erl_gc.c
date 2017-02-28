@@ -1184,7 +1184,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
                 if (IS_MOVED_CONS(val)) { /* Moved */
                     *g_ptr++ = ptr[1];
 		} else if (ErtsInArea(ptr, area, area_size)) {
-                    MOVE_CONS(ptr,val,old_htop,g_ptr++);
+                    move_cons(&ptr,val,&old_htop,g_ptr++);
                 } else {
 		    g_ptr++;
 		}
@@ -1494,9 +1494,9 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
                 if (IS_MOVED_CONS(val)) { /* Moved */
                     *g_ptr++ = ptr[1];
                 } else if (ErtsInArea(ptr, mature, mature_size)) {
-                    MOVE_CONS(ptr,val,old_htop,g_ptr++);
+                    move_cons(&ptr,val,&old_htop,g_ptr++);
                 } else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
-                    MOVE_CONS(ptr,val,n_htop,g_ptr++);
+                    move_cons(&ptr,val,&n_htop,g_ptr++);
                 } else {
 		    g_ptr++;
 		}
@@ -1552,9 +1552,9 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 		if (IS_MOVED_CONS(val)) {
 		    *n_hp++ = ptr[1];
 		} else if (ErtsInArea(ptr, mature, mature_size)) {
-		    MOVE_CONS(ptr,val,old_htop,n_hp++);
+		    move_cons(&ptr,val,&old_htop,n_hp++);
 		} else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
-		    MOVE_CONS(ptr,val,n_htop,n_hp++);
+		    move_cons(&ptr,val,&n_htop,n_hp++);
 		} else {
 		    n_hp++;
 		}
@@ -1815,7 +1815,7 @@ full_sweep_heaps(Process *p,
 		if (IS_MOVED_CONS(val)) {
 		    *g_ptr++ = ptr[1];
 		} else if (!erts_is_literal(gval, ptr)) {
-		    MOVE_CONS(ptr,val,n_htop,g_ptr++);
+		    move_cons(&ptr,val,&n_htop,g_ptr++);
 		} else {
 		    g_ptr++;
 		}
@@ -2116,7 +2116,7 @@ sweep(Eterm *n_hp, Eterm *n_htop,
 	    if (IS_MOVED_CONS(val)) {
 		*n_hp++ = ptr[1];
 	    } else if (ERTS_IS_IN_SWEEP_AREA(gval, ptr)) {
-		MOVE_CONS(ptr,val,n_htop,n_hp++);
+		move_cons(&ptr,val,&n_htop,n_hp++);
 	    } else {
 		n_hp++;
 	    }
@@ -2212,7 +2212,7 @@ sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
 	    if (IS_MOVED_CONS(val)) {
 		*heap_ptr++ = ptr[1];
 	    } else if (ErtsInArea(ptr, src, src_size)) {
-		MOVE_CONS(ptr,val,htop,heap_ptr++);
+		move_cons(&ptr,val,&htop,heap_ptr++);
 	    } else {
 		heap_ptr++;
 	    }
@@ -2270,7 +2270,7 @@ move_one_area(Eterm* n_htop, char* src, Uint src_size)
 	}
 	else { /* must be a cons cell */
 	    ASSERT(ptr+1 < end);
-	    MOVE_CONS(ptr, val, n_htop, &dummy_ref);
+	    move_cons(&ptr, val, &n_htop, &dummy_ref);
 	    ptr += 2;
 	}
     }

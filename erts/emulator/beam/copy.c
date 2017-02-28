@@ -2007,7 +2007,7 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
 	}
 	else { /* must be a cons cell */
 	    ASSERT(ptr+1 < end);
-	    MOVE_CONS(ptr, val, hp, &dummy_ref);
+	    move_cons(&ptr, val, &hp, &dummy_ref);
 	    ptr += 2;
 	}
     }
