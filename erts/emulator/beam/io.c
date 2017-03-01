@@ -4887,9 +4887,17 @@ erts_port_control(Process* c_p,
 	    copy = 1;
 	else {
             ProcBin *pb = (ProcBin *) ebinp;
+            int offset = bufp - pb->val->orig_bytes;
 
-            if (pb->flags)
+	    ASSERT(pb->val->orig_bytes <= bufp
+		   && bufp + size <= pb->val->orig_bytes + pb->val->orig_size);
+
+            if (pb->flags) {
                 erts_emasculate_writable_binary(pb);
+
+                /* The procbin may have been reallocated, so update bufp */
+                bufp = pb->val->orig_bytes + offset;
+            }
 
 	    binp = pb->val;
 	    ASSERT(bufp <= bufp + size);
