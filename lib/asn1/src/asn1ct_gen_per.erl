@@ -83,8 +83,8 @@ gen_encode(Erules,Typename,Type) when is_record(Type,type) ->
 	end,
     case asn1ct_gen:type(InnerType) of
 	{constructed,bif} ->
-	    emit({"'enc_",asn1ct_gen:list2name(Typename),"'(Val",ObjFun,
-		  ") ->",nl}),
+            Func = enc_func(asn1ct_gen:list2name(Typename)),
+            emit([{asis,Func},"(Val",ObjFun,") ->",nl]),
 	    asn1ct_gen:gen_encode_constructed(Erules,Typename,InnerType,Type);
 	_ ->
 	    true
@@ -96,7 +96,8 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
     Typename = [D#typedef.name],
     Def = D#typedef.typespec,
     InnerType = asn1ct_gen:get_inner(Def#type.def),
-    emit({"'enc_",asn1ct_gen:list2name(Typename),"'(Val) ->",nl}),
+    Func = enc_func(asn1ct_gen:list2name(Typename)),
+    emit([{asis,Func},"(Val) ->",nl]),
     case asn1ct_gen:type(InnerType) of
 	{primitive,bif} ->
 	    gen_encode_prim(Erules, Def),
@@ -107,9 +108,9 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
 	{constructed,bif} ->
 	    asn1ct_gen:gen_encode_constructed(Erules,Typename,InnerType,D);
 	#'Externaltypereference'{module=CurrMod,type=Etype} ->
-	    emit({"'enc_",Etype,"'(Val).",nl,nl});
+            emit([{asis,enc_func(Etype)},"(Val).",nl]);
 	#'Externaltypereference'{module=Emod,type=Etype} ->
-	    emit({"'",Emod,"':'enc_",Etype,"'(Val).",nl,nl})
+            emit([{asis,Emod},":",enc_func(Etype),"(Val).",nl])
     end.
 
 

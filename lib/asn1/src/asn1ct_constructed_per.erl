@@ -784,8 +784,8 @@ gen_decode_sof_components(Erule, Name, Typename, SeqOrSetOf, Cont) ->
 	    emit({com,nl});
 	{constructed,bif} ->
 	    NewTypename = [Constructed_Suffix|Typename],
-	    emit({"'dec_",asn1ct_gen:list2name(NewTypename),
-		  "'(Bytes",ObjFun,"),",nl});
+	    emit([{asis,dec_func(asn1ct_gen:list2name(NewTypename))},
+		  "(Bytes",ObjFun,"),",nl]);
 	#'Externaltypereference'{}=Etype ->
 	    asn1ct_gen_per:gen_dec_external(Etype, "Bytes"),
 	    emit([com,nl]);
@@ -794,7 +794,7 @@ gen_decode_sof_components(Erule, Name, Typename, SeqOrSetOf, Cont) ->
 					"Bytes"),
 	    emit({com,nl});
 	_ ->
-	    emit({"'dec_",Conttype,"'(Bytes),",nl})
+	    emit([{asis,dec_func(Conttype)},"(Bytes),",nl])
     end,
     emit([{asis,Name},"(Num-1, Remain",ObjFun,", [Term|Acc]).",nl]).
 
@@ -1693,16 +1693,15 @@ gen_dec_line_other(Erule, Atype, TopType, Comp) ->
 	    end;
 	{constructed,bif} ->
 	    NewTypename = [Cname|TopType],
+            DecFunc = dec_func(asn1ct_gen:list2name(NewTypename)),
 	    case Type#type.tablecinf of
 		[{objfun,_}|_R] ->
 		    fun(BytesVar) ->
-			    emit({"'dec_",asn1ct_gen:list2name(NewTypename),
-				  "'(",BytesVar,", ObjFun)"})
+			    emit([{asis,DecFunc},"(",BytesVar,", ObjFun)"])
 		    end;
 		_ ->
 		    fun(BytesVar) ->
-			    emit({"'dec_",asn1ct_gen:list2name(NewTypename),
-				  "'(",BytesVar,")"})
+			    emit([{asis,DecFunc},"(",BytesVar,")"])
 		    end
 	    end
     end.
@@ -1990,3 +1989,6 @@ attribute_comment(InnerType, TextPos, Cname) ->
 	       end,
     Comment = ["attribute ",Cname,"(",TextPos,") with type ",DispType],
     lists:concat(Comment).
+
+dec_func(Tname) ->
+    list_to_atom(lists:concat(["dec_",Tname])).
