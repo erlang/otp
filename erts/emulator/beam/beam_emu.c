@@ -1324,6 +1324,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
     goto do_schedule1;
 
  do_schedule:
+    ASSERT(c_p->arity < 6);
     ASSERT(c_p->debug_reds_in == REDS_IN(c_p));
     if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
 	reds_used = REDS_IN(c_p) - FCALLS;
@@ -1924,6 +1925,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	     SWAPOUT;
 	     c_p->flags &= ~F_DELAY_GC;
+             c_p->arity = 0;
 	     goto do_schedule; /* Will be rescheduled for exit */
 	 }
 	 ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
@@ -2166,6 +2168,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 		  * in limbo forever.
 		  */
 		 SWAPOUT;
+                 c_p->arity = 0;
 		 goto do_schedule;
 	     }
 #endif
