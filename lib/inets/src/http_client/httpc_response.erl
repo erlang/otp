@@ -434,7 +434,7 @@ format_response({StatusLine, Headers, Body}) ->
     Length = list_to_integer(Headers#http_response_h.'content-length'),
     {NewBody, Data} = 
 	case Length of
-	    -1 -> % When no lenght indicator is provided
+	    -1 -> % When no length indicator is provided
 		{Body, <<>>};
 	    Length when (Length =< size(Body)) ->
 		<<BodyThisReq:Length/binary, Next/binary>> = Body,

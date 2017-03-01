@@ -967,7 +967,7 @@ pdu_pdp() ->
      116,101,115,116,  % lable1 = test
      4,                % length lable2
      116,101,115,116,  % lable2 = test
-     4,                % lenght lable3
+     4,                % length lable3
      116,101,115,116,  % lable3 = test
      4,                % length lable3
      116,101,115,116,  % lable4 = test

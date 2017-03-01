@@ -4948,7 +4948,7 @@ componentrelation_leadingattr(S,CompList) ->
 
 %%FIXME expand_ExtAddGroups([C#'ExtensionAdditionGroup'{components=ExtAdds}|T],
 %% 		    CurrPos,PosAcc,CompAcc) ->
-%%     expand_ExtAddGroups(T,CurrPos+ L = lenght(ExtAdds),[{CurrPos,L}|PosAcc],ExtAdds++CompAcc);
+%%     expand_ExtAddGroups(T,CurrPos+ L = length(ExtAdds),[{CurrPos,L}|PosAcc],ExtAdds++CompAcc);
 %% expand_ExtAddGroups([C|T],CurrPos,PosAcc,CompAcc) ->
 %%     expand_ExtAddGroups(T,CurrPos+ 1,PosAcc,[C|CompAcc]);
 %% expand_ExtAddGroups([],_CurrPos,PosAcc,CompAcc) ->
