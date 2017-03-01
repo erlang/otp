@@ -107,6 +107,10 @@ init_per_testcase(big_boot_embedded, Config) ->
 	_Else ->
 	    {skip, "Needs crypto!"}
     end;
+init_per_testcase(on_load_embedded, Config) ->
+    LibRoot = code:lib_dir(),
+    LinkName = filename:join(LibRoot, "on_load_app-1.0"),
+    [{link_name,LinkName}|Config];
 init_per_testcase(_Func, Config) ->
     P = code:get_path(),
     [{code_path, P}|Config].
@@ -123,6 +127,10 @@ end_per_testcase(TC, Config) when TC == mult_lib_roots;
     {ok, HostName} = inet:gethostname(),
     NodeName = list_to_atom(atom_to_list(TC)++"@"++HostName),
     test_server:stop_node(NodeName),
+    end_per_testcase(Config);
+end_per_testcase(on_load_embedded, Config) ->
+    LinkName = proplists:get_value(link_name, Config),
+    _ = del_link(LinkName),
     end_per_testcase(Config);
 end_per_testcase(_Func, Config) ->
     end_per_testcase(Config).
@@ -1271,10 +1279,9 @@ on_load_embedded(Config) when is_list(Config) ->
 
 on_load_embedded_1(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
+    LinkName = proplists:get_value(link_name, Config),
 
     %% Link the on_load_app application into the lib directory.
-    LibRoot = code:lib_dir(),
-    LinkName = filename:join(LibRoot, "on_load_app-1.0"),
     OnLoadApp = filename:join(DataDir, "on_load_app-1.0"),
     del_link(LinkName),
     io:format("LinkName :~p, OnLoadApp: ~p~n",[LinkName,OnLoadApp]),
@@ -1308,8 +1315,7 @@ on_load_embedded_1(Config) ->
     ok = rpc:call(Node, on_load_embedded, status, []),
 
     %% Clean up.
-    stop_node(Node),
-    ok = del_link(LinkName).
+    stop_node(Node).
 
 del_link(LinkName) ->
    case file:delete(LinkName) of
