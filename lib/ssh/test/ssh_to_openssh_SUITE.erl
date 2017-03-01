@@ -464,6 +464,7 @@ erlang_client_openssh_server_renegotiate(_Config) ->
 			     {silently_accept_hosts,true}],
 		  group_leader(IO, self()),
 		  {ok, ConnRef} = ssh:connect(Host, ?SSH_DEFAULT_PORT, Options),
+                  ct:pal("Parent = ~p, IO = ~p, Shell = ~p, ConnRef = ~p~n",[Parent, IO, self(), ConnRef]),
 		  case ssh_connection:session_channel(ConnRef, infinity) of
 		      {ok,ChannelId}  ->
 			  success = ssh_connection:ptty_alloc(ConnRef, ChannelId, []),
