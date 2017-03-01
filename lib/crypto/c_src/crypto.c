@@ -71,6 +71,46 @@
     PACKED_OPENSSL_VERSION(MAJ,MIN,FIX,('a'-1))
 
 
+/* LibreSSL was cloned from OpenSSL 1.0.1g and claims to be API and BPI compatible
+ * with 1.0.1.
+ *
+ * LibreSSL has the same names on include files and symbols as OpenSSL, but defines
+ * the OPENSSL_VERSION_NUMBER to be >= 2.0.0
+ *
+ * Therefor works tests like this as intendend:
+ *     OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+ * (The test is for example "2.4.2" >= "1.0.0" although the test 
+ *  with the cloned OpenSSL test would be "1.0.1" >= "1.0.0")
+ *     
+ * But tests like this gives wrong result:
+ *     OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
+ * (The test is false since "2.4.2" < "1.1.0".  It should have been
+ *  true because the LibreSSL API version is "1.0.1")
+ *
+ */
+
+#ifdef LIBRESSL_VERSION_NUMBER
+/* A macro to test on in this file */
+#define HAS_LIBRESSL
+#endif
+
+#ifdef HAS_LIBRESSL
+/* LibreSSL dislikes FIPS */
+# ifdef FIPS_SUPPORT
+#  undef FIPS_SUPPORT
+# endif
+
+/* LibreSSL wants the 1.0.1 API */
+# define NEED_EVP_COMPATIBILITY_FUNCTIONS
+#endif
+
+
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
+# define NEED_EVP_COMPATIBILITY_FUNCTIONS
+#endif
+
+
+
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
 #include <openssl/modes.h>
 #endif
@@ -120,7 +160,9 @@
 #endif
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
-# define HAVE_CHACHA20_POLY1305
+# ifndef HAS_LIBRESSL
+#  define HAVE_CHACHA20_POLY1305
+# endif
 #endif
 
 #if OPENSSL_VERSION_NUMBER <= PACKED_OPENSSL_VERSION(0,9,8,'l')
@@ -205,8 +247,8 @@ do {							\
     }                                                   \
  } while (0)
 
-#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 
+#ifdef NEED_EVP_COMPATIBILITY_FUNCTIONS
 /*
  * In OpenSSL 1.1.0, most structs are opaque. That means that
  * the structs cannot be allocated as automatic variables on the

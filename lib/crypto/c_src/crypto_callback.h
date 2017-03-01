@@ -19,7 +19,7 @@
  */
 
 #include <openssl/crypto.h>
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#ifdef NEED_EVP_COMPATIBILITY_FUNCTIONS
 # define CCB_FILE_LINE_ARGS
 #else
 # define CCB_FILE_LINE_ARGS , const char *file, int line
