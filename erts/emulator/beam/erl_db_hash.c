@@ -418,7 +418,7 @@ static void db_print_hash(fmtfn_t to,
 			  DbTable *tbl);
 static int db_free_table_hash(DbTable *tbl);
 
-static int db_free_table_continue_hash(DbTable *tbl);
+static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds);
 
 
 static void db_foreach_offheap_hash(DbTable *,
@@ -576,9 +576,10 @@ static void restore_fixdel(DbTableHash* tb, FixedDeletion* fixdel)
 ** Table interface routines ie what's called by the bif's 
 */
 
-void db_unfix_table_hash(DbTableHash *tb)
+SWord db_unfix_table_hash(DbTableHash *tb)
 {
     FixedDeletion* fixdel;
+    SWord work = 0;
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_rwmtx_is_rwlocked(&tb->common.rwlock)
 		       || (erts_smp_lc_rwmtx_is_rlocked(&tb->common.rwlock)
@@ -599,7 +600,7 @@ restart:
 	    if (!IS_FIXED(tb)) {
 		goto restart; /* unfixed again! */
 	    }
-	    return;
+	    return work;
 	}
 	if (ix < NACTIVE(tb)) {
 	    bp = &BUCKET(tb, ix);
@@ -609,6 +610,7 @@ restart:
 		if (b->hvalue == INVALID_HASH) {
 		    *bp = b->next;
 		    free_term(tb, b);
+		    work++;
 		    b = *bp;
 		} else {
 		    bp = &b->next;
@@ -624,9 +626,12 @@ restart:
 		     (void *) fx,
 		     sizeof(FixedDeletion));
 	ERTS_ETS_MISC_MEM_ADD(-sizeof(FixedDeletion));
+	work++;
     }
 
     /* ToDo: Maybe try grow/shrink the table as well */
+
+    return work;
 }
 
 int db_create_hash(Process *p, DbTable *tbl)
@@ -2080,19 +2085,17 @@ static void db_print_hash(fmtfn_t to, void *to_arg, int show, DbTable *tbl)
 /* release all memory occupied by a single table */
 static int db_free_table_hash(DbTable *tbl)
 {
-    while (!db_free_table_continue_hash(tbl))
+    while (db_free_table_continue_hash(tbl, ERTS_SWORD_MAX) < 0)
 	;
     return 0;
 }
 
-static int db_free_table_continue_hash(DbTable *tbl)
+static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds)
 {
     DbTableHash *tb = &tbl->hash;
-    int done;
     FixedDeletion* fixdel = (FixedDeletion*) erts_smp_atomic_read_acqb(&tb->fixdel);
     ERTS_SMP_LC_ASSERT(IS_TAB_WLOCKED(tb) || (tb->common.status & DB_DELETE));
 
-    done = 0;
     while (fixdel != NULL) {
 	FixedDeletion *fx = fixdel;
 
@@ -2102,22 +2105,21 @@ static int db_free_table_continue_hash(DbTable *tbl)
 		     (void *) fx,
 		     sizeof(FixedDeletion));
 	ERTS_ETS_MISC_MEM_ADD(-sizeof(FixedDeletion));
-	if (++done >= 2*DELETE_RECORD_LIMIT) {
+	if (--reds < 0) {
 	    erts_smp_atomic_set_relb(&tb->fixdel, (erts_aint_t)fixdel);
-	    return 0;		/* Not done */
+	    return reds;		/* Not done */
 	}
     }
     erts_smp_atomic_set_relb(&tb->fixdel, (erts_aint_t)NULL);
 
-    done /= 2;
     while(tb->nslots != 0) {
-	done += 1 + EXT_SEGSZ/64 + free_seg(tb, 1);
+	reds -= EXT_SEGSZ/64 + free_seg(tb, 1);
 
 	/*
 	 * If we have done enough work, get out here.
 	 */
-	if (done >= DELETE_RECORD_LIMIT) {
-	    return 0;	/* Not done */
+	if (reds < 0) {
+	    return reds;	/* Not done */
 	}
     }
 #ifdef ERTS_SMP
@@ -2132,7 +2134,7 @@ static int db_free_table_continue_hash(DbTable *tbl)
     }
 #endif    
     ASSERT(erts_smp_atomic_read_nob(&tb->common.memory_size) == sizeof(DbTable));
-    return 1;			/* Done */
+    return reds;			/* Done */
 }
 
 

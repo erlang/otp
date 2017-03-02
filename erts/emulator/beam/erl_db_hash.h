@@ -75,7 +75,7 @@ typedef struct db_table_hash {
 ** table types. The process is always an [in out] parameter.
 */
 void db_initialize_hash(void);
-void db_unfix_table_hash(DbTableHash *tb /* [in out] */);
+SWord db_unfix_table_hash(DbTableHash *tb);
 Uint db_kept_items_hash(DbTableHash *tb);
 
 /* Interface for meta pid table */

@@ -356,9 +356,9 @@ static void fix_table_locked(Process* p, DbTable* tb);
 static void unfix_table_locked(Process* p,  DbTable* tb, db_lock_kind_t* kind);
 static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data);
 static void free_heir_data(DbTable*);
-static void free_fixations_locked(Process* p, DbTable *tb);
+static SWord free_fixations_locked(Process* p, DbTable *tb);
 
-static int free_table_cont(Process *p, DbTable *tb);
+static SWord free_table_continue(Process *p, DbTable *tb, SWord reds);
 static void print_table(fmtfn_t to, void *to_arg, int show,  DbTable* tb);
 static BIF_RETTYPE ets_select_delete_1(BIF_ALIST_1);
 static BIF_RETTYPE ets_select_count_1(BIF_ALIST_1);
@@ -393,8 +393,6 @@ free_dbtable(void *vtb)
 			 erts_smp_atomic_read_nob(&tb->common.memory_size)-sizeof(DbTable),
 			 tb->common.fixations);
 	}
-	erts_fprintf(stderr, "ets: free_dbtable(%T) deleted!!!\r\n",
-		     tb->common.id);
 #endif
 #ifdef ERTS_SMP
 	erts_smp_rwmtx_destroy(&tb->common.rwlock);
@@ -1904,7 +1902,8 @@ BIF_RETTYPE ets_lookup_element_3(BIF_ALIST_3)
  */
 BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 {
-    int trap;
+    SWord initial_reds = ERTS_BIF_REDS_LEFT(BIF_P);
+    SWord reds = initial_reds;
     DbTable* tb;
 
 #ifdef HARDDEBUG
@@ -1958,11 +1957,10 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
     free_heir_data(tb);
     tb->common.heir = am_none;
 
-    free_fixations_locked(BIF_P, tb);
+    reds -= free_fixations_locked(BIF_P, tb);
     db_unlock(tb, LCK_WRITE);
 
-    trap = free_table_cont(BIF_P, tb);
-    if (trap) {
+    if (free_table_continue(BIF_P, tb, reds) < 0) {
 	/*
 	 * Package the DbTable* pointer into a bignum so that it can be safely
 	 * passed through a trap. We used to pass the DbTable* pointer directly
@@ -1972,9 +1970,11 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 	Eterm *hp = HAlloc(BIF_P, 2);
 	hp[0] = make_pos_bignum_header(1);
 	hp[1] = (Eterm) tb;
+        BUMP_ALL_REDS(BIF_P);
 	BIF_TRAP1(&ets_delete_continue_exp, BIF_P, make_big(hp));
     }
     else {
+        BUMP_REDS(BIF_P, (initial_reds - reds));
 	BIF_RET(am_true);
     }
 }
@@ -3471,9 +3471,10 @@ send_ets_transfer_message(Process *c_p, Process *proc,
 
 
 /* Auto-release fixation from exiting process */
-static void proc_cleanup_fixed_table(Process* p, DbFixation* fix)
+static SWord proc_cleanup_fixed_table(Process* p, DbFixation* fix)
 {
     DbTable* tb = btid2tab(fix->tabs.btid);
+    SWord work = 0;
 
     ASSERT(fix->procs.p == p); (void)p;
     if (tb) {
@@ -3496,7 +3497,7 @@ static void proc_cleanup_fixed_table(Process* p, DbFixation* fix)
 	    erts_smp_mtx_unlock(&tb->common.fixlock);
     #endif
 	    if (!IS_FIXED(tb) && IS_HASH_TABLE(tb->common.status)) {
-		db_unfix_table_hash(&(tb->hash));
+		work += db_unfix_table_hash(&(tb->hash));
 	    }
 
 	    ASSERT(sizeof(DbFixation) == ERTS_ALC_DBG_BLK_SZ(fix));
@@ -3516,6 +3517,9 @@ static void proc_cleanup_fixed_table(Process* p, DbFixation* fix)
     }
     erts_free(ERTS_ALC_T_DB_FIXATION, fix);
     ERTS_ETS_MISC_MEM_ADD(-sizeof(DbFixation));
+    ++work;
+
+    return work;
 }
 
 
@@ -3543,6 +3547,8 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
     CleanupState *state = (CleanupState *) c_p->u.terminate;
     Eterm pid = c_p->common.id;
     CleanupState default_state;
+    SWord initial_reds = ERTS_BIF_REDS_LEFT(c_p);
+    SWord reds = initial_reds;
 
     if (!state) {
 	state = &default_state;
@@ -3588,17 +3594,17 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
                 remove_named_tab(tb, 0);
 
             free_heir_data(tb);
-            free_fixations_locked(c_p, tb);
+            reds -= free_fixations_locked(c_p, tb);
             db_unlock(tb, LCK_WRITE);
             state->op = FREE_OWNED_TABLE;
-            /* fall through */
+            break;
         }
         case FREE_OWNED_TABLE:
-            if (free_table_cont(c_p, state->tb))
+            reds = free_table_continue(c_p, state->tb, reds);
+            if (reds < 0)
                 goto yield;
 
             state->op = GET_OWNED_TABLE;
-
             break;
 
 	case UNFIX_TABLES: {
@@ -3612,20 +3618,21 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
                 if (state != &default_state)
                     erts_free(ERTS_ALC_T_DB_PROC_CLEANUP, state);
                 c_p->u.terminate = NULL;
+
+                BUMP_REDS(c_p, (initial_reds - reds));
                 return 0;
             }
 
             fixed_tabs_delete(c_p, fix);
-            proc_cleanup_fixed_table(c_p, fix);
+            reds -= proc_cleanup_fixed_table(c_p, fix);
 
-            BUMP_REDS(c_p, 10);
             break;
         }
 	default:
 	    ERTS_DB_INTERNAL_ERROR("Bad internal state");
         }
 
-    } while (ERTS_BIF_REDS_LEFT(c_p) > 0);
+    } while (reds > 0);
 
  yield:
 
@@ -3740,6 +3747,7 @@ struct free_fixations_ctx
 {
     Process* p;
     DbTable* tb;
+    SWord cnt;
 };
 
 static void free_fixations_op(DbFixation* fix, void* vctx)
@@ -3785,6 +3793,7 @@ static void free_fixations_op(DbFixation* fix, void* vctx)
 		     ctx->tb, (void *) fix, sizeof(DbFixation));
         ERTS_ETS_MISC_MEM_ADD(-sizeof(DbFixation));
     }
+    ctx->cnt++;
 }
 
 #ifdef ERTS_SMP
@@ -3802,7 +3811,7 @@ int erts_db_execute_free_fixation(Process* p, DbFixation* fix)
 }
 #endif
 
-static void free_fixations_locked(Process* p, DbTable *tb)
+static SWord free_fixations_locked(Process* p, DbTable *tb)
 {
     struct free_fixations_ctx ctx;
 
@@ -3810,9 +3819,11 @@ static void free_fixations_locked(Process* p, DbTable *tb)
 
     ctx.p = p;
     ctx.tb = tb;
+    ctx.cnt = 0;
     fixing_procs_rbt_foreach_destroy(&tb->common.fixing_procs,
                                      free_fixations_op, &ctx);
     tb->common.fixing_procs = NULL;
+    return ctx.cnt;
 }
 
 static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data)
@@ -3876,42 +3887,40 @@ static void free_heir_data(DbTable* tb)
 
 static BIF_RETTYPE ets_delete_trap(BIF_ALIST_1)
 {
-    Process *p = BIF_P;
+    SWord initial_reds = ERTS_BIF_REDS_LEFT(BIF_P);
+    SWord reds = initial_reds;
     Eterm cont = BIF_ARG_1;
-    int trap;
     Eterm* ptr = big_val(cont);
     DbTable *tb = *((DbTable **) (UWord) (ptr + 1));
 
     ASSERT(*ptr == make_pos_bignum_header(1));
 
-    trap = free_table_cont(p, tb);
-
-    if (trap) {
-	BIF_TRAP1(&ets_delete_continue_exp, p, cont);
+    if (free_table_continue(BIF_P, tb, reds) < 0) {
+        BUMP_ALL_REDS(BIF_P);
+        BIF_TRAP1(&ets_delete_continue_exp, BIF_P, cont);
     }
     else {
+        BUMP_REDS(BIF_P, (initial_reds - reds));
 	BIF_RET(am_true);
     }
 }
 
 
 /*
- * free_table_cont() returns 0 when done and !0 when more work is needed.
+ * free_table_continue() returns reductions left
+ * done if >= 0
+ * yield if < 0
  */
-static int free_table_cont(Process *p, DbTable *tb)
+static SWord free_table_continue(Process *p, DbTable *tb, SWord reds)
 {
-    Eterm result;
+    reds = tb->common.meth->db_free_table_continue(tb, reds);
 
-    result = tb->common.meth->db_free_table_continue(tb);
-
-    if (result == 0) {
+    if (reds < 0) {
 #ifdef HARDDEBUG
 	erts_fprintf(stderr,"ets: free_table_cont %T (continue begin)\r\n",
 		     tb->common.id);
 #endif
 	/* More work to be done. Let other processes work and call us again. */
-	BUMP_ALL_REDS(p);
-	return !0;
     }
     else {
 #ifdef HARDDEBUG
@@ -3921,9 +3930,8 @@ static int free_table_cont(Process *p, DbTable *tb)
 	/* Completely done - we will not get called again. */
         delete_owned_table(p, tb);
         table_dec_refc(tb, 0);
-	BUMP_REDS(p, 100);
-	return 0;
     }
+    return reds;
 }
 
 struct fixing_procs_info_ctx

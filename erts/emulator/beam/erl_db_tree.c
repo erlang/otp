@@ -282,7 +282,7 @@ struct select_delete_context {
 static TreeDbTerm *linkout_tree(DbTableTree *tb, Eterm key);
 static TreeDbTerm *linkout_object_tree(DbTableTree *tb, 
 				       Eterm object);
-static int do_free_tree_cont(DbTableTree *tb, int num_left);
+static SWord do_free_tree_continue(DbTableTree *tb, SWord reds);
 static void free_term(DbTableTree *tb, TreeDbTerm* p);
 static int balance_left(TreeDbTerm **this); 
 static int balance_right(TreeDbTerm **this); 
@@ -388,7 +388,7 @@ static void db_print_tree(fmtfn_t to, void *to_arg,
 			  int show, DbTable *tbl);
 static int db_free_table_tree(DbTable *tbl);
 
-static int db_free_table_continue_tree(DbTable *tbl);
+static SWord db_free_table_continue_tree(DbTable *tbl, SWord);
 
 static void db_foreach_offheap_tree(DbTable *,
 				    void (*)(ErlOffHeap *, void *),
@@ -1751,23 +1751,22 @@ static void db_print_tree(fmtfn_t to, void *to_arg,
 /* release all memory occupied by a single table */
 static int db_free_table_tree(DbTable *tbl)
 {
-    while (!db_free_table_continue_tree(tbl))
+    while (db_free_table_continue_tree(tbl, ERTS_SWORD_MAX) < 0)
 	;
     return 1;
 }
 
-static int db_free_table_continue_tree(DbTable *tbl)
+static SWord db_free_table_continue_tree(DbTable *tbl, SWord reds)
 {
     DbTableTree *tb = &tbl->tree;
-    int result;
 
     if (!tb->deletion) {
 	tb->static_stack.pos = 0;
 	tb->deletion = 1;
 	PUSH_NODE(&tb->static_stack, tb->root);
     }
-    result = do_free_tree_cont(tb, DELETE_RECORD_LIMIT);
-    if (result) {		/* Completely done. */
+    reds = do_free_tree_continue(tb, reds);
+    if (reds >= 0) {		/* Completely done. */
 	erts_db_free(ERTS_ALC_T_DB_STK,
 		     (DbTable *) tb,
 		     (void *) tb->static_stack.array,
@@ -1775,7 +1774,7 @@ static int db_free_table_continue_tree(DbTable *tbl)
 	ASSERT(erts_smp_atomic_read_nob(&tb->common.memory_size)
 	       == sizeof(DbTable));
     }
-    return result;
+    return reds;
 }
 
 static int db_delete_all_objects_tree(Process* p, DbTable* tbl)
@@ -2058,7 +2057,7 @@ static int analyze_pattern(DbTableTree *tb, Eterm pattern,
     return DB_ERROR_NONE;
 }
 
-static int do_free_tree_cont(DbTableTree *tb, int num_left)
+static SWord do_free_tree_continue(DbTableTree *tb, SWord reds)
 {
     TreeDbTerm *root;
     TreeDbTerm *p;
@@ -2077,15 +2076,14 @@ static int do_free_tree_cont(DbTableTree *tb, int num_left)
 		root = p;
 	    } else {
 		free_term(tb, root);
-		if (--num_left > 0) {
-		    break;
-		} else {
-		    return 0;	/* Done enough for now */
-		}
+		if (--reds < 0) {
+                    return reds;   /* Done enough for now */
+                }
+                break;
 	    }
 	}
     }
-    return 1;
+    return reds;
 }
 
 /*
