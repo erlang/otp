@@ -998,16 +998,14 @@ int enif_inspect_binary(ErlNifEnv* env, Eterm bin_term, ErlNifBinary* bin)
 	byte* raw_ptr;
     }u;
 
-    if (is_boxed(bin_term) && *binary_val(bin_term) == HEADER_SUB_BIN) {
-	ErlSubBin* sb = (ErlSubBin*) binary_val(bin_term);
-	if (sb->is_writable) {
-	    ProcBin* pb = (ProcBin*) binary_val(sb->orig);
-	    ASSERT(pb->thing_word == HEADER_PROC_BIN);
-	    if (pb->flags) {
-		erts_emasculate_writable_binary(pb);
-		sb->is_writable = 0;
-	    }
-	}
+    if (is_binary(bin_term)) {
+        ProcBin *pb = (ProcBin*) binary_val(bin_term);
+        if (pb->thing_word == HEADER_SUB_BIN) {
+            ErlSubBin* sb = (ErlSubBin*) pb;
+            pb = (ProcBin*) binary_val(sb->orig);
+        }
+        if (pb->thing_word == HEADER_PROC_BIN && pb->flags)
+            erts_emasculate_writable_binary(pb);
     }
     u.tmp = NULL;
     bin->data = erts_get_aligned_binary_bytes_extra(bin_term, &u.raw_ptr, allocator,
@@ -1024,7 +1022,7 @@ int enif_inspect_binary(ErlNifEnv* env, Eterm bin_term, ErlNifBinary* bin)
     bin->bin_term = bin_term;
     bin->size = binary_size(bin_term);
     bin->ref_bin = NULL;
-    ADD_READONLY_CHECK(env, bin->data, bin->size); 
+    ADD_READONLY_CHECK(env, bin->data, bin->size);
     return 1;
 }
 
