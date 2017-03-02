@@ -89,6 +89,10 @@
 -define(PUT_INTERNAL_OPT(KeyVal,Opts),  ?do_put_opt(internal_options,KeyVal,Opts) ).
 -define(PUT_SOCKET_OPT(KeyVal,Opts),    ?do_put_opt(socket_options,  KeyVal,Opts) ).
 
+-define(do_del_opt(C,K,O),  ssh_options:delete_key(C,K,O, ?MODULE,?LINE)).
+-define(DELETE_INTERNAL_OPT(Key,Opts),  ?do_del_opt(internal_options,Key,Opts) ).
+
+
 %% Types
 -type role()                :: client | server .
 -type ok_error(SuccessType) :: {ok, SuccessType} | {error, any()} .

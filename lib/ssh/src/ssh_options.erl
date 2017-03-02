@@ -28,6 +28,7 @@
 -export([default/1,
          get_value/5,  get_value/6,
          put_value/5,
+         delete_key/5,
          handle_options/2
         ]).
 
@@ -75,7 +76,6 @@ get_value(Class, Key, Opts, _CallerMod, _CallerLine) when is_map(Opts) ->
         user_options     -> maps:get(Key, Opts)
     end;
 get_value(Class, Key, Opts, _CallerMod, _CallerLine) ->
-    io:format("*** Bad Opts GET OPT ~p ~p:~p Key=~p,~n    Opts=~p~n",[Class,_CallerMod,_CallerLine,Key,Opts]),
     error({bad_options,Class, Key, Opts, _CallerMod, _CallerLine}).
 
 
@@ -90,7 +90,6 @@ get_value(Class, Key, Opts, Def, CallerMod, CallerLine) when is_map(Opts) ->
         error:{badkey,Key} -> Def
     end;
 get_value(Class, Key, Opts, _Def, _CallerMod, _CallerLine) ->
-    io:format("*** Bad Opts GET OPT ~p ~p:~p Key=~p,~n    Opts=~p~n",[Class,_CallerMod,_CallerLine,Key,Opts]),
     error({bad_options,Class, Key, Opts, _CallerMod, _CallerLine}).
 
 
@@ -133,6 +132,19 @@ put_socket_value({Key,Value}, SockOpts) ->
     [{Key,Value} | SockOpts];
 put_socket_value(A, SockOpts) when is_atom(A) ->
     [A | SockOpts].
+
+%%%================================================================
+%%%
+%%% Delete an option
+%%%
+
+-spec delete_key(option_class(), option_key(), options(),
+                 atom(), non_neg_integer()) -> options().
+
+delete_key(internal_options, Key, Opts, _CallerMod, _CallerLine) when is_map(Opts) ->
+    InternalOpts = maps:get(internal_options,Opts),
+    Opts#{internal_options := maps:remove(Key, InternalOpts)}.
+        
 
 %%%================================================================
 %%%
