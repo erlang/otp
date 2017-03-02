@@ -7,5 +7,5 @@
   {registered, []},
   {applications, [compiler, dialyzer, hipe, kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-2.0","kernel-3.0","hipe-3.10.3","erts-6.0",
-			  "dialyzer-2.7","compiler-5.0"]}]}.
+  {runtime_dependencies, ["stdlib-3.0","kernel-5.0","hipe-3.15.4","erts-8.0",
+			  "dialyzer-3.1","compiler-7.0"]}]}.
