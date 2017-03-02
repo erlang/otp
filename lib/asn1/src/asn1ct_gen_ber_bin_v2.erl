@@ -110,15 +110,6 @@ gen_encode(Erules,Typename,Type) when is_record(Type,type) ->
 	    emit([nl,nl,nl,"%%================================"]),
 	    emit([nl,"%%  ",asn1ct_gen:list2name(Typename)]),
 	    emit([nl,"%%================================",nl]),
-	    case length(Typename) of
-		1 -> % top level type
-		    emit(["'enc_",asn1ct_gen:list2name(Typename),
-			  "'(Val",ObjFun,") ->",nl]),
-		    emit(["    'enc_",asn1ct_gen:list2name(Typename),
-			  "'(Val, ", {asis,lists:reverse(Type#type.tag)},ObjFun,").",nl,nl]);
-		_ -> % embedded type with constructed name
-		    true
-	    end,
 	    emit(["'enc_",asn1ct_gen:list2name(Typename),
 		  "'(Val, TagIn",ObjFun,") ->",nl,"   "]),
 	    asn1ct_gen:gen_encode_constructed(Erules,Typename,InnerType,Type);
