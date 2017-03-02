@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -454,6 +454,9 @@ transition({timeout, _}, _) ->
 %% Outgoing message.
 transition({send, Msg}, S) ->
     outgoing(Msg, S);
+transition({send, Route, Msg}, S) ->
+    put_route(Route),
+    outgoing(Msg, S);
 
 %% Request for graceful shutdown at remove_transport, stop_service of
 %% application shutdown.
@@ -483,8 +486,10 @@ transition({'DOWN', _, process, TPid, _},
            = S) ->
     start_next(S);
 
-%% Transport has died after connection timeout.
-transition({'DOWN', _, process, _, _}, _) ->
+%% Transport has died after connection timeout, or handler process has
+%% died.
+transition({'DOWN', _, process, Pid, _}, _) ->
+    erase_route(Pid),
     ok;
 
 %% State query.
@@ -493,6 +498,43 @@ transition({state, Pid}, #state{state = S, transport = TPid}) ->
     ok.
 
 %% Crash on anything unexpected.
+
+%% put_route/1
+%%
+%% Map identifiers in an outgoing request to be able to lookup the
+%% handler process when the answer is received.
+
+put_route(false) ->
+    ok;
+
+put_route({Pid, Ref, Seqs}) ->
+    MRef = monitor(process, Pid),
+    put(Pid, Seqs),
+    put(Seqs, {Pid, Ref, MRef}).
+
+%% get_route/1
+
+get_route(#diameter_packet{header = #diameter_header{is_request = false}}
+          = Pkt) ->
+    Seqs = diameter_codec:sequence_numbers(Pkt),
+    case erase(Seqs) of
+        {Pid, Ref, MRef} ->
+            demonitor(MRef),
+            erase(Pid),
+            {Pid, Ref, self()};
+        undefined ->
+            false
+    end;
+
+get_route(_) ->
+    false.
+
+%% erase_route/1
+
+erase_route(Pid) ->
+    erase(erase(Pid)).
+
+%% capx/1
 
 capx(recv_CER) ->
     'CER';
@@ -576,8 +618,7 @@ incoming({Msg, NPid}, S) ->
             T
     catch
         {?MODULE, Name, Pkt} ->
-            S#state.parent ! {recv, self(), Name, {Pkt, NPid}},
-            rcv(Name, Pkt, S)
+            incoming(Name, Pkt, NPid, S)
     end;
 
 incoming(Msg, S) ->
@@ -585,9 +626,14 @@ incoming(Msg, S) ->
         recv(Msg, S)
     catch
         {?MODULE, Name, Pkt} ->
-            S#state.parent ! {recv, self(), Name, Pkt},
-            rcv(Name, Pkt, S)
+            incoming(Name, Pkt, false, S)
     end.
+
+%% incoming/4
+
+incoming(Name, Pkt, NPid, #state{parent = Pid} = S) ->
+    Pid ! {recv, self(), get_route(Pkt), Name, Pkt, NPid},
+    rcv(Name, Pkt, S).
 
 %% recv/2
 
