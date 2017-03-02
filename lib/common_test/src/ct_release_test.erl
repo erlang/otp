@@ -132,7 +132,7 @@
 
 %%-----------------------------------------------------------------
 -define(testnode, 'ct_release_test-upgrade').
--define(exclude_apps, [hipe, typer, dialyzer]). % never include these apps
+-define(exclude_apps, [hipe, dialyzer]). % never include these apps
 
 %%-----------------------------------------------------------------
 -record(ct_data, {from,to}).

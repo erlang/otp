@@ -407,7 +407,7 @@ up the indexing."
 (defvar erldoc-user-guides nil)
 
 (defvar erldoc-missing-user-guides
-  '("compiler" "hipe" "kernel" "os_mon" "parsetools" "typer")
+  '("compiler" "hipe" "kernel" "os_mon" "parsetools")
   "List of standard Erlang applications with no user guides.")
 
 ;; Search in `code:lib_dir/0' using find LIB_DIR -type f -name
@@ -417,7 +417,7 @@ up the indexing."
                              "runtime_tools" "sasl" "snmp"
                              "ssl" "test_server"
                              ("ssh" . "SSH") ("stdlib" . "STDLIB")
-                             ("hipe" . "HiPE") ("typer" . "TypEr"))
+                             ("hipe" . "HiPE"))
   "List of applications that come with a manual.")
 
 (defun erldoc-user-guide-chapters (user-guide)
