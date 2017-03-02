@@ -49,10 +49,11 @@ insn_temps(SubstTemp, I) ->
     #movzx   {src=S, dst=D}  -> I#movzx   {src=O(S), dst=O(D)};
     #shift   {src=S, dst=D}  -> I#shift   {src=O(S), dst=O(D)};
     #test    {src=S, dst=D}  -> I#test    {src=O(S), dst=O(D)};
-    #fp_unop{arg=A} -> I#fp_unop{arg=O(A)};
-    #move64 {dst=D} -> I#move64 {dst=O(D)};
-    #push   {src=S} -> I#push   {src=O(S)};
-    #pop    {dst=D} -> I#pop    {dst=O(D)};
+    #fp_unop{arg=[]} -> I;
+    #fp_unop{arg=A}  -> I#fp_unop{arg=O(A)};
+    #move64 {dst=D}  -> I#move64 {dst=O(D)};
+    #push   {src=S}  -> I#push   {src=O(S)};
+    #pop    {dst=D}  -> I#pop    {dst=O(D)};
     #jmp_switch{temp=T, jtab=J} ->
       I#jmp_switch{temp=O(T), jtab=jtab_temps(SubstTemp, J)};
     #pseudo_call{'fun'=F} ->
