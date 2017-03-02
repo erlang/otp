@@ -87,6 +87,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -define(m(A,B), assert_eq(A,B)).
+-define(heap_binary_size, 64).
 
 init_per_testcase(Case, Config) ->
     rand:seed(exsplus),
@@ -1192,6 +1193,18 @@ t_select_replace(Config) when is_list(Config) ->
                                      [{{'$1', '$2'}}]}],
                       2000 = ets:select_replace(Table, MatchSpec6),
 
+                      % Replacement uses {element,KeyPos,T} for key
+                      2000 = ets:select_replace(Table,
+                                                [{{'$1', '$2'},
+                                                  [{'>', {'rem', '$1', 5}, 3}],
+                                                  [{{{element, 1, '$_'}, '$2'}}]}]),
+
+                      % Replacement uses wrong {element,KeyPos,T} for key
+                      {'EXIT',{badarg,_}} = (catch ets:select_replace(Table,
+                                                                     [{{'$1', '$2'},
+                                                                       [],
+                                                                       [{{{element, 2, '$_'}, '$2'}}]}])),
+
                       check(Table,
                             fun ({N, [$x, C | _]}) when ((N rem 5) < 2) -> (C >= $0) andalso (C =< $9);
                                 ({N, [C | _]}) when is_float(N) -> (C >= $0) andalso (C =< $9);
@@ -1259,6 +1272,74 @@ t_select_replace(Config) when is_list(Config) ->
               ets:delete(Table)
       end,
       Tables),
+
+    %% Test key-safe match-specs are accepted
+    BigNum = (123 bsl 123),
+    RefcBin = list_to_binary(lists:seq(1,?heap_binary_size+1)),
+    Terms = [a, "hej", 123, 1.23, BigNum , <<"123">>, RefcBin, TestFun, self()],
+    EqPairs = fun(X,Y) ->
+                      [{ '$1', '$1'},
+                       { {X, Y}, {{X, Y}}},
+                       { {'$1', Y}, {{'$1', Y}}},
+                       { {{X, Y}}, {{{{X, Y}}}}},
+                       { {X}, {{X}}},
+                       { X, {const, X}},
+                       { {X,Y}, {const, {X,Y}}},
+                       { {X}, {const, {X}}},
+                       { {X, Y}, {{X, {const, Y}}}},
+                       { {X, {Y,'$1'}}, {{{const, X}, {{Y,'$1'}}}}},
+                       { [X, Y | '$1'], [X, Y | '$1']},
+                       { [{X, '$1'}, Y], [{{X, '$1'}}, Y]},
+                       { [{X, Y} | '$1'], [{const, {X, Y}} | '$1']},
+                       { [$p,$r,$e,$f,$i,$x | '$1'], [$p,$r,$e,$f,$i,$x | '$1']},
+                       { {[{X,Y}]}, {{[{{X,Y}}]}}},
+                       { {[{X,Y}]}, {{{const, [{X,Y}]}}}},
+                       { {[{X,Y}]}, {{[{const,{X,Y}}]}}}
+                      ]
+              end,
+
+    T2 = ets:new(x, []),
+    [lists:foreach(fun({A, B}) ->
+                           %% just check that matchspec is accepted
+                           0 = ets:select_replace(T2, [{{A, '$2', '$3'}, [], [{{B, '$3', '$2'}}]}])
+                   end,
+                   EqPairs(X,Y)) || X <- Terms, Y <- Terms],
+
+    %% Test key-unsafe matchspecs are rejected
+    NeqPairs = fun(X, Y) ->
+                      [{'$1', '$2'},
+                       {{X, Y}, {X, Y}},
+                       {{{X, Y}}, {{{X, Y}}}},
+                       {{X}, {{{X}}}},
+                       {{const, X}, {const, X}},
+                       {{const, {X,Y}}, {const, {X,Y}}},
+                       {'$1', {const, '$1'}},
+                       {{X}, {const, {{X}}}},
+                       {{X, {Y,'$1'}}, {{{const, X}, {Y,'$1'}}}},
+                       {[X, Y | '$1'], [X, Y]},
+                       {[X, Y], [X, Y | '$1']},
+                       {[{X, '$1'}, Y], [{X, '$1'}, Y]},
+                       {[$p,$r,$e,$f,$i,$x | '$1'], [$p,$r,$e,$f,$I,$x | '$1']},
+                       { {[{X,Y}]}, {{[{X,Y}]}}},
+                       { {[{X,Y}]}, {{{const, [{{X,Y}}]}}}},
+                       { {[{X,Y}]}, {{[{const,{{X,Y}}}]}}},
+                       {'_', '_'},
+                       {'$_', '$_'},
+                       {'$$', '$$'},
+                       {#{}, #{}},
+                       {#{X => '$1'}, #{X => '$1'}}
+                      ]
+              end,
+
+    [lists:foreach(fun({A, B}) ->
+                           %% just check that matchspec is rejected
+                           {'EXIT',{badarg,_}} = (catch ets:select_replace(T2, [{{A, '$2', '$3'}, [], [{{B, '$3', '$2'}}]}]))
+                   end,
+                   NeqPairs(X,Y)) || X <- Terms, Y <- Terms],
+
+
+    ets:delete(T2),
+
     verify_etsmem(EtsMem).
 
 %% Test that partly bound keys gives faster matches.
@@ -6120,7 +6201,6 @@ only_if_smp(Schedulers, Func) ->
     end.
 
 %% Copy-paste from emulator/test/binary_SUITE.erl
--define(heap_binary_size, 64).
 test_terms(Test_Func, Mode) ->
     garbage_collect(),
     Pib0 = process_info(self(),binary),

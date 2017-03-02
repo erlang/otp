@@ -1119,17 +1119,111 @@ error:
     return NULL;
 }
 
+/*
+ * Compare a matching term 'a' with a constructing term 'b' for equality.
+ *
+ * Returns true if 'b' is guaranteed to always construct
+ * the same term as 'a' has matched.
+ */
+static int db_match_eq_body(Eterm a, Eterm b)
+{
+    DECLARE_ESTACK(s);
+    Uint arity;
+    Eterm *ap, *bp;
+    int const_mode = 0;
+    const Eterm CONST_MODE_OFF = THE_NON_VALUE;
+
+    while (1) {
+        switch(b & _TAG_PRIMARY_MASK) {
+        case TAG_PRIMARY_LIST:
+            if (!is_list(a))
+                return 0;
+            ESTACK_PUSH2(s, CDR(list_val(a)), CDR(list_val(b)));
+            a = CAR(list_val(a));
+            b = CAR(list_val(b));
+            continue; /* loop without pop */
+
+        case TAG_PRIMARY_BOXED:
+            if (is_tuple(b)) {
+                bp = tuple_val(b);
+                if (!const_mode) {
+                    if (bp[0] == make_arityval(1) && is_tuple(bp[1])) {
+                        b = bp[1]; /* double-tuple syntax */
+                    }
+                    else if (bp[0] == make_arityval(2) && bp[1] == am_const) {
+                        ESTACK_PUSH(s, CONST_MODE_OFF);
+                        const_mode = 1;   /* {const, term()} syntax */
+                        b = bp[2];
+                        continue; /* loop without pop */
+                    }
+                    else
+                        return 0; /* function call or invalid tuple syntax */
+                }
+                if (!is_tuple(a))
+                    return 0;
+
+                ap = tuple_val(a);
+                bp = tuple_val(b);
+                if (ap[0] != bp[0])
+                    return 0;
+                arity = arityval(ap[0]);
+                if (arity > 0) {
+                    a = *(++ap);
+                    b = *(++bp);
+                    while(--arity) {
+                        ESTACK_PUSH2(s, *(++ap), *(++bp));
+                    }
+                    continue; /* loop without pop */
+                }
+            }
+            else if (is_map(b)) {
+                /* We don't know what other pairs the matched map may contain */
+                return 0;
+            }
+            else if (!eq(a,b)) /* other boxed */
+                return 0;
+            break;
+
+        case TAG_PRIMARY_IMMED1:
+            if (a != b || a == am_Underscore || a == am_DollarDollar
+                || a == am_DollarUnderscore
+                || (const_mode && db_is_variable(a) >= 0)) {
+
+                return 0;
+            }
+            break;
+        default:
+            erts_exit(ERTS_ABORT_EXIT, "db_compare: "
+                      "Bad object on ESTACK: 0x%bex\n", b);
+        }
+
+pop_next:
+        if (ESTACK_ISEMPTY(s))
+            break; /* done */
+
+        b = ESTACK_POP(s);
+        if (b == CONST_MODE_OFF) {
+            ASSERT(const_mode);
+            const_mode = 0;
+            goto pop_next;
+        }
+        a = ESTACK_POP(s);
+    }
+
+    DESTROY_ESTACK(s);
+    return 1;
+}
+
 /* This is used by select_replace */
-int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body) {
-    Eterm match_key = NIL;
-    int match_key_variable = -1;
-    Eterm* body_list = NULL;
-    Eterm single_body_term = NIL;
-    Eterm* single_body_term_tpl = NULL;
-    Eterm single_body_subterm = NIL;
-    Eterm single_body_subterm_key = NIL;
-    int single_body_subterm_key_variable = -1;
-    Eterm* single_body_subterm_key_tpl = NULL;
+int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body)
+{
+    Eterm match_key;
+    Eterm* body_list;
+    Eterm single_body_term;
+    Eterm* single_body_term_tpl;
+    Eterm single_body_subterm;
+    Eterm single_body_subterm_key;
+    Eterm* single_body_subterm_key_tpl;
 
     if (!is_list(body)) {
         return 0;
@@ -1169,9 +1263,7 @@ int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body) {
         return 0;
     }
 
-    match_key_variable = db_is_variable(match_key);
-    single_body_subterm_key_variable = db_is_variable(single_body_subterm_key);
-    if (match_key_variable != -1 && match_key_variable == single_body_subterm_key_variable) {
+    if (db_match_eq_body(match_key, single_body_subterm_key)) {
         /* tuple with same key is returned */
         return 1;
     }
@@ -1187,30 +1279,15 @@ int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body) {
         return 0;
     }
 
-    if (single_body_subterm_key_tpl[1] != am_element) {
-        /* tag is not of an element instruction */
-        return 0;
-    }
-    if (single_body_subterm_key_tpl[3] != am_DollarUnderscore) {
-        /* even if it's an element instruction, it's not fetching from the original tuple */
-        return 0;
-    }
-
-    if (is_big(single_body_subterm_key_tpl[2])
-        && (big_to_uint32(single_body_subterm_key_tpl[2]) != keypos))
+    if (single_body_subterm_key_tpl[1] == am_element &&
+        single_body_subterm_key_tpl[3] == am_DollarUnderscore &&
+        single_body_subterm_key_tpl[2] == make_small(keypos))
     {
-        /* the key comes from a different position */
-        return 0;
+        /* {element, KeyPos, '$_'} */
+        return 1;
     }
 
-    if (is_small(single_body_subterm_key_tpl[2])
-        && (unsigned_val(single_body_subterm_key_tpl[2]) != keypos))
-    {
-        /* the key comes from a different position */
-        return 0;
-    }
-
-    return 1;
+    return 0;
 }
 
 /* This is used when tracing */
