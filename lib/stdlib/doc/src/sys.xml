@@ -83,8 +83,8 @@
         <p>If the modules used to implement the process change dynamically
           during runtime, the process must understand one more message. An
           example is the <seealso marker="gen_event"><c>gen_event</c></seealso>
-          processes. The message is <c>{get_modules, From}</c>.
-          The reply to this message is <c>From ! {modules, Modules}</c>, where
+          processes. The message is <c>{_Label, {From, Ref}, get_modules}</c>.
+          The reply to this message is <c>From ! {Ref, Modules}</c>, where
           <c>Modules</c> is a list of the currently active modules in the
           process.</p>
         <p>This message is used by the release handler to find which
