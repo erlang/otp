@@ -76,7 +76,7 @@
 %%--------------------------------------------------------------------
 -spec start_link(role(),
 		 inet:socket(),
-		 proplists:proplist()
+                 ssh_options:options()
 		) -> {ok, pid()}.
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 start_link(Role, Socket, Options) ->
@@ -99,12 +99,10 @@ stop(ConnectionHandler)->
 %% Internal application API
 %%====================================================================
 
--define(DefaultTransport,  {tcp, gen_tcp, tcp_closed} ).
-
 %%--------------------------------------------------------------------
 -spec start_connection(role(),
 		       inet:socket(),
-		       proplists:proplist(),
+                       ssh_options:options(),
 		       timeout()
 		      ) -> {ok, connection_ref()} | {error, term()}.
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -121,9 +119,8 @@ start_connection(client = Role, Socket, Options, Timeout) ->
     end;
 
 start_connection(server = Role, Socket, Options, Timeout) ->
-    SSH_Opts = proplists:get_value(ssh_opts, Options, []),
     try
-	case proplists:get_value(parallel_login, SSH_Opts, false) of
+	case ?GET_OPT(parallel_login, Options) of
 	    true ->
 		HandshakerPid =
 		    spawn_link(fun() ->
@@ -346,7 +343,7 @@ renegotiate_data(ConnectionHandler) ->
 						 | undefined,
 	  last_size_rekey           = 0         :: non_neg_integer(),
 	  event_queue               = []        :: list(),
-	  opts                                  :: proplists:proplist(),
+	  opts                                  :: ssh_options:options(),
 	  inet_initial_recbuf_size              :: pos_integer()
 						 | undefined
 	 }).
@@ -357,15 +354,14 @@ renegotiate_data(ConnectionHandler) ->
 %%--------------------------------------------------------------------
 -spec init_connection_handler(role(),
 			      inet:socket(),
-			      proplists:proplist()
+			      ssh_options:options()
 			     ) -> no_return().
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 init_connection_handler(Role, Socket, Opts) ->
     process_flag(trap_exit, true),
     S0 = init_process_state(Role, Socket, Opts),
     try
-	{Protocol, Callback, CloseTag} =
-	    proplists:get_value(transport, Opts, ?DefaultTransport),
+	{Protocol, Callback, CloseTag} = ?GET_OPT(transport, Opts),
 	S0#data{ssh_params = init_ssh_record(Role, Socket, Opts),
 		 transport_protocol = Protocol,
 		 transport_cb = Callback,
@@ -393,7 +389,7 @@ init_process_state(Role, Socket, Opts) ->
 				   port_bindings = [],
 				   requests = [],
 				   options = Opts},
-	       starter = proplists:get_value(user_pid, Opts),
+	       starter = ?GET_INTERNAL_OPT(user_pid, Opts),
 	       socket = Socket,
 	       opts = Opts
 	      },
@@ -409,13 +405,18 @@ init_process_state(Role, Socket, Opts) ->
 
 
 init_connection(server, C = #connection{}, Opts) ->
-    Sups = proplists:get_value(supervisors, Opts),
-    SystemSup = proplists:get_value(system_sup, Sups),
-    SubSystemSup = proplists:get_value(subsystem_sup, Sups),
+    Sups =          ?GET_INTERNAL_OPT(supervisors, Opts),
+
+    SystemSup =     proplists:get_value(system_sup,     Sups),
+    SubSystemSup =  proplists:get_value(subsystem_sup,  Sups),
     ConnectionSup = proplists:get_value(connection_sup, Sups),
-    Shell = proplists:get_value(shell, Opts),
-    Exec = proplists:get_value(exec, Opts),
-    CliSpec = proplists:get_value(ssh_cli, Opts, {ssh_cli, [Shell]}),
+
+    Shell = ?GET_OPT(shell, Opts),
+    Exec = ?GET_OPT(exec, Opts),
+    CliSpec = case ?GET_OPT(ssh_cli, Opts) of
+                  undefined -> {ssh_cli, [Shell]};
+                  Spec -> Spec
+              end,
     C#connection{cli_spec = CliSpec,
 		 exec = Exec,
 		 system_supervisor = SystemSup,
@@ -426,41 +427,38 @@ init_connection(server, C = #connection{}, Opts) ->
 
 init_ssh_record(Role, Socket, Opts) ->
     {ok, PeerAddr} = inet:peername(Socket),
-    KeyCb = proplists:get_value(key_cb, Opts, ssh_file),
-    AuthMethods = proplists:get_value(auth_methods,
-				      Opts,
-				      case Role of
-					  server -> ?SUPPORTED_AUTH_METHODS;
-					  client -> undefined
-				      end),
+    KeyCb = ?GET_OPT(key_cb, Opts),
+    AuthMethods =
+        case Role of
+            server -> ?GET_OPT(auth_methods, Opts);
+            client -> undefined
+        end,
     S0 = #ssh{role = Role,
 	      key_cb = KeyCb,
 	      opts = Opts,
 	      userauth_supported_methods = AuthMethods,
 	      available_host_keys = supported_host_keys(Role, KeyCb, Opts),
-	      random_length_padding = proplists:get_value(max_random_length_padding,
-							  Opts,
-							  (#ssh{})#ssh.random_length_padding)
+	      random_length_padding = ?GET_OPT(max_random_length_padding, Opts)
 	   },
 
     {Vsn, Version} = ssh_transport:versions(Role, Opts),
     case Role of
 	client ->
-	    PeerName =  proplists:get_value(host, Opts),
+	    PeerName =  ?GET_INTERNAL_OPT(host, Opts),
 	    S0#ssh{c_vsn = Vsn,
 		   c_version = Version,
-		   io_cb = case proplists:get_value(user_interaction, Opts, true) of
+		   io_cb = case ?GET_OPT(user_interaction, Opts) of
 			       true ->  ssh_io;
 			       false -> ssh_no_io
 			   end,
-		   userauth_quiet_mode = proplists:get_value(quiet_mode, Opts, false),
+		   userauth_quiet_mode = ?GET_OPT(quiet_mode, Opts),
 		   peer = {PeerName, PeerAddr}
 		  };
 
 	server ->
 	    S0#ssh{s_vsn = Vsn,
 		   s_version = Version,
-		   io_cb = proplists:get_value(io_cb, Opts, ssh_io),
+		   io_cb = ?GET_INTERNAL_OPT(io_cb, Opts, ssh_io),
 		   userauth_methods = string:tokens(AuthMethods, ","),
 		   kb_tries_left = 3,
 		   peer = {undefined, PeerAddr}
@@ -849,14 +847,12 @@ handle_event(_, Msg = #ssh_msg_userauth_failure{}, {userauth_keyboard_interactiv
 handle_event(_, Msg=#ssh_msg_userauth_failure{}, {userauth_keyboard_interactive_info_response, client},
 	     #data{ssh_params = Ssh0} = D0) ->
     Opts = Ssh0#ssh.opts,
-    D = case proplists:get_value(password, Opts) of
+    D = case ?GET_OPT(password, Opts) of
 	    undefined ->
 		D0;
 	    _ ->
 		D0#data{ssh_params =
-			    Ssh0#ssh{opts =
-					 lists:keyreplace(password,1,Opts,
-							  {password,not_ok})}} % FIXME:intermodule dependency
+			    Ssh0#ssh{opts = ?PUT_OPT({password,not_ok}, Opts)}} % FIXME:intermodule dependency
 	end,
     {next_state, {userauth,client}, D, [{next_event, internal, Msg}]};
 
@@ -954,7 +950,7 @@ handle_event(cast, renegotiate, _, _) ->
 handle_event(cast, data_size, {connected,Role}, D) ->
     {ok, [{send_oct,Sent0}]} = inet:getstat(D#data.socket, [send_oct]),
     Sent = Sent0 - D#data.last_size_rekey,
-    MaxSent = proplists:get_value(rekey_limit, D#data.opts, 1024000000),
+    MaxSent = ?GET_OPT(rekey_limit, D#data.opts),
     timer:apply_after(?REKEY_DATA_TIMOUT, gen_statem, cast, [self(), data_size]),
     case Sent >= MaxSent of
 	true ->
@@ -1294,11 +1290,12 @@ handle_event(info, UnexpectedMessage, StateName, D = #data{ssh_params = Ssh}) ->
 		      "Unexpected message '~p' received in state '~p'\n"
 		      "Role: ~p\n"
 		      "Peer: ~p\n"
-		      "Local Address: ~p\n", [UnexpectedMessage,
-					      StateName,
-					      Ssh#ssh.role, 
-					      Ssh#ssh.peer,
-					      proplists:get_value(address, Ssh#ssh.opts)])),
+		      "Local Address: ~p\n",
+                      [UnexpectedMessage,
+                       StateName,
+                       Ssh#ssh.role, 
+                       Ssh#ssh.peer,
+                       ?GET_INTERNAL_OPT(address, Ssh#ssh.opts)])),
 	    error_logger:info_report(Msg),
 	    keep_state_and_data;
 
@@ -1312,11 +1309,12 @@ handle_event(info, UnexpectedMessage, StateName, D = #data{ssh_params = Ssh}) ->
 				  "Message: ~p\n"
 				  "Role: ~p\n"
 				  "Peer: ~p\n"
-				  "Local Address: ~p\n", [Other,
-							  UnexpectedMessage,
-							  Ssh#ssh.role,
-							  element(2,Ssh#ssh.peer),
-							  proplists:get_value(address, Ssh#ssh.opts)]
+				  "Local Address: ~p\n",
+                                  [Other,
+                                   UnexpectedMessage,
+                                   Ssh#ssh.role,
+                                   element(2,Ssh#ssh.peer),
+                                   ?GET_INTERNAL_OPT(address, Ssh#ssh.opts)]
 				 )),
 	    error_logger:error_report(Msg),
 	    keep_state_and_data
@@ -1438,11 +1436,11 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%--------------------------------------------------------------------
 %% Starting
 
-start_the_connection_child(UserPid, Role, Socket, Options) ->
-    Sups = proplists:get_value(supervisors, Options),
+start_the_connection_child(UserPid, Role, Socket, Options0) ->
+    Sups = ?GET_INTERNAL_OPT(supervisors, Options0),
     ConnectionSup = proplists:get_value(connection_sup, Sups),
-    Opts = [{supervisors, Sups}, {user_pid, UserPid} | proplists:get_value(ssh_opts, Options, [])],
-    {ok, Pid} = ssh_connection_sup:start_child(ConnectionSup, [Role, Socket, Opts]),
+    Options = ?PUT_INTERNAL_OPT({user_pid,UserPid}, Options0),
+    {ok, Pid} = ssh_connection_sup:start_child(ConnectionSup, [Role, Socket, Options]),
     ok = socket_control(Socket, Pid, Options),
     Pid.
 
@@ -1499,7 +1497,7 @@ supported_host_keys(server, KeyCb, Options) ->
 
 find_sup_hkeys(Options) ->
     case proplists:get_value(public_key,
-                             proplists:get_value(preferred_algorithms,Options,[])
+                             ?GET_OPT(preferred_algorithms,Options)
                             )
     of
         undefined ->
@@ -1512,9 +1510,10 @@ find_sup_hkeys(Options) ->
 
 
 %% Alg :: atom()
-available_host_key(KeyCb, Alg, Opts) ->
-    element(1, catch KeyCb:host_key(Alg, Opts)) == ok.
-
+available_host_key({KeyCb,KeyCbOpts}, Alg, Opts) ->
+    UserOpts = ?GET_OPT(user_options, Opts),
+    element(1,
+            catch KeyCb:host_key(Alg, [{key_cb_private,KeyCbOpts}|UserOpts])) == ok.
 
 send_msg(Msg, State=#data{ssh_params=Ssh0}) when is_tuple(Msg) ->
     {Bytes, Ssh} = ssh_transport:ssh_packet(Msg, Ssh0),
@@ -1770,47 +1769,24 @@ get_repl(X, Acc) ->
     exit({get_repl,X,Acc}).
 
 %%%----------------------------------------------------------------
-disconnect_fun({disconnect,Msg}, D) ->
-    disconnect_fun(Msg, D);
-disconnect_fun(Reason,  #data{opts=Opts}) ->
-    case proplists:get_value(disconnectfun, Opts) of
-	undefined ->
-	    ok;
-	Fun ->
-	    catch Fun(Reason)
-     end.
+-define(CALL_FUN(Key,D), catch (?GET_OPT(Key, D#data.opts)) ).
 
-unexpected_fun(UnexpectedMessage, #data{opts = Opts,
-					ssh_params = #ssh{peer = {_,Peer} }
-				       } ) ->
-    case proplists:get_value(unexpectedfun, Opts) of
-	undefined ->
-	    report;
-	Fun ->
-	    catch Fun(UnexpectedMessage, Peer)
-    end.
+disconnect_fun({disconnect,Msg}, D) -> ?CALL_FUN(disconnectfun,D)(Msg);
+disconnect_fun(Reason, D)           -> ?CALL_FUN(disconnectfun,D)(Reason).
 
+unexpected_fun(UnexpectedMessage, #data{ssh_params = #ssh{peer = {_,Peer} }} = D) ->
+    ?CALL_FUN(unexpectedfun,D)(UnexpectedMessage, Peer).
 
 debug_fun(#ssh_msg_debug{always_display = Display,
 			 message = DbgMsg,
 			 language = Lang},
-	  #data{opts = Opts}) ->
-    case proplists:get_value(ssh_msg_debug_fun, Opts) of
-	undefined ->
-	    ok;
-	Fun ->
-	    catch Fun(self(), Display, DbgMsg, Lang)
-    end.
+	  D) ->
+    ?CALL_FUN(ssh_msg_debug_fun,D)(self(), Display, DbgMsg, Lang).
 
 
-connected_fun(User, Method, #data{ssh_params = #ssh{peer = {_,Peer}},
-				  opts = Opts}) ->
-    case proplists:get_value(connectfun, Opts) of
-	undefined ->
-	    ok;
-	Fun ->
-	    catch Fun(User, Peer, Method)
-    end.
+connected_fun(User, Method, #data{ssh_params = #ssh{peer = {_,Peer}}} = D) ->
+    ?CALL_FUN(connectfun,D)(User, Peer, Method).
+
 
 retry_fun(_, undefined, _) ->
     ok;
@@ -1824,7 +1800,7 @@ retry_fun(User, Reason, #data{ssh_params = #ssh{opts = Opts,
 	    _ ->
 		{infofun, Reason}
 	end,
-    Fun = proplists:get_value(Tag, Opts, fun(_,_)-> ok end),
+    Fun = ?GET_OPT(Tag, Opts),
     try erlang:fun_info(Fun, arity)
     of
 	{arity, 2} -> %% Backwards compatible
@@ -1843,7 +1819,7 @@ retry_fun(User, Reason, #data{ssh_params = #ssh{opts = Opts,
 %%% channels open for a while.
 
 cache_init_idle_timer(D) ->
-    case proplists:get_value(idle_time, D#data.opts, infinity) of
+    case ?GET_OPT(idle_time, D#data.opts) of
 	infinity ->
 	    D#data{idle_timer_value = infinity,
 		   idle_timer_ref = infinity	% A flag used later...
@@ -1906,9 +1882,8 @@ start_channel_request_timer(Channel, From, Time) ->
 %%% Connection start and initalization helpers
 
 socket_control(Socket, Pid, Options) ->
-    {_, TransportCallback, _} =		   % For example {_,gen_tcp,_}
-	proplists:get_value(transport, Options, ?DefaultTransport),
-    case TransportCallback:controlling_process(Socket, Pid) of
+    {_, Callback, _} =	?GET_OPT(transport, Options),
+    case Callback:controlling_process(Socket, Pid) of
 	ok ->
 	    gen_statem:cast(Pid, socket_control);
 	{error, Reason}	->

@@ -100,18 +100,14 @@ start_channel(Socket) when is_port(Socket) ->
 start_channel(Host) when is_list(Host) ->
     start_channel(Host, []).
 
-start_channel(Socket, Options) when is_port(Socket) ->
-    Timeout =
-	%% A mixture of ssh:connect and ssh_sftp:start_channel:
-	case proplists:get_value(connect_timeout, Options, undefined) of
-	    undefined ->
-		proplists:get_value(timeout, Options, infinity);
-	    TO ->
-		TO
-	end,
-    case ssh:connect(Socket, Options, Timeout) of
+start_channel(Socket, UserOptions) when is_port(Socket) ->
+    {SshOpts, _ChanOpts, SftpOpts} = handle_options(UserOptions),
+    Timeout =   % A mixture of ssh:connect and ssh_sftp:start_channel:
+        proplists:get_value(connect_timeout, SshOpts,
+                            proplists:get_value(timeout, SftpOpts, infinity)),
+    case ssh:connect(Socket, SshOpts, Timeout) of
 	{ok,Cm} ->
-	    case start_channel(Cm, Options) of
+	    case start_channel(Cm, UserOptions) of
 		{ok, Pid} ->
 		    {ok, Pid, Cm};
 		Error ->
@@ -120,9 +116,9 @@ start_channel(Socket, Options) when is_port(Socket) ->
 	Error ->
 	    Error
     end;
-start_channel(Cm, Opts) when is_pid(Cm) ->
-    Timeout = proplists:get_value(timeout, Opts, infinity),
-    {_, ChanOpts, SftpOpts} = handle_options(Opts, [], [], []),
+start_channel(Cm, UserOptions) when is_pid(Cm) ->
+    Timeout = proplists:get_value(timeout, UserOptions, infinity),
+    {_SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
     case ssh_xfer:attach(Cm, [], ChanOpts) of
 	{ok, ChannelId, Cm} ->
 	    case ssh_channel:start(Cm, ChannelId,
@@ -143,15 +139,17 @@ start_channel(Cm, Opts) when is_pid(Cm) ->
 	    Error
     end;
 
-start_channel(Host, Opts) ->
-    start_channel(Host, 22, Opts).
-start_channel(Host, Port, Opts) ->
-    {SshOpts, ChanOpts, SftpOpts} = handle_options(Opts, [], [], []),
-    Timeout = proplists:get_value(timeout, SftpOpts, infinity),
+start_channel(Host, UserOptions) ->
+    start_channel(Host, 22, UserOptions).
+
+start_channel(Host, Port, UserOptions) ->
+    {SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
+    Timeout =   % A mixture of ssh:connect and ssh_sftp:start_channel:
+        proplists:get_value(connect_timeout, SshOpts,
+                            proplists:get_value(timeout, SftpOpts, infinity)),
     case ssh_xfer:connect(Host, Port, SshOpts, ChanOpts, Timeout) of
 	{ok, ChannelId, Cm} ->
-	    case ssh_channel:start(Cm, ChannelId, ?MODULE, [Cm,
-							    ChannelId, SftpOpts]) of
+	    case ssh_channel:start(Cm, ChannelId, ?MODULE, [Cm,ChannelId,SftpOpts]) of
 		{ok, Pid} ->
 		    case wait_for_version_negotiation(Pid, Timeout) of
 			ok ->
@@ -865,6 +863,9 @@ terminate(_Reason, State) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+handle_options(UserOptions) ->
+    handle_options(UserOptions, [], [], []).
+
 handle_options([], Sftp, Chan, Ssh) ->
     {Ssh, Chan, Sftp};
 handle_options([{timeout, _} = Opt | Rest], Sftp, Chan, Ssh) ->

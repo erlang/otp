@@ -192,8 +192,8 @@ lookup_user_key(Key, User, Opts) ->
 ssh_dir({remoteuser, User}, Opts) ->
     case proplists:get_value(user_dir_fun, Opts) of
 	undefined ->
-	    case proplists:get_value(user_dir, Opts) of
-		undefined ->
+	    case proplists:get_value(user_dir, Opts, false) of
+		false ->
 		    default_user_dir();
 		Dir ->
 		    Dir

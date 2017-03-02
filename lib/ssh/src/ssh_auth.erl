@@ -96,14 +96,14 @@ unique(L) ->
 password_msg([#ssh{opts = Opts, io_cb = IoCb,
 		   user = User, service = Service} = Ssh0]) ->
     {Password,Ssh} = 
-	case proplists:get_value(password, Opts) of
+	case ?GET_OPT(password, Opts) of
 	    undefined when IoCb == ssh_no_io ->
 		{not_ok, Ssh0};
 	    undefined -> 
-		{IoCb:read_password("ssh password: ",Ssh0), Ssh0};
+		{IoCb:read_password("ssh password: ",Opts), Ssh0};
 	    PW ->
 		%% If "password" option is given it should not be tried again
-		{PW, Ssh0#ssh{opts = lists:keyreplace(password,1,Opts,{password,not_ok})}}
+		{PW, Ssh0#ssh{opts = ?PUT_OPT({password,not_ok}, Opts)}}
 	end,
     case Password of
 	not_ok ->
@@ -123,7 +123,7 @@ password_msg([#ssh{opts = Opts, io_cb = IoCb,
 keyboard_interactive_msg([#ssh{user = User,
 			       opts = Opts,
 			       service = Service} = Ssh]) ->
-    case proplists:get_value(password, Opts) of
+    case ?GET_OPT(password, Opts) of
 	not_ok ->
 	    {not_ok,Ssh};       % No need to use a failed pwd once more
 	_ ->
@@ -141,8 +141,9 @@ publickey_msg([Alg, #ssh{user = User,
 		       service = Service,
 		       opts = Opts} = Ssh]) ->
     Hash = ssh_transport:sha(Alg),
-    KeyCb = proplists:get_value(key_cb, Opts, ssh_file),
-    case KeyCb:user_key(Alg, Opts) of
+    {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
+    UserOpts = ?GET_OPT(user_options, Opts),
+    case KeyCb:user_key(Alg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
 	{ok, PrivKey} ->
 	    StrAlgo = atom_to_list(Alg),
             case encode_public_key(StrAlgo, ssh_transport:extract_public_key(PrivKey)) of
@@ -174,13 +175,19 @@ service_request_msg(Ssh) ->
 
 %%%----------------------------------------------------------------
 init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
-    case user_name(Opts) of
-	{ok, User} ->
+    case ?GET_OPT(user, Opts) of
+	undefined ->
+	    ErrStr = "Could not determine the users name",
+	    ssh_connection_handler:disconnect(
+	      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_ILLEGAL_USER_NAME,
+				  description = ErrStr});
+        
+	User ->
 	    Msg = #ssh_msg_userauth_request{user = User,
 					    service = "ssh-connection",
 					    method = "none",
 					    data = <<>>},
-	    Algs0 = proplists:get_value(pref_public_key_algs, Opts, ?SUPPORTED_USER_KEYS),
+	    Algs0 = ?GET_OPT(pref_public_key_algs, Opts),
 	    %% The following line is not strictly correct. The call returns the
 	    %% supported HOST key types while we are interested in USER keys. However,
 	    %% they "happens" to be the same (for now).  This could change....
@@ -194,12 +201,7 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
 	    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
 						  userauth_preference = Prefs,
 						  userauth_methods = none,
-						  service = "ssh-connection"});
-	{error, no_user} ->
-	    ErrStr = "Could not determine the users name",
-	    ssh_connection_handler:disconnect(
-	      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_ILLEGAL_USER_NAME,
-				  description = ErrStr})
+						  service = "ssh-connection"})
     end.
 
 %%%----------------------------------------------------------------
@@ -342,7 +344,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 		       false},
 
 	    {Name, Instruction, Prompt, Echo} =
-		case proplists:get_value(auth_method_kb_interactive_data, Opts) of
+		case ?GET_OPT(auth_method_kb_interactive_data, Opts) of
 		    undefined -> 
 			Default;
 		    {_,_,_,_}=V -> 
@@ -407,9 +409,9 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{num_responses = 1,
 				   user = User,
 				   userauth_supported_methods = Methods} = Ssh) ->
     SendOneEmpty =
-	(proplists:get_value(tstflg,Opts) == one_empty)
+	(?GET_OPT(tstflg,Opts) == one_empty)
 	orelse 
-	proplists:get_value(one_empty, proplists:get_value(tstflg,Opts,[]), false),
+	proplists:get_value(one_empty, ?GET_OPT(tstflg,Opts), false),
 
     case check_password(User, unicode:characters_to_list(Password), Opts, Ssh) of
 	{true,Ssh1} when SendOneEmpty==true ->
@@ -460,27 +462,8 @@ method_preference(Algs) ->
 	       ],
 	       Algs).
 
-user_name(Opts) ->
-    Env = case os:type() of
-	      {win32, _} -> 
-		  "USERNAME";
-	      {unix, _} -> 
-		  "LOGNAME"
-	  end,
-    case proplists:get_value(user, Opts, os:getenv(Env)) of
-	false ->
-	    case os:getenv("USER") of
-		false -> 
-		    {error, no_user};
-		User -> 
-		    {ok, User}
-	    end;
-	User ->
-	    {ok, User}
-    end.
-
 check_password(User, Password, Opts, Ssh) ->
-    case proplists:get_value(pwdfun, Opts) of
+    case ?GET_OPT(pwdfun, Opts) of
 	undefined ->
 	    Static = get_password_option(Opts, User),
 	    {Password == Static, Ssh};
@@ -510,17 +493,18 @@ check_password(User, Password, Opts, Ssh) ->
     end.
 
 get_password_option(Opts, User) ->
-    Passwords = proplists:get_value(user_passwords, Opts, []),
+    Passwords = ?GET_OPT(user_passwords, Opts),
     case lists:keysearch(User, 1, Passwords) of
 	{value, {User, Pw}} -> Pw;
-	false -> proplists:get_value(password, Opts, false)
+	false -> ?GET_OPT(password, Opts)
     end.
 	    
 pre_verify_sig(User, Alg, KeyBlob, Opts) ->
     try
 	{ok, Key} = decode_public_key_v2(KeyBlob, Alg),
-	KeyCb =  proplists:get_value(key_cb, Opts, ssh_file),
-	KeyCb:is_auth_key(Key, User, Opts)
+        {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
+        UserOpts = ?GET_OPT(user_options, Opts),
+        KeyCb:is_auth_key(Key, User, [{key_cb_private,KeyCbOpts}|UserOpts])
     catch
 	_:_ ->
 	    false
@@ -529,9 +513,10 @@ pre_verify_sig(User, Alg, KeyBlob, Opts) ->
 verify_sig(SessionId, User, Service, Alg, KeyBlob, SigWLen, Opts) ->
     try
 	{ok, Key} = decode_public_key_v2(KeyBlob, Alg),
-	KeyCb =  proplists:get_value(key_cb, Opts, ssh_file),
 
-	case KeyCb:is_auth_key(Key, User, Opts) of
+        {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
+        UserOpts = ?GET_OPT(user_options, Opts),
+        case KeyCb:is_auth_key(Key, User, [{key_cb_private,KeyCbOpts}|UserOpts]) of
 	    true ->
 		PlainText = build_sig_data(SessionId, User,
 					   Service, KeyBlob, Alg),
@@ -565,9 +550,9 @@ decode_keyboard_interactive_prompts(_NumPrompts, Data) ->
 
 keyboard_interact_get_responses(IoCb, Opts, Name, Instr, PromptInfos) ->
     NumPrompts = length(PromptInfos),
-    keyboard_interact_get_responses(proplists:get_value(user_interaction, Opts, true),
-				    proplists:get_value(keyboard_interact_fun, Opts),
-				    proplists:get_value(password, Opts, undefined), IoCb, Name,
+    keyboard_interact_get_responses(?GET_OPT(user_interaction, Opts),
+				    ?GET_OPT(keyboard_interact_fun, Opts),
+				    ?GET_OPT(password, Opts), IoCb, Name,
 				    Instr, PromptInfos, Opts, NumPrompts).
 
 

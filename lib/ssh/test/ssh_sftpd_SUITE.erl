@@ -158,8 +158,7 @@ init_per_testcase(TestCase, Config) ->
 			      [{user_dir, ClientUserDir},
 			       {user, ?USER}, {password, ?PASSWD},
 			       {user_interaction, false},
-			       {silently_accept_hosts, true},
-			       {pwdfun, fun(_,_) -> true end}]),
+			       {silently_accept_hosts, true}]),
     {ok, Channel} =
 	ssh_connection:session_channel(Cm, ?XFER_WINDOW_SIZE,
 				       ?XFER_PACKET_SIZE, ?TIMEOUT),

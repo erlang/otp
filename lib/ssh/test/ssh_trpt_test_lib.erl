@@ -85,18 +85,18 @@ exec(Op, S0=#s{}) ->
 
 	throw:Term ->
 	    report_trace(throw, Term, S1),
-	    throw(Term);
+	    throw({Term,Op});
 
 	error:Error ->
 	    report_trace(error, Error, S1),
-	    error(Error);
+	    error({Error,Op});
 
 	exit:Exit ->
 	    report_trace(exit, Exit, S1),
-	    exit(Exit);
+	    exit({Exit,Op});
         Cls:Err ->
             ct:pal("Class=~p, Error=~p", [Cls,Err]),
-            error("fooooooO")
+            error({"fooooooO",Op})
     end;
 exec(Op, {ok,S=#s{}}) -> exec(Op, S);
 exec(_, Error) -> Error.
@@ -114,20 +114,20 @@ op({accept,Opts}, S) when ?role(S) == server ->
     {ok,Socket} = gen_tcp:accept(S#s.listen_socket, S#s.timeout),
     {Host,_Port} = ok(inet:sockname(Socket)),
     S#s{socket = Socket,
-	ssh = init_ssh(server,Socket,[{host,host(Host)}|Opts]),
+	ssh = init_ssh(server, Socket, host(Host), Opts),
 	return_value = ok};
 
 %%%---- Client ops
 op({connect,Host,Port,Opts}, S) when ?role(S) == undefined -> 
     Socket = ok(gen_tcp:connect(host(Host), Port, mangle_opts([]))),
     S#s{socket = Socket,
-	ssh = init_ssh(client, Socket, [{host,host(Host)}|Opts]),
+	ssh = init_ssh(client, Socket, host(Host), Opts),
 	return_value = ok};
 
 %%%---- ops for both client and server
 op(close_socket, S) ->
-    catch tcp_gen:close(S#s.socket),
-    catch tcp_gen:close(S#s.listen_socket),
+    catch gen_tcp:close(S#s.socket),
+    catch gen_tcp:close(S#s.listen_socket),
     S#s{socket = undefined,
 	listen_socket = undefined,
 	return_value = ok};
@@ -296,12 +296,14 @@ instantiate(X, _S) ->
 
 %%%================================================================
 %%%
-init_ssh(Role, Socket, Options0) ->
-    Options = [{user_interaction, false},
-	       {vsn, {2,0}},
-	       {id_string, "ErlangTestLib"}
-	       | Options0],
-    ssh_connection_handler:init_ssh_record(Role, Socket, Options).
+init_ssh(Role, Socket, Host, UserOptions0) ->
+    UserOptions = [{user_interaction, false},
+                   {vsn, {2,0}},
+                   {id_string, "ErlangTestLib"}
+                   | UserOptions0],
+    Opts = ?PUT_INTERNAL_OPT({host,Host},
+                             ssh_options:handle_options(Role, UserOptions)),
+    ssh_connection_handler:init_ssh_record(Role, Socket, Opts).
 
 mangle_opts(Options) ->
     SysOpts = [{reuseaddr, true},

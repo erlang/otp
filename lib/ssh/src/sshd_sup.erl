@@ -41,13 +41,13 @@
 start_link(Servers) ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, [Servers]).
 
-start_child(ServerOpts) ->
-    Address = proplists:get_value(address, ServerOpts),
-    Port = proplists:get_value(port, ServerOpts),    
-    Profile = proplists:get_value(profile,  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+start_child(Options) ->
+    Address = ?GET_INTERNAL_OPT(address,  Options),
+    Port =    ?GET_INTERNAL_OPT(port,     Options),    
+    Profile = ?GET_OPT(profile,  Options),
     case ssh_system_sup:system_supervisor(Address, Port, Profile) of
        undefined ->
-	    Spec =  child_spec(Address, Port, ServerOpts),    
+	    Spec = child_spec(Address, Port, Options),
 	    case supervisor:start_child(?MODULE, Spec) of
 		{error, already_present} ->
 		    Name = id(Address, Port, Profile),
@@ -58,7 +58,7 @@ start_child(ServerOpts) ->
 	    end;
 	Pid ->
 	    AccPid = ssh_system_sup:acceptor_supervisor(Pid),
-	    ssh_acceptor_sup:start_child(AccPid, ServerOpts)
+	    ssh_acceptor_sup:start_child(AccPid, Options)
     end.
 
 stop_child(Name) ->
@@ -82,8 +82,8 @@ init([Servers]) ->
     MaxR = 10,
     MaxT = 3600,
     Fun = fun(ServerOpts) -> 
-		  Address = proplists:get_value(address, ServerOpts),
-		  Port = proplists:get_value(port, ServerOpts),
+		  Address = ?GET_INTERNAL_OPT(address, ServerOpts),
+		  Port =    ?GET_INTERNAL_OPT(port, ServerOpts),
 		  child_spec(Address, Port, ServerOpts) 
 	  end,
     Children = lists:map(Fun, Servers),
@@ -92,10 +92,10 @@ init([Servers]) ->
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-child_spec(Address, Port, ServerOpts) ->
-    Profile = proplists:get_value(profile,  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+child_spec(Address, Port, Options) ->
+    Profile = ?GET_OPT(profile, Options),
     Name = id(Address, Port,Profile),
-    StartFunc = {ssh_system_sup, start_link, [ServerOpts]},
+    StartFunc = {ssh_system_sup, start_link, [Options]},
     Restart = temporary, 
     Shutdown = infinity,
     Modules = [ssh_system_sup],
