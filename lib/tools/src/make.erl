@@ -29,7 +29,7 @@
 
 -include_lib("kernel/include/file.hrl").
 
--define(MakeOpts,[noexec,load,netload,noload]).
+-define(MakeOpts,[noexec,load,netload,noload,emake]).
 
 all_or_nothing() ->
     case all() of
@@ -43,29 +43,30 @@ all() ->
     all([]).
 
 all(Options) ->
-    {MakeOpts,CompileOpts} = sort_options(Options,[],[]),
-    case read_emakefile('Emakefile',CompileOpts) of
-	Files when is_list(Files) ->
-	    do_make_files(Files,MakeOpts);
-	error ->
-	    error
-    end.
+    run_emake(undefined, Options).
 
 files(Fs) ->
     files(Fs, []).
 
 files(Fs0, Options) ->
     Fs = [filename:rootname(F,".erl") || F <- Fs0],
+    run_emake(Fs, Options).
+
+run_emake(Mods, Options) ->
     {MakeOpts,CompileOpts} = sort_options(Options,[],[]),
-    case get_opts_from_emakefile(Fs,'Emakefile',CompileOpts) of
+    Emake = get_emake(Options),
+    case normalize_emake(Emake, Mods, CompileOpts) of
 	Files when is_list(Files) ->
-	    do_make_files(Files,MakeOpts);	    
-	error -> error
+	    do_make_files(Files,MakeOpts);
+	error ->
+	    error
     end.
 
 do_make_files(Fs, Opts) ->
     process(Fs, lists:member(noexec, Opts), load_opt(Opts)).
 
+sort_options([{emake, _}=H|T],Make,Comp) ->
+  sort_options(T,[H|Make],Comp);
 
 sort_options([H|T],Make,Comp) ->
     case lists:member(H,?MakeOpts) of
@@ -89,18 +90,33 @@ sort_options([],Make,Comp) ->
 %%%
 %%% These elements are converted to [{ModList,OptList},...]
 %%% ModList is a list of modulenames (strings)
-read_emakefile(Emakefile,Opts) ->
-    case file:consult(Emakefile) of
-	{ok,Emake} ->
+
+normalize_emake(EmakeRaw, Mods, Opts) ->
+    case EmakeRaw of
+	{ok, Emake} when Mods =:= undefined ->
 	    transform(Emake,Opts,[],[]);
-	{error,enoent} ->
+	{ok, Emake} when is_list(Mods) ->
+	    ModsOpts = transform(Emake,Opts,[],[]),
+	    ModStrings = [coerce_2_list(M) || M <- Mods],
+	    get_opts_from_emakefile(ModsOpts,ModStrings,Opts,[]); 
+	{error,enoent} when Mods =:= undefined ->
 	    %% No Emakefile found - return all modules in current 
 	    %% directory and the options given at command line
-	    Mods = [filename:rootname(F) ||  F <- filelib:wildcard("*.erl")],
+	    CwdMods = [filename:rootname(F) ||  F <- filelib:wildcard("*.erl")],
+	    [{CwdMods, Opts}];
+	{error,enoent} when is_list(Mods) ->
 	    [{Mods, Opts}];
-	{error,Other} ->
-	    io:format("make: Trouble reading 'Emakefile':~n~tp~n",[Other]),
+	{error, Error} ->
+	    io:format("make: Trouble reading 'Emakefile':~n~tp~n",[Error]),
 	    error
+    end.
+
+get_emake(Opts) ->
+    case proplists:get_value(emake, Opts, false) of
+	false ->
+	    file:consult('Emakefile');
+	OptsEmake ->
+	    {ok, OptsEmake}
     end.
 
 transform([{Mod,ModOpts}|Emake],Opts,Files,Already) ->
@@ -143,31 +159,19 @@ expand(Mod,Already) ->
 	    end
     end.
 
-%%% Reads the given Emakefile to see if there are any specific compile 
+%%% Reads the given Emake to see if there are any specific compile 
 %%% options given for the modules.
-get_opts_from_emakefile(Mods,Emakefile,Opts) ->
-    case file:consult(Emakefile) of
-	{ok,Emake} ->
-	    Modsandopts = transform(Emake,Opts,[],[]),
-	    ModStrings = [coerce_2_list(M) || M <- Mods],
-	    get_opts_from_emakefile2(Modsandopts,ModStrings,Opts,[]); 
-	{error,enoent} ->
-	    [{Mods, Opts}];
-	{error,Other} ->
-	    io:format("make: Trouble reading 'Emakefile':~n~tp~n",[Other]),
-	    error
-    end.
 
-get_opts_from_emakefile2([{MakefileMods,O}|Rest],Mods,Opts,Result) ->
+get_opts_from_emakefile([{MakefileMods,O}|Rest],Mods,Opts,Result) ->
     case members(Mods,MakefileMods,[],Mods) of
 	{[],_} -> 
-	    get_opts_from_emakefile2(Rest,Mods,Opts,Result);
+	    get_opts_from_emakefile(Rest,Mods,Opts,Result);
 	{I,RestOfMods} ->
-	    get_opts_from_emakefile2(Rest,RestOfMods,Opts,[{I,O}|Result])
+	    get_opts_from_emakefile(Rest,RestOfMods,Opts,[{I,O}|Result])
     end;
-get_opts_from_emakefile2([],[],_Opts,Result) ->
+get_opts_from_emakefile([],[],_Opts,Result) ->
     Result;
-get_opts_from_emakefile2([],RestOfMods,Opts,Result) ->
+get_opts_from_emakefile([],RestOfMods,Opts,Result) ->
     [{RestOfMods,Opts}|Result].
     
 members([H|T],MakefileMods,I,Rest) ->

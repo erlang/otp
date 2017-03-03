@@ -20,7 +20,7 @@
 -module(make_SUITE).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-         init_per_group/2,end_per_group/2, make_all/1, make_files/1]).
+         init_per_group/2,end_per_group/2, make_all/1, make_files/1, emake_opts/1]).
 -export([otp_6057_init/1,
          otp_6057_a/1, otp_6057_b/1, otp_6057_c/1,
          otp_6057_end/1]).
@@ -40,7 +40,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [make_all, make_files, {group, otp_6057}].
+    [make_all, make_files, emake_opts, {group, otp_6057}].
 
 groups() -> 
     [{otp_6057,[],[otp_6057_a, otp_6057_b,
@@ -86,6 +86,20 @@ make_files(Config) when is_list(Config) ->
     ensure_no_messages(),
     ok.
 
+emake_opts(Config) when is_list(Config) ->
+    Current = prepare_data_dir(Config),
+
+    %% prove that emake is used in opts instead of local Emakefile
+    Opts = [{emake, [test8, test9]}],
+    error = make:all(Opts),
+    error = make:files([test9], Opts),
+    "test8.beam" = ensure_exists([test8]),
+    "test9.beam" = ensure_exists([test9]),
+    "test5.S" = ensure_exists(["test5"],".S"),
+
+    file:set_cwd(Current),
+    ensure_no_messages(),
+    ok.
 
 %% Moves to the data directory of this suite, clean it from any object
 %% files (*.jam for a JAM emulator).  Returns the previous directory.
