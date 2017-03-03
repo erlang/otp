@@ -233,12 +233,8 @@ contains_mfa(#plt{info = Info, contracts = Contracts}, MFA) ->
 get_default_plt() ->
   case os:getenv("DIALYZER_PLT") of
     false ->
-      case os:getenv("HOME") of
-	false ->
-	  plt_error("The HOME environment variable needs to be set " ++
-		    "so that Dialyzer knows where to find the default PLT");
-	HomeDir -> filename:join(HomeDir, ".dialyzer_plt")
-      end;
+      {ok,[[HomeDir]]} = init:get_argument(home),
+      filename:join(HomeDir, ".dialyzer_plt");
     UserSpecPlt -> UserSpecPlt
   end.
 
