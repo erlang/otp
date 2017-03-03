@@ -28,44 +28,71 @@
 #define ERTS_POTENTIALLY_LONG_GC_HSIZE (128*1024) /* Words */
 
 #include "erl_map.h"
+#include "erl_fun.h"
+#include "erl_bits.h"
 
 #define IS_MOVED_BOXED(x)	(!is_header((x)))
 #define IS_MOVED_CONS(x)	(is_non_value((x)))
+void erts_sub_binary_to_heap_binary(Eterm **pp, Eterm **hpp, Eterm *orig);
 
-#define MOVE_CONS(PTR,CAR,HTOP,ORIG)					\
-do {									\
-    Eterm gval;								\
-									\
-    HTOP[0] = CAR;		/* copy car */				\
-    HTOP[1] = PTR[1];		/* copy cdr */				\
-    gval = make_list(HTOP);	/* new location */			\
-    *ORIG = gval;		/* redirect original reference */	\
-    PTR[0] = THE_NON_VALUE;	/* store forwarding indicator */	\
-    PTR[1] = gval;		/* store forwarding address */		\
-    HTOP += 2;			/* update tospace htop */		\
-} while(0)
+ERTS_GLB_INLINE void move_cons(Eterm **pp, Eterm car, Eterm **hpp, Eterm *orig);
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE void move_cons(Eterm **pp, Eterm car, Eterm **hpp, Eterm *orig)
+{
+    Eterm *ptr  = *pp;
+    Eterm *htop = *hpp;
+    Eterm gval;
 
-#define MOVE_BOXED(PTR,HDR,HTOP,ORIG)                                   \
-do {                                                                    \
-    Eterm gval;                                                         \
-    Sint nelts;                                                         \
-                                                                        \
-    ASSERT(is_header(HDR));                                             \
-    nelts = header_arity(HDR);                                          \
-    switch ((HDR) & _HEADER_SUBTAG_MASK) {                              \
-    case SUB_BINARY_SUBTAG: nelts++; break;                             \
-    case MAP_SUBTAG:                                                    \
-        if (is_flatmap_header(HDR)) nelts+=flatmap_get_size(PTR) + 1;   \
-        else nelts += hashmap_bitcount(MAP_HEADER_VAL(HDR));            \
-    break;                                                              \
-    case FUN_SUBTAG: nelts+=((ErlFunThing*)(PTR))->num_free+1; break;   \
-    }                                                                   \
-    gval    = make_boxed(HTOP);                                         \
-    *ORIG   = gval;                                                     \
-    *HTOP++ = HDR;                                                      \
-    *PTR++  = gval;                                                     \
-    while (nelts--) *HTOP++ = *PTR++;                                   \
-} while(0)
+    htop[0] = car;               /* copy car */
+    htop[1] = ptr[1];            /* copy cdr */
+    gval    = make_list(htop);   /* new location */
+    *orig   = gval;              /* redirect original reference */
+    ptr[0]  = THE_NON_VALUE;     /* store forwarding indicator */
+    ptr[1]  = gval;              /* store forwarding address */
+    *hpp   += 2;                 /* update tospace htop */
+}
+#endif
+
+ERTS_GLB_INLINE void move_boxed(Eterm **pp, Eterm hdr, Eterm **hpp, Eterm *orig);
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE void move_boxed(Eterm **pp, Eterm hdr, Eterm **hpp, Eterm *orig)
+{
+    Eterm gval;
+    Sint nelts;
+    Eterm *ptr = *pp;
+    Eterm *htop = *hpp;
+
+    ASSERT(is_header(hdr));
+    nelts = header_arity(hdr);
+    switch ((hdr) & _HEADER_SUBTAG_MASK) {
+    case SUB_BINARY_SUBTAG:
+        {
+            ErlSubBin *sb = (ErlSubBin *)ptr;
+            /* convert sub-binary to heap-binary if applicable */
+            if (sb->bitsize == 0 && sb->bitoffs == 0 &&
+                sb->is_writable == 0 && sb->size <= sizeof(Eterm) * 3) {
+                erts_sub_binary_to_heap_binary(pp, hpp, orig);
+                return;
+            }
+        }
+        nelts++;
+        break;
+    case MAP_SUBTAG:
+        if (is_flatmap_header(hdr)) nelts+=flatmap_get_size(ptr) + 1;
+        else nelts += hashmap_bitcount(MAP_HEADER_VAL(hdr));
+    break;
+    case FUN_SUBTAG: nelts+=((ErlFunThing*)(ptr))->num_free+1; break;
+    }
+    gval    = make_boxed(htop);
+    *orig   = gval;
+    *htop++ = hdr;
+    *ptr++  = gval;
+    while (nelts--) *htop++ = *ptr++;
+
+    *hpp = htop;
+    *pp  = ptr;
+}
+#endif
 
 #define ErtsInYoungGen(TPtr, Ptr, OldHeap, OldHeapSz)			\
     (!erts_is_literal((TPtr), (Ptr))					\

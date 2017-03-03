@@ -156,29 +156,13 @@ typedef union {
 #include "erl_threads.h"
 #include "bif.h"
 #include "erl_bif_unique.h"
+#include "erl_bits.h"
 
 /*
  * Maximum number of bytes to place in a heap binary.
  */
 
 #define ERL_ONHEAP_BIN_LIMIT 64
-
-/*
- * This structure represents a SUB_BINARY.
- *
- * Note: The last field (orig) is not counted in arityval in the header.
- * This simplifies garbage collection.
- */
-
-typedef struct erl_sub_bin {
-    Eterm thing_word;		/* Subtag SUB_BINARY_SUBTAG. */
-    Uint size;			/* Binary size in bytes. */
-    Uint offs;			/* Offset into original binary. */
-    byte bitsize; 
-    byte bitoffs; 
-    byte is_writable;		/* The underlying binary is writable */
-    Eterm orig;			/* Original binary (REFC or HEAP binary). */
-} ErlSubBin;
 
 #define ERL_SUB_BIN_SIZE (sizeof(ErlSubBin)/sizeof(Eterm))
 #define HEADER_SUB_BIN	_make_header(ERL_SUB_BIN_SIZE-2,_TAG_HEADER_SUB_BIN)
