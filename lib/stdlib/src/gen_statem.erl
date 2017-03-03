@@ -77,7 +77,8 @@
 
 -type event_type() ::
 	{'call',From :: from()} | 'cast' |
-	'info' | 'timeout' | 'state_timeout' | 'internal'.
+	'info' | 'timeout' | 'state_timeout' | 'internal' |
+	{'named_timeout',Name :: term()}.
 
 -type callback_mode_result() ::
 	callback_mode() | [callback_mode() | state_enter()].
@@ -86,7 +87,7 @@
 
 -type transition_option() ::
 	postpone() | hibernate() |
-	event_timeout() | state_timeout().
+	event_timeout() | state_timeout() | named_timeout().
 -type postpone() ::
 	%% If 'true' postpone the current event
 	%% and retry it when the state changes (=/=)
@@ -101,6 +102,10 @@
 -type state_timeout() ::
 	%% Generate a ('state_timeout', EventContent, ...) event after Time
 	%% unless the state is changed
+	Time :: timeout().
+-type named_timeout() ::
+	%% Generate a ({'named_timeout',Name}', EventContent, ...) event
+	%%  after Time
 	Time :: timeout().
 
 -type action() ::
@@ -137,6 +142,8 @@
 	 Time :: event_timeout(), EventContent :: term()} |
 	{'state_timeout', % Set the state_timeout option
 	 Time :: state_timeout(), EventContent :: term()} |
+	{{'named_timeout', Name :: term()},
+	 Time :: named_timeout(), EventContent :: term()} |
 	%%
 	reply_action().
 -type reply_action() ::
@@ -1292,6 +1299,16 @@ parse_actions(
 	    parse_actions(
 	      Debug, S, State, Actions,
 	      true, TimeoutsR, Postpone, NextEventsR);
+	{{named_timeout,_},Time,_} = NamedTimeout
+	  when is_integer(Time), Time >= 0;
+	       Time =:= infinity ->
+	    parse_actions(
+	      Debug, S, State, Actions,
+	      Hibernate, [NamedTimeout|TimeoutsR], Postpone, NextEventsR);
+	{{named_timeout,_},_,_} ->
+	    {error,
+	     {bad_action_from_state_function,Action},
+	     ?STACKTRACE()};
 	{state_timeout,Time,_} = StateTimeout
 	  when is_integer(Time), Time >= 0;
 	       Time =:= infinity ->

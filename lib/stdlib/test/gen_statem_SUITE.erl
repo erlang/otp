@@ -26,9 +26,11 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-define(TIMETRAP_MINUTES, 1).
+
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,1}}].
+     {timetrap,{minutes,?TIMETRAP_MINUTES}}].
 
 all() ->
     [{group, start},
@@ -38,7 +40,7 @@ all() ->
      {group, abnormal},
      {group, abnormal_handle_event},
      shutdown, stop_and_reply, state_enter, event_order,
-     state_timeout, code_change,
+     state_timeout, named_timeout, code_change,
      {group, sys},
      hibernate, enter_loop].
 
@@ -774,8 +776,94 @@ state_timeout(_Config) ->
 		       {reply,From,ok}}
 	      end},
 
-    {ok,STM} = gen_statem:start_link(?MODULE, {map_statem,Machine,[]}, []),
-    sys:trace(STM, true),
+    {ok,STM} =
+	gen_statem:start_link(
+	  ?MODULE, {map_statem,Machine,[]}, [{debug,[trace]}]),
+    TRef = erlang:start_timer(1000, self(), kull),
+    ok = gen_statem:call(STM, {go,500}),
+    ok = gen_statem:call(STM, check),
+    receive
+	{timeout,TRef,kull} ->
+	    ct:fail(late_timeout)
+    after 0 ->
+	    receive
+		{timeout,TRef,kull} ->
+		    ok
+	    after 1000 ->
+		    ct:fail(no_check_timeout)
+	    end
+    end,
+    receive
+	{'EXIT',STM,normal} ->
+	    ok
+    after 500 ->
+	    ct:fail(did_not_stop)
+    end,
+
+    verify_empty_msgq().
+
+
+
+named_timeout(_Config) ->
+    process_flag(trap_exit, true),
+
+    Machine =
+	#{init =>
+	      fun () ->
+		      {ok,start,0}
+	      end,
+	  start =>
+	      fun
+		  ({call,From}, {go,Time}, 0)  ->
+		       %% Verify that internal events goes before external
+		      self() ! message_to_self,
+		      {next_state, state1, 1,
+		       [{{named_timeout,t1},0,{Time,From}},
+			{next_event,internal,a}]}
+	      end,
+	  state1 =>
+	      fun
+		  (internal, a, 1) ->
+		      {keep_state, 2};
+		  ({named_timeout,t1}, {Time,From}, 2) ->
+		      {next_state, state2, 3,
+		       [{{named_timeout,t1},Time,b},
+			{{named_timeout,t2},0,{Time,From}}]}
+	      end,
+	  state2 =>
+	      fun
+		  ({named_timeout,t2}, {Time,From}, 3) ->
+		      %% Cancel t1, test order of timeout zeros
+		      {keep_state, 4,
+		       [{timeout,0,c},
+			{state_timeout,0,d},
+			{{named_timeout,t1},infinity,undefined},
+			{{named_timeout,t2},0,{Time,From}}]};
+		  (timeout, c, 4) ->
+		      {keep_state, 5};
+		  (state_timeout, d, 5) ->
+		      {keep_state, 6};
+		  ({named_timeout,t2}, {Time,From}, 6) ->
+		      {next_state, state3, {7,Time},
+		       [{reply,From,ok}, % Reply to {go,Time} in 'start'
+			{{named_timeout,t1},?TIMETRAP_MINUTES*2*60000,e}]}
+	      end,
+	  state3 =>
+	      fun
+		  (info, message_to_self, {7,Time}) ->
+		      %% Restart t1
+		      {keep_state, 8,
+		       [{{named_timeout,t1},Time,f}]};
+		  ({call,From}, check, 8) ->
+		      {keep_state, {9,From}};
+		  ({named_timeout,t1}, f, {9,From}) ->
+		      {stop_and_reply, normal,
+		       {reply,From,ok}}
+	      end},
+
+    {ok,STM} =
+	gen_statem:start_link(
+	  ?MODULE, {map_statem,Machine,[]}, [{debug,[trace]}]),
     TRef = erlang:start_timer(1000, self(), kull),
     ok = gen_statem:call(STM, {go,500}),
     ok = gen_statem:call(STM, check),

@@ -533,7 +533,7 @@ handle_event(_, _, State, Data) ->
 	  Type <c>info</c> originates from regular process messages sent
 	  to the <c>gen_statem</c>. Also, the state machine
 	  implementation can generate events of types
-	  <c>timeout</c>, <c>state_timeout</c>,
+	  <c>timeout</c>, <c>state_timeout</c>, <c>{named_timeout,Name}</c>,
 	  and <c>internal</c> to itself.
 	</p>
       </desc>
@@ -683,13 +683,11 @@ handle_event(_, _, State, Data) ->
 	  </item>
 	  <item>
 	    <p>
-	      Timeout timers 
-              <seealso marker="#type-state_timeout"><c>state_timeout()</c></seealso>
-	      and 
-              <seealso marker="#type-event_timeout"><c>event_timeout()</c></seealso>
-	      are handled.  Time-outs with zero time are guaranteed to be
+	      Time-out timers are handled.
+	      Time-outs with zero time are guaranteed to be
 	      delivered to the state machine before any external
-	      not yet received event so if there is such a timeout requested,
+	      not yet received event,
+	      so if there is such a time-out requested,
 	      the corresponding time-out zero event is enqueued as
 	      the newest event.
 	    </p>
@@ -822,6 +820,33 @@ handle_event(_, _, State, Data) ->
       </desc>
     </datatype>
     <datatype>
+      <name name="named_timeout"/>
+      <desc>
+	<p>
+	  Generates an event of
+	  <seealso marker="#type-event_type"><c>event_type()</c></seealso>
+	  <c>{named_timeout,Name}</c>
+	  after this time (in milliseconds).
+	</p>
+	<p>
+	  If the value is <c>infinity</c>, no timer is started, as
+	  it never would trigger anyway.
+	</p>
+	<p>
+	  If the value is <c>0</c> no timer is actually started,
+	  instead the the time-out event is enqueued to ensure
+	  that it gets processed before any not yet
+	  received external event.
+	</p>
+	<p>
+	  Setting at timer with a particular <c>Name</c> while it is running
+	  will restart it with the new time-out value.
+	  Therefore it is possible to cancel
+	  such a time-out by setting it to <c>infinity</c>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="action"/>
       <desc>
 	<p>
@@ -945,6 +970,16 @@ handle_event(_, _, State, Data) ->
 	      Sets the
 	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>
 	      <seealso marker="#type-state_timeout"><c>state_timeout()</c></seealso>
+	      to <c><anno>Time</anno></c> with <c><anno>EventContent</anno></c>.
+	    </p>
+	  </item>
+	  <tag><c>named_timeout</c></tag>
+	  <item>
+	    <p>
+	      Sets the
+	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>
+	      <seealso marker="#type-named_timeout"><c>named_timeout()</c></seealso>
+	      for this particular <c><anno>Name</anno></c>
 	      to <c><anno>Time</anno></c> with <c><anno>EventContent</anno></c>.
 	    </p>
 	  </item>
