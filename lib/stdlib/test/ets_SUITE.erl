@@ -75,7 +75,6 @@
 -export([otp_9423/1]).
 -export([otp_10182/1]).
 -export([ets_all/1]).
--export([memory_check_summary/1]).
 -export([massive_ets_all/1]).
 -export([take/1]).
 
@@ -94,7 +93,6 @@ init_per_testcase(Case, Config) ->
     io:format("*** SEED: ~p ***\n", [rand:export_seed()]),
     start_spawn_logger(),
     wait_for_test_procs(), %% Ensure previous case cleaned up
-    put('__ETS_TEST_CASE__', Case),
     [{test_case, Case} | Config].
 
 end_per_testcase(_Func, _Config) ->
@@ -136,9 +134,7 @@ all() ->
      otp_9423,
      ets_all,
      massive_ets_all,
-     take,
-
-     memory_check_summary]. % MUST BE LAST
+     take].
 
 groups() ->
     [{new, [],
@@ -182,27 +178,6 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
     Config.
-
-%% Test that we did not have "too many" failed verify_etsmem()'s
-%% in the test suite.
-%% verify_etsmem() may give a low number of false positives
-%% as concurrent activities, such as lingering processes
-%% from earlier test suites, may do unrelated ets (de)allocations.
-memory_check_summary(_Config) ->
-    case whereis(ets_test_spawn_logger) of
-	undefined ->
-	    ct:fail("No spawn logger exist");
-	_ ->
-	    ets_test_spawn_logger ! {self(), get_failed_memchecks},
-	    receive {get_failed_memchecks, FailedMemchecks} -> ok end,
-	    io:format("Failed memchecks: ~p\n",[FailedMemchecks]),
-	    NoFailedMemchecks = length(FailedMemchecks),
-	    if NoFailedMemchecks > 1 ->
-		    ct:fail("Too many failed (~p) memchecks", [NoFailedMemchecks]);
-	       true ->
-		    ok
-	    end
-    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -5796,8 +5771,7 @@ verify_etsmem({MemInfo,AllTabs}) ->
 	    io:format("Actual:   ~p", [MemInfo2]),
 	    io:format("Changed tables before: ~p\n",[AllTabs -- AllTabs2]),
 	    io:format("Changed tables after: ~p\n", [AllTabs2 -- AllTabs]),
-            ets_test_spawn_logger ! {failed_memcheck, get('__ETS_TEST_CASE__')},
-            {comment, "Failed memory check"}
+            ct:fail("Failed memory check")
     end.
 
 
@@ -5819,10 +5793,10 @@ stop_loopers(Loopers) ->
 looper(Fun, State) ->
     looper(Fun, Fun(State)).
 
-spawn_logger(Procs, FailedMemchecks) ->
+spawn_logger(Procs) ->
     receive
 	{new_test_proc, Proc} ->
-	    spawn_logger([Proc|Procs], FailedMemchecks);
+	    spawn_logger([Proc|Procs]);
 	{sync_test_procs, Kill, From} ->
 	    lists:foreach(fun (Proc) when From == Proc ->
 				  ok;
@@ -5846,14 +5820,7 @@ spawn_logger(Procs, FailedMemchecks) ->
 				  end
 			  end, Procs),
 	    From ! test_procs_synced,
-	    spawn_logger([From], FailedMemchecks);
-
-	{failed_memcheck, TestCase} ->
-	    spawn_logger(Procs, [TestCase|FailedMemchecks]);
-
-	{Pid, get_failed_memchecks} ->
-	    Pid ! {get_failed_memchecks, FailedMemchecks},
-	    spawn_logger(Procs, FailedMemchecks)
+	    spawn_logger([From])
     end.
 
 pid_status(Pid) ->
@@ -5869,7 +5836,7 @@ start_spawn_logger() ->
     case whereis(ets_test_spawn_logger) of
 	Pid when is_pid(Pid) -> true;
 	_ -> register(ets_test_spawn_logger,
-		      spawn_opt(fun () -> spawn_logger([], []) end,
+		      spawn_opt(fun () -> spawn_logger([]) end,
 				[{priority, max}]))
     end.
 
