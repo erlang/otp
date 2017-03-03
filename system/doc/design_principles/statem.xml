@@ -1180,6 +1180,17 @@ open(state_timeout, lock, Data) ->
     {next_state, locked, Data};
 ...
     ]]></code>
+    <p>
+      You can repeat the state entry code by returning one of
+      <c>{repeat_state, ...}</c>, <c>{repeat_state_and_data,_}</c>
+      or <c>repeat_state_and_data</c> that otherwise behaves
+      exactly like their <c>keep_state</c> siblings.
+      See the type
+      <seealso marker="stdlib:gen_statem#type-state_callback_result">
+	<c>state_callback_result()</c>
+      </seealso>
+      in the reference manual.
+    </p>
   </section>
 
 <!-- =================================================================== -->
