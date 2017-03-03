@@ -2321,8 +2321,8 @@ spawn_opt(_Tuple) ->
       Total_Reductions :: non_neg_integer(),
       Reductions_Since_Last_Call :: non_neg_integer();
                 (run_queue) -> non_neg_integer();
-                (run_queue_lengths) -> [RunQueueLenght] when
-      RunQueueLenght :: non_neg_integer();
+                (run_queue_lengths) -> [RunQueueLength] when
+      RunQueueLength :: non_neg_integer();
                 (runtime) -> {Total_Run_Time, Time_Since_Last_Call} when
       Total_Run_Time :: non_neg_integer(),
       Time_Since_Last_Call :: non_neg_integer();
@@ -2336,8 +2336,8 @@ spawn_opt(_Tuple) ->
       TotalTime   :: non_neg_integer();
 		(total_active_tasks) -> ActiveTasks when
       ActiveTasks :: non_neg_integer();
-                (total_run_queue_lengths) -> TotalRunQueueLenghts when
-      TotalRunQueueLenghts :: non_neg_integer();
+                (total_run_queue_lengths) -> TotalRunQueueLengths when
+      TotalRunQueueLengths :: non_neg_integer();
                 (wall_clock) -> {Total_Wallclock_Time,
                                  Wallclock_Time_Since_Last_Call} when
       Total_Wallclock_Time :: non_neg_integer(),

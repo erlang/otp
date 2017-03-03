@@ -3163,7 +3163,7 @@
           <p>
 	    Two bugs in io:format for ~F.~Ps has been corrected. When
 	    length(S) >= abs(F) > P, the precision P was incorrectly
-	    ignored. When F == P > lenght(S) the result was
+	    ignored. When F == P > length(S) the result was
 	    incorrectly left adjusted. Bug found by Ali Yakout who
 	    also provided a fix.</p>
           <p>

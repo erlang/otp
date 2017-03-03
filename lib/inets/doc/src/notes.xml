@@ -713,7 +713,7 @@
       <list>
         <item>
           <p>
-	    Gracefully handle invalid content-lenght headers instead
+	    Gracefully handle invalid content-length headers instead
 	    of crashing in list_to_integer.</p>
           <p>
 	    Own Id: OTP-12429</p>
