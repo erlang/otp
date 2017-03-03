@@ -454,7 +454,7 @@ transition({timeout, _}, _) ->
 %% Outgoing message.
 transition({send, Msg}, S) ->
     outgoing(Msg, S);
-transition({send, Route, Msg}, S) ->
+transition({send, Msg, Route}, S) ->
     put_route(Route),
     outgoing(Msg, S);
 
@@ -503,9 +503,6 @@ transition({state, Pid}, #state{state = S, transport = TPid}) ->
 %%
 %% Map identifiers in an outgoing request to be able to lookup the
 %% handler process when the answer is received.
-
-put_route(false) ->
-    ok;
 
 put_route({Pid, Ref, Seqs}) ->
     MRef = monitor(process, Pid),

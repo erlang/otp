@@ -511,7 +511,7 @@ send_A(T, TPid, {AppDict, Dict0} = DictT0, ReqPkt, EvalPktFs, EvalFs) ->
     {MsgDict, Pkt} = reply(T, TPid, DictT0, EvalPktFs, ReqPkt),
     incr(send, Pkt, TPid, AppDict),
     incr_rc(send, Pkt, TPid, {MsgDict, AppDict, Dict0}),  %% count outgoing
-    send(TPid, false, Pkt),
+    send(TPid, Pkt),
     lists:foreach(fun diameter_lib:eval/1, EvalFs).
 
 %% answer/6
@@ -1683,10 +1683,13 @@ encode(_, _, #diameter_packet{} = Pkt) ->
     Pkt.
 
 %% zend_requezt/5
+%%
+%% Strip potentially large record fields that aren't used by the
+%% processes the records can be send to, possibly on a remote node.
 
 zend_requezt(TPid, Pkt, Req, SvcName, Timeout) ->
     put(TPid, Req),
-    send_request(TPid, Pkt, Req, SvcName, Timeout).
+    send_request(TPid, z(Pkt), Req, SvcName, Timeout).
 
 %% send_request/5
 
@@ -1694,22 +1697,37 @@ send_request(TPid, #diameter_packet{bin = Bin} = Pkt, Req, _SvcName, Timeout)
   when node() == node(TPid) ->
     Seqs = diameter_codec:sequence_numbers(Bin),
     TRef = erlang:start_timer(Timeout, self(), TPid),
-    send(TPid, _Route = {self(), Req#request.ref, Seqs}, Pkt),
+    send(TPid, Pkt, _Route = {self(), Req#request.ref, Seqs}),
     {TRef, _MRef = peer_monitor(TPid, TRef)};
 
 %% Send using a remote transport: spawn a process on the remote node
 %% to relay the answer.
 send_request(TPid, #diameter_packet{} = Pkt, Req, SvcName, Timeout) ->
     TRef = erlang:start_timer(Timeout, self(), TPid),
-    T = {TPid, Pkt, Req, SvcName, Timeout, TRef},
+    T = {TPid, Pkt, z(Req), SvcName, Timeout, TRef},
     spawn(node(TPid), ?MODULE, send, [T]),
     {TRef, false}.
+
+%% z/1
+%%
+%% Avoid sending potentially large terms unnecessarily. The records
+%% themselves are retained since they're sent between nodes in send/1
+%% and changing what's sent causes upgrade issues.
+
+z(#request{ref = Ref, handler = Pid}) ->
+    #request{ref = Ref,
+             handler = Pid};
+
+z(#diameter_packet{header = H, bin = Bin, transport_data = T}) ->
+    #diameter_packet{header = H,
+                     bin = Bin,
+                     transport_data = T}.
 
 %% send/1
 
 send({TPid, Pkt, #request{handler = Pid} = Req0, SvcName, Timeout, TRef}) ->
     Req = Req0#request{handler = self()},
-    recv(TPid, Pid, TRef, send_request(TPid, Pkt, Req, SvcName, Timeout)).
+    recv(TPid, Pid, TRef, zend_requezt(TPid, Pkt, Req, SvcName, Timeout)).
 
 %% recv/4
 %%
@@ -1727,16 +1745,15 @@ recv(TPid, Pid, TRef, {LocalTRef, MRef}) ->
             exit({timeout, LocalTRef, TPid} = T)
     end.
 
+%% send/2
+
+send(Pid, Pkt) ->
+    Pid ! {send, Pkt}.
+
 %% send/3
 
-send(Pid, Route, Pkt) ->  %% Strip potentially large message terms.
-    #diameter_packet{header = H,
-                     bin = Bin,
-                     transport_data = T}
-        = Pkt,
-    Pid ! {send, Route, #diameter_packet{header = H,
-                                         bin = Bin,
-                                         transport_data = T}}.
+send(Pid, Pkt, Route) ->
+    Pid ! {send, Pkt, Route}.
 
 %% retransmit/4
 
