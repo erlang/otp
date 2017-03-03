@@ -636,7 +636,8 @@ create_connect_dialog(connect, #state{frame = Frame}) ->
 
     wxWindow:setSizerAndFit(Dialog, VSizer),
     wxSizer:setSizeHints(VSizer, Dialog),
-    CookiePath = filename:join(os:getenv("HOME"), ".erlang.cookie"),
+    {ok,[[HomeDir]]} = init:get_argument(home),
+    CookiePath = filename:join(HomeDir, ".erlang.cookie"),
     DefaultCookie = case filelib:is_file(CookiePath) of
 			true ->
 			    {ok, Bin} = file:read_file(CookiePath),
