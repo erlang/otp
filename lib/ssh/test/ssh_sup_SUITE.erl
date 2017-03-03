@@ -101,6 +101,7 @@ default_tree(Config) when is_list(Config) ->
     ?wait_match([], supervisor:which_children(sshc_sup)),
     ?wait_match([], supervisor:which_children(sshd_sup)).
 
+%%-------------------------------------------------------------------------
 sshc_subtree() ->
     [{doc, "Make sure the sshc subtree is correct"}].
 sshc_subtree(Config) when is_list(Config) ->
@@ -129,6 +130,7 @@ sshc_subtree(Config) when is_list(Config) ->
     ssh:close(Pid2),
     ?wait_match([], supervisor:which_children(sshc_sup)).
 
+%%-------------------------------------------------------------------------
 sshd_subtree() ->
     [{doc, "Make sure the sshd subtree is correct"}].
 sshd_subtree(Config) when is_list(Config) ->
@@ -150,6 +152,7 @@ sshd_subtree(Config) when is_list(Config) ->
     ct:sleep(?WAIT_FOR_SHUTDOWN),
     ?wait_match([], supervisor:which_children(sshd_sup)).
 
+%%-------------------------------------------------------------------------
 sshd_subtree_profile() ->
     [{doc, "Make sure the sshd subtree using profile option is correct"}].	
 sshd_subtree_profile(Config) when is_list(Config) ->
@@ -174,43 +177,6 @@ sshd_subtree_profile(Config) when is_list(Config) ->
     ?wait_match([], supervisor:which_children(sshd_sup)).
 
 %%-------------------------------------------------------------------------
-check_sshd_system_tree(Daemon, Config) -> 
-    Host = proplists:get_value(host, Config),
-    Port = proplists:get_value(port, Config),
-    UserDir = proplists:get_value(userdir, Config),
-    {ok, Client} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
-						   {user_interaction, false},
-						   {user, ?USER}, {password, ?PASSWD},{user_dir, UserDir}]),
-    
-    ?wait_match([{_,SubSysSup, supervisor,[ssh_subsystem_sup]},
-		 {{ssh_acceptor_sup,_,_,_}, AccSup, supervisor,[ssh_acceptor_sup]}],
-		supervisor:which_children(Daemon),
-	       [SubSysSup,AccSup]),
-    
-    ?wait_match([{{server,ssh_connection_sup, _,_},
-		  ConnectionSup, supervisor,
-		  [ssh_connection_sup]},
-		 {{server,ssh_channel_sup,_ ,_},
-		  ChannelSup,supervisor,
-		  [ssh_channel_sup]}],
-		supervisor:which_children(SubSysSup),
-		[ConnectionSup,ChannelSup]),
-    
-    ?wait_match([{{ssh_acceptor_sup,_,_,_},_,worker,[ssh_acceptor]}],
-		supervisor:which_children(AccSup)),
-    
-    ?wait_match([{_, _, worker,[ssh_connection_handler]}],
-		supervisor:which_children(ConnectionSup)),
-    
-    ?wait_match([], supervisor:which_children(ChannelSup)),
-    
-    ssh_sftp:start_channel(Client),
-
-    ?wait_match([{_, _,worker,[ssh_channel]}],
-		supervisor:which_children(ChannelSup)),
-    ssh:close(Client).
-
-%%-------------------------------------------------------------------------
 killed_acceptor_restarts(Config) ->
     Profile = proplists:get_value(profile, Config), 
     SystemDir = proplists:get_value(data_dir, Config),
@@ -225,12 +191,8 @@ killed_acceptor_restarts(Config) ->
                                      {user_passwords, [{?USER, ?PASSWD}]},
                                      {profile, Profile}]),
 
-    {ok,Dinf} = ssh:daemon_info(DaemonPid),
-    Port = proplists:get_value(port, Dinf),
-
-    {ok,Dinf2} = ssh:daemon_info(DaemonPid2),
-    Port2 = proplists:get_value(port, Dinf2),
-    
+    Port  = ssh_test_lib:daemon_port(DaemonPid),
+    Port2 = ssh_test_lib:daemon_port(DaemonPid2),
     true = (Port /= Port2),
 
     ct:pal("~s",[lists:flatten(ssh_info:string())]),
@@ -279,7 +241,47 @@ killed_acceptor_restarts(Config) ->
     {error,closed} = ssh:connection_info(C1,[client_version]),
     {error,closed} = ssh:connection_info(C2,[client_version]).
     
-%%%================================================================
+%%-------------------------------------------------------------------------
+%% Help functions
+%%-------------------------------------------------------------------------
+check_sshd_system_tree(Daemon, Config) -> 
+    Host = proplists:get_value(host, Config),
+    Port = proplists:get_value(port, Config),
+    UserDir = proplists:get_value(userdir, Config),
+    {ok, Client} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                            {user_interaction, false},
+                                            {user, ?USER},
+                                            {password, ?PASSWD},
+                                            {user_dir, UserDir}]),
+    
+    ?wait_match([{_,SubSysSup, supervisor,[ssh_subsystem_sup]},
+		 {{ssh_acceptor_sup,_,_,_}, AccSup, supervisor,[ssh_acceptor_sup]}],
+		supervisor:which_children(Daemon),
+                [SubSysSup,AccSup]),
+    
+    ?wait_match([{{server,ssh_connection_sup, _,_},
+		  ConnectionSup, supervisor,
+		  [ssh_connection_sup]},
+		 {{server,ssh_channel_sup,_ ,_},
+		  ChannelSup,supervisor,
+		  [ssh_channel_sup]}],
+		supervisor:which_children(SubSysSup),
+		[ConnectionSup,ChannelSup]),
+    
+    ?wait_match([{{ssh_acceptor_sup,_,_,_},_,worker,[ssh_acceptor]}],
+		supervisor:which_children(AccSup)),
+    
+    ?wait_match([{_, _, worker,[ssh_connection_handler]}],
+		supervisor:which_children(ConnectionSup)),
+    
+    ?wait_match([], supervisor:which_children(ChannelSup)),
+    
+    ssh_sftp:start_channel(Client),
+
+    ?wait_match([{_, _,worker,[ssh_channel]}],
+		supervisor:which_children(ChannelSup)),
+    ssh:close(Client).
+
 acceptor_pid(DaemonPid) ->
     Parent = self(),
     Pid = spawn(fun() ->
@@ -308,4 +310,3 @@ acceptor_pid(DaemonPid) ->
     receive {Pid, supsearch, L} -> {ok,L}
     after 2000 -> timeout
     end.
-              

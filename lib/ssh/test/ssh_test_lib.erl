@@ -64,6 +64,9 @@ daemon(Host, Port, Options) ->
 	    Error
     end.
 
+daemon_port(Pid) -> daemon_port(0, Pid).
+    
+
 daemon_port(0, Pid) -> {ok,Dinf} = ssh:daemon_info(Pid),
 		       proplists:get_value(port, Dinf);
 daemon_port(Port, _) -> Port.

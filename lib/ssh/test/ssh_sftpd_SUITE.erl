@@ -151,8 +151,8 @@ init_per_testcase(TestCase, Config) ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([])],
 			  ssh:daemon(0, [{subsystems, SubSystems}|Options])
 		  end,
-    {ok,Dinf} = ssh:daemon_info(Sftpd),
-    Port = proplists:get_value(port, Dinf),
+
+    Port = ssh_test_lib:daemon_port(Sftpd),
     
     Cm = ssh_test_lib:connect(Port,
 			      [{user_dir, ClientUserDir},
