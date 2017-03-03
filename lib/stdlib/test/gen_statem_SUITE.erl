@@ -38,7 +38,7 @@ all() ->
      {group, abnormal},
      {group, abnormal_handle_event},
      shutdown, stop_and_reply, state_enter, event_order,
-     state_timeout, code_change,
+     state_timeout, event_types, code_change,
      {group, sys},
      hibernate, enter_loop].
 
@@ -600,15 +600,26 @@ state_enter(_Config) ->
 		  (internal, Prev, N) ->
 		      Self ! {internal,start,Prev,N},
 		      {keep_state,N + 1};
+		  ({call,From}, repeat, N) ->
+		      {repeat_state,N + 1,
+		       [{reply,From,{repeat,start,N}}]};
 		  ({call,From}, echo, N) ->
-		      {next_state,wait,N + 1,{reply,From,{echo,start,N}}};
+		      {next_state,wait,N + 1,
+		       {reply,From,{echo,start,N}}};
 		  ({call,From}, {stop,Reason}, N) ->
-		      {stop_and_reply,Reason,[{reply,From,{stop,N}}],N + 1}
+		      {stop_and_reply,Reason,
+		       [{reply,From,{stop,N}}],N + 1}
 	      end,
 	  wait =>
-	      fun (enter, Prev, N) ->
+	      fun (enter, Prev, N) when N < 5 ->
+		      {repeat_state,N + 1,
+		       {reply,{Self,N},{enter,Prev}}};
+		  (enter, Prev, N) ->
 		      Self ! {enter,wait,Prev,N},
 		      {keep_state,N + 1};
+		  ({call,From}, repeat, N) ->
+		      {repeat_state_and_data,
+		       [{reply,From,{repeat,wait,N}}]};
 		  ({call,From}, echo, N) ->
 		      {next_state,start,N + 1,
 		       [{next_event,internal,wait},
@@ -620,11 +631,15 @@ state_enter(_Config) ->
 
     [{enter,start,start,1}] = flush(),
     {echo,start,2} = gen_statem:call(STM, echo),
-    [{enter,wait,start,3}] = flush(),
-    {wait,[4|_]} = sys:get_state(STM),
-    {echo,wait,4} = gen_statem:call(STM, echo),
-    [{enter,start,wait,5},{internal,start,wait,6}] = flush(),
-    {stop,7} = gen_statem:call(STM, {stop,bye}),
+    [{3,{enter,start}},{4,{enter,start}},{enter,wait,start,5}] = flush(),
+    {wait,[6|_]} = sys:get_state(STM),
+    {repeat,wait,6} = gen_statem:call(STM, repeat),
+    [{enter,wait,wait,6}] = flush(),
+    {echo,wait,7} = gen_statem:call(STM, echo),
+    [{enter,start,wait,8},{internal,start,wait,9}] = flush(),
+    {repeat,start,10} = gen_statem:call(STM, repeat),
+    [{enter,start,start,11}] = flush(),
+    {stop,12} = gen_statem:call(STM, {stop,bye}),
     [{'EXIT',STM,bye}] = flush(),
 
     {noproc,_} =
@@ -798,6 +813,74 @@ state_timeout(_Config) ->
     end,
 
     verify_empty_msgq().
+
+
+
+%% Test that all event types can be sent with {next_event,EventType,_}
+event_types(_Config) ->
+    process_flag(trap_exit, true),
+
+    Machine =
+	%% Abusing the internal format of From...
+	#{init =>
+	      fun () ->
+		      {ok, start, undefined}
+	      end,
+	  start =>
+	      fun ({call,_} = Call, Req, undefined) ->
+		      {next_state, state1, undefined,
+		       [{next_event,internal,1},
+			{next_event,state_timeout,2},
+			{next_event,timeout,3},
+			{next_event,info,4},
+			{next_event,cast,5},
+			{next_event,Call,Req}]}
+	      end,
+	  state1 =>
+	      fun (internal, 1, undefined) ->
+		      {next_state, state2, undefined}
+	      end,
+	  state2 =>
+	      fun (state_timeout, 2, undefined) ->
+		      {next_state, state3, undefined}
+	      end,
+	  state3 =>
+	      fun (timeout, 3, undefined) ->
+		      {next_state, state4, undefined}
+	      end,
+	  state4 =>
+	      fun (info, 4, undefined) ->
+		      {next_state, state5, undefined}
+	      end,
+	  state5 =>
+	      fun (cast, 5, undefined) ->
+		      {next_state, state6, undefined}
+	      end,
+	  state6 =>
+	      fun ({call,From}, stop, undefined) ->
+		      {stop_and_reply, shutdown,
+		       [{reply,From,stopped}]}
+	      end},
+    {ok,STM} =
+	gen_statem:start_link(
+	  ?MODULE, {map_statem,Machine,[]}, [{debug,[trace]}]),
+
+    stopped = gen_statem:call(STM, stop),
+    receive
+	{'EXIT',STM,shutdown} ->
+	    ok
+    after 500 ->
+	    ct:fail(did_not_stop)
+    end,
+
+    {noproc,_} =
+	?EXPECT_FAILURE(gen_statem:call(STM, hej), Reason),
+    case flush() of
+	[] ->
+	    ok;
+	Other2 ->
+	    ct:fail({unexpected,Other2})
+    end.
 
 
 
@@ -1722,6 +1805,10 @@ handle_event(
 	    {keep_state,[NewData|Machine]};
 	{keep_state,NewData,Ops} ->
 	    {keep_state,[NewData|Machine],Ops};
+	{repeat_state,NewData} ->
+	    {repeat_state,[NewData|Machine]};
+	{repeat_state,NewData,Ops} ->
+	    {repeat_state,[NewData|Machine],Ops};
 	Other ->
 	    Other
     end;
