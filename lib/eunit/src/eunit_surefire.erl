@@ -424,6 +424,7 @@ escape_suitename(String) ->
 escape_suitename([], Acc) -> lists:reverse(Acc);
 escape_suitename([$  | Tail], Acc) -> escape_suitename(Tail, [$_ | Acc]);
 escape_suitename([$' | Tail], Acc) -> escape_suitename(Tail, Acc);
+escape_suitename([$" | Tail], Acc) -> escape_suitename(Tail, Acc);
 escape_suitename([$/ | Tail], Acc) -> escape_suitename(Tail, [$: | Acc]);
 escape_suitename([$\\ | Tail], Acc) -> escape_suitename(Tail, [$: | Acc]);
 escape_suitename([Char | Tail], Acc) when Char < $! -> escape_suitename(Tail, Acc);
