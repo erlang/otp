@@ -1306,16 +1306,15 @@ range_rem(Range1, Range2) ->
   Min1_geq_zero = inf_geq(Min1, 0),
   Max1_leq_zero = inf_geq(0, Max1),
   Max_range2 = inf_max([inf_abs(Min2), inf_abs(Max2)]),
-  Max_range2_leq_zero = inf_geq(0, Max_range2),
   New_min = 
     if Min1_geq_zero ->	0;
-       Max_range2_leq_zero -> Max_range2;
-       true -> inf_inv(Max_range2)
+       Max_range2 =:= 0 -> 0;
+       true -> inf_add(inf_inv(Max_range2), 1)
     end,
   New_max = 
     if Max1_leq_zero -> 0;
-       Max_range2_leq_zero -> inf_inv(Max_range2);
-       true -> Max_range2
+       Max_range2 =:= 0 -> 0;
+       true -> inf_add(Max_range2, -1)
     end,
   range_init({New_min, New_max}, false).
 
