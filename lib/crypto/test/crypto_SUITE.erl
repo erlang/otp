@@ -36,7 +36,8 @@ all() ->
      {group, non_fips},
      mod_pow,
      exor,
-     rand_uniform
+     rand_uniform,
+     rand_uniform_float
     ].
 
 groups() ->
@@ -468,6 +469,64 @@ rand_uniform() ->
 rand_uniform(Config) when is_list(Config) ->
     rand_uniform_aux_test(10),
     10 = byte_size(crypto:strong_rand_bytes(10)).
+
+%%--------------------------------------------------------------------
+rand_uniform_float() ->
+    [{doc, "rand_uniform_float testing"}].
+rand_uniform_float(Config) when is_list(Config) ->
+    rand_uniform_float_aux_test(1000,  -1.0e42,  -1.0e2),
+
+    rand_uniform_float_aux_test(1000,  -1.0e42,  -1.0),
+    rand_uniform_float_aux_test(1000,  -1.0e2,   -1.0),
+
+    rand_uniform_float_aux_test(1000,  -1.0e42,  -1.0e-2),
+    rand_uniform_float_aux_test(1000,  -1.0e2,   -1.0e-2),
+    rand_uniform_float_aux_test(1000,  -1.0,     -1.0e-2),
+
+    rand_uniform_float_aux_test(1000,  -1.0e42,  -1.0e-42),
+    rand_uniform_float_aux_test(1000,  -1.0e2,   -1.0e-42),
+    rand_uniform_float_aux_test(1000,  -1.0,     -1.0e-42),
+    rand_uniform_float_aux_test(1000,  -1.0e-2,  -1.0e-42),
+
+    rand_uniform_float_aux_test(1000,  -1.0e42,   0.0),
+    rand_uniform_float_aux_test(1000,  -1.0e2,    0.0),
+    rand_uniform_float_aux_test(1000,  -1.0,      0.0),
+    rand_uniform_float_aux_test(1000,  -1.0e-2,   0.0),
+    rand_uniform_float_aux_test(1000,  -1.0e-42,  0.0),
+
+    rand_uniform_float_aux_test(1000,  -1.0e42,   1.0e-2),
+    rand_uniform_float_aux_test(1000,  -1.0e2,    1.0e-2),
+    rand_uniform_float_aux_test(1000,  -1.0,      1.0e-2),
+    rand_uniform_float_aux_test(1000,  -1.0e-2,   1.0e-2),
+    rand_uniform_float_aux_test(1000,  -1.0e-42,  1.0e-2),
+    rand_uniform_float_aux_test(1000,   0.0,      1.0e-2),
+
+    rand_uniform_float_aux_test(1000,  -1.0e42,   1.0),
+    rand_uniform_float_aux_test(1000,  -1.0e2,    1.0),
+    rand_uniform_float_aux_test(1000,  -1.0,      1.0),
+    rand_uniform_float_aux_test(1000,  -1.0e-2,   1.0),
+    rand_uniform_float_aux_test(1000,  -1.0e-42,  1.0),
+    rand_uniform_float_aux_test(1000,   0.0,      1.0),
+    rand_uniform_float_aux_test(1000,   1.0e-2,   1.0),
+
+    rand_uniform_float_aux_test(1000,  -1.0e42,   1.0e2),
+    rand_uniform_float_aux_test(1000,  -1.0e2,    1.0e2),
+    rand_uniform_float_aux_test(1000,  -1.0,      1.0e2),
+    rand_uniform_float_aux_test(1000,  -1.0e-2,   1.0e2),
+    rand_uniform_float_aux_test(1000,  -1.0e-42,  1.0e2),
+    rand_uniform_float_aux_test(1000,   0.0,      1.0e2),
+    rand_uniform_float_aux_test(1000,   1.0e-2,   1.0e2),
+    rand_uniform_float_aux_test(1000,   1.0,      1.0e2),
+
+    rand_uniform_float_aux_test(1000,  -1.0e42,   1.0e42),
+    rand_uniform_float_aux_test(1000,  -1.0e2,    1.0e42),
+    rand_uniform_float_aux_test(1000,  -1.0,      1.0e42),
+    rand_uniform_float_aux_test(1000,  -1.0e-2,   1.0e42),
+    rand_uniform_float_aux_test(1000,  -1.0e-42,  1.0e42),
+    rand_uniform_float_aux_test(1000,   0.0,      1.0e42),
+    rand_uniform_float_aux_test(1000,   1.0e-2,   1.0e42),
+    rand_uniform_float_aux_test(1000,   1.0,      1.0e42),
+    rand_uniform_float_aux_test(1000,   1.0e2,    1.0e42).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
@@ -931,6 +990,24 @@ crypto_rand_uniform(L,H) ->
 	false ->
 	    ct:fail({"Not in interval", R1, L, H})
     end.
+
+rand_uniform_float_aux_test(NumberOfSamples, MinSample, MaxSample) ->
+    Generator =
+        case {MinSample, MaxSample} of
+            {0.0, 1.0} -> fun crypto:rand_uniform_float/0;
+            _          -> fun () -> crypto:rand_uniform_float(MinSample, MaxSample) end
+        end,
+
+    Samples = [Generator() || _ <- lists:seq(1, NumberOfSamples)],
+
+    % Verify all samples are within bounds
+    %
+    lists:foreach(
+      fun (Sample) ->
+              Sample >= MinSample orelse exit({sample_less_than_minimum, Sample}),
+              Sample < MaxSample orelse exit({sample_greater_or_equal_to_maximum, Sample})
+      end,
+      Samples).
 
 %%--------------------------------------------------------------------
 %% Test data ------------------------------------------------

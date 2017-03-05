@@ -31,6 +31,8 @@
 -export([cmac/3, cmac/4]).
 -export([exor/2, strong_rand_bytes/1, mod_pow/3]).
 -export([rand_uniform/2]).
+-export([rand_uniform_float/0]).
+-export([rand_uniform_float/2]).
 -export([block_encrypt/3, block_decrypt/3, block_encrypt/4, block_decrypt/4]).
 -export([next_iv/2, next_iv/3]).
 -export([stream_init/2, stream_init/3, stream_encrypt/2, stream_decrypt/2]).
@@ -288,6 +290,8 @@ stream_decrypt(State, Data0) ->
 -spec strong_rand_bytes(non_neg_integer()) -> binary().
 -spec rand_uniform(crypto_integer(), crypto_integer()) ->
 			  crypto_integer().
+-spec rand_uniform_float() -> float().
+-spec rand_uniform_float(number(), number()) -> float().
 
 strong_rand_bytes(Bytes) ->
     case strong_rand_bytes_nif(Bytes) of
@@ -324,6 +328,19 @@ rand_uniform_pos(_,_) ->
     error(badarg).
 
 rand_uniform_nif(_From,_To) -> ?nif_stub.
+
+
+rand_uniform_float() ->
+    Sign = 0, % positive
+    Exponent = 1023, % on the interval [1.0, 2.0[
+    Fraction = rand_uniform_pos(0, 1 bsl 52), % the whole interval above
+    <<Value:64/big-float>> = <<Sign:1, Exponent:11, Fraction:52>>,
+    Value - 1.0.
+
+rand_uniform_float(From, To) when is_number(From), is_number(To), To > From ->
+    Range = To - From,
+    From + (rand_uniform_float() * Range).
+
 
 -spec rand_seed(binary()) -> ok.
 rand_seed(Seed) ->
