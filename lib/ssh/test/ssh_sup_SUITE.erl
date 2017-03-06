@@ -41,7 +41,8 @@ suite() ->
      {timetrap,{seconds,100}}].
 
 all() -> 
-    [default_tree, sshc_subtree, sshd_subtree, sshd_subtree_profile].
+    [default_tree, sshc_subtree, sshd_subtree, sshd_subtree_profile,
+     killed_acceptor_restarts].
 
 groups() -> 
     [].
@@ -172,7 +173,7 @@ sshd_subtree_profile(Config) when is_list(Config) ->
     ct:sleep(?WAIT_FOR_SHUTDOWN),
     ?wait_match([], supervisor:which_children(sshd_sup)).
 
-
+%%-------------------------------------------------------------------------
 check_sshd_system_tree(Daemon, Config) -> 
     Host = proplists:get_value(host, Config),
     Port = proplists:get_value(port, Config),
@@ -208,4 +209,103 @@ check_sshd_system_tree(Daemon, Config) ->
     ?wait_match([{_, _,worker,[ssh_channel]}],
 		supervisor:which_children(ChannelSup)),
     ssh:close(Client).
-  
+
+%%-------------------------------------------------------------------------
+killed_acceptor_restarts(Config) ->
+    Profile = proplists:get_value(profile, Config), 
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(userdir, Config),
+    {ok, DaemonPid} = ssh:daemon(0, [{system_dir, SystemDir},
+                                     {failfun, fun ssh_test_lib:failfun/2},
+                                     {user_passwords, [{?USER, ?PASSWD}]},
+                                     {profile, Profile}]),
+
+    {ok, DaemonPid2} = ssh:daemon(0, [{system_dir, SystemDir},
+                                     {failfun, fun ssh_test_lib:failfun/2},
+                                     {user_passwords, [{?USER, ?PASSWD}]},
+                                     {profile, Profile}]),
+
+    {ok,Dinf} = ssh:daemon_info(DaemonPid),
+    Port = proplists:get_value(port, Dinf),
+
+    {ok,Dinf2} = ssh:daemon_info(DaemonPid2),
+    Port2 = proplists:get_value(port, Dinf2),
+    
+    true = (Port /= Port2),
+
+    ct:pal("~s",[lists:flatten(ssh_info:string())]),
+
+    {ok,[{AccPid,ListenAddr,Port}]} = acceptor_pid(DaemonPid),
+    {ok,[{AccPid2,ListenAddr,Port2}]} = acceptor_pid(DaemonPid2),
+
+    true = (AccPid /= AccPid2),
+
+    %% Connect first client and check it is alive:
+    {ok,C1} = ssh:connect("localhost", Port, [{silently_accept_hosts, true},
+                                              {user_interaction, false},
+                                              {user, ?USER},
+                                              {password, ?PASSWD},
+                                              {user_dir, UserDir}]),
+    [{client_version,_}] = ssh:connection_info(C1,[client_version]),
+
+    %% Make acceptor restart:
+    exit(AccPid, kill),
+
+    %% Check it is a new acceptor:
+    {ok,[{AccPid1,ListenAddr,Port}]} = acceptor_pid(DaemonPid),
+    true = (AccPid /= AccPid1),
+    true = (AccPid2 /= AccPid1),
+
+    %% Connect second client and check it is alive:
+    {ok,C2} = ssh:connect("localhost", Port, [{silently_accept_hosts, true},
+                                              {user_interaction, false},
+                                              {user, ?USER},
+                                              {password, ?PASSWD},
+                                              {user_dir, UserDir}]),
+    [{client_version,_}] = ssh:connection_info(C2,[client_version]),
+    
+    ct:pal("~s",[lists:flatten(ssh_info:string())]),
+
+    %% Check first client is still alive:
+    [{client_version,_}] = ssh:connection_info(C1,[client_version]),
+    
+    ok = ssh:stop_daemon(DaemonPid2),
+    timer:sleep(15000),
+    [{client_version,_}] = ssh:connection_info(C1,[client_version]),
+    [{client_version,_}] = ssh:connection_info(C2,[client_version]),
+    
+    ok = ssh:stop_daemon(DaemonPid),
+    timer:sleep(15000),
+    {error,closed} = ssh:connection_info(C1,[client_version]),
+    {error,closed} = ssh:connection_info(C2,[client_version]).
+    
+%%%================================================================
+acceptor_pid(DaemonPid) ->
+    Parent = self(),
+    Pid = spawn(fun() ->
+                        Parent ! {self(), supsearch,
+                                  [{AccPid,ListenAddr,Port}
+
+                                   || {{server,ssh_system_sup,ListenAddr,Port,NS},
+                                       DPid,supervisor,
+                                       [ssh_system_sup]} <- supervisor:which_children(sshd_sup),
+                                      DPid == DaemonPid,
+
+                                      {{ssh_acceptor_sup,L1,P1,NS1},
+                                       AccSupPid,supervisor,
+                                       [ssh_acceptor_sup]} <- supervisor:which_children(DaemonPid),
+                                      L1 == ListenAddr,
+                                      P1 == Port,
+                                      NS1 == NS1,
+
+                                      {{ssh_acceptor_sup,L2,P2,NS2},
+                                       AccPid,worker,
+                                       [ssh_acceptor]} <- supervisor:which_children(AccSupPid),
+                                      L2 == ListenAddr,
+                                      P2 == Port,
+                                      NS2 == NS]}
+                end),
+    receive {Pid, supsearch, L} -> {ok,L}
+    after 2000 -> timeout
+    end.
+              
