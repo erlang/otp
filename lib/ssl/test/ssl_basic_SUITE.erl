@@ -164,7 +164,6 @@ api_tests() ->
      ssl_recv_timeout,
      server_name_indication_option,
      accept_pool,
-     new_options_in_accept,
      prf
     ].
 
@@ -177,7 +176,8 @@ api_tests_tls() ->
      tls_shutdown,
      tls_shutdown_write,
      tls_shutdown_both,
-     tls_shutdown_error
+     tls_shutdown_error,
+     new_options_in_accept
     ].
 
 session_tests() ->

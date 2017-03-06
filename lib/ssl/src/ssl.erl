@@ -196,10 +196,12 @@ ssl_accept(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts, Timeout) when
     catch
 	Error = {error, _Reason} -> Error
     end;
-ssl_accept(#sslsocket{fd = {_, _, _}} = Socket, SslOpts, Timeout) when
+ssl_accept(#sslsocket{pid = Pid, fd = {_, _, _}} = Socket, SslOpts, Timeout) when
       (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
     try
-	ssl_connection:handshake(Socket, {SslOpts, []}, Timeout)
+        {ok, EmOpts, _} = dtls_udp_listener:get_all_opts(Pid),
+	ssl_connection:handshake(Socket, {SslOpts,  
+                                          tls_socket:emulated_socket_options(EmOpts, #socket_options{})}, Timeout)
     catch
 	Error = {error, _Reason} -> Error
     end;

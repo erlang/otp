@@ -488,7 +488,7 @@ handle_common_event(internal, #ssl_tls{type = ?HANDSHAKE,
 			   negotiated_version = Version} = State0) ->
     try
 	case dtls_handshake:get_dtls_handshake(Version, Data, Buffers0) of
-	    {more_data, Buffers} ->
+	    {[], Buffers} ->
 		{Record, State} = next_record(State0#state{protocol_buffers = Buffers}),
 		next_event(StateName, Record, State);
 	    {Packets, Buffers} ->
