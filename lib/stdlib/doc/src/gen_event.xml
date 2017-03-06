@@ -579,11 +579,12 @@ gen_event:stop             ----->  Module:terminate/2
         <v>Extra = term()</v>
       </type>
       <desc>
-         <note>
-          <p>This callback is optional, so callback modules need not
-            export it. The <c>gen_event</c> module provides a default
-            implementation of this function that returns
-            <c>{ok, State}</c>.</p>
+        <note>
+          <p>This callback is optional, so callback modules need not export it.
+            If a release upgrade/downgrade with <c>Change={advanced,Extra}</c>
+            specified in the <c>.appup</c> file is made when <c>code_change/3</c>
+            isn't implemented the event handler will crash with an <c>undef</c> error
+            reason.</p>
         </note>
         <p>This function is called for an installed event handler that
           is to update its internal state during a release
@@ -677,7 +678,7 @@ gen_event:stop             ----->  Module:terminate/2
         <v>&nbsp;&nbsp;Id = term()</v>
       </type>
       <desc>
-         <note>
+        <note>
           <p>This callback is optional, so callback modules need not
             export it. If
             <seealso marker="#call/3"><c>call/3,4</c></seealso> is called
@@ -772,11 +773,11 @@ gen_event:stop             ----->  Module:terminate/2
         <v>&nbsp;&nbsp;Id = term()</v>
       </type>
       <desc>
-         <note>
+        <note>
           <p>This callback is optional, so callback modules need not
             export it. The <c>gen_event</c> module provides a default
-            implementation of this function that drops the <c>Info</c>
-            message and returns <c>{ok, State}</c>.</p>
+            implementation of this function that logs about the unexpected
+            <c>Info</c> message, drops it and returns <c>{noreply, State}</c>.</p>
         </note>
         <p>This function is called for each installed event handler when
           an event manager receives any other message than an event or

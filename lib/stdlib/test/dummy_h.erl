@@ -22,7 +22,7 @@
 %% Test event handler for gen_event_SUITE.erl
 
 -export([init/1, handle_event/2, handle_call/2, handle_info/2,
-	 terminate/2, code_change/3]).
+	 terminate/2]).
 
 init(make_error) ->
     {error, my_error};
@@ -75,9 +75,6 @@ handle_info(wake, _State) ->
     {ok, []};
 handle_info(gnurf, _State) ->
     {ok, []};
-handle_info({call_undef_fun, Mod, Fun}, State) ->
-    Mod:Fun(),
-    {ok, State};
 handle_info(Info, Parent) ->
     Parent ! {dummy_h, Info},
     {ok, Parent}.
@@ -94,8 +91,3 @@ terminate(_Reason, {undef_in_terminate, {Mod, Fun}}) ->
 terminate(_Reason, _State) ->
     ok.
 
-code_change(_OldVsn, {undef_in_code_change, {Mod, Fun}} = State, _Extra) ->
-    Mod:Fun(),
-    {ok, State};
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.

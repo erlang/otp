@@ -30,9 +30,9 @@
 	 call_format_status/1, call_format_status_anon/1,
          error_format_status/1, get_state/1, replace_state/1,
          start_opt/1,
-         oc_handle_call/1, oc_handle_info/1, oc_code_change/1,
-         oc_terminate/1,
-         ui_handle_info/1, ui_code_change/1, ui_terminate/1]).
+         undef_init/1, undef_handle_call/1, undef_handle_event/1,
+         undef_handle_info/1, undef_code_change/1, undef_terminate/1,
+         undef_in_terminate/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -40,18 +40,16 @@ all() ->
     [start, {group, test_all}, hibernate,
      call_format_status, call_format_status_anon, error_format_status,
      get_state, replace_state,
-     start_opt, {group, optional_callbacks},
-     {group, undef_in_callbacks}].
+     start_opt, {group, undef_callbacks}, undef_in_terminate].
 
 groups() ->
     [{test_all, [],
       [add_handler, add_sup_handler, delete_handler,
        swap_handler, swap_sup_handler, notify, sync_notify,
        call, info]},
-     {optional_callbacks, [],
-      [oc_handle_call, oc_handle_info, oc_code_change, oc_terminate]},
-     {undef_in_callbacks, [],
-      [ui_handle_info, ui_code_change, ui_terminate]}].
+     {undef_callbacks, [],
+      [undef_init, undef_handle_call, undef_handle_event, undef_handle_info,
+       undef_code_change, undef_terminate]}].
 
 init_per_suite(Config) ->
     Config.
@@ -59,10 +57,10 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
-init_per_group(optional_callbacks, Config) ->
+init_per_group(undef_callbacks, Config) ->
     DataDir = ?config(data_dir, Config),
-    Event = filename:join(DataDir, "oc_event.erl"),
-    {ok, oc_event} = compile:file(Event),
+    Event1 = filename:join(DataDir, "oc_event.erl"),
+    {ok, oc_event} = compile:file(Event1),
     Config;
 init_per_group(_GroupName, Config) ->
     Config.
@@ -70,19 +68,25 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_testcase(Case, Config) when Case == oc_handle_call;
-                                     Case == oc_handle_info;
-                                     Case == oc_code_change;
-                                     Case == oc_terminate ->
+init_per_testcase(Case, Config) when Case == undef_handle_call;
+                                     Case == undef_handle_info;
+                                     Case == undef_handle_event;
+                                     Case == undef_code_change;
+                                     Case == undef_terminate ->
     {ok, Pid} = oc_event:start(),
+    [{event_pid, Pid}|Config];
+init_per_testcase(undef_init, Config) ->
+    {ok, Pid} = gen_event:start({local, oc_init_event}),
     [{event_pid, Pid}|Config];
 init_per_testcase(_Case, Config) ->
     Config.
 
-end_per_testcase(Case, Config) when Case == oc_handle_call;
-                                    Case == oc_handle_info;
-                                    Case == oc_code_change;
-                                    Case == oc_terminate ->
+end_per_testcase(Case, Config) when Case == undef_init;
+                                    Case == undef_handle_call;
+                                    Case == undef_handle_info;
+                                    Case == undef_handle_event;
+                                    Case == undef_code_change;
+                                    Case == undef_terminate ->
     Pid = ?config(event_pid, Config),
     gen_event:stop(Pid);
 end_per_testcase(_Case, _Config) ->
@@ -1087,23 +1091,50 @@ replace_state(Config) when is_list(Config) ->
     [{dummy1_h,false,NState3}] = sys:get_state(Pid),
     ok.
 
-%% Test that the server crashes correctly if the handle_call callback is
-%% not exported in the callback module
-oc_handle_call(Config) when is_list(Config) ->
+%% No default provided for init, so it should fail
+undef_init(Config) ->
+    Pid = ?config(event_pid, Config),
+    {'EXIT', {undef, [{oc_init_event, init, [_], _}|_]}}
+        = gen_event:add_handler(Pid, oc_init_event, []),
+    ok.
+
+%% No default provided for init, so it should fail
+undef_handle_call(Config) when is_list(Config) ->
     Pid = ?config(event_pid, Config),
     {error, {'EXIT', {undef, [{oc_event, handle_call, _, _}|_]}}}
         = gen_event:call(Pid, oc_event, call_msg),
     [] = gen_event:which_handlers(Pid),
     ok.
 
-%% Test the default implementation of handle_info if the callback module
-%% does not export it
-oc_handle_info(Config) when is_list(Config) ->
+%% No default provided for init, so it should fail
+undef_handle_event(Config) ->
+    Pid = ?config(event_pid, Config),
+    ok = gen_event:sync_notify(Pid, event_msg),
+    [] = gen_event:which_handlers(Pid),
+
+    gen_event:add_handler(oc_event, oc_event, []),
+    [oc_event] = gen_event:which_handlers(Pid),
+
+    ok = gen_event:notify(Pid, event_msg),
+    [] = gen_event:which_handlers(Pid),
+    ok.
+
+%% Defaulting to doing nothing with a log warning.
+undef_handle_info(Config) when is_list(Config) ->
+    error_logger_forwarder:register(),
     Pid = ?config(event_pid, Config),
     Pid ! hej,
     wait_until_processed(Pid, hej, 10),
     [oc_event] = gen_event:which_handlers(Pid),
-    ok.
+    receive
+        {error, _GroupLeader, {Pid,
+                               "** Undefined handle_info in " ++ _,
+                               [oc_event, hej]}} ->
+            ok;
+        Other ->
+            io:format("Unexpected: ~p", [Other]),
+            ct:fail(failed)
+    end.
 
 wait_until_processed(_Pid, _Message, 0) ->
     ct:fail(not_processed);
@@ -1117,49 +1148,28 @@ wait_until_processed(Pid, Message, N) ->
             ok
     end.
 
-%% Test the default implementation of code_change if the callback module
-%% does not export it
-oc_code_change(Config) when is_list(Config) ->
+%% No default provided for init, so it should fail
+undef_code_change(Config) when is_list(Config) ->
     Pid = ?config(event_pid, Config),
-    ok = fake_upgrade(Pid, oc_event),
+    {error, {'EXIT', {undef, [{oc_event, code_change, [_, _, _], _}|_]}}} =
+        fake_upgrade(Pid, oc_event),
     [oc_event] = gen_event:which_handlers(Pid),
     ok.
 
-%% Test the default implementation of terminate if the callback module
-%% does not export it
-oc_terminate(Config) when is_list(Config) ->
+%% Defaulting to doing nothing. Test that it works when not defined.
+undef_terminate(Config) when is_list(Config) ->
     Pid = ?config(event_pid, Config),
     ok = gen_event:delete_handler(Pid, oc_event, []),
     [] = gen_event:which_handlers(Pid),
     ok.
 
-%% Test that the server crashes correctly if the handle_info callback is
-%% calling an undefined function
-ui_handle_info(Config) when is_list(Config) ->
-    {ok, Pid} = gen_event:start(),
-    ok = gen_event:add_handler(Pid, dummy_h, {state, state}),
-    Pid ! {call_undef_fun, dummy_h, handle_info},
-    [] = gen_event:which_handlers(Pid),
-    ok.
-
-%% Test that the server crashes correctly if the code_change callback is
-%% calling an undefined function
-ui_code_change(Config) when is_list(Config) ->
-    {ok, Pid} = gen_event:start(),
-    State =  {undef_in_code_change, {dummy_h, code_change}},
+%% Test that the default implementation doesn't catch the wrong undef error
+undef_in_terminate(_Config) ->
+    {ok, Pid} = gen_event:start({local, dummy}),
+    State = {undef_in_terminate, {dummy_h, terminate}},
     ok = gen_event:add_handler(Pid, dummy_h, {state, State}),
-    {error, {'EXIT', {undef, [{dummy_h, code_change, _, _}|_]}}}
-        = fake_upgrade(Pid, dummy_h),
     [dummy_h] = gen_event:which_handlers(Pid),
-    ok.
-
-%% Test that the server crashes correctly if the terminate callback is
-%% calling an undefined function
-ui_terminate(Config) when is_list(Config) ->
-    {ok, Pid} = gen_event:start(),
-    State =  {undef_in_terminate, {dummy_h, terminate}},
-    ok = gen_event:add_handler(Pid, dummy_h, {state, State}),
-    {'EXIT', {undef, [{dummy_h, terminate, _, _}|_]}}
+    {'EXIT', {undef, [{dummy_h, terminate, [], []}|_]}}
         = gen_event:delete_handler(Pid, dummy_h, []),
     [] = gen_event:which_handlers(Pid),
     ok.

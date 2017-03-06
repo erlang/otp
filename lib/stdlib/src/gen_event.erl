@@ -406,15 +406,10 @@ system_terminate(Reason, Parent, _Debug, [ServerName, MSL, _Hib]) ->
 %%-----------------------------------------------------------------
 system_code_change([ServerName, MSL, Hib], Module, OldVsn, Extra) ->
     MSL1 = lists:zf(fun(H) when H#handler.module =:= Module ->
-			case erlang:function_exported(Module, code_change, 3) of
-			    true ->
-				{ok, NewState} =
-				    Module:code_change(OldVsn,
-							H#handler.state, Extra),
-				{true, H#handler{state = NewState}};
-			    _ ->
-				{true, H}
-			end;
+			{ok, NewState} =
+			    Module:code_change(OldVsn,
+					       H#handler.state, Extra),
+			    {true, H#handler{state = NewState}};
 		       (_) -> true
 		    end,
 		    MSL),
@@ -584,8 +579,10 @@ server_update(Handler1, Func, Event, SName) ->
 	    do_terminate(Mod1, Handler1, remove_handler, State,
 			 remove, SName, normal),
 	    no;
-	{'EXIT', {undef, [{Mod1, handle_info, [_,_], _}|_]}} ->
-	    {ok, Handler1};
+        {'EXIT', {undef, [{Mod1, handle_info, [_,_], _}|_]}} ->
+            error_msg("** Undefined handle_info in ~p~n"
+                      "** Unhandled message: ~p~n", [Mod1, Event]),
+           {ok, Handler1};
 	Other ->
 	    do_terminate(Mod1, Handler1, {error, Other}, State,
 			 Event, SName, crash),
@@ -712,7 +709,7 @@ do_terminate(Mod, Handler, Args, State, LastIn, SName, Reason) ->
 	    Res = (catch Mod:terminate(Args, State)),
 	    report_terminate(Handler, Reason, Args, State, LastIn, SName, Res),
 	    Res;
-	_ ->
+	false ->
 	    report_terminate(Handler, Reason, Args, State, LastIn, SName, ok),
 	    ok
     end.
