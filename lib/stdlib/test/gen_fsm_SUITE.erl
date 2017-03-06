@@ -39,10 +39,10 @@
 	  call_format_status/1, error_format_status/1, terminate_crash_format/1,
 	  get_state/1, replace_state/1]).
 
--export([oc_handle_event/1, oc_handle_sync_event/1, oc_handle_info/1,
-         oc_code_change/1, oc_terminate1/1, oc_terminate2/1]).
+-export([undef_handle_event/1, undef_handle_sync_event/1, undef_handle_info/1,
+         undef_init/1, undef_code_change/1, undef_terminate1/1, undef_terminate2/1]).
 
--export([ui_handle_info/1, ui_code_change/1, ui_terminate/1]).
+-export([undef_in_handle_info/1, undef_in_terminate/1]).
 
 -export([hibernate/1,hiber_idle/3,hiber_wakeup/3,hiber_idle/2,hiber_wakeup/2]).
 
@@ -68,8 +68,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [{group, start}, {group, abnormal}, shutdown,
-     {group, sys}, hibernate, enter_loop, {group, optional_callbacks},
-     {group, undef_in_callbacks}].
+     {group, sys}, hibernate, enter_loop, {group, undef_callbacks},
+     undef_in_handle_info, undef_in_terminate].
 
 groups() ->
     [{start, [],
@@ -81,11 +81,9 @@ groups() ->
      {sys, [],
       [sys1, call_format_status, error_format_status, terminate_crash_format,
        get_state, replace_state]},
-     {optional_callbacks, [],
-      [oc_handle_event, oc_handle_sync_event, oc_handle_info, oc_code_change,
-       oc_terminate1, oc_terminate2]},
-      {undef_in_callbacks, [],
-       [ui_handle_info, ui_code_change, ui_terminate]}].
+     {undef_callbacks, [],
+      [undef_handle_event, undef_handle_sync_event, undef_handle_info,
+       undef_init, undef_code_change, undef_terminate1, undef_terminate2]}].
 
 init_per_suite(Config) ->
     Config.
@@ -93,7 +91,7 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
-init_per_group(optional_callbacks, Config) ->
+init_per_group(undef_callbacks, Config) ->
     DataDir = ?config(data_dir, Config),
     Server = filename:join(DataDir, "oc_fsm.erl"),
     {ok, oc_fsm} = compile:file(Server),
@@ -884,10 +882,15 @@ enter_loop(Reg1, Reg2) ->
 	    gen_fsm:enter_loop(?MODULE, [], state0, [])
     end.
 
+%% Start should return an undef error if init isn't implemented
+undef_init(Config) when is_list(Config) ->
+    {error, {undef, [{oc_init_fsm, init, [[]], []}|_]}}
+        =  gen_fsm:start(oc_init_fsm, [], []),
+    ok.
 
 %% Test that the server crashes correctly if the handle_event callback is
 %% not exported in the callback module
-oc_handle_event(Config) when is_list(Config) ->
+undef_handle_event(Config) when is_list(Config) ->
     {ok, FSM} = gen_fsm:start(oc_fsm, [], []),
     MRef = monitor(process, FSM),
     gen_fsm:send_all_state_event(FSM, state_name),
@@ -895,7 +898,7 @@ oc_handle_event(Config) when is_list(Config) ->
 
 %% Test that the server crashes correctly if the handle_sync_event callback is
 %% not exported in the callback module
-oc_handle_sync_event(Config) when is_list(Config) ->
+undef_handle_sync_event(Config) when is_list(Config) ->
     {ok, FSM} = gen_fsm:start(oc_fsm, [], []),
     try
         gen_fsm:sync_send_all_state_event(FSM, state_name),
@@ -904,9 +907,10 @@ oc_handle_sync_event(Config) when is_list(Config) ->
         ok
     end.
 
-%% Test the default implementation of handle_info if the callback module
-%% does not export it
-oc_handle_info(Config) when is_list(Config) ->
+%% The fsm should log but not crash if the handle_info callback is
+%% calling an undefined function
+undef_handle_info(Config) when is_list(Config) ->
+    error_logger_forwarder:register(),
     {ok, FSM} = gen_fsm:start(oc_fsm, [], []),
     MRef = monitor(process, FSM),
     FSM ! hej,
@@ -915,18 +919,28 @@ oc_handle_info(Config) when is_list(Config) ->
             ct:fail(should_not_crash)
     after 500 ->
         ok
+    end,
+    receive
+        {error, _GroupLeader, {FSM,
+                               "** Undefined handle_info in " ++ _,
+                               [oc_fsm, hej]}} ->
+            ok;
+        Other ->
+            io:format("Unexpected: ~p", [Other]),
+            ct:fail(failed)
     end.
 
-%% Test the default implementation of code_change if the callback module
-%% does not export it
-oc_code_change(Config) when is_list(Config) ->
+%% The upgrade should fail if code_change is expected in the callback module
+%% but not exported, but the fsm should continue with the old code
+undef_code_change(Config) when is_list(Config) ->
     {ok, FSM} = gen_fsm:start(oc_fsm, [], []),
-    ok = fake_upgrade(FSM, oc_fsm),
+    {error, {'EXIT', {undef, [{oc_fsm, code_change, [_, _, _, _], _}|_]}}}
+        = fake_upgrade(FSM, oc_fsm),
     ok.
 
 %% Test the default implementation of terminate with normal reason if the
 %% callback module does not export it
-oc_terminate1(Config) when is_list(Config) ->
+undef_terminate1(Config) when is_list(Config) ->
     {ok, FSM} = gen_fsm:start(oc_fsm, [], []),
     MRef = monitor(process, FSM),
     ok = gen_fsm:stop(FSM),
@@ -934,7 +948,7 @@ oc_terminate1(Config) when is_list(Config) ->
 
 %% Test the default implementation of terminate with error reason if the
 %% callback module does not export it
-oc_terminate2(Config) when is_list(Config) ->
+undef_terminate2(Config) when is_list(Config) ->
     {ok, FSM} = gen_fsm:start(oc_fsm, [], []),
     MRef = monitor(process, FSM),
     ok = gen_fsm:stop(FSM, {error, test}, infinity),
@@ -942,25 +956,16 @@ oc_terminate2(Config) when is_list(Config) ->
 
 %% Test that the server crashes correctly if the handle_info callback is
 %% calling an undefined function
-ui_handle_info(Config) when is_list(Config) ->
+undef_in_handle_info(Config) when is_list(Config) ->
     {ok, FSM} = gen_fsm:start(?MODULE, [], []),
     MRef = monitor(process, FSM),
     FSM ! {call_undef_fun, {?MODULE, handle_info}},
     verify_undef_down(MRef, FSM, ?MODULE, handle_info),
     ok.
 
-%% Test that the server crashes correctly if the code_change callback is
-%% calling an undefined function
-ui_code_change(Config) when is_list(Config) ->
-    Data = {undef_in_code_change, {?MODULE, code_change}},
-    {ok, FSM} = gen_fsm:start(?MODULE, {state_data, Data}, []),
-    {error, {'EXIT', {undef, [{?MODULE, code_change, _, _}|_]}}}
-        = fake_upgrade(FSM, ?MODULE),
-    ok.
-
 %% Test that the server crashes correctly if the terminate callback is
 %% calling an undefined function
-ui_terminate(Config) when is_list(Config) ->
+undef_in_terminate(Config) when is_list(Config) ->
     State = {undef_in_terminate, {?MODULE, terminate}},
     {ok, FSM} = gen_fsm:start(?MODULE, {state_data, State}, []),
     try

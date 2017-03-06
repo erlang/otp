@@ -563,10 +563,11 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
       </type>
       <desc>
         <note>
-          <p>This callback is optional, so callback modules need not
-            export it. The <c>gen_fsm</c> module provides a default
-            implementation of this function that returns
-            <c>{ok, StateName, StateData}</c>.</p>
+          <p>This callback is optional, so callback modules need not export it.
+            If a release upgrade/downgrade with <c>Change={advanced,Extra}</c>
+            specified in the <c>appup</c> file is made when <c>code_change/4</c>
+            isn't implemented the process will crash with an <c>undef</c> exit
+            reason.</p>
         </note>
         <p>This function is called by a <c>gen_fsm</c> process when it is to
           update its internal state data during a release upgrade/downgrade,
@@ -663,13 +664,6 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>&nbsp;Reason = term()</v>
       </type>
       <desc>
-        <note>
-          <p>This callback is optional, so callback modules need not
-            export it. If it is not exported in the callback module
-            the server will crash with an <c>undef</c> exit reason if
-            <seealso marker="#send_all_state_event/2">
-            <c>send_all_state_event/2</c></seealso> is called.</p>
-        </note>
         <p>Whenever a <c>gen_fsm</c> process receives an event sent using
           <seealso marker="#send_all_state_event/2">
           <c>send_all_state_event/2</c></seealso>,
@@ -702,8 +696,9 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <note>
           <p>This callback is optional, so callback modules need not
             export it. The <c>gen_fsm</c> module provides a default
-            implementation of this function that drops the <c>Info</c>
-            message and returns <c>{next_state, StateName, StateData}</c>.</p>
+            implementation of this function that logs about the unexpected
+            <c>Info</c> message, drops it and returns
+            <c>{next_state, StateName, StateData}</c>.</p>
         </note>
         <p>This function is called by a <c>gen_fsm</c> process when it receives
           any other message than a synchronous or asynchronous event (or a
@@ -737,14 +732,6 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>&nbsp;Reason = term()</v>
       </type>
       <desc>
-        <note>
-          <p>This callback is optional, so callback modules need not
-            export it. If it is not exported in the callback module
-            the server will crash with an <c>undef</c> exit reason if
-            <seealso marker="#sync_send_all_state_event/2">
-            <c>sync_send_all_state_event/2,3</c></seealso>,
-            is called.</p>
-        </note>
         <p>Whenever a <c>gen_fsm</c> process receives an event sent using
           <seealso marker="#sync_send_all_state_event/2">
           <c>sync_send_all_state_event/2,3</c></seealso>,
@@ -800,6 +787,16 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <p>If the initialization fails, the function returns
           <c>{stop,Reason}</c>, where <c>Reason</c> is any term,
           or <c>ignore</c>.</p>
+        <note>
+          <p>
+            This callback is optional, so a callback module does not need
+            to export it, but most do.  If this function is not exported,
+            the <c>gen_fsm</c> should be started through
+            <seealso marker="proc_lib"><c>proc_lib</c></seealso>
+            and
+            <seealso marker="#enter_loop/4"><c>enter_loop/4-6</c></seealso>.
+          </p>
+        </note>
       </desc>
     </func>
 

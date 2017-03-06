@@ -170,8 +170,7 @@
       Status :: term().
 
 -optional_callbacks(
-    [handle_event/3, handle_sync_event/4, handle_info/3, terminate/3,
-     code_change/4, format_status/2]).
+    [handle_info/3, init/1, terminate/3, code_change/4, format_status/2]).
 
 %%% ---------------------------------------------------
 %%% Starts a generic state machine.
@@ -402,15 +401,10 @@ system_terminate(Reason, _Parent, Debug,
 
 system_code_change([Name, StateName, StateData, Mod, Time],
 		   _Module, OldVsn, Extra) ->
-    case erlang:function_exported(Mod, code_change, 4) of
-	true ->
-	   case catch Mod:code_change(OldVsn, StateName, StateData, Extra) of
-		{ok, NewStateName, NewStateData} ->
-		    {ok, [Name, NewStateName, NewStateData, Mod, Time]};
-		Else -> Else
-	   end;
-	_ ->
-	    {ok, [Name, StateName, StateData, Mod, Time]}
+    case catch Mod:code_change(OldVsn, StateName, StateData, Extra) of
+	{ok, NewStateName, NewStateData} ->
+	    {ok, [Name, NewStateName, NewStateData, Mod, Time]};
+	Else -> Else
     end.
 
 system_get_state([_Name, StateName, StateData, _Mod, _Time]) ->
@@ -474,6 +468,8 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time) -> %No debug her
 	    reply(From, Reply),
 	    exit(R);
         {'EXIT', {undef, [{Mod, handle_info, [_,_,_], _}|_]}} ->
+            format("** Undefined handle_info in ~p~n"
+                   "** Unhandled message: ~p~n", [Mod, Msg]),
             loop(Parent, Name, StateName, StateData, Mod, infinity, []);
 	{'EXIT', What} ->
 	    terminate(What, Name, Msg, Mod, StateName, StateData, []);
@@ -559,7 +555,7 @@ terminate(Reason, Name, Msg, Mod, StateName, StateData, Debug) ->
 		_ ->
 		    ok
 	    end;
-	_ ->
+	false ->
 	    ok
     end,
     case Reason of

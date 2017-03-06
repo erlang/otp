@@ -104,8 +104,8 @@ optional_callbacks(gen_server) ->
     [{handle_info, 2}, {init, 1}, {terminate, 2}, {code_change, 3},
      {format_status, 2}];
 optional_callbacks(gen_fsm) ->
-    [{handle_event,3}, {handle_sync_event,4}, {handle_info,3},
-     {terminate,3}, {code_change,4}, {format_status,2}];
+    [{handle_info,3}, {init,1}, {terminate,3}, {code_change,4},
+     {format_status,2}];
 optional_callbacks(gen_event) ->
     [{handle_call, 2}, {handle_info, 2}, {terminate, 2},
      {code_change, 3}, {format_status, 2}];
