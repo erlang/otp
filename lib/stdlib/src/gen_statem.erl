@@ -297,9 +297,7 @@
     %% for every StateName in your state machine but the state name
     %% 'state_name' does of course not have to be used.
     %%
-    handle_event/4, % For callback_mode() =:= handle_event_function
-    terminate/3, % Has got a default implementation
-    code_change/4 % Has got a default implementation
+    handle_event/4 % For callback_mode() =:= handle_event_function
    ]).
 
 %% Type validation functions
@@ -728,26 +726,21 @@ system_code_change(
     state := State,
     data := Data} = S,
   _Mod, OldVsn, Extra) ->
-    case erlang:function_exported(Module, code_change, 4) of
-	true ->
-	    case
-		try Module:code_change(OldVsn, State, Data, Extra)
-		catch
-		    Result -> Result
-		end
- 	   of
-		{ok,NewState,NewData} ->
-		    {ok,
-		     S#{callback_mode := undefined,
-			state := NewState,
-			data := NewData}};
-		{ok,_} = Error ->
-		    error({case_clause,Error});
-		Error ->
-		    Error
-	    end;
-	_ ->
-	    {ok, S}
+    case
+	try Module:code_change(OldVsn, State, Data, Extra)
+	catch
+	    Result -> Result
+	end
+	   of
+	{ok,NewState,NewData} ->
+	    {ok,
+	     S#{callback_mode := undefined,
+		state := NewState,
+		data := NewData}};
+	{ok,_} = Error ->
+	    error({case_clause,Error});
+	Error ->
+	    Error
     end.
 
 system_get_state(#{state := State, data := Data}) ->

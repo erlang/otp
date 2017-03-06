@@ -40,8 +40,8 @@ all() ->
      shutdown, stop_and_reply, state_enter, event_order,
      state_timeout, event_types, code_change,
      {group, sys},
-     hibernate, enter_loop, {group, optional_callbacks},
-     ui_code_change, ui_terminate].
+     hibernate, enter_loop, {group, undef_callbacks},
+     undef_in_terminate].
 
 groups() ->
     [{start, [], tcs(start)},
@@ -52,7 +52,7 @@ groups() ->
      {abnormal_handle_event, [], tcs(abnormal)},
      {sys, [], tcs(sys)},
      {sys_handle_event, [], tcs(sys)},
-     {optional_callbacks, [], tcs(optional_callbacks)}].
+     {undef_callbacks, [], tcs(undef_callbacks)}].
 
 tcs(start) ->
     [start1, start2, start3, start4, start5, start6, start7,
@@ -65,8 +65,8 @@ tcs(sys) ->
     [sys1, call_format_status,
      error_format_status, terminate_crash_format,
      get_state, replace_state];
-tcs(optional_callbacks) ->
-    [oc_code_change, oc_terminate1, oc_terminate2].
+tcs(undef_callbacks) ->
+    [undef_code_change, undef_terminate1, undef_terminate2].
 
 init_per_suite(Config) ->
     Config.
@@ -80,7 +80,7 @@ init_per_group(GroupName, Config)
        GroupName =:= abnormal_handle_event;
        GroupName =:= sys_handle_event ->
     [{callback_mode,handle_event_function}|Config];
-init_per_group(optional_callbacks, Config) ->
+init_per_group(undef_callbacks, Config) ->
     DataDir = ?config(data_dir, Config),
     StatemPath = filename:join(DataDir, "oc_statem.erl"),
     {ok, oc_statem} = compile:file(StatemPath),
@@ -1401,16 +1401,11 @@ enter_loop(Reg1, Reg2) ->
 	    gen_statem:enter_loop(?MODULE, [], state0, [])
     end.
 
-oc_code_change(_Config) ->
+undef_code_change(_Config) ->
     {ok, Statem} = gen_statem:start(oc_statem, [], []),
-    ok = fake_upgrade(Statem, oc_statem).
-
-ui_code_change(_Config) ->
-    Data =  {undef_in_code_change, {?MODULE, code_change}},
-    {ok, Statem} = gen_statem:start(?MODULE, {data, Data}, []),
-    {error, {'EXIT', {undef, [{?MODULE, code_change, _, _}|_]}}}
-        = fake_upgrade(Statem, ?MODULE),
-    ok.
+    {error, {'EXIT',
+             {undef, [{oc_statem, code_change, [_, _, _, _], _}|_]}}}
+        = fake_upgrade(Statem, oc_statem).
 
 fake_upgrade(Pid, Mod) ->
     sys:suspend(Pid),
@@ -1419,21 +1414,21 @@ fake_upgrade(Pid, Mod) ->
     ok = sys:resume(Pid),
     Ret.
 
-oc_terminate1(_Config) ->
+undef_terminate1(_Config) ->
     {ok, Statem} = gen_statem:start(oc_statem, [], []),
     MRef = monitor(process, Statem),
     ok = gen_statem:stop(Statem),
     verify_down(Statem, MRef, normal),
     ok.
 
-oc_terminate2(_Config) ->
+undef_terminate2(_Config) ->
     Reason = {error, test},
     {ok, Statem} = oc_statem:start(),
     MRef = monitor(process, Statem),
     ok = gen_statem:stop(Statem, Reason, infinity),
     verify_down(Statem, MRef, Reason).
 
-ui_terminate(_Config) ->
+undef_in_terminate(_Config) ->
     Data =  {undef_in_terminate, {?MODULE, terminate}},
     {ok, Statem} = gen_statem:start(?MODULE, {data, Data}, []),
     try
@@ -1907,10 +1902,6 @@ wrap_result(Result) ->
 
 
 
-code_change(_OldVsn, State, {idle, {undef_in_code_change, {Mod, Fun}}} = Data,
-            _CallbackMode) ->
-    Mod:Fun(),
-    {ok, State, Data};
 code_change(OldVsn, State, Data, CallbackMode) ->
     io:format(
       "code_change(~p, ~p, ~p, ~p)~n", [OldVsn,State,Data,CallbackMode]),
