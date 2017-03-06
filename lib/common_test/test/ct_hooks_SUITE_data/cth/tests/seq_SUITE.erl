@@ -18,26 +18,28 @@
 %% %CopyrightEnd%
 %%
 
+-module(seq_SUITE).
 
--module(minimal_terminate_cth).
+-compile(export_all).
 
+-include("ct.hrl").
 
--include_lib("common_test/src/ct_util.hrl").
--include_lib("common_test/include/ct_event.hrl").
+init_per_testcase(_,Config) ->
+    Config.
 
+end_per_testcase(_,_) ->
+    ok.
 
-%% CT Hooks
--export([init/2]).
--export([terminate/1]).
--export([on_tc_skip/4]).
+all() ->
+    [{sequence,seq1}].
 
-init(Id, Opts) ->
-    empty_cth:init(Id, Opts).
+sequences() ->
+    [{seq1,[test_case_1,test_case_2]}].
 
-on_tc_skip(Suite, TC, Reason, State) ->
-    empty_cth:on_tc_skip(Suite,TC,Reason,State).
+%% Test cases starts here.
+test_case_1(_Config) ->
+    exit(failed_on_purpose).
 
-terminate(State) ->
-    empty_cth:terminate(State).
-    
-
+test_case_2(_Config) ->
+    ct:fail("This test shall never be run since test_case_1 fails "
+            "and they are run in sequence").

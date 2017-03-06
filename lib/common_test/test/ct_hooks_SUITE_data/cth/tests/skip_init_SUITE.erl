@@ -18,26 +18,36 @@
 %% %CopyrightEnd%
 %%
 
+-module(skip_init_SUITE).
 
--module(minimal_terminate_cth).
+-compile(export_all).
 
+-include("ct.hrl").
 
--include_lib("common_test/src/ct_util.hrl").
--include_lib("common_test/include/ct_event.hrl").
+suite() ->
+    [].
 
+init_per_suite(Config) ->
+    {skip,"Skipped in init_per_suite/1"}.
 
-%% CT Hooks
--export([init/2]).
--export([terminate/1]).
--export([on_tc_skip/4]).
+end_per_suite(Config) ->
+    ok.
 
-init(Id, Opts) ->
-    empty_cth:init(Id, Opts).
+init_per_group(_,Config) ->
+    Config.
 
-on_tc_skip(Suite, TC, Reason, State) ->
-    empty_cth:on_tc_skip(Suite,TC,Reason,State).
+end_per_group(_,_) ->
+    ok.
 
-terminate(State) ->
-    empty_cth:terminate(State).
-    
+init_per_testcase(_,Config) ->
+    Config.
 
+end_per_testcase(_,_) ->
+    ok.
+
+all() ->
+    [test_case].
+
+%% Test cases starts here.
+test_case(Config) ->
+    ok.

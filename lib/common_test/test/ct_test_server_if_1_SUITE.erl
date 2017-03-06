@@ -161,6 +161,7 @@ test_events(ts_if_1) ->
      {?eh,tc_start,{ts_if_1_SUITE,tc4}},
      {?eh,tc_done,{ts_if_1_SUITE,tc4,{failed,{error,failed_on_purpose}}}},
      {?eh,test_stats,{1,2,{0,1}}},
+     {?eh,tc_start,{ts_if_1_SUITE,tc5}},
      {?eh,tc_done,{ts_if_1_SUITE,tc5,{auto_skipped,{sequence_failed,seq1,tc4}}}},
      {?eh,test_stats,{1,2,{0,2}}},
 

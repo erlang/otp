@@ -18,26 +18,37 @@
 %% %CopyrightEnd%
 %%
 
+-module(ct_no_init_config_SUITE).
 
--module(minimal_terminate_cth).
+-compile(export_all).
 
+-include("ct.hrl").
 
--include_lib("common_test/src/ct_util.hrl").
--include_lib("common_test/include/ct_event.hrl").
+%%% This suite is used to verify that all
+%%% pre/post_init_per_group/testcase callbacks are called with correct
+%%% SuiteName even if no init_per_group/testcase function exist in the
+%%% suite, and that the non-exported config functions fail with 'undef'.
 
+init_per_suite(Config) ->
+    Config.
 
-%% CT Hooks
--export([init/2]).
--export([terminate/1]).
--export([on_tc_skip/4]).
+end_per_suite(Config) ->
+    Config.
 
-init(Id, Opts) ->
-    empty_cth:init(Id, Opts).
+end_per_group(_Group,Config) ->
+    Config.
 
-on_tc_skip(Suite, TC, Reason, State) ->
-    empty_cth:on_tc_skip(Suite,TC,Reason,State).
+end_per_testcase(_TC,Config) ->
+    Config.
 
-terminate(State) ->
-    empty_cth:terminate(State).
-    
+all() ->
+    [test_case_1, {group,test_group}].
 
+groups() ->
+    [{test_group,[],[test_case_2]}].
+
+test_case_1(Config) ->
+    ok.
+
+test_case_2(Config) ->
+    ok.

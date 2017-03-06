@@ -2051,17 +2051,21 @@ add_init_and_end_per_suite([], _LastMod, skipped_suite, _FwMod) ->
 add_init_and_end_per_suite([], LastMod, LastRef, FwMod) ->
     %% we'll add end_per_suite here even if it's not exported
     %% (and simply let the call fail if it's missing)
-    case erlang:function_exported(LastMod, end_per_suite, 1) of
-	true ->
-	    [{conf,LastRef,[],{LastMod,end_per_suite}}];
-	false ->
+    case {erlang:function_exported(LastMod, end_per_suite, 1),
+          erlang:function_exported(LastMod, init_per_suite, 1)} of
+	{false,false} ->
 	    %% let's call a "fake" end_per_suite if it exists			
 	    case erlang:function_exported(FwMod, end_per_suite, 1) of
 		true ->					
 		    [{conf,LastRef,[{suite,LastMod}],{FwMod,end_per_suite}}];
 		false ->		
 		    [{conf,LastRef,[],{LastMod,end_per_suite}}]
-	    end
+	    end;
+	_ ->
+            %% If any of these exist, the other should too
+            %% (required and documented). If it isn't, it will fail
+            %% with reason 'undef'.
+	    [{conf,LastRef,[],{LastMod,end_per_suite}}]
     end.    
 
 do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod) ->
@@ -2070,11 +2074,9 @@ do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod) ->
 	_ -> ok
     end,
     {Init,NextMod,NextRef} =
-	case erlang:function_exported(Mod, init_per_suite, 1) of
-	    true ->
-		Ref = make_ref(),
-		{[{conf,Ref,[],{Mod,init_per_suite}}],Mod,Ref};
-	    false ->
+	case {erlang:function_exported(Mod, init_per_suite, 1),
+              erlang:function_exported(Mod, end_per_suite, 1)} of
+	    {false,false} ->
 		%% let's call a "fake" init_per_suite if it exists
 		case erlang:function_exported(FwMod, init_per_suite, 1) of
 		    true ->
@@ -2083,8 +2085,13 @@ do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod) ->
 			   {FwMod,init_per_suite}}],Mod,Ref};
 		    false ->
 			{[],Mod,undefined}
-		end
-
+		end;
+	    _ ->
+                %% If any of these exist, the other should too
+                %% (required and documented). If it isn't, it will fail
+                %% with reason 'undef'.
+		Ref = make_ref(),
+		{[{conf,Ref,[],{Mod,init_per_suite}}],Mod,Ref}
 	end,
     Cases =
 	if LastRef==undefined ->
@@ -2094,10 +2101,9 @@ do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod) ->
 	   true ->
 		%% we'll add end_per_suite here even if it's not exported
 		%% (and simply let the call fail if it's missing)
-		case erlang:function_exported(LastMod, end_per_suite, 1) of
-		    true ->
-			[{conf,LastRef,[],{LastMod,end_per_suite}}|Init];
-		    false ->
+		case {erlang:function_exported(LastMod, end_per_suite, 1),
+                      erlang:function_exported(LastMod, init_per_suite, 1)} of
+		    {false,false} ->
 			%% let's call a "fake" end_per_suite if it exists
 			case erlang:function_exported(FwMod, end_per_suite, 1) of
 			    true ->				
@@ -2105,8 +2111,13 @@ do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod) ->
 				  {FwMod,end_per_suite}}|Init];
 			    false ->
 				[{conf,LastRef,[],{LastMod,end_per_suite}}|Init]
-			end
-		end
+			end;
+		    _ ->
+                        %% If any of these exist, the other should too
+                        %% (required and documented). If it isn't, it will fail
+                        %% with reason 'undef'.
+			[{conf,LastRef,[],{LastMod,end_per_suite}}|Init]
+                end
 	end,
     {Cases,NextMod,NextRef}.
 
@@ -2115,11 +2126,9 @@ do_add_end_per_suite_and_skip(LastMod, LastRef, Mod, FwMod) ->
 	No when No==undefined ; No==skipped_suite ->
 	    {[],Mod,skipped_suite};
 	_Ref ->
-	    case erlang:function_exported(LastMod, end_per_suite, 1) of
-		true ->
-		    {[{conf,LastRef,[],{LastMod,end_per_suite}}],
-		     Mod,skipped_suite};
-		false ->
+	    case {erlang:function_exported(LastMod, end_per_suite, 1),
+                  erlang:function_exported(LastMod, init_per_suite, 1)} of
+		{false,false} ->
 		    case erlang:function_exported(FwMod, end_per_suite, 1) of
 			true ->				
 			    %% let's call "fake" end_per_suite if it exists
@@ -2128,7 +2137,13 @@ do_add_end_per_suite_and_skip(LastMod, LastRef, Mod, FwMod) ->
 			false ->
 			    {[{conf,LastRef,[],{LastMod,end_per_suite}}],
 			     Mod,skipped_suite}
-		    end
+		    end;
+		_ ->
+                    %% If any of these exist, the other should too
+                    %% (required and documented). If it isn't, it will fail
+                    %% with reason 'undef'.
+		    {[{conf,LastRef,[],{LastMod,end_per_suite}}],
+		     Mod,skipped_suite}
 	    end    	    
     end.
 
@@ -2924,22 +2939,21 @@ run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status)
 	    exit(framework_error);
 	%% sequential execution of test case finished
 	{Time,RetVal,_} ->
+            RetTag =
+                if is_tuple(RetVal) -> element(1,RetVal);
+                   true -> undefined
+                end,
 	    {Failed,Status1} =
-		case Time of
-		    died ->
-			{true,update_status(failed, Mod, Func, Status)};
-		    _ when is_tuple(RetVal) ->
-			case element(1, RetVal) of
-			    R when R=='EXIT'; R==failed ->
-				{true,update_status(failed, Mod, Func, Status)};
-			    R when R==skip; R==skipped ->
-				{false,update_status(skipped, Mod, Func, Status)};
-			    _ ->
-				{false,update_status(ok, Mod, Func, Status)}
-			end;
-		    _ ->
-			{false,update_status(ok, Mod, Func, Status)}
-		end,
+                case RetTag of
+                    Skip when Skip==skip; Skip==skipped ->
+                        {false,update_status(skipped, Mod, Func, Status)};
+                    Fail when Fail=='EXIT'; Fail==failed ->
+                        {true,update_status(failed, Mod, Func, Status)};
+                    _ when Time==died, RetVal=/=ok ->
+                        {true,update_status(failed, Mod, Func, Status)};
+                    _ ->
+                        {false,update_status(ok, Mod, Func, Status)}
+                end,
 	    case check_prop(sequence, Mode) of
 		false ->
 		    stop_minor_log_file(),
@@ -3794,7 +3808,15 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 	    {died,{timetrap_timeout,TimetrapTimeout}} ->
 		progress(failed, Num, Mod, Func, GrName, Loc,
 			 timetrap_timeout, TimetrapTimeout, Comment, Style);
-	    {died,Reason} ->
+	    {died,{Skip,Reason}} when Skip==skip; Skip==skipped ->
+                %% died in init_per_testcase
+		progress(skip, Num, Mod, Func, GrName, Loc, Reason,
+			 Time, Comment, Style);
+	    {died,Reason} when Reason=/=ok ->
+                %% (If Reason==ok it means that process died in
+                %% end_per_testcase after successfully completing the
+                %% test case itself - then we shall not fail, but a
+                %% warning will be issued in the comment field.)
 		progress(failed, Num, Mod, Func, GrName, Loc, Reason,
 			 Time, Comment, Style);
 	    {_,{'EXIT',{Skip,Reason}}} when Skip==skip; Skip==skipped;
@@ -3943,6 +3965,9 @@ progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},
 						     {ReportTag,Reason1}}]),
+    TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
+			       true -> "~w"
+			    end, [Time]),
     ReasonStr = escape_chars(reason_to_string(Reason1)),
     ReasonStr1 = lists:flatten([string:strip(S,left) ||
 				S <- string:tokens(ReasonStr,[$\n])]),
@@ -3957,10 +3982,10 @@ progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 		   _ -> xhtml("<br>(","<br />(") ++ to_string(Comment) ++ ")"
 	       end,
     print(html,
-	  "<td>" ++ St0 ++ "~.3fs" ++ St1 ++ "</td>"
+	  "<td>" ++ St0 ++ "~ts" ++ St1 ++ "</td>"
 	  "<td><font color=\"~ts\">SKIPPED</font></td>"
 	  "<td>~ts~ts</td></tr>\n",
-	  [Time,Color,ReasonStr2,Comment1]),
+	  [TimeStr,Color,ReasonStr2,Comment1]),
     FormatLoc = test_server_sup:format_loc(Loc),
     print(minor, "=== Location: ~ts", [FormatLoc]),
     print(minor, "=== Reason: ~ts", [ReasonStr1]),
@@ -4098,6 +4123,9 @@ progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
 	 Comment0, {St0,St1}) ->
     print(minor, "successfully completed test case", []),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},ok}]),
+    TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
+			       true -> "~w"
+			    end, [Time]),
     Comment =
 	case RetVal of
 	    {comment,RetComment} ->
@@ -4116,10 +4144,10 @@ progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
 	end,
     print(major, "=elapsed       ~p", [Time]),
     print(html,
-	  "<td>" ++ St0 ++ "~.3fs" ++ St1 ++ "</td>"
+	  "<td>" ++ St0 ++ "~ts" ++ St1 ++ "</td>"
 	  "<td><font color=\"green\">Ok</font></td>"
 	  "~ts</tr>\n",
-	  [Time,Comment]),
+	  [TimeStr,Comment]),
     print(minor,
 	  escape_chars(io_lib:format("=== Returned value: ~tp", [RetVal])),
 	  []),

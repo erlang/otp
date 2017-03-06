@@ -18,26 +18,25 @@
 %% %CopyrightEnd%
 %%
 
+-module(repeat_SUITE).
 
--module(minimal_terminate_cth).
+-compile(export_all).
 
+-include("ct.hrl").
 
--include_lib("common_test/src/ct_util.hrl").
--include_lib("common_test/include/ct_event.hrl").
+init_per_testcase(_,Config) ->
+    Config.
 
+end_per_testcase(_,_) ->
+    ok.
 
-%% CT Hooks
--export([init/2]).
--export([terminate/1]).
--export([on_tc_skip/4]).
+all() ->
+    [test_case_1, test_case_2].
 
-init(Id, Opts) ->
-    empty_cth:init(Id, Opts).
+%% Test cases starts here.
+test_case_1(_Config) ->
+    timer:sleep(10000),
+    ok.
 
-on_tc_skip(Suite, TC, Reason, State) ->
-    empty_cth:on_tc_skip(Suite,TC,Reason,State).
-
-terminate(State) ->
-    empty_cth:terminate(State).
-    
-
+test_case_2(_Config) ->
+    ok.

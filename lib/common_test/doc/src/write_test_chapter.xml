@@ -566,7 +566,7 @@
     for the test cases in the group. After execution of the group is finished, function
     <seealso marker="common_test#Module:end_per_group-2"><c>end_per_group(GroupName, Config)</c></seealso> 
     is called. This function is meant to be used for cleaning up after 
-    <c>init_per_group/2</c>.</p>
+    <c>init_per_group/2</c>. If the init function is defined, so must the end function be.</p>
 
     <p>Whenever a group is executed, if <c>init_per_group</c> and
       <c>end_per_group</c> do not exist in the suite, <c>Common Test</c> calls
