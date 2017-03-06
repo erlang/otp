@@ -505,10 +505,11 @@ gen_server:abcast     -----> Module:handle_cast/2
       </type>
       <desc>
         <note>
-          <p>This callback is optional, so callback modules need not
-            export it. The <c>gen_server</c> module provides a default
-            implementation of this function that returns
-            <c>{ok, State}</c>.</p>
+          <p>This callback is optional, so callback modules need not export it.
+            If a release upgrade/downgrade with <c>Change={advanced,Extra}</c>
+            specified in the <c>appup</c> file is made when <c>code_change/3</c>
+            isn't implemented the process will crash with an <c>undef</c> exit
+            reason.</p>
         </note>
         <p>This function is called by a <c>gen_server</c> process when it is
           to update its internal state during a release upgrade/downgrade,
@@ -612,14 +613,6 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>&nbsp;Reason = term()</v>
       </type>
       <desc>
-        <note>
-          <p>This callback is optional, so callback modules need not
-            export it. If it is not exported in the callback module
-            the server will crash with an <c>undef</c> exit reason if
-            <seealso marker="#call/2"><c>call/2,3</c></seealso> or
-            <seealso marker="#multi_call/2"><c>multi_call/2,3,4</c></seealso>,
-            is called.</p>
-        </note>
         <p>Whenever a <c>gen_server</c> process receives a request sent using
           <seealso marker="#call/2"><c>call/2,3</c></seealso> or
           <seealso marker="#multi_call/2"><c>multi_call/2,3,4</c></seealso>,
@@ -680,14 +673,6 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>&nbsp;Reason = term()</v>
       </type>
       <desc>
-         <note>
-           <p>This callback is optional, so callback modules need not
-            export it. If it is not exported in the callback module
-            the server will crash with an <c>undef</c> exit reason if
-            <seealso marker="#cast/2"><c>cast/2</c></seealso> or
-            <seealso marker="#abcast/2"><c>abcast/2,3</c></seealso>,
-            is called.</p>
-        </note>
         <p>Whenever a <c>gen_server</c> process receives a request sent using
           <seealso marker="#cast/2"><c>cast/2</c></seealso> or
           <seealso marker="#abcast/2"><c>abcast/2,3</c></seealso>,
@@ -715,8 +700,8 @@ gen_server:abcast     -----> Module:handle_cast/2
         <note>
           <p>This callback is optional, so callback modules need not
             export it. The <c>gen_server</c> module provides a default
-            implementation of this function that drops the <c>Info</c>
-            message and returns <c>{noreply, State}</c>.</p>
+            implementation of this function that logs about the unexpected
+            <c>Info</c> message, drops it and returns <c>{noreply, State}</c>.</p>
         </note>
         <p>This function is called by a <c>gen_server</c> process when a
           time-out occurs or when it receives any other message than a
@@ -767,6 +752,16 @@ gen_server:abcast     -----> Module:handle_cast/2
         <p>If the initialization fails, the function is to return
           <c>{stop,Reason}</c>, where <c>Reason</c> is any term, or
           <c>ignore</c>.</p>
+        <note>
+          <p>
+            This callback is optional, so a callback module does not need
+            to export it, but most do.  If this function is not exported,
+            the <c>gen_server</c> should be started through
+            <seealso marker="proc_lib"><c>proc_lib</c></seealso>
+            and
+            <seealso marker="#enter_loop/3"><c>enter_loop/3-5</c></seealso>.
+          </p>
+        </note>
       </desc>
     </func>
 

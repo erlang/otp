@@ -4,10 +4,13 @@
 
 -export([start_link/0]).
 
--export([handle_call/3, terminate/2, code_change/3]).
+-export([init/1, handle_call/3, terminate/2, code_change/3]).
 
 start_link() ->
     gen_server:start_link({local, myserver}, ?MODULE, [], []).
+
+init([]) ->
+    ignore.
 
 handle_call(_Request, _From, State) ->
     Reply = ok,

@@ -147,8 +147,7 @@
       Status :: term().
 
 -optional_callbacks(
-    [handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-     code_change/3, format_status/2]).
+    [handle_info/2, init/1, terminate/2, code_change/3, format_status/2]).
 
 %%%  -----------------------------------------------------------------
 %%% Starts a generic server.
@@ -606,6 +605,8 @@ try_dispatch(Mod, Func, Msg, State) ->
         error:undef = R when Func == handle_info ->
             case erlang:function_exported(Mod, handle_info, 2) of
                 false ->
+                    format("** Undefined handle_info in ~p~n"
+                           "** Unhandled message: ~p~n", [Mod, Msg]),
                     {ok, {noreply, State}};
                 true ->
                     Stacktrace = erlang:get_stacktrace(),
@@ -648,7 +649,7 @@ try_terminate(Mod, Reason, State) ->
 		    Stacktrace = erlang:get_stacktrace(),
 		    {'EXIT', R, {R, Stacktrace}}
 	   end;
-	_ ->
+	false ->
 	    {ok, ok}
     end.
 
@@ -760,14 +761,9 @@ system_terminate(Reason, _Parent, Debug, [Name, State, Mod, _Time]) ->
     terminate(Reason, Name, undefined, [], Mod, State, Debug).
 
 system_code_change([Name, State, Mod, Time], _Module, OldVsn, Extra) ->
-    case erlang:function_exported(Mod, code_change, 3) of
-	true ->
-	   case catch Mod:code_change(OldVsn, State, Extra) of
-		{ok, NewState} -> {ok, [Name, NewState, Mod, Time]};
-		Else -> Else
-	   end;
-	_ ->
-	    {ok, [Name, State, Mod, Time]}
+    case catch Mod:code_change(OldVsn, State, Extra) of
+	{ok, NewState} -> {ok, [Name, NewState, Mod, Time]};
+	Else -> Else
     end.
 
 system_get_state([_Name, State, _Mod, _Time]) ->

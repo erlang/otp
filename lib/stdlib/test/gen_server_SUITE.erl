@@ -35,9 +35,9 @@
 	 otp_5854/1, hibernate/1, otp_7669/1, call_format_status/1,
 	 error_format_status/1, terminate_crash_format/1,
 	 get_state/1, replace_state/1, call_with_huge_message_queue/1,
-	 oc_handle_call/1, oc_handle_cast/1, oc_handle_info/1,
-	 oc_code_change/1, oc_terminate1/1, oc_terminate2/1,
-	 ui_handle_info/1, ui_code_change/1, ui_terminate/1
+	 undef_handle_call/1, undef_handle_cast/1, undef_handle_info/1,
+	 undef_init/1, undef_code_change/1, undef_terminate1/1,
+	 undef_terminate2/1, undef_in_terminate/1, undef_in_handle_info/1
 	]).
 
 -export([stop1/1, stop2/1, stop3/1, stop4/1, stop5/1, stop6/1, stop7/1,
@@ -69,17 +69,15 @@ all() ->
      otp_7669,
      call_format_status, error_format_status, terminate_crash_format,
      get_state, replace_state,
-     call_with_huge_message_queue, {group, optional_callbacks},
-     {group, undef_in_callbacks}].
+     call_with_huge_message_queue, {group, undef_callbacks},
+     undef_in_terminate, undef_in_handle_info].
 
 groups() -> 
     [{stop, [],
       [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10]},
-     {optional_callbacks, [],
-      [oc_handle_call, oc_handle_cast, oc_handle_info, oc_code_change,
-       oc_terminate1, oc_terminate2]},
-     {undef_in_callbacks, [],
-      [ui_handle_info, ui_code_change, ui_terminate]}].
+     {undef_callbacks, [],
+      [undef_handle_call, undef_handle_cast, undef_handle_info,
+       undef_init, undef_code_change, undef_terminate1, undef_terminate2]}].
 
 
 init_per_suite(Config) ->
@@ -88,7 +86,7 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
-init_per_group(optional_callbacks, Config) ->
+init_per_group(undef_callbacks, Config) ->
     DataDir = ?config(data_dir, Config),
     Server = filename:join(DataDir, "oc_server.erl"),
     {ok, oc_server} = compile:file(Server),
@@ -1276,9 +1274,48 @@ echo_loop() ->
 	    echo_loop()
     end.
 
-%% Test that the server crashes correctly if the handle_call callback is
+%% Test the default implementation of terminate if the callback module
+%% does not export it
+undef_terminate1(Config) when is_list(Config) ->
+    {ok, Server} = gen_server:start(oc_server, [], []),
+    MRef = monitor(process, Server),
+    ok = gen_server:stop(Server),
+    ok = verify_down_reason(MRef, Server, normal).
+
+%% Test the default implementation of terminate if the callback module
+%% does not export it
+undef_terminate2(Config) when is_list(Config) ->
+    {ok, Server} = gen_server:start(oc_server, [], []),
+    MRef = monitor(process, Server),
+    ok = gen_server:stop(Server, {error, test}, infinity),
+    ok = verify_down_reason(MRef, Server, {error, test}).
+
+%% Start should return an undef error if init isn't implemented
+undef_init(_Config) ->
+    {error, {undef, [{oc_init_server, init, [_], _}|_]}} =
+        gen_server:start(oc_init_server, [], []),
+    process_flag(trap_exit, true),
+    {error, {undef, [{oc_init_server, init, [_], _}|_]}} =
+        (catch gen_server:start_link(oc_init_server, [], [])),
+    receive
+        {'EXIT', Server,
+         {undef, [{oc_init_server, init, [_], _}|_]}} when is_pid(Server) ->
+            ok
+    after 1000 ->
+        ct:fail(expected_exit_msg)
+    end.
+
+%% The upgrade should fail if code_change is expected in the callback module
+%% but not exported, but the server should continue with the old code
+undef_code_change(Config) when is_list(Config) ->
+    {ok, Server} = gen_server:start(oc_server, [], []),
+    {error, {'EXIT', {undef, [{oc_server, code_change, [_, _, _], _}|_]}}}
+        = fake_upgrade(Server, ?MODULE),
+    true = is_process_alive(Server).
+
+%% The server should crash if the handle_call callback is
 %% not exported in the callback module
-oc_handle_call(Config) when is_list(Config) ->
+undef_handle_call(_Config) ->
     {ok, Server} = gen_server:start(oc_server, [], []),
     try
         gen_server:call(Server, call_msg),
@@ -1288,82 +1325,54 @@ oc_handle_call(Config) when is_list(Config) ->
         ok
     end.
 
-%% Test that the server crashes correctly if the handle_cast callback is
+%% The server should crash if the handle_cast callback is
 %% not exported in the callback module
-oc_handle_cast(Config) when is_list(Config) ->
+undef_handle_cast(_Config) ->
     {ok, Server} = gen_server:start(oc_server, [], []),
     MRef = monitor(process, Server),
     gen_server:cast(Server, cast_msg),
     verify_undef_down(MRef, Server, oc_server, handle_cast),
     ok.
 
-%% Test the default implementation of handle_info if the callback module
-%% does not export it
-oc_handle_info(Config) when is_list(Config) ->
+%% The server should log but not crash if the handle_info callback is
+%% calling an undefined function
+undef_handle_info(Config) when is_list(Config) ->
+    error_logger_forwarder:register(),
     {ok, Server} = gen_server:start(oc_server, [], []),
-    MRef = monitor(process, Server),
     Server ! hej,
     wait_until_processed(Server, hej, 10),
+    true = is_process_alive(Server),
     receive
-        {'DOWN', MRef, process, Server, _} ->
-            ct:fail(should_not_crash)
-    after 500 ->
-        ok
-    end,
-    gen_server:stop(Server),
-    ok.
+        {error, _GroupLeader, {Server,
+                               "** Undefined handle_info in " ++ _,
+                               [oc_server, hej]}} ->
+            ok;
+        Other ->
+            io:format("Unexpected: ~p", [Other]),
+            ct:fail(failed)
+    end.
 
-%% Test the default implementation of code_change if the callback module
-%% does not export it
-oc_code_change(Config) when is_list(Config) ->
-    {ok, Server} = gen_server:start(oc_server, [], []),
-    ok = fake_upgrade(Server, oc_server).
-
-%% Test the default implementation of terminate if the callback module
-%% does not export it
-oc_terminate1(Config) when is_list(Config) ->
-    {ok, Server} = gen_server:start(oc_server, [], []),
-    MRef = monitor(process, Server),
-    ok = gen_server:stop(Server),
-    ok = verify_down_reason(MRef, Server, normal).
-
-%% Test the default implementation of terminate if the callback module
-%% does not export it
-oc_terminate2(Config) when is_list(Config) ->
-    {ok, Server} = gen_server:start(oc_server, [], []),
-    MRef = monitor(process, Server),
-    ok = gen_server:stop(Server, {error, test}, infinity),
-    ok = verify_down_reason(MRef, Server, {error, test}).
-
-%% Test that the server crashes correctly if the handle_info callback is
-%% calling an undefined function
-ui_handle_info(Config) when is_list(Config) ->
-    {ok, Server} = gen_server:start(?MODULE, [], []),
-    MRef = monitor(process, Server),
-    Server ! {call_undef_fun, test, undef_fun},
-    verify_undef_down(MRef, Server, test, undef_fun),
-    ok.
-
-%% Test that the server crashes correctly if the code_change callback is
-%% calling an undefined function
-ui_code_change(Config) when is_list(Config) ->
-    State =  {undef_in_code_change, {test, undef_fun}},
-    {ok, Server} = gen_server:start(?MODULE, {state, State}, []),
-    {error, {'EXIT', {undef, [{test, undef_fun, _, _}|_]}}}
-        = fake_upgrade(Server, ?MODULE).
-
-%% Test that the server crashes correctly if the terminate callback is
-%% calling an undefined function
-ui_terminate(Config) when is_list(Config) ->
-    State = {undef_in_terminate, {test, undef_fun}},
+%% Test that the default implementation of terminate isn't catching the
+%% wrong undef error
+undef_in_terminate(Config) when is_list(Config) ->
+    State = {undef_in_terminate, {oc_server, terminate}},
     {ok, Server} = gen_server:start(?MODULE, {state, State}, []),
     try
         gen_server:stop(Server),
         ct:fail(failed)
     catch
-        exit:{undef, [{test, undef_fun, _, _}|_]} ->
+        exit:{undef, [{oc_server, terminate, [], _}|_]} ->
             ok
     end.
+
+%% Test that the default implementation of handle_info isn't catching the
+%% wrong undef error
+undef_in_handle_info(Config) when is_list(Config) ->
+     {ok, Server} = gen_server:start(?MODULE, [], []),
+     MRef = monitor(process, Server),
+     Server ! {call_undef_fun, ?MODULE, handle_info},
+     verify_undef_down(MRef, Server, ?MODULE, handle_info),
+     ok.
 
 verify_down_reason(MRef, Server, Reason) ->
     receive

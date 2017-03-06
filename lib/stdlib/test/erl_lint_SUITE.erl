@@ -3049,48 +3049,48 @@ behaviour_multiple(Config) when is_list(Config) ->
 	   []},
 
 	  {behaviour3,
-           <<"-behaviour(gen_server).
+           <<"-behaviour(gen_event).
               -behaviour(supervisor).
-              -export([handle_call/3,handle_cast/2,handle_info/2]).
-              handle_call(_, _, _) -> ok.
-              handle_cast(_, _) -> ok.
+              -export([handle_call/2,handle_event/2,handle_info/2]).
+              handle_call(_, _) -> ok.
+              handle_event(_, _) -> ok.
               handle_info(_, _) -> ok.
              ">>,
            [],
-	   {warnings,[{1,erl_lint,{undefined_behaviour_func,{init,1},gen_server}},
+	   {warnings,[{1,erl_lint,{undefined_behaviour_func,{init,1},gen_event}},
 		      {2,erl_lint,{undefined_behaviour_func,{init,1},supervisor}},
 		      {2,
 		       erl_lint,
-		       {conflicting_behaviours,{init,1},supervisor,1,gen_server}}]}},
+		       {conflicting_behaviours,{init,1},supervisor,1,gen_event}}]}},
 	  {american_behavior3,
-           <<"-behavior(gen_server).
+           <<"-behavior(gen_event).
               -behavior(supervisor).
-              -export([handle_call/3,handle_cast/2,handle_info/2]).
-              handle_call(_, _, _) -> ok.
-              handle_cast(_, _) -> ok.
+              -export([handle_call/2,handle_event/2,handle_info/2]).
+              handle_call(_, _) -> ok.
+              handle_event(_, _) -> ok.
               handle_info(_, _) -> ok.
              ">>,
            [],
-	   {warnings,[{1,erl_lint,{undefined_behaviour_func,{init,1},gen_server}},
+	   {warnings,[{1,erl_lint,{undefined_behaviour_func,{init,1},gen_event}},
 		      {2,erl_lint,{undefined_behaviour_func,{init,1},supervisor}},
 		      {2,
 		       erl_lint,
-		       {conflicting_behaviours,{init,1},supervisor,1,gen_server}}]}},
+		       {conflicting_behaviours,{init,1},supervisor,1,gen_event}}]}},
 
 	  {behaviour4,
-           <<"-behaviour(gen_server).
+           <<"-behaviour(gen_event).
               -behaviour(gen_fsm).
               -behaviour(supervisor).
-              -export([init/1,handle_call/3,handle_cast/2,
+              -export([init/1,handle_call/2,handle_event/2,
                        handle_info/2,handle_info/3,
                        handle_event/3,handle_sync_event/4,
                        code_change/3,code_change/4,
                        terminate/2,terminate/3,terminate/4]).
               init(_) -> ok.
-              handle_call(_, _, _) -> ok.
+              handle_call(_, _) -> ok.
               handle_event(_, _, _) -> ok.
               handle_sync_event(_, _, _, _) -> ok.
-              handle_cast(_, _) -> ok.
+              handle_event(_, _) -> ok.
               handle_info(_, _) -> ok.
               handle_info(_, _, _) -> ok.
               code_change(_, _, _) -> ok.
@@ -3102,10 +3102,10 @@ behaviour_multiple(Config) when is_list(Config) ->
            [],
 	   {warnings,[{2,
 		       erl_lint,
-		       {conflicting_behaviours,{init,1},gen_fsm,1,gen_server}},
+		       {conflicting_behaviours,{init,1},gen_fsm,1,gen_event}},
 		      {3,
 		       erl_lint,
-		       {conflicting_behaviours,{init,1},supervisor,1,gen_server}}]}}
+		       {conflicting_behaviours,{init,1},supervisor,1,gen_event}}]}}
 	 ],
     [] = run(Config, Ts),
     ok.
