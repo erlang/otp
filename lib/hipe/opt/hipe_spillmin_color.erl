@@ -212,16 +212,26 @@ build_ig_bb([X|Xs], LiveOut, IG, Target, TempMap, TempMapping) ->
     build_ig_bb(Xs, LiveOut, IG, Target, TempMap, TempMapping),
   build_ig_instr(X, Live, NewIG, Target, TempMap, TempMapping).
 
-build_ig_instr(X, Live, IG, Target, TempMap, TempMapping) ->
+build_ig_instr(X, Live0, IG0, Target, TempMap, TempMapping) ->
   {Def, Use} = def_use(X, Target, TempMap),
-  ?report3("Live ~w\n~w : Def: ~w Use ~w\n",[Live, X, Def,Use]),
+  ?report3("Live ~w\n~w : Def: ~w Use ~w\n",[Live0, X, Def,Use]),
   DefListMapped = list_map(Def, TempMapping, []),
   UseListMapped = list_map(Use, TempMapping, []),
   DefSetMapped = ordsets:from_list(DefListMapped),
   UseSetMapped = ordsets:from_list(UseListMapped),
-  NewIG = interference_arcs(DefListMapped, ordsets:to_list(Live), IG),
-  NewLive = ordsets:union(UseSetMapped, ordsets:subtract(Live, DefSetMapped)),
-  {NewLive, NewIG}.
+  {Live1, IG1} =
+    analyze_move(X, Live0, IG0, Target, DefSetMapped, UseSetMapped),
+  IG = interference_arcs(DefListMapped, ordsets:to_list(Live1), IG1),
+  Live = ordsets:union(UseSetMapped, ordsets:subtract(Live1, DefSetMapped)),
+  {Live, IG}.
+
+analyze_move(X, Live0, IG0, Target, DefSetMapped, UseSetMapped) ->
+  case {is_spill_move(X, Target), DefSetMapped, UseSetMapped} of
+    {true, [Dst], [Src]} ->
+      {ordsets:del_element(Src, Live0), add_move(Src, Dst, IG0)};
+    {_, _, _} ->
+      {Live0, IG0}
+  end.
 
 %% Given a list of Keys and an ets-table returns a list of the elements 
 %% in Mapping corresponding to the Keys and appends Acc to this list.
@@ -382,7 +392,8 @@ select_colors([{X,colorable}|Xs], IG, Cols, PhysRegs) ->
 
 select_color(X, IG, Cols, PhysRegs) ->
   UsedColors = get_colors(neighbors(X, IG), Cols),
-  Reg = select_unused_color(UsedColors, PhysRegs),
+  Preferences = get_colors(move_connected(X, IG), Cols),
+  Reg = select_unused_color(UsedColors, Preferences, PhysRegs),
   {Reg, set_color(X, Reg, Cols)}.
 
 %%%%%%%%%%%%%%%%%%%%
@@ -396,10 +407,14 @@ get_colors([X|Xs], Cols) ->
       [R|get_colors(Xs, Cols)]
   end.
 
-select_unused_color(UsedColors, PhysRegs) ->
+select_unused_color(UsedColors, Preferences, PhysRegs) ->
   Summary = ordsets:from_list(UsedColors),
-  AvailRegs = ordsets:to_list(ordsets:subtract(PhysRegs, Summary)),
-  hd(AvailRegs).
+  case ordsets:subtract(ordsets:from_list(Preferences), Summary) of
+    [PreferredColor|_] -> PreferredColor;
+    _ ->
+      AvailRegs = ordsets:to_list(ordsets:subtract(PhysRegs, Summary)),
+      hd(AvailRegs)
+  end.
 
 push_colored(X, Stk) ->
   [{X, colorable} | Stk].
@@ -456,7 +471,11 @@ init_stackslots(NumSlots, Acc) ->
 %%
 %% Note: later on, we may wish to add 'move-related' support.
 
--record(ig_info, {neighbors = [] :: [_], degree = 0 :: non_neg_integer()}).
+-record(ig_info, {
+	  neighbors = []      :: [_],
+	  degree = 0          :: non_neg_integer(),
+	  move_connected = [] :: [_]
+	 }).
 
 empty_ig(NumNodes) ->
   hipe_vectors:new(NumNodes, #ig_info{}).
@@ -467,14 +486,27 @@ degree(Info) ->
 neighbors(Info) ->
   Info#ig_info.neighbors.
 
+move_connected(Info) ->
+  Info#ig_info.move_connected.
+
 add_edge(X, X, IG) -> IG;
 add_edge(X, Y, IG) ->
   add_arc(X, Y, add_arc(Y, X, IG)).
+
+add_move(X, X, IG) -> IG;
+add_move(X, Y, IG) ->
+  add_move_arc(X, Y, add_move_arc(Y, X, IG)).
 
 add_arc(X, Y, IG) ->
   Info = hipe_vectors:get(IG, X),
   Old = neighbors(Info),
   New = Info#ig_info{neighbors = [Y|Old]},
+  hipe_vectors:set(IG,X,New).
+
+add_move_arc(X, Y, IG) ->
+  Info = hipe_vectors:get(IG, X),
+  Old = move_connected(Info),
+  New = Info#ig_info{move_connected = [Y|Old]},
   hipe_vectors:set(IG,X,New).
 
 normalize_ig(IG) ->
@@ -486,13 +518,18 @@ normalize_ig(-1, IG) ->
 normalize_ig(I, IG) ->
   Info = hipe_vectors:get(IG, I),
   N = ordsets:from_list(neighbors(Info)),
-  NewInfo = Info#ig_info{neighbors = N, degree = length(N)},
+  M = ordsets:subtract(ordsets:from_list(move_connected(Info)), N),
+  NewInfo = Info#ig_info{neighbors = N, degree = length(N), move_connected = M},
   NewIG = hipe_vectors:set(IG, I, NewInfo),
   normalize_ig(I-1, NewIG).
 
 neighbors(X, IG) ->
   Info = hipe_vectors:get(IG, X),
   Info#ig_info.neighbors.
+
+move_connected(X, IG) ->
+  Info = hipe_vectors:get(IG, X),
+  Info#ig_info.move_connected.
 
 decrement_degree(X, IG) ->
   Info = hipe_vectors:get(IG, X),
@@ -555,3 +592,6 @@ def_use(X, Target={TgtMod,TgtCtx}, TempMap) ->
 
 reg_names(Regs, {TgtMod,TgtCtx}) ->
   [TgtMod:reg_nr(X,TgtCtx) || X <- Regs].
+
+is_spill_move(Instr, {TgtMod,TgtCtx}) ->
+  TgtMod:is_spill_move(Instr, TgtCtx).
