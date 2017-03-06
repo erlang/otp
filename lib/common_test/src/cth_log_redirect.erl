@@ -28,10 +28,10 @@
 %% CTH Callbacks
 -export([id/1, init/2,
 	 pre_init_per_suite/3, pre_end_per_suite/3, post_end_per_suite/4,
-	 pre_init_per_group/3, post_init_per_group/4,
-	 pre_end_per_group/3, post_end_per_group/4,
-	 pre_init_per_testcase/3, post_init_per_testcase/4,
-	 pre_end_per_testcase/3, post_end_per_testcase/4]).
+	 pre_init_per_group/4, post_init_per_group/5,
+	 pre_end_per_group/4, post_end_per_group/5,
+	 pre_init_per_testcase/4, post_init_per_testcase/5,
+	 pre_end_per_testcase/4, post_end_per_testcase/5]).
 
 %% Event handler Callbacks
 -export([init/1,
@@ -71,11 +71,11 @@ post_end_per_suite(_Suite, Config, Return, State) ->
     set_curr_func(undefined, Config),
     {Return, State}.
 
-pre_init_per_group(Group, Config, State) ->
+pre_init_per_group(_Suite, Group, Config, State) ->
     set_curr_func({group,Group,init_per_group}, Config),
     {Config, State}.
 
-post_init_per_group(Group, Config, Result, tc_log_async) when is_list(Config) ->
+post_init_per_group(_Suite, Group, Config, Result, tc_log_async) when is_list(Config) ->
     case lists:member(parallel,proplists:get_value(
 				 tc_group_properties,Config,[])) of
 	true ->
@@ -83,33 +83,33 @@ post_init_per_group(Group, Config, Result, tc_log_async) when is_list(Config) ->
 	false ->
 	    {Result, tc_log_async}
     end;
-post_init_per_group(_Group, _Config, Result, State) ->
+post_init_per_group(_Suite, _Group, _Config, Result, State) ->
     {Result, State}.
 
-pre_init_per_testcase(TC, Config, State) ->
+pre_init_per_testcase(_Suite, TC, Config, State) ->
     set_curr_func(TC, Config),
     {Config, State}.
 
-post_init_per_testcase(_TC, _Config, Return, State) ->
+post_init_per_testcase(_Suite, _TC, _Config, Return, State) ->
     {Return, State}.
 
-pre_end_per_testcase(_TC, Config, State) ->
+pre_end_per_testcase(_Suite, _TC, Config, State) ->
     {Config, State}.
 
-post_end_per_testcase(_TC, _Config, Result, State) ->
+post_end_per_testcase(_Suite, _TC, _Config, Result, State) ->
     %% Make sure that the event queue is flushed
     %% before ending this test case.
     gen_event:call(error_logger, ?MODULE, flush, 300000),
     {Result, State}.
 
-pre_end_per_group(Group, Config, {tc_log, Group}) ->
+pre_end_per_group(_Suite, Group, Config, {tc_log, Group}) ->
     set_curr_func({group,Group,end_per_group}, Config),
     {Config, set_log_func(tc_log_async)};
-pre_end_per_group(Group, Config, State) ->
+pre_end_per_group(_Suite, Group, Config, State) ->
     set_curr_func({group,Group,end_per_group}, Config),
     {Config, State}.
 
-post_end_per_group(_Group, Config, Return, State) ->
+post_end_per_group(_Suite, _Group, Config, Return, State) ->
     set_curr_func({group,undefined}, Config),
     {Return, State}.
 

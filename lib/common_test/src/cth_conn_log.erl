@@ -54,8 +54,8 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([init/2,
-	 pre_init_per_testcase/3,
-	 post_end_per_testcase/4]).
+	 pre_init_per_testcase/4,
+	 post_end_per_testcase/5]).
 
 %%----------------------------------------------------------------------
 %% Exported types
@@ -104,7 +104,7 @@ get_log_opts(Mod,Opts) ->
     Hosts = proplists:get_value(hosts,Opts,[]),
     {LogType,Hosts}.
 
-pre_init_per_testcase(TestCase,Config,CthState) ->
+pre_init_per_testcase(_Suite,TestCase,Config,CthState) ->
     Logs =
 	lists:map(
 	  fun({ConnMod,{LogType,Hosts}}) ->		  
@@ -158,7 +158,7 @@ pre_init_per_testcase(TestCase,Config,CthState) ->
     ct_util:update_testdata(?MODULE, Update, [create]),
     {Config,CthState}.
 
-post_end_per_testcase(TestCase,_Config,Return,CthState) ->
+post_end_per_testcase(_Suite,TestCase,_Config,Return,CthState) ->
     Update =
 	fun(PrevUsers) ->
 		case lists:delete(TestCase, PrevUsers) of

@@ -19,7 +19,7 @@
 %%
 
 
--module(fail_pre_suite_cth).
+-module(skip_pre_init_tc_cth).
 
 
 -include_lib("common_test/src/ct_util.hrl").
@@ -33,8 +33,7 @@ init(Id, Opts) ->
     empty_cth:init(Id, Opts).
 
 pre_init_per_suite(Suite, Config, State) ->
-    empty_cth:pre_init_per_suite(Suite,Config,State),
-    {{fail, "Test failure"}, State}.
+    empty_cth:pre_init_per_suite(Suite,Config,State).
 
 post_init_per_suite(Suite,Config,Return,State) ->
     empty_cth:post_init_per_suite(Suite,Config,Return,State).
@@ -58,7 +57,8 @@ post_end_per_group(Suite,Group,Config,Return,State) ->
     empty_cth:post_end_per_group(Suite,Group,Config,Return,State).
 
 pre_init_per_testcase(Suite,TC,Config,State) ->
-    empty_cth:pre_init_per_testcase(Suite,TC,Config,State).
+    empty_cth:pre_init_per_testcase(Suite,TC,Config,State),
+    {{skip, "Skipped in pre_init_per_testcase"}, State}.
 
 post_init_per_testcase(Suite,TC,Config,Return,State) ->
     empty_cth:post_init_per_testcase(Suite,TC,Config,Return,State).

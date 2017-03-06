@@ -54,6 +54,10 @@ init_per_suite(Config) ->
 	    Config
     end.
 
+end_per_suite(_Config) ->
+    %% This function is required since init_per_suite/1 exists.
+    ok.
+
 init_per_testcase(Case,Config) ->
     PrivDir = filename:join([proplists:get_value(data_dir,Config),priv_dir,Case]),
     CreateDir = filename:join([PrivDir,create]),

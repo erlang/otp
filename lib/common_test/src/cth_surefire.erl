@@ -33,16 +33,16 @@
 -export([pre_end_per_suite/3]).
 -export([post_end_per_suite/4]).
 
--export([pre_init_per_group/3]).
--export([post_init_per_group/4]).
--export([pre_end_per_group/3]).
--export([post_end_per_group/4]).
+-export([pre_init_per_group/4]).
+-export([post_init_per_group/5]).
+-export([pre_end_per_group/4]).
+-export([post_end_per_group/5]).
 
--export([pre_init_per_testcase/3]).
--export([post_end_per_testcase/4]).
+-export([pre_init_per_testcase/4]).
+-export([post_end_per_testcase/5]).
 
--export([on_tc_fail/3]).
--export([on_tc_skip/3]).
+-export([on_tc_fail/4]).
+-export([on_tc_skip/4]).
 
 -export([terminate/1]).
 
@@ -116,29 +116,29 @@ pre_end_per_suite(_Suite,Config,State) ->
 post_end_per_suite(_Suite,Config,Result,State) ->
     {Result, end_tc(end_per_suite,Config,Result,State)}.
 
-pre_init_per_group(Group,Config,State) ->
+pre_init_per_group(_Suite,Group,Config,State) ->
     {Config, init_tc(State#state{ curr_group = [Group|State#state.curr_group]},
 		     Config)}.
 
-post_init_per_group(_Group,Config,Result,State) ->
+post_init_per_group(_Suite,_Group,Config,Result,State) ->
     {Result, end_tc(init_per_group,Config,Result,State)}.
 
-pre_end_per_group(_Group,Config,State) ->
+pre_end_per_group(_Suite,_Group,Config,State) ->
     {Config, init_tc(State, Config)}.
 
-post_end_per_group(_Group,Config,Result,State) ->
+post_end_per_group(_Suite,_Group,Config,Result,State) ->
     NewState = end_tc(end_per_group, Config, Result, State),
     {Result, NewState#state{ curr_group = tl(NewState#state.curr_group)}}.
 
-pre_init_per_testcase(_TC,Config,State) ->
+pre_init_per_testcase(_Suite,_TC,Config,State) ->
     {Config, init_tc(State, Config)}.
 
-post_end_per_testcase(TC,Config,Result,State) ->
+post_end_per_testcase(_Suite,TC,Config,Result,State) ->
     {Result, end_tc(TC,Config, Result,State)}.
 
-on_tc_fail(_TC, _Res, State = #state{test_cases = []}) ->
+on_tc_fail(_Suite,_TC, _Res, State = #state{test_cases = []}) ->
     State;
-on_tc_fail(_TC, Res, State) ->
+on_tc_fail(_Suite,_TC, Res, State) ->
     TCs = State#state.test_cases,
     TC = hd(TCs),
     NewTC = TC#testcase{
@@ -146,10 +146,9 @@ on_tc_fail(_TC, Res, State) ->
 		  {fail,lists:flatten(io_lib:format("~p",[Res]))} },
     State#state{ test_cases = [NewTC | tl(TCs)]}.
 
-on_tc_skip({ConfigFunc,_GrName},{Type,_Reason} = Res, State0)
-  when Type == tc_auto_skip; Type == tc_user_skip ->
-    on_tc_skip(ConfigFunc, Res, State0);
-on_tc_skip(Tc,{Type,_Reason} = Res, State0) when Type == tc_auto_skip ->
+on_tc_skip(Suite,{ConfigFunc,_GrName}, Res, State) ->
+    on_tc_skip(Suite,ConfigFunc, Res, State);
+on_tc_skip(Suite,Tc, Res, State0) ->
     TcStr = atom_to_list(Tc),
     State =
 	case State0#state.test_cases of
@@ -158,11 +157,7 @@ on_tc_skip(Tc,{Type,_Reason} = Res, State0) when Type == tc_auto_skip ->
 	    _ ->
 		State0
 	end,
-    do_tc_skip(Res, end_tc(Tc,[],Res,init_tc(State,[])));
-on_tc_skip(_Tc, _Res, State = #state{test_cases = []}) ->
-    State;
-on_tc_skip(_Tc, Res, State) ->
-    do_tc_skip(Res, State).
+    do_tc_skip(Res, end_tc(Tc,[],Res,init_tc(set_suite(Suite,State),[]))).
 
 do_tc_skip(Res, State) ->
     TCs = State#state.test_cases,
@@ -209,6 +204,12 @@ end_tc(Name, _Config, _Res, State = #state{ curr_suite = Suite,
 					  result = passed }|
 			       State#state.test_cases],
 		 tc_log = ""}. % so old tc_log is not set if next is on_tc_skip
+
+set_suite(Suite,#state{curr_suite=undefined}=State) ->
+    State#state{curr_suite=Suite, curr_suite_ts=?now};
+set_suite(_,State) ->
+    State.
+
 close_suite(#state{ test_cases = [] } = State) ->
     State;
 close_suite(#state{ test_cases = TCs, url_base = UrlBase } = State) ->
@@ -228,7 +229,8 @@ close_suite(#state{ test_cases = TCs, url_base = UrlBase } = State) ->
 			testcases = lists:reverse(TCs),
 			log = SuiteLog,
 			url = SuiteUrl},
-    State#state{ test_cases = [],
+    State#state{ curr_suite = undefined,
+                 test_cases = [],
 		 test_suites = [Suite | State#state.test_suites]}.
 
 terminate(State = #state{ test_cases = [] }) ->
