@@ -316,7 +316,7 @@ list_to_binary([B1,B2])</pre>
               (and checksum) from the stream. Notice that the zlib source
               mentions this only as a undocumented feature.</p>
 	      <warning>
-		<p>Due to a known bug in zlib, <c>WindowsBits</c> values 8 and -8
+		<p>Due to a known bug in the underlying zlib library, <c>WindowBits</c> values 8 and -8
 		do not work as expected. In zlib versions before 1.2.9 values
 		8 and -8 are automatically changed to 9 and -9. <em>From zlib version 1.2.9
 		value -8 is rejected</em> causing <c>zlib:deflateInit/6</c> to fail
