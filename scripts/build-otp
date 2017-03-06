@@ -14,7 +14,7 @@ function progress {
 }
 
 function do_and_log {
-    log="scripts/latest-log.$$"
+    log="logs/latest-log.$$"
     echo "" >$log
     echo -n "$1..."
     (progress $log) &
@@ -31,6 +31,10 @@ function do_and_log {
         exit 1
     fi
 }
+
+if [ ! -d "logs" ]; then
+    mkdir logs
+fi
 
 do_and_log "Autoconfing" autoconf
 do_and_log "Configuring" configure

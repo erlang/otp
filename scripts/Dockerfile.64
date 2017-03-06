@@ -1,0 +1,13 @@
+FROM erlang/ubuntu-build:64bit
+
+COPY ./otp.tar.gz /buildroot/
+
+WORKDIR /buildroot/
+
+RUN tar xzf otp.tar.gz
+
+WORKDIR /buildroot/otp/
+
+ENV MAKEFLAGS -j10
+
+CMD ./scripts/build-otp
