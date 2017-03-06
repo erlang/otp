@@ -1158,6 +1158,11 @@ handle_data(verbosity,Node,VLvls,_Spec) when is_list(VLvls) ->
     VLvls1 = lists:map(fun(VLvl = {_Cat,_Lvl}) -> VLvl;
 			  (Lvl) -> {'$unspecified',Lvl} end, VLvls),
     [{Node,VLvls1}];
+handle_data(multiply_timetraps,Node,Mult,_Spec) when is_integer(Mult) ->
+    [{Node,Mult}];
+handle_data(scale_timetraps,Node,Scale,_Spec) when Scale == true;
+                                                   Scale == false ->
+    [{Node,Scale}];
 handle_data(silent_connections,Node,all,_Spec) ->
     [{Node,[all]}];
 handle_data(silent_connections,Node,Conn,_Spec) when is_atom(Conn) ->
@@ -1176,6 +1181,8 @@ should_be_added(Tag,Node,_Data,Spec) ->
 	Tag == label;        Tag == auto_compile;
 	Tag == abort_if_missing_suites;
 	Tag == stylesheet;   Tag == verbosity;
+        Tag == multiply_timetraps;
+        Tag == scale_timetraps;
 	Tag == silent_connections ->
 	    lists:keymember(ref2node(Node,Spec#testspec.nodes),1,
 			    read_field(Spec,Tag)) == false;

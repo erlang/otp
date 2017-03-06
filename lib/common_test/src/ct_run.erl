@@ -76,8 +76,8 @@
 	       abort_if_missing_suites,
 	       silent_connections = [],
 	       stylesheet,
-	       multiply_timetraps = 1,
-	       scale_timetraps = false,
+	       multiply_timetraps,
+	       scale_timetraps,
 	       create_priv_dir,
 	       testspec_files = [],
 	       current_testspec,
@@ -264,11 +264,11 @@ script_start1(Parent, Args) ->
 			    [], Args),
     Verbosity = verbosity_args2opts(Args),
     MultTT = get_start_opt(multiply_timetraps,
-			   fun([MT]) -> list_to_integer(MT) end, 1, Args),
+			   fun([MT]) -> list_to_integer(MT) end, Args),
     ScaleTT = get_start_opt(scale_timetraps,
 			    fun([CT]) -> list_to_atom(CT);
 			       ([]) -> true
-			    end, false, Args),
+			    end, Args),
     CreatePrivDir = get_start_opt(create_priv_dir,
 				  fun([PD]) -> list_to_atom(PD);
 				     ([]) -> auto_per_tc
@@ -1055,8 +1055,8 @@ run_test2(StartOpts) ->
     CoverStop = get_start_opt(cover_stop, value, StartOpts),
 
     %% timetrap manipulation
-    MultiplyTT = get_start_opt(multiply_timetraps, value, 1, StartOpts),
-    ScaleTT = get_start_opt(scale_timetraps, value, false, StartOpts),
+    MultiplyTT = get_start_opt(multiply_timetraps, value, StartOpts),
+    ScaleTT = get_start_opt(scale_timetraps, value, StartOpts),
 
     %% create unique priv dir names
     CreatePrivDir = get_start_opt(create_priv_dir, value, StartOpts),
@@ -2280,8 +2280,19 @@ do_run_test(Tests, Skip, Opts0) ->
 		_Lower ->
 		    ok
 	    end,
-	    test_server_ctrl:multiply_timetraps(Opts0#opts.multiply_timetraps),
-	    test_server_ctrl:scale_timetraps(Opts0#opts.scale_timetraps),
+
+            case Opts0#opts.multiply_timetraps of
+                undefined -> MultTT = 1;
+                MultTT    -> MultTT
+            end,
+            case Opts0#opts.scale_timetraps of
+                undefined -> ScaleTT = false;
+                ScaleTT   -> ScaleTT
+            end,
+            ct_logs:log("TEST INFO","Timetrap time multiplier = ~w~n"
+                        "Timetrap scaling enabled = ~w", [MultTT,ScaleTT]),
+            test_server_ctrl:multiply_timetraps(MultTT),
+	    test_server_ctrl:scale_timetraps(ScaleTT),
 
 	    test_server_ctrl:create_priv_dir(choose_val(
 					       Opts0#opts.create_priv_dir,
