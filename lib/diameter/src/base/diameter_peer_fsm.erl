@@ -128,6 +128,7 @@
                        %% outgoing DPR; boolean says whether or not
                        %% the request was sent explicitly with
                        %% diameter:call/4.
+         strict :: boolean(),
          length_errors :: exit | handle | discard,
          incoming_maxlen :: integer() | infinity}).
 
@@ -233,6 +234,7 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
                     proplists:get_value(dpa_timeout, Opts, ?DPA_TIMEOUT)}),
 
     Tmo = proplists:get_value(capx_timeout, Opts, ?CAPX_TIMEOUT),
+    Strictness = proplists:get_value(capx_strictness, Opts, true),
     OnLengthErr = proplists:get_value(length_errors, Opts, exit),
 
     {TPid, Addrs} = start_transport(T, Rest, Svc),
@@ -246,6 +248,7 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
            mode = M,
            service = svc(Svc, Addrs),
            length_errors = OnLengthErr,
+           strict = Strictness,
            incoming_maxlen = Maxlen}.
 %% The transport returns its local ip addresses so that different
 %% transports on the same service can use different local addresses.
@@ -613,6 +616,17 @@ recv1(_,
       #state{incoming_maxlen = M})
   when M < size(Bin) ->
     invalid(false, incoming_maxlen_exceeded, {size(Bin), H});
+
+%% Ignore anything but an expected CER/CEA if so configured. This is
+%% non-standard behaviour.
+recv1(Name, _, #state{state = {'Wait-CEA', _, _},
+                      strict = false})
+  when Name /= 'CEA' ->
+    ok;
+recv1(Name, _, #state{state = recv_CER,
+                      strict = false})
+  when Name /= 'CER' ->
+    ok;
 
 %% Incoming request after outgoing DPR: discard. Don't discard DPR, so
 %% both ends don't do so when sending simultaneously.

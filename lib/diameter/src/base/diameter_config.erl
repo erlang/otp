@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -579,6 +579,9 @@ opt({K, Tmo})
        K == dpr_timeout;
        K == dpa_timeout ->
     ?IS_UINT32(Tmo);
+
+opt({capx_strictness, B}) ->
+    is_boolean(B);
 
 opt({length_errors, T}) ->
     lists:member(T, [exit, handle, discard]);
