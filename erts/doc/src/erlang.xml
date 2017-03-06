@@ -4863,7 +4863,9 @@ RealSystem = system + MissedSystem</code>
             <p><c><anno>BinInfo</anno></c> is a list containing miscellaneous
               information about binaries currently referred to by this
               process. This <c><anno>InfoTuple</anno></c> can be changed or
-              removed without prior notice.</p>
+              removed without prior notice. In the current implementation
+              <c><anno>BinInfo</anno></c> is a list of tuples. The tuples
+              contain; <c>BinaryId</c>, <c>BinarySize</c>, <c>BinaryRefcCount</c>.</p>
           </item>
           <tag><c>{catchlevel, <anno>CatchLevel</anno>}</c></tag>
           <item>
