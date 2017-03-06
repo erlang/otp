@@ -2080,8 +2080,6 @@ v2_solve_disjunct(Disj, Map, V2State0) ->
 var_occurs_everywhere(V, Masks, NotFailed) ->
   ordsets:is_subset(NotFailed, get_mask(V, Masks)).
 
--dialyzer({no_improper_lists, [v2_solve_disj/10, v2_solve_conj/12]}).
-
 v2_solve_disj([I|Is], [C|Cs], I, Map0, V2State0, UL, MapL, Eval, Uneval,
               Failed0) ->
   Id = C#constraint_list.id,
@@ -2100,10 +2098,10 @@ v2_solve_disj([I|Is], [C|Cs], I, Map0, V2State0, UL, MapL, Eval, Uneval,
   end;
 v2_solve_disj([], [], _I, _Map, V2State, UL, MapL, Eval, Uneval, Failed) ->
   {ok, V2State, lists:reverse(Eval), UL, MapL, lists:reverse(Uneval), Failed};
-v2_solve_disj(every_i, Cs, I, Map, V2State, UL, MapL, Eval, Uneval, Failed) ->
+v2_solve_disj([every_i], Cs, I, Map, V2State, UL, MapL, Eval, Uneval, Failed) ->
   NewIs = case Cs of
             [] -> [];
-            _ -> [I|every_i]
+            _ -> [I, every_i]
           end,
   v2_solve_disj(NewIs, Cs, I, Map, V2State, UL, MapL, Eval, Uneval, Failed);
 v2_solve_disj(Is, [C|Cs], I, Map, V2State, UL, MapL, Eval, Uneval0, Failed) ->
@@ -2199,11 +2197,11 @@ v2_solve_conj([], _Cs, _I, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
       v2_solve_conj(NewFlags, Cs, 1, Map, Conj, IsFlat, V2State,
                     [], [], [U|VarsUp], Map, NewFlags)
   end;
-v2_solve_conj(every_i, Cs, I, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
+v2_solve_conj([every_i], Cs, I, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
               LastMap, LastFlags) ->
   NewIs = case Cs of
             [] -> [];
-            _ -> [I|every_i]
+            _ -> [I, every_i]
           end,
   v2_solve_conj(NewIs, Cs, I, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
                 LastMap, LastFlags);
@@ -2225,8 +2223,8 @@ add_mask_to_flags(Flags, [Im|M], I, L) when I > Im ->
 add_mask_to_flags(Flags, [_|M], _I, L) ->
   {umerge_mask(Flags, M), lists:reverse(L)}.
 
-umerge_mask(every_i, _F) ->
-  every_i;
+umerge_mask([every_i]=Is, _F) ->
+  Is;
 umerge_mask(Is, F) ->
   lists:umerge(Is, F).
 
@@ -2242,7 +2240,7 @@ get_flags(#v2_state{constr_data = ConData}=V2State0, C) ->
     error ->
       ?debug("get_flags Id=~w Flags=all ~w\n", [Id, length(Cs)]),
       V2State = V2State0#v2_state{constr_data = maps:put(Id, {[],[]}, ConData)},
-      {V2State, every_i};
+      {V2State, [every_i]};
     {ok, failed} ->
       {V2State0, failed_list};
     {ok, {Part,U}} when U =/= [] ->

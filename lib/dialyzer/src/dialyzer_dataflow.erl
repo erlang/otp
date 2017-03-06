@@ -1344,8 +1344,6 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
 	  {Msg, Force} =
 	    case t_is_none(ArgType0) of
 	      true ->
-                PatString = format_patterns(Pats),
-		PatTypes = [PatString, format_type(OrigArgType, State1)],
 		%% See if this is covered by an earlier clause or if it
 		%% simply cannot match
 		OrigArgTypes =
@@ -1353,14 +1351,24 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
 		    true -> Any = t_any(), [Any || _ <- Pats];
 		    false -> t_to_tlist(OrigArgType)
 		  end,
+                PatString = format_patterns(Pats),
+                ArgTypeString = format_type(OrigArgType, State1),
+                BindResOrig =
+                  bind_pat_vars(Pats, OrigArgTypes, [], Map1, State1),
 		Tag =
-		  case bind_pat_vars(Pats, OrigArgTypes, [], Map1, State1) of
+		  case BindResOrig of
 		    {error,   bind, _, _, _} -> pattern_match;
 		    {error, record, _, _, _} -> record_match;
 		    {error, opaque, _, _, _} -> opaque_match;
 		    {_, _} -> pattern_match_cov
 		  end,
-		{{Tag, PatTypes}, false};
+                PatTypes = case BindResOrig of
+                             {error, opaque, _, _, OpaqueType} ->
+                               [PatString, ArgTypeString,
+                                format_type(OpaqueType, State1)];
+                             _ -> [PatString, ArgTypeString]
+                           end,
+                {{Tag, PatTypes}, false};
 	      false ->
 		%% Try to find out if this is a default clause in a list
 		%% comprehension and suppress this. A real Hack(tm)
