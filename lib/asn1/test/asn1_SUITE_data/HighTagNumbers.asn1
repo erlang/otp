@@ -1,0 +1,17 @@
+HighTagNumbers DEFINITIONS ::=
+BEGIN
+
+S ::= SEQUENCE {
+  a [127] INTEGER,
+  b [128] INTEGER,
+  c [150] INTEGER,
+  d [207] INTEGER,
+  e [255] INTEGER,
+  f [256] INTEGER,
+  g [7777] INTEGER,
+  h [9999] INTEGER,
+  i [16382] INTEGER,
+  j [16383] INTEGER
+}
+
+END
