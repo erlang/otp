@@ -8,6 +8,6 @@ RUN tar xzf otp.tar.gz
 
 WORKDIR /buildroot/otp/
 
-ENV MAKEFLAGS -j10
+ENV MAKEFLAGS -j4
 
 CMD ./scripts/build-otp

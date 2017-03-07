@@ -25,7 +25,7 @@ before_script:
   - export ERL_TOP=$PWD
   - export PATH=$ERL_TOP/bin:$PATH
   - export ERL_LIBS=''
-  - export MAKEFLAGS=-j6
+  - export MAKEFLAGS=-j4
 
 script:
   - ./scripts/build-otp
