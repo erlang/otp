@@ -36,7 +36,6 @@ MODULES= \
 	ssh_options_SUITE \
 	ssh_renegotiate_SUITE \
 	ssh_basic_SUITE \
-	ssh_benchmark_SUITE \
 	ssh_connection_SUITE \
 	ssh_protocol_SUITE \
 	ssh_sftp_SUITE \
