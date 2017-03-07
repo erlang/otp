@@ -145,10 +145,11 @@ parse_dtd(Xml, State) ->
 %%              [1] document ::= prolog element Misc*
 %%----------------------------------------------------------------------
 parse_document(Rest, State) when is_record(State, xmerl_sax_parser_state) ->
-    {Rest1, State1} = parse_xml_decl(Rest, State),
+    {Rest1, State1} = parse_byte_order_mark(Rest, State),
     {Rest2, State2} = parse_misc(Rest1, State1, true),
     {ok, Rest2, State2}.
 
+?PARSE_BYTE_ORDER_MARK(Bytes, State).
 
 %%----------------------------------------------------------------------
 %% Function: parse_xml_decl(Rest, State) -> Result
@@ -159,15 +160,8 @@ parse_document(Rest, State) when is_record(State, xmerl_sax_parser_state) ->
 %%             [22] prolog ::= XMLDecl? Misc* (doctypedecl Misc*)?
 %%             [23] XMLDecl ::= '<?xml' VersionInfo EncodingDecl? SDDecl? S? '?>'
 %%----------------------------------------------------------------------
--dialyzer({[no_fail_call, no_match], parse_xml_decl/2}).
 parse_xml_decl(?STRING_EMPTY, State) ->
     cf(?STRING_EMPTY, State, fun parse_xml_decl/2);
-parse_xml_decl(?BYTE_ORDER_MARK_1, State) ->
-    cf(?BYTE_ORDER_MARK_1, State, fun parse_xml_decl/2);
-parse_xml_decl(?BYTE_ORDER_MARK_2, State) ->
-    cf(?BYTE_ORDER_MARK_2, State, fun parse_xml_decl/2);
-parse_xml_decl(?BYTE_ORDER_MARK_REST(Rest), State) ->
-    cf(Rest, State, fun parse_xml_decl/2);
 parse_xml_decl(?STRING("<") = Bytes, State) ->
     cf(Bytes, State, fun parse_xml_decl/2);
 parse_xml_decl(?STRING("<?") = Bytes, State) ->
@@ -179,31 +173,19 @@ parse_xml_decl(?STRING("<?xm") = Bytes, State) ->
 parse_xml_decl(?STRING("<?xml") = Bytes, State) ->
     cf(Bytes, State, fun parse_xml_decl/2);
 parse_xml_decl(?STRING_REST("<?xml", Rest1), State) ->
-    parse_xml_decl_1(Rest1, State);
-parse_xml_decl(Bytes, #xmerl_sax_parser_state{encoding=Enc} = State) when is_binary(Bytes) ->
-    case unicode:characters_to_list(Bytes, Enc) of 
-	{incomplete, _, _} ->
-	    cf(Bytes, State, fun parse_xml_decl/2);
-	{error, _Encoded, _Rest} ->
-	    ?fatal_error(State,  lists:flatten(io_lib:format("Bad character, not in ~p\n", [Enc])));
-	_ ->
-	    parse_prolog(Bytes, State)
-    end;
-parse_xml_decl(Bytes, State) ->
-    parse_prolog(Bytes, State).
-    
+    parse_xml_decl_rest(Rest1, State);
+?PARSE_XML_DECL(Bytes, State).
 
-parse_xml_decl_1(?STRING_UNBOUND_REST(C, Rest) = Bytes, State) ->
+parse_xml_decl_rest(?STRING_UNBOUND_REST(C, Rest) = Bytes, State) ->
     if
 	?is_whitespace(C) ->
 	    {_XmlAttributes, Rest1, State1} = parse_version_info(Rest, State, []),
-	    %State2 =  event_callback({processingInstruction, "xml", XmlAttributes}, State1),% The XML decl. should not be reported as a PI
 	    parse_prolog(Rest1, State1);
 	true ->
 	     parse_prolog(?STRING_REST("<?xml", Bytes), State)
     end;	
-parse_xml_decl_1(Bytes, State) ->
-    unicode_incomplete_check([Bytes, State, fun parse_xml_decl_1/2], undefined).
+parse_xml_decl_rest(Bytes, State) ->
+    unicode_incomplete_check([Bytes, State, fun parse_xml_decl_rest/2], undefined).
 
 
 
@@ -225,8 +207,6 @@ parse_prolog(?STRING_REST("<?", Rest), State) ->
 	    parse_prolog(Rest1, State1);
 	{endDocument, Rest1, State1} ->
 	    parse_prolog(Rest1, State1)  
-	    % IValue = ?TO_INPUT_FORMAT("<?"),
-	    % {?APPEND_STRING(IValue, Rest1), State1}
     end;
 parse_prolog(?STRING_REST("<!", Rest), State) ->
     parse_prolog_1(Rest, State);
@@ -238,7 +218,6 @@ parse_prolog(?STRING_UNBOUND_REST(C, _) = Rest, State) when ?is_whitespace(C) ->
 parse_prolog(Bytes, State) ->
     unicode_incomplete_check([Bytes, State, fun parse_prolog/2], 
 			     "expecting < or whitespace").
-
 
 parse_prolog_1(?STRING_EMPTY, State) ->
     cf(?STRING_EMPTY, State, fun parse_prolog_1/2);
@@ -1232,7 +1211,6 @@ send_character_event(_, true, String, State) ->
 %% Description: Parse whitespaces.
 %%              [3] S ::= (#x20 | #x9 | #xD | #xA)+
 %%----------------------------------------------------------------------
--dialyzer({no_fail_call, whitespace/3}).
 whitespace(?STRING_EMPTY, State, Acc) ->  
     case cf(?STRING_EMPTY, State, Acc, fun whitespace/3) of
 	{?STRING_EMPTY, State} ->
@@ -1258,16 +1236,7 @@ whitespace(?STRING_REST("\r", Rest), State, Acc) ->
     whitespace(Rest, State#xmerl_sax_parser_state{line_no=N+1}, [?lf |Acc]);
 whitespace(?STRING_UNBOUND_REST(C, Rest), State, Acc) when ?is_whitespace(C) -> 
     whitespace(Rest, State, [C|Acc]);
-whitespace(?STRING_UNBOUND_REST(_C, _) = Bytes, State, Acc) -> 
-    {lists:reverse(Acc), Bytes, State};
-whitespace(Bytes, #xmerl_sax_parser_state{encoding=Enc} = State, Acc) when is_binary(Bytes) -> 
-    case unicode:characters_to_list(Bytes, Enc) of 
-	{incomplete, _, _} ->
-	    cf(Bytes, State, Acc, fun whitespace/3);
-	{error, _Encoded, _Rest} ->
-	    ?fatal_error(State, lists:flatten(io_lib:format("Bad character, not in ~p\n", [Enc])))
-    end.
-
+?WHITESPACE(Bytes, State, Acc).
 
 %%----------------------------------------------------------------------
 %% Function: parse_reference(Rest, State, HaveToExist) -> Result
@@ -1390,7 +1359,6 @@ parse_pe_reference_1(Bytes, State, Name) ->
 			     "missing ; after reference " ++ Name).
 
 
-
 %%----------------------------------------------------------------------
 %% Function: insert_reference(Reference, State) -> Result
 %% Parameters: Reference = string()
@@ -1405,7 +1373,6 @@ insert_reference({Name, Type, Value}, Table) ->
 	    ets:insert(Table, {Name, Type, Value})
     end.
 	    
-
 
 %%----------------------------------------------------------------------
 %% Function: look_up_reference(Reference, State) -> Result
@@ -1721,7 +1688,7 @@ handle_external_entity({http, Url}, State) ->
 		       ++ file:format_error(Reason));
 	    {ok, FD} ->
 		{?STRING_EMPTY, EntityState} = 
-		    parse_external_entity_1(<<>>, 
+		    parse_external_entity_byte_order_mark(<<>>, 
 					    State#xmerl_sax_parser_state{continuation_state=FD,
 									 current_location=filename:dirname(Url),
 									 entity=filename:basename(Url),
@@ -1737,6 +1704,8 @@ handle_external_entity({http, Url}, State) ->
 handle_external_entity({Tag, _Url}, State) ->
     ?fatal_error(State, "Unsupported URI type: " ++ atom_to_list(Tag)).
 
+?PARSE_EXTERNAL_ENTITY_BYTE_ORDER_MARK(Bytes, State).
+
 %%----------------------------------------------------------------------
 %% Function  : parse_external_entity_1(Rest, State) -> Result
 %% Parameters: Rest = string() | binary()
@@ -1744,7 +1713,6 @@ handle_external_entity({Tag, _Url}, State) ->
 %% Result    : {Rest, State}
 %% Description: Parse the external entity.
 %%----------------------------------------------------------------------
--dialyzer({[no_fail_call, no_match], parse_external_entity_1/2}).
 parse_external_entity_1(?STRING_EMPTY, #xmerl_sax_parser_state{file_type=Type} = State) ->
     case catch cf(?STRING_EMPTY, State, fun parse_external_entity_1/2) of
 	{Rest, State1} when is_record(State1, xmerl_sax_parser_state) ->
@@ -1754,12 +1722,6 @@ parse_external_entity_1(?STRING_EMPTY, #xmerl_sax_parser_state{file_type=Type} =
 	Other ->
 	    throw(Other)
     end;	
-parse_external_entity_1(?BYTE_ORDER_MARK_1, State) ->
-    cf(?BYTE_ORDER_MARK_1, State, fun parse_external_entity_1/2);
-parse_external_entity_1(?BYTE_ORDER_MARK_2, State) ->
-    cf(?BYTE_ORDER_MARK_2, State, fun parse_external_entity_1/2);
-parse_external_entity_1(?BYTE_ORDER_MARK_REST(Rest), State) ->
-    parse_external_entity_1(Rest, State);
 parse_external_entity_1(?STRING("<") = Bytes, State) ->
     cf(Bytes, State, fun parse_external_entity_1/2);
 parse_external_entity_1(?STRING("<?") = Bytes, State) ->
