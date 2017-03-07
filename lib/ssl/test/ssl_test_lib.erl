@@ -1055,14 +1055,16 @@ init_tls_version(Version, Config)
     application:load(ssl),
     application:set_env(ssl, dtls_protocol_version, Version),
     ssl:start(),
-    [{protocol, dtls}, {protocol_opts, [{protocol, dtls}]}|Config];
+    NewConfig = proplists:delete(protocol_opts, proplists:delete(protocol, Config)),
+    [{protocol, dtls}, {protocol_opts, [{protocol, dtls}]} | NewConfig];
 
 init_tls_version(Version, Config) ->
     ssl:stop(),
     application:load(ssl),
     application:set_env(ssl, protocol_version, Version),
     ssl:start(),
-    [{protocol, tls}|Config].
+    NewConfig = proplists:delete(protocol_opts, proplists:delete(protocol, Config)),
+    [{protocol, tls} | NewConfig].
 
 sufficient_crypto_support(Version)
   when Version == 'tlsv1.2'; Version == 'dtlsv1.2' ->

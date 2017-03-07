@@ -115,7 +115,8 @@ init_per_group(tls, Config) ->
     application:set_env(ssl, protocol_version, Version),
     application:set_env(ssl, bypass_pem_cache, Version),
     ssl:start(),
-    [{protocol, tls}, {version, tls_record:protocol_version(Version)} | Config];
+    NewConfig = proplists:delete(protocol, Config),
+    [{protocol, tls}, {version, tls_record:protocol_version(Version)} | NewConfig];
 
 init_per_group(dtls, Config) ->
     Version = dtls_record:protocol_version(dtls_record:highest_protocol_version([])),
@@ -124,7 +125,8 @@ init_per_group(dtls, Config) ->
     application:set_env(ssl, protocol_version, Version),
     application:set_env(ssl, bypass_pem_cache, Version),
     ssl:start(),
-    [{protocol, dtls}, {protocol_opts, [{protocol, dtls}]}, {version, dtls_record:protocol_version(Version)}  | Config];
+    NewConfig = proplists:delete(protocol_opts, proplists:delete(protocol, Config)),
+    [{protocol, dtls}, {protocol_opts, [{protocol, dtls}]}, {version, dtls_record:protocol_version(Version)} | NewConfig];
 
 init_per_group(active, Config) ->
     [{active, true}, {receive_function, send_recv_result_active}  | Config];
