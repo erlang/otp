@@ -98,10 +98,6 @@ terminate(What, #state{parent=Pid, opts=Opts, user_state=US}) ->
     Pid ! {terminate, What},
     ok.
 
-code_change(_, {new, #state{opts=Opts} = State}, _) ->
-    {Mod, Fun} = proplists:get_value(code_change, Opts),
-    Mod:Fun(),
-    State;
 code_change(Ver1, Ver2, State = #state{parent=Pid}) ->
     Pid ! {code_change, Ver1, Ver2},
     State.

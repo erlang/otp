@@ -39,6 +39,10 @@
 %%     {wxObject, State} | {wxObject, State, Timeout} |
 %%         ignore | {stop, Reason}
 %%
+%%   Asynchronous window event handling: <br/>
+%%   handle_event(#wx{}, State)  should return <br/>
+%%    {noreply, State} | {noreply, State, Timeout} | {stop, Reason, State} 
+%%
 %% The user module can export the following callback functions:
 %%
 %%   handle_call(Msg, {From, Tag}, State) should return <br/>
@@ -49,10 +53,6 @@
 %%   handle_cast(Msg, State) should return <br/>
 %%    {noreply, State} | {noreply, State, Timeout} |
 %%        {stop, Reason, State}  
-%%
-%%   Asynchronous window event handling: <br/>
-%%   handle_event(#wx{}, State)  should return <br/>
-%%    {noreply, State} | {noreply, State, Timeout} | {stop, Reason, State} 
 %%
 %% If the above are not exported but called, the wx_object process will crash.
 %% The user module can also export:
@@ -158,7 +158,7 @@
     {'ok', NewState :: term()} | {'error', Reason :: term()}.
 
 -optional_callbacks(
-    [handle_event/2, handle_call/3, handle_cast/2, handle_info/2,
+    [handle_call/3, handle_cast/2, handle_info/2,
      handle_sync_event/3, terminate/2, code_change/3]).
 
 %% System exports
@@ -549,14 +549,9 @@ system_terminate(Reason, _Parent, Debug, [Name, State, Mod, _Time]) ->
 
 %% @hidden
 system_code_change([Name, State, Mod, Time], _Module, OldVsn, Extra) ->
-    case erlang:function_exported(Mod, code_change, 3) of
-        true ->
-            case catch Mod:code_change(OldVsn, State, Extra) of
-                {ok, NewState} -> {ok, [Name, NewState, Mod, Time]};
-                Else -> Else
-            end;
-        _ ->
-            {ok, [Name, State, Mod, Time]}
+    case catch Mod:code_change(OldVsn, State, Extra) of
+        {ok, NewState} -> {ok, [Name, NewState, Mod, Time]};
+        Else -> Else
     end.
 
 %%-----------------------------------------------------------------
