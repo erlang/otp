@@ -42,7 +42,6 @@
 #endif /* #ifndef OPENSSL_NO_DES */
 /* #include <openssl/idea.h> This is not supported on the openssl OTP requires */
 #include <openssl/dsa.h>
-#include <openssl/err.h>
 #include <openssl/rsa.h>
 #include <openssl/aes.h>
 #include <openssl/md5.h>
@@ -500,7 +499,6 @@ static ERL_NIF_TERM atom_true;
 static ERL_NIF_TERM atom_false;
 static ERL_NIF_TERM atom_sha;
 static ERL_NIF_TERM atom_error;
-static ERL_NIF_TERM atom_openssl;
 static ERL_NIF_TERM atom_rsa_pkcs1_padding;
 static ERL_NIF_TERM atom_rsa_pkcs1_oaep_padding;
 static ERL_NIF_TERM atom_rsa_no_padding;
@@ -830,7 +828,6 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 
     atom_sha = enif_make_atom(env,"sha");
     atom_error = enif_make_atom(env,"error");
-    atom_openssl = enif_make_atom(env, "openssl"),
     atom_rsa_pkcs1_padding = enif_make_atom(env,"rsa_pkcs1_padding");
     atom_rsa_pkcs1_oaep_padding = enif_make_atom(env,"rsa_pkcs1_oaep_padding");
     atom_rsa_no_padding = enif_make_atom(env,"rsa_no_padding");
@@ -917,8 +914,6 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	CRYPTO_set_dynlock_destroy_callback(ccb->dyn_destroy_function);
     }
 #endif /* OPENSSL_THREADS */
-
-    ERR_load_crypto_strings();
 
     return 0;
 }
@@ -1671,34 +1666,6 @@ static ERL_NIF_TERM cmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
      * no longer maintained. */
     return atom_notsup;
 #endif
-}
-
-static ERL_NIF_TERM raise_openssl_error(ErlNifEnv* env)
-{
-    ERL_NIF_TERM error_stack, error_triplet, error_tuple;
-
-    error_stack = enif_make_list(env, 0);
-    for(;;) {
-	unsigned long next_error;
-	const char *libname, *funcname, *reason;
-
-	next_error = ERR_get_error();
-	if (!next_error)
-	    break;
-
-	libname  = ERR_lib_error_string(next_error);
-	funcname = ERR_func_error_string(next_error);
-	reason   = ERR_reason_error_string(next_error);
-
-#define TO_STRING(s) ((s)? enif_make_string(env, s, ERL_NIF_LATIN1) : atom_unknown)
-	error_triplet = enif_make_tuple3(env, TO_STRING(libname), TO_STRING(funcname), TO_STRING(reason));
-#undef TO_STRING
-
-	error_stack = enif_make_list_cell(env, error_triplet, error_stack);
-    }
-
-    error_tuple = enif_make_tuple2(env, atom_openssl, error_stack);
-    return enif_raise_exception(env, enif_make_tuple2(env, atom_error, error_tuple));
 }
 
 static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -2982,7 +2949,7 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
 
     if (!success) {
         RSA_free(rsa);
-	return raise_openssl_error(env);
+	return atom_error;
     }
 
     result = put_rsa_private_key(env, rsa);

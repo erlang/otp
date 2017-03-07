@@ -446,8 +446,13 @@ generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg)
     user_srp_gen_key(Private, Generator, Prime);
 
 generate_key(rsa, {ModulusSize, PublicExponent}, undefined) ->
-    Private = rsa_generate_key_nif(ModulusSize, ensure_int_as_bin(PublicExponent)),
-    { lists:sublist(Private, 2), Private };
+    case rsa_generate_key_nif(ModulusSize, ensure_int_as_bin(PublicExponent)) of
+        error ->
+            erlang:error(computation_failed,
+                         [rsa,{ModulusSize,PublicExponent}]);
+        Private ->
+            {lists:sublist(Private, 2), Private}
+    end;
 
 generate_key(ecdh, Curve, PrivKey) ->
     ec_key_generate(nif_curve_params(Curve), ensure_int_as_bin(PrivKey)).
