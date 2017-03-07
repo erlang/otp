@@ -2634,7 +2634,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	  which is described further below. When a read or write event is triggerred,
 	  a notification message like this is sent to the process identified by
 	  <c>pid</c>:</p>
-	<code type="none"><c>{select, Obj, Ref, ready_input | ready_output}</c></code>
+	<code type="none">{select, Obj, Ref, ready_input | ready_output}</code>
 	<p><c>ready_input</c> or <c>ready_output</c> indicates if the event object
 	  is ready for reading or writing.</p>
 	<p>Argument <c>pid</c> may be <c>NULL</c> to indicate the calling process.</p>
