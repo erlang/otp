@@ -184,7 +184,7 @@ Eshell V4.9.1.2 (abort with ^G)
 {ok,complex2}</pre>
     <p><em>Step 3.</em> Run the example:</p>
     <pre>
-2> <input>complex2:start("extprg").</input>
+2> <input>complex2:start("./extprg").</input>
 &lt;0.34.0>
 3> <input>complex2:foo(3).</input>
 4
