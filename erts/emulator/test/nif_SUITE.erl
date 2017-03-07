@@ -2717,12 +2717,16 @@ nif_ioq_run([{Action, Name, N}|T], State)
   when Action =:= enq; Action =:= enqv;
        Action =:= enqb; Action =:= enqbraw ->
     nif_ioq_run([{Action, Name, N, 0}|T], State);
-nif_ioq_run([{Action, Name, N, Skip} = H|T], State)
+nif_ioq_run([{Action, Name, N, Skip}|T], State)
   when Action =:= enq; Action =:= enqv;
        Action =:= enqb; Action =:= enqbraw ->
+
+
     #{ q := IOQ, b := B } = Q = maps:get(Name, State),
     true = ioq_nif(size, IOQ) == iolist_size(B),
 
+    %% Sanitize the log output a bit so that it doesn't become too large.
+    H = {Action, Name, try iolist_size(N) of Sz -> Sz catch _:_ -> N end, Skip},
     ct:log("~p", [H]),
 
     Data = nif_ioq_payload(N),

@@ -3069,14 +3069,17 @@ static ERL_NIF_TERM ioq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             return enif_make_binary(env, &bin);
         } else if (enif_is_identical(argv[0], enif_make_atom(env, "deq"))) {
             int num;
-            ErlNifUInt64 sz;
+            size_t sz;
+            ErlNifUInt64 sz64;
             if (!enif_get_int(env, argv[2], &num))
                 return enif_make_badarg(env);
 
             if (!enif_ioq_deq(ioq->q, num, &sz))
                 return enif_make_badarg(env);
 
-            return enif_make_uint64(env, sz);
+            sz64 = sz;
+
+            return enif_make_uint64(env, sz64);
         } else if (enif_is_identical(argv[0], enif_make_atom(env, "size"))) {
             ErlNifUInt64 size = enif_ioq_size(ioq->q);
             return enif_make_uint64(env, size);
