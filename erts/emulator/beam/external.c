@@ -2093,7 +2093,6 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
 {
     int iix;
     int len;
-    int utf8_atoms = (int) (dflags & DFLAG_UTF8_ATOMS);
 
     ASSERT(is_atom(atom));
 
@@ -2122,8 +2121,8 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
     if (iix < 0) {
 	Atom *a = atom_tab(atom_val(atom));
 	len = a->len;
-	if (utf8_atoms || a->latin1_chars < 0) {
-	    if (len > 255) {
+        {
+            if (len > 255) {
 		*ep++ = ATOM_UTF8_EXT;
 		put_int16(len, ep);
 		ep += 2;
@@ -2134,32 +2133,6 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
 		ep += 1;
 	    }
 	    sys_memcpy((char *) ep, (char *) a->name, len);
-	}
-	else {
-	    if (a->latin1_chars <= 255 && (dflags & DFLAG_SMALL_ATOM_TAGS)) {
-		*ep++ = SMALL_ATOM_EXT;
-		if (len == a->latin1_chars) {
-		    sys_memcpy(ep+1, a->name, len);
-		}
-		else {
-		    len = erts_utf8_to_latin1(ep+1, a->name, len);
-		    ASSERT(len == a->latin1_chars);
-		}
-		put_int8(len, ep);
-		ep++;
-	    }
-	    else {
-		*ep++ = ATOM_EXT;
-		if (len == a->latin1_chars) {
-		    sys_memcpy(ep+2, a->name, len);
-		}
-		else {
-		    len = erts_utf8_to_latin1(ep+2, a->name, len);
-		    ASSERT(len == a->latin1_chars);
-		}
-		put_int16(len, ep);
-		ep += 2;
-	    }	    
 	}
 	ep += len;
 	return ep;
@@ -4085,18 +4058,12 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    else {
 		Atom *a = atom_tab(atom_val(obj));
 		int alen;
-		if ((dflags & DFLAG_UTF8_ATOMS) || a->latin1_chars < 0) {
+                {
 		    alen = a->len;
 		    result += 1 + 1 + alen;
 		    if (alen > 255) {
 			result++; /* ATOM_UTF8_EXT (not small) */
 		    }
-		}
-		else {
-		    alen = a->latin1_chars;
-		    result += 1 + 1 + alen;
-		    if (alen > 255 || !(dflags & DFLAG_SMALL_ATOM_TAGS))
-			result++; /* ATOM_EXT (not small) */
 		}
 		insert_acache_map(acmp, obj, dflags);
 	    }

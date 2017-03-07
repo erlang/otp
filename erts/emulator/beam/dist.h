@@ -53,6 +53,7 @@
 			       | DFLAG_EXPORT_PTR_TAG		\
 			       | DFLAG_BIT_BINARIES             \
 			       | DFLAG_MAP_TAG                  \
+                               | DFLAG_UTF8_ATOMS               \
                                | DFLAG_BIG_CREATION)
 
 /* opcodes used in distribution messages */
