@@ -24,14 +24,10 @@
 -export([
 	 format_sig/1,
 	 format_sig/2,
-	 get_abstract_code_from_beam/1,
- 	 get_compile_options_from_beam/1,
-	 get_abstract_code_from_src/1,
-	 get_abstract_code_from_src/2,
-	 get_core_from_abstract_code/1,
-	 get_core_from_abstract_code/2,
 	 get_core_from_src/1,
 	 get_core_from_src/2,
+         get_core_from_beam/1,
+         get_core_from_beam/2,
 	 get_record_and_type_info/1,
 	 get_spec_info/3,
          get_fun_meta_info/3,
@@ -77,9 +73,7 @@ print_types1([{record, _Name} = Key|T], RecDict) ->
 
 %% ----------------------------------------------------------------------------
 
--type abstract_code() :: [erl_parse:abstract_form()].
 -type comp_options()  :: [compile:option()].
--type mod_or_fname()  :: module() | file:filename().
 -type fa()            :: {atom(), arity()}.
 -type codeserver()    :: dialyzer_codeserver:codeserver().
 
@@ -88,22 +82,6 @@ print_types1([{record, _Name} = Key|T], RecDict) ->
 %%  Compilation utils
 %%
 %% ============================================================================
-
--spec get_abstract_code_from_src(mod_or_fname()) ->
-	{'ok', abstract_code()} | {'error', [string()]}.
-
-get_abstract_code_from_src(File) ->
-  get_abstract_code_from_src(File, src_compiler_opts()).
-
--spec get_abstract_code_from_src(mod_or_fname(), comp_options()) ->
-	{'ok', abstract_code()} | {'error', [string()]}.
-
-get_abstract_code_from_src(File, Opts) ->
-  case compile:noenv_file(File, [to_pp, binary|Opts]) of
-    error -> {error, []};
-    {error, Errors, _} -> {error, format_errors(Errors)};
-    {ok, _, AbstrCode} -> {ok, AbstrCode}
-  end.
 
 -type get_core_from_src_ret() :: {'ok', cerl:c_module()} | {'error', string()}.
 
@@ -115,37 +93,72 @@ get_core_from_src(File) ->
 -spec get_core_from_src(file:filename(), comp_options()) -> get_core_from_src_ret().
 
 get_core_from_src(File, Opts) ->
-  case get_abstract_code_from_src(File, Opts) of
-    {error, _} = Error -> Error;
-    {ok, AbstrCode} ->
-      case get_core_from_abstract_code(AbstrCode, Opts) of
-	error -> {error, "  Could not get Core Erlang code from abstract code"};
-	{ok, _Core} = C -> C
-      end
+  case compile:noenv_file(File, Opts ++ src_compiler_opts()) of
+    error -> {error, []};
+    {error, Errors, _} -> {error, format_errors(Errors)};
+    {ok, _, Core} -> {ok, Core}
   end.
 
--spec get_abstract_code_from_beam(file:filename()) -> 'error' | {'ok', abstract_code()}.
+-type get_core_from_beam_ret() :: {'ok', cerl:c_module()} | {'error', string()}.
+
+-spec get_core_from_beam(file:filename()) -> get_core_from_beam_ret().
+
+get_core_from_beam(File) ->
+  get_core_from_beam(File, []).
+
+-spec get_core_from_beam(file:filename(), comp_options()) -> get_core_from_beam_ret().
+
+get_core_from_beam(File, Opts) ->
+  case beam_lib:chunks(File, [debug_info]) of
+    {ok, {Module, [{debug_info, {debug_info_v1, Backend, Metadata}}]}} ->
+      case Backend:debug_info(core_v1, Module, Metadata, Opts ++ src_compiler_opts()) of
+	{ok, Core} ->
+	  {ok, Core};
+	{error, _} ->
+	  {error, "  Could not get Core Erlang code for: " ++ File ++ "\n"}
+      end;
+    _ ->
+      deprecated_get_core_from_beam(File, Opts)
+  end.
+
+deprecated_get_core_from_beam(File, Opts) ->
+  case get_abstract_code_from_beam(File) of
+    error ->
+      {error, "  Could not get abstract code for: " ++ File ++ "\n" ++
+       "  Recompile with +debug_info or analyze starting from source code"};
+    {ok, AbstrCode} ->
+      case get_compile_options_from_beam(File) of
+        error ->
+          {error, "  Could not get compile options for: " ++ File ++ "\n" ++
+            "  Recompile or analyze starting from source code"};
+        {ok, CompOpts} ->
+          case get_core_from_abstract_code(AbstrCode, Opts ++ CompOpts) of
+            error ->
+              {error, "  Could not get core Erlang code for: " ++ File};
+            {ok, _} = Core ->
+              Core
+          end
+      end
+  end.
 
 get_abstract_code_from_beam(File) ->
   case beam_lib:chunks(File, [abstract_code]) of
     {ok, {_, List}} ->
       case lists:keyfind(abstract_code, 1, List) of
-	{abstract_code, {raw_abstract_v1, Abstr}} -> {ok, Abstr};
-	_ -> error
+        {abstract_code, {raw_abstract_v1, Abstr}} -> {ok, Abstr};
+        _ -> error
       end;
     _ ->
       %% No or unsuitable abstract code.
       error
   end.
 
--spec get_compile_options_from_beam(file:filename()) -> 'error' | {'ok', [compile:option()]}.
-
 get_compile_options_from_beam(File) ->
   case beam_lib:chunks(File, [compile_info]) of
     {ok, {_, List}} ->
       case lists:keyfind(compile_info, 1, List) of
-	{compile_info, CompInfo} -> compile_info_to_options(CompInfo);
-	_ -> error
+        {compile_info, CompInfo} -> compile_info_to_options(CompInfo);
+        _ -> error
       end;
     _ ->
       %% No or unsuitable compile info.
@@ -158,15 +171,6 @@ compile_info_to_options(CompInfo) ->
     _ -> error
   end.
 
--type get_core_from_abs_ret() :: {'ok', cerl:c_module()} | 'error'.
-
--spec get_core_from_abstract_code(abstract_code()) -> get_core_from_abs_ret().
-
-get_core_from_abstract_code(AbstrCode) ->
-  get_core_from_abstract_code(AbstrCode, []).
-
--spec get_core_from_abstract_code(abstract_code(), comp_options()) -> get_core_from_abs_ret().
-
 get_core_from_abstract_code(AbstrCode, Opts) ->
   %% We do not want the parse_transforms around since we already
   %% performed them. In some cases we end up in trouble when
@@ -175,11 +179,30 @@ get_core_from_abstract_code(AbstrCode, Opts) ->
   %% Remove parse_transforms (and other options) from compile options.
   Opts2 = cleanup_compile_options(Opts),
   try compile:noenv_forms(AbstrCode1, Opts2 ++ src_compiler_opts()) of
-      {ok, _, Core} -> {ok, Core};
-      _What -> error
+    {ok, _, Core} -> {ok, Core};
+    _What -> error
   catch
     error:_ -> error
   end.
+
+cleanup_parse_transforms([{attribute, _, compile, {parse_transform, _}}|Left]) ->
+  cleanup_parse_transforms(Left);
+cleanup_parse_transforms([Other|Left]) ->
+  [Other|cleanup_parse_transforms(Left)];
+cleanup_parse_transforms([]) ->
+  [].
+
+cleanup_compile_options(Opts) ->
+  lists:filter(fun keep_compile_option/1, Opts).
+
+%% Using abstract, not asm or core.
+keep_compile_option(from_asm) -> false;
+keep_compile_option(from_core) -> false;
+%% The parse transform will already have been applied, may cause
+%% problems if it is re-applied.
+keep_compile_option({parse_transform, _}) -> false;
+keep_compile_option(warnings_as_errors) -> false;
+keep_compile_option(_) -> true.
 
 %% ============================================================================
 %%
@@ -189,55 +212,50 @@ get_core_from_abstract_code(AbstrCode, Opts) ->
 
 -type type_table() :: erl_types:type_table().
 
--spec get_record_and_type_info(abstract_code()) ->
-	{'ok', type_table()} | {'error', string()}.
+-spec get_record_and_type_info(cerl:module()) ->
+        {'ok', type_table()} | {'error', string()}.
 
-get_record_and_type_info(AbstractCode) ->
-  Module = get_module(AbstractCode),
-  get_record_and_type_info(AbstractCode, Module, maps:new()).
+get_record_and_type_info(Core) ->
+  Module = cerl:concrete(cerl:module_name(Core)),
+  Tuples = core_to_attr_tuples(Core),
+  get_record_and_type_info(Tuples, Module, maps:new(), "nofile").
 
--spec get_record_and_type_info(abstract_code(), module(), type_table()) ->
-	{'ok', type_table()} | {'error', string()}.
-
-get_record_and_type_info(AbstractCode, Module, RecDict) ->
-  get_record_and_type_info(AbstractCode, Module, RecDict, "nofile").
-
-get_record_and_type_info([{attribute, A, record, {Name, Fields0}}|Left],
+get_record_and_type_info([{record, Line, [{Name, Fields0}]}|Left],
 			 Module, RecDict, File) ->
   {ok, Fields} = get_record_fields(Fields0, RecDict),
   Arity = length(Fields),
-  FN = {File, erl_anno:line(A)},
+  FN = {File, Line},
   NewRecDict = maps:put({record, Name}, {FN, [{Arity,Fields}]}, RecDict),
   get_record_and_type_info(Left, Module, NewRecDict, File);
-get_record_and_type_info([{attribute, A, type, {{record, Name}, Fields0, []}}
+get_record_and_type_info([{type, Line, [{{record, Name}, Fields0, []}]}
 			  |Left], Module, RecDict, File) ->
   %% This overrides the original record declaration.
   {ok, Fields} = get_record_fields(Fields0, RecDict),
   Arity = length(Fields),
-  FN = {File, erl_anno:line(A)},
+  FN = {File, Line},
   NewRecDict = maps:put({record, Name}, {FN, [{Arity, Fields}]}, RecDict),
   get_record_and_type_info(Left, Module, NewRecDict, File);
-get_record_and_type_info([{attribute, A, Attr, {Name, TypeForm}}|Left],
+get_record_and_type_info([{Attr, Line, [{Name, TypeForm}]}|Left],
 			 Module, RecDict, File)
                when Attr =:= 'type'; Attr =:= 'opaque' ->
-  FN = {File, erl_anno:line(A)},
+  FN = {File, Line},
   try add_new_type(Attr, Name, TypeForm, [], Module, FN, RecDict) of
     NewRecDict ->
       get_record_and_type_info(Left, Module, NewRecDict, File)
   catch
     throw:{error, _} = Error -> Error
   end;
-get_record_and_type_info([{attribute, A, Attr, {Name, TypeForm, Args}}|Left],
+get_record_and_type_info([{Attr, Line, [{Name, TypeForm, Args}]}|Left],
 			 Module, RecDict, File)
                when Attr =:= 'type'; Attr =:= 'opaque' ->
-  FN = {File, erl_anno:line(A)},
+  FN = {File, Line},
   try add_new_type(Attr, Name, TypeForm, Args, Module, FN, RecDict) of
     NewRecDict ->
       get_record_and_type_info(Left, Module, NewRecDict, File)
   catch
     throw:{error, _} = Error -> Error
   end;
-get_record_and_type_info([{attribute, _, file, {IncludeFile, _}}|Left],
+get_record_and_type_info([{file, _, [{IncludeFile, _}]}|Left],
                          Module, RecDict, _File) ->
   get_record_and_type_info(Left, Module, RecDict, IncludeFile);
 get_record_and_type_info([_Other|Left], Module, RecDict, File) ->
@@ -460,23 +478,18 @@ merge_types(CServer, Plt) ->
 -type spec_map()     :: dialyzer_codeserver:contracts().
 -type callback_map() :: dialyzer_codeserver:contracts().
 
--spec get_spec_info(module(), abstract_code(), type_table()) ->
+-spec get_spec_info(module(), cerl:module(), type_table()) ->
         {'ok', spec_map(), callback_map()} | {'error', string()}.
 
-get_spec_info(ModName, AbstractCode, RecordsMap) ->
-  OptionalCallbacks0 = get_optional_callbacks(AbstractCode, ModName),
+get_spec_info(ModName, Core, RecordsMap) ->
+  Tuples = core_to_attr_tuples(Core),
+  OptionalCallbacks0 = get_optional_callbacks(Tuples, ModName),
   OptionalCallbacks = gb_sets:from_list(OptionalCallbacks0),
-  get_spec_info(AbstractCode, maps:new(), maps:new(),
+  get_spec_info(Tuples, maps:new(), maps:new(),
 		RecordsMap, ModName, OptionalCallbacks, "nofile").
 
-get_optional_callbacks(Abs, ModName) ->
-  [{ModName, F, A} || {F, A} <- get_optional_callbacks(Abs)].
-
-get_optional_callbacks(Abs) ->
-    L = [O ||
-            {attribute, _, optional_callbacks, O} <- Abs,
-            is_fa_list(O)],
-    lists:append(L).
+get_optional_callbacks(Tuples, ModName) ->
+  [{ModName, F, A} || {optional_callbacks, _, O} <- Tuples, is_fa_list(O), {F, A} <- O].
 
 %% TypeSpec is a list of conditional contracts for a function.
 %% Each contract is of the form {[Argument], Range, [Constraint]} where
@@ -484,11 +497,10 @@ get_optional_callbacks(Abs) ->
 %%  - Constraint is of the form {subtype, T1, T2} where T1 and T2
 %%    are erl_types:erl_type()
 
-get_spec_info([{attribute, Anno, Contract, {Id, TypeSpec}}|Left],
+get_spec_info([{Contract, Ln, [{Id, TypeSpec}]}|Left],
 	      SpecMap, CallbackMap, RecordsMap, ModName, OptCb, File)
   when ((Contract =:= 'spec') or (Contract =:= 'callback')),
        is_list(TypeSpec) ->
-  Ln = erl_anno:line(Anno),
   MFA = case Id of
 	  {_, _, _} = T -> T;
 	  {F, A} -> {ModName, F, A}
@@ -523,7 +535,7 @@ get_spec_info([{attribute, Anno, Contract, {Id, TypeSpec}}|Left],
       {error, flat_format("  Error while parsing contract in line ~w: ~s\n",
 			  [Ln, Error])}
   end;
-get_spec_info([{attribute, _, file, {IncludeFile, _}}|Left],
+get_spec_info([{file, _, [{IncludeFile, _}]}|Left],
 	      SpecMap, CallbackMap, RecordsMap, ModName, OptCb, _File) ->
   get_spec_info(Left, SpecMap, CallbackMap,
 		RecordsMap, ModName, OptCb, IncludeFile);
@@ -535,15 +547,25 @@ get_spec_info([], SpecMap, CallbackMap,
               _RecordsMap, _ModName, _OptCb, _File) ->
   {ok, SpecMap, CallbackMap}.
 
--spec get_fun_meta_info(module(), abstract_code(), [dial_warn_tag()]) ->
+core_to_attr_tuples(Core) ->
+  [{cerl:concrete(Key), get_core_line(cerl:get_ann(Key)), cerl:concrete(Value)} ||
+   {Key, Value} <- cerl:module_attrs(Core)].
+
+get_core_line([L | _As]) when is_integer(L) -> L;
+get_core_line([_ | As]) -> get_core_line(As);
+get_core_line([]) -> undefined.
+
+-spec get_fun_meta_info(module(), cerl:module(), [dial_warn_tag()]) ->
                 dialyzer_codeserver:fun_meta_info() | {'error', string()}.
 
-get_fun_meta_info(M, Abs, LegalWarnings) ->
+get_fun_meta_info(M, Core, LegalWarnings) ->
+  Functions = lists:map(fun cerl:var_name/1, cerl:module_vars(Core)),
   try
-    {get_nowarn_unused_function(M, Abs), get_func_suppressions(M, Abs)}
+    {get_nowarn_unused_function(M, Core, Functions),
+     get_func_suppressions(M, Core, Functions)}
   of
     {NoWarn, FuncSupp} ->
-      Warnings0 = get_options(Abs, LegalWarnings),
+      Warnings0 = get_options(Core, LegalWarnings),
       Warnings = ordsets:to_list(Warnings0),
       ModuleWarnings = [{M, W} || W <- Warnings],
       RawProps = lists:append([NoWarn, FuncSupp, ModuleWarnings]),
@@ -569,49 +591,45 @@ process_options([{{_M, _F, _A}=MFA, Opts}|Left], Warnings) ->
   end;
 process_options([], _Warnings) -> [].
 
--spec get_nowarn_unused_function(module(), abstract_code()) ->
+-spec get_nowarn_unused_function(module(), cerl:module(), [fa()]) ->
                                     [{mfa(), 'no_unused'}].
 
-get_nowarn_unused_function(M, Abs) ->
-  Opts = get_options_with_tag(compile, Abs),
+get_nowarn_unused_function(M, Core, Functions) ->
+  Opts = get_options_with_tag(compile, Core),
   Warn = erl_lint:bool_option(warn_unused_function, nowarn_unused_function,
                               true, Opts),
-  Functions = [{F, A} || {function, _, F, A, _} <- Abs],
-  AttrFile = collect_attribute(Abs, compile),
+  AttrFile = collect_attribute(Core, compile),
   TagsFaList = check_fa_list(AttrFile, nowarn_unused_function, Functions),
   FAs = case Warn of
           false -> Functions;
           true ->
-            [FA || {{nowarn_unused_function,_L,_File}, FA} <- TagsFaList]
+            [FA || {{[nowarn_unused_function],_L,_File}, FA} <- TagsFaList]
         end,
   [{{M, F, A}, no_unused} || {F, A} <- FAs].
 
--spec get_func_suppressions(module(), abstract_code()) ->
+-spec get_func_suppressions(module(), cerl:module(), [fa()]) ->
                             [{mfa(), 'nowarn_function' | dial_warn_tag()}].
 
-get_func_suppressions(M, Abs) ->
-  Functions = [{F, A} || {function, _, F, A, _} <- Abs],
-  AttrFile = collect_attribute(Abs, dialyzer),
+get_func_suppressions(M, Core, Functions) ->
+  AttrFile = collect_attribute(Core, dialyzer),
   TagsFAs = check_fa_list(AttrFile, '*', Functions),
   %% Check the options:
-  Fun = fun({{nowarn_function, _L, _File}, _FA}) -> ok;
+  Fun = fun({{[nowarn_function], _L, _File}, _FA}) -> ok;
            ({OptLFile, _FA}) ->
             _ = get_options1([OptLFile], ordsets:new())
         end,
   lists:foreach(Fun, TagsFAs),
-  [{{M, F, A}, W} || {{W, _L, _File}, {F, A}} <- TagsFAs].
+  [{{M, F, A}, W} || {{Warnings, _L, _File}, {F, A}} <- TagsFAs, W <- Warnings].
 
--spec get_options(abstract_code(), [dial_warn_tag()]) ->
+-spec get_options(cerl:module(), [dial_warn_tag()]) ->
                      ordsets:ordset(dial_warn_tag()).
 
-get_options(Abs, LegalWarnings) ->
-  AttrFile = collect_attribute(Abs, dialyzer),
+get_options(Core, LegalWarnings) ->
+  AttrFile = collect_attribute(Core, dialyzer),
   get_options1(AttrFile, LegalWarnings).
 
 get_options1([{Args, L, File}|Left], Warnings) ->
-  Opts = [O ||
-           O <- lists:flatten([Args]),
-           is_atom(O)],
+  Opts = [O || O <- Args, is_atom(O)],
   try dialyzer_options:build_warnings(Opts, Warnings) of
     NewWarnings ->
       get_options1(Left, NewWarnings)
@@ -624,19 +642,24 @@ get_options1([], Warnings) ->
   Warnings.
 
 -type collected_attribute() ::
-        {Args :: term(), erl_anno:line(), file:filename()}.
+        {Args :: [term()], erl_anno:line(), file:filename()}.
 
-collect_attribute(Abs, Tag) ->
-  collect_attribute(Abs, Tag, "nofile").
+collect_attribute(Core, Tag) ->
+  collect_attribute(cerl:module_attrs(Core), Tag, "nofile").
 
-collect_attribute([{attribute, L, Tag, Args}|Left], Tag, File) ->
-  CollAttr = {Args, L, File},
-  [CollAttr | collect_attribute(Left, Tag, File)];
-collect_attribute([{attribute, _, file, {IncludeFile, _}}|Left], Tag, _) ->
-  collect_attribute(Left, Tag, IncludeFile);
-collect_attribute([_Other|Left], Tag, File) ->
-  collect_attribute(Left, Tag, File);
-collect_attribute([], _Tag, _File) -> [].
+collect_attribute([{Key, Value}|T], Tag, File) ->
+  case cerl:concrete(Key) of
+    Tag ->
+      [{cerl:concrete(Value), get_core_line(cerl:get_ann(Key)), File} |
+       collect_attribute(T, Tag, File)];
+    file ->
+      [{IncludeFile, _}] = cerl:concrete(Value),
+      collect_attribute(T, Tag, IncludeFile);
+    _ ->
+      collect_attribute(T, Tag, File)
+  end;
+collect_attribute([], _Tag, _File) ->
+  [].
 
 -spec is_suppressed_fun(mfa(), codeserver()) -> boolean().
 
@@ -687,35 +710,6 @@ src_compiler_opts() ->
    no_inline, strict_record_tests, strict_record_updates,
    dialyzer].
 
--spec get_module(abstract_code()) -> module().
-
-get_module([{attribute, _, module, {M, _As}} | _]) -> M;
-get_module([{attribute, _, module, M} | _]) -> M;
-get_module([_ | Rest]) -> get_module(Rest).
-
--spec cleanup_parse_transforms(abstract_code()) -> abstract_code().
-
-cleanup_parse_transforms([{attribute, _, compile, {parse_transform, _}}|Left]) ->
-  cleanup_parse_transforms(Left);
-cleanup_parse_transforms([Other|Left]) ->
-  [Other|cleanup_parse_transforms(Left)];
-cleanup_parse_transforms([]) ->
-  [].
-
--spec cleanup_compile_options([compile:option()]) -> [compile:option()].
-
-cleanup_compile_options(Opts) ->
-  lists:filter(fun keep_compile_option/1, Opts).
-
-%% Using abstract, not asm or core.
-keep_compile_option(from_asm) -> false;
-keep_compile_option(from_core) -> false;
-%% The parse transform will already have been applied, may cause
-%% problems if it is re-applied.
-keep_compile_option({parse_transform, _}) -> false;
-keep_compile_option(warnings_as_errors) -> false;
-keep_compile_option(_) -> true.
-
 -spec format_errors([{module(), string()}]) -> [string()].
 
 format_errors([{Mod, Errors}|Left]) ->
@@ -741,10 +735,12 @@ format_sig(Type, RecDict) ->
 flat_format(Fmt, Lst) ->
   lists:flatten(io_lib:format(Fmt, Lst)).
 
--spec get_options_with_tag(atom(), abstract_code()) -> [term()].
+-spec get_options_with_tag(atom(), cerl:module()) -> [term()].
 
-get_options_with_tag(Tag, Abs) ->
-  lists:flatten([O || {attribute, _, Tag0, O} <- Abs, Tag =:= Tag0]).
+get_options_with_tag(Tag, Core) ->
+  [O || {Key, Value} <- cerl:module_attrs(Core),
+        cerl:concrete(Key) =:= Tag,
+        O <- cerl:concrete(Value)].
 
 %% Check F/A, and collect (unchecked) warning tags with line and file.
 -spec check_fa_list([collected_attribute()], atom(), [fa()]) ->
@@ -755,8 +751,8 @@ check_fa_list(AttrFile, Tag, Functions) ->
   check_fa_list1(AttrFile, Tag, FuncTab).
 
 check_fa_list1([{Args, L, File}|Left], Tag, Funcs) ->
-  TermsL = [{{Tag0, L, File}, Term} ||
-             {Tags, Terms0} <- lists:flatten([Args]),
+  TermsL = [{{[Tag0], L, File}, Term} ||
+             {Tags, Terms0} <- Args,
              Tag0 <- lists:flatten([Tags]),
              Tag =:= '*' orelse Tag =:= Tag0,
              Term <- lists:flatten([Terms0])],

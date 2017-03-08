@@ -132,12 +132,10 @@
           <tag><c>debug_info</c></tag>
           <item>
             <marker id="debug_info"></marker>
-            <p>Includes debug information in the form of abstract code
-              (see
-              <seealso marker="erts:absform">The Abstract Format</seealso>
-              in ERTS User's Guide) in the compiled beam module. Tools
-	      such as Debugger, Xref, and Cover require
-	      the debug information to be included.</p>
+            <p>Includes debug information in the form of <seealso marker="erts:absform">
+              Erlang Abstract Format</seealso> in the <c>debug_info</c>
+              chunk of the compiled beam module. Tools such as Debugger,
+              Xref, and Cover require the debug information to be included.</p>
 
             <p><em>Warning</em>: Source code can be reconstructed from
               the debug information. Use encrypted debug information
@@ -145,6 +143,21 @@
 
             <p>For details, see
               <seealso marker="stdlib:beam_lib#debug_info">beam_lib(3)</seealso>.</p>
+          </item>
+
+          <tag><c>{debug_info, {Backend, Data}}</c></tag>
+          <item>
+            <marker id="debug_info"></marker>
+            <p>Includes custom debug information in the form of a
+              <c>Backend</c> module with custom <c>Data</c> in the compiled beam module.
+              The given module must implement a <c>debug_info/4</c> function
+              and is responsible for generating different code representations,
+              as described in the <c>debug_info</c> under
+              <seealso marker="stdlib:beam_lib#debug_info">beam_lib(3)</seealso>.</p>
+
+            <p><em>Warning</em>: Source code can be reconstructed from
+              the debug information. Use encrypted debug information
+              (<c>encrypt_debug_info</c>) to prevent this.</p>
           </item>
 
           <tag><c>{debug_info_key,KeyString}</c></tag>

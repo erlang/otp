@@ -385,68 +385,46 @@ compile_src(File, Includes, Defines, Callgraph, CServer, UseContracts,
   DefaultIncludes = default_includes(filename:dirname(File)),
   SrcCompOpts = dialyzer_utils:src_compiler_opts(),
   CompOpts = SrcCompOpts ++ Includes ++ Defines ++ DefaultIncludes,
-  case dialyzer_utils:get_abstract_code_from_src(File, CompOpts) of
+  case dialyzer_utils:get_core_from_src(File, CompOpts) of
     {error, _Msg} = Error -> Error;
-    {ok, AbstrCode} ->
-      compile_common(File, AbstrCode, CompOpts, Callgraph, CServer,
-                     UseContracts, LegalWarnings)
+    {ok, Core} ->
+      compile_common(Core, Callgraph, CServer, UseContracts, LegalWarnings)
   end.
 
 compile_byte(File, Callgraph, CServer, UseContracts, LegalWarnings) ->
-  case dialyzer_utils:get_abstract_code_from_beam(File) of
-    error ->
-      {error, "  Could not get abstract code for: " ++ File ++ "\n" ++
-	 "  Recompile with +debug_info or analyze starting from source code"};
-    {ok, AbstrCode} ->
-      compile_byte(File, AbstrCode, Callgraph, CServer, UseContracts,
-                   LegalWarnings)
-  end.
-
-compile_byte(File, AbstrCode, Callgraph, CServer, UseContracts,
-             LegalWarnings) ->
-  case dialyzer_utils:get_compile_options_from_beam(File) of
-    error ->
-      {error, "  Could not get compile options for: " ++ File ++ "\n" ++
-	 "  Recompile or analyze starting from source code"};
-    {ok, CompOpts} ->
-      compile_common(File, AbstrCode, CompOpts, Callgraph, CServer,
-                     UseContracts, LegalWarnings)
-  end.
-
-compile_common(File, AbstrCode, CompOpts, Callgraph, CServer,
-               UseContracts, LegalWarnings) ->
-  case dialyzer_utils:get_core_from_abstract_code(AbstrCode, CompOpts) of
-    error -> {error, "  Could not get core Erlang code for: " ++ File};
+  case dialyzer_utils:get_core_from_beam(File) of
+    {error, _} = Error -> Error;
     {ok, Core} ->
-      Mod = cerl:concrete(cerl:module_name(Core)),
-      case dialyzer_utils:get_record_and_type_info(AbstrCode) of
+      compile_common(Core, Callgraph, CServer, UseContracts, LegalWarnings)
+  end.
+
+compile_common(Core, Callgraph, CServer, UseContracts, LegalWarnings) ->
+  Mod = cerl:concrete(cerl:module_name(Core)),
+  case dialyzer_utils:get_record_and_type_info(Core) of
+    {error, _} = Error -> Error;
+    {ok, RecInfo} ->
+      CServer1 =
+	dialyzer_codeserver:store_temp_records(Mod, RecInfo, CServer),
+      case dialyzer_utils:get_fun_meta_info(Mod, Core, LegalWarnings) of
 	{error, _} = Error -> Error;
-	{ok, RecInfo} ->
-	  CServer1 =
-	    dialyzer_codeserver:store_temp_records(Mod, RecInfo, CServer),
-          case
-            dialyzer_utils:get_fun_meta_info(Mod, AbstrCode, LegalWarnings)
-          of
-            {error, _} = Error -> Error;
-            MetaFunInfo ->
-              CServer2 =
-                dialyzer_codeserver:insert_fun_meta_info(MetaFunInfo, CServer1),
-              case UseContracts of
-                true ->
-                  case dialyzer_utils:get_spec_info(Mod, AbstrCode, RecInfo) of
-                    {error, _} = Error -> Error;
-                    {ok, SpecInfo, CallbackInfo} ->
-                      CServer3 =
-                        dialyzer_codeserver:store_temp_contracts(Mod, SpecInfo,
-                                                                 CallbackInfo,
-                                                                 CServer2),
-                      store_core(Mod, Core, Callgraph, CServer3)
-                  end;
-                false ->
-                  store_core(Mod, Core, Callgraph, CServer2)
-              end
-          end
+	MetaFunInfo ->
+	  CServer2 =
+	    dialyzer_codeserver:insert_fun_meta_info(MetaFunInfo, CServer1),
+	  case UseContracts of
+	    true ->
+	      case dialyzer_utils:get_spec_info(Mod, Core, RecInfo) of
+	        {error, _} = Error -> Error;
+	        {ok, SpecInfo, CallbackInfo} ->
+	          CServer3 =
+	            dialyzer_codeserver:store_temp_contracts(Mod, SpecInfo,
+	                                                     CallbackInfo,
+	                                                     CServer2),
+	          store_core(Mod, Core, Callgraph, CServer3)
+	      end;
+	    false ->
+	      store_core(Mod, Core, Callgraph, CServer2)
       end
+    end
   end.
 
 store_core(Mod, Core, Callgraph, CServer) ->

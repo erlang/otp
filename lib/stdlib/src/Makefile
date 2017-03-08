@@ -58,6 +58,7 @@ MODULES= \
 	edlin \
 	edlin_expand \
 	epp \
+	erl_abstract_code \
 	erl_anno \
 	erl_bits \
 	erl_compile \

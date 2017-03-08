@@ -42,10 +42,10 @@
       and the corresponding identifiers are as follows:</p>
 
     <list type="bulleted">
-      <item><c>abstract_code ("Abst")</c></item>
       <item><c>atoms ("Atom")</c></item>
       <item><c>attributes ("Attr")</c></item>
       <item><c>compile_info ("CInf")</c></item>
+      <item><c>debug_info ("Dbgi")</c></item>
       <item><c>exports ("ExpT")</c></item>
       <item><c>imports ("ImpT")</c></item>
       <item><c>indexed_imports ("ImpT")</c></item>
@@ -60,9 +60,8 @@
     <title>Debug Information/Abstract Code</title>
     <p>Option <c>debug_info</c> can be specified to the Compiler (see
       <seealso marker="compiler:compile#debug_info"><c>compile(3)</c></seealso>)
-      to have debug information in the form of abstract code (see section
-      <seealso marker="erts:absform">The Abstract Format</seealso> in the
-      ERTS User's Guide) stored in the <c>abstract_code</c> chunk.
+      to have debug information, such as <seealso marker="erts:absform">Erlang
+      Abstract Format</seealso>, stored in the <c>debug_info</c> chunk.
       Tools such as Debugger and Xref require the debug information to
       be included.</p>
 
@@ -79,7 +78,7 @@
 
   <section>
     <title>Reconstruct Source Code</title>
-    <p>The following example shows how to reconstruct source code from
+    <p>The following example shows how to reconstruct Erlang source code from
       the debug information in a BEAM file <c>Beam</c>:</p>
 
     <code type="none">
@@ -117,7 +116,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
 
     <list type="ordered">
       <item>
-        <p>Use Compiler option <c>{debug_info,Key}</c>, see
+        <p>Use Compiler option <c>{debug_info_key,Key}</c>, see
           <seealso marker="compiler:compile#debug_info_key"><c>compile(3)</c></seealso>
           and function
           <seealso marker="#crypto_key_fun/1"><c>crypto_key_fun/1</c></seealso>
@@ -198,11 +197,31 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
     <datatype>
       <name name="chunkid"/>
       <desc>
-        <p>"Abst" | "Attr" | "CInf" | "ExpT" | "ImpT" | "LocT" | "Atom"</p>
+        <p>"Attr" | "CInf" | "Dbgi" | "ExpT" | "ImpT" | "LocT" | "AtU8"</p>
       </desc>
     </datatype>
     <datatype>
       <name name="dataB"/>
+    </datatype>
+    <datatype>
+      <name name="debug_info"/>
+      <desc>
+        <p>The format stored in the <c>debug_info</c> chunk.
+          To retrieve particular code representation from the backend,
+          <c>Backend:debug_info(Format, Module, Data, Opts)</c> must be
+          invoked. <c>Format</c> is an atom, such as <c>erlang_v1</c> for
+          the Erlang Abstract Format or <c>core_v1</c> for Core Erlang.
+          <c>Module</c> is the module represented by the beam file and
+          <c>Data</c> is the value stored in the debug info chunk.
+          <c>Opts</c> is any list of values supported by the <c>Backend</c>.
+          <c>Backend:debug_info/4</c> must return <c>{ok, Code}</c> or
+          <c>{error, Term}</c>.</p>
+
+        <p>Developers must always invoke the <c>debug_info/4</c> function
+          and never rely on the <c>Data</c> stored in the <c>debug_info</c>
+          chunk, as it is opaque and may change at any moment. <c>no_debug_info</c>
+          means that chunk <c>"Dbgi"</c> is present, but empty.</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="abst_code"/>
@@ -210,6 +229,8 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
         <p>It is not checked that the forms conform to the abstract format
           indicated by <c><anno>AbstVersion</anno></c>. <c>no_abstract_code</c>
           means that chunk <c>"Abst"</c> is present, but empty.</p>
+        <p>For modules compiled with OTP 20 onwards, the <c>abst_code</c> chunk
+          is automatically computed from the <c>debug_info</c> chunk.</p>
       </desc>
     </datatype>
     <datatype>
@@ -346,7 +367,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
       <desc>
         <p>Registers an unary fun
           that is called if <c>beam_lib</c> must read an
-          <c>abstract_code</c> chunk that has been encrypted. The fun
+          <c>debug_info</c> chunk that has been encrypted. The fun
           is held in a process that is started by the function.</p>
         <p>If a fun is already registered when attempting to
           register a fun, <c>{error, exists}</c> is returned.</p>
@@ -443,7 +464,8 @@ CryptoKeyFun(clear) -> term()</code>
       <desc>
         <p>Removes all chunks from a BEAM
           file except those needed by the loader. In particular,
-          the debug information (chunk <c>abstract_code</c>) is removed.</p>
+          the debug information (chunk <c>debug_info</c> and <c>abstract_code</c>)
+          is removed.</p>
       </desc>
     </func>
 
@@ -454,9 +476,9 @@ CryptoKeyFun(clear) -> term()</code>
       <desc>
         <p>Removes all chunks except
           those needed by the loader from BEAM files. In particular,
-          the debug information (chunk <c>abstract_code</c>) is removed.
-          The returned list contains one element for each specified filename,
-          in the same order as in <c>Files</c>.</p>
+          the debug information (chunk <c>debug_info</c> and <c>abstract_code</c>)
+          is removed. The returned list contains one element for each
+          specified filename, in the same order as in <c>Files</c>.</p>
       </desc>
     </func>
 

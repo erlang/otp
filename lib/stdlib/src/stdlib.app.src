@@ -39,6 +39,7 @@
 	     edlin_expand,
 	     epp,
 	     eval_bits,
+             erl_abstract_code,
              erl_anno,
 	     erl_bits,
 	     erl_compile,

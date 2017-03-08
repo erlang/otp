@@ -148,6 +148,8 @@ include_attribute(opaque) -> false;
 include_attribute(export_type) -> false;
 include_attribute(record) -> false;
 include_attribute(optional_callbacks) -> false;
+include_attribute(file) -> false;
+include_attribute(compile) -> false;
 include_attribute(_) -> true.
 
 function({#c_var{name={F,Arity}=FA},Body}, St0) ->
