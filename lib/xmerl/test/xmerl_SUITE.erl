@@ -55,7 +55,7 @@ groups() ->
      {misc, [],
       [latin1_alias, syntax_bug1, syntax_bug2, syntax_bug3,
        pe_ref1, copyright, testXSEIF, export_simple1, export,
-       default_attrs_bug, xml_ns]},
+       default_attrs_bug, xml_ns, scan_splits_string_bug]},
      {eventp_tests, [], [sax_parse_and_export]},
      {ticket_tests, [],
       [ticket_5998, ticket_7211, ticket_7214, ticket_7430,
@@ -267,6 +267,10 @@ xml_ns(Config) ->
      []
     } = xmerl_scan:string(Doc2, [{namespace_conformant, true}]),
     ok.
+
+scan_splits_string_bug(_Config) ->
+    {#xmlElement{ content = [#xmlText{ value = "Jimmy Zöger" }] }, []}
+        = xmerl_scan:string("<name>Jimmy Z&#246;ger</name>").
 
 pe_ref1(Config) ->
     file:set_cwd(datadir(Config)),
@@ -533,8 +537,7 @@ ticket_7430(Config) ->
              {xmlElement,a,a,[],
               {xmlNamespace,[],[]},
               [],1,[],
-              [{xmlText,[{a,1}],1,[],"é",text},
-               {xmlText,[{a,1}],2,[],"\né",text}],
+              [{xmlText,[{a,1}],1,[],"é\né",text}],
               [],_,undeclared} ->
                  ok;
              _ ->
