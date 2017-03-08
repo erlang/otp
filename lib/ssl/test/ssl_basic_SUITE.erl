@@ -149,10 +149,8 @@ options_tests_tls() ->
 api_tests() ->
     [connection_info,
      connection_information,
-     peername,
      peercert,
      peercert_with_client_cert,
-     sockname,
      versions,
      eccs,
      controlling_process,
@@ -177,6 +175,8 @@ api_tests_tls() ->
      tls_shutdown_write,
      tls_shutdown_both,
      tls_shutdown_error,
+     peername,
+     sockname,
      new_options_in_accept
     ].
 
@@ -230,15 +230,15 @@ cipher_tests_ec() ->
      ciphers_ecdh_rsa_signed_certs_openssl_names].
 
 error_handling_tests()->
-    [controller_dies,
-     close_transport_accept,
+    [close_transport_accept,
      recv_active,
      recv_active_once,
      recv_error_handling
     ].
 
 error_handling_tests_tls()->
-    [tls_client_closes_socket,
+    [controller_dies,
+     tls_client_closes_socket,
      tls_tcp_error_propagation_in_active_mode,
      tls_tcp_connect,
      tls_tcp_connect_big,
