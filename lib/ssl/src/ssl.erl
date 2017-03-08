@@ -187,13 +187,21 @@ ssl_accept(ListenSocket, SslOptions)  when is_port(ListenSocket) ->
 
 ssl_accept(#sslsocket{} = Socket, [], Timeout) when (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
     ssl_accept(Socket, Timeout);
-ssl_accept(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts0, Timeout) when
+ssl_accept(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts, Timeout) when
       (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
     try
-	{ok, EmOpts, InheritedSslOpts} = tls_socket:get_all_opts(Tracker),
-	SslOpts = handle_options(SslOpts0, InheritedSslOpts),
+	{ok, EmOpts, _} = tls_socket:get_all_opts(Tracker),
 	ssl_connection:handshake(Socket, {SslOpts, 
 					  tls_socket:emulated_socket_options(EmOpts, #socket_options{})}, Timeout)
+    catch
+	Error = {error, _Reason} -> Error
+    end;
+ssl_accept(#sslsocket{pid = Pid, fd = {_, _, _}} = Socket, SslOpts, Timeout) when
+      (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
+    try
+        {ok, EmOpts, _} = dtls_udp_listener:get_all_opts(Pid),
+	ssl_connection:handshake(Socket, {SslOpts,  
+                                          tls_socket:emulated_socket_options(EmOpts, #socket_options{})}, Timeout)
     catch
 	Error = {error, _Reason} -> Error
     end;
@@ -215,7 +223,6 @@ ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket),
     catch
 	Error = {error, _Reason} -> Error
     end.
-
 %%--------------------------------------------------------------------
 -spec  close(#sslsocket{}) -> term().
 %%
@@ -223,6 +230,8 @@ ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket),
 %%--------------------------------------------------------------------
 close(#sslsocket{pid = Pid}) when is_pid(Pid) ->
     ssl_connection:close(Pid, {close, ?DEFAULT_TIMEOUT});
+close(#sslsocket{pid = {udp, #config{udp_handler = {Pid, _}}}}) ->
+   dtls_udp_listener:close(Pid);
 close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_, _, _}}}}) ->
     Transport:close(ListenSocket).
 
@@ -251,6 +260,8 @@ send(#sslsocket{pid = Pid}, Data) when is_pid(Pid) ->
     ssl_connection:send(Pid, Data);
 send(#sslsocket{pid = {_, #config{transport_info={gen_udp, _, _, _}}}}, _) ->
     {error,enotconn}; %% Emulate connection behaviour
+send(#sslsocket{pid = {udp,_}}, _) ->
+    {error,enotconn};
 send(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport, _, _, _}}}}, Data) ->
     Transport:send(ListenSocket, Data). %% {error,enotconn}
 
@@ -265,6 +276,8 @@ recv(Socket, Length) ->
 recv(#sslsocket{pid = Pid}, Length, Timeout) when is_pid(Pid),
 						  (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
     ssl_connection:recv(Pid, Length, Timeout);
+recv(#sslsocket{pid = {udp,_}}, _, _) ->
+    {error,enotconn};
 recv(#sslsocket{pid = {Listen,
 		       #config{transport_info = {Transport, _, _, _}}}}, _,_) when is_port(Listen)->
     Transport:recv(Listen, 0). %% {error,enotconn}
@@ -277,10 +290,14 @@ recv(#sslsocket{pid = {Listen,
 %%--------------------------------------------------------------------
 controlling_process(#sslsocket{pid = Pid}, NewOwner) when is_pid(Pid), is_pid(NewOwner) ->
     ssl_connection:new_user(Pid, NewOwner);
+controlling_process(#sslsocket{pid = {udp, _}},
+		    NewOwner) when is_pid(NewOwner) ->
+    ok; %% Meaningless but let it be allowed to conform with TLS 
 controlling_process(#sslsocket{pid = {Listen,
 				      #config{transport_info = {Transport, _, _, _}}}},
 		    NewOwner) when is_port(Listen),
 				   is_pid(NewOwner) ->
+     %% Meaningless but let it be allowed to conform with normal sockets  
     Transport:controlling_process(Listen, NewOwner).
 
 
@@ -297,7 +314,9 @@ connection_information(#sslsocket{pid = Pid}) when is_pid(Pid) ->
             Error
     end;
 connection_information(#sslsocket{pid = {Listen, _}}) when is_port(Listen) -> 
-    {error, enotconn}.
+    {error, enotconn};
+connection_information(#sslsocket{pid = {udp,_}}) ->
+    {error,enotconn}. 
 
 %%--------------------------------------------------------------------
 -spec connection_information(#sslsocket{}, [atom()]) -> {ok, list()} | {error, reason()}.
@@ -333,10 +352,18 @@ connection_info(#sslsocket{} = SSLSocket) ->
 %%
 %% Description: same as inet:peername/1.
 %%--------------------------------------------------------------------
+peername(#sslsocket{pid = Pid, fd = {Transport, Socket, _}}) when is_pid(Pid)->
+    dtls_socket:peername(Transport, Socket);
 peername(#sslsocket{pid = Pid, fd = {Transport, Socket, _, _}}) when is_pid(Pid)->
     tls_socket:peername(Transport, Socket);
+peername(#sslsocket{pid = {udp = Transport, #config{udp_handler = {_Pid, _}}}}) ->
+    dtls_socket:peername(Transport, undefined);
+peername(#sslsocket{pid = Pid, fd = {gen_udp= Transport, Socket, _, _}}) when is_pid(Pid) ->
+    dtls_socket:peername(Transport, Socket);
 peername(#sslsocket{pid = {ListenSocket,  #config{transport_info = {Transport,_,_,_}}}}) ->
-    tls_socket:peername(Transport, ListenSocket). %% Will return {error, enotconn}
+    tls_socket:peername(Transport, ListenSocket); %% Will return {error, enotconn}
+peername(#sslsocket{pid = {udp,_}}) ->
+    {error,enotconn}.
 
 %%--------------------------------------------------------------------
 -spec peercert(#sslsocket{}) ->{ok, DerCert::binary()} | {error, reason()}.
@@ -350,6 +377,8 @@ peercert(#sslsocket{pid = Pid}) when is_pid(Pid) ->
         Result ->
 	    Result
     end;
+peercert(#sslsocket{pid = {udp, _}}) ->
+    {error, enotconn};
 peercert(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
     {error, enotconn}.
 
@@ -506,6 +535,8 @@ getstat(#sslsocket{pid = Pid, fd = {Transport, Socket, _, _}}, Options) when is_
 shutdown(#sslsocket{pid = {Listen, #config{transport_info = {Transport,_, _, _}}}},
 	 How) when is_port(Listen) ->
     Transport:shutdown(Listen, How);
+shutdown(#sslsocket{pid = {udp,_}},_) ->
+    {error, enotconn};
 shutdown(#sslsocket{pid = Pid}, How) ->
     ssl_connection:shutdown(Pid, How).
 
@@ -518,7 +549,7 @@ sockname(#sslsocket{pid = {Listen,  #config{transport_info = {Transport, _, _, _
     tls_socket:sockname(Transport, Listen);
 sockname(#sslsocket{pid = {udp, #config{udp_handler = {Pid, _}}}}) ->
     dtls_udp_listener:sockname(Pid);
-sockname(#sslsocket{pid = Pid, fd = {gen_udp= Transport, Socket, _, _}}) when is_pid(Pid) ->
+sockname(#sslsocket{pid = Pid, fd = {Transport, Socket, _}}) when is_pid(Pid) ->
     dtls_socket:sockname(Transport, Socket);
 sockname(#sslsocket{pid = Pid, fd = {Transport, Socket, _, _}}) when is_pid(Pid) ->
     tls_socket:sockname(Transport, Socket).
@@ -531,6 +562,8 @@ sockname(#sslsocket{pid = Pid, fd = {Transport, Socket, _, _}}) when is_pid(Pid)
 %%--------------------------------------------------------------------
 session_info(#sslsocket{pid = Pid}) when is_pid(Pid) ->
     ssl_connection:session_info(Pid);
+session_info(#sslsocket{pid = {udp,_}}) ->
+    {error, enotconn};
 session_info(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
     {error, enotconn}.
 
@@ -555,6 +588,8 @@ versions() ->
 %%--------------------------------------------------------------------
 renegotiate(#sslsocket{pid = Pid}) when is_pid(Pid) ->
     ssl_connection:renegotiation(Pid);
+renegotiate(#sslsocket{pid = {udp,_}}) ->
+    {error, enotconn};
 renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
     {error, enotconn}.
 
@@ -568,6 +603,8 @@ renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
 prf(#sslsocket{pid = Pid},
     Secret, Label, Seed, WantedLength) when is_pid(Pid) ->
     ssl_connection:prf(Pid, Secret, Label, Seed, WantedLength);
+prf(#sslsocket{pid = {udp,_}}, _,_,_,_) ->
+    {error, enotconn};
 prf(#sslsocket{pid = {Listen,_}}, _,_,_,_) when is_port(Listen) ->
     {error, enotconn}.
 
@@ -696,7 +733,7 @@ handle_options(Opts0, Role) ->
 		       [RecordCb:protocol_version(Vsn) || Vsn <- Vsns]
 	       end,
 
-    Protocol = proplists:get_value(protocol, Opts, tls),
+    Protocol = handle_option(protocol, Opts, tls),
 
     SSLOptions = #ssl_options{
 		    versions   = Versions,
@@ -755,7 +792,7 @@ handle_options(Opts0, Role) ->
 		    honor_ecc_order = handle_option(honor_ecc_order, Opts,
 						       default_option_role(server, false, Role),
 						       server, Role),
-		    protocol = Protocol, 
+		    protocol = Protocol,
 		    padding_check =  proplists:get_value(padding_check, Opts, true),
 		    beast_mitigation = handle_option(beast_mitigation, Opts, one_n_minus_one),
 		    fallback = handle_option(fallback, Opts,
@@ -1032,6 +1069,10 @@ validate_option(v2_hello_compatible, Value) when is_boolean(Value)  ->
     Value;
 validate_option(max_handshake_size, Value) when is_integer(Value)  andalso Value =< ?MAX_UNIT24 ->
     Value;
+validate_option(protocol, Value = tls) ->
+    Value;
+validate_option(protocol, Value = dtls) ->
+    Value;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
 
@@ -1069,15 +1110,35 @@ validate_binary_list(Opt, List) ->
            (Bin) ->
             throw({error, {options, {Opt, {invalid_protocol, Bin}}}})
         end, List).
-
 validate_versions([], Versions) ->
     Versions;
 validate_versions([Version | Rest], Versions) when Version == 'tlsv1.2';
                                                    Version == 'tlsv1.1';
                                                    Version == tlsv1;
                                                    Version == sslv3 ->
-    validate_versions(Rest, Versions);
+    tls_validate_versions(Rest, Versions);                                      
+validate_versions([Version | Rest], Versions) when Version == 'dtlsv1';
+                                                   Version == 'dtlsv2'->
+    dtls_validate_versions(Rest, Versions);
 validate_versions([Ver| _], Versions) ->
+    throw({error, {options, {Ver, {versions, Versions}}}}).
+
+tls_validate_versions([], Versions) ->
+    Versions;
+tls_validate_versions([Version | Rest], Versions) when Version == 'tlsv1.2';
+                                                   Version == 'tlsv1.1';
+                                                   Version == tlsv1;
+                                                   Version == sslv3 ->
+    tls_validate_versions(Rest, Versions);                  
+tls_validate_versions([Ver| _], Versions) ->
+    throw({error, {options, {Ver, {versions, Versions}}}}).
+
+dtls_validate_versions([], Versions) ->
+    Versions;
+dtls_validate_versions([Version | Rest], Versions) when  Version == 'dtlsv1';
+                                                         Version == 'dtlsv2'->
+    dtls_validate_versions(Rest, Versions);
+dtls_validate_versions([Ver| _], Versions) ->
     throw({error, {options, {Ver, {versions, Versions}}}}).
 
 validate_inet_option(mode, Value)
@@ -1151,18 +1212,18 @@ handle_cipher_option(Value, Version)  when is_list(Value) ->
 binary_cipher_suites(Version, []) -> 
     %% Defaults to all supported suites that does
     %% not require explicit configuration
-    ssl_cipher:filter_suites(ssl_cipher:suites(Version));
+    ssl_cipher:filter_suites(ssl_cipher:suites(tls_version(Version)));
 binary_cipher_suites(Version, [Tuple|_] = Ciphers0) when is_tuple(Tuple) ->
     Ciphers = [ssl_cipher:suite(C) || C <- Ciphers0],
     binary_cipher_suites(Version, Ciphers);
 
 binary_cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
-    All = ssl_cipher:all_suites(Version),
+    All = ssl_cipher:all_suites(tls_version(Version)),
     case [Cipher || Cipher <- Ciphers0, lists:member(Cipher, All)] of
 	[] ->
 	    %% Defaults to all supported suites that does
 	    %% not require explicit configuration
-	    ssl_cipher:filter_suites(ssl_cipher:suites(Version));
+	    ssl_cipher:filter_suites(ssl_cipher:suites(tls_version(Version)));
 	Ciphers ->
 	    Ciphers
     end;
@@ -1175,7 +1236,8 @@ binary_cipher_suites(Version, Ciphers0)  ->
     Ciphers = [ssl_cipher:openssl_suite(C) || C <- string:tokens(Ciphers0, ":")],
     binary_cipher_suites(Version, Ciphers).
 
-handle_eccs_option(Value, {_Major, Minor}) when is_list(Value) ->
+handle_eccs_option(Value, Version) when is_list(Value) ->
+    {_Major, Minor} = tls_version(Version),
     try tls_v1:ecc_curves(Minor, Value) of
         Curves -> #elliptic_curves{elliptic_curve_list = Curves}
     catch
@@ -1348,7 +1410,10 @@ new_ssl_options([{signature_algs, Value} | Rest], #ssl_options{} = Opts, RecordC
 					 handle_hashsigns_option(Value, 
 								 tls_version(RecordCB:highest_protocol_version()))}, 
 		    RecordCB);
-
+new_ssl_options([{protocol, dtls = Value} | Rest], #ssl_options{} = Opts, dtls_record = RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{protocol = Value}, RecordCB);
+new_ssl_options([{protocol, tls = Value} | Rest], #ssl_options{} = Opts, tls_record = RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{protocol = Value}, RecordCB);
 new_ssl_options([{Key, Value} | _Rest], #ssl_options{}, _) -> 
     throw({error, {options, {Key, Value}}}).
 

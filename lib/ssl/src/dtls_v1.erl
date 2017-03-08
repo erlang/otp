@@ -21,12 +21,21 @@
 
 -include("ssl_cipher.hrl").
 
--export([suites/1, mac_hash/7, ecc_curves/1, corresponding_tls_version/1, corresponding_dtls_version/1]).
+-export([suites/1, all_suites/1, mac_hash/7, ecc_curves/1, 
+         corresponding_tls_version/1, corresponding_dtls_version/1]).
 
 -spec suites(Minor:: 253|255) -> [ssl_cipher:cipher_suite()].
 
 suites(Minor) ->
-   tls_v1:suites(corresponding_minor_tls_version(Minor)).
+    lists:filter(fun(Cipher) -> 
+                         is_acceptable_cipher(ssl_cipher:suite_definition(Cipher)) 
+                 end,
+                 tls_v1:suites(corresponding_minor_tls_version(Minor))).
+all_suites(Version) ->
+    lists:filter(fun(Cipher) -> 
+                         is_acceptable_cipher(ssl_cipher:suite_definition(Cipher)) 
+                 end,
+                 ssl_cipher:all_suites(corresponding_tls_version(Version))).
 
 mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
     tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
@@ -50,3 +59,5 @@ corresponding_minor_dtls_version(2) ->
     255;
 corresponding_minor_dtls_version(3) ->
     253.
+is_acceptable_cipher(Suite) ->
+    not ssl_cipher:is_stream_ciphersuite(Suite).

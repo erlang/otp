@@ -48,7 +48,7 @@
 -export([encode_data/3, encode_alert/3]).
 
 %% State transition handling	 
--export([next_record/1, next_event/3]).
+-export([next_record/1, next_event/3, next_event/4]).
 
 %% Handshake handling
 -export([renegotiate/2, send_handshake/2, 
@@ -59,7 +59,8 @@
 -export([send_alert/2, close/5]).
 
 %% Data handling
--export([passive_receive/2, next_record_if_active/1, handle_common_event/4, send/3]).
+-export([passive_receive/2, next_record_if_active/1, handle_common_event/4, send/3,
+        socket/5]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -117,7 +118,7 @@ send_handshake_flight(#state{socket = Socket,
 			     transport_cb = Transport,
 			     flight_buffer = Flight} = State0) ->
     send(Transport, Socket, Flight),
-    State0#state{flight_buffer = []}.
+    {State0#state{flight_buffer = []}, []}.
 
 queue_change_cipher(Msg, #state{negotiated_version = Version,
 				  flight_buffer = Flight0,
@@ -190,6 +191,10 @@ init([Role, Host, Port, Socket, Options,  User, CbInfo]) ->
 
 callback_mode() ->
     state_functions.
+
+socket(Pid,  Transport, Socket, Connection, Tracker) ->
+    tls_socket:socket(Pid, Transport, Socket, Connection, Tracker).
+
 
 %%--------------------------------------------------------------------
 %% State functions
@@ -340,12 +345,12 @@ connection(internal, #hello_request{},
 		  renegotiation = {Renegotiation, _}} = State0) ->
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
 				       Cache, CacheCb, Renegotiation, Cert),
-    State1 = send_handshake(Hello, State0),
+    {State1, Actions} = send_handshake(Hello, State0),
     {Record, State} =
 	next_record(
 	  State1#state{session = Session0#session{session_id
 						  = Hello#client_hello.session_id}}),
-    next_event(hello, Record, State);
+    next_event(hello, Record, State, Actions);
 connection(internal, #client_hello{} = Hello, 
 	   #state{role = server, allow_renegotiate = true} = State0) ->
     %% Mitigate Computational DoS attack

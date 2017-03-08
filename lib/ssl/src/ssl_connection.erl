@@ -148,19 +148,19 @@ socket_control(Connection, Socket, Pid, Transport) ->
 %%--------------------------------------------------------------------	    
 socket_control(Connection, Socket, Pid, Transport, udp_listner) ->
     %% dtls listner process must have the socket control
-    {ok, dtls_socket:socket(Pid, Transport, Socket, Connection)};
+    {ok, Connection:socket(Pid, Transport, Socket, Connection, undefined)};
 
 socket_control(tls_connection = Connection, Socket, Pid, Transport, ListenTracker) ->
     case Transport:controlling_process(Socket, Pid) of
 	ok ->
-	    {ok, tls_socket:socket(Pid, Transport, Socket, Connection, ListenTracker)};
+	    {ok, Connection:socket(Pid, Transport, Socket, Connection, ListenTracker)};
 	{error, Reason}	->
 	    {error, Reason}
     end;
 socket_control(dtls_connection = Connection, {_, Socket}, Pid, Transport, ListenTracker) ->
     case Transport:controlling_process(Socket, Pid) of
 	ok ->
-	    {ok, tls_socket:socket(Pid, Transport, Socket, Connection, ListenTracker)};
+	    {ok, Connection:socket(Pid, Transport, Socket, Connection, ListenTracker)};
 	{error, Reason}	->
 	    {error, Reason}
     end.
@@ -363,11 +363,13 @@ init({call, From}, {start, Timeout}, State0, Connection) ->
 							  timer = Timer}),
     Connection:next_event(hello, Record, State);
 init({call, From}, {start, {Opts, EmOpts}, Timeout}, 
-     #state{role = Role} = State0, Connection) ->
+     #state{role = Role, ssl_options = OrigSSLOptions,
+            socket_options = SockOpts} = State0, Connection) ->
     try 
-	State = ssl_config(Opts, Role, State0),
+        SslOpts = ssl:handle_options(Opts, OrigSSLOptions),
+	State = ssl_config(SslOpts, Role, State0),
 	init({call, From}, {start, Timeout}, 
-	     State#state{ssl_options = Opts, socket_options = EmOpts}, Connection)
+	     State#state{ssl_options = SslOpts, socket_options = new_emulated(EmOpts, SockOpts)}, Connection)
     catch throw:Error ->
 	    {stop_and_reply, normal, {reply, From, {error, Error}}}
     end;
@@ -432,11 +434,11 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
         verified ->
 	    ConnectionStates1 =
 		ssl_record:set_server_verify_data(current_read, Data, ConnectionStates0),
-	    State1 =
+	    {State1, Actions} =
 		finalize_handshake(State0#state{connection_states = ConnectionStates1},
 				   abbreviated, Connection),
 	    {Record, State} = prepare_connection(State1#state{expecting_finished = false}, Connection),
-	    Connection:next_event(connection, Record, State);
+	    Connection:next_event(connection, Record, State, Actions);
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, abbreviated, State0)
     end;
@@ -856,6 +858,7 @@ handle_common_event(internal, #change_cipher_spec{type = <<1>>}, StateName,
 				StateName, State);
 handle_common_event(_Type, Msg, StateName, #state{negotiated_version = Version} = State, 
 		    _) ->
+    ct:pal("Unexpected msg ~p", [Msg]),
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE),
     handle_own_alert(Alert, Version, {StateName, Msg}, State).
 
@@ -1236,13 +1239,13 @@ new_server_hello(#server_hello{cipher_suite = CipherSuite,
 		       negotiated_version = Version} = State0, Connection) ->
     try server_certify_and_key_exchange(State0, Connection) of
         #state{} = State1 ->
-            State2 = server_hello_done(State1, Connection),
+            {State2, Actions} = server_hello_done(State1, Connection),
 	    Session =
 		Session0#session{session_id = SessionId,
 				 cipher_suite = CipherSuite,
 				 compression_method = Compression},
 	    {Record, State} = Connection:next_record(State2#state{session = Session}),
-	    Connection:next_event(certify, Record, State)
+	    Connection:next_event(certify, Record, State, Actions)
     catch
         #alert{} = Alert ->
 	    handle_own_alert(Alert, Version, hello, State0)
@@ -1257,10 +1260,10 @@ resumed_server_hello(#state{session = Session,
 	{_, ConnectionStates1} ->
 	    State1 = State0#state{connection_states = ConnectionStates1,
 				  session = Session},
-	    State2 =
+	    {State2, Actions} =
 		finalize_handshake(State1, abbreviated, Connection),
 	    {Record, State} = Connection:next_record(State2),
-	    Connection:next_event(abbreviated, Record, State);
+	    Connection:next_event(abbreviated, Record, State, Actions);
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, hello, State0)
     end.
@@ -1343,12 +1346,12 @@ client_certify_and_key_exchange(#state{negotiated_version = Version} =
 				State0, Connection) ->
     try do_client_certify_and_key_exchange(State0, Connection) of
         State1 = #state{} ->
-	    State2 = finalize_handshake(State1, certify, Connection),
+	    {State2, Actions} = finalize_handshake(State1, certify, Connection),
             State3 = State2#state{
 		       %% Reinitialize
 		       client_certificate_requested = false},
 	    {Record, State} = Connection:next_record(State3),
-	    Connection:next_event(cipher, Record, State)
+	    Connection:next_event(cipher, Record, State, Actions)
     catch
         throw:#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, certify, State0)
@@ -1870,11 +1873,11 @@ cipher_role(server, Data, Session,  #state{connection_states = ConnectionStates0
 	    Connection) ->
     ConnectionStates1 = ssl_record:set_client_verify_data(current_read, Data, 
 							  ConnectionStates0),
-    State1 =
+    {State1, Actions} =
 	finalize_handshake(State0#state{connection_states = ConnectionStates1,
 					session = Session}, cipher, Connection),
     {Record, State} = prepare_connection(State1, Connection),
-    Connection:next_event(connection, Record, State).
+    Connection:next_event(connection, Record, State, Actions).
 
 is_anonymous(Algo) when Algo == dh_anon;
 			Algo == ecdh_anon;
@@ -2305,7 +2308,7 @@ format_reply(_, _,#socket_options{active = false, mode = Mode, packet = Packet,
     {ok, do_format_reply(Mode, Packet, Header, Data)};
 format_reply(Transport, Socket, #socket_options{active = _, mode = Mode, packet = Packet,
 						header = Header}, Data, Tracker, Connection) ->
-    {ssl, tls_socket:socket(self(), Transport, Socket, Connection, Tracker), 
+    {ssl, Connection:socket(self(), Transport, Socket, Connection, Tracker), 
      do_format_reply(Mode, Packet, Header, Data)}.
 
 deliver_packet_error(Transport, Socket, SO= #socket_options{active = Active}, Data, Pid, From, Tracker, Connection) ->
@@ -2314,7 +2317,7 @@ deliver_packet_error(Transport, Socket, SO= #socket_options{active = Active}, Da
 format_packet_error(_, _,#socket_options{active = false, mode = Mode}, Data, _, _) ->
     {error, {invalid_packet, do_format_reply(Mode, raw, 0, Data)}};
 format_packet_error(Transport, Socket, #socket_options{active = _, mode = Mode}, Data, Tracker, Connection) ->
-    {ssl_error, tls_socket:socket(self(), Transport, Socket, Connection, Tracker), 
+    {ssl_error, Connection:socket(self(), Transport, Socket, Connection, Tracker), 
      {invalid_packet, do_format_reply(Mode, raw, 0, Data)}}.
 
 do_format_reply(binary, _, N, Data) when N > 0 ->  % Header mode
@@ -2369,11 +2372,11 @@ alert_user(Transport, Tracker, Socket, Active, Pid, From, Alert, Role, Connectio
     case ssl_alert:reason_code(Alert, Role) of
 	closed ->
 	    send_or_reply(Active, Pid, From,
-			  {ssl_closed, tls_socket:socket(self(), 
+			  {ssl_closed, Connection:socket(self(), 
 							 Transport, Socket, Connection, Tracker)});
 	ReasonCode ->
 	    send_or_reply(Active, Pid, From,
-			  {ssl_error, tls_socket:socket(self(), 
+			  {ssl_error, Connection:socket(self(), 
 							Transport, Socket, Connection, Tracker), ReasonCode})
     end.
 
@@ -2472,3 +2475,8 @@ update_ssl_options_from_sni(OrigSSLOptions, SNIHostname) ->
         _ ->
             ssl:handle_options(SSLOption, OrigSSLOptions)
     end.
+
+new_emulated([], EmOpts) ->
+    EmOpts;
+new_emulated(NewEmOpts, _) ->
+    NewEmOpts.
