@@ -1,10 +1,6 @@
 FROM erlang/ubuntu-build:32bit
 
-COPY ./otp.tar.gz /buildroot/
-
-WORKDIR /buildroot/
-
-RUN tar xzf otp.tar.gz
+ADD ./otp.tar.gz /buildroot/
 
 WORKDIR /buildroot/otp/
 
