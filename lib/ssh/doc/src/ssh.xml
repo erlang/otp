@@ -726,9 +726,10 @@
     </func>
 
     <func>
-      <name>daemon_info(Daemon) -> {ok, [{port,Port}]} | {error,Error}</name>
+      <name>daemon_info(Daemon) -> {ok, [DaemonInfo]} | {error,Error}</name>
       <fsummary>Get info about a daemon</fsummary>
       <type>
+	<v>DaemonInfo = {port,Port::pos_integer()} | {listen_address, any|ip_address()} | {profile,atom()}</v>
         <v>Port = integer()</v>
 	<v>Error = bad_daemon_ref</v>
       </type>
