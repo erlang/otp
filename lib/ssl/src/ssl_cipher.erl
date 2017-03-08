@@ -40,7 +40,8 @@
 	 ec_keyed_suites/0, anonymous_suites/1, psk_suites/1, srp_suites/0,
 	 rc4_suites/1, des_suites/1, openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
-	 random_bytes/1, calc_aad/3, calc_mac_hash/4]).
+	 random_bytes/1, calc_aad/3, calc_mac_hash/4,
+         is_stream_ciphersuite/1]).
 
 -export_type([cipher_suite/0,
 	      erl_cipher_suite/0, openssl_cipher_suite/0,
@@ -310,18 +311,21 @@ aead_decipher(Type, #cipher_state{key = Key, iv = IV} = CipherState,
 %%--------------------------------------------------------------------
 suites({3, 0}) ->
     ssl_v3:suites();
-suites({3, N}) ->
-    tls_v1:suites(N);
-suites(Version) ->
-    suites(dtls_v1:corresponding_tls_version(Version)).
+suites({3, Minor}) ->
+    tls_v1:suites(Minor);
+suites({_, Minor}) ->
+    dtls_v1:suites(Minor).
 
-all_suites(Version) ->
+all_suites({3, _} = Version) ->
     suites(Version)
 	++ anonymous_suites(Version)
 	++ psk_suites(Version)
 	++ srp_suites()
         ++ rc4_suites(Version)
-        ++ des_suites(Version).
+        ++ des_suites(Version);
+all_suites(Version) ->
+    dtls_v1:all_suites(Version).
+
 %%--------------------------------------------------------------------
 -spec anonymous_suites(ssl_record:ssl_version() | integer()) -> [cipher_suite()].
 %%
@@ -1541,6 +1545,10 @@ calc_mac_hash(Type, Version,
 	     MacSecret, SeqNo, Type,
 	     Length, PlainFragment).
 
+is_stream_ciphersuite({_, rc4_128, _, _}) ->
+    true;
+is_stream_ciphersuite(_) ->
+    false.
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
