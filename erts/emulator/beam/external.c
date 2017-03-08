@@ -4010,7 +4010,7 @@ error:
 	    factory->hp = hp;   /* the largest must be the freshest */
 	}
     }
-    else ASSERT(factory->hp == hp);
+    else ASSERT(!factory->hp || factory->hp == hp);
 
 error_hamt:
     erts_factory_undo(factory);
