@@ -175,10 +175,9 @@ static void encode_atom(Erl_Atom_data* a, unsigned char **ext)
     int ix = 0;
     if (a->latin1) {
 	ei_encode_atom_len_as((char*)*ext, &ix, a->latin1, a->lenL,
-			      ERLANG_LATIN1, ERLANG_LATIN1);
+			      ERLANG_LATIN1, ERLANG_UTF8);
     }
-    else if (ei_encode_atom_len_as((char*)*ext, &ix, a->utf8, a->lenU,
-				   ERLANG_UTF8, ERLANG_LATIN1) < 0) {
+    else {
 	ei_encode_atom_len_as((char*)*ext, &ix, a->utf8, a->lenU,
 			      ERLANG_UTF8, ERLANG_UTF8);
     }
@@ -542,12 +541,8 @@ int erl_term_len(ETERM *ep)
 
 static int atom_len_helper(Erl_Atom_data* a)
 {
-    if (erl_atom_ptr_latin1(a)) {
-	return 1 + 2 + a->lenL; /* ERL_ATOM_EXT */
-    }
-    else {
-	return 1 + 1 + (a->lenU > 255) + a->lenU;
-    }
+    (void) erl_atom_ptr_utf8(a);
+    return 1 + 1 + (a->lenU > 255) + a->lenU;
 }
 
 static int erl_term_len_helper(ETERM *ep, int dist)

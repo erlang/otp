@@ -421,22 +421,16 @@ typedef enum {
       <name><ret>int</ret><nametext>ei_x_encode_atom_len_as(ei_x_buff* x, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
       <fsummary>Encode an atom.</fsummary>
       <desc>
-        <p>Encodes an atom in the binary format with character encoding
-	  <seealso marker="#erlang_char_encoding"><c>to_enc</c></seealso>
-          (Latin-1 or UTF-8). Parameter <c>p</c> is the name of the atom with
+        <p>Encodes an atom in the binary format. Parameter <c>p</c> is the name of the atom with
           character encoding
           <seealso marker="#erlang_char_encoding"><c>from_enc</c></seealso>
           (ASCII, Latin-1, or UTF-8). The name must either be <c>NULL</c>-terminated or
-          a function variant with a <c>len</c> parameter must be used.
-          If <c>to_enc</c> is set to the bitwise OR'd combination
-	  <c>(ERLANG_LATIN1|ERLANG_UTF8)</c>, UTF-8 encoding is only used if the
-          atom string cannot be represented in Latin-1 encoding.</p>
-	<p>The encoding fails if <c>p</c> is an invalid string in encoding
-          <c>from_enc</c>, if the string is too long, or if it cannot be
-          represented with character encoding <c>to_enc</c>.</p>
-	<p>These functions were introduced in Erlang/OTP R16 as part of a first
-          step to support UTF-8 atoms. Atoms encoded with <c>ERLANG_UTF8</c>
-	  cannot be decoded by earlier releases than R16.</p>
+          a function variant with a <c>len</c> parameter must be used.</p>
+	<p>The encoding fails if <c>p</c> is not a valid string in encoding
+          <c>from_enc</c>.</p>
+
+	<p>Argument <c>to_enc</c> is ignored. As from Erlang/OTP 20 the encoding is always
+	  done in UTF-8 which is readable by nodes as old as Erlang/OTP R16.</p>
       </desc>
     </func>
 
