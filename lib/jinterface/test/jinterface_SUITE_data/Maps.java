@@ -40,19 +40,19 @@ class Maps {
     public static void main(final String argv[]) {
 
 	runTest(new byte[] { (byte) 131, 116, 0, 0, 0, 0 }, "#{}", 1);
-	runTest(new byte[] { (byte) 131, 116, 0, 0, 0, 1, 100, 0, 1, 97, 100,
-		0, 1, 98 }, "#{a => b}", 2);
+	runTest(new byte[] { (byte) 131, 116, 0, 0, 0, 1, 119, 1, 97, 119,
+		1, 98 }, "#{a => b}", 2);
 	// make sure keys are sorted here, jinterface doesn't reorder them
 	runTest(new byte[] { (byte) 131, 116, 0, 0, 0, 2, 97, 2, 106,
-			     100, 0, 1, 97, 97, 1 }, "#{2 => [],a => 1}", 3);
+			     119, 1, 97, 97, 1 }, "#{2 => [],a => 1}", 3);
 	runTest(new byte[] { (byte) 131, 116, 0, 0, 0, 1, 104, 1, 97, 3, 108,
-		0, 0, 0, 1, 100, 0, 1, 114, 106 }, "#{{3} => [r]}", 4);
+		0, 0, 0, 1, 119, 1, 114, 106 }, "#{{3} => [r]}", 4);
 
 	try {
 	    // #{2 => [],a => 1}
 	    final OtpErlangMap map = new OtpErlangMap(new OtpInputStream(
 		  new byte[] { (byte) 131, 116, 0, 0, 0, 2, 97, 2, 106,
-			       100, 0, 1, 97, 97, 1 }));
+			       119, 1, 97, 97, 1 }));
 
 	    if (map.arity() != 2) {
 		fail(5);
