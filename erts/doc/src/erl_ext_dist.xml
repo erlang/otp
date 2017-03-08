@@ -51,7 +51,7 @@
       term into the external format.
       To convert binary data encoding to a term, the BIF
       <seealso marker="erts:erlang#binary_to_term/1">
-      <c>erlang:binary_to_term/1</c>c></seealso> is used.
+      <c>erlang:binary_to_term/1</c></seealso> is used.
     </p>
     <p>
       The distribution does this implicitly when sending messages across
@@ -119,22 +119,18 @@
     <tcaption>Compressed Data Format when Expanded</tcaption></table>
     <marker id="utf8_atoms"/>
     <note>
-      <p>As from ERTS 9.0 (OTP 20), UTF-8 encoded atoms may contain any Unicode
-        character. Although the support for UTF-8 encoded atoms in the external
-        format is available since ERTS 5.10 (OTP R16), passing atoms that cannot
-        be encoded in Latin-1 is an <em>error</em> in versions earlier than
-        Erlang/OTP 20, and <em>the behavior is undefined</em>.</p>
-      <p>When distribution flag <seealso marker="erl_dist_protocol#dflags">
-        <c>DFLAG_UTF8_ATOMS</c></seealso> has been exchanged between both nodes
-        in the <seealso marker="erl_dist_protocol#distribution_handshake">
-        distribution handshake</seealso>, all atoms in the distribution header
-        are encoded in UTF-8, otherwise in Latin-1. The two
-        new tags <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>
-        and <seealso marker="#SMALL_ATOM_UTF8_EXT">
-        <c>SMALL_ATOM_UTF8_EXT</c></seealso>
-        are only used if the distribution flag <c>DFLAG_UTF8_ATOMS</c> has
-        been exchanged between nodes, or if an atom containing characters
-        that cannot be encoded in Latin-1 is encountered.</p>
+      <p>As from ERTS 9.0 (OTP 20), atoms may contain any Unicode
+        characters and are always encoded using the UTF-8 external formats
+	<seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>
+        or <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>.
+	The old Latin-1 formats <seealso marker="#ATOM_EXT"><c>ATOM_EXT</c></seealso>
+        and <seealso marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_EXT</c></seealso>
+	are deprecated and are only kept for backward
+	compatibility when decoding terms encoded by older nodes.</p>
+      <p>Support for UTF-8 encoded atoms in the external format has been
+        available since ERTS 5.10 (OTP R16). This abillity allows such old nodes
+	to decode, store and encode any Unicode atoms received from a new OTP 20
+        node.</p>
       <p>The maximum number of allowed characters in an atom is 255. In the
         UTF-8 case, each character can need 4 bytes to be encoded.</p>
     </note>
@@ -390,28 +386,6 @@
   </section>
 
     <section>
-      <marker id="ATOM_EXT"/>
-      <title>ATOM_EXT</title>
-	<table align="left">
-	  <row>
-            <cell align="center">1</cell>
-            <cell align="center">2</cell>
-            <cell align="center">Len</cell>
-	  </row>
-	  <row>
-            <cell align="center"><c>100</c></cell>
-            <cell align="center"><c>Len</c></cell>
-            <cell align="center"><c>AtomName</c></cell>
-	  </row>
-	<tcaption>ATOM_EXT</tcaption></table>
-      <p>
-        An atom is stored with a 2 byte unsigned length in big-endian order,
-        followed by <c>Len</c> numbers of 8-bit Latin-1 characters that forms
-        the <c>AtomName</c>. The maximum allowed value for <c>Len</c> is 255.
-      </p>
-    </section>
-
-    <section>
       <marker id="REFERENCE_EXT"/>
       <title>REFERENCE_EXT</title>
       <table align="left">
@@ -432,8 +406,8 @@
         Encodes a reference object (an object generated with
         <seealso marker="erlang:make_ref/0">erlang:make_ref/0</seealso>).
         The <c>Node</c> term is an encoded atom, that is,
-        <seealso marker="#ATOM_EXT"><c>ATOM_EXT</c></seealso>, 
-        <seealso marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_EXT</c></seealso>, or
+        <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>, 
+        <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>, or
         <seealso marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seealso>. 
         The <c>ID</c> field contains a big-endian unsigned integer,
         but <em>is to be regarded as uninterpreted data</em>,
@@ -772,39 +746,6 @@
     </section>
 
     <section>
-      <marker id="SMALL_ATOM_EXT"/>
-      <title>SMALL_ATOM_EXT</title>
-	<table align="left">
-	  <row>
-	    <cell align="center">1</cell>
-	    <cell align="center">1</cell>
-	    <cell align="center">Len</cell>
-	  </row>
-	  <row>
-	    <cell align="center"><c>115</c></cell>
-	    <cell align="center"><c>Len</c></cell>
-	    <cell align="center"><c>AtomName</c></cell>
-	  </row>
-	<tcaption>SMALL_ATOM_EXT</tcaption></table>
-      <p>
-	An atom is stored with a 1 byte unsigned length,
-	followed by <c>Len</c> numbers of 8-bit Latin-1 characters that
-	forms the <c>AtomName</c>. Longer atoms can be represented
-	by <seealso marker="#ATOM_EXT"><c>ATOM_EXT</c></seealso>.
-      </p>
-      <note>
-	<p>
-	  <c>SMALL_ATOM_EXT</c> was introduced in ERTS 5.7.2 and
-	  require an exchange of distribution flag
-	  <seealso marker="erl_dist_protocol#dflags">
-	  <c>DFLAG_SMALL_ATOM_TAGS</c></seealso> in the
-	  <seealso marker="erl_dist_protocol#distribution_handshake">
-	  distribution handshake</seealso>.
-	</p>
-      </note>
-    </section>
-
-    <section>
       <marker id="FUN_EXT"/>
       <title>FUN_EXT</title>
 	<table align="left">
@@ -838,8 +779,8 @@
 	<tag><c>Module</c></tag>
 	<item>
 	  <p>Encoded as an atom, using
-	    <seealso marker="#ATOM_EXT"><c>ATOM_EXT</c></seealso>,
-	    <seealso marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_EXT</c></seealso>,
+	    <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>,
+	    <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>,
 	    or <seealso marker="#ATOM_CACHE_REF">
 	    <c>ATOM_CACHE_REF</c></seealso>.
 	    This is the module that the fun is implemented in.
@@ -933,8 +874,8 @@
 	  <tag><c>Module</c></tag>
 	  <item>
 	    <p>Encoded as an atom, using
-	      <seealso marker="#ATOM_EXT"><c>ATOM_EXT</c></seealso>, 
-	      <seealso marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_EXT</c></seealso>,
+	      <seealso marker="#ATOM_EXT"><c>ATOM_UTF8_EXT</c></seealso>, 
+	      <seealso marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>,
 	      or <seealso marker="#ATOM_CACHE_REF">
 	      <c>ATOM_CACHE_REF</c></seealso>. 
 	      Is the module that the fun is implemented in.
@@ -996,8 +937,8 @@
 	</p>
 	<p>
 	  <c>Module</c> and <c>Function</c> are atoms
-	  (encoded using <seealso marker="#ATOM_EXT"><c>ATOM_EXT</c></seealso>, 
-	  <seealso marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_EXT</c></seealso>, or
+	  (encoded using <seealso marker="#ATOM_EXT"><c>ATOM_UTF8_EXT</c></seealso>, 
+	  <seealso marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>, or
 	  <seealso marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seealso>).
 	</p>
 	<p>
@@ -1109,6 +1050,61 @@
 	in the beginning of this section.
       </p>
     </section>
+
+    <section>
+      <marker id="ATOM_EXT"/>
+      <title>ATOM_EXT (deprecated)</title>
+	<table align="left">
+	  <row>
+            <cell align="center">1</cell>
+            <cell align="center">2</cell>
+            <cell align="center">Len</cell>
+	  </row>
+	  <row>
+            <cell align="center"><c>100</c></cell>
+            <cell align="center"><c>Len</c></cell>
+            <cell align="center"><c>AtomName</c></cell>
+	  </row>
+	<tcaption>ATOM_EXT</tcaption></table>
+      <p>
+        An atom is stored with a 2 byte unsigned length in big-endian order,
+        followed by <c>Len</c> numbers of 8-bit Latin-1 characters that forms
+        the <c>AtomName</c>. The maximum allowed value for <c>Len</c> is 255.
+      </p>
+    </section>
+
+    <section>
+      <marker id="SMALL_ATOM_EXT"/>
+      <title>SMALL_ATOM_EXT (deprecated)</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">Len</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>115</c></cell>
+	    <cell align="center"><c>Len</c></cell>
+	    <cell align="center"><c>AtomName</c></cell>
+	  </row>
+	<tcaption>SMALL_ATOM_EXT</tcaption></table>
+      <p>
+	An atom is stored with a 1 byte unsigned length,
+	followed by <c>Len</c> numbers of 8-bit Latin-1 characters that
+	forms the <c>AtomName</c>.
+      </p>
+      <note>
+	<p>
+	  <c>SMALL_ATOM_EXT</c> was introduced in ERTS 5.7.2 and
+	  require an exchange of distribution flag
+	  <seealso marker="erl_dist_protocol#dflags">
+	  <c>DFLAG_SMALL_ATOM_TAGS</c></seealso> in the
+	  <seealso marker="erl_dist_protocol#distribution_handshake">
+	  distribution handshake</seealso>.
+	</p>
+      </note>
+    </section>
+
   </chapter>
 
 
