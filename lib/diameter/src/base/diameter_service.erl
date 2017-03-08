@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1858,13 +1858,6 @@ eq(Any, Id, PeerId) ->
 %% OctetString() can be specified as an iolist() so test for string
 %% rather then term equality.
 
-%% transports/1
-
-transports(#state{watchdogT = WatchdogT}) ->
-    ets:select(WatchdogT, [{#watchdog{peer = '$1', _ = '_'},
-                            [{'is_pid', '$1'}],
-                            ['$1']}]).
-
 %% ---------------------------------------------------------------------------
 %% # service_info/2
 %% ---------------------------------------------------------------------------
@@ -1887,7 +1880,6 @@ transports(#state{watchdogT = WatchdogT}) ->
 -define(ALL_INFO, [capabilities,
                    applications,
                    transport,
-                   pending,
                    options]).
 
 %% The rest.
@@ -1981,7 +1973,6 @@ complete_info(Item, #state{service = Svc} = S) ->
         applications -> info_apps(S);
         transport    -> info_transport(S);
         options      -> info_options(S);
-        pending      -> info_pending(S);
         keys         -> ?ALL_INFO ++ ?CAP_INFO ++ ?OTHER_INFO;
         all          -> service_info(?ALL_INFO, S);
         statistics   -> info_stats(S);
@@ -2188,13 +2179,6 @@ info_apps(#state{service = #diameter_service{applications = Apps}}) ->
 
 mk_app(#diameter_app{} = A) ->
     lists:zip(record_info(fields, diameter_app), tl(tuple_to_list(A))).
-
-%% info_pending/1
-%%
-%% One entry for each outgoing request whose answer is outstanding.
-
-info_pending(#state{} = S) ->
-    diameter_traffic:pending(transports(S)).
 
 %% info_info/1
 %%
