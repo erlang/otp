@@ -394,9 +394,15 @@ dh_gex_group(Min, N, Max, Groups) ->
     pubkey_ssh:dh_gex_group(Min, N, Max, Groups).
 
 %%--------------------------------------------------------------------
--spec generate_key(#'DHParameter'{} | {namedCurve, Name ::oid()} |
-		   #'ECParameters'{}) -> {Public::binary(), Private::binary()} |
-					    #'ECPrivateKey'{}.
+-spec generate_key(#'DHParameter'{}) ->
+                          {Public::binary(), Private::binary()};
+                  ({namedCurve, Name ::oid()}) ->
+                          #'ECPrivateKey'{};
+                  (#'ECParameters'{}) ->
+                          #'ECPrivateKey'{};
+                  ({rsa, Size::pos_integer(), PubExp::pos_integer()}) ->
+                          {#'RSAPublicKey'{}, #'RSAPrivateKey'{}}.
+
 %% Description: Generates a new keypair
 %%--------------------------------------------------------------------
 generate_key(#'DHParameter'{prime = P, base = G}) ->
