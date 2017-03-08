@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -283,7 +283,7 @@ event(Msg,
     ?LOG(transition, {From, To}).
 
 data(Msg, TPid, reopen, okay) ->
-    {recv, TPid, 'DWA', _Pkt} = Msg,  %% assert
+    {recv, TPid, false, 'DWA', _Pkt, _NPid} = Msg,  %% assert
     {TPid, T} = eraser(open),
     [T];
 
@@ -447,12 +447,14 @@ transition({'DOWN', _, process, TPid, _Reason} = D,
     end;
 
 %% Incoming message.
-transition({recv, TPid, Name, PktT}, #watchdog{transport = TPid} = S) ->
+transition({recv, TPid, Route, Name, Pkt, NPid},
+           #watchdog{transport = TPid}
+           = S) ->
     try
-        incoming(Name, PktT, S)
+        incoming(Name, Pkt, NPid, S)
     catch
         #watchdog{dictionary = Dict0, receive_data = T} = NS ->
-            diameter_traffic:receive_message(TPid, PktT, Dict0, T),
+            diameter_traffic:receive_message(TPid, Route, Pkt, NPid, Dict0, T),
             NS
     end;
 
@@ -582,15 +584,17 @@ send_watchdog(#watchdog{pending = false,
 
 %% Don't count encode errors since we don't expect any on DWR/DWA.
 
-%% incoming/3
+%% incoming/4
 
-incoming(Name, {Pkt, NPid}, S) ->
-    NS = recv(Name, Pkt, S),
-    NPid ! {diameter, discard},
-    NS;
+incoming(Name, Pkt, false, S) ->
+    recv(Name, Pkt, S);
 
-incoming(Name, Pkt, S) ->
-    recv(Name, Pkt, S).
+incoming(Name, Pkt, NPid, S) ->
+    try
+        recv(Name, Pkt, S)
+    after
+        NPid ! {diameter, discard}
+    end.
 
 %% recv/3
 

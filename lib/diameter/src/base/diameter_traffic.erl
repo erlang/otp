@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 -export([send_request/4]).
 
 %% towards diameter_watchdog
--export([receive_message/4]).
+-export([receive_message/6]).
 
 %% towards diameter_peer_fsm and diameter_watchdog
 -export([incr/4,
@@ -40,11 +40,11 @@
 %% towards diameter_service
 -export([make_recvdata/1,
          peer_up/1,
-         peer_down/1,
-         pending/1]).
+         peer_down/1]).
 
-%% towards ?MODULE
--export([send/1]).  %% send from remote node
+%% internal
+-export([send/1,    %% send from remote node
+         init/1]).  %% monitor process start
 
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
@@ -57,13 +57,11 @@
 -define(DEFAULT_TIMEOUT, 5000).  %% for outgoing requests
 -define(DEFAULT_SPAWN_OPTS, []).
 
-%% Table containing outgoing requests for which a reply has yet to be
-%% received.
+%% Table containing outgoing entries that live and die with
+%% peer_up/down. The name is historic, since the table used to contain
+%% information about outgoing requests for which an answer has yet to
+%% be received.
 -define(REQUEST_TABLE, diameter_request).
-
-%% Workaround for dialyzer's lack of understanding of match specs.
--type match(T)
-   :: T | '_' | '$1' | '$2' | '$3' | '$4'.
 
 %% Record diameter:call/4 options are parsed into.
 -record(options,
@@ -72,7 +70,7 @@
          timeout = ?DEFAULT_TIMEOUT :: 0..16#FFFFFFFF,
          detach = false :: boolean()}).
 
-%% Term passed back to receive_message/4 with every incoming message.
+%% Term passed back to receive_message/6 with every incoming message.
 -record(recvdata,
         {peerT        :: ets:tid(),
          service_name :: diameter:service_name(),
@@ -87,12 +85,12 @@
 
 %% Record stored in diameter_request for each outgoing request.
 -record(request,
-        {ref        :: match(reference()),  %% used to receive answer
-         caller     :: match(pid()),        %% calling process
-         handler    :: match(pid()),        %% request process
-         transport  :: match(pid()),        %% peer process
-         caps       :: match(#diameter_caps{}),     %% of connection
-         packet     :: match(#diameter_packet{})}). %% of request
+        {ref        :: reference(),         %% used to receive answer
+         caller     :: pid() | undefined,   %% calling process
+         handler    :: pid(),               %% request process
+         transport  :: pid() | undefined,   %% peer process
+         caps       :: #diameter_caps{} | undefined,     %% of connection
+         packet     :: #diameter_packet{} | undefined}). %% of request
 
 %% ---------------------------------------------------------------------------
 %% # make_recvdata/1
@@ -113,26 +111,27 @@ make_recvdata([SvcName, PeerT, Apps, SvcOpts | _]) ->
 %% peer_up/1
 %% ---------------------------------------------------------------------------
 
-%% Insert an element that is used to detect whether or not there has
-%% been a failover when inserting an outgoing request.
+%% Start a process that dies with peer_down/1, on which request
+%% processes can monitor. There is no other process that dies with
+%% peer_down since failover doesn't imply the loss of transport in the
+%% case of a watchdog transition into state SUSPECT.
 peer_up(TPid) ->
-    ets:insert(?REQUEST_TABLE, {TPid}).
+    proc_lib:start(?MODULE, init, [TPid]).
+
+init(TPid) ->
+    ets:insert(?REQUEST_TABLE, {TPid, self()}),
+    proc_lib:init_ack(self()),
+    proc_lib:hibernate(erlang, exit, [{shutdown, TPid}]).
 
 %% ---------------------------------------------------------------------------
 %% peer_down/1
 %% ---------------------------------------------------------------------------
 
 peer_down(TPid) ->
-    ets:delete_object(?REQUEST_TABLE, {TPid}),
-    lists:foreach(fun failover/1, ets:lookup(?REQUEST_TABLE, TPid)).
-%% Note that a request process can store its request after failover
-%% notifications are sent here: insert_request/2 sends the notification
-%% in that case.
-
-%% failover/1
-
-failover({_TPid, {Pid, TRef}}) ->
-    Pid ! {failover, TRef}.
+    [{_, Pid}] = ets:lookup(?REQUEST_TABLE, TPid),
+    ets:delete(?REQUEST_TABLE, TPid),
+    Pid ! ok,  %% make it die
+    Pid.
 
 %% ---------------------------------------------------------------------------
 %% incr/4
@@ -207,54 +206,25 @@ incr_rc(Dir, Pkt, TPid, Dict0) ->
     incr_rc(Dir, Pkt, TPid, {Dict0, Dict0, Dict0}).
 
 %% ---------------------------------------------------------------------------
-%% pending/1
-%% ---------------------------------------------------------------------------
-
-pending(TPids) ->
-    MatchSpec = [{{'$1',
-                   #request{caller = '$2',
-                            handler = '$3',
-                            transport = '$4',
-                            _ = '_'},
-                   '_'},
-                  [?ORCOND([{'==', T, '$4'} || T <- TPids])],
-                  [{{'$1', [{{caller, '$2'}},
-                            {{handler, '$3'}},
-                            {{transport, '$4'}}]}}]}],
-
-    try
-        ets:select(?REQUEST_TABLE, MatchSpec)
-    catch
-        error: badarg -> []  %% service has gone down
-    end.
-
-%% ---------------------------------------------------------------------------
-%% # receive_message/4
+%% # receive_message/6
 %%
 %% Handle an incoming Diameter message.
 %% ---------------------------------------------------------------------------
 
-%% Handle an incoming Diameter message in the watchdog process. This
-%% used to come through the service process but this avoids that
-%% becoming a bottleneck.
+%% Handle an incoming Diameter message in the watchdog process.
 
-receive_message(TPid, {Pkt, NPid}, Dict0, RecvData) ->
-    NPid ! {diameter, incoming(TPid, Pkt, Dict0, RecvData)};
+receive_message(TPid, Route, Pkt, false, Dict0, RecvData) ->
+    incoming(TPid, Route, Pkt, Dict0, RecvData);
 
-receive_message(TPid, Pkt, Dict0, RecvData) ->
-    incoming(TPid, Pkt, Dict0, RecvData).
+receive_message(TPid, Route, Pkt, NPid, Dict0, RecvData) ->
+    NPid ! {diameter, incoming(TPid, Route, Pkt, Dict0, RecvData)}.
 
 %% incoming/4
 
-incoming(TPid, Pkt, Dict0, RecvData)
+incoming(TPid, Route, Pkt, Dict0, RecvData)
   when is_pid(TPid) ->
     #diameter_packet{header = #diameter_header{is_request = R}} = Pkt,
-    recv(R,
-         (not R) andalso lookup_request(Pkt, TPid),
-         TPid,
-         Pkt,
-         Dict0,
-         RecvData).
+    recv(R, Route, TPid, Pkt, Dict0, RecvData).
 
 %% recv/6
 
@@ -269,8 +239,8 @@ recv(true, false, TPid, Pkt, Dict0, T) ->
     end;
 
 %% ... answer to known request ...
-recv(false, #request{ref = Ref, handler = Pid} = Req, _, Pkt, Dict0, _) ->
-    Pid ! {answer, Ref, Req, Dict0, Pkt},
+recv(false, {Pid, Ref, TPid}, _, Pkt, Dict0, _) ->
+    Pid ! {answer, Ref, TPid, Dict0, Pkt},
     {answer, Pid};
 
 %% Note that failover could have happened prior to this message being
@@ -1503,31 +1473,38 @@ send_R(Pkt0,
                    packet = Pkt0},
 
     incr(send, Pkt, TPid, AppDict),
-    TRef = send_request(TPid, Pkt, Req, SvcName, Timeout),
+    {TRef, MRef} = zend_requezt(TPid, Pkt, Req, SvcName, Timeout),
     Pid ! Ref,  %% tell caller a send has been attempted
     handle_answer(SvcName,
                   App,
-                  recv_A(Timeout, SvcName, App, Opts, {TRef, Req})).
+                  recv_A(Timeout, SvcName, App, Opts, {TRef, MRef, Req})).
 
 %% recv_A/5
 
-recv_A(Timeout, SvcName, App, Opts, {TRef, #request{ref = Ref} = Req}) ->
+recv_A(Timeout, SvcName, App, Opts, {TRef, MRef, #request{ref = Ref} = Req}) ->
     %% Matching on TRef below ensures we ignore messages that pertain
     %% to a previous transport prior to failover. The answer message
-    %% includes the #request{} since it's not necessarily Req; that
-    %% is, from the last peer to which we've transmitted.
+    %% includes the pid of the transport on which it was received,
+    %% which may not be the last peer to which we've transmitted.
     receive
-        {answer = A, Ref, Rq, Dict0, Pkt} ->  %% Answer from peer
-            {A, Rq, Dict0, Pkt};
+        {answer = A, Ref, TPid, Dict0, Pkt} ->  %% Answer from peer
+            {A, #request{} = erase(TPid), Dict0, Pkt};
         {timeout = Reason, TRef, _} ->        %% No timely reply
             {error, Req, Reason};
-        {failover, TRef} ->       %% Service says peer has gone down
-            retransmit(pick_peer(SvcName, App, Req, Opts),
-                       Req,
-                       Opts,
-                       SvcName,
-                       Timeout)
+        {'DOWN', MRef, process, _, _} when false /= MRef -> %% local peer_down
+            failover(SvcName, App, Req, Opts, Timeout);
+        {failover, TRef} ->                   %% local or remote peer_down
+            failover(SvcName, App, Req, Opts, Timeout)
     end.
+
+%% failover/5
+
+failover(SvcName, App, Req, Opts, Timeout) ->
+    retransmit(pick_peer(SvcName, App, Req, Opts),
+               Req,
+               Opts,
+               SvcName,
+               Timeout).
 
 %% handle_answer/3
 
@@ -1705,44 +1682,63 @@ encode(DictT, TPid, #diameter_packet{bin = undefined} = Pkt) ->
 encode(_, _, #diameter_packet{} = Pkt) ->
     Pkt.
 
+%% zend_requezt/5
+%%
+%% Strip potentially large record fields that aren't used by the
+%% processes the records can be send to, possibly on a remote node.
+
+zend_requezt(TPid, Pkt, Req, SvcName, Timeout) ->
+    put(TPid, Req),
+    send_request(TPid, z(Pkt), Req, SvcName, Timeout).
+
 %% send_request/5
 
 send_request(TPid, #diameter_packet{bin = Bin} = Pkt, Req, _SvcName, Timeout)
   when node() == node(TPid) ->
     Seqs = diameter_codec:sequence_numbers(Bin),
     TRef = erlang:start_timer(Timeout, self(), TPid),
-    Entry = {Seqs, #request{handler = Pid} = Req, TRef},
-
-    %% Ensure that request table is cleaned even if the process is
-    %% killed.
-    spawn(fun() -> diameter_lib:wait([Pid]), delete_request(Entry) end),
-
-    insert_request(Entry),
-    send(TPid, Pkt),
-    TRef;
+    send(TPid, Pkt, _Route = {self(), Req#request.ref, Seqs}),
+    {TRef, _MRef = peer_monitor(TPid, TRef)};
 
 %% Send using a remote transport: spawn a process on the remote node
 %% to relay the answer.
 send_request(TPid, #diameter_packet{} = Pkt, Req, SvcName, Timeout) ->
     TRef = erlang:start_timer(Timeout, self(), TPid),
-    T = {TPid, Pkt, Req, SvcName, Timeout, TRef},
+    T = {TPid, Pkt, z(Req), SvcName, Timeout, TRef},
     spawn(node(TPid), ?MODULE, send, [T]),
-    TRef.
+    {TRef, false}.
+
+%% z/1
+%%
+%% Avoid sending potentially large terms unnecessarily. The records
+%% themselves are retained since they're sent between nodes in send/1
+%% and changing what's sent causes upgrade issues.
+
+z(#request{ref = Ref, handler = Pid}) ->
+    #request{ref = Ref,
+             handler = Pid};
+
+z(#diameter_packet{header = H, bin = Bin, transport_data = T}) ->
+    #diameter_packet{header = H,
+                     bin = Bin,
+                     transport_data = T}.
 
 %% send/1
 
 send({TPid, Pkt, #request{handler = Pid} = Req0, SvcName, Timeout, TRef}) ->
     Req = Req0#request{handler = self()},
-    recv(TPid, Pid, TRef, send_request(TPid, Pkt, Req, SvcName, Timeout)).
+    recv(TPid, Pid, TRef, zend_requezt(TPid, Pkt, Req, SvcName, Timeout)).
 
 %% recv/4
 %%
 %% Relay an answer from a remote node.
 
-recv(TPid, Pid, TRef, LocalTRef) ->
+recv(TPid, Pid, TRef, {LocalTRef, MRef}) ->
     receive
         {answer, _, _, _, _} = A ->
             Pid ! A;
+        {'DOWN', MRef, process, _, _} ->
+            Pid ! {failover, TRef};
         {failover = T, LocalTRef} ->
             Pid ! {T, TRef};
         T ->
@@ -1751,14 +1747,13 @@ recv(TPid, Pid, TRef, LocalTRef) ->
 
 %% send/2
 
-send(Pid, Pkt) ->  %% Strip potentially large message terms.
-    #diameter_packet{header = H,
-                     bin = Bin,
-                     transport_data = T}
-        = Pkt,
-    Pid ! {send, #diameter_packet{header = H,
-                                  bin = Bin,
-                                  transport_data = T}}.
+send(Pid, Pkt) ->
+    Pid ! {send, Pkt}.
+
+%% send/3
+
+send(Pid, Pkt, Route) ->
+    Pid ! {send, Pkt, Route}.
 
 %% retransmit/4
 
@@ -1768,8 +1763,8 @@ retransmit({TPid, Caps, App}
            = Req,
            SvcName,
            Timeout) ->
-    have_request(Pkt0, TPid)     %% Don't failover to a peer we've
-        andalso ?THROW(timeout), %% already sent to.
+    undefined == get(TPid)       %% Don't failover to a peer we've
+        orelse ?THROW(timeout),  %% already sent to.
 
     Pkt = make_retransmit_packet(Pkt0),
 
@@ -1822,55 +1817,19 @@ resend_request(Pkt0,
 
     ?LOG(retransmission, Pkt#diameter_packet.header),
     incr(TPid, {msg_id(Pkt, AppDict), send, retransmission}),
-    TRef = send_request(TPid, Pkt, Req, SvcName, Tmo),
-    {TRef, Req}.
+    {TRef, MRef} = zend_requezt(TPid, Pkt, Req, SvcName, Tmo),
+    {TRef, MRef, Req}.
 
-%% insert_request/1
+%% peer_monitor/2
 
-insert_request({_Seqs, #request{transport = TPid}, TRef} = T) ->
-    ets:insert(?REQUEST_TABLE, [T, {TPid, {self(), TRef}}]),
-    is_peer_up(TPid)
-        orelse (self() ! {failover, TRef}).  %% failover/1 may have missed
-
-%% is_peer_up/1
-%%
-%% Is the entry written by peer_up/1 and deleted by peer_down/1 still
-%% in the request table?
-
-is_peer_up(TPid) ->
-    Spec = [{{TPid}, [], ['$_']}],
-    '$end_of_table' /= ets:select(?REQUEST_TABLE, Spec, 1).
-
-%% lookup_request/2
-%%
-%% Note the match on both the key and transport pid. The latter is
-%% necessary since the same Hop-by-Hop and End-to-End identifiers are
-%% reused in the case of retransmission.
-
-lookup_request(Msg, TPid) ->
-    Seqs = diameter_codec:sequence_numbers(Msg),
-    Spec = [{{Seqs, #request{transport = TPid, _ = '_'}, '_'},
-             [],
-             ['$_']}],
-    case ets:select(?REQUEST_TABLE, Spec) of
-        [{_, Req, _}] ->
-            Req;
-        [] ->
+peer_monitor(TPid, TRef) ->
+    case ets:lookup(?REQUEST_TABLE, TPid) of %% at peer_up/1
+        [{_, MPid}] ->
+            monitor(process, MPid);
+        [] ->  %% transport has gone down
+            self() ! {failover, TRef},
             false
     end.
-
-%% delete_request/1
-
-delete_request({_Seqs, #request{handler = Pid, transport = TPid}, TRef} = T) ->
-    Spec = [{R, [], [true]} || R <- [T, {TPid, {Pid, TRef}}]],
-    ets:select_delete(?REQUEST_TABLE, Spec).
-
-%% have_request/2
-
-have_request(Pkt, TPid) ->
-    Seqs = diameter_codec:sequence_numbers(Pkt),
-    Pat = {Seqs, #request{transport = TPid, _ = '_'}, '_'},
-    '$end_of_table' /= ets:select(?REQUEST_TABLE, [{Pat, [], ['$_']}], 1).
 
 %% get_destination/2
 
