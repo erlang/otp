@@ -137,43 +137,6 @@ gen_rtl(BsOP, Dst, Args, TrueLblName, FalseLblName, SystemLimitLblName, ConstTab
 	       end
 	   end;
 
-	  {bs_put_integer, Size, Flags, ConstInfo} ->
-	    Aligned = aligned(Flags),
-	    LittleEndian = littleendian(Flags),
-	    [NewOffset] = get_real(Dst),
-	    case is_illegal_const(Size) of
-	      true ->
-		[hipe_rtl:mk_goto(FalseLblName)];
-	      false ->
-		case ConstInfo of
-		  fail ->
-		    [hipe_rtl:mk_goto(FalseLblName)];
-		  _ ->
-		    case Args of
-		      [Src, Base, Offset] ->
-			CCode = static_int_c_code(NewOffset, Src,
-						  Base, Offset, Size,
-						  Flags, TrueLblName,
-						  FalseLblName),
-			put_static_int(NewOffset, Src, Base, Offset, Size,
-				       CCode, Aligned, LittleEndian, TrueLblName);
-		      [Src, Bits, Base, Offset] ->
-			{SizeCode, SizeReg} =
-			  hipe_rtl_binary:make_size(Size, Bits,
-						    SystemLimitLblName,
-						    FalseLblName), 
-			CCode = int_c_code(NewOffset, Src, Base,
-					   Offset, SizeReg, Flags,
-					   TrueLblName, FalseLblName),
-			InCode =
-			  put_dynamic_int(NewOffset, Src, Base, Offset,
-					  SizeReg, CCode, Aligned,
-					  LittleEndian, TrueLblName),
-			SizeCode ++ InCode
-		    end
-		end
-	    end;
-
 	  {unsafe_bs_put_integer, 0, _Flags, _ConstInfo} ->
 	    [NewOffset] = get_real(Dst),
 	    case Args of
@@ -186,44 +149,12 @@ gen_rtl(BsOP, Dst, Args, TrueLblName, FalseLblName, SystemLimitLblName, ConstTab
 	    end;
 
 	  {unsafe_bs_put_integer, Size, Flags, ConstInfo} ->
-	     case is_illegal_const(Size) of
-	      true ->
-		[hipe_rtl:mk_goto(FalseLblName)];
-	      false ->
-		 Aligned = aligned(Flags),
-		 LittleEndian = littleendian(Flags),
-		 [NewOffset] = get_real(Dst),
-		 case ConstInfo of
-		   fail ->
-		     [hipe_rtl:mk_goto(FalseLblName)];
-		   _ ->
-		     case Args of
-		       [Src, Base, Offset] ->
-			 CCode = static_int_c_code(NewOffset, Src,
-						   Base, Offset, Size,
-						   Flags, TrueLblName,
-						   FalseLblName),
-			 put_unsafe_static_int(NewOffset, Src, Base,
-					       Offset, Size,
-					       CCode, Aligned, LittleEndian,
-					       TrueLblName);
-		       [Src, Bits, Base, Offset] ->
-			 {SizeCode, SizeReg} =
-			   hipe_rtl_binary:make_size(Size, Bits,
-						     SystemLimitLblName,
-						     FalseLblName),
-			 CCode = int_c_code(NewOffset, Src, Base,
-					    Offset, SizeReg, Flags,
-					    TrueLblName, FalseLblName),
-			 InCode =
-			   put_unsafe_dynamic_int(NewOffset, Src, Base,
-						  Offset, SizeReg, CCode,
-						  Aligned, LittleEndian,
-						  TrueLblName),
-			 SizeCode ++ InCode
-		     end
-		 end
-	     end;
+	    do_bs_put_integer(Dst, Args, Size, Flags, ConstInfo, true,
+			      TrueLblName, FalseLblName, SystemLimitLblName);
+
+	  {bs_put_integer, Size, Flags, ConstInfo} ->
+	    do_bs_put_integer(Dst, Args, Size, Flags, ConstInfo, false,
+			      TrueLblName, FalseLblName, SystemLimitLblName);
 
 	  bs_utf8_size ->
 	    case Dst of
@@ -358,6 +289,40 @@ gen_rtl(BsOP, Dst, Args, TrueLblName, FalseLblName, SystemLimitLblName, ConstTab
 			       TrueLblName, FalseLblName)]
 	end,
       {Code, ConstTab}
+  end.
+
+%% Common implementation of bs_put_integer and unsafe_bs_put_integer
+do_bs_put_integer(Dst, Args, Size, Flags, ConstInfo, SrcUnsafe,
+		  TrueLblName, FalseLblName, SystemLimitLblName) ->
+  case is_illegal_const(Size) of
+    true ->
+      [hipe_rtl:mk_goto(FalseLblName)];
+    false ->
+      Aligned = aligned(Flags),
+      LittleEndian = littleendian(Flags),
+      [NewOffset] = get_real(Dst),
+      case ConstInfo of
+	fail ->
+	  [hipe_rtl:mk_goto(FalseLblName)];
+	_ ->
+	  case Args of
+	    [Src, Base, Offset] ->
+	      CCode = static_int_c_code(NewOffset, Src, Base, Offset, Size,
+					Flags, TrueLblName, FalseLblName),
+	      put_static_int(NewOffset, Src, Base, Offset, Size, CCode, Aligned,
+			     LittleEndian, SrcUnsafe, TrueLblName);
+	    [Src, Bits, Base, Offset] ->
+	      {SizeCode, SizeReg} =
+		hipe_rtl_binary:make_size(Size, Bits, SystemLimitLblName,
+					  FalseLblName),
+	      CCode = int_c_code(NewOffset, Src, Base, Offset, SizeReg, Flags,
+				 TrueLblName, FalseLblName),
+	      InCode = put_dynamic_int(NewOffset, Src, Base, Offset, SizeReg,
+				       CCode, Aligned, LittleEndian, SrcUnsafe,
+				       TrueLblName),
+	      SizeCode ++ InCode
+	  end
+      end
   end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -807,28 +772,8 @@ put_float(_NewOffset, _Src, _Base, _Offset, _Size, CCode, _Aligned,
   CCode.
 
 put_static_int(NewOffset, Src, Base, Offset, Size, CCode, Aligned, 
-	       LittleEndian, TrueLblName) ->
-  {Init, End, UntaggedSrc} = make_init_end(Src, CCode, TrueLblName),
-  case {Aligned, LittleEndian} of
-    {true, true} ->
-      Init ++
-	copy_int_little(Base, Offset, NewOffset, Size, UntaggedSrc) ++
-	End;
-    {true, false} ->
-      Init ++
-	copy_int_big(Base, Offset, NewOffset, Size, UntaggedSrc) ++
-	End;
-    {false, true} ->
-      CCode;
-    {false, false} ->
-      Init ++
-	copy_offset_int_big(Base, Offset, NewOffset, Size, UntaggedSrc) ++
-	End
-  end.
-
-put_unsafe_static_int(NewOffset, Src, Base, Offset, Size, CCode, Aligned,
-		      LittleEndian, TrueLblName) ->
-  {Init, End, UntaggedSrc} = make_init_end(Src, TrueLblName),
+	       LittleEndian, SrcUnsafe, TrueLblName) ->
+  {Init, End, UntaggedSrc} = make_init_end(Src, CCode, SrcUnsafe, TrueLblName),
   case {Aligned, LittleEndian} of
     {true, true} ->
       Init ++
@@ -847,8 +792,8 @@ put_unsafe_static_int(NewOffset, Src, Base, Offset, Size, CCode, Aligned,
   end.
 
 put_dynamic_int(NewOffset, Src, Base, Offset, SizeReg, CCode, Aligned, 
-		LittleEndian, TrueLblName) ->
-  {Init, End, UntaggedSrc} = make_init_end(Src, CCode, TrueLblName),
+		LittleEndian, SrcUnsafe, TrueLblName) ->
+  {Init, End, UntaggedSrc} = make_init_end(Src, CCode, SrcUnsafe, TrueLblName),
   case Aligned of
     true ->
       case LittleEndian of
@@ -864,26 +809,6 @@ put_dynamic_int(NewOffset, Src, Base, Offset, SizeReg, CCode, Aligned,
     false ->
       CCode
   end.
-
-put_unsafe_dynamic_int(NewOffset, Src, Base, Offset, SizeReg, CCode, Aligned, 
-		       LittleEndian, TrueLblName) ->
-  {Init, End, UntaggedSrc} = make_init_end(Src, TrueLblName),
-  case Aligned of
-    true ->
-      case LittleEndian of
-	true ->
-	  Init ++
-	    copy_int_little(Base, Offset, NewOffset, SizeReg, UntaggedSrc) ++
-	    End;
-	false ->
-	  Init ++
-	    copy_int_big(Base, Offset, NewOffset, SizeReg, UntaggedSrc) ++
-	    End
-	end;
-    false ->
-      CCode
-  end.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -891,7 +816,7 @@ put_unsafe_dynamic_int(NewOffset, Src, Base, Offset, SizeReg, CCode, Aligned,
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-make_init_end(Src, CCode, TrueLblName) ->
+make_init_end(Src, CCode, false, TrueLblName) ->
   [CLbl, SuccessLbl] = create_lbls(2),
   [UntaggedSrc] = create_regs(1),
   Init = [hipe_tagscheme:test_fixnum(Src, hipe_rtl:label_name(SuccessLbl),
@@ -899,9 +824,8 @@ make_init_end(Src, CCode, TrueLblName) ->
 	  SuccessLbl,
 	  hipe_tagscheme:untag_fixnum(UntaggedSrc,Src)],
   End = [hipe_rtl:mk_goto(TrueLblName), CLbl| CCode],
-  {Init, End, UntaggedSrc}.
-
-make_init_end(Src, TrueLblName) ->
+  {Init, End, UntaggedSrc};
+make_init_end(Src, _CCode, true, TrueLblName) ->
   [UntaggedSrc] = create_regs(1),
   Init = [hipe_tagscheme:untag_fixnum(UntaggedSrc,Src)],
   End = [hipe_rtl:mk_goto(TrueLblName)],

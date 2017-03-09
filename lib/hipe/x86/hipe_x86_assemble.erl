@@ -148,6 +148,8 @@ insn_size(I) ->
 
 translate_insn(I, Context, Options) ->
   case I of
+    #alu{aluop='xor', src=#x86_temp{reg=Reg}=Src, dst=#x86_temp{reg=Reg}=Dst} ->
+      [{'xor', {temp_to_reg32(Dst), temp_to_rm32(Src)}, I}];
     #alu{} ->
       Arg = resolve_alu_args(hipe_x86:alu_src(I), hipe_x86:alu_dst(I), Context),
       [{hipe_x86:alu_op(I), Arg, I}];
@@ -228,11 +230,11 @@ translate_insn(I, Context, Options) ->
     #move64{} ->
       translate_move64(I, Context);
     #movsx{} ->
-      Arg = resolve_movx_args(hipe_x86:movsx_src(I), hipe_x86:movsx_dst(I)),
-      [{movsx, Arg, I}];
+      Src = resolve_movx_src(hipe_x86:movsx_src(I)),
+      [{movsx, {temp_to_regArch(hipe_x86:movsx_dst(I)), Src}, I}];
     #movzx{} ->
-      Arg = resolve_movx_args(hipe_x86:movzx_src(I), hipe_x86:movzx_dst(I)),
-      [{movzx, Arg, I}];
+      Src = resolve_movx_src(hipe_x86:movzx_src(I)),
+      [{movzx, {temp_to_reg32(hipe_x86:movzx_dst(I)), Src}, I}];
     %% pseudo_call: eliminated before assembly
     %% pseudo_jcc: eliminated before assembly
     %% pseudo_tailcall: eliminated before assembly
@@ -845,16 +847,15 @@ translate_move64(I, _Context) -> exit({?MODULE, I}).
 -endif.
 
 %%% mov{s,z}x
-resolve_movx_args(Src=#x86_mem{type=Type}, Dst=#x86_temp{}) ->
-  {temp_to_regArch(Dst),
-   case Type of
-     byte ->
-       mem_to_rm8(Src);
-     int16 ->
-       mem_to_rm16(Src);
-     int32 ->
-       mem_to_rm32(Src)
-   end}.
+resolve_movx_src(Src=#x86_mem{type=Type}) ->
+  case Type of
+    byte ->
+      mem_to_rm8(Src);
+    int16 ->
+      mem_to_rm16(Src);
+    int32 ->
+      mem_to_rm32(Src)
+  end.
 
 %%% alu/cmp (_not_ test)
 resolve_alu_args(Src, Dst, Context) ->

@@ -55,6 +55,8 @@ test_element(T0, T1, T2, N) ->
   List = lists:seq(1, N),
   Tuple = list_to_tuple(List),
   ok = get_elements(List, Tuple, 1),
+  %% element/2 of larger tuple with omitted bounds test
+  true = lists:all(fun(I) -> I * I =:= square(I) end, lists:seq(1, 20)),
   %% some cases that throw exceptions
   {'EXIT', _} = (catch my_element(0, T2)),
   {'EXIT', _} = (catch my_element(3, T2)),
@@ -72,6 +74,18 @@ get_elements([Element|Rest], Tuple, Pos) ->
   get_elements(Rest, Tuple, Pos + 1);
 get_elements([], _Tuple, _Pos) ->
   ok.
+
+squares() ->
+  {1*1,   2*2,   3*3,   4*4,   5*5,   6*6,   7*7,   8*8,   9*9,   10*10,
+   11*11, 12*12, 13*13, 14*14, 15*15, 16*16, 17*17, 18*18, 19*19, 20*20}.
+
+square(N) when is_integer(N), N >= 1, N =< 20 ->
+  %% The guard tests lets the range analysis conclude N to be an integer in the
+  %% 1..20 range. 20-1=19 is bigger than ?SET_LIMIT in erl_types.erl, and will
+  %% thus be represented by an ?int_range() rather than an ?int_set().
+  %% Because of the range analysis, the bounds test of this element/2 call
+  %% should be omitted.
+  element(N, squares()).
 
 %%--------------------------------------------------------------------
 %% Tests set_element/3.

@@ -1410,9 +1410,10 @@ transform_element2(I) ->
   NewIndex =
     case test_type(integer, IndexType) of
       true ->
-	case t_number_vals(IndexType) of
-	  unknown -> unknown;
-	  [_|_] = Vals -> {number, Vals}
+	case {number_min(IndexType), number_max(IndexType)} of
+	  {Lb0, Ub0} when is_integer(Lb0), is_integer(Ub0) ->
+	    {number, Lb0, Ub0};
+	  {_, _} -> unknown
 	end;
       _ -> unknown
     end,
@@ -1427,19 +1428,19 @@ transform_element2(I) ->
       _ -> unknown
     end,
   case {NewIndex, MinSize} of
-    {{number, [_|_] = Ns}, {tuple, A}} when is_integer(A) ->
-      case lists:all(fun(X) -> 0 < X andalso X =< A end, Ns) of
+    {{number, Lb, Ub}, {tuple, A}} when is_integer(A) ->
+      case 0 < Lb andalso Ub =< A of
 	true ->
-	  case Ns of
-	    [Idx] ->
+	  case {Lb, Ub} of
+	    {Idx, Idx} ->
 	      [_, Tuple] = hipe_icode:args(I),
 	      update_call_or_enter(I, #unsafe_element{index = Idx}, [Tuple]);
-	    [_|_] ->
+	    {_, _} ->
 	      NewFun = {element, [MinSize, valid]},
 	      update_call_or_enter(I, NewFun)
 	  end;
 	false ->
-	  case lists:all(fun(X) -> hipe_tagscheme:is_fixnum(X) end, Ns) of
+	  case lists:all(fun(X) -> hipe_tagscheme:is_fixnum(X) end, [Lb, Ub]) of
 	    true ->
 	      NewFun = {element, [MinSize, fixnums]},
 	      update_call_or_enter(I, NewFun);
@@ -1454,7 +1455,7 @@ transform_element2(I) ->
 	  NewFun = {element, [MinSize, fixnums]},
 	  update_call_or_enter(I, NewFun);
 	false ->
-	  NewFun = {element, [MinSize, NewIndex]},	  
+	  NewFun = {element, [MinSize, NewIndex]},
 	  update_call_or_enter(I, NewFun)
       end
   end.
