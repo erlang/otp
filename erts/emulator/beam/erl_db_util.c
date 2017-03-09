@@ -2343,7 +2343,7 @@ restart:
 		}
 	    }
 	    else {
-		*esp = term;
+		*esp++ = term;
 	    }
 	    break;
 	case matchPushArrayAsList:
