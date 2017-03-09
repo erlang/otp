@@ -345,13 +345,18 @@ static unsigned long one_value = 1;
 #undef HAVE_SCTP
 #if defined(HAVE_SCTP_H)
 
+#ifdef HAVE_USRSCTP
+#include <usrsctp.h>
+#else
 #include <netinet/sctp.h>
+#endif
 
 /* SCTP Socket API Draft from version 11 on specifies that netinet/sctp.h must
    explicitly define HAVE_SCTP in case when SCTP is supported,  but Solaris 10
    still apparently uses Draft 10, and does not define that symbol, so we have
    to define it explicitly:
 */
+
 #ifndef     HAVE_SCTP
 #    define HAVE_SCTP
 #endif
@@ -2792,6 +2797,48 @@ static ErlDrvTermData   am_sctp_rtoinfo, /* Option names */
 #define SCTP_PARSE_SNDRCVINFO_CNT                            \
         (5*LOAD_ATOM_CNT + 5*LOAD_INT_CNT + 2*LOAD_UINT_CNT + \
 	 LOAD_NIL_CNT + LOAD_LIST_CNT + LOAD_ASSOC_ID_CNT + LOAD_TUPLE_CNT)
+#ifdef HAVE_USRSCTP
+static int sctp_parse_sndrcvinfo
+	   (ErlDrvTermData * spec, int i, struct sctp_rcvinfo * ri)
+{
+    int n;
+    
+    i = LOAD_ATOM	(spec, i, am_sctp_sndrcvinfo);
+    i = LOAD_INT	(spec, i, ri->rcv_sid);
+    i = LOAD_INT	(spec, i, ri->rcv_ssn); /* no such value in usrsctp */
+    /* Now Flags, as a list: */
+    n = 0;
+    if (ri->rcv_flags & SCTP_UNORDERED)
+	{ i = LOAD_ATOM (spec, i, am_unordered);     n++; }
+
+    if (ri->rcv_flags & SCTP_ADDR_OVER)
+	{ i = LOAD_ATOM (spec, i, am_addr_over);     n++; }
+
+    if (ri->rcv_flags & SCTP_ABORT)
+	{ i = LOAD_ATOM (spec, i, am_abort);	     n++; }
+
+    if (ri->rcv_flags & SCTP_EOF)
+	{ i = LOAD_ATOM (spec, i, am_eof);	     n++; }
+
+    /* SCTP_SENDALL is not yet supported by the Linux kernel     */
+    i = LOAD_NIL	(spec, i);
+    i = LOAD_LIST	(spec, i, n+1);
+
+    /* Continue with other top-level fields: */
+    i = LOAD_INT	(spec, i, sock_ntohl(ri->rcv_ppid));
+    i = LOAD_INT	(spec, i, ri->rcv_context);
+    i = LOAD_INT	(spec, i, 0);
+    i = LOAD_UINT	(spec, i, ri->rcv_tsn);
+    i = LOAD_UINT	(spec, i, ri->rcv_cumtsn);
+    i = LOAD_ASSOC_ID	(spec, i, ri->rcv_assoc_id);
+
+    /* Close up the record: */
+    i = LOAD_TUPLE	(spec, i, 10);
+    return i;
+}
+
+#else
+
 static int sctp_parse_sndrcvinfo
 	   (ErlDrvTermData * spec, int i, struct sctp_sndrcvinfo * sri)
 {
@@ -2830,6 +2877,8 @@ static int sctp_parse_sndrcvinfo
     i = LOAD_TUPLE	(spec, i, 10);
     return i;
 }
+
+#endif
 
 /*
 ** This function skips non-SCTP ancillary data, returns SCTP-specific anc.data
@@ -3912,6 +3961,35 @@ static int inet_init()
 #       ifndef LIBSCTP
 #           error LIBSCTP not defined
 #       endif
+
+#	ifdef HAVE_USRSCTP
+	/* usrsctp definitions */
+#	    if defined(HAVE_SCTP_BINDX)
+	    p_sctp_bindx = usrsctp_bindx;
+#		if defined(HAVE_SCTP_PEELOFF)
+		p_sctp_peeloff = usrsctp_peeloff;
+#		else
+		p_sctp_peeloff = NULL;
+#		endif
+#		if defined(HAVE_SCTP_GETLADDRS) && defined(HAVE_SCTP_FREELADDRS)
+		p_sctp_getladdrs = usrsctp_getladdrs;
+		p_sctp_freeladdrs = usrsctp_freeladdrs;
+#		else
+		p_sctp_getladdrs = NULL;
+		p_sctp_freeladdrs = NULL;
+#		endif
+#		if defined(HAVE_SCTP_GETPADDRS) && defined(HAVE_SCTP_FREEPADDRS)
+		p_sctp_getpaddrs = usrsctp_getpaddrs;
+		p_sctp_freepaddrs = usrsctp_freepaddrs;
+#		else
+		p_sctp_getpaddrs = NULL;
+		p_sctp_freepaddrs = NULL;
+#		endif
+	inet_init_sctp();
+	add_driver_entry(&sctp_inet_driver_entry);
+#	    endif
+#	else
+
     {
 	static void *h_libsctp = NULL;
 
@@ -3952,6 +4030,7 @@ static int inet_init()
 	    else p_sctp_bindx = NULL;
 	}
     }
+#	endif
 #   endif
 #endif
 

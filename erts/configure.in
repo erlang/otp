@@ -1659,6 +1659,17 @@ if test "x$enable_sctp" != "xno" ; then
 	])
 fi
 
+if test "x$enable_sctp" != "xno" ; then
+    AC_CHECK_HEADER(usrsctp.h,
+        [AC_DEFINE(HAVE_USRSCTP, [1],
+            [Define to 1 if you have the <usrsctp.h> header file])],
+	[],
+	[#if HAVE_SYS_SOCKET_H
+	 #include <sys/socket.h>
+	 #endif
+	])
+fi
+
 if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
     AS_IF([test "x$enable_sctp" = "xlib"],
         AC_CHECK_LIB(sctp, sctp_bindx))
