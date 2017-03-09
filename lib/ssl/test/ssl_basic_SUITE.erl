@@ -4040,11 +4040,11 @@ prf_create_plan(TlsVersions, PRFs, Results) ->
 prf_ciphers_and_expected(TlsVer, PRFs, Results) ->
     case TlsVer of
         TlsVer when TlsVer == sslv3 orelse TlsVer == tlsv1
-                    orelse TlsVer == 'tlsv1.1' ->
+                    orelse TlsVer == 'tlsv1.1' orelse TlsVer == 'dtlsv1' ->
             Ciphers = ssl:cipher_suites(),
             {_, Expected} = lists:keyfind(md5sha, 1, Results),
             [[{tls_ver, TlsVer}, {ciphers, Ciphers}, {expected, Expected}, {prf, md5sha}]];
-        'tlsv1.2' ->
+        TlsVer when  TlsVer == 'tlsv1.2' orelse  TlsVer == 'dtlsv1.2'->
             lists:foldl(
               fun(PRF, Acc) ->
                       Ciphers = prf_get_ciphers(TlsVer, PRF),
@@ -4059,21 +4059,20 @@ prf_ciphers_and_expected(TlsVer, PRFs, Results) ->
                       end
               end, [], PRFs)
     end.
-prf_get_ciphers(TlsVer, PRF) ->
-    case TlsVer of
-        'tlsv1.2' ->
-            lists:filter(
-              fun(C) when tuple_size(C) == 4 andalso
-                          element(4, C) == PRF -> 
-			  true;
-                 (_) -> false
-              end, ssl:cipher_suites())
-    end.
+prf_get_ciphers(_, PRF) ->
+    lists:filter(
+      fun(C) when tuple_size(C) == 4 andalso
+                  element(4, C) == PRF -> 
+              true;
+         (_) -> 
+              false
+      end, 
+      ssl:cipher_suites()).
 prf_run_test(_, TlsVer, [], _, Prf) ->
     ct:fail({error, cipher_list_empty, TlsVer, Prf});
 prf_run_test(Config, TlsVer, Ciphers, Expected, Prf) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    BaseOpts = [{active, true}, {versions, [TlsVer]}, {ciphers, Ciphers}],
+    BaseOpts = [{active, true}, {versions, [TlsVer]}, {ciphers, Ciphers}, {protocol, tls_or_dtls(TlsVer)}],
     ServerOpts = BaseOpts ++ proplists:get_value(server_opts, Config),
     ClientOpts = BaseOpts ++ proplists:get_value(client_opts, Config),
     Server = ssl_test_lib:start_server(
@@ -4771,3 +4770,9 @@ wait_for_send(Socket) ->
     %% Make sure TLS process processed send message event
     _ = ssl:connection_information(Socket).
 
+tls_or_dtls('dtlsv1') ->
+    dtls;
+tls_or_dtls('dtlsv1.2') ->
+    dtls;
+tls_or_dtls(_) ->
+    tls.

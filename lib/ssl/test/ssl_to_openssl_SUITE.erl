@@ -88,9 +88,8 @@ dtls_all_versions_tests() ->
      %%erlang_client_openssl_server,
      erlang_server_openssl_client,
      %%erlang_client_openssl_server_dsa_cert,
-     erlang_server_openssl_client_dsa_cert
-     %% This one works but gets port EXIT first some times 
-     %%erlang_server_openssl_client_reuse_session
+     erlang_server_openssl_client_dsa_cert,
+     erlang_server_openssl_client_reuse_session
      %%erlang_client_openssl_server_renegotiate,
      %%erlang_client_openssl_server_nowrap_seqnum,
      %%erlang_server_openssl_client_nowrap_seqnum,
@@ -168,13 +167,18 @@ init_per_group(basic, Config) ->
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_tls_version(GroupName) of
 	true ->
-	    case ssl_test_lib:check_sane_openssl_version(GroupName) of
-		true ->
-		    ssl_test_lib:init_tls_version(GroupName, Config);
-		false ->
-		    {skip, openssl_does_not_support_version}
-	    end;
-	_ ->
+            case ssl_test_lib:supports_ssl_tls_version(GroupName) of
+                true ->
+                    case ssl_test_lib:check_sane_openssl_version(GroupName) of
+                        true ->
+                            ssl_test_lib:init_tls_version(GroupName, Config);
+                        false ->
+                            {skip, openssl_does_not_support_version}
+                    end;
+                false ->
+                    {skip, openssl_does_not_support_version}
+            end; 
+        _ ->
 	    ssl:start(),
 	    Config
     end.
@@ -995,20 +999,7 @@ ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
     true = port_command(OpenSslPort, Data),
     
     ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]), 
-    receive
-	{'EXIT', OpenSslPort, _} = Exit ->
-	    ct:log("Received: ~p ~n", [Exit]),
-	    ok
-    end,
-    receive 
-	{'EXIT', _, _} = UnkownExit ->
-	    Msg = lists:flatten(io_lib:format("Received: ~p ~n", [UnkownExit])),
-	    ct:log(Msg),
-	    ct:comment(Msg),
-	    ok
-    after 0 ->
-	    ok
-    end,		
+    consume_port_exit(OpenSslPort),
     ssl_test_lib:check_result(Server, {error, {tls_alert, "handshake failure"}}),
     process_flag(trap_exit, false).
 %%--------------------------------------------------------------------
@@ -1039,20 +1030,7 @@ ssl2_erlang_server_openssl_client_comp(Config) when is_list(Config) ->
     true = port_command(OpenSslPort, Data),
     
     ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]), 
-    receive
-	{'EXIT', OpenSslPort, _} = Exit ->
-	    ct:log("Received: ~p ~n", [Exit]),
-	    ok
-    end,
-    receive 
-	{'EXIT', _, _} = UnkownExit ->
-	    Msg = lists:flatten(io_lib:format("Received: ~p ~n", [UnkownExit])),
-	    ct:log(Msg),
-	    ct:comment(Msg),
-	    ok
-    after 0 ->
-	    ok
-    end,		
+    consume_port_exit(OpenSslPort),
     ssl_test_lib:check_result(Server, {error, {tls_alert, "protocol version"}}),
     process_flag(trap_exit, false).
 
@@ -1873,3 +1851,9 @@ openssl_client_args(false, Hostname, Port, ServerName) ->
 openssl_client_args(true, Hostname, Port, ServerName) ->
     ["s_client",  "-no_ssl2", "-connect", Hostname ++ ":" ++ 
 	 integer_to_list(Port), "-servername", ServerName].
+
+consume_port_exit(OpenSSLPort) ->
+    receive    	
+        {'EXIT', OpenSSLPort, _} ->
+            ok
+    end.
