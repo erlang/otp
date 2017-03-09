@@ -359,10 +359,10 @@ stick_all_sticky(Node,Sticky) ->
 %% cover.
 
 run_test_case_apply({Mod,Func,Args,Name,RunInit,TimetrapData}) ->
-    case os:getenv("TS_RUN_VALGRIND") of
+    case is_valgrind() of
 	false ->
 	    ok;
-	_ ->
+	true ->
 	    os:putenv("VALGRIND_LOGFILE_INFIX",atom_to_list(Mod)++"."++
 		      atom_to_list(Func)++"-")
     end,
@@ -1827,7 +1827,8 @@ timetrap_scale_factor() ->
 	{ 2, fun() -> has_lock_checking() end},
 	{ 3, fun() -> has_superfluous_schedulers() end},
 	{ 6, fun() -> is_debug() end},
-	{10, fun() -> is_cover() end}
+	{10, fun() -> is_cover() end},
+        {10, fun() -> is_valgrind() end}
     ]).
 
 timetrap_scale_factor(Scales) ->
@@ -2726,6 +2727,16 @@ has_superfluous_schedulers() ->
 is_commercial() ->
     case string:str(erlang:system_info(system_version), "source") of
 	Int when is_integer(Int), Int > 0 -> false;
+	_ -> true
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% is_valgrind() -> boolean()
+%%
+%% Returns true if valgrind is running, else false
+is_valgrind() ->
+    case os:getenv("TS_RUN_VALGRIND") of
+	false -> false;
 	_ -> true
     end.
 
