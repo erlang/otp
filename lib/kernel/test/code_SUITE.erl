@@ -1360,9 +1360,8 @@ create_big_boot(Config) ->
 %% corresponding beam file (if hipe is not enabled).
 filter_app("hipe",_) -> false;
 
-%% Dialyzer and typer depends on hipe
+%% Dialyzer depends on hipe
 filter_app("dialyzer",_) -> false;
-filter_app("typer",_) -> false;
 
 %% Orber requires explicit configuration
 filter_app("orber",_) -> false;
