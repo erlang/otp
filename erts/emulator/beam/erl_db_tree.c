@@ -3473,13 +3473,20 @@ static int doit_select_replace(DbTableTree *tb, TreeDbTerm **this, void *ptr,
 			  &(*this)->dbterm, NULL, 0);
 
     if (is_value(ret)) {
+        TreeDbTerm* new;
+        TreeDbTerm* old = *this;
 #ifdef DEBUG
         Eterm key = db_getkey(tb->common.keypos, ret);
         ASSERT(is_value(key));
         ASSERT(cmp_key(tb, key, old) == 0);
 #endif
-        *this = replace_dbterm(tb, *this, ret);
-        sc->lastobj = (*this)->dbterm.tpl;
+        new = new_dbterm(tb, ret);
+        new->left = old->left;
+        new->right = old->right;
+        new->balance = old->balance;
+        sc->lastobj = new->dbterm.tpl;
+        *this = new;
+        free_term(tb, old);
         ++(sc->replaced);
     }
     if (--(sc->max) <= 0) {

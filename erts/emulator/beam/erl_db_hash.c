@@ -2144,9 +2144,10 @@ static int mtraversal_select_replace_on_match_res(void* context_ptr, Sint slot_i
 #endif
         next = (**current_ptr_ptr)->next;
         hval = (**current_ptr_ptr)->hvalue;
-        new = replace_dbterm(tb, **current_ptr_ptr, match_res);
+        new = new_dbterm(tb, match_res);
         new->next = next;
         new->hvalue = hval;
+        free_term(tb, **current_ptr_ptr);
         **current_ptr_ptr = new; /* replace 'next' pointer in previous object */
         *current_ptr_ptr = &((**current_ptr_ptr)->next); /* advance to next object */
         return 1;
