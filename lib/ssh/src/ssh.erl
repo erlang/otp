@@ -200,11 +200,13 @@ daemon(Host0, Port, UserOptions0) ->
 daemon_info(Pid) ->
     case catch ssh_system_sup:acceptor_supervisor(Pid) of
 	AsupPid when is_pid(AsupPid) ->
-	    [Port] =
-		[Prt || {{ssh_acceptor_sup,any,Prt,default},
+	    [{ListenAddr,Port,Profile}] =
+		[{LA,Prt,Prf} || {{ssh_acceptor_sup,LA,Prt,Prf},
 			 _WorkerPid,worker,[ssh_acceptor]} <- supervisor:which_children(AsupPid)],
-	    {ok, [{port,Port}]};
-
+	    {ok, [{port,Port},
+                  {listen_address,ListenAddr},
+                  {profile,Profile}
+                 ]};
 	_ ->
 	    {error,bad_daemon_ref}
     end.
