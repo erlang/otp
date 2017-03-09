@@ -1198,8 +1198,11 @@ ec_curve_spec( #'ECParameters'{fieldID = FieldId, curve = PCurve, base = Base, o
 	     FieldId#'FieldID'.parameters},
     Curve = {PCurve#'Curve'.a, PCurve#'Curve'.b, none},
     {Field, Curve, Base, Order, CoFactor};
-ec_curve_spec({namedCurve, OID}) ->
-    pubkey_cert_records:namedCurves(OID).
+ec_curve_spec({namedCurve, OID}) when is_tuple(OID), is_integer(element(1,OID)) ->
+    ec_curve_spec({namedCurve,  pubkey_cert_records:namedCurves(OID)});
+ec_curve_spec({namedCurve, Name}) when is_atom(Name) ->
+    crypto:ec_curve(Name).
+
 
 ec_key({PubKey, PrivateKey}, Params) ->
     #'ECPrivateKey'{version = 1,
