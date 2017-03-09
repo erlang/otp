@@ -31,7 +31,7 @@
 	 progex_lc/1, progex_funs/1,
 	 otp_5990/1, otp_6166/1, otp_6554/1,
 	 otp_7184/1, otp_7232/1, otp_8393/1, otp_10302/1, otp_13719/1,
-         otp_14285/1]).
+         otp_14285/1, otp_14296/1]).
 
 -export([ start_restricted_from_shell/1, 
 	  start_restricted_on_command_line/1,restricted_local/1]).
@@ -92,7 +92,7 @@ groups() ->
        progex_funs]},
      {tickets, [],
       [otp_5990, otp_6166, otp_6554, otp_7184,
-       otp_7232, otp_8393, otp_10302, otp_13719, otp_14285]}].
+       otp_7232, otp_8393, otp_10302, otp_13719, otp_14285, otp_14296]}].
 
 init_per_suite(Config) ->
     Config.
@@ -2840,6 +2840,82 @@ otp_14285(Config) ->
         t({Node,Test1}),
     test_server:stop_node(Node),
     ok.
+
+otp_14296(Config) when is_list(Config) ->
+    fun() ->
+            F = fun() -> a end,
+            LocalFun = term_to_string(F),
+            S = LocalFun ++ ".",
+            "1: syntax error before: Fun" = comm_err(S)
+    end(),
+
+    fun() ->
+            F = fun mod:func/1,
+            ExternalFun = term_to_string(F),
+            S = ExternalFun ++ ".",
+            R = ExternalFun ++ ".\n",
+            R = t(S)
+    end(),
+
+    fun() ->
+            UnknownPid = "<100000.0.0>",
+            S = UnknownPid ++ ".",
+            "1: syntax error before: '<'" = comm_err(S)
+    end(),
+
+    fun() ->
+            KnownPid = term_to_string(self()),
+            S = KnownPid ++ ".",
+            R = KnownPid ++ ".\n",
+            R = t(S)
+    end(),
+
+    fun() ->
+            Port = open_port({spawn, "ls"}, [line]),
+            KnownPort = erlang:port_to_list(Port),
+            S = KnownPort ++ ".",
+            R = KnownPort ++ ".\n",
+            R = t(S)
+    end(),
+
+    fun() ->
+            UnknownPort = "#Port<100000.0>",
+            S = UnknownPort ++ ".",
+            "1: syntax error before: Port" = comm_err(S)
+    end(),
+
+    fun() ->
+            UnknownRef = "#Ref<100000.0.0.0>",
+            S = UnknownRef ++ ".",
+            "1: syntax error before: Ref" = comm_err(S)
+    end(),
+
+    fun() ->
+            KnownRef = term_to_string(make_ref()),
+            S = KnownRef ++ ".",
+            R = KnownRef ++ ".\n",
+            R = t(S)
+    end(),
+
+    %% Test lib:extended_parse_term/1
+    TF = fun(S) ->
+                 {ok, Ts, _} = erl_scan:string(S++".", 1, [text]),
+                 {ok, Term} = lib:extended_parse_term(Ts),
+                 Term
+         end,
+    Fun = fun m:f/1,
+    Fun = TF(term_to_string(Fun)),
+    Fun = TF("#Fun<m.f.1>"),
+    Pid = self(),
+    Pid = TF(term_to_string(Pid)),
+    Ref = make_ref(),
+    Ref = TF(term_to_string(Ref)),
+    Term = {$a, [10, a], {"foo", []}, #{x => <<"bar">>}},
+    Term = TF(term_to_string(Term)),
+    ok.
+
+term_to_string(T) ->
+    lists:flatten(io_lib:format("~w", [T])).
 
 scan(B) ->
     F = fun(Ts) -> 
