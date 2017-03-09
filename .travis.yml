@@ -1,9 +1,9 @@
-language: erlang
-
-otp_release:
-  - 18.0
+language: c
 
 sudo: false
+
+os:
+  - linux
 
 addons:
   apt:
@@ -20,17 +20,27 @@ addons:
       - g++
       - xsltproc
 
+matrix:
+  include:
+    - env: Linux32
+      os: linux
+      services:
+        - docker
+      script:
+        - ./scripts/build-docker-otp 32 sh -c "scripts/build-otp && ./otp_build tests && scripts/run-smoke-tests"
+      after_success:
+      after_script:
+
 before_script:
   - set -e
   - export ERL_TOP=$PWD
   - export PATH=$ERL_TOP/bin:$PATH
   - export ERL_LIBS=''
-  - export MAKEFLAGS=-j6
-  - kerl_deactivate
+  - export MAKEFLAGS=-j4
 
 script:
   - ./scripts/build-otp
-  
+
 after_success:
   - $ERL_TOP/bin/dialyzer --build_plt --apps asn1 compiler crypto dialyzer edoc erts et hipe inets kernel mnesia observer public_key runtime_tools snmp ssh ssl stdlib syntax_tools wx xmerl --statistics
   - $ERL_TOP/bin/dialyzer -n -Wunknown -Wunmatched_returns --apps compiler erts kernel stdlib asn1 crypto dialyzer hipe parsetools public_key runtime_tools sasl tools --statistics
