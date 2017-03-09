@@ -312,13 +312,17 @@
       <desc>
 	<p>Generates a public key of type <c>Type</c>.
 	See also <seealso marker="public_key:public_key#generate_key-1">public_key:generate_key/1</seealso>.
-	May throw exception <c>low_entropy</c> in case the random generator
-	failed due to lack of secure "randomness".
-	</p>
+	May throw exception an exception of class <c>error</c>:
+        </p>
+        <list type="bulleted">
+          <item><c>badarg</c>: an argument is of wrong type or has an illegal value,</item>
+	  <item><c>low_entropy</c>: the random generator failed due to lack of secure "randomness",</item>
+          <item><c>computation_failed</c>: the computation fails of another reason than <c>low_entropy</c>.</item>
+        </list>
 	<note>
 	  <p>RSA key generation is only available if the runtime was
 	  built with dirty scheduler support. Otherwise, attempting to
-	  generate an RSA key will throw exception <c>notsup</c>.</p>
+	  generate an RSA key will throw exception <c>error:notsup</c>.</p>
 	</note>
       </desc>
     </func>
