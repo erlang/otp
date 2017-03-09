@@ -2132,16 +2132,14 @@ static int mtraversal_select_replace_on_match_res(void* context_ptr, Sint slot_i
 {
     mtraversal_select_replace_context_t* sr_context_ptr = (mtraversal_select_replace_context_t*) context_ptr;
     DbTableHash* tb = sr_context_ptr->tb;
-#ifdef DEBUG
-    Eterm key = NIL;
-#endif
-    HashDbTerm* new = NULL;
-    HashDbTerm* next = NULL;
-    HashValue hval = INVALID_HASH;
+    HashDbTerm* new;
+    HashDbTerm* next;
+    HashValue hval;
 
     if (is_value(match_res)) {
 #ifdef DEBUG
-        ASSERT(is_value(key = db_getkey(tb->common.keypos, match_res)));
+        Eterm key = db_getkey(tb->common.keypos, match_res);
+        ASSERT(is_value(key));
         ASSERT(eq(key, GETKEY(tb, (**current_ptr_ptr)->dbterm.tpl)));
 #endif
         next = (**current_ptr_ptr)->next;

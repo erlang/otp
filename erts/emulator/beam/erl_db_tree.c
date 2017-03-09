@@ -3459,10 +3459,7 @@ static int doit_select_replace(DbTableTree *tb, TreeDbTerm **this, void *ptr,
                                int forward)
 {
     struct select_replace_context *sc = (struct select_replace_context *) ptr;
-    Eterm ret = NIL;
-#ifdef DEBUG
-    Eterm key = NIL;
-#endif
+    Eterm ret;
 
     sc->lastobj = (*this)->dbterm.tpl;
 
@@ -3477,8 +3474,9 @@ static int doit_select_replace(DbTableTree *tb, TreeDbTerm **this, void *ptr,
 
     if (is_value(ret)) {
 #ifdef DEBUG
-        ASSERT(is_value(key = db_getkey(tb->common.keypos, ret)));
-        ASSERT(cmp_key(tb, key, *this) == 0);
+        Eterm key = db_getkey(tb->common.keypos, ret);
+        ASSERT(is_value(key));
+        ASSERT(cmp_key(tb, key, old) == 0);
 #endif
         *this = replace_dbterm(tb, *this, ret);
         sc->lastobj = (*this)->dbterm.tpl;
