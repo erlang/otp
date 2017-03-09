@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -222,7 +222,7 @@ kilo_byte(N, Acc) ->
 
       <pre>
 4> <input>T = ets:new(tab, []).</input>
-17
+#Ref&lt;0.1662103692.2407923716.214181>
 5> <input>ets:insert(T, {key,efficiency_guide:kilo_byte()}).</input>
 true
 6> <input>erts_debug:size(element(2, hd(ets:lookup(T, key)))).</input>
