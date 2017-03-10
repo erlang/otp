@@ -804,12 +804,12 @@
     <xsl:choose>
       <xsl:when test="string-length($logo) > 0">
         <div class="erlang-logo-wrapper">
-            <a href="{$topdocdir}"><img alt="Erlang Logo" src="{$topdocdir}/{$logo}" class="erlang-logo"/></a>
+            <a href="{$topdocdir}/index.html"><img alt="Erlang Logo" src="{$topdocdir}/{$logo}" class="erlang-logo"/></a>
         </div>
       </xsl:when>
       <xsl:otherwise>
         <div class="erlang-logo-wrapper">
-            <a href="{$topdocdir}"><img alt="Erlang Logo" src="{$topdocdir}/erlang-logo.png" class="erlang-logo"/></a>
+            <a href="{$topdocdir}/index.html"><img alt="Erlang Logo" src="{$topdocdir}/erlang-logo.png" class="erlang-logo"/></a>
         </div>
       </xsl:otherwise>
     </xsl:choose>
