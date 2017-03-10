@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -229,11 +229,6 @@ i({T, Ref, Mod, Pid, Opts, Addrs, SPid})
 %% Put the reference in the process dictionary since we now use it
 %% advertise the ssl socket after TLS upgrade.
 
-i({T, _Ref, _Mod, _Pid, _Opts, _Addrs} = Arg)  %% from old code
-  when T == accept;
-       T == connect ->
-    i(erlang:append_element(Arg, _SPid = false));
-
 %% A monitor process to kill the transport if the parent dies.
 i(#monitor{parent = Pid, transport = TPid} = S) ->
     proc_lib:init_ack({ok, self()}),
@@ -245,9 +240,6 @@ i(#monitor{parent = Pid, transport = TPid} = S) ->
 %% killed when the killer process dies as a consequence of parent
 %% death. However, a link can be unlinked and this is exactly what
 %% gen_tcp seems to so. Links should be left to supervisors.
-
-i({listen = L, Ref, _APid, T}) ->  %% from old code
-    i({L, Ref, T});
 
 i({listen, Ref, {Mod, Opts, Addrs}}) ->
     [_] = diameter_config:subscribe(Ref, transport), %% assert existence
@@ -535,11 +527,7 @@ l({'DOWN', _, process, Pid, _} = T, #listener{service = Pid,
 %% Transport has been removed.
 l({transport, remove, _} = T, #listener{socket = Sock}) ->
     gen_tcp:close(Sock),
-    x(T);
-
-%% Possibly death of an accepting process monitored in old code.
-l(_, S) ->
-    S.
+    x(T).
 
 %% t/2
 %%
