@@ -431,7 +431,7 @@ default(client) ->
            },
 
       {silently_accept_hosts, def} =>
-          #{default => false,
+          #{default => {false,none},
             chk => fun check_silently_accept_hosts/1,
             class => user_options
            },
@@ -804,17 +804,16 @@ read_moduli_file(D, I, Acc) ->
 
 check_silently_accept_hosts(B) when is_boolean(B) -> true;
 check_silently_accept_hosts(F) when is_function(F,2) -> true;
-check_silently_accept_hosts({S,F}) when is_atom(S),
-                                        is_function(F,2) -> 
-    lists:member(S, ?SHAs) andalso
-        lists:member(S, proplists:get_value(hashs,crypto:supports()));
-check_silently_accept_hosts({L,F}) when is_list(L),
-                                        is_function(F,2) -> 
-    lists:all(fun(S) ->
-                      lists:member(S, ?SHAs) andalso
-                          lists:member(S, proplists:get_value(hashs,crypto:supports()))
-              end, L);
+check_silently_accept_hosts({false,S}) when is_atom(S) -> valid_hash(S);
+check_silently_accept_hosts({S,F}) when is_function(F,2) -> valid_hash(S);
 check_silently_accept_hosts(_) -> false.
+
+
+valid_hash(S) -> valid_hash(S, proplists:get_value(hashs,crypto:supports())).
+
+valid_hash(S, Ss) when is_atom(S) -> lists:member(S, ?SHAs) andalso lists:member(S, Ss);
+valid_hash(L, Ss) when is_list(L) -> lists:all(fun(S) -> valid_hash(S,Ss) end, L);
+valid_hash(X,  _) -> error_in_check(X, "Expect atom or list in fingerprint spec").
 
 %%%----------------------------------------------------------------
 check_preferred_algorithms(Algs) ->
