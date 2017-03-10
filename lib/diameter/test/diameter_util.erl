@@ -195,21 +195,13 @@ unique_string() ->
 %% have_sctp/0
 
 have_sctp() ->
-    case erlang:system_info(system_architecture) of
-	%% We do not support the sctp version present in solaris
-	%% version "sparc-sun-solaris2.10", that behaves differently
-	%% from later versions and linux
-	"sparc-sun-solaris2.10" ->
-	    false;
-	_->
-	    case gen_sctp:open() of
-		{ok, Sock} ->
-		    gen_sctp:close(Sock),
-		    true;
-		{error, E} when E == eprotonosupport;
-				E == esocktnosupport -> %% fail on any other reason
-		    false
-	    end
+    case gen_sctp:open() of
+        {ok, Sock} ->
+            gen_sctp:close(Sock),
+            true;
+        {error, E} when E == eprotonosupport;
+                        E == esocktnosupport -> %% fail on any other reason
+            false
     end.
 
 %% ---------------------------------------------------------------------------
