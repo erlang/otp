@@ -72,6 +72,7 @@
 
 %% Listener process state.
 -record(listener, {socket :: inet:socket(),
+                   module :: module(),
                    service = false :: false | pid()}). %% service process
 
 %% Monitor process state.
@@ -250,7 +251,8 @@ i({listen, Ref, {Mod, Opts, Addrs}}) ->
     LAddr = laddr(LAddrOpt, Mod, LSock),
     true = diameter_reg:add_new({?MODULE, listener, {Ref, {LAddr, LSock}}}),
     proc_lib:init_ack({ok, self(), {LAddr, LSock}}),
-    #listener{socket = LSock}.
+    #listener{socket = LSock,
+              module = Mod}.
 
 laddr([], Mod, Sock) ->
     {ok, {Addr, _Port}} = sockname(Mod, Sock),
@@ -520,13 +522,15 @@ m({'DOWN', _, process, Pid, _}, #monitor{parent = Pid,
 
 %% Service process has died.
 l({'DOWN', _, process, Pid, _} = T, #listener{service = Pid,
-                                              socket = Sock}) ->
-    gen_tcp:close(Sock),
+                                              socket = Sock,
+                                              module = M}) ->
+    M:close(Sock),
     x(T);
 
 %% Transport has been removed.
-l({transport, remove, _} = T, #listener{socket = Sock}) ->
-    gen_tcp:close(Sock),
+l({transport, remove, _} = T, #listener{socket = Sock,
+                                        module = M}) ->
+    M:close(Sock),
     x(T).
 
 %% t/2
