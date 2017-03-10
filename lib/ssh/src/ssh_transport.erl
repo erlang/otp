@@ -201,7 +201,7 @@ is_valid_mac(Mac, Data, #ssh{recv_mac = Algorithm,
     Mac == mac(Algorithm, Key, SeqNum, Data).
 
 yes_no(Ssh, Prompt)  ->
-    (Ssh#ssh.io_cb):yes_no(Prompt, Ssh).
+    (Ssh#ssh.io_cb):yes_no(Prompt, Ssh#ssh.opts).
 
 format_version({Major,Minor}, SoftwareVersion) ->
     "SSH-" ++ integer_to_list(Major) ++ "." ++ 
