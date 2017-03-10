@@ -481,7 +481,7 @@ halt_ro_crash(Conf) when is_list(Conf) ->
     %% This is how it was before R6B:
     %% {C1,T1,15} = disk_log:chunk(a,start),
     %% {C2,T2} = disk_log:chunk(a,C1),
-    {C1,_OneItem,7478} = disk_log:chunk(a,start),
+    {C1,_OneItem,7476} = disk_log:chunk(a,start),
     {C2, [], 7} = disk_log:chunk(a,C1),
     eof = disk_log:chunk(a,C2),
     ok = disk_log:close(a),
@@ -2502,8 +2502,8 @@ error_repair(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     BadFile = add_ext(File, 2), % current file
     set_opened(BadFile),
-    crash(BadFile, 28), % the binary is now invalid
-    {repaired,n,{recovered,0},{badbytes,26}} =
+    crash(BadFile, 26), % the binary is now invalid
+    {repaired,n,{recovered,0},{badbytes,24}} =
 	disk_log:open([{name, n}, {file, File}, {type, wrap},
 		       {format, internal}, {size, {40,No}}]),
     ok = disk_log:close(n),
@@ -2518,8 +2518,8 @@ error_repair(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     BadFile2 = add_ext(File, 1), % current file
     set_opened(BadFile2),
-    crash(BadFile2, 51), % the second binary is now invalid
-    {repaired,n,{recovered,1},{badbytes,26}} =
+    crash(BadFile2, 47), % the second binary is now invalid
+    {repaired,n,{recovered,1},{badbytes,24}} =
 	disk_log:open([{name, n}, {file, File}, {type, wrap},
 		       {format, internal}, {size, {4000,No}}]),
     ok = disk_log:close(n),
@@ -2571,7 +2571,7 @@ error_repair(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     set_opened(File),
     crash(File, 30),
-    {repaired,n,{recovered,3},{badbytes,16}} =
+    {repaired,n,{recovered,3},{badbytes,15}} =
         disk_log:open([{name, n}, {file, File}, {type, halt},
 		       {format, internal},{repair,true},
 		       {head_func, {?MODULE, head_fun, [{ok,"head"}]}}]),
@@ -2797,7 +2797,7 @@ chunk(Conf) when is_list(Conf) ->
     ok = disk_log:log_terms(n, [{some,terms}]), % second file full
     2 = curf(n),
     BadFile = add_ext(File, 1),
-    crash(BadFile, 28), % the _binary_ is now invalid
+    crash(BadFile, 26), % the _binary_ is now invalid
     {error, {corrupt_log_file, BFile}} = disk_log:chunk(n, start, 1),
     BadFile = BFile,
     ok = disk_log:close(n),
@@ -2807,7 +2807,7 @@ chunk(Conf) when is_list(Conf) ->
 			     {format, internal}]),
     ok = disk_log:log_terms(n, [{this,is}]),
     ok = disk_log:sync(n),
-    crash(File, 28), % the _binary_ is now invalid
+    crash(File, 26), % the _binary_ is now invalid
     {error, {corrupt_log_file, File2}} = disk_log:chunk(n, start, 1),
     crash(File, 10),
     {error,{corrupt_log_file,_}} = disk_log:bchunk(n, start, 1),
@@ -2901,8 +2901,8 @@ chunk(Conf) when is_list(Conf) ->
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 			     {format, internal}, {mode, read_only}]),
     CrashFile = add_ext(File, 1),
-    crash(CrashFile, 51), % the binary term {some,terms} is now bad
-    {H1, [{this,is}], 18} = disk_log:chunk(n, start, 10),
+    crash(CrashFile, 46), % the binary term {some,terms} is now bad
+    {H1, [{this,is}], 16} = disk_log:chunk(n, start, 10),
     {H2, [{on,a},{wrap,file}]} = disk_log:chunk(n, H1),
     eof = disk_log:chunk(n, H2),
     ok = disk_log:close(n),
@@ -2916,8 +2916,8 @@ chunk(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, halt},
 			     {format, internal}, {mode, read_only}]),
-    crash(File, 51), % the binary term {some,terms} is now bad
-    {J1, [{this,is}], 18} = disk_log:chunk(n, start, 10),
+    crash(File, 46), % the binary term {some,terms} is now bad
+    {J1, [{this,is}], 16} = disk_log:chunk(n, start, 10),
     {J2, [{on,a},{halt,file}]} = disk_log:chunk(n, J1),
     eof = disk_log:chunk(n, J2),
     ok = disk_log:close(n),
@@ -2932,8 +2932,8 @@ chunk(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, halt},
 			     {format, internal}, {mode, read_only}]),
-    crash(File, 44), % the binary term {s} is now bad
-    {J11, [{this,is}], 7} = disk_log:chunk(n, start, 10),
+    crash(File, 40), % the binary term {s} is now bad
+    {J11, [{this,is}], 6} = disk_log:chunk(n, start, 10),
     {J21, [{on,a},{halt,file}]} = disk_log:chunk(n, J11),
     eof = disk_log:chunk(n, J21),
     ok = disk_log:close(n),
@@ -3052,7 +3052,7 @@ truncate(Conf) when is_list(Conf) ->
     ok = disk_log:truncate(n, apa),
     rec(1, {disk_log, node(), n, {truncated, 6}}),
     {0, 0} = no_overflows(n),
-    23 = curb(n),
+    22 = curb(n),
     1 = curf(n),
     1 = cur_cnt(n),
     true = (Size == sz(n)),
@@ -3072,7 +3072,7 @@ truncate(Conf) when is_list(Conf) ->
     ok = disk_log:truncate(n, apa),
     rec(1, {disk_log, node(), n, {truncated, 3}}),
     {0, 0} = no_overflows(n),
-    23 = curb(n),
+    22 = curb(n),
     1 = curf(n),
     1 = cur_cnt(n),
     true = (Size == sz(n)),
@@ -3181,45 +3181,45 @@ info_current(Conf) when is_list(Conf) ->
     %% Internal with header.
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 			     {head, header}, {size, {100,No}}]),
-    {26, 1} = {curb(n), cur_cnt(n)},
+    {25, 1} = {curb(n), cur_cnt(n)},
     {1, 1}  = {no_written_items(n), no_items(n)},
     ok = disk_log:log(n, B),
-    {94, 2} = {curb(n), cur_cnt(n)},
+    {93, 2} = {curb(n), cur_cnt(n)},
     {2, 2}  = {no_written_items(n), no_items(n)},
     ok = disk_log:close(n),
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 			     {notify, true},
 			     {head, header}, {size, {100,No}}]),
-    {94, 2} = {curb(n), cur_cnt(n)},
+    {93, 2} = {curb(n), cur_cnt(n)},
     {0, 2}  = {no_written_items(n), no_items(n)},
     ok = disk_log:log(n, B),
     rec(1, {disk_log, node(), n, {wrap, 0}}),
-    {94, 2} = {curb(n), cur_cnt(n)},
+    {93, 2} = {curb(n), cur_cnt(n)},
     {2, 4}  = {no_written_items(n), no_items(n)},
     disk_log:inc_wrap_file(n),
     rec(1, {disk_log, node(), n, {wrap, 0}}),
-    {26, 1} = {curb(n), cur_cnt(n)},
+    {25, 1} = {curb(n), cur_cnt(n)},
     {3, 4}  = {no_written_items(n), no_items(n)},
     ok = disk_log:log_terms(n, [B,B,B]),
     %% Used to be one message, but now one per wrapped file.
     rec(1, {disk_log, node(), n, {wrap, 0}}),
     rec(1, {disk_log, node(), n, {wrap, 2}}),
-    {94, 2} = {curb(n), cur_cnt(n)},
+    {93, 2} = {curb(n), cur_cnt(n)},
     {8, 7}  = {no_written_items(n), no_items(n)},
     ok = disk_log:log_terms(n, [B]),
     rec(1, {disk_log, node(), n, {wrap, 2}}),
     ok = disk_log:log_terms(n, [B]),
     rec(1, {disk_log, node(), n, {wrap, 2}}),
-    {94, 2} = {curb(n), cur_cnt(n)},
+    {93, 2} = {curb(n), cur_cnt(n)},
     {12, 7}  = {no_written_items(n), no_items(n)},
     ok = disk_log:log_terms(n, [BB,BB]),
     %% Used to be one message, but now one per wrapped file.
     rec(2, {disk_log, node(), n, {wrap, 2}}),
-    {194, 2} = {curb(n), cur_cnt(n)},
+    {193, 2} = {curb(n), cur_cnt(n)},
     {16, 7}  = {no_written_items(n), no_items(n)},
     ok = disk_log:log_terms(n, [SB,SB,SB]),
     rec(1, {disk_log, node(), n, {wrap, 2}}),
-    {80, 4} = {curb(n), cur_cnt(n)},
+    {79, 4} = {curb(n), cur_cnt(n)},
     {20, 9}  = {no_written_items(n), no_items(n)},
     ok = disk_log:close(n),
     del(File, No),
