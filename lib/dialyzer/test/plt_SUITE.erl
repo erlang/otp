@@ -260,6 +260,8 @@ remove_plt(Config) ->
     ok.
 
 bad_dialyzer_attr(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Plt = filename:join(PrivDir, "plt_bad_dialyzer_attr.plt"),
     Prog1 = <<"-module(dial).
                -dialyzer({no_return, [undef/0]}).">>,
     {ok, Beam1} = compile(Config, Prog1, dial, []),
@@ -267,7 +269,7 @@ bad_dialyzer_attr(Config) ->
      "Analysis failed with error:\n"
      "Could not scan the following file(s):\n"
      "  Unknown function undef/0 in line " ++ _} =
-        (catch run_dialyzer(plt_build, [Beam1], [])),
+        (catch run_dialyzer(plt_build, [Beam1], [{output_plt, Plt}])),
 
     Prog2 = <<"-module(dial).
                -dialyzer({no_return, [{undef,1,2}]}).">>,
@@ -276,7 +278,7 @@ bad_dialyzer_attr(Config) ->
      "Analysis failed with error:\n"
      "Could not scan the following file(s):\n"
      "  Bad function {undef,1,2} in line " ++ _} =
-        (catch run_dialyzer(plt_build, [Beam2], [])),
+        (catch run_dialyzer(plt_build, [Beam2], [{output_plt, Plt}])),
 
     ok.
 
