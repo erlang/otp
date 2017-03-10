@@ -23,7 +23,6 @@
 
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
-    <marker id="retired_myths"/>
     <title>Retired Myths</title>
     <prepared>Bjorn Gustavsson</prepared>
     <docno></docno>
@@ -36,6 +35,7 @@
   retired myths.</p>
 
   <section>
+    <marker id="retired_myths"/>
     <title>Myth: Funs are Slow</title>
     <p>Funs used to be very slow, slower than <c>apply/3</c>.
     Originally, funs were implemented using nothing more than
