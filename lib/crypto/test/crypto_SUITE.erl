@@ -36,7 +36,9 @@ all() ->
      {group, non_fips},
      mod_pow,
      exor,
-     rand_uniform
+     rand_uniform,
+     strong_rand_uniform_float,
+     strong_rand_uniform_integer
     ].
 
 groups() ->
@@ -484,6 +486,44 @@ rand_uniform() ->
 rand_uniform(Config) when is_list(Config) ->
     rand_uniform_aux_test(10),
     10 = byte_size(crypto:strong_rand_bytes(10)).
+
+%%--------------------------------------------------------------------
+strong_rand_uniform_float() ->
+    [{doc, "strong_rand_uniform float testing"}].
+strong_rand_uniform_float(Config) when is_list(Config) ->
+    Samples = [crypto:strong_rand_uniform() || _ <- lists:seq(1, 10000)],
+    allmap(
+       fun (V) ->
+               (V >= 0.0 andalso V < 1.0)
+               orelse {false, ct:fail({"Not in interval", V, 0.0, 1.0})}
+        end,
+       Samples).
+
+strong_rand_uniform_integer() ->
+    [{doc, "strong_rand_uniform integer testing"}].
+strong_rand_uniform_integer(Config) when is_list(Config) ->
+    MaxCeiling = 1 bsl 32,
+    Ceilings = [1 | % edge case where the ceiling equals the floor
+                [crypto:strong_rand_uniform(MaxCeiling)
+                 || _ <- lists:seq(1, 99)]],
+
+    allmap(
+      fun (Ceiling) ->
+              case Ceiling >= 1 andalso Ceiling =< MaxCeiling of
+                  false ->
+                      {false, ct:fail({"Ceiling not in interval", Ceiling, 1, MaxCeiling})};
+                  true ->
+                      Samples = [crypto:strong_rand_uniform(Ceiling)
+                                 || _ <- lists:seq(1, 100)],
+                      allmap(
+                        fun (V) ->
+                                (V >= 1 andalso V =< Ceiling)
+                                orelse {false, ct:fail({"Sample not in interval", V, 1, Ceiling})}
+                        end,
+                        Samples)
+              end
+      end,
+      Ceilings).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
@@ -949,6 +989,14 @@ crypto_rand_uniform(L,H) ->
 	    ok;
 	false ->
 	    ct:fail({"Not in interval", R1, L, H})
+    end.
+
+allmap(_Fun, []) ->
+    true;
+allmap(Fun, [H|T]) ->
+    case Fun(H) of
+        true -> allmap(Fun, T);
+        {false, Result} -> Result
     end.
 
 %%--------------------------------------------------------------------

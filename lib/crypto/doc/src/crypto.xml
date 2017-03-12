@@ -658,10 +658,13 @@
       </type>
       <desc>
         <p>Set the seed for PRNG to the given binary. This calls the
-	RAND_seed function from openssl. Only use this if the system
-	you are running on does not have enough "randomness" built in.
-	Normally this is when <seealso marker="#strong_rand_bytes/1">
-	strong_rand_bytes/1</seealso> returns <c>low_entropy</c></p>
+        RAND_seed function from openssl. Only use this if the system
+        you are running on does not have enough "randomness" built in.
+        Normally this is when either
+        <seealso marker="#strong_rand_bytes/1">strong_rand_bytes/1</seealso>,
+        <seealso marker="#strong_rand_uniform/0">strong_rand_uniform/0</seealso> or
+        <seealso marker="#strong_rand_uniform/1">strong_rand_uniform/1</seealso>
+        throws <c>low_entropy</c></p>
       </desc>
     </func>
 
@@ -728,6 +731,41 @@
 	failed due to lack of secure "randomness".</p>
       </desc>
     </func>
+
+    <func>
+      <name>strong_rand_uniform() -> X</name>
+      <fsummary>Generate a random floating point number between 0.0 and 1.0</fsummary>
+      <type>
+        <v>X = float()</v>
+      </type>
+      <desc>
+        <p>Generates a random floating pointer number uniformly distributed
+        in the value range <c><![CDATA[X, 0.0 < X < 1.0.]]></c>
+        Uses a cryptographically secure prng seeded and periodically mixed with operating system
+        provided entropy. By default this is the <c>BN_rand_range</c> method from OpenSSL.</p>
+        <p>May throw exception <c>low_entropy</c> in case the random generator
+        failed due to lack of secure "randomness".</p>
+        <note><p>The generated values shall present no more than 51 bits of effective entropy.</p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name>strong_rand_uniform(N) -> X</name>
+      <fsummary>Generate a random positive integer between 1 and N</fsummary>
+      <type>
+        <v>N = pos_integer()</v>
+        <v>X = 1..N</v>
+      </type>
+      <desc>
+        <p>Generates a a random positive integer uniformly distributed
+        in the value range <c><![CDATA[X, 1 =< X =< N.]]></c>
+        Uses a cryptographically secure prng seeded and periodically mixed with operating system
+        provided entropy. By default this is the <c>BN_rand_range</c> method from OpenSSL.</p>
+        <p>May throw exception <c>low_entropy</c> in case the random generator
+        failed due to lack of secure "randomness".</p>
+      </desc>
+    </func>
+
     <func>
       <name>stream_init(Type, Key) -> State</name>
       <fsummary></fsummary>
