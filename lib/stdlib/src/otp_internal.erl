@@ -548,7 +548,7 @@ obsolete_1(queue, lait, 1) ->
 obsolete_1(overload, _, _) ->
     {removed, "removed in OTP 19"};
 obsolete_1(rpc, safe_multi_server_call, A) when A =:= 2; A =:= 3 ->
-    {removed, {rpc, multi_server_call, A}};
+    {removed, {rpc, multi_server_call, A}, "removed in OTP 19"};
 
 %% Added in OTP 20.
 
