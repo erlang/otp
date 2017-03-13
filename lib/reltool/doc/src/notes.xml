@@ -52,13 +52,13 @@
 	    Some dependency chains would even be missed for
 	    applications that are included in a 'rel' spec in the
 	    reltool config. E.g.</p>
-          <p>
+
 	    <list> <item>Application x has y as included application,
 	    and y in turn has z as included application. Then z is
 	    not included. </item> <item>Application x has y in its
 	    'applications' tag in the .app file, and y in turn has z
 	    as included application. Then z is not included.</item>
-	    </list></p>
+	    </list>
           <p>
 	    These bugs are now corrected.</p>
           <p>
