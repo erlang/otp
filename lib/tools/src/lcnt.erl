@@ -932,16 +932,31 @@ strings([{space,  N,      S} | Ss], Out) -> strings(Ss, Out ++ term2string(term2
 strings([{left,   N,      S} | Ss], Out) -> strings(Ss, Out ++ term2string(term2string(" ~~s~~~ws", [N]), [S,""]));
 strings([S|Ss], Out) -> strings(Ss, Out ++ term2string("~ts", [S])).
 
+-define(SMALL_ATOM_UTF8_EXT, $w).
+-define(ATOM_UTF8_EXT, $v).
+-define(ATOM_EXT, $d).
 
 term2string({M,F,A}) when is_atom(M), is_atom(F), is_integer(A) -> term2string("~p:~p/~p", [M,F,A]);
 term2string(Term) when is_port(Term) ->
     %  ex #Port<6442.816>
-    <<_:3/binary, L:16, Node:L/binary, Ids:32, _/binary>> = term_to_binary(Term),
-    term2string("#Port<~s.~w>", [Node, Ids]);
+    case term_to_binary(Term) of
+        <<_:2/binary, ?SMALL_ATOM_UTF8_EXT, L:8, Node:L/binary, Ids:32, _/binary>> ->
+            term2string("#Port<~ts.~w>", [Node, Ids]);
+        <<_:2/binary, ?ATOM_UTF8_EXT, L:16, Node:L/binary, Ids:32, _/binary>> ->
+            term2string("#Port<~ts.~w>", [Node, Ids]);
+        <<_:2/binary, ?ATOM_EXT, L:16, Node:L/binary, Ids:32, _/binary>> ->
+            term2string("#Port<~s.~w>", [Node, Ids])
+    end;
 term2string(Term) when is_pid(Term) ->
     %  ex <0.80.0>
-    <<_:3/binary, L:16, Node:L/binary, Ids:32, Serial:32,  _/binary>> = term_to_binary(Term),
-    term2string("<~s.~w.~w>", [Node, Ids, Serial]);
+    case  term_to_binary(Term) of
+        <<_:2/binary, ?SMALL_ATOM_UTF8_EXT, L:8, Node:L/binary, Ids:32, Serial:32,  _/binary>> ->
+            term2string("<~ts.~w.~w>", [Node, Ids, Serial]);
+        <<_:2/binary, ?ATOM_UTF8_EXT, L:16, Node:L/binary, Ids:32, Serial:32,  _/binary>> ->
+            term2string("<~ts.~w.~w>", [Node, Ids, Serial]);
+        <<_:2/binary, ?ATOM_EXT, L:16, Node:L/binary, Ids:32, Serial:32,  _/binary>> ->
+            term2string("<~s.~w.~w>", [Node, Ids, Serial])
+    end;
 term2string(Term) -> term2string("~w", [Term]).
 term2string(Format, Terms) -> lists:flatten(io_lib:format(Format, Terms)).
 
