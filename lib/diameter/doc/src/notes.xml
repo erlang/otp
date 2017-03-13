@@ -255,8 +255,8 @@ first.</p>
 	    Fix decode of Grouped AVPs containing errors.</p>
           <p>
 	    RFC 6733 says this of Failed-AVP in 7.5:</p>
-          <p>
-	    <taglist><item><p><c> In the case where the offending AVP
+
+	    <taglist><tag></tag><item><p><c> In the case where the offending AVP
 	    is embedded within a Grouped AVP, the Failed-AVP MAY
 	    contain the grouped AVP, which in turn contains the
 	    single offending AVP. The same method MAY be employed if
@@ -265,11 +265,11 @@ first.</p>
 	    the grouped AVP hierarchy up to the single offending AVP.
 	    This enables the recipient to detect the location of the
 	    offending AVP when embedded in a
-	    group.</c></p></item></taglist></p>
+	    group.</c></p></item></taglist>
           <p>
 	    It says this of DIAMETER_INVALID_AVP_LENGTH in 7.1.5:</p>
-          <p>
-	    <taglist><item><p><c> The request contained an AVP with
+
+	    <taglist><tag></tag><item><p><c> The request contained an AVP with
 	    an invalid length. A Diameter message indicating this
 	    error MUST include the offending AVPs within a Failed-AVP
 	    AVP. In cases where the erroneous AVP length value
@@ -284,7 +284,8 @@ first.</p>
 	    the minimum AVP header length, it is sufficient to
 	    include an offending AVP header that is formulated by
 	    padding the incomplete AVP header with zero up to the
-	    minimum AVP header length.</c></p></item></taglist></p>
+	    minimum AVP header length.</c></p></item></taglist>
+
           <p>
 	    The AVPs placed in the errors field of a diameter_packet
 	    record are intended to be appropriate for inclusion in a
@@ -949,8 +950,8 @@ first.</p>
 	    Be lenient with the M-bit in Grouped AVPs.</p>
           <p>
 	    RFC 6733 says this, in 4.4:</p>
-          <p>
-	    <taglist><item><p><c>Receivers of a Grouped AVP that does
+
+	    <taglist><tag></tag><item><p><c>Receivers of a Grouped AVP that does
 	    not have the 'M' (mandatory) bit set and one or more of
 	    the encapsulated AVPs within the group has the 'M'
 	    (mandatory) bit set MAY simply be ignored if the Grouped
@@ -958,14 +959,14 @@ first.</p>
 	    encapsulated AVP with its 'M' (mandatory) bit set is
 	    further encapsulated within other sub-groups, i.e., other
 	    Grouped AVPs embedded within the Grouped
-	    AVP.</c></p></item></taglist></p>
+	    AVP.</c></p></item></taglist>
           <p>
 	    The first sentence is mangled but take it to mean this:</p>
-          <p>
-	    <taglist><item><p><c>An unrecognized AVP of type Grouped
+
+	    <taglist><tag></tag><item><p><c>An unrecognized AVP of type Grouped
 	    that does not set the 'M' bit MAY be ignored even if one
 	    of its encapsulated AVPs sets the 'M'
-	    bit.</c></p></item></taglist></p>
+	    bit.</c></p></item></taglist>
           <p>
 	    This is a bit of a non-statement since if the AVP is
 	    unrecognized then its type is unknown. We therefore don't
