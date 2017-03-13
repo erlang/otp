@@ -116,8 +116,7 @@ get(Vec, Ix) ->
 %% ---------------------------------------------------------------------
 
 -ifdef(USE_ARRAYS).
-%%-opaque vector(E) :: array:array(E).
--type vector(E) :: array:array(E). % Work around dialyzer bug
+-opaque vector(E) :: array:array(E).
 
 new(N, V) -> array:new(N, {default, V}).
 size(V) -> array:size(V).
