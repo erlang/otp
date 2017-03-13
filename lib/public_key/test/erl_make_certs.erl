@@ -346,10 +346,24 @@ make_key(ec, _Opts) ->
 %% RSA key generation  (OBS: for testing only)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+gen_rsa2(Size) -> 
+    try
+        %% The numbers 2048,17 is choosen to not cause the cryptolib on
+        %% FIPS-enabled test machines be mad at us.
+        public_key:generate_key({rsa, 2048, 17})
+    of
+        {_Public, Private} -> Private
+    catch
+        error:notsup ->
+            %% Disabled dirty_schedulers => crypto:generate_key not working
+            weak_gen_rsa2(Size)
+    end.
+
+
 -define(SMALL_PRIMES, [65537,97,89,83,79,73,71,67,61,59,53,
 		       47,43,41,37,31,29,23,19,17,13,11,7,5,3]).
 
-gen_rsa2(Size) ->
+weak_gen_rsa2(Size) ->
     P = prime(Size),
     Q = prime(Size),
     N = P*Q,

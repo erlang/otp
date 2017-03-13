@@ -279,9 +279,19 @@ static void HMAC_CTX_free(HMAC_CTX *ctx)
 #define EVP_MD_CTX_new() EVP_MD_CTX_create()
 #define EVP_MD_CTX_free(ctx) EVP_MD_CTX_destroy(ctx)
 
+static INLINE void *BN_GENCB_get_arg(BN_GENCB *cb);
+
+static INLINE void *BN_GENCB_get_arg(BN_GENCB *cb)
+{
+    return cb->arg;
+}
+
 static INLINE int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d);
+static INLINE void RSA_get0_key(const RSA *r, const BIGNUM **n, const BIGNUM **e, const BIGNUM **d);
 static INLINE int RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q);
+static INLINE void RSA_get0_factors(const RSA *r, const BIGNUM **p, const BIGNUM **q);
 static INLINE int RSA_set0_crt_params(RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp);
+static INLINE void RSA_get0_crt_params(const RSA *r, const BIGNUM **dmp1, const BIGNUM **dmq1, const BIGNUM **iqmp);
 
 static INLINE int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d)
 {
@@ -291,11 +301,24 @@ static INLINE int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d)
     return 1;
 }
 
+static INLINE void RSA_get0_key(const RSA *r, const BIGNUM **n, const BIGNUM **e, const BIGNUM **d)
+{
+    *n = r->n;
+    *e = r->e;
+    *d = r->d;
+}
+
 static INLINE int RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q)
 {
     r->p = p;
     r->q = q;
     return 1;
+}
+
+static INLINE void RSA_get0_factors(const RSA *r, const BIGNUM **p, const BIGNUM **q)
+{
+    *p = r->p;
+    *q = r->q;
 }
 
 static INLINE int RSA_set0_crt_params(RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp)
@@ -304,6 +327,13 @@ static INLINE int RSA_set0_crt_params(RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM
     r->dmq1 = dmq1;
     r->iqmp = iqmp;
     return 1;
+}
+
+static INLINE void RSA_get0_crt_params(const RSA *r, const BIGNUM **dmp1, const BIGNUM **dmq1, const BIGNUM **iqmp)
+{
+    *dmp1 = r->dmp1;
+    *dmq1 = r->dmq1;
+    *iqmp = r->iqmp;
 }
 
 static INLINE int DSA_set0_key(DSA *d, BIGNUM *pub_key, BIGNUM *priv_key);
@@ -368,7 +398,11 @@ DH_get0_key(const DH *dh, const BIGNUM **pub_key, const BIGNUM **priv_key)
     *priv_key = dh->priv_key;
 }
 
-#endif /* End of compatibility definitions. */
+#else /* End of compatibility definitions. */
+
+#define HAVE_OPAQUE_BN_GENCB
+
+#endif
 
 /* NIF interface declarations */
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
@@ -406,6 +440,7 @@ static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_public_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_private_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM rsa_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dh_generate_parameters_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -439,6 +474,7 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg);
 static int term2point(ErlNifEnv* env, ERL_NIF_TERM term,
 		      EC_GROUP *group, EC_POINT **pptr);
 #endif
+static ERL_NIF_TERM bin_from_bn(ErlNifEnv* env, const BIGNUM *bn);
 
 static int library_refc = 0; /* number of users of this dynamic library */
 
@@ -476,6 +512,7 @@ static ErlNifFunc nif_funcs[] = {
     {"dss_sign_nif", 3, dss_sign_nif},
     {"rsa_public_crypt", 4, rsa_public_crypt},
     {"rsa_private_crypt", 4, rsa_private_crypt},
+    {"rsa_generate_key_nif", 2, rsa_generate_key_nif},
     {"dh_generate_parameters_nif", 2, dh_generate_parameters_nif},
     {"dh_check", 1, dh_check},
     {"dh_generate_key_nif", 4, dh_generate_key_nif},
@@ -925,6 +962,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	CRYPTO_set_dynlock_destroy_callback(ccb->dyn_destroy_function);
     }
 #endif /* OPENSSL_THREADS */
+
     return 0;
 }
 
@@ -2279,6 +2317,20 @@ static int get_bn_from_bin(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp)
     return 1;
 }
 
+static ERL_NIF_TERM bin_from_bn(ErlNifEnv* env, const BIGNUM *bn)
+{
+    int bn_len;
+    unsigned char *bin_ptr;
+    ERL_NIF_TERM term;
+
+    /* Copy the bignum into an erlang binary. */
+    bn_len = BN_num_bytes(bn);
+    bin_ptr = enif_make_new_binary(env, bn_len, &term);
+    BN_bn2bin(bn, bin_ptr);
+
+    return term;
+}
+
 static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Lo,Hi) */
     BIGNUM *bn_from = NULL, *bn_to, *bn_rand;
@@ -2848,6 +2900,119 @@ static ERL_NIF_TERM rsa_private_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TE
 	enif_release_binary(&ret_bin);
 	return atom_error;
     }
+}
+
+/* Creates a term which can be parsed by get_rsa_private_key(). This is a list of plain integer binaries (not mpints). */
+static ERL_NIF_TERM put_rsa_private_key(ErlNifEnv* env, const RSA *rsa)
+{
+    ERL_NIF_TERM result[8];
+    const BIGNUM *n, *e, *d, *p, *q, *dmp1, *dmq1, *iqmp;
+
+    /* Return at least [E,N,D] */
+    n = NULL; e = NULL; d = NULL;
+    RSA_get0_key(rsa, &n, &e, &d);
+
+    result[0] = bin_from_bn(env, e);  // Exponent E
+    result[1] = bin_from_bn(env, n);  // Modulus N = p*q
+    result[2] = bin_from_bn(env, d);  // Exponent D
+
+    /* Check whether the optional additional parameters are available */
+    p = NULL; q = NULL;
+    RSA_get0_factors(rsa, &p, &q);
+    dmp1 = NULL; dmq1 = NULL; iqmp = NULL;
+    RSA_get0_crt_params(rsa, &dmp1, &dmq1, &iqmp);
+
+    if (p && q && dmp1 && dmq1 && iqmp) {
+	result[3] = bin_from_bn(env, p);     // Factor p
+	result[4] = bin_from_bn(env, q);     // Factor q
+	result[5] = bin_from_bn(env, dmp1);  // D mod (p-1)
+	result[6] = bin_from_bn(env, dmq1);  // D mod (q-1)
+	result[7] = bin_from_bn(env, iqmp);  // (1/q) mod p
+
+	return enif_make_list_from_array(env, result, 8);
+    } else {
+	return enif_make_list_from_array(env, result, 3);
+    }
+}
+
+static int check_erlang_interrupt(int maj, int min, BN_GENCB *ctxt)
+{
+    ErlNifEnv *env = BN_GENCB_get_arg(ctxt);
+
+    if (!enif_is_current_process_alive(env)) {
+	return 0;
+    } else {
+	return 1;
+    }
+}
+
+static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (ModulusSize, PublicExponent) */
+    int modulus_bits;
+    BIGNUM *pub_exp, *three;
+    RSA *rsa;
+    int success;
+    ERL_NIF_TERM result;
+    BN_GENCB *intr_cb;
+#ifndef HAVE_OPAQUE_BN_GENCB
+    BN_GENCB intr_cb_buf;
+#endif
+
+    if (!enif_get_int(env, argv[0], &modulus_bits) || modulus_bits < 256) {
+	return enif_make_badarg(env);
+    }
+
+    if (!get_bn_from_bin(env, argv[1], &pub_exp)) {
+	return enif_make_badarg(env);
+    }
+
+    /* Make sure the public exponent is large enough (at least 3).
+     * Without this, RSA_generate_key_ex() can run forever. */
+    three = BN_new();
+    BN_set_word(three, 3);
+    success = BN_cmp(pub_exp, three);
+    BN_free(three);
+    if (success < 0) {
+	BN_free(pub_exp);
+	return enif_make_badarg(env);
+    }
+
+    /* For large keys, prime generation can take many seconds. Set up
+     * the callback which we use to test whether the process has been
+     * interrupted. */
+#ifdef HAVE_OPAQUE_BN_GENCB
+    intr_cb = BN_GENCB_new();
+#else
+    intr_cb = &intr_cb_buf;
+#endif
+    BN_GENCB_set(intr_cb, check_erlang_interrupt, env);
+
+    rsa = RSA_new();
+    success = RSA_generate_key_ex(rsa, modulus_bits, pub_exp, intr_cb);
+    BN_free(pub_exp);
+
+#ifdef HAVE_OPAQUE_BN_GENCB
+    BN_GENCB_free(intr_cb);
+#endif
+
+    if (!success) {
+        RSA_free(rsa);
+	return atom_error;
+    }
+
+    result = put_rsa_private_key(env, rsa);
+    RSA_free(rsa);
+
+    return result;
+}
+
+static ERL_NIF_TERM rsa_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    /* RSA key generation can take a long time (>1 sec for a large
+     * modulus), so schedule it as a CPU-bound operation. */
+    return enif_schedule_nif(env, "rsa_generate_key",
+			     ERL_NIF_DIRTY_JOB_CPU_BOUND,
+			     rsa_generate_key, argc, argv);
 }
 
 static ERL_NIF_TERM dh_generate_parameters_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])

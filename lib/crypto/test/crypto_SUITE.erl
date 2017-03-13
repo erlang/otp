@@ -119,7 +119,8 @@ groups() ->
      {sha384, [], [hash, hmac]},
      {sha512, [], [hash, hmac]},
      {rsa, [], [sign_verify,
-                public_encrypt
+                public_encrypt,
+                generate
                ]},
      {dss, [], [sign_verify]},
      {ecdsa, [], [sign_verify]},
@@ -246,6 +247,21 @@ init_per_testcase(cmac, Config) ->
         _Else ->
             % The CMAC functionality was introduced in OpenSSL 1.0.1
             {skip, "OpenSSL is too old"}
+    end;
+init_per_testcase(generate, Config) ->
+    case proplists:get_value(type, Config) of
+	rsa ->
+	    % RSA key generation is a lengthy process, and is only available
+	    % if dirty CPU scheduler support was enabled for this runtime.
+	    case try erlang:system_info(dirty_cpu_schedulers) of
+		     N -> N > 0
+		 catch
+		     error:badarg -> false
+		 end of
+		true -> Config;
+		false -> {skip, "RSA key generation requires dirty scheduler support."}
+	    end;
+	_ -> Config
     end;
 init_per_testcase(_Name,Config) ->
     Config.
@@ -756,7 +772,10 @@ do_generate({ecdh = Type, Curve, Priv, Pub}) ->
 	    ok;
 	{Other, _} ->
 	    ct:fail({{crypto, generate_key, [Type, Priv, Curve]}, {expected, Pub}, {got, Other}})
-    end.
+    end;
+do_generate({rsa = Type, Mod, Exp}) ->
+    {Pub,Priv} = crypto:generate_key(Type, {Mod,Exp}),
+    do_sign_verify({rsa, sha256, Pub, Priv, rsa_plain()}).
 
 notsup(Fun, Args) ->
     Result =
@@ -1008,7 +1027,8 @@ group_config(rsa = Type, Config) ->
                   rsa_oaep(),
                   no_padding()
                  ],
-    [{sign_verify, SignVerify}, {pub_priv_encrypt, PubPrivEnc} | Config];
+    Generate = [{rsa, 2048, 3}, {rsa, 3072, 65537}],
+    [{sign_verify, SignVerify}, {pub_priv_encrypt, PubPrivEnc}, {generate, Generate} | Config];
 group_config(dss = Type, Config) ->
     Msg = dss_plain(),
     Public = dss_params() ++ [dss_public()], 

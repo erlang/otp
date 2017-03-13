@@ -331,13 +331,16 @@
   </func>   
   
   <func>
-    <name>generate_key(Params) -> {Public::binary(), Private::binary()}  | #'ECPrivateKey'{} </name>
+    <name>generate_key(Params) -> {Public::binary(), Private::binary()}  | #'ECPrivateKey'{} | {#'RSAPublicKey'{}, #'RSAPrivateKey'{}}</name>
     <fsummary>Generates a new keypair.</fsummary>
     <type>
-      <v>Params = #'DHParameter'{} |  {namedCurve, oid()} |  #'ECParameters'{}</v>
+      <v>Params = #'DHParameter'{} |  {namedCurve, oid()} |  #'ECParameters'{} 
+      | {rsa, Size::integer(), PubExp::integer} </v>
     </type>
   <desc>
-    <p>Generates a new keypair.</p>
+    <p>Generates a new keypair. See also
+    <seealso marker="crypto:crypto#generate_key/2">crypto:generate_key/2</seealso>
+    </p>
   </desc>
   </func>
 
