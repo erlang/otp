@@ -22,7 +22,7 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 integers/1,coverage/1,booleans/1,setelement/1,cons/1,
-	 tuple/1]).
+	 tuple/1,record_float/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -37,7 +37,8 @@ groups() ->
        booleans,
        setelement,
        cons,
-       tuple
+       tuple,
+       record_float
       ]}].
 
 init_per_suite(Config) ->
@@ -125,6 +126,23 @@ tuple(_Config) ->
 
 do_tuple() ->
     {0, _} = {necessary}.
+
+-record(x, {a}).
+
+record_float(_Config) ->
+    17.0 = record_float(#x{a={0}}, 1700),
+    23.0 = record_float(#x{a={0}}, 2300.0),
+    {'EXIT',{if_clause,_}} = (catch record_float(#x{a={1}}, 88)),
+    {'EXIT',{if_clause,_}} = (catch record_float(#x{a={}}, 88)),
+    {'EXIT',{if_clause,_}} = (catch record_float(#x{}, 88)),
+    ok.
+
+record_float(R, N0) ->
+    N = N0 / 100,
+    if element(1, R#x.a) =:= 0 ->
+            N
+    end.
+
 
 id(I) ->
     I.
