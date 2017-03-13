@@ -173,7 +173,8 @@ check_dflags(#hs_data{other_node = Node,
                       other_started = OtherStarted} = HSData) ->
 
     Mandatory = [{?DFLAG_EXTENDED_REFERENCES, "EXTENDED_REFERENCES"},
-                 {?DFLAG_EXTENDED_PIDS_PORTS, "EXTENDED_PIDS_PORTS"}],
+                 {?DFLAG_EXTENDED_PIDS_PORTS, "EXTENDED_PIDS_PORTS"},
+                 {?DFLAG_UTF8_ATOMS, "UTF8_ATOMS"}],
     Missing = lists:filtermap(fun({Bit, Str}) ->
                                       case Bit band OtherFlags of
                                           Bit -> false;
