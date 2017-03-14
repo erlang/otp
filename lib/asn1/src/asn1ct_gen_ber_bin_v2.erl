@@ -35,7 +35,7 @@
 -export([extaddgroup2sequence/1]).
 -export([dialyzer_suppressions/1]).
 
--import(asn1ct_gen, [emit/1,demit/1]).
+-import(asn1ct_gen, [emit/1]).
 
 						% the encoding of class of tag bits 8 and 7
 -define(UNIVERSAL,   0).
@@ -338,7 +338,6 @@ gen_decode(Erules,Type) when is_record(Type,typedef) ->
           FuncName,"(Tlv) ->",nl,
           "   ",FuncName,"(Tlv, ",{asis,Tag},").",nl,nl,
           FuncName,"(Tlv, TagIn) ->",nl]),
-    dbdec(Type#typedef.name,"Tlv"),
     gen_decode_user(Erules,Type).
 
 gen_inc_decode(Erules,Type) when is_record(Type,typedef) ->
@@ -438,7 +437,6 @@ gen_decode(Erules,Typename,Type) when is_record(Type,type) ->
 		end,
 %	    emit([Prefix,asn1ct_gen:list2name(Typename),"'(Tlv, TagIn",ObjFun,") ->",nl]),
 	    emit([FunctionName,"'(Tlv, TagIn",ObjFun,") ->",nl]),
-	    dbdec(Typename,"Tlv"),
 	    asn1ct_gen:gen_decode_constructed(Erules,Typename,InnerType,Type);
 	Rec when is_record(Rec,'Externaltypereference') ->
 	    case {Typename,asn1ct:get_gen_state_field(namelist)} of
@@ -1528,10 +1526,6 @@ gen_internal_funcs(Erules,[TypeDef|Rest]) ->
 	  "'dec_",TypeDef#typedef.name,"'(Tlv, TagIn) ->",nl]),
     gen_decode_user(Erules,TypeDef),
     gen_internal_funcs(Erules,Rest).
-
-
-dbdec(Type,Arg) ->
-    demit({"io:format(\"decoding: ",{asis,Type},"~w~n\",[",Arg,"]),",nl}).
 
 
 decode_class('UNIVERSAL') ->

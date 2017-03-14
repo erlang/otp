@@ -22,8 +22,7 @@
 
 -include("asn1_records.hrl").
 
--export([demit/1,
-	 emit/1,
+-export([emit/1,
 	 open_output_file/1,close_output_file/0,
 	 get_inner/1,type/1,def_to_tag/1,prim_bif/1,
 	 list2name/1,
@@ -954,17 +953,6 @@ hrl_protector(OutFile) ->
      end || C <- P].
 
 
-%% EMIT functions ************************
-%% ***************************************
-
-						% debug generation
-demit(Term) ->
-    case get(asndebug) of
-	true -> emit(Term);
-	_ ->true
-    end.
-
-						% always generation
 emit(Term) ->
     ok = file:write(get(gen_file_out), do_emit(Term)).
 

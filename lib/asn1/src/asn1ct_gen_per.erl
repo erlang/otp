@@ -35,7 +35,7 @@
 -export([extaddgroup2sequence/1]).
 -export([dialyzer_suppressions/1]).
 
--import(asn1ct_gen, [emit/1,demit/1]).
+-import(asn1ct_gen, [emit/1]).
 -import(asn1ct_func, [call/3]).
 
 
@@ -225,7 +225,6 @@ gen_objectset_code(_Erules, _ObjSet) ->
 gen_decode(Erules, #typedef{}=Type) ->
     DecFunc = dec_func(Type#typedef.name),
     emit([nl,nl,{asis,DecFunc},"(Bytes) ->",nl]),
-    dbdec(Type#typedef.name),
     gen_decode_user(Erules, Type).
 
 gen_decode(Erules,Tname,#'ComponentType'{name=Cname,typespec=Type}) ->
@@ -246,16 +245,10 @@ gen_decode(Erules,Typename,Type) when is_record(Type,type) ->
 	    emit([nl,
 		  {asis,dec_func(asn1ct_gen:list2name(Typename))},
 		  "(Bytes",ObjFun,") ->",nl]),
-	    dbdec(Typename),
 	    asn1ct_gen:gen_decode_constructed(Erules,Typename,InnerType,Type);
 	_ ->
 	    true
     end.
-
-dbdec(Type) when is_list(Type)->
-    demit({"io:format(\"decoding: ",asn1ct_gen:list2name(Type),"~w~n\",[Bytes]),",nl});
-dbdec(Type) ->
-    demit({"io:format(\"decoding: ",{asis,Type},"~w~n\",[Bytes]),",nl}).
 
 gen_decode_user(Erules,D) when is_record(D,typedef) ->
     Typename = [D#typedef.name],

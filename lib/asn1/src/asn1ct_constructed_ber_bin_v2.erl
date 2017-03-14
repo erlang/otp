@@ -32,7 +32,7 @@
 
 -include("asn1_records.hrl").
 
--import(asn1ct_gen, [emit/1,demit/1,get_record_name_prefix/1]).
+-import(asn1ct_gen, [emit/1,get_record_name_prefix/1]).
 
 -define(ASN1CT_GEN_BER,asn1ct_gen_ber_bin_v2).
 
@@ -279,7 +279,6 @@ gen_decode_sequence(Gen, Typename, #type{}=D) ->
 			  ValueMatch,"),",nl]),
 		    gen_dec_postponed_decs(DecObj,PostponedDecArgs)
 	    end,
-	    demit(["Result = "]), %dbg
 	    %% return value as record
 	    case Ext of
 		{ext,_,_} -> 
@@ -503,7 +502,6 @@ gen_decode_set(Gen, Typename, #type{}=D) ->
 			  ValueMatch,"),",nl]),
 		    gen_dec_postponed_decs(DecObj,PostponedDecArgs)
 	    end,
-	    demit(["Result = "]), %dbg
 	    %% return value as record
 	    case Ext of
 		Extnsn when Extnsn =/= noext -> 

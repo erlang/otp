@@ -32,7 +32,7 @@
 -include("asn1_records.hrl").
 %-compile(export_all).
 
--import(asn1ct_gen, [emit/1,demit/1,get_record_name_prefix/1]).
+-import(asn1ct_gen, [emit/1,get_record_name_prefix/1]).
 
 -type type_name() :: any().
 

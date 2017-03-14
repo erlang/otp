@@ -835,7 +835,6 @@ generate({M,CodeTuple}, OutFile, EncodingRule, Options) ->
     Code = #abst{name=M#module.name,
                  types=Types,values=Values,ptypes=Ptypes,
                  classes=Classes,objects=Objects,objsets=ObjectSets},
-    debug_on(Options),
     setup_bit_string_format(Options),
     setup_legacy_erlang_types(Options),
     asn1ct_table:new(check_functions),
@@ -855,7 +854,6 @@ generate({M,CodeTuple}, OutFile, EncodingRule, Options) ->
     end,
 
     asn1ct_gen:pgen(OutFile, Gen, Code),
-    debug_off(Options),
     cleanup_bit_string_format(),
     erase(tlv_format), % used in ber
     erase(class_default_type),% used in ber
@@ -1150,17 +1148,6 @@ is_asn1_flag(uper) -> true;
 is_asn1_flag(verbose) -> true;
 %% 'warnings_as_errors' is intentionally passed through to the compiler.
 is_asn1_flag(_) -> false.
-
-debug_on(Options) ->
-    case lists:member(debug,Options) of
-	true ->
-	    put(asndebug,true);
-	_ ->
-	    true
-    end.
-
-debug_off(_Options) ->
-    erase(asndebug).
 
 
 outfile(Base, Ext, Opts) ->
