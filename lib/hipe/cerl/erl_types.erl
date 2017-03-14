@@ -366,10 +366,13 @@
 
 -type opaques() :: [erl_type()] | 'universe'.
 
+-type file_line()    :: {file:name(), erl_anno:line()}.
 -type record_key()   :: {'record', atom()}.
 -type type_key()     :: {'type' | 'opaque', mfa()}.
--type record_value() :: [{atom(), erl_parse:abstract_expr(), erl_type()}].
--type type_value()   :: {{module(), {file:name(), erl_anno:line()},
+-type field()        :: {atom(), erl_parse:abstract_expr(), erl_type()}.
+-type record_value() :: {file_line(),
+                         [{RecordSize :: non_neg_integer(), [field()]}]}.
+-type type_value()   :: {{module(), file_line(),
                           erl_parse:abstract_type(), ArgNames :: [atom()]},
                          erl_type()}.
 -type type_table() :: #{record_key() | type_key() =>
