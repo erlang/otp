@@ -190,13 +190,9 @@ pgen_partial_decode(_, _, _) ->
     ok.
 
 pgen_partial_inc_dec(Rtmod,Erules,Module) ->
-%    io:format("Start partial incomplete decode gen?~n"),
     case asn1ct:get_gen_state_field(inc_type_pattern) of
 	undefined ->
-%	    io:format("Partial incomplete decode gen not started: ~w~n",[asn1ct:get_gen_state_field(active)]),
 	    ok;
-%	[] ->
-%	    ok;
 	ConfList -> 
 	    PatternLists=lists:map(fun({_,P}) -> P end,ConfList),
 	    pgen_partial_inc_dec1(Rtmod,Erules,Module,PatternLists),
@@ -214,11 +210,9 @@ pgen_partial_inc_dec1(Rtmod,Erules,Module,[P|Ps]) ->
     asn1ct:update_gen_state(prefix,"dec-inc-"),
     case asn1ct:maybe_saved_sindex(TopTypeName,P) of
 	I when is_integer(I),I > 0 ->
-%	    io:format("Index:~p~n",[I]),
 	    asn1ct:set_current_sindex(I);
 	_I ->
 	    asn1ct:set_current_sindex(0),
-%	    io:format("Index=~p~n",[_I]),
 	    ok
     end,
     Rtmod:gen_decode(Erules,TypeDef),
@@ -249,8 +243,8 @@ gen_partial_inc_dec_refed_funcs(Rtmod, #gen{erule=ber}=Gen) ->
 
 pgen_partial_dec(_Rtmod,Erules,_Module) ->
     Type_pattern = asn1ct:get_gen_state_field(type_pattern),
-%    io:format("Type_pattern: ~w~n",[Type_pattern]),
-    %% Get the typedef of the top type and follow into the choosen components until the last type/component.
+    %% Get the typedef of the top type and follow into the choosen
+    %% components until the last type/component.
     pgen_partial_types(Erules,Type_pattern),
     ok.
 
@@ -265,7 +259,6 @@ pgen_partial_types(#gen{options=Options}=Gen, TypePattern)  ->
 
 
 pgen_partial_types1(Erules,[{FuncName,[TopType|RestTypes]}|Rest]) ->
-%    emit([FuncName,"(Bytes) ->",nl]),
     CurrMod = get(currmod),
     TypeDef = asn1_db:dbget(CurrMod,TopType),
     traverse_type_structure(Erules,TypeDef,RestTypes,FuncName,
@@ -290,8 +283,9 @@ traverse_type_structure(Erules,Type,[],FuncName,TopTypeName) ->
 	end,
     Ctmod:gen_decode_selected(Erules,TypeDef,FuncName); % what if Type is #type{}
 traverse_type_structure(Erules,#type{def=Def},[[N]],FuncName,TopTypeName) 
-  when is_integer(N) -> % this case a decode of one of the elements in
-                     % the SEQUENCE OF is required.
+  when is_integer(N) ->
+    %% In this case a decode of one of the elements in the SEQUENCE OF is
+    %% required.
     InnerType = asn1ct_gen:get_inner(Def),
     case InnerType of
 	'SEQUENCE OF' ->
@@ -367,8 +361,9 @@ traverse_type_structure(Erules,#typedef{typespec=Def},[T|Ts],FuncName,
 	    TypeDef = asn1_db:dbget(M,TName),
 	    traverse_type_structure(Erules,TypeDef,[T|Ts],FuncName,
 				    [TypeDef#typedef.name]);
-	_ -> %this may be a referenced type that shall be traversed or
-             %the selected type
+	_ ->
+            %% This may be a referenced type that shall be traversed
+            %% or the selected type
 	    traverse_type_structure(Erules,Def,Ts,FuncName,[T|TopTypeName])
     end.
 	    
@@ -450,7 +445,6 @@ pgen_partial_incomplete_decode1(#gen{erule=ber}) ->
 	    lists:foreach(fun emit_partial_incomplete_decode/1,Data)
     end,
     GeneratedFs= asn1ct:get_gen_state_field(gen_refed_funcs),
-%    io:format("GeneratedFs :~n~p~n",[GeneratedFs]),
     gen_part_decode_funcs(GeneratedFs,0);
 pgen_partial_incomplete_decode1(#gen{}) -> ok.
 
@@ -878,7 +872,6 @@ gen_partial_inc_dispatcher(#gen{erule=ber}) ->
 	{_,undefined} ->
 	    ok;
 	{Data1,Data2} ->
-%	    io:format("partial_incomplete_decode: ~p~ninc_type_pattern: ~p~n",[Data,Data2]),
 	    gen_partial_inc_dispatcher(Data1, Data2, "")
     end;
 gen_partial_inc_dispatcher(#gen{}) ->
@@ -1091,8 +1084,6 @@ gen_record(Gen, TorPtype, Name, #type{}=Type, Num) ->
 		  case Seq#'SEQUENCE'.pname of
 		      false ->
 			  {record,Seq#'SEQUENCE'.components};
-%% 		      _Pname when TorPtype == type ->
-%% 			  false;
 		      _ ->
 			  {record,Seq#'SEQUENCE'.components}
 		  end;
@@ -1105,8 +1096,6 @@ gen_record(Gen, TorPtype, Name, #type{}=Type, Num) ->
 		      _ ->
 			  {record,to_textual_order(Set#'SET'.components)}
 		  end;
-%	      {'SET',{_,_CompList}} -> 
-%		  {record,_CompList}; 
 	      {'CHOICE',_CompList} -> {inner,Def};
 	      {'SEQUENCE OF',_CompList} -> {['SEQOF'|Name],Def};
 	      {'SET OF',_CompList} -> {['SETOF'|Name],Def};
@@ -1312,7 +1301,6 @@ get_inner({fixedtypevaluefield,_,Type}) ->
 get_inner({typefield,TypeName}) ->
     TypeName;
 get_inner(#'ObjectClassFieldType'{type=Type}) ->
-%    get_inner(Type);
     Type;
 get_inner(T) when is_tuple(T) -> 
     case element(1,T) of

@@ -20,7 +20,6 @@
 %%
 -module(asn1ct_name).
 
-%%-compile(export_all).
 -export([start/0,
 	 curr/1,
 	 clear/0,
@@ -44,7 +43,6 @@ start() ->
     end.
 
 name_server_loop({Ref, Parent} = Monitor,Vars) ->
-%%    io:format("name -- ~w~n",[Vars]),
     receive
 	{_From,clear} ->
 	    name_server_loop(Monitor, []);

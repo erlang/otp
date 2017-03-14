@@ -24,7 +24,6 @@
 %% all types in an ASN.1 module
 
 -include("asn1_records.hrl").
-%-compile(export_all).
 
 -export([gen_dec_imm/2]).
 -export([gen_dec_prim/3,gen_encode_prim_imm/3]).
@@ -39,8 +38,9 @@
 -import(asn1ct_func, [call/3]).
 
 
-%% Generate ENCODING ******************************
-%%****************************************x
+%%****************************************
+%% Generate ENCODING
+%%****************************************
 
 dialyzer_suppressions(#gen{erule=per,aligned=Aligned}) ->
     Mod = case Aligned of
@@ -58,14 +58,6 @@ dialyzer_suppressions(#gen{erule=per,aligned=Aligned}) ->
 
 gen_encode(Erules,Type) when is_record(Type,typedef) ->
     gen_encode_user(Erules,Type).
-%%    case Type#typedef.typespec of
-%%	Def when is_record(Def,type) ->	    
-%%	    gen_encode_user(Erules,Type);
-%%	Def when is_tuple(Def),(element(1,Def) == 'Object') ->
-%%	    gen_encode_object(Erules,Type);
-%%	Other ->
-%%	    exit({error,{asn1,{unknown,Other}}})
-%%    end.
 
 gen_encode(Erules,Typename,#'ComponentType'{name=Cname,typespec=Type}) ->
     NewTypename = [Cname|Typename],
@@ -76,7 +68,6 @@ gen_encode(Erules,Typename,Type) when is_record(Type,type) ->
     ObjFun =
 	case lists:keysearch(objfun,1,Type#type.tablecinf) of
 	    {value,{_,_Name}} ->
-%%		lists:concat([", ObjFun",Name]);
 		", ObjFun";
 	    false ->
 		""
@@ -396,10 +387,11 @@ gen_dec_prim(Erule, Type, BytesVar) ->
     asn1ct_imm:dec_code_gen(Imm, BytesVar).
 
 
-%% For PER the ExtensionAdditionGroup notation has significance for the encoding and decoding
-%% the components within the ExtensionAdditionGroup is treated in a similar way as if they
-%% have been specified within a SEQUENCE, therefore we construct a fake sequence type here
-%% so that we can generate code for it
+%% For PER the ExtensionAdditionGroup notation has significance for
+%% the encoding and decoding. The components within the
+%% ExtensionAdditionGroup is treated in a similar way as if they have
+%% been specified within a SEQUENCE. Therefore we construct a fake
+%% sequence type here so that we can generate code for it.
 extaddgroup2sequence(ExtList) ->
     extaddgroup2sequence(ExtList,0,[]).
 

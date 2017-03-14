@@ -30,7 +30,6 @@
 -export([gen_decode_choice/3]).
 
 -include("asn1_records.hrl").
-%-compile(export_all).
 
 -import(asn1ct_gen, [emit/1,get_record_name_prefix/1]).
 
@@ -357,7 +356,6 @@ gen_dec_constructed_imm(Erule, Typename, #type{}=D) ->
 	    #'SEQUENCE'{tablecinf=TCI,components=CL} ->
 		{add_textual_order(CL),TCI};
 	    #'SET'{tablecinf=TCI,components=CL} ->
-%%		{add_textual_order(CL),TCI}
 		{CL,TCI} % the textual order is already taken care of
 	end,
     Ext = extensible_dec(CompList),
@@ -375,13 +373,11 @@ gen_dec_constructed_imm(Erule, Typename, #type{}=D) ->
 	      end,
     ObjSetInfo =
 	case TableConsInfo of
-%%	    {ObjectSet,AttrN,N,UniqueFieldName} ->%% N is index of attribute that determines constraint
 	    #simpletableattributes{objectsetname=ObjectSet,
 				   c_name=AttrN,
 				   usedclassfield=UniqueFieldName,
 				   uniqueclassfield=UniqueFieldName,
 				   valueindex=ValIndex} ->
-%%		{AttrN,ObjectSet};
 		F = fun(#'ComponentType'{typespec=CT})->
 			    case {asn1ct_gen:get_constraint(CT#type.constraint,componentrelation),CT#type.tablecinf} of
 				{no,[{objfun,_}|_R]} -> true;
@@ -689,7 +685,7 @@ gen_decode_choice(Erules,Typename,D) when is_record(D,type) ->
     emit([".",nl]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Encode generator for SEQUENCE OF type
+%% Encode generator for SEQUENCE OF type
 
 gen_encode_sof(Erule, Typename, SeqOrSetOf, D) ->
     asn1ct_name:start(),
@@ -934,9 +930,7 @@ add_textual_order({R1,Ext,R2}) ->
     {NewExt,Num2} = add_textual_order1(Ext,Num1),
     {NewR2,_} = add_textual_order1(R2,Num2),
     {NewR1,NewExt,NewR2}.
-%%add_textual_order1(Cs=[#'ComponentType'{textual_order=Int}|_],I)
-%%  when is_integer(Int) ->
-%%    {Cs,I};
+
 add_textual_order1(Cs,NumIn) ->
     lists:mapfoldl(fun(C=#'ComponentType'{},Num) ->
 			   {C#'ComponentType'{textual_order=Num},

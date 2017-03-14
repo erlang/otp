@@ -24,12 +24,12 @@
 %%  The value is randomized within it's constraints
 
 -include("asn1_records.hrl").
-%-compile(export_all).
 
 -export([from_type/2]).
 
-%% Generate examples of values ******************************
-%%****************************************x
+%%****************************************
+%% Generate examples of values
+%%****************************************
 
 
 from_type(M,Typename) ->
@@ -92,9 +92,6 @@ get_inner(T) when is_tuple(T) ->
 	Other ->
 	    Other
     end.
-%%get_inner(T) when is_tuple(T) -> element(1,T).
-
-
 
 from_type_constructed(M,Typename,InnerType,D) when is_record(D,type) ->
     case InnerType of
@@ -147,7 +144,8 @@ get_choice(M,Typename,Type) ->
     case TCompList of
 	[] -> 
 	    {asn1_EMPTY,asn1_EMPTY};
-	{CompList,ExtList} -> % Should be enhanced to handle extensions too
+	{CompList,ExtList} ->
+            %% should be enhanced to handle extensions too.
 	    CList = CompList ++ ExtList,
 	    C = lists:nth(random(length(CList)),CList),
 	    {C#'ComponentType'.name,from_type(M,Typename,C)};
@@ -247,14 +245,6 @@ from_type_prim(M, D) ->
 			_ ->
 			    {2#11111111,2,2}
 		    end;
-%% 		    Sign1 = random_sign(integer),
-%% 		    Sign2 = random_sign(integer),
-%% 		    {Sign1*random(10000),2,Sign2*random(1028)};
-%% 		2 ->
-%% 		    %% base 10 tuple format
-%% 		    Sign1 = random_sign(integer),
-%% 		    Sign2 = random_sign(integer),
-%% 		    {Sign1*random(10000),10,Sign2*random(1028)};
 		_ ->
 		    %% base 10 string format, NR3 format
 		    case random(2) of
@@ -343,22 +333,6 @@ random_unnamed_bit_string(M, C) ->
 	    {PadLen,<<BitString/bitstring,0:PadLen>>}
     end.
 
-%% FIXME:
-%% random_sign(integer) ->
-%%     case random(2) of
-%% 	2 ->
-%% 	    -1;
-%% 	_ ->
-%% 	    1
-%%     end;
-%% random_sign(string) ->
-%%     case random(2) of
-%% 	2 ->
-%% 	    "-";
-%% 	_ ->
-%% 	    ""
-%%     end.
-
 random(Upper) ->
     rand:uniform(Upper).
 
@@ -409,13 +383,6 @@ c_random(VRange,Single) ->
 	    S;
 	{_,S} when is_list(S) ->
 	    lists:nth(random(length(S)),S)
-%%	{S1,S2} ->
-%%	    io:format("asn1ct_value: hejsan hoppsan~n");
-%%	_ ->
-%%	    io:format("asn1ct_value: hejsan hoppsan 2~n")
-%%	    io:format("asn1ct_value: c_random/2: S1 = ~w~n"
-%%		      "S2 = ~w,~n",[S1,S2])
-%%	    exit(self(),goodbye)
     end.
 
 adjust_list(Len,Orig) ->

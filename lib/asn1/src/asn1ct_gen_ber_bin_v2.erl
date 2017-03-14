@@ -37,19 +37,19 @@
 
 -import(asn1ct_gen, [emit/1]).
 
-						% the encoding of class of tag bits 8 and 7
+%% The encoding of class of tag bits 8 and 7
 -define(UNIVERSAL,   0).
 -define(APPLICATION, 16#40).
 -define(CONTEXT,     16#80).
 -define(PRIVATE,     16#C0).
 
-						% primitive or constructed encoding % bit 6
+%% Primitive or constructed encoding % bit 6
 -define(PRIMITIVE,   0).
 -define(CONSTRUCTED, 2#00100000).
 
 
 -define(T_ObjectDescriptor, ?UNIVERSAL bor ?PRIMITIVE bor 7).
-						% restricted character string types
+%% Restricted character string types
 -define(T_NumericString,    ?UNIVERSAL bor ?PRIMITIVE bor 18). %can be constructed
 -define(T_PrintableString,  ?UNIVERSAL bor ?PRIMITIVE bor 19). %can be constructed
 -define(T_TeletexString,    ?UNIVERSAL bor ?PRIMITIVE bor 20). %can be constructed
@@ -352,7 +352,6 @@ gen_inc_decode(Erules,Type) when is_record(Type,typedef) ->
 %% gen_decode_selected exported function for selected decode
 gen_decode_selected(Erules,Type,FuncName) ->
     emit([FuncName,"(Bin) ->",nl]),
-%    Pattern = asn1ct:get_gen_state_field(tag_pattern),
     Patterns = asn1ct:read_config_data(partial_decode),
     Pattern = 
 	case lists:keysearch(FuncName,1,Patterns) of
@@ -391,12 +390,10 @@ gen_decode_selected_type(_Erules,TypeDef) ->
 				       asn1ct_gen:list2name(TopType),"'"]),
 	    emit([DecFunName,"(",BytesVar,
 		  ", ",{asis,Tag},")"]);
-%	    emit([";",nl]);
 	TheType ->
 	    DecFunName = mkfuncname(TheType,dec),
 	    emit([DecFunName,"(",BytesVar,
 		  ", ",{asis,Tag},")"])
-%	    emit([";",nl])
     end.
 
 %%===============================================================================
@@ -411,7 +408,6 @@ gen_decode(Erules,Typename,Type) when is_record(Type,type) ->
     FunctionName =
 	case asn1ct:get_gen_state_field(active) of
 	    true -> 
-%		Suffix = asn1ct_gen:index2suffix(SIndex),
 		Pattern = asn1ct:get_gen_state_field(namelist),
 		Suffix = 
 		    case asn1ct:maybe_saved_sindex(Typename,Pattern) of
@@ -424,8 +420,6 @@ gen_decode(Erules,Typename,Type) when is_record(Type,type) ->
 	    _ -> 
 		lists:concat(["'dec_",asn1ct_gen:list2name(Typename)])
 	end,
-%    io:format("Typename: ~p,~n",[Typename]),
-%    io:format("FunctionName: ~p~n",[FunctionName]),
     case asn1ct_gen:type(InnerType) of
 	{constructed,bif} ->
 	    ObjFun =
@@ -435,7 +429,6 @@ gen_decode(Erules,Typename,Type) when is_record(Type,type) ->
 		    _ ->
 			""
 		end,
-%	    emit([Prefix,asn1ct_gen:list2name(Typename),"'(Tlv, TagIn",ObjFun,") ->",nl]),
 	    emit([FunctionName,"'(Tlv, TagIn",ObjFun,") ->",nl]),
 	    asn1ct_gen:gen_decode_constructed(Erules,Typename,InnerType,Type);
 	Rec when is_record(Rec,'Externaltypereference') ->
@@ -468,10 +461,10 @@ gen_decode(Erules,Typename,Type) when is_record(Type,type) ->
 
 gen_decode(Erules,Tname,#'ComponentType'{name=Cname,typespec=Type}) ->
     NewTname = [Cname|Tname],
-    %% The tag is set to [] to avoid that it is
-    %% taken into account twice, both as a component/alternative (passed as
-    %% argument to the encode decode function and within the encode decode
-    %% function it self.
+    %% The tag is set to [] to avoid that it is taken into account
+    %% twice, both as a component/alternative (passed as argument to
+    %% the encode/decode function), and within the encode decode
+    %% function itself.
     NewType = Type#type{tag=[]},
     case {asn1ct:get_gen_state_field(active),
 	  asn1ct:get_tobe_refed_func(NewTname)} of
@@ -859,11 +852,7 @@ gen_encode_field_call(ObjName,FieldName,Type) ->
 			  X#tag.form,X#tag.number)||
 	      X <- OTag],
     case Type#typedef.name of
-	{primitive,bif} -> %%tag should be the primitive tag
-% 	    OTag = Def#type.tag,
-% 	    Tag = [encode_tag_val(decode_class(X#tag.class),
-% 				  X#tag.form,X#tag.number)||
-% 		      X <- OTag],
+	{primitive,bif} ->            %tag should be the primitive tag
 	    gen_encode_prim(ber,Def,{asis,lists:reverse(Tag)},
 			    "Val"),
 	    [];
@@ -901,12 +890,6 @@ gen_encode_default_call(ClassName,FieldName,Type) ->
 	#'Externaltypereference'{module=Emod,type=Etype} ->
 	    emit(["   '",Emod,"':'enc_",Etype,"'(Val, ",{asis,Tag},")",nl]),
 	    []
-% 	'ASN1_OPEN_TYPE' ->
-% 	    emit(["%% OPEN TYPE",nl]),
-% 	    gen_encode_prim(ber,
-% 			    Type#type{def='ASN1_OPEN_TYPE'},
-% 			    "TagIn","Val"),
-% 	    emit([".",nl])
     end.
     
 %%%%%%%%%%%%%%%%
@@ -987,24 +970,20 @@ emit_tlv_format(Bytes) ->
 
 notice_tlv_format_gen() ->
     Module = get(currmod),
-%    io:format("Noticed: ~p~n",[Module]),
     case get(tlv_format) of
 	{done,Module} ->
 	    ok;
-	_ -> % true or undefined
+	_ ->                                    % true or undefined
 	    put(tlv_format,true)
     end.
 
 emit_tlv_format_function() ->
     Module = get(currmod),
-%    io:format("Tlv formated: ~p",[Module]),
     case get(tlv_format) of
 	true ->
-%	    io:format(" YES!~n"),
 	    emit_tlv_format_function1(),
 	    put(tlv_format,{done,Module});
 	_ ->
-%	    io:format(" NO!~n"),
 	    ok
     end.
 emit_tlv_format_function1() ->
@@ -1093,12 +1072,6 @@ gen_decode_default_call(ClassName,FieldName,Bytes,Type) ->
 	    emit(["   '",Emod,"':'dec_",Etype,"'(",Bytes,", ",
 		  {asis,Tag},")",nl]),
 	    []
-% 	'ASN1_OPEN_TYPE' ->
-% 	    emit(["%% OPEN TYPE",nl]),
-% 	    gen_encode_prim(ber,
-% 			    Type#type{def='ASN1_OPEN_TYPE'},
-% 			    "TagIn","Val"),
-% 	    emit([".",nl])
     end.
 %%%%%%%%%%%
 
@@ -1137,7 +1110,6 @@ more_genfields([Field|Fields]) ->
 gen_objectset_code(Erules,ObjSet) ->
     ObjSetName = ObjSet#typedef.name,
     Def = ObjSet#typedef.typespec,
-%    {ClassName,ClassDef} = Def#'ObjectSet'.class,
     #'Externaltypereference'{module=ClassModule,
 			     type=ClassName} = Def#'ObjectSet'.class,
     ClassDef = asn1_db:dbget(ClassModule,ClassName),
@@ -1261,8 +1233,8 @@ gen_inlined_enc_funs1(Fields, [{typefield,Name,_}|Rest], ObjSetName,
 		end,
 		{Acc0,0};
 	    false ->
-		%% This field was not present in the object thus there
-		%% were no type in the table and we therefore generate
+		%% This field was not present in the object; thus, there
+		%% was no type in the table and we therefore generate
 		%% code that returns the input for application
 		%% treatment.
 		emit([indent(9),{asis,Name}," ->",nl]),
@@ -1300,7 +1272,6 @@ emit_inner_of_fun(TDef=#typedef{name={ExtMod,Name},typespec=Type},
 		  InternalDefFunName) ->
     OTag = Type#type.tag,
     Tag = [encode_tag_val(decode_class(X#tag.class),X#tag.form,X#tag.number)|| X <- OTag],
-% remove    Tag = [X#tag{class=decode_class(X#tag.class)}|| X <- OTag],
     case {ExtMod,Name} of
 	{primitive,bif} ->
 	    emit(indent(12)),
@@ -1315,16 +1286,10 @@ emit_inner_of_fun(TDef=#typedef{name={ExtMod,Name},typespec=Type},
 	    {[],0}
     end;
 emit_inner_of_fun(#typedef{name=Name},_) ->
-%    OTag = Type#type.tag,
-% remove    Tag = [X#tag{class=decode_class(X#tag.class)}|| X <- OTag],
-%    Tag = [encode_tag_val(decode_class(X#tag.class),X#tag.form,X#tag.number)|| X <- OTag],
     emit([indent(12),"'enc_",Name,"'(Val)"]),
     {[],0};
 emit_inner_of_fun(Type,_) when is_record(Type,type) ->
     CurrMod = get(currmod),
-%    OTag = Type#type.tag,
-% remove    Tag = [X#tag{class=decode_class(X#tag.class)}|| X <- OTag],
-%    Tag = [encode_tag_val(decode_class(X#tag.class),X#tag.form,X#tag.number)|| X <- OTag],
     case Type#type.def of
 	Def when is_atom(Def) ->
 	    OTag = Type#type.tag,
@@ -1474,7 +1439,6 @@ emit_dec_open_type(I) ->
 emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type}, _Prop,
 		     InternalDefFunName) ->
     OTag = Type#type.tag,
-%%    Tag = [X#tag{class=decode_class(X#tag.class)}|| X <- OTag],
     Tag = [(decode_class(X#tag.class) bsl 10) + X#tag.number || X <- OTag],
     case {ExtName,Name} of
 	{primitive,bif} ->
@@ -1483,8 +1447,6 @@ emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type}, _Prop,
 	    0;
 	{constructed,bif} ->
 	    emit([indent(12),"'dec_",
-% 		  asn1ct_gen:list2name(InternalDefFunName),"'(Bytes, ",Prop,
-% 		  ", ",{asis,Tag},")"]),
  		  asn1ct_gen:list2name(InternalDefFunName),"'(Bytes, ",
 		  {asis,Tag},")"]),
 	    1;
@@ -1498,7 +1460,6 @@ emit_inner_of_decfun(#typedef{name=Name},_Prop,_) ->
     0;
 emit_inner_of_decfun(#type{}=Type, _Prop, _) ->
     OTag = Type#type.tag,
-%%    Tag = [X#tag{class=decode_class(X#tag.class)}|| X <- OTag],
     Tag = [(decode_class(X#tag.class) bsl 10) + X#tag.number || X <- OTag],
     CurrMod = get(currmod),
     Def = Type#type.def,
@@ -1510,11 +1471,9 @@ emit_inner_of_decfun(#type{}=Type, _Prop, _) ->
 	    gen_dec_prim(Type, "Bytes", Tag);
 	#'Externaltypereference'{module=CurrMod,type=T} ->
 	    emit([indent(9),T," ->",nl,indent(12),"'dec_",T,
-%		  "'(Bytes, ",Prop,")"]);
 		  "'(Bytes)"]);
 	#'Externaltypereference'{module=ExtMod,type=T} ->
 	    emit([indent(9),T," ->",nl,indent(12),ExtMod,":'dec_",
-%		  T,"'(Bytes, ",Prop,")"])
 		  T,"'(Bytes, ",{asis,Tag},")"])
     end,
     0.
@@ -1580,7 +1539,7 @@ encode_tag_val(Class, Form, TagNo) ->
 
 %%%%%%%%%%% 
 %% mk_object_val(Value) -> {OctetList, Len} 
-%% returns a Val as a list of octets, the 8 bit is allways set to one except 
+%% returns a Val as a list of octets, the 8 bit is always set to one except
 %% for the last octet, where its 0 
 %% 
 
@@ -1594,8 +1553,9 @@ mk_object_val(0, Ack, Len) ->
 mk_object_val(Val, Ack, Len) -> 
     mk_object_val(Val bsr 7, [((Val band 127) bor 128) | Ack], Len + 1). 
 
-%% For BER the ExtensionAdditionGroup notation has no impact on the encoding/decoding
-%% and therefore we only filter away the ExtensionAdditionGroup start and end markers
+%% For BER the ExtensionAdditionGroup notation has no impact on the
+%% encoding/decoding. Therefore we can filter away the
+%% ExtensionAdditionGroup start and end markers.
 extaddgroup2sequence(ExtList) when is_list(ExtList) ->
     lists:filter(fun(#'ExtensionAdditionGroup'{}) ->
 			 false;

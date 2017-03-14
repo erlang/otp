@@ -23,10 +23,10 @@
 
 %% Compile Time functions for ASN.1 (e.g ASN.1 compiler).
 
-%%-compile(export_all).
 %% Public exports
 -export([compile/1, compile/2]).
 -export([test/1, test/2, test/3, value/2, value/3]).
+
 %% Application internal exports
 -export([compile_asn/3,compile_asn1/3,compile_py/3,compile/3,
 	 vsn/0,
@@ -75,12 +75,9 @@
 -define(ALTERNATIVE,alt).
 -define(ALTERNATIVE_UNDECODED,alt_undec).
 -define(ALTERNATIVE_PARTS,alt_parts).
-%-define(BINARY,bin).
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This is the interface to the compiler
-%% 
-%% 
 
 compile(File) ->
     compile(File,[]).
@@ -751,7 +748,6 @@ remove_import_doubles([]) ->
 remove_import_doubles(ImportList) ->
     MergedImportList = 
 	merge_symbols_from_module(ImportList,[]),
-%%    io:format("MergedImportList: ~p~n",[MergedImportList]),
     delete_double_of_symbol(MergedImportList,[]).
 
 merge_symbols_from_module([Imp|Imps],Acc) ->
@@ -769,7 +765,6 @@ merge_symbols_from_module([Imp|Imps],Acc) ->
 	  end,
 	  Imps),
     NewImps = lists:subtract(Imps,IfromModName),
-%%    io:format("Imp: ~p~nIfromModName: ~p~n",[Imp,IfromModName]),
     NewImp =
 	Imp#'SymbolsFromModule'{
 	  symbols = lists:append(
@@ -988,12 +983,8 @@ get_input_file(Module,[]) ->
 get_input_file(Module,[I|Includes]) ->
     case (catch input_file_type(filename:join([I,Module]))) of
 	{single_file,FileName} ->
-%% 	    case file:read_file_info(FileName) of
-%% 		{ok,_} ->
 		    {file,FileName};
-%% 		_ -> get_input_file(Module,Includes)
-%% 	    end;
-	_ -> 
+	_ ->
 	    get_input_file(Module,Includes)
     end.
 
@@ -1151,7 +1142,6 @@ is_asn1_flag(_) -> false.
 
 
 outfile(Base, Ext, Opts) ->
-%    io:format("Opts. ~p~n",[Opts]),
     Obase = case lists:keysearch(outdir, 1, Opts) of
 		{value, {outdir, Odir}} -> filename:join(Odir, Base);
 		_NotFound -> Base % Not found or bad format
@@ -1202,9 +1192,6 @@ compile_py(File,OutFile,Options) ->
 compile(File, _OutFile, Options) ->
     case compile(File, make_erl_options(Options)) of
 	{error,_Reason} ->
-	    %% case occurs due to error in asn1ct_parser2,asn1ct_check
-%%	    io:format("~p~n",[_Reason]),
-%%	    io:format("~p~n~s~n",[_Reason,"error"]),
 	    error;
 	ok -> 
 	    ok;
@@ -1499,7 +1486,8 @@ create_pdec_inc_command(_ModName,_,[],Acc) ->
 create_pdec_inc_command(ModName,{Comps1,Comps2},TNL,Acc) 
   when is_list(Comps1),is_list(Comps2) ->
     create_pdec_inc_command(ModName,Comps1 ++ Comps2,TNL,Acc);
-%% The following two functionclauses matches on the type after the top type. This one if the top type had no tag, i.e. a CHOICE
+%% The following two clauses match on the type after the top
+%% type. This one if the top type had no tag, i.e. a CHOICE.
 create_pdec_inc_command(ModN,Clist,[CL|_Rest],[[]]) when is_list(CL) ->
     create_pdec_inc_command(ModN,Clist,CL,[]);
 create_pdec_inc_command(ModN,Clist,[CL|_Rest],Acc) when is_list(CL) ->
@@ -1510,17 +1498,14 @@ create_pdec_inc_command(ModName,
 						prop=Prop}|Comps],
 			TNL=[C1|Cs],Acc)  ->
     case C1 of
-% 	Name ->
-% 	    %% In this case C1 is an atom
-% 	    TagCommand = get_tag_command(TS,?MANDATORY,Prop),
-% 	    create_pdec_inc_command(ModName,get_components(TS#type.def),Cs,[TagCommand|Acc]);
 	{Name,undecoded} ->
 	    TagCommand = get_tag_command(TS,?UNDECODED,Prop),
 	    create_pdec_inc_command(ModName,Comps,Cs,concat_sequential(TagCommand,Acc));
 	{Name,parts} ->
 	    TagCommand = get_tag_command(TS,?PARTS,Prop),
 	    create_pdec_inc_command(ModName,Comps,Cs,concat_sequential(TagCommand,Acc));
-	L when is_list(L) -> % I guess this never happens due to previous function clause
+	L when is_list(L) ->
+            %% I guess this never happens due to previous clause.
 	    %% This case is only possible as the first element after
 	    %% the top type element, when top type is SEGUENCE or SET.
 	    %% Follow each element in L. Must note every tag on the
@@ -1542,8 +1527,6 @@ create_pdec_inc_command(ModName,
 						RestPartsList,[]),
 		    create_pdec_inc_command(ModName,Comps,Cs,
 					    [[?MANDATORY,InnerDirectives]|Acc]);
-%		    create_pdec_inc_command(ModName,Comps,Cs,
-%					    [InnerDirectives,?MANDATORY|Acc]);
 		[Opt,EncTag] ->
 		    InnerDirectives = 
 			create_pdec_inc_command(ModName,TS#type.def,
@@ -1551,9 +1534,8 @@ create_pdec_inc_command(ModName,
 		    create_pdec_inc_command(ModName,Comps,Cs,
 					    [[Opt,EncTag,InnerDirectives]|Acc])
 	    end;
-%	    create_pdec_inc_command(ModName,CList,RestPartsList,Acc);
-%%	    create_pdec_inc_command(ModName,TS#type.def,RestPartsList,Acc);
-	_ -> %% this component may not be in the config list
+	_ ->
+            %% this component may not be in the config list
 	    TagCommand = get_tag_command(TS,?MANDATORY,Prop),
 	    create_pdec_inc_command(ModName,Comps,TNL,concat_sequential(TagCommand,Acc))
     end;
@@ -1564,7 +1546,6 @@ create_pdec_inc_command(ModName,
 			[{C1,Directive}|Rest],Acc) ->
     case Directive of
 	List when is_list(List) ->
-%	    [Command,Tag] = get_tag_command(TS,?ALTERNATIVE,Prop),
 	    TagCommand = get_tag_command(TS,?ALTERNATIVE,Prop),
 	    CompAcc = 
 		create_pdec_inc_command(ModName,
@@ -1573,9 +1554,6 @@ create_pdec_inc_command(ModName,
 			 [Command,Tag] when is_atom(Command) ->
 			     [[Command,Tag,CompAcc]|Acc];
 			 [L1,_L2|Rest] when is_list(L1) ->
-% 			     [LastComm|Comms] = lists:reverse(TagCommand),
-% 			     [concat_sequential(lists:reverse(Comms),
-% 					       [LastComm,CompAcc])|Acc]
 			     case lists:reverse(TagCommand) of
 				 [Atom|Comms] when is_atom(Atom) ->
 				     [concat_sequential(lists:reverse(Comms),
@@ -1584,12 +1562,8 @@ create_pdec_inc_command(ModName,
 				     [concat_sequential(lists:reverse(Comms),
 							[[Command2,Tag2,CompAcc]])|Acc]
 			     end
-% 			     [concat_sequential(lists:reverse(Comms),
-% 						InnerCommand)|Acc]
-		     
 		     end,
 	    create_pdec_inc_command(ModName,{'CHOICE',Comps},Rest,
-%				    [[Command,Tag,CompAcc]|Acc]);
 				    NewAcc);
 	undecoded ->
 	    TagCommand = get_tag_command(TS,?ALTERNATIVE_UNDECODED,Prop),
@@ -1645,7 +1619,6 @@ create_partial_decode_gen_info(_M1,{M2,_}) ->
     throw({error,{"wrong module name in asn1 config file",
 		  M2}}).
 
-%create_partial_decode_gen_info1(ModName,{ModName,TypeList}) ->
 create_partial_decode_gen_info1(ModName,{FuncName,TypeList}) ->
     case TypeList of
 	[TopType|Rest] ->
@@ -1665,11 +1638,6 @@ create_partial_decode_gen_info1(ModName,{FuncName,TypeList}) ->
     end;
 create_partial_decode_gen_info1(_,_) ->
     ok.
-% create_partial_decode_gen_info1(_,[]) ->
-%     [];
-% create_partial_decode_gen_info1(_M1,{M2,_}) ->
-%     throw({error,{"wrong module name in asn1 config file",
-% 				  M2}}).
 
 %% create_pdec_command/4 for each name (type or component) in the
 %% third argument, TypeNameList, a command is created. The command has
@@ -1685,7 +1653,6 @@ create_pdec_command(_ModName,_,[],Acc) ->
 		Fun(L,[H|Res],Fun)
 	end,
     Remove_empty_lists(Acc,[],Remove_empty_lists);
-%    lists:reverse(Acc);
 create_pdec_command(ModName,[#'ComponentType'{name=C1,typespec=TS}|_Comps],
 		    [C1|Cs],Acc) ->
     %% this component is a constructed type or the last in the
@@ -1734,9 +1701,7 @@ create_pdec_command(ModName,TS=#type{def=Def},[C1|Cs],Acc) ->
 create_pdec_command(_,_,TNL,_) ->
     throw({error,{"unexpected error when creating partial "
 		  "decode command",TNL}}).
-	    
-% get_components({'CHOICE',Components}) ->
-%     Components;
+
 get_components(#'SEQUENCE'{components={C1,C2}}) when is_list(C1),is_list(C2) ->
     C1++C2;
 get_components(#'SEQUENCE'{components=Components}) ->
@@ -1807,8 +1772,6 @@ get_tag_command(#type{tag=[Tag]},Command) ->
     [Command,encode_tag_val(decode_class(Tag#tag.class),Tag#tag.form, 
 			    Tag#tag.number)];
 get_tag_command(T=#type{tag=[Tag|Tags]},Command) ->
-%     [get_tag_command(T#type{tag=[Tag]},Command)|
-%      [get_tag_command(T#type{tag=Tags},Command)]].
     TC = get_tag_command(T#type{tag=[Tag]},Command),
     TCs = get_tag_command(T#type{tag=Tags},Command),
     case many_tags(TCs) of
@@ -1836,7 +1799,6 @@ get_tag_command(#type{tag=Tag},Command,Prop) when is_record(Tag,tag) ->
     get_tag_command(#type{tag=[Tag]},Command,Prop);
 get_tag_command(T=#type{tag=[Tag|Tags]},Command,Prop) ->
     [get_tag_command(T#type{tag=[Tag]},Command,Prop)|[
-%     get_tag_command(T#type{tag=Tags},?MANDATORY,Prop)]].
      get_tag_command(T#type{tag=Tags},Command,Prop)]].
 
 anonymous_dec_command(?UNDECODED,'OPTIONAL') ->
@@ -1951,8 +1913,8 @@ read_config_data(Key) ->
 	true ->
 	    case asn1ct_table:lookup(asn1_general,{asn1_config,Key}) of
 		[{_,Data}] -> Data;
-		Err -> % Err is [] when nothing was saved in the ets table
-%%		    io:format("strange data from config file ~w~n",[Err]),
+		Err ->
+                    %% Err is [] when nothing was saved in the ets table
 		    Err
 	    end
     end.
@@ -1965,7 +1927,6 @@ read_config_data(Key) ->
 
 %% saves input data in a new gen_state record
 save_gen_state(exclusive_decode,{_,ConfList},PartIncTlvTagList) ->
-    %ConfList=[{FunctionName,PatternList}|Rest]
     State =
 	case get_gen_state() of
 	    S when is_record(S,gen_state) -> S;
@@ -1975,14 +1936,12 @@ save_gen_state(exclusive_decode,{_,ConfList},PartIncTlvTagList) ->
 			       inc_type_pattern=ConfList},
     save_config(gen_state,StateRec);
 save_gen_state(_,_,_) ->
-%%    ok.
     case get_gen_state() of
 	S when is_record(S,gen_state) -> ok;
 	_ -> save_config(gen_state,#gen_state{})
     end.
 
 save_gen_state(selective_decode,{_,Type_component_name_list}) ->
-%%    io:format("Selective_decode: ~p~n",[Type_component_name_list]),
     State =
 	case get_gen_state() of
 	    S when is_record(S,gen_state) -> S;
@@ -2064,11 +2023,6 @@ update_gen_state(type_pattern,State,Data) ->
 update_gen_state(func_name,State,Data) ->
     save_gen_state(State#gen_state{func_name=Data});
 update_gen_state(namelist,State,Data) ->
-%     SData =
-% 	case Data of
-% 	    [D] when is_list(D) -> D;
-% 	    _ -> Data
-% 	end,
     save_gen_state(State#gen_state{namelist=Data});
 update_gen_state(tobe_refed_funcs,State,Data) ->
     save_gen_state(State#gen_state{tobe_refed_funcs=Data});
@@ -2123,7 +2077,6 @@ get_tobe_refed_func(Name) ->
 %% tuple.  Do not save if it exists in generated_functions, because
 %% then it will be or already is generated.
 add_tobe_refed_func(Data) ->
-    %% 
     {Name,SI,Pattern} = 
 	fun({N,Si,P,_}) -> {N,Si,P};
 	    (D) -> D end (Data),
@@ -2131,8 +2084,6 @@ add_tobe_refed_func(Data) ->
 	case SI of
 	    I when is_integer(I) ->
 		fun(D) -> D end(Data);
-% 		fun({N,Ix,P}) -> {N,Ix+1,P};
-% 		   ({N,Ix,P,T}) -> {N,Ix+1,P,T} end (Data);
 	    _ ->
 		fun({N,_,P}) -> {N,0,P};
 		   ({N,_,P,T}) -> {N,0,P,T} end (Data)
@@ -2140,12 +2091,13 @@ add_tobe_refed_func(Data) ->
     
     L = get_gen_state_field(generated_functions),
     case generated_functions_member(get(currmod),Name,L,Pattern) of
-	true -> % it exists in generated_functions, it has already
-                % been generated or saved in tobe_refed_func
+	true ->
+            %% it exists in generated_functions, it has already
+            %% been generated or saved in tobe_refed_func
 	    ok;
 	_ ->
 	    add_once_tobe_refed_func(NewData),
-	    %%only to get it saved in generated_functions
+	    %% only to get it saved in generated_functions
 	    maybe_rename_function(tobe_refed,Name,Pattern)
     end.
 
@@ -2160,16 +2112,13 @@ add_once_tobe_refed_func(Data) ->
 			 ({N,I,_,_}) when N==Name,I==Index -> true;
 			 (_) -> false end,TRFL) of
 	[] ->
-%%    case lists:keysearch(element(1,Data),1,TRFL) of
-%%	false ->
 	    update_gen_state(tobe_refed_funcs,[Data|TRFL]);
 	_ ->
 	    ok
     end.
 
 
-    
-%% moves Name from the to be list to the generated list.
+%% Moves Name from the to be list to the generated list.
 generated_refed_func(Name) ->
     L = get_gen_state_field(tobe_refed_funcs),
     NewL = lists:keydelete(Name,1,L),
@@ -2177,7 +2126,7 @@ generated_refed_func(Name) ->
     L2 = get_gen_state_field(gen_refed_funcs),
     update_gen_state(gen_refed_funcs,[Name|L2]).
 
-%% adds Data to gen_refed_funcs field in gen_state.
+%% Adds Data to gen_refed_funcs field in gen_state.
 add_generated_refed_func(Data) ->
     case is_function_generated(Data) of
 	true ->
@@ -2199,7 +2148,7 @@ next_refed_func() ->
 reset_gen_state() ->
     save_gen_state(#gen_state{}).
 
-%% adds Data to generated_functions field in gen_state.
+%% Adds Data to generated_functions field in gen_state.
 add_generated_function(Data) ->
     L = get_gen_state_field(generated_functions),
     update_gen_state(generated_functions,[Data|L]).
@@ -2218,16 +2167,18 @@ maybe_rename_function(Mode,Name,Pattern) ->
 		{_,true} ->
 		    L2 = generated_functions_filter(get(currmod),Name,L),
 		    case lists:keysearch(Pattern,3,L2) of
-			false -> %name existed, but not pattern
+			false ->
+                            %% name existed, but not pattern
 			    NextIndex = length(L2),
-			    %%rename function
+			    %% rename function
 			    Suffix = lists:concat(["_",NextIndex]),
 			    NewName = 
 				maybe_rename_function2(type_check(Name),Name,
 						       Suffix),
 			    add_generated_function({Name,NextIndex,Pattern}),
 			    NewName;
-			Value -> % name and pattern existed
+			Value ->
+                            %% name and pattern existed
 			    %% do not save any new index
 			    Suffix = make_suffix(Value),
 			    Name2 =
@@ -2237,9 +2188,9 @@ maybe_rename_function(Mode,Name,Pattern) ->
 				end,
 			    lists:concat([Name2,Suffix])
 		    end;
-		{inc_disp,_} -> %% this is when
-                                %% decode_partial_inc_disp/2 is
-                                %% generated
+		{inc_disp,_} ->
+                    %% this is when decode_partial_inc_disp/2 is
+                    %% generated
 		    add_generated_function({Name,0,Pattern}),
 		    Name;
 		_ -> % this if call from add_tobe_refed_func
@@ -2285,23 +2236,12 @@ generated_functions_member(M,Name,[_|T]) ->
 generated_functions_member(_,_,[]) ->
     false.
 
-% generated_functions_member(M,Name,L) ->
-%     case lists:keymember(Name,1,L) of
-% 	true ->
-% 	    true;
-% 	_ ->
-% 	    generated_functions_member1(M,Name,L)
-%     end.
-% generated_functions_member1(M,#'Externaltypereference'{module=M,type=Name},L) ->
-%     lists:keymember(Name,1,L);
-% generated_functions_member1(_,_,_) -> false.
-
 generated_functions_filter(_,Name,L) when is_atom(Name);is_list(Name) ->
     lists:filter(fun({N,_,_}) when N==Name -> true;
 		    (_) -> false
 		 end, L);
 generated_functions_filter(M,#'Externaltypereference'{module=M,type=Name},L)->
-    % remove toptypename from patterns
+    %% remove top typename from patterns
     RemoveTType = 
 	fun({N,I,[N,P]}) when N == Name ->
 		{N,I,P};
@@ -2338,8 +2278,6 @@ set_current_sindex(Index) ->
 
 type_check(A) when is_atom(A) ->
     atom;
-%% type_check(I) when is_integer(I) ->
-%%     integer;
 type_check(L) when is_list(L) ->
     Pred = fun(X) when X=<255 ->
 		   false;
