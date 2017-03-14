@@ -71,7 +71,8 @@ MODULES= \
 	test_server_test_lib \
 	ct_release_test_SUITE \
 	ct_log_SUITE \
-        ct_SUITE
+        ct_SUITE \
+	ct_keep_logs_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 HRL_FILES= test_server_test_lib.hrl

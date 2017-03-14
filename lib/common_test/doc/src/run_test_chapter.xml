@@ -1353,6 +1353,18 @@
 	  only works when <c>Common Test</c> is running. Printouts with <c>ct:pal/2</c>
 	  are however always displayed on screen.</p></note>
 	</section>
+
+	<section>
+	  <marker id="delete_old_logs"></marker>
+	  <title>Delete Old Logs</title>
+	  <p><c>Common Test</c> can automatically delete old log. This
+	    is specified with the <c>keep_logs</c> option. The default
+	    value for this option is <c>all</c>, which means that no
+	    logs are deleted. If the value is set to an
+	    integer, <c>N</c>, <c>Common Test</c> deletes
+	    all <c>ct_run.&lt;timestamp&gt;</c> directories, except
+	    the <c>N</c> newest.</p>
+	</section>
       </section>
   
       <section>

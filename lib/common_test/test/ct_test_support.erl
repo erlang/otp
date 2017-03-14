@@ -351,6 +351,9 @@ check_result(CtRunTestResult,ExitStatus,Opts)
     catch _:_ ->
 	    {error,{unexpected_return_value,{CtRunTestResult,ExitStatus}}}
     end;
+check_result(done,0,_Opts) ->
+    %% refresh_logs return
+    ok;
 check_result(CtRunTestResult,ExitStatus,_Opts) ->
     {error,{unexpected_return_value,{CtRunTestResult,ExitStatus}}}.
 
