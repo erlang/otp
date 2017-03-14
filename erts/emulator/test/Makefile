@@ -66,7 +66,6 @@ MODULES= \
 	exception_SUITE \
 	float_SUITE \
 	fun_SUITE \
-	fun_r13_SUITE \
 	gc_SUITE \
 	guard_SUITE \
 	hash_SUITE \
