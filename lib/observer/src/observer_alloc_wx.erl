@@ -36,6 +36,7 @@
 	  wins,
 	  mem,
 	  samples,
+          max,
 	  panel,
 	  paint,
 	  appmon,
@@ -74,7 +75,8 @@ init([Notebook, Parent]) ->
 		      wins  = Windows,
 		      mem   = MemWin,
 		      paint = PaintInfo,
-		      time  = setup_time()
+		      time  = setup_time(),
+                      max   = #{}
 		     }
 	}
     catch _:Err ->
@@ -126,16 +128,17 @@ handle_info({Key, {promise_reply, {badrpc, _}}}, #state{async=Key} = State) ->
     {noreply, State#state{active=false, appmon=undefined}};
 
 handle_info({Key, {promise_reply, SysInfo}},
-	    #state{async=Key, panel=_Panel, samples=Data, active=Active, wins=Wins0,
-		   time=#ti{tick=Tick, disp=Disp0}=Ti} = S0) ->
+	    #state{async=Key, samples=Data, max=Max0,
+                   active=Active, wins=Wins0, time=#ti{tick=Tick, disp=Disp0}=Ti} = S0) ->
     Disp = trunc(Disp0),
     Next = max(Tick - Disp, 0),
     erlang:send_after(1000 div ?DISP_FREQ, self(), {refresh, Next}),
     Info = alloc_info(SysInfo),
+    Max = lists:foldl(fun calc_max/2, Max0, Info),
     {Wins, Samples} = add_data(Info, Data, Wins0, Ti, Active),
-    S1 = S0#state{time=Ti#ti{tick=Next}, wins=Wins, samples=Samples, async=undefined},
+    S1 = S0#state{time=Ti#ti{tick=Next}, wins=Wins, samples=Samples, max=Max, async=undefined},
     if Active ->
-	    update_alloc(S0, Info),
+	    update_alloc(S0, Info, Max),
 	    State = precalc(S1),
 	    {noreply, State};
        true ->
@@ -187,25 +190,35 @@ code_change(_, _, State) ->
 restart_fetcher(Node, #state{panel=Panel, wins=Wins0, time=Ti} = State) ->
     SysInfo = observer_wx:try_rpc(Node, observer_backend, sys_info, []),
     Info = alloc_info(SysInfo),
+    Max = lists:foldl(fun calc_max/2, #{}, Info),
     {Wins, Samples} = add_data(Info, {0, queue:new()}, Wins0, Ti, true),
     erlang:send_after(1000 div ?DISP_FREQ, self(), {refresh, 0}),
     wxWindow:refresh(Panel),
     precalc(State#state{active=true, appmon=Node, time=Ti#ti{tick=0},
-			wins=Wins, samples=Samples}).
+			wins=Wins, samples=Samples, max=Max}).
 
 precalc(#state{samples=Data0, paint=Paint, time=Ti, wins=Wins0}=State) ->
     Wins = [precalc(Ti, Data0, Paint, Win) || Win <- Wins0],
     State#state{wins=Wins}.
 
+calc_max({Name, _, Cs}, Max0) ->
+    case maps:get(Name, Max0, 0) of
+        Value when Value < Cs ->
+            Max0#{Name=>Cs};
+        _V ->
+            Max0
+    end.
 
-update_alloc(#state{mem=Grid}, Fields) ->
+update_alloc(#state{mem=Grid}, Fields, Max) ->
     wxWindow:freeze(Grid),
-    Max = wxListCtrl:getItemCount(Grid),
+    Last = wxListCtrl:getItemCount(Grid),
     Update = fun({Name, BS, CS}, Row) ->
-		     (Row >= Max) andalso wxListCtrl:insertItem(Grid, Row, ""),
+		     (Row >= Last) andalso wxListCtrl:insertItem(Grid, Row, ""),
+                     MaxV = maps:get(Name, Max, CS),
 		     wxListCtrl:setItem(Grid, Row, 0, observer_lib:to_str(Name)),
 		     wxListCtrl:setItem(Grid, Row, 1, observer_lib:to_str(BS div 1024)),
 		     wxListCtrl:setItem(Grid, Row, 2, observer_lib:to_str(CS div 1024)),
+                     wxListCtrl:setItem(Grid, Row, 3, observer_lib:to_str(MaxV div 1024)),
 		     Row + 1
 	     end,
     wx:foldl(Update, 0, Fields),
@@ -269,7 +282,9 @@ create_mem_info(Parent) ->
 		   end,
     ListItems = [{"Allocator Type",  ?wxLIST_FORMAT_LEFT,  200},
 		 {"Block size (kB)",  ?wxLIST_FORMAT_RIGHT, 150},
-		 {"Carrier size (kB)",?wxLIST_FORMAT_RIGHT, 150}],
+		 {"Carrier size (kB)",?wxLIST_FORMAT_RIGHT, 150},
+                 {"Max Carrier size (kB)",?wxLIST_FORMAT_RIGHT, 150}
+                ],
     lists:foldl(AddListEntry, 0, ListItems),
     wxListItem:destroy(Li),
 
