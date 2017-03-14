@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -629,8 +629,7 @@ parse_source(S, File, Fd, StartLine, HeaderSz, CheckOnly) ->
                     {error, _} ->
                         epp_parse_file2(Epp, S2, [FileForm], OptModRes);
                     {eof, LastLine} ->
-                        Anno = anno(LastLine),
-                        S#state{forms_or_bin = [FileForm, {eof, Anno}]}
+                        S#state{forms_or_bin = [FileForm, {eof, LastLine}]}
                 end,
             ok = epp:close(Epp),
             ok = file:close(Fd),
@@ -728,8 +727,7 @@ epp_parse_file2(Epp, S, Forms, Parsed) ->
                       [S#state.file,Ln,Mod:format_error(Args)]),
             epp_parse_file(Epp, S#state{n_errors = S#state.n_errors + 1}, [Form | Forms]);
         {eof, LastLine} ->
-            Anno = anno(LastLine),
-            S#state{forms_or_bin = lists:reverse([{eof, Anno} | Forms])}
+            S#state{forms_or_bin = lists:reverse([{eof, LastLine} | Forms])}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

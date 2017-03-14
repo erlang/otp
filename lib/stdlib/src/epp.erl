@@ -286,7 +286,7 @@ parse_file(Epp) ->
 	{warning,W} ->
 	    [{warning,W}|parse_file(Epp)];
 	{eof,Location} ->
-	    [{eof,erl_anno:new(Location)}]
+	    [{eof,Location}]
     end.
 
 -spec default_encoding() -> source_encoding().

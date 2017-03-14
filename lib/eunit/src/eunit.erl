@@ -256,7 +256,7 @@ all_options(Opts) ->
 	false -> Opts;
 	S ->
 	    {ok, Ts, _} = erl_scan:string(S),
-	    {ok, V} = erl_parse:parse_term(Ts ++ [{dot,1}]),
+	    {ok, V} = erl_parse:parse_term(Ts ++ [{dot,erl_anno:new(1)}]),
 	    if is_list(V) -> Opts ++ V;
 	       true -> Opts ++ [V]
 	    end

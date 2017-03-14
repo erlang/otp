@@ -83,7 +83,8 @@ generated_case(Config) when is_list(Config) ->
 	     Config, [], []),
     ok.
 
-test(Prog, Config, COpts, DOpts) ->
+test(Prog0, Config, COpts, DOpts) ->
+    Prog = erl_parse:anno_from_term(Prog0),
     {ok, BeamFile} = compile(Config, Prog, COpts),
     run_dialyzer(Config, succ_typings, [BeamFile], DOpts).
 

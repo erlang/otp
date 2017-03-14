@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1620,7 +1620,7 @@ conv(_) -> [].
 make_term(Str) -> 
     case erl_scan:string(Str) of
 	{ok, Tokens, _} ->		  
-	    case erl_parse:parse_term(Tokens ++ [{dot, 1}]) of
+	    case erl_parse:parse_term(Tokens ++ [{dot, erl_anno:new(1)}]) of
 		{ok, Term} ->
 		    Term;
 		{error, {_,M,Reason}} ->

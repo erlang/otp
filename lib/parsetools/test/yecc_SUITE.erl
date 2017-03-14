@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1524,7 +1524,7 @@ otp_7945(suite) -> [];
 otp_7945(Config) when is_list(Config) ->
     A2 = erl_anno:new(2),
     A3 = erl_anno:new(3),
-    {error,_} = erl_parse:parse([{atom,3,foo},{'.',A2,9,9}]),
+    {error,_} = erl_parse:parse([{atom,A3,foo},{'.',A2,9,9}]),
     ok.
 
 otp_8483(doc) ->
