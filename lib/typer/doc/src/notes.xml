@@ -31,6 +31,20 @@
   </header>
   <p>This document describes the changes made to TypEr.</p>
 
+<section><title>TypEr 0.9.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug concerning parameterized opaque types. </p>
+          <p>
+	    Own Id: OTP-14130</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>TypEr 0.9.11</title>
 
     <section><title>Improvements and New Features</title>

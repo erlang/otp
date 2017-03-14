@@ -33,7 +33,45 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.3.5</title>
+  <section><title>Inets 6.3.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Chunk size decoding could fail. The symptom was that
+	    chunk decoding sometimes failed depending on timing of
+	    the received stream. If chunk size was split into two
+	    different packets decoding would fail.</p>
+          <p>
+	    Own Id: OTP-13571 Aux Id: ERL-116 </p>
+        </item>
+        <item>
+          <p>
+	    Prevent httpc user process to hang if httpc_handler
+	    process terminates unexpectedly</p>
+          <p>
+	    Own Id: OTP-14091</p>
+        </item>
+        <item>
+          <p>
+	    Correct Host header, to include port number, when
+	    redirecting requests.</p>
+          <p>
+	    Own Id: OTP-14097</p>
+        </item>
+        <item>
+          <p>
+	    Shutdown gracefully on connection or TLS handshake errors</p>
+          <p>
+	    Own Id: OTP-14173 Aux Id: seq13262 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

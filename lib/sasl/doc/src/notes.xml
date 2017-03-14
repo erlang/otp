@@ -31,6 +31,28 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 3.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When both options 'warnings_as_errors' and 'silent' were
+	    given to systools:make_script or systools:make_relup, no
+	    error reason would be returned if warnings occurred.
+	    Instead only the atom 'error' was returned. This is now
+	    corrected.</p>
+          <p>
+	    Options 'warnings_as_errors' and 'no_warn_sasl' are now
+	    also allowed for systools:make_tar.</p>
+          <p>
+	    Own Id: OTP-14170</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 3.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

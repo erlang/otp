@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.4.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support s390x in os_mon.</p>
+          <p>
+	    Own Id: OTP-14161 Aux Id: PR-1309 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,24 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    etop erroneously reported the average scheduler
+	    utilization since the tool was first started instead of
+	    the scheduler utilization since last update. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-14090 Aux Id: seq13232 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.11</title>
 
     <section><title>Improvements and New Features</title>

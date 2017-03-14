@@ -31,6 +31,110 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>An escript with only two lines would not work.</p>
+          <p>
+	    Own Id: OTP-14098</p>
+        </item>
+        <item>
+	    <p> Characters (<c>$char</c>) can be used in constant
+	    pattern expressions. They can also be used in types and
+	    contracts. </p>
+          <p>
+	    Own Id: OTP-14103 Aux Id: ERL-313 </p>
+        </item>
+        <item>
+	    <p> The signatures of <c>erl_parse:anno_to_term/1</c> and
+	    <c>erl_parse:anno_from_term/1</c> are corrected. Using
+	    these functions no longer results in false Dialyzer
+	    warnings. </p>
+          <p>
+	    Own Id: OTP-14131</p>
+        </item>
+        <item>
+	    <p>Pretty-printing of maps is improved. </p>
+          <p>
+	    Own Id: OTP-14175 Aux Id: seq13277 </p>
+        </item>
+        <item>
+	    <p>If any of the following functions in the <c>zip</c>
+	    module crashed, a file would be left open:
+	    <c>extract()</c>, <c>unzip()</c>, <c>create()</c>, or
+	    <c>zip()</c>. This has been corrected.</p>
+	    <p>A <c>zip</c> file having a "Unix header" could not be
+	    unpacked.</p>
+          <p>
+	    Own Id: OTP-14189 Aux Id: ERL-348, ERL-349 </p>
+        </item>
+        <item>
+	    <p> Improve the Erlang shell's tab-completion of long
+	    names. </p>
+          <p>
+	    Own Id: OTP-14200 Aux Id: ERL-352 </p>
+        </item>
+        <item>
+          <p>
+	    The reference manual for <c>sys</c> had some faulty
+	    information about the 'get_modules' message used by
+	    processes where modules change dynamically during
+	    runtime. The documentation is now corrected.</p>
+          <p>
+	    Own Id: OTP-14248 Aux Id: ERL-367 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Bug fixes, new features and improvements to gen_statem:</p>
+          <p>
+	    A new type init_result/1 has replaced the old
+	    init_result/0, so if you used that old type (that was
+	    never documented) you have to change your code, which may
+	    be regarded as a potential incompatibility.</p>
+          <p>
+	    Changing callback modes after code change did not work
+	    since the new callback mode was not recorded. This bug
+	    has been fixed.</p>
+          <p>
+	    The event types state_timeout and {call,From} could not
+	    be generated with a {next_event,EventType,EventContent}
+	    action since they did not pass the runtime type check.
+	    This bug has now been corrected.</p>
+          <p>
+	    State entry calls can now be repeated using (new) state
+	    callback returns {repeat_state,...},
+	    {repeat_state_and_data,_} and repeat_state_and_data.</p>
+          <p>
+	    There have been lots of code cleanup in particular
+	    regarding timer handling. For example is async
+	    cancel_timer now used. Error handling has also been
+	    cleaned up.</p>
+          <p>
+	    To align with probable future changes to the rest of
+	    gen_*, terminate/3 has now got a fallback and
+	    code_change/4 is not mandatory.</p>
+          <p>
+	    Own Id: OTP-14114</p>
+        </item>
+        <item>
+	    <p><c>filename:safe_relative_path/1</c> to sanitize a
+	    relative path has been added.</p>
+          <p>
+	    Own Id: OTP-14215</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
