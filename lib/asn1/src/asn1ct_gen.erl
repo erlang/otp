@@ -956,9 +956,6 @@ hrl_protector(OutFile) ->
 emit(Term) ->
     ok = file:write(get(gen_file_out), do_emit(Term)).
 
-do_emit({external,_M,T}) ->
-    do_emit(T);
-
 do_emit({prev,Variable}) when is_atom(Variable) ->
     do_emit({var,asn1ct_name:prev(Variable)});
 
@@ -970,10 +967,6 @@ do_emit({curr,Variable}) when is_atom(Variable) ->
     
 do_emit({var,Variable}) when is_atom(Variable) ->
     [Head|V] = atom_to_list(Variable),
-    [Head-32|V];
-
-do_emit({var,Variable}) ->
-    [Head|V] = Variable,
     [Head-32|V];
 
 do_emit({asis,What}) ->
@@ -990,9 +983,6 @@ do_emit(nl) ->
 do_emit(com) ->
     ",";
 
-do_emit(tab) ->
-    "     ";
-
 do_emit(What) when is_integer(What) ->
     integer_to_list(What);
 
@@ -1001,9 +991,6 @@ do_emit(What) when is_list(What), is_integer(hd(What)) ->
 
 do_emit(What) when is_atom(What) ->
     atom_to_list(What);
-
-do_emit(What) when is_tuple(What) ->
-    [do_emit(E) || E <- tuple_to_list(What)];
 
 do_emit(What) when is_list(What) ->
     [do_emit(E) || E <- What].
