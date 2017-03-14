@@ -1274,8 +1274,8 @@ signal_dispatcher_thread_func(void *unused)
 
         do {
             res = read(sig_notify_fds[0], (void *) &sb.buf[i], sizeof(int) - i);
-            i += res;
-        } while ((i != sizeof(int) && res >= 0) || (res < 0 && errno == EINTR));
+            i += res > 0 ? res : 0;
+        } while ((i < sizeof(int) && res >= 0) || (res < 0 && errno == EINTR));
 
 	if (res < 0) {
 	    erts_exit(ERTS_ABORT_EXIT,
