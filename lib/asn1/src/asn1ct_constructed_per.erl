@@ -686,7 +686,7 @@ gen_decode_choice(Erules,Typename,D) when is_record(D,type) ->
     {'CHOICE',CompList} = D#type.def,
     Ext = extensible_enc(CompList),
     gen_dec_choice(Erules,Typename,CompList,Ext),
-    emit({".",nl}).
+    emit([".",nl]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Encode generator for SEQUENCE OF type
@@ -781,7 +781,7 @@ gen_decode_sof_components(Erule, Name, Typename, SeqOrSetOf, Cont) ->
     case asn1ct_gen:type(Conttype) of
 	{primitive,bif} ->
 	    asn1ct_gen_per:gen_dec_prim(Erule, Cont, "Bytes"),
-	    emit({com,nl});
+	    emit([com,nl]);
 	{constructed,bif} ->
 	    NewTypename = [Constructed_Suffix|Typename],
 	    emit([{asis,dec_func(asn1ct_gen:list2name(NewTypename))},
@@ -792,7 +792,7 @@ gen_decode_sof_components(Erule, Name, Typename, SeqOrSetOf, Cont) ->
 	'ASN1_OPEN_TYPE' ->
 	    asn1ct_gen_per:gen_dec_prim(Erule, #type{def='ASN1_OPEN_TYPE'},
 					"Bytes"),
-	    emit({com,nl});
+	    emit([com,nl]);
 	_ ->
 	    emit([{asis,dec_func(Conttype)},"(Bytes),",nl])
     end,
@@ -1494,9 +1494,9 @@ gen_dec_component_no_val(_, Type, {'DEFAULT',DefVal0}) ->
     DefVal = asn1ct_gen:conform_value(Type, DefVal0),
     emit([{asis,DefVal}]);
 gen_dec_component_no_val(_, _, 'OPTIONAL') ->
-    emit({"asn1_NOVALUE"});
+    emit(["asn1_NOVALUE"]);
 gen_dec_component_no_val({ext,_,_}, _, mandatory) ->
-    emit({"asn1_NOVALUE"}).
+    emit(["asn1_NOVALUE"]).
 
 dec_map_extaddgroup_no_val(Ext, Type, Comp) ->
     L0 = [dec_map_extaddgroup_no_val_1(N, P, Ext, Type) ||
@@ -1907,7 +1907,7 @@ emit_extaddgroupTerms(VarSeries,[_]) ->
     ok;
 emit_extaddgroupTerms(VarSeries,[_|Rest]) ->
     asn1ct_name:new(VarSeries),
-    emit({{curr,VarSeries},","}),
+    emit([{curr,VarSeries},","]),
     emit_extaddgroupTerms(VarSeries,Rest);
 emit_extaddgroupTerms(_,[]) ->
     ok.

@@ -101,10 +101,10 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
     case asn1ct_gen:type(InnerType) of
 	{primitive,bif} ->
 	    gen_encode_prim(Erules, Def),
-	    emit({".",nl});
+	    emit([".",nl]);
 	'ASN1_OPEN_TYPE' ->
 	    gen_encode_prim(Erules, Def#type{def='ASN1_OPEN_TYPE'}),
-	    emit({".",nl});
+	    emit([".",nl]);
 	{constructed,bif} ->
 	    asn1ct_gen:gen_encode_constructed(Erules,Typename,InnerType,D);
 	#'Externaltypereference'{module=CurrMod,type=Etype} ->
@@ -257,10 +257,10 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
     case asn1ct_gen:type(InnerType) of
 	{primitive,bif} ->
 	    gen_dec_prim(Erules,Def,"Bytes"),
-	    emit({".",nl,nl});
+	    emit([".",nl,nl]);
 	'ASN1_OPEN_TYPE' ->
 	    gen_dec_prim(Erules,Def#type{def='ASN1_OPEN_TYPE'},"Bytes"),
-	    emit({".",nl,nl});
+	    emit([".",nl,nl]);
 	{constructed,bif} ->
 	    asn1ct_gen:gen_decode_constructed(Erules,Typename,InnerType,D);
 	#'Externaltypereference'{}=Etype ->

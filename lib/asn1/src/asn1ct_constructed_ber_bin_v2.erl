@@ -1462,6 +1462,9 @@ print_attribute_comment(InnerType,Pos,Cname,Prop) ->
     case InnerType of
 	#'Externaltypereference'{module=XModule,type=Name} ->
 	    emit([nl,"%% attribute ",Cname,"(",Pos,")   External ",XModule,":",Name]);
+        _ when is_tuple(InnerType) ->
+	    emit([nl,"%% attribute ",Cname,"(",Pos,") with type "|
+                  tuple_to_list(InnerType)]);
 	_ ->
 	    emit([nl,"%% attribute ",Cname,"(",Pos,") with type ",InnerType])
     end,

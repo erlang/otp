@@ -496,7 +496,7 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
 	    asn1ct_name:new(len),
 	    gen_dec_prim(Def#type{def='ASN1_OPEN_TYPE'},
 			 BytesVar, {string,"TagIn"}),
-	    emit({".",nl,nl});
+	    emit([".",nl,nl]);
 	{primitive,bif} ->
 	    asn1ct_name:new(len),
 	    gen_dec_prim(Def, BytesVar, {string,"TagIn"}),
@@ -507,8 +507,7 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
 	TheType ->
 	    DecFunName = mkfuncname(TheType,dec),
 	    emit([DecFunName,"(",BytesVar,
-		  ", TagIn)"]),
-	    emit([".",nl,nl])
+		  ", TagIn).",nl,nl])
     end.
 
 
@@ -738,9 +737,10 @@ gen_obj_code(Erules,_Module,Obj) when is_record(Obj,typedef) ->
     #'Externaltypereference'{module=M,type=ClName} = Def#'Object'.classname,
     Class = asn1_db:dbget(M,ClName),
     {object,_,Fields} = Def#'Object'.def,
-    emit({nl,nl,nl,"%%================================"}),
-    emit({nl,"%%  ",ObjName}),
-    emit({nl,"%%================================",nl}),
+    emit([nl,nl,nl,
+          "%%================================",nl,
+          "%%  ",ObjName,nl,
+          "%%================================",nl]),
     EncConstructed =
 	gen_encode_objectfields(ClName,get_class_fields(Class),
 				ObjName,Fields,[]),
@@ -1143,9 +1143,10 @@ gen_objectset_code(Erules,ObjSet) ->
     ClassDef = asn1_db:dbget(ClassModule,ClassName),
     UniqueFName = Def#'ObjectSet'.uniquefname,
     Set = Def#'ObjectSet'.set,
-    emit({nl,nl,nl,"%%================================"}),
-    emit({nl,"%%  ",ObjSetName}),
-    emit({nl,"%%================================",nl}),
+    emit([nl,nl,nl,
+          "%%================================",nl,
+          "%%  ",ObjSetName,nl,
+          "%%================================",nl]),
     case ClassName of
 	{_Module,ExtClassName} ->
 	    gen_objset_code(Erules,ObjSetName,UniqueFName,Set,ExtClassName,ClassDef);
@@ -1204,7 +1205,7 @@ gen_objset_enc(_,ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
     Acc;
 gen_objset_enc(_, ObjSetName, UniqueName, [], _, _, _, Acc) ->
     emit_default_getenc(ObjSetName, UniqueName),
-    emit({".",nl,nl}),
+    emit([".",nl,nl]),
     Acc.
 
 emit_ext_fun(EncDec,ModuleName,Name) ->
@@ -1310,14 +1311,14 @@ emit_inner_of_fun(TDef=#typedef{name={ExtMod,Name},typespec=Type},
 		  InternalDefFunName,"'(Val, ",{asis,Tag},")"]),
 	    {[TDef#typedef{name=InternalDefFunName}],1};
 	_ ->
-	    emit({indent(12),"'",ExtMod,"':'enc_",Name,"'(Val",{asis,Tag},")"}),
+	    emit([indent(12),"'",ExtMod,"':'enc_",Name,"'(Val",{asis,Tag},")"]),
 	    {[],0}
     end;
 emit_inner_of_fun(#typedef{name=Name},_) ->
 %    OTag = Type#type.tag,
 % remove    Tag = [X#tag{class=decode_class(X#tag.class)}|| X <- OTag],
 %    Tag = [encode_tag_val(decode_class(X#tag.class),X#tag.form,X#tag.number)|| X <- OTag],
-    emit({indent(12),"'enc_",Name,"'(Val)"}),
+    emit([indent(12),"'enc_",Name,"'(Val)"]),
     {[],0};
 emit_inner_of_fun(Type,_) when is_record(Type,type) ->
     CurrMod = get(currmod),
