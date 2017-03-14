@@ -39,6 +39,7 @@
          sets_filter/2,
 	 src_compiler_opts/0,
 	 refold_pattern/1,
+         ets_tab2list/1,
 	 parallelism/0,
          family/1
 	]).
@@ -988,6 +989,27 @@ label(Tree) ->
       cerl:set_ann(Tree, [{label, Label}]).
 
 %%------------------------------------------------------------------------------
+
+-spec ets_tab2list(ets:tid()) -> list().
+
+%% Deletes the contents of the table. Use:
+%%  ets_tab2list(T), ets:delete(T)
+%% instead of:
+%%  ets:tab2list(T), ets:delete(T)
+%% to save some memory at the expense of somewhat longer execution time.
+ets_tab2list(T) ->
+  tab2list(ets:first(T), T, []).
+
+tab2list('$end_of_table', T, A) ->
+  case ets:first(T) of % no safe_fixtable()...
+    '$end_of_table' -> A;
+    Key -> tab2list(Key, T, A)
+  end;
+tab2list(Key, T, A) ->
+  Vs = ets:lookup(T, Key),
+  Key1 = ets:next(T, Key),
+  ets:delete(T, Key),
+  tab2list(Key1, T, Vs ++ A).
 
 -spec parallelism() -> integer().
 

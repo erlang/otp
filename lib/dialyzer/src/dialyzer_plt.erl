@@ -604,20 +604,8 @@ give_away(#mini_plt{info = ETSInfo,
   true = ets:give_away(ETSExpTypes, Pid, any),
   ok.
 
-%% Somewhat slower than ets:tab2list(), but uses less memory.
 tab2list(T) ->
-  tab2list(ets:first(T), T, []).
-
-tab2list('$end_of_table', T, A) ->
-  case ets:first(T) of % no safe_fixtable()...
-    '$end_of_table' -> A;
-    Key -> tab2list(Key, T, A)
-  end;
-tab2list(Key, T, A) ->
-  Vs = ets:lookup(T, Key),
-  Key1 = ets:next(T, Key),
-  ets:delete(T, Key),
-  tab2list(Key1, T, Vs ++ A).
+  dialyzer_utils:ets_tab2list(T).
 
 %%---------------------------------------------------------------------------
 %% Edoc
