@@ -1482,13 +1482,13 @@ handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
     activate_ctrl_connection(State),
     {noreply, State#state{dsock = undefined, data = <<>>}};
 
-handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, client = From,
+handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
 				  caller = recv_chunk} = State)
   when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
-    gen_server:reply(From, ok),
-    {noreply, State#state{dsock = undefined, client = undefined,
-			  data = <<>>, caller = undefined,
-			  chunk = false}};
+    activate_ctrl_connection(State),
+    {noreply, State#state{dsock = undefined, data = <<>>, 
+                          caller = recv_chunk_closed
+                         }};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, caller = recv_bin, 
 					 data = Data} = State)
@@ -2044,6 +2044,16 @@ handle_ctrl_result({pos_prel, _}, #state{client = From,
 		    {stop, normal, State0#state{client = undefined}}
 	    end
     end;
+
+%%--------------------------------------------------------------------------
+%% File handling - chunk_transfer complete
+handle_ctrl_result({pos_compl, _}, #state{client = From,
+                                          caller = recv_chunk_closed}
+		   = State0) ->
+    gen_server:reply(From, ok),
+    {noreply, State0#state{caller = undefined,
+                           chunk = false,
+                           client = undefined}};
 
 %%--------------------------------------------------------------------------
 %% File handling - recv_file
