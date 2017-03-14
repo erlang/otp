@@ -958,42 +958,34 @@ emit(Term) ->
 
 do_emit({prev,Variable}) when is_atom(Variable) ->
     do_emit({var,asn1ct_name:prev(Variable)});
-
 do_emit({next,Variable}) when is_atom(Variable) ->
     do_emit({var,asn1ct_name:next(Variable)});
-
 do_emit({curr,Variable}) when is_atom(Variable) ->
     do_emit({var,asn1ct_name:curr(Variable)});
-    
 do_emit({var,Variable}) when is_atom(Variable) ->
     [Head|V] = atom_to_list(Variable),
     [Head-32|V];
-
 do_emit({asis,What}) ->
     io_lib:format("~w", [What]);
-
 do_emit({call,M,F,A}) ->
     MFA = {M,F,length(A)},
     asn1ct_func:need(MFA),
     [atom_to_list(F),"(",call_args(A, "")|")"];
-
 do_emit(nl) ->
     "\n";
-
 do_emit(com) ->
     ",";
-
+do_emit([C|_]=Str) when is_integer(C) ->
+    Str;
+do_emit([_|_]=L) ->
+    [do_emit(E) || E <- L];
+do_emit([]) ->
+    [];
 do_emit(What) when is_integer(What) ->
     integer_to_list(What);
-
-do_emit(What) when is_list(What), is_integer(hd(What)) ->
-    What;
-
 do_emit(What) when is_atom(What) ->
-    atom_to_list(What);
+    atom_to_list(What).
 
-do_emit(What) when is_list(What) ->
-    [do_emit(E) || E <- What].
 
 call_args([A|As], Sep) ->
     [Sep,do_emit(A)|call_args(As, ", ")];
