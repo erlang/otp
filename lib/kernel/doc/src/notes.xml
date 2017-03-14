@@ -31,6 +31,45 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a race during cleanup of os:cmd that would cause
+	    os:cmd to hang indefinitely.</p>
+          <p>
+	    Own Id: OTP-14232 Aux Id: seq13275 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The functions in the '<c>file</c>' module that take a
+	    list of paths (e.g. <c>file:path_consult/2</c>) will now
+	    continue to search in the path if the path contains
+	    something that is not a directory.</p>
+          <p>
+	    Own Id: OTP-14191</p>
+        </item>
+        <item>
+	    <p>Two OTP processes that are known to receive many
+	    messages are 'rex' (used by 'rpc') and 'error_logger'.
+	    Those processes will now store unprocessed messages
+	    outside the process heap, which will potentially decrease
+	    the cost of garbage collections.</p>
+          <p>
+	    Own Id: OTP-14192</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 5.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

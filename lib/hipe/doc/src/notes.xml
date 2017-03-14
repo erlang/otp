@@ -31,6 +31,26 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.15.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug concerning parameterized opaque types. </p>
+          <p>
+	    Own Id: OTP-14130</p>
+        </item>
+        <item>
+          <p>
+	    Fixed xml issues in old release notes</p>
+          <p>
+	    Own Id: OTP-14269</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.15.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

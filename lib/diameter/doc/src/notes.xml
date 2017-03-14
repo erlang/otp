@@ -43,6 +43,30 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.12.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An improvement in the handling of peer failover in
+	    diameter 1.12.1 adversely affected performance when
+	    sending requests. Further, the inefficient use of a
+	    public table to route incoming answers has been removed.</p>
+          <p>
+	    Own Id: OTP-14206</p>
+        </item>
+        <item>
+          <p>
+	    Fixed xml issues in old release notes</p>
+          <p>
+	    Own Id: OTP-14269</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.12.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
