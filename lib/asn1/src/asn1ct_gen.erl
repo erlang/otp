@@ -378,9 +378,7 @@ get_component(Name,{C1,C2}) when is_list(C1),is_list(C2) ->
 get_component(Name,[C=#'ComponentType'{name=Name}|_Cs]) ->
     C;
 get_component(Name,[_C|Cs]) ->
-    get_component(Name,Cs);
-get_component(Name,_) ->
-    throw({error,{asn1,{internal_error,Name}}}).
+    get_component(Name,Cs).
 
 %% generate code for all inner types that are called from the top type
 %% of the partial incomplete decode and are defined within the top
@@ -597,9 +595,7 @@ gen_encode_constructed(Erules,Typename,InnerType,D) when is_record(D,type) ->
 	    Rtmod:gen_encode_sof(Erules,Typename,InnerType,D),
 	    {_,Type} = D#type.def,
 	    NameSuffix = asn1ct_gen:constructed_suffix(InnerType,Type#type.def),
-	    gen_types(Erules, [NameSuffix|Typename], Type, gen_encode);
-	_ ->
-	    exit({nyi,InnerType})
+	    gen_types(Erules, [NameSuffix|Typename], Type, gen_encode)
     end;
 gen_encode_constructed(Erules,Typename,InnerType,D) 
   when is_record(D,typedef) ->
@@ -1309,9 +1305,7 @@ get_inner(T) when is_tuple(T) ->
 		{valuefieldreference,FieldName} ->
 		    get_fieldtype(element(2,Tuple),FieldName);
 		{typefieldreference,FieldName} ->
-		    get_fieldtype(element(2,Tuple),FieldName);
-		{'EXIT',Reason} ->
-		    throw({asn1,{'internal error in get_inner/1',Reason}})
+		    get_fieldtype(element(2,Tuple),FieldName)
 	    end;
 	_ -> element(1,T)
     end.

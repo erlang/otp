@@ -1025,29 +1025,26 @@ gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,Assign,EncObj)
 					   fieldname=RefedFieldName}},
 	 {componentrelation,_,_}} ->
 	    {_LeadingAttrName,Fun} = EncObj,
-	    case RefedFieldName of
-		{Name,RestFieldNames} when is_atom(Name) ->
-		    case OptOrMand of
-			mandatory -> ok;
-			_ ->
-			    emit(["{",{curr,tmpBytes},",_ } = "])
-		    end,
-		    emit([Fun,"(",{asis,Name},", ",Element,", ",
-			  {asis,RestFieldNames},"),",nl]),
-		    emit(IndDeep),
-		    case OptOrMand of
-			mandatory ->
-			    emit(["{",{curr,encBytes},",",{curr,encLen},
-				  "} = ",
-				  {call,ber,encode_open_type,
-				   [{curr,tmpBytes},{asis,Tag}]},nl]);
-			_ ->
-			    emit([{call,ber,encode_open_type,
-				   [{curr,tmpBytes},{asis,Tag}]}])
-		    end;
-		Err ->
-		    throw({asn1,{'internal error',Err}})
-	    end;
+            {Name,RestFieldNames} = RefedFieldName,
+            true = is_atom(Name),                %Assertion.
+            case OptOrMand of
+                mandatory -> ok;
+                _ ->
+                    emit(["{",{curr,tmpBytes},",_ } = "])
+            end,
+            emit([Fun,"(",{asis,Name},", ",Element,", ",
+                  {asis,RestFieldNames},"),",nl]),
+            emit(IndDeep),
+            case OptOrMand of
+                mandatory ->
+                    emit(["{",{curr,encBytes},",",{curr,encLen},
+                          "} = ",
+                          {call,ber,encode_open_type,
+                           [{curr,tmpBytes},{asis,Tag}]},nl]);
+                _ ->
+                    emit([{call,ber,encode_open_type,
+                           [{curr,tmpBytes},{asis,Tag}]}])
+            end;
 	_ ->
 	    case WhatKind of
 		{primitive,bif} ->

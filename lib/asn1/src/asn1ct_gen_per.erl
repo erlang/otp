@@ -256,9 +256,7 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
 	    asn1ct_gen:gen_decode_constructed(Erules,Typename,InnerType,D);
 	#'Externaltypereference'{}=Etype ->
 	    gen_dec_external(Etype, "Bytes"),
-	    emit([".",nl,nl]);
-	Other ->
-	    exit({error,{asn1,{unknown,Other}}})
+	    emit([".",nl,nl])
     end.
 
 gen_dec_external(Ext, BytesVar) ->

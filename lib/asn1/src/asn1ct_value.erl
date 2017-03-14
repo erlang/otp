@@ -108,9 +108,7 @@ from_type_constructed(M,Typename,InnerType,D) when is_record(D,type) ->
 	'SET OF' ->
 	    {_,Type} = D#type.def,
 	    NameSuffix = asn1ct_gen:constructed_suffix(InnerType,Type#type.def),
-	    get_sequence_of(M,Typename,D,NameSuffix);
-	_ ->
-	    exit({nyi,InnerType})
+	    get_sequence_of(M,Typename,D,NameSuffix)
     end.
 
 get_sequence(M,Typename,Type) ->
@@ -292,9 +290,7 @@ from_type_prim(M, D) ->
                              16#ffff,16#ffee,16#10ffff,16#ffff,16#fff]),
 	    unicode:characters_to_binary(L);
 	'UniversalString' ->
-	    adjust_list(size_random(C),c_string(C,"UniversalString"));
-	XX ->
-	    exit({asn1_error,nyi,XX})
+	    adjust_list(size_random(C),c_string(C,"UniversalString"))
     end.
 
 c_string(C,Default) ->
