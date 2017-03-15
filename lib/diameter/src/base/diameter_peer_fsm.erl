@@ -444,7 +444,8 @@ transition({connection_timeout, _}, _) ->
 
 %% Incoming message from the transport.
 transition({diameter, {recv, MsgT}}, S) ->
-    incoming(MsgT, S);
+    {Msg, NPid} = msg(MsgT),
+    incoming(recv(Msg, S), NPid, S);
 
 %% Timeout when still in the same state ...
 transition({timeout = T, PS}, #state{state = PS}) ->
@@ -609,31 +610,26 @@ encode(Rec, Dict) ->
     diameter_codec:encode(Dict, #diameter_packet{header = Hdr,
                                                  msg = Rec}).
 
-%% incoming/2
+%% incoming/3
 
-incoming({Msg, NPid}, S) ->
-    try recv(Msg, S) of
-        T ->
-            NPid ! {diameter, discard},
-            T
-    catch
-        {?MODULE, Name, Pkt} ->
-            incoming(Name, Pkt, NPid, S)
-    end;
-
-incoming(Msg, S) ->
-    try
-        recv(Msg, S)
-    catch
-        {?MODULE, Name, Pkt} ->
-            incoming(Name, Pkt, false, S)
-    end.
-
-%% incoming/4
-
-incoming(Name, Pkt, NPid, #state{parent = Pid} = S) ->
+incoming({recv, Name, Pkt}, NPid, #state{parent = Pid} = S) ->
     Pid ! {recv, self(), get_route(Pkt), Name, Pkt, NPid},
-    rcv(Name, Pkt, S).
+    rcv(Name, Pkt, S);
+
+incoming(T, false, _) ->
+    T;
+
+incoming(T, NPid, _) ->
+    NPid ! {diameter, discard},
+    T.
+
+%% msg/1
+
+msg({_,_} = T) ->
+    T;
+
+msg(Msg) ->
+    {Msg, false}.
 
 %% recv/2
 
@@ -701,7 +697,7 @@ recv1('DPA' = N,
 %% Any other message with a header and no length errors: send to the
 %% parent.
 recv1(Name, Pkt, #state{}) ->
-    throw({?MODULE, Name, Pkt}).
+    {recv, Name, Pkt}.
 
 %% recv/3
 
