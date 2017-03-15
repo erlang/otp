@@ -614,7 +614,9 @@ t_find_unknown_opaque(T1, T2, Opaques) ->
 %% is assumed to be taken from the contract.
 
 t_decorate_with_opaque(T1, T2, Opaques) ->
-  case t_is_equal(T1, T2) orelse not t_contains_opaque(T2) of
+  case
+    Opaques =:= [] orelse t_is_equal(T1, T2) orelse not t_contains_opaque(T2)
+  of
     true -> T1;
     false ->
       T = t_inf(T1, T2),
