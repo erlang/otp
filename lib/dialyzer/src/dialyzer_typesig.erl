@@ -100,6 +100,7 @@
 
 -record(state, {callgraph                :: dialyzer_callgraph:callgraph()
                                           | 'undefined',
+                cserver                  :: dialyzer_codeserver:codeserver(),
 		cs          = []         :: [constr()],
 		cmap        = maps:new() :: #{type_var() => constr()},
 		fun_map     = maps:new() :: typesig_funmap(),
@@ -113,7 +114,7 @@
 		plt                      :: dialyzer_plt:plt()
                                           | 'undefined',
 		prop_types  = dict:new() :: prop_types(),
-		records     = maps:new() :: types(),
+                mod_records = []         :: [{module(), types()}],
 		scc         = []         :: ordsets:ordset(type_var()),
 		mfas                     :: [mfa()],
                 solvers     = []         :: [solver()]
@@ -177,9 +178,7 @@ analyze_scc(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers0) ->
   State1 = new_state(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes,
                      Solvers),
   DefSet = add_def_list(maps:values(State1#state.name_map), sets:new()),
-  ModRecs = [{M, dialyzer_codeserver:lookup_mod_records(M, CServer)} ||
-              M <- lists:usort([M || {M, _, _} <- SCC])],
-  State2 = traverse_scc(SCC, CServer, DefSet, ModRecs, State1),
+  State2 = traverse_scc(SCC, CServer, DefSet, State1),
   State3 = state__finalize(State2),
   Funs = state__scc(State3),
   pp_constrs_scc(Funs, State3),
@@ -196,15 +195,14 @@ solvers(Solvers) -> Solvers.
 %%
 %% ============================================================================
 
-traverse_scc([{M,_,_}=MFA|Left], Codeserver, DefSet, ModRecs, AccState) ->
+traverse_scc([{M,_,_}=MFA|Left], Codeserver, DefSet, AccState) ->
+  TmpState1 = state__set_module(AccState, M),
   Def = dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
-  {M, Rec} = lists:keyfind(M, 1, ModRecs),
-  TmpState1 = state__set_rec_dict(AccState, Rec),
   DummyLetrec = cerl:c_letrec([Def], cerl:c_atom(foo)),
   TmpState2 = state__new_constraint_context(TmpState1),
   {NewAccState, _} = traverse(DummyLetrec, DefSet, TmpState2),
-  traverse_scc(Left, Codeserver, DefSet, ModRecs, NewAccState);
-traverse_scc([], _Codeserver, _DefSet, _ModRecs, AccState) ->
+  traverse_scc(Left, Codeserver, DefSet, NewAccState);
+traverse_scc([], _Codeserver, _DefSet, AccState) ->
   AccState.
 
 traverse(Tree, DefinedVars, State) ->
@@ -470,12 +468,11 @@ traverse(Tree, DefinedVars, State) ->
 	    true ->
               %% Check if a record is constructed.
               Arity = length(Fields),
-              Records = State2#state.records,
-              case lookup_record(Records, cerl:atom_val(Tag), Arity) of
-                error -> {State2, TupleType};
-                {ok, RecType} ->
-                  State3 = state__store_conj(TupleType, sub, RecType, State2),
-                  {State3, TupleType}
+              case lookup_record(State2, cerl:atom_val(Tag), Arity) of
+                {error, State3} -> {State3, TupleType};
+                {ok, RecType, State3} ->
+                  State4 = state__store_conj(TupleType, sub, RecType, State3),
+                  {State4, TupleType}
               end;
 	    false -> {State2, TupleType}
           end;
@@ -1440,7 +1437,6 @@ get_bif_constr({erlang, is_record, 2}, Dst, [Var, Tag] = Args, _State) ->
 			   mk_constraint(Var, sub, ArgV)]);
 get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
   %% TODO: Revise this to make it precise for Tag and Arity.
-  Records = State#state.records,
   ArgFun =
     fun(Map) ->
 	case t_is_any_atom(true, lookup_type(Dst, Map)) of
@@ -1457,10 +1453,10 @@ get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
 			GenRecord = t_tuple([TagType|AnyElems]),
 			case t_atom_vals(TagType) of
 			  [TagVal] ->
-			    case lookup_record(Records, TagVal, ArityVal - 1) of
-			      {ok, Type} ->
+			    case lookup_record(State, TagVal, ArityVal - 1) of
+			      {ok, Type, _NewState} ->
                                 Type;
-			      error -> GenRecord
+			      {error, _NewState} -> GenRecord
 			    end;
 			  _ -> GenRecord
 			end;
@@ -2733,10 +2729,11 @@ new_state(MFAs, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers) ->
     end,
   #state{callgraph = CallGraph, name_map = NameMap, next_label = NextLabel,
 	 prop_types = PropTypes, plt = Plt, scc = ordsets:from_list(SCC),
-	 mfas = MFAs, self_rec = SelfRec, solvers = Solvers}.
+	 mfas = MFAs, self_rec = SelfRec, solvers = Solvers,
+         cserver = CServer}.
 
-state__set_rec_dict(State, RecDict) ->
-  State#state{records = RecDict}.
+state__set_module(State, Module) ->
+  State#state{module = Module}.
 
 state__set_in_match(State, Bool) ->
   State#state{in_match = Bool}.
@@ -3348,15 +3345,25 @@ fold_literal_maybe_match(Tree0, State) ->
     true -> dialyzer_utils:refold_pattern(Tree1)
   end.
 
-lookup_record(Records, Tag, Arity) ->
-  case erl_types:lookup_record(Tag, Arity, Records) of
+lookup_record(State, Tag, Arity) ->
+  #state{module = M, mod_records = ModRecs, cserver = CServer} = State,
+  {State1, Rec} =
+    case lists:keyfind(M, 1, ModRecs) of
+      {M, Rec0} ->
+        {State, Rec0};
+      false ->
+        Rec0 = dialyzer_codeserver:lookup_mod_records(M, CServer),
+        NewModRecs = [{M, Rec0}|ModRecs],
+        {State#state{mod_records = NewModRecs}, Rec0}
+    end,
+  case erl_types:lookup_record(Tag, Arity, Rec) of
     {ok, Fields} ->
       RecType =
         t_tuple([t_from_term(Tag)|
                  [FieldType || {_FieldName, _Abstr, FieldType} <- Fields]]),
-      {ok, RecType};
+      {ok, RecType, State1};
     error ->
-      error
+      {error, State1}
   end.
 
 is_literal_record(Tree) ->
