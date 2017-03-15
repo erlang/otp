@@ -283,7 +283,7 @@ event(Msg,
     ?LOG(transition, {From, To}).
 
 data(Msg, TPid, reopen, okay) ->
-    {recv, TPid, false, 'DWA', _Pkt, _NPid} = Msg,  %% assert
+    {recv, TPid, _, 'DWA', _Pkt} = Msg,  %% assert
     {TPid, T} = eraser(open),
     [T];
 
@@ -301,6 +301,8 @@ tpid(_, Pid)
 
 tpid(Pid, _) ->
     Pid.
+
+%% send/2
 
 send(Pid, T) ->
     Pid ! T.
@@ -447,14 +449,15 @@ transition({'DOWN', _, process, TPid, _Reason} = D,
     end;
 
 %% Incoming message.
-transition({recv, TPid, Route, Name, Pkt, NPid},
+transition({recv, TPid, Route, Name, Pkt},
            #watchdog{transport = TPid}
            = S) ->
-    try
-        incoming(Name, Pkt, NPid, S)
-    catch
+    try incoming(Route, Name, Pkt, S) of
         #watchdog{dictionary = Dict0, receive_data = T} = NS ->
-            diameter_traffic:receive_message(TPid, Route, Pkt, NPid, Dict0, T),
+            diameter_traffic:receive_message(TPid, Route, Pkt, Dict0, T),
+            NS
+    catch
+        #watchdog{} = NS ->
             NS
     end;
 
@@ -586,23 +589,13 @@ send_watchdog(#watchdog{pending = false,
 
 %% incoming/4
 
-incoming(Name, Pkt, false, S) ->
-    recv(Name, Pkt, S);
-
-incoming(Name, Pkt, NPid, S) ->
-    NS = recv(Name, Pkt, S),
-    NPid ! {diameter, discard},
-    NS.
-
-%% recv/3
-
-recv(Name, Pkt, S) ->
-    try rcv(Name, Pkt, rcv(Name, S)) of
-        #watchdog{} = NS ->
-            throw(NS)
+incoming(Route, Name, Pkt, S) ->
+    try rcv(Name, S) of
+        NS -> rcv(Name, Pkt, NS)
     catch
-        #watchdog{} = NS ->  %% throwaway
-            NS
+        #watchdog{transport = TPid} = NS when Route ->  %% incoming request
+            send(TPid, {send, false}),                  %%    requiring ack
+            throw(NS)
     end.
 
 %% rcv/3

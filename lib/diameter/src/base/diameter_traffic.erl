@@ -30,7 +30,7 @@
 -export([send_request/4]).
 
 %% towards diameter_watchdog
--export([receive_message/6]).
+-export([receive_message/5]).
 
 %% towards diameter_peer_fsm and diameter_watchdog
 -export([incr/4,
@@ -93,7 +93,7 @@
          packet     :: #diameter_packet{} | undefined}). %% of request
 
 %% ---------------------------------------------------------------------------
-%% # make_recvdata/1
+%% make_recvdata/1
 %% ---------------------------------------------------------------------------
 
 make_recvdata([SvcName, PeerT, Apps, SvcOpts | _]) ->
@@ -206,42 +206,36 @@ incr_rc(Dir, Pkt, TPid, Dict0) ->
     incr_rc(Dir, Pkt, TPid, {Dict0, Dict0, Dict0}).
 
 %% ---------------------------------------------------------------------------
-%% # receive_message/6
+%% receive_message/5
 %%
-%% Handle an incoming Diameter message.
+%% Handle an incoming Diameter message in a watchdog process.
 %% ---------------------------------------------------------------------------
 
-%% Handle an incoming Diameter message in the watchdog process.
+-spec receive_message(pid(), Route, #diameter_packet{}, module(), #recvdata{})
+   -> pid()
+    | boolean()
+ when Route :: {Handler, RequestRef, Seqs}
+             | Ack,
+      Handler :: pid(),
+      RequestRef :: reference(),
+      Seqs :: {0..16#FFFFFFFF, 0..16#FFFFFFFF},
+      Ack :: boolean().
 
-receive_message(TPid, Route, Pkt, false, Dict0, RecvData) ->
-    incoming(TPid, Route, Pkt, Dict0, RecvData);
-
-receive_message(TPid, Route, Pkt, NPid, Dict0, RecvData) ->
-    NPid ! {diameter, incoming(TPid, Route, Pkt, Dict0, RecvData)}.
-
-%% incoming/4
-
-incoming(TPid, Route, Pkt, Dict0, RecvData)
-  when is_pid(TPid) ->
+receive_message(TPid, Route, Pkt, Dict0, RecvData) ->
     #diameter_packet{header = #diameter_header{is_request = R}} = Pkt,
     recv(R, Route, TPid, Pkt, Dict0, RecvData).
 
 %% recv/6
 
 %% Incoming request ...
-recv(true, false, TPid, Pkt, Dict0, T) ->
-    try
-        {request, spawn_request(TPid, Pkt, Dict0, T)}
-    catch
-        error: system_limit = E ->  %% discard
-            ?LOG(error, E),
-            discard
-    end;
+recv(true, Ack, TPid, Pkt, Dict0, T)
+  when is_boolean(Ack) ->
+    spawn_request(Ack, TPid, Pkt, Dict0, T);
 
 %% ... answer to known request ...
 recv(false, {Pid, Ref, TPid}, _, Pkt, Dict0, _) ->
     Pid ! {answer, Ref, TPid, Dict0, Pkt},
-    {answer, Pid};
+    true;
 
 %% Note that failover could have happened prior to this message being
 %% received and triggering failback. That is, both a failover message
@@ -256,23 +250,27 @@ recv(false, {Pid, Ref, TPid}, _, Pkt, Dict0, _) ->
 recv(false, false, TPid, Pkt, _, _) ->
     ?LOG(discarded, Pkt#diameter_packet.header),
     incr(TPid, {{unknown, 0}, recv, discarded}),
-    discard.
+    false.
 
-%% spawn_request/4
+%% spawn_request/5
 
-spawn_request(TPid, Pkt, Dict0, {Opts, RecvData}) ->
-    spawn_request(TPid, Pkt, Dict0, Opts, RecvData);
-spawn_request(TPid, Pkt, Dict0, RecvData) ->
-    spawn_request(TPid, Pkt, Dict0, ?DEFAULT_SPAWN_OPTS, RecvData).
+spawn_request(Ack, TPid, Pkt, Dict0, {Opts, RecvData}) ->
+    spawn_request(Ack, TPid, Pkt, Dict0, Opts, RecvData);
+spawn_request(Ack, TPid, Pkt, Dict0, RecvData) ->
+    spawn_request(Ack, TPid, Pkt, Dict0, ?DEFAULT_SPAWN_OPTS, RecvData).
 
-spawn_request(TPid, Pkt, Dict0, Opts, RecvData) ->
-    spawn_opt(fun() -> recv_request(TPid, Pkt, Dict0, RecvData) end, Opts).
+spawn_request(Ack, TPid, Pkt, Dict0, Opts, RecvData) ->
+    spawn_opt(fun() ->
+                      recv_request(Ack, TPid, Pkt, Dict0, RecvData)
+              end,
+              Opts).
 
 %% ---------------------------------------------------------------------------
-%% recv_request/4
+%% recv_request/5
 %% ---------------------------------------------------------------------------
 
-recv_request(TPid,
+recv_request(Ack,
+             TPid,
              #diameter_packet{header = #diameter_header{application_id = Id}}
              = Pkt,
              Dict0,
@@ -280,6 +278,7 @@ recv_request(TPid,
                        apps = Apps,
                        codec = Opts}
              = RecvData) ->
+    Ack andalso (TPid ! {handler, self()}),
     diameter_codec:setopts([{common_dictionary, Dict0} | Opts]),
     send_A(recv_R(diameter_service:find_incoming_app(PeerT, TPid, Id, Apps),
                   TPid,
@@ -511,7 +510,7 @@ send_A(T, TPid, {AppDict, Dict0} = DictT0, ReqPkt, EvalPktFs, EvalFs) ->
     {MsgDict, Pkt} = reply(T, TPid, DictT0, EvalPktFs, ReqPkt),
     incr(send, Pkt, TPid, AppDict),
     incr_rc(send, Pkt, TPid, {MsgDict, AppDict, Dict0}),  %% count outgoing
-    send(TPid, Pkt),
+    send(TPid, Pkt, _Route = self()),
     lists:foreach(fun diameter_lib:eval/1, EvalFs).
 
 %% answer/6
@@ -1207,7 +1206,7 @@ x(T) ->
     exit(T).
 
 %% ---------------------------------------------------------------------------
-%% # send_request/4
+%% send_request/4
 %%
 %% Handle an outgoing Diameter request.
 %% ---------------------------------------------------------------------------
@@ -1296,7 +1295,7 @@ mo(T, _) ->
     ?ERROR({invalid_option, T}).
 
 %% ---------------------------------------------------------------------------
-%% # send_request/6
+%% send_request/6
 %% ---------------------------------------------------------------------------
 
 %% Send an outgoing request in its dedicated process.
@@ -1744,11 +1743,6 @@ recv(TPid, Pid, TRef, {LocalTRef, MRef}) ->
         T ->
             exit({timeout, LocalTRef, TPid} = T)
     end.
-
-%% send/2
-
-send(Pid, Pkt) ->
-    Pid ! {send, Pkt}.
 
 %% send/3
 
