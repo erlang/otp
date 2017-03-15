@@ -108,7 +108,7 @@
 
 -define(DBG(F,A), 'n/a').
 %%-define(DBG(F,A), io:format(F,A)).
-%%-define(DBG(F,A), if is_list(F) -> ct:pal(F,A); is_atom(F)->ct:pal(atom_to_list(F),A) end).
+%%-define(DBG(F,A), ct:pal("~p:~p " ++ if is_list(F) -> F; is_atom(F) -> atom_to_list(F) end, [?MODULE,?LINE|A])).
 
 %%%=========================================================================
 %%%  API - CLIENT FUNCTIONS
