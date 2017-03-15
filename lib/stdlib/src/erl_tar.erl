@@ -1321,7 +1321,11 @@ foldl_read(TarName, Fun, Accu, #read_opts{}=Opts)
   when is_function(Fun,4) ->
     try open(TarName, [read|Opts#read_opts.open_mode]) of
         {ok, #reader{access=read}=Reader} ->
-            foldl_read(Reader, Fun, Accu, Opts);
+            try
+                foldl_read(Reader, Fun, Accu, Opts)
+            after
+                _ = close(Reader)
+            end;
         {error, _} = Err ->
             Err
     catch
