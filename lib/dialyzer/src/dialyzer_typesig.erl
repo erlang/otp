@@ -96,7 +96,8 @@
 
 -type typesig_funmap() :: #{type_var() => type_var()}.
 
--type prop_types() :: dict:dict(label(), erl_types:erl_type()).
+-type prop_types() :: orddict:orddict(label(), erl_types:erl_type()).
+-type dict_prop_types() :: dict:dict(label(), erl_types:erl_type()).
 
 -record(state, {callgraph                :: dialyzer_callgraph:callgraph()
                                           | 'undefined',
@@ -113,7 +114,7 @@
 		self_rec                 :: 'false' | erl_types:erl_type(),
 		plt                      :: dialyzer_plt:plt()
                                           | 'undefined',
-		prop_types  = dict:new() :: prop_types(),
+		prop_types  = dict:new() :: dict_prop_types(),
                 mod_records = []         :: [{module(), types()}],
 		scc         = []         :: ordsets:ordset(type_var()),
 		mfas                     :: [mfa()],
@@ -186,7 +187,7 @@ analyze_scc(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers0) ->
   pp_constrs_scc(Funs, State3),
   constraints_to_dot_scc(Funs, State3),
   T = solve(Funs, State3),
-  dict:from_list(maps:to_list(T)).
+  orddict:from_list(maps:to_list(T)).
 
 solvers([]) -> [v2];
 solvers(Solvers) -> Solvers.
@@ -2706,7 +2707,7 @@ is_equal(Type1, Type2) ->
 %%
 %% ============================================================================
 
-new_state(MFAs, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers) ->
+new_state(MFAs, NextLabel, CallGraph, CServer, Plt, PropTypes0, Solvers) ->
   List_SCC =
     [begin
        {Var, Label} = dialyzer_codeserver:lookup_mfa_var_label(MFA, CServer),
@@ -2724,6 +2725,7 @@ new_state(MFAs, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers) ->
 	end;
       _Many -> false
     end,
+  PropTypes = dict:from_list(PropTypes0),
   #state{callgraph = CallGraph, name_map = NameMap, next_label = NextLabel,
 	 prop_types = PropTypes, plt = Plt, scc = ordsets:from_list(SCC),
 	 mfas = MFAs, self_rec = SelfRec, solvers = Solvers,

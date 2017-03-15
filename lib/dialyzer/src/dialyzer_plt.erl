@@ -39,6 +39,7 @@
 	 insert_types/2,
          insert_exported_types/2,
 	 lookup/2,
+         is_contract/2,
 	 lookup_contract/2,
 	 lookup_callbacks/2,
 	 lookup_module/2,
@@ -155,6 +156,12 @@ insert_contract_list(#mini_plt{contracts = Contracts} = PLT, List) ->
 insert_callbacks(#plt{callbacks = Callbacks} = Plt, Codeserver) ->
   List = dialyzer_codeserver:get_callbacks(Codeserver),
   Plt#plt{callbacks = table_insert_list(Callbacks, List)}.
+
+-spec is_contract(plt(), mfa()) -> boolean().
+
+is_contract(#mini_plt{contracts = ETSContracts},
+            {M, F, _} = MFA) when is_atom(M), is_atom(F) ->
+  ets:member(ETSContracts, MFA).
 
 -spec lookup_contract(plt(), mfa_patt()) -> 'none' | {'value', #contract{}}.
 

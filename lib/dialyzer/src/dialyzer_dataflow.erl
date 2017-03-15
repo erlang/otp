@@ -138,7 +138,7 @@
 
 %%--------------------------------------------------------------------
 
--type fun_types() :: dict:dict(label(), type()).
+-type fun_types() :: orddict:orddict(label(), type()).
 
 -spec get_warnings(cerl:c_module(), dialyzer_plt:plt(),
                    dialyzer_callgraph:callgraph(),
@@ -3317,7 +3317,9 @@ state__clean_not_called(#state{fun_tab = FunTab} = State) ->
 state__all_fun_types(State) ->
   #state{fun_tab = FunTab} = state__clean_not_called(State),
   Tab1 = dict:erase(top, FunTab),
-  dict:map(fun(_Fun, {Args, Ret}) -> t_fun(Args, Ret)end, Tab1).
+  List = [{Fun, t_fun(Args, Ret)} ||
+           {Fun, {Args, Ret}} <- dict:to_list(Tab1)],
+  orddict:from_list(List).
 
 state__fun_type(Fun, #state{fun_tab = FunTab}) ->
   Label =
