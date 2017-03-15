@@ -590,11 +590,9 @@ incoming(Name, Pkt, false, S) ->
     recv(Name, Pkt, S);
 
 incoming(Name, Pkt, NPid, S) ->
-    try
-        recv(Name, Pkt, S)
-    after
-        NPid ! {diameter, discard}
-    end.
+    NS = recv(Name, Pkt, S),
+    NPid ! {diameter, discard},
+    NS.
 
 %% recv/3
 
