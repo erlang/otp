@@ -1601,13 +1601,13 @@ terminate(normal, State) ->
     %% If terminate reason =/= normal the progress reporting process will
     %% be killed by the exit signal.
     progress_report(stop, State), 
-    do_termiante({error, econn}, State);
+    do_terminate({error, econn}, State);
 terminate(Reason, State) -> 
     Report = io_lib:format("Ftp connection closed due to: ~p~n", [Reason]),
     error_logger:error_report(Report),
-    do_termiante({error, eclosed}, State).
+    do_terminate({error, eclosed}, State).
 
-do_termiante(ErrorMsg, State) ->
+do_terminate(ErrorMsg, State) ->
     close_data_connection(State),
     close_ctrl_connection(State),
     case State#state.client of
