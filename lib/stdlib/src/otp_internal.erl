@@ -515,10 +515,9 @@ obsolete_1(erl_parse, get_attribute, 2) ->
 obsolete_1(erl_lint, modify_line, 2) ->
     {removed,{erl_parse,map_anno,2},"19.0"};
 obsolete_1(ssl, negotiated_next_protocol, 1) ->
-    {deprecated,{ssl,negotiated_protocol,1}};
-
+    {removed,"removed in 20.0; use ssl:negotiated_protocol/1 instead"};
 obsolete_1(ssl, connection_info, 1) ->
-    {deprecated, "deprecated; use connection_information/[1,2] instead"};
+    {removed, "removed in 20.0; use ssl:connection_information/[1,2] instead"};
 
 obsolete_1(httpd_conf, check_enum, 2) ->
     {deprecated, "deprecated; use lists:member/2 instead"};
