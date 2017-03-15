@@ -42,9 +42,9 @@
 
 %% User Events 
 -export([send/2, recv/3, close/2, shutdown/2,
-	 new_user/2, get_opts/2, set_opts/2, session_info/1, 
+	 new_user/2, get_opts/2, set_opts/2, 
 	 peer_certificate/1, renegotiation/1, negotiated_protocol/1, prf/5,
-	 connection_information/1, handle_common_event/5
+	 connection_information/2, handle_common_event/5
 	]).
 
 %% General gen_statem state functions with extra callback argument 
@@ -185,12 +185,12 @@ recv(Pid, Length, Timeout) ->
     call(Pid, {recv, Length, Timeout}).
 
 %%--------------------------------------------------------------------
--spec connection_information(pid()) -> {ok, list()} | {error, reason()}.
+-spec connection_information(pid(), boolean()) -> {ok, list()} | {error, reason()}.
 %%
 %% Description: Get the SNI hostname
 %%--------------------------------------------------------------------
-connection_information(Pid) when is_pid(Pid) ->
-    call(Pid, connection_information).
+connection_information(Pid, IncludeSecrityInfo) when is_pid(Pid) ->
+    call(Pid, {connection_information, IncludeSecrityInfo}).
 
 %%--------------------------------------------------------------------
 -spec close(pid(), {close, Timeout::integer() | 
@@ -245,14 +245,6 @@ get_opts(ConnectionPid, OptTags) ->
 %%--------------------------------------------------------------------
 set_opts(ConnectionPid, Options) ->
     call(ConnectionPid, {set_opts, Options}).
-
-%%--------------------------------------------------------------------
--spec session_info(pid()) -> {ok, list()} | {error, reason()}. 
-%%
-%% Description:  Returns info about the ssl session
-%%--------------------------------------------------------------------
-session_info(ConnectionPid) ->
-    call(ConnectionPid, session_info). 
 
 %%--------------------------------------------------------------------
 -spec peer_certificate(pid()) -> {ok, binary()| undefined} | {error, reason()}.
@@ -775,14 +767,12 @@ connection({call, From}, renegotiate, #state{protocol_cb = Connection} = State,
 connection({call, From}, peer_certificate, 
 	   #state{session = #session{peer_certificate = Cert}} = State, _) ->
     hibernate_after(connection, State, [{reply, From,  {ok, Cert}}]); 
-connection({call, From}, connection_information, State, _) ->
+connection({call, From}, {connection_information, true}, State, _) ->
+    Info = connection_info(State) ++ security_info(State),
+    hibernate_after(connection, State, [{reply, From, {ok, Info}}]);
+connection({call, From}, {connection_information, false}, State, _) ->
     Info = connection_info(State),
     hibernate_after(connection, State, [{reply, From, {ok, Info}}]);
-connection({call, From}, session_info,  #state{session = #session{session_id = Id,
-								  cipher_suite = Suite}} = State, _) ->
-    SessionInfo = [{session_id, Id}, 
-		   {cipher_suite, ssl_cipher:erl_suite_definition(Suite)}],
-    hibernate_after(connection, State, [{reply, From, SessionInfo}]);
 connection({call, From}, negotiated_protocol, 
 	   #state{negotiated_protocol = undefined} = State, _) ->
     hibernate_after(connection, State, [{reply, From, {error, protocol_not_negotiated}}]);
@@ -1195,7 +1185,8 @@ handle_alert(#alert{level = ?WARNING} = Alert, StateName,
 %%% Internal functions
 %%--------------------------------------------------------------------
 connection_info(#state{sni_hostname = SNIHostname, 
-		       session = #session{cipher_suite = CipherSuite, ecc = ECCCurve},
+		       session = #session{session_id = SessionId,
+                                          cipher_suite = CipherSuite, ecc = ECCCurve},
 		       protocol_cb = Connection,
 		       negotiated_version =  {_,_} = Version, 
 		       ssl_options = Opts}) ->
@@ -1210,8 +1201,17 @@ connection_info(#state{sni_hostname = SNIHostname,
 			[]
 		end,
     [{protocol, RecordCB:protocol_version(Version)},
+     {session_id, SessionId},
      {cipher_suite, CipherSuiteDef},
      {sni_hostname, SNIHostname} | CurveInfo] ++ ssl_options_list(Opts).
+
+security_info(#state{connection_states = ConnectionStates}) ->
+    #{security_parameters :=
+	  #security_parameters{client_random = ClientRand, 
+                               server_random = ServerRand,
+                               master_secret = MasterSecret}} =
+	ssl_record:current_connection_state(ConnectionStates, read),
+    [{client_random, ClientRand}, {server_random, ServerRand}, {master_secret, MasterSecret}].
 
 do_server_hello(Type, #hello_extensions{next_protocol_negotiation = NextProtocols} =
 		    ServerHelloExt,

@@ -148,6 +148,7 @@ options_tests_tls() ->
 
 api_tests() ->
     [connection_info,
+     secret_connection_info,
      connection_information,
      peercert,
      peercert_with_client_cert,
@@ -611,7 +612,7 @@ prf(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 
 connection_info() ->
-    [{doc,"Test the API function ssl:connection_information/1"}].
+    [{doc,"Test the API function ssl:connection_information/2"}].
 connection_info(Config) when is_list(Config) -> 
     ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
@@ -642,6 +643,38 @@ connection_info(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
+secret_connection_info() ->
+    [{doc,"Test the API function ssl:connection_information/2"}].
+secret_connection_info(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, secret_connection_info_result, []}},
+					{options, ServerOpts}]),
+    
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+                                        {from, self()}, 
+                                        {mfa, {?MODULE, secret_connection_info_result, []}},
+                                        {options, ClientOpts}]),
+    
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
+
+    Version = ssl_test_lib:protocol_version(Config),    
+			   
+    ssl_test_lib:check_result(Server, true, Client, true),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 
 %%--------------------------------------------------------------------
 
@@ -3414,7 +3447,6 @@ listen_socket(Config) ->
     {error, enotconn} = ssl:connection_information(ListenSocket),
     {error, enotconn} = ssl:peername(ListenSocket),
     {error, enotconn} = ssl:peercert(ListenSocket),
-    {error, enotconn} = ssl:session_info(ListenSocket),
     {error, enotconn} = ssl:renegotiate(ListenSocket),
     {error, enotconn} = ssl:prf(ListenSocket, 'master_secret', <<"Label">>, client_random, 256),
     {error, enotconn} = ssl:shutdown(ListenSocket, read_write),
@@ -4638,6 +4670,11 @@ version_info_result(Socket) ->
     {ok, [{version, Version}]} = ssl:connection_information(Socket, [version]),
     {ok, Version}.
 
+secret_connection_info_result(Socket) ->
+    {ok, [{client_random, ClientRand}, {server_random, ServerRand}, {master_secret, MasterSecret}]} 
+        = ssl:connection_information(Socket, [client_random, server_random, master_secret]),
+    is_binary(ClientRand) andalso is_binary(ServerRand) andalso is_binary(MasterSecret). 
+    
 connect_dist_s(S) ->
     Msg = term_to_binary({erlang,term}),
     ok = ssl:send(S, Msg).

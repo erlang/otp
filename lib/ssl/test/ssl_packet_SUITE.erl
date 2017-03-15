@@ -1973,14 +1973,14 @@ passive_recv_packet(Socket, _, 0) ->
 	    {error, timeout} = ssl:recv(Socket, 0, 500),
 	    ok;
 	Other ->
-	    {other, Other, ssl:session_info(Socket), 0}
+	    {other, Other, ssl:connection_information(Socket, [session_id, cipher_suite]), 0}
     end;
 passive_recv_packet(Socket, Data, N) ->
     case ssl:recv(Socket, 0) of
 	{ok, Data} -> 
 	    passive_recv_packet(Socket, Data, N-1);
 	Other ->
-	    {other, Other, ssl:session_info(Socket), N}
+	    {other, Other, ssl:connection_information(Socket, [session_id, cipher_suite]), N}
     end.
 
 send(Socket,_, 0) ->
@@ -2032,7 +2032,7 @@ active_once_packet(Socket,_, 0) ->
 	{ssl, Socket, []} ->
 	    ok;
 	{ssl, Socket, Other} ->
-	    {other, Other, ssl:session_info(Socket), 0}
+	    {other, Other, ssl:connection_information(Socket,  [session_id, cipher_suite]), 0}
     end;
 active_once_packet(Socket, Data, N) ->
     receive 	
@@ -2077,7 +2077,7 @@ active_packet(Socket, _, 0) ->
 	{ssl, Socket, []} ->
 	    ok;
 	Other ->
-	    {other, Other, ssl:session_info(Socket), 0}
+	    {other, Other, ssl:connection_information(Socket,  [session_id, cipher_suite]), 0}
     end;
 active_packet(Socket, Data, N) ->
     receive 
@@ -2089,7 +2089,7 @@ active_packet(Socket, Data, N) ->
 	{ssl, Socket, Data} ->
 	    active_packet(Socket, Data, N -1);
 	Other ->
-	    {other, Other, ssl:session_info(Socket),N}
+	    {other, Other, ssl:connection_information(Socket,  [session_id, cipher_suite]),N}
     end.
 
 assert_packet_opt(Socket, Type) ->

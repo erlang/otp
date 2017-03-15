@@ -782,18 +782,18 @@ no_result(_) ->
     no_result_msg.
 
 trigger_renegotiate(Socket, [ErlData, N]) ->
-    [{session_id, Id} | _ ] = ssl:session_info(Socket),
+     {ok, [{session_id, Id}]} = ssl:connection_information(Socket,  [session_id]),
     trigger_renegotiate(Socket, ErlData, N, Id).
 
 trigger_renegotiate(Socket, _, 0, Id) ->
     ct:sleep(1000),
-    case ssl:session_info(Socket) of
-	[{session_id, Id} | _ ] ->
+    case ssl:connection_information(Socket,  [session_id]) of
+        {ok, [{session_id, Id}]} ->
 	    fail_session_not_renegotiated;
 	%% Tests that uses this function will not reuse
 	%% sessions so if we get a new session id the
 	%% renegotiation has succeeded.
-       	[{session_id, _} | _ ] -> 
+        {ok, [{session_id, _}]} -> 
 	    ok;
 	{error, closed} ->
 	    fail_session_fatal_alert_during_renegotiation;
@@ -998,8 +998,8 @@ cipher_result(Socket, Result) ->
     end.
 
 session_info_result(Socket) ->
-    ssl:session_info(Socket).
-
+    {ok, Info} = ssl:connection_information(Socket,  [session_id, cipher_suite]),
+    Info.
 
 public_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
 				 #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?rsaEncryption},
