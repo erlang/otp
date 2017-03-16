@@ -23,6 +23,7 @@
 -export([linearise/1]).
 -export([params/1]).
 -export([arity/1]). % for linear scan
+-export([redirect_jmp/3]).
 
 -define(SPARC_CFG, true).     % needed for cfg.inc
 
@@ -81,24 +82,29 @@ branch_successors(Branch) ->
 fails_to(_Instr) -> [].
 -endif.
 
--ifdef(notdef).
 redirect_jmp(I, Old, New) ->
   case I of
-    #b_label{label=Label} ->
-      if Old =:= Label -> I#b_label{label=New};
+    #bp{'cond'='a',label=Label} ->
+      if Old =:= Label -> I#bp{label=New};
 	 true -> I
       end;
-    #pseudo_bc{true_label=TrueLab, false_label=FalseLab} ->
-      I1 = if Old =:= TrueLab -> I#pseudo_bc{true_label=New};
+    #pseudo_bp{true_label=TrueLab, false_label=FalseLab} ->
+      I1 = if Old =:= TrueLab -> I#pseudo_bp{true_label=New};
 	      true -> I
 	   end,
-      if Old =:= FalseLab -> I1#pseudo_bc{false_label=New};
+      if Old =:= FalseLab -> I1#pseudo_bp{false_label=New};
 	 true -> I1
       end;
-    %% handle pseudo_call too?
-    _ -> I
+    #pseudo_call{contlab=ContLab0, sdesc=SDesc0} ->
+      SDesc = case SDesc0 of
+		#sparc_sdesc{exnlab=Old} -> SDesc0#sparc_sdesc{exnlab=New};
+		#sparc_sdesc{exnlab=_}   -> SDesc0
+	      end,
+      ContLab = if Old =:= ContLab0 -> New;
+		   true -> ContLab0
+		end,
+      I#pseudo_call{sdesc=SDesc, contlab=ContLab}
   end.
--endif.
 
 mk_goto(Label) ->
   hipe_sparc:mk_b_label(Label).

@@ -21,8 +21,7 @@
          bb/2, bb_add/3]).
 -export([postorder/1]).
 -export([linearise/1, params/1, reverse_postorder/1]).
--export([arity/1]).
-%%%-export([redirect_jmp/3, arity/1]).
+-export([redirect_jmp/3, arity/1]).
 
 %%% these tell cfg.inc what to define (ugly as hell)
 -define(BREADTH_ORDER,true).
@@ -79,7 +78,6 @@ branch_successors(Branch) ->
 fails_to(_Instr) -> [].
 -endif.
 
--ifdef(notdef).
 redirect_jmp(I, Old, New) ->
   case I of
     #b_label{label=Label} ->
@@ -93,10 +91,16 @@ redirect_jmp(I, Old, New) ->
       if Old =:= FalseLab -> I1#pseudo_bc{false_label=New};
 	 true -> I1
       end;
-    %% handle pseudo_call too?
-    _ -> I
+    #pseudo_call{sdesc=SDesc0, contlab=ContLab0} ->
+      SDesc = case SDesc0 of
+		#ppc_sdesc{exnlab=Old} -> SDesc0#ppc_sdesc{exnlab=New};
+		#ppc_sdesc{exnlab=_}   -> SDesc0
+	      end,
+      ContLab = if Old =:= ContLab0 -> New;
+		   true -> ContLab0
+		end,
+      I#pseudo_call{sdesc=SDesc, contlab=ContLab}
   end.
--endif.
 
 mk_goto(Label) ->
   hipe_ppc:mk_b_label(Label).

@@ -46,8 +46,12 @@
 %% callbacks for hipe_regalloc_loop
 -export([check_and_rewrite/3]).
 
-%% callbacks for hipe_regalloc_prepass
--export([new_reg_nr/1,
+%% callbacks for hipe_regalloc_prepass, hipe_range_split
+-export([mk_move/3,
+	 mk_goto/2,
+	 redirect_jmp/4,
+	 new_label/1,
+	 new_reg_nr/1,
 	 update_reg_nr/3,
 	 update_bb/4,
 	 subst_temps/3]).
@@ -146,6 +150,18 @@ is_move(Instruction, _) ->
 
 reg_nr(Reg, _) ->
   hipe_ppc:temp_reg(Reg).
+
+mk_move(Src, Dst, _) ->
+  hipe_ppc:mk_pseudo_move(Dst, Src).
+
+mk_goto(Label, _) ->
+  hipe_ppc:mk_b_label(Label).
+
+redirect_jmp(Jmp, ToOld, ToNew, _) when is_integer(ToOld), is_integer(ToNew) ->
+  hipe_ppc_cfg:redirect_jmp(Jmp, ToOld, ToNew).
+
+new_label(_) ->
+  hipe_gensym:get_next_label(ppc).
 
 new_reg_nr(_) ->
   hipe_gensym:get_next_var(ppc).
