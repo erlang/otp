@@ -102,7 +102,8 @@
 #if OPENSSL_VERSION_NUMBER >= OpenSSL_version(0,9,8,'o') \
 	&& !defined(OPENSSL_NO_EC) \
 	&& !defined(OPENSSL_NO_ECDH) \
-	&& !defined(OPENSSL_NO_ECDSA)
+	&& !defined(OPENSSL_NO_ECDSA) \
+	&& !defined(OPENSSL_NO_EC2M)
 # define HAVE_EC
 #endif
 
