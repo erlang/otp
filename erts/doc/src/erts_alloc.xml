@@ -595,7 +595,7 @@
         </item>
         <tag><marker id="M_sbct"/><c><![CDATA[+M<S>sbct <size>]]></c></tag>
         <item>
-          <p>Singleblock carrier threshold. Blocks larger than this
+          <p>Singleblock carrier threshold (in kilobytes). Blocks larger than this
             threshold are placed in singleblock carriers. Blocks
             smaller than this threshold are placed in multiblock
             carriers. On 32-bit Unix style OS this threshold cannot be set
