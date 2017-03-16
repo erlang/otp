@@ -64,7 +64,8 @@
          predef/1,
          maps/1,maps_type/1,maps_parallel_match/1,
          otp_11851/1,otp_11879/1,otp_13230/1,
-         record_errors/1, otp_xxxxx/1]).
+         record_errors/1, otp_xxxxx/1,
+         non_latin1_module/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -84,7 +85,7 @@ all() ->
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
      maps, maps_type, maps_parallel_match,
      otp_11851, otp_11879, otp_13230,
-     record_errors, otp_xxxxx].
+     record_errors, otp_xxxxx, non_latin1_module].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -3922,6 +3923,24 @@ otp_xxxxx(Config) ->
            [],
            []}],
     run(Config, Ts).
+
+%% OTP-14285: We currently don't support non-latin1 module names.
+
+non_latin1_module(_Config) ->
+    do_non_latin1_module('юникод'),
+    do_non_latin1_module(list_to_atom([256,$a,$b,$c])),
+    do_non_latin1_module(list_to_atom([$a,$b,256,$c])),
+    ok.
+
+do_non_latin1_module(Mod) ->
+    File = atom_to_list(Mod) ++ ".erl",
+    Forms = [{attribute,1,file,{File,1}},
+             {attribute,1,module,Mod},
+             {eof,2}],
+    error = compile:forms(Forms),
+    {error,_,[]} = compile:forms(Forms, [return]),
+    ok.
+
 
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->
