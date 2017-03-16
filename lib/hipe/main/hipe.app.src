@@ -150,6 +150,7 @@
 	     hipe_reg_worklists,
 	     hipe_regalloc_loop,
 	     hipe_regalloc_prepass,
+	     hipe_restore_reuse,
 	     hipe_rtl,
 	     hipe_rtl_arch,
 	     hipe_rtl_arith_32,

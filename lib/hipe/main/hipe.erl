@@ -1230,6 +1230,11 @@ option_text(regalloc) ->
   "    optimistic - another variant of a coalescing allocator";
 option_text(remove_comments) ->
   "Strip comments from intermediate code";
+option_text(ra_restore_reuse) ->
+  "Split live ranges of temporaries such that straight-line\n"
+  "code will not need to contain multiple restores from the same stack\n"
+  "location.\n"
+  "Should only be used with move coalescing register allocators.";
 option_text(rtl_ssa) ->
   "Perform SSA conversion on the RTL level -- default starting at O2";
 option_text(rtl_ssa_const_prop) ->
@@ -1371,6 +1376,7 @@ opt_keys() ->
      pp_rtl_linear,
      ra_partitioned,
      ra_prespill,
+     ra_restore_reuse,
      regalloc,
      remove_comments,
      rtl_ssa,
@@ -1409,7 +1415,8 @@ o1_opts(TargetArch) ->
 	    icode_ssa_const_prop, icode_ssa_copy_prop, icode_inline_bifs,
 	    rtl_ssa, rtl_ssa_const_prop, rtl_ssapre,
 	    spillmin_color, use_indexing, remove_comments,
-	    binary_opt, {regalloc,coalescing} | o0_opts(TargetArch)],
+	    binary_opt, {regalloc,coalescing}, ra_restore_reuse
+	    | o0_opts(TargetArch)],
   case TargetArch of
     ultrasparc ->
       Common;
@@ -1477,6 +1484,7 @@ opt_negations() ->
    {no_pp_rtl_ssapre, pp_rtl_ssapre},
    {no_ra_partitioned, ra_partitioned},
    {no_ra_prespill, ra_prespill},
+   {no_ra_restore_reuse, ra_restore_reuse},
    {no_remove_comments, remove_comments},
    {no_rtl_ssa, rtl_ssa},
    {no_rtl_ssa_const_prop, rtl_ssa_const_prop},
