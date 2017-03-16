@@ -50,6 +50,7 @@ MODULES = hipe_ig hipe_ig_moves hipe_moves \
 	  hipe_optimistic_regalloc \
 	  hipe_coalescing_regalloc \
 	  hipe_graph_coloring_regalloc \
+	  hipe_range_split \
 	  hipe_regalloc_loop \
 	  hipe_regalloc_prepass \
 	  hipe_restore_reuse \

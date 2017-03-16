@@ -36,6 +36,14 @@
 
 -export([split/4]).
 
+%% Exports for hipe_range_split, which uses restore_reuse as one possible spill
+%% "mode"
+-export([analyse/3
+	,renamed_in_block/2
+	,split_in_block/2
+	]).
+-export_type([avail/0]).
+
 -compile(inline).
 
 %% -define(DO_ASSERT, 1).
@@ -59,7 +67,7 @@ split(CFG, Liveness, TargetMod, TargetContext) ->
   rewrite(CFG, Target, Avail).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--type avail() :: #{label() => avail_bb()}.
+-opaque avail() :: #{label() => avail_bb()}.
 
 -record(avail_bb, {
 	  %% Blocks where HasCall is true are considered to have too high
@@ -331,6 +339,11 @@ rewrite([L|Ls], Target, Avail, Input0, CFG0) ->
   {Input, CFG} = rewrite_succs(avail_succ(L, Avail), Target, L, LOutput, Avail,
 			       Input1, CFG1),
   rewrite(Ls, Target, Avail, Input, CFG).
+
+-spec renamed_in_block(label(), avail()) -> ordsets:ordset(reg()).
+renamed_in_block(L, Avail) ->
+  ordsets:union([avail_self(L, Avail), want_in(L, Avail),
+		 want_out(L, Avail)]).
 
 -spec split_in_block(label(), avail()) -> ordsets:ordset(reg()).
 split_in_block(L, Avail) ->

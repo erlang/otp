@@ -148,6 +148,7 @@
 	     hipe_ppc_specific_fp,
 	     hipe_ppc_subst,
 	     hipe_profile,
+	     hipe_range_split,
 	     hipe_reg_worklists,
 	     hipe_regalloc_loop,
 	     hipe_regalloc_prepass,

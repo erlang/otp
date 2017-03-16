@@ -99,11 +99,19 @@ call_allocator(CFG, Liveness, SpillLimit, SpillIndex, Options, RegAllocMod,
 			   TargetCtx, Options)
   end.
 
-do_range_split(CFG0, Liveness, TgtMod, TgtCtx, Options) ->
-  case proplists:get_bool(ra_restore_reuse, Options) of
+do_range_split(CFG0, Liveness0, TgtMod, TgtCtx, Options) ->
+  {CFG2, Liveness1} =
+    case proplists:get_bool(ra_restore_reuse, Options) of
+      true ->
+	CFG1 = hipe_restore_reuse:split(CFG0, Liveness0, TgtMod, TgtCtx),
+	{CFG1, TgtMod:analyze(CFG1, TgtCtx)};
+      false ->
+	{CFG0, Liveness0}
+    end,
+  case proplists:get_bool(ra_range_split, Options) of
     true ->
-      CFG1 = hipe_restore_reuse:split(CFG0, Liveness, TgtMod, TgtCtx),
-      {CFG1, TgtMod:analyze(CFG1, TgtCtx)};
+      CFG3 = hipe_range_split:split(CFG2, Liveness1, TgtMod, TgtCtx, Options),
+      {CFG3, TgtMod:analyze(CFG3, TgtCtx)};
     false ->
-      {CFG0, Liveness}
+      {CFG2, Liveness1}
   end.
