@@ -267,7 +267,7 @@ void hipe_thread_signal_init(void)
 {
     /* Stack don't really need to be cache aligned.
        We use it to suppress false leak report from valgrind */
-    hipe_sigaltstack(erts_alloc_permanent_cache_aligned(ERTS_ALC_T_HIPE, SIGSTKSZ));
+    hipe_sigaltstack(erts_alloc_permanent_cache_aligned(ERTS_ALC_T_HIPE_LL, SIGSTKSZ));
 }
 #endif
 

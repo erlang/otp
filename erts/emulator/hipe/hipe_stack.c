@@ -46,7 +46,7 @@ struct hipe_sdesc_table hipe_sdesc_table;
 static struct hipe_sdesc **alloc_bucket(unsigned int size)
 {
     unsigned long nbytes = size * sizeof(struct hipe_sdesc*);
-    struct hipe_sdesc **bucket = erts_alloc(ERTS_ALC_T_HIPE, nbytes);
+    struct hipe_sdesc **bucket = erts_alloc(ERTS_ALC_T_HIPE_LL, nbytes);
     sys_memzero(bucket, nbytes);
     return bucket;
 }
@@ -75,7 +75,7 @@ static void hipe_grow_sdesc_table(void)
 	    b = next;
 	}
     }
-    erts_free(ERTS_ALC_T_HIPE, old_bucket);
+    erts_free(ERTS_ALC_T_HIPE_LL, old_bucket);
 }
 
 struct hipe_sdesc *hipe_put_sdesc(struct hipe_sdesc *sdesc)
@@ -121,7 +121,7 @@ void hipe_destruct_sdesc(struct hipe_sdesc *sdesc)
         free_me = ErtsContainerStruct(sdesc, struct hipe_sdesc_with_exnra, sdesc);
     else
         free_me = sdesc;
-    erts_free(ERTS_ALC_T_HIPE, free_me);
+    erts_free(ERTS_ALC_T_HIPE_LL, free_me);
 }
 
 void hipe_init_sdesc_table(struct hipe_sdesc *sdesc)
@@ -199,7 +199,7 @@ struct hipe_sdesc *hipe_decode_sdesc(Eterm arg)
 	 ? offsetof(struct hipe_sdesc_with_exnra, sdesc.livebits)
 	 : offsetof(struct hipe_sdesc, livebits))
 	+ livebitswords * sizeof(int);
-    p = erts_alloc(ERTS_ALC_T_HIPE, sdescbytes);
+    p = erts_alloc(ERTS_ALC_T_HIPE_LL, sdescbytes);
     /* If we have an exception handler use the
        special sdesc_with_exnra structure. */
     if (exnra) {

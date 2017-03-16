@@ -664,7 +664,7 @@ void hipe_inc_nstack(Process *p)
 {
     unsigned old_size = p->hipe.nstend - p->hipe.nstack;
     unsigned new_size = hipe_next_nstack_size(old_size);
-    Eterm *new_nstack = erts_alloc(ERTS_ALC_T_HIPE, new_size*sizeof(Eterm));
+    Eterm *new_nstack = erts_alloc(ERTS_ALC_T_HIPE_STK, new_size*sizeof(Eterm));
     unsigned used_size = p->hipe.nstend - p->hipe.nsp;
 
     sys_memcpy(new_nstack+new_size-used_size, p->hipe.nsp, used_size*sizeof(Eterm));
@@ -673,7 +673,7 @@ void hipe_inc_nstack(Process *p)
     if (p->hipe.nstblacklim)
 	p->hipe.nstblacklim = new_nstack + new_size - (p->hipe.nstend - p->hipe.nstblacklim);
     if (p->hipe.nstack)
-	erts_free(ERTS_ALC_T_HIPE, p->hipe.nstack);
+	erts_free(ERTS_ALC_T_HIPE_STK, p->hipe.nstack);
     p->hipe.nstack = new_nstack;
     p->hipe.nstend = new_nstack + new_size;
     p->hipe.nsp = new_nstack + new_size - used_size;
@@ -683,7 +683,7 @@ void hipe_inc_nstack(Process *p)
 void hipe_empty_nstack(Process *p)
 {
     if (p->hipe.nstack) {
-	erts_free(ERTS_ALC_T_HIPE, p->hipe.nstack);
+	erts_free(ERTS_ALC_T_HIPE_STK, p->hipe.nstack);
     }
     p->hipe.nstgraylim = NULL;
     p->hipe.nsp = NULL;
