@@ -166,9 +166,13 @@ remap_temp_map0(Cols, [_Y|Ys], SpillIndex) ->
 %%
 
 build_ig(CFG, Live, Target, TempMap) ->
-  try build_ig0(CFG, Live, Target, TempMap)
-  catch error:Rsn -> exit({regalloc, build_ig, Rsn})
-  end.
+  TempMapping = map_spilled_temporaries(TempMap),
+  TempMappingTable = setup_ets(TempMapping),
+  NumSpilled = length(TempMapping),
+  IG = build_ig_bbs(labels(CFG, Target), CFG, Live, empty_ig(NumSpilled),
+		    Target, TempMap, TempMappingTable),
+  ets:delete(TempMappingTable),
+  {normalize_ig(IG), NumSpilled}.
 
 %% Creates an ETS table consisting of the keys given in List, with the values
 %% being an integer which is the position of the key in List.
@@ -182,15 +186,6 @@ setup_ets0([], Table, _N) ->
 setup_ets0([X|Xs], Table, N) ->
   ets:insert(Table, {X, N}),
   setup_ets0(Xs, Table, N+1).
-
-build_ig0(CFG, Live, Target, TempMap) ->
-  TempMapping = map_spilled_temporaries(TempMap),
-  TempMappingTable = setup_ets(TempMapping),
-  NumSpilled = length(TempMapping),
-  IG = build_ig_bbs(labels(CFG, Target), CFG, Live, empty_ig(NumSpilled),
-		    Target, TempMap, TempMappingTable),
-  ets:delete(TempMappingTable),
-  {normalize_ig(IG), NumSpilled}.
 
 build_ig_bbs([], _CFG, _Live, IG, _Target, _TempMap, _TempMapping) ->
   IG;
@@ -281,15 +276,6 @@ i_arcs(X, [Y|Ys], IG) ->
 %%     throw an exception (the caller should retry with more stack slots)
 
 color(IG, StackSlots, NumNodes, Target) ->
-  try
-    color_0(IG, StackSlots, NumNodes, Target)
-  catch
-    error:Rsn ->
-      ?error_msg("Coloring failed with ~p~n", [Rsn]),
-      ?EXIT(Rsn)
-  end.
-
-color_0(IG, StackSlots, NumNodes, Target) -> 
   ?report("simplification of IG~n", []),
   K = ordsets:size(StackSlots),
   Nodes = list_ig(IG),
