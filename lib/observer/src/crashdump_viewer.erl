@@ -1555,9 +1555,13 @@ split_pid_list_no_space([],[],Pids) ->
 %% Page with external ets tables
 get_ets_tables(File,Pid,WS) ->
     ParseFun = fun(Fd,Id) ->
-		       get_etsinfo(Fd,#ets_table{pid=list_to_pid(Id)},WS)
+		       ET = get_etsinfo(Fd,#ets_table{pid=list_to_pid(Id)},WS),
+                       ET#ets_table{is_named=tab_is_named(ET)}
 	       end,
     lookup_and_parse_index(File,{?ets,Pid},ParseFun,"ets").
+
+tab_is_named(#ets_table{id=Name,name=Name}) -> "yes";
+tab_is_named(#ets_table{}) -> "no".
 
 get_etsinfo(Fd,EtsTable = #ets_table{details=Ds},WS) ->
     case line_head(Fd) of
