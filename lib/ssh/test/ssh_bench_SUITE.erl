@@ -145,7 +145,7 @@ transfer_text(Config) ->
      || {Crypto,Mac} <- [{        none,                    none},
                          {'aes128-ctr',             'hmac-sha1'},
                          {'aes256-ctr',             'hmac-sha1'},
-                         {'aes128-gcm@openssh.com', 'hmac-sha1'},
+%%                         {'aes128-gcm@openssh.com', 'hmac-sha1'},
                          {'aes128-cbc',             'hmac-sha1'},
                          {'3des-cbc',               'hmac-sha1'},
                          {'aes128-ctr',             'hmac-sha2-256'},
