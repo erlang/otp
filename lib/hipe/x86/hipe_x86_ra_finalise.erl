@@ -140,6 +140,16 @@ ra_insn(I, Map, FpMap) ->
       I#pseudo_call{'fun'=Fun};
     #pseudo_jcc{} ->
       I;
+    #pseudo_spill_fmove{src=Src0, temp=Temp0, dst=Dst0} ->
+      Src = ra_opnd(Src0, Map, FpMap),
+      Temp = ra_opnd(Temp0, Map, FpMap),
+      Dst = ra_opnd(Dst0, Map, FpMap),
+      I#pseudo_spill_fmove{src=Src, temp=Temp, dst=Dst};
+    #pseudo_spill_move{src=Src0, temp=Temp0, dst=Dst0} ->
+      Src = ra_opnd(Src0, Map),
+      Temp = ra_opnd(Temp0, Map),
+      Dst = ra_opnd(Dst0, Map),
+      I#pseudo_spill_move{src=Src, temp=Temp, dst=Dst};
     #pseudo_tailcall{'fun'=Fun0,stkargs=StkArgs0} ->
       Fun = ra_opnd(Fun0, Map),
       StkArgs = ra_args(StkArgs0, Map),

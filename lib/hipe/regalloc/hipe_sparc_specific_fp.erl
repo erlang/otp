@@ -24,6 +24,7 @@
 	 ,reg_nr/2
 	 ,def_use/2
 	 ,is_move/2
+	 ,is_spill_move/2
 	 ,is_precoloured/2
 	 ,var_range/2
 	 ,allocatable/1
@@ -135,6 +136,9 @@ defines_all_alloc(I, _) ->
 is_move(I, _) ->
   hipe_sparc:is_pseudo_fmove(I).
  
+is_spill_move(I, _) ->
+  hipe_sparc:is_pseudo_spill_fmove(I).
+
 reg_nr(Reg, _) ->
   hipe_sparc:temp_reg(Reg).
 

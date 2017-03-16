@@ -46,6 +46,7 @@
 	 def_use/2,
 	 is_arg/2,	% used by hipe_ls_regalloc
 	 is_move/2,
+	 is_spill_move/2,
 	 is_fixed/2,	% used by hipe_graph_coloring_regalloc
 	 is_global/2,
 	 is_precoloured/2,
@@ -209,6 +210,9 @@ is_move(Instruction,_) ->
       end;
     false -> false
   end.
+
+is_spill_move(Instruction,_) ->
+  hipe_x86:is_pseudo_spill_move(Instruction).
 
 reg_nr(Reg,_) ->
   hipe_x86:temp_reg(Reg).

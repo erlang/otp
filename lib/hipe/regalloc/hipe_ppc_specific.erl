@@ -24,6 +24,7 @@
 	 ,reg_nr/2
 	 ,def_use/2
 	 ,is_move/2
+	 ,is_spill_move/2
 	 ,is_precoloured/2
 	 ,var_range/2
 	 ,allocatable/1
@@ -153,6 +154,9 @@ is_move(Instruction, _) ->
       end;
     false -> false
   end.
+
+is_spill_move(Instruction, _) ->
+  hipe_ppc:is_pseudo_spill_move(Instruction).
 
 reg_nr(Reg, _) ->
   hipe_ppc:temp_reg(Reg).

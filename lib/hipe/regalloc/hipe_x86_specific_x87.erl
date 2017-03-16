@@ -47,6 +47,7 @@
 	 uses/2,
 	 defines/2,
 	 defines_all_alloc/2,
+	 is_spill_move/2,
 	 is_global/2,
 	 reg_nr/2,
 	 physical_name/2,
@@ -157,6 +158,9 @@ defines(I, _) ->
  	     temp_is_double(X)].
 
 defines_all_alloc(I, _) -> hipe_amd64_defuse:insn_defs_all(I).
+
+is_spill_move(I, _) ->
+  hipe_x86:is_pseudo_spill_fmove(I).
 
 temp_is_double(Temp) ->
   hipe_x86:temp_type(Temp) =:= 'double'.

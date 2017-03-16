@@ -53,6 +53,8 @@ do_insn(I, TempMap, Strategy) ->	% Insn -> {Insn list, DidSpill}
       do_fp_unop(I, TempMap, Strategy);
     #fp_binop{} ->
       do_fp_binop(I, TempMap, Strategy);
+    #pseudo_spill_fmove{} ->
+      do_pseudo_spill_fmove(I, TempMap, Strategy);
     _ ->
       %% All non sse2 ops
       {[I], false}
@@ -95,14 +97,25 @@ do_fmove(I, TempMap, Strategy) ->
   of
     true ->
       Tmp = spill_temp(double, Strategy),
-      {[#fmove{src=Src, dst=Tmp},I#fmove{src=Tmp,dst=Dst}],
-       true};
+      %% pseudo_spill_fmove allows spill slot move coalescing, but must not
+      %% contain memory operands (except for spilled temps)
+      Is = case is_float_temp(Src) andalso is_float_temp(Dst) of
+	     true -> [#pseudo_spill_fmove{src=Src, temp=Tmp, dst=Dst}];
+	     false -> [#fmove{src=Src, dst=Tmp},I#fmove{src=Tmp,dst=Dst}]
+	   end,
+      {Is, true};
     false ->
       {[I], false}
   end.
 
 is_float_temp(#x86_temp{type=Type}) -> Type =:= double;
 is_float_temp(#x86_mem{}) -> false.
+
+%%% Fix an pseudo_spill_fmove op.
+do_pseudo_spill_fmove(I = #pseudo_spill_fmove{temp=Temp}, TempMap, _Strategy) ->
+  %% Temp is above the low water mark and must not have been spilled
+  false = is_mem_opnd(Temp, TempMap),
+  {[I], false}. % nothing to do
 
 %%% Check if an operand denotes a memory cell (mem or pseudo).
 

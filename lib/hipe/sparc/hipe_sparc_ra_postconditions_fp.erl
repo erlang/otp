@@ -43,6 +43,7 @@ do_insn(I, TempMap) ->
     #pseudo_fload{} -> do_pseudo_fload(I, TempMap);
     #pseudo_fmove{} -> do_pseudo_fmove(I, TempMap);
     #pseudo_fstore{} -> do_pseudo_fstore(I, TempMap);
+    #pseudo_spill_fmove{} -> do_pseudo_spill_fmove(I, TempMap);
     _ -> {[I], false}
   end.
 
@@ -67,11 +68,13 @@ do_pseudo_fload(I=#pseudo_fload{dst=Dst}, TempMap) ->
   {[NewI | FixDst], DidSpill}.
 
 do_pseudo_fmove(I=#pseudo_fmove{src=Src,dst=Dst}, TempMap) ->
-  case temp_is_spilled(Dst, TempMap) of
-    true ->
-      {FixSrc,NewSrc,DidSpill} = fix_src(Src, TempMap),
-      NewI = I#pseudo_fmove{src=NewSrc},
-      {FixSrc ++ [NewI], DidSpill};
+  case temp_is_spilled(Src, TempMap)
+    andalso temp_is_spilled(Dst, TempMap)
+  of
+    true -> % Turn into pseudo_spill_fmove
+      Temp = clone(Src),
+      NewI = #pseudo_spill_fmove{src=Src,temp=Temp,dst=Dst},
+      {[NewI], true};
     _ ->
       {[I], false}
   end.
@@ -80,6 +83,11 @@ do_pseudo_fstore(I=#pseudo_fstore{src=Src}, TempMap) ->
   {FixSrc,NewSrc,DidSpill} = fix_src(Src, TempMap),
   NewI = I#pseudo_fstore{src=NewSrc},
   {FixSrc ++ [NewI], DidSpill}.
+
+do_pseudo_spill_fmove(I=#pseudo_spill_fmove{temp=Temp}, TempMap) ->
+  %% Temp is above the low water mark and must not have been spilled
+  false = temp_is_spilled(Temp, TempMap),
+  {[I], false}.
 
 %%% Fix Dst and Src operands.
 

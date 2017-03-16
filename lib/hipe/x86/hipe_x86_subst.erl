@@ -59,6 +59,10 @@ insn_temps(SubstTemp, I) ->
       I#jmp_switch{temp=O(T), jtab=jtab_temps(SubstTemp, J)};
     #pseudo_call{'fun'=F} ->
       I#pseudo_call{'fun'=funv_temps(SubstTemp, F)};
+    #pseudo_spill_fmove{src=S, temp=T, dst=D} ->
+      I#pseudo_spill_fmove{src=O(S), temp=O(T), dst=O(D)};
+    #pseudo_spill_move{src=S, temp=T, dst=D} ->
+      I#pseudo_spill_move{src=O(S), temp=O(T), dst=O(D)};
     #pseudo_tailcall{'fun'=F, stkargs=Stk} ->
       I#pseudo_tailcall{'fun'=funv_temps(SubstTemp, F),
 			stkargs=lists:map(O, Stk)};

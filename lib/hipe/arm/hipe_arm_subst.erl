@@ -59,6 +59,8 @@ insn_temps(T, I) ->
       #pseudo_call{funv=F} -> I#pseudo_call{funv=funv_temps(T, F)};
       #pseudo_call_prepare{} -> I;
       #pseudo_li{dst=D} -> I#pseudo_li{dst=T(D)};
+      #pseudo_spill_move{dst=D,temp=U,src=S} ->
+	  I#pseudo_spill_move{dst=T(D),temp=T(U),src=T(S)};
       #pseudo_switch{jtab=J=#arm_temp{},index=Ix=#arm_temp{}} ->
 	  I#pseudo_switch{jtab=T(J),index=T(Ix)};
       #pseudo_tailcall{funv=F,stkargs=Stk} ->

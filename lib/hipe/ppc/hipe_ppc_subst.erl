@@ -48,6 +48,8 @@ insn_temps(T, I) ->
       #pseudo_call_prepare{} -> I;
       #pseudo_li{dst=D} -> I#pseudo_li{dst=T(D)};
       #pseudo_move{dst=D,src=S} -> I#pseudo_move{dst=T(D),src=T(S)};
+      #pseudo_spill_move{dst=D,temp=U,src=S} ->
+	  I#pseudo_spill_move{dst=T(D),temp=T(U),src=T(S)};
       #pseudo_tailcall{func=F,stkargs=Stk} when not is_record(F, ppc_temp) ->
 	  I#pseudo_tailcall{stkargs=lists:map(A,Stk)};
       #pseudo_tailcall_prepare{} -> I;
@@ -62,7 +64,9 @@ insn_temps(T, I) ->
       #fp_binary{dst=D,src1=L,src2=R} ->
 	  I#fp_binary{dst=T(D),src1=T(L),src2=T(R)};
       #fp_unary{dst=D,src=S} -> I#fp_unary{dst=T(D),src=T(S)};
-      #pseudo_fmove{dst=D,src=S} -> I#pseudo_fmove{dst=T(D),src=T(S)}
+      #pseudo_fmove{dst=D,src=S} -> I#pseudo_fmove{dst=T(D),src=T(S)};
+      #pseudo_spill_fmove{dst=D,temp=U,src=S} ->
+	  I#pseudo_spill_fmove{dst=T(D),temp=T(U),src=T(S)}
   end.
 
 -spec oper_temps(subst_fun(), oper()) -> oper().

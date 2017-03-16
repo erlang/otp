@@ -42,6 +42,7 @@ do_insn(I, TempMap) ->
     #fp_binary{} -> do_fp_binary(I, TempMap);
     #fp_unary{} -> do_fp_unary(I, TempMap);
     #pseudo_fmove{} -> do_pseudo_fmove(I, TempMap);
+    #pseudo_spill_fmove{} -> do_pseudo_spill_fmove(I, TempMap);
     _ -> {[I], false}
   end.
 
@@ -81,14 +82,21 @@ do_fp_unary(I=#fp_unary{dst=Dst,src=Src}, TempMap) ->
   {FixSrc ++ [NewI | FixDst], DidSpill1 or DidSpill2}.
 
 do_pseudo_fmove(I=#pseudo_fmove{dst=Dst,src=Src}, TempMap) ->
-  case temp_is_spilled(Dst, TempMap) of
-    true ->
-      {FixSrc,NewSrc,DidSpill} = fix_src(Src, TempMap),
-      NewI = I#pseudo_fmove{src=NewSrc},
-      {FixSrc ++ [NewI], DidSpill};
+  case temp_is_spilled(Src, TempMap)
+    andalso temp_is_spilled(Dst, TempMap)
+  of
+    true -> % Turn into pseudo_spill_fmove
+      Temp = clone(Src),
+      NewI = #pseudo_spill_fmove{dst=Dst,temp=Temp,src=Src},
+      {[NewI], true};
     _ ->
       {[I], false}
   end.
+
+do_pseudo_spill_fmove(I=#pseudo_spill_fmove{temp=Temp}, TempMap) ->
+  %% Temp is above the low water mark and must not have been spilled
+  false = temp_is_spilled(Temp, TempMap),
+  {[I], false}.
 
 %%% Fix Dst and Src operands.
 
