@@ -1118,7 +1118,7 @@ validate_versions([Version | Rest], Versions) when Version == 'tlsv1.2';
                                                    Version == sslv3 ->
     tls_validate_versions(Rest, Versions);                                      
 validate_versions([Version | Rest], Versions) when Version == 'dtlsv1';
-                                                   Version == 'dtlsv2'->
+                                                   Version == 'dtlsv1.2'->
     dtls_validate_versions(Rest, Versions);
 validate_versions([Ver| _], Versions) ->
     throw({error, {options, {Ver, {versions, Versions}}}}).
@@ -1136,7 +1136,7 @@ tls_validate_versions([Ver| _], Versions) ->
 dtls_validate_versions([], Versions) ->
     Versions;
 dtls_validate_versions([Version | Rest], Versions) when  Version == 'dtlsv1';
-                                                         Version == 'dtlsv2'->
+                                                         Version == 'dtlsv1.2'->
     dtls_validate_versions(Rest, Versions);
 dtls_validate_versions([Ver| _], Versions) ->
     throw({error, {options, {Ver, {versions, Versions}}}}).
