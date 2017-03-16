@@ -483,8 +483,8 @@ merge_pointless_splits_1([], _ScanBBs, DSets, Acc) -> {Acc, DSets};
 merge_pointless_splits_1([P={_,{single,_}}|Ps], ScanBBs, DSets, Acc) ->
   merge_pointless_splits_1(Ps, ScanBBs, DSets, [P|Acc]);
 merge_pointless_splits_1([P0={L,{split,_,_}}|Ps], ScanBBs, DSets0, Acc) ->
-  {EntryRoot, DSets1} = dsets_find({entry,L}, DSets0),
-  {ExitRoot,  DSets}  = dsets_find({exit,L},  DSets1),
+  {EntryRoot, DSets1} = hipe_dsets:find({entry,L}, DSets0),
+  {ExitRoot,  DSets}  = hipe_dsets:find({exit,L},  DSets1),
   case EntryRoot =:= ExitRoot of
     false -> merge_pointless_splits_1(Ps, ScanBBs, DSets, [P0|Acc]);
     true ->
@@ -501,7 +501,7 @@ merge_pointless_splits_1([P0={L,{split,_,_}}|Ps], ScanBBs, DSets0, Acc) ->
 
 -spec merge_small_parts(bb_dsets()) -> {bb_dsets_rllist(), bb_dsets()}.
 merge_small_parts(DSets0) ->
-  {RLList, DSets1} = dsets_to_rllist(DSets0),
+  {RLList, DSets1} = hipe_dsets:to_rllist(DSets0),
   RLLList = [{R, length(Elems), Elems} || {R, Elems} <- RLList],
   merge_small_parts_1(RLLList, DSets1, []).
 
@@ -518,8 +518,8 @@ merge_small_parts_1([Fst,{R, L, Es}|Ps], DSets, Acc)
   merge_small_parts_1([Fst|Ps], DSets, [{R,Es}|Acc]);
 merge_small_parts_1([{R1,L1,Es1},{R2,L2,Es2}|Ps], DSets0, Acc) ->
   ?ASSERT(L1 < ?TUNE_TOO_FEW_BBS andalso L2 < ?TUNE_TOO_FEW_BBS),
-  DSets1 = dsets_union(R1, R2, DSets0),
-  {R, DSets} = dsets_find(R1, DSets1),
+  DSets1 = hipe_dsets:union(R1, R2, DSets0),
+  {R, DSets} = hipe_dsets:find(R1, DSets1),
   merge_small_parts_1([{R,L2+L1,Es2++Es1}|Ps], DSets, Acc).
 
 %% @doc Partition an ordering over BBs into subsequences for the dsets that
@@ -531,8 +531,8 @@ part_order(Lbs, DSets) -> part_order(Lbs, DSets, #{}).
 
 part_order([], DSets, Acc) -> {Acc, DSets};
 part_order([L|Ls], DSets0, Acc0) ->
-  {EntryRoot, DSets1} = dsets_find({entry,L}, DSets0),
-  {ExitRoot,  DSets2} = dsets_find({exit,L},  DSets1),
+  {EntryRoot, DSets1} = hipe_dsets:find({entry,L}, DSets0),
+  {ExitRoot,  DSets2} = hipe_dsets:find({exit,L},  DSets1),
   Acc1 = map_append(EntryRoot, L, Acc0),
   %% Only include the label once if both entry and exit is in same partition
   Acc2 = case EntryRoot =:= ExitRoot of
@@ -558,71 +558,24 @@ map_append(Key, Elem, Map) ->
 %% split point, and one from the end to the last split point.
 
 -type bb_dset_key() :: {entry | exit, label()}.
--type bb_dsets() :: dsets(bb_dset_key()).
+-type bb_dsets() :: hipe_dsets:dsets(bb_dset_key()).
 -type bb_dsets_rllist() :: [{bb_dset_key(), [bb_dset_key()]}].
 
 -spec initial_dsets(target_cfg(), module(), target_context()) -> bb_dsets().
 initial_dsets(CFG, TgtMod, TgtCtx) ->
   Labels = TgtMod:labels(CFG, TgtCtx),
-  DSets0 = dsets_new(lists:append([[{entry,L},{exit,L}] || L <- Labels])),
+  DSets0 = hipe_dsets:new(lists:append([[{entry,L},{exit,L}] || L <- Labels])),
   Edges = lists:append([[{L, S} || S <- hipe_gen_cfg:succ(CFG, L)]
 			|| L <- Labels]),
-  lists:foldl(fun({X, Y}, DS) -> dsets_union({exit,X}, {entry,Y}, DS) end,
+  lists:foldl(fun({X, Y}, DS) -> hipe_dsets:union({exit,X}, {entry,Y}, DS) end,
 	      DSets0, Edges).
 
 -spec join_whole_blocks(part_bb_list(), bb_dsets()) -> bb_dsets().
 join_whole_blocks(PartBBList, DSets0) ->
-  lists:foldl(fun({L, {single, _}}, DS) -> dsets_union({entry,L}, {exit,L}, DS);
+  lists:foldl(fun({L, {single, _}}, DS) ->
+		  hipe_dsets:union({entry,L}, {exit,L}, DS);
 		 ({_, {split, _, _}}, DS) -> DS
 	      end, DSets0, PartBBList).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% The disjoint set forests data structure, for elements of arbitrary types.
-%% Note that the find operation mutates the set.
-%%
-%% We could do this more efficiently if we restricted the elements to integers,
-%% and used the (mutable) hipe arrays. For arbitrary terms ETS could be used,
-%% for a persistent interface (which isn't that nice when even accessors return
-%% modified copies), the array module could be used.
--type dsets(X) :: #{X => {node, X} | {root, non_neg_integer()}}.
-
--spec dsets_new([E]) -> dsets(E).
-dsets_new(Elems) -> maps:from_list([{E,{root,0}} || E <- Elems]).
-
--spec dsets_find(E, dsets(E)) -> {E, dsets(E)}.
-dsets_find(E, DS0) ->
-  case DS0 of
-    #{E := {root,_}} -> {E, DS0};
-    #{E := {node,N}} ->
-      case dsets_find(N, DS0) of
-	{N, _}=T -> T;
-	{R, DS1} -> {R, DS1#{E := {node,R}}}
-      end
-   ;_ -> error(badarg, [E, DS0])
-  end.
-
--spec dsets_union(E, E, dsets(E)) -> dsets(E).
-dsets_union(X, Y, DS0) ->
-  {XRoot, DS1} = dsets_find(X, DS0),
-  case dsets_find(Y, DS1) of
-    {XRoot, DS2} -> DS2;
-    {YRoot, DS2} ->
-      #{XRoot := {root,XRR}, YRoot := {root,YRR}} = DS2,
-      if XRR < YRR -> DS2#{XRoot := {node,YRoot}};
-	 XRR > YRR -> DS2#{YRoot := {node,XRoot}};
-	 true -> DS2#{YRoot := {node,XRoot}, XRoot := {root,XRR+1}}
-      end
-  end.
-
--spec dsets_to_rllist(dsets(E)) -> {[{Root::E, Elems::[E]}], dsets(E)}.
-dsets_to_rllist(DS0) ->
-  {Lists, DS} = dsets_to_rllist(maps:keys(DS0), #{}, DS0),
-  {maps:to_list(Lists), DS}.
-
-dsets_to_rllist([], Acc, DS) -> {Acc, DS};
-dsets_to_rllist([E|Es], Acc, DS0) ->
-  {ERoot, DS} = dsets_find(E, DS0),
-  dsets_to_rllist(Es, map_append(ERoot, E, Acc), DS).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Third pass

@@ -83,6 +83,7 @@
 	     hipe_digraph,
 	     hipe_dominators,
 	     hipe_dot,
+	     hipe_dsets,
 	     hipe_gen_cfg,
 	     hipe_gensym,
 	     hipe_graph_coloring_regalloc,
