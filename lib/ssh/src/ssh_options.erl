@@ -882,6 +882,7 @@ handle_pref_alg(Key, Vs, _) ->
 chk_alg_vs(OptKey, Values, SupportedValues) ->
     case (Values -- SupportedValues) of
 	[] -> Values;
+        [none] -> [none];                       % for testing only
 	Bad -> error_in_check({OptKey,Bad}, "Unsupported value(s) found")
     end.
 
