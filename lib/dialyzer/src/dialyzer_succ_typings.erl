@@ -162,13 +162,13 @@ get_warnings_from_modules(Mods, State, DocPlt) ->
 
 collect_warnings(M, {Codeserver, Callgraph, Plt, DocPlt}) ->
   ModCode = dialyzer_codeserver:lookup_mod_code(M, Codeserver),
-  Records = dialyzer_codeserver:lookup_mod_records(M, Codeserver),
   Contracts = dialyzer_codeserver:lookup_mod_contracts(M, Codeserver),
   AllFuns = collect_fun_info([ModCode]),
   %% Check if there are contracts for functions that do not exist
   Warnings1 =
     dialyzer_contracts:contracts_without_fun(Contracts, AllFuns, Callgraph),
   Attrs = cerl:module_attrs(ModCode),
+  Records = dialyzer_codeserver:lookup_mod_records(M, Codeserver),
   {Warnings2, FunTypes} =
     dialyzer_dataflow:get_warnings(ModCode, Plt, Callgraph, Codeserver,
 				   Records),
@@ -251,8 +251,8 @@ lookup_names(Labels, {_Codeserver, Callgraph, _Plt, _Solvers}) ->
 refine_one_module(M, {CodeServer, Callgraph, Plt, _Solvers}) ->
   ModCode = dialyzer_codeserver:lookup_mod_code(M, CodeServer),
   AllFuns = collect_fun_info([ModCode]),
-  Records = dialyzer_codeserver:lookup_mod_records(M, CodeServer),
   FunTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
+  Records = dialyzer_codeserver:lookup_mod_records(M, CodeServer),
   NewFunTypes =
     dialyzer_dataflow:get_fun_types(ModCode, Plt, Callgraph, CodeServer, Records),
   Contracts1 = dialyzer_codeserver:lookup_mod_contracts(M, CodeServer),
