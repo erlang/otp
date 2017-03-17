@@ -362,8 +362,9 @@ redirect(Response = {StatusLine, Headers, Body}, Request) ->
 		    {ok, error(Request, Reason), Data};
 		%% Automatic redirection
 		{ok, {Scheme, _, Host, Port, Path,  Query}} -> 
+		    HostPort = http_request:normalize_host(Scheme, Host, Port),
 		    NewHeaders = 
-			(Request#request.headers)#http_request_h{host = Host++":"++integer_to_list(Port)},
+			(Request#request.headers)#http_request_h{host = HostPort},
 		    NewRequest = 
 			Request#request{redircount = 
 					Request#request.redircount+1,
