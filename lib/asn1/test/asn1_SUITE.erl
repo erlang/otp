@@ -1108,6 +1108,7 @@ test_modules() ->
      "From",
      "H235-SECURITY-MESSAGES",
      "H323-MESSAGES",
+     "HighTagNumbers",
      "Import",
      "Int",
      "MAP-commonDataTypes",
