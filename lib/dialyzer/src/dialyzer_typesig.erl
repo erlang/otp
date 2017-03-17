@@ -139,9 +139,11 @@
 -ifdef(DEBUG).
 -define(debug(__String, __Args), io:format(__String, __Args)).
 -define(mk_fun_var(Fun, Vars), mk_fun_var(?LINE, Fun, Vars)).
+-define(pp_map(S, M), pp_map(S, M)).
 -else.
 -define(debug(__String, __Args), ok).
 -define(mk_fun_var(Fun, Vars), mk_fun_var(Fun, Vars)).
+-define(pp_map(S, M), ok).
 -endif.
 
 %% ============================================================================
@@ -1913,8 +1915,8 @@ check_solutions([{S1,Map1,_Time1}|Maps], Fun, S, Map) ->
       check_solutions(Maps, Fun, S1, Map1);
     false ->
       ?debug("Constraint solvers do not agree on ~w\n", [Fun]),
-      pp_map(atom_to_list(S), Map),
-      pp_map(atom_to_list(S1), Map1),
+      ?pp_map(atom_to_list(S), Map),
+      ?pp_map(atom_to_list(S1), Map1),
       io:format("A bug was found. Please report it, and use the option "
                 "`--solver v1' until the bug has been fixed.\n"),
       throw(error)
@@ -1963,7 +1965,7 @@ v2_solve(#constraint_ref{id = Id}, Map, V2State) ->
 
 v2_solve_reference(Id, Map, V2State0) ->
   ?debug("Checking ref to fun: ~tw\n", [debug_lookup_name(Id)]),
-  pp_map("Map", Map),
+  ?pp_map("Map", Map),
   pp_constr_data("solve_ref", V2State0),
   Map1 = restore_local_map(V2State0, Id, Map),
   State = V2State0#v2_state.state,
@@ -2019,7 +2021,7 @@ v2_solve_self_recursive(Cs, Map, Id, RecType0, V2State0) ->
 	  Error
       end;
     {ok, NewMap, V2State, U} ->
-      pp_map("recursive finished", NewMap),
+      ?pp_map("recursive finished", NewMap),
       NewRecType = unsafe_lookup_type(Id, NewMap),
       case is_equal(NewRecType, RecType0) of
 	true ->
@@ -2037,7 +2039,7 @@ enter_var_type(Var, Type, Map0) ->
 v2_solve_disjunct(Disj, Map, V2State0) ->
   #constraint_list{type = disj, id = _Id, list = Cs, masks = Masks} = Disj,
   ?debug("disjunct Id=~w~n", [_Id]),
-  pp_map("Map", Map),
+  ?pp_map("Map", Map),
   pp_constr_data("disjunct", V2State0),
   case get_flags(V2State0, Disj) of
     {V2State1, failed_list} -> {error, V2State1}; % cannot happen
@@ -2065,7 +2067,7 @@ v2_solve_disjunct(Disj, Map, V2State0) ->
                 U1 = [V || V <- U0,
                            var_occurs_everywhere(V, Masks, NotFailed)],
                 NewMap = join_maps(U1, MapL, Map),
-                pp_map("NewMap", NewMap),
+                ?pp_map("NewMap", NewMap),
                 U = updated_vars_only(U1, Map, NewMap),
                 ?debug("disjunct finished _Id=~w\n", [_Id]),
                 {ok, NewMap, V2State, U}
@@ -2088,7 +2090,7 @@ v2_solve_disj([I|Is], [C|Cs], I, Map0, V2State0, UL, MapL, Eval, Uneval,
     {ok, Map, V2State1, U} ->
       ?debug("disj I=~w U=~w~n", [I, U]),
       V2State = save_local_map(V2State1, Id, U, Map),
-      pp_map("DMap", Map),
+      ?pp_map("DMap", Map),
       v2_solve_disj(Is, Cs, I+1, Map0, V2State, [U|UL], [Map|MapL],
                     [I|Eval], Uneval, Failed0)
   end;
@@ -2114,9 +2116,9 @@ save_local_map(#v2_state{constr_data = ConData}=V2State, Id, U, Map) ->
     end,
   ?debug("save local map Id=~w:\n", [Id]),
   Part = lists:ukeymerge(1, lists:keysort(1, Part0), Part1),
-  pp_map("New Part", maps:from_list(Part0)),
-  pp_map("Old Part", maps:from_list(Part1)),
-  pp_map(" => Part", maps:from_list(Part)),
+  ?pp_map("New Part", maps:from_list(Part0)),
+  ?pp_map("Old Part", maps:from_list(Part1)),
+  ?pp_map(" => Part", maps:from_list(Part)),
   V2State#v2_state{constr_data = maps:put(Id, {Part,[]}, ConData)}.
 
 restore_local_map(#v2_state{constr_data = ConData}, Id, Map0) ->
@@ -2127,10 +2129,10 @@ restore_local_map(#v2_state{constr_data = ConData}, Id, Map0) ->
     {ok, {Part0,U}} ->
       Part = [KV || {K,_V} = KV <- Part0, not lists:member(K, U)],
       ?debug("restore local map Id=~w U=~w\n", [Id, U]),
-      pp_map("Part", maps:from_list(Part)),
-      pp_map("Map0", Map0),
+      ?pp_map("Part", maps:from_list(Part)),
+      ?pp_map("Map0", Map0),
       Map = lists:foldl(fun({K,V}, D) -> maps:put(K, V, D) end, Map0, Part),
-      pp_map("Map", Map),
+      ?pp_map("Map", Map),
       Map
   end.
 
@@ -2286,7 +2288,7 @@ pp_constr_data(_Tag, #v2_state{constr_data = D}) ->
          case _PartU of
            {_Part, _U} ->
              io:format("Id: ~w Vars: ~w\n", [_Id, _U]),
-             [pp_map("Part", maps:from_list(_Part)) || _Part =/= []];
+             [?pp_map("Part", maps:from_list(_Part)) || _Part =/= []];
            failed ->
              io:format("Id: ~w failed list\n", [_Id])
          end
@@ -2386,7 +2388,7 @@ solve_self_recursive(Cs, Map, MapDict, Id, RecType0, State) ->
   ?debug("OldRecType ~ts\n", [format_type(RecType0)]),
   RecType = t_limit(RecType0, ?TYPE_LIMIT),
   Map1 = enter_type(RecVar, RecType, erase_type(t_var_name(Id), Map)),
-  pp_map("Map1", Map1),
+  ?pp_map("Map1", Map1),
   case solve_ref_or_list(Cs, Map1, MapDict, State) of
     {error, _} = Error ->
       case t_is_none(RecType0) of
@@ -2399,7 +2401,7 @@ solve_self_recursive(Cs, Map, MapDict, Id, RecType0, State) ->
 	  Error
       end;
     {ok, NewMapDict, NewMap} ->
-      pp_map("NewMap", NewMap),
+      ?pp_map("NewMap", NewMap),
       NewRecType = unsafe_lookup_type(Id, NewMap),
       case is_equal(NewRecType, RecType0) of
 	true ->
@@ -2698,11 +2700,6 @@ is_same(Key, Map1, Map2) ->
 is_equal(Type1, Type2) ->
   t_is_equal(Type1, Type2).
 
-pp_map(_S, _Map) ->
-  ?debug("\t~s: ~tp\n",
-            [_S, [{X, lists:flatten(format_type(Y))} ||
-                  {X, Y} <- lists:keysort(1, maps:to_list(_Map))]]).
-
 %% ============================================================================
 %%
 %%  The State.
@@ -2971,6 +2968,11 @@ constraint_opnd_is_any(Type) -> t_is_any(Type).
 mk_fun_var(Line, Fun, Types) ->
   Deps = [t_var_name(Var) || Var <- t_collect_vars(t_product(Types))],
   #fun_var{'fun' = Fun, deps = ordsets:from_list(Deps), origin = Line}.
+
+pp_map(S, Map) ->
+  ?debug("\t~s: ~p\n",
+            [S, [{X, lists:flatten(format_type(Y))} ||
+                  {X, Y} <- lists:keysort(1, maps:to_list(Map))]]).
 
 -else.
 
