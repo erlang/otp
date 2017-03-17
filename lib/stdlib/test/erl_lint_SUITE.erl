@@ -2098,11 +2098,11 @@ otp_5362(Config) when is_list(Config) ->
             [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}},
 
 	  {call_deprecated_function,
-	   <<"t(X) -> crypto:md5(X).">>,
+	   <<"t(X) -> calendar:local_time_to_universal_time(X).">>,
 	   [],
 	   {warnings,
-            [{1,erl_lint,{deprecated,{crypto,md5,1},
-			  {crypto,hash,2}, "a future release"}}]}},
+            [{1,erl_lint,{deprecated,{calendar,local_time_to_universal_time,1},
+			  {calendar,local_time_to_universal_time_dst,1}, "a future release"}}]}},
 
 	  {call_removed_function,
 	   <<"t(X) -> regexp:match(X).">>,
