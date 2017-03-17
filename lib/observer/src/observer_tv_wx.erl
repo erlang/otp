@@ -99,20 +99,21 @@ init([Notebook, Parent]) ->
 handle_event(#wx{id=?ID_REFRESH},
 	     State = #state{node=Node, grid=Grid, opt=Opt}) ->
     Tables = get_tables(Node, Opt),
-    Tabs = update_grid(Grid, Opt, Tables),
-    {noreply, State#state{tabs=Tabs}};
+    {Tabs,Sel} = update_grid(Grid, sel(State), Opt, Tables),
+    Sel =/= undefined andalso wxListCtrl:ensureVisible(Grid, Sel),
+    {noreply, State#state{tabs=Tabs, selected=Sel}};
 
 handle_event(#wx{event=#wxList{type=command_list_col_click, col=Col}},
 	     State = #state{node=Node, grid=Grid,
 			    opt=Opt0=#opt{sort_key=Key, sort_incr=Bool}}) ->
-    Opt = case Col+2 of
+    Opt = case col2key(Col) of
 	      Key -> Opt0#opt{sort_incr=not Bool};
 	      NewKey -> Opt0#opt{sort_key=NewKey}
 	  end,
     Tables = get_tables(Node, Opt),
-    Tabs = update_grid(Grid, Opt, Tables),
+    {Tabs,Sel} = update_grid(Grid, sel(State), Opt, Tables),
     wxWindow:setFocus(Grid),
-    {noreply, State#state{opt=Opt, tabs=Tabs}};
+    {noreply, State#state{opt=Opt, tabs=Tabs, selected=Sel}};
 
 handle_event(#wx{id=Id}, State = #state{node=Node, grid=Grid, opt=Opt0})
   when Id >= ?ID_ETS, Id =< ?ID_SYSTEM_TABLES ->
@@ -129,9 +130,9 @@ handle_event(#wx{id=Id}, State = #state{node=Node, grid=Grid, opt=Opt0})
 	    self() ! Error,
 	    {noreply, State};
 	Tables ->
-	    Tabs = update_grid(Grid, Opt, Tables),
+	    {Tabs, Sel} = update_grid(Grid, sel(State), Opt, Tables),
 	    wxWindow:setFocus(Grid),
-	    {noreply, State#state{opt=Opt, tabs=Tabs}}
+	    {noreply, State#state{opt=Opt, tabs=Tabs, selected=Sel}}
     end;
 
 handle_event(#wx{event=#wxSize{size={W,_}}},  State=#state{grid=Grid}) ->
@@ -215,8 +216,9 @@ handle_info(refresh_interval, State = #state{node=Node, grid=Grid, opt=Opt,
             %% no change
             {noreply, State};
         Tables ->
-            Tabs = update_grid(Grid, Opt, Tables),
-            {noreply, State#state{tabs=Tabs}}
+            {Tabs, Sel} = update_grid(Grid, sel(State), Opt, Tables),
+            Sel =/= undefined andalso wxListCtrl:ensureVisible(Grid, Sel),
+            {noreply, State#state{tabs=Tabs, selected=Sel}}
     end;
 
 handle_info({active, Node}, State = #state{parent=Parent, grid=Grid, opt=Opt0,
@@ -228,11 +230,11 @@ handle_info({active, Node}, State = #state{parent=Parent, grid=Grid, opt=Opt0,
                             Opt1 = Opt0#opt{type=ets},
                             {get_tables(Node, Opt1), Opt1}
                     end,
-    Tabs = update_grid(Grid, Opt, Tables),
+    {Tabs,Sel} = update_grid(Grid, sel(State), Opt, Tables),
     wxWindow:setFocus(Grid),
     create_menus(Parent, Opt),
     Timer = observer_lib:start_timer(Timer0),
-    {noreply, State#state{node=Node, tabs=Tabs, timer=Timer, opt=Opt}};
+    {noreply, State#state{node=Node, tabs=Tabs, timer=Timer, opt=Opt, selected=Sel}};
 
 handle_info(not_active, State = #state{timer = Timer0}) ->
     Timer = observer_lib:stop_timer(Timer0),
@@ -295,6 +297,13 @@ get_tables2(Node, #opt{type=Type, sys_hidden=Sys, unread_hidden=Unread}) ->
 	Result ->
 	    [list_to_tabrec(Tab) || Tab <- Result]
     end.
+
+col2key(0) -> #tab.name;
+col2key(1) -> #tab.size;
+col2key(2) -> #tab.memory;
+col2key(3) -> #tab.owner;
+col2key(4) -> #tab.reg_name;
+col2key(5) -> #tab.id.
 
 list_to_tabrec(PL) ->
     #tab{name = proplists:get_value(name, PL),
@@ -366,13 +375,15 @@ list_to_strings([A]) -> integer_to_list(A);
 list_to_strings([A|B]) ->
     integer_to_list(A) ++ " ," ++ list_to_strings(B).
 
-update_grid(Grid, Opt, Tables) ->
-    wx:batch(fun() -> update_grid2(Grid, Opt, Tables) end).
-update_grid2(Grid, #opt{sort_key=Sort,sort_incr=Dir}, Tables) ->
+update_grid(Grid, Selected, Opt, Tables) ->
+    wx:batch(fun() -> update_grid2(Grid, Selected, Opt, Tables) end).
+
+update_grid2(Grid, {SelName,SelId}, #opt{sort_key=Sort,sort_incr=Dir}, Tables) ->
     wxListCtrl:deleteAllItems(Grid),
     Update =
 	fun(#tab{name = Name, id = Id, owner = Owner, size = Size, memory = Memory,
-		 protection = Protection, reg_name = RegName}, Row) ->
+		 protection = Protection, reg_name = RegName},
+            {Row, Sel}) ->
 		_Item = wxListCtrl:insertItem(Grid, Row, ""),
 		if (Row rem 2) =:= 0 ->
 			wxListCtrl:setItemBackgroundColour(Grid, Row, ?BG_EVEN);
@@ -389,11 +400,24 @@ update_grid2(Grid, #opt{sort_key=Sort,sort_incr=Dir}, Tables) ->
 			      end,
 			      [{0,Name}, {1,Size}, {2, Memory div 1024},
 			       {3,Owner}, {4,RegName}, {5,Id}]),
-		Row + 1
+                if SelName =:= Name, SelId =:= Id ->
+                        wxListCtrl:setItemState(Grid, Row, 16#FFFF, ?wxLIST_STATE_SELECTED),
+                        {Row+1, Row};
+                   true ->
+                        wxListCtrl:setItemState(Grid, Row, 0, ?wxLIST_STATE_SELECTED),
+                        {Row+1, Sel}
+                end
 	end,
     ProcInfo = case Dir of
 		   false -> lists:reverse(lists:keysort(Sort, Tables));
 		   true -> lists:keysort(Sort, Tables)
 	       end,
-    lists:foldl(Update, 0, ProcInfo),
-    ProcInfo.
+    {_, Sel} = lists:foldl(Update, {0, undefined}, ProcInfo),
+    {ProcInfo, Sel}.
+
+sel(#state{selected=Sel, tabs=Tabs}) ->
+    try lists:nth(Sel+1, Tabs) of
+        #tab{name=Name, id=Id} -> {Name, Id}
+    catch _:_ ->
+            {undefined, undefined}
+    end.
