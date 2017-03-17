@@ -528,5 +528,4 @@ mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
 		     Length, Fragment).
 
 calc_aad(Type, {MajVer, MinVer}, Epoch, SeqNo) ->
-    NewSeq = (Epoch bsl 48) + SeqNo,
-    <<NewSeq:64/integer, ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.
+    <<?UINT16(Epoch), ?UINT48(SeqNo), ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.
