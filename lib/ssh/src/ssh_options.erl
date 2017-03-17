@@ -200,17 +200,6 @@ save({K,V}, _, _) when K == reuseaddr ;
 save({allow_user_interaction,V}, Opts, Vals) ->
     save({user_interaction,V}, Opts, Vals);
 
-save({public_key_alg,V}, Defs, Vals) ->         % To remove in OTP-20
-    New = case V of
-              'ssh-rsa' -> ['ssh-rsa', 'ssh-dss'];
-              ssh_rsa   -> ['ssh-rsa', 'ssh-dss'];
-              'ssh-dss' -> ['ssh-dss', 'ssh-rsa'];
-              ssh_dsa   -> ['ssh-dss', 'ssh-rsa'];
-              _ -> error({eoptions, {public_key_alg,V},
-                          "Unknown algorithm, try pref_public_key_algs instead"})
-          end,
-    save({pref_public_key_algs,New}, Defs, Vals);
-
 %% Special case for socket options 'inet' and 'inet6'
 save(Inet, Defs, OptMap) when Inet==inet ; Inet==inet6 ->
     save({inet,Inet}, Defs, OptMap);
