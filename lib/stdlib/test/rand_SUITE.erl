@@ -27,6 +27,7 @@
 -export([interval_int/1, interval_float/1, seed/1,
          api_eq/1, reference/1,
 	 basic_stats_uniform_1/1, basic_stats_uniform_2/1,
+	 basic_stats_standard_normal/1,
 	 basic_stats_normal/1,
 	 plugin/1, measure/1,
 	 reference_jump_state/1, reference_jump_procdict/1]).
@@ -52,7 +53,8 @@ all() ->
 
 groups() ->
     [{basic_stats, [parallel],
-      [basic_stats_uniform_1, basic_stats_uniform_2, basic_stats_normal]},
+      [basic_stats_uniform_1, basic_stats_uniform_2,
+       basic_stats_standard_normal, basic_stats_normal]},
      {reference_jump, [parallel],
       [reference_jump_state, reference_jump_procdict]}].
 
@@ -294,11 +296,34 @@ basic_stats_uniform_2(Config) when is_list(Config) ->
      || Alg <- algs()],
     ok.
 
-basic_stats_normal(Config) when is_list(Config) ->
+basic_stats_standard_normal(Config) when is_list(Config) ->
     ct:timetrap({minutes,6}), %% valgrind needs a lot of time
-    io:format("Testing normal~n",[]),
-    [basic_normal_1(?LOOP, rand:seed_s(Alg), 0, 0) || Alg <- algs()],
+    io:format("Testing standard normal~n",[]),
+    IntendedMean = 0,
+    IntendedVariance = 1,
+    [basic_normal_1(?LOOP, IntendedMean, IntendedVariance,
+                    rand:seed_s(Alg), 0, 0)
+     || Alg <- algs()],
     ok.
+
+basic_stats_normal(Config) when is_list(Config) ->
+    IntendedMeans = [-1.0e6, -50, -math:pi(), -math:exp(-1),
+                     0.12345678, math:exp(1), 100, 1.0e6],
+    IntendedVariances = [1.0e-6, math:exp(-1), 1, math:pi(), 1.0e6],
+    IntendedMeanVariancePairs =
+        [{Mean, Variance} || Mean <- IntendedMeans,
+                             Variance <- IntendedVariances],
+
+    ct:timetrap({minutes, 6 * length(IntendedMeanVariancePairs)}), %% valgrind needs a lot of time
+    lists:foreach(
+      fun ({IntendedMean, IntendedVariance}) ->
+              io:format("Testing normal(~.2f, ~.2f)~n",
+                        [float(IntendedMean), float(IntendedVariance)]),
+              [basic_normal_1(?LOOP, IntendedMean, IntendedVariance,
+                              rand:seed_s(Alg), 0, 0)
+               || Alg <- algs()]
+      end,
+      IntendedMeanVariancePairs).
 
 basic_uniform_1(N, S0, Sum, A0) when N > 0 ->
     {X,S} = rand:uniform_s(S0),
@@ -339,18 +364,32 @@ basic_uniform_2(0, {#{type:=Alg}, _}, Sum, A) ->
     abs(?LOOP div 100 - Max) < 1000 orelse ct:fail({max, Alg, Max}),
     ok.
 
-basic_normal_1(N, S0, Sum, Sq) when N > 0 ->
-    {X,S} = rand:normal_s(S0),
-    basic_normal_1(N-1, S, X+Sum, X*X+Sq);
-basic_normal_1(0, {#{type:=Alg}, _}, Sum, SumSq) ->
-    Mean = Sum / ?LOOP,
-    StdDev =  math:sqrt((SumSq - (Sum*Sum/?LOOP))/(?LOOP - 1)),
-    io:format("~.10w: Average: ~7.4f StdDev ~6.4f~n", [Alg, Mean, StdDev]),
+basic_normal_1(N, IntendedMean, IntendedVariance, S0, StandardSum, StandardSq) when N > 0 ->
+    {X,S} = normal_s(IntendedMean, IntendedVariance, S0),
+    % We now shape X into a standard normal distribution (in case it wasn't already)
+    % in order to minimise the accumulated error on Sum / SumSq;
+    % otherwise said error would prevent us of making a fair judgment on
+    % the overall distribution when targeting large means and variances.
+    StandardX = (X - IntendedMean) / math:sqrt(IntendedVariance),
+    basic_normal_1(N-1, IntendedMean, IntendedVariance, S,
+                   StandardX+StandardSum, StandardX*StandardX+StandardSq);
+basic_normal_1(0, _IntendedMean, _IntendedVariance, {#{type:=Alg}, _}, StandardSum, StandardSumSq) ->
+    StandardMean = StandardSum / ?LOOP,
+    StandardVariance = (StandardSumSq - (StandardSum*StandardSum/?LOOP))/(?LOOP - 1),
+    StandardStdDev =  math:sqrt(StandardVariance),
+    io:format("~.10w: Standardised Average: ~7.4f, Standardised StdDev ~6.4f~n",
+              [Alg, StandardMean, StandardStdDev]),
     %% Verify that the basic statistics are ok
     %% be gentle we don't want to see to many failing tests
-    abs(Mean) < 0.005 orelse ct:fail({average, Alg, Mean}),
-    abs(StdDev - 1.0) < 0.005 orelse ct:fail({stddev, Alg, StdDev}),
+    abs(StandardMean) < 0.005 orelse ct:fail({average, Alg, StandardMean}),
+    abs(StandardStdDev - 1.0) < 0.005 orelse ct:fail({stddev, Alg, StandardStdDev}),
     ok.
+
+normal_s(Mean, Variance, State0) when Mean == 0, Variance == 1 ->
+    % Make sure we're also testing the standard normal interface
+    rand:normal_s(State0);
+normal_s(Mean, Variance, State0) ->
+    rand:normal_s(Mean, Variance, State0).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

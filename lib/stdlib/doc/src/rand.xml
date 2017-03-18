@@ -119,6 +119,11 @@ S0 = rand:seed_s(exsplus),
    <pre>
 {SND0, S2} = rand:normal_s(S1),</pre>
 
+   <p>Create a normal deviate with mean -3 and variance 0.5:</p>
+
+   <pre>
+{ND0, S3} = rand:normal_s(-3, 0.5, S2),</pre>
+
     <note>
       <p>This random number generator is not cryptographically
         strong. If a strong cryptographic random number generator is
@@ -201,12 +206,30 @@ S0 = rand:seed_s(exsplus),
     </func>
 
     <func>
+      <name name="normal" arity="2"/>
+      <fsummary>Return a normal distributed random float.</fsummary>
+      <desc>
+        <p>Returns a normal N(Mean, Variance) deviate float
+          and updates the state in the process dictionary.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="normal_s" arity="1"/>
       <fsummary>Return a standard normal distributed random float.</fsummary>
       <desc>
         <p>Returns, for a specified state, a standard normal
           deviate float (that is, the mean is 0 and the standard
           deviation is 1) and a new state.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="normal_s" arity="3"/>
+      <fsummary>Return a normal distributed random float.</fsummary>
+      <desc>
+        <p>Returns, for a specified state, a normal N(Mean, Variance)
+          deviate float and a new state.</p>
       </desc>
     </func>
 
