@@ -660,10 +660,8 @@
         <p>Set the seed for PRNG to the given binary. This calls the
         RAND_seed function from openssl. Only use this if the system
         you are running on does not have enough "randomness" built in.
-        Normally this is when either
-        <seealso marker="#strong_rand_bytes/1">strong_rand_bytes/1</seealso>,
-        <seealso marker="#strong_rand_range/1">strong_rand_range/1</seealso> or
-        <seealso marker="#strong_rand_float/0">strong_rand_float/0</seealso>
+        Normally this is when
+        <seealso marker="#strong_rand_bytes/1">strong_rand_bytes/1</seealso>
         throws <c>low_entropy</c></p>
       </desc>
     </func>
@@ -729,40 +727,6 @@
         this is the <c>RAND_bytes</c> method from OpenSSL.</p>
 	<p>May throw exception <c>low_entropy</c> in case the random generator
 	failed due to lack of secure "randomness".</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>strong_rand_range(N) -> binary()</name>
-      <fsummary>Generate a random non-negative integer between 0 and N</fsummary>
-      <type>
-        <v>N = pos_integer() | binary()</v>
-      </type>
-      <desc>
-        <p>Generates a random non-negative integer uniformly distributed
-        in the value range <c><![CDATA[X, 0 =< X < N.]]></c>
-        Uses a cryptographically secure prng seeded and periodically mixed with operating system
-        provided entropy. By default this is the <c>BN_rand_range</c> method from OpenSSL.</p>
-        <p>Returns binary representation.</p>
-        <p>May throw exception <c>low_entropy</c> in case the random generator
-        failed due to lack of secure "randomness".</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>strong_rand_float() -> X</name>
-      <fsummary>Generate a random floating point number between 0.0 and 1.0</fsummary>
-      <type>
-        <v>X = float()</v>
-      </type>
-      <desc>
-        <p>Generates a random floating pointer number uniformly distributed
-        in the value range <c><![CDATA[X, 0.0 =< X < 1.0.]]></c>
-        Uses a cryptographically secure prng seeded and periodically mixed with operating system
-        provided entropy. By default this is the <c>BN_rand_range</c> method from OpenSSL.</p>
-        <p>May throw exception <c>low_entropy</c> in case the random generator
-        failed due to lack of secure "randomness".</p>
-        <note><p>The generated values shall present no more than 51 bits of effective entropy.</p></note>
       </desc>
     </func>
 
