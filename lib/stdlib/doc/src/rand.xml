@@ -120,18 +120,26 @@ S0 = rand:seed_s(exsplus),
 {SND0, S2} = rand:normal_s(S1),</pre>
 
     <note>
-      <p>This random number generator is not cryptographically
-        strong. If a strong cryptographic random number generator is
-        needed, use one of functions in the
-        <seealso marker="crypto:crypto"><c>crypto</c></seealso>
-        module, for example, <seealso marker="crypto:crypto">
-        <c>crypto:strong_rand_bytes/1</c></seealso>.</p>
+      <p>The builtin random number generator algorithms are not
+        cryptographically strong. If a cryptographically strong
+        random number generator is needed, use something like
+        <seealso marker="crypto:crypto#rand_seed-0"><c>crypto:rand_seed/0</c></seealso>.
+      </p>
     </note>
 
   </description>
   <datatypes>
     <datatype>
+      <name name="builtin_alg"/>
+    </datatype>
+    <datatype>
       <name name="alg"/>
+    </datatype>
+    <datatype>
+      <name name="alg_handler"/>
+    </datatype>
+    <datatype>
+      <name name="alg_seed"/>
     </datatype>
     <datatype>
       <name name="state"/>
@@ -216,7 +224,7 @@ S0 = rand:seed_s(exsplus),
       <desc>
         <marker id="seed-1"/>
         <p>Seeds random number generation with the specifed algorithm and
-          time-dependent data if <anno>AlgOrExpState</anno> is an algorithm.</p>
+          time-dependent data if <anno>AlgOrStateOrExpState</anno> is an algorithm.</p>
         <p>Otherwise recreates the exported seed in the process dictionary,
           and returns the state. See also
           <seealso marker="#export_seed-0"><c>export_seed/0</c></seealso>.</p>
@@ -237,7 +245,7 @@ S0 = rand:seed_s(exsplus),
       <fsummary>Seed random number generator.</fsummary>
       <desc>
         <p>Seeds random number generation with the specifed algorithm and
-          time-dependent data if <anno>AlgOrExpState</anno> is an algorithm.</p>
+          time-dependent data if <anno>AlgOrStateOrExpState</anno> is an algorithm.</p>
         <p>Otherwise recreates the exported seed and returns the state.
           See also <seealso marker="#export_seed-0">
           <c>export_seed/0</c></seealso>.</p>

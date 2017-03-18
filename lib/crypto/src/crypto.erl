@@ -32,6 +32,8 @@
 -export([exor/2, strong_rand_bytes/1, mod_pow/3]).
 -export([strong_rand_range/1]).
 -export([strong_rand_float/0]).
+-export([rand_seed/0]).
+-export([rand_seed_s/0]).
 -export([rand_uniform/2]).
 -export([block_encrypt/3, block_decrypt/3, block_encrypt/4, block_decrypt/4]).
 -export([next_iv/2, next_iv/3]).
@@ -290,6 +292,8 @@ stream_decrypt(State, Data0) ->
 -spec strong_rand_bytes(non_neg_integer()) -> binary().
 -spec strong_rand_range(pos_integer() | binary()) -> binary().
 -spec strong_rand_float() -> float().
+-spec rand_seed() -> rand:state().
+-spec rand_seed_s() -> rand:state().
 -spec rand_uniform(crypto_integer(), crypto_integer()) ->
 			  crypto_integer().
 
@@ -311,7 +315,6 @@ strong_rand_range(BinRange) when is_binary(BinRange) ->
         <<BinResult/binary>> ->
             BinResult
     end.
-
 strong_rand_range_nif(_BinRange) -> ?nif_stub.
 
 
@@ -323,6 +326,31 @@ strong_rand_float() ->
     Fraction = bin_to_int(BinFraction),
     <<Value:64/big-float>> = <<Sign:1, Exponent:11, Fraction:52>>,
     Value - 1.0.
+
+
+rand_seed() ->
+    rand:seed(rand_seed_s()).
+
+rand_seed_s() ->
+    {#{ type => crypto,
+        max => infinity,
+        next => fun rand_plugin_next/1,
+        uniform => fun rand_plugin_uniform/1,
+        uniform_n => fun rand_plugin_uniform/2,
+        jump => fun rand_plugin_jump/1},
+     no_seed}.
+
+rand_plugin_next(Seed) ->
+    {bytes_to_integer(strong_rand_range(1 bsl 64)), Seed}.
+
+rand_plugin_uniform(State) ->
+    {strong_rand_float(), State}.
+
+rand_plugin_uniform(Max, State) ->
+    {bytes_to_integer(strong_rand_range(Max)) + 1, State}.
+
+rand_plugin_jump(State) ->
+    State.
 
 
 rand_uniform(From,To) when is_binary(From), is_binary(To) ->

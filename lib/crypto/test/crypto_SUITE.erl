@@ -38,7 +38,9 @@ all() ->
      exor,
      rand_uniform,
      strong_rand_range,
-     strong_rand_float
+     strong_rand_float,
+     rand_plugin,
+     rand_plugin_s
     ].
 
 groups() ->
@@ -526,6 +528,17 @@ strong_rand_float(Config) when is_list(Config) ->
        Samples).
 
 %%--------------------------------------------------------------------
+rand_plugin() ->
+    [{doc, "crypto rand plugin testing (implicit state / process dictionary)"}].
+rand_plugin(Config) when is_list(Config) ->
+    rand_plugin_aux(implicit_state).
+
+rand_plugin_s() ->
+    [{doc, "crypto rand plugin testing (explicit state)"}].
+rand_plugin_s(Config) when is_list(Config) ->
+    rand_plugin_aux(explicit_state).
+
+%%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 hash(_, [], []) ->
@@ -991,6 +1004,14 @@ crypto_rand_uniform(L,H) ->
 	    ct:fail({"Not in interval", R1, L, H})
     end.
 
+foldallmap(_Fun, AccN, []) ->
+    {true, AccN};
+foldallmap(Fun, AccN, [H|T]) ->
+    case Fun(H, AccN) of
+        {true, AccM} -> foldallmap(Fun, AccM, T);
+        {{false, Result}, AccM} -> {Result, AccM}
+    end.
+
 allmap(_Fun, []) ->
     true;
 allmap(Fun, [H|T]) ->
@@ -998,6 +1019,85 @@ allmap(Fun, [H|T]) ->
         true -> allmap(Fun, T);
         {false, Result} -> Result
     end.
+
+rand_plugin_aux(StateType) ->
+    {Seeder, SeedExporter, FloatGenerator, IntegerGenerator} = rand_plugin_functions(StateType),
+    State0 = Seeder(),
+    {crypto, no_seed} = SeedExporter(State0),
+    {FloatTestResult, State1} = rand_plugin_aux_floats(State0, FloatGenerator),
+    case FloatTestResult of
+        true ->
+            {IntegerTestResult, _State2} = rand_plugin_aux_integers(State1, IntegerGenerator),
+            IntegerTestResult;
+        {false, _} ->
+            FloatTestResult
+    end.
+
+% returns {Seeder, SeedExporter, FloatGenerator, IntegerGenerator} with consistent signatures
+rand_plugin_functions(implicit_state) ->
+    {fun () -> crypto:rand_seed(), implicit_state end,
+     fun (implicit_state) -> rand:export_seed() end,
+     fun (implicit_state) -> {rand:uniform(), implicit_state} end,
+     fun (N, implicit_state) -> {rand:uniform(N), implicit_state} end};
+rand_plugin_functions(explicit_state) ->
+    {fun crypto:rand_seed_s/0,
+     fun rand:export_seed_s/1,
+     fun rand:uniform_s/1,
+     fun rand:uniform_s/2}.
+
+rand_plugin_aux_floats(State0, FloatGenerator) ->
+    {FloatSamples, State1} =
+        lists:mapfoldl(
+          fun (_, StateAcc) ->
+                  FloatGenerator(StateAcc)
+          end,
+          State0,
+          lists:seq(1, 10000)),
+
+    {allmap(
+       fun (V) ->
+               (V >= 0.0 andalso V < 1.0)
+               orelse {false, ct:fail({"Float sample not in interval", V, 0.0, 1.0})}
+       end,
+       FloatSamples),
+     State1}.
+
+rand_plugin_aux_integers(State0, IntegerGenerator) ->
+    MaxIntegerCeiling = 1 bsl 32,
+    {IntegerCeilings, State1} =
+        lists:mapfoldl(
+          fun (_, StateAcc) ->
+                  IntegerGenerator(MaxIntegerCeiling, StateAcc)
+          end,
+          State0,
+          lists:seq(1, 100)),
+
+    foldallmap(
+      fun (Ceiling, StateAcc) ->
+              case Ceiling >= 1 andalso Ceiling =< MaxIntegerCeiling of
+                  false ->
+                      {{false, ct:fail({"Integer ceiling not in interval",
+                                        Ceiling, 1, MaxIntegerCeiling})},
+                       StateAcc};
+                  true ->
+                      foldallmap(
+                        fun (_, SubStateAcc) ->
+                                {Sample, NewSubStateAcc} = IntegerGenerator(Ceiling, SubStateAcc),
+                                case Sample >= 1 andalso Sample =< Ceiling of
+                                    false ->
+                                        {{false, ct:fail({"Integer sample not in interval",
+                                                          Sample, 1, Ceiling})},
+                                         NewSubStateAcc};
+                                    true ->
+                                        {true, NewSubStateAcc}
+                                end
+                        end,
+                        StateAcc,
+                        lists:seq(1, 100))
+              end
+      end,
+      State1,
+      IntegerCeilings).
 
 %%--------------------------------------------------------------------
 %% Test data ------------------------------------------------

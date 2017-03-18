@@ -45,20 +45,22 @@
 %% =====================================================================
 
 %% This depends on the algorithm handler function
--type alg_seed() :: exs64_state() | exsplus_state() | exs1024_state().
+-type alg_seed() :: exs64_state() | exsplus_state() | exs1024_state() | term().
+
 %% This is the algorithm handler function within this module
 -type alg_handler() :: #{type      := alg(),
-			 max       := integer(),
-			 next      := fun(),
-			 uniform   := fun(),
-			 uniform_n := fun(),
-			 jump      := fun()}.
+                         max       := integer() | infinity,
+                         next      := fun((alg_seed()) -> {uint64(), alg_seed()}),
+                         uniform   := fun((state()) -> {float(), state()}),
+                         uniform_n := fun((pos_integer(), state()) -> {pos_integer(), state()}),
+                         jump      := fun((state()) -> state())}.
 
-%% Internal state
--opaque state() :: {alg_handler(), alg_seed()}.
--type alg() :: exs64 | exsplus | exs1024.
--opaque export_state() :: {alg(), alg_seed()}.
--export_type([alg/0, state/0, export_state/0]).
+%% Algorithm state
+-type state() :: {alg_handler(), alg_seed()}.
+-type builtin_alg() :: exs64 | exsplus | exs1024.
+-type alg() :: builtin_alg() | term().
+-type export_state() :: {alg(), alg_seed()}.
+-export_type([builtin_alg/0, alg/0, alg_handler/0, alg_seed/0, state/0, export_state/0]).
 
 %% =====================================================================
 %% API
@@ -81,15 +83,17 @@ export_seed_s({#{type:=Alg}, Seed}) -> {Alg, Seed}.
 %% seed({Alg,Seed}) setup RNG with a previously exported seed
 %% and return the NEW state
 
--spec seed(AlgOrExpState::alg() | export_state()) -> state().
+-spec seed(AlgOrStateOrExpState::builtin_alg() | state() | export_state()) -> state().
 seed(Alg) ->
     seed_put(seed_s(Alg)).
 
--spec seed_s(AlgOrExpState::alg() | export_state()) -> state().
+-spec seed_s(AlgOrStateOrExpState::builtin_alg() | state() | export_state()) -> state().
 seed_s(Alg) when is_atom(Alg) ->
     seed_s(Alg, {erlang:phash2([{node(),self()}]),
 		 erlang:system_time(),
 		 erlang:unique_integer()});
+seed_s({AlgHandler, _Seed} = State) when is_map(AlgHandler) ->
+    State;
 seed_s({Alg0, Seed}) ->
     {Alg,_SeedFun} = mk_alg(Alg0),
     {Alg, Seed}.
@@ -97,11 +101,11 @@ seed_s({Alg0, Seed}) ->
 %% seed/2: seeds RNG with the algorithm and given values
 %% and returns the NEW state.
 
--spec seed(Alg :: alg(), {integer(), integer(), integer()}) -> state().
+-spec seed(Alg :: builtin_alg(), {integer(), integer(), integer()}) -> state().
 seed(Alg0, S0) ->
     seed_put(seed_s(Alg0, S0)).
 
--spec seed_s(Alg :: alg(), {integer(), integer(), integer()}) -> state().
+-spec seed_s(Alg :: builtin_alg(), {integer(), integer(), integer()}) -> state().
 seed_s(Alg0, S0 = {_, _, _}) ->
     {Alg, Seed} = mk_alg(Alg0),
     AS = Seed(S0),
