@@ -37,8 +37,8 @@ all() ->
      mod_pow,
      exor,
      rand_uniform,
-     strong_rand_uniform_float,
-     strong_rand_uniform_integer
+     strong_rand_range,
+     strong_rand_float
     ].
 
 groups() ->
@@ -488,42 +488,42 @@ rand_uniform(Config) when is_list(Config) ->
     10 = byte_size(crypto:strong_rand_bytes(10)).
 
 %%--------------------------------------------------------------------
-strong_rand_uniform_float() ->
-    [{doc, "strong_rand_uniform float testing"}].
-strong_rand_uniform_float(Config) when is_list(Config) ->
-    Samples = [crypto:strong_rand_uniform() || _ <- lists:seq(1, 10000)],
+strong_rand_range() ->
+    [{doc, "strong_rand_range testing"}].
+strong_rand_range(Config) when is_list(Config) ->
+    MaxCeiling = 1 bsl 32,
+    Ceilings = [1 | % edge case where only 0 can be generated
+                [binary:decode_unsigned(crypto:strong_rand_range(MaxCeiling), big)
+                 || _ <- lists:seq(1, 99)]],
+
+    allmap(
+      fun (Ceiling) ->
+              case Ceiling >= 0 andalso Ceiling < MaxCeiling of
+                  false ->
+                      {false, ct:fail({"Ceiling not in interval", Ceiling, 0, MaxCeiling})};
+                  true ->
+                      Samples = [binary:decode_unsigned(crypto:strong_rand_range(Ceiling), big)
+                                 || _ <- lists:seq(1, 100)],
+                      allmap(
+                        fun (V) ->
+                                (V >= 0 andalso V < Ceiling)
+                                orelse {false, ct:fail({"Sample not in interval", V, 0, Ceiling})}
+                        end,
+                        Samples)
+              end
+      end,
+      Ceilings).
+
+strong_rand_float() ->
+    [{doc, "strong_rand_float testing"}].
+strong_rand_float(Config) when is_list(Config) ->
+    Samples = [crypto:strong_rand_float() || _ <- lists:seq(1, 10000)],
     allmap(
        fun (V) ->
                (V >= 0.0 andalso V < 1.0)
                orelse {false, ct:fail({"Not in interval", V, 0.0, 1.0})}
         end,
        Samples).
-
-strong_rand_uniform_integer() ->
-    [{doc, "strong_rand_uniform integer testing"}].
-strong_rand_uniform_integer(Config) when is_list(Config) ->
-    MaxCeiling = 1 bsl 32,
-    Ceilings = [1 | % edge case where the ceiling equals the floor
-                [crypto:strong_rand_uniform(MaxCeiling)
-                 || _ <- lists:seq(1, 99)]],
-
-    allmap(
-      fun (Ceiling) ->
-              case Ceiling >= 1 andalso Ceiling =< MaxCeiling of
-                  false ->
-                      {false, ct:fail({"Ceiling not in interval", Ceiling, 1, MaxCeiling})};
-                  true ->
-                      Samples = [crypto:strong_rand_uniform(Ceiling)
-                                 || _ <- lists:seq(1, 100)],
-                      allmap(
-                        fun (V) ->
-                                (V >= 1 andalso V =< Ceiling)
-                                orelse {false, ct:fail({"Sample not in interval", V, 1, Ceiling})}
-                        end,
-                        Samples)
-              end
-      end,
-      Ceilings).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

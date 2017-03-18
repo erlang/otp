@@ -30,8 +30,8 @@
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([cmac/3, cmac/4]).
 -export([exor/2, strong_rand_bytes/1, mod_pow/3]).
--export([strong_rand_uniform/0]).
--export([strong_rand_uniform/1]).
+-export([strong_rand_range/1]).
+-export([strong_rand_float/0]).
 -export([rand_uniform/2]).
 -export([block_encrypt/3, block_decrypt/3, block_encrypt/4, block_decrypt/4]).
 -export([next_iv/2, next_iv/3]).
@@ -288,8 +288,8 @@ stream_decrypt(State, Data0) ->
 %% RAND - pseudo random numbers using RN_ and BN_ functions in crypto lib
 %%
 -spec strong_rand_bytes(non_neg_integer()) -> binary().
--spec strong_rand_uniform() -> float().
--spec strong_rand_uniform(pos_integer()) -> pos_integer().
+-spec strong_rand_range(pos_integer() | binary()) -> binary().
+-spec strong_rand_float() -> float().
 -spec rand_uniform(crypto_integer(), crypto_integer()) ->
 			  crypto_integer().
 
@@ -301,36 +301,28 @@ strong_rand_bytes(Bytes) ->
 strong_rand_bytes_nif(_Bytes) -> ?nif_stub.
 
 
-strong_rand_uniform() ->
-    Sign = 0, % positive
-    Exponent = 1023, % on the interval [1.0, 2.0[
-    Fraction = strong_rand_uniform(1, 1 bsl 52), % the whole interval above (except 1.0)
-    <<Value:64/big-float>> = <<Sign:1, Exponent:11, Fraction:52>>,
-    Value - 1.0.
-
-strong_rand_uniform(N) when is_integer(N), N >= 1 ->
-    1 + strong_rand_uniform(0, N).
-
-strong_rand_uniform(From, To) when is_binary(From), is_binary(To) ->
-    case strong_rand_uniform_nif(From,To) of
+strong_rand_range(Range) when is_integer(Range), Range > 0 ->
+    BinRange = int_to_bin(Range),
+    strong_rand_range(BinRange);
+strong_rand_range(BinRange) when is_binary(BinRange) ->
+    case strong_rand_range_nif(BinRange) of
         false ->
             erlang:error(low_entropy);
-        <<Len:32/integer, MSB, Rest/binary>> when MSB > 127 ->
-            <<(Len + 1):32/integer, 0, MSB, Rest/binary>>;
-        Whatever ->
-            Whatever
-    end;
-strong_rand_uniform(From, To) when is_integer(From), is_integer(To), From < To ->
-    BinFrom = mpint(From),
-    BinTo = mpint(To),
-    case strong_rand_uniform(BinFrom, BinTo) of
-        Result when is_binary(Result) ->
-            erlint(Result);
-        Other ->
-            Other
+        <<BinResult/binary>> ->
+            BinResult
     end.
 
-strong_rand_uniform_nif(_From, _To) -> ?nif_stub.
+strong_rand_range_nif(_BinRange) -> ?nif_stub.
+
+
+strong_rand_float() ->
+    % This could be optimized by having its own NIF
+    Sign = 0, % positive
+    Exponent = 1023, % on the interval [1.0, 2.0[
+    BinFraction = strong_rand_range(1 bsl 52), % the whole interval above
+    Fraction = bin_to_int(BinFraction),
+    <<Value:64/big-float>> = <<Sign:1, Exponent:11, Fraction:52>>,
+    Value - 1.0.
 
 
 rand_uniform(From,To) when is_binary(From), is_binary(To) ->
