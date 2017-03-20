@@ -31,7 +31,7 @@
 
 -export([
 	 otp_7277/1, otp_8259/1, otp_8653/1,
-         compat/1, basic/1]).
+         basic/1]).
 
 -define(TESTCASE, testcase_name).
 -define(testcase, proplists:get_value(?TESTCASE, Config)).
@@ -56,7 +56,7 @@ all() ->
 
 groups() -> 
     [{tickets, [],
-      [otp_7277, otp_8259, otp_8653, compat, basic]}].
+      [otp_7277, otp_8259, otp_8653, basic]}].
 
 init_per_suite(Config) ->
     Config.
@@ -216,29 +216,6 @@ loop() ->
     receive
 	die ->
 	    exit(normal)
-    end.
-
-%% OTP-8259. Check that 'exchange' and 'del_member' work.
-compat(Config) when is_list(Config) ->
-    case test_server:is_release_available("r13b") of
-        true ->
-            Pid = spawn(forever()),
-            G = a,
-            ok = pg2:create(G),
-            ok = pg2:join(G, Pid),
-            ok = pg2:join(G, Pid),
-            {ok, A} = start_node_rel(r13, r13b, slave),
-            pong = net_adm:ping(A),
-            wait_for_ready_net(Config),
-            {ok, _} = rpc:call(A, pg2, start, []),
-            ?UNTIL([Pid,Pid] =:= rpc:call(A, pg2, get_members, [a])),
-            true = exit(Pid, kill),
-            ?UNTIL([] =:= pg2:get_members(a)),
-            ?UNTIL([] =:= rpc:call(A, pg2, get_members, [a])),
-            test_server:stop_node(A),
-	    ok;
-        false ->
-	    {skipped, "No support for old node"}
     end.
 
 %% OTP-8259. Some basic tests.
