@@ -40,6 +40,8 @@
 -export([ec_curve/1, ec_curves/0]).
 -export([rand_seed/1]).
 
+-deprecated({rand_uniform, 2, next_major_release}).
+
 %% This should correspond to the similar macro in crypto.c
 -define(MAX_BYTES_TO_NIF, 20000). %%  Current value is: erlang:system_info(context_reductions) * 10
 
