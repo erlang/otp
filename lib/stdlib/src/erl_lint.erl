@@ -156,6 +156,8 @@ format_error(pmod_unsupported) ->
     "parameterized modules are no longer supported";
 %% format_error({redefine_mod_import, M, P}) ->
 %%     io_lib:format("module '~s' already imported from package '~s'", [M, P]);
+format_error(non_latin1_module_unsupported) ->
+    "module names with non-latin1 characters are not supported";
 
 format_error(invalid_call) ->
     "invalid function call";
@@ -733,9 +735,15 @@ form(Form, #lint{state=State}=St) ->
 start_state({attribute,Line,module,{_,_}}=Form, St0) ->
     St1 = add_error(Line, pmod_unsupported, St0),
     attribute_state(Form, St1#lint{state=attribute});
-start_state({attribute,_,module,M}, St0) ->
+start_state({attribute,Line,module,M}, St0) ->
     St1 = St0#lint{module=M},
-    St1#lint{state=attribute};
+    St2 = St1#lint{state=attribute},
+    case is_non_latin1_name(M) of
+        true ->
+            add_error(Line, non_latin1_module_unsupported, St2);
+        false ->
+            St2
+    end;
 start_state(Form, St) ->
     Anno = case Form of
                {eof, L} -> erl_anno:new(L);
@@ -744,6 +752,9 @@ start_state(Form, St) ->
            end,
     St1 = add_error(Anno, undefined_module, St),
     attribute_state(Form, St1#lint{state=attribute}).
+
+is_non_latin1_name(Name) ->
+    lists:any(fun(C) -> C > 255 end, atom_to_list(Name)).
 
 %% attribute_state(Form, State) ->
 %%      State'
