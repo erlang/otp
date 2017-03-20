@@ -333,7 +333,7 @@ erlang_client_openssh_server_publickey_rsa(Config) when is_list(Config) ->
 		[{_,_, not_encrypted}] ->
 		    ConnectionRef =
 			ssh_test_lib:connect(?SSH_DEFAULT_PORT,
-					     [{public_key_alg, ssh_rsa},
+					     [{pref_public_key_algs, ['ssh-rsa','ssh-dss']},
 					      {user_interaction, false},
 					      silently_accept_hosts]),
 		    {ok, Channel} =
@@ -354,7 +354,7 @@ erlang_client_openssh_server_publickey_dsa() ->
 erlang_client_openssh_server_publickey_dsa(Config) when is_list(Config) ->
     ConnectionRef =
 	ssh_test_lib:connect(?SSH_DEFAULT_PORT,
-			     [{public_key_alg, ssh_dsa},
+			     [{pref_public_key_algs, ['ssh-dss','ssh-rsa']},
 			      {user_interaction, false},
 			      silently_accept_hosts]),
     {ok, Channel} =
