@@ -27,7 +27,6 @@ extern int erts_async_max_threads;
 #define ERTS_ASYNC_THREAD_MAX_STACK_SIZE 8192	/* Kilo words */
 extern int erts_async_thread_suggested_stack_size;
 
-#ifdef USE_THREADS
 
 #ifdef ERTS_SMP
 /*
@@ -47,6 +46,10 @@ extern int erts_async_thread_suggested_stack_size;
 #  define ERTS_USE_ASYNC_READY_Q 0
 #endif
 
+#ifndef USE_THREADS
+#  undef ERTS_USE_ASYNC_READY_Q
+#  define ERTS_USE_ASYNC_READY_Q 0
+#endif /* !USE_THREADS */
 #if ERTS_USE_ASYNC_READY_Q
 int erts_check_async_ready(void *);
 int erts_async_ready_clean(void *, void *);
@@ -58,10 +61,7 @@ void *erts_get_async_ready_queue(Uint sched_id);
 #endif
 #endif /* ERTS_USE_ASYNC_READY_Q */
 
-#endif /* USE_THREADS */
-
 void erts_init_async(void);
 void erts_exit_flush_async(void);
-
 
 #endif /* ERL_ASYNC_H__ */
