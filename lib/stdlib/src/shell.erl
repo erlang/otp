@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -349,8 +349,14 @@ default_prompt(N) ->
     %% Don't bother flattening the list irrespective of what the
     %% I/O-protocol states.
     case is_alive() of
-	true  -> io_lib:format(<<"(~s)~w> ">>, [node(), N]);
+	true  -> io_lib:format(<<"(~ts)~w> ">>, [node_string(), N]);
 	false -> io_lib:format(<<"~w> ">>, [N])
+    end.
+
+node_string() ->
+    case encoding() of
+        latin1 -> io_lib:write_atom_as_latin1(node());
+        _ ->      io_lib:write_atom(node())
     end.
 
 %% expand_hist(Expressions, CommandNumber)
@@ -967,10 +973,11 @@ local_func(f, [{var,_,Name}], Bs, _Shell, _RT, _Lf, _Ef) ->
     {value,ok,erl_eval:del_binding(Name, Bs)};
 local_func(f, [_Other], _Bs, _Shell, _RT, _Lf, _Ef) ->
     erlang:raise(error, function_clause, [{shell,f,1}]);
-local_func(rd, [{atom,_,RecName},RecDef0], Bs, _Shell, RT, _Lf, _Ef) ->
+local_func(rd, [{atom,_,RecName0},RecDef0], Bs, _Shell, RT, _Lf, _Ef) ->
     RecDef = expand_value(RecDef0),
     RDs = lists:flatten(erl_pp:expr(RecDef)),
-    Attr = lists:concat(["-record('", RecName, "',", RDs, ")."]),
+    RecName = io_lib:write_atom_as_latin1(RecName0),
+    Attr = lists:concat(["-record(", RecName, ",", RDs, ")."]),
     {ok, Tokens, _} = erl_scan:string(Attr),
     case erl_parse:parse_form(Tokens) of
         {ok,AttrForm} ->
@@ -1417,9 +1424,11 @@ columns() ->
         {ok,N} -> N;
         _ -> 80
     end.
+
 encoding() ->
     [{encoding, Encoding}] = enc(),
     Encoding.
+
 enc() ->
     case lists:keyfind(encoding, 1, io:getopts()) of
 	false -> [{encoding,latin1}]; % should never happen
