@@ -38,16 +38,6 @@
 %%%================================================================
 %%% Types
 
--type options() :: #{socket_options   := socket_options(),
-                     internal_options := internal_options(),
-                     option_key()     => any()
-                    }.
-
--type socket_options()   :: proplists:proplist().
--type internal_options() :: #{option_key() => any()}.
-
--type option_key() :: atom().
-
 -type option_in() :: proplists:property() | proplists:proplist() .
 
 -type option_class() :: internal_options | socket_options | user_options . 
@@ -431,7 +421,7 @@ default(client) ->
            },
 
       {silently_accept_hosts, def} =>
-          #{default => {false,none},
+          #{default => false,
             chk => fun check_silently_accept_hosts/1,
             class => user_options
            },

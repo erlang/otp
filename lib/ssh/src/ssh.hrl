@@ -113,12 +113,25 @@
 -type double_algs()         :: list( {client2serverlist,simple_algs()} | {server2client,simple_algs()} )
                              | simple_algs() .
 
+-type options() :: #{socket_options   := socket_options(),
+                     internal_options := internal_options(),
+                     option_key()     => any()
+                    }.
+
+-type socket_options()   :: proplists:proplist().
+-type internal_options() :: #{option_key() => any()}.
+
+-type option_key() :: atom().
+
+
 
 %% Records
 -record(ssh,
 	{
-	  role,         %% client | server
-	  peer,         %% string version of peer address 
+	  role :: client | role(),
+	  peer :: undefined | 
+                  {inet:hostname(),
+                   {inet:ip_adress(),inet:port_number()}},         %% string version of peer address 
 
 	  c_vsn,        %% client version {Major,Minor}
 	  s_vsn,        %% server version {Major,Minor}
