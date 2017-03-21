@@ -193,7 +193,7 @@ insert_block({ConstTab, RefToLabels, NextLabel}, ElementType, InitList) ->
   ReferredLabels = get_labels(InitList, []),
   NewRefTo = ReferredLabels ++ RefToLabels,
   {NewTa, Id} = insert_const({ConstTab, NewRefTo, NextLabel}, 
-			     block, word_size(), false,
+			     block, size_of(ElementType), false,
 			     {ElementType,InitList}),
   {insert_backrefs(NewTa, Id, ReferredLabels), Id}.
 

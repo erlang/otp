@@ -64,8 +64,8 @@
 -spec pack_constants([{mfa(),[_],hipe_consttab()}], ct_alignment()) ->
        {ct_alignment(), non_neg_integer(), packed_const_map(), mfa_refs_map()}.
 
-pack_constants(Data, Align) ->
-  pack_constants(Data, 0, Align, 0, [], []).
+pack_constants(Data, _Align) ->
+  pack_constants(Data, 0, 1, 0, [], []).
 
 pack_constants([{MFA,_,ConstTab}|Rest], Size, Align, ConstNo, Acc, Refs) ->
   Labels = hipe_consttab:labels(ConstTab),
