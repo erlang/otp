@@ -513,11 +513,11 @@
 	  system with SMP support is available. <c>-smp auto</c> starts
 	  the Erlang runtime system with SMP support enabled if it is
 	  available and more than one logical processor is detected.
-	  <c>-smp disable</c> starts a runtime system without SMP support.</p>
+	  <c>-smp disable</c> starts a runtime system without SMP support.
+           The runtime system without SMP support is deprecated and will
+           be removed in a future major release.</p>
         <note>
-          <p>The runtime system with SMP support is not available on all
-            supported platforms. See also flag
-            <seealso marker="#+S"><c>+S</c></seealso>.</p>
+          <p>See also flag<seealso marker="#+S"><c>+S</c></seealso>.</p>
         </note>
       </item>
       <tag><c><![CDATA[-version]]></c> (emulator flag)</tag>

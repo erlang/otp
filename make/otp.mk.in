@@ -47,6 +47,9 @@ CROSS_COMPILING = @CROSS_COMPILING@
 # ----------------------------------------------------
 DEFAULT_TARGETS =  opt debug release release_docs clean docs
 
+DEFAULT_FLAVOR=@DEFAULT_FLAVOR@
+FLAVORS=@FLAVORS@
+
 # Slash separated list of return values from $(origin VAR)
 # that are untrusted - set default in this file instead.
 # The list is not space separated since some return values

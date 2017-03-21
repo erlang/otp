@@ -154,6 +154,14 @@ AS_HELP_STRING([--disable-smp-support], [disable smp support]),
     *)  enable_smp_support=yes ;;
   esac ], enable_smp_support=unknown)
 
+AC_ARG_ENABLE(plain-emulator,
+AS_HELP_STRING([--enable-plain-emulator], [enable plain emulator])
+AS_HELP_STRING([--disable-plain-emulator], [disable plain emulator]),
+[ case "$enableval" in
+    no) enable_plain_emulator=no ;;
+    *)  enable_plain_emulator=yes ;;
+  esac ], enable_plain_emulator=unknown)
+
 AC_ARG_ENABLE(smp-require-native-atomics,
 	      AS_HELP_STRING([--disable-smp-require-native-atomics],
                              [disable the SMP requirement of a native atomic implementation]),
@@ -993,7 +1001,7 @@ else
     found_threads=yes
 fi
 
-
+FLAVORS=
 ERTS_BUILD_SMP_EMU=$enable_smp_support
 AC_MSG_CHECKING(whether an emulator with smp support should be built)
 case $ERTS_BUILD_SMP_EMU in
@@ -1078,6 +1086,9 @@ EOF
 
 if test $ERTS_BUILD_SMP_EMU = yes; then
 
+        DEFAULT_FLAVOR=smp
+        FLAVORS="$FLAVORS smp"
+
 	if test $found_threads = no; then
 	    AC_MSG_ERROR([cannot build smp enabled emulator since no thread library was found])
 	fi
@@ -1152,6 +1163,66 @@ EOF
 fi
 
 AC_SUBST(ERTS_BUILD_SMP_EMU)
+
+ERTS_BUILD_PLAIN_EMU=$enable_plain_emulator
+AC_MSG_CHECKING(whether an emulator without smp support should be built)
+case $ERTS_BUILD_PLAIN_EMU in
+    yes)
+	AC_MSG_RESULT(yes; enabled by user)
+	;;
+    no)
+	AC_MSG_RESULT(no; disabled by user)
+	;;
+    unknown)
+        case "$enable_threads-$ERTS_BUILD_SMP_EMU" in
+            no-*)
+                ERTS_BUILD_PLAIN_EMU=yes
+                AC_MSG_RESULT(yes)
+                ;;
+            *-no)
+                ERTS_BUILD_PLAIN_EMU=yes
+                AC_MSG_RESULT(yes; enabled as smp emulator was disabled)
+                ;;
+            *)
+                ERTS_BUILD_PLAIN_EMU=no
+                AC_MSG_RESULT(no)
+                ;;
+        esac
+        ;;
+esac
+
+case $ERTS_BUILD_PLAIN_EMU in
+     yes)
+     	AC_DEFINE(ERTS_HAVE_PLAIN_EMU, 1, [Define if the non-smp emulator is built])
+        FLAVORS="$FLAVORS plain"
+        test -f "$ERL_TOP/erts/CONF_INFO" || echo "" > "$ERL_TOP/erts/CONF_INFO"
+        cat >> $ERL_TOP/erts/CONF_INFO <<EOF
+
+            The PLAIN aka NON-SMP emulator has been enabled.
+            This is a DEPRECATED feature scheduled for removal
+            in a future major release.
+
+EOF
+        ;;
+     no)
+        ;;
+esac
+
+AC_SUBST(ERTS_BUILD_PLAIN_EMU)
+AC_SUBST(FLAVORS)
+
+case "$ERTS_BUILD_PLAIN_EMU-$ERTS_BUILD_SMP_EMU" in
+     no-no)
+          AC_MSG_ERROR([both smp and non-smp emulators have been disabled, one of them has to be enabled])
+          ;;
+     *-no)
+          DEFAULT_FLAVOR=plain
+          ;;
+        *)
+          ;;
+esac
+
+AC_SUBST(DEFAULT_FLAVOR)
 
 AC_CHECK_FUNCS([posix_fadvise closefrom])
 AC_CHECK_HEADERS([linux/falloc.h])
@@ -4953,7 +5024,6 @@ AC_CONFIG_FILES([
   include/internal/$host/ethread.mk:include/internal/ethread.mk.in
   include/internal/$host/erts_internal.mk:include/internal/erts_internal.mk.in
   lib_src/$host/Makefile:lib_src/Makefile.in
-  Makefile:Makefile.in
   ../make/$host/otp.mk:../make/otp.mk.in
   ../make/$host/otp_ded.mk:../make/otp_ded.mk.in
 ])

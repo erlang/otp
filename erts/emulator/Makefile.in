@@ -175,7 +175,23 @@ endif
 # NOTE: When adding a new type update ERL_BUILD_TYPE_MARKER in sys/unix/sys.c
 #
 
-ifeq ($(FLAVOR),smp)
+FLAVOR=$(DEFAULT_FLAVOR)
+
+ifeq ($(FLAVOR),plain)
+
+DS_SUPPORT=no
+DS_TEST=no
+
+FLAVOR_MARKER=
+FLAVOR_FLAGS=
+ENABLE_ALLOC_TYPE_VARS += nofrag
+M4FLAGS +=
+
+else # FLAVOR
+
+# If flavor isn't one of the above, it *is* smp flavor...
+override FLAVOR=smp
+
 FLAVOR_MARKER=.smp
 FLAVOR_FLAGS=-DERTS_SMP
 ENABLE_ALLOC_TYPE_VARS += smp nofrag
@@ -196,29 +212,14 @@ DS_SUPPORT=no
 DS_TEST=no
 endif # DIRTY_SCHEDULER_SUPPORT
 
-else # FLAVOR
-
-DS_SUPPORT=no
-DS_TEST=no
-
-# If flavor isn't one of the above, it *is* plain flavor...
-override FLAVOR=plain
-FLAVOR_MARKER=
-FLAVOR_FLAGS=
-ENABLE_ALLOC_TYPE_VARS += nofrag
-M4FLAGS +=
-endif
+endif # FLAVOR
 
 TF_MARKER=$(TYPEMARKER)$(FLAVOR_MARKER)
 
-ifeq ($(FLAVOR)-@ERTS_BUILD_SMP_EMU@,smp-no)
-VOID_EMULATOR = '*** SMP emulator disabled by configure'
-else
 ifeq ($(TYPE)-@HAVE_VALGRIND@,valgrind-no)
 VOID_EMULATOR = '*** valgrind emulator disabled by configure'
 else
 VOID_EMULATOR =
-endif
 endif
 
 OPSYS=@OPSYS@

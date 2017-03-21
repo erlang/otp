@@ -118,10 +118,12 @@ else
 TYPE_STR=
 endif
 
-ifeq ($(FLAVOR),smp)
-FLAVOR_STR=.smp
-else
+FLAVOR=$(DEFAULT_FLAVOR)
+
+ifeq ($(FLAVOR),plain)
 FLAVOR_STR=
+else
+FLAVOR_STR=.smp
 endif
 
 ifeq ($(XCOMP),yes)

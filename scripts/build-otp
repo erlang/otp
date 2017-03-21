@@ -37,7 +37,7 @@ if [ ! -d "logs" ]; then
 fi
 
 do_and_log "Autoconfing" autoconf
-do_and_log "Configuring" configure
+do_and_log "Configuring" configure --enable-plain-emulator
 do_and_log "Building OTP" boot -a
 
 exit 0

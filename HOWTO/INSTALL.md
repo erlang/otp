@@ -343,10 +343,12 @@ use the `--prefix` argument like this: `./configure --prefix=<Dir>`.
 Some of the available `configure` options are:
 
 *   `--prefix=PATH` - Specify installation prefix.
-
-*   `--{enable,disable}-threads` - Thread support. This is enabled by default if possible.
-*   `--{enable,disable}-smp-support` - SMP support (enabled by default if
-    a usable POSIX thread library or native Windows threads is found)
+*   `--enable-plain-emulator` - Build a threaded emulator that only
+    uses one scheduler. This emulator type is deprecated and will be
+    removed in a future release.
+*   `--disable-threads` - Build a non-threaded emulator. This emulator type
+    is deprecated and will be
+    removed in a future release.
 *   `--{enable,disable}-kernel-poll` - Kernel poll support (enabled by
     default if possible)
 *   `--{enable,disable}-hipe` - HiPE support (enabled by default on supported

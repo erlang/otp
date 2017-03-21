@@ -1,6 +1,6 @@
 #!@ENV@ escript
 %% -*- erlang -*-
-%%! -smp disable
+%%!
 
 %%
 %% %CopyrightBegin%
