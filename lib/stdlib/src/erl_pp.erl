@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@
                 | {encoding, latin1 | unicode | utf8}).
 -type(options() :: hook_function() | [option()]).
 
--record(pp, {string_fun, char_fun}).
+-record(pp, {value_fun, string_fun, char_fun}).
 
 -record(options, {hook, encoding, opts}).
 
@@ -214,11 +214,15 @@ state(_Hook) ->
     state().
 
 state() ->
-    #pp{string_fun = fun io_lib:write_string_as_latin1/1,
+    Options = [{encoding,latin1}],
+    #pp{value_fun  = fun(V) -> io_lib_pretty:print(V, Options) end,
+        string_fun = fun io_lib:write_string_as_latin1/1,
         char_fun   = fun io_lib:write_char_as_latin1/1}.
 
 unicode_state() ->
-    #pp{string_fun = fun io_lib:write_string/1,
+    Options = [{encoding,unicode}],
+    #pp{value_fun  = fun(V) -> io_lib_pretty:print(V, Options) end,
+        string_fun = fun io_lib:write_string/1,
         char_fun   = fun io_lib:write_char/1}.
 
 encoding(Options) ->
@@ -253,31 +257,30 @@ lattribute({attribute,_Line,Name,Arg}, Opts) ->
 
 lattribute(module, {M,Vs}, _Opts) ->
     A = a0(),
-    attr("module",[{var,A,pname(M)},
-                   foldr(fun(V, C) -> {cons,A,{var,A,V},C}
-                         end, {nil,A}, Vs)]);
+    attr(module,[{var,A,pname(M)},
+                 foldr(fun(V, C) -> {cons,A,{var,A,V},C}
+                       end, {nil,A}, Vs)]);
 lattribute(module, M, _Opts) ->
-    attr("module", [{var,a0(),pname(M)}]);
+    attr(module, [{var,a0(),pname(M)}]);
 lattribute(export, Falist, _Opts) ->
-    call({var,a0(),"-export"}, [falist(Falist)], 0, options(none));
+    attrib(export, falist(Falist));
 lattribute(import, Name, _Opts) when is_list(Name) ->
-    attr("import", [{var,a0(),pname(Name)}]);
+    attr(import, [{var,a0(),pname(Name)}]);
 lattribute(import, {From,Falist}, _Opts) ->
-    attr("import",[{var,a0(),pname(From)},falist(Falist)]);
+    attrib(import, [leaf(pname(From)),falist(Falist)]);
 lattribute(export_type, Talist, _Opts) ->
-    call({var,a0(),"-export_type"}, [falist(Talist)], 0, options(none));
+    attrib(export_type, falist(Talist));
 lattribute(optional_callbacks, Falist, Opts) ->
-    ArgL = try falist(Falist)
-           catch _:_ -> abstract(Falist, Opts)
-           end,
-    call({var,a0(),"-optional_callbacks"}, [ArgL], 0, options(none));
+    try attrib(optional_callbacks, falist(Falist))
+    catch _:_ -> attr(optional_callbacks, [abstract(Falist, Opts)])
+    end;
 lattribute(file, {Name,Line}, _Opts) ->
-    attr("file", [{string,a0(),Name},{integer,a0(),Line}]);
+    attr(file, [{string,a0(),Name},{integer,a0(),Line}]);
 lattribute(record, {Name,Is}, Opts) ->
-    Nl = leaf(format("-record(~w,", [Name])),
+    Nl = [leaf("-record("),{atom,Name},$,],
     [{first,Nl,record_fields(Is, Opts)},$)];
 lattribute(Name, Arg, Options) ->
-    attr(write(Name), [abstract(Arg, Options)]).
+    attr(Name, [abstract(Arg, Options)]).
 
 abstract(Arg, #options{encoding = Encoding}) ->
     erl_parse:abstract(Arg, [{encoding,Encoding}]).
@@ -340,7 +343,7 @@ ltype({user_type,Line,T,Ts}, _) ->
 ltype({remote_type,Line,[M,F,Ts]}, _) ->
     simple_type({remote,Line,M,F}, Ts);
 ltype({atom,_,T}, _) ->
-    leaf(write(T));
+    {atom,T};
 ltype(E, P) ->
     lexpr(E, P, options(none)).
 
@@ -382,12 +385,12 @@ tuple_type(Ts, F) ->
 specattr(SpecKind, {FuncSpec,TypeSpecs}) ->
     Func = case FuncSpec of
                {F,_A} ->
-                   format("~w", [F]);
+                   {atom,F};
                {M,F,_A} ->
-                   format("~w:~w", [M, F])
+                   [{atom,M},$:,{atom,F}]
            end,
     {first,leaf(lists:concat(["-", SpecKind, " "])),
-     {list,[{first,leaf(Func),spec_clauses(TypeSpecs)}]}}.
+     {list,[{first,Func,spec_clauses(TypeSpecs)}]}}.
 
 spec_clauses(TypeSpecs) ->
     {prefer_nl,[$;],[sig_type(T) || T <- TypeSpecs]}.
@@ -429,7 +432,10 @@ ltypes(Ts, F, Prec) ->
     [F(T, Prec) || T <- Ts].
 
 attr(Name, Args) ->
-    call({var,a0(),format("-~s", [Name])}, Args, 0, options(none)).
+    {first,[$-,{atom,Name}],args(Args, options(none))}.
+
+attrib(Name, Args) ->
+    {first,[$-,{atom,Name}],[{seq,$(,$),[$,],Args}]}.
 
 pname(['' | As]) ->
     [$. | pname(As)];
@@ -441,10 +447,13 @@ pname(A) when is_atom(A) ->
     write(A).
 
 falist([]) ->
-    {nil,a0()};
-falist([{Name,Arity}|Falist]) ->
-    A = a0(),
-    {cons,A,{var,A,format("~w/~w", [Name,Arity])},falist(Falist)}.
+    [leaf("[]")];
+falist(Falist) ->
+    L = [begin
+             {Name,Arity} = Fa,
+             [{atom,Name},leaf(format("/~w", [Arity]))]
+         end || Fa <- Falist],
+    [{seq,$[,$],$,,L}].
 
 lfunction({function,_Line,Name,_Arity,Cs}, Opts) ->
     Cll = nl_clauses(fun (C, H) -> func_clause(Name, C, H) end, $;, Opts, Cs),
@@ -489,7 +498,7 @@ lexpr({var,_,V}, _, _) -> leaf(format("~ts", [V]));
 lexpr({char,_,C}, _, _) -> {char,C};
 lexpr({integer,_,N}, _, _) -> leaf(write(N));
 lexpr({float,_,F}, _, _) -> leaf(write(F));
-lexpr({atom,_,A}, _, _) -> leaf(write(A));
+lexpr({atom,_,A}, _, _) -> {atom,A};
 lexpr({string,_,S}, _, _) -> {string,S};
 lexpr({nil,_}, _, _) -> '[]';
 lexpr({cons,_,H,T}, _, Opts) ->
@@ -519,7 +528,7 @@ lexpr({record, _, Name, Fs}, Prec, Opts) ->
 lexpr({record_field, _, Rec, Name, F}, Prec, Opts) ->
     {L,P,R} = inop_prec('#'),
     Rl = lexpr(Rec, L, Opts),
-    Nl = leaf(format("#~w.", [Name])),
+    Nl = [$#,{atom,Name},$.],
     El = [Rl,Nl,lexpr(F, R, Opts)],
     maybe_paren(P, Prec, El);
 lexpr({record, _, Rec, Name, Fs}, Prec, Opts) ->
@@ -538,12 +547,12 @@ lexpr({record_field, _, Rec, F}, Prec, Opts) ->
     maybe_paren(P, Prec, El);
 lexpr({map, _, Fs}, Prec, Opts) ->
     {P,_R} = preop_prec('#'),
-    El = {first,leaf("#"),map_fields(Fs, Opts)},
+    El = {first,$#,map_fields(Fs, Opts)},
     maybe_paren(P, Prec, El);
 lexpr({map, _, Map, Fs}, Prec, Opts) ->
     {L,P,_R} = inop_prec('#'),
     Rl = lexpr(Map, L, Opts),
-    El = {first,[Rl,leaf("#")],map_fields(Fs, Opts)},
+    El = {first,[Rl,$#],map_fields(Fs, Opts)},
     maybe_paren(P, Prec, El);
 lexpr({block,_,Es}, _, Opts) ->
     {list,[{step,'begin',body(Es, Opts)},'end']};
@@ -563,13 +572,16 @@ lexpr({'receive',_,Cs,To,ToOpt}, _, Opts) ->
            {step,'after',Al},
            'end']};
 lexpr({'fun',_,{function,F,A}}, _Prec, _Opts) ->
-    leaf(format("fun ~w/~w", [F,A]));
-lexpr({'fun',_,{function,F,A},Extra}, _Prec, _Opts) ->
-    {force_nl,fun_info(Extra),leaf(format("fun ~w/~w", [F,A]))};
-lexpr({'fun',_,{function,M,F,A}}, _Prec, _Opts)
+    [leaf("fun "),{atom,F},leaf(format("/~w", [A]))];
+lexpr({'fun',L,{function,_,_}=Func,Extra}, Prec, Opts) ->
+    {force_nl,fun_info(Extra),lexpr({'fun',L,Func}, Prec, Opts)};
+lexpr({'fun',L,{function,M,F,A}}, Prec, Opts)
   when is_atom(M), is_atom(F), is_integer(A) ->
     %% For backward compatibility with pre-R15 abstract format.
-    leaf(format("fun ~w:~w/~w", [M,F,A]));
+    Mod = erl_parse:abstract(M),
+    Fun = erl_parse:abstract(F),
+    Arity = erl_parse:abstract(A),
+    lexpr({'fun',L,{function,Mod,Fun,Arity}}, Prec, Opts);
 lexpr({'fun',_,{function,M,F,A}}, _Prec, Opts) ->
     %% New format in R15.
     NameItem = lexpr(M, Opts),
@@ -660,7 +672,7 @@ lexpr({bin,_,Fs}, _, Opts) ->
     bit_grp(Fs, Opts);
 %% Special case for straight values.
 lexpr({value,_,Val}, _,_) ->
-    leaf(write(Val));
+    {value,Val};
 %% Now do the hook.
 lexpr(Other, _Precedence, #options{hook = none}) ->
     leaf(format("INVALID-FORM:~w:",[Other]));
@@ -676,7 +688,7 @@ call(Name, Args, Prec, Opts) ->
     maybe_paren(P, Prec, Item).
 
 fun_info(Extra) ->
-    leaf(format("% fun-info: ~w", [Extra])).
+    [leaf("% fun-info: "),{value,Extra}].
 
 %% BITS:
 
@@ -717,7 +729,7 @@ bit_elem_type(T) ->
 %% end of BITS
 
 record_name(Name) ->
-    leaf(format("#~w", [Name])).
+    [$#,{atom,Name}].
 
 record_fields(Fs, Opts) ->
     tuple(Fs, fun record_field/2, Opts).
@@ -919,8 +931,10 @@ frmt(Item, I, PP) ->
 %%% - {force_nl,ExtraInfo,I}: fun-info (a comment) forces linebreak before I.
 %%% - {prefer_nl,Sep,IPs}: forces linebreak between Is unlesss negative
 %%%   indentation.
+%%% - {atom,A}: an atom
 %%% - {char,C}: a character
 %%% - {string,S}: a string.
+%%% - {value,T}: a term.
 %%% - {hook,...}, {ehook,...}: hook expressions.
 %%%
 %%% list, first, seq, force_nl, and prefer_nl all accept IPs, where each
@@ -981,6 +995,10 @@ f({prefer_nl,Sep,LItems}, I0, ST, WT, PP) ->
         true ->
             {insert_newlines(CharsSize2L, I0, ST),nsz(lists:last(Sizes), I0)}
     end;
+f({value,V}, I, ST, WT, PP) ->
+    f(write_a_value(V, PP), I, ST, WT, PP);
+f({atom,A}, I, ST, WT, PP) ->
+    f(write_an_atom(A, PP), I, ST, WT, PP);
 f({char,C}, I, ST, WT, PP) ->
     f(write_a_char(C, PP), I, ST, WT, PP);
 f({string,S}, I, ST, WT, PP) ->
@@ -1119,6 +1137,12 @@ has_nl([C|Cs]) ->
 has_nl([]) ->
     false.
 
+write_a_value(V, PP) ->
+    flat_leaf(write_value(V, PP)).
+
+write_an_atom(A, PP) ->
+    flat_leaf(write_atom(A, PP)).
+
 write_a_char(C, PP) ->
     flat_leaf(write_char(C, PP)).
 
@@ -1135,7 +1159,7 @@ write_a_string([], _N, _Len, _PP) ->
 write_a_string(S, N, Len, PP) ->
     SS = string:sub_string(S, 1, N),
     Sl = write_string(SS, PP),
-    case (length(Sl) > Len) and (N > ?MIN_SUBSTRING) of
+    case (chars_size(Sl) > Len) and (N > ?MIN_SUBSTRING) of
         true ->
             write_a_string(S, N-1, Len, PP);
         false ->
@@ -1147,11 +1171,17 @@ flat_leaf(S) ->
     L = lists:flatten(S),
     {leaf,length(L),L}.
 
+write_value(V, PP) ->
+    (PP#pp.value_fun)(V).
+
+write_atom(A, PP) ->
+    (PP#pp.value_fun)(A).
+
 write_string(S, PP) ->
-    lists:flatten((PP#pp.string_fun)(S)).
+    (PP#pp.string_fun)(S).
 
 write_char(C, PP) ->
-    lists:flatten((PP#pp.char_fun)(C)).
+    (PP#pp.char_fun)(C).
 
 %%
 %% Utilities
