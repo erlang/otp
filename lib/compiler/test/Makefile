@@ -185,6 +185,7 @@ release_tests_spec: make_emakefile
 	    echo "-module($$module). %% dummy .erl file" >$$file; \
         done
 	$(INSTALL_DATA) $(ERL_DUMMY_FILES) "$(RELSYSDIR)"
+	rm $(ERL_DUMMY_FILES)
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 
