@@ -104,6 +104,7 @@
 
 -type listen_option() :: {accept, match()}
                        | {ssl_options, true | [ssl:listen_option()]}
+                       | option()
                        | ssl:listen_option()
                        | gen_tcp:listen_option().
 
