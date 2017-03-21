@@ -54,9 +54,6 @@
 -define(RELAY, ?DIAMETER_DICT_RELAY).
 -define(BASE,  ?DIAMETER_DICT_COMMON).  %% Note: the RFC 3588 dictionary
 
--define(DEFAULT_TIMEOUT, 5000).  %% for outgoing requests
--define(DEFAULT_SPAWN_OPTS, []).
-
 %% Table containing outgoing entries that live and die with
 %% peer_up/down. The name is historic, since the table used to contain
 %% information about outgoing requests for which an answer has yet to
@@ -67,7 +64,7 @@
 -record(options,
         {filter = none  :: diameter:peer_filter(),
          extra = []     :: list(),
-         timeout = ?DEFAULT_TIMEOUT :: 0..16#FFFFFFFF,
+         timeout = 5000 :: 0..16#FFFFFFFF,  %% for outgoing requests
          detach = false :: boolean()}).
 
 %% Term passed back to receive_message/6 with every incoming message.
@@ -211,11 +208,13 @@ incr_rc(Dir, Pkt, TPid, Dict0) ->
 %% Handle an incoming Diameter message in a watchdog process.
 %% ---------------------------------------------------------------------------
 
--spec receive_message(pid(), Route, #diameter_packet{}, module(), #recvdata{})
+-spec receive_message(pid(), Route, #diameter_packet{}, module(), RecvData)
    -> pid()
     | boolean()
  when Route :: {Handler, RequestRef, Seqs}
              | Ack,
+      RecvData :: {[SpawnOpt], #recvdata{}},
+      SpawnOpt :: term(),
       Handler :: pid(),
       RequestRef :: reference(),
       Seqs :: {0..16#FFFFFFFF, 0..16#FFFFFFFF},
@@ -255,11 +254,6 @@ recv(false, false, TPid, Pkt, _, _) ->
 %% spawn_request/5
 
 spawn_request(Ack, TPid, Pkt, Dict0, {Opts, RecvData}) ->
-    spawn_request(Ack, TPid, Pkt, Dict0, Opts, RecvData);
-spawn_request(Ack, TPid, Pkt, Dict0, RecvData) ->
-    spawn_request(Ack, TPid, Pkt, Dict0, ?DEFAULT_SPAWN_OPTS, RecvData).
-
-spawn_request(Ack, TPid, Pkt, Dict0, Opts, RecvData) ->
     spawn_opt(fun() ->
                       recv_request(Ack, TPid, Pkt, Dict0, RecvData)
               end,
