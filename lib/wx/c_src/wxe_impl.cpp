@@ -128,7 +128,7 @@ bool WxeApp::OnInit()
   delayed_cleanup  = new wxList;
 
   wxe_ps_init2();
-  // wxIdleEvent::SetMode(wxIDLE_PROCESS_SPECIFIED); // Hmm printpreview doesn't work in 2.9 with this
+  wxIdleEvent::SetMode(wxIDLE_PROCESS_SPECIFIED);
 
   Connect(wxID_ANY, wxEVT_IDLE,	(wxObjectEventFunction) (wxEventFunction) &WxeApp::idle);
   Connect(CREATE_PORT, wxeEVT_META_COMMAND,(wxObjectEventFunction) (wxEventFunction) &WxeApp::newMemEnv);
@@ -200,7 +200,8 @@ void WxeApp::OnAssertFailure(const wxChar *file, int line, const wxChar *cfunc,
 // Called by wx thread
 void WxeApp::idle(wxIdleEvent& event) {
   event.Skip(true);
-  dispatch_cmds();
+  if(dispatch_cmds())
+    event.RequestMore();
 }
 
 /* ************************************************************
@@ -233,14 +234,15 @@ void handle_event_callback(ErlDrvPort port, ErlDrvTermData process)
   }
 }
 
-void WxeApp::dispatch_cmds()
+int WxeApp::dispatch_cmds()
 {
+  int more = 0;
   if(wxe_status != WXE_INITIATED)
-    return;
+    return more;
   recurse_level++;
   // fprintf(stderr, "\r\ndispatch_normal %d\r\n", recurse_level);fflush(stderr);
   wxe_queue->cb_start = 0;
-  dispatch(wxe_queue);
+  more = dispatch(wxe_queue);
   // fprintf(stderr, "\r\ndispatch_done %d\r\n", recurse_level);fflush(stderr);
   recurse_level--;
 
@@ -262,12 +264,14 @@ void WxeApp::dispatch_cmds()
 	delete event;
       }
   }
+  return more;
 }
 
 int WxeApp::dispatch(wxeFifo * batch)
 {
   int ping = 0;
   int blevel = 0;
+  int wait = 0; // Let event handling generate events sometime
   wxeCommand *event;
   erl_drv_mutex_lock(wxe_batch_locker_m);
   while(true) {
@@ -275,10 +279,10 @@ int WxeApp::dispatch(wxeFifo * batch)
       erl_drv_mutex_unlock(wxe_batch_locker_m);
       switch(event->op) {
       case WXE_BATCH_END:
-	{--blevel; }
+	if(blevel>0) blevel--;
 	break;
       case WXE_BATCH_BEGIN:
-	{blevel++; }
+	blevel++;
 	break;
       case WXE_DEBUG_PING:
 	// When in debugger we don't want to hang waiting for a BATCH_END
@@ -293,7 +297,7 @@ int WxeApp::dispatch(wxeFifo * batch)
 	  memcpy(cb_buff, event->buffer, event->len);
 	}
 	event->Delete();
-	return blevel;
+	return 1;
       default:
 	if(event->op < OPENGL_START) {
 	  // fprintf(stderr, "  c %d (%d) \r\n", event->op, blevel);
@@ -307,13 +311,15 @@ int WxeApp::dispatch(wxeFifo * batch)
       erl_drv_mutex_lock(wxe_batch_locker_m);
       batch->Cleanup();
     }
-    if(blevel <= 0) {
+    if(blevel <= 0 || wait > 3) {
       erl_drv_mutex_unlock(wxe_batch_locker_m);
-      return blevel;
+      if(blevel > 0) return 1; // We are still in a batch but we can let wx check for events
+      else return 0;
     }
     // sleep until something happens
-    //fprintf(stderr, "%s:%d sleep %d %d\r\n", __FILE__, __LINE__, batch->m_n, blevel);fflush(stderr);
+    // fprintf(stderr, "%s:%d sleep %d %d %d\r\n", __FILE__, __LINE__, batch->m_n, blevel, wait);fflush(stderr);
     wxe_needs_signal = 1;
+    wait += 1;
     while(batch->m_n == 0) {
       erl_drv_cond_wait(wxe_batch_locker_c, wxe_batch_locker_m);
     }

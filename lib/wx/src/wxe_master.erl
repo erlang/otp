@@ -82,8 +82,14 @@ init_port(SilentStart) ->
 %% Initalizes the opengl library
 %%--------------------------------------------------------------------
 init_opengl() ->
-    GLLib = wxe_util:wxgl_dl(),
-    wxe_util:call(?WXE_INIT_OPENGL, <<(list_to_binary(GLLib))/binary, 0:8>>).
+    case get(wx_init_opengl) of
+        true -> {ok, "already  initialized"};
+        _ ->
+            GLLib = wxe_util:wxgl_dl(),
+            Res = wxe_util:call(?WXE_INIT_OPENGL, <<(list_to_binary(GLLib))/binary, 0:8>>),
+            element(1, Res) =:= ok andalso put(wx_init_opengl, true),
+            Res
+    end.
 
 %%--------------------------------------------------------------------
 %% Fetch early messages, hack to get start up args on mac

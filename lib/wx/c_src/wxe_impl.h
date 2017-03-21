@@ -73,7 +73,7 @@ public:
   void wxe_dispatch(wxeCommand& event);
 
   void idle(wxIdleEvent& event);
-  void dispatch_cmds();
+  int dispatch_cmds();
 
   void dummy_close(wxEvent& Ev);
   bool sendevent(wxEvent *event);
