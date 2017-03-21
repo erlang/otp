@@ -55,6 +55,11 @@ obsolete_1(erlang, now, 0) ->
 obsolete_1(calendar, local_time_to_universal_time, 1) ->
     {deprecated, {calendar, local_time_to_universal_time_dst, 1}};
 
+%% *** CRYPTO added in OTP 20 ***
+
+obsolete_1(crypto, rand_uniform, 2) ->
+    {deprecated, {rand, uniform, 1}};
+
 %% *** CRYPTO added in OTP 19 ***
 
 obsolete_1(crypto, rand_bytes, 1) ->
