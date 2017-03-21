@@ -38,15 +38,11 @@
 	 getopts/2, setopts/2, getstat/1, getstat/2
 	]).
 %% SSL/TLS protocol handling
--export([cipher_suites/0, cipher_suites/1, eccs/0, eccs/1,
-	 connection_info/1, versions/0, session_info/1, format_error/1,
-     renegotiate/1, prf/5, negotiated_protocol/1, negotiated_next_protocol/1,
+-export([cipher_suites/0, cipher_suites/1, eccs/0, eccs/1, versions/0, 
+         format_error/1, renegotiate/1, prf/5, negotiated_protocol/1, 
 	 connection_information/1, connection_information/2]).
 %% Misc
 -export([handle_options/2, tls_version/1]).
-
--deprecated({negotiated_next_protocol, 1, next_major_release}).
--deprecated({connection_info, 1, next_major_release}).
 
 -include("ssl_api.hrl").
 -include("ssl_internal.hrl").
@@ -333,21 +329,6 @@ connection_information(#sslsocket{} = SSLSocket, Items) ->
     end.
 
 %%--------------------------------------------------------------------
-%% Deprecated
--spec connection_info(#sslsocket{}) -> 	{ok, {tls_record:tls_atom_version(), ssl_cipher:erl_cipher_suite()}} |
-					{error, reason()}.
-%%
-%% Description: Returns ssl protocol and cipher used for the connection
-%%--------------------------------------------------------------------
-connection_info(#sslsocket{} = SSLSocket) ->
-    case connection_information(SSLSocket) of
-        {ok, Result} ->
-            {ok, {proplists:get_value(protocol, Result), proplists:get_value(cipher_suite, Result)}};
-        Error ->
-            Error
-    end.
-
-%%--------------------------------------------------------------------
 -spec peername(#sslsocket{}) -> {ok, {inet:ip_address(), inet:port_number()}} | {error, reason()}.
 %%
 %% Description: same as inet:peername/1.
@@ -390,20 +371,6 @@ peercert(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
 %%--------------------------------------------------------------------
 negotiated_protocol(#sslsocket{pid = Pid}) ->
     ssl_connection:negotiated_protocol(Pid).
-
-%%--------------------------------------------------------------------
--spec negotiated_next_protocol(#sslsocket{}) -> {ok, binary()} | {error, reason()}.
-%%
-%% Description: Returns the next protocol that has been negotiated. If no
-%% protocol has been negotiated will return {error, next_protocol_not_negotiated}
-%%--------------------------------------------------------------------
-negotiated_next_protocol(Socket) ->
-    case negotiated_protocol(Socket) of
-        {error, protocol_not_negotiated} ->
-            {error, next_protocol_not_negotiated};
-        Res ->
-            Res
-    end.
 
 %%--------------------------------------------------------------------
 -spec cipher_suites() -> [ssl_cipher:erl_cipher_suite()] | [string()].
