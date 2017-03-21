@@ -93,10 +93,5 @@ child_spec(Options) ->
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
 id(Address, Port, Profile) ->
-    case is_list(Address) of
-	true ->
-	    {ssh_acceptor_sup, any, Port, Profile};
-	false ->
-	    {ssh_acceptor_sup, Address, Port, Profile}
-    end.
+    {ssh_acceptor_sup, Address, Port, Profile}.
 

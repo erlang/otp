@@ -166,22 +166,10 @@ ssh_subsystem_child_spec(Options) ->
 
 
 id(Sup, Address, Port, Profile) ->
-    case is_list(Address) of	
-	true ->
-	    {Sup, any, Port, Profile};
-	false ->
-	    {Sup, Address, Port, Profile}
-	end.
+    {Sup, Address, Port, Profile}.
 
 make_name(Address, Port, Profile) ->
-    case is_list(Address) of
-	true  ->
-	    list_to_atom(lists:flatten(io_lib:format("ssh_system_~p_~p_~p_sup", 
-						     [any, Port, Profile])));
-	false  ->
-	    list_to_atom(lists:flatten(io_lib:format("ssh_system_~p_~p_~p_sup", 
-						     [Address, Port, Profile])))
-    end.
+    list_to_atom(lists:flatten(io_lib:format("ssh_system_~s_~p_~p_sup", [Address, Port, Profile]))).
 
 ssh_subsystem_sup([{_, Child, _, [ssh_subsystem_sup]} | _]) ->
     Child;

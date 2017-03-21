@@ -103,12 +103,7 @@ child_spec(Address, Port, Options) ->
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
 id(Address, Port, Profile) ->
-    case is_list(Address) of	
-	true ->
-	    {server, ssh_system_sup, any, Port, Profile};
-	false ->
-	    {server, ssh_system_sup, Address, Port, Profile}
-    end.
+    {server, ssh_system_sup, Address, Port, Profile}.
 
 system_name([], _ ) ->
     undefined;

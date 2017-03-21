@@ -475,6 +475,6 @@ finalize_start(Host, Port, Profile, Options0, F) ->
     end.
 
 %%%----------------------------------------------------------------
-fmt_host(any) -> any;
+fmt_host(any) -> "any";
 fmt_host(IP)  when is_tuple(IP) ->  inet:ntoa(IP);
 fmt_host(Str) when is_list(Str) -> Str.
