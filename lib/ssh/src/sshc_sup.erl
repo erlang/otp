@@ -27,7 +27,7 @@
 
 -behaviour(supervisor).
 
--export([start_link/1, start_child/1, stop_child/1]).
+-export([start_link/0, start_child/1, stop_child/1]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -35,8 +35,8 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-start_link(Args) ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, [Args]).
+start_link() ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 start_child(Args) ->
     supervisor:start_child(?MODULE, Args).
@@ -51,18 +51,16 @@ stop_child(Client) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
--spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
-
-init(Args) ->
+init(_) ->
     RestartStrategy = simple_one_for_one,
     MaxR = 0,
     MaxT = 3600,
-    {ok, {{RestartStrategy, MaxR, MaxT}, [child_spec(Args)]}}.
+    {ok, {{RestartStrategy, MaxR, MaxT}, [child_spec()]}}.
 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-child_spec(_) ->
+child_spec() ->
     Name = undefined, % As simple_one_for_one is used.
     StartFunc = {ssh_connection_handler, start_link, []},
     Restart = temporary,

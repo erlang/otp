@@ -28,7 +28,7 @@
 
 -include("ssh.hrl").
 
--export([start_link/1,
+-export([start_link/5,
 	 connection_supervisor/1,
 	 channel_supervisor/1
 	]).
@@ -39,8 +39,8 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-start_link(Options) ->
-    supervisor:start_link(?MODULE, [Options]).
+start_link(Role, Address, Port, Profile, Options) ->
+    supervisor:start_link(?MODULE, [Role, Address, Port, Profile, Options]).
 
 connection_supervisor(SupPid) ->
     Children = supervisor:which_children(SupPid),
@@ -53,30 +53,23 @@ channel_supervisor(SupPid) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
--spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
-
-init([Options]) ->
+init([Role, Address, Port, Profile, Options]) ->
     RestartStrategy = one_for_all,
     MaxR = 0,
     MaxT = 3600,
-    Children = child_specs(Options),
+    Children = child_specs(Role, Address, Port, Profile, Options),
     {ok, {{RestartStrategy, MaxR, MaxT}, Children}}.
 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-child_specs(Options) ->
-    case ?GET_INTERNAL_OPT(role, Options) of
-	client ->		
-	    [];
-	server ->
-	    [ssh_channel_child_spec(Options), ssh_connectinon_child_spec(Options)]
-    end.
+child_specs(client, _Address, _Port, _Profile, _Options) ->
+    [];
+child_specs(server, Address, Port, Profile, Options) ->
+    [ssh_channel_child_spec(server, Address, Port, Profile, Options), 
+     ssh_connection_child_spec(server, Address, Port, Profile, Options)].
   
-ssh_connectinon_child_spec(Options) ->
-    Address = ?GET_INTERNAL_OPT(address, Options),
-    Port = ?GET_INTERNAL_OPT(port, Options),
-    Role = ?GET_INTERNAL_OPT(role, Options),
+ssh_connection_child_spec(Role, Address, Port, _Profile, Options) ->
     Name = id(Role, ssh_connection_sup, Address, Port),
     StartFunc = {ssh_connection_sup, start_link, [Options]},
     Restart = temporary,
@@ -85,10 +78,7 @@ ssh_connectinon_child_spec(Options) ->
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-ssh_channel_child_spec(Options) ->
-    Address = ?GET_INTERNAL_OPT(address, Options),
-    Port = ?GET_INTERNAL_OPT(port, Options),
-    Role = ?GET_INTERNAL_OPT(role, Options),
+ssh_channel_child_spec(Role, Address, Port, _Profile, Options) ->
     Name = id(Role, ssh_channel_sup, Address, Port),
     StartFunc = {ssh_channel_sup, start_link, [Options]},
     Restart = temporary,

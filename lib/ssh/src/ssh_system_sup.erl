@@ -31,12 +31,12 @@
 
 -include("ssh.hrl").
 
--export([start_link/1, stop_listener/1,
+-export([start_link/4, stop_listener/1,
 	 stop_listener/3, stop_system/1,
 	 stop_system/3, system_supervisor/3,
 	 subsystem_supervisor/1, channel_supervisor/1, 
 	 connection_supervisor/1, 
-	 acceptor_supervisor/1, start_subsystem/2, restart_subsystem/3,
+	 acceptor_supervisor/1, start_subsystem/6, restart_subsystem/3,
 	 restart_acceptor/3, stop_subsystem/2]).
 
 %% Supervisor callback
@@ -45,12 +45,9 @@
 %%%=========================================================================
 %%% Internal  API
 %%%=========================================================================
-start_link(Options) ->
-    Address = ?GET_INTERNAL_OPT(address, Options),
-    Port =    ?GET_INTERNAL_OPT(port, Options),
-    Profile = ?GET_OPT(profile, Options),
+start_link(Address, Port, Profile, Options) ->
     Name = make_name(Address, Port, Profile),
-    supervisor:start_link({local, Name}, ?MODULE, [Options]).
+    supervisor:start_link({local, Name}, ?MODULE, [Address, Port, Profile, Options]).
 
 stop_listener(SysSup) ->
     stop_acceptor(SysSup). 
@@ -86,8 +83,8 @@ connection_supervisor(SystemSup) ->
 acceptor_supervisor(SystemSup) ->
     ssh_acceptor_sup(supervisor:which_children(SystemSup)).
 
-start_subsystem(SystemSup, Options) ->
-    Spec = ssh_subsystem_child_spec(Options),
+start_subsystem(SystemSup, Role, Address, Port, Profile, Options) ->
+    Spec = ssh_subsystem_child_spec(Role, Address, Port, Profile, Options),
     supervisor:start_child(SystemSup, Spec).
 
 stop_subsystem(SystemSup, SubSys) ->
@@ -125,14 +122,12 @@ restart_acceptor(Address, Port, Profile) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
--spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
-
-init([Options]) ->
+init([Address, Port, Profile, Options]) ->
     RestartStrategy = one_for_one,
     MaxR = 0,
     MaxT = 3600,
     Children = case ?GET_INTERNAL_OPT(connected_socket,Options,undefined) of
-		   undefined -> child_specs(Options);
+		   undefined -> child_specs(Address, Port, Profile, Options);
 		   _ -> []
 	       end,
     {ok, {{RestartStrategy, MaxR, MaxT}, Children}}.
@@ -140,24 +135,21 @@ init([Options]) ->
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-child_specs(Options) ->
-    [ssh_acceptor_child_spec(Options)]. 
+child_specs(Address, Port, Profile, Options) ->
+    [ssh_acceptor_child_spec(Address, Port, Profile, Options)]. 
   
-ssh_acceptor_child_spec(Options) ->
-    Address = ?GET_INTERNAL_OPT(address, Options),
-    Port =    ?GET_INTERNAL_OPT(port, Options),
-    Profile = ?GET_OPT(profile, Options),
+ssh_acceptor_child_spec(Address, Port, Profile, Options) ->
     Name = id(ssh_acceptor_sup, Address, Port, Profile),
-    StartFunc = {ssh_acceptor_sup, start_link, [Options]},
+    StartFunc = {ssh_acceptor_sup, start_link, [Address, Port, Profile, Options]},
     Restart = transient, 
     Shutdown = infinity,
     Modules = [ssh_acceptor_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-ssh_subsystem_child_spec(Options) ->
+ssh_subsystem_child_spec(Role, Address, Port, Profile, Options) ->
     Name = make_ref(),
-    StartFunc = {ssh_subsystem_sup, start_link, [Options]},
+    StartFunc = {ssh_subsystem_sup, start_link, [Role, Address, Port, Profile, Options]},
     Restart = temporary,
     Shutdown = infinity,
     Modules = [ssh_subsystem_sup],
@@ -169,7 +161,12 @@ id(Sup, Address, Port, Profile) ->
     {Sup, Address, Port, Profile}.
 
 make_name(Address, Port, Profile) ->
-    list_to_atom(lists:flatten(io_lib:format("ssh_system_~s_~p_~p_sup", [Address, Port, Profile]))).
+    list_to_atom(lists:flatten(io_lib:format("ssh_system_~s_~p_~p_sup", [fmt_host(Address), Port, Profile]))).
+
+fmt_host(IP) when is_tuple(IP) -> inet:ntoa(IP);
+fmt_host(A)  when is_atom(A)   -> A;
+fmt_host(S)  when is_list(S)   -> S.
+
 
 ssh_subsystem_sup([{_, Child, _, [ssh_subsystem_sup]} | _]) ->
     Child;

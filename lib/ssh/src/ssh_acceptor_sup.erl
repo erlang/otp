@@ -29,7 +29,7 @@
 
 -include("ssh.hrl").
 
--export([start_link/1, start_child/2, stop_child/4]).
+-export([start_link/4, start_child/5, stop_child/4]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -41,16 +41,13 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-start_link(Servers) ->
-    supervisor:start_link(?MODULE, [Servers]).
+start_link(Address, Port, Profile, Options) ->
+    supervisor:start_link(?MODULE, [Address, Port, Profile, Options]).
 
-start_child(AccSup, Options) ->
-    Spec = child_spec(Options),
+start_child(AccSup, Address, Port, Profile, Options) ->
+    Spec = child_spec(Address, Port, Profile, Options),
     case supervisor:start_child(AccSup, Spec) of
 	{error, already_present} ->
-	    Address = ?GET_INTERNAL_OPT(address, Options),
-	    Port = ?GET_INTERNAL_OPT(port, Options),
-	    Profile = ?GET_OPT(profile, Options),  
 	    stop_child(AccSup, Address, Port, Profile),
 	    supervisor:start_child(AccSup, Spec);
 	Reply ->
@@ -69,21 +66,18 @@ stop_child(AccSup, Address, Port, Profile) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init([Options]) ->
+init([Address, Port, Profile, Options]) ->
     RestartStrategy = one_for_one,
     MaxR = 10,
     MaxT = 3600,
-    Children = [child_spec(Options)],
+    Children = [child_spec(Address, Port, Profile, Options)],
     {ok, {{RestartStrategy, MaxR, MaxT}, Children}}.
 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-child_spec(Options) ->
-    Address = ?GET_INTERNAL_OPT(address, Options),
-    Port = ?GET_INTERNAL_OPT(port, Options),
+child_spec(Address, Port, Profile, Options) ->
     Timeout = ?GET_INTERNAL_OPT(timeout, Options, ?DEFAULT_TIMEOUT),
-    Profile = ?GET_OPT(profile, Options),
     Name = id(Address, Port, Profile),
     StartFunc = {ssh_acceptor, start_link, [Port, Address, Options, Timeout]},
     Restart = transient, 

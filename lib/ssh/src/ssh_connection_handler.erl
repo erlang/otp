@@ -440,7 +440,12 @@ init_ssh_record(Role, Socket, Opts) ->
     {Vsn, Version} = ssh_transport:versions(Role, Opts),
     case Role of
 	client ->
-	    PeerName =  ?GET_INTERNAL_OPT(host, Opts),
+	    PeerName = case ?GET_INTERNAL_OPT(host, Opts) of
+                           PeerIP when is_tuple(PeerIP) ->
+                               inet_parse:ntoa(PeerIP);
+                           PeerName0 ->
+                               PeerName0
+                       end,
 	    S0#ssh{c_vsn = Vsn,
 		   c_version = Version,
 		   io_cb = case ?GET_OPT(user_interaction, Opts) of

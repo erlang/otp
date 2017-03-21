@@ -31,63 +31,20 @@
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
--spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
-
-init([]) ->
+init(_) ->
     SupFlags = {one_for_one, 10, 3600},
-    Children = children(), 
+    Children = [child_spec(sshd_sup), child_spec(sshc_sup)], %%children(), 
     {ok, {SupFlags, Children}}.
 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-get_services() ->
-    case (catch application:get_env(ssh, services)) of
-	{ok, Services} ->
-	    Services;
-	_ ->
-	    []
-    end. 
-
-children() ->
-    Services = get_services(),
-    Clients = [Service || Service <- Services, is_client(Service)],
-    Servers =  [Service || Service <- Services, is_server(Service)],
-
-    [server_child_spec(Servers), client_child_spec(Clients)].
-
-server_child_spec(Servers) ->
-    Name = sshd_sup,
-    StartFunc = {sshd_sup, start_link, [Servers]},
+child_spec(Name) ->
+    StartFunc = {Name, start_link, []},
     Restart = permanent, 
     Shutdown = infinity,
-    Modules = [sshd_sup],
+    Modules = [Name],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-client_child_spec(Clients) ->
-    Name = sshc_sup,
-    StartFunc = {sshc_sup, start_link, [Clients]},
-    Restart = permanent, 
-    Shutdown = infinity,
-    Modules = [sshc_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-is_server({sftpd, _}) ->
-    true;
-is_server({shelld, _}) ->
-    true;
-is_server(_) ->
-    false.
-
-is_client({sftpc, _}) ->
-    true;
-is_client({shellc, _}) ->
-    true;
-is_client(_) ->
-    false.
-
-
 
 

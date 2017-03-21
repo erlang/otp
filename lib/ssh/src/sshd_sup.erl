@@ -29,8 +29,11 @@
 
 -include("ssh.hrl").
 
--export([start_link/1, start_child/1, stop_child/1,
-	 stop_child/3, system_name/1]).
+-export([start_link/0, 
+         start_child/4,
+         stop_child/1,
+	 stop_child/3,
+         system_name/1]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -38,27 +41,23 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-start_link(Servers) ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, [Servers]).
+start_link() ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
-start_child(Options) ->
-    Address = ?GET_INTERNAL_OPT(address,  Options),
-    Port =    ?GET_INTERNAL_OPT(port,     Options),    
-    Profile = ?GET_OPT(profile,  Options),
+start_child(Address, Port, Profile, Options) ->
+io:format("~p:~p ~p:~p~n",[?MODULE,?LINE,Address, Port]),
     case ssh_system_sup:system_supervisor(Address, Port, Profile) of
        undefined ->
-	    Spec = child_spec(Address, Port, Options),
-	    case supervisor:start_child(?MODULE, Spec) of
-		{error, already_present} ->
-		    Name = id(Address, Port, Profile),
-		    supervisor:delete_child(?MODULE, Name),
-		    supervisor:start_child(?MODULE, Spec);
-		Reply ->
-		    Reply
-	    end;
+io:format("~p:~p undefined~n",[?MODULE,?LINE]),
+	    Spec = child_spec(Address, Port, Profile, Options),
+            Reply = supervisor:start_child(?MODULE, Spec),
+io:format("~p:~p Reply=~p~n",[?MODULE,?LINE,Reply]),
+            Reply;
 	Pid ->
+io:format("~p:~p Pid=~p~n",[?MODULE,?LINE,Pid]),
 	    AccPid = ssh_system_sup:acceptor_supervisor(Pid),
-	    ssh_acceptor_sup:start_child(AccPid, Options)
+            ssh_acceptor_sup:start_child(AccPid, Address, Port, Profile, Options),
+            {ok,Pid}
     end.
 
 stop_child(Name) ->
@@ -75,27 +74,15 @@ system_name(SysSup) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
--spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
-
-init([Servers]) ->
-    RestartStrategy = one_for_one,
-    MaxR = 10,
-    MaxT = 3600,
-    Fun = fun(ServerOpts) -> 
-		  Address = ?GET_INTERNAL_OPT(address, ServerOpts),
-		  Port =    ?GET_INTERNAL_OPT(port, ServerOpts),
-		  child_spec(Address, Port, ServerOpts) 
-	  end,
-    Children = lists:map(Fun, Servers),
-    {ok, {{RestartStrategy, MaxR, MaxT}, Children}}.
+init(_) ->
+    {ok, {{one_for_one, 10, 3600}, []}}.
 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-child_spec(Address, Port, Options) ->
-    Profile = ?GET_OPT(profile, Options),
+child_spec(Address, Port, Profile, Options) ->
     Name = id(Address, Port,Profile),
-    StartFunc = {ssh_system_sup, start_link, [Options]},
+    StartFunc = {ssh_system_sup, start_link, [Address, Port, Profile, Options]},
     Restart = temporary, 
     Shutdown = infinity,
     Modules = [ssh_system_sup],

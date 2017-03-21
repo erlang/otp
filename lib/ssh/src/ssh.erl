@@ -108,7 +108,7 @@ connect(Socket, UserOptions, Timeout) when is_port(Socket),
             case valid_socket_to_use(Socket, ?GET_OPT(transport,Options)) of
 		ok ->
 		    {ok, {Host,_Port}} = inet:sockname(Socket),
-		    Opts = ?PUT_INTERNAL_OPT([{user_pid,self()}, {host,fmt_host(Host)}], Options),
+		    Opts = ?PUT_INTERNAL_OPT([{user_pid,self()}, {host,Host}], Options),
 		    ssh_connection_handler:start_connection(client, Socket, Opts, Timeout);
 		{error,SockError} ->
 		    {error,SockError}
@@ -132,7 +132,7 @@ connect(Host, Port, UserOptions, Timeout) when is_integer(Port),
             SocketOpts = [{active,false} | ?GET_OPT(socket_options,Options)],
 	    try Transport:connect(Host, Port, SocketOpts, ConnectionTimeout) of
 		{ok, Socket} ->
-		    Opts = ?PUT_INTERNAL_OPT([{user_pid,self()}, {host,fmt_host(Host)}], Options),
+		    Opts = ?PUT_INTERNAL_OPT([{user_pid,self()}, {host,Host}], Options),
 		    ssh_connection_handler:start_connection(client, Socket, Opts, Timeout);
 		{error, Reason} ->
 		    {error, Reason}
@@ -188,14 +188,11 @@ daemon(Socket, UserOptions) when is_port(Socket) ->
         case valid_socket_to_use(Socket, ?GET_OPT(transport,Options)) of
             ok ->
                 {ok, {IP,Port}} = inet:sockname(Socket),
-                finalize_start(fmt_host(IP), Port, ?GET_OPT(profile, Options),
+                finalize_start(IP, Port, ?GET_OPT(profile, Options),
                                ?PUT_INTERNAL_OPT({connected_socket, Socket}, Options),
                                fun(Opts, DefaultResult) ->
                                        try ssh_acceptor:handle_established_connection(
-                                             ?GET_INTERNAL_OPT(address, Opts),
-                                             ?GET_INTERNAL_OPT(port, Opts),
-                                             Opts, 
-                                             Socket)
+                                             IP, Port, Opts, Socket)
                                        of
                                            {error,Error} ->
                                                {error,Error};
@@ -238,7 +235,7 @@ daemon(Host0, Port0, UserOptions0) when 0 =< Port0, Port0 =< 65535 ->
         %% and ListenSocket is for listening on connections. But it is still owned
         %% by self()...
 
-        finalize_start(fmt_host(Host), Port, ?GET_OPT(profile, Options0),
+        finalize_start(Host, Port, ?GET_OPT(profile, Options0),
                        ?PUT_INTERNAL_OPT({lsocket,{ListenSocket,self()}}, Options0),
                        fun(Opts, Result) ->
                                {_, Callback, _} = ?GET_OPT(transport, Opts),
@@ -269,16 +266,26 @@ daemon(Host0, Port0, UserOptions0) when 0 =< Port0, Port0 =< 65535 ->
 daemon_info(Pid) ->
     case catch ssh_system_sup:acceptor_supervisor(Pid) of
 	AsupPid when is_pid(AsupPid) ->
-	    [{ListenAddr,Port,Profile}] =
-		[{LA,Prt,Prf} || {{ssh_acceptor_sup,LA,Prt,Prf},
-                                  _WorkerPid,worker,[ssh_acceptor]} <- supervisor:which_children(AsupPid)],
+	    [{Name,Port,Profile}] =
+		[{Nam,Prt,Prf} 
+                 || {{ssh_acceptor_sup,Hst,Prt,Prf},_Pid,worker,[ssh_acceptor]} 
+                        <- supervisor:which_children(AsupPid),
+                    Nam <- [case inet:parse_strict_address(Hst) of
+                                {ok,IP} -> IP;
+                                _ when Hst=="any" -> any;
+                                _ when Hst=="loopback" -> loopback;
+                                _ -> Hst
+                            end]
+                ],
 	    {ok, [{port,Port},
-                  {listen_address,ListenAddr},
+                  {name,Name},
                   {profile,Profile}
                  ]};
 	_ ->
 	    {error,bad_daemon_ref}
     end.
+
+
 
 %%--------------------------------------------------------------------
 -spec stop_listener(daemon_ref()) -> ok.
@@ -361,49 +368,128 @@ default_algorithms() ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-handle_daemon_args(HostAddr, Opts) ->
+
+%%   - if Address is 'any' and no ip-option is present, the name is
+%%     'any' and the socket will listen to all addresses
+%%
+%%   - if Address is 'any' and an ip-option is present, the name is
+%%     set to the value of the ip-option and the socket will listen
+%%     to that address
+%%
+%%   - if Address is 'loopback' and no ip-option is present, the name
+%%     is 'loopback' and an loopback address will be choosen by the
+%%     underlying layers
+%%
+%%   - if Address is 'loopback' and an ip-option is present, the name
+%%     is set to the value of the ip-option kept and the socket will
+%%     listen to that address
+%%
+%%   - if Address is an ip-address, that ip-address is the name and
+%%     the listening address. An ip-option will be discarded.
+%%   
+%%   - if Address is a HostName, and that resolves to an ip-address,
+%%     that ip-address is the name and the listening address. An
+%%     ip-option will be discarded.
+%%
+%%   - if Address is a string or an atom other than thoose defined
+%%     above, that Address will be the name and the listening address
+%%     will be choosen by the lower layers taking an ip-option in
+%%     consideration
+%% 
+
+handle_daemon_args(any, Opts) ->
+    case proplists:get_value(ip, Opts) of
+        undefined -> {any, Opts};
+        IP -> {IP, Opts}
+    end;
+
+handle_daemon_args(loopback, Opts) ->
+    case proplists:get_value(ip, Opts) of
+        undefined -> {loopback, [{ip,loopback}|Opts]};
+        IP -> {IP, Opts}
+    end;
+
+handle_daemon_args(IPaddr, Opts) when is_tuple(IPaddr) ->
+    case proplists:get_value(ip, Opts) of
+        undefined -> {IPaddr, [{ip,IPaddr}|Opts]};
+        IPaddr -> {IPaddr, Opts};
+        IP -> {IPaddr, [{ip,IPaddr}|Opts--[{ip,IP}]]} %% Backward compatibility
+    end;
+
+handle_daemon_args(Address, Opts) when is_list(Address) ; is_atom(Address) ->
     IP = proplists:get_value(ip, Opts),
-    IPh = case inet:parse_strict_address(HostAddr) of
-              {ok, IPtuple}   -> IPtuple;
-              {error, einval} when is_tuple(HostAddr),
-                                   size(HostAddr)==4 ; size(HostAddr)==6 -> HostAddr;
-              _ -> undefined
-          end,
-    handle_daemon_args(HostAddr, IPh, IP, Opts).
+    case inet:parse_strict_address(Address) of
+        {ok, IP} ->      {IP, Opts};
+        {ok, OtherIP} -> {OtherIP, [{ip,OtherIP}|Opts--[{ip,IP}]]};
+        _ ->
+            case inet:getaddr(Address, family(Opts)) of
+                {ok, IP} -> {Address, Opts};
+                {ok, OtherIP} -> {Address, [{ip,OtherIP}|Opts--[{ip,IP}]]};
+                _ -> {Address, Opts}
+            end
+    end.
 
 
-%% HostAddr is 'any'
-handle_daemon_args(any, undefined, undefined, Opts) -> {any, Opts};
-handle_daemon_args(any, undefined, IP,        Opts) -> {IP,  Opts};
+-ifdef(hulahopp).
+%% Check the Address parameter and set an ip-option in some cases. The
+%% Address parameter is left unchanged because ssh:stop_listener and
+%% ssh:stop_daemon needs to find the system supervisor by name
 
-%% HostAddr is 'loopback' or "localhost" 
-handle_daemon_args(loopback, undefined, {127,_,_,_}=IP,       Opts) -> {IP,  Opts};
-handle_daemon_args(loopback, undefined, {0,0,0,0,0,0,0,1}=IP, Opts) -> {IP,  Opts};
-handle_daemon_args(loopback, undefined, undefined,            Opts) -> 
-    IP = case proplists:get_value(inet,Opts) of
-             true -> {127,0,0,1};
-             inet -> {127,0,0,1};
-             inet6 -> {0,0,0,0,0,0,0,1};
-             _ -> case proplists:get_value(inet6,Opts) of
-                      true -> {0,0,0,0,0,0,0,1};
-                      _ -> {127,0,0,1} % default if no 'inet' nor 'inet6'
-                      end
-         end,
-    {IP, [{ip,IP}|Opts]};
-handle_daemon_args("localhost", IPh, IP, Opts) ->
-    handle_daemon_args(loopback, IPh, IP, Opts);
+handle_daemon_args(any, Opts) ->
+    %% Listen to 0.0.0.0. The caller may have set an ip-option. Trust
+    %% that one in such a case.
+    {any, Opts};
 
-%% HostAddr is ip and no ip-option
-handle_daemon_args(_, IP, undefined, Opts) when is_tuple(IP) -> {IP, [{ip,IP}|Opts]};
+handle_daemon_args(loopback, Opts) ->
+    %% Listen to a loopback address. Let the underlying layers decide
+    %% in case the caller hasn't set the ip-option.
+    {loopback, ensure_ip_option(loopback,Opts)};
 
-%% HostAddr and ip-option are equal
-handle_daemon_args(_, IP, IP, Opts) when is_tuple(IP) -> {IP, Opts};
+handle_daemon_args(IP, Opts) when is_tuple(IP) ->
+   %% An IP address in Erlang tuple format:
+    {IP, ensure_ip_option(IP,Opts)};
 
-%% HostAddr is ip, but ip-option is different!
-handle_daemon_args(_, IPh, IPo, _) when is_tuple(IPh), is_tuple(IPo) -> error({eoption,{ip,IPo}});
+handle_daemon_args(Address, Opts) when is_list(Address) ; is_atom(Address) ->
+    %% This might be a host name, an FQDN, an IP address in string format ("127.1.1.1")
+    %% etc. It might be a string or an atom since inet:hostname() is defined in that way
+    case inet:parse_strict_address(Address) of
+        {ok, IP} -> 
+            {Address, ensure_ip_option(IP,Opts)};
+        _ ->
+            %% Try to lookup as a hostname:
+            case inet:getaddr(Address, family(Opts)) of
+                {ok, IP} -> 
+                    {Address, ensure_ip_option(IP,Opts)};
+                _ ->
+                    %% Give up and let the underlying system handle this
+                    {Address, Opts}
+            end
+    end.
 
-%% Something else. Whatever it is, it is wrong.
-handle_daemon_args(_, _, _, _) -> error(badarg).
+
+%% Add an ip-option if not already present.
+ensure_ip_option(Address, Opts) ->
+    case proplists:get_value(ip, Opts) of
+        undefined -> [{ip,Address}|Opts];
+        _ -> Opts
+    end.
+-endif.
+
+
+%% Has the caller indicated the address family?
+family(Opts) ->
+    family(Opts, inet).
+
+family(Opts, Default) ->
+    case proplists:get_value(inet,Opts) of
+        true -> inet;
+        inet -> inet;
+        inet6 -> inet6;
+        _ -> case proplists:get_value(inet6,Opts) of
+                 true -> inet6;
+                 _ -> Default
+             end
+    end.
 
 %%%----------------------------------------------------------------
 valid_socket_to_use(Socket, {tcp,_,_}) ->
@@ -434,8 +520,9 @@ open_listen_socket(Host0, Port0, Options0) ->
     case ?GET_SOCKET_OPT(fd, Options0) of
         undefined ->
             {ok,LSock} = ssh_acceptor:listen(Port0, Options0),
-            {ok,{_,LPort}} = inet:sockname(LSock),
-            {{Host0,LPort}, LSock};
+            {ok,{_LHost,LPort}} = inet:sockname(LSock),
+            {{_LHost,LPort}, LSock};
+%%            {{Host0,LPort}, LSock};
         
         Fd when is_integer(Fd) ->
             %% Do gen_tcp:listen with the option {fd,Fd}:
@@ -446,35 +533,18 @@ open_listen_socket(Host0, Port0, Options0) ->
 
 %%%----------------------------------------------------------------
 finalize_start(Host, Port, Profile, Options0, F) ->
-    Options = ?PUT_INTERNAL_OPT([{address, Host},
-                                 {port, Port},
-                                 {role, server}], Options0),
-    case ssh_system_sup:system_supervisor(Host, Port, Profile) of
-	undefined ->
-	    try sshd_sup:start_child(Options) of
-		{error, {already_started, _}} ->
-		    {error, eaddrinuse};
-		{error, Error} ->
-                    {error, Error};
-		Result = {ok,_} ->
-                    F(Options, Result)
-	    catch
-		exit:{noproc, _} ->
-		    {error, ssh_not_started}
-	    end;
-	Sup  ->
-	    AccPid = ssh_system_sup:acceptor_supervisor(Sup),
-	    case ssh_acceptor_sup:start_child(AccPid, Options) of
-		{error, {already_started, _}} ->
-		    {error, eaddrinuse};
-		{error, Error} ->
-                    {error, Error};
-		{ok, _} ->
-                    F(Options, {ok,Sup})
-	    end
+    try
+        sshd_sup:start_child(Host, Port, Profile, Options0)
+    of
+        {error, {already_started, _}} ->
+            {error, eaddrinuse};
+        {error, Error} ->
+            {error, Error};
+        Result = {ok,_} ->
+            F(Options0, Result)
+    catch
+        exit:{noproc, _} ->
+            {error, ssh_not_started}
     end.
 
 %%%----------------------------------------------------------------
-fmt_host(any) -> "any";
-fmt_host(IP)  when is_tuple(IP) ->  inet:ntoa(IP);
-fmt_host(Str) when is_list(Str) -> Str.
