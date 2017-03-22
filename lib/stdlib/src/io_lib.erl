@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -68,8 +68,8 @@
 -export([write_atom/1,write_string/1,write_string/2,write_latin1_string/1,
          write_latin1_string/2, write_char/1, write_latin1_char/1]).
 
--export([write_string_as_latin1/1, write_string_as_latin1/2,
-         write_char_as_latin1/1]).
+-export([write_atom_as_latin1/1, write_string_as_latin1/1,
+         write_string_as_latin1/2, write_char_as_latin1/1]).
 
 -export([quote_atom/2, char_list/1, latin1_char_list/1,
 	 deep_char_list/1, deep_latin1_char_list/1,
@@ -344,6 +344,11 @@ write_binary_body(B, _D) ->
     <<X:L>> = B,
     [integer_to_list(X),$:,integer_to_list(L)].
 
+%%% There are two functions to write Unicode atoms:
+%%% - they both escape control characters < 160;
+%%% - write_atom() never escapes characters >= 160;
+%%% - write_atom_as_latin1() also escapes characters >= 255.
+
 %% write_atom(Atom) -> [Char]
 %%  Generate the list of characters needed to print an atom.
 
@@ -351,17 +356,26 @@ write_binary_body(B, _D) ->
       Atom :: atom().
 
 write_atom(Atom) ->
+    write_possibly_quoted_atom(Atom, fun write_string/2).
+
+-spec write_atom_as_latin1(Atom) -> latin1_string() when
+      Atom :: atom().
+
+write_atom_as_latin1(Atom) ->
+    write_possibly_quoted_atom(Atom, fun write_string_as_latin1/2).
+
+write_possibly_quoted_atom(Atom, PFun) ->
     Chars = atom_to_list(Atom),
     case quote_atom(Atom, Chars) of
 	true ->
-	    write_string(Chars, $');   %'
+            PFun(Chars, $');   %'
 	false ->
 	    Chars
     end.
 
 %% quote_atom(Atom, CharList)
 %%  Return 'true' if atom with chars in CharList needs to be quoted, else
-%%  return 'false'.
+%%  return 'false'. Notice that characters >= 160 are always quoted.
 
 -spec quote_atom(atom(), chars()) -> boolean().
 

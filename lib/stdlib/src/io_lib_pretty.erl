@@ -105,6 +105,8 @@ print(_, _, _, 0, _M, _RF, _Enc, _Str) -> "...";
 print(Term, Col, Ll, D, M, RecDefFun, Enc, Str) when Col =< 0 ->
     %% ensure Col is at least 1
     print(Term, 1, Ll, D, M, RecDefFun, Enc, Str);
+print(Atom, _Col, _Ll, _D, _M, _RF, Enc, _Str) when is_atom(Atom) ->
+    write_atom(Atom, Enc);
 print(Term, Col, Ll, D, M0, RecDefFun, Enc, Str) when is_tuple(Term);
                                                       is_list(Term);
                                                       is_map(Term);
@@ -407,6 +409,9 @@ print_length({}, _D, _RF, _Enc, _Str) ->
     {"{}", 2};
 print_length(#{}=M, _D, _RF, _Enc, _Str) when map_size(M) =:= 0 ->
     {"#{}", 3};
+print_length(Atom, _D, _RF, Enc, _Str) when is_atom(Atom) ->
+    S = write_atom(Atom, Enc),
+    {S, lists:flatlength(S)};
 print_length(List, D, RF, Enc, Str) when is_list(List) ->
     %% only flat lists are "printable"
     case Str andalso printable_list(List, D, Enc) of
@@ -500,7 +505,7 @@ print_length_tuple(Tuple, D, RF, Enc, Str) ->
 print_length_record(_Tuple, 1, _RF, _RDefs, _Enc, _Str) ->
     {"{...}", 5};
 print_length_record(Tuple, D, RF, RDefs, Enc, Str) ->
-    Name = [$# | io_lib:write_atom(element(1, Tuple))],
+    Name = [$# | write_atom(element(1, Tuple), Enc)],
     NameL = length(Name),
     Elements = tl(tuple_to_list(Tuple)),
     L = print_length_fields(RDefs, D - 1, Elements, RF, Enc, Str),
@@ -515,7 +520,7 @@ print_length_fields([Def | Defs], D, [E | Es], RF, Enc, Str) ->
      print_length_fields(Defs, D - 1, Es, RF, Enc, Str)].
 
 print_length_field(Def, D, E, RF, Enc, Str) ->
-    Name = io_lib:write_atom(Def),
+    Name = write_atom(Def, Enc),
     {S, L} = print_length(E, D, RF, Enc, Str),
     NameL = length(Name) + 3,
     {{field, Name, NameL, {S, L}}, NameL + L}.
@@ -663,6 +668,11 @@ printable_char(C,unicode) ->
     C >= 16#A0 andalso C < 16#D800 orelse
     C > 16#DFFF andalso C < 16#FFFE orelse
     C > 16#FFFF andalso C =< 16#10FFFF.
+
+write_atom(A, latin1) ->
+    io_lib:write_atom_as_latin1(A);
+write_atom(A, _Uni) ->
+    io_lib:write_atom(A).
 
 write_string(S, latin1) ->
     io_lib:write_latin1_string(S, $"); %"

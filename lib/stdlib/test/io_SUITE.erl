@@ -30,7 +30,8 @@
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
          otp_10836/1, io_lib_width_too_small/1,
          io_with_huge_message_queue/1, format_string/1,
-	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1]).
+	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
+         otp_14285/1]).
 
 -export([pretty/2]).
 
@@ -61,7 +62,8 @@ all() ->
      printable_range, bad_printable_range,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue,
-     format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175].
+     format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
+     otp_14285].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -755,6 +757,8 @@ rfd(rrrrr, 3) ->
     [f1, f2, f3];
 rfd(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, 0) ->
     [];
+rfd('\x{400}', 1) ->
+    ['\x{400}'];
 rfd(_, _) ->
     no.
 
@@ -1881,6 +1885,7 @@ otp_10302(Suite) when is_list(Suite) ->
 pretty(Term, Depth) when is_integer(Depth) ->
     Opts = [{column, 1}, {line_length, 20},
             {depth, Depth}, {max_chars, 60},
+            {record_print_fun, fun rfd/2},
             {encoding, unicode}],
     pretty(Term, Opts);
 pretty(Term, Opts) when is_list(Opts) ->
@@ -2324,3 +2329,23 @@ text1([T|Ts]) ->
     [erl_anno:text(Anno) | text1(Ts)].
 
 -endif. % EXACT
+
+otp_14285(_Config) ->
+    UOpts = [{record_print_fun, fun rfd/2},
+             {encoding, unicode}],
+    LOpts = [{record_print_fun, fun rfd/2},
+             {encoding, latin1}],
+
+    RT = {'\x{400}','\x{400}'},
+    "#'\x{400}'{'\x{400}' = '\x{400}'}" = pretty(RT, UOpts),
+    "#'\\x{400}'{'\\x{400}' = '\\x{400}'}" = pretty(RT, LOpts),
+
+    Chars = lists:seq(0, 512),
+    [] = [C ||
+             C <- Chars,
+             S <- io_lib:write_atom_as_latin1(list_to_atom([C])),
+             not is_latin1(S)],
+    L1 = [S || C <- Chars, S <- io_lib:write_atom(list_to_atom([C])),
+               not is_latin1(S)],
+    L1 = lists:seq(256, 512),
+    ok.
