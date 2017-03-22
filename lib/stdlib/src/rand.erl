@@ -88,15 +88,15 @@ seed(Alg) ->
     seed_put(seed_s(Alg)).
 
 -spec seed_s(AlgOrStateOrExpState::builtin_alg() | state() | export_state()) -> state().
-seed_s(Alg) when is_atom(Alg) ->
-    seed_s(Alg, {erlang:phash2([{node(),self()}]),
-		 erlang:system_time(),
-		 erlang:unique_integer()});
 seed_s({AlgHandler, _Seed} = State) when is_map(AlgHandler) ->
     State;
 seed_s({Alg0, Seed}) ->
     {Alg,_SeedFun} = mk_alg(Alg0),
-    {Alg, Seed}.
+    {Alg, Seed};
+seed_s(Alg) ->
+    seed_s(Alg, {erlang:phash2([{node(),self()}]),
+		 erlang:system_time(),
+		 erlang:unique_integer()}).
 
 %% seed/2: seeds RNG with the algorithm and given values
 %% and returns the NEW state.
