@@ -51,6 +51,8 @@ insn_def(I) ->
     #movzx{dst=Dst} -> dst_def(Dst);
     #pseudo_call{} -> call_clobbered();
     #pseudo_spill{} -> [];
+    #pseudo_spill_fmove{temp=Temp, dst=Dst} -> [Temp, Dst];
+    #pseudo_spill_move{temp=Temp, dst=Dst} -> [Temp, Dst];
     #pseudo_tailcall_prepare{} -> tailcall_clobbered();
     #shift{dst=Dst} -> dst_def(Dst);
     %% call, cmp, comment, jcc, jmp_fun, jmp_label, jmp_switch, label
@@ -108,6 +110,8 @@ insn_use(I) ->
     #pseudo_call{'fun'=Fun,sdesc=#x86_sdesc{arity=Arity}} ->
       addtemp(Fun, arity_use(Arity));
     #pseudo_spill{args=Args} -> Args;
+    #pseudo_spill_fmove{src=Src} -> [Src];
+    #pseudo_spill_move{src=Src} -> [Src];
     #pseudo_tailcall{'fun'=Fun,arity=Arity,stkargs=StkArgs} ->
       addtemp(Fun, addtemps(StkArgs, addtemps(tailcall_clobbered(),
 					      arity_use(Arity))));

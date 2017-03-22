@@ -30,6 +30,7 @@
 	 def_use/2,
 	 is_arg/2,	%% used by hipe_ls_regalloc
 	 is_move/2,
+	 is_spill_move/2,
 	 is_fixed/2,	%% used by hipe_graph_coloring_regalloc
 	 is_global/2,
 	 is_precoloured/2,
@@ -50,11 +51,18 @@
 -export([check_and_rewrite/3,
 	 check_and_rewrite/4]).
 
-%% callbacks for hipe_regalloc_prepass
--export([new_reg_nr/1,
+%% callbacks for hipe_regalloc_prepass, hipe_range_split
+-export([mk_move/3,
+	 mk_goto/2,
+	 redirect_jmp/4,
+	 new_label/1,
+	 new_reg_nr/1,
 	 update_reg_nr/3,
 	 update_bb/4,
 	 subst_temps/3]).
+
+%% callbacks for hipe_bb_weights
+-export([branch_preds/2]).
 
 %%----------------------------------------------------------------------------
 
@@ -152,6 +160,9 @@ bb(CFG, L, _) ->
 update_bb(CFG,L,BB,_) ->
   hipe_x86_cfg:bb_add(CFG,L,BB).
 
+branch_preds(Instr,_) ->
+  hipe_x86_cfg:branch_preds(Instr).
+
 %% AMD64 stuff
 
 def_use(Instruction, _) ->
@@ -184,9 +195,33 @@ is_move(Instruction, _) ->
 	andalso hipe_x86:is_temp(Dst) andalso hipe_x86:temp_is_allocatable(Dst);
     false -> false
   end.
+
+is_spill_move(Instruction,_) ->
+  hipe_x86:is_pseudo_spill_fmove(Instruction).
  
 reg_nr(Reg, _) ->
   hipe_x86:temp_reg(Reg).
+
+mk_move(Src, Dst, _) ->
+  hipe_x86:mk_fmove(Src, Dst).
+
+mk_goto(Label, _) ->
+  hipe_x86:mk_jmp_label(Label).
+
+redirect_jmp(Jmp, ToOld, ToNew, _) when is_integer(ToOld), is_integer(ToNew) ->
+  Ref = make_ref(),
+  put(Ref, false),
+  I = hipe_x86_subst:insn_lbls(
+	fun(Tgt) ->
+	    if Tgt =:= ToOld -> put(Ref, true), ToNew;
+	       is_integer(Tgt) -> Tgt
+	    end
+	end, Jmp),
+  true = erase(Ref), % Assert that something was rewritten
+  I.
+
+new_label(_) ->
+  hipe_gensym:get_next_label(x86).
 
 new_reg_nr(_) ->
   hipe_gensym:get_next_var(x86).

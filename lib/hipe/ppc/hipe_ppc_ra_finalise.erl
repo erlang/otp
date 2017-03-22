@@ -41,6 +41,7 @@ ra_insn(I, Map, FPMap) ->
     #mtspr{} -> ra_mtspr(I, Map);
     #pseudo_li{} -> ra_pseudo_li(I, Map);
     #pseudo_move{} -> ra_pseudo_move(I, Map);
+    #pseudo_spill_move{} -> ra_pseudo_spill_move(I, Map);
     #pseudo_tailcall{} -> ra_pseudo_tailcall(I, Map);
     #store{} -> ra_store(I, Map);
     #storex{} -> ra_storex(I, Map);
@@ -52,6 +53,7 @@ ra_insn(I, Map, FPMap) ->
     #fp_binary{} -> ra_fp_binary(I, FPMap);
     #fp_unary{} -> ra_fp_unary(I, FPMap);
     #pseudo_fmove{} -> ra_pseudo_fmove(I, FPMap);
+    #pseudo_spill_fmove{} -> ra_pseudo_spill_fmove(I, FPMap);
     _ -> I
   end.
 
@@ -97,6 +99,12 @@ ra_pseudo_move(I=#pseudo_move{dst=Dst,src=Src}, Map) ->
   NewDst = ra_temp(Dst, Map),
   NewSrc = ra_temp(Src, Map),
   I#pseudo_move{dst=NewDst,src=NewSrc}.
+
+ra_pseudo_spill_move(I=#pseudo_spill_move{dst=Dst,temp=Temp,src=Src}, Map) ->
+  NewDst = ra_temp(Dst, Map),
+  NewTemp = ra_temp(Temp, Map),
+  NewSrc = ra_temp(Src, Map),
+  I#pseudo_spill_move{dst=NewDst,temp=NewTemp,src=NewSrc}.
 
 ra_pseudo_tailcall(I=#pseudo_tailcall{stkargs=StkArgs}, Map) ->
   NewStkArgs = ra_args(StkArgs, Map),
@@ -155,6 +163,13 @@ ra_pseudo_fmove(I=#pseudo_fmove{dst=Dst,src=Src}, FPMap) ->
   NewDst = ra_temp_fp(Dst, FPMap),
   NewSrc = ra_temp_fp(Src, FPMap),
   I#pseudo_fmove{dst=NewDst,src=NewSrc}.
+
+ra_pseudo_spill_fmove(I=#pseudo_spill_fmove{dst=Dst,temp=Temp,src=Src},
+		      FPMap) ->
+  NewDst = ra_temp_fp(Dst, FPMap),
+  NewTemp = ra_temp_fp(Temp, FPMap),
+  NewSrc = ra_temp_fp(Src, FPMap),
+  I#pseudo_spill_fmove{dst=NewDst,temp=NewTemp,src=NewSrc}.
 
 ra_args([Arg|Args], Map) ->
   [ra_temp_or_imm(Arg, Map) | ra_args(Args, Map)];

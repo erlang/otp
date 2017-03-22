@@ -24,6 +24,7 @@
 	 ,reg_nr/2
 	 ,def_use/2
 	 ,is_move/2
+	 ,is_spill_move/2
 	 ,is_precoloured/2
 	 ,var_range/2
 	 ,allocatable/1
@@ -46,11 +47,18 @@
 %% callbacks for hipe_regalloc_loop
 -export([check_and_rewrite/3]).
 
-%% callbacks for hipe_regalloc_prepass
--export([new_reg_nr/1,
+%% callbacks for hipe_regalloc_prepass, hipe_range_split
+-export([mk_move/3,
+	 mk_goto/2,
+	 redirect_jmp/4,
+	 new_label/1,
+	 new_reg_nr/1,
 	 update_reg_nr/3,
 	 update_bb/4,
 	 subst_temps/3]).
+
+%% callbacks for hipe_bb_weights
+-export([branch_preds/2]).
 
 check_and_rewrite(CFG, Coloring, _) ->
   hipe_ppc_ra_postconditions:check_and_rewrite(CFG, Coloring, 'normal').
@@ -115,6 +123,9 @@ bb(CFG,L,_) ->
 update_bb(CFG,L,BB,_) ->
   hipe_ppc_cfg:bb_add(CFG,L,BB).
 
+branch_preds(Instr,_) ->
+  hipe_ppc_cfg:branch_preds(Instr).
+
 %% PowerPC stuff
 
 def_use(Instruction, Ctx) ->
@@ -144,8 +155,23 @@ is_move(Instruction, _) ->
     false -> false
   end.
 
+is_spill_move(Instruction, _) ->
+  hipe_ppc:is_pseudo_spill_move(Instruction).
+
 reg_nr(Reg, _) ->
   hipe_ppc:temp_reg(Reg).
+
+mk_move(Src, Dst, _) ->
+  hipe_ppc:mk_pseudo_move(Dst, Src).
+
+mk_goto(Label, _) ->
+  hipe_ppc:mk_b_label(Label).
+
+redirect_jmp(Jmp, ToOld, ToNew, _) when is_integer(ToOld), is_integer(ToNew) ->
+  hipe_ppc_cfg:redirect_jmp(Jmp, ToOld, ToNew).
+
+new_label(_) ->
+  hipe_gensym:get_next_label(ppc).
 
 new_reg_nr(_) ->
   hipe_gensym:get_next_var(ppc).

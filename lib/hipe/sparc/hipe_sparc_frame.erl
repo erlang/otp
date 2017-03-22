@@ -82,6 +82,10 @@ do_insn(I, LiveOut, Context, FPoff) ->
       {do_pseudo_tailcall(I, Context), context_framesize(Context)};
     #pseudo_fmove{} ->
       {do_pseudo_fmove(I, Context, FPoff), FPoff};
+    #pseudo_spill_move{} ->
+      {do_pseudo_spill_move(I, Context, FPoff), FPoff};
+    #pseudo_spill_fmove{} ->
+      {do_pseudo_spill_fmove(I, Context, FPoff), FPoff};
     _ ->
       {[I], FPoff}
   end.
@@ -110,6 +114,22 @@ do_pseudo_move(I, Context, FPoff) ->
       end
   end.
 
+do_pseudo_spill_move(I, Context, FPoff) ->
+  #pseudo_spill_move{src=Src,temp=Temp,dst=Dst} = I,
+  case temp_is_pseudo(Src) andalso temp_is_pseudo(Dst) of
+    false -> % Register allocator changed its mind, turn back to move
+      do_pseudo_move(hipe_sparc:mk_pseudo_move(Src, Dst), Context, FPoff);
+    true ->
+      SrcOffset = pseudo_offset(Src, FPoff, Context),
+      DstOffset = pseudo_offset(Dst, FPoff, Context),
+      case SrcOffset =:= DstOffset of
+	true -> []; % omit move-to-self
+	false ->
+	  mk_load(hipe_sparc:mk_sp(), SrcOffset, Temp,
+		 mk_store(Temp, hipe_sparc:mk_sp(), DstOffset, []))
+      end
+  end.
+
 do_pseudo_fmove(I, Context, FPoff) ->
   Dst = hipe_sparc:pseudo_fmove_dst(I),
   Src = hipe_sparc:pseudo_fmove_src(I),
@@ -124,6 +144,22 @@ do_pseudo_fmove(I, Context, FPoff) ->
 	  mk_fload(hipe_sparc:mk_sp(), Offset, Dst);
 	_ ->
 	  [hipe_sparc:mk_fp_unary('fmovd', Src, Dst)]
+      end
+  end.
+
+do_pseudo_spill_fmove(I, Context, FPoff) ->
+  #pseudo_spill_fmove{src=Src,temp=Temp,dst=Dst} = I,
+  case temp_is_pseudo(Src) andalso temp_is_pseudo(Dst) of
+    false -> % Register allocator changed its mind, turn back to fmove
+      do_pseudo_fmove(hipe_sparc:mk_pseudo_fmove(Src, Dst), Context, FPoff);
+    true ->
+      SrcOffset = pseudo_offset(Src, FPoff, Context),
+      DstOffset = pseudo_offset(Dst, FPoff, Context),
+      case SrcOffset =:= DstOffset of
+	true -> []; % omit move-to-self
+	false ->
+	  mk_fload(hipe_sparc:mk_sp(), SrcOffset, Temp)
+	    ++ mk_fstore(Temp, hipe_sparc:mk_sp(), DstOffset)
       end
   end.
 

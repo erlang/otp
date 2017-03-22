@@ -1230,6 +1230,18 @@ option_text(regalloc) ->
   "    optimistic - another variant of a coalescing allocator";
 option_text(remove_comments) ->
   "Strip comments from intermediate code";
+option_text(ra_range_split) ->
+  "Split live ranges of temporaries live over call instructions\n"
+  "before performing register allocation.\n"
+  "Heuristically tries to move stack accesses to the cold path of function.\n"
+  "This range splitter is more sophisticated than 'ra_restore_reuse', but has\n"
+  "a significantly larger impact on compile time.\n"
+  "Should only be used with move coalescing register allocators.";
+option_text(ra_restore_reuse) ->
+  "Split live ranges of temporaries such that straight-line\n"
+  "code will not need to contain multiple restores from the same stack\n"
+  "location.\n"
+  "Should only be used with move coalescing register allocators.";
 option_text(rtl_ssa) ->
   "Perform SSA conversion on the RTL level -- default starting at O2";
 option_text(rtl_ssa_const_prop) ->
@@ -1371,6 +1383,12 @@ opt_keys() ->
      pp_rtl_linear,
      ra_partitioned,
      ra_prespill,
+     ra_range_split,
+     ra_restore_reuse,
+     range_split_min_gain,
+     range_split_mode1_fudge,
+     range_split_weight_power,
+     range_split_weights,
      regalloc,
      remove_comments,
      rtl_ssa,
@@ -1409,7 +1427,8 @@ o1_opts(TargetArch) ->
 	    icode_ssa_const_prop, icode_ssa_copy_prop, icode_inline_bifs,
 	    rtl_ssa, rtl_ssa_const_prop, rtl_ssapre,
 	    spillmin_color, use_indexing, remove_comments,
-	    binary_opt, {regalloc,coalescing} | o0_opts(TargetArch)],
+	    binary_opt, {regalloc,coalescing}, ra_restore_reuse
+	    | o0_opts(TargetArch)],
   case TargetArch of
     ultrasparc ->
       Common;
@@ -1429,7 +1448,8 @@ o1_opts(TargetArch) ->
 
 o2_opts(TargetArch) ->
   Common = [icode_type, icode_call_elim, % icode_ssa_struct_reuse,
-	    rtl_lcm | (o1_opts(TargetArch) -- [rtl_ssapre])],
+	    ra_range_split, range_split_weights, % XXX: Having defaults here is ugly
+	    rtl_lcm | (o1_opts(TargetArch) -- [rtl_ssapre, ra_restore_reuse])],
   case TargetArch of
     T when T =:= amd64 orelse T =:= ppc64 -> % 64-bit targets
       [icode_range | Common];
@@ -1477,6 +1497,9 @@ opt_negations() ->
    {no_pp_rtl_ssapre, pp_rtl_ssapre},
    {no_ra_partitioned, ra_partitioned},
    {no_ra_prespill, ra_prespill},
+   {no_ra_range_split, ra_range_split},
+   {no_ra_restore_reuse, ra_restore_reuse},
+   {no_range_split_weights, range_split_weights},
    {no_remove_comments, remove_comments},
    {no_rtl_ssa, rtl_ssa},
    {no_rtl_ssa_const_prop, rtl_ssa_const_prop},

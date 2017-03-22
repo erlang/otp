@@ -87,6 +87,7 @@
 -record(pseudo_call_prepare, {nrstkargs}).
 -record(pseudo_li, {dst, imm}).
 -record(pseudo_move, {dst, src}).
+-record(pseudo_spill_move, {dst, temp, src}).
 -record(pseudo_tailcall, {func, arity, stkargs, linkage}).
 -record(pseudo_tailcall_prepare, {}).
 -record(store, {stop, src, disp, base}).	% non-indexed, non-update form
@@ -99,6 +100,7 @@
 -record(fp_binary, {fp_binop, dst, src1, src2}).
 -record(fp_unary, {fp_unop, dst, src}).
 -record(pseudo_fmove, {dst, src}).
+-record(pseudo_spill_fmove, {dst, temp, src}).
 
 %%% Function definitions.
 

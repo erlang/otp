@@ -44,6 +44,8 @@ insn_temps(T, I) ->
       #pseudo_move{src=S,dst=D} -> I#pseudo_move{src=T(S),dst=T(D)};
       #pseudo_ret{} -> I;
       #pseudo_set{dst=D}-> I#pseudo_set{dst=T(D)};
+      #pseudo_spill_move{src=S,temp=U,dst=D} ->
+	  I#pseudo_spill_move{src=T(S),temp=T(U),dst=T(D)};
       #pseudo_tailcall{funv=F,stkargs=Stk} ->
 	  I#pseudo_tailcall{funv=funv_temps(T,F),stkargs=lists:map(Arg,Stk)};
       #pseudo_tailcall_prepare{} -> I;
@@ -57,7 +59,9 @@ insn_temps(T, I) ->
 	  I#pseudo_fload{base=T(B),disp=S2(Di),dst=T(Ds)};
       #pseudo_fmove{src=S,dst=D} -> I#pseudo_fmove{src=T(S),dst=T(D)};
       #pseudo_fstore{src=S,base=B,disp=D} ->
-	  I#pseudo_fstore{src=T(S),base=T(B),disp=S2(D)}
+	  I#pseudo_fstore{src=T(S),base=T(B),disp=S2(D)};
+      #pseudo_spill_fmove{src=S,temp=U,dst=D} ->
+	  I#pseudo_spill_fmove{src=T(S),temp=T(U),dst=T(D)}
   end.
 
 -spec src2_temps(subst_fun(), src2()) -> src2().

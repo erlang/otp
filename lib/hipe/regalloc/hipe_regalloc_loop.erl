@@ -32,9 +32,11 @@ ra_fp(CFG, Liveness, Options, RegAllocMod, TargetMod, TargetCtx) ->
 ra_common(CFG0, Liveness0, SpillIndex, Options, RegAllocMod, TargetMod,
 	  TargetCtx) ->
   ?inc_counter(ra_calls_counter, 1),
-  SpillLimit0 = TargetMod:number_of_temporaries(CFG0, TargetCtx),
+  {CFG1, Liveness1} =
+    do_range_split(CFG0, Liveness0, TargetMod, TargetCtx, Options),
+  SpillLimit0 = TargetMod:number_of_temporaries(CFG1, TargetCtx),
   {Coloring, _, CFG, Liveness} =
-    call_allocator_initial(CFG0, Liveness0, SpillLimit0, SpillIndex, Options,
+    call_allocator_initial(CFG1, Liveness1, SpillLimit0, SpillIndex, Options,
 			   RegAllocMod, TargetMod, TargetCtx),
   %% The first iteration, the hipe_regalloc_prepass may create new temps, these
   %% should not end up above SpillLimit.
@@ -95,4 +97,21 @@ call_allocator(CFG, Liveness, SpillLimit, SpillIndex, Options, RegAllocMod,
     false ->
       RegAllocMod:regalloc(CFG, Liveness, SpillIndex, SpillLimit, TargetMod,
 			   TargetCtx, Options)
+  end.
+
+do_range_split(CFG0, Liveness0, TgtMod, TgtCtx, Options) ->
+  {CFG2, Liveness1} =
+    case proplists:get_bool(ra_restore_reuse, Options) of
+      true ->
+	CFG1 = hipe_restore_reuse:split(CFG0, Liveness0, TgtMod, TgtCtx),
+	{CFG1, TgtMod:analyze(CFG1, TgtCtx)};
+      false ->
+	{CFG0, Liveness0}
+    end,
+  case proplists:get_bool(ra_range_split, Options) of
+    true ->
+      CFG3 = hipe_range_split:split(CFG2, Liveness1, TgtMod, TgtCtx, Options),
+      {CFG3, TgtMod:analyze(CFG3, TgtCtx)};
+    false ->
+      {CFG2, Liveness1}
   end.

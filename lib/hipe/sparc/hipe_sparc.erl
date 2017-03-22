@@ -87,6 +87,9 @@
 
 	 mk_pseudo_set/2,
 
+	 mk_pseudo_spill_move/3,
+	 is_pseudo_spill_move/1,
+
 	 mk_pseudo_tailcall/4,
 	 pseudo_tailcall_funv/1,
 	 pseudo_tailcall_linkage/1,
@@ -116,6 +119,9 @@
 	 is_pseudo_fmove/1,
 	 pseudo_fmove_src/1,
 	 pseudo_fmove_dst/1,
+
+	 mk_pseudo_spill_fmove/3,
+	 is_pseudo_spill_fmove/1,
 
 	 mk_pseudo_fstore/3,
 	 mk_fstore/4,
@@ -269,6 +275,10 @@ mk_pseudo_ret() -> #pseudo_ret{}.
 
 mk_pseudo_set(Imm, Dst) -> #pseudo_set{imm=Imm, dst=Dst}.
 
+mk_pseudo_spill_move(Src, Temp, Dst) ->
+  #pseudo_spill_move{src=Src, temp=Temp, dst=Dst}.
+is_pseudo_spill_move(I) -> is_record(I, pseudo_spill_move).
+
 mk_pseudo_tailcall(FunV, Arity, StkArgs, Linkage) ->
   #pseudo_tailcall{funv=FunV, arity=Arity, stkargs=StkArgs, linkage=Linkage}.
 pseudo_tailcall_funv(#pseudo_tailcall{funv=FunV}) -> FunV.
@@ -374,6 +384,10 @@ mk_pseudo_fmove(Src, Dst) -> #pseudo_fmove{src=Src, dst=Dst}.
 is_pseudo_fmove(I) -> case I of #pseudo_fmove{} -> true; _ -> false end.
 pseudo_fmove_src(#pseudo_fmove{src=Src}) -> Src.
 pseudo_fmove_dst(#pseudo_fmove{dst=Dst}) -> Dst.
+
+mk_pseudo_spill_fmove(Src, Temp, Dst) ->
+  #pseudo_spill_fmove{src=Src, temp=Temp, dst=Dst}.
+is_pseudo_spill_fmove(I) -> is_record(I, pseudo_spill_fmove).
 
 mk_pseudo_fstore(Src, Base, Disp) ->
   #pseudo_fstore{src=Src, base=Base, disp=Disp}.

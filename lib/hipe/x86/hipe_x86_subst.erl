@@ -19,7 +19,7 @@
 -endif.
 
 -module(?HIPE_X86_SUBST).
--export([insn_temps/2]).
+-export([insn_temps/2, insn_lbls/2]).
 -include("../x86/hipe_x86.hrl").
 
 %% These should be moved to hipe_x86 and exported
@@ -28,6 +28,7 @@
 -type mfarec() :: #x86_mfa{}.
 -type prim()   :: #x86_prim{}.
 -type funv()   :: mfarec() | prim() | temp().
+-type label()  :: non_neg_integer().
 -type insn()   :: tuple(). % for now
 
 -type subst_fun() :: fun((temp()) -> temp()).
@@ -49,14 +50,19 @@ insn_temps(SubstTemp, I) ->
     #movzx   {src=S, dst=D}  -> I#movzx   {src=O(S), dst=O(D)};
     #shift   {src=S, dst=D}  -> I#shift   {src=O(S), dst=O(D)};
     #test    {src=S, dst=D}  -> I#test    {src=O(S), dst=O(D)};
-    #fp_unop{arg=A} -> I#fp_unop{arg=O(A)};
-    #move64 {dst=D} -> I#move64 {dst=O(D)};
-    #push   {src=S} -> I#push   {src=O(S)};
-    #pop    {dst=D} -> I#pop    {dst=O(D)};
+    #fp_unop{arg=[]} -> I;
+    #fp_unop{arg=A}  -> I#fp_unop{arg=O(A)};
+    #move64 {dst=D}  -> I#move64 {dst=O(D)};
+    #push   {src=S}  -> I#push   {src=O(S)};
+    #pop    {dst=D}  -> I#pop    {dst=O(D)};
     #jmp_switch{temp=T, jtab=J} ->
       I#jmp_switch{temp=O(T), jtab=jtab_temps(SubstTemp, J)};
     #pseudo_call{'fun'=F} ->
       I#pseudo_call{'fun'=funv_temps(SubstTemp, F)};
+    #pseudo_spill_fmove{src=S, temp=T, dst=D} ->
+      I#pseudo_spill_fmove{src=O(S), temp=O(T), dst=O(D)};
+    #pseudo_spill_move{src=S, temp=T, dst=D} ->
+      I#pseudo_spill_move{src=O(S), temp=O(T), dst=O(D)};
     #pseudo_tailcall{'fun'=F, stkargs=Stk} ->
       I#pseudo_tailcall{'fun'=funv_temps(SubstTemp, F),
 			stkargs=lists:map(O, Stk)};
@@ -85,3 +91,22 @@ jtab_temps(SubstTemp, T=#x86_temp{}) -> SubstTemp(T).
 -else.
 jtab_temps(_SubstTemp, DataLbl) when is_integer(DataLbl) -> DataLbl.
 -endif.
+
+-type lbl_subst_fun() :: fun((label()) -> label()).
+
+%% @doc Maps over the branch targets in an instruction
+-spec insn_lbls(lbl_subst_fun(), insn()) -> insn().
+insn_lbls(SubstLbl, I) ->
+  case I of
+    #jmp_label{label=Label} ->
+      I#jmp_label{label=SubstLbl(Label)};
+    #pseudo_call{sdesc=Sdesc, contlab=Contlab} ->
+      I#pseudo_call{sdesc=sdesc_lbls(SubstLbl, Sdesc),
+		    contlab=SubstLbl(Contlab)};
+    #pseudo_jcc{true_label=T, false_label=F} ->
+      I#pseudo_jcc{true_label=SubstLbl(T), false_label=SubstLbl(F)}
+  end.
+
+sdesc_lbls(_SubstLbl, Sdesc=#x86_sdesc{exnlab=[]}) -> Sdesc;
+sdesc_lbls(SubstLbl, Sdesc=#x86_sdesc{exnlab=Exnlab}) ->
+  Sdesc#x86_sdesc{exnlab=SubstLbl(Exnlab)}.

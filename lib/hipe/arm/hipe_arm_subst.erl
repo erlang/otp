@@ -13,7 +13,7 @@
 %% limitations under the License.
 
 -module(hipe_arm_subst).
--export([insn_temps/2]).
+-export([insn_temps/2, insn_lbls/2]).
 -include("hipe_arm.hrl").
 
 %% These should be moved to hipe_arm and exported
@@ -31,6 +31,7 @@
 -type am3()     :: #am3{}.
 -type arg()     :: temp() | integer().
 -type funv()    :: #arm_mfa{} | #arm_prim{} | temp().
+-type label()   :: non_neg_integer().
 -type insn()    :: tuple(). % for now
 
 -type subst_fun() :: fun((temp()) -> temp()).
@@ -58,6 +59,8 @@ insn_temps(T, I) ->
       #pseudo_call{funv=F} -> I#pseudo_call{funv=funv_temps(T, F)};
       #pseudo_call_prepare{} -> I;
       #pseudo_li{dst=D} -> I#pseudo_li{dst=T(D)};
+      #pseudo_spill_move{dst=D,temp=U,src=S} ->
+	  I#pseudo_spill_move{dst=T(D),temp=T(U),src=T(S)};
       #pseudo_switch{jtab=J=#arm_temp{},index=Ix=#arm_temp{}} ->
 	  I#pseudo_switch{jtab=T(J),index=T(Ix)};
       #pseudo_tailcall{funv=F,stkargs=Stk} ->
@@ -103,3 +106,22 @@ funv_temps(SubstTemp,  T=#arm_temp{}) -> SubstTemp(T).
 -spec arg_temps(subst_fun(), arg()) -> arg().
 arg_temps(_SubstTemp, Imm) when is_integer(Imm) -> Imm;
 arg_temps(SubstTemp,  T=#arm_temp{}) -> SubstTemp(T).
+
+-type lbl_subst_fun() :: fun((label()) -> label()).
+
+%% @doc Maps over the branch targets in an instruction
+-spec insn_lbls(lbl_subst_fun(), insn()) -> insn().
+insn_lbls(SubstLbl, I) ->
+  case I of
+    #b_label{label=Label} ->
+      I#b_label{label=SubstLbl(Label)};
+    #pseudo_bc{true_label=T, false_label=F} ->
+      I#pseudo_bc{true_label=SubstLbl(T), false_label=SubstLbl(F)};
+    #pseudo_call{sdesc=Sdesc, contlab=Contlab} ->
+      I#pseudo_call{sdesc=sdesc_lbls(SubstLbl, Sdesc),
+		    contlab=SubstLbl(Contlab)}
+  end.
+
+sdesc_lbls(_SubstLbl, Sdesc=#arm_sdesc{exnlab=[]}) -> Sdesc;
+sdesc_lbls(SubstLbl, Sdesc=#arm_sdesc{exnlab=Exnlab}) ->
+  Sdesc#arm_sdesc{exnlab=SubstLbl(Exnlab)}.

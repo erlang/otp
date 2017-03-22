@@ -167,6 +167,12 @@
 
      mk_pseudo_spill/1,
 
+	 mk_pseudo_spill_fmove/3,
+	 is_pseudo_spill_fmove/1,
+
+	 mk_pseudo_spill_move/3,
+	 is_pseudo_spill_move/1,
+
 	 mk_pseudo_tailcall/4,
 	 %% is_pseudo_tailcall/1,
 	 pseudo_tailcall_fun/1,
@@ -424,6 +430,14 @@ mk_pseudo_jcc_simple(Cc, TrueLabel, FalseLabel, Pred) ->
 
 mk_pseudo_spill(List) ->
     #pseudo_spill{args=List}.
+
+mk_pseudo_spill_fmove(Src, Temp, Dst) ->
+    #pseudo_spill_fmove{src=Src, temp=Temp, dst=Dst}.
+is_pseudo_spill_fmove(I) -> is_record(I, pseudo_spill_fmove).
+
+mk_pseudo_spill_move(Src, Temp, Dst) ->
+    #pseudo_spill_move{src=Src, temp=Temp, dst=Dst}.
+is_pseudo_spill_move(I) -> is_record(I, pseudo_spill_move).
 
 mk_pseudo_tailcall(Fun, Arity, StkArgs, Linkage) ->
     check_linkage(Linkage),
