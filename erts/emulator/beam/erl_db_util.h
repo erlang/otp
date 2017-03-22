@@ -171,6 +171,7 @@ typedef struct db_table_method
 				    Eterm* ret);
     int (*db_select_replace)(Process* p,
             DbTable* tb, /* [in out] */
+            Eterm tid,
             Eterm pattern,
             Eterm* ret);
     int (*db_select_replace_continue)(Process* p,

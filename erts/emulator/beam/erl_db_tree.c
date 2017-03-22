@@ -424,7 +424,7 @@ static int db_select_delete_tree(Process *p, DbTable *tbl, Eterm tid,
 				 Eterm pattern,  Eterm *ret);
 static int db_select_delete_continue_tree(Process *p, DbTable *tbl, 
 					  Eterm continuation, Eterm *ret);
-static int db_select_replace_tree(Process *p, DbTable *tbl,
+static int db_select_replace_tree(Process *p, DbTable *tbl, Eterm tid,
                                   Eterm pattern, Eterm *ret);
 static int db_select_replace_continue_tree(Process *p, DbTable *tbl,
                                            Eterm continuation, Eterm *ret);
@@ -1839,11 +1839,10 @@ static int db_select_replace_continue_tree(Process *p,
 #undef RET_TO_BIF
 }
 
-static int db_select_replace_tree(Process *p, DbTable *tbl,
+static int db_select_replace_tree(Process *p, DbTable *tbl, Eterm tid,
                                   Eterm pattern, Eterm *ret)
 {
     DbTableTree *tb = &tbl->tree;
-    Eterm tid = NIL; // TODO
     DbTreeStack* stack;
     struct select_replace_context sc;
     struct mp_info mpi;

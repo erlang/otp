@@ -2994,7 +2994,7 @@ BIF_RETTYPE ets_select_replace_2(BIF_ALIST_2)
     if (safety == ITER_UNSAFE) {
         local_fix_table(tb);
     }
-    cret = tb->common.meth->db_select_replace(BIF_P, tb, BIF_ARG_2, &ret);
+    cret = tb->common.meth->db_select_replace(BIF_P, tb, BIF_ARG_1, BIF_ARG_2, &ret);
 
     if (DID_TRAP(BIF_P,ret) && safety != ITER_SAFE) {
         fix_table_locked(BIF_P,tb);

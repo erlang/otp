@@ -416,7 +416,7 @@ static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid,
 static int db_select_delete_continue_hash(Process *p, DbTable *tbl,
 					  Eterm continuation, Eterm *ret);
 
-static int db_select_replace_hash(Process *p, DbTable *tbl,
+static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm tid,
                                   Eterm pattern, Eterm *ret);
 static int db_select_replace_continue_hash(Process *p, DbTable *tbl,
                                            Eterm continuation, Eterm *ret);
@@ -2181,7 +2181,7 @@ static int mtraversal_select_replace_on_trap(void* context_ptr, Sint slot_ix, Si
             slot_ix, got, mpp, ret);
 }
 
-static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm pattern, Eterm *ret)
+static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm tid, Eterm pattern, Eterm *ret)
 {
     mtraversal_select_replace_context_t sr_context = {0};
     Sint chunk_size = 0;
@@ -2193,7 +2193,7 @@ static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm pattern, Eterm
 
     sr_context.p = p;
     sr_context.tb = &tbl->hash;
-    sr_context.tid = NIL; // TODO
+    sr_context.tid = tid;
     sr_context.hp = NULL;
     sr_context.prev_continuation_tptr = NULL;
 
