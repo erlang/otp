@@ -49,6 +49,9 @@
 %% This should correspond to the similar macro in crypto.c
 -define(MAX_BYTES_TO_NIF, 20000). %%  Current value is: erlang:system_info(context_reductions) * 10
 
+%% Used by strong_rand_float/0
+-define(HALF_DBL_EPSILON, 1.1102230246251565e-16). % math:pow(2, -53)
+
 %%-type ecdsa_digest_type() :: 'md5' | 'sha' | 'sha256' | 'sha384' | 'sha512'.
 -type crypto_integer() :: binary() | integer().
 %%-type ec_named_curve() :: atom().
@@ -342,14 +345,8 @@ strong_rand_range(BinRange) when is_binary(BinRange) ->
 strong_rand_range_nif(_BinRange) -> ?nif_stub.
 
 strong_rand_float() ->
-    % This could be optimized by having its own NIF
-    Sign = 0, % positive
-    Exponent = 1023, % on the interval [1.0, 2.0[
-    BinFraction = strong_rand_range(1 bsl 52), % the whole interval above
-    Fraction = bin_to_int(BinFraction),
-    <<Value:64/big-float>> = <<Sign:1, Exponent:11, Fraction:52>>,
-    Value - 1.0.
-
+    WholeRange = strong_rand_range(1 bsl 53),
+    ?HALF_DBL_EPSILON * bytes_to_integer(WholeRange).
 
 rand_uniform(From,To) when is_binary(From), is_binary(To) ->
     case rand_uniform_nif(From,To) of
