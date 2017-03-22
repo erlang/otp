@@ -58,7 +58,7 @@
 %% Algorithm state
 -type state() :: {alg_handler(), alg_seed()}.
 -type builtin_alg() :: exs64 | exsplus | exs1024.
--type alg() :: builtin_alg() | term().
+-type alg() :: builtin_alg() | atom().
 -type export_state() :: {alg(), alg_seed()}.
 -export_type([builtin_alg/0, alg/0, alg_handler/0, alg_seed/0, state/0, export_state/0]).
 
