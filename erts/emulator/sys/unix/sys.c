@@ -538,11 +538,13 @@ void sys_sigrelease(int sig)
     sigprocmask(SIG_UNBLOCK, &mask, (sigset_t *)NULL);
 }
 
+#ifdef ERTS_HAVE_TRY_CATCH
 void erts_sys_sigsegv_handler(int signo) {
     if (signo == SIGSEGV) {
         longjmp(erts_sys_sigsegv_jmp, 1);
     }
 }
+#endif
 
 /*
  * Function returns 1 if we can read from all values in between

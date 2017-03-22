@@ -280,6 +280,7 @@ schdlr_sspnd_get_nscheds(ErtsSchedTypeCounters *valp,
     }
 }
 
+#ifdef DEBUG
 static ERTS_INLINE Uint32
 schdlr_sspnd_get_nscheds_tot(ErtsSchedTypeCounters *valp)
 {
@@ -290,6 +291,7 @@ schdlr_sspnd_get_nscheds_tot(ErtsSchedTypeCounters *valp)
 #endif
     return res;
 }
+#endif
 
 static ERTS_INLINE void
 schdlr_sspnd_dec_nscheds(ErtsSchedTypeCounters *valp,
