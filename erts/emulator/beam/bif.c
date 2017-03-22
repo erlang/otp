@@ -4254,6 +4254,132 @@ BIF_RETTYPE list_to_pid_1(BIF_ALIST_1)
     BIF_ERROR(BIF_P, BADARG);
 }
 
+BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
+{
+    /*
+     * A valid reference is on the format
+     * "#Ref<N.X.Y.Z>" where N, X, Y, and Z are
+     * 32-bit integers (i.e., max 10 characters).
+     */
+    Eterm *hp;
+    Eterm res;
+    Uint32 refn[ERTS_MAX_REF_NUMBERS];
+    int n = 0;
+    Uint ints[1 + ERTS_MAX_REF_NUMBERS] = {0};
+    char* cp;
+    Sint i;
+    DistEntry *dep = NULL;
+    char buf[5 /* #Ref< */
+             + (1 + ERTS_MAX_REF_NUMBERS)*(10 + 1) /* N.X.Y.Z> */
+             + 1 /* \0 */];
+
+    /* walk down the list and create a C string */
+    if ((i = intlist_to_buf(BIF_ARG_1, buf, sizeof(buf)-1)) < 0)
+	goto bad;
+
+    buf[i] = '\0';		/* null terminal */
+
+    cp = &buf[0];
+    if (*cp++ != '#') goto bad;
+    if (*cp++ != 'R') goto bad;
+    if (*cp++ != 'e') goto bad;
+    if (*cp++ != 'f') goto bad;
+    if (*cp++ != '<') goto bad;
+
+    for (i = 0; i < sizeof(ints)/sizeof(Uint); i++) {
+        if (*cp < '0' || *cp > '9') goto bad;
+
+        while (*cp >= '0' && *cp <= '9') {
+            ints[i] = 10*ints[i] + (*cp - '0');
+            cp++;
+        }
+
+        n++;
+        if (ints[i] > ~((Uint32) 0)) goto bad;
+        if (*cp == '>') break;
+        if (*cp++ != '.') goto bad;
+    }
+
+    if (*cp++ != '>') goto bad;
+    if (*cp != '\0') goto bad;
+
+    if (n < 2) goto bad;
+
+    for (n = 0; i > 0; i--)
+        refn[n++] = (Uint32) ints[i];
+
+    ASSERT(n <= ERTS_MAX_REF_NUMBERS);
+
+    dep = erts_channel_no_to_dist_entry(ints[0]);
+
+    if (!dep)
+	goto bad;
+
+    if(dep == erts_this_dist_entry) {
+        ErtsMagicBinary *mb;
+        Uint32 sid;
+        if (refn[0] > MAX_REFERENCE) goto bad;
+        if (n != ERTS_REF_NUMBERS) goto bad;
+        sid = erts_get_ref_numbers_thr_id(refn);
+        if (sid > erts_no_schedulers) goto bad;
+        mb = erts_magic_ref_lookup_bin(refn);
+        if (mb) {
+            hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
+            res = erts_mk_magic_ref(&hp, &BIF_P->off_heap,
+                                    (Binary *) mb);
+        }
+        else {
+            hp = HAlloc(BIF_P, ERTS_REF_THING_SIZE);
+            write_ref_thing(hp, refn[0], refn[1], refn[2]);
+            res = make_internal_ref(hp);
+        }
+    }
+    else {
+      ExternalThing *etp;
+      ErlNode *enp;
+      Uint hsz;
+      int j;
+
+      if (is_nil(dep->cid))
+	  goto bad;
+      
+      enp = erts_find_or_insert_node(dep->sysname, dep->creation);
+      ASSERT(enp != erts_this_node);
+
+      hsz = EXTERNAL_THING_HEAD_SIZE;
+#if defined(ARCH_64)
+      hsz += n/2 + 1;
+#else
+      hsz += n;
+#endif
+
+      etp = (ExternalThing *) HAlloc(BIF_P, hsz);
+      etp->header = make_external_ref_header(n/2);
+      etp->next = BIF_P->off_heap.first;
+      etp->node = enp;
+      i = 0;
+#if defined(ARCH_64)
+      etp->data.ui32[i] = n;
+#endif
+      for (j = 0; j < n; j++) {
+          etp->data.ui32[i] = refn[j];
+          i++;
+      }
+
+      BIF_P->off_heap.first = (struct erl_off_heap_header*) etp;
+      res = make_external_ref(etp);
+    }
+
+    erts_deref_dist_entry(dep);
+    BIF_RET(res);
+
+ bad:
+    if (dep)
+	erts_deref_dist_entry(dep);
+    BIF_ERROR(BIF_P, BADARG);
+}
+
+
 /**********************************************************************/
 
 BIF_RETTYPE group_leader_0(BIF_ALIST_0)

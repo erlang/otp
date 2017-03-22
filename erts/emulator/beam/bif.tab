@@ -88,6 +88,7 @@ bif erlang:list_to_binary/1
 bif erlang:list_to_float/1
 bif erlang:list_to_integer/1
 bif erlang:list_to_pid/1
+bif erlang:list_to_ref/1
 bif erlang:list_to_tuple/1
 bif erlang:loaded/0
 bif erlang:localtime/0
@@ -324,7 +325,7 @@ bif erlang:match_spec_test/3
 # Bifs in ets module.
 #
 
-bif ets:all/0
+bif ets:internal_request_all/0
 bif ets:new/2
 bif ets:delete/1
 bif ets:delete/2

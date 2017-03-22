@@ -118,6 +118,7 @@
 	 slot,
 	 id,
 	 name,
+         is_named,
 	 data_type="hash",
 	 buckets="-",
 	 size,

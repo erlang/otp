@@ -512,6 +512,8 @@ do_break(void)
     erts_free_read_env(mode);
 #endif /* __WIN32__ */
 
+    ASSERT(erts_smp_thr_progress_is_blocking());
+
     erts_printf("\n"
 		"BREAK: (a)bort (c)ontinue (p)roc info (i)nfo (l)oaded\n"
 		"       (v)ersion (k)ill (D)b-tables (d)istribution\n");
