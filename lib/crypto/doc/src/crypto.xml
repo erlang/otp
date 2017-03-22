@@ -744,7 +744,7 @@
         <pre>
 _ = crypto:rand_seed(),
 _IntegerValue = rand:uniform(42), % [1; 42]
-_FloatValue = rand:uniform().     % [0.0; 1.0]</pre>
+_FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
       </desc>
     </func>
 
