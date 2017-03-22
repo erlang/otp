@@ -742,7 +742,7 @@
 
         <p><em>Example</em></p>
         <pre>
-crypto:rand_seed(),
+_ = crypto:rand_seed(),
 _IntegerValue = rand:uniform(42), % [1; 42]
 _FloatValue = rand:uniform().     % [0.0; 1.0]</pre>
       </desc>
