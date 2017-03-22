@@ -34,13 +34,13 @@
 run_where(_) ->
     ClientNode = node(),
     ServerNode = node(),
-    {ok, Host} = rpc:call(ServerNode, inet, gethostname, []),
+    Host = rpc:call(ServerNode, net_adm, localhost, []),
     {ClientNode, ServerNode, Host}.
 
 run_where(_, ipv6) ->
     ClientNode = node(),
     ServerNode = node(),
-    {ok, Host} = rpc:call(ServerNode, inet, gethostname, []),
+    Host = rpc:call(ServerNode, net_adm, localhost, []),
     {ClientNode, ServerNode, Host}.
 
 node_to_hostip(Node) ->

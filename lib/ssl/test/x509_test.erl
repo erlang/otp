@@ -105,7 +105,7 @@ root_cert(Role, PrivKey, Opts) ->
                 validity = validity(Opts),  
                 subject = Issuer,
                 subjectPublicKeyInfo = public_key(PrivKey),
-                extensions = extensions(ca, Opts)
+                extensions = extensions(Role, ca, Opts)
                },
      public_key:pkix_sign(OTPTBS, PrivKey).
 
@@ -175,22 +175,27 @@ validity(Opts) ->
     #'Validity'{notBefore={generalTime, Format(DefFrom)},
 		notAfter ={generalTime, Format(DefTo)}}.
 
-extensions(Type, Opts) ->
+extensions(Role, Type, Opts) ->
     Exts  = proplists:get_value(extensions, Opts, []),
-    lists:flatten([extension(Ext) || Ext <- default_extensions(Type, Exts)]).
+    lists:flatten([extension(Ext) || Ext <- default_extensions(Role, Type, Exts)]).
 
 %% Common extension: name_constraints, policy_constraints, ext_key_usage, inhibit_any, 
 %% auth_key_id, subject_key_id, policy_mapping,
 
-default_extensions(ca, Exts) ->
+default_extensions(_, ca, Exts) ->
     Def = [{key_usage,  [keyCertSign, cRLSign]}, 
 	   {basic_constraints, default}],
     add_default_extensions(Def, Exts);
 
-default_extensions(peer, Exts) ->
-    Def = [{key_usage, [digitalSignature, keyAgreement]}],
-    add_default_extensions(Def, Exts).
+default_extensions(server, peer, Exts) ->
+    Hostname = net_adm:localhost(),
+    Def = [{key_usage, [digitalSignature, keyAgreement]},
+           {subject_alt, Hostname}],
+    add_default_extensions(Def, Exts);
     
+default_extensions(_, peer, Exts) ->
+    Exts.
+
 add_default_extensions(Def, Exts) ->
     Filter = fun({Key, _}, D) -> 
                      lists:keydelete(Key, 1, D); 
@@ -227,6 +232,10 @@ extension({auth_key_id, {Oid, Issuer, SNr}}) ->
 extension({key_usage, Value}) ->
     #'Extension'{extnID = ?'id-ce-keyUsage',
                  extnValue = Value,
+                 critical = false};
+extension({subject_alt, Hostname}) ->
+    #'Extension'{extnID = ?'id-ce-subjectAltName',
+                 extnValue = [{dNSName, Hostname}],
                  critical = false};
 extension({Id, Data, Critical}) ->
     #'Extension'{extnID = Id, extnValue = Data, critical = Critical}.
@@ -309,7 +318,7 @@ cert(Role, #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = Iss
                validity = validity(CertOpts),  
                subject = subject(Contact, atom_to_list(Role) ++ Name),
                subjectPublicKeyInfo = public_key(Key),
-               extensions = extensions(Type, 
+               extensions = extensions(Role, Type, 
                                        add_default_extensions([{auth_key_id, {auth_key_oid(Role), Issuer, SNr}}],
                                                               CertOpts))
               },

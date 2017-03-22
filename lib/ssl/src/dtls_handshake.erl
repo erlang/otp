@@ -65,9 +65,8 @@ client_hello(Host, Port, Cookie, ConnectionStates,
     TLSVersion = dtls_v1:corresponding_tls_version(Version),
     CipherSuites = ssl_handshake:available_suites(UserSuites, TLSVersion),
 
-    Extensions = ssl_handshake:client_hello_extensions(Host, TLSVersion, CipherSuites,
+    Extensions = ssl_handshake:client_hello_extensions(TLSVersion, CipherSuites,
                                                        SslOpts, ConnectionStates, Renegotiation),
-
     Id = ssl_session:client_id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),
 
     #client_hello{session_id = Id,

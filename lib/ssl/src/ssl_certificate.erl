@@ -125,7 +125,7 @@ file_to_crls(File, DbHandle) ->
 %% Description:  Validates ssl/tls specific extensions
 %%--------------------------------------------------------------------
 validate(_,{extension, #'Extension'{extnID = ?'id-ce-extKeyUsage',
-				    extnValue = KeyUse}}, UserState = {Role, _,_, _, _}) ->
+				    extnValue = KeyUse}}, UserState = {Role, _,_, _, _, _}) ->
     case is_valid_extkey_usage(KeyUse, Role) of
 	true ->
 	    {valid, UserState};
@@ -138,8 +138,15 @@ validate(_, {bad_cert, _} = Reason, _) ->
     {fail, Reason};
 validate(_, valid, UserState) ->
     {valid, UserState};
-validate(_, valid_peer, UserState) ->
-    {valid, UserState}.
+validate(Cert, valid_peer, UserState = {client, _,_, Hostname, _, _}) when Hostname =/= undefined ->
+    case public_key:pkix_verify_hostname(Cert, [{dns_id, Hostname}]) of
+        true ->
+            {valid, UserState};
+        false ->
+            {fail, {bad_cert, hostname_check_failed}}
+    end;
+validate(_, valid_peer, UserState) ->    
+   {valid, UserState}.
 
 %%--------------------------------------------------------------------
 -spec is_valid_key_usage(list(), term()) -> boolean().
