@@ -69,9 +69,7 @@
 %%    A hipe_consttab is a tuple {Data, ReferedLabels, NextConstLabel}
 %% @type hipe_constlbl().
 %%   An abstract datatype for referring to data.
-%% @type element_type() = byte | word | ctab_array()
-%% @type ctab_array() = {ctab_array, Type::element_type(),
-%%                                   NoElements::pos_integer()}
+%% @type element_type() = byte | word
 %% @type block() = [integer() | label_ref()]
 %% @type label_ref() = {label, Label::code_label()}
 %% @type code_label() = hipe_sparc:label_name() | hipe_x86:label_name()
@@ -116,8 +114,7 @@
 -type label_ref()    :: {'label', code_label()}.
 -type block()	     :: [hipe_constlbl() | label_ref()].
 
--type ctab_array()   :: {'ctab_array', 'byte' | 'word', pos_integer()}.
--type element_type() :: 'byte' | 'word' | ctab_array().
+-type element_type() :: 'byte' | 'word'.
 
 -type sort_order()   :: term(). % XXX: FIXME
 
@@ -262,13 +259,9 @@ get_labels([], Acc) ->
   
 %% @spec size_of(element_type()) -> pos_integer()
 %% @doc Returns the size in bytes of an element_type.
-%%  The is_atom/1 guard in the clause handling arrays
-%%  constraints the argument to 'byte' | 'word'
 -spec size_of(element_type()) -> pos_integer().
 size_of(byte) -> 1;
-size_of(word) -> word_size();
-size_of({ctab_array,S,N}) when is_atom(S), is_integer(N), N > 0 ->
-    N * size_of(S).
+size_of(word) -> word_size().
 
 %% @spec decompose({element_type(), block()}) -> [byte()]
 %% @doc Turns a block into a list of bytes.
