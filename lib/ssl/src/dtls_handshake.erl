@@ -455,7 +455,7 @@ merge_fragments(#handshake_fragment{
 		   fragment_offset = PreviousOffSet,
 		   fragment_length = CurrentLen}) when CurrentLen < PreviousLen ->
     Previous;
-%% Next fragment
+%% Next fragment, might be overlapping
 merge_fragments(#handshake_fragment{
 		   fragment_offset = PreviousOffSet, 
 		   fragment_length = PreviousLen,
@@ -464,10 +464,28 @@ merge_fragments(#handshake_fragment{
 		#handshake_fragment{
 		   fragment_offset = CurrentOffSet,
 		   fragment_length = CurrentLen,
-		   fragment = CurrentData}) when PreviousOffSet + PreviousLen == CurrentOffSet->
-	    Previous#handshake_fragment{
-	      fragment_length =  PreviousLen + CurrentLen,
-	      fragment = <<PreviousData/binary, CurrentData/binary>>};
+                  fragment = CurrentData})
+  when PreviousOffSet + PreviousLen >= CurrentOffSet andalso
+       PreviousOffSet + PreviousLen < CurrentOffSet + CurrentLen ->
+    CurrentStart = PreviousOffSet + PreviousLen - CurrentOffSet,
+    <<_:CurrentStart/bytes, Data/binary>> = CurrentData,
+    Previous#handshake_fragment{
+      fragment_length =  PreviousLen + CurrentLen - CurrentStart,
+      fragment = <<PreviousData/binary, Data/binary>>};
+%% already fully contained fragment
+merge_fragments(#handshake_fragment{
+                  fragment_offset = PreviousOffSet, 
+                  fragment_length = PreviousLen,
+                  fragment = PreviousData
+                 } = Previous, 
+               #handshake_fragment{
+                  fragment_offset = CurrentOffSet,
+                  fragment_length = CurrentLen,
+                  fragment = CurrentData})
+  when PreviousOffSet + PreviousLen >= CurrentOffSet andalso
+       PreviousOffSet + PreviousLen >= CurrentOffSet + CurrentLen ->
+    Previous;
+
 %% No merge there is a gap
 merge_fragments(Previous, Current) ->
     [Previous, Current].
