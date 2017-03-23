@@ -610,7 +610,7 @@ pkix_match_dist_point(#'CertificateList'{
 
 %%--------------------------------------------------------------------
 -spec pkix_sign(#'OTPTBSCertificate'{},
-		rsa_private_key() | dsa_private_key()) -> Der::binary().
+		rsa_private_key() | dsa_private_key() | ec_private_key()) -> Der::binary().
 %%
 %% Description: Sign a pkix x.509 certificate. Returns the corresponding
 %% der encoded 'Certificate'{}
