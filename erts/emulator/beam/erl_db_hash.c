@@ -1221,17 +1221,17 @@ static int match_traverse(Process* p, DbTableHash* tb,
                           void* context_ptr, /* State for callbacks above */
                           Eterm* ret)
 {
-    Sint slot_ix = -1;                /* Slot index */
-    HashDbTerm** current_ptr = NULL;  /* Refers to either the bucket pointer or
-                                       * the 'next' pointer in the previous term
-                                       */
-    HashDbTerm* saved_current = NULL; /* Helper to avoid double skip on match */
+    Sint slot_ix;                  /* Slot index */
+    HashDbTerm** current_ptr;      /* Refers to either the bucket pointer or
+                                    * the 'next' pointer in the previous term
+                                    */
+    HashDbTerm* saved_current;     /* Helper to avoid double skip on match */
     struct mp_info mpi;
-    unsigned current_list_pos = 0;    /* Prefound buckets list index */
+    unsigned current_list_pos = 0; /* Prefound buckets list index */
     Eterm match_res;
-    Sint got = 0;                     /* Matched terms counter */
-    erts_smp_rwmtx_t* lck = NULL;     /* Slot lock */
-    int ret_value = DB_ERROR_NONE;
+    Sint got = 0;                  /* Matched terms counter */
+    erts_smp_rwmtx_t* lck;         /* Slot lock */
+    int ret_value;
 #ifdef ERTS_SMP
     erts_smp_rwmtx_t* (*lock_hash_function)(DbTableHash*, HashValue)
         = (lock_for_write ? WLOCK_HASH : RLOCK_HASH);
@@ -1243,8 +1243,6 @@ static int match_traverse(Process* p, DbTableHash* tb,
 #endif
     Sint (*next_slot_function)(DbTableHash*, Uint, erts_smp_rwmtx_t**)
         = (lock_for_write ? next_slot_w : next_slot);
-
-    *ret = NIL;
 
     if ((ret_value = analyze_pattern(tb, pattern, extra_match_validator, &mpi))
             != DB_ERROR_NONE)
@@ -1385,13 +1383,13 @@ static int match_traverse_continue(Process* p, DbTableHash* tb,
                                    Eterm* ret)
 {
     int all_objects = (*mpp)->flags & BIN_FLAG_ALL_OBJECTS;
-    HashDbTerm** current_ptr = NULL;  /* Refers to either the bucket pointer or
+    HashDbTerm** current_ptr;  /* Refers to either the bucket pointer or
                                        * the 'next' pointer in the previous term
                                        */
-    HashDbTerm* saved_current = NULL; /* Helper to avoid double skip on match */
-    Eterm match_res = NIL;
-    erts_smp_rwmtx_t* lck = NULL;
-    int ret_value = DB_ERROR_NONE;
+    HashDbTerm* saved_current; /* Helper to avoid double skip on match */
+    Eterm match_res;
+    erts_smp_rwmtx_t* lck;
+    int ret_value;
 #ifdef ERTS_SMP
     erts_smp_rwmtx_t* (*lock_hash_function)(DbTableHash*, HashValue)
         = (lock_for_write ? WLOCK_HASH : RLOCK_HASH);
@@ -1403,8 +1401,6 @@ static int match_traverse_continue(Process* p, DbTableHash* tb,
 #endif
     Sint (*next_slot_function)(DbTableHash* tb, Uint ix, erts_smp_rwmtx_t** lck_ptr)
         = (lock_for_write ? next_slot_w : next_slot);
-
-    *ret = NIL;
 
     if (got < 0)
         return DB_ERROR_BADPARAM;
@@ -1498,10 +1494,10 @@ static ERTS_INLINE int on_mtraversal_simple_trap(Export* trap_function,
                                                  Binary** mpp,
                                                  Eterm* ret)
 {
-    Eterm* hp = NULL;
-    Eterm egot = NIL;
-    Eterm mpb = NIL;
-    Eterm continuation = NIL;
+    Eterm* hp;
+    Eterm egot;
+    Eterm mpb;
+    Eterm continuation;
     int is_first_trap = (prev_continuation_tptr == NULL);
     size_t base_halloc_sz = (is_first_trap ? ERTS_MAGIC_REF_THING_SIZE : 0);
 
@@ -1541,7 +1537,7 @@ static ERTS_INLINE int unpack_simple_mtraversal_continuation(Eterm continuation,
                                                              Binary** mpp,
                                                              Sint* got_p)
 {
-    Eterm* tptr = NULL;
+    Eterm* tptr;
     ASSERT(is_tuple(continuation));
     tptr = tuple_val(continuation);
     if (arityval(*tptr) != 4)
@@ -1605,7 +1601,7 @@ static int mtraversal_select_chunk_on_loop_ended(void* context_ptr, Sint slot_ix
                                                  Sint iterations_left, Binary** mpp, Eterm* ret)
 {
     mtraversal_select_chunk_context_t* sc_context_ptr = (mtraversal_select_chunk_context_t*) context_ptr;
-    Eterm mpb = NIL;
+    Eterm mpb;
 
     if (iterations_left == MAX_SELECT_CHUNK_ITERATIONS) {
         /* We didn't get to iterate a single time, which means EOT */
@@ -1668,9 +1664,9 @@ static int mtraversal_select_chunk_on_trap(void* context_ptr, Sint slot_ix, Sint
                                            Binary** mpp, Eterm* ret)
 {
     mtraversal_select_chunk_context_t* sc_context_ptr = (mtraversal_select_chunk_context_t*) context_ptr;
-    Eterm mpb = NIL;
-    Eterm continuation = NIL;
-    Eterm* hp = NULL;
+    Eterm mpb;
+    Eterm continuation;
+    Eterm* hp;
 
     BUMP_ALL_REDS(sc_context_ptr->p);
 
@@ -1711,7 +1707,7 @@ static int db_select_hash(Process *p, DbTable *tbl, Eterm tid, Eterm pattern, in
 static int db_select_chunk_hash(Process *p, DbTable *tbl, Eterm tid, Eterm pattern, Sint chunk_size,
                                 int reverse, Eterm *ret)
 {
-    mtraversal_select_chunk_context_t sc_context = {0};
+    mtraversal_select_chunk_context_t sc_context;
     sc_context.p = p;
     sc_context.tb = &tbl->hash;
     sc_context.tid = tid;
@@ -1743,9 +1739,9 @@ static int mtraversal_select_chunk_continue_on_loop_ended(void* context_ptr, Sin
                                                           Sint iterations_left, Binary** mpp, Eterm* ret)
 {
     mtraversal_select_chunk_context_t* sc_context_ptr = (mtraversal_select_chunk_context_t*) context_ptr;
-    Eterm continuation = NIL;
+    Eterm continuation;
     Eterm rest = NIL;
-    Eterm* hp = NULL;
+    Eterm* hp;
 
     ASSERT(iterations_left <= MAX_SELECT_CHUNK_ITERATIONS);
     BUMP_REDS(sc_context_ptr->p, MAX_SELECT_CHUNK_ITERATIONS - iterations_left);
@@ -1755,7 +1751,6 @@ static int mtraversal_select_chunk_continue_on_loop_ended(void* context_ptr, Sin
             /* Cannot write destructively here,
                the list may have
                been in user space */
-            rest = NIL;
             hp = HAlloc(sc_context_ptr->p, (got - sc_context_ptr->chunk_size) * 2);
             while (got-- > sc_context_ptr->chunk_size) {
                 rest = CONS(hp, CAR(list_val(sc_context_ptr->match_list)), rest);
@@ -1797,15 +1792,14 @@ static int mtraversal_select_chunk_continue_on_loop_ended(void* context_ptr, Sin
  */
 static int db_select_continue_hash(Process* p, DbTable* tbl, Eterm continuation, Eterm* ret) {
     mtraversal_select_chunk_context_t sc_context = {0};
-    Eterm* tptr = NULL;
-    Eterm tid = NIL;
-    Binary* mp = NULL;
-    Sint got = 0;
-    Sint slot_ix = 0;
-    Sint chunk_size = 0;
-    Eterm match_list = NIL;
+    Eterm* tptr;
+    Eterm tid;
+    Binary* mp;
+    Sint got;
+    Sint slot_ix;
+    Sint chunk_size;
+    Eterm match_list;
     Sint iterations_left = MAX_SELECT_CHUNK_ITERATIONS;
-    *ret = NIL;
 
     /* Decode continuation. We know it's a tuple but not the arity or anything else */
     ASSERT(is_tuple(continuation));
@@ -1930,11 +1924,11 @@ static int db_select_count_hash(Process *p, DbTable *tbl, Eterm tid, Eterm patte
  */
 static int db_select_count_continue_hash(Process* p, DbTable* tbl, Eterm continuation, Eterm* ret) {
     mtraversal_select_count_context_t scnt_context = {0};
-    Eterm* tptr = NULL;
-    Eterm tid = NIL;
-    Binary* mp = NULL;
-    Sint got = 0;
-    Sint slot_ix = 0;
+    Eterm* tptr;
+    Eterm tid;
+    Binary* mp;
+    Sint got;
+    Sint slot_ix;
     Sint chunk_size = 0;
     *ret = NIL;
 
@@ -1990,7 +1984,7 @@ static int mtraversal_select_delete_on_match_res(void* context_ptr, Sint slot_ix
 {
     HashDbTerm** current_ptr = *current_ptr_ptr;
     mtraversal_select_delete_context_t* sd_context_ptr = (mtraversal_select_delete_context_t*) context_ptr;
-    HashDbTerm* del = NULL;
+    HashDbTerm* del;
     if (match_res != am_true)
         return 0;
 
@@ -2072,13 +2066,12 @@ static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid, Eterm patt
  */
 static int db_select_delete_continue_hash(Process* p, DbTable* tbl, Eterm continuation, Eterm* ret) {
     mtraversal_select_delete_context_t sd_context = {0};
-    Eterm* tptr = NULL;
-    Eterm tid = NIL;
-    Binary* mp = NULL;
-    Sint got = 0;
-    Sint slot_ix = 0;
+    Eterm* tptr;
+    Eterm tid;
+    Binary* mp;
+    Sint got;
+    Sint slot_ix;
     Sint chunk_size = 0;
-    *ret = NIL;
 
     if (unpack_simple_mtraversal_continuation(continuation, &tptr, &tid, &slot_ix, &mp, &got)) {
         return DB_ERROR_BADPARAM;
@@ -2215,11 +2208,11 @@ static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm tid, Eterm pat
 static int db_select_replace_continue_hash(Process* p, DbTable* tbl, Eterm continuation, Eterm* ret)
 {
     mtraversal_select_replace_context_t sr_context = {0};
-    Eterm* tptr = NULL;
-    Eterm tid = NIL;
-    Binary* mp = NULL;
-    Sint got = 0;
-    Sint slot_ix = 0;
+    Eterm* tptr;
+    Eterm tid ;
+    Binary* mp;
+    Sint got;
+    Sint slot_ix;
     Sint chunk_size = 0;
     *ret = NIL;
 
@@ -2483,9 +2476,9 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
 
     i = 0;
     for(lst = pattern; is_list(lst); lst = CDR(list_val(lst))) {
-        Eterm match = NIL;
-        Eterm guard = NIL;
-        Eterm body = NIL;
+        Eterm match;
+        Eterm guard;
+        Eterm body;
 
 	ttpl = CAR(list_val(lst));
 	if (!is_tuple(ttpl)) {

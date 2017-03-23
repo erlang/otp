@@ -2236,9 +2236,9 @@ static int analyze_pattern(DbTableTree *tb, Eterm pattern,
 
     i = 0;
     for(lst = pattern; is_list(lst); lst = CDR(list_val(lst))) {
-        Eterm match = NIL;
-        Eterm guard = NIL;
-        Eterm body = NIL;
+        Eterm match;
+        Eterm guard;
+        Eterm body;
 
 	ttpl = CAR(list_val(lst));
 	if (!is_tuple(ttpl)) {
