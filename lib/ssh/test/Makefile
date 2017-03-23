@@ -36,7 +36,7 @@ MODULES= \
 	ssh_options_SUITE \
 	ssh_renegotiate_SUITE \
 	ssh_basic_SUITE \
-	ssh_benchmark_SUITE \
+	ssh_bench_SUITE \
 	ssh_connection_SUITE \
 	ssh_protocol_SUITE \
 	ssh_sftp_SUITE \
@@ -50,6 +50,7 @@ MODULES= \
 	ssh_key_cb_options \
 	ssh_trpt_test_lib \
 	ssh_echo_server \
+	ssh_bench_dev_null \
 	ssh_peername_sockname_server \
 	ssh_test_cli \
 	ssh_relay \
