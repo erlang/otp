@@ -48,9 +48,12 @@ start_child(AccSup, Address, Port, Profile, Options) ->
     Spec = child_spec(Address, Port, Profile, Options),
     case supervisor:start_child(AccSup, Spec) of
 	{error, already_present} ->
+            %% Is this ever called?
 	    stop_child(AccSup, Address, Port, Profile),
 	    supervisor:start_child(AccSup, Spec);
 	Reply ->
+            %% Reply = {ok,SystemSupPid} when the user calls ssh:daemon
+            %% after having called ssh:stop_listening
 	    Reply
     end.
 
@@ -67,24 +70,27 @@ stop_child(AccSup, Address, Port, Profile) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init([Address, Port, Profile, Options]) ->
-    RestartStrategy = one_for_one,
-    MaxR = 10,
-    MaxT = 3600,
-    Children = [child_spec(Address, Port, Profile, Options)],
-    {ok, {{RestartStrategy, MaxR, MaxT}, Children}}.
+    %% Initial start of ssh_acceptor_sup for this port or new start after
+    %% ssh:stop_daemon
+    SupFlags = #{strategy  => one_for_one, 
+                 intensity =>   10,
+                 period    => 3600
+                },
+    ChildSpecs = [child_spec(Address, Port, Profile, Options)],
+    {ok, {SupFlags,ChildSpecs}}.
 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
 child_spec(Address, Port, Profile, Options) ->
     Timeout = ?GET_INTERNAL_OPT(timeout, Options, ?DEFAULT_TIMEOUT),
-    Name = id(Address, Port, Profile),
-    StartFunc = {ssh_acceptor, start_link, [Port, Address, Options, Timeout]},
-    Restart = transient, 
-    Shutdown = brutal_kill,
-    Modules = [ssh_acceptor],
-    Type = worker,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+    #{id       => id(Address, Port, Profile),
+      start    => {ssh_acceptor, start_link, [Port, Address, Options, Timeout]},
+      restart  => transient,
+      shutdown => brutal_kill,
+      type     => worker,
+      modules  => [ssh_acceptor]
+     }.
 
 id(Address, Port, Profile) ->
     {ssh_acceptor_sup, Address, Port, Profile}.

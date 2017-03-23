@@ -32,19 +32,19 @@
 %%%  Supervisor callback
 %%%=========================================================================
 init(_) ->
-    SupFlags = {one_for_one, 10, 3600},
-    Children = [child_spec(sshd_sup), child_spec(sshc_sup)], %%children(), 
-    {ok, {SupFlags, Children}}.
-
-%%%=========================================================================
-%%%  Internal functions
-%%%=========================================================================
-child_spec(Name) ->
-    StartFunc = {Name, start_link, []},
-    Restart = permanent, 
-    Shutdown = infinity,
-    Modules = [Name],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
+    SupFlags = #{strategy  => one_for_one, 
+                 intensity =>   10,
+                 period    => 3600
+                },
+    ChildSpecs = [#{id       => Module,
+                    start    => {Module, start_link, []},
+                    restart  => permanent,
+                    shutdown => brutal_kill,
+                    type     => supervisor,
+                    modules  => [Module]
+                   }
+                  || Module <- [sshd_sup,
+                                sshc_sup]
+                 ],
+    {ok, {SupFlags,ChildSpecs}}.
 

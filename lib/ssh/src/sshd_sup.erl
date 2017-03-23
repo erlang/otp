@@ -19,7 +19,7 @@
 %%
 %%
 %%----------------------------------------------------------------------
-%% Purpose: The top supervisor for ssh servers hangs under 
+%% Purpose: The top supervisor for ssh servers hangs under
 %%          ssh_sup.
 %%----------------------------------------------------------------------
 
@@ -29,72 +29,79 @@
 
 -include("ssh.hrl").
 
--export([start_link/0, 
+-export([start_link/0,
          start_child/4,
          stop_child/1,
-	 stop_child/3,
-         system_name/1]).
+	 stop_child/3
+]).
 
 %% Supervisor callback
 -export([init/1]).
+
+-define(SSHD_SUP, ?MODULE).
 
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
 start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+    %% No children are start now. We wait until the user calls ssh:daemon
+    %% and uses start_child/4 to create the children
+    supervisor:start_link({local,?SSHD_SUP}, ?MODULE, []).
 
 start_child(Address, Port, Profile, Options) ->
-io:format("~p:~p ~p:~p~n",[?MODULE,?LINE,Address, Port]),
     case ssh_system_sup:system_supervisor(Address, Port, Profile) of
        undefined ->
-io:format("~p:~p undefined~n",[?MODULE,?LINE]),
+            %% Here we start listening on a new Host/Port/Profile
 	    Spec = child_spec(Address, Port, Profile, Options),
-            Reply = supervisor:start_child(?MODULE, Spec),
-io:format("~p:~p Reply=~p~n",[?MODULE,?LINE,Reply]),
-            Reply;
+            supervisor:start_child(?SSHD_SUP, Spec);
 	Pid ->
-io:format("~p:~p Pid=~p~n",[?MODULE,?LINE,Pid]),
+            %% Here we resume listening on a new Host/Port/Profile after
+            %% haveing stopped listening to he same with ssh:stop_listen(Pid)
 	    AccPid = ssh_system_sup:acceptor_supervisor(Pid),
             ssh_acceptor_sup:start_child(AccPid, Address, Port, Profile, Options),
             {ok,Pid}
     end.
 
-stop_child(Name) ->
-    supervisor:terminate_child(?MODULE, Name).
+stop_child(ChildId) when is_tuple(ChildId) ->
+    supervisor:terminate_child(?SSHD_SUP, ChildId);
+stop_child(ChildPid) when is_pid(ChildPid)->
+    stop_child(system_name(ChildPid)).
+
 
 stop_child(Address, Port, Profile) ->
-    Name = id(Address, Port, Profile),
-    stop_child(Name).
-
-system_name(SysSup) ->
-    Children = supervisor:which_children(sshd_sup),
-    system_name(SysSup, Children).
+    Id = id(Address, Port, Profile),
+    stop_child(Id).
 
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
 init(_) ->
-    {ok, {{one_for_one, 10, 3600}, []}}.
+    SupFlags = #{strategy  => one_for_one,
+                 intensity =>   10,
+                 period    => 3600
+                },
+    ChildSpecs = [
+                 ],
+    {ok, {SupFlags,ChildSpecs}}.
 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
 child_spec(Address, Port, Profile, Options) ->
-    Name = id(Address, Port,Profile),
-    StartFunc = {ssh_system_sup, start_link, [Address, Port, Profile, Options]},
-    Restart = temporary, 
-    Shutdown = infinity,
-    Modules = [ssh_system_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+    #{id       => id(Address, Port, Profile),
+      start    => {ssh_system_sup, start_link, [Address, Port, Profile, Options]},
+      restart  => temporary,
+      shutdown => infinity,
+      type     => supervisor,
+      modules  => [ssh_system_sup]
+     }.
 
 id(Address, Port, Profile) ->
     {server, ssh_system_sup, Address, Port, Profile}.
 
-system_name([], _ ) ->
-    undefined;
-system_name(SysSup, [{Name, SysSup, _, _} | _]) ->
-    Name;
-system_name(SysSup, [_ | Rest]) ->
-    system_name(SysSup, Rest).
+system_name(SysSup) ->
+    case lists:keyfind(SysSup, 2, supervisor:which_children(?SSHD_SUP)) of
+        {Name, SysSup, _, _} -> Name;
+        false -> undefind
+    end.
+

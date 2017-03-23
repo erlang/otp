@@ -54,11 +54,12 @@ channel_supervisor(SupPid) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init([Role, Address, Port, Profile, Options]) ->
-    RestartStrategy = one_for_all,
-    MaxR = 0,
-    MaxT = 3600,
-    Children = child_specs(Role, Address, Port, Profile, Options),
-    {ok, {{RestartStrategy, MaxR, MaxT}, Children}}.
+    SupFlags = #{strategy  => one_for_all,
+                 intensity =>    0,
+                 period    => 3600
+                },
+    ChildSpecs = child_specs(Role, Address, Port, Profile, Options),
+    {ok, {SupFlags,ChildSpecs}}.
 
 %%%=========================================================================
 %%%  Internal functions
@@ -70,22 +71,22 @@ child_specs(server, Address, Port, Profile, Options) ->
      ssh_connection_child_spec(server, Address, Port, Profile, Options)].
   
 ssh_connection_child_spec(Role, Address, Port, _Profile, Options) ->
-    Name = id(Role, ssh_connection_sup, Address, Port),
-    StartFunc = {ssh_connection_sup, start_link, [Options]},
-    Restart = temporary,
-    Shutdown = 5000,
-     Modules = [ssh_connection_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+    #{id       => id(Role, ssh_connection_sup, Address, Port),
+      start    => {ssh_connection_sup, start_link, [Options]},
+      restart  => temporary,
+      shutdown => 5000,
+      type     => supervisor,
+      modules  => [ssh_connection_sup]
+     }.
 
 ssh_channel_child_spec(Role, Address, Port, _Profile, Options) ->
-    Name = id(Role, ssh_channel_sup, Address, Port),
-    StartFunc = {ssh_channel_sup, start_link, [Options]},
-    Restart = temporary,
-    Shutdown = infinity,
-    Modules = [ssh_channel_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+    #{id       => id(Role, ssh_channel_sup, Address, Port),
+      start    => {ssh_channel_sup, start_link, [Options]},
+      restart  => temporary,
+      shutdown => infinity,
+      type     => supervisor,
+      modules  => [ssh_channel_sup]
+     }.
 
 id(Role, Sup, Address, Port) ->
     {Role, Sup, Address, Port}.
