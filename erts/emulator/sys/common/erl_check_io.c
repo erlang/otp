@@ -2169,6 +2169,12 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 	erts_do_break_handling();
 #endif
 
+#ifdef ERTS_SIGNAL_STATE /* ifndef ERTS_SMP */
+    if (ERTS_SIGNAL_STATE) {
+        erts_handle_signal_state();
+    }
+#endif
+
     /* Figure out timeout value */
     timeout_time = (do_wait
 		    ? erts_check_next_timeout_time(esdp)
@@ -2206,6 +2212,14 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
     if (ERTS_BREAK_REQUESTED)
 	erts_do_break_handling();
 #endif
+
+
+#ifdef ERTS_SIGNAL_STATE /* ifndef ERTS_SMP */
+    if (ERTS_SIGNAL_STATE) {
+        erts_handle_signal_state();
+    }
+#endif
+
 
     if (poll_ret != 0) {
 	erts_smp_atomic_set_nob(&pollset.in_poll_wait, 0);

@@ -487,6 +487,12 @@ extern volatile int erts_break_requested;
 void erts_do_break_handling(void);
 #endif
 
+#if !defined(ERTS_SMP) && !defined(__WIN32__)
+extern volatile Uint erts_signal_state;
+#define ERTS_SIGNAL_STATE erts_signal_state
+void erts_handle_signal_state(void);
+#endif
+
 #ifdef ERTS_SMP
 extern erts_smp_atomic32_t erts_writing_erl_crash_dump;
 extern erts_tsd_key_t erts_is_crash_dumping_key;
