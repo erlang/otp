@@ -154,13 +154,13 @@ compile(Input0, Output0,
 format_error(bad_declaration) ->
     io_lib:fwrite("unknown or bad declaration, ignored", []);
 format_error({bad_expect, SymName}) ->
-    io_lib:fwrite("argument ~s of Expect is not an integer", 
+    io_lib:fwrite("argument ~ts of Expect is not an integer", 
                   [format_symbol(SymName)]);
 format_error({bad_rootsymbol, SymName}) ->
-    io_lib:fwrite("rootsymbol ~s is not a nonterminal", 
+    io_lib:fwrite("rootsymbol ~ts is not a nonterminal", 
                   [format_symbol(SymName)]);
 format_error({bad_states, SymName}) ->
-    io_lib:fwrite("argument ~s of States is not an integer", 
+    io_lib:fwrite("argument ~ts of States is not an integer", 
                   [format_symbol(SymName)]);
 format_error({conflict, Conflict}) ->
     format_conflict(Conflict);
@@ -169,19 +169,19 @@ format_error({conflicts, SR, RR}) ->
 format_error({duplicate_declaration, Tag}) ->
     io_lib:fwrite("duplicate declaration of ~s", [atom_to_list(Tag)]);
 format_error({duplicate_nonterminal, Nonterminal}) ->
-    io_lib:fwrite("duplicate non-terminals ~s", 
+    io_lib:fwrite("duplicate non-terminals ~ts", 
                   [format_symbol(Nonterminal)]);
 format_error({duplicate_precedence, Op}) ->
-    io_lib:fwrite("duplicate precedence operator ~s", 
+    io_lib:fwrite("duplicate precedence operator ~ts", 
                   [format_symbol(Op)]);
 format_error({duplicate_terminal, Terminal}) ->
-    io_lib:fwrite("duplicate terminal ~s", 
+    io_lib:fwrite("duplicate terminal ~ts", 
                   [format_symbol(Terminal)]);
 format_error({endsymbol_is_nonterminal, Symbol}) ->
-    io_lib:fwrite("endsymbol ~s is a nonterminal", 
+    io_lib:fwrite("endsymbol ~ts is a nonterminal", 
                   [format_symbol(Symbol)]);
 format_error({endsymbol_is_terminal, Symbol}) ->
-    io_lib:fwrite("endsymbol ~s is a terminal", 
+    io_lib:fwrite("endsymbol ~ts is a terminal", 
                   [format_symbol(Symbol)]);
 format_error({error, Module, Error}) ->
     Module:format_error(Error);
@@ -192,7 +192,7 @@ format_error(illegal_empty) ->
 format_error({internal_error, Error}) ->
     io_lib:fwrite("internal yecc error: ~w", [Error]);
 format_error({missing_syntax_rule, Nonterminal}) ->
-    io_lib:fwrite("no syntax rule for non-terminal symbol ~s",
+    io_lib:fwrite("no syntax rule for non-terminal symbol ~ts",
                   [format_symbol(Nonterminal)]);
 format_error({n_states, Exp, N}) ->
     io_lib:fwrite("expected ~w states, but got ~p states", [Exp, N]);
@@ -201,31 +201,31 @@ format_error(no_grammar_rules) ->
 format_error(nonterminals_missing) ->
     io_lib:fwrite("Nonterminals is missing", []);
 format_error({precedence_op_is_endsymbol, SymName}) ->
-    io_lib:fwrite("precedence operator ~s is endsymbol",
+    io_lib:fwrite("precedence operator ~ts is endsymbol",
                   [format_symbol(SymName)]);
 format_error({precedence_op_is_unknown, SymName}) ->
-    io_lib:fwrite("unknown precedence operator ~s",
+    io_lib:fwrite("unknown precedence operator ~ts",
                   [format_symbol(SymName)]);
 format_error({reserved, N}) ->
     io_lib:fwrite("the use of ~w should be avoided", [N]);
 format_error({symbol_terminal_and_nonterminal, SymName}) ->
-    io_lib:fwrite("symbol ~s is both a terminal and nonterminal",
+    io_lib:fwrite("symbol ~ts is both a terminal and nonterminal",
                   [format_symbol(SymName)]);
 format_error(rootsymbol_missing) ->
     io_lib:fwrite("Rootsymbol is missing", []);
 format_error(terminals_missing) ->
     io_lib:fwrite("Terminals is missing", []);
 format_error({undefined_nonterminal, Symbol}) ->
-    io_lib:fwrite("undefined nonterminal: ~s", [format_symbol(Symbol)]);
+    io_lib:fwrite("undefined nonterminal: ~ts", [format_symbol(Symbol)]);
 format_error({undefined_pseudo_variable, Atom}) ->
     io_lib:fwrite("undefined pseudo variable ~w", [Atom]);
 format_error({undefined_symbol, SymName}) ->
-    io_lib:fwrite("undefined rhs symbol ~s", [format_symbol(SymName)]);
+    io_lib:fwrite("undefined rhs symbol ~ts", [format_symbol(SymName)]);
 format_error({unused_nonterminal, Nonterminal}) ->
-    io_lib:fwrite("non-terminal symbol ~s not used", 
+    io_lib:fwrite("non-terminal symbol ~ts not used", 
                   [format_symbol(Nonterminal)]);
 format_error({unused_terminal, Terminal}) ->
-    io_lib:fwrite("terminal symbol ~s not used", 
+    io_lib:fwrite("terminal symbol ~ts not used", 
                   [format_symbol(Terminal)]);
 format_error({bad_symbol, String}) ->
     io_lib:fwrite("bad symbol ~ts", [String]);
@@ -1809,9 +1809,9 @@ report_conflict(Conflict, St, ActionName, How) ->
             Formated = format_symbol(ActionName),
             case How of 
                 prec ->
-                    io:fwrite(<<"Resolved in favor of ~s.\n\n">>, [Formated]);
+                    io:fwrite(<<"Resolved in favor of ~ts.\n\n">>, [Formated]);
                 default ->
-                    io:fwrite(<<"Conflict resolved in favor of ~s.\n\n">>, 
+                    io:fwrite(<<"Conflict resolved in favor of ~ts.\n\n">>, 
                               [Formated])
             end;
         true ->
@@ -1856,7 +1856,7 @@ format_conflict({Symbol, N, _, {one_level_up,
                                 {L1, RuleN1, {P1, Ass1}}, 
                                 {L2, RuleN2, {P2, Ass2}}}}) ->
     S1 = io_lib:fwrite(<<"Conflicting precedences of symbols when "
-                         "scanning ~s in state ~w:\n">>, 
+                         "scanning ~ts in state ~w:\n">>, 
                        [format_symbol(Symbol), N]),
     S2 = io_lib:fwrite(<<"   ~s ~w (rule ~w at line ~w)\n"
                           "      vs.\n">>,
@@ -1866,26 +1866,26 @@ format_conflict({Symbol, N, _, {one_level_up,
     [S1, S2, S3];
 format_conflict({Symbol, N, Reduce, Confl}) ->
     S1 = io_lib:fwrite(<<"Parse action conflict scanning symbol "
-                         "~s in state ~w:\n">>, [format_symbol(Symbol), N]),
+                         "~ts in state ~w:\n">>, [format_symbol(Symbol), N]),
     S2 = case Reduce of
              {[HR | TR], RuleNmbr, RuleLine} ->
-                 io_lib:fwrite(<<"   Reduce to ~s from ~s (rule ~w at "
+                 io_lib:fwrite(<<"   Reduce to ~ts from ~ts (rule ~w at "
                                  "line ~w)\n      vs.\n">>,
                                [format_symbol(HR), format_symbols(TR), 
                                 RuleNmbr, RuleLine])
          end,
     S3 = case Confl of 
              {reduce, [HR2|TR2], RuleNmbr2, RuleLine2} ->
-                 io_lib:fwrite(<<"   reduce to ~s from ~s "
+                 io_lib:fwrite(<<"   reduce to ~ts from ~ts "
                                  "(rule ~w at line ~w).">>,
                                [format_symbol(HR2), format_symbols(TR2), 
                                 RuleNmbr2, RuleLine2]);
              {shift, NewState, Sym} ->
                  io_lib:fwrite(<<"   shift to state ~w, adding right "
-                                 "sisters to ~s.">>,
+                                 "sisters to ~ts.">>,
                                [NewState, format_symbol(Sym)]);
              {accept, Rootsymbol} ->
-                 io_lib:fwrite(<<"   reduce to rootsymbol ~s.">>,
+                 io_lib:fwrite(<<"   reduce to rootsymbol ~ts.">>,
                                [format_symbol(Rootsymbol)])
          end,
     [S1, S2, S3].
@@ -1926,8 +1926,9 @@ format_conflict({Symbol, N, Reduce, Confl}) ->
 
 -define(CODE_VERSION, "1.4").
 -define(YECC_BUG(M, A), 
-        iolist_to_binary([" erlang:error({yecc_bug,\"",?CODE_VERSION,"\",",
-                          io_lib:fwrite(M, A), "}).\n\n"])).
+        unicode:characters_to_binary(
+          [" erlang:error({yecc_bug,\"",?CODE_VERSION,"\",",
+           io_lib:fwrite(M, A), "}).\n\n"])).
 
 %% Returns number of newlines in included files.
 output_prelude(Outport, Inport, St0) when St0#yecc.includefile =:= [] ->
@@ -1980,7 +1981,7 @@ output_header(St0) ->
 output_goto(St, [{_Nonterminal, []} | Go], StateInfo) ->
     output_goto(St, Go, StateInfo);
 output_goto(St0, [{Nonterminal, List} | Go], StateInfo) ->
-    F = function_name(yeccgoto, Nonterminal),
+    F = function_name(St0, yeccgoto, Nonterminal),
     St05 = fwrite(St0, <<"-dialyzer({nowarn_function, ~w/7}).\n">>, [F]),
     St10 = output_goto1(St05, List, F, StateInfo, true),
     St = output_goto_fini(F, Nonterminal, St10),
@@ -2018,7 +2019,8 @@ output_goto_fini(F, NT, #yecc{includefile_version = {1,1}}=St0) ->
     St = fwrite(St10, <<"~w(State, _Cat, _Ss, _Stack, _T, _Ts, _Tzr) ->\n">>,
                 [F]),
     fwrite(St, 
-           ?YECC_BUG(<<"{~w, State, missing_in_goto_table}">>, [NT]),
+           ?YECC_BUG(<<"{~ts, State, missing_in_goto_table}">>,
+                     [quoted_atom(St0, NT)]),
            []);
 output_goto_fini(_F, _NT, St) ->
     fwrite(St, <<".\n\n">>, []).
@@ -2027,7 +2029,7 @@ output_goto_fini(_F, _NT, St) ->
 find_user_code(ParseActions, St) ->
     [#user_code{state = State, 
                 terminal = Terminal, 
-                funname = inlined_function_name(State, Terminal), 
+                funname = inlined_function_name(St, State, Terminal),
                 action = Action} || 
         {State, La_actions} <- ParseActions,
         {Action, Terminals, RuleNmbr, NmbrOfDaughters} 
@@ -2148,14 +2150,14 @@ output_action(St, State, Terminal, #reduce{}=Action, IsFirst, SI) ->
     output_reduce(St, State, Terminal, Action, IsFirst, SI);
 output_action(St0, State, Terminal, #shift{state = NewState}, IsFirst, _SI) ->
     St10 = delim(St0, IsFirst),
-    St = fwrite(St10, <<"yeccpars2_~w(S, ~s, Ss, Stack, T, Ts, Tzr) ->\n">>,
-                [State, quoted_atom(Terminal)]),
+    St = fwrite(St10, <<"yeccpars2_~w(S, ~ts, Ss, Stack, T, Ts, Tzr) ->\n">>,
+                [State, quoted_atom(St10, Terminal)]),
     output_call_to_includefile(NewState, St);
 output_action(St0, State, Terminal, accept, IsFirst, _SI) ->
     St10 = delim(St0, IsFirst),
     St = fwrite(St10, 
-                <<"yeccpars2_~w(_S, ~s, _Ss, Stack, _T, _Ts, _Tzr) ->\n">>,
-                [State, quoted_atom(Terminal)]),
+                <<"yeccpars2_~w(_S, ~ts, _Ss, Stack, _T, _Ts, _Tzr) ->\n">>,
+                [State, quoted_atom(St10, Terminal)]),
     fwrite(St, <<" {ok, hd(Stack)}">>, []);
 output_action(St, _State, _Terminal, nonassoc, _IsFirst, _SI) ->
     St.
@@ -2174,19 +2176,19 @@ output_state_actions_fini(State, IsFirst, St0) ->
     St = fwrite(St10, <<"yeccpars2_~w(_, _, _, _, T, _, _) ->\n">>, [State]),
     fwrite(St, <<" yeccerror(T).\n\n">>, []).
 
-output_reduce(St0, State, Terminal0, 
+output_reduce(St0, State, Terminal,
               #reduce{rule_nmbr = RuleNmbr, 
                       head = Head, 
                       nmbr_of_daughters = NmbrOfDaughters},
               IsFirst, StateInfo) ->
     St10 = delim(St0, IsFirst),
-    Terminal = if 
-                   is_atom(Terminal0) -> quoted_atom(Terminal0);
-                   true -> Terminal0
-               end,
+    QuotedTerminal = if 
+                         is_atom(Terminal) -> quoted_atom(St10, Terminal);
+                         true -> Terminal
+                     end,
     St20 = fwrite(St10,
-                  <<"yeccpars2_~w(_S, ~s, Ss, Stack, T, Ts, Tzr) ->\n">>,
-                  [State, Terminal]),
+                  <<"yeccpars2_~w(_S, ~ts, Ss, Stack, T, Ts, Tzr) ->\n">>,
+                  [State, QuotedTerminal]),
     St30 = 
         if
             NmbrOfDaughters < 2 ->
@@ -2205,7 +2207,7 @@ output_reduce(St0, State, Terminal0,
                _ ->
                    NewStack = "NewStack",
                    fwrite(St30, <<" NewStack = ~w(Stack),\n">>, 
-                          [inlined_function_name(State, Terminal0)])
+                          [inlined_function_name(St30, State, Terminal)])
                end,
     if 
         NmbrOfDaughters =:= 0 ->
@@ -2221,13 +2223,13 @@ output_reduce(St0, State, Terminal0,
             St = fwrite(St40, <<"~s">>, [C]),
             %% Short-circuit call to yeccpars2:
             fwrite(St,
-                   <<" yeccpars2_~w(~s, ~s, [~w | Ss], ~s, T, Ts, Tzr)">>,
-                   [Repr, NextS, Terminal, State, NewStack]);
+                   <<" yeccpars2_~w(~s, ~ts, [~w | Ss], ~s, T, Ts, Tzr)">>,
+                   [Repr, NextS, QuotedTerminal, State, NewStack]);
         true ->
             fwrite(St40, 
-                   <<" ~w(hd(~s), ~s, ~s, ~s, T, Ts, Tzr)">>,
-                   [function_name(yeccgoto, Head), Ns,
-                    Terminal, Ns, NewStack])
+                   <<" ~w(hd(~s), ~ts, ~s, ~s, T, Ts, Tzr)">>,
+                   [function_name(St40, yeccgoto, Head), Ns,
+                    QuotedTerminal, Ns, NewStack])
     end.
 
 delim(St, true) ->
@@ -2235,8 +2237,10 @@ delim(St, true) ->
 delim(St, false) ->
     fwrite(St, <<";\n">>, []).
 
-quoted_atom(Atom) ->
-    io_lib:fwrite(<<"~w">>, [Atom]).
+quoted_atom(#yecc{encoding = latin1}, Atom) when is_atom(Atom) ->
+    io_lib:write_atom_as_latin1(Atom);
+quoted_atom(_St, Atomic) ->
+    io_lib:write(Atomic).
     
 output_inlined(St, UserCodeActions, Infile) ->
     foldl(fun(#user_code{funname = InlinedFunctionName, 
@@ -2288,14 +2292,16 @@ output_inlined(St0, FunctionName, Reduce, Infile) ->
     fwrite(St, <<" [begin\n  ~ts\n  end | ~s].\n\n">>,
            [pp_tokens(Tokens, Line0, St#yecc.encoding), Stack]).
 
-inlined_function_name(State, "Cat") ->
-    inlined_function_name(State, "");
-inlined_function_name(State, Terminal) ->
-    list_to_atom(concat([yeccpars2_, State, '_', Terminal])).
+inlined_function_name(St, State, Terminal) ->
+    End = case Terminal of
+              "Cat" -> [];
+              _ -> [quoted_atom(St, Terminal)]
+          end,
+    list_to_atom(concat([yeccpars2_, State, '_'] ++ End)).
 
--compile({nowarn_unused_function,function_name/2}).
-function_name(Name, Suf) ->
-    list_to_atom(concat([Name, '_' | quoted_atom(Suf)])).
+-compile({nowarn_unused_function,function_name/3}).
+function_name(St, Name, Suf) ->
+    list_to_atom(concat([Name, '_'] ++ [quoted_atom(St, Suf)])).
 
 rule(RulePointer, St) ->
     #rule{n = N, anno = Anno, symbols = Symbols} =
