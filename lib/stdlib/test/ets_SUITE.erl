@@ -39,6 +39,7 @@
 -export([lookup_element_mult/1]).
 -export([foldl_ordered/1, foldr_ordered/1, foldl/1, foldr/1, fold_empty/1]).
 -export([t_delete_object/1, t_init_table/1, t_whitebox/1,
+         select_bound_chunk/1,
 	 t_delete_all_objects/1, t_insert_list/1, t_test_ms/1,
 	 t_select_delete/1,t_select_replace/1,t_ets_dets/1]).
 
@@ -118,6 +119,7 @@ all() ->
      update_counter_with_default, partly_bound,
      update_counter_table_growth,
      match_heavy, {group, fold}, member, t_delete_object,
+     select_bound_chunk,
      t_init_table, t_whitebox, t_delete_all_objects,
      t_insert_list, t_test_ms, t_select_delete, t_select_replace,
      t_ets_dets, memory, t_select_reverse, t_bucket_disappears,
@@ -694,6 +696,15 @@ whitebox_2(Opts) ->
     0 = ets:select_delete(T2,[{{hej,hopp},[],[true]}]),
     ets:delete(T),
     ets:delete(T2),
+    ok.
+
+select_bound_chunk(Config) ->
+    repeat_for_opts(fun select_bound_chunk_do/1, [all_types]).
+
+select_bound_chunk_do(Opts) ->
+    T = ets:new(x, Opts),
+    ets:insert(T, [{key, 1}]),
+    {[{key, 1}], '$end_of_table'} = ets:select(T, [{{key,1},[],['$_']}], 100000),
     ok.
 
 

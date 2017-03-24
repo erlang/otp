@@ -1311,7 +1311,7 @@ static int match_traverse(Process* p, DbTableHash* tb,
         else if (mpi.key_given) {  /* Key is bound */
             unlock_hash_function(lck);
             if (current_list_pos == mpi.num_lists) {
-                ret_value = on_loop_ended(context_ptr, slot_ix, got, iterations_left, &mpi.mp, ret);
+                ret_value = on_loop_ended(context_ptr, -1, got, iterations_left, &mpi.mp, ret);
                 goto done;
             } else {
                 slot_ix = mpi.lists[current_list_pos].ix;
