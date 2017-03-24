@@ -474,14 +474,12 @@ merge_fragments(#handshake_fragment{
       fragment = <<PreviousData/binary, Data/binary>>};
 %% already fully contained fragment
 merge_fragments(#handshake_fragment{
-                  fragment_offset = PreviousOffSet, 
-                  fragment_length = PreviousLen,
-                  fragment = PreviousData
-                 } = Previous, 
-               #handshake_fragment{
-                  fragment_offset = CurrentOffSet,
-                  fragment_length = CurrentLen,
-                  fragment = CurrentData})
+                   fragment_offset = PreviousOffSet, 
+                   fragment_length = PreviousLen
+                  } = Previous, 
+                #handshake_fragment{
+                   fragment_offset = CurrentOffSet,
+                   fragment_length = CurrentLen})
   when PreviousOffSet + PreviousLen >= CurrentOffSet andalso
        PreviousOffSet + PreviousLen >= CurrentOffSet + CurrentLen ->
     Previous;

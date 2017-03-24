@@ -91,7 +91,8 @@
 				   %% underlaying packet format. Introduced by DTLS - RFC 4347.
 				   %% The mecahnism is also usefull in TLS although we do not
 				   %% need to worry about packet loss in TLS. In DTLS we need to track DTLS handshake seqnr
-	 flight_state = reliable  %% reliable | {retransmit, integer()}| {waiting, ref(), integer()} - last two is used in DTLS over udp.   
+	 flight_state = reliable,  %% reliable | {retransmit, integer()}| {waiting, ref(), integer()} - last two is used in DTLS over udp.   
+          protocol_specific = #{}      :: map()                    
 	 }).
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS,
 	#'DHParameter'{prime = ?DEFAULT_DIFFIE_HELLMAN_PRIME,
