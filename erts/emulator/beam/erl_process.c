@@ -5888,14 +5888,30 @@ erts_sched_set_wake_cleanup_threshold(char *str)
 static void
 init_aux_work_data(ErtsAuxWorkData *awdp, ErtsSchedulerData *esdp, char *dawwp)
 {
-    if (!esdp)
-	awdp->sched_id = 0;
+    int id = 0;
+    if (esdp) {
+        switch (esdp->type) {
+        case ERTS_SCHED_NORMAL:
+            id = (int) esdp->no;
+            break;
 #ifdef ERTS_DIRTY_SCHEDULERS
-    else if (ERTS_SCHEDULER_IS_DIRTY(esdp))
-	awdp->sched_id = (int) ERTS_DIRTY_SCHEDULER_NO(esdp);
+        case ERTS_SCHED_DIRTY_CPU:
+            id = (int) erts_no_schedulers;
+            id += (int) esdp->dirty_no;
+            break;
+        case ERTS_SCHED_DIRTY_IO:
+            id = (int) erts_no_schedulers;
+            id += (int) erts_no_dirty_cpu_schedulers;
+            id += (int) esdp->dirty_no;
+            break;
 #endif
-    else
-	awdp->sched_id = (int) esdp->no;
+        default:
+            ERTS_INTERNAL_ERROR("Invalid scheduler type");
+            break;
+        }
+    }
+
+    awdp->sched_id = id;
     awdp->esdp = esdp;
     awdp->ssi = esdp ? esdp->ssi : NULL;
 #ifdef ERTS_SMP
@@ -5968,7 +5984,7 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
             ASSERT(runq == ERTS_DIRTY_IO_RUNQ);
             esdp->type = ERTS_SCHED_DIRTY_IO;
         }
-	ERTS_DIRTY_SCHEDULER_NO(esdp) = (Uint) num;
+        esdp->dirty_no = (Uint) num;
         if (num == 1) {
             /*
              * Multi-scheduling block functionality depends
@@ -5980,7 +5996,7 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
     else {
         esdp->type = ERTS_SCHED_NORMAL;
 	esdp->no = (Uint) num;
-	ERTS_DIRTY_SCHEDULER_NO(esdp) = 0;
+	esdp->dirty_no = 0;
         runq->scheduler = esdp;
     }
     esdp->dirty_shadow_process = shadow_proc;
@@ -7717,11 +7733,11 @@ suspend_scheduler(ErtsSchedulerData *esdp)
         break;
     case ERTS_SCHED_DIRTY_CPU:
         online_flag = ERTS_SCHDLR_SSPND_CHNG_DCPU_ONLN;
-        no = ERTS_DIRTY_SCHEDULER_NO(esdp);
+        no = esdp->dirty_no;
         break;
     case ERTS_SCHED_DIRTY_IO:
         online_flag = 0;
-	no = ERTS_DIRTY_SCHEDULER_NO(esdp);
+	no = esdp->dirty_no;
         break;
     default:
         ERTS_INTERNAL_ERROR("Invalid scheduler type");
@@ -8743,8 +8759,7 @@ sched_dirty_cpu_thread_func(void *vesdp)
 {
     ErtsThrPrgrCallbacks callbacks;
     ErtsSchedulerData *esdp = vesdp;
-    Uint no = ERTS_DIRTY_SCHEDULER_NO(esdp);
-    ERTS_DIRTY_SCHEDULER_TYPE(esdp) = ERTS_DIRTY_CPU_SCHEDULER;
+    Uint no = esdp->dirty_no;
     ASSERT(no != 0);
     ERTS_DIRTY_CPU_SCHED_SLEEP_INFO_IX(no-1)->event = erts_tse_fetch();
     callbacks.arg = (void *) esdp->ssi;
@@ -8792,8 +8807,7 @@ sched_dirty_io_thread_func(void *vesdp)
 {
     ErtsThrPrgrCallbacks callbacks;
     ErtsSchedulerData *esdp = vesdp;
-    Uint no = ERTS_DIRTY_SCHEDULER_NO(esdp);
-    ERTS_DIRTY_SCHEDULER_TYPE(esdp) = ERTS_DIRTY_IO_SCHEDULER;
+    Uint no = esdp->dirty_no;
     ASSERT(no != 0);
     ERTS_DIRTY_IO_SCHED_SLEEP_INFO_IX(no-1)->event = erts_tse_fetch();
     callbacks.arg = (void *) esdp->ssi;

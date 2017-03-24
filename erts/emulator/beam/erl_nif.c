@@ -2820,14 +2820,19 @@ enif_thread_type(void)
     if (!esdp)
 	return ERL_NIF_THR_UNDEFINED;
 
-    if (!ERTS_SCHEDULER_IS_DIRTY(esdp))
+    switch (esdp->type) {
+    case ERTS_SCHED_NORMAL:
 	return ERL_NIF_THR_NORMAL_SCHEDULER;
-
-    if (ERTS_SCHEDULER_IS_DIRTY_CPU(esdp))
+#ifdef ERTS_DIRTY_SCHEDULERS
+    case ERTS_SCHED_DIRTY_CPU:
 	return ERL_NIF_THR_DIRTY_CPU_SCHEDULER;
-
-    ASSERT(ERTS_SCHEDULER_IS_DIRTY_IO(esdp));
-    return ERL_NIF_THR_DIRTY_IO_SCHEDULER;
+    case ERTS_SCHED_DIRTY_IO:
+        return ERL_NIF_THR_DIRTY_IO_SCHEDULER;
+#endif
+    default:
+        ERTS_INTERNAL_ERROR("Invalid scheduler type");
+	return -1;
+    }
 }
 
 /* Maps */

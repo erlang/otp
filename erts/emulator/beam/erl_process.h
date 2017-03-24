@@ -627,13 +627,6 @@ typedef enum {
     ERTS_DIRTY_IO_SCHEDULER
 } ErtsDirtySchedulerType;
 
-typedef union {
-    struct {
-	ErtsDirtySchedulerType type: 1;
-	Uint num: sizeof(Uint)*8 - 1;
-    } s;
-    Uint no;
-} ErtsDirtySchedId;
 #endif
 
 struct ErtsSchedulerData_ {
@@ -660,7 +653,7 @@ struct ErtsSchedulerData_ {
     ErtsSchedType type;
     Uint no;			/* Scheduler number for normal schedulers */
 #ifdef ERTS_DIRTY_SCHEDULERS
-    ErtsDirtySchedId dirty_no;  /* Scheduler number for dirty schedulers */
+    Uint dirty_no;  /* Scheduler number for dirty schedulers */
     Process *dirty_shadow_process;
 #endif
     Port *current_port;
@@ -1556,23 +1549,13 @@ extern int erts_system_profile_ts_type;
 #define ERTS_DIRTY_IO_SCHEDULER_IX(IX)					\
   (ASSERT(0 <= (IX) && (IX) < erts_no_dirty_io_schedulers),		\
    &erts_aligned_dirty_io_scheduler_data[(IX)].esd)
-#define ERTS_DIRTY_SCHEDULER_NO(ESDP)					\
-  ((ESDP)->dirty_no.s.num)
-#define ERTS_DIRTY_SCHEDULER_TYPE(ESDP)					\
-  ((ESDP)->dirty_no.s.type)
-#ifdef ERTS_SMP
 #define ERTS_SCHEDULER_IS_DIRTY(ESDP)					\
-  ((ESDP)->dirty_no.s.num != 0)
+  ((ESDP)->type != ERTS_SCHED_NORMAL)
 #define ERTS_SCHEDULER_IS_DIRTY_CPU(ESDP)				\
-    (ERTS_SCHEDULER_IS_DIRTY((ESDP)) & ((ESDP)->dirty_no.s.type == 0))
+    ((ESDP)->type == ERTS_SCHED_DIRTY_CPU)
 #define ERTS_SCHEDULER_IS_DIRTY_IO(ESDP)				\
-    (ERTS_SCHEDULER_IS_DIRTY((ESDP)) & ((ESDP)->dirty_no.s.type == 1))
-#else
-#define ERTS_SCHEDULER_IS_DIRTY(ESDP) 0
-#define ERTS_SCHEDULER_IS_DIRTY_CPU(ESDP) 0
-#define ERTS_SCHEDULER_IS_DIRTY_IO(ESDP) 0
-#endif
-#else
+    ((ESDP)->type == ERTS_SCHED_DIRTY_IO)
+#else /* !ERTS_DIRTY_SCHEDULERS */
 #define ERTS_RUNQ_IX_IS_DIRTY(IX) 0
 #define ERTS_SCHEDULER_IS_DIRTY(ESDP) 0
 #define ERTS_SCHEDULER_IS_DIRTY_CPU(ESDP) 0
