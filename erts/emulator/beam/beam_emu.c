@@ -850,6 +850,15 @@ do {                                            \
   } while (0)
 #endif
 
+#define IsTaggedTuple(Src,Arityval,Tag,Fail) \
+  do {                                       \
+    if (!(is_tuple(Src) &&                   \
+         (tuple_val(Src))[0] == Arityval &&  \
+         (tuple_val(Src))[1] == Tag)) {      \
+        Fail;                                \
+    }                                        \
+  } while (0)
+
 #define IsBoolean(X, Fail) if ((X) != am_true && (X) != am_false) { Fail; }
 
 #define IsBinary(Src, Fail) \

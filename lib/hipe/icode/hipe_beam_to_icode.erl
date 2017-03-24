@@ -513,6 +513,19 @@ trans_fun([{test,test_arity,{f,Lbl},[Reg,N]}|Instructions], Env) ->
   I = hipe_icode:mk_type([trans_arg(Reg)],{tuple,N}, 
 			 hipe_icode:label_name(True),map_label(Lbl)),
   [I,True | trans_fun(Instructions,Env)];
+%%--- test_is_tagged_tuple  ---
+trans_fun([{test,is_tagged_tuple,{f,Lbl},[Reg,N,Atom]}|Instructions], Env) ->
+  TrueArity = mk_label(new),
+  IArity = hipe_icode:mk_type([trans_arg(Reg)],{tuple,N},
+			       hipe_icode:label_name(TrueArity),map_label(Lbl)),
+  Var = hipe_icode:mk_new_var(),
+  IGet = hipe_icode:mk_primop([Var],
+			      #unsafe_element{index=1},
+			      [trans_arg(Reg)]),
+  TrueAtom = mk_label(new),
+  IEQ = hipe_icode:mk_type([Var], Atom, hipe_icode:label_name(TrueAtom),
+			   map_label(Lbl)),
+  [IArity,TrueArity,IGet,IEQ,TrueAtom | trans_fun(Instructions,Env)];
 %%--- is_map ---
 trans_fun([{test,is_map,{f,Lbl},[Arg]}|Instructions], Env) ->
   {Code,Env1} = trans_type_test(map,Lbl,Arg,Env),
