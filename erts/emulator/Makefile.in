@@ -970,7 +970,7 @@ $(OBJDIR)/hipe_mkliterals.o:	$(HIPE_ASM) $(TTF_DIR)/erl_alloc_types.h $(DTRACE_H
 	$(TTF_DIR)/OPCODES-GENERATED $(TTF_DIR)/TABLES-GENERATED
 
 $(TTF_DIR)/hipe_literals.h:	$(BINDIR)/hipe_mkliterals$(TF_MARKER)
-	$(gen_verbose)$(BINDIR)/hipe_mkliterals$(TF_MARKER) -c > $@
+	$(gen_verbose)$(RUN) $(BINDIR)/hipe_mkliterals$(TF_MARKER) -c > $@
 
 $(OBJDIR)/hipe_x86_glue.o:	hipe/hipe_x86_glue.S \
 	$(TTF_DIR)/hipe_x86_asm.h $(TTF_DIR)/hipe_literals.h \

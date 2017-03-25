@@ -53,6 +53,7 @@ AC_ARG_VAR(LFS_LIBS, [large file support libraries (set all LFS_* variables or n
 AC_ARG_VAR(RANLIB, [ranlib])
 AC_ARG_VAR(AR, [ar])
 AC_ARG_VAR(GETCONF, [getconf])
+AC_ARG_VAR(RUN, [tool that can run binaries for the target system])
 
 dnl Cross system root
 AC_ARG_VAR(erl_xcomp_sysroot, [Absolute cross system root path (only used when cross compiling)])
