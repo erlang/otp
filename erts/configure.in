@@ -610,6 +610,7 @@ fi
 case $chk_arch_ in
     sun4u)	ARCH=ultrasparc;;
     sparc64)	ARCH=sparc64;;
+    sparc)	ARCH=ultrasparc;;
     sun4v)	ARCH=ultrasparc;;
     i86pc)	ARCH=x86;;
     i386)	ARCH=x86;;
@@ -621,9 +622,11 @@ case $chk_arch_ in
     macppc)	ARCH=ppc;;
     powerpc)	ARCH=ppc;;
     ppc)	ARCH=ppc;;
+    powerpc64)	ARCH=ppc64;;
     ppc64)	ARCH=ppc64;;
     ppc64le)	ARCH=ppc64;;
     "Power Macintosh")	ARCH=ppc;;
+    arm)	ARCH=arm;;
     armv5b)	ARCH=arm;;
     armv5teb)	ARCH=arm;;
     armv5tel)	ARCH=arm;;
