@@ -31,7 +31,7 @@ assemble(CompiledCode, Closures, Exports, Options) ->
 	  || {MFA, Defun} <- CompiledCode],
   %%
   {ConstAlign,ConstSize,ConstMap,RefsFromConsts} =
-    hipe_pack_constants:pack_constants(Code, 4),
+    hipe_pack_constants:pack_constants(Code),
   %%
   {CodeSize,CodeBinary,AccRefs,LabelMap,ExportMap} =
     encode(translate(Code, ConstMap), Options),
