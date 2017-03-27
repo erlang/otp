@@ -392,14 +392,14 @@ widen(#range{range=Old}, #range{range=New}, T = #range{range=Wide}) ->
 -spec analyse_call(#icode_call{}, call_fun()) -> #icode_call{}.
 
 analyse_call(Call, LookupFun) ->
+  Args = hipe_icode:args(Call),
+  Fun = hipe_icode:call_fun(Call),
+  Type = hipe_icode:call_type(Call),
+  DstRanges = analyse_call_or_enter_fun(Fun, Args, Type, LookupFun),
   case hipe_icode:call_dstlist(Call) of
     [] ->
       Call;
     Dsts ->
-      Args = hipe_icode:args(Call),
-      Fun = hipe_icode:call_fun(Call),
-      Type = hipe_icode:call_type(Call),
-      DstRanges = analyse_call_or_enter_fun(Fun, Args, Type, LookupFun),
       NewDefs = [update_info(Var, R) || {Var,R} <- lists:zip(Dsts, DstRanges)],
       hipe_icode:subst_defines(lists:zip(Dsts, NewDefs), Call)
   end.
