@@ -56,6 +56,7 @@
 %%-type ec_curve() :: ec_named_curve() | ec_curve_spec().
 %%-type ec_key() :: {Curve :: ec_curve(), PrivKey :: binary() | undefined, PubKey :: ec_point() | undefined}.
 
+-compile(no_native).
 -on_load(on_load/0).
 -define(CRYPTO_NIF_VSN,302).
 

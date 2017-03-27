@@ -26,6 +26,7 @@
 	 decode_ber_tlv/1,
 	 encode_ber_tlv/1]).
 
+-compile(no_native).
 -on_load(load_nif/0).
 
 -define(ASN1_NIF_VSN,1).
