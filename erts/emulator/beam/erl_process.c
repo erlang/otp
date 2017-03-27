@@ -11361,7 +11361,7 @@ erts_execute_dirty_system_task(Process *c_p)
 
 	switch (st->type) {
 	case ERTS_PSTT_CLA:
-	    ASSERT(is_value(st_res));
+	    ASSERT(is_value(cla_res));
 	    st_res = cla_res;
 	    break;
 	case ERTS_PSTT_GC_MAJOR:
