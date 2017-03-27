@@ -612,7 +612,7 @@ pcre_cve_2008_2371(Config) when is_list(Config) ->
 %% http://vcs.pcre.org/viewvc/code/trunk/pcre_compile.c?r1=504&r2=505&view=patch
 pcre_compile_workspace_overflow(Config) when is_list(Config) ->
     N = 819,
-    {error,{"internal error: overran compiling workspace",799}} =
+    {error,{"regular expression is too complicated",799}} =
 	re:compile([lists:duplicate(N, $(), lists:duplicate(N, $))]),
     ok.
 
