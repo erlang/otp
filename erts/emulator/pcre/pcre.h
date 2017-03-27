@@ -5,7 +5,7 @@
 /* This is the public header file for the PCRE library, to be #included by
 applications that call the PCRE functions.
 
-           Copyright (c) 1997-2013 University of Cambridge
+           Copyright (c) 1997-2014 University of Cambridge
 
 -----------------------------------------------------------------------------
 Redistribution and use in source and binary forms, with or without
@@ -43,9 +43,9 @@ POSSIBILITY OF SUCH DAMAGE.
 /* The current PCRE version information. */
 
 #define PCRE_MAJOR          8
-#define PCRE_MINOR          33
+#define PCRE_MINOR          40
 #define PCRE_PRERELEASE     
-#define PCRE_DATE           2013-05-28
+#define PCRE_DATE           2017-01-11
 
 /* When an application links to a PCRE DLL in Windows, the symbols that are
 imported have to be identified as such. When building PCRE, the appropriate
@@ -151,7 +151,10 @@ with J. */
 #define PCRE_NEVER_UTF          0x00010000  /* C1        ) Overlaid */
 #define PCRE_DFA_SHORTEST       0x00010000  /*      D    ) Overlaid */
 
-#define PCRE_DFA_RESTART        0x00020000  /*      D   */
+/* This pair use the same bit. */
+#define PCRE_NO_AUTO_POSSESS    0x00020000  /* C1        ) Overlaid */
+#define PCRE_DFA_RESTART        0x00020000  /*      D    ) Overlaid */
+
 #define PCRE_FIRSTLINE          0x00040000  /* C3       */
 #define PCRE_DUPNAMES           0x00080000  /* C1       */
 #define PCRE_NEWLINE_CR         0x00100000  /* C3 E D   */
@@ -281,6 +284,7 @@ with J. */
 #define PCRE_INFO_REQUIREDCHARFLAGS 22
 #define PCRE_INFO_MATCHLIMIT        23
 #define PCRE_INFO_RECURSIONLIMIT    24
+#define PCRE_INFO_MATCH_EMPTY       25
 
 /* Request types for pcre_config(). Do not re-arrange, in order to remain
 compatible. */
@@ -298,6 +302,7 @@ compatible. */
 #define PCRE_CONFIG_UTF16                  10
 #define PCRE_CONFIG_JITTARGET              11
 #define PCRE_CONFIG_UTF32                  12
+#define PCRE_CONFIG_PARENS_LIMIT           13
 
 /* Request types for pcre_study(). Do not re-arrange, in order to remain
 compatible. */
@@ -513,24 +518,28 @@ PCRE_EXP_DECL void  (*erts_pcre_free)(void *);
 PCRE_EXP_DECL void *(*erts_pcre_stack_malloc)(size_t);
 PCRE_EXP_DECL void  (*erts_pcre_stack_free)(void *);
 PCRE_EXP_DECL int   (*erts_pcre_callout)(erts_pcre_callout_block *);
+PCRE_EXP_DECL int   (*erts_pcre_stack_guard)(void);
 #else
 PCRE_EXP_DECL void *(*pcre_malloc)(size_t);
 PCRE_EXP_DECL void  (*pcre_free)(void *);
 PCRE_EXP_DECL void *(*pcre_stack_malloc)(size_t);
 PCRE_EXP_DECL void  (*pcre_stack_free)(void *);
 PCRE_EXP_DECL int   (*pcre_callout)(pcre_callout_block *);
+PCRE_EXP_DECL int   (*pcre_stack_guard)(void);
 #endif
 PCRE_EXP_DECL void *(*pcre16_malloc)(size_t);
 PCRE_EXP_DECL void  (*pcre16_free)(void *);
 PCRE_EXP_DECL void *(*pcre16_stack_malloc)(size_t);
 PCRE_EXP_DECL void  (*pcre16_stack_free)(void *);
 PCRE_EXP_DECL int   (*pcre16_callout)(pcre16_callout_block *);
+PCRE_EXP_DECL int   (*pcre16_stack_guard)(void);
 
 PCRE_EXP_DECL void *(*pcre32_malloc)(size_t);
 PCRE_EXP_DECL void  (*pcre32_free)(void *);
 PCRE_EXP_DECL void *(*pcre32_stack_malloc)(size_t);
 PCRE_EXP_DECL void  (*pcre32_stack_free)(void *);
 PCRE_EXP_DECL int   (*pcre32_callout)(pcre32_callout_block *);
+PCRE_EXP_DECL int   (*pcre32_stack_guard)(void);
 #else   /* VPCOMPAT */
 #if defined(ERLANG_INTEGRATION)
 PCRE_EXP_DECL void *erts_pcre_malloc(size_t);
@@ -538,12 +547,14 @@ PCRE_EXP_DECL void  erts_pcre_free(void *);
 PCRE_EXP_DECL void *erts_pcre_stack_malloc(size_t);
 PCRE_EXP_DECL void  erts_pcre_stack_free(void *);
 PCRE_EXP_DECL int   erts_pcre_callout(erts_pcre_callout_block *);
+PCRE_EXP_DECL int   erts_pcre_stack_guard(void);
 #else
 PCRE_EXP_DECL void *pcre_malloc(size_t);
 PCRE_EXP_DECL void  pcre_free(void *);
 PCRE_EXP_DECL void *pcre_stack_malloc(size_t);
 PCRE_EXP_DECL void  pcre_stack_free(void *);
 PCRE_EXP_DECL int   pcre_callout(pcre_callout_block *);
+PCRE_EXP_DECL int   pcre_stack_guard(void);
 #endif
 
 PCRE_EXP_DECL void *pcre16_malloc(size_t);
@@ -551,12 +562,14 @@ PCRE_EXP_DECL void  pcre16_free(void *);
 PCRE_EXP_DECL void *pcre16_stack_malloc(size_t);
 PCRE_EXP_DECL void  pcre16_stack_free(void *);
 PCRE_EXP_DECL int   pcre16_callout(pcre16_callout_block *);
+PCRE_EXP_DECL int   pcre16_stack_guard(void);
 
 PCRE_EXP_DECL void *pcre32_malloc(size_t);
 PCRE_EXP_DECL void  pcre32_free(void *);
 PCRE_EXP_DECL void *pcre32_stack_malloc(size_t);
 PCRE_EXP_DECL void  pcre32_stack_free(void *);
 PCRE_EXP_DECL int   pcre32_callout(pcre32_callout_block *);
+PCRE_EXP_DECL int   pcre32_stack_guard(void);
 #endif  /* VPCOMPAT */
 
 /* User defined callback which provides a stack just before the match starts. */
@@ -811,6 +824,9 @@ PCRE_EXP_DECL void pcre16_assign_jit_stack(pcre16_extra *,
                   pcre16_jit_callback, void *);
 PCRE_EXP_DECL void pcre32_assign_jit_stack(pcre32_extra *,
                   pcre32_jit_callback, void *);
+PCRE_EXP_DECL void pcre_jit_free_unused_memory(void);
+PCRE_EXP_DECL void pcre16_jit_free_unused_memory(void);
+PCRE_EXP_DECL void pcre32_jit_free_unused_memory(void);
 
 #ifdef ERLANG_INTEGRATION
 PCRE_EXP_DECL void  erts_pcre_free_restart_data(void *restart_data);
