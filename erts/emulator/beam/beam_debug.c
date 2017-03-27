@@ -308,7 +308,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 		BIF_RET(am_undef);
 	    }
 	}
-        code_ptr = erts_codemfa_to_code(cmfa);
+        code_ptr = (BeamInstr*)erts_code_to_codeinfo(erts_codemfa_to_code(cmfa));
     } else {
 	goto error;
     }
