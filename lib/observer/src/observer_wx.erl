@@ -60,7 +60,8 @@
 	 nodes,
 	 prev_node="",
 	 log = false,
-	 reply_to=false
+	 reply_to=false,
+         config
 	}).
 
 start() ->
@@ -111,6 +112,10 @@ init(_Args) ->
 
 setup(#state{frame = Frame} = State) ->
     %% Setup Menubar & Menus
+    Config = load_config(),
+    Cnf = fun(Who) ->
+                  proplists:get_value(Who, Config, #{})
+          end,
     MenuBar = wxMenuBar:new(),
 
     {Nodes, NodeMenus} = get_nodes(),
@@ -124,7 +129,7 @@ setup(#state{frame = Frame} = State) ->
     Notebook = wxNotebook:new(Panel, ?ID_NOTEBOOK, [{style, ?wxBK_DEFAULT}]),
 
     %% System Panel
-    SysPanel = observer_sys_wx:start_link(Notebook, self()),
+    SysPanel = observer_sys_wx:start_link(Notebook, self(), Cnf(sys_panel)),
     wxNotebook:addPage(Notebook, SysPanel, "System", []),
 
     %% Setup sizer create early to get it when window shows
@@ -151,31 +156,31 @@ setup(#state{frame = Frame} = State) ->
     %% the window size
 
     %% Perf Viewer Panel
-    PerfPanel = observer_perf_wx:start_link(Notebook, self()),
+    PerfPanel = observer_perf_wx:start_link(Notebook, self(), Cnf(perf_panel)),
     wxNotebook:addPage(Notebook, PerfPanel, "Load Charts", []),
 
     %% Memory Allocator Viewer Panel
-    AllcPanel = observer_alloc_wx:start_link(Notebook, self()),
+    AllcPanel = observer_alloc_wx:start_link(Notebook, self(), Cnf(allc_panel)),
     wxNotebook:addPage(Notebook, AllcPanel, ?ALLOC_STR, []),
 
     %% App Viewer Panel
-    AppPanel = observer_app_wx:start_link(Notebook, self()),
+    AppPanel = observer_app_wx:start_link(Notebook, self(), Cnf(app_panel)),
     wxNotebook:addPage(Notebook, AppPanel, "Applications", []),
 
     %% Process Panel
-    ProPanel = observer_pro_wx:start_link(Notebook, self()),
+    ProPanel = observer_pro_wx:start_link(Notebook, self(), Cnf(pro_panel)),
     wxNotebook:addPage(Notebook, ProPanel, "Processes", []),
 
     %% Port Panel
-    PortPanel = observer_port_wx:start_link(Notebook, self()),
+    PortPanel = observer_port_wx:start_link(Notebook, self(), Cnf(port_panel)),
     wxNotebook:addPage(Notebook, PortPanel, "Ports", []),
 
     %% Table Viewer Panel
-    TVPanel = observer_tv_wx:start_link(Notebook, self()),
+    TVPanel = observer_tv_wx:start_link(Notebook, self(), Cnf(tv_panel)),
     wxNotebook:addPage(Notebook, TVPanel, "Table Viewer", []),
 
     %% Trace Viewer Panel
-    TracePanel = observer_trace_wx:start_link(Notebook, self()),
+    TracePanel = observer_trace_wx:start_link(Notebook, self(), Cnf(trace_panel)),
     wxNotebook:addPage(Notebook, TracePanel, ?TRACE_STR, []),
 
     %% Force redraw (windows needs it)
@@ -466,6 +471,7 @@ handle_info(_Info, State) ->
 stop_servers(#state{node=Node, log=LogOn, panels=Panels} = _State) ->
     LogOn andalso rpc:block_call(Node, rb, stop, []),
     Me = self(),
+    save_config(Panels),
     Stop = fun() ->
 		   try
 		       _ = [wx_object:stop(Panel) || {_, Panel, _} <- Panels],
@@ -484,6 +490,27 @@ terminate(_Reason, #state{frame = Frame, reply_to=From}) ->
 	_ -> gen_server:reply(From, ok)
     end,
     ok.
+
+load_config() ->
+    case file:consult(config_file()) of
+        {ok, Config} -> Config;
+        _ -> []
+    end.
+
+save_config(Panels) ->
+    Configs = [{Name, wx_object:call(Panel, get_config)} || {Name, Panel, _} <- Panels],
+    File = config_file(),
+    case filelib:ensure_dir(File) of
+        ok ->
+            Format = [io_lib:format("~p.~n",[Conf]) || Conf <- Configs],
+            _ = file:write_file(File, Format);
+        _ ->
+            ignore
+    end.
+
+config_file() ->
+    Dir = filename:basedir(user_config, "erl_observer"),
+    filename:join(Dir, "config.txt").
 
 code_change(_, _, State) ->
     {ok, State}.

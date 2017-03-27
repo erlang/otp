@@ -20,7 +20,7 @@
 
 -behaviour(wx_object).
 
--export([start_link/2]).
+-export([start_link/3]).
 
 %% wx_object callbacks
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
@@ -86,18 +86,19 @@
 		right_clicked_pid,
 		holder}).
 
-start_link(Notebook, Parent) ->
-    wx_object:start_link(?MODULE, [Notebook, Parent], []).
+start_link(Notebook, Parent, Config) ->
+    wx_object:start_link(?MODULE, [Notebook, Parent, Config], []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-init([Notebook, Parent]) ->
+init([Notebook, Parent, Config]) ->
     Attrs = observer_lib:create_attrs(),
     Self = self(),
-    Holder = spawn_link(fun() -> init_table_holder(Self, Attrs) end),
-    {ProPanel, State} = setup(Notebook, Parent, Holder),
+    Acc = maps:get(acc, Config, false),
+    Holder = spawn_link(fun() -> init_table_holder(Self, Acc, Attrs) end),
+    {ProPanel, State} = setup(Notebook, Parent, Holder, Config),
     {ProPanel, State#state{holder=Holder}}.
 
-setup(Notebook, Parent, Holder) ->
+setup(Notebook, Parent, Holder, Config) ->
     ProPanel = wxPanel:new(Notebook, []),
 
     Grid  = create_list_box(ProPanel, Holder),
@@ -113,7 +114,7 @@ setup(Notebook, Parent, Holder) ->
 		   panel=ProPanel,
 		   parent_notebook=Notebook,
 		   holder=Holder,
-		   timer={false, 10}
+		   timer=Config
 		   },
     {ProPanel, State}.
 
@@ -246,7 +247,7 @@ handle_info({active, Node},
 	    #state{holder=Holder, timer=Timer, parent=Parent}=State) ->
     create_pro_menu(Parent, Holder),
     Holder ! {change_node, Node},
-    {noreply, State#state{timer=observer_lib:start_timer(Timer)}};
+    {noreply, State#state{timer=observer_lib:start_timer(Timer, 10)}};
 
 handle_info(not_active, #state{timer=Timer0}=State) ->
     Timer = observer_lib:stop_timer(Timer0),
@@ -264,10 +265,14 @@ terminate(_Reason, #state{holder=Holder}) ->
 code_change(_, _, State) ->
     {ok, State}.
 
+handle_call(get_config, _, #state{holder=Holder, timer=Timer}=State) ->
+    Conf = observer_lib:timer_config(Timer),
+    Accum = call(Holder, {get_accum, self()}),
+    {reply, Conf#{acc=>Accum}, State};
+
 handle_call(Msg, _From, State) ->
     io:format("~p:~p: Unhandled call ~p~n",[?MODULE, ?LINE, Msg]),
     {reply, ok, State}.
-
 
 handle_cast(Msg, State) ->
     io:format("~p:~p: Unhandled cast ~p~n", [?MODULE, ?LINE, Msg]),
@@ -453,14 +458,19 @@ rm_selected(_, [], [], AccIds, AccPids) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%TABLE HOLDER%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init_table_holder(Parent, Attrs) ->
+init_table_holder(Parent, Accum0, Attrs) ->
     Backend = spawn_link(node(), observer_backend,etop_collect,[self()]),
+    Accum = case Accum0 of
+                true -> true;
+                false -> []
+            end,
     table_holder(#holder{parent=Parent,
 			 etop=#etop_info{},
 			 info=array:new(),
 			 node=node(),
 			 backend_pid=Backend,
-			 attrs=Attrs
+			 attrs=Attrs,
+                         accum=Accum
 			}).
 
 table_holder(#holder{info=Info, attrs=Attrs,

@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 -module(observer_port_wx).
 
--export([start_link/2]).
+-export([start_link/3]).
 
 %% wx_object callbacks
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
@@ -77,10 +77,10 @@
 	  open_wins=[]
 	}).
 
-start_link(Notebook,  Parent) ->
-    wx_object:start_link(?MODULE, [Notebook, Parent], []).
+start_link(Notebook,  Parent, Config) ->
+    wx_object:start_link(?MODULE, [Notebook, Parent, Config], []).
 
-init([Notebook, Parent]) ->
+init([Notebook, Parent, Config]) ->
     Panel = wxPanel:new(Notebook),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
     Style = ?wxLC_REPORT bor ?wxLC_HRULES,
@@ -110,7 +110,7 @@ init([Notebook, Parent]) ->
     wxListCtrl:connect(Grid, size, [{skip, true}]),
 
     wxWindow:setFocus(Grid),
-    {Panel, #state{grid=Grid, parent=Parent, panel=Panel, timer={false, 10}}}.
+    {Panel, #state{grid=Grid, parent=Parent, panel=Panel, timer=Config}}.
 
 handle_event(#wx{id=?ID_REFRESH},
 	     State = #state{node=Node, grid=Grid, opt=Opt}) ->
@@ -260,6 +260,9 @@ handle_event(Event, _State) ->
 handle_sync_event(_Event, _Obj, _State) ->
     ok.
 
+handle_call(get_config, _, #state{timer=Timer}=State) ->
+    {reply, observer_lib:timer_config(Timer), State};
+
 handle_call(Event, From, _State) ->
     error({unhandled_call, Event, From}).
 
@@ -298,7 +301,7 @@ handle_info({active, Node}, State = #state{parent=Parent, grid=Grid, opt=Opt,
     Ports = update_grid(Grid, sel(State), Opt, Ports0),
     wxWindow:setFocus(Grid),
     create_menus(Parent),
-    Timer = observer_lib:start_timer(Timer0),
+    Timer = observer_lib:start_timer(Timer0, 10),
     {noreply, State#state{node=Node, ports=Ports, timer=Timer}};
 
 handle_info(not_active, State = #state{timer = Timer0}) ->

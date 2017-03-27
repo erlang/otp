@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 -module(observer_perf_wx).
 
--export([start_link/2]).
+-export([start_link/3]).
 
 %% wx_object callbacks
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
@@ -57,10 +57,10 @@
 
 -record(paint, {font, small, pen, pen2, pens, dot_pens, usegc = false}).
 
-start_link(Notebook, Parent) ->
-    wx_object:start_link(?MODULE, [Notebook, Parent], []).
+start_link(Notebook, Parent, Config) ->
+    wx_object:start_link(?MODULE, [Notebook, Parent, Config], []).
 
-init([Notebook, Parent]) ->
+init([Notebook, Parent, Config]) ->
     try
 	Panel = wxPanel:new(Notebook),
 	Main  = wxBoxSizer:new(?wxVERTICAL),
@@ -81,7 +81,9 @@ init([Notebook, Parent]) ->
 			panel =Panel,
 			wins = Windows,
 			paint=PaintInfo,
-			samples=reset_data()
+			samples=reset_data(),
+                        time=#ti{fetch=maps:get(fetch, Config, ?FETCH_DATA),
+                                 secs=maps:get(secs, Config, ?DISP_SECONDS)}
 		       },
 	{Panel, State0}
     catch _:Err ->
@@ -177,6 +179,10 @@ refresh_panel(Active, #win{name=_Id, panel=Panel}=Win, Ti, #paint{usegc=UseGC}=P
     destroy_gc(GC).
 
 %%%%%%%%%%
+handle_call(get_config, _, #state{time=Ti}=State) ->
+    #ti{fetch=Fetch, secs=Range} = Ti,
+    {reply, #{fetch=>Fetch, secs=>Range}, State};
+
 handle_call(Event, From, _State) ->
     error({unhandled_call, Event, From}).
 
@@ -210,7 +216,7 @@ handle_info({refresh, Seq}, #state{panel=Panel, time=#ti{tick=Seq, disp=DispF}=T
 handle_info({refresh, _}, State) ->
     {noreply, State};
 
-handle_info({active, Node}, #state{parent=Parent, panel=Panel, appmon=Old, time=_Ti} = State) ->
+handle_info({active, Node}, #state{parent=Parent, panel=Panel, appmon=Old} = State) ->
     create_menus(Parent, []),
     try
 	Node = node(Old),
