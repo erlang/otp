@@ -238,6 +238,8 @@ actionstr(#conn_log{action=cmd}) -> "----->";
 actionstr(#conn_log{action=recv}) -> "<-----";
 actionstr(#conn_log{action=open}) -> "opened session to";
 actionstr(#conn_log{action=close}) -> "closed session to";
+actionstr(#conn_log{action=connect}) -> "connected to";
+actionstr(#conn_log{action=disconnect}) -> "disconnected from";
 actionstr(_) -> "<---->".
 
 serverstr(#conn_log{name=undefined,address={undefined,_}}) ->

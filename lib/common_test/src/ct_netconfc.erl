@@ -167,7 +167,13 @@
 %%----------------------------------------------------------------------
 %% External exports
 %%----------------------------------------------------------------------
--export([open/1,
+-export([connect/1,
+         connect/2,
+         disconnect/1,
+         session/1,
+         session/2,
+         session/3,
+         open/1,
 	 open/2,
 	 only_open/1,
 	 only_open/2,
@@ -215,7 +221,9 @@
 %%----------------------------------------------------------------------
 %% Exported types
 %%----------------------------------------------------------------------
--export_type([notification/0]).
+-export_type([client/0,
+              handle/0,
+              notification/0]).
 
 %%----------------------------------------------------------------------
 %% Internal exports
@@ -273,13 +281,15 @@
 		  host,
 		  port = ?DEFAULT_PORT,
 		  timeout = ?DEFAULT_TIMEOUT,
-		  name}).
+		  name,
+                  type}).
 
 %% Connection reference
 -record(connection, {reference, % {CM,Ch}
 		     host,
 		     port,
-		     name}).
+		     name,
+                     type}).
 
 %% Pending replies from server
 -record(pending, {tref,    % timer ref (returned from timer:xxx)
@@ -292,7 +302,7 @@
 %% Type declarations
 %%----------------------------------------------------------------------
 -type client() :: handle() | ct_gen_conn:server_id() | ct_gen_conn:target_name().
--type handle() :: term().
+-opaque handle() :: pid().
 %% An opaque reference for a connection (netconf session). See {@link
 %% ct} for more information.
 
@@ -302,7 +312,10 @@
 -type option() :: {ssh,host()} | {port,inet:port_number()} | {user,string()} |
 		  {password,string()} | {user_dir,string()} |
 		  {timeout,timeout()}.
+-type session_options() :: [session_option()].
+-type session_option() :: {timeout,timeout()}.
 -type host() :: inet:hostname() | inet:ip_address().
+-type start_result() :: {ok,handle()} | {error,error_reason()}.
 
 -type notification() :: {notification, xml_attributes(), notification_content()}.
 -type notification_content() :: [event_time()|simple_xml()].
@@ -343,9 +356,143 @@
 %%----------------------------------------------------------------------
 
 %%----------------------------------------------------------------------
+-spec connect(Options) -> Result when
+      Options :: options(),
+      Result :: start_result().
+%% Open an SSH connection to a Netconf server.
+%%
+%% One or more netconf sessions can then be opened as SSH channels
+%% over this connection, see session/[1,2,3]
+%% ----------------------------------------------------------------------
+connect(Options) ->
+    do_connect(Options, #options{type=connection},[]).
+
+%%----------------------------------------------------------------------
+-spec connect(KeyOrName,Options) -> Result when
+      KeyOrName :: ct_gen_conn:key_or_name(),
+      Options :: options(),
+      Result :: start_result().
+%% Open an SSH connection to a named Netconf server.
+%%
+%% If `KeyOrName' is a configured `server_id()' or a
+%% `target_name()' associated with such an ID, then the options
+%% for this server will be fetched from the configuration file.
+%%
+%% The `ExtraOptions' argument will be added to the options found in
+%% the configuration file. If the same options are given, the values
+%% from the configuration file will overwrite `ExtraOptions'.
+%%
+%% If the server is not specified in a configuration file, use {@link
+%% connect/1} instead.
+%%
+%% One or more netconf sessions can then be opened as SSH channels over
+%% this connection, see session/[1,2,3]
+%% ----------------------------------------------------------------------
+connect(KeyOrName, ExtraOptions) ->
+    SortedExtra = lists:keysort(1,ExtraOptions),
+    SortedConfig = lists:keysort(1,ct:get_config(KeyOrName,[])),
+    AllOpts = lists:ukeymerge(1,SortedConfig,SortedExtra),
+    do_connect(AllOpts,#options{name=KeyOrName,type=connection},[{name,KeyOrName}]).
+
+do_connect(OptList,InitOptRec,NameOpt) ->
+    case check_options(OptList,InitOptRec) of
+	{Host,Port,Options} ->
+	    ct_gen_conn:start({Host,Port},Options,?MODULE,
+                              NameOpt ++ [{reconnect,false},
+                                          {use_existing_connection,false},
+                                          {forward_messages,false}]);
+	Error ->
+	    Error
+    end.
+
+%%----------------------------------------------------------------------
+-spec disconnect(Conn) -> ok | {error,error_reason()} when
+      Conn :: handle().
+%% Close the given SSH connection.
+%%----------------------------------------------------------------------
+disconnect(Conn) ->
+    case call(Conn,get_ssh_connection) of
+        {ok,_} ->
+            ct_gen_conn:stop(Conn);
+        Error ->
+            Error
+    end.
+
+%%----------------------------------------------------------------------
+-spec session(Conn) -> Result when
+      Conn :: handle(),
+      Result :: start_result().
+%% Open a netconf session as a channel on the given SSH connection,
+%% and exchange `hello' messages.
+%%----------------------------------------------------------------------
+session(Conn) ->
+    do_session(Conn,[],#options{type=channel},[]).
+
+%%----------------------------------------------------------------------
+-spec session(Conn,Options) -> Result when
+      Conn :: handle(),
+      Options :: session_options(),
+      Result :: start_result();
+             (KeyOrName,Conn) -> Result when
+      KeyOrName :: ct_gen_conn:key_or_name(),
+      Conn :: handle(),
+      Result :: start_result().
+%% Open a netconf session as a channel on the given SSH connection,
+%% and exchange `hello' messages.
+%%----------------------------------------------------------------------
+session(Conn,Options) when is_list(Options) ->
+    do_session(Conn,Options,#options{type=channel},[]);
+session(KeyOrName,Conn) ->
+    do_session(Conn,[],#options{name=KeyOrName,type=channel},[{name,KeyOrName}]).
+
+
+%%----------------------------------------------------------------------
+-spec session(KeyOrName,Conn,Options) -> Result when
+      Conn :: handle(),
+      Options :: session_options(),
+      KeyOrName :: ct_gen_conn:key_or_name(),
+      Result :: start_result().
+%% Open a netconf session as a channel on the given SSH connection,
+%% and exchange `hello' messages.
+%%----------------------------------------------------------------------
+session(KeyOrName,Conn,ExtraOptions) ->
+    SortedExtra = lists:keysort(1,ExtraOptions),
+    SortedConfig = lists:keysort(1,ct:get_config(KeyOrName,[])),
+    AllOpts = lists:ukeymerge(1,SortedConfig,SortedExtra),
+    do_session(Conn,AllOpts,#options{name=KeyOrName,type=channel},
+               [{name,KeyOrName}]).
+
+do_session(Conn,OptList,InitOptRec,NameOpt) ->
+    case call(Conn,get_ssh_connection) of
+        {ok,SshConn} ->
+            case check_session_options(OptList,InitOptRec) of
+                {ok,Options} ->
+                    case ct_gen_conn:start(SshConn,Options,?MODULE,
+                                           NameOpt ++
+                                               [{reconnect,false},
+                                                {use_existing_connection,false},
+                                                {forward_messages,true}]) of
+                        {ok,Client} ->
+                            case hello(Client,Options#options.timeout) of
+                                ok ->
+                                    {ok,Client};
+                                Error ->
+                                    Error
+                            end;
+                        Error ->
+                            Error
+                    end;
+                Error ->
+                    Error
+            end;
+	Error ->
+	    Error
+    end.
+
+%%----------------------------------------------------------------------
 -spec open(Options) -> Result when
       Options :: options(),
-      Result :: {ok,handle()} | {error,error_reason()}.
+      Result :: start_result().
 %% @doc Open a netconf session and exchange `hello' messages.
 %%
 %% If the server options are specified in a configuration file, or if
@@ -364,13 +511,13 @@
 %% @end
 %%----------------------------------------------------------------------
 open(Options) ->
-    open(Options,#options{},[],true).
+    open(Options,#options{type=connection_and_channel},[],true).
 
 %%----------------------------------------------------------------------
 -spec open(KeyOrName, ExtraOptions) -> Result when
       KeyOrName :: ct_gen_conn:key_or_name(),
       ExtraOptions :: options(),
-      Result :: {ok,handle()} | {error,error_reason()}.
+      Result :: start_result().
 %% @doc Open a named netconf session and exchange `hello' messages.
 %%
 %% If `KeyOrName' is a configured `server_id()' or a
@@ -406,10 +553,11 @@ open(KeyOrName, ExtraOpts, Hello) ->
     SortedExtra = lists:keysort(1,ExtraOpts),
     SortedConfig = lists:keysort(1,ct:get_config(KeyOrName,[])),
     AllOpts = lists:ukeymerge(1,SortedConfig,SortedExtra),
-    open(AllOpts,#options{name=KeyOrName},[{name,KeyOrName}],Hello).
+    open(AllOpts,#options{name=KeyOrName,type=connection_and_channel},
+         [{name,KeyOrName}],Hello).
 
 open(OptList,InitOptRec,NameOpt,Hello) ->
-    case check_options(OptList,undefined,undefined,InitOptRec) of
+    case check_options(OptList,InitOptRec) of
 	{Host,Port,Options} ->
 	    case ct_gen_conn:start({Host,Port},Options,?MODULE,
 				   NameOpt ++ [{reconnect,false},
@@ -433,7 +581,7 @@ open(OptList,InitOptRec,NameOpt,Hello) ->
 %%----------------------------------------------------------------------
 -spec only_open(Options) -> Result when
       Options :: options(),
-      Result :: {ok,handle()} | {error,error_reason()}.
+      Result :: start_result().
 %% @doc Open a netconf session, but don't send `hello'.
 %%
 %% As {@link open/1} but does not send a `hello' message.
@@ -441,13 +589,13 @@ open(OptList,InitOptRec,NameOpt,Hello) ->
 %% @end
 %%----------------------------------------------------------------------
 only_open(Options) ->
-    open(Options,#options{},[],false).
+    open(Options,#options{type=connection_and_channel},[],false).
 
 %%----------------------------------------------------------------------
 -spec only_open(KeyOrName,ExtraOptions) -> Result when
       KeyOrName :: ct_gen_conn:key_or_name(),
       ExtraOptions :: options(),
-      Result :: {ok,handle()} | {error,error_reason()}.
+      Result :: start_result().
 %% @doc Open a name netconf session, but don't send `hello'.
 %%
 %% As {@link open/2} but does not send a `hello' message.
@@ -1072,20 +1220,34 @@ kill_session(Client, SessionId, Timeout) ->
 %%----------------------------------------------------------------------
 
 %% @private
+init(_KeyOrName,{CM,{Host,Port}},Options) ->
+    case ssh_channel(#connection{reference=CM,host=Host,port=Port},Options) of
+        {ok,Connection} ->
+	    {ok, CM, #state{connection = Connection}};
+	{error,Reason}->
+	    {error,Reason}
+    end;
+init(_KeyOrName,{_Host,_Port},Options) when Options#options.type==connection ->
+    case ssh_connect(Options) of
+        {ok, Connection} ->
+	    ConnPid = Connection#connection.reference,
+            {ok, ConnPid, #state{connection = Connection}};
+        Error ->
+            Error
+    end;
 init(_KeyOrName,{_Host,_Port},Options) ->
     case ssh_open(Options) of
 	{ok, Connection} ->
-	    log(Connection,open),
 	    {ConnPid,_} = Connection#connection.reference,
 	    {ok, ConnPid, #state{connection = Connection}};
 	{error,Reason}->
 	    {error,Reason}
     end.
 
+
 %% @private
 terminate(_, #state{connection=Connection}) ->
     ssh_close(Connection),
-    log(Connection,close),
     ok.
 
 %% @private
@@ -1107,6 +1269,14 @@ handle_msg({hello, Options, Timeout}, From,
 	Error ->
 	    {stop, Error, State}
     end;
+handle_msg(get_ssh_connection, _From, #state{connection=Connection}=State) ->
+    Reply =
+        case Connection#connection.reference of
+            {_,_} -> {error,not_an_ssh_connection};
+            CM -> {ok,{CM,{Connection#connection.host,
+                           Connection#connection.port}}}
+        end,
+    {reply, Reply, State};
 handle_msg(_, _From, #state{session_id=undefined} = State) ->
     %% Hello is not yet excanged - this shall never happen
     {reply,{error,waiting_for_hello},State};
@@ -1243,15 +1413,18 @@ get_handle(Client) ->
 	    Error
     end.
 
+check_options(OptList,Options) ->
+    check_options(OptList,undefined,undefined,Options).
+
 check_options([], undefined, _Port, _Options) ->
     {error, no_host_address};
 check_options([], _Host, undefined, _Options) ->
     {error, no_port};
 check_options([], Host, Port, Options) ->
     {Host,Port,Options};
-check_options([{ssh, Host}|T], _, Port, #options{} = Options) ->
+check_options([{ssh, Host}|T], _, Port, Options) ->
     check_options(T, Host, Port, Options#options{host=Host});
-check_options([{port,Port}|T], Host, _, #options{} = Options) ->
+check_options([{port,Port}|T], Host, _, Options) ->
     check_options(T, Host, Port, Options#options{port=Port});
 check_options([{timeout, Timeout}|T], Host, Port, Options)
   when is_integer(Timeout); Timeout==infinity ->
@@ -1261,6 +1434,15 @@ check_options([{timeout, _} = Opt|_T], _Host, _Port, _Options) ->
 check_options([Opt|T], Host, Port, #options{ssh=SshOpts}=Options) ->
     %% Option verified by ssh
     check_options(T, Host, Port, Options#options{ssh=[Opt|SshOpts]}).
+
+check_session_options([],Options) ->
+    {ok,Options};
+check_session_options([{timeout, Timeout}|T], Options)
+  when is_integer(Timeout); Timeout==infinity ->
+    check_session_options(T, Options#options{timeout = Timeout});
+check_session_options([Opt|_T], _Options) ->
+    {error, {invalid_option, Opt}}.
+
 
 %%%-----------------------------------------------------------------
 set_request_timer(infinity) ->
@@ -1356,7 +1538,6 @@ do_send_rpc(Connection, MsgId, SimpleXml) ->
 
 do_send(Connection, SimpleXml) ->
     Xml=to_xml_doc(SimpleXml),
-    log(Connection,send,Xml),
     ssh_send(Connection, Xml).
 
 to_xml_doc(Simple) ->
@@ -1766,9 +1947,14 @@ decode_streams([]) ->
 
 log(Connection,Action) ->
     log(Connection,Action,<<>>).
-log(#connection{host=Host,port=Port,name=Name},Action,Data) ->
+log(#connection{reference=Ref,host=Host,port=Port,name=Name},Action,Data) ->
+    Address =
+        case Ref of
+            {_,Ch} -> {Host,Port,Ch};
+            _ -> {Host,Port}
+        end,
     error_logger:info_report(#conn_log{client=self(),
-				       address={Host,Port},
+				       address=Address,
 				       name=Name,
 				       action=Action,
 				       module=?MODULE},
@@ -1915,42 +2101,84 @@ get_tag([]) ->
 
 %%%-----------------------------------------------------------------
 %%% SSH stuff
-
-ssh_open(#options{host=Host,timeout=Timeout,port=Port,ssh=SshOpts,name=Name}) ->
+ssh_connect(#options{host=Host,timeout=Timeout,port=Port,
+                     ssh=SshOpts,name=Name,type=Type}) ->
     case ssh:connect(Host, Port,
 		     [{user_interaction,false},
-		      {silently_accept_hosts, true}|SshOpts]) of
+		      {silently_accept_hosts, true}|SshOpts],
+                     Timeout) of
 	{ok,CM} ->
-	    case ssh_connection:session_channel(CM, Timeout) of
-		{ok,Ch} ->
-		    case ssh_connection:subsystem(CM, Ch, "netconf", Timeout) of
-			success ->
-			    {ok, #connection{reference = {CM,Ch},
-					     host = Host,
-					     port = Port,
-					     name = Name}};
-			failure ->
-			    ssh:close(CM),
-			    {error,{ssh,could_not_execute_netconf_subsystem}};
-			{error,timeout} ->
-			    {error,{ssh,could_not_execute_netconf_subsystem,timeout}}
-		    end;
-		{error, Reason} ->
-		    ssh:close(CM),
-		    {error,{ssh,could_not_open_channel,Reason}}
-	    end;
+            Connection = #connection{reference = CM,
+                                     host = Host,
+                                     port = Port,
+                                     name = Name,
+                                     type = Type},
+            log(Connection,connect),
+            {ok,Connection};
 	{error,Reason} ->
 	    {error,{ssh,could_not_connect_to_server,Reason}}
     end.
 
-ssh_send(#connection{reference = {CM,Ch}}, Data) ->
-    case ssh_connection:send(CM, Ch, Data) of
-	ok -> ok;
-	{error,Reason} -> {error,{ssh,failed_to_send_data,Reason}}
+ssh_channel(#connection{reference=CM}=Connection0,
+            #options{timeout=Timeout,name=Name,type=Type}) ->
+    case ssh_connection:session_channel(CM, Timeout) of
+        {ok,Ch} ->
+            case ssh_connection:subsystem(CM, Ch, "netconf", Timeout) of
+                success ->
+                    Connection = Connection0#connection{reference = {CM,Ch},
+                                                       name = Name,
+                                                       type = Type},
+                    log(Connection,open),
+                    {ok, Connection};
+                failure ->
+                    ssh_connection:close(CM,Ch),
+                    {error,{ssh,could_not_execute_netconf_subsystem}};
+                {error,timeout} ->
+                    ssh_connection:close(CM,Ch),
+                    {error,{ssh,could_not_execute_netconf_subsystem,timeout}}
+            end;
+        {error, Reason} ->
+            {error,{ssh,could_not_open_channel,Reason}}
     end.
 
-ssh_close(#connection{reference = {CM,_Ch}}) ->
-    ssh:close(CM).
+
+ssh_open(Options) ->
+    case ssh_connect(Options) of
+        {ok,Connection} ->
+            case ssh_channel(Connection,Options) of
+                {ok,_} = Ok ->
+                    Ok;
+                Error ->
+                    ssh_close(Connection),
+                    Error
+            end;
+        Error ->
+            Error
+    end.
+
+ssh_send(#connection{reference = {CM,Ch}}=Connection, Data) ->
+    case ssh_connection:send(CM, Ch, Data) of
+	ok ->
+            log(Connection,send,Data),
+            ok;
+	{error,Reason} ->
+            {error,{ssh,failed_to_send_data,Reason}}
+    end.
+
+ssh_close(Connection=#connection{reference = {CM,Ch}, type = Type}) ->
+    _ = ssh_connection:close(CM,Ch),
+    log(Connection,close),
+    case Type of
+        connection_and_channel ->
+            ssh_close(Connection#connection{reference = CM});
+        _ ->
+            ok
+    end,
+    ok;
+ssh_close(Connection=#connection{reference = CM}) ->
+    _ = ssh:close(CM),
+    log(Connection,disconnect),
+    ok.
 
 
 %%----------------------------------------------------------------------

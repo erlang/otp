@@ -373,8 +373,9 @@ loop(Opts) ->
 	    end;
 	{stop, From} ->
 	    ct_util:unregister_connection(self()),
-	    (Opts#gen_opts.callback):terminate(Opts#gen_opts.conn_pid,
-					       Opts#gen_opts.cb_state),
+            ConnPid = Opts#gen_opts.conn_pid,
+            unlink(ConnPid),
+	    (Opts#gen_opts.callback):terminate(ConnPid,Opts#gen_opts.cb_state),
 	    return(From,ok),
 	    ok;
 	{{retry,{Error,_Name,CPid,_Msg}}, From} when 
@@ -411,8 +412,9 @@ loop(Opts) ->
 		    loop(Opts#gen_opts{cb_state=NewState});
 		{stop,Reply,NewState} ->
 		    ct_util:unregister_connection(self()),
-		    (Opts#gen_opts.callback):terminate(Opts#gen_opts.conn_pid,
-						       NewState),
+                    ConnPid = Opts#gen_opts.conn_pid,
+                    unlink(ConnPid),
+		    (Opts#gen_opts.callback):terminate(ConnPid,NewState),
 		    return(From,Reply)
 	    end;
 	Msg when Opts#gen_opts.forward==true ->
@@ -422,8 +424,9 @@ loop(Opts) ->
 		    loop(Opts#gen_opts{cb_state=NewState});
 		{stop,NewState} ->
 		    ct_util:unregister_connection(self()),
-		    (Opts#gen_opts.callback):terminate(Opts#gen_opts.conn_pid,
-						       NewState)
+                    ConnPid = Opts#gen_opts.conn_pid,
+                    unlink(ConnPid),
+		    (Opts#gen_opts.callback):terminate(ConnPid,NewState)
 	    end
     end.
 

@@ -24,11 +24,11 @@
 %%
 %% suite() ->
 %%    [{ct_hooks, [{cth_conn_log,
-%%                  [{ct_netconfc:conn_mod(),ct_netconfc:hook_options()}]}]}].
+%%                  [{conn_mod(),hook_options()}]}]}].
 %%
 %% or specified in a configuration file:
 %%
-%% {ct_conn_log,[{ct_netconfc:conn_mod(),ct_netconfc:hook_options()}]}.
+%% {ct_conn_log,[{conn_mod(),hook_options()}]}.
 %%
 %% The conn_mod() is the common test module implementing the protocol,
 %% e.g. ct_netconfc, ct_telnet, etc. This module must log by calling
