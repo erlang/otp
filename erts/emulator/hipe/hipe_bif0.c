@@ -447,6 +447,7 @@ BIF_RETTYPE hipe_bifs_alloc_data_3(BIF_ALIST_3)
 {
     Uint align;
     HipeLoaderState *stp;
+    void *aligned_block;
 
     if (is_not_small(BIF_ARG_1) || is_not_small(BIF_ARG_2) ||
 	(!(stp = get_loader_state(BIF_ARG_3))) ||
@@ -459,18 +460,14 @@ BIF_RETTYPE hipe_bifs_alloc_data_3(BIF_ALIST_3)
     stp->data_segment_size = unsigned_val(BIF_ARG_2);
     if (stp->data_segment_size == 0)
 	BIF_RET(make_small(0));
+
+    stp->data_segment_size += align-1; /* Make room to align the pointer */
     stp->data_segment = erts_alloc(ERTS_ALC_T_HIPE, stp->data_segment_size);
-    if ((unsigned long)stp->data_segment & (align-1)) {
-	fprintf(stderr, "%s: erts_alloc(%lu) returned %p which is not %lu-byte "
-		"aligned\r\n",
-		__FUNCTION__, (unsigned long)stp->data_segment_size,
-		stp->data_segment, (unsigned long)align);
-	erts_free(ERTS_ALC_T_HIPE, stp->data_segment);
-	stp->data_segment = NULL;
-	stp->data_segment_size = 0;
-	BIF_ERROR(BIF_P, EXC_NOTSUP);
-    }
-    BIF_RET(address_to_term(stp->data_segment, BIF_P));
+
+    /* Align the pointer */
+    aligned_block = (void*)((unsigned long)(stp->data_segment + align - 1)
+			    & ~(unsigned long)(align-1));
+    BIF_RET(address_to_term(aligned_block, BIF_P));
 }
 
 /*
