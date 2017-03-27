@@ -1933,7 +1933,7 @@ findCheapest([Node|Nodes], IG, Cost, Cheapest, SpillLimit) ->
 %% limit are extremely expensive.
 
 getCost(Node, IG, SpillLimit) ->
-  case Node > SpillLimit of
+  case Node >= SpillLimit of
     true -> inf;
     false ->
       SpillCost = hipe_ig:node_spill_cost(Node, IG),

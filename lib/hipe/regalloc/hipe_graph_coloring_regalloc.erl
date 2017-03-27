@@ -209,8 +209,8 @@ color(IG, Spill, PhysRegs, SpillIx, SpillLimit, NumNodes, Target,
 
   %% Any nodes above the spillimit must be colored first...
   MustNotSpill = 
-    if NumNodes > SpillLimit+1 ->
-	sort_on_degree(lists:seq(SpillLimit+1,NumNodes-1) -- Low,IG);
+    if NumNodes > SpillLimit ->
+	sort_on_degree(lists:seq(SpillLimit,NumNodes-1) -- Low,IG);
        true -> []
     end,
       
@@ -401,7 +401,7 @@ spill_costs([{N,Info}|Ns], IG, Vis, Spill, SpillLimit, Target) ->
 	    true ->
 	      spill_costs(Ns, IG, Vis, Spill, SpillLimit, Target);
 	    false ->
-	      if N > SpillLimit ->
+	      if N >= SpillLimit ->
 		  spill_costs(Ns, IG, Vis, Spill, SpillLimit, Target);
 		 true ->
 		  [{spill_cost_of(N,Spill)/Deg,N} | 
