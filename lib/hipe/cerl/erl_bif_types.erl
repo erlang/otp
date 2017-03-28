@@ -2029,17 +2029,14 @@ arith_rem(Min1, Max1, Min2, Max2) ->
   Min1_geq_zero = infinity_geq(Min1, 0),
   Max1_leq_zero = infinity_geq(0, Max1),
   Max_range2 = infinity_max([infinity_abs(Min2), infinity_abs(Max2)]),
-  Max_range2_leq_zero = infinity_geq(0, Max_range2),
-  New_min = 
+  New_min =
     if Min1_geq_zero -> 0;
        Max_range2 =:= 0 -> 0;
-       Max_range2_leq_zero -> infinity_add(Max_range2, 1);
        true -> infinity_add(infinity_inv(Max_range2), 1)
     end,
   New_max = 
     if Max1_leq_zero -> 0;
        Max_range2 =:= 0 -> 0;
-       Max_range2_leq_zero -> infinity_add(infinity_inv(Max_range2), -1);
        true -> infinity_add(Max_range2, -1)
     end,
   {New_min, New_max}.
