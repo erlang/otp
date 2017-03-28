@@ -351,8 +351,9 @@ type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
 
 +if hipe
 
-# Currently most hipe code use this type.
-type	HIPE		SYSTEM		SYSTEM		hipe_data
+type	HIPE_LL		LONG_LIVED	SYSTEM		hipe_long_lived
+type	HIPE_SL		SHORT_LIVED	SYSTEM		hipe_short_lived
+type	HIPE_STK	STANDARD	SYSTEM		hipe_nstack
 
 +if exec_alloc
 type	HIPE_EXEC	EXEC            CODE		hipe_code

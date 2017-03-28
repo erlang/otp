@@ -447,6 +447,7 @@ BIF_RETTYPE hipe_bifs_alloc_data_3(BIF_ALIST_3)
 {
     Uint align;
     HipeLoaderState *stp;
+    void *aligned_block;
 
     if (is_not_small(BIF_ARG_1) || is_not_small(BIF_ARG_2) ||
 	(!(stp = get_loader_state(BIF_ARG_3))) ||
@@ -459,18 +460,14 @@ BIF_RETTYPE hipe_bifs_alloc_data_3(BIF_ALIST_3)
     stp->data_segment_size = unsigned_val(BIF_ARG_2);
     if (stp->data_segment_size == 0)
 	BIF_RET(make_small(0));
-    stp->data_segment = erts_alloc(ERTS_ALC_T_HIPE, stp->data_segment_size);
-    if ((unsigned long)stp->data_segment & (align-1)) {
-	fprintf(stderr, "%s: erts_alloc(%lu) returned %p which is not %lu-byte "
-		"aligned\r\n",
-		__FUNCTION__, (unsigned long)stp->data_segment_size,
-		stp->data_segment, (unsigned long)align);
-	erts_free(ERTS_ALC_T_HIPE, stp->data_segment);
-	stp->data_segment = NULL;
-	stp->data_segment_size = 0;
-	BIF_ERROR(BIF_P, EXC_NOTSUP);
-    }
-    BIF_RET(address_to_term(stp->data_segment, BIF_P));
+
+    stp->data_segment_size += align-1; /* Make room to align the pointer */
+    stp->data_segment = erts_alloc(ERTS_ALC_T_HIPE_LL, stp->data_segment_size);
+
+    /* Align the pointer */
+    aligned_block = (void*)((UWord)(stp->data_segment + align - 1)
+			    & ~(UWord)(align-1));
+    BIF_RET(address_to_term(aligned_block, BIF_P));
 }
 
 /*
@@ -545,7 +542,7 @@ static void init_const_term_table(void)
     f.meta_alloc = (HMALLOC_FUN) erts_alloc;
     f.meta_free = (HMFREE_FUN) erts_free;
     f.meta_print = (HMPRINT_FUN) erts_print;
-    hash_init(ERTS_ALC_T_HIPE, &const_term_table, "const_term_table", 97, f);
+    hash_init(ERTS_ALC_T_HIPE_LL, &const_term_table, "const_term_table", 97, f);
 }
 
 BIF_RETTYPE hipe_bifs_merge_term_1(BIF_ALIST_1)
@@ -859,7 +856,7 @@ static void init_primop_table(void)
     f.meta_free = (HMFREE_FUN) erts_free;
     f.meta_print = (HMPRINT_FUN) erts_print;
 
-    hash_init(ERTS_ALC_T_HIPE, &primop_table, "primop_table", 50, f);
+    hash_init(ERTS_ALC_T_HIPE_LL, &primop_table, "primop_table", 50, f);
 
     for (i = 0; i < sizeof(primops)/sizeof(primops[0]); ++i)
 	hash_put(&primop_table, &primops[i]);
@@ -1094,7 +1091,7 @@ static void mod2mfa_tab_init(void)
     f.meta_free = (HMFREE_FUN) erts_free;
     f.meta_print = (HMPRINT_FUN) erts_print;
 
-    hash_init(ERTS_ALC_T_HIPE, &mod2mfa_tab, "mod2mfa_tab", 50, f);
+    hash_init(ERTS_ALC_T_HIPE_LL, &mod2mfa_tab, "mod2mfa_tab", 50, f);
 }
 
 static struct hipe_mfa_info* mod2mfa_get(Module* modp)
@@ -1172,7 +1169,7 @@ struct hipe_mfa_info* mod2mfa_get_safe(Module* modp)
 static struct hipe_mfa_info **hipe_mfa_info_table_alloc_bucket(unsigned int size)
 {
     unsigned long nbytes = size * sizeof(struct hipe_mfa_info*);
-    struct hipe_mfa_info **bucket = erts_alloc(ERTS_ALC_T_HIPE, nbytes);
+    struct hipe_mfa_info **bucket = erts_alloc(ERTS_ALC_T_HIPE_LL, nbytes);
     sys_memzero(bucket, nbytes);
     return bucket;
 }
@@ -1201,14 +1198,14 @@ static void hipe_mfa_info_table_grow(void)
 	    b = next;
 	}
     }
-    erts_free(ERTS_ALC_T_HIPE, old_bucket);
+    erts_free(ERTS_ALC_T_HIPE_LL, old_bucket);
 }
 
 static struct hipe_mfa_info *hipe_mfa_info_table_alloc(Eterm m, Eterm f, unsigned int arity)
 {
     struct hipe_mfa_info *res;
 
-    res = (struct hipe_mfa_info*)erts_alloc(ERTS_ALC_T_HIPE, sizeof(*res));
+    res = (struct hipe_mfa_info*)erts_alloc(ERTS_ALC_T_HIPE_LL, sizeof(*res));
     res->m = m;
     res->f = f;
     res->a = arity;
@@ -1547,7 +1544,7 @@ BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
     hipe_mfa_info_table_rwlock();
     callee_mfa = hipe_mfa_info_table_put_rwlocked(callee.mod, callee.fun, callee.ari);
 
-    ref = erts_alloc(ERTS_ALC_T_HIPE, sizeof(struct hipe_ref));
+    ref = erts_alloc(ERTS_ALC_T_HIPE_LL, sizeof(struct hipe_ref));
     ref->address = address;
 #if defined(__arm__) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)
     ref->trampoline = trampoline;
@@ -1618,7 +1615,7 @@ static void purge_mfa(struct hipe_mfa_info* p)
     ASSERT(p->is_stub);
     remove_mfa_info(p);
     hipe_free_native_stub(p->remote_address);
-    erts_free(ERTS_ALC_T_HIPE, p);
+    erts_free(ERTS_ALC_T_HIPE_LL, p);
 }
 
 /* Called by init:restart after unloading all hipe compiled modules
@@ -1643,7 +1640,7 @@ static void hipe_purge_all_refs(void)
 	    bucket[i] = mfa->bucket.next;
 
             hash_erase(&mod2mfa_tab, mfa);
-            erts_free(ERTS_ALC_T_HIPE, mfa);
+            erts_free(ERTS_ALC_T_HIPE_LL, mfa);
 	}
     }
     hipe_mfa_info_table.used = 0;
@@ -1717,7 +1714,7 @@ void hipe_purge_refs(struct hipe_ref* first_ref, Eterm caller_module,
         }
 
         ref = ref->next_from_modi;
-        erts_free(ERTS_ALC_T_HIPE, free_ref);
+        erts_free(ERTS_ALC_T_HIPE_LL, free_ref);
     }
 }
 
