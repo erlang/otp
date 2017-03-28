@@ -395,6 +395,9 @@ analyse_call(Call, LookupFun) ->
   Args = hipe_icode:args(Call),
   Fun = hipe_icode:call_fun(Call),
   Type = hipe_icode:call_type(Call),
+  %% This call has side-effects (it might call LookupFun which sends messages to
+  %% hipe_icode_coordinator to update the argument ranges of Fun), and must thus
+  %% not be moved into the case statement.
   DstRanges = analyse_call_or_enter_fun(Fun, Args, Type, LookupFun),
   case hipe_icode:call_dstlist(Call) of
     [] ->
