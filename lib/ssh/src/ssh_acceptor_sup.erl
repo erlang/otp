@@ -87,7 +87,7 @@ child_spec(Address, Port, Profile, Options) ->
     #{id       => id(Address, Port, Profile),
       start    => {ssh_acceptor, start_link, [Port, Address, Options, Timeout]},
       restart  => transient,
-      shutdown => brutal_kill,
+      shutdown => 5500, %brutal_kill,
       type     => worker,
       modules  => [ssh_acceptor]
      }.

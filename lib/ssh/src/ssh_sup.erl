@@ -39,7 +39,7 @@ init(_) ->
     ChildSpecs = [#{id       => Module,
                     start    => {Module, start_link, []},
                     restart  => permanent,
-                    shutdown => brutal_kill,
+                    shutdown => 4000, %brutal_kill,
                     type     => supervisor,
                     modules  => [Module]
                    }
