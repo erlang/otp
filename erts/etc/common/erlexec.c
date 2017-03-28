@@ -1044,7 +1044,7 @@ int main(int argc, char **argv)
 	start_epmd(epmd_prog);
 
 #if (! defined(__WIN32__)) && defined(DEBUG)
-    if (start_detached) {
+    if (start_detached && get_env("ERL_CONSOLE_MODE")) {
 	/* Start the emulator within an xterm.
 	 * Move up all arguments and insert
 	 * "xterm -e " first.
