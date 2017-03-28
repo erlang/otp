@@ -1247,6 +1247,7 @@ static int match_traverse(Process* p, DbTableHash* tb,
     if ((ret_value = analyze_pattern(tb, pattern, extra_match_validator, &mpi))
             != DB_ERROR_NONE)
     {
+        *ret = NIL;
         goto done;
     }
 
@@ -1402,8 +1403,10 @@ static int match_traverse_continue(Process* p, DbTableHash* tb,
     Sint (*next_slot_function)(DbTableHash* tb, Uint ix, erts_smp_rwmtx_t** lck_ptr)
         = (lock_for_write ? next_slot_w : next_slot);
 
-    if (got < 0)
+    if (got < 0) {
+        *ret = NIL;
         return DB_ERROR_BADPARAM;
+    }
 
     if (slot_ix < 0 /* EOT */
        || (chunk_size && got >= chunk_size))
@@ -1416,6 +1419,7 @@ static int match_traverse_continue(Process* p, DbTableHash* tb,
     lck = lock_hash_function(tb, slot_ix);
     if (slot_ix >= NACTIVE(tb)) { /* Is this possible? */
         unlock_hash_function(lck);
+        *ret = NIL;
         ret_value = DB_ERROR_BADPARAM;
         goto done;
     }
@@ -1806,20 +1810,20 @@ static int db_select_continue_hash(Process* p, DbTable* tbl, Eterm continuation,
     tptr = tuple_val(continuation);
 
     if (arityval(*tptr) != 6)
-        return DB_ERROR_BADPARAM;
+        goto badparam;
 
     if (!is_small(tptr[2]) || !is_small(tptr[3]) ||
             !(is_list(tptr[5]) || tptr[5] == NIL) || !is_small(tptr[6]))
-        return DB_ERROR_BADPARAM;
+        goto badparam;
     if ((chunk_size = signed_val(tptr[3])) < 0)
-        return DB_ERROR_BADPARAM;
+        goto badparam;
 
     mp = erts_db_get_match_prog_binary(tptr[4]);
     if (mp == NULL)
-        return DB_ERROR_BADPARAM;
+        goto badparam;
 
     if ((got = signed_val(tptr[6])) < 0)
-        return DB_ERROR_BADPARAM;
+        goto badparam;
 
     tid = tptr[1];
     slot_ix = signed_val(tptr[2]);
@@ -1841,6 +1845,10 @@ static int db_select_continue_hash(Process* p, DbTable* tbl, Eterm continuation,
             mtraversal_select_chunk_continue_on_loop_ended,
             mtraversal_select_chunk_on_trap,      /* Reuse callback */
             &sc_context, ret);
+
+badparam:
+    *ret = NIL;
+    return DB_ERROR_BADPARAM;
 }
 
 #undef MAX_SELECT_CHUNK_ITERATIONS
@@ -1933,6 +1941,7 @@ static int db_select_count_continue_hash(Process* p, DbTable* tbl, Eterm continu
     *ret = NIL;
 
     if (unpack_simple_mtraversal_continuation(continuation, &tptr, &tid, &slot_ix, &mp, &got)) {
+        *ret = NIL;
         return DB_ERROR_BADPARAM;
     }
 
@@ -2074,6 +2083,7 @@ static int db_select_delete_continue_hash(Process* p, DbTable* tbl, Eterm contin
     Sint chunk_size = 0;
 
     if (unpack_simple_mtraversal_continuation(continuation, &tptr, &tid, &slot_ix, &mp, &got)) {
+        *ret = NIL;
         return DB_ERROR_BADPARAM;
     }
 
@@ -2217,6 +2227,7 @@ static int db_select_replace_continue_hash(Process* p, DbTable* tbl, Eterm conti
     *ret = NIL;
 
     if (unpack_simple_mtraversal_continuation(continuation, &tptr, &tid, &slot_ix, &mp, &got)) {
+        *ret = NIL;
         return DB_ERROR_BADPARAM;
     }
 
