@@ -873,6 +873,12 @@ typedef union {
     ErtsORefThing o;
 } ErtsRefThing;
 
+/* for copy sharing */
+#define BOXED_VISITED_MASK	 ((Eterm) 3)
+#define BOXED_VISITED		 ((Eterm) 1)
+#define BOXED_SHARED_UNPROCESSED ((Eterm) 2)
+#define BOXED_SHARED_PROCESSED	 ((Eterm) 3)
+
 #define ERTS_REF_THING_SIZE (sizeof(ErtsORefThing)/sizeof(Uint))
 #define ERTS_MAGIC_REF_THING_SIZE (sizeof(ErtsMRefThing)/sizeof(Uint))
 #define ERTS_MAX_INTERNAL_REF_SIZE (sizeof(ErtsRefThing)/sizeof(Uint))
@@ -888,9 +894,14 @@ typedef union {
 
 #  define is_ref_thing_header(x) ((x) == ERTS_REF_THING_HEADER)
 
-#define is_ordinary_ref_thing(x)					\
-    (ASSERT(is_ref_thing_header(*((Eterm *)(x)))),			\
+#ifdef SHCOPY
+#define is_ordinary_ref_thing(x)                                           \
+    (((ErtsRefThing *) (x))->o.marker == ERTS_ORDINARY_REF_MARKER)
+#else
+#define is_ordinary_ref_thing(x)                                           \
+    (ASSERT(is_ref_thing_header((*((Eterm *)(x))) & ~BOXED_VISITED_MASK)), \
      ((ErtsRefThing *) (x))->o.marker == ERTS_ORDINARY_REF_MARKER)
+#endif
 
 #define is_magic_ref_thing(x)						\
     (!is_ordinary_ref_thing((x)))

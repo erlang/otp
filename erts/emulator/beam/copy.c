@@ -286,11 +286,6 @@ do {                                                                    \
     (dst) = result;                                                     \
 } while(0)
 
-#define BOXED_VISITED_MASK	 ((Eterm) 3)
-#define BOXED_VISITED		 ((Eterm) 1)
-#define BOXED_SHARED_UNPROCESSED ((Eterm) 2)
-#define BOXED_SHARED_PROCESSED	 ((Eterm) 3)
-
 #define COUNT_OFF_HEAP (0)
 
 /*
