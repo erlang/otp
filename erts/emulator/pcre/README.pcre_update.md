@@ -243,7 +243,8 @@ To begin with you will need a default table for Latin-1 characters, so:
 	 ~/tmp/pcre/pcre-8.33> LANG=sv_SE ./dftables -L ../epcre-8.33/pcre_latin_1_table.c
 
 Compare it to the pcre\_latin\_1\_table.c in the old version, they
-should not differ in any significant way.
+should not differ in any significant way. If they do, it might be
+that you do not have the sv_SE locale installed on your machine.
 
 A good starting point is then to try to find all files in the new
 version of the library that have (probably) the same names as the
@@ -685,9 +686,22 @@ generation that you do not get to many of the "Fishy character"
 messages, if they are more than, say 20, you will probably need to
 address the UTF8 issues in the Perl execution. As it is now, we skip
 non latin1 characters in this test. You will need to run iconv on the
-generated module to make it UTF-8 before running tests.
+generated module to make it UTF-8 before running tests. Try to use a
+perl version that is as new as possible.
 
 The exact same procedure goes for the re\_testoutput1\_split\_test.erl. 
+
+Make a note about perl version used in the commit updating the replace
+and split test files.
+
+Note that the perl version you are using may not be completely
+compatible with the PCRE version you are upgrading to. If this is the
+case you might get failures when running the replace and split tests.
+If you get failures, you need to inspect the failures and decide what
+to do. If there are only a small amount of failures you will probably
+end up preferring the behavior of PCRE, and manually changing these
+tests. Do these changes in a separate commit so it is easy to see
+what differed.
 
 Also add copyright headers to the files after converting them to UTF-8.
 
