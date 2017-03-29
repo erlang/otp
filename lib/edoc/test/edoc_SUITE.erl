@@ -23,12 +23,13 @@
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
--export([app/1,appup/1,build_std/1,build_map_module/1,otp_12008/1, build_app/1]).
+-export([app/1,appup/1,build_std/1,build_map_module/1,otp_12008/1,
+         build_app/1, otp_14285/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app,appup,build_std,build_map_module,otp_12008, build_app].
+    [app,appup,build_std,build_map_module,otp_12008, build_app, otp_14285].
 
 groups() -> 
     [].
@@ -113,3 +114,18 @@ build_app(Config) ->
 	true = filelib:is_regular(filename:join(OutDir, "a.html")),
 	true = filelib:is_regular(filename:join(OutDir, "b.html")),
 	ok.
+
+otp_14285(Config) ->
+    DataDir  = ?config(data_dir, Config),
+    PrivDir  = ?config(priv_dir, Config),
+    Un1 = filename:join(DataDir, "un_atom1.erl"),
+    Un2 = filename:join(DataDir, "un_atom2.erl"),
+    %% epp_dodger
+    Opts1 = [{dir, PrivDir}],
+    ok = edoc:files([Un1], Opts1),
+    ok = edoc:files([Un2], Opts1),
+    %% epp
+    Opts2 = [{preprocess, true}, {dir, PrivDir}],
+    ok = edoc:files([Un1], Opts2),
+    ok = edoc:files([Un2], Opts2),
+    ok.

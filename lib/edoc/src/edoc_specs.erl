@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -274,12 +274,19 @@ parms([A | As], [D | Ds]) ->
 
 param(#t_paren{type = Type}, Default) ->
     param(Type, Default);
-param(#t_record{name = #t_atom{val = Name}}, _Default) ->
-    list_to_atom(capitalize(atom_to_list(Name)));
+param(#t_record{name = #t_atom{val = Name}}=T, Default) ->
+    AtomList = atom_to_list(Name),
+    case AtomList =:= lists:flatten(io_lib:write_atom(Name)) of
+        true ->
+            list_to_atom(capitalize(AtomList));
+        false ->
+            arg_name(?t_ann(T), Default)
+    end;
 param(T, Default) ->
     arg_name(?t_ann(T), Default).
 
 capitalize([C | Cs]) when C >= $a, C =< $z -> [C - 32 | Cs];
+capitalize([C | Cs]) when C >= $\340, C =< $\376, C /= $\367 -> [C - 32 | Cs];
 capitalize(Cs) -> Cs.
 
 %% Like edoc_types:arg_name/1
