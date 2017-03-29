@@ -26,6 +26,7 @@
 -include("ssh_connect.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/file.hrl").
+-include_lib("kernel/include/inet.hrl").
 
 -export([start/0, start/1, stop/0,
 	 connect/2, connect/3, connect/4,
@@ -120,7 +121,7 @@ connect(Host, Port, UserOptions) when is_integer(Port),
                                       is_list(UserOptions) ->
     connect(Host, Port, UserOptions, infinity).
 
-connect(Host, Port, UserOptions, Timeout) when is_integer(Port),
+connect(Host0, Port, UserOptions, Timeout) when is_integer(Port),
                                                Port>0,
                                                is_list(UserOptions) ->
     case ssh_options:handle_options(client, UserOptions) of
@@ -130,6 +131,7 @@ connect(Host, Port, UserOptions, Timeout) when is_integer(Port),
 	    {_, Transport, _} = TransportOpts = ?GET_OPT(transport, Options),
 	    ConnectionTimeout = ?GET_OPT(connect_timeout, Options),
             SocketOpts = [{active,false} | ?GET_OPT(socket_options,Options)],
+            Host = mangle_connect_address(Host0, SocketOpts),
 	    try Transport:connect(Host, Port, SocketOpts, ConnectionTimeout) of
 		{ok, Socket} ->
 		    Opts = ?PUT_INTERNAL_OPT([{user_pid,self()}, {host,Host}], Options),
@@ -227,7 +229,7 @@ daemon(Host0, Port0, UserOptions0) when 0 =< Port0, Port0 =< 65535 ->
     try
         {Host1, UserOptions} = handle_daemon_args(Host0, UserOptions0),
         #{} = Options0 = ssh_options:handle_options(server, UserOptions),
-        
+
         {{Host,Port}, ListenSocket} =
             open_listen_socket(Host1, Port0, Options0),
 
@@ -266,26 +268,22 @@ daemon(Host0, Port0, UserOptions0) when 0 =< Port0, Port0 =< 65535 ->
 daemon_info(Pid) ->
     case catch ssh_system_sup:acceptor_supervisor(Pid) of
 	AsupPid when is_pid(AsupPid) ->
-	    [{Name,Port,Profile}] =
-		[{Nam,Prt,Prf} 
+	    [{IP,Port,Profile}] =
+		[{IP,Prt,Prf} 
                  || {{ssh_acceptor_sup,Hst,Prt,Prf},_Pid,worker,[ssh_acceptor]} 
                         <- supervisor:which_children(AsupPid),
-                    Nam <- [case inet:parse_strict_address(Hst) of
-                                {ok,IP} -> IP;
-                                _ when Hst=="any" -> any;
-                                _ when Hst=="loopback" -> loopback;
-                                _ -> Hst
-                            end]
+                    IP <- [case inet:parse_strict_address(Hst) of
+                               {ok,IP} -> IP;
+                               _ -> Hst
+                           end]
                 ],
 	    {ok, [{port,Port},
-                  {name,Name},
+                  {ip,IP},
                   {profile,Profile}
                  ]};
 	_ ->
 	    {error,bad_daemon_ref}
     end.
-
-
 
 %%--------------------------------------------------------------------
 -spec stop_listener(daemon_ref()) -> ok.
@@ -298,8 +296,14 @@ stop_listener(SysSup) ->
     ssh_system_sup:stop_listener(SysSup).
 stop_listener(Address, Port) ->
     stop_listener(Address, Port, ?DEFAULT_PROFILE).
+stop_listener(any, Port, Profile) ->
+    map_ip(fun(IP) ->
+                   ssh_system_sup:stop_listener(IP, Port, Profile) 
+           end, [{0,0,0,0},{0,0,0,0,0,0,0,0}]);
 stop_listener(Address, Port, Profile) ->
-    ssh_system_sup:stop_listener(Address, Port, Profile).
+    map_ip(fun(IP) ->
+                   ssh_system_sup:stop_listener(IP, Port, Profile) 
+           end, {address,Address}).
 
 %%--------------------------------------------------------------------
 -spec stop_daemon(daemon_ref()) -> ok.
@@ -312,9 +316,15 @@ stop_listener(Address, Port, Profile) ->
 stop_daemon(SysSup) ->
     ssh_system_sup:stop_system(SysSup).
 stop_daemon(Address, Port) ->
-    ssh_system_sup:stop_system(Address, Port, ?DEFAULT_PROFILE).
+    stop_daemon(Address, Port, ?DEFAULT_PROFILE).
+stop_daemon(any, Port, Profile) ->
+    map_ip(fun(IP) ->
+                   ssh_system_sup:stop_system(IP, Port, Profile) 
+           end, [{0,0,0,0},{0,0,0,0,0,0,0,0}]);
 stop_daemon(Address, Port, Profile) ->
-    ssh_system_sup:stop_system(Address, Port, Profile).
+    map_ip(fun(IP) ->
+                   ssh_system_sup:stop_system(IP, Port, Profile) 
+           end, {address,Address}).
 
 %%--------------------------------------------------------------------
 -spec shell(inet:socket() | string()) ->  _.
@@ -397,6 +407,9 @@ default_algorithms() ->
 %%     consideration
 %% 
 
+%% The handle_daemon_args/2 function basically only sets the ip-option in Opts
+%% so that it is correctly set when opening the listening socket.
+
 handle_daemon_args(any, Opts) ->
     case proplists:get_value(ip, Opts) of
         undefined -> {any, Opts};
@@ -477,20 +490,17 @@ is_tcp_socket(Socket) ->
     end.
 
 %%%----------------------------------------------------------------
-open_listen_socket(Host0, Port0, Options0) ->
-    case ?GET_SOCKET_OPT(fd, Options0) of
-        undefined ->
-            {ok,LSock} = ssh_acceptor:listen(Port0, Options0),
-            {ok,{_LHost,LPort}} = inet:sockname(LSock),
-            {{_LHost,LPort}, LSock};
-%%            {{Host0,LPort}, LSock};
-        
-        Fd when is_integer(Fd) ->
-            %% Do gen_tcp:listen with the option {fd,Fd}:
-            {ok,LSock} = ssh_acceptor:listen(0, Options0),
-            {ok,{LHost,LPort}} = inet:sockname(LSock),
-            {{LHost,LPort}, LSock}
-    end.
+open_listen_socket(_Host0, Port0, Options0) ->
+    {ok,LSock} =
+        case ?GET_SOCKET_OPT(fd, Options0) of
+            undefined ->
+                ssh_acceptor:listen(Port0, Options0);
+            Fd when is_integer(Fd) ->
+                %% Do gen_tcp:listen with the option {fd,Fd}:
+                ssh_acceptor:listen(0, Options0)
+        end,
+    {ok,{LHost,LPort}} = inet:sockname(LSock),
+    {{LHost,LPort}, LSock}.
 
 %%%----------------------------------------------------------------
 finalize_start(Host, Port, Profile, Options0, F) ->
@@ -509,3 +519,33 @@ finalize_start(Host, Port, Profile, Options0, F) ->
     end.
 
 %%%----------------------------------------------------------------
+map_ip(Fun, {address,IP}) when is_tuple(IP) ->
+    Fun(IP);
+map_ip(Fun, {address,Address}) ->
+    IPs = try {ok,#hostent{h_addr_list=IP0s}} = inet:gethostbyname(Address),
+               IP0s
+          catch
+              _:_ -> []
+          end,
+    map_ip(Fun, IPs);
+map_ip(Fun, IPs) ->
+    lists:map(Fun, IPs).
+
+%%%----------------------------------------------------------------
+mangle_connect_address(A, SockOpts) ->
+    mangle_connect_address1(A, proplists:get_value(inet6,SockOpts,false)).
+
+loopback(true) -> {0,0,0,0,0,0,0,1};
+loopback(false) ->      {127,0,0,1}.
+
+mangle_connect_address1( loopback,     V6flg) -> loopback(V6flg);
+mangle_connect_address1(      any,     V6flg) -> loopback(V6flg);
+mangle_connect_address1({0,0,0,0},         _) -> loopback(false);
+mangle_connect_address1({0,0,0,0,0,0,0,0}, _) -> loopback(true);
+mangle_connect_address1(       IP,     _) when is_tuple(IP) -> IP;
+mangle_connect_address1(A, _) ->
+    case catch inet:parse_address(A) of
+        {ok,         {0,0,0,0}} -> loopback(false);
+        {ok, {0,0,0,0,0,0,0,0}} -> loopback(true);
+        _ -> A
+    end.
