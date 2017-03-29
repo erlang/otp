@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -439,7 +439,7 @@ compile_forms(Forms0, Options) ->
                  (_) -> false
               end,
     Forms = ([F || F <- Forms0, not Exclude(element(1, F))]
-             ++ [{eof,anno0()}]),
+             ++ [{eof,0}]),
     try 
         case compile:noenv_forms(Forms, compile_options(Options)) of
             {ok, _ModName, Ws0} ->

@@ -656,6 +656,10 @@ generate: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 
 $(TTF_DIR)/GENERATED: $(GENERATE)
 	$(gen_verbose)echo $? >$(TTF_DIR)/GENERATED
+
+# Regenerate if Makefile has changed
+$(GENERATE): $(TARGET)/Makefile
+
 endif
 
 $(TARGET)/erlang_dtrace.h: beam/erlang_dtrace.d

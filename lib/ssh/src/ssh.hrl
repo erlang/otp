@@ -33,6 +33,10 @@
 -define(REKEY_DATA_TIMOUT, 60000).
 -define(DEFAULT_PROFILE, default).
 
+-define(DEFAULT_TRANSPORT,  {tcp, gen_tcp, tcp_closed} ).
+
+-define(MAX_RND_PADDING_LEN, 15).
+
 -define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
 -define(SUPPORTED_USER_KEYS, ['ssh-rsa','ssh-dss','ecdsa-sha2-nistp256','ecdsa-sha2-nistp384','ecdsa-sha2-nistp521']).
 
@@ -64,10 +68,49 @@
 -define(string_utf8(X), << ?STRING(unicode:characters_to_binary(X)) >> ).
 -define(binary(X), << ?STRING(X) >>).
 
+%% Cipher details
 -define(SSH_CIPHER_NONE, 0).
 -define(SSH_CIPHER_3DES, 3).
 -define(SSH_CIPHER_AUTHFILE, ?SSH_CIPHER_3DES).
 
+%% Option access macros
+-define(do_get_opt(C,K,O),   ssh_options:get_value(C,K,O,  ?MODULE,?LINE)).
+-define(do_get_opt(C,K,O,D), ssh_options:get_value(C,K,O,D,?MODULE,?LINE)).
+
+-define(GET_OPT(Key,Opts),              ?do_get_opt(user_options,    Key,Opts    ) ).
+-define(GET_INTERNAL_OPT(Key,Opts),     ?do_get_opt(internal_options,Key,Opts    ) ).
+-define(GET_INTERNAL_OPT(Key,Opts,Def), ?do_get_opt(internal_options,Key,Opts,Def) ).
+-define(GET_SOCKET_OPT(Key,Opts),       ?do_get_opt(socket_options,  Key,Opts    ) ).
+-define(GET_SOCKET_OPT(Key,Opts,Def),   ?do_get_opt(socket_options,  Key,Opts,Def) ).
+
+-define(do_put_opt(C,KV,O),  ssh_options:put_value(C,KV,O, ?MODULE,?LINE)).
+
+-define(PUT_OPT(KeyVal,Opts),           ?do_put_opt(user_options,    KeyVal,Opts) ).
+-define(PUT_INTERNAL_OPT(KeyVal,Opts),  ?do_put_opt(internal_options,KeyVal,Opts) ).
+-define(PUT_SOCKET_OPT(KeyVal,Opts),    ?do_put_opt(socket_options,  KeyVal,Opts) ).
+
+%% Types
+-type role()                :: client | server .
+-type ok_error(SuccessType) :: {ok, SuccessType} | {error, any()} .
+-type daemon_ref()          :: pid() .
+
+-type subsystem_spec()      :: {subsystem_name(), {channel_callback(), channel_init_args()}} .
+-type subsystem_name()      :: string() .
+-type channel_callback()    :: atom() .
+-type channel_init_args()   :: list() .
+
+-type algs_list()           :: list( alg_entry() ).
+-type alg_entry()           :: {kex, simple_algs()} 
+                             | {public_key, simple_algs()}
+                             | {cipher, double_algs()}
+                             | {mac, double_algs()}
+                             | {compression, double_algs()} .
+-type simple_algs()         :: list( atom() ) .
+-type double_algs()         :: list( {client2serverlist,simple_algs()} | {server2client,simple_algs()} )
+                             | simple_algs() .
+
+
+%% Records
 -record(ssh,
 	{
 	  role,         %% client | server
@@ -127,7 +170,7 @@
 	  recv_sequence = 0,
 	  keyex_key,
 	  keyex_info,
-	  random_length_padding = 15, % From RFC 4253 section 6.
+	  random_length_padding = ?MAX_RND_PADDING_LEN, % From RFC 4253 section 6.
 	  
 	  %% User auth
 	  user,

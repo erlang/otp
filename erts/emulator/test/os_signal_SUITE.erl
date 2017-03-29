@@ -323,7 +323,10 @@ kill(Signal, Pid) ->
 
 load_nif(Config) ->
     Path = proplists:get_value(data_dir, Config),
-    ok = erlang:load_nif(filename:join(Path,"os_signal_nif"), 0).
+    case erlang:load_nif(filename:join(Path,"os_signal_nif"), 0) of
+        ok -> ok;
+        {error,{reload,_}} -> ok
+    end.
 
 run(Program0, Args) -> run(".", Program0, Args).
 run(Cwd, Program0, Args) when is_list(Cwd) ->

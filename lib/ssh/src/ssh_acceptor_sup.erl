@@ -44,14 +44,13 @@
 start_link(Servers) ->
     supervisor:start_link(?MODULE, [Servers]).
 
-start_child(AccSup, ServerOpts) ->
-    Spec = child_spec(ServerOpts),    
+start_child(AccSup, Options) ->
+    Spec = child_spec(Options),
     case supervisor:start_child(AccSup, Spec) of
 	{error, already_present} ->
-	    Address = proplists:get_value(address, ServerOpts),
-	    Port = proplists:get_value(port, ServerOpts),
-	    Profile = proplists:get_value(profile,  
-					  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+	    Address = ?GET_INTERNAL_OPT(address, Options),
+	    Port = ?GET_INTERNAL_OPT(port, Options),
+	    Profile = ?GET_OPT(profile, Options),  
 	    stop_child(AccSup, Address, Port, Profile),
 	    supervisor:start_child(AccSup, Spec);
 	Reply ->
@@ -70,24 +69,23 @@ stop_child(AccSup, Address, Port, Profile) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init([ServerOpts]) ->
+init([Options]) ->
     RestartStrategy = one_for_one,
     MaxR = 10,
     MaxT = 3600,
-    Children = [child_spec(ServerOpts)],
+    Children = [child_spec(Options)],
     {ok, {{RestartStrategy, MaxR, MaxT}, Children}}.
 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-child_spec(ServerOpts) ->
-    Address = proplists:get_value(address, ServerOpts),
-    Port = proplists:get_value(port, ServerOpts),
-    Timeout = proplists:get_value(timeout, ServerOpts, ?DEFAULT_TIMEOUT),
-    Profile = proplists:get_value(profile,  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+child_spec(Options) ->
+    Address = ?GET_INTERNAL_OPT(address, Options),
+    Port = ?GET_INTERNAL_OPT(port, Options),
+    Timeout = ?GET_INTERNAL_OPT(timeout, Options, ?DEFAULT_TIMEOUT),
+    Profile = ?GET_OPT(profile, Options),
     Name = id(Address, Port, Profile),
-    SocketOpts = proplists:get_value(socket_opts, ServerOpts),
-    StartFunc = {ssh_acceptor, start_link, [Port, Address, SocketOpts, ServerOpts, Timeout]},
+    StartFunc = {ssh_acceptor, start_link, [Port, Address, Options, Timeout]},
     Restart = transient, 
     Shutdown = brutal_kill,
     Modules = [ssh_acceptor],

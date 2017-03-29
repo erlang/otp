@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@
 -export([appcall/4]).
 
 -import(lists, [reverse/1,flatten/1,sublist/3,sort/1,keysort/2,
-		concat/1,max/1,min/1,foreach/2,foldl/3,flatmap/2]).
+		max/1,min/1,foreach/2,foldl/3,flatmap/2]).
 -import(io, [format/1, format/2]).
 
 %%-----------------------------------------------------------------------
@@ -83,9 +83,11 @@ c(Module) -> c(Module, []).
 
 -spec c(Module, Options) -> {'ok', ModuleName} | 'error' when
       Module :: file:name(),
-      Options :: [compile:option()],
+      Options :: [compile:option()] | compile:option(),
       ModuleName :: module().
 
+c(Module, SingleOption) when not is_list(SingleOption) ->
+    c(Module, [SingleOption]);
 c(Module, Opts) when is_atom(Module) ->
     %% either a module name or a source file name (possibly without
     %% suffix); if such a source file exists, it is used to compile from
@@ -398,7 +400,7 @@ split_def([], Res) -> {d, list_to_atom(reverse(Res))}.
 make_term(Str) ->
     case erl_scan:string(Str) of
 	{ok, Tokens, _} ->
-	    case erl_parse:parse_term(Tokens ++ [{dot, 1}]) of
+	    case erl_parse:parse_term(Tokens ++ [{dot, erl_anno:new(1)}]) of
 		{ok, Term} -> Term;
 		{error, {_,_,Reason}} ->
 		    io:format("~ts: ~ts~n", [Reason, Str]),

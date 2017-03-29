@@ -1496,7 +1496,7 @@ parse_ContentsConstraint([{'ENCODED',_},{'BY',_}|Rest]) ->
 parse_ContentsConstraint(Tokens) ->
     parse_error(Tokens).
 
-% X.683 Parameterization of ASN.1 specifications
+%% X.683 Parameterization of ASN.1 specifications
 
 parse_Governor(Tokens) ->
     Flist = [fun parse_Type/1,

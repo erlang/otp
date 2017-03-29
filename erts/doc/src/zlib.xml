@@ -315,6 +315,15 @@ list_to_binary([B1,B2])</pre>
               <c><anno>WindowBits</anno></c> value suppresses the zlib header
               (and checksum) from the stream. Notice that the zlib source
               mentions this only as a undocumented feature.</p>
+	      <warning>
+		<p>Due to a known bug in the underlying zlib library, <c>WindowBits</c> values 8 and -8
+		do not work as expected. In zlib versions before 1.2.9 values
+		8 and -8 are automatically changed to 9 and -9. <em>From zlib version 1.2.9
+		value -8 is rejected</em> causing <c>zlib:deflateInit/6</c> to fail
+		(8 is still changed to 9). It also seem possible that future versions
+		of zlib may fix this bug and start accepting 8 and -8 as is.</p>
+		<p>Conclusion: Avoid values 8 and -8 unless you know your zlib version supports them.</p>
+	      </warning>
           </item>
           <tag><c><anno>MemLevel</anno></c></tag>
           <item>

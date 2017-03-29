@@ -1,7 +1,7 @@
 %%-*-erlang-*-
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,7 +72,12 @@ parse(Xml, State) ->
 	{ok, Rest, State2} ->
 	    State3 =  event_callback(endDocument, State2),
 	    ets:delete(RefTable),
-	    {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
+            case check_if_rest_ok(State3#xmerl_sax_parser_state.input_type, Rest) of
+                true ->
+                    {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
+                false ->
+                    format_error(fatal_error, State3, "Input found after legal document")
+            end;
 	{fatal_error, {State2, Reason}} ->
 	    State3 =  event_callback(endDocument, State2),
 	    ets:delete(RefTable),
@@ -81,10 +86,14 @@ parse(Xml, State) ->
 	    State3 =  event_callback(endDocument, State2),
 	    ets:delete(RefTable),
 	    format_error(Tag, State3, Reason);
+	{endDocument, Rest, State2} ->
+	    State3 =  event_callback(endDocument, State2),
+	    ets:delete(RefTable),
+	    {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
 	Other ->
 	    _State2 = event_callback(endDocument, State1),
 	    ets:delete(RefTable),
-	    throw(Other)
+	    {fatal_error, Other}
     end.
 
 %%----------------------------------------------------------------------
@@ -111,7 +120,7 @@ parse_dtd(Xml, State) ->
 	{Rest, State2} when is_record(State2, xmerl_sax_parser_state) ->
 	    State3 =  event_callback(endDocument, State2),
 	    ets:delete(RefTable),
-	    {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
+            {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
 	{endDocument, Rest, State2} when is_record(State2, xmerl_sax_parser_state) ->
 	    State3 =  event_callback(endDocument, State2),
 	    ets:delete(RefTable),
@@ -119,7 +128,7 @@ parse_dtd(Xml, State) ->
 	Other ->
 	    _State2 = event_callback(endDocument, State1),
 	    ets:delete(RefTable),
-	    throw(Other)
+	    {fatal_error, Other}
     end.
 
 
@@ -136,10 +145,11 @@ parse_dtd(Xml, State) ->
 %%              [1] document ::= prolog element Misc*
 %%----------------------------------------------------------------------
 parse_document(Rest, State) when is_record(State, xmerl_sax_parser_state) ->
-    {Rest1, State1} = parse_xml_decl(Rest, State),
+    {Rest1, State1} = parse_byte_order_mark(Rest, State),
     {Rest2, State2} = parse_misc(Rest1, State1, true),
     {ok, Rest2, State2}.
 
+?PARSE_BYTE_ORDER_MARK(Bytes, State).
 
 %%----------------------------------------------------------------------
 %% Function: parse_xml_decl(Rest, State) -> Result
@@ -150,15 +160,8 @@ parse_document(Rest, State) when is_record(State, xmerl_sax_parser_state) ->
 %%             [22] prolog ::= XMLDecl? Misc* (doctypedecl Misc*)?
 %%             [23] XMLDecl ::= '<?xml' VersionInfo EncodingDecl? SDDecl? S? '?>'
 %%----------------------------------------------------------------------
--dialyzer({[no_fail_call, no_match], parse_xml_decl/2}).
 parse_xml_decl(?STRING_EMPTY, State) ->
     cf(?STRING_EMPTY, State, fun parse_xml_decl/2);
-parse_xml_decl(?BYTE_ORDER_MARK_1, State) ->
-    cf(?BYTE_ORDER_MARK_1, State, fun parse_xml_decl/2);
-parse_xml_decl(?BYTE_ORDER_MARK_2, State) ->
-    cf(?BYTE_ORDER_MARK_2, State, fun parse_xml_decl/2);
-parse_xml_decl(?BYTE_ORDER_MARK_REST(Rest), State) ->
-    cf(Rest, State, fun parse_xml_decl/2);
 parse_xml_decl(?STRING("<") = Bytes, State) ->
     cf(Bytes, State, fun parse_xml_decl/2);
 parse_xml_decl(?STRING("<?") = Bytes, State) ->
@@ -170,31 +173,19 @@ parse_xml_decl(?STRING("<?xm") = Bytes, State) ->
 parse_xml_decl(?STRING("<?xml") = Bytes, State) ->
     cf(Bytes, State, fun parse_xml_decl/2);
 parse_xml_decl(?STRING_REST("<?xml", Rest1), State) ->
-    parse_xml_decl_1(Rest1, State);
-parse_xml_decl(Bytes, #xmerl_sax_parser_state{encoding=Enc} = State) when is_binary(Bytes) ->
-    case unicode:characters_to_list(Bytes, Enc) of 
-	{incomplete, _, _} ->
-	    cf(Bytes, State, fun parse_xml_decl/2);
-	{error, _Encoded, _Rest} ->
-	    ?fatal_error(State,  lists:flatten(io_lib:format("Bad character, not in ~p\n", [Enc])));
-	_ ->
-	    parse_prolog(Bytes, State)
-    end;
-parse_xml_decl(Bytes, State) ->
-    parse_prolog(Bytes, State).
-    
+    parse_xml_decl_rest(Rest1, State);
+?PARSE_XML_DECL(Bytes, State).
 
-parse_xml_decl_1(?STRING_UNBOUND_REST(C, Rest) = Bytes, State) ->
+parse_xml_decl_rest(?STRING_UNBOUND_REST(C, Rest) = Bytes, State) ->
     if
 	?is_whitespace(C) ->
 	    {_XmlAttributes, Rest1, State1} = parse_version_info(Rest, State, []),
-	    %State2 =  event_callback({processingInstruction, "xml", XmlAttributes}, State1),% The XML decl. should not be reported as a PI
 	    parse_prolog(Rest1, State1);
 	true ->
 	     parse_prolog(?STRING_REST("<?xml", Bytes), State)
     end;	
-parse_xml_decl_1(Bytes, State) ->
-    unicode_incomplete_check([Bytes, State, fun parse_xml_decl_1/2], undefined).
+parse_xml_decl_rest(Bytes, State) ->
+    unicode_incomplete_check([Bytes, State, fun parse_xml_decl_rest/2], undefined).
 
 
 
@@ -216,8 +207,6 @@ parse_prolog(?STRING_REST("<?", Rest), State) ->
 	    parse_prolog(Rest1, State1);
 	{endDocument, Rest1, State1} ->
 	    parse_prolog(Rest1, State1)  
-	    % IValue = ?TO_INPUT_FORMAT("<?"),
-	    % {?APPEND_STRING(IValue, Rest1), State1}
     end;
 parse_prolog(?STRING_REST("<!", Rest), State) ->
     parse_prolog_1(Rest, State);
@@ -229,7 +218,6 @@ parse_prolog(?STRING_UNBOUND_REST(C, _) = Rest, State) when ?is_whitespace(C) ->
 parse_prolog(Bytes, State) ->
     unicode_incomplete_check([Bytes, State, fun parse_prolog/2], 
 			     "expecting < or whitespace").
-
 
 parse_prolog_1(?STRING_EMPTY, State) ->
     cf(?STRING_EMPTY, State, fun parse_prolog_1/2);
@@ -440,6 +428,15 @@ parse_pi(Bytes, State) ->
 check_if_new_doc_allowed(stream, []) ->
     true;
 check_if_new_doc_allowed(_, _) ->
+    false.
+
+check_if_rest_ok(file, []) ->
+    true;
+check_if_rest_ok(file, <<>>) ->
+    true;
+check_if_rest_ok(stream, _) ->
+    true;
+check_if_rest_ok(_, _) ->
     false.
 
 %%----------------------------------------------------------------------
@@ -1024,16 +1021,21 @@ parse_etag(Bytes, State) ->
     unicode_incomplete_check([Bytes, State, fun parse_etag/2], 
 			     undefined).
 
-
 parse_etag_1(?STRING_REST(">", Rest), 
 	     #xmerl_sax_parser_state{end_tags=[{_ETag, Uri, LocalName, QName, OldNsList, NewNsList}
-					|RestOfETags]} = State, _Tag) ->
+					|RestOfETags],
+                                    input_type=InputType} = State, _Tag) ->
     State1 =  event_callback({endElement, Uri, LocalName, QName}, State),
     State2 =  send_end_prefix_mapping_event(NewNsList, State1),
-    parse_content(Rest, 
-		  State2#xmerl_sax_parser_state{end_tags=RestOfETags,
-					 ns = OldNsList},
-		  [], true);
+    case check_if_new_doc_allowed(InputType, RestOfETags) of
+        true ->
+            throw({endDocument, Rest, State2#xmerl_sax_parser_state{ns = OldNsList}});
+        false ->
+            parse_content(Rest, 
+                          State2#xmerl_sax_parser_state{end_tags=RestOfETags,
+                                                        ns = OldNsList},
+                          [], true)
+    end;
 parse_etag_1(?STRING_UNBOUND_REST(_C, _), State, Tag) ->
     {P,TN} = Tag,
     ?fatal_error(State, "Bad EndTag: " ++ P ++ ":" ++ TN);
@@ -1051,21 +1053,26 @@ parse_etag_1(Bytes, State, Tag) ->
 %% Description: Parsing the content part of tags
 %%              [43] content ::= (element | CharData | Reference | CDSect | PI | Comment)*
 %%----------------------------------------------------------------------
-
 parse_content(?STRING_EMPTY, State, Acc, IgnorableWS) ->
-    case catch cf(?STRING_EMPTY, State, Acc, IgnorableWS, fun parse_content/4) of
-	{Rest, State1} when is_record(State1, xmerl_sax_parser_state) ->
-	    {Rest, State1};
-	{fatal_error, {State1, Msg}} ->
-	    case check_if_document_complete(State1, Msg) of
-		true ->
-		    State2 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State1),
-		    {?STRING_EMPTY, State2};
-		false ->
-		    ?fatal_error(State1, Msg)
-	    end;
-	Other ->
-	    throw(Other)
+    case check_if_document_complete(State, "No more bytes") of
+	true ->
+	    State1 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State),
+	    {?STRING_EMPTY, State1};
+	false ->
+	    case catch cf(?STRING_EMPTY, State, Acc, IgnorableWS, fun parse_content/4) of
+		{Rest, State1} when is_record(State1, xmerl_sax_parser_state) ->
+		    {Rest, State1};
+		{fatal_error, {State1, Msg}} ->
+		    case check_if_document_complete(State1, Msg) of
+			true ->
+			    State2 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State1),
+			    {?STRING_EMPTY, State2};
+			false ->
+			    ?fatal_error(State1, Msg)
+		    end;
+		Other ->
+		    throw(Other)
+	    end
     end;
 parse_content(?STRING("\r") = Bytes, State, Acc, IgnorableWS) ->
     cf(Bytes, State, Acc, IgnorableWS, fun parse_content/4);
@@ -1094,7 +1101,7 @@ parse_content(?STRING_REST("<?", Rest), State, Acc, IgnorableWS) ->
 parse_content(?STRING_REST("<!", Rest1) = Rest, #xmerl_sax_parser_state{end_tags = ET} = State, Acc, IgnorableWS) ->
     case ET of 
 	[] ->
-	    {Rest, State}; %%LATH : Skicka ignorable WS ???
+	    {Rest, State}; %% Skicka ignorable WS ???
 	_ ->
 	    State1 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State),
 	    parse_cdata(Rest1, State1)
@@ -1102,7 +1109,7 @@ parse_content(?STRING_REST("<!", Rest1) = Rest, #xmerl_sax_parser_state{end_tags
 parse_content(?STRING_REST("<", Rest1) = Rest, #xmerl_sax_parser_state{end_tags = ET} = State, Acc, IgnorableWS) ->
     case ET of 
 	[] ->
-	    {Rest, State}; %%LATH :  Skicka ignorable WS ???
+	    {Rest, State}; %% Skicka ignorable WS ???
 	_ ->
 	    State1 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State),
 	    parse_stag(Rest1, State1)
@@ -1204,7 +1211,6 @@ send_character_event(_, true, String, State) ->
 %% Description: Parse whitespaces.
 %%              [3] S ::= (#x20 | #x9 | #xD | #xA)+
 %%----------------------------------------------------------------------
--dialyzer({no_fail_call, whitespace/3}).
 whitespace(?STRING_EMPTY, State, Acc) ->  
     case cf(?STRING_EMPTY, State, Acc, fun whitespace/3) of
 	{?STRING_EMPTY, State} ->
@@ -1230,16 +1236,7 @@ whitespace(?STRING_REST("\r", Rest), State, Acc) ->
     whitespace(Rest, State#xmerl_sax_parser_state{line_no=N+1}, [?lf |Acc]);
 whitespace(?STRING_UNBOUND_REST(C, Rest), State, Acc) when ?is_whitespace(C) -> 
     whitespace(Rest, State, [C|Acc]);
-whitespace(?STRING_UNBOUND_REST(_C, _) = Bytes, State, Acc) -> 
-    {lists:reverse(Acc), Bytes, State};
-whitespace(Bytes, #xmerl_sax_parser_state{encoding=Enc} = State, Acc) when is_binary(Bytes) -> 
-    case unicode:characters_to_list(Bytes, Enc) of 
-	{incomplete, _, _} ->
-	    cf(Bytes, State, Acc, fun whitespace/3);
-	{error, _Encoded, _Rest} ->
-	    ?fatal_error(State, lists:flatten(io_lib:format("Bad character, not in ~p\n", [Enc])))
-    end.
-
+?WHITESPACE(Bytes, State, Acc).
 
 %%----------------------------------------------------------------------
 %% Function: parse_reference(Rest, State, HaveToExist) -> Result
@@ -1362,7 +1359,6 @@ parse_pe_reference_1(Bytes, State, Name) ->
 			     "missing ; after reference " ++ Name).
 
 
-
 %%----------------------------------------------------------------------
 %% Function: insert_reference(Reference, State) -> Result
 %% Parameters: Reference = string()
@@ -1377,7 +1373,6 @@ insert_reference({Name, Type, Value}, Table) ->
 	    ets:insert(Table, {Name, Type, Value})
     end.
 	    
-
 
 %%----------------------------------------------------------------------
 %% Function: look_up_reference(Reference, State) -> Result
@@ -1693,7 +1688,7 @@ handle_external_entity({http, Url}, State) ->
 		       ++ file:format_error(Reason));
 	    {ok, FD} ->
 		{?STRING_EMPTY, EntityState} = 
-		    parse_external_entity_1(<<>>, 
+		    parse_external_entity_byte_order_mark(<<>>, 
 					    State#xmerl_sax_parser_state{continuation_state=FD,
 									 current_location=filename:dirname(Url),
 									 entity=filename:basename(Url),
@@ -1709,6 +1704,8 @@ handle_external_entity({http, Url}, State) ->
 handle_external_entity({Tag, _Url}, State) ->
     ?fatal_error(State, "Unsupported URI type: " ++ atom_to_list(Tag)).
 
+?PARSE_EXTERNAL_ENTITY_BYTE_ORDER_MARK(Bytes, State).
+
 %%----------------------------------------------------------------------
 %% Function  : parse_external_entity_1(Rest, State) -> Result
 %% Parameters: Rest = string() | binary()
@@ -1716,7 +1713,6 @@ handle_external_entity({Tag, _Url}, State) ->
 %% Result    : {Rest, State}
 %% Description: Parse the external entity.
 %%----------------------------------------------------------------------
--dialyzer({[no_fail_call, no_match], parse_external_entity_1/2}).
 parse_external_entity_1(?STRING_EMPTY, #xmerl_sax_parser_state{file_type=Type} = State) ->
     case catch cf(?STRING_EMPTY, State, fun parse_external_entity_1/2) of
 	{Rest, State1} when is_record(State1, xmerl_sax_parser_state) ->
@@ -1726,12 +1722,6 @@ parse_external_entity_1(?STRING_EMPTY, #xmerl_sax_parser_state{file_type=Type} =
 	Other ->
 	    throw(Other)
     end;	
-parse_external_entity_1(?BYTE_ORDER_MARK_1, State) ->
-    cf(?BYTE_ORDER_MARK_1, State, fun parse_external_entity_1/2);
-parse_external_entity_1(?BYTE_ORDER_MARK_2, State) ->
-    cf(?BYTE_ORDER_MARK_2, State, fun parse_external_entity_1/2);
-parse_external_entity_1(?BYTE_ORDER_MARK_REST(Rest), State) ->
-    parse_external_entity_1(Rest, State);
 parse_external_entity_1(?STRING("<") = Bytes, State) ->
     cf(Bytes, State, fun parse_external_entity_1/2);
 parse_external_entity_1(?STRING("<?") = Bytes, State) ->
@@ -3290,7 +3280,7 @@ cf(Rest, #xmerl_sax_parser_state{continuation_fun = CFun, continuation_state = C
 	catch
 	    throw:ErrorTerm ->
 		?fatal_error(State, ErrorTerm);
-	      exit:Reason ->
+            exit:Reason ->
 		?fatal_error(State, {'EXIT', Reason})
 	end,
     case Result of

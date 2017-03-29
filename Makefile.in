@@ -125,7 +125,7 @@ BINDIR      = $(DESTDIR)$(EXTRA_PREFIX)$(bindir)
 #
 # Erlang base public files
 #
-ERL_BASE_PUB_FILES=erl erlc epmd run_erl to_erl dialyzer typer escript ct_run
+ERL_BASE_PUB_FILES=erl erlc epmd run_erl to_erl dialyzer escript ct_run
 
 # ERLANG_INST_LIBDIR is the top directory where the Erlang installation
 # will be located when running.
@@ -438,7 +438,7 @@ BOOT_BINDIR=$(BOOTSTRAP_ROOT)/bootstrap/erts/bin
 BEAM_EVM=$(ERL_TOP)/bin/$(TARGET)/beam_evm
 BOOTSTRAP_COMPILER  =  $(BOOTSTRAP_TOP)/primary_compiler
 
-.PHONY: emulator libs kernel stdlib compiler hipe typer syntax_tools preloaded
+.PHONY: emulator libs kernel stdlib compiler hipe syntax_tools preloaded
 
 emulator:
 	$(make_verbose)cd erts && ERL_TOP=$(ERL_TOP) $(MAKE) NO_START_SCRIPTS=true $(TYPE) FLAVOR=$(FLAVOR)
@@ -473,11 +473,6 @@ hipe:
 	$(make_verbose)cd lib/hipe && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true
-
-typer:
-	$(make_verbose)cd lib/typer && \
-	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-	    $(MAKE) opt BUILD_ALL=true
 
 syntax_tools:
 	$(make_verbose)cd lib/syntax_tools && \

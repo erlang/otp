@@ -22,8 +22,7 @@
 
 -include("asn1_records.hrl").
 
--export([demit/1,
-	 emit/1,
+-export([emit/1,
 	 open_output_file/1,close_output_file/0,
 	 get_inner/1,type/1,def_to_tag/1,prim_bif/1,
 	 list2name/1,
@@ -191,13 +190,9 @@ pgen_partial_decode(_, _, _) ->
     ok.
 
 pgen_partial_inc_dec(Rtmod,Erules,Module) ->
-%    io:format("Start partial incomplete decode gen?~n"),
     case asn1ct:get_gen_state_field(inc_type_pattern) of
 	undefined ->
-%	    io:format("Partial incomplete decode gen not started: ~w~n",[asn1ct:get_gen_state_field(active)]),
 	    ok;
-%	[] ->
-%	    ok;
 	ConfList -> 
 	    PatternLists=lists:map(fun({_,P}) -> P end,ConfList),
 	    pgen_partial_inc_dec1(Rtmod,Erules,Module,PatternLists),
@@ -215,11 +210,9 @@ pgen_partial_inc_dec1(Rtmod,Erules,Module,[P|Ps]) ->
     asn1ct:update_gen_state(prefix,"dec-inc-"),
     case asn1ct:maybe_saved_sindex(TopTypeName,P) of
 	I when is_integer(I),I > 0 ->
-%	    io:format("Index:~p~n",[I]),
 	    asn1ct:set_current_sindex(I);
 	_I ->
 	    asn1ct:set_current_sindex(0),
-%	    io:format("Index=~p~n",[_I]),
 	    ok
     end,
     Rtmod:gen_decode(Erules,TypeDef),
@@ -250,8 +243,8 @@ gen_partial_inc_dec_refed_funcs(Rtmod, #gen{erule=ber}=Gen) ->
 
 pgen_partial_dec(_Rtmod,Erules,_Module) ->
     Type_pattern = asn1ct:get_gen_state_field(type_pattern),
-%    io:format("Type_pattern: ~w~n",[Type_pattern]),
-    %% Get the typedef of the top type and follow into the choosen components until the last type/component.
+    %% Get the typedef of the top type and follow into the choosen
+    %% components until the last type/component.
     pgen_partial_types(Erules,Type_pattern),
     ok.
 
@@ -266,7 +259,6 @@ pgen_partial_types(#gen{options=Options}=Gen, TypePattern)  ->
 
 
 pgen_partial_types1(Erules,[{FuncName,[TopType|RestTypes]}|Rest]) ->
-%    emit([FuncName,"(Bytes) ->",nl]),
     CurrMod = get(currmod),
     TypeDef = asn1_db:dbget(CurrMod,TopType),
     traverse_type_structure(Erules,TypeDef,RestTypes,FuncName,
@@ -291,8 +283,9 @@ traverse_type_structure(Erules,Type,[],FuncName,TopTypeName) ->
 	end,
     Ctmod:gen_decode_selected(Erules,TypeDef,FuncName); % what if Type is #type{}
 traverse_type_structure(Erules,#type{def=Def},[[N]],FuncName,TopTypeName) 
-  when is_integer(N) -> % this case a decode of one of the elements in
-                     % the SEQUENCE OF is required.
+  when is_integer(N) ->
+    %% In this case a decode of one of the elements in the SEQUENCE OF is
+    %% required.
     InnerType = asn1ct_gen:get_inner(Def),
     case InnerType of
 	'SEQUENCE OF' ->
@@ -368,8 +361,9 @@ traverse_type_structure(Erules,#typedef{typespec=Def},[T|Ts],FuncName,
 	    TypeDef = asn1_db:dbget(M,TName),
 	    traverse_type_structure(Erules,TypeDef,[T|Ts],FuncName,
 				    [TypeDef#typedef.name]);
-	_ -> %this may be a referenced type that shall be traversed or
-             %the selected type
+	_ ->
+            %% This may be a referenced type that shall be traversed
+            %% or the selected type
 	    traverse_type_structure(Erules,Def,Ts,FuncName,[T|TopTypeName])
     end.
 	    
@@ -384,9 +378,7 @@ get_component(Name,{C1,C2}) when is_list(C1),is_list(C2) ->
 get_component(Name,[C=#'ComponentType'{name=Name}|_Cs]) ->
     C;
 get_component(Name,[_C|Cs]) ->
-    get_component(Name,Cs);
-get_component(Name,_) ->
-    throw({error,{asn1,{internal_error,Name}}}).
+    get_component(Name,Cs).
 
 %% generate code for all inner types that are called from the top type
 %% of the partial incomplete decode and are defined within the top
@@ -451,7 +443,6 @@ pgen_partial_incomplete_decode1(#gen{erule=ber}) ->
 	    lists:foreach(fun emit_partial_incomplete_decode/1,Data)
     end,
     GeneratedFs= asn1ct:get_gen_state_field(gen_refed_funcs),
-%    io:format("GeneratedFs :~n~p~n",[GeneratedFs]),
     gen_part_decode_funcs(GeneratedFs,0);
 pgen_partial_incomplete_decode1(#gen{}) -> ok.
 
@@ -604,9 +595,7 @@ gen_encode_constructed(Erules,Typename,InnerType,D) when is_record(D,type) ->
 	    Rtmod:gen_encode_sof(Erules,Typename,InnerType,D),
 	    {_,Type} = D#type.def,
 	    NameSuffix = asn1ct_gen:constructed_suffix(InnerType,Type#type.def),
-	    gen_types(Erules, [NameSuffix|Typename], Type, gen_encode);
-	_ ->
-	    exit({nyi,InnerType})
+	    gen_types(Erules, [NameSuffix|Typename], Type, gen_encode)
     end;
 gen_encode_constructed(Erules,Typename,InnerType,D) 
   when is_record(D,typedef) ->
@@ -802,11 +791,12 @@ result_line_1(Items) ->
 try_catch() ->
     ["  catch",nl,
      "    Class:Exception when Class =:= error; Class =:= exit ->",nl,
+     "      Stk = erlang:get_stacktrace(),",nl,
      "      case Exception of",nl,
-     "        {error,Reason}=Error ->",nl,
-     "          Error;",nl,
+     "        {error,{asn1,Reason}} ->",nl,
+     "          {error,{asn1,{Reason,Stk}}};",nl,
      "        Reason ->",nl,
-     "         {error,{asn1,Reason}}",nl,
+     "         {error,{asn1,{Reason,Stk}}}",nl,
      "      end",nl,
      "end."].
 
@@ -878,7 +868,6 @@ gen_partial_inc_dispatcher(#gen{erule=ber}) ->
 	{_,undefined} ->
 	    ok;
 	{Data1,Data2} ->
-%	    io:format("partial_incomplete_decode: ~p~ninc_type_pattern: ~p~n",[Data,Data2]),
 	    gen_partial_inc_dispatcher(Data1, Data2, "")
     end;
 gen_partial_inc_dispatcher(#gen{}) ->
@@ -953,71 +942,39 @@ hrl_protector(OutFile) ->
      end || C <- P].
 
 
-%% EMIT functions ************************
-%% ***************************************
-
-						% debug generation
-demit(Term) ->
-    case get(asndebug) of
-	true -> emit(Term);
-	_ ->true
-    end.
-
-						% always generation
 emit(Term) ->
     ok = file:write(get(gen_file_out), do_emit(Term)).
 
-do_emit({external,_M,T}) ->
-    do_emit(T);
-
 do_emit({prev,Variable}) when is_atom(Variable) ->
     do_emit({var,asn1ct_name:prev(Variable)});
-
 do_emit({next,Variable}) when is_atom(Variable) ->
     do_emit({var,asn1ct_name:next(Variable)});
-
 do_emit({curr,Variable}) when is_atom(Variable) ->
     do_emit({var,asn1ct_name:curr(Variable)});
-    
 do_emit({var,Variable}) when is_atom(Variable) ->
     [Head|V] = atom_to_list(Variable),
     [Head-32|V];
-
-do_emit({var,Variable}) ->
-    [Head|V] = Variable,
-    [Head-32|V];
-
 do_emit({asis,What}) ->
     io_lib:format("~w", [What]);
-
 do_emit({call,M,F,A}) ->
     MFA = {M,F,length(A)},
     asn1ct_func:need(MFA),
     [atom_to_list(F),"(",call_args(A, "")|")"];
-
 do_emit(nl) ->
     "\n";
-
 do_emit(com) ->
     ",";
-
-do_emit(tab) ->
-    "     ";
-
+do_emit([C|_]=Str) when is_integer(C) ->
+    Str;
+do_emit([_|_]=L) ->
+    [do_emit(E) || E <- L];
+do_emit([]) ->
+    [];
 do_emit(What) when is_integer(What) ->
     integer_to_list(What);
-
-do_emit(What) when is_list(What), is_integer(hd(What)) ->
-    What;
-
 do_emit(What) when is_atom(What) ->
-    atom_to_list(What);
+    atom_to_list(What).
 
-do_emit(What) when is_tuple(What) ->
-    [do_emit(E) || E <- tuple_to_list(What)];
-
-do_emit(What) when is_list(What) ->
-    [do_emit(E) || E <- What].
 
 call_args([A|As], Sep) ->
     [Sep,do_emit(A)|call_args(As, ", ")];
@@ -1123,8 +1080,6 @@ gen_record(Gen, TorPtype, Name, #type{}=Type, Num) ->
 		  case Seq#'SEQUENCE'.pname of
 		      false ->
 			  {record,Seq#'SEQUENCE'.components};
-%% 		      _Pname when TorPtype == type ->
-%% 			  false;
 		      _ ->
 			  {record,Seq#'SEQUENCE'.components}
 		  end;
@@ -1137,8 +1092,6 @@ gen_record(Gen, TorPtype, Name, #type{}=Type, Num) ->
 		      _ ->
 			  {record,to_textual_order(Set#'SET'.components)}
 		  end;
-%	      {'SET',{_,_CompList}} -> 
-%		  {record,_CompList}; 
 	      {'CHOICE',_CompList} -> {inner,Def};
 	      {'SEQUENCE OF',_CompList} -> {['SEQOF'|Name],Def};
 	      {'SET OF',_CompList} -> {['SETOF'|Name],Def};
@@ -1344,7 +1297,6 @@ get_inner({fixedtypevaluefield,_,Type}) ->
 get_inner({typefield,TypeName}) ->
     TypeName;
 get_inner(#'ObjectClassFieldType'{type=Type}) ->
-%    get_inner(Type);
     Type;
 get_inner(T) when is_tuple(T) -> 
     case element(1,T) of
@@ -1353,9 +1305,7 @@ get_inner(T) when is_tuple(T) ->
 		{valuefieldreference,FieldName} ->
 		    get_fieldtype(element(2,Tuple),FieldName);
 		{typefieldreference,FieldName} ->
-		    get_fieldtype(element(2,Tuple),FieldName);
-		{'EXIT',Reason} ->
-		    throw({asn1,{'internal error in get_inner/1',Reason}})
+		    get_fieldtype(element(2,Tuple),FieldName)
 	    end;
 	_ -> element(1,T)
     end.

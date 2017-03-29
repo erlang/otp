@@ -998,16 +998,14 @@ int enif_inspect_binary(ErlNifEnv* env, Eterm bin_term, ErlNifBinary* bin)
 	byte* raw_ptr;
     }u;
 
-    if (is_boxed(bin_term) && *binary_val(bin_term) == HEADER_SUB_BIN) {
-	ErlSubBin* sb = (ErlSubBin*) binary_val(bin_term);
-	if (sb->is_writable) {
-	    ProcBin* pb = (ProcBin*) binary_val(sb->orig);
-	    ASSERT(pb->thing_word == HEADER_PROC_BIN);
-	    if (pb->flags) {
-		erts_emasculate_writable_binary(pb);
-		sb->is_writable = 0;
-	    }
-	}
+    if (is_binary(bin_term)) {
+        ProcBin *pb = (ProcBin*) binary_val(bin_term);
+        if (pb->thing_word == HEADER_SUB_BIN) {
+            ErlSubBin* sb = (ErlSubBin*) pb;
+            pb = (ProcBin*) binary_val(sb->orig);
+        }
+        if (pb->thing_word == HEADER_PROC_BIN && pb->flags)
+            erts_emasculate_writable_binary(pb);
     }
     u.tmp = NULL;
     bin->data = erts_get_aligned_binary_bytes_extra(bin_term, &u.raw_ptr, allocator,
@@ -1024,7 +1022,7 @@ int enif_inspect_binary(ErlNifEnv* env, Eterm bin_term, ErlNifBinary* bin)
     bin->bin_term = bin_term;
     bin->size = binary_size(bin_term);
     bin->ref_bin = NULL;
-    ADD_READONLY_CHECK(env, bin->data, bin->size); 
+    ADD_READONLY_CHECK(env, bin->data, bin->size);
     return 1;
 }
 
@@ -1942,36 +1940,8 @@ int enif_snprintf(char *buffer, size_t size, const char* format, ...)
  **       Memory managed (GC'ed) "resource" objects       **
  ***********************************************************/
 
-
-struct enif_resource_type_t
-{
-    struct enif_resource_type_t* next;   /* list of all resource types */
-    struct enif_resource_type_t* prev;    
-    struct erl_module_nif* owner;  /* that created this type and thus implements the destructor*/
-    ErlNifResourceDtor* dtor;      /* user destructor function */
-    erts_refc_t refc;  /* num of resources of this type (HOTSPOT warning)
-                          +1 for active erl_module_nif */
-    Eterm module;
-    Eterm name;
-};
-
 /* dummy node in circular list */
 struct enif_resource_type_t resource_type_list; 
-
-typedef struct enif_resource_t
-{
-    struct enif_resource_type_t* type;
-#ifdef DEBUG
-    erts_refc_t nif_refc;
-# ifdef ARCH_32
-    byte align__[4];
-# endif
-#endif
-    char data[1];
-}ErlNifResource;
-
-#define SIZEOF_ErlNifResource(SIZE) (offsetof(ErlNifResource,data) + (SIZE))
-#define DATA_TO_RESOURCE(PTR) ((ErlNifResource*)((char*)(PTR) - offsetof(ErlNifResource,data)))
 
 static ErlNifResourceType* find_resource_type(Eterm module, Eterm name)
 {
@@ -2034,24 +2004,23 @@ struct opened_resource_type
 
     ErlNifResourceFlags op;
     ErlNifResourceType* type;
-    ErlNifResourceDtor* new_dtor;
+    ErlNifResourceTypeInit new_callbacks;
 };
 static struct opened_resource_type* opened_rt_list = NULL;
 
-ErlNifResourceType*
-enif_open_resource_type(ErlNifEnv* env,
-			const char* module_str, 
-			const char* name_str, 
-			ErlNifResourceDtor* dtor,
-			ErlNifResourceFlags flags,
-			ErlNifResourceFlags* tried)
+static
+ErlNifResourceType* open_resource_type(ErlNifEnv* env,
+                                       const char* name_str,
+                                       const ErlNifResourceTypeInit* init,
+                                       ErlNifResourceFlags flags,
+                                       ErlNifResourceFlags* tried,
+                                       size_t sizeof_init)
 {
     ErlNifResourceType* type = NULL;
     ErlNifResourceFlags op = flags;
     Eterm module_am, name_am;
 
     ASSERT(erts_smp_thr_progress_is_blocking());
-    ASSERT(module_str == NULL); /* for now... */
     module_am = make_atom(env->mod_nif->mod->module);
     name_am = enif_make_atom(env, name_str);
 
@@ -2085,7 +2054,9 @@ enif_open_resource_type(ErlNifEnv* env,
 						sizeof(struct opened_resource_type));
 	ort->op = op;
 	ort->type = type;
-	ort->new_dtor = dtor;
+        sys_memzero(&ort->new_callbacks, sizeof(ErlNifResourceTypeInit));
+        ASSERT(sizeof_init > 0 && sizeof_init <= sizeof(ErlNifResourceTypeInit));
+        sys_memcpy(&ort->new_callbacks, init, sizeof_init);
 	ort->next = opened_rt_list;
 	opened_rt_list = ort;
     }
@@ -2093,6 +2064,31 @@ enif_open_resource_type(ErlNifEnv* env,
 	*tried = op;
     }
     return type;
+}
+
+ErlNifResourceType*
+enif_open_resource_type(ErlNifEnv* env,
+                        const char* module_str,
+                        const char* name_str,
+			ErlNifResourceDtor* dtor,
+			ErlNifResourceFlags flags,
+			ErlNifResourceFlags* tried)
+{
+    ErlNifResourceTypeInit init =  {dtor, NULL};
+    ASSERT(module_str == NULL); /* for now... */
+    return open_resource_type(env, name_str, &init, flags, tried,
+                              sizeof(init));
+}
+
+ErlNifResourceType*
+enif_open_resource_type_x(ErlNifEnv* env,
+                          const char* name_str,
+                          const ErlNifResourceTypeInit* init,
+                          ErlNifResourceFlags flags,
+                          ErlNifResourceFlags* tried)
+{
+    return open_resource_type(env, name_str, init, flags, tried,
+                              env->mod_nif->entry.sizeof_ErlNifResourceTypeInit);
 }
 
 static void commit_opened_resource_types(struct erl_module_nif* lib)
@@ -2113,7 +2109,9 @@ static void commit_opened_resource_types(struct erl_module_nif* lib)
 	}
 
 	type->owner = lib;
-	type->dtor = ort->new_dtor;
+	type->dtor = ort->new_callbacks.dtor;
+        type->stop = ort->new_callbacks.stop;
+        type->down = ort->new_callbacks.down;
 
 	if (type->dtor != NULL) {
 	    erts_refc_inc(&lib->rt_dtor_cnt, 1);
@@ -2139,12 +2137,145 @@ static void rollback_opened_resource_types(void)
     }
 }
 
+struct destroy_monitor_ctx
+{
+    ErtsResource* resource;
+    int exiting_procs;
+    int scheduler;
+};
+
+static void destroy_one_monitor(ErtsMonitor* mon, void* context)
+{
+    struct destroy_monitor_ctx* ctx = (struct destroy_monitor_ctx*) context;
+    Process* rp;
+    ErtsMonitor *rmon = NULL;
+    int is_exiting;
+
+    ASSERT(mon->type == MON_ORIGIN);
+    ASSERT(is_internal_pid(mon->u.pid));
+    ASSERT(is_internal_ref(mon->ref));
+
+    if (ctx->scheduler > 0) { /* Normal scheduler */
+        rp = erts_proc_lookup(mon->u.pid);
+    }
+    else {
+#ifdef ERTS_SMP
+        rp = erts_proc_lookup_inc_refc(mon->u.pid);
+#else
+        ASSERT(!"nif monitor destruction in non-scheduler thread");
+        rp = NULL;
+#endif
+    }
+
+    if (!rp) {
+        is_exiting = 1;
+    }
+    if (rp) {
+        erts_smp_proc_lock(rp, ERTS_PROC_LOCK_LINK);
+        if (ERTS_PROC_IS_EXITING(rp)) {
+            is_exiting = 1;
+        } else {
+            rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), mon->ref);
+            ASSERT(rmon);
+            is_exiting = 0;
+        }
+        erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
+#ifdef ERTS_SMP
+        if (ctx->scheduler <= 0)
+            erts_proc_dec_refc(rp);
+#endif
+    }
+    if (is_exiting) {
+        ctx->resource->monitors->pending_failed_fire++;
+    }
+
+    /* ToDo: Delay destruction after monitor_locks */
+    if (rmon) {
+        ASSERT(rmon->type == MON_NIF_TARGET);
+        ASSERT(rmon->u.resource == ctx->resource);
+        erts_destroy_monitor(rmon);
+    }
+    erts_destroy_monitor(mon);
+}
+
+static void destroy_all_monitors(ErtsMonitor* monitors, ErtsResource* resource)
+{
+    struct destroy_monitor_ctx ctx;
+
+    execution_state(NULL, NULL, &ctx.scheduler);
+
+    ctx.resource = resource;
+    erts_sweep_monitors(monitors, &destroy_one_monitor, &ctx);
+}
+
+
+#ifdef ERTS_SMP
+#  define NIF_RESOURCE_DTOR &nif_resource_dtor
+#else
+#  define NIF_RESOURCE_DTOR &nosmp_nif_resource_dtor_prologue
+
+/*
+ * NO-SMP: Always run resource destructor on scheduler thread 
+ *         as we may have to remove process monitors.
+ */
+static int nif_resource_dtor(Binary*);
+
+static void nosmp_nif_resource_dtor_scheduled(void* vbin)
+{
+    erts_bin_free((Binary*)vbin);
+}
+
+static int nosmp_nif_resource_dtor_prologue(Binary* bin)
+{
+    if (is_scheduler()) {
+        return nif_resource_dtor(bin);
+    }
+    else {
+        erts_schedule_misc_aux_work(1, nosmp_nif_resource_dtor_scheduled, bin);
+        return 0; /* do not free */
+    }
+}
+
+#endif /* !ERTS_SMP */
 
 static int nif_resource_dtor(Binary* bin)
 {
-    ErlNifResource* resource = (ErlNifResource*) ERTS_MAGIC_BIN_UNALIGNED_DATA(bin);
+    ErtsResource* resource = (ErtsResource*) ERTS_MAGIC_BIN_UNALIGNED_DATA(bin);
     ErlNifResourceType* type = resource->type;
-    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == &nif_resource_dtor);
+    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == NIF_RESOURCE_DTOR);
+
+    if (resource->monitors) {
+        ErtsResourceMonitors* rm = resource->monitors;
+
+        ASSERT(type->down);
+        erts_smp_mtx_lock(&rm->lock);
+        ASSERT(erts_refc_read(&bin->refc, 0) == 0);
+        if (rm->root) {
+            ASSERT(!rm->is_dying);
+            destroy_all_monitors(rm->root, resource);
+            rm->root = NULL;
+        }
+        if (rm->pending_failed_fire) {
+            /*
+             * Resource death struggle prolonged to serve exiting process(es).
+             * Destructor will be called again when last exiting process
+             * tries to fire its MON_NIF_TARGET monitor (and fails).
+             *
+             * This resource is doomed. It has no "real" references and
+             * should get not get called upon to do anything except the
+             * final destructor call.
+             *
+             * We keep refc at 0 and use a separate counter for exiting
+             * processes to avoid resource getting revived by "dec_term".
+             */
+            ASSERT(!rm->is_dying);
+            rm->is_dying = 1;
+            erts_smp_mtx_unlock(&rm->lock);
+            return 0;
+        }
+        erts_smp_mtx_unlock(&rm->lock);
+        erts_smp_mtx_destroy(&rm->lock);
+    }
 
     if (type->dtor != NULL) {
         struct enif_msg_environment_t msg_env;
@@ -2162,13 +2293,89 @@ static int nif_resource_dtor(Binary* bin)
     return 1;
 }
 
-void* enif_alloc_resource(ErlNifResourceType* type, size_t size)
+void erts_resource_stop(ErtsResource* resource, ErlNifEvent e,
+                        int is_direct_call)
 {
-    Binary* bin = erts_create_magic_binary_x(SIZEOF_ErlNifResource(size),
-                                             &nif_resource_dtor,
-                                             ERTS_ALC_T_BINARY,
-                                             1); /* unaligned */
-    ErlNifResource* resource = ERTS_MAGIC_BIN_UNALIGNED_DATA(bin);
+    struct enif_msg_environment_t msg_env;
+    ASSERT(resource->type->stop);
+    pre_nif_noproc(&msg_env, resource->type->owner, NULL);
+    resource->type->stop(&msg_env.env, resource->data, e, is_direct_call);
+    post_nif_noproc(&msg_env);
+}
+
+void erts_fire_nif_monitor(ErtsResource* resource, Eterm pid, Eterm ref)
+{
+    ErtsMonitor* rmon;
+    ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
+    struct enif_msg_environment_t msg_env;
+    ErlNifPid nif_pid;
+    ErlNifMonitor nif_monitor;
+    ErtsResourceMonitors* rmp = resource->monitors;
+
+    ASSERT(rmp);
+    ASSERT(resource->type->down);
+
+    erts_smp_mtx_lock(&rmp->lock);
+    rmon = erts_remove_monitor(&rmp->root, ref);
+    if (!rmon) {
+        int free_me = (--rmp->pending_failed_fire == 0) && rmp->is_dying;
+        ASSERT(rmp->pending_failed_fire >= 0);
+        erts_smp_mtx_unlock(&rmp->lock);
+
+        if (free_me) {
+            ASSERT(erts_refc_read(&bin->binary.refc, 0) == 0);
+            erts_bin_free(&bin->binary);
+        }
+        return;
+    }
+    ASSERT(!rmp->is_dying);
+    if (erts_refc_inc_unless(&bin->binary.refc, 0, 0) == 0) {
+        /*
+         * Racing resource destruction. 
+         * To avoid a more complex refc-dance with destructing thread
+         * we avoid calling 'down' and just silently remove the monitor.
+         * This can happen even for non smp as destructor calls may be scheduled.
+         */
+        erts_smp_mtx_unlock(&rmp->lock);
+    }
+    else {
+        erts_smp_mtx_unlock(&rmp->lock);
+
+        ASSERT(rmon->u.pid == pid);
+        erts_ref_to_driver_monitor(ref, &nif_monitor);
+        nif_pid.pid = pid;
+        pre_nif_noproc(&msg_env, resource->type->owner, NULL);
+        resource->type->down(&msg_env.env, resource->data, &nif_pid, &nif_monitor);
+        post_nif_noproc(&msg_env);
+
+        if (erts_refc_dectest(&bin->binary.refc, 0) == 0) {
+            erts_bin_free(&bin->binary);
+        }
+    }
+    erts_destroy_monitor(rmon);
+}
+
+void* enif_alloc_resource(ErlNifResourceType* type, size_t data_sz)
+{
+    size_t magic_sz = offsetof(ErtsResource,data);
+    Binary* bin;
+    ErtsResource* resource;
+    size_t monitors_offs;
+
+    if (type->down) {
+        /* Put ErtsResourceMonitors after user data and properly aligned */
+        monitors_offs = ((data_sz + ERTS_ALLOC_ALIGN_BYTES - 1)
+                         & ~((size_t)ERTS_ALLOC_ALIGN_BYTES - 1));
+        magic_sz += monitors_offs + sizeof(ErtsResourceMonitors);
+    }
+    else {
+        ERTS_UNDEF(monitors_offs, 0);
+        magic_sz += data_sz;
+    }
+    bin = erts_create_magic_binary_x(magic_sz, NIF_RESOURCE_DTOR,
+                                     ERTS_ALC_T_BINARY,
+                                     1); /* unaligned */
+    resource = ERTS_MAGIC_BIN_UNALIGNED_DATA(bin);
 
     ASSERT(type->owner && type->next && type->prev); /* not allowed in load/upgrade */
     resource->type = type;
@@ -2177,15 +2384,27 @@ void* enif_alloc_resource(ErlNifResourceType* type, size_t size)
     erts_refc_init(&resource->nif_refc, 1);
 #endif
     erts_refc_inc(&resource->type->refc, 2);
+    if (type->down) {
+        resource->monitors = (ErtsResourceMonitors*) (resource->data + monitors_offs);
+        erts_smp_mtx_init(&resource->monitors->lock, "resource_monitors");
+        resource->monitors->root = NULL;
+        resource->monitors->pending_failed_fire = 0;
+        resource->monitors->is_dying = 0;
+        resource->monitors->user_data_sz = data_sz;
+    }
+    else {
+        resource->monitors = NULL;
+    }
     return resource->data;
 }
 
 void enif_release_resource(void* obj)
 {
-    ErlNifResource* resource = DATA_TO_RESOURCE(obj);
+    ErtsResource* resource = DATA_TO_RESOURCE(obj);
     ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
 
-    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == &nif_resource_dtor);
+    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == NIF_RESOURCE_DTOR);
+    ASSERT(!(resource->monitors && resource->monitors->is_dying));
 #ifdef DEBUG
     erts_refc_dec(&resource->nif_refc, 0);
 #endif
@@ -2196,28 +2415,37 @@ void enif_release_resource(void* obj)
 
 void enif_keep_resource(void* obj)
 {
-    ErlNifResource* resource = DATA_TO_RESOURCE(obj);
+    ErtsResource* resource = DATA_TO_RESOURCE(obj);
     ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
 
-    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == &nif_resource_dtor);
+    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == NIF_RESOURCE_DTOR);
+    ASSERT(!(resource->monitors && resource->monitors->is_dying));
 #ifdef DEBUG
     erts_refc_inc(&resource->nif_refc, 1);
 #endif
     erts_refc_inc(&bin->binary.refc, 2);
 }
 
+Eterm erts_bld_resource_ref(Eterm** hpp, ErlOffHeap* oh, ErtsResource* resource)
+{
+    ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
+    ASSERT(!(resource->monitors && resource->monitors->is_dying));
+    return erts_mk_magic_ref(hpp, oh, &bin->binary);
+}
+
 ERL_NIF_TERM enif_make_resource(ErlNifEnv* env, void* obj)
 {
-    ErlNifResource* resource = DATA_TO_RESOURCE(obj);
+    ErtsResource* resource = DATA_TO_RESOURCE(obj);
     ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
     Eterm* hp = alloc_heap(env, ERTS_MAGIC_REF_THING_SIZE);
+    ASSERT(!(resource->monitors && resource->monitors->is_dying));
     return erts_mk_magic_ref(&hp, &MSO(env->proc), &bin->binary);
 }
 
 ERL_NIF_TERM enif_make_resource_binary(ErlNifEnv* env, void* obj,
 				       const void* data, size_t size)
 {
-    ErlNifResource* resource = DATA_TO_RESOURCE(obj);
+    ErtsResource* resource = DATA_TO_RESOURCE(obj);
     ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
     ErlOffHeap *ohp = &MSO(env->proc);
     Eterm* hp = alloc_heap(env,PROC_BIN_SIZE);
@@ -2241,7 +2469,7 @@ int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* typ
 		      void** objp)
 {
     Binary* mbin;
-    ErlNifResource* resource;
+    ErtsResource* resource;
     if (is_internal_magic_ref(term))
 	mbin = erts_magic_ref2bin(term);
     else {
@@ -2260,8 +2488,8 @@ int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* typ
         if (!(mbin->flags & BIN_FLAG_MAGIC))
             return 0;
     }
-    resource = (ErlNifResource*) ERTS_MAGIC_BIN_UNALIGNED_DATA(mbin);
-    if (ERTS_MAGIC_BIN_DESTRUCTOR(mbin) != &nif_resource_dtor
+    resource = (ErtsResource*) ERTS_MAGIC_BIN_UNALIGNED_DATA(mbin);
+    if (ERTS_MAGIC_BIN_DESTRUCTOR(mbin) != NIF_RESOURCE_DTOR
 	|| resource->type != type) {	
 	return 0;
     }
@@ -2271,9 +2499,14 @@ int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* typ
 
 size_t enif_sizeof_resource(void* obj)
 {
-    ErlNifResource* resource = DATA_TO_RESOURCE(obj);
-    Binary* bin = &ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource)->binary;
-    return ERTS_MAGIC_BIN_UNALIGNED_DATA_SIZE(bin) - offsetof(ErlNifResource,data);
+    ErtsResource* resource = DATA_TO_RESOURCE(obj);
+    if (resource->monitors) {
+        return resource->monitors->user_data_sz;
+    }
+    else {
+        Binary* bin = &ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource)->binary;
+        return ERTS_MAGIC_BIN_UNALIGNED_DATA_SIZE(bin) - offsetof(ErtsResource,data);
+    }
 }
 
 
@@ -2885,6 +3118,157 @@ int enif_map_iterator_get_pair(ErlNifEnv *env,
     return 0;
 }
 
+int enif_monitor_process(ErlNifEnv* env, void* obj, const ErlNifPid* target_pid,
+                         ErlNifMonitor* monitor)
+{
+    int scheduler;
+    ErtsResource* rsrc = DATA_TO_RESOURCE(obj);
+    Process *rp;
+    Eterm tmp[ERTS_REF_THING_SIZE];
+    Eterm ref;
+    int retval;
+
+    ASSERT(ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(rsrc)->magic_binary.destructor
+           == NIF_RESOURCE_DTOR);
+    ASSERT(!(rsrc->monitors && rsrc->monitors->is_dying));
+    ASSERT(!rsrc->monitors == !rsrc->type->down);
+
+
+    if (!rsrc->monitors) {
+        ASSERT(!rsrc->type->down);
+        return -1;
+    }
+    ASSERT(rsrc->type->down);
+
+    execution_state(env, NULL, &scheduler);
+
+#ifdef ERTS_SMP
+    if (scheduler > 0) /* Normal scheduler */
+        rp = erts_proc_lookup_raw(target_pid->pid);
+    else
+        rp = erts_proc_lookup_raw_inc_refc(target_pid->pid);
+#else
+    if (scheduler <= 0) {
+        erts_exit(ERTS_ABORT_EXIT, "enif_monitor_process: called from "
+                  "non-scheduler thread on non-SMP VM");
+    }
+    rp = erts_proc_lookup(target_pid->pid);
+#endif
+
+    if (!rp)
+        return 1;
+
+    ref = erts_make_ref_in_buffer(tmp);
+
+    erts_smp_mtx_lock(&rsrc->monitors->lock);
+    erts_smp_proc_lock(rp, ERTS_PROC_LOCK_LINK);
+    if (ERTS_PSFLG_FREE & erts_smp_atomic32_read_nob(&rp->state)) {
+        retval = 1;
+    }
+    else {
+        erts_add_monitor(&rsrc->monitors->root, MON_ORIGIN, ref, rp->common.id, NIL);
+        erts_add_monitor(&ERTS_P_MONITORS(rp), MON_NIF_TARGET, ref, (UWord)rsrc, NIL);
+        retval = 0;
+    }
+    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
+    erts_smp_mtx_unlock(&rsrc->monitors->lock);
+
+#ifdef ERTS_SMP
+    if (scheduler <= 0)
+        erts_proc_dec_refc(rp);
+#endif
+    if (monitor)
+        erts_ref_to_driver_monitor(ref,monitor);
+
+    return retval;
+}
+
+int enif_demonitor_process(ErlNifEnv* env, void* obj, const ErlNifMonitor* monitor)
+{
+    int scheduler;
+    ErtsResource* rsrc = DATA_TO_RESOURCE(obj);
+#ifdef DEBUG
+    ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(rsrc);
+#endif
+    Process *rp;
+    ErtsMonitor *mon;
+    ErtsMonitor *rmon = NULL;
+    Eterm ref_heap[ERTS_REF_THING_SIZE];
+    Eterm ref;
+    int is_exiting;
+
+    ASSERT(bin->magic_binary.destructor == NIF_RESOURCE_DTOR);
+    ASSERT(!(rsrc->monitors && rsrc->monitors->is_dying));
+
+    execution_state(env, NULL, &scheduler);
+
+    ref = erts_driver_monitor_to_ref(ref_heap, monitor);
+
+    erts_smp_mtx_lock(&rsrc->monitors->lock);
+    mon = erts_remove_monitor(&rsrc->monitors->root, ref);
+
+    if (mon == NULL) {
+        erts_smp_mtx_unlock(&rsrc->monitors->lock);
+        return 1;
+    }
+
+    ASSERT(mon->type == MON_ORIGIN);
+    ASSERT(is_internal_pid(mon->u.pid));
+
+#ifdef ERTS_SMP
+    if (scheduler > 0) /* Normal scheduler */
+        rp = erts_proc_lookup(mon->u.pid);
+    else
+        rp = erts_proc_lookup_inc_refc(mon->u.pid);
+#else
+    if (scheduler <= 0) {
+        erts_exit(ERTS_ABORT_EXIT, "enif_demonitor_process: called from "
+                  "non-scheduler thread on non-SMP VM");
+    }
+    rp = erts_proc_lookup(mon->u.pid);
+#endif
+
+    if (!rp) {
+        is_exiting = 1;
+    }
+    else {
+        erts_smp_proc_lock(rp, ERTS_PROC_LOCK_LINK);
+        if (ERTS_PROC_IS_EXITING(rp)) {
+            is_exiting = 1;
+        } else {
+            rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), ref);
+            ASSERT(rmon);
+            is_exiting = 0;
+        }
+        erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
+
+#ifdef ERTS_SMP
+        if (scheduler <= 0)
+            erts_proc_dec_refc(rp);
+#endif
+    }
+    if (is_exiting) {
+        rsrc->monitors->pending_failed_fire++;
+    }
+    erts_smp_mtx_unlock(&rsrc->monitors->lock);
+
+    if (rmon) {
+        ASSERT(rmon->type == MON_NIF_TARGET);
+        ASSERT(rmon->u.resource == rsrc);
+        erts_destroy_monitor(rmon);
+    }
+    erts_destroy_monitor(mon);
+
+    return 0;
+}
+
+int enif_compare_monitors(const ErlNifMonitor *monitor1,
+                          const ErlNifMonitor *monitor2)
+{
+    return sys_memcmp((void *) monitor1, (void *) monitor2,
+                      ERTS_REF_THING_SIZE*sizeof(Eterm));
+}
+
 /***************************************************************************
  **                              load_nif/2                               **
  ***************************************************************************/
@@ -3034,6 +3418,11 @@ static struct erl_module_nif* create_lib(const ErlNifEntry* src)
         }
         dst->funcs = lib->_funcs_copy_;
         dst->options = 0;
+    }
+    if (AT_LEAST_VERSION(src, 2, 12)) {
+        dst->sizeof_ErlNifResourceTypeInit = src->sizeof_ErlNifResourceTypeInit;
+    } else {
+        dst->sizeof_ErlNifResourceTypeInit = 0;
     }
     return lib;
 };
@@ -3353,7 +3742,8 @@ erts_unload_nif(struct erl_module_nif* lib)
 
 void erl_nif_init()
 {
-    ERTS_CT_ASSERT((offsetof(ErlNifResource,data) % 8) == ERTS_MAGIC_BIN_BYTES_TO_ALIGN);
+    ERTS_CT_ASSERT((offsetof(ErtsResource,data) % 8)
+                   == ERTS_MAGIC_BIN_BYTES_TO_ALIGN);
 
     resource_type_list.next = &resource_type_list;
     resource_type_list.prev = &resource_type_list;

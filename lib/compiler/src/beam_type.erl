@@ -683,6 +683,9 @@ op_type('bsr') -> integer;
 op_type('div') -> integer;
 op_type(_) -> unknown.
 
+flush(Rs, [{set,[_],[_,_,_],{bif,is_record,_}}|_]=Is0, Acc0) ->
+    Acc = flush_all(Rs, Is0, Acc0),
+    {[],Acc};
 flush(Rs, [{set,[_],[],{put_tuple,_}}|_]=Is0, Acc0) ->
     Acc = flush_all(Rs, Is0, Acc0),
     {[],Acc};

@@ -74,6 +74,8 @@ do_insn(I, TempMap, Strategy) ->	% Insn -> {Insn list, DidSpill}
       do_movx(I, TempMap, Strategy);
     #fmove{} ->
       do_fmove(I, TempMap, Strategy);
+    #pseudo_spill_move{} ->
+      do_pseudo_spill_move(I, TempMap, Strategy);
     #shift{} ->
       do_shift(I, TempMap, Strategy);
     #test{} ->
@@ -190,10 +192,19 @@ do_lea(I, TempMap, Strategy) ->
 
 do_move(I, TempMap, Strategy) ->
   #move{src=Src0,dst=Dst0} = I,
-  {FixSrc, Src, FixDst, Dst, DidSpill} =
-    do_check_byte_move(Src0, Dst0, TempMap, Strategy),
-  {FixSrc ++ FixDst ++ [I#move{src=Src,dst=Dst}],
-   DidSpill}.
+  case
+    is_record(Src0, x86_temp) andalso is_record(Dst0, x86_temp)
+    andalso is_spilled(Src0, TempMap) andalso is_spilled(Dst0, TempMap)
+  of
+    true ->
+      Tmp = clone(Src0, Strategy),
+      {[hipe_x86:mk_pseudo_spill_move(Src0, Tmp, Dst0)], true};
+    false ->
+      {FixSrc, Src, FixDst, Dst, DidSpill} =
+	do_check_byte_move(Src0, Dst0, TempMap, Strategy),
+      {FixSrc ++ FixDst ++ [I#move{src=Src,dst=Dst}],
+       DidSpill}
+  end.
 
 -ifdef(HIPE_AMD64).
 
@@ -286,6 +297,13 @@ do_fmove(I, TempMap, Strategy) ->
   %% by the f.p. register allocator.
   {FixSrc ++ FixDst ++ [I#fmove{src=Src,dst=Dst}],
    DidSpill1 or DidSpill2}.
+
+%%% Fix an pseudo_spill_move op.
+
+do_pseudo_spill_move(I = #pseudo_spill_move{temp=Temp}, TempMap, _Strategy) ->
+  %% Temp is above the low water mark and must not have been spilled
+  false = is_spilled(Temp, TempMap),
+  {[I], false}. % nothing to do
 
 %%% Fix a shift operation.
 %%% 1. remove pseudos from any explicit memory operands

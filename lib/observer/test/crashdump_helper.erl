@@ -44,7 +44,7 @@ n1_proc(Creator,_N2,Pid2,Port2,_L) ->
     Ref = make_ref(),
     Pid = self(),
     Bin = list_to_binary(lists:seq(1, 255)),
-    SubBin = element(1, split_binary(element(2, split_binary(Bin, 8)), 17)),
+    <<_:2,SubBin:17/binary,_/bits>> = Bin,
 
     register(named_port,Port),
 

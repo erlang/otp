@@ -52,6 +52,7 @@
          t_bif_map_values/1,
          t_bif_map_to_list/1,
          t_bif_map_from_list/1,
+         t_bif_erts_internal_maps_to_list/1,
 
          %% erlang
          t_erlang_hash/1,
@@ -118,6 +119,7 @@ all() -> [t_build_and_match_literals, t_build_and_match_literals_large,
           t_bif_map_update,
           t_bif_map_values,
           t_bif_map_to_list, t_bif_map_from_list,
+          t_bif_erts_internal_maps_to_list,
 
           %% erlang
           t_erlang_hash, t_map_encode_decode,
@@ -2362,23 +2364,55 @@ t_bif_map_from_list(Config) when is_list(Config) ->
     {'EXIT', {badarg,_}} = (catch maps:from_list(id(42))),
     ok.
 
-t_bif_build_and_check(Config) when is_list(Config) ->
-    ok = check_build_and_remove(750,[
-				      fun(K) -> [K,K] end,
-				      fun(K) -> [float(K),K] end,
-				      fun(K) -> K end,
-				      fun(K) -> {1,K} end,
-				      fun(K) -> {K} end,
-				      fun(K) -> [K|K] end,
-				      fun(K) -> [K,1,2,3,4] end,
-				      fun(K) -> {K,atom} end,
-				      fun(K) -> float(K) end,
-				      fun(K) -> integer_to_list(K) end,
-				      fun(K) -> list_to_atom(integer_to_list(K)) end,
-				      fun(K) -> [K,{K,[K,{K,[K]}]}] end,
-				      fun(K) -> <<K:32>> end
-			      ]),
+t_bif_erts_internal_maps_to_list(Config) when is_list(Config) ->
+    %% small maps
+    [] = erts_internal:maps_to_list(#{},-1),
+    [] = erts_internal:maps_to_list(#{},-2),
+    [] = erts_internal:maps_to_list(#{},10),
+    [{a,1},{b,2}] = lists:sort(erts_internal:maps_to_list(#{a=>1,b=>2}, 2)),
+    [{a,1},{b,2}] = lists:sort(erts_internal:maps_to_list(#{a=>1,b=>2}, -1)),
+    [{_,_}] = erts_internal:maps_to_list(#{a=>1,b=>2}, 1),
+    [{a,1},{b,2},{c,3}] = lists:sort(erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},-2)),
+    [{a,1},{b,2},{c,3}] = lists:sort(erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},3)),
+    [{a,1},{b,2},{c,3}] = lists:sort(erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},5)),
+    [{_,_},{_,_}] = erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},2),
+    [{_,_}] = erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},1),
+    [] = erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},0),
 
+    %% big maps
+    M = maps:from_list([{I,ok}||I <- lists:seq(1,500)]),
+    [] = erts_internal:maps_to_list(M,0),
+    [{_,_}] = erts_internal:maps_to_list(M,1),
+    [{_,_},{_,_}] = erts_internal:maps_to_list(M,2),
+    Ls1 = erts_internal:maps_to_list(M,10),
+    10 = length(Ls1),
+    Ls2 = erts_internal:maps_to_list(M,20),
+    20 = length(Ls2),
+    Ls3 = erts_internal:maps_to_list(M,120),
+    120 = length(Ls3),
+    Ls4 = erts_internal:maps_to_list(M,-1),
+    500 = length(Ls4),
+
+    %% error cases
+    {'EXIT', {{badmap,[{a,b},b]},_}} = (catch erts_internal:maps_to_list(id([{a,b},b]),id(1))),
+    {'EXIT', {badarg,_}} = (catch erts_internal:maps_to_list(id(#{}),id(a))),
+    {'EXIT', {badarg,_}} = (catch erts_internal:maps_to_list(id(#{1=>2}),id(<<>>))),
+    ok.
+
+t_bif_build_and_check(Config) when is_list(Config) ->
+    ok = check_build_and_remove(750,[fun(K) -> [K,K] end,
+				     fun(K) -> [float(K),K] end,
+				     fun(K) -> K end,
+				     fun(K) -> {1,K} end,
+				     fun(K) -> {K} end,
+				     fun(K) -> [K|K] end,
+				     fun(K) -> [K,1,2,3,4] end,
+				     fun(K) -> {K,atom} end,
+				     fun(K) -> float(K) end,
+				     fun(K) -> integer_to_list(K) end,
+				     fun(K) -> list_to_atom(integer_to_list(K)) end,
+				     fun(K) -> [K,{K,[K,{K,[K]}]}] end,
+				     fun(K) -> <<K:32>> end]),
     ok.
 
 check_build_and_remove(_,[]) -> ok;

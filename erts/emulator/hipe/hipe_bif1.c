@@ -50,7 +50,7 @@ BIF_RETTYPE hipe_bifs_call_count_on_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P, BADARG);
     if (pc[0] == BeamOpCode(op_hipe_call_count))
 	BIF_RET(NIL);
-    hcc = erts_alloc(ERTS_ALC_T_HIPE, sizeof(*hcc));
+    hcc = erts_alloc(ERTS_ALC_T_HIPE_SL, sizeof(*hcc));
     hcc->count = 0;
     hcc->opcode = pc[0];
     pc[-4] = (Eterm)hcc;
@@ -74,7 +74,7 @@ BIF_RETTYPE hipe_bifs_call_count_off_1(BIF_ALIST_1)
     count = hcc->count;
     pc[0] = hcc->opcode;
     pc[-4] = (Eterm)NULL;
-    erts_free(ERTS_ALC_T_HIPE, hcc);
+    erts_free(ERTS_ALC_T_HIPE_SL, hcc);
     BIF_RET(make_small(count));
 }
 

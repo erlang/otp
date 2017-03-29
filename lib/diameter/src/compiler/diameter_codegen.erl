@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -184,7 +184,7 @@ erl_forms(Mod, ParseD) ->
               f_enumerated_avp(ParseD),
               f_empty_value(ParseD),
               f_dict(ParseD),
-              {eof, erl_anno:new(?LINE)}]],
+              {eof, ?LINE}]],
 
     lists:append(Forms).
 

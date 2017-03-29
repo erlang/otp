@@ -82,8 +82,9 @@
 
 /* Type tags for monitors */
 #define MON_ORIGIN 1
-#define MON_TARGET 3
-#define MON_TIME_OFFSET 7
+#define MON_TARGET 2
+#define MON_NIF_TARGET 3
+#define MON_TIME_OFFSET 4
 
 /* Type tags for links */
 #define LINK_PID 1   /* ...Or port */
@@ -105,11 +106,15 @@ typedef struct erts_monitor_or_link {
 typedef struct erts_monitor {
     struct erts_monitor *left, *right; 
     Sint16 balance;
-    Uint16 type;  /* MON_ORIGIN | MON_TARGET | MON_TIME_OFFSET */
+    Uint16 type;  /* MON_ORIGIN | MON_TARGET | MON_NIF_TARGET | MON_TIME_OFFSET */
     Eterm ref;
-    Eterm pid;    /* In case of distributed named monitor, this is the
-		     nodename atom in MON_ORIGIN process, otherwise a pid or
-		     , in case of a MON_TARGET, a port */
+    union {
+        Eterm pid;  /* In case of distributed named monitor, this is the
+		     * nodename atom in MON_ORIGIN process, otherwise a pid or,
+		     * in case of a MON_TARGET, a port
+                     */
+        struct ErtsResource_* resource; /* MON_NIF_TARGET */
+    }u;
     Eterm name;   /* When monitoring a named process: atom() else [] */
     Uint heap[1]; /* Larger in reality */
 } ErtsMonitor;
@@ -144,7 +149,7 @@ Uint erts_tot_link_lh_size(void);
 
 /* Prototypes */
 void erts_destroy_monitor(ErtsMonitor *mon);
-void erts_add_monitor(ErtsMonitor **root, Uint type, Eterm ref, Eterm pid,
+void erts_add_monitor(ErtsMonitor **root, Uint type, Eterm ref, UWord entity,
 		      Eterm name);
 ErtsMonitor *erts_remove_monitor(ErtsMonitor **root, Eterm ref);
 ErtsMonitor *erts_lookup_monitor(ErtsMonitor *root, Eterm ref);

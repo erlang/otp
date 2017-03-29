@@ -89,6 +89,9 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"hipe_mfait_lock",			NULL			},
 #endif
     {	"nodes_monitors",			NULL			},
+#ifdef ERTS_SMP
+    {	"resource_monitors",			"address"	        },
+#endif
     {   "driver_list",                          NULL                    },
     {	"proc_link",				"pid"			},
     {	"proc_msgq",				"pid"			},
@@ -97,14 +100,12 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"dist_entry_links",			"address"		},
     {   "code_write_permission",                NULL                    },
     {	"purge_state",		      		NULL			},
+    {	"meta_name_tab",	         	"address"		},
+    {	"db_tab",				"address"		},
     {	"proc_status",				"pid"			},
     {	"proc_trace",				"pid"			},
     {   "ports_snapshot",                       NULL                    },
-    {	"meta_name_tab",	         	"address"		},
-    {	"meta_main_tab_slot",			"address"		},
-    {	"db_tab",				"address"		},
     {	"db_tab_fix",				"address"		},
-    {	"meta_main_tab_main",			NULL 			},
     {	"db_hash_slot",				"address"		},
     {	"node_table",				NULL			},
     {	"dist_table",				NULL			},

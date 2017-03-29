@@ -87,7 +87,7 @@
   <section>
     <title>Complete List of BIFs</title>
     <p>For a complete list of BIFs, their arguments and return values,
-      see <seealso marker="erts:erlang#process_flag/2">erlang(3)</seealso>
+      see <seealso marker="erts:erlang">erlang(3)</seealso>
       manual page in ERTS.</p>
   </section>
 

@@ -280,6 +280,23 @@ silly_coverage(Config) when is_list(Config) ->
 		       {block,[a|b]}]}],0},
     expect_error(fun() -> beam_receive:module(ReceiveInput, []) end),
 
+    %% beam_record.
+    RecordInput = {?MODULE,[{foo,0}],[],
+		    [{function,foo,1,2,
+		      [{label,1},
+		       {func_info,{atom,?MODULE},{atom,foo},1},
+                       {label,2},
+                       {test,is_tuple,{f,1},[{x,0}]},
+                       {test,test_arity,{f,1},[{x,0},3]},
+                       {block,[{set,[{x,1}],[{x,0}],{get_tuple_element,0}}]},
+                       {test,is_eq_exact,{f,1},[{x,1},{atom,bar}]},
+                       {block,[{set,[{x,2}],[{x,0}],{get_tuple_element,1}}|a]},
+                       {test,is_eq_exact,{f,1},[{x,2},{integer,1}]},
+                       {block,[{set,[{x,0}],[{atom,ok}],move}]},
+                       return]}],0},
+
+    expect_error(fun() -> beam_record:module(RecordInput, []) end),
+
     BeamZInput = {?MODULE,[{foo,0}],[],
 		  [{function,foo,0,2,
 		    [{label,1},

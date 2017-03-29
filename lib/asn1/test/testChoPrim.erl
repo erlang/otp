@@ -31,10 +31,10 @@ bool(Rules) ->
     roundtrip('ChoCon', {int2,233}),
     case Rules of
 	ber ->
-	    {error,{asn1,{invalid_choice_type,wrong}}} =
-		(catch 'ChoPrim':encode('ChoCon', {wrong,233})),
-	    {error,{asn1,{invalid_choice_tag,_WrongTag}}} =
-		(catch 'ChoPrim':decode('ChoCon', <<131,2,0,233>>));
+	    {error,{asn1,{{invalid_choice_type,wrong},[_|_]}}} =
+                 (catch 'ChoPrim':encode('ChoCon', {wrong,233})),
+	    {error,{asn1,{{invalid_choice_tag,_WrongTag},[_|_]}}} =
+                 (catch 'ChoPrim':decode('ChoCon', <<131,2,0,233>>));
 	per ->
 	    ok;
 	uper ->

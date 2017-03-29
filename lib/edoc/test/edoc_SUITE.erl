@@ -69,7 +69,7 @@ build_std(Config) when is_list(Config) ->
 	    {def, {vsn,"TEST"}},
 	    {dir, PrivDir}]),
 
-    ok = edoc:application(xmerl, [{dir, PrivDir}]),
+    ok = edoc:application(xmerl, [{preprocess,true},{dir, PrivDir}]),
     ok.
 
 build_map_module(Config) when is_list(Config) ->

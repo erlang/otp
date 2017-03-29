@@ -47,6 +47,7 @@
   <xi:include href="ct_slave.xml"/>
   <xi:include href="ct_hooks.xml"/>
   <xi:include href="ct_property_test.xml"/>
+  <xi:include href="ct_testspec.xml"/>
 </application>
 
 

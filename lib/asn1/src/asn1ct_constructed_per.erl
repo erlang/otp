@@ -30,9 +30,8 @@
 -export([gen_decode_choice/3]).
 
 -include("asn1_records.hrl").
-%-compile(export_all).
 
--import(asn1ct_gen, [emit/1,demit/1,get_record_name_prefix/1]).
+-import(asn1ct_gen, [emit/1,get_record_name_prefix/1]).
 
 -type type_name() :: any().
 
@@ -357,7 +356,6 @@ gen_dec_constructed_imm(Erule, Typename, #type{}=D) ->
 	    #'SEQUENCE'{tablecinf=TCI,components=CL} ->
 		{add_textual_order(CL),TCI};
 	    #'SET'{tablecinf=TCI,components=CL} ->
-%%		{add_textual_order(CL),TCI}
 		{CL,TCI} % the textual order is already taken care of
 	end,
     Ext = extensible_dec(CompList),
@@ -375,13 +373,11 @@ gen_dec_constructed_imm(Erule, Typename, #type{}=D) ->
 	      end,
     ObjSetInfo =
 	case TableConsInfo of
-%%	    {ObjectSet,AttrN,N,UniqueFieldName} ->%% N is index of attribute that determines constraint
 	    #simpletableattributes{objectsetname=ObjectSet,
 				   c_name=AttrN,
 				   usedclassfield=UniqueFieldName,
 				   uniqueclassfield=UniqueFieldName,
 				   valueindex=ValIndex} ->
-%%		{AttrN,ObjectSet};
 		F = fun(#'ComponentType'{typespec=CT})->
 			    case {asn1ct_gen:get_constraint(CT#type.constraint,componentrelation),CT#type.tablecinf} of
 				{no,[{objfun,_}|_R]} -> true;
@@ -686,10 +682,10 @@ gen_decode_choice(Erules,Typename,D) when is_record(D,type) ->
     {'CHOICE',CompList} = D#type.def,
     Ext = extensible_enc(CompList),
     gen_dec_choice(Erules,Typename,CompList,Ext),
-    emit({".",nl}).
+    emit([".",nl]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Encode generator for SEQUENCE OF type
+%% Encode generator for SEQUENCE OF type
 
 gen_encode_sof(Erule, Typename, SeqOrSetOf, D) ->
     asn1ct_name:start(),
@@ -781,20 +777,20 @@ gen_decode_sof_components(Erule, Name, Typename, SeqOrSetOf, Cont) ->
     case asn1ct_gen:type(Conttype) of
 	{primitive,bif} ->
 	    asn1ct_gen_per:gen_dec_prim(Erule, Cont, "Bytes"),
-	    emit({com,nl});
+	    emit([com,nl]);
 	{constructed,bif} ->
 	    NewTypename = [Constructed_Suffix|Typename],
-	    emit({"'dec_",asn1ct_gen:list2name(NewTypename),
-		  "'(Bytes",ObjFun,"),",nl});
+	    emit([{asis,dec_func(asn1ct_gen:list2name(NewTypename))},
+		  "(Bytes",ObjFun,"),",nl]);
 	#'Externaltypereference'{}=Etype ->
 	    asn1ct_gen_per:gen_dec_external(Etype, "Bytes"),
 	    emit([com,nl]);
 	'ASN1_OPEN_TYPE' ->
 	    asn1ct_gen_per:gen_dec_prim(Erule, #type{def='ASN1_OPEN_TYPE'},
 					"Bytes"),
-	    emit({com,nl});
+	    emit([com,nl]);
 	_ ->
-	    emit({"'dec_",Conttype,"'(Bytes),",nl})
+	    emit([{asis,dec_func(Conttype)},"(Bytes),",nl])
     end,
     emit([{asis,Name},"(Num-1, Remain",ObjFun,", [Term|Acc]).",nl]).
 
@@ -934,9 +930,7 @@ add_textual_order({R1,Ext,R2}) ->
     {NewExt,Num2} = add_textual_order1(Ext,Num1),
     {NewR2,_} = add_textual_order1(R2,Num2),
     {NewR1,NewExt,NewR2}.
-%%add_textual_order1(Cs=[#'ComponentType'{textual_order=Int}|_],I)
-%%  when is_integer(Int) ->
-%%    {Cs,I};
+
 add_textual_order1(Cs,NumIn) ->
     lists:mapfoldl(fun(C=#'ComponentType'{},Num) ->
 			   {C#'ComponentType'{textual_order=Num},
@@ -979,6 +973,10 @@ mark_optional(Other) ->
 gen_enc_components_call1(Gen, TopType, [C|Rest], DynamicEnc, Ext) ->
     #'ComponentType'{name=Cname,typespec=Type,
                      prop=Prop,textual_order=Num} = C,
+    InnerType = asn1ct_gen:get_inner(Type#type.def),
+    CommentString = attribute_comment(InnerType, Num, Cname),
+    ImmComment = asn1ct_imm:enc_comment(CommentString),
+
     {Imm0,Element} = enc_fetch_field(Gen, Num, Prop),
     Imm1 = gen_enc_line_imm(Gen, TopType, Cname, Type,
                             Element, DynamicEnc, Ext),
@@ -993,7 +991,7 @@ gen_enc_components_call1(Gen, TopType, [C|Rest], DynamicEnc, Ext) ->
 	   end,
     Imm = case Imm2 of
 	      [] -> [];
-	      _ -> Imm0 ++ Imm2
+	      _ -> [ImmComment|Imm0 ++ Imm2]
 	  end,
     [Imm|gen_enc_components_call1(Gen, TopType, Rest, DynamicEnc, Ext)];
 gen_enc_components_call1(_Gen, _TopType, [], _, _) ->
@@ -1328,27 +1326,17 @@ gen_dec_comp_calls([], _, _, _, _, _, _, Tpos, Acc) ->
 
 gen_dec_comp_call(Comp, Gen, TopType, Tpos, OptTable, DecInfObj,
 		  Ext, NumberOfOptionals) ->
-    #'ComponentType'{typespec=Type,prop=Prop,textual_order=TextPos} = Comp,
+    #'ComponentType'{name=Cname,typespec=Type,
+                     prop=Prop,textual_order=TextPos} = Comp,
     Pos = case Ext of
 	      noext -> Tpos;
 	      {ext,Epos,_Enum} -> Tpos - Epos + 1
 	  end,
-    InnerType = 
-	case Type#type.def of
-	    #'ObjectClassFieldType'{type=InType} ->
-		InType;
-	    Def ->
-		asn1ct_gen:get_inner(Def)
-	end,
+    InnerType = asn1ct_gen:get_inner(Type#type.def),
 
-    DispType = case InnerType of
-		   #'Externaltypereference'{type=T} -> T;
-		   IT when is_tuple(IT) -> element(2,IT);
-		   _ -> InnerType
-	       end,
+    CommentString = attribute_comment(InnerType, TextPos, Cname),
     Comment = fun(St) ->
-		      emit([nl,"%% attribute number ",TextPos,
-			    " with type ",DispType,nl]),
+		      emit([nl,"%% ",CommentString,nl]),
 		      St
 	      end,
 
@@ -1500,9 +1488,9 @@ gen_dec_component_no_val(_, Type, {'DEFAULT',DefVal0}) ->
     DefVal = asn1ct_gen:conform_value(Type, DefVal0),
     emit([{asis,DefVal}]);
 gen_dec_component_no_val(_, _, 'OPTIONAL') ->
-    emit({"asn1_NOVALUE"});
+    emit(["asn1_NOVALUE"]);
 gen_dec_component_no_val({ext,_,_}, _, mandatory) ->
-    emit({"asn1_NOVALUE"}).
+    emit(["asn1_NOVALUE"]).
 
 dec_map_extaddgroup_no_val(Ext, Type, Comp) ->
     L0 = [dec_map_extaddgroup_no_val_1(N, P, Ext, Type) ||
@@ -1699,16 +1687,15 @@ gen_dec_line_other(Erule, Atype, TopType, Comp) ->
 	    end;
 	{constructed,bif} ->
 	    NewTypename = [Cname|TopType],
+            DecFunc = dec_func(asn1ct_gen:list2name(NewTypename)),
 	    case Type#type.tablecinf of
 		[{objfun,_}|_R] ->
 		    fun(BytesVar) ->
-			    emit({"'dec_",asn1ct_gen:list2name(NewTypename),
-				  "'(",BytesVar,", ObjFun)"})
+			    emit([{asis,DecFunc},"(",BytesVar,", ObjFun)"])
 		    end;
 		_ ->
 		    fun(BytesVar) ->
-			    emit({"'dec_",asn1ct_gen:list2name(NewTypename),
-				  "'(",BytesVar,")"})
+			    emit([{asis,DecFunc},"(",BytesVar,")"])
 		    end
 	    end
     end.
@@ -1914,7 +1901,7 @@ emit_extaddgroupTerms(VarSeries,[_]) ->
     ok;
 emit_extaddgroupTerms(VarSeries,[_|Rest]) ->
     asn1ct_name:new(VarSeries),
-    emit({{curr,VarSeries},","}),
+    emit([{curr,VarSeries},","]),
     emit_extaddgroupTerms(VarSeries,Rest);
 emit_extaddgroupTerms(_,[]) ->
     ok.
@@ -1987,3 +1974,15 @@ enc_dig_out_value(#gen{pack=map}=Gen, [{_,Name}|T], Value) ->
 
 make_var(Base) ->
     {var,atom_to_list(asn1ct_gen:mk_var(asn1ct_name:curr(Base)))}.
+
+attribute_comment(InnerType, TextPos, Cname) ->
+    DispType = case InnerType of
+		   #'Externaltypereference'{type=T} -> T;
+		   IT when is_tuple(IT) -> element(2,IT);
+		   _ -> InnerType
+	       end,
+    Comment = ["attribute ",Cname,"(",TextPos,") with type ",DispType],
+    lists:concat(Comment).
+
+dec_func(Tname) ->
+    list_to_atom(lists:concat(["dec_",Tname])).

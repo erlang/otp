@@ -139,6 +139,28 @@ volatile int erts_break_requested = 0;
 #define ERTS_SET_BREAK_REQUESTED (erts_break_requested = 1)
 #define ERTS_UNSET_BREAK_REQUESTED (erts_break_requested = 0)
 #endif
+
+#ifndef ERTS_SMP
+static Eterm signalstate_sigterm[] = {
+    am_sigint,   /* 0 */
+    am_sighup,   /* 1 */
+    am_sigquit,  /* 2 */
+    am_sigabrt,  /* 3 */
+    am_sigalrm,  /* 4 */
+    am_sigterm,  /* 5 */
+    am_sigusr1,  /* 6 */
+    am_sigusr2,  /* 7 */
+    am_sigchld,  /* 8 */
+    am_sigstop,  /* 9 */
+    am_sigtstp   /* 10 */
+};
+
+volatile Uint erts_signal_state = 0;
+#define ERTS_SET_SIGNAL_STATE(S) (erts_signal_state |= signum_to_signalstate(S))
+#define ERTS_CLEAR_SIGNAL_STATE (erts_signal_state = 0)
+static ERTS_INLINE Uint signum_to_signalstate(int signum);
+#endif
+
 /* set early so the break handler has access to initial mode */
 static struct termios initial_tty_mode;
 static int replace_intr = 0;
@@ -151,6 +173,7 @@ int erts_use_kernel_poll = 0;
 
 struct {
     int (*select)(ErlDrvPort, ErlDrvEvent, int, int);
+    int (*enif_select)(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, const ErlNifPid*, Eterm);
     int (*event)(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
     void (*check_io_as_interrupt)(void);
     void (*check_io_interrupt)(int);
@@ -174,6 +197,13 @@ driver_event(ErlDrvPort port, ErlDrvEvent event, ErlDrvEventData event_data)
     return (*io_func.event)(port, event, event_data);
 }
 
+int enif_select(ErlNifEnv* env, ErlNifEvent event,
+                enum ErlNifSelectFlags flags, void* obj, const ErlNifPid* pid, Eterm ref)
+{
+    return (*io_func.enif_select)(env, event, flags, obj, pid, ref);
+}
+
+
 Eterm erts_check_io_info(void *p)
 {
     return (*io_func.info)(p);
@@ -191,6 +221,7 @@ init_check_io(void)
 {
     if (erts_use_kernel_poll) {
 	io_func.select			= driver_select_kp;
+        io_func.enif_select		= enif_select_kp;
 	io_func.event			= driver_event_kp;
 #ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
 	io_func.check_io_as_interrupt	= erts_check_io_async_sig_interrupt_kp;
@@ -206,6 +237,7 @@ init_check_io(void)
     }
     else {
 	io_func.select			= driver_select_nkp;
+        io_func.enif_select		= enif_select_nkp;
 	io_func.event			= driver_event_nkp;
 #ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
 	io_func.check_io_as_interrupt	= erts_check_io_async_sig_interrupt_nkp;
@@ -760,13 +792,34 @@ signum_to_signalterm(int signum)
     }
 }
 
+#ifndef ERTS_SMP
+static ERTS_INLINE Uint
+signum_to_signalstate(int signum)
+{
+    switch (signum) {
+    case SIGINT:  return (1 <<  0);
+    case SIGHUP:  return (1 <<  1);
+    case SIGQUIT: return (1 <<  2);
+    case SIGABRT: return (1 <<  3);
+    case SIGALRM: return (1 <<  4);
+    case SIGTERM: return (1 <<  5);
+    case SIGUSR1: return (1 <<  6);
+    case SIGUSR2: return (1 <<  7);
+    case SIGCHLD: return (1 <<  8);
+    case SIGSTOP: return (1 <<  9);
+    case SIGTSTP: return (1 << 10);
+    default:      return 0;
+    }
+}
+#endif
+
 static RETSIGTYPE generic_signal_handler(int signum)
 {
 #ifdef ERTS_SMP
     smp_sig_notify(signum);
 #else
-    Eterm signal = signum_to_signalterm(signum);
-    signal_notify_requested(signal);
+    ERTS_SET_SIGNAL_STATE(signum);
+    ERTS_CHK_IO_AS_INTR(); /* Make sure we don't sleep in poll */
 #endif
 }
 
@@ -951,6 +1004,23 @@ void erts_do_break_handling(void)
 
     erts_smp_thr_progress_unblock();
 }
+
+#ifdef ERTS_SIGNAL_STATE
+void erts_handle_signal_state(void) {
+    Uint signal_state = ERTS_SIGNAL_STATE;
+    Uint i = 0;
+
+    ERTS_CLEAR_SIGNAL_STATE;
+
+    while (signal_state) {
+        if (signal_state & 0x1) {
+            signal_notify_requested(signalstate_sigterm[i]);
+        }
+        i++;
+        signal_state = signal_state >> 1;
+    }
+}
+#endif
 
 /* Fills in the systems representation of the jam/beam process identifier.
 ** The Pid is put in STRING representation in the supplied buffer,
@@ -1264,8 +1334,8 @@ signal_dispatcher_thread_func(void *unused)
 
         do {
             res = read(sig_notify_fds[0], (void *) &sb.buf[i], sizeof(int) - i);
-            i += res;
-        } while ((i != sizeof(int) && res >= 0) || (res < 0 && errno == EINTR));
+            i += res > 0 ? res : 0;
+        } while ((i < sizeof(int) && res >= 0) || (res < 0 && errno == EINTR));
 
 	if (res < 0) {
 	    erts_exit(ERTS_ABORT_EXIT,

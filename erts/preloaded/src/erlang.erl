@@ -129,7 +129,7 @@
 -export([list_to_atom/1, list_to_binary/1]).
 -export([list_to_bitstring/1, list_to_existing_atom/1, list_to_float/1]).
 -export([list_to_integer/1, list_to_integer/2]).
--export([list_to_pid/1, list_to_tuple/1, loaded/0]).
+-export([list_to_pid/1, list_to_ref/1, list_to_tuple/1, loaded/0]).
 -export([localtime/0, make_ref/0]).
 -export([map_size/1, match_spec_test/3, md5/1, md5_final/1]).
 -export([md5_init/0, md5_update/2, module_loaded/1, monitor/2]).
@@ -1158,6 +1158,12 @@ list_to_integer(_String,_Base) ->
 -spec list_to_pid(String) -> pid() when
       String :: string().
 list_to_pid(_String) ->
+    erlang:nif_error(undefined).
+ 
+%% list_to_ref/1
+-spec erlang:list_to_ref(String) -> reference() when
+      String :: string().
+list_to_ref(_String) ->
     erlang:nif_error(undefined).
 
 %% list_to_tuple/1
@@ -2321,8 +2327,8 @@ spawn_opt(_Tuple) ->
       Total_Reductions :: non_neg_integer(),
       Reductions_Since_Last_Call :: non_neg_integer();
                 (run_queue) -> non_neg_integer();
-                (run_queue_lengths) -> [RunQueueLenght] when
-      RunQueueLenght :: non_neg_integer();
+                (run_queue_lengths) -> [RunQueueLength] when
+      RunQueueLength :: non_neg_integer();
                 (runtime) -> {Total_Run_Time, Time_Since_Last_Call} when
       Total_Run_Time :: non_neg_integer(),
       Time_Since_Last_Call :: non_neg_integer();
@@ -2336,8 +2342,8 @@ spawn_opt(_Tuple) ->
       TotalTime   :: non_neg_integer();
 		(total_active_tasks) -> ActiveTasks when
       ActiveTasks :: non_neg_integer();
-                (total_run_queue_lengths) -> TotalRunQueueLenghts when
-      TotalRunQueueLenghts :: non_neg_integer();
+                (total_run_queue_lengths) -> TotalRunQueueLengths when
+      TotalRunQueueLengths :: non_neg_integer();
                 (wall_clock) -> {Total_Wallclock_Time,
                                  Wallclock_Time_Since_Last_Call} when
       Total_Wallclock_Time :: non_neg_integer(),

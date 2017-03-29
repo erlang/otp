@@ -50,6 +50,10 @@ init_per_suite(Config) ->
 	    {skip, "Crypto did not start"}
     end.
 
+end_per_suite(_Config) ->
+    %% This function is required since init_per_suite/1 exists.
+    ok.
+
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 5}),

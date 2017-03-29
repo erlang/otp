@@ -41,6 +41,7 @@ insn_def_gpr(I) ->
     #pseudo_call{} -> call_clobbered_gpr();
     #pseudo_li{dst=Dst} -> [Dst];
     #pseudo_move{dst=Dst} -> [Dst];
+    #pseudo_spill_move{dst=Dst,temp=Temp} -> [Dst, Temp];
     #pseudo_tailcall_prepare{} -> tailcall_clobbered_gpr();
     #unary{dst=Dst} -> [Dst];
     _ -> []
@@ -71,6 +72,7 @@ insn_use_gpr(I) ->
     #mtspr{src=Src} -> [Src];
     #pseudo_call{sdesc=#ppc_sdesc{arity=Arity}} -> arity_use_gpr(Arity);
     #pseudo_move{src=Src} -> [Src];
+    #pseudo_spill_move{src=Src} -> [Src];
     #pseudo_tailcall{arity=Arity,stkargs=StkArgs} ->
       addsrcs(StkArgs, addtemps(tailcall_clobbered_gpr(), arity_use_gpr(Arity)));
     #store{src=Src,base=Base} -> addtemp(Src, [Base]);
@@ -110,6 +112,7 @@ insn_def_fpr(I) ->
     #fp_binary{dst=Dst} -> [Dst];
     #fp_unary{dst=Dst} -> [Dst];
     #pseudo_fmove{dst=Dst} -> [Dst];
+    #pseudo_spill_fmove{dst=Dst,temp=Temp} -> [Dst, Temp];
     _ -> []
   end.
 
@@ -126,6 +129,7 @@ insn_use_fpr(I) ->
     #fp_binary{src1=Src1,src2=Src2} -> addtemp(Src1, [Src2]);
     #fp_unary{src=Src} -> [Src];
     #pseudo_fmove{src=Src} -> [Src];
+    #pseudo_spill_fmove{src=Src} -> [Src];
     _ -> []
   end.
 

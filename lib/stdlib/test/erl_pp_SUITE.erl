@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1068,10 +1068,10 @@ otp_11100(Config) when is_list(Config) ->
     %% There are a few places where the added code ("options(none)")
     %% doesn't make a difference (pp:bit_elem_type/1 is an example).
 
+    A1 = erl_anno:new(1),
     %% Cannot trigger the use of the hook function with export/import.
     "-export([{fy,a}/b]).\n" =
-        pf({attribute,1,export,[{{fy,a},b}]}),
-    A1 = erl_anno:new(1),
+        pf({attribute,A1,export,[{{fy,a},b}]}),
     "-type foo() :: integer(INVALID-FORM:{foo,bar}:).\n" =
         pf({attribute,A1,type,{foo,{type,A1,integer,[{foo,bar}]},[]}}),
     pf({attribute,A1,type,
@@ -1100,10 +1100,11 @@ otp_11100(Config) when is_list(Config) ->
 
 %% OTP-11861. behaviour_info() and -callback.
 otp_11861(Config) when is_list(Config) ->
+    A3 = erl_anno:new(3),
     "-optional_callbacks([bar/0]).\n" =
-        pf({attribute,3,optional_callbacks,[{bar,0}]}),
+        pf({attribute,A3,optional_callbacks,[{bar,0}]}),
     "-optional_callbacks([{bar,1,bad}]).\n" =
-        pf({attribute,4,optional_callbacks,[{bar,1,bad}]}),
+        pf({attribute,A3,optional_callbacks,[{bar,1,bad}]}),
     ok.
 
 pf(Form) ->

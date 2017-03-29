@@ -66,10 +66,14 @@ do_insn(I, LiveOut, Context, FPoff) ->
       do_pseudo_call_prepare(I, FPoff);
     #pseudo_move{} ->
       {do_pseudo_move(I, Context, FPoff), FPoff};
+    #pseudo_spill_move{} ->
+      {do_pseudo_spill_move(I, Context, FPoff), FPoff};
     #pseudo_tailcall{} ->
       {do_pseudo_tailcall(I, Context), context_framesize(Context)};
     #pseudo_fmove{} ->
       {do_pseudo_fmove(I, Context, FPoff), FPoff};
+    #pseudo_spill_fmove{} ->
+      {do_pseudo_spill_fmove(I, Context, FPoff), FPoff};
     _ ->
       {[I], FPoff}
   end.
@@ -98,6 +102,22 @@ do_pseudo_move(I, Context, FPoff) ->
       end
   end.
 
+do_pseudo_spill_move(I, Context, FPoff) ->
+  #pseudo_spill_move{dst=Dst,temp=Temp,src=Src} = I,
+  case temp_is_pseudo(Src) andalso temp_is_pseudo(Dst) of
+    false -> % Register allocator changed its mind, turn back to move
+      do_pseudo_move(hipe_ppc:mk_pseudo_move(Dst, Src), Context, FPoff);
+    true ->
+      SrcOffset = pseudo_offset(Src, FPoff, Context),
+      DstOffset = pseudo_offset(Dst, FPoff, Context),
+      case SrcOffset =:= DstOffset of
+	true -> []; % omit move-to-self
+	false ->
+	  mk_load(hipe_ppc:ldop_word(), Temp, SrcOffset, mk_sp(),
+		  mk_store(hipe_ppc:stop_word(), Temp, DstOffset, mk_sp(), []))
+      end
+  end.
+
 do_pseudo_fmove(I, Context, FPoff) ->
   Dst = hipe_ppc:pseudo_fmove_dst(I),
   Src = hipe_ppc:pseudo_fmove_src(I),
@@ -112,6 +132,22 @@ do_pseudo_fmove(I, Context, FPoff) ->
 	  hipe_ppc:mk_fload(Dst, Offset, mk_sp(), 0);
 	_ ->
 	  [hipe_ppc:mk_fp_unary('fmr', Dst, Src)]
+      end
+  end.
+
+do_pseudo_spill_fmove(I, Context, FPoff) ->
+  #pseudo_spill_fmove{dst=Dst,temp=Temp,src=Src} = I,
+  case temp_is_pseudo(Src) andalso temp_is_pseudo(Dst) of
+    false -> % Register allocator changed its mind, turn back to move
+      do_pseudo_fmove(hipe_ppc:mk_pseudo_fmove(Dst, Src), Context, FPoff);
+    true ->
+      SrcOffset = pseudo_offset(Src, FPoff, Context),
+      DstOffset = pseudo_offset(Dst, FPoff, Context),
+      case SrcOffset =:= DstOffset of
+	true -> []; % omit move-to-self
+	false ->
+	  hipe_ppc:mk_fload(Temp, SrcOffset, mk_sp(), 0)
+	    ++ hipe_ppc:mk_fstore(Temp, DstOffset, mk_sp(), 0)
       end
   end.
 

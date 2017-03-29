@@ -88,6 +88,8 @@
 -record(pseudo_move, {src, dst}).
 -record(pseudo_ret, {}).
 -record(pseudo_set, {imm, dst}).
+-record(pseudo_spill_fmove, {src, temp, dst}).
+-record(pseudo_spill_move, {src, temp, dst}).
 -record(pseudo_tailcall, {funv, arity, stkargs, linkage}).
 -record(pseudo_tailcall_prepare, {}).
 -record(rdy, {dst}).

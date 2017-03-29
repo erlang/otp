@@ -75,7 +75,7 @@ typedef struct db_table_hash {
 ** table types. The process is always an [in out] parameter.
 */
 void db_initialize_hash(void);
-void db_unfix_table_hash(DbTableHash *tb /* [in out] */);
+SWord db_unfix_table_hash(DbTableHash *tb);
 Uint db_kept_items_hash(DbTableHash *tb);
 
 /* Interface for meta pid table */
@@ -87,14 +87,6 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail);
 int db_get_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret);
 
 int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret);
-
-int db_get_element_array(DbTable *tbl, 
-			 Eterm key,
-			 int ndex, 
-			 Eterm *ret,
-			 int *num_ret); 
-
-int db_erase_bag_exact2(DbTable *tbl, Eterm key, Eterm value);
 
 /* not yet in method table */
 int db_mark_all_deleted_hash(DbTable *tbl);
@@ -110,7 +102,5 @@ typedef struct {
 
 void db_calc_stats_hash(DbTableHash* tb, DbHashStats*);
 Eterm erts_ets_hash_sizeof_ext_segtab(void);
-Eterm erts_ets_hash_get_memstate(Process*, DbTableHash* tb);
-Eterm erts_ets_hash_restore_memstate(DbTableHash* tb, Eterm memstate);
 
 #endif /* _DB_HASH_H */

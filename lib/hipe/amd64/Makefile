@@ -128,6 +128,7 @@ $(EBIN)/hipe_amd64_ra_postconditions.beam: ../main/hipe.hrl ../x86/hipe_x86.hrl 
 $(EBIN)/hipe_amd64_ra_sse2_postconditions.beam: ../main/hipe.hrl
 $(EBIN)/hipe_amd64_registers.beam: ../rtl/hipe_literals.hrl
 $(EBIN)/hipe_amd64_spill_restore.beam: ../main/hipe.hrl ../x86/hipe_x86.hrl ../flow/cfg.hrl ../x86/hipe_x86_spill_restore.erl
+$(EBIN)/hipe_amd64_subst.beam: ../x86/hipe_x86_subst.erl
 $(EBIN)/hipe_amd64_x87.beam: ../x86/hipe_x86_x87.erl
 $(EBIN)/hipe_amd64_sse2.beam: ../main/hipe.hrl ../x86/hipe_x86.hrl
 $(EBIN)/hipe_rtl_to_amd64.beam: ../x86/hipe_rtl_to_x86.erl ../rtl/hipe_rtl.hrl

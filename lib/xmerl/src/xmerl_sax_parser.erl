@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([file/2,
+	 stream/3,
 	 stream/2]).
 
 %%----------------------------------------------------------------------
@@ -72,11 +73,12 @@ file(Name,Options) ->
             File = filename:basename(Name),
 	    ContinuationFun = fun default_continuation_cb/1,
             Res = stream(<<>>, 
-			[{continuation_fun, ContinuationFun},
-			 {continuation_state, FD}, 
-			 {current_location, CL},
-			 {entity, File}
-			 |Options]),
+                         [{continuation_fun, ContinuationFun},
+                          {continuation_state, FD}, 
+                          {current_location, CL},
+                          {entity, File}
+                          |Options],
+                         file),
 	    ok = file:close(FD),
 	    Res
     end.
@@ -92,19 +94,22 @@ file(Name,Options) ->
 %%           EventState = term()
 %% Description: Parse a stream containing an XML document.
 %%----------------------------------------------------------------------
-stream(Xml, Options) when is_list(Xml), is_list(Options) ->
+stream(Xml, Options) ->
+    stream(Xml, Options, stream).
+
+stream(Xml, Options, InputType) when is_list(Xml), is_list(Options) ->
     State = parse_options(Options, initial_state()),
-    case  State#xmerl_sax_parser_state.file_type of
+    case State#xmerl_sax_parser_state.file_type of
 	dtd ->
 	    xmerl_sax_parser_list:parse_dtd(Xml, 
 					    State#xmerl_sax_parser_state{encoding = list,
-									 input_type = stream});
+									 input_type = InputType});
 	normal ->
 	    xmerl_sax_parser_list:parse(Xml, 
 					State#xmerl_sax_parser_state{encoding = list,
-								     input_type = stream})
+								     input_type = InputType})
     end;
-stream(Xml, Options) when is_binary(Xml), is_list(Options) ->
+stream(Xml, Options, InputType) when is_binary(Xml), is_list(Options) ->
     case parse_options(Options, initial_state()) of 
 	{error, Reason} -> {error, Reason};
 	State ->
@@ -127,7 +132,7 @@ stream(Xml, Options) when is_binary(Xml), is_list(Options) ->
 				    State#xmerl_sax_parser_state.event_state};
 		{Xml1, State1} ->
 		    parse_binary(Xml1, 
-				 State1#xmerl_sax_parser_state{input_type = stream},
+				 State1#xmerl_sax_parser_state{input_type = InputType},
 				 ParseFunction)
 	    end
     end.
@@ -226,12 +231,12 @@ check_encoding_option(E) ->
 %% Description: Detects which character set is used in a binary stream.
 %%----------------------------------------------------------------------
 detect_charset(<<>>, #xmerl_sax_parser_state{continuation_fun = undefined} = _) ->
-    throw({error, "Can't detect character encoding due to no indata"});
+    {error, "Can't detect character encoding due to no indata"};
 detect_charset(<<>>, #xmerl_sax_parser_state{continuation_fun = CFun, 
 				      continuation_state = CState} = State) ->
     case CFun(CState) of
 	{<<>>,  _} ->
-	    throw({error, "Can't detect character encoding due to lack of indata"});
+	    {error, "Can't detect character encoding due to lack of indata"};
 	{NewBytes, NewContState} ->
 	    detect_charset(NewBytes, State#xmerl_sax_parser_state{continuation_state = NewContState})
     end;

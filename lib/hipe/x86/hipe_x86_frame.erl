@@ -95,13 +95,17 @@ do_insn(I, LiveOut, Context, FPoff) ->
     #imul{} ->
       {[do_imul(I, Context, FPoff)], FPoff};
     #move{} ->
-      {[do_move(I, Context, FPoff)], FPoff};
+      {do_move(I, Context, FPoff), FPoff};
     #movsx{} ->
       {[do_movsx(I, Context, FPoff)], FPoff};
     #movzx{} ->
       {[do_movzx(I, Context, FPoff)], FPoff};
     #pseudo_call{} ->
       do_pseudo_call(I, LiveOut, Context, FPoff);
+    #pseudo_spill_fmove{} ->
+      {do_pseudo_spill_fmove(I, Context, FPoff), FPoff};
+    #pseudo_spill_move{} ->
+      {do_pseudo_spill_move(I, Context, FPoff), FPoff};
     #pseudo_tailcall{} ->
       {do_pseudo_tailcall(I, Context), context_framesize(Context)};
     #push{} ->
@@ -144,22 +148,50 @@ do_fp_binop(I, Context, FPoff) ->
   Dst = conv_opnd(Dst0, FPoff, Context),
   [I#fp_binop{src=Src,dst=Dst}].
 
-do_fmove(I, Context, FPoff) ->
-  #fmove{src=Src0,dst=Dst0} = I,
+do_fmove(I0, Context, FPoff) ->
+  #fmove{src=Src0,dst=Dst0} = I0,
   Src = conv_opnd(Src0, FPoff, Context),
   Dst = conv_opnd(Dst0, FPoff, Context),
-  I#fmove{src=Src,dst=Dst}.
+  I = I0#fmove{src=Src,dst=Dst},
+  case Src =:= Dst of
+    true -> []; % omit move-to-self
+    false -> [I]
+  end.
+
+do_pseudo_spill_fmove(I0, Context, FPoff) ->
+  #pseudo_spill_fmove{src=Src0,temp=Temp0,dst=Dst0} = I0,
+  Src = conv_opnd(Src0, FPoff, Context),
+  Temp = conv_opnd(Temp0, FPoff, Context),
+  Dst = conv_opnd(Dst0, FPoff, Context),
+  case Src =:= Dst of
+    true -> []; % omit move-to-self
+    false -> [#fmove{src=Src, dst=Temp}, #fmove{src=Temp, dst=Dst}]
+  end.
 
 do_imul(I, Context, FPoff) ->
   #imul{src=Src0} = I,
   Src = conv_opnd(Src0, FPoff, Context),
   I#imul{src=Src}.
 
-do_move(I, Context, FPoff) ->
-  #move{src=Src0,dst=Dst0} = I,
+do_move(I0, Context, FPoff) ->
+  #move{src=Src0,dst=Dst0} = I0,
   Src = conv_opnd(Src0, FPoff, Context),
   Dst = conv_opnd(Dst0, FPoff, Context),
-  I#move{src=Src,dst=Dst}.
+  I = I0#move{src=Src,dst=Dst},
+  case Src =:= Dst of
+    true -> []; % omit move-to-self
+    false -> [I]
+  end.
+
+do_pseudo_spill_move(I0, Context, FPoff) ->
+  #pseudo_spill_move{src=Src0,temp=Temp0,dst=Dst0} = I0,
+  Src = conv_opnd(Src0, FPoff, Context),
+  Temp = conv_opnd(Temp0, FPoff, Context),
+  Dst = conv_opnd(Dst0, FPoff, Context),
+  case Src =:= Dst of
+    true -> []; % omit move-to-self
+    false -> [#move{src=Src, dst=Temp}, #move{src=Temp, dst=Dst}]
+  end.
 
 do_movsx(I, Context, FPoff) ->
   #movsx{src=Src0,dst=Dst0} = I,

@@ -778,7 +778,7 @@ stop_handlers([], _) ->
     [].
 
 %% Message from the release_handler.
-%% The list of modules got to be a set !
+%% The list of modules got to be a set, i.e. no duplicate elements!
 get_modules(MSL) ->
     Mods = [Handler#handler.module || Handler <- MSL],
     ordsets:to_list(ordsets:from_list(Mods)).

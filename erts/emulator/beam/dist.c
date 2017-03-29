@@ -259,7 +259,7 @@ static void doit_monitor_net_exits(ErtsMonitor *mon, void *vnecp)
     DistEntry *dep = ((NetExitsContext *) vnecp)->dep;
     ErtsProcLocks rp_locks = ERTS_PROC_LOCK_LINK;
 
-    rp = erts_pid2proc(NULL, 0, mon->pid, rp_locks);
+    rp = erts_pid2proc(NULL, 0, mon->u.pid, rp_locks);
     if (!rp)
 	goto done;
 
@@ -278,10 +278,11 @@ static void doit_monitor_net_exits(ErtsMonitor *mon, void *vnecp)
 	rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), mon->ref);
 	/* ASSERT(rmon != NULL); can happen during process exit */
 	if (rmon != NULL) {
+            ASSERT(rmon->type == MON_ORIGIN);
 	    ASSERT(is_atom(rmon->name) || is_nil(rmon->name));
 	    watched = (is_atom(rmon->name)
 		       ? TUPLE2(lhp, rmon->name, dep->sysname)
-		       : rmon->pid);
+		       : rmon->u.pid);
 #ifdef ERTS_SMP
 	    rp_locks |= ERTS_PROC_LOCKS_MSG_SEND;
 	    erts_smp_proc_lock(rp, ERTS_PROC_LOCKS_MSG_SEND);
@@ -1391,7 +1392,7 @@ int erts_net_message(Port *prt,
 	if (mon == NULL) {
 	    break;
 	}
-	watched = mon->pid;
+	watched = mon->u.pid;
 	erts_destroy_monitor(mon);
 	rp = erts_pid2proc_opt(NULL, 0,
 			       watched, ERTS_PROC_LOCK_LINK,
@@ -1549,7 +1550,7 @@ int erts_net_message(Port *prt,
 	if (mon == NULL) {
 	    break;
 	}
-	rp = erts_pid2proc(NULL, 0, mon->pid, rp_locks);
+	rp = erts_pid2proc(NULL, 0, mon->u.pid, rp_locks);
 
 	erts_destroy_monitor(mon);
 	if (rp == NULL) {
@@ -1566,7 +1567,7 @@ int erts_net_message(Port *prt,
 	
 	watched = (is_not_nil(mon->name)
 		   ? TUPLE2(&lhp[0], mon->name, sysname)
-		   : mon->pid);
+		   : mon->u.pid);
 	
 	erts_queue_monitor_message(rp, &rp_locks,
 				   ref, am_process, watched, reason);
@@ -2415,21 +2416,21 @@ static void doit_print_monitor_info(ErtsMonitor *mon, void *vptdp)
     void *arg = ((struct print_to_data *) vptdp)->arg;
     Process *rp;
     ErtsMonitor *rmon;
-    rp = erts_proc_lookup(mon->pid);
+    rp = erts_proc_lookup(mon->u.pid);
     if (!rp || (rmon = erts_lookup_monitor(ERTS_P_MONITORS(rp), mon->ref)) == NULL) {
-	erts_print(to, arg, "Warning, stray monitor for: %T\n", mon->pid);
+	erts_print(to, arg, "Warning, stray monitor for: %T\n", mon->u.pid);
     } else if (mon->type == MON_ORIGIN) {
 	/* Local pid is being monitored */
 	erts_print(to, arg, "Remotely monitored by: %T %T\n",
-		   mon->pid, rmon->pid);
+		   mon->u.pid, rmon->u.pid);
     } else {
-	erts_print(to, arg, "Remote monitoring: %T ", mon->pid);
-	if (is_not_atom(rmon->pid))
-	    erts_print(to, arg, "%T\n", rmon->pid);
+	erts_print(to, arg, "Remote monitoring: %T ", mon->u.pid);
+	if (is_not_atom(rmon->u.pid))
+	    erts_print(to, arg, "%T\n", rmon->u.pid);
 	else
 	    erts_print(to, arg, "{%T, %T}\n",
 		       rmon->name,
-		       rmon->pid); /* which in this case is the 
+		       rmon->u.pid); /* which in this case is the 
 				      remote system name... */
     }
 }    

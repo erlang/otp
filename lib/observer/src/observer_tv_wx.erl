@@ -78,11 +78,11 @@ init([Notebook, Parent]) ->
 			   Col + 1
 		   end,
     ListItems = [{"Table Name", ?wxLIST_FORMAT_LEFT,  200},
-		 {"Table Id",   ?wxLIST_FORMAT_RIGHT, 100},
 		 {"Objects",    ?wxLIST_FORMAT_RIGHT, 100},
 		 {"Size (kB)",  ?wxLIST_FORMAT_RIGHT, 100},
 		 {"Owner Pid",  ?wxLIST_FORMAT_CENTER, 150},
-		 {"Owner Name", ?wxLIST_FORMAT_LEFT,  200}
+		 {"Owner Name", ?wxLIST_FORMAT_LEFT,  200},
+		 {"Table Id",   ?wxLIST_FORMAT_LEFT, 250}
 		],
     lists:foldl(AddListEntry, 0, ListItems),
     wxListItem:destroy(Li),
@@ -387,8 +387,8 @@ update_grid2(Grid, #opt{sort_key=Sort,sort_incr=Dir}, Tables) ->
 				 ({Col, Val}) ->
 				      wxListCtrl:setItem(Grid, Row, Col, observer_lib:to_str(Val))
 			      end,
-			      [{0,Name}, {1,Id}, {2,Size}, {3, Memory div 1024},
-			       {4,Owner}, {5,RegName}]),
+			      [{0,Name}, {1,Size}, {2, Memory div 1024},
+			       {3,Owner}, {4,RegName}, {5,Id}]),
 		Row + 1
 	end,
     ProcInfo = case Dir of

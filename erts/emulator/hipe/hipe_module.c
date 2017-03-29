@@ -29,7 +29,7 @@ void hipe_free_module(HipeModule *mod)
 {
     hipe_free_code(mod->text_segment, mod->text_segment_size);
     if (mod->data_segment) /* Some modules lack data segments */
-	erts_free(ERTS_ALC_T_HIPE, mod->data_segment);
+	erts_free(ERTS_ALC_T_HIPE_LL, mod->data_segment);
 
-    erts_free(ERTS_ALC_T_HIPE, mod);
+    erts_free(ERTS_ALC_T_HIPE_LL, mod);
 }

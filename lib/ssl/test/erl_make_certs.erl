@@ -179,7 +179,7 @@ make_tbs(SubjectKey, Opts) ->
 		      subject(proplists:get_value(subject, Opts),false)
 	      end,
 
-    {#'OTPTBSCertificate'{serialNumber = trunc(random:uniform()*100000000)*10000 + 1,
+    {#'OTPTBSCertificate'{serialNumber = trunc(rand:uniform()*100000000)*10000 + 1,
 			  signature    = SignAlgo,
 			  issuer       = Issuer,
 			  validity     = validity(Opts),

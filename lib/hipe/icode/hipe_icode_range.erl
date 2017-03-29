@@ -392,14 +392,17 @@ widen(#range{range=Old}, #range{range=New}, T = #range{range=Wide}) ->
 -spec analyse_call(#icode_call{}, call_fun()) -> #icode_call{}.
 
 analyse_call(Call, LookupFun) ->
+  Args = hipe_icode:args(Call),
+  Fun = hipe_icode:call_fun(Call),
+  Type = hipe_icode:call_type(Call),
+  %% This call has side-effects (it might call LookupFun which sends messages to
+  %% hipe_icode_coordinator to update the argument ranges of Fun), and must thus
+  %% not be moved into the case statement.
+  DstRanges = analyse_call_or_enter_fun(Fun, Args, Type, LookupFun),
   case hipe_icode:call_dstlist(Call) of
     [] ->
       Call;
     Dsts ->
-      Args = hipe_icode:args(Call),
-      Fun = hipe_icode:call_fun(Call),
-      Type = hipe_icode:call_type(Call),
-      DstRanges = analyse_call_or_enter_fun(Fun, Args, Type, LookupFun),
       NewDefs = [update_info(Var, R) || {Var,R} <- lists:zip(Dsts, DstRanges)],
       hipe_icode:subst_defines(lists:zip(Dsts, NewDefs), Call)
   end.
@@ -1306,16 +1309,15 @@ range_rem(Range1, Range2) ->
   Min1_geq_zero = inf_geq(Min1, 0),
   Max1_leq_zero = inf_geq(0, Max1),
   Max_range2 = inf_max([inf_abs(Min2), inf_abs(Max2)]),
-  Max_range2_leq_zero = inf_geq(0, Max_range2),
   New_min = 
     if Min1_geq_zero ->	0;
-       Max_range2_leq_zero -> Max_range2;
-       true -> inf_inv(Max_range2)
+       Max_range2 =:= 0 -> 0;
+       true -> inf_add(inf_inv(Max_range2), 1)
     end,
   New_max = 
     if Max1_leq_zero -> 0;
-       Max_range2_leq_zero -> inf_inv(Max_range2);
-       true -> Max_range2
+       Max_range2 =:= 0 -> 0;
+       true -> inf_add(Max_range2, -1)
     end,
   range_init({New_min, New_max}, false).
 

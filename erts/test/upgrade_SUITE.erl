@@ -37,10 +37,9 @@
 %% In specific:
 %% - hipe does not support any upgrade at all
 %% - dialyzer requires hipe (in the .app file)
-%% - typer requires hipe (in the .app file)
 %% - erl_interface, jinterface support no upgrade
 -define(appup_exclude, 
-	[dialyzer,hipe,typer,erl_interface,jinterface,ose]).
+	[dialyzer,hipe,erl_interface,jinterface,ose]).
 
 init_per_suite(Config) ->
     %% Check that a real release is running, not e.g. cerl
@@ -53,6 +52,10 @@ init_per_suite(Config) ->
 	    rm_rf(filename:join([proplists:get_value(data_dir,Config),priv_dir])),
 	    Config
     end.
+
+end_per_suite(_Config) ->
+    %% This function is required since init_per_suite/1 exists.
+    ok.
 
 init_per_testcase(Case,Config) ->
     PrivDir = filename:join([proplists:get_value(data_dir,Config),priv_dir,Case]),

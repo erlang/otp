@@ -20,7 +20,9 @@
 -module(tar_SUITE).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, borderline/1, atomic/1, long_names/1,
+	 init_per_group/2, end_per_group/2,
+         init_per_testcase/2,
+         borderline/1, atomic/1, long_names/1,
 	 create_long_names/1, bad_tar/1, errors/1, extract_from_binary/1,
 	 extract_from_binary_compressed/1, extract_filtered/1,
 	 extract_from_open_file/1, symlinks/1, open_add_close/1, cooked_compressed/1,
@@ -56,6 +58,9 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(_Case, Config) ->
+    Ports = ordsets:from_list(erlang:ports()),
+    [{ports,Ports}|Config].
 
 %% Test creating, listing and extracting one file from an archive,
 %% multiple times with different file sizes.  Also check that the file
@@ -85,7 +90,7 @@ borderline(Config) when is_list(Config) ->
     %% Clean up.
     delete_files([TempDir]),
 
-    ok.
+    verify_ports(Config).
 
 borderline_test(Size, TempDir) ->
     io:format("Testing size ~p", [Size]),
@@ -270,7 +275,7 @@ atomic(Config) when is_list(Config) ->
     %% Clean up.
     delete_files([Tar1,Tar2,Tar3,Tar4|Names]),
 
-    ok.
+    verify_ports(Config).
 
 %% Returns a sequence of characters.
 
@@ -304,7 +309,9 @@ long_names(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     Long = filename:join(DataDir, "long_names.tar"),
     run_in_short_tempdir(Config,
-			 fun() -> do_long_names(Long) end).
+			 fun() -> do_long_names(Long) end),
+    verify_ports(Config).
+
 
 do_long_names(Long) ->
     %% Try table/2 and extract/2.
@@ -336,7 +343,8 @@ do_long_names(Long) ->
 %% Creates a tar file from a deep directory structure (filenames are
 %% longer than 100 characters).
 create_long_names(Config) when is_list(Config) ->
-    run_in_short_tempdir(Config, fun create_long_names/0).
+    run_in_short_tempdir(Config, fun create_long_names/0),
+    verify_ports(Config).
 
 create_long_names() ->
     {ok,Dir} = file:get_cwd(),
@@ -383,7 +391,7 @@ bad_tar(Config) when is_list(Config) ->
     try_bad("bad_octal",    invalid_tar_checksum, Config),
     try_bad("bad_too_short",    eof, Config),
     try_bad("bad_even_shorter", eof, Config),
-    ok.
+    verify_ports(Config).
 
 try_bad(Name0, Reason, Config) ->
     %% Intentionally no macros here.
@@ -433,7 +441,7 @@ errors(Config) when is_list(Config) ->
     %% Clean up.
     delete_files([GoodTar,BadTar]),
 
-    ok.
+    verify_ports(Config).
 
 try_error(M, F, A, Error) ->
     io:format("Trying ~p:~p(~p)", [M, F, A]),
@@ -483,7 +491,7 @@ extract_from_binary(Config) when is_list(Config) ->
     %% Clean up.
     delete_files([ExtractDir]),
 
-    ok.
+    verify_ports(Config).
 
 extract_from_binary_compressed(Config) when is_list(Config) ->
     %% Test extracting a compressed tar archive from a binary.
@@ -516,7 +524,7 @@ extract_from_binary_compressed(Config) when is_list(Config) ->
     %% Clean up the rest.
     delete_files([ExtractDir]),
 
-    ok.
+    verify_ports(Config).
 
 %% Test extracting a tar archive from a binary.
 extract_filtered(Config) when is_list(Config) ->
@@ -537,7 +545,7 @@ extract_filtered(Config) when is_list(Config) ->
     %% Clean up.
     delete_files([ExtractDir]),
 
-    ok.
+    verify_ports(Config).
 
 %% Test extracting a tar archive from an open file.
 extract_from_open_file(Config) when is_list(Config) ->
@@ -562,7 +570,7 @@ extract_from_open_file(Config) when is_list(Config) ->
     %% Clean up.
     delete_files([ExtractDir]),
 
-    ok.
+    verify_ports(Config).
 
 %% Test that archives containing symlinks can be created and extracted.
 symlinks(Config) when is_list(Config) ->
@@ -581,6 +589,7 @@ symlinks(Config) when is_list(Config) ->
 
     %% Clean up.
     delete_files([Dir]),
+    verify_ports(Config),
     Res.
 
 make_symlink(Path, Link) ->
@@ -697,7 +706,8 @@ init(Config) when is_list(Config) ->
     ok = erl_tar:add(Tar, FileOne, []),
     ok = erl_tar:close(Tar),
     {ok, [FileOne]} = erl_tar:table(TarOne),
-    ok.
+
+    verify_ports(Config).
 
 file_op_bad(_) ->
     throw({error, should_never_be_called}).
@@ -751,7 +761,7 @@ open_add_close(Config) when is_list(Config) ->
 
     delete_files(["oac_file","oac_small","oac_big",Dir,AnotherDir,ADir]),
 
-    ok.
+    verify_ports(Config).
 
 oac_files() ->
     Files = [{"oac_file", 1459, $x},
@@ -782,7 +792,8 @@ cooked_compressed(Config) when is_list(Config) ->
 
     %% Clean up.
     delete_files([filename:join(PrivDir, "ddll_SUITE_data")]),
-    ok.
+
+    verify_ports(Config).
 
 %% Test that an archive can be created directly from binaries and
 %% that an archive can be extracted into binaries.
@@ -810,13 +821,15 @@ memory(Config) when is_list(Config) ->
 
     %% Clean up.
     ok = delete_files([Name1,Name2]),
-    ok.
+
+    verify_ports(Config).
 
 read_other_implementations(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     Files = ["v7.tar", "gnu.tar", "bsd.tar",
              "star.tar", "pax_mtime.tar"],
-    do_read_other_implementations(Files, DataDir).
+    do_read_other_implementations(Files, DataDir),
+    verify_ports(Config).
 
 do_read_other_implementations([], _DataDir) ->
     ok;
@@ -836,7 +849,8 @@ sparse(Config) when is_list(Config) ->
     Sparse01 = "sparse01.tar",
     Sparse10Empty = "sparse10_empty.tar",
     Sparse10 = "sparse10.tar",
-    do_sparse([Sparse01Empty, Sparse01, Sparse10Empty, Sparse10], DataDir, PrivDir).
+    do_sparse([Sparse01Empty, Sparse01, Sparse10Empty, Sparse10], DataDir, PrivDir),
+    verify_ports(Config).
 
 do_sparse([], _DataDir, _PrivDir) ->
     ok;
@@ -993,4 +1007,15 @@ is_ustar(File) ->
         $x -> false;
         $g -> false;
         _ -> true
+    end.
+
+
+verify_ports(Config) ->
+    PortsBefore = proplists:get_value(ports, Config),
+    PortsAfter = ordsets:from_list(erlang:ports()),
+    case ordsets:subtract(PortsAfter, PortsBefore) of
+        [] ->
+            ok;
+        [_|_]=Rem ->
+            error({leaked_ports,Rem})
     end.

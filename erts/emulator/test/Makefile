@@ -89,6 +89,7 @@ MODULES= \
 	os_signal_SUITE \
 	port_SUITE \
 	port_bif_SUITE \
+	prim_eval_SUITE \
 	process_SUITE \
 	pseudoknot_SUITE \
 	receive_SUITE \

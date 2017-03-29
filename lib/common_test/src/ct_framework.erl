@@ -52,6 +52,10 @@
 %%%
 %%% @doc Test server framework callback, called by the test_server
 %%% when a new test case is started.
+init_tc(_,{end_per_testcase_not_run,_},[Config]) ->
+    %% Testcase is completed (skipped or failed), but end_per_testcase
+    %% is not run - don't call pre-hook.
+    {ok,[Config]};
 init_tc(Mod,EPTC={end_per_testcase,_},[Config]) ->
     %% in case Mod == ct_framework, lookup the suite name
     Suite = get_suite_name(Mod, Config),
@@ -62,7 +66,7 @@ init_tc(Mod,EPTC={end_per_testcase,_},[Config]) ->
 	    Other
     end;
 
-init_tc(Mod,Func0,Args) ->    
+init_tc(Mod,Func0,Args) ->
     %% in case Mod == ct_framework, lookup the suite name
     Suite = get_suite_name(Mod, Args),
     {Func,HookFunc} = case Func0 of
@@ -84,12 +88,15 @@ init_tc(Mod,Func0,Args) ->
 	andalso Func=/=end_per_group
 	andalso ct_util:get_testdata(skip_rest) of
 	true ->
+            initialize(false,Mod,Func,Args),
 	    {auto_skip,"Repeated test stopped by force_stop option"};
 	_ ->
 	    case ct_util:get_testdata(curr_tc) of
 		{Suite,{suite0_failed,{require,Reason}}} ->
+                    initialize(false,Mod,Func,Args),
 		    {auto_skip,{require_failed_in_suite0,Reason}};
 		{Suite,{suite0_failed,_}=Failure} ->
+                    initialize(false,Mod,Func,Args),
 		    {fail,Failure};
 		_ ->
 		    ct_util:update_testdata(curr_tc,
@@ -118,16 +125,14 @@ init_tc(Mod,Func0,Args) ->
 			    end,
 			    init_tc1(Mod,Suite,Func,HookFunc,Args);
 			{failed,Seq,BadFunc} ->
-			    {auto_skip,{sequence_failed,Seq,BadFunc}}
+                            initialize(false,Mod,Func,Args),
+                            {auto_skip,{sequence_failed,Seq,BadFunc}}
 		    end
 	    end
     end.
 
 init_tc1(?MODULE,_,error_in_suite,_,[Config0]) when is_list(Config0) ->
-    ct_logs:init_tc(false),
-    ct_event:notify(#event{name=tc_start,
-			   node=node(),
-			   data={?MODULE,error_in_suite}}),
+    initialize(false,?MODULE,error_in_suite),
     _ = ct_suite_init(?MODULE,error_in_suite,[],Config0),
     case ?val(error,Config0) of
 	undefined ->
@@ -177,27 +182,21 @@ init_tc1(Mod,Suite,Func,HookFunc,[Config0]) when is_list(Config0) ->
 		ct_config:delete_default_config(testcase),
 		HookFunc
 	end,
-    Initialize = fun() -> 
-			 ct_logs:init_tc(false),
-			 ct_event:notify(#event{name=tc_start,
-						node=node(),
-						data={Mod,FuncSpec}})
-		 end,
     case add_defaults(Mod,Func,AllGroups) of
 	Error = {suite0_failed,_} ->
-	    Initialize(),
+	    initialize(false,Mod,FuncSpec),
 	    ct_util:set_testdata({curr_tc,{Suite,Error}}),
 	    {error,Error};
 	Error = {group0_failed,_} ->
-	    Initialize(),
+	    initialize(false,Mod,FuncSpec),
 	    {auto_skip,Error};
 	Error = {testcase0_failed,_} ->
-	    Initialize(),
+	    initialize(false,Mod,FuncSpec),
 	    {auto_skip,Error};
 	{SuiteInfo,MergeResult} ->
 	    case MergeResult of
 		{error,Reason} ->
-		    Initialize(),
+		    initialize(false,Mod,FuncSpec),
 		    {fail,Reason};
 		_ ->
 		    init_tc2(Mod,Suite,Func,HookFunc1,
@@ -236,11 +235,8 @@ init_tc2(Mod,Suite,Func,HookFunc,SuiteInfo,MergeResult,Config) ->
 	Conns ->
 	    ct_util:silence_connections(Conns)
     end,
-    ct_logs:init_tc(Func == init_per_suite),
     FuncSpec = group_or_func(Func,Config),
-    ct_event:notify(#event{name=tc_start,
-			   node=node(),
-			   data={Mod,FuncSpec}}),
+    initialize((Func==init_per_suite),Mod,FuncSpec),
 
     case catch configure(MergedInfo,MergedInfo,SuiteInfo,
 			 FuncSpec,[],Config) of
@@ -267,6 +263,18 @@ init_tc2(Mod,Suite,Func,HookFunc,SuiteInfo,MergeResult,Config) ->
 		    end
 	    end
     end.
+
+initialize(RefreshLogs,Mod,Func,[Config]) when is_list(Config) ->
+    initialize(RefreshLogs,Mod,group_or_func(Func,Config));
+initialize(RefreshLogs,Mod,Func,_) ->
+    initialize(RefreshLogs,Mod,Func).
+
+initialize(RefreshLogs,Mod,FuncSpec) ->
+    ct_logs:init_tc(RefreshLogs),
+    ct_event:notify(#event{name=tc_start,
+			   node=node(),
+			   data={Mod,FuncSpec}}).
+
 
 ct_suite_init(Suite,HookFunc,PostInitHook,Config) when is_list(Config) ->
     case ct_hooks:init_tc(Suite,HookFunc,Config) of
@@ -675,22 +683,35 @@ end_tc(Mod,Func,{Result,[Args]}, Return) ->
     end_tc(Mod,Func,self(),Result,Args,Return).
 
 end_tc(Mod,IPTC={init_per_testcase,_Func},_TCPid,Result,Args,Return) ->
-    %% in case Mod == ct_framework, lookup the suite name
-    Suite = get_suite_name(Mod, Args),
-    case ct_hooks:end_tc(Suite,IPTC,Args,Result,Return) of
-	    '$ct_no_change' ->
-		ok;
-	    HookResult ->
-		HookResult
+    case end_hook_func(IPTC,Return,IPTC) of
+        undefined -> ok;
+        _ ->
+            %% in case Mod == ct_framework, lookup the suite name
+            Suite = get_suite_name(Mod, Args),
+            case ct_hooks:end_tc(Suite,IPTC,Args,Result,Return) of
+                '$ct_no_change' ->
+                    ok;
+                HookResult ->
+                    HookResult
+            end
     end;
 
 end_tc(Mod,Func0,TCPid,Result,Args,Return) ->
     %% in case Mod == ct_framework, lookup the suite name
     Suite = get_suite_name(Mod, Args),
-    {EPTC,Func} = case Func0 of
-		      {end_per_testcase,F} -> {true,F};
-		      _                    -> {false,Func0}
-		  end,
+    {Func,FuncSpec,HookFunc} =
+        case Func0 of
+            {end_per_testcase_not_run,F} ->
+                %% Testcase is completed (skipped or failed), but
+                %% end_per_testcase is not run - don't call post-hook.
+                {F,F,undefined};
+            {end_per_testcase,F} ->
+                {F,F,Func0};
+            _ ->
+                FS = group_or_func(Func0,Args),
+                HF = end_hook_func(Func0,Return,FS),
+                {Func0,FS,HF}
+        end,
 
     test_server:timetrap_cancel(),
 
@@ -717,20 +738,18 @@ end_tc(Mod,Func0,TCPid,Result,Args,Return) ->
     end,
     ct_util:delete_suite_data(last_saved_config),
 
-    {FuncSpec,HookFunc} =
-	if not EPTC ->
-		FS = group_or_func(Func,Args),
-		{FS,FS};
-	   true ->
-		{Func,Func0}
-	end,
     {Result1,FinalNotify} =
-	case ct_hooks:end_tc(Suite,HookFunc,Args,Result,Return) of
-	    '$ct_no_change' ->
-		{ok,Result};
-	    HookResult ->
-		{HookResult,HookResult}
-	end,
+        case HookFunc of
+            undefined ->
+                {ok,Result};
+            _ ->
+                case ct_hooks:end_tc(Suite,HookFunc,Args,Result,Return) of
+                    '$ct_no_change' ->
+                        {ok,Result};
+                    HookResult ->
+                        {HookResult,HookResult}
+                end
+        end,
     FinalResult =
 	case get('$test_server_framework_test') of
 	    undefined ->
@@ -820,6 +839,34 @@ end_tc(Mod,Func0,TCPid,Result,Args,Return) ->
 	    ok
     end,
     FinalResult.	    
+
+%% This is to make sure that no post_init_per_* is ever called if the
+%% corresponding pre_init_per_* was not called.
+%% The skip or fail reasons are those that can be returned from
+%% init_tc above in situations where we never came to call
+%% ct_hooks:init_tc/3, e.g. if suite/0 fails, then we never call
+%% ct_hooks:init_tc for init_per_suite, and thus we must not call
+%% ct_hooks:end_tc for init_per_suite either.
+end_hook_func({init_per_testcase,_},{auto_skip,{sequence_failed,_,_}},_) ->
+    undefined;
+end_hook_func({init_per_testcase,_},{auto_skip,"Repeated test stopped by force_stop option"},_) ->
+    undefined;
+end_hook_func({init_per_testcase,_},{fail,{config_name_already_in_use,_}},_) ->
+    undefined;
+end_hook_func({init_per_testcase,_},{auto_skip,{InfoFuncError,_}},_)
+  when InfoFuncError==testcase0_failed;
+       InfoFuncError==require_failed ->
+    undefined;
+end_hook_func(init_per_group,{auto_skip,{InfoFuncError,_}},_)
+  when InfoFuncError==group0_failed;
+       InfoFuncError==require_failed ->
+    undefined;
+end_hook_func(init_per_suite,{auto_skip,{require_failed_in_suite0,_}},_) ->
+    undefined;
+end_hook_func(init_per_suite,{auto_skip,{failed,{error,{suite0_failed,_}}}},_) ->
+    undefined;
+end_hook_func(_,_,Default) ->
+    Default.
 
 %% {error,Reason} | {skip,Reason} | {timetrap_timeout,TVal} | 
 %% {testcase_aborted,Reason} | testcase_aborted_or_killed | 
@@ -1339,25 +1386,25 @@ report(What,Data) ->
 	    ok;
 	tc_done ->
 	    {Suite,{Func,GrName},Result} = Data,
-	    Data1 = if GrName == undefined -> {Suite,Func,Result};
-		       true                -> Data
-	    end,
+            FuncSpec = if GrName == undefined -> Func;
+                          true                -> {Func,GrName}
+                       end,
 	    %% Register the group leader for the process calling the report
 	    %% function, making it possible for a hook function to print
 	    %% in the test case log file
 	    ReportingPid = self(),
 	    ct_logs:register_groupleader(ReportingPid, group_leader()),
 	    case Result of
-		{failed, _} ->
-		    ct_hooks:on_tc_fail(What, Data1);
-		{skipped,{failed,{_,init_per_testcase,_}}} ->
-		    ct_hooks:on_tc_skip(tc_auto_skip, Data1);
-		{skipped,{require_failed,_}} ->
-		    ct_hooks:on_tc_skip(tc_auto_skip, Data1);
-		{skipped,_} ->
-		    ct_hooks:on_tc_skip(tc_user_skip, Data1);
-		{auto_skipped,_} ->
-		    ct_hooks:on_tc_skip(tc_auto_skip, Data1);
+		{failed, Reason} ->
+		    ct_hooks:on_tc_fail(What, {Suite,FuncSpec,Reason});
+		{skipped,{failed,{_,init_per_testcase,_}}=Reason} ->
+		    ct_hooks:on_tc_skip(tc_auto_skip,  {Suite,FuncSpec,Reason});
+		{skipped,{require_failed,_}=Reason} ->
+		    ct_hooks:on_tc_skip(tc_auto_skip, {Suite,FuncSpec,Reason});
+		{skipped,Reason} ->
+		    ct_hooks:on_tc_skip(tc_user_skip, {Suite,FuncSpec,Reason});
+		{auto_skipped,Reason} ->
+		    ct_hooks:on_tc_skip(tc_auto_skip, {Suite,FuncSpec,Reason});
 		_Else ->
 		    ok
 	    end,

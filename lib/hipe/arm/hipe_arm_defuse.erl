@@ -40,6 +40,7 @@ insn_def_gpr(I) ->
     #pseudo_call{} -> call_clobbered_gpr();
     #pseudo_li{dst=Dst} -> [Dst];
     #pseudo_move{dst=Dst} -> [Dst];
+    #pseudo_spill_move{dst=Dst, temp=Temp} -> [Dst, Temp];
     #pseudo_tailcall_prepare{} -> tailcall_clobbered_gpr();
     #smull{dstlo=DstLo,dsthi=DstHi,src1=Src1} ->
       %% ARM requires DstLo, DstHi, and Src1 to be distinct.
@@ -83,6 +84,7 @@ insn_use_gpr(I) ->
     #pseudo_call{funv=FunV,sdesc=#arm_sdesc{arity=Arity}} ->
       funv_use(FunV, arity_use_gpr(Arity));
     #pseudo_move{src=Src} -> [Src];
+    #pseudo_spill_move{src=Src} -> [Src];
     #pseudo_switch{jtab=JTabR,index=IndexR} -> addtemp(JTabR, [IndexR]);
     #pseudo_tailcall{funv=FunV,arity=Arity,stkargs=StkArgs} ->
       addargs(StkArgs, addtemps(tailcall_clobbered_gpr(), funv_use(FunV, arity_use_gpr(Arity))));

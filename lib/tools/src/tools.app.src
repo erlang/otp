@@ -41,7 +41,6 @@
 	]
   },
   {runtime_dependencies, ["stdlib-3.1","runtime_tools-1.8.14",
-			  "kernel-3.0","inets-5.10","erts-7.0",
-			  "compiler-5.0"]}
+			  "kernel-3.0","erts-7.0","compiler-5.0"]}
  ]
 }. 

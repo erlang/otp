@@ -1531,17 +1531,17 @@ test_events(config_func_errors) ->
 
      {?eh,tc_start,{config_func_error_1_SUITE,exit_in_iptc}},
      {?eh,tc_done,{config_func_error_1_SUITE,exit_in_iptc,'_'}},
-     {?eh,test_stats,{0,1,{0,0}}},
+     {?eh,test_stats,{0,0,{0,1}}},
 
      {?eh,tc_start,{config_func_error_1_SUITE,exit_in_eptc}},
      {?eh,tc_done,{config_func_error_1_SUITE,exit_in_eptc,'_'}},
-     {?eh,test_stats,{0,2,{0,0}}},
+     {?eh,test_stats,{1,0,{0,1}}},
 
      [{?eh,tc_start,{config_func_error_1_SUITE,{init_per_group,g1,[]}}},
       {?eh,tc_done,{config_func_error_1_SUITE,{init_per_group,g1,[]},ok}},
       {?eh,tc_start,{config_func_error_1_SUITE,exit_in_iptc}},
       {?eh,tc_done,{config_func_error_1_SUITE,exit_in_iptc,'_'}},
-      {?eh,test_stats,{0,3,{0,0}}},
+      {?eh,test_stats,{1,0,{0,2}}},
       {?eh,tc_start,{config_func_error_1_SUITE,{end_per_group,g1,[]}}},
       {?eh,tc_done,{config_func_error_1_SUITE,{end_per_group,g1,[]},ok}}],
 
@@ -1549,7 +1549,7 @@ test_events(config_func_errors) ->
       {?eh,tc_done,{config_func_error_1_SUITE,{init_per_group,g2,[]},ok}},
       {?eh,tc_start,{config_func_error_1_SUITE,exit_in_eptc}},
       {?eh,tc_done,{config_func_error_1_SUITE,exit_in_eptc,'_'}},
-      {?eh,test_stats,{0,4,{0,0}}},
+      {?eh,test_stats,{2,0,{0,2}}},
       {?eh,tc_start,{config_func_error_1_SUITE,{end_per_group,g2,[]}}},
       {?eh,tc_done,{config_func_error_1_SUITE,{end_per_group,g2,[]},ok}}],
 

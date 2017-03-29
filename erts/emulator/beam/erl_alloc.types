@@ -227,6 +227,7 @@ type	DB_DMC_ERROR	ETS		ETS		db_dmc_error
 type	DB_DMC_ERR_INFO	ETS		ETS		db_dmc_error_info
 type	DB_TERM		ETS		ETS		db_term
 type	DB_PROC_CLEANUP SHORT_LIVED	ETS		db_proc_cleanup_state
+type	ETS_ALL_REQ	SHORT_LIVED	ETS		ets_all_request
 type	INSTR_INFO	LONG_LIVED	SYSTEM		instr_info
 type	LOGGER_DSBUF	TEMPORARY	SYSTEM		logger_dsbuf
 type	TMP_DSBUF	TEMPORARY	SYSTEM		tmp_dsbuf
@@ -350,8 +351,9 @@ type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
 
 +if hipe
 
-# Currently most hipe code use this type.
-type	HIPE		SYSTEM		SYSTEM		hipe_data
+type	HIPE_LL		LONG_LIVED	SYSTEM		hipe_long_lived
+type	HIPE_SL		SHORT_LIVED	SYSTEM		hipe_short_lived
+type	HIPE_STK	STANDARD	SYSTEM		hipe_nstack
 
 +if exec_alloc
 type	HIPE_EXEC	EXEC            CODE		hipe_code
@@ -402,6 +404,7 @@ type	DRV_TAB		LONG_LIVED	SYSTEM		drv_tab
 type	DRV_EV_STATE	LONG_LIVED	SYSTEM		driver_event_state
 type	DRV_EV_D_STATE	FIXED_SIZE	SYSTEM		driver_event_data_state
 type	DRV_SEL_D_STATE	FIXED_SIZE	SYSTEM		driver_select_data_state
+type	NIF_SEL_D_STATE	FIXED_SIZE	SYSTEM		enif_select_data_state
 type	FD_LIST		SHORT_LIVED	SYSTEM		fd_list
 type	ACTIVE_FD_ARR	SHORT_LIVED	SYSTEM		active_fd_array
 type	POLLSET		LONG_LIVED	SYSTEM		pollset

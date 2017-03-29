@@ -54,6 +54,7 @@ do_insn(I, TempMap, Strategy) ->
     #pseudo_call{} -> do_pseudo_call(I, TempMap, Strategy);
     #pseudo_move{} -> do_pseudo_move(I, TempMap, Strategy);
     #pseudo_set{} -> do_pseudo_set(I, TempMap, Strategy);
+    #pseudo_spill_move{} -> do_pseudo_spill_move(I, TempMap, Strategy);
     #pseudo_tailcall{} -> do_pseudo_tailcall(I, TempMap, Strategy);
     #rdy{} -> do_rdy(I, TempMap, Strategy);
     #sethi{} -> do_sethi(I, TempMap, Strategy);
@@ -92,14 +93,16 @@ do_pseudo_call(I=#pseudo_call{funv=FunV}, TempMap, Strategy) ->
 
 do_pseudo_move(I=#pseudo_move{src=Src,dst=Dst}, TempMap, Strategy) ->
   %% Either Dst or Src (but not both) may be a pseudo temp.
-  %% pseudo_move is a special case: in [XXX: not pseudo_tailcall]
-  %% all other instructions, all temps must be non-pseudos
-  %% after register allocation.
-  case temp_is_spilled(Dst, TempMap) of
-    true -> % Src must not be a pseudo
-      {FixSrc,NewSrc,DidSpill} = fix_src1(Src, TempMap, Strategy),
-      NewI = I#pseudo_move{src=NewSrc},
-      {FixSrc ++ [NewI], DidSpill};
+  %% pseudo_move and pseudo_spill_move [XXX: not pseudo_tailcall]
+  %% are special cases: in all other instructions, all temps must
+  %% be non-pseudos after register allocation.
+  case temp_is_spilled(Src, TempMap)
+    andalso temp_is_spilled(Dst, TempMap)
+  of
+    true -> % Turn into pseudo_spill_move
+      Temp = clone(Src, temp1(Strategy)),
+      NewI = #pseudo_spill_move{src=Src,temp=Temp,dst=Dst},
+      {[NewI], true};
     _ ->
       {[I], false}
   end.
@@ -108,6 +111,11 @@ do_pseudo_set(I=#pseudo_set{dst=Dst}, TempMap, Strategy) ->
   {FixDst,NewDst,DidSpill} = fix_dst(Dst, TempMap, Strategy),
   NewI = I#pseudo_set{dst=NewDst},
   {[NewI | FixDst], DidSpill}.
+
+do_pseudo_spill_move(I=#pseudo_spill_move{temp=Temp}, TempMap, _Strategy) ->
+  %% Temp is above the low water mark and must not have been spilled
+  false = temp_is_spilled(Temp, TempMap),
+  {[I], false}.
 
 do_pseudo_tailcall(I=#pseudo_tailcall{funv=FunV}, TempMap, Strategy) ->
   {FixFunV,NewFunV,DidSpill} = fix_funv(FunV, TempMap, Strategy),

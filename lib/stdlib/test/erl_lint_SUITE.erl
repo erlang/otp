@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,7 +64,8 @@
          predef/1,
          maps/1,maps_type/1,maps_parallel_match/1,
          otp_11851/1,otp_11879/1,otp_13230/1,
-         record_errors/1, otp_xxxxx/1]).
+         record_errors/1, otp_xxxxx/1,
+         non_latin1_module/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -84,7 +85,7 @@ all() ->
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
      maps, maps_type, maps_parallel_match,
      otp_11851, otp_11879, otp_13230,
-     record_errors, otp_xxxxx].
+     record_errors, otp_xxxxx, non_latin1_module].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -2098,11 +2099,11 @@ otp_5362(Config) when is_list(Config) ->
             [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}},
 
 	  {call_deprecated_function,
-	   <<"t(X) -> crypto:md5(X).">>,
+	   <<"t(X) -> calendar:local_time_to_universal_time(X).">>,
 	   [],
 	   {warnings,
-            [{1,erl_lint,{deprecated,{crypto,md5,1},
-			  {crypto,hash,2}, "a future release"}}]}},
+            [{1,erl_lint,{deprecated,{calendar,local_time_to_universal_time,1},
+			  {calendar,local_time_to_universal_time_dst,1}, "a future release"}}]}},
 
 	  {call_removed_function,
 	   <<"t(X) -> regexp:match(X).">>,
@@ -2549,7 +2550,7 @@ otp_5878(Config) when is_list(Config) ->
                    {function,9,t,0,[{clause,9,[],[],[{record,10,r,[]}]}]},
                    {eof,11}],
     {error,[{"rec.erl",[{7,erl_lint,old_abstract_code}]}],[]} =
-        compile:forms(OldAbstract, [return, report]),
+        compile_forms(OldAbstract, [return, report]),
 
     ok.
 
@@ -3848,8 +3849,12 @@ otp_11879(_Config) ->
              [{1,erl_lint,{spec_fun_undefined,{f,1}}},
               {2,erl_lint,spec_wrong_arity},
               {22,erl_lint,callback_wrong_arity}]}],
-     []} = compile:forms(Fs, [return,report]),
+     []} = compile_forms(Fs, [return,report]),
     ok.
+
+compile_forms(Terms, Opts) ->
+    Forms = [erl_parse:anno_from_term(Term) || Term <- Terms],
+    compile:forms(Forms, Opts).
 
 %% OTP-13230: -deprecated without -module.
 otp_13230(Config) when is_list(Config) ->
@@ -3918,6 +3923,24 @@ otp_xxxxx(Config) ->
            [],
            []}],
     run(Config, Ts).
+
+%% OTP-14285: We currently don't support non-latin1 module names.
+
+non_latin1_module(_Config) ->
+    do_non_latin1_module('юникод'),
+    do_non_latin1_module(list_to_atom([256,$a,$b,$c])),
+    do_non_latin1_module(list_to_atom([$a,$b,256,$c])),
+    ok.
+
+do_non_latin1_module(Mod) ->
+    File = atom_to_list(Mod) ++ ".erl",
+    Forms = [{attribute,1,file,{File,1}},
+             {attribute,1,module,Mod},
+             {eof,2}],
+    error = compile:forms(Forms),
+    {error,_,[]} = compile:forms(Forms, [return]),
+    ok.
+
 
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->

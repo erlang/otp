@@ -19,7 +19,7 @@
 
 {application, compiler,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "7.0.3"},
+  {vsn, "7.0.4"},
   {modules, [
 	     beam_a,
 	     beam_asm,
@@ -38,6 +38,7 @@
 	     beam_peep,
 	     beam_receive,
 	     beam_reorder,
+	     beam_record,
 	     beam_split,
 	     beam_trim,
 	     beam_type,

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -182,10 +182,18 @@
         can contain the following:</p>
 
       <list type="bulleted">
-        <item>Tuples <c>{error,E}</c> and <c>{warning,W}</c>, denoting
-          syntactically incorrect forms and warnings</item>
-        <item><c>{eof,LINE}</c>, denoting an end-of-stream
-          encountered before a complete form had been parsed</item>
+        <item>
+          <p>Tuples <c>{error,E}</c> and <c>{warning,W}</c>, denoting
+            syntactically incorrect forms and warnings.
+          </p>
+        </item>
+        <item>
+          <p><c>{eof,LOCATION}</c>, denoting an end-of-stream
+            encountered before a complete form had been parsed.
+            The word <c>LOCATION</c> represents an integer, and denotes the
+            number of the last line in the source file.
+          </p>
+        </item>
       </list>
     </section>
   </section>

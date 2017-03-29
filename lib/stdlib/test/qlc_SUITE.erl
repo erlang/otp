@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -886,11 +886,12 @@ eval_unique(Config) when is_list(Config) ->
              [a] = qlc:e(Q2, {unique_all, true})
             ">>,
 
-          <<"Q = qlc:q([SQV || SQV <- qlc:q([X || X <- [1,2,1]],unique)],
+          <<"Q = qlc:q([SQV || SQV <- qlc:q([X || X <- [1,2,1,#{a => 1}]],
+                                             unique)],
                        unique),
              {call,_,_,[{lc,_,{var,_,'X'},[{generate,_,{var,_,'X'},_}]},_]} =
                  qlc:info(Q, [{format,abstract_code},unique_all]),
-             [1,2] = qlc:e(Q)">>,
+             [1,2,#{a := 1}] = qlc:e(Q)">>,
 
           <<"Q = qlc:q([X || X <- [1,2,1]]),
              {call,_,_,[{lc,_,{var,_,'X'},[{generate,_,{var,_,'X'},_}]},_]} =
@@ -2637,7 +2638,16 @@ info(Config) when is_list(Config) ->
                                       {cons, _, _, _}]},
                               {nil,_}}]}]} = i(QH, {format, abstract_code}),
           [{5},{6}] = qlc:e(QH),
-          [{4},{5},{6}] = qlc:e(F(3))">>
+          [{4},{5},{6}] = qlc:e(F(3))">>,
+
+          <<"Fun = fun ?MODULE:i/2,
+             L = [{#{k => #{v => Fun}}, Fun}],
+             H = qlc:q([Q || Q <- L, Q =:= {#{k => #{v => Fun}}, Fun}]),
+             L = qlc:e(H),
+             {call,_,_,[{lc,_,{var,_,'Q'},
+                         [{generate,_,_,_},
+                          {op,_,_,_,_}]}]} =
+                qlc:info(H, [{format,abstract_code}])">>
 
        ],
     run(Config, Ts),

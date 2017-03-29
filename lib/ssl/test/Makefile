@@ -56,7 +56,8 @@ MODULES = \
 	ssl_upgrade_SUITE\
 	ssl_sni_SUITE \
 	make_certs\
-	erl_make_certs
+	erl_make_certs\
+        x509_test
 
 
 ERL_FILES = $(MODULES:%=%.erl)

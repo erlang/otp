@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -128,6 +128,7 @@
                        %% outgoing DPR; boolean says whether or not
                        %% the request was sent explicitly with
                        %% diameter:call/4.
+         strict :: boolean(),
          length_errors :: exit | handle | discard,
          incoming_maxlen :: integer() | infinity}).
 
@@ -233,6 +234,7 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
                     proplists:get_value(dpa_timeout, Opts, ?DPA_TIMEOUT)}),
 
     Tmo = proplists:get_value(capx_timeout, Opts, ?CAPX_TIMEOUT),
+    Strictness = proplists:get_value(capx_strictness, Opts, true),
     OnLengthErr = proplists:get_value(length_errors, Opts, exit),
 
     {TPid, Addrs} = start_transport(T, Rest, Svc),
@@ -246,6 +248,7 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
            mode = M,
            service = svc(Svc, Addrs),
            length_errors = OnLengthErr,
+           strict = Strictness,
            incoming_maxlen = Maxlen}.
 %% The transport returns its local ip addresses so that different
 %% transports on the same service can use different local addresses.
@@ -454,6 +457,9 @@ transition({timeout, _}, _) ->
 %% Outgoing message.
 transition({send, Msg}, S) ->
     outgoing(Msg, S);
+transition({send, Msg, Route}, S) ->
+    put_route(Route),
+    outgoing(Msg, S);
 
 %% Request for graceful shutdown at remove_transport, stop_service of
 %% application shutdown.
@@ -483,8 +489,10 @@ transition({'DOWN', _, process, TPid, _},
            = S) ->
     start_next(S);
 
-%% Transport has died after connection timeout.
-transition({'DOWN', _, process, _, _}, _) ->
+%% Transport has died after connection timeout, or handler process has
+%% died.
+transition({'DOWN', _, process, Pid, _}, _) ->
+    erase_route(Pid),
     ok;
 
 %% State query.
@@ -493,6 +501,40 @@ transition({state, Pid}, #state{state = S, transport = TPid}) ->
     ok.
 
 %% Crash on anything unexpected.
+
+%% put_route/1
+%%
+%% Map identifiers in an outgoing request to be able to lookup the
+%% handler process when the answer is received.
+
+put_route({Pid, Ref, Seqs}) ->
+    MRef = monitor(process, Pid),
+    put(Pid, Seqs),
+    put(Seqs, {Pid, Ref, MRef}).
+
+%% get_route/1
+
+get_route(#diameter_packet{header = #diameter_header{is_request = false}}
+          = Pkt) ->
+    Seqs = diameter_codec:sequence_numbers(Pkt),
+    case erase(Seqs) of
+        {Pid, Ref, MRef} ->
+            demonitor(MRef),
+            erase(Pid),
+            {Pid, Ref, self()};
+        undefined ->
+            false
+    end;
+
+get_route(_) ->
+    false.
+
+%% erase_route/1
+
+erase_route(Pid) ->
+    erase(erase(Pid)).
+
+%% capx/1
 
 capx(recv_CER) ->
     'CER';
@@ -576,8 +618,7 @@ incoming({Msg, NPid}, S) ->
             T
     catch
         {?MODULE, Name, Pkt} ->
-            S#state.parent ! {recv, self(), Name, {Pkt, NPid}},
-            rcv(Name, Pkt, S)
+            incoming(Name, Pkt, NPid, S)
     end;
 
 incoming(Msg, S) ->
@@ -585,9 +626,14 @@ incoming(Msg, S) ->
         recv(Msg, S)
     catch
         {?MODULE, Name, Pkt} ->
-            S#state.parent ! {recv, self(), Name, Pkt},
-            rcv(Name, Pkt, S)
+            incoming(Name, Pkt, false, S)
     end.
+
+%% incoming/4
+
+incoming(Name, Pkt, NPid, #state{parent = Pid} = S) ->
+    Pid ! {recv, self(), get_route(Pkt), Name, Pkt, NPid},
+    rcv(Name, Pkt, S).
 
 %% recv/2
 
@@ -613,6 +659,17 @@ recv1(_,
       #state{incoming_maxlen = M})
   when M < size(Bin) ->
     invalid(false, incoming_maxlen_exceeded, {size(Bin), H});
+
+%% Ignore anything but an expected CER/CEA if so configured. This is
+%% non-standard behaviour.
+recv1(Name, _, #state{state = {'Wait-CEA', _, _},
+                      strict = false})
+  when Name /= 'CEA' ->
+    ok;
+recv1(Name, _, #state{state = recv_CER,
+                      strict = false})
+  when Name /= 'CER' ->
+    ok;
 
 %% Incoming request after outgoing DPR: discard. Don't discard DPR, so
 %% both ends don't do so when sending simultaneously.

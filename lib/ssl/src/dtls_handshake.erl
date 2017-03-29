@@ -136,9 +136,11 @@ handshake_bin([Type, Length, Data], Seq) ->
     
 %%--------------------------------------------------------------------
 -spec get_dtls_handshake(dtls_record:dtls_version(), binary(), #protocol_buffers{}) ->
-     {[{dtls_handshake(), binary()}], #protocol_buffers{}} | {more_data, #protocol_buffers{}}.
+                                {[dtls_handshake()], #protocol_buffers{}}.                
 %%
-%% Description: ...
+%% Description:  Given buffered and new data from dtls_record, collects
+%% and returns it as a list of handshake messages, also returns 
+%% possible leftover data in the new "protocol_buffers".
 %%--------------------------------------------------------------------
 get_dtls_handshake(Version, Fragment, ProtocolBuffers) ->
     handle_fragments(Version, Fragment, ProtocolBuffers, []).
@@ -288,8 +290,6 @@ do_handle_fragments(_, [], Buffers, Acc) ->
     {lists:reverse(Acc), Buffers};
 do_handle_fragments(Version, [Fragment | Fragments], Buffers0, Acc) ->
     case reassemble(Version, Fragment, Buffers0) of
-	{more_data, _} = More when Acc == []->
-	    More;
 	{more_data, Buffers} when Fragments == [] ->
 	    {lists:reverse(Acc), Buffers};
 	{more_data, Buffers} ->
@@ -455,7 +455,7 @@ merge_fragments(#handshake_fragment{
 		   fragment_offset = PreviousOffSet,
 		   fragment_length = CurrentLen}) when CurrentLen < PreviousLen ->
     Previous;
-%% Next fragment
+%% Next fragment, might be overlapping
 merge_fragments(#handshake_fragment{
 		   fragment_offset = PreviousOffSet, 
 		   fragment_length = PreviousLen,
@@ -464,10 +464,28 @@ merge_fragments(#handshake_fragment{
 		#handshake_fragment{
 		   fragment_offset = CurrentOffSet,
 		   fragment_length = CurrentLen,
-		   fragment = CurrentData}) when PreviousOffSet + PreviousLen == CurrentOffSet->
-	    Previous#handshake_fragment{
-	      fragment_length =  PreviousLen + CurrentLen,
-	      fragment = <<PreviousData/binary, CurrentData/binary>>};
+                  fragment = CurrentData})
+  when PreviousOffSet + PreviousLen >= CurrentOffSet andalso
+       PreviousOffSet + PreviousLen < CurrentOffSet + CurrentLen ->
+    CurrentStart = PreviousOffSet + PreviousLen - CurrentOffSet,
+    <<_:CurrentStart/bytes, Data/binary>> = CurrentData,
+    Previous#handshake_fragment{
+      fragment_length =  PreviousLen + CurrentLen - CurrentStart,
+      fragment = <<PreviousData/binary, Data/binary>>};
+%% already fully contained fragment
+merge_fragments(#handshake_fragment{
+                  fragment_offset = PreviousOffSet, 
+                  fragment_length = PreviousLen,
+                  fragment = PreviousData
+                 } = Previous, 
+               #handshake_fragment{
+                  fragment_offset = CurrentOffSet,
+                  fragment_length = CurrentLen,
+                  fragment = CurrentData})
+  when PreviousOffSet + PreviousLen >= CurrentOffSet andalso
+       PreviousOffSet + PreviousLen >= CurrentOffSet + CurrentLen ->
+    Previous;
+
 %% No merge there is a gap
 merge_fragments(Previous, Current) ->
     [Previous, Current].

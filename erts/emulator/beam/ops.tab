@@ -620,6 +620,20 @@ test_heap Need u==1 | put_list Y=y x==0 x==0 => test_heap_1_put_list Need Y
 %macro: test_heap_1_put_list TestHeapPutList -pack
 test_heap_1_put_list I y
 
+#
+# is_tagged_tuple Fail=f Src=rxy Arity Atom=a
+#
+
+is_tagged_tuple Fail Literal=q Arity Atom => \
+    move Literal x | is_tagged_tuple Fail x Arity Atom
+is_tagged_tuple Fail=f c Arity Atom  => jump Fail
+
+%macro:is_tagged_tuple IsTaggedTuple -fail_action
+
+is_tagged_tuple f r A a
+is_tagged_tuple f x A a
+is_tagged_tuple f y A a
+
 # Test tuple & arity (head)
 
 is_tuple Fail Literal=q => move Literal x | is_tuple Fail x

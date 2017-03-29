@@ -39,17 +39,26 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() ->
+    [
+     {group, tls},
+     {group, dtls}
+    ].
+
+groups() ->
+    [
+     {tls, [], all_protocol_groups()},
+     {dtls, [], all_protocol_groups()},
+     {active, [], tests()},
+     {active_once, [], tests()},
+     {passive, [], tests()},
+     {error_handling, [],error_handling_tests()}
+    ].
+
+all_protocol_groups() ->
     [{group, active},
      {group, passive},
      {group, active_once},
      {group, error_handling}].
-
-
-groups() ->
-    [{active, [], tests()},
-     {active_once, [], tests()},
-     {passive, [], tests()},
-     {error_handling, [],error_handling_tests()}].
 
 tests() ->
     [verify_peer,
@@ -85,7 +94,7 @@ init_per_suite(Config0) ->
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
-	    ssl_test_lib:clean_start(),
+            ssl_test_lib:clean_start(),
 	    %% make rsa certs using oppenssl
 	    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config0),
 				     proplists:get_value(priv_dir, Config0)),
@@ -98,6 +107,26 @@ init_per_suite(Config0) ->
 end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
+
+init_per_group(tls, Config) ->
+    Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
+    ssl:stop(),
+    application:load(ssl),
+    application:set_env(ssl, protocol_version, Version),
+    application:set_env(ssl, bypass_pem_cache, Version),
+    ssl:start(),
+    NewConfig = proplists:delete(protocol, Config),
+    [{protocol, tls}, {version, tls_record:protocol_version(Version)} | NewConfig];
+
+init_per_group(dtls, Config) ->
+    Version = dtls_record:protocol_version(dtls_record:highest_protocol_version([])),
+    ssl:stop(),
+    application:load(ssl),
+    application:set_env(ssl, protocol_version, Version),
+    application:set_env(ssl, bypass_pem_cache, Version),
+    ssl:start(),
+    NewConfig = proplists:delete(protocol_opts, proplists:delete(protocol, Config)),
+    [{protocol, dtls}, {protocol_opts, [{protocol, dtls}]}, {version, dtls_record:protocol_version(Version)} | NewConfig];
 
 init_per_group(active, Config) ->
     [{active, true}, {receive_function, send_recv_result_active}  | Config];
@@ -126,7 +155,7 @@ init_per_testcase(_TestCase, Config) ->
     ssl:stop(),
     ssl:start(),
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:timetrap({seconds, 5}),
+    ct:timetrap({seconds, 10}),
     Config.
 
 end_per_testcase(_TestCase, Config) ->     
@@ -262,7 +291,7 @@ server_require_peer_cert_fail() ->
 server_require_peer_cert_fail(Config) when is_list(Config) ->
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
 		  | ssl_test_lib:ssl_options(server_verification_opts, Config)],
-    BadClientOpts = ssl_test_lib:ssl_options(client_opts, []),
+    BadClientOpts = ssl_test_lib:ssl_options(empty_client_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
@@ -411,7 +440,7 @@ server_require_peer_cert_partial_chain_fun_fail() ->
 server_require_peer_cert_partial_chain_fun_fail(Config) when is_list(Config) ->
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
 		  | ssl_test_lib:ssl_options(server_verification_opts, Config)],
-    ClientOpts = proplists:get_value(client_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     {ok, ServerCAs} = file:read_file(proplists:get_value(cacertfile, ServerOpts)),
@@ -1091,6 +1120,7 @@ client_with_cert_cipher_suites_handshake() ->
 client_with_cert_cipher_suites_handshake(Config) when is_list(Config) ->
     ClientOpts =  ssl_test_lib:ssl_options(client_verification_opts_digital_signature_only, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_verification_opts, Config),
+
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					{from, self()},
@@ -1098,7 +1128,7 @@ client_with_cert_cipher_suites_handshake(Config) when is_list(Config) ->
 					       send_recv_result_active, []}},
 					{options, [{active, true},
 						   {ciphers, 
-						    ssl_test_lib:rsa_non_signed_suites(tls_record:highest_protocol_version([]))}
+						    ssl_test_lib:rsa_non_signed_suites(proplists:get_value(version, Config))}
 						   | ServerOpts]}]),
     Port  = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
@@ -1132,7 +1162,7 @@ server_verify_no_cacerts(Config) when is_list(Config) ->
 unknown_server_ca_fail() ->
     [{doc,"Test that the client fails if the ca is unknown in verify_peer mode"}].
 unknown_server_ca_fail(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, []),
+    ClientOpts = ssl_test_lib:ssl_options(empty_client_opts, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_verification_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
@@ -1176,7 +1206,7 @@ unknown_server_ca_fail(Config) when is_list(Config) ->
 unknown_server_ca_accept_verify_none() ->
     [{doc,"Test that the client succeds if the ca is unknown in verify_none mode"}].
 unknown_server_ca_accept_verify_none(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, []),
+    ClientOpts = ssl_test_lib:ssl_options(empty_client_opts, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_verification_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -1201,8 +1231,8 @@ unknown_server_ca_accept_verify_peer() ->
     [{doc, "Test that the client succeds if the ca is unknown in verify_peer mode"
      " with a verify_fun that accepts the unknown ca error"}].
 unknown_server_ca_accept_verify_peer(Config) when is_list(Config) ->
-    ClientOpts =ssl_test_lib:ssl_options(client_opts, []),
-    ServerOpts =  ssl_test_lib:ssl_options(server_verification_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(empty_client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					{from, self()},
@@ -1240,7 +1270,7 @@ unknown_server_ca_accept_verify_peer(Config) when is_list(Config) ->
 unknown_server_ca_accept_backwardscompatibility() ->
     [{doc,"Test that old style verify_funs will work"}].
 unknown_server_ca_accept_backwardscompatibility(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, []),
+    ClientOpts = ssl_test_lib:ssl_options(empty_client_opts, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_verification_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},

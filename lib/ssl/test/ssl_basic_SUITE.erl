@@ -53,7 +53,8 @@ all() ->
      {group, options_tls},
      {group, session},
      {group, 'dtlsv1.2'},
-     %%{group, 'dtlsv1'},
+     %%     {group, 'dtlsv1'}, Breaks dtls in cert_verify_SUITE enable later when 
+     %% problem is identified and fixed
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
@@ -65,15 +66,15 @@ groups() ->
      {basic_tls, [], basic_tests_tls()},
      {options, [], options_tests()},
      {options_tls, [], options_tests_tls()},
-     %%{'dtlsv1.2', [], all_versions_groups()},
-     {'dtlsv1.2', [], [connection_information]},
-     %%{'dtlsv1', [], all_versions_groups()},
+     {'dtlsv1.2', [], all_versions_groups()},
+     {'dtlsv1', [], all_versions_groups()},
      {'tlsv1.2', [], all_versions_groups() ++ tls_versions_groups() ++ [conf_signature_algs, no_common_signature_algs]},
      {'tlsv1.1', [], all_versions_groups() ++ tls_versions_groups()},
      {'tlsv1', [], all_versions_groups() ++ tls_versions_groups() ++ rizzo_tests()},
      {'sslv3', [], all_versions_groups() ++ tls_versions_groups() ++ rizzo_tests() ++ [tls_ciphersuite_vs_version]},
      {api,[], api_tests()},
      {api_tls,[], api_tests_tls()},
+     {tls_ciphers,[], tls_cipher_tests()},
      {session, [], session_tests()},
      {renegotiate, [], renegotiate_tests()},
      {ciphers, [], cipher_tests()},
@@ -83,12 +84,13 @@ groups() ->
     ].
 
 tls_versions_groups ()->
-    [{group, api_tls},
+    [{group, renegotiate}, %% Should be in all_versions_groups not fixed for DTLS yet
+     {group, api_tls},
+     {group, tls_ciphers},
      {group, error_handling_tests_tls}].
 
 all_versions_groups ()->
     [{group, api},
-     {group, renegotiate},
      {group, ciphers},
      {group, ciphers_ec},
      {group, error_handling_tests}].
@@ -146,11 +148,10 @@ options_tests_tls() ->
 
 api_tests() ->
     [connection_info,
+     secret_connection_info,
      connection_information,
-     peername,
      peercert,
      peercert_with_client_cert,
-     sockname,
      versions,
      eccs,
      controlling_process,
@@ -162,7 +163,6 @@ api_tests() ->
      ssl_recv_timeout,
      server_name_indication_option,
      accept_pool,
-     new_options_in_accept,
      prf
     ].
 
@@ -175,7 +175,10 @@ api_tests_tls() ->
      tls_shutdown,
      tls_shutdown_write,
      tls_shutdown_both,
-     tls_shutdown_error
+     tls_shutdown_error,
+     peername,
+     sockname,
+     new_options_in_accept
     ].
 
 session_tests() ->
@@ -197,6 +200,11 @@ renegotiate_tests() ->
      renegotiate_dos_mitigate_passive,
      renegotiate_dos_mitigate_absolute].
 
+tls_cipher_tests() ->
+    [rc4_rsa_cipher_suites,
+     rc4_ecdh_rsa_cipher_suites,
+     rc4_ecdsa_cipher_suites].
+
 cipher_tests() ->
     [cipher_suites,
      cipher_suites_mix,
@@ -212,9 +220,6 @@ cipher_tests() ->
      srp_cipher_suites,
      srp_anon_cipher_suites,
      srp_dsa_cipher_suites,
-     rc4_rsa_cipher_suites,
-     rc4_ecdh_rsa_cipher_suites,
-     rc4_ecdsa_cipher_suites,
      des_rsa_cipher_suites,
      des_ecdh_rsa_cipher_suites,
      default_reject_anonymous].
@@ -226,15 +231,15 @@ cipher_tests_ec() ->
      ciphers_ecdh_rsa_signed_certs_openssl_names].
 
 error_handling_tests()->
-    [controller_dies,
-     close_transport_accept,
+    [close_transport_accept,
      recv_active,
      recv_active_once,
      recv_error_handling
     ].
 
 error_handling_tests_tls()->
-    [tls_client_closes_socket,
+    [controller_dies,
+     tls_client_closes_socket,
      tls_tcp_error_propagation_in_active_mode,
      tls_tcp_connect,
      tls_tcp_connect_big,
@@ -607,7 +612,7 @@ prf(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 
 connection_info() ->
-    [{doc,"Test the API function ssl:connection_information/1"}].
+    [{doc,"Test the API function ssl:connection_information/2"}].
 connection_info(Config) when is_list(Config) -> 
     ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
@@ -638,6 +643,38 @@ connection_info(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
+secret_connection_info() ->
+    [{doc,"Test the API function ssl:connection_information/2"}].
+secret_connection_info(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, secret_connection_info_result, []}},
+					{options, ServerOpts}]),
+    
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+                                        {from, self()}, 
+                                        {mfa, {?MODULE, secret_connection_info_result, []}},
+                                        {options, ClientOpts}]),
+    
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
+
+    Version = ssl_test_lib:protocol_version(Config),    
+			   
+    ssl_test_lib:check_result(Server, true, Client, true),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 
 %%--------------------------------------------------------------------
 
@@ -843,8 +880,7 @@ controller_dies(Config) when is_list(Config) ->
     Server ! listen, 
     Tester = self(),
     Connect = fun(Pid) ->
-		      {ok, Socket} = ssl:connect(Hostname, Port, 
-						  [{reuseaddr,true},{ssl_imp,new}]),
+		      {ok, Socket} = ssl:connect(Hostname, Port, ClientOpts),
 		      %% Make sure server finishes and verification
 		      %% and is in coonection state before
 		      %% killing client
@@ -2194,8 +2230,9 @@ ciphers_dsa_signed_certs() ->
     [{doc,"Test all dsa ssl cipher suites in highest support ssl/tls version"}].
        
 ciphers_dsa_signed_certs(Config) when is_list(Config) ->
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
     Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_test_lib:dsa_suites(tls_record:protocol_version(Version)),
+    Ciphers = ssl_test_lib:dsa_suites(NVersion),
     ct:log("~p erlang cipher suites ~p~n", [Version, Ciphers]),
     run_suites(Ciphers, Version, Config, dsa).
 %%-------------------------------------------------------------------
@@ -2218,29 +2255,33 @@ anonymous_cipher_suites(Config) when is_list(Config) ->
 psk_cipher_suites() ->
     [{doc, "Test the PSK ciphersuites WITHOUT server supplied identity hint"}].
 psk_cipher_suites(Config) when is_list(Config) ->
+    NVersion = tls_record:highest_protocol_version([]),
     Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_test_lib:psk_suites(),
+    Ciphers = ssl_test_lib:psk_suites(NVersion),
     run_suites(Ciphers, Version, Config, psk).
 %%-------------------------------------------------------------------
 psk_with_hint_cipher_suites()->
     [{doc, "Test the PSK ciphersuites WITH server supplied identity hint"}].
 psk_with_hint_cipher_suites(Config) when is_list(Config) ->
+    NVersion = tls_record:highest_protocol_version([]),
     Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_test_lib:psk_suites(),
+    Ciphers = ssl_test_lib:psk_suites(NVersion),
     run_suites(Ciphers, Version, Config, psk_with_hint).
 %%-------------------------------------------------------------------
 psk_anon_cipher_suites() ->
     [{doc, "Test the anonymous PSK ciphersuites WITHOUT server supplied identity hint"}].
 psk_anon_cipher_suites(Config) when is_list(Config) ->
+    NVersion = tls_record:highest_protocol_version([]),
     Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_test_lib:psk_anon_suites(),
+    Ciphers = ssl_test_lib:psk_anon_suites(NVersion),
     run_suites(Ciphers, Version, Config, psk_anon).
 %%-------------------------------------------------------------------
 psk_anon_with_hint_cipher_suites()->
     [{doc, "Test the anonymous PSK ciphersuites WITH server supplied identity hint"}].
 psk_anon_with_hint_cipher_suites(Config) when is_list(Config) ->
+    NVersion = tls_record:highest_protocol_version([]),
     Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_test_lib:psk_anon_suites(),
+    Ciphers = ssl_test_lib:psk_anon_suites(NVersion),
     run_suites(Ciphers, Version, Config, psk_anon_with_hint).
 %%-------------------------------------------------------------------
 srp_cipher_suites()->
@@ -2291,18 +2332,17 @@ rc4_ecdsa_cipher_suites(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------
 des_rsa_cipher_suites()->
-    [{doc, "Test the RC4 ciphersuites"}].
+    [{doc, "Test the des_rsa ciphersuites"}].
 des_rsa_cipher_suites(Config) when is_list(Config) ->
-    NVersion = tls_record:highest_protocol_version([]),
-    Version = tls_record:protocol_version(NVersion),
-    Ciphers = ssl_test_lib:des_suites(NVersion),
+    Version = ssl_test_lib:protocol_version(Config),
+    Ciphers = ssl_test_lib:des_suites(Config),
     run_suites(Ciphers, Version, Config, des_rsa).
 %-------------------------------------------------------------------
 des_ecdh_rsa_cipher_suites()->
-    [{doc, "Test the RC4 ciphersuites"}].
+    [{doc, "Test ECDH rsa signed ciphersuites"}].
 des_ecdh_rsa_cipher_suites(Config) when is_list(Config) ->
-    NVersion = tls_record:highest_protocol_version([]),
-    Version = tls_record:protocol_version(NVersion),
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
+    Version = ssl_test_lib:protocol_version(Config),
     Ciphers = ssl_test_lib:des_suites(NVersion),
     run_suites(Ciphers, Version, Config, des_dhe_rsa).
 
@@ -2313,9 +2353,11 @@ default_reject_anonymous(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
-    Version = tls_record:highest_protocol_version(tls_record:supported_protocol_versions()),
-    [CipherSuite | _] = ssl_test_lib:anonymous_suites(Version),
-
+    Version = ssl_test_lib:protocol_version(Config),
+    TLSVersion = ssl_test_lib:tls_version(Version),
+    
+   [CipherSuite | _] = ssl_test_lib:anonymous_suites(TLSVersion),
+    
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
 					      {from, self()},
 					      {options, ServerOpts}]),
@@ -2335,8 +2377,9 @@ ciphers_ecdsa_signed_certs() ->
     [{doc, "Test all ecdsa ssl cipher suites in highest support ssl/tls version"}].
 
 ciphers_ecdsa_signed_certs(Config) when is_list(Config) ->
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
     Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_test_lib:ecdsa_suites(tls_record:protocol_version(Version)),
+    Ciphers = ssl_test_lib:ecdsa_suites(NVersion),
     ct:log("~p erlang cipher suites ~p~n", [Version, Ciphers]),
     run_suites(Ciphers, Version, Config, ecdsa).
 %%--------------------------------------------------------------------
@@ -2353,8 +2396,9 @@ ciphers_ecdh_rsa_signed_certs() ->
     [{doc, "Test all ecdh_rsa ssl cipher suites in highest support ssl/tls version"}].
 
 ciphers_ecdh_rsa_signed_certs(Config) when is_list(Config) ->
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
     Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_test_lib:ecdh_rsa_suites(tls_record:protocol_version(Version)),
+    Ciphers = ssl_test_lib:ecdh_rsa_suites(NVersion),
     ct:log("~p erlang cipher suites ~p~n", [Version, Ciphers]),
     run_suites(Ciphers, Version, Config, ecdh_rsa).
 %%--------------------------------------------------------------------
@@ -3326,11 +3370,11 @@ hibernate(Config) ->
         process_info(Pid, current_function),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
-    timer:sleep(1100),
-
+    
+    timer:sleep(1500),
     {current_function, {erlang, hibernate, 3}} =
 	process_info(Pid, current_function),
-
+    
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -3363,13 +3407,12 @@ hibernate_right_away(Config) ->
                     [{port, Port1}, {options, [{hibernate_after, 0}|ClientOpts]}]),
 
     ssl_test_lib:check_result(Server1, ok, Client1, ok),
-
-    {current_function, {erlang, hibernate, 3}} =
+  
+     {current_function, {erlang, hibernate, 3}} =
 	process_info(Pid1, current_function),
-
     ssl_test_lib:close(Server1),
     ssl_test_lib:close(Client1),
-
+    
     Server2 = ssl_test_lib:start_server(StartServerOpts),
     Port2 = ssl_test_lib:inet_port(Server2),
     {Client2, #sslsocket{pid = Pid2}} = ssl_test_lib:start_client(StartClientOpts ++
@@ -3377,8 +3420,8 @@ hibernate_right_away(Config) ->
 
     ssl_test_lib:check_result(Server2, ok, Client2, ok),
 
-    ct:sleep(100), %% Schedule out
-
+    ct:sleep(1000), %% Schedule out
+    
     {current_function, {erlang, hibernate, 3}} =
 	process_info(Pid2, current_function),
 
@@ -3404,7 +3447,6 @@ listen_socket(Config) ->
     {error, enotconn} = ssl:connection_information(ListenSocket),
     {error, enotconn} = ssl:peername(ListenSocket),
     {error, enotconn} = ssl:peercert(ListenSocket),
-    {error, enotconn} = ssl:session_info(ListenSocket),
     {error, enotconn} = ssl:renegotiate(ListenSocket),
     {error, enotconn} = ssl:prf(ListenSocket, 'master_secret', <<"Label">>, client_random, 256),
     {error, enotconn} = ssl:shutdown(ListenSocket, read_write),
@@ -4030,11 +4072,11 @@ prf_create_plan(TlsVersions, PRFs, Results) ->
 prf_ciphers_and_expected(TlsVer, PRFs, Results) ->
     case TlsVer of
         TlsVer when TlsVer == sslv3 orelse TlsVer == tlsv1
-                    orelse TlsVer == 'tlsv1.1' ->
+                    orelse TlsVer == 'tlsv1.1' orelse TlsVer == 'dtlsv1' ->
             Ciphers = ssl:cipher_suites(),
             {_, Expected} = lists:keyfind(md5sha, 1, Results),
             [[{tls_ver, TlsVer}, {ciphers, Ciphers}, {expected, Expected}, {prf, md5sha}]];
-        'tlsv1.2' ->
+        TlsVer when  TlsVer == 'tlsv1.2' orelse  TlsVer == 'dtlsv1.2'->
             lists:foldl(
               fun(PRF, Acc) ->
                       Ciphers = prf_get_ciphers(TlsVer, PRF),
@@ -4049,21 +4091,20 @@ prf_ciphers_and_expected(TlsVer, PRFs, Results) ->
                       end
               end, [], PRFs)
     end.
-prf_get_ciphers(TlsVer, PRF) ->
-    case TlsVer of
-        'tlsv1.2' ->
-            lists:filter(
-              fun(C) when tuple_size(C) == 4 andalso
-                          element(4, C) == PRF -> 
-			  true;
-                 (_) -> false
-              end, ssl:cipher_suites())
-    end.
+prf_get_ciphers(_, PRF) ->
+    lists:filter(
+      fun(C) when tuple_size(C) == 4 andalso
+                  element(4, C) == PRF -> 
+              true;
+         (_) -> 
+              false
+      end, 
+      ssl:cipher_suites()).
 prf_run_test(_, TlsVer, [], _, Prf) ->
     ct:fail({error, cipher_list_empty, TlsVer, Prf});
 prf_run_test(Config, TlsVer, Ciphers, Expected, Prf) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    BaseOpts = [{active, true}, {versions, [TlsVer]}, {ciphers, Ciphers}],
+    BaseOpts = [{active, true}, {versions, [TlsVer]}, {ciphers, Ciphers}, {protocol, tls_or_dtls(TlsVer)}],
     ServerOpts = BaseOpts ++ proplists:get_value(server_opts, Config),
     ClientOpts = BaseOpts ++ proplists:get_value(client_opts, Config),
     Server = ssl_test_lib:start_server(
@@ -4507,16 +4548,21 @@ run_suites(Ciphers, Version, Config, Type) ->
 		 [{reuseaddr, true}, {ciphers, ssl_test_lib:anonymous_suites(Version)}]};
 	    psk ->
 		{ssl_test_lib:ssl_options(client_psk, Config),
-		 ssl_test_lib:ssl_options(server_psk, Config)};
+                 [{ciphers, ssl_test_lib:psk_suites(Version)} | 
+                  ssl_test_lib:ssl_options(server_psk, Config)]};
 	    psk_with_hint ->
 		{ssl_test_lib:ssl_options(client_psk, Config),
-		 ssl_test_lib:ssl_options(server_psk_hint, Config)};
+		 [{ciphers, ssl_test_lib:psk_suites(Version)} |
+                  ssl_test_lib:ssl_options(server_psk_hint, Config)
+                 ]};
 	    psk_anon ->
 		{ssl_test_lib:ssl_options(client_psk, Config),
-		 ssl_test_lib:ssl_options(server_psk_anon, Config)};
+                 [{ciphers, ssl_test_lib:psk_anon_suites(Version)} |
+                  ssl_test_lib:ssl_options(server_psk_anon, Config)]};
 	    psk_anon_with_hint ->
 		{ssl_test_lib:ssl_options(client_psk, Config),
-		 ssl_test_lib:ssl_options(server_psk_anon_hint, Config)};
+                 [{ciphers, ssl_test_lib:psk_anon_suites(Version)} |
+		 ssl_test_lib:ssl_options(server_psk_anon_hint, Config)]};
 	    srp ->
 		{ssl_test_lib:ssl_options(client_srp, Config),
 		 ssl_test_lib:ssl_options(server_srp, Config)};
@@ -4556,7 +4602,7 @@ run_suites(Ciphers, Version, Config, Type) ->
 
     Result =  lists:map(fun(Cipher) ->
 				cipher(Cipher, Version, Config, ClientOpts, ServerOpts) end,
-			ssl_test_lib:filter_suites(Ciphers)),
+			ssl_test_lib:filter_suites(Ciphers, Version)),
     case lists:flatten(Result) of
 	[] ->
 	    ok;
@@ -4624,6 +4670,11 @@ version_info_result(Socket) ->
     {ok, [{version, Version}]} = ssl:connection_information(Socket, [version]),
     {ok, Version}.
 
+secret_connection_info_result(Socket) ->
+    {ok, [{client_random, ClientRand}, {server_random, ServerRand}, {master_secret, MasterSecret}]} 
+        = ssl:connection_information(Socket, [client_random, server_random, master_secret]),
+    is_binary(ClientRand) andalso is_binary(ServerRand) andalso is_binary(MasterSecret). 
+    
 connect_dist_s(S) ->
     Msg = term_to_binary({erlang,term}),
     ok = ssl:send(S, Msg).
@@ -4756,3 +4807,9 @@ wait_for_send(Socket) ->
     %% Make sure TLS process processed send message event
     _ = ssl:connection_information(Socket).
 
+tls_or_dtls('dtlsv1') ->
+    dtls;
+tls_or_dtls('dtlsv1.2') ->
+    dtls;
+tls_or_dtls(_) ->
+    tls.

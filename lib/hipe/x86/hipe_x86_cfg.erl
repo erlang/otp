@@ -19,7 +19,7 @@
          succ/2, pred/2,
          bb/2, bb_add/3, map_bbs/2, fold_bbs/3]).
 -export([postorder/1, reverse_postorder/1]).
--export([linearise/1, params/1, arity/1, redirect_jmp/3]).
+-export([linearise/1, params/1, arity/1, redirect_jmp/3, branch_preds/1]).
 
 %%% these tell cfg.inc what to define (ugly as hell)
 -define(PRED_NEEDED,true).
@@ -70,6 +70,26 @@ branch_successors(Branch) ->
 	#pseudo_jcc{true_label=TrueLab,false_label=FalseLab} -> [FalseLab,TrueLab];
 	#pseudo_tailcall{} -> [];
 	#ret{} -> []
+    end.
+
+branch_preds(Branch) ->
+  case Branch of
+    #jmp_switch{labels=Labels} ->
+      Prob = 1.0/length(Labels),
+      [{L, Prob} || L <- Labels];
+    #pseudo_call{contlab=ContLab, sdesc=#x86_sdesc{exnlab=[]}} ->
+      %% A function can still cause an exception, even if we won't catch it
+      [{ContLab, 1.0-hipe_bb_weights:call_exn_pred()}];
+    #pseudo_call{contlab=ContLab, sdesc=#x86_sdesc{exnlab=ExnLab}} ->
+      CallExnPred = hipe_bb_weights:call_exn_pred(),
+      [{ContLab, 1.0-CallExnPred}, {ExnLab, CallExnPred}];
+    #pseudo_jcc{true_label=TrueLab,false_label=FalseLab,pred=Pred} ->
+      [{FalseLab, 1.0-Pred}, {TrueLab, Pred}];
+    _ ->
+      case branch_successors(Branch) of
+	[] -> [];
+	[Single] -> [{Single, 1.0}]
+      end
     end.
 
 -ifdef(REMOVE_TRIVIAL_BBS_NEEDED).

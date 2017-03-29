@@ -2836,9 +2836,10 @@ if test X${enable_hipe} = Xyes && test X$ARCH = Xamd64; then
 		     saved_LDFLAGS=$LDFLAGS
 		     LDFLAGS="-no-pie $LDFLAGS"
 		     AC_TRY_LINK(,, [],
-			[AC_MSG_WARN([Linked does not accept option -no-pie])
-			 LDFLAGS=$saved_LDFLAGS])])
-
+			[LDFLAGS="-fno-PIE $saved_LDFLAGS"
+			 AC_TRY_LINK(,, [],
+			    [AC_MSG_WARN([Linked does not accept option -no-pie nor -fno-PIE])
+			     LDFLAGS=$saved_LDFLAGS])])])
 fi
 
 

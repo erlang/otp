@@ -33,6 +33,123 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The following corrections and improvements are done in
+	    the common_test hook handling:</p> <list> <item> <p>An
+	    extra argument, <c>Suite</c>, is added as the first
+	    argument to each of the following hook callback
+	    functions:</p> <list>
+	    <item><c>pre_init_per_group</c></item>
+	    <item><c>post_init_per_group</c></item>
+	    <item><c>pre_end_per_group</c></item>
+	    <item><c>post_end_per_group</c></item>
+	    <item><c>pre_init_per_testcase</c></item>
+	    <item><c>post_init_per_testcase</c></item>
+	    <item><c>pre_end_per_testcase</c></item>
+	    <item><c>post_end_per_testcase</c></item>
+	    <item><c>on_tc_fail</c></item>
+	    <item><c>on_tc_skip</c></item> </list> <p>For backwards
+	    compatibility, if the new function is not exported from a
+	    hook callback module, <c>common_test</c> will fall back
+	    to the old interface and call the function without the
+	    <c>Suite</c> argument.</p> </item> <item> <p>If either
+	    <c>init_per_suite</c> or <c>end_per_suite</c> exists, but
+	    not the other, then the non-existing function will be
+	    reported as failed with reason <c>undef</c> in the test
+	    log. The same goes for <c>init/end_per_group</c>. This
+	    has always been a requirement according to the user's
+	    guide, but now <c>common_test</c> is more explicit in the
+	    report.</p> </item> <item> <p>If <c>init_per_suite</c>
+	    was exported from a test suite, but not
+	    <c>end_per_suite</c>, then <c>pre/post_end_per_suite</c>
+	    was called with <c>Suite=ct_framework</c> instead of the
+	    correct suite name. This is now corrected.</p> </item>
+	    <item> <p>If <c>end_per_group</c> was exported from a
+	    suite, but not <c>init_per_group</c>, then
+	    <c>end_per_group</c> was never called. This is now
+	    corrected.</p> </item> <item> <p>Tests that were skipped
+	    before calling <c>pre_init_per_*</c> got faulty calls to
+	    the corresponding <c>post_init_per_*</c>. E.g. if a test
+	    was skipped because <c>suite/0</c> failed, then
+	    <c>post_init_per_suite</c> would be called even though
+	    <c>pre_init_per_suite</c> and <c>init_per_suite</c> were
+	    not called. This is now corrected so a <c>post_*</c>
+	    callback will never be called unless the corresponding
+	    <c>pre_*</c> callback has been called first.</p> </item>
+	    <item> <p>Tests that were skipped before or in
+	    <c>init_per_testcase</c> got faulty calls to
+	    <c>pre_end_per_testcase</c> and
+	    <c>post_end_per_testcase</c>. This is now corrected so
+	    <c>pre/post_end_per_testcase</c> are not called when
+	    <c>end_per_testcase</c> is not called.</p> </item> <item>
+	    <p>If an exit signal causes the test case process to die
+	    while running <c>init_per_testcase</c>, the case was
+	    earlier reported as failed with reason <c>{skip,...}</c>.
+	    This is now corrected so the case will be marked as
+	    skipped.</p> </item> <item> <p>If an exist signal causes
+	    the test case process to die while running
+	    <c>end_per_testcase</c>, the case was earlier marked as
+	    failed. This is now corrected so the status of the test
+	    case is not changed - there is only a warning added to
+	    the comment field.</p> </item> <item> <p>If a test case
+	    was skipped because of option
+	    <c>{force_stop,skip_rest}</c> or because of a failed
+	    sequence, then no <c>tc_start</c> event would be sent,
+	    only <c>tc_done</c>. This is now corrected so both events
+	    are sent.</p> </item> <item> <p>When skipping or failing
+	    in a configuration function, the configuration function
+	    itself would get <c>{auto_skipped,Reason}</c>,
+	    <c>{skipped,Reason}</c> or <c>{failed,Reason}</c> in the
+	    hook callbacks <c>on_tc_skip</c> or <c>on_tc_fail</c>.
+	    The other test cases that were skipped as a result of
+	    this would only get <c>Reason</c> in <c>on_tc_skip</c>.
+	    This is now corrected so even the configuration function
+	    that caused the skip/fail will only get <c>Reason</c> in
+	    the hook callback.</p> </item> </list>
+          <p>
+	    Own Id: OTP-10599 Aux Id: kunagi-344 [255] </p>
+        </item>
+        <item>
+          <p>
+	    When a test case was skipped by a <c>skip_cases</c>
+	    statement in a test spec, then <c>cth_surefire</c> would
+	    erroneously mark the previous test case as skipped in the
+	    xml report. The actually skipped test case would not be
+	    present in the xml report at all. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-14129 Aux Id: seq13244 </p>
+        </item>
+        <item>
+	    <p>The <c>multiply_timetraps</c> and
+	    <c>scale_timetraps</c> options did not work with test
+	    specifications, which has been corrected.</p>
+          <p>
+	    Own Id: OTP-14210</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    ct_testspec:get_tests/1 is added. This is used by rebar3
+	    to get all directories that must be compiled when running
+	    tests from testspec - instead of implementing testspec
+	    parsing in rebar3.</p>
+          <p>
+	    Own Id: OTP-14132</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -40,6 +40,8 @@
 -export([ec_curve/1, ec_curves/0]).
 -export([rand_seed/1]).
 
+-deprecated({rand_uniform, 2, next_major_release}).
+
 %% This should correspond to the similar macro in crypto.c
 -define(MAX_BYTES_TO_NIF, 20000). %%  Current value is: erlang:system_info(context_reductions) * 10
 
@@ -452,6 +454,15 @@ generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg)
 	      end,
     user_srp_gen_key(Private, Generator, Prime);
 
+generate_key(rsa, {ModulusSize, PublicExponent}, undefined) ->
+    case rsa_generate_key_nif(ModulusSize, ensure_int_as_bin(PublicExponent)) of
+        error ->
+            erlang:error(computation_failed,
+                         [rsa,{ModulusSize,PublicExponent}]);
+        Private ->
+            {lists:sublist(Private, 2), Private}
+    end;
+
 generate_key(ecdh, Curve, PrivKey) ->
     ec_key_generate(nif_curve_params(Curve), ensure_int_as_bin(PrivKey)).
 
@@ -787,6 +798,11 @@ rsa_verify_nif(_Type, _Digest, _Signature, _Key) -> ?nif_stub.
 ecdsa_verify_nif(_Type, _Digest, _Signature, _Curve, _Key) -> ?nif_stub.
 
 %% Public Keys  --------------------------------------------------------------------
+%% RSA Rivest-Shamir-Adleman functions
+%%
+
+rsa_generate_key_nif(_Bits, _Exp) -> ?nif_stub.
+
 %% DH Diffie-Hellman functions
 %% 
 

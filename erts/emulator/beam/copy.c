@@ -286,11 +286,6 @@ do {                                                                    \
     (dst) = result;                                                     \
 } while(0)
 
-#define BOXED_VISITED_MASK	 ((Eterm) 3)
-#define BOXED_VISITED		 ((Eterm) 1)
-#define BOXED_SHARED_UNPROCESSED ((Eterm) 2)
-#define BOXED_SHARED_PROCESSED	 ((Eterm) 3)
-
 #define COUNT_OFF_HEAP (0)
 
 /*
@@ -1990,7 +1985,7 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
 	if (is_header(val)) {
 	    struct erl_off_heap_header* hdr = (struct erl_off_heap_header*)hp;
 	    ASSERT(ptr + header_arity(val) < end);
-	    MOVE_BOXED(ptr, val, hp, &dummy_ref);
+	    move_boxed(&ptr, val, &hp, &dummy_ref);
 	    switch (val & _HEADER_SUBTAG_MASK) {
 	    case REF_SUBTAG:
 		if (is_ordinary_ref_thing(hdr))
@@ -2007,7 +2002,7 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
 	}
 	else { /* must be a cons cell */
 	    ASSERT(ptr+1 < end);
-	    MOVE_CONS(ptr, val, hp, &dummy_ref);
+	    move_cons(&ptr, val, &hp, &dummy_ref);
 	    ptr += 2;
 	}
     }

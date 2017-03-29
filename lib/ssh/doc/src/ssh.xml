@@ -243,21 +243,6 @@
 	    <p><c>Peer</c> is in the format of <c>{Host,Port}</c>.</p>
 	  </item>
 
-	  <tag><c><![CDATA[{public_key_alg, 'ssh-rsa' | 'ssh-dss'}]]></c></tag>
-	  <item>
-	    <note>
-	      <p>This option will be removed in OTP 20, but is kept for compatibility. It is ignored if
-	      the preferred <c>pref_public_key_algs</c> option is used.</p>
-	    </note>
-            <p>Sets the preferred public key algorithm to use for user
-	    authentication. If the preferred algorithm fails,
-	    the other algorithm is tried. If <c>{public_key_alg, 'ssh-rsa'}</c> is set, it is translated
-	    to <c>{pref_public_key_algs, ['ssh-rsa','ssh-dss']}</c>.  If it is 
-	    <c>{public_key_alg, 'ssh-dss'}</c>, it is translated
-	    to <c>{pref_public_key_algs, ['ssh-dss','ssh-rsa']}</c>.
-	    </p>
-	  </item>
-
 	  <tag><c><![CDATA[{pref_public_key_algs, list()}]]></c></tag>
 	  <item>
             <p>List of user (client) public key algorithms to try to use.</p>
@@ -726,9 +711,10 @@
     </func>
 
     <func>
-      <name>daemon_info(Daemon) -> {ok, [{port,Port}]} | {error,Error}</name>
+      <name>daemon_info(Daemon) -> {ok, [DaemonInfo]} | {error,Error}</name>
       <fsummary>Get info about a daemon</fsummary>
       <type>
+	<v>DaemonInfo = {port,Port::pos_integer()} | {listen_address, any|ip_address()} | {profile,atom()}</v>
         <v>Port = integer()</v>
 	<v>Error = bad_daemon_ref</v>
       </type>

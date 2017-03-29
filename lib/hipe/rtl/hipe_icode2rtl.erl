@@ -532,8 +532,12 @@ gen_cond(CondOp, Args, TrueLbl, FalseLbl, Pred) ->
 			  FalseLbl, Pred)];
     '=:=' ->
       [Arg1, Arg2] = Args,
+      TypeTestLbl = hipe_rtl:mk_new_label(),
       [hipe_rtl:mk_branch(Arg1, eq, Arg2, TrueLbl,
-			  hipe_rtl:label_name(GenLbl), Pred),
+			  hipe_rtl:label_name(TypeTestLbl), Pred),
+       TypeTestLbl,
+       hipe_tagscheme:test_either_immed(Arg1, Arg2, FalseLbl,
+					hipe_rtl:label_name(GenLbl)),
        GenLbl,
        hipe_rtl:mk_call([Tmp], op_exact_eqeq_2, Args,
 			TestRetName, [], not_remote),
@@ -546,8 +550,12 @@ gen_cond(CondOp, Args, TrueLbl, FalseLbl, Pred) ->
 			  TrueLbl, 1-Pred)];
     '=/=' ->
       [Arg1, Arg2] = Args,
+      TypeTestLbl = hipe_rtl:mk_new_label(),
       [hipe_rtl:mk_branch(Arg1, eq, Arg2, FalseLbl,
-			  hipe_rtl:label_name(GenLbl), 1-Pred),
+			  hipe_rtl:label_name(TypeTestLbl), 1-Pred),
+       TypeTestLbl,
+       hipe_tagscheme:test_either_immed(Arg1, Arg2, TrueLbl,
+					hipe_rtl:label_name(GenLbl)),
        GenLbl,
        hipe_rtl:mk_call([Tmp], op_exact_eqeq_2, Args,
 			TestRetName, [], not_remote),

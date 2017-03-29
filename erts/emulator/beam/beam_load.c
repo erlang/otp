@@ -6321,7 +6321,7 @@ erts_make_stub_module(Process* p, Eterm hipe_magic_bin, Eterm Beam, Eterm Info)
      */
     magic = erts_alloc_loader_state();
     stp = ERTS_MAGIC_BIN_DATA(magic);
-    hipe_code = erts_alloc(ERTS_ALC_T_HIPE, sizeof(*hipe_code));
+    hipe_code = erts_alloc(ERTS_ALC_T_HIPE_LL, sizeof(*hipe_code));
 
     if (!is_internal_magic_ref(hipe_magic_bin) ||
 	!(hipe_magic = erts_magic_ref2bin(hipe_magic_bin),
@@ -6556,7 +6556,7 @@ erts_make_stub_module(Process* p, Eterm hipe_magic_bin, Eterm Beam, Eterm Info)
     }
 
  error:
-    erts_free(ERTS_ALC_T_HIPE, hipe_code);
+    erts_free(ERTS_ALC_T_HIPE_LL, hipe_code);
     erts_free_aligned_binary_bytes(temp_alloc);
     free_loader_state(magic);
     BIF_ERROR(p, BADARG);
@@ -6583,7 +6583,7 @@ int erts_commit_hipe_patch_load(Eterm hipe_magic_bin)
     /*
      * Initialise HiPE module
      */
-    hipe_code = erts_alloc(ERTS_ALC_T_HIPE, sizeof(*hipe_code));
+    hipe_code = erts_alloc(ERTS_ALC_T_HIPE_LL, sizeof(*hipe_code));
     hipe_code->text_segment = hipe_stp->text_segment;
     hipe_code->text_segment_size = hipe_stp->text_segment_size;
     hipe_code->data_segment = hipe_stp->data_segment;

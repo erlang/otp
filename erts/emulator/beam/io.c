@@ -4192,8 +4192,8 @@ static void sweep_one_monitor(ErtsMonitor *mon, void *vpsc)
         ErtsMonitor *rmon;
         Process *rp;
 
-        ASSERT(is_internal_pid(mon->pid));
-        rp = erts_pid2proc(NULL, 0, mon->pid, ERTS_PROC_LOCK_LINK);
+        ASSERT(is_internal_pid(mon->u.pid));
+        rp = erts_pid2proc(NULL, 0, mon->u.pid, ERTS_PROC_LOCK_LINK);
         if (!rp) {
             goto done;
         }
@@ -4294,7 +4294,7 @@ port_fire_one_monitor(ErtsMonitor *mon, void *ctx0)
     Process      *origin;
     ErtsProcLocks origin_locks;
 
-    if (mon->type != MON_TARGET || ! is_pid(mon->pid)) {
+    if (mon->type != MON_TARGET || ! is_pid(mon->u.pid)) {
         return;
     }
     /*
@@ -4303,7 +4303,7 @@ port_fire_one_monitor(ErtsMonitor *mon, void *ctx0)
      */
     origin_locks = ERTS_PROC_LOCKS_MSG_SEND | ERTS_PROC_LOCK_LINK;
 
-    origin = erts_pid2proc(NULL, 0, mon->pid, origin_locks);
+    origin = erts_pid2proc(NULL, 0, mon->u.pid, origin_locks);
     if (origin) {
         DeclareTmpHeapNoproc(lhp,3);
         SweepContext    *ctx = (SweepContext *)ctx0;
@@ -4882,10 +4882,24 @@ erts_port_control(Process* c_p,
 	ASSERT(!tmp_alloced);
 	if (*ebinp == HEADER_SUB_BIN)
 	    ebinp = binary_val(((ErlSubBin *) ebinp)->orig);
+
 	if (*ebinp != HEADER_PROC_BIN)
 	    copy = 1;
 	else {
-	    binp = ((ProcBin *) ebinp)->val;
+            ProcBin *pb = (ProcBin *) ebinp;
+            int offset = bufp - pb->val->orig_bytes;
+
+	    ASSERT(pb->val->orig_bytes <= bufp
+		   && bufp + size <= pb->val->orig_bytes + pb->val->orig_size);
+
+            if (pb->flags) {
+                erts_emasculate_writable_binary(pb);
+
+                /* The procbin may have been reallocated, so update bufp */
+                bufp = pb->val->orig_bytes + offset;
+            }
+
+	    binp = pb->val;
 	    ASSERT(bufp <= bufp + size);
 	    ASSERT(binp->orig_bytes <= bufp
 		   && bufp + size <= binp->orig_bytes + binp->orig_size);
@@ -5485,7 +5499,7 @@ typedef struct {
 static void prt_one_monitor(ErtsMonitor *mon, void *vprtd)
 {
     prt_one_lnk_data *prtd = (prt_one_lnk_data *) vprtd;
-    erts_print(prtd->to, prtd->arg, "(%T,%T)", mon->pid,mon->ref);
+    erts_print(prtd->to, prtd->arg, "(%T,%T)", mon->u.pid, mon->ref);
 }
 
 static void prt_one_lnk(ErtsLink *lnk, void *vprtd)
@@ -7607,7 +7621,7 @@ erl_drv_convert_time_unit(ErlDrvTime val,
 						    (int) to);
 }
 
-static void ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon)
+void erts_ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon)
 {
     ERTS_CT_ASSERT(ERTS_REF_THING_SIZE*sizeof(Uint) <= sizeof(ErlDrvMonitor));
     ASSERT(is_internal_ordinary_ref(ref));
@@ -7615,7 +7629,7 @@ static void ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon)
                ERTS_REF_THING_SIZE*sizeof(Uint));
 }
 
-static Eterm driver_monitor_to_ref(Eterm *hp, const ErlDrvMonitor *mon)
+Eterm erts_driver_monitor_to_ref(Eterm *hp, const ErlDrvMonitor *mon)
 {
     Eterm ref;
     ERTS_CT_ASSERT(ERTS_REF_THING_SIZE*sizeof(Uint) <= sizeof(ErlDrvMonitor));
@@ -7648,7 +7662,7 @@ static int do_driver_monitor_process(Port *prt,
     erts_add_monitor(&ERTS_P_MONITORS(rp), MON_TARGET, ref, prt->common.id, NIL);
 
     erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-    ref_to_driver_monitor(ref,monitor);
+    erts_ref_to_driver_monitor(ref,monitor);
     return 0;
 }
 
@@ -7685,14 +7699,14 @@ static int do_driver_demonitor_process(Port *prt, const ErlDrvMonitor *monitor)
     ErtsMonitor *mon;
     Eterm to;
 
-    ref = driver_monitor_to_ref(heap, monitor);
+    ref = erts_driver_monitor_to_ref(heap, monitor);
 
     mon = erts_lookup_monitor(ERTS_P_MONITORS(prt), ref);
     if (mon == NULL) {
 	return 1;
     }
     ASSERT(mon->type == MON_ORIGIN);
-    to = mon->pid;
+    to = mon->u.pid;
     ASSERT(is_internal_pid(to));
     rp = erts_pid2proc_opt(NULL,
 			   0,
@@ -7742,14 +7756,14 @@ static ErlDrvTermData do_driver_get_monitored_process(Port *prt,const ErlDrvMoni
     Eterm to;
     Eterm heap[ERTS_REF_THING_SIZE];
 
-    ref = driver_monitor_to_ref(heap, monitor);
+    ref = erts_driver_monitor_to_ref(heap, monitor);
 
     mon = erts_lookup_monitor(ERTS_P_MONITORS(prt), ref);
     if (mon == NULL) {
 	return driver_term_nil;
     }
     ASSERT(mon->type == MON_ORIGIN);
-    to = mon->pid;
+    to = mon->u.pid;
     ASSERT(is_internal_pid(to));
     return (ErlDrvTermData) to;
 }
@@ -7800,7 +7814,7 @@ void erts_fire_port_monitor(Port *prt, Eterm ref)
     }
     callback = prt->drv_ptr->process_exit;
     ASSERT(callback != NULL);
-    ref_to_driver_monitor(ref,&drv_monitor);
+    erts_ref_to_driver_monitor(ref,&drv_monitor);
     ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
     DRV_MONITOR_UNLOCK_PDL(prt);
 #ifdef USE_VM_PROBES

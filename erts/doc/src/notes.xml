@@ -32,6 +32,219 @@
   <p>This document describes the changes made to the ERTS application.</p>
 
 
+<section><title>Erts 8.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a number of bugs that caused faulty stack-traces
+	    to be generated. The faulty stack traces were generated
+	    either when applying the following functions or tracing
+	    the following functions:</p> <list>
+	    <item><c>erlang:error/1</c></item>
+	    <item><c>erlang:error/2</c></item>
+	    <item><c>erlang:exit/1</c></item>
+	    <item><c>erlang:throw/1</c></item> </list>
+          <p>
+	    Own Id: OTP-14055</p>
+        </item>
+        <item>
+          <p>
+	    Corrected documentation about memory footprint for maps.</p>
+          <p>
+	    Own Id: OTP-14118</p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>process_info(Pid, current_stacktrace)</c> to use
+	    stack depth limit set by
+	    <c>system_flag(backtrace_depth)</c>. The old behavior was
+	    a hard coded depth limit of 8.</p>
+          <p>
+	    Own Id: OTP-14119 Aux Id: PR-1263 </p>
+        </item>
+        <item>
+          <p>
+	    A process calling <seealso
+	    marker="erlang#system_flag_multi_scheduling"><c>erlang:system_flag(multi_scheduling,
+	    block)</c></seealso> could end up hanging forever in the
+	    call.</p>
+          <p>
+	    Own Id: OTP-14121</p>
+        </item>
+        <item>
+	    <p>Dirty scheduler bug fixes:</p> <list> <item><p>Fixed
+	    call time tracing of process being scheduled on dirty
+	    scheduler.</p></item> <item><p>GC info from dirty
+	    schedulers.</p></item> <item><p>Multi scheduling block
+	    with dirty schedulers could crash the runtime
+	    system.</p></item> <item><p>Process structures could be
+	    removed prematurely.</p></item> <item><p>GC on dirty
+	    scheduler could crash the runtime system.</p></item>
+	    <item><p>Termination of a process executing on a dirty
+	    scheduler could cause a runtime system crash.</p></item>
+	    </list>
+          <p>
+	    Own Id: OTP-14122</p>
+        </item>
+        <item>
+          <p>
+	    Fixed crash that occurred when writing timer data to a
+	    crash dump.</p>
+          <p>
+	    Own Id: OTP-14133</p>
+        </item>
+        <item>
+          <p>
+	    A literal area could be removed while still referred from
+	    processes.</p>
+          <p>
+	    Own Id: OTP-14134</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug in the garbage collector that could crash the
+	    runtime system.</p>
+          <p>
+	    Own Id: OTP-14135</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug in call-time trace for NIFs which caused
+	    tracing to erroneously be started multiple times for one
+	    call.</p>
+          <p>
+	    Own Id: OTP-14136</p>
+        </item>
+        <item>
+          <p>
+	    Remove a debug printout and an unnecessary garbage
+	    collection when handling exceptions in hipe compiled
+	    code.</p>
+          <p>
+	    Own Id: OTP-14153</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in tracing of garbage collection that could cause
+	    VM crash. Bug exists since OTP 19.0.</p>
+          <p>
+	    Own Id: OTP-14154</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>binary_to_term</c> for binaries created by
+	    <c>term_to_binary </c> with option <c>compressed</c>. The
+	    bug can cause <c>badarg</c> exception for a valid binary
+	    when Erlang VM is linked against a <c>zlib</c> library of
+	    version 1.2.9 or newer. Bug exists since OTP 17.0.</p>
+          <p>
+	    Own Id: OTP-14159 Aux Id: ERL-340 </p>
+        </item>
+        <item>
+          <p>
+	    Fix suspension of schedulers when generating a crashdump.</p>
+          <p>
+	    Own Id: OTP-14164</p>
+        </item>
+        <item>
+	    <p>NIF resources was not handled in a thread-safe manner
+	    in the runtime system without SMP support.</p>
+	    <p>As a consequence of this fix, the following driver
+	    functions are now thread-safe also in the runtime system
+	    without SMP support:</p> <list>
+	    <item><p><c>driver_free_binary()</c></p></item>
+	    <item><p><c>driver_realloc_binary()</c></p></item>
+	    <item><p><c>driver_binary_get_refc()</c></p></item>
+	    <item><p><c>driver_binary_inc_refc()</c></p></item>
+	    <item><p><c>driver_binary_dec_refc()</c></p></item>
+	    </list>
+          <p>
+	    Own Id: OTP-14202</p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>erlang:round/1</c> for large floating point
+	    numbers with an odd absolute value between <c>(1 bsl
+	    52)</c> and <c>(1 bsl 53)</c>. The result was falsely
+	    calculated as the next higher even number even though all
+	    integer values up to <c>(1 bsl 53)</c> can be represented
+	    as floats with full precision.</p>
+          <p>
+	    Own Id: OTP-14227</p>
+        </item>
+        <item>
+          <p>
+	    Add size of literals to module code size in crash dump
+	    and <c>(l)oaded</c> command in break menu like it used to
+	    be before OTP-19.0.</p>
+          <p>
+	    Own Id: OTP-14228</p>
+        </item>
+        <item>
+          <p>
+	    Fix potential bug in <c>enif_send</c> when called without
+	    a process context and with argument <c>msg_env</c> as
+	    <c>NULL</c>.</p>
+          <p>
+	    Own Id: OTP-14229</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where passing an appendable binary to
+	    <c>erlang:port_control()</c> could crash the emulator.</p>
+          <p>
+	    Own Id: OTP-14231</p>
+        </item>
+        <item>
+          <p>
+	    Receive expressions with timeout in the Erlang shell
+	    could cause a VM crash.</p>
+          <p>
+	    Own Id: OTP-14241 Aux Id: ERL-365 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A received SIGTERM signal to beam will generate a
+	    <c>'stop'</c> message to the <c>init</c> process and
+	    terminate the Erlang VM nicely. This is equivalent to
+	    calling <c>init:stop/0</c>.</p>
+          <p>
+	    Own Id: OTP-14085</p>
+        </item>
+        <item>
+          <p>
+	    Workaround for buggy Android implementation of
+	    <c>PTHREAD_STACK_MIN</c> causing build of runtime system
+	    to crash on undeclared <c>PAGE_SIZE</c>.</p>
+          <p>
+	    Own Id: OTP-14165 Aux Id: ERL-319 </p>
+        </item>
+        <item>
+          <p>
+	    Add configure option --without-thread-names that removes
+	    the naming of individual emulator threads.</p>
+          <p>
+	    Own Id: OTP-14234</p>
+        </item>
+        <item>
+          <p>
+	    Add warning in documentation of <c>zlib:deflateInit/6</c>
+	    about option <c>WindowsBits</c> values 8 and -8.</p>
+          <p>
+	    Own Id: OTP-14254 Aux Id: ERL-362 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 8.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

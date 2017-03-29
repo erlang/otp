@@ -935,13 +935,14 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <fsummary>Returns all the connection information.
       </fsummary>
       <type>
-        <v>Item = protocol | cipher_suite | sni_hostname | ecc | atom()</v>
+        <v>Item = protocol | cipher_suite | sni_hostname | ecc | session_id | atom()</v>
 	<d>Meaningful atoms, not specified above, are the ssl option names.</d>
 	<v>Result = [{Item::atom(), Value::term()}]</v>
         <v>Reason = term()</v>
       </type>
-      <desc><p>Returns all relevant information about the connection, ssl options that
-      are undefined will be filtered out.</p>
+      <desc><p>Returns the most relevant information about the connection, ssl options that
+      are undefined will be filtered out. Note that values that affect the security of the
+      connection will only be returned if explicitly requested by connection_information/2.</p>
       </desc>
     </func>
 
@@ -952,8 +953,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </fsummary>
       <type>
 	<v>Items = [Item]</v>
-	<v>Item = protocol | cipher_suite | sni_hostname | atom()</v>
-	<d>Meaningful atoms, not specified above, are the ssl option names.</d>
+	<v>Item = protocol | cipher_suite | sni_hostname | ecc | session_id | client_random 
+          | server_random  | master_secret | atom()</v>
+	<d>Note that client_random, server_random  and master_secret are values
+        that affect the security of connection. Meaningful atoms, not specified above, are the ssl option names.</d>
 	<v>Result = [{Item::atom(), Value::term()}]</v>
         <v>Reason = term()</v>
       </type>

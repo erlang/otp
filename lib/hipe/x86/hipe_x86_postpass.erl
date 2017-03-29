@@ -57,9 +57,10 @@ postpass(#defun{code=Code0}=Defun, Options) ->
 peephole_optimization(Insns) -> 
   peep(Insns, [], []).
 
-%% MoveSelf related peep-opts 
+
+%% MoveSelf related peep-opts
 %% ------------------------------
-peep([#fmove{src=Src, dst=Src} | Insns], Res,Lst) -> 
+peep([#fmove{src=Src, dst=Src} | Insns], Res,Lst) ->
     peep(Insns, Res, [moveSelf1|Lst]);
 peep([I=#fmove{src=Src, dst=Dst}, 
       #fmove{src=Dst, dst=Src} | Insns], Res,Lst) -> 
@@ -159,8 +160,7 @@ peep([#jcc{label=Lab}, I=#label{label=Lab}|Insns], Res, Lst) ->
 
 %% ElimSet0
 %% --------
-peep([#move{src=#x86_imm{value=0},dst=Dst}|Insns],Res,Lst) 
-when (Dst==#x86_temp{}) ->
+peep([#move{src=#x86_imm{value=0},dst=Dst=#x86_temp{}}|Insns],Res,Lst) ->
   peep(Insns, [#alu{aluop='xor', src=Dst, dst=Dst}|Res], [elimSet0|Lst]);    
 
 %% ElimMDPow2

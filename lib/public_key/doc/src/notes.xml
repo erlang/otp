@@ -35,6 +35,34 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New function <c>pkix_verify_hostname/2,3</c> Implements
+	    certificate hostname checking. See the manual and RFC
+	    6125.</p>
+          <p>
+	    Own Id: OTP-13009</p>
+        </item>
+        <item>
+          <p>
+	    The ssh host key fingerprint generation now also takes a
+	    list of algorithms and returns a list of corresponding
+	    fingerprints. See
+	    <c>public_key:ssh_hostkey_fingerprint/2</c> and the
+	    option <c>silently_accept_hosts</c> in
+	    <c>ssh:connect</c>.</p>
+          <p>
+	    Own Id: OTP-14223</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.3</title>
 
     <section><title>Improvements and New Features</title>

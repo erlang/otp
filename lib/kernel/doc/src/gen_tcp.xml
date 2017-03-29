@@ -140,6 +140,23 @@ do_recv(Sock, Bs) ->
       <fsummary>Close a TCP socket.</fsummary>
       <desc>
         <p>Closes a TCP socket.</p>
+        <p>Note that in most implementations of TCP, doing a <c>close</c> does
+         not guarantee that any data sent is delivered to the recipient before
+         the close is detected at the remote side. If you want to guarantee
+         delivery of the data to the recipient there are two common ways to
+         achieve this.</p>
+         <list type="ordered">
+           <item><p>Use <seealso marker="#shutdown/2">
+             <c>gen_tcp:shutdown(Sock, write)</c></seealso> to signal that
+             no more data is to be sent and wait for the read side of the
+             socket to be closed.</p>
+           </item>
+           <item><p>Use the socket option <seealso marker="inet#packet">
+             <c>{packet, N}</c></seealso> (or something similar) to make
+             it possible for the receiver to close the connection when it
+             knowns it has received all the data.</p>
+           </item>
+         </list>
       </desc>
     </func>
 

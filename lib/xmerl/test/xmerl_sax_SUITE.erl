@@ -85,17 +85,17 @@ ticket_11551(_Config) ->
 <a>hej</a>
 <?xml version=\"1.0\" encoding=\"utf-8\" ?>
 <a>hej</a>">>,
-    {ok, undefined, <<"<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream1, []),
+    {ok, undefined, <<"\n<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream1, []),
     Stream2= <<"<?xml version=\"1.0\" encoding=\"utf-8\" ?>
 <a>hej</a>
 
 
 <?xml version=\"1.0\" encoding=\"utf-8\" ?>
 <a>hej</a>">>,
-    {ok, undefined, <<"<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream2, []),
+    {ok, undefined, <<"\n\n\n<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream2, []),
     Stream3= <<"<a>hej</a>
 
 <?xml version=\"1.0\" encoding=\"utf-8\" ?>
 <a>hej</a>">>,
-    {ok, undefined, <<"<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream3, []),
+    {ok, undefined, <<"\n\n<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream3, []),
     ok.

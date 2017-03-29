@@ -63,6 +63,9 @@ typedef struct process Process;
 #define ERTS_ONLY_INCLUDE_TRACE_FLAGS
 #include "erl_trace.h"
 #undef ERTS_ONLY_INCLUDE_TRACE_FLAGS
+#define ERTS_ONLY_SCHED_SPEC_ETS_DATA
+#include "erl_db.h"
+#undef ERTS_ONLY_SCHED_SPEC_ETS_DATA
 
 #ifdef HIPE
 #include "hipe_process.h"
@@ -312,6 +315,7 @@ typedef enum {
     ERTS_SSI_AUX_WORK_PENDING_EXITERS_IX,
     ERTS_SSI_AUX_WORK_SET_TMO_IX,
     ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK_IX,
+    ERTS_SSI_AUX_WORK_YIELD_IX,
     ERTS_SSI_AUX_WORK_REAP_PORTS_IX,
     ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED_IX, /* SHOULD be last flag index */
 
@@ -348,6 +352,8 @@ typedef enum {
     (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_SET_TMO_IX)
 #define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK \
     (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK_IX)
+#define ERTS_SSI_AUX_WORK_YIELD \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_YIELD_IX)
 #define ERTS_SSI_AUX_WORK_REAP_PORTS \
     (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_REAP_PORTS_IX)
 #define ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED \
@@ -613,6 +619,10 @@ typedef struct {
     } delayed_wakeup;
 #endif
     struct {
+        ErtsEtsAllYieldData ets_all;
+        /* Other yielding operations... */
+    } yield;
+    struct {
 	struct {
 	    erts_aint32_t flags;
 	    void (*callback)(void *);
@@ -620,6 +630,10 @@ typedef struct {
 	} wait_completed;
     } debug;
 } ErtsAuxWorkData;
+
+#define ERTS_SCHED_AUX_YIELD_DATA(ESDP, NAME) \
+    (&(ESDP)->aux_work_data.yield.NAME)
+void erts_notify_new_aux_yield_work(ErtsSchedulerData *esdp);
 
 #ifdef ERTS_DIRTY_SCHEDULERS
 typedef enum {
@@ -688,7 +702,7 @@ struct ErtsSchedulerData_ {
     ErtsSchedWallTime sched_wall_time;
     ErtsGCInfo gc_info;
     ErtsPortTaskHandle nosuspend_port_task_handle;
-
+    ErtsEtsTables ets_tables;
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
     erts_alloc_verify_func_t verify_unused_temp_alloc;
     Allctr_t *verify_unused_temp_alloc_data;
@@ -822,14 +836,16 @@ erts_smp_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_CALL_TIME_BP			3
 #define ERTS_PSD_DELAYED_GC_TASK_QS		4
 #define ERTS_PSD_NIF_TRAP_EXPORT		5
-#define ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF	6
+#define ERTS_PSD_ETS_OWNED_TABLES               6
+#define ERTS_PSD_ETS_FIXED_TABLES               7
+#define ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF	8
 
-#define ERTS_PSD_SIZE				7
+#define ERTS_PSD_SIZE				9
 
 #if !defined(HIPE)
 #  undef ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF
 #  undef ERTS_PSD_SIZE
-#  define ERTS_PSD_SIZE 6
+#  define ERTS_PSD_SIZE 8
 #endif
 
 typedef struct {
@@ -856,6 +872,12 @@ typedef struct {
 
 #define ERTS_PSD_NIF_TRAP_EXPORT_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_NIF_TRAP_EXPORT_SET_LOCKS ERTS_PROC_LOCK_MAIN
+
+#define ERTS_PSD_ETS_OWNED_TABLES_GET_LOCKS ERTS_PROC_LOCK_STATUS
+#define ERTS_PSD_ETS_OWNED_TABLES_SET_LOCKS ERTS_PROC_LOCK_STATUS
+
+#define ERTS_PSD_ETS_FIXED_TABLES_GET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_ETS_FIXED_TABLES_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
 typedef struct {
     ErtsProcLocks get_locks;
@@ -958,9 +980,11 @@ struct process {
     Eterm* stop;		/* Stack top */
     Eterm* heap;		/* Heap start */
     Eterm* hend;		/* Heap end */
+    Eterm* abandoned_heap;
     Uint heap_sz;		/* Size of heap in words */
     Uint min_heap_size;         /* Minimum size of heap (in words). */
     Uint min_vheap_size;        /* Minimum size of virtual heap (in words). */
+    Uint max_heap_size;         /* Maximum size of heap (in words). */
 
 #if !defined(NO_FPE_SIGNALS) || defined(HIPE)
     volatile unsigned long fp_exception;
@@ -971,16 +995,6 @@ struct process {
        to enable smaller & faster addressing modes on the x86. */
     struct hipe_process_state hipe;
 #endif
-
-    /*
-     * Moved to after "struct hipe_process_state hipe", as a temporary fix for
-     * LLVM hard-coding offsetof(struct process, hipe.nstack) (sic!)
-     * (see void X86FrameLowering::adjustForHiPEPrologue(...) in
-     * lib/Target/X86/X86FrameLowering.cpp).
-     *
-     * Used to be below "Eterm* hend".
-     */
-    Eterm* abandoned_heap;
 
     /*
      * Saved x registers.
@@ -1061,7 +1075,6 @@ struct process {
     Eterm *old_hend;            /* Heap pointers for generational GC. */
     Eterm *old_htop;
     Eterm *old_heap;
-    Uint max_heap_size;         /* Maximum size of heap (in words). */
     Uint16 gen_gcs;		/* Number of (minor) generational GCs. */
     Uint16 max_gen_gcs;		/* Max minor gen GCs before fullsweep. */
     ErlOffHeap off_heap;	/* Off-heap data updated by copy_struct(). */
@@ -1791,6 +1804,8 @@ void erts_schedule_thr_prgr_later_cleanup_op(void (*)(void *),
 					     ErtsThrPrgrLaterOp *,
 					     UWord);
 void erts_schedule_complete_off_heap_message_queue_change(Eterm pid);
+struct db_fixation;
+void erts_schedule_ets_free_fixation(Eterm pid, struct db_fixation*);
 void erts_schedule_flush_trace_messages(Process *proc, int force_on_proc);
 int erts_flush_trace_messages(Process *c_p, ErtsProcLocks locks);
 

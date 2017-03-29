@@ -174,33 +174,6 @@ void hipe_mode_switch_init(void)
 	make_catch(beam_catches_cons(hipe_beam_pc_throw, BEAM_CATCHES_NIL));
 
     hipe_mfa_info_table_init();
-
-#if (defined(__i386__) || defined(__x86_64__)) && defined(__linux__)
-    /* Verify that the offset of c-p->hipe does not change.
-       The ErLLVM hipe backend depends on it being in a specific
-       position. Kostis et al has promised to fix this in upstream
-       llvm by OTP 20, so it should be possible to remove these asserts
-       after that. */
-    ERTS_CT_ASSERT(sizeof(ErtsPTabElementCommon) ==
-                   (sizeof(Eterm) +                   /* id */
-                    sizeof(((ErtsPTabElementCommon*)0)->refc) +
-                    sizeof(ErtsTracer) +              /* tracer */
-                    sizeof(Uint) +                    /* trace_flags */
-                    sizeof(erts_smp_atomic_t) +       /* timer */
-                    sizeof(((ErtsPTabElementCommon*)0)->u)));
-
-    ERTS_CT_ASSERT(offsetof(Process, hipe) ==
-                   (sizeof(ErtsPTabElementCommon) +   /* common */
-                    sizeof(Eterm*) +                  /* htop */
-                    sizeof(Eterm*) +                  /* stop */
-                    sizeof(Eterm*) +                  /* heap */
-                    sizeof(Eterm*) +                  /* hend */
-                    sizeof(Uint) +                    /* heap_sz */
-                    sizeof(Uint) +                    /* min_heap_size */
-                    sizeof(Uint) +                    /* min_vheap_size */
-                    sizeof(volatile unsigned long))); /* fp_exception */
-#endif
-
 }
 
 void hipe_set_call_trap(Uint *bfun, void *nfun, int is_closure)
@@ -691,7 +664,7 @@ void hipe_inc_nstack(Process *p)
 {
     unsigned old_size = p->hipe.nstend - p->hipe.nstack;
     unsigned new_size = hipe_next_nstack_size(old_size);
-    Eterm *new_nstack = erts_alloc(ERTS_ALC_T_HIPE, new_size*sizeof(Eterm));
+    Eterm *new_nstack = erts_alloc(ERTS_ALC_T_HIPE_STK, new_size*sizeof(Eterm));
     unsigned used_size = p->hipe.nstend - p->hipe.nsp;
 
     sys_memcpy(new_nstack+new_size-used_size, p->hipe.nsp, used_size*sizeof(Eterm));
@@ -700,7 +673,7 @@ void hipe_inc_nstack(Process *p)
     if (p->hipe.nstblacklim)
 	p->hipe.nstblacklim = new_nstack + new_size - (p->hipe.nstend - p->hipe.nstblacklim);
     if (p->hipe.nstack)
-	erts_free(ERTS_ALC_T_HIPE, p->hipe.nstack);
+	erts_free(ERTS_ALC_T_HIPE_STK, p->hipe.nstack);
     p->hipe.nstack = new_nstack;
     p->hipe.nstend = new_nstack + new_size;
     p->hipe.nsp = new_nstack + new_size - used_size;
@@ -710,7 +683,7 @@ void hipe_inc_nstack(Process *p)
 void hipe_empty_nstack(Process *p)
 {
     if (p->hipe.nstack) {
-	erts_free(ERTS_ALC_T_HIPE, p->hipe.nstack);
+	erts_free(ERTS_ALC_T_HIPE_STK, p->hipe.nstack);
     }
     p->hipe.nstgraylim = NULL;
     p->hipe.nsp = NULL;

@@ -675,6 +675,18 @@ typedef struct {
         <p>When receiving data from untrusted sources, use option
           <c>ERL_NIF_BIN2TERM_SAFE</c>.</p>
       </item>
+      <tag><marker id="ErlNifMonitor"/><c>ErlNifMonitor</c></tag>
+      <item>
+        <p>This is an opaque data type that identifies a monitor.</p>
+        <p>The nif writer is to provide the memory for storing the
+          monitor when calling <seealso marker="#enif_monitor_process">
+          <c>enif_monitor_process</c></seealso>. The
+          address of the data is not stored by the runtime system, so
+          <c>ErlNifMonitor</c> can be used as any other data, it
+          can be copied, moved in memory, forgotten, and so on.
+	  To compare two monitors, <seealso marker="#enif_compare_monitors">
+          <c>enif_compare_monitors</c></seealso> must be used.</p>
+      </item>
       <tag><marker id="ErlNifPid"/><c>ErlNifPid</c></tag>
       <item>
         <p>A process identifier (pid). In contrast to pid terms (instances of
@@ -696,11 +708,46 @@ typedef struct {
           Each resource type has a unique name and a destructor function that
           is called when objects of its type are released.</p>
       </item>
+      <tag><marker id="ErlNifResourceTypeInit"/><c>ErlNifResourceTypeInit</c></tag>
+      <item>
+        <code type="none">
+typedef struct {
+    ErlNifResourceDtor* dtor;
+    ErlNifResourceStop* stop;
+} ErlNifResourceTypeInit;</code>
+        <p>Initialization structure read by <seealso marker="#enif_open_resource_type_x">
+	enif_open_resource_type_x</seealso>.</p>
+      </item>
       <tag><marker id="ErlNifResourceDtor"/><c>ErlNifResourceDtor</c></tag>
       <item>
         <code type="none">
 typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);</code>
         <p>The function prototype of a resource destructor function.</p>
+	<p>The <c>obj</c> argument is a pointer to the resource. The only
+	allowed use for the resource in the destructor is to access its
+	user data one final time. The destructor is guaranteed to be the
+	last callback before the resource is deallocated.</p>
+      </item>
+      <tag><marker id="ErlNifResourceDown"/><c>ErlNifResourceDown</c></tag>
+      <item>
+        <code type="none">
+typedef void ErlNifResourceDown(ErlNifEnv* env, void* obj, const ErlNifPid* pid, const ErlNifMonitor* mon);</code>
+        <p>The function prototype of a resource down function,
+	  called on the behalf of <seealso marker="#enif_monitor_process">
+	  enif_monitor_process</seealso>. <c>obj</c> is the resource, <c>pid</c>
+	  is the identity of the monitored process that is exiting, and <c>mon</c>
+	  is the identity of the monitor.
+	</p>
+      </item>
+      <tag><marker id="ErlNifResourceStop"/><c>ErlNifResourceStop</c></tag>
+      <item>
+        <code type="none">
+typedef void ErlNifResourceStop(ErlNifEnv* env, void* obj, ErlNifEvent event, int is_direct_call);</code>
+        <p>The function prototype of a resource stop function,
+	  called on the behalf of <seealso marker="#enif_select">
+	  enif_select</seealso>. <c>obj</c> is the resource, <c>event</c> is OS event,
+	  <c>is_direct_call</c> is true if the call is made directly from <c>enif_select</c>
+	  or false if it is a scheduled call (potentially from another thread).</p>
       </item>
       <tag><marker id="ErlNifCharEncoding"/><c>ErlNifCharEncoding</c></tag>
       <item>
@@ -875,6 +922,21 @@ typedef enum {
     </func>
 
     <func>
+      <name><ret>int</ret><nametext>enif_compare_monitors(const ErlNifMonitor
+        *monitor1, const ErlNifMonitor *monitor2)</nametext></name>
+      <fsummary>Compare two monitors.</fsummary>
+      <desc>
+        <marker id="enif_compare_monitors"></marker>
+        <p>Compares two <seealso marker="#ErlNifMonitor"><c>ErlNifMonitor</c></seealso>s.
+          Can also be used to imply some artificial order on monitors,
+          for whatever reason.</p>
+        <p>Returns <c>0</c> if <c>monitor1</c> and <c>monitor2</c> are equal,
+          &lt; <c>0</c> if <c>monitor1</c> &lt; <c>monitor2</c>, and
+          &gt; <c>0</c> if <c>monitor1</c> &gt; <c>monitor2</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>void</ret>
         <nametext>enif_cond_broadcast(ErlNifCond *cnd)</nametext></name>
       <fsummary></fsummary>
@@ -998,6 +1060,30 @@ typedef enum {
           fetching this value, <c>enif_cpu_time</c> invokes
           <seealso marker="#enif_make_badarg">
           <c>enif_make_badarg</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_demonitor_process(ErlNifEnv* env, void* obj,
+      const ErlNifMonitor* mon)</nametext></name>
+      <fsummary>Cancel a process monitor.</fsummary>
+      <desc>
+        <marker id="enif_demonitor_process"></marker>
+        <p>Cancels a monitor created earlier with <seealso marker="#enif_monitor_process">
+	<c>enif_monitor_process</c></seealso>. Argument <c>obj</c> is a pointer
+	to the resource holding the monitor and	<c>*mon</c> identifies the monitor.</p>
+        <p>Returns <c>0</c> if the monitor was successfully identified and removed.
+	Returns	a non-zero value if the monitor could not be identified, which means
+	it was either</p>
+	<list type="bulleted">
+          <item>never created for this resource</item>
+          <item>already cancelled</item>
+          <item>already triggered</item>
+          <item>just about to be triggered by a concurrent thread</item>
+        </list>
+        <p>This function is only thread-safe when the emulator with SMP support
+          is used. It can only be used in a non-SMP emulator from a NIF-calling
+          thread.</p>
       </desc>
     </func>
 
@@ -2117,6 +2203,36 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
+      <name><ret>int</ret><nametext>enif_monitor_process(ErlNifEnv* env, void* obj,
+      const ErlNifPid* target_pid, ErlNifMonitor* mon)</nametext></name>
+      <fsummary>Monitor a process from a resource.</fsummary>
+      <desc>
+        <marker id="enif_monitor_process"></marker>
+        <p>Starts monitoring a process from a resource. When a process is
+          monitored, a process exit results in a call to the provided
+          <seealso marker="#ErlNifResourceDown">
+          <c>down</c></seealso> callback associated with the resource type.</p>
+	<p>Argument <c>obj</c> is pointer to the resource to hold the monitor and
+	<c>*target_pid</c> identifies the local process to be monitored.</p>
+	<p>If <c>mon</c> is not <c>NULL</c>, a successful call stores the
+	identity of the monitor	in the
+	<seealso marker="#ErlNifMonitor"><c>ErlNifMonitor</c></seealso>
+	struct pointed to by <c>mon</c>. This identifier is used to refer to the
+	monitor for later removal with
+	<seealso marker="#enif_demonitor_process"><c>enif_demonitor_process</c></seealso>
+	or compare with
+	<seealso marker="#enif_compare_monitors"><c>enif_compare_monitors</c></seealso>.
+	A monitor is automatically removed when it triggers or when
+	the resource is deallocated.</p>
+        <p>Returns <c>0</c> on success, &lt; 0 if no <c>down</c> callback is
+          provided, and &gt; 0 if the process is no longer alive.</p>
+        <p>This function is only thread-safe when the emulator with SMP support
+          is used. It can only be used in a non-SMP emulator from a NIF-calling
+          thread.</p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>ErlNifTime</ret>
         <nametext>enif_monotonic_time(ErlNifTimeUnit time_unit)</nametext>
       </name>
@@ -2236,6 +2352,24 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
+      <name><ret>ErlNifResourceType *</ret>
+        <nametext>enif_open_resource_type_x(ErlNifEnv* env, const char* name,
+	ErlNifResourceTypeInit* init,
+        ErlNifResourceFlags flags, ErlNifResourceFlags* tried)</nametext>
+      </name>
+      <fsummary>Create or takeover a resource type.</fsummary>
+      <desc>
+	<p>Same as <seealso marker="#enif_open_resource_type"><c>enif_open_resource_type</c></seealso>
+	  except is also accept a <c>stop</c> callback for resource types that are
+	  used together with <seealso marker="#enif_select"><c>enif_select</c></seealso>.</p>
+	<p>Argument <c>init</c> is a pointer to an
+	  <seealso marker="#ErlNifResourceTypeInit"><c>ErlNifResourceTypeInit</c></seealso>
+	  structure that contains the function pointers for destructor, down and stop callbacks
+	  for the resource type.</p>
+      </desc>
+    </func>
+
+    <func>
      <name><ret>int</ret><nametext>enif_port_command(ErlNifEnv* env, const
        ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg)</nametext>
      </name>
@@ -2342,7 +2476,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
         <nametext>enif_release_resource(void* obj)</nametext></name>
       <fsummary>Release a resource object.</fsummary>
       <desc>
-        <p>Removes a reference to resource object <c>obj</c>obtained from
+        <p>Removes a reference to resource object <c>obj</c> obtained from
           <seealso marker="#enif_alloc_resource">
           <c>enif_alloc_resource</c></seealso>.
           The resource object is destructed when the last reference is removed.
@@ -2478,6 +2612,85 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           block waiting for the scheduled NIF to execute and return. This means
           that the calling NIF cannot expect to receive the scheduled NIF
           return value and use it for further operations.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+        <nametext>enif_select(ErlNifEnv* env, ErlNifEvent event, enum ErlNifSelectFlags mode,
+	void* obj, const ErlNifPid* pid, ERL_NIF_TERM ref)</nametext>
+      </name>
+      <fsummary>Manage subscription on IO event.</fsummary>
+      <desc>
+        <p>This function can be used to receive asynchronous notifications
+	  when OS-specific event objects become ready for either read or write operations.</p>
+	<p>Argument <c>event</c> identifies the event object. On Unix
+	  systems, the functions <c>select</c>/<c>poll</c> are used. The event
+	  object must be a socket, pipe or other file descriptor object that
+	  <c>select</c>/<c>poll</c> can use.</p>
+	<p>Argument <c>mode</c> describes the type of events to wait for. It can be
+	  <c>ERL_NIF_SELECT_READ</c>, <c>ERL_NIF_SELECT_WRITE</c> or a bitwise
+	  OR combination to wait for both. It can also be <c>ERL_NIF_SELECT_STOP</c>
+	  which is described further below. When a read or write event is triggerred,
+	  a notification message like this is sent to the process identified by
+	  <c>pid</c>:</p>
+	<code type="none">{select, Obj, Ref, ready_input | ready_output}</code>
+	<p><c>ready_input</c> or <c>ready_output</c> indicates if the event object
+	  is ready for reading or writing.</p>
+	<p>Argument <c>pid</c> may be <c>NULL</c> to indicate the calling process.</p>
+	<p>Argument <c>obj</c> is a resource object obtained from
+          <seealso marker="#enif_alloc_resource"><c>enif_alloc_resource</c></seealso>.
+	  The purpose of the resource objects is as a container of the event object
+	  to manage its state and lifetime. A handle to the resource is received
+	  in the notification message as <c>Obj</c>.</p>
+	<p>Argument <c>ref</c> must be either a reference obtained from
+	  <seealso marker="erlang#make_ref-0"><c>erlang:make_ref/0</c></seealso>
+	  or the atom <c>undefined</c>. It will be passed as <c>Ref</c> in the notifications.
+	  If a selective <c>receive</c> statement is used to wait for the notification
+	  then a reference created just before the <c>receive</c> will exploit a runtime
+	  optimization that bypasses all earlier received messages in the queue.</p>
+	<p>The notifications are one-shot only. To receive further notifications of the same
+	  type (read or write), repeated calls to <c>enif_select</c> must be made
+	  after receiving each notification.</p>
+	<p>Use <c>ERL_NIF_SELECT_STOP</c> as <c>mode</c> in order to safely
+	  close an event object that has been passed to <c>enif_select</c>. The
+	  <seealso marker="#ErlNifResourceStop"><c>stop</c></seealso> callback
+	  of the resource <c>obj</c> will be called when it is safe to close
+	  the event object. This safe way of closing event objects must be used
+	  even if all notifications have been received and no further calls to
+	  <c>enif_select</c> have been made.</p>
+	<p>Returns a non-negative value on success where the following bits can be set:</p>
+        <taglist>
+          <tag><c>ERL_NIF_SELECT_STOP_CALLED</c></tag>
+          <item>The stop callback was called directly by <c>enif_select</c>.</item>
+          <tag><c>ERL_NIF_SELECT_STOP_SCHEDULED</c></tag>
+          <item>The stop callback was scheduled to run on some other thread
+	    or later by this thread.</item>
+	</taglist>
+	<p>Returns a negative value if the call failed where the follwing bits can be set:</p>
+        <taglist>
+          <tag><c>ERL_NIF_SELECT_INVALID_EVENT</c></tag>
+          <item>Argument <c>event</c> is not a valid OS event object.</item>
+          <tag><c>ERL_NIF_SELECT_FAILED</c></tag>
+          <item>The system call failed to add the event object to the poll set.</item>
+        </taglist>
+        <note>
+          <p>Use bitwise AND to test for specific bits in the return vaue.
+	  New significant bits may be added in future releases to give more detailed
+	  information for both failed and successful calls. Do NOT use equallity tests
+	  like <c>==</c>, as that may cause your application to stop working.</p>
+	  <p>Example:</p>
+	  <code type="none">
+retval = enif_select(env, fd, ERL_NIF_SELECT_STOP, resource, ref);
+if (retval &lt; 0) {
+    /* handle error */
+}
+/* Success! */
+if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
+    /* ... */
+}
+</code>
+        </note>
       </desc>
     </func>
 

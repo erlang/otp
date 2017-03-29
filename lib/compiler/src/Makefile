@@ -63,6 +63,7 @@ MODULES =  \
 	beam_peep \
 	beam_receive \
 	beam_reorder \
+	beam_record \
 	beam_split \
 	beam_trim \
 	beam_type \

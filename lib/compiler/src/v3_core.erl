@@ -1059,13 +1059,30 @@ count_bits(Int) ->
 count_bits_1(0, Bits) -> Bits;
 count_bits_1(Int, Bits) -> count_bits_1(Int bsr 64, Bits+64).
 
-bin_expand_strings(Es) ->
-    foldr(fun ({bin_element,Line,{string,_,S},Sz,Ts}, Es1) ->
-		  foldr(fun (C, Es2) ->
-				[{bin_element,Line,{char,Line,C},Sz,Ts}|Es2]
-			end, Es1, S);
-	      (E, Es1) -> [E|Es1]
-	  end, [], Es).
+bin_expand_strings(Es0) ->
+    foldr(fun ({bin_element,Line,{string,_,S},{integer,_,8},_}, Es) ->
+                  bin_expand_string(S, Line, 0, 0) ++ Es;
+              ({bin_element,Line,{string,_,S},Sz,Ts}, Es1) ->
+                  foldr(
+                    fun (C, Es) ->
+                            [{bin_element,Line,{char,Line,C},Sz,Ts}|Es]
+                    end, Es1, S);
+              (E, Es) ->
+                  [E|Es]
+	  end, [], Es0).
+
+bin_expand_string(S, Line, Val, Size) when Size >= 2048 ->
+    Combined = make_combined(Line, Val, Size),
+    [Combined|bin_expand_string(S, Line, 0, 0)];
+bin_expand_string([H|T], Line, Val, Size) ->
+    bin_expand_string(T, Line, (Val bsl 8) bor H, Size+8);
+bin_expand_string([], Line, Val, Size) ->
+    [make_combined(Line, Val, Size)].
+
+make_combined(Line, Val, Size) ->
+    {bin_element,Line,{integer,Line,Val},
+     {integer,Line,Size},
+     [integer,{unit,1},unsigned,big]}.
 
 expr_bin_1(Es, St) ->
     foldr(fun (E, {Ces,Esp,St0}) ->

@@ -55,7 +55,7 @@
 
 -define(wxGC, wxGraphicsContext).
 
--record(paint, {font, small, pen, pen2, pens, usegc = false}).
+-record(paint, {font, small, pen, pen2, pens, dot_pens, usegc = false}).
 
 start_link(Notebook, Parent) ->
     wx_object:start_link(?MODULE, [Notebook, Parent], []).
@@ -124,13 +124,17 @@ setup_graph_drawing(Panels) ->
 		  {F, SF}
 	  end,
     BlackPen = wxPen:new({0,0,0}, [{width, 1}]),
-    Pens = [wxPen:new(Col, [{width, 1}]) || Col <- tuple_to_list(colors())],
+    Pens = [wxPen:new(Col, [{width, 1}, {style, ?wxSOLID}])
+            || Col <- tuple_to_list(colors())],
+    DotPens = [wxPen:new(Col, [{width, 1}, {style, ?wxDOT}])
+               || Col <- tuple_to_list(colors())],
     #paint{usegc = UseGC,
 	   font  = Font,
 	   small = SmallFont,
 	   pen   = ?wxGREY_PEN,
 	   pen2  = BlackPen,
-	   pens  = list_to_tuple(Pens)
+	   pens  = list_to_tuple(Pens),
+           dot_pens = list_to_tuple(DotPens)
 	  }.
 
 
@@ -181,17 +185,17 @@ handle_cast(Event, _State) ->
 %%%%%%%%%%
 handle_info({stats, 1, _, _, _} = Stats,
 	    #state{panel=Panel, samples=Data, active=Active, wins=Wins0,
-		   time=#ti{tick=Tick, disp=Disp0}=Ti} = State0) ->
+                   appmon=Node, time=#ti{tick=Tick, disp=Disp0}=Ti} = State0) ->
     if Active ->
 	    Disp = trunc(Disp0),
 	    Next = max(Tick - Disp, 0),
 	    erlang:send_after(1000 div ?DISP_FREQ, self(), {refresh, Next}),
-	    {Wins, Samples} = add_data(Stats, Data, Wins0, Ti, Active),
+	    {Wins, Samples} = add_data(Stats, Data, Wins0, Ti, Active, Node),
 	    State = precalc(State0#state{time=Ti#ti{tick=Next}, wins=Wins, samples=Samples}),
 	    wxWindow:refresh(Panel),
 	    {noreply, State};
        true ->
-	    {Wins1, Samples} = add_data(Stats, Data, Wins0, Ti, Active),
+	    {Wins1, Samples} = add_data(Stats, Data, Wins0, Ti, Active, Node),
 	    Wins = [W#win{max=undefined} || W <- Wins1],
 	    {noreply, State0#state{samples=Samples, wins=Wins, time=Ti#ti{tick=0}}}
     end;
@@ -247,13 +251,17 @@ restart_fetcher(Node, #state{appmon=Old, panel=Panel, time=#ti{fetch=Freq}=Ti, w
 reset_data() ->
     {0, queue:new()}.
 
-add_data(Stats, {N, Q0}, Wins, #ti{fetch=Fetch, secs=Secs}, Active) when N > (Secs*Fetch+1) ->
-    {{value, Drop}, Q} = queue:out(Q0),
-    add_data_1(Wins, Stats, N, {Drop,Q}, Active);
-add_data(Stats, {N, Q}, Wins, _, Active) ->
-    add_data_1(Wins, Stats, N+1, {empty, Q}, Active).
+add_data(Stats, Q, Wins, Ti, Active) ->
+    add_data(Stats, Q, Wins, Ti, Active, ignore).
 
-add_data_1([#win{state={_,St}}|_]=Wins0, Last, N, {Drop, Q}, Active)
+add_data(Stats, {N, Q0}, Wins, #ti{fetch=Fetch, secs=Secs}, Active, Node)
+  when N > (Secs*Fetch+1) ->
+    {{value, Drop}, Q} = queue:out(Q0),
+    add_data_1(Wins, Stats, N, {Drop,Q}, Active, Node);
+add_data(Stats, {N, Q}, Wins, _, Active, Node) ->
+    add_data_1(Wins, Stats, N+1, {empty, Q}, Active, Node).
+
+add_data_1([#win{state={_,St}}|_]=Wins0, Last, N, {Drop, Q}, Active, Node)
   when St /= undefined ->
     try
 	{Wins, Stat} =
@@ -269,14 +277,12 @@ add_data_1([#win{state={_,St}}|_]=Wins0, Last, N, {Drop, Q}, Active)
 			   end, #{}, Wins0),
 	{Wins, {N,queue:in(Stat#{}, Q)}}
     catch no_scheduler_change ->
-	    {[Win#win{state=init_data(Id, Last),
-		      info = info(Id, Last)}
+	    {[Win#win{state=init_data(Id, Last), info=info(Id, Last, Node)}
 	      || #win{name=Id}=Win <- Wins0], {0,queue:new()}}
     end;
 
-add_data_1(Wins, Stats, 1, {_, Q}, _) ->
-    {[Win#win{state=init_data(Id, Stats),
-	      info = info(Id, Stats)}
+add_data_1(Wins, Stats, 1, {_, Q}, _, Node) ->
+    {[Win#win{state=init_data(Id, Stats), info=info(Id, Stats, Node)}
       || #win{name=Id}=Win <- Wins], {0,Q}}.
 
 add_data_2(#win{name=Id, state=S0}=Win, Stats, Map) ->
@@ -382,16 +388,24 @@ lmax(MState, Values, State) ->
 
 init_data(runq, {stats, _, T0, _, _}) -> {mk_max(),lists:sort(T0)};
 init_data(io,   {stats, _, _, {{_,In0}, {_,Out0}}, _}) -> {mk_max(), {In0,Out0}};
-init_data(memory, _) -> {mk_max(), info(memory, undefined)};
+init_data(memory, _) -> {mk_max(), info(memory, undefined, undefined)};
 init_data(alloc, _) -> {mk_max(), unused};
 init_data(utilz, _) -> {mk_max(), unused}.
 
-info(runq, {stats, _, T0, _, _}) -> lists:seq(1, length(T0));
-info(memory, _) -> [total, processes, atom, binary, code, ets];
-info(io, _) -> [input, output];
-info(alloc, First) -> [Type || {Type, _, _} <- First];
-info(utilz, First) -> [Type || {Type, _, _} <- First];
-info(_, []) -> [].
+info(runq, {stats, _, T0, _, _}, Node) ->
+    Dirty = get_dirty_cpu(Node),
+    {lists:seq(1, length(T0)-Dirty), Dirty};
+info(memory, _, _) -> [total, processes, atom, binary, code, ets];
+info(io, _, _) -> [input, output];
+info(alloc, First, _) -> [Type || {Type, _, _} <- First];
+info(utilz, First, _) -> [Type || {Type, _, _} <- First];
+info(_, [], _) -> [].
+
+get_dirty_cpu(Node) ->
+    case rpc:call(node(Node), erlang, system_info, [dirty_cpu_schedulers]) of
+        {badrpc,_R} -> 0;
+        N -> N
+    end.
 
 collect_data(runq, {stats, _, T0, _, _}, {Max,S0}) ->
     S1 = lists:sort(T0),
@@ -471,9 +485,10 @@ window_geom({W,H}, {_, Max, _Unit, MaxUnit},
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-draw_win(DC, #win{no_samples=Samples, geom=#{scale:={WS,HS}}, graphs=Graphs, max={_,Max,_,_}}=Win,
+draw_win(DC, #win{name=Name, no_samples=Samples, geom=#{scale:={WS,HS}},
+                  graphs=Graphs, max={_,Max,_,_}, info=Info}=Win,
 	 #ti{tick=Tick, fetch=FetchFreq, secs=Secs, disp=DispFreq}=Ti,
-	 Paint=#paint{pens=Pens}) when Samples >= 2, Graphs =/= [] ->
+	 Paint=#paint{pens=Pens, dot_pens=Dots}) when Samples >= 2, Graphs =/= [] ->
     %% Draw graphs
     {X0,Y0,DrawBs} = draw_borders(DC, Ti, Win, Paint),
     Offset = Tick / DispFreq,
@@ -483,14 +498,23 @@ draw_win(DC, #win{no_samples=Samples, geom=#{scale:={WS,HS}}, graphs=Graphs, max
 	   end,
     Start = X0 + (max(Secs*FetchFreq+Full-Samples, 0) - Offset)*WS,
     Last = Secs*FetchFreq*WS+X0,
+    Dirty = case {Name, Info} of
+                {runq, {_, DCpu}} -> DCpu;
+                _ -> 0
+            end,
+    NoGraphs = length(Graphs),
+    NoCpu = NoGraphs - Dirty,
     Draw = fun(Lines0, N) ->
-		   setPen(DC, element(1+ ((N-1) rem tuple_size(Pens)), Pens)),
+                   case Dirty > 0 andalso N > NoCpu of
+                       true  -> setPen(DC, element(1+ ((N-NoCpu-1) rem tuple_size(Dots)), Dots));
+                       false -> setPen(DC, element(1+ ((N-1) rem tuple_size(Pens)), Pens))
+                   end,
 		   Order = lists:reverse(Lines0),
 		   [{_,Y}|Lines] = translate(Order, {Start, Y0}, 0, WS, {X0,Max*HS,Last}, []),
 		   strokeLines(DC, [{Last,Y}|Lines]),
 		   N-1
 	   end,
-    lists:foldl(Draw, length(Graphs), Graphs),
+    lists:foldl(Draw, NoGraphs, Graphs),
     DrawBs(),
     ok;
 
@@ -655,11 +679,17 @@ draw_borders(DC, #ti{secs=Secs, fetch=FetchFreq},
 
     case Type of
 	runq ->
+            {TextInfo, DirtyCpus} = Info,
 	    drawText(DC, "Scheduler Utilization (%) ", TopTextX, ?BH),
 	    TN0 = Text(TopTextX, BottomTextY, "Scheduler: ", 0),
-	    lists:foldl(fun(Id, Pos0) ->
-				Text(Pos0, BottomTextY, integer_to_list(Id), Id)
-			end, TN0, Info);
+            Id = fun(Id, Pos0) ->
+                         Text(Pos0, BottomTextY, integer_to_list(Id), Id)
+                 end,
+	    TN1 = lists:foldl(Id, TN0, TextInfo),
+            TN2 = Text(TN1, BottomTextY, "Dirty cpu: ", 0),
+	    TN3 = lists:foldl(Id, TN2, lists:seq(1, DirtyCpus)),
+            _ = Text(TN3, BottomTextY, "(dotted)", 0),
+            ok;
 	memory ->
 	    drawText(DC, "Memory Usage " ++ Unit, TopTextX,?BH),
 	    lists:foldl(fun(MType, {PenId, Pos0}) ->
@@ -748,10 +778,10 @@ calc_max1(Max) ->
     end.
 
 colors() ->
-    {{240, 100, 100}, {100, 240, 100}, {100, 100, 240},
-     {220, 220, 80}, {100, 240, 240}, {240, 100, 240},
-     {100, 25, 25}, {25, 100, 25}, {25, 25, 100},
-     {120, 120, 0}, {25, 100, 100}, {100, 50, 100}
+    {{240, 100, 100}, {0, 128, 0},     {25, 45, 170},  {255, 165, 0},
+     {220, 220, 40},  {100, 240, 240},{240, 100, 240}, {160, 40,  40},
+     {100, 100, 240}, {140, 140, 0},  {25, 200, 100},  {120, 25, 240},
+     {255, 140, 163}, {25, 120, 120}, {120, 25, 120},  {110, 90, 60}
     }.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

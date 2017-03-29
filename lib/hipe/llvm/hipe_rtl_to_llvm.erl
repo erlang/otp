@@ -1364,7 +1364,7 @@ create_function_definition(Fun, Params, Code, LocalVars) ->
   EntryBlock =
     lists:flatten([EntryLabel, ExceptionSync, I2, LocalVars, StoredParams, I3]),
   Final_Code = EntryBlock ++ Code,
-  FunctionOptions = [nounwind, noredzone, list_to_atom("gc \"erlang\"")],
+  FunctionOptions = [nounwind, noredzone, 'gc "erlang"'],
   WordTy = hipe_llvm:mk_int(?BITS_IN_WORD),
   FunRetTy = hipe_llvm:mk_struct(lists:duplicate(?NR_PINNED_REGS + 1, WordTy)),
   hipe_llvm:mk_fun_def([], [], "cc 11", [], FunRetTy, FunctionName, Args,

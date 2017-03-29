@@ -42,6 +42,7 @@
 #include "erl_utils.h"
 #include "erl_port.h"
 #include "erl_gc.h"
+#include "erl_nif.h"
 #define ERTS_BINARY_TYPES_ONLY__
 #include "erl_binary.h"
 #undef ERTS_BINARY_TYPES_ONLY__
@@ -68,9 +69,54 @@ struct enif_environment_t /* ErlNifEnv */
     int dbg_disable_assert_in_env;
 #endif
 };
+struct enif_resource_type_t
+{
+    struct enif_resource_type_t* next;   /* list of all resource types */
+    struct enif_resource_type_t* prev;
+    struct erl_module_nif* owner;  /* that created this type and thus implements the destructor*/
+    ErlNifResourceDtor* dtor;      /* user destructor function */
+    ErlNifResourceStop* stop;
+    ErlNifResourceDown* down;
+    erts_refc_t refc;  /* num of resources of this type (HOTSPOT warning)
+                          +1 for active erl_module_nif */
+    Eterm module;
+    Eterm name;
+};
+
+typedef struct
+{
+    erts_smp_mtx_t lock;
+    ErtsMonitor* root;
+    int pending_failed_fire;
+    int is_dying;
+
+    size_t user_data_sz;
+} ErtsResourceMonitors;
+
+typedef struct ErtsResource_
+{
+    struct enif_resource_type_t* type;
+    ErtsResourceMonitors* monitors;
+#ifdef DEBUG
+    erts_refc_t nif_refc;
+#else
+# ifdef ARCH_32
+    byte align__[4];
+# endif
+#endif
+    char data[1];
+}ErtsResource;
+
+#define DATA_TO_RESOURCE(PTR) ErtsContainerStruct(PTR, ErtsResource, data)
+#define erts_resource_ref_size(P) ERTS_MAGIC_REF_THING_SIZE
+
+extern Eterm erts_bld_resource_ref(Eterm** hp, ErlOffHeap*, ErtsResource*);
+
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*, Process* tracee);
 extern void erts_post_nif(struct enif_environment_t* env);
+extern void erts_resource_stop(ErtsResource*, ErlNifEvent, int is_direct_call);
+void erts_fire_nif_monitor(ErtsResource*, Eterm pid, Eterm ref);
 extern Eterm erts_nif_taints(Process* p);
 extern void erts_print_nif_taints(fmtfn_t to, void* to_arg);
 void erts_unload_nif(struct erl_module_nif* nif);
@@ -1129,6 +1175,8 @@ void erts_stale_drv_select(Eterm, ErlDrvPort, ErlDrvEvent, int, int);
 
 Port *erts_get_heart_port(void);
 void erts_emergency_close_ports(void);
+void erts_ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon);
+Eterm erts_driver_monitor_to_ref(Eterm* hp, const ErlDrvMonitor *mon);
 
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_COUNT)
 void erts_lcnt_enable_io_lock_count(int enable);

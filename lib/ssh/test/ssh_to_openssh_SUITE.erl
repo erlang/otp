@@ -333,7 +333,7 @@ erlang_client_openssh_server_publickey_rsa(Config) when is_list(Config) ->
 		[{_,_, not_encrypted}] ->
 		    ConnectionRef =
 			ssh_test_lib:connect(?SSH_DEFAULT_PORT,
-					     [{public_key_alg, ssh_rsa},
+					     [{pref_public_key_algs, ['ssh-rsa','ssh-dss']},
 					      {user_interaction, false},
 					      silently_accept_hosts]),
 		    {ok, Channel} =
@@ -354,7 +354,7 @@ erlang_client_openssh_server_publickey_dsa() ->
 erlang_client_openssh_server_publickey_dsa(Config) when is_list(Config) ->
     ConnectionRef =
 	ssh_test_lib:connect(?SSH_DEFAULT_PORT,
-			     [{public_key_alg, ssh_dsa},
+			     [{pref_public_key_algs, ['ssh-dss','ssh-rsa']},
 			      {user_interaction, false},
 			      silently_accept_hosts]),
     {ok, Channel} =
@@ -381,7 +381,6 @@ erlang_server_openssh_client_public_key_X(Config, PubKeyAlg) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {public_key_alg, PubKeyAlg},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
 
     ct:sleep(500),
@@ -402,7 +401,6 @@ erlang_server_openssh_client_renegotiate(Config) ->
     KnownHosts = filename:join(PrivDir, "known_hosts"),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {public_key_alg, PubKeyAlg},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
 
@@ -464,6 +462,7 @@ erlang_client_openssh_server_renegotiate(_Config) ->
 			     {silently_accept_hosts,true}],
 		  group_leader(IO, self()),
 		  {ok, ConnRef} = ssh:connect(Host, ?SSH_DEFAULT_PORT, Options),
+                  ct:pal("Parent = ~p, IO = ~p, Shell = ~p, ConnRef = ~p~n",[Parent, IO, self(), ConnRef]),
 		  case ssh_connection:session_channel(ConnRef, infinity) of
 		      {ok,ChannelId}  ->
 			  success = ssh_connection:ptty_alloc(ConnRef, ChannelId, []),

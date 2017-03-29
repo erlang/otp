@@ -219,37 +219,48 @@ mime_decode_binary(Result, <<0:8,T/bits>>) ->
     mime_decode_binary(Result, T);
 mime_decode_binary(Result0, <<C:8,T/bits>>) ->
     case element(C, ?DECODE_MAP) of
-	Bits when is_integer(Bits) ->
-	    mime_decode_binary(<<Result0/bits,Bits:6>>, T);
-	eq ->
-	    case tail_contains_more(T, false) of
-		{<<>>, Eq} ->
-		    %% No more valid data.
-		    case bit_size(Result0) rem 8 of
-			0 ->
-			    %% '====' is not uncommon.
-			    Result0;
-			4 when Eq ->
-			    %% enforce at least one more '=' only ignoring illegals and spacing
-			    Split =  byte_size(Result0) - 1,
-			    <<Result:Split/bytes,_:4>> = Result0,
-			    Result;
-			2 ->
-			    %% remove 2 bits
-			    Split =  byte_size(Result0) - 1,
-			    <<Result:Split/bytes,_:2>> = Result0,
-			    Result
-		    end;
-		{More, _} ->
-		    %% More valid data, skip the eq as invalid
-		    mime_decode_binary(Result0, More)
-	    end;
-	_ ->
-	    mime_decode_binary(Result0, T)
+        Bits when is_integer(Bits) ->
+            mime_decode_binary(<<Result0/bits,Bits:6>>, T);
+        eq ->
+            mime_decode_binary_after_eq(Result0, T, false);
+        _ ->
+            mime_decode_binary(Result0, T)
     end;
-mime_decode_binary(Result, <<>>) ->
+mime_decode_binary(Result, _) ->
     true = is_binary(Result),
     Result.
+
+mime_decode_binary_after_eq(Result, <<0:8,T/bits>>, Eq) ->
+    mime_decode_binary_after_eq(Result, T, Eq);
+mime_decode_binary_after_eq(Result0, <<C:8,T/bits>>, Eq) ->
+    case element(C, ?DECODE_MAP) of
+        bad ->
+            mime_decode_binary_after_eq(Result0, T, Eq);
+        ws ->
+            mime_decode_binary_after_eq(Result0, T, Eq);
+        eq ->
+            mime_decode_binary_after_eq(Result0, T, true);
+        Bits when is_integer(Bits) ->
+            %% More valid data, skip the eq as invalid
+            mime_decode_binary(<<Result0/bits,Bits:6>>, T)
+    end;
+mime_decode_binary_after_eq(Result0, <<>>, Eq) ->
+    %% No more valid data.
+    case bit_size(Result0) rem 8 of
+        0 ->
+            %% '====' is not uncommon.
+            Result0;
+        4 when Eq ->
+            %% enforce at least one more '=' only ignoring illegals and spacing
+            Split = byte_size(Result0) - 1,
+            <<Result:Split/bytes,_:4>> = Result0,
+            Result;
+        2 ->
+            %% remove 2 bits
+            Split = byte_size(Result0) - 1,
+            <<Result:Split/bytes,_:2>> = Result0,
+            Result
+    end.
 
 decode([], A) -> A;
 decode([$=,$=,C2,C1|Cs], A) ->

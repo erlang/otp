@@ -50,43 +50,43 @@ post_end_per_suite(Suite,Config,Return,State) ->
     NewConfig = [{post_end_per_suite,?now}|Config],
     {NewConfig,NewConfig}.
 
-pre_init_per_group(Group,Config,State) ->
-    empty_cth:pre_init_per_group(Group,Config,State),
+pre_init_per_group(Suite, Group,Config,State) ->
+    empty_cth:pre_init_per_group(Suite,Group,Config,State),
     {[{pre_init_per_group,?now}|Config],State}.
 
-post_init_per_group(Group,Config,Return,State) ->
-    empty_cth:post_init_per_group(Group,Config,Return,State),
+post_init_per_group(Suite,Group,Config,Return,State) ->
+    empty_cth:post_init_per_group(Suite,Group,Config,Return,State),
     {[{post_init_per_group,?now}|Return],State}.
 
-pre_end_per_group(Group,Config,State) ->
-    empty_cth:pre_end_per_group(Group,Config,State),
+pre_end_per_group(Suite,Group,Config,State) ->
+    empty_cth:pre_end_per_group(Suite,Group,Config,State),
     {[{pre_end_per_group,?now}|Config],State}.
 
-post_end_per_group(Group,Config,Return,State) ->
-    empty_cth:post_end_per_group(Group,Config,Return,State),
+post_end_per_group(Suite,Group,Config,Return,State) ->
+    empty_cth:post_end_per_group(Suite,Group,Config,Return,State),
     {[{post_end_per_group,?now}|Config],State}.
 
-pre_init_per_testcase(TC,Config,State) ->
-    empty_cth:pre_init_per_testcase(TC,Config,State),
+pre_init_per_testcase(Suite,TC,Config,State) ->
+    empty_cth:pre_init_per_testcase(Suite,TC,Config,State),
     {[{pre_init_per_testcase,?now}|Config],State}.
 
-post_init_per_testcase(TC,Config,Return,State) ->
-    empty_cth:post_init_per_testcase(TC,Config,Return,State),
+post_init_per_testcase(Suite,TC,Config,Return,State) ->
+    empty_cth:post_init_per_testcase(Suite,TC,Config,Return,State),
     {[{post_init_per_testcase,?now}|Config],State}.
 
-pre_end_per_testcase(TC,Config,State) ->
-    empty_cth:pre_end_per_testcase(TC,Config,State),
+pre_end_per_testcase(Suite,TC,Config,State) ->
+    empty_cth:pre_end_per_testcase(Suite,TC,Config,State),
     {[{pre_end_per_testcase,?now}|Config],State}.
 
-post_end_per_testcase(TC,Config,Return,State) ->
-    empty_cth:post_end_per_testcase(TC,Config,Return,State),
+post_end_per_testcase(Suite,TC,Config,Return,State) ->
+    empty_cth:post_end_per_testcase(Suite,TC,Config,Return,State),
     {[{post_end_per_testcase,?now}|Config],State}.
 
-on_tc_fail(TC, Reason, State) ->
-    empty_cth:on_tc_fail(TC,Reason,State).
+on_tc_fail(Suite,TC, Reason, State) ->
+    empty_cth:on_tc_fail(Suite,TC,Reason,State).
 
-on_tc_skip(TC, Reason, State) ->
-    empty_cth:on_tc_skip(TC,Reason,State).
+on_tc_skip(Suite,TC, Reason, State) ->
+    empty_cth:on_tc_skip(Suite,TC,Reason,State).
 
 terminate(State) ->
     empty_cth:terminate(State).

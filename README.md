@@ -52,7 +52,7 @@ Please visit [bugs.erlang.org](https://bugs.erlang.org/issues/?jql=project%20%3D
 
 ### Security Disclosure
 
-We take security bugs in Erlang/OTP seriously. Please disclose the issues regarding security by sending an email to security@erlang.org and not by creating a public issue.
+We take security bugs in Erlang/OTP seriously. Please disclose the issues regarding security by sending an email to **erlang-security [at] erlang [dot] org** and not by creating a public issue.
 
 ## Contributing
 

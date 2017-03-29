@@ -153,14 +153,14 @@ supported_algorithms(compression) ->
 
 %%%----------------------------------------------------------------------------
 versions(client, Options)->
-    Vsn = proplists:get_value(vsn, Options, ?DEFAULT_CLIENT_VERSION),
+    Vsn = ?GET_INTERNAL_OPT(vsn, Options, ?DEFAULT_CLIENT_VERSION),
     {Vsn, format_version(Vsn, software_version(Options))};
 versions(server, Options) ->
-    Vsn = proplists:get_value(vsn, Options, ?DEFAULT_SERVER_VERSION),
+    Vsn = ?GET_INTERNAL_OPT(vsn, Options, ?DEFAULT_SERVER_VERSION),
     {Vsn, format_version(Vsn, software_version(Options))}.
 
 software_version(Options) -> 
-    case proplists:get_value(id_string, Options) of
+    case ?GET_OPT(id_string, Options) of
 	undefined ->
 	    "Erlang"++ssh_vsn();
 	{random,Nlo,Nup} ->
@@ -171,7 +171,7 @@ software_version(Options) ->
 
 ssh_vsn() ->
     try {ok,L} = application:get_all_key(ssh),
-	 proplists:get_value(vsn,L,"")
+	 proplists:get_value(vsn, L, "")
     of 
 	"" -> "";
 	VSN when is_list(VSN) -> "/" ++ VSN;
@@ -232,13 +232,7 @@ key_exchange_init_msg(Ssh0) ->
 
 kex_init(#ssh{role = Role, opts = Opts, available_host_keys = HostKeyAlgs}) ->
     Random = ssh_bits:random(16),
-    PrefAlgs =
-	case proplists:get_value(preferred_algorithms,Opts) of
-	    undefined -> 
-		default_algorithms();
-	    Algs0 ->
-		Algs0
-	end,
+    PrefAlgs = ?GET_OPT(preferred_algorithms, Opts),
     kexinit_message(Role, Random, PrefAlgs, HostKeyAlgs).
 
 key_init(client, Ssh, Value) ->
@@ -341,10 +335,7 @@ key_exchange_first_msg(Kex, Ssh0) when Kex == 'diffie-hellman-group1-sha1' ;
 
 key_exchange_first_msg(Kex, Ssh0=#ssh{opts=Opts}) when Kex == 'diffie-hellman-group-exchange-sha1' ;
 						       Kex == 'diffie-hellman-group-exchange-sha256' ->
-    {Min,NBits0,Max} = 
-	proplists:get_value(dh_gex_limits, Opts, {?DEFAULT_DH_GROUP_MIN,
-						  ?DEFAULT_DH_GROUP_NBITS,
-						  ?DEFAULT_DH_GROUP_MAX}),
+    {Min,NBits0,Max} = ?GET_OPT(dh_gex_limits, Opts),
     DhBits = dh_bits(Ssh0#ssh.algorithms),
     NBits1 = 
         %% NIST Special Publication 800-57 Part 1 Revision 4: Recommendation for Key Management
@@ -458,7 +449,7 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min0,
     %% server
     {Min, Max} = adjust_gex_min_max(Min0, Max0, Opts),
     case public_key:dh_gex_group(Min, NBits, Max,
-				 proplists:get_value(dh_gex_groups,Opts)) of
+				 ?GET_OPT(dh_gex_groups,Opts)) of
 	{ok, {_, {G,P}}} ->
 	    {SshPacket, Ssh} = 
 		ssh_packet(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0),
@@ -492,7 +483,7 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request_old{n = NBits},
     Max0 = 8192,
     {Min, Max} = adjust_gex_min_max(Min0, Max0, Opts),
     case public_key:dh_gex_group(Min, NBits, Max,
-				 proplists:get_value(dh_gex_groups,Opts)) of
+				 ?GET_OPT(dh_gex_groups,Opts)) of
 	{ok, {_, {G,P}}} ->
 	    {SshPacket, Ssh} = 
 		ssh_packet(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0),
@@ -517,22 +508,18 @@ handle_kex_dh_gex_request(_, _) ->
 
 
 adjust_gex_min_max(Min0, Max0, Opts) ->
-    case proplists:get_value(dh_gex_limits, Opts) of
-	undefined ->
-	    {Min0, Max0};
-	{Min1, Max1} ->
-	    Min2 = max(Min0, Min1),
-	    Max2 = min(Max0, Max1),
-	    if
-		Min2 =< Max2 ->
-		    {Min2, Max2};
-		Max2 < Min2 ->
-		    ssh_connection_handler:disconnect(
-		      #ssh_msg_disconnect{
-			 code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-			 description = "No possible diffie-hellman-group-exchange group possible"
-			})
-	    end
+    {Min1, Max1} = ?GET_OPT(dh_gex_limits, Opts),
+    Min2 = max(Min0, Min1),
+    Max2 = min(Max0, Max1),
+    if
+        Min2 =< Max2 ->
+            {Min2, Max2};
+        Max2 < Min2 ->
+            ssh_connection_handler:disconnect(
+              #ssh_msg_disconnect{
+                 code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+                 description = "No possible diffie-hellman-group-exchange group possible"
+                })
     end.
 		    
 
@@ -719,9 +706,9 @@ sid(#ssh{session_id = Id}, _) ->
 %% The host key should be read from storage
 %%
 get_host_key(SSH) ->
-    #ssh{key_cb = Mod, opts = Opts, algorithms = ALG} = SSH,
-
-    case Mod:host_key(ALG#alg.hkey, Opts) of
+    #ssh{key_cb = {KeyCb,KeyCbOpts}, opts = Opts, algorithms = ALG} = SSH,
+    UserOpts = ?GET_OPT(user_options, Opts),
+    case KeyCb:host_key(ALG#alg.hkey, [{key_cb_private,KeyCbOpts}|UserOpts]) of
 	{ok, #'RSAPrivateKey'{} = Key} ->  Key;
 	{ok, #'DSAPrivateKey'{} = Key} ->  Key;
 	{ok, #'ECPrivateKey'{}  = Key} ->  Key;
@@ -767,7 +754,7 @@ public_algo({#'ECPoint'{},{namedCurve,OID}}) ->
 
 
 accepted_host(Ssh, PeerName, Public, Opts) ->
-    case proplists:get_value(silently_accept_hosts, Opts, false) of
+    case ?GET_OPT(silently_accept_hosts, Opts) of
 	F when is_function(F,2) ->
 	    true == (catch F(PeerName, public_key:ssh_hostkey_fingerprint(Public)));
 	{DigestAlg,F} when is_function(F,2) ->
@@ -778,15 +765,16 @@ accepted_host(Ssh, PeerName, Public, Opts) ->
 	    yes == yes_no(Ssh, "New host " ++ PeerName ++ " accept")
     end.
 
-known_host_key(#ssh{opts = Opts, key_cb = Mod, peer = {PeerName,_}} = Ssh, 
+known_host_key(#ssh{opts = Opts, key_cb = {KeyCb,KeyCbOpts}, peer = {PeerName,_}} = Ssh, 
 	       Public, Alg) ->
-    case Mod:is_host_key(Public, PeerName, Alg, Opts) of
+    UserOpts = ?GET_OPT(user_options, Opts),
+    case KeyCb:is_host_key(Public, PeerName, Alg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
 	true ->
 	    ok;
 	false ->
 	    case accepted_host(Ssh, PeerName, Public, Opts) of
 		true ->
-		    Mod:add_host_key(PeerName, Public, Opts);
+		    KeyCb:add_host_key(PeerName, Public, [{key_cb_private,KeyCbOpts}|UserOpts]);
 		false ->
 		    {error, rejected}
 	    end
@@ -1821,10 +1809,6 @@ len_supported(Name, Len) ->
 	    
 
 same(Algs) ->  [{client2server,Algs}, {server2client,Algs}].
-
-
-%% default_algorithms(kex) -> % Example of how to disable an algorithm
-%%     supported_algorithms(kex, ['ecdh-sha2-nistp521']);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%

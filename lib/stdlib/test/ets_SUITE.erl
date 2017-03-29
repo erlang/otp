@@ -75,7 +75,7 @@
 -export([otp_9423/1]).
 -export([otp_10182/1]).
 -export([ets_all/1]).
--export([memory_check_summary/1]).
+-export([massive_ets_all/1]).
 -export([take/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -93,7 +93,6 @@ init_per_testcase(Case, Config) ->
     io:format("*** SEED: ~p ***\n", [rand:export_seed()]),
     start_spawn_logger(),
     wait_for_test_procs(), %% Ensure previous case cleaned up
-    put('__ETS_TEST_CASE__', Case),
     [{test_case, Case} | Config].
 
 end_per_testcase(_Func, _Config) ->
@@ -134,9 +133,8 @@ all() ->
      otp_9932,
      otp_9423,
      ets_all,
-     take,
-
-     memory_check_summary]. % MUST BE LAST
+     massive_ets_all,
+     take].
 
 groups() ->
     [{new, [],
@@ -180,27 +178,6 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
     Config.
-
-%% Test that we did not have "too many" failed verify_etsmem()'s
-%% in the test suite.
-%% verify_etsmem() may give a low number of false positives
-%% as concurrent activities, such as lingering processes
-%% from earlier test suites, may do unrelated ets (de)allocations.
-memory_check_summary(_Config) ->
-    case whereis(ets_test_spawn_logger) of
-	undefined ->
-	    ct:fail("No spawn logger exist");
-	_ ->
-	    ets_test_spawn_logger ! {self(), get_failed_memchecks},
-	    receive {get_failed_memchecks, FailedMemchecks} -> ok end,
-	    io:format("Failed memchecks: ~p\n",[FailedMemchecks]),
-	    NoFailedMemchecks = length(FailedMemchecks),
-	    if NoFailedMemchecks > 1 ->
-		    ct:fail("Too many failed (~p) memchecks", [NoFailedMemchecks]);
-	       true ->
-		    ok
-	    end
-    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -5545,6 +5522,68 @@ ets_all_run() ->
     false = lists:member(Table, ets:all()),
     ets_all_run().
 
+create_tables(N) ->
+    create_tables(N, []).
+
+create_tables(0, Ts) ->
+    Ts;
+create_tables(N, Ts) ->
+    create_tables(N-1, [ets:new(tjo, [])|Ts]).
+
+massive_ets_all(Config) when is_list(Config) ->
+    Me = self(),
+    InitTables = lists:sort(ets:all()),
+    io:format("InitTables=~p~n", [InitTables]),
+    PMs0 = lists:map(fun (Sid) ->
+                             my_spawn_opt(fun () ->
+                                                  Ts = create_tables(250),
+                                                  Me ! {self(), up, Ts},
+                                                  receive {Me, die} -> ok end
+                                          end,
+                                          [link, monitor, {scheduler, Sid}])
+                     end,
+                     lists:seq(1, erlang:system_info(schedulers_online))),
+    AllRes = lists:sort(lists:foldl(fun ({P, _M}, Ts) ->
+                                            receive
+                                                {P, up, PTs} ->
+                                                    PTs ++ Ts
+                                            end
+                                    end,
+                                    InitTables,
+                                    PMs0)),
+    AllRes = lists:sort(ets:all()),
+    PMs1 = lists:map(fun (_) ->
+                             my_spawn_opt(fun () ->
+                                                  AllRes = lists:sort(ets:all())
+                                          end,
+                                          [link, monitor])
+                     end, lists:seq(1, 50)),
+    lists:foreach(fun ({P, M}) ->
+                          receive
+                              {'DOWN', M, process, P, _} ->
+                                  ok
+                          end
+                  end, PMs1),
+    PMs2 = lists:map(fun (_) ->
+                             my_spawn_opt(fun () ->
+                                                  _ = ets:all()
+                                          end,
+                                          [link, monitor])
+                     end, lists:seq(1, 50)),
+    lists:foreach(fun ({P, _M}) ->
+                          P ! {Me, die}
+                  end, PMs0),
+    lists:foreach(fun ({P, M}) ->
+                          receive
+                              {'DOWN', M, process, P, _} ->
+                                  ok
+                          end
+                  end, PMs0 ++ PMs2),
+    EndTables = lists:sort(ets:all()),
+    io:format("EndTables=~p~n", [EndTables]),
+    InitTables = EndTables,
+    ok.
+
 
 take(Config) when is_list(Config) ->
     %% Simple test for set tables.
@@ -5712,45 +5751,27 @@ etsmem() ->
 			   {Bl0+Bl,BlSz0+BlSz}
 		   end, {0,0}, CS)
 	 end},
-    {Mem,AllTabs, erts_debug:get_internal_state('DbTable_meta')}.
+    {Mem,AllTabs}.
 
-verify_etsmem(EtsMem) ->
+verify_etsmem({MemInfo,AllTabs}) ->
     wait_for_test_procs(),
-    verify_etsmem(EtsMem, false).
-
-verify_etsmem({MemInfo,AllTabs,MetaState}=EtsMem, Adjusted) ->
     case etsmem() of
-	{MemInfo,_,_} ->
+	{MemInfo,_} ->
 	    io:format("Ets mem info: ~p", [MemInfo]),
 	    case MemInfo of
 		{ErlMem,EtsAlloc} when ErlMem == notsup; EtsAlloc == undefined ->
 		    %% Use 'erl +Mea max' to do more complete memory leak testing.
 		    {comment,"Incomplete or no mem leak testing"};
 		_ ->
-		    case Adjusted of
-			true ->
-			    {comment, "Meta state adjusted"};
-			false ->
-			    ok
-		    end
+                    ok
 	    end;
 
-	{MemInfo2, AllTabs2, MetaState2} ->
+	{MemInfo2, AllTabs2} ->
 	    io:format("Expected: ~p", [MemInfo]),
 	    io:format("Actual:   ~p", [MemInfo2]),
 	    io:format("Changed tables before: ~p\n",[AllTabs -- AllTabs2]),
 	    io:format("Changed tables after: ~p\n", [AllTabs2 -- AllTabs]),
-	    io:format("Meta state before: ~p\n", [MetaState]),
-	    io:format("Meta state after:  ~p\n", [MetaState2]),
-	    case {MetaState =:= MetaState2, Adjusted} of
-		{false, false} ->
-		    io:format("Adjust meta state and retry...\n\n",[]),
-		    {ok,ok} = erts_debug:set_internal_state('DbTable_meta', MetaState),
-		    verify_etsmem(EtsMem, true);
-		_ ->
-		    ets_test_spawn_logger ! {failed_memcheck, get('__ETS_TEST_CASE__')},
-		    {comment, "Failed memory check"}
-	    end
+            ct:fail("Failed memory check")
     end.
 
 
@@ -5772,10 +5793,10 @@ stop_loopers(Loopers) ->
 looper(Fun, State) ->
     looper(Fun, Fun(State)).
 
-spawn_logger(Procs, FailedMemchecks) ->
+spawn_logger(Procs) ->
     receive
 	{new_test_proc, Proc} ->
-	    spawn_logger([Proc|Procs], FailedMemchecks);
+	    spawn_logger([Proc|Procs]);
 	{sync_test_procs, Kill, From} ->
 	    lists:foreach(fun (Proc) when From == Proc ->
 				  ok;
@@ -5799,14 +5820,7 @@ spawn_logger(Procs, FailedMemchecks) ->
 				  end
 			  end, Procs),
 	    From ! test_procs_synced,
-	    spawn_logger([From], FailedMemchecks);
-
-	{failed_memcheck, TestCase} ->
-	    spawn_logger(Procs, [TestCase|FailedMemchecks]);
-
-	{Pid, get_failed_memchecks} ->
-	    Pid ! {get_failed_memchecks, FailedMemchecks},
-	    spawn_logger(Procs, FailedMemchecks)
+	    spawn_logger([From])
     end.
 
 pid_status(Pid) ->
@@ -5822,7 +5836,7 @@ start_spawn_logger() ->
     case whereis(ets_test_spawn_logger) of
 	Pid when is_pid(Pid) -> true;
 	_ -> register(ets_test_spawn_logger,
-		      spawn_opt(fun () -> spawn_logger([], []) end,
+		      spawn_opt(fun () -> spawn_logger([]) end,
 				[{priority, max}]))
     end.
 
