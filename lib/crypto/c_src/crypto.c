@@ -1405,13 +1405,20 @@ static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         return enif_raise_exception(env, atom_notsup);
     }
 
-    if ((argv[0] == atom_aes_cfb8 || argv[0] == atom_aes_cfb128)
+    if (argv[0] == atom_aes_cfb8
         && (key.size == 24 || key.size == 32)) {
         /* Why do EVP_CIPHER_CTX_set_key_length() fail on these key sizes?
          * Fall back on low level API
          */
         return aes_cfb_8_crypt(env, argc-1, argv+1);
     }
+    else if (argv[0] == atom_aes_cfb128
+        && (key.size == 24 || key.size == 32)) {
+        /* Why do EVP_CIPHER_CTX_set_key_length() fail on these key sizes?
+         * Fall back on low level API
+         */
+        return aes_cfb_128_crypt_nif(env, argc-1, argv+1);
+   }
 
     ivec_size  = EVP_CIPHER_iv_length(cipher);
 
