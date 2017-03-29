@@ -28,7 +28,7 @@ SEARCH_DIR("/mnt/archive/cross-ppc64/ppc64-unknown-linux/lib");
 SECTIONS
 {
   /* Read-only sections, merged into text segment: */
-  PROVIDE (__executable_start = 0x0180000); . = 0x01800000 + SIZEOF_HEADERS;
+  PROVIDE (__executable_start = 0x01800000); . = 0x01800000 + SIZEOF_HEADERS;
   .interp         : { *(.interp) }
   .hash           : { *(.hash) }
   .dynsym         : { *(.dynsym) }
