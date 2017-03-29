@@ -89,7 +89,7 @@ end_per_suite(Config) ->
 
 %%--------------------------------------------------------------------
 init_per_group(openssh, Config) ->
-    case gen_tcp:connect("localhost", 22, []) of
+    case ssh_test_lib:gen_tcp_connect("localhost", 22, []) of
 	{error,econnrefused} ->
 	    {skip,"No openssh deamon"};
 	{ok, Socket} ->
@@ -126,7 +126,7 @@ simple_exec(Config) when is_list(Config) ->
 
 
 simple_exec_sock(_Config) ->
-    {ok, Sock} = gen_tcp:connect("localhost", ?SSH_DEFAULT_PORT, [{active,false}]),
+    {ok, Sock} = ssh_test_lib:gen_tcp_connect("localhost", ?SSH_DEFAULT_PORT, [{active,false}]),
     {ok, ConnectionRef} = ssh:connect(Sock, [{silently_accept_hosts, true},
 					     {user_interaction, false}]),
     do_simple_exec(ConnectionRef).
@@ -179,13 +179,13 @@ daemon_sock_not_tcp(_Config) ->
 
 %%--------------------------------------------------------------------
 connect_sock_not_passive(_Config) ->
-    {ok,Sock} = gen_tcp:connect("localhost", ?SSH_DEFAULT_PORT, []), 
+    {ok,Sock} = ssh_test_lib:gen_tcp_connect("localhost", ?SSH_DEFAULT_PORT, []), 
     {error, not_passive_mode} = ssh:connect(Sock, []),
     gen_tcp:close(Sock).
 
 %%--------------------------------------------------------------------
 daemon_sock_not_passive(_Config) ->
-    {ok,Sock} = gen_tcp:connect("localhost", ?SSH_DEFAULT_PORT, []), 
+    {ok,Sock} = ssh_test_lib:gen_tcp_connect("localhost", ?SSH_DEFAULT_PORT, []), 
     {error, not_passive_mode} = ssh:daemon(Sock),
     gen_tcp:close(Sock).
 
@@ -585,12 +585,13 @@ start_shell_sock_exec_fun(Config) when is_list(Config) ->
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
     SysDir = proplists:get_value(data_dir, Config),
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-					     {user_dir, UserDir},
-					     {password, "morot"},
-					     {exec, fun ssh_exec/1}]),
+    {Pid, HostD, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                                              {user_dir, UserDir},
+                                              {password, "morot"},
+                                              {exec, fun ssh_exec/1}]),
+    Host = ssh_test_lib:ntoa(ssh_test_lib:mangle_connect_address(HostD)),
 
-    {ok, Sock} = gen_tcp:connect(Host, Port, [{active,false}]),
+    {ok, Sock} = ssh_test_lib:gen_tcp_connect(Host, Port, [{active,false}]),
     {ok,ConnectionRef} = ssh:connect(Sock, [{silently_accept_hosts, true},
 					    {user, "foo"},
 					    {password, "morot"},
@@ -623,7 +624,7 @@ start_shell_sock_daemon_exec(Config) ->
     {ok,{_IP,Port}} = inet:sockname(Sl),	% _IP is likely to be {0,0,0,0}. Win don't like...
     
     spawn_link(fun() ->
-		       {ok,Ss} = gen_tcp:connect("localhost", Port, [{active,false}]),
+		       {ok,Ss} = ssh_test_lib:gen_tcp_connect("localhost", Port, [{active,false}]),
 		       {ok, _Pid} = ssh:daemon(Ss, [{system_dir, SysDir},
 						    {user_dir, UserDir},
 						    {password, "morot"},
@@ -658,10 +659,10 @@ gracefull_invalid_version(Config) when is_list(Config) ->
     SysDir = proplists:get_value(data_dir, Config),
     
     {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-					     {user_dir, UserDir},
-					     {password, "morot"}]),
+                                               {user_dir, UserDir},
+                                               {password, "morot"}]),
 
-    {ok, S} = gen_tcp:connect(Host, Port, []),
+    {ok, S} = ssh_test_lib:gen_tcp_connect(Host, Port, []),
     ok = gen_tcp:send(S,  ["SSH-8.-1","\r\n"]),
     receive
 	Verstring ->
@@ -680,10 +681,10 @@ gracefull_invalid_start(Config) when is_list(Config) ->
     file:make_dir(UserDir),
     SysDir = proplists:get_value(data_dir, Config),
     {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-					     {user_dir, UserDir},
-					     {password, "morot"}]),
+                                               {user_dir, UserDir},
+                                               {password, "morot"}]),
 
-    {ok, S} = gen_tcp:connect(Host, Port, []),
+    {ok, S} = ssh_test_lib:gen_tcp_connect(Host, Port, []),
     ok = gen_tcp:send(S,  ["foobar","\r\n"]),
     receive
 	Verstring ->
@@ -702,10 +703,10 @@ gracefull_invalid_long_start(Config) when is_list(Config) ->
     file:make_dir(UserDir),
     SysDir = proplists:get_value(data_dir, Config),
     {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-					     {user_dir, UserDir},
-					     {password, "morot"}]),
+                                               {user_dir, UserDir},
+                                               {password, "morot"}]),
 
-    {ok, S} = gen_tcp:connect(Host, Port, []),
+    {ok, S} = ssh_test_lib:gen_tcp_connect(Host, Port, []),
     ok = gen_tcp:send(S, [lists:duplicate(257, $a), "\r\n"]),
     receive
 	Verstring ->
@@ -725,10 +726,10 @@ gracefull_invalid_long_start_no_nl(Config) when is_list(Config) ->
     file:make_dir(UserDir),
     SysDir = proplists:get_value(data_dir, Config),
     {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-					     {user_dir, UserDir},
-					     {password, "morot"}]),
+                                               {user_dir, UserDir},
+                                               {password, "morot"}]),
 
-    {ok, S} = gen_tcp:connect(Host, Port, []),
+    {ok, S} = ssh_test_lib:gen_tcp_connect(Host, Port, []),
     ok = gen_tcp:send(S, [lists:duplicate(257, $a), "\r\n"]),
     receive
 	Verstring ->
@@ -779,22 +780,21 @@ stop_listener(Config) when is_list(Config) ->
 	    ct:fail("Exec Timeout")
     end,
 
-    {ok, HostAddr} = inet:getaddr(Host, inet),
-    case ssh_test_lib:daemon(HostAddr, Port, [{system_dir, SysDir},
-							     {user_dir, UserDir},
-							     {password, "potatis"},
-							     {exec, fun ssh_exec/1}]) of
-	{Pid1, HostAddr, Port} ->
+    case ssh_test_lib:daemon(Port, [{system_dir, SysDir},
+                                    {user_dir, UserDir},
+                                    {password, "potatis"},
+                                    {exec, fun ssh_exec/1}]) of
+	{Pid1, Host, Port} ->
 	    ConnectionRef1 = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 							       {user, "foo"},
 							       {password, "potatis"},
 							       {user_interaction, true},
 							       {user_dir, UserDir}]),
 	    {error, _} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
-						       {user, "foo"},
-						       {password, "morot"},
-						       {user_interaction, true},
-						       {user_dir, UserDir}]),
+                                                  {user, "foo"},
+                                                  {password, "morot"},
+                                                  {user_interaction, true},
+                                                  {user_dir, UserDir}]),
 	    ssh:close(ConnectionRef0),
 	    ssh:close(ConnectionRef1),
 	    ssh:stop_daemon(Pid0),

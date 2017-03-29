@@ -742,7 +742,8 @@ known_hosts(Config) when is_list(Config) ->
     Lines = string:tokens(binary_to_list(Binary), "\n"),
     [Line] = Lines,
     [HostAndIp, Alg, _KeyData] = string:tokens(Line, " "),
-    [Host, _Ip] = string:tokens(HostAndIp, ","),
+    [StoredHost, _Ip] = string:tokens(HostAndIp, ","),
+    true = ssh_test_lib:match_ip(StoredHost, Host),
     "ssh-" ++ _ = Alg,
     ssh:stop_daemon(Pid).
 %%--------------------------------------------------------------------

@@ -32,15 +32,18 @@
 
 -define(TIMEOUT, 50000).
 
+%%%----------------------------------------------------------------
 connect(Port, Options) when is_integer(Port) ->
     connect(hostname(), Port, Options).
 
 connect(any, Port, Options) ->
     connect(hostname(), Port, Options);
 connect(Host, Port, Options) ->
+    ct:log("~p:~p Calling ssh:connect(~p, ~p, ~p)",[?MODULE,?LINE,Host, Port, Options]),
     {ok, ConnectionRef} = ssh:connect(Host, Port, Options),
     ConnectionRef.
 
+%%%----------------------------------------------------------------
 daemon(Options) ->
     daemon(any, 0, Options).
 
@@ -53,26 +56,57 @@ daemon(Host, Options) ->
 daemon(Host, Port, Options) ->
     ct:log("~p:~p Calling ssh:daemon(~p, ~p, ~p)",[?MODULE,?LINE,Host,Port,Options]),
     case ssh:daemon(Host, Port, Options) of
-	{ok, Pid} when Host == any ->
-	    ct:log("ssh:daemon ok (1)",[]),
-	    {Pid, hostname(), daemon_port(Port,Pid)};
 	{ok, Pid} ->
-	    ct:log("ssh:daemon ok (2)",[]),
-	    {Pid, Host, daemon_port(Port,Pid)};
+            {ok,L} = ssh:daemon_info(Pid),
+            ListenPort = proplists:get_value(port, L),
+            ListenIP = proplists:get_value(ip, L),
+	    {Pid, ListenIP, ListenPort};
 	Error ->
 	    ct:log("ssh:daemon error ~p",[Error]),
 	    Error
     end.
 
+%%%----------------------------------------------------------------
 daemon_port(Pid) -> daemon_port(0, Pid).
     
 
 daemon_port(0, Pid) -> {ok,Dinf} = ssh:daemon_info(Pid),
 		       proplists:get_value(port, Dinf);
 daemon_port(Port, _) -> Port.
-    
+
+%%%----------------------------------------------------------------
+gen_tcp_connect(Host0, Port, Options) ->
+    Host = ssh_test_lib:ntoa(ssh_test_lib:mangle_connect_address(Host0)),
+    ct:log("~p:~p gen_tcp:connect(~p, ~p, ~p)~nHost0 = ~p",
+           [?MODULE,?LINE, Host, Port, Options, Host0]),
+    Result = gen_tcp:connect(Host, Port, Options),
+    ct:log("~p:~p Result = ~p", [?MODULE,?LINE, Result]),
+    Result.
+
+%%%----------------------------------------------------------------
+open_sshc(Host0, Port, OptStr) ->
+    open_sshc(Host0, Port, OptStr, "").
+
+open_sshc(Host0, Port, OptStr, ExecStr) ->
+    Cmd = open_sshc_cmd(Host0, Port, OptStr, ExecStr),
+    Result = os:cmd(Cmd),
+    ct:log("~p:~p Result = ~p", [?MODULE,?LINE, Result]),
+    Result.
 
 
+open_sshc_cmd(Host, Port, OptStr) ->
+    open_sshc_cmd(Host, Port, OptStr, "").
+
+open_sshc_cmd(Host0, Port, OptStr, ExecStr) ->
+    Host = ssh_test_lib:ntoa(ssh_test_lib:mangle_connect_address(Host0)),
+    Cmd = lists:flatten(["ssh -p ", integer_to_list(Port),
+                         " ", OptStr,
+                         " ", Host,
+                         " ", ExecStr]),
+    ct:log("~p:~p OpenSSH Cmd = ~p", [?MODULE,?LINE, Cmd]),
+    Cmd.
+
+%%%----------------------------------------------------------------
 std_daemon(Config, ExtraOpts) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
@@ -88,6 +122,7 @@ std_daemon1(Config, ExtraOpts) ->
 						   {failfun, fun ssh_test_lib:failfun/2}
 						   | ExtraOpts]).
 
+%%%----------------------------------------------------------------
 std_connect(Config, Host, Port, ExtraOpts) ->
     UserDir = proplists:get_value(priv_dir, Config),
     _ConnectionRef =
@@ -98,6 +133,7 @@ std_connect(Config, Host, Port, ExtraOpts) ->
 					  {user_interaction, false}
 					  | ExtraOpts]).
 
+%%%----------------------------------------------------------------
 std_simple_sftp(Host, Port, Config) ->
     std_simple_sftp(Host, Port, Config, []).
 
@@ -112,6 +148,7 @@ std_simple_sftp(Host, Port, Config, Opts) ->
     ok = ssh:close(ConnectionRef),
     Data == ReadData.
 
+%%%----------------------------------------------------------------
 std_simple_exec(Host, Port, Config) ->
     std_simple_exec(Host, Port, Config, []).
 
@@ -138,6 +175,7 @@ std_simple_exec(Host, Port, Config, Opts) ->
 	    ct:fail(ExecResult)
     end.
 
+%%%----------------------------------------------------------------
 start_shell(Port, IOServer) ->
     start_shell(Port, IOServer, []).
 
@@ -152,6 +190,7 @@ start_shell(Port, IOServer, ExtraOptions) ->
       end).
 
 
+%%%----------------------------------------------------------------
 start_io_server() ->
     spawn_link(?MODULE, init_io_server, [self()]).
 
@@ -210,8 +249,7 @@ reply(TestCase, Result) ->
 %%ct:log("reply ~p sending ~p ! ~p",[self(), TestCase, Result]),
     TestCase ! Result.
 
-
-
+%%%----------------------------------------------------------------
 rcv_expected(Expect, SshPort, Timeout) ->
     receive
 	{SshPort, Recvd} when is_function(Expect) ->
@@ -865,3 +903,73 @@ create_random_dir(Config) ->
 	    %% The likelyhood of always generating an existing file name is low
 	    create_random_dir(Config)
     end.
+
+%%%----------------------------------------------------------------
+match_ip(A, B) -> 
+    R = match_ip0(A,B) orelse match_ip0(B,A),      
+    ct:log("match_ip(~p, ~p) -> ~p",[A, B, R]),
+    R.
+
+match_ip0(A, A) ->
+    true;
+match_ip0(any, _) ->
+    true;
+match_ip0(A, B) ->
+    case match_ip1(A, B) of
+        true ->
+            true;
+        false when is_list(A) ->
+            case inet:parse_address(A) of
+                {ok,IPa} -> match_ip0(IPa, B);
+                _ -> false
+            end;
+        false when is_list(B) ->
+            case inet:parse_address(B) of
+                {ok,IPb} -> match_ip0(A, IPb);
+                _ -> false
+            end;
+        false ->
+            false
+    end.
+            
+match_ip1(any, _) -> true;
+match_ip1(loopback,  {127,_,_,_}) ->  true;
+match_ip1({0,0,0,0}, {127,_,_,_}) ->  true;
+match_ip1(loopback,          {0,0,0,0,0,0,0,1}) ->  true;
+match_ip1({0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,1}) ->  true;
+match_ip1(_, _) -> false.
+
+%%%----------------------------------------------------------------
+mangle_connect_address(A) ->
+    mangle_connect_address(A, []).
+
+mangle_connect_address(A, SockOpts) ->
+    mangle_connect_address1(A, proplists:get_value(inet6,SockOpts,false)).
+
+loopback(true) -> {0,0,0,0,0,0,0,1};
+loopback(false) ->      {127,0,0,1}.
+
+mangle_connect_address1( loopback,     V6flg) -> loopback(V6flg);
+mangle_connect_address1(      any,     V6flg) -> loopback(V6flg);
+mangle_connect_address1({0,0,0,0},         _) -> loopback(false);
+mangle_connect_address1({0,0,0,0,0,0,0,0}, _) -> loopback(true);
+mangle_connect_address1(       IP,     _) when is_tuple(IP) -> IP;
+mangle_connect_address1(A, _) ->
+    case catch inet:parse_address(A) of
+        {ok,         {0,0,0,0}} -> loopback(false);
+        {ok, {0,0,0,0,0,0,0,0}} -> loopback(true);
+        _ -> A
+    end.
+
+%%%----------------------------------------------------------------
+ntoa(A) ->
+    try inet:ntoa(A)
+    of
+        {error,_} when is_atom(A) -> atom_to_list(A);
+        {error,_} when is_list(A) -> A;
+        S when is_list(S) -> S
+    catch
+        _:_ when is_atom(A) -> atom_to_list(A);
+        _:_ when is_list(A) -> A
+    end.
+    

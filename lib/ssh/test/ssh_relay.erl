@@ -131,7 +131,8 @@ init([ListenAddr, ListenPort, PeerAddr, PeerPort | _Options]) ->
 	    S = #state{local_addr = ListenAddr,
 		       local_port = ListenPort,
 		       lpid = LPid,
-		       peer_addr = PeerAddr,
+		       peer_addr = ssh_test_lib:ntoa(
+                                     ssh_test_lib:mangle_connect_address(PeerAddr)),
 		       peer_port = PeerPort
 		      },
 	    {ok, S};

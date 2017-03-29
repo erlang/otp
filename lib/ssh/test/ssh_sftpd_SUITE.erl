@@ -705,10 +705,10 @@ try_access(Path, Cm, Channel, ReqId) ->
         {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId), ?UINT32(Code), Rest/binary>>, <<>>} ->
             case Code of
                 ?SSH_FX_FILE_IS_A_DIRECTORY ->
-                    ct:pal("Got the expected SSH_FX_FILE_IS_A_DIRECTORY status",[]),
+                    ct:log("Got the expected SSH_FX_FILE_IS_A_DIRECTORY status",[]),
                     ok;
                 ?SSH_FX_FAILURE ->
-                    ct:pal("Got the expected SSH_FX_FAILURE status",[]),
+                    ct:log("Got the expected SSH_FX_FAILURE status",[]),
                     ok;
                 _ ->
                     case Rest of

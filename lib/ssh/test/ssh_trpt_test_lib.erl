@@ -314,8 +314,7 @@ mangle_opts(Options) ->
 				   lists:keydelete(K,1,Opts)
 			   end, Options, SysOpts).
     
-host({0,0,0,0}) -> "localhost";
-host(H) -> H.
+host(H) -> ssh_test_lib:ntoa(ssh_test_lib:mangle_connect_address(H)).
 
 %%%----------------------------------------------------------------
 send(S=#s{ssh=C}, hello) ->

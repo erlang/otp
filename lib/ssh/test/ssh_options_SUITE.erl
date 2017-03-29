@@ -868,13 +868,13 @@ really_do_hostkey_fingerprint_check(Config, HashAlg) ->
     ct:log("Fingerprints(~p) = ~p",[HashAlg,FPs]),
 
     %% Start daemon with the public keys that we got fingerprints from
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+    {Pid, Host0, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDirServer},
 					     {password, "morot"}]),
-    
+    Host = ssh_test_lib:ntoa(Host0),
     FP_check_fun = fun(PeerName, FP) ->
-			   ct:pal("PeerName = ~p, FP = ~p",[PeerName,FP]),
-			   HostCheck = (Host == PeerName),
+			   ct:log("PeerName = ~p, FP = ~p",[PeerName,FP]),
+			   HostCheck = ssh_test_lib:match_ip(Host, PeerName),
 			   FPCheck = 
                                if is_atom(HashAlg) -> lists:member(FP, FPs);
                                   is_list(HashAlg) -> lists:all(fun(FP1) -> lists:member(FP1,FPs) end,
@@ -1052,20 +1052,20 @@ id_string_random_client(Config) ->
 %%--------------------------------------------------------------------
 id_string_no_opt_server(Config) ->
     {_Server, Host, Port} = ssh_test_lib:std_daemon(Config, []),
-    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false},{packet,line}]),
+    {ok,S1}=ssh_test_lib:gen_tcp_connect(Host,Port,[{active,false},{packet,line}]),
     {ok,"SSH-2.0-Erlang/"++Vsn} = gen_tcp:recv(S1, 0, 2000),
     true = expected_ssh_vsn(Vsn).
 
 %%--------------------------------------------------------------------
 id_string_own_string_server(Config) ->
     {_Server, Host, Port} = ssh_test_lib:std_daemon(Config, [{id_string,"Olle"}]),
-    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false},{packet,line}]),
+    {ok,S1}=ssh_test_lib:gen_tcp_connect(Host,Port,[{active,false},{packet,line}]),
     {ok,"SSH-2.0-Olle\r\n"} = gen_tcp:recv(S1, 0, 2000).
 
 %%--------------------------------------------------------------------
 id_string_random_server(Config) ->
     {_Server, Host, Port} = ssh_test_lib:std_daemon(Config, [{id_string,random}]),
-    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false},{packet,line}]),
+    {ok,S1}=ssh_test_lib:gen_tcp_connect(Host,Port,[{active,false},{packet,line}]),
     {ok,"SSH-2.0-"++Rnd} = gen_tcp:recv(S1, 0, 2000),
     case Rnd of
 	"Erlang"++_ -> ct:log("Id=~p",[Rnd]),
@@ -1086,11 +1086,11 @@ ssh_connect_negtimeout(Config, Parallel) ->
     ct:log("Parallel: ~p",[Parallel]),
 
     {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
-					      {parallel_login, Parallel},
-					      {negotiation_timeout, NegTimeOut},
-					      {failfun, fun ssh_test_lib:failfun/2}]),
-    
-    {ok,Socket} = gen_tcp:connect(Host, Port, []),
+                                               {parallel_login, Parallel},
+                                               {negotiation_timeout, NegTimeOut},
+                                               {failfun, fun ssh_test_lib:failfun/2}]),
+
+    {ok,Socket} = ssh_test_lib:gen_tcp_connect(Host, Port, []),
 
     Factor = 2,
     ct:log("And now sleeping ~p*NegTimeOut (~p ms)...", [Factor, round(Factor * NegTimeOut)]),
