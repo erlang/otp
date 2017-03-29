@@ -416,65 +416,26 @@ handle_daemon_args(IPaddr, Opts) when is_tuple(IPaddr) ->
         IP -> {IPaddr, [{ip,IPaddr}|Opts--[{ip,IP}]]} %% Backward compatibility
     end;
 
-handle_daemon_args(Address, Opts) when is_list(Address) ; is_atom(Address) ->
+handle_daemon_args(Address, Opts) when is_list(Address) ; % IP address in string or a domain
+                                       is_atom(Address) % domains could be atoms in inet
+                                       ->
     IP = proplists:get_value(ip, Opts),
     case inet:parse_strict_address(Address) of
+        %% check if Address is an IP-address
         {ok, IP} ->      {IP, Opts};
         {ok, OtherIP} -> {OtherIP, [{ip,OtherIP}|Opts--[{ip,IP}]]};
         _ ->
+            %% Not an IP-address. Check if it is a host name:
             case inet:getaddr(Address, family(Opts)) of
                 {ok, IP} -> {Address, Opts};
                 {ok, OtherIP} -> {Address, [{ip,OtherIP}|Opts--[{ip,IP}]]};
-                _ -> {Address, Opts}
-            end
-    end.
-
-
--ifdef(hulahopp).
-%% Check the Address parameter and set an ip-option in some cases. The
-%% Address parameter is left unchanged because ssh:stop_listener and
-%% ssh:stop_daemon needs to find the system supervisor by name
-
-handle_daemon_args(any, Opts) ->
-    %% Listen to 0.0.0.0. The caller may have set an ip-option. Trust
-    %% that one in such a case.
-    {any, Opts};
-
-handle_daemon_args(loopback, Opts) ->
-    %% Listen to a loopback address. Let the underlying layers decide
-    %% in case the caller hasn't set the ip-option.
-    {loopback, ensure_ip_option(loopback,Opts)};
-
-handle_daemon_args(IP, Opts) when is_tuple(IP) ->
-   %% An IP address in Erlang tuple format:
-    {IP, ensure_ip_option(IP,Opts)};
-
-handle_daemon_args(Address, Opts) when is_list(Address) ; is_atom(Address) ->
-    %% This might be a host name, an FQDN, an IP address in string format ("127.1.1.1")
-    %% etc. It might be a string or an atom since inet:hostname() is defined in that way
-    case inet:parse_strict_address(Address) of
-        {ok, IP} -> 
-            {Address, ensure_ip_option(IP,Opts)};
-        _ ->
-            %% Try to lookup as a hostname:
-            case inet:getaddr(Address, family(Opts)) of
-                {ok, IP} -> 
-                    {Address, ensure_ip_option(IP,Opts)};
                 _ ->
-                    %% Give up and let the underlying system handle this
+                    %% Not a Host name and not an IP address, let
+                    %% inet and the OS later figure out what it
+                    %% could be
                     {Address, Opts}
             end
     end.
-
-
-%% Add an ip-option if not already present.
-ensure_ip_option(Address, Opts) ->
-    case proplists:get_value(ip, Opts) of
-        undefined -> [{ip,Address}|Opts];
-        _ -> Opts
-    end.
--endif.
-
 
 %% Has the caller indicated the address family?
 family(Opts) ->
