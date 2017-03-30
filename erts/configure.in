@@ -381,7 +381,6 @@ if test X${enable_m64_build} = Xyes; then
 else
 	if test X${enable_m32_build} = Xyes;
 	then
-		enable_hipe=no;
 		case $CFLAGS in
 		    *-m32*)
 			    ;;
