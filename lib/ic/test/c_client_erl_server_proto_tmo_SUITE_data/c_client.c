@@ -61,7 +61,7 @@
 #include "erl_interface.h"
 #include "m_i.h"
 
-#define HOSTNAMESZ 256
+#define HOSTNAMESZ 255
 #define NODENAMESZ 512
 
 #define INBUFSZ 10
@@ -298,7 +298,7 @@ int main(int argc, char **argv)
     
     progname = argv[0];
     host[HOSTNAMESZ] = '\0';
-    if (gethostname(host, HOSTNAMESZ) < 0) {
+    if (gethostname(host, HOSTNAMESZ + 1) < 0) {
 	fprintf(stderr, "Can't find own hostname\n");
 	done(1);
     } 

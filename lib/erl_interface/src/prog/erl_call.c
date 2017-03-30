@@ -325,7 +325,8 @@ int erl_call(int argc, char **argv)
       initWinSock();
 #endif
 
-      if (gethostname(h_hostname, EI_MAXHOSTNAMELEN) < 0) {
+      /* gethostname requires len to be max(hostname) + 1 */
+      if (gethostname(h_hostname, EI_MAXHOSTNAMELEN+1) < 0) {
 	  fprintf(stderr,"erl_call: failed to get host name: %d\n", errno);
 	  exit(1);
       }

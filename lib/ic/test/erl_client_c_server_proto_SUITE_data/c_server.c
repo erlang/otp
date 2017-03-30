@@ -81,7 +81,7 @@ static void showtime(MyTimeval *start, MyTimeval *stop);
 static void usage(void);
 static void done(int r);
 
-#define HOSTNAMESZ 	256
+#define HOSTNAMESZ 	255
 #define NODENAMESZ 	512
 #define INBUFSZ 	 10
 #define OUTBUFSZ 	  0
@@ -122,7 +122,7 @@ int main(int argc, char **argv)
     
     progname = argv[0];
     host[HOSTNAMESZ] = '\0';
-    if (gethostname(host, HOSTNAMESZ) < 0) {
+    if (gethostname(host, HOSTNAMESZ + 1) < 0) {
 	fprintf(stderr, "Can't find own hostname\n");
 	done(1);
     } 

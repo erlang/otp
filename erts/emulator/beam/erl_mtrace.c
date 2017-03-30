@@ -572,7 +572,7 @@ void erts_mtrace_pre_init(void)
 
 void erts_mtrace_init(char *receiver, char *nodename)
 {
-    char hostname[MAXHOSTNAMELEN];
+    char hostname[MAXHOSTNAMELEN + 1];
     char pid[21]; /* enough for a 64 bit number */
 
     socket_desc = ERTS_SOCK_INVALID_SOCKET;
@@ -613,9 +613,10 @@ void erts_mtrace_init(char *receiver, char *nodename)
 	}
 	tracep = trace_buffer;
 	endp = trace_buffer + TRACE_BUF_SZ;
-	if (erts_sock_gethostname(hostname, MAXHOSTNAMELEN) != 0)
+        /* gethostname requires that the len is max(hostname) + 1 */
+	if (erts_sock_gethostname(hostname, MAXHOSTNAMELEN + 1) != 0)
 	    hostname[0] = '\0';
-	hostname[MAXHOSTNAMELEN-1] = '\0';
+	hostname[MAXHOSTNAMELEN] = '\0';
 	sys_get_pid(pid, sizeof(pid));
 	write_trace_header(nodename ? nodename : "", pid, hostname);
 	erts_mtrace_update_heap_size();
