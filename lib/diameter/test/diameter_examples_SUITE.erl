@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -69,6 +69,8 @@
 
 %% Transport protocols over which the example Diameter nodes are run.
 -define(PROTS, [tcp, sctp]).
+
+-define(ADDR, diameter_util:ip4()).
 
 %% ===========================================================================
 
@@ -346,7 +348,7 @@ top(Dir, LibDir) ->
 start({server, Prot}) ->
     ok = diameter:start(),
     ok = server:start(),
-    {ok, Ref} = server:listen(Prot),
+    {ok, Ref} = server:listen({Prot, ?ADDR, 3868}),
     [_] = ?util:lport(Prot, Ref),
     ok;
 
@@ -354,7 +356,7 @@ start({client = Svc, Prot}) ->
     ok = diameter:start(),
     true = diameter:subscribe(Svc),
     ok = client:start(),
-    {ok, Ref} = client:connect(Prot),
+    {ok, Ref} = client:connect({Prot, ?ADDR, ?ADDR, 3868}),
     receive #diameter_event{info = {up, Ref, _, _, _}} -> ok end;
 
 start(Config) ->

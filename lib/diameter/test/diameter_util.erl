@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,8 @@
          foldl/3,
          scramble/1,
          unique_string/0,
-         have_sctp/0]).
+         have_sctp/0,
+         ip4/0]).
 
 %% diameter-specific
 -export([lport/2,
@@ -197,8 +198,11 @@ unique_string() ->
 have_sctp() ->
     case gen_sctp:open() of
         {ok, Sock} ->
+            RC = gen_sctp:connect(Sock, ip4(), 3868, []),
             gen_sctp:close(Sock),
-            true;
+            %% Connect has been seen to return eafnosupport on at least
+            %% one SunOS 10 Sparc host, for reasons unknown.
+            RC /= {error, eafnosupport};
         {error, E} when E == eprotonosupport;
                         E == esocktnosupport -> %% fail on any other reason
             false
@@ -361,7 +365,8 @@ tmod(any) ->
 opts(Prot, T) ->
     tmo(T, lists:append([[{transport_module, M}, {transport_config, C}]
                          || M <- tmod(Prot),
-                            C <- [cfg(M,T) ++ cfg(M) ++ cfg(T)]])).
+                            C <- [buf(M,T) ++ [{ip, addr(M)}, {port, 0}]
+                                           ++ remote(M,T)]])).
 
 tmo(listen, Opts) ->
     Opts;
@@ -377,21 +382,38 @@ tmo([M, C | Opts]) ->
 
 %% Listening SCTP socket need larger-than-default buffers to avoid
 %% resends on some platforms (eg. SLES 11).
-cfg(diameter_sctp, listen) ->
+buf(diameter_sctp, listen) ->
     [{recbuf, 1 bsl 16}, {sndbuf, 1 bsl 16}];
-
-cfg(_, _) ->
+buf(_, _) ->
     [].
 
-cfg(M)
-  when M == diameter_tcp;
-       M == diameter_sctp ->
-    [{ip, ?ADDR}, {port, 0}];
+addr(diameter_tcp) ->
+    {127,0,0,1};
+addr(diameter_sctp) ->
+    ip4().
 
-cfg(listen) ->
+remote(_, listen) ->
     [{accept, M} || M <- [{256,0,0,1}, ["256.0.0.1", ["^.+$"]]]];
-cfg(PortNr) ->
-    [{raddr, ?ADDR}, {rport, PortNr}].
+remote(Mod, PortNr) ->
+    [{raddr, addr(Mod)}, {rport, PortNr}].
+
+%% Try to use something other than the loopback address where this
+%% address is known to be problematic for gen_sctp.
+ip4() ->
+    try
+        "sparc-sun-solaris2.10" = erlang:system_info(system_architecture),
+        {ok, List} = inet:getifaddrs(),
+        hd(lists:flatmap(fun ip4/1, List))
+    catch
+        error:_ ->
+            ?ADDR
+    end.
+
+ip4({_, Opts}) ->
+    {flags, Flags} = lists:keyfind(flags, 1, Opts),
+    [A || lists:member(up, Flags),
+          not lists:member(loopback, Flags),
+          {addr, {_,_,_,_} = A} <- Opts].
 
 %% ---------------------------------------------------------------------------
 %% info/0
