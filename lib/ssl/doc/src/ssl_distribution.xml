@@ -214,6 +214,14 @@ Eshell V5.0  (abort with ^G)
     <p>The server can also take the options <c>dhfile</c> and
     <c>fail_if_no_peer_cert</c> (also prefixed).</p>
 
+    <p>Additionally, <c>check_nodename_fun</c> can be specified for
+    either client or server.  It takes a value of the form <c>{Module,
+    Function}</c>.  The given function is called with two arguments:
+    the node name of the other node as an atom, and the certificate
+    presented by the other node as a binary.  It should return
+    <c>ok</c> if the node name matches the certificate, or <c>{error,
+    term()}</c> if not.</p>
+
     <p><c>client_</c>-prefixed options are used when the distribution 
     initiates a connection to another node. <c>server_</c>-prefixed 
     options are used when accepting a connection from a remote node.</p>

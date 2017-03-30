@@ -94,10 +94,10 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
 			   [Node,Version]),
 		    dist_util:reset_timer(Timer),
 		    case ssl_tls_dist_proxy:connect(Driver, Ip, TcpPort) of
-			{ok, Socket} ->
+			{ok, Socket, PeerCert} ->
 			    HSData = connect_hs_data(Kernel, Node, MyNode, Socket, 
 						     Timer, Version, Ip, TcpPort, Address,
-						     Type),
+						     Type, PeerCert),
 			    dist_util:handshake_we_started(HSData);
 			Other ->
 			    %% Other Node may have closed since 
@@ -125,11 +125,11 @@ close(Socket) ->
 do_accept(Driver, Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
     process_flag(priority, max),
     receive
-	{AcceptPid, controller} ->
+	{AcceptPid, controller, PeerCert} ->
 	    Timer = dist_util:start_timer(SetupTime),
 	    case check_ip(Driver, Socket) of
 		true ->
-		    HSData = accept_hs_data(Kernel, MyNode, Socket, Timer, Allowed),
+		    HSData = accept_hs_data(Kernel, MyNode, Socket, Timer, Allowed, PeerCert),
 		    dist_util:handshake_other_started(HSData);
 		{false,IP} ->
 		    error_logger:error_msg("** Connection attempt from "
@@ -220,7 +220,8 @@ split_node([H|T], Chr, Ack) ->
 split_node([], _, Ack) -> 
     [lists:reverse(Ack)].
 
-connect_hs_data(Kernel, Node, MyNode, Socket, Timer, Version, Ip, TcpPort, Address, Type) ->
+connect_hs_data(Kernel, Node, MyNode, Socket, Timer, Version, Ip, TcpPort, Address, Type,
+		PeerCert) ->
     common_hs_data(Kernel, MyNode, Socket, Timer, 
 		   #hs_data{other_node = Node,
 			    other_version = Version,
@@ -231,13 +232,15 @@ connect_hs_data(Kernel, Node, MyNode, Socket, Timer, Version, Ip, TcpPort, Addre
 						     protocol = proxy,
 						     family = inet}
 				end,
+			    f_name_allowed = check_nodename_fun(client, PeerCert),
 			    request_type = Type
 			   }).
 
-accept_hs_data(Kernel, MyNode, Socket, Timer, Allowed) ->
+accept_hs_data(Kernel, MyNode, Socket, Timer, Allowed, PeerCert) ->
     common_hs_data(Kernel, MyNode, Socket, Timer, #hs_data{
 					     allowed = Allowed,
-					     f_address = fun get_remote_id/2
+					     f_address = fun get_remote_id/2,
+					     f_name_allowed = check_nodename_fun(server, PeerCert)
 					    }).
 
 common_hs_data(Kernel, MyNode, Socket, Timer, HsData) ->
@@ -286,4 +289,48 @@ get_remote_id(Socket, _Node) ->
 	    Address;
 	{error, _Reason} ->
 	    ?shutdown(no_node)
+    end.
+
+check_nodename_fun(_ClientOrServer, no_peercert) ->
+    %% The peer didn't present a certificate.  We wouldn't have gotten
+    %% this far if the option fail_if_no_peer_cert were specified, so
+    %% treat this as an expected situation.
+    undefined;
+check_nodename_fun(ClientOrServer, PeerCert) ->
+    case check_nodename_option(ClientOrServer) of
+	undefined ->
+	    undefined;
+	CheckNodenameFun ->
+	    fun(Node) ->
+		    CheckNodenameFun(Node, PeerCert)
+	    end
+    end.
+
+check_nodename_option(Type) when Type =:= client; Type =:= server ->
+    case init:get_argument(ssl_dist_opt) of
+	{ok, Args} ->
+	    ok;
+	_ ->
+	    Args = []
+    end,
+    check_nodename_option(Type, lists:append(Args)).
+
+check_nodename_option(server, ["server_check_nodename_fun", Value | _]) ->
+    convert_check_nodename_option(Value);
+check_nodename_option(client, ["client_check_nodename_fun", Value | _]) ->
+    convert_check_nodename_option(Value);
+check_nodename_option(Type, [_Option, _Value | T]) ->
+    check_nodename_option(Type, T);
+check_nodename_option(_, []) ->
+    %% By default, don't check nodenames.
+    undefined.
+
+convert_check_nodename_option(String) ->
+    {ok, Tokens, _} = erl_scan:string(String ++ "."),
+    {ok, Term} = erl_parse:parse_term(Tokens),
+    case Term of
+	{Mod, Func} when is_atom(Mod), is_atom(Func) ->
+	    fun Mod:Func/2;
+	_ ->
+	    error(malformed_ssl_dist_opt, [String])
     end.

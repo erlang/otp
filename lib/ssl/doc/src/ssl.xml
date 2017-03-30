@@ -1048,6 +1048,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
         <p>The peer certificate is returned as a DER-encoded binary.
 	  The certificate can be decoded with
 	  <c>public_key:pkix_decode_cert/2</c>.</p>
+
+	<p>If the peer didn't present a certificate, this function
+	  returns <c>{error, no_peercert}</c>.</p>
       </desc>
     </func>
 

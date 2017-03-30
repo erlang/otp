@@ -131,6 +131,7 @@ handshake_other_started(#hs_data{request_type=ReqType}=HSData0) ->
 			     other_version=Version,
 			     other_node=Node,
 			     other_started=true},
+    check_name_allowed(HSData),
     check_dflag_xnc(HSData),
     is_allowed(HSData),
     ?debug({"MD5 connection from ~p (V~p)~n",
@@ -148,6 +149,26 @@ handshake_other_started(#hs_data{request_type=ReqType}=HSData0) ->
 handshake_other_started(OldHsData) when element(1,OldHsData) =:= hs_data ->
     handshake_other_started(convert_old_hsdata(OldHsData)).
 
+
+%%
+%% Check if the other node has a valid node name, according to the
+%% carrier protocol.
+%%
+check_name_allowed(#hs_data{f_name_allowed = undefined}) ->
+    %% The carrier protocol doesn't define a name check function.
+    ok;
+check_name_allowed(#hs_data{f_name_allowed = FNameAllowed,
+			    other_node = Node} = HSData)
+  when is_function(FNameAllowed, 1) ->
+    case FNameAllowed(Node) of
+	ok ->
+	    ok;
+	{error, Error} ->
+	    send_status(HSData, not_allowed),
+	    error_msg("** Node name ~w rejected: ~p **",
+		      [Node, Error]),
+	    ?shutdown2(Node, {check_name_allowed, Node, Error})
+    end.
 
 %%
 %% check if connecting node is allowed to connect
@@ -318,6 +339,7 @@ flush_down() ->
 
 handshake_we_started(#hs_data{request_type=ReqType,
 			      other_node=Node}=PreHSData) ->
+    check_name_allowed(PreHSData),
     PreThisFlags = make_this_flags(ReqType, Node),
     HSData = PreHSData#hs_data{this_flags=PreThisFlags},
     send_name(HSData),

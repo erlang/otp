@@ -63,6 +63,7 @@
 	  f_getll,               %% Get low level port or pid.
 	  f_address,         %% The address of the "socket", 
 	                     %% generated from Socket,Node
+	  f_name_allowed,    %% Check whether node name is allowed.
 	  %% These three are used in the tick loop,
 	  %% so they are not fun's to avoid holding old code.
 	  mf_tick,           %% Takes the socket as parameters and

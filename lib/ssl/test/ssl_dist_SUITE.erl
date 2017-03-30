@@ -44,7 +44,8 @@ all() ->
     [basic, payload, plain_options, plain_verify_options, nodelay_option, 
      listen_port_options, listen_options, connect_options, use_interface,
      verify_fun_fail, verify_fun_pass, crl_check_pass, crl_check_fail,
-     crl_check_best_effort, crl_cache_check_pass, crl_cache_check_fail].
+     crl_check_best_effort, crl_cache_check_pass, crl_cache_check_fail,
+     check_nodename_pass, check_nodename_client_fail, check_nodename_server_fail].
 
 groups() ->
     [].
@@ -595,6 +596,131 @@ crl_cache_check_fail_test(NH1, NH2, _) ->
 
     [] = apply_on_ssl_node(NH1, fun () -> nodes() end),
     [] = apply_on_ssl_node(NH2, fun () -> nodes() end).
+%%--------------------------------------------------------------------
+check_nodename_pass() ->
+    [{doc,"Test specifying a function to check node names against certificate"}].
+check_nodename_pass(Config) when is_list(Config) ->
+    DistOpts = "-ssl_dist_opt "
+	"client_check_nodename_fun {ssl_dist_SUITE,nodename_check_pass} "
+	"server_check_nodename_fun {ssl_dist_SUITE,nodename_check_pass} ",
+    NewConfig =
+        [{additional_dist_opts, DistOpts}] ++ Config,
+
+    NH1 = start_ssl_node(NewConfig),
+    Node1 = NH1#node_handle.nodename,
+    NH2 = start_ssl_node(NewConfig),
+    Node2 = NH2#node_handle.nodename,
+
+    pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
+    [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end),
+
+    %% Check that the function ran on the client node.
+    [{nodename_check_pass_ran, Node2, "server"}] =
+        apply_on_ssl_node(NH1, fun () -> ets:tab2list(nodename_check_ran) end),
+    %% But not on the server node, since the client didn't present a
+    %% certificate.
+    undefined = apply_on_ssl_node(NH2, fun () -> ets:info(nodename_check_ran) end),
+
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),
+    success(Config).
+
+nodename_check_pass(Node, PeerCert) ->
+    PeerName = extract_common_name(PeerCert),
+
+    %% Create an ETS table, to record the fact that the verify function ran.
+    ets:new(nodename_check_ran, [public, named_table, {heir, whereis(ssl_tls_dist_proxy), {}}]),
+    ets:insert(nodename_check_ran, {nodename_check_pass_ran, Node, PeerName}),
+    ok.
+
+extract_common_name(PeerCert) ->
+    #'OTPCertificate'{
+       tbsCertificate =
+	   #'OTPTBSCertificate'{subject = {rdnSequence, SubjectNames}}} =
+	public_key:pkix_decode_cert(PeerCert, otp),
+    error_logger:error_report([{subject_names, SubjectNames},
+			       {common_name_oid, ?'id-at-commonName'}]),
+    [{printableString, PeerName}] =
+	[CommonName || [#'AttributeTypeAndValue'{
+			   type = ?'id-at-commonName',
+			   value = CommonName}] <- SubjectNames],
+    PeerName.
+
+%%--------------------------------------------------------------------
+check_nodename_client_fail() ->
+    [{doc,"Test specifying a function to check node names against certificate"}].
+check_nodename_client_fail(Config) when is_list(Config) ->
+    DistOpts = "-ssl_dist_opt "
+	"client_check_nodename_fun {ssl_dist_SUITE,nodename_check_fail} "
+	"server_check_nodename_fun {ssl_dist_SUITE,nodename_check_fail} ",
+    NewConfig =
+        [{many_verify_opts, true}, {additional_dist_opts, DistOpts}] ++ Config,
+
+    NH1 = start_ssl_node(NewConfig),
+    NH2 = start_ssl_node(NewConfig),
+    Node2 = NH2#node_handle.nodename,
+
+    pang = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    [] = apply_on_ssl_node(NH1, fun () -> nodes() end),
+    [] = apply_on_ssl_node(NH2, fun () -> nodes() end),
+
+    %% Check that the function ran on the client node.
+    [{nodename_check_fail_ran, Node2, "server"}] =
+        apply_on_ssl_node(NH1, fun () -> ets:tab2list(nodename_check_ran) end),
+
+    %% During the distribution handshake, the client node checks the
+    %% node name against the certificate before sending its own node
+    %% name to the server.  Therefore, if the check on the client side
+    %% fails, the check will not be run at all on the server side.
+    undefined = apply_on_ssl_node(NH2, fun () -> ets:info(nodename_check_ran) end),
+
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),
+    success(Config).
+
+nodename_check_fail(Node, PeerCert) ->
+    PeerName = extract_common_name(PeerCert),
+
+    %% Create an ETS table, to record the fact that the verify function ran.
+    ets:new(nodename_check_ran, [public, named_table, {heir, whereis(ssl_tls_dist_proxy), {}}]),
+    ets:insert(nodename_check_ran, {nodename_check_fail_ran, Node, PeerName}),
+    {error, "bad peer name"}.
+
+%%--------------------------------------------------------------------
+check_nodename_server_fail() ->
+    [{doc,"Test specifying a function to check node names against certificate"}].
+check_nodename_server_fail(Config) when is_list(Config) ->
+    DistOpts = "-ssl_dist_opt "
+	"client_check_nodename_fun {ssl_dist_SUITE,nodename_check_pass} "
+	"server_check_nodename_fun {ssl_dist_SUITE,nodename_check_fail} ",
+    NewConfig =
+        [{many_verify_opts, true}, {additional_dist_opts, DistOpts}] ++ Config,
+
+    NH1 = start_ssl_node(NewConfig),
+    Node1 = NH1#node_handle.nodename,
+    NH2 = start_ssl_node(NewConfig),
+    Node2 = NH2#node_handle.nodename,
+
+    pang = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    [] = apply_on_ssl_node(NH1, fun () -> nodes() end),
+    [] = apply_on_ssl_node(NH2, fun () -> nodes() end),
+
+    %% Check that the function ran on the client node.
+    [{nodename_check_pass_ran, Node2, "server"}] =
+        apply_on_ssl_node(NH1, fun () -> ets:tab2list(nodename_check_ran) end),
+
+    %% And on the server node.
+    [{nodename_check_fail_ran, Node1, "client"}] =
+        apply_on_ssl_node(NH2, fun () -> ets:tab2list(nodename_check_ran) end),
+
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),
+    success(Config).
+
 %%--------------------------------------------------------------------
 %%% Internal functions -----------------------------------------------
 %%--------------------------------------------------------------------
