@@ -108,8 +108,10 @@ llvm_llc(Dir, Filename, Ver, Options) ->
   OptLevel = trans_optlev_flag(llc, Options),
   VerFlags = llc_ver_flags(Ver),
   Align    = find_stack_alignment(),
+  Target   = llc_target_opt(),
   LlcFlags = [OptLevel, "-code-model=medium", "-stack-alignment=" ++ Align
              , "-tailcallopt", "-filetype=asm" %FIXME
+             , Target
              | VerFlags],
   Command  = "llc " ++ fix_opts(LlcFlags) ++ " " ++ Source,
   %% io:format("LLC: ~s~n", [Command]),
@@ -123,7 +125,8 @@ llvm_llc(Dir, Filename, Ver, Options) ->
 compile(Dir, Fun_Name, Compiler) ->
   Source  = Dir ++ Fun_Name ++ ".s",
   Dest    = Dir ++ Fun_Name ++ ".o",
-  Command = Compiler ++ " -c " ++ Source ++ " -o " ++ Dest,
+  Target  = compiler_target_opt(),
+  Command = Compiler ++ " " ++ Target ++ " -c " ++ Source ++ " -o " ++ Dest,
   %% io:format("~s: ~s~n", [Compiler, Command]),
   case os:cmd(Command) of
     "" -> ok;
@@ -135,6 +138,18 @@ find_stack_alignment() ->
     x86 -> "4";
     amd64 -> "8";
     _ -> exit({?MODULE, find_stack_alignment, "Unimplemented architecture"})
+  end.
+
+llc_target_opt() ->
+  case get(hipe_target_arch) of
+    x86 -> "-march=x86";
+    amd64 -> "-march=x86-64"
+  end.
+
+compiler_target_opt() ->
+  case get(hipe_target_arch) of
+    x86 -> "-m32";
+    amd64 -> "-m64"
   end.
 
 %% @doc Join options.
