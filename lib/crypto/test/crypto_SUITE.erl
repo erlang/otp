@@ -172,6 +172,7 @@ init_per_suite(Config) ->
     file:set_cwd(datadir(Config)),
     {ok, _} = zip:unzip("KAT_AES.zip"),
     {ok, _} = zip:unzip("aesmmt.zip"),
+    {ok, _} = zip:unzip("cmactestvectors.zip"),
 
     try crypto:start() of
 	ok ->
@@ -1203,12 +1204,12 @@ group_config(rc2_cbc, Config) ->
     Block = rc2_cbc(),
     [{block, Block} | Config];
 group_config(aes_cbc128 = Type, Config) ->
-    Block = aes_cbc128(),
-    Pairs = cmac_nist(Type),
+    Block = aes_cbc128(Config),
+    Pairs = cmac_nist(Config, Type),
     [{block, Block}, {cmac, Pairs} | Config];
 group_config(aes_cbc256 = Type, Config) ->
-    Block = aes_cbc256(),
-    Pairs = cmac_nist(Type),
+    Block = aes_cbc256(Config),
+    Pairs = cmac_nist(Config, Type),
     [{block, Block}, {cmac, Pairs} | Config];
 group_config(aes_ecb, Config) ->
     Block = aes_ecb(Config),
@@ -2505,49 +2506,13 @@ ecc() ->
                  end,
                  TestCases).
 
-%% Test data from Appendix D of NIST Special Publication 800-38B
-%% http://csrc.nist.gov/publications/nistpubs/800-38B/Updated_CMAC_Examples.pdf
-%% The same AES128 test data are also in the RFC 4493
-%% https://tools.ietf.org/html/rfc4493
-cmac_nist(aes_cbc128 = Type) ->
-    Key = hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
-    [{Type, Key, <<"">>,
-                 hexstr2bin("bb1d6929e95937287fa37d129b756746")},
-    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"),
-                hexstr2bin("070a16b46b4d4144f79bdd9dd04a287c")},
-    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
-                           "ae2d8a571e03ac9c9eb76fac45af8e51"
-                           "30c81c46a35ce411"),
-                hexstr2bin("dfa66747de9ae63030ca32611497c827")},
-    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
-                           "ae2d8a571e03ac9c9eb76fac45af8e51"
-                           "30c81c46a35ce411e5fbc1191a0a52ef"
-                           "f69f2445df4f9b17ad2b417be66c3710"),
-                hexstr2bin("51f0bebf7e3b9d92fc49741779363cfe")},
-    % truncation
-    {Type, Key, <<"">>, 4,
-                 hexstr2bin("bb1d6929")}];
+cmac_nist(Config, aes_cbc128 = Type) ->
+   read_rsp(Config, Type,
+            ["CMACGenAES128.rsp", "CMACVerAES128.rsp"]);
 
-cmac_nist(aes_cbc256 = Type) ->
-    Key = hexstr2bin("603deb1015ca71be2b73aef0857d7781"
-                     "1f352c073b6108d72d9810a30914dff4"),
-    [{Type, Key, <<"">>,
-                 hexstr2bin("028962f61b7bf89efc6b551f4667d983")},
-    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"),
-                hexstr2bin("28a7023f452e8f82bd4bf28d8c37c35c")},
-    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
-                           "ae2d8a571e03ac9c9eb76fac45af8e51"
-                           "30c81c46a35ce411"),
-                hexstr2bin("aaf3d8f1de5640c232f5b169b9c911e6")},
-    {Type, Key, hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
-                           "ae2d8a571e03ac9c9eb76fac45af8e51"
-                           "30c81c46a35ce411e5fbc1191a0a52ef"
-                           "f69f2445df4f9b17ad2b417be66c3710"),
-                hexstr2bin("e1992190549f6ed5696a2c056c315410")},
-    % truncation
-    {Type, Key, <<"">>, 4,
-                 hexstr2bin("028962f6")}].
-
+cmac_nist(Config, aes_cbc256 = Type) ->
+   read_rsp(Config, Type,
+            ["CMACGenAES256.rsp", "CMACVerAES256.rsp"]).
 
 no_padding() ->
     Public = [_, Mod] = rsa_public_stronger(),
@@ -2599,5 +2564,35 @@ parse_rsp(Type, [<<"COUNT = ", _/binary>>,
                  <<"CIPHERTEXT = ", CipherText/binary>>|Next], Acc) ->
     parse_rsp(Type, Next, [{Type, hexstr2bin(Key), hexstr2bin(IV),
                             hexstr2bin(PlainText), hexstr2bin(CipherText)}|Acc]);
+%% CMAC format
+parse_rsp(Type, [<<"Count = ", _/binary>>,
+                 <<"Klen = ", _/binary>>,
+                 <<"Mlen = ", Mlen/binary>>,
+                 <<"Tlen = ", Tlen/binary>>,
+                 <<"Key = ", Key/binary>>,
+                 <<"Msg = ", Msg/binary>>,
+                 <<"Mac = ", MAC/binary>>|Rest], Acc) ->
+    case Rest of
+        [<<"Result = P">>|Next] ->
+            parse_rsp_cmac(Type, Key, Msg, Mlen, Tlen, MAC, Next, Acc);
+        [<<"Result = ", _/binary>>|Next] ->
+            parse_rsp(Type, Next, Acc);
+        _ ->
+            parse_rsp_cmac(Type, Key, Msg, Mlen, Tlen, MAC, Rest, Acc)
+    end;
+
 parse_rsp(Type, [_|Next], Acc) ->
     parse_rsp(Type, Next, Acc).
+
+parse_rsp_cmac(Type, Key0, Msg0, Mlen0, Tlen, MAC0, Next, Acc) ->
+    Key = hexstr2bin(Key0),
+    Mlen = binary_to_integer(Mlen0),
+    <<Msg:Mlen/bytes, _/binary>> = hexstr2bin(Msg0),
+    MAC = hexstr2bin(MAC0),
+
+    case binary_to_integer(Tlen) of
+        0 ->
+            parse_rsp(Type, Next, [{Type, Key, Msg, MAC}|Acc]);
+        I ->
+            parse_rsp(Type, Next, [{Type, Key, Msg, I, MAC}|Acc])
+    end.
