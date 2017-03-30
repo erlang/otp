@@ -490,12 +490,6 @@ default(client) ->
             class => user_options
            },
 
-      {idle_time, def} =>
-          #{default => infinity,
-            chk => fun check_timeout/1,
-            class => user_options
-           },
-
 %%%%% Undocumented
       {keyboard_interact_fun, def} =>
           #{default => undefined,
@@ -547,6 +541,12 @@ default(common) ->
              chk => fun erlang:is_atom/1,
              class => user_options
             },
+
+      {idle_time, def} =>
+          #{default => infinity,
+            chk => fun check_timeout/1,
+            class => user_options
+           },
 
        %% This is a "SocketOption"...
        %% {fd, def} =>
