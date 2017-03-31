@@ -83,6 +83,7 @@ MODULES = \
 	gen_sctp \
 	global \
 	global_group \
+	s_group \
 	global_search \
 	group \
 	heart \
