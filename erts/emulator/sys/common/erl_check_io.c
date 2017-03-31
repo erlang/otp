@@ -1617,6 +1617,11 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 	erts_do_break_handling();
 #endif
 
+#ifdef ERTS_SIGNAL_SIGTERM
+    if (ERTS_SIGNAL_SIGTERM)
+	erts_handle_signal_sigterm();
+#endif
+
     /* Figure out timeout value */
     timeout_time = (do_wait
 		    ? erts_check_next_timeout_time(esdp)
@@ -1652,6 +1657,11 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 #ifdef ERTS_BREAK_REQUESTED
     if (ERTS_BREAK_REQUESTED)
 	erts_do_break_handling();
+#endif
+
+#ifdef ERTS_SIGNAL_SIGTERM
+    if (ERTS_SIGNAL_SIGTERM)
+	erts_handle_signal_sigterm();
 #endif
 
     if (poll_ret != 0) {
