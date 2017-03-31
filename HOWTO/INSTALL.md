@@ -919,7 +919,7 @@ limitations under the License.
    [html documentation]: http://www.erlang.org/download/otp_doc_html_%OTP-VSN%.tar.gz
    [man pages]: http://www.erlang.org/download/otp_doc_man_%OTP-VSN%.tar.gz
    [the released source tar ball]: http://www.erlang.org/download/otp_src_%OTP-VSN%.tar.gz
-   [System Principles]: ../system_principles/system_principles
+   [System Principles]: http://erlang.org/doc/system_principles/system_principles.html
    [Known platform issues]: #Known-platform-issues
    [native build]: #How-to-Build-and-Install-ErlangOTP
    [cross build]: INSTALL-CROSS.md
