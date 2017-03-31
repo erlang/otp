@@ -139,6 +139,7 @@
 	 is_atom/2,
 	 atom_value/1,
 	 atom_literal/1,
+         atom_literal/2,
 	 atom_name/1,
 	 attribute/1,
 	 attribute/2,
@@ -1841,7 +1842,7 @@ char_literal(Node) ->
 %% @doc Returns the literal string represented by a `char'
 %% node. This includes the leading "`$'" character.
 %% Depending on the encoding a character beyond 255 will be escaped
-%% ('latin1') or copied as is ('utf8').
+%% (`latin1') or copied as is (`utf8').
 %%
 %% @see char/1
 
@@ -1944,7 +1945,7 @@ string_literal(Node) ->
 %% @doc Returns the literal string represented by a `string'
 %% node. This includes surrounding double-quote characters.
 %% Depending on the encoding characters beyond 255 will be escaped
-%% ('latin1') or copied as is ('utf8').
+%% (`latin1') or copied as is (`utf8').
 %%
 %% @see string/1
 
@@ -1965,6 +1966,7 @@ string_literal(Node, latin1) ->
 %% @see atom_value/1
 %% @see atom_name/1
 %% @see atom_literal/1
+%% @see atom_literal/2
 %% @see is_atom/2
 
 %% type(Node) = atom
@@ -2037,6 +2039,7 @@ atom_name(Node) ->
 %% =====================================================================
 %% @doc Returns the literal string represented by an `atom'
 %% node. This includes surrounding single-quote characters if necessary.
+%% Characters beyond 255 will be escaped.
 %%
 %% Note that e.g. the result of `atom("x\ny")' represents
 %% any and all of `'x\ny'', `'x\12y'',
@@ -2048,8 +2051,24 @@ atom_name(Node) ->
 -spec atom_literal(syntaxTree()) -> string().
 
 atom_literal(Node) ->
-    io_lib:write_atom(atom_value(Node)).
+    atom_literal(Node, latin1).
 
+%% =====================================================================
+%% @doc Returns the literal string represented by an `atom'
+%% node. This includes surrounding single-quote characters if necessary.
+%% Depending on the encoding a character beyond 255 will be escaped
+%% (`latin1') or copied as is (`utf8').
+%%
+%% @see atom/1
+%% @see atom_literal/1
+%% @see string/1
+
+atom_literal(Node, utf8) ->
+    io_lib:write_atom(atom_value(Node));
+atom_literal(Node, unicode) ->
+    io_lib:write_atom(atom_value(Node));
+atom_literal(Node, latin1) ->
+    io_lib:write_atom_as_latin1(atom_value(Node)).
 
 %% =====================================================================
 %% @equiv map_expr(none, Fields)
