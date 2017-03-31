@@ -296,10 +296,17 @@ init(gen_accept, {Prot, Ref}) ->
     {ok, PortNr} = inet:port(LSock),
     true = diameter_reg:add_new(?TEST_LISTENER(Ref, PortNr)),
 
-    %% Accept a connection, receive a message and send it back.
+    %% Accept a connection, receive a message send it back, and wait
+    %% for the peer to close the connection.
     {ok, Sock} = gen_accept(Prot, LSock),
     Bin = gen_recv(Prot, Sock),
-    ok = gen_send(Prot, Sock, Bin);
+    ok = gen_send(Prot, Sock, Bin),
+    receive
+        {tcp_closed, Sock} = T ->
+            T;
+        ?SCTP(Sock, {_, #sctp_assoc_change{}}) = T ->
+            T
+    end;
 
 init(connect, {Prot, Ref}) ->
     %% Lookup the peer's listening socket.
@@ -313,12 +320,7 @@ init(connect, {Prot, Ref}) ->
     %% Send a message and receive it back.
     Bin = make_msg(),
     TPid ! ?TMSG({send, Bin}),
-    Bin = bin(Prot, ?RECV(?TMSG({recv, P}), P)),
-
-    %% Expect the transport process to die as a result of the peer
-    %% closing the connection.
-    MRef = erlang:monitor(process, TPid),
-    ?RECV({'DOWN', MRef, process, _, _}).
+    Bin = bin(Prot, ?RECV(?TMSG({recv, P}), P)).
 
 bin(sctp, #diameter_packet{bin = Bin}) ->
     Bin;
@@ -338,15 +340,11 @@ make_msg() ->
     <<1:8, Len:24, Bin/binary>>.
 
 %% crypto:rand_bytes/1 isn't available on all platforms (since openssl
-%% isn't) so roll our own.
+%% isn't) so roll our own. Not particularly random, but less verbose
+%% in trace.
 rand_bytes(N) ->
-    rand_bytes(N, <<>>).
-
-rand_bytes(0, Bin) ->
-    Bin;
-rand_bytes(N, Bin) ->
     Oct = rand:uniform(256) - 1,
-    rand_bytes(N-1, <<Oct, Bin/binary>>).
+    binary:copy(<<Oct>>, N).
 
 %% ===========================================================================
 
