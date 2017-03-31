@@ -33,7 +33,12 @@
 
 %%% BIFs
 
--export([compile/1, compile/2, run/2, run/3, inspect/2]).
+-export([version/0, compile/1, compile/2, run/2, run/3, inspect/2]).
+
+-spec version() -> binary().
+
+version() ->
+    erlang:nif_error(undef).
 
 -spec compile(Regexp) -> {ok, MP} | {error, ErrSpec} when
       Regexp :: iodata(),

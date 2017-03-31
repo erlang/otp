@@ -477,6 +477,17 @@ build_compile_result(Process *p, Eterm error_tag, pcre *result, int errcode, con
  * Compile BIFs
  */
 
+BIF_RETTYPE
+re_version_0(BIF_ALIST_0)
+{
+    Eterm ret;
+    size_t version_size = 0;
+    byte *version = (byte *) erts_pcre_version();
+    version_size = strlen((const char *) version);
+    ret = new_binary(BIF_P, version, version_size);
+    BIF_RET(ret);
+}
+
 static BIF_RETTYPE
 re_compile(Process* p, Eterm arg1, Eterm arg2)
 {
