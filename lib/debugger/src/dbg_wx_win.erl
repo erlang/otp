@@ -273,10 +273,9 @@ entry(Parent, Title, Prompt, {Type, Value}) ->
 
 
 verify(Type, Str) ->
-    case erl_scan:string(Str) of
+    case erl_scan:string(Str, 1, [text]) of
 	{ok, Tokens, _EndLine} when Type==term ->
-	    
-	    case erl_parse:parse_term(Tokens++[{dot, erl_anno:new(1)}]) of
+	    case lib:extended_parse_term(Tokens++[{dot, erl_anno:new(1)}]) of
 		{ok, Value} -> {edit, Value};
 		_Error -> 
 		    ignore
