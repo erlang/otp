@@ -822,6 +822,8 @@ sha_mac_96(Key, Data) -> hmac(sha, Key, Data, 12).
 block_crypt_nif(_Type, _Key, _Ivec, _Text, _IsEncrypt) -> ?nif_stub.
 block_crypt_nif(_Type, _Key, _Text, _IsEncrypt) -> ?nif_stub.
 
+aes_cfb_128_crypt_nif(_Key, _Ivec, _Text, _IsEncrypt) -> ?nif_stub.
+
 check_des3_key(Key) ->
     case lists:map(fun erlang:iolist_to_binary/1, Key) of
         ValidKey = [B1, B2, B3] when byte_size(B1) =:= 8,
@@ -915,7 +917,9 @@ blowfish_ofb64_encrypt(Key, IVec, Data) ->
 -spec aes_cfb_128_decrypt(iodata(), binary(), iodata()) -> binary().
 
 aes_cfb_128_encrypt(Key, IVec, Data) ->
-    block_encrypt(aes_cfb128, Key, IVec, Data).
+    %% block_encrypt(aes_cfb128, Key, IVec, Data).
+    aes_cfb_128_crypt_nif(Key, IVec, Data, true).
+
 
 aes_cfb_128_decrypt(Key, IVec, Data) ->
     block_decrypt(aes_cfb128, Key, IVec, Data).

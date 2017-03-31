@@ -358,6 +358,16 @@ block_cipher({Type, Key,  PlainText}) ->
 	    ct:fail({{crypto, block_decrypt, [Type, Key, CipherText]}, {expected, Plain}, {got, Other}})
     end;
 
+block_cipher({aes_cfb128, Key,  IV, PlainText}) ->
+    Plain = iolist_to_binary(PlainText),
+    CipherText = crypto:aes_cfb_128_encrypt(Key, IV, PlainText),
+    case crypto:block_decrypt(aes_cfb128, Key, IV, CipherText) of
+        Plain ->
+            ok;
+        Other ->
+            ct:fail({{crypto, block_decrypt, [aes_cfb128, Key, IV, CipherText]}, {expected, Plain}, {got, Other}})
+    end;
+
 block_cipher({Type, Key,  IV, PlainText}) ->
     Plain = iolist_to_binary(PlainText),
     CipherText = crypto:block_encrypt(Type, Key, IV, PlainText),
