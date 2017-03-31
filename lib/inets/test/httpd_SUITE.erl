@@ -197,7 +197,14 @@ init_per_group(Group, Config0) when Group == https_basic;
 				    Group == https_security;
 				    Group == https_reload
 				    ->
-    init_ssl(Group, Config0);
+    catch crypto:stop(),
+    try crypto:start() of
+        ok ->
+            init_ssl(Group, Config0)
+    catch
+        _:_ ->
+            {skip, "Crypto did not start"}
+    end; 
 init_per_group(Group, Config0)  when  Group == http_basic;
 				      Group == http_limit;
 				      Group == http_custom;
@@ -232,7 +239,14 @@ init_per_group(https_htaccess = Group, Config) ->
     Path = proplists:get_value(doc_root, Config),
     catch remove_htaccess(Path),
     create_htaccess_data(Path, proplists:get_value(address, Config)),
-    init_ssl(Group, Config); 
+    catch crypto:stop(),
+    try crypto:start() of
+        ok ->
+            init_ssl(Group, Config)
+    catch
+        _:_ ->
+            {skip, "Crypto did not start"}
+    end; 
 init_per_group(auth_api, Config) -> 
     [{auth_prefix, ""} | Config];
 init_per_group(auth_api_dets, Config) -> 

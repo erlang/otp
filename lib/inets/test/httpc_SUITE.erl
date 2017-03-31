@@ -163,21 +163,17 @@ init_per_group(misc = Group, Config) ->
     ok = httpc:set_options([{ipfamily, Inet}]),
     Config;
 
+
 init_per_group(Group, Config0) when Group =:= sim_https; Group =:= https->
-    ct:timetrap({seconds, 30}),
-    start_apps(Group),
-    StartSsl = try ssl:start()
+    catch crypto:stop(),
+    try crypto:start() of
+        ok ->
+            ct:timetrap({seconds, 30}),
+            start_apps(Group),
+            do_init_per_group(Group, Config0)
     catch
-	Error:Reason ->
-	    {skip, lists:flatten(io_lib:format("Failed to start apps for https Error=~p Reason=~p", [Error, Reason]))}
-    end,
-    case StartSsl of
-	{error, {already_started, _}} ->
-	    do_init_per_group(Group, Config0);
-	ok ->
-	    do_init_per_group(Group, Config0);
-	_ ->
-	    StartSsl
+        _:_ ->
+            {skip, "Crypto did not start"}
     end;
 
 init_per_group(Group, Config0) ->

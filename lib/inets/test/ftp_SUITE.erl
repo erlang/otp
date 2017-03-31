@@ -191,9 +191,22 @@ end_per_suite(Config) ->
     ok.
 
 %%--------------------------------------------------------------------
-init_per_group(_Group, Config) -> Config.
-    
-end_per_group(_Group, Config) -> Config.
+init_per_group(Group, Config) when Group == ftps_active,
+                                   Group == ftps_passive ->
+    catch crypto:stop(),
+    try crypto:start() of
+        ok ->
+            Config
+    catch
+        _:_ ->
+            {skip, "Crypto did not start"}
+    end;
+
+init_per_group(_Group, Config) -> 
+    Config.
+
+end_per_group(_Group, Config) -> 
+    Config.
 
 %%--------------------------------------------------------------------
 init_per_testcase(Case, Config0) ->
