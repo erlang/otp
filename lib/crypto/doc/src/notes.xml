@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 3.7.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a bug with AES CFB 128 for 192 and 256 bit keys.
+	    Thanks to kellymclaughlin !</p>
+          <p>
+	    Own Id: OTP-14313 Aux Id: PR-1393 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 3.7.3</title>
 
     <section><title>Improvements and New Features</title>
