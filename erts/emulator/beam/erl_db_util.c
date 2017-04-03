@@ -1119,6 +1119,177 @@ error:
     return NULL;
 }
 
+/*
+ * Compare a matching term 'a' with a constructing term 'b' for equality.
+ *
+ * Returns true if 'b' is guaranteed to always construct
+ * the same term as 'a' has matched.
+ */
+static int db_match_eq_body(Eterm a, Eterm b)
+{
+    DECLARE_ESTACK(s);
+    Uint arity;
+    Eterm *ap, *bp;
+    int const_mode = 0;
+    const Eterm CONST_MODE_OFF = THE_NON_VALUE;
+
+    while (1) {
+        switch(b & _TAG_PRIMARY_MASK) {
+        case TAG_PRIMARY_LIST:
+            if (!is_list(a))
+                return 0;
+            ESTACK_PUSH2(s, CDR(list_val(a)), CDR(list_val(b)));
+            a = CAR(list_val(a));
+            b = CAR(list_val(b));
+            continue; /* loop without pop */
+
+        case TAG_PRIMARY_BOXED:
+            if (is_tuple(b)) {
+                bp = tuple_val(b);
+                if (!const_mode) {
+                    if (bp[0] == make_arityval(1) && is_tuple(bp[1])) {
+                        b = bp[1]; /* double-tuple syntax */
+                    }
+                    else if (bp[0] == make_arityval(2) && bp[1] == am_const) {
+                        ESTACK_PUSH(s, CONST_MODE_OFF);
+                        const_mode = 1;   /* {const, term()} syntax */
+                        b = bp[2];
+                        continue; /* loop without pop */
+                    }
+                    else
+                        return 0; /* function call or invalid tuple syntax */
+                }
+                if (!is_tuple(a))
+                    return 0;
+
+                ap = tuple_val(a);
+                bp = tuple_val(b);
+                if (ap[0] != bp[0])
+                    return 0;
+                arity = arityval(ap[0]);
+                if (arity > 0) {
+                    a = *(++ap);
+                    b = *(++bp);
+                    while(--arity) {
+                        ESTACK_PUSH2(s, *(++ap), *(++bp));
+                    }
+                    continue; /* loop without pop */
+                }
+            }
+            else if (is_map(b)) {
+                /* We don't know what other pairs the matched map may contain */
+                return 0;
+            }
+            else if (!eq(a,b)) /* other boxed */
+                return 0;
+            break;
+
+        case TAG_PRIMARY_IMMED1:
+            if (a != b || a == am_Underscore || a == am_DollarDollar
+                || a == am_DollarUnderscore
+                || (const_mode && db_is_variable(a) >= 0)) {
+
+                return 0;
+            }
+            break;
+        default:
+            erts_exit(ERTS_ABORT_EXIT, "db_compare: "
+                      "Bad object on ESTACK: 0x%bex\n", b);
+        }
+
+pop_next:
+        if (ESTACK_ISEMPTY(s))
+            break; /* done */
+
+        b = ESTACK_POP(s);
+        if (b == CONST_MODE_OFF) {
+            ASSERT(const_mode);
+            const_mode = 0;
+            goto pop_next;
+        }
+        a = ESTACK_POP(s);
+    }
+
+    DESTROY_ESTACK(s);
+    return 1;
+}
+
+/* This is used by select_replace */
+int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body)
+{
+    Eterm match_key;
+    Eterm* body_list;
+    Eterm single_body_term;
+    Eterm* single_body_term_tpl;
+    Eterm single_body_subterm;
+    Eterm single_body_subterm_key;
+    Eterm* single_body_subterm_key_tpl;
+
+    if (!is_list(body)) {
+        return 0;
+    }
+
+    body_list = list_val(body);
+    if (CDR(body_list) != NIL) {
+        return 0;
+    }
+
+    single_body_term = CAR(body_list);
+    if (single_body_term == am_DollarUnderscore) {
+        /* same tuple is returned */
+        return 1;
+    }
+
+    if (!is_tuple(single_body_term)) {
+        return 0;
+    }
+
+    single_body_term_tpl = tuple_val(single_body_term);
+    if (arityval(*single_body_term_tpl) != 1) {
+        // not the 1-element tuple we're expecting
+        return 0;
+    }
+
+    match_key = db_getkey(keypos, match);
+    if (!is_value(match_key)) {
+        // can't get key out of match
+        return 0;
+    }
+
+    single_body_subterm = single_body_term_tpl[1];
+    single_body_subterm_key = db_getkey(keypos, single_body_subterm);
+    if (!is_value(single_body_subterm_key)) {
+        // can't get key out of single body subterm
+        return 0;
+    }
+
+    if (db_match_eq_body(match_key, single_body_subterm_key)) {
+        /* tuple with same key is returned */
+        return 1;
+    }
+
+    if (!is_tuple(single_body_subterm_key)) {
+        /* can't possibly be an element instruction */
+        return 0;
+    }
+
+    single_body_subterm_key_tpl = tuple_val(single_body_subterm_key);
+    if (arityval(*single_body_subterm_key_tpl) != 3) {
+        /* can't possibly be an element instruction */
+        return 0;
+    }
+
+    if (single_body_subterm_key_tpl[1] == am_element &&
+        single_body_subterm_key_tpl[3] == am_DollarUnderscore &&
+        single_body_subterm_key_tpl[2] == make_small(keypos))
+    {
+        /* {element, KeyPos, '$_'} */
+        return 1;
+    }
+
+    return 0;
+}
+
 /* This is used when tracing */
 Eterm erts_match_set_lint(Process *p, Eterm matchexpr) {
     return db_match_set_lint(p, matchexpr, DCOMP_TRACE);
@@ -2172,7 +2343,7 @@ restart:
 		}
 	    }
 	    else {
-		*esp = term;
+		*esp++ = term;
 	    }
 	    break;
 	case matchPushArrayAsList:
@@ -5161,6 +5332,7 @@ void db_free_tmp_uncompressed(DbTerm* obj)
 Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
 			     int all, DbTerm* obj, Eterm** hpp, Uint extra)
 {
+    enum erts_pam_run_flags flags;
     Uint32 dummy;
     Eterm res;
 
@@ -5168,9 +5340,13 @@ Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
 	obj = db_alloc_tmp_uncompressed(tb, obj);
     }
 
+    flags = (hpp ?
+             ERTS_PAM_COPY_RESULT | ERTS_PAM_CONTIGUOUS_TUPLE :
+             ERTS_PAM_TMP_RESULT  | ERTS_PAM_CONTIGUOUS_TUPLE);
+
     res = db_prog_match(c_p, c_p,
                         bprog, make_tuple(obj->tpl), NULL, 0,
-			ERTS_PAM_COPY_RESULT|ERTS_PAM_CONTIGUOUS_TUPLE, &dummy);
+			flags, &dummy);
 
     if (is_value(res) && hpp!=NULL) {
 	*hpp = HAlloc(c_p, extra);

@@ -1491,6 +1491,25 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
     </func>
 
     <func>
+      <name name="select_replace" arity="2"/>
+      <fsummary>Match and replace objects atomically in an ETS table</fsummary>
+      <desc>
+        <p>Matches the objects in the table <c><anno>Tab</anno></c> using a
+          <seealso marker="#match_spec">match specification</seealso>. If
+          an object is matched, the existing object is replaced with
+          the match specification result, which <em>must</em> retain
+          the original key or the operation will fail with <c>badarg</c>.</p>
+        <p>For the moment, due to performance and semantic constraints,
+          tables of type <c>bag</c> are not yet supported.</p>
+        <p>The function returns the total number of replaced objects.</p>
+        <note>
+          <p>The match/replacement operation atomicity scope is limited
+            to each individual object.</p>
+        </note>
+      </desc>
+    </func>
+
+    <func>
       <name name="select_reverse" arity="1"/>
       <fsummary>Continue matching objects in an ETS table.</fsummary>
       <desc>

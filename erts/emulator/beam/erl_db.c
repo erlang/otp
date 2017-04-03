@@ -362,6 +362,7 @@ static SWord free_table_continue(Process *p, DbTable *tb, SWord reds);
 static void print_table(fmtfn_t to, void *to_arg, int show,  DbTable* tb);
 static BIF_RETTYPE ets_select_delete_1(BIF_ALIST_1);
 static BIF_RETTYPE ets_select_count_1(BIF_ALIST_1);
+static BIF_RETTYPE ets_select_replace_1(BIF_ALIST_1);
 static BIF_RETTYPE ets_select_trap_1(BIF_ALIST_1);
 static BIF_RETTYPE ets_delete_trap(BIF_ALIST_1);
 static Eterm table_info(Process* p, DbTable* tb, Eterm What);
@@ -376,6 +377,7 @@ static BIF_RETTYPE ets_select3(Process* p, Eterm arg1, Eterm arg2, Eterm arg3);
  */
 Export ets_select_delete_continue_exp;
 Export ets_select_count_continue_exp;
+Export ets_select_replace_continue_exp;
 Export ets_select_continue_exp;
 
 /*
@@ -2922,6 +2924,103 @@ BIF_RETTYPE ets_select_count_2(BIF_ALIST_2)
     return result;
 }
 
+/*
+ ** This is for trapping, cannot be called directly.
+ */
+static BIF_RETTYPE ets_select_replace_1(BIF_ALIST_1)
+{
+    Process *p = BIF_P;
+    Eterm a1 = BIF_ARG_1;
+    BIF_RETTYPE result;
+    DbTable* tb;
+    int cret;
+    Eterm ret;
+    Eterm *tptr;
+    db_lock_kind_t kind = LCK_WRITE_REC;
+
+    CHECK_TABLES();
+    ASSERT(is_tuple(a1));
+    tptr = tuple_val(a1);
+    ASSERT(arityval(*tptr) >= 1);
+
+    if ((tb = db_get_table(p, tptr[1], DB_WRITE, kind)) == NULL) {
+        BIF_ERROR(p,BADARG);
+    }
+
+    cret = tb->common.meth->db_select_replace_continue(p,tb,a1,&ret);
+
+    if(!DID_TRAP(p,ret) && ITERATION_SAFETY(p,tb) != ITER_SAFE) {
+        unfix_table_locked(p, tb, &kind);
+    }
+
+    db_unlock(tb, kind);
+
+    switch (cret) {
+    case DB_ERROR_NONE:
+        ERTS_BIF_PREP_RET(result, ret);
+        break;
+    default:
+        ERTS_BIF_PREP_ERROR(result, p, BADARG);
+        break;
+    }
+    erts_match_set_release_result(p);
+
+    return result;
+}
+
+
+BIF_RETTYPE ets_select_replace_2(BIF_ALIST_2)
+{
+    BIF_RETTYPE result;
+    DbTable* tb;
+    int cret;
+    Eterm ret;
+    enum DbIterSafety safety;
+
+    CHECK_TABLES();
+
+    if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE_REC)) == NULL) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (tb->common.status & DB_BAG) {
+        /* Bag implementation presented both semantic consistency
+           and performance issues */
+        db_unlock(tb, LCK_WRITE_REC);
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    safety = ITERATION_SAFETY(BIF_P,tb);
+    if (safety == ITER_UNSAFE) {
+        local_fix_table(tb);
+    }
+    cret = tb->common.meth->db_select_replace(BIF_P, tb, BIF_ARG_1, BIF_ARG_2, &ret);
+
+    if (DID_TRAP(BIF_P,ret) && safety != ITER_SAFE) {
+        fix_table_locked(BIF_P,tb);
+    }
+    if (safety == ITER_UNSAFE) {
+        local_unfix_table(tb);
+    }
+    db_unlock(tb, LCK_WRITE_REC);
+
+    switch (cret) {
+    case DB_ERROR_NONE:
+        ERTS_BIF_PREP_RET(result, ret);
+        break;
+    case DB_ERROR_SYSRES:
+        ERTS_BIF_PREP_ERROR(result, BIF_P, SYSTEM_LIMIT);
+        break;
+    default:
+        ERTS_BIF_PREP_ERROR(result, BIF_P, BADARG);
+        break;
+    }
+
+    erts_match_set_release_result(BIF_P);
+
+    return result;
+}
+
 
 BIF_RETTYPE ets_select_reverse_3(BIF_ALIST_3)
 {
@@ -3333,6 +3432,11 @@ void init_db(ErtsDbSpinCount db_spin_count)
     erts_init_trap_export(&ets_select_count_continue_exp,
 			  am_ets, am_atom_put("count_trap",11), 1,
 			  &ets_select_count_1);
+
+    /* Non visual BIF to trap to. */
+    erts_init_trap_export(&ets_select_replace_continue_exp,
+                          am_ets, am_atom_put("replace_trap",11), 1,
+                          &ets_select_replace_1);
 
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&ets_select_continue_exp,

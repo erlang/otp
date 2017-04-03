@@ -169,6 +169,15 @@ typedef struct db_table_method
 				    DbTable* tb, /* [in out] */ 
 				    Eterm continuation, 
 				    Eterm* ret);
+    int (*db_select_replace)(Process* p,
+            DbTable* tb, /* [in out] */
+            Eterm tid,
+            Eterm pattern,
+            Eterm* ret);
+    int (*db_select_replace_continue)(Process* p,
+            DbTable* tb, /* [in out] */
+            Eterm continuation,
+            Eterm* ret);
     int (*db_take)(Process *, DbTable *, Eterm, Eterm *);
 
     int (*db_delete_all_objects)(Process* p,
@@ -374,6 +383,7 @@ Eterm db_add_counter(Eterm** hpp, Wterm counter, Eterm incr);
 Eterm db_match_set_lint(Process *p, Eterm matchexpr, Uint flags);
 Binary *db_match_set_compile(Process *p, Eterm matchexpr, 
 			     Uint flags);
+int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body);
 int erts_db_match_prog_destructor(Binary *);
 
 typedef struct match_prog {

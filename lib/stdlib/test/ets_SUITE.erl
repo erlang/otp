@@ -39,8 +39,9 @@
 -export([lookup_element_mult/1]).
 -export([foldl_ordered/1, foldr_ordered/1, foldl/1, foldr/1, fold_empty/1]).
 -export([t_delete_object/1, t_init_table/1, t_whitebox/1,
+         select_bound_chunk/1,
 	 t_delete_all_objects/1, t_insert_list/1, t_test_ms/1,
-	 t_select_delete/1,t_ets_dets/1]).
+	 t_select_delete/1,t_select_replace/1,t_ets_dets/1]).
 
 -export([ordered/1, ordered_match/1, interface_equality/1,
 	 fixtable_next/1, fixtable_insert/1, rename/1, rename_unnamed/1, evil_rename/1,
@@ -64,7 +65,7 @@
 	 meta_lookup_named_read/1, meta_lookup_named_write/1,
 	 meta_newdel_unnamed/1, meta_newdel_named/1]).
 -export([smp_insert/1, smp_fixed_delete/1, smp_unfix_fix/1, smp_select_delete/1,
-         otp_8166/1, otp_8732/1]).
+         smp_select_replace/1, otp_8166/1, otp_8732/1]).
 -export([exit_large_table_owner/1,
 	 exit_many_large_table_owner/1,
 	 exit_many_tables_owner/1,
@@ -87,6 +88,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -define(m(A,B), assert_eq(A,B)).
+-define(heap_binary_size, 64).
 
 init_per_testcase(Case, Config) ->
     rand:seed(exsplus),
@@ -117,15 +119,16 @@ all() ->
      update_counter_with_default, partly_bound,
      update_counter_table_growth,
      match_heavy, {group, fold}, member, t_delete_object,
+     select_bound_chunk,
      t_init_table, t_whitebox, t_delete_all_objects,
-     t_insert_list, t_test_ms, t_select_delete, t_ets_dets,
-     memory, t_select_reverse, t_bucket_disappears,
+     t_insert_list, t_test_ms, t_select_delete, t_select_replace,
+     t_ets_dets, memory, t_select_reverse, t_bucket_disappears,
      select_fail, t_insert_new, t_repair_continuation,
      otp_5340, otp_6338, otp_6842_select_1000, otp_7665,
      otp_8732, meta_wb, grow_shrink, grow_pseudo_deleted,
      shrink_pseudo_deleted, {group, meta_smp}, smp_insert,
-     smp_fixed_delete, smp_unfix_fix, smp_select_delete,
-     otp_8166, exit_large_table_owner,
+     smp_fixed_delete, smp_unfix_fix, smp_select_replace, 
+     smp_select_delete, otp_8166, exit_large_table_owner,
      exit_many_large_table_owner, exit_many_tables_owner,
      exit_many_many_tables_owner, write_concurrency, heir,
      give_away, setopts, bad_table, types,
@@ -695,6 +698,15 @@ whitebox_2(Opts) ->
     ets:delete(T2),
     ok.
 
+select_bound_chunk(Config) ->
+    repeat_for_opts(fun select_bound_chunk_do/1, [all_types]).
+
+select_bound_chunk_do(Opts) ->
+    T = ets:new(x, Opts),
+    ets:insert(T, [{key, 1}]),
+    {[{key, 1}], '$end_of_table'} = ets:select(T, [{{key,1},[],['$_']}], 100000),
+    ok.
+
 
 %% Test ets:to/from_dets.
 t_ets_dets(Config) when is_list(Config) ->
@@ -1134,6 +1146,211 @@ t_select_delete(Config) when is_list(Config) ->
        end,
        Tables),
     lists:foreach(fun(Tab) -> ets:delete(Tab) end,Tables),
+    verify_etsmem(EtsMem).
+
+%% Tests the ets:select_replace/2 BIF
+t_select_replace(Config) when is_list(Config) ->
+    EtsMem = etsmem(),
+    Tables = fill_sets_int(10000) ++ fill_sets_int(10000, [{write_concurrency,true}]),
+
+    TestFun = fun (Table, TableType) when TableType =:= bag ->
+                      % Operation not supported; bag implementation
+                      % presented both semantic consistency and performance issues.
+                      10000 = ets:select_delete(Table, [{'_',[],[true]}]);
+
+                  (Table, TableType) ->
+                      % Invalid replacement doesn't keep the key
+                      MatchSpec1 = [{{'$1', '$2'},
+                                     [{'=:=', {'band', '$1', 2#11}, 2#11},
+                                      {'=/=', {'hd', '$2'}, $x}],
+                                     [{{'$2', '$1'}}]}],
+                      {'EXIT',{badarg,_}} = (catch ets:select_replace(Table, MatchSpec1)),
+
+                      % Invalid replacement doesn't keep the key (even though it would be the same value)
+                      MatchSpec2 = [{{'$1', '$2'},
+                                     [{'=:=', {'band', '$1', 2#11}, 2#11}],
+                                     [{{{'+', '$1', 0}, '$2'}}]},
+                                    {{'$1', '$2'},
+                                     [{'=/=', {'band', '$1', 2#11}, 2#11}],
+                                     [{{{'-', '$1', 0}, '$2'}}]}],
+                      {'EXIT',{badarg,_}} = (catch ets:select_replace(Table, MatchSpec2)),
+
+                      % Invalid replacement changes key to float equivalent
+                      MatchSpec3 = [{{'$1', '$2'},
+                                     [{'=:=', {'band', '$1', 2#11}, 2#11},
+                                      {'=/=', {'hd', '$2'}, $x}],
+                                     [{{{'*', '$1', 1.0}, '$2'}}]}],
+                      {'EXIT',{badarg,_}} = (catch ets:select_replace(Table, MatchSpec3)),
+
+                      % Replacements are differently-sized tuples
+                      MatchSpec4_A = [{{'$1','$2'},
+                                       [{'<', {'rem', '$1', 5}, 2}],
+                                       [{{'$1', [$x | '$2'], stuff}}]}],
+                      MatchSpec4_B = [{{'$1','$2','_'},
+                                       [],
+                                       [{{'$1','$2'}}]}],
+                      4000 = ets:select_replace(Table, MatchSpec4_A),
+                      4000 = ets:select_replace(Table, MatchSpec4_B),
+
+                      % Replacement is the same tuple
+                      MatchSpec5 = [{{'$1', '$2'},
+                                     [{'>', {'rem', '$1', 5}, 3}],
+                                     ['$_']}],
+                      2000 = ets:select_replace(Table, MatchSpec5),
+
+                      % Replacement reconstructs an equal tuple
+                      MatchSpec6 = [{{'$1', '$2'},
+                                     [{'>', {'rem', '$1', 5}, 3}],
+                                     [{{'$1', '$2'}}]}],
+                      2000 = ets:select_replace(Table, MatchSpec6),
+
+                      % Replacement uses {element,KeyPos,T} for key
+                      2000 = ets:select_replace(Table,
+                                                [{{'$1', '$2'},
+                                                  [{'>', {'rem', '$1', 5}, 3}],
+                                                  [{{{element, 1, '$_'}, '$2'}}]}]),
+
+                      % Replacement uses wrong {element,KeyPos,T} for key
+                      {'EXIT',{badarg,_}} = (catch ets:select_replace(Table,
+                                                                     [{{'$1', '$2'},
+                                                                       [],
+                                                                       [{{{element, 2, '$_'}, '$2'}}]}])),
+
+                      check(Table,
+                            fun ({N, [$x, C | _]}) when ((N rem 5) < 2) -> (C >= $0) andalso (C =< $9);
+                                ({N, [C | _]}) when is_float(N) -> (C >= $0) andalso (C =< $9);
+                                ({N, [C | _]}) when ((N rem 5) > 3) -> (C >= $0) andalso (C =< $9);
+                                ({_, [C | _]}) -> (C >= $0) andalso (C =< $9)
+                            end,
+                            10000),
+
+                      % Replace unbound range (>)
+                      MatchSpec7 = [{{'$1', '$2'},
+                                     [{'>', '$1', 7000}],
+                                     [{{'$1', {{gt_range, '$2'}}}}]}],
+                      3000 = ets:select_replace(Table, MatchSpec7),
+
+                      % Replace unbound range (<)
+                      MatchSpec8 = [{{'$1', '$2'},
+                                     [{'<', '$1', 3000}],
+                                     [{{'$1', {{le_range, '$2'}}}}]}],
+                      case TableType of
+                          ordered_set ->   2999 = ets:select_replace(Table, MatchSpec8);
+                          set ->           2999 = ets:select_replace(Table, MatchSpec8);
+                          duplicate_bag -> 2998 = ets:select_replace(Table, MatchSpec8)
+                      end,
+
+                      % Replace bound range
+                      MatchSpec9 = [{{'$1', '$2'},
+                                     [{'>=', '$1', 3001},
+                                      {'<', '$1', 7000}],
+                                     [{{'$1', {{range, '$2'}}}}]}],
+                      case TableType of
+                          ordered_set ->   3999 = ets:select_replace(Table, MatchSpec9);
+                          set ->           3999 = ets:select_replace(Table, MatchSpec9);
+                          duplicate_bag -> 3998 = ets:select_replace(Table, MatchSpec9)
+                      end,
+
+                      % Replace particular keys
+                      MatchSpec10 = [{{'$1', '$2'},
+                                     [{'==', '$1', 3000}],
+                                     [{{'$1', {{specific1, '$2'}}}}]},
+                                    {{'$1', '$2'},
+                                     [{'==', '$1', 7000}],
+                                     [{{'$1', {{specific2, '$2'}}}}]}],
+                      case TableType of
+                          ordered_set ->   2 = ets:select_replace(Table, MatchSpec10);
+                          set ->           2 = ets:select_replace(Table, MatchSpec10);
+                          duplicate_bag -> 4 = ets:select_replace(Table, MatchSpec10)
+                      end,
+
+                      check(Table,
+                            fun ({N, {gt_range, _}}) -> N > 7000;
+                                ({N, {le_range, _}}) -> N < 3000;
+                                ({N, {range, _}}) -> (N >= 3001) andalso (N < 7000);
+                                ({N, {specific1, _}}) -> N == 3000;
+                                ({N, {specific2, _}}) -> N == 7000
+                            end,
+                            10000),
+
+                      10000 = ets:select_delete(Table, [{'_',[],[true]}]),
+                      check(Table, fun (_) -> false end, 0)
+              end,
+
+    lists:foreach(
+      fun(Table) ->
+              TestFun(Table, ets:info(Table, type)),
+              ets:delete(Table)
+      end,
+      Tables),
+
+    %% Test key-safe match-specs are accepted
+    BigNum = (123 bsl 123),
+    RefcBin = list_to_binary(lists:seq(1,?heap_binary_size+1)),
+    Terms = [a, "hej", 123, 1.23, BigNum , <<"123">>, RefcBin, TestFun, self()],
+    EqPairs = fun(X,Y) ->
+                      [{ '$1', '$1'},
+                       { {X, Y}, {{X, Y}}},
+                       { {'$1', Y}, {{'$1', Y}}},
+                       { {{X, Y}}, {{{{X, Y}}}}},
+                       { {X}, {{X}}},
+                       { X, {const, X}},
+                       { {X,Y}, {const, {X,Y}}},
+                       { {X}, {const, {X}}},
+                       { {X, Y}, {{X, {const, Y}}}},
+                       { {X, {Y,'$1'}}, {{{const, X}, {{Y,'$1'}}}}},
+                       { [X, Y | '$1'], [X, Y | '$1']},
+                       { [{X, '$1'}, Y], [{{X, '$1'}}, Y]},
+                       { [{X, Y} | '$1'], [{const, {X, Y}} | '$1']},
+                       { [$p,$r,$e,$f,$i,$x | '$1'], [$p,$r,$e,$f,$i,$x | '$1']},
+                       { {[{X,Y}]}, {{[{{X,Y}}]}}},
+                       { {[{X,Y}]}, {{{const, [{X,Y}]}}}},
+                       { {[{X,Y}]}, {{[{const,{X,Y}}]}}}
+                      ]
+              end,
+
+    T2 = ets:new(x, []),
+    [lists:foreach(fun({A, B}) ->
+                           %% just check that matchspec is accepted
+                           0 = ets:select_replace(T2, [{{A, '$2', '$3'}, [], [{{B, '$3', '$2'}}]}])
+                   end,
+                   EqPairs(X,Y)) || X <- Terms, Y <- Terms],
+
+    %% Test key-unsafe matchspecs are rejected
+    NeqPairs = fun(X, Y) ->
+                      [{'$1', '$2'},
+                       {{X, Y}, {X, Y}},
+                       {{{X, Y}}, {{{X, Y}}}},
+                       {{X}, {{{X}}}},
+                       {{const, X}, {const, X}},
+                       {{const, {X,Y}}, {const, {X,Y}}},
+                       {'$1', {const, '$1'}},
+                       {{X}, {const, {{X}}}},
+                       {{X, {Y,'$1'}}, {{{const, X}, {Y,'$1'}}}},
+                       {[X, Y | '$1'], [X, Y]},
+                       {[X, Y], [X, Y | '$1']},
+                       {[{X, '$1'}, Y], [{X, '$1'}, Y]},
+                       {[$p,$r,$e,$f,$i,$x | '$1'], [$p,$r,$e,$f,$I,$x | '$1']},
+                       { {[{X,Y}]}, {{[{X,Y}]}}},
+                       { {[{X,Y}]}, {{{const, [{{X,Y}}]}}}},
+                       { {[{X,Y}]}, {{[{const,{{X,Y}}}]}}},
+                       {'_', '_'},
+                       {'$_', '$_'},
+                       {'$$', '$$'},
+                       {#{}, #{}},
+                       {#{X => '$1'}, #{X => '$1'}}
+                      ]
+              end,
+
+    [lists:foreach(fun({A, B}) ->
+                           %% just check that matchspec is rejected
+                           {'EXIT',{badarg,_}} = (catch ets:select_replace(T2, [{{A, '$2', '$3'}, [], [{{B, '$3', '$2'}}]}]))
+                   end,
+                   NeqPairs(X,Y)) || X <- Terms, Y <- Terms],
+
+
+    ets:delete(T2),
+
     verify_etsmem(EtsMem).
 
 %% Test that partly bound keys gives faster matches.
@@ -5419,6 +5636,42 @@ smp_select_delete(Config) when is_list(Config) ->
     false = ets:info(T,fixed),
     ets:delete(T).
 
+smp_select_replace(Config) when is_list(Config) ->
+    lists:foreach(
+      fun (TableType) ->
+              T = ets_new(smp_select_replace, [TableType, named_table, public,
+                                               {write_concurrency, true}]),
+              WorkerCount = 20,
+              CounterIterations = 10000,
+              InitF = fun (_) -> no_state end,
+              ExecF = fun (State) ->
+                              lists:foreach(
+                                fun F(IterId) ->
+                                        CounterId = rand:uniform(WorkerCount),
+                                        Match = [{{'$1', '$2'},
+                                                  [{'=:=', '$1', CounterId}],
+                                                  [{{'$1', {'+', '$2', 1}}}]}],
+                                        case ets:select_replace(T, Match) of
+                                            1 -> ok;
+                                            0 ->
+                                                ets:insert_new(T, {CounterId, 1}) orelse
+                                                F(IterId)
+                                        end
+                                end,
+                                lists:seq(1, CounterIterations)),
+                              State
+                      end,
+              FiniF = fun (State) -> State end,
+              run_workers_do(InitF, ExecF, FiniF, WorkerCount),
+              FinalCounts = ets:select(T, [{{'_', '$1'}, [], ['$1']}]),
+              TotalIterations = WorkerCount * CounterIterations * erlang:system_info(schedulers),
+              TotalIterations = lists:sum(FinalCounts),
+              WorkerCount = ets:select_delete(T, [{{'_', '_'}, [], [true]}]),
+              0 = ets:info(T, size),
+              ets:delete(T)
+      end,
+      [ordered_set, set, duplicate_bag]).
+
 %% Test different types.
 types(Config) when is_list(Config) ->
     init_externals(),
@@ -5959,7 +6212,6 @@ only_if_smp(Schedulers, Func) ->
     end.
 
 %% Copy-paste from emulator/test/binary_SUITE.erl
--define(heap_binary_size, 64).
 test_terms(Test_Func, Mode) ->
     garbage_collect(),
     Pib0 = process_info(self(),binary),

@@ -70,7 +70,7 @@
          match_object/2, match_object/3, match_spec_compile/1,
          match_spec_run_r/3, member/2, new/2, next/2, prev/2,
          rename/2, safe_fixtable/2, select/1, select/2, select/3,
-         select_count/2, select_delete/2, select_reverse/1,
+         select_count/2, select_delete/2, select_replace/2, select_reverse/1,
          select_reverse/2, select_reverse/3, setopts/2, slot/2,
          take/2,
          update_counter/3, update_counter/4, update_element/3]).
@@ -377,6 +377,14 @@ select_count(_, _) ->
       NumDeleted :: non_neg_integer().
 
 select_delete(_, _) ->
+    erlang:nif_error(undef).
+
+-spec select_replace(Tab, MatchSpec) -> NumReplaced when
+      Tab :: tab(),
+      MatchSpec :: match_spec(),
+      NumReplaced :: non_neg_integer().
+
+select_replace(_, _) ->
     erlang:nif_error(undef).
 
 -spec select_reverse(Tab, MatchSpec) -> [Match] when
