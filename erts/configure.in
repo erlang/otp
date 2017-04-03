@@ -4219,7 +4219,7 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
     fi
 
 
-    AC_MSG_CHECKING(for OpenSSL >= 0.9.7 in standard locations)
+    AC_MSG_CHECKING(for OpenSSL >= 0.9.8c in standard locations)
     for rdir in $extra_dir $std_win_ssl_locations $std_ssl_locations; do
 	dir="$erl_xcomp_sysroot$rdir"
 	if test -f "$erl_xcomp_isysroot$rdir/include/openssl/opensslv.h"; then
@@ -4295,7 +4295,7 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 			CPPFLAGS=$SSL_INCLUDE
 			AC_EGREP_CPP(^yes$,[
 #include <openssl/opensslv.h>
-#if OPENSSL_VERSION_NUMBER >= 0x0090700fL
+#if OPENSSL_VERSION_NUMBER >= 0x0090803fL
 yes
 #endif
 			],[
