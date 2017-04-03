@@ -4,7 +4,7 @@
 <fileref>
   <header>
     <copyright>
-      <year>2012</year><year>2016</year>
+      <year>2012</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -92,18 +92,21 @@ erlc -DNOASSERT=true *.erl</code>
     <title>Macros</title>
     <taglist>
       <tag><c>assert(BoolExpr)</c></tag>
-      <tag><c>assert(BoolExpr, Comment)</c></tag>
+      <item></item>
+      <tag><c>URKAassert(BoolExpr, Comment)</c></tag>
       <item>
         <p>Tests that <c>BoolExpr</c> completes normally returning
           <c>true</c>.</p>
       </item>
       <tag><c>assertNot(BoolExpr)</c></tag>
+      <item></item>
       <tag><c>assertNot(BoolExpr, Comment)</c></tag>
       <item>
         <p>Tests that <c>BoolExpr</c> completes normally returning
           <c>false</c>.</p>
       </item>
       <tag><c>assertMatch(GuardedPattern, Expr)</c></tag>
+      <item></item>
       <tag><c>assertMatch(GuardedPattern, Expr, Comment)</c></tag>
       <item>
         <p>Tests that <c>Expr</c> completes normally yielding a value that
@@ -115,6 +118,7 @@ erlc -DNOASSERT=true *.erl</code>
 ?assertMatch({bork, X} when X > 0, f())</code>
       </item>
       <tag><c>assertNotMatch(GuardedPattern, Expr)</c></tag>
+      <item></item>
       <tag><c>assertNotMatch(GuardedPattern, Expr, Comment)</c></tag>
       <item>
         <p>Tests that <c>Expr</c> completes normally yielding a value that does
@@ -123,18 +127,21 @@ erlc -DNOASSERT=true *.erl</code>
           <c>when</c> part.</p>
       </item>
       <tag><c>assertEqual(ExpectedValue, Expr)</c></tag>
+      <item></item>
       <tag><c>assertEqual(ExpectedValue, Expr, Comment)</c></tag>
       <item>
          <p>Tests that <c>Expr</c> completes normally yielding a value that is
            exactly equal to <c>ExpectedValue</c>.</p>
       </item>
       <tag><c>assertNotEqual(ExpectedValue, Expr)</c></tag>
+      <item></item>
       <tag><c>assertNotEqual(ExpectedValue, Expr, Comment)</c></tag>
       <item>
         <p>Tests that <c>Expr</c> completes normally yielding a value that is
           not exactly equal to <c>ExpectedValue</c>.</p>
       </item>
       <tag><c>assertException(Class, Term, Expr)</c></tag>
+      <item></item>
       <tag><c>assertException(Class, Term, Expr, Comment)</c></tag>
       <item>
         <p>Tests that <c>Expr</c> completes abnormally with an exception of type
@@ -145,6 +152,7 @@ erlc -DNOASSERT=true *.erl</code>
           patterns, as in <c>assertMatch</c>.</p>
       </item>
       <tag><c>assertNotException(Class, Term, Expr)</c></tag>
+      <item></item>
       <tag><c>assertNotException(Class, Term, Expr, Comment)</c></tag>
       <item>
         <p>Tests that <c>Expr</c> does not evaluate abnormally with an
@@ -155,16 +163,19 @@ erlc -DNOASSERT=true *.erl</code>
           be guarded patterns.</p>
       </item>
       <tag><c>assertError(Term, Expr)</c></tag>
+      <item></item>
       <tag><c>assertError(Term, Expr, Comment)</c></tag>
       <item>
         <p>Equivalent to <c>assertException(error, Term, Expr)</c></p>
       </item>
       <tag><c>assertExit(Term, Expr)</c></tag>
+      <item></item>
       <tag><c>assertExit(Term, Expr, Comment)</c></tag>
       <item>
         <p>Equivalent to <c>assertException(exit, Term, Expr)</c></p>
       </item>
       <tag><c>assertThrow(Term, Expr)</c></tag>
+      <item></item>
       <tag><c>assertThrow(Term, Expr, Comment)</c></tag>
       <item>
         <p>Equivalent to <c>assertException(throw, Term, Expr)</c></p>
