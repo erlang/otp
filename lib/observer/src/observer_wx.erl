@@ -54,20 +54,14 @@
 	 status_bar,
 	 notebook,
 	 main_panel,
-	 pro_panel,
-	 port_panel,
-	 tv_panel,
-	 sys_panel,
-	 trace_panel,
-	 app_panel,
-	 perf_panel,
-	 allc_panel,
+         panels,
 	 active_tab,
 	 node,
 	 nodes,
 	 prev_node="",
 	 log = false,
-	 reply_to=false
+	 reply_to=false,
+         config
 	}).
 
 start() ->
@@ -118,6 +112,10 @@ init(_Args) ->
 
 setup(#state{frame = Frame} = State) ->
     %% Setup Menubar & Menus
+    Config = load_config(),
+    Cnf = fun(Who) ->
+                  proplists:get_value(Who, Config, #{})
+          end,
     MenuBar = wxMenuBar:new(),
 
     {Nodes, NodeMenus} = get_nodes(),
@@ -131,7 +129,7 @@ setup(#state{frame = Frame} = State) ->
     Notebook = wxNotebook:new(Panel, ?ID_NOTEBOOK, [{style, ?wxBK_DEFAULT}]),
 
     %% System Panel
-    SysPanel = observer_sys_wx:start_link(Notebook, self()),
+    SysPanel = observer_sys_wx:start_link(Notebook, self(), Cnf(sys_panel)),
     wxNotebook:addPage(Notebook, SysPanel, "System", []),
 
     %% Setup sizer create early to get it when window shows
@@ -145,43 +143,44 @@ setup(#state{frame = Frame} = State) ->
     wxFrame:setTitle(Frame, atom_to_list(node())),
     wxStatusBar:setStatusText(StatusBar, atom_to_list(node())),
 
-    wxNotebook:connect(Notebook, command_notebook_page_changing),
-    wxFrame:connect(Frame, close_window, [{skip, true}]),
+    wxNotebook:connect(Notebook, command_notebook_page_changed, [{skip, true}]),
+    wxFrame:connect(Frame, close_window, []),
     wxMenu:connect(Frame, command_menu_selected),
     wxFrame:show(Frame),
 
     %% Freeze and thaw is buggy currently
-    DoFreeze = [?wxMAJOR_VERSION,?wxMINOR_VERSION] < [2,9],
+    DoFreeze = [?wxMAJOR_VERSION,?wxMINOR_VERSION] < [2,9]
+        orelse element(1, os:type()) =:= win32,
     DoFreeze andalso wxWindow:freeze(Panel),
     %% I postpone the creation of the other tabs so they can query/use
     %% the window size
 
     %% Perf Viewer Panel
-    PerfPanel = observer_perf_wx:start_link(Notebook, self()),
+    PerfPanel = observer_perf_wx:start_link(Notebook, self(), Cnf(perf_panel)),
     wxNotebook:addPage(Notebook, PerfPanel, "Load Charts", []),
 
     %% Memory Allocator Viewer Panel
-    AllcPanel = observer_alloc_wx:start_link(Notebook, self()),
+    AllcPanel = observer_alloc_wx:start_link(Notebook, self(), Cnf(allc_panel)),
     wxNotebook:addPage(Notebook, AllcPanel, ?ALLOC_STR, []),
 
     %% App Viewer Panel
-    AppPanel = observer_app_wx:start_link(Notebook, self()),
+    AppPanel = observer_app_wx:start_link(Notebook, self(), Cnf(app_panel)),
     wxNotebook:addPage(Notebook, AppPanel, "Applications", []),
 
     %% Process Panel
-    ProPanel = observer_pro_wx:start_link(Notebook, self()),
+    ProPanel = observer_pro_wx:start_link(Notebook, self(), Cnf(pro_panel)),
     wxNotebook:addPage(Notebook, ProPanel, "Processes", []),
 
     %% Port Panel
-    PortPanel = observer_port_wx:start_link(Notebook, self()),
+    PortPanel = observer_port_wx:start_link(Notebook, self(), Cnf(port_panel)),
     wxNotebook:addPage(Notebook, PortPanel, "Ports", []),
 
     %% Table Viewer Panel
-    TVPanel = observer_tv_wx:start_link(Notebook, self()),
+    TVPanel = observer_tv_wx:start_link(Notebook, self(), Cnf(tv_panel)),
     wxNotebook:addPage(Notebook, TVPanel, "Table Viewer", []),
 
     %% Trace Viewer Panel
-    TracePanel = observer_trace_wx:start_link(Notebook, self()),
+    TracePanel = observer_trace_wx:start_link(Notebook, self(), Cnf(trace_panel)),
     wxNotebook:addPage(Notebook, TracePanel, ?TRACE_STR, []),
 
     %% Force redraw (windows needs it)
@@ -193,19 +192,21 @@ setup(#state{frame = Frame} = State) ->
 
     SysPid = wx_object:get_pid(SysPanel),
     SysPid ! {active, node()},
+    Panels = [{sys_panel, SysPanel, "System"},   %% In order
+              {perf_panel, PerfPanel, "Load Charts"},
+              {allc_panel, AllcPanel, ?ALLOC_STR},
+              {app_panel,  AppPanel, "Applications"},
+              {pro_panel, ProPanel, "Processes"},
+              {port_panel, PortPanel, "Ports"},
+              {tv_panel, TVPanel, "Table Viewer"},
+              {trace_panel, TracePanel, ?TRACE_STR}],
+
     UpdState = State#state{main_panel = Panel,
 			   notebook = Notebook,
 			   menubar = MenuBar,
 			   status_bar = StatusBar,
-			   sys_panel = SysPanel,
-			   pro_panel = ProPanel,
-			   port_panel = PortPanel,
-			   tv_panel  = TVPanel,
-			   trace_panel = TracePanel,
-			   app_panel = AppPanel,
-			   perf_panel = PerfPanel,
-			   allc_panel = AllcPanel,
 			   active_tab = SysPid,
+                           panels = Panels,
 			   node  = node(),
 			   nodes = Nodes
 			  },
@@ -228,10 +229,12 @@ setup(#state{frame = Frame} = State) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%Callbacks
-handle_event(#wx{event=#wxNotebook{type=command_notebook_page_changing}},
-	     #state{active_tab=Previous, node=Node} = State) ->
-    case get_active_pid(State) of
-	Previous -> {noreply, State};
+handle_event(#wx{event=#wxNotebook{type=command_notebook_page_changed, nSel=Next}},
+	     #state{active_tab=Previous, node=Node, panels=Panels} = State) ->
+    {_, Obj, _} = lists:nth(Next+1, Panels),
+    case wx_object:get_pid(Obj) of
+	Previous ->
+            {noreply, State};
 	Pid ->
 	    Previous ! not_active,
 	    Pid ! {active, Node},
@@ -362,8 +365,7 @@ handle_event(#wx{id = Id, event = #wxCommand{type = command_menu_selected}},
              end,
     {noreply, change_node_view(Node, LState)};
 
-handle_event(Event, State) ->
-    Pid = get_active_pid(State),
+handle_event(Event, #state{active_tab=Pid} = State) ->
     Pid ! Event,
     {noreply, State}.
 
@@ -388,7 +390,8 @@ handle_call({create_menus, TabMenus}, _From,
 handle_call({get_attrib, Attrib}, _From, State) ->
     {reply, get(Attrib), State};
 
-handle_call(get_tracer, _From, State=#state{trace_panel=TraceP}) ->
+handle_call(get_tracer, _From, State=#state{panels=Panels}) ->
+    {_, TraceP, _} = lists:keyfind(trace_panel, 1, Panels),
     {reply, TraceP, State};
 
 handle_call(get_active_node, _From, State=#state{node=Node}) ->
@@ -424,9 +427,7 @@ handle_info({nodedown, Node},
     create_txt_dialog(Frame, Msg, "Node down", ?wxICON_EXCLAMATION),
     {noreply, State3};
 
-handle_info({open_link, Id0}, State = #state{pro_panel=ProcViewer,
-					     port_panel=PortViewer,
-					     frame=Frame}) ->
+handle_info({open_link, Id0}, State = #state{panels=Panels,frame=Frame}) ->
     Id = case Id0 of
 	      [_|_] -> try list_to_pid(Id0) catch _:_ -> Id0 end;
 	      _ -> Id0
@@ -434,8 +435,10 @@ handle_info({open_link, Id0}, State = #state{pro_panel=ProcViewer,
     %% Forward to process tab
     case Id of
 	Pid when is_pid(Pid) ->
+            {pro_panel, ProcViewer, _} = lists:keyfind(pro_panel, 1, Panels),
 	    wx_object:get_pid(ProcViewer) ! {procinfo_open, Pid};
 	"#Port" ++ _ = Port ->
+            {port_panel, PortViewer, _} = lists:keyfind(port_panel, 1, Panels),
 	    wx_object:get_pid(PortViewer) ! {portinfo_open, Port};
 	_ ->
 	    Msg = io_lib:format("Information about ~p is not available or implemented",[Id]),
@@ -465,15 +468,13 @@ handle_info({stop, Me}, State) when Me =:= self() ->
 handle_info(_Info, State) ->
     {noreply, State}.
 
-stop_servers(#state{node=Node, log=LogOn, sys_panel=Sys, pro_panel=Procs, tv_panel=TVs,
-		    trace_panel=Trace, app_panel=Apps, perf_panel=Perfs,
-		    allc_panel=Alloc, port_panel=Ports} = _State) ->
+stop_servers(#state{node=Node, log=LogOn, panels=Panels} = _State) ->
     LogOn andalso rpc:block_call(Node, rb, stop, []),
     Me = self(),
-    Tabs = [Sys, Procs, Ports, TVs, Trace, Apps, Perfs, Alloc],
+    save_config(Panels),
     Stop = fun() ->
 		   try
-		       _ = [wx_object:stop(Panel) || Panel <- Tabs],
+		       _ = [wx_object:stop(Panel) || {_, Panel, _} <- Panels],
 		       ok
 		   catch _:_ -> ok
 		   end,
@@ -489,6 +490,27 @@ terminate(_Reason, #state{frame = Frame, reply_to=From}) ->
 	_ -> gen_server:reply(From, ok)
     end,
     ok.
+
+load_config() ->
+    case file:consult(config_file()) of
+        {ok, Config} -> Config;
+        _ -> []
+    end.
+
+save_config(Panels) ->
+    Configs = [{Name, wx_object:call(Panel, get_config)} || {Name, Panel, _} <- Panels],
+    File = config_file(),
+    case filelib:ensure_dir(File) of
+        ok ->
+            Format = [io_lib:format("~p.~n",[Conf]) || Conf <- Configs],
+            _ = file:write_file(File, Format);
+        _ ->
+            ignore
+    end.
+
+config_file() ->
+    Dir = filename:basedir(user_config, "erl_observer"),
+    filename:join(Dir, "config.txt").
 
 code_change(_, _, State) ->
     {ok, State}.
@@ -549,8 +571,7 @@ connect2(NodeName, Opts, Cookie) ->
 	    {error, net_kernel, Reason}
     end.
 
-change_node_view(Node, State) ->
-    Tab = get_active_pid(State),
+change_node_view(Node, #state{active_tab=Tab} = State) ->
     Tab ! not_active,
     Tab ! {active, Node},
     StatusText = ["Observer - " | atom_to_list(Node)],
@@ -562,37 +583,12 @@ check_page_title(Notebook) ->
     Selection = wxNotebook:getSelection(Notebook),
     wxNotebook:getPageText(Notebook, Selection).
 
-get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys,
-		      tv_panel=Tv, trace_panel=Trace, app_panel=App,
-		      perf_panel=Perf, allc_panel=Alloc, port_panel=Port
-		     }) ->
-    Panel = case check_page_title(Notebook) of
-		"Processes" -> Pro;
-		"Ports" -> Port;
-		"System" -> Sys;
-		"Table Viewer" -> Tv;
-		?TRACE_STR -> Trace;
-		"Load Charts" -> Perf;
-		"Applications" -> App;
-		?ALLOC_STR -> Alloc
-	    end,
-    wx_object:get_pid(Panel).
-
-pid2panel(Pid, #state{pro_panel=Pro, sys_panel=Sys,
-		      tv_panel=Tv, trace_panel=Trace, app_panel=App,
-		      perf_panel=Perf, allc_panel=Alloc, port_panel=Port}) ->
-    case Pid of
-	Pro -> "Processes";
-        Port -> "Ports";
-	Sys -> "System";
-	Tv -> "Table Viewer" ;
-	Trace -> ?TRACE_STR;
-	Perf -> "Load Charts";
-	App -> "Applications";
-	Alloc -> ?ALLOC_STR;
-	_ -> "unknown"
+pid2panel(Pid, #state{panels=Panels}) ->
+    PanelPids = [{Name, wx_object:get_pid(Obj)} || {Name, Obj, _} <- Panels],
+    case lists:keyfind(Pid, 2, PanelPids) of
+        false -> "unknown";
+        {Name,_} -> Name
     end.
-
 
 create_connect_dialog(ping, #state{frame = Frame, prev_node=Prev}) ->
     Dialog = wxTextEntryDialog:new(Frame, "Connect to node", [{value, Prev}]),

@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 -module(observer_port_wx).
 
--export([start_link/2]).
+-export([start_link/3]).
 
 %% wx_object callbacks
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
@@ -77,10 +77,10 @@
 	  open_wins=[]
 	}).
 
-start_link(Notebook,  Parent) ->
-    wx_object:start_link(?MODULE, [Notebook, Parent], []).
+start_link(Notebook,  Parent, Config) ->
+    wx_object:start_link(?MODULE, [Notebook, Parent, Config], []).
 
-init([Notebook, Parent]) ->
+init([Notebook, Parent, Config]) ->
     Panel = wxPanel:new(Notebook),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
     Style = ?wxLC_REPORT bor ?wxLC_HRULES,
@@ -110,12 +110,12 @@ init([Notebook, Parent]) ->
     wxListCtrl:connect(Grid, size, [{skip, true}]),
 
     wxWindow:setFocus(Grid),
-    {Panel, #state{grid=Grid, parent=Parent, panel=Panel, timer={false, 10}}}.
+    {Panel, #state{grid=Grid, parent=Parent, panel=Panel, timer=Config}}.
 
 handle_event(#wx{id=?ID_REFRESH},
 	     State = #state{node=Node, grid=Grid, opt=Opt}) ->
     Ports0 = get_ports(Node),
-    Ports = update_grid(Grid, Opt, Ports0),
+    Ports = update_grid(Grid, sel(State), Opt, Ports0),
     {noreply, State#state{ports=Ports}};
 
 handle_event(#wx{obj=Obj, event=#wxClose{}}, #state{open_wins=Opened} = State) ->
@@ -134,7 +134,7 @@ handle_event(#wx{event=#wxList{type=command_list_col_click, col=Col}},
 	      NewKey -> Opt0#opt{sort_key=NewKey}
 	  end,
     Ports0 = get_ports(Node),
-    Ports = update_grid(Grid, Opt, Ports0),
+    Ports = update_grid(Grid, sel(State), Opt, Ports0),
     wxWindow:setFocus(Grid),
     {noreply, State#state{opt=Opt, ports=Ports}};
 
@@ -260,6 +260,9 @@ handle_event(Event, _State) ->
 handle_sync_event(_Event, _Obj, _State) ->
     ok.
 
+handle_call(get_config, _, #state{timer=Timer}=State) ->
+    {reply, observer_lib:timer_config(Timer), State};
+
 handle_call(Event, From, _State) ->
     error({unhandled_call, Event, From}).
 
@@ -269,7 +272,7 @@ handle_cast(Event, _State) ->
 handle_info({portinfo_open, PortIdStr},
 	    State = #state{node=Node, grid=Grid, opt=Opt, open_wins=Opened}) ->
     Ports0 = get_ports(Node),
-    Ports = update_grid(Grid, Opt, Ports0),
+    Ports = update_grid(Grid, sel(State), Opt, Ports0),
     Port = lists:keyfind(PortIdStr, #port.id_str, Ports),
     NewOpened =
         case Port of
@@ -288,17 +291,17 @@ handle_info(refresh_interval, State = #state{node=Node, grid=Grid, opt=Opt,
             %% no change
             {noreply, State};
         Ports0 ->
-            Ports = update_grid(Grid, Opt, Ports0),
+            Ports = update_grid(Grid, sel(State), Opt, Ports0),
             {noreply, State#state{ports=Ports}}
     end;
 
 handle_info({active, Node}, State = #state{parent=Parent, grid=Grid, opt=Opt,
 					   timer=Timer0}) ->
     Ports0 = get_ports(Node),
-    Ports = update_grid(Grid, Opt, Ports0),
+    Ports = update_grid(Grid, sel(State), Opt, Ports0),
     wxWindow:setFocus(Grid),
     create_menus(Parent),
-    Timer = observer_lib:start_timer(Timer0),
+    Timer = observer_lib:start_timer(Timer0, 10),
     {noreply, State#state{node=Node, ports=Ports, timer=Timer}};
 
 handle_info(not_active, State = #state{timer = Timer0}) ->
@@ -511,9 +514,9 @@ filter_monitor_info() ->
 	    [Pid || {process, Pid} <- Ms]
     end.
 
-update_grid(Grid, Opt, Ports) ->
-    wx:batch(fun() -> update_grid2(Grid, Opt, Ports) end).
-update_grid2(Grid, #opt{sort_key=Sort,sort_incr=Dir}, Ports) ->
+update_grid(Grid, Sel, Opt, Ports) ->
+    wx:batch(fun() -> update_grid2(Grid, Sel, Opt, Ports) end).
+update_grid2(Grid, Sel, #opt{sort_key=Sort,sort_incr=Dir}, Ports) ->
     wxListCtrl:deleteAllItems(Grid),
     Update =
 	fun(#port{id = Id,
@@ -533,6 +536,12 @@ update_grid2(Grid, #opt{sort_key=Sort,sort_incr=Dir}, Ports) ->
 							 observer_lib:to_str(Val))
 			      end,
 			      [{0,Id},{1,Connected},{2,Name},{3,Ctrl},{4,Slot}]),
+                case lists:member(Id, Sel) of
+                    true ->
+                        wxListCtrl:setItemState(Grid, Row, 16#FFFF, ?wxLIST_STATE_SELECTED);
+                    false ->
+                        wxListCtrl:setItemState(Grid, Row, 0, ?wxLIST_STATE_SELECTED)
+                end,
 		Row + 1
 	end,
     PortInfo = case Dir of
@@ -542,6 +551,8 @@ update_grid2(Grid, #opt{sort_key=Sort,sort_incr=Dir}, Ports) ->
     lists:foldl(Update, 0, PortInfo),
     PortInfo.
 
+sel(#state{grid=Grid, ports=Ports}) ->
+    [Id || #port{id=Id} <- get_selected_items(Grid, Ports)].
 
 get_selected_items(Grid, Data) ->
     get_indecies(get_selected_items(Grid, -1, []), Data).

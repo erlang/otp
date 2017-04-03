@@ -20,7 +20,7 @@
 
 -behaviour(wx_object).
 
--export([start_link/2]).
+-export([start_link/3]).
 %% wx_object callbacks
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
 	 handle_event/2, handle_cast/2]).
@@ -41,12 +41,12 @@
 	 fields,
 	 timer}).
 
-start_link(Notebook, Parent) ->
-    wx_object:start_link(?MODULE, [Notebook, Parent], []).
+start_link(Notebook, Parent, Config) ->
+    wx_object:start_link(?MODULE, [Notebook, Parent, Config], []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init([Notebook, Parent]) ->
+init([Notebook, Parent, Config]) ->
     SysInfo = observer_backend:sys_info(),
     {Sys, Mem, Cpu, Stats} = info_fields(),
     Panel = wxPanel:new(Notebook),
@@ -69,7 +69,7 @@ init([Notebook, Parent]) ->
     wxSizer:add(Sizer, HSizer1, [{flag, ?wxEXPAND bor BorderFlags bor ?wxBOTTOM},
 				 {proportion, 0}, {border, 5}]),
     wxPanel:setSizer(Panel, Sizer),
-    Timer = observer_lib:start_timer(10),
+    Timer = observer_lib:start_timer(Config, 10),
     {Panel, #sys_wx_state{parent=Parent,
 			  parent_notebook=Notebook,
 			  panel=Panel, sizer=Sizer,
@@ -166,6 +166,9 @@ terminate(_Reason, _State) ->
 
 code_change(_, _, State) ->
     {ok, State}.
+
+handle_call(get_config, _, #sys_wx_state{timer=Timer}=State) ->
+    {reply, observer_lib:timer_config(Timer), State};
 
 handle_call(Msg, _From, State) ->
     io:format("~p~p: Unhandled Call ~p~n",[?MODULE, ?LINE, Msg]),

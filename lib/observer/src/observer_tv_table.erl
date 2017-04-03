@@ -233,9 +233,22 @@ handle_event(#wx{id=?ID_REFRESH},State = #state{pid=Pid}) ->
     {noreply, State};
 
 handle_event(#wx{event=#wxList{type=command_list_col_click, col=Col}},
-	     State = #state{pid=Pid}) ->
+	     State = #state{pid=Pid, grid=Grid, selected=OldSel}) ->
+    SelObj = case OldSel of
+                 undefined -> undefined;
+                 _ -> get_row(Pid, OldSel, term)
+             end,
     Pid ! {sort, Col+1},
-    {noreply, State};
+    case SelObj =/= undefined andalso search(Pid, SelObj, -1, true, term) of
+        false when is_integer(OldSel) ->
+            wxListCtrl:setItemState(Grid, OldSel, 0, ?wxLIST_STATE_SELECTED),
+            {noreply, State#state{selected=undefined}};
+        false ->
+            {noreply, State#state{selected=undefined}};
+        Row ->
+            wxListCtrl:setItemState(Grid, Row, 16#FFFF, ?wxLIST_STATE_SELECTED),
+            {noreply, State#state{selected=Row}}
+    end;
 
 handle_event(#wx{event=#wxSize{size={W,_}}},  State=#state{grid=Grid}) ->
     observer_lib:set_listctrl_col_size(Grid, W),
@@ -607,6 +620,17 @@ keysort(Col, Table) ->
 	   end,
     lists:sort(Sort, Table).
 
+search([Term, -1, true, term], S=#holder{parent=Parent, table=Table}) ->
+    Search = fun(Idx, [Tuple|_]) ->
+                     Tuple =:= Term andalso throw(Idx),
+                     Tuple
+             end,
+    try array:map(Search, Table) of
+        _ -> Parent ! {self(), false}
+    catch Index ->
+            Parent ! {self(), Index}
+    end,
+    S;
 search([Str, Row, Dir0, CaseSens],
        S=#holder{parent=Parent, n=N, table=Table}) ->
     Opt = case CaseSens of
@@ -642,6 +666,8 @@ get_row(From, Row, Col, Table) ->
 	    From ! {self(), format(Object)};
 	[Object|_] when Col =:= all_multiline ->
 	    From ! {self(), io_lib:format("~p", [Object])};
+        [Object|_] when Col =:= term ->
+	    From ! {self(), Object};
 	[Object|_] when tuple_size(Object) >= Col ->
 	    From ! {self(), format(element(Col, Object))};
 	_ ->

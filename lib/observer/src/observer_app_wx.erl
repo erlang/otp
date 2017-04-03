@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 -module(observer_app_wx).
 
--export([start_link/2]).
+-export([start_link/3]).
 
 %% wx_object callbacks
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
@@ -73,10 +73,10 @@
 
 -define(wxGC, wxGraphicsContext).
 
-start_link(Notebook, Parent) ->
-    wx_object:start_link(?MODULE, [Notebook, Parent], []).
+start_link(Notebook, Parent, Config) ->
+    wx_object:start_link(?MODULE, [Notebook, Parent, Config], []).
 
-init([Notebook, Parent]) ->
+init([Notebook, Parent, _Config]) ->
     Panel = wxPanel:new(Notebook, [{size, wxWindow:getClientSize(Notebook)},
 				   {winid, 1}
 				  ]),
@@ -258,6 +258,8 @@ handle_sync_event(#wx{event = #wxPaint{}},_,
     destroy_gc(GC),
     ok.
 %%%%%%%%%%
+handle_call(get_config, _, State) ->
+    {reply, #{}, State};
 handle_call(Event, From, _State) ->
     error({unhandled_call, Event, From}).
 

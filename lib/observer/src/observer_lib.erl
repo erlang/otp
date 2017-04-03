@@ -24,7 +24,7 @@
 	 display_progress_dialog/2, destroy_progress_dialog/0,
 	 wait_for_progress/0, report_progress/1,
 	 user_term/3, user_term_multiline/3,
-	 interval_dialog/4, start_timer/1, stop_timer/1,
+	 interval_dialog/4, start_timer/1, start_timer/2, stop_timer/1, timer_config/1,
 	 display_info/2, display_info/3, fill_info/2, update_info/2, to_str/1,
 	 create_menus/3, create_menu_item/3,
 	 create_attrs/0,
@@ -90,6 +90,12 @@ stop_timer(Timer = {true, _}) -> Timer;
 stop_timer(Timer = {_, Intv}) ->
     setup_timer(false, Timer),
     {true, Intv}.
+
+start_timer(#{interval:=Intv}, _Def) ->
+    setup_timer(true, {false, Intv});
+start_timer(_, Def) ->
+    setup_timer(true, {false, Def}).
+
 start_timer(Intv) when is_integer(Intv) ->
     setup_timer(true, {true, Intv});
 start_timer(Timer) ->
@@ -104,6 +110,11 @@ setup_timer(true,  {false, Value}) ->
 setup_timer(Bool, {Timer, Old}) ->
     timer:cancel(Timer),
     setup_timer(Bool, {false, Old}).
+
+timer_config({_, Interval}) ->
+    #{interval=>Interval};
+timer_config(#{}=Config) ->
+    Config.
 
 display_info_dialog(Parent,Str) ->
     display_info_dialog(Parent,"",Str).

@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 -module(observer_alloc_wx).
 
--export([start_link/2]).
+-export([start_link/3]).
 
 %% wx_object callbacks
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
@@ -49,10 +49,10 @@
 	[make_win/4, setup_graph_drawing/1, refresh_panel/4, interval_dialog/2,
 	 add_data/5, precalc/4]).
 
-start_link(Notebook, Parent) ->
-    wx_object:start_link(?MODULE, [Notebook, Parent], []).
+start_link(Notebook, Parent, Config) ->
+    wx_object:start_link(?MODULE, [Notebook, Parent, Config], []).
 
-init([Notebook, Parent]) ->
+init([Notebook, Parent, Config]) ->
     try
 	TopP  = wxPanel:new(Notebook),
 	Main  = wxBoxSizer:new(?wxVERTICAL),
@@ -75,7 +75,7 @@ init([Notebook, Parent]) ->
 		      wins  = Windows,
 		      mem   = MemWin,
 		      paint = PaintInfo,
-		      time  = setup_time(),
+		      time  = setup_time(Config),
                       max   = #{}
 		     }
 	}
@@ -84,9 +84,11 @@ init([Notebook, Parent]) ->
 	    {stop, Err}
     end.
 
-setup_time() ->
-    Freq = 1,
-    #ti{fetch=Freq, disp=?DISP_FREQ/Freq}.
+setup_time(Config) ->
+    Freq = maps:get(fetch, Config, 1),
+    #ti{disp=?DISP_FREQ/Freq,
+        fetch=Freq,
+        secs=maps:get(secs, Config, ?DISP_SECONDS)}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 handle_event(#wx{id=?ID_REFRESH_INTERVAL, event=#wxCommand{type=command_menu_selected}},
@@ -117,6 +119,10 @@ handle_sync_event(#wx{obj=Panel, event = #wxPaint{}},_,
     refresh_panel(Active, Win, Ti, Paint),
     ok.
 %%%%%%%%%%
+handle_call(get_config, _, #state{time=Ti}=State) ->
+    #ti{fetch=Fetch, secs=Range} = Ti,
+    {reply, #{fetch=>Fetch, secs=>Range}, State};
+
 handle_call(Event, From, _State) ->
     error({unhandled_call, Event, From}).
 
