@@ -46,10 +46,11 @@ void kill_epmd(EpmdVars *g)
     if ((rval = read_fill(fd,buf,2)) == 2) {
 	if (buf[0] == 'O' && buf[1] == 'K') {
 	    printf("Killed\n");
+	    epmd_cleanup_exit(g,0);
 	} else {
 	    printf("Killing not allowed - living nodes in database.\n");
+	    epmd_cleanup_exit(g,1);
 	}
-	epmd_cleanup_exit(g,0);
     } else if (rval < 0) {
 	printf("epmd: failed to read answer from local epmd\n");
 	epmd_cleanup_exit(g,1);
