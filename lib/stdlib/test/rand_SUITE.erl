@@ -356,14 +356,23 @@ basic_normal_1(0, {#{type:=Alg}, _}, Sum, SumSq) ->
 
 %% Test that the user can write algorithms.
 plugin(Config) when is_list(Config) ->
-    _ = lists:foldl(fun(_, S0) ->
-			    {V1, S1} = rand:uniform_s(10000, S0),
-			    true = is_integer(V1),
-			    {V2, S2} = rand:uniform_s(S1),
-			    true = is_float(V2),
-			    S2
-		    end, crypto_seed(), lists:seq(1, 200)),
-    ok.
+    try crypto:strong_rand_bytes(1) of
+        <<_>> ->
+            _ = lists:foldl(
+                  fun(_, S0) ->
+                          {V1, S1} = rand:uniform_s(10000, S0),
+                          true = is_integer(V1),
+                          {V2, S2} = rand:uniform_s(S1),
+                          true = is_float(V2),
+                          S2
+                  end, crypto_seed(), lists:seq(1, 200)),
+            ok
+    catch
+        error:low_entropy ->
+            {skip,low_entropy};
+        error:undef ->
+            {skip,no_crypto}
+    end.
 
 %% Test implementation
 crypto_seed() ->
@@ -397,7 +406,13 @@ crypto_uniform_n(N, State0) ->
 measure(Suite) when is_atom(Suite) -> [];
 measure(_Config) ->
     ct:timetrap({minutes,15}), %% valgrind needs a lot of time
-    Algos = [crypto64|algs()],
+    Algos =
+        try crypto:strong_rand_bytes(1) of
+            <<_>> -> [crypto64]
+        catch
+            error:low_entropy -> [];
+            error:undef -> []
+        end ++ algs(),
     io:format("RNG uniform integer performance~n",[]),
     _ = measure_1(random, fun(State) -> {int, random:uniform_s(10000, State)} end),
     _ = [measure_1(Algo, fun(State) -> {int, rand:uniform_s(10000, State)} end) || Algo <- Algos],

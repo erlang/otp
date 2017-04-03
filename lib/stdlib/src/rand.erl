@@ -45,22 +45,31 @@
 %% =====================================================================
 
 %% This depends on the algorithm handler function
--type alg_seed() :: exs64_state() | exsplus_state() | exs1024_state() | term().
+-type alg_state() ::
+        exs64_state() | exsplus_state() | exs1024_state() | term().
 
 %% This is the algorithm handler function within this module
--type alg_handler() :: #{type      := alg(),
-                         max       := integer() | infinity,
-                         next      := fun((alg_seed()) -> {uint64(), alg_seed()}),
-                         uniform   := fun((state()) -> {float(), state()}),
-                         uniform_n := fun((pos_integer(), state()) -> {pos_integer(), state()}),
-                         jump      := fun((state()) -> state())}.
+-type alg_handler() ::
+        #{type := alg(),
+          max  := integer() | infinity,
+          next :=
+              fun((alg_state()) -> {non_neg_integer(), alg_state()}),
+          uniform :=
+              fun((state()) -> {float(), state()}),
+          uniform_n :=
+              fun((pos_integer(), state()) -> {pos_integer(), state()}),
+          jump :=
+              fun((state()) -> state())}.
 
 %% Algorithm state
--type state() :: {alg_handler(), alg_seed()}.
+-type state() :: {alg_handler(), alg_state()}.
 -type builtin_alg() :: exs64 | exsplus | exs1024.
 -type alg() :: builtin_alg() | atom().
--type export_state() :: {alg(), alg_seed()}.
--export_type([builtin_alg/0, alg/0, alg_handler/0, alg_seed/0, state/0, export_state/0]).
+-type export_state() :: {alg(), alg_state()}.
+-export_type(
+   [builtin_alg/0, alg/0, alg_handler/0, alg_state/0,
+    state/0, export_state/0]).
+-export_type([exs64_state/0, exsplus_state/0, exs1024_state/0]).
 
 %% =====================================================================
 %% API
@@ -74,7 +83,7 @@ export_seed() ->
 	_ -> undefined
     end.
 
--spec export_seed_s(state()) -> export_state().
+-spec export_seed_s(State :: state()) -> export_state().
 export_seed_s({#{type:=Alg}, Seed}) -> {Alg, Seed}.
 
 %% seed(Alg) seeds RNG with runtime dependent values
@@ -83,11 +92,15 @@ export_seed_s({#{type:=Alg}, Seed}) -> {Alg, Seed}.
 %% seed({Alg,Seed}) setup RNG with a previously exported seed
 %% and return the NEW state
 
--spec seed(AlgOrStateOrExpState::builtin_alg() | state() | export_state()) -> state().
+-spec seed(
+        AlgOrStateOrExpState :: builtin_alg() | state() | export_state()) ->
+                  state().
 seed(Alg) ->
     seed_put(seed_s(Alg)).
 
--spec seed_s(AlgOrStateOrExpState::builtin_alg() | state() | export_state()) -> state().
+-spec seed_s(
+        AlgOrStateOrExpState :: builtin_alg() | state() | export_state()) ->
+                    state().
 seed_s({AlgHandler, _Seed} = State) when is_map(AlgHandler) ->
     State;
 seed_s({Alg0, Seed}) ->
@@ -101,11 +114,15 @@ seed_s(Alg) ->
 %% seed/2: seeds RNG with the algorithm and given values
 %% and returns the NEW state.
 
--spec seed(Alg :: builtin_alg(), {integer(), integer(), integer()}) -> state().
+-spec seed(
+        Alg :: builtin_alg(), Seed :: {integer(), integer(), integer()}) ->
+                  state().
 seed(Alg0, S0) ->
     seed_put(seed_s(Alg0, S0)).
 
--spec seed_s(Alg :: builtin_alg(), {integer(), integer(), integer()}) -> state().
+-spec seed_s(
+        Alg :: builtin_alg(), Seed :: {integer(), integer(), integer()}) ->
+                    state().
 seed_s(Alg0, S0 = {_, _, _}) ->
     {Alg, Seed} = mk_alg(Alg0),
     AS = Seed(S0),
@@ -117,7 +134,7 @@ seed_s(Alg0, S0 = {_, _, _}) ->
 %% uniform/0: returns a random float X where 0.0 < X < 1.0,
 %% updating the state in the process dictionary.
 
--spec uniform() -> X::float().
+-spec uniform() -> X :: float().
 uniform() ->
     {X, Seed} = uniform_s(seed_get()),
     _ = seed_put(Seed),
@@ -127,7 +144,7 @@ uniform() ->
 %% uniform/1 returns a random integer X where 1 =< X =< N,
 %% updating the state in the process dictionary.
 
--spec uniform(N :: pos_integer()) -> X::pos_integer().
+-spec uniform(N :: pos_integer()) -> X :: pos_integer().
 uniform(N) ->
     {X, Seed} = uniform_s(N, seed_get()),
     _ = seed_put(Seed),
@@ -137,7 +154,7 @@ uniform(N) ->
 %% returns a random float X where 0.0 < X < 1.0,
 %% and a new state.
 
--spec uniform_s(state()) -> {X::float(), NewS :: state()}.
+-spec uniform_s(State :: state()) -> {X :: float(), NewState :: state()}.
 uniform_s(State = {#{uniform:=Uniform}, _}) ->
     Uniform(State).
 
@@ -145,7 +162,8 @@ uniform_s(State = {#{uniform:=Uniform}, _}) ->
 %% uniform_s/2 returns a random integer X where 1 =< X =< N,
 %% and a new state.
 
--spec uniform_s(N::pos_integer(), state()) -> {X::pos_integer(), NewS::state()}.
+-spec uniform_s(N :: pos_integer(), State :: state()) ->
+                       {X :: pos_integer(), NewState :: state()}.
 uniform_s(N, State = {#{uniform_n:=Uniform, max:=Max}, _})
   when 0 < N, N =< Max ->
     Uniform(N, State);
@@ -159,7 +177,7 @@ uniform_s(N, State0 = {#{uniform:=Uniform}, _})
 %% after a large number of call defined for each algorithm.
 %% The large number is algorithm dependent.
 
--spec jump(state()) -> NewS :: state().
+-spec jump(state()) -> NewState :: state().
 jump(State = {#{jump:=Jump}, _}) ->
     Jump(State).
 
@@ -168,7 +186,7 @@ jump(State = {#{jump:=Jump}, _}) ->
 %% and write back the new value to the internal state,
 %% then returns the new value.
 
--spec jump() -> NewS :: state().
+-spec jump() -> NewState :: state().
 
 jump() ->
     seed_put(jump(seed_get())).
@@ -186,7 +204,7 @@ normal() ->
 %% The Ziggurat Method for generating random variables - Marsaglia and Tsang
 %% Paper and reference code: http://www.jstatsoft.org/v05/i08/
 
--spec normal_s(state()) -> {float(), NewS :: state()}.
+-spec normal_s(State :: state()) -> {float(), NewState :: state()}.
 normal_s(State0) ->
     {Sign, R, State} = get_52(State0),
     Idx = R band 16#FF,
@@ -249,7 +267,7 @@ mk_alg(exs1024) ->
 %% Reference URL: http://xorshift.di.unimi.it/
 %% =====================================================================
 
--type exs64_state() :: uint64().
+-opaque exs64_state() :: uint64().
 
 exs64_seed({A1, A2, A3}) ->
     {V1, _} = exs64_next(((A1 band ?UINT32MASK) * 4294967197 + 1)),
@@ -284,7 +302,7 @@ exs64_jump(_) ->
 %% Modification of the original Xorshift128+ algorithm to 116
 %% by Sebastiano Vigna, a lot of thanks for his help and work.
 %% =====================================================================
--type exsplus_state() :: nonempty_improper_list(uint58(), uint58()).
+-opaque exsplus_state() :: nonempty_improper_list(uint58(), uint58()).
 
 -dialyzer({no_improper_lists, exsplus_seed/1}).
 
@@ -353,7 +371,7 @@ exsplus_jump(S, [AS0|AS1], J, N) ->
 %% Reference URL: http://xorshift.di.unimi.it/
 %% =====================================================================
 
--type exs1024_state() :: {list(uint64()), list(uint64())}.
+-opaque exs1024_state() :: {list(uint64()), list(uint64())}.
 
 exs1024_seed({A1, A2, A3}) ->
     B1 = (((A1 band ?UINT21MASK) + 1) * 2097131) band ?UINT21MASK,

@@ -732,14 +732,17 @@
 
     <func>
       <name>rand_seed() -> rand:state()</name>
-      <fsummary>Strong random number generation plugin state</fsummary>>
+      <fsummary>Strong random number generation plugin state</fsummary>
       <desc>
-        Creates state object for <seealso marker="stdlib:rand">random number generation</seealso>,
-        in order to generate cryptographically strong random numbers
-        (based on OpenSSL's <c>BN_rand_range</c>),
-        and saves it on process dictionary before returning it as well.
-        See also <seealso marker="stdlib:rand#seed-1">rand:seed/1</seealso>
-
+	<p>
+          Creates state object for
+	  <seealso marker="stdlib:rand">random number generation</seealso>,
+          in order to generate cryptographically strong random numbers
+          (based on OpenSSL's <c>BN_rand_range</c>),
+          and saves it on process dictionary before returning it as well.
+          See also
+	  <seealso marker="stdlib:rand#seed-1">rand:seed/1</seealso>.
+	</p>
         <p><em>Example</em></p>
         <pre>
 _ = crypto:rand_seed(),
@@ -750,12 +753,16 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
 
     <func>
       <name>rand_seed_s() -> rand:state()</name>
-      <fsummary>Strong random number generation plugin state</fsummary>>
+      <fsummary>Strong random number generation plugin state</fsummary>
       <desc>
-        Creates state object for <seealso marker="stdlib:rand">random number generation</seealso>,
-        in order to generate cryptographically strongly random numbers
-        (based on OpenSSL's <c>BN_rand_range</c>).
-        See also <seealso marker="stdlib:rand#seed_s-1">rand:seed_s/1</seealso>
+	<p>
+          Creates state object for
+	  <seealso marker="stdlib:rand">random number generation</seealso>,
+          in order to generate cryptographically strongly random numbers
+          (based on OpenSSL's <c>BN_rand_range</c>).
+          See also
+	  <seealso marker="stdlib:rand#seed_s-1">rand:seed_s/1</seealso>.
+	</p>
       </desc>
     </func>
 
