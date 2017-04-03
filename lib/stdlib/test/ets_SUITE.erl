@@ -5891,17 +5891,21 @@ run_smp_workers(InitF,ExecF,FiniF,Laps) ->
 run_smp_workers(InitF,ExecF,FiniF,Laps, Exclude) ->
     case erlang:system_info(smp_support) of
 	true ->
-	    run_workers_do(InitF,ExecF,FiniF,Laps, Exclude);
+            case erlang:system_info(schedulers_online) of
+                N when N > Exclude ->
+                    run_workers_do(InitF,ExecF,FiniF,Laps, N - Exclude);
+                _ ->
+                    {skipped, "Too few schedulers online"}
+            end;
 	false ->
 	    {skipped,"No smp support"}
     end.
 
 run_sched_workers(InitF,ExecF,FiniF,Laps) ->
-    run_workers_do(InitF,ExecF,FiniF,Laps, 0).
-run_workers_do(InitF,ExecF,FiniF,Laps, Exclude) ->
-    NumOfProcs = case erlang:system_info(schedulers) of
-		     N when (N > Exclude) -> N - Exclude
-		 end,
+    run_workers_do(InitF,ExecF,FiniF,Laps,
+                   erlang:system_info(schedulers)).
+
+run_workers_do(InitF,ExecF,FiniF,Laps, NumOfProcs) ->
     io:format("smp starting ~p workers\n",[NumOfProcs]),
     Seeds = [{ProcN,rand:uniform(9999)} || ProcN <- lists:seq(1,NumOfProcs)],
     Parent = self(),
