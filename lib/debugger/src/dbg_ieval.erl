@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1486,7 +1486,6 @@ guard_expr({map,_,E0,Fs0}, Bs) ->
     Value = lists:foldl(fun ({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi);
                             ({map_exact,K,V}, Mi) -> maps:update(K,V,Mi) end,
                         E, Fs),
-    io:format("~p~n", [{E,Value}]),
     {value,Value};
 guard_expr({bin,_,Flds}, Bs) ->
     {value,V,_Bs} = 
