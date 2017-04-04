@@ -679,6 +679,35 @@
     </func>
 
     <func>
+      <name>rand_uniform_float() -> F</name>
+      <fsummary>Generate a random floating point number between 0.0 and 1.0</fsummary>
+      <type>
+        <v>F = float()</v>
+      </type>
+      <desc>
+        <p>Generate a random floating pointer number <c><![CDATA[<F>, 0.0 =< <F> < 1.0.]]></c> Uses the
+	<c>crypto</c> library pseudo-random number generator.
+	    </p>
+        <note><p>The generated values shall present no more than 51 bits of effective entropy.</p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name>rand_uniform_float(Lo, Hi) -> F</name>
+      <fsummary>Generate a random floating point number</fsummary>
+      <type>
+        <v>Lo, Hi = number()</v>
+        <v>F = float()</v>
+      </type>
+      <desc>
+        <p>Generate a random floating pointer number <c><![CDATA[<F>, Lo =< <F> < Hi.]]></c> Uses the
+	<c>crypto</c> library pseudo-random number generator.
+    <c>Hi</c> must be larger than <c>Lo</c>.</p>
+        <note><p>The generated values shall present no more than 51 bits of effective entropy.</p></note>
+      </desc>
+    </func>
+
+    <func>
       <name>sign(Algorithm, DigestType, Msg, Key) -> binary()</name>
       <fsummary> Create digital signature.</fsummary>
       <type>
