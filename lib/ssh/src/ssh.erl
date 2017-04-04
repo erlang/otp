@@ -225,7 +225,8 @@ daemon(Port, UserOptions) when 0 =< Port, Port =< 65535 ->
     daemon(any, Port, UserOptions).
 
 
-daemon(Host0, Port0, UserOptions0) when 0 =< Port0, Port0 =< 65535 ->
+daemon(Host0, Port0, UserOptions0) when 0 =< Port0, Port0 =< 65535,
+                                        Host0 == any ; Host0 == loopback ; is_tuple(Host0) ->
     try
         {Host1, UserOptions} = handle_daemon_args(Host0, UserOptions0),
         #{} = Options0 = ssh_options:handle_options(server, UserOptions),
@@ -259,7 +260,11 @@ daemon(Host0, Port0, UserOptions0) when 0 =< Port0, Port0 =< 65535 ->
             {error,Error};
         _C:_E ->
             {error,{cannot_start_daemon,_C,_E}}
-    end.
+    end;
+
+daemon(_, _, _) ->
+    {error, badarg}.
+
 
 
 %%--------------------------------------------------------------------
@@ -378,35 +383,6 @@ default_algorithms() ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-
-%%   - if Address is 'any' and no ip-option is present, the name is
-%%     'any' and the socket will listen to all addresses
-%%
-%%   - if Address is 'any' and an ip-option is present, the name is
-%%     set to the value of the ip-option and the socket will listen
-%%     to that address
-%%
-%%   - if Address is 'loopback' and no ip-option is present, the name
-%%     is 'loopback' and an loopback address will be choosen by the
-%%     underlying layers
-%%
-%%   - if Address is 'loopback' and an ip-option is present, the name
-%%     is set to the value of the ip-option kept and the socket will
-%%     listen to that address
-%%
-%%   - if Address is an ip-address, that ip-address is the name and
-%%     the listening address. An ip-option will be discarded.
-%%   
-%%   - if Address is a HostName, and that resolves to an ip-address,
-%%     that ip-address is the name and the listening address. An
-%%     ip-option will be discarded.
-%%
-%%   - if Address is a string or an atom other than thoose defined
-%%     above, that Address will be the name and the listening address
-%%     will be choosen by the lower layers taking an ip-option in
-%%     consideration
-%% 
-
 %% The handle_daemon_args/2 function basically only sets the ip-option in Opts
 %% so that it is correctly set when opening the listening socket.
 
@@ -416,53 +392,11 @@ handle_daemon_args(any, Opts) ->
         IP -> {IP, Opts}
     end;
 
-handle_daemon_args(loopback, Opts) ->
-    case proplists:get_value(ip, Opts) of
-        undefined -> {loopback, [{ip,loopback}|Opts]};
-        IP -> {IP, Opts}
-    end;
-
-handle_daemon_args(IPaddr, Opts) when is_tuple(IPaddr) ->
+handle_daemon_args(IPaddr, Opts) when is_tuple(IPaddr) ; IPaddr == loopback ->
     case proplists:get_value(ip, Opts) of
         undefined -> {IPaddr, [{ip,IPaddr}|Opts]};
         IPaddr -> {IPaddr, Opts};
         IP -> {IPaddr, [{ip,IPaddr}|Opts--[{ip,IP}]]} %% Backward compatibility
-    end;
-
-handle_daemon_args(Address, Opts) when is_list(Address) ; % IP address in string or a domain
-                                       is_atom(Address) % domains could be atoms in inet
-                                       ->
-    IP = proplists:get_value(ip, Opts),
-    case inet:parse_strict_address(Address) of
-        %% check if Address is an IP-address
-        {ok, IP} ->      {IP, Opts};
-        {ok, OtherIP} -> {OtherIP, [{ip,OtherIP}|Opts--[{ip,IP}]]};
-        _ ->
-            %% Not an IP-address. Check if it is a host name:
-            case inet:getaddr(Address, family(Opts)) of
-                {ok, IP} -> {Address, Opts};
-                {ok, OtherIP} -> {Address, [{ip,OtherIP}|Opts--[{ip,IP}]]};
-                _ ->
-                    %% Not a Host name and not an IP address, let
-                    %% inet and the OS later figure out what it
-                    %% could be
-                    {Address, Opts}
-            end
-    end.
-
-%% Has the caller indicated the address family?
-family(Opts) ->
-    family(Opts, inet).
-
-family(Opts, Default) ->
-    case proplists:get_value(inet,Opts) of
-        true -> inet;
-        inet -> inet;
-        inet6 -> inet6;
-        _ -> case proplists:get_value(inet6,Opts) of
-                 true -> inet6;
-                 _ -> Default
-             end
     end.
 
 %%%----------------------------------------------------------------
