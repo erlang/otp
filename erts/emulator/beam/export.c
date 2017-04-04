@@ -132,7 +132,7 @@ export_alloc(struct export_entry* tmpl_e)
 	erts_smp_atomic_add_nob(&total_entries_bytes, sizeof(*blob));
 	obj = &blob->exp;
 	obj->info.op =  0;
-	obj->info.native = 0;
+	obj->info.u.gen_bp = NULL;
 	obj->info.mfa.module = tmpl->info.mfa.module;
 	obj->info.mfa.function = tmpl->info.mfa.function;
 	obj->info.mfa.arity = tmpl->info.mfa.arity;

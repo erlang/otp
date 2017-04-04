@@ -327,7 +327,7 @@ erts_consolidate_bif_bp_data(void)
 static void
 consolidate_bp_data(Module* modp, ErtsCodeInfo *ci, int local)
 {
-    GenericBp* g = (GenericBp *) ci->native;
+    GenericBp* g = ci->u.gen_bp;
     GenericBpData* src;
     GenericBpData* dst;
     Uint flags;
@@ -376,7 +376,7 @@ consolidate_bp_data(Module* modp, ErtsCodeInfo *ci, int local)
 	    ASSERT(*erts_codeinfo_to_code(ci) !=
                    (BeamInstr) BeamOp(op_i_generic_breakpoint));
 	}
-	ci->native = 0;
+	ci->u.gen_bp = NULL;
 	Free(g);
 	return;
     }
@@ -427,7 +427,7 @@ erts_install_breakpoints(BpFunctions* f)
     for (i = 0; i < n; i++) {
 	ErtsCodeInfo* ci = f->matching[i].ci;
         BeamInstr *pc = erts_codeinfo_to_code(ci);
-	GenericBp* g = (GenericBp *) ci->native;
+	GenericBp* g = ci->u.gen_bp;
 	if (*pc != br && g) {
 	    Module* modp = f->matching[i].mod;
 
@@ -468,7 +468,7 @@ uninstall_breakpoint(ErtsCodeInfo *ci)
 {
     BeamInstr *pc = erts_codeinfo_to_code(ci);
     if (*pc == (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
-	GenericBp* g = (GenericBp *) ci->native;
+	GenericBp* g = ci->u.gen_bp;
 	if (g->data[erts_active_bp_ix()].flags == 0) {
 	    /*
 	     * The following write is not protected by any lock. We
@@ -549,7 +549,7 @@ erts_clear_trace_break(BpFunctions* f)
 void
 erts_clear_call_trace_bif(ErtsCodeInfo *ci, int local)
 {
-    GenericBp* g = (GenericBp *) ci->native;
+    GenericBp* g = ci->u.gen_bp;
 
     if (g) {
 	Uint flags = local ? ERTS_BPF_LOCAL_TRACE : ERTS_BPF_GLOBAL_TRACE;
@@ -624,7 +624,7 @@ erts_clear_module_break(Module *modp) {
 	    continue;
 	uninstall_breakpoint(ci);
 	consolidate_bp_data(modp, ci, 1);
-	ASSERT(ci->native == 0);
+	ASSERT(ci->u.gen_bp == NULL);
     }
     return n;
 }
@@ -638,7 +638,7 @@ erts_clear_export_break(Module* modp, ErtsCodeInfo *ci)
     erts_commit_staged_bp();
     *erts_codeinfo_to_code(ci) = (BeamInstr) 0;
     consolidate_bp_data(modp, ci, 0);
-    ASSERT(ci->native == 0);
+    ASSERT(ci->u.gen_bp == NULL);
 }
 
 BeamInstr
@@ -651,7 +651,7 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
 
     ASSERT(info->op == (BeamInstr) BeamOp(op_i_func_info_IaaI));
 
-    g = (GenericBp *) info->native;
+    g = info->u.gen_bp;
     bp = &g->data[ix];
     bp_flags = bp->flags;
     ASSERT((bp_flags & ~ERTS_BPF_ALL) == 0);
@@ -754,7 +754,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 
     ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 
-    g = (GenericBp *) ep->info.native;
+    g = ep->info.u.gen_bp;
     if (g) {
 	bp = &g->data[erts_active_bp_ix()];
 	bp_flags = bp->flags;
@@ -1511,7 +1511,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
     ErtsBpIndex ix = erts_staging_bp_ix();
 
     ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
-    g = (GenericBp *) ci->native;
+    g = ci->u.gen_bp;
     if (g == 0) {
 	int i;
 	if (count_op == ERTS_BREAK_RESTART || count_op == ERTS_BREAK_PAUSE) {
@@ -1523,7 +1523,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 	for (i = 0; i < ERTS_NUM_BP_IX; i++) {
 	    g->data[i].flags = 0;
 	}
-	ci->native = (BeamInstr) g;
+	ci->u.gen_bp = g;
     }
     bp = &g->data[ix];
 
@@ -1633,7 +1633,7 @@ clear_function_break(ErtsCodeInfo *ci, Uint break_flags)
 
     ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
 
-    if ((g = (GenericBp *) ci->native) == 0) {
+    if ((g = ci->u.gen_bp) == NULL) {
 	return 1;
     }
 
@@ -1728,7 +1728,7 @@ get_time_break(ErtsCodeInfo *ci)
 static GenericBpData*
 check_break(ErtsCodeInfo *ci, Uint break_flags)
 {
-    GenericBp* g = (GenericBp *) ci->native;
+    GenericBp* g = ci->u.gen_bp;
 
     ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IaaI));
     if (erts_is_native_break(ci)) {

@@ -4948,14 +4948,14 @@ do {						\
 	  */
          ErtsCodeInfo *ci = erts_code_to_codeinfo(I);
 	 ASSERT(ci->op == (Uint) OpCode(i_func_info_IaaI));
-	 c_p->hipe.u.ncallee = (void(*)(void)) ci->native;
+	 c_p->hipe.u.ncallee = ci->u.ncallee;
 	 ++hipe_trap_count;
 	 HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_CALL | (ci->mfa.arity << 8));
      }
      OpCase(hipe_trap_call_closure): {
        ErtsCodeInfo *ci = erts_code_to_codeinfo(I);
        ASSERT(ci->op == (Uint) OpCode(i_func_info_IaaI));
-       c_p->hipe.u.ncallee = (void(*)(void)) ci->native;
+       c_p->hipe.u.ncallee = ci->u.ncallee;
        ++hipe_trap_count;
        HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_CALL_CLOSURE | (ci->mfa.arity << 8));
      }
@@ -5027,7 +5027,7 @@ do {						\
       * ... remainder of original BEAM code
       */
      ErtsCodeInfo *ci = erts_code_to_codeinfo(I);
-     struct hipe_call_count *hcc = (struct hipe_call_count*)ci->native;
+     struct hipe_call_count *hcc = ci->u.hcc;
      ASSERT(ci->op == (Uint) OpCode(i_func_info_IaaI));
      ASSERT(hcc != NULL);
      ASSERT(VALID_INSTR(hcc->opcode));

@@ -3653,11 +3653,11 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	    ci = *get_func_pp(this_mi->code_hdr, f_atom, f->arity);
             code_ptr = erts_codeinfo_to_code(ci);
 
-	    if (ci->native == 0) {
+	    if (ci->u.gen_bp == NULL) {
 		code_ptr[0] = (BeamInstr) BeamOp(op_call_nif);
 	    }
 	    else { /* Function traced, patch the original instruction word */
-		GenericBp* g = (GenericBp *) ci->native;
+		GenericBp* g = ci->u.gen_bp;
 		ASSERT(code_ptr[0] ==
 		       (BeamInstr) BeamOp(op_i_generic_breakpoint));
 		g->orig_instr = (BeamInstr) BeamOp(op_call_nif);

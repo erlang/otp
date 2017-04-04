@@ -5708,12 +5708,13 @@ erts_is_module_native(BeamCodeHeader* code_hdr)
 static Eterm
 native_addresses(Process* p, BeamCodeHeader* code_hdr)
 {
+    Eterm result = NIL;
+#ifdef HIPE
     int i;
     Eterm* hp;
     Uint num_functions;
     Uint need;
     Eterm* hp_end;
-    Eterm result = NIL;
 
     num_functions = code_hdr->num_functions;
     need = (6+BIG_UINT_HEAP_SIZE)*num_functions;
@@ -5725,16 +5726,17 @@ native_addresses(Process* p, BeamCodeHeader* code_hdr)
 
 	ASSERT(is_atom(ci->mfa.function)
                || is_nil(ci->mfa.function)); /* [] if BIF stub */
-	if (ci->native != 0) {
+	if (ci->u.ncallee != NULL) {
             Eterm addr;
 	    ASSERT(is_atom(ci->mfa.function));
-	    addr = erts_bld_uint(&hp, NULL, ci->native);
+	    addr = erts_bld_uint(&hp, NULL, (Uint)ci->u.ncallee);
 	    tuple = erts_bld_tuple(&hp, NULL, 3, ci->mfa.function,
                                    make_small(ci->mfa.arity), addr);
 	    result = erts_bld_cons(&hp, NULL, tuple, result);
 	}
     }
     HRelease(p, hp_end, hp);
+#endif
     return result;
 }
 
@@ -6033,7 +6035,7 @@ make_stub(ErtsCodeInfo* info, Eterm mod, Eterm func, Uint arity, Uint native, Be
     DBG_TRACE_MFA(mod,func,arity,"make beam stub at %p", erts_codeinfo_to_code(info));
     ASSERT(WORDS_PER_FUNCTION == 6);
     info->op = (BeamInstr) BeamOp(op_i_func_info_IaaI);
-    info->native = native;
+    info->u.ncallee = (void (*)(void)) native;
     info->mfa.module = mod;
     info->mfa.function = func;
     info->mfa.arity = arity;
@@ -6104,7 +6106,7 @@ stub_final_touch(LoaderState* stp, ErtsCodeInfo* ci)
     Lambda* lp;
 
     if (is_bif(ci->mfa.module, ci->mfa.function, ci->mfa.arity)) {
-	ci->native = 0;
+	ci->u.ncallee = NULL;
 	ci->mfa.module = 0;
 	ci->mfa.function = 0;
 	ci->mfa.arity = 0;
