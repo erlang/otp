@@ -400,7 +400,9 @@ init_process_state(Role, Socket, Opts) ->
 	    timer:apply_after(?REKEY_DATA_TIMOUT, gen_statem, cast, [self(), data_size]),
 	    cache_init_idle_timer(D);
 	server ->
-	    D#data{connection_state = init_connection(Role, C, Opts)}
+            cache_init_idle_timer(
+              D#data{connection_state = init_connection(Role, C, Opts)}
+             )
     end.
 
 
@@ -919,6 +921,9 @@ handle_event(internal, Msg=#ssh_msg_channel_extended_data{},     StateName, D) -
 handle_event(internal, Msg=#ssh_msg_channel_eof{},               StateName, D) ->
     handle_connection_msg(Msg, StateName, D);
 
+handle_event(internal, Msg=#ssh_msg_channel_close{},  {connected,server} = StateName, D) ->
+    handle_connection_msg(Msg, StateName, cache_request_idle_timer_check(D));
+
 handle_event(internal, Msg=#ssh_msg_channel_close{},             StateName, D) ->
     handle_connection_msg(Msg, StateName, D);
 
@@ -1280,6 +1285,7 @@ handle_event(info, {'EXIT', _Sup, Reason}, _, _) ->
     {stop, {shutdown, Reason}};
 
 handle_event(info, check_cache, _, D) ->
+ct:pal("check_cache",[]),
     {keep_state, cache_check_set_idle_timer(D)};
 
 handle_event(info, UnexpectedMessage, StateName, D = #data{ssh_params = Ssh}) ->
