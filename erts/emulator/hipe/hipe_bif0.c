@@ -603,10 +603,7 @@ static void print_mfa(Eterm mod, Eterm fun, unsigned int ari)
 }
 #endif
 
-/*
- * Convert {M,F,A} to pointer to first insn after initial func_info.
- */
-static Uint *hipe_find_emu_address(Eterm mod, Eterm name, unsigned int arity)
+static ErtsCodeInfo* hipe_find_emu_address(Eterm mod, Eterm name, unsigned int arity)
 {
     Module *modp;
     BeamCodeHeader* code_hdr;
@@ -617,15 +614,15 @@ static Uint *hipe_find_emu_address(Eterm mod, Eterm name, unsigned int arity)
 	return NULL;
     n = code_hdr->num_functions;
     for (i = 0; i < n; ++i) {
-	Uint *code_ptr = (Uint*)code_hdr->functions[i];
-	ASSERT(code_ptr[0] == BeamOpCode(op_i_func_info_IaaI));
-	if (code_ptr[3] == name && code_ptr[4] == arity)
-	    return code_ptr+5;
+	ErtsCodeInfo *ci = code_hdr->functions[i];
+	ASSERT(ci->op == BeamOpCode(op_i_func_info_IaaI));
+	if (ci->mfa.function == name && ci->mfa.arity == arity)
+	    return ci;
     }
     return NULL;
 }
 
-Uint *hipe_bifs_find_pc_from_mfa(Eterm term)
+ErtsCodeInfo* hipe_bifs_find_pc_from_mfa(Eterm term)
 {
     struct hipe_mfa mfa;
 
@@ -636,10 +633,10 @@ Uint *hipe_bifs_find_pc_from_mfa(Eterm term)
 
 BIF_RETTYPE hipe_bifs_fun_to_address_1(BIF_ALIST_1)
 {
-    Eterm *pc = hipe_bifs_find_pc_from_mfa(BIF_ARG_1);
-    if (!pc)
+    ErtsCodeInfo* ci = hipe_bifs_find_pc_from_mfa(BIF_ARG_1);
+    if (!ci)
 	BIF_ERROR(BIF_P, BADARG);
-    BIF_RET(address_to_term(pc, BIF_P));
+    BIF_RET(address_to_term(erts_codeinfo_to_code(ci), BIF_P));
 }
 
 BIF_RETTYPE hipe_bifs_commit_patch_load_1(BIF_ALIST_1)
@@ -652,7 +649,7 @@ BIF_RETTYPE hipe_bifs_commit_patch_load_1(BIF_ALIST_1)
 
 BIF_RETTYPE hipe_bifs_set_native_address_3(BIF_ALIST_3)
 {
-    Eterm *pc;
+    ErtsCodeInfo *ci;
     void *address;
     int is_closure;
     struct hipe_mfa mfa;
@@ -675,11 +672,12 @@ BIF_RETTYPE hipe_bifs_set_native_address_3(BIF_ALIST_3)
        simply have called hipe_bifs_find_pc_from_mfa(). */
     if (!term_to_mfa(BIF_ARG_1, &mfa))
 	BIF_ERROR(BIF_P, BADARG);
-    pc = hipe_find_emu_address(mfa.mod, mfa.fun, mfa.ari);
+    ci = hipe_find_emu_address(mfa.mod, mfa.fun, mfa.ari);
 
-    if (pc) {
-	DBG_TRACE_MFA(mfa.mod,mfa.fun,mfa.ari, "set beam call trap at %p -> %p", pc, address);
-	hipe_set_call_trap(pc, address, is_closure);
+    if (ci) {
+	DBG_TRACE_MFA(mfa.mod,mfa.fun,mfa.ari, "set beam call trap at %p -> %p",
+                      erts_codeinfo_to_code(ci), address);
+	hipe_set_call_trap(ci, address, is_closure);
 	BIF_RET(am_true);
     }
     DBG_TRACE_MFA(mfa.mod,mfa.fun,mfa.ari, "failed set call trap to %p, no beam code found", address);
