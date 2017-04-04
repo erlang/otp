@@ -30,6 +30,12 @@
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([cmac/3, cmac/4]).
 -export([exor/2, strong_rand_bytes/1, mod_pow/3]).
+-export([rand_seed/0]).
+-export([rand_seed_s/0]).
+-export([rand_plugin_next/1]).
+-export([rand_plugin_uniform/1]).
+-export([rand_plugin_uniform/2]).
+-export([rand_plugin_jump/1]).
 -export([rand_uniform/2]).
 -export([block_encrypt/3, block_decrypt/3, block_encrypt/4, block_decrypt/4]).
 -export([next_iv/2, next_iv/3]).
@@ -44,6 +50,9 @@
 
 %% This should correspond to the similar macro in crypto.c
 -define(MAX_BYTES_TO_NIF, 20000). %%  Current value is: erlang:system_info(context_reductions) * 10
+
+%% Used by strong_rand_float/0
+-define(HALF_DBL_EPSILON, 1.1102230246251565e-16). % math:pow(2, -53)
 
 %%-type ecdsa_digest_type() :: 'md5' | 'sha' | 'sha256' | 'sha384' | 'sha512'.
 -type crypto_integer() :: binary() | integer().
@@ -286,9 +295,11 @@ stream_decrypt(State, Data0) ->
     stream_crypt(fun do_stream_decrypt/2, State, Data, erlang:byte_size(Data), MaxByts, []).
 
 %%
-%% RAND - pseudo random numbers using RN_ functions in crypto lib
+%% RAND - pseudo random numbers using RN_ and BN_ functions in crypto lib
 %%
 -spec strong_rand_bytes(non_neg_integer()) -> binary().
+-spec rand_seed() -> rand:state().
+-spec rand_seed_s() -> rand:state().
 -spec rand_uniform(crypto_integer(), crypto_integer()) ->
 			  crypto_integer().
 
@@ -299,6 +310,46 @@ strong_rand_bytes(Bytes) ->
     end.
 strong_rand_bytes_nif(_Bytes) -> ?nif_stub.
 
+
+rand_seed() ->
+    rand:seed(rand_seed_s()).
+
+rand_seed_s() ->
+    {#{ type => ?MODULE,
+        max => infinity,
+        next => fun ?MODULE:rand_plugin_next/1,
+        uniform => fun ?MODULE:rand_plugin_uniform/1,
+        uniform_n => fun ?MODULE:rand_plugin_uniform/2,
+        jump => fun ?MODULE:rand_plugin_jump/1},
+     no_seed}.
+
+rand_plugin_next(Seed) ->
+    {bytes_to_integer(strong_rand_range(1 bsl 64)), Seed}.
+
+rand_plugin_uniform(State) ->
+    {strong_rand_float(), State}.
+
+rand_plugin_uniform(Max, State) ->
+    {bytes_to_integer(strong_rand_range(Max)) + 1, State}.
+
+rand_plugin_jump(State) ->
+    State.
+
+strong_rand_range(Range) when is_integer(Range), Range > 0 ->
+    BinRange = int_to_bin(Range),
+    strong_rand_range(BinRange);
+strong_rand_range(BinRange) when is_binary(BinRange) ->
+    case strong_rand_range_nif(BinRange) of
+        false ->
+            erlang:error(low_entropy);
+        <<BinResult/binary>> ->
+            BinResult
+    end.
+strong_rand_range_nif(_BinRange) -> ?nif_stub.
+
+strong_rand_float() ->
+    WholeRange = strong_rand_range(1 bsl 53),
+    ?HALF_DBL_EPSILON * bytes_to_integer(WholeRange).
 
 rand_uniform(From,To) when is_binary(From), is_binary(To) ->
     case rand_uniform_nif(From,To) of
@@ -327,6 +378,7 @@ rand_uniform_pos(_,_) ->
     error(badarg).
 
 rand_uniform_nif(_From,_To) -> ?nif_stub.
+
 
 -spec rand_seed(binary()) -> ok.
 rand_seed(Seed) ->

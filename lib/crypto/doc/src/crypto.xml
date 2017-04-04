@@ -658,10 +658,11 @@
       </type>
       <desc>
         <p>Set the seed for PRNG to the given binary. This calls the
-	RAND_seed function from openssl. Only use this if the system
-	you are running on does not have enough "randomness" built in.
-	Normally this is when <seealso marker="#strong_rand_bytes/1">
-	strong_rand_bytes/1</seealso> returns <c>low_entropy</c></p>
+        RAND_seed function from openssl. Only use this if the system
+        you are running on does not have enough "randomness" built in.
+        Normally this is when
+        <seealso marker="#strong_rand_bytes/1">strong_rand_bytes/1</seealso>
+        throws <c>low_entropy</c></p>
       </desc>
     </func>
 
@@ -728,6 +729,43 @@
 	failed due to lack of secure "randomness".</p>
       </desc>
     </func>
+
+    <func>
+      <name>rand_seed() -> rand:state()</name>
+      <fsummary>Strong random number generation plugin state</fsummary>
+      <desc>
+	<p>
+          Creates state object for
+	  <seealso marker="stdlib:rand">random number generation</seealso>,
+          in order to generate cryptographically strong random numbers
+          (based on OpenSSL's <c>BN_rand_range</c>),
+          and saves it on process dictionary before returning it as well.
+          See also
+	  <seealso marker="stdlib:rand#seed-1">rand:seed/1</seealso>.
+	</p>
+        <p><em>Example</em></p>
+        <pre>
+_ = crypto:rand_seed(),
+_IntegerValue = rand:uniform(42), % [1; 42]
+_FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name>rand_seed_s() -> rand:state()</name>
+      <fsummary>Strong random number generation plugin state</fsummary>
+      <desc>
+	<p>
+          Creates state object for
+	  <seealso marker="stdlib:rand">random number generation</seealso>,
+          in order to generate cryptographically strongly random numbers
+          (based on OpenSSL's <c>BN_rand_range</c>).
+          See also
+	  <seealso marker="stdlib:rand#seed_s-1">rand:seed_s/1</seealso>.
+	</p>
+      </desc>
+    </func>
+
     <func>
       <name>stream_init(Type, Key) -> State</name>
       <fsummary></fsummary>

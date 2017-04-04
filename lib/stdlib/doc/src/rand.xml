@@ -120,18 +120,38 @@ S0 = rand:seed_s(exsplus),
 {SND0, S2} = rand:normal_s(S1),</pre>
 
     <note>
-      <p>This random number generator is not cryptographically
-        strong. If a strong cryptographic random number generator is
-        needed, use one of functions in the
-        <seealso marker="crypto:crypto"><c>crypto</c></seealso>
-        module, for example, <seealso marker="crypto:crypto">
-        <c>crypto:strong_rand_bytes/1</c></seealso>.</p>
+      <p>The builtin random number generator algorithms are not
+        cryptographically strong. If a cryptographically strong
+        random number generator is needed, use something like
+        <seealso marker="crypto:crypto#rand_seed-0"><c>crypto:rand_seed/0</c></seealso>.
+      </p>
     </note>
 
   </description>
   <datatypes>
     <datatype>
+      <name name="builtin_alg"/>
+    </datatype>
+    <datatype>
       <name name="alg"/>
+    </datatype>
+    <datatype>
+      <name name="alg_handler"/>
+    </datatype>
+    <datatype>
+      <name name="alg_state"/>
+    </datatype>
+    <datatype>
+      <name name="exs64_state"/>
+      <desc><p>Algorithm specific internal state</p></desc>
+    </datatype>
+    <datatype>
+      <name name="exsplus_state"/>
+      <desc><p>Algorithm specific internal state</p></desc>
+    </datatype>
+    <datatype>
+      <name name="exs1024_state"/>
+      <desc><p>Algorithm specific internal state</p></desc>
     </datatype>
     <datatype>
       <name name="state"/>
@@ -139,8 +159,11 @@ S0 = rand:seed_s(exsplus),
     </datatype>
     <datatype>
       <name name="export_state"/>
-      <desc><p>Algorithm-dependent state that can be printed or saved to
-        file.</p></desc>
+      <desc>
+	<p>
+	  Algorithm-dependent state that can be printed or saved to file.
+	</p>
+      </desc>
     </datatype>
   </datatypes>
 
@@ -215,8 +238,11 @@ S0 = rand:seed_s(exsplus),
       <fsummary>Seed random number generator.</fsummary>
       <desc>
         <marker id="seed-1"/>
-        <p>Seeds random number generation with the specifed algorithm and
-          time-dependent data if <anno>AlgOrExpState</anno> is an algorithm.</p>
+        <p>
+	  Seeds random number generation with the specifed algorithm and
+          time-dependent data if <c><anno>AlgOrStateOrExpState</anno></c>
+	  is an algorithm.
+	</p>
         <p>Otherwise recreates the exported seed in the process dictionary,
           and returns the state. See also
           <seealso marker="#export_seed-0"><c>export_seed/0</c></seealso>.</p>
@@ -236,8 +262,11 @@ S0 = rand:seed_s(exsplus),
       <name name="seed_s" arity="1"/>
       <fsummary>Seed random number generator.</fsummary>
       <desc>
-        <p>Seeds random number generation with the specifed algorithm and
-          time-dependent data if <anno>AlgOrExpState</anno> is an algorithm.</p>
+        <p>
+	  Seeds random number generation with the specifed algorithm and
+          time-dependent data if <c><anno>AlgOrStateOrExpState</anno></c>
+	  is an algorithm.
+	</p>
         <p>Otherwise recreates the exported seed and returns the state.
           See also <seealso marker="#export_seed-0">
           <c>export_seed/0</c></seealso>.</p>
@@ -258,7 +287,7 @@ S0 = rand:seed_s(exsplus),
       <fsummary>Return a random float.</fsummary>
       <desc><marker id="uniform-0"/>
         <p>Returns a random float uniformly distributed in the value
-          range <c>0.0 &lt; <anno>X</anno> &lt; 1.0</c> and
+          range <c>0.0 =&lt; <anno>X</anno> &lt; 1.0</c> and
           updates the state in the process dictionary.</p>
       </desc>
     </func>
@@ -269,7 +298,7 @@ S0 = rand:seed_s(exsplus),
       <desc><marker id="uniform-1"/>
         <p>Returns, for a specified integer <c><anno>N</anno> >= 1</c>,
           a random integer uniformly distributed in the value range
-          <c>1 &lt;= <anno>X</anno> &lt;= <anno>N</anno></c> and
+          <c>1 =&lt; <anno>X</anno> =&lt; <anno>N</anno></c> and
           updates the state in the process dictionary.</p>
       </desc>
     </func>
@@ -279,7 +308,7 @@ S0 = rand:seed_s(exsplus),
       <fsummary>Return a random float.</fsummary>
       <desc>
         <p>Returns, for a specified state, random float
-          uniformly distributed in the value range <c>0.0 &lt;
+          uniformly distributed in the value range <c>0.0 =&lt;
           <anno>X</anno> &lt; 1.0</c> and a new state.</p>
       </desc>
     </func>
@@ -290,7 +319,7 @@ S0 = rand:seed_s(exsplus),
       <desc>
         <p>Returns, for a specified integer <c><anno>N</anno> >= 1</c>
           and a state, a random integer uniformly distributed in the value
-          range <c>1 &lt;= <anno>X</anno> &lt;= <anno>N</anno></c> and a
+          range <c>1 =&lt; <anno>X</anno> =&lt; <anno>N</anno></c> and a
           new state.</p>
       </desc>
     </func>

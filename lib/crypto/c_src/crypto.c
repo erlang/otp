@@ -429,6 +429,7 @@ static ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
 static ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dss_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -501,6 +502,7 @@ static ErlNifFunc nif_funcs[] = {
     {"aes_ctr_stream_encrypt", 2, aes_ctr_stream_encrypt},
     {"aes_ctr_stream_decrypt", 2, aes_ctr_stream_encrypt},
     {"strong_rand_bytes_nif", 1, strong_rand_bytes_nif},
+    {"strong_rand_range_nif", 1, strong_rand_range_nif},
     {"rand_uniform_nif", 2, rand_uniform_nif},
     {"mod_exp_nif", 4, mod_exp_nif},
     {"dss_verify_nif", 4, dss_verify_nif},
@@ -2329,6 +2331,27 @@ static ERL_NIF_TERM bin_from_bn(ErlNifEnv* env, const BIGNUM *bn)
     BN_bn2bin(bn, bin_ptr);
 
     return term;
+}
+
+static ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Range) */
+    BIGNUM *bn_range, *bn_rand;
+    ERL_NIF_TERM ret;
+
+    if(!get_bn_from_bin(env, argv[0], &bn_range)) {
+        return enif_make_badarg(env);
+    }
+
+    bn_rand = BN_new();
+    if (BN_rand_range(bn_rand, bn_range) != 1) {
+        ret = atom_false;
+    }
+    else {
+        ret = bin_from_bn(env, bn_rand);
+    }
+    BN_free(bn_rand);
+    BN_free(bn_range);
+    return ret;
 }
 
 static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
