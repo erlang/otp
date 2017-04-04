@@ -231,6 +231,7 @@ static ERL_NIF_TERM hmac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 static ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_cfb_8_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aes_cfb_128_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -301,6 +302,7 @@ static ErlNifFunc nif_funcs[] = {
     {"hmac_final_nif", 2, hmac_final_nif},
     {"block_crypt_nif", 5, block_crypt_nif},
     {"block_crypt_nif", 4, block_crypt_nif},
+    {"aes_cfb_128_crypt_nif", 4, aes_cfb_128_crypt_nif},
     {"aes_ige_crypt_nif", 4, aes_ige_crypt_nif},
 
     {"aes_ctr_encrypt", 3, aes_ctr_encrypt},
@@ -1403,13 +1405,20 @@ static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         return enif_raise_exception(env, atom_notsup);
     }
 
-    if ((argv[0] == atom_aes_cfb8 || argv[0] == atom_aes_cfb128)
+    if (argv[0] == atom_aes_cfb8
         && (key.size == 24 || key.size == 32)) {
         /* Why do EVP_CIPHER_CTX_set_key_length() fail on these key sizes?
          * Fall back on low level API
          */
         return aes_cfb_8_crypt(env, argc-1, argv+1);
     }
+    else if (argv[0] == atom_aes_cfb128
+        && (key.size == 24 || key.size == 32)) {
+        /* Why do EVP_CIPHER_CTX_set_key_length() fail on these key sizes?
+         * Fall back on low level API
+         */
+        return aes_cfb_128_crypt_nif(env, argc-1, argv+1);
+   }
 
     ivec_size  = EVP_CIPHER_iv_length(cipher);
 
@@ -1481,6 +1490,31 @@ static ERL_NIF_TERM aes_cfb_8_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
                       (argv[3] == atom_true));
      CONSUME_REDS(env,text);
      return ret;
+}
+
+static ERL_NIF_TERM aes_cfb_128_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, IVec, Data, IsEncrypt) */
+    ErlNifBinary key, ivec, text;
+    AES_KEY aes_key;
+    unsigned char ivec_clone[16]; /* writable copy */
+    int new_ivlen = 0;
+    ERL_NIF_TERM ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+        || !(key.size == 16 || key.size == 24 || key.size == 32)
+        || !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 16
+        || !enif_inspect_iolist_as_binary(env, argv[2], &text)) {
+        return enif_make_badarg(env);
+    }
+
+    memcpy(ivec_clone, ivec.data, 16);
+    AES_set_encrypt_key(key.data, key.size * 8, &aes_key);
+    AES_cfb128_encrypt((unsigned char *) text.data,
+                       enif_make_new_binary(env, text.size, &ret),
+                       text.size, &aes_key, ivec_clone, &new_ivlen,
+                       (argv[3] != atom_true));
+    CONSUME_REDS(env,text);
+    return ret;
 }
 
 static ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])

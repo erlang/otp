@@ -30,6 +30,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ssh:daemon_info/1 crashed if the listening IP was not
+	    'any'</p>
+          <p>
+	    Own Id: OTP-14298 Aux Id: seq13294 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
