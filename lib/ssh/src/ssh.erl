@@ -202,7 +202,7 @@ daemon_info(Pid) ->
 	AsupPid when is_pid(AsupPid) ->
 	    [{ListenAddr,Port,Profile}] =
 		[{LA,Prt,Prf} || {{ssh_acceptor_sup,LA,Prt,Prf},
-			 _WorkerPid,worker,[ssh_acceptor]} <- supervisor:which_children(AsupPid)],
+                                  _WorkerPid,worker,[ssh_acceptor]} <- supervisor:which_children(AsupPid)],
 	    {ok, [{port,Port},
                   {listen_address,ListenAddr},
                   {profile,Profile}

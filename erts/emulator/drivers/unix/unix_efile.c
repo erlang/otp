@@ -430,6 +430,9 @@ efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
         if ( (stat("/dev/null", &nullstatbuf) < 0)
              || (statbuf.st_ino != nullstatbuf.st_ino)
              || (statbuf.st_dev != nullstatbuf.st_dev) ) {
+#ifdef HAVE_FSTAT
+            efile_closefile(fd);
+#endif
 	    errno = EISDIR;
 	    return check_error(-1, errInfo);
         }

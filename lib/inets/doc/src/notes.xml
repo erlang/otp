@@ -33,7 +33,23 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.3.6</title>
+  <section><title>Inets 6.3.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug in ftp that made further operations after a
+	    recv_chunk operation impossible.</p>
+          <p>
+	    Own Id: OTP-14242</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

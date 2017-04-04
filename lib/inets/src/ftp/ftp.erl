@@ -108,7 +108,7 @@
 
 -define(DBG(F,A), 'n/a').
 %%-define(DBG(F,A), io:format(F,A)).
-%%-define(DBG(F,A), if is_list(F) -> ct:pal(F,A); is_atom(F)->ct:pal(atom_to_list(F),A) end).
+%%-define(DBG(F,A), ct:pal("~p:~p " ++ if is_list(F) -> F; is_atom(F) -> atom_to_list(F) end, [?MODULE,?LINE|A])).
 
 %%%=========================================================================
 %%%  API - CLIENT FUNCTIONS
@@ -1482,13 +1482,13 @@ handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
     activate_ctrl_connection(State),
     {noreply, State#state{dsock = undefined, data = <<>>}};
 
-handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, client = From,
+handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
 				  caller = recv_chunk} = State)
   when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
-    gen_server:reply(From, ok),
-    {noreply, State#state{dsock = undefined, client = undefined,
-			  data = <<>>, caller = undefined,
-			  chunk = false}};
+    activate_ctrl_connection(State),
+    {noreply, State#state{dsock = undefined, data = <<>>, 
+                          caller = recv_chunk_closed
+                         }};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, caller = recv_bin, 
 					 data = Data} = State)
@@ -1601,13 +1601,13 @@ terminate(normal, State) ->
     %% If terminate reason =/= normal the progress reporting process will
     %% be killed by the exit signal.
     progress_report(stop, State), 
-    do_termiante({error, econn}, State);
+    do_terminate({error, econn}, State);
 terminate(Reason, State) -> 
     Report = io_lib:format("Ftp connection closed due to: ~p~n", [Reason]),
     error_logger:error_report(Report),
-    do_termiante({error, eclosed}, State).
+    do_terminate({error, eclosed}, State).
 
-do_termiante(ErrorMsg, State) ->
+do_terminate(ErrorMsg, State) ->
     close_data_connection(State),
     close_ctrl_connection(State),
     case State#state.client of
@@ -2044,6 +2044,16 @@ handle_ctrl_result({pos_prel, _}, #state{client = From,
 		    {stop, normal, State0#state{client = undefined}}
 	    end
     end;
+
+%%--------------------------------------------------------------------------
+%% File handling - chunk_transfer complete
+handle_ctrl_result({pos_compl, _}, #state{client = From,
+                                          caller = recv_chunk_closed}
+		   = State0) ->
+    gen_server:reply(From, ok),
+    {noreply, State0#state{caller = undefined,
+                           chunk = false,
+                           client = undefined}};
 
 %%--------------------------------------------------------------------------
 %% File handling - recv_file

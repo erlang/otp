@@ -397,23 +397,36 @@ handle_info({Protocol, _, Data}, StateName,
     end;
 handle_info({CloseTag, Socket}, StateName,
             #state{socket = Socket, close_tag = CloseTag,
+                   socket_options = #socket_options{active = Active},
+                   protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs},
 		   negotiated_version = Version} = State) ->
+
     %% Note that as of TLS 1.1,
     %% failure to properly close a connection no longer requires that a
     %% session not be resumed.  This is a change from TLS 1.0 to conform
     %% with widespread implementation practice.
-    case Version of
-	{1, N} when N >= 1 ->
-	    ok;
-	_ ->
-	    %% As invalidate_sessions here causes performance issues,
-	    %% we will conform to the widespread implementation
-	    %% practice and go aginst the spec
-	    %%invalidate_session(Role, Host, Port, Session)
-	    ok
-    end,
-    ssl_connection:handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
-    {stop, {shutdown, transport_closed}};
+
+    case (Active == false) andalso (CTs =/= []) of
+        false ->
+            case Version of
+                {1, N} when N >= 1 ->
+                    ok;
+                _ ->
+                    %% As invalidate_sessions here causes performance issues,
+                    %% we will conform to the widespread implementation
+                    %% practice and go aginst the spec
+                    %%invalidate_session(Role, Host, Port, Session)
+                    ok
+            end,
+
+            ssl_connection:handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
+            {stop, {shutdown, transport_closed}};
+        true ->
+            %% Fixes non-delivery of final TLS record in {active, once}.
+            %% Basically allows the application the opportunity to set {active, once} again
+            %% and then receive the final message.
+            next_event(StateName, no_record, State)
+    end;
 handle_info(Msg, StateName, State) ->
     ssl_connection:handle_info(Msg, StateName, State).
 

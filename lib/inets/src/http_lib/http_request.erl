@@ -22,7 +22,7 @@
 
 -include("http_internal.hrl").
 
--export([headers/2, http_headers/1, is_absolut_uri/1, key_value/1]).
+-export([headers/2, http_headers/1, is_absolut_uri/1, key_value/1, normalize_host/3]).
 
 
 key_value(KeyValueStr) ->
@@ -84,6 +84,22 @@ is_absolut_uri("https://" ++ _) ->
     true;
 is_absolut_uri(_) ->
     false.
+
+%%-------------------------------------------------------------------------
+%% normalize_host(Scheme, Host, Port) -> string()
+%%   Scheme - http | https
+%%   Host - string()
+%%   Port - integer()
+%%
+%% Description: returns a normalized Host header value, with the port
+%% number omitted for well-known ports
+%%-------------------------------------------------------------------------
+normalize_host(https, Host, 443 = _Port) ->
+    Host;
+normalize_host(http, Host, 80 = _Port) ->
+    Host;
+normalize_host(_Scheme, Host, Port) ->
+    Host ++ ":" ++ integer_to_list(Port).
 
 %%%========================================================================
 %%% Internal functions
