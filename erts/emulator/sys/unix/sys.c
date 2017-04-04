@@ -148,11 +148,18 @@ volatile int erts_break_requested = 0;
 #define ERTS_SET_BREAK_REQUESTED (erts_break_requested = 1)
 #define ERTS_UNSET_BREAK_REQUESTED (erts_break_requested = 0)
 #endif
+
+#ifndef ERTS_SMP
+volatile Uint erts_signal_sigterm = 0;
+#define ERTS_SET_SIGNAL_SIGTERM (erts_signal_sigterm = 1)
+#define ERTS_CLEAR_SIGNAL_SIGTERM (erts_signal_sigterm = 0)
+#endif
+
 /* set early so the break handler has access to initial mode */
 static struct termios initial_tty_mode;
 static int replace_intr = 0;
 /* assume yes initially, ttsl_init will clear it */
-int using_oldshell = 1; 
+int using_oldshell = 1;
 
 #ifdef ERTS_ENABLE_KERNEL_POLL
 
@@ -684,10 +691,10 @@ static RETSIGTYPE request_stop(int signum)
 #ifdef ERTS_SMP
     smp_sig_notify('S');
 #else
-    stop_requested();
+    ERTS_SET_SIGNAL_SIGTERM;
+    ERTS_CHK_IO_AS_INTR();
 #endif
 }
-
 
 static ERTS_INLINE void
 sigusr1_exit(void)
@@ -957,6 +964,13 @@ void erts_do_break_handling(void)
 
     erts_smp_thr_progress_unblock();
 }
+
+#ifdef ERTS_SIGNAL_SIGTERM
+void erts_handle_signal_sigterm(void) {
+    ERTS_CLEAR_SIGNAL_SIGTERM;
+    stop_requested();
+}
+#endif
 
 /* Fills in the systems representation of the jam/beam process identifier.
 ** The Pid is put in STRING representation in the supplied buffer,

@@ -481,6 +481,12 @@ extern volatile int erts_break_requested;
 void erts_do_break_handling(void);
 #endif
 
+#if !defined(ERTS_SMP) && !defined(__WIN32__)
+extern volatile Uint erts_signal_sigterm;
+#define ERTS_SIGNAL_SIGTERM erts_signal_sigterm
+void erts_handle_signal_sigterm(void);
+#endif
+
 #ifdef ERTS_WANT_GOT_SIGUSR1
 #  ifndef UNIX
 #    define ERTS_GOT_SIGUSR1 0
