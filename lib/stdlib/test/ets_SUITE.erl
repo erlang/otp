@@ -5637,40 +5637,43 @@ smp_select_delete(Config) when is_list(Config) ->
     ets:delete(T).
 
 smp_select_replace(Config) when is_list(Config) ->
-    lists:foreach(
-      fun (TableType) ->
-              T = ets_new(smp_select_replace, [TableType, named_table, public,
-                                               {write_concurrency, true}]),
-              WorkerCount = 20,
-              CounterIterations = 10000,
-              InitF = fun (_) -> no_state end,
-              ExecF = fun (State) ->
-                              lists:foreach(
-                                fun F(IterId) ->
-                                        CounterId = rand:uniform(WorkerCount),
-                                        Match = [{{'$1', '$2'},
-                                                  [{'=:=', '$1', CounterId}],
-                                                  [{{'$1', {'+', '$2', 1}}}]}],
-                                        case ets:select_replace(T, Match) of
-                                            1 -> ok;
-                                            0 ->
-                                                ets:insert_new(T, {CounterId, 1}) orelse
-                                                F(IterId)
-                                        end
-                                end,
-                                lists:seq(1, CounterIterations)),
-                              State
-                      end,
-              FiniF = fun (State) -> State end,
-              run_sched_workers(InitF, ExecF, FiniF, WorkerCount),
-              FinalCounts = ets:select(T, [{{'_', '$1'}, [], ['$1']}]),
-              TotalIterations = WorkerCount * CounterIterations * erlang:system_info(schedulers),
-              TotalIterations = lists:sum(FinalCounts),
-              WorkerCount = ets:select_delete(T, [{{'_', '_'}, [], [true]}]),
-              0 = ets:info(T, size),
-              ets:delete(T)
-      end,
-      [ordered_set, set, duplicate_bag]).
+    repeat_for_opts(fun smp_select_replace_do/1,
+                    [[set,ordered_set,duplicate_bag]]).
+
+smp_select_replace_do(Opts) ->
+    T = ets_new(smp_select_replace,
+                [public, {write_concurrency, true} | Opts]),
+    ObjCount = 20,
+    InitF = fun (_) -> 0 end,
+    ExecF = fun (Cnt0) ->
+                    CounterId = rand:uniform(ObjCount),
+                    Match = [{{'$1', '$2'},
+                              [{'=:=', '$1', CounterId}],
+                              [{{'$1', {'+', '$2', 1}}}]}],
+                    Cnt1 = case ets:select_replace(T, Match) of
+                               1 -> Cnt0+1;
+                               0 ->
+                                   ets:insert_new(T, {CounterId, 0}),
+                                   Cnt0
+                           end,
+                    receive stop ->
+                            [end_of_work | Cnt1]
+                    after 0 ->
+                            Cnt1
+                    end
+            end,
+    FiniF = fun (Cnt) -> Cnt end,
+    Pids = run_sched_workers(InitF, ExecF, FiniF, infinite),
+    receive after 3*1000 -> ok end,
+    [P ! stop || P <- Pids],
+    Results = wait_pids(Pids),
+    FinalCounts = ets:select(T, [{{'_', '$1'}, [], ['$1']}]),
+    Total = lists:sum(FinalCounts),
+    Total = lists:sum(Results),
+    ObjCount = ets:select_delete(T, [{{'_', '_'}, [], [true]}]),
+    0 = ets:info(T, size),
+    true = ets:delete(T),
+    ok.
 
 %% Test different types.
 types(Config) when is_list(Config) ->
@@ -5906,7 +5909,7 @@ run_sched_workers(InitF,ExecF,FiniF,Laps) ->
                    erlang:system_info(schedulers)).
 
 run_workers_do(InitF,ExecF,FiniF,Laps, NumOfProcs) ->
-    io:format("smp starting ~p workers\n",[NumOfProcs]),
+    io:format("starting ~p workers\n",[NumOfProcs]),
     Seeds = [{ProcN,rand:uniform(9999)} || ProcN <- lists:seq(1,NumOfProcs)],
     Parent = self(),
     Pids = [my_spawn_link(fun()-> worker(Seed,InitF,ExecF,FiniF,Laps,Parent,NumOfProcs) end)
