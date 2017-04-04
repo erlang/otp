@@ -80,7 +80,7 @@
 
 %% Monitor process state. The name monitor predates its role as sender.
 -record(monitor,
-        {parent :: reference() | false,
+        {parent :: reference() | false | pid(),
          transport = self() :: pid(),
          socket :: inet:socket() | ssl:sslsocket() | undefined,
          module :: module() | undefined}).
