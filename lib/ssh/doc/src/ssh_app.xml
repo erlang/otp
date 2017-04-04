@@ -160,7 +160,7 @@
 	  <item>ecdsa-sha2-nistp384</item>
 	  <item>ecdsa-sha2-nistp521</item>
 	  <item>ssh-rsa</item>
-	  <item>(ssh-dss, retired: can be enabled with the <c>preferred_algorithms</c> option)</item>
+	  <item>ssh-dss</item>
 	</list>
       </item>
 
