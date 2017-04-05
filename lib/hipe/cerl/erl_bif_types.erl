@@ -1080,9 +1080,6 @@ type(hipe_bifs, ref_get, 1, Xs, Opaques) ->
   strict(hipe_bifs, ref_get, 1, Xs, fun (_) -> t_immediate() end, Opaques);
 type(hipe_bifs, ref_set, 2, Xs, Opaques) ->
   strict(hipe_bifs, ref_set, 2, Xs, fun (_) -> t_nil() end, Opaques);
-type(hipe_bifs, remove_refs_from, 1, Xs, Opaques) ->
-  strict(hipe_bifs, remove_refs_from, 1, Xs,
-	 fun (_) -> t_atom('ok') end, Opaques);
 type(hipe_bifs, set_funinfo_native_address, 3, Xs, Opaques) ->
   strict(hipe_bifs, set_funinfo_native_address, 3, Xs,
 	 fun (_) -> t_nil() end, Opaques);
@@ -2518,8 +2515,6 @@ arg_types(hipe_bifs, ref_get, 1) ->
   [t_hiperef()];
 arg_types(hipe_bifs, ref_set, 2) ->
   [t_hiperef(), t_immediate()];
-arg_types(hipe_bifs, remove_refs_from, 1) ->
-  [t_sup([t_mfa(), t_atom('all')])];
 arg_types(hipe_bifs, set_funinfo_native_address, 3) ->
   arg_types(hipe_bifs, set_native_address, 3);
 arg_types(hipe_bifs, commit_patch_load, 1) ->

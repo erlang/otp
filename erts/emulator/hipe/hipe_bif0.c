@@ -1616,46 +1616,6 @@ static void purge_mfa(struct hipe_mfa_info* p)
     erts_free(ERTS_ALC_T_HIPE_LL, p);
 }
 
-/* Called by init:restart after unloading all hipe compiled modules
- * to work around old bug that caused execution of deallocated beam code.
- * Can be removed now when delete/purge of native modules works better.
- * Test: Do init:restart in debug compiled vm with hipe compiled kernel. 
- */
-static void hipe_purge_all_refs(void)
-{
-    struct hipe_mfa_info **bucket;
-    unsigned int i, nrbuckets;
-
-    hipe_mfa_info_table_rwlock();
-
-    ASSERT(hipe_mfa_info_table.used == 0);
-    bucket = hipe_mfa_info_table.bucket;
-    nrbuckets = 1 << hipe_mfa_info_table.log2size;
-    for (i = 0; i < nrbuckets; ++i) {	
-        ASSERT(bucket[i] == NULL);
-	while (bucket[i] != NULL) {
-	    struct hipe_mfa_info* mfa = bucket[i];
-	    bucket[i] = mfa->bucket.next;
-
-            hash_erase(&mod2mfa_tab, mfa);
-            erts_free(ERTS_ALC_T_HIPE_LL, mfa);
-	}
-    }
-    hipe_mfa_info_table.used = 0;
-    hipe_mfa_info_table_rwunlock();
-}
-
-BIF_RETTYPE hipe_bifs_remove_refs_from_1(BIF_ALIST_1)
-{
-    if (BIF_ARG_1 == am_all) {
-	hipe_purge_all_refs();
-	BIF_RET(am_ok);
-    }
-
-    ASSERT(!"hipe_bifs_remove_refs_from_1() called");
-    BIF_ERROR(BIF_P, BADARG);
-}
-
 int hipe_purge_need_blocking(Module* modp)
 {
     /* SVERK: Verify if this is really necessary */
