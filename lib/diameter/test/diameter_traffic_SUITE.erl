@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -252,11 +252,7 @@ groups() ->
         ++
         [{?util:name([T,R,D,A,C,SD,CD]),
           [],
-          [start_services,
-           add_transports,
-           {group, SD orelse CD},
-           remove_transports,
-           stop_services]}
+          [{group, SD orelse CD}]}
          || T <- ?TRANSPORTS,
             T /= sctp orelse Sctp,
             R <- ?ENCODINGS,
@@ -276,6 +272,11 @@ groups() ->
                            SD <- ?STRING_DECODES,
                            CD <- ?STRING_DECODES]}].
 
+init_per_group(B, Config)
+  when is_boolean(B) ->
+    start_services(Config),
+    add_transports(Config);
+
 init_per_group(Name, Config) ->
     case ?util:name(Name) of
         [T,R,D,A,C,SD,CD] ->
@@ -292,6 +293,11 @@ init_per_group(Name, Config) ->
         _ ->
             Config
     end.
+
+end_per_group(B, Config)
+  when is_boolean(B) ->
+    remove_transports(Config),
+    stop_services(Config);
 
 end_per_group(_, _) ->
     ok.
