@@ -263,9 +263,14 @@ init({call, From}, {start, Timeout},
     {Record, State} = next_record(State3),
     next_event(hello, Record, State, Actions);
 init({call, _} = Type, Event, #state{role = server, transport_cb = gen_udp} = State) ->
-    ssl_connection:init(Type, Event, 
-			State#state{flight_state = {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT}},
-			?MODULE);
+    Result = ssl_connection:init(Type, Event, 
+                                 State#state{flight_state = {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT},
+                                             protocol_specific = #{current_cookie_secret => dtls_v1:cookie_secret(), 
+                                                                   previous_cookie_secret => <<>>}},
+                                 ?MODULE),
+    erlang:send_after(dtls_v1:cookie_timeout(), self(), new_cookie_secret),
+    Result;
+                                     
 init({call, _} = Type, Event, #state{role = server} = State) ->
     %% I.E. DTLS over sctp
     ssl_connection:init(Type, Event, State#state{flight_state = reliable}, ?MODULE);
@@ -288,10 +293,10 @@ error(_, _, _) ->
 hello(internal, #client_hello{cookie = <<>>,
 			      client_version = Version} = Hello, #state{role = server,
 									transport_cb = Transport,
-									socket = Socket} = State0) ->
-    %% TODO: not hard code key
+									socket = Socket,
+                                                                        protocol_specific = #{current_cookie_secret := Secret}} = State0) ->
     {ok, {IP, Port}} = dtls_socket:peername(Transport, Socket),
-    Cookie = dtls_handshake:cookie(<<"secret">>, IP, Port, Hello),
+    Cookie = dtls_handshake:cookie(Secret, IP, Port, Hello),
     VerifyRequest = dtls_handshake:hello_verify_request(Cookie, Version),
     State1 = prepare_flight(State0#state{negotiated_version = Version}),
     {State2, Actions} = send_handshake(VerifyRequest, State1),
@@ -299,15 +304,21 @@ hello(internal, #client_hello{cookie = <<>>,
     next_event(hello, Record, State#state{tls_handshake_history = ssl_handshake:init_handshake_history()}, Actions);
 hello(internal, #client_hello{cookie = Cookie} = Hello, #state{role = server,
 							       transport_cb = Transport,
-							       socket = Socket} = State0) ->
+							       socket = Socket,
+                                                               protocol_specific = #{current_cookie_secret := Secret,
+                                                                                     previous_cookie_secret := PSecret}} = State0) ->
     {ok, {IP, Port}} = dtls_socket:peername(Transport, Socket),
-    %% TODO: not hard code key
-    case dtls_handshake:cookie(<<"secret">>, IP, Port, Hello) of
+    case dtls_handshake:cookie(Secret, IP, Port, Hello) of
 	Cookie ->
 	    handle_client_hello(Hello, State0);
 	_ ->
-	    %% Handle bad cookie as new cookie request RFC 6347 4.1.2
-	    hello(internal, Hello#client_hello{cookie = <<>>}, State0) 
+            case dtls_handshake:cookie(PSecret, IP, Port, Hello) of
+               	Cookie -> 
+                    handle_client_hello(Hello, State0);
+                _ ->
+                    %% Handle bad cookie as new cookie request RFC 6347 4.1.2
+                    hello(internal, Hello#client_hello{cookie = <<>>}, State0) 
+            end
     end;
 hello(internal, #hello_verify_request{cookie = Cookie}, #state{role = client,
 							       host = Host, port = Port, 
@@ -471,8 +482,13 @@ handle_info({CloseTag, Socket}, StateName,
     end,
     ssl_connection:handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
     {stop, {shutdown, transport_closed}};
+handle_info(new_cookie_secret, StateName, #state{protocol_specific = #{cookie_secret := Secret} = CookieInfo} = State) ->
+    erlang:send_after(dtls_v1:cookie_timeout(), self(), new_cookie_secret),
+    {next_state, StateName, State#state{protocol_specific = CookieInfo#{cookie_secret => dtls_v1:cookie_secret(),
+                                                                        previous_cookie_secret => Secret}}};
 handle_info(Msg, StateName, State) ->
     ssl_connection:handle_info(Msg, StateName, State).
+
 
 handle_call(Event, From, StateName, State) ->
     ssl_connection:handle_call(Event, From, StateName, State, ?MODULE).
