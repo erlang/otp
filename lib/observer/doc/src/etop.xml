@@ -35,7 +35,7 @@
     <file></file>
   </header>
   <module>etop</module>
-  <modulesummary>Erlang Top is a tool for presenting information about Erlang 
+  <modulesummary>Erlang Top is a tool for presenting information about Erlang
   processes similar to the information presented by "top" in UNIX.</modulesummary>
   <description>
 
@@ -60,11 +60,11 @@
 	    <p>Value: <c>atom()</c></p>
 	    <p>Mandatory</p></item>
       <tag><c>setcookie</c></tag>
-      <item><p>Cookie to use for the <c>etop</c> node. Must be same as the 
+      <item><p>Cookie to use for the <c>etop</c> node. Must be same as the
       cookie on the measured node.</p>
             <p>Value: <c>atom()</c></p></item>
       <tag><c>lines</c></tag>
-      <item><p>Number of lines (processes) to display.</p> 
+      <item><p>Number of lines (processes) to display.</p>
             <p>Value: <c>integer()</c></p>
 	    <p>Default: <c>10</c></p></item>
       <tag><c>interval</c></tag>
@@ -92,7 +92,7 @@
 	    <p>Default: <c>on</c></p></item>
     </taglist>
 
-    <p>For detalis about Erlang Top, see the 
+    <p>For details about Erlang Top, see the
     <seealso marker="etop_ug">User's Guide</seealso>.</p>
 
   </description>
