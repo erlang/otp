@@ -40,7 +40,7 @@
 	 ec_keyed_suites/0, anonymous_suites/1, psk_suites/1, srp_suites/0,
 	 rc4_suites/1, des_suites/1, openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
-	 random_bytes/1, calc_aad/3, calc_mac_hash/4,
+	 random_bytes/1, calc_mac_hash/4,
          is_stream_ciphersuite/1]).
 
 -export_type([cipher_suite/0,
@@ -1530,10 +1530,6 @@ is_fallback(CipherSuites)->
 %%--------------------------------------------------------------------
 random_bytes(N) ->
     crypto:strong_rand_bytes(N).
-
-calc_aad(Type, {MajVer, MinVer},
-	 #{sequence_number := SeqNo}) ->
-    <<?UINT64(SeqNo), ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.
 
 calc_mac_hash(Type, Version,
 	      PlainFragment, #{sequence_number := SeqNo,

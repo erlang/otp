@@ -45,11 +45,7 @@
 -export([compress/3, uncompress/3, compressions/0]).
 
 %% Payload encryption/decryption
--export([cipher/4, decipher/4, is_correct_mac/2,
-	 cipher_aead/4, decipher_aead/4]).
-
-%% Encoding
--export([encode_plain_text/4]).
+-export([cipher/4, decipher/4, cipher_aead/4, is_correct_mac/2]).
 
 -export_type([ssl_version/0, ssl_atom_version/0, connection_states/0, connection_state/0]).
 
@@ -271,26 +267,6 @@ set_pending_cipher_state(#{pending_read := Read,
       pending_read => Read#{cipher_state => ServerState},
       pending_write => Write#{cipher_state => ClientState}}.
 
-encode_plain_text(Type, Version, Data, #{compression_state := CompS0,
-					 security_parameters :=
-					     #security_parameters{
-						cipher_type = ?AEAD,
-						compression_algorithm = CompAlg}
-					} = WriteState0) ->
-    {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
-    WriteState1 = WriteState0#{compression_state => CompS1},
-    AAD = ssl_cipher:calc_aad(Type, Version, WriteState1),
-    ssl_record:cipher_aead(Version, Comp, WriteState1, AAD);
-encode_plain_text(Type, Version, Data, #{compression_state := CompS0,
-					 security_parameters :=
-					     #security_parameters{compression_algorithm = CompAlg}
-					}= WriteState0) ->
-    {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
-    WriteState1 = WriteState0#{compression_state => CompS1},
-    MacHash = ssl_cipher:calc_mac_hash(Type, Version, Comp, WriteState1),
-    ssl_record:cipher(Version, Comp, WriteState1, MacHash);
-encode_plain_text(_,_,_,CS) ->
-    exit({cs, CS}).
 
 uncompress(?NULL, Data, CS) ->
     {Data, CS}.
@@ -322,12 +298,12 @@ cipher(Version, Fragment,
     {CipherFragment, CipherS1} =
 	ssl_cipher:cipher(BulkCipherAlgo, CipherS0, MacHash, Fragment, Version),
     {CipherFragment,  WriteState0#{cipher_state => CipherS1}}.
-%%--------------------------------------------------------------------
--spec cipher_aead(ssl_version(), iodata(), connection_state(), MacHash::binary()) ->
-			 {CipherFragment::binary(), connection_state()}.
-%%
-%% Description: Payload encryption
-%%--------------------------------------------------------------------
+%% %%--------------------------------------------------------------------
+%% -spec cipher_aead(ssl_version(), iodata(), connection_state(), MacHash::binary()) ->
+%% 			 {CipherFragment::binary(), connection_state()}.
+%% %%
+%% %% Description: Payload encryption
+%% %%--------------------------------------------------------------------
 cipher_aead(Version, Fragment,
 	    #{cipher_state := CipherS0,
 	      sequence_number := SeqNo,
@@ -341,7 +317,8 @@ cipher_aead(Version, Fragment,
     {CipherFragment,  WriteState0#{cipher_state => CipherS1}}.
 
 %%--------------------------------------------------------------------
--spec decipher(ssl_version(), binary(), connection_state(), boolean()) -> {binary(), binary(), connection_state} | #alert{}.
+-spec decipher(ssl_version(), binary(), connection_state(), boolean()) ->
+                      {binary(), binary(), connection_state} | #alert{}.
 %%
 %% Description: Payload decryption
 %%--------------------------------------------------------------------
@@ -359,26 +336,7 @@ decipher(Version, CipherFragment,
 	#alert{} = Alert ->
 	    Alert
     end.
-%%--------------------------------------------------------------------
--spec decipher_aead(ssl_version(), binary(), connection_state(), binary()) -> 
-			   {binary(), binary(), connection_state()} | #alert{}.
-%%
-%% Description: Payload decryption
-%%--------------------------------------------------------------------
-decipher_aead(Version, CipherFragment,
-	      #{sequence_number := SeqNo,
-		security_parameters :=
-		    #security_parameters{bulk_cipher_algorithm =
-					     BulkCipherAlgo},
-		cipher_state := CipherS0
-	       } = ReadState, AAD) ->
-    case ssl_cipher:decipher_aead(BulkCipherAlgo, CipherS0, SeqNo, AAD, CipherFragment, Version) of
-	{PlainFragment, CipherS1} ->
-	    CS1 = ReadState#{cipher_state => CipherS1},
-	    {PlainFragment, CS1};
-	#alert{} = Alert ->
-	    Alert
-    end.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
