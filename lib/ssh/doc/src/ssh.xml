@@ -396,18 +396,18 @@
 
 	<p>The rules for handling the two address passing options are:</p>
 	<list>
-	  <item>if <c>HostAddress</c> is an ip-address, that ip-address is the listening address.
-	  An ip-option will be discarded if present.</item>
+	  <item>if <c>HostAddress</c> is an IP-address, that IP-address is the listening address.
+	  An 'ip'-option will be discarded if present.</item>
 
 	  <item>if <c>HostAddress</c> is <c>loopback</c>, the listening address
 	  is <c>loopback</c> and an loopback address will be choosen by the underlying layers.
-	  An ip-option will be discarded if present.</item>
+	  An 'ip'-option will be discarded if present.</item>
 
-	  <item>if <c>HostAddress</c> is <c>any</c> and no ip-option is present, the listening address is
+	  <item>if <c>HostAddress</c> is <c>any</c> and no 'ip'-option is present, the listening address is
 	  <c>any</c> and the socket will listen to all addresses</item>
 
-	  <item>if <c>HostAddress</c> is <c>any</c> and an ip-option is present, the listening address is
-	  set to the value of the ip-option</item>
+	  <item>if <c>HostAddress</c> is <c>any</c> and an 'ip'-option is present, the listening address is
+	  set to the value of the 'ip'-option</item>
 	</list>
 
 	<p>Options:</p>
