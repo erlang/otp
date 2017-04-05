@@ -58,7 +58,7 @@
 /* The value of PARENS_NEST_LIMIT specifies the maximum depth of nested
    parentheses (of any kind) in a pattern. This limits the amount of system
    stack that is used while compiling a pattern. */
-#define PARENS_NEST_LIMIT 250
+#define PARENS_NEST_LIMIT 10000
 
 /* Define if linking statically (TODO: make nice with Libtool) */
 #define PCRE_STATIC 1

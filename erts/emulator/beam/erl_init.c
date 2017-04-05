@@ -61,6 +61,9 @@
 
 #define ERTS_DEFAULT_NO_ASYNC_THREADS	10
 
+#define ERTS_DEFAULT_SCHED_STACK_SIZE   256
+#define ERTS_MIN_SCHED_STACK_SIZE       20
+
 /*
  * The variables below (prefixed with etp_) are for erts/etc/unix/etp-commands
  * only. Do not remove even though they aren't used elsewhere in the emulator!
@@ -122,6 +125,8 @@ const Eterm etp_hole_marker = ERTS_HOLE_MARKER;
 #else
 const Eterm etp_hole_marker = 0;
 #endif
+
+static int modified_sched_thread_suggested_stack_size = 0;
 
 /*
  * Note about VxWorks: All variables must be initialized by executable code,
@@ -1231,24 +1236,38 @@ early_init(int *argc, char **argv) /*
 }
 
 #ifndef ERTS_SMP
+
+void *erts_scheduler_stack_limit;
+
+
 static void set_main_stack_size(void)
 {
-    if (erts_sched_thread_suggested_stack_size > 0) {
+    char c;
+    UWord stacksize;
 # if HAVE_DECL_GETRLIMIT && HAVE_DECL_SETRLIMIT && HAVE_DECL_RLIMIT_STACK
-	struct rlimit rl;
-	int bytes = erts_sched_thread_suggested_stack_size * sizeof(Uint) * 1024;
-	if (getrlimit(RLIMIT_STACK, &rl) != 0 ||
-	    (rl.rlim_cur = bytes, setrlimit(RLIMIT_STACK, &rl) != 0)) {
-	    erts_fprintf(stderr, "failed to set stack size for scheduler "
-				 "thread to %d bytes\n", bytes);
-	    erts_usage();
-	}	    
-# else
-	erts_fprintf(stderr, "no OS support for dynamic stack size limit\n");
-	erts_usage();    
-# endif
+    struct rlimit rl;
+    int bytes;
+    stacksize = erts_sched_thread_suggested_stack_size * sizeof(Uint) * 1024;
+    /* Add some extra pages... neede by some systems... */
+    bytes = (int) stacksize + 3*erts_sys_get_page_size();
+    if (getrlimit(RLIMIT_STACK, &rl) != 0 ||
+        (rl.rlim_cur = bytes, setrlimit(RLIMIT_STACK, &rl) != 0)) {
+        erts_fprintf(stderr, "failed to set stack size for scheduler "
+                     "thread to %d bytes\n", bytes);
+        erts_usage();
     }
+# else
+    if (modified_sched_thread_suggested_stack_size) {
+	erts_fprintf(stderr, "no OS support for dynamic stack size limit\n");
+	erts_usage();
+    }
+    /* Be conservative and hope it is not more than 64 kWords... */
+    stacksize = 64*1024*sizeof(void *);
+# endif
+
+    erts_scheduler_stack_limit = erts_calc_stacklimit(&c, stacksize);
 }
+
 #endif
 
 void
@@ -1293,12 +1312,11 @@ erl_start(int argc, char **argv)
 	port_tab_sz_ignore_files = 1;
     }
 
-#if (defined(__APPLE__) && defined(__MACH__)) || defined(__DARWIN__)
     /*
-     * The default stack size on MacOS X is too small for pcre.
+     * A default stack size suitable for pcre which might use quite
+     * a lot of stack.
      */
-    erts_sched_thread_suggested_stack_size = 256;
-#endif
+    erts_sched_thread_suggested_stack_size = ERTS_DEFAULT_SCHED_STACK_SIZE;
 
 #ifdef DEBUG
     verbose = DEBUG_DEFAULT;
@@ -1921,6 +1939,7 @@ erl_start(int argc, char **argv)
 		/* suggested stack size (Kilo Words) for scheduler threads */
 		arg = get_arg(sub_param+2, argv[i+1], &i);
 		erts_sched_thread_suggested_stack_size = atoi(arg);
+                modified_sched_thread_suggested_stack_size = 1;
 
 		if ((erts_sched_thread_suggested_stack_size
 		     < ERTS_SCHED_THREAD_MIN_STACK_SIZE)
@@ -2229,6 +2248,9 @@ erl_start(int argc, char **argv)
 
     boot_argc = argc - i;  /* Number of arguments to init */
     boot_argv = &argv[i];
+
+    if (erts_sched_thread_suggested_stack_size < ERTS_MIN_SCHED_STACK_SIZE)
+        erts_sched_thread_suggested_stack_size = ERTS_MIN_SCHED_STACK_SIZE;
 
     erl_init(ncpu,
 	     proc_tab_sz,

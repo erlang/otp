@@ -68,6 +68,8 @@ size_t ethr_max_stack_size__; /* kilo words */
 ethr_rwmutex xhndl_rwmtx;
 ethr_xhndl_list *xhndl_list;
 
+static ethr_tsd_key ethr_stacklimit_key__;
+
 static int main_threads;
 
 static int init_ts_event_alloc(void);
@@ -237,13 +239,11 @@ ethr_init_common__(ethr_init_data *id)
 #endif
     ethr_min_stack_size__ = ETHR_PAGE_ALIGN(ethr_min_stack_size__);
 
-    ethr_min_stack_size__ = ETHR_B2KW(ethr_min_stack_size__);
-
     ethr_max_stack_size__ = 32*1024*1024;
 #if SIZEOF_VOID_P == 8
     ethr_max_stack_size__ *= 2;
 #endif
-    ethr_max_stack_size__ = ETHR_B2KW(ethr_max_stack_size__);
+    ethr_max_stack_size__ = ETHR_PAGE_ALIGN(ethr_max_stack_size__);
 
     res = ethr_init_atomics();
     if (res != 0)
@@ -252,6 +252,10 @@ ethr_init_common__(ethr_init_data *id)
     res = ethr_mutex_lib_init(erts_get_cpu_configured(ethr_cpu_info__));
     if (res != 0)
 	return res;
+
+    res = ethr_tsd_key_create(&ethr_stacklimit_key__, "stacklimit");
+    if (res != 0)
+        return res;
 
     xhndl_list = NULL;
 
@@ -311,6 +315,60 @@ ethr_late_init_common__(ethr_late_init_data *lid)
     if (res != 0)
 	return res;
     return 0;
+}
+
+/*
+ * Stack limit
+ */
+
+void *ethr_get_stacklimit(void)
+{
+    return ethr_tsd_get(ethr_stacklimit_key__);
+}
+
+int ethr_set_stacklimit(void *limit)
+{
+    void *prev = ethr_tsd_get(ethr_stacklimit_key__);
+    if (prev)
+        return EACCES;
+    if (!limit)
+        return EINVAL;
+    return ethr_tsd_set(ethr_stacklimit_key__, limit);
+}
+
+/* internal stacklimit (thread creation) */
+
+void
+ethr_set_stacklimit__(char *prev_c, size_t stacksize)
+{
+    /*
+     * We *don't* want this function inlined, i.e., it is
+     * risky to call this function from another function
+     * in ethr_aux.c
+     */
+    void *limit = NULL;
+    char c;
+    int res;
+
+    if (stacksize) {
+        char *start;
+        if (&c > prev_c) {
+            start = (char *) ((((ethr_uint_t) prev_c)
+                               / ethr_pagesize__)
+                              * ethr_pagesize__);
+            limit = start + stacksize;
+        }
+        else {
+            start = (char *) (((((ethr_uint_t) prev_c) - 1)
+                               / ethr_pagesize__ + 1)
+                              * ethr_pagesize__);
+            limit = start - stacksize;
+        }
+    }
+
+    res = ethr_tsd_set(ethr_stacklimit_key__, limit);
+    if (res != 0)
+        ethr_abort__();
 }
 
 int

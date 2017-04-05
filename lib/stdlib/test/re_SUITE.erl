@@ -612,9 +612,15 @@ pcre_cve_2008_2371(Config) when is_list(Config) ->
 %% http://vcs.pcre.org/viewvc/code/trunk/pcre_compile.c?r1=504&r2=505&view=patch
 pcre_compile_workspace_overflow(Config) when is_list(Config) ->
     N = 819,
-    {error,{"regular expression is too complicated",799}} =
-	re:compile([lists:duplicate(N, $(), lists:duplicate(N, $))]),
-    ok.
+    ExpStr = "Got expected error: ",
+    case re:compile([lists:duplicate(N, $(), lists:duplicate(N, $))]) of
+        {error, {"regular expression is too complicated" = Str,799}} ->
+            {comment, ExpStr ++ Str};
+        {error, {"parentheses are too deeply nested (stack check)" = Str, _No}} ->
+            {comment, ExpStr ++ Str};
+        Other ->
+            ?t:fail({unexpected, Other})
+    end.
 
 %% Make sure matches that really loop infinitely actually fail.
 re_infinite_loop(Config) when is_list(Config) ->

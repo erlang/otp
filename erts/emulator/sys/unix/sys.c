@@ -275,6 +275,18 @@ erts_sys_schedule_interrupt_timed(int set, ErtsMonotonicTime timeout_time)
 }
 #endif
 
+UWord
+erts_sys_get_page_size(void)
+{
+#if defined(_SC_PAGESIZE)
+    return (UWord) sysconf(_SC_PAGESIZE);
+#elif defined(HAVE_GETPAGESIZE)
+    return (UWord) getpagesize();
+#else
+    return (UWord) 4*1024; /* Guess 4 KB */
+#endif
+}
+
 Uint
 erts_sys_misc_mem_sz(void)
 {
