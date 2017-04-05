@@ -254,7 +254,6 @@ groups() ->
           [],
           [start_services,
            add_transports,
-           result_codes,
            {group, SD orelse CD},
            remove_transports,
            stop_services]}
