@@ -1036,7 +1036,7 @@ Importance >= (100-VerbosityLevel)</pre>
     <p>Note that the category argument is not required in order to only specify the
     importance of a printout. Example:</p>
     <pre>
-<c>ct:pal(?LOW_IMPORTANCE, "Info report: ~p", [Info])</c></pre>
+ct:pal(?LOW_IMPORTANCE, "Info report: ~p", [Info])</pre>
     <p>Or perhaps in combination with constants:</p>
     <pre>
 -define(INFO, ?LOW_IMPORTANCE).
