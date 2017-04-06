@@ -842,7 +842,7 @@ read_topology(erts_cpu_info_t *cpuinfo)
 	cpuinfo->topology[ix].logical = -1;
     }
 
-    ix = -1;
+    ix = 0;
 
     if (realpath(ERTS_SYS_NODE_PATH, npath)) {
 	ndir = opendir(npath);
@@ -886,6 +886,7 @@ read_topology(erts_cpu_info_t *cpuinfo)
 		cdir = NULL;
 		break;
 	    }
+
 	    if (sscanf(cde->d_name, "cpu%d", &cpu_id) == 1) {
 		char buf[50]; /* Much more than enough for an integer */
 		int processor_id, core_id;
@@ -906,23 +907,33 @@ read_topology(erts_cpu_info_t *cpuinfo)
 		if (sscanf(buf, "%d", &core_id) != 1)
 		    continue;
 
+                /*
+                 * The number of CPUs that proc fs presents is greater
+                 * then the number of CPUs configured in sysconf.
+                 * This has been known to happen in docker. When this
+                 * happens we refuse to give a CPU topology.
+                 */
+                if (ix >= cpuinfo->configured)
+                    goto error;
+
 		/*
 		 * We now know node id, processor id, and
 		 * core id of the logical processor with
 		 * the cpu id 'cpu_id'.
 		 */
-		ix++;
 		cpuinfo->topology[ix].node	= node_id;
 		cpuinfo->topology[ix].processor	= processor_id;
 		cpuinfo->topology[ix].processor_node = -1; /* Fixed later */
 		cpuinfo->topology[ix].core	= core_id;
 		cpuinfo->topology[ix].thread	= 0; /* we'll numerate later */
 		cpuinfo->topology[ix].logical	= cpu_id;
+		ix++;
+
 	    }
 	}
     } while (got_nodes);
 
-    res = ix+1;
+    res = ix;
 
     if (!res || res < cpuinfo->online)
 	res = 0;
