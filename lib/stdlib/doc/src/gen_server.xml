@@ -796,7 +796,6 @@ gen_server:abcast     -----> Module:handle_cast/2
   <section>
     <title>See Also</title>
     <p><seealso marker="gen_event"><c>gen_event(3)</c></seealso>,
-      <seealso marker="gen_fsm"><c>gen_fsm(3)</c></seealso>,
       <seealso marker="gen_statem"><c>gen_statem(3)</c></seealso>,
       <seealso marker="proc_lib"><c>proc_lib(3)</c></seealso>,
       <seealso marker="supervisor"><c>supervisor(3)</c></seealso>,

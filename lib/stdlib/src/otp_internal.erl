@@ -55,6 +55,55 @@ obsolete_1(erlang, now, 0) ->
 obsolete_1(calendar, local_time_to_universal_time, 1) ->
     {deprecated, {calendar, local_time_to_universal_time_dst, 1}};
 
+%% *** STDLIB added in OTP 20 ***
+
+obsolete_1(gen_fsm, start, 3) ->
+    {deprecated, {gen_statem, start, 3}};
+obsolete_1(gen_fsm, start, 4) ->
+    {deprecated, {gen_statem, start, 4}};
+
+obsolete_1(gen_fsm, start_link, 3) ->
+    {deprecated, {gen_statem, start, 3}};
+obsolete_1(gen_fsm, start_link, 4) ->
+    {deprecated, {gen_statem, start, 4}};
+
+obsolete_1(gen_fsm, stop, 1) ->
+    {deprecated, {gen_statem, stop, 1}};
+obsolete_1(gen_fsm, stop, 3) ->
+    {deprecated, {gen_statem, stop, 3}};
+
+obsolete_1(gen_fsm, enter_loop, 4) ->
+    {deprecated, {gen_statem, enter_loop, 4}};
+obsolete_1(gen_fsm, enter_loop, 5) ->
+    {deprecated, {gen_statem, enter_loop, 5}};
+obsolete_1(gen_fsm, enter_loop, 6) ->
+    {deprecated, {gen_statem, enter_loop, 6}};
+
+obsolete_1(gen_fsm, reply, 2) ->
+    {deprecated, {gen_statem, reply, 2}};
+
+obsolete_1(gen_fsm, send_event, 2) ->
+    {deprecated, {gen_statem, cast, 1}};
+obsolete_1(gen_fsm, send_all_state_event, 2) ->
+    {deprecated, {gen_statem, cast, 1}};
+
+obsolete_1(gen_fsm, sync_send_event, 2) ->
+    {deprecated, {gen_statem, call, 2}};
+obsolete_1(gen_fsm, sync_send_event, 3) ->
+    {deprecated, {gen_statem, call, 3}};
+
+obsolete_1(gen_fsm, sync_send_all_state_event, 2) ->
+    {deprecated, {gen_statem, call, 2}};
+obsolete_1(gen_fsm, sync_send_all_state_event, 3) ->
+    {deprecated, {gen_statem, call, 3}};
+
+obsolete_1(gen_fsm, start_timer, 2) ->
+    {deprecated, {erlang, start_timer, 2}};
+obsolete_1(gen_fsm, cancel_timer, 1) ->
+    {deprecated, {erlang, cancel_timer, 1}};
+obsolete_1(gen_fsm, send_event_after, 2) ->
+    {deprecated, {erlang, send_after, 2}};
+
 %% *** CRYPTO added in OTP 20 ***
 
 obsolete_1(crypto, rand_uniform, 2) ->

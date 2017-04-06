@@ -45,61 +45,63 @@
     <p>The <c>sys</c> module has functions for simple debugging of
     processes implemented using behaviours. The <c>code_lock</c>
     example from
-    <seealso marker="fsm#ex">gen_fsm Behaviour</seealso>
+    <seealso marker="statem#Example">gen_statem Behaviour</seealso>
     is used to illustrate this:</p>
     <pre>
-% <input>erl</input>
-Erlang (BEAM) emulator version 5.2.3.6 [hipe] [threads:0]
+Erlang/OTP 20 [DEVELOPMENT] [erts-9.0] [source-5ace45e] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:10] [hipe] [kernel-poll:false]
 
-Eshell V5.2.3.6  (abort with ^G)
-1> <input>code_lock:start_link([1,2,3,4]).</input>
-{ok,&lt;0.32.0>}
-2> <input>sys:statistics(code_lock, true).</input>
+Eshell V9.0  (abort with ^G)
+1>  code_lock:start_link([1,2,3,4]).
+Lock
+{ok,&lt;0.63.0>}
+2> sys:statistics(code_lock, true).
 ok
-3> <input>sys:trace(code_lock, true).</input>
+3>  sys:trace(code_lock, true).
 ok
-4> <input>code_lock:button(4).</input>
-*DBG* code_lock got event {button,4} in state closed
+4>  code_lock:button(1).
+*DBG* code_lock receive cast {button,1} in state locked
 ok
-*DBG* code_lock switched to state closed
-5> <input>code_lock:button(3).</input>
-*DBG* code_lock got event {button,3} in state closed
+*DBG* code_lock consume cast {button,1} in state locked
+5>  code_lock:button(2).
+*DBG* code_lock receive cast {button,2} in state locked
 ok
-*DBG* code_lock switched to state closed
-6> <input>code_lock:button(2).</input>
-*DBG* code_lock got event {button,2} in state closed
+*DBG* code_lock consume cast {button,2} in state locked
+6>  code_lock:button(3).
+*DBG* code_lock receive cast {button,3} in state locked
 ok
-*DBG* code_lock switched to state closed
-7> <input>code_lock:button(1).</input>
-*DBG* code_lock got event {button,1} in state closed
+*DBG* code_lock consume cast {button,3} in state locked
+7>  code_lock:button(4).
+*DBG* code_lock receive cast {button,4} in state locked
 ok
-OPEN DOOR
-*DBG* code_lock switched to state open
-*DBG* code_lock got event timeout in state open
-CLOSE DOOR
-*DBG* code_lock switched to state closed
-8> <input>sys:statistics(code_lock, get).</input> 
-{ok,[{start_time,{{2003,6,12},{14,11,40}}},
-     {current_time,{{2003,6,12},{14,12,14}}},
-     {reductions,333},
+Unlock
+*DBG* code_lock consume cast {button,4} in state locked
+*DBG* code_lock receive state_timeout lock in state open
+Lock
+*DBG* code_lock consume state_timeout lock in state open
+8> sys:statistics(code_lock, get).
+{ok,[{start_time,{{2017,4,21},{16,8,7}}},
+     {current_time,{{2017,4,21},{16,9,42}}},
+     {reductions,2973},
      {messages_in,5},
      {messages_out,0}]}
-9> <input>sys:statistics(code_lock, false).</input>
+9> sys:statistics(code_lock, false).
 ok
-10> <input>sys:trace(code_lock, false).</input>     
+10> sys:trace(code_lock, false).
 ok
-11> <input>sys:get_status(code_lock).</input>
-{status,&lt;0.32.0>,
-        {module,gen_fsm},
-        [[{'$ancestors',[&lt;0.30.0>]},
-          {'$initial_call',{gen,init_it,
-                                [gen_fsm,&lt;0.30.0>,&lt;0.30.0>,
-                                 {local,code_lock},
-                                 code_lock,
-                                 [1,2,3,4],
-                                 []]}}],
-         running,&lt;0.30.0>,[],
-         [code_lock,closed,{[],[1,2,3,4]},code_lock,infinity]]}</pre>
+11> sys:get_status(code_lock).
+{status,&lt;0.63.0>,
+        {module,gen_statem},
+        [[{'$initial_call',{code_lock,init,1}},
+          {'$ancestors',[&lt;0.61.0>]}],
+         running,&lt;0.61.0>,[],
+         [{header,"Status for state machine code_lock"},
+          {data,[{"Status",running},
+                 {"Parent",&lt;0.61.0>},
+                 {"Logged Events",[]},
+                 {"Postponed",[]}]},
+          {data,[{"State",
+                  {locked,#{code => [1,2,3,4],remaining => [1,2,3,4]}}}]}]]}
+    </pre>
   </section>
 
   <section>

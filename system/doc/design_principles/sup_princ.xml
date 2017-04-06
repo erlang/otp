@@ -276,7 +276,6 @@ child_spec() = #{id => child_id(),       % mandatory
 	<list type="bulleted">
 	  <item><c>supervisor:start_link</c></item>
 	  <item><c>gen_server:start_link</c></item>
-	  <item><c>gen_fsm:start_link</c></item>
 	  <item><c>gen_statem:start_link</c></item>
 	  <item><c>gen_event:start_link</c></item>
 	  <item>A function compliant with these functions. For details,
@@ -341,7 +340,7 @@ child_spec() = #{id => child_id(),       % mandatory
         <p><c>modules</c> are to be a list with one element
           <c>[Module]</c>, where <c>Module</c> is the name of
           the callback module, if the child process is a supervisor,
-          gen_server, gen_fsm or gen_statem.
+          gen_server, gen_statem.
 	  If the child process is a gen_event,
           the value shall be <c>dynamic</c>.</p>
         <p>This information is used by the release handler during

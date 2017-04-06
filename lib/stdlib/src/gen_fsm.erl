@@ -124,6 +124,26 @@
 	 system_replace_state/2,
 	 format_status/2]).
 
+-deprecated({start, 3, next_major_release}).
+-deprecated({start, 4, next_major_release}).
+-deprecated({start_link, 3, next_major_release}).
+-deprecated({start_link, 4, next_major_release}).
+-deprecated({stop, 1, next_major_release}).
+-deprecated({stop, 3, next_major_release}).
+-deprecated({send_event, 2, next_major_release}).
+-deprecated({sync_send_event, 2, next_major_release}).
+-deprecated({sync_send_event, 3, next_major_release}).
+-deprecated({send_all_state_event, 2, next_major_release}).
+-deprecated({sync_send_all_state_event, 2, next_major_release}).
+-deprecated({sync_send_all_state_event, 3, next_major_release}).
+-deprecated({reply, 2, next_major_release}).
+-deprecated({start_timer, 2, next_major_release}).
+-deprecated({send_event_after, 2, next_major_release}).
+-deprecated({cancel_timer, 1, next_major_release}).
+-deprecated({enter_loop, 4, next_major_release}).
+-deprecated({enter_loop, 5, next_major_release}).
+-deprecated({enter_loop, 6, next_major_release}).
+
 -import(error_logger, [format/2]).
 
 %%% ---------------------------------------------------
