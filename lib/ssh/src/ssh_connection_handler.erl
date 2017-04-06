@@ -1285,7 +1285,6 @@ handle_event(info, {'EXIT', _Sup, Reason}, _, _) ->
     {stop, {shutdown, Reason}};
 
 handle_event(info, check_cache, _, D) ->
-ct:pal("check_cache",[]),
     {keep_state, cache_check_set_idle_timer(D)};
 
 handle_event(info, UnexpectedMessage, StateName, D = #data{ssh_params = Ssh}) ->
