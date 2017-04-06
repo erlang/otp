@@ -413,14 +413,8 @@ init_connection(server, C = #connection{}, Opts) ->
     SubSystemSup =  proplists:get_value(subsystem_sup,  Sups),
     ConnectionSup = proplists:get_value(connection_sup, Sups),
 
-    Shell = ?GET_OPT(shell, Opts),
-    Exec = ?GET_OPT(exec, Opts),
-    CliSpec = case ?GET_OPT(ssh_cli, Opts) of
-                  undefined -> {ssh_cli, [Shell]};
-                  Spec -> Spec
-              end,
-    C#connection{cli_spec = CliSpec,
-		 exec = Exec,
+    C#connection{cli_spec = ?GET_OPT(ssh_cli, Opts, {ssh_cli,[?GET_OPT(shell, Opts)]}),
+		 exec =     ?GET_OPT(exec,    Opts),
 		 system_supervisor = SystemSup,
 		 sub_system_supervisor = SubSystemSup,
 		 connection_supervisor = ConnectionSup

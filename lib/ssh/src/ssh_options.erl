@@ -69,17 +69,20 @@ get_value(Class, Key, Opts, _CallerMod, _CallerLine) ->
     error({bad_options,Class, Key, Opts, _CallerMod, _CallerLine}).
 
 
--spec get_value(option_class(), option_key(), options(), any(),
+-spec get_value(option_class(), option_key(), options(), fun(() -> any()),
                 atom(), non_neg_integer()) -> any() | no_return().
 
-get_value(socket_options, Key, Opts, Def, _CallerMod, _CallerLine) when is_map(Opts) ->
-    proplists:get_value(Key, maps:get(socket_options,Opts), Def);
-get_value(Class, Key, Opts, Def, CallerMod, CallerLine) when is_map(Opts) ->
+get_value(socket_options, Key, Opts, DefFun, _CallerMod, _CallerLine) when is_map(Opts) ->
+    proplists:get_value(Key, maps:get(socket_options,Opts), DefFun);
+get_value(Class, Key, Opts, DefFun, CallerMod, CallerLine) when is_map(Opts) ->
     try get_value(Class, Key, Opts, CallerMod, CallerLine)
+    of
+        undefined -> DefFun();
+        Value -> Value
     catch
-        error:{badkey,Key} -> Def
+        error:{badkey,Key} -> DefFun()
     end;
-get_value(Class, Key, Opts, _Def, _CallerMod, _CallerLine) ->
+get_value(Class, Key, Opts, _DefFun, _CallerMod, _CallerLine) ->
     error({bad_options,Class, Key, Opts, _CallerMod, _CallerLine}).
 
 

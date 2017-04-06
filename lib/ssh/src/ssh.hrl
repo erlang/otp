@@ -75,9 +75,12 @@
 
 %% Option access macros
 -define(do_get_opt(C,K,O),   ssh_options:get_value(C,K,O,  ?MODULE,?LINE)).
--define(do_get_opt(C,K,O,D), ssh_options:get_value(C,K,O,D,?MODULE,?LINE)).
+-define(do_get_opt(C,K,O,D), ssh_options:get_value(C,K,O,?LAZY(D),?MODULE,?LINE)).
+
+-define(LAZY(D), fun()-> D end).
 
 -define(GET_OPT(Key,Opts),              ?do_get_opt(user_options,    Key,Opts    ) ).
+-define(GET_OPT(Key,Opts,Def),          ?do_get_opt(user_options,    Key,Opts,Def) ).
 -define(GET_INTERNAL_OPT(Key,Opts),     ?do_get_opt(internal_options,Key,Opts    ) ).
 -define(GET_INTERNAL_OPT(Key,Opts,Def), ?do_get_opt(internal_options,Key,Opts,Def) ).
 -define(GET_SOCKET_OPT(Key,Opts),       ?do_get_opt(socket_options,  Key,Opts    ) ).
