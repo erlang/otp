@@ -146,7 +146,7 @@ erlang:'!'            -----> Module:StateName/3
       This gathers all code for a specific state
       in one function as the <c>gen_statem</c> engine
       branches depending on state name.
-      Notice the fact that there is a mandatory callback function
+      Note the fact that the callback function
       <seealso marker="#Module:terminate/3"><c>Module:terminate/3</c></seealso>
       makes the state name <c>terminate</c> unusable in this mode.
     </p>
@@ -1704,7 +1704,7 @@ handle_event(_, _, State, Data) ->
     <func>
       <name>Module:init(Args) -> Result(StateType)</name>
       <fsummary>
-	Optional function for initializing process and internal state.
+	Initializing process and internal state.
       </fsummary>
       <type>
         <v>Args = term()</v>
@@ -1720,7 +1720,7 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>
 	  or
 	  <seealso marker="#start/3"><c>start/3,4</c></seealso>,
-	  this optional function is called by the new process to initialize
+	  this function is called by the new process to initialize
 	  the implementation state and server data.
 	</p>
 	<p>
@@ -1729,13 +1729,16 @@ handle_event(_, _, State, Data) ->
 	</p>
         <note>
 	  <p>
-	    This callback is optional, so a callback module does not need
-	    to export it, but most do.  If this function is not exported,
-	    the <c>gen_statem</c> should be started through
+	    Note that if the <c>gen_statem</c> is started trough
 	    <seealso marker="proc_lib"><c>proc_lib</c></seealso>
 	    and
-	    <seealso marker="#enter_loop/4"><c>enter_loop/4-6</c></seealso>.
+	    <seealso marker="#enter_loop/4"><c>enter_loop/4-6</c></seealso>,
+	    this callback will never be called.
+	    Since this callback is not optional it can
+	    in that case be implemented as:
 	  </p>
+	  <pre>
+init(Args) -> erlang:error(not_implemented, [Args]).</pre>
         </note>
       </desc>
     </func>

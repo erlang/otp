@@ -287,8 +287,7 @@
       StatusOption :: 'normal' | 'terminate'.
 
 -optional_callbacks(
-   [init/1, % One may use enter_loop/5,6,7 instead
-    format_status/2, % Has got a default implementation
+   [format_status/2, % Has got a default implementation
     terminate/3, % Has got a default implementation
     code_change/4, % Only needed by advanced soft upgrade
     %%
