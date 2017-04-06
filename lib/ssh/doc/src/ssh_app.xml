@@ -109,7 +109,7 @@
   </section>
  <section>
     <title>Host Keys</title>
-    <p>RSA and DSA host keys are supported and are
+    <p>RSA, DSA and ECDSA host keys are supported and are
        expected to be found in files named <c>ssh_host_rsa_key</c>,
        <c>ssh_host_dsa_key</c> and <c>ssh_host_ecdsa_key</c>.
        </p>
@@ -160,7 +160,7 @@
 	  <item>ecdsa-sha2-nistp384</item>
 	  <item>ecdsa-sha2-nistp521</item>
 	  <item>ssh-rsa</item>
-	  <item>(ssh-dss, retired: can be enabled with the <c>preferred_algorithms</c> option)</item>
+	  <item>ssh-dss</item>
 	</list>
       </item>
 
