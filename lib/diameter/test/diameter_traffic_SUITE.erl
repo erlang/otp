@@ -27,6 +27,8 @@
 -export([suite/0,
          all/0,
          groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
          init_per_group/2,
          end_per_group/2,
          init_per_testcase/2,
@@ -246,15 +248,12 @@ all() ->
     [start, result_codes, {group, traffic}, outstanding, empty, stop].
 
 groups() ->
-    Ts = tc(),
-    Sctp = ?util:have_sctp(),
-    [{B, [P], Ts} || {B,P} <- [{true, shuffle}, {false, parallel}]]
+    [{P, [P], Ts} || Ts <- [tc()], P <- [shuffle, parallel]]
         ++
         [{?util:name([T,R,D,A,C,SD,CD]),
           [],
-          [{group, SD orelse CD}]}
+          [{group, if SD orelse CD -> shuffle; true -> parallel end}]}
          || T <- ?TRANSPORTS,
-            T /= sctp orelse Sctp,
             R <- ?ENCODINGS,
             D <- ?RFCS,
             A <- ?ENCODINGS,
@@ -262,20 +261,40 @@ groups() ->
             SD <- ?STRING_DECODES,
             CD <- ?STRING_DECODES]
         ++
-        [{traffic, [], [{group, ?util:name([T,R,D,A,C,SD,CD])}
-                        || T <- ?TRANSPORTS,
-                           T /= sctp orelse Sctp,
-                           R <- ?ENCODINGS,
-                           D <- ?RFCS,
-                           A <- ?ENCODINGS,
-                           C <- ?CONTAINERS,
-                           SD <- ?STRING_DECODES,
-                           CD <- ?STRING_DECODES]}].
+        [{T, [], [{group, ?util:name([T,R,D,A,C,SD,CD])}
+                  || R <- ?ENCODINGS,
+                     D <- ?RFCS,
+                     A <- ?ENCODINGS,
+                     C <- ?CONTAINERS,
+                     SD <- ?STRING_DECODES,
+                     CD <- ?STRING_DECODES]}
+         || T <- ?TRANSPORTS]
+        ++
+        [{traffic, [], [{group, T} || T <- ?TRANSPORTS]}].
 
-init_per_group(B, Config)
-  when is_boolean(B) ->
+%% --------------------
+
+init_per_suite(Config) ->
+    [{sctp, ?util:have_sctp()} | Config].
+
+end_per_suite(_Config) ->
+    ok.
+
+%% --------------------
+
+init_per_group(Name, Config)
+  when Name == shuffle;
+       Name == parallel ->
     start_services(Config),
     add_transports(Config);
+
+init_per_group(sctp = Name, Config) ->
+    {_, Sctp} = lists:keyfind(Name, 1, Config),
+    if Sctp ->
+            Config;
+       true ->
+            {skip, Name}
+    end;
 
 init_per_group(Name, Config) ->
     case ?util:name(Name) of
@@ -294,29 +313,33 @@ init_per_group(Name, Config) ->
             Config
     end.
 
-end_per_group(B, Config)
-  when is_boolean(B) ->
+end_per_group(Name, Config)
+  when Name == shuffle;
+       Name == parallel ->
     remove_transports(Config),
     stop_services(Config);
 
 end_per_group(_, _) ->
     ok.
 
+%% --------------------
+
 %% Skip testcases that can reasonably fail under SCTP.
 init_per_testcase(Name, Config) ->
-    case [skip || #group{transport = sctp}
-                      <- [proplists:get_value(group, Config)],
-                  send_maxlen == Name
-                      orelse send_long == Name]
+    case [G || #group{transport = sctp} = G
+                   <- [proplists:get_value(group, Config)]]
     of
-        [skip] ->
+        [_] when Name == send_maxlen;
+                 Name == send_long ->
             {skip, sctp};
-        [] ->
+        _ ->
             [{testcase, Name} | Config]
     end.
 
 end_per_testcase(_, _) ->
     ok.
+
+%% --------------------
 
 %% Testcases to run when services are started and connections
 %% established.
