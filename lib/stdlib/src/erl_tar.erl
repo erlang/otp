@@ -69,6 +69,8 @@ format_error(invalid_gnu_1_0_sparsemap) ->
     "Invalid GNU sparse map (version 1.0)";
 format_error({invalid_gnu_0_1_sparsemap, Format}) ->
     lists:flatten(io_lib:format("Invalid GNU sparse map (version ~s)", [Format]));
+format_error(unsafe_path) ->
+    "The path points above the current working directory";
 format_error({Name,Reason}) ->
     lists:flatten(io_lib:format("~ts: ~ts", [Name,format_error(Reason)]));
 format_error(Atom) when is_atom(Atom) ->
@@ -120,26 +122,38 @@ do_extract(Handle, Opts) when is_list(Opts) ->
 
 extract1(eof, Reader, _, Acc) when is_list(Acc) ->
     {ok, {ok, lists:reverse(Acc)}, Reader};
+extract1(eof, Reader, _, leading_slash) ->
+    error_logger:info_msg("erl_tar: removed leading '/' from member names\n"),
+    {ok, ok, Reader};
 extract1(eof, Reader, _, Acc) ->
     {ok, Acc, Reader};
-extract1(#tar_header{name=Name,size=Size}=Header, Reader, Opts, Acc) ->
+extract1(#tar_header{name=Name,size=Size}=Header, Reader0, Opts, Acc0) ->
     case check_extract(Name, Opts) of
         true ->
-            case do_read(Reader, Size) of
-                {ok, Bin, Reader2} ->
-                    case write_extracted_element(Header, Bin, Opts) of
-                        ok ->
-                            {ok, Acc, Reader2};
-                        {ok, NameBin} when is_list(Acc) ->
-                            {ok, [NameBin | Acc], Reader2};
-                        {error, _} = Err ->
-                            throw(Err)
-                    end;
+            case do_read(Reader0, Size) of
+                {ok, Bin, Reader1} ->
+                    Acc = extract2(Header, Bin, Opts, Acc0),
+                    {ok, Acc, Reader1};
                 {error, _} = Err ->
                     throw(Err)
             end;
         false ->
-            {ok, Acc, skip_file(Reader)}
+            {ok, Acc0, skip_file(Reader0)}
+    end.
+
+extract2(Header, Bin, Opts, Acc) ->
+    case write_extracted_element(Header, Bin, Opts) of
+        ok ->
+            case Header of
+                #tar_header{name="/"++_} ->
+                    leading_slash;
+                #tar_header{} ->
+                    Acc
+            end;
+        {ok, NameBin} when is_list(Acc) ->
+            [NameBin | Acc];
+        {error, _} = Err ->
+            throw(Err)
     end.
 
 %% Checks if the file Name should be extracted.
@@ -1052,14 +1066,11 @@ unpack_modern(Format, #header_v7{}=V7, Bin, #tar_header{}=Header0)
 
 
 safe_join_path([], Name) ->
-    strip_slashes(Name, both);
+    filename:join([Name]);
 safe_join_path(Prefix, []) ->
-    strip_slashes(Prefix, right);
+    filename:join([Prefix]);
 safe_join_path(Prefix, Name) ->
-    filename:join(strip_slashes(Prefix, right), strip_slashes(Name, both)).
-
-strip_slashes(Str, Direction) ->
-    string:strip(Str, Direction, $/).
+    filename:join(Prefix, Name).
 
 new_sparse_file_reader(Reader, Sparsemap, RealSize) ->
     true = validate_sparse_entries(Sparsemap, RealSize),
@@ -1557,7 +1568,7 @@ write_extracted_element(#tar_header{name=Name,typeflag=Type},
             ok
     end;
 write_extracted_element(#tar_header{name=Name0}=Header, Bin, Opts) ->
-    Name1 = filename:absname(Name0, Opts#read_opts.cwd),
+    Name1 = make_safe_path(Name0, Opts),
     Created =
         case typeflag(Header#tar_header.typeflag) of
             regular ->
@@ -1583,6 +1594,16 @@ write_extracted_element(#tar_header{name=Name0}=Header, Bin, Opts) ->
     case Created of
         ok  -> set_extracted_file_info(Name1, Header);
         not_written -> ok
+    end.
+
+make_safe_path([$/|Path], Opts) ->
+    make_safe_path(Path, Opts);
+make_safe_path(Path, #read_opts{cwd=Cwd}) ->
+    case filename:safe_relative_path(Path) of
+        unsafe ->
+            throw({error,{Path,unsafe_path}});
+        SafePath ->
+            filename:absname(SafePath, Cwd)
     end.
 
 create_regular(Name, NameInArchive, Bin, Opts) ->
