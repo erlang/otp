@@ -131,7 +131,7 @@ init([Options]) ->
     RestartStrategy = one_for_one,
     MaxR = 0,
     MaxT = 3600,
-    Children = case ?GET_INTERNAL_OPT(asocket,Options,undefined) of
+    Children = case ?GET_INTERNAL_OPT(connected_socket,Options,undefined) of
 		   undefined -> child_specs(Options);
 		   _ -> []
 	       end,

@@ -75,9 +75,12 @@
 
 %% Option access macros
 -define(do_get_opt(C,K,O),   ssh_options:get_value(C,K,O,  ?MODULE,?LINE)).
--define(do_get_opt(C,K,O,D), ssh_options:get_value(C,K,O,D,?MODULE,?LINE)).
+-define(do_get_opt(C,K,O,D), ssh_options:get_value(C,K,O,?LAZY(D),?MODULE,?LINE)).
+
+-define(LAZY(D), fun()-> D end).
 
 -define(GET_OPT(Key,Opts),              ?do_get_opt(user_options,    Key,Opts    ) ).
+-define(GET_OPT(Key,Opts,Def),          ?do_get_opt(user_options,    Key,Opts,Def) ).
 -define(GET_INTERNAL_OPT(Key,Opts),     ?do_get_opt(internal_options,Key,Opts    ) ).
 -define(GET_INTERNAL_OPT(Key,Opts,Def), ?do_get_opt(internal_options,Key,Opts,Def) ).
 -define(GET_SOCKET_OPT(Key,Opts),       ?do_get_opt(socket_options,  Key,Opts    ) ).
@@ -88,6 +91,10 @@
 -define(PUT_OPT(KeyVal,Opts),           ?do_put_opt(user_options,    KeyVal,Opts) ).
 -define(PUT_INTERNAL_OPT(KeyVal,Opts),  ?do_put_opt(internal_options,KeyVal,Opts) ).
 -define(PUT_SOCKET_OPT(KeyVal,Opts),    ?do_put_opt(socket_options,  KeyVal,Opts) ).
+
+-define(do_del_opt(C,K,O),  ssh_options:delete_key(C,K,O, ?MODULE,?LINE)).
+-define(DELETE_INTERNAL_OPT(Key,Opts),  ?do_del_opt(internal_options,Key,Opts) ).
+
 
 %% Types
 -type role()                :: client | server .
@@ -109,12 +116,25 @@
 -type double_algs()         :: list( {client2serverlist,simple_algs()} | {server2client,simple_algs()} )
                              | simple_algs() .
 
+-type options() :: #{socket_options   := socket_options(),
+                     internal_options := internal_options(),
+                     option_key()     => any()
+                    }.
+
+-type socket_options()   :: proplists:proplist().
+-type internal_options() :: #{option_key() => any()}.
+
+-type option_key() :: atom().
+
+
 
 %% Records
 -record(ssh,
 	{
-	  role,         %% client | server
-	  peer,         %% string version of peer address 
+	  role :: client | role(),
+	  peer :: undefined | 
+                  {inet:hostname(),
+                   {inet:ip_adress(),inet:port_number()}},         %% string version of peer address 
 
 	  c_vsn,        %% client version {Major,Minor}
 	  s_vsn,        %% server version {Major,Minor}

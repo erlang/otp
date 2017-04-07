@@ -1063,15 +1063,6 @@ attr_to_info(A) when is_record(A, ssh_xfer_attr) ->
       gid    = A#ssh_xfer_attr.group}.
 
 
-%% Added workaround for sftp timestam problem. (Timestamps should be
-%% in UTC but they where not) .  The workaround uses a deprecated
-%% function i calandar.  This will work as expected most of the time
-%% but has problems for the same reason as
-%% calendar:local_time_to_universal_time/1. We consider it better that
-%% the timestamps work as expected most of the time instead of none of
-%% the time. Hopfully the file-api will be updated so that we can
-%% solve this problem in a better way in the future.
-
 unix_to_datetime(undefined) ->
     undefined;
 unix_to_datetime(UTCSecs) ->

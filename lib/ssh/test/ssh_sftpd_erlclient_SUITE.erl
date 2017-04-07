@@ -138,7 +138,7 @@ init_per_testcase(TestCase, Config) ->
     [{port, Port}, {sftp, {ChannelPid, Connection}}, {sftpd, Sftpd} | NewConfig].
 
 end_per_testcase(_TestCase, Config) ->
-    catch ssh_sftpd:stop(proplists:get_value(sftpd, Config)),
+    catch ssh:stop_daemon(proplists:get_value(sftpd, Config)),
     {Sftp, Connection} = proplists:get_value(sftp, Config),
     catch ssh_sftp:stop_channel(Sftp),
     catch ssh:close(Connection),

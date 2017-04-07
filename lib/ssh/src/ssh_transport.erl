@@ -200,9 +200,6 @@ is_valid_mac(Mac, Data, #ssh{recv_mac = Algorithm,
 			     recv_mac_key = Key, recv_sequence = SeqNum}) ->
     Mac == mac(Algorithm, Key, SeqNum, Data).
 
-yes_no(Ssh, Prompt)  ->
-    (Ssh#ssh.io_cb):yes_no(Prompt, Ssh).
-
 format_version({Major,Minor}, SoftwareVersion) ->
     "SSH-" ++ integer_to_list(Major) ++ "." ++ 
 	integer_to_list(Minor) ++ "-" ++ SoftwareVersion.
@@ -755,15 +752,43 @@ public_algo({#'ECPoint'{},{namedCurve,OID}}) ->
 
 accepted_host(Ssh, PeerName, Public, Opts) ->
     case ?GET_OPT(silently_accept_hosts, Opts) of
-	F when is_function(F,2) ->
+
+        %% Original option values; User question and no host key fingerprints known.
+        %% Keep the original question unchanged:
+	false -> yes == yes_no(Ssh, "New host " ++ PeerName ++ " accept");
+	true -> true;
+
+        %% Variant: User question but with host key fingerprint in the question:
+        {false,Alg} ->
+            HostKeyAlg = (Ssh#ssh.algorithms)#alg.hkey,
+            Prompt = io_lib:format("The authenticity of the host can't be established.~n"
+                                   "~s host key fingerprint is ~s.~n"
+                                   "New host ~p accept",
+                                   [fmt_hostkey(HostKeyAlg),
+                                    public_key:ssh_hostkey_fingerprint(Alg,Public),
+                                    PeerName]),
+            yes == yes_no(Ssh, Prompt);
+
+        %% Call-back alternatives: A user provided fun is called for the decision:
+        F when is_function(F,2) ->
 	    true == (catch F(PeerName, public_key:ssh_hostkey_fingerprint(Public)));
+
 	{DigestAlg,F} when is_function(F,2) ->
-	    true == (catch F(PeerName, public_key:ssh_hostkey_fingerprint(DigestAlg,Public)));
-	true ->
-	    true;
-	false ->
-	    yes == yes_no(Ssh, "New host " ++ PeerName ++ " accept")
+	    true == (catch F(PeerName, public_key:ssh_hostkey_fingerprint(DigestAlg,Public)))
+        
     end.
+
+
+yes_no(Ssh, Prompt)  ->
+    (Ssh#ssh.io_cb):yes_no(Prompt, Ssh#ssh.opts).
+
+
+fmt_hostkey('ssh-rsa') -> "RSA";
+fmt_hostkey('ssh-dss') -> "DSA";
+fmt_hostkey(A) when is_atom(A) -> fmt_hostkey(atom_to_list(A));
+fmt_hostkey("ecdsa"++_) -> "ECDSA";
+fmt_hostkey(X) -> X.
+
 
 known_host_key(#ssh{opts = Opts, key_cb = {KeyCb,KeyCbOpts}, peer = {PeerName,_}} = Ssh, 
 	       Public, Alg) ->

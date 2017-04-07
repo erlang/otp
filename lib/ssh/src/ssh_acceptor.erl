@@ -27,8 +27,8 @@
 %% Internal application API
 -export([start_link/4,
 	 number_of_connections/1,
-	 callback_listen/2,
-	 handle_connection/5]).
+	 listen/2,
+	 handle_established_connection/4]).
 
 %% spawn export  
 -export([acceptor_init/5, acceptor_loop/6]).
@@ -42,41 +42,57 @@ start_link(Port, Address, Options, AcceptTimeout) ->
     Args = [self(), Port, Address, Options, AcceptTimeout],
     proc_lib:start_link(?MODULE, acceptor_init, Args).
 
+%%%----------------------------------------------------------------
+number_of_connections(SystemSup) ->
+    length([X || 
+	       {R,X,supervisor,[ssh_subsystem_sup]} <- supervisor:which_children(SystemSup),
+	       is_pid(X),
+	       is_reference(R)
+	  ]).
+
+%%%----------------------------------------------------------------
+listen(Port, Options) ->
+    {_, Callback, _} = ?GET_OPT(transport, Options),
+    SockOpts = [{active, false}, {reuseaddr,true} | ?GET_OPT(socket_options, Options)],
+    case Callback:listen(Port, SockOpts) of
+	{error, nxdomain} ->
+	    Callback:listen(Port, lists:delete(inet6, SockOpts));
+	{error, enetunreach} ->
+	    Callback:listen(Port, lists:delete(inet6, SockOpts));
+	{error, eafnosupport} ->
+	    Callback:listen(Port, lists:delete(inet6, SockOpts));
+	Other ->
+	    Other
+    end.
+
+%%%----------------------------------------------------------------
+handle_established_connection(Address, Port, Options, Socket) ->
+    {_, Callback, _} = ?GET_OPT(transport, Options),
+    handle_connection(Callback, Address, Port, Options, Socket).
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 acceptor_init(Parent, Port, Address, Opts, AcceptTimeout) ->
-    {_, Callback, _} =  ?GET_OPT(transport, Opts),
     try
-        {LSock0,SockOwner0} = ?GET_INTERNAL_OPT(lsocket, Opts),
-        true = is_pid(SockOwner0),
-        {ok,{_,Port}} = inet:sockname(LSock0),
-        {LSock0, SockOwner0}
+        ?GET_INTERNAL_OPT(lsocket, Opts)
     of
         {LSock, SockOwner} ->
-            %% Use existing socket
-            proc_lib:init_ack(Parent, {ok, self()}),
-	    request_ownership(LSock, SockOwner),
-	    acceptor_loop(Callback, Port, Address, Opts, LSock, AcceptTimeout)
-    catch
-        error:{badkey,lsocket} ->
-            %% Open new socket
-            try
-                socket_listen(Port, Opts)
-            of
-                {ok, ListenSocket} ->
+            case inet:sockname(LSock) of
+                {ok,{_,Port}} -> % A usable, open LSock
                     proc_lib:init_ack(Parent, {ok, self()}),
-                    {_, Callback, _} = ?GET_OPT(transport, Opts),
-                    acceptor_loop(Callback, 
-                                  Port, Address, Opts, ListenSocket, AcceptTimeout);
-                {error,Error} ->
-                    proc_lib:init_ack(Parent, Error),
-                    {error,Error}
-            catch
-                _:_ ->
-                    {error,listen_socket_failed}
-            end;
+                    request_ownership(LSock, SockOwner),
+                    {_, Callback, _} =  ?GET_OPT(transport, Opts),
+                    acceptor_loop(Callback, Port, Address, Opts, LSock, AcceptTimeout);
 
+                {error,_} -> % Not open, a restart
+                    {ok,NewLSock} = listen(Port, Opts),
+                    proc_lib:init_ack(Parent, {ok, self()}),
+                    Opts1 = ?DELETE_INTERNAL_OPT(lsocket, Opts),
+                    {_, Callback, _} =  ?GET_OPT(transport, Opts1),
+                    acceptor_loop(Callback, Port, Address, Opts1, NewLSock, AcceptTimeout)
+            end
+    catch
         _:_ ->
             {error,use_existing_socket_failed}
     end.
@@ -88,30 +104,7 @@ request_ownership(LSock, SockOwner) ->
 	{its_yours,LSock} -> ok
     end.
     
-   
-socket_listen(Port0, Opts) ->
-    Port = case ?GET_SOCKET_OPT(fd, Opts) of
-               undefined -> Port0;
-               _ -> 0
-           end,
-    callback_listen(Port, Opts).
-
-
-callback_listen(Port, Opts0) ->
-    {_, Callback, _} = ?GET_OPT(transport, Opts0),
-    Opts = ?PUT_SOCKET_OPT([{active, false}, {reuseaddr,true}], Opts0),
-    SockOpts = ?GET_OPT(socket_options, Opts),
-    case Callback:listen(Port, SockOpts) of
-	{error, nxdomain} ->
-	    Callback:listen(Port, lists:delete(inet6, SockOpts));
-	{error, enetunreach} ->
-	    Callback:listen(Port, lists:delete(inet6, SockOpts));
-	{error, eafnosupport} ->
-	    Callback:listen(Port, lists:delete(inet6, SockOpts));
-	Other ->
-	    Other
-    end.
-    
+%%%----------------------------------------------------------------    
 acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout) ->
     case (catch Callback:accept(ListenSocket, AcceptTimeout)) of
 	{ok, Socket} ->
@@ -128,6 +121,7 @@ acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout) ->
 				  ListenSocket, AcceptTimeout)
     end.
 
+%%%----------------------------------------------------------------
 handle_connection(Callback, Address, Port, Options, Socket) ->
     Profile =  ?GET_OPT(profile, Options),
     SystemSup = ssh_system_sup:system_supervisor(Address, Port, Profile),
@@ -159,7 +153,7 @@ handle_connection(Callback, Address, Port, Options, Socket) ->
 	    {error,max_sessions}
     end.
 
-
+%%%----------------------------------------------------------------
 handle_error(timeout) ->
     ok;
 
@@ -186,10 +180,3 @@ handle_error(Reason) ->
     error_logger:error_report(String),
     exit({accept_failed, String}).    
 
-
-number_of_connections(SystemSup) ->
-    length([X || 
-	       {R,X,supervisor,[ssh_subsystem_sup]} <- supervisor:which_children(SystemSup),
-	       is_pid(X),
-	       is_reference(R)
-	  ]).

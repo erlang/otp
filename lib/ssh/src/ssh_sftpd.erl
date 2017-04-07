@@ -34,8 +34,7 @@
 
 %%--------------------------------------------------------------------
 %% External exports
--export([subsystem_spec/1,
-	 listen/1, listen/2, listen/3, stop/1]).
+-export([subsystem_spec/1]).
 
 -export([init/1, handle_ssh_msg/2, handle_msg/2, terminate/2]).
 
@@ -76,29 +75,6 @@
 subsystem_spec(Options) ->
     {"sftp", {?MODULE, Options}}.
 
-%%% DEPRECATED START %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%--------------------------------------------------------------------
-%% Function: listen() -> Pid | {error,Error}
-%% Description: Starts the server
-%%--------------------------------------------------------------------
-listen(Port) ->
-    listen(any, Port, []).
-listen(Port, Options) ->
-    listen(any, Port, Options).
-listen(Addr, Port, Options) ->
-    SubSystems = [subsystem_spec(Options)],
-    ssh:daemon(Addr, Port, [{subsystems, SubSystems} |Options]).
-
-%%--------------------------------------------------------------------
-%% Function: stop(Pid) -> ok
-%% Description: Stops the listener
-%%--------------------------------------------------------------------
-stop(Pid) ->
-    ssh:stop_listener(Pid).
-
-
-%%% DEPRECATED END %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%====================================================================
 %% subsystem callbacks
