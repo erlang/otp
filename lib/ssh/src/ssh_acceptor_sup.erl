@@ -29,7 +29,7 @@
 
 -include("ssh.hrl").
 
--export([start_link/1, start_child/2, stop_child/4]).
+-export([start_link/4, start_child/5, stop_child/4]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -41,19 +41,19 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-start_link(Servers) ->
-    supervisor:start_link(?MODULE, [Servers]).
+start_link(Address, Port, Profile, Options) ->
+    supervisor:start_link(?MODULE, [Address, Port, Profile, Options]).
 
-start_child(AccSup, Options) ->
-    Spec = child_spec(Options),
+start_child(AccSup, Address, Port, Profile, Options) ->
+    Spec = child_spec(Address, Port, Profile, Options),
     case supervisor:start_child(AccSup, Spec) of
 	{error, already_present} ->
-	    Address = ?GET_INTERNAL_OPT(address, Options),
-	    Port = ?GET_INTERNAL_OPT(port, Options),
-	    Profile = ?GET_OPT(profile, Options),  
+            %% Is this ever called?
 	    stop_child(AccSup, Address, Port, Profile),
 	    supervisor:start_child(AccSup, Spec);
 	Reply ->
+            %% Reply = {ok,SystemSupPid} when the user calls ssh:daemon
+            %% after having called ssh:stop_listening
 	    Reply
     end.
 
@@ -69,34 +69,29 @@ stop_child(AccSup, Address, Port, Profile) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init([Options]) ->
-    RestartStrategy = one_for_one,
-    MaxR = 10,
-    MaxT = 3600,
-    Children = [child_spec(Options)],
-    {ok, {{RestartStrategy, MaxR, MaxT}, Children}}.
+init([Address, Port, Profile, Options]) ->
+    %% Initial start of ssh_acceptor_sup for this port or new start after
+    %% ssh:stop_daemon
+    SupFlags = #{strategy  => one_for_one, 
+                 intensity =>   10,
+                 period    => 3600
+                },
+    ChildSpecs = [child_spec(Address, Port, Profile, Options)],
+    {ok, {SupFlags,ChildSpecs}}.
 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-child_spec(Options) ->
-    Address = ?GET_INTERNAL_OPT(address, Options),
-    Port = ?GET_INTERNAL_OPT(port, Options),
+child_spec(Address, Port, Profile, Options) ->
     Timeout = ?GET_INTERNAL_OPT(timeout, Options, ?DEFAULT_TIMEOUT),
-    Profile = ?GET_OPT(profile, Options),
-    Name = id(Address, Port, Profile),
-    StartFunc = {ssh_acceptor, start_link, [Port, Address, Options, Timeout]},
-    Restart = transient, 
-    Shutdown = brutal_kill,
-    Modules = [ssh_acceptor],
-    Type = worker,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+    #{id       => id(Address, Port, Profile),
+      start    => {ssh_acceptor, start_link, [Port, Address, Options, Timeout]},
+      restart  => transient,
+      shutdown => 5500, %brutal_kill,
+      type     => worker,
+      modules  => [ssh_acceptor]
+     }.
 
 id(Address, Port, Profile) ->
-    case is_list(Address) of
-	true ->
-	    {ssh_acceptor_sup, any, Port, Profile};
-	false ->
-	    {ssh_acceptor_sup, Address, Port, Profile}
-    end.
+    {ssh_acceptor_sup, Address, Port, Profile}.
 

@@ -27,23 +27,25 @@
 
 -behaviour(supervisor).
 
--export([start_link/1, start_child/1, stop_child/1]).
+-export([start_link/0, start_child/1, stop_child/1]).
 
 %% Supervisor callback
 -export([init/1]).
 
+-define(SSHC_SUP, ?MODULE).
+
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-start_link(Args) ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, [Args]).
+start_link() ->
+    supervisor:start_link({local,?SSHC_SUP}, ?MODULE, []).
 
 start_child(Args) ->
     supervisor:start_child(?MODULE, Args).
 
 stop_child(Client) ->
     spawn(fun() -> 
-		  ClientSup = whereis(?MODULE),
+		  ClientSup = whereis(?SSHC_SUP),
 		  supervisor:terminate_child(ClientSup, Client)
 	  end),
     ok.
@@ -51,22 +53,17 @@ stop_child(Client) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
--spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
-
-init(Args) ->
-    RestartStrategy = simple_one_for_one,
-    MaxR = 0,
-    MaxT = 3600,
-    {ok, {{RestartStrategy, MaxR, MaxT}, [child_spec(Args)]}}.
-
-%%%=========================================================================
-%%%  Internal functions
-%%%=========================================================================
-child_spec(_) ->
-    Name = undefined, % As simple_one_for_one is used.
-    StartFunc = {ssh_connection_handler, start_link, []},
-    Restart = temporary,
-    Shutdown = 4000,
-    Modules = [ssh_connection_handler],
-    Type = worker,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+init(_) ->
+    SupFlags = #{strategy  => simple_one_for_one, 
+                 intensity =>    0,
+                 period    => 3600
+                },
+    ChildSpecs = [#{id       => undefined, % As simple_one_for_one is used.
+                    start    => {ssh_connection_handler, start_link, []},
+                    restart  => temporary,
+                    shutdown => 4000,
+                    type     => worker,
+                    modules  => [ssh_connection_handler]
+                   }
+                 ],
+    {ok, {SupFlags,ChildSpecs}}.

@@ -235,13 +235,12 @@ sshc_simple_exec_os_cmd(Config) ->
     Parent = self(),
     Client = spawn(
 	       fun() ->
-		       Cmd = lists:concat(["ssh -p ",Port,
-					   " -C"
-					   " -o UserKnownHostsFile=",KnownHosts,
-					   " -o StrictHostKeyChecking=no"
-					   " ",Host," 1+1."]),
-		       Result = os:cmd(Cmd),
-		       ct:log("~p~n  = ~p",[Cmd, Result]),
+                       Result = ssh_test_lib:open_sshc(Host, Port,
+                                                       [" -C"
+                                                        " -o UserKnownHostsFile=",KnownHosts,
+                                                        " -o StrictHostKeyChecking=no"
+                                                        ],
+                                                       " 1+1."),
 		       Parent ! {result, self(), Result, "2"}
 	       end),
     receive

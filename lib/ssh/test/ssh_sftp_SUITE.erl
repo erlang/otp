@@ -660,7 +660,7 @@ start_channel_sock(Config) ->
     {Host,Port} = proplists:get_value(peer, Config),
 
     %% Get a tcp socket
-    {ok, Sock} = gen_tcp:connect(Host, Port, [{active,false}]),
+    {ok, Sock} = ssh_test_lib:gen_tcp_connect(Host, Port, [{active,false}]),
 
     %% and open one channel on one new Connection
     {ok, ChPid1, Conn} = ssh_sftp:start_channel(Sock, Opts),

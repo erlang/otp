@@ -221,6 +221,8 @@ file_name(Type, Name, Opts) ->
 
 
 %% in: "host" out: "host,1.2.3.4.
+add_ip(IP) when is_tuple(IP) ->
+    ssh_connection:encode_ip(IP);
 add_ip(Host)                                                             ->
     case inet:getaddr(Host, inet) of
 	{ok, Addr} ->

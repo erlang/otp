@@ -98,7 +98,7 @@ end_per_testcase(_Func, _Conf) ->
 
 connect(Config) ->
     KexAlgs = proplists:get_value(kex, ssh:default_algorithms()),
-    ct:pal("KexAlgs = ~p",[KexAlgs]),
+    ct:log("KexAlgs = ~p",[KexAlgs]),
     lists:foreach(
       fun(KexAlg) ->
               PrefAlgs = preferred_algorithms(KexAlg),
@@ -242,11 +242,11 @@ median(Data) when is_list(Data) ->
             1 ->
                 lists:nth(N div 2 + 1, SortedData)
         end,
-    ct:pal("median(~p) = ~p",[SortedData,Median]),
+    ct:log("median(~p) = ~p",[SortedData,Median]),
     Median.
 
 
 report(Data) ->
-    ct:pal("EventData = ~p",[Data]),
+    ct:log("EventData = ~p",[Data]),
     ct_event:notify(#event{name = benchmark_data,
                            data = Data}).

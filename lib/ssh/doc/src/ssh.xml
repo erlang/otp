@@ -379,7 +379,7 @@
       on the given port.</fsummary>
       <type>
         <v>Port = integer()</v>
-	<v>HostAddress = ip_address() | any</v>
+	<v>HostAddress = ip_address() | any | loopback</v>
 	<v>Options = [{Option, Value}]</v>
         <v>Option = atom()</v>
 	<v>Value = term()</v>
@@ -390,6 +390,26 @@
         <p>Starts a server listening for SSH connections on the given
         port. If the <c>Port</c> is 0, a random free port is selected. See
 	<seealso marker="#daemon_info/1">daemon_info/1</seealso> about how to find the selected port number.</p>
+
+	<p>Please note that by historical reasons both the <c>HostAddress</c> argument and the inet socket option
+	<c>ip</c> set the listening address. This is a source of possible inconsistent settings.</p>
+
+	<p>The rules for handling the two address passing options are:</p>
+	<list>
+	  <item>if <c>HostAddress</c> is an IP-address, that IP-address is the listening address.
+	  An 'ip'-option will be discarded if present.</item>
+
+	  <item>if <c>HostAddress</c> is <c>loopback</c>, the listening address
+	  is <c>loopback</c> and an loopback address will be choosen by the underlying layers.
+	  An 'ip'-option will be discarded if present.</item>
+
+	  <item>if <c>HostAddress</c> is <c>any</c> and no 'ip'-option is present, the listening address is
+	  <c>any</c> and the socket will listen to all addresses</item>
+
+	  <item>if <c>HostAddress</c> is <c>any</c> and an 'ip'-option is present, the listening address is
+	  set to the value of the 'ip'-option</item>
+	</list>
+
 	<p>Options:</p>
         <taglist>
 	  <tag><c><![CDATA[{inet, inet | inet6}]]></c></tag>

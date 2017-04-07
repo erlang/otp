@@ -129,7 +129,8 @@ handle_connection(Callback, Address, Port, Options, Socket) ->
     MaxSessions = ?GET_OPT(max_sessions, Options),
     case number_of_connections(SystemSup) < MaxSessions of
 	true ->
-	    {ok, SubSysSup} = ssh_system_sup:start_subsystem(SystemSup, Options),
+	    {ok, SubSysSup} = 
+                ssh_system_sup:start_subsystem(SystemSup, server, Address, Port, Profile, Options),
 	    ConnectionSup = ssh_subsystem_sup:connection_supervisor(SubSysSup),
 	    NegTimeout = ?GET_OPT(negotiation_timeout, Options),
 	    ssh_connection_handler:start_connection(server, Socket,
