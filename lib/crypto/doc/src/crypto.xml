@@ -521,7 +521,7 @@
         scheme. <c>VerStr</c> contains a text variant of the version.</p>
         <pre>
 > <input>info_lib().</input>
-[{&lt;&lt;"OpenSSL"&gt;&gt;,9469983,&lt;&lt;"OpenSSL 0.9.8a 11 Oct 2005"&gt;&gt;}]
+[{&lt;&lt;"OpenSSL"&gt;&gt;,269484095,&lt;&lt;"OpenSSL 1.1.0c  10 Nov 2016""&gt;&gt;}]
         </pre>
 	<note><p>
 	  From OTP R16 the <em>numeric version</em> represents the version of the OpenSSL
