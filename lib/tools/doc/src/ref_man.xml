@@ -39,11 +39,6 @@
        times each function is called. Uses a kind of local call trace
        breakpoints containing counters to achieve very low runtime
        performance degradation.</item>
-      <tag><em>erlang.el</em>- Erlang mode for Emacs</tag>
-      <item>Editing support such as indentation, syntax highlighting,
-       electric commands, module name verification, comment support
-       including paragraph filling, skeletons, tags support and more
-       for erlang source code. </item>
       <tag><em>eprof</em></tag>
       <item>A time profiling tool; measure how time is used in Erlang
        programs. Predecessor of <em>fprof</em> (see below).</item>
@@ -73,7 +68,6 @@
   <xi:include href="cover.xml"/>
   <xi:include href="cprof.xml"/>
   <xi:include href="eprof.xml"/>
-  <xi:include href="erlang_mode.xml"/>
   <xi:include href="fprof.xml"/>
   <xi:include href="instrument.xml"/>
   <xi:include href="lcnt.xml"/>
