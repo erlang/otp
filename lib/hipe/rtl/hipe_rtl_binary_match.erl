@@ -730,7 +730,7 @@ get_base(Orig,Base) ->
   [hipe_tagscheme:test_heap_binary(Orig, hipe_rtl:label_name(HeapLbl),
 				   hipe_rtl:label_name(REFCLbl)),
    HeapLbl,
-   hipe_rtl:mk_alu(Base, Orig, 'add', hipe_rtl:mk_imm(?HEAP_BIN_DATA-2)),
+   hipe_tagscheme:get_field_addr_from_term({heap_bin, {data, 0}}, Orig, Base),
    hipe_rtl:mk_goto(hipe_rtl:label_name(EndLbl)),
    REFCLbl,
    get_field_from_term({proc_bin, flags}, Orig, Flags),
@@ -740,7 +740,7 @@ get_base(Orig,Base) ->
    WritableLbl,
    hipe_rtl:mk_call([], emasculate_binary, [Orig], [], [], 'not_remote'),
    NotWritableLbl,
-   hipe_rtl:mk_load(Base, Orig, hipe_rtl:mk_imm(?PROC_BIN_BYTES-2)),
+   get_field_from_term({proc_bin, bytes}, Orig, Base),
    EndLbl].
 
 extract_matchstate_var(binsize, Ms) ->

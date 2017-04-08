@@ -55,9 +55,6 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #if defined(ARCH_64)
 #  define TAG_PTR_MASK__	0x7
 #  if !defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
-#    ifdef HIPE
-#      error Hipe on 64-bit needs a real mmap as it does not support the literal tag
-#    endif
 #    define TAG_LITERAL_PTR	0x4
 #  else
 #    undef TAG_LITERAL_PTR

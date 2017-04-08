@@ -865,7 +865,7 @@ get_base_offset_size(Binary, SrcBase, SrcOffset, SrcSize, FLName) ->
    JoinLbl,
    hipe_tagscheme:test_heap_binary(Orig, HeapLblName, REFCLblName),
    HeapLbl,
-   hipe_rtl:mk_alu(SrcBase, Orig, add, hipe_rtl:mk_imm(?HEAP_BIN_DATA-2)),
+   hipe_tagscheme:get_field_addr_from_term({heap_bin, {data, 0}}, Orig, SrcBase),
    hipe_rtl:mk_goto(EndLblName),
    REFCLbl,
    hipe_tagscheme:get_field_from_term({proc_bin,bytes}, Orig, SrcBase),
