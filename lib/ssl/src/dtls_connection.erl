@@ -495,10 +495,10 @@ handle_info({CloseTag, Socket}, StateName,
     end;
 
 handle_info(new_cookie_secret, StateName, 
-            #state{protocol_specific = #{cookie_secret := Secret} = CookieInfo} = State) ->
+            #state{protocol_specific = #{current_cookie_secret := Secret} = CookieInfo} = State) ->
     erlang:send_after(dtls_v1:cookie_timeout(), self(), new_cookie_secret),
     {next_state, StateName, State#state{protocol_specific = 
-                                            CookieInfo#{cookie_secret => dtls_v1:cookie_secret(),
+                                            CookieInfo#{current_cookie_secret => dtls_v1:cookie_secret(),
                                                         previous_cookie_secret => Secret}}};
 handle_info(Msg, StateName, State) ->
     ssl_connection:handle_info(Msg, StateName, State).
