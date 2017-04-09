@@ -1210,6 +1210,12 @@ is_divisible(Dividend, Divisor, SuccLbl, FailLbl) ->
       [hipe_rtl:mk_branch(Dividend, 'and', Mask, eq, SuccLbl, FailLbl, 0.99)];
     false ->
       %% We need division, fall back to a primop
-      [hipe_rtl:mk_call([], is_divisible, [Dividend, hipe_rtl:mk_imm(Divisor)],
-			SuccLbl, FailLbl, not_remote)]
+      [Tmp] = create_regs(1),
+      RetLbl = hipe_rtl:mk_new_label(),
+      [hipe_rtl:mk_call([Tmp], is_divisible,
+                        [Dividend, hipe_rtl:mk_imm(Divisor)],
+                        hipe_rtl:label_name(RetLbl), [], not_remote),
+       RetLbl,
+       hipe_rtl:mk_branch(Tmp, ne, hipe_rtl:mk_imm(0),
+                          SuccLbl, FailLbl, 0.99)]
   end.

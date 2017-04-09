@@ -69,7 +69,7 @@ AEXTERN(Eterm,nbif_bs_get_utf16,(void));
 AEXTERN(Eterm,nbif_bs_validate_unicode,(Process*,Eterm));
 AEXTERN(Uint,nbif_is_unicode,(Eterm));
 AEXTERN(Eterm,nbif_bs_validate_unicode_retract,(void));
-AEXTERN(void,nbif_is_divisible,(Process*,Uint,Uint));
+AEXTERN(Uint,nbif_is_divisible,(Uint,Uint));
 
 AEXTERN(void,nbif_select_msg,(Process*));
 AEXTERN(Eterm,nbif_cmp_2,(void));
@@ -96,7 +96,7 @@ BIF_RETTYPE nbif_impl_hipe_bs_validate_unicode(NBIF_ALIST_1);
 Uint hipe_is_unicode(Eterm);
 struct erl_bin_match_buffer;
 int hipe_bs_validate_unicode_retract(struct erl_bin_match_buffer*, Eterm);
-BIF_RETTYPE nbif_impl_hipe_is_divisible(NBIF_ALIST_2);
+Uint hipe_is_divisible(Uint, Uint);
 
 #ifdef NO_FPE_SIGNALS
 AEXTERN(void,nbif_emulate_fpe,(Process*));
