@@ -182,41 +182,40 @@ delete_exprs(Code, _, _, []) ->
   Code;
 delete_exprs(Code, ExprMap, IdMap, [ExprId|Exprs]) ->
   Expr = expr_id_map_get_expr(IdMap, ExprId),
-  %% Perform a foldl that goes through the code and deletes all
-  %% occurences of the expression.
-  NewCode =
-    lists:reverse
-      (lists:foldl(fun(CodeExpr, Acc) ->
-                     case is_expr(CodeExpr) of
-                       true ->
-                         case expr_clear_dst(CodeExpr) =:= Expr of
-                           true ->
-                             pp_debug("  Deleting:         ", []),
-                             pp_debug_instr(CodeExpr),
-                             %% Lookup expression entry.
-                             Defines = 
-                               case expr_map_lookup(ExprMap, Expr) of
-                                 {value, {_, _, Defs}} -> 
-				   Defs;
-                                 none -> 
-                                   exit({?MODULE, expr_map_lookup,
-                                         "expression missing"})
-                               end,
-                             MoveCode = 
-                               mk_expr_move_instr(hipe_rtl:defines(CodeExpr),
-						  Defines),
-                             pp_debug("    Replacing with: ", []),
-                             pp_debug_instr(MoveCode),
-                             [MoveCode|Acc];
-                           false ->
-                             [CodeExpr|Acc]
-                         end;
-		       false ->
-                             [CodeExpr|Acc]
-                     end
-                   end, 
-		   [], Code)),
+  %% Lookup expression entry.
+  {value, {_, _, Defines}} = expr_map_lookup(ExprMap, Expr),
+  %% Go through the code and deletes all occurences of the expression.
+  NewCode = delete_expr(Code, Expr, Defines, []),
   delete_exprs(NewCode, ExprMap, IdMap, Exprs).
+
+delete_expr([], _Expr, _Defines, Acc) -> lists:reverse(Acc);
+delete_expr([CodeExpr|Code], Expr, Defines, Acc) ->
+  case exp_kill_expr(CodeExpr, [Expr]) of
+    [] -> % Expr was killed; deleting stops here
+      pp_debug("  Stopping before:  ", []),
+      pp_debug_instr(CodeExpr),
+      lists:reverse(Acc, [CodeExpr|Code]);
+    [Expr] ->
+      NewCodeExpr =
+        case is_expr(CodeExpr) of
+          true ->
+            case expr_clear_dst(CodeExpr) =:= Expr of
+              true ->
+                pp_debug("  Deleting:         ", []),
+                pp_debug_instr(CodeExpr),
+                MoveCode = mk_expr_move_instr(hipe_rtl:defines(CodeExpr),
+                                              Defines),
+                pp_debug("    Replacing with: ", []),
+                pp_debug_instr(MoveCode),
+                MoveCode;
+              false ->
+                CodeExpr
+            end;
+          false ->
+            CodeExpr
+        end,
+      delete_expr(Code, Expr, Defines, [NewCodeExpr|Acc])
+  end.
 
 %%=============================================================================
 %% Goes through the given list of expressions and inserts them at 
