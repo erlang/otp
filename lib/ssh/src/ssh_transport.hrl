@@ -48,6 +48,7 @@
 -define(SSH_MSG_DEBUG,                  4).
 -define(SSH_MSG_SERVICE_REQUEST,        5).
 -define(SSH_MSG_SERVICE_ACCEPT,         6).
+-define(SSH_MSG_EXT_INFO,               7).
 
 -define(SSH_MSG_KEXINIT,                20).
 -define(SSH_MSG_NEWKEYS,                21).
@@ -87,6 +88,20 @@
 	{
 	  name     %% string
 	 }).
+
+-record(ssh_msg_ext_info,
+       {
+         nr_extensions, %% uint32
+
+         %% repeat the following 2 fields "nr-extensions" times:
+         %%   string   extension-name
+         %%   string   extension-value
+
+         data  %% [{extension-name,    %% string
+               %%   extension-value},  %% string
+               %%         ...
+               %% ]
+       }).
 
 -record(ssh_msg_kexinit,
 	{

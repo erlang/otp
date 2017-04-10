@@ -145,6 +145,9 @@
 	  c_keyinit,    %% binary payload of kexinit packet
 	  s_keyinit,    %% binary payload of kexinit packet
 
+          send_ext_info, %% May send ext-info to peer
+          recv_ext_info, %% Expect ext-info from peer
+
 	  algorithms,   %% #alg{}
 	  
 	  kex,          %% key exchange algorithm
@@ -216,7 +219,9 @@
 	  compress,
 	  decompress,
 	  c_lng,
-	  s_lng
+	  s_lng,
+          send_ext_info,
+          recv_ext_info
 	 }).
 
 -record(ssh_key,

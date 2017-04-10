@@ -56,7 +56,7 @@ messages(Write, MangleArg) when is_function(Write,2),
 dbg_ssh_messages() ->
     dbg:tp(ssh_message,encode,1, x),
     dbg:tp(ssh_message,decode,1, x),
-    dbg:tpl(ssh_transport,select_algorithm,3, x),
+    dbg:tpl(ssh_transport,select_algorithm,4, x),
     dbg:tp(ssh_transport,hello_version_msg,1, x),
     dbg:tp(ssh_transport,handle_hello_version,1, x).
    
@@ -77,7 +77,7 @@ msg_formater({trace_ts,Pid,return_from,{ssh_message,decode,1},Msg,TS}, D) ->
 	
 msg_formater({trace_ts,_Pid,call,{ssh_transport,select_algorithm,_},_TS}, D) ->
     D;
-msg_formater({trace_ts,Pid,return_from,{ssh_transport,select_algorithm,3},{ok,Alg},TS}, D) ->
+msg_formater({trace_ts,Pid,return_from,{ssh_transport,select_algorithm,_},{ok,Alg},TS}, D) ->
     fmt("~n~s ~p ALGORITHMS~n~s~n", [ts(TS),Pid, wr_record(Alg)], D);
 
 msg_formater({trace_ts,_Pid,call,{ssh_transport,hello_version_msg,_},_TS}, D) ->
@@ -160,6 +160,7 @@ shrink_bin(X) -> X.
 ?wr_record(ssh_msg_kexdh_init);
 ?wr_record(ssh_msg_kexdh_reply);
 ?wr_record(ssh_msg_newkeys);
+?wr_record(ssh_msg_ext_info);
 ?wr_record(ssh_msg_kex_dh_gex_request);
 ?wr_record(ssh_msg_kex_dh_gex_request_old);
 ?wr_record(ssh_msg_kex_dh_gex_group);

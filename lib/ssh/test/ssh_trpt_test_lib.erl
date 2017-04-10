@@ -397,6 +397,12 @@ send(S0, {special,Msg,PacketFun}) when is_tuple(Msg),
     send_bytes(Packet, S#s{ssh = C, %%inc_send_seq_num(C),
 			   return_value = Msg});
 
+send(S0, #ssh_msg_newkeys{} = Msg) ->
+    S = opt(print_messages, S0,
+	    fun(X) when X==true;X==detail -> {"Send~n~s~n",[format_msg(Msg)]} end),
+    {ok, Packet, C} = ssh_transport:new_keys_message(S#s.ssh),
+    send_bytes(Packet, S#s{ssh = C});
+    
 send(S0, Msg) when is_tuple(Msg) ->
     S = opt(print_messages, S0,
 	    fun(X) when X==true;X==detail -> {"Send~n~s~n",[format_msg(Msg)]} end),
@@ -455,7 +461,10 @@ recv(S0 = #s{}) ->
 		       };
 		#ssh_msg_kexdh_reply{} ->
 		    {ok, _NewKeys, C} = ssh_transport:handle_kexdh_reply(PeerMsg, S#s.ssh),
-		    S#s{ssh=C#ssh{send_sequence=S#s.ssh#ssh.send_sequence}}; % Back the number
+                    S#s{ssh = (S#s.ssh)#ssh{shared_secret = C#ssh.shared_secret,
+                                            exchanged_hash = C#ssh.exchanged_hash,
+                                            session_id = C#ssh.session_id}};
+		    %%%S#s{ssh=C#ssh{send_sequence=S#s.ssh#ssh.send_sequence}}; % Back the number
 		#ssh_msg_newkeys{} ->
 		    {ok, C} = ssh_transport:handle_new_keys(PeerMsg, S#s.ssh),
 		    S#s{ssh=C};

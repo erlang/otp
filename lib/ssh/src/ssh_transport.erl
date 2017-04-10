@@ -38,6 +38,7 @@
 	 handle_hello_version/1,
 	 key_exchange_init_msg/1,
 	 key_init/3, new_keys_message/1,
+         ext_info_message/1,
 	 handle_kexinit_msg/3, handle_kexdh_init/2,
 	 handle_kex_dh_gex_group/2, handle_kex_dh_gex_init/2, handle_kex_dh_gex_reply/2,
 	 handle_new_keys/2, handle_kex_dh_gex_request/2,
@@ -230,7 +231,7 @@ key_exchange_init_msg(Ssh0) ->
 kex_init(#ssh{role = Role, opts = Opts, available_host_keys = HostKeyAlgs}) ->
     Random = ssh_bits:random(16),
     PrefAlgs = ?GET_OPT(preferred_algorithms, Opts),
-    kexinit_message(Role, Random, PrefAlgs, HostKeyAlgs).
+    kexinit_message(Role, Random, PrefAlgs, HostKeyAlgs, Opts).
 
 key_init(client, Ssh, Value) ->
     Ssh#ssh{c_keyinit = Value};
@@ -238,10 +239,11 @@ key_init(server, Ssh, Value) ->
     Ssh#ssh{s_keyinit = Value}.
 
 
-kexinit_message(_Role, Random, Algs, HostKeyAlgs) ->
+kexinit_message(Role, Random, Algs, HostKeyAlgs, Opts) ->
     #ssh_msg_kexinit{
 		  cookie = Random,
-		  kex_algorithms = to_strings( get_algs(kex,Algs) ),
+		  kex_algorithms = to_strings( get_algs(kex,Algs) )
+                                   ++ kex_ext_info(Role,Opts),
 		  server_host_key_algorithms = HostKeyAlgs,
 		  encryption_algorithms_client_to_server = c2s(cipher,Algs),
 		  encryption_algorithms_server_to_client = s2c(cipher,Algs),
@@ -263,39 +265,42 @@ get_algs(Key, Algs) -> proplists:get_value(Key, Algs, default_algorithms(Key)).
 to_strings(L) -> lists:map(fun erlang:atom_to_list/1, L).
 
 new_keys_message(Ssh0) ->
-    {SshPacket, Ssh} = 
-	ssh_packet(#ssh_msg_newkeys{}, Ssh0),
+    {SshPacket, Ssh1} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
+    Ssh = install_alg(snd, Ssh1),
     {ok, SshPacket, Ssh}.
 
 
 handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
-			    #ssh{role = client} = Ssh0) ->
-    {ok, Algoritms} = select_algorithm(client, Own, CounterPart),  
-    case verify_algorithm(Algoritms) of
-	true ->
-	    key_exchange_first_msg(Algoritms#alg.kex, 
-				   Ssh0#ssh{algorithms = Algoritms});
-	{false,Alg} ->
-	    %% TODO: Correct code?
-    ssh_connection_handler:disconnect(
-      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-			  description = "Selection of key exchange algorithm failed: "
-                          ++ Alg
-			 })
+                   #ssh{role = client} = Ssh) ->
+    try
+        {ok, Algorithms} = select_algorithm(client, Own, CounterPart, Ssh#ssh.opts),
+        true = verify_algorithm(Algorithms),
+        Algorithms
+    of
+	Algos ->
+	    key_exchange_first_msg(Algos#alg.kex, 
+				   Ssh#ssh{algorithms = Algos})
+    catch
+        _:_ ->
+            ssh_connection_handler:disconnect(
+              #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                  description = "Selection of key exchange algorithm failed"})
     end;
 
 handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
-			    #ssh{role = server} = Ssh) ->
-    {ok, Algoritms} = select_algorithm(server, CounterPart, Own),
-    case  verify_algorithm(Algoritms) of
-	true ->
-	    {ok, Ssh#ssh{algorithms = Algoritms}};
-	{false,Alg} ->
-    ssh_connection_handler:disconnect(
-      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-			  description = "Selection of key exchange algorithm failed: "
-                          ++ Alg
-			 })
+                   #ssh{role = server} = Ssh) ->
+    try
+        {ok, Algorithms} = select_algorithm(server, CounterPart, Own, Ssh#ssh.opts),
+        true = verify_algorithm(Algorithms),
+        Algorithms
+    of
+	Algos ->
+            {ok, Ssh#ssh{algorithms = Algos}}
+    catch
+        _:_ ->
+            ssh_connection_handler:disconnect(
+              #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                  description = "Selection of key exchange algorithm failed"})
     end.
 
 
@@ -308,6 +313,8 @@ verify_algorithm(#alg{decrypt = undefined})   ->  {false, "decrypt"};
 verify_algorithm(#alg{compress = undefined})  ->  {false, "compress"};
 verify_algorithm(#alg{decompress = undefined}) -> {false, "decompress"};
 verify_algorithm(#alg{kex = Kex}) -> 
+    %% This also catches the error if 'ext-info-s' or 'ext-info-c' is selected.
+    %% (draft-ietf-curdle-ssh-ext-info-04 2.2)
     case lists:member(Kex, supported_algorithms(kex)) of
         true -> true;
         false -> {false, "kex"}
@@ -414,9 +421,9 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
 	    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
 		ok ->
 		    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
-		    {ok, SshPacket, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
-					    exchanged_hash = H,
-					    session_id = sid(Ssh, H)}};
+		    {ok, SshPacket, install_alg(snd, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
+                                                             exchanged_hash = H,
+                                                             session_id = sid(Ssh, H)})};
 		Error ->
 	    ssh_connection_handler:disconnect(
 	      #ssh_msg_disconnect{
@@ -584,9 +591,9 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostK
 		    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
 			ok ->
 			    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
-			    {ok, SshPacket, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
-						    exchanged_hash = H,
-						    session_id = sid(Ssh, H)}};
+			    {ok, SshPacket, install_alg(snd, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
+                                                                     exchanged_hash = H,
+                                                                     session_id = sid(Ssh, H)})};
 			_Error ->
 			    ssh_connection_handler:disconnect(
 			      #ssh_msg_disconnect{
@@ -660,9 +667,9 @@ handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
 	    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
 		ok ->
 		    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
-		    {ok, SshPacket, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
-					    exchanged_hash = H,
-					    session_id = sid(Ssh, H)}};
+		    {ok, SshPacket, install_alg(snd, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
+                                                             exchanged_hash = H,
+                                                             session_id = sid(Ssh, H)})};
 		Error ->
 		    ssh_connection_handler:disconnect(
 		       #ssh_msg_disconnect{
@@ -682,7 +689,7 @@ handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
 
 %%%----------------------------------------------------------------
 handle_new_keys(#ssh_msg_newkeys{}, Ssh0) ->
-    try install_alg(Ssh0) of
+    try install_alg(rcv, Ssh0) of
 	#ssh{} = Ssh ->
 	    {ok, Ssh}
     catch 
@@ -693,6 +700,34 @@ handle_new_keys(#ssh_msg_newkeys{}, Ssh0) ->
 				 })
     end. 
 
+
+%%%----------------------------------------------------------------
+kex_ext_info(Role, Opts) ->
+    case ?GET_OPT(recv_ext_info,Opts) of
+        true when Role==client -> ["ext-info-c"];
+        true when Role==server -> ["ext-info-s"];
+        false -> []
+    end.
+    
+ext_info_message(#ssh{role=client,
+                      algorithms=#alg{send_ext_info=true}} = Ssh0) ->
+    %% FIXME: no extensions implemented for clients
+    {ok, "", Ssh0};
+
+ext_info_message(#ssh{role=server,
+                      algorithms=#alg{send_ext_info=true}} = Ssh0) ->
+    AlgsList = lists:map(fun erlang:atom_to_list/1,
+                         ssh_transport:default_algorithms(public_key)),
+    Msg = #ssh_msg_ext_info{nr_extensions = 1,
+                            data = [{"server-sig-algs", string:join(AlgsList,",")}]
+                           },
+    {SshPacket, Ssh} = ssh_packet(Msg, Ssh0),
+    {ok, SshPacket, Ssh};
+
+ext_info_message(Ssh0) ->
+    {ok, "", Ssh0}.                          % "" means: 'do not send'
+
+%%%----------------------------------------------------------------
 %% select session id
 sid(#ssh{session_id = undefined}, H) -> 
     H;
@@ -812,7 +847,7 @@ known_host_key(#ssh{opts = Opts, key_cb = {KeyCb,KeyCbOpts}, peer = {PeerName,_}
 %%
 %%   The first algorithm in each list MUST be the preferred (guessed)
 %%   algorithm.  Each string MUST contain at least one algorithm name.
-select_algorithm(Role, Client, Server) ->
+select_algorithm(Role, Client, Server, Opts) ->
     {Encrypt0, Decrypt0} = select_encrypt_decrypt(Role, Client, Server),
     {SendMac0, RecvMac0} = select_send_recv_mac(Role, Client, Server),
 
@@ -837,17 +872,34 @@ select_algorithm(Role, Client, Server) ->
     Kex = select(Client#ssh_msg_kexinit.kex_algorithms,
 		 Server#ssh_msg_kexinit.kex_algorithms),
 
-    Alg = #alg{kex = Kex, 
-	       hkey = HK,
-	       encrypt = Encrypt,
-	       decrypt = Decrypt,
-	       send_mac = SendMac,
-	       recv_mac = RecvMac,
-	       compress = Compression,
-	       decompress = Decompression,
-	       c_lng = C_Lng,
-	       s_lng = S_Lng},
-    {ok, Alg}.
+    SendExtInfo =
+        %% To send we must have that option enabled and ...
+        ?GET_OPT(send_ext_info,Opts) andalso
+        %% ... the peer must have told us to send:
+        case Role of
+            server -> lists:member("ext-info-c", Client#ssh_msg_kexinit.kex_algorithms);
+            client -> lists:member("ext-info-s", Server#ssh_msg_kexinit.kex_algorithms)
+        end,
+
+    RecvExtInfo =
+        %% The peer should not send unless told so by us (which is
+        %% guided by an option).
+        %% (However a malicious peer could send anyway, so we must be prepared)
+        ?GET_OPT(recv_ext_info,Opts),
+
+    {ok, #alg{kex = Kex,
+              hkey = HK,
+              encrypt = Encrypt,
+              decrypt = Decrypt,
+              send_mac = SendMac,
+              recv_mac = RecvMac,
+              compress = Compression,
+              decompress = Decompression,
+              c_lng = C_Lng,
+              s_lng = S_Lng,
+              send_ext_info = SendExtInfo,
+              recv_ext_info = RecvExtInfo
+             }}.
 
 
 %%% It is an agreed problem with RFC 5674 that if the selection is
@@ -928,45 +980,66 @@ select_compression_decompression(server, Client, Server) ->
 	       Server#ssh_msg_kexinit.compression_algorithms_server_to_client),
     {Compression, Decompression}.
 
-install_alg(SSH) ->
-    SSH1 = alg_final(SSH),
-    SSH2 = alg_setup(SSH1),
-    alg_init(SSH2).
+%% DIr = rcv | snd
+install_alg(Dir, SSH) ->
+    SSH1 = alg_final(Dir, SSH),
+    SSH2 = alg_setup(Dir, SSH1),
+    alg_init(Dir, SSH2).
 
-alg_setup(SSH) ->
+alg_setup(snd, SSH) ->
     ALG = SSH#ssh.algorithms,
     SSH#ssh{kex = ALG#alg.kex,
 	    hkey = ALG#alg.hkey,
 	    encrypt = ALG#alg.encrypt,
-	    decrypt = ALG#alg.decrypt,
 	    send_mac = ALG#alg.send_mac,
 	    send_mac_size = mac_digest_size(ALG#alg.send_mac),
+	    compress = ALG#alg.compress,
+	    c_lng = ALG#alg.c_lng,
+	    s_lng = ALG#alg.s_lng,
+            send_ext_info = ALG#alg.send_ext_info,
+            recv_ext_info = ALG#alg.recv_ext_info
+	   };
+
+alg_setup(rcv, SSH) ->
+    ALG = SSH#ssh.algorithms,
+    SSH#ssh{kex = ALG#alg.kex,
+	    hkey = ALG#alg.hkey,
+	    decrypt = ALG#alg.decrypt,
 	    recv_mac = ALG#alg.recv_mac,
 	    recv_mac_size = mac_digest_size(ALG#alg.recv_mac),
-	    compress = ALG#alg.compress,
 	    decompress = ALG#alg.decompress,
 	    c_lng = ALG#alg.c_lng,
 	    s_lng = ALG#alg.s_lng,
-	    algorithms = undefined
+            send_ext_info = ALG#alg.send_ext_info,
+            recv_ext_info = ALG#alg.recv_ext_info
 	   }.
 
-alg_init(SSH0) ->
-    {ok,SSH1} = send_mac_init(SSH0),
-    {ok,SSH2} = recv_mac_init(SSH1),
-    {ok,SSH3} = encrypt_init(SSH2),
-    {ok,SSH4} = decrypt_init(SSH3),
-    {ok,SSH5} = compress_init(SSH4),
-    {ok,SSH6} = decompress_init(SSH5),
-    SSH6.
 
-alg_final(SSH0) ->
+alg_init(snd, SSH0) ->
+    {ok,SSH1} = send_mac_init(SSH0),
+    {ok,SSH2} = encrypt_init(SSH1),
+    {ok,SSH3} = compress_init(SSH2),
+    SSH3;
+
+alg_init(rcv, SSH0) ->
+    {ok,SSH1} = recv_mac_init(SSH0),
+    {ok,SSH2} = decrypt_init(SSH1),
+    {ok,SSH3} = decompress_init(SSH2),
+    SSH3.
+
+
+alg_final(snd, SSH0) ->
     {ok,SSH1} = send_mac_final(SSH0),
-    {ok,SSH2} = recv_mac_final(SSH1),
-    {ok,SSH3} = encrypt_final(SSH2),
-    {ok,SSH4} = decrypt_final(SSH3),
-    {ok,SSH5} = compress_final(SSH4),
-    {ok,SSH6} = decompress_final(SSH5),
-    SSH6.
+    {ok,SSH2} = encrypt_final(SSH1),
+    {ok,SSH3} = compress_final(SSH2),
+    SSH3;
+
+alg_final(rcv, SSH0) ->
+    {ok,SSH1} = recv_mac_final(SSH0),
+    {ok,SSH2} = decrypt_final(SSH1),
+    {ok,SSH3} = decompress_final(SSH2),
+    SSH3.
+
 
 select_all(CL, SL) when length(CL) + length(SL) < ?MAX_NUM_ALGORITHMS ->
     A = CL -- SL,  %% algortihms only used by client

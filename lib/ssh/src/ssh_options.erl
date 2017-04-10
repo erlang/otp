@@ -614,11 +614,23 @@ default(common) ->
             },
 
        {max_random_length_padding, def} =>
-          #{default => ?MAX_RND_PADDING_LEN,
-            chk => fun check_non_neg_integer/1,
-            class => user_options
-           }
-    }.
+           #{default => ?MAX_RND_PADDING_LEN,
+             chk => fun check_non_neg_integer/1,
+             class => user_options
+            },
+
+       {send_ext_info, def} =>
+           #{default => true,
+             chk => fun erlang:is_boolean/1,
+             class => user_options
+            },
+
+       {recv_ext_info, def} =>
+           #{default => true,
+             chk => fun erlang:is_boolean/1,
+             class => user_options
+            }
+     }.
 
 
 %%%================================================================
