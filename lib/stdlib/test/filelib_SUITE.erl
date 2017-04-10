@@ -507,7 +507,12 @@ file_props_symlink(Config) ->
     end.
 
 find_source(Config) when is_list(Config) ->
-    BeamFile = code:which(lists),
+    %% filename:find_{file,source}() does not work if the files are
+    %% cover-compiled. To make sure that the test does not fail
+    %% when the STDLIB is cover-compiled, search for modules in
+    %% the compiler application.
+
+    BeamFile = code:which(compile),
     BeamName = filename:basename(BeamFile),
     BeamDir = filename:dirname(BeamFile),
     SrcName = filename:basename(BeamFile, ".beam") ++ ".erl",
@@ -530,7 +535,7 @@ find_source(Config) when is_list(Config) ->
     {error, not_found} = filelib:find_source(BeamName, BeamDir,
                                               [{".erl",".yrl",[{"",""}]}]),
 
-    {ok, ParserErl} = filelib:find_source(code:which(erl_parse)),
+    {ok, ParserErl} = filelib:find_source(code:which(core_parse)),
     {ok, ParserYrl} = filelib:find_source(ParserErl),
     "lry." ++ _ = lists:reverse(ParserYrl),
     {ok, ParserYrl} = filelib:find_source(ParserErl,
