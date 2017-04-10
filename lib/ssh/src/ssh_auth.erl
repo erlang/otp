@@ -175,6 +175,7 @@ service_request_msg(Ssh) ->
 
 %%%----------------------------------------------------------------
 init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
+    %% Client side
     case ?GET_OPT(user, Opts) of
 	undefined ->
 	    ErrStr = "Could not determine the users name",
@@ -183,25 +184,17 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
 				  description = ErrStr});
         
 	User ->
-	    Msg = #ssh_msg_userauth_request{user = User,
-					    service = "ssh-connection",
-					    method = "none",
-					    data = <<>>},
-	    Algs0 = ?GET_OPT(pref_public_key_algs, Opts),
-	    %% The following line is not strictly correct. The call returns the
-	    %% supported HOST key types while we are interested in USER keys. However,
-	    %% they "happens" to be the same (for now).  This could change....
-	    %% There is no danger as long as the set of user keys is a subset of the set
-	    %% of host keys.
-	    CryptoSupported = ssh_transport:supported_algorithms(public_key),
-	    Algs = [A || A <- Algs0,
-			 lists:member(A, CryptoSupported)],
-
-	    Prefs = method_preference(Algs),
-	    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
-						  userauth_preference = Prefs,
-						  userauth_methods = none,
-						  service = "ssh-connection"})
+            ssh_transport:ssh_packet(
+              #ssh_msg_userauth_request{user = User,
+                                        service = "ssh-connection",
+                                        method = "none",
+                                        data = <<>>},
+              Ssh#ssh{user = User,
+                      userauth_preference = 
+                          method_preference(?GET_OPT(pref_public_key_algs, Opts)),
+                      userauth_methods = none,
+                      service = "ssh-connection"}
+             )
     end.
 
 %%%----------------------------------------------------------------
@@ -453,14 +446,14 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{},
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-method_preference(Algs) ->
-    lists:foldr(fun(A, Acc) ->
-		       [{"publickey", ?MODULE, publickey_msg, [A]} | Acc]
-	       end, 
-	       [{"password", ?MODULE, password_msg, []},
-		{"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []}
-	       ],
-	       Algs).
+method_preference(PubKeyAlgs) ->
+    %% PubKeyAlgs: List of user (client) public key algorithms to try to use.
+    %% All of the acceptable algorithms is the default values.
+    PubKeyDefs = [{"publickey", ?MODULE, publickey_msg, [A]} || A <- PubKeyAlgs],
+    NonPKmethods = [{"password", ?MODULE, password_msg, []},
+                    {"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []}
+                   ],
+    PubKeyDefs ++ NonPKmethods.
 
 check_password(User, Password, Opts, Ssh) ->
     case ?GET_OPT(pwdfun, Opts) of
