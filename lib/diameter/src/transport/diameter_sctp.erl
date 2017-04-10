@@ -88,7 +88,9 @@
                         %% {RAs, RP, Errors}
                | connect,
          socket   :: gen_sctp:sctp_socket() | undefined,
-         assoc_id :: gen_sctp:assoc_id(),  %% association identifier
+         assoc_id :: gen_sctp:assoc_id()   %% association identifier
+                   | undefined
+                   | true,
          peer     :: {[inet:ip_address()], uint()} %% {RAs, RP}
                    | undefined,
          streams  :: {uint(), uint()}      %% {InStream, OutStream} counts
@@ -676,7 +678,9 @@ recv({_, #sctp_assoc_change{state = comm_up,
      = S) ->
     Ref = getr(?REF_KEY),
     publish(T, Ref, Id, Sock),
-    up(S#transport{assoc_id = Id,
+    %% Deal with different association id after peeloff on Solaris by
+    %% taking the id from the first reception.
+    up(S#transport{assoc_id = T == accept orelse Id,
                    streams = {IS, OS}});
 
 %% ... or not: try the next address.
@@ -691,16 +695,24 @@ recv({_, #sctp_assoc_change{} = E},
 recv({_, #sctp_assoc_change{}}, _) ->
     stop;
 
+%% First inbound on an accepting transport.
+recv({[#sctp_sndrcvinfo{assoc_id = Id}], _Bin}
+     = T,
+     #transport{assoc_id = true}
+     = S) ->
+    recv(T, S#transport{assoc_id = Id});
+
 %% Inbound Diameter message.
-recv({[#sctp_sndrcvinfo{stream = Id}], Bin}, #transport{parent = Pid})
+recv({[#sctp_sndrcvinfo{stream = Id}], Bin}, #transport{parent = Pid} = S)
   when is_binary(Bin) ->
     diameter_peer:recv(Pid, #diameter_packet{transport_data = {stream, Id},
                                              bin = Bin}),
-    ok;
+    S;
 
 recv({_, #sctp_shutdown_event{assoc_id = A}},
      #transport{assoc_id = Id})
-  when A == Id;
+  when Id;
+       A == Id;
        A == 0 ->
     stop;
 

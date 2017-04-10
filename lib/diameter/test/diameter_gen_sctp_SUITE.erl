@@ -228,33 +228,49 @@ accept_loop(Sock, MRef) ->
 %% Server process that answers incoming messages as long as the parent
 %% lives.
 
-assoc(MRef, Id, OS)
+assoc(MRef, _Id, OS)
   when is_reference(MRef) ->
     {peeloff, Sock} = receive T -> T end,
-    recv_loop(Sock, Id, sender(Sock, Id, OS), MRef).
+    recv_loop(Sock, false, sender(Sock, false, OS), MRef).
 
 %% recv_loop/4
 
 recv_loop(Sock, Id, Pid, MRef) ->
     ok = inet:setopts(Sock, [{active, once}]),
-    receive
-        ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = I}], B})
-          when is_binary(B) ->
-            T2 = diameter_lib:now(),
-            I = Id,                      %% assert
-            <<?MAGIC, Bin/binary>> = B,  %% assert
-            {[_,_,_,Sz] = L, Bytes} = unmark(Bin),
-            Sz = size(Bin) - Bytes,      %% assert
-            <<_:Bytes/binary, Body:Sz/binary>> = Bin,
-            send(Pid, [T2|L], Body),  %% answer
-            recv_loop(Sock, Id, Pid, MRef);
-        ?SCTP(Sock, _) ->
-            recv_loop(Sock, Id, Pid, MRef);
-        {'DOWN', MRef, process, _, Reason} ->
-            Reason;
-        T ->
-            error(T)
-    end.
+    recv(Sock, Id, Pid, MRef, receive T -> T end).
+
+%% recv/5
+
+%% Association id can change on a peeloff socket on some versions of
+%% Solaris.
+recv(Sock,
+     false,
+     Pid,
+     MRef,
+     ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = Id}], _})
+     = T) ->
+    Pid ! {assoc_id, Id},
+    recv(Sock, Id, Pid, MRef, T);
+
+recv(Sock, Id, Pid, MRef, ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = I}], B}))
+  when is_binary(B) ->
+    T2 = diameter_lib:now(),
+    Id = I,                      %% assert
+    <<?MAGIC, Bin/binary>> = B,  %% assert
+    {[_,_,_,Sz] = L, Bytes} = unmark(Bin),
+    Sz = size(Bin) - Bytes,      %% assert
+    <<_:Bytes/binary, Body:Sz/binary>> = Bin,
+    send(Pid, [T2|L], Body),  %% answer
+    recv_loop(Sock, Id, Pid, MRef);
+
+recv(Sock, Id, Pid, MRef, ?SCTP(Sock, _)) ->
+    recv_loop(Sock, Id, Pid, MRef);
+
+recv(_, _, _, MRef, {'DOWN', MRef, process, _, Reason}) ->
+    Reason;
+
+recv(_, _, _, _, T) ->
+    error(T).
 
 %% send/3
 
@@ -273,6 +289,8 @@ sender(Sock, Id, OS) ->
 
 send_loop(Sock, Id, OS, N, MRef) ->
     receive
+        {assoc_id, I} ->
+            send_loop(Sock, I, OS, N, MRef);
         {send, L, Body} ->
             Stream = N rem OS,
             ok = send(Sock, Id, Stream, mark(Body, [N, Stream | L])),
