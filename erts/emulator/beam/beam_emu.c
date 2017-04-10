@@ -3044,10 +3044,12 @@ do {						\
      GetArg2(2, Op1, Op2);
      if (is_both_small(Op1, Op2)) {
 	 /*
-	  * We could extract the tag from one argument, but a tag extraction
-	  * could mean a shift.  Therefore, play it safe here.
+          * TAG ^ TAG == 0.
+          *
+          * Therefore, we perform the XOR operation on the tagged values,
+          * and OR in the tag bits.
 	  */
-	 Eterm result = make_small(signed_val(Op1) ^ signed_val(Op2));
+	 Eterm result = (Op1 ^ Op2) | make_small(0);
 	 StoreBifResult(4, result);
      }
      DO_OUTLINED_ARITH_2(bxor, Op1, Op2);
