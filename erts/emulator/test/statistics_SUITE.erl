@@ -329,9 +329,9 @@ scheduler_wall_time_test(Type) ->
         %% 50% load
         HalfHogs = [StartHog() || _ <- lists:seq(1, (Schedulers-1) div 2)],
         HalfDirtyCPUHogs = [StartDirtyHog(dirty_cpu)
-                            || _ <- lists:seq(1, DirtyCPUSchedulers div 2)],
+                            || _ <- lists:seq(1, lists:max([1,DirtyCPUSchedulers div 2]))],
         HalfDirtyIOHogs = [StartDirtyHog(dirty_io)
-                           || _ <- lists:seq(1, DirtyIOSchedulers div 2)],
+                           || _ <- lists:seq(1, lists:max([1,DirtyIOSchedulers div 2]))],
         HalfLoad = lists:sum(get_load(Type)) div TotLoadSchedulers,
         if Schedulers < 2, HalfLoad > 80 -> ok; %% Ok only one scheduler online and one hog
            %% We want roughly 50% load

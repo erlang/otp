@@ -1087,12 +1087,8 @@ scheduler_threads(Config) when is_list(Config) ->
     {Sched, SchedOnln, _} = get_sstate(Config, ""),
     %% Configure half the number of both the scheduler threads and
     %% the scheduler threads online.
-    {HalfSched, HalfSchedOnln} = case SmpSupport of
-                                     false -> {1,1};
-                                     true ->
-                                         {Sched div 2,
-                                          SchedOnln div 2}
-                                 end,
+    {HalfSched, HalfSchedOnln} = {lists:max([1,Sched div 2]),
+                                  lists:max([1,SchedOnln div 2])},
     {HalfSched, HalfSchedOnln, _} = get_sstate(Config, "+SP 50:50"),
     %% Use +S to configure 4x the number of scheduler threads and
     %% 4x the number of scheduler threads online, but alter that
@@ -1149,12 +1145,8 @@ dirty_scheduler_threads(Config) when is_list(Config) ->
 dirty_scheduler_threads_test(Config) ->
     SmpSupport = erlang:system_info(smp_support),
     {Sched, SchedOnln, _} = get_dsstate(Config, ""),
-    {HalfSched, HalfSchedOnln} = case SmpSupport of
-                                     false -> {1,1};
-                                     true ->
-                                         {Sched div 2,
-                                          SchedOnln div 2}
-                                 end,
+    {HalfSched, HalfSchedOnln} = {lists:max([1,Sched div 2]),
+                                  lists:max([1,SchedOnln div 2])},
     Cmd1 = "+SDcpu "++integer_to_list(HalfSched)++":"++
 	integer_to_list(HalfSchedOnln),
     {HalfSched, HalfSchedOnln, _} = get_dsstate(Config, Cmd1),
