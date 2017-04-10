@@ -544,7 +544,7 @@ t_clause(Name, Type, Opts) ->
 
 pp_clause(Pre, Type, Opts) ->
     Types = ot_utype([Type]),
-    Atom = lists:duplicate(string:length(Pre), $a),
+    Atom = lists:duplicate(string_length(Pre), $a),
     Attr = {attribute,0,spec,{{list_to_atom(Atom),0},[Types]}},
     L1 = erl_pp:attribute(erl_parse:new_anno(Attr),
                           [{encoding, Opts#opts.encoding}]),
@@ -566,7 +566,7 @@ format_type(Prefix, _Name, Type, Last, Opts) ->
     [{tt, Prefix ++ [" = "] ++ t_utype(Type, Opts) ++ Last}].
 
 pp_type(Prefix, Type, Opts) ->
-    Atom = list_to_atom(lists:duplicate(string:length(Prefix), $a)),
+    Atom = list_to_atom(lists:duplicate(string_length(Prefix), $a)),
     Attr = {attribute,0,type,{Atom,ot_utype(Type),[]}},
     L1 = erl_pp:attribute(erl_parse:new_anno(Attr),
                           [{encoding, Opts#opts.encoding}]),
@@ -767,6 +767,18 @@ atom(String, #opts{encoding = latin1}) ->
     io_lib:write_atom_as_latin1(list_to_atom(String));
 atom(String, #opts{encoding = utf8}) ->
     io_lib:write_atom(list_to_atom(String)).
+
+-dialyzer({nowarn_function, string_length/1}).
+string_length(Data) ->
+    try iolist_size(Data)
+    catch
+        _:_ ->
+            try string:length(Data)
+            catch
+                _:_ ->
+                    20
+            end
+    end.
 
 %% <!ATTLIST author
 %%   name CDATA #REQUIRED
