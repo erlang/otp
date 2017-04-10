@@ -773,7 +773,10 @@ string_length(Data) ->
     try iolist_size(Data)
     catch
         _:_ ->
-            try string:length(Data)
+            M = string,
+            F = length,
+            As = [Data],
+            try apply(M, F, As)
             catch
                 _:_ ->
                     20
