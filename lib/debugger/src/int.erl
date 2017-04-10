@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -533,7 +533,9 @@ load({Mod, Src, Beam, BeamBin, Exp, Abst}, Dist) ->
     case erl_prim_loader:get_file(filename:absname(Src)) of
 	{ok, SrcBin, _} ->
 	    MD5 = code:module_md5(BeamBin),
-	    Bin = term_to_binary({interpreter_module,Exp,Abst,SrcBin,MD5}),
+            SrcBin1 = unicode:characters_to_binary(SrcBin, enc(SrcBin)),
+            true = is_binary(SrcBin1),
+	    Bin = term_to_binary({interpreter_module,Exp,Abst,SrcBin1,MD5}),
 	    {module, Mod} = dbg_iserver:safe_call({load, Mod, Src, Bin}),
 	    _ = everywhere(Dist,
 			   fun() ->

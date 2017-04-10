@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -854,7 +854,7 @@ q                 - quit erlang
       <c>{history, N}</c>, where <c>N</c> is the current command number. The
       function is to return a list of characters or an atom. This
       constraint is because of the Erlang I/O protocol. Unicode characters
-      beyond code point 255 are allowed in the list. Notice
+      beyond code point 255 are allowed in the list and the atom. Notice
       that in restricted mode the call <c>Mod:Func(L)</c> must be
       allowed or the default shell prompt function is called.</p>
   </section>

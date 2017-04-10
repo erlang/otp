@@ -197,7 +197,7 @@ application(App, Dir, Options) when is_atom(App) ->
 			     ?OVERVIEW_FILE),
     Opts = Options ++ [{source_path, [Src]},
 		       subpackages,
-		       {title, io_lib:fwrite("The ~s application", [App])},
+		       {title, io_lib:fwrite("The ~ts application", [App])},
 		       {overview, Overview},
 		       {dir, filename:join(Dir, ?EDOC_DIR)},
 		       {includes, [filename:join(Dir, "include")]}],

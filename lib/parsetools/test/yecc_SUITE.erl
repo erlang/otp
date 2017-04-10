@@ -50,7 +50,7 @@
 	 otp_5369/1, otp_6362/1, otp_7945/1, otp_8483/1, otp_8486/1,
 	 
 	 otp_7292/1, otp_7969/1, otp_8919/1, otp_10302/1, otp_11269/1,
-         otp_11286/1]).
+         otp_11286/1, otp_14285/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -78,7 +78,7 @@ groups() ->
      {bugs, [],
       [otp_5369, otp_6362, otp_7945, otp_8483, otp_8486]},
      {improvements, [], [otp_7292, otp_7969, otp_8919, otp_10302,
-                         otp_11269, otp_11286]}].
+                         otp_11269, otp_11286, otp_14285]}].
 
 init_per_suite(Config) ->
     Config.
@@ -2046,6 +2046,90 @@ otp_11286(Config) when is_list(Config) ->
     {ok,_,_Warnings} = rpc:call(Node, compile, file, [ErlFile, Opts]),
 
     true = test_server:stop_node(Node),
+    ok.
+
+otp_14285(Config) ->
+    Dir = ?privdir,
+    YeccPre = filename:join(Dir, "yeccpre.hrl"),
+    ?line ok = file:write_file(YeccPre,
+                               [<<"-export([t/0]).\n">>,my_yeccpre()]),
+
+    T0 = <<"
+        Nonterminals '\\x{400}'. 
+        Terminals t.
+        Rootsymbol '\\x{400}'.
+       '\\x{400}' -> t : '$1'.
+       Erlang code.
+       t() ->
+           L = [{t, 1}],
+           {ok, R} = parse(L),
+           {t, 1} = R,
+           ok.">>,
+    Ts0 = [{otp_14285_1,
+           [<<"%% coding: Latin-1\n">>,T0],YeccPre,ok},
+         {otp_14285_2,
+           [<<"%% coding: coding: UTF-8\n">>,T0],YeccPre,ok}],
+    run(Config, Ts0),
+    file:delete(YeccPre),
+
+    T1 = <<"
+        Nonterminals '1\\x{400}' list 'unused\\x{400}'.
+        Terminals '2\\x{400}'.
+        Rootsymbol '1\\x{400}'.
+
+        '1\\x{400}' -> list : '$1'.
+
+        list -> '2\\x{400}' : '$1'.
+        list -> list '2\\x{400}' : {foo,'\\x{400}'}.
+
+        Erlang code.
+
+        -export([t/0]).
+
+        t() ->
+            L = [{'2\\x{400}', 1}, {'2\\x{400}',2}],
+            {ok, R} = parse(L),
+            {foo,A} = R,
+            '\\x{400}' = A,
+            [1024] = atom_to_list(A),
+            ok.">>,
+
+    Ts1 = [{otp_14285_3,
+            [<<"%% coding: Latin-1\n">>,T1],default,ok},
+           {otp_14285_4,
+            [<<"%% coding: UTF-8\n">>,T1],default,ok}],
+    run(Config, Ts1),
+
+    T2 = <<"
+        Nonterminals E.
+        Terminals '-' '+' '=' id.
+        Rootsymbol E.
+        Endsymbol '\\x{400}'.
+
+        E -> E '=' E : {op, '=', '$1', '$3'}.
+        E -> E '+' E  : {op, '+', '$1', '$3'}.
+        E -> '-' E : {op, '-', '$2'}.
+        E -> id : '$1'.
+
+        Nonassoc 100 '='.
+        Right 200 '+' '-'.
+
+        Erlang code.
+
+        -export([t/0]).
+
+        t() ->
+            {ok,{op,'=',{id,1},{op,'-',{op,'+',{id,4},{id,6}}}}} = 
+                parse([{id,1},{'=',2},{'-',3},{id,4},{'+',5},{id,6},
+                      {'\\x{400}',1}]),
+            ok.">>,
+
+    Ts2 = [{otp_14285_5,
+            [<<"%% coding: Latin-1\n">>,T2],default,ok},
+           {otp_14285_6,
+            [<<"%% coding: UTF-8\n">>,T2],default,ok}],
+    run(Config, Ts2),
+
     ok.
 
 start_node(Name, Args) ->

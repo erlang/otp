@@ -488,8 +488,15 @@ find_names([P | Ps], Ns) ->
 	    find_names([P1 | Ps], Ns);
 	record_expr ->
 	    A = erl_syntax:record_expr_type(P),
-	    N = list_to_atom(capitalize(erl_syntax:atom_name(A))),
-	    find_names(Ps, [N | Ns]);
+            AtomName = erl_syntax:atom_name(A),
+            Atom = list_to_atom(AtomName),
+            case AtomName =:= lists:flatten(io_lib:write_atom(Atom)) of
+                true ->
+                    N = list_to_atom(capitalize(AtomName)),
+                    find_names(Ps, [N | Ns]);
+                false ->
+                    find_names(Ps, Ns)
+            end;
 	infix_expr ->
 	    %% this can only be a '++' operation
 	    P1 = erl_syntax:infix_expr_right(P),
@@ -540,6 +547,7 @@ tidy_name_1(Cs) -> [$_ | Cs].
 %% Change initial character from lowercase to uppercase.
 
 capitalize([C | Cs]) when C >= $a, C =< $z -> [C - 32 | Cs];
+capitalize([C | Cs]) when C >= $\340, C =< $\376, C /= $\367 -> [C - 32 | Cs];
 capitalize(Cs) -> Cs.
 
 %% Collects the tags belonging to each entry, checks them, expands

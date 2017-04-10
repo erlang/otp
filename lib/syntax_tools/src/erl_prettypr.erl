@@ -452,7 +452,7 @@ lay_2(Node, Ctxt) ->
 	    text(erl_syntax:variable_literal(Node));
 	
 	atom ->
-	    text(erl_syntax:atom_literal(Node));
+	    text(erl_syntax:atom_literal(Node, Ctxt#ctxt.encoding));
 	
 	integer ->
 	    text(erl_syntax:integer_literal(Node));

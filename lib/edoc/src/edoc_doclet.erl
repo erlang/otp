@@ -152,7 +152,7 @@ title(App, Options) ->
 			if App == ?NO_APP ->
 				"Overview";
 			   true ->
-				io_lib:fwrite("Application: ~s", [App])
+				io_lib:fwrite("Application: ~ts", [App])
 			end).
 
 

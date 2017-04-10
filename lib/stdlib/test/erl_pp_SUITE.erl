@@ -51,7 +51,7 @@
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
           otp_10302/1, otp_10820/1, otp_11100/1, otp_11861/1, pr_1014/1,
-          otp_13662/1]).
+          otp_13662/1, otp_14285/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -80,7 +80,8 @@ groups() ->
      {tickets, [],
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
-       otp_10302, otp_10820, otp_11100, otp_11861, pr_1014, otp_13662]}].
+       otp_10302, otp_10820, otp_11100, otp_11861, pr_1014, otp_13662,
+       otp_14285]}].
 
 init_per_suite(Config) ->
     Config.
@@ -627,11 +628,6 @@ do_hook(HookFun) ->
     true =
         "{some,value}" =:= lists:flatten(erl_pp:expr({value,A0,{some,value}})),
 
-    %% Silly...
-    true =
-        "if true -> 0 end" =:=
-              flat_expr({'if',0,[{clause,0,[],[],[{atom,0,0}]}]}),
-
     %% More compatibility: before R6
     OldIf = {'if',A0,[{clause,A0,[],[{atom,A0,true}],[{atom,A0,b}]}]},
     NewIf = {'if',A0,[{clause,A0,[],[[{atom,A0,true}]],[{atom,A0,b}]}]},
@@ -1069,9 +1065,6 @@ otp_11100(Config) when is_list(Config) ->
     %% doesn't make a difference (pp:bit_elem_type/1 is an example).
 
     A1 = erl_anno:new(1),
-    %% Cannot trigger the use of the hook function with export/import.
-    "-export([{fy,a}/b]).\n" =
-        pf({attribute,A1,export,[{{fy,a},b}]}),
     "-type foo() :: integer(INVALID-FORM:{foo,bar}:).\n" =
         pf({attribute,A1,type,{foo,{type,A1,integer,[{foo,bar}]},[]}}),
     pf({attribute,A1,type,
@@ -1145,6 +1138,34 @@ otp_13662(Config) ->
                 \"aaaaaaaaaaaaaaaaaaaaaa\".\n">>}
           ],
     compile(Config, Ts).
+
+otp_14285(_Config) ->
+    pp_forms(<<"-export([t/0, '\\x{400}\\''/0]).">>),
+    pp_forms(<<"-import(lists, [append/2]).">>),
+    pp_forms(<<"-optional_callbacks([]).">>),
+    pp_forms(<<"-optional_callbacks(['\\x{400}\\''/1]).">>),
+    pp_forms(<<"-'\\x{400}\\''('\\x{400}\\'').">>),
+    pp_forms(<<"-type '\\x{400}\\''() :: '\\x{400}\\''.">>),
+    pp_forms(<<"-record('\\x{400}\\'', {'\\x{400}\\''}).">>),
+    pp_forms(<<"-callback '\\x{400}\\''(_) -> '\\x{400}\\''.">>),
+    pp_forms(<<"t() -> '\\x{400}\\''('\\x{400}\\'').">>),
+    pp_forms(<<"'\\x{400}\\''(_) -> '\\x{400}\\''.">>),
+    pp_forms(<<"-spec '\\x{400}'() -> "
+               "#'\\x{400}'{'\\x{400}' :: '\\x{400}'}.">>),
+    pp_forms(<<"'\\x{400}\\''() ->"
+               "R = #'\\x{400}\\''{},"
+               "#'\\x{400}\\''{'\\x{400}\\'' ="
+               "{'\\x{400}\\'',"
+               "fun '\\x{400}\\''/0,"
+               "R#'\\x{400}\\''.'\\x{400}\\'',"
+               "#'\\x{400}\\''.'\\x{400}\\''}}.">>),
+
+    %% Special...
+    true =
+        "{some,'\\x{400}\\''}" =:=
+        lists:flatten(erl_pp:expr({value,erl_anno:new(0),{some,'\x{400}\''}},
+                                  [{encoding,latin1}])),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

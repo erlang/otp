@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@
 	 
 	 pt/1, man/1, ex/1, ex2/1, not_yet/1,
 	 line_wrap/1,
-	 otp_10302/1, otp_11286/1, unicode/1, otp_13916/1]).
+	 otp_10302/1, otp_11286/1, unicode/1, otp_13916/1, otp_14285/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -67,7 +67,7 @@ all() ->
 groups() -> 
     [{checks, [], [file, compile, syntax]},
      {examples, [], [pt, man, ex, ex2, not_yet, unicode]},
-     {tickets, [], [otp_10302, otp_11286, otp_13916]},
+     {tickets, [], [otp_10302, otp_11286, otp_13916, otp_14285]},
      {bugs, [], [line_wrap]}].
 
 init_per_suite(Config) ->
@@ -1129,6 +1129,45 @@ otp_13916(Config) when is_list(Config) ->
            default,
            ok}],
     ?line run(Config, Ts),
+    ok.
+
+otp_14285(Config) ->
+    Dir = ?privdir,
+    Filename = filename:join(Dir, "file.xrl"),
+
+    Ts = [{otp_14285_1,
+           <<"%% encoding: latin-1\n"
+             "Definitions.\n"
+             "A = a\n"
+             "Z = z\n"
+             "L = [{A}-{Z}]\n"
+             "U = [\\x{400}]\n"
+             "Rules.\n"
+             "{L}+ : {token,l}.\n"
+             "{U}+ : {token,'\\x{400}'}.\n"
+             "Erlang code.\n"
+             "-export([t/0]).\n"
+             "t() ->\n"
+             "    {ok,['\\x{400}'],1} = string(\"\\x{400}\"), ok.\n">>,
+           default,
+           ok},
+          {otp_14285_2,
+           <<"%% encoding: UTF-8\n"
+             "Definitions.\n"
+             "A = a\n"
+             "Z = z\n"
+             "L = [{A}-{Z}]\n"
+             "U = [\x{400}]\n"
+             "Rules.\n"
+             "{L}+ : {token,l}.\n"
+             "{U}+ : {token,'\x{400}'}.\n"
+             "Erlang code.\n"
+             "-export([t/0]).\n"
+             "t() ->\n"
+             "    {ok,['\x{400}'],1} = string(\"\x{400}\"), ok.\n">>,
+           default,
+           ok}],
+    run(Config, Ts),
     ok.
 
 start_node(Name, Args) ->

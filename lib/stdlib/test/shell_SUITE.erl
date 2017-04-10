@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,8 @@
 	 progex_bit_syntax/1, progex_records/1, 
 	 progex_lc/1, progex_funs/1,
 	 otp_5990/1, otp_6166/1, otp_6554/1,
-	 otp_7184/1, otp_7232/1, otp_8393/1, otp_10302/1, otp_13719/1]).
+	 otp_7184/1, otp_7232/1, otp_8393/1, otp_10302/1, otp_13719/1,
+         otp_14285/1]).
 
 -export([ start_restricted_from_shell/1, 
 	  start_restricted_on_command_line/1,restricted_local/1]).
@@ -91,7 +92,7 @@ groups() ->
        progex_funs]},
      {tickets, [],
       [otp_5990, otp_6166, otp_6554, otp_7184,
-       otp_7232, otp_8393, otp_10302, otp_13719]}].
+       otp_7232, otp_8393, otp_10302, otp_13719, otp_14285]}].
 
 init_per_suite(Config) ->
     Config.
@@ -2822,6 +2823,22 @@ otp_13719(Config) when is_list(Config) ->
     "[bar,foo]\n#foo{bar = undefined}.\n" = t(RR),
     file:delete(filename("test.beam", Config)),
     file:delete(File),
+    ok.
+
+otp_14285(Config) ->
+    {ok,Node} = start_node(shell_suite_helper_4,
+			   "-pa "++proplists:get_value(priv_dir,Config)++
+			   " +pc unicode"),
+    Test1 =
+        <<"begin
+               io:setopts([{encoding,utf8}]),
+               [1024] = atom_to_list('\\x{400}'),
+               rd('\\x{400}', {'\\x{400}' = '\\x{400}'}),
+               ok = rl('\\x{400}')
+           end.">>,
+    "-record('\x{400}',{'\x{400}' = '\x{400}'}).\nok.\n" =
+        t({Node,Test1}),
+    test_server:stop_node(Node),
     ok.
 
 scan(B) ->
