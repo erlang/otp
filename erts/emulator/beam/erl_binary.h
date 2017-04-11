@@ -411,6 +411,7 @@ erts_bin_nrml_alloc(Uint size)
     ERTS_CHK_BIN_ALIGNMENT(res);
     res->orig_size = size;
     res->flags = 0;
+    erts_refc_init(&res->refc, 1);
     return res;
 }
 

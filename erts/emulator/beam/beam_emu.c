@@ -3885,7 +3885,6 @@ do {						\
 	  * Allocate the binary struct itself.
 	  */
 	 bptr = erts_bin_nrml_alloc(num_bytes);
-	 erts_refc_init(&bptr->refc, 1);
 	 erts_current_bin = (byte *) bptr->orig_bytes;
 
 	 /*
@@ -3980,7 +3979,6 @@ do {						\
 	  * Allocate the binary struct itself.
 	  */
 	 bptr = erts_bin_nrml_alloc(BsOp1);
-	 erts_refc_init(&bptr->refc, 1);
 	 erts_current_bin = (byte *) bptr->orig_bytes;
 
 	 /*

@@ -1875,7 +1875,6 @@ trace_port_tmp_binary(char *bin, Sint sz, Binary **bptrp, Eterm **hp)
     } else {
         ProcBin* pb = (ProcBin *)*hp;
         Binary *bptr = erts_bin_nrml_alloc(sz);
-        erts_refc_init(&bptr->refc, 1);
         sys_memcpy(bptr->orig_bytes, bin, sz);
         pb->thing_word = HEADER_PROC_BIN;
         pb->size = sz;

@@ -1821,7 +1821,7 @@ static int ttb_context_destructor(Binary *context_bin)
 	case TTBEncode:
 	    DESTROY_SAVED_WSTACK(&context->s.ec.wstack);
 	    if (context->s.ec.result_bin != NULL) { /* Set to NULL if ever made alive! */
-		ASSERT(erts_refc_read(&(context->s.ec.result_bin->refc),0) == 0);
+		ASSERT(erts_refc_read(&(context->s.ec.result_bin->refc),1));
 		erts_bin_free(context->s.ec.result_bin);
 		context->s.ec.result_bin = NULL;
 	    }
@@ -1830,13 +1830,13 @@ static int ttb_context_destructor(Binary *context_bin)
 	    erl_zlib_deflate_finish(&(context->s.cc.stream));
 
 	    if (context->s.cc.destination_bin != NULL) { /* Set to NULL if ever made alive! */
-		ASSERT(erts_refc_read(&(context->s.cc.destination_bin->refc),0) == 0);
+		ASSERT(erts_refc_read(&(context->s.cc.destination_bin->refc),1));
 		erts_bin_free(context->s.cc.destination_bin);
 		context->s.cc.destination_bin = NULL;
 	    }
 	    
 	    if (context->s.cc.result_bin != NULL) { /* Set to NULL if ever made alive! */
-		ASSERT(erts_refc_read(&(context->s.cc.result_bin->refc),0) == 0);
+		ASSERT(erts_refc_read(&(context->s.cc.result_bin->refc),1));
 		erts_bin_free(context->s.cc.result_bin);
 		context->s.cc.result_bin = NULL;
 	    }
@@ -1920,7 +1920,6 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		}
 
 		result_bin = erts_bin_nrml_alloc(size);
-		erts_refc_init(&result_bin->refc, 0);
 		result_bin->orig_bytes[0] = VERSION_MAGIC;
 		/* Next state immediately, no need to export context */
 		context->state = TTBEncode;
@@ -1960,7 +1959,6 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		    pb->bytes = (byte*) result_bin->orig_bytes;
 		    pb->flags = 0;
 		    OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
-		    erts_refc_inc(&result_bin->refc, 1);
 		    if (context_b && erts_refc_read(&context_b->refc,0) == 0) {
 			erts_bin_free(context_b);
 		    }
@@ -1980,7 +1978,6 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		context->s.cc.result_bin = result_bin;
 
 		result_bin = erts_bin_nrml_alloc(real_size);
-		erts_refc_init(&result_bin->refc, 0);
 		result_bin->orig_bytes[0] = VERSION_MAGIC;
 
 		context->s.cc.destination_bin = result_bin;
@@ -2028,10 +2025,10 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 			pb->next = MSO(p).first;
 			MSO(p).first = (struct erl_off_heap_header*)pb;
 			pb->val = result_bin;
+			ASSERT(erts_refc_read(&result_bin->refc, 1));
 			pb->bytes = (byte*) result_bin->orig_bytes;
 			pb->flags = 0;
 			OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
-			erts_refc_inc(&result_bin->refc, 1);
 			erts_bin_free(context->s.cc.result_bin);
 			context->s.cc.result_bin = NULL;
 			context->alive = 0;
@@ -2055,7 +2052,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		    pb->bytes = (byte*) result_bin->orig_bytes;
 		    pb->flags = 0;
 		    OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
-		    erts_refc_inc(&result_bin->refc, 1);
+		    ASSERT(erts_refc_read(&result_bin->refc, 1));
 		    erl_zlib_deflate_finish(&(context->s.cc.stream));
 		    erts_bin_free(context->s.cc.destination_bin);
 		    context->s.cc.destination_bin = NULL;
@@ -3536,7 +3533,6 @@ dec_term_atom_common:
 		} else {
 		    Binary* dbin = erts_bin_nrml_alloc(n);
 		    ProcBin* pb;
-		    erts_refc_init(&dbin->refc, 1);
 		    pb = (ProcBin *) hp;
 		    hp += PROC_BIN_SIZE;
 		    pb->thing_word = HEADER_PROC_BIN;
@@ -3589,7 +3585,6 @@ dec_term_atom_common:
 		    Binary* dbin = erts_bin_nrml_alloc(n);
 		    ProcBin* pb;
 
-		    erts_refc_init(&dbin->refc, 1);
 		    pb = (ProcBin *) hp;
 		    pb->thing_word = HEADER_PROC_BIN;
 		    pb->size = n;
