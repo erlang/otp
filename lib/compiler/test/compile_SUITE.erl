@@ -865,9 +865,7 @@ do_core_roundtrip_2(M, Core0, Outdir) ->
     case cmp_core(Core0, Core, M) of
 	true -> ok;
 	false -> error
-    end,
-
-    ok.
+    end.
 
 undo_var_translation(Tree) ->
     F = fun(Node) ->
@@ -920,11 +918,72 @@ diff(E, E) ->
 diff([H1|T1], [H2|T2]) ->
     [diff(H1, H2)|diff(T1, T2)];
 diff(T1, T2) when tuple_size(T1) =:= tuple_size(T2) ->
-    L = diff(tuple_to_list(T1), tuple_to_list(T2)),
-    list_to_tuple(L);
+    case cerl:is_c_var(T1) andalso cerl:is_c_var(T2) of
+        true ->
+            diff_var(T1, T2);
+        false ->
+            case cerl:is_c_map(T1) andalso cerl:is_c_map(T2) of
+                true ->
+                    diff_map(T1, T2);
+                false ->
+                    diff_tuple(T1, T2)
+            end
+    end;
 diff(E1, E2) ->
     {'DIFF',E1,E2}.
 
+diff_var(V1, V2) ->
+    case {cerl:var_name(V1),cerl:var_name(V2)} of
+        {Same,Same} ->
+            V1;
+        {Name1,Name2} ->
+            %% The inliner uses integers as variable names. Such integers
+            %% are read back as atoms.
+            case is_integer(Name1) andalso
+                list_to_atom(integer_to_list(Name1)) =:= Name2 of
+                true ->
+                    V1;
+                _ ->
+                    cerl:update_c_var(V1, {'DIFF',Name1,Name2})
+            end
+    end.
+
+%% Annotations for maps are not preserved exactly, but that is not
+%% a real problem. Workaround by not comparing all annotations when
+%% comparing maps.
+
+diff_map(M, M) ->
+    M;
+diff_map(M1, M2) ->
+    case cerl:get_ann(M1) =:= cerl:get_ann(M2) of
+        false ->
+            diff_tuple(M1, M2);
+        true ->
+            case remove_compiler_gen(M1) =:= remove_compiler_gen(M2) of
+                true ->
+                    M1;
+                false ->
+                    diff_tuple(M1, M2)
+            end
+    end.
+
+diff_tuple(T1, T2) ->
+    L = diff(tuple_to_list(T1), tuple_to_list(T2)),
+    list_to_tuple(L).
+
+remove_compiler_gen(M) ->
+    Arg0 = cerl:map_arg(M),
+    Arg = cerl:set_ann(Arg0, []),
+    Es0 = cerl:map_es(M),
+    Es = [remove_compiler_gen_1(Pair) || Pair <- Es0],
+    cerl:update_c_map(M, Arg, Es).
+
+remove_compiler_gen_1(Pair) ->
+    Op0 = cerl:map_pair_op(Pair),
+    Op = cerl:set_ann(Op0, []),
+    K = cerl:map_pair_key(Pair),
+    V = cerl:map_pair_val(Pair),
+    cerl:update_c_map_pair(Pair, Op, K, V).
 
 %% Compile to Beam assembly language (.S) and then try to
 %% run .S through the compiler again.
