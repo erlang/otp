@@ -381,7 +381,6 @@ if test X${enable_m64_build} = Xyes; then
 else
 	if test X${enable_m32_build} = Xyes;
 	then
-		enable_hipe=no;
 		case $CFLAGS in
 		    *-m32*)
 			    ;;
@@ -642,10 +641,6 @@ dnl Ditto between ultrasparc and sparc64.
 dnl
 AC_MSG_CHECKING(whether compilation mode forces ARCH adjustment)
 case "$ARCH-$ac_cv_sizeof_void_p" in
-i386-8)
-	AC_MSG_RESULT(yes: adjusting ARCH=x86 to ARCH=amd64)
-	ARCH=amd64
-	;;
 x86-8)
 	AC_MSG_RESULT(yes: adjusting ARCH=x86 to ARCH=amd64)
 	ARCH=amd64
@@ -665,6 +660,14 @@ sparc64-4)
 ppc64-4)
 	AC_MSG_RESULT(yes: adjusting ARCH=ppc64 to ARCH=ppc)
 	ARCH=ppc
+	;;
+ppc-8)
+	AC_MSG_RESULT(yes: adjusting ARCH=ppc to ARCH=ppc64)
+	ARCH=ppc64
+	;;
+arm-8)
+	AC_MSG_RESULT(yes: adjusting ARCH=arm to ARCH=noarch)
+	ARCH=noarch
 	;;
 *)
 	AC_MSG_RESULT(no)
