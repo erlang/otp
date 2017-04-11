@@ -54,9 +54,9 @@
 #define HASH_RANGE(PDict) ((PDict)->usedSlots)
 
 #define MAKE_HASH(Term)                                \
-    ((is_small(Term)) ? unsigned_val(Term) :           \
+    ((is_small(Term)) ? (Uint32) unsigned_val(Term) :  \
      ((is_atom(Term)) ?                                \
-      atom_val(Term) :								   \
+      (Uint32) atom_val(Term) :                        \
       make_internal_hash(Term)))
 
 #define PD_SZ2BYTES(Sz) (sizeof(ProcDict) + ((Sz) - 1)*sizeof(Eterm))
