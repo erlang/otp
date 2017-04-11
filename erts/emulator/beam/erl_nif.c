@@ -1074,7 +1074,6 @@ int enif_alloc_binary(size_t size, ErlNifBinary* bin)
     if (refbin == NULL) {
 	return 0; /* The NIF must take action */
     }
-    erts_refc_init(&refbin->refc, 1);
 
     bin->size = size;
     bin->data = (unsigned char*) refbin->orig_bytes;

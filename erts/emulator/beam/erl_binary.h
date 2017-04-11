@@ -375,6 +375,7 @@ erts_bin_drv_alloc_fnf(Uint size)
     if (res) {
 	res->orig_size = size;
 	res->flags = BIN_FLAG_DRV;
+        erts_refc_init(&res->refc, 1);
     }
     return res;
 }
@@ -393,6 +394,7 @@ erts_bin_drv_alloc(Uint size)
     ERTS_CHK_BIN_ALIGNMENT(res);
     res->orig_size = size;
     res->flags = BIN_FLAG_DRV;
+    erts_refc_init(&res->refc, 1);
     return res;
 }
 

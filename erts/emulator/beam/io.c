@@ -6938,7 +6938,6 @@ driver_alloc_binary(ErlDrvSizeT size)
     bin = erts_bin_drv_alloc_fnf((Uint) size);
     if (!bin)
 	return NULL; /* The driver write must take action */
-    erts_refc_init(&bin->refc, 1);
     return Binary2ErlDrvBinary(bin);
 }
 
