@@ -118,91 +118,9 @@ get_core_from_beam(File, Opts) ->
 	  {error, "  Could not get Core Erlang code for: " ++ File ++ "\n"}
       end;
     _ ->
-      deprecated_get_core_from_beam(File, Opts)
+      {error, "  Could not get Core Erlang code for: " ++ File ++ "\n" ++
+        "  Recompile with +debug_info or analyze starting from source code"}
   end.
-
-deprecated_get_core_from_beam(File, Opts) ->
-  case get_abstract_code_from_beam(File) of
-    error ->
-      {error, "  Could not get abstract code for: " ++ File ++ "\n" ++
-       "  Recompile with +debug_info or analyze starting from source code"};
-    {ok, AbstrCode} ->
-      case get_compile_options_from_beam(File) of
-        error ->
-          {error, "  Could not get compile options for: " ++ File ++ "\n" ++
-            "  Recompile or analyze starting from source code"};
-        {ok, CompOpts} ->
-          case get_core_from_abstract_code(AbstrCode, Opts ++ CompOpts) of
-            error ->
-              {error, "  Could not get core Erlang code for: " ++ File};
-            {ok, _} = Core ->
-              Core
-          end
-      end
-  end.
-
-get_abstract_code_from_beam(File) ->
-  case beam_lib:chunks(File, [abstract_code]) of
-    {ok, {_, List}} ->
-      case lists:keyfind(abstract_code, 1, List) of
-        {abstract_code, {raw_abstract_v1, Abstr}} -> {ok, Abstr};
-        _ -> error
-      end;
-    _ ->
-      %% No or unsuitable abstract code.
-      error
-  end.
-
-get_compile_options_from_beam(File) ->
-  case beam_lib:chunks(File, [compile_info]) of
-    {ok, {_, List}} ->
-      case lists:keyfind(compile_info, 1, List) of
-        {compile_info, CompInfo} -> compile_info_to_options(CompInfo);
-        _ -> error
-      end;
-    _ ->
-      %% No or unsuitable compile info.
-      error
-  end.
-
-compile_info_to_options(CompInfo) ->
-  case lists:keyfind(options, 1, CompInfo) of
-    {options, CompOpts} -> {ok, CompOpts};
-    _ -> error
-  end.
-
-get_core_from_abstract_code(AbstrCode, Opts) ->
-  %% We do not want the parse_transforms around since we already
-  %% performed them. In some cases we end up in trouble when
-  %% performing them again.
-  AbstrCode1 = cleanup_parse_transforms(AbstrCode),
-  %% Remove parse_transforms (and other options) from compile options.
-  Opts2 = cleanup_compile_options(Opts),
-  try compile:noenv_forms(AbstrCode1, Opts2 ++ src_compiler_opts()) of
-    {ok, _, Core} -> {ok, Core};
-    _What -> error
-  catch
-    error:_ -> error
-  end.
-
-cleanup_parse_transforms([{attribute, _, compile, {parse_transform, _}}|Left]) ->
-  cleanup_parse_transforms(Left);
-cleanup_parse_transforms([Other|Left]) ->
-  [Other|cleanup_parse_transforms(Left)];
-cleanup_parse_transforms([]) ->
-  [].
-
-cleanup_compile_options(Opts) ->
-  lists:filter(fun keep_compile_option/1, Opts).
-
-%% Using abstract, not asm or core.
-keep_compile_option(from_asm) -> false;
-keep_compile_option(from_core) -> false;
-%% The parse transform will already have been applied, may cause
-%% problems if it is re-applied.
-keep_compile_option({parse_transform, _}) -> false;
-keep_compile_option(warnings_as_errors) -> false;
-keep_compile_option(_) -> true.
 
 %% ============================================================================
 %%
