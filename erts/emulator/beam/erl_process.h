@@ -117,7 +117,11 @@ extern Uint erts_no_dirty_io_schedulers;
 #endif
 extern Uint erts_no_run_queues;
 extern int erts_sched_thread_suggested_stack_size;
-#define ERTS_SCHED_THREAD_MIN_STACK_SIZE 4	/* Kilo words */
+#ifdef ERTS_DIRTY_SCHEDULERS
+extern int erts_dcpu_sched_thread_suggested_stack_size;
+extern int erts_dio_sched_thread_suggested_stack_size;
+#endif
+#define ERTS_SCHED_THREAD_MIN_STACK_SIZE 20	/* Kilo words */
 #define ERTS_SCHED_THREAD_MAX_STACK_SIZE 8192	/* Kilo words */
 
 #ifdef ERTS_SMP

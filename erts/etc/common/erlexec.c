@@ -141,6 +141,8 @@ static char *pluss_val_switches[] = {
     "wt",
     "ws",
     "ss",
+    "ssdcpu",
+    "ssdio",
     "pp",
     "ub",
     NULL

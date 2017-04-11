@@ -1318,8 +1318,22 @@
             <c><![CDATA[+sss size]]></c></tag>
           <item>
             <p>Suggested stack size, in kilowords, for scheduler threads.
-              Valid range is 4-8192 kilowords. The default stack size is
-              OS-dependent.</p>
+              Valid range is 20-8192 kilowords. The default suggested
+	      stack size is 128 kilowords.</p>
+          </item>
+          <tag><marker id="dcpu_sched_thread_stack_size"/>
+            <c><![CDATA[+sssdcpu size]]></c></tag>
+          <item>
+            <p>Suggested stack size, in kilowords, for dirty CPU scheduler
+	      threads. Valid range is 20-8192 kilowords. The default
+	      suggested stack size is 40 kilowords.</p>
+          </item>
+          <tag><marker id="dio_sched_thread_stack_size"/>
+            <c><![CDATA[+sssdio size]]></c></tag>
+          <item>
+            <p>Suggested stack size, in kilowords, for dirty IO scheduler
+	      threads. Valid range is 20-8192 kilowords. The default
+	      suggested stack size is 40 kilowords.</p>
           </item>
           <tag><marker id="+stbt"/><c>+stbt BindType</c></tag>
           <item>
