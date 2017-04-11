@@ -531,7 +531,9 @@ list_contains_opaque(List, Opaques) ->
                                 'error' | {'ok', erl_type(), erl_type()}.
 
 t_find_opaque_mismatch(T1, T2, Opaques) ->
-  catch t_find_opaque_mismatch(T1, T2, T2, Opaques).
+  try t_find_opaque_mismatch(T1, T2, T2, Opaques)
+  catch throw:error -> error
+  end.
 
 t_find_opaque_mismatch(?any, _Type, _TopType, _Opaques) -> error;
 t_find_opaque_mismatch(?none, _Type, _TopType, _Opaques) -> throw(error);
@@ -583,8 +585,9 @@ t_find_opaque_mismatch_ordlists(L1, L2, TopType, Opaques) ->
   t_find_opaque_mismatch_list(List).
 
 t_find_opaque_mismatch_lists(L1, L2, _TopType, Opaques) ->
-  List = [catch t_find_opaque_mismatch(T1, T2, T2, Opaques) ||
-           T1 <- L1, T2 <- L2],
+  List = [try t_find_opaque_mismatch(T1, T2, T2, Opaques)
+          catch throw:error -> error
+          end || T1 <- L1, T2 <- L2],
   t_find_opaque_mismatch_list(List).
 
 t_find_opaque_mismatch_list([]) -> throw(error);
