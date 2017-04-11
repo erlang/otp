@@ -853,15 +853,23 @@ dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I)
 	    goto badarg;
 	esdp = erts_proc_sched_data(c_p);
 	if (!esdp)
-	    ERTS_BIF_PREP_RET(ret, am_error);
-	else if (!ERTS_SCHEDULER_IS_DIRTY(esdp))
+            goto scheduler_type_error;
+      
+        switch (esdp->type) {
+        case ERTS_SCHED_NORMAL:
 	    ERTS_BIF_PREP_RET(ret, am_normal);
-	else if (ERTS_SCHEDULER_IS_DIRTY_CPU(esdp))
+            break;
+        case ERTS_SCHED_DIRTY_CPU:
 	    ERTS_BIF_PREP_RET(ret, am_dirty_cpu);
-	else if (ERTS_SCHEDULER_IS_DIRTY_IO(esdp))
+            break;
+        case ERTS_SCHED_DIRTY_IO:
 	    ERTS_BIF_PREP_RET(ret, am_dirty_io);
-	else
+            break;
+        default:
+        scheduler_type_error:
 	    ERTS_BIF_PREP_RET(ret, am_error);
+            break;
+        }
     }
     else if (am_error == arg1) {
 	switch (arg2) {
