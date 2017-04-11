@@ -5284,7 +5284,7 @@ meta_lookup_unnamed_read(Config) when is_list(Config) ->
 	    end,
     FiniF = fun(Tab) -> true = ets:delete(Tab)
 	    end,
-    run_workers(InitF,ExecF,FiniF,10000).
+    run_smp_workers(InitF,ExecF,FiniF,10000).
 
 meta_lookup_unnamed_write(Config) when is_list(Config) ->
     InitF = fun(_) -> Tab = ets_new(unnamed,[]),
@@ -5295,7 +5295,7 @@ meta_lookup_unnamed_write(Config) when is_list(Config) ->
 	    end,
     FiniF = fun({Tab,_}) -> true = ets:delete(Tab)
 	    end,
-    run_workers(InitF,ExecF,FiniF,10000).
+    run_smp_workers(InitF,ExecF,FiniF,10000).
 
 meta_lookup_named_read(Config) when is_list(Config) ->
     InitF = fun([ProcN|_]) -> Name = list_to_atom(integer_to_list(ProcN)),
@@ -5308,7 +5308,7 @@ meta_lookup_named_read(Config) when is_list(Config) ->
 	    end,
     FiniF = fun(Tab) -> true = ets:delete(Tab)
 	    end,
-    run_workers(InitF,ExecF,FiniF,10000).
+    run_smp_workers(InitF,ExecF,FiniF,10000).
 
 meta_lookup_named_write(Config) when is_list(Config) ->
     InitF = fun([ProcN|_]) -> Name = list_to_atom(integer_to_list(ProcN)),
@@ -5320,7 +5320,7 @@ meta_lookup_named_write(Config) when is_list(Config) ->
 	    end,
     FiniF = fun({Tab,_}) -> true = ets:delete(Tab)
 	    end,
-    run_workers(InitF,ExecF,FiniF,10000).
+    run_smp_workers(InitF,ExecF,FiniF,10000).
 
 meta_newdel_unnamed(Config) when is_list(Config) ->
     InitF = fun(_) -> ok end,
@@ -5328,7 +5328,7 @@ meta_newdel_unnamed(Config) when is_list(Config) ->
 		      true = ets:delete(Tab)
 	    end,
     FiniF = fun(_) -> ok end,
-    run_workers(InitF,ExecF,FiniF,10000).
+    run_smp_workers(InitF,ExecF,FiniF,10000).
 
 meta_newdel_named(Config) when is_list(Config) ->
     InitF = fun([ProcN|_]) -> list_to_atom(integer_to_list(ProcN))
@@ -5338,7 +5338,7 @@ meta_newdel_named(Config) when is_list(Config) ->
 			 Name
 	    end,
     FiniF = fun(_) -> ok end,
-    run_workers(InitF,ExecF,FiniF,10000).
+    run_smp_workers(InitF,ExecF,FiniF,10000).
 
 %% Concurrent insert's on same table.
 smp_insert(Config) when is_list(Config) ->
@@ -5347,7 +5347,7 @@ smp_insert(Config) when is_list(Config) ->
     ExecF = fun(_) -> true = ets:insert(smp_insert,{rand:uniform(10000)})
 	    end,
     FiniF = fun(_) -> ok end,
-    run_workers(InitF,ExecF,FiniF,100000),
+    run_smp_workers(InitF,ExecF,FiniF,100000),
     verify_table_load(smp_insert),
     ets:delete(smp_insert).
 
@@ -5370,7 +5370,7 @@ smp_fixed_delete_do() ->
 		    {Key+Increment,Increment}
 	    end,
     FiniF = fun(_) -> ok end,
-    run_workers_do(InitF,ExecF,FiniF,NumOfObjs),
+    run_sched_workers(InitF,ExecF,FiniF,NumOfObjs),
     0 = ets:info(T,size),
     true = ets:info(T,fixed),
     Buckets = num_of_buckets(T),
@@ -5611,7 +5611,7 @@ smp_select_delete(Config) when is_list(Config) ->
 		    end
 	    end,
     FiniF = fun(Result) -> Result end,
-    Results = run_workers_do(InitF,ExecF,FiniF,20000),
+    Results = run_sched_workers(InitF,ExecF,FiniF,20000),
     TotCnts = lists:foldl(fun(Diffs, Sum) -> add_lists(Sum,tuple_to_list(Diffs)) end,
 			  lists:duplicate(Mod, 0), Results),
     io:format("TotCnts = ~p\n",[TotCnts]),
@@ -5637,40 +5637,43 @@ smp_select_delete(Config) when is_list(Config) ->
     ets:delete(T).
 
 smp_select_replace(Config) when is_list(Config) ->
-    lists:foreach(
-      fun (TableType) ->
-              T = ets_new(smp_select_replace, [TableType, named_table, public,
-                                               {write_concurrency, true}]),
-              WorkerCount = 20,
-              CounterIterations = 10000,
-              InitF = fun (_) -> no_state end,
-              ExecF = fun (State) ->
-                              lists:foreach(
-                                fun F(IterId) ->
-                                        CounterId = rand:uniform(WorkerCount),
-                                        Match = [{{'$1', '$2'},
-                                                  [{'=:=', '$1', CounterId}],
-                                                  [{{'$1', {'+', '$2', 1}}}]}],
-                                        case ets:select_replace(T, Match) of
-                                            1 -> ok;
-                                            0 ->
-                                                ets:insert_new(T, {CounterId, 1}) orelse
-                                                F(IterId)
-                                        end
-                                end,
-                                lists:seq(1, CounterIterations)),
-                              State
-                      end,
-              FiniF = fun (State) -> State end,
-              run_workers_do(InitF, ExecF, FiniF, WorkerCount),
-              FinalCounts = ets:select(T, [{{'_', '$1'}, [], ['$1']}]),
-              TotalIterations = WorkerCount * CounterIterations * erlang:system_info(schedulers),
-              TotalIterations = lists:sum(FinalCounts),
-              WorkerCount = ets:select_delete(T, [{{'_', '_'}, [], [true]}]),
-              0 = ets:info(T, size),
-              ets:delete(T)
-      end,
-      [ordered_set, set, duplicate_bag]).
+    repeat_for_opts(fun smp_select_replace_do/1,
+                    [[set,ordered_set,duplicate_bag]]).
+
+smp_select_replace_do(Opts) ->
+    T = ets_new(smp_select_replace,
+                [public, {write_concurrency, true} | Opts]),
+    ObjCount = 20,
+    InitF = fun (_) -> 0 end,
+    ExecF = fun (Cnt0) ->
+                    CounterId = rand:uniform(ObjCount),
+                    Match = [{{'$1', '$2'},
+                              [{'=:=', '$1', CounterId}],
+                              [{{'$1', {'+', '$2', 1}}}]}],
+                    Cnt1 = case ets:select_replace(T, Match) of
+                               1 -> Cnt0+1;
+                               0 ->
+                                   ets:insert_new(T, {CounterId, 0}),
+                                   Cnt0
+                           end,
+                    receive stop ->
+                            [end_of_work | Cnt1]
+                    after 0 ->
+                            Cnt1
+                    end
+            end,
+    FiniF = fun (Cnt) -> Cnt end,
+    Pids = run_sched_workers(InitF, ExecF, FiniF, infinite),
+    receive after 3*1000 -> ok end,
+    [P ! stop || P <- Pids],
+    Results = wait_pids(Pids),
+    FinalCounts = ets:select(T, [{{'_', '$1'}, [], ['$1']}]),
+    Total = lists:sum(FinalCounts),
+    Total = lists:sum(Results),
+    ObjCount = ets:select_delete(T, [{{'_', '_'}, [], [true]}]),
+    0 = ets:info(T, size),
+    true = ets:delete(T),
+    ok.
 
 %% Test different types.
 types(Config) when is_list(Config) ->
@@ -5734,7 +5737,7 @@ otp_9423(Config) when is_list(Config) ->
 		    end
 	    end,
     FiniF = fun(R) -> R end,
-    case run_workers(InitF, ExecF, FiniF, infinite, 1) of
+    case run_smp_workers(InitF, ExecF, FiniF, infinite, 1) of
 	Pids when is_list(Pids) ->
 	    %%[P ! start || P <- Pids],
 	    repeat(fun() -> ets:new(otp_9423, [named_table, public, {write_concurrency,true}]),
@@ -5886,23 +5889,27 @@ add_lists([],[],Acc) ->
 add_lists([E1|T1], [E2|T2], Acc) ->
     add_lists(T1, T2, [E1+E2 | Acc]).
 
-run_workers(InitF,ExecF,FiniF,Laps) ->
-    run_workers(InitF,ExecF,FiniF,Laps, 0).
-run_workers(InitF,ExecF,FiniF,Laps, Exclude) ->
+run_smp_workers(InitF,ExecF,FiniF,Laps) ->
+    run_smp_workers(InitF,ExecF,FiniF,Laps, 0).
+run_smp_workers(InitF,ExecF,FiniF,Laps, Exclude) ->
     case erlang:system_info(smp_support) of
 	true ->
-	    run_workers_do(InitF,ExecF,FiniF,Laps, Exclude);
+            case erlang:system_info(schedulers_online) of
+                N when N > Exclude ->
+                    run_workers_do(InitF,ExecF,FiniF,Laps, N - Exclude);
+                _ ->
+                    {skipped, "Too few schedulers online"}
+            end;
 	false ->
 	    {skipped,"No smp support"}
     end.
 
-run_workers_do(InitF,ExecF,FiniF,Laps) ->
-    run_workers_do(InitF,ExecF,FiniF,Laps, 0).
-run_workers_do(InitF,ExecF,FiniF,Laps, Exclude) ->
-    NumOfProcs = case erlang:system_info(schedulers) of
-		     N when (N > Exclude) -> N - Exclude
-		 end,
-    io:format("smp starting ~p workers\n",[NumOfProcs]),
+run_sched_workers(InitF,ExecF,FiniF,Laps) ->
+    run_workers_do(InitF,ExecF,FiniF,Laps,
+                   erlang:system_info(schedulers)).
+
+run_workers_do(InitF,ExecF,FiniF,Laps, NumOfProcs) ->
+    io:format("starting ~p workers\n",[NumOfProcs]),
     Seeds = [{ProcN,rand:uniform(9999)} || ProcN <- lists:seq(1,NumOfProcs)],
     Parent = self(),
     Pids = [my_spawn_link(fun()-> worker(Seed,InitF,ExecF,FiniF,Laps,Parent,NumOfProcs) end)
