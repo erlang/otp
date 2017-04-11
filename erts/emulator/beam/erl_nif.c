@@ -1112,9 +1112,7 @@ void enif_release_binary(ErlNifBinary* bin)
     if (bin->ref_bin != NULL) {
 	Binary* refbin = bin->ref_bin;
 	ASSERT(bin->bin_term == THE_NON_VALUE);
-	if (erts_refc_dectest(&refbin->refc, 0) == 0) {
-	    erts_bin_free(refbin);
-	}
+        erts_bin_release(refbin);
     }
 #ifdef DEBUG
     bin->data = NULL;
@@ -2347,9 +2345,7 @@ void erts_fire_nif_monitor(ErtsResource* resource, Eterm pid, Eterm ref)
         resource->type->down(&msg_env.env, resource->data, &nif_pid, &nif_monitor);
         post_nif_noproc(&msg_env);
 
-        if (erts_refc_dectest(&bin->binary.refc, 0) == 0) {
-            erts_bin_free(&bin->binary);
-        }
+        erts_bin_release(&bin->binary);
     }
     erts_destroy_monitor(rmon);
 }
@@ -2407,9 +2403,7 @@ void enif_release_resource(void* obj)
 #ifdef DEBUG
     erts_refc_dec(&resource->nif_refc, 0);
 #endif
-    if (erts_refc_dectest(&bin->binary.refc, 0) == 0) {
-	erts_bin_free(&bin->binary);
-    }
+    erts_bin_release(&bin->binary);
 }
 
 void enif_keep_resource(void* obj)

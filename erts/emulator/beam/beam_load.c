@@ -996,9 +996,7 @@ static void
 free_loader_state(Binary* magic)
 {
     loader_state_dtor(magic);
-    if (erts_refc_dectest(&magic->refc, 0) == 0) {
-	erts_bin_free(magic);
-    }
+    erts_bin_release(magic);
 }
 
 static ErlHeapFragment* new_literal_fragment(Uint size)
@@ -5672,9 +5670,7 @@ erts_release_literal_area(ErtsLiteralArea* literal_area)
 	Binary* bptr;
 	ASSERT(thing_subtag(oh->thing_word) == REFC_BINARY_SUBTAG);
 	bptr = ((ProcBin*)oh)->val;
-	if (erts_refc_dectest(&bptr->refc, 0) == 0) {
-	    erts_bin_free(bptr);
-	}
+        erts_bin_release(bptr);
 	oh = oh->next;
     }
     erts_free(ERTS_ALC_T_LITERAL, literal_area);

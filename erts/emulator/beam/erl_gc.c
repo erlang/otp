@@ -2879,9 +2879,7 @@ sweep_off_heap(Process *p, int fullsweep)
 	    case REFC_BINARY_SUBTAG:
 		{
 		    Binary* bptr = ((ProcBin*)ptr)->val;	
-		    if (erts_refc_dectest(&bptr->refc, 0) == 0) {
-			erts_bin_free(bptr);
-		    }
+                    erts_bin_release(bptr);
 		    break;
 		}
 	    case FUN_SUBTAG:
@@ -2897,8 +2895,7 @@ sweep_off_heap(Process *p, int fullsweep)
 		    ErtsMagicBinary *bptr;
 		    ASSERT(is_magic_ref_thing(ptr));
 		    bptr = ((ErtsMRefThing *) ptr)->mb;
-		    if (erts_refc_dectest(&bptr->refc, 0) == 0)
-			erts_bin_free((Binary *) bptr);		    
+                    erts_bin_release((Binary *) bptr);
 		    break;
 		}
 	    default:

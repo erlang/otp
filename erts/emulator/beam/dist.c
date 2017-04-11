@@ -642,8 +642,7 @@ free_dist_obuf(ErtsDistOutputBuf *obuf)
 {
     Binary *bin = ErtsDistOutputBuf2Binary(obuf);
     ASSERT(obuf->dbg_pattern == ERTS_DIST_OUTPUT_BUF_DBG_PATTERN);
-    if (erts_refc_dectest(&bin->refc, 0) == 0)
-	erts_bin_free(bin);
+    erts_bin_release(bin);
 }
 
 static ERTS_INLINE Sint

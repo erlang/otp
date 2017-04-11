@@ -402,8 +402,8 @@ free_dbtable(void *vtb)
 #endif
 	ASSERT(is_immed(tb->common.heir_data));
 
-        if (tb->common.btid && erts_refc_dectest(&tb->common.btid->refc, 0) == 0)
-            erts_bin_free(tb->common.btid);
+        if (tb->common.btid)
+            erts_bin_release(tb->common.btid);
 
 	erts_db_free(ERTS_ALC_T_DB_TABLE, tb, (void *) tb, sizeof(DbTable));
 }
@@ -3616,9 +3616,7 @@ static SWord proc_cleanup_fixed_table(Process* p, DbFixation* fix)
 	ASSERT(fix->counter == 0);
     }
 
-    if (erts_refc_dectest(&fix->tabs.btid->refc, 0) == 0) {
-	erts_bin_free(fix->tabs.btid);
-    }
+    erts_bin_release(fix->tabs.btid);
     erts_free(ERTS_ALC_T_DB_FIXATION, fix);
     ERTS_ETS_MISC_MEM_ADD(-sizeof(DbFixation));
     ++work;
@@ -3889,9 +3887,7 @@ static void free_fixations_op(DbFixation* fix, void* vctx)
     {
         fixed_tabs_delete(fix->procs.p, fix);
 
-        if (erts_refc_dectest(&fix->tabs.btid->refc, 0) == 0) {
-            erts_bin_free(fix->tabs.btid);
-        }
+        erts_bin_release(fix->tabs.btid);
 
         erts_db_free(ERTS_ALC_T_DB_FIXATION,
 		     ctx->tb, (void *) fix, sizeof(DbFixation));
@@ -3906,9 +3902,8 @@ int erts_db_execute_free_fixation(Process* p, DbFixation* fix)
     ASSERT(fix->counter == 0);
     fixed_tabs_delete(p, fix);
 
-    if (erts_refc_dectest(&fix->tabs.btid->refc, 0) == 0) {
-        erts_bin_free(fix->tabs.btid);
-    }
+    erts_bin_release(fix->tabs.btid);
+
     erts_free(ERTS_ALC_T_DB_FIXATION, fix);
     ERTS_ETS_MISC_MEM_ADD(-sizeof(DbFixation));
     return 1;

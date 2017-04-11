@@ -316,6 +316,7 @@ ERTS_GLB_INLINE Binary *erts_bin_nrml_alloc(Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_realloc_fnf(Binary *bp, Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_realloc(Binary *bp, Uint size);
 ERTS_GLB_INLINE void erts_bin_free(Binary *bp);
+ERTS_GLB_INLINE void erts_bin_release(Binary *bp);
 ERTS_GLB_INLINE Binary *erts_create_magic_binary_x(Uint size,
                                                   int (*destructor)(Binary *),
                                                    ErtsAlcType_t alloc_type,
@@ -467,6 +468,14 @@ erts_bin_free(Binary *bp)
 	erts_free(ERTS_ALC_T_DRV_BINARY, (void *) bp);
     else
 	erts_free(ERTS_ALC_T_BINARY, (void *) bp);
+}
+
+ERTS_GLB_INLINE void
+erts_bin_release(Binary *bp)
+{
+    if (erts_refc_dectest(&bp->refc, 0) == 0) {
+        erts_bin_free(bp);
+    }
 }
 
 ERTS_GLB_INLINE Binary *

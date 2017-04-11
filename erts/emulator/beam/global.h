@@ -1416,8 +1416,8 @@ do {						\
 
 #define MatchSetUnref(MPSP)					\
 do {								\
-    if (((MPSP) != NULL) && erts_refc_dectest(&(MPSP)->refc, 0) <= 0) { \
-	erts_bin_free(MPSP);					\
+    if (((MPSP) != NULL)) {                                     \
+	erts_bin_release(MPSP);					\
     }								\
 } while(0)
 

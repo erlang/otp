@@ -1521,9 +1521,7 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
 	    pb->flags |= PB_IS_WRITABLE | PB_ACTIVE_WRITER;
 	    pb->val = bptr;
 	    pb->bytes = (byte *) bptr->orig_bytes;
-	    if (erts_refc_dectest(&binp->refc, 0) == 0) {
-		erts_bin_free(binp);
-	    }
+            erts_bin_release(binp);
 	}
     }
     erts_current_bin = pb->bytes;

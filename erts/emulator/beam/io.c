@@ -4557,8 +4557,7 @@ static void
 cleanup_scheduled_control(Binary *binp, char *bufp)
 {
     if (binp) {
-	if (erts_refc_dectest(&binp->refc, 0) == 0)
-	    erts_bin_free(binp);
+        erts_bin_release(binp);
     }
     else {
 	if (bufp)
@@ -6967,8 +6966,7 @@ void driver_free_binary(ErlDrvBinary* dbin)
 	return;
 
     bin = ErlDrvBinary2Binary(dbin);
-    if (erts_refc_dectest(&bin->refc, 0) == 0)
-	erts_bin_free(bin);
+    erts_bin_release(bin);
 }
 
 
