@@ -64,8 +64,8 @@
          predef/1,
          maps/1,maps_type/1,maps_parallel_match/1,
          otp_11851/1,otp_11879/1,otp_13230/1,
-         record_errors/1, otp_xxxxx/1,
-         non_latin1_module/1]).
+         record_errors/1, otp_11879_cont/1,
+         non_latin1_module/1, otp_14323/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -85,7 +85,7 @@ all() ->
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
      maps, maps_type, maps_parallel_match,
      otp_11851, otp_11879, otp_13230,
-     record_errors, otp_xxxxx, non_latin1_module].
+     record_errors, otp_11879_cont, non_latin1_module, otp_14323].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -3875,7 +3875,7 @@ record_errors(Config) when is_list(Config) ->
 		    {3,erl_lint,{redefine_field,r,a}}],[]}}],
     run(Config, Ts).
 
-otp_xxxxx(Config) ->
+otp_11879_cont(Config) ->
     Ts = [{constraint1,
            <<"-export([t/1]).
               -spec t(X) -> X when is_subtype(integer()).
@@ -3941,6 +3941,50 @@ do_non_latin1_module(Mod) ->
     {error,_,[]} = compile:forms(Forms, [return]),
     ok.
 
+
+%% OTP-14323: Check the dialyzer attribute.
+otp_14323(Config) ->
+    Ts = [
+          {otp_14323_1,
+           <<"-import(mod, [m/1]).
+
+              -export([f/0, g/0, h/0]).
+
+              -dialyzer({nowarn_function,module_info/0}). % undefined function
+              -dialyzer({nowarn_function,record_info/2}). % undefined function
+              -dialyzer({nowarn_function,m/1}). % undefined function
+
+              -dialyzer(nowarn_function). % unknown option
+              -dialyzer(1). % badly formed
+              -dialyzer(malformed). % unkonwn option
+              -dialyzer({malformed,f/0}). % unkonwn option
+              -dialyzer({nowarn_function,a/1}). % undefined function
+              -dialyzer({nowarn_function,{a,-1}}). % badly formed
+
+              -dialyzer([no_return, no_match]).
+              -dialyzer({nowarn_function, f/0}).
+              -dialyzer(no_improper_lists).
+              -dialyzer([{nowarn_function, [f/0]}, no_improper_lists]).
+              -dialyzer({no_improper_lists, g/0}).
+              -dialyzer({[no_return, no_match], [g/0, h/0]}).
+
+              f() -> a.
+              g() -> b.
+              h() -> c.">>,
+           [],
+           {errors,[{5,erl_lint,{undefined_function,{module_info,0}}},
+                    {6,erl_lint,{undefined_function,{record_info,2}}},
+                    {7,erl_lint,{undefined_function,{m,1}}},
+                    {9,erl_lint,{bad_dialyzer_option,nowarn_function}},
+                    {10,erl_lint,{bad_dialyzer_attribute,1}},
+                    {11,erl_lint,{bad_dialyzer_option,malformed}},
+                    {12,erl_lint,{bad_dialyzer_option,malformed}},
+                    {13,erl_lint,{undefined_function,{a,1}}},
+                    {14,erl_lint,{bad_dialyzer_attribute,
+                                  {nowarn_function,{a,-1}}}}],
+            []}}],
+    [] = run(Config, Ts),
+    ok.
 
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->
