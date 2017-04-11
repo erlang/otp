@@ -55,6 +55,11 @@
    --disable-stack-for-recursion). */
 #define NO_RECURSE 
 
+/* The value of PARENS_NEST_LIMIT specifies the maximum depth of nested
+   parentheses (of any kind) in a pattern. This limits the amount of system
+   stack that is used while compiling a pattern. */
+#define PARENS_NEST_LIMIT 10000
+
 /* Define if linking statically (TODO: make nice with Libtool) */
 #define PCRE_STATIC 1
 
@@ -74,8 +79,11 @@
 /* Define to enable support for Unicode properties */
 #define SUPPORT_UCP
 
-/* Define to enable support for the UTF-8 Unicode encoding. */
+/* Define to any value to enable support for the UTF-8/16/32 Unicode encoding.
+   This will work even in an EBCDIC environment, but it is incompatible with
+   the EBCDIC macro. That is, PCRE can support *either* EBCDIC code *or*
+   ASCII/UTF-8/16/32, but not both at once. */
 #define SUPPORT_UTF 
 
 /* Version number of package */
-#define VERSION "8.33"
+#define VERSION "8.40"

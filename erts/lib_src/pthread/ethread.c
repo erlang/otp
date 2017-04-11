@@ -81,6 +81,7 @@ typedef struct {
     void *(*thr_func)(void *);
     void *arg;
     void *prep_func_res;
+    size_t stacksize;
     char *name;
     char name_buff[16];
 } ethr_thr_wrap_data__;
@@ -88,11 +89,14 @@ typedef struct {
 static void *thr_wrapper(void *vtwd)
 {
     ethr_sint32_t result;
+    char c;
     void *res;
     ethr_thr_wrap_data__ *twd = (ethr_thr_wrap_data__ *) vtwd;
     void *(*thr_func)(void *) = twd->thr_func;
     void *arg = twd->arg;
     ethr_ts_event *tsep = NULL;
+
+    ethr_set_stacklimit__(&c, twd->stacksize);
 
     result = (ethr_sint32_t) ethr_make_ts_event__(&tsep);
 
@@ -330,6 +334,7 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
     twd.tse = ethr_get_ts_event();
     twd.thr_func = func;
     twd.arg = arg;
+    twd.stacksize = 0;
 
     if (opts && opts->name) {
         snprintf(twd.name_buff, 16, "%s", opts->name);
@@ -354,18 +359,24 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
 #ifdef ETHR_DEBUG
 	suggested_stack_size /= 2; /* Make sure we got margin */
 #endif
+        stack_size = ETHR_KW2B(suggested_stack_size);
+        stack_size = ETHR_PAGE_ALIGN(stack_size);
+        stack_size += ethr_pagesize__; /* For possible system usage */
 #ifdef ETHR_STACK_GUARD_SIZE
 	/* The guard is at least on some platforms included in the stack size
 	   passed when creating threads */
-	suggested_stack_size += ETHR_B2KW(ETHR_STACK_GUARD_SIZE);
+	stack_size += ETHR_STACK_GUARD_SIZE;
 #endif
-	if (suggested_stack_size < ethr_min_stack_size__)
-	    stack_size = ETHR_KW2B(ethr_min_stack_size__);
-	else if (suggested_stack_size > ethr_max_stack_size__)
-	    stack_size = ETHR_KW2B(ethr_max_stack_size__);
-	else
-	    stack_size = ETHR_PAGE_ALIGN(ETHR_KW2B(suggested_stack_size));
+	if (stack_size < ethr_min_stack_size__)
+	    stack_size = ethr_min_stack_size__;
+	else if (stack_size > ethr_max_stack_size__)
+	    stack_size = ethr_max_stack_size__;
 	(void) pthread_attr_setstacksize(&attr, stack_size);
+        twd.stacksize = stack_size;
+        twd.stacksize -= ethr_pagesize__; /* For possible system usage */
+#ifdef ETHR_STACK_GUARD_SIZE
+        twd.stacksize -= ETHR_STACK_GUARD_SIZE;
+#endif
     }
 
 #ifdef ETHR_STACK_GUARD_SIZE

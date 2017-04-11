@@ -64,12 +64,47 @@ static void erts_erts_pcre_stack_free(void *ptr) {
     erts_free(ERTS_ALC_T_RE_STACK,ptr);
 }
 
+#define ERTS_PCRE_STACK_MARGIN (10*1024)
+
+#ifdef ERTS_SMP
+#  define ERTS_STACK_LIMIT ((char *) ethr_get_stacklimit())
+#else
+#  define ERTS_STACK_LIMIT ((char *) erts_scheduler_stack_limit)
+#endif
+
+static int
+stack_guard_downwards(void)
+{
+    char *limit = ERTS_STACK_LIMIT;
+    char c;
+
+    ASSERT(limit);
+
+    return erts_check_below_limit(&c, limit + ERTS_PCRE_STACK_MARGIN);
+}
+
+static int
+stack_guard_upwards(void)
+{
+    char *limit = ERTS_STACK_LIMIT;
+    char c;
+
+    ASSERT(limit);
+
+    return erts_check_above_limit(&c, limit - ERTS_PCRE_STACK_MARGIN);
+}
+
 void erts_init_bif_re(void)
 {
+    char c;
     erts_pcre_malloc = &erts_erts_pcre_malloc;
     erts_pcre_free = &erts_erts_pcre_free;
     erts_pcre_stack_malloc = &erts_erts_pcre_stack_malloc;
     erts_pcre_stack_free = &erts_erts_pcre_stack_free;
+    if ((char *) erts_ptr_id(&c) > ERTS_STACK_LIMIT)
+        erts_pcre_stack_guard = stack_guard_downwards;
+    else
+        erts_pcre_stack_guard = stack_guard_upwards;
     default_table = NULL; /* ISO8859-1 default, forced into pcre */
     max_loop_limit = CONTEXT_REDS * LOOP_FACTOR;
 

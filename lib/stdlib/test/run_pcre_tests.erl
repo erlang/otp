@@ -389,6 +389,9 @@ stru([]) ->
     [];
 stru([{_,<<>>}|T]) ->
     stru(T);
+stru([{_Line,<<"< forbid ", _Rest/binary>>}|T0]) ->
+    %% We do not handle lockout of modifiers from the tests...
+    stru(T0);
 stru([{Line,<<Ch,Re0/binary>>}|T0]) ->
     {T,Re} = find_rest_re(Ch,[{Line,Re0}|T0]),
     {NewRe,<< Ch, Options/binary >>} = end_of_re(Ch,Re),

@@ -1118,3 +1118,48 @@ ms_wait(Process *c_p, Eterm etimeout, int busy)
 }
 
 #endif /* ERTS_DIRTY_SCHEDULERS */
+
+#ifdef ERTS_SMP
+#  define ERTS_STACK_LIMIT ((char *) ethr_get_stacklimit())
+#else
+#  define ERTS_STACK_LIMIT ((char *) erts_scheduler_stack_limit)
+#endif
+
+/*
+ * The below functions is for testing of the stack
+ * limit functionality. They are intentionally
+ * written body recursive in order to prevent
+ * last call optimization...
+ */
+
+UWord
+erts_check_stack_recursion_downwards(char *start_c)
+{
+    char *limit = ERTS_STACK_LIMIT;
+    char c;
+    UWord res;
+    if (erts_check_below_limit(&c, limit + 1024))
+        return (char *) erts_ptr_id(start_c) - (char *) erts_ptr_id(&c);
+    res = erts_check_stack_recursion_downwards(start_c);
+    erts_ptr_id(&c);
+    return res;
+}
+
+UWord
+erts_check_stack_recursion_upwards(char *start_c)
+{
+    char *limit = ERTS_STACK_LIMIT;
+    char c;
+    UWord res;
+    if (erts_check_above_limit(&c, limit - 1024))
+        return (char *) erts_ptr_id(&c) - (char *) erts_ptr_id(start_c);
+    res = erts_check_stack_recursion_upwards(start_c);
+    erts_ptr_id(&c);
+    return res;
+}
+
+int
+erts_is_above_stack_limit(char *ptr)
+{
+    return (char *) ptr > ERTS_STACK_LIMIT;
+}

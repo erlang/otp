@@ -23,14 +23,15 @@
 
 -export([all/0, suite/0,
 	 test_size/1,flat_size_big/1,df/1,term_type/1,
-	 instructions/1]).
+	 instructions/1, stack_check/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 2}}].
 
 all() -> 
-    [test_size, flat_size_big, df, instructions, term_type].
+    [test_size, flat_size_big, df, instructions, term_type,
+     stack_check].
 
 test_size(Config) when is_list(Config) ->
     ConsCell1 = id([a|b]),
@@ -180,6 +181,15 @@ df(Config) when is_list(Config) ->
 
     true = (P0 == pps()),
     ok.
+
+stack_check(Config) when is_list(Config) ->
+    erts_debug:set_internal_state(available_internal_state,true),
+    %% Recurses on the C stack until stacklimit is reached. That
+    %% is, tests that the stack limit functionality works (used
+    %% by PCRE). VM will crash if it doesn't work...
+    Size = erts_debug:get_internal_state(stack_check),
+    erts_debug:set_internal_state(available_internal_state,false),
+    {comment, "Stack size: "++integer_to_list(Size)++" bytes"}.
 
 df_smoke([M|Ms]) ->
     io:format("~p", [M]),

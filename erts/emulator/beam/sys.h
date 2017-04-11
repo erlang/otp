@@ -602,6 +602,8 @@ __decl_noreturn void __noreturn erts_exit(int n, char*, ...);
 
 Eterm erts_check_io_info(void *p);
 
+UWord erts_sys_get_page_size(void);
+
 /* Size of misc memory allocated from system dependent code */
 Uint erts_sys_misc_mem_sz(void);
 

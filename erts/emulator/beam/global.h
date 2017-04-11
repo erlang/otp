@@ -1136,6 +1136,11 @@ void erts_short_init(void);
 void erl_start(int, char**);
 void erts_usage(void);
 Eterm erts_preloaded(Process* p);
+
+#ifndef ERTS_SMP
+extern void *erts_scheduler_stack_limit;
+#endif
+
 /* erl_md5.c */
 
 typedef struct {
@@ -1198,6 +1203,11 @@ Uint64 erts_timestamp_millis(void);
 
 Export* erts_find_function(Eterm, Eterm, unsigned int, ErtsCodeIndex);
 
+void *erts_calc_stacklimit(char *prev_c, UWord stacksize);
+int erts_check_below_limit(char *ptr, char *limit);
+int erts_check_above_limit(char *ptr, char *limit);
+void *erts_ptr_id(void *ptr);
+
 Eterm store_external_or_ref_in_proc_(Process *, Eterm);
 Eterm store_external_or_ref_(Uint **, ErlOffHeap*, Eterm);
 
@@ -1232,6 +1242,11 @@ void erts_init_external(void);
 
 /* erl_map.c */
 void erts_init_map(void);
+
+/* beam_debug.c */
+UWord erts_check_stack_recursion_downwards(char *start_c);
+UWord erts_check_stack_recursion_upwards(char *start_c);
+int erts_is_above_stack_limit(char *ptr);
 
 /* erl_unicode.c */
 void erts_init_unicode(void);

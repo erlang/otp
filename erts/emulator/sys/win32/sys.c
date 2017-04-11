@@ -186,6 +186,12 @@ void sys_primitive_init(HMODULE beam)
     beam_module = (HMODULE) beam;
 }
 
+UWord
+erts_sys_get_page_size(void)
+{
+    return (UWord) 4*1024; /* Guess 4 KB */
+}
+
 Uint
 erts_sys_misc_mem_sz(void)
 {

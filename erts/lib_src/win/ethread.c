@@ -56,6 +56,7 @@ typedef struct {
     void *(*thr_func)(void *);
     void *arg;
     void *prep_func_res;
+    size_t stacksize;
 } ethr_thr_wrap_data__;
 
 #define ETHR_INVALID_TID_ID -1
@@ -94,6 +95,7 @@ static void thr_exit_cleanup(ethr_tid *tid, void *res)
 
 static unsigned __stdcall thr_wrapper(LPVOID vtwd)
 {
+    char c;
     ethr_tid my_tid;
     ethr_sint32_t result;
     void *res;
@@ -101,6 +103,8 @@ static unsigned __stdcall thr_wrapper(LPVOID vtwd)
     void *(*thr_func)(void *) = twd->thr_func;
     void *arg = twd->arg;
     ethr_ts_event *tsep = NULL;
+
+    ethr_set_stacklimit__(&c, twd->stacksize);
 
     result = (ethr_sint32_t) ethr_make_ts_event__(&tsep);
 
@@ -305,18 +309,21 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
 	tid->jdata->res = NULL;
     }
 
+    twd.stacksize = 0;
+
     if (use_stack_size >= 0) {
 	size_t suggested_stack_size = (size_t) use_stack_size;
 #ifdef ETHR_DEBUG
 	suggested_stack_size /= 2; /* Make sure we got margin */
 #endif
-	if (suggested_stack_size < ethr_min_stack_size__)
-	    stack_size = (unsigned) ETHR_KW2B(ethr_min_stack_size__);
-	else if (suggested_stack_size > ethr_max_stack_size__)
-	    stack_size = (unsigned) ETHR_KW2B(ethr_max_stack_size__);
-	else
-	    stack_size = (unsigned)
-	      ETHR_PAGE_ALIGN(ETHR_KW2B(suggested_stack_size));
+        stack_size = (unsigned) ETHR_PAGE_ALIGN(ETHR_KW2B(suggested_stack_size));
+
+	if (stack_size < (unsigned) ethr_min_stack_size__)
+	    stack_size = (unsigned) ethr_min_stack_size__;
+	else if (stack_size > (unsigned) ethr_max_stack_size__)
+	    stack_size = (unsigned) ethr_max_stack_size__;
+
+        twd.stacksize = stack_size;
     }
 
     ethr_atomic32_init(&twd.result, -1);
