@@ -8515,8 +8515,9 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int normal
 	    p->flags |= have_blckd_flg;
 	    goto wait_until_msb;
 	}
-	else if (msbp->blckrs) {
-	    ASSERT(msbp->ongoing);
+	else if (msbp->blckrs || (normal && erts_no_schedulers == 1)) {
+	    ASSERT(!msbp->blckrs || msbp->ongoing);
+	    msbp->ongoing = 1;
 	    plp = proclist_create(p);
 	    erts_proclist_store_last(&msbp->blckrs, plp);
 	    p->flags |= have_blckd_flg;
@@ -8530,7 +8531,7 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int normal
 	    else
 		res = ERTS_SCHDLR_SSPND_DONE_NMSCHED_BLOCKED;
 	}
-	else {
+        else {
 	    int online = (int) schdlr_sspnd_get_nscheds(&schdlr_sspnd.online,
 							ERTS_SCHED_NORMAL);
 	    ASSERT(!msbp->ongoing);
