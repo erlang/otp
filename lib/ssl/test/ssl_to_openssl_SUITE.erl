@@ -984,8 +984,6 @@ ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
 
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
     
-    Data = "From openssl to erlang",
-
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
 					      {from, self()}, 
 					      {options, ServerOpts}]),
@@ -996,7 +994,6 @@ ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
 	"-ssl2", "-msg"],
     
     OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),  
-    true = port_command(OpenSslPort, Data),
     
     ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]), 
     consume_port_exit(OpenSslPort),

@@ -331,14 +331,15 @@
   </func>   
   
   <func>
-    <name>generate_key(Params) -> {Public::binary(), Private::binary()}  | #'ECPrivateKey'{} | {#'RSAPublicKey'{}, #'RSAPrivateKey'{}}</name>
+    <name>generate_key(Params) -> {Public::binary(), Private::binary()}  | #'ECPrivateKey'{} | #'RSAPrivateKey'{}</name>
     <fsummary>Generates a new keypair.</fsummary>
     <type>
       <v>Params = #'DHParameter'{} |  {namedCurve, oid()} |  #'ECParameters'{} 
       | {rsa, Size::integer(), PubExp::integer} </v>
     </type>
   <desc>
-    <p>Generates a new keypair. See also
+    <p>Generates a new keypair. Note that except for Diffie-Hellman
+    the public key is included in the private key structure. See also
     <seealso marker="crypto:crypto#generate_key/2">crypto:generate_key/2</seealso>
     </p>
   </desc>

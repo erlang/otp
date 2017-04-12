@@ -351,8 +351,6 @@ gen_rsa2(Size) ->
         %% The numbers 2048,17 is choosen to not cause the cryptolib on
         %% FIPS-enabled test machines be mad at us.
         public_key:generate_key({rsa, 2048, 17})
-    of
-        {_Public, Private} -> Private
     catch
         error:notsup ->
             %% Disabled dirty_schedulers => crypto:generate_key not working
