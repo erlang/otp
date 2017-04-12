@@ -66,6 +66,10 @@
        Additionally, callbacks may be included, as in gen_server.xml:
        <name>Module:handle_call(Request, From, State) -> Result</name>
 
+       For C reference pages the name tag has a substructure where the nametext tag
+       is used in the sort, as in erl_nif.xml
+       <name><ret>void *</ret><nametext>enif_alloc(size_t size)</nametext></name>
+
        So first, get the name from either the attribute or the element value.
        Then, reverse the case of the first character. This is because xsltproc, used for processing,
        orders uppercase before lowercase (even when the 'case-order="lower-first"' option
@@ -82,12 +86,19 @@
 
     <xsl:variable name="base">
       <xsl:choose>
-        <xsl:when test="string-length($elem/@name) > 0">
-          <xsl:value-of select="$elem/@name"/>
-        </xsl:when>
-        <xsl:otherwise>
-          <xsl:value-of select="$elem"/>
-        </xsl:otherwise>
+	<xsl:when test="ancestor::cref">
+	  <xsl:value-of select="$elem/nametext"/>
+	</xsl:when>
+	<xsl:otherwise>       
+	  <xsl:choose>
+            <xsl:when test="string-length($elem/@name) > 0">
+              <xsl:value-of select="$elem/@name"/>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:value-of select="$elem"/>
+            </xsl:otherwise>
+	  </xsl:choose>
+	</xsl:otherwise>
       </xsl:choose>
     </xsl:variable>
 
