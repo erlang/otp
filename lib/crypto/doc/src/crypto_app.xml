@@ -42,9 +42,12 @@
     <title>DEPENDENCIES</title>
 
     <p>The current crypto implementation uses nifs to interface
-    OpenSSLs crypto library and requires <em>OpenSSL</em> package
-    version 0.9.8 or higher. FIPS mode support requires at least
-    version 1.0.1 and a FIPS capable OpenSSL installation.</p>
+    OpenSSLs crypto library and may work with limited functionality
+    with as old versions as <em>OpenSSL</em> 0.9.8c.
+    FIPS mode support requires at least
+    version 1.0.1 and a FIPS capable OpenSSL installation. We recommend using a
+    version that is officially supported by the OpenSSL project. API compatible backends like
+    LibreSSL should also work.</p>
 
     <p>Source releases of OpenSSL can be downloaded from the <url href="http://www.openssl.org">OpenSSL</url> project home page,
     or mirror sites listed there.
