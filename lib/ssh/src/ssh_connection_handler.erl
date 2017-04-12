@@ -813,7 +813,7 @@ handle_event(_, #ssh_msg_userauth_info_request{} = Msg, {userauth_keyboard_inter
 	    send_bytes(Reply, D),
 	    {next_state, {userauth_keyboard_interactive_info_response,client}, D#data{ssh_params = Ssh}};
 	not_ok ->
-	    {next_state, {userauth,client}, D, [{next_event, internal, Msg}]}
+	    {next_state, {userauth,client}, D, [postpone]}
     end;
 
 handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_interactive, server}, D) ->
@@ -842,14 +842,14 @@ handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_inte
     {next_state, {connected,server}, D#data{auth_user = User,
 					    ssh_params = Ssh#ssh{authenticated = true}}};
 
-handle_event(_, Msg = #ssh_msg_userauth_failure{}, {userauth_keyboard_interactive, client},
+handle_event(_, #ssh_msg_userauth_failure{}, {userauth_keyboard_interactive, client},
 	     #data{ssh_params = Ssh0} = D0) ->
     Prefs = [{Method,M,F,A} || {Method,M,F,A} <- Ssh0#ssh.userauth_preference,
 			       Method =/= "keyboard-interactive"],
     D = D0#data{ssh_params = Ssh0#ssh{userauth_preference=Prefs}},
-    {next_state, {userauth,client}, D, [{next_event, internal, Msg}]};
+    {next_state, {userauth,client}, D, [postpone]};
 
-handle_event(_, Msg=#ssh_msg_userauth_failure{}, {userauth_keyboard_interactive_info_response, client},
+handle_event(_, #ssh_msg_userauth_failure{}, {userauth_keyboard_interactive_info_response, client},
 	     #data{ssh_params = Ssh0} = D0) ->
     Opts = Ssh0#ssh.opts,
     D = case ?GET_OPT(password, Opts) of
@@ -859,23 +859,23 @@ handle_event(_, Msg=#ssh_msg_userauth_failure{}, {userauth_keyboard_interactive_
 		D0#data{ssh_params =
 			    Ssh0#ssh{opts = ?PUT_OPT({password,not_ok}, Opts)}} % FIXME:intermodule dependency
 	end,
-    {next_state, {userauth,client}, D, [{next_event, internal, Msg}]};
+    {next_state, {userauth,client}, D, [postpone]};
 
-handle_event(_, Msg=#ssh_msg_userauth_success{}, {userauth_keyboard_interactive_info_response, client}, D) ->
-    {next_state, {userauth,client}, D, [{next_event, internal, Msg}]};
+handle_event(_, #ssh_msg_userauth_success{}, {userauth_keyboard_interactive_info_response, client}, D) ->
+    {next_state, {userauth,client}, D, [postpone]};
 
-handle_event(_, Msg=#ssh_msg_userauth_info_request{}, {userauth_keyboard_interactive_info_response, client}, D) ->
-    {next_state, {userauth_keyboard_interactive,client}, D, [{next_event, internal, Msg}]};
+handle_event(_, #ssh_msg_userauth_info_request{}, {userauth_keyboard_interactive_info_response, client}, D) ->
+    {next_state, {userauth_keyboard_interactive,client}, D, [postpone]};
 
 
 %%% ######## {connected, client|server} ####
 
-handle_event(_, {#ssh_msg_kexinit{},_} = Event, {connected,Role}, D0) ->
+handle_event(_, {#ssh_msg_kexinit{},_}, {connected,Role}, D0) ->
     {KeyInitMsg, SshPacket, Ssh} = ssh_transport:key_exchange_init_msg(D0#data.ssh_params),
     D = D0#data{ssh_params = Ssh,
 		key_exchange_init_msg = KeyInitMsg},
     send_bytes(SshPacket, D),
-    {next_state, {kexinit,Role,renegotiate}, D, [{next_event, internal, Event}]};
+    {next_state, {kexinit,Role,renegotiate}, D, [postpone]};
 
 handle_event(_, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D0) ->
     {disconnect, _, {{replies,Replies}, _}} =
