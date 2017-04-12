@@ -1138,8 +1138,12 @@ early_init(int *argc, char **argv) /*
 	}
 	if (dirty_cpu_scheds > schdlrs)
 	    dirty_cpu_scheds = schdlrs;
+        if (dirty_cpu_scheds < 1)
+            dirty_cpu_scheds = 1;
 	if (dirty_cpu_scheds_online > schdlrs_onln)
 	    dirty_cpu_scheds_online = schdlrs_onln;
+	if (dirty_cpu_scheds_online < 1)
+	    dirty_cpu_scheds_online = 1;
 #endif
     }
 

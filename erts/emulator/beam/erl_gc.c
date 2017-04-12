@@ -479,9 +479,15 @@ delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need, int
 	p->live_hf_end = live_hf_end;
     }
 
-    if (need == 0)
+    if (need == 0) {
+#ifdef ERTS_DIRTY_SCHEDULERS
+        if (p->flags & (F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC)) {
+            ASSERT(!ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(p)));
+            goto force_reschedule;
+        }
+#endif
 	return 1;
-
+    }
     /*
      * Satisfy need in a heap fragment...
      */
@@ -532,6 +538,10 @@ delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need, int
 #ifdef CHECK_FOR_HOLES
     p->last_htop = p->htop;
     p->heap_hfrag = hfrag;
+#endif
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+force_reschedule:
 #endif
 
     /* Make sure that we do a proper GC as soon as possible... */

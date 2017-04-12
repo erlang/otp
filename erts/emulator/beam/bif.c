@@ -4506,41 +4506,37 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 			 || BIF_ARG_2 == am_block_normal);
 	    int normal = (BIF_ARG_2 == am_block_normal
 			  || BIF_ARG_2 == am_unblock_normal);
-	    if (erts_no_schedulers == 1)
-		BIF_RET(am_disabled);
-	    else {
-		switch (erts_block_multi_scheduling(BIF_P,
-						    ERTS_PROC_LOCK_MAIN,
-						    block,
-						    normal,
-						    0)) {
-		case ERTS_SCHDLR_SSPND_DONE_MSCHED_BLOCKED:
-		    BIF_RET(am_blocked);
-		case ERTS_SCHDLR_SSPND_DONE_NMSCHED_BLOCKED:
-		    BIF_RET(am_blocked_normal);
-		case ERTS_SCHDLR_SSPND_YIELD_DONE_MSCHED_BLOCKED:
-		    ERTS_BIF_YIELD_RETURN_X(BIF_P, am_blocked,
-					    am_multi_scheduling);
-		case ERTS_SCHDLR_SSPND_YIELD_DONE_NMSCHED_BLOCKED:
-		    ERTS_BIF_YIELD_RETURN_X(BIF_P, am_blocked_normal,
-					    am_multi_scheduling);
-		case ERTS_SCHDLR_SSPND_DONE:
-		    BIF_RET(am_enabled);
-		case ERTS_SCHDLR_SSPND_YIELD_RESTART:
-		    ERTS_VBUMP_ALL_REDS(BIF_P);
-		    BIF_TRAP2(bif_export[BIF_system_flag_2],
-			      BIF_P, BIF_ARG_1, BIF_ARG_2);
-		case ERTS_SCHDLR_SSPND_YIELD_DONE:
-		    ERTS_BIF_YIELD_RETURN_X(BIF_P, am_enabled,
-					    am_multi_scheduling);
-		case ERTS_SCHDLR_SSPND_EINVAL:
-		    goto error;
-		default:
-		    ASSERT(0);
-		    BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
-		    break;
-		}
-	    }
+            switch (erts_block_multi_scheduling(BIF_P,
+                                                ERTS_PROC_LOCK_MAIN,
+                                                block,
+                                                normal,
+                                                0)) {
+            case ERTS_SCHDLR_SSPND_DONE_MSCHED_BLOCKED:
+                BIF_RET(am_blocked);
+            case ERTS_SCHDLR_SSPND_DONE_NMSCHED_BLOCKED:
+                BIF_RET(am_blocked_normal);
+            case ERTS_SCHDLR_SSPND_YIELD_DONE_MSCHED_BLOCKED:
+                ERTS_BIF_YIELD_RETURN_X(BIF_P, am_blocked,
+                                        am_multi_scheduling);
+            case ERTS_SCHDLR_SSPND_YIELD_DONE_NMSCHED_BLOCKED:
+                ERTS_BIF_YIELD_RETURN_X(BIF_P, am_blocked_normal,
+                                        am_multi_scheduling);
+            case ERTS_SCHDLR_SSPND_DONE:
+                BIF_RET(am_enabled);
+            case ERTS_SCHDLR_SSPND_YIELD_RESTART:
+                ERTS_VBUMP_ALL_REDS(BIF_P);
+                BIF_TRAP2(bif_export[BIF_system_flag_2],
+                          BIF_P, BIF_ARG_1, BIF_ARG_2);
+            case ERTS_SCHDLR_SSPND_YIELD_DONE:
+                ERTS_BIF_YIELD_RETURN_X(BIF_P, am_enabled,
+                                        am_multi_scheduling);
+            case ERTS_SCHDLR_SSPND_EINVAL:
+                goto error;
+            default:
+                ASSERT(0);
+                BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
+                break;
+            }
 #endif
 	}
     } else if (BIF_ARG_1 == am_schedulers_online) {
