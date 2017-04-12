@@ -1410,7 +1410,7 @@ Eterm erts_msacc_request(Process *c_p, int action, Eterm *threads);
 #define MatchSetRef(MPSP) 			\
 do {						\
     if ((MPSP) != NULL) {			\
-	erts_refc_inc(&(MPSP)->refc, 1);	\
+	erts_refc_inc(&(MPSP)->intern.refc, 1);	\
     }						\
 } while (0)
 

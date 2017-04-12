@@ -3594,7 +3594,7 @@ store_external_or_ref_(Uint **hpp, ErlOffHeap* oh, Eterm ns)
 	ErtsMRefThing *mreft = (ErtsMRefThing *) from_hp;
         ErtsMagicBinary *mb = mreft->mb;
 	ASSERT(is_magic_ref_thing(from_hp));
-	erts_refc_inc(&mb->refc, 2);
+	erts_refc_inc(&mb->intern.refc, 2);
         OH_OVERHEAD(oh, mb->orig_size / sizeof(Eterm));
     }
 

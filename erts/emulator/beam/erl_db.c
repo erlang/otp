@@ -217,7 +217,7 @@ make_btid(DbTable *tb)
      * and table is refered once by being alive...
      */
     erts_smp_refc_init(&tb->common.refc, 2);
-    erts_refc_inc(&btid->refc, 1);
+    erts_refc_inc(&btid->intern.refc, 1);
 }
 
 static ERTS_INLINE DbTable* btid2tab(Binary* btid)
@@ -3781,7 +3781,7 @@ static void fix_table_locked(Process* p, DbTable* tb)
 				       tb, sizeof(DbFixation));
     ERTS_ETS_MISC_MEM_ADD(sizeof(DbFixation));
     fix->tabs.btid = tb->common.btid;
-    erts_refc_inc(&fix->tabs.btid->refc, 2);
+    erts_refc_inc(&fix->tabs.btid->intern.refc, 2);
     fix->procs.p = p;
     fix->counter = 1;
     fixing_procs_rbt_insert(&tb->common.fixing_procs, fix);
@@ -3817,7 +3817,7 @@ static void unfix_table_locked(Process* p,  DbTable* tb,
 #endif
 	    fixed_tabs_delete(p, fix);
 
-	    erts_refc_dec(&fix->tabs.btid->refc, 1);
+	    erts_refc_dec(&fix->tabs.btid->intern.refc, 1);
 
 	    erts_db_free(ERTS_ALC_T_DB_FIXATION,
 			 tb, (void *) fix, sizeof(DbFixation));

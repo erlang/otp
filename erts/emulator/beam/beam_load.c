@@ -913,7 +913,7 @@ erts_alloc_loader_state(void)
 
     magic = erts_create_magic_binary(sizeof(LoaderState),
 				     loader_state_dtor);
-    erts_refc_inc(&magic->refc, 1);
+    erts_refc_inc(&magic->intern.refc, 1);
     stp = ERTS_MAGIC_BIN_DATA(magic);
     stp->bin = NULL;
     stp->function = THE_NON_VALUE; /* Function not known yet */

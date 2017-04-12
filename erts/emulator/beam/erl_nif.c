@@ -1276,7 +1276,7 @@ Eterm enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)
 	
 	OH_OVERHEAD(&(MSO(env->proc)), pb->size / sizeof(Eterm));
 	bin_term = make_binary(pb);	
-	if (erts_refc_read(&bptr->refc, 1) == 1) {
+	if (erts_refc_read(&bptr->intern.refc, 1) == 1) {
 	    /* Total ownership transfer */
 	    bin->ref_bin = NULL;
 	    bin->bin_term = bin_term;
@@ -2246,7 +2246,7 @@ static int nif_resource_dtor(Binary* bin)
 
         ASSERT(type->down);
         erts_smp_mtx_lock(&rm->lock);
-        ASSERT(erts_refc_read(&bin->refc, 0) == 0);
+        ASSERT(erts_refc_read(&bin->intern.refc, 0) == 0);
         if (rm->root) {
             ASSERT(!rm->is_dying);
             destroy_all_monitors(rm->root, resource);
@@ -2320,13 +2320,13 @@ void erts_fire_nif_monitor(ErtsResource* resource, Eterm pid, Eterm ref)
         erts_smp_mtx_unlock(&rmp->lock);
 
         if (free_me) {
-            ASSERT(erts_refc_read(&bin->binary.refc, 0) == 0);
+            ASSERT(erts_refc_read(&bin->binary.intern.refc, 0) == 0);
             erts_bin_free(&bin->binary);
         }
         return;
     }
     ASSERT(!rmp->is_dying);
-    if (erts_refc_inc_unless(&bin->binary.refc, 0, 0) == 0) {
+    if (erts_refc_inc_unless(&bin->binary.intern.refc, 0, 0) == 0) {
         /*
          * Racing resource destruction. 
          * To avoid a more complex refc-dance with destructing thread
@@ -2374,7 +2374,7 @@ void* enif_alloc_resource(ErlNifResourceType* type, size_t data_sz)
 
     ASSERT(type->owner && type->next && type->prev); /* not allowed in load/upgrade */
     resource->type = type;
-    erts_refc_inc(&bin->refc, 1);
+    erts_refc_inc(&bin->intern.refc, 1);
 #ifdef DEBUG
     erts_refc_init(&resource->nif_refc, 1);
 #endif
@@ -2416,7 +2416,7 @@ void enif_keep_resource(void* obj)
 #ifdef DEBUG
     erts_refc_inc(&resource->nif_refc, 1);
 #endif
-    erts_refc_inc(&bin->binary.refc, 2);
+    erts_refc_inc(&bin->binary.intern.refc, 2);
 }
 
 Eterm erts_bld_resource_ref(Eterm** hpp, ErlOffHeap* oh, ErtsResource* resource)
@@ -2453,7 +2453,7 @@ ERL_NIF_TERM enif_make_resource_binary(ErlNifEnv* env, void* obj,
     pb->flags = 0;
 
     OH_OVERHEAD(ohp, size / sizeof(Eterm));
-    erts_refc_inc(&bin->binary.refc, 1);
+    erts_refc_inc(&bin->binary.intern.refc, 1);
 
     return make_binary(hp);
 }
@@ -2478,7 +2478,7 @@ int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* typ
         }
         */
         mbin = ((ProcBin *) hp)->val;
-        if (!(mbin->flags & BIN_FLAG_MAGIC))
+        if (!(mbin->intern.flags & BIN_FLAG_MAGIC))
             return 0;
     }
     resource = (ErtsResource*) ERTS_MAGIC_BIN_UNALIGNED_DATA(mbin);

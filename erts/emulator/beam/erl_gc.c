@@ -1242,7 +1242,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 	     * link it into the MSO list for the process.
 	     */
 
-	    erts_refc_inc(&bptr->refc, 1);
+	    erts_refc_inc(&bptr->intern.refc, 1);
 	    *prev = ptr;
 	    prev = &ptr->next;
 	}
@@ -3596,7 +3596,7 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 	erts_aint_t refc;
 	switch (thing_subtag(u.hdr->thing_word)) {
 	case REFC_BINARY_SUBTAG:
-	    refc = erts_refc_read(&u.pb->val->refc, 1);		
+	    refc = erts_refc_read(&u.pb->val->intern.refc, 1);
 	    break;
 	case FUN_SUBTAG:
 	    refc = erts_smp_refc_read(&u.fun->fe->refc, 1);
@@ -3608,7 +3608,7 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 	    break;
 	case REF_SUBTAG:
 	    ASSERT(is_magic_ref_thing(u.hdr));
-	    refc = erts_refc_read(&u.mref->mb->refc, 1);
+	    refc = erts_refc_read(&u.mref->mb->intern.refc, 1);
 	    break;
 	default:
 	    ASSERT(!"erts_check_off_heap2: Invalid thing_word");

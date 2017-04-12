@@ -995,7 +995,7 @@ static int db_select_continue_tree(Process *p,
     sc.lastobj = NULL;
     sc.max = 1000;
     sc.keypos = tb->common.keypos;
-    sc.all_objects = mp->flags & BIN_FLAG_ALL_OBJECTS;
+    sc.all_objects = mp->intern.flags & BIN_FLAG_ALL_OBJECTS;
     sc.chunk_size = chunk_size;
     reverse = unsigned_val(tptr[7]);
     sc.got = signed_val(tptr[8]);
@@ -1187,7 +1187,7 @@ static int db_select_tree(Process *p, DbTable *tbl, Eterm tid,
     hp = HAlloc(p, 9 + sz + ERTS_MAGIC_REF_THING_SIZE);
     key = copy_struct(key, sz, &hp, &MSO(p));
     if (mpi.all_objects)
-	(mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
+	(mpi.mp)->intern.flags |= BIN_FLAG_ALL_OBJECTS;
     mpb= erts_db_make_match_prog_ref(p,mpi.mp,&hp);
 	    
     continuation = TUPLE8
@@ -1385,7 +1385,7 @@ static int db_select_count_tree(Process *p, DbTable *tbl, Eterm tid,
     }
     key = copy_struct(key, sz, &hp, &MSO(p));
     if (mpi.all_objects)
-	(mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
+	(mpi.mp)->intern.flags |= BIN_FLAG_ALL_OBJECTS;
     mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
 	    
     continuation = TUPLE5
@@ -1510,7 +1510,7 @@ static int db_select_chunk_tree(Process *p, DbTable *tbl, Eterm tid,
 	hp = HAlloc(p, 9 + sz + ERTS_MAGIC_REF_THING_SIZE);
 	key = copy_struct(key, sz, &hp, &MSO(p));
 	if (mpi.all_objects)
-	    (mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
+	    (mpi.mp)->intern.flags |= BIN_FLAG_ALL_OBJECTS;
 	mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
 	
 	continuation = TUPLE8
@@ -1536,7 +1536,7 @@ static int db_select_chunk_tree(Process *p, DbTable *tbl, Eterm tid,
     key = copy_struct(key, sz, &hp, &MSO(p));
 
     if (mpi.all_objects)
-	(mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
+	(mpi.mp)->intern.flags |= BIN_FLAG_ALL_OBJECTS;
     mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
     continuation = TUPLE8
 	(hp,
@@ -1932,7 +1932,7 @@ static int db_select_replace_tree(Process *p, DbTable *tbl, Eterm tid,
     }
     key = copy_struct(key, sz, &hp, &MSO(p));
     if (mpi.all_objects)
-        (mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
+        (mpi.mp)->intern.flags |= BIN_FLAG_ALL_OBJECTS;
     mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
 
     continuation = TUPLE5

@@ -761,7 +761,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 		    }
 		    *argp = make_binary(hbot);
 		    pb = (ProcBin*) hbot;
-		    erts_refc_inc(&pb->val->refc, 2);
+		    erts_refc_inc(&pb->val->intern.refc, 2);
 		    pb->next = off_heap->first;
 		    pb->flags = 0;
 		    off_heap->first = (struct erl_off_heap_header*) pb;
@@ -809,7 +809,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 			to->thing_word = HEADER_PROC_BIN;
 			to->size = real_size;
 			to->val = from->val;
-			erts_refc_inc(&to->val->refc, 2);
+			erts_refc_inc(&to->val->intern.refc, 2);
 			to->bytes = from->bytes + offset;
 			to->next = off_heap->first;
 			to->flags = 0;
@@ -901,7 +901,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 	    case REF_SUBTAG:
 		if (is_magic_ref_thing(objp)) {
 		    ErtsMRefThing *mreft = (ErtsMRefThing *) objp;
-		    erts_refc_inc(&mreft->mb->refc, 2);
+		    erts_refc_inc(&mreft->mb->intern.refc, 2);
 		    goto L_off_heap_node_container_common;
 		}
 		/* Fall through... */
@@ -1585,7 +1585,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		while (sz-- > 0) {
 		    *hp++ = *ptr++;
 		}
-		erts_refc_inc(&pb->val->refc, 2);
+		erts_refc_inc(&pb->val->intern.refc, 2);
 		pb->next = off_heap->first;
 		pb->flags = 0;
 		off_heap->first = (struct erl_off_heap_header*) pb;
@@ -1644,7 +1644,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		    to->thing_word = HEADER_PROC_BIN;
 		    to->size = real_size;
 		    to->val = from->val;
-		    erts_refc_inc(&to->val->refc, 2);
+		    erts_refc_inc(&to->val->intern.refc, 2);
 		    to->bytes = from->bytes + offset;
 		    to->next = off_heap->first;
 		    to->flags = 0;
@@ -1678,7 +1678,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 	    case REF_SUBTAG:
 		if (is_magic_ref_thing(ptr)) {
 		    ErtsMRefThing *mreft = (ErtsMRefThing *) ptr;
-		    erts_refc_inc(&mreft->mb->refc, 2);
+		    erts_refc_inc(&mreft->mb->intern.refc, 2);
 		    goto off_heap_node_container_common;
 		}
 		/* Fall through... */
@@ -1847,7 +1847,7 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	    case REFC_BINARY_SUBTAG:
 		{
 		    ProcBin* pb = (ProcBin *) (tp-1);
-		    erts_refc_inc(&pb->val->refc, 2);
+		    erts_refc_inc(&pb->val->intern.refc, 2);
 		    OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
 		}
 		goto off_heap_common;
@@ -1882,7 +1882,7 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		ErtsRefThing *rtp = (ErtsRefThing *) (tp - 1);
 		if (is_magic_ref_thing(rtp)) {
 		    ErtsMRefThing *mreft = (ErtsMRefThing *) rtp;
-		    erts_refc_inc(&mreft->mb->refc, 2);
+		    erts_refc_inc(&mreft->mb->intern.refc, 2);
 		    goto off_heap_common;
 		}
 		/* Fall through... */

@@ -178,10 +178,10 @@ ERTS_GLB_INLINE Eterm
 erts_mk_magic_ref(Eterm **hpp, ErlOffHeap *ohp, Binary *bp)
 {
     Eterm *hp = *hpp;
-    ASSERT(bp->flags & BIN_FLAG_MAGIC);
+    ASSERT(bp->intern.flags & BIN_FLAG_MAGIC);
     write_magic_ref_thing(hp, ohp, (ErtsMagicBinary *) bp);
     *hpp += ERTS_MAGIC_REF_THING_SIZE;
-    erts_refc_inc(&bp->refc, 1);
+    erts_refc_inc(&bp->intern.refc, 1);
     OH_OVERHEAD(ohp, bp->orig_size / sizeof(Eterm));
     return make_internal_ref(hp);
 }
@@ -297,14 +297,14 @@ erts_iref_storage_save(ErtsIRefStorage *iref, Eterm ref)
 	ASSERT(is_magic_ref_thing(hp));
 	iref->is_magic = 1;
 	iref->u.mb = mrtp->mb;
-	erts_refc_inc(&mrtp->mb->refc, 1);
+	erts_refc_inc(&mrtp->mb->intern.refc, 1);
     }
 }
 
 ERTS_GLB_INLINE void
 erts_iref_storage_clean(ErtsIRefStorage *iref)
 {
-    if (iref->is_magic && erts_refc_dectest(&iref->u.mb->refc, 0) == 0)
+    if (iref->is_magic && erts_refc_dectest(&iref->u.mb->intern.refc, 0) == 0)
 	erts_ref_bin_free(iref->u.mb);
 #ifdef DEBUG
     memset((void *) iref, 0xf, sizeof(ErtsIRefStorage));
@@ -337,7 +337,7 @@ erts_iref_storage_make_ref(ErtsIRefStorage *iref,
 	 * refc increment of the cleaned storage...
 	 */
 	if (!clean_storage)
-	    erts_refc_inc(&iref->u.mb->refc, 1);
+	    erts_refc_inc(&iref->u.mb->intern.refc, 1);
     }
 
 #ifdef DEBUG

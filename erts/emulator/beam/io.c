@@ -4901,7 +4901,7 @@ erts_port_control(Process* c_p,
 	    ASSERT(bufp <= bufp + size);
 	    ASSERT(binp->orig_bytes <= bufp
 		   && bufp + size <= binp->orig_bytes + binp->orig_size);
-	    erts_refc_inc(&binp->refc, 1);
+	    erts_refc_inc(&binp->intern.refc, 1);
 	}
     }
 
@@ -6907,21 +6907,21 @@ ErlDrvSInt
 driver_binary_get_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
-    return (ErlDrvSInt) erts_refc_read(&bp->refc, 1);
+    return (ErlDrvSInt) erts_refc_read(&bp->intern.refc, 1);
 }
 
 ErlDrvSInt
 driver_binary_inc_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
-    return (ErlDrvSInt) erts_refc_inctest(&bp->refc, 2);
+    return (ErlDrvSInt) erts_refc_inctest(&bp->intern.refc, 2);
 }
 
 ErlDrvSInt
 driver_binary_dec_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
-    return (ErlDrvSInt) erts_refc_dectest(&bp->refc, 1);
+    return (ErlDrvSInt) erts_refc_dectest(&bp->intern.refc, 1);
 }
 
 

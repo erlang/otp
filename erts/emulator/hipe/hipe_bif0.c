@@ -1936,6 +1936,6 @@ BIF_RETTYPE hipe_bifs_alloc_loader_state_1(BIF_ALIST_1)
 
     hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
     res = erts_mk_magic_ref(&hp, &MSO(BIF_P), magic);
-    erts_refc_dec(&magic->refc, 1);
+    erts_refc_dec(&magic->intern.refc, 1);
     BIF_RET(res);
 }
