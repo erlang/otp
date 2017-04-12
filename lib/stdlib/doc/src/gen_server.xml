@@ -199,7 +199,7 @@ gen_server:abcast     -----> Module:handle_cast/2
       <type>
         <v>Module = atom()</v>
         <v>Options = [Option]</v>
-        <v>&nbsp;Option = {debug,Dbgs}</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {auto_hibernate_timeout,AutoHibernateTimeout}</v>
         <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
         <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics</v>
         <v>&nbsp;&nbsp;&nbsp;&nbsp;| {log_to_file,FileName} | {install,{Func,FuncState}}</v>
@@ -334,7 +334,7 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>Module = atom()</v>
         <v>Args = term()</v>
         <v>Options = [Option]</v>
-        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {spawn_opt,SOpts}</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {auto_hibernate_timeout,AutoHibernateTimeout} | {spawn_opt,SOpts}</v>
         <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
         <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
         <v>&nbsp;&nbsp;SOpts = [term()]</v>
@@ -364,7 +364,7 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>Module = atom()</v>
         <v>Args = term()</v>
         <v>Options = [Option]</v>
-        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {spawn_opt,SOpts}</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {auto_hibernate_timeout,AutoHibernateTimeout} | {spawn_opt,SOpts}</v>
         <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
         <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
         <v>&nbsp;&nbsp;SOpts = [term()]</v>
@@ -415,6 +415,12 @@ gen_server:abcast     -----> Module:handle_cast/2
               process is allowed to spend <c>Time</c> milliseconds
               initializing or it is terminated and the start function
               returns <c>{error,timeout}</c>.</p>
+          </item>
+          <item>
+            <p>If option <c>{auto_hibernate_timeout,AutoHibernateTimeout}</c> is present, the <c>gen_server</c>
+              process wait any message <c>AutoHibernateTimeout</c> milliseconds and
+              in case of no message was received, process goes into hibernation automatically
+              (by calling <seealso marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>).</p>
           </item>
           <item>
             <p>If option <c>{debug,Dbgs}</c> is present,

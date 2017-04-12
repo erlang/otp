@@ -26,7 +26,7 @@
          end_per_testcase/2]).
 -export([start/1, add_handler/1, add_sup_handler/1,
 	 delete_handler/1, swap_handler/1, swap_sup_handler/1,
-	 notify/1, sync_notify/1, call/1, info/1, hibernate/1,
+	 notify/1, sync_notify/1, call/1, info/1, hibernate/1, auto_hibernate/1,
 	 call_format_status/1, call_format_status_anon/1,
          error_format_status/1, get_state/1, replace_state/1,
          start_opt/1,
@@ -37,7 +37,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [start, {group, test_all}, hibernate,
+    [start, {group, test_all}, hibernate, auto_hibernate,
      call_format_status, call_format_status_anon, error_format_status,
      get_state, replace_state,
      start_opt, {group, undef_callbacks}, undef_in_terminate].
@@ -304,6 +304,48 @@ hibernate(Config) when is_list(Config) ->
 
     ok = gen_event:stop(my_dummy_handler),
 
+    ok.
+
+auto_hibernate(Config) when is_list(Config) ->
+    AutoHibernateTimeout = 100,
+    State = {auto_hibernate_state},
+    {ok,Pid} = gen_event:start({local, auto_hibernate_handler}, [{auto_hibernate_timeout, AutoHibernateTimeout}]),
+    %% After init test
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(AutoHibernateTimeout),
+    is_in_erlang_hibernate(Pid),
+    ok = gen_event:add_handler(auto_hibernate_handler, dummy_h, [State]),
+    %% Get state test
+    [{dummy_h,false,State}] = sys:get_state(Pid),
+    is_in_erlang_hibernate(Pid),
+    %% Call test
+    {ok, hejhopp} = gen_event:call(auto_hibernate_handler, dummy_h, hejsan),
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(AutoHibernateTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% Event test
+    ok = gen_event:notify(auto_hibernate_handler, {self(), handle_event}),
+    receive
+        handled_event ->
+            ok
+    after 1000 ->
+        ct:fail(event)
+    end,
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(AutoHibernateTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% Info test
+    Pid ! {self(), handle_info},
+    receive
+        handled_info ->
+            ok
+    after 1000 ->
+        ct:fail(info)
+    end,
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(AutoHibernateTimeout),
+    is_in_erlang_hibernate(Pid),
+    ok = gen_event:stop(auto_hibernate_handler),
     ok.
 
 is_in_erlang_hibernate(Pid) ->

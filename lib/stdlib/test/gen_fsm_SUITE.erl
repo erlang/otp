@@ -44,7 +44,7 @@
 
 -export([undef_in_handle_info/1, undef_in_terminate/1]).
 
--export([hibernate/1,hiber_idle/3,hiber_wakeup/3,hiber_idle/2,hiber_wakeup/2]).
+-export([hibernate/1,auto_hibernate/1,hiber_idle/3,hiber_wakeup/3,hiber_idle/2,hiber_wakeup/2]).
 
 -export([enter_loop/1]).
 
@@ -68,7 +68,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [{group, start}, {group, abnormal}, shutdown,
-     {group, sys}, hibernate, enter_loop, {group, undef_callbacks},
+     {group, sys}, hibernate, auto_hibernate, enter_loop, {group, undef_callbacks},
      undef_in_handle_info, undef_in_terminate].
 
 groups() ->
@@ -700,6 +700,43 @@ hibernate(Config) when is_list(Config) ->
     process_flag(trap_exit, OldFl),
     ok.
 
+%% Auto hibernation
+auto_hibernate(Config) when is_list(Config) ->
+    OldFl = process_flag(trap_exit, true),
+    AutoHibernateTimeout = 100,
+    State = {auto_hibernate_state},
+    {ok, Pid} = gen_fsm:start_link({local, my_test_name_auto_hibernate}, ?MODULE, {state_data, State}, [{auto_hibernate_timeout, AutoHibernateTimeout}]),
+    %% After init test
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(AutoHibernateTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% Get state test
+    {_, State} = sys:get_state(my_test_name_auto_hibernate),
+    is_in_erlang_hibernate(Pid),
+    %% Sync send event test
+    'alive!' = gen_fsm:sync_send_event(Pid,'alive?'),
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(AutoHibernateTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% Send event test
+    ok = gen_fsm:send_all_state_event(Pid,{'alive?', self()}),
+    wfor(yes),
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(AutoHibernateTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% Info test
+    Pid ! {self(), handle_info},
+    wfor({Pid, handled_info}),
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(AutoHibernateTimeout),
+    is_in_erlang_hibernate(Pid),
+    stop_it(Pid),
+    receive
+        {'EXIT',Pid,normal} -> ok
+    end,
+    process_flag(trap_exit, OldFl),
+    ok.
+
 is_in_erlang_hibernate(Pid) ->
     receive after 1 -> ok end,
     is_in_erlang_hibernate_1(200, Pid).
@@ -1151,6 +1188,8 @@ idle(badreturn, _From, _Data) ->
 idle({timeout,Time}, From, _Data) ->
     gen_fsm:send_event_after(Time, {timeout,Time}),
     {next_state, timeout, From};
+idle('alive?', _From, Data) ->
+    {reply, 'alive!', idle, Data};
 idle(_, _From, Data) ->
     {reply, 'eh?', idle, Data}.
 
@@ -1226,6 +1265,9 @@ handle_info(hibernate_later, _SName, _State) ->
 handle_info({call_undef_fun, {Mod, Fun}}, State, Data) ->
     Mod:Fun(),
     {next_state, State, Data};
+handle_info({From, handle_info}, SName, State) ->
+    From ! {self(), handled_info},
+    {next_state, SName, State};
 handle_info(Info, _State, Data) ->
     {stop, {unexpected,Info}, Data}.
 

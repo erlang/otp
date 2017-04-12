@@ -32,7 +32,7 @@
 	 call_remote_n1/1, call_remote_n2/1, call_remote_n3/1, spec_init/1,
 	 spec_init_local_registered_parent/1, 
 	 spec_init_global_registered_parent/1,
-	 otp_5854/1, hibernate/1, otp_7669/1, call_format_status/1,
+	 otp_5854/1, hibernate/1, auto_hibernate/1, otp_7669/1, call_format_status/1,
 	 error_format_status/1, terminate_crash_format/1,
 	 get_state/1, replace_state/1, call_with_huge_message_queue/1,
 	 undef_handle_call/1, undef_handle_cast/1, undef_handle_info/1,
@@ -65,7 +65,7 @@ all() ->
      call_remote3, call_remote_n1, call_remote_n2,
      call_remote_n3, spec_init,
      spec_init_local_registered_parent,
-     spec_init_global_registered_parent, otp_5854, hibernate,
+     spec_init_global_registered_parent, otp_5854, hibernate, auto_hibernate,
      otp_7669,
      call_format_status, error_format_status, terminate_crash_format,
      get_state, replace_state,
@@ -730,6 +730,58 @@ hibernate(Config) when is_list(Config) ->
     process_flag(trap_exit, OldFl),
     ok.
 
+auto_hibernate(Config) when is_list(Config) ->
+    OldFl = process_flag(trap_exit, true),
+    AutoHibernateTimeout = 100,
+    State = {auto_hibernate_state},
+    {ok, Pid} =
+        gen_server:start_link({local, my_test_name_auto_hibernate},
+            gen_server_SUITE, {state,State}, [{auto_hibernate_timeout, AutoHibernateTimeout}]),
+    %% After init test
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(AutoHibernateTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% Get state test
+    State = sys:get_state(my_test_name_auto_hibernate),
+    is_in_erlang_hibernate(Pid),
+    %% Call test
+    ok = gen_server:call(my_test_name_auto_hibernate, started_p),
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(AutoHibernateTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% Cast test
+    ok = gen_server:cast(my_test_name_auto_hibernate, {self(),handle_cast}),
+    receive
+        {Pid, handled_cast} ->
+            ok
+    after 1000 ->
+        ct:fail(cast)
+    end,
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(AutoHibernateTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% Info test
+    Pid ! {self(),handle_info},
+    receive
+        {Pid, handled_info} ->
+            ok
+    after 1000 ->
+        ct:fail(info)
+    end,
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(AutoHibernateTimeout),
+    is_in_erlang_hibernate(Pid),
+
+    ok = gen_server:call(my_test_name_auto_hibernate, stop),
+    receive
+        {'EXIT', Pid, stopped} ->
+            ok
+    after 5000 ->
+        ct:fail(gen_server_did_not_die)
+    end,
+    process_flag(trap_exit, OldFl),
+    ok.
+
 is_in_erlang_hibernate(Pid) ->
     receive after 1 -> ok end,
     is_in_erlang_hibernate_1(200, Pid).
@@ -745,6 +797,23 @@ is_in_erlang_hibernate_1(N, Pid) ->
 	_ ->
 	    receive after 10 -> ok end,
 	    is_in_erlang_hibernate_1(N-1, Pid)
+    end.
+
+is_not_in_erlang_hibernate(Pid) ->
+    receive after 1 -> ok end,
+    is_not_in_erlang_hibernate_1(200, Pid).
+
+is_not_in_erlang_hibernate_1(0, Pid) ->
+    io:format("~p\n", [erlang:process_info(Pid, current_function)]),
+    ct:fail(not_in_erlang_hibernate_3);
+is_not_in_erlang_hibernate_1(N, Pid) ->
+    {current_function,MFA} = erlang:process_info(Pid, current_function),
+    case MFA of
+        {erlang,hibernate,3} ->
+            receive after 10 -> ok end,
+            is_not_in_erlang_hibernate_1(N-1, Pid);
+        _ ->
+            ok
     end.
 
 %% --------------------------------------

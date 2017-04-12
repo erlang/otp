@@ -43,6 +43,9 @@ handle_event(hibernate, _State) ->
    {ok,[],hibernate};
 handle_event(wakeup, _State) ->
     {ok,[]};
+handle_event({From, handle_event}, _State) ->
+    From ! handled_event,
+    {ok,[]};
 handle_event(Event, Parent) ->
     Parent ! {dummy_h, Event},
     {ok, Parent}.
@@ -74,6 +77,9 @@ handle_info(sleep, _State) ->
 handle_info(wake, _State) ->
     {ok, []};
 handle_info(gnurf, _State) ->
+    {ok, []};
+handle_info({From, handle_info}, _State) ->
+    From ! handled_info,
     {ok, []};
 handle_info(Info, Parent) ->
     Parent ! {dummy_h, Info},
