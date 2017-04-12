@@ -717,14 +717,14 @@ send_unexpected_mandatory(Config) ->
 %% Send something long that will be fragmented by TCP.
 send_long(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
-                  {'User-Name', [lists:duplicate(1 bsl 20, $X)]}],
+                  {'User-Name', [binary:copy(<<$X>>, 1 bsl 20)]}],
     ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req).
 
 %% Send something longer than the configure incoming_maxlen.
 send_maxlen(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
-                  {'User-Name', [lists:duplicate(1 bsl 21, $X)]}],
+                  {'User-Name', [binary:copy(<<$X>>, 1 bsl 21)]}],
     {timeout, _} = call(Config, Req).
 
 %% Send something for which pick_peer finds no suitable peer.

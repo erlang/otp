@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ all() ->
 
 send_long(_) ->
     {Sock, SendF} = connection(),
-    B = list_to_binary(lists:duplicate(1 bsl 20, $X)),
+    B = binary:copy(<<$X>>, 1 bsl 20),
     ok = SendF(B),
     B = recv(Sock, size(B), []).
 
