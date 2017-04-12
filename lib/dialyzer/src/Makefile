@@ -68,7 +68,8 @@ MODULES =  \
 	dialyzer_typesig \
 	dialyzer_coordinator \
 	dialyzer_worker \
-	dialyzer_utils
+	dialyzer_utils \
+	typer
 
 HRL_FILES= dialyzer.hrl dialyzer_gui_wx.hrl
 ERL_FILES= $(MODULES:%=%.erl)
@@ -116,6 +117,9 @@ $(EBIN)/dialyzer_plt.$(EMULATOR): dialyzer_plt.erl ../vsn.mk
 
 $(EBIN)/dialyzer_gui_wx.$(EMULATOR): dialyzer_gui_wx.erl ../vsn.mk
 	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) dialyzer_gui_wx.erl
+
+$(EBIN)/typer.$(EMULATOR): typer.erl ../vsn.mk
+	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) typer.erl
 
 $(APP_TARGET): $(APP_SRC) ../vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@

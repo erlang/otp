@@ -49,6 +49,7 @@ int wmain(int argc, wchar_t **argv)
     HANDLE module = GetModuleHandle(NULL);
     wchar_t *binaries[] = { L"erl.exe", L"werl.exe", L"erlc.exe",
 			    L"dialyzer.exe",
+			    L"typer.exe",
 			    L"escript.exe", L"ct_run.exe", NULL };
     wchar_t *scripts[] = { L"start_clean.boot", L"start_sasl.boot", L"no_dot_erlang.boot", NULL };
     wchar_t fromname[MAX_PATH];
