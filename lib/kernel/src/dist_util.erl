@@ -131,7 +131,7 @@ handshake_other_started(#hs_data{request_type=ReqType}=HSData0) ->
 			     other_version=Version,
 			     other_node=Node,
 			     other_started=true},
-    check_dflag_xnc(HSData),
+    check_dflags(HSData),
     is_allowed(HSData),
     ?debug({"MD5 connection from ~p (V~p)~n",
 	    [Node, HSData#hs_data.other_version]}),
@@ -168,27 +168,24 @@ is_allowed(#hs_data{other_node = Node,
 %% Check that both nodes can handle the same types of extended
 %% node containers. If they can not, abort the connection.
 %%
-check_dflag_xnc(#hs_data{other_node = Node,
-			 other_flags = OtherFlags,
-			 other_started = OtherStarted} = HSData) ->
-    XRFlg = ?DFLAG_EXTENDED_REFERENCES,
-    XPPFlg = case erlang:system_info(compat_rel) of
-		 R when R >= 10 ->
-		     ?DFLAG_EXTENDED_PIDS_PORTS;
-		 _ ->
-		     0
-	     end,
-    ReqXncFlags = XRFlg bor XPPFlg,
-    case OtherFlags band ReqXncFlags =:= ReqXncFlags of
-	true ->
-	    ok;
-	false ->
-	    What = case {OtherFlags band XRFlg =:= XRFlg,
-			 OtherFlags band XPPFlg =:= XPPFlg} of
-		       {false, false} -> "references, pids and ports";
-		       {true, false} -> "pids and ports";
-		       {false, true} -> "references"
-		   end,
+check_dflags(#hs_data{other_node = Node,
+                      other_flags = OtherFlags,
+                      other_started = OtherStarted} = HSData) ->
+
+    Mandatory = [{?DFLAG_EXTENDED_REFERENCES, "EXTENDED_REFERENCES"},
+                 {?DFLAG_EXTENDED_PIDS_PORTS, "EXTENDED_PIDS_PORTS"},
+                 {?DFLAG_UTF8_ATOMS, "UTF8_ATOMS"}],
+    Missing = lists:filtermap(fun({Bit, Str}) ->
+                                      case Bit band OtherFlags of
+                                          Bit -> false;
+                                          0 -> {true, Str}
+                                      end
+                              end,
+                              Mandatory),
+    case Missing of
+        [] ->
+            ok;
+        _ ->
 	    case OtherStarted of
 		true ->
 		    send_status(HSData, not_allowed),
@@ -199,9 +196,9 @@ check_dflag_xnc(#hs_data{other_node = Node,
 		    How = "aborted"
 	    end,
 	    error_msg("** ~w: Connection attempt ~s node ~w ~s "
-		      "since it cannot handle extended ~s. "
-		      "**~n", [node(), Dir, Node, How, What]),
-	    ?shutdown2(Node, {check_dflag_xnc_failed, What})
+		      "since it cannot handle ~p."
+		      "**~n", [node(), Dir, Node, How, Missing]),
+	    ?shutdown2(Node, {check_dflags_failed, Missing})
     end.
 
 
@@ -327,7 +324,7 @@ handshake_we_started(#hs_data{request_type=ReqType,
     NewHSData = HSData#hs_data{this_flags = ThisFlags,
 			       other_flags = OtherFlags, 
 			       other_started = false}, 
-    check_dflag_xnc(NewHSData),
+    check_dflags(NewHSData),
     MyChallenge = gen_challenge(),
     {MyCookie,HisCookie} = get_cookies(Node),
     send_challenge_reply(NewHSData,MyChallenge,

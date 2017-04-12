@@ -240,7 +240,7 @@ do_error(BeamFile, ACopy) ->
     verify(missing_chunk, beam_lib:chunks(BF3, [imports])),
     BF4 = set_byte(ACopy, BeamFile, AbstractStart+10, 17),
     verify(invalid_chunk, beam_lib:chunks(BF4, [abstract_code])),
-    BF5 = set_byte(ACopy, BeamFile, AttributesStart+10, 17),
+    BF5 = set_byte(ACopy, BeamFile, AttributesStart+8, 17),
     verify(invalid_chunk, beam_lib:chunks(BF5, [attributes])),
 
     BF6 = set_byte(ACopy, BeamFile, 1, 17),
@@ -251,7 +251,7 @@ do_error(BeamFile, ACopy) ->
     BF8 = set_byte(ACopy, BeamFile, 13, 17),
     verify(missing_chunk, beam_lib:chunks(BF8, ["AtU8"])),
 
-    BF9 = set_byte(ACopy, BeamFile, CompileInfoStart+10, 17),
+    BF9 = set_byte(ACopy, BeamFile, CompileInfoStart+8, 17),
     verify(invalid_chunk, beam_lib:chunks(BF9, [compile_info])).
 
 

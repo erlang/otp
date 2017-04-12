@@ -170,7 +170,6 @@ get_binary(P) ->
 
 -define(VERSION_MAGIC,       131).
 
--define(ATOM_EXT,            100).
 -define(REFERENCE_EXT,       101).
 -define(PORT_EXT,            102).
 -define(PID_EXT,             103).

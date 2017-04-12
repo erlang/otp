@@ -184,17 +184,17 @@ test_ei_encode_misc(Config) when is_list(Config) ->
     {<<70,_:8/binary>>,Fp1} = get_buf_and_term(P),
     true = match_float(Fp1, 1.0),
 
-    {<<100,0,5,"false">>,false}  = get_buf_and_term(P),
-    {<<100,0,4,"true">> ,true}   = get_buf_and_term(P),
-    {<<100,0,4,"true">> ,true}   = get_buf_and_term(P),
-    {<<100,0,4,"true">> ,true}   = get_buf_and_term(P),
+    {<<$w,5,"false">>,false}  = get_buf_and_term(P),
+    {<<$w,4,"true">> ,true}   = get_buf_and_term(P),
+    {<<$w,4,"true">> ,true}   = get_buf_and_term(P),
+    {<<$w,4,"true">> ,true}   = get_buf_and_term(P),
 
-    {<<100,0,3,"foo">>,foo}         = get_buf_and_term(P),
-    {<<100,0,3,"foo">>,foo}         = get_buf_and_term(P),
-    {<<100,0,0,"">>,''}             = get_buf_and_term(P),
-    {<<100,0,0,"">>,''}             = get_buf_and_term(P),
-    {<<100,0,6,"ÅÄÖåäö">>,'ÅÄÖåäö'} = get_buf_and_term(P),
-    {<<100,0,6,"ÅÄÖåäö">>,'ÅÄÖåäö'} = get_buf_and_term(P),
+    {<<$w,3,"foo">>,foo}         = get_buf_and_term(P),
+    {<<$w,3,"foo">>,foo}         = get_buf_and_term(P),
+    {<<$w,0,"">>,''}             = get_buf_and_term(P),
+    {<<$w,0,"">>,''}             = get_buf_and_term(P),
+    {<<$w,12,"ÅÄÖåäö"/utf8>>,'ÅÄÖåäö'} = get_buf_and_term(P),
+    {<<$w,12,"ÅÄÖåäö"/utf8>>,'ÅÄÖåäö'} = get_buf_and_term(P),
 
     {<<107,0,3,"foo">>,"foo"}       = get_buf_and_term(P),
     {<<107,0,3,"foo">>,"foo"}       = get_buf_and_term(P),
@@ -239,12 +239,12 @@ test_ei_encode_utf8_atom(Config) ->
     P = runner:start(?test_ei_encode_utf8_atom),
 
     {<<119,2,195,133>>,'Å'} = get_buf_and_term(P),
-    {<<100,0,1,197>>,'Å'} = get_buf_and_term(P),
-    {<<100,0,1,197>>,'Å'} = get_buf_and_term(P),
+    {<<119,2,195,133>>,'Å'} = get_buf_and_term(P),
+    {<<119,2,195,133>>,'Å'} = get_buf_and_term(P),
     {<<119,2,195,133>>,'Å'} = get_buf_and_term(P),
 
     {<<119,1,$A>>,'A'} = get_buf_and_term(P),
-    {<<100,0,1,$A>>,'A'} = get_buf_and_term(P),
+    {<<119,1,$A>>,'A'} = get_buf_and_term(P),
 
     runner:recv_eot(P),
     ok.
@@ -254,13 +254,13 @@ test_ei_encode_utf8_atom_len(Config) ->
     P = runner:start(?test_ei_encode_utf8_atom_len),
 
     {<<119,2,195,133>>,'Å'} = get_buf_and_term(P),
-    {<<100,0,2,197,196>>,'ÅÄ'} = get_buf_and_term(P),
-    {<<100,0,1,197>>,'Å'} = get_buf_and_term(P),
+    {<<119,4,195,133,195,132>>,'ÅÄ'} = get_buf_and_term(P),
+    {<<119,2,195,133>>,'Å'} = get_buf_and_term(P),
     {<<119,4,195,133,195,132>>,'ÅÄ'} = get_buf_and_term(P),
 
     {<<119,1,$A>>,'A'} = get_buf_and_term(P),
-    {<<100,0,2,$A,$B>>,'AB'} = get_buf_and_term(P),
-    {<<100,0,255,_:(255*8)>>,_} = get_buf_and_term(P),
+    {<<119,2,$A,$B>>,'AB'} = get_buf_and_term(P),
+    {<<119,255,_:(255*8)>>,_} = get_buf_and_term(P),
 
     runner:recv_eot(P),
     ok.

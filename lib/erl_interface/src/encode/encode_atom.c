@@ -26,7 +26,6 @@
 
 static int verify_ascii_atom(const char* src, int slen);
 static int verify_utf8_atom(const char* src, int slen);
-static int is_latin1_as_utf8(const char *p, int len);
 
 int ei_encode_atom(char *buf, int *index, const char *p)
 {
@@ -34,7 +33,7 @@ int ei_encode_atom(char *buf, int *index, const char *p)
 
     if (len >= MAXATOMLEN)
 	len = MAXATOMLEN - 1;
-    return ei_encode_atom_len_as(buf, index, p, len, ERLANG_LATIN1, ERLANG_LATIN1);
+    return ei_encode_atom_len_as(buf, index, p, len, ERLANG_LATIN1, 0);
 }
 
 int ei_encode_atom_len(char *buf, int *index, const char *p, int len)
@@ -42,7 +41,7 @@ int ei_encode_atom_len(char *buf, int *index, const char *p, int len)
     /* This function is documented to truncate at MAXATOMLEN (256) */ 
     if (len >= MAXATOMLEN)
 	len = MAXATOMLEN - 1;
-    return ei_encode_atom_len_as(buf, index, p, len, ERLANG_LATIN1, ERLANG_LATIN1);
+    return ei_encode_atom_len_as(buf, index, p, len, ERLANG_LATIN1, 0);
 }
 
 int ei_encode_atom_as(char *buf, int *index, const char *p,
@@ -64,46 +63,11 @@ int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
       return -1;
   }
 
-  if (to_enc == (ERLANG_LATIN1 | ERLANG_UTF8)) {
-    if (from_enc == ERLANG_UTF8) {
-      to_enc = is_latin1_as_utf8(p, len) ? ERLANG_LATIN1 : ERLANG_UTF8;
-    }
-    else {
-      to_enc = from_enc;
-    }
-  }
-  switch(to_enc) {
-  case ERLANG_LATIN1:
-      if (buf) {
-	  put8(s,ERL_ATOM_EXT);
-	  switch (from_enc) {
-	  case ERLANG_UTF8:
-	      len = utf8_to_latin1(s+2, p, len, MAXATOMLEN-1, NULL);
-	      if (len < 0) return -1;
-	      break;
-	  case ERLANG_ASCII:
-	      if (verify_ascii_atom(p, len) < 0) return -1;
-	      memcpy(s+2, p, len);
-	      break;
-	  case ERLANG_LATIN1:
-	      memcpy(s+2, p, len);
-	      break;
-	  default:
-	      return -1;
-	  }
-	  put16be(s,len);
-      }
-      else {
-	  s += 3;
-	  if (from_enc == ERLANG_UTF8) {
-	      len = utf8_to_latin1(NULL, p, len, MAXATOMLEN-1, NULL);
-	      if (len < 0) return -1;
-	  } else if (from_enc == ERLANG_ASCII)
-	    if (verify_ascii_atom(p, len) < 0) return -1;
-      }
-      break;
-      
-  case ERLANG_UTF8:
+  /*
+   * Since OTP 20 we totally ignore 'to_enc'
+   * and alway encode as UTF8.
+   */
+  {
       offs =  1 + 1;
       switch (from_enc) {
       case ERLANG_LATIN1:
@@ -133,10 +97,6 @@ int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
 	  }
       }
       else s+= offs;
-      break;
-
-  default:
-      return -1;
   }
   s += len;
 
@@ -197,13 +157,3 @@ static int verify_utf8_atom(const char* src, int slen)
     return 0;
 }
 
-/* Only latin1 code points in utf8 string?
- */
-static int is_latin1_as_utf8(const char *p, int len)
-{
-  int i;
-  for (i=0; i<len; i++) {
-    if ((unsigned char)p[i] > 0xC3) return 0;
-  }
-  return 1;
-}

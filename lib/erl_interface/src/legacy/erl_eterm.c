@@ -188,14 +188,20 @@ char* erl_atom_ptr_latin1(Erl_Atom_data* a)
 char* erl_atom_ptr_utf8(Erl_Atom_data* a)
 {
     if (a->utf8 == NULL) {
-	int dlen = a->lenL * 2; /* over estimation */
-	a->utf8 = malloc(dlen + 1); 
-	a->lenU = latin1_to_utf8(a->utf8, a->latin1, a->lenL, dlen, NULL);
-	a->utf8[a->lenU] = '\0';
+        erlang_char_encoding enc;
+        a->lenU = latin1_to_utf8(NULL, a->latin1, a->lenL, a->lenL*2, &enc);
+        if (enc == ERLANG_ASCII) {
+            a->utf8 = a->latin1;
+        }
+        else {
+            a->utf8 = malloc(a->lenU + 1);
+            latin1_to_utf8(a->utf8, a->latin1, a->lenL, a->lenU, NULL);
+            a->utf8[a->lenU] = '\0';
+        }
     }
     return a->utf8;
-
 }
+
 int erl_atom_size_latin1(Erl_Atom_data* a)
 {
     if (a->latin1 == NULL) {

@@ -179,7 +179,8 @@ test_ei_decode_misc(Config) when is_list(Config) ->
 
     send_term_as_binary(P,foo),
     send_term_as_binary(P,''),
-    send_term_as_binary(P,'ÅÄÖåäö'),
+    %%send_term_as_binary(P,'ÅÄÖåäö'),
+    send_latin1_atom_as_binary(P, "ÅÄÖåäö"),
 
     send_term_as_binary(P,"foo"),
     send_term_as_binary(P,""),
@@ -200,18 +201,19 @@ test_ei_decode_misc(Config) when is_list(Config) ->
 test_ei_decode_utf8_atom(Config) ->
     P = runner:start(?test_ei_decode_utf8_atom),
 
-    send_utf8_atom_as_binary(P,"å"),
-    send_utf8_atom_as_binary(P,"ä"),
-    send_term_as_binary(P,'ö'),
-    send_term_as_binary(P,'õ'),
+    send_latin1_atom_as_binary(P,"å"),
+    send_latin1_atom_as_binary(P,"ä"),
+    send_latin1_atom_as_binary(P,"ö"),
+    send_latin1_atom_as_binary(P,"õ"),
 
     send_utf8_atom_as_binary(P,[1758]),
     send_utf8_atom_as_binary(P,[1758,1758]),
     send_utf8_atom_as_binary(P,[1758,1758,1758]),
     send_utf8_atom_as_binary(P,[1758,1758,1758,1758]),
 
-    send_utf8_atom_as_binary(P,"a"),
-    send_utf8_atom_as_binary(P,"b"),
+    send_latin1_atom_as_binary(P,"a"),
+    send_latin1_atom_as_binary(P,"b"),
+
     send_term_as_binary(P,'c'),
     send_term_as_binary(P,'d'),
 
@@ -229,6 +231,9 @@ send_raw(Port, Bin) when is_port(Port) ->
 
 send_utf8_atom_as_binary(Port, String) ->
     Port ! {self(), {command, term_to_binary(uc_atup(String))}}.
+
+send_latin1_atom_as_binary(Port, String) ->
+    Port ! {self(), {command, encode_latin1_atom(String)}}.
 
 send_integers(P) ->
     send_term_as_binary(P,0),		% SMALL_INTEGER_EXT smallest
@@ -303,6 +308,12 @@ send_integers2(P) ->
     send_term_as_binary(P, 16#ffffffffffffffff), % largest  u64
     send_term_as_binary(P, []), % illegal type
     ok.
+
+encode_latin1_atom(String) ->
+    Len = length(String),
+    %% Use ATOM_EXT (not SMALL_*) to simulate old term_to_binary
+    TagLen = [$d, Len bsr 8, Len band 16#ff],
+    list_to_binary([131, TagLen, String]).
 
 uc_atup(ATxt) ->
     string_to_atom(ATxt).

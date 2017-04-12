@@ -407,7 +407,7 @@ test_compare_ext(char *test_desc,
 }
 
 
-#define ATOM_EXT          (100)
+#define SMALL_ATOM_UTF8_EXT (119)
 #define REFERENCE_EXT     (101)
 #define PORT_EXT          (102)
 #define PID_EXT           (103)
@@ -429,13 +429,13 @@ write_atom(unsigned char *buf, char *atom)
 
     len = 0;
     while(atom[len]) {
-	buf[len + 3] = atom[len];
+	buf[len + 2] = atom[len];
 	len++;
     }
-    buf[0] = ATOM_EXT;
-    PUT_UINT16(&buf[1], len);
+    buf[0] = SMALL_ATOM_UTF8_EXT;
+    buf[1] = len;
 
-    return buf + 3 + len;
+    return buf + 2 + len;
 }
 
 static unsigned char *

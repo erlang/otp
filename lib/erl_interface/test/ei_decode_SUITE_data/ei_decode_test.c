@@ -102,7 +102,7 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
     } \
 \
     if (size1 != SIZE) { \
-      fail("size of encoded data is incorrect"); \
+        fail1("size of encoded data (%d) is incorrect", size1);    \
       return; \
     } \
   } \
@@ -614,11 +614,11 @@ TESTCASE(test_ei_decode_misc)
     EI_DECODE_2(decode_double, 9, double, -1.0);
     EI_DECODE_2(decode_double, 9, double, 1.0);
 
-    EI_DECODE_2(decode_boolean, 8, int, 0);
-    EI_DECODE_2(decode_boolean, 7, int, 1);
+    EI_DECODE_2(decode_boolean, 7, int, 0);
+    EI_DECODE_2(decode_boolean, 6, int, 1);
 
-    EI_DECODE_STRING(decode_my_atom, 6, "foo");
-    EI_DECODE_STRING(decode_my_atom, 3, "");
+    EI_DECODE_STRING(decode_my_atom, 5, "foo");
+    EI_DECODE_STRING(decode_my_atom, 2, "");
     EI_DECODE_STRING(decode_my_atom, 9, "≈ƒ÷Â‰ˆ");
 
     EI_DECODE_STRING(decode_my_string, 6, "foo");
@@ -665,10 +665,10 @@ TESTCASE(test_ei_decode_utf8_atom)
 		   P99({ERLANG_ANY,ERLANG_LATIN1,ERLANG_ASCII}));
   EI_DECODE_STRING_4(decode_my_atom_as, 4, "b",
 		     P99({ERLANG_UTF8,ERLANG_LATIN1,ERLANG_ASCII}));
-  EI_DECODE_STRING_4(decode_my_atom_as, 4, "c",
-		     P99({ERLANG_LATIN1,ERLANG_LATIN1,ERLANG_ASCII}));
-  EI_DECODE_STRING_4(decode_my_atom_as, 4, "d",
-		     P99({ERLANG_ASCII,ERLANG_LATIN1,ERLANG_ASCII}));
+  EI_DECODE_STRING_4(decode_my_atom_as, 3, "c",
+		     P99({ERLANG_LATIN1,ERLANG_UTF8,ERLANG_ASCII}));
+  EI_DECODE_STRING_4(decode_my_atom_as, 3, "d",
+		     P99({ERLANG_ASCII,ERLANG_UTF8,ERLANG_ASCII}));
 
   report(1);
 }
