@@ -148,10 +148,11 @@ struct removed_fd {
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
 static int max_fds = -1;
 #endif
-#define DRV_EV_STATE_LOCK_CNT 16
+
+#define DRV_EV_STATE_LOCK_CNT 128
 static union {
     erts_mtx_t lck;
-    byte _cache_line_alignment[64];
+    byte _cache_line_alignment[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_mtx_t))];
 }drv_ev_state_locks[DRV_EV_STATE_LOCK_CNT];
 
 static ERTS_INLINE erts_mtx_t* fd_mtx(ErtsSysFdType fd)
