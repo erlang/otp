@@ -80,7 +80,11 @@
 		) -> {ok, pid()}.
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 start_link(Role, Socket, Options) ->
-    {ok, proc_lib:spawn_link(?MODULE, init_connection_handler, [Role, Socket, Options])}.
+    {ok, proc_lib:spawn_opt(?MODULE, 
+                            init_connection_handler, 
+                            [Role, Socket, Options],
+                            [link, {message_queue_data,off_heap}]
+                           )}.
 
 
 %%--------------------------------------------------------------------
