@@ -181,7 +181,7 @@ ssh_vsn() ->
     end.
     
 random_id(Nlo, Nup) ->
-    [crypto:rand_uniform($a,$z+1) || _<- lists:duplicate(crypto:rand_uniform(Nlo,Nup+1),x)  ].
+    [$a + rand:uniform($z-$a+1) - 1 || _<- lists:duplicate(Nlo + rand:uniform(Nup-Nlo+1) - 1, x)].
 
 hello_version_msg(Data) ->
     [Data,"\r\n"].
@@ -1041,7 +1041,7 @@ padding_length(Size, #ssh{encrypt_block_size = BlockSize,
 		    end,
     PadBlockSize =  max(BlockSize,4),
     MaxExtraBlocks = (max(RandomLengthPadding,MinPaddingLen) - MinPaddingLen) div PadBlockSize,
-    ExtraPaddingLen = try crypto:rand_uniform(0,MaxExtraBlocks)*PadBlockSize
+    ExtraPaddingLen = try (rand:uniform(MaxExtraBlocks+1) - 1) * PadBlockSize
 		      catch _:_ -> 0
 		      end,
     MinPaddingLen + ExtraPaddingLen.
