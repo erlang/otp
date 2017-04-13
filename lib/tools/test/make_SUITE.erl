@@ -19,11 +19,7 @@
 %%
 -module(make_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-         init_per_group/2,end_per_group/2, make_all/1, make_files/1, emake_opts/1]).
--export([otp_6057_init/1,
-         otp_6057_a/1, otp_6057_b/1, otp_6057_c/1,
-         otp_6057_end/1]).
+-compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -40,7 +36,8 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [make_all, make_files, emake_opts, {group, otp_6057}].
+    [make_all, make_files, recompile_on_changed_include,
+     emake_opts, {group, otp_6057}].
 
 groups() -> 
     [{otp_6057,[],[otp_6057_a, otp_6057_b,
@@ -81,6 +78,41 @@ make_files(Config) when is_list(Config) ->
 
     error = make:files([test1,test7]), % non existing file
     up_to_date = make:files([test1,test2],[debug_info]), % with option
+
+    file:set_cwd(Current),
+    ensure_no_messages(),
+    ok.
+
+recompile_on_changed_include(Config) ->
+    Current = prepare_data_dir(Config),
+
+    Files = [test_incl1,"incl_src/test_incl2"],
+    up_to_date = make:files(Files),
+    ok = ensure_exists([test_incl1,test_incl2]),
+
+    {ok, FileInfo11} = file:read_file_info("test_incl1.beam"),
+    Date11 = FileInfo11#file_info.mtime,
+    {ok, FileInfo21} = file:read_file_info("test_incl2.beam"),
+    Date21 = FileInfo21#file_info.mtime,
+    timer:sleep(2000),
+
+    %% Touch the include file
+    {ok,Bin} = file:read_file("test_incl.hrl"),
+    ok = file:delete("test_incl.hrl"),
+    ok = file:write_file("test_incl.hrl",Bin),
+
+    up_to_date = make:files(Files),
+
+    {ok, FileInfo12} = file:read_file_info("test_incl1.beam"),
+    case FileInfo12#file_info.mtime of
+        Date11 -> ct:fail({"file not recompiled", "test_incl1.beam"});
+        _Date12 -> ok
+    end,
+    {ok, FileInfo22} = file:read_file_info("test_incl2.beam"),
+    case FileInfo22#file_info.mtime of
+        Date21 -> ct:fail({"file not recompiled", "test_incl2.beam"});
+        _Date22 -> ok
+    end,
 
     file:set_cwd(Current),
     ensure_no_messages(),
