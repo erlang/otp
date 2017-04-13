@@ -91,11 +91,7 @@ init_per_suite(Config0) ->
     end_per_suite(Config0),
     try crypto:start() of
 	ok ->
-	    %% make rsa certs using oppenssl
-	    Config1 = ssl_test_lib:make_rsa_cert(Config0),
-	    Config2 = ssl_test_lib:make_ecdsa_cert(Config1),
-            Config = ssl_test_lib:make_ecdh_rsa_cert(Config2),
-	    ssl_test_lib:cert_options(Config)
+           Config0
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.

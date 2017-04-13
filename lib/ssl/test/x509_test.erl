@@ -96,7 +96,7 @@ gen_pem_config_files(GenCertData, ClientBase, ServerBase) ->
              public_key:generate_key(KeyGen)
      end.
 
- root_cert(Role, PrivKey, Opts) ->
+root_cert(Role, PrivKey, Opts) ->
      TBS = cert_template(),
      Issuer = issuer("root", Role, " ROOT CA"),
      OTPTBS = TBS#'OTPTBSCertificate'{
@@ -105,7 +105,7 @@ gen_pem_config_files(GenCertData, ClientBase, ServerBase) ->
                 validity = validity(Opts),  
                 subject = Issuer,
                 subjectPublicKeyInfo = public_key(PrivKey),
-                extensions = extensions(Opts)
+                extensions = extensions(ca, Opts)
                },
      public_key:pkix_sign(OTPTBS, PrivKey).
 
@@ -175,32 +175,31 @@ validity(Opts) ->
     #'Validity'{notBefore={generalTime, Format(DefFrom)},
 		notAfter ={generalTime, Format(DefTo)}}.
 
-extensions(Opts) ->
-    case proplists:get_value(extensions, Opts, []) of
-	false -> 
-	    asn1_NOVALUE;
-	Exts  -> 
-	    lists:flatten([extension(Ext) || Ext <- default_extensions(Exts)])
-    end.
+extensions(Type, Opts) ->
+    Exts  = proplists:get_value(extensions, Opts, []),
+    lists:flatten([extension(Ext) || Ext <- default_extensions(Type, Exts)]).
 
-default_extensions(Exts) ->
-    Def = [{key_usage,undefined}, 
-	   {subject_altname, undefined},
-	   {issuer_altname, undefined},
-	   {basic_constraints, default},
-	   {name_constraints, undefined},
-	   {policy_constraints, undefined},
-	   {ext_key_usage, undefined},
-	   {inhibit_any, undefined},
-	   {auth_key_id, undefined},
-	   {subject_key_id, undefined},
-	   {policy_mapping, undefined}],
+%% Common extension: name_constraints, policy_constraints, ext_key_usage, inhibit_any, 
+%% auth_key_id, subject_key_id, policy_mapping,
+
+default_extensions(ca, Exts) ->
+    Def = [{key_usage,  [keyCertSign, cRLSign]}, 
+	   {basic_constraints, default}],
+    add_default_extensions(Def, Exts);
+
+default_extensions(peer, Exts) ->
+    Def = [{key_usage, [digitalSignature, keyAgreement]}],
+    add_default_extensions(Def, Exts).
+    
+add_default_extensions(Def, Exts) ->
     Filter = fun({Key, _}, D) -> 
-                     lists:keydelete(Key, 1, D) 
+                     lists:keydelete(Key, 1, D); 
+                ({Key, _, _}, D) -> 
+                     lists:keydelete(Key, 1, D)
              end,
     Exts ++ lists:foldl(Filter, Def, Exts).
-       	
-extension({_, undefined}) -> 
+
+extension({_, undefined}) ->
     [];
 extension({basic_constraints, Data}) ->
     case Data of
@@ -218,6 +217,17 @@ extension({basic_constraints, Data}) ->
 	    #'Extension'{extnID = ?'id-ce-basicConstraints',
 			 extnValue = Data}
     end;
+extension({auth_key_id, {Oid, Issuer, SNr}}) ->
+    #'Extension'{extnID = ?'id-ce-authorityKeyIdentifier',
+                 extnValue = #'AuthorityKeyIdentifier'{
+                                keyIdentifier = Oid,	    
+                                authorityCertIssuer = Issuer,     
+                                authorityCertSerialNumber = SNr},
+                 critical = false};
+extension({key_usage, Value}) ->
+    #'Extension'{extnID = ?'id-ce-keyUsage',
+                 extnValue = Value,
+                 critical = false};
 extension({Id, Data, Critical}) ->
     #'Extension'{extnID = Id, extnValue = Data, critical = Critical}.
 
@@ -277,24 +287,31 @@ cert_chain(Role, Root, RootKey, Opts, Keys) ->
     cert_chain(Role, Root, RootKey, Opts, Keys, 0, []).
 
 cert_chain(Role, IssuerCert, IssuerKey, Opts, [Key], _, Acc) ->
+    PeerOpts = list_to_atom(atom_to_list(Role) ++ "_peer_opts"),
     Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), 
-                IssuerKey, Key, "admin", " Peer cert", Opts),
+                IssuerKey, Key, "admin", " Peer cert", Opts, PeerOpts, peer),
     [{Cert, Key}, {IssuerCert, IssuerKey} | Acc];
 cert_chain(Role, IssuerCert, IssuerKey, Opts, [Key | Keys], N, Acc) ->
+    CAOpts = list_to_atom(atom_to_list(Role) ++ "_ca_" ++ integer_to_list(N)),
     Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), IssuerKey, Key, "webadmin", 
-                " Intermidiate CA " ++ integer_to_list(N), Opts),
+                " Intermidiate CA " ++ integer_to_list(N), Opts, CAOpts, ca),
     cert_chain(Role, Cert, Key, Opts, Keys, N+1, [{IssuerCert, IssuerKey} | Acc]).
         
-cert(Role, #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = Issuer}}, 
-     PrivKey, Key, Contact, Name, Opts) ->
+cert(Role, #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = Issuer,
+                                                                   serialNumber = SNr
+                                                                  }}, 
+     PrivKey, Key, Contact, Name, Opts, CertOptsName, Type) ->
+    CertOpts = proplists:get_value(CertOptsName, Opts, []),
     TBS = cert_template(),         
     OTPTBS = TBS#'OTPTBSCertificate'{
                signature = sign_algorithm(PrivKey, Opts),
                issuer =  Issuer,
-               validity = validity(Opts),  
+               validity = validity(CertOpts),  
                subject = subject(Contact, atom_to_list(Role) ++ Name),
                subjectPublicKeyInfo = public_key(Key),
-               extensions = extensions(Opts)
+               extensions = extensions(Type, 
+                                       add_default_extensions([{auth_key_id, {auth_key_oid(Role), Issuer, SNr}}],
+                                                              CertOpts))
               },
     public_key:pkix_sign(OTPTBS, PrivKey).
 
@@ -319,3 +336,8 @@ default_key_gen() ->
             [{namedCurve, hd(tls_v1:ecc_curves(0))},
              {namedCurve, hd(tls_v1:ecc_curves(0))}]
     end.
+
+auth_key_oid(server) ->
+    ?'id-kp-serverAuth';
+auth_key_oid(client) ->
+    ?'id-kp-clientAuth'.
