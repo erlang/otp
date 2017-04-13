@@ -21,7 +21,7 @@
 
 <copyright>
 <year>2011</year>
-<year>2016</year>
+<year>2017</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -298,6 +298,17 @@ the &app_pick_peer; callback for the application in question.
 Multiple options are equivalent a single <c>all</c> filter on the
 corresponding list of filters.
 Defaults to <c>none</c>.</p>
+</item>
+
+<tag><c>{peer, &app_peer_ref;}</c></tag>
+<item>
+<p>
+Peer to which the request in question can be sent, preempting the
+selection of peers having advertised support for the Diameter
+application in question.
+Multiple options can be specified, and their order is
+respected in the candidate lists passed to a subsequent
+&app_pick_peer; callback.</p>
 </item>
 
 <tag><c>{timeout, &dict_Unsigned32;}</c></tag>
