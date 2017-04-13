@@ -9,14 +9,14 @@
 -export([suite/0, all/0, build_plt/1, beam_tests/1, update_plt/1,
          local_fun_same_as_callback/1,
          remove_plt/1, run_plt_check/1, run_succ_typings/1,
-         bad_dialyzer_attr/1]).
+         bad_dialyzer_attr/1, merge_plts/1]).
 
 suite() ->
   [{timetrap, ?plt_timeout}].
 
 all() -> [build_plt, beam_tests, update_plt, run_plt_check,
           remove_plt, run_succ_typings, local_fun_same_as_callback,
-          bad_dialyzer_attr].
+          bad_dialyzer_attr, merge_plts].
 
 build_plt(Config) ->
   OutDir = ?config(priv_dir, Config),
@@ -170,6 +170,7 @@ update_plt(Config) ->
                       {init_plt, Plt}] ++ Opts),
     ok.
 
+
 %%% If a behaviour module contains an non-exported function with the same name
 %%% as one of the behaviour's callbacks, the callback info was inadvertently
 %%% deleted from the PLT as the dialyzer_plt:delete_list/2 function was cleaning
@@ -296,6 +297,87 @@ bad_dialyzer_attr(Config) ->
     true = P2 > 0,
 
     ok.
+
+merge_plts(Config) ->
+    %% A few checks of merging PLTs.
+    fun() ->
+            {Mod1, Mod2} = types(),
+            {BeamFiles, Plt1, Plt2} = create_plts(Mod1, Mod2, Config),
+
+            {dialyzer_error,
+             "Could not merge PLTs since they are not disjoint"++_} =
+                (catch run_dialyzer(succ_typings, BeamFiles,
+                                    [{plts, [Plt1, Plt1]}])),
+            [{warn_contract_types,_,_}] =
+                run_dialyzer(succ_typings, BeamFiles,
+                             [{warnings, [unknown]},
+                              {plts, [Plt1, Plt2]}])
+    end(),
+
+    fun() ->
+            {Mod1, Mod2} = callbacks(),
+            {BeamFiles, Plt1, Plt2} = create_plts(Mod1, Mod2, Config),
+
+            {dialyzer_error,
+             "Could not merge PLTs since they are not disjoint"++_} =
+                (catch run_dialyzer(succ_typings, BeamFiles,
+                                    [{plts, [Plt1, Plt1]}])),
+            [] =
+                run_dialyzer(succ_typings, BeamFiles,
+                             [{warnings, [unknown]},
+                              {plts, [Plt1, Plt2]}])
+    end(),
+
+    ok.
+
+types() ->
+    Mod1 = <<"-module(merge_plts_1).
+              -export([f/0]).
+              -export_type([t/0]).
+              -type t() :: merge_plts_2:t().
+              -spec f() -> t().
+              f() -> 1. % Not an atom().
+	      ">>,
+    Mod2 = <<"-module(merge_plts_2).
+              -export_type([t/0]).
+              -type t() :: atom().
+	     ">>,
+    {Mod1, Mod2}.
+
+callbacks() -> % A very shallow test.
+    Mod1 = <<"-module(merge_plts_1).
+              -callback t() -> merge_plts_2:t().
+	      ">>,
+    Mod2 = <<"-module(merge_plts_2).
+              -export_type([t/0]).
+              -type t() :: atom().
+	     ">>,
+    {Mod1, Mod2}.
+
+create_plts(Mod1, Mod2, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Plt1 = filename:join(PrivDir, "merge_plts_1.plt"),
+    Plt2 = filename:join(PrivDir, "merge_plts_2.plt"),
+    ErlangBeam = erlang_beam(),
+
+    {ok, BeamFile1} = compile(Config, Mod1, merge_plts_1, []),
+    [] = run_dialyzer(plt_build, [ErlangBeam,BeamFile1], [{output_plt,Plt1}]),
+
+    {ok, BeamFile2} = compile(Config, Mod2, merge_plts_2, []),
+    [] = run_dialyzer(plt_build, [BeamFile2], [{output_plt, Plt2}]),
+    {[BeamFile1, BeamFile2], Plt1, Plt2}.
+
+%% End of merge_plts().
+
+erlang_beam() ->
+    case code:where_is_file("erlang.beam") of
+        non_existing ->
+            filename:join([code:root_dir(),
+                           "erts", "preloaded", "ebin",
+                           "erlang.beam"]);
+        EBeam ->
+            EBeam
+    end.
 
 compile(Config, Prog, Module, CompileOpts) ->
     Source = lists:concat([Module, ".erl"]),

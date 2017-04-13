@@ -158,10 +158,9 @@ get_type_info(#analysis{callgraph = CallGraph,
   StrippedCallGraph = remove_external(CallGraph, TrustPLT),
   %% io:format("--- Analyzing callgraph... "),
   try 
-    NewMiniPlt = dialyzer_succ_typings:analyze_callgraph(StrippedCallGraph,
-                                                         TrustPLT,
-                                                         CodeServer),
-    NewPlt = dialyzer_plt:restore_full_plt(NewMiniPlt),
+    NewPlt = dialyzer_succ_typings:analyze_callgraph(StrippedCallGraph,
+                                                     TrustPLT,
+                                                     CodeServer),
     Analysis#analysis{callgraph = StrippedCallGraph, trust_plt = NewPlt}
   catch
     error:What ->

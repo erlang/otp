@@ -40,6 +40,7 @@
 	 src_compiler_opts/0,
 	 refold_pattern/1,
          ets_tab2list/1,
+         ets_move/2,
 	 parallelism/0,
          family/1
 	]).
@@ -998,18 +999,26 @@ label(Tree) ->
 %%  ets:tab2list(T), ets:delete(T)
 %% to save some memory at the expense of somewhat longer execution time.
 ets_tab2list(T) ->
-  tab2list(ets:first(T), T, []).
+  F = fun(Vs, A) -> Vs ++ A end,
+  ets_take(ets:first(T), T, F, []).
 
-tab2list('$end_of_table', T, A) ->
+-spec ets_move(From :: ets:tid(), To :: ets:tid()) -> 'ok'.
+
+ets_move(T1, T2) ->
+  F = fun(Es, A) -> true = ets:insert(T2, Es), A end,
+  [] = ets_take(ets:first(T1), T1, F, []),
+  ok.
+
+ets_take('$end_of_table', T, F, A) ->
   case ets:first(T) of % no safe_fixtable()...
     '$end_of_table' -> A;
-    Key -> tab2list(Key, T, A)
+    Key -> ets_take(Key, T, F, A)
   end;
-tab2list(Key, T, A) ->
+ets_take(Key, T, F, A) ->
   Vs = ets:lookup(T, Key),
   Key1 = ets:next(T, Key),
-  ets:delete(T, Key),
-  tab2list(Key1, T, Vs ++ A).
+  true = ets:delete(T, Key),
+  ets_take(Key1, T, F, F(Vs, A)).
 
 -spec parallelism() -> integer().
 

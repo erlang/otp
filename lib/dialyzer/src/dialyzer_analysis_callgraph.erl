@@ -92,11 +92,12 @@ loop(#server_state{parent = Parent} = State,
       send_warnings(Parent, Warnings),
       loop(State, Analysis, ExtCalls);
     {AnalPid, cserver, CServer, Plt} ->
+      skip_ets_transfer(AnalPid),
       send_codeserver_plt(Parent, CServer, Plt),
       loop(State, Analysis, ExtCalls);
-    {AnalPid, done, MiniPlt, DocPlt} ->
+    {AnalPid, done, Plt, DocPlt} ->
       send_ext_calls(Parent, ExtCalls),
-      send_analysis_done(Parent, MiniPlt, DocPlt);
+      send_analysis_done(Parent, Plt, DocPlt);
     {AnalPid, ext_calls, NewExtCalls} ->
       loop(State, Analysis, NewExtCalls);
     {AnalPid, ext_types, ExtTypes} ->
@@ -168,16 +169,17 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
       false -> Callgraph
     end,
   State2 = analyze_callgraph(NewCallgraph, State1),
-  #analysis_state{plt = MiniPlt2,
+  #analysis_state{plt = Plt2,
                   doc_plt = DocPlt,
                   codeserver = Codeserver0} = State2,
-  {Codeserver, MiniPlt3} = move_data(Codeserver0, MiniPlt2),
+  {Codeserver, Plt3} = move_data(Codeserver0, Plt2),
   dialyzer_callgraph:dispose_race_server(NewCallgraph),
   %% Since the PLT is never used, a dummy is sent:
   DummyPlt = dialyzer_plt:new(),
   send_codeserver_plt(Parent, Codeserver, DummyPlt),
-  MiniPlt4 = dialyzer_plt:delete_list(MiniPlt3, NonExportsList),
-  send_analysis_done(Parent, MiniPlt4, DocPlt).
+  dialyzer_plt:delete(DummyPlt),
+  Plt4 = dialyzer_plt:delete_list(Plt3, NonExportsList),
+  send_analysis_done(Parent, Plt4, DocPlt).
 
 contracts_and_records(CodeServer, Parent) ->
   Fun = contrs_and_recs(CodeServer, Parent),
@@ -185,7 +187,16 @@ contracts_and_records(CodeServer, Parent) ->
   dialyzer_codeserver:give_away(CodeServer, Pid),
   Pid ! {self(), go},
   receive {'DOWN', Ref, process, Pid, Return} ->
+      skip_ets_transfer(Pid),
       Return
+  end.
+
+skip_ets_transfer(Pid) ->
+  receive
+    {'ETS-TRANSFER', _Tid, Pid, _HeriData} ->
+      skip_ets_transfer(Pid)
+  after 0 ->
+      ok
   end.
 
 -spec contrs_and_recs(dialyzer_codeserver:codeserver(), pid()) ->
@@ -202,12 +213,12 @@ contrs_and_recs(TmpCServer2, Parent) ->
       exit(TmpServer4)
   end.
 
-move_data(CServer, MiniPlt) ->
+move_data(CServer, Plt) ->
   {CServer1, Records} = dialyzer_codeserver:extract_records(CServer),
-  MiniPlt1 = dialyzer_plt:insert_types(MiniPlt, Records),
+  Plt1 = dialyzer_plt:insert_types(Plt, Records),
   {NewCServer, ExpTypes} = dialyzer_codeserver:extract_exported_types(CServer1),
-  NewMiniPlt = dialyzer_plt:insert_exported_types(MiniPlt1, ExpTypes),
-  {NewCServer, NewMiniPlt}.
+  NewPlt = dialyzer_plt:insert_exported_types(Plt1, ExpTypes),
+  {NewCServer, NewPlt}.
 
 analyze_callgraph(Callgraph, #analysis_state{codeserver = Codeserver,
 					     doc_plt = DocPlt,
@@ -217,19 +228,19 @@ analyze_callgraph(Callgraph, #analysis_state{codeserver = Codeserver,
                                              solvers = Solvers} = State) ->
   case State#analysis_state.analysis_type of
     plt_build ->
-      NewMiniPlt =
+      NewPlt =
         dialyzer_succ_typings:analyze_callgraph(Callgraph, Plt, Codeserver,
                                                 TimingServer, Solvers, Parent),
       dialyzer_callgraph:delete(Callgraph),
-      State#analysis_state{plt = NewMiniPlt, doc_plt = DocPlt};
+      State#analysis_state{plt = NewPlt, doc_plt = DocPlt};
     succ_typings ->
-      {Warnings, NewMiniPlt, NewDocPlt} =
+      {Warnings, NewPlt, NewDocPlt} =
         dialyzer_succ_typings:get_warnings(Callgraph, Plt, DocPlt, Codeserver,
                                            TimingServer, Solvers, Parent),
       dialyzer_callgraph:delete(Callgraph),
       Warnings1 = filter_warnings(Warnings, Codeserver),
       send_warnings(State#analysis_state.parent, Warnings1),
-      State#analysis_state{plt = NewMiniPlt, doc_plt = NewDocPlt}
+      State#analysis_state{plt = NewPlt, doc_plt = NewDocPlt}
     end.
 
 %%--------------------------------------------------------------------
@@ -565,9 +576,8 @@ is_ok_fun({_Filename, _Line, {_M, _F, _A} = MFA}, Codeserver) ->
 is_ok_tag(Tag, {_F, _L, MorMFA}, Codeserver) ->
   not dialyzer_utils:is_suppressed_tag(MorMFA, Tag, Codeserver).
   
-send_analysis_done(Parent, MiniPlt, DocPlt) ->
-  ok = dialyzer_plt:give_away(MiniPlt, Parent),
-  Parent ! {self(), done, MiniPlt, DocPlt},
+send_analysis_done(Parent, Plt, DocPlt) ->
+  Parent ! {self(), done, Plt, DocPlt},
   ok.
 
 send_ext_calls(_Parent, none) ->

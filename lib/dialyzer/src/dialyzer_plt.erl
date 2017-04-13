@@ -50,16 +50,15 @@
 	 get_specs/1,
 	 get_specs/4,
 	 to_file/4,
-	 get_mini_plt/1,
-	 restore_full_plt/1,
-         delete/1,
-         give_away/2
+         delete/1
 	]).
 
 %% Debug utilities
 -export([pp_non_returning/0, pp_mod/1]).
 
 -export_type([plt/0, plt_info/0]).
+
+-include_lib("stdlib/include/ms_transform.hrl").
 
 %%----------------------------------------------------------------------
 
@@ -76,20 +75,16 @@
 
 %%----------------------------------------------------------------------
 
--record(plt, {info           = table_new() :: dict:dict(),
-	      types          = table_new() :: erl_types:mod_records(),
-	      contracts      = table_new() :: dict:dict(),
-	      callbacks      = table_new() :: dict:dict(),
-              exported_types = sets:new()  :: sets:set()}).
+-record(plt, {info      :: ets:tid(), %% {mfa() | integer(), ret_args_types()}
+              types     :: ets:tid(), %% {module(), erl_types:type_table()}
+              contracts :: ets:tid(), %% {mfa(), #contract{}}
+              callbacks :: ets:tid(), %% {module(),
+                                      %%  [{mfa(),
+                                      %%  dialyzer_contracts:file_contract()}]
+              exported_types :: ets:tid() %% {module(), sets:set()}
+             }).
 
--record(mini_plt, {info      :: ets:tid(),
-                   types     :: ets:tid(),
-		   contracts :: ets:tid(),
-		   callbacks :: ets:tid(),
-                   exported_types :: ets:tid()
-		  }).
-
--opaque plt() :: #plt{} | #mini_plt{}.
+-opaque plt() :: #plt{}.
 
 -include("dialyzer.hrl").
 
@@ -111,7 +106,17 @@
 -spec new() -> plt().
 
 new() ->
-  #plt{}.
+  [ETSInfo, ETSContracts] =
+    [ets:new(Name, [public]) ||
+      Name <- [plt_info, plt_contracts]],
+  [ETSTypes, ETSCallbacks, ETSExpTypes] =
+    [ets:new(Name, [compressed, public]) ||
+      Name <- [plt_types, plt_callbacks, plt_exported_types]],
+  #plt{info = ETSInfo,
+       types = ETSTypes,
+       contracts = ETSContracts,
+       callbacks = ETSCallbacks,
+       exported_types = ETSExpTypes}.
 
 -spec delete_module(plt(), atom()) -> plt().
 
@@ -122,64 +127,55 @@ delete_module(#plt{info = Info, types = Types,
   #plt{info = table_delete_module(Info, Mod),
        types = table_delete_module2(Types, Mod),
        contracts = table_delete_module(Contracts, Mod),
-       callbacks = table_delete_module(Callbacks, Mod),
+       callbacks = table_delete_module2(Callbacks, Mod),
        exported_types = table_delete_module1(ExpTypes, Mod)}.
 
 -spec delete_list(plt(), [mfa() | integer()]) -> plt().
 
-delete_list(#mini_plt{info = Info,
-                      contracts = Contracts}=Plt, List) ->
-  Plt#mini_plt{info = ets_table_delete_list(Info, List),
-               contracts = ets_table_delete_list(Contracts, List)};
-delete_list(#plt{info = Info, types = Types,
-		 contracts = Contracts,
-		 callbacks = Callbacks,
-                 exported_types = ExpTypes}, List) ->
-  #plt{info = table_delete_list(Info, List),
-       types = Types,
-       contracts = table_delete_list(Contracts, List),
-       callbacks = Callbacks,
-       exported_types = ExpTypes}.
+delete_list(#plt{info = Info,
+                 contracts = Contracts}=Plt, List) ->
+  Plt#plt{info = ets_table_delete_list(Info, List),
+          contracts = ets_table_delete_list(Contracts, List)}.
 
 -spec insert_contract_list(plt(), dialyzer_contracts:plt_contracts()) -> plt().
 
 insert_contract_list(#plt{contracts = Contracts} = PLT, List) ->
-  NewContracts = dict:merge(fun(_MFA, _Old, New) -> New end,
-                            Contracts, dict:from_list(List)),
-  PLT#plt{contracts = NewContracts};
-insert_contract_list(#mini_plt{contracts = Contracts} = PLT, List) ->
   true = ets:insert(Contracts, List),
   PLT.
 
 -spec insert_callbacks(plt(), dialyzer_codeserver:codeserver()) -> plt().
 
 insert_callbacks(#plt{callbacks = Callbacks} = Plt, Codeserver) ->
-  List = dialyzer_codeserver:get_callbacks(Codeserver),
-  Plt#plt{callbacks = table_insert_list(Callbacks, List)}.
+  CallbacksList = dialyzer_codeserver:get_callbacks(Codeserver),
+  CallbacksByModule =
+    [{M, [Cb || {{M1,_,_},_} = Cb <- CallbacksList, M1 =:= M]} ||
+      M <- lists:usort([M || {{M,_,_},_} <- CallbacksList])],
+  true = ets:insert(Callbacks, CallbacksByModule),
+  Plt.
 
 -spec is_contract(plt(), mfa()) -> boolean().
 
-is_contract(#mini_plt{contracts = ETSContracts},
+is_contract(#plt{contracts = ETSContracts},
             {M, F, _} = MFA) when is_atom(M), is_atom(F) ->
   ets:member(ETSContracts, MFA).
 
 -spec lookup_contract(plt(), mfa_patt()) -> 'none' | {'value', #contract{}}.
 
-lookup_contract(#mini_plt{contracts = ETSContracts},
+lookup_contract(#plt{contracts = ETSContracts},
 		{M, F, _} = MFA) when is_atom(M), is_atom(F) ->
   ets_table_lookup(ETSContracts, MFA).
 
 -spec lookup_callbacks(plt(), module()) ->
 	 'none' | {'value', [{mfa(), dialyzer_contracts:file_contract()}]}.
 
-lookup_callbacks(#mini_plt{callbacks = ETSCallbacks}, Mod) when is_atom(Mod) ->
+lookup_callbacks(#plt{callbacks = ETSCallbacks}, Mod) when is_atom(Mod) ->
   ets_table_lookup(ETSCallbacks, Mod).
 
 -type ret_args_types() :: {erl_types:erl_type(), [erl_types:erl_type()]}.
 
 -spec insert_list(plt(), [{mfa() | integer(), ret_args_types()}]) -> plt().
 
-insert_list(#mini_plt{info = Info} = PLT, List) ->
+insert_list(#plt{info = Info} = PLT, List) ->
   true = ets:insert(Info, List),
   PLT.
 
@@ -191,31 +187,31 @@ lookup(Plt, {M, F, _} = MFA) when is_atom(M), is_atom(F) ->
 lookup(Plt, Label) when is_integer(Label) ->
   lookup_1(Plt, Label).
 
-lookup_1(#mini_plt{info = Info}, MFAorLabel) ->
+lookup_1(#plt{info = Info}, MFAorLabel) ->
   ets_table_lookup(Info, MFAorLabel).
 
 -spec insert_types(plt(), ets:tid()) -> plt().
 
-insert_types(MiniPLT, Records) ->
-  ets:rename(Records, plt_types),
-  MiniPLT#mini_plt{types = Records}.
+insert_types(PLT, Records) ->
+  ok = dialyzer_utils:ets_move(Records, PLT#plt.types),
+  PLT.
 
 -spec insert_exported_types(plt(), ets:tid()) -> plt().
 
-insert_exported_types(MiniPLT, ExpTypes) ->
-  ets:rename(ExpTypes, plt_exported_types),
-  MiniPLT#mini_plt{exported_types = ExpTypes}.
+insert_exported_types(PLT, ExpTypes) ->
+  ok = dialyzer_utils:ets_move(ExpTypes, PLT#plt.exported_types),
+  PLT.
 
 -spec get_module_types(plt(), atom()) ->
                           'none' | {'value', erl_types:type_table()}.
 
 get_module_types(#plt{types = Types}, M) when is_atom(M) ->
-  table_lookup(Types, M).
+  ets_table_lookup(Types, M).
 
 -spec get_exported_types(plt()) -> sets:set().
 
-get_exported_types(#plt{exported_types = ExpTypes}) ->
-  ExpTypes.
+get_exported_types(#plt{exported_types = ETSExpTypes}) ->
+  sets:from_list([E || {E} <- table_to_list(ETSExpTypes)]).
 
 -type mfa_types() :: {mfa(), erl_types:erl_type(), [erl_types:erl_type()]}.
 
@@ -232,8 +228,7 @@ all_modules(#plt{info = Info, contracts = Cs}) ->
 -spec contains_mfa(plt(), mfa()) -> boolean().
 
 contains_mfa(#plt{info = Info, contracts = Contracts}, MFA) ->
-  (table_lookup(Info, MFA) =/= none)
-    orelse (table_lookup(Contracts, MFA) =/= none).
+  ets:member(Info, MFA) orelse ets:member(Contracts, MFA).
 
 -spec get_default_plt() -> file:filename().
 
@@ -256,32 +251,60 @@ from_file(FileName) ->
   from_file(FileName, false).
 
 from_file(FileName, ReturnInfo) ->
+  Plt = new(),
+  Fun = fun() -> from_file1(Plt, FileName, ReturnInfo) end,
+  case subproc(Fun) of
+    {ok, Return} ->
+      Return;
+    {error, Msg} ->
+      delete(Plt),
+      plt_error(Msg)
+  end.
+
+from_file1(Plt, FileName, ReturnInfo) ->
   case get_record_from_file(FileName) of
     {ok, Rec} ->
       case check_version(Rec) of
 	error ->
 	  Msg = io_lib:format("Old PLT file ~ts\n", [FileName]),
-	  plt_error(Msg);
+          {error, Msg};
 	ok ->
+          #file_plt{info = FileInfo,
+                    contracts = FileContracts,
+                    callbacks = FileCallbacks,
+                    types = FileTypes,
+                    exported_types = FileExpTypes} = Rec,
           Types = [{Mod, maps:from_list(dict:to_list(Types))} ||
-                    {Mod, Types} <- dict:to_list(Rec#file_plt.types)],
-	  Plt = #plt{info = Rec#file_plt.info,
-		     types = dict:from_list(Types),
-		     contracts = Rec#file_plt.contracts,
-		     callbacks = Rec#file_plt.callbacks,
-                     exported_types = Rec#file_plt.exported_types},
+                    {Mod, Types} <- dict:to_list(FileTypes)],
+          CallbacksList = dict:to_list(FileCallbacks),
+          CallbacksByModule =
+            [{M, [Cb || {{M1,_,_},_} = Cb <- CallbacksList, M1 =:= M]} ||
+              M <- lists:usort([M || {{M,_,_},_} <- CallbacksList])],
+          #plt{info = ETSInfo,
+               types = ETSTypes,
+               contracts = ETSContracts,
+               callbacks = ETSCallbacks,
+               exported_types = ETSExpTypes} = Plt,
+          [true, true, true] =
+            [ets:insert(ETS, Data) ||
+              {ETS, Data} <- [{ETSInfo, dict:to_list(FileInfo)},
+                              {ETSTypes, Types},
+                              {ETSContracts, dict:to_list(FileContracts)}]],
+          true = ets:insert(ETSCallbacks, CallbacksByModule),
+          true = ets:insert(ETSExpTypes, [{ET} ||
+                                           ET <- sets:to_list(FileExpTypes)]),
 	  case ReturnInfo of
-	    false -> Plt;
+	    false -> {ok, Plt};
 	    true ->
 	      PltInfo = {Rec#file_plt.file_md5_list,
 			 Rec#file_plt.mod_deps},
-	      {Plt, PltInfo}
+	      {ok, {Plt, PltInfo}}
 	  end
       end;
     {error, Reason} ->
       Msg = io_lib:format("Could not read PLT file ~ts: ~p\n",
 			  [FileName, Reason]),
-      plt_error(Msg)
+      {error, Msg}
   end.
 
 -type err_rsn() :: 'not_valid' | 'no_such_file' | 'read_error'.
@@ -290,6 +313,10 @@ from_file(FileName, ReturnInfo) ->
 				      |  {'error', err_rsn()}.
 
 included_files(FileName) ->
+  Fun = fun() -> included_files1(FileName) end,
+  subproc(Fun).
+
+included_files1(FileName) ->
   case get_record_from_file(FileName) of
     {ok, #file_plt{file_md5_list = Md5}} ->
       {ok, [File || {File, _} <- Md5]};
@@ -322,6 +349,9 @@ get_record_from_file(FileName) ->
 
 -spec merge_plts([plt()]) -> plt().
 
+%% One of the PLTs of the list is augmented with the contents of the
+%% other PLTs, and returned. The other PLTs are deleted.
+
 merge_plts(List) ->
   {InfoList, TypesList, ExpTypesList, ContractsList, CallbacksList} =
     group_fields(List),
@@ -334,6 +364,12 @@ merge_plts(List) ->
 
 -spec merge_disj_plts([plt()]) -> plt().
 
+%% One of the PLTs of the list is augmented with the contents of the
+%% other PLTs, and returned. The other PLTs are deleted.
+%%
+%% The keys are compared when checking for disjointness. Sometimes the
+%% key is a module(), sometimes an mfa(). It boils down to checking if
+%% any module occurs more than once.
 merge_disj_plts(List) ->
   {InfoList, TypesList, ExpTypesList, ContractsList, CallbacksList} =
     group_fields(List),
@@ -374,17 +410,36 @@ find_duplicates(List) ->
   
 -spec to_file(file:filename(), plt(), mod_deps(), {[file_md5()], mod_deps()}) -> 'ok'.
 
-to_file(FileName,
-	#plt{info = Info, types = Types, contracts = Contracts,
-	     callbacks = Callbacks, exported_types = ExpTypes},
+%% Write the PLT to file, and deletes the PLT.
+to_file(FileName, Plt, ModDeps, MD5_OldModDeps) ->
+  Fun = fun() -> to_file1(FileName, Plt, ModDeps, MD5_OldModDeps) end,
+  Return = subproc(Fun),
+  delete(Plt),
+  case Return of
+    ok -> ok;
+    Thrown -> throw(Thrown)
+  end.
+
+to_file1(FileName,
+	#plt{info = ETSInfo, types = ETSTypes, contracts = ETSContracts,
+	     callbacks = ETSCallbacks, exported_types = ETSExpTypes},
 	ModDeps, {MD5, OldModDeps}) ->
   NewModDeps = dict:merge(fun(_Key, OldVal, NewVal) ->
 			      ordsets:union(OldVal, NewVal)
 			  end,
 			  OldModDeps, ModDeps),
   ImplMd5 = compute_implementation_md5(),
+  CallbacksList =
+      [Cb ||
+        {_M, Cbs} <- tab2list(ETSCallbacks),
+        Cb <- Cbs],
+  Callbacks = dict:from_list(CallbacksList),
+  Info = dict:from_list(tab2list(ETSInfo)),
+  Types = tab2list(ETSTypes),
+  Contracts = dict:from_list(tab2list(ETSContracts)),
+  ExpTypes = sets:from_list([E || {E} <- tab2list(ETSExpTypes)]),
   FileTypes = dict:from_list([{Mod, dict:from_list(maps:to_list(MTypes))} ||
-                               {Mod, MTypes} <- dict:to_list(Types)]),
+                               {Mod, MTypes} <- Types]),
   Record = #file_plt{version = ?VSN,
 		     file_md5_list = MD5,
 		     info = Info,
@@ -400,7 +455,7 @@ to_file(FileName,
     {error, Reason} ->
       Msg = io_lib:format("Could not write PLT file ~ts: ~w\n",
 			  [FileName, Reason]),
-      throw({dialyzer_error, Msg})
+      {dialyzer_error, Msg}
   end.
 
 -type md5_diff()    :: [{'differ', atom()} | {'removed', atom()}].
@@ -413,6 +468,10 @@ to_file(FileName,
        | {'old_version', [file_md5()]}.
 
 check_plt(FileName, RemoveFiles, AddFiles) ->
+  Fun = fun() -> check_plt1(FileName, RemoveFiles, AddFiles) end,
+  subproc(Fun).
+
+check_plt1(FileName, RemoveFiles, AddFiles) ->
   case get_record_from_file(FileName) of
     {ok, #file_plt{file_md5_list = Md5, mod_deps = ModDeps} = Rec} ->
       case check_version(Rec) of
@@ -521,67 +580,13 @@ init_md5_list_1([], DiffList, Acc) ->
 init_md5_list_1(Md5List, [], Acc) ->
   {ok, lists:reverse(Acc, Md5List)}.
 
--spec get_mini_plt(plt()) -> plt().
+-spec delete(plt()) -> 'ok'.
 
-get_mini_plt(#plt{info = Info,
-                  types = Types,
-                  contracts = Contracts,
-                  callbacks = Callbacks,
-                  exported_types = ExpTypes}) ->
-  [ETSInfo, ETSContracts] =
-    [ets:new(Name, [public]) ||
-      Name <- [plt_info, plt_contracts]],
-  [ETSTypes, ETSCallbacks, ETSExpTypes] =
-    [ets:new(Name, [compressed, public]) ||
-      Name <- [plt_types, plt_callbacks, plt_exported_types]],
-  CallbackList = dict:to_list(Callbacks),
-  CallbacksByModule =
-    [{M, [Cb || {{M1,_,_},_} = Cb <- CallbackList, M1 =:= M]} ||
-      M <- lists:usort([M || {{M,_,_},_} <- CallbackList])],
-  [true, true, true] =
-    [ets:insert(ETS, dict:to_list(Data)) ||
-      {ETS, Data} <- [{ETSInfo, Info},
-                      {ETSTypes, Types},
-                      {ETSContracts, Contracts}]],
-  true = ets:insert(ETSCallbacks, CallbacksByModule),
-  true = ets:insert(ETSExpTypes, [{ET} || ET <- sets:to_list(ExpTypes)]),
-  #mini_plt{info = ETSInfo,
+delete(#plt{info = ETSInfo,
             types = ETSTypes,
             contracts = ETSContracts,
             callbacks = ETSCallbacks,
-            exported_types = ETSExpTypes};
-get_mini_plt(undefined) ->
-  undefined.
-
--spec restore_full_plt(plt()) -> plt().
-
-restore_full_plt(#mini_plt{info = ETSInfo,
-                           types = ETSTypes,
-                           contracts = ETSContracts,
-                           callbacks = ETSCallbacks,
-                           exported_types = ETSExpTypes} = MiniPlt) ->
-  Info = dict:from_list(tab2list(ETSInfo)),
-  Contracts = dict:from_list(tab2list(ETSContracts)),
-  Types = dict:from_list(tab2list(ETSTypes)),
-  Callbacks =
-    dict:from_list([Cb || {_M, Cbs} <- tab2list(ETSCallbacks), Cb <- Cbs]),
-  ExpTypes = sets:from_list([E || {E} <- tab2list(ETSExpTypes)]),
-  ok = delete(MiniPlt),
-  #plt{info = Info,
-       types = Types,
-       contracts = Contracts,
-       callbacks = Callbacks,
-       exported_types = ExpTypes};
-restore_full_plt(undefined) ->
-  undefined.
-
--spec delete(plt()) -> 'ok'.
-
-delete(#mini_plt{info = ETSInfo,
-                 types = ETSTypes,
-                 contracts = ETSContracts,
-                 callbacks = ETSCallbacks,
-                 exported_types = ETSExpTypes}) ->
+            exported_types = ETSExpTypes}) ->
   true = ets:delete(ETSContracts),
   true = ets:delete(ETSTypes),
   true = ets:delete(ETSInfo),
@@ -589,23 +594,15 @@ delete(#mini_plt{info = ETSInfo,
   true = ets:delete(ETSExpTypes),
   ok.
 
--spec give_away(plt(), pid()) -> 'ok'.
+tab2list(Tab) ->
+  dialyzer_utils:ets_tab2list(Tab).
 
-give_away(#mini_plt{info = ETSInfo,
-                    types = ETSTypes,
-                    contracts = ETSContracts,
-                    callbacks = ETSCallbacks,
-                    exported_types = ETSExpTypes},
-          Pid) ->
-  true = ets:give_away(ETSContracts, Pid, any),
-  true = ets:give_away(ETSTypes, Pid, any),
-  true = ets:give_away(ETSInfo, Pid, any),
-  true = ets:give_away(ETSCallbacks, Pid, any),
-  true = ets:give_away(ETSExpTypes, Pid, any),
-  ok.
-
-tab2list(T) ->
-  dialyzer_utils:ets_tab2list(T).
+subproc(Fun) ->
+  F = fun() -> exit(Fun()) end,
+  {Pid, Ref} = erlang:spawn_monitor(F),
+  receive {'DOWN', Ref, process, Pid, Return} ->
+      Return
+  end.
 
 %%---------------------------------------------------------------------------
 %% Edoc
@@ -614,7 +611,8 @@ tab2list(T) ->
 
 get_specs(#plt{info = Info}) ->
   %% TODO: Should print contracts as well.
-  L = lists:sort([{MFA, Val} || {{_,_,_} = MFA, Val} <- table_to_list(Info)]),
+  L = lists:sort([{MFA, Val} ||
+                   {{_,_,_} = MFA, Val} <- table_to_list(Info)]),
   lists:flatten(create_specs(L, [])).
 
 beam_file_to_module(Filename) ->
@@ -624,7 +622,7 @@ beam_file_to_module(Filename) ->
 
 get_specs(#plt{info = Info}, M, F, A) when is_atom(M), is_atom(F) ->
   MFA = {M, F, A},
-  case table_lookup(Info, MFA) of
+  case ets_table_lookup(Info, MFA) of
     none -> none;
     {value, Val} -> lists:flatten(create_specs([{MFA, Val}], []))
   end.
@@ -661,47 +659,30 @@ plt_error(Msg) ->
 %%---------------------------------------------------------------------------
 %% Ets table
 
-table_new() ->
-  dict:new().
-
 table_to_list(Plt) ->
-  dict:to_list(Plt).
+  ets:tab2list(Plt).
 
-table_delete_module(Plt, Mod) ->
-  dict:filter(fun({M, _F, _A}, _Val) -> M =/= Mod;
-		 (_, _) -> true
-	      end, Plt).
+table_delete_module(Tab, Mod) ->
+  MS = ets:fun2ms(fun({{M, _F, _A}, _Val}) -> M =:= Mod;
+                     ({_, _}) -> false
+                  end),
+  _NumDeleted = ets:select_delete(Tab, MS),
+  Tab.
 
-table_delete_module1(Plt, Mod) ->
-  sets:filter(fun({M, _F, _A}) -> M =/= Mod end, Plt).
+table_delete_module1(Tab, Mod) ->
+  MS = ets:fun2ms(fun({{M, _F, _A}}) -> M =:= Mod end),
+  _NumDeleted = ets:select_delete(Tab, MS),
+  Tab.
 
-table_delete_module2(Plt, Mod) ->
-  dict:filter(fun(M, _Val) -> M =/= Mod end, Plt).
+table_delete_module2(Tab, Mod) ->
+  true = ets:delete(Tab, Mod),
+  Tab.
 
 ets_table_delete_list(Tab, [H|T]) ->
   ets:delete(Tab, H),
   ets_table_delete_list(Tab, T);
 ets_table_delete_list(Tab, []) ->
   Tab.
-
-table_delete_list(Plt, [H|T]) ->
-  table_delete_list(dict:erase(H, Plt), T);
-table_delete_list(Plt, []) ->
-  Plt.
-
-table_insert_list(Plt, [{Key, Val}|Left]) ->
-  table_insert_list(table_insert(Plt, Key, Val), Left);
-table_insert_list(Plt, []) ->
-  Plt.
-
-table_insert(Plt, Key, {_File, #contract{}, _Xtra} = C) ->
-  dict:store(Key, C, Plt).
-
-table_lookup(Plt, Obj) ->
-  case dict:find(Obj, Plt) of
-    error -> none;
-    {ok, Val} -> {value, Val}
-  end.
 
 ets_table_lookup(Plt, Obj) ->
   try ets:lookup_element(Plt, Obj, 2) of
@@ -710,25 +691,28 @@ ets_table_lookup(Plt, Obj) ->
     _:_ -> none
   end.
 
-table_lookup_module(Plt, Mod) ->
-  List = dict:fold(fun(Key, Val, Acc) ->
-		       case Key of
-			 {Mod, _F, _A} -> [{Key, element(1, Val),
-					    element(2, Val)}|Acc];
-			 _ -> Acc
-		       end
-		   end, [], Plt),
+table_lookup_module(Tab, Mod) ->
+  MS = ets:fun2ms(fun({{M, F, A}, V}) when M =:= Mod ->
+                      {{M, F, A}, V} end),
+  List = [begin
+            {V1, V2} = V,
+            {MFA, V1, V2}
+          end || {MFA, V} <- ets:select(Tab, MS)],
   case List =:= [] of
     true -> none;
     false -> {value, List}
   end.
 
-table_all_modules(Plt) ->
-  Fold =
-    fun({M, _F, _A}, _Val, Acc) -> sets:add_element(M, Acc);
-       (_, _, Acc) -> Acc
-    end,
-  dict:fold(Fold, sets:new(), Plt).
+table_all_modules(Tab) ->
+  Ks = ets:match(Tab, {'$1', '_'}, 100),
+  all_mods(Ks, sets:new()).
+
+all_mods('$end_of_table', S) ->
+  S;
+all_mods({ListsOfKeys, Cont}, S) ->
+  S1 = lists:foldl(fun([{M, _F, _A}], S0) -> sets:add_element(M, S0)
+                   end, S, ListsOfKeys),
+  all_mods(ets:match(Cont), S1).
 
 table_merge([H|T]) ->
   table_merge(T, H).
@@ -736,7 +720,7 @@ table_merge([H|T]) ->
 table_merge([], Acc) ->
   Acc;
 table_merge([Plt|Plts], Acc) ->
-  NewAcc = dict:merge(fun(_Key, Val, Val) -> Val end, Plt, Acc),
+  NewAcc = merge_tables(Plt, Acc),
   table_merge(Plts, NewAcc).
 
 table_disj_merge([H|T]) ->
@@ -747,16 +731,10 @@ table_disj_merge([], Acc) ->
 table_disj_merge([Plt|Plts], Acc) ->
   case table_is_disjoint(Plt, Acc) of
     true ->
-      NewAcc = dict:merge(fun(_Key, _Val1, _Val2) -> gazonk end,
-                          Plt, Acc),
+      NewAcc = merge_tables(Plt, Acc),
       table_disj_merge(Plts, NewAcc);
     false -> throw({dialyzer_error, not_disjoint_plts})
   end.
-
-table_is_disjoint(T1, T2) ->
-  K1 = dict:fetch_keys(T1),
-  K2 = dict:fetch_keys(T2),
-  lists:all(fun(E) -> not lists:member(E, K2) end, K1).
 
 sets_merge([H|T]) ->
   sets_merge(T, H).
@@ -764,7 +742,7 @@ sets_merge([H|T]) ->
 sets_merge([], Acc) ->
   Acc;
 sets_merge([Plt|Plts], Acc) ->
-  NewAcc = sets:union(Plt, Acc),
+  NewAcc = merge_tables(Plt, Acc),
   sets_merge(Plts, NewAcc).
 
 sets_disj_merge([H|T]) ->
@@ -773,12 +751,38 @@ sets_disj_merge([H|T]) ->
 sets_disj_merge([], Acc) ->
   Acc;
 sets_disj_merge([Plt|Plts], Acc) ->
-  case sets:is_disjoint(Plt, Acc) of
+  case table_is_disjoint(Plt, Acc) of
     true ->
-      NewAcc = sets:union(Plt, Acc),
+      NewAcc = merge_tables(Plt, Acc),
       sets_disj_merge(Plts, NewAcc);
     false -> throw({dialyzer_error, not_disjoint_plts})
   end.
+
+table_is_disjoint(T1, T2) ->
+  tab_is_disj(ets:first(T1), T1, T2).
+
+tab_is_disj('$end_of_table', _T1, _T2) ->
+  true;
+tab_is_disj(K1, T1, T2) ->
+  case ets:member(T2, K1) of
+    false ->
+      tab_is_disj(ets:next(T1, K1), T1, T2);
+    true ->
+      false
+  end.
+
+merge_tables(T1, T2) ->
+  tab_merge(ets:first(T1), T1, T2).
+
+tab_merge('$end_of_table', T1, T2) ->
+  true = ets:delete(T1),
+  T2;
+tab_merge(K1, T1, T2) ->
+  Vs = ets:lookup(T1, K1),
+  NextK1 = ets:next(T1, K1),
+  true = ets:delete(T1, K1),
+  true = ets:insert(T2, Vs),
+  tab_merge(NextK1, T1, T2).
 
 %%---------------------------------------------------------------------------
 %% Debug utilities.
@@ -807,7 +811,8 @@ pp_non_returning() ->
   lists:foreach(fun({{M, F, _}, Type}) ->
 		    io:format("~w:~w~s.\n",
 			      [M, F, dialyzer_utils:format_sig(Type)])
-		end, lists:sort(None)).
+		end, lists:sort(None)),
+  delete(Plt).
 
 -spec pp_mod(atom()) -> 'ok'.
 
@@ -823,4 +828,5 @@ pp_mod(Mod) when is_atom(Mod) ->
 		    end, lists:sort(List));
     none ->
       io:format("dialyzer: Found no module named '~s' in the PLT\n", [Mod])
-  end.
+  end,
+  delete(Plt).

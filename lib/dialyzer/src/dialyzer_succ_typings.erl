@@ -97,14 +97,13 @@ init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
 				   TimingServer, Solvers, Parent) ->
   {SCCs, Callgraph1} =
     ?timing(TimingServer, "order", dialyzer_callgraph:finalize(Callgraph)),
-  State = #st{callgraph = Callgraph1, plt = dialyzer_plt:get_mini_plt(Plt),
+  State = #st{callgraph = Callgraph1, plt = Plt,
 	      codeserver = Codeserver, parent = Parent,
 	      timing_server = TimingServer, solvers = Solvers},
   get_refined_success_typings(SCCs, State).
 
 get_refined_success_typings(SCCs, #st{callgraph = Callgraph,
 				      timing_server = TimingServer} = State) ->
-  erlang:garbage_collect(),
   case find_succ_typings(SCCs, State) of
     {fixpoint, State1} -> State1;
     {not_fixpoint, NotFixpoint1, State1} ->
@@ -139,17 +138,15 @@ get_warnings(Callgraph, Plt, DocPlt, Codeserver,
     init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
 				       TimingServer, Solvers, Parent),
   Mods = dialyzer_callgraph:modules(InitState#st.callgraph),
-  MiniPlt = InitState#st.plt,
+  Plt = InitState#st.plt,
   CWarns =
-    dialyzer_contracts:get_invalid_contract_warnings(Mods, Codeserver,
-                                                     MiniPlt),
-  MiniDocPlt = dialyzer_plt:get_mini_plt(DocPlt),
+    dialyzer_contracts:get_invalid_contract_warnings(Mods, Codeserver, Plt),
   ModWarns =
     ?timing(TimingServer, "warning",
-	    get_warnings_from_modules(Mods, InitState, MiniDocPlt)),
+	    get_warnings_from_modules(Mods, InitState, DocPlt)),
   {postprocess_warnings(CWarns ++ ModWarns, Codeserver),
-   MiniPlt,
-   dialyzer_plt:restore_full_plt(MiniDocPlt)}.
+   Plt,
+   DocPlt}.
 
 get_warnings_from_modules(Mods, State, DocPlt) ->
   #st{callgraph = Callgraph, codeserver = Codeserver,

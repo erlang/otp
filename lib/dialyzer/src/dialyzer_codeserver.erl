@@ -375,7 +375,7 @@ store_temp_contracts(Mod, SpecMap, CallbackMap,
 		     #codeserver{temp_contracts = Cn,
 				 temp_callbacks = Cb} = CS)
   when is_atom(Mod) ->
-  %% Make sure Mod is stored even if there are not callbacks or
+  %% Make sure Mod is stored even if there are no callbacks or
   %% contracts.
   CS1 = CS#codeserver{temp_contracts = ets_map_store(Mod, SpecMap, Cn)},
   CS1#codeserver{temp_callbacks = ets_map_store(Mod, CallbackMap, Cb)}.
