@@ -60,7 +60,7 @@
 	]).
 
 %%% Behaviour callbacks
--export([callback_mode/0, handle_event/4, terminate/3,
+-export([init/1, callback_mode/0, handle_event/4, terminate/3,
 	 format_status/2, code_change/4]).
 
 %%% Exports not intended to be used :). They are used for spawning and tests
@@ -362,71 +362,79 @@ renegotiate_data(ConnectionHandler) ->
 			     ) -> no_return().
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 init_connection_handler(Role, Socket, Opts) ->
-    process_flag(trap_exit, true),
-    S0 = init_process_state(Role, Socket, Opts),
-    try
-	{Protocol, Callback, CloseTag} = ?GET_OPT(transport, Opts),
-	S0#data{ssh_params = init_ssh_record(Role, Socket, Opts),
-		 transport_protocol = Protocol,
-		 transport_cb = Callback,
-		 transport_close_tag = CloseTag
-		}
-    of
-	S ->
-	    gen_statem:enter_loop(?MODULE,
-				  [], %%[{debug,[trace,log,statistics,debug]} || Role==server],
-				  {hello,Role},
-				  S)
-    catch
-	_:Error ->
-	    gen_statem:enter_loop(?MODULE,
-				  [],
-				  {init_error,Error},
-				  S0)
+    case init([Role, Socket, Opts]) of
+        {ok, StartState, D} ->
+            process_flag(trap_exit, true),
+            gen_statem:enter_loop(?MODULE,
+                                  [], %%[{debug,[trace,log,statistics,debug]} || Role==server],
+                                  StartState,
+                                  D);
+
+        {stop, {error,enotconn}} ->
+	    %% Handles the abnormal sequence:
+	    %%    SYN->
+	    %%            <-SYNACK
+	    %%    ACK->
+	    %%    RST->
+	    exit({shutdown, "TCP connection to server was prematurely closed by the client"});
+        
+	{stop, OtherError} ->
+	    exit({shutdown, {init,OtherError}})
     end.
 
 
-init_process_state(Role, Socket, Opts) ->
-    D = #data{connection_state =
-		   C = #connection{channel_cache = ssh_channel:cache_create(),
-				   channel_id_seed = 0,
-				   port_bindings = [],
-				   requests = [],
-				   options = Opts},
-	       starter = ?GET_INTERNAL_OPT(user_pid, Opts),
-	       socket = Socket,
-	       opts = Opts
-	      },
-    case Role of
-	client ->
-	    %% Start the renegotiation timers
-	    timer:apply_after(?REKEY_TIMOUT,      gen_statem, cast, [self(), renegotiate]),
-	    timer:apply_after(?REKEY_DATA_TIMOUT, gen_statem, cast, [self(), data_size]),
-	    cache_init_idle_timer(D);
-	server ->
-            cache_init_idle_timer(
-              D#data{connection_state = init_connection(Role, C, Opts)}
-             )
+
+init([Role,Socket,Opts]) ->
+    case inet:peername(Socket) of
+        {ok, PeerAddr} ->
+            {Protocol, Callback, CloseTag} = ?GET_OPT(transport, Opts),
+            C = #connection{channel_cache = ssh_channel:cache_create(),
+                            channel_id_seed = 0,
+                            port_bindings = [],
+                            requests = [],
+                            options = Opts},
+            D0 = #data{starter = ?GET_INTERNAL_OPT(user_pid, Opts),
+                       socket = Socket,
+                       transport_protocol = Protocol,
+                       transport_cb = Callback,
+                       transport_close_tag = CloseTag,
+                       ssh_params = init_ssh_record(Role, Socket, PeerAddr, Opts),
+               opts = Opts
+              },
+            D = case Role of
+                    client ->
+                        %% Start the renegotiation timers
+                        timer:apply_after(?REKEY_TIMOUT,      gen_statem, cast, [self(), renegotiate]),
+                        timer:apply_after(?REKEY_DATA_TIMOUT, gen_statem, cast, [self(), data_size]),
+                        cache_init_idle_timer(
+                          D0#data{connection_state = C}
+                         );
+                    server ->
+                        Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
+                        cache_init_idle_timer(
+                          D0#data{connection_state = 
+                                      C#connection{cli_spec = ?GET_OPT(ssh_cli, Opts, {ssh_cli,[?GET_OPT(shell, Opts)]}),
+                                                   exec =     ?GET_OPT(exec,    Opts),
+                                                   system_supervisor =     proplists:get_value(system_sup,     Sups),
+                                                   sub_system_supervisor = proplists:get_value(subsystem_sup,  Sups),
+                                                   connection_supervisor = proplists:get_value(connection_sup, Sups)
+                                                  }})
+                end,
+            {ok, {hello,Role}, D};
+        
+        {error,Error} ->
+            {stop, Error}
     end.
 
-
-init_connection(server, C = #connection{}, Opts) ->
-    Sups =          ?GET_INTERNAL_OPT(supervisors, Opts),
-
-    SystemSup =     proplists:get_value(system_sup,     Sups),
-    SubSystemSup =  proplists:get_value(subsystem_sup,  Sups),
-    ConnectionSup = proplists:get_value(connection_sup, Sups),
-
-    C#connection{cli_spec = ?GET_OPT(ssh_cli, Opts, {ssh_cli,[?GET_OPT(shell, Opts)]}),
-		 exec =     ?GET_OPT(exec,    Opts),
-		 system_supervisor = SystemSup,
-		 sub_system_supervisor = SubSystemSup,
-		 connection_supervisor = ConnectionSup
-		}.
 
 
 init_ssh_record(Role, Socket, Opts) ->
-    {ok, PeerAddr} = inet:peername(Socket),
+    %% Export of this internal function is
+    %% intended for low-level protocol test suites
+    {ok,PeerAddr} = inet:peername(Socket),
+    init_ssh_record(Role, Socket, PeerAddr, Opts).
+
+init_ssh_record(Role, _Socket, PeerAddr, Opts) ->
     KeyCb = ?GET_OPT(key_cb, Opts),
     AuthMethods =
         case Role of
@@ -481,8 +489,7 @@ init_ssh_record(Role, Socket, Opts) ->
 -type renegotiate_flag() :: init | renegotiate.
 
 -type state_name() :: 
-	{init_error,any()}
-      | {hello, role()}
+        {hello, role()}
       | {kexinit, role(), renegotiate_flag()}
       | {key_exchange, role(), renegotiate_flag()}
       | {key_exchange_dh_gex_init, server, renegotiate_flag()}
@@ -504,25 +511,8 @@ init_ssh_record(Role, Socket, Opts) ->
 		   
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-%%% ######## Error in the initialisation ####
-
 callback_mode() ->
     handle_event_function.
-
-handle_event(_, _Event, {init_error,Error}, _) ->
-    case Error of
-	{badmatch,{error,enotconn}} ->
-	    %% Handles the abnormal sequence:
-	    %%    SYN->
-	    %%            <-SYNACK
-	    %%    ACK->
-	    %%    RST->
-	    {stop, {shutdown,"TCP connenction to server was prematurely closed by the client"}};
-
-	OtherError ->
-	    {stop, {shutdown,{init,OtherError}}}
-    end;
-
 
 %%% ######## {hello, client|server} ####
 %% The very first event that is sent when the we are set as controlling process of Socket
