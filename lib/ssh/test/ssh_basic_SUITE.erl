@@ -1366,13 +1366,25 @@ new_do_shell(IO, N, Ops=[{Order,Arg}|More]) ->
 	    ct:log("Skip newline ~p",[_X]),
 	    new_do_shell(IO, N, Ops);
 	
-	<<Pfx:PfxSize/binary,P1,"> ">> when (P1-$0)==N -> 
+	<<P1,"> ">> when (P1-$0)==N -> 
+	    new_do_shell_prompt(IO, N, Order, Arg, More);
+	<<"(",Pfx:PfxSize/binary,")",P1,"> ">> when (P1-$0)==N -> 
+	    new_do_shell_prompt(IO, N, Order, Arg, More);
+	<<"('",Pfx:PfxSize/binary,"')",P1,"> ">> when (P1-$0)==N -> 
 	    new_do_shell_prompt(IO, N, Order, Arg, More);
 
-	<<Pfx:PfxSize/binary,P1,P2,"> ">> when (P1-$0)*10 + (P2-$0) == N -> 
+	<<P1,P2,"> ">> when (P1-$0)*10 + (P2-$0) == N -> 
+	    new_do_shell_prompt(IO, N, Order, Arg, More);
+	<<"(",Pfx:PfxSize/binary,")",P1,P2,"> ">> when (P1-$0)*10 + (P2-$0) == N -> 
+	    new_do_shell_prompt(IO, N, Order, Arg, More);
+	<<"('",Pfx:PfxSize/binary,"')",P1,P2,"> ">> when (P1-$0)*10 + (P2-$0) == N -> 
 	    new_do_shell_prompt(IO, N, Order, Arg, More);
 
-	<<Pfx:PfxSize/binary,P1,P2,P3,"> ">> when (P1-$0)*100 + (P2-$0)*10 + (P3-$0) == N -> 
+	<<P1,P2,P3,"> ">> when (P1-$0)*100 + (P2-$0)*10 + (P3-$0) == N -> 
+	    new_do_shell_prompt(IO, N, Order, Arg, More);
+	<<"(",Pfx:PfxSize/binary,")",P1,P2,P3,"> ">> when (P1-$0)*100 + (P2-$0)*10 + (P3-$0) == N -> 
+	    new_do_shell_prompt(IO, N, Order, Arg, More);
+	<<"('",Pfx:PfxSize/binary,"')",P1,P2,P3,"> ">> when (P1-$0)*100 + (P2-$0)*10 + (P3-$0) == N -> 
 	    new_do_shell_prompt(IO, N, Order, Arg, More);
 
 	Err when element(1,Err)==error ->
@@ -1408,7 +1420,7 @@ prompt_prefix() ->
     case node() of
 	nonode@nohost -> <<>>;
 	Node -> list_to_binary(
-		  lists:concat(["(",Node,")"]))
+                  atom_to_list(Node))
     end.
 	    
 
