@@ -101,8 +101,8 @@
 'OctetString'(decode, B) ->
     ?INVALID_LENGTH(B);
 
-'OctetString'(encode = M, zero) ->
-    'OctetString'(M, []);
+'OctetString'(encode, zero) ->
+    <<>>;
 
 'OctetString'(encode, Str) ->
     iolist_to_binary(Str).
@@ -115,8 +115,8 @@
 'Integer32'(decode, B) ->
     ?INVALID_LENGTH(B);
 
-'Integer32'(encode = M, zero) ->
-    'Integer32'(M, 0);
+'Integer32'(encode, zero) ->
+    <<0:32/signed>>;
 
 'Integer32'(encode, I)
   when ?SINT(32,I) ->
@@ -130,8 +130,8 @@
 'Integer64'(decode, B) ->
     ?INVALID_LENGTH(B);
 
-'Integer64'(encode = M, zero) ->
-    'Integer64'(M, 0);
+'Integer64'(encode, zero) ->
+    <<0:64/signed>>;
 
 'Integer64'(encode, I)
   when ?SINT(64,I) ->
@@ -145,8 +145,8 @@
 'Unsigned32'(decode, B) ->
     ?INVALID_LENGTH(B);
 
-'Unsigned32'(encode = M, zero) ->
-    'Unsigned32'(M, 0);
+'Unsigned32'(encode, zero) ->
+    <<0:32>>;
 
 'Unsigned32'(encode, I)
   when ?UINT(32,I) ->
@@ -160,8 +160,8 @@
 'Unsigned64'(decode, B) ->
     ?INVALID_LENGTH(B);
 
-'Unsigned64'(encode = M, zero) ->
-    'Unsigned64'(M, 0);
+'Unsigned64'(encode, zero) ->
+    <<0:64>>;
 
 'Unsigned64'(encode, I)
   when ?UINT(64,I) ->
@@ -193,8 +193,8 @@
 'Float32'(decode, B) ->
     ?INVALID_LENGTH(B);
 
-'Float32'(encode = M, zero) ->
-    'Float32'(M, 0.0);
+'Float32'(encode, zero) ->
+    <<0.0:32/float>>;
 
 'Float32'(encode, infinity) ->
     <<0:1, 255:8, 0:23>>;
@@ -237,8 +237,8 @@
 'Float64'(encode, '-infinity') ->
     <<1:1, 2047:11, 0:52>>;
 
-'Float64'(encode = M, zero) ->
-    'Float64'(M, 0.0);
+'Float64'(encode, zero) ->
+    <<0.0:64/float>>;
 
 'Float64'(encode, X)
   when is_float(X) ->
@@ -278,8 +278,8 @@
 %% A DiameterIdentity is a FQDN as definined in RFC 1035, which is at
 %% least one character.
 
-'DiameterIdentity'(encode = M, zero) ->
-    'OctetString'(M, [0]);
+'DiameterIdentity'(encode, zero) ->
+    <<0>>;
 
 'DiameterIdentity'(encode = M, X) ->
     <<_,_/binary>> = 'OctetString'(M, X);
@@ -300,8 +300,8 @@
     ?INVALID_LENGTH(B);
 
 %% The minimal DiameterURI is "aaa://x", 7 characters.
-'DiameterURI'(encode = M, zero) ->
-    'OctetString'(M, lists:duplicate(0,7));
+'DiameterURI'(encode, zero) ->
+    <<0:7/unit:8>>;
 
 'DiameterURI'(encode, #diameter_uri{type = Type,
                                     fqdn = DN,
@@ -332,8 +332,8 @@
 %% --------------------
 
 %% This minimal rule is "deny in 0 from 0.0.0.0 to 0.0.0.0", 33 characters.
-'IPFilterRule'(encode = M, zero) ->
-    'OctetString'(M, lists:duplicate(0,33));
+'IPFilterRule'(encode, zero) ->
+    <<0:33/unit:8>>;
 
 'IPFilterRule'(M, X) ->
     'OctetString'(M, X).
@@ -341,8 +341,8 @@
 %% --------------------
 
 %% This minimal rule is the same as for an IPFilterRule.
-'QoSFilterRule'(encode = M, zero = X) ->
-    'IPFilterRule'(M, X);
+'QoSFilterRule'(encode, zero) ->
+    <<0:33/unit:8>>;
 
 'QoSFilterRule'(M, X) ->
     'OctetString'(M, X).
@@ -362,8 +362,8 @@
 'UTF8String'(decode, B) ->
     ?INVALID_LENGTH(B);
 
-'UTF8String'(encode = M, zero) ->
-    'UTF8String'(M, []);
+'UTF8String'(encode, zero) ->
+    <<>>;
 
 'UTF8String'(encode, S) ->
     <<_/binary>> = unicode:characters_to_binary(S).   %% assert binary return

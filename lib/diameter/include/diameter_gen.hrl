@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -719,7 +719,7 @@ z(Name, 1) ->
 z(_, {0,_}) ->
     [];
 z(Name, {Min, _}) ->
-    lists:duplicate(Min, z(Name)).
+    binary:copy(z(Name), Min).
 
 z('AVP') ->
     <<0:64/integer>>;  %% minimal header
