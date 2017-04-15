@@ -213,11 +213,10 @@ missing(Rec, Name, Failed) ->
                        end,
                        maps:new(),
                        Failed),
-    [{5005, A} || F <- '#info-'(element(1, Rec), fields),
-                  not has_arity(avp_arity(Name, F), '#get-'(F, Rec)),
-                  {C,_,V} = H <- [avp_header(F)],
-                  not maps:is_key({C,V}, Avps),
-                  A <- [empty_avp(F,H)]].
+    [{5005, empty_avp(F,H)} || {F,T} <- '#get-'(Rec),
+                               not has_arity(avp_arity(Name, F), T),
+                               {C,_,V} = H <- [avp_header(F)],
+                               not maps:is_key({C,V}, Avps)].
 
 %% Maximum arities have already been checked in building the record.
 
@@ -232,8 +231,8 @@ has_prefix(0, _) ->
     true;
 has_prefix(_, []) ->
     false;
-has_prefix(N, L) ->
-    has_prefix(N-1, tl(L)).
+has_prefix(N, [_|L]) ->
+    has_prefix(N-1, L).
 
 %% empty_avp/2
 
