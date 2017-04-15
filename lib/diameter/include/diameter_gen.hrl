@@ -209,15 +209,15 @@ newrec(Name) ->
 
 missing(Rec, Name, Failed) ->
     Avps = lists:foldl(fun({_, #diameter_avp{code = C, vendor_id = V}}, A) ->
-                               sets:add_element({C,V}, A)
+                               maps:put({C,V}, true, A)
                        end,
-                       sets:new(),
+                       maps:new(),
                        Failed),
     [{5005, A} || F <- '#info-'(element(1, Rec), fields),
                   not has_arity(avp_arity(Name, F), '#get-'(F, Rec)),
-                  #diameter_avp{code = C, vendor_id = V}
-                      = A <- [empty_avp(F)],
-                  not sets:is_element({C,V}, Avps)].
+                  {C,_,V} = H <- [avp_header(F)],
+                  not maps:is_key({C,V}, Avps),
+                  A <- [empty_avp(F,H)]].
 
 %% Maximum arities have already been checked in building the record.
 
@@ -235,10 +235,9 @@ has_prefix(_, []) ->
 has_prefix(N, L) ->
     has_prefix(N-1, tl(L)).
 
-%% empty_avp/1
+%% empty_avp/2
 
-empty_avp(Name) ->
-    {Code, Flags, VId} = avp_header(Name),
+empty_avp(Name, {Code, Flags, VId}) ->
     {Name, Type} = avp_name(Code, VId),
     #diameter_avp{name = Name,
                   code = Code,
