@@ -695,7 +695,7 @@ grouped_decode(_Name, {Error, Acc}) ->
 %%    to the single offending AVP.  This enables the recipient to detect
 %%    the location of the offending AVP when embedded in a group.
 
-%% An error in decoding a component AVP throws the first fauly
+%% An error in decoding a component AVP throws the first faulty
 %% component, which the catch in d/3 wraps in the Grouped AVP in
 %% question. A partially decoded record is only used when ignoring
 %% errors in Failed-AVP.

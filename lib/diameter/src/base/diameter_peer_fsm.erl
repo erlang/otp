@@ -865,7 +865,7 @@ outgoing(#diameter_packet{header = #diameter_header{application_id = 0,
             invalid(false, dpr_after_dpr, H)   %% DPR sent: discard
     end;
 
-%% Explict CER or DWR: discard. These are sent by us.
+%% Explicit CER or DWR: discard. These are sent by us.
 outgoing(#diameter_packet{header = #diameter_header{application_id = 0,
                                                     cmd_code = C,
                                                     is_request = true}
