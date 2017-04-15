@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -538,23 +538,14 @@ msg_id(<<_:32, Rbit:1, _:7, CmdCode:24, ApplId:32, _/binary>>) ->
       Error :: {5014, #diameter_avp{}}.
 
 collect_avps(#diameter_packet{bin = Bin}) ->
-    <<_:20/binary, Avps/binary>> = Bin,
+    <<_:20/binary, Avps/binary>> = Bin,  %% assert
     collect_avps(Avps);
 
 collect_avps(Bin)
   when is_binary(Bin) ->
     collect_avps(Bin, 0, []).
 
-collect_avps(<<>>, _, Acc) ->
-    Acc;
-collect_avps(Bin, N, Acc) ->
-    try split_avp(Bin) of
-        {Rest, AVP} ->
-            collect_avps(Rest, N+1, [AVP#diameter_avp{index = N} | Acc])
-    catch
-        ?FAILURE(Error) ->
-            {Error, Acc}
-    end.
+%% collect_avps/3
 
 %%     0                   1                   2                   3
 %%     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -568,32 +559,55 @@ collect_avps(Bin, N, Acc) ->
 %%    |    Data ...
 %%    +-+-+-+-+-+-+-+-+
 
-%% split_avp/1
+collect_avps(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>,
+             N,
+             Acc) ->
+    DataLen = Len - 8 - V*4,  %% Might be negative, which ensures
+    Pad = (4 - (Len rem 4)) rem 4,  %% failure of the Data match below.
+    VendorId = if 1 == V -> I; 0 == V -> undefined end,
 
-split_avp(Bin) ->
-    {Code, V, M, P, Len, HdrLen} = split_head(Bin),
+    %% Duplicate the diameter_avp creation in each branch below to
+    %% avoid modifying the record, which profiling has shown to be a
+    %% relatively costly part of building the list.
 
-    <<_:HdrLen/binary, Rest/binary>> = Bin,
-    {Data, B} = split_data(Rest, Len - HdrLen),
+    case Rest of
+        <<Data:DataLen/binary, _:Pad/binary, T/binary>> ->
+            Avp = #diameter_avp{code = Code,
+                                vendor_id = VendorId,
+                                is_mandatory = 1 == M,
+                                need_encryption = 1 == P,
+                                data = Data,
+                                index = N},
+            collect_avps(T, N+1, [Avp | Acc]);
+        _ ->
+            %% Len points past the end of the message, or doesn't span
+            %% the header. As stated in the 6733 text above, it's
+            %% sufficient to return a zero-filled minimal payload if
+            %% this is a request. Do this (in cases that we know the
+            %% type) by inducing a decode failure and letting the
+            %% dictionary's decode (in diameter_gen) deal with it.
+            %%
+            %% Note that the extra bit can only occur in the trailing
+            %% AVP of a message or Grouped AVP, since a faulty AVP
+            %% Length is otherwise indistinguishable from a correct
+            %% one here, as we don't know the types of the AVPs being
+            %% extracted.
+            Avp = #diameter_avp{code = Code,
+                                vendor_id = VendorId,
+                                is_mandatory = 1 == M,
+                                need_encryption = 1 == P,
+                                data = <<0:1, Rest/binary>>,
+                                index = N},
+            [Avp | Acc]
+    end;
 
-    {B, #diameter_avp{code = Code,
-                      vendor_id = V,
-                      is_mandatory = 1 == M,
-                      need_encryption = 1 == P,
-                      data = Data}}.
+collect_avps(<<>>, _, Acc) ->
+    Acc;
 
-%% split_head/1
-
-split_head(<<Code:32, 1:1, M:1, P:1, _:5, Len:24, V:32, _/binary>>) ->
-    {Code, V, M, P, Len, 12};
-
-split_head(<<Code:32, 0:1, M:1, P:1, _:5, Len:24, _/binary>>) ->
-    {Code, undefined, M, P, Len, 8};
-
-%% Header is truncated.
-split_head(Bin) ->
-    ?THROW({5014, #diameter_avp{data = Bin}}).
-%% Note that pack_avp/1 will pad this at encode if sent in a Failed-AVP.
+%% Header is truncated. pack_avp/1 will pad this at encode if sent in
+%% a Failed-AVP.
+collect_avps(Bin, _, Acc) ->
+    {{5014, #diameter_avp{data = Bin}}, Acc}.
 
 %% 3588:
 %%
@@ -625,33 +639,6 @@ split_head(Bin) ->
 %% The underlined clause must be in error since (1) a header less than
 %% the minimum value mean we might not know the identity of the AVP and
 %% (2) the last sentence covers this case.
-
-%% split_data/3
-
-split_data(Bin, Len) ->
-    Pad = (4 - (Len rem 4)) rem 4,
-
-    %% Len might be negative here, but that ensures the failure of the
-    %% binary match.
-
-    case Bin of
-        <<Data:Len/binary, _:Pad/binary, Rest/binary>> ->
-            {Data, Rest};
-        _ ->
-            %% Header length points past the end of the message, or
-            %% doesn't span the header. As stated in the 6733 text
-            %% above, it's sufficient to return a zero-filled minimal
-            %% payload if this is a request. Do this (in cases that we
-            %% know the type) by inducing a decode failure and letting
-            %% the dictionary's decode (in diameter_gen) deal with it.
-            %%
-            %% Note that the extra bit can only occur in the trailing
-            %% AVP of a message or Grouped AVP, since a faulty AVP
-            %% Length is otherwise indistinguishable from a correct
-            %% one here, since we don't know the types of the AVPs
-            %% being extracted.
-            {<<0:1, Bin/binary>>, <<>>}
-    end.
 
 %%% ---------------------------------------------------------------------------
 %%% # pack_avp/1
