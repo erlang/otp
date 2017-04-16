@@ -97,18 +97,6 @@ Erlang mode menu."
   :type '(restricted-sexp :match-alternatives (stringp 'nil))
   :safe (lambda (val) (or (eq nil val) (stringp val))))
 
-(defconst erlang-xemacs-p (string-match "Lucid\\|XEmacs" emacs-version)
-  "Non-nil when running under XEmacs or Lucid Emacs.")
-
-(defvar erlang-xemacs-popup-menu '("Erlang Mode Commands" . nil)
-  "Common popup menu for all buffers in Erlang mode.
-
-This variable is destructively modified every time the Erlang menu
-is modified.  The effect is that all changes take effect in all
-buffers in Erlang mode, just like under GNU Emacs.
-
-Never EVER set this variable!")
-
 (defvar erlang-menu-items '(erlang-menu-base-items
                             erlang-menu-skel-items
                             erlang-menu-shell-items
@@ -128,17 +116,14 @@ variable.")
 (defvar erlang-menu-base-items
   '(("Indent"
      (("Indent Line" erlang-indent-command)
-      ("Indent Region " erlang-indent-region
-       (if erlang-xemacs-p (mark) mark-active))
+      ("Indent Region " erlang-indent-region mark-active)
       ("Indent Clause" erlang-indent-clause)
       ("Indent Function" erlang-indent-function)
       ("Indent Buffer" erlang-indent-current-buffer)))
     ("Edit"
      (("Fill Comment" erlang-fill-paragraph)
-      ("Comment Region" comment-region
-       (if erlang-xemacs-p (mark) mark-active))
-      ("Uncomment Region" erlang-uncomment-region
-       (if erlang-xemacs-p (mark) mark-active))
+      ("Comment Region" comment-region mark-active)
+      ("Uncomment Region" erlang-uncomment-region mark-active)
       nil
       ("Beginning of Function" erlang-beginning-of-function)
       ("End of Function" erlang-end-of-function)
@@ -576,8 +561,7 @@ This is an elisp list of options. Each option can be either:
 - a string")
 
 (eval-and-compile
-  (defvar erlang-regexp-modern-p
-    (if (> emacs-major-version 21) t nil)
+  (defvar erlang-regexp-modern-p t
     "Non-nil when this version of Emacs uses a modern version of regexp.
 Supporting \_< and \_> This is determined by checking the version of Emacs used."))
 
@@ -1053,8 +1037,7 @@ behaviour.")
     (define-key map "\M-q"      'erlang-fill-paragraph)
     (unless (boundp 'beginning-of-defun-function)
       (define-key map "\M-\C-a"   'erlang-beginning-of-function)
-      (define-key map "\M-\C-e"   'erlang-end-of-function)
-      (define-key map '(meta control h)   'erlang-mark-function))       ; Xemacs
+      (define-key map "\M-\C-e"   'erlang-end-of-function))
     (define-key map "\M-\t"     'erlang-complete-tag)
     (define-key map "\C-c\M-\t" 'tempo-complete-tag)
     (define-key map "\M-+"      'erlang-find-next-tag)
@@ -1112,12 +1095,7 @@ behaviour.")
   "Font lock keyword highlighting a function header.")
 
 (defface erlang-font-lock-exported-function-name-face
-  (if (featurep 'xemacs)
-      (progn
-        (require 'font-lock)
-        `((t (:foreground ,(face-foreground 'font-lock-function-name-face))
-             (:background ,(face-background 'font-lock-function-name-face)))))
-    '((default (:inherit font-lock-function-name-face))))
+  '((default (:inherit font-lock-function-name-face)))
   "Face used for highlighting exported functions."
   :group 'erlang)
 
@@ -1329,11 +1307,7 @@ Example:
 
 The difference between this and the standard Erlang Mode
 syntax table is that `_' is treated as part of words by
-this syntax table.
-
-Unfortunately, XEmacs hasn't got support for a special Font
-Lock syntax table.  The effect is that `apply' in the atom
-`foo_apply' will be highlighted as a bif.")
+this syntax table.")
 
 (defvar erlang-replace-etags-tags-completion-table nil
   "Internal flag used by advice `erlang-replace-tags-table'.
@@ -1356,12 +1330,6 @@ replaced by `erlang-etags-tags-completion-table'.")
   (if (or (featurep 'bytecomp)
           (featurep 'byte-compile))
       (progn
-        (cond ((string-match "Lucid\\|XEmacs" emacs-version)
-               (put 'comment-indent-hook 'byte-obsolete-variable nil)
-               ;; Do not warn for unused variables
-               ;; when compiling under XEmacs.
-               (setq byte-compile-warnings
-                     '(free-vars unresolved callargs redefine))))
         (require 'comint)
         (require 'tempo)
         (require 'compile))))
@@ -1506,8 +1474,7 @@ Other commands:
   ;; delsel/pending-del mode. Also, set up text properties for bit
   ;; syntax handling.
   (mapc #'(lambda (cmd)
-            (put cmd 'delete-selection t) ;for delsel (Emacs)
-            (put cmd 'pending-delete t)) ;for pending-del (XEmacs)
+            (put cmd 'delete-selection t)) ;for delsel (Emacs)
         '(erlang-electric-semicolon
           erlang-electric-comma
           erlang-electric-gt))
@@ -1545,8 +1512,6 @@ Other commands:
   (make-local-variable 'indent-region-function)
   (setq indent-region-function 'erlang-indent-region)
   (set (make-local-variable 'comment-indent-function) 'erlang-comment-indent)
-  (if (<= emacs-major-version 18)
-      (set (make-local-variable 'comment-indent-hook) 'erlang-comment-indent))
   (set (make-local-variable 'parse-sexp-ignore-comments) t)
   (set (make-local-variable 'dabbrev-case-fold-search) nil)
   (set (make-local-variable 'imenu-prev-index-position-function)
@@ -1753,7 +1718,7 @@ menu configuration is changed."
 
 
 (defun erlang-menu-install (name items keymap &optional popup)
-  "Install a menu in Emacs or XEmacs based on an abstract description.
+  "Install a menu in Emacs based on an abstract description.
 
 NAME is the name of the menu.
 
@@ -1764,32 +1729,15 @@ same same form as ITEMS.  The third optional element is an expression
 which is evaluated every time the menu is displayed.  Should the
 expression evaluate to nil the menu item is ghosted.
 
-KEYMAP is the keymap to add to menu to.  (When using XEmacs, the menu
-will only be visible when this menu is the global, the local, or an
-activate minor mode keymap.)
-
-If POPUP is non-nil, the menu is bound to the XEmacs `mode-popup-menu'
-variable, i.e. it will popup when pressing the right mouse button.
+KEYMAP is the keymap to add to menu to.
 
 Please see the variable `erlang-menu-base-items'."
-  (cond (erlang-xemacs-p
-         (let ((menu (erlang-menu-xemacs name items keymap)))
-           ;; We add the menu to the global menubar.
-           ;;(funcall (symbol-function 'set-buffer-menubar)
-           ;;         (symbol-value 'current-menubar))
-           (funcall (symbol-function 'add-submenu) nil menu)
-           (setcdr erlang-xemacs-popup-menu (cdr menu))
-           (if (and popup (boundp 'mode-popup-menu))
-               (funcall (symbol-function 'set)
-                        'mode-popup-menu erlang-xemacs-popup-menu))))
-        ((>= emacs-major-version 19)
-         (define-key keymap (vector 'menu-bar (intern name))
-           (erlang-menu-make-keymap name items)))
-        (t nil)))
+  (define-key keymap (vector 'menu-bar (intern name))
+    (erlang-menu-make-keymap name items)))
 
 
 (defun erlang-menu-make-keymap (name items)
-  "Build a menu for Emacs 19."
+  "Build a menu."
   (let ((menumap (funcall (symbol-function 'make-sparse-keymap)
                           name))
         (count 0)
@@ -1826,54 +1774,6 @@ Please see the variable `erlang-menu-base-items'."
           (put id 'menu-enable third))
       (setq items (cdr items)))
     (cons name menumap)))
-
-
-(defun erlang-menu-xemacs (name items &optional keymap)
-  "Build a menu for XEmacs."
-  (let ((res '())
-        first second third entry)
-    (while items
-      ;; Replace any occurrence of atoms by their value.
-      (while (and items (atom (car items)) (not (null (car items))))
-        (if (and (boundp (car items))
-                 (listp (symbol-value (car items))))
-            (setq items (append (reverse (symbol-value (car items)))
-                                (cdr items)))
-          (setq items (cdr items))))
-      (setq first (car-safe (car items)))
-      (setq second (car-safe (cdr-safe (car items))))
-      (setq third (car-safe (cdr-safe (cdr-safe (car items)))))
-      (cond ((null first)
-             (setq res (cons "------" res)))
-            ((symbolp second)
-             (setq res (cons (vector first second (or third t)) res)))
-            ((and (consp second) (eq (car second) 'lambda))
-             (setq res (cons (vector first (list 'call-interactively second)
-                                     (or third t)) res)))
-            (t
-             (setq res (cons (cons first
-                                   (cdr (erlang-menu-xemacs
-                                         first second)))
-                             res))))
-      (setq items (cdr items)))
-    (setq res (reverse res))
-    ;; When adding a menu to a minor-mode keymap under Emacs,
-    ;; it disappears when the mode is disabled.  The expression
-    ;; generated below imitates this behaviour.
-    ;; (This could be expressed much clearer using backquotes,
-    ;; but I don't want to pull in every package.)
-    (if keymap
-        (let ((expr (list 'or
-                          (list 'eq keymap 'global-map)
-                          (list 'eq keymap (list 'current-local-map))
-                          (list 'symbol-value
-                                (list 'car-safe
-                                      (list 'rassq
-                                            keymap
-                                            'minor-mode-map-alist))))))
-          (setq res (cons ':included (cons expr res)))))
-    (cons name res)))
-
 
 (defun erlang-menu-substitute (items alist)
   "Substitute functions in menu described by ITEMS.
@@ -2278,7 +2178,7 @@ mode with the command `M-x erlang-mode RET'.")))
 ;; Skeleton code:
 
 ;; This code is based on the package `tempo' which is part of modern
-;; Emacsen.  (GNU Emacs 19.25 (?) and XEmacs 19.14.)
+;; Emacsen.
 
 (defvar erlang-skel)
 (defun erlang-skel-init ()
@@ -3263,11 +3163,8 @@ With argument, do this that many times."
   (interactive)
   (push-mark (point))
   (erlang-end-of-clause 1)
-  ;; Sets the region. In Emacs 19 and XEmacs, we want to activate
-  ;; the region.
-  (condition-case nil
-      (push-mark (point) nil t)
-    (error (push-mark (point))))
+  ;; Sets the region.
+  (push-mark (point) nil t)
   (erlang-beginning-of-clause 1)
   ;; The above function deactivates the mark.
   (if (boundp 'deactivate-mark)
@@ -3375,11 +3272,8 @@ With negative argument go towards the beginning of the buffer."
       (interactive)
       (push-mark (point))
       (erlang-end-of-function 1)
-      ;; Sets the region. In Emacs 19 and XEmacs, we want to activate
-      ;; the region.
-      (condition-case nil
-          (push-mark (point) nil t)
-        (error (push-mark (point))))
+      ;; Sets the region.
+      (push-mark (point) nil t)
       (erlang-beginning-of-function 1)
       ;; The above function deactivates the mark.
       (if (boundp 'deactivate-mark)
@@ -4426,9 +4320,6 @@ This function is designed to be a member of a criteria list."
 
 ;;; Erlang tags support which is aware of erlang modules.
 
-;; Not yet implemented under XEmacs.  (Hint:  The Emacs 19 etags
-;; package works under XEmacs.)
-
 (eval-when-compile
   (if (or (featurep 'bytecomp)
           (featurep 'byte-compile))
@@ -4477,28 +4368,16 @@ After calling this function, the tags functions are aware of
 Erlang modules.  Tags can be entered on the for `module:tag' as well
 as on the old form `tag'.
 
-In the completion list, `module:tag' and `module:' shows up.
-
-This function only works under Emacs 18 and Emacs 19.  Currently, It
-is not implemented under XEmacs.  (Hint: The Emacs 19 etags module
-works under XEmacs.)"
+In the completion list, `module:tag' and `module:' shows up."
   (interactive)
-  (cond ((= emacs-major-version 18)
-         (require 'tags)
-         (erlang-tags-define-keys (current-local-map))
-         (setq erlang-tags-installed t))
-        (t
-         (require 'etags)
-         (set (make-local-variable 'find-tag-default-function)
-              'erlang-find-tag-for-completion)
-         (if (>= emacs-major-version 25)
-             (add-hook 'xref-backend-functions
-                       #'erlang-etags--xref-backend nil t)
-           ;; Test on a function available in the Emacs 19 version
-           ;; of tags but not in the XEmacs version.
-           (when (fboundp 'find-tag-noselect)
-             (erlang-tags-define-keys (current-local-map))
-             (setq erlang-tags-installed t))))))
+  (require 'etags)
+  (set (make-local-variable 'find-tag-default-function)
+       'erlang-find-tag-for-completion)
+  (if (>= emacs-major-version 25)
+      (add-hook 'xref-backend-functions
+                #'erlang-etags--xref-backend nil t)
+    (erlang-tags-define-keys (current-local-map))
+    (setq erlang-tags-installed t)))
 
 
 
@@ -4655,35 +4534,12 @@ Tags can be given on the forms `tag', `module:', `module:tag'."
                         (find-file-noselect file)))))
 
      ((string-match ":" modtagname)
-      (if (boundp 'find-tag-tag-order)
-          ;; Method one: Add module-recognising functions to the
-          ;; list of order functions.  However, the tags system
-          ;; from Emacs 18, and derives thereof (read: XEmacs)
-          ;; hasn't got this feature.
-          (progn
-            (erlang-tags-install-module-check)
-            (unwind-protect
-                (funcall (symbol-function 'find-tag)
-                         modtagname next-p regexp-p)
-              (erlang-tags-remove-module-check)))
-        ;; Method two: Call the tags system until a file matching
-        ;; the module is found.  This could result in that many
-        ;; files are read. (e.g. The tag "foo:file" will take a
-        ;; while to process.)
-        (let* ((modname (substring modtagname 0 (match-beginning 0)))
-               (tagname (substring modtagname (match-end 0) nil))
-               (last-tag tagname)
-               file)
-          (while
-              (progn
-                (funcall (symbol-function 'find-tag) tagname next-p regexp-p)
-                (setq next-p t)
-                ;; Determine the module form the file name.  (The
-                ;; alternative, to check `-module', would make this
-                ;; code useless for non-Erlang programs.)
-                (setq file (erlang-get-module-from-file-name buffer-file-name))
-                (not (and (stringp file)
-                          (string= modname file))))))))
+      (progn
+        (erlang-tags-install-module-check)
+        (unwind-protect
+            (funcall (symbol-function 'find-tag)
+                     modtagname next-p regexp-p)
+          (erlang-tags-remove-module-check))))
      (t
       (funcall (symbol-function 'find-tag) modtagname next-p regexp-p)))
     (current-buffer)))                  ; Return the new buffer.
@@ -4732,23 +4588,12 @@ Tags can be given on the forms `tag', `module:', `module:tag'."
   "Install our own tag search functions."
   ;; Make sure our functions are installed in TAGS files loaded
   ;; into Emacs while searching.
-  (cond
-   ((>= emacs-major-version 20)
-    (setq erlang-tags-orig-format-functions
-          (symbol-value 'tags-table-format-functions))
-    (funcall (symbol-function 'set) 'tags-table-format-functions
-             (cons 'erlang-tags-recognize-tags-table
-                   erlang-tags-orig-format-functions))
-    (setq erlang-tags-buffer-list '())
-    )
-   (t
-    (setq erlang-tags-orig-format-hooks
-          (symbol-value 'tags-table-format-hooks))
-    (funcall (symbol-function 'set) 'tags-table-format-hooks
-             (cons 'erlang-tags-recognize-tags-table
-                   erlang-tags-orig-format-hooks))
-    (setq erlang-tags-buffer-list '())
-    ))
+  (setq erlang-tags-orig-format-functions
+        (symbol-value 'tags-table-format-functions))
+  (funcall (symbol-function 'set) 'tags-table-format-functions
+           (cons 'erlang-tags-recognize-tags-table
+                 erlang-tags-orig-format-functions))
+  (setq erlang-tags-buffer-list '())
 
   ;; Install our functions in the TAGS files already resident.
   (save-excursion
@@ -4810,17 +4655,9 @@ Tags can be given on the forms `tag', `module:', `module:tag'."
 
 (defun erlang-tags-remove-module-check ()
   "Remove our own tags search functions."
-  (cond
-   ((>= emacs-major-version 20)
-    (funcall (symbol-function 'set)
-             'tags-table-format-functions
-             erlang-tags-orig-format-functions)
-    )
-   (t
-    (funcall (symbol-function 'set)
-             'tags-table-format-hooks
-             erlang-tags-orig-format-hooks)
-    ))
+  (funcall (symbol-function 'set)
+           'tags-table-format-functions
+           erlang-tags-orig-format-functions)
 
   ;; Remove our functions from the TAGS files.  (Note that
   ;; `tags-table-computed-list' need not be the same list as when
@@ -4916,28 +4753,9 @@ Completes to the set of names listed in the current tags table.
 Should the Erlang tags system be installed this command knows
 about Erlang modules."
   (interactive)
-  (condition-case nil
-      (require 'etags)
-    (error nil))
-  (cond ((and (fboundp 'etags-tags-completion-table)
-              (fboundp 'tags-lazy-completion-table)) ; Emacs 23.1+
-         (let ((erlang-replace-etags-tags-completion-table t))
-           (complete-tag)))
-        ((and erlang-tags-installed
-              (fboundp 'complete-tag)
-              (fboundp 'tags-complete-tag)) ; Emacs 19-22
-         (let ((orig-tags-complete-tag (symbol-function 'tags-complete-tag)))
-           (fset 'tags-complete-tag
-                 (symbol-function 'erlang-tags-complete-tag))
-           (unwind-protect
-               (complete-tag)
-             (fset 'tags-complete-tag orig-tags-complete-tag))))
-        ((fboundp 'complete-tag)        ; Emacs 19
-         (complete-tag))
-        ((fboundp 'tag-complete-symbol) ; XEmacs
-         (funcall (symbol-function 'tag-complete-symbol)))
-        (t
-         (error "This version of Emacs can't complete tags"))))
+  (require 'etags)
+  (let ((erlang-replace-etags-tags-completion-table t))
+    (complete-tag)))
 
 
 (defun erlang-find-tag-for-completion ()
@@ -5590,10 +5408,8 @@ editing control characters:
 
   (setq inferior-erlang-process
         (get-buffer-process inferior-erlang-buffer))
-  (if (> 21 emacs-major-version) ; funcalls to avoid compiler warnings
-      (funcall (symbol-function 'set-process-query-on-exit-flag)
-               inferior-erlang-process nil)
-    (funcall (symbol-function 'process-kill-without-query) inferior-erlang-process))
+  (funcall (symbol-function 'set-process-query-on-exit-flag)
+           inferior-erlang-process nil)
   (if erlang-inferior-shell-split-window
       (switch-to-buffer-other-window inferior-erlang-buffer)
     (switch-to-buffer inferior-erlang-buffer))
@@ -5661,7 +5477,7 @@ frame will become deselected before the next command."
 (defun inferior-erlang-window (&optional all-frames)
   "Return the window containing the inferior Erlang, or nil."
   (and (inferior-erlang-running-p)
-       (if (and all-frames (>= emacs-major-version 19))
+       (if all-frames
            (get-buffer-window inferior-erlang-buffer t)
          (get-buffer-window inferior-erlang-buffer))))
 
@@ -5733,10 +5549,7 @@ Return the position after the newly inserted command."
     ;; has been sorted out in Emacs 21.  -- fx
     (let ((comint-eol-on-send nil)
           (comint-input-filter (if hist comint-input-filter 'ignore)))
-      (if (and (not erlang-xemacs-p)
-               (>= emacs-major-version 22))
-          (comint-send-input nil t)
-        (comint-send-input)))
+      (comint-send-input nil t))
     ;; Adjust all windows whose points are incorrect.
     (if (null comint-process-echoes)
         (walk-windows
