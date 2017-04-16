@@ -723,7 +723,8 @@ z('AVP') ->
     <<0:64/integer>>;  %% minimal header
 z(Name) ->
     Bin = diameter_codec:pack_avp(avp_header(Name), empty_value(Name)),
-    << <<0>> || <<_>> <= Bin >>.
+    Sz = size(Bin),
+    <<0:Sz/unit:8>>.
 
 %% ---------------------------------------------------------------------------
 %% # empty/1
