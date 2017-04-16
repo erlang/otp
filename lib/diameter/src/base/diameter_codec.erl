@@ -399,14 +399,12 @@ decode_avps(MsgName, Mod, Pkt, Avps) ->  %% ... or not
 
 decode_header(<<Version:8,
                 MsgLength:24,
-                CmdFlags:1/binary,
+                R:1, P:1, E:1, T:1, _:4,
                 CmdCode:24,
                 ApplicationId:32,
                 HopByHopId:32,
                 EndToEndId:32,
                 _/binary>>) ->
-    <<R:1, P:1, E:1, T:1, _:4>>
-        = CmdFlags,
     %% 3588 (ch 3) says that reserved bits MUST be set to 0 and ignored
     %% by the receiver.
 
