@@ -39,8 +39,10 @@
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
 
--define(MASK(N,I), ((I) band (1 bsl (N)))).
 -define(PAD(Len), ((4 - (Len rem 4)) rem 4)).
+-define(BIT(B), (if B -> 1; true -> 0 end)).
+-define(FLAGS(R,P,E,T), ?BIT(R):1, ?BIT(P):1, ?BIT(E):1, ?BIT(T):1, 0:4).
+-define(FLAG(B,D), (if is_boolean(B) -> B; true -> 0 /= (D) end)).
 
 -type u32() :: 0..16#FFFFFFFF.
 -type u24() :: 0..16#FFFFFF.
@@ -142,20 +144,22 @@ encode(Mod, Msg) ->
 e(_, #diameter_packet{msg = [#diameter_header{} = Hdr | As]} = Pkt) ->
     try encode_avps(reorder(As)) of
         Avps ->
-            Length = size(Avps) + 20,
+            Len = 20 + size(Avps),
 
             #diameter_header{version = Vsn,
+                             is_request = R,
+                             is_proxiable = P,
+                             is_error = E,
+                             is_retransmitted = T,
                              cmd_code = Code,
                              application_id = Aid,
                              hop_by_hop_id  = Hid,
                              end_to_end_id  = Eid}
                 = Hdr,
 
-            Flags = make_flags(0, Hdr),
-
             Pkt#diameter_packet{header = Hdr,
-                                bin = <<Vsn:8, Length:24,
-                                        Flags:8, Code:24,
+                                bin = <<Vsn:8, Len:24,
+                                        ?FLAGS(R,P,E,T), Code:24,
                                         Aid:32,
                                         Hid:32,
                                         Eid:32,
@@ -166,55 +170,52 @@ e(_, #diameter_packet{msg = [#diameter_header{} = Hdr | As]} = Pkt) ->
     end;
 
 e(Mod, #diameter_packet{header = Hdr0, msg = Msg} = Pkt) ->
+    MsgName = rec2msg(Mod, Msg),
+    {Code, Flags, Aid} = msg_header(Mod, MsgName, Hdr0),
+
     #diameter_header{version = Vsn,
+                     is_request = R,
+                     is_proxiable = P,
+                     is_error = E,
+                     is_retransmitted = T,
                      hop_by_hop_id = Hid,
                      end_to_end_id = Eid}
         = Hdr0,
 
-    MsgName = rec2msg(Mod, Msg),
-    {Code, Flags0, Aid} = msg_header(Mod, MsgName, Hdr0),
-    Flags = make_flags(Flags0, Hdr0),
-    Hdr = Hdr0#diameter_header{cmd_code = Code,
-                               application_id = Aid,
-                               is_request       = 0 /= ?MASK(7, Flags),
-                               is_proxiable     = 0 /= ?MASK(6, Flags),
-                               is_error         = 0 /= ?MASK(5, Flags),
-                               is_retransmitted = 0 /= ?MASK(4, Flags)},
+    RB = ?FLAG(R, Flags band 2#10000000),
+    PB = ?FLAG(P, Flags band 2#01000000),
+    EB = ?FLAG(E, Flags band 2#00100000),
+    TB = ?FLAG(T, Flags band 2#00010000),
+
     Values = values(Msg),
 
     try encode_avps(Mod, MsgName, Values) of
         Avps ->
-            Length = size(Avps) + 20,
-            Pkt#diameter_packet{header = Hdr#diameter_header{length = Length},
-                                bin = <<Vsn:8, Length:24,
-                                        Flags:8, Code:24,
+            Len = size(Avps) + 20,
+            Hdr = Hdr0#diameter_header{length = Len,
+                                       cmd_code = Code,
+                                       application_id = Aid,
+                                       is_request       = RB,
+                                       is_proxiable     = PB,
+                                       is_error         = EB,
+                                       is_retransmitted = TB},
+            Pkt#diameter_packet{header = Hdr,
+                                bin = <<Vsn:8, Len:24,
+                                        ?FLAGS(RB, PB, EB, TB), Code:24,
                                         Aid:32,
                                         Hid:32,
                                         Eid:32,
                                         Avps/binary>>}
     catch
         error: Reason ->
+            Hdr = Hdr0#diameter_header{cmd_code = Code,
+                                       application_id = Aid,
+                                       is_request       = RB,
+                                       is_proxiable     = PB,
+                                       is_error         = EB,
+                                       is_retransmitted = TB},
             exit({Reason, diameter_lib:get_stacktrace(), Hdr})
     end.
-
-%% make_flags/2
-
-make_flags(Flags0, #diameter_header{is_request       = R,
-                                    is_proxiable     = P,
-                                    is_error         = E,
-                                    is_retransmitted = T}) ->
-    {Flags, 3} = lists:foldl(fun(B,{F,N}) -> {mf(B,F,N), N-1} end,
-                             {Flags0, 7},
-                             [R,P,E,T]),
-    Flags.
-
-mf(undefined, F, _) ->
-    F;
-mf(B, F, N) ->  %% reset the affected bit
-    (F bxor (F band (1 bsl N))) bor bit(B, N).
-
-bit(true, N)  -> 1 bsl N;
-bit(false, _) -> 0.
 
 %% values/1
 
@@ -517,7 +518,7 @@ msg_id(#diameter_packet{header = #diameter_header{} = Hdr}) ->
 msg_id(#diameter_header{application_id = A,
                         cmd_code = C,
                         is_request = R}) ->
-    {A, C, if R -> 1; true -> 0 end};
+    {A, C, ?BIT(R)};
 
 msg_id(<<_:32, Rbit:1, _:7, CmdCode:24, ApplId:32, _/binary>>) ->
     {ApplId, CmdCode, Rbit}.
