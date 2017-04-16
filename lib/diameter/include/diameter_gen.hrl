@@ -104,8 +104,7 @@ encode_avps(Name, Rec) ->
 %% encode/2
 
 encode(Name, Rec) ->
-    lists:flatmap(fun(A) -> encode(Name, A, '#get-'(A, Rec)) end,
-                  '#info-'(element(1, Rec), fields)).
+    [encode(Name, F, V) || {F,V} <- '#get-'(Rec)].
 
 %% encode/3
 
