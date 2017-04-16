@@ -40,6 +40,7 @@
 -include("diameter_internal.hrl").
 
 -define(MASK(N,I), ((I) band (1 bsl (N)))).
+-define(PAD(Len), ((4 - (Len rem 4)) rem 4)).
 
 -type u32() :: 0..16#FFFFFFFF.
 -type u24() :: 0..16#FFFFFF.
@@ -561,7 +562,7 @@ collect_avps(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>,
              N,
              Acc) ->
     DataLen = Len - 8 - V*4,  %% Might be negative, which ensures
-    Pad = (4 - (Len rem 4)) rem 4,  %% failure of the Data match below.
+    Pad = ?PAD(Len),          %% failure of the Data match below.
     VendorId = if 1 == V -> I; 0 == V -> undefined end,
 
     %% Duplicate the diameter_avp creation in each branch below to
@@ -723,30 +724,22 @@ flag_avp({false, _}, F) ->
 pack_avp({Code, Flags, VendorId}, Bin)
   when is_binary(Bin) ->
     Sz = size(Bin),
-    pack_avp(Code, Flags, VendorId, Sz, pad(Sz rem 4, Bin)).
+    pack_avp(Code, Flags, Sz, VendorId, Bin, ?PAD(Sz)).
+%% Padding is not included in the length field, as mandated by the RFC.
 
-pad(0, Bin) ->
-    Bin;
-pad(N, Bin) ->
-    P = 8*(4-N),
-    <<Bin/binary, 0:P>>.
-%% Note that padding is not included in the length field as mandated by
-%% the RFC.
-
-%% pack_avp/5
+%% pack_avp/6
 %%
 %% Prepend the vendor id as required.
 
-pack_avp(Code, Flags, Vid, Sz, Bin)
+pack_avp(Code, Flags, Sz, Vid, Bin, Pad)
   when 0 == Flags band 2#10000000 ->
     undefined = Vid,  %% sanity check
-    pack_avp(Code, Flags, Sz, Bin);
+    pack_avp(Code, Flags, Sz, 0, 0, Bin, Pad);
 
-pack_avp(Code, Flags, Vid, Sz, Bin) ->
-    pack_avp(Code, Flags, Sz+4, <<Vid:32, Bin/binary>>).
+pack_avp(Code, Flags, Sz, Vid, Bin, Pad) ->
+    pack_avp(Code, Flags, Sz+4, Vid, 1, Bin, Pad).
 
-%% pack_avp/4
+%% pack_avp/7
 
-pack_avp(Code, Flags, Sz, Bin) ->
-    Length = Sz + 8,
-    <<Code:32, Flags:8, Length:24, Bin/binary>>.
+pack_avp(Code, Flags, Sz, VId, V, Bin, Pad) ->
+    <<Code:32, Flags:8, (8+Sz):24, VId:V/unit:32, Bin/binary, 0:Pad/unit:8>>.
