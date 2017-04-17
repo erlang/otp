@@ -1327,12 +1327,9 @@ replaced by `erlang-etags-tags-completion-table'.")
   (defvar next-error-last-buffer))
 
 (eval-when-compile
-  (if (or (featurep 'bytecomp)
-          (featurep 'byte-compile))
-      (progn
-        (require 'comint)
-        (require 'tempo)
-        (require 'compile))))
+  (require 'comint)
+  (require 'tempo)
+  (require 'compile))
 
 
 (defun erlang-version ()
@@ -1414,8 +1411,7 @@ Other commands:
   (erlang-tags-init)
   (erlang-font-lock-init)
   (erlang-skel-init)
-  (when (fboundp 'tempo-use-tag-list)
-    (tempo-use-tag-list 'erlang-tempo-tags))
+  (tempo-use-tag-list 'erlang-tempo-tags)
   (when (and (fboundp 'add-function) (fboundp 'erldoc-eldoc-function))
     (or eldoc-documentation-function
         (setq-local eldoc-documentation-function #'ignore))
@@ -2189,36 +2185,33 @@ all skeletons.
 The skeleton routines are based on the `tempo' package.  Should this
 package not be present, this function does nothing."
   (interactive)
-  (condition-case nil
-      (require 'tempo)
-    (error t))
-  (if (featurep 'tempo)
-      (let ((skel erlang-skel)
-            (menu '()))
-        (while skel
-          (cond ((null (car skel))
-                 (setq menu (cons nil menu)))
-                (t
-                 (funcall (symbol-function 'tempo-define-template)
-                          (concat "erlang-" (nth 1 (car skel)))
-                          ;; The tempo template used contains an `include'
-                          ;; function call only, hence changes to the
-                          ;; variables describing the templates take effect
-                          ;; immdiately.
-                          (list (list 'erlang-skel-include (nth 2 (car skel))))
-                          (nth 1 (car skel))
-                          (car (car skel))
-                          'erlang-tempo-tags)
-                 (setq menu (cons (erlang-skel-make-menu-item
-                                   (car skel)) menu))))
-          (setq skel (cdr skel)))
-        (setq erlang-menu-skel-items
-              (list nil (list "Skeletons" (nreverse menu))))
-        (setq erlang-menu-items
-              (erlang-menu-add-above 'erlang-menu-skel-items
-                                     'erlang-menu-version-items
-                                     erlang-menu-items))
-        (erlang-menu-init))))
+  (require 'tempo)
+  (let ((skel erlang-skel)
+        (menu '()))
+    (while skel
+      (cond ((null (car skel))
+             (setq menu (cons nil menu)))
+            (t
+             (funcall (symbol-function 'tempo-define-template)
+                      (concat "erlang-" (nth 1 (car skel)))
+                      ;; The tempo template used contains an `include'
+                      ;; function call only, hence changes to the
+                      ;; variables describing the templates take effect
+                      ;; immediately.
+                      (list (list 'erlang-skel-include (nth 2 (car skel))))
+                      (nth 1 (car skel))
+                      (car (car skel))
+                      'erlang-tempo-tags)
+             (setq menu (cons (erlang-skel-make-menu-item
+                               (car skel)) menu))))
+      (setq skel (cdr skel)))
+    (setq erlang-menu-skel-items
+          (list nil (list "Skeletons" (nreverse menu))))
+    (setq erlang-menu-items
+          (erlang-menu-add-above 'erlang-menu-skel-items
+                                 'erlang-menu-version-items
+                                 erlang-menu-items))
+    (erlang-menu-init)))
 
 (defun erlang-skel-make-menu-item (skel)
   (let ((func (intern (concat "tempo-template-erlang-" (nth 1 skel)))))
@@ -3804,9 +3797,9 @@ of arguments could be found, otherwise nil."
     (if (and (stringp str)
              (not (string-match (eval-when-compile
                                   (concat "\\`" erlang-atom-regexp "\\'")) str)))
-        (progn (if (fboundp 'replace-regexp-in-string)
-                   (setq str (replace-regexp-in-string "'" "\\'" str t t )))
-               (concat "'" str "'"))
+        (progn
+          (setq str (replace-regexp-in-string "'" "\\'" str t t ))
+          (concat "'" str "'"))
       str)))
 
 
@@ -4201,9 +4194,7 @@ context, nil is returned."
     (let* ((lim (or lim (save-excursion
                           (erlang-beginning-of-clause)
                           (point))))
-           (state (if (fboundp 'syntax-ppss) ; post Emacs 21.3
-                      (funcall (symbol-function 'syntax-ppss))
-                    (parse-partial-sexp lim (point)))))
+           (state (funcall (symbol-function 'syntax-ppss))))
       (cond
        ((eq (nth 3 state) ?') 'atom)
        ((nth 3 state) 'string)
@@ -4314,10 +4305,7 @@ This function is designed to be a member of a criteria list."
 ;;; Erlang tags support which is aware of erlang modules.
 
 (eval-when-compile
-  (if (or (featurep 'bytecomp)
-          (featurep 'byte-compile))
-      (progn
-        (require 'etags))))
+  (require 'etags))
 
 
 ;; Variables:
@@ -4507,8 +4495,7 @@ Tags can be given on the forms `tag', `module:', `module:tag'."
         (while (null file)
           (or erlang-tags-file-list
               (save-excursion
-                (if (and (featurep 'etags)
-                         (funcall
+                (if (and (funcall
                           (symbol-function 'visit-tags-table-buffer) 'same)
                          (funcall
                           (symbol-function 'visit-tags-table-buffer) t))
@@ -4562,9 +4549,7 @@ Tags can be given on the forms `tag', `module:', `module:tag'."
            (prompt (if default
                        (format "%s(default %s) " prompt default)
                      prompt))
-           (spec (if (featurep 'etags)
-                     (completing-read prompt 'erlang-tags-complete-tag)
-                   (read-string prompt))))
+           (spec (completing-read prompt 'erlang-tags-complete-tag)))
       (list (if (equal spec "")
                 (or default (error "There is no default tag"))
               spec)))))
@@ -4718,21 +4703,17 @@ for a tag on the form `module:tag'."
 ;;; completion-table' containing all normal tags plus tags on the form
 ;;; `module:tag' and `module:'.
 
-(when (and (locate-library "etags")
-           (require 'etags)
-           (fboundp 'etags-tags-completion-table)
-           (fboundp 'tags-lazy-completion-table)) ; Emacs 23.1+
-  (if (fboundp 'advice-add)
-      ;; Emacs 24.4+
-      (advice-add 'etags-tags-completion-table :around
-                  #'erlang-etags-tags-completion-table-advice)
-    ;; Emacs 23.1-24.3
-    (defadvice etags-tags-completion-table (around
-                                            erlang-replace-tags-table
-                                            activate)
-      (if erlang-replace-etags-tags-completion-table
-          (setq ad-return-value (erlang-etags-tags-completion-table))
-        ad-do-it))))
+(if (fboundp 'advice-add)
+    ;; Emacs 24.4+
+    (advice-add 'etags-tags-completion-table :around
+                #'erlang-etags-tags-completion-table-advice)
+  ;; Emacs 23.1-24.3
+  (defadvice etags-tags-completion-table (around
+                                          erlang-replace-tags-table
+                                          activate)
+    (if erlang-replace-etags-tags-completion-table
+        (setq ad-return-value (erlang-etags-tags-completion-table))
+      ad-do-it)))
 
 (defun erlang-etags-tags-completion-table-advice (oldfun)
   (if erlang-replace-etags-tags-completion-table
@@ -5246,13 +5227,11 @@ The following special commands are available:
             'inferior-erlang-strip-delete nil t)
   (add-hook 'comint-output-filter-functions
             'inferior-erlang-strip-ctrl-m nil t)
-  ;; Some older versions of comint don't have an input ring.
-  (if (fboundp 'comint-read-input-ring)
-      (progn
-        (setq comint-input-ring-file-name erlang-input-ring-file-name)
-        (comint-read-input-ring t)
-        (make-local-variable 'kill-buffer-hook)
-        (add-hook 'kill-buffer-hook 'comint-write-input-ring)))
+
+  (setq comint-input-ring-file-name erlang-input-ring-file-name)
+  (comint-read-input-ring t)
+  (make-local-variable 'kill-buffer-hook)
+  (add-hook 'kill-buffer-hook 'comint-write-input-ring)
   ;; At least in Emacs 21, we need to be in `compilation-minor-mode'
   ;; for `next-error' to work.  We can avoid it clobbering the shell
   ;; keys thus.
@@ -5370,10 +5349,7 @@ editing control characters:
 \\{erlang-shell-mode-map}"
   (interactive
    (when current-prefix-arg
-     (list (if (fboundp 'read-shell-command)
-               ;; `read-shell-command' is a new function in Emacs 23.
-               (read-shell-command "Erlang command: ")
-             (read-string "Erlang command: ")))))
+     (list ((read-shell-command "Erlang command: ")))))
   (require 'comint)
   (let (cmd opts)
     (if command
@@ -5926,8 +5902,7 @@ Tab characters are counted by their visual width."
 Simplified version of a combination `defalias' and `make-obsolete',
 it assumes that NEWDEF is loaded."
   (defalias sym (symbol-function newdef))
-  (if (fboundp 'make-obsolete)
-      (make-obsolete sym newdef "long ago")))
+  (make-obsolete sym newdef "long ago"))
 
 
 (erlang-obsolete 'calculate-erlang-indent 'erlang-calculate-indent)
@@ -5947,9 +5922,8 @@ it assumes that NEWDEF is loaded."
 
 (defconst erlang-unload-hook
   (list (lambda ()
-          (when (featurep 'advice)
-            (ad-unadvise 'Man-notify-when-ready)
-            (ad-unadvise 'set-visited-file-name)))))
+          (ad-unadvise 'Man-notify-when-ready)
+          (ad-unadvise 'set-visited-file-name))))
 
 ;; The end...
 
