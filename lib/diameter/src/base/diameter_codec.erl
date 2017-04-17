@@ -737,9 +737,8 @@ pack_avp(Code, Flags, VendorId, Data) ->
 %%
 %% Prepend the vendor id as required.
 
-pack_avp(Code, Flags, Sz, Vid, Data, Pad)
+pack_avp(Code, Flags, Sz, _Vid, Data, Pad) 
   when 0 == Flags band 2#10000000 ->
-    undefined = Vid,  %% sanity check
     pack_avp(Code, Flags, Sz, 0, 0, Data, Pad);
 
 pack_avp(Code, Flags, Sz, Vid, Data, Pad) ->
