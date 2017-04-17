@@ -542,9 +542,8 @@ msg_id(<<_:32, Rbit:1, _:7, CmdCode:24, ApplId:32, _/binary>>) ->
  when Avp   :: #diameter_avp{},
       Error :: {5014, #diameter_avp{}}.
 
-collect_avps(#diameter_packet{bin = Bin}) ->
-    <<_:20/binary, Avps/binary>> = Bin,  %% assert
-    collect_avps(Avps);
+collect_avps(#diameter_packet{bin = <<_:20/binary, Avps/binary>>}) ->
+    collect_avps(Avps, 0, []);
 
 collect_avps(Bin)
   when is_binary(Bin) ->
