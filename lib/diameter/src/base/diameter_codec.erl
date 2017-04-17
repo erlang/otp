@@ -567,44 +567,15 @@ collect_avps(Bin)
 collect_avps(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>,
              N,
              Acc) ->
-    DataLen = Len - 8 - V*4,  %% Might be negative, which ensures
-    Pad = ?PAD(Len),          %% failure of the Data match below.
-    VendorId = if 1 == V -> I; 0 == V -> undefined end,
-
-    %% Duplicate the diameter_avp creation in each branch below to
-    %% avoid modifying the record, which profiling has shown to be a
-    %% relatively costly part of building the list.
-
-    case Rest of
-        <<Data:DataLen/binary, _:Pad/binary, T/binary>> ->
-            Avp = #diameter_avp{code = Code,
-                                vendor_id = VendorId,
-                                is_mandatory = 1 == M,
-                                need_encryption = 1 == P,
-                                data = Data,
-                                index = N},
-            collect_avps(T, N+1, [Avp | Acc]);
-        _ ->
-            %% Len points past the end of the message, or doesn't span
-            %% the header. As stated in the 6733 text above, it's
-            %% sufficient to return a zero-filled minimal payload if
-            %% this is a request. Do this (in cases that we know the
-            %% type) by inducing a decode failure and letting the
-            %% dictionary's decode (in diameter_gen) deal with it.
-            %%
-            %% Note that the extra bit can only occur in the trailing
-            %% AVP of a message or Grouped AVP, since a faulty AVP
-            %% Length is otherwise indistinguishable from a correct
-            %% one here, as we don't know the types of the AVPs being
-            %% extracted.
-            Avp = #diameter_avp{code = Code,
-                                vendor_id = VendorId,
-                                is_mandatory = 1 == M,
-                                need_encryption = 1 == P,
-                                data = <<0:1, Rest/binary>>,
-                                index = N},
-            [Avp | Acc]
-    end;
+    collect_avps(Code,
+                 if 1 == V -> I; 0 == V -> undefined end,
+                 1 == M,
+                 1 == P,
+                 Len - 8 - V*4,  %% Might be negative, which ensures
+                 ?PAD(Len),      %%   failure of the Data match below.
+                 Rest,
+                 N,
+                 Acc);
 
 collect_avps(<<>>, _, Acc) ->
     Acc;
@@ -613,6 +584,45 @@ collect_avps(<<>>, _, Acc) ->
 %% a Failed-AVP.
 collect_avps(Bin, _, Acc) ->
     {{5014, #diameter_avp{data = Bin}}, Acc}.
+
+%% collect_avps/9
+
+%% Duplicate the diameter_avp creation in each branch below to avoid
+%% modifying the record, which profiling has shown to be a relatively
+%% costly part of building the list.
+
+collect_avps(Code, VendorId, M, P, Len, Pad, Rest, N, Acc) ->
+    case Rest of
+        <<Data:Len/binary, _:Pad/binary, T/binary>> ->
+            Avp = #diameter_avp{code = Code,
+                                vendor_id = VendorId,
+                                is_mandatory = M,
+                                need_encryption = P,
+                                data = Data,
+                                index = N},
+            collect_avps(T, N+1, [Avp | Acc]);
+        _ ->
+            %% Length in header points past the end of the message, or
+            %% doesn't span the header. As stated in the 6733 text
+            %% above, it's sufficient to return a zero-filled minimal
+            %% payload if this is a request. Do this (in cases that we
+            %% know the type) by inducing a decode failure and letting
+            %% the dictionary's decode (in diameter_gen) deal with it.
+            %%
+            %% Note that the extra bit can only occur in the trailing
+            %% AVP of a message or Grouped AVP, since a faulty AVP
+            %% Length is otherwise indistinguishable from a correct
+            %% one here, as we don't know the types of the AVPs being
+            %% extracted.
+            Avp = #diameter_avp{code = Code,
+                                vendor_id = VendorId,
+                                is_mandatory = M,
+                                need_encryption = P,
+                                data = <<0:1, Rest/binary>>,
+                                index = N},
+            [Avp | Acc]
+    end.
+
 
 %% 3588:
 %%
