@@ -336,7 +336,7 @@ dec_value([70 | Bytes]) ->
     {Value, Rest} = dec_integer_notag(Bytes),
     Value2 = 
     	if
-    	    (Value >= 0) andalso (Value < 16#8000000000000000) ->
+    	    (Value >= 0) andalso (Value < 18446744073709551615) ->
     		Value;
     	    (Value < 0) ->
     		16#ffffffffffffffff + Value + 1;
