@@ -675,10 +675,8 @@ pack_avp(#diameter_avp{data = {{_,_,_} = T, Bin}})
   when is_binary(Bin) ->
     pack_avp(T, Bin);
 
-pack_avp(#diameter_avp{data = {Dict, Name, Value}} = A) ->
-    {Code, _Flags, Vid} = Hdr = Dict:avp_header(Name),
-    {Name, Type} = Dict:avp_name(Code, Vid),
-    pack_avp(A#diameter_avp{data = {Hdr, {Type, Value}}});
+pack_avp(#diameter_avp{data = {Dict, Name, Data}}) ->
+    pack_avp(Dict:avp_header(Name), Dict:avp(encode, Data, Name));
 
 %% ... with a truncated header ...
 pack_avp(#diameter_avp{code = undefined, data = B})
