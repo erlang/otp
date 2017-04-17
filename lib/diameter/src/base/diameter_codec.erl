@@ -665,18 +665,18 @@ pack_avp([#diameter_avp{} = Grouped | _Components]) ->
 %% and the list is flat, nesting being accomplished in the data
 %% fields.
 pack_avp(#diameter_avp{data = [#diameter_avp{} | _] = Components} = Grouped) ->
-    pack_avp(Grouped#diameter_avp{data = encode_avps(Components)});
+    pack_data(encode_avps(Components), Grouped);
 
 %% Data as a type/value tuple ...
 pack_avp(#diameter_avp{data = {Type, Value}} = A)
   when is_atom(Type) ->
-    pack_avp(A#diameter_avp{data = diameter_types:Type(encode, Value)});
+    pack_data(diameter_types:Type(encode, Value), A);
 
 %% ... with a header in various forms ...
-pack_avp(#diameter_avp{data = {{_,_,_} = T, {Type, Value}}}) ->
+pack_avp(#diameter_avp{data = {T, {Type, Value}}}) ->
     pack_avp(T, diameter_types:Type(encode, Value));
 
-pack_avp(#diameter_avp{data = {{_,_,_} = T, Data}}) ->
+pack_avp(#diameter_avp{data = {T, Data}}) ->
     pack_avp(T, Data);
 
 pack_avp(#diameter_avp{data = {Dict, Name, Data}}) ->
@@ -697,24 +697,27 @@ pack_avp(#diameter_avp{code = undefined, data = B})
 %% ... when ignoring errors in Failed-AVP ...
 %% ... during a relay encode ...
 pack_avp(#diameter_avp{data = <<0:1, B/binary>>} = A) ->
-    pack_avp(A#diameter_avp{data = B});
+    pack_data(B, A);
 
 %% ... or as an iolist.
-pack_avp(#diameter_avp{code = Code,
-                       vendor_id = V,
-                       is_mandatory = M,
-                       need_encryption = P,
-                       data = Data}) ->
-    Flags = ?BIT(V /= undefined, 2#10000000)
-        bor ?BIT(M, 2#01000000)
-        bor ?BIT(P, 2#00100000),
-
-    pack_avp(Code, Flags, V, Data).
+pack_avp(#diameter_avp{data = Data} = A) ->
+    pack_data(Data, A).
 
 header_length(<<_:32, 1:1, _/bitstring>>) ->
     12;
 header_length(_) ->
     8.
+
+%% pack_data/2
+
+pack_data(Data, #diameter_avp{code = Code,
+                              vendor_id = V,
+                              is_mandatory = M,
+                              need_encryption = P}) ->
+    Flags = ?BIT(V /= undefined, 2#10000000)
+        bor ?BIT(M, 2#01000000)
+        bor ?BIT(P, 2#00100000),
+    pack_avp(Code, Flags, V, Data).
 
 %%% ---------------------------------------------------------------------------
 %%% # pack_avp/2
