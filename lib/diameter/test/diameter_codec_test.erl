@@ -209,8 +209,10 @@ avp_decode(Mod, Name, Type, Eq, Value) ->
 avp(Mod, decode = X, V, Name, 'Grouped') ->
     {Rec, _} = Mod:avp(X, V, Name),
     Rec;
-avp(Mod, X, V, Name, _) ->
-    Mod:avp(X, V, Name).
+avp(Mod, decode = X, V, Name, _) ->
+    Mod:avp(X, V, Name);
+avp(Mod, encode = X, V, Name, _) ->
+    iolist_to_binary(Mod:avp(X, V, Name)).
 
 %% v/1
 

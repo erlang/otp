@@ -144,7 +144,8 @@ encode(Mod, Msg) ->
 e(_, #diameter_packet{msg = [#diameter_header{} = Hdr | As]} = Pkt) ->
     try encode_avps(reorder(As)) of
         Avps ->
-            Len = 20 + size(Avps),
+            Bin = list_to_binary(Avps),
+            Len = 20 + size(Bin),
 
             #diameter_header{version = Vsn,
                              is_request = R,
@@ -163,7 +164,7 @@ e(_, #diameter_packet{msg = [#diameter_header{} = Hdr | As]} = Pkt) ->
                                         Aid:32,
                                         Hid:32,
                                         Eid:32,
-                                        Avps/binary>>}
+                                        Bin/binary>>}
     catch
         error: Reason ->
             exit({Reason, diameter_lib:get_stacktrace(), Hdr})
@@ -191,7 +192,9 @@ e(Mod, #diameter_packet{header = Hdr0, msg = Msg} = Pkt) ->
 
     try encode_avps(Mod, MsgName, Values) of
         Avps ->
-            Len = size(Avps) + 20,
+            Bin = list_to_binary(Avps),
+            Len = 20 + size(Bin),
+
             Hdr = Hdr0#diameter_header{length = Len,
                                        cmd_code = Code,
                                        application_id = Aid,
@@ -199,13 +202,14 @@ e(Mod, #diameter_packet{header = Hdr0, msg = Msg} = Pkt) ->
                                        is_proxiable     = PB,
                                        is_error         = EB,
                                        is_retransmitted = TB},
+
             Pkt#diameter_packet{header = Hdr,
                                 bin = <<Vsn:8, Len:24,
                                         ?FLAGS(RB, PB, EB, TB), Code:24,
                                         Aid:32,
                                         Hid:32,
                                         Eid:32,
-                                        Avps/binary>>}
+                                        Bin/binary>>}
     catch
         error: Reason ->
             Hdr = Hdr0#diameter_header{cmd_code = Code,
@@ -282,7 +286,7 @@ reorder([], _) ->
 %% encode_avps/1
 
 encode_avps(Avps) ->
-    list_to_binary(lists:map(fun pack_avp/1, Avps)).
+    lists:map(fun pack_avp/1, Avps).
 
 %% msg_header/3
 
@@ -669,11 +673,10 @@ pack_avp(#diameter_avp{data = {Type, Value}} = A)
 
 %% ... with a header in various forms ...
 pack_avp(#diameter_avp{data = {{_,_,_} = T, {Type, Value}}}) ->
-    pack_avp(T, iolist_to_binary(diameter_types:Type(encode, Value)));
+    pack_avp(T, diameter_types:Type(encode, Value));
 
-pack_avp(#diameter_avp{data = {{_,_,_} = T, Bin}})
-  when is_binary(Bin) ->
-    pack_avp(T, Bin);
+pack_avp(#diameter_avp{data = {{_,_,_} = T, Data}}) ->
+    pack_avp(T, Data);
 
 pack_avp(#diameter_avp{data = {Dict, Name, Data}}) ->
     pack_avp(Dict:avp_header(Name), Dict:avp(encode, Data, Name));
@@ -704,7 +707,7 @@ pack_avp(#diameter_avp{code = Code,
     Flags = lists:foldl(fun flag_avp/2, 0, [{V /= undefined, 2#10000000},
                                             {M, 2#01000000},
                                             {P, 2#00100000}]),
-    pack_avp({Code, Flags, V}, iolist_to_binary(Data)).
+    pack_avp({Code, Flags, V}, Data).
 
 header_length(<<_:32, 1:1, _/bitstring>>) ->
     12;
@@ -720,25 +723,24 @@ flag_avp({false, _}, F) ->
 %%% # pack_avp/2
 %%% ---------------------------------------------------------------------------
 
-pack_avp({Code, Flags, VendorId}, Bin)
-  when is_binary(Bin) ->
-    Sz = size(Bin),
-    pack_avp(Code, Flags, Sz, VendorId, Bin, ?PAD(Sz)).
+pack_avp({Code, Flags, VendorId}, Data) ->
+    Sz = iolist_size(Data),
+    pack_avp(Code, Flags, Sz, VendorId, Data, ?PAD(Sz)).
 %% Padding is not included in the length field, as mandated by the RFC.
 
 %% pack_avp/6
 %%
 %% Prepend the vendor id as required.
 
-pack_avp(Code, Flags, Sz, Vid, Bin, Pad)
+pack_avp(Code, Flags, Sz, Vid, Data, Pad)
   when 0 == Flags band 2#10000000 ->
     undefined = Vid,  %% sanity check
-    pack_avp(Code, Flags, Sz, 0, 0, Bin, Pad);
+    pack_avp(Code, Flags, Sz, 0, 0, Data, Pad);
 
-pack_avp(Code, Flags, Sz, Vid, Bin, Pad) ->
-    pack_avp(Code, Flags, Sz+4, Vid, 1, Bin, Pad).
+pack_avp(Code, Flags, Sz, Vid, Data, Pad) ->
+    pack_avp(Code, Flags, Sz+4, Vid, 1, Data, Pad).
 
 %% pack_avp/7
 
-pack_avp(Code, Flags, Sz, VId, V, Bin, Pad) ->
-    <<Code:32, Flags:8, (8+Sz):24, VId:V/unit:32, Bin/binary, 0:Pad/unit:8>>.
+pack_avp(Code, Flags, Sz, VId, V, Data, Pad) ->
+    [<<Code:32, Flags:8, (8+Sz):24, VId:V/unit:32>>, Data, <<0:Pad/unit:8>>].

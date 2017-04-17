@@ -75,7 +75,7 @@ eraser(K) ->
 %% ---------------------------------------------------------------------------
 
 -spec encode_avps(parent_name(), parent_record() | avp_values())
-   -> binary()
+   -> iolist()
     | no_return().
 
 encode_avps(Name, Vals)
@@ -84,7 +84,7 @@ encode_avps(Name, Vals)
 
 encode_avps(Name, Rec) ->
     try
-        list_to_binary(encode(Name, Rec))
+        encode(Name, Rec)
     catch
         throw: {?MODULE, Reason} ->
             diameter_lib:log({encode, error},
@@ -655,7 +655,7 @@ value(_, Avp) ->
 -spec grouped_avp(decode, avp_name(), bitstring())
    -> {avp_record(), [avp()]};
                  (encode, avp_name(), avp_record() | avp_values())
-   -> binary()
+   -> iolist()
     | no_return().
 
 %% Length error induced by diameter_codec:collect_avps/1: the AVP
@@ -719,10 +719,10 @@ z(Name, {Min, _}) ->
     binary:copy(z(Name), Min).
 
 z('AVP') ->
-    <<0:64/integer>>;  %% minimal header
+    <<0:64>>;  %% minimal header
 z(Name) ->
     Bin = diameter_codec:pack_avp(avp_header(Name), empty_value(Name)),
-    Sz = size(Bin),
+    Sz = iolist_size(Bin),
     <<0:Sz/unit:8>>.
 
 %% ---------------------------------------------------------------------------
