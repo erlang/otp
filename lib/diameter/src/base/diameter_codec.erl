@@ -40,7 +40,8 @@
 -include("diameter_internal.hrl").
 
 -define(PAD(Len), ((4 - (Len rem 4)) rem 4)).
--define(BIT(B), (if B -> 1; true -> 0 end)).
+-define(BIT(B,I), (if B -> I; true -> 0 end)).
+-define(BIT(B),   ?BIT(B,1)).
 -define(FLAGS(R,P,E,T), ?BIT(R):1, ?BIT(P):1, ?BIT(E):1, ?BIT(T):1, 0:4).
 -define(FLAG(B,D), (if is_boolean(B) -> B; true -> 0 /= (D) end)).
 
@@ -704,26 +705,27 @@ pack_avp(#diameter_avp{code = Code,
                        is_mandatory = M,
                        need_encryption = P,
                        data = Data}) ->
-    Flags = lists:foldl(fun flag_avp/2, 0, [{V /= undefined, 2#10000000},
-                                            {M, 2#01000000},
-                                            {P, 2#00100000}]),
-    pack_avp({Code, Flags, V}, Data).
+    Flags = ?BIT(V /= undefined, 2#10000000)
+        bor ?BIT(M, 2#01000000)
+        bor ?BIT(P, 2#00100000),
+
+    pack_avp(Code, Flags, V, Data).
 
 header_length(<<_:32, 1:1, _/bitstring>>) ->
     12;
 header_length(_) ->
     8.
 
-flag_avp({true, B}, F) ->
-    F bor B;
-flag_avp({false, _}, F) ->
-    F.
-
 %%% ---------------------------------------------------------------------------
 %%% # pack_avp/2
 %%% ---------------------------------------------------------------------------
 
 pack_avp({Code, Flags, VendorId}, Data) ->
+    pack_avp(Code, Flags, VendorId, Data).
+
+%% pack_avp/4
+
+pack_avp(Code, Flags, VendorId, Data) ->
     Sz = iolist_size(Data),
     pack_avp(Code, Flags, Sz, VendorId, Data, ?PAD(Sz)).
 %% Padding is not included in the length field, as mandated by the RFC.
