@@ -698,15 +698,17 @@ pack_avp(#diameter_avp{code = undefined, data = B})
     %% error. The RFC doesn't explicitly say to do this but the
     %% receiver can't correctly extract this and following AVP's
     %% without a correct length. On the downside, the header doesn't
-    %% reveal if the received header has been padded.
-    Pad = 8*header_length(B) - bit_size(B),
-    Len = size(<<H:5/binary, _:24, T/binary>> = <<B/binary, 0:Pad>>),
-    <<H/binary, Len:24, T/binary>>;
+    %% reveal if the received header has been padded. Discard bytes
+    %% from the length header for this reason, to avoid creating a sub
+    %% binary for no useful reason.
+    Len = header_length(B),
+    Sz = min(5, size(B)),
+    <<B:Sz/binary, 0:(5-Sz)/unit:8, Len:24, 0:(Len-8)/unit:8>>;
 
 pack_avp(#diameter_avp{data = Data} = A) ->
     pack_bits(Data, A).
 
-header_length(<<_:32, 1:1, _/bitstring>>) ->
+header_length(<<_:32, 1:1, _/bits>>) ->
     12;
 header_length(_) ->
     8.
