@@ -123,7 +123,7 @@ variable.")
     ("Edit"
      (("Fill Comment" erlang-fill-paragraph)
       ("Comment Region" comment-region mark-active)
-      ("Uncomment Region" erlang-uncomment-region mark-active)
+      ("Uncomment Region" uncomment-region mark-active)
       nil
       ("Beginning of Function" erlang-beginning-of-function)
       ("End of Function" erlang-end-of-function)
@@ -1052,7 +1052,7 @@ behaviour.")
     (define-key map "\C-c\C-l"  'erlang-compile-display)
     (define-key map "\C-c\C-s"  'erlang-show-syntactic-information)
     (define-key map "\C-c\C-q"  'erlang-indent-function)
-    (define-key map "\C-c\C-u"  'erlang-uncomment-region)
+    (define-key map "\C-c\C-u"  'uncomment-region)
     (define-key map "\C-c\C-y"  'erlang-clone-arguments)
     (define-key map "\C-c\C-a"  'erlang-align-arrows)
     (define-key map "\C-c\C-z"  'erlang-shell-display)
@@ -3355,13 +3355,6 @@ and initial `%':s."
               (paragraph-separate (concat paragraph-start "\\|^[ \t%]*$"))
               (fill-prefix comment-fill-prefix))
           (fill-paragraph justify))))))
-
-
-(defun erlang-uncomment-region (beg end)
-  "Uncomment all commented lines in the region."
-  (interactive "r")
-  (uncomment-region beg end))
-
 
 (defun erlang-generate-new-clause ()
   "Create additional Erlang clause header.
