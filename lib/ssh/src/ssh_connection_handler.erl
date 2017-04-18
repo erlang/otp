@@ -337,8 +337,7 @@ renegotiate_data(ConnectionHandler) ->
 	  transport_protocol                    :: atom(),	% ex: tcp
 	  transport_cb                          :: atom(),	% ex: gen_tcp
 	  transport_close_tag                   :: atom(),	% ex: tcp_closed
-	  ssh_params                            :: #ssh{}
-						 | undefined,
+	  ssh_params                            :: #ssh{},
 	  socket                                :: inet:socket(),
 	  decrypted_data_buffer     = <<>>      :: binary(),
 	  encrypted_data_buffer     = <<>>      :: binary(),
@@ -370,7 +369,7 @@ init_connection_handler(Role, Socket, Opts) ->
                                   StartState,
                                   D);
 
-        {stop, {error,enotconn}} ->
+        {stop, enotconn} ->
 	    %% Handles the abnormal sequence:
 	    %%    SYN->
 	    %%            <-SYNACK
@@ -394,21 +393,20 @@ init([Role,Socket,Opts]) ->
                             requests = [],
                             options = Opts},
             D0 = #data{starter = ?GET_INTERNAL_OPT(user_pid, Opts),
+                       connection_state = C,
                        socket = Socket,
                        transport_protocol = Protocol,
                        transport_cb = Callback,
                        transport_close_tag = CloseTag,
                        ssh_params = init_ssh_record(Role, Socket, PeerAddr, Opts),
-               opts = Opts
+                       opts = Opts
               },
             D = case Role of
                     client ->
                         %% Start the renegotiation timers
                         timer:apply_after(?REKEY_TIMOUT,      gen_statem, cast, [self(), renegotiate]),
                         timer:apply_after(?REKEY_DATA_TIMOUT, gen_statem, cast, [self(), data_size]),
-                        cache_init_idle_timer(
-                          D0#data{connection_state = C}
-                         );
+                        cache_init_idle_timer(D0);
                     server ->
                         Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
                         cache_init_idle_timer(
