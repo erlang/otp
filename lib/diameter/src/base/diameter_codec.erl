@@ -703,19 +703,22 @@ pack_avp(#diameter_avp{code = undefined, data = B})
     Len = size(<<H:5/binary, _:24, T/binary>> = <<B/binary, 0:Pad>>),
     <<H/binary, Len:24, T/binary>>;
 
-%% ... when ignoring errors in Failed-AVP ...
-%% ... during a relay encode ...
-pack_avp(#diameter_avp{data = <<0:1, B/binary>>} = A) ->
-    pack_data(B, A);
-
-%% ... or as an iolist.
 pack_avp(#diameter_avp{data = Data} = A) ->
-    pack_data(Data, A).
+    pack_bits(Data, A).
 
 header_length(<<_:32, 1:1, _/bitstring>>) ->
     12;
 header_length(_) ->
     8.
+
+%% pack_bits/2
+
+%% Ignoring errors in Failed-AVP or during a relay encode.
+pack_bits(<<0:1, B/binary>>, Avp) ->
+    pack_bits(B, Avp);
+
+pack_bits(Data, Avp) ->
+    pack_data(Data, Avp).
 
 %% pack_data/2
 
