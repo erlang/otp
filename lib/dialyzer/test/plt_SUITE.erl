@@ -259,26 +259,41 @@ remove_plt(Config) ->
                         {init_plt, Plt}] ++ Opts),
     ok.
 
+%% ERL-283, OTP-13979. As of OTP-14323 this test no longer does what
+%% it is designed to do--the linter stops every attempt to run the
+%% checks of Dialyzer's on bad dialyzer attributes. For the time
+%% being, the linter's error message are checked instead. The test
+%% needs to be updated when/if the Dialyzer can analyze Core Erlang
+%% without compiling abstract code.
 bad_dialyzer_attr(Config) ->
     PrivDir = ?config(priv_dir, Config),
-    Plt = filename:join(PrivDir, "plt_bad_dialyzer_attr.plt"),
+    Source = lists:concat([dial, ".erl"]),
+    Filename = filename:join(PrivDir, Source),
+    ok = dialyzer_common:check_plt(PrivDir),
+    PltFilename = dialyzer_common:plt_file(PrivDir),
+    Opts = [{files, [Filename]},
+            {check_plt, false},
+            {from, src_code},
+            {init_plt, PltFilename}],
+
     Prog1 = <<"-module(dial).
                -dialyzer({no_return, [undef/0]}).">>,
-    {ok, Beam1} = compile(Config, Prog1, dial, []),
+    ok = file:write_file(Filename, Prog1),
     {dialyzer_error,
-     "Analysis failed with error:\n"
-     "Could not scan the following file(s):\n"
-     "  Unknown function undef/0 in line " ++ _} =
-        (catch run_dialyzer(plt_build, [Beam1], [{output_plt, Plt}])),
+     "Analysis failed with error:\n" ++ Str1} =
+        (catch dialyzer:run(Opts)),
+    P1 = string:str(Str1, "dial.erl:2: function undef/0 undefined"),
+    true = P1 > 0,
 
     Prog2 = <<"-module(dial).
                -dialyzer({no_return, [{undef,1,2}]}).">>,
-    {ok, Beam2} = compile(Config, Prog2, dial, []),
+    ok = file:write_file(Filename, Prog2),
     {dialyzer_error,
-     "Analysis failed with error:\n"
-     "Could not scan the following file(s):\n"
-     "  Bad function {undef,1,2} in line " ++ _} =
-        (catch run_dialyzer(plt_build, [Beam2], [{output_plt, Plt}])),
+     "Analysis failed with error:\n" ++ Str2} =
+        (catch dialyzer:run(Opts)),
+    P2 = string:str(Str2, "dial.erl:2: badly formed dialyzer "
+                          "attribute: {no_return,{undef,1,2}}"),
+    true = P2 > 0,
 
     ok.
 

@@ -404,6 +404,10 @@ format_error({not_exported_opaque, {TypeName, Arity}}) ->
 format_error({underspecified_opaque, {TypeName, Arity}}) ->
     io_lib:format("opaque type ~w~s is underspecified and therefore meaningless",
                   [TypeName, gen_type_paren(Arity)]);
+format_error({bad_dialyzer_attribute,Term}) ->
+    io_lib:format("badly formed dialyzer attribute: ~w", [Term]);
+format_error({bad_dialyzer_option,Term}) ->
+    io_lib:format("unknown dialyzer warning option: ~w", [Term]);
 %% --- obsolete? unused? ---
 format_error({format_error, {Fmt, Args}}) ->
     io_lib:format(Fmt, Args).
@@ -796,8 +800,7 @@ attribute_state(Form, St) ->
 %%      State'
 %%  Allow for record, type and opaque type definitions and spec
 %%  declarations to be intersperced within function definitions.
-%%  Dialyzer attributes are also allowed everywhere, but are not
-%%  checked at all.
+%%  Dialyzer attributes are also allowed everywhere.
 
 function_state({attribute,L,record,{Name,Fields}}, St) ->
     record_def(L, Name, Fields, St);
@@ -883,7 +886,8 @@ post_traversal_check(Forms, St0) ->
     StD = check_on_load(StC),
     StE = check_unused_records(Forms, StD),
     StF = check_local_opaque_types(StE),
-    check_callback_information(StF).
+    StG = check_dialyzer_attribute(Forms, StF),
+    check_callback_information(StG).
 
 %% check_behaviour(State0) -> State
 %% Check that the behaviour attribute is valid.
@@ -3115,6 +3119,59 @@ check_local_opaque_types(St) ->
                 end
         end,
     dict:fold(FoldFun, St, Ts).
+
+check_dialyzer_attribute(Forms, St0) ->
+    Vals = [{L,V} ||
+               {attribute,L,dialyzer,Val} <- Forms,
+               V0 <- lists:flatten([Val]),
+               V <- case V0 of
+                        {O,F} ->
+                            [{A,B} ||
+                                A <- lists:flatten([O]),
+                                B <- lists:flatten([F])];
+                        T -> [T]
+                    end],
+    {Wellformed, Bad} =
+        lists:partition(fun ({_,{Option,FA}}) when is_atom(Option) ->
+                                is_fa(FA);
+                            ({_,Option}) when is_atom(Option) -> true;
+                            (_) -> false
+                        end, Vals),
+    St1 = foldl(fun ({L,Term}, St) ->
+		  add_error(L, {bad_dialyzer_attribute,Term}, St)
+	  end, St0, Bad),
+    DefFunctions = (gb_sets:to_list(St0#lint.defined) -- pseudolocals()),
+    Fun = fun ({L,{Option,FA}}, St) ->
+                  case is_function_dialyzer_option(Option) of
+                      true ->
+                          case lists:member(FA, DefFunctions) of
+                              true -> St;
+                              false ->
+                                  add_error(L, {undefined_function,FA}, St)
+                          end;
+                      false ->
+                          add_error(L, {bad_dialyzer_option,Option}, St)
+                  end;
+              ({L,Option}, St) ->
+                  case is_module_dialyzer_option(Option) of
+                      true -> St;
+                      false ->
+                          add_error(L, {bad_dialyzer_option,Option}, St)
+                  end
+          end,
+    foldl(Fun, St1, Wellformed).
+
+is_function_dialyzer_option(nowarn_function) -> true;
+is_function_dialyzer_option(Option) ->
+    is_module_dialyzer_option(Option).
+
+is_module_dialyzer_option(Option) ->
+    lists:member(Option,
+                 [no_return,no_unused,no_improper_lists,no_fun_app,
+                  no_match,no_opaque,no_fail_call,no_contracts,
+                  no_behaviours,no_undefined_callbacks,unmatched_returns,
+                  error_handling,race_conditions,no_missing_calls,
+                  specdiffs,overspecs,underspecs,unknown]).
 
 %% icrt_clauses(Clauses, In, ImportVarTable, State) ->
 %%      {UpdVt,State}.

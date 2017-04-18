@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2016</year>
+      <year>2006</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -455,11 +455,6 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
     <p>For help on the warning options, use <c>dialyzer -Whelp</c>. The
       options are also enumerated, see function <seealso marker="#gui/1">
       <c>gui/1</c></seealso> below (<c>WarnOpts</c>).</p>
-
-    <note>
-      <p>Attribute <c>-dialyzer()</c> is not checked by the Erlang
-        compiler, but by Dialyzer itself.</p>
-    </note>
 
     <note>
       <p>Warning option <c>-Wrace_conditions</c> has no effect when

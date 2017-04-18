@@ -277,6 +277,9 @@ assert_solvers([Term|_]) ->
 
 -spec build_warnings([atom()], dial_warn_tags()) -> dial_warn_tags().
 
+%% The warning options are checked by the code linter.
+%% The function erl_lint:is_module_dialyzer_option/1 must
+%% be updated if options are added or removed.
 build_warnings([Opt|Opts], Warnings) ->
   NewWarnings =
     case Opt of
