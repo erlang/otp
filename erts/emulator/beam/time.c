@@ -1033,8 +1033,8 @@ bump_later_wheel(ErtsTimerWheel *tiw, int *ycount_p)
         /* Skip known empty slots... */
         if (min_tpos > later_pos) {
             if (min_tpos > end_later_pos) {
-                later_pos = end_later_pos;
-                ERTS_TW_DBG_VERIFY_EMPTY_LATER_SLOTS(tiw, later_pos);
+                ERTS_TW_DBG_VERIFY_EMPTY_LATER_SLOTS(tiw, end_later_pos);
+                tiw->later.pos = end_later_pos;
                 goto done;
             }
             later_pos = min_tpos;
@@ -1051,6 +1051,8 @@ bump_later_wheel(ErtsTimerWheel *tiw, int *ycount_p)
 
         fslot = later_slot(later_pos);
         scnt_ix = scnt_get_ix(fslot);
+
+        tiw->later.pos = end_later_pos;
     }
 
     while (slots > 0) {
@@ -1077,7 +1079,6 @@ bump_later_wheel(ErtsTimerWheel *tiw, int *ycount_p)
             while (1) {
                 ErtsMonotonicTime tpos = p->timeout_pos;
 
-                ERTS_TW_ASSERT(tpos >= later_pos);
                 ERTS_TW_ASSERT(p->slot == fslot);
 
                 if (--tiw->later.nto == 0) {
@@ -1086,7 +1087,7 @@ bump_later_wheel(ErtsTimerWheel *tiw, int *ycount_p)
                 }
                 scnt_ix_dec(scnt, scnt_ix);
 
-                if (tpos >= later_pos + ERTS_TW_LATER_WHEEL_SLOT_SIZE) {
+                if (tpos >= tiw->later.pos + ERTS_TW_LATER_WHEEL_SLOT_SIZE) {
                     /* keep in later slot; very uncommon... */
                     insert_timer_into_slot(tiw, fslot, p);
                     ycount -= ERTS_TW_COST_SLOT_MOVE;
@@ -1116,7 +1117,6 @@ bump_later_wheel(ErtsTimerWheel *tiw, int *ycount_p)
                 }
 
                 if (ycount < 0) {
-                    tiw->later.pos = later_pos;
                     tiw->yield_slot = fslot;
                     tiw->yield_slots_left = slots;
                     *ycount_p = 0;
@@ -1129,14 +1129,12 @@ bump_later_wheel(ErtsTimerWheel *tiw, int *ycount_p)
             }
         }
 
-        scnt_later_wheel_next(&fslot, &slots, &later_pos, &scnt_ix, bump_scnt);
+        scnt_later_wheel_next(&fslot, &slots, NULL, &scnt_ix, bump_scnt);
     }
 
 done:
 
     ERTS_HARD_DBG_CHK_WHEELS(tiw, 0);
-
-    tiw->later.pos = later_pos;
 
     *ycount_p = ycount;
 
