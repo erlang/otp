@@ -1914,7 +1914,15 @@ AC_C_BIGENDIAN
 AC_C_DOUBLE_MIDDLE_ENDIAN
 
 dnl fdatasync syscall (Unix only)
-AC_CHECK_FUNCS([fdatasync])
+case $host_os in
+    darwin*)
+	ac_cv_func_fdatasync=no # Mac OS X wrongly reports it has fdatasync()
+	;;
+
+    *)
+	AC_CHECK_FUNCS([fdatasync])
+	;;
+esac
 
 dnl Find which C libraries are required to use fdatasync
 dnl TODO: Remove check once SunOS >= 5.11 is required by erts.
