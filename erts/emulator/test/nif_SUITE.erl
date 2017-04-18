@@ -56,7 +56,9 @@
          nif_is_process_alive/1, nif_is_port_alive/1,
          nif_term_to_binary/1, nif_binary_to_term/1,
          nif_port_command/1,
-         nif_snprintf/1
+         nif_snprintf/1,
+         nif_phash2/1,
+         nif_phash2_ranged/1
 	]).
 
 -export([many_args_100/100]).
@@ -90,7 +92,9 @@ all() ->
      nif_is_process_alive, nif_is_port_alive,
      nif_term_to_binary, nif_binary_to_term,
      nif_port_command,
-     nif_snprintf].
+     nif_snprintf,
+     nif_phash2,
+     nif_phash2_ranged].
 
 groups() ->
     [{G, [], api_repeaters()} || G <- api_groups()]
@@ -2610,6 +2614,81 @@ nif_snprintf(Config) ->
     <<"{{hello,world,-33},",0>> = format_term_nif(20,{{hello,world, -33}, 3.14, self()}),
     ok.
 
+nif_phash2(Config) ->
+    ensure_lib_loaded(Config),
+    Terms =
+        [random_term() || _ <- lists:seq(1, 1000)],
+
+    lists:foreach(
+      fun (Term) ->
+              HashValue = erlang:phash2(Term),
+              NifHashValue = phash2_nif(Term),
+              (HashValue =:= NifHashValue
+               orelse ct:fail("Expected: ~p\nActual:   ~p",
+                              [HashValue, NifHashValue]))
+      end,
+      Terms).
+
+nif_phash2_ranged(Config) ->
+    ensure_lib_loaded(Config),
+    RandomRangedTerms =
+        [{random_term(), rand:uniform((1 bsl 32) - 1)}
+         || _ <- lists:seq(1, 1000)],
+
+    lists:foreach(
+      fun ({Term, Range}) ->
+              HashValue = erlang:phash2(Term, Range),
+              NifHashValue = phash2_ranged_nif(Term, Range),
+              (HashValue =:= NifHashValue
+               orelse ct:fail("Expected: ~p\nActual:   ~p",
+                              [HashValue, NifHashValue]))
+      end,
+      RandomRangedTerms),
+
+    EdgeCaseTerm = random_term(),
+    EdgeCaseHashValue = erlang:phash2(EdgeCaseTerm, 1 bsl 32),
+    EdgeCaseNifHashValue = phash2_ranged_nif(EdgeCaseTerm, 0),
+    (EdgeCaseHashValue =:= EdgeCaseNifHashValue
+     orelse ct:fail("Expected: ~p\nActual:   ~p",
+                    [EdgeCaseHashValue, EdgeCaseNifHashValue])).
+
+-define(HALF_DBL_EPSILON, 1.1102230246251565e-16). % math:pow(2, -53)
+
+random_term() ->
+    case rand:uniform(6) of
+        1 -> rand:uniform(1 bsl 27) - 1; % small
+        2 -> (1 bsl 27) + rand:uniform(1 bsl 128); % big
+        3 -> random_sign() * (rand:uniform() * ?HALF_DBL_EPSILON); % float
+        4 -> random_binary();
+        5 -> random_pid();
+        6 ->
+            Length = rand:uniform(10),
+            List = [random_term() || _ <- lists:seq(1, Length)],
+            case rand:uniform(2) of
+                1 ->
+                   List;
+                2 ->
+                   list_to_tuple(List)
+            end
+    end.
+
+random_sign() ->
+    case rand:uniform(2) of
+        1 -> -1.0;
+        2 -> 1.0
+    end.
+
+random_binary() ->
+    list_to_binary(random_bytes(rand:uniform(32) - 1)).
+
+random_bytes(0) ->
+    [];
+random_bytes(N) when N > 0 ->
+    [rand:uniform(256) - 1 | random_bytes(N - 1)].
+
+random_pid() ->
+    Processes = erlang:processes(),
+    lists:nth(rand:uniform(length(Processes)), Processes).
 
 %% The NIFs:
 lib_version() -> undefined.
@@ -2621,6 +2700,8 @@ type_test() -> ?nif_stub.
 tuple_2_list(_) -> ?nif_stub.    
 is_identical(_,_) -> ?nif_stub.
 compare(_,_) -> ?nif_stub.
+phash2_nif(_) -> ?nif_stub.
+phash2_ranged_nif(_, _) -> ?nif_stub.
 many_args_100(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
 clone_bin(_) -> ?nif_stub.
 make_sub_bin(_,_,_) -> ?nif_stub.

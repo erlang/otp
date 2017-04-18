@@ -119,6 +119,7 @@ Sint erts_list_length(Eterm);
 int erts_is_builtin(Eterm, Eterm, int);
 Uint32 block_hash(byte *, unsigned, Uint32);
 Uint32 make_hash2(Eterm);
+Uint32 make_hash2_within_range(Eterm, Uint32);
 Uint32 make_hash(Eterm);
 Uint32 make_internal_hash(Eterm);
 

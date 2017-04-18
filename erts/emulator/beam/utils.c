@@ -1552,6 +1552,16 @@ make_hash2(Eterm term)
     }
 }
 
+Uint32
+make_hash2_within_range(Eterm term, Uint32 range)
+{
+    Uint32 hash = make_hash2(term);
+    if (range)
+        return hash % range; /* [0..range-1] */
+    else
+        return hash; /* Special case: 2**32 */
+}
+
 /* Term hash function for internal use.
  *
  * Limitation #1: Is not "portable" in any way between different VM instances.

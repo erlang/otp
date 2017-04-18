@@ -55,6 +55,7 @@
 #include "dtrace-wrapper.h"
 #include "erl_process.h"
 #include "erl_bif_unique.h"
+#include "erl_utils.h"
 #undef ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #define ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #include "erl_nfunc_sched.h"
@@ -1211,6 +1212,25 @@ int enif_compare(Eterm lhs, Eterm rhs)
     }
 
     return result;
+}
+
+#if SIZEOF_LONG < 4
+/* This *really* shouldn't happen */
+#  error Incompatible long word size
+#endif
+
+unsigned long enif_phash2(Eterm term)
+{
+    return make_hash2(term) & ((1 << 27) - 1);
+}
+
+unsigned long enif_phash2_ranged(Eterm term, unsigned long range)
+{
+#if SIZEOF_LONG > 4
+    if (range > (unsigned long) UINT32_MAX)
+        range = 0;
+#endif
+    return make_hash2_within_range(term, range);
 }
 
 int enif_get_tuple(ErlNifEnv* env, Eterm tpl, int* arity, const Eterm** array)
