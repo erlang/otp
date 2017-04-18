@@ -393,6 +393,7 @@ bif erl_ddll:demonitor/1
 #
 # Bifs in the re module 
 #
+bif re:version/0
 bif re:compile/1
 bif re:compile/2
 bif re:run/2

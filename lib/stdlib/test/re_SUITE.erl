@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 	 run_options/1,combined_options/1,replace_autogen/1,
 	 global_capture/1,replace_input_types/1,replace_return/1,
 	 split_autogen/1,split_options/1,split_specials/1,
-	 error_handling/1,pcre_cve_2008_2371/1,
+	 error_handling/1,pcre_cve_2008_2371/1,re_version/1,
 	 pcre_compile_workspace_overflow/1,re_infinite_loop/1, 
 	 re_backwards_accented/1,opt_dupnames/1,opt_all_names/1,inspect/1,
 	 opt_no_start_optimize/1,opt_never_utf/1,opt_ucp/1,
@@ -45,7 +45,7 @@ all() ->
      pcre_compile_workspace_overflow, re_infinite_loop, 
      re_backwards_accented, opt_dupnames, opt_all_names, 
      inspect, opt_no_start_optimize,opt_never_utf,opt_ucp,
-     match_limit, sub_binaries].
+     match_limit, sub_binaries, re_version].
 
 groups() -> 
     [].
@@ -190,6 +190,14 @@ run_options(Config) when is_list(Config) ->
     {match,[{0,10},{3,4},{-1,0},{4,3}]} = re:run("ABCabcdABC",MP3,[{capture,all,index}]),
     {match,[<<"ABCabcdABC">>,<<"abcd">>,<<>>,<<"bcd">>]} = re:run("ABCabcdABC",MP3,[{capture,all,binary}]),
     {match,["ABCabcdABC","abcd",[],"bcd"]} = re:run("ABCabcdABC",MP3,[{capture,all,list}]),
+    ok.
+
+
+
+%% Test the version is retorned correctly
+re_version(_Config) ->
+    Version = re:version(),
+    {match,[Version]} = re:run(Version,"^[0-9]\\.[0-9]{2} 20[0-9]{2}-[0-9]{2}-[0-9]{2}",[{capture,all,binary}]),
     ok.
 
 
