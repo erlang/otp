@@ -710,12 +710,12 @@ kex_ext_info(Role, Opts) ->
     end.
     
 ext_info_message(#ssh{role=client,
-                      algorithms=#alg{send_ext_info=true}} = Ssh0) ->
-    %% FIXME: no extensions implemented for clients
+                      send_ext_info=true} = Ssh0) ->
+    %% FIXME: no extensions implemented
     {ok, "", Ssh0};
 
 ext_info_message(#ssh{role=server,
-                      algorithms=#alg{send_ext_info=true}} = Ssh0) ->
+                      send_ext_info=true} = Ssh0) ->
     AlgsList = lists:map(fun erlang:atom_to_list/1,
                          ssh_transport:default_algorithms(public_key)),
     Msg = #ssh_msg_ext_info{nr_extensions = 1,
@@ -729,10 +729,8 @@ ext_info_message(Ssh0) ->
 
 %%%----------------------------------------------------------------
 %% select session id
-sid(#ssh{session_id = undefined}, H) -> 
-    H;
-sid(#ssh{session_id = Id}, _) -> 
-    Id.
+sid(#ssh{session_id = undefined}, H) ->  H;
+sid(#ssh{session_id = Id},        _) -> Id.
 
 %%
 %% The host key should be read from storage
