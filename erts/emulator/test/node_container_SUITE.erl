@@ -45,7 +45,6 @@
          ets_refc/1,
          match_spec_refc/1,
          timer_refc/1,
-         otp_4715/1,
          pid_wrap/1,
          port_wrap/1,
          bad_nc/1,
@@ -62,7 +61,7 @@ all() ->
     [term_to_binary_to_term_eq, round_trip_eq, cmp, ref_eq,
      node_table_gc, dist_link_refc, dist_monitor_refc,
      node_controller_refc, ets_refc, match_spec_refc,
-     timer_refc, otp_4715, pid_wrap, port_wrap, bad_nc,
+     timer_refc, pid_wrap, port_wrap, bad_nc,
      unique_pid, iter_max_procs, magic_ref].
 
 init_per_suite(Config) ->
@@ -683,35 +682,6 @@ timer_refc(Config) when is_list(Config) ->
     0 = reference_type_count(timer, get_node_references(RNode)),
     nc_refc_check(node()),
     ok.
-
-otp_4715(Config) when is_list(Config) ->
-    case test_server:is_release_available("r9b") of
-        true -> otp_4715_1(Config);
-        false -> {skip,"No R9B found"}
-    end.
-
-otp_4715_1(Config) ->
-    case erlang:system_info(compat_rel) of
-        9 ->
-            run_otp_4715(Config);
-        _ ->
-            Pa = filename:dirname(code:which(?MODULE)),
-            test_server:run_on_shielded_node(fun () ->
-                                                     run_otp_4715(Config)
-                                             end,
-                                             "+R9 -pa " ++ Pa)
-    end.
-
-run_otp_4715(Config) when is_list(Config) ->
-    erts_debug:set_internal_state(available_internal_state, true),
-    PidList = [mk_pid({a@b, 1}, 4710, 2),
-               mk_pid({a@b, 1}, 4712, 1),
-               mk_pid({c@b, 1}, 4711, 1),
-               mk_pid({b@b, 3}, 4711, 1),
-               mk_pid({b@b, 2}, 4711, 1)],
-
-    R9Sorted = old_mod:sort_on_old_node(PidList),
-    R9Sorted = lists:sort(PidList).
 
 pid_wrap(Config) when is_list(Config) -> pp_wrap(pid).
 
