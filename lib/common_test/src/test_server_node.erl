@@ -18,11 +18,11 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_node).
--compile(r12).
+-compile(r16).
 
 %%%
 %%% The same compiled code for this module must be possible to load
-%%% in R12B and later.
+%%% in R16B and later.
 %%%
 
 %% Test Controller interface
