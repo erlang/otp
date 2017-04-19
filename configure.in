@@ -354,14 +354,12 @@ fi
 AC_SUBST(DEFAULT_VERBOSITY)
 
 if test X${enable_m64_build} = Xyes; then
-	enable_hipe=no
 	CFLAGS="-m64 $CFLAGS"
 	export CFLAGS
 	LDFLAGS="-m64 $LDFLAGS"
 	export LDFLAGS
 fi
 if test X${enable_m32_build} = Xyes; then
-	enable_hipe=no
 	CFLAGS="-m32 $CFLAGS"
 	export CFLAGS
 	LDFLAGS="-m32 $LDFLAGS"
