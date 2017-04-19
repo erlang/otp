@@ -698,18 +698,46 @@ stats2record([{{File,Line},{Tries,Colls,{S,Ns,N}}}|Stats]) ->
 	    nt    = N} | stats2record(Stats)];
 stats2record([]) -> [].
 
+
 clean_id_creation(Id) when is_pid(Id) ->
     Bin = term_to_binary(Id),
-    <<H:3/binary, L:16, Node:L/binary, Ids:8/binary, _Creation/binary>> = Bin,
-    Bin2 = list_to_binary([H, bytes16(L), Node, Ids, 0]),
+    <<H:3/binary, Rest/binary>> = Bin,
+    <<131, PidTag, AtomTag>> = H,
+    LL = atomlen_bits(AtomTag),
+    CL = creation_bits(PidTag),
+    <<L:LL, Node:L/binary, Ids:8/binary, _Creation/binary>> = Rest,
+    Bin2 = list_to_binary([H, <<L:LL>>, Node, Ids, <<0:CL>>]),
     binary_to_term(Bin2);
 clean_id_creation(Id) when is_port(Id) ->
     Bin = term_to_binary(Id),
-    <<H:3/binary, L:16, Node:L/binary, Ids:4/binary, _Creation/binary>> = Bin,
-    Bin2 = list_to_binary([H, bytes16(L), Node, Ids, 0]),
+    <<H:3/binary, Rest/binary>> = Bin,
+    <<131, PortTag, AtomTag>> = H,
+    LL = atomlen_bits(AtomTag),
+    CL = creation_bits(PortTag),
+    <<L:LL, Node:L/binary, Ids:4/binary, _Creation/binary>> = Rest,
+    Bin2 = list_to_binary([H, <<L:LL>>, Node, Ids, <<0:CL>>]),
     binary_to_term(Bin2);
 clean_id_creation(Id) ->
     Id.
+
+-define(PID_EXT, $g).
+-define(NEW_PID_EXT, $X).
+-define(PORT_EXT, $f).
+-define(NEW_PORT_EXT, $Y).
+-define(ATOM_EXT, $d).
+-define(SMALL_ATOM_EXT, $s).
+-define(ATOM_UTF8_EXT, $v).
+-define(SMALL_ATOM_UTF8_EXT, $w).
+
+atomlen_bits(?ATOM_EXT) -> 16;
+atomlen_bits(?SMALL_ATOM_EXT) -> 8;
+atomlen_bits(?ATOM_UTF8_EXT) -> 16;
+atomlen_bits(?SMALL_ATOM_UTF8_EXT) -> 8.
+
+creation_bits(?PID_EXT) -> 8;
+creation_bits(?NEW_PID_EXT) -> 32;
+creation_bits(?PORT_EXT) -> 8;
+creation_bits(?NEW_PORT_EXT) -> 32.
 
 %% serializer
 
@@ -932,9 +960,6 @@ strings([{space,  N,      S} | Ss], Out) -> strings(Ss, Out ++ term2string(term2
 strings([{left,   N,      S} | Ss], Out) -> strings(Ss, Out ++ term2string(term2string(" ~~s~~~ws", [N]), [S,""]));
 strings([S|Ss], Out) -> strings(Ss, Out ++ term2string("~ts", [S])).
 
--define(SMALL_ATOM_UTF8_EXT, $w).
--define(ATOM_UTF8_EXT, $v).
--define(ATOM_EXT, $d).
 
 term2string({M,F,A}) when is_atom(M), is_atom(F), is_integer(A) -> term2string("~p:~p/~p", [M,F,A]);
 term2string(Term) when is_port(Term) ->
