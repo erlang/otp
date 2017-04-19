@@ -27,7 +27,7 @@
 	 extract_from_binary_compressed/1, extract_filtered/1,
 	 extract_from_open_file/1, symlinks/1, open_add_close/1, cooked_compressed/1,
 	 memory/1,unicode/1,read_other_implementations/1,
-         sparse/1, init/1]).
+         sparse/1, init/1, leading_slash/1, dotdot/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -41,7 +41,7 @@ all() ->
      extract_filtered,
      symlinks, open_add_close, cooked_compressed, memory, unicode,
      read_other_implementations,
-     sparse,init].
+     sparse,init,leading_slash,dotdot].
 
 groups() -> 
     [].
@@ -919,6 +919,39 @@ unicode_create_files() ->
 	       latin1 ->
 		   []
 	   end].
+
+leading_slash(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Dir = filename:join(PrivDir, ?FUNCTION_NAME),
+    TarFile = filename:join(Dir, "leading_slash.tar"),
+    ok = filelib:ensure_dir(TarFile),
+    {ok,Fd} = erl_tar:open(TarFile, [write]),
+    TarMemberName = "e/d/c/b/a_member",
+    TarMemberNameAbs = "/" ++ TarMemberName,
+    Contents = <<"contents\n">>,
+    ok = erl_tar:add(Fd, Contents, TarMemberNameAbs, [verbose]),
+    ok = erl_tar:close(Fd),
+
+    ok = erl_tar:extract(TarFile, [{cwd,Dir}]),
+
+    {ok,Contents} = file:read_file(filename:join(Dir, TarMemberName)),
+    ok.
+
+dotdot(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Dir = filename:join(PrivDir, ?FUNCTION_NAME),
+    ok = file:make_dir(Dir),
+    Tar = filename:join(Dir, "dotdot.tar"),
+    {ok,Fd} = erl_tar:open(Tar, [write]),
+    BeamFile = code:which(?MODULE),
+    ok = erl_tar:add(Fd, BeamFile, "a/./../../some_file", []),
+    ok = erl_tar:close(Fd),
+
+    {error,{_,unsafe_path=Error}} = erl_tar:extract(Tar, [{cwd,Dir}]),
+    false = filelib:is_regular(filename:join(PrivDir, "some_file")),
+    io:format("~s\n", [erl_tar:format_error(Error)]),
+
+    ok.
 
 %% Delete the given list of files.
 delete_files([]) -> ok;

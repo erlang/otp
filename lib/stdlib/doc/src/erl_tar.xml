@@ -292,6 +292,10 @@
           <c>Fd</c> is assumed to be a file descriptor returned from function
           <c>file:open/2</c>.</p>
         <p>Otherwise, <c>Name</c> is to be a filename.</p>
+	<note><p>Leading slashes in tar member names will be removed before
+	writing the file. That is, absolute paths will be turned into
+	relative paths. There will be an info message written to the error
+	logger when paths are changed in this way.</p></note>
       </desc>
     </func>
 
