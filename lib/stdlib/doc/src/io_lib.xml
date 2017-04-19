@@ -356,7 +356,8 @@
 
     <func>
       <name name="write" arity="1"/>
-      <name name="write" arity="2"/>
+      <name name="write" arity="2" clause_i="1"/>
+      <name name="write" arity="2" clause_i="2"/>
       <fsummary>Write a term.</fsummary>
       <desc>
         <p>Returns a character list that represents <c><anno>Term</anno></c>.

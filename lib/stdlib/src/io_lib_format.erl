@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -257,12 +257,12 @@ indentation([], I) -> I.
 %%  This is the main dispatch function for the various formatting commands.
 %%  Field widths and precisions have already been calculated.
 
-control($w, [A], F, Adj, P, Pad, _Enc, _Str, _I) ->
-    term(io_lib:write(A, -1), F, Adj, P, Pad);
+control($w, [A], F, Adj, P, Pad, Enc, _Str, _I) ->
+    term(io_lib:write(A, [{depth,-1}, {encoding, Enc}]), F, Adj, P, Pad);
 control($p, [A], F, Adj, P, Pad, Enc, Str, I) ->
     print(A, -1, F, Adj, P, Pad, Enc, Str, I);
-control($W, [A,Depth], F, Adj, P, Pad, _Enc, _Str, _I) when is_integer(Depth) ->
-    term(io_lib:write(A, Depth), F, Adj, P, Pad);
+control($W, [A,Depth], F, Adj, P, Pad, Enc, _Str, _I) when is_integer(Depth) ->
+    term(io_lib:write(A, [{depth,Depth}, {encoding, Enc}]), F, Adj, P, Pad);
 control($P, [A,Depth], F, Adj, P, Pad, Enc, Str, I) when is_integer(Depth) ->
     print(A, Depth, F, Adj, P, Pad, Enc, Str, I);
 control($s, [A], F, Adj, P, Pad, latin1, _Str, _I) when is_atom(A) ->
