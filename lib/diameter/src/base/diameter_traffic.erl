@@ -1190,8 +1190,6 @@ get_result(Dict, Msg) ->
     try
         [throw(A) || N <- ['Result-Code', 'Experimental-Result'],
                      #diameter_avp{} = A <- [get_avp(Dict, N, Msg)]]
-    of
-        [] -> false
     catch
         #diameter_avp{} = A -> A
     end.
