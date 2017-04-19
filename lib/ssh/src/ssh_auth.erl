@@ -136,34 +136,40 @@ keyboard_interactive_msg([#ssh{user = User,
 	      Ssh)
     end.
 
-publickey_msg([Alg, #ssh{user = User,
+publickey_msg([SigAlg, #ssh{user = User,
 		       session_id = SessionId,
 		       service = Service,
 		       opts = Opts} = Ssh]) ->
-    Hash = ssh_transport:sha(Alg),
+    Hash = ssh_transport:sha(SigAlg),
+    KeyAlg = key_alg(SigAlg),
     {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
     UserOpts = ?GET_OPT(user_options, Opts),
-    case KeyCb:user_key(Alg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
+    case KeyCb:user_key(KeyAlg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
 	{ok, PrivKey} ->
-	    StrAlgo = atom_to_list(Alg),
-            case encode_public_key(StrAlgo, ssh_transport:extract_public_key(PrivKey)) of
-		not_ok ->
-		    {not_ok, Ssh};
+	    SigAlgStr = atom_to_list(SigAlg),
+            try
+                Key = ssh_transport:extract_public_key(PrivKey),
+                public_key:ssh_encode(Key, ssh2_pubkey)
+            of
 		PubKeyBlob ->
-		    SigData = build_sig_data(SessionId, 
-					     User, Service, PubKeyBlob, StrAlgo),
+		    SigData = build_sig_data(SessionId, User, Service,
+                                             PubKeyBlob, SigAlgStr),
 		    Sig = ssh_transport:sign(SigData, Hash, PrivKey),
-		    SigBlob = list_to_binary([?string(StrAlgo), ?binary(Sig)]),
+		    SigBlob = list_to_binary([?string(SigAlgStr),
+                                              ?binary(Sig)]),
 		    ssh_transport:ssh_packet(
 		      #ssh_msg_userauth_request{user = User,
 						service = Service,
 						method = "publickey",
 						data = [?TRUE,
-							?string(StrAlgo),
+							?string(SigAlgStr),
 							?binary(PubKeyBlob),
 							?binary(SigBlob)]},
 		      Ssh)
-	    end;
+            catch
+                _:_ -> 
+		    {not_ok, Ssh}
+            end;
      	_Error ->
 	    {not_ok, Ssh}
     end.
@@ -190,8 +196,7 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
                                         method = "none",
                                         data = <<>>},
               Ssh#ssh{user = User,
-                      userauth_preference = 
-                          method_preference(?GET_OPT(pref_public_key_algs, Opts)),
+                      userauth_preference = method_preference(Ssh#ssh.userauth_pubkeys),
                       userauth_methods = none,
                       service = "ssh-connection"}
              )
@@ -265,8 +270,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 			#ssh{opts = Opts,
 			     userauth_supported_methods = Methods} = Ssh) ->
 
-    case pre_verify_sig(User, binary_to_list(BAlg),
-			KeyBlob, Opts) of
+    case pre_verify_sig(User, KeyBlob, Opts) of
 	true ->
 	    {not_authorized, {User, undefined},
 	     ssh_transport:ssh_packet(
@@ -446,10 +450,10 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{},
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-method_preference(PubKeyAlgs) ->
+method_preference(SigKeyAlgs) ->
     %% PubKeyAlgs: List of user (client) public key algorithms to try to use.
     %% All of the acceptable algorithms is the default values.
-    PubKeyDefs = [{"publickey", ?MODULE, publickey_msg, [A]} || A <- PubKeyAlgs],
+    PubKeyDefs = [{"publickey", ?MODULE, publickey_msg, [A]} || A <- SigKeyAlgs],
     NonPKmethods = [{"password", ?MODULE, password_msg, []},
                     {"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []}
                    ],
@@ -492,9 +496,9 @@ get_password_option(Opts, User) ->
 	false -> ?GET_OPT(password, Opts)
     end.
 	    
-pre_verify_sig(User, Alg, KeyBlob, Opts) ->
+pre_verify_sig(User, KeyBlob, Opts) ->
     try
-	{ok, Key} = decode_public_key_v2(KeyBlob, Alg),
+	Key = public_key:ssh_decode(KeyBlob, ssh2_pubkey), % or exception
         {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
         UserOpts = ?GET_OPT(user_options, Opts),
         KeyCb:is_auth_key(Key, User, [{key_cb_private,KeyCbOpts}|UserOpts])
@@ -505,21 +509,19 @@ pre_verify_sig(User, Alg, KeyBlob, Opts) ->
 
 verify_sig(SessionId, User, Service, Alg, KeyBlob, SigWLen, Opts) ->
     try
-	{ok, Key} = decode_public_key_v2(KeyBlob, Alg),
-
         {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
         UserOpts = ?GET_OPT(user_options, Opts),
-        case KeyCb:is_auth_key(Key, User, [{key_cb_private,KeyCbOpts}|UserOpts]) of
-	    true ->
-		PlainText = build_sig_data(SessionId, User,
-					   Service, KeyBlob, Alg),
-		<<?UINT32(AlgSigLen), AlgSig:AlgSigLen/binary>> = SigWLen,
-		<<?UINT32(AlgLen), _Alg:AlgLen/binary,
-		  ?UINT32(SigLen), Sig:SigLen/binary>> = AlgSig,
-		ssh_transport:verify(PlainText, ssh_transport:sha(list_to_atom(Alg)), Sig, Key);
-	    false ->
-		false
-	end
+        Key0 = public_key:ssh_decode(KeyBlob, ssh2_pubkey), % or exception
+        true = KeyCb:is_auth_key(Key0, User, [{key_cb_private,KeyCbOpts}|UserOpts]),
+        Key0
+    of
+        Key ->
+            PlainText = build_sig_data(SessionId, User, Service,
+                                       KeyBlob, Alg),
+            <<?UINT32(AlgSigLen), AlgSig:AlgSigLen/binary>> = SigWLen,
+            <<?UINT32(AlgLen), _Alg:AlgLen/binary,
+              ?UINT32(SigLen), Sig:SigLen/binary>> = AlgSig,
+            ssh_transport:verify(PlainText, ssh_transport:sha(list_to_atom(Alg)), Sig, Key)
     catch
 	_:_ ->
 	    false
@@ -591,18 +593,7 @@ keyboard_interact_fun(KbdInteractFun, Name, Instr,  PromptInfos, NumPrompts) ->
 				       language = "en"}})
     end.
 
-decode_public_key_v2(Bin, _Type) ->
-    try 
-	public_key:ssh_decode(Bin, ssh2_pubkey)
-    of
-	Key -> {ok, Key}
-    catch
-	_:_ -> {error, bad_format}
-    end.
 
-encode_public_key(_Alg, Key) ->
-    try
-	public_key:ssh_encode(Key, ssh2_pubkey)
-    catch
-	_:_ -> not_ok
-    end.
+key_alg('rsa-sha2-256') -> 'ssh-rsa';
+key_alg('rsa-sha2-512') -> 'ssh-rsa';
+key_alg(Alg) -> Alg.

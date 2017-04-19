@@ -437,9 +437,7 @@ default(client) ->
 
       {pref_public_key_algs, def} =>
           #{default => 
-                %% Get dynamically supported keys in the order of the ?SUPPORTED_USER_KEYS
-                [A || A <- ?SUPPORTED_USER_KEYS,
-                      lists:member(A, ssh_transport:supported_algorithms(public_key))],
+                ssh_transport:supported_algorithms(public_key),
             chk => 
                 fun check_pref_public_key_algs/1,
             class =>
@@ -670,20 +668,8 @@ check_pref_public_key_algs(V) ->
     PKs = ssh_transport:supported_algorithms(public_key),
     CHK = fun(A, Ack) ->
                   case lists:member(A, PKs) of
-                      true ->
-                          [A|Ack];
-                      false -> 
-                          %% Check with the documented options, that is,
-                          %% the one we can handle
-                          case lists:member(A,?SUPPORTED_USER_KEYS) of
-                              false ->
-                                  %% An algorithm ssh never can handle
-                                  error_in_check(A, "Not supported public key");
-                              true ->
-                                  %% An algorithm ssh can handle, but not in
-                                  %% this very call
-                                  Ack
-                          end
+                      true ->  [A|Ack];
+                      false -> error_in_check(A, "Not supported public key")
                   end
           end,
     case lists:foldr(

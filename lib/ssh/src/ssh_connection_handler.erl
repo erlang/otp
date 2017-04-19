@@ -464,6 +464,7 @@ init_ssh_record(Role, _Socket, PeerAddr, Opts) ->
 			       true ->  ssh_io;
 			       false -> ssh_no_io
 			   end,
+                   userauth_pubkeys = ?GET_OPT(pref_public_key_algs, Opts),
 		   userauth_quiet_mode = ?GET_OPT(quiet_mode, Opts),
 		   peer = {PeerName, PeerAddr}
 		  };
@@ -711,7 +712,7 @@ handle_event(internal, Msg, {ext_info,Role,init}, D) when is_tuple(Msg) ->
     %% If something else arrives, goto next state and handle the event in that one
     {next_state, {service_request,Role}, D, [postpone]};
 
-handle_event(internal, Msg, {ext_info,Role,renegotiate}, D) when is_tuple(Msg) ->
+handle_event(internal, Msg, {ext_info,Role,_ReNegFlag}, D) when is_tuple(Msg) ->
     %% If something else arrives, goto next state and handle the event in that one
     {next_state, {connected,Role}, D, [postpone]};
 
@@ -1131,6 +1132,7 @@ handle_event({call,From}, stop, StateName, D0) ->
     {Repls,D} = send_replies(Replies, D0),
     {stop_and_reply, normal, [{reply,From,ok}|Repls], D#data{connection_state=Connection}};
 
+
 handle_event({call,_}, _, StateName, _) when not ?CONNECTED(StateName) ->
     {keep_state_and_data, [postpone]};
 
@@ -1380,12 +1382,16 @@ handle_event(info, UnexpectedMessage, StateName, D = #data{ssh_params = Ssh}) ->
 handle_event(internal, {disconnect,Msg,_Reason}, StateName, D) ->
     disconnect(Msg, StateName, D);
 
+handle_event(_Type, _Msg, {ext_info,Role,_ReNegFlag}, D) ->
+    %% If something else arrives, goto next state and handle the event in that one
+    {next_state, {connected,Role}, D, [postpone]};
+
 handle_event(Type, Ev, StateName, D) ->
     Descr =
 	case catch atom_to_list(element(1,Ev)) of
 	    "ssh_msg_" ++_ when Type==internal ->
 %%		"Message in wrong state";
-lists:flatten(io_lib:format("Message ~p in wrong state (~p)", [element(1,Ev), StateName]));
+                lists:flatten(io_lib:format("Message ~p in wrong state (~p)", [element(1,Ev), StateName]));
 	    _ ->
 		"Internal error"
 	end,
@@ -1689,11 +1695,20 @@ cache(#data{connection_state=C}) -> C#connection.channel_cache.
 handle_ssh_msg_ext_info(#ssh_msg_ext_info{}, D=#data{ssh_params = #ssh{recv_ext_info=false}} ) ->
     % The peer sent this although we didn't allow it!
     D;
+
 handle_ssh_msg_ext_info(#ssh_msg_ext_info{data=Data}, D0) ->
     lists:foldl(fun ext_info/2, D0, Data).
 
-%% ext_info({ExtName,ExtValue}, D0) ->
-%%     D0;
+
+ext_info({"server-sig-algs",SigAlgs}, D0 = #data{ssh_params=#ssh{role=client}=Ssh0}) ->
+    %% Make strings to eliminate risk of beeing bombed with odd strings that fills the atom table:
+    SupportedAlgs = lists:map(fun erlang:atom_to_list/1, ssh_transport:supported_algorithms(public_key)),
+    Ssh = Ssh0#ssh{userauth_pubkeys = 
+                       [list_to_atom(SigAlg) || SigAlg <- string:tokens(SigAlgs,","),
+                                                lists:member(SigAlg, SupportedAlgs)
+                       ]},
+    D0#data{ssh_params = Ssh};
+
 ext_info(_, D0) ->
     %% Not implemented
     D0.

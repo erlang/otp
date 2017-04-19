@@ -38,7 +38,6 @@
 -define(MAX_RND_PADDING_LEN, 15).
 
 -define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
--define(SUPPORTED_USER_KEYS, ['ssh-rsa','ssh-dss','ecdsa-sha2-nistp256','ecdsa-sha2-nistp384','ecdsa-sha2-nistp521']).
 
 -define(FALSE, 0).
 -define(TRUE,  1).
@@ -201,6 +200,7 @@
 	  userauth_quiet_mode,              %  boolean()
 	  userauth_methods,                 %  list( string() )  eg ["keyboard-interactive", "password"]
 	  userauth_supported_methods,       %  string() eg "keyboard-interactive,password"
+          userauth_pubkeys,
 	  kb_tries_left = 0,                %  integer(), num tries left for "keyboard-interactive"
 	  userauth_preference,
 	  available_host_keys,
