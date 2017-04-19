@@ -173,7 +173,15 @@ pack_AVP(Name, #diameter_avp{name = AvpName,
                              value = Data}) ->
     0 == avp_arity(Name, AvpName)
         orelse ?THROW([known_avp_as_AVP, Name, AvpName, Data]),
-    e(AvpName, [Data]).
+    e(AvpName, [Data]);
+
+%% The backdoor ...
+pack_AVP(_, {AvpName, Value}) ->
+    e(AvpName, [Value]);
+
+%% ... and the side door.
+pack_AVP(_Name, {_Dict, _AvpName, _Data}= T) ->
+    diameter_codec:pack_avp(#diameter_avp{data = T}).
 
 %% ---------------------------------------------------------------------------
 %% # decode_avps/2
