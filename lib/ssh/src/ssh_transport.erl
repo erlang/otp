@@ -48,6 +48,7 @@
          parallell_gen_key/1,
 	 extract_public_key/1,
 	 ssh_packet/2, pack/2,
+         valid_key_sha_alg/2,
 	 sha/1, sign/3, verify/4]).
 
 %%% For test suites
@@ -117,6 +118,9 @@ supported_algorithms(public_key) ->
        {'ecdsa-sha2-nistp384',  [{public_keys,ecdsa}, {hashs,sha384}, {ec_curve,secp384r1}]},
        {'ecdsa-sha2-nistp521',  [{public_keys,ecdsa}, {hashs,sha512}, {ec_curve,secp521r1}]},
        {'ecdsa-sha2-nistp256',  [{public_keys,ecdsa}, {hashs,sha256}, {ec_curve,secp256r1}]},
+       {'rsa-sha2-256',         [{public_keys,rsa},   {hashs,sha256}                      ]},
+       {'rsa-sha2-384',         [{public_keys,rsa},   {hashs,sha384}                      ]},
+       {'rsa-sha2-512',         [{public_keys,rsa},   {hashs,sha512}                      ]},
        {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]},
        {'ssh-dss',              [{public_keys,dss},   {hashs,sha}                         ]} % Gone in OpenSSH 7.3.p1
       ]);
@@ -377,7 +381,8 @@ key_exchange_first_msg(Kex, Ssh0) when Kex == 'ecdh-sha2-nistp256' ;
 %%% diffie-hellman-group18-sha512
 %%% 
 handle_kexdh_init(#ssh_msg_kexdh_init{e = E}, 
-		  Ssh0 = #ssh{algorithms = #alg{kex=Kex} = Algs}) ->
+		  Ssh0 = #ssh{algorithms = #alg{kex=Kex,
+                                                hkey=SignAlg} = Algs}) ->
     %% server
     {G, P} = dh_group(Kex),
     if
@@ -385,12 +390,12 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E},
             Sz = dh_bits(Algs),
 	    {Public, Private} = generate_key(dh, [P,G,2*Sz]),
 	    K = compute_key(dh, E, Private, [P,G]),
-	    MyPrivHostKey = get_host_key(Ssh0),
+	    MyPrivHostKey = get_host_key(Ssh0, SignAlg),
 	    MyPubHostKey = extract_public_key(MyPrivHostKey),
-	    H = kex_h(Ssh0, MyPubHostKey, E, Public, K),
-	    H_SIG = sign_host_key(Ssh0, MyPrivHostKey, H),
+            H = kex_hash(Ssh0, MyPubHostKey, SignAlg, sha(Kex), {E,Public,K}),
+            H_SIG = sign(H, sha(SignAlg), MyPrivHostKey),
 	    {SshPacket, Ssh1} = 
-		ssh_packet(#ssh_msg_kexdh_reply{public_host_key = MyPubHostKey,
+		ssh_packet(#ssh_msg_kexdh_reply{public_host_key = {MyPubHostKey,SignAlg},
 						f = Public,
 						h_sig = H_SIG
 					       }, Ssh0),
@@ -411,13 +416,14 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E},
 handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
 					f = F,
 					h_sig = H_SIG}, 
-		   #ssh{keyex_key = {{Private, Public}, {G, P}}} = Ssh0) ->
+		   #ssh{keyex_key = {{Private, Public}, {G, P}},
+                        algorithms = #alg{kex=Kex,
+                                          hkey=SignAlg}} = Ssh0) ->
     %% client
     if 
 	1=<F, F=<(P-1)->
 	    K = compute_key(dh, F, Private, [P,G]),
-	    H = kex_h(Ssh0, PeerPubHostKey, Public, F, K),
-
+            H = kex_hash(Ssh0, PeerPubHostKey, SignAlg, sha(Kex), {Public,F,K}),
 	    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
 		ok ->
 		    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
@@ -493,7 +499,7 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request_old{n = NBits},
 		ssh_packet(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0),
 	    {ok, SshPacket, 
 	     Ssh#ssh{keyex_key = {x, {G, P}},
-		     keyex_info = {-1, -1, NBits} % flag for kex_h hash calc
+		     keyex_info = {-1, -1, NBits} % flag for kex_hash calc
 		    }};
 	{error,_} ->
 	    ssh_connection_handler:disconnect(
@@ -539,20 +545,21 @@ handle_kex_dh_gex_group(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0) ->
 
 handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E}, 
 		       #ssh{keyex_key = {{Private, Public}, {G, P}},
-			    keyex_info = {Min, Max, NBits}} = 
-			   Ssh0) ->
+			    keyex_info = {Min, Max, NBits},
+                            algorithms = #alg{kex=Kex,
+                                              hkey=SignAlg}} = Ssh0) ->
     %% server
     if
 	1=<E, E=<(P-1) ->
 	    K = compute_key(dh, E, Private, [P,G]),
 	    if
 		1<K, K<(P-1) ->
-		    MyPrivHostKey = get_host_key(Ssh0),
+		    MyPrivHostKey = get_host_key(Ssh0, SignAlg),
 		    MyPubHostKey = extract_public_key(MyPrivHostKey),
-		    H = kex_h(Ssh0, MyPubHostKey, Min, NBits, Max, P, G, E, Public, K),
-		    H_SIG = sign_host_key(Ssh0, MyPrivHostKey, H),
+                    H = kex_hash(Ssh0, MyPubHostKey, SignAlg, sha(Kex), {Min,NBits,Max,P,G,E,Public,K}),
+                    H_SIG = sign(H, sha(SignAlg), MyPrivHostKey),
 		    {SshPacket, Ssh} = 
-			ssh_packet(#ssh_msg_kex_dh_gex_reply{public_host_key = MyPubHostKey,
+			ssh_packet(#ssh_msg_kex_dh_gex_reply{public_host_key = {MyPubHostKey,SignAlg},
 							     f = Public,
 							     h_sig = H_SIG}, Ssh0),
 		    {ok, SshPacket, Ssh#ssh{shared_secret = ssh_bits:mpint(K),
@@ -578,7 +585,9 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostK
 						  f = F,
 						  h_sig = H_SIG},
 			#ssh{keyex_key = {{Private, Public}, {G, P}},
-			     keyex_info = {Min, Max, NBits}} = 
+			     keyex_info = {Min, Max, NBits},
+                             algorithms = #alg{kex=Kex,
+                                               hkey=SignAlg}} = 
 			    Ssh0) ->
     %% client
     if 
@@ -586,8 +595,7 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostK
 	    K = compute_key(dh, F, Private, [P,G]),
 	    if
 		1<K, K<(P-1) ->
-		    H = kex_h(Ssh0, PeerPubHostKey, Min, NBits, Max, P, G, Public, F, K),
-
+                    H = kex_hash(Ssh0, PeerPubHostKey, SignAlg, sha(Kex), {Min,NBits,Max,P,G,Public,F,K}),
 		    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
 			ok ->
 			    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
@@ -623,7 +631,8 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostK
 %%% diffie-hellman-ecdh-sha2-*
 %%% 
 handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
-		     Ssh0 = #ssh{algorithms = #alg{kex=Kex}}) ->
+		     Ssh0 = #ssh{algorithms = #alg{kex=Kex,
+                                                   hkey=SignAlg}}) ->
     %% at server
     Curve = ecdh_curve(Kex),
     {MyPublic, MyPrivate} = generate_key(ecdh, Curve),
@@ -631,12 +640,12 @@ handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
 	compute_key(ecdh, PeerPublic, MyPrivate, Curve)
     of
 	K ->
-	    MyPrivHostKey = get_host_key(Ssh0),
+	    MyPrivHostKey = get_host_key(Ssh0, SignAlg),
 	    MyPubHostKey = extract_public_key(MyPrivHostKey),
-	    H = kex_h(Ssh0, Curve, MyPubHostKey, PeerPublic, MyPublic, K),
-	    H_SIG = sign_host_key(Ssh0, MyPrivHostKey, H),
+            H = kex_hash(Ssh0, MyPubHostKey, SignAlg, sha(Curve), {PeerPublic, MyPublic, K}),
+            H_SIG = sign(H, sha(SignAlg), MyPrivHostKey),
 	    {SshPacket, Ssh1} = 
-		ssh_packet(#ssh_msg_kex_ecdh_reply{public_host_key = MyPubHostKey,
+		ssh_packet(#ssh_msg_kex_ecdh_reply{public_host_key = {MyPubHostKey,SignAlg},
 						   q_s = MyPublic,
 						   h_sig = H_SIG},
 			   Ssh0),
@@ -656,14 +665,15 @@ handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
 handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
 					      q_s = PeerPublic,
 					      h_sig = H_SIG},
-		      #ssh{keyex_key = {{MyPublic,MyPrivate}, Curve}} = Ssh0
+		      #ssh{keyex_key = {{MyPublic,MyPrivate}, Curve},
+                           algorithms = #alg{hkey=SignAlg}} = Ssh0
 		     ) ->
     %% at client
     try
 	compute_key(ecdh, PeerPublic, MyPrivate, Curve)
     of
 	K ->
-	    H = kex_h(Ssh0, Curve, PeerPubHostKey, MyPublic, PeerPublic, K), 
+            H = kex_hash(Ssh0, PeerPubHostKey,  SignAlg, sha(Curve), {MyPublic,PeerPublic,K}),
 	    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
 		ok ->
 		    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
@@ -735,24 +745,13 @@ sid(#ssh{session_id = Id},        _) -> Id.
 %%
 %% The host key should be read from storage
 %%
-get_host_key(SSH) ->
-    #ssh{key_cb = {KeyCb,KeyCbOpts}, opts = Opts, algorithms = ALG} = SSH,
+get_host_key(SSH, SignAlg) ->
+    #ssh{key_cb = {KeyCb,KeyCbOpts}, opts = Opts} = SSH,
     UserOpts = ?GET_OPT(user_options, Opts),
-    case KeyCb:host_key(ALG#alg.hkey, [{key_cb_private,KeyCbOpts}|UserOpts]) of
-	{ok, #'RSAPrivateKey'{} = Key} ->  Key;
-	{ok, #'DSAPrivateKey'{} = Key} ->  Key;
-	{ok, #'ECPrivateKey'{}  = Key} ->  Key;
-	Result ->
-	    exit({error, {Result, unsupported_key_type}})
+    case KeyCb:host_key(SignAlg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
+	{ok, PrivHostKey} ->  PrivHostKey;
+	Result -> exit({error, {Result, unsupported_key_type}})
     end.
-
-sign_host_key(_Ssh, PrivateKey, H) ->
-     sign(H, sign_host_key_sha(PrivateKey), PrivateKey).
-
-sign_host_key_sha(#'ECPrivateKey'{parameters = {namedCurve,OID}}) -> sha(OID);
-sign_host_key_sha(#'RSAPrivateKey'{}) -> sha;
-sign_host_key_sha(#'DSAPrivateKey'{}) -> sha.
-
 
 extract_public_key(#'RSAPrivateKey'{modulus = N, publicExponent = E}) ->
     #'RSAPublicKey'{modulus = N, publicExponent = E};
@@ -763,24 +762,14 @@ extract_public_key(#'ECPrivateKey'{parameters = {namedCurve,OID},
     {#'ECPoint'{point=Q}, {namedCurve,OID}}.
 
 
-verify_host_key(SSH, PublicKey, Digest, Signature) ->
-    case verify(Digest, host_key_sha(PublicKey), Signature, PublicKey) of
+verify_host_key(#ssh{algorithms=Alg}=SSH, PublicKey, Digest, Signature) ->
+    case verify(Digest, sha(Alg#alg.hkey), Signature, PublicKey) of
 	false ->
 	    {error, bad_signature};
 	true ->
 	    known_host_key(SSH, PublicKey, public_algo(PublicKey))
     end.
 
-
-host_key_sha(#'RSAPublicKey'{})    -> sha;
-host_key_sha({_, #'Dss-Parms'{}})  -> sha;
-host_key_sha({#'ECPoint'{},{namedCurve,OID}}) -> sha(OID).
-
-public_algo(#'RSAPublicKey'{}) ->   'ssh-rsa';
-public_algo({_, #'Dss-Parms'{}}) -> 'ssh-dss';
-public_algo({#'ECPoint'{},{namedCurve,OID}}) -> 
-    Curve = public_key:oid2ssh_curvename(OID),
-    list_to_atom("ecdsa-sha2-" ++ binary_to_list(Curve)).
 
 
 accepted_host(Ssh, PeerName, Public, Opts) ->
@@ -1201,29 +1190,29 @@ payload(<<PacketLen:32, PaddingLen:8, PayloadAndPadding/binary>>) ->
     <<Payload:PayloadLen/binary, _/binary>> = PayloadAndPadding,
     Payload.
 
-sign(SigData, Hash,  #'DSAPrivateKey'{} = Key) ->
-    DerSignature = public_key:sign(SigData, Hash, Key),
+sign(SigData, HashAlg,  #'DSAPrivateKey'{} = Key) ->
+    DerSignature = public_key:sign(SigData, HashAlg, Key),
     #'Dss-Sig-Value'{r = R, s = S} = public_key:der_decode('Dss-Sig-Value', DerSignature),
     <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>>;
-sign(SigData, Hash, Key = #'ECPrivateKey'{}) ->
-    DerEncodedSign =  public_key:sign(SigData, Hash, Key),
+sign(SigData, HashAlg, Key = #'ECPrivateKey'{}) ->
+    DerEncodedSign =  public_key:sign(SigData, HashAlg, Key),
     #'ECDSA-Sig-Value'{r=R, s=S} = public_key:der_decode('ECDSA-Sig-Value', DerEncodedSign),
     <<?Empint(R),?Empint(S)>>;
-sign(SigData, Hash, Key) ->
-    public_key:sign(SigData, Hash, Key).
+sign(SigData, HashAlg, Key) ->
+    public_key:sign(SigData, HashAlg, Key).
 
-verify(PlainText, Hash, Sig, {_,  #'Dss-Parms'{}} = Key) ->
+verify(PlainText, HashAlg, Sig, {_,  #'Dss-Parms'{}} = Key) ->
     <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>> = Sig,
     Signature = public_key:der_encode('Dss-Sig-Value', #'Dss-Sig-Value'{r = R, s = S}),
-    public_key:verify(PlainText, Hash, Signature, Key);
-verify(PlainText, Hash, Sig, {#'ECPoint'{},_} = Key) ->
+    public_key:verify(PlainText, HashAlg, Signature, Key);
+verify(PlainText, HashAlg, Sig, {#'ECPoint'{},_} = Key) ->
     <<?UINT32(Rlen),R:Rlen/big-signed-integer-unit:8,
       ?UINT32(Slen),S:Slen/big-signed-integer-unit:8>> = Sig,
     Sval = #'ECDSA-Sig-Value'{r=R, s=S},
     DerEncodedSig = public_key:der_encode('ECDSA-Sig-Value',Sval),
-    public_key:verify(PlainText, Hash, DerEncodedSig, Key);
-verify(PlainText, Hash, Sig, Key) ->
-    public_key:verify(PlainText, Hash, Sig, Key).
+    public_key:verify(PlainText, HashAlg, DerEncodedSig, Key);
+verify(PlainText, HashAlg, Sig, Key) ->
+    public_key:verify(PlainText, HashAlg, Sig, Key).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1730,39 +1719,63 @@ hash(K, H, Ki, N, HashAlg) ->
     hash(K, H, <<Ki/binary, Kj/binary>>, N-128, HashAlg).
 
 %%%----------------------------------------------------------------
-kex_h(SSH, Key, E, F, K) ->
-    KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
-    L = <<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
-	  ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit), ?Ebinary(KeyBin),
-	  ?Empint(E), ?Empint(F), ?Empint(K)>>,
-    crypto:hash(sha((SSH#ssh.algorithms)#alg.kex), L).
+kex_hash(SSH, Key, SignAlg, HashAlg, Args) ->
+    crypto:hash(HashAlg, kex_plaintext(SSH,Key,SignAlg,Args)).
 
-kex_h(SSH, Curve, Key, Q_c, Q_s, K) ->
-    KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
-    L = <<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
-	  ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit), ?Ebinary(KeyBin),
-	  ?Empint(Q_c), ?Empint(Q_s), ?Empint(K)>>,
-    crypto:hash(sha(Curve), L).
+kex_plaintext(SSH, Key, SignAlg, Args) ->
+    EncodedKey = public_key:ssh_encode({Key,SignAlg}, ssh2_pubkey),
+    <<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
+      ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit),
+      ?Ebinary(EncodedKey),
+      (kex_alg_dependent(Args))/binary>>.
 
-kex_h(SSH, Key, Min, NBits, Max, Prime, Gen, E, F, K) ->
-    KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
-    L = if Min==-1; Max==-1 ->
-		%% flag from 'ssh_msg_kex_dh_gex_request_old'
-		%% It was like this before that message was supported,
-		%% why?
-		<<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
-		  ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit), ?Ebinary(KeyBin),
-		  ?Empint(E), ?Empint(F), ?Empint(K)>>;
-	   true ->
-		<<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
-		  ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit), ?Ebinary(KeyBin),
-		  ?Euint32(Min), ?Euint32(NBits), ?Euint32(Max),
-		  ?Empint(Prime), ?Empint(Gen), ?Empint(E), ?Empint(F), ?Empint(K)>>
-	end,
-    crypto:hash(sha((SSH#ssh.algorithms)#alg.kex), L).
-  
+kex_alg_dependent({E, F, K}) ->
+    %% diffie-hellman and ec diffie-hellman (with E = Q_c, F = Q_s)
+    <<?Empint(E), ?Empint(F), ?Empint(K)>>;
+
+kex_alg_dependent({-1, _, -1, _, _, E, F, K}) ->
+    %% ssh_msg_kex_dh_gex_request_old
+    <<?Empint(E), ?Empint(F), ?Empint(K)>>;
+
+kex_alg_dependent({Min, NBits, Max, Prime, Gen, E, F, K}) ->
+    %% diffie-hellman group exchange
+    <<?Euint32(Min), ?Euint32(NBits), ?Euint32(Max),
+      ?Empint(Prime), ?Empint(Gen), ?Empint(E), ?Empint(F), ?Empint(K)>>.
+
+%%%----------------------------------------------------------------
+
+valid_key_sha_alg(#'RSAPublicKey'{}, 'rsa-sha2-512') -> true;
+valid_key_sha_alg(#'RSAPublicKey'{}, 'rsa-sha2-384') -> true;
+valid_key_sha_alg(#'RSAPublicKey'{}, 'rsa-sha2-256') -> true;
+valid_key_sha_alg(#'RSAPublicKey'{}, 'ssh-rsa'     ) -> true;
+
+valid_key_sha_alg(#'RSAPrivateKey'{}, 'rsa-sha2-512') -> true;
+valid_key_sha_alg(#'RSAPrivateKey'{}, 'rsa-sha2-384') -> true;
+valid_key_sha_alg(#'RSAPrivateKey'{}, 'rsa-sha2-256') -> true;
+valid_key_sha_alg(#'RSAPrivateKey'{}, 'ssh-rsa'     ) -> true;
+
+valid_key_sha_alg({_, #'Dss-Parms'{}}, 'ssh-dss') -> true;
+valid_key_sha_alg(#'DSAPrivateKey'{},  'ssh-dss') -> true;
+
+valid_key_sha_alg({#'ECPoint'{},{namedCurve,OID}},                Alg) -> sha(OID) == sha(Alg);
+valid_key_sha_alg(#'ECPrivateKey'{parameters = {namedCurve,OID}}, Alg) -> sha(OID) == sha(Alg);
+valid_key_sha_alg(_, _) -> false.
+    
+
+
+public_algo(#'RSAPublicKey'{}) ->   'ssh-rsa';  % FIXME: Not right with draft-curdle-rsa-sha2
+public_algo({_, #'Dss-Parms'{}}) -> 'ssh-dss';
+public_algo({#'ECPoint'{},{namedCurve,OID}}) -> 
+    Curve = public_key:oid2ssh_curvename(OID),
+    list_to_atom("ecdsa-sha2-" ++ binary_to_list(Curve)).
+
+
+
 
 sha('ssh-rsa') -> sha;
+sha('rsa-sha2-256') -> sha256;
+sha('rsa-sha2-384') -> sha384;
+sha('rsa-sha2-512') -> sha512;
 sha('ssh-dss') -> sha;
 sha('ecdsa-sha2-nistp256') -> sha(secp256r1);
 sha('ecdsa-sha2-nistp384') -> sha(secp384r1);

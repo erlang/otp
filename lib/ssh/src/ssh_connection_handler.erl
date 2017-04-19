@@ -490,20 +490,32 @@ init_ssh_record(Role, _Socket, PeerAddr, Opts) ->
 -type renegotiate_flag() :: init | renegotiate.
 
 -type state_name() :: 
-        {hello, role()}
-      | {kexinit, role(), renegotiate_flag()}
-      | {key_exchange, role(), renegotiate_flag()}
-      | {key_exchange_dh_gex_init, server, renegotiate_flag()}
+        {hello,                     role()                    }
+      | {kexinit,                   role(), renegotiate_flag()}
+      | {key_exchange,              role(), renegotiate_flag()}
+      | {key_exchange_dh_gex_init,  server, renegotiate_flag()}
       | {key_exchange_dh_gex_reply, client, renegotiate_flag()}
-      | {new_keys, role()}
-      | {ext_info, role(), renegotiate_flag()}
-      | {service_request, role()}
-      | {userauth, role()}
-      | {userauth_keyboard_interactive, role()}
-      | {connected, role()}
+      | {new_keys,                  role(), renegotiate_flag()}
+      | {ext_info,                  role(), renegotiate_flag()}
+      | {service_request,           role()                    }
+      | {userauth,                  role()                    }
+      | {userauth_keyboard_interactive,       role()          }
+      | {userauth_keyboard_interactive_extra, server          }
+      | {userauth_keyboard_interactive_info_response, client  }
+      | {connected,                 role()                    }
 	.
 
--type handle_event_result() :: gen_statem:handle_event_result().
+%% The state names must fulfill some rules regarding
+%% where the role() and the renegotiate_flag() is placed:
+
+-spec role(state_name()) -> role().
+role({_,Role}) -> Role;
+role({_,Role,_}) -> Role.
+
+-spec renegotiation(state_name()) -> boolean().
+renegotiation({_,_,ReNeg}) -> ReNeg == renegotiation;
+renegotiation(_) -> false.
+
 
 -define(CONNECTED(StateName), 
         (element(1,StateName) == connected orelse
@@ -513,7 +525,7 @@ init_ssh_record(Role, _Socket, PeerAddr, Opts) ->
 		   event_content(),
 		   state_name(),
 		   #data{}
-		  ) -> handle_event_result().
+		  ) -> gen_statem:event_handler_result(state_name()) .
 		   
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -1531,16 +1543,6 @@ peer_role(client) -> server;
 peer_role(server) -> client.
 
 %%--------------------------------------------------------------------
-%% StateName to Role
-role({_,Role}) -> Role;
-role({_,Role,_}) -> Role.
-
-%%--------------------------------------------------------------------
-%% Check the StateName to see if we are in the renegotiation phase
-renegotiation({_,_,ReNeg}) -> ReNeg == renegotiation;
-renegotiation(_) -> false.
-
-%%--------------------------------------------------------------------
 supported_host_keys(client, _, Options) ->
     try
         find_sup_hkeys(Options)
@@ -1576,8 +1578,11 @@ find_sup_hkeys(Options) ->
 %% Alg :: atom()
 available_host_key({KeyCb,KeyCbOpts}, Alg, Opts) ->
     UserOpts = ?GET_OPT(user_options, Opts),
-    element(1,
-            catch KeyCb:host_key(Alg, [{key_cb_private,KeyCbOpts}|UserOpts])) == ok.
+    case KeyCb:host_key(Alg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
+        {ok,_} -> true;
+        _ -> false
+    end.
+
 
 send_msg(Msg, State=#data{ssh_params=Ssh0}) when is_tuple(Msg) ->
     {Bytes, Ssh} = ssh_transport:ssh_packet(Msg, Ssh0),
