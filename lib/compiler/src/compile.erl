@@ -213,14 +213,6 @@ expand_opt(report, Os) ->
     [report_errors,report_warnings|Os];
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
-expand_opt(r12, Os) ->
-    [no_recv_opt,no_line_info,no_utf8_atoms|Os];
-expand_opt(r13, Os) ->
-    [no_record_opt,no_recv_opt,no_line_info,no_utf8_atoms|Os];
-expand_opt(r14, Os) ->
-    [no_record_opt,no_line_info,no_utf8_atoms|Os];
-expand_opt(r15, Os) ->
-    [no_record_opt,no_utf8_atoms|Os];
 expand_opt(r16, Os) ->
     [no_record_opt,no_utf8_atoms|Os];
 expand_opt(r17, Os) ->
