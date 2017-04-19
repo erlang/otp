@@ -19,7 +19,7 @@
 %%
 
 -module(distribution_SUITE).
--compile(r15).
+-compile(r16).
 
 -define(VERSION_MAGIC,       131).
 
@@ -48,7 +48,7 @@
          dist_parallel_send/1,
          atom_roundtrip/1,
          unicode_atom_roundtrip/1,
-         atom_roundtrip_r15b/1,
+         atom_roundtrip_r16b/1,
          contended_atom_cache_entry/1,
          contended_unicode_atom_cache_entry/1,
          bad_dist_structure/1,
@@ -78,7 +78,8 @@ all() ->
      link_to_dead_new_node, applied_monitor_node,
      ref_port_roundtrip, nil_roundtrip, stop_dist,
      {group, trap_bif}, {group, dist_auto_connect},
-     dist_parallel_send, atom_roundtrip, unicode_atom_roundtrip, atom_roundtrip_r15b,
+     dist_parallel_send, atom_roundtrip, unicode_atom_roundtrip,
+     atom_roundtrip_r16b,
      contended_atom_cache_entry, contended_unicode_atom_cache_entry,
      bad_dist_structure, {group, bad_dist_ext},
      start_epmd_false, epmd_module].
@@ -1032,21 +1033,21 @@ atom_roundtrip(Config) when is_list(Config) ->
     stop_node(Node),
     ok.
 
-atom_roundtrip_r15b(Config) when is_list(Config) ->
-    case test_server:is_release_available("r15b") of
+atom_roundtrip_r16b(Config) when is_list(Config) ->
+    case test_server:is_release_available("r16b") of
         true ->
             ct:timetrap({minutes, 6}),
-            AtomData = atom_data(),
+            AtomData = unicode_atom_data(),
             verify_atom_data(AtomData),
-            case start_node(Config, [], "r15b") of
+            case start_node(Config, [], "r16b") of
                 {ok, Node} ->
                     do_atom_roundtrip(Node, AtomData),
                     stop_node(Node);
                 {error, timeout} ->
-                    {skip,"Unable to start OTP R15B release"}
+                    {skip,"Unable to start OTP R16B release"}
             end;
         false ->
-            {skip,"No OTP R15B available"}
+            {skip,"No OTP R16B available"}
     end.
 
 unicode_atom_roundtrip(Config) when is_list(Config) ->
