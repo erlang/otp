@@ -26,6 +26,8 @@
 -import(lists, [filter/2,foldl/3,keyfind/3,member/2,
 		reverse/1,reverse/2,sort/1]).
 
+-define(UNICODE_INT, {integer,{0,16#10FFFF}}).
+
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
 
@@ -494,6 +496,10 @@ update({test,test_arity,_Fail,[Src,Arity]}, Ts0) ->
     tdb_update([{Src,{tuple,Arity,[]}}], Ts0);
 update({test,is_map,_Fail,[Src]}, Ts0) ->
     tdb_update([{Src,map}], Ts0);
+update({get_map_elements,_,Src,{list,Elems0}}, Ts0) ->
+    {_Ss,Ds} = beam_utils:split_even(Elems0),
+    Elems = [{Dst,kill} || Dst <- Ds],
+    tdb_update([{Src,map}|Elems], Ts0);
 update({test,is_nonempty_list,_Fail,[Src]}, Ts0) ->
     tdb_update([{Src,nonempty_list}], Ts0);
 update({test,is_eq_exact,_,[Reg,{atom,_}=Atom]}, Ts) ->
@@ -507,10 +513,39 @@ update({test,is_eq_exact,_,[Reg,{atom,_}=Atom]}, Ts) ->
     end;
 update({test,is_record,_Fail,[Src,Tag,{integer,Arity}]}, Ts) ->
     tdb_update([{Src,{tuple,Arity,[Tag]}}], Ts);
-update({test,_Test,_Fail,_Other}, Ts) ->
-    Ts;
+
+%% Binary matching
+
 update({test,bs_get_integer2,_,_,Args,Dst}, Ts) ->
     tdb_update([{Dst,get_bs_integer_type(Args)}], Ts);
+update({test,bs_get_utf8,_,_,_,Dst}, Ts) ->
+    tdb_update([{Dst,?UNICODE_INT}], Ts);
+update({test,bs_get_utf16,_,_,_,Dst}, Ts) ->
+    tdb_update([{Dst,?UNICODE_INT}], Ts);
+update({test,bs_get_utf32,_,_,_,Dst}, Ts) ->
+    tdb_update([{Dst,?UNICODE_INT}], Ts);
+update({bs_init,_,_,_,_,Dst}, Ts) ->
+    tdb_update([{Dst,kill}], Ts);
+update({bs_put,_,_,_}, Ts) ->
+    Ts;
+update({bs_save2,_,_}, Ts) ->
+    Ts;
+update({bs_restore2,_,_}, Ts) ->
+    Ts;
+update({bs_context_to_binary,Dst}, Ts) ->
+    tdb_update([{Dst,kill}], Ts);
+update({test,bs_start_match2,_,_,_,Dst}, Ts) ->
+    tdb_update([{Dst,kill}], Ts);
+update({test,bs_get_binary2,_,_,_,Dst}, Ts) ->
+    tdb_update([{Dst,kill}], Ts);
+update({test,bs_get_float2,_,_,_,Dst}, Ts) ->
+    tdb_update([{Dst,float}], Ts);
+
+update({test,_Test,_Fail,_Other}, Ts) ->
+    Ts;
+
+%% Calls
+
 update({call_ext,Ar,{extfunc,math,Math,Ar}}, Ts) ->
     case is_math_bif(Math, Ar) of
 	true -> tdb_update([{{x,0},float}], Ts);
@@ -537,9 +572,10 @@ update({call_ext,3,{extfunc,erlang,setelement,3}}, Ts0) ->
 update({call,_Arity,_Func}, Ts) -> tdb_kill_xregs(Ts);
 update({call_ext,_Arity,_Func}, Ts) -> tdb_kill_xregs(Ts);
 update({make_fun2,_,_,_,_}, Ts) -> tdb_kill_xregs(Ts);
+update({call_fun, _}, Ts) -> tdb_kill_xregs(Ts);
+update({apply, _}, Ts) -> tdb_kill_xregs(Ts);
+
 update({line,_}, Ts) -> Ts;
-update({bs_save2,_,_}, Ts) -> Ts;
-update({bs_restore2,_,_}, Ts) -> Ts;
 
 %% The instruction is unknown.  Kill all information.
 update(_I, _Ts) -> tdb_new().
