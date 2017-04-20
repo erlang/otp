@@ -418,8 +418,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           </item>
           <item>
             <p>If option <c>{auto_hibernate_timeout,AutoHibernateTimeout}</c> is present, the <c>gen_server</c>
-              process wait any message <c>AutoHibernateTimeout</c> milliseconds and
-              in case of no message was received, process goes into hibernation automatically
+              process awaits any message for <c>AutoHibernateTimeout</c> milliseconds and
+              if no message is received, the process goes into hibernation automatically
               (by calling <seealso marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>).</p>
           </item>
           <item>
