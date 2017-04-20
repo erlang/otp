@@ -153,7 +153,7 @@ erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     IO = ssh_test_lib:start_io_server(),
     Shell = ssh_test_lib:start_shell(?SSH_DEFAULT_PORT, IO),
     IO ! {input, self(), "echo Hej\n"},
-    receive_data("Hej"),
+    receive_data("Hej", undefined),
     IO ! {input, self(), "exit\n"},
     receive_logout(),
     receive_normal_exit(Shell).
@@ -451,7 +451,6 @@ erlang_server_openssh_client_renegotiate(Config) ->
 %%--------------------------------------------------------------------
 erlang_client_openssh_server_renegotiate(_Config) ->
     process_flag(trap_exit, true),
-
     IO = ssh_test_lib:start_io_server(),
     Ref = make_ref(),
     Parent = self(),
@@ -487,11 +486,11 @@ erlang_client_openssh_server_renegotiate(_Config) ->
 	    ct:fail("Error=~p",[Error]);
 	{ok, Ref, ConnectionRef} ->
 	    IO ! {input, self(), "echo Hej1\n"},
-	    receive_data("Hej1"),
+	    receive_data("Hej1", ConnectionRef),
 	    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
 	    ssh_connection_handler:renegotiate(ConnectionRef),
 	    IO ! {input, self(), "echo Hej2\n"},
-	    receive_data("Hej2"),
+	    receive_data("Hej2", ConnectionRef),
 	    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
 	    IO ! {input, self(), "exit\n"},
 	    receive_logout(),
@@ -554,23 +553,29 @@ erlang_client_openssh_server_nonexistent_subsystem(Config) when is_list(Config) 
 %%--------------------------------------------------------------------
 %%% Internal functions -----------------------------------------------
 %%--------------------------------------------------------------------
-receive_data(Data) ->
+receive_data(Data, Conn) ->
     receive
 	Info when is_binary(Info) ->
 	    Lines = string:tokens(binary_to_list(Info), "\r\n "),
 	    case lists:member(Data, Lines) of
 		true ->
-		    ct:log("Expected result found in lines: ~p~n", [Lines]),
+		    ct:log("Expected result ~p found in lines: ~p~n", [Data,Lines]),
 		    ok;
 		false ->
 		    ct:log("Extra info: ~p~n", [Info]),
-		    receive_data(Data)
+		    receive_data(Data, Conn)
 	    end;
 	Other ->
 	    ct:log("Unexpected: ~p",[Other]),
-	    receive_data(Data)
-    after 
-	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+	    receive_data(Data, Conn)
+    after
+	30000 ->
+             {State, _} = case Conn of
+                              undefined -> {'??','??'};
+                              _ -> sys:get_state(Conn)
+                          end,
+            ct:log("timeout ~p:~p~nExpect ~p~nState = ~p",[?MODULE,?LINE,Data,State]),
+            ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.	
 
 receive_logout() ->

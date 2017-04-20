@@ -242,11 +242,11 @@ handle_info(stop, State) ->
     {stop, normal, State};
 
 handle_info({'DOWN', _Ref, _process, LPid, Reason}, S) when S#state.lpid == LPid ->
-    io:format("Acceptor has finished: ~p~n", [Reason]),
+    io:format("Acceptor in ~p has finished: ~p~n", [?MODULE,Reason]),
     {noreply, S};
 
 handle_info(_Info, State) ->
-    io:format("Unhandled info: ~p~n", [_Info]),
+    io:format("~p:~p Unhandled info: ~p~n", [?MODULE,?LINE,_Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
