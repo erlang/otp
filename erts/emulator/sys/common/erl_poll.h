@@ -195,7 +195,7 @@ typedef Uint32 ErtsPollEvents;
 
 #endif
 
-typedef struct ErtsPollSet_ *ErtsPollSet;
+typedef struct ERTS_POLL_EXPORT(erts_pollset) *ErtsPollSet;
 
 typedef struct {
     ErtsSysFdType fd;

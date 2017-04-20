@@ -274,7 +274,7 @@ typedef struct _Waiter {
 /*
  * The structure for a pollset. There can currently be only one...
  */
-struct ErtsPollSet_ {
+struct erts_pollset {
     Waiter** waiter;
     int allocated_waiters;  /* Size ow waiter array */ 
     int num_waiters;	    /* Number of waiter threads. */
@@ -1284,7 +1284,7 @@ void erts_poll_info(ErtsPollSet ps,
     HARDTRACEF(("In erts_poll_info"));
     ERTS_POLLSET_LOCK(ps);
 
-    size += sizeof(struct ErtsPollSet_);
+    size += sizeof(struct erts_pollset);
     size += sizeof(Waiter *) * ps->allocated_waiters;
     for (i = 0; i < ps->num_waiters; ++i) {
 	Waiter *w = ps->waiter[i];
@@ -1326,7 +1326,7 @@ void erts_poll_info(ErtsPollSet ps,
 ErtsPollSet erts_poll_create_pollset(void)
 {
     ErtsPollSet ps = SEL_ALLOC(ERTS_ALC_T_POLLSET,
-			       sizeof(struct ErtsPollSet_));
+			       sizeof(struct erts_pollset));
     HARDTRACEF(("In erts_poll_create_pollset"));
 
     ps->num_waiters = 0;

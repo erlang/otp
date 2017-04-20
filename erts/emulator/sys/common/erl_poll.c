@@ -228,7 +228,11 @@ typedef struct {
 
 #endif
 
-struct ErtsPollSet_ {
+/*
+ * This struct is not really exported, but it's nice to
+ * get unique names in debugger for kp/nkp
+ */
+struct ERTS_POLL_EXPORT(erts_pollset) {
     ErtsPollSet next;
     int internal_fd_limit;
     ErtsFdStatus *fds_status;
@@ -2472,7 +2476,7 @@ ERTS_POLL_EXPORT(erts_poll_create_pollset)(void)
     int kp_fd;
 #endif
     ErtsPollSet ps = erts_alloc(ERTS_ALC_T_POLLSET,
-				sizeof(struct ErtsPollSet_));
+				sizeof(struct ERTS_POLL_EXPORT(erts_pollset)));
     ps->internal_fd_limit = 0;
     ps->fds_status = NULL;
     ps->fds_status_len = 0;
@@ -2660,7 +2664,7 @@ ERTS_POLL_EXPORT(erts_poll_info)(ErtsPollSet ps, ErtsPollInfo *pip)
 
     ERTS_POLLSET_LOCK(ps);
 
-    size += sizeof(struct ErtsPollSet_);
+    size += sizeof(struct ERTS_POLL_EXPORT(erts_pollset));
     size += ps->fds_status_len*sizeof(ErtsFdStatus);
 
 #if ERTS_POLL_USE_EPOLL
