@@ -416,7 +416,7 @@ int main(int argc, char **argv)
 
 	if (len) {
 #ifdef DEBUG
-	    if(write(1, buf, len));
+	    (void)write(1, buf, len);
 #endif
 	    if (write_all(wfd, buf, len) != len) {
 		fprintf(stderr, "Error in writing to FIFO.\n");

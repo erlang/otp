@@ -2306,7 +2306,7 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
         case ERTS_EV_TYPE_NIF: { /* Requested via enif_select()... */
             struct erts_nif_select_event in = {NIL};
             struct erts_nif_select_event out = {NIL};
-            ErtsResource* resource;
+            ErtsResource* resource = NULL;
             ErtsPollEvents revents = pollres[i].events;
 
             if (revents & ERTS_POLL_EV_ERR) {

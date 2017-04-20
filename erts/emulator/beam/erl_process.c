@@ -280,6 +280,7 @@ schdlr_sspnd_get_nscheds(ErtsSchedTypeCounters *valp,
     }
 }
 
+#ifdef DEBUG
 static ERTS_INLINE Uint32
 schdlr_sspnd_get_nscheds_tot(ErtsSchedTypeCounters *valp)
 {
@@ -290,6 +291,7 @@ schdlr_sspnd_get_nscheds_tot(ErtsSchedTypeCounters *valp)
 #endif
     return res;
 }
+#endif
 
 static ERTS_INLINE void
 schdlr_sspnd_dec_nscheds(ErtsSchedTypeCounters *valp,
@@ -11374,7 +11376,7 @@ erts_execute_dirty_system_task(Process *c_p)
 
 	switch (st->type) {
 	case ERTS_PSTT_CLA:
-	    ASSERT(is_value(st_res));
+	    ASSERT(is_value(cla_res));
 	    st_res = cla_res;
 	    break;
 	case ERTS_PSTT_GC_MAJOR:

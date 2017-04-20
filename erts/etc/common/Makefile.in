@@ -360,7 +360,7 @@ Install.ini:	../$(TARGET)/Install.src ../../vsn.mk $(TARGET)/Makefile
 
 
 else
-RC_GENERATED =
+RC_GENERATED =  $(ERL_TOP)/erts/$(TARGET)/config.h
 endif
 #---------------------------------------------------------
 # End of windows specific targets.

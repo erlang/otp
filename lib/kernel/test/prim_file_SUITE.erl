@@ -19,8 +19,8 @@
 %%
 -module(prim_file_SUITE).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 read_write_file/1]).
+	 init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2,
+	 read_write_file/1, free_memory/0]).
 -export([cur_dir_0a/1, cur_dir_0b/1, 
 	 cur_dir_1a/1, cur_dir_1b/1, 
 	 make_del_dir_a/1, make_del_dir_b/1,
@@ -114,6 +114,18 @@ groups() ->
      {links, [],
       [make_link_a, make_link_b, read_link_info_for_non_link,
        symlinks_a, symlinks_b, list_dir_error]}].
+
+init_per_testcase(large_write, Config) ->
+    {ok, Started} = application:ensure_all_started(os_mon),
+    [{started, Started}|Config];
+init_per_testcase(_TestCase, Config) ->
+    Config.
+
+end_per_testcase(large_write, Config) ->
+    [application:stop(App) || App <- lists:reverse(proplists:get_value(started, Config))],
+    ok;
+end_per_testcase(_, _Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -2022,11 +2034,13 @@ run_large_file_test(Config, Run, Name) ->
 	{{unix,sunos},OsVersion} when OsVersion < {5,5,1} ->
 	    {skip,"Only supported on Win32, Unix or SunOS >= 5.5.1"};
 	{{unix,_},_} ->
-	    N = unix_free(proplists:get_value(priv_dir, Config)),
-	    io:format("Free disk: ~w KByte~n", [N]),
-	    if N < 5 bsl 20 ->
+	    DiscFree = unix_free(proplists:get_value(priv_dir, Config)),
+            MemFree = free_memory(),
+	    io:format("Free disk: ~w KByte~n", [DiscFree]),
+	    io:format("Free mem: ~w MByte~n", [MemFree]),
+	    if DiscFree < 5 bsl 20; MemFree < 5 bsl 10 ->
 		    %% Less than 5 GByte free
-		    {skip,"Less than 5 GByte free disk"};
+		    {skip,"Less than 5 GByte free disk/mem"};
 	       true ->
 		    do_run_large_file_test(Config, Run, Name)
 	    end;
@@ -2078,6 +2092,27 @@ zip_data([], Bs) ->
     Bs;
 zip_data(As, []) ->
     As.
+
+%% Stolen from emulator -> alloc_SUITE
+free_memory() ->
+    %% Free memory in MB.
+    try
+	SMD = memsup:get_system_memory_data(),
+	{value, {free_memory, Free}} = lists:keysearch(free_memory, 1, SMD),
+	TotFree = (Free +
+		   case lists:keysearch(cached_memory, 1, SMD) of
+		       {value, {cached_memory, Cached}} -> Cached;
+		       false -> 0
+		   end +
+		   case lists:keysearch(buffered_memory, 1, SMD) of
+		       {value, {buffered_memory, Buffed}} -> Buffed;
+		       false -> 0
+		   end),
+	TotFree div (1024*1024)
+    catch
+	error : undef ->
+	    ct:fail({"os_mon not built"})
+    end.
 
 %%%-----------------------------------------------------------------
 %%% Utilities
