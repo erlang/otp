@@ -372,7 +372,7 @@ loop(Parent, Name, State, Mod, infinity, AutoHibernateTimeout, Debug) ->
 		Msg ->
 			decode_msg(Msg, Parent, Name, State, Mod, infinity, AutoHibernateTimeout, Debug, false)
 	after AutoHibernateTimeout ->
-		proc_lib:hibernate(?MODULE,wake_hib,[Parent, Name, State, Mod, AutoHibernateTimeout, Debug])
+		loop(Parent, Name, State, Mod, hibernate, AutoHibernateTimeout, Debug)
 	end;
 
 loop(Parent, Name, State, Mod, Time, AutoHibernateTimeout, Debug) ->

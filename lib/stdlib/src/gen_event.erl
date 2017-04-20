@@ -287,7 +287,7 @@ fetch_msg(Parent, ServerName, MSL, AutoHibernateTimeout, Debug, Hib) ->
 				      ServerName, {in, Msg}),
 	    handle_msg(Msg, Parent, ServerName, MSL, AutoHibernateTimeout, Debug1)
     after AutoHibernateTimeout ->
-	    proc_lib:hibernate(?MODULE, wake_hib, [Parent, ServerName, MSL, AutoHibernateTimeout, Debug])
+	    loop(Parent, ServerName, MSL, AutoHibernateTimeout, Debug, true)
     end.
 
 handle_msg(Msg, Parent, ServerName, MSL, AutoHibernateTimeout, Debug) ->
