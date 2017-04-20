@@ -206,7 +206,7 @@ SupFlags = #{intensity => MaxR, period => MaxT, ...}</code>
         On the other hand, if it is more important that you keep trying
         even at a high failure rate, you might want a sustained rate of as
         much as 1-2 restarts per second.</p>
-      <p>Avoiding common mistakes:
+      <p>Avoiding common mistakes:</p>
       <list type="bulleted">
         <item>
           <p>Do not forget to consider the burst rate. If you set intensity
@@ -236,7 +236,7 @@ SupFlags = #{intensity => MaxR, period => MaxT, ...}</code>
             most 3 restarts for the top level supervisor might be a better
             choice in this case.</p>
         </item>
-      </list></p>
+      </list>
     </section>
   </section>
 
