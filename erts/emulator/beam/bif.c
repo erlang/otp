@@ -4888,6 +4888,7 @@ BIF_RETTYPE phash2_1(BIF_ALIST_1)
 BIF_RETTYPE phash2_2(BIF_ALIST_2)
 {
     Uint32 hash;
+    Uint32 final_hash;
     Uint32 range;
 
     /* Check for special case 2^32 */
@@ -4900,19 +4901,23 @@ BIF_RETTYPE phash2_2(BIF_ALIST_2)
 	}
 	range = (Uint32) u;
     }
-    hash = make_hash2_within_range(BIF_ARG_1, range);
-
+    hash = make_hash2(BIF_ARG_1);
+    if (range) {
+	final_hash = hash % range; /* [0..range-1] */
+    } else {
+	final_hash = hash;
+    }
     /*
      * Return either a small or a big. Use the heap for bigs if there is room.
      */
 #if defined(ARCH_64)
-    BIF_RET(make_small(hash));
+    BIF_RET(make_small(final_hash));
 #else
-    if (IS_USMALL(0, hash)) {
-	BIF_RET(make_small(hash));
+    if (IS_USMALL(0, final_hash)) {
+	BIF_RET(make_small(final_hash));
     } else {
 	Eterm* hp = HAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
-	BIF_RET(uint_to_big(hash, hp));
+	BIF_RET(uint_to_big(final_hash, hp));
     }
 #endif
 }

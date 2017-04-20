@@ -2384,22 +2384,6 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name>
-        <ret>unsigned long</ret>
-        <nametext>enif_phash2_ranged(ERL_NIF_TERM term, unsigned long range)</nametext>
-      </name>
-      <fsummary>Portable hash function.</fsummary>
-      <desc>
-        <p>Similar to <seealso marker="#enif_phash2"><c>enif_phash2</c></seealso>
-          but hash range can be specified. Corresponds to
-          <seealso marker="erlang#phash2-2"><c>erlang:phash2/2</c></seealso>.</p>
-        <p>Returns an unsigned integer within <c>0..range-1</c>
-          if <c>0 &lt; range &lt; 2^32</c>, and within <c>0..2^32-1</c> otherwise.
-        </p>
-      </desc>
-    </func>
-
-    <func>
      <name><ret>int</ret><nametext>enif_port_command(ErlNifEnv* env, const
        ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg)</nametext>
      </name>

@@ -695,15 +695,6 @@ static ERL_NIF_TERM phash2_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     return enif_make_ulong(env, enif_phash2(argv[0]));
 }
 
-static ERL_NIF_TERM phash2_ranged_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    unsigned long range;
-    if (argc != 2 || !enif_get_ulong(env, argv[1], &range)) {
-        return enif_make_badarg(env);
-    }
-    return enif_make_ulong(env, enif_phash2_ranged(argv[0], range));
-}
-
 static ERL_NIF_TERM many_args_100(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     int i, k;
@@ -2882,7 +2873,6 @@ static ErlNifFunc nif_funcs[] =
     {"is_identical",2,is_identical},
     {"compare",2,compare},
     {"phash2_nif",1,phash2_nif},
-    {"phash2_ranged_nif",2,phash2_ranged_nif},
     {"many_args_100", 100, many_args_100},
     {"clone_bin", 1, clone_bin},
     {"make_sub_bin", 3, make_sub_bin},
