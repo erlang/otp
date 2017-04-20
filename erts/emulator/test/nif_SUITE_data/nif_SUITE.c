@@ -687,12 +687,24 @@ static ERL_NIF_TERM compare(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_int(env, enif_compare(argv[0],argv[1]));
 }
 
-static ERL_NIF_TERM phash2_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    if (argc != 1) {
+    if (argc != 2) {
         return enif_make_badarg(env);
     }
-    return enif_make_ulong(env, enif_phash2(argv[0]));
+
+    ErlNifHash type;
+    if (enif_is_identical(argv[0], enif_make_atom(env, "internal"))) {
+        type = ERL_NIF_INTERNAL_HASH;
+    }
+    else if (enif_is_identical(argv[0], enif_make_atom(env, "phash2"))) {
+        type = ERL_NIF_PHASH2;
+    }
+    else {
+        return enif_make_badarg(env);
+    }
+
+    return enif_make_ulong(env, enif_hash(type, argv[1]));
 }
 
 static ERL_NIF_TERM many_args_100(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -2872,7 +2884,7 @@ static ErlNifFunc nif_funcs[] =
     {"tuple_2_list", 1, tuple_2_list},
     {"is_identical",2,is_identical},
     {"compare",2,compare},
-    {"phash2_nif",1,phash2_nif},
+    {"hash_nif",2,hash_nif},
     {"many_args_100", 100, many_args_100},
     {"clone_bin", 1, clone_bin},
     {"make_sub_bin", 3, make_sub_bin},

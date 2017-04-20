@@ -236,6 +236,11 @@ typedef enum {
     ERL_NIF_BIN2TERM_SAFE = 0x20000000
 } ErlNifBinaryToTerm;
 
+typedef enum {
+    ERL_NIF_INTERNAL_HASH = 1,
+    ERL_NIF_PHASH2 = 2
+} ErlNifHash;
+
 /*
  * Return values from enif_thread_type(). Negative values
  * reserved for specific types of non-scheduler threads.

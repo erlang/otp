@@ -57,6 +57,7 @@
          nif_term_to_binary/1, nif_binary_to_term/1,
          nif_port_command/1,
          nif_snprintf/1,
+         nif_internal_hash/1,
          nif_phash2/1
 	]).
 
@@ -92,6 +93,7 @@ all() ->
      nif_term_to_binary, nif_binary_to_term,
      nif_port_command,
      nif_snprintf,
+     nif_internal_hash,
      nif_phash2].
 
 groups() ->
@@ -2612,15 +2614,54 @@ nif_snprintf(Config) ->
     <<"{{hello,world,-33},",0>> = format_term_nif(20,{{hello,world, -33}, 3.14, self()}),
     ok.
 
+nif_internal_hash(Config) ->
+    ensure_lib_loaded(Config),
+    Terms =
+        [random_term() || _ <- lists:seq(1, 5000)],
+
+    % Unlike the phash2 hash, in this case we
+    % have nothing to compare to, so let's try
+    % and at least make sure the distribution
+    % isn't outright wrong, statistical nuances
+    % aside.
+
+    OnesPerBit =
+        lists:foldl(
+          fun (Term, Acc) ->
+                  NifHashValue = hash_nif(internal, Term),
+                  lists:foldl(
+                    fun (BitIndex, AccB) ->
+                            BitValue = (NifHashValue band (1 bsl BitIndex)) bsr BitIndex,
+                            dict:update_counter(BitIndex, BitValue, AccB)
+                    end,
+                    Acc,
+                    lists:seq(0, 31))
+          end,
+          dict:new(),
+          Terms),
+
+    ExpectedNrOfOnes = length(Terms) div 2,
+    dict:fold(
+      fun (BitIndex, NrOfOnes, Acc) ->
+              RelativeDeviation = abs(NrOfOnes - ExpectedNrOfOnes) / ExpectedNrOfOnes,
+              (RelativeDeviation < 0.10
+               orelse ct:fail("Unreasonable deviation on number of set bits (i=~p): "
+                              "expected ~p, got ~p (relative dev. ~.3f)",
+                              [BitIndex, ExpectedNrOfOnes, NrOfOnes, RelativeDeviation])),
+              Acc
+      end,
+      ok,
+      OnesPerBit).
+
 nif_phash2(Config) ->
     ensure_lib_loaded(Config),
     Terms =
-        [random_term() || _ <- lists:seq(1, 1000)],
+        [random_term() || _ <- lists:seq(1, 5000)],
 
     lists:foreach(
       fun (Term) ->
               HashValue = erlang:phash2(Term),
-              NifHashValue = phash2_nif(Term),
+              NifHashValue = hash_nif(phash2, Term),
               (HashValue =:= NifHashValue
                orelse ct:fail("Expected: ~p\nActual:   ~p",
                               [HashValue, NifHashValue]))
@@ -2673,7 +2714,7 @@ type_test() -> ?nif_stub.
 tuple_2_list(_) -> ?nif_stub.    
 is_identical(_,_) -> ?nif_stub.
 compare(_,_) -> ?nif_stub.
-phash2_nif(_) -> ?nif_stub.
+hash_nif(_, _) -> ?nif_stub.
 many_args_100(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
 clone_bin(_) -> ?nif_stub.
 make_sub_bin(_,_,_) -> ?nif_stub.
