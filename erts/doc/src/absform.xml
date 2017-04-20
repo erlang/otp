@@ -365,7 +365,7 @@
           <c>{cons,LINE,Rep(E_h),Rep(E_t)}</c>.</p>
       </item>
       <item>
-        <p>>If E is a fun expression <c>fun Name/Arity</c>, then Rep(E) =
+        <p>If E is a fun expression <c>fun Name/Arity</c>, then Rep(E) =
           <c>{'fun',LINE,{function,Name,Arity}}</c>.</p>
       </item>
       <item>
