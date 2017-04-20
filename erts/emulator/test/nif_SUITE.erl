@@ -2627,13 +2627,11 @@ nif_phash2(Config) ->
       end,
       Terms).
 
--define(HALF_DBL_EPSILON, 1.1102230246251565e-16). % math:pow(2, -53)
-
 random_term() ->
     case rand:uniform(6) of
         1 -> rand:uniform(1 bsl 27) - 1; % small
         2 -> (1 bsl 27) + rand:uniform(1 bsl 128); % big
-        3 -> random_sign() * (rand:uniform() * ?HALF_DBL_EPSILON); % float
+        3 -> random_sign() * (rand:uniform() * (1 bsl 53)); % float
         4 -> random_binary();
         5 -> random_pid();
         6 ->
