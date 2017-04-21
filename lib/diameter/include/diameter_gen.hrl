@@ -193,8 +193,8 @@ pack_AVP(_Name, {_Dict, _AvpName, _Data}= T) ->
 
 decode_avps(Name, Recs) ->
     {Avps, {Rec, Failed}}
-        = lists:foldl(fun(T,A) -> decode(Name, T, A) end,
-                      {[], {newrec(Name), []}},
+        = mapfoldl(fun(T,A) -> decode(Name, T, A) end,
+                      {newrec(Name), []},
                       Recs),
     {Rec, Avps, Failed ++ missing(Rec, Name, Failed)}.
 %% Append 5005 errors so that errors are reported in the order
@@ -203,6 +203,19 @@ decode_avps(Name, Recs) ->
 
 newrec(Name) ->
     '#new-'(name2rec(Name)).
+
+%% mapfoldl/3
+%%
+%% Like lists:mapfoldl/3, but don't reverse the list.
+
+mapfoldl(F, Acc, List) ->
+    mapfoldl(F, Acc, List, []).
+
+mapfoldl(F, Acc0, [T|Rest], List) ->
+    {B, Acc} = F(T, Acc0),
+    mapfoldl(F, Acc, Rest, [B|List]);
+mapfoldl(_, Acc, [], List) ->
+    {List, Acc}.
 
 %% 3588:
 %%
@@ -355,9 +368,8 @@ d(Name, Avp, Acc) ->
 
     try Mod:avp(decode, Data, AvpName) of
         V ->
-            {Avps, T} = Acc,
             {H, A} = ungroup(V, Avp),
-            {[H | Avps], pack_avp(Name, A, T)}
+            {H, pack_avp(Name, A, Acc)}
     catch
         throw: {?TAG, {grouped, Error, ComponentAvps}} ->
             g(is_failed(), Error, Name, trim(Avp), Acc, ComponentAvps);
@@ -417,9 +429,9 @@ g(false, Error, _Name, Avp, Acc, ComponentAvps) ->
 %% g/4
 
 g({RC, ErrorData}, Avp, Acc, ComponentAvps) ->
-    {Avps, {Rec, Errors}} = Acc,
+    {Rec, Errors} = Acc,
     E = Avp#diameter_avp{data = [ErrorData]},
-    {[[Avp | trim(ComponentAvps)] | Avps], {Rec, [{RC, E} | Errors]}}.
+    {[Avp | trim(ComponentAvps)], {Rec, [{RC, E} | Errors]}}.
 
 %% d/5
 
@@ -431,14 +443,14 @@ d(true, _, Name, Avp, Acc) ->
 %% occurrence if the peer sends a faulty AVP that we need to respond
 %% sensibly to. Log the occurence for traceability, but the peer will
 %% also receive info in the resulting answer message.
-d(false, Reason, Name, Avp, {Avps, Acc}) ->
+d(false, Reason, Name, Avp, Acc) ->
     Stack = diameter_lib:get_stacktrace(),
     diameter_lib:log(decode_error,
                      ?MODULE,
                      ?LINE,
                      {Name, Avp#diameter_avp.name, Stack}),
     {Rec, Failed} = Acc,
-    {[Avp|Avps], {Rec, [rc(Reason, Avp) | Failed]}}.
+    {Avp, {Rec, [rc(Reason, Avp) | Failed]}}.
 
 %% relax/2
 
@@ -498,8 +510,8 @@ reset(_, _) ->
 %% Don't know this AVP: see if it can be packed in an 'AVP' field
 %% undecoded. Note that the type field is 'undefined' in this case.
 
-decode_AVP(Name, Avp, {Avps, Acc}) ->
-    {[trim(Avp) | Avps], pack_AVP(Name, Avp, Acc)}.
+decode_AVP(Name, Avp, Acc) ->
+    {trim(Avp), pack_AVP(Name, Avp, Acc)}.
 
 %% rc/1
 
