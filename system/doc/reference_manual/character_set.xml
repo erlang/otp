@@ -110,7 +110,8 @@
        Guide</seealso>.</p>
        <p>From Erlang/OTP 20, atoms and function names are also allowed
        to contain Unicode characters outside the ISO-Latin-1 range.
-       Module names are still restricted to the ISO-Latin-1 range.</p>
+       Module names, application names, and node names are still
+       restricted to the ISO-Latin-1 range.</p>
   </section>
   <section>
     <title>Source File Encoding</title>
