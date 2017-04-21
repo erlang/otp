@@ -372,7 +372,7 @@ get_tls_records_aux(Data, Acc) ->
 	end.
 
 encode_plain_text(Type, Version, Data, #{current_write := Write0} = ConnectionStates) ->
-    {CipherFragment, Write1} = ssl_record:encode_plain_text(Type, Version, Data, Write0),
+    {CipherFragment, Write1} = do_encode_plain_text(Type, Version, Data, Write0),
     {CipherText, Write} = encode_tls_cipher_text(Type, Version, CipherFragment, Write1),
     {CipherText, ConnectionStates#{current_write => Write}}.
 
@@ -446,19 +446,24 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 		   #{current_read :=
 			 #{compression_state := CompressionS0,
 			   sequence_number := Seq,
+                           cipher_state := CipherS0,
 			   security_parameters :=
 			       #security_parameters{
 				  cipher_type = ?AEAD,
+                                  bulk_cipher_algorithm =
+                                      BulkCipherAlgo,
 				  compression_algorithm = CompAlg}
 			  } = ReadState0} = ConnnectionStates0, _) ->
-    AAD = ssl_cipher:calc_aad(Type, Version, ReadState0),
-    case ssl_record:decipher_aead(Version, CipherFragment, ReadState0, AAD) of
-	{PlainFragment, ReadState1} ->
+    AAD = calc_aad(Type, Version, ReadState0),
+    case ssl_cipher:decipher_aead(BulkCipherAlgo, CipherS0, Seq, AAD, CipherFragment, Version) of
+	{PlainFragment, CipherS1} ->
 	    {Plain, CompressionS1} = ssl_record:uncompress(CompAlg,
 							   PlainFragment, CompressionS0),
 	    ConnnectionStates = ConnnectionStates0#{
-				  current_read => ReadState1#{sequence_number => Seq + 1,
-							      compression_state => CompressionS1}},
+				  current_read => ReadState0#{
+                                                    cipher_state => CipherS1,
+                                                    sequence_number => Seq + 1,
+                                                    compression_state => CompressionS1}},
 	    {CipherText#ssl_tls{fragment = Plain}, ConnnectionStates};
 	#alert{} = Alert ->
 	    Alert
@@ -489,4 +494,29 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 	    end;
 	    #alert{} = Alert ->
 	    Alert
-    end. 
+    end.
+
+do_encode_plain_text(Type, Version, Data, #{compression_state := CompS0,
+					 security_parameters :=
+					     #security_parameters{
+						cipher_type = ?AEAD,
+						compression_algorithm = CompAlg}
+					} = WriteState0) ->
+    {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
+    WriteState1 = WriteState0#{compression_state => CompS1},
+    AAD = calc_aad(Type, Version, WriteState1),
+    ssl_record:cipher_aead(Version, Comp, WriteState1, AAD);
+do_encode_plain_text(Type, Version, Data, #{compression_state := CompS0,
+					 security_parameters :=
+					     #security_parameters{compression_algorithm = CompAlg}
+					}= WriteState0) ->
+    {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
+    WriteState1 = WriteState0#{compression_state => CompS1},
+    MacHash = ssl_cipher:calc_mac_hash(Type, Version, Comp, WriteState1),
+    ssl_record:cipher(Version, Comp, WriteState1, MacHash);
+do_encode_plain_text(_,_,_,CS) ->
+    exit({cs, CS}).
+
+calc_aad(Type, {MajVer, MinVer},
+	 #{sequence_number := SeqNo}) ->
+    <<?UINT64(SeqNo), ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.

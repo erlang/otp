@@ -40,7 +40,7 @@
 	 ec_keyed_suites/0, anonymous_suites/1, psk_suites/1, srp_suites/0,
 	 rc4_suites/1, des_suites/1, openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
-	 random_bytes/1, calc_aad/3, calc_mac_hash/4,
+	 random_bytes/1, calc_mac_hash/4,
          is_stream_ciphersuite/1]).
 
 -export_type([cipher_suite/0,
@@ -157,7 +157,7 @@ cipher_aead(?CHACHA20_POLY1305, CipherState, SeqNo, AAD, Fragment, Version) ->
 aead_cipher(chacha20_poly1305, #cipher_state{key=Key} = CipherState, SeqNo, AAD0, Fragment, _Version) ->
     CipherLen = erlang:iolist_size(Fragment),
     AAD = <<AAD0/binary, ?UINT16(CipherLen)>>,
-    Nonce = <<SeqNo:64/integer>>,
+    Nonce = ?uint64(SeqNo),
     {Content, CipherTag} = crypto:block_encrypt(chacha20_poly1305, Key, Nonce, {AAD, Fragment}),
     {<<Content/binary, CipherTag/binary>>, CipherState};
 aead_cipher(Type, #cipher_state{key=Key, iv = IV0, nonce = Nonce} = CipherState, _SeqNo, AAD0, Fragment, _Version) ->
@@ -280,7 +280,7 @@ aead_ciphertext_to_state(chacha20_poly1305, SeqNo, _IV, AAD0, Fragment, _Version
     CipherLen = size(Fragment) - 16,
     <<CipherText:CipherLen/bytes, CipherTag:16/bytes>> = Fragment,
     AAD = <<AAD0/binary, ?UINT16(CipherLen)>>,
-    Nonce = <<SeqNo:64/integer>>,
+    Nonce = ?uint64(SeqNo),
     {Nonce, AAD, CipherText, CipherTag};
 aead_ciphertext_to_state(_, _SeqNo, <<Salt:4/bytes, _/binary>>, AAD0, Fragment, _Version) ->
     CipherLen = size(Fragment) - 24,
@@ -1530,10 +1530,6 @@ is_fallback(CipherSuites)->
 %%--------------------------------------------------------------------
 random_bytes(N) ->
     crypto:strong_rand_bytes(N).
-
-calc_aad(Type, {MajVer, MinVer},
-	 #{sequence_number := SeqNo}) ->
-    <<SeqNo:64/integer, ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.
 
 calc_mac_hash(Type, Version,
 	      PlainFragment, #{sequence_number := SeqNo,

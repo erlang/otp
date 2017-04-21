@@ -439,43 +439,59 @@ encode_dtls_cipher_text(Type, {MajVer, MinVer}, Fragment,
 encode_plain_text(Type, Version, Data, #{compression_state := CompS0,
 					 epoch := Epoch,
 					 sequence_number := Seq,
+                                         cipher_state := CipherS0,
 					 security_parameters :=
 					     #security_parameters{
 						cipher_type = ?AEAD,
+                                                  bulk_cipher_algorithm =
+                                                    BulkCipherAlgo,
 						compression_algorithm = CompAlg}
 					} = WriteState0) ->
     {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
-    WriteState1 = WriteState0#{compression_state => CompS1},
     AAD = calc_aad(Type, Version, Epoch, Seq),
-    ssl_record:cipher_aead(dtls_v1:corresponding_tls_version(Version), Comp, WriteState1, AAD);
-encode_plain_text(Type, Version, Data, #{compression_state := CompS0,
+    TLSVersion = dtls_v1:corresponding_tls_version(Version),
+    {CipherFragment, CipherS1} =
+	ssl_cipher:cipher_aead(BulkCipherAlgo, CipherS0, Seq, AAD, Comp, TLSVersion),
+    {CipherFragment,  WriteState0#{compression_state => CompS1,
+                                   cipher_state => CipherS1}};
+encode_plain_text(Type, Version, Fragment, #{compression_state := CompS0,
 					 epoch := Epoch,
 					 sequence_number := Seq,
+                                         cipher_state := CipherS0,
 					 security_parameters :=
-					     #security_parameters{compression_algorithm = CompAlg}
+					     #security_parameters{compression_algorithm = CompAlg,
+                                                                  bulk_cipher_algorithm =
+                                                                      BulkCipherAlgo}
 					}= WriteState0) ->
-    {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
+    {Comp, CompS1} = ssl_record:compress(CompAlg, Fragment, CompS0),
     WriteState1 = WriteState0#{compression_state => CompS1},
-    MacHash = calc_mac_hash(Type, Version, WriteState1, Epoch, Seq, Comp),
-    ssl_record:cipher(dtls_v1:corresponding_tls_version(Version), Comp, WriteState1, MacHash).
+    MAC = calc_mac_hash(Type, Version, WriteState1, Epoch, Seq, Comp),
+    TLSVersion = dtls_v1:corresponding_tls_version(Version),
+    {CipherFragment, CipherS1} =
+	ssl_cipher:cipher(BulkCipherAlgo, CipherS0, MAC, Fragment, TLSVersion),
+    {CipherFragment,  WriteState0#{cipher_state => CipherS1}}.
 
 decode_cipher_text(#ssl_tls{type = Type, version = Version,
 			    epoch = Epoch,
 			    sequence_number = Seq,
 			    fragment = CipherFragment} = CipherText,
 		   #{compression_state := CompressionS0,
+                     cipher_state := CipherS0,
 		     security_parameters :=
 			 #security_parameters{
 			    cipher_type = ?AEAD,
+                            bulk_cipher_algorithm =
+                                BulkCipherAlgo,
 			    compression_algorithm = CompAlg}} = ReadState0, 
 		   ConnnectionStates0) ->
     AAD = calc_aad(Type, Version, Epoch, Seq),
-    case ssl_record:decipher_aead(dtls_v1:corresponding_tls_version(Version),
-				  CipherFragment, ReadState0, AAD) of
-	{PlainFragment, ReadState1} ->
+    TLSVersion = dtls_v1:corresponding_tls_version(Version),
+    case  ssl_cipher:decipher_aead(BulkCipherAlgo, CipherS0, Seq, AAD, CipherFragment, TLSVersion) of
+	{PlainFragment, CipherState} ->
 	    {Plain, CompressionS1} = ssl_record:uncompress(CompAlg,
 							   PlainFragment, CompressionS0),
-	    ReadState = ReadState1#{compression_state => CompressionS1},
+	    ReadState = ReadState0#{compression_state => CompressionS1,
+                                    cipher_state => CipherState},
 	    ConnnectionStates = set_connection_state_by_epoch(ReadState, Epoch, ConnnectionStates0, read),
 	    {CipherText#ssl_tls{fragment = Plain}, ConnnectionStates};
 	  #alert{} = Alert ->
@@ -528,5 +544,4 @@ mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
 		     Length, Fragment).
 
 calc_aad(Type, {MajVer, MinVer}, Epoch, SeqNo) ->
-    NewSeq = (Epoch bsl 48) + SeqNo,
-    <<NewSeq:64/integer, ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.
+    <<?UINT16(Epoch), ?UINT48(SeqNo), ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.
