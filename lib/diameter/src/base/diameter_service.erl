@@ -110,9 +110,6 @@
          service :: #diameter_service{},
          watchdogT = ets_new(watchdogs) %% #watchdog{} at start
                   :: ets:tid(),
-         peerT,         %% undefined in new code, but remain for upgrade
-         shared_peers,  %% reasons. Replaced by local/remote.
-         local_peers,   %%
          local  :: {ets:tid(), ets:tid(), ets:tid()},
          remote :: {ets:tid(), ets:tid(), ets:tid()},
          monitor = false :: false | pid(),   %% process to die with
@@ -556,80 +553,8 @@ terminate(Reason, #state{service_name = Name, local = {PeerT, _, _}} = S) ->
 %% # code_change/3
 %% ---------------------------------------------------------------------------
 
-code_change(_FromVsn, #state{} = S, _Extra) ->
-    {ok, S};
-
-%% Don't support downgrade since we won't in appup.
-code_change({down = T, _}, _, _Extra) ->
-    {error, T};
-
-%% Upgrade local/shared peers dicts populated in old code. Don't
-code_change(_FromVsn, S0, _Extra) ->
-    {state, Id, SvcName, Svc, WT, PeerT, SDict, LDict, Monitor, Opts}
-        = S0,
-
-    init_peers(LT = setelement(1, {PT, _, _} = init_peers(), PeerT),
-               fun({_,A}) -> A end),
-    init_peers(init_peers(RT = init_peers(), SDict),
-               fun(A) -> A end),
-
-    S = #state{id = Id,
-               service_name = SvcName,
-               service = Svc,
-               watchdogT = WT,
-               peerT = PT,  %% empty
-               shared_peers = SDict,
-               local_peers = LDict,
-               local = LT,
-               remote = RT,
-               monitor = Monitor,
-               options = Opts},
-
-    %% Replacing the table entry and deleting the old shared tables
-    %% can make outgoing requests return {error, no_connection} until
-    %% everyone is running new code. Don't delete the tables to avoid
-    %% crashing request processes.
-    ets:delete_all_objects(SDict),
-    ets:delete_all_objects(LDict),
-    ets:insert(?STATE_TABLE, S),
+code_change(_FromVsn, S, _Extra) ->
     {ok, S}.
-
-%% init_peers/2
-
-%% Populate app and identity bags from a new-style #peer{} sets.
-init_peers({PeerT, _, _} = T, F)
-  when is_function(F) ->
-    ets:foldl(fun(#peer{pid = P, apps = As, caps = C}, N) ->
-                      insert_peer(P, lists:map(F, As), C, T),
-                      N+1
-              end,
-              0,
-              PeerT);
-
-%% Populate #peer{} table given a shared peers dict.
-init_peers({PeerT, _, _}, SDict) ->
-    dict:fold(fun(P, As, N) ->
-                      ets:update_element(PeerT, P, {#peer.apps, As}),
-                      N+1
-              end,
-              0,
-              diameter_dict:fold(fun(A, Ps, D) ->
-                                         init_peers(A, Ps, PeerT, D)
-                                 end,
-                                 dict:new(),
-                                 SDict)).
-
-%% init_peers/4
-
-init_peers(App, TCs, PeerT, Dict) ->
-    lists:foldl(fun({P,C}, D) ->
-                        ets:insert(PeerT, #peer{pid = P,
-                                                apps = [],
-                                                caps = C}),
-                        dict:append(P, App, D)
-                end,
-                Dict,
-                TCs).
 
 %% ===========================================================================
 %% ===========================================================================

@@ -58,14 +58,7 @@ putr(K,V) ->
     put({?TAG, K}, V).
 
 getr(K) ->
-    case get({?TAG, K}) of
-        undefined ->
-            V = erase({?MODULE, K}),  %% written in old code
-            V == undefined orelse putr(K,V),
-            V;
-        V ->
-            V
-    end.
+    get({?TAG, K}).
 
 eraser(K) ->
     erase({?TAG, K}).

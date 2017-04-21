@@ -39,7 +39,6 @@ RT_MODULES = \
 	base/diameter_config \
 	base/diameter_config_sup \
 	base/diameter_codec \
-	base/diameter_dict \
 	base/diameter_lib \
 	base/diameter_misc_sup \
 	base/diameter_peer \
