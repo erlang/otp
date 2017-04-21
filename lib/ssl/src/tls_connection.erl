@@ -220,7 +220,7 @@ init({call, From}, {start, Timeout},
 				       Cache, CacheCb, Renegotiation, Cert),
     
     Version = Hello#client_hello.client_version,
-    HelloVersion = tls_record:lowest_protocol_version(SslOpts#ssl_options.versions),
+    HelloVersion = tls_record:hello_version(Version, SslOpts#ssl_options.versions),
     Handshake0 = ssl_handshake:init_handshake_history(),
     {BinMsg, ConnectionStates, Handshake} =
         encode_handshake(Hello,  HelloVersion, ConnectionStates0, Handshake0, V2HComp),
