@@ -204,6 +204,7 @@ erl_sys_late_init(void)
 #ifdef ERTS_SMP
     erts_mtx_unlock(port->lock);
 #endif
+    erts_sys_unix_later_init(); /* Need to be called after forker has been started */
 }
 
 /* II. Prototypes */

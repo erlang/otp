@@ -322,6 +322,7 @@ extern SIGFUNC sys_signal(int, SIGFUNC);
 extern void sys_sigrelease(int);
 extern void sys_sigblock(int);
 extern void sys_init_suspend_handler(void);
+extern void erts_sys_unix_later_init(void);
 
 /*
  * Handling of floating point exceptions.
