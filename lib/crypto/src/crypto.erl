@@ -35,7 +35,6 @@
 -export([rand_plugin_next/1]).
 -export([rand_plugin_uniform/1]).
 -export([rand_plugin_uniform/2]).
--export([rand_plugin_jump/1]).
 -export([rand_uniform/2]).
 -export([block_encrypt/3, block_decrypt/3, block_encrypt/4, block_decrypt/4]).
 -export([next_iv/2, next_iv/3]).
@@ -316,11 +315,10 @@ rand_seed() ->
 
 rand_seed_s() ->
     {#{ type => ?MODULE,
-        max => infinity,
+        bits => 64,
         next => fun ?MODULE:rand_plugin_next/1,
         uniform => fun ?MODULE:rand_plugin_uniform/1,
-        uniform_n => fun ?MODULE:rand_plugin_uniform/2,
-        jump => fun ?MODULE:rand_plugin_jump/1},
+        uniform_n => fun ?MODULE:rand_plugin_uniform/2},
      no_seed}.
 
 rand_plugin_next(Seed) ->
@@ -332,8 +330,6 @@ rand_plugin_uniform(State) ->
 rand_plugin_uniform(Max, State) ->
     {bytes_to_integer(strong_rand_range(Max)) + 1, State}.
 
-rand_plugin_jump(State) ->
-    State.
 
 strong_rand_range(Range) when is_integer(Range), Range > 0 ->
     BinRange = int_to_bin(Range),

@@ -50,26 +50,73 @@
     <p>The following algorithms are provided:</p>
 
     <taglist>
-      <tag><c>exsplus</c></tag>
+      <tag><c>exrop</c></tag>
       <item>
-        <p>Xorshift116+, 58 bits precision and period of 2^116-1</p>
+        <p>Xoroshiro116+, 58 bits precision and period of 2^116-1</p>
         <p>Jump function: equivalent to 2^64 calls</p>
       </item>
-      <tag><c>exs64</c></tag>
-      <item>
-        <p>Xorshift64*, 64 bits precision and a period of 2^64-1</p>
-        <p>Jump function: not available</p>
-      </item>
-      <tag><c>exs1024</c></tag>
+      <tag><c>exs1024s</c></tag>
       <item>
         <p>Xorshift1024*, 64 bits precision and a period of 2^1024-1</p>
         <p>Jump function: equivalent to 2^512 calls</p>
       </item>
+      <tag><c>exsp</c></tag>
+      <item>
+        <p>Xorshift116+, 58 bits precision and period of 2^116-1</p>
+        <p>Jump function: equivalent to 2^64 calls</p>
+	<p>
+	  This is a corrected version of the previous default algorithm,
+	  that now has been superseeded by Xoroshiro116+ (<c>exrop</c>).
+	  Since there is no native 58 bit rotate instruction this
+	  algorithm executes a little (say &lt; 15%) faster than <c>exrop</c>.
+	  See the 
+	  <url href="http://xorshift.di.unimi.it">algorithms' homepage</url>.
+	</p>
+      </item>
     </taglist>
 
-    <p>The default algorithm is <c>exsplus</c>. If a specific algorithm is
+    <p>
+      The default algorithm is <c>exrop</c> (Xoroshiro116+).
+      If a specific algorithm is
       required, ensure to always use <seealso marker="#seed-1">
-      <c>seed/1</c></seealso> to initialize the state.</p>
+      <c>seed/1</c></seealso> to initialize the state.
+    </p>
+
+    <p>
+      Undocumented (old) algorithms are deprecated but still implemented
+      so old code relying on them will produce
+      the same pseudo random sequences as before.
+    </p>
+
+    <note>
+      <p>
+	There were a number of problems in the implementation
+	of the now undocumented algorithms, which is why
+	they are deprecated.  The new algorithms are a bit slower
+	but do not have these problems:
+      </p>
+      <p>
+	Uniform integer ranges had a skew in the probability distribution
+	that was not noticable for small ranges but for large ranges
+	less than the generator's precision the probability to produce
+	a low number could be twice the probability for a high.
+      </p>
+      <p>
+	Uniform integer ranges larger than or equal to the generator's
+	precision used a floating point fallback that only calculated
+	with 52 bits which is smaller than the requested range
+	and therefore were not all numbers in the requested range
+	even possible to produce.
+      </p>
+      <p>
+	Uniform floats had a non-uniform density so small values
+	i.e less than 0.5 had got smaller intervals decreasing
+	as the generated value approached 0.0 although still uniformly
+	distributed for sufficiently large subranges.  The new algorithms
+	produces uniformly distributed floats on the form N * 2.0^(-53)
+	hence equally spaced.
+      </p>
+    </note>
 
     <p>Every time a random number is requested, a state is used to
       calculate it and a new state is produced. The state can either be
@@ -99,19 +146,19 @@ R1 = rand:uniform(),</pre>
     <p>Use a specified algorithm:</p>
 
     <pre>
-_ = rand:seed(exs1024),
+_ = rand:seed(exs1024s),
 R2 = rand:uniform(),</pre>
 
     <p>Use a specified algorithm with a constant seed:</p>
 
     <pre>
-_ = rand:seed(exs1024, {123, 123534, 345345}),
+_ = rand:seed(exs1024s, {123, 123534, 345345}),
 R3 = rand:uniform(),</pre>
 
    <p>Use the functional API with a non-constant seed:</p>
 
    <pre>
-S0 = rand:seed_s(exsplus),
+S0 = rand:seed_s(exrop),
 {R4, S1} = rand:uniform_s(S0),</pre>
 
    <p>Create a standard normal deviate:</p>
@@ -126,6 +173,39 @@ S0 = rand:seed_s(exsplus),
         <seealso marker="crypto:crypto#rand_seed-0"><c>crypto:rand_seed/0</c></seealso>.
       </p>
     </note>
+
+    <p>
+      For all these generators the lowest bit(s) has got
+      a slightly less random behaviour than all other bits.
+      1 bit for <c>exrop</c> (and <c>exsp</c>),
+      and 3 bits for <c>exs1024s</c>.
+      See for example the explanation in the
+      <url href="http://xoroshiro.di.unimi.it/xoroshiro128plus.c">
+	Xoroshiro128+
+      </url>
+      generator source code:
+    </p>
+    <pre>
+Beside passing BigCrush, this generator passes the PractRand test suite
+up to (and included) 16TB, with the exception of binary rank tests,
+which fail due to the lowest bit being an LFSR; all other bits pass all
+tests. We suggest to use a sign test to extract a random Boolean value.</pre>
+    <p>
+      If this is a problem; to generate a boolean
+      use something like this:
+    </p>
+    <pre>(rand:uniform(16) > 8)</pre>
+    <p>
+      And for a general range, with <c>N = 1</c> for <c>exrop</c>,
+      and <c>N = 3</c> for <c>exs1024s</c>:
+    </p>
+    <pre>(((rand:uniform(Range bsl N) - 1) bsr N) + 1)</pre>
+    <p>
+      The floating point generating functions in this module
+      waste the lowest bits when converting from an integer
+      so they avoid this snag.
+    </p>
+
 
   </description>
   <datatypes>
@@ -142,6 +222,18 @@ S0 = rand:seed_s(exsplus),
       <name name="alg_state"/>
     </datatype>
     <datatype>
+      <name name="state"/>
+      <desc><p>Algorithm-dependent state.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="export_state"/>
+      <desc>
+	<p>
+	  Algorithm-dependent state that can be printed or saved to file.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="exs64_state"/>
       <desc><p>Algorithm specific internal state</p></desc>
     </datatype>
@@ -154,16 +246,8 @@ S0 = rand:seed_s(exsplus),
       <desc><p>Algorithm specific internal state</p></desc>
     </datatype>
     <datatype>
-      <name name="state"/>
-      <desc><p>Algorithm-dependent state.</p></desc>
-    </datatype>
-    <datatype>
-      <name name="export_state"/>
-      <desc>
-	<p>
-	  Algorithm-dependent state that can be printed or saved to file.
-	</p>
-      </desc>
+      <name name="exrop_state"/>
+      <desc><p>Algorithm specific internal state</p></desc>
     </datatype>
   </datatypes>
 
