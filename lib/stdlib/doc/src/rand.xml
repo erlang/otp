@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2015</year><year>2016</year>
+      <year>2015</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -166,6 +166,11 @@ S0 = rand:seed_s(exrop),
    <pre>
 {SND0, S2} = rand:normal_s(S1),</pre>
 
+   <p>Create a normal deviate with mean -3 and variance 0.5:</p>
+
+   <pre>
+{ND0, S3} = rand:normal_s(-3, 0.5, S2),</pre>
+
     <note>
       <p>The builtin random number generator algorithms are not
         cryptographically strong. If a cryptographically strong
@@ -308,12 +313,30 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
+      <name name="normal" arity="2"/>
+      <fsummary>Return a normal distributed random float.</fsummary>
+      <desc>
+        <p>Returns a normal N(Mean, Variance) deviate float
+          and updates the state in the process dictionary.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="normal_s" arity="1"/>
       <fsummary>Return a standard normal distributed random float.</fsummary>
       <desc>
         <p>Returns, for a specified state, a standard normal
           deviate float (that is, the mean is 0 and the standard
           deviation is 1) and a new state.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="normal_s" arity="3"/>
+      <fsummary>Return a normal distributed random float.</fsummary>
+      <desc>
+        <p>Returns, for a specified state, a normal N(Mean, Variance)
+          deviate float and a new state.</p>
       </desc>
     </func>
 

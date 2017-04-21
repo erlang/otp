@@ -31,7 +31,7 @@
 	 export_seed/0, export_seed_s/1,
          uniform/0, uniform/1, uniform_s/1, uniform_s/2,
          jump/0, jump/1,
-	 normal/0, normal_s/1
+	     normal/0, normal/2, normal_s/1, normal_s/3
 	]).
 
 -compile({inline, [exs64_next/1, exsplus_next/1,
@@ -358,6 +358,13 @@ normal() ->
     _ = seed_put(Seed),
     X.
 
+%% normal/2: returns a random float with N(μ, σ²) normal distribution
+%% updating the state in the process dictionary.
+
+-spec normal(Mean :: number(), Variance :: number()) -> float().
+normal(Mean, Variance) ->
+    Mean + (math:sqrt(Variance) * normal()).
+
 %% normal_s/1: returns a random float with standard normal distribution
 %% The Ziggurat Method for generating random variables - Marsaglia and Tsang
 %% Paper and reference code: http://www.jstatsoft.org/v05/i08/
@@ -377,6 +384,13 @@ normal_s(State0) ->
 	false when Sign =:= 0 -> normal_s(Idx, Sign, X, State);
 	false -> normal_s(Idx, Sign, -X, State)
     end.
+
+%% normal_s/3: returns a random float with normal N(μ, σ²) distribution
+
+-spec normal_s(Mean :: number(), Variance :: number(), state()) -> {float(), NewS :: state()}.
+normal_s(Mean, Variance, State0) when Variance > 0 ->
+    {X, State} = normal_s(State0),
+    {Mean + (math:sqrt(Variance) * X), State}.
 
 %% =====================================================================
 %% Internal functions
