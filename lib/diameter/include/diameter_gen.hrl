@@ -635,8 +635,11 @@ pack(Arity, FieldName, Avp, {Rec, _} = Acc) ->
 
 %% pack/5
 
-pack(undefined, 1, FieldName, Avp, Acc) ->
-    p(FieldName, fun(V) -> V end, Avp, Acc);
+pack(undefined, 1, 'AVP' = F, Avp, {Rec, Failed}) ->  %% unlikely
+    {'#set-'({F, Avp}, Rec), Failed};
+
+pack(undefined, 1, F, #diameter_avp{value = V}, {Rec, Failed}) ->
+    {'#set-'({F, V}, Rec), Failed};
 
 %% 3588:
 %%
@@ -649,24 +652,16 @@ pack(undefined, 1, FieldName, Avp, Acc) ->
 
 pack(_, 1, _, Avp, {Rec, Failed}) ->
     {Rec, [{5009, Avp} | Failed]};
-pack(L, {_, Max}, FieldName, Avp, Acc) ->
+
+pack(L, {_, Max}, F, Avp, {Rec, Failed}) ->
     case '*' /= Max andalso has_prefix(Max, L) of
         true ->
-            {Rec, Failed} = Acc,
             {Rec, [{5009, Avp} | Failed]};
+        false when F == 'AVP' ->
+            {'#set-'({F, [Avp | L]}, Rec), Failed};
         false ->
-            p(FieldName, fun(V) -> [V|L] end, Avp, Acc)
+            {'#set-'({F, [Avp#diameter_avp.value | L]}, Rec), Failed}
     end.
-
-%% p/4
-
-p(F, Fun, Avp, {Rec, Failed}) ->
-    {'#set-'({F, Fun(value(F, Avp))}, Rec), Failed}.
-
-value('AVP', Avp) ->
-    Avp;
-value(_, Avp) ->
-    Avp#diameter_avp.value.
 
 %% ---------------------------------------------------------------------------
 %% # grouped_avp/3
