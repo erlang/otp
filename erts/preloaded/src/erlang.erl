@@ -1337,7 +1337,7 @@ pid_to_list(_Pid) ->
     erlang:nif_error(undefined).
 
 %% port_to_list/1
--spec erlang:port_to_list(Port) -> string() when
+-spec port_to_list(Port) -> string() when
       Port :: port().
 port_to_list(_Port) ->
     erlang:nif_error(undefined).
@@ -1547,7 +1547,7 @@ read_timer(_TimerRef, _Options) ->
     erlang:nif_error(undefined).
 
 %% ref_to_list/1
--spec erlang:ref_to_list(Ref) -> string() when
+-spec ref_to_list(Ref) -> string() when
       Ref :: reference().
 ref_to_list(_Ref) ->
     erlang:nif_error(undefined).

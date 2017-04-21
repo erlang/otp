@@ -114,6 +114,7 @@ is_pure(erlang, max, 2) -> true;
 is_pure(erlang, min, 2) -> true;
 is_pure(erlang, phash, 2) -> false;
 is_pure(erlang, pid_to_list, 1) -> true;
+is_pure(erlang, port_to_list, 1) -> true;
 is_pure(erlang, round, 1) -> true;
 is_pure(erlang, setelement, 3) -> true;
 is_pure(erlang, size, 1) -> true;
