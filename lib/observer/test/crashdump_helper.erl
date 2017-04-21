@@ -20,7 +20,7 @@
 
 -module(crashdump_helper).
 -export([n1_proc/2,remote_proc/2]).
--compile(r13).
+-compile(r18).
 -include_lib("common_test/include/ct.hrl").
 
 n1_proc(N2,Creator) ->

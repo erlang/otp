@@ -121,7 +121,6 @@ MODULES= \
 	port_trace_SUITE \
 	unique_SUITE \
 	z_SUITE \
-	old_mod \
 	long_timers_test \
 	ignore_cores \
 	dgawd_handler \
