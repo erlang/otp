@@ -21,7 +21,7 @@
 #ifndef ERL_HL_TIMER_H__
 #define ERL_HL_TIMER_H__
 
-typedef struct ErtsHLTimer_ ErtsBifTimers;
+typedef struct ErtsBifTimer_ ErtsBifTimers;
 typedef struct ErtsHLTimerService_ ErtsHLTimerService;
 
 #include "sys.h"
@@ -56,7 +56,7 @@ void erts_cancel_proc_timer(Process *);
 void erts_set_port_timer(Port *, Sint64);
 void erts_cancel_port_timer(Port *);
 Sint64 erts_read_port_timer(Port *);
-int erts_cancel_bif_timers(Process *, ErtsBifTimers *, void **);
+int erts_cancel_bif_timers(Process *, ErtsBifTimers **, void **);
 int erts_detach_accessor_bif_timers(Process *, ErtsBifTimers *, void **);
 ErtsHLTimerService *erts_create_timer_service(void);
 void erts_hl_timer_init(void);

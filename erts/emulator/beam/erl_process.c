@@ -562,7 +562,6 @@ static int stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, int yreg);
 
 static void aux_work_timeout(void *unused);
 static void aux_work_timeout_early_init(int no_schedulers);
-static void aux_work_timeout_late_init(void);
 static void setup_aux_work_timer(ErtsSchedulerData *esdp);
 
 static int execute_sys_tasks(Process *c_p,
@@ -2792,6 +2791,9 @@ typedef struct {
 
     int initialized;
     erts_atomic32_t refc;
+#ifdef DEBUG
+    erts_atomic32_t used;
+#endif
     erts_atomic32_t type[1];
 } ErtsAuxWorkTmo;
 
@@ -2801,6 +2803,13 @@ static ERTS_INLINE void
 start_aux_work_timer(ErtsSchedulerData *esdp)
 {
     ErtsMonotonicTime tmo = erts_get_monotonic_time(esdp);
+#ifdef DEBUG
+    Uint no = (Uint) erts_atomic32_xchg_mb(&aux_work_tmo->used,
+                                           (erts_aint32_t) esdp->no);
+    ASSERT(esdp->type == ERTS_SCHED_NORMAL);
+    ASSERT(!no);
+#endif
+
     tmo = ERTS_MONOTONIC_TO_CLKTCKS(tmo-1);
     tmo += ERTS_MSEC_TO_CLKTCKS(1000) + 1;
     erts_twheel_init_timer(&aux_work_tmo->timer.data);
@@ -2808,7 +2817,6 @@ start_aux_work_timer(ErtsSchedulerData *esdp)
     erts_twheel_set_timer(esdp->timer_wheel,
 			  &aux_work_tmo->timer.data,
 			  aux_work_timeout,
-			  NULL,
 			  (void *) esdp,
 			  tmo);
 }
@@ -2837,16 +2845,19 @@ aux_work_timeout_early_init(int no_schedulers)
     aux_work_tmo = (ErtsAuxWorkTmo *) p;
     aux_work_tmo->initialized = 0;
     erts_atomic32_init_nob(&aux_work_tmo->refc, 0);
+#ifdef DEBUG
+    erts_atomic32_init_nob(&aux_work_tmo->used, 0);
+#endif
     for (i = 0; i <= no_schedulers; i++)
 	erts_atomic32_init_nob(&aux_work_tmo->type[i], 0);
 }
 
 void
-aux_work_timeout_late_init(void)
+erts_aux_work_timeout_late_init(ErtsSchedulerData *esdp)
 {
     aux_work_tmo->initialized = 1;
-    if (erts_atomic32_read_nob(&aux_work_tmo->refc))
-	start_aux_work_timer(erts_get_scheduler_data());
+    if (erts_atomic32_read_acqb(&aux_work_tmo->refc))
+	start_aux_work_timer(esdp);
 }
 
 static void
@@ -2854,6 +2865,13 @@ aux_work_timeout(void *vesdp)
 {
     erts_aint32_t refc;
     int i;
+#ifdef DEBUG
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    Uint no = (Uint) erts_atomic32_xchg_mb(&aux_work_tmo->used, 0);
+    ASSERT(no == esdp->no);
+    ASSERT(esdp == (ErtsSchedulerData *) vesdp);
+#endif
+
 #ifdef ERTS_SMP
     i = 0;
 #else
@@ -6467,8 +6485,6 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online
     /* init port tasks */
     erts_port_task_init();
 
-    aux_work_timeout_late_init();
-
 #ifndef ERTS_SMP
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
     erts_scheduler_data->verify_unused_temp_alloc
@@ -8753,6 +8769,9 @@ sched_thread_func(void *vesdp)
 #endif
 
     erts_sched_init_time_sup(esdp);
+
+    if (no == 1)
+        erts_aux_work_timeout_late_init(esdp);
 
     (void) ERTS_RUNQ_FLGS_SET_NOB(esdp->run_queue,
 				  ERTS_RUNQ_FLG_EXEC);
@@ -12429,9 +12448,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->msg_inq.len = 0;
 #endif
     p->bif_timers = NULL;
-#ifdef ERTS_BTM_ACCESSOR_SUPPORT
-    p->accessor_bif_timers = NULL;
-#endif
     p->mbuf = NULL;
     p->msg_frag = NULL;
     p->mbuf_sz = 0;
@@ -12630,9 +12646,6 @@ void erts_init_empty_process(Process *p)
     p->msg.save = &p->msg.first;
     p->msg.len = 0;
     p->bif_timers = NULL;
-#ifdef ERTS_BTM_ACCESSOR_SUPPORT
-    p->accessor_bif_timers = NULL;
-#endif
     p->dictionary = NULL;
     p->seq_trace_clock = 0;
     p->seq_trace_lastcnt = 0;
@@ -12733,9 +12746,6 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(p->msg.first == NULL);
     ASSERT(p->msg.len == 0);
     ASSERT(p->bif_timers == NULL);
-#ifdef ERTS_BTM_ACCESSOR_SUPPORT
-    ASSERT(p->accessor_bif_timers == NULL);
-#endif
     ASSERT(p->dictionary == NULL);
     ASSERT(p->catches == 0);
     ASSERT(p->cp == NULL);
@@ -13801,26 +13811,13 @@ erts_continue_exit_process(Process *p)
 
     ASSERT(erts_proc_read_refc(p) > 0);
     if (p->bif_timers) {
-	if (erts_cancel_bif_timers(p, p->bif_timers, &p->u.terminate)) {
+	if (erts_cancel_bif_timers(p, &p->bif_timers, &p->u.terminate)) {
 	    ASSERT(erts_proc_read_refc(p) > 0);
 	    goto yield;
 	}
 	ASSERT(erts_proc_read_refc(p) > 0);
 	p->bif_timers = NULL;
     }
-
-#ifdef ERTS_BTM_ACCESSOR_SUPPORT
-    if (p->accessor_bif_timers) {
-	if (erts_detach_accessor_bif_timers(p,
-					    p->accessor_bif_timers,
-					    &p->u.terminate)) {
-	    ASSERT(erts_proc_read_refc(p) > 0);
-	    goto yield;
-	}
-	ASSERT(erts_proc_read_refc(p) > 0);
-	p->accessor_bif_timers = NULL;
-    }
-#endif
 
 #ifdef ERTS_SMP
     if (p->flags & F_SCHDLR_ONLN_WAITQ)

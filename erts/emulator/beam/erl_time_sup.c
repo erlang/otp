@@ -678,7 +678,6 @@ check_time_correction(void *vesdp)
     erts_twheel_set_timer(esdp->timer_wheel,
 			  &time_sup.inf.c.parmon.timer,
 			  check_time_correction,
-			  NULL,
 			  (void *) esdp,
 			  timeout_pos);
 }
@@ -729,7 +728,6 @@ check_time_offset(void *vesdp)
     erts_twheel_set_timer(esdp->timer_wheel,
 			  &time_sup.inf.c.parmon.timer,
 			  check_time_offset,
-			  NULL,
 			  vesdp,
 			  timeout_pos);
 }
@@ -836,7 +834,6 @@ late_init_time_correction(ErtsSchedulerData *esdp)
     erts_twheel_set_timer(esdp->timer_wheel,
 			  &time_sup.inf.c.parmon.timer,
 			  check_func,
-			  NULL,
 			  (quick_init_drift_adj
 			   ? NULL
 			   : esdp),

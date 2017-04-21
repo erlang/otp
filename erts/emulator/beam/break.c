@@ -590,7 +590,7 @@ do_break(void)
 #endif
 #ifdef DEBUG
 	case 't':
-	    erts_p_slpq();
+	    /* erts_p_slpq(); */
 	    return;
 	case 'b':
 	    bin_check();
