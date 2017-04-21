@@ -331,6 +331,7 @@ bif(list_to_float, 1) -> true;
 bif(list_to_integer, 1) -> true;
 bif(list_to_integer, 2) -> true;
 bif(list_to_pid, 1) -> true;
+bif(list_to_port, 1) -> true;
 bif(list_to_ref, 1) -> true;
 bif(list_to_tuple, 1) -> true;
 bif(load_module, 2) -> true;
