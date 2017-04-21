@@ -1161,7 +1161,7 @@ list_to_pid(_String) ->
     erlang:nif_error(undefined).
  
 %% list_to_ref/1
--spec erlang:list_to_ref(String) -> reference() when
+-spec list_to_ref(String) -> reference() when
       String :: string().
 list_to_ref(_String) ->
     erlang:nif_error(undefined).
