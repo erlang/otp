@@ -485,6 +485,18 @@ make_dsa_cert(Config) ->
 		       {certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
      | Config].
 
+make_rsa_cert_chains(ChainConf, Config, Suffix) ->
+   CryptoSupport = crypto:supports(),
+    KeyGenSpec = key_gen_info(rsa, rsa),
+    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "rsa" ++ Suffix]),
+    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "rsa" ++ Suffix]),
+    GenCertData = x509_test:gen_test_certs([{digest, appropriate_sha(CryptoSupport)} | KeyGenSpec] ++ ChainConf),
+    [{server_config, ServerConf}, 
+     {client_config, ClientConf}] = 
+        x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
+    {[{verify, verify_peer} | ClientConf],
+     [{reuseaddr, true}, {verify, verify_peer} | ServerConf]
+    }.
 
 make_ec_cert_chains(ClientChainType, ServerChainType, Config) ->
     CryptoSupport = crypto:supports(),
@@ -521,6 +533,11 @@ key_gen_spec(Role, ecdh_ecdsa) ->
                                                 {namedCurve, CurveOid}]}
     ];
 key_gen_spec(Role, ecdhe_rsa) ->
+    [{list_to_atom(Role ++ "_key_gen"),  hardcode_rsa_key(1)},
+     {list_to_atom(Role ++ "_key_gen_chain"),  [hardcode_rsa_key(2),
+                                                hardcode_rsa_key(3)]}
+    ];
+key_gen_spec(Role, rsa) ->
     [{list_to_atom(Role ++ "_key_gen"),  hardcode_rsa_key(1)},
      {list_to_atom(Role ++ "_key_gen_chain"),  [hardcode_rsa_key(2),
                                                 hardcode_rsa_key(3)]}
@@ -571,7 +588,8 @@ make_rsa_cert(Config) ->
              
 	     {server_rsa_verify_opts, [{ssl_imp, new}, {reuseaddr, true},
 					 {verify, verify_peer} | ServerConf]},
-	     {client_rsa_opts, ClientConf}
+	     {client_rsa_opts, ClientConf},
+             {client_rsa_verify_opts,  [{verify, verify_peer} |ClientConf]}
 	     | Config];
 	false ->
 	    Config
@@ -935,9 +953,9 @@ available_suites(Version) ->
 
 rsa_non_signed_suites(Version) ->
     lists:filter(fun({rsa, _, _}) ->
-			 true;
+			 false;
 		    (_) ->
-			 false
+			 true
 		 end,
 		 available_suites(Version)).
 
@@ -1398,10 +1416,13 @@ do_supports_ssl_tls_version(Port) ->
 	    true
     end.
 
-ssl_options(Option, Config) ->
+ssl_options(Option, Config) when is_atom(Option) ->
     ProtocolOpts = proplists:get_value(protocol_opts, Config, []),
     Opts = proplists:get_value(Option, Config, []),
-    Opts ++ ProtocolOpts.
+    Opts ++ ProtocolOpts;
+ssl_options(Options, Config) ->
+    ProtocolOpts = proplists:get_value(protocol_opts, Config, []),
+    Options ++ ProtocolOpts.
 
 protocol_version(Config) ->
    protocol_version(Config, atom).
