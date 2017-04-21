@@ -31,5 +31,6 @@
   <description>
   </description>
   <xi:include href="dialyzer.xml"/>
+  <xi:include href="typer.xml"/>
 </application>
 

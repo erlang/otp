@@ -34,7 +34,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
-XML_REF3_FILES = dialyzer.xml 
+XML_REF3_FILES = dialyzer.xml typer.xml
 
 XML_PART_FILES = part.xml part_notes.xml
 XML_CHAPTER_FILES = dialyzer_chapter.xml notes.xml

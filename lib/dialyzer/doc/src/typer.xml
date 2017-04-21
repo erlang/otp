@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2006</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>typer</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date>2017-04-13</date>
+    <rev></rev>
+    <file>type.xml</file>
+  </header>
+  <module>typer</module>
+  <modulesummary>Typer, a Type annotator for ERlang programs.
+  </modulesummary>
+  <description>
+    <p>TypEr shows type information for Erlang modules to the user.
+    Additionally, it can annotate the code of files with such type
+    information.</p>
+  </description>
+
+  <section>
+    <marker id="command_line"></marker>
+    <title>Using TypEr from the Command Line</title>
+    <p>TypEr is used from the command-line. This section provides a
+    brief description of the options. The same information can be
+    obtained by writing the following in a shell:</p>
+
+    <code type="none">
+typer --help</code>
+
+    <p><em>Usage:</em></p>
+
+    <code type="none">
+typer [--help] [--version] [--plt PLT] [--edoc]
+      [--show | --show-exported | --annotate | --annotate-inc-files]
+      [-Ddefine]* [-I include_dir]* [-pa dir]* [-pz dir]*
+      [-T application]* [-r] file*</code>
+
+    <note>
+      <p>* denotes that multiple occurrences of the option are possible.</p>
+    </note>
+
+    <p><em>Options:</em></p>
+
+    <taglist>
+
+      <tag><c>--r</c></tag>
+      <item>
+        <p>Search directories recursively for .erl files below them.</p>
+      </item>
+      <tag><c>--show</c></tag>
+      <item>
+        <p>Print type specifications for all functions on stdout.
+        (This is the default behaviour; this option is not really
+        needed.)</p>
+      </item>
+
+      <tag><c>--show-exported</c> (or <c>show_exported</c>)</tag>
+      <item>
+        <p>Same as <c>--show</c>, but print specifications for
+        exported functions only. Specs are displayed sorted
+        alphabetically on the function's name.</p>
+      </item>
+
+      <tag><c>--annotate</c></tag>
+      <item>
+        <p>Annotate the specified files with type specifications.</p>
+      </item>
+
+      <tag><c>--annotate-inc-files</c></tag>
+      <item>
+        <p>Same as <c>--annotate</c> but annotates all
+        <c>-include()</c> files as well as all .erl files. (Use this
+        option with caution - it has not been tested much).</p>
+      </item>
+
+      <tag><c>--edoc</c></tag>
+      <item>
+        <p>Print type information as Edoc <c>@spec</c> comments, not
+        as type specs.</p>
+      </item>
+
+      <tag><c>--plt</c></tag>
+      <item>
+        <p>Use the specified dialyzer PLT file rather than the default one.</p>
+      </item>
+
+      <tag><c>-T file*</c></tag>
+      <item>
+        <p>The specified file(s) already contain type specifications
+        and these are to be trusted in order to print specs for the
+        rest of the files. (Multiple files or dirs, separated by
+        spaces, can be specified.)</p>
+      </item>
+
+      <tag><c>-Dname</c> (or <c>-Dname=value</c>)</tag>
+      <item>
+        <p>Pass the defined name(s) to TypEr. (**)</p>
+      </item>
+
+      <tag><c>-I</c></tag>
+      <item>
+        <p>Pass the include_dir to TypEr. (**)</p>
+      </item>
+
+      <tag><c>-pa dir</c></tag>
+      <item>
+        <p>Include <c>dir</c> in the path for Erlang. This is useful
+          when analyzing files that have <c>-include_lib()</c>
+          directives or use parse transforms.</p>
+      </item>
+
+      <tag><c>-pz dir</c></tag>
+      <item>
+        <p>Include <c>dir</c> in the path for Erlang. This is useful
+          when analyzing files that have <c>-include_lib()</c>
+          directives or use parse transforms.</p>
+      </item>
+
+      <tag><c>--version</c> (or <c>-v</c>)</tag>
+      <item>
+        <p>Print the TypEr version and some more information and
+          exit.</p>
+      </item>
+
+    </taglist>
+
+    <note>
+      <p>** options <c>-D</c> and <c>-I</c> work both
+        from the command line and in the TypEr GUI; the syntax of
+        defines and includes is the same as that used by
+        <seealso marker="erts:erlc">erlc(1)</seealso>.</p>
+    </note>
+
+  </section>
+
+</erlref>

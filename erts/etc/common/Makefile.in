@@ -143,7 +143,7 @@ MC_OUTPUTS=$(OBJDIR)/erlsrv_logmess.h $(OBJDIR)/erlsrv_logmess.res
 MT_FLAG="-MD"
 endif
 INET_GETHOST = $(BINDIR)/inet_gethost.exe
-INSTALL_EMBEDDED_PROGS += $(BINDIR)/dialyzer.exe $(BINDIR)/erlc.exe $(BINDIR)/start_erl.exe $(BINDIR)/escript.exe $(BINDIR)/ct_run.exe
+INSTALL_EMBEDDED_PROGS += $(BINDIR)/typer.exe $(BINDIR)/dialyzer.exe $(BINDIR)/erlc.exe $(BINDIR)/start_erl.exe $(BINDIR)/escript.exe $(BINDIR)/ct_run.exe
 INSTALL_SRC = $(WINETC)/start_erl.c $(WINETC)/Nmakefile.start_erl
 ERLEXECDIR=.
 INSTALL_LIBS =
@@ -176,7 +176,7 @@ ENTRY_OBJ=
 ERLSRV_OBJECTS= 
 MC_OUTPUTS=
 INET_GETHOST = $(BINDIR)/inet_gethost@EXEEXT@
-INSTALL_EMBEDDED_PROGS += $(BINDIR)/dialyzer@EXEEXT@ \
+INSTALL_EMBEDDED_PROGS += $(BINDIR)/typer@EXEEXT@ $(BINDIR)/dialyzer@EXEEXT@ \
  $(BINDIR)/erlc@EXEEXT@ $(BINDIR)/escript@EXEEXT@ $(BINDIR)/ct_run@EXEEXT@ \
  $(BINDIR)/run_erl $(BINDIR)/to_erl $(BINDIR)/dyn_erl
 INSTALL_EMBEDDED_DATA = $(UXETC)/start.src $(UXETC)/start_erl.src
@@ -238,6 +238,7 @@ endif
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/reclaim.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/run_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/to_erl.o
+	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/typer.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/dyn_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/safe_string.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/run_erl.o
@@ -431,6 +432,12 @@ $(BINDIR)/dialyzer@EXEEXT@: $(OBJDIR)/dialyzer.o $(ERTS_LIB)
 
 $(OBJDIR)/dialyzer.o: dialyzer.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c dialyzer.c
+
+$(BINDIR)/typer@EXEEXT@: $(OBJDIR)/typer.o $(ERTS_LIB)
+	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/typer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+
+$(OBJDIR)/typer.o: typer.c $(RC_GENERATED)
+	$(V_CC) $(CFLAGS) -o $@ -c typer.c
 
 $(BINDIR)/escript@EXEEXT@: $(OBJDIR)/escript.o $(ERTS_LIB)
 	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/escript.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
