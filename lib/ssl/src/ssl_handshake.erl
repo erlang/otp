@@ -64,7 +64,7 @@
 	]).
 
 %% Cipher suites handling
--export([available_suites/2, available_signature_algs/3, cipher_suites/2,
+-export([available_suites/2, available_signature_algs/2, cipher_suites/2,
 	 select_session/11, supported_ecc/1, available_signature_algs/4]).
 
 %% Extensions handling
@@ -121,8 +121,7 @@ server_hello_done() ->
 
 client_hello_extensions(Host, Version, CipherSuites, 
 			#ssl_options{signature_algs = SupportedHashSigns,
-				     eccs = SupportedECCs,
-				     versions = AllVersions} = SslOpts, ConnectionStates, Renegotiation) ->
+				     eccs = SupportedECCs} = SslOpts, ConnectionStates, Renegotiation) ->
     {EcPointFormats, EllipticCurves} =
 	case advertises_ec_ciphers(lists:map(fun ssl_cipher:suite_definition/1, CipherSuites)) of
 	    true ->
@@ -136,7 +135,7 @@ client_hello_extensions(Host, Version, CipherSuites,
        renegotiation_info = renegotiation_info(tls_record, client,
 					       ConnectionStates, Renegotiation),
        srp = SRP,
-       signature_algs = available_signature_algs(SupportedHashSigns, Version, AllVersions),
+       signature_algs = available_signature_algs(SupportedHashSigns, Version),
        ec_point_formats = EcPointFormats,
        elliptic_curves = EllipticCurves,
        alpn = encode_alpn(SslOpts#ssl_options.alpn_advertised_protocols, Renegotiation),
@@ -2150,16 +2149,11 @@ is_member(Suite, SupportedSuites) ->
 select_compression(_CompressionMetodes) ->
     ?NULL.
 
-available_signature_algs(undefined, _, _)  ->
+available_signature_algs(undefined, _)  ->
     undefined;
-available_signature_algs(SupportedHashSigns, {Major, Minor}, AllVersions) when Major >= 3 andalso Minor >= 3 ->
-    case tls_record:lowest_protocol_version(AllVersions) of
-	{3, 3} ->
-	    #hash_sign_algos{hash_sign_algos = SupportedHashSigns};
-	_ ->
-	    undefined
-    end;	
-available_signature_algs(_, _, _) ->
+available_signature_algs(SupportedHashSigns, Version) when Version >= {3, 3} ->
+    #hash_sign_algos{hash_sign_algos = SupportedHashSigns};
+available_signature_algs(_, _) ->
     undefined.
 
 psk_secret(PSKIdentity, PSKLookup) ->
@@ -2346,11 +2340,11 @@ bad_key(#'RSAPrivateKey'{}) ->
 bad_key(#'ECPrivateKey'{}) ->
     unacceptable_ecdsa_key.
 
-available_signature_algs(undefined, SupportedHashSigns, _, {Major, Minor}) when 
-      (Major >= 3) andalso (Minor >= 3) ->
+available_signature_algs(undefined, SupportedHashSigns, _, Version) when 
+      Version >= {3,3} ->
     SupportedHashSigns;
 available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, SupportedHashSigns, 
-		     _, {Major, Minor}) when (Major >= 3) andalso (Minor >= 3) ->
+                         _, Version) when Version >= {3,3} ->
     sets:to_list(sets:intersection(sets:from_list(ClientHashSigns), 
 				   sets:from_list(SupportedHashSigns)));
 available_signature_algs(_, _, _, _) -> 

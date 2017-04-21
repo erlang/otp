@@ -43,7 +43,7 @@
 -export([protocol_version/1,  lowest_protocol_version/1, lowest_protocol_version/2,
 	 highest_protocol_version/1, highest_protocol_version/2,
 	 is_higher/2, supported_protocol_versions/0,
-	 is_acceptable_version/1, is_acceptable_version/2]).
+	 is_acceptable_version/1, is_acceptable_version/2, hello_version/2]).
 
 %% Decoding
 -export([decode_cipher_text/3]).
@@ -277,6 +277,7 @@ supported_protocol_versions([_|_] = Vsns) ->
 		    NewVsns
 	    end
     end.
+
 %%--------------------------------------------------------------------
 %%     
 %% Description: ssl version 2 is not acceptable security risks are too big.
@@ -296,6 +297,11 @@ is_acceptable_version({N,_} = Version, Versions)
 is_acceptable_version(_,_) ->
     false.
 
+-spec hello_version(tls_version(), [tls_version()]) -> tls_version().
+hello_version(Version, _) when Version >= {3, 3} ->
+    Version;
+hello_version(_, Versions) ->
+    lowest_protocol_version(Versions).
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------

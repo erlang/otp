@@ -44,7 +44,7 @@
 -export([protocol_version/1, lowest_protocol_version/1, lowest_protocol_version/2,
 	 highest_protocol_version/1, highest_protocol_version/2,
 	 is_higher/2, supported_protocol_versions/0,
-	 is_acceptable_version/2]).
+	 is_acceptable_version/2, hello_version/2]).
 
 -export([save_current_connection_state/2, next_epoch/2]).
 
@@ -401,6 +401,15 @@ current_connection_state_epoch(#{current_read := #{epoch := Epoch}},
 current_connection_state_epoch(#{current_write := #{epoch := Epoch}},
 			       write) ->
     Epoch.
+
+-spec hello_version(dtls_version(), [dtls_version()]) -> dtls_version().
+hello_version(Version, Versions) ->
+    case dtls_v1:corresponding_tls_version(Version) of
+        TLSVersion when TLSVersion >= {3, 3} ->
+            Version;
+        _ ->
+            lowest_protocol_version(Versions)
+    end.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
