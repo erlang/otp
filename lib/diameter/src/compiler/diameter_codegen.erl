@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -158,6 +158,7 @@ erl_forms(Mod, ParseD) ->
                                     {msg2rec, 1},
                                     {name2rec, 1},
                                     {avp_name, 2},
+                                    {avp_arity, 1},
                                     {avp_arity, 2},
                                     {avp_header, 1},
                                     {avp, 3},
@@ -178,7 +179,8 @@ erl_forms(Mod, ParseD) ->
               f_msg2rec(ParseD),
               f_name2rec(ParseD),
               f_avp_name(ParseD),
-              f_avp_arity(ParseD),
+              f_avp_arity_1(ParseD),
+              f_avp_arity_2(ParseD),
               f_avp_header(ParseD),
               f_avp(ParseD),
               f_enumerated_avp(ParseD),
@@ -418,10 +420,32 @@ vendor_id_map(ParseD) ->
                          get_value(grouped, ParseD)).
 
 %%% ------------------------------------------------------------------------
+%%% # avp_arity/1
+%%% ------------------------------------------------------------------------
+
+f_avp_arity_1(ParseD) ->
+    {?function, avp_arity, 1, avp_arities(ParseD) ++ [?BADARG(1)]}.
+
+avp_arities(ParseD) ->
+    Msgs = get_value(messages, ParseD),
+    Groups = get_value(grouped, ParseD)
+          ++ lists:flatmap(fun avps/1, get_value(import_groups, ParseD)),
+    lists:map(fun c_avp_arities/1, Msgs ++ Groups).
+
+c_avp_arities({N,_,_,_,As}) ->
+    c_avp_arities(N,As);
+c_avp_arities({N,_,_,As}) ->
+    c_avp_arities(N,As).
+
+c_avp_arities(Name, Avps) ->
+    Arities = [{?A(N), A} || T <- Avps, {N,A} <- [avp_info(T)]],
+    {?clause, [?Atom(Name)], [], [?TERM(Arities)]}.
+
+%%% ------------------------------------------------------------------------
 %%% # avp_arity/2
 %%% ------------------------------------------------------------------------
 
-f_avp_arity(ParseD) ->
+f_avp_arity_2(ParseD) ->
     {?function, avp_arity, 2, avp_arity(ParseD)}.
 
 avp_arity(ParseD) ->
