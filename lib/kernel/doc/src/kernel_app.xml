@@ -419,6 +419,29 @@ MaxT = TickTime + TickTime / 4</code>
 	  using this service.</p>
         <p>Defaults to <c>false</c>.</p>
       </item>
+      <tag><c>shell_history = enabled | disabled </c></tag>
+      <item>
+        <p>Specifies whether shell history should be logged to disk
+           between usages of <c>erl</c>.</p>
+      </item>
+      <tag><c>shell_history_drop = [string()]</c></tag>
+      <item>
+        <p>Specific log lines that should not be persisted. For
+           example <c>["q().", "init:stop()."]</c> will allow to
+           ignore commands that shut the node down. Defaults to
+           <c>[]</c>.</p>
+      </item>
+      <tag><c>shell_history_file_bytes = integer()</c></tag>
+      <item>
+        <p>how many bytes the shell should remember. By default, the
+           value is set to 512kb, and the minimal value is 50kb.</p>
+      </item>
+      <tag><c>shell_history_path = string()</c></tag>
+      <item>
+        <p>Specifies where the shell history files will be stored.
+           defaults to the user's cache directory as returned by
+           <c>filename:basedir(user_cache, "erlang-history")</c>.</p>
+      </item>
       <tag><c>shutdown_func = {Mod, Func}</c></tag>
       <item>
         <p>Where:</p>

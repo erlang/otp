@@ -44,6 +44,7 @@
 	     global_group,
 	     global_search,
 	     group,
+	     group_history,
 	     heart,
 	     hipe_unified_loader,
 	     inet6_tcp,
