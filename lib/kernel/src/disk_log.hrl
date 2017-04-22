@@ -69,7 +69,7 @@
                           | {file, FileName :: file:filename()}
                           | {linkto, LinkTo :: none | pid()}
                           | {repair, Repair :: true | false | truncate}
-                          | {type, Type :: dlog_type}
+                          | {type, Type :: dlog_type()}
                           | {format, Format :: dlog_format()}
                           | {size, Size :: dlog_size()}
                           | {distributed, Nodes :: [node()]}
