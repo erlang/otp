@@ -3950,7 +3950,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 		BIF_RET(erts_debug_reader_groups_map(BIF_P, (int) groups));
 	    }
 	    else if (ERTS_IS_ATOM_STR("internal_hash", tp[1])) {
-		Uint hash = (Uint) make_internal_hash(tp[2]);
+		Uint hash = (Uint) make_internal_hash(tp[2], 0);
 		Uint hsz = 0;
 		Eterm* hp;
 		erts_bld_uint(NULL, &hsz, hash);

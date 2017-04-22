@@ -827,11 +827,13 @@ typedef enum {
           </item>
           <tag><c>ERL_NIF_PHASH2</c></tag>
           <item>
-            <p>Portable hash function that gives the same hash for the same Erlang term
-              regardless of machine architecture and ERTS version. Corresponds to
-              <seealso marker="erlang#phash2-1"><c>erlang:phash2/1</c></seealso>.</p>
-            <p>Slower than <c>ERL_NIF_INTERNAL_HASH.</c></p>
+            <p>Portable hash function that gives the same hash for the
+              same Erlang term regardless of machine architecture and ERTS version.</p>
             <p>Generated hash values within <c>0..2^27-1</c>.</p>
+            <p>Slower than <c>ERL_NIF_INTERNAL_HASH.</c>
+              When used with <c>salt=0</c>,
+              it corresponds to
+              <seealso marker="erlang#phash2-1"><c>erlang:phash2/1</c></seealso>.</p>
           </item>
         </taglist>
       </item>
@@ -1411,12 +1413,15 @@ typedef enum {
     <func>
       <name>
         <ret>unsigned long</ret>
-        <nametext>enif_hash(ErlNifHash type, ERL_NIF_TERM term)</nametext>
+        <nametext>
+          enif_hash(ErlNifHash type, ERL_NIF_TERM term, unsigned long salt)
+        </nametext>
       </name>
       <fsummary>Hash terms.</fsummary>
       <desc>
-        <p>Hash terms according to the specified
-          <seealso marker="#ErlNifHash"><c>ErlNifHash</c></seealso> type.</p>
+        <p>Hash <c>term</c> according to the specified
+          <seealso marker="#ErlNifHash"><c>ErlNifHash</c></seealso> <c>type</c>
+          and using the least significant 32 bits of <c>salt</c>.</p>
         <p>Range of returned value depends on the hash type.</p>
       </desc>
     </func>

@@ -2628,7 +2628,7 @@ nif_internal_hash(Config) ->
     OnesPerBit =
         lists:foldl(
           fun (Term, Acc) ->
-                  NifHashValue = hash_nif(internal, Term),
+                  NifHashValue = hash_nif(internal, Term, 0),
                   lists:foldl(
                     fun (BitIndex, AccB) ->
                             BitValue = (NifHashValue band (1 bsl BitIndex)) bsr BitIndex,
@@ -2661,7 +2661,7 @@ nif_phash2(Config) ->
     lists:foreach(
       fun (Term) ->
               HashValue = erlang:phash2(Term),
-              NifHashValue = hash_nif(phash2, Term),
+              NifHashValue = hash_nif(phash2, Term, 0),
               (HashValue =:= NifHashValue
                orelse ct:fail("Expected: ~p\nActual:   ~p",
                               [HashValue, NifHashValue]))
@@ -2714,7 +2714,7 @@ type_test() -> ?nif_stub.
 tuple_2_list(_) -> ?nif_stub.    
 is_identical(_,_) -> ?nif_stub.
 compare(_,_) -> ?nif_stub.
-hash_nif(_, _) -> ?nif_stub.
+hash_nif(_Type, _Term, _Salt) -> ?nif_stub.
 many_args_100(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
 clone_bin(_) -> ?nif_stub.
 make_sub_bin(_,_,_) -> ?nif_stub.

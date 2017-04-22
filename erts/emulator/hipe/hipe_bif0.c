@@ -496,7 +496,7 @@ static ErlOffHeap const_term_table_off_heap;
 
 static HashValue const_term_hash(void *tmpl)
 {
-    return make_hash2((Eterm)tmpl);
+    return make_hash2((Eterm)tmpl, 0);
 }
 
 static int const_term_cmp(void *tmpl, void *bucket)

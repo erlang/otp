@@ -57,7 +57,7 @@
     ((is_small(Term)) ? (Uint32) unsigned_val(Term) :  \
      ((is_atom(Term)) ?                                \
       (Uint32) atom_val(Term) :                        \
-      make_internal_hash(Term)))
+      make_internal_hash(Term, 0)))
 
 #define PD_SZ2BYTES(Sz) (sizeof(ProcDict) + ((Sz) - 1)*sizeof(Eterm))
 

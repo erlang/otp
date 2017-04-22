@@ -4881,7 +4881,7 @@ BIF_RETTYPE phash2_1(BIF_ALIST_1)
 {
     Uint32 hash;
 
-    hash = make_hash2(BIF_ARG_1);
+    hash = make_hash2(BIF_ARG_1, 0);
     BIF_RET(make_small(hash & ((1L << 27) - 1)));
 }
 
@@ -4901,7 +4901,7 @@ BIF_RETTYPE phash2_2(BIF_ALIST_2)
 	}
 	range = (Uint32) u;
     }
-    hash = make_hash2(BIF_ARG_1);
+    hash = make_hash2(BIF_ARG_1, 0);
     if (range) {
 	final_hash = hash % range; /* [0..range-1] */
     } else {

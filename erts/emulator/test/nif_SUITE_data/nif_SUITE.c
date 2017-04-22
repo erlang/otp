@@ -689,7 +689,7 @@ static ERL_NIF_TERM compare(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 static ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    if (argc != 2) {
+    if (argc != 3) {
         return enif_make_badarg(env);
     }
 
@@ -704,7 +704,12 @@ static ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         return enif_make_badarg(env);
     }
 
-    return enif_make_ulong(env, enif_hash(type, argv[1]));
+    unsigned long salt;
+    if (! enif_get_ulong(env, argv[2], &salt)) {
+        return enif_make_badarg(env);
+    }
+
+    return enif_make_ulong(env, enif_hash(type, argv[1], salt));
 }
 
 static ERL_NIF_TERM many_args_100(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -2884,7 +2889,7 @@ static ErlNifFunc nif_funcs[] =
     {"tuple_2_list", 1, tuple_2_list},
     {"is_identical",2,is_identical},
     {"compare",2,compare},
-    {"hash_nif",2,hash_nif},
+    {"hash_nif",3,hash_nif},
     {"many_args_100", 100, many_args_100},
     {"clone_bin", 1, clone_bin},
     {"make_sub_bin", 3, make_sub_bin},
