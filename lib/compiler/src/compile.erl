@@ -955,7 +955,7 @@ transform_module(#compile{options=Opt,code=Code0}=St0) ->
 	    %% Remove parse_transform attributes from the abstract code to
 	    %% prevent parse transforms to be run more than once.
 	    Code = clean_parse_transforms(Code0),
-	    St = St0#compile{code=Code},
+	    St = St0#compile{options=Opt ++ compile_options(Code),code=Code},
 	    foldl_transform(St, Ts)
     end.
 
