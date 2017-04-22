@@ -378,8 +378,11 @@ d(Name, Avp, Acc) ->
 %% Remove any extra bit that was added in diameter_codec to induce a
 %% 5014 error.
 
-trim(#diameter_avp{data = <<0:1, Bin/binary>>} = Avp) ->
-    Avp#diameter_avp{data = Bin};
+trim(#diameter_avp{data = Data} = Avp) ->
+    Avp#diameter_avp{data = trim(Data)};
+
+trim({5014, Bin}) ->
+    Bin;
 
 trim(Avps)
   when is_list(Avps) ->
@@ -569,9 +572,9 @@ pack_avp(_, Arity, Avp, Acc) ->
 %% payload for the AVP's type, but in this case we don't know the
 %% type.
 
-pack_AVP(_, #diameter_avp{data = <<0:1, Data/binary>>} = Avp, Acc) ->
+pack_AVP(_, #diameter_avp{data = {5014 = RC, Data}} = Avp, Acc) ->
     {Rec, Failed} = Acc,
-    {Rec, [{5014, Avp#diameter_avp{data = Data}} | Failed]};
+    {Rec, [{RC, Avp#diameter_avp{data = Data}} | Failed]};
 
 pack_AVP(Name, #diameter_avp{is_mandatory = M, name = AvpName} = Avp, Acc) ->
     case pack_arity(Name, AvpName, M) of
@@ -660,7 +663,7 @@ pack(L, {_, Max}, F, Avp, {Rec, Failed}) ->
 %% # grouped_avp/3
 %% ---------------------------------------------------------------------------
 
--spec grouped_avp(decode, avp_name(), bitstring())
+-spec grouped_avp(decode, avp_name(), binary() | {5014, binary()})
    -> {avp_record(), [avp()]};
                  (encode, avp_name(), avp_record() | avp_values())
    -> iolist()
@@ -670,8 +673,8 @@ pack(L, {_, Max}, F, Avp, {Rec, Failed}) ->
 %% length in the header was too short (insufficient for the extracted
 %% header) or too long (past the end of the message). An empty payload
 %% is sufficient according to the RFC text for 5014.
-grouped_avp(decode, _Name, <<0:1, _/binary>>) ->
-    throw({?TAG, {grouped, {5014, []}, []}});
+grouped_avp(decode, _Name, {5014 = RC, _Bin}) ->
+    throw({?TAG, {grouped, {RC, []}, []}});
 
 grouped_avp(decode, Name, Data) ->
     grouped_decode(Name, diameter_codec:collect_avps(Data));

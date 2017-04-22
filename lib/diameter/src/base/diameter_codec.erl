@@ -617,7 +617,7 @@ collect_avps(Code, VendorId, M, P, Len, Pad, Rest, N, Acc) ->
                                 vendor_id = VendorId,
                                 is_mandatory = M,
                                 need_encryption = P,
-                                data = <<0:1, Rest/binary>>,
+                                data = {5014, Rest},
                                 index = N},
             [Avp | Acc]
     end.
@@ -705,22 +705,17 @@ pack_avp(#diameter_avp{code = undefined, data = B})
     Sz = min(5, size(B)),
     <<B:Sz/binary, 0:(5-Sz)/unit:8, Len:24, 0:(Len-8)/unit:8>>;
 
+%% Ignoring errors in Failed-AVP or during a relay encode.
+pack_avp(#diameter_avp{data = {5014, Data}} = A) ->
+    pack_data(Data, A);
+
 pack_avp(#diameter_avp{data = Data} = A) ->
-    pack_bits(Data, A).
+    pack_data(Data, A).
 
 header_length(<<_:32, 1:1, _/bits>>) ->
     12;
 header_length(_) ->
     8.
-
-%% pack_bits/2
-
-%% Ignoring errors in Failed-AVP or during a relay encode.
-pack_bits(<<0:1, B/binary>>, Avp) ->
-    pack_bits(B, Avp);
-
-pack_bits(Data, Avp) ->
-    pack_data(Data, Avp).
 
 %% pack_data/2
 
