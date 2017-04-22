@@ -733,10 +733,7 @@ grouped_decode(Name, ComponentAvps) ->
 %% ---------------------------------------------------------------------------
 
 empty_group(Name) ->
-    list_to_binary(empty_body(Name)).
-
-empty_body(Name) ->
-    [z(F, avp_arity(Name, F)) || F <- '#info-'(name2rec(Name), fields)].
+    list_to_binary([z(F,A) || {F,A} <- avp_arity(Name)]).
 
 z(Name, 1) ->
     z(Name);
