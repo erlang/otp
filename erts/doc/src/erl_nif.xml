@@ -821,8 +821,8 @@ typedef enum {
         <taglist>
           <tag><c>ERL_NIF_INTERNAL_HASH</c></tag>
           <item>
-            <p>Non-portable hash function that gives different hashes for the same Erlang
-              term depending on machine architecture and ERTS version.</p>
+            <p>Non-portable hash function that only guarantees the same hash
+              for the same term within one Erlang VM instance.</p>
             <p>Generated hash values within <c>0..2^32-1</c>.</p>
           </item>
           <tag><c>ERL_NIF_PHASH2</c></tag>
@@ -831,8 +831,7 @@ typedef enum {
               same Erlang term regardless of machine architecture and ERTS version.</p>
             <p>Generated hash values within <c>0..2^27-1</c>.</p>
             <p>Slower than <c>ERL_NIF_INTERNAL_HASH.</c>
-              When used with <c>salt=0</c>,
-              it corresponds to
+              When used with <c>salt=0</c>, it corresponds to
               <seealso marker="erlang#phash2-1"><c>erlang:phash2/1</c></seealso>.</p>
           </item>
         </taglist>
