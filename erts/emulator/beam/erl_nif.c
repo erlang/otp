@@ -1214,17 +1214,13 @@ int enif_compare(Eterm lhs, Eterm rhs)
     return result;
 }
 
-unsigned long enif_hash(ErlNifHash type, Eterm term, unsigned long salt)
+ErlNifUInt64 enif_hash(ErlNifHash type, Eterm term, ErlNifUInt64 salt)
 {
-#if SIZEOF_LONG < 4
-/* This *really* shouldn't happen */
-#  error Incompatible long word size
-#endif
     switch (type) {
         case ERL_NIF_INTERNAL_HASH:
-            return make_internal_hash(term, salt);
+            return make_internal_hash(term, (Uint32) salt);
         case ERL_NIF_PHASH2:
-            return make_hash2(term, salt) & ((1 << 27) - 1);
+            return make_hash2(term, (Uint32) salt) & ((1 << 27) - 1);
         default:
             return 0;
     }

@@ -704,12 +704,12 @@ static ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         return enif_make_badarg(env);
     }
 
-    unsigned long salt;
-    if (! enif_get_ulong(env, argv[2], &salt)) {
+    ErlNifUInt64 salt;
+    if (! enif_get_uint64(env, argv[2], &salt)) {
         return enif_make_badarg(env);
     }
 
-    return enif_make_ulong(env, enif_hash(type, argv[1], salt));
+    return enif_make_uint64(env, enif_hash(type, argv[1], salt));
 }
 
 static ERL_NIF_TERM many_args_100(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])

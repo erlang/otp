@@ -47,7 +47,7 @@ ERL_NIF_API_FUNC_DECL(int,enif_get_list_cell,(ErlNifEnv* env, ERL_NIF_TERM term,
 ERL_NIF_API_FUNC_DECL(int,enif_get_tuple,(ErlNifEnv* env, ERL_NIF_TERM tpl, int* arity, const ERL_NIF_TERM** array));
 ERL_NIF_API_FUNC_DECL(int,enif_is_identical,(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs));
 ERL_NIF_API_FUNC_DECL(int,enif_compare,(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs));
-ERL_NIF_API_FUNC_DECL(unsigned long,enif_hash,(ErlNifHash type, ERL_NIF_TERM term, unsigned long salt));
+ERL_NIF_API_FUNC_DECL(ErlNifUInt64,enif_hash,(ErlNifHash type, ERL_NIF_TERM term, ErlNifUInt64 salt));
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_binary,(ErlNifEnv* env, ErlNifBinary* bin));
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_badarg,(ErlNifEnv* env));
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_int,(ErlNifEnv* env, int i));
