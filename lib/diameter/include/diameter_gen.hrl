@@ -226,17 +226,33 @@ missing(Rec, Name, Failed) ->
                        end,
                        maps:new(),
                        Failed),
-    [{5005, empty_avp(F,H)} || {F,T} <- '#get-'(Rec),
-                               not has_arity(avp_arity(Name, F), T),
-                               {C,_,V} = H <- [avp_header(F)],
-                               not maps:is_key({C,V}, Avps)].
+    missing(avp_arity(Name), tl(tuple_to_list(Rec)), Avps, []).
+
+missing([{Name, Arity} | As], [Value | Vs], Avps, Acc) ->
+    missing(As, Vs, Avps, case
+                              [H || missing_arity(Arity, Value),
+                                    {C,_,V} = H <- [avp_header(Name)],
+                                    not maps:is_key({C,V}, Avps)]
+                          of
+                              [H] ->
+                                  [{5005, empty_avp(Name, H)} | Acc];
+                              [] ->
+                                  Acc
+                          end);
+
+missing([], [], _, Acc) ->
+    Acc.
 
 %% Maximum arities have already been checked in building the record.
 
-has_arity({Min, _}, L) ->
-    has_prefix(Min, L);
-has_arity(N, V) ->
-    N /= 1 orelse V /= undefined.
+missing_arity(1, V) ->
+    V == undefined;
+missing_arity({0, _}, _) ->
+    false;
+missing_arity({1, _}, L) ->
+    [] == L;
+missing_arity({Min, _}, L) ->
+    not has_prefix(Min, L).
 
 %% Compare a non-negative integer and the length of a list without
 %% computing the length.
