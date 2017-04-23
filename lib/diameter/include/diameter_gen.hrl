@@ -666,7 +666,7 @@ pack(_, 1, _, Avp, {Rec, Failed}) ->
     {Rec, [{5009, Avp} | Failed]};
 
 pack(L, {_, Max}, F, Avp, {Rec, Failed}) ->
-    case '*' /= Max andalso has_prefix(Max, L) of
+    case '*' /= Max andalso has_prefix(Max+1, L) of
         true ->
             {Rec, [{5009, Avp} | Failed]};
         false when F == 'AVP' ->
