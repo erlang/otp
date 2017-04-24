@@ -128,6 +128,9 @@
                        %% outgoing DPR; boolean says whether or not
                        %% the request was sent explicitly with
                        %% diameter:call/4.
+         codec :: #{string_decode := boolean(),
+                    strict_mbit := boolean(),
+                    rfc := 3588 | 6733},
          strict :: boolean(),
          ack = false :: boolean(),
          length_errors :: exit | handle | discard,
@@ -160,10 +163,7 @@
 %% # start/3
 %% ---------------------------------------------------------------------------
 
--spec start(T, [Opt], {[diameter:service_opt()],
-                       [node()],
-                       module(),
-                       #diameter_service{}})
+-spec start(T, [Opt], {map(), [node()], module(), #diameter_service{}})
    -> {reference(), pid()}
  when T   :: {connect|accept, diameter:transport_ref()},
       Opt :: diameter:transport_opt().
@@ -222,9 +222,10 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
     erlang:monitor(process, WPid),
     wait(Ack, WPid),
     diameter_stats:reg(Ref),
-    diameter_codec:setopts([{common_dictionary, Dict0} | SvcOpts]),
-    {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
-    Maxlen = proplists:get_value(incoming_maxlen, SvcOpts, 16#FFFFFF),
+
+    #{sequence := Mask, incoming_maxlen := Maxlen}
+        = SvcOpts,
+
     {[Cs,Ds], Rest} = proplists:split(Opts, [capabilities_cb, disconnect_cb]),
     putr(?CB_KEY, {Ref, [F || {_,F} <- Cs]}),
     putr(?DPR_KEY, [F || {_, F} <- Ds]),
@@ -250,7 +251,8 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
            service = svc(Svc, Addrs),
            length_errors = LengthErr,
            strict = Strictness,
-           incoming_maxlen = Maxlen}.
+           incoming_maxlen = Maxlen,
+           codec = maps:with([string_decode, strict_mbit, rfc], SvcOpts)}.
 %% The transport returns its local ip addresses so that different
 %% transports on the same service can use different local addresses.
 %% The local addresses are put into Host-IP-Address avps here when
@@ -797,14 +799,15 @@ rcv('DPA' = N,
     = Pkt,
     #state{dictionary = Dict0,
            transport = TPid,
-           dpr = {X, Hid, Eid}}) ->
+           dpr = {X, Hid, Eid},
+           codec = Opts}) ->
     ?LOG(recv, N),
     X orelse begin
                  %% Only count DPA in response to a DPR sent by the
                  %% service: explicit DPR is counted in the same way
                  %% as other explicitly sent requests.
                  incr(recv, H, Dict0),
-                 incr_rc(recv, diameter_codec:decode(Dict0, Pkt), Dict0)
+                 incr_rc(recv, diameter_codec:decode(Dict0, Opts, Pkt), Dict0)
              end,
     diameter_peer:close(TPid),
     {stop, N};
@@ -901,11 +904,14 @@ header(Bin) ->  %% DWR
 %% Incoming CER or DPR.
 
 handle_request(Name,
-               #diameter_packet{header = H} = Pkt,
-               #state{dictionary = Dict0} = S) ->
+               #diameter_packet{header = H}
+               = Pkt,
+               #state{dictionary = Dict0,
+                      codec = Opts}
+               = S) ->
     ?LOG(recv, Name),
     incr(recv, H, Dict0),
-    send_answer(Name, diameter_codec:decode(Dict0, Pkt), S).
+    send_answer(Name, diameter_codec:decode(Dict0, Opts, Pkt), S).
 
 %% send_answer/3
 
@@ -955,8 +961,6 @@ build_answer('CER',
              = Pkt,
              #state{dictionary = Dict0}
              = S) ->
-    diameter_codec:setopts([{string_decode, false}]),
-
     {SupportedApps, RCaps, CEA} = recv_CER(CER, S),
 
     [RC, IS] = Dict0:'#get-'(['Result-Code', 'Inband-Security-Id'], CEA),
@@ -1157,18 +1161,16 @@ recv_CER(CER, #state{service = Svc, dictionary = Dict}) ->
 handle_CEA(#diameter_packet{header = H}
            = Pkt,
            #state{dictionary = Dict0,
-                  service = #diameter_service{capabilities = LCaps}}
+                  service = #diameter_service{capabilities = LCaps},
+                  codec = Opts}
            = S) ->
     incr(recv, H, Dict0),
 
     #diameter_packet{}
         = DPkt
-        = diameter_codec:decode(Dict0, Pkt),
-
-    diameter_codec:setopts([{string_decode, false}]),
+        = diameter_codec:decode(Dict0, Opts, Pkt),
 
     RC = result_code(incr_rc(recv, DPkt, Dict0)),
-
     {SApps, IS, RCaps} = recv_CEA(DPkt, S),
 
     #diameter_caps{origin_host = {OH, DH}}

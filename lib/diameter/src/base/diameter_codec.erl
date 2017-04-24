@@ -21,10 +21,8 @@
 -module(diameter_codec).
 
 -export([encode/2,
-         decode/2,
          decode/3,
-         setopts/1,
-         getopt/1,
+         decode/4,
          collect_avps/1,
          decode_header/1,
          sequence_numbers/1,
@@ -33,7 +31,7 @@
          msg_id/1]).
 
 %% Towards generated encoders (from diameter_gen.hrl).
--export([pack_avp/1,
+-export([pack_data/2,
          pack_avp/2]).
 
 -include_lib("diameter/include/diameter.hrl").
@@ -66,52 +64,6 @@
 %%    +-+-+-+-+-+-+-+-+-+-+-+-+-
 
 %%% ---------------------------------------------------------------------------
-%%% # setopts/1
-%%% # getopt/1
-%%% ---------------------------------------------------------------------------
-
-%% These functions are a compromise in the same vein as the use of the
-%% process dictionary in diameter_gen.hrl in generated codec modules.
-%% Instead of rewriting the entire dictionary generation to pass
-%% encode/decode options around, the calling process sets them by
-%% calling setopts/1. At current, the only option is whether or not to
-%% decode binaries as strings, which is used by diameter_types.
-
-setopts(Opts)
-  when is_list(Opts) ->
-    lists:foreach(fun setopt/1, Opts).
-
-%% The default string_decode true is for backwards compatibility.
-setopt({K, false = B})
-  when K == string_decode;
-       K == strict_mbit ->
-    setopt(K, B);
-
-%% Regard anything but the generated RFC 3588 dictionary as modern.
-%% This affects the interpretation of defaults during the decode
-%% of values of type DiameterURI, this having changed from RFC 3588.
-%% (So much for backwards compatibility.)
-setopt({common_dictionary, diameter_gen_base_rfc3588}) ->
-    setopt(rfc, 3588);
-
-setopt(_) ->
-    ok.
-
-setopt(Key, Value) ->
-    put({diameter, Key}, Value).
-
-getopt(Key) ->
-    case get({diameter, Key}) of
-        undefined when Key == string_decode;
-                       Key == strict_mbit ->
-            true;
-        undefined when Key == rfc ->
-            6733;
-        V ->
-            V
-    end.
-
-%%% ---------------------------------------------------------------------------
 %%% # encode/2
 %%% ---------------------------------------------------------------------------
 
@@ -121,7 +73,7 @@ getopt(Key) ->
 
 encode(Mod, #diameter_packet{} = Pkt) ->
     try
-        e(Mod, Pkt)
+        encode(Mod, _Opts = [], Pkt)
     catch
         exit: {Reason, Stack, #diameter_header{} = H} = T ->
             %% Exit with a header in the reason to let the caller
@@ -139,11 +91,14 @@ encode(Mod, Msg) ->
     Hdr = #diameter_header{version = ?DIAMETER_VERSION,
                            end_to_end_id = Seq,
                            hop_by_hop_id = Seq},
-    encode(Mod,  #diameter_packet{header = Hdr,
-                                  msg = Msg}).
+    encode(Mod, #diameter_packet{header = Hdr,
+                                 msg = Msg}).
 
-e(_, #diameter_packet{msg = [#diameter_header{} = Hdr | As]} = Pkt) ->
-    try encode_avps(reorder(As)) of
+%% encode/3
+
+encode(_, Opts, #diameter_packet{msg = [#diameter_header{} = Hdr | As]}
+                = Pkt) ->
+    try encode_avps(reorder(As), Opts) of
         Avps ->
             Bin = list_to_binary(Avps),
             Len = 20 + size(Bin),
@@ -171,7 +126,7 @@ e(_, #diameter_packet{msg = [#diameter_header{} = Hdr | As]} = Pkt) ->
             exit({Reason, diameter_lib:get_stacktrace(), Hdr})
     end;
 
-e(Mod, #diameter_packet{header = Hdr0, msg = Msg} = Pkt) ->
+encode(Mod, Opts, #diameter_packet{header = Hdr0, msg = Msg} = Pkt) ->
     MsgName = rec2msg(Mod, Msg),
     {Code, Flags, Aid} = msg_header(Mod, MsgName, Hdr0),
 
@@ -191,7 +146,7 @@ e(Mod, #diameter_packet{header = Hdr0, msg = Msg} = Pkt) ->
 
     Values = values(Msg),
 
-    try encode_avps(Mod, MsgName, Values) of
+    try encode_avps(Mod, MsgName, Values, Opts) of
         Avps ->
             Bin = list_to_binary(Avps),
             Len = 20 + size(Bin),
@@ -230,7 +185,7 @@ values([H|T])
 values(Avps) ->
     Avps.
 
-%% encode_avps/3
+%% encode_avps/4
 
 %% Specifying values as a #diameter_avp list bypasses arity and other
 %% checks: the values are expected to be already encoded and the AVP's
@@ -238,12 +193,12 @@ values(Avps) ->
 %% these have to be able to resend whatever comes.
 
 %% Message as a list of #diameter_avp{} ...
-encode_avps(_, _, [#diameter_avp{} | _] = Avps) ->
-    encode_avps(reorder(Avps));
+encode_avps(_, _, [#diameter_avp{} | _] = Avps, Opts) ->
+    encode_avps(reorder(Avps), Opts);
 
 %% ... or as a tuple list or record.
-encode_avps(Mod, MsgName, Values) ->
-    Mod:encode_avps(MsgName, Values).
+encode_avps(Mod, MsgName, Values, Opts) ->
+    Mod:encode_avps(MsgName, Values, Opts).
 
 %% reorder/1
 %%
@@ -284,10 +239,10 @@ reorder([H | T], Acc) ->
 reorder([], _) ->
     false.
 
-%% encode_avps/1
+%% encode_avps/2
 
-encode_avps(Avps) ->
-    lists:map(fun pack_avp/1, Avps).
+encode_avps(Avps, Opts) ->
+    [pack_avp(A, Opts) || A <- Avps].
 
 %% msg_header/3
 
@@ -312,41 +267,39 @@ rec2msg(Mod, Rec) ->
     Mod:rec2msg(element(1, Rec)).
 
 %%% ---------------------------------------------------------------------------
-%%% # decode/2
+%%% # decode/3
 %%% ---------------------------------------------------------------------------
 
 %% Unsuccessfully decoded AVPs will be placed in #diameter_packet.errors.
 
--spec decode(module() | {module(), module()}, #diameter_packet{} | binary())
+-spec decode(module() | {module(), module()},
+             map(),
+             #diameter_packet{} | binary())
    -> #diameter_packet{}.
 
 %% An Answer setting the E-bit. The application dictionary is needed
-%% for the best-effort decode of Failed-AVP, and the best way to make
-%% this available to the AVP decode in diameter_gen.hrl, without
-%% having to rewrite the entire codec generation, is to place it in
-%% the process dictionary. It's the code in diameter_gen.hrl (that's
-%% included by every generated codec module) that looks for the entry.
-%% Not ideal, but it solves the problem relatively simply.
-decode({Mod, Mod}, Pkt) ->
-    decode(Mod, Pkt);
-decode({Mod, AppMod}, Pkt) ->
-    Key = {?MODULE, dictionary},
-    put(Key, AppMod),
-    try
-        decode(Mod, Pkt)
-    after
-        erase(Key)
-    end;
+%% for the best-effort decode of Failed-AVP.
+decode({Mod, AppMod}, Opts, Pkt) ->
+    decode(Mod, AppMod, Opts, Pkt);
 
 %% Or not: a request, or an answer not setting the E-bit.
-decode(Mod, Pkt) ->
-    decode(Mod:id(), Mod, Pkt).
+decode(Mod, Opts, Pkt) ->
+    decode(Mod, Mod, Opts, Pkt).
 
-%% decode/3
+%% decode/4
+
+decode(Id, Mod, Opts, Pkt)
+  when is_integer(Id) ->
+    decode(Id, Mod, Mod, Opts, Pkt);
+
+decode(Mod, AppMod, Opts, Pkt) ->
+    decode(Mod:id(), Mod, AppMod, Opts, Pkt).
+
+%% decode/5
 
 %% Relay application: just extract the avp's without any decoding of
 %% their data since we don't know the application in question.
-decode(?APP_ID_RELAY, _, #diameter_packet{} = Pkt) ->
+decode(?APP_ID_RELAY, _, _, _, #diameter_packet{} = Pkt) ->
     case collect_avps(Pkt) of
         {E, As} ->
             Pkt#diameter_packet{avps = As,
@@ -356,7 +309,7 @@ decode(?APP_ID_RELAY, _, #diameter_packet{} = Pkt) ->
     end;
 
 %% Otherwise decode using the dictionary.
-decode(_, Mod, #diameter_packet{header = Hdr} = Pkt) ->
+decode(_, Mod, AppMod, Opts, #diameter_packet{header = Hdr} = Pkt) ->
     #diameter_header{cmd_code = CmdCode,
                      is_request = IsRequest,
                      is_error = IsError}
@@ -368,29 +321,33 @@ decode(_, Mod, #diameter_packet{header = Hdr} = Pkt) ->
                       Mod:msg_name(CmdCode, IsRequest)
               end,
 
-    decode_avps(MsgName, Mod, Pkt, collect_avps(Pkt));
+    decode_avps(MsgName, Mod, AppMod, Opts, Pkt, collect_avps(Pkt));
 
-decode(Id, Mod, Bin)
+decode(Id, Mod, AppMod, Opts, Bin)
   when is_binary(Bin) ->
-    decode(Id, Mod, #diameter_packet{header = decode_header(Bin), bin = Bin}).
+    decode(Id, Mod, AppMod, Opts, #diameter_packet{header = decode_header(Bin),
+                                                   bin = Bin}).
 
-%% decode_avps/4
+%% decode_avps/6
 
-decode_avps(MsgName, Mod, Pkt, {E, Avps}) ->
+decode_avps(MsgName, Mod, AppMod, Opts, Pkt, {E, Avps}) ->
     ?LOG(invalid_avp_length, Pkt#diameter_packet.header),
     #diameter_packet{errors = Failed}
         = P
-        = decode_avps(MsgName, Mod, Pkt, Avps),
+        = decode_avps(MsgName, Mod, AppMod, Opts, Pkt, Avps),
     P#diameter_packet{errors = [E | Failed]};
 
-decode_avps('', _, Pkt, Avps) ->  %% unknown message ...
+decode_avps('', _, _, _, Pkt, Avps) ->  %% unknown message ...
     ?LOG(unknown_message, Pkt#diameter_packet.header),
     Pkt#diameter_packet{avps = lists:reverse(Avps),
                         errors = [3001]};   %% DIAMETER_COMMAND_UNSUPPORTED
 %% msg = undefined identifies this case.
 
-decode_avps(MsgName, Mod, Pkt, Avps) ->  %% ... or not
-    {Rec, As, Errors} = Mod:decode_avps(MsgName, Avps),
+decode_avps(MsgName, Mod, AppMod, Opts, Pkt, Avps) ->  %% ... or not
+    {Rec, As, Errors} = Mod:decode_avps(MsgName,
+                                        Avps,
+                                        Opts#{dictionary => AppMod,
+                                              failed_avp => false}),
     ?LOGC([] /= Errors, decode_errors, Pkt#diameter_packet.header),
     Pkt#diameter_packet{msg = Rec,
                         errors = Errors,
@@ -655,7 +612,7 @@ collect_avps(Code, VendorId, M, P, Len, Pad, Rest, N, Acc) ->
 %% (2) the last sentence covers this case.
 
 %%% ---------------------------------------------------------------------------
-%%% # pack_avp/1
+%%% # pack_avp/2
 %%% ---------------------------------------------------------------------------
 
 %% The normal case here is data as an #diameter_avp{} list or an
@@ -665,34 +622,36 @@ collect_avps(Code, VendorId, M, P, Len, Pad, Rest, N, Acc) ->
 
 %% Decoded Grouped AVP with decoded components: ignore components
 %% since they're already encoded in the Grouped AVP.
-pack_avp([#diameter_avp{} = Grouped | _Components]) ->
-    pack_avp(Grouped);
+pack_avp([#diameter_avp{} = Grouped | _Components], Opts) ->
+    pack_avp(Grouped, Opts);
 
 %% Grouped AVP whose components need packing. It's intentional that
 %% this isn't equivalent to [Grouped | Components]: here the
 %% components need to be encoded before wrapping with the Grouped AVP,
 %% and the list is flat, nesting being accomplished in the data
 %% fields.
-pack_avp(#diameter_avp{data = [#diameter_avp{} | _] = Components} = Grouped) ->
-    pack_data(encode_avps(Components), Grouped);
+pack_avp(#diameter_avp{data = [#diameter_avp{} | _] = Components}
+         = Grouped,
+         Opts) ->
+    pack_data(Grouped, encode_avps(Components, Opts));
 
 %% Data as a type/value tuple ...
-pack_avp(#diameter_avp{data = {Type, Value}} = A)
+pack_avp(#diameter_avp{data = {Type, Value}} = A, Opts)
   when is_atom(Type) ->
-    pack_data(diameter_types:Type(encode, Value), A);
+    pack_data(A, diameter_types:Type(encode, Value, Opts));
 
 %% ... with a header in various forms ...
-pack_avp(#diameter_avp{data = {T, {Type, Value}}}) ->
-    pack_avp(T, diameter_types:Type(encode, Value));
+pack_avp(#diameter_avp{data = {T, {Type, Value}}}, Opts) ->
+    pack_data(T, diameter_types:Type(encode, Value, Opts));
 
-pack_avp(#diameter_avp{data = {T, Data}}) ->
-    pack_avp(T, Data);
+pack_avp(#diameter_avp{data = {T, Data}}, _) ->
+    pack_data(T, Data);
 
-pack_avp(#diameter_avp{data = {Dict, Name, Data}}) ->
-    pack_avp(Dict:avp_header(Name), Dict:avp(encode, Data, Name));
+pack_avp(#diameter_avp{data = {Dict, Name, Data}}, Opts) ->
+    pack_data(Dict:avp_header(Name), Dict:avp(encode, Data, Name, Opts));
 
 %% ... with a truncated header ...
-pack_avp(#diameter_avp{code = undefined, data = B})
+pack_avp(#diameter_avp{code = undefined, data = B}, _)
   when is_binary(B) ->
     %% Reset the AVP Length of an AVP Header resulting from a 5014
     %% error. The RFC doesn't explicitly say to do this but the
@@ -706,54 +665,53 @@ pack_avp(#diameter_avp{code = undefined, data = B})
     <<B:Sz/binary, 0:(5-Sz)/unit:8, Len:24, 0:(Len-8)/unit:8>>;
 
 %% Ignoring errors in Failed-AVP or during a relay encode.
-pack_avp(#diameter_avp{data = {5014, Data}} = A) ->
-    pack_data(Data, A);
+pack_avp(#diameter_avp{data = {5014, Data}} = A, _) ->
+    pack_data(A, Data);
 
-pack_avp(#diameter_avp{data = Data} = A) ->
-    pack_data(Data, A).
+pack_avp(#diameter_avp{data = Data} = A, _) ->
+    pack_data(A, Data).
 
 header_length(<<_:32, 1:1, _/bits>>) ->
     12;
 header_length(_) ->
     8.
 
-%% pack_data/2
+%%% ---------------------------------------------------------------------------
+%%% # pack_data/2
+%%% ---------------------------------------------------------------------------
 
-pack_data(Data, #diameter_avp{code = Code,
-                              vendor_id = V,
-                              is_mandatory = M,
-                              need_encryption = P}) ->
+pack_data(#diameter_avp{code = Code,
+                        vendor_id = V,
+                        is_mandatory = M,
+                        need_encryption = P},
+          Data) ->
     Flags = ?BIT(V /= undefined, 2#10000000)
         bor ?BIT(M, 2#01000000)
         bor ?BIT(P, 2#00100000),
-    pack_avp(Code, Flags, V, Data).
+    pack(Code, Flags, V, Data);
 
-%%% ---------------------------------------------------------------------------
-%%% # pack_avp/2
-%%% ---------------------------------------------------------------------------
+pack_data({Code, Flags, VendorId}, Data) ->
+    pack(Code, Flags, VendorId, Data).
 
-pack_avp({Code, Flags, VendorId}, Data) ->
-    pack_avp(Code, Flags, VendorId, Data).
+%% pack/4
 
-%% pack_avp/4
-
-pack_avp(Code, Flags, VendorId, Data) ->
+pack(Code, Flags, VendorId, Data) ->
     Sz = iolist_size(Data),
-    pack_avp(Code, Flags, Sz, VendorId, Data, ?PAD(Sz)).
+    pack(Code, Flags, Sz, VendorId, Data, ?PAD(Sz)).
 %% Padding is not included in the length field, as mandated by the RFC.
 
-%% pack_avp/6
+%% pack/6
 %%
 %% Prepend the vendor id as required.
 
-pack_avp(Code, Flags, Sz, _Vid, Data, Pad) 
+pack(Code, Flags, Sz, _Vid, Data, Pad)
   when 0 == Flags band 2#10000000 ->
-    pack_avp(Code, Flags, Sz, 0, 0, Data, Pad);
+    pack(Code, Flags, Sz, 0, 0, Data, Pad);
 
-pack_avp(Code, Flags, Sz, Vid, Data, Pad) ->
-    pack_avp(Code, Flags, Sz+4, Vid, 1, Data, Pad).
+pack(Code, Flags, Sz, Vid, Data, Pad) ->
+    pack(Code, Flags, Sz+4, Vid, 1, Data, Pad).
 
-%% pack_avp/7
+%% pack/7
 
-pack_avp(Code, Flags, Sz, VId, V, Data, Pad) ->
+pack(Code, Flags, Sz, VId, V, Data, Pad) ->
     [<<Code:32, Flags:8, (8+Sz):24, VId:V/unit:32>>, Data, <<0:Pad/unit:8>>].

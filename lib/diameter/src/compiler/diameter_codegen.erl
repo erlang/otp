@@ -150,8 +150,8 @@ erl_forms(Mod, ParseD) ->
                                     {id, 0},
                                     {vendor_id, 0},
                                     {vendor_name, 0},
-                                    {decode_avps, 2}, %% in diameter_gen.hrl
-                                    {encode_avps, 2}, %%
+                                    {decode_avps, 3}, %% in diameter_gen.hrl
+                                    {encode_avps, 3}, %%
                                     {msg_name, 2},
                                     {msg_header, 1},
                                     {rec2msg, 1},
@@ -161,8 +161,8 @@ erl_forms(Mod, ParseD) ->
                                     {avp_arity, 1},
                                     {avp_arity, 2},
                                     {avp_header, 1},
-                                    {avp, 3},
-                                    {grouped_avp, 3},
+                                    {avp, 4},
+                                    {grouped_avp, 4},
                                     {enumerated_avp, 3},
                                     {empty_value, 1},
                                     {dict, 0}]},
@@ -476,7 +476,7 @@ c_arity(Name, Avp) ->
 %%% ------------------------------------------------------------------------
 
 f_avp(ParseD) ->
-    {?function, avp, 3, avp(ParseD) ++ [?BADARG(3)]}.
+    {?function, avp, 4, avp(ParseD) ++ [?BADARG(4)]}.
 
 avp(ParseD) ->
     Native     = get_value(avp_types, ParseD),
@@ -515,19 +515,25 @@ avp(Native, Imported, Custom, Enums) ->
 not_in(List, X) ->
     not lists:member(X, List).
 
-c_base_avp({AvpName, T}) ->
-    {?clause, [?VAR('T'), ?VAR('Data'), ?Atom(AvpName)],
+c_base_avp({AvpName, "Enumerated"}) ->
+    {?clause, [?VAR('T'), ?VAR('Data'), ?Atom(AvpName), ?VAR('_')],
      [],
-     [b_base_avp(AvpName, T)]}.
+     [?CALL(enumerated_avp, [?VAR('T'), ?Atom(AvpName), ?VAR('Data')])]};
 
-b_base_avp(AvpName, "Enumerated") ->
-    ?CALL(enumerated_avp, [?VAR('T'), ?Atom(AvpName), ?VAR('Data')]);
+c_base_avp({AvpName, "Grouped"}) ->
+    {?clause, [?VAR('T'), ?VAR('Data'), ?Atom(AvpName), ?VAR('Opts')],
+     [],
+     [?CALL(grouped_avp, [?VAR('T'),
+                          ?Atom(AvpName),
+                          ?VAR('Data'),
+                          ?VAR('Opts')])]};
 
-b_base_avp(AvpName, "Grouped") ->
-    ?CALL(grouped_avp, [?VAR('T'), ?Atom(AvpName), ?VAR('Data')]);
-
-b_base_avp(_, Type) ->
-    ?APPLY(diameter_types, ?A(Type), [?VAR('T'), ?VAR('Data')]).
+c_base_avp({AvpName, Type}) ->
+    {?clause, [?VAR('T'), ?VAR('Data'), ?Atom(AvpName), ?VAR('Opts')],
+     [],
+     [?APPLY(diameter_types, ?A(Type), [?VAR('T'),
+                                        ?VAR('Data'),
+                                        ?VAR('Opts')])]}.
 
 cs_imported_avp({Mod, Avps}, Enums, CustomNames) ->
     lists:map(fun(A) -> imported_avp(Mod, A, Enums) end,
@@ -549,11 +555,12 @@ imported_avp(Mod, {AvpName, _, _, _}, _) ->
     c_imported_avp(Mod, AvpName).
 
 c_imported_avp(Mod, AvpName) ->
-    {?clause, [?VAR('T'), ?VAR('Data'), ?Atom(AvpName)],
+    {?clause, [?VAR('T'), ?VAR('Data'), ?Atom(AvpName), ?VAR('Opts')],
      [],
      [?APPLY(Mod, avp, [?VAR('T'),
                         ?VAR('Data'),
-                        ?Atom(AvpName)])]}.
+                        ?Atom(AvpName),
+                        ?VAR('Opts')])]}.
 
 cs_custom_avp({Mod, Key, Avps}, Dict) ->
     lists:map(fun(N) -> c_custom_avp(Mod, Key, N, orddict:fetch(N, Dict)) end,
@@ -561,9 +568,11 @@ cs_custom_avp({Mod, Key, Avps}, Dict) ->
 
 c_custom_avp(Mod, Key, AvpName, Type) ->
     {F,A} = custom(Key, AvpName, Type),
-    {?clause, [?VAR('T'), ?VAR('Data'), ?Atom(AvpName)],
+    {?clause, [?VAR('T'), ?VAR('Data'), ?Atom(AvpName), ?VAR('_')],
      [],
-     [?APPLY(?A(Mod), ?A(F), [?VAR('T'), ?Atom(A), ?VAR('Data')])]}.
+     [?APPLY(?A(Mod), ?A(F), [?VAR('T'),
+                              ?Atom(A),
+                              ?VAR('Data')])]}.
 
 custom(custom_types, AvpName, Type) ->
     {AvpName, Type};
@@ -592,7 +601,11 @@ enumerated_avp(Mod, Es, Enums) ->
                   Es).
 
 cs_enumerated_avp(true, Mod, Name) ->
-    [c_imported_avp(Mod, Name)];
+    [{?clause, [?VAR('T'), ?Atom(Name), ?VAR('Data')],
+     [],
+     [?APPLY(Mod, enumerated_avp, [?VAR('T'),
+                                   ?Atom(Name),
+                                   ?VAR('Data')])]}];
 cs_enumerated_avp(false, _, _) ->
     [].
 

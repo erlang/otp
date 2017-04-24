@@ -73,9 +73,9 @@
          service_name :: diameter:service_name(),
          apps         :: [#diameter_app{}],
          sequence     :: diameter:sequence(),
-         codec        :: [{string_decode, boolean()}
-                          | {strict_mbit, boolean()}
-                          | {incoming_maxlen, diameter:message_length()}]}).
+         codec        :: #{string_decode := boolean(),
+                           strict_mbit := boolean(),
+                           incoming_maxlen := diameter:message_length()}}).
 %% Note that incoming_maxlen is currently handled in diameter_peer_fsm,
 %% so that any message exceeding the maximum is discarded. Retain the
 %% option in case we want to extend the values and semantics.
@@ -94,15 +94,16 @@
 %% ---------------------------------------------------------------------------
 
 make_recvdata([SvcName, PeerT, Apps, SvcOpts | _]) ->
-    {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
-    #recvdata{service_name = SvcName,
-              peerT = PeerT,
-              apps = Apps,
-              sequence = Mask,
-              codec = [T || {K,_} = T <- SvcOpts,
-                            lists:member(K, [string_decode,
-                                             incoming_maxlen,
-                                             strict_mbit])]}.
+    #{sequence := {_,_} = Mask, spawn_opt := Opts}
+        = SvcOpts,
+    {Opts, #recvdata{service_name = SvcName,
+                     peerT = PeerT,
+                     apps = Apps,
+                     sequence = Mask,
+                     codec = maps:with([string_decode,
+                                        strict_mbit,
+                                        incoming_maxlen],
+                                       SvcOpts)}}.
 
 %% ---------------------------------------------------------------------------
 %% peer_up/1
@@ -227,9 +228,9 @@ receive_message(TPid, Route, Pkt, Dict0, RecvData) ->
 %% recv/6
 
 %% Incoming request ...
-recv(true, Ack, TPid, Pkt, Dict0, T)
+recv(true, Ack, TPid, Pkt, Dict0, RecvData)
   when is_boolean(Ack) ->
-    spawn_request(Ack, TPid, Pkt, Dict0, T);
+    spawn_request(Ack, TPid, Pkt, Dict0, RecvData);
 
 %% ... answer to known request ...
 recv(false, {Pid, Ref, TPid}, _, Pkt, Dict0, _) ->
@@ -269,11 +270,9 @@ recv_request(Ack,
              = Pkt,
              Dict0,
              #recvdata{peerT = PeerT,
-                       apps = Apps,
-                       codec = Opts}
+                       apps = Apps}
              = RecvData) ->
     Ack andalso (TPid ! {handler, self()}),
-    diameter_codec:setopts([{common_dictionary, Dict0} | Opts]),
     send_A(recv_R(diameter_service:find_incoming_app(PeerT, TPid, Id, Apps),
                   TPid,
                   Pkt,
@@ -289,9 +288,10 @@ recv_R({#diameter_app{id = Id, dictionary = AppDict} = App, Caps},
        TPid,
        Pkt0,
        Dict0,
-       RecvData) ->
+       #recvdata{codec = Opts}
+       = RecvData) ->
     incr(recv, Pkt0, TPid, AppDict),
-    Pkt = errors(Id, diameter_codec:decode(Id, AppDict, Pkt0)),
+    Pkt = errors(Id, diameter_codec:decode(Id, AppDict, Opts, Pkt0)),
     incr_error(recv, Pkt, TPid, AppDict),
     {Caps, Pkt, App, recv_R(App, TPid, Dict0, Caps, RecvData, Pkt)};
 %% Note that the decode is different depending on whether or not Id is
@@ -667,7 +667,7 @@ is_loop(Code, Vid, OH, Dict0, [_ | Avps])
     is_loop(Code, Vid, OH, Dict0, Avps);
 
 is_loop(Code, Vid, OH, Dict0, Avps) ->
-    is_loop(Code, Vid, Dict0:avp(encode, OH, 'Route-Record'), Dict0, Avps).
+    is_loop(Code, Vid, list_to_binary(OH), Dict0, Avps).
 
 %% reply/5
 
@@ -963,14 +963,14 @@ answer_message(OH, OR, RC, Dict0, #diameter_packet{avps = Avps,
     ['answer-message', {'Origin-Host', OH},
                        {'Origin-Realm', OR},
                        {'Result-Code', RC}]
-        ++ session_id(Code, Vid, Dict0, Avps)
+        ++ session_id(Code, Vid, Avps)
         ++ failed_avp(RC, Es).
 
-session_id(Code, Vid, Dict0, Avps)
+session_id(Code, Vid, Avps)
   when is_list(Avps) ->
     try
         #diameter_avp{data = Bin} = find_avp(Code, Vid, Avps),
-        [{'Session-Id', [Dict0:avp(decode, Bin, 'Session-Id')]}]
+        [{'Session-Id', [Bin]}]
     catch
         error: _ ->
             []
@@ -1251,11 +1251,10 @@ answer_rc(_, _, Sent) ->
 %%
 %% In the process spawned for the outgoing request.
 
-send_R(SvcName, AppOrAlias, Msg, Opts, Caller) ->
-    case pick_peer(SvcName, AppOrAlias, Msg, Opts) of
-        {Transport, Mask, SvcOpts} ->
-            diameter_codec:setopts(SvcOpts),
-            send_request(Transport, Mask, Msg, Opts, Caller, SvcName);
+send_R(SvcName, AppOrAlias, Msg, CallOpts, Caller) ->
+    case pick_peer(SvcName, AppOrAlias, Msg, CallOpts) of
+        {{_,_,_} = Transport, SvcOpts} ->
+            send_request(Transport, SvcOpts, Msg, CallOpts, Caller, SvcName);
         {error, _} = No ->
             No
     end.
@@ -1302,42 +1301,45 @@ mo(T, _) ->
 
 send_request({TPid, Caps, App}
              = Transport,
-             Mask,
-             Msg,
-             Opts,
+             #{sequence := Mask}
+             = SvcOpts,
+             Msg0,
+             CallOpts,
              Caller,
              SvcName) ->
-    Pkt = make_prepare_packet(Mask, Msg),
+    Pkt = make_prepare_packet(Mask, Msg0),
 
-    send_R(cb(App, prepare_request, [Pkt, SvcName, {TPid, Caps}]),
-           Pkt,
-           Transport,
-           Opts,
-           Caller,
-           SvcName,
-           []).
+    case prepare(cb(App, prepare_request, [Pkt, SvcName, {TPid, Caps}]), []) of
+        [Msg | Fs] ->
+            ReqPkt = make_request_packet(Msg, Pkt),
+            EncPkt = encode(App#diameter_app.dictionary, TPid, ReqPkt, Fs),
+            T = send_R(ReqPkt, EncPkt, Transport, CallOpts, Caller, SvcName),
+            Ans = recv_answer(SvcName, App, CallOpts, T),
+            handle_answer(SvcName, SvcOpts, App, Ans);
+        {discard, Reason} ->
+            {error, Reason};
+        discard ->
+            {error, discarded};
+        {error, Reason} ->
+            ?ERROR({invalid_return, Reason, prepare_request, App})
+    end.
 
-%% send_R/7
+%% prepare/2
 
-send_R({send, Msg}, Pkt, Transport, Opts, Caller, SvcName, Fs) ->
-    send_R(make_request_packet(Msg, Pkt),
-           Transport,
-           Opts,
-           Caller,
-           SvcName,
-           Fs);
+prepare({send, Msg}, Fs) ->
+    [Msg | Fs];
 
-send_R({discard, Reason} , _, _, _, _, _, _) ->
-    {error, Reason};
+prepare({eval_packet, RC, F}, Fs) ->
+    prepare(RC, [F|Fs]);
 
-send_R(discard, _, _, _, _, _, _) ->
-    {error, discarded};
+prepare({discard, _Reason} = RC, _) ->
+    RC;
 
-send_R({eval_packet, RC, F}, Pkt, T, Opts, Caller, SvcName, Fs) ->
-    send_R(RC, Pkt, T, Opts, Caller, SvcName, [F|Fs]);
+prepare(discard = RC, _) ->
+    RC;
 
-send_R(E, _, {_, _, App}, _, _, _, _) ->
-    ?ERROR({invalid_return, E, prepare_request, App}).
+prepare(Reason, _) ->
+    {error, Reason}.
 
 %% make_prepare_packet/2
 %%
@@ -1445,34 +1447,27 @@ fold_record(Rec, R) ->
 
 %% send_R/6
 
-send_R(Pkt0,
-       {TPid, Caps, #diameter_app{dictionary = AppDict} = App},
-       Opts,
+send_R(ReqPkt,
+       EncPkt,
+       {TPid, Caps, #diameter_app{dictionary = AppDict}},
+       #options{timeout = Timeout},
        {Pid, Ref},
-       SvcName,
-       Fs) ->
-    Pkt = encode(AppDict, TPid, Pkt0, Fs),
-
-    #options{timeout = Timeout}
-        = Opts,
-
+       SvcName) ->
     Req = #request{ref = Ref,
                    caller = Pid,
                    handler = self(),
                    transport = TPid,
                    caps = Caps,
-                   packet = Pkt0},
+                   packet = ReqPkt},
 
-    incr(send, Pkt, TPid, AppDict),
-    {TRef, MRef} = zend_requezt(TPid, Pkt, Req, SvcName, Timeout),
+    incr(send, EncPkt, TPid, AppDict),
+    {TRef, MRef} = zend_requezt(TPid, EncPkt, Req, SvcName, Timeout),
     Pid ! Ref,  %% tell caller a send has been attempted
-    handle_answer(SvcName,
-                  App,
-                  recv_A(Timeout, SvcName, App, Opts, {TRef, MRef, Req})).
+    {TRef, MRef, Req}.
 
-%% recv_A/5
+%% recv_answer/4
 
-recv_A(Timeout, SvcName, App, Opts, {TRef, MRef, #request{ref = Ref} = Req}) ->
+recv_answer(SvcName, App, CallOpts, {TRef, MRef, #request{ref = Ref} = Req}) ->
     %% Matching on TRef below ensures we ignore messages that pertain
     %% to a previous transport prior to failover. The answer message
     %% includes the pid of the transport on which it was received,
@@ -1483,97 +1478,92 @@ recv_A(Timeout, SvcName, App, Opts, {TRef, MRef, #request{ref = Ref} = Req}) ->
         {timeout = Reason, TRef, _} ->        %% No timely reply
             {error, Req, Reason};
         {'DOWN', MRef, process, _, _} when false /= MRef -> %% local peer_down
-            failover(SvcName, App, Req, Opts, Timeout);
+            failover(SvcName, App, Req, CallOpts);
         {failover, TRef} ->                   %% local or remote peer_down
-            failover(SvcName, App, Req, Opts, Timeout)
+            failover(SvcName, App, Req, CallOpts)
     end.
 
-%% failover/5
+%% failover/4
 
-failover(SvcName, App, Req, Opts, Timeout) ->
-    retransmit(pick_peer(SvcName, App, Req, Opts),
-               Req,
-               Opts,
-               SvcName,
-               Timeout).
+failover(SvcName, App, Req, CallOpts) ->
+    resend_request(pick_peer(SvcName, App, Req, CallOpts),
+                   Req,
+                   CallOpts,
+                   SvcName).
 
-%% handle_answer/3
+%% handle_answer/4
 
-handle_answer(SvcName, App, {error, Req, Reason}) ->
-    handle_error(App, Req, Reason, SvcName);
+handle_answer(SvcName, _, App, {error, Req, Reason}) ->
+    #request{packet = Pkt,
+             transport = TPid,
+             caps = Caps}
+        = Req,
+    cb(App, handle_error, [Reason, msg(Pkt), SvcName, {TPid, Caps}]);
 
 handle_answer(SvcName,
-              #diameter_app{dictionary = AppDict,
-                            id = Id}
+              SvcOpts,
+              #diameter_app{id = Id,
+                            dictionary = AppDict,
+                            options = [{answer_errors, AE} | _]}
               = App,
               {answer, Req, Dict0, Pkt}) ->
     MsgDict = msg_dict(AppDict, Dict0, Pkt),
-    handle_A(errors(Id, diameter_codec:decode({MsgDict, AppDict}, Pkt)),
-             SvcName,
-             MsgDict,
-             Dict0,
-             App,
-             Req).
+    DecPkt = errors(Id, diameter_codec:decode({MsgDict, AppDict},
+                                              SvcOpts,
+                                              Pkt)),
+    #request{transport = TPid}
+        = Req,
 
-%% We don't really need to do a full decode if we're a relay and will
-%% just resend with a new hop by hop identifier, but might a proxy
-%% want to examine the answer?
+    incr(recv, DecPkt, TPid, AppDict),
 
-handle_A(Pkt, SvcName, Dict, Dict0, App, #request{transport = TPid} = Req) ->
-    AppDict = App#diameter_app.dictionary,
+    AnsPkt = try
+                 incr_result(recv, DecPkt, TPid, {MsgDict, AppDict, Dict0})
+             of
+                 _ -> DecPkt
+             catch
+                 exit: {no_result_code, _} ->
+                     %% RFC 6733 requires one of Result-Code or
+                     %% Experimental-Result, but the decode will have
+                     %% detected a missing AVP. If both are optional in
+                     %% the dictionary then this isn't a decode error:
+                     %% just continue on.
+                     DecPkt;
+                 exit: {invalid_error_bit, {_, _, _, Avp}} ->
+                     #diameter_packet{errors = Es}
+                         = DecPkt,
+                     E = {5004, Avp},
+                     DecPkt#diameter_packet{errors = [E|Es]}
+             end,
 
-    incr(recv, Pkt, TPid, AppDict),
+    handle_answer(AnsPkt, SvcName, App, AE, Req).
 
-    try
-        incr_result(recv, Pkt, TPid, {Dict, AppDict, Dict0}) %% count incoming
-    of
-        _ -> answer(Pkt, SvcName, App, Req)
-    catch
-        exit: {no_result_code, _} ->
-            %% RFC 6733 requires one of Result-Code or
-            %% Experimental-Result, but the decode will have detected
-            %% a missing AVP. If both are optional in the dictionary
-            %% then this isn't a decode error: just continue on.
-            answer(Pkt, SvcName, App, Req);
-        exit: {invalid_error_bit, {_, _, _, Avp}} ->
-            #diameter_packet{errors = Es}
-                = Pkt,
-            E = {5004, Avp},
-            answer(Pkt#diameter_packet{errors = [E|Es]}, SvcName, App, Req)
-    end.
+%% handle_answer/5
 
-%% answer/4
+handle_answer(#diameter_packet{errors = Es}
+              = Pkt,
+              SvcName,
+              App,
+              AE,
+              #request{transport = TPid,
+                       caps = Caps,
+                       packet = P})
+  when callback == AE;
+       [] == Es ->
+    cb(App, handle_answer, [Pkt, msg(P), SvcName, {TPid, Caps}]);
 
-answer(Pkt,
-       SvcName,
-       #diameter_app{module = ModX,
-                     options = [{answer_errors, AE} | _]},
-       Req) ->
-    a(Pkt, SvcName, ModX, AE, Req).
+handle_answer(#diameter_packet{header = H}, SvcName, _, AE, _) ->
+    handle_error(H, SvcName, AE).
 
--spec a(_, _, _) -> no_return().  %% silence dialyzer
+%% handle_error/3
 
-a(#diameter_packet{errors = Es}
-  = Pkt,
-  SvcName,
-  ModX,
-  AE,
-  #request{transport = TPid,
-           caps = Caps,
-           packet = P})
-  when [] == Es;
-       callback == AE ->
-    cb(ModX, handle_answer, [Pkt, msg(P), SvcName, {TPid, Caps}]);
+-spec handle_error(_, _, _) -> no_return().  %% silence dialyzer
 
-a(Pkt, SvcName, _, AE, _) ->
-    a(Pkt#diameter_packet.header, SvcName, AE).
-
-a(Hdr, SvcName, report) ->
+handle_error(Hdr, SvcName, report) ->
     MFA = {?MODULE, handle_answer, [SvcName, Hdr]},
     diameter_lib:warning_report(errors, MFA),
-    a(Hdr, SvcName, discard);
+    handle_error(Hdr, SvcName, discard);
 
-a(Hdr, SvcName, discard) ->
+handle_error(Hdr, SvcName, discard) ->
     x({answer_errors, {SvcName, Hdr}}).
 
 %% Note that we don't check that the application id in the answer's
@@ -1584,16 +1574,16 @@ a(Hdr, SvcName, discard) ->
 %% timer value is ignored. This means that an answer could be accepted
 %% from a peer after timeout in the case of failover.
 
-%% retransmit/5
+%% resend_request/4
 
-retransmit({{_,_,App} = Transport, _, _}, Req, Opts, SvcName, Timeout) ->
-    try retransmit(Transport, Req, SvcName, Timeout) of
-        T -> recv_A(Timeout, SvcName, App, Opts, T)
+resend_request({{_,_,App} = Transport, _}, Req, CallOpts, SvcName) ->
+    try retransmit(Transport, Req, SvcName, CallOpts#options.timeout) of
+        T -> recv_answer(SvcName, App, CallOpts, T)
     catch
         ?FAILURE(Reason) -> {error, Req, Reason}
     end;
 
-retransmit(_, Req, _, _, _) ->  %% no alternate peer
+resend_request(_, Req, _, _) ->  %% no alternate peer
     {error, Req, failover}.
 
 %% pick_peer/4
@@ -1603,8 +1593,8 @@ retransmit(_, Req, _, _, _) ->  %% no alternate peer
 pick_peer(SvcName,
           App,
           #request{packet = #diameter_packet{msg = Msg}},
-          Opts) ->
-    pick_peer(SvcName, App, Msg, Opts#options{extra = []});
+          CallOpts) ->
+    pick_peer(SvcName, App, Msg, CallOpts#options{extra = []});
 
 pick_peer(_, _, undefined, _) ->
     {error, no_connection};
@@ -1613,27 +1603,13 @@ pick_peer(SvcName,
           AppOrAlias,
           Msg,
           #options{filter = Filter, extra = Xtra}) ->
-    pick(diameter_service:pick_peer(SvcName,
-                                    AppOrAlias,
-                                    {fun(D) -> get_destination(D, Msg) end,
-                                     Filter,
-                                     Xtra})).
-
-pick(false) ->
-    {error, no_connection};
-
-pick(T) ->
-    T.
-
-%% handle_error/4
-
-handle_error(App,
-             #request{packet = Pkt,
-                      transport = TPid,
-                      caps = Caps},
-             Reason,
-             SvcName) ->
-    cb(App, handle_error, [Reason, msg(Pkt), SvcName, {TPid, Caps}]).
+    X = {fun(D) -> get_destination(D, Msg) end, Filter, Xtra},
+    case diameter_service:pick_peer(SvcName, AppOrAlias, X) of
+        false ->
+            {error, no_connection};
+        T ->
+            T
+    end.
 
 msg(#diameter_packet{msg = undefined, bin = Bin}) ->
     Bin;
@@ -1745,14 +1721,14 @@ send(Pid, Pkt, Route) ->
 
 retransmit({TPid, Caps, App}
            = Transport,
-           #request{packet = Pkt0}
+           #request{packet = ReqPkt}
            = Req,
            SvcName,
            Timeout) ->
     undefined == get(TPid)       %% Don't failover to a peer we've
         orelse ?THROW(timeout),  %% already sent to.
 
-    Pkt = make_retransmit_packet(Pkt0),
+    Pkt = make_retransmit_packet(ReqPkt),
 
     retransmit(cb(App, prepare_retransmit, [Pkt, SvcName, {TPid, Caps}]),
                Transport,
@@ -1789,21 +1765,21 @@ retransmit({eval_packet, RC, F}, Transport, Req, SvcName, Timeout, Fs) ->
 retransmit(T, {_, _, App}, _, _, _, _) ->
     ?ERROR({invalid_return, T, prepare_retransmit, App}).
 
-resend_request(Pkt0,
+resend_request(ReqPkt,
                {TPid, Caps, #diameter_app{dictionary = AppDict}},
                Req0,
                SvcName,
                Tmo,
                Fs) ->
-    Pkt = encode(AppDict, TPid, Pkt0, Fs),
+    EncPkt = encode(AppDict, TPid, ReqPkt, Fs),
 
     Req = Req0#request{transport = TPid,
-                       packet = Pkt0,
+                       packet = ReqPkt,
                        caps = Caps},
 
-    ?LOG(retransmission, Pkt#diameter_packet.header),
-    incr(TPid, {msg_id(Pkt, AppDict), send, retransmission}),
-    {TRef, MRef} = zend_requezt(TPid, Pkt, Req, SvcName, Tmo),
+    ?LOG(retransmission, EncPkt#diameter_packet.header),
+    incr(TPid, {msg_id(EncPkt, AppDict), send, retransmission}),
+    {TRef, MRef} = zend_requezt(TPid, EncPkt, Req, SvcName, Tmo),
     {TRef, MRef, Req}.
 
 %% peer_monitor/2
@@ -1905,7 +1881,7 @@ ungroup(Avp) ->
 avp_decode(Dict, Name, #diameter_avp{value = undefined,
                                      data = Bin}
                        = Avp) ->
-    try Dict:avp(decode, Bin, Name) of
+    try Dict:avp(decode, Bin, Name, decode_opts(Dict)) of
         V ->
             Avp#diameter_avp{value = V}
     catch
@@ -1916,8 +1892,6 @@ avp_decode(_, _, #diameter_avp{} = Avp) ->
     Avp.
 
 cb(#diameter_app{module = [_|_] = M}, F, A) ->
-    eval(M, F, A);
-cb([_|_] = M, F, A) ->
     eval(M, F, A).
 
 eval([M|X], F, A) ->
@@ -1925,3 +1899,10 @@ eval([M|X], F, A) ->
 
 choose(true, X, _)  -> X;
 choose(false, _, X) -> X.
+
+%% Decode options sufficient for AVP extraction.
+decode_opts(Dict) ->
+    #{string_decode => false,
+      strict_mbit => false,
+      failed_avp => false,
+      dictionary => Dict}.
