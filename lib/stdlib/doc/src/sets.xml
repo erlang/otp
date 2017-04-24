@@ -40,7 +40,7 @@
 
     <p>This module provides the same interface as the
       <seealso marker="ordsets"><c>ordsets(3)</c></seealso> module
-      but with a defined representation. One difference is
+      but with an undefined representation. One difference is
       that while this module considers two elements as different if they
       do not match (<c>=:=</c>), <c>ordsets</c> considers two elements as
       different if and only if they do not compare equal (<c>==</c>).</p>
