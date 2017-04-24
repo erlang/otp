@@ -179,8 +179,8 @@ inet_port_extra({_,Type},Port) when Type =:= "udp_inet";
             {error, _} -> []
         end ++
         case inet:getopts(Port,
-                          [active, broadcast, buffer, delay_send,
-                           deliver, dontroute, exit_on_close,
+                          [active, broadcast, buffer, bind_to_device,
+                           delay_send, deliver, dontroute, exit_on_close,
                            header, high_msgq_watermark, high_watermark,
                            ipv6_v6only, keepalive, linger, low_msgq_watermark,
                            low_watermark, mode, netns, nodelay, packet,

@@ -591,7 +591,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 			     (((unsigned char*) (s))[1] << 8) | \
 			     (((unsigned char*) (s))[0]))
 
-#ifdef HAVE_SYS_UN_H
+#if defined(HAVE_SYS_UN_H) || defined(SO_BINDTODEVICE)
 
 /* strnlen doesn't exist everywhere */
 static size_t my_strnlen(const char *s, size_t maxlen)
@@ -601,6 +601,10 @@ static size_t my_strnlen(const char *s, size_t maxlen)
         i++;
     return i;
 }
+
+#endif
+
+#if defined(HAVE_SYS_UN_H)
 
 /* Check that some character in the buffer != '\0' */
 static int is_nonzero(const char *s, size_t n)
@@ -778,6 +782,7 @@ static int is_nonzero(const char *s, size_t n)
 #define INET_LOPT_TCP_SHOW_ECONNRESET 39  /* tell user about incoming RST */
 #define INET_LOPT_LINE_DELIM        40  /* Line delimiting char */
 #define INET_OPT_TCLASS             41  /* IPv6 transport class */
+#define INET_OPT_BIND_TO_DEVICE     42  /* get/set network device the socket is bound to */
 /* SCTP options: a separate range, from 100: */
 #define SCTP_OPT_RTOINFO		100
 #define SCTP_OPT_ASSOCINFO		101
@@ -1334,6 +1339,7 @@ static ErlDrvTermData am_tos;
 static ErlDrvTermData am_tclass;
 static ErlDrvTermData am_ipv6_v6only;
 static ErlDrvTermData am_netns;
+static ErlDrvTermData am_bind_to_device;
 #endif
 
 static char str_eafnosupport[] = "eafnosupport";
@@ -3725,6 +3731,7 @@ static void inet_init_sctp(void) {
     INIT_ATOM(tclass);
     INIT_ATOM(ipv6_v6only);
     INIT_ATOM(netns);
+    INIT_ATOM(bind_to_device);
     
     /* Option names */
     INIT_ATOM(sctp_rtoinfo);
@@ -5946,6 +5953,9 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
     int ival;
     char* arg_ptr;
     int arg_sz;
+#ifdef SO_BINDTODEVICE
+    char ifname[IFNAMSIZ];
+#endif
     enum PacketParseType old_htype = desc->htype;
     int old_active = desc->active;
     int propagate; /* Set to 1 if failure to set this option
@@ -6331,6 +6341,29 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    len -= arg_sz;
 	    break;
 
+#ifdef SO_BINDTODEVICE
+	case INET_OPT_BIND_TO_DEVICE:
+	    if (ival < 0) return -1;
+	    if (len < ival) return -1;
+	    if (ival > sizeof(ifname)) {
+		return -1;
+	    }
+	    memcpy(ifname, ptr, ival);
+	    ifname[ival] = '\0';
+	    ptr += ival;
+	    len -= ival;
+
+	    proto = SOL_SOCKET;
+	    type = SO_BINDTODEVICE;
+	    arg_ptr = (char*)&ifname;
+	    arg_sz = sizeof(ifname);
+	    propagate = 1; /* We do want to know if this fails */
+
+	    DEBUGF(("inet_set_opts(%ld): s=%d, SO_BINDTODEVICE=%s\r\n",
+		    (long)desc->port, desc->s, ifname));
+	    break;
+#endif
+
 	default:
 	    return -1;
 	}
@@ -6462,6 +6495,9 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	struct sctp_event_subscribe es;
 #	ifdef SCTP_DELAYED_ACK_TIME
 	struct sctp_assoc_value     av; /* Not in SOLARIS10 */
+#	endif
+#	ifdef SO_BINDTODEVICE
+	char ifname[IFNAMSIZ];
 #	endif
     }
     arg;
@@ -6701,6 +6737,23 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 #       else
 	    continue; /* Option not supported -- ignore it */
 #       endif
+
+#ifdef SO_BINDTODEVICE
+	case INET_OPT_BIND_TO_DEVICE:
+	    arg_sz = get_int32(curr);			curr += 4;
+	    CHKLEN(curr, arg_sz);
+	    if (arg_sz >= sizeof(arg.ifname))
+		return -1;
+	    memcpy(arg.ifname, curr, arg_sz);
+	    arg.ifname[arg_sz] = '\0';
+	    curr += arg_sz;
+
+	    proto   = SOL_SOCKET;
+	    type    = SO_BINDTODEVICE;
+	    arg_ptr = (char*) (&arg.ifname);
+	    arg_sz  = sizeof  ( arg.ifname);
+	    break;
+#endif
 
 	case SCTP_OPT_AUTOCLOSE:
 	{
@@ -6967,6 +7020,9 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
     ErlDrvSizeT dest_used = 0;
     ErlDrvSizeT dest_allocated = destlen;
     char *orig_dest = *dest;
+#ifdef SO_BINDTODEVICE
+    char ifname[IFNAMSIZ];
+#endif
 
     /* Ptr is a name parameter */ 
 #define RETURN_ERROR()				\
@@ -7302,6 +7358,26 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 		put_int32(arg_sz,ptr);
 		continue;
 	    }
+
+#ifdef SO_BINDTODEVICE
+	case INET_OPT_BIND_TO_DEVICE:
+	    arg_sz = sizeof(ifname);
+	    TRUNCATE_TO(0,ptr);
+	    PLACE_FOR(5 + arg_sz,ptr);
+	    arg_ptr = ptr + 5;
+	    if (IS_SOCKET_ERROR(sock_getopt(desc->s,SOL_SOCKET,SO_BINDTODEVICE,
+						arg_ptr,&arg_sz))) {
+		    TRUNCATE_TO(0,ptr);
+		    continue;
+		}
+	    arg_sz = my_strnlen(arg_ptr, arg_sz);
+	    TRUNCATE_TO(arg_sz + 5,ptr);
+	    *ptr++ = opt;
+	    put_int32(arg_sz,ptr);
+	    ptr += arg_sz;
+	    continue;
+#endif
+
 	default:
 	    RETURN_ERROR();
 	}
@@ -7583,6 +7659,25 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    i = LOAD_TUPLE	(spec, i, 2);
 	    break;
 	}
+
+#ifdef SO_BINDTODEVICE
+	/* The following option returns a binary:   */
+	case INET_OPT_BIND_TO_DEVICE: {
+	    char ifname[IFNAMSIZ];
+	    unsigned int  sz = sizeof(ifname);
+
+	    if (sock_getopt(desc->s, SOL_SOCKET, SO_BINDTODEVICE,
+			    &ifname, &sz) < 0) continue;
+	    /* Fill in the response: */
+	    PLACE_FOR(spec, i,
+		      LOAD_ATOM_CNT + LOAD_BUF2BINARY_CNT + LOAD_TUPLE_CNT);
+	    i = LOAD_ATOM (spec, i, am_bind_to_device);
+	    i = LOAD_BUF2BINARY(spec, i, ifname, my_strnlen(ifname, sz));
+	    i = LOAD_TUPLE (spec, i, 2);
+	    break;
+	}
+#endif
+
 	/* The following options just return an integer value: */
 	case INET_OPT_RCVBUF   :
 	case INET_OPT_SNDBUF   :

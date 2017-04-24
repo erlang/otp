@@ -40,7 +40,8 @@
 	 lookup_bad_search_option/1,
 	 getif/1,
 	 getif_ifr_name_overflow/1,getservbyname_overflow/1, getifaddrs/1,
-	 parse_strict_address/1, simple_netns/1, simple_netns_open/1]).
+	 parse_strict_address/1, simple_netns/1, simple_netns_open/1,
+         simple_bind_to_device/1, simple_bind_to_device_open/1]).
 
 -export([get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
 	 kill_gethost/0, parallell_gethost/0, test_netns/0]).
@@ -58,7 +59,8 @@ all() ->
      gethostnative_debug_level, gethostnative_soft_restart,
      lookup_bad_search_option,
      getif, getif_ifr_name_overflow, getservbyname_overflow,
-     getifaddrs, parse_strict_address, simple_netns, simple_netns_open].
+     getifaddrs, parse_strict_address, simple_netns, simple_netns_open,
+     simple_bind_to_device, simple_bind_to_device_open].
 
 groups() -> 
     [{parse, [], [parse_hosts, parse_address]}].
@@ -1246,4 +1248,68 @@ cmd(Cmd, Args) ->
 cmd(CmdString) ->
     io:put_chars(["# ",CmdString,io_lib:nl()]),
     io:put_chars([os:cmd(CmdString++" ; echo '  =>' $?")]),
+    ok.
+
+-define(CAP_NET_RAW, 13).        %% from /usr/include/linux/capability.h
+
+can_bind_to_device({unix, linux}, {Major, _, _})
+  when Major > 2 ->
+    Status = os:cmd("cat /proc/self/status | grep CapEff"),
+    [_, CapEffStr] = string:tokens(Status, [$\n, $\t]),
+    CapEff = list_to_integer(CapEffStr, 16),
+    if CapEff band (1 bsl ?CAP_NET_RAW) =/= 0 ->
+            ok;
+       true ->
+            {skip,"insufficient capabilities, CAP_NET_RAW not granted"}
+    end;
+can_bind_to_device(_OS, _Version) ->
+    {skip,"socket option bind_to_device not supported on this OS or version"}.
+
+simple_bind_to_device(Config) when is_list(Config) ->
+    case can_bind_to_device(os:type(), os:version()) of
+        ok ->
+            {ok,U} = gen_udp:open(0),
+            jog_bind_to_device_opt(U),
+            ok = gen_udp:close(U),
+            %%
+            {ok,L} = gen_tcp:listen(0, []),
+            jog_bind_to_device_opt(L),
+            ok = gen_tcp:close(L),
+            %%
+            case gen_sctp:open() of
+                {ok,S} ->
+                    jog_bind_to_device_opt(S),
+                    ok = gen_sctp:close(S);
+                {error,eprotonosupport} ->
+                    ok
+            end;
+        Other ->
+            Other
+    end.
+
+%% Smoke test bind_to_device support.
+simple_bind_to_device_open(Config) when is_list(Config) ->
+    case can_bind_to_device(os:type(), os:version()) of
+        ok ->
+            {ok,U} = gen_udp:open(0, [binary,{bind_to_device,<<"lo">>},inet]),
+            ok = gen_udp:close(U),
+            {ok,T} = gen_tcp:listen(0, [binary,{bind_to_device,<<"lo">>},inet]),
+            ok = gen_tcp:close(T),
+
+            case gen_sctp:open(0, [binary,{bind_to_device,<<"lo">>},inet]) of
+                {ok,S} ->
+                    ok = gen_sctp:close(S);
+                {error,eprotonosupport} ->
+                    ok
+            end;
+        Other ->
+            Other
+    end.
+
+jog_bind_to_device_opt(S) ->
+    %% This is just jogging the option mechanics
+    ok = inet:setopts(S, [{bind_to_device,<<>>}]),
+    {ok,[{bind_to_device,<<>>}]} = inet:getopts(S, [bind_to_device]),
+    ok = inet:setopts(S, [{bind_to_device,<<"lo">>}]),
+    {ok,[{bind_to_device,<<"lo">>}]} = inet:getopts(S, [bind_to_device]),
     ok.
