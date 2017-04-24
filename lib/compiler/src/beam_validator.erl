@@ -623,17 +623,17 @@ valfun_4({test,bs_skip_utf16,{f,Fail},[Ctx,Live,_]}, Vst) ->
 valfun_4({test,bs_skip_utf32,{f,Fail},[Ctx,Live,_]}, Vst) ->
     validate_bs_skip_utf(Fail, Ctx, Live, Vst);
 valfun_4({test,bs_get_integer2,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, Dst, Vst);
+    validate_bs_get(Fail, Ctx, Live, {integer, []}, Dst, Vst);
 valfun_4({test,bs_get_float2,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, Dst, Vst);
+    validate_bs_get(Fail, Ctx, Live, {float, []}, Dst, Vst);
 valfun_4({test,bs_get_binary2,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, Dst, Vst);
+    validate_bs_get(Fail, Ctx, Live, term, Dst, Vst);
 valfun_4({test,bs_get_utf8,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, Dst, Vst);
+    validate_bs_get(Fail, Ctx, Live, {integer, []}, Dst, Vst);
 valfun_4({test,bs_get_utf16,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, Dst, Vst);
+    validate_bs_get(Fail, Ctx, Live, {integer, []}, Dst, Vst);
 valfun_4({test,bs_get_utf32,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, Dst, Vst);
+    validate_bs_get(Fail, Ctx, Live, {integer, []}, Dst, Vst);
 valfun_4({bs_save2,Ctx,SavePoint}, Vst) ->
     bsm_save(Ctx, SavePoint, Vst);
 valfun_4({bs_restore2,Ctx,SavePoint}, Vst) ->
@@ -794,12 +794,12 @@ verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
 %%
 %% Common code for validating bs_get* instructions.
 %%
-validate_bs_get(Fail, Ctx, Live, Dst, Vst0) ->
+validate_bs_get(Fail, Ctx, Live, Type, Dst, Vst0) ->
     bsm_validate_context(Ctx, Vst0),
     verify_live(Live, Vst0),
     Vst1 = prune_x_regs(Live, Vst0),
     Vst = branch_state(Fail, Vst1),
-    set_type_reg(term, Dst, Vst).
+    set_type_reg(Type, Dst, Vst).
 
 %%
 %% Common code for validating bs_skip_utf* instructions.

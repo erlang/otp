@@ -22,7 +22,7 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 integers/1,coverage/1,booleans/1,setelement/1,cons/1,
-	 tuple/1,record_float/1]).
+	 tuple/1,record_float/1,binary_float/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -38,7 +38,8 @@ groups() ->
        setelement,
        cons,
        tuple,
-       record_float
+       record_float,
+       binary_float
       ]}].
 
 init_per_suite(Config) ->
@@ -143,6 +144,12 @@ record_float(R, N0) ->
             N
     end.
 
+binary_float(_Config) ->
+    <<-1/float>> = binary_negate_float(<<1/float>>),
+    ok.
+
+binary_negate_float(<<Float/float>>) ->
+    <<-Float/float>>.
 
 id(I) ->
     I.
