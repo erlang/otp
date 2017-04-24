@@ -125,6 +125,7 @@
   [-until [YYMoMoDD]HHMMSS [-force_stop [skip_rest]]]
   [-basic_html]
   [-no_esc_chars]
+  [-keep_logs all | NLogs]
   [-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
    CTHModuleN CTHOptsN]
   [-exit_status ignore_config]
@@ -164,6 +165,7 @@
   [-until [YYMoMoDD]HHMMSS [-force_stop [skip_rest]]]
   [-basic_html]
   [-no_esc_chars]
+  [-keep_logs all | NLogs]
   [-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
    CTHModuleN CTHOptsN]
   [-exit_status ignore_config]</pre>
@@ -189,13 +191,15 @@
   [-scale_timetraps]
   [-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
   [-basic_html]
-  [-no_esc_chars]</pre>
+  [-no_esc_chars]
+  [-keep_logs all | NLogs]</pre>
   </section>
 
   <section>
     <title>Refresh HTML Index Files</title>
     <pre>
- ct_run -refresh_logs [-logdir LogDir] [-basic_html]</pre>
+ ct_run -refresh_logs [-logdir LogDir] [-basic_html]
+  [-keep_logs all | NLogs]</pre>
   </section>
 
   <section>

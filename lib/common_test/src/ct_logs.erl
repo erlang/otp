@@ -41,6 +41,7 @@
 -export([xhtml/2, locate_priv_file/1, make_relative/1]).
 -export([insert_javascript/1]).
 -export([uri/1]).
+-export([parse_keep_logs/1]).
 
 %% Logging stuff directly from testcase
 -export([tc_log/3, tc_log/4, tc_log/5, tc_log/6,
@@ -1946,7 +1947,11 @@ make_all_runs_index(When) ->
 	end,	
 
     Dirs = filelib:wildcard(logdir_prefix()++"*.*"),
-    DirsSorted = (catch sort_all_runs(Dirs)),
+    DirsSorted0 = (catch sort_all_runs(Dirs)),
+    DirsSorted =
+        if When == start -> DirsSorted0;
+           true -> maybe_delete_old_dirs(DirsSorted0)
+        end,
 
     LogCacheInfo = get_cache_data(UseCache),
 	
@@ -2063,6 +2068,36 @@ sort_ct_runs(Dirs) ->
 		  lists:reverse(string:tokens(filename:dirname(Dir2),[$.])),
 	      {DateHH1,MM1,SS1} =< {DateHH2,MM2,SS2}
       end, Dirs).
+
+parse_keep_logs([Str="all"]) ->
+    parse_keep_logs(list_to_atom(Str));
+parse_keep_logs([NStr]) ->
+    parse_keep_logs(list_to_integer(NStr));
+parse_keep_logs(all) ->
+    all;
+parse_keep_logs(N) when is_integer(N), N>0 ->
+    N.
+
+maybe_delete_old_dirs(Sorted) ->
+    {Keep,Delete} =
+        case application:get_env(common_test, keep_logs) of
+            {ok,MaxN} when is_integer(MaxN), length(Sorted)>MaxN ->
+                lists:split(MaxN,Sorted);
+            _ ->
+                {Sorted,[]}
+        end,
+    delete_old_dirs(Delete),
+    Keep.
+
+delete_old_dirs([]) ->
+    ok;
+delete_old_dirs(Dirs) ->
+    io:put_chars("\n  Removing old test directories:\n"),
+    [begin
+         io:put_chars("    " ++ Dir ++ "\n"),
+         rm_dir(Dir)
+     end|| Dir <- Dirs],
+    ok.
 
 dir_diff_all_runs(Dirs, LogCache) ->
     case LogCache#log_cache.all_runs of
