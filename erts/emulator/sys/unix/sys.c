@@ -854,9 +854,14 @@ int erts_set_signal(Eterm signal, Eterm type) {
 
 /* Disable break */
 void erts_set_ignore_break(void) {
-    sys_signal(SIGINT,  SIG_IGN);
-    sys_signal(SIGQUIT, SIG_IGN);
-    sys_signal(SIGTSTP, SIG_IGN);
+    /*
+     * Ignore signals that can be sent to the VM by
+     * typing certain key combinations at the
+     * controlling terminal...
+     */
+    sys_signal(SIGINT,  SIG_IGN);       /* Ctrl-C */
+    sys_signal(SIGQUIT, SIG_IGN);       /* Ctrl-\ */
+    sys_signal(SIGTSTP, SIG_IGN);       /* Ctrl-Z */
 }
 
 /* Don't use ctrl-c for break handler but let it be 
@@ -880,7 +885,6 @@ void erts_replace_intr(void) {
 void init_break_handler(void)
 {
    sys_signal(SIGINT,  request_break);
-   sys_signal(SIGTERM, generic_signal_handler);
    sys_signal(SIGHUP,  generic_signal_handler);
 #ifndef ETHR_UNUSABLE_SIGUSRX
    sys_signal(SIGUSR1, generic_signal_handler);
@@ -893,6 +897,12 @@ void sys_init_suspend_handler(void)
 #ifdef ERTS_SYS_SUSPEND_SIGNAL
    sys_signal(ERTS_SYS_SUSPEND_SIGNAL, suspend_signal);
 #endif
+}
+
+void
+erts_sys_unix_later_init(void)
+{
+    sys_signal(SIGTERM, generic_signal_handler);
 }
 
 int sys_max_files(void)
