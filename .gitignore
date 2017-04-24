@@ -22,6 +22,7 @@ autom4te.cache
 #
 /bootstrap/lib/compiler/egen
 /bootstrap/lib/stdlib/egen
+/lib/stdlib/src/unicode_util.erl
 
 # Compiler derivatives
 #

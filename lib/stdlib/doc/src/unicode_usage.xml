@@ -65,7 +65,10 @@
 
 	<item><p>In Erlang/OTP 20.0, atoms and function can contain
 	Unicode characters. Module names are still restricted to
-	the ISO-Latin-1 range.</p></item>
+	the ISO-Latin-1 range.</p>
+	<p>Support was added for normalizations forms in
+	<c>unicode</c> and the <c>string</c> module now handles
+	utf8-encoded binaries.</p></item>
       </list>
 
     <p>This section outlines the current Unicode support and gives some
@@ -110,23 +113,27 @@
       </item>
     </list>
 
-    <p>So, a conversion function must know not only one character at a time,
-      but possibly the whole sentence, the natural language to translate to,
-      the differences in input and output string length, and so on.
-      Erlang/OTP has currently no Unicode <c>to_upper</c>/<c>to_lower</c>
-      functionality, but publicly available libraries address these issues.</p>
+    <p>So, a conversion function must know not only one character at a
+    time, but possibly the whole sentence, the natural language to
+    translate to, the differences in input and output string length,
+    and so on.  Erlang/OTP has currently no Unicode
+    <c>uppercase</c>/<c>lowercase</c> functionality with language
+    specific handling, but publicly available libraries address these
+    issues.</p>
 
-    <p>Another example is the accented characters, where the same glyph has two
-      different representations. The Swedish letter "ö" is one example.
-      The Unicode standard has a code point for it, but you can also write it
-      as "o" followed by "U+0308" (Combining Diaeresis, with the simplified
-      meaning that the last letter is to have "¨" above). They have the same
-      glyph. They are for most purposes the same, but have different
-      representations. For example, MacOS X converts all filenames to use
-      Combining Diaeresis, while most other programs (including Erlang) try to
-      hide that by doing the opposite when, for example, listing directories.
-      However it is done, it is usually important to normalize such
-      characters to avoid confusion.</p>
+    <p>Another example is the accented characters, where the same
+    glyph has two different representations. The Swedish letter "ö" is
+    one example.  The Unicode standard has a code point for it, but
+    you can also write it as "o" followed by "U+0308" (Combining
+    Diaeresis, with the simplified meaning that the last letter is to
+    have "¨" above). They have the same glyph, user perceived
+    character. They are for most purposes the same, but have different
+    representations. For example, MacOS X converts all filenames to
+    use Combining Diaeresis, while most other programs (including
+    Erlang) try to hide that by doing the opposite when, for example,
+    listing directories.  However it is done, it is usually important
+    to normalize such characters to avoid confusion.
+    </p>
 
     <p>The list of examples can be made long. One need a kind of knowledge that
       was not needed when programs only considered one or two languages. The
@@ -273,7 +280,7 @@
         them. In some cases functionality has been added to already
         existing interfaces (as the <seealso
         marker="stdlib:string"><c>string</c></seealso> module now can
-        handle lists with any code points). In some cases new
+        handle strings with any code points). In some cases new
         functionality or options have been added (as in the <seealso
         marker="stdlib:io"><c>io</c></seealso> module, the file
         handling, the <seealso
@@ -977,7 +984,7 @@ Eshell V5.10.1  (abort with ^G)
 
     <p>Fortunately, most textual data has been stored in lists and range
       checking has been sparse, so modules like <c>string</c> work well for
-      Unicode lists with little need for conversion or extension.</p>
+      Unicode strings with little need for conversion or extension.</p>
 
     <p>Some modules are, however, changed to be explicitly Unicode-aware. These
       modules include:</p>
@@ -1028,18 +1035,17 @@ Eshell V5.10.1  (abort with ^G)
           has extensive support for Unicode text.</p></item>
     </taglist>
 
-    <p>The <seealso marker="stdlib:string"><c>string</c></seealso> module works
-      perfectly for Unicode strings and ISO Latin-1 strings, except the
-      language-dependent functions
-      <seealso marker="stdlib:string#to_upper/1"><c>string:to_upper/1</c></seealso>
-      and
-      <seealso marker="stdlib:string#to_lower/1"><c>string:to_lower/1</c></seealso>,
-      which are only correct for the ISO Latin-1 character set. These two
-      functions can never function correctly for Unicode characters in their
-      current form, as there are language and locale issues as well as
-      multi-character mappings to consider when converting text between cases.
-      Converting case in an international environment is a large subject not
-      yet addressed in OTP.</p>
+    <p>The <seealso marker="stdlib:string"><c>string</c></seealso>
+    module works perfectly for Unicode strings and ISO Latin-1
+    strings, except the language-dependent functions <seealso
+    marker="stdlib:string#uppercase/1"><c>string:uppercase/1</c></seealso>
+    and <seealso
+    marker="stdlib:string#lowercase/1"><c>string:lowercase/1</c></seealso>.
+    These two functions can never function correctly for Unicode
+    characters in their current form, as there are language and locale
+    issues to consider when converting text between cases.  Converting
+    case in an international environment is a large subject not yet
+    addressed in OTP.</p>
   </section>
 
   <section>

@@ -36,7 +36,612 @@
   <modulesummary>String processing functions.</modulesummary>
   <description>
     <p>This module provides functions for string processing.</p>
+    <p>A string in this module is represented by <seealso marker="unicode#type-chardata">
+    <c>unicode:chardata()</c></seealso>, that is, a list of codepoints,
+    binaries with UTF-8-encoded codepoints
+    (<em>UTF-8 binaries</em>), or a mix of the two.</p>
+    <code>
+"abcd"               is a valid string
+&lt;&lt;"abcd">>           is a valid string
+["abcd"]             is a valid string
+&lt;&lt;"abc..åäö"/utf8>>  is a valid string
+&lt;&lt;"abc..åäö">>       is NOT a valid string,
+                     but a binary with Latin-1-encoded codepoints
+[&lt;&lt;"abc">>, "..åäö"] is a valid string
+[atom]               is NOT a valid string</code>
+    <p>
+      This module operates on grapheme clusters. A <em>grapheme cluster</em>
+      is a user-perceived character, which can be represented by several
+      codepoints.
+    </p>
+    <code>
+"å"  [229] or [97, 778]
+"e̊"  [101, 778]</code>
+    <p>
+      The string length of "ß↑e̊" is 3, even though it is represented by the
+      codepoints <c>[223,8593,101,778]</c> or the UTF-8 binary
+      <c>&lt;&lt;195,159,226,134,145,101,204,138>></c>.
+    </p>
+    <p>
+      Grapheme clusters for codepoints of class <c>prepend</c>
+      and non-modern (or decomposed) Hangul is not handled for performance
+      reasons in
+      <seealso marker="#find/3"><c>find/3</c></seealso>,
+      <seealso marker="#replace/3"><c>replace/3</c></seealso>,
+      <seealso marker="#split/2"><c>split/2</c></seealso>,
+      <seealso marker="#lexemes/2"><c>split/2</c></seealso> and
+      <seealso marker="#trim/3"><c>trim/3</c></seealso>.
+    </p>
+    <p>
+      Splitting and appending strings is to be done on grapheme clusters
+      borders.
+      There is no verification that the results of appending strings are
+      valid or normalized.
+    </p>
+    <p>
+      Most of the functions expect all input to be normalized to one form,
+      see for example <seealso marker="unicode#characters_to_nfc_list/1">
+      <c>unicode:characters_to_nfc_list/1</c></seealso>.
+    </p>
+    <p>
+      Language or locale specific handling of input is not considered
+      in any function.
+    </p>
+    <p>
+      The functions can crash for non-valid input strings. For example,
+      the functions expect UTF-8 binaries but not all functions
+      verify that all binaries are encoded correctly.
+    </p>
+    <p>
+      Unless otherwise specified the return value type is the same as
+      the input type. That is, binary input returns binary output,
+      list input returns a list output, and mixed input can return a
+      mixed output.</p>
+      <code>
+1> string:trim("  sarah  ").
+"sarah"
+2> string:trim(&lt;&lt;"  sarah  ">>).
+&lt;&lt;"sarah">>
+3> string:lexemes("foo bar", " ").
+["foo","bar"]
+4> string:lexemes(&lt;&lt;"foo bar">>, " ").
+[&lt;&lt;"foo">>,&lt;&lt;"bar">>]</code>
+    <p>This module has been reworked in Erlang/OTP 20 to
+    handle <seealso marker="unicode#type-chardata">
+    <c>unicode:chardata()</c></seealso> and operate on grapheme
+    clusters. The <seealso marker="#oldapi"> <c>old
+    functions</c></seealso> that only work on Latin-1 lists as input
+    are still available but should not be
+    used. They will be deprecated in Erlang/OTP 21.
+    </p>
   </description>
+
+  <datatypes>
+    <datatype>
+      <name name="direction"/>
+      <name name="grapheme_cluster"/>
+      <desc>
+        <p>A user-perceived character, consisting of one or more
+        codepoints.</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+
+    <func>
+      <name name="casefold" arity="1"/>
+      <fsummary>Convert a string to a comparable string.</fsummary>
+      <desc>
+        <p>
+	  Converts <c><anno>String</anno></c> to a case-agnostic
+	  comparable string. Function <c>casefold/1</c> is preferred
+	  over <c>lowercase/1</c> when two strings are to be compared
+	  for equality. See also <seealso marker="#equal/4"><c>equal/4</c></seealso>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:casefold("Ω and ẞ SHARP S").</input>
+"ω and ss sharp s"</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="chomp" arity="1"/>
+      <fsummary>Remove trailing end of line control characters.</fsummary>
+      <desc>
+        <p>
+	  Returns a string where any trailing <c>\n</c> or
+	  <c>\r\n</c> have been removed from <c><anno>String</anno></c>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre>
+182> <input>string:chomp(&lt;&lt;"\nHello\n\n">>).</input>
+&lt;&lt;"\nHello">>
+183> <input>string:chomp("\nHello\r\r\n").</input>
+"\nHello\r"</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="equal" arity="2"/>
+      <name name="equal" arity="3"/>
+      <name name="equal" arity="4"/>
+      <fsummary>Test string equality.</fsummary>
+      <desc>
+        <p>
+	  Returns <c>true</c> if <c><anno>A</anno></c> and
+          <c><anno>B</anno></c> are equal, otherwise <c>false</c>.
+	</p>
+	<p>
+	  If <c><anno>IgnoreCase</anno></c> is <c>true</c>
+	  the function does <seealso marker="#casefold/1">
+	  <c>casefold</c>ing</seealso> on the fly before the equality test.
+	</p>
+	<p>If <c><anno>Norm</anno></c> is not <c>none</c>
+	the function applies normalization on the fly before the equality test.
+	There are four available normalization forms:
+	<seealso marker="unicode#characters_to_nfc_list/1"> <c>nfc</c></seealso>,
+	<seealso marker="unicode#characters_to_nfd_list/1"> <c>nfd</c></seealso>,
+	<seealso marker="unicode#characters_to_nfkc_list/1"> <c>nfkc</c></seealso>, and
+	<seealso marker="unicode#characters_to_nfkd_list/1"> <c>nfkd</c></seealso>.
+	</p>
+	<p>By default,
+	<c><anno>IgnoreCase</anno></c> is <c>false</c> and
+	<c><anno>Norm</anno></c> is <c>none</c>.</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:equal("åäö", &lt;&lt;"åäö"/utf8>>).</input>
+true
+2> <input>string:equal("åäö", unicode:characters_to_nfd_binary("åäö")).</input>
+false
+3> <input>string:equal("åäö", unicode:characters_to_nfd_binary("ÅÄÖ"), true, nfc).</input>
+true</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="find" arity="2"/>
+      <name name="find" arity="3"/>
+      <fsummary>Find start of substring.</fsummary>
+      <desc>
+        <p>
+	  Removes anything before <c><anno>SearchPattern</anno></c> in <c><anno>String</anno></c>
+	  and returns the remainder of the string or <c>nomatch</c> if <c><anno>SearchPattern</anno></c> is not
+	  found.
+          <c><anno>Dir</anno></c>, which can be <c>leading</c> or
+	  <c>trailing</c>, indicates from which direction characters
+	  are to be searched.
+        </p>
+	<p>
+          By default, <c><anno>Dir</anno></c> is <c>leading</c>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:find("ab..cd..ef", ".").</input>
+"..cd..ef"
+2> <input>string:find(&lt;&lt;"ab..cd..ef">>, "..", trailing).</input>
+&lt;&lt;"..ef">>
+3> <input>string:find(&lt;&lt;"ab..cd..ef">>, "x", leading).</input>
+nomatch
+4> <input>string:find("ab..cd..ef", "x", trailing).</input>
+nomatch</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_empty" arity="1"/>
+      <fsummary>Check if the string is empty.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>String</anno></c> is the
+        empty string, otherwise <c>false</c>.</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:is_empty("foo").</input>
+false
+2> <input>string:is_empty(["",&lt;&lt;>>]).</input>
+true</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="length" arity="1"/>
+      <fsummary>Calculate length of the string.</fsummary>
+      <desc>
+        <p>
+	  Returns the number of grapheme clusters in <c><anno>String</anno></c>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:length("ß↑e̊").</input>
+3
+2> <input>string:length(&lt;&lt;195,159,226,134,145,101,204,138>>).</input>
+3</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="lexemes" arity="2"/>
+      <fsummary>Split string into lexemes.</fsummary>
+      <desc>
+	<p>
+	  Returns a list of lexemes in <c><anno>String</anno></c>, separated
+          by the grapheme clusters in <c><anno>SeparatorList</anno></c>.
+	</p>
+	<p>
+	  Notice that, as shown in this example, two or more
+          adjacent separator graphemes clusters in <c><anno>String</anno></c>
+          are treated as one. That is, there are no empty
+          strings in the resulting list of lexemes.
+	  See also <seealso marker="#split/3"><c>split/3</c></seealso> which returns
+	  empty strings.
+	</p>
+	<p>Notice that <c>[$\r,$\n]</c> is one grapheme cluster.</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:lexemes("abc de̊fxxghix jkl\r\nfoo", "x e" ++ [[$\r,$\n]]).</input>
+["abc","de̊f","ghi","jkl","foo"]
+2> <input>string:lexemes(&lt;&lt;"abc de̊fxxghix jkl\r\nfoo"/utf8>>, "x e" ++ [$\r,$\n]).</input>
+[&lt;&lt;"abc">>,&lt;&lt;"de̊f"/utf8>>,&lt;&lt;"ghi">>,&lt;&lt;"jkl\r\nfoo">>]</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="lowercase" arity="1"/>
+      <fsummary>Convert a string to lowercase</fsummary>
+      <desc>
+        <p>
+	  Converts <c><anno>String</anno></c> to lowercase.
+	</p>
+	<p>
+	  Notice that function <seealso marker="#casefold/1"><c>casefold/1</c></seealso>
+	  should be used when converting a string to
+	  be tested for equality.
+	</p>
+	<p><em>Example:</em></p>
+	<pre>
+2> <input>string:lowercase(string:uppercase("Michał")).</input>
+"michał"</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="next_codepoint" arity="1"/>
+      <fsummary>Pick the first codepoint.</fsummary>
+      <desc>
+        <p>
+	  Returns the first codepoint in <c><anno>String</anno></c>
+	  and the rest of <c><anno>String</anno></c> in the tail.
+	</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:next_codepoint(unicode:characters_to_binary("e̊fg")).</input>
+[101|&lt;&lt;"̊fg"/utf8>>]</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="next_grapheme" arity="1"/>
+      <fsummary>Pick the first grapheme cluster.</fsummary>
+      <desc>
+        <p>
+	  Returns the first grapheme cluster in <c><anno>String</anno></c>
+	  and the rest of <c><anno>String</anno></c> in the tail.
+	</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:next_grapheme(unicode:characters_to_binary("e̊fg")).</input>
+["e̊"|&lt;&lt;"fg">>]</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="nth_lexeme" arity="3"/>
+      <fsummary>Pick the nth lexeme.</fsummary>
+      <desc>
+	<p>Returns lexeme number <c><anno>N</anno></c> in
+	<c><anno>String</anno></c>, where lexemes are separated by
+	the grapheme clusters in <c><anno>SeparatorList</anno></c>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:nth_lexeme("abc.de̊f.ghiejkl", 3, ".e").</input>
+"ghi"</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="pad" arity="2"/>
+      <name name="pad" arity="3"/>
+      <name name="pad" arity="4"/>
+      <fsummary>Pad a string to given length.</fsummary>
+      <desc>
+        <p>
+	  Pads <c><anno>String</anno></c> to <c><anno>Length</anno></c> with
+	  grapheme cluster <c><anno>Char</anno></c>.
+	  <c><anno>Dir</anno></c>, which can be <c>leading</c>, <c>trailing</c>,
+	  or <c>both</c>, indicates where the padding should be added.
+	</p>
+	<p>By default, <c><anno>Char</anno></c> is <c>$\s</c> and
+	<c><anno>Dir</anno></c> is <c>trailing</c>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:pad(&lt;&lt;"He̊llö"/utf8>>, 8).</input>
+[&lt;&lt;72,101,204,138,108,108,195,182>>,32,32,32]
+2> <input>io:format("'~ts'~n",[string:pad("He̊llö", 8, leading)]).</input>
+'   He̊llö'
+3> <input>io:format("'~ts'~n",[string:pad("He̊llö", 8, both)]).</input>
+' He̊llö  '</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="prefix" arity="2"/>
+      <fsummary>Remove prefix from string.</fsummary>
+      <desc>
+        <p>
+	  If <c><anno>Prefix</anno></c> is the prefix of
+	  <c><anno>String</anno></c>, removes it and returns the
+	  remainder of <c><anno>String</anno></c>, otherwise returns
+	  <c>nomatch</c>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:prefix(&lt;&lt;"prefix of string">>, "pre").</input>
+&lt;&lt;"fix of string">>
+2> <input>string:prefix("pre", "prefix").</input>
+nomatch</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="replace" arity="3"/>
+      <name name="replace" arity="4"/>
+      <fsummary>Replace a pattern in string.</fsummary>
+      <desc>
+        <p>
+	  Replaces <c><anno>SearchPattern</anno></c> in <c><anno>String</anno></c>
+	  with <c><anno>Replacement</anno></c>.
+	  <c><anno>Where</anno></c>, default <c>leading</c>, indicates whether
+	  the <c>leading</c>, the <c>trailing</c> or <c>all</c> encounters of
+	  <c><anno>SearchPattern</anno></c> are to be replaced.
+	</p>
+	<p>Can be implemented as:</p>
+	<pre>lists:join(Replacement, split(String, SearchPattern, Where)).</pre>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:replace(&lt;&lt;"ab..cd..ef">>, "..", "*").</input>
+[&lt;&lt;"ab">>,"*",&lt;&lt;"cd..ef">>]
+2> <input>string:replace(&lt;&lt;"ab..cd..ef">>, "..", "*", all).</input>
+[&lt;&lt;"ab">>,"*",&lt;&lt;"cd">>,"*",&lt;&lt;"ef">>]</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="reverse" arity="1"/>
+      <fsummary>Reverses a string</fsummary>
+      <desc>
+        <p>
+	  Returns the reverse list of the grapheme clusters in <c><anno>String</anno></c>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> Reverse = <input>string:reverse(unicode:characters_to_nfd_binary("ÅÄÖ")).</input>
+[[79,776],[65,776],[65,778]]
+2> <input>io:format("~ts~n",[Reverse]).</input>
+ÖÄÅ</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="slice" arity="2"/>
+      <name name="slice" arity="3"/>
+      <fsummary>Extract a part of string</fsummary>
+      <desc>
+	<p>Returns a substring of <c><anno>String</anno></c> of
+	at most <c><anno>Length</anno></c> grapheme clusters, starting at position
+	<c><anno>Start</anno></c>.</p>
+	<p>By default, <c><anno>Length</anno></c> is <c>infinity</c>.</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:slice(&lt;&lt;"He̊llö Wörld"/utf8>>, 4).</input>
+&lt;&lt;"ö Wörld"/utf8>>
+2> <input>string:slice(["He̊llö ", &lt;&lt;"Wörld"/utf8>>], 4,4).</input>
+"ö Wö"
+3> <input>string:slice(["He̊llö ", &lt;&lt;"Wörld"/utf8>>], 4,50).</input>
+"ö Wörld"</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="split" arity="2"/>
+      <name name="split" arity="3"/>
+      <fsummary>Split a string into substrings.</fsummary>
+      <desc>
+        <p>
+	  Splits <c><anno>String</anno></c> where <c><anno>SearchPattern</anno></c>
+	  is encountered and return the remaining parts.
+	  <c><anno>Where</anno></c>, default <c>leading</c>, indicates whether
+	  the <c>leading</c>, the <c>trailing</c> or <c>all</c> encounters of
+	  <c><anno>SearchPattern</anno></c> will split <c><anno>String</anno></c>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre>
+0> <input>string:split("ab..bc..cd", "..").</input>
+["ab","bc..cd"]
+1> <input>string:split(&lt;&lt;"ab..bc..cd">>, "..", trailing).</input>
+[&lt;&lt;"ab..bc">>,&lt;&lt;"cd">>]
+2> <input>string:split(&lt;&lt;"ab..bc....cd">>, "..", all).</input>
+[&lt;&lt;"ab">>,&lt;&lt;"bc">>,&lt;&lt;>>,&lt;&lt;"cd">>]</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="take" arity="2"/>
+      <name name="take" arity="3"/>
+      <name name="take" arity="4"/>
+      <fsummary>Take leading or trailing parts.</fsummary>
+      <desc>
+        <p>Takes characters from <c><anno>String</anno></c> as long as
+        the characters are members of set <c><anno>Characters</anno></c>
+	or the complement of set <c><anno>Characters</anno></c>.
+        <c><anno>Dir</anno></c>,
+        which can be <c>leading</c> or <c>trailing</c>, indicates from
+        which direction characters are to be taken.
+	</p>
+	<p><em>Example:</em></p>
+	<pre>
+5> <input>string:take("abc0z123", lists:seq($a,$z)).</input>
+{"abc","0z123"}
+6> <input>string:take(&lt;&lt;"abc0z123">>, lists:seq($0,$9), true, leading).</input>
+{&lt;&lt;"abc">>,&lt;&lt;"0z123">>}
+7> <input>string:take("abc0z123", lists:seq($0,$9), false, trailing).</input>
+{"abc0z","123"}
+8> <input>string:take(&lt;&lt;"abc0z123">>, lists:seq($a,$z), true, trailing).</input>
+{&lt;&lt;"abc0z">>,&lt;&lt;"123">>}</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="titlecase" arity="1"/>
+      <fsummary>Convert a string to titlecase.</fsummary>
+      <desc>
+        <p>
+	  Converts <c><anno>String</anno></c> to titlecase.
+	</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:titlecase("ß is a SHARP s").</input>
+"Ss is a SHARP s"</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="to_float" arity="1"/>
+      <fsummary>Return a float whose text representation is the integers
+        (ASCII values) of a string.</fsummary>
+      <desc>
+        <p>Argument <c><anno>String</anno></c> is expected to start with a
+          valid text represented float (the digits are ASCII values).
+          Remaining characters in the string after the float are returned in
+          <c><anno>Rest</anno></c>.</p>
+        <p><em>Example:</em></p>
+        <pre>
+> <input>{F1,Fs} = string:to_float("1.0-1.0e-1"),</input>
+> <input>{F2,[]} = string:to_float(Fs),</input>
+> <input>F1+F2.</input>
+0.9
+> <input>string:to_float("3/2=1.5").</input>
+{error,no_float}
+> <input>string:to_float("-1.5eX").</input>
+{-1.5,"eX"}</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="to_integer" arity="1"/>
+      <fsummary>Return an integer whose text representation is the integers
+        (ASCII values) of a string.</fsummary>
+      <desc>
+        <p>Argument <c><anno>String</anno></c> is expected to start with a
+          valid text represented integer (the digits are ASCII values).
+          Remaining characters in the string after the integer are returned in
+          <c><anno>Rest</anno></c>.</p>
+        <p><em>Example:</em></p>
+        <pre>
+> <input>{I1,Is} = string:to_integer("33+22"),</input>
+> <input>{I2,[]} = string:to_integer(Is),</input>
+> <input>I1-I2.</input>
+11
+> <input>string:to_integer("0.5").</input>
+{0,".5"}
+> <input>string:to_integer("x=2").</input>
+{error,no_integer}</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="to_graphemes" arity="1"/>
+      <fsummary>Convert a string to a list of grapheme clusters.</fsummary>
+      <desc>
+        <p>
+	  Converts <c><anno>String</anno></c> to a list of grapheme clusters.
+	</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:to_graphemes("ß↑e̊").</input>
+[223,8593,[101,778]]
+2> <input>string:to_graphemes(&lt;&lt;"ß↑e̊"/utf8>>).</input>
+[223,8593,[101,778]]</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="trim" arity="1"/>
+      <name name="trim" arity="2"/>
+      <name name="trim" arity="3"/>
+      <fsummary>Trim leading or trailing, or both, characters.</fsummary>
+      <desc>
+	<p>
+	  Returns a string, where leading or trailing, or both,
+	  <c><anno>Characters</anno></c> have been removed.
+	  <c><anno>Dir</anno></c> which can be <c>leading</c>, <c>trailing</c>,
+	  or <c>both</c>, indicates from which direction characters
+	  are to be removed.
+	</p>
+	<p> Default <c><anno>Characters</anno></c> are the set of
+	nonbreakable whitespace codepoints, defined as
+	Pattern_White_Space in
+	<url href="http://unicode.org/reports/tr31/">Unicode Standard Annex #31</url>.
+	<c>By default, <anno>Dir</anno></c> is <c>both</c>.
+	</p>
+	<p>
+	  Notice that <c>[$\r,$\n]</c> is one grapheme cluster according
+	  to the Unicode Standard.
+	</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:trim("\t  Hello  \n").</input>
+"Hello"
+2> <input>string:trim(&lt;&lt;"\t  Hello  \n">>, leading).</input>
+&lt;&lt;"Hello  \n">>
+3> <input>string:trim(&lt;&lt;".Hello.\n">>, trailing, "\n.").</input>
+&lt;&lt;".Hello">></pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="uppercase" arity="1"/>
+      <fsummary>Convert a string to uppercase.</fsummary>
+      <desc>
+        <p>
+	  Converts <c><anno>String</anno></c> to uppercase.
+	</p>
+	<p>See also <seealso marker="#titlecase/1"><c>titlecase/1</c></seealso>.</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:uppercase("Michał").</input>
+"MICHAŁ"</pre>
+      </desc>
+    </func>
+
+  </funcs>
+
+  <section>
+    <marker id="oldapi"/>
+    <title>Obsolete API functions</title>
+    <p>Here follows the function of the old API.
+    These functions only work on a list of Latin-1 characters.
+    </p>
+    <note><p>
+      The functions are kept for backward compatibility, but are
+      not recommended.
+      They will be deprecated in Erlang/OTP 21.
+    </p>
+    <p>Any undocumented functions in <c>string</c> are not to be used.</p>
+    </note>
+  </section>
 
   <funcs>
     <func>
@@ -47,17 +652,24 @@
         <p>Returns a string, where <c><anno>String</anno></c> is centered in the
           string and surrounded by blanks or <c><anno>Character</anno></c>.
 	  The resulting string has length <c><anno>Number</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#pad/3"><c>pad/3</c></seealso>.
+	</p>
       </desc>
     </func>
 
     <func>
       <name name="chars" arity="2"/>
       <name name="chars" arity="3"/>
-      <fsummary>Returns a string consisting of numbers of characters.</fsummary>
+      <fsummary>Return a string consisting of numbers of characters.</fsummary>
       <desc>
         <p>Returns a string consisting of <c><anno>Number</anno></c> characters
           <c><anno>Character</anno></c>. Optionally, the string can end with
           string <c><anno>Tail</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="lists#duplicate/2"><c>lists:duplicate/2</c></seealso>.</p>
       </desc>
     </func>
 
@@ -69,6 +681,9 @@
         <p>Returns the index of the first occurrence of
           <c><anno>Character</anno></c> in <c><anno>String</anno></c>. Returns
           <c>0</c> if <c><anno>Character</anno></c> does not occur.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#find/2"><c>find/2</c></seealso>.</p>
       </desc>
     </func>
 
@@ -79,6 +694,16 @@
         <p>Concatenates <c><anno>String1</anno></c> and
           <c><anno>String2</anno></c> to form a new string
           <c><anno>String3</anno></c>, which is returned.</p>
+	<p>
+	  This function is <seealso marker="#oldapi">obsolete</seealso>.
+	  Use <c>[<anno>String1</anno>, <anno>String2</anno>]</c> as
+	  <c>Data</c> argument, and call
+	  <seealso marker="unicode#characters_to_list/2">
+	  <c>unicode:characters_to_list/2</c></seealso> or
+	  <seealso marker="unicode#characters_to_binary/2">
+	  <c>unicode:characters_to_binary/2</c></seealso>
+	  to flatten the output.
+	</p>
       </desc>
     </func>
 
@@ -88,6 +713,9 @@
       <desc>
         <p>Returns a string containing <c><anno>String</anno></c> repeated
           <c><anno>Number</anno></c> times.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="lists#duplicate/2"><c>lists:duplicate/2</c></seealso>.</p>
       </desc>
     </func>
 
@@ -98,19 +726,13 @@
         <p>Returns the length of the maximum initial segment of
           <c><anno>String</anno></c>, which consists entirely of characters
           not from <c><anno>Chars</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#take/3"><c>take/3</c></seealso>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > string:cspan("\t    abcdef", " \t").
 0</code>
-      </desc>
-    </func>
-
-    <func>
-      <name name="equal" arity="2"/>
-      <fsummary>Test string equality.</fsummary>
-      <desc>
-        <p>Returns <c>true</c> if <c><anno>String1</anno></c> and
-          <c><anno>String2</anno></c> are equal, otherwise <c>false</c>.</p>
       </desc>
     </func>
 
@@ -120,6 +742,9 @@
       <desc>
         <p>Returns a string with the elements of <c><anno>StringList</anno></c>
           separated by the string in <c><anno>Separator</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="lists#join/2"><c>lists:join/2</c></seealso>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > join(["one", "two", "three"], ", ").
@@ -137,6 +762,10 @@
           fixed. If <c>length(<anno>String</anno>)</c> &lt;
           <c><anno>Number</anno></c>, then <c><anno>String</anno></c> is padded
           with blanks or <c><anno>Character</anno></c>s.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#pad/2"><c>pad/2</c></seealso> or
+	<seealso marker="#pad/3"><c>pad/3</c></seealso>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > string:left("Hello",10,$.).
@@ -149,6 +778,9 @@
       <fsummary>Return the length of a string.</fsummary>
       <desc>
         <p>Returns the number of characters in <c><anno>String</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#length/1"><c>length/1</c></seealso>.</p>
       </desc>
     </func>
 
@@ -160,6 +792,9 @@
         <p>Returns the index of the last occurrence of
           <c><anno>Character</anno></c> in <c><anno>String</anno></c>. Returns
           <c>0</c> if <c><anno>Character</anno></c> does not occur.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#find/3"><c>find/3</c></seealso>.</p>
       </desc>
     </func>
 
@@ -173,6 +808,9 @@
           fixed. If the length of <c>(<anno>String</anno>)</c> &lt;
           <c><anno>Number</anno></c>, then <c><anno>String</anno></c> is padded
           with blanks or <c><anno>Character</anno></c>s.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#pad/3"><c>pad/3</c></seealso>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > string:right("Hello", 10, $.).
@@ -188,6 +826,9 @@
           <c><anno>SubString</anno></c> begins in <c><anno>String</anno></c>.
           Returns <c>0</c> if <c><anno>SubString</anno></c>
           does not exist in <c><anno>String</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#find/3"><c>find/3</c></seealso>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > string:rstr(" Hello Hello World World ", "Hello World").
@@ -202,6 +843,9 @@
         <p>Returns the length of the maximum initial segment of
           <c><anno>String</anno></c>, which consists entirely of characters
           from <c><anno>Chars</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#take/2"><c>take/2</c></seealso>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > string:span("\t    abcdef", " \t").
@@ -217,6 +861,9 @@
           <c><anno>SubString</anno></c> begins in <c><anno>String</anno></c>.
           Returns <c>0</c> if <c><anno>SubString</anno></c>
           does not exist in <c><anno>String</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#find/2"><c>find/2</c></seealso>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > string:str(" Hello Hello World World ", "Hello World").
@@ -230,12 +877,15 @@
       <name name="strip" arity="3"/>
       <fsummary>Strip leading or trailing characters.</fsummary>
       <desc>
-        <p>Returns a string, where leading and/or trailing blanks or a
+        <p>Returns a string, where leading or trailing, or both, blanks or a
           number of <c><anno>Character</anno></c> have been removed.
           <c><anno>Direction</anno></c>, which can be <c>left</c>, <c>right</c>,
           or <c>both</c>, indicates from which direction blanks are to be
           removed. <c>strip/1</c> is equivalent to
           <c>strip(String, both)</c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#trim/3"><c>trim/3</c></seealso>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > string:strip("...Hello.....", both, $.).
@@ -251,6 +901,9 @@
         <p>Returns a substring of <c><anno>String</anno></c>, starting at
           position <c><anno>Start</anno></c> to the end of the string, or to
           and including position <c><anno>Stop</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#slice/3"><c>slice/3</c></seealso>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 sub_string("Hello World", 4, 8).
@@ -266,6 +919,9 @@ sub_string("Hello World", 4, 8).
         <p>Returns a substring of <c><anno>String</anno></c>, starting at
           position <c><anno>Start</anno></c>, and ending at the end of the
           string or at length <c><anno>Length</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#slice/3"><c>slice/3</c></seealso>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > substr("Hello World", 4, 5).
@@ -281,54 +937,13 @@ sub_string("Hello World", 4, 8).
         <p>Returns the word in position <c><anno>Number</anno></c> of
           <c><anno>String</anno></c>. Words are separated by blanks or
           <c><anno>Character</anno></c>s.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#nth_lexeme/3"><c>nth_lexeme/3</c></seealso>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > string:sub_word(" Hello old boy !",3,$o).
 "ld b"</code>
-      </desc>
-    </func>
-
-    <func>
-      <name name="to_float" arity="1"/>
-      <fsummary>Returns a float whose text representation is the integers
-        (ASCII values) in a string.</fsummary>
-      <desc>
-        <p>Argument <c><anno>String</anno></c> is expected to start with a
-          valid text represented float (the digits are ASCII values).
-          Remaining characters in the string after the float are returned in
-          <c><anno>Rest</anno></c>.</p>
-        <p><em>Example:</em></p>
-        <code type="none">
-> {F1,Fs} = string:to_float("1.0-1.0e-1"),
-> {F2,[]} = string:to_float(Fs),
-> F1+F2.
-0.9
-> string:to_float("3/2=1.5").
-{error,no_float}
-> string:to_float("-1.5eX").
-{-1.5,"eX"}</code>
-      </desc>
-    </func>
-
-    <func>
-      <name name="to_integer" arity="1"/>
-      <fsummary>Returns an integer whose text representation is the integers
-        (ASCII values) in a string.</fsummary>
-      <desc>
-        <p>Argument <c><anno>String</anno></c> is expected to start with a
-          valid text represented integer (the digits are ASCII values).
-          Remaining characters in the string after the integer are returned in
-          <c><anno>Rest</anno></c>.</p>
-        <p><em>Example:</em></p>
-        <code type="none">
-> {I1,Is} = string:to_integer("33+22"),
-> {I2,[]} = string:to_integer(Is),
-> I1-I2.
-11
-> string:to_integer("0.5").
-{0,".5"}
-> string:to_integer("x=2").
-{error,no_integer}</code>
       </desc>
     </func>
 
@@ -346,6 +961,11 @@ sub_string("Hello World", 4, 8).
         <p>The specified string or character is case-converted. Notice that
           the supported character set is ISO/IEC 8859-1 (also called Latin 1);
           all values outside this set are unchanged</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso> use
+	<seealso marker="#lowercase/1"><c>lowercase/1</c></seealso>,
+	<seealso marker="#uppercase/1"><c>uppercase/1</c></seealso>,
+	<seealso marker="#titlecase/1"><c>titlecase/1</c></seealso> or
+	<seealso marker="#casefold/1"><c>casefold/1</c></seealso>.</p>
       </desc>
     </func>
 
@@ -363,6 +983,9 @@ sub_string("Hello World", 4, 8).
           adjacent separator characters in <c><anno>String</anno></c>
           are treated as one. That is, there are no empty
           strings in the resulting list of tokens.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#lexemes/2"><c>lexemes/2</c></seealso>.</p>
       </desc>
     </func>
 
@@ -373,6 +996,9 @@ sub_string("Hello World", 4, 8).
       <desc>
         <p>Returns the number of words in <c><anno>String</anno></c>, separated
           by blanks or <c><anno>Character</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#lexemes/2"><c>lexemes/2</c></seealso>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > words(" Hello old boy!", $o).
@@ -387,10 +1013,7 @@ sub_string("Hello World", 4, 8).
       other. The reason is that this string package is the
       combination of two earlier packages and all functions of
       both packages have been retained.</p>
-
-    <note>
-      <p>Any undocumented functions in <c>string</c> are not to be used.</p>
-    </note>
   </section>
+
 </erlref>
 

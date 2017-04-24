@@ -99,6 +99,7 @@
 	     sys,
 	     timer,
 	     unicode,
+             unicode_util,
 	     win32reg,
 	     zip]},
   {registered,[timer_server,rsh_starter,take_over_monitor,pool_master,
