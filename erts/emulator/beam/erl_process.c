@@ -6091,6 +6091,7 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
     runq->scheduler = esdp;
     esdp->run_queue = runq;
     esdp->no = (Uint) num;
+    esdp->type = ERTS_SCHED_NORMAL;
 #endif
 
     esdp->ssi = ssi;
