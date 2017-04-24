@@ -369,12 +369,12 @@ event_type(Type) ->
 	 Dbgs ::
 	   ['trace' | 'log' | 'statistics' | 'debug'
 	    | {'logfile', string()}]}.
--type auto_hibernate_timeout_opt() ::
-	{'auto_hibernate_timeout', AutoHibernateTimeout :: timeout()}.
+-type hibernate_after_opt() ::
+	{'hibernate_after', HibernateAfterTimeout :: timeout()}.
 -type start_opt() ::
 	debug_opt()
       | {'timeout', Time :: timeout()}
-	  | auto_hibernate_timeout_opt()
+	  | hibernate_after_opt()
       | {'spawn_opt', [proc_lib:spawn_option()]}.
 -type start_ret() ::  {'ok', pid()} | 'ignore' | {'error', term()}.
 
@@ -547,14 +547,14 @@ reply({To,Tag}, Reply) when is_pid(To) ->
 %% started by proc_lib into a state machine using
 %% the same arguments as you would have returned from init/1
 -spec enter_loop(
-	Module :: module(), Opts :: [debug_opt() | auto_hibernate_timeout_opt()],
+	Module :: module(), Opts :: [debug_opt() | hibernate_after_opt()],
 	State :: state(), Data :: data()) ->
 			no_return().
 enter_loop(Module, Opts, State, Data) ->
     enter_loop(Module, Opts, State, Data, self()).
 %%
 -spec enter_loop(
-	Module :: module(), Opts :: [debug_opt() | auto_hibernate_timeout_opt()],
+	Module :: module(), Opts :: [debug_opt() | hibernate_after_opt()],
 	State :: state(), Data :: data(),
 	Server_or_Actions ::
 	  server_name() | pid() | [action()]) ->
@@ -568,7 +568,7 @@ enter_loop(Module, Opts, State, Data, Server_or_Actions) ->
     end.
 %%
 -spec enter_loop(
-	Module :: module(), Opts :: [debug_opt() | auto_hibernate_timeout_opt()],
+	Module :: module(), Opts :: [debug_opt() | hibernate_after_opt()],
 	State :: state(), Data :: data(),
 	Server :: server_name() | pid(),
 	Actions :: [action()] | action()) ->
@@ -608,7 +608,7 @@ enter(Module, Opts, State, Data, Server, Actions, Parent) ->
     %% The values should already have been type checked
     Name = gen:get_proc_name(Server),
     Debug = gen:debug_options(Name, Opts),
-	AutoHibernateTimeout = gen:auto_hibernate_timeout(Opts),
+	HibernateAfterTimeout = gen:hibernate_after(Opts),
 	Events = [],
     P = [],
     Event = {internal,init_state},
@@ -652,7 +652,7 @@ enter(Module, Opts, State, Data, Server, Actions, Parent) ->
       timer_refs => TimerRefs,
       timer_types => TimerTypes,
       hibernate => Hibernate,
-	  auto_hibernate_timeout => AutoHibernateTimeout,
+	  hibernate_after => HibernateAfterTimeout,
       cancel_timers => CancelTimers
      },
     NewDebug = sys_debug(Debug, S, State, {enter,Event,State}),
@@ -859,12 +859,12 @@ loop_hibernate(Parent, Debug, S) ->
        {wakeup_from_hibernate,3}}).
 
 %% Entry point for wakeup_from_hibernate/3
-loop_receive(Parent, Debug, #{cancel_timers := 0, auto_hibernate_timeout := AutoHibernateTimeout} = S) when is_integer(AutoHibernateTimeout) ->
+loop_receive(Parent, Debug, #{cancel_timers := 0, hibernate_after := HibernateAfterTimeout} = S) when is_integer(HibernateAfterTimeout) ->
     receive
 	Msg ->
 		handle_received_msg(Msg, Parent, Debug, S)
 	after
-	    AutoHibernateTimeout ->
+	    HibernateAfterTimeout ->
 		    loop_hibernate(Parent, Debug, S)
     end;
 loop_receive(Parent, Debug, S) ->

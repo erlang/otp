@@ -732,14 +732,14 @@ hibernate(Config) when is_list(Config) ->
 
 auto_hibernate(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
-    AutoHibernateTimeout = 100,
+    HibernateAfterTimeout = 100,
     State = {auto_hibernate_state},
     {ok, Pid} =
         gen_server:start_link({local, my_test_name_auto_hibernate},
-            gen_server_SUITE, {state,State}, [{auto_hibernate_timeout, AutoHibernateTimeout}]),
+            gen_server_SUITE, {state,State}, [{hibernate_after, HibernateAfterTimeout}]),
     %% After init test
     is_not_in_erlang_hibernate(Pid),
-    timer:sleep(AutoHibernateTimeout),
+    timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
     %% Get state test
     State = sys:get_state(my_test_name_auto_hibernate),
@@ -747,7 +747,7 @@ auto_hibernate(Config) when is_list(Config) ->
     %% Call test
     ok = gen_server:call(my_test_name_auto_hibernate, started_p),
     is_not_in_erlang_hibernate(Pid),
-    timer:sleep(AutoHibernateTimeout),
+    timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
     %% Cast test
     ok = gen_server:cast(my_test_name_auto_hibernate, {self(),handle_cast}),
@@ -758,7 +758,7 @@ auto_hibernate(Config) when is_list(Config) ->
         ct:fail(cast)
     end,
     is_not_in_erlang_hibernate(Pid),
-    timer:sleep(AutoHibernateTimeout),
+    timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
     %% Info test
     Pid ! {self(),handle_info},
@@ -769,7 +769,7 @@ auto_hibernate(Config) when is_list(Config) ->
         ct:fail(info)
     end,
     is_not_in_erlang_hibernate(Pid),
-    timer:sleep(AutoHibernateTimeout),
+    timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
 
     ok = gen_server:call(my_test_name_auto_hibernate, stop),

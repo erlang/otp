@@ -453,15 +453,15 @@ handle_event(_, _, State, Data) ->
       </desc>
     </datatype>
     <datatype>
-      <name name="auto_hibernate_timeout_opt"/>
+      <name name="hibernate_after_opt"/>
       <desc>
 	<p>
-      auto_hibernate_timeout option that can be used when starting
+          hibernate_after option that can be used when starting
 	  a <c>gen_statem</c> server through,
 	  <seealso marker="#enter_loop/4"><c>enter_loop/4-6</c></seealso>.
 	</p>
-    <p>If option<seealso marker="#type-auto_hibernate_timeout_opt"><c>{auto_hibernate_timeout,AutoHibernateTimeout}</c></seealso> is present, the <c>gen_statem</c>
-        process awaits any message for <c>AutoHibernateTimeout</c> milliseconds and
+    <p>If option<seealso marker="#type-hibernate_after_opt"><c>{hibernate_after,HibernateAfterTimeout}</c></seealso> is present, the <c>gen_statem</c>
+        process awaits any message for <c>HibernateAfterTimeout</c> milliseconds and
         if no message is received, the process goes into hibernation automatically
         (by calling <seealso marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>).
     </p>
@@ -1566,8 +1566,8 @@ handle_event(_, _, State, Data) ->
             </p>
           </item>
           <item>
-            <p>If option<seealso marker="#type-auto_hibernate_timeout_opt"><c>{auto_hibernate_timeout,AutoHibernateTimeout}</c></seealso> is present, the <c>gen_statem</c>
-              process awaits any message for <c>AutoHibernateTimeout</c> milliseconds and
+            <p>If option<seealso marker="#type-hibernate_after_opt"><c>{hibernate_after,HibernateAfterTimeout}</c></seealso> is present, the <c>gen_statem</c>
+              process awaits any message for <c>HibernateAfterTimeout</c> milliseconds and
               if no message is received, the process goes into hibernation automatically
               (by calling <seealso marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>).
             </p>

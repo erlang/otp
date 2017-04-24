@@ -26,7 +26,7 @@
 %%%
 %%% The standard behaviour should export init_it/6.
 %%%-----------------------------------------------------------------
--export([start/5, start/6, debug_options/2, auto_hibernate_timeout/1,
+-export([start/5, start/6, debug_options/2, hibernate_after/1,
 	 name/1, unregister_name/1, get_proc_name/1, get_parent/0,
 	 call/3, call/4, reply/2, stop/1, stop/3]).
 
@@ -408,10 +408,10 @@ spawn_opts(Options) ->
 	    []
     end.
 
-auto_hibernate_timeout(Options) ->
-	case lists:keyfind(auto_hibernate_timeout, 1, Options) of
-		{_,AutoHibernateTimeout} ->
-			AutoHibernateTimeout;
+hibernate_after(Options) ->
+	case lists:keyfind(hibernate_after, 1, Options) of
+		{_,HibernateAfterTimeout} ->
+			HibernateAfterTimeout;
 		false ->
 			infinity
 	end.

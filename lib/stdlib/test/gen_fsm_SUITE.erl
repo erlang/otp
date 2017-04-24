@@ -703,12 +703,12 @@ hibernate(Config) when is_list(Config) ->
 %% Auto hibernation
 auto_hibernate(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
-    AutoHibernateTimeout = 100,
+    HibernateAfterTimeout = 100,
     State = {auto_hibernate_state},
-    {ok, Pid} = gen_fsm:start_link({local, my_test_name_auto_hibernate}, ?MODULE, {state_data, State}, [{auto_hibernate_timeout, AutoHibernateTimeout}]),
+    {ok, Pid} = gen_fsm:start_link({local, my_test_name_auto_hibernate}, ?MODULE, {state_data, State}, [{hibernate_after, HibernateAfterTimeout}]),
     %% After init test
     is_not_in_erlang_hibernate(Pid),
-    timer:sleep(AutoHibernateTimeout),
+    timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
     %% Get state test
     {_, State} = sys:get_state(my_test_name_auto_hibernate),
@@ -716,19 +716,19 @@ auto_hibernate(Config) when is_list(Config) ->
     %% Sync send event test
     'alive!' = gen_fsm:sync_send_event(Pid,'alive?'),
     is_not_in_erlang_hibernate(Pid),
-    timer:sleep(AutoHibernateTimeout),
+    timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
     %% Send event test
     ok = gen_fsm:send_all_state_event(Pid,{'alive?', self()}),
     wfor(yes),
     is_not_in_erlang_hibernate(Pid),
-    timer:sleep(AutoHibernateTimeout),
+    timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
     %% Info test
     Pid ! {self(), handle_info},
     wfor({Pid, handled_info}),
     is_not_in_erlang_hibernate(Pid),
-    timer:sleep(AutoHibernateTimeout),
+    timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
     stop_it(Pid),
     receive

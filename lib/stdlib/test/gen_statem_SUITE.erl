@@ -1287,14 +1287,14 @@ hibernate(Config) ->
 %% Auto-hibernation timeout
 auto_hibernate(Config) ->
     OldFl = process_flag(trap_exit, true),
-    AutoHibernateTimeout = 100,
+    HibernateAfterTimeout = 100,
 
     {ok,Pid} =
         gen_statem:start_link(
-            ?MODULE, start_arg(Config, []), [{auto_hibernate_timeout, AutoHibernateTimeout}]),
+            ?MODULE, start_arg(Config, []), [{hibernate_after, HibernateAfterTimeout}]),
     %% After init test
     is_not_in_erlang_hibernate(Pid),
-    timer:sleep(AutoHibernateTimeout),
+    timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
     %% After info test
     Pid ! {hping, self()},
@@ -1305,7 +1305,7 @@ auto_hibernate(Config) ->
         ct:fail(info)
     end,
     is_not_in_erlang_hibernate(Pid),
-    timer:sleep(AutoHibernateTimeout),
+    timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
     %% After cast test
     ok = gen_statem:cast(Pid, {hping, self()}),
@@ -1316,12 +1316,12 @@ auto_hibernate(Config) ->
         ct:fail(cast)
     end,
     is_not_in_erlang_hibernate(Pid),
-    timer:sleep(AutoHibernateTimeout),
+    timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
     %% After call test
     hpong = gen_statem:call(Pid, hping),
     is_not_in_erlang_hibernate(Pid),
-    timer:sleep(AutoHibernateTimeout),
+    timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
 
     stop_it(Pid),

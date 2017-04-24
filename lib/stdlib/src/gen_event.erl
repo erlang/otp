@@ -186,9 +186,9 @@ init_it(Starter, Parent, Name0, _, _, Options) ->
     process_flag(trap_exit, true),
     Name = gen:name(Name0),
     Debug = gen:debug_options(Name, Options),
-	AutoHibernateTimeout = gen:auto_hibernate_timeout(Options),
+	HibernateAfterTimeout = gen:hibernate_after(Options),
     proc_lib:init_ack(Starter, {ok, self()}),
-    loop(Parent, Name, [], AutoHibernateTimeout, Debug, false).
+    loop(Parent, Name, [], HibernateAfterTimeout, Debug, false).
 
 -spec add_handler(emgr_ref(), handler(), term()) -> term().
 add_handler(M, Handler, Args) -> rpc(M, {add_handler, Handler, Args}).
@@ -265,83 +265,83 @@ send(M, Cmd) ->
     M ! Cmd,
     ok.
 
-loop(Parent, ServerName, MSL, AutoHibernateTimeout, Debug, true) ->
-     proc_lib:hibernate(?MODULE, wake_hib, [Parent, ServerName, MSL, AutoHibernateTimeout, Debug]);
-loop(Parent, ServerName, MSL, AutoHibernateTimeout, Debug, _) ->
-    fetch_msg(Parent, ServerName, MSL, AutoHibernateTimeout, Debug, false).
+loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, true) ->
+     proc_lib:hibernate(?MODULE, wake_hib, [Parent, ServerName, MSL, HibernateAfterTimeout, Debug]);
+loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, _) ->
+    fetch_msg(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, false).
 
-wake_hib(Parent, ServerName, MSL, AutoHibernateTimeout, Debug) ->
-    fetch_msg(Parent, ServerName, MSL, AutoHibernateTimeout, Debug, true).
+wake_hib(Parent, ServerName, MSL, HibernateAfterTimeout, Debug) ->
+    fetch_msg(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, true).
 
-fetch_msg(Parent, ServerName, MSL, AutoHibernateTimeout, Debug, Hib) ->
+fetch_msg(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, Hib) ->
     receive
 	{system, From, Req} ->
 	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
-				  [ServerName, MSL, AutoHibernateTimeout, Hib],Hib);
+				  [ServerName, MSL, HibernateAfterTimeout, Hib],Hib);
 	{'EXIT', Parent, Reason} ->
 	    terminate_server(Reason, Parent, MSL, ServerName);
 	Msg when Debug =:= [] ->
-	    handle_msg(Msg, Parent, ServerName, MSL, AutoHibernateTimeout, []);
+	    handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, []);
 	Msg ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      ServerName, {in, Msg}),
-	    handle_msg(Msg, Parent, ServerName, MSL, AutoHibernateTimeout, Debug1)
-    after AutoHibernateTimeout ->
-	    loop(Parent, ServerName, MSL, AutoHibernateTimeout, Debug, true)
+	    handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug1)
+    after HibernateAfterTimeout ->
+	    loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, true)
     end.
 
-handle_msg(Msg, Parent, ServerName, MSL, AutoHibernateTimeout, Debug) ->
+handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug) ->
     case Msg of
 	{notify, Event} ->
 	    {Hib,MSL1} = server_notify(Event, handle_event, MSL, ServerName),
-	    loop(Parent, ServerName, MSL1, AutoHibernateTimeout, Debug, Hib);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib);
 	{_From, Tag, {sync_notify, Event}} ->
 	    {Hib, MSL1} = server_notify(Event, handle_event, MSL, ServerName),
 	    reply(Tag, ok),
-	    loop(Parent, ServerName, MSL1, AutoHibernateTimeout, Debug, Hib);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib);
 	{'EXIT', From, Reason} ->
 	    MSL1 = handle_exit(From, Reason, MSL, ServerName),
-	    loop(Parent, ServerName, MSL1, AutoHibernateTimeout, Debug, false);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, false);
 	{_From, Tag, {call, Handler, Query}} ->
 	    {Hib, Reply, MSL1} = server_call(Handler, Query, MSL, ServerName),
 	    reply(Tag, Reply),
-	    loop(Parent, ServerName, MSL1, AutoHibernateTimeout, Debug, Hib);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib);
 	{_From, Tag, {add_handler, Handler, Args}} ->
 	    {Hib, Reply, MSL1} = server_add_handler(Handler, Args, MSL),
 	    reply(Tag, Reply),
-	    loop(Parent, ServerName, MSL1, AutoHibernateTimeout, Debug, Hib);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib);
 	{_From, Tag, {add_sup_handler, Handler, Args, SupP}} ->
 	    {Hib, Reply, MSL1} = server_add_sup_handler(Handler, Args, MSL, SupP),
 	    reply(Tag, Reply),
-	    loop(Parent, ServerName, MSL1, AutoHibernateTimeout, Debug, Hib);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib);
 	{_From, Tag, {delete_handler, Handler, Args}} ->
 	    {Reply, MSL1} = server_delete_handler(Handler, Args, MSL,
 						  ServerName),
 	    reply(Tag, Reply),
-	    loop(Parent, ServerName, MSL1, AutoHibernateTimeout, Debug, false);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, false);
 	{_From, Tag, {swap_handler, Handler1, Args1, Handler2, Args2}} ->
 	    {Hib, Reply, MSL1} = server_swap_handler(Handler1, Args1, Handler2,
 						     Args2, MSL, ServerName),
 	    reply(Tag, Reply),
-	    loop(Parent, ServerName, MSL1, AutoHibernateTimeout, Debug, Hib);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib);
 	{_From, Tag, {swap_sup_handler, Handler1, Args1, Handler2, Args2,
 		     Sup}} ->
 	    {Hib, Reply, MSL1} = server_swap_handler(Handler1, Args1, Handler2,
 						Args2, MSL, Sup, ServerName),
 	    reply(Tag, Reply),
-	    loop(Parent, ServerName, MSL1, AutoHibernateTimeout, Debug, Hib);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib);
 	{_From, Tag, stop} ->
 	    catch terminate_server(normal, Parent, MSL, ServerName),
 	    reply(Tag, ok);
 	{_From, Tag, which_handlers} ->
 	    reply(Tag, the_handlers(MSL)),
-	    loop(Parent, ServerName, MSL, AutoHibernateTimeout, Debug, false);
+	    loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, false);
 	{_From, Tag, get_modules} ->
 	    reply(Tag, get_modules(MSL)),
-	    loop(Parent, ServerName, MSL, AutoHibernateTimeout, Debug, false);
+	    loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, false);
 	Other  ->
 	    {Hib, MSL1} = server_notify(Other, handle_info, MSL, ServerName),
-	    loop(Parent, ServerName, MSL1, AutoHibernateTimeout, Debug, Hib)
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib)
     end.
 
 terminate_server(Reason, Parent, MSL, ServerName) ->
@@ -395,18 +395,18 @@ terminate_supervised(Pid, Reason, MSL, SName) ->
 %%-----------------------------------------------------------------
 %% Callback functions for system messages handling.
 %%-----------------------------------------------------------------
-system_continue(Parent, Debug, [ServerName, MSL, AutoHibernateTimeout, Hib]) ->
-    loop(Parent, ServerName, MSL, AutoHibernateTimeout, Debug, Hib).
+system_continue(Parent, Debug, [ServerName, MSL, HibernateAfterTimeout, Hib]) ->
+    loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, Hib).
 
 -spec system_terminate(_, _, _, [_]) -> no_return().
-system_terminate(Reason, Parent, _Debug, [ServerName, MSL, _AutoHibernateTimeout, _Hib]) ->
+system_terminate(Reason, Parent, _Debug, [ServerName, MSL, _HibernateAfterTimeout, _Hib]) ->
     terminate_server(Reason, Parent, MSL, ServerName).
 
 %%-----------------------------------------------------------------
 %% Module here is sent in the system msg change_code.  It specifies
 %% which module should be changed.
 %%-----------------------------------------------------------------
-system_code_change([ServerName, MSL, AutoHibernateTimeout, Hib], Module, OldVsn, Extra) ->
+system_code_change([ServerName, MSL, HibernateAfterTimeout, Hib], Module, OldVsn, Extra) ->
     MSL1 = lists:zf(fun(H) when H#handler.module =:= Module ->
 			    {ok, NewState} =
 				Module:code_change(OldVsn,
@@ -415,12 +415,12 @@ system_code_change([ServerName, MSL, AutoHibernateTimeout, Hib], Module, OldVsn,
 		       (_) -> true
 		    end,
 		    MSL),
-    {ok, [ServerName, MSL1, AutoHibernateTimeout, Hib]}.
+    {ok, [ServerName, MSL1, HibernateAfterTimeout, Hib]}.
 
-system_get_state([_ServerName, MSL, _AutoHibernateTimeout, _Hib]) ->
+system_get_state([_ServerName, MSL, _HibernateAfterTimeout, _Hib]) ->
     {ok, [{Mod,Id,State} || #handler{module=Mod, id=Id, state=State} <- MSL]}.
 
-system_replace_state(StateFun, [ServerName, MSL, AutoHibernateTimeout, Hib]) ->
+system_replace_state(StateFun, [ServerName, MSL, HibernateAfterTimeout, Hib]) ->
     {NMSL, NStates} =
 		lists:unzip([begin
 				 Cur = {Mod,Id,State},
@@ -432,7 +432,7 @@ system_replace_state(StateFun, [ServerName, MSL, AutoHibernateTimeout, Hib]) ->
 					 {HS, Cur}
 				 end
 			     end || #handler{module=Mod, id=Id, state=State}=HS <- MSL]),
-    {ok, NStates, [ServerName, NMSL, AutoHibernateTimeout, Hib]}.
+    {ok, NStates, [ServerName, NMSL, HibernateAfterTimeout, Hib]}.
 
 %%-----------------------------------------------------------------
 %% Format debug messages.  Print them as the call-back module sees
@@ -801,7 +801,7 @@ get_modules(MSL) ->
 %% Status information
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
-    [PDict, SysState, Parent, _Debug, [ServerName, MSL, _AutoHibernateTimeout, _Hib]] = StatusData,
+    [PDict, SysState, Parent, _Debug, [ServerName, MSL, _HibernateAfterTimeout, _Hib]] = StatusData,
     Header = gen:format_status_header("Status for event handler",
                                       ServerName),
     FmtMSL = [case erlang:function_exported(Mod, format_status, 2) of

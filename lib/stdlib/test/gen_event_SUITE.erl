@@ -307,12 +307,12 @@ hibernate(Config) when is_list(Config) ->
     ok.
 
 auto_hibernate(Config) when is_list(Config) ->
-    AutoHibernateTimeout = 100,
+    HibernateAfterTimeout = 100,
     State = {auto_hibernate_state},
-    {ok,Pid} = gen_event:start({local, auto_hibernate_handler}, [{auto_hibernate_timeout, AutoHibernateTimeout}]),
+    {ok,Pid} = gen_event:start({local, auto_hibernate_handler}, [{hibernate_after, HibernateAfterTimeout}]),
     %% After init test
     is_not_in_erlang_hibernate(Pid),
-    timer:sleep(AutoHibernateTimeout),
+    timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
     ok = gen_event:add_handler(auto_hibernate_handler, dummy_h, [State]),
     %% Get state test
@@ -321,7 +321,7 @@ auto_hibernate(Config) when is_list(Config) ->
     %% Call test
     {ok, hejhopp} = gen_event:call(auto_hibernate_handler, dummy_h, hejsan),
     is_not_in_erlang_hibernate(Pid),
-    timer:sleep(AutoHibernateTimeout),
+    timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
     %% Event test
     ok = gen_event:notify(auto_hibernate_handler, {self(), handle_event}),
@@ -332,7 +332,7 @@ auto_hibernate(Config) when is_list(Config) ->
         ct:fail(event)
     end,
     is_not_in_erlang_hibernate(Pid),
-    timer:sleep(AutoHibernateTimeout),
+    timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
     %% Info test
     Pid ! {self(), handle_info},
@@ -343,7 +343,7 @@ auto_hibernate(Config) when is_list(Config) ->
         ct:fail(info)
     end,
     is_not_in_erlang_hibernate(Pid),
-    timer:sleep(AutoHibernateTimeout),
+    timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
     ok = gen_event:stop(auto_hibernate_handler),
     ok.

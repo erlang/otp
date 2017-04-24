@@ -307,8 +307,8 @@ enter_loop(Mod, Options, State, ServerName, Timeout) ->
     Name = gen:get_proc_name(ServerName),
     Parent = gen:get_parent(),
     Debug = gen:debug_options(Name, Options),
-	AutoHibernateTimeout = gen:auto_hibernate_timeout(Options),
-    loop(Parent, Name, State, Mod, Timeout, AutoHibernateTimeout, Debug).
+	HibernateAfterTimeout = gen:hibernate_after(Options),
+    loop(Parent, Name, State, Mod, Timeout, HibernateAfterTimeout, Debug).
 
 %%%========================================================================
 %%% Gen-callback functions
@@ -326,14 +326,14 @@ init_it(Starter, self, Name, Mod, Args, Options) ->
 init_it(Starter, Parent, Name0, Mod, Args, Options) ->
     Name = gen:name(Name0),
     Debug = gen:debug_options(Name, Options),
-	AutoHibernateTimeout = gen:auto_hibernate_timeout(Options),
+	HibernateAfterTimeout = gen:hibernate_after(Options),
     case catch Mod:init(Args) of
 	{ok, State} ->
 	    proc_lib:init_ack(Starter, {ok, self()}), 	    
-	    loop(Parent, Name, State, Mod, infinity, AutoHibernateTimeout, Debug);
+	    loop(Parent, Name, State, Mod, infinity, HibernateAfterTimeout, Debug);
 	{ok, State, Timeout} ->
 	    proc_lib:init_ack(Starter, {ok, self()}), 	    
-	    loop(Parent, Name, State, Mod, Timeout, AutoHibernateTimeout, Debug);
+	    loop(Parent, Name, State, Mod, Timeout, HibernateAfterTimeout, Debug);
 	{stop, Reason} ->
 	    %% For consistency, we must make sure that the
 	    %% registered name (if any) is unregistered before
@@ -364,46 +364,46 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 %%% ---------------------------------------------------
 %%% The MAIN loop.
 %%% ---------------------------------------------------
-loop(Parent, Name, State, Mod, hibernate, AutoHibernateTimeout, Debug) ->
-    proc_lib:hibernate(?MODULE,wake_hib,[Parent, Name, State, Mod, AutoHibernateTimeout, Debug]);
+loop(Parent, Name, State, Mod, hibernate, HibernateAfterTimeout, Debug) ->
+    proc_lib:hibernate(?MODULE,wake_hib,[Parent, Name, State, Mod, HibernateAfterTimeout, Debug]);
 
-loop(Parent, Name, State, Mod, infinity, AutoHibernateTimeout, Debug) ->
+loop(Parent, Name, State, Mod, infinity, HibernateAfterTimeout, Debug) ->
 	receive
 		Msg ->
-			decode_msg(Msg, Parent, Name, State, Mod, infinity, AutoHibernateTimeout, Debug, false)
-	after AutoHibernateTimeout ->
-		loop(Parent, Name, State, Mod, hibernate, AutoHibernateTimeout, Debug)
+			decode_msg(Msg, Parent, Name, State, Mod, infinity, HibernateAfterTimeout, Debug, false)
+	after HibernateAfterTimeout ->
+		loop(Parent, Name, State, Mod, hibernate, HibernateAfterTimeout, Debug)
 	end;
 
-loop(Parent, Name, State, Mod, Time, AutoHibernateTimeout, Debug) ->
+loop(Parent, Name, State, Mod, Time, HibernateAfterTimeout, Debug) ->
     Msg = receive
 	      Input ->
 		    Input
 	  after Time ->
 		  timeout
 	  end,
-    decode_msg(Msg, Parent, Name, State, Mod, Time, AutoHibernateTimeout, Debug, false).
+    decode_msg(Msg, Parent, Name, State, Mod, Time, HibernateAfterTimeout, Debug, false).
 
-wake_hib(Parent, Name, State, Mod, AutoHibernateTimeout, Debug) ->
+wake_hib(Parent, Name, State, Mod, HibernateAfterTimeout, Debug) ->
     Msg = receive
 	      Input ->
 		  Input
 	  end,
-    decode_msg(Msg, Parent, Name, State, Mod, hibernate, AutoHibernateTimeout, Debug, true).
+    decode_msg(Msg, Parent, Name, State, Mod, hibernate, HibernateAfterTimeout, Debug, true).
 
-decode_msg(Msg, Parent, Name, State, Mod, Time, AutoHibernateTimeout, Debug, Hib) ->
+decode_msg(Msg, Parent, Name, State, Mod, Time, HibernateAfterTimeout, Debug, Hib) ->
     case Msg of
 	{system, From, Req} ->
 	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
-				  [Name, State, Mod, Time, AutoHibernateTimeout], Hib);
+				  [Name, State, Mod, Time, HibernateAfterTimeout], Hib);
 	{'EXIT', Parent, Reason} ->
 	    terminate(Reason, Name, undefined, Msg, Mod, State, Debug);
 	_Msg when Debug =:= [] ->
-	    handle_msg(Msg, Parent, Name, State, Mod, AutoHibernateTimeout);
+	    handle_msg(Msg, Parent, Name, State, Mod, HibernateAfterTimeout);
 	_Msg ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      Name, {in, Msg}),
-	    handle_msg(Msg, Parent, Name, State, Mod, AutoHibernateTimeout, Debug1)
+	    handle_msg(Msg, Parent, Name, State, Mod, HibernateAfterTimeout, Debug1)
     end.
 
 %%% ---------------------------------------------------
@@ -670,65 +670,65 @@ try_terminate(Mod, Reason, State) ->
 %%% Message handling functions
 %%% ---------------------------------------------------
 
-handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, AutoHibernateTimeout) ->
+handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, HibernateAfterTimeout) ->
     Result = try_handle_call(Mod, Msg, From, State),
     case Result of
 	{ok, {reply, Reply, NState}} ->
 	    reply(From, Reply),
-	    loop(Parent, Name, NState, Mod, infinity, AutoHibernateTimeout, []);
+	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, []);
 	{ok, {reply, Reply, NState, Time1}} ->
 	    reply(From, Reply),
-	    loop(Parent, Name, NState, Mod, Time1, AutoHibernateTimeout, []);
+	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, []);
 	{ok, {noreply, NState}} ->
-	    loop(Parent, Name, NState, Mod, infinity, AutoHibernateTimeout, []);
+	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, []);
 	{ok, {noreply, NState, Time1}} ->
-	    loop(Parent, Name, NState, Mod, Time1, AutoHibernateTimeout, []);
+	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, []);
 	{ok, {stop, Reason, Reply, NState}} ->
 	    {'EXIT', R} = 
 		(catch terminate(Reason, Name, From, Msg, Mod, NState, [])),
 	    reply(From, Reply),
 	    exit(R);
-	Other -> handle_common_reply(Other, Parent, Name, From, Msg, Mod, AutoHibernateTimeout, State)
+	Other -> handle_common_reply(Other, Parent, Name, From, Msg, Mod, HibernateAfterTimeout, State)
     end;
-handle_msg(Msg, Parent, Name, State, Mod, AutoHibernateTimeout) ->
+handle_msg(Msg, Parent, Name, State, Mod, HibernateAfterTimeout) ->
     Reply = try_dispatch(Msg, Mod, State),
-    handle_common_reply(Reply, Parent, Name, undefined, Msg, Mod, AutoHibernateTimeout, State).
+    handle_common_reply(Reply, Parent, Name, undefined, Msg, Mod, HibernateAfterTimeout, State).
 
-handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, AutoHibernateTimeout, Debug) ->
+handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, HibernateAfterTimeout, Debug) ->
     Result = try_handle_call(Mod, Msg, From, State),
     case Result of
 	{ok, {reply, Reply, NState}} ->
 	    Debug1 = reply(Name, From, Reply, NState, Debug),
-	    loop(Parent, Name, NState, Mod, infinity, AutoHibernateTimeout, Debug1);
+	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, Debug1);
 	{ok, {reply, Reply, NState, Time1}} ->
 	    Debug1 = reply(Name, From, Reply, NState, Debug),
-	    loop(Parent, Name, NState, Mod, Time1, AutoHibernateTimeout, Debug1);
+	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, Debug1);
 	{ok, {noreply, NState}} ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
-	    loop(Parent, Name, NState, Mod, infinity, AutoHibernateTimeout, Debug1);
+	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, Debug1);
 	{ok, {noreply, NState, Time1}} ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
-	    loop(Parent, Name, NState, Mod, Time1, AutoHibernateTimeout, Debug1);
+	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, Debug1);
 	{ok, {stop, Reason, Reply, NState}} ->
 	    {'EXIT', R} = 
 		(catch terminate(Reason, Name, From, Msg, Mod, NState, Debug)),
 	    _ = reply(Name, From, Reply, NState, Debug),
 	    exit(R);
 	Other ->
-	    handle_common_reply(Other, Parent, Name, From, Msg, Mod, AutoHibernateTimeout, State, Debug)
+	    handle_common_reply(Other, Parent, Name, From, Msg, Mod, HibernateAfterTimeout, State, Debug)
     end;
-handle_msg(Msg, Parent, Name, State, Mod, AutoHibernateTimeout, Debug) ->
+handle_msg(Msg, Parent, Name, State, Mod, HibernateAfterTimeout, Debug) ->
     Reply = try_dispatch(Msg, Mod, State),
-    handle_common_reply(Reply, Parent, Name, undefined, Msg, Mod, AutoHibernateTimeout, State, Debug).
+    handle_common_reply(Reply, Parent, Name, undefined, Msg, Mod, HibernateAfterTimeout, State, Debug).
 
-handle_common_reply(Reply, Parent, Name, From, Msg, Mod, AutoHibernateTimeout, State) ->
+handle_common_reply(Reply, Parent, Name, From, Msg, Mod, HibernateAfterTimeout, State) ->
     case Reply of
 	{ok, {noreply, NState}} ->
-	    loop(Parent, Name, NState, Mod, infinity, AutoHibernateTimeout, []);
+	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, []);
 	{ok, {noreply, NState, Time1}} ->
-	    loop(Parent, Name, NState, Mod, Time1, AutoHibernateTimeout, []);
+	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, []);
 	{ok, {stop, Reason, NState}} ->
 	    terminate(Reason, Name, From, Msg, Mod, NState, []);
 	{'EXIT', ExitReason, ReportReason} ->
@@ -737,16 +737,16 @@ handle_common_reply(Reply, Parent, Name, From, Msg, Mod, AutoHibernateTimeout, S
 	    terminate({bad_return_value, BadReply}, Name, From, Msg, Mod, State, [])
     end.
 
-handle_common_reply(Reply, Parent, Name, From, Msg, Mod, AutoHibernateTimeout, State, Debug) ->
+handle_common_reply(Reply, Parent, Name, From, Msg, Mod, HibernateAfterTimeout, State, Debug) ->
     case Reply of
 	{ok, {noreply, NState}} ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
-	    loop(Parent, Name, NState, Mod, infinity, AutoHibernateTimeout, Debug1);
+	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, Debug1);
 	{ok, {noreply, NState, Time1}} ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
-	    loop(Parent, Name, NState, Mod, Time1, AutoHibernateTimeout, Debug1);
+	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, Debug1);
 	{ok, {stop, Reason, NState}} ->
 	    terminate(Reason, Name, From, Msg, Mod, NState, Debug);
 	{'EXIT', ExitReason, ReportReason} ->
@@ -764,26 +764,26 @@ reply(Name, {To, Tag}, Reply, State, Debug) ->
 %%-----------------------------------------------------------------
 %% Callback functions for system messages handling.
 %%-----------------------------------------------------------------
-system_continue(Parent, Debug, [Name, State, Mod, Time, AutoHibernateTimeout]) ->
-    loop(Parent, Name, State, Mod, Time, AutoHibernateTimeout, Debug).
+system_continue(Parent, Debug, [Name, State, Mod, Time, HibernateAfterTimeout]) ->
+    loop(Parent, Name, State, Mod, Time, HibernateAfterTimeout, Debug).
 
 -spec system_terminate(_, _, _, [_]) -> no_return().
 
-system_terminate(Reason, _Parent, Debug, [Name, State, Mod, _Time, _AutoHibernateTimeout]) ->
+system_terminate(Reason, _Parent, Debug, [Name, State, Mod, _Time, _HibernateAfterTimeout]) ->
     terminate(Reason, Name, undefined, [], Mod, State, Debug).
 
-system_code_change([Name, State, Mod, Time, AutoHibernateTimeout], _Module, OldVsn, Extra) ->
+system_code_change([Name, State, Mod, Time, HibernateAfterTimeout], _Module, OldVsn, Extra) ->
     case catch Mod:code_change(OldVsn, State, Extra) of
-	{ok, NewState} -> {ok, [Name, NewState, Mod, Time, AutoHibernateTimeout]};
+	{ok, NewState} -> {ok, [Name, NewState, Mod, Time, HibernateAfterTimeout]};
 	Else -> Else
     end.
 
-system_get_state([_Name, State, _Mod, _Time, _AutoHibernateTimeout]) ->
+system_get_state([_Name, State, _Mod, _Time, _HibernateAfterTimeout]) ->
     {ok, State}.
 
-system_replace_state(StateFun, [Name, State, Mod, Time, AutoHibernateTimeout]) ->
+system_replace_state(StateFun, [Name, State, Mod, Time, HibernateAfterTimeout]) ->
     NState = StateFun(State),
-    {ok, NState, [Name, NState, Mod, Time, AutoHibernateTimeout]}.
+    {ok, NState, [Name, NState, Mod, Time, HibernateAfterTimeout]}.
 
 %%-----------------------------------------------------------------
 %% Format debug messages.  Print them as the call-back module sees
@@ -895,7 +895,7 @@ client_stacktrace(From) when is_pid(From) ->
 %% Status information
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
-    [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time, _AutoHibernateTimeout]] = StatusData,
+    [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time, _HibernateAfterTimeout]] = StatusData,
     Header = gen:format_status_header("Status for generic server", Name),
     Log = sys:get_debug(log, Debug, []),
     Specfic = case format_status(Opt, Mod, PDict, State) of
