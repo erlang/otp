@@ -169,7 +169,8 @@
       State :: term(),
       Status :: term().
 
--optional_callbacks([format_status/2]).
+-optional_callbacks(
+    [handle_info/3, init/1, terminate/3, code_change/4, format_status/2]).
 
 %%% ---------------------------------------------------
 %%% Starts a generic state machine.
@@ -466,6 +467,10 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time) -> %No debug her
 					   StateName, NStateData, [])),
 	    reply(From, Reply),
 	    exit(R);
+        {'EXIT', {undef, [{Mod, handle_info, [_,_,_], _}|_]}} ->
+            format("** Undefined handle_info in ~p~n"
+                   "** Unhandled message: ~p~n", [Mod, Msg]),
+            loop(Parent, Name, StateName, StateData, Mod, infinity, []);
 	{'EXIT', What} ->
 	    terminate(What, Name, Msg, Mod, StateName, StateData, []);
 	Reply ->
@@ -540,24 +545,30 @@ reply(Name, {To, Tag}, Reply, Debug, StateName) ->
 -spec terminate(term(), _, _, atom(), _, _, _) -> no_return().
 
 terminate(Reason, Name, Msg, Mod, StateName, StateData, Debug) ->
-    case catch Mod:terminate(Reason, StateName, StateData) of
-	{'EXIT', R} ->
-	    FmtStateData = format_status(terminate, Mod, get(), StateData),
-	    error_info(R, Name, Msg, StateName, FmtStateData, Debug),
-	    exit(R);
-	_ ->
-	    case Reason of
-		normal ->
-		    exit(normal);
-		shutdown ->
-		    exit(shutdown);
- 		{shutdown,_}=Shutdown ->
- 		    exit(Shutdown);
+    case erlang:function_exported(Mod, terminate, 3) of
+	true ->
+	    case catch Mod:terminate(Reason, StateName, StateData) of
+		{'EXIT', R} ->
+		    FmtStateData = format_status(terminate, Mod, get(), StateData),
+		    error_info(R, Name, Msg, StateName, FmtStateData, Debug),
+		    exit(R);
 		_ ->
-                    FmtStateData = format_status(terminate, Mod, get(), StateData),
-		    error_info(Reason,Name,Msg,StateName,FmtStateData,Debug),
-		    exit(Reason)
-	    end
+		    ok
+	    end;
+	false ->
+	    ok
+    end,
+    case Reason of
+	normal ->
+	    exit(normal);
+	shutdown ->
+	    exit(shutdown);
+ 	{shutdown,_}=Shutdown ->
+ 	    exit(Shutdown);
+	_ ->
+	    FmtStateData1 = format_status(terminate, Mod, get(), StateData),
+	    error_info(Reason,Name,Msg,StateName,FmtStateData1,Debug),
+	    exit(Reason)
     end.
 
 error_info(Reason, Name, Msg, StateName, StateData, Debug) ->

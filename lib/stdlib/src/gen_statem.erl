@@ -731,7 +731,7 @@ system_code_change(
 	catch
 	    Result -> Result
 	end
-    of
+	   of
 	{ok,NewState,NewData} ->
 	    {ok,
 	     S#{callback_mode := undefined,

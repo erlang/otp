@@ -109,7 +109,9 @@
       State :: term(),
       Status :: term().
 
--optional_callbacks([format_status/2]).
+-optional_callbacks(
+    [handle_call/2, handle_info/2, terminate/2, code_change/3,
+     format_status/2]).
 
 %%---------------------------------------------------------------------------
 
@@ -404,9 +406,9 @@ system_terminate(Reason, Parent, _Debug, [ServerName, MSL, _Hib]) ->
 %%-----------------------------------------------------------------
 system_code_change([ServerName, MSL, Hib], Module, OldVsn, Extra) ->
     MSL1 = lists:zf(fun(H) when H#handler.module =:= Module ->
-			    {ok, NewState} =
-				Module:code_change(OldVsn,
-						   H#handler.state, Extra),
+			{ok, NewState} =
+			    Module:code_change(OldVsn,
+					       H#handler.state, Extra),
 			    {true, H#handler{state = NewState}};
 		       (_) -> true
 		    end,
@@ -577,6 +579,10 @@ server_update(Handler1, Func, Event, SName) ->
 	    do_terminate(Mod1, Handler1, remove_handler, State,
 			 remove, SName, normal),
 	    no;
+        {'EXIT', {undef, [{Mod1, handle_info, [_,_], _}|_]}} ->
+            error_msg("** Undefined handle_info in ~p~n"
+                      "** Unhandled message: ~p~n", [Mod1, Event]),
+           {ok, Handler1};
 	Other ->
 	    do_terminate(Mod1, Handler1, {error, Other}, State,
 			 Event, SName, crash),
@@ -698,9 +704,15 @@ server_call_update(Handler1, Query, SName) ->
     end.
 
 do_terminate(Mod, Handler, Args, State, LastIn, SName, Reason) ->
-    Res = (catch Mod:terminate(Args, State)),
-    report_terminate(Handler, Reason, Args, State, LastIn, SName, Res),
-    Res.
+    case erlang:function_exported(Mod, terminate, 2) of
+	true ->
+	    Res = (catch Mod:terminate(Args, State)),
+	    report_terminate(Handler, Reason, Args, State, LastIn, SName, Res),
+	    Res;
+	false ->
+	    report_terminate(Handler, Reason, Args, State, LastIn, SName, ok),
+	    ok
+    end.
 
 report_terminate(Handler, crash, {error, Why}, State, LastIn, SName, _) ->
     report_terminate(Handler, Why, State, LastIn, SName);

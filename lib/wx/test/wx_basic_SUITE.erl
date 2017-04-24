@@ -49,10 +49,13 @@ suite() -> [{ct_hooks,[ts_install_cth]}, {timetrap,{minutes,2}}].
 
 all() -> 
     [silent_start, create_window, several_apps, wx_api, wx_misc,
-     data_types, wx_object].
+     data_types, wx_object, {group, undef_callbacks},
+     undef_in_handle_info, undef_in_terminate].
 
 groups() -> 
-    [].
+    [{undef_callbacks, [],
+     [undef_handle_event, undef_handle_call, undef_handle_cast, undef_handle_info,
+      undef_code_change, undef_terminate1, undef_terminate2]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -425,6 +428,154 @@ wx_object(Config) ->
 	   end),
     catch wx:destroy(),
     ok.
+
+%% Test that the server crashes correctly if the handle_event callback is
+%% not exported in the callback module
+undef_handle_event(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+undef_handle_event(_Config) ->
+    wx:new(),
+    {_, _, _, Pid} = wx_object:start(wx_oc_object, [], []),
+    MRef = monitor(process, Pid),
+    %% Mock a call to handle_event
+    Pid ! {wx, a, b, c, d},
+    ok = receive
+        {'DOWN', MRef, process, Pid,
+         {undef, [{wx_oc_object, handle_event, _, _}|_]}} ->
+            ok
+    after 5000 ->
+        ct:fail(should_crash)
+    end.
+
+%% Test that the server crashes correctly if the handle_call callback is
+%% not exported in the callback module
+undef_handle_call(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+undef_handle_call(_Config) ->
+    wx:new(),
+    Frame = wx_object:start(wx_oc_object, [], []),
+    try
+        wx_object:call(Frame, call_msg),
+        ct:fail(should_crash)
+    catch error:{{undef, [{wx_oc_object,handle_call, _, _}|_]},
+                              {wx_object,call,_}} ->
+        ok
+    end.
+
+%% Test that the server crashes correctly if the handle_cast callback is
+%% not exported in the callback module
+undef_handle_cast(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+undef_handle_cast(_Config) ->
+    wx:new(),
+    {_, _, _, Pid} = Frame = wx_object:start(wx_oc_object, [], []),
+    MRef = monitor(process, Pid),
+    wx_object:cast(Frame, cast_msg),
+    ok = receive
+        {'DOWN', MRef, process, Pid,
+         {undef, [{wx_oc_object, handle_cast, _, _}|_]}} ->
+            ok
+    after 5000 ->
+        ct:fail(should_crash)
+    end.
+
+%% Test the default implementation of handle_info if the callback module
+%% does not export it
+undef_handle_info(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+undef_handle_info(_Config) ->
+    wx:new(),
+    {_, _, _, Pid} = wx_object:start(wx_oc_object, [], []),
+    MRef = monitor(process, Pid),
+    Pid ! test,
+    receive
+        {'DOWN', MRef, process, Pid, _} ->
+            ct:fail(should_not_crash)
+    after 500 ->
+        ok
+    end,
+    ok = wx_object:stop(Pid).
+
+%% Test the server crashes correctly if called and the code_change callback is
+%% not exported in the callback module
+undef_code_change(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+undef_code_change(_Config) ->
+    wx:new(),
+    {_, _, _, Pid} = wx_object:start(wx_oc_object, [], []),
+    sys:suspend(Pid),
+    sys:replace_state(Pid, fun([P, S, M, T]) -> [P, {new, S}, M, T] end),
+    {error, {'EXIT', {undef, [{wx_oc_object,code_change, [_, _, _], _}|_]}}}
+         = sys:change_code(Pid, wx_oc_object, old_vsn, []),
+    ok = sys:resume(Pid),
+    ok = wx_object:stop(Pid).
+
+%% Test the default implementation of terminate if the callback module
+%% does not export it
+undef_terminate1(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+undef_terminate1(_Config) ->
+    ok = terminate([], normal).
+
+%% Test the default implementation of terminate if the callback module
+%% does not export it
+undef_terminate2(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+undef_terminate2(_Config) ->
+    ok = terminate([{error, test}, infinity], {error, test}).
+
+terminate(ArgsTl, Reason) ->
+    wx:new(),
+    {_, _, _, Pid} = wx_object:start(wx_oc_object, [], []),
+    MRef = monitor(process, Pid),
+    ok = apply(wx_object, stop, [Pid|ArgsTl]),
+    receive
+        {'DOWN', MRef, process, Pid, Reason} ->
+            ok
+    after 1000 ->
+        ct:fail(failed)
+    end.
+
+%% Test that the server crashes correctly if the handle_info callback is
+%% calling an undefined function
+undef_in_handle_info(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+undef_in_handle_info(_Config) ->
+    wx:new(),
+    Init = ui_init_fun(),
+    {_, _, _, Pid} = wx_object:start(wx_obj_test,
+                                     [{parent, self()}, {init, Init}], []),
+    unlink(Pid),
+    MRef = monitor(process, Pid),
+    Pid ! {call_undef_fun, {wx_obj_test, handle_info}},
+    receive
+        {'DOWN', MRef, process, Pid,
+         {undef, [{wx_obj_test, handle_info, _, _}|_]}} ->
+            ok
+    after 1000 ->
+        ct:fail(failed)
+    end,
+    ok.
+
+%% Test that the server crashes correctly if the terminate callback is
+%% calling an undefined function
+undef_in_terminate(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+undef_in_terminate(_Config) ->
+    wx:new(),
+    Init = ui_init_fun(),
+    Frame = wx_object:start(wx_obj_test,
+                            [{parent, self()}, {init, Init},
+                             {terminate, {wx_obj_test, terminate}}], []),
+    try
+        wx_object:stop(Frame),
+        ct:fail(should_crash)
+    catch error:{{undef, [{wx_obj_test, terminate, _, _}|_]}, _} ->
+        ok
+    end.
+
+ui_init_fun() ->
+    Init = fun() ->
+        Frame0 = wxFrame:new(wx:null(), ?wxID_ANY, "Test wx_object", [{size, {500, 400}}]),
+        Frame = wx_object:set_pid(Frame0, self()),
+        Sz = wxBoxSizer:new(?wxHORIZONTAL),
+        Panel = wxPanel:new(Frame),
+        wxSizer:add(Sz, Panel, [{flag, ?wxEXPAND}, {proportion, 1}]),
+        wxWindow:show(Frame),
+        {Frame, {Frame, Panel}}
+    end,
+    Init.
 
 check_events(Msgs) ->
     check_events(Msgs, 0,0).

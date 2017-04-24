@@ -1644,6 +1644,13 @@ handle_event(_, _, State, Data) ->
 	<v>Reason = term()</v>
       </type>
       <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not export it.
+            If a release upgrade/downgrade with <c>Change={advanced,Extra}</c>
+            specified in the <c>.appup</c> file is made when <c>code_change/4</c>
+            isn't implemented the process will crash with an <c>undef</c> exit
+            reason.</p>
+        </note>
         <p>
 	  This function is called by a <c>gen_statem</c> when it is to
 	  update its internal state during a release upgrade/downgrade,

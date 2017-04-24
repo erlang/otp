@@ -26,6 +26,8 @@
 
 init(make_error) ->
     {error, my_error};
+init({state, State}) ->
+    {ok, State};
 init([Parent]) ->
     {ok, Parent};  %% We will send special responses for every handled event.
 init([Parent,hibernate]) ->
@@ -83,7 +85,9 @@ terminate(swap, State) ->
     {ok, State};
 terminate({error, {return, faulty}}, Parent) ->
     Parent ! {dummy_h, returned_error};
+terminate(_Reason, {undef_in_terminate, {Mod, Fun}}) ->
+    Mod:Fun(),
+    ok;
 terminate(_Reason, _State) ->
     ok.
-
 

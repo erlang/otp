@@ -504,6 +504,13 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>Reason = term()</v>
       </type>
       <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not export it.
+            If a release upgrade/downgrade with <c>Change={advanced,Extra}</c>
+            specified in the <c>appup</c> file is made when <c>code_change/3</c>
+            isn't implemented the process will crash with an <c>undef</c> exit
+            reason.</p>
+        </note>
         <p>This function is called by a <c>gen_server</c> process when it is
           to update its internal state during a release upgrade/downgrade,
           that is, when the instruction <c>{update,Module,Change,...}</c>,
@@ -690,6 +697,12 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>&nbsp;Reason = normal | term()</v>
       </type>
       <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not
+            export it. The <c>gen_server</c> module provides a default
+            implementation of this function that logs about the unexpected
+            <c>Info</c> message, drops it and returns <c>{noreply, State}</c>.</p>
+        </note>
         <p>This function is called by a <c>gen_server</c> process when a
           time-out occurs or when it receives any other message than a
           synchronous or asynchronous request (or a system message).</p>
@@ -739,6 +752,16 @@ gen_server:abcast     -----> Module:handle_cast/2
         <p>If the initialization fails, the function is to return
           <c>{stop,Reason}</c>, where <c>Reason</c> is any term, or
           <c>ignore</c>.</p>
+        <note>
+          <p>
+            This callback is optional, so a callback module does not need
+            to export it, but most do.  If this function is not exported,
+            the <c>gen_server</c> should be started through
+            <seealso marker="proc_lib"><c>proc_lib</c></seealso>
+            and
+            <seealso marker="#enter_loop/3"><c>enter_loop/3-5</c></seealso>.
+          </p>
+        </note>
       </desc>
     </func>
 
@@ -750,6 +773,11 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>State = term()</v>
       </type>
       <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not
+            export it. The <c>gen_server</c> module provides a default
+            implementation without cleanup.</p>
+        </note>
         <p>This function is called by a <c>gen_server</c> process when it is
           about to terminate. It is to be the opposite of
           <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
