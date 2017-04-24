@@ -709,11 +709,7 @@ recv({[#sctp_sndrcvinfo{stream = Id}], Bin}, #transport{parent = Pid} = S)
                                              bin = Bin}),
     S;
 
-recv({_, #sctp_shutdown_event{assoc_id = A}},
-     #transport{assoc_id = Id})
-  when Id;
-       A == Id;
-       A == 0 ->
+recv({_, #sctp_shutdown_event{}}, _) ->
     stop;
 
 %% Note that diameter_sctp(3) documents that sctp_events cannot be
