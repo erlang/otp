@@ -36,6 +36,7 @@
 #include "erl_check_io.h"
 #include "dtrace-wrapper.h"
 #include "lttng-wrapper.h"
+#include "erl_check_io.h"
 #include <stdarg.h>
 
 /*

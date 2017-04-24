@@ -46,6 +46,7 @@
 #include "erl_thr_progress.h"
 #include "erl_bif_unique.h"
 #include "erl_map.h"
+#include "erl_check_io.h"
 #define ERTS_PTAB_WANT_DEBUG_FUNCS__
 #include "erl_ptab.h"
 #include "erl_time.h"

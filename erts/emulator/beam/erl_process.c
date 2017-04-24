@@ -49,6 +49,7 @@
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
 #include "erl_nfunc_sched.h"
+#include "erl_check_io.h"
 
 #define ERTS_CHECK_TIME_REDS CONTEXT_REDS
 #define ERTS_DELAYED_WAKEUP_INFINITY (~(Uint64) 0)
@@ -1563,14 +1564,14 @@ erts_sched_finish_poke(ErtsSchedulerSleepInfo *ssi, erts_aint32_t flags)
 {
     switch (flags & ERTS_SSI_FLGS_SLEEP_TYPE) {
     case ERTS_SSI_FLG_POLL_SLEEPING:
-	erts_sys_schedule_interrupt(1);
+	erts_check_io_interrupt(1);
 	break;
     case ERTS_SSI_FLG_POLL_SLEEPING|ERTS_SSI_FLG_TSE_SLEEPING:
 	/*
 	 * Thread progress blocking while poll sleeping; need
 	 * to signal on both...
 	 */
-	erts_sys_schedule_interrupt(1);
+	erts_check_io_interrupt(1);
 	/* fall through */
     case ERTS_SSI_FLG_TSE_SLEEPING:
 	erts_tse_set(ssi->event);
@@ -3084,7 +3085,7 @@ sched_set_sleeptype(ErtsSchedulerSleepInfo *ssi, erts_aint32_t sleep_type)
 	erts_tse_reset(ssi->event);
     else {
 	ASSERT(sleep_type == ERTS_SSI_FLG_POLL_SLEEPING);
-	erts_sys_schedule_interrupt(0);
+	erts_check_io_interrupt(0);
     }
 
     while (1) {
@@ -10049,7 +10050,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    fcalls = 0;
 
 #if 0 /* Not needed since we wont wait in sys schedule */
-	    erts_sys_schedule_interrupt(0);
+	    erts_check_io_interrupt(0);
 #endif
 	    erts_runq_unlock(rq);
 

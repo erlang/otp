@@ -30,38 +30,6 @@
 #include "sys.h"
 #include "erl_sys_driver.h"
 
-#ifdef ERTS_ENABLE_KERNEL_POLL
-
-int driver_select_kp(ErlDrvPort, ErlDrvEvent, int, int);
-int driver_select_nkp(ErlDrvPort, ErlDrvEvent, int, int);
-int enif_select_kp(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, const ErlNifPid*, Eterm);
-int enif_select_nkp(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, const ErlNifPid*, Eterm);
-int driver_event_kp(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
-int driver_event_nkp(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
-Uint erts_check_io_size_kp(void);
-Uint erts_check_io_size_nkp(void);
-Eterm erts_check_io_info_kp(void *);
-Eterm erts_check_io_info_nkp(void *);
-int erts_check_io_max_files_kp(void);
-int erts_check_io_max_files_nkp(void);
-void erts_check_io_interrupt_kp(int);
-void erts_check_io_interrupt_nkp(int);
-void erts_check_io_interrupt_timed_kp(int, ErtsMonotonicTime);
-void erts_check_io_interrupt_timed_nkp(int, ErtsMonotonicTime);
-void erts_check_io_kp(int);
-void erts_check_io_nkp(int);
-void erts_init_check_io_kp(void);
-void erts_init_check_io_nkp(void);
-int erts_check_io_debug_kp(ErtsCheckIoDebugInfo *);
-int erts_check_io_debug_nkp(ErtsCheckIoDebugInfo *);
-
-#ifdef ERTS_ENABLE_LOCK_COUNT
-void erts_lcnt_update_cio_locks_kp(int enable);
-void erts_lcnt_update_cio_locks_nkp(int enable);
-#endif
-
-#else /* !ERTS_ENABLE_KERNEL_POLL */
-
 Uint erts_check_io_size(void);
 Eterm erts_check_io_info(void *);
 int erts_check_io_max_files(void);
@@ -69,7 +37,6 @@ void erts_check_io_interrupt(int);
 void erts_check_io_interrupt_timed(int, ErtsMonotonicTime);
 void erts_check_io(int);
 void erts_init_check_io(void);
-
 #ifdef ERTS_ENABLE_LOCK_COUNT
 void erts_lcnt_update_cio_locks(int enable);
 #endif

@@ -575,8 +575,6 @@ __decl_noreturn void __noreturn erts_exit(int n, char*, ...);
     erts_exit(ERTS_ABORT_EXIT, "%s:%d:%s(): Internal error: %s\n", \
 	     __FILE__, __LINE__, __func__, What)
 
-Eterm erts_check_io_info(void *p);
-
 UWord erts_sys_get_page_size(void);
 
 /* Size of misc memory allocated from system dependent code */
@@ -739,8 +737,6 @@ extern char *erts_sys_ddll_error(int code);
 /*
  * System interfaces for startup.
  */
-void erts_sys_schedule_interrupt(int set);
-void erts_sys_schedule_interrupt_timed(int, ErtsMonotonicTime);
 void erts_sys_main_thread(void);
 
 extern int erts_sys_prepare_crash_dump(int secs);

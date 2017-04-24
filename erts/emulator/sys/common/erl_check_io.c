@@ -110,6 +110,23 @@ static struct pollset_info
 }pollset;
 #define NUM_OF_POLLSETS 1
 
+
+#ifdef ERTS_ENABLE_KERNEL_POLL
+void erts_init_check_io_kp(void);
+void erts_init_check_io_nkp(void);
+int ERTS_CIO_EXPORT(driver_select)(ErlDrvPort, ErlDrvEvent, int, int);
+int ERTS_CIO_EXPORT(enif_select)(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, const ErlNifPid*, Eterm);
+int ERTS_CIO_EXPORT(driver_event)(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
+Uint ERTS_CIO_EXPORT(erts_check_io_size)(void);
+Eterm ERTS_CIO_EXPORT(erts_check_io_info)(void *);
+int ERTS_CIO_EXPORT(erts_check_io_max_files)(void);
+void ERTS_CIO_EXPORT(erts_check_io_interrupt)(int);
+void ERTS_CIO_EXPORT(erts_check_io_interrupt_timed)(int, ErtsMonotonicTime);
+void ERTS_CIO_EXPORT(erts_check_io)(int);
+int ERTS_CIO_EXPORT(erts_check_io_debug)(ErtsCheckIoDebugInfo *);
+#endif
+
+
 typedef struct {
 #ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
     SafeHashBucket hb;
@@ -2098,7 +2115,6 @@ eready(Eterm id, ErtsDrvEventState *state, ErlDrvEventData event_data,
 
 static void bad_fd_in_pollset(ErtsDrvEventState *, Eterm inport, Eterm outport);
 
-
 void
 ERTS_CIO_EXPORT(erts_check_io_interrupt)(int set)
 {
@@ -2142,12 +2158,6 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 	erts_do_break_handling();
 #endif
 
-#ifdef ERTS_SIGNAL_STATE /* ifndef ERTS_SMP */
-    if (ERTS_SIGNAL_STATE) {
-        erts_handle_signal_state();
-    }
-#endif
-
     /* Figure out timeout value */
     timeout_time = (do_wait
 		    ? erts_check_next_timeout_time(esdp)
@@ -2185,14 +2195,6 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
     if (ERTS_BREAK_REQUESTED)
 	erts_do_break_handling();
 #endif
-
-
-#ifdef ERTS_SIGNAL_STATE /* ifndef ERTS_SMP */
-    if (ERTS_SIGNAL_STATE) {
-        erts_handle_signal_state();
-    }
-#endif
-
 
     if (poll_ret != 0) {
 	erts_atomic_set_nob(&pollset.in_poll_wait, 0);
@@ -2259,9 +2261,7 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 		    oready(state->driver.select->outport, state, current_cio_time);
 		}
 		/* Someone might have deselected input since revents
-		   was read (true also on the non-smp emulator since
-		   oready() may have been called); therefore, update
-		   revents... */
+		   was read therefore, update revents... */
 		revents &= state->events;
 		if (revents & ERTS_POLL_EV_IN) {
 		    iready(state->driver.select->inport, state, current_cio_time);
@@ -2502,6 +2502,31 @@ static void drv_ev_state_free(void *des)
 }
 #endif
 
+
+#ifdef ERTS_ENABLE_KERNEL_POLL
+
+struct io_functions {
+    int (*select)(ErlDrvPort, ErlDrvEvent, int, int);
+    int (*enif_select)(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, const ErlNifPid*, Eterm);
+    int (*event)(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
+    void (*check_io_as_interrupt)(void);
+    void (*check_io_interrupt)(int);
+    void (*check_io_interrupt_tmd)(int, ErtsMonotonicTime);
+    void (*check_io)(int);
+    int (*max_files)(void);
+    Uint (*size)(void);
+    Eterm (*info)(void *);
+    int (*check_io_debug)(ErtsCheckIoDebugInfo *);
+};
+
+# ifdef ERTS_KERNEL_POLL_VERSION
+struct io_functions erts_io_funcs = {0};
+# else
+extern struct io_functions erts_io_funcs;
+# endif
+
+#endif /* ERTS_ENABLE_KERNEL_POLL */
+
 void
 ERTS_CIO_EXPORT(erts_init_check_io)(void)
 {
@@ -2511,6 +2536,20 @@ ERTS_CIO_EXPORT(erts_init_check_io)(void)
                                ERL_NIF_SELECT_FAILED)) == 0);
     erts_atomic_init_nob(&erts_check_io_time, 0);
     erts_atomic_init_nob(&pollset.in_poll_wait, 0);
+
+#ifdef ERTS_ENABLE_KERNEL_POLL
+    ASSERT(erts_io_funcs.select == NULL);
+    erts_io_funcs.select		= ERTS_CIO_EXPORT(driver_select);
+    erts_io_funcs.enif_select		= ERTS_CIO_EXPORT(enif_select);
+    erts_io_funcs.event		= ERTS_CIO_EXPORT(driver_event);
+    erts_io_funcs.check_io_interrupt	= ERTS_CIO_EXPORT(erts_check_io_interrupt);
+    erts_io_funcs.check_io_interrupt_tmd= ERTS_CIO_EXPORT(erts_check_io_interrupt_timed);
+    erts_io_funcs.check_io		= ERTS_CIO_EXPORT(erts_check_io);
+    erts_io_funcs.max_files		= ERTS_CIO_EXPORT(erts_check_io_max_files);
+    erts_io_funcs.size		= ERTS_CIO_EXPORT(erts_check_io_size);
+    erts_io_funcs.info		= ERTS_CIO_EXPORT(erts_check_io_info);
+    erts_io_funcs.check_io_debug	= ERTS_CIO_EXPORT(erts_check_io_debug);
+#endif
 
     ERTS_CIO_POLL_INIT();
     pollset.ps = ERTS_CIO_NEW_POLLSET();
@@ -3097,7 +3136,7 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(ErtsCheckIoDebugInfo *ciodip)
 }
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
-void ERTS_CIO_EXPORT(erts_lcnt_update_cio_locks)(int enable) {
+void erts_lcnt_update_cio_locks(int enable) {
 #ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
     erts_lcnt_enable_hash_lock_count(&drv_ev_state_tab, ERTS_LOCK_FLAGS_CATEGORY_IO, enable);
 #else
@@ -3105,3 +3144,79 @@ void ERTS_CIO_EXPORT(erts_lcnt_update_cio_locks)(int enable) {
 #endif
 }
 #endif /* ERTS_ENABLE_LOCK_COUNT */
+
+
+#ifdef ERTS_ENABLE_KERNEL_POLL
+# ifdef ERTS_KERNEL_POLL_VERSION
+
+/*
+ * Compile these only once for kp/nkp
+ */
+
+void erts_init_check_io(void)
+{
+    if (erts_use_kernel_poll)
+        erts_init_check_io_kp();
+    else
+        erts_init_check_io_nkp();
+}
+
+int
+driver_select(ErlDrvPort port, ErlDrvEvent event, int mode, int on)
+{
+    return (*erts_io_funcs.select)(port, event, mode, on);
+}
+
+int
+driver_event(ErlDrvPort port, ErlDrvEvent event, ErlDrvEventData event_data)
+{
+    return (*erts_io_funcs.event)(port, event, event_data);
+}
+
+int enif_select(ErlNifEnv* env, ErlNifEvent event,
+                enum ErlNifSelectFlags flags, void* obj, const ErlNifPid* pid, Eterm ref)
+{
+    return (*erts_io_funcs.enif_select)(env, event, flags, obj, pid, ref);
+}
+
+void erts_check_io(int do_wait)
+{
+    erts_io_funcs.check_io(do_wait);
+}
+
+Uint erts_check_io_size(void)
+{
+    return erts_io_funcs.size();
+}
+
+
+Eterm erts_check_io_info(void *p)
+{
+    return (*erts_io_funcs.info)(p);
+}
+
+int erts_check_io_max_files(void)
+{
+    return erts_io_funcs.max_files();
+}
+
+int
+erts_check_io_debug(ErtsCheckIoDebugInfo *ip)
+{
+    return (*erts_io_funcs.check_io_debug)(ip);
+}
+
+void erts_check_io_interrupt(int set)
+{
+    erts_io_funcs.check_io_interrupt(set);
+}
+
+void erts_check_io_interrupt_timed(int set,
+                                   ErtsMonotonicTime timeout_time)
+{
+    erts_io_funcs.check_io_interrupt_tmd(set, timeout_time);
+}
+
+#endif /* ERTS_KERNEL_POLL_VERSION */
+
+#endif /* !ERTS_ENABLE_KERNEL_POLL */

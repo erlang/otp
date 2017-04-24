@@ -3248,18 +3248,6 @@ erl_sys_late_init(void)
     /* do nothing */
 }
 
-void
-erts_sys_schedule_interrupt(int set)
-{
-    erts_check_io_interrupt(set);
-}
-
-void
-erts_sys_schedule_interrupt_timed(int set, ErtsMonotonicTime timeout_time)
-{
-    erts_check_io_interrupt_timed(set, timeout_time);
-}
-
 /*
  * Called from schedule() when it runs out of runnable processes,
  * or when Erlang code has performed INPUT_REDUCTIONS reduction
@@ -3271,4 +3259,3 @@ erl_sys_schedule(int runnable)
     erts_check_io(!runnable);
     ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());
 }
-
