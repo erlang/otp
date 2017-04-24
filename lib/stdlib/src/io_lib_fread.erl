@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -159,8 +159,8 @@ fread_field([$t|Format], F, Sup, _Unic) ->
 fread_field(Format, F, Sup, Unic) ->
     {Format,F,Sup,Unic}.
 
-%% fread1(Format, FieldWidth, Suppress, Line, N, Results, AllFormat)
-%% fread1(Format, FieldWidth, Suppress, Line, N, Results)
+%% fread1(Format, FieldWidth, Suppress, Unicode, Line, N, Results, AllFormat)
+%% fread1(Format, FieldWidth, Suppress, Unicode, Line, N, Results)
 %%  The main dispatch function for the formatting commands. Done in two
 %%  stages so format commands that need no input can always be processed.
 
@@ -231,9 +231,8 @@ fread1([$s|Format], none, Sup, U, Line0, N0, Res) ->
 fread1([$s|Format], F, Sup, U, Line0, N, Res) ->
     {Line,Cs} = fread_chars(Line0, F, U),
     fread_string(Cs, Sup, U, Format, Line, N+F, Res);
-%% XXX:PaN Atoms still only latin1...
-fread1([$a|Format], none, Sup, false, Line0, N0, Res) ->
-    {Line,N,Cs} = fread_string_cs(Line0, N0, false),
+fread1([$a|Format], none, Sup, U, Line0, N0, Res) ->
+    {Line,N,Cs} = fread_string_cs(Line0, N0, U),
     fread_atom(Cs, Sup, Format, Line, N, Res);
 fread1([$a|Format], F, Sup, false, Line0, N, Res) ->
     {Line,Cs} = fread_chars(Line0, F, false),

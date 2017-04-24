@@ -2359,6 +2359,15 @@ otp_14285(_Config) ->
     "'кирилли́ческий атом'" = fmt("~tW", ['кирилли́ческий атом', 13]),
     [$',16#10FFFF,$'] = fmt("~tW", ['\x{10FFFF}', 13]),
 
+    {ok, [an_atom],[]} = io_lib:fread("~a", "an_atom"),
+    {ok, [an_atom],[]} = io_lib:fread("~ta", "an_atom"),
+    Str = "\"ab" ++ [1089] ++ "cd\"",
+    {ok, ["\"ab"], [1089]++"cd\""} = io_lib:fread("~s", Str),
+    {ok, ['\"ab'], [1089]++"cd\""} = io_lib:fread("~a", Str),
+    {ok,[Str], []} = io_lib:fread("~ts", Str),
+    {ok,[Atom],[]} = io_lib:fread("~ta", Str),
+    Str = atom_to_list(Atom),
+
     ok.
 
 latin1_fmt(Fmt, Args) ->
