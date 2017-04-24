@@ -1,8 +1,5 @@
 
-gen_server_incorrect_args.erl:3: Undefined callback function code_change/3 (behaviour 'gen_server')
 gen_server_incorrect_args.erl:3: Undefined callback function handle_cast/2 (behaviour 'gen_server')
-gen_server_incorrect_args.erl:3: Undefined callback function handle_info/2 (behaviour 'gen_server')
 gen_server_incorrect_args.erl:3: Undefined callback function init/1 (behaviour 'gen_server')
-gen_server_incorrect_args.erl:3: Undefined callback function terminate/2 (behaviour 'gen_server')
 gen_server_incorrect_args.erl:7: The inferred return type of handle_call/3 ({'no'} | {'ok'}) has nothing in common with {'noreply',_} | {'noreply',_,'hibernate' | 'infinity' | non_neg_integer()} | {'reply',_,_} | {'stop',_,_} | {'reply',_,_,'hibernate' | 'infinity' | non_neg_integer()} | {'stop',_,_,_}, which is the expected return type for the callback of gen_server behaviour
 gen_server_incorrect_args.erl:7: The inferred type for the 2nd argument of handle_call/3 ('boo' | 'foo') is not a supertype of {pid(),_}, which is expected type for this argument in the callback of the gen_server behaviour

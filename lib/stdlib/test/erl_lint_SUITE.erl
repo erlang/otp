@@ -3058,10 +3058,7 @@ behaviour_multiple(Config) when is_list(Config) ->
               handle_info(_, _) -> ok.
              ">>,
            [],
-	   {warnings,[{1,erl_lint,
-		       {undefined_behaviour_func,{code_change,3},gen_server}},
-		      {1,erl_lint,{undefined_behaviour_func,{init,1},gen_server}},
-		      {1,erl_lint,{undefined_behaviour_func,{terminate,2},gen_server}},
+	   {warnings,[{1,erl_lint,{undefined_behaviour_func,{init,1},gen_server}},
 		      {2,erl_lint,{undefined_behaviour_func,{init,1},supervisor}},
 		      {2,
 		       erl_lint,
@@ -3075,10 +3072,7 @@ behaviour_multiple(Config) when is_list(Config) ->
               handle_info(_, _) -> ok.
              ">>,
            [],
-	   {warnings,[{1,erl_lint,
-		       {undefined_behaviour_func,{code_change,3},gen_server}},
-		      {1,erl_lint,{undefined_behaviour_func,{init,1},gen_server}},
-		      {1,erl_lint,{undefined_behaviour_func,{terminate,2},gen_server}},
+	   {warnings,[{1,erl_lint,{undefined_behaviour_func,{init,1},gen_server}},
 		      {2,erl_lint,{undefined_behaviour_func,{init,1},supervisor}},
 		      {2,
 		       erl_lint,

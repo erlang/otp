@@ -1,6 +1,4 @@
 
 vars_in_beh_spec.erl:3: Undefined callback function handle_call/3 (behaviour 'gen_server')
 vars_in_beh_spec.erl:3: Undefined callback function handle_cast/2 (behaviour 'gen_server')
-vars_in_beh_spec.erl:3: Undefined callback function handle_info/2 (behaviour 'gen_server')
 vars_in_beh_spec.erl:3: Undefined callback function init/1 (behaviour 'gen_server')
-vars_in_beh_spec.erl:3: Undefined callback function terminate/2 (behaviour 'gen_server')

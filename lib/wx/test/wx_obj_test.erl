@@ -79,6 +79,9 @@ handle_cast(What, State = #state{parent=Pid}) ->
     Pid ! {cast, What},
     {noreply, State}.
 
+handle_info({call_undef_fun, {Mod, Fun}}, State) ->
+    Mod:Fun(),
+    {noreply, State};
 handle_info(What, State = #state{parent=Pid}) ->
     Pid ! {info, What},
     {noreply, State}.
@@ -87,6 +90,8 @@ terminate(What, #state{parent=Pid, opts=Opts, user_state=US}) ->
     case proplists:get_value(terminate, Opts) of
 	undefined ->
 	    ok;
+	{Mod, Fun} ->
+	    Mod:Fun();
 	Terminate ->
 	    Terminate(US)
     end,

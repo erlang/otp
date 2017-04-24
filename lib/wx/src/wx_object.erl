@@ -39,19 +39,31 @@
 %%     {wxObject, State} | {wxObject, State, Timeout} |
 %%         ignore | {stop, Reason}
 %%
+%%   Asynchronous window event handling: <br/>
+%%   handle_event(#wx{}, State)  should return <br/>
+%%    {noreply, State} | {noreply, State, Timeout} | {stop, Reason, State} 
+%%
+%% The user module can export the following callback functions:
+%%
 %%   handle_call(Msg, {From, Tag}, State) should return <br/>
 %%    {reply, Reply, State} | {reply, Reply, State, Timeout} |
 %%        {noreply, State} | {noreply, State, Timeout} |
 %%        {stop, Reason, Reply, State}  
 %%
-%%   Asynchronous window event handling: <br/>
-%%   handle_event(#wx{}, State)  should return <br/>
-%%    {noreply, State} | {noreply, State, Timeout} | {stop, Reason, State} 
+%%   handle_cast(Msg, State) should return <br/>
+%%    {noreply, State} | {noreply, State, Timeout} |
+%%        {stop, Reason, State}  
+%%
+%% If the above are not exported but called, the wx_object process will crash.
+%% The user module can also export:
 %%
 %%   Info is message e.g. {'EXIT', P, R}, {nodedown, N}, ...  <br/>
 %%   handle_info(Info, State)  should return , ...  <br/>
 %%    {noreply, State} | {noreply, State, Timeout} | {stop, Reason, State} 
-%% 
+%%
+%% If a message is sent to the wx_object process when handle_info is not
+%% exported, the message will be dropped and ignored.
+%%
 %%   When stop is returned in one of the functions above with Reason =
 %% normal | shutdown | Term, terminate(State) is called. It lets the
 %% user module clean up, it is always called when server terminates or
@@ -135,6 +147,8 @@
     {'noreply', NewState :: term()} |
     {'noreply', NewState :: term(), timeout() | 'hibernate'} |
     {'stop', Reason :: term(), NewState :: term()}.
+-callback handle_sync_event(Request :: #wx{}, Ref :: #wx_ref{}, State :: term()) ->
+    ok.
 -callback terminate(Reason :: ('normal' | 'shutdown' | {'shutdown', term()} |
                                term()),
                     State :: term()) ->
@@ -143,6 +157,9 @@
                       Extra :: term()) ->
     {'ok', NewState :: term()} | {'error', Reason :: term()}.
 
+-optional_callbacks(
+    [handle_call/3, handle_cast/2, handle_info/2,
+     handle_sync_event/3, terminate/2, code_change/3]).
 
 %% System exports
 -export([system_continue/3,
@@ -426,6 +443,7 @@ dispatch(Msg = #wx{}, Mod, State) ->
     Mod:handle_event(Msg, State);
 dispatch(Info, Mod, State) ->
     Mod:handle_info(Info, State).
+
 %% @hidden
 handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod) ->
     case catch Mod:handle_call(Msg, From, State) of
@@ -447,8 +465,12 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod) ->
 	Other -> handle_common_reply(Other, Name, Msg, Mod, State, [])
     end;
 handle_msg(Msg, Parent, Name, State, Mod) ->
-    Reply = (catch dispatch(Msg, Mod, State)),
-    handle_no_reply(Reply, Parent, Name, Msg, Mod, State, []).
+    case catch dispatch(Msg, Mod, State) of
+        {'EXIT', {undef, [{Mod, handle_info, [_,_], _}|_]}} ->
+            handle_no_reply({noreply, State}, Parent, Name, Msg, Mod, State, []);
+        Reply ->
+            handle_no_reply(Reply, Parent, Name, Msg, Mod, State, [])
+    end.
 
 %% @hidden
 handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, Debug) ->
@@ -528,8 +550,8 @@ system_terminate(Reason, _Parent, Debug, [Name, State, Mod, _Time]) ->
 %% @hidden
 system_code_change([Name, State, Mod, Time], _Module, OldVsn, Extra) ->
     case catch Mod:code_change(OldVsn, State, Extra) of
-	{ok, NewState} -> {ok, [Name, NewState, Mod, Time]};
-	Else -> Else
+        {ok, NewState} -> {ok, [Name, NewState, Mod, Time]};
+        Else -> Else
     end.
 
 %%-----------------------------------------------------------------
@@ -560,7 +582,7 @@ print_event(Dev, Event, Name) ->
 %%% ---------------------------------------------------
 %% @hidden
 terminate(Reason, Name, Msg, Mod, State, Debug) ->
-    case catch Mod:terminate(Reason, State) of
+    case try_terminate(Mod, Reason, State) of
 	{'EXIT', R} ->
 	    error_info(R, Name, Msg, State, Debug),
 	    exit(R);
@@ -577,6 +599,15 @@ terminate(Reason, Name, Msg, Mod, State, Debug) ->
 		    exit(Reason)
 	    end
     end.
+
+try_terminate(Mod, Reason, State) ->
+    case erlang:function_exported(Mod, terminate, 2) of
+        true ->
+            catch Mod:terminate(Reason, State);
+        _ ->
+            ok
+    end.
+
 %% @hidden
 error_info(_Reason, application_controller, _Msg, _State, _Debug) ->
     ok;

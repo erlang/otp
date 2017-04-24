@@ -34,7 +34,10 @@
 	 spec_init_global_registered_parent/1,
 	 otp_5854/1, hibernate/1, otp_7669/1, call_format_status/1,
 	 error_format_status/1, terminate_crash_format/1,
-	 get_state/1, replace_state/1, call_with_huge_message_queue/1
+	 get_state/1, replace_state/1, call_with_huge_message_queue/1,
+	 undef_handle_call/1, undef_handle_cast/1, undef_handle_info/1,
+	 undef_init/1, undef_code_change/1, undef_terminate1/1,
+	 undef_terminate2/1, undef_in_terminate/1, undef_in_handle_info/1
 	]).
 
 -export([stop1/1, stop2/1, stop3/1, stop4/1, stop5/1, stop6/1, stop7/1,
@@ -50,7 +53,7 @@
 
 %% The gen_server behaviour
 -export([init/1, handle_call/3, handle_cast/2,
-	 handle_info/2, terminate/2, format_status/2]).
+	 handle_info/2, code_change/3, terminate/2, format_status/2]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -66,11 +69,16 @@ all() ->
      otp_7669,
      call_format_status, error_format_status, terminate_crash_format,
      get_state, replace_state,
-     call_with_huge_message_queue].
+     call_with_huge_message_queue, {group, undef_callbacks},
+     undef_in_terminate, undef_in_handle_info].
 
 groups() -> 
     [{stop, [],
-      [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10]}].
+      [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10]},
+     {undef_callbacks, [],
+      [undef_handle_call, undef_handle_cast, undef_handle_info,
+       undef_init, undef_code_change, undef_terminate1, undef_terminate2]}].
+
 
 init_per_suite(Config) ->
     Config.
@@ -78,6 +86,11 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
+init_per_group(undef_callbacks, Config) ->
+    DataDir = ?config(data_dir, Config),
+    Server = filename:join(DataDir, "oc_server.erl"),
+    {ok, oc_server} = compile:file(Server),
+    Config;
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -93,6 +106,7 @@ init_per_testcase(Case, Config) when Case == call_remote1;
 				     Case == call_remote_n3 ->
     {ok,N} = start_node(hubba),
     [{node,N} | Config];
+
 init_per_testcase(_Case, Config) ->
     Config.
 
@@ -1260,6 +1274,141 @@ echo_loop() ->
 	    echo_loop()
     end.
 
+%% Test the default implementation of terminate if the callback module
+%% does not export it
+undef_terminate1(Config) when is_list(Config) ->
+    {ok, Server} = gen_server:start(oc_server, [], []),
+    MRef = monitor(process, Server),
+    ok = gen_server:stop(Server),
+    ok = verify_down_reason(MRef, Server, normal).
+
+%% Test the default implementation of terminate if the callback module
+%% does not export it
+undef_terminate2(Config) when is_list(Config) ->
+    {ok, Server} = gen_server:start(oc_server, [], []),
+    MRef = monitor(process, Server),
+    ok = gen_server:stop(Server, {error, test}, infinity),
+    ok = verify_down_reason(MRef, Server, {error, test}).
+
+%% Start should return an undef error if init isn't implemented
+undef_init(_Config) ->
+    {error, {undef, [{oc_init_server, init, [_], _}|_]}} =
+        gen_server:start(oc_init_server, [], []),
+    process_flag(trap_exit, true),
+    {error, {undef, [{oc_init_server, init, [_], _}|_]}} =
+        (catch gen_server:start_link(oc_init_server, [], [])),
+    receive
+        {'EXIT', Server,
+         {undef, [{oc_init_server, init, [_], _}|_]}} when is_pid(Server) ->
+            ok
+    after 1000 ->
+        ct:fail(expected_exit_msg)
+    end.
+
+%% The upgrade should fail if code_change is expected in the callback module
+%% but not exported, but the server should continue with the old code
+undef_code_change(Config) when is_list(Config) ->
+    {ok, Server} = gen_server:start(oc_server, [], []),
+    {error, {'EXIT', {undef, [{oc_server, code_change, [_, _, _], _}|_]}}}
+        = fake_upgrade(Server, ?MODULE),
+    true = is_process_alive(Server).
+
+%% The server should crash if the handle_call callback is
+%% not exported in the callback module
+undef_handle_call(_Config) ->
+    {ok, Server} = gen_server:start(oc_server, [], []),
+    try
+        gen_server:call(Server, call_msg),
+        ct:fail(should_crash)
+    catch exit:{{undef, [{oc_server, handle_call, _, _}|_]},
+                {gen_server, call, _}} ->
+        ok
+    end.
+
+%% The server should crash if the handle_cast callback is
+%% not exported in the callback module
+undef_handle_cast(_Config) ->
+    {ok, Server} = gen_server:start(oc_server, [], []),
+    MRef = monitor(process, Server),
+    gen_server:cast(Server, cast_msg),
+    verify_undef_down(MRef, Server, oc_server, handle_cast),
+    ok.
+
+%% The server should log but not crash if the handle_info callback is
+%% calling an undefined function
+undef_handle_info(Config) when is_list(Config) ->
+    error_logger_forwarder:register(),
+    {ok, Server} = gen_server:start(oc_server, [], []),
+    Server ! hej,
+    wait_until_processed(Server, hej, 10),
+    true = is_process_alive(Server),
+    receive
+        {warning_msg, _GroupLeader,
+         {Server, "** Undefined handle_info in " ++ _, [oc_server, hej]}} ->
+            ok;
+        Other ->
+            io:format("Unexpected: ~p", [Other]),
+            ct:fail(failed)
+    end.
+
+%% Test that the default implementation of terminate isn't catching the
+%% wrong undef error
+undef_in_terminate(Config) when is_list(Config) ->
+    State = {undef_in_terminate, {oc_server, terminate}},
+    {ok, Server} = gen_server:start(?MODULE, {state, State}, []),
+    try
+        gen_server:stop(Server),
+        ct:fail(failed)
+    catch
+        exit:{undef, [{oc_server, terminate, [], _}|_]} ->
+            ok
+    end.
+
+%% Test that the default implementation of handle_info isn't catching the
+%% wrong undef error
+undef_in_handle_info(Config) when is_list(Config) ->
+     {ok, Server} = gen_server:start(?MODULE, [], []),
+     MRef = monitor(process, Server),
+     Server ! {call_undef_fun, ?MODULE, handle_info},
+     verify_undef_down(MRef, Server, ?MODULE, handle_info),
+     ok.
+
+verify_down_reason(MRef, Server, Reason) ->
+    receive
+        {'DOWN', MRef, process, Server, Reason} ->
+            ok
+    after 5000 ->
+        ct:fail(failed)
+    end.
+
+verify_undef_down(MRef, Pid, Mod, Fun) ->
+    ok = receive
+        {'DOWN', MRef, process, Pid,
+         {undef, [{Mod, Fun, _, _}|_]}} ->
+            ok
+    after 5000 ->
+        ct:fail(should_crash)
+    end.
+
+fake_upgrade(Pid, Mod) ->
+    sys:suspend(Pid),
+    sys:replace_state(Pid, fun(State) -> {new, State} end),
+    Ret = sys:change_code(Pid, Mod, old_vsn, []),
+    ok = sys:resume(Pid),
+    Ret.
+
+wait_until_processed(_Pid, _Message, 0) ->
+    ct:fail(not_processed);
+wait_until_processed(Pid, Message, N) ->
+    {messages, Messages} = erlang:process_info(Pid, messages),
+    case lists:member(Message, Messages) of
+        true ->
+            timer:sleep(100),
+            wait_until_processed(Pid, Message, N-1);
+        false ->
+            ok
+    end.
+
 %%--------------------------------------------------------------
 %% Help functions to spec_init_*
 start_link(Init, Options) ->
@@ -1383,6 +1532,9 @@ handle_call(stop_shutdown, _From, State) ->
     {stop,shutdown,State};
 handle_call(shutdown_reason, _From, _State) ->
     exit({shutdown,reason});
+handle_call({call_undef_fun, Mod, Fun}, _From, State) ->
+    Mod:Fun(),
+    {reply, ok, State};
 handle_call(stop_shutdown_reason, _From, State) ->
     {stop,{shutdown,stop_reason},State}.
 
@@ -1396,6 +1548,9 @@ handle_cast(hibernate_now, _State) ->
 handle_cast(hibernate_later, _State) ->
     timer:send_after(1000,self(),hibernate_now),
     {noreply, []};
+handle_cast({call_undef_fun, Mod, Fun}, State) ->
+    Mod:Fun(),
+    {noreply, State};
 handle_cast({From, stop}, State) ->
     io:format("BAZ"),
     {stop, {From,stopped}, State}.
@@ -1420,6 +1575,9 @@ handle_info(timeout, {delayed_cast, From}) ->
 handle_info(timeout, {delayed_info, From}) ->
     From ! {self(), delayed_info},
     {noreply, []};
+handle_info({call_undef_fun, Mod, Fun}, State) ->
+    Mod:Fun(),
+    {noreply, State};
 handle_info({From, handle_info}, _State) ->
     From ! {self(), handled_info},
     {noreply, []};
@@ -1433,6 +1591,12 @@ handle_info({From, stop}, State) ->
 handle_info(_Info, State) ->
     {noreply, State}.
 
+code_change(_OldVsn,
+            {new, {undef_in_code_change, {Mod, Fun}}} = State,
+            _Extra) ->
+    Mod:Fun(),
+    {ok, State}.
+
 terminate({From, stopped}, _State) ->
     io:format("FOOBAR"),
     From ! {self(), stopped},
@@ -1442,6 +1606,9 @@ terminate({From, stopped_info}, _State) ->
     ok;
 terminate(_, crash_terminate) ->
     exit({crash, terminate});
+terminate(_, {undef_in_terminate, {Mod, Fun}}) ->
+    Mod:Fun(),
+    ok;
 terminate(_Reason, _State) ->
     ok.
 
