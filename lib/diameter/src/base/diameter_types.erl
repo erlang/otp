@@ -523,27 +523,29 @@ scan_uri(Bin, Opts) ->
                                         RE,
                                         [{capture, [1,2,4,6,8], binary}]),
     Type = to_atom(A),
-    {PN0, T0} = defaults(Opts, Type),
-    PortNr = to_int(PN, PN0),
-    0 = PortNr bsr 16,  %% assert
     #diameter_uri{type = Type,
                   fqdn = 'OctetString'(decode, DN, Opts),
-                  port = PortNr,
-                  transport = to_atom(T, T0),
+                  port = portnr(PN, Type, Opts),
+                  transport = transport(T, Opts),
                   protocol = to_atom(P, diameter)}.
 
 %% Choose defaults based on the RFC, since 6733 has changed them.
-defaults(#{rfc := 3588}, _) ->
-    {3868, sctp};
-defaults(#{rfc := 6733}, aaa) ->
-    {3868, tcp};
-defaults(#{rfc := 6733}, aaas) ->
-    {5658, tcp}.
 
-to_int(<<>>, N) ->
-    N;
-to_int(B, _) ->
+portnr(<<>>, aaa, #{rfc := 6733}) ->
+    3868;
+portnr(<<>>, aaas, #{rfc := 6733}) ->
+    5868;
+portnr(<<>>, _, #{rfc := 3588}) ->
+    3868;
+portnr(B, _, _) ->
     binary_to_integer(B).
+
+transport(<<>>, #{rfc := 6733}) ->
+    tcp;
+transport(<<>>, #{rfc := 3588}) ->
+    sctp;
+transport(B, _) ->
+    to_atom(B).
 
 to_atom(<<>>, A) ->
     A;
