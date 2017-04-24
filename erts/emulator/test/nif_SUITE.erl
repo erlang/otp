@@ -59,8 +59,7 @@
          nif_snprintf/1,
          nif_internal_hash/1,
          nif_internal_hash_salted/1,
-         nif_phash2/1,
-         nif_phash2_salted/1
+         nif_phash2/1
 	]).
 
 -export([many_args_100/100]).
@@ -97,8 +96,7 @@ all() ->
      nif_snprintf,
      nif_internal_hash,
      nif_internal_hash_salted,
-     nif_phash2,
-     nif_phash2_salted].
+     nif_phash2].
 
 groups() ->
     [{G, [], api_repeaters()} || G <- api_groups()]
@@ -2637,7 +2635,8 @@ nif_phash2(Config) ->
         lists:map(
           fun (Term) ->
                   HashValue = erlang:phash2(Term),
-                  NifHashValue = hash_nif(phash2, Term, 0),
+                  Salt = random_uint32(), % phash2 should ignore salt
+                  NifHashValue = hash_nif(phash2, Term, Salt),
                   (HashValue =:= NifHashValue
                    orelse ct:fail("Expected: ~p\nActual:   ~p",
                                   [HashValue, NifHashValue])),
@@ -2645,10 +2644,6 @@ nif_phash2(Config) ->
           end,
           Terms),
     test_bit_distribution_fitness(HashValues, HashValueBitSize, 0.05).
-
-nif_phash2_salted(Config) ->
-    ensure_lib_loaded(Config),
-    test_salted_nif_hash(phash2).
 
 test_salted_nif_hash(HashType) ->
     HashValueBitSize = nif_hash_result_bitsize(HashType),

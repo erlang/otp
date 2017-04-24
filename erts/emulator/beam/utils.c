@@ -1003,7 +1003,7 @@ tail_recur:
 	    break;
 	}
     case MAP_DEF:
-        hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + make_hash2(term, 0);
+        hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + make_hash2(term);
         break;
     case TUPLE_DEF:
 	{
@@ -1109,7 +1109,7 @@ block_hash(byte *k, unsigned length, Uint32 initval)
 }
 
 Uint32
-make_hash2(Eterm term, Uint32 salt)
+make_hash2(Eterm term)
 {
     Uint32 hash;
     Uint32 hash_xor_pairs;
@@ -1179,7 +1179,7 @@ make_hash2(Eterm term, Uint32 salt)
 	    switch (term & _TAG_IMMED2_MASK) {
 	    case _TAG_IMMED2_ATOM:
 		/* Fast, but the poor hash value should be mixed. */
-		return atom_tab(atom_val(term))->slot.bucket.hvalue ^ salt;
+		return atom_tab(atom_val(term))->slot.bucket.hvalue;
 	    }
 	    break;
 	case _TAG_IMMED1_SMALL:
@@ -1190,7 +1190,7 @@ make_hash2(Eterm term, Uint32 salt)
 		  term = small_to_big(x, tmp_big);
 		  break;
 	      }
-	      hash = salt;
+	      hash = 0;
 	      SINT32_HASH(x, HCONST);
 	      return hash;
 	  }
@@ -1201,7 +1201,7 @@ make_hash2(Eterm term, Uint32 salt)
     DECLARE_ESTACK(s);
 
     UseTmpHeapNoproc(2);
-    hash = salt;
+    hash = 0;
     for (;;) {
 	switch (primary_tag(term)) {
 	case TAG_PRIMARY_LIST:
@@ -1277,7 +1277,7 @@ make_hash2(Eterm term, Uint32 salt)
                     ESTACK_PUSH(s, hash_xor_pairs);
                     ESTACK_PUSH(s, hash);
                     ESTACK_PUSH(s, HASH_MAP_TAIL);
-                    hash = salt;
+                    hash = 0;
                     hash_xor_pairs = 0;
                     for (i = size - 1; i >= 0; i--) {
                         ESTACK_PUSH(s, HASH_MAP_PAIR);
@@ -1296,7 +1296,7 @@ make_hash2(Eterm term, Uint32 salt)
                     ESTACK_PUSH(s, hash_xor_pairs);
                     ESTACK_PUSH(s, hash);
                     ESTACK_PUSH(s, HASH_MAP_TAIL);
-                    hash = salt;
+                    hash = 0;
                     hash_xor_pairs = 0;
                 }
                 switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
@@ -1471,7 +1471,7 @@ make_hash2(Eterm term, Uint32 salt)
 	    break;
 
 	    default:
-		erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_hash2(0x%X, %lu)\n", term, salt);
+		erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_hash2(0x%X)\n", term);
 	    }
 	}
 	break;
@@ -1488,21 +1488,21 @@ make_hash2(Eterm term, Uint32 salt)
 	    case _TAG_IMMED1_IMMED2:
 		switch (term & _TAG_IMMED2_MASK) {
 		case _TAG_IMMED2_ATOM:
-		    if (hash == salt)
+		    if (hash == 0)
 			/* Fast, but the poor hash value should be mixed. */
-			hash = atom_tab(atom_val(term))->slot.bucket.hvalue ^ salt;
+			hash = atom_tab(atom_val(term))->slot.bucket.hvalue;
 		    else
 			UINT32_HASH(atom_tab(atom_val(term))->slot.bucket.hvalue,
 				    HCONST_3);
 		    goto hash2_common;
 		case _TAG_IMMED2_NIL:
-		    if (hash == salt)
-			hash = 3468870702UL ^ salt;
+		    if (hash == 0)
+			hash = 3468870702UL;
 		    else
 			UINT32_HASH(NIL_DEF, HCONST_2);
 		    goto hash2_common;
 		default:
-		    erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_hash2(0x%X, %lu)\n", term, salt);
+		    erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_hash2(0x%X)\n", term);
 		}
 	    case _TAG_IMMED1_SMALL:
 	      {
@@ -1518,7 +1518,7 @@ make_hash2(Eterm term, Uint32 salt)
 	    }
 	    break;
 	default:
-	    erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_hash2(0x%X, %lu)\n", term, salt);
+	    erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_hash2(0x%X)\n", term);
 	hash2_common:
 
 	    /* Uint32 hash always has the hash value of the previous term,
@@ -1542,7 +1542,7 @@ make_hash2(Eterm term, Uint32 salt)
 		}
 		case HASH_MAP_PAIR:
 		    hash_xor_pairs ^= hash;
-                    hash = salt;
+                    hash = 0;
 		    goto hash2_common;
 		default:
 		    break;

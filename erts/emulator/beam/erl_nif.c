@@ -1220,7 +1220,11 @@ ErlNifUInt64 enif_hash(ErlNifHash type, Eterm term, ErlNifUInt64 salt)
         case ERL_NIF_INTERNAL_HASH:
             return make_internal_hash(term, (Uint32) salt);
         case ERL_NIF_PHASH2:
-            return make_hash2(term, (Uint32) salt) & ((1 << 27) - 1);
+            /* It appears that make_hash2 doesn't always react to seasoning
+             * as well as it should. Therefore, let's make it ignore the salt
+             * value and declare salted uses of phash2 as unsupported.
+             */
+            return make_hash2(term) & ((1 << 27) - 1);
         default:
             return 0;
     }

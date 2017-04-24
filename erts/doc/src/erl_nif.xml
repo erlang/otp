@@ -829,10 +829,10 @@ typedef enum {
           <item>
             <p>Portable hash function that gives the same hash for the
               same Erlang term regardless of machine architecture and ERTS version.</p>
-            <p>It takes 32-bit salt values and generates hashes within <c>0..2^27-1</c>.</p>
+            <p><em>It ignores salt values</em> and generates hashes within <c>0..2^27-1</c>.</p>
             <p>Slower than <c>ERL_NIF_INTERNAL_HASH.</c>
-              When used with <c>salt=0</c>, it corresponds to
-              <seealso marker="erlang#phash2-1"><c>erlang:phash2/1</c></seealso>.</p>
+              It corresponds to <seealso marker="erlang#phash2-1"><c>erlang:phash2/1</c></seealso>.
+            </p>
           </item>
         </taglist>
       </item>
@@ -1418,7 +1418,7 @@ typedef enum {
       <desc>
         <p>Hashes <c>term</c> according to the specified
           <seealso marker="#ErlNifHash"><c>ErlNifHash</c></seealso> <c>type</c>.</p>
-        <p>Ranges of taken salt and returned value depend on the hash type.</p>
+        <p>Ranges of taken salt (if any) and returned value depend on the hash type.</p>
       </desc>
     </func>
 
