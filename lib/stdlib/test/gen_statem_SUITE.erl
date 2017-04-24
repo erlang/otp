@@ -40,7 +40,7 @@ all() ->
      shutdown, stop_and_reply, state_enter, event_order,
      state_timeout, event_types, generic_timers, code_change,
      {group, sys},
-     hibernate, enter_loop, {group, undef_callbacks},
+     hibernate, auto_hibernate, enter_loop, {group, undef_callbacks},
      undef_in_terminate].
 
 groups() ->
@@ -1284,6 +1284,55 @@ hibernate(Config) ->
     end,
     ok = verify_empty_msgq().
 
+%% Auto-hibernation timeout
+auto_hibernate(Config) ->
+    OldFl = process_flag(trap_exit, true),
+    AutoHibernateTimeout = 100,
+
+    {ok,Pid} =
+        gen_statem:start_link(
+            ?MODULE, start_arg(Config, []), [{auto_hibernate_timeout, AutoHibernateTimeout}]),
+    %% After init test
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(AutoHibernateTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% After info test
+    Pid ! {hping, self()},
+    receive
+        {Pid, hpong} ->
+            ok
+    after 1000 ->
+        ct:fail(info)
+    end,
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(AutoHibernateTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% After cast test
+    ok = gen_statem:cast(Pid, {hping, self()}),
+    receive
+        {Pid, hpong} ->
+            ok
+    after 1000 ->
+        ct:fail(cast)
+    end,
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(AutoHibernateTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% After call test
+    hpong = gen_statem:call(Pid, hping),
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(AutoHibernateTimeout),
+    is_in_erlang_hibernate(Pid),
+
+    stop_it(Pid),
+    process_flag(trap_exit, OldFl),
+    receive
+        {'EXIT',Pid,normal} -> ok
+    after 5000 ->
+        ct:fail(gen_statem_did_not_die)
+    end,
+    ok = verify_empty_msgq().
+
 is_in_erlang_hibernate(Pid) ->
     receive after 1 -> ok end,
     is_in_erlang_hibernate_1(200, Pid).
@@ -1704,6 +1753,14 @@ terminate(_Reason, _State, _Data) ->
 
 %% State functions
 
+idle(info, {hping,Pid}, _Data) ->
+    Pid ! {self(), hpong},
+    keep_state_and_data;
+idle(cast, {hping,Pid}, Data) ->
+    Pid ! {self(), hpong},
+    {keep_state, Data};
+idle({call, From}, hping, _Data) ->
+    {keep_state_and_data, [{reply, From, hpong}]};
 idle(cast, {connect,Pid}, Data) ->
     Pid ! accept,
     {next_state,wfor_conf,Data,infinity}; % NoOp timeout just to test API
