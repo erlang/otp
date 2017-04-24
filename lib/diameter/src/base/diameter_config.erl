@@ -676,7 +676,7 @@ stop_transport(SvcName, Refs) ->
 
 make_config(SvcName, Opts) ->
     AppOpts = [T || {application, _} = T <- Opts],
-    Apps = init_apps(AppOpts),
+    Apps = [init_app(T) || T <- AppOpts],
 
     [] == Apps andalso ?THROW(no_apps),
 
@@ -822,10 +822,7 @@ encode_CER(Opts) ->
             ?THROW(Reason)
     end.
 
-init_apps(Opts) ->
-    lists:foldl(fun app_acc/2, [], lists:reverse(Opts)).
-
-app_acc({application, Opts} = T, Acc) ->
+init_app({application, Opts} = T) ->
     is_list(Opts) orelse ?THROW(T),
 
     [Dict, Mod] = get_opt([dictionary, module], Opts),
@@ -834,15 +831,14 @@ app_acc({application, Opts} = T, Acc) ->
     M = get_opt(call_mutates_state, Opts, false, [true]),
     A = get_opt(answer_errors, Opts, discard, [callback, report]),
     P = get_opt(request_errors, Opts, answer_3xxx, [answer, callback]),
-    [#diameter_app{alias = Alias,
-                   dictionary = Dict,
-                   id = cb(Dict, id),
-                   module = init_mod(Mod),
-                   init_state = ModS,
-                   mutable = M,
-                   options = [{answer_errors, A},
-                              {request_errors, P}]}
-     | Acc].
+    #diameter_app{alias = Alias,
+                  dictionary = Dict,
+                  id = cb(Dict, id),
+                  module = init_mod(Mod),
+                  init_state = ModS,
+                  mutable = M,
+                  options = [{answer_errors, A},
+                             {request_errors, P}]}.
 
 init_mod(#diameter_callback{} = R) ->
     init_mod([diameter_callback, R]);
