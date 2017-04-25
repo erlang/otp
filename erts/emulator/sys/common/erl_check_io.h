@@ -41,8 +41,6 @@ void erts_init_check_io(void);
 void erts_lcnt_update_cio_locks(int enable);
 #endif
 
-#endif
-
 extern erts_atomic_t erts_check_io_time;
 
 typedef struct {
@@ -84,22 +82,6 @@ erts_io_notify_port_task_executed(ErtsPortTaskHandle *pthp)
 #else
 #  define ERTS_CIO_DEFER_ACTIVE_EVENTS 0
 #endif
-
-/*
- * ErtsDrvEventDataState is used by driver_event() which is almost never
- * used. We allocate ErtsDrvEventDataState separate since we dont wan't
- * the size of ErtsDrvEventState to increase due to driver_event()
- * information.
- */
-typedef struct {
-    Eterm port;
-    ErlDrvEventData data;
-    ErtsPollEvents removed_events;
-#if ERTS_CIO_DEFER_ACTIVE_EVENTS
-    ErtsPollEvents deferred_events;
-#endif
-    ErtsIoTask iotask;
-} ErtsDrvEventDataState;
 
 typedef struct {
     Eterm inport;

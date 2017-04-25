@@ -100,7 +100,6 @@ erts_atomic_t erts_port_task_outstanding_io_tasks;
 typedef union {
     struct { /* I/O tasks */
 	ErlDrvEvent event;
-	ErlDrvEventData event_data;
     } io;
     struct {
 	ErtsProc2PortSigCallback callback;
@@ -1315,7 +1314,6 @@ erts_port_task_abort(ErtsPortTaskHandle *pthp)
 	    switch (ptp->type) {
 	    case ERTS_PORT_TASK_INPUT:
 	    case ERTS_PORT_TASK_OUTPUT:
-	    case ERTS_PORT_TASK_EVENT:
 		ASSERT(erts_atomic_read_nob(
 			   &erts_port_task_outstanding_io_tasks) > 0);
 		erts_atomic_dec_relb(&erts_port_task_outstanding_io_tasks);
@@ -1459,15 +1457,6 @@ erts_port_task_schedule(Eterm id,
 	va_list argp;
 	va_start(argp, type);
 	ptp->u.alive.td.io.event = va_arg(argp, ErlDrvEvent);
-	va_end(argp);
-	erts_atomic_inc_relb(&erts_port_task_outstanding_io_tasks);
-	break;
-    }
-    case ERTS_PORT_TASK_EVENT: {
-	va_list argp;
-	va_start(argp, type);
-	ptp->u.alive.td.io.event = va_arg(argp, ErlDrvEvent);
-	ptp->u.alive.td.io.event_data = va_arg(argp, ErlDrvEventData);
 	va_end(argp);
 	erts_atomic_inc_relb(&erts_port_task_outstanding_io_tasks);
 	break;
@@ -1769,17 +1758,6 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    reset_executed_io_task_handle(ptp);
 	    io_tasks_executed++;
 	    break;
-	case ERTS_PORT_TASK_EVENT:
-	    reds = ERTS_PORT_REDS_EVENT;
-	    ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
-            DTRACE_DRIVER(driver_event, pp);
-            LTTNG_DRIVER(driver_event, pp);
-	    (*pp->drv_ptr->event)((ErlDrvData) pp->drv_data,
-				  ptp->u.alive.td.io.event,
-				  ptp->u.alive.td.io.event_data);
-	    reset_executed_io_task_handle(ptp);
-	    io_tasks_executed++;
-	    break;
 	case ERTS_PORT_TASK_PROC_SIG: {
 	    ErtsProc2PortSigData *sigdp = &ptp->u.alive.td.psig.data;
 	    reset_handle(ptp);
@@ -2030,13 +2008,6 @@ begin_port_cleanup(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
 				      ERTS_Port2ErlDrvPort(pp),
 				      ptp->u.alive.td.io.event,
 				      DO_WRITE,
-				      1);
-		break;
-	    case ERTS_PORT_TASK_EVENT:
-		erts_stale_drv_select(pp->common.id,
-				      ERTS_Port2ErlDrvPort(pp),
-				      ptp->u.alive.td.io.event,
-				      0,
 				      1);
 		break;
 	    case ERTS_PORT_TASK_DIST_CMD:

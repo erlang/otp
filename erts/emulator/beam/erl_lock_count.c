@@ -593,16 +593,14 @@ void erts_lcnt_set_category_mask(erts_lock_flags_t mask) {
 #ifdef ERTS_ENABLE_KERNEL_POLL
         if(erts_use_kernel_poll) {
             erts_lcnt_update_pollset_locks_kp(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
-            erts_lcnt_update_cio_locks_kp(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
         } else {
             erts_lcnt_update_pollset_locks_nkp(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
-            erts_lcnt_update_cio_locks_nkp(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
         }
 #else
         erts_lcnt_update_pollset_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
-        erts_lcnt_update_cio_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
 #endif
 
+        erts_lcnt_update_cio_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
         erts_lcnt_update_driver_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
         erts_lcnt_update_port_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
     }

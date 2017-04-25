@@ -222,8 +222,6 @@ struct erts_driver_t_ {
 			 char *buf, ErlDrvSizeT len,
 			 char **rbuf, ErlDrvSizeT rlen, /* Might be NULL */
 			 unsigned int *flags);
-    void (*event)(ErlDrvData drv_data, ErlDrvEvent event,
-		  ErlDrvEventData event_data);
     void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event); 
     void (*ready_output)(ErlDrvData drv_data, ErlDrvEvent event);  
     void (*timeout)(ErlDrvData drv_data);

@@ -148,14 +148,6 @@ typedef struct _erl_drv_event* ErlDrvEvent; /* An event to be selected on. */
 typedef struct _erl_drv_port* ErlDrvPort; /* A port descriptor. */
 typedef struct _erl_drv_port* ErlDrvThreadData; /* Thread data. */
 
-#if !defined(__WIN32__) && !defined(_WIN32) && !defined(_WIN32_) && !defined(USE_SELECT)
-struct erl_drv_event_data {
-    short events;
-    short revents;
-};
-#endif
-typedef struct erl_drv_event_data *ErlDrvEventData; /* Event data */
-
 typedef struct {
     unsigned long megasecs;
     unsigned long secs;
@@ -270,10 +262,7 @@ typedef struct erl_drv_entry {
 			 unsigned int *flags); /* Works mostly like 'control',
 						  a synchronous
 						  call into the driver. */
-    void (*event)(ErlDrvData drv_data, ErlDrvEvent event,
-		  ErlDrvEventData event_data);
-                                /* Called when an event selected by 
-				   driver_event() has occurred */
+    void (*unused_event_callback)(void);
     int extended_marker;	/* ERL_DRV_EXTENDED_MARKER */
     int major_version;		/* ERL_DRV_EXTENDED_MAJOR_VERSION */
     int minor_version;		/* ERL_DRV_EXTENDED_MINOR_VERSION */
@@ -340,8 +329,6 @@ EXTERN void erl_drv_busy_msgq_limits(ErlDrvPort port,
 				     ErlDrvSizeT *high);
 
 EXTERN int driver_select(ErlDrvPort port, ErlDrvEvent event, int mode, int on);
-EXTERN int driver_event(ErlDrvPort port, ErlDrvEvent event, 
-			ErlDrvEventData event_data);
 
 EXTERN int driver_output(ErlDrvPort port, char *buf, ErlDrvSizeT len);
 EXTERN int driver_output2(ErlDrvPort port, char *hbuf, ErlDrvSizeT hlen,

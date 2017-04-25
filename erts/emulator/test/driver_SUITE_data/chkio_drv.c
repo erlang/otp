@@ -42,7 +42,6 @@
 #define CHKIO_STOP				0
 #define CHKIO_USE_FALLBACK_POLLSET		1
 #define CHKIO_BAD_FD_IN_POLLSET			2
-#define CHKIO_DRIVER_EVENT			3
 #define CHKIO_FD_CHANGE				4
 #define CHKIO_STEAL				5
 #define CHKIO_STEAL_AUX				6
@@ -67,15 +66,6 @@ typedef struct {
 } ChkioFallbackData;
 
 typedef struct {
-    int in_fd;
-    struct erl_drv_event_data in_data;
-    int in_ok;
-    int out_fd;
-    struct erl_drv_event_data out_data;
-    int out_ok;
-} ChkioDriverEvent;
-
-typedef struct {
     int fds[2];
     int same_fd;
 } ChkioFdChange;
@@ -86,14 +76,10 @@ typedef struct {
 
 typedef struct {
     int driver_select_fds[2];
-    int driver_event_fds[2];
-    struct erl_drv_event_data event_data[2];
 } ChkioSteal;
 
 typedef struct {
     int driver_select_fds[2];
-    int driver_event_fds[2];
-    struct erl_drv_event_data event_data[2];
 } ChkioStealAux;
 
 
@@ -141,7 +127,6 @@ static ErlDrvData chkio_drv_start(ErlDrvPort, char *);
 static void chkio_drv_stop(ErlDrvData);
 static void chkio_drv_ready_input(ErlDrvData, ErlDrvEvent);
 static void chkio_drv_ready_output(ErlDrvData, ErlDrvEvent);
-static void chkio_drv_ready_event(ErlDrvData, ErlDrvEvent, ErlDrvEventData);
 static ErlDrvSSizeT chkio_drv_control(ErlDrvData, unsigned int,
 				      char *, ErlDrvSizeT, char **, ErlDrvSizeT);
 static void chkio_drv_timeout(ErlDrvData);
@@ -164,7 +149,7 @@ static ErlDrvEntry chkio_drv_entry = {
     NULL, /* ready_async */
     NULL, /* flush */
     NULL, /* call */
-    chkio_drv_ready_event,
+    NULL, /* unused_event_callback */
 
     ERL_DRV_EXTENDED_MARKER,
     ERL_DRV_EXTENDED_MAJOR_VERSION,
@@ -243,25 +228,6 @@ stop_use_fallback_pollset(ChkioDrvData *cddp)
 }
 
 static void
-stop_driver_event(ChkioDrvData *cddp)
-{
-    if (cddp->test_data) {
-	ChkioDriverEvent *cdep = cddp->test_data;
-	cddp->test_data = NULL;
-
-	if (cdep->in_fd >= 0) {
-	    driver_event(cddp->port, (ErlDrvEvent) (ErlDrvSInt) cdep->in_fd, NULL);
-	    close(cdep->in_fd);
-	}
-	if (cdep->out_fd >= 0) {
-	    driver_event(cddp->port, (ErlDrvEvent) (ErlDrvSInt) cdep->out_fd, NULL);
-	    close(cdep->out_fd);
-	}
-	driver_free(cdep);	    
-    }
-}
-
-static void
 stop_fd_change(ChkioDrvData *cddp)
 {
     if (cddp->test_data) {
@@ -305,14 +271,6 @@ stop_steal(ChkioDrvData *cddp)
 			  (ErlDrvEvent) (ErlDrvSInt) csp->driver_select_fds[1],
 			  DO_WRITE,
 			  0);
-	if (csp->driver_event_fds[0] >= 0)
-	    driver_event(cddp->port,
-			 (ErlDrvEvent) (ErlDrvSInt) csp->driver_event_fds[0],
-			 NULL);
-	if (csp->driver_event_fds[1] >= 0)
-	    driver_event(cddp->port,
-			 (ErlDrvEvent) (ErlDrvSInt) csp->driver_event_fds[1],
-			 NULL);
 	driver_free(csp);
     }
 }
@@ -327,10 +285,6 @@ stop_steal_aux(ChkioDrvData *cddp)
 	    close(csap->driver_select_fds[0]);
 	if (csap->driver_select_fds[1] >= 0)
 	    close(csap->driver_select_fds[1]);
-	if (csap->driver_event_fds[0] >= 0)
-	    close(csap->driver_event_fds[0]);
-	if (csap->driver_event_fds[1] >= 0)
-	    close(csap->driver_event_fds[1]);
 	driver_free(csap);
     }
 }
@@ -444,9 +398,6 @@ chkio_drv_stop(ErlDrvData drv_data) {
 	break;
     case CHKIO_BAD_FD_IN_POLLSET:
 	stop_bad_fd_in_pollset(cddp);
-	break;
-    case CHKIO_DRIVER_EVENT:
-	stop_driver_event(cddp);
 	break;
     case CHKIO_FD_CHANGE:
 	stop_fd_change(cddp);
@@ -621,55 +572,6 @@ chkio_drv_ready_input(ErlDrvData drv_data, ErlDrvEvent event)
 }
 
 static void
-chkio_drv_ready_event(ErlDrvData drv_data,
-		      ErlDrvEvent event,
-		      ErlDrvEventData event_data)
-{
-#ifdef UNIX
-    ChkioDrvData *cddp = (ChkioDrvData *) drv_data;
-    switch (cddp->test) {
-    case CHKIO_DRIVER_EVENT: {
-#ifdef HAVE_POLL_H
-	ChkioDriverEvent *cdep = cddp->test_data;
-	int fd = (int) (ErlDrvSInt) event;
-	if (fd == cdep->in_fd) {
-	    if (event_data->events == POLLIN
-		&& event_data->revents == POLLIN) {
-		cdep->in_ok++;
-	    }
-	    else {
-		driver_failure_atom(cddp->port, "invalid_input_fd_events");
-	    }
-	    break;
-	}
-	if (fd == cdep->out_fd) {
-	    if (event_data->events == POLLOUT
-		&& event_data->revents == POLLOUT) {
-		cdep->out_ok++;
-	    }
-	    else {
-		driver_failure_atom(cddp->port, "invalid_output_fd_events");
-	    }
-	    break;
-	}
-#endif
-    }
-    case CHKIO_STEAL:
-#ifdef HAVE_POLL_H
-	break;
-#endif
-    case CHKIO_STEAL_AUX:
-#ifdef HAVE_POLL_H
-	break;
-#endif
-    default:
-	driver_failure_atom(cddp->port, "unexpected_ready_event");
-	break;
-    }
-#endif /* UNIX */
-}
-
-static void
 chkio_drv_timeout(ErlDrvData drv_data)
 {
 #ifdef UNIX
@@ -779,25 +681,6 @@ chkio_drv_control(ErlDrvData drv_data,
 	    res_len = -1;
 	    stop_bad_fd_in_pollset(cddp);
 	    break;
-	case CHKIO_DRIVER_EVENT: {
-	    ChkioDriverEvent *cdep = cddp->test_data;
-	    if (!cdep->in_ok || !cdep->out_ok) {
-		if (!cdep->in_ok)
-		    driver_failure_atom(cddp->port, "got_no_input_events");
-		if (!cdep->out_ok)
-		    driver_failure_atom(cddp->port, "got_no_output_events");
-	    }
-	    else {
-		char *c = driver_alloc(sizeof(char)*2*30);
-		if (!c)
-		    driver_failure_posix(cddp->port, ENOMEM);
-		*rbuf = c;
-		res_len = sprintf(c, "in=%d\nout=%d\n",
-				  cdep->in_ok, cdep->out_ok);
-	    }
-	    stop_driver_event(cddp);
-	    break;
-	}
 	case CHKIO_FD_CHANGE: {
 	    ChkioFdChange *cfcp = cddp->test_data;
 	    if (!cfcp->same_fd)
@@ -937,69 +820,6 @@ chkio_drv_control(ErlDrvData drv_data,
 	res_len = -1;
 	break;
     }
-    case CHKIO_DRIVER_EVENT: {
-#ifndef HAVE_POLL_H
-	res_str = "skip: Need the poll.h header for this test, but it doesn't exist";
-	res_len = -1;
-#else /* HAVE_POLL_H */
-	int in_fd = open("/dev/zero", O_RDONLY);
-	int out_fd = open("/dev/null", O_WRONLY);
-
-	if (in_fd < 0 || out_fd < 0) {
-	    if (in_fd >= 0)
-		close(in_fd);
-	    if (out_fd >= 0)
-		close(out_fd);
-	    driver_failure_posix(cddp->port, errno);
-	}
-	else {
-	    ChkioDriverEvent *cdep = driver_alloc(sizeof(ChkioDriverEvent));
-	    if (!cdep)
-		driver_failure_posix(cddp->port, ENOMEM);
-	    else {
-		int res;
-		cddp->test_data = cdep;
-
-		cdep->in_fd = in_fd;
-		cdep->in_data.events = POLLIN;
-		cdep->in_data.revents = 0;
-		cdep->in_ok = 0;
-
-		res = driver_event(cddp->port,
-				   (ErlDrvEvent) (ErlDrvSInt) in_fd,
-				   &cdep->in_data);
-		if (res < 0) {
-		    res_str = "skip: driver_event() not supported";
-		    res_len = -1;
-		    close(in_fd);
-		    close(out_fd);
-		    cdep->in_fd = -1;
-		    cdep->out_fd = -1;
-		}
-		else {
-		    res_str = "ok";
-		    res_len = -1;
-
-		    cdep->out_fd = out_fd;
-		    cdep->out_data.events = POLLOUT;
-		    cdep->out_data.revents = 0;
-		    cdep->out_ok = 0;
-
-		    res = driver_event(cddp->port,
-				       (ErlDrvEvent) (ErlDrvSInt) out_fd,
-				       &cdep->out_data);
-		    if (res < 0) {
-			close(out_fd);
-			cdep->out_fd = -1;
-			driver_failure_atom(cddp->port, "driver_event_failed");
-		    }
-		}
-
-	    }
-	}
-#endif /* HAVE_POLL_H */
-	break;
-    }
     case CHKIO_FD_CHANGE: {
 	ChkioFdChange *cfcp = driver_alloc(sizeof(ChkioFdChange));
 	if (!cfcp)
@@ -1028,58 +848,19 @@ chkio_drv_control(ErlDrvData drv_data,
 	    res_len = -1;
 	}
 	else {
-	    int driver_event_fds[2];
 	    int driver_select_fds[2];
 	    cddp->test_data = csp; 
 	    memcpy(c, buf, len);
 	    c[len] = '\0';
 	    if (sscanf(c,
-		       "fds:%d:%d:%d:%d",
+		       "fds:%d:%d",
 		       &driver_select_fds[0],
-		       &driver_select_fds[1],
-		       &driver_event_fds[0],
-		       &driver_event_fds[1]) != 4)
-		driver_failure_atom(cddp->port, "bad_input");
+		       &driver_select_fds[1]) != 2)
+                driver_failure_atom(cddp->port, "bad_input");
 	    else {
 		int res = 0;
-		if (driver_event_fds[0] < 0) { /* Have no working driver_event() ... */
-		    csp->driver_select_fds[0] = driver_select_fds[0]; /* In */
-		    csp->driver_select_fds[1] = driver_select_fds[1]; /* Out */
-		    csp->driver_event_fds[0] = -1;
-		    csp->driver_event_fds[1] = -1;
-		}
-		else { /* Have working driver_event() ... */
-#ifndef HAVE_POLL_H
-		    driver_failure_atom(cddp->port, "unexpected_result");
-		    res = -1;
-#else
-		    csp->driver_select_fds[0] = driver_select_fds[0]; /* In */
-		    csp->driver_event_fds[1] = driver_select_fds[1]; /* Out */
-		    csp->driver_event_fds[0] = driver_event_fds[0]; /* In */
-		    csp->driver_select_fds[1] = driver_event_fds[1]; /* Out */
-
-		    /* Steal with driver_event() */
-
-		    csp->event_data[0].events = POLLIN;
-		    csp->event_data[0].revents = 0;
-		    res = driver_event(cddp->port,
-				       (ErlDrvEvent) (ErlDrvSInt) csp->driver_event_fds[0],
-				       &csp->event_data[0]);
-		    if (res < 0)
-			driver_failure_atom(cddp->port,
-					    "driver_event_failed_to_steal");
-		    if (res >= 0) {
-			csp->event_data[1].events = POLLOUT;
-			csp->event_data[1].revents = 0;
-			res = driver_event(cddp->port,
-					   (ErlDrvEvent) (ErlDrvSInt) csp->driver_event_fds[1],
-					   &csp->event_data[1]);
-			if (res < 0)
-			    driver_failure_atom(cddp->port,
-						"driver_event_failed_to_steal");
-		    }
-#endif
-		}
+                csp->driver_select_fds[0] = driver_select_fds[0]; /* In */
+                csp->driver_select_fds[1] = driver_select_fds[1]; /* Out */
 
 		/* Steal with driver_select() */
 		if (res >= 0) {
@@ -1109,37 +890,17 @@ chkio_drv_control(ErlDrvData drv_data,
 	break;
     }
     case CHKIO_STEAL_AUX: {
-	int read_fds[2];
-	int write_fds[2];
+	int read_fd;
+	int write_fd;
 
-	read_fds[0] = open("/dev/zero", O_RDONLY);
-	write_fds[0] = open("/dev/null", O_WRONLY);
-
-#ifdef HAVE_POLL_H
-	read_fds[1] = open("/dev/zero", O_RDONLY);
-	write_fds[1] = open("/dev/null", O_WRONLY);
-#else
-	read_fds[1] = -1;
-	write_fds[1] = -1;
-#endif
+	read_fd = open("/dev/zero", O_RDONLY);
+	write_fd = open("/dev/null", O_WRONLY);
 	
-	if (read_fds[0] < 0
-	    || write_fds[0] < 0
-#ifdef HAVE_POLL_H
-	    || read_fds[1] < 0 
-	    || write_fds[1] < 0
-#endif
-	    ) {
-	    if (read_fds[0] < 0)
-		close(read_fds[0]);
-	    if (write_fds[0] < 0)
-		close(write_fds[0]);
-#ifdef HAVE_POLL_H
-	    if (read_fds[1] < 0)
-		close(read_fds[1]);
-	    if (write_fds[1] < 0)
-		close(write_fds[1]);
-#endif
+	if (read_fd < 0 || write_fd < 0) {
+	    if (read_fd < 0)
+		close(read_fd);
+	    if (write_fd < 0)
+		close(write_fd);
 	    driver_failure_posix(cddp->port, errno);
 	}
 	else {
@@ -1153,11 +914,8 @@ chkio_drv_control(ErlDrvData drv_data,
 		int res;
 		cddp->test_data = csap;
 
-		csap->driver_select_fds[0] = read_fds[0];
-		csap->driver_select_fds[1] = write_fds[0];
-
-		csap->driver_event_fds[0] = read_fds[1];
-		csap->driver_event_fds[1] = write_fds[1];
+		csap->driver_select_fds[0] = read_fd;
+		csap->driver_select_fds[1] = write_fd;
 
 		res = driver_select(cddp->port,
 				    (ErlDrvEvent) (ErlDrvSInt) csap->driver_select_fds[0],
@@ -1173,32 +931,6 @@ chkio_drv_control(ErlDrvData drv_data,
 		    if (res < 0)
 			driver_failure_atom(cddp->port, "driver_select_failed");
 		}
-#ifdef HAVE_POLL_H
-		if (res >= 0) {
-		    csap->event_data[0].events = POLLIN;
-		    csap->event_data[0].revents = 0;
-		    res = driver_event(cddp->port,
-				       (ErlDrvEvent) (ErlDrvSInt) csap->driver_event_fds[0],
-				       &csap->event_data[0]);
-		    if (res < 0) {
-			close(csap->driver_event_fds[0]);
-			csap->driver_event_fds[0] = -1;
-			close(csap->driver_event_fds[1]);
-			csap->driver_event_fds[1] = -1;
-			res = 0;
-		    }
-		    else {
-			csap->event_data[1].events = POLLOUT;
-			csap->event_data[1].revents = 0;
-			res = driver_event(cddp->port,
-					   (ErlDrvEvent) (ErlDrvSInt) csap->driver_event_fds[1],
-					   &csap->event_data[1]);
-			if (res < 0)
-			    driver_failure_atom(cddp->port,
-						"driver_event_failed");
-		    }
-		}
-#endif
 		if (res < 0) {
 		    res_str = "error";
 		    res_len = -1;
@@ -1213,11 +945,9 @@ chkio_drv_control(ErlDrvData drv_data,
 		    else {
 			*rbuf = c;
 			res_len = sprintf(c,
-					  "fds:%d:%d:%d:%d",
+					  "fds:%d:%d",
 					  csap->driver_select_fds[0],
-					  csap->driver_select_fds[1],
-					  csap->driver_event_fds[0],
-					  csap->driver_event_fds[1]);
+					  csap->driver_select_fds[1]);
 		    }
 		}
 	    }

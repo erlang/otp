@@ -56,7 +56,6 @@ typedef erts_atomic_t ErtsPortTaskHandle;
 typedef enum {
     ERTS_PORT_TASK_INPUT,
     ERTS_PORT_TASK_OUTPUT,
-    ERTS_PORT_TASK_EVENT,
     ERTS_PORT_TASK_TIMEOUT,
     ERTS_PORT_TASK_DIST_CMD,
     ERTS_PORT_TASK_PROC_SIG

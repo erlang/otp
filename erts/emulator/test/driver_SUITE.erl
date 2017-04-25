@@ -45,7 +45,6 @@
          io_ready_exit/1,
          use_fallback_pollset/1,
          bad_fd_in_pollset/1,
-         driver_event/1,
          fd_change/1,
          steal_control/1,
          otp_6602/1,
@@ -58,11 +57,9 @@
          ioq_exit_ready_output/1,
          ioq_exit_timeout/1,
          ioq_exit_ready_async/1,
-         ioq_exit_event/1,
          ioq_exit_ready_input_async/1,
          ioq_exit_ready_output_async/1,
          ioq_exit_timeout_async/1,
-         ioq_exit_event_async/1,
          zero_extended_marker_garb_drv/1,
          invalid_extended_marker_drv/1,
          larger_major_vsn_drv/1,
@@ -139,7 +136,7 @@ suite() ->
 all() -> %% Keep a_test first and z_test last...
     [a_test, outputv_errors, outputv_echo, queue_echo, {group, timer},
      driver_unloaded, io_ready_exit, use_fallback_pollset,
-     bad_fd_in_pollset, driver_event, fd_change,
+     bad_fd_in_pollset, fd_change,
      steal_control, otp_6602, driver_system_info_base_ver,
      driver_system_info_prev_ver,
      driver_system_info_current_ver, driver_monitor,
@@ -163,9 +160,9 @@ groups() ->
        timer_change]},
      {ioq_exit, [],
       [ioq_exit_ready_input, ioq_exit_ready_output,
-       ioq_exit_timeout, ioq_exit_ready_async, ioq_exit_event,
+       ioq_exit_timeout, ioq_exit_ready_async,
        ioq_exit_ready_input_async, ioq_exit_ready_output_async,
-       ioq_exit_timeout_async, ioq_exit_event_async]}].
+       ioq_exit_timeout_async]}].
 
 init_per_suite(Config) ->
     Config.
@@ -778,7 +775,6 @@ io_ready_exit(Config) when is_list(Config) ->
 -define(CHKIO_STOP, 0).
 -define(CHKIO_USE_FALLBACK_POLLSET, 1).
 -define(CHKIO_BAD_FD_IN_POLLSET, 2).
--define(CHKIO_DRIVER_EVENT, 3).
 -define(CHKIO_FD_CHANGE, 4).
 -define(CHKIO_STEAL, 5).
 -define(CHKIO_STEAL_AUX, 6).
@@ -827,11 +823,6 @@ use_fallback_pollset(Config) when is_list(Config) ->
 bad_fd_in_pollset(Config) when is_list(Config) ->
     chkio_test_fini(chkio_test(chkio_test_init(Config),
                                ?CHKIO_BAD_FD_IN_POLLSET,
-                               fun () -> sleep(1000) end)).
-
-driver_event(Config) when is_list(Config) ->
-    chkio_test_fini(chkio_test(chkio_test_init(Config),
-                               ?CHKIO_DRIVER_EVENT,
                                fun () -> sleep(1000) end)).
 
 fd_change(Config) when is_list(Config) ->
@@ -1336,11 +1327,9 @@ driver_monitor(Config) when is_list(Config) ->
 -define(IOQ_EXIT_READY_OUTPUT, 2).
 -define(IOQ_EXIT_TIMEOUT, 3).
 -define(IOQ_EXIT_READY_ASYNC, 4).
--define(IOQ_EXIT_EVENT, 5).
 -define(IOQ_EXIT_READY_INPUT_ASYNC, 6).
 -define(IOQ_EXIT_READY_OUTPUT_ASYNC, 7).
 -define(IOQ_EXIT_TIMEOUT_ASYNC, 8).
--define(IOQ_EXIT_EVENT_ASYNC, 9).
 
 ioq_exit_test(Config, TestNo) ->
     Drv = ioq_exit_drv,
@@ -1393,9 +1382,6 @@ ioq_exit_timeout(Config) when is_list(Config) ->
 ioq_exit_ready_async(Config) when is_list(Config) ->
     ioq_exit_test(Config, ?IOQ_EXIT_READY_ASYNC).
 
-ioq_exit_event(Config) when is_list(Config) ->
-    ioq_exit_test(Config, ?IOQ_EXIT_EVENT).
-
 ioq_exit_ready_input_async(Config) when is_list(Config) ->
     ioq_exit_test(Config, ?IOQ_EXIT_READY_INPUT_ASYNC).
 
@@ -1404,9 +1390,6 @@ ioq_exit_ready_output_async(Config) when is_list(Config) ->
 
 ioq_exit_timeout_async(Config) when is_list(Config) ->
     ioq_exit_test(Config, ?IOQ_EXIT_TIMEOUT_ASYNC).
-
-ioq_exit_event_async(Config) when is_list(Config) ->
-    ioq_exit_test(Config, ?IOQ_EXIT_EVENT_ASYNC).
 
 
 vsn_mismatch_test(Config, LoadResult) ->
@@ -2275,7 +2258,7 @@ z_test(Config) when is_list(Config) ->
 
 check_io_debug() ->
     get_stable_check_io_info(),
-    {NoErrorFds, NoUsedFds, NoDrvSelStructs, NoDrvEvStructs} = CheckIoDebug
+    {NoErrorFds, NoUsedFds, NoDrvSelStructs} = CheckIoDebug
     = erts_debug:get_internal_state(check_io_debug),
     HasGetHost = has_gethost(),
     ct:log("check_io_debug: ~p~n"
@@ -2289,7 +2272,6 @@ check_io_debug() ->
             %% one extra used fd that is not selected on
             ok
     end,
-    0 = NoDrvEvStructs,
     ok.
 
 has_gethost() ->

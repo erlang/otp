@@ -1449,7 +1449,6 @@ monitor_long_schedule_port(Port *pp, ErtsPortTaskType type, Uint time)
     case ERTS_PORT_TASK_TIMEOUT: op = am_timeout; break;
     case ERTS_PORT_TASK_INPUT: op = am_input; break;
     case ERTS_PORT_TASK_OUTPUT: op = am_output; break;
-    case ERTS_PORT_TASK_EVENT: op = am_event; break;
     case ERTS_PORT_TASK_DIST_CMD: op = am_dist_cmd; break;
     default: op = am_undefined; break;
     }

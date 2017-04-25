@@ -196,10 +196,7 @@ typedef struct erl_drv_entry {
 			 char **rbuf, ErlDrvSizeT rlen, unsigned int *flags);
                                 /* Works mostly like 'control', a synchronous
                                    call into the driver */
-    void (*event)(ErlDrvData drv_data, ErlDrvEvent event,
-                  ErlDrvEventData event_data);
-                                /* Called when an event selected by
-                                   driver_event() has occurred */
+    void* unused_event_callback;
     int extended_marker;        /* ERL_DRV_EXTENDED_MARKER */
     int major_version;          /* ERL_DRV_EXTENDED_MAJOR_VERSION */
     int minor_version;          /* ERL_DRV_EXTENDED_MINOR_VERSION */

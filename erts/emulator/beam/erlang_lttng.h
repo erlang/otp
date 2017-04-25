@@ -159,21 +159,6 @@ TRACEPOINT_EVENT(
 
 TRACEPOINT_EVENT(
     org_erlang_otp,
-    driver_event,
-    TP_ARGS(
-        char*, pid,
-        char*, port,
-        char*, driver
-    ),
-    TP_FIELDS(
-        ctf_string(pid, pid)
-        ctf_string(port, port)
-        ctf_string(driver, driver)
-    )
-)
-
-TRACEPOINT_EVENT(
-    org_erlang_otp,
     driver_timeout,
     TP_ARGS(
         char*, pid,

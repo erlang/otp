@@ -790,7 +790,6 @@ void fini_getenv_state(GETENV_STATE *);
 typedef struct {
     int no_used_fds;
     int no_driver_select_structs;
-    int no_driver_event_structs;
 } ErtsCheckIoDebugInfo;
 int erts_check_io_debug(ErtsCheckIoDebugInfo *ip);
 

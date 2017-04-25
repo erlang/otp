@@ -81,7 +81,6 @@ end_per_testcase(Case, _Config) ->
 
 %% Not tested yet
 %%   org_erlang_otp:driver_process_exit
-%%   org_erlang_otp:driver_event
 
 %% tracepoints
 %%
@@ -100,7 +99,6 @@ end_per_testcase(Case, _Config) ->
 %%   org_erlang_otp:driver_flush
 %%   org_erlang_otp:driver_stop_select
 %%   org_erlang_otp:driver_timeout
-%%   org_erlang_otp:driver_event
 %%   org_erlang_otp:driver_ready_output
 %%   org_erlang_otp:driver_ready_input
 %%   org_erlang_otp:driver_output
@@ -431,7 +429,6 @@ txt() ->
       "%%   org_erlang_otp:driver_flush\n"
       "%%   org_erlang_otp:driver_stop_select\n"
       "%%   org_erlang_otp:driver_timeout\n"
-      "%%   org_erlang_otp:driver_event\n"
       "%%   org_erlang_otp:driver_ready_output\n"
       "%%   org_erlang_otp:driver_ready_input\n"
       "%%   org_erlang_otp:driver_output\n"

@@ -510,7 +510,7 @@ break_requested(void)
       erts_exit(ERTS_INTR_EXIT, "");
 
   ERTS_SET_BREAK_REQUESTED;
-  erts_check_io_sig_interrupt();
+  erts_check_io_interrupt(1);
 }
 
 static RETSIGTYPE request_break(int signum)

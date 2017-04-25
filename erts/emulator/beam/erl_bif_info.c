@@ -3574,15 +3574,13 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    szp = &sz;
 	    hpp = NULL;
 	    while (1) {
-		res = erts_bld_tuple(hpp, szp, 4,
+		res = erts_bld_tuple(hpp, szp, 3,
 				     erts_bld_uint(hpp, szp,
 						   (Uint) no_errors),
 				     erts_bld_uint(hpp, szp,
 						   (Uint) ciodi.no_used_fds),
 				     erts_bld_uint(hpp, szp,
-						   (Uint) ciodi.no_driver_select_structs),
-				     erts_bld_uint(hpp, szp,
-						   (Uint) ciodi.no_driver_event_structs));
+						   (Uint) ciodi.no_driver_select_structs));
 		if (hpp)
 		    break;
 		hp = HAlloc(BIF_P, sz);

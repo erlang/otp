@@ -52,10 +52,9 @@
 typedef char EventStateType;
 #define ERTS_EV_TYPE_NONE     ((EventStateType) 0)
 #define ERTS_EV_TYPE_DRV_SEL  ((EventStateType) 1) /* driver_select */
-#define ERTS_EV_TYPE_DRV_EV   ((EventStateType) 2) /* driver_event */
-#define ERTS_EV_TYPE_STOP_USE ((EventStateType) 3) /* pending stop_select */
-#define ERTS_EV_TYPE_NIF      ((EventStateType) 4) /* enif_select */
-#define ERTS_EV_TYPE_STOP_NIF ((EventStateType) 5) /* pending nif stop */
+#define ERTS_EV_TYPE_STOP_USE ((EventStateType) 2) /* pending stop_select */
+#define ERTS_EV_TYPE_NIF      ((EventStateType) 3) /* enif_select */
+#define ERTS_EV_TYPE_STOP_NIF ((EventStateType) 4) /* pending nif stop */
 
 typedef char EventStateFlags;
 #define ERTS_EV_FLAG_USED         ((EventStateFlags) 1)   /* ERL_DRV_USE has been turned on */
@@ -77,9 +76,6 @@ typedef char EventStateFlags;
 #else
 #  define ERTS_CIO_EXPORT(FUNC) FUNC
 #endif
-
-#define ERTS_CIO_HAVE_DRV_EVENT \
-  (ERTS_POLL_USE_POLL && !ERTS_POLL_USE_KERNEL_POLL)
 
 #define ERTS_CIO_POLL_CTL	ERTS_POLL_EXPORT(erts_poll_control)
 #define ERTS_CIO_POLL_CTLV	ERTS_POLL_EXPORT(erts_poll_controlv)
@@ -116,7 +112,6 @@ void erts_init_check_io_kp(void);
 void erts_init_check_io_nkp(void);
 int ERTS_CIO_EXPORT(driver_select)(ErlDrvPort, ErlDrvEvent, int, int);
 int ERTS_CIO_EXPORT(enif_select)(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, const ErlNifPid*, Eterm);
-int ERTS_CIO_EXPORT(driver_event)(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
 Uint ERTS_CIO_EXPORT(erts_check_io_size)(void);
 Eterm ERTS_CIO_EXPORT(erts_check_io_info)(void *);
 int ERTS_CIO_EXPORT(erts_check_io_max_files)(void);
@@ -124,6 +119,9 @@ void ERTS_CIO_EXPORT(erts_check_io_interrupt)(int);
 void ERTS_CIO_EXPORT(erts_check_io_interrupt_timed)(int, ErtsMonotonicTime);
 void ERTS_CIO_EXPORT(erts_check_io)(int);
 int ERTS_CIO_EXPORT(erts_check_io_debug)(ErtsCheckIoDebugInfo *);
+#ifdef ERTS_ENABLE_LOCK_COUNT
+void ERTS_CIO_EXPORT(erts_lcnt_update_cio_locks)(int enable);
+#endif
 #endif
 
 
@@ -134,9 +132,6 @@ typedef struct {
     ErtsSysFdType fd;
     struct {
 	ErtsDrvSelectDataState *select;   /* ERTS_EV_TYPE_DRV_SEL */
-#if ERTS_CIO_HAVE_DRV_EVENT
-	ErtsDrvEventDataState *event;     /* ERTS_EV_TYPE_DRV_EV */
-#endif
         ErtsNifSelectDataState *nif;      /* ERTS_EV_TYPE_NIF */
         union {
             erts_driver_t*  drv_ptr;    /* ERTS_EV_TYPE_STOP_USE */
@@ -205,9 +200,6 @@ static ERTS_INLINE ErtsDrvEventState* hash_new_drv_ev_state(ErtsSysFdType fd)
     ErtsDrvEventState tmpl;
     tmpl.fd = fd;
     tmpl.driver.select = NULL;
-#if ERTS_CIO_HAVE_DRV_EVENT
-    tmpl.driver.event = NULL;
-#endif
     tmpl.driver.nif = NULL;
     tmpl.driver.stop.drv_ptr = NULL;
     tmpl.events = 0;
@@ -239,15 +231,6 @@ static void print_nif_select_op(erts_dsprintf_buf_t*, ErtsSysFdType,
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
 static void drv_select_large_fd_error(ErlDrvPort, ErtsSysFdType, int, int);
 static void nif_select_large_fd_error(ErtsSysFdType, int, ErtsResource*,Eterm ref);
-#endif
-#if ERTS_CIO_HAVE_DRV_EVENT
-static void drv_event_steal(ErlDrvPort ix, ErtsDrvEventState *state,
-			ErlDrvEventData event_data);
-static void print_drv_event_op(erts_dsprintf_buf_t *dsbufp,
-                               ErlDrvPort, ErtsSysFdType, ErlDrvEventData);
-#ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-static void event_large_fd_error(ErlDrvPort, ErtsSysFdType, ErlDrvEventData);
-#endif
 #endif
 static void
 steal_pending_stop_use(erts_dsprintf_buf_t*, ErlDrvPort, ErtsDrvEventState*,
@@ -312,32 +295,6 @@ free_nif_select_data(ErtsNifSelectDataState *dsp)
 {
     erts_free(ERTS_ALC_T_NIF_SEL_D_STATE, dsp);
 }
-
-#if ERTS_CIO_HAVE_DRV_EVENT
-
-static ERTS_INLINE ErtsDrvEventDataState *
-alloc_drv_event_data(void)
-{
-    ErtsDrvEventDataState *dep = erts_alloc(ERTS_ALC_T_DRV_EV_D_STATE,
-					    sizeof(ErtsDrvEventDataState));
-    dep->port = NIL;
-    dep->data = NULL;
-    dep->removed_events = 0;
-#if ERTS_CIO_DEFER_ACTIVE_EVENTS
-    dep->deferred_events = 0;
-#endif
-    init_iotask(&dep->iotask);
-    return dep;
-}
-
-static ERTS_INLINE void
-free_drv_event_data(ErtsDrvEventDataState *dep)
-{
-    ASSERT(!erts_port_task_is_scheduled(&dep->iotask.task));
-    erts_free(ERTS_ALC_T_DRV_EV_D_STATE, dep);   
-}
-
-#endif /* ERTS_CIO_HAVE_DRV_EVENT */
 
 static ERTS_INLINE void
 remember_removed(ErtsDrvEventState *state, struct pollset_info* psi)
@@ -432,7 +389,6 @@ forget_removed(struct pollset_info* psi)
 #endif
 		break;
 	    case ERTS_EV_TYPE_DRV_SEL:
-	    case ERTS_EV_TYPE_DRV_EV:
 		break;
 	    default:
 		ASSERT(0);
@@ -487,9 +443,6 @@ grow_drv_ev_state(int min_ix)
 	for (i = old_len; i < new_len; i++) {
 	    drv_ev_state[i].fd = (ErtsSysFdType) i;
 	    drv_ev_state[i].driver.select = NULL;
-#if ERTS_CIO_HAVE_DRV_EVENT
-	    drv_ev_state[i].driver.event = NULL;
-#endif
 	    drv_ev_state[i].driver.stop.drv_ptr = NULL;
             drv_ev_state[i].driver.nif = NULL;
 	    drv_ev_state[i].events = 0;
@@ -524,13 +477,6 @@ abort_tasks(ErtsDrvEventState *state, int mode)
     switch (mode) {
     case 0: check_type:
 	switch (state->type) {
-#if ERTS_CIO_HAVE_DRV_EVENT
-	case ERTS_EV_TYPE_DRV_EV:
-	    abort_task(state->driver.event->port,
-		       &state->driver.event->iotask.task,
-		       ERTS_EV_TYPE_DRV_EV);
-	    return;
-#endif
         case ERTS_EV_TYPE_NIF:
 	case ERTS_EV_TYPE_NONE:
 	    return;
@@ -598,13 +544,6 @@ deselect(ErtsDrvEventState *state, int mode)
 	    state->driver.select->inport = NIL;
 	    state->driver.select->outport = NIL;
 	    break;
-#if ERTS_CIO_HAVE_DRV_EVENT
-	case ERTS_EV_TYPE_DRV_EV:
-	    state->driver.event->port = NIL;
-	    state->driver.event->data = NULL;
-	    state->driver.event->removed_events = (ErtsPollEvents) 0;
-	    break;
-#endif
 	case ERTS_EV_TYPE_NONE:
 	    break;
 	default:
@@ -626,9 +565,6 @@ deselect(ErtsDrvEventState *state, int mode)
 
 static ERTS_INLINE void
 check_fd_cleanup(ErtsDrvEventState *state,
-#if ERTS_CIO_HAVE_DRV_EVENT
-		 ErtsDrvEventDataState **free_event,
-#endif
 		 ErtsDrvSelectDataState **free_select,
                  ErtsNifSelectDataState **free_nif)
 {
@@ -653,23 +589,9 @@ check_fd_cleanup(ErtsDrvEventState *state,
         state->driver.nif = NULL;
     }
 
-#if ERTS_CIO_HAVE_DRV_EVENT
-    *free_event = NULL;
-    if (state->driver.event
-	&& (state->type != ERTS_EV_TYPE_DRV_EV)
-	&& !is_iotask_active(&state->driver.event->iotask,  current_cio_time)) {
-	
-	*free_event = state->driver.event;
-	state->driver.event = NULL;
-    }
-#endif
-
 #ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
     if (((state->type != ERTS_EV_TYPE_NONE)
 	 | state->remove_cnt
-#if ERTS_CIO_HAVE_DRV_EVENT
-	 | (state->driver.event != NULL)
-#endif
 	 | (state->driver.select != NULL)) == 0) {
 
 	hash_erase_drv_ev_state(state);
@@ -692,9 +614,6 @@ check_cleanup_active_fd(ErtsSysFdType fd,
     erts_mtx_t *mtx = fd_mtx(fd);
     void *free_select = NULL;
     void *free_nif = NULL;
-#if ERTS_CIO_HAVE_DRV_EVENT
-    void *free_event = NULL;
-#endif
 #if ERTS_CIO_DEFER_ACTIVE_EVENTS
     ErtsPollEvents evon = 0, evoff = 0;
 #endif
@@ -784,35 +703,6 @@ check_cleanup_active_fd(ErtsSysFdType fd,
             }
         }
 
-#if ERTS_CIO_HAVE_DRV_EVENT
-	if (state->driver.event) {
-	    if (is_iotask_active(&state->driver.event->iotask, current_cio_time)) {
-#if ERTS_CIO_DEFER_ACTIVE_EVENTS
-		ErtsPollEvents evs = state->events & ~state->driver.event->deferred_events;
-		if (evs) {
-		    evoff |= evs;
-		    state->driver.event->deferred_events |= evs;
-		}
-#endif
-		active = 1;
-	    }
-	    else if (state->type != ERTS_EV_TYPE_DRV_EV) {
-		free_event = state->driver.event;
-		state->driver.event = NULL;
-	    }
-#if ERTS_CIO_DEFER_ACTIVE_EVENTS
-	    else {
-		ErtsPollEvents evs = state->events & state->driver.event->deferred_events;
-		if (evs) {
-		    evon |= evs;
-		    state->driver.event->deferred_events = 0;
-		}
-	    }
-#endif
-
-	}
-#endif
-
 #ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
 	if (((state->type != ERTS_EV_TYPE_NONE) | state->remove_cnt | active) == 0)
 	    hash_erase_drv_ev_state(state);
@@ -826,10 +716,6 @@ check_cleanup_active_fd(ErtsSysFdType fd,
 	free_drv_select_data(free_select);
     if (free_nif)
         free_nif_select_data(free_nif);
-#if ERTS_CIO_HAVE_DRV_EVENT
-    if (free_event)
-	free_drv_event_data(free_event);
-#endif
 
 #if ERTS_CIO_DEFER_ACTIVE_EVENTS
     if (evoff) {
@@ -967,9 +853,6 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
     ErtsDrvEventState *state;
     int wake_poller;
     int ret;
-#if ERTS_CIO_HAVE_DRV_EVENT
-    ErtsDrvEventDataState *free_event = NULL;
-#endif
     ErtsDrvSelectDataState *free_select = NULL;
     ErtsNifSelectDataState *free_nif = NULL;
 #ifdef USE_VM_PROBES
@@ -1026,9 +909,6 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
 #endif
 
     switch (state->type) {
-#if ERTS_CIO_HAVE_DRV_EVENT
-    case ERTS_EV_TYPE_DRV_EV:
-#endif
     case ERTS_EV_TYPE_NIF:
         drv_select_steal(ix, state, mode, on);
         break;
@@ -1168,9 +1048,6 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
 done:
 
     check_fd_cleanup(state,
-#if ERTS_CIO_HAVE_DRV_EVENT
-		     &free_event,
-#endif
 		     &free_select,
                      &free_nif);
 
@@ -1188,10 +1065,6 @@ done_unknown:
     if (free_nif)
         free_nif_select_data(free_nif);
 
-#if ERTS_CIO_HAVE_DRV_EVENT
-    if (free_event)
-	free_drv_event_data(free_event);
-#endif
     return ret;
 }
 
@@ -1212,9 +1085,6 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
     int wake_poller;
     int ret;
     enum { NO_STOP=0, CALL_STOP, CALL_STOP_AND_RELEASE } call_stop = NO_STOP;
-#if ERTS_CIO_HAVE_DRV_EVENT
-    ErtsDrvEventDataState *free_event = NULL;
-#endif
     ErtsDrvSelectDataState *free_select = NULL;
     ErtsNifSelectDataState *free_nif = NULL;
 #ifdef USE_VM_PROBES
@@ -1284,9 +1154,6 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
         if (state->driver.stop.resource != resource)
             nif_select_steal(state, ERL_DRV_READ | ERL_DRV_WRITE, resource, ref);
         break;
-#if ERTS_CIO_HAVE_DRV_EVENT
-    case ERTS_EV_TYPE_DRV_EV:
-#endif
     case ERTS_EV_TYPE_DRV_SEL:
         nif_select_steal(state, mode, resource, ref);
         break;
@@ -1423,9 +1290,6 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
 done:
 
     check_fd_cleanup(state,
-#if ERTS_CIO_HAVE_DRV_EVENT
-		     &free_event,
-#endif
 		     &free_select,
                      &free_nif);
 
@@ -1442,160 +1306,7 @@ done_unknown:
     if (free_nif)
         free_nif_select_data(free_nif);
 
-#if ERTS_CIO_HAVE_DRV_EVENT
-    if (free_event)
-	free_drv_event_data(free_event);
-#endif
     return ret;
-}
-
-
-int
-ERTS_CIO_EXPORT(driver_event)(ErlDrvPort ix,
-			      ErlDrvEvent e,
-			      ErlDrvEventData event_data)
-{
-#if !ERTS_CIO_HAVE_DRV_EVENT
-    return -1;
-#else
-    ErtsSysFdType fd = (ErtsSysFdType) e;
-    ErtsPollEvents events;
-    ErtsPollEvents add_events;
-    ErtsPollEvents remove_events;
-    Eterm id = erts_drvport2id(ix);
-    ErtsDrvEventState *state;
-    int do_wake = 0;
-    int ret;
-#if ERTS_CIO_HAVE_DRV_EVENT
-    ErtsDrvEventDataState *free_event;
-#endif
-    ErtsDrvSelectDataState *free_select;
-    ErtsNifSelectDataState *free_nif;
-    Port *prt = erts_drvport2port(ix);
-
-    if (prt == ERTS_INVALID_ERL_DRV_PORT)
-	return -1;
-
-    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
-
-#ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    if ((unsigned)fd >= (unsigned)erts_atomic_read_nob(&drv_ev_state_len)) {
-	if (fd < 0)
-	    return -1;    
-	if (fd >= max_fds) {
-	    event_large_fd_error(ix, fd, event_data);
-	    return -1;
-	}
-	grow_drv_ev_state(fd);
-    }
-#endif
-
-    erts_mtx_lock(fd_mtx(fd));
-
-#ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    state = &drv_ev_state[(int) fd];
-#else
-    /* Could use hash_new directly, but want to keep the normal case fast */
-    state = hash_get_drv_ev_state(fd);
-    if (state == NULL) {
-	state = hash_new_drv_ev_state(fd);
-    }
-#endif
-
-    switch (state->type) {
-    case ERTS_EV_TYPE_DRV_EV:
-	if (state->driver.event->port == id) break;
-	/*fall through*/
-    case ERTS_EV_TYPE_DRV_SEL:
-	drv_event_steal(ix, state, event_data);
-	break;
-    case ERTS_EV_TYPE_STOP_USE: {
-	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	print_drv_event_op(dsbufp, ix, fd, event_data);
-	steal_pending_stop_use(dsbufp, ix, state, 0, 1);
-	break;
-      }
-    }
-
-    ASSERT(state->type == ERTS_EV_TYPE_DRV_EV
-	   || state->type == ERTS_EV_TYPE_NONE);
-
-    events = state->events;
-
-    if (!event_data) {
-	remove_events = events;
-	add_events = 0;
-    }
-    else {
-	remove_events = ~event_data->events & events;
-	add_events = ~events & event_data->events;
-    }
-
-    if (add_events) {
-	events = ERTS_CIO_POLL_CTL(pollset.ps, state->fd, add_events, 1, &do_wake);
-	if (events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL)) {
-	    ret = -1;
-	    goto done;
-	}
-    }
-    if (remove_events) {
-	events = ERTS_CIO_POLL_CTL(pollset.ps, state->fd, remove_events, 0, &do_wake);
-	if (events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL)) {
-	    ret = -1;
-	    goto done;
-	}
-    }
-    if (event_data && event_data->events != 0) {
-	if (state->type == ERTS_EV_TYPE_DRV_EV) {
-	    state->driver.event->removed_events &= ~add_events;
-	    state->driver.event->removed_events |= remove_events;
-	}
-	else {
-	    if (!state->driver.event)
-		state->driver.event = alloc_drv_event_data();
-	    state->driver.event->port = id;
-	    state->driver.event->removed_events = (ErtsPollEvents) 0;
-	    state->type = ERTS_EV_TYPE_DRV_EV;
-	}
-	state->driver.event->data = event_data;
-    }
-    else {
-	if (state->type == ERTS_EV_TYPE_DRV_EV) {
-	    abort_tasks(state, 0);
-	    state->driver.event->port = NIL;
-	    state->driver.event->data = NULL;
-	    state->driver.event->removed_events = (ErtsPollEvents) 0;
-	}
-	state->type = ERTS_EV_TYPE_NONE;
-	remember_removed(state, &pollset);
-    }
-    state->events = events;
-    ASSERT(event_data ? events == event_data->events : events == 0); 
-
-    ret = 0;
-
-done:
-
-    check_fd_cleanup(state,
-#if ERTS_CIO_HAVE_DRV_EVENT
-		     &free_event,
-#endif
-		     &free_select,
-                     &free_nif);
-
-    erts_mtx_unlock(fd_mtx(fd));
-
-    if (free_select)
-	free_drv_select_data(free_select);
-    if (free_nif)
-        free_nif_select_data(free_nif);
-#if ERTS_CIO_HAVE_DRV_EVENT
-    if (free_event)
-	free_drv_event_data(free_event);
-#endif
-
-    return ret;
-#endif
 }
 
 static ERTS_INLINE int
@@ -1629,11 +1340,6 @@ need2steal(ErtsDrvEventState *state, int mode)
         do_steal = 1;
         break;
 
-#if ERTS_CIO_HAVE_DRV_EVENT
-    case ERTS_EV_TYPE_DRV_EV:
-	do_steal |= chk_stale(state->driver.event->port, state, 0);
-	break;
-#endif
     case ERTS_EV_TYPE_STOP_USE:
     case ERTS_EV_TYPE_STOP_NIF:
         ASSERT(0);
@@ -1716,23 +1422,6 @@ steal(erts_dsprintf_buf_t *dsbufp, ErtsDrvEventState *state, int mode)
         erts_dsprintf(dsbufp, "\n");
         break;
     }
-#if ERTS_CIO_HAVE_DRV_EVENT
-    case ERTS_EV_TYPE_DRV_EV: {
-	Eterm eid = state->driver.event->port;
-	if (is_nil(eid)) {
-	    erts_dsprintf(dsbufp, "no one", (int) state->fd);
-	    ASSERT(0);
-	}
-	else {
-	    erts_dsprintf(dsbufp, "event driver ");
-	    print_driver_name(dsbufp, eid);
-	    erts_dsprintf(dsbufp, "%T ", eid);
-	}
-	erts_dsprintf(dsbufp, "\n");
-	deselect(state, 0);
-	break;
-    }
-#endif
     case ERTS_EV_TYPE_STOP_USE:
     case ERTS_EV_TYPE_STOP_NIF: {
 	ASSERT(0);
@@ -1914,55 +1603,6 @@ steal_pending_stop_nif(erts_dsprintf_buf_t *dsbufp, ErtsResource* resource,
 
 }
 
-
-#if ERTS_CIO_HAVE_DRV_EVENT
-
-static void
-print_drv_event_op(erts_dsprintf_buf_t *dsbufp,
-                   ErlDrvPort ix, ErtsSysFdType fd, ErlDrvEventData event_data)
-{
-    Port *pp = erts_drvport2port(ix);
-    erts_dsprintf(dsbufp, "driver_event(%p, %d, ", ix, (int) fd);
-    if (!event_data)
-	erts_dsprintf(dsbufp, "NULL");
-    else
-	erts_dsprintf(dsbufp, "{0x%x, 0x%x}",
-		      (unsigned int) event_data->events,
-		      (unsigned int) event_data->revents);
-    erts_dsprintf(dsbufp, ") by ");
-    if (pp != ERTS_INVALID_ERL_DRV_PORT)
-	print_driver_name(dsbufp, pp->common.id);
-    erts_dsprintf(dsbufp, "driver %T ", pp != ERTS_INVALID_ERL_DRV_PORT ? pp->common.id : NIL);
-}
-
-static void
-drv_event_steal(ErlDrvPort ix, ErtsDrvEventState *state, ErlDrvEventData event_data)
-{
-    if (need2steal(state, ERL_DRV_READ|ERL_DRV_WRITE)) {
-	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	print_drv_event_op(dsbufp, ix, state->fd, event_data);
-	steal(dsbufp, state, ERL_DRV_READ|ERL_DRV_WRITE);
-	erts_send_error_to_logger_nogl(dsbufp);
-    }
-    else if (state->type == ERTS_EV_TYPE_DRV_SEL) {
-	ASSERT(state->flags & ERTS_EV_FLAG_USED);
-	deselect(state, 0);
-    }
-}
-
-#ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-static void
-event_large_fd_error(ErlDrvPort ix, ErtsSysFdType fd, ErlDrvEventData event_data)
-{
-    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-    print_drv_event_op(dsbufp, ix, fd, event_data);
-    erts_dsprintf(dsbufp, "failed: ");
-    large_fd_error_common(dsbufp, fd);
-    erts_send_error_to_logger_nogl(dsbufp);
-}
-#endif
-#endif
-
 static ERTS_INLINE int
 io_task_schedule_allowed(ErtsDrvEventState *state,
 			 ErtsPortTaskType type,
@@ -1974,30 +1614,13 @@ io_task_schedule_allowed(ErtsDrvEventState *state,
     case ERTS_PORT_TASK_INPUT:
 	if (!state->driver.select)
 	    return 0;
-#if ERTS_CIO_HAVE_DRV_EVENT
-	if (state->driver.event)
-	    return 0;
-#endif
 	io_task = &state->driver.select->iniotask;
 	break;
     case ERTS_PORT_TASK_OUTPUT:
 	if (!state->driver.select)
 	    return 0;
-#if ERTS_CIO_HAVE_DRV_EVENT
-	if (state->driver.event)
-	    return 0;
-#endif
 	io_task = &state->driver.select->outiotask;
 	break;
-#if ERTS_CIO_HAVE_DRV_EVENT
-    case ERTS_PORT_TASK_EVENT:
-	if (!state->driver.event)
-	    return 0;
-	if (state->driver.select)
-	    return 0;
-	io_task = &state->driver.event->iotask;
-	break;
-#endif
     default:
 	ERTS_INTERNAL_ERROR("Invalid I/O-task type");
 	return 0;
@@ -2089,29 +1712,6 @@ send_event_tuple(struct erts_nif_select_event* e, ErtsResource* resource,
     if (rp_locks)
         erts_proc_unlock(rp, rp_locks);
 }
-
-
-#if ERTS_CIO_HAVE_DRV_EVENT
-static ERTS_INLINE void
-eready(Eterm id, ErtsDrvEventState *state, ErlDrvEventData event_data,
-       erts_aint_t current_cio_time)
-{
-    if (io_task_schedule_allowed(state,
-				 ERTS_PORT_TASK_EVENT,
-				 current_cio_time)) {
-	ErtsIoTask *iotask = &state->driver.event->iotask;
-	erts_atomic_set_nob(&iotask->executed_time, current_cio_time);
-	if (erts_port_task_schedule(id,
-				    &iotask->task,
-				    ERTS_PORT_TASK_EVENT,
-				    (ErlDrvEvent) state->fd,
-				    event_data) != 0) {
-	    stale_drv_select(id, state, 0);
-	}
-	add_active_fd(state->fd);
-    }
-}
-#endif
 
 static void bad_fd_in_pollset(ErtsDrvEventState *, Eterm inport, Eterm outport);
 
@@ -2338,25 +1938,6 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
             goto next_pollres_unlocked;
         }
 
-#if ERTS_CIO_HAVE_DRV_EVENT
-	case ERTS_EV_TYPE_DRV_EV: { /* Requested via driver_event()... */
-	    ErlDrvEventData event_data;
-	    ErtsPollEvents revents;
-	    ASSERT(state->driver.event);
-	    ASSERT(state->driver.event->data);
-	    event_data = state->driver.event->data;
-	    revents = pollres[i].events;
-	    revents &= ~state->driver.event->removed_events;
-
-	    if (revents) {
-		event_data->events = state->events;
-		event_data->revents = revents;
-		eready(state->driver.event->port, state, event_data, current_cio_time);
-	    }
-	    break;
-	}
-#endif
-
 	case ERTS_EV_TYPE_NONE: /* Deselected ... */
 	    break;
 
@@ -2508,7 +2089,6 @@ static void drv_ev_state_free(void *des)
 struct io_functions {
     int (*select)(ErlDrvPort, ErlDrvEvent, int, int);
     int (*enif_select)(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, const ErlNifPid*, Eterm);
-    int (*event)(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
     void (*check_io_as_interrupt)(void);
     void (*check_io_interrupt)(int);
     void (*check_io_interrupt_tmd)(int, ErtsMonotonicTime);
@@ -2517,6 +2097,9 @@ struct io_functions {
     Uint (*size)(void);
     Eterm (*info)(void *);
     int (*check_io_debug)(ErtsCheckIoDebugInfo *);
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    void (*lcnt_update_cio_locks)(int enable);
+#endif
 };
 
 # ifdef ERTS_KERNEL_POLL_VERSION
@@ -2541,7 +2124,6 @@ ERTS_CIO_EXPORT(erts_init_check_io)(void)
     ASSERT(erts_io_funcs.select == NULL);
     erts_io_funcs.select		= ERTS_CIO_EXPORT(driver_select);
     erts_io_funcs.enif_select		= ERTS_CIO_EXPORT(enif_select);
-    erts_io_funcs.event		= ERTS_CIO_EXPORT(driver_event);
     erts_io_funcs.check_io_interrupt	= ERTS_CIO_EXPORT(erts_check_io_interrupt);
     erts_io_funcs.check_io_interrupt_tmd= ERTS_CIO_EXPORT(erts_check_io_interrupt_timed);
     erts_io_funcs.check_io		= ERTS_CIO_EXPORT(erts_check_io);
@@ -2549,6 +2131,9 @@ ERTS_CIO_EXPORT(erts_init_check_io)(void)
     erts_io_funcs.size		= ERTS_CIO_EXPORT(erts_check_io_size);
     erts_io_funcs.info		= ERTS_CIO_EXPORT(erts_check_io_info);
     erts_io_funcs.check_io_debug	= ERTS_CIO_EXPORT(erts_check_io_debug);
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_io_funcs.lcnt_update_cio_locks	= ERTS_CIO_EXPORT(erts_lcnt_update_cio_locks);
+#endif
 #endif
 
     ERTS_CIO_POLL_INIT();
@@ -2783,7 +2368,6 @@ typedef struct {
     int used_fds;
     int num_errors;
     int no_driver_select_structs;
-    int no_driver_event_structs;
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     int internal_fds;
     ErtsPollEvents *epep;
@@ -2808,10 +2392,6 @@ static void doit_erts_check_io_debug(void *vstate, void *vcounters)
 
     if (state->driver.select)
 	counters->no_driver_select_structs++;
-#if ERTS_CIO_HAVE_DRV_EVENT
-    if (state->driver.event)
-	counters->no_driver_event_structs++;
-#endif
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     if (state->events || ep_events) {
@@ -2984,43 +2564,6 @@ static void doit_erts_check_io_debug(void *vstate, void *vcounters)
             r = state->driver.stop.resource;
             erts_printf(" resource=%p(%T:%T)", r, r->type->module, r->type->name);
         }
-#if ERTS_CIO_HAVE_DRV_EVENT
-	else if (state->type == ERTS_EV_TYPE_DRV_EV) {
-	    Eterm id;
-	    erts_printf("driver_event ");
-#ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-	    if (internal) {
-		erts_printf("internal ");
-		err = 1;		    
-	    }
-	    if (cio_events == ep_events) {
-		erts_printf("ev=0x%b32x", (Uint32) cio_events);
-	    }
-	    else {
-		err = 1;
-		erts_printf("cio_ev=0x%b32x", (Uint32) cio_events);
-		erts_printf(" ep_ev=0x%b32x", (Uint32) ep_events);
-	    }
-#else
-	    erts_printf("ev=0x%b32x", (Uint32) cio_events);
-#endif
-	    id = state->driver.event->port;
-	    if (is_nil(id)) {
-		erts_printf(" port=none name=none drv=none ");
-		err = 1;
-	    }
-	    else {
-		ErtsPortNames *pnp = erts_get_port_names(id, ERTS_INVALID_ERL_DRV_PORT);
-		erts_printf(" port=%T name=%s drv=%s ",
-			    id,
-			    pnp->name ? pnp->name : "unknown",
-			    (pnp->driver_name
-			     ? pnp->driver_name
-			     : "unknown"));
-		erts_free_port_names(pnp);
-	    }
-	}
-#endif
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
 	else if (internal) {
 	    erts_printf("internal ");
@@ -3071,9 +2614,6 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(ErtsCheckIoDebugInfo *ciodip)
     ErtsDrvEventState null_des;
 
     null_des.driver.select = NULL;
-#if ERTS_CIO_HAVE_DRV_EVENT
-    null_des.driver.event = NULL;
-#endif
     null_des.driver.stop.drv_ptr = NULL;
     null_des.events = 0;
     null_des.remove_cnt = 0;
@@ -3096,7 +2636,6 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(ErtsCheckIoDebugInfo *ciodip)
     counters.used_fds = 0;
     counters.num_errors = 0;
     counters.no_driver_select_structs = 0;
-    counters.no_driver_event_structs = 0;
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     len = erts_atomic_read_nob(&drv_ev_state_len);
@@ -3115,14 +2654,10 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(ErtsCheckIoDebugInfo *ciodip)
 
     ciodip->no_used_fds = counters.used_fds;
     ciodip->no_driver_select_structs = counters.no_driver_select_structs;
-    ciodip->no_driver_event_structs = counters.no_driver_event_structs;
 
     erts_printf("\n");
     erts_printf("used fds=%d\n", counters.used_fds);
     erts_printf("Number of driver_select() structures=%d\n", counters.no_driver_select_structs);
-#if ERTS_CIO_HAVE_DRV_EVENT
-    erts_printf("Number of driver_event() structures=%d\n", counters.no_driver_event_structs);
-#endif
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     erts_printf("internal fds=%d\n", counters.internal_fds);
 #endif
@@ -3136,7 +2671,7 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(ErtsCheckIoDebugInfo *ciodip)
 }
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
-void erts_lcnt_update_cio_locks(int enable) {
+void ERTS_CIO_EXPORT(erts_lcnt_update_cio_locks)(int enable) {
 #ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
     erts_lcnt_enable_hash_lock_count(&drv_ev_state_tab, ERTS_LOCK_FLAGS_CATEGORY_IO, enable);
 #else
@@ -3165,12 +2700,6 @@ int
 driver_select(ErlDrvPort port, ErlDrvEvent event, int mode, int on)
 {
     return (*erts_io_funcs.select)(port, event, mode, on);
-}
-
-int
-driver_event(ErlDrvPort port, ErlDrvEvent event, ErlDrvEventData event_data)
-{
-    return (*erts_io_funcs.event)(port, event, event_data);
 }
 
 int enif_select(ErlNifEnv* env, ErlNifEvent event,
@@ -3216,6 +2745,13 @@ void erts_check_io_interrupt_timed(int set,
 {
     erts_io_funcs.check_io_interrupt_tmd(set, timeout_time);
 }
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
+void erts_lcnt_update_cio_locks(int enable)
+{
+    erts_io_funcs.lcnt_update_cio_locks(enable);
+}
+#endif
 
 #endif /* ERTS_KERNEL_POLL_VERSION */
 
