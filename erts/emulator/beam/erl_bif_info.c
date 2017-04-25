@@ -177,7 +177,7 @@ bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh)
 	    if (szp)
 		*szp += 4+2;
 	    if (hpp) {
-		Uint refc = (Uint) erts_refc_read(&pb->val->refc, 1);
+		Uint refc = (Uint) erts_refc_read(&pb->val->intern.refc, 1);
 		tuple = TUPLE3(*hpp, val, orig_size, make_small(refc));
 		res = CONS(*hpp + 4, tuple, res);
 		*hpp += 4+2;
@@ -203,7 +203,7 @@ bld_magic_ref_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh)
 	    if (szp)
 		*szp += 4+2;
 	    if (hpp) {
-		Uint refc = (Uint) erts_refc_read(&mrtp->mb->refc, 1);
+		Uint refc = (Uint) erts_refc_read(&mrtp->mb->intern.refc, 1);
 		tuple = TUPLE3(*hpp, val, orig_size, make_small(refc));
 		res = CONS(*hpp + 4, tuple, res);
 		*hpp += 4+2;
@@ -3984,7 +3984,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
                     BIF_RET(am_false);
                 }
                 bin = erts_magic_ref2bin(tp[2]);
-                refc = erts_refc_read(&bin->refc, 1);
+                refc = erts_refc_read(&bin->intern.refc, 1);
                 bin_addr = (UWord) bin;
                 sz = 4;
                 erts_bld_uword(NULL, &sz, bin_addr);

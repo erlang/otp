@@ -26,7 +26,7 @@
 #ifndef HIPE_BIF0_H
 #define HIPE_BIF0_H
 
-extern Uint *hipe_bifs_find_pc_from_mfa(Eterm mfa);
+extern ErtsCodeInfo *hipe_bifs_find_pc_from_mfa(Eterm mfa);
 
 extern void hipe_mfa_info_table_init(void);
 extern void *hipe_get_remote_na(Eterm m, Eterm f, unsigned int a);

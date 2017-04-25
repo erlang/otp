@@ -1875,7 +1875,6 @@ trace_port_tmp_binary(char *bin, Sint sz, Binary **bptrp, Eterm **hp)
     } else {
         ProcBin* pb = (ProcBin *)*hp;
         Binary *bptr = erts_bin_nrml_alloc(sz);
-        erts_refc_init(&bptr->refc, 1);
         sys_memcpy(bptr->orig_bytes, bin, sz);
         pb->thing_word = HEADER_PROC_BIN;
         pb->size = sz;
@@ -2000,8 +1999,8 @@ trace_port_receive(Port *t_p, Eterm caller, Eterm what, ...)
                            TRACE_FUN_T_RECEIVE,
                            am_receive, data, THE_NON_VALUE, am_true);
 
-        if (bptr && erts_refc_dectest(&bptr->refc, 1) == 0)
-            erts_bin_free(bptr);
+        if (bptr)
+            erts_bin_release(bptr);
 
         if (orig_hp)
             erts_free(ERTS_ALC_T_TMP, orig_hp);
@@ -2051,8 +2050,8 @@ void trace_port_send_binary(Port *t_p, Eterm to, Eterm what, char *bin, Sint sz)
 
         send_to_tracer_nif(NULL, &t_p->common, t_p->common.id, tnif, TRACE_FUN_T_SEND,
                            am_send, msg, to, am_true);
-        if (bptr && erts_refc_dectest(&bptr->refc, 1) == 0)
-            erts_bin_free(bptr);
+        if (bptr)
+            erts_bin_release(bptr);
 
         UnUseTmpHeapNoproc(LOCAL_HEAP_SIZE);
 #undef LOCAL_HEAP_SIZE

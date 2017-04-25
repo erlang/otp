@@ -2669,7 +2669,6 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
 	}
 	cbs->result = erts_bin_nrml_alloc(target_size); /* Always offheap
 							   if trapping */
-	erts_refc_init(&(cbs->result->refc), 1);
 	t = (byte *) cbs->result->orig_bytes; /* No offset or anything */
 	pos = 0;
 	i = 0;

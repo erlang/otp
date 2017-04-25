@@ -1258,7 +1258,7 @@ static int match_traverse(Process* p, DbTableHash* tb,
     }
 
     if (mpi.all_objects) {
-        mpi.mp->flags |= BIN_FLAG_ALL_OBJECTS;
+        mpi.mp->intern.flags |= BIN_FLAG_ALL_OBJECTS;
     }
 
     /*
@@ -1383,7 +1383,7 @@ static int match_traverse_continue(Process* p, DbTableHash* tb,
                                    void* context_ptr, /* For callbacks */
                                    Eterm* ret)
 {
-    int all_objects = (*mpp)->flags & BIN_FLAG_ALL_OBJECTS;
+    int all_objects = (*mpp)->intern.flags & BIN_FLAG_ALL_OBJECTS;
     HashDbTerm** current_ptr;  /* Refers to either the bucket pointer or
                                        * the 'next' pointer in the previous term
                                        */

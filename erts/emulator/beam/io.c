@@ -3791,7 +3791,6 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
 	Binary* bptr;
 
 	bptr = erts_bin_nrml_alloc(len);
-	erts_refc_init(&bptr->refc, 1);
 	sys_memcpy(bptr->orig_bytes, buf, len);
 
 	pb = (ProcBin *) hp;
@@ -4558,8 +4557,7 @@ static void
 cleanup_scheduled_control(Binary *binp, char *bufp)
 {
     if (binp) {
-	if (erts_refc_dectest(&binp->refc, 0) == 0)
-	    erts_bin_free(binp);
+        erts_bin_release(binp);
     }
     else {
 	if (bufp)
@@ -4903,7 +4901,7 @@ erts_port_control(Process* c_p,
 	    ASSERT(bufp <= bufp + size);
 	    ASSERT(binp->orig_bytes <= bufp
 		   && bufp + size <= binp->orig_bytes + binp->orig_size);
-	    erts_refc_inc(&binp->refc, 1);
+	    erts_refc_inc(&binp->intern.refc, 1);
 	}
     }
 
@@ -6400,7 +6398,6 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 		ProcBin* pbp;
 		Binary* bp = erts_bin_nrml_alloc(size);
 		ASSERT(bufp);
-		erts_refc_init(&bp->refc, 1);
 		sys_memcpy((void *) bp->orig_bytes, (void *) bufp, size);
 		pbp = (ProcBin *) erts_produce_heap(&factory,
 						    PROC_BIN_SIZE, HEAP_EXTRA);
@@ -6910,21 +6907,21 @@ ErlDrvSInt
 driver_binary_get_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
-    return (ErlDrvSInt) erts_refc_read(&bp->refc, 1);
+    return (ErlDrvSInt) erts_refc_read(&bp->intern.refc, 1);
 }
 
 ErlDrvSInt
 driver_binary_inc_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
-    return (ErlDrvSInt) erts_refc_inctest(&bp->refc, 2);
+    return (ErlDrvSInt) erts_refc_inctest(&bp->intern.refc, 2);
 }
 
 ErlDrvSInt
 driver_binary_dec_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
-    return (ErlDrvSInt) erts_refc_dectest(&bp->refc, 1);
+    return (ErlDrvSInt) erts_refc_dectest(&bp->intern.refc, 1);
 }
 
 
@@ -6940,7 +6937,6 @@ driver_alloc_binary(ErlDrvSizeT size)
     bin = erts_bin_drv_alloc_fnf((Uint) size);
     if (!bin)
 	return NULL; /* The driver write must take action */
-    erts_refc_init(&bin->refc, 1);
     return Binary2ErlDrvBinary(bin);
 }
 
@@ -6970,8 +6966,7 @@ void driver_free_binary(ErlDrvBinary* dbin)
 	return;
 
     bin = ErlDrvBinary2Binary(dbin);
-    if (erts_refc_dectest(&bin->refc, 0) == 0)
-	erts_bin_free(bin);
+    erts_bin_release(bin);
 }
 
 

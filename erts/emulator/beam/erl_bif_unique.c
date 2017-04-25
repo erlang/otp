@@ -197,7 +197,7 @@ erts_magic_ref_lookup_bin__(Uint32 refn[ERTS_REF_NUMBERS])
     else {
 	erts_aint_t refc;
 	mb = tep->mb;
-        refc = erts_refc_inc_unless(&mb->refc, 0, 0);
+        refc = erts_refc_inc_unless(&mb->intern.refc, 0, 0);
         if (refc == 0)
             mb = NULL;
     }

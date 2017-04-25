@@ -42,14 +42,16 @@
 #define ERTS_BINARY_STRUCT_ALIGNMENT
 #endif
 
-/* Add fields in ERTS_INTERNAL_BINARY_FIELDS, otherwise the drivers crash */
-#define ERTS_INTERNAL_BINARY_FIELDS				\
-    UWord flags;						\
-    erts_refc_t refc;						\
+/* Add fields in binary_internals, otherwise the drivers crash */
+struct binary_internals {
+    UWord flags;
+    erts_refc_t refc;
     ERTS_BINARY_STRUCT_ALIGNMENT
+};
+
 
 typedef struct binary {
-    ERTS_INTERNAL_BINARY_FIELDS
+    struct binary_internals intern;
     SWord orig_size;
     char orig_bytes[1]; /* to be continued */
 } Binary;
@@ -63,7 +65,7 @@ typedef struct binary {
 
 typedef struct magic_binary ErtsMagicBinary;
 struct magic_binary {
-    ERTS_INTERNAL_BINARY_FIELDS
+    struct binary_internals intern;
     SWord orig_size;
     int (*destructor)(Binary *);
     Uint32 refn[ERTS_REF_NUMBERS];
@@ -87,7 +89,7 @@ typedef union {
     Binary binary;
     ErtsMagicBinary magic_binary;
     struct {
-	ERTS_INTERNAL_BINARY_FIELDS
+	struct binary_internals intern;
 	ErlDrvBinary binary;
     } driver;
 } ErtsBinary;
@@ -316,6 +318,7 @@ ERTS_GLB_INLINE Binary *erts_bin_nrml_alloc(Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_realloc_fnf(Binary *bp, Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_realloc(Binary *bp, Uint size);
 ERTS_GLB_INLINE void erts_bin_free(Binary *bp);
+ERTS_GLB_INLINE void erts_bin_release(Binary *bp);
 ERTS_GLB_INLINE Binary *erts_create_magic_binary_x(Uint size,
                                                   int (*destructor)(Binary *),
                                                    ErtsAlcType_t alloc_type,
@@ -374,7 +377,8 @@ erts_bin_drv_alloc_fnf(Uint size)
     ERTS_CHK_BIN_ALIGNMENT(res);
     if (res) {
 	res->orig_size = size;
-	res->flags = BIN_FLAG_DRV;
+	res->intern.flags = BIN_FLAG_DRV;
+        erts_refc_init(&res->intern.refc, 1);
     }
     return res;
 }
@@ -392,7 +396,8 @@ erts_bin_drv_alloc(Uint size)
     res = erts_alloc(ERTS_ALC_T_DRV_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
     res->orig_size = size;
-    res->flags = BIN_FLAG_DRV;
+    res->intern.flags = BIN_FLAG_DRV;
+    erts_refc_init(&res->intern.refc, 1);
     return res;
 }
 
@@ -410,7 +415,8 @@ erts_bin_nrml_alloc(Uint size)
     res = erts_alloc(ERTS_ALC_T_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
     res->orig_size = size;
-    res->flags = 0;
+    res->intern.flags = 0;
+    erts_refc_init(&res->intern.refc, 1);
     return res;
 }
 
@@ -419,9 +425,9 @@ erts_bin_realloc_fnf(Binary *bp, Uint size)
 {
     Binary *nbp;
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
-    ErtsAlcType_t type = (bp->flags & BIN_FLAG_DRV) ? ERTS_ALC_T_DRV_BINARY
+    ErtsAlcType_t type = (bp->intern.flags & BIN_FLAG_DRV) ? ERTS_ALC_T_DRV_BINARY
 	                                            : ERTS_ALC_T_BINARY;
-    ASSERT((bp->flags & BIN_FLAG_MAGIC) == 0);
+    ASSERT((bp->intern.flags & BIN_FLAG_MAGIC) == 0);
     if (bsize < size) /* overflow */
 	return NULL;
     nbp = erts_realloc_fnf(type, (void *) bp, bsize);
@@ -436,9 +442,9 @@ erts_bin_realloc(Binary *bp, Uint size)
 {
     Binary *nbp;
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
-    ErtsAlcType_t type = (bp->flags & BIN_FLAG_DRV) ? ERTS_ALC_T_DRV_BINARY
+    ErtsAlcType_t type = (bp->intern.flags & BIN_FLAG_DRV) ? ERTS_ALC_T_DRV_BINARY
 	                                            : ERTS_ALC_T_BINARY;
-    ASSERT((bp->flags & BIN_FLAG_MAGIC) == 0);
+    ASSERT((bp->intern.flags & BIN_FLAG_MAGIC) == 0);
     if (bsize < size) /* overflow */
 	erts_realloc_enomem(type, bp, size);
     nbp = erts_realloc_fnf(type, (void *) bp, bsize);
@@ -452,7 +458,7 @@ erts_bin_realloc(Binary *bp, Uint size)
 ERTS_GLB_INLINE void
 erts_bin_free(Binary *bp)
 {
-    if (bp->flags & BIN_FLAG_MAGIC) {
+    if (bp->intern.flags & BIN_FLAG_MAGIC) {
         if (!ERTS_MAGIC_BIN_DESTRUCTOR(bp)(bp)) {
             /* Destructor took control of the deallocation */
             return;
@@ -460,10 +466,18 @@ erts_bin_free(Binary *bp)
 	erts_magic_ref_remove_bin(ERTS_MAGIC_BIN_REFN(bp));
         erts_free(ERTS_MAGIC_BIN_ATYPE(bp), (void *) bp);
     }
-    else if (bp->flags & BIN_FLAG_DRV)
+    else if (bp->intern.flags & BIN_FLAG_DRV)
 	erts_free(ERTS_ALC_T_DRV_BINARY, (void *) bp);
     else
 	erts_free(ERTS_ALC_T_BINARY, (void *) bp);
+}
+
+ERTS_GLB_INLINE void
+erts_bin_release(Binary *bp)
+{
+    if (erts_refc_dectest(&bp->intern.refc, 0) == 0) {
+        erts_bin_free(bp);
+    }
 }
 
 ERTS_GLB_INLINE Binary *
@@ -478,10 +492,10 @@ erts_create_magic_binary_x(Uint size, int (*destructor)(Binary *),
     if (!bptr)
 	erts_alloc_n_enomem(ERTS_ALC_T2N(alloc_type), bsize);
     ERTS_CHK_BIN_ALIGNMENT(bptr);
-    bptr->flags = BIN_FLAG_MAGIC;
+    bptr->intern.flags = BIN_FLAG_MAGIC;
     bptr->orig_size = unaligned ? ERTS_MAGIC_BIN_UNALIGNED_ORIG_SIZE(size)
                                 : ERTS_MAGIC_BIN_ORIG_SIZE(size);
-    erts_refc_init(&bptr->refc, 0);
+    erts_refc_init(&bptr->intern.refc, 0);
     ERTS_MAGIC_BIN_DESTRUCTOR(bptr) = destructor;
     ERTS_MAGIC_BIN_ATYPE(bptr) = alloc_type;
     erts_make_magic_ref_in_array(ERTS_MAGIC_BIN_REFN(bptr));
@@ -509,7 +523,7 @@ ERTS_GLB_INLINE erts_smp_atomic_t *
 erts_smp_binary_to_magic_indirection(Binary *bp)
 {
     ErtsMagicIndirectionWord *mip;
-    ASSERT(bp->flags & BIN_FLAG_MAGIC);
+    ASSERT(bp->intern.flags & BIN_FLAG_MAGIC);
     ASSERT(ERTS_MAGIC_BIN_ATYPE(bp) == ERTS_ALC_T_MINDIRECTION);
     mip = ERTS_MAGIC_BIN_UNALIGNED_DATA(bp);
     return &mip->smp_atomic_word;
@@ -519,7 +533,7 @@ ERTS_GLB_INLINE erts_atomic_t *
 erts_binary_to_magic_indirection(Binary *bp)
 {
     ErtsMagicIndirectionWord *mip;
-    ASSERT(bp->flags & BIN_FLAG_MAGIC);
+    ASSERT(bp->intern.flags & BIN_FLAG_MAGIC);
     ASSERT(ERTS_MAGIC_BIN_ATYPE(bp) == ERTS_ALC_T_MINDIRECTION);
     mip = ERTS_MAGIC_BIN_UNALIGNED_DATA(bp);
     return &mip->atomic_word;

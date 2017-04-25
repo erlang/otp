@@ -80,7 +80,13 @@ typedef struct ErtsCodeMFA_ {
    in ops.tab to reflect the new func_info size */
 typedef struct ErtsCodeInfo_ {
     BeamInstr op;           /* OpCode(i_func_info) */
-    BeamInstr native;       /* Used by hipe and trace to store extra data */
+    union {
+        struct generic_bp* gen_bp;     /* Trace breakpoint */
+#ifdef HIPE
+        void (*ncallee)(void);
+        struct hipe_call_count* hcc;
+#endif
+    }u;
     ErtsCodeMFA mfa;
 } ErtsCodeInfo;
 

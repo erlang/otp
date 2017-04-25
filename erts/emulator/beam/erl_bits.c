@@ -1404,7 +1404,6 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	 * Allocate the binary data struct itself.
 	 */
 	bptr = erts_bin_nrml_alloc(bin_size);
-	erts_refc_init(&bptr->refc, 1);
 	erts_current_bin = (byte *) bptr->orig_bytes;
 
 	/*
@@ -1518,14 +1517,11 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
 	     * binary and copy the contents of the old binary into it.
 	     */
 	    Binary* bptr = erts_bin_nrml_alloc(new_size);
-	    erts_refc_init(&bptr->refc, 1);
 	    sys_memcpy(bptr->orig_bytes, binp->orig_bytes, binp->orig_size);
 	    pb->flags |= PB_IS_WRITABLE | PB_ACTIVE_WRITER;
 	    pb->val = bptr;
 	    pb->bytes = (byte *) bptr->orig_bytes;
-	    if (erts_refc_dectest(&binp->refc, 0) == 0) {
-		erts_bin_free(binp);
-	    }
+            erts_bin_release(binp);
 	}
     }
     erts_current_bin = pb->bytes;
@@ -1565,7 +1561,6 @@ erts_bs_init_writable(Process* p, Eterm sz)
      * Allocate the binary data struct itself.
      */
     bptr = erts_bin_nrml_alloc(bin_size);
-    erts_refc_init(&bptr->refc, 1);
     
     /*
      * Now allocate the ProcBin on the heap.

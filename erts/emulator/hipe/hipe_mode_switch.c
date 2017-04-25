@@ -176,14 +176,15 @@ void hipe_mode_switch_init(void)
     hipe_mfa_info_table_init();
 }
 
-void hipe_set_call_trap(Uint *bfun, void *nfun, int is_closure)
+void hipe_set_call_trap(ErtsCodeInfo* ci, void *nfun, int is_closure)
 {
-    HIPE_ASSERT(bfun[-5] == BeamOpCode(op_i_func_info_IaaI));
+    BeamInstr* bfun = erts_codeinfo_to_code(ci);
+    HIPE_ASSERT(ci->op == BeamOpCode(op_i_func_info_IaaI));
     bfun[0] =
 	is_closure
 	? BeamOpCode(op_hipe_trap_call_closure)
 	: BeamOpCode(op_hipe_trap_call);
-    bfun[-4] = (Uint)nfun;
+    ci->u.ncallee = (void (*)(void)) nfun;
 }
 
 static __inline__ void

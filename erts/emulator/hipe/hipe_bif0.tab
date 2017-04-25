@@ -82,7 +82,6 @@ bif hipe_bifs:patch_insn/3
 bif hipe_bifs:patch_call/3
 
 bif hipe_bifs:add_ref/2
-bif hipe_bifs:remove_refs_from/1
 
 bif hipe_bifs:alloc_loader_state/1
 

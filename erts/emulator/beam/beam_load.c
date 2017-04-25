@@ -913,7 +913,7 @@ erts_alloc_loader_state(void)
 
     magic = erts_create_magic_binary(sizeof(LoaderState),
 				     loader_state_dtor);
-    erts_refc_inc(&magic->refc, 1);
+    erts_refc_inc(&magic->intern.refc, 1);
     stp = ERTS_MAGIC_BIN_DATA(magic);
     stp->bin = NULL;
     stp->function = THE_NON_VALUE; /* Function not known yet */
@@ -996,9 +996,7 @@ static void
 free_loader_state(Binary* magic)
 {
     loader_state_dtor(magic);
-    if (erts_refc_dectest(&magic->refc, 0) == 0) {
-	erts_bin_free(magic);
-    }
+    erts_bin_release(magic);
 }
 
 static ErlHeapFragment* new_literal_fragment(Uint size)
@@ -5672,9 +5670,7 @@ erts_release_literal_area(ErtsLiteralArea* literal_area)
 	Binary* bptr;
 	ASSERT(thing_subtag(oh->thing_word) == REFC_BINARY_SUBTAG);
 	bptr = ((ProcBin*)oh)->val;
-	if (erts_refc_dectest(&bptr->refc, 0) == 0) {
-	    erts_bin_free(bptr);
-	}
+        erts_bin_release(bptr);
 	oh = oh->next;
     }
     erts_free(ERTS_ALC_T_LITERAL, literal_area);
@@ -5708,12 +5704,13 @@ erts_is_module_native(BeamCodeHeader* code_hdr)
 static Eterm
 native_addresses(Process* p, BeamCodeHeader* code_hdr)
 {
+    Eterm result = NIL;
+#ifdef HIPE
     int i;
     Eterm* hp;
     Uint num_functions;
     Uint need;
     Eterm* hp_end;
-    Eterm result = NIL;
 
     num_functions = code_hdr->num_functions;
     need = (6+BIG_UINT_HEAP_SIZE)*num_functions;
@@ -5725,16 +5722,17 @@ native_addresses(Process* p, BeamCodeHeader* code_hdr)
 
 	ASSERT(is_atom(ci->mfa.function)
                || is_nil(ci->mfa.function)); /* [] if BIF stub */
-	if (ci->native != 0) {
+	if (ci->u.ncallee != NULL) {
             Eterm addr;
 	    ASSERT(is_atom(ci->mfa.function));
-	    addr = erts_bld_uint(&hp, NULL, ci->native);
+	    addr = erts_bld_uint(&hp, NULL, (Uint)ci->u.ncallee);
 	    tuple = erts_bld_tuple(&hp, NULL, 3, ci->mfa.function,
                                    make_small(ci->mfa.arity), addr);
 	    result = erts_bld_cons(&hp, NULL, tuple, result);
 	}
     }
     HRelease(p, hp_end, hp);
+#endif
     return result;
 }
 
@@ -6033,7 +6031,7 @@ make_stub(ErtsCodeInfo* info, Eterm mod, Eterm func, Uint arity, Uint native, Be
     DBG_TRACE_MFA(mod,func,arity,"make beam stub at %p", erts_codeinfo_to_code(info));
     ASSERT(WORDS_PER_FUNCTION == 6);
     info->op = (BeamInstr) BeamOp(op_i_func_info_IaaI);
-    info->native = native;
+    info->u.ncallee = (void (*)(void)) native;
     info->mfa.module = mod;
     info->mfa.function = func;
     info->mfa.arity = arity;
@@ -6104,7 +6102,7 @@ stub_final_touch(LoaderState* stp, ErtsCodeInfo* ci)
     Lambda* lp;
 
     if (is_bif(ci->mfa.module, ci->mfa.function, ci->mfa.arity)) {
-	ci->native = 0;
+	ci->u.ncallee = NULL;
 	ci->mfa.module = 0;
 	ci->mfa.function = 0;
 	ci->mfa.arity = 0;
@@ -6267,16 +6265,7 @@ patch_funentries(Eterm Patchlist)
     fe = erts_get_fun_entry(Mod, uniq, index);
     fe->native_address = (Uint *)native_address;
 
-    /* Deliberate MEMORY LEAK of native fun entries!!!
-     *
-     * Uncomment line below when hipe code upgrade and purging works correctly.
-     * Today we may get cases when old (leaked) native code of a purged module
-     * gets called and tries to create instances of a deleted fun entry.
-     *
-     * Reproduced on a debug emulator with stdlib_test/qlc_SUITE:join_merge
-     *
-     * erts_smp_refc_dec(&fe->refc, 1);
-     */
+    erts_smp_refc_dec(&fe->refc, 1);
 
     if (!patch(Addresses, (Uint) fe))
       return 0;

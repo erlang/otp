@@ -447,8 +447,8 @@ heap_dump(fmtfn_t to, void *to_arg, Eterm x)
 			ProcBin* pb = (ProcBin *) binary_val(x);
 			Binary* val = pb->val;
 
-			if (erts_atomic_xchg_nob(&val->refc, 0) != 0) {
-			    val->flags = (UWord) all_binaries;
+			if (erts_atomic_xchg_nob(&val->intern.refc, 0) != 0) {
+			    val->intern.flags = (UWord) all_binaries;
 			    all_binaries = val;
 			}
 			erts_print(to, to_arg,
@@ -529,7 +529,7 @@ dump_binaries(fmtfn_t to, void *to_arg, Binary* current)
 	    erts_print(to, to_arg, "%02X", bytes[i]);
 	}
 	erts_putc(to, to_arg, '\n');
-	current = (Binary *) current->flags;
+	current = (Binary *) current->intern.flags;
     }
 }
 

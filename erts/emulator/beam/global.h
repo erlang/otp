@@ -1425,14 +1425,14 @@ Eterm erts_msacc_request(Process *c_p, int action, Eterm *threads);
 #define MatchSetRef(MPSP) 			\
 do {						\
     if ((MPSP) != NULL) {			\
-	erts_refc_inc(&(MPSP)->refc, 1);	\
+	erts_refc_inc(&(MPSP)->intern.refc, 1);	\
     }						\
 } while (0)
 
 #define MatchSetUnref(MPSP)					\
 do {								\
-    if (((MPSP) != NULL) && erts_refc_dectest(&(MPSP)->refc, 0) <= 0) { \
-	erts_bin_free(MPSP);					\
+    if (((MPSP) != NULL)) {                                     \
+	erts_bin_release(MPSP);					\
     }								\
 } while(0)
 

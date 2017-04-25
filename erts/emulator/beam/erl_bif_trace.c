@@ -1737,7 +1737,7 @@ setup_bif_trace(void)
 
     for (i = 0; i < BIF_SIZE; ++i) {
 	Export *ep = bif_export[i];
-	GenericBp* g = (GenericBp *) ep->info.native;
+	GenericBp* g = ep->info.u.gen_bp;
 	if (g) {
 	    if (ExportIsBuiltIn(ep)) {
 		ASSERT(ep->beam[1]);
@@ -1755,7 +1755,7 @@ reset_bif_trace(void)
 
     for (i = 0; i < BIF_SIZE; ++i) {
 	Export *ep = bif_export[i];
-	GenericBp* g = (GenericBp *) ep->info.native;
+	GenericBp* g = ep->info.u.gen_bp;
 	if (g && g->data[active].flags == 0) {
 	    if (ExportIsBuiltIn(ep)) {
 		ASSERT(ep->beam[1]);

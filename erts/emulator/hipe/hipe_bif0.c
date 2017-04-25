@@ -603,10 +603,7 @@ static void print_mfa(Eterm mod, Eterm fun, unsigned int ari)
 }
 #endif
 
-/*
- * Convert {M,F,A} to pointer to first insn after initial func_info.
- */
-static Uint *hipe_find_emu_address(Eterm mod, Eterm name, unsigned int arity)
+static ErtsCodeInfo* hipe_find_emu_address(Eterm mod, Eterm name, unsigned int arity)
 {
     Module *modp;
     BeamCodeHeader* code_hdr;
@@ -617,15 +614,15 @@ static Uint *hipe_find_emu_address(Eterm mod, Eterm name, unsigned int arity)
 	return NULL;
     n = code_hdr->num_functions;
     for (i = 0; i < n; ++i) {
-	Uint *code_ptr = (Uint*)code_hdr->functions[i];
-	ASSERT(code_ptr[0] == BeamOpCode(op_i_func_info_IaaI));
-	if (code_ptr[3] == name && code_ptr[4] == arity)
-	    return code_ptr+5;
+	ErtsCodeInfo *ci = code_hdr->functions[i];
+	ASSERT(ci->op == BeamOpCode(op_i_func_info_IaaI));
+	if (ci->mfa.function == name && ci->mfa.arity == arity)
+	    return ci;
     }
     return NULL;
 }
 
-Uint *hipe_bifs_find_pc_from_mfa(Eterm term)
+ErtsCodeInfo* hipe_bifs_find_pc_from_mfa(Eterm term)
 {
     struct hipe_mfa mfa;
 
@@ -636,10 +633,10 @@ Uint *hipe_bifs_find_pc_from_mfa(Eterm term)
 
 BIF_RETTYPE hipe_bifs_fun_to_address_1(BIF_ALIST_1)
 {
-    Eterm *pc = hipe_bifs_find_pc_from_mfa(BIF_ARG_1);
-    if (!pc)
+    ErtsCodeInfo* ci = hipe_bifs_find_pc_from_mfa(BIF_ARG_1);
+    if (!ci)
 	BIF_ERROR(BIF_P, BADARG);
-    BIF_RET(address_to_term(pc, BIF_P));
+    BIF_RET(address_to_term(erts_codeinfo_to_code(ci), BIF_P));
 }
 
 BIF_RETTYPE hipe_bifs_commit_patch_load_1(BIF_ALIST_1)
@@ -652,7 +649,7 @@ BIF_RETTYPE hipe_bifs_commit_patch_load_1(BIF_ALIST_1)
 
 BIF_RETTYPE hipe_bifs_set_native_address_3(BIF_ALIST_3)
 {
-    Eterm *pc;
+    ErtsCodeInfo *ci;
     void *address;
     int is_closure;
     struct hipe_mfa mfa;
@@ -675,11 +672,12 @@ BIF_RETTYPE hipe_bifs_set_native_address_3(BIF_ALIST_3)
        simply have called hipe_bifs_find_pc_from_mfa(). */
     if (!term_to_mfa(BIF_ARG_1, &mfa))
 	BIF_ERROR(BIF_P, BADARG);
-    pc = hipe_find_emu_address(mfa.mod, mfa.fun, mfa.ari);
+    ci = hipe_find_emu_address(mfa.mod, mfa.fun, mfa.ari);
 
-    if (pc) {
-	DBG_TRACE_MFA(mfa.mod,mfa.fun,mfa.ari, "set beam call trap at %p -> %p", pc, address);
-	hipe_set_call_trap(pc, address, is_closure);
+    if (ci) {
+	DBG_TRACE_MFA(mfa.mod,mfa.fun,mfa.ari, "set beam call trap at %p -> %p",
+                      erts_codeinfo_to_code(ci), address);
+	hipe_set_call_trap(ci, address, is_closure);
 	BIF_RET(am_true);
     }
     DBG_TRACE_MFA(mfa.mod,mfa.fun,mfa.ari, "failed set call trap to %p, no beam code found", address);
@@ -1618,46 +1616,6 @@ static void purge_mfa(struct hipe_mfa_info* p)
     erts_free(ERTS_ALC_T_HIPE_LL, p);
 }
 
-/* Called by init:restart after unloading all hipe compiled modules
- * to work around old bug that caused execution of deallocated beam code.
- * Can be removed now when delete/purge of native modules works better.
- * Test: Do init:restart in debug compiled vm with hipe compiled kernel. 
- */
-static void hipe_purge_all_refs(void)
-{
-    struct hipe_mfa_info **bucket;
-    unsigned int i, nrbuckets;
-
-    hipe_mfa_info_table_rwlock();
-
-    ASSERT(hipe_mfa_info_table.used == 0);
-    bucket = hipe_mfa_info_table.bucket;
-    nrbuckets = 1 << hipe_mfa_info_table.log2size;
-    for (i = 0; i < nrbuckets; ++i) {	
-        ASSERT(bucket[i] == NULL);
-	while (bucket[i] != NULL) {
-	    struct hipe_mfa_info* mfa = bucket[i];
-	    bucket[i] = mfa->bucket.next;
-
-            hash_erase(&mod2mfa_tab, mfa);
-            erts_free(ERTS_ALC_T_HIPE_LL, mfa);
-	}
-    }
-    hipe_mfa_info_table.used = 0;
-    hipe_mfa_info_table_rwunlock();
-}
-
-BIF_RETTYPE hipe_bifs_remove_refs_from_1(BIF_ALIST_1)
-{
-    if (BIF_ARG_1 == am_all) {
-	hipe_purge_all_refs();
-	BIF_RET(am_ok);
-    }
-
-    ASSERT(!"hipe_bifs_remove_refs_from_1() called");
-    BIF_ERROR(BIF_P, BADARG);
-}
-
 int hipe_purge_need_blocking(Module* modp)
 {
     /* SVERK: Verify if this is really necessary */
@@ -1978,6 +1936,6 @@ BIF_RETTYPE hipe_bifs_alloc_loader_state_1(BIF_ALIST_1)
 
     hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
     res = erts_mk_magic_ref(&hp, &MSO(BIF_P), magic);
-    erts_refc_dec(&magic->refc, 1);
+    erts_refc_dec(&magic->intern.refc, 1);
     BIF_RET(res);
 }

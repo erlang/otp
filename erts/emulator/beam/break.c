@@ -660,7 +660,7 @@ bin_check(void)
 		erts_printf("%p orig_size: %bpd, norefs = %bpd\n",
 			    bp->val, 
 			    bp->val->orig_size, 
-			    erts_refc_read(&bp->val->refc, 1));
+			    erts_refc_read(&bp->val->intern.refc, 1));
 	    }
 	}
 	if (printed) {
