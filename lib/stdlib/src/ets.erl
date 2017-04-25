@@ -54,7 +54,7 @@
                       | {tab(),integer(),integer(),comp_match_spec(),list(),integer()}
                       | {tab(),_,_,integer(),comp_match_spec(),list(),integer(),integer()}.
 
--opaque tid()      :: integer().
+-opaque tid()      :: reference().
 
 -type match_pattern() :: atom() | tuple().
 -type match_spec()    :: [{match_pattern(), [_], [_]}].
