@@ -4254,6 +4254,75 @@ BIF_RETTYPE list_to_pid_1(BIF_ALIST_1)
     BIF_ERROR(BIF_P, BADARG);
 }
 
+BIF_RETTYPE list_to_port_1(BIF_ALIST_1)
+{
+    /*
+     * A valid port identifier is on the format
+     * "#Port<N.P>" where N is node and P is
+     * the port id. Both N and P are of type Uint32.
+     */
+    Uint32 n, p;
+    char* cp;
+    int i;
+    DistEntry *dep = NULL;
+    char buf[6 /* #Port< */
+             + (2)*(10 + 1) /* N.P> */
+             + 1 /* \0 */];
+
+    /* walk down the list and create a C string */
+    if ((i = intlist_to_buf(BIF_ARG_1, buf, sizeof(buf)-1)) < 0)
+	goto bad;
+
+    buf[i] = '\0';		/* null terminal */
+
+    cp = &buf[0];
+    if (strncmp("#Port<", cp, 6) != 0)
+        goto bad;
+
+    cp += 6; /* strlen("#Port<") */
+
+    if (sscanf(cp, "%u.%u>", &n, &p) < 2)
+        goto bad;
+
+    if (p > ERTS_MAX_PORT_NUMBER)
+	goto bad;
+
+    dep = erts_channel_no_to_dist_entry(n);
+
+    if (!dep)
+	goto bad;
+
+    if(dep == erts_this_dist_entry) {
+	erts_deref_dist_entry(dep);
+	BIF_RET(make_internal_port(p));
+    }
+    else {
+      ExternalThing *etp;
+      ErlNode *enp;
+
+      if (is_nil(dep->cid))
+	  goto bad;
+
+      enp = erts_find_or_insert_node(dep->sysname, dep->creation);
+      ASSERT(enp != erts_this_node);
+
+      etp = (ExternalThing *) HAlloc(BIF_P, EXTERNAL_THING_HEAD_SIZE + 1);
+      etp->header = make_external_port_header(1);
+      etp->next = MSO(BIF_P).first;
+      etp->node = enp;
+      etp->data.ui[0] = p;
+
+      MSO(BIF_P).first = (struct erl_off_heap_header*) etp;
+      erts_deref_dist_entry(dep);
+      BIF_RET(make_external_port(etp));
+    }
+
+ bad:
+    if (dep)
+	erts_deref_dist_entry(dep);
+    BIF_ERROR(BIF_P, BADARG);
+}
+
 BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
 {
     /*

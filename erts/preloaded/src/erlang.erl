@@ -129,7 +129,7 @@
 -export([list_to_atom/1, list_to_binary/1]).
 -export([list_to_bitstring/1, list_to_existing_atom/1, list_to_float/1]).
 -export([list_to_integer/1, list_to_integer/2]).
--export([list_to_pid/1, list_to_ref/1, list_to_tuple/1, loaded/0]).
+-export([list_to_pid/1, list_to_port/1, list_to_ref/1, list_to_tuple/1, loaded/0]).
 -export([localtime/0, make_ref/0]).
 -export([map_size/1, match_spec_test/3, md5/1, md5_final/1]).
 -export([md5_init/0, md5_update/2, module_loaded/1, monitor/2]).
@@ -1159,9 +1159,15 @@ list_to_integer(_String,_Base) ->
       String :: string().
 list_to_pid(_String) ->
     erlang:nif_error(undefined).
+
+%% list_to_port/1
+-spec list_to_port(String) -> port() when
+      String :: string().
+list_to_port(_String) ->
+    erlang:nif_error(undefined).
  
 %% list_to_ref/1
--spec erlang:list_to_ref(String) -> reference() when
+-spec list_to_ref(String) -> reference() when
       String :: string().
 list_to_ref(_String) ->
     erlang:nif_error(undefined).
@@ -1337,7 +1343,7 @@ pid_to_list(_Pid) ->
     erlang:nif_error(undefined).
 
 %% port_to_list/1
--spec erlang:port_to_list(Port) -> string() when
+-spec port_to_list(Port) -> string() when
       Port :: port().
 port_to_list(_Port) ->
     erlang:nif_error(undefined).
@@ -1547,7 +1553,7 @@ read_timer(_TimerRef, _Options) ->
     erlang:nif_error(undefined).
 
 %% ref_to_list/1
--spec erlang:ref_to_list(Ref) -> string() when
+-spec ref_to_list(Ref) -> string() when
       Ref :: reference().
 ref_to_list(_Ref) ->
     erlang:nif_error(undefined).

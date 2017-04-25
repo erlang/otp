@@ -2499,6 +2499,42 @@ os_prompt%</pre>
     </func>
 
     <func>
+      <name name="list_to_port" arity="1"/>
+      <fsummary>Convert from text representation to a port.</fsummary>
+      <desc>
+        <p>Returns a port identifier whose text representation is a
+          <c><anno>String</anno></c>, for example:</p>
+        <pre>
+> <input>list_to_port("#Port&lt;0.4>").</input>
+#Port&lt;0.4></pre>
+        <p>Failure: <c>badarg</c> if <c><anno>String</anno></c> contains a bad
+          representation of a port identifier.</p>
+        <warning>
+          <p>This BIF is intended for debugging and is not to be used
+            in application programs.</p>
+        </warning>
+      </desc>
+    </func>
+
+    <func>
+      <name name="list_to_ref" arity="1"/>
+      <fsummary>Convert from text representation to a ref.</fsummary>
+      <desc>
+        <p>Returns a reference whose text representation is a
+          <c><anno>String</anno></c>, for example:</p>
+        <pre>
+> <input>list_to_ref("#Ref&lt;0.4192537678.4073193475.71181>").</input>
+#Ref&lt;0.4192537678.4073193475.71181></pre>
+        <p>Failure: <c>badarg</c> if <c><anno>String</anno></c> contains a bad
+          representation of a reference.</p>
+        <warning>
+          <p>This BIF is intended for debugging and is not to be used
+            in application programs.</p>
+        </warning>
+      </desc>
+    </func>
+
+    <func>
       <name name="list_to_tuple" arity="1"/>
       <fsummary>Convert a list to a tuple.</fsummary>
       <desc>
