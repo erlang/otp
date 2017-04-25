@@ -752,6 +752,7 @@ connect_and_kex(Config, InitialState) ->
                                 {cipher,?DEFAULT_CIPHERS}
                                ]},
 	 {silently_accept_hosts, true},
+         {recv_ext_info, false},
 	 {user_dir, user_dir(Config)},
 	 {user_interaction, false}]},
        receive_hello,

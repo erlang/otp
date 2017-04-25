@@ -858,8 +858,9 @@ get_kex_init(Conn) ->
 
 get_kex_init(Conn, Ref, TRef) ->
     %% First, validate the key exchange is complete (StateName == connected)
-    case sys:get_state(Conn) of
-	{{connected,_}, S} ->
+    {State, S} = sys:get_state(Conn),
+    case expected_state(State) of
+	true ->
 	    timer:cancel(TRef),
 	    %% Next, walk through the elements of the #state record looking
 	    %% for the #ssh_msg_kexinit record. This method is robust against
@@ -873,8 +874,8 @@ get_kex_init(Conn, Ref, TRef) ->
 		    KexInit
 	    end;
 
-	{OtherState, S} ->
-	    ct:log("Not in 'connected' state: ~p",[OtherState]),
+	false ->
+	    ct:log("Not in 'connected' state: ~p",[State]),
 	    receive
 		{reneg_timeout,Ref} -> 
 		    ct:log("S = ~p", [S]),
@@ -886,6 +887,10 @@ get_kex_init(Conn, Ref, TRef) ->
 	    end
     end.
     
+expected_state({ext_info,_,_}) -> true;
+expected_state({connected,_}) -> true;
+expected_state(_) -> false.
+
 %%%----------------------------------------------------------------
 %%% Return a string with N random characters
 %%%
