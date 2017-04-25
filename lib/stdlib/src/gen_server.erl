@@ -115,6 +115,7 @@
 
 -callback init(Args :: term()) ->
     {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate} |
+    {info, Msg :: term(), State :: term()} |
     {stop, Reason :: term()} | ignore.
 -callback handle_call(Request :: term(), From :: {pid(), Tag :: term()},
                       State :: term()) ->
@@ -122,13 +123,17 @@
     {reply, Reply :: term(), NewState :: term(), timeout() | hibernate} |
     {noreply, NewState :: term()} |
     {noreply, NewState :: term(), timeout() | hibernate} |
+    {info, Msg :: term(), State :: term()} |
+    {info, Msg :: term(), Reply :: term(), State :: term()} |
     {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
     {stop, Reason :: term(), NewState :: term()}.
 -callback handle_cast(Request :: term(), State :: term()) ->
+    {info, Msg :: term(), State :: term()} |
     {noreply, NewState :: term()} |
     {noreply, NewState :: term(), timeout() | hibernate} |
     {stop, Reason :: term(), NewState :: term()}.
 -callback handle_info(Info :: timeout | term(), State :: term()) ->
+    {info, Msg :: term(), State :: term()} |
     {noreply, NewState :: term()} |
     {noreply, NewState :: term(), timeout() | hibernate} |
     {stop, Reason :: term(), NewState :: term()}.
@@ -327,11 +332,14 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
     Debug = gen:debug_options(Name, Options),
     case catch Mod:init(Args) of
 	{ok, State} ->
-	    proc_lib:init_ack(Starter, {ok, self()}), 	    
+	    proc_lib:init_ack(Starter, {ok, self()}),
 	    loop(Parent, Name, State, Mod, infinity, Debug);
 	{ok, State, Timeout} ->
-	    proc_lib:init_ack(Starter, {ok, self()}), 	    
+	    proc_lib:init_ack(Starter, {ok, self()}),
 	    loop(Parent, Name, State, Mod, Timeout, Debug);
+	{init, Msg, State} ->
+	    proc_lib:init_ack(Starter, {ok, self()}),
+	    handle_info(Msg, Parent, Name, State, Mod, Debug);
 	{stop, Reason} ->
 	    %% For consistency, we must make sure that the
 	    %% registered name (if any) is unregistered before
@@ -394,6 +402,14 @@ decode_msg(Msg, Parent, Name, State, Mod, Time, Debug, Hib) ->
 				      Name, {in, Msg}),
 	    handle_msg(Msg, Parent, Name, State, Mod, Debug1)
     end.
+
+handle_info(Msg, Parent, Name, State, Mod, []) ->
+    Reply = try_dispatch(Mod, handle_info, Msg, State),
+    handle_common_reply(Reply, Parent, Name, undefined, Msg, Mod, State);
+handle_info(Msg, Parent, Name, State, Mod, Debug) ->
+    Reply = try_dispatch(Mod, handle_info, Msg, State),
+    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name, {in, Msg}),
+    handle_common_reply(Reply, Parent, Name, undefined, Msg, Mod, State, Debug1).
 
 %%% ---------------------------------------------------
 %%% Send/receive functions
@@ -668,10 +684,9 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod) ->
 	{ok, {reply, Reply, NState, Time1}} ->
 	    reply(From, Reply),
 	    loop(Parent, Name, NState, Mod, Time1, []);
-	{ok, {noreply, NState}} ->
-	    loop(Parent, Name, NState, Mod, infinity, []);
-	{ok, {noreply, NState, Time1}} ->
-	    loop(Parent, Name, NState, Mod, Time1, []);
+	{ok, {init, Reply, NMsg, NState}} ->
+	    reply(From, Reply),
+	    handle_info(NMsg, Parent, Name, NState, Mod, []);
 	{ok, {stop, Reason, Reply, NState}} ->
 	    {'EXIT', R} = 
 		(catch terminate(Reason, Name, From, Msg, Mod, NState, [])),
@@ -692,14 +707,9 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, Debug) ->
 	{ok, {reply, Reply, NState, Time1}} ->
 	    Debug1 = reply(Name, From, Reply, NState, Debug),
 	    loop(Parent, Name, NState, Mod, Time1, Debug1);
-	{ok, {noreply, NState}} ->
-	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
-				      {noreply, NState}),
-	    loop(Parent, Name, NState, Mod, infinity, Debug1);
-	{ok, {noreply, NState, Time1}} ->
-	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
-				      {noreply, NState}),
-	    loop(Parent, Name, NState, Mod, Time1, Debug1);
+	{ok, {info, Reply, NMsg, NState}} ->
+	    Debug1 = reply(Name, From, Reply, NState, Debug),
+	    handle_info(NMsg, Parent, Name, NState, Mod, Debug1);
 	{ok, {stop, Reason, Reply, NState}} ->
 	    {'EXIT', R} = 
 		(catch terminate(Reason, Name, From, Msg, Mod, NState, Debug)),
@@ -718,6 +728,8 @@ handle_common_reply(Reply, Parent, Name, From, Msg, Mod, State) ->
 	    loop(Parent, Name, NState, Mod, infinity, []);
 	{ok, {noreply, NState, Time1}} ->
 	    loop(Parent, Name, NState, Mod, Time1, []);
+	{ok, {info, NMsg, NState}} ->
+	    handle_info(NMsg, Parent, Name, NState, Mod, []);
 	{ok, {stop, Reason, NState}} ->
 	    terminate(Reason, Name, From, Msg, Mod, NState, []);
 	{'EXIT', ExitReason, ReportReason} ->
@@ -736,6 +748,10 @@ handle_common_reply(Reply, Parent, Name, From, Msg, Mod, State, Debug) ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, Time1, Debug1);
+	{ok, {info, NMsg, NState}} ->
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
+				      {info, NMsg, NState}),
+	    handle_info(NMsg, Parent, Name, NState, Mod, Debug1);
 	{ok, {stop, Reason, NState}} ->
 	    terminate(Reason, Name, From, Msg, Mod, NState, Debug);
 	{'EXIT', ExitReason, ReportReason} ->
