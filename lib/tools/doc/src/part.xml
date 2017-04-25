@@ -39,12 +39,6 @@
        times each function is called. Uses a kind of local call trace
        breakpoints containing counters to achieve very low runtime
        performance degradation.</item>
-      <tag><em>emacs - (erlang.el and erlang-start.el)</em></tag>
-      <item>This package provides support
-       for the programming language Erlang in Emacs. The package provides an
-       editing mode with lots of bells and whistles, compilation
-       support, and it makes it possible for the user to start Erlang
-       shells that run inside Emacs.</item>
       <tag><em>eprof</em></tag>
       <item>A time profiling tool; measure how time is used in Erlang
        programs. Erlang programs. Predecessor of <em>fprof</em> (see below).</item>
@@ -70,7 +64,6 @@
   </description>
   <xi:include href="cover_chapter.xml"/>
   <xi:include href="cprof_chapter.xml"/>
-  <xi:include href="erlang_mode_chapter.xml"/>
   <xi:include href="fprof_chapter.xml"/>
   <xi:include href="lcnt_chapter.xml"/>
   <xi:include href="xref_chapter.xml"/>

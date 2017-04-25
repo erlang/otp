@@ -46,8 +46,7 @@ XML_REF3_FILES = \
 	instrument.xml \
 	make.xml \
 	tags.xml \
-	xref.xml \
-	erlang_mode.xml  
+	xref.xml
 
 XML_PART_FILES = part.xml part_notes.xml part_notes_history.xml
 
@@ -56,7 +55,6 @@ XML_CHAPTER_FILES = \
 	fprof_chapter.xml \
 	cprof_chapter.xml \
 	lcnt_chapter.xml \
-	erlang_mode_chapter.xml \
 	xref_chapter.xml \
 	notes.xml \
 	notes_history.xml
