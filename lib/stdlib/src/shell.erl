@@ -349,14 +349,8 @@ default_prompt(N) ->
     %% Don't bother flattening the list irrespective of what the
     %% I/O-protocol states.
     case is_alive() of
-	true  -> io_lib:format(<<"(~ts)~w> ">>, [node_string(), N]);
+	true  -> io_lib:format(<<"(~s)~w> ">>, [node(), N]);
 	false -> io_lib:format(<<"~w> ">>, [N])
-    end.
-
-node_string() ->
-    case encoding() of
-        latin1 -> io_lib:write_atom_as_latin1(node());
-        _ ->      io_lib:write_atom(node())
     end.
 
 %% expand_hist(Expressions, CommandNumber)
