@@ -1323,7 +1323,36 @@ auto_hibernate(Config) ->
     is_not_in_erlang_hibernate(Pid),
     timer:sleep(HibernateAfterTimeout),
     is_in_erlang_hibernate(Pid),
-
+    %% Timer test 1
+    TimerTimeout1 = 50,
+    ok = gen_statem:call(Pid, {arm_htimer, self(), TimerTimeout1}),
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(TimerTimeout1),
+    is_not_in_erlang_hibernate(Pid),
+    receive
+        {Pid, htimer_armed} ->
+            ok
+    after 1000 ->
+        ct:fail(timer1)
+    end,
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% Timer test 2
+    TimerTimeout2 = 150,
+    ok = gen_statem:call(Pid, {arm_htimer, self(), TimerTimeout2}),
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(Pid),
+    receive
+        {Pid, htimer_armed} ->
+            ok
+    after 1000 ->
+        ct:fail(timer2)
+    end,
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(Pid),
     stop_it(Pid),
     process_flag(trap_exit, OldFl),
     receive
@@ -1761,6 +1790,11 @@ idle(cast, {hping,Pid}, Data) ->
     {keep_state, Data};
 idle({call, From}, hping, _Data) ->
     {keep_state_and_data, [{reply, From, hpong}]};
+idle({call, From}, {arm_htimer, Pid, Timeout}, _Data) ->
+    {keep_state_and_data, [{reply, From, ok}, {timeout, Timeout, {arm_htimer, Pid}}]};
+idle(timeout, {arm_htimer, Pid}, _Data) ->
+    Pid ! {self(), htimer_armed},
+    keep_state_and_data;
 idle(cast, {connect,Pid}, Data) ->
     Pid ! accept,
     {next_state,wfor_conf,Data,infinity}; % NoOp timeout just to test API

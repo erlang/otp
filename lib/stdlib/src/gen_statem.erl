@@ -859,117 +859,112 @@ loop_hibernate(Parent, Debug, S) ->
        {wakeup_from_hibernate,3}}).
 
 %% Entry point for wakeup_from_hibernate/3
-loop_receive(Parent, Debug, #{cancel_timers := 0, hibernate_after := HibernateAfterTimeout} = S) when is_integer(HibernateAfterTimeout) ->
+loop_receive(Parent, Debug, #{hibernate_after := HibernateAfterTimeout} = S) ->
     receive
 	Msg ->
-		handle_received_msg(Msg, Parent, Debug, S)
-	after
+	    case Msg of
+		{system,Pid,Req} ->
+		    #{hibernate := Hibernate} = S,
+		    %% Does not return but tail recursively calls
+		    %% system_continue/3 that jumps to loop/3
+		    sys:handle_system_msg(
+		      Req, Pid, Parent, ?MODULE, Debug, S,
+		      Hibernate);
+		{'EXIT',Parent,Reason} = EXIT ->
+		    %% EXIT is not a 2-tuple therefore
+		    %% not an event but this will stand out
+		    %% in the crash report...
+		    Q = [EXIT],
+		    terminate(exit, Reason, ?STACKTRACE(), Debug, S, Q);
+		{timeout,TimerRef,TimerMsg} ->
+		    #{timer_refs := TimerRefs,
+		      timer_types := TimerTypes,
+		      hibernate := Hibernate} = S,
+		    case TimerRefs of
+			#{TimerRef := TimerType} ->
+			    %% We know of this timer; is it a running
+			    %% timer or a timer being cancelled that
+			    %% managed to send a late timeout message?
+			    case TimerTypes of
+				#{TimerType := TimerRef} ->
+				    %% The timer type maps back to this
+				    %% timer ref, so it was a running timer
+				    Event = {TimerType,TimerMsg},
+				    %% Unregister the triggered timeout
+				    NewTimerRefs =
+					maps:remove(TimerRef, TimerRefs),
+				    NewTimerTypes =
+					maps:remove(TimerType, TimerTypes),
+				    loop_receive_result(
+				      Parent, Debug,
+				      S#{
+					timer_refs := NewTimerRefs,
+					timer_types := NewTimerTypes},
+				      Hibernate,
+				      Event);
+				_ ->
+				    %% This was a late timeout message
+				    %% from timer being cancelled, so
+				    %% ignore it and expect a cancel_timer
+				    %% msg shortly
+				    loop_receive(Parent, Debug, S)
+			    end;
+			_ ->
+			    %% Not our timer; present it as an event
+			    Event = {info,Msg},
+			    loop_receive_result(
+			      Parent, Debug, S, Hibernate, Event)
+		    end;
+		{cancel_timer,TimerRef,_} ->
+		    #{timer_refs := TimerRefs,
+		      cancel_timers := CancelTimers,
+		      hibernate := Hibernate} = S,
+		    case TimerRefs of
+			#{TimerRef := _} ->
+			    %% We must have requested a cancel
+			    %% of this timer so it is already
+			    %% removed from TimerTypes
+			    NewTimerRefs =
+				maps:remove(TimerRef, TimerRefs),
+			    NewCancelTimers = CancelTimers - 1,
+			    NewS =
+				S#{
+				  timer_refs := NewTimerRefs,
+				  cancel_timers := NewCancelTimers},
+			    if
+				Hibernate =:= true, NewCancelTimers =:= 0 ->
+				    %% No more cancel_timer msgs to expect;
+				    %% we can hibernate
+				    loop_hibernate(Parent, Debug, NewS);
+				NewCancelTimers >= 0 -> % Assert
+				    loop_receive(Parent, Debug, NewS)
+			    end;
+			_ ->
+			    %% Not our cancel_timer msg;
+			    %% present it as an event
+			    Event = {info,Msg},
+			    loop_receive_result(
+			      Parent, Debug, S, Hibernate, Event)
+		    end;
+		_ ->
+		    %% External msg
+		    #{hibernate := Hibernate} = S,
+		    Event =
+			case Msg of
+			    {'$gen_call',From,Request} ->
+				{{call,From},Request};
+			    {'$gen_cast',E} ->
+				{cast,E};
+			    _ ->
+				{info,Msg}
+			end,
+		    loop_receive_result(
+		      Parent, Debug, S, Hibernate, Event)
+	    end
+    after
 	    HibernateAfterTimeout ->
 		    loop_hibernate(Parent, Debug, S)
-    end;
-loop_receive(Parent, Debug, S) ->
-	receive
-		Msg ->
-			handle_received_msg(Msg, Parent, Debug, S)
-	end.
-
-handle_received_msg({system,Pid,Req}, Parent, Debug, S) ->
-	#{hibernate := Hibernate} = S,
-	%% Does not return but tail recursively calls
-	%% system_continue/3 that jumps to loop/3
-	sys:handle_system_msg(
-		Req, Pid, Parent, ?MODULE, Debug, S,
-		Hibernate);
-handle_received_msg({'EXIT',Parent,Reason} = EXIT, Parent, Debug, S) ->
-	%% EXIT is not a 2-tuple therefore
-	%% not an event but this will stand out
-	%% in the crash report...
-	Q = [EXIT],
-	terminate(exit, Reason, ?STACKTRACE(), Debug, S, Q);
-handle_received_msg({timeout,TimerRef,TimerMsg} = Msg, Parent, Debug, S) ->
-	#{timer_refs := TimerRefs,
-		timer_types := TimerTypes,
-		hibernate := Hibernate} = S,
-	case TimerRefs of
-		#{TimerRef := TimerType} ->
-			%% We know of this timer; is it a running
-			%% timer or a timer being cancelled that
-			%% managed to send a late timeout message?
-			case TimerTypes of
-				#{TimerType := TimerRef} ->
-					%% The timer type maps back to this
-					%% timer ref, so it was a running timer
-					Event = {TimerType,TimerMsg},
-					%% Unregister the triggered timeout
-					NewTimerRefs =
-						maps:remove(TimerRef, TimerRefs),
-					NewTimerTypes =
-						maps:remove(TimerType, TimerTypes),
-					loop_receive_result(
-						Parent, Debug,
-						S#{
-							timer_refs := NewTimerRefs,
-							timer_types := NewTimerTypes},
-						Hibernate,
-						Event);
-				_ ->
-					%% This was a late timeout message
-					%% from timer being cancelled, so
-					%% ignore it and expect a cancel_timer
-					%% msg shortly
-					loop_receive(Parent, Debug, S)
-			end;
-		_ ->
-			%% Not our timer; present it as an event
-			Event = {info,Msg},
-			loop_receive_result(
-				Parent, Debug, S, Hibernate, Event)
-	end;
-handle_received_msg({cancel_timer,TimerRef,_} = Msg, Parent, Debug, S) ->
-	#{timer_refs := TimerRefs,
-		cancel_timers := CancelTimers,
-		hibernate := Hibernate} = S,
-	case TimerRefs of
-		#{TimerRef := _} ->
-			%% We must have requested a cancel
-			%% of this timer so it is already
-			%% removed from TimerTypes
-			NewTimerRefs =
-				maps:remove(TimerRef, TimerRefs),
-			NewCancelTimers = CancelTimers - 1,
-			NewS =
-				S#{
-					timer_refs := NewTimerRefs,
-					cancel_timers := NewCancelTimers},
-			if
-				Hibernate =:= true, NewCancelTimers =:= 0 ->
-					%% No more cancel_timer msgs to expect;
-					%% we can hibernate
-					loop_hibernate(Parent, Debug, NewS);
-				NewCancelTimers >= 0 -> % Assert
-					loop_receive(Parent, Debug, NewS)
-			end;
-		_ ->
-			%% Not our cancel_timer msg;
-			%% present it as an event
-			Event = {info,Msg},
-			loop_receive_result(
-				Parent, Debug, S, Hibernate, Event)
-	end;
-handle_received_msg(Msg, Parent, Debug, S) ->
-	%% External msg
-	#{hibernate := Hibernate} = S,
-	Event =
-		case Msg of
-			{'$gen_call',From,Request} ->
-				{{call,From},Request};
-			{'$gen_cast',E} ->
-				{cast,E};
-			_ ->
-				{info,Msg}
-		end,
-	loop_receive_result(
-		Parent, Debug, S, Hibernate, Event).
+    end.
 
 loop_receive_result(
   Parent, Debug,
