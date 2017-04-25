@@ -2368,6 +2368,7 @@ typedef struct {
     int used_fds;
     int num_errors;
     int no_driver_select_structs;
+    int no_enif_select_structs;
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     int internal_fds;
     ErtsPollEvents *epep;
@@ -2392,6 +2393,8 @@ static void doit_erts_check_io_debug(void *vstate, void *vcounters)
 
     if (state->driver.select)
 	counters->no_driver_select_structs++;
+    if (state->driver.nif)
+        counters->no_enif_select_structs++;
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     if (state->events || ep_events) {
@@ -2614,6 +2617,7 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(ErtsCheckIoDebugInfo *ciodip)
     ErtsDrvEventState null_des;
 
     null_des.driver.select = NULL;
+    null_des.driver.nif = NULL;
     null_des.driver.stop.drv_ptr = NULL;
     null_des.events = 0;
     null_des.remove_cnt = 0;
@@ -2636,6 +2640,7 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(ErtsCheckIoDebugInfo *ciodip)
     counters.used_fds = 0;
     counters.num_errors = 0;
     counters.no_driver_select_structs = 0;
+    counters.no_enif_select_structs = 0;
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     len = erts_atomic_read_nob(&drv_ev_state_len);
@@ -2654,10 +2659,12 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(ErtsCheckIoDebugInfo *ciodip)
 
     ciodip->no_used_fds = counters.used_fds;
     ciodip->no_driver_select_structs = counters.no_driver_select_structs;
+    ciodip->no_enif_select_structs = counters.no_enif_select_structs;
 
     erts_printf("\n");
     erts_printf("used fds=%d\n", counters.used_fds);
     erts_printf("Number of driver_select() structures=%d\n", counters.no_driver_select_structs);
+    erts_printf("Number of enif_select() structures=%d\n", counters.no_enif_select_structs);
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     erts_printf("internal fds=%d\n", counters.internal_fds);
 #endif
