@@ -203,8 +203,8 @@ void error(char* format, ...);
  * Local functions.
  */
 
-#if !defined(ERTS_HAVE_SMP_EMU)
-static void usage_notsup(const char *switchname);
+#if !defined(ERTS_HAVE_SMP_EMU) || !defined(ERTS_HAVE_PLAIN_EMU)
+static void usage_notsup(const char *switchname, const char *alt);
 #endif
 static char **build_args_from_env(char *env_var);
 static char **build_args_from_string(char *env_var);
@@ -487,8 +487,7 @@ int main(int argc, char **argv)
     cpuinfo = erts_cpu_info_create();
     /* '-smp auto' is default */ 
 #ifdef ERTS_HAVE_SMP_EMU
-    if (erts_get_cpu_configured(cpuinfo) > 1)
-	emu_type |= EMU_TYPE_SMP;
+    emu_type |= EMU_TYPE_SMP;
 #endif
 
 #if defined(__WIN32__) && defined(WIN32_ALWAYS_DEBUG)
@@ -520,12 +519,11 @@ int main(int argc, char **argv)
 		    i++;
 		smp_auto:
 		    emu_type_passed |= EMU_TYPE_SMP;
-#ifdef ERTS_HAVE_SMP_EMU
-		    if (erts_get_cpu_configured(cpuinfo) > 1)
-			emu_type |= EMU_TYPE_SMP;
-		    else
+#if defined(ERTS_HAVE_PLAIN_EMU) && !defined(ERTS_HAVE_SMP_EMU)
+                    emu_type &= ~EMU_TYPE_SMP;
+#else
+                    emu_type |= EMU_TYPE_SMP;
 #endif
-			emu_type &= ~EMU_TYPE_SMP;
 		}
 		else if (strcmp(argv[i+1], "enable") == 0) {
 		    i++;
@@ -534,14 +532,18 @@ int main(int argc, char **argv)
 #ifdef ERTS_HAVE_SMP_EMU
 		    emu_type |= EMU_TYPE_SMP;
 #else
-		    usage_notsup("-smp enable");
+		    usage_notsup("-smp enable", "");
 #endif
 		}
 		else if (strcmp(argv[i+1], "disable") == 0) {
 		    i++;
 		smp_disable:
-		    emu_type_passed |= EMU_TYPE_SMP;
+		    emu_type_passed &= ~EMU_TYPE_SMP;
+#ifdef ERTS_HAVE_PLAIN_EMU
 		    emu_type &= ~EMU_TYPE_SMP;
+#else
+                    usage_notsup("-smp disable", " Use \"+S 1\" instead.");
+#endif
 		}
 		else {
 		smp:
@@ -550,7 +552,7 @@ int main(int argc, char **argv)
 #ifdef ERTS_HAVE_SMP_EMU
 		    emu_type |= EMU_TYPE_SMP;
 #else
-		    usage_notsup("-smp");
+		    usage_notsup("-smp", "");
 #endif
 		}
 	    } else if (strcmp(argv[i], "-smpenable") == 0) {
@@ -1183,14 +1185,14 @@ usage_aux(void)
 #ifdef __WIN32__
 	  "[-start_erl [datafile]] "
 #endif
-	  "[-smp "
+	  "[-smp [auto"
 #ifdef ERTS_HAVE_SMP_EMU
-	  "[enable|"
+	  "|enable"
 #endif
-	  "auto|disable"
-#ifdef ERTS_HAVE_SMP_EMU
+#ifdef ERTS_HAVE_PLAIN_EMU
+	  "|disable"
+#endif
 	  "]"
-#endif
 	  "] "
 	  "[-make] [-man [manopts] MANPAGE] [-x] [-emu_args] [-start_epmd BOOLEAN] "
 	  "[-args_file FILENAME] [+A THREADS] [+a SIZE] [+B[c|d|i]] [+c [BOOLEAN]] "
@@ -1212,11 +1214,11 @@ usage(const char *switchname)
     usage_aux();
 }
 
-#if !defined(ERTS_HAVE_SMP_EMU)
+#if !defined(ERTS_HAVE_SMP_EMU) || !defined(ERTS_HAVE_PLAIN_EMU)
 static void
-usage_notsup(const char *switchname)
+usage_notsup(const char *switchname, const char *alt)
 {
-    fprintf(stderr, "Argument \'%s\' not supported.\n", switchname);
+    fprintf(stderr, "Argument \'%s\' not supported.%s\n", switchname, alt);
     usage_aux();
 }
 #endif

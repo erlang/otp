@@ -66,17 +66,10 @@ boot_combo(Config) when is_list(Config) ->
 			  ok
 		  end
 	  end,
-    SMPDisable = fun () -> false = erlang:system_info(smp_support) end,
     try
 	chk_boot(Config, "+Ktrue", NOOP),
 	chk_boot(Config, "+A42", A42),
-	chk_boot(Config, "-smp disable", SMPDisable),
 	chk_boot(Config, "+Ktrue +A42", A42),
-	chk_boot(Config, "-smp disable +A42",
-		 fun () -> SMPDisable(), A42() end),
-	chk_boot(Config, "-smp disable +Ktrue", SMPDisable),
-	chk_boot(Config, "-smp disable +Ktrue +A42",
-		 fun () -> SMPDisable(), A42() end),
 	%% A lot more combos could be implemented...
 	ok
     after

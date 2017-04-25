@@ -20,9 +20,9 @@
 
 .NOTPARALLEL:
 
-include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
 include vsn.mk
+include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 # ----------------------------------------------------------------------
 
@@ -33,10 +33,8 @@ ifeq ($(NO_START_SCRIPTS),)
 ERTSDIRS += start_scripts
 endif
 
-EXTRA_FLAVORS=smp
-
 .PHONY: all
-all: smp opt
+all: $(FLAVORS)
 
 .PHONY: docs
 docs:
@@ -56,9 +54,9 @@ debug opt clean:
 # - don't use them in scripts or assume they will always stay like this!
 #
 
-.PHONY: $(EXTRA_FLAVORS)
-$(EXTRA_FLAVORS):
-	$(V_at)( cd emulator && $(MAKE) opt FLAVOR=$@ )
+.PHONY: $(FLAVORS)
+$(FLAVORS):
+	$(V_at)( $(MAKE) opt FLAVOR=$@ )
 
 # Make erl script and erlc in $(ERL_TOP)/bin which runs the compiled version
 # Note that erlc is not a script and requires extra handling on cygwin.
@@ -129,7 +127,7 @@ makefiles:
 
 .PHONY: release
 release:
-	$(V_at)for f in plain $(EXTRA_FLAVORS) ; do \
+	$(V_at)for f in $(FLAVORS); do \
 		( cd emulator && $(MAKE) release FLAVOR=$$f ) \
 	done
 	$(V_at)for d in $(ERTSDIRS) $(XINSTDIRS); do \
