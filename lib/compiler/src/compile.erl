@@ -1369,8 +1369,6 @@ keep_compile_option(from_core) -> false;
 keep_compile_option({parse_transform, _}) -> false;
 keep_compile_option({d, _, _}) -> false;
 %% Do not affect compilation result on future calls.
-keep_compile_option({outdir, _}) -> false;
-keep_compile_option(warnings_as_errors) -> false;
 keep_compile_option(Option) -> effects_code_generation(Option).
 
 start_crypto() ->
@@ -1498,9 +1496,11 @@ effects_code_generation(Option) ->
 	report_errors -> false;
 	return_errors-> false;
 	return_warnings-> false;
+	warnings_as_errors -> false;
 	binary -> false;
 	verbose -> false;
 	{cwd,_} -> false;
+	{outdir, _} -> false;
 	_ -> true
     end.
 
