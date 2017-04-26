@@ -212,7 +212,7 @@ keep_compile_option(_) -> true.
 
 -type type_table() :: erl_types:type_table().
 
--spec get_record_and_type_info(cerl:module()) ->
+-spec get_record_and_type_info(cerl:c_module()) ->
         {'ok', type_table()} | {'error', string()}.
 
 get_record_and_type_info(Core) ->
@@ -478,7 +478,7 @@ merge_types(CServer, Plt) ->
 -type spec_map()     :: dialyzer_codeserver:contracts().
 -type callback_map() :: dialyzer_codeserver:contracts().
 
--spec get_spec_info(module(), cerl:module(), type_table()) ->
+-spec get_spec_info(module(), cerl:c_module(), type_table()) ->
         {'ok', spec_map(), callback_map()} | {'error', string()}.
 
 get_spec_info(ModName, Core, RecordsMap) ->
@@ -555,7 +555,7 @@ get_core_line([L | _As]) when is_integer(L) -> L;
 get_core_line([_ | As]) -> get_core_line(As);
 get_core_line([]) -> undefined.
 
--spec get_fun_meta_info(module(), cerl:module(), [dial_warn_tag()]) ->
+-spec get_fun_meta_info(module(), cerl:c_module(), [dial_warn_tag()]) ->
                 dialyzer_codeserver:fun_meta_info() | {'error', string()}.
 
 get_fun_meta_info(M, Core, LegalWarnings) ->
@@ -591,7 +591,7 @@ process_options([{{_M, _F, _A}=MFA, Opts}|Left], Warnings) ->
   end;
 process_options([], _Warnings) -> [].
 
--spec get_nowarn_unused_function(module(), cerl:module(), [fa()]) ->
+-spec get_nowarn_unused_function(module(), cerl:c_module(), [fa()]) ->
                                     [{mfa(), 'no_unused'}].
 
 get_nowarn_unused_function(M, Core, Functions) ->
@@ -607,7 +607,7 @@ get_nowarn_unused_function(M, Core, Functions) ->
         end,
   [{{M, F, A}, no_unused} || {F, A} <- FAs].
 
--spec get_func_suppressions(module(), cerl:module(), [fa()]) ->
+-spec get_func_suppressions(module(), cerl:c_module(), [fa()]) ->
                             [{mfa(), 'nowarn_function' | dial_warn_tag()}].
 
 get_func_suppressions(M, Core, Functions) ->
@@ -621,7 +621,7 @@ get_func_suppressions(M, Core, Functions) ->
   lists:foreach(Fun, TagsFAs),
   [{{M, F, A}, W} || {{Warnings, _L, _File}, {F, A}} <- TagsFAs, W <- Warnings].
 
--spec get_options(cerl:module(), [dial_warn_tag()]) ->
+-spec get_options(cerl:c_module(), [dial_warn_tag()]) ->
                      ordsets:ordset(dial_warn_tag()).
 
 get_options(Core, LegalWarnings) ->
@@ -735,7 +735,7 @@ format_sig(Type, RecDict) ->
 flat_format(Fmt, Lst) ->
   lists:flatten(io_lib:format(Fmt, Lst)).
 
--spec get_options_with_tag(atom(), cerl:module()) -> [term()].
+-spec get_options_with_tag(atom(), cerl:c_module()) -> [term()].
 
 get_options_with_tag(Tag, Core) ->
   [O || {Key, Value} <- cerl:module_attrs(Core),
