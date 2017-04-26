@@ -289,8 +289,8 @@
 				      "^lib",
 				      "^releases"]).
 -define(EMBEDDED_EXCL_SYS_FILTERS,
-	["^bin/(erlc|dialyzer)(|\\.exe)\$",
-	 "^erts.*/bin/(erlc|dialyzer)(|\\.exe)\$",
+	["^bin/(erlc|dialyzer|typer)(|\\.exe)\$",
+	 "^erts.*/bin/(erlc|dialyzer|typer)(|\\.exe)\$",
 	 "^erts.*/bin/.*(debug|pdb)"]).
 -define(EMBEDDED_INCL_APP_FILTERS,    ["^ebin",
 				       "^include",
@@ -303,7 +303,7 @@
 				       "^erts.*/bin",
 				       "^lib\$"]).
 -define(STANDALONE_EXCL_SYS_FILTERS,
-	["^erts.*/bin/(erlc|dialyzer)(|\\.exe)\$",
+	["^erts.*/bin/(erlc|dialyzer|typer)(|\\.exe)\$",
 	 "^erts.*/bin/(start|escript|to_erl|run_erl)(|\\.exe)\$",
 	 "^erts.*/bin/.*(debug|pdb)"]).
 -define(STANDALONE_INCL_APP_FILTERS,  ["^ebin",
