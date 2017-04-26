@@ -134,7 +134,7 @@
 	  role :: client | role(),
 	  peer :: undefined | 
                   {inet:hostname(),
-                   {inet:ip_adress(),inet:port_number()}},         %% string version of peer address 
+                   {inet:ip_address(),inet:port_number()}},         %% string version of peer address 
 
 	  c_vsn,        %% client version {Major,Minor}
 	  s_vsn,        %% server version {Major,Minor}
