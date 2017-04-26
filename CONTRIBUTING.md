@@ -9,6 +9,9 @@ for more information.
 
 You can contribute to Erlang/OTP by opening a Pull Request.
 
+Make sure you create a new branch for your pull request with `git checkout -b new-branch-name`.
+Never do your work directly on `maint` or `master`.
+
 ## Fixing a bug
 
 * In most cases, pull requests for bug fixes should be based on the `maint` branch.
