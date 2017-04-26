@@ -296,8 +296,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 			     userauth_supported_methods = Methods} = Ssh) ->
     
     case verify_sig(SessionId, User, "ssh-connection", 
-		    binary_to_list(BAlg),
-		    KeyBlob, SigWLen, Opts) of
+		    BAlg, KeyBlob, SigWLen, Opts) of
 	true ->
 	    {authorized, User, 
 	     ssh_transport:ssh_packet(
@@ -507,21 +506,18 @@ pre_verify_sig(User, KeyBlob, Opts) ->
 	    false
     end.
 
-verify_sig(SessionId, User, Service, Alg, KeyBlob, SigWLen, Opts) ->
+verify_sig(SessionId, User, Service, AlgBin, KeyBlob, SigWLen, Opts) ->
     try
+        Alg = binary_to_list(AlgBin),
         {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
         UserOpts = ?GET_OPT(user_options, Opts),
-        Key0 = public_key:ssh_decode(KeyBlob, ssh2_pubkey), % or exception
-        true = KeyCb:is_auth_key(Key0, User, [{key_cb_private,KeyCbOpts}|UserOpts]),
-        Key0
-    of
-        Key ->
-            PlainText = build_sig_data(SessionId, User, Service,
-                                       KeyBlob, Alg),
-            <<?UINT32(AlgSigLen), AlgSig:AlgSigLen/binary>> = SigWLen,
-            <<?UINT32(AlgLen), _Alg:AlgLen/binary,
-              ?UINT32(SigLen), Sig:SigLen/binary>> = AlgSig,
-            ssh_transport:verify(PlainText, ssh_transport:sha(list_to_atom(Alg)), Sig, Key)
+        Key = public_key:ssh_decode(KeyBlob, ssh2_pubkey), % or exception
+        true = KeyCb:is_auth_key(Key, User, [{key_cb_private,KeyCbOpts}|UserOpts]),
+        PlainText = build_sig_data(SessionId, User, Service, KeyBlob, Alg),
+        <<?UINT32(AlgSigLen), AlgSig:AlgSigLen/binary>> = SigWLen,
+        <<?UINT32(AlgLen), _Alg:AlgLen/binary,
+          ?UINT32(SigLen), Sig:SigLen/binary>> = AlgSig,
+        ssh_transport:verify(PlainText, ssh_transport:sha(Alg), Sig, Key)
     catch
 	_:_ ->
 	    false

@@ -1710,6 +1710,7 @@ ext_info({"server-sig-algs",SigAlgs}, D0 = #data{ssh_params=#ssh{role=client}=Ss
     SupportedAlgs = lists:map(fun erlang:atom_to_list/1, ssh_transport:supported_algorithms(public_key)),
     Ssh = Ssh0#ssh{userauth_pubkeys = 
                        [list_to_atom(SigAlg) || SigAlg <- string:tokens(SigAlgs,","),
+                                                %% length of SigAlg is implicitly checked by member:
                                                 lists:member(SigAlg, SupportedAlgs)
                        ]},
     D0#data{ssh_params = Ssh};
@@ -2008,12 +2009,14 @@ handshake(Pid, Ref, Timeout) ->
     end.
 
 update_inet_buffers(Socket) ->
-    {ok, BufSzs0} = inet:getopts(Socket, [sndbuf,recbuf]),
-    MinVal = 655360,
-    case
-	[{Tag,MinVal} || {Tag,Val} <- BufSzs0,
-			 Val < MinVal]
+    try
+        {ok, BufSzs0} = inet:getopts(Socket, [sndbuf,recbuf]),
+        MinVal = 655360,
+        [{Tag,MinVal} || {Tag,Val} <- BufSzs0,
+                         Val < MinVal]
     of
 	[] -> ok;
 	NewOpts -> inet:setopts(Socket, NewOpts)
+    catch
+        _:_ -> ok
     end.

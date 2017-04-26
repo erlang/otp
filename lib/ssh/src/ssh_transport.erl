@@ -1202,15 +1202,23 @@ sign(SigData, HashAlg, Key) ->
     public_key:sign(SigData, HashAlg, Key).
 
 verify(PlainText, HashAlg, Sig, {_,  #'Dss-Parms'{}} = Key) ->
-    <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>> = Sig,
-    Signature = public_key:der_encode('Dss-Sig-Value', #'Dss-Sig-Value'{r = R, s = S}),
-    public_key:verify(PlainText, HashAlg, Signature, Key);
+    case Sig of
+        <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>> ->
+            Signature = public_key:der_encode('Dss-Sig-Value', #'Dss-Sig-Value'{r = R, s = S}),
+            public_key:verify(PlainText, HashAlg, Signature, Key);
+        _ ->
+            false
+    end;
 verify(PlainText, HashAlg, Sig, {#'ECPoint'{},_} = Key) ->
-    <<?UINT32(Rlen),R:Rlen/big-signed-integer-unit:8,
-      ?UINT32(Slen),S:Slen/big-signed-integer-unit:8>> = Sig,
-    Sval = #'ECDSA-Sig-Value'{r=R, s=S},
-    DerEncodedSig = public_key:der_encode('ECDSA-Sig-Value',Sval),
-    public_key:verify(PlainText, HashAlg, DerEncodedSig, Key);
+    case Sig of
+        <<?UINT32(Rlen),R:Rlen/big-signed-integer-unit:8,
+          ?UINT32(Slen),S:Slen/big-signed-integer-unit:8>> ->
+            Sval = #'ECDSA-Sig-Value'{r=R, s=S},
+            DerEncodedSig = public_key:der_encode('ECDSA-Sig-Value',Sval),
+            public_key:verify(PlainText, HashAlg, DerEncodedSig, Key);
+        _ ->
+            false
+    end;
 verify(PlainText, HashAlg, Sig, Key) ->
     public_key:verify(PlainText, HashAlg, Sig, Key).
 
@@ -1795,7 +1803,8 @@ sha(?'secp384r1') -> sha(secp384r1);
 sha(?'secp521r1') -> sha(secp521r1);
 sha('ecdh-sha2-nistp256') -> sha(secp256r1);
 sha('ecdh-sha2-nistp384') -> sha(secp384r1);
-sha('ecdh-sha2-nistp521') -> sha(secp521r1).
+sha('ecdh-sha2-nistp521') -> sha(secp521r1);
+sha(Str) when is_list(Str), length(Str)<50 -> sha(list_to_atom(Str)).
 
 
 mac_key_bytes('hmac-sha1')    -> 20;
