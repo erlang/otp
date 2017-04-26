@@ -501,7 +501,7 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTi
         {'EXIT', {undef, [{Mod, handle_info, [_,_,_], _}|_]}} ->
             error_logger:warning_msg("** Undefined handle_info in ~p~n"
                                      "** Unhandled message: ~p~n", [Mod, Msg]),
-            loop(Parent, Name, StateName, StateData, Mod, infinity, []);
+            loop(Parent, Name, StateName, StateData, Mod, infinity, HibernateAfterTimeout, []);
 	{'EXIT', What} ->
 	    terminate(What, Name, Msg, Mod, StateName, StateData, []);
 	Reply ->
