@@ -446,12 +446,12 @@ do_measure(_Config) ->
                    {int, rand:uniform_s(Range, State)}
            end) || Algo <- Algos],
     %%
-    ct:pal("~nRNG uniform integer 2^(N-1)  performance~n",[]),
-    RangeTwoPowFun = fun (State) -> quart_range(State) bsl 1 end,
+    ct:pal("~nRNG uniform integer half range performance~n",[]),
+    HalfRangeFun = fun (State) -> half_range(State) end,
     TMark2 =
         measure_1(
           random,
-          RangeTwoPowFun,
+          HalfRangeFun,
           undefined,
           fun (Range, State) ->
                   {int, random:uniform_s(Range, State)}
@@ -459,18 +459,18 @@ do_measure(_Config) ->
     _ =
         [measure_1(
            Algo,
-           RangeTwoPowFun,
+           HalfRangeFun,
            TMark2,
            fun (Range, State) ->
                    {int, rand:uniform_s(Range, State)}
            end) || Algo <- Algos],
     %%
-    ct:pal("~nRNG uniform integer 3*2^(N-2)+1  performance~n",[]),
-    RangeLargeFun = fun (State) -> 3 * quart_range(State) + 1 end,
+    ct:pal("~nRNG uniform integer half range + 1  performance~n",[]),
+    HalfRangePlus1Fun = fun (State) -> half_range(State) + 1 end,
     TMark3 =
         measure_1(
           random,
-          RangeLargeFun,
+          HalfRangePlus1Fun,
           undefined,
           fun (Range, State) ->
                   {int, random:uniform_s(Range, State)}
@@ -478,17 +478,18 @@ do_measure(_Config) ->
     _ =
         [measure_1(
            Algo,
-           RangeLargeFun,
+           HalfRangePlus1Fun,
            TMark3,
            fun (Range, State) ->
                    {int, rand:uniform_s(Range, State)}
            end) || Algo <- Algos],
     %%
-    ct:pal("~nRNG uniform integer 2^128  performance~n",[]),
+    ct:pal("~nRNG uniform integer full range - 1 performance~n",[]),
+    FullRangeMinus1Fun = fun (State) -> (half_range(State) bsl 1) - 1 end,
     TMark4 =
         measure_1(
           random,
-          fun (_) -> 1 bsl 128 end,
+          FullRangeMinus1Fun,
           undefined,
           fun (Range, State) ->
                   {int, random:uniform_s(Range, State)}
@@ -496,17 +497,18 @@ do_measure(_Config) ->
     _ =
         [measure_1(
            Algo,
-           fun (_) -> 1 bsl 128 end,
+           FullRangeMinus1Fun,
            TMark4,
            fun (Range, State) ->
                    {int, rand:uniform_s(Range, State)}
            end) || Algo <- Algos],
     %%
-    ct:pal("~nRNG uniform integer 2^128 + 1  performance~n",[]),
+    ct:pal("~nRNG uniform integer full range performance~n",[]),
+    FullRangeFun = fun (State) -> half_range(State) bsl 1 end,
     TMark5 =
         measure_1(
           random,
-          fun (_) -> (1 bsl 128) + 1 end,
+          FullRangeFun,
           undefined,
           fun (Range, State) ->
                   {int, random:uniform_s(Range, State)}
@@ -514,14 +516,71 @@ do_measure(_Config) ->
     _ =
         [measure_1(
            Algo,
-           fun (_) -> (1 bsl 128) + 1 end,
+           FullRangeFun,
            TMark5,
            fun (Range, State) ->
                    {int, rand:uniform_s(Range, State)}
            end) || Algo <- Algos],
     %%
-    ct:pal("~nRNG uniform float performance~n",[]),
+    ct:pal("~nRNG uniform integer full range + 1 performance~n",[]),
+    FullRangePlus1Fun = fun (State) -> (half_range(State) bsl 1) + 1 end,
     TMark6 =
+        measure_1(
+          random,
+          FullRangePlus1Fun,
+          undefined,
+          fun (Range, State) ->
+                  {int, random:uniform_s(Range, State)}
+          end),
+    _ =
+        [measure_1(
+           Algo,
+           FullRangePlus1Fun,
+           TMark6,
+           fun (Range, State) ->
+                   {int, rand:uniform_s(Range, State)}
+           end) || Algo <- Algos],
+    %%
+    ct:pal("~nRNG uniform integer double range performance~n",[]),
+    DoubleRangeFun = fun (State) -> half_range(State) bsl 2 end,
+    TMark7 =
+        measure_1(
+          random,
+          DoubleRangeFun,
+          undefined,
+          fun (Range, State) ->
+                  {int, random:uniform_s(Range, State)}
+          end),
+    _ =
+        [measure_1(
+           Algo,
+           DoubleRangeFun,
+           TMark7,
+           fun (Range, State) ->
+                   {int, rand:uniform_s(Range, State)}
+           end) || Algo <- Algos],
+    %%
+    ct:pal("~nRNG uniform integer double range + 1  performance~n",[]),
+    DoubleRangePlus1Fun = fun (State) -> (half_range(State) bsl 2) + 1 end,
+    TMark8 =
+        measure_1(
+          random,
+          DoubleRangePlus1Fun,
+          undefined,
+          fun (Range, State) ->
+                  {int, random:uniform_s(Range, State)}
+          end),
+    _ =
+        [measure_1(
+           Algo,
+           DoubleRangePlus1Fun,
+           TMark8,
+           fun (Range, State) ->
+                   {int, rand:uniform_s(Range, State)}
+           end) || Algo <- Algos],
+    %%
+    ct:pal("~nRNG uniform float performance~n",[]),
+    TMark9 =
         measure_1(
           random,
           fun (_) -> 0 end,
@@ -533,7 +592,7 @@ do_measure(_Config) ->
         [measure_1(
            Algo, 
            fun (_) -> 0 end,
-           TMark6,
+           TMark9,
            fun (_, State) ->
                    {uniform, rand:uniform_s(State)}
            end) || Algo <- Algos],
@@ -543,7 +602,7 @@ do_measure(_Config) ->
     _ = [measure_1(
            Algo,
            fun (_) -> 0 end,
-           TMark6,
+           TMark9,
            fun (_, State) ->
                    {normal, rand:normal_s(State)}
            end) || Algo <- Algos],
@@ -1004,7 +1063,7 @@ range({#{max:=Max}, _}) -> Max; %% Old incorrect range
 range({_, _, _}) -> 51. % random
 
 
-quart_range({#{bits:=Bits}, _}) -> 1 bsl (Bits - 2);
-quart_range({#{max:=Max}, _}) -> (Max bsr 2) + 1;
-quart_range({#{}, _}) -> 1 bsl 62; % crypto
-quart_range({_, _, _}) -> 1 bsl 49. % random
+half_range({#{bits:=Bits}, _}) -> 1 bsl (Bits - 1);
+half_range({#{max:=Max}, _}) -> (Max bsr 1) + 1;
+half_range({#{}, _}) -> 1 bsl 63; % crypto
+half_range({_, _, _}) -> 1 bsl 50. % random
