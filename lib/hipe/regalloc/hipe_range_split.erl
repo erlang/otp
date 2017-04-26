@@ -270,8 +270,8 @@ defbutlast(L, Defs) -> maps:get(L, Defs).
 
 -spec defseti_new() -> defseti().
 -spec defseti_union(defseti(), defseti()) -> defseti().
--spec defseti_add_ordset(ordset:ordset(temp()), defseti()) -> defseti().
--spec defseti_from_ordset(ordset:ordset(temp())) -> defseti().
+-spec defseti_add_ordset(ordsets:ordset(temp()), defseti()) -> defseti().
+-spec defseti_from_ordset(ordsets:ordset(temp())) -> defseti().
 -spec defseti_finalise(defseti()) -> defsetf().
 -spec defsetf_member(temp(), defsetf()) -> boolean().
 -spec defsetf_intersect_ordset(ordsets:ordset(temp()), defsetf())
@@ -415,7 +415,7 @@ rdefset_finalise(Ord) -> {arr, bitarr_from_bitord(Ord)}.
 %% rdefsetf_top() -> top.
 rdefsetf_empty() -> {arr, bitarr_new()}.
 
--spec rdefsetf_add_ordset(ordset:ordset(temp()), rdefsetf()) -> rdefsetf().
+-spec rdefsetf_add_ordset(ordsets:ordset(temp()), rdefsetf()) -> rdefsetf().
 rdefsetf_add_ordset(_, top) -> top;
 rdefsetf_add_ordset(OS, {arr, Arr}) ->
   {arr, lists:foldl(fun bitarr_set/2, Arr, OS)}.
