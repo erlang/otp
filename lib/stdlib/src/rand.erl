@@ -265,7 +265,7 @@ seed_s(Alg0, S0 = {_, _, _}) ->
 %%% uniform/0, uniform/1, uniform_s/1, uniform_s/2 are all
 %%% uniformly distributed random numbers.
 
-%% uniform/0: returns a random float X where 0.0 < X < 1.0,
+%% uniform/0: returns a random float X where 0.0 =< X < 1.0,
 %% updating the state in the process dictionary.
 
 -spec uniform() -> X :: float().
@@ -285,7 +285,7 @@ uniform(N) ->
     X.
 
 %% uniform_s/1: given a state, uniform_s/1
-%% returns a random float X where 0.0 < X < 1.0,
+%% returns a random float X where 0.0 =< X < 1.0,
 %% and a new state.
 
 -spec uniform_s(State :: state()) -> {X :: float(), NewState :: state()}.
@@ -742,20 +742,20 @@ exrop_uniform(Range, {Alg, R}) ->
     MaxMinusRange = ?BIT(58) - Range,
     ?uniform_range(Range, Alg, R1, V, MaxMinusRange, I).
 
-%% Split a 116 bit constant into two '1'++58 bit words,
-%% the top '1' marks the top of the word
+%% Split a 116 bit constant into two 58 bit words,
+%% a top '1' marks the end of the low word.
 -define(
    JUMP_116(Jump),
-   [?BIT(58) bor ?MASK(58, (Jump)),?BIT(58) bor ((Jump) bsr 58)]).
+   [?BIT(58) bor ?MASK(58, (Jump)),(Jump) bsr 58]).
 %%
 exrop_jump({Alg,S}) ->
     [J|Js] = ?JUMP_116(16#9863200f83fcd4a11293241fcb12a),
     {Alg, exrop_jump(S, 0, 0, J, Js)}.
 %%
 -dialyzer({no_improper_lists, exrop_jump/5}).
-exrop_jump(_S, S0, S1, 1, []) -> % End of jump constant
+exrop_jump(_S, S0, S1, 0, []) -> % End of jump constant
     [S0|S1];
-exrop_jump(S, S0, S1, 1, [J|Js]) -> % End of the word
+exrop_jump(S, S0, S1, 1, [J|Js]) -> % End of word
     exrop_jump(S, S0, S1, J, Js);
 exrop_jump([S__0|S__1] = _S, S0, S1, J, Js) ->
     case ?MASK(1, J) of
