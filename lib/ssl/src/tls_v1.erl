@@ -29,7 +29,7 @@
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 
--export([master_secret/4, finished/5, certificate_verify/3, mac_hash/7,
+-export([master_secret/4, finished/5, certificate_verify/3, mac_hash/7, hmac_hash/3,
 	 setup_keys/8, suites/1, prf/5,
 	 ecc_curves/1, ecc_curves/2, oid_to_enum/1, enum_to_oid/1, 
 	 default_signature_algs/1, signature_algs/2]).

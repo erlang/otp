@@ -534,8 +534,7 @@ calc_mac_hash(Type, Version, #{mac_secret := MacSecret,
 			       security_parameters := #security_parameters{mac_algorithm = MacAlg}},
 	      Epoch, SeqNo, Fragment) ->
     Length = erlang:iolist_size(Fragment),
-    NewSeq = (Epoch bsl 48) + SeqNo,
-    mac_hash(Version, MacAlg, MacSecret, NewSeq, Type,
+    mac_hash(Version, MacAlg, MacSecret, Epoch, SeqNo, Type,
 	     Length, Fragment).
 
 highest_protocol_version() ->
@@ -548,9 +547,11 @@ sufficient_dtlsv1_2_crypto_support() ->
     CryptoSupport = crypto:supports(),
     proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport)).
 
-mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
-    dtls_v1:mac_hash(Version, MacAlg, MacSecret, SeqNo, Type,
-		     Length, Fragment).
-
+mac_hash({Major, Minor}, MacAlg, MacSecret, Epoch, SeqNo, Type, Length, Fragment) ->
+    Value = [<<?UINT16(Epoch), ?UINT48(SeqNo), ?BYTE(Type),
+       ?BYTE(Major), ?BYTE(Minor), ?UINT16(Length)>>,
+     Fragment],
+    dtls_v1:hmac_hash(MacAlg, MacSecret, Value).
+    
 calc_aad(Type, {MajVer, MinVer}, Epoch, SeqNo) ->
     <<?UINT16(Epoch), ?UINT48(SeqNo), ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.

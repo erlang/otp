@@ -21,7 +21,7 @@
 
 -include("ssl_cipher.hrl").
 
--export([suites/1, all_suites/1, mac_hash/7, ecc_curves/1, 
+-export([suites/1, all_suites/1, hmac_hash/3, ecc_curves/1, 
          corresponding_tls_version/1, corresponding_dtls_version/1,
          cookie_secret/0, cookie_timeout/0]).
 
@@ -40,9 +40,8 @@ all_suites(Version) ->
                  end,
                  ssl_cipher:all_suites(corresponding_tls_version(Version))).
 
-mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
-    tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
-		    Length, Fragment).
+hmac_hash(MacAlg, MacSecret, Value) ->
+    tls_v1:hmac_hash(MacAlg, MacSecret, Value).
 
 ecc_curves({_Major, Minor}) ->
     tls_v1:ecc_curves(corresponding_minor_tls_version(Minor)).
