@@ -365,7 +365,7 @@ init_connection_handler(Role, Socket, Opts) ->
         {ok, StartState, D} ->
             process_flag(trap_exit, true),
             gen_statem:enter_loop(?MODULE,
-                                  [], %%[{debug,[trace,log,statistics,debug]} || Role==server],
+                                  [], %%[{debug,[trace,log,statistics,debug]} ], %% []
                                   StartState,
                                   D);
 
@@ -503,6 +503,10 @@ init_ssh_record(Role, _Socket, PeerAddr, Opts) ->
 	.
 
 -type handle_event_result() :: gen_statem:handle_event_result().
+
+-define(CONNECTED(StateName), 
+        (element(1,StateName) == connected orelse
+         element(1,StateName) == ext_info ) ).
 
 -spec handle_event(gen_statem:event_type(),
 		   event_content(),
@@ -1020,12 +1024,10 @@ handle_event(cast, data_size, _, _) ->
 
 
 
-handle_event(cast, _, StateName, _) when StateName /= {connected,server},
-					 StateName /= {connected,client} ->
+handle_event(cast, _, StateName, _) when not ?CONNECTED(StateName) ->
     {keep_state_and_data, [postpone]};
 
-
-handle_event(cast, {adjust_window,ChannelId,Bytes}, {connected,_}, D) ->
+handle_event(cast, {adjust_window,ChannelId,Bytes}, StateName, D) when ?CONNECTED(StateName) ->
     case ssh_channel:cache_lookup(cache(D), ChannelId) of
 	#channel{recv_window_size = WinSize,
 		 recv_window_pending = Pending,
@@ -1051,7 +1053,7 @@ handle_event(cast, {adjust_window,ChannelId,Bytes}, {connected,_}, D) ->
 	    keep_state_and_data
     end;
 
-handle_event(cast, {reply_request,success,ChannelId}, {connected,_}, D) ->
+handle_event(cast, {reply_request,success,ChannelId}, StateName, D) when ?CONNECTED(StateName) ->
     case ssh_channel:cache_lookup(cache(D), ChannelId) of
 	#channel{remote_id = RemoteId} ->
 	    Msg = ssh_connection:channel_success_msg(RemoteId),
@@ -1062,13 +1064,13 @@ handle_event(cast, {reply_request,success,ChannelId}, {connected,_}, D) ->
 	    keep_state_and_data
     end;
 
-handle_event(cast, {request,ChannelPid, ChannelId, Type, Data}, {connected,_}, D) ->
+handle_event(cast, {request,ChannelPid, ChannelId, Type, Data}, StateName, D) when ?CONNECTED(StateName) ->
     {keep_state,  handle_request(ChannelPid, ChannelId, Type, Data, false, none, D)};
 
-handle_event(cast, {request,ChannelId,Type,Data}, {connected,_}, D) ->
+handle_event(cast, {request,ChannelId,Type,Data}, StateName, D) when ?CONNECTED(StateName) ->
     {keep_state,  handle_request(ChannelId, Type, Data, false, none, D)};
 
-handle_event(cast, {unknown,Data}, {connected,_}, D) ->
+handle_event(cast, {unknown,Data}, StateName, D) when ?CONNECTED(StateName) ->
     Msg = #ssh_msg_unimplemented{sequence = Data},
     {keep_state, send_msg(Msg,D)};
 
@@ -1129,29 +1131,25 @@ handle_event({call,From}, stop, StateName, D0) ->
     {Repls,D} = send_replies(Replies, D0),
     {stop_and_reply, normal, [{reply,From,ok}|Repls], D#data{connection_state=Connection}};
 
-handle_event({call,_}, _, StateName, _) when StateName /= {connected,server},
-					     StateName /= {connected,client}  ->
+handle_event({call,_}, _, StateName, _) when not ?CONNECTED(StateName) ->
     {keep_state_and_data, [postpone]};
 
 handle_event({call,From}, {request, ChannelPid, ChannelId, Type, Data, Timeout}, StateName, D0) 
-  when element(1,StateName) == connected ;
-       element(1,StateName) == ext_info ->
+  when ?CONNECTED(StateName) ->
     D = handle_request(ChannelPid, ChannelId, Type, Data, true, From, D0),
     %% Note reply to channel will happen later when reply is recived from peer on the socket
     start_channel_request_timer(ChannelId, From, Timeout),
     {keep_state, cache_request_idle_timer_check(D)};
 
 handle_event({call,From}, {request, ChannelId, Type, Data, Timeout}, StateName, D0) 
-  when element(1,StateName) == connected ;
-       element(1,StateName) == ext_info ->
+  when ?CONNECTED(StateName) ->
     D = handle_request(ChannelId, Type, Data, true, From, D0),
     %% Note reply to channel will happen later when reply is recived from peer on the socket
     start_channel_request_timer(ChannelId, From, Timeout),
     {keep_state, cache_request_idle_timer_check(D)};
 
 handle_event({call,From}, {data, ChannelId, Type, Data, Timeout}, StateName, D0) 
-  when element(1,StateName) == connected ;
-       element(1,StateName) == ext_info ->
+  when ?CONNECTED(StateName) ->
     {{replies, Replies}, Connection} =
 	ssh_connection:channel_data(ChannelId, Type, Data, D0#data.connection_state, From),
     {Repls,D} = send_replies(Replies, D0#data{connection_state = Connection}),
@@ -1159,8 +1157,7 @@ handle_event({call,From}, {data, ChannelId, Type, Data, Timeout}, StateName, D0)
     {keep_state, D, Repls};
 
 handle_event({call,From}, {eof, ChannelId}, StateName, D0) 
-  when element(1,StateName) == connected ;
-       element(1,StateName) == ext_info ->
+  when ?CONNECTED(StateName) ->
     case ssh_channel:cache_lookup(cache(D0), ChannelId) of
 	#channel{remote_id = Id, sent_close = false} ->
 	    D = send_msg(ssh_connection:channel_eof_msg(Id), D0),
@@ -1172,8 +1169,7 @@ handle_event({call,From}, {eof, ChannelId}, StateName, D0)
 handle_event({call,From},
 	     {open, ChannelPid, Type, InitialWindowSize, MaxPacketSize, Data, Timeout},
 	     StateName,
-	     D0) when element(1,StateName) == connected ;
-                      element(1,StateName) == ext_info ->
+	     D0) when ?CONNECTED(StateName) ->
     erlang:monitor(process, ChannelPid),
     {ChannelId, D1} = new_channel_id(D0),
     D2 = send_msg(ssh_connection:channel_open_msg(Type, ChannelId,
@@ -1194,8 +1190,7 @@ handle_event({call,From},
     {keep_state, cache_cancel_idle_timer(D)};
 
 handle_event({call,From}, {send_window, ChannelId}, StateName, D) 
-  when element(1,StateName) == connected ;
-       element(1,StateName) == ext_info ->
+  when ?CONNECTED(StateName) ->
     Reply = case ssh_channel:cache_lookup(cache(D), ChannelId) of
 		#channel{send_window_size = WinSize,
 			 send_packet_size = Packsize} ->
@@ -1206,8 +1201,7 @@ handle_event({call,From}, {send_window, ChannelId}, StateName, D)
     {keep_state_and_data, [{reply,From,Reply}]};
 
 handle_event({call,From}, {recv_window, ChannelId}, StateName, D) 
-  when element(1,StateName) == connected ;
-       element(1,StateName) == ext_info ->
+  when ?CONNECTED(StateName) ->
     Reply = case ssh_channel:cache_lookup(cache(D), ChannelId) of
 		#channel{recv_window_size = WinSize,
 			 recv_packet_size = Packsize} ->
@@ -1218,8 +1212,7 @@ handle_event({call,From}, {recv_window, ChannelId}, StateName, D)
     {keep_state_and_data, [{reply,From,Reply}]};
 
 handle_event({call,From}, {close, ChannelId}, StateName, D0) 
-  when element(1,StateName) == connected ;
-       element(1,StateName) == ext_info ->
+  when ?CONNECTED(StateName) ->
     case ssh_channel:cache_lookup(cache(D0), ChannelId) of
 	#channel{remote_id = Id} = Channel ->
 	    D1 = send_msg(ssh_connection:channel_close_msg(Id), D0),
