@@ -184,11 +184,8 @@ form({function,_,_,_,_}=F0, Module, Opts) ->
 form({attribute,_,module,Mod}, Module, _Opts) ->
     true = is_atom(Mod),
     Module#imodule{name=Mod};
-form({attribute,_,file,{File,_Line}}, Module, _Opts) ->
-    Module#imodule{file=File};
-form({attribute,_,compile,_}, Module, _Opts) ->
-    %% Ignore compilation options.
-    Module;
+form({attribute,_,file,{File,_Line}}=F, #imodule{attrs=As}=Module, _Opts) ->
+    Module#imodule{file=File, attrs=[attribute(F)|As]};
 form({attribute,_,import,_}, Module, _Opts) ->
     %% Ignore. We have no futher use for imports.
     Module;
@@ -201,9 +198,8 @@ form(_, Module, _Opts) ->
     %% Ignore uninteresting forms such as 'eof'.
     Module.
 
-attribute(Attribute) ->
-    Fun = fun(A) ->  [erl_anno:location(A)] end,
-    {attribute,Line,Name,Val0} = erl_parse:map_anno(Fun, Attribute),
+attribute({attribute,A,Name,Val0}) ->
+    Line = [erl_anno:location(A)],
     Val = if
 	      is_list(Val0) -> Val0;
 	      true -> [Val0]

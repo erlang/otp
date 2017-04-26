@@ -198,9 +198,9 @@ expand_opts(Opts0) ->
     %% {debug_info_key,Key} implies debug_info.
     Opts = case {proplists:get_value(debug_info_key, Opts0),
 		 proplists:get_value(encrypt_debug_info, Opts0),
-		 proplists:get_bool(debug_info, Opts0)} of
+		 proplists:get_value(debug_info, Opts0)} of
 	       {undefined,undefined,_} -> Opts0;
-	       {_,_,false} -> [debug_info|Opts0];
+	       {_,_,undefined} -> [debug_info|Opts0];
 	       {_,_,_} -> Opts0
 	   end,
     foldr(fun expand_opt/2, [], Opts).
@@ -302,7 +302,7 @@ format_error_reason(Reason) ->
 		  ofile=""    :: file:filename(),
 		  module=[]   :: module() | [],
 		  core_code=[] :: cerl:c_module() | [],
-		  abstract_code=[] :: binary() | [], %Abstract code for debugger.
+		  abstract_code=[] :: abstract_code(), %Abstract code for debugger.
 		  options=[]  :: [option()],  %Options for compilation
 		  mod_options=[]  :: [option()], %Options for module_info
                   encoding=none :: none | epp:source_encoding(),
@@ -1315,50 +1315,61 @@ core_inline_module(Code0, #compile{options=Opts}=St) ->
     Code = cerl_inline:core_transform(Code0, Opts),
     {ok,Code,St}.
 
-save_abstract_code(Code, #compile{ifile=File}=St) ->
-    case abstract_code(Code, St) of
-	{ok,Abstr} ->
-	    {ok,Code,St#compile{abstract_code=Abstr}};
-	{error,Es} ->
-	    {error,St#compile{errors=St#compile.errors ++ [{File,Es}]}}
-    end.
+save_abstract_code(Code, St) ->
+    {ok,Code,St#compile{abstract_code=erl_parse:anno_to_term(Code)}}.
 
-abstract_code(Code0, #compile{options=Opts,ofile=OFile}) ->
-    Code = erl_parse:anno_to_term(Code0),
-    Abstr = erlang:term_to_binary({raw_abstract_v1,Code}, [compressed]),
-    case member(encrypt_debug_info, Opts) of
+debug_info(#compile{module=Module,mod_options=Opts0,ofile=OFile,abstract_code=Abst}) ->
+    AbstOpts = cleanup_compile_options(Opts0),
+    Opts1 = proplists:delete(debug_info, Opts0),
+    {Backend,Metadata,Opts2} =
+	case proplists:get_value(debug_info, Opts0, false) of
+	    {OptBackend,OptMetadata} when is_atom(OptBackend) -> {OptBackend,OptMetadata,Opts1};
+	    false -> {erl_abstract_code,{none,AbstOpts},Opts1};
+	    true -> {erl_abstract_code,{Abst,AbstOpts},[debug_info | Opts1]}
+	end,
+    DebugInfo = erlang:term_to_binary({debug_info_v1,Backend,Metadata}, [compressed]),
+
+    case member(encrypt_debug_info, Opts2) of
 	true ->
-	    case keyfind(debug_info_key, 1, Opts) of
-		{_,Key} ->
-		    encrypt_abs_code(Abstr, Key);
+	    case lists:keytake(debug_info_key, 1, Opts2) of
+		{value,{_, Key},Opts3} ->
+		    encrypt_debug_info(DebugInfo, Key, [{debug_info_key,'********'} | Opts3]);
 		false ->
-		    %% Note: #compile.module has not been set yet.
-		    %% Here is an approximation that should work for
-		    %% all valid cases.
-		    Module = list_to_atom(filename:rootname(filename:basename(OFile))),
-		    Mode = proplists:get_value(crypto_mode, Opts, des3_cbc),
+		    Mode = proplists:get_value(crypto_mode, Opts2, des3_cbc),
 		    case beam_lib:get_crypto_key({debug_info, Mode, Module, OFile}) of
 			error ->
 			    {error, [{none,?MODULE,no_crypto_key}]};
 			Key ->
-			    encrypt_abs_code(Abstr, {Mode, Key})
+			    encrypt_debug_info(DebugInfo, {Mode, Key}, Opts2)
 		    end
 	    end;
 	false ->
-	    {ok,Abstr}
+	    {ok,DebugInfo,Opts2}
     end.
 
-encrypt_abs_code(Abstr, Key0) ->
+encrypt_debug_info(DebugInfo, Key, Opts) ->
     try
-	RealKey = generate_key(Key0),
+	RealKey = generate_key(Key),
 	case start_crypto() of
-	    ok -> {ok,encrypt(RealKey, Abstr)};
+	    ok -> {ok,encrypt(RealKey, DebugInfo),Opts};
 	    {error,_}=E -> E
 	end
     catch
 	error:_ ->
 	    {error,[{none,?MODULE,bad_crypto_key}]}
     end.
+
+cleanup_compile_options(Opts) ->
+    lists:filter(fun keep_compile_option/1, Opts).
+
+%% We are storing abstract, not asm or core.
+keep_compile_option(from_asm) -> false;
+keep_compile_option(from_core) -> false;
+%% Parse transform and macros have already been applied.
+keep_compile_option({parse_transform, _}) -> false;
+keep_compile_option({d, _, _}) -> false;
+%% Do not affect compilation result on future calls.
+keep_compile_option(Option) -> effects_code_generation(Option).
 
 start_crypto() ->
     try crypto:start() of
@@ -1386,16 +1397,16 @@ encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
 save_core_code(Code, St) ->
     {ok,Code,St#compile{core_code=cerl:from_records(Code)}}.
 
-beam_asm(Code0, #compile{ifile=File,abstract_code=Abst,extra_chunks=ExtraChunks,
-			 options=CompilerOpts,mod_options=Opts0}=St) ->
-    Source = paranoid_absname(File),
-    Opts1 = lists:map(fun({debug_info_key,_}) -> {debug_info_key,'********'};
-			 (Other) -> Other
-		      end, Opts0),
-    Opts2 = [O || O <- Opts1, effects_code_generation(O)],
-    Chunks = [{<<"Abst">>, Abst} | ExtraChunks],
-    case beam_asm:module(Code0, Chunks, Source, Opts2, CompilerOpts) of
-	{ok,Code} -> {ok,Code,St#compile{abstract_code=[]}}
+beam_asm(Code0, #compile{ifile=File,extra_chunks=ExtraChunks,options=CompilerOpts}=St) ->
+    case debug_info(St) of
+	{ok,DebugInfo,Opts0} ->
+	    Source = paranoid_absname(File),
+	    Opts1 = [O || O <- Opts0, effects_code_generation(O)],
+	    Chunks = [{<<"Dbgi">>, DebugInfo} | ExtraChunks],
+	    {ok,Code} = beam_asm:module(Code0, Chunks, Source, Opts1, CompilerOpts),
+	    {ok,Code,St#compile{abstract_code=[]}};
+	{error,Es} ->
+	    {error,St#compile{errors=St#compile.errors ++ [{File,Es}]}}
     end.
 
 paranoid_absname(""=File) ->
@@ -1479,15 +1490,17 @@ embed_native_code(Code, {Architecture,NativeCode}) ->
 %%  errors will be reported).
 
 effects_code_generation(Option) ->
-    case Option of 
+    case Option of
 	beam -> false;
 	report_warnings -> false;
 	report_errors -> false;
 	return_errors-> false;
 	return_warnings-> false;
+	warnings_as_errors -> false;
 	binary -> false;
 	verbose -> false;
 	{cwd,_} -> false;
+	{outdir, _} -> false;
 	_ -> true
     end.
 

@@ -85,6 +85,8 @@ normal(Conf) when is_list(Conf) ->
     do_normal(Source, PrivDir, BeamFile, [no_utf8_atoms]),
 
     {ok,_} = compile:file(Source, [{outdir,PrivDir}, no_debug_info]),
+    {ok, {simple, [{debug_info, {debug_info_v1, erl_abstract_code, {none, _}}}]}} =
+	beam_lib:chunks(BeamFile, [debug_info]),
     {ok, {simple, [{abstract_code, no_abstract_code}]}} =
 	beam_lib:chunks(BeamFile, [abstract_code]),
 
@@ -130,8 +132,10 @@ do_normal(BeamFile, Opts) ->
     {ok, {simple, [{labeled_locals, _LLocals}]}} =
 	beam_lib:chunks(BeamFile, [labeled_locals]),
     {ok, {simple, [_Vsn]}} = beam_lib:version(BeamFile),
-    {ok, {simple, [{abstract_code, _}]}} =
+    {ok, {simple, [{abstract_code, {_, _}}]}} =
 	beam_lib:chunks(BeamFile, [abstract_code]),
+    {ok, {simple, [{debug_info, {debug_info_v1, erl_abstract_code, _}}]}} =
+	beam_lib:chunks(BeamFile, [debug_info]),
 
     %% Test reading optional chunks.
     All = ["Atom", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT", "AtU8"],
@@ -197,11 +201,11 @@ error(Conf) when is_list(Conf) ->
     LastChunk = last_chunk(Binary),
     verify(chunk_too_big, beam_lib:chunks(Binary1, [LastChunk])),
     Chunks = chunk_info(Binary),
-    {value, {_, AbstractStart, _}} = lists:keysearch("Abst", 1, Chunks),
-    {Binary2, _} = split_binary(Binary, AbstractStart),
-    verify(chunk_too_big, beam_lib:chunks(Binary2, ["Abst"])),
-    {Binary3, _} = split_binary(Binary, AbstractStart-4),
-    verify(invalid_beam_file, beam_lib:chunks(Binary3, ["Abst"])),
+    {value, {_, DebugInfoStart, _}} = lists:keysearch("Dbgi", 1, Chunks),
+    {Binary2, _} = split_binary(Binary, DebugInfoStart),
+    verify(chunk_too_big, beam_lib:chunks(Binary2, ["Dbgi"])),
+    {Binary3, _} = split_binary(Binary, DebugInfoStart-4),
+    verify(invalid_beam_file, beam_lib:chunks(Binary3, ["Dbgi"])),
 
     %% Instead of the 5:32 field below, there used to be control characters
     %% (including zero bytes) directly in the string. Because inferior programs
@@ -228,7 +232,7 @@ do_error(BeamFile, ACopy) ->
     Chunks = chunk_info(BeamFile),
     {value, {_, AtomStart, _}} = lists:keysearch("AtU8", 1, Chunks),
     {value, {_, ImportStart, _}} = lists:keysearch("ImpT", 1, Chunks),
-    {value, {_, AbstractStart, _}} = lists:keysearch("Abst", 1, Chunks),
+    {value, {_, DebugInfoStart, _}} = lists:keysearch("Dbgi", 1, Chunks),
     {value, {_, AttributesStart, _}} =
 	lists:keysearch("Attr", 1, Chunks),
     {value, {_, CompileInfoStart, _}} =
@@ -238,8 +242,8 @@ do_error(BeamFile, ACopy) ->
     verify(invalid_chunk, beam_lib:chunks(BF2, [imports])),
     BF3 = set_byte(ACopy, BeamFile, AtomStart-6, 17),
     verify(missing_chunk, beam_lib:chunks(BF3, [imports])),
-    BF4 = set_byte(ACopy, BeamFile, AbstractStart+10, 17),
-    verify(invalid_chunk, beam_lib:chunks(BF4, [abstract_code])),
+    BF4 = set_byte(ACopy, BeamFile, DebugInfoStart+10, 17),
+    verify(invalid_chunk, beam_lib:chunks(BF4, [debug_info])),
     BF5 = set_byte(ACopy, BeamFile, AttributesStart+8, 17),
     verify(invalid_chunk, beam_lib:chunks(BF5, [attributes])),
 
@@ -550,11 +554,11 @@ encrypted_abstr_1(Conf) ->
     ok.
 
 do_encrypted_abstr(Beam, Key) ->
-    verify(key_missing_or_invalid, beam_lib:chunks(Beam, [abstract_code])),
+    verify(key_missing_or_invalid, beam_lib:chunks(Beam, [debug_info])),
 
-    %% The raw chunk "Abst" can still be read even without a key.
-    {ok,{simple,[{"Abst",Abst}]}} = beam_lib:chunks(Beam, ["Abst"]),
-    <<0:8,8:8,"des3_cbc",_/binary>> = Abst,
+    %% The raw chunk "Dbgi" can still be read even without a key.
+    {ok,{simple,[{"Dbgi",Dbgi}]}} = beam_lib:chunks(Beam, ["Dbgi"]),
+    <<0:8,8:8,"des3_cbc",_/binary>> = Dbgi,
 
     %% Try som invalid funs.
     bad_fun(badfun, fun() -> ok end),
@@ -585,7 +589,7 @@ do_encrypted_abstr(Beam, Key) ->
     {ok,_} = beam_lib:clear_crypto_key_fun(),
     ok = beam_lib:crypto_key_fun(simple_crypto_fun(Key)),
     verify_abstract(Beam),
-    {ok,{simple,[{"Abst",Abst}]}} = beam_lib:chunks(Beam, ["Abst"]),
+    {ok,{simple,[{"Dbgi",Dbgi}]}} = beam_lib:chunks(Beam, ["Dbgi"]),
 
     %% Installing a new key fun is not possible without clearing the old.
     verify(exists, beam_lib:crypto_key_fun(ets_crypto_fun(Key))),
@@ -594,7 +598,7 @@ do_encrypted_abstr(Beam, Key) ->
     {ok,_} = beam_lib:clear_crypto_key_fun(),
     ok = beam_lib:crypto_key_fun(ets_crypto_fun(Key)),
     verify_abstract(Beam),
-    {ok,{simple,[{"Abst",Abst}]}} = beam_lib:chunks(Beam, ["Abst"]),
+    {ok,{simple,[{"Dbgi",Dbgi}]}} = beam_lib:chunks(Beam, ["Dbgi"]),
 
     {ok,cleared} = beam_lib:clear_crypto_key_fun(),
 
@@ -617,10 +621,10 @@ bad_fun(F) ->
 bad_fun(S, F) ->
     verify(S, beam_lib:crypto_key_fun(F)).
 
-
 verify_abstract(Beam) ->
-    {ok,{simple,[Chunk]}} = beam_lib:chunks(Beam, [abstract_code]),
-    {abstract_code,{raw_abstract_v1,_}} = Chunk.
+    {ok,{simple,[Abst, Dbgi]}} = beam_lib:chunks(Beam, [abstract_code, debug_info]),
+    {abstract_code,{raw_abstract_v1,_}} = Abst,
+    {debug_info,{debug_info_v1,erl_abstract_code,_}} = Dbgi.
 
 simple_crypto_fun(Key) ->
     fun(init) -> ok;

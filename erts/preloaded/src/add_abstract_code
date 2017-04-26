@@ -28,12 +28,12 @@
 main([BeamFile,AbstrFile]) ->
     {ok,_,Chunks0} = beam_lib:all_chunks(BeamFile),
     {ok,Abstr} = file:consult(AbstrFile),
-    Chunks1 = lists:keyreplace("Abst", 1, Chunks0,
-			       {"Abst",term_to_binary({raw_abstract_v1,Abstr})}),
-    {"CInf",CInf0} = lists:keyfind("CInf", 1, Chunks1),
-    CInf = fix_options(CInf0),
-    Chunks = lists:keyreplace("CInf", 1, Chunks1, {"CInf",CInf}),
-    {ok,Module} = beam_lib:build_module(Chunks),
+    {"CInf",CInf0} = lists:keyfind("CInf", 1, Chunks0),
+    {CInf, COpts} = fix_options(CInf0),
+    Chunks1 = lists:keyreplace("CInf", 1, Chunks0, {"CInf",CInf}),
+    Chunks2 = lists:keyreplace("Dbgi", 1, Chunks1,
+                   {"Dbgi",term_to_binary({debug_info_v1,erl_abstract_code,{Abstr, COpts}})}),
+    {ok,Module} = beam_lib:build_module(Chunks2),
     ok = file:write_file(BeamFile, Module),
     init:stop().
 
@@ -42,4 +42,4 @@ fix_options(CInf0) ->
     {options,Opts0} = lists:keyfind(options, 1, CInf1),
     Opts = Opts0 -- [from_asm],
     CInf = lists:keyreplace(options, 1, CInf1, {options,Opts}),
-    term_to_binary(CInf).
+    {term_to_binary(CInf), Opts}.
