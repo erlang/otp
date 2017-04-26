@@ -29,20 +29,24 @@ limitations under the License.
 </script>
 </head> 
 
-<body bgcolor=white text="#000000" link="#0000ff" vlink="#ff00ff"
-      alink="#ff0000">
+<body>
 
 <div id="container">
 <div id="leftnav">
 <div class="innertube">
-<img alt="Erlang logo" src="erlang-logo.png"/ >
-<p/>
-<small><a href="applications.html">Applications</a><br>
-<a href="man_index.html">Modules</a></small>
-<p/>
-<a href="javascript:openAllFlips()">Expand All</a><br>
-<a href="javascript:closeAllFlips()">Contract All</a>
-<p/>
+<div class="erlang-logo-wrapper">
+ <img alt="Erlang logo" src="erlang-logo.png" class="erlang-logo"/ >
+</div>
+
+<ul class="section-links">
+ <li><a href="applications.html">Applications</a></li>
+ <li><a href="man_index.html" class="modules">Modules</a></li>
+</ul>
+
+<ul class="expand-collapse-items">
+ <li><a href="javascript:openAllFlips()">Expand All</a></li>
+ <li><a href="javascript:closeAllFlips()">Contract All</a></li>
+</ul>
 
 <ul class="flipMenu">
 <li>System Documentation
@@ -60,8 +64,8 @@ limitations under the License.
 </ul>
 </li>
 </ul>
-<b>Application Groups</b>
-<br/>
+
+<h3>Application Groups</h3>
 
 <ul class="flipMenu">
 #applinks#
@@ -73,24 +77,12 @@ limitations under the License.
 
 <div id="content">
 <div class="innertube">
-<center>
-<font size="+1"><b>Erlang/OTP #otp_base_vsn#</b></font><br>
-</center>
-<center>
-<p>
-<font size="+1">Welcome to Erlang/OTP, a complete<br>
-development environment<br>
-for concurrent programming.</font>
-</p>
-</center>
-<br>
-<br>
-<br>
-<p><b>
-<font size="+1">
-Some hints that may get you started faster
-</font>
-</b></p>
+    <h1 class="main-title">Erlang/OTP #otp_base_vsn#</h1>
+    <p class="main-description">
+    Welcome to Erlang/OTP, a complete development environment for concurrent programming.
+    </p>
+
+    <h2>Some hints that may get you started faster</h2>
 
 <ul>
 
