@@ -94,7 +94,7 @@ base(T) ->
 
 %% Ensure that 'zero' values encode only zeros.
 base(zero = T, F) ->
-    B = diameter_types:F(encode, T),
+    B = diameter_types:F(encode, T, opts()),
     B = z(B);
 
 %% Ensure that we can decode what we encode and vice-versa, and that
@@ -106,7 +106,7 @@ base(decode, F) ->
     [] = run([[fun base_invalid/2, F, V]       || V <- Is]).
 
 base_decode(F, Eq, Value) ->
-    d(fun(X,V) -> diameter_types:F(X,V) end, Eq, Value).
+    d(fun(X,V) -> diameter_types:F(X, V, opts()) end, Eq, Value).
 
 base_invalid(F, Value) ->
     try
@@ -207,12 +207,21 @@ avp_decode(Mod, Name, Type, Eq, Value) ->
     d(fun(X,V) -> avp(Mod, X, V, Name, Type) end, Eq, Value).
 
 avp(Mod, decode = X, V, Name, 'Grouped') ->
-    {Rec, _} = Mod:avp(X, V, Name),
+    {Rec, _} = Mod:avp(X, V, Name, opts(Mod)),
     Rec;
 avp(Mod, decode = X, V, Name, _) ->
-    Mod:avp(X, V, Name);
+    Mod:avp(X, V, Name, opts(Mod));
 avp(Mod, encode = X, V, Name, _) ->
-    iolist_to_binary(Mod:avp(X, V, Name)).
+    iolist_to_binary(Mod:avp(X, V, Name, opts(Mod))).
+
+opts(Mod) ->
+    (opts())#{dictionary => Mod}.
+
+opts() ->
+    #{string_decode => true,
+      strict_mbit => true,
+      rfc => 6733,
+      failed_avp => false}.
 
 %% v/1
 
@@ -259,8 +268,8 @@ arity(M, Name, AvpName, Rec) ->
 
 enum(M, Name, {_,E}) ->
     B = <<E:32>>,
-    B = M:avp(encode, E, Name),
-    E = M:avp(decode, B, Name).
+    B = M:avp(encode, E, Name, opts(M)),
+    E = M:avp(decode, B, Name, opts(M)).
 
 retag(import_avps)   -> avp_types;
 retag(import_groups) -> grouped;

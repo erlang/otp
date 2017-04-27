@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -552,7 +552,7 @@ flatten2(_Config) ->
                         T <- [encode, decode],
                         M <- [M2, M3],
                         Ref <- [make_ref()],
-                        RC <- [M:avp(T, Ref, A)],
+                        RC <- [M:avp(T, Ref, A, [])],
                         RC /= {T, Ref}].
 
 'A1'(T, 'Unsigned32', Ref) ->

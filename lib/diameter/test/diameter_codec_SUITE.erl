@@ -285,7 +285,14 @@ recode(Msg) ->
     recode(Msg, diameter_gen_base_rfc6733).
 
 recode(#diameter_packet{} = Pkt, Dict) ->
-    diameter_codec:decode(Dict, diameter_codec:encode(Dict, Pkt));
+    diameter_codec:decode(Dict, opts(Dict), diameter_codec:encode(Dict, Pkt));
 
 recode(Msg, Dict) ->
     recode(#diameter_packet{msg = Msg}, Dict).
+
+opts(Mod) ->
+    #{dictionary => Mod,
+      string_decode => false,
+      strict_mbit => true,
+      rfc => 6733,
+      failed_avp => false}.
