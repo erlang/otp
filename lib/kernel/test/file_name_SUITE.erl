@@ -383,7 +383,7 @@ check_icky(Mod) ->
 		ok
 	end,
 
-	_ = make_icky_dir(Mod, treat_icky(<<"åäö_dir">>)),
+	_ = make_icky_dir(Mod, treat_icky(<<"åäö_dir"/utf8>>)),
 	if 
 	    UniMode and (OS =/= win32) ->
 		{error,enoent} = Mod:set_cwd("åäö_dir");
