@@ -92,6 +92,10 @@ default_algorithms(cipher) ->
 default_algorithms(mac) ->
     supported_algorithms(mac, same(['AEAD_AES_128_GCM',
 				    'AEAD_AES_256_GCM']));
+default_algorithms(public_key) ->
+    supported_algorithms(public_key, ['rsa-sha2-256',
+                                      'rsa-sha2-384',
+                                      'rsa-sha2-512']);
 default_algorithms(Alg) ->
     supported_algorithms(Alg, []).
 
