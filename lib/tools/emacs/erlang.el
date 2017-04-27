@@ -4707,6 +4707,7 @@ for a tag on the form `module:tag'."
 
 (if (fboundp 'advice-add)
     ;; Emacs 24.4+
+    (require 'etags)
     (advice-add 'etags-tags-completion-table :around
                 #'erlang-etags-tags-completion-table-advice)
   ;; Emacs 23.1-24.3
@@ -4873,6 +4874,7 @@ considered first when it is time to jump to the definition.")
 (and (erlang-soft-require 'xref)
      (erlang-soft-require 'cl-generic)
      (erlang-soft-require 'eieio)
+     (erlang-soft-require 'etags)
      ;; The purpose of using eval here is to avoid compilation
      ;; warnings in emacsen without cl-defmethod etc.
      (eval
@@ -5351,7 +5353,7 @@ editing control characters:
 \\{erlang-shell-mode-map}"
   (interactive
    (when current-prefix-arg
-     (list ((read-shell-command "Erlang command: ")))))
+     (list (read-shell-command "Erlang command: "))))
   (require 'comint)
   (let (cmd opts)
     (if command
