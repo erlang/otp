@@ -101,11 +101,10 @@ static struct pollset_info
 	int size;
 	ErtsSysFdType *array;
     } active_fd;
-    struct removed_fd* removed_list;       /* list of deselected fd's*/
-    erts_spinlock_t removed_list_lock;
+    erts_atomic_t removed_list;    /* struct removed_fd* */
 }pollset;
-#define NUM_OF_POLLSETS 1
 
+#define NUM_OF_POLLSETS 1
 
 #ifdef ERTS_ENABLE_KERNEL_POLL
 void erts_init_check_io_kp(void);
@@ -302,6 +301,7 @@ remember_removed(ErtsDrvEventState *state, struct pollset_info* psi)
     struct removed_fd *fdlp;
     ERTS_LC_ASSERT(erts_lc_mtx_is_locked(fd_mtx(state->fd)));
     if (erts_atomic_read_nob(&psi->in_poll_wait)) {
+        erts_aint_t was_next, exp_next;
 	state->remove_cnt++;
 	ASSERT(state->remove_cnt > 0);
 	fdlp = removed_fd_alloc();
@@ -311,10 +311,16 @@ remember_removed(ErtsDrvEventState *state, struct pollset_info* psi)
     #ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
 	fdlp->state = state;
     #endif
-	erts_spin_lock(&psi->removed_list_lock);
-	fdlp->next = psi->removed_list;
-	psi->removed_list = fdlp;
-	erts_spin_unlock(&psi->removed_list_lock);
+
+         /* Lockless atomic insertion in removed_list */
+        was_next = erts_atomic_read_acqb(&psi->removed_list);
+        do {
+            exp_next = was_next;
+            fdlp->next = (struct removed_fd*) exp_next;
+            was_next = erts_atomic_cmpxchg_mb(&psi->removed_list,
+                                              (erts_aint_t) fdlp,
+                                              exp_next);
+        }while (was_next != exp_next);
     }
 }
 
@@ -336,12 +342,8 @@ forget_removed(struct pollset_info* psi)
     struct removed_fd* fdlp;
     struct removed_fd* tofree;
 
-    /* Fast track: if (atomic_ptr(removed_list)==NULL) return; */
-
-    erts_spin_lock(&psi->removed_list_lock);
-    fdlp = psi->removed_list;
-    psi->removed_list = NULL;
-    erts_spin_unlock(&psi->removed_list_lock);
+    fdlp = (struct removed_fd*) erts_atomic_xchg_mb(&psi->removed_list,
+                                                    (erts_aint_t) NULL);
 
     while (fdlp) {
         ErtsResource* resource = NULL;
@@ -2153,11 +2155,8 @@ ERTS_CIO_EXPORT(erts_init_check_io)(void)
     }
 #endif
 
-
     init_removed_fd_alloc();
-    pollset.removed_list = NULL;
-    erts_spinlock_init(&pollset.removed_list_lock, "pollset_rm_list", NIL,
-        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
+    erts_atomic_init_nob(&pollset.removed_list,  (erts_aint_t)NULL);
     {
         int i;
         for (i=0; i<DRV_EV_STATE_LOCK_CNT; i++) {

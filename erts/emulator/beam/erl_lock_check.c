@@ -113,7 +113,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"drv_ev_state_grow",			NULL,   		},
     {	"drv_ev_state",				"address"		},
     {	"safe_hash",				"address"		},
-    {   "pollset_rm_list",                      NULL                    },
     {   "removed_fd_pre_alloc_lock",            "address"               },
     {   "state_prealloc",                       NULL                    },
     {	"schdlr_sspnd",				NULL			},
