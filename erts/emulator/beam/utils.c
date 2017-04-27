@@ -1581,9 +1581,6 @@ Uint32
 make_internal_hash(Eterm term)
 {
     Uint32 hash;
-    Uint32 hash_xor_pairs;
-
-    ERTS_UNDEF(hash_xor_pairs, 0);
 
     /* Optimization. Simple cases before declaration of estack. */
     if (primary_tag(term) == TAG_PRIMARY_IMMED1) {
@@ -1664,6 +1661,11 @@ make_internal_hash(Eterm term)
                 Eterm* ptr = boxed_val(term) + 1;
                 Uint size;
                 int i;
+
+                /*
+                 * We rely on key-value iteration order being constant
+                 * for identical maps (in this VM instance).
+                 */
                 switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
                 case HAMT_SUBTAG_HEAD_FLATMAP:
                 {
@@ -1675,26 +1677,10 @@ make_internal_hash(Eterm term)
                     if (size == 0)
                         goto pop_next;
 
-                    /* We want a hash function that is *independent* of
-                     * the order in which keys and values are encountered.
-                     * We therefore calculate context independent hashes for all    				      .
-                     * key-value pairs and then xor them together.
-                     *
-                     * We *do* need to use an initial seed for each pair, i.e. the
-                     * hash value, so the hash value is reset for each pair with 'hash'.
-                     * If we don't, no additional entropy is given to the system and the
-                     * hash collision resolution in maps:from_list/1 would fail.
-                     */
-                    ESTACK_PUSH(s, hash_xor_pairs);
-                    ESTACK_PUSH(s, hash);
-                    ESTACK_PUSH(s, HASH_MAP_TAIL);
                     for (i = size - 1; i >= 0; i--) {
-                        ESTACK_PUSH(s, hash); /* initial seed for all pairs */
-                        ESTACK_PUSH(s, HASH_MAP_PAIR);
                         ESTACK_PUSH(s, vs[i]);
                         ESTACK_PUSH(s, ks[i]);
                     }
-                    hash_xor_pairs = 0;
                     goto pop_next;
                 }
                 case HAMT_SUBTAG_HEAD_ARRAY:
@@ -1703,10 +1689,6 @@ make_internal_hash(Eterm term)
                     UINT32_HASH(size, HCONST_16);
                     if (size == 0)
                         goto pop_next;
-                    ESTACK_PUSH(s, hash_xor_pairs);
-                    ESTACK_PUSH(s, hash);
-                    ESTACK_PUSH(s, HASH_MAP_TAIL);
-                    hash_xor_pairs = 0;
                 }
                 switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
                 case HAMT_SUBTAG_HEAD_ARRAY:
@@ -1722,8 +1704,6 @@ make_internal_hash(Eterm term)
                 while (i) {
                     if (is_list(*ptr)) {
                         Eterm* cons = list_val(*ptr);
-                        ESTACK_PUSH(s, hash); /* initial seed for all pairs */
-                        ESTACK_PUSH(s, HASH_MAP_PAIR);
                         ESTACK_PUSH(s, CDR(cons));
                         ESTACK_PUSH(s, CAR(cons));
                     }
@@ -1739,7 +1719,7 @@ make_internal_hash(Eterm term)
 	    case EXPORT_SUBTAG:
 	    {
 		Export* ep = *((Export **) (export_val(term) + 1));
-                /* Assumes Export entries never moves */
+                /* Assumes Export entries never move */
                 POINTER_HASH(ep, HCONST_14);
 		goto pop_next;
 	    }
@@ -1919,17 +1899,6 @@ make_internal_hash(Eterm term)
 	    term = ESTACK_POP(s);
 
 	    switch (term) {
-		case HASH_MAP_TAIL: {
-		    hash = (Uint32) ESTACK_POP(s);
-                    UINT32_HASH(hash_xor_pairs, HCONST_19);
-		    hash_xor_pairs = (Uint32) ESTACK_POP(s);
-		    goto pop_next;
-		}
-		case HASH_MAP_PAIR:
-		    hash_xor_pairs ^= hash;
-		    hash = (Uint32) ESTACK_POP(s); /* initial seed for all pairs */
-		    goto pop_next;
-
 	        case HASH_CDR:
 		    CONST_HASH(HCONST_18);   /* Hash CDR i cons cell */
 		    goto pop_next;
