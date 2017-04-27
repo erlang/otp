@@ -274,7 +274,7 @@ whois(SvcName) ->
 %% ---------------------------------------------------------------------------
 
 -spec pick_peer(SvcName, AppOrAlias, Opts)
-   -> {{TPid, Caps, App}, SvcOpts}
+   -> {{{TPid, Caps}, App}, SvcOpts}
     | false  %% no selection
     | {error, no_service}
  when SvcName :: diameter:service_name(),
@@ -314,8 +314,8 @@ pick(#state{options = SvcOpts}
     App = App0#diameter_app{module = ModX ++ Xtra},
     [_,_] = RealmAndHost = diameter_lib:eval([DestF, Dict]),
     case pick_peer(App, RealmAndHost, Filter, S) of
-        {TPid, Caps} ->
-            {{TPid, Caps, App}, SvcOpts};
+        {_TPid, _Caps} = TC ->
+            {{TC, App}, SvcOpts};
         false = No ->
             No
     end.

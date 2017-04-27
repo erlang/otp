@@ -85,8 +85,7 @@
         {ref        :: reference(),         %% used to receive answer
          caller     :: pid() | undefined,   %% calling process
          handler    :: pid(),               %% request process
-         transport  :: pid() | undefined,   %% peer process
-         caps       :: #diameter_caps{} | undefined,     %% of connection
+         peer       :: undefined | {pid(), #diameter_caps{}},
          packet     :: #diameter_packet{} | undefined}). %% of request
 
 %% ---------------------------------------------------------------------------
@@ -1253,7 +1252,7 @@ answer_rc(_, _, Sent) ->
 
 send_R(SvcName, AppOrAlias, Msg, CallOpts, Caller) ->
     case pick_peer(SvcName, AppOrAlias, Msg, CallOpts) of
-        {{_,_,_} = Transport, SvcOpts} ->
+        {{_,_} = Transport, SvcOpts} ->
             send_request(Transport, SvcOpts, Msg, CallOpts, Caller, SvcName);
         {error, _} = No ->
             No
@@ -1299,7 +1298,7 @@ mo(T, _) ->
 %% The module field of the #diameter_app{} here includes any extra
 %% arguments passed to diameter:call/4.
 
-send_request({TPid, Caps, App}
+send_request({{TPid, _Caps} = TC, App}
              = Transport,
              #{sequence := Mask}
              = SvcOpts,
@@ -1309,7 +1308,7 @@ send_request({TPid, Caps, App}
              SvcName) ->
     Pkt = make_prepare_packet(Mask, Msg0),
 
-    case prepare(cb(App, prepare_request, [Pkt, SvcName, {TPid, Caps}]), []) of
+    case prepare(cb(App, prepare_request, [Pkt, SvcName, TC]), []) of
         [Msg | Fs] ->
             ReqPkt = make_request_packet(Msg, Pkt),
             EncPkt = encode(App#diameter_app.dictionary, TPid, ReqPkt, Fs),
@@ -1449,15 +1448,14 @@ fold_record(Rec, R) ->
 
 send_R(ReqPkt,
        EncPkt,
-       {TPid, Caps, #diameter_app{dictionary = AppDict}},
+       {{TPid, _Caps} = TC, #diameter_app{dictionary = AppDict}},
        #options{timeout = Timeout},
        {Pid, Ref},
        SvcName) ->
     Req = #request{ref = Ref,
                    caller = Pid,
                    handler = self(),
-                   transport = TPid,
-                   caps = Caps,
+                   peer = TC,
                    packet = ReqPkt},
 
     incr(send, EncPkt, TPid, AppDict),
@@ -1495,10 +1493,9 @@ failover(SvcName, App, Req, CallOpts) ->
 
 handle_answer(SvcName, _, App, {error, Req, Reason}) ->
     #request{packet = Pkt,
-             transport = TPid,
-             caps = Caps}
+             peer = {_TPid, _Caps} = TC}
         = Req,
-    cb(App, handle_error, [Reason, msg(Pkt), SvcName, {TPid, Caps}]);
+    cb(App, handle_error, [Reason, msg(Pkt), SvcName, TC]);
 
 handle_answer(SvcName,
               SvcOpts,
@@ -1511,7 +1508,7 @@ handle_answer(SvcName,
     DecPkt = errors(Id, diameter_codec:decode({MsgDict, AppDict},
                                               SvcOpts,
                                               Pkt)),
-    #request{transport = TPid}
+    #request{peer = {TPid, _}}
         = Req,
 
     incr(recv, DecPkt, TPid, AppDict),
@@ -1544,12 +1541,11 @@ handle_answer(#diameter_packet{errors = Es}
               SvcName,
               App,
               AE,
-              #request{transport = TPid,
-                       caps = Caps,
+              #request{peer = {_TPid, _Caps} = TC,
                        packet = P})
   when callback == AE;
        [] == Es ->
-    cb(App, handle_answer, [Pkt, msg(P), SvcName, {TPid, Caps}]);
+    cb(App, handle_answer, [Pkt, msg(P), SvcName, TC]);
 
 handle_answer(#diameter_packet{header = H}, SvcName, _, AE, _) ->
     handle_error(H, SvcName, AE).
@@ -1576,7 +1572,7 @@ handle_error(Hdr, SvcName, discard) ->
 
 %% resend_request/4
 
-resend_request({{_,_,App} = Transport, _}, Req, CallOpts, SvcName) ->
+resend_request({{_, App} = Transport, _}, Req, CallOpts, SvcName) ->
     try retransmit(Transport, Req, SvcName, CallOpts#options.timeout) of
         T -> recv_answer(SvcName, App, CallOpts, T)
     catch
@@ -1719,7 +1715,7 @@ send(Pid, Pkt, Route) ->
 
 %% retransmit/4
 
-retransmit({TPid, Caps, App}
+retransmit({{TPid, _Caps} = TC, App}
            = Transport,
            #request{packet = ReqPkt}
            = Req,
@@ -1730,7 +1726,7 @@ retransmit({TPid, Caps, App}
 
     Pkt = make_retransmit_packet(ReqPkt),
 
-    retransmit(cb(App, prepare_retransmit, [Pkt, SvcName, {TPid, Caps}]),
+    retransmit(cb(App, prepare_retransmit, [Pkt, SvcName, TC]),
                Transport,
                Req#request{packet = Pkt},
                SvcName,
@@ -1762,20 +1758,19 @@ retransmit(discard, _, _, _, _, _) ->
 retransmit({eval_packet, RC, F}, Transport, Req, SvcName, Timeout, Fs) ->
     retransmit(RC, Transport, Req, SvcName, Timeout, [F|Fs]);
 
-retransmit(T, {_, _, App}, _, _, _, _) ->
+retransmit(T, {_, App}, _, _, _, _) ->
     ?ERROR({invalid_return, T, prepare_retransmit, App}).
 
 resend_request(ReqPkt,
-               {TPid, Caps, #diameter_app{dictionary = AppDict}},
+               {{TPid, _Caps} = TC, #diameter_app{dictionary = AppDict}},
                Req0,
                SvcName,
                Tmo,
                Fs) ->
     EncPkt = encode(AppDict, TPid, ReqPkt, Fs),
 
-    Req = Req0#request{transport = TPid,
-                       packet = ReqPkt,
-                       caps = Caps},
+    Req = Req0#request{peer = TC,
+                       packet = ReqPkt},
 
     ?LOG(retransmission, EncPkt#diameter_packet.header),
     incr(TPid, {msg_id(EncPkt, AppDict), send, retransmission}),
