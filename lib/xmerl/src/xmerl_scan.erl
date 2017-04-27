@@ -474,8 +474,8 @@ event(_X, S) ->
 %% into multiple objects (in which case {Acc',Pos',S'} should be returned.)
 %% If {Acc',S'} is returned, Pos will be incremented by 1 by default.
 %% Below is an example of an acceptable operation
-acc(X = #xmlText{value = Text}, Acc, S) ->
-    {[X#xmlText{value = Text}|Acc], S};
+acc(#xmlText{value = Text}, [X = #xmlText{value = AccText}], S) ->
+    {[X#xmlText{value = AccText ++ Text}], S};
 acc(X, Acc, S) ->
     {[X|Acc], S}.
 
