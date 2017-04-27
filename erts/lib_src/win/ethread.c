@@ -203,6 +203,8 @@ ethr_init(ethr_init_data *id)
     if (!ethr_not_inited__)
 	return EINVAL;
 
+    ethr_not_inited__ = 0;
+
 #ifdef _WIN32_WINNT
     os_version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
     GetVersionEx(&os_version);
@@ -237,8 +239,6 @@ ethr_init(ethr_init_data *id)
     child_wait_spin_count = ETHR_CHILD_WAIT_SPIN_COUNT;
     if (erts_get_cpu_configured(ethr_cpu_info__) == 1)
 	child_wait_spin_count = 0;
-
-    ethr_not_inited__ = 0;
 
     return 0;
 
