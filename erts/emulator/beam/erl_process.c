@@ -194,7 +194,10 @@ static UWord thr_prgr_later_cleanup_op_threshold = ERTS_THR_PRGR_LATER_CLEANUP_O
 ErtsPTab erts_proc erts_align_attribute(ERTS_CACHE_LINE_SIZE);
 
 int erts_sched_thread_suggested_stack_size = -1;
-
+#ifdef ERTS_DIRTY_SCHEDULERS
+int erts_dcpu_sched_thread_suggested_stack_size = -1;
+int erts_dio_sched_thread_suggested_stack_size = -1;
+#endif
 #ifdef ERTS_ENABLE_LOCK_CHECK
 ErtsLcPSDLocks erts_psd_required_locks[ERTS_PSD_SIZE];
 #endif
@@ -8999,6 +9002,7 @@ erts_start_schedulers(void)
 	for (ix = 0; ix < erts_no_dirty_cpu_schedulers; ix++) {
 	    ErtsSchedulerData *esdp = ERTS_DIRTY_CPU_SCHEDULER_IX(ix);
 	    erts_snprintf(opts.name, 16, "%d_dirty_cpu_scheduler", ix + 1);
+            opts.suggested_stack_size = erts_dcpu_sched_thread_suggested_stack_size;
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_cpu_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
 		erts_exit(ERTS_ERROR_EXIT, "Failed to create dirty cpu scheduler thread %d\n", ix);
@@ -9006,6 +9010,7 @@ erts_start_schedulers(void)
 	for (ix = 0; ix < erts_no_dirty_io_schedulers; ix++) {
 	    ErtsSchedulerData *esdp = ERTS_DIRTY_IO_SCHEDULER_IX(ix);
 	    erts_snprintf(opts.name, 16, "%d_dirty_io_scheduler", ix + 1);
+            opts.suggested_stack_size = erts_dio_sched_thread_suggested_stack_size;
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_io_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
 		erts_exit(ERTS_ERROR_EXIT, "Failed to create dirty io scheduler thread %d\n", ix);

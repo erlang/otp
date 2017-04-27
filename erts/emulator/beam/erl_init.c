@@ -61,8 +61,9 @@
 
 #define ERTS_DEFAULT_NO_ASYNC_THREADS	10
 
-#define ERTS_DEFAULT_SCHED_STACK_SIZE   256
-#define ERTS_MIN_SCHED_STACK_SIZE       20
+#define ERTS_DEFAULT_SCHED_STACK_SIZE   128
+#define ERTS_DEFAULT_DCPU_SCHED_STACK_SIZE 40
+#define ERTS_DEFAULT_DIO_SCHED_STACK_SIZE 40
 
 /*
  * The variables below (prefixed with etp_) are for erts/etc/unix/etp-commands
@@ -641,9 +642,22 @@ void erts_usage(void)
     erts_fprintf(stderr, "-swt val       set scheduler wakeup threshold, valid values are:\n");
     erts_fprintf(stderr, "               very_low|low|medium|high|very_high.\n");
     erts_fprintf(stderr, "-sss size      suggested stack size in kilo words for scheduler threads,\n");
-    erts_fprintf(stderr, "               valid range is [%d-%d]\n",
+    erts_fprintf(stderr, "               valid range is [%d-%d] (default %d)\n",
 		 ERTS_SCHED_THREAD_MIN_STACK_SIZE,
-		 ERTS_SCHED_THREAD_MAX_STACK_SIZE);
+		 ERTS_SCHED_THREAD_MAX_STACK_SIZE,
+                 ERTS_DEFAULT_SCHED_STACK_SIZE);
+#ifdef ERTS_DIRTY_SCHEDULERS
+    erts_fprintf(stderr, "-sssdcpu size  suggested stack size in kilo words for dirty CPU scheduler\n");
+    erts_fprintf(stderr, "               threads, valid range is [%d-%d] (default %d)\n",
+		 ERTS_SCHED_THREAD_MIN_STACK_SIZE,
+		 ERTS_SCHED_THREAD_MAX_STACK_SIZE,
+                 ERTS_DEFAULT_DCPU_SCHED_STACK_SIZE);
+    erts_fprintf(stderr, "-sssdio size   suggested stack size in kilo words for dirty IO scheduler\n");
+    erts_fprintf(stderr, "               threads, valid range is [%d-%d] (default %d)\n",
+		 ERTS_SCHED_THREAD_MIN_STACK_SIZE,
+		 ERTS_SCHED_THREAD_MAX_STACK_SIZE,
+                 ERTS_DEFAULT_DIO_SCHED_STACK_SIZE);
+#endif
     erts_fprintf(stderr, "-spp Bool      set port parallelism scheduling hint\n");
     erts_fprintf(stderr, "-S n1:n2       set number of schedulers (n1), and number of\n");
     erts_fprintf(stderr, "               schedulers online (n2), maximum for both\n");
@@ -1327,6 +1341,10 @@ erl_start(int argc, char **argv)
      * a lot of stack.
      */
     erts_sched_thread_suggested_stack_size = ERTS_DEFAULT_SCHED_STACK_SIZE;
+#ifdef ERTS_DIRTY_SCHEDULERS
+    erts_dcpu_sched_thread_suggested_stack_size = ERTS_DEFAULT_DCPU_SCHED_STACK_SIZE;
+    erts_dio_sched_thread_suggested_stack_size = ERTS_DEFAULT_DIO_SCHED_STACK_SIZE;
+#endif
 
 #ifdef DEBUG
     verbose = DEBUG_DEFAULT;
@@ -1945,6 +1963,42 @@ erl_start(int argc, char **argv)
 		VERBOSE(DEBUG_SYSTEM,
 			("scheduler wakeup threshold: %s\n", arg));
 	    }
+#ifdef ERTS_DIRTY_SCHEDULERS
+	    else if (has_prefix("ssdcpu", sub_param)) {
+		/* suggested stack size (Kilo Words) for dirty CPU scheduler threads */
+		arg = get_arg(sub_param+6, argv[i+1], &i);
+		erts_dcpu_sched_thread_suggested_stack_size = atoi(arg);
+
+		if ((erts_dcpu_sched_thread_suggested_stack_size
+		     < ERTS_SCHED_THREAD_MIN_STACK_SIZE)
+		    || (erts_dcpu_sched_thread_suggested_stack_size >
+			ERTS_SCHED_THREAD_MAX_STACK_SIZE)) {
+		    erts_fprintf(stderr, "bad stack size for dirty CPU scheduler threads %s\n",
+				 arg);
+		    erts_usage();
+		}
+		VERBOSE(DEBUG_SYSTEM,
+			("suggested dirty CPU scheduler thread stack size %d kilo words\n",
+			 erts_dcpu_sched_thread_suggested_stack_size));
+	    }
+	    else if (has_prefix("ssdio", sub_param)) {
+		/* suggested stack size (Kilo Words) for dirty IO scheduler threads */
+		arg = get_arg(sub_param+5, argv[i+1], &i);
+		erts_dio_sched_thread_suggested_stack_size = atoi(arg);
+
+		if ((erts_dio_sched_thread_suggested_stack_size
+		     < ERTS_SCHED_THREAD_MIN_STACK_SIZE)
+		    || (erts_dio_sched_thread_suggested_stack_size >
+			ERTS_SCHED_THREAD_MAX_STACK_SIZE)) {
+		    erts_fprintf(stderr, "bad stack size for dirty IO scheduler threads %s\n",
+				 arg);
+		    erts_usage();
+		}
+		VERBOSE(DEBUG_SYSTEM,
+			("suggested dirty IO scheduler thread stack size %d kilo words\n",
+			 erts_dio_sched_thread_suggested_stack_size));
+	    }
+#endif
 	    else if (has_prefix("ss", sub_param)) {
 		/* suggested stack size (Kilo Words) for scheduler threads */
 		arg = get_arg(sub_param+2, argv[i+1], &i);
@@ -2259,8 +2313,14 @@ erl_start(int argc, char **argv)
     boot_argc = argc - i;  /* Number of arguments to init */
     boot_argv = &argv[i];
 
-    if (erts_sched_thread_suggested_stack_size < ERTS_MIN_SCHED_STACK_SIZE)
-        erts_sched_thread_suggested_stack_size = ERTS_MIN_SCHED_STACK_SIZE;
+    if (erts_sched_thread_suggested_stack_size < ERTS_SCHED_THREAD_MIN_STACK_SIZE)
+        erts_sched_thread_suggested_stack_size = ERTS_SCHED_THREAD_MIN_STACK_SIZE;
+#ifdef ERTS_DIRTY_SCHEDULERS
+    if (erts_dcpu_sched_thread_suggested_stack_size < ERTS_SCHED_THREAD_MIN_STACK_SIZE)
+        erts_dcpu_sched_thread_suggested_stack_size = ERTS_SCHED_THREAD_MIN_STACK_SIZE;
+    if (erts_dio_sched_thread_suggested_stack_size < ERTS_SCHED_THREAD_MIN_STACK_SIZE)
+        erts_dio_sched_thread_suggested_stack_size = ERTS_SCHED_THREAD_MIN_STACK_SIZE;
+#endif
 
     erl_init(ncpu,
 	     proc_tab_sz,
