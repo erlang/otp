@@ -36,7 +36,6 @@
       process can either be another supervisor or a worker process.
       Worker processes are normally implemented using one of the
       <seealso marker="gen_event"><c>gen_event</c></seealso>,
-      <seealso marker="gen_fsm"><c>gen_fsm</c></seealso>,
       <seealso marker="gen_server"><c>gen_server</c></seealso>, or
       <seealso marker="gen_statem"><c>gen_statem</c></seealso>
       behaviors. A supervisor implemented using this module has
@@ -237,8 +236,8 @@ child_spec() = #{id => child_id(),       % mandatory
         <p><c>modules</c> is used by the release handler during code
           replacement to determine which processes are using a certain
           module. As a rule of thumb, if the child process is a
-          <c>supervisor</c>, <c>gen_server</c>,
-	  <c>gen_statem</c>, or <c>gen_fsm</c>,
+          <c>supervisor</c>, <c>gen_server</c> or,
+	  <c>gen_statem</c>,
           this is to be a list with one element <c>[Module]</c>,
           where <c>Module</c> is the callback module. If the child
           process is an event manager (<c>gen_event</c>) with a
@@ -706,7 +705,6 @@ child_spec() = #{id => child_id(),       % mandatory
   <section>
     <title>See Also</title>
     <p><seealso marker="gen_event"><c>gen_event(3)</c></seealso>, 
-      <seealso marker="gen_fsm"><c>gen_fsm(3)</c></seealso>, 
       <seealso marker="gen_statem"><c>gen_statem(3)</c></seealso>,
       <seealso marker="gen_server"><c>gen_server(3)</c></seealso>, 
       <seealso marker="sys"><c>sys(3)</c></seealso></p>

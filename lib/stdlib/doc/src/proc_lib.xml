@@ -36,7 +36,7 @@
       the <seealso marker="doc/design_principles:des_princ">
       OTP Design Principles</seealso>. Specifically, the functions in this
       module are used by the OTP standard behaviors (for example,
-      <c>gen_server</c>, <c>gen_fsm</c>, and <c>gen_statem</c>)
+      <c>gen_server</c> and <c>gen_statem</c>)
       when starting new processes. The functions
       can also be used to start <em>special processes</em>, user-defined
       processes that comply to the OTP design principles. For an example,

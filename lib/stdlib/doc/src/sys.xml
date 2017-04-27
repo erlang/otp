@@ -168,12 +168,6 @@
           </item>
           <item>
             <p>For a
-              <seealso marker="gen_fsm"><c>gen_fsm</c></seealso>
-              process, <c><anno>State</anno></c> is the tuple
-              <c>{CurrentStateName, CurrentStateData}</c>.</p>
-          </item>
-          <item>
-            <p>For a
               <seealso marker="gen_statem"><c>gen_statem</c></seealso>
               process, <c><anno>State</anno></c> is the tuple
               <c>{CurrentState,CurrentData}</c>.</p>
@@ -222,7 +216,7 @@
         <p>Function <c>system_get_state/1</c> is primarily useful for
           user-defined behaviors and modules that implement OTP
           <seealso marker="#special_process">special processes</seealso>. 
-          The <c>gen_server</c>, <c>gen_fsm</c>,
+          The <c>gen_server</c>,
 	  <c>gen_statem</c>, and <c>gen_event</c> OTP
           behavior modules export this function, so callback modules for those
           behaviors need not to supply their own.</p>
@@ -246,11 +240,6 @@
               process returns the state of the callback module.</p>
           </item>
           <item>
-            <p>A <seealso marker="gen_fsm"><c>gen_fsm</c></seealso>
-              process returns information, such as its current 
-              state name and state data.</p>
-          </item>
-          <item>
             <p>A <seealso marker="gen_statem"><c>gen_statem</c></seealso>
               process returns information, such as its current
               state name and state data.</p>
@@ -262,14 +251,12 @@
           </item>
         </list>
         <p>Callback modules for <c>gen_server</c>,
-	  <c>gen_fsm</c>, <c>gen_statem</c>, and <c>gen_event</c>
+	  <c>gen_statem</c>, and <c>gen_event</c>
 	  can also change the value of <c><anno>Misc</anno></c>
           by exporting a function <c>format_status/2</c>, which contributes
           module-specific information. For details, see
           <seealso marker="gen_server#Module:format_status/2">
           <c>gen_server:format_status/2</c></seealso>,
-          <seealso marker="gen_fsm#Module:format_status/2">
-          <c>gen_fsm:format_status/2</c></seealso>,
           <seealso marker="gen_statem#Module:format_status/2">
           <c>gen_statem:format_status/2</c></seealso>, and
           <seealso marker="gen_event#Module:format_status/2">
@@ -373,13 +360,6 @@
               is a new instance of that state.</p>
           </item>
           <item>
-            <p>For a <seealso marker="gen_fsm"><c>gen_fsm</c></seealso> process,
-              <c><anno>State</anno></c> is the tuple <c>{CurrentStateName,
-              CurrentStateData}</c>, and <c><anno>NewState</anno></c> is a
-              similar tuple, which can contain 
-              a new state name, new state data, or both.</p>
-          </item>
-          <item>
             <p>For a <seealso marker="gen_statem"><c>gen_statem</c></seealso>
 	      process, <c><anno>State</anno></c> is the
 	      tuple <c>{CurrentState,CurrentData}</c>,
@@ -422,7 +402,7 @@
           return its <c><anno>State</anno></c> argument.</p>
         <p>If a <c><anno>StateFun</anno></c> function crashes or throws an
           exception, the original state of the process is unchanged for
-          <c>gen_server</c>, <c>gen_fsm</c>, and <c>gen_statem</c> processes.
+          <c>gen_server</c>, and <c>gen_statem</c> processes.
 	  For <c>gen_event</c> processes, a crashing or
 	  failing <c><anno>StateFun</anno></c> function
           means that only the state of the particular event handler it was
@@ -462,7 +442,7 @@
           user-defined behaviors and modules that implement OTP
           <seealso marker="#special_process">special processes</seealso>. The
           OTP behavior modules <c>gen_server</c>,
-	  <c>gen_fsm</c>, <c>gen_statem</c>, and <c>gen_event</c>
+	  <c>gen_statem</c>, and <c>gen_event</c>
 	  export this function, so callback modules for those
           behaviors need not to supply their own.</p>
       </desc>

@@ -143,7 +143,6 @@ fact(0) ->           %  |
         standard behaviours:</p>
 	<list type="bulleted">
 	  <item><c>gen_server</c></item>
-	  <item><c>gen_fsm</c></item>
 	  <item><c>gen_statem</c></item>
 	  <item><c>gen_event</c></item>
 	  <item><c>supervisor</c></item>

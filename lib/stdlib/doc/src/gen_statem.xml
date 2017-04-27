@@ -62,8 +62,8 @@
       </p>
     </note>
     <p>
-      The <c>gen_statem</c> behavior is intended to replace
-      <seealso marker="gen_fsm"><c>gen_fsm</c></seealso> for new code.
+      The <c>gen_statem</c> behavior replaces 
+      <seealso marker="gen_fsm"><c>gen_fsm</c> </seealso> in Erlang/OTP 20.0.
       It has the same features and adds some really useful:
     </p>
     <list type="bulleted">
@@ -78,8 +78,10 @@
     <p>
       The callback model(s) for <c>gen_statem</c> differs from
       the one for <seealso marker="gen_fsm"><c>gen_fsm</c></seealso>,
-      but it is still fairly easy to rewrite
-      from <c>gen_fsm</c> to <c>gen_statem</c>.
+      but it is still fairly easy to
+      <seealso marker="gen_fsm#Migration to gen_statem">
+	rewrite from
+      </seealso> <c>gen_fsm</c> to <c>gen_statem</c>.
     </p>
     <p>
       A generic state machine process (<c>gen_statem</c>) implemented
@@ -945,7 +947,6 @@ handle_event(_, _, State, Data) ->
 	      <seealso marker="#state callback">state callback</seealso>
 	      return value <c>{next_state,NextState,NewData,Timeout}</c>
 	      allowed like for <c>gen_fsm</c>'s
-	      <seealso marker="gen_fsm#Module:StateName/2"><c>Module:StateName/2</c></seealso>.
 	    </p>
 	  </item>
 	  <tag><c>timeout</c></tag>
