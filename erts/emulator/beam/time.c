@@ -1364,21 +1364,29 @@ dbg_verify_empty_later_slots(ErtsTimerWheel *tiw, ErtsMonotonicTime to_pos)
     tmp = to_pos;
     tmp &= ERTS_TW_LATER_WHEEL_POS_MASK;
     if (tmp > tiw->later.pos) {
+        ErtsMonotonicTime pos_min;
         int slots;
         tmp -= tiw->later.pos;
         tmp /= ERTS_TW_LATER_WHEEL_SLOT_SIZE;
         ERTS_TW_ASSERT(tmp > 0);
+
+        pos_min = tiw->later.pos;
+
         if (tmp < (ErtsMonotonicTime) ERTS_TW_LATER_WHEEL_SIZE)
             slots = (int) tmp;
-        else
+        else {
+            pos_min += ((tmp / ERTS_TW_LATER_WHEEL_SIZE)
+                        * ERTS_TW_LATER_WHEEL_SLOT_SIZE);
             slots = ERTS_TW_LATER_WHEEL_SIZE;
+        }
 
         while (slots > 0) {
             ErtsTWheelTimer *tmr = tiw->w[ix];
+            pos_min += ERTS_TW_LATER_WHEEL_SLOT_SIZE;
             if (tmr) {
                 ErtsTWheelTimer *end = tmr;
                 do {
-                    ERTS_TW_ASSERT(tmr->timeout_pos > to_pos);
+                    ERTS_TW_ASSERT(tmr->timeout_pos >= pos_min);
                     tmr = tmr->next;
                 } while (tmr != end);
             }
