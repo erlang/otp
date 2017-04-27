@@ -69,7 +69,7 @@
 	  parent,
 	  grid,
 	  panel,
-	  node=node(),
+	  node={node(),true},
 	  opt=#opt{},
 	  right_clicked_port,
 	  ports,
@@ -270,19 +270,39 @@ handle_cast(Event, _State) ->
     error({unhandled_cast, Event}).
 
 handle_info({portinfo_open, PortIdStr},
-	    State = #state{node=Node, grid=Grid, opt=Opt, open_wins=Opened}) ->
-    Ports0 = get_ports(Node),
-    Ports = update_grid(Grid, sel(State), Opt, Ports0),
-    Port = lists:keyfind(PortIdStr, #port.id_str, Ports),
-    NewOpened =
-        case Port of
-            false ->
-                self() ! {error,"No such port: " ++ PortIdStr},
-                Opened;
+	    State = #state{node={ActiveNodeName,ActiveAvailable}, grid=Grid,
+                           opt=Opt, open_wins=Opened}) ->
+    NodeName = node(list_to_port(PortIdStr)),
+    Available =
+        case NodeName of
+            ActiveNodeName ->
+                ActiveAvailable;
             _ ->
-                display_port_info(Grid, Port, Opened)
+                portinfo_available(NodeName)
         end,
-    {noreply, State#state{ports=Ports, open_wins=NewOpened}};
+    if Available ->
+            Ports0 = get_ports({NodeName,Available}),
+            Port = lists:keyfind(PortIdStr, #port.id_str, Ports0),
+            NewOpened =
+                case Port of
+                    false ->
+                        self() ! {error,"No such port: " ++ PortIdStr},
+                        Opened;
+                    _ ->
+                        display_port_info(Grid, Port, Opened)
+                end,
+            Ports =
+                case NodeName of
+                    ActiveNodeName ->
+                        update_grid(Grid, sel(State), Opt, Ports0);
+                    _ ->
+                        State#state.ports
+                end,
+            {noreply, State#state{ports=Ports, open_wins=NewOpened}};
+       true ->
+            popup_unavailable_info(NodeName),
+            {noreply, State}
+    end;
 
 handle_info(refresh_interval, State = #state{node=Node, grid=Grid, opt=Opt,
                                              ports=OldPorts}) ->
@@ -295,18 +315,27 @@ handle_info(refresh_interval, State = #state{node=Node, grid=Grid, opt=Opt,
             {noreply, State#state{ports=Ports}}
     end;
 
-handle_info({active, Node}, State = #state{parent=Parent, grid=Grid, opt=Opt,
-					   timer=Timer0}) ->
-    Ports0 = get_ports(Node),
+handle_info({active, NodeName}, State = #state{parent=Parent, grid=Grid, opt=Opt,
+                                               timer=Timer0}) ->
+    Available = portinfo_available(NodeName),
+    Available orelse popup_unavailable_info(NodeName),
+    Ports0 = get_ports({NodeName,Available}),
     Ports = update_grid(Grid, sel(State), Opt, Ports0),
     wxWindow:setFocus(Grid),
     create_menus(Parent),
     Timer = observer_lib:start_timer(Timer0, 10),
-    {noreply, State#state{node=Node, ports=Ports, timer=Timer}};
+    {noreply, State#state{node={NodeName,Available}, ports=Ports, timer=Timer}};
 
 handle_info(not_active, State = #state{timer = Timer0}) ->
     Timer = observer_lib:stop_timer(Timer0),
     {noreply, State#state{timer=Timer}};
+
+handle_info({info, {port_info_not_available,NodeName}},
+            State = #state{panel=Panel}) ->
+    Str = io_lib:format("Can not fetch port info from ~p.~n"
+                        "Too old OTP version.",[NodeName]),
+    observer_lib:display_info_dialog(Panel, Str),
+    {noreply, State};
 
 handle_info({error, Error}, #state{panel=Panel} = State) ->
     Str = io_lib:format("ERROR: ~s~n",[Error]),
@@ -341,16 +370,18 @@ create_menus(Parent) ->
 	],
     observer_wx:create_menus(Parent, MenuEntries).
 
-get_ports(Node) ->
-    case get_ports2(Node) of
+get_ports({_NodeName,false}) ->
+    [];
+get_ports({NodeName,true}) ->
+    case get_ports2(NodeName) of
 	Error = {error, _} ->
 	    self() ! Error,
 	    [];
 	Res ->
 	    Res
     end.
-get_ports2(Node) ->
-    case rpc:call(Node, observer_backend, get_port_list, []) of
+get_ports2(NodeName) ->
+    case rpc:call(NodeName, observer_backend, get_port_list, []) of
 	{badrpc, Error} ->
 	    {error, Error};
 	Error = {error, _} ->
@@ -574,3 +605,15 @@ get_indecies(Rest = [_|_], I, [_|T]) ->
     get_indecies(Rest, I+1, T);
 get_indecies(_, _, _) ->
     [].
+
+portinfo_available(NodeName) ->
+    _ = rpc:call(NodeName, code, ensure_loaded, [observer_backend]),
+    case rpc:call(NodeName, erlang, function_exported,
+                  [observer_backend, get_port_list, 0]) of
+        true  -> true;
+        false -> false
+    end.
+
+popup_unavailable_info(NodeName) ->
+    self() ! {info, {port_info_not_available, NodeName}},
+    ok.
