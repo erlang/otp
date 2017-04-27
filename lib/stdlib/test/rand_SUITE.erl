@@ -324,8 +324,9 @@ basic_stats_normal(Config) when is_list(Config) ->
     ct:timetrap({minutes, 6 * length(IntendedMeanVariancePairs)}), %% valgrind needs a lot of time
     lists:foreach(
       fun ({IntendedMean, IntendedVariance}) ->
-              io:format("Testing normal(~.2f, ~.2f)~n",
-                        [float(IntendedMean), float(IntendedVariance)]),
+              ct:pal(
+                "Testing normal(~.2f, ~.2f)~n",
+                [float(IntendedMean), float(IntendedVariance)]),
               [basic_normal_1(?LOOP, IntendedMean, IntendedVariance,
                               rand:seed_s(Alg), 0, 0)
                || Alg <- algs()]
