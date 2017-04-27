@@ -268,47 +268,61 @@ write(Term, D, false) ->
 
 -spec write(Term, Depth) -> chars() when
       Term :: term(),
+      Depth :: depth();
+           (Term, Options) -> chars() when
+      Term :: term(),
+      Options :: [Option],
+      Option :: {'depth', Depth}
+              | {'encoding', 'latin1' | 'utf8' | 'unicode'},
       Depth :: depth().
 
-write(_Term, 0) -> "...";
-write(Term, _D) when is_integer(Term) -> integer_to_list(Term);
-write(Term, _D) when is_float(Term) -> io_lib_format:fwrite_g(Term);
-write(Atom, _D) when is_atom(Atom) -> write_atom(Atom);
-write(Term, _D) when is_port(Term) -> write_port(Term);
-write(Term, _D) when is_pid(Term) -> pid_to_list(Term);
-write(Term, _D) when is_reference(Term) -> write_ref(Term);
-write(<<_/bitstring>>=Term, D) -> write_binary(Term, D);
-write([], _D) -> "[]";
-write({}, _D) -> "{}";
-write([H|T], D) ->
+write(Term, Options) when is_list(Options) ->
+    Depth = get_option(depth, Options, -1),
+    Encoding = get_option(encoding, Options, epp:default_encoding()),
+    write1(Term, Depth, Encoding);
+write(Term, Depth) ->
+    write1(Term, Depth, latin1).
+
+write1(_Term, 0, _E) -> "...";
+write1(Term, _D, _E) when is_integer(Term) -> integer_to_list(Term);
+write1(Term, _D, _E) when is_float(Term) -> io_lib_format:fwrite_g(Term);
+write1(Atom, _D, latin1) when is_atom(Atom) -> write_atom_as_latin1(Atom);
+write1(Atom, _D, _E) when is_atom(Atom) -> write_atom(Atom);
+write1(Term, _D, _E) when is_port(Term) -> write_port(Term);
+write1(Term, _D, _E) when is_pid(Term) -> pid_to_list(Term);
+write1(Term, _D, _E) when is_reference(Term) -> write_ref(Term);
+write1(<<_/bitstring>>=Term, D, _E) -> write_binary(Term, D);
+write1([], _D, _E) -> "[]";
+write1({}, _D, _E) -> "{}";
+write1([H|T], D, E) ->
     if
 	D =:= 1 -> "[...]";
 	true ->
-	    [$[,[write(H, D-1)|write_tail(T, D-1, $|)],$]]
+	    [$[,[write1(H, D-1, E)|write_tail(T, D-1, E, $|)],$]]
     end;
-write(F, _D) when is_function(F) ->
+write1(F, _D, _E) when is_function(F) ->
     erlang:fun_to_list(F);
-write(Term, D) when is_map(Term) ->
-    write_map(Term, D);
-write(T, D) when is_tuple(T) ->
+write1(Term, D, E) when is_map(Term) ->
+    write_map(Term, D, E);
+write1(T, D, E) when is_tuple(T) ->
     if
 	D =:= 1 -> "{...}";
 	true ->
 	    [${,
-	     [write(element(1, T), D-1)|
-              write_tail(tl(tuple_to_list(T)), D-1, $,)],
+	     [write1(element(1, T), D-1, E)|
+              write_tail(tl(tuple_to_list(T)), D-1, E, $,)],
 	     $}]
     end.
 
 %% write_tail(List, Depth, CharacterBeforeDots)
 %%  Test the terminating case first as this looks better with depth.
 
-write_tail([], _D, _S) -> "";
-write_tail(_, 1, S) -> [S | "..."];
-write_tail([H|T], D, S) ->
-    [$,,write(H, D-1)|write_tail(T, D-1, S)];
-write_tail(Other, D, S) ->
-    [S,write(Other, D-1)].
+write_tail([], _D, _E, _S) -> "";
+write_tail(_, 1, _E, S) -> [S | "..."];
+write_tail([H|T], D, E, S) ->
+    [$,,write1(H, D-1, E)|write_tail(T, D-1, E, S)];
+write_tail(Other, D, E, S) ->
+    [S,write1(Other, D-1, E)].
 
 write_port(Port) ->
     erlang:port_to_list(Port).
@@ -316,17 +330,17 @@ write_port(Port) ->
 write_ref(Ref) ->
     erlang:ref_to_list(Ref).
 
-write_map(Map, D) when is_integer(D) ->
-    [$#,${,write_map_body(maps:to_list(Map), D),$}].
+write_map(Map, D, E) when is_integer(D) ->
+    [$#,${,write_map_body(maps:to_list(Map), D, E),$}].
 
-write_map_body(_, 0) -> "...";
-write_map_body([],_) -> [];
-write_map_body([{K,V}],D) -> write_map_assoc(K,V,D);
-write_map_body([{K,V}|KVs], D) ->
-    [write_map_assoc(K,V,D),$, | write_map_body(KVs,D-1)].
+write_map_body(_, 0, _E) -> "...";
+write_map_body([], _, _E) -> [];
+write_map_body([{K,V}], D, E) -> write_map_assoc(K, V, D, E);
+write_map_body([{K,V}|KVs], D, E) ->
+    [write_map_assoc(K, V, D, E),$, | write_map_body(KVs, D-1, E)].
 
-write_map_assoc(K,V,D) ->
-    [write(K,D - 1),"=>",write(V,D-1)].
+write_map_assoc(K, V, D, E) ->
+    [write1(K, D - 1, E),"=>",write1(V, D-1, E)].
 
 write_binary(B, D) when is_integer(D) ->
     [$<,$<,write_binary_body(B, D),$>,$>].
@@ -343,6 +357,13 @@ write_binary_body(B, _D) ->
     L = bit_size(B),
     <<X:L>> = B,
     [integer_to_list(X),$:,integer_to_list(L)].
+
+get_option(Key, TupleList, Default) ->
+    case lists:keyfind(Key, 1, TupleList) of
+	false -> Default;
+	{Key, Value} -> Value;
+	_ -> Default
+    end.
 
 %%% There are two functions to write Unicode atoms:
 %%% - they both escape control characters < 160;

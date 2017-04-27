@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -265,6 +265,8 @@ ok
             <p>Writes data with the standard syntax. This is used to
               output Erlang terms. Atoms are printed within quotes if
               they contain embedded non-printable characters.
+	      Atom characters &gt; 255 are escaped unless the
+	      Unicode translation modifier (<c>t</c>) is used.
               Floats are printed accurately as the shortest, correctly
               rounded string.</p>
           </item>
@@ -567,8 +569,6 @@ Prompt> <input>&lt;Characters beyond latin1 range not printable in this medium&g
               <item>
                 <p>Similar to <c>s</c>, but the resulting string is
                   converted into an atom.</p>
-                <p>The Unicode translation modifier is not allowed (atoms
-                  cannot contain characters beyond the <c>latin1</c> range).</p>
               </item>
               <tag><c>c</c></tag>
               <item>

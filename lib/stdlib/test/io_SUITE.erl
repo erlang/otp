@@ -2348,4 +2348,28 @@ otp_14285(_Config) ->
     L1 = [S || C <- Chars, S <- io_lib:write_atom(list_to_atom([C])),
                not is_latin1(S)],
     L1 = lists:seq(256, 512),
+
+    latin1_fmt("~w", ['кирилли́ческий атом']),
+    latin1_fmt("~w", ['\x{10FFFF}']),
+    "'кирилли́ческий атом'" = fmt("~tw", ['кирилли́ческий атом']),
+    [$',16#10FFFF,$'] = fmt("~tw", ['\x{10FFFF}']),
+
+    latin1_fmt("~W", ['кирилли́ческий атом', 13]),
+    latin1_fmt("~W", ['\x{10FFFF}', 13]),
+    "'кирилли́ческий атом'" = fmt("~tW", ['кирилли́ческий атом', 13]),
+    [$',16#10FFFF,$'] = fmt("~tW", ['\x{10FFFF}', 13]),
+
+    {ok, [an_atom],[]} = io_lib:fread("~a", "an_atom"),
+    {ok, [an_atom],[]} = io_lib:fread("~ta", "an_atom"),
+    Str = "\"ab" ++ [1089] ++ "cd\"",
+    {ok, ["\"ab"], [1089]++"cd\""} = io_lib:fread("~s", Str),
+    {ok, ['\"ab'], [1089]++"cd\""} = io_lib:fread("~a", Str),
+    {ok,[Str], []} = io_lib:fread("~ts", Str),
+    {ok,[Atom],[]} = io_lib:fread("~ta", Str),
+    Str = atom_to_list(Atom),
+
     ok.
+
+latin1_fmt(Fmt, Args) ->
+    L = fmt(Fmt, Args),
+    true = lists:all(fun is_latin1/1, L).
