@@ -35,6 +35,28 @@
     <p><c>escript</c> provides support for running short Erlang programs
       without having to compile them first, and an easy way to retrieve the
       command-line arguments.</p>
+
+      <p>It is possible to bundle <c>escript</c>(s) with an Erlang
+      runtime system to make it self-sufficient and relocatable. In such
+      a standalone system, the <c>escript</c>(s) should be located in
+      the top <c>bin</c> directory of the standalone system and given
+      <c>.escript</c> as file extension. Further the (built-in)
+      <c>escript</c> program should be copied to the same directory and
+      given the scripts original name (without the <c>.escript</c>
+      extension). This will enable use of the bundled Erlang runtime
+      system.</p>
+
+      <p>The (built-in) <c>escript</c> program first determines which
+      Erlang runtime system to use and then starts it to execute your
+      script. Usually the runtime system is located in the same Erlang
+      installation as the <c>escript</c> program itself. But for
+      standalone systems with one or more escripts it may be the case
+      that the <c>escript</c> program in your path actually starts the
+      runtime system bundled with the escript. This is intentional, and
+      typically happens when the standalone system <c>bin</c> directory is not
+      in the execution path (as it may cause its <c>erl</c> program to
+      override the desired one) and the <c>escript</c>(s) are referred to via
+      symbolic links from a <c>bin</c> directory in the path.</p>
   </description>
 
   <funcs>
