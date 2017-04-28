@@ -44,6 +44,13 @@
           <p>
 	    Own Id: OTP-14242</p>
         </item>
+
+        <item>
+          <p>Make default port, 80 and 443, implicit in automatic redirection.
+	  </p>
+          <p> Own Id: OTP-14301
+	  </p>
+        </item>        
       </list>
     </section>
 
