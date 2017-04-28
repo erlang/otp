@@ -7024,18 +7024,24 @@ sched_spin_suspended(ErtsSchedulerSleepInfo *ssi, int spincount)
 }
 
 static erts_aint32_t
-sched_set_suspended_sleeptype(ErtsSchedulerSleepInfo *ssi)
+sched_set_suspended_sleeptype(ErtsSchedulerSleepInfo *ssi,
+                              erts_aint32_t sleep_type)
 {
     erts_aint32_t oflgs;
-    erts_aint32_t nflgs = (ERTS_SSI_FLG_SLEEPING
-			   | ERTS_SSI_FLG_TSE_SLEEPING
-			   | ERTS_SSI_FLG_WAITING
-			   | ERTS_SSI_FLG_SUSPENDED);
+    erts_aint32_t nflgs = ((ERTS_SSI_FLG_SLEEPING
+                            | ERTS_SSI_FLG_WAITING
+                            | ERTS_SSI_FLG_SUSPENDED)
+                           | sleep_type);
     erts_aint32_t xflgs = (ERTS_SSI_FLG_SLEEPING
 			   | ERTS_SSI_FLG_WAITING
 			   | ERTS_SSI_FLG_SUSPENDED);
 
-    erts_tse_reset(ssi->event);
+    if (sleep_type == ERTS_SSI_FLG_TSE_SLEEPING)
+	erts_tse_reset(ssi->event);
+    else {
+	ASSERT(sleep_type == ERTS_SSI_FLG_POLL_SLEEPING);
+	erts_check_io_interrupt(ssi->esdp->pollset, 0);
+    }
 
     while (1) {
 	oflgs = erts_atomic32_cmpxchg_acqb(&ssi->flags, nflgs, xflgs);
@@ -7371,6 +7377,61 @@ msb_scheduler_type_switch(ErtsSchedType sched_type,
 
 }
 
+static ERTS_INLINE void
+suspend_dirty_scheduler_sleep(ErtsSchedulerData *esdp)
+{
+    ErtsSchedulerSleepInfo *ssi = esdp->ssi;
+    erts_aint32_t flgs = sched_spin_suspended(ssi,
+                                              ERTS_SCHED_SUSPEND_SLEEP_SPINCOUNT);
+    if (flgs == (ERTS_SSI_FLG_SLEEPING
+                 | ERTS_SSI_FLG_WAITING
+                 | ERTS_SSI_FLG_SUSPENDED)) {
+        flgs = sched_set_suspended_sleeptype(ssi, ERTS_SSI_FLG_TSE_SLEEPING);
+        if (flgs == (ERTS_SSI_FLG_SLEEPING
+                     | ERTS_SSI_FLG_TSE_SLEEPING
+                     | ERTS_SSI_FLG_WAITING
+                     | ERTS_SSI_FLG_SUSPENDED)) {
+            int res;
+
+            do {
+                res = erts_tse_wait(ssi->event);
+            } while (res == EINTR);
+        }
+    }
+}
+
+static ERTS_INLINE void
+suspend_normal_scheduler_sleep(ErtsSchedulerData *esdp)
+{
+    ErtsSchedulerSleepInfo *ssi = esdp->ssi;
+    erts_aint32_t flgs;
+    int spincount;
+
+    spincount = sched_busy_wait.sys_schedule;
+
+    while (spincount-- > 0) {
+
+        erl_sys_schedule(1);
+
+        flgs = erts_smp_atomic32_read_acqb(&ssi->flags);
+        if (flgs != (ERTS_SSI_FLG_SLEEPING
+                     | ERTS_SSI_FLG_WAITING
+                     | ERTS_SSI_FLG_SUSPENDED)) {
+            return;
+        }
+    }
+
+    flgs = sched_set_suspended_sleeptype(ssi, ERTS_SSI_FLG_POLL_SLEEPING);
+    if (flgs != (ERTS_SSI_FLG_SLEEPING
+                 | ERTS_SSI_FLG_POLL_SLEEPING
+                 | ERTS_SSI_FLG_WAITING
+                 | ERTS_SSI_FLG_SUSPENDED)) {
+        return;
+    }
+
+    /* Sleep on pollset... */
+    erl_sys_schedule(0);
+}
 
 static void
 suspend_scheduler(ErtsSchedulerData *esdp)
@@ -7559,13 +7620,14 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 	    schdlr_sspnd_resume_procs(sched_type, &resume);
 
 	    while (1) {
-		ErtsMonotonicTime current_time;
-		erts_aint32_t flgs;
-
 		if (sched_type != ERTS_SCHED_NORMAL)
-		    aux_work = 0;
-		else {
+                    suspend_dirty_scheduler_sleep(esdp);
+		else
+                {
+                    ErtsMonotonicTime current_time, timeout_time;
                     int evacuate = no == 1 ? 0 : !ERTS_EMPTY_RUNQ(esdp->run_queue);
+
+		    ASSERT(sched_type == ERTS_SCHED_NORMAL);
 
 		    aux_work = erts_atomic32_read_acqb(&ssi->aux_work);
 
@@ -7588,95 +7650,32 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 			}
 		    }
 
-		}
 
-		if (aux_work) {
-		    ASSERT(sched_type == ERTS_SCHED_NORMAL);
-		    current_time = erts_get_monotonic_time(esdp);
-		    if (current_time >= erts_next_timeout_time(esdp->next_tmo_ref)) {
-			if (!thr_prgr_active) {
-			    erts_thr_progress_active(esdp, thr_prgr_active = 1);
-			    sched_wall_time_change(esdp, 1);
-			}
-			erts_bump_timers(esdp->timer_wheel, current_time);
-		    }
-		}
-		else {
-		    ErtsMonotonicTime timeout_time;
-		    int do_timeout;
+                    if (aux_work)
+                        timeout_time = erts_next_timeout_time(esdp->next_tmo_ref);
+                    else
+                        timeout_time = erts_check_next_timeout_time(esdp);
 
-		    if (sched_type == ERTS_SCHED_NORMAL) {
-			timeout_time = erts_check_next_timeout_time(esdp);
-			current_time = erts_get_monotonic_time(esdp);
-			do_timeout = (current_time >= timeout_time);
-		    }
-		    else {
-			timeout_time = ERTS_MONOTONIC_TIME_MAX;
-			current_time = 0;
-			do_timeout = 0;
-		    }
+                    current_time = erts_get_monotonic_time(esdp);
 
-		    if (do_timeout) {
-			ASSERT(sched_type == ERTS_SCHED_NORMAL);
-			if (!thr_prgr_active) {
-			    erts_thr_progress_active(esdp, thr_prgr_active = 1);
-			    sched_wall_time_change(esdp, 1);
-			}
-		    }
-		    else {
-			if (sched_type == ERTS_SCHED_NORMAL) {
-			    if (thr_prgr_active) {
-				erts_thr_progress_active(esdp, thr_prgr_active = 0);
-				sched_wall_time_change(esdp, 0);
-			    }
-			    erts_thr_progress_prepare_wait(esdp);
-			}
-			flgs = sched_spin_suspended(ssi,
-						    ERTS_SCHED_SUSPEND_SLEEP_SPINCOUNT);
-			if (flgs == (ERTS_SSI_FLG_SLEEPING
-				     | ERTS_SSI_FLG_WAITING
-				     | ERTS_SSI_FLG_SUSPENDED)) {
-			    flgs = sched_set_suspended_sleeptype(ssi);
-			    if (flgs == (ERTS_SSI_FLG_SLEEPING
-					 | ERTS_SSI_FLG_TSE_SLEEPING
-					 | ERTS_SSI_FLG_WAITING
-					 | ERTS_SSI_FLG_SUSPENDED)) {
-				int res;
+                    if (!aux_work && current_time < timeout_time) {
+                        /* go to sleep... */
+                        if (thr_prgr_active) {
+                            erts_thr_progress_active(esdp, thr_prgr_active = 0);
+                            sched_wall_time_change(esdp, 0);
+                        }
+                        suspend_normal_scheduler_sleep(esdp);
+                        current_time = erts_get_monotonic_time(esdp);;
+                    }
 
-				if (sched_type == ERTS_SCHED_NORMAL)
-				    current_time = erts_get_monotonic_time(esdp);
-				else
-				    current_time = 0;
-
-				do {
-				    Sint64 timeout;
-				    if (current_time >= timeout_time)
-					break;
-				    if (sched_type != ERTS_SCHED_NORMAL)
-					timeout = -1;
-				    else
-					timeout = ERTS_MONOTONIC_TO_NSEC(timeout_time
-									 - current_time
-									 - 1) + 1;
-				    res = erts_tse_twait(ssi->event, timeout);
-
-				    if (sched_type == ERTS_SCHED_NORMAL)
-					current_time = erts_get_monotonic_time(esdp);
-				    else
-					current_time = 0;
-
-				} while (res == EINTR);
-			    }
-			}
-			if (sched_type == ERTS_SCHED_NORMAL)
-			    erts_thr_progress_finalize_wait(esdp);
-		    }
-
-		    if (current_time >= timeout_time) {
-			ASSERT(sched_type == ERTS_SCHED_NORMAL);
-			erts_bump_timers(esdp->timer_wheel, current_time);
-		    }
-		}
+                    if (current_time >= timeout_time) {
+                        if (!thr_prgr_active) {
+                            erts_thr_progress_active(esdp, thr_prgr_active = 1);
+                            sched_wall_time_change(esdp, 1);
+                        }
+                        erts_bump_timers(esdp->timer_wheel, current_time);
+                    }
+                }
 
 		flgs = sched_prep_spin_suspended(ssi, (ERTS_SSI_FLG_WAITING
 						       | ERTS_SSI_FLG_SUSPENDED));
