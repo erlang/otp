@@ -56,25 +56,19 @@
       <list>
         <item>
           <p>
-	    Trying to open a directory with file:read_file/1 on Unix
-	    leaked a file descriptor. This bug has now been fixed.</p>
-          <p>
-	    Own Id: OTP-14308 Aux Id: ERL-383 </p>
-        </item>
-      </list>
-    </section>
-
-
-    <section><title>Known Bugs and Problems</title>
-      <list>
-        <item>
-          <p>
 	    Invoking <c>init:stop/0</c> via the SIGTERM signal, in a
 	    non-SMP BEAM, could cause BEAM to terminate with fatal
 	    error. This has now been fixed and the BEAM will
 	    terminate normally when SIGTERM is received.</p>
           <p>
 	    Own Id: OTP-14290</p>
+        </item>
+        <item>
+          <p>
+	    Trying to open a directory with file:read_file/1 on Unix
+	    leaked a file descriptor. This bug has now been fixed.</p>
+          <p>
+	    Own Id: OTP-14308 Aux Id: ERL-383 </p>
         </item>
       </list>
     </section>
