@@ -39,8 +39,9 @@ connect(Port, Options) when is_integer(Port) ->
 connect(any, Port, Options) ->
     connect(hostname(), Port, Options);
 connect(Host, Port, Options) ->
-    ct:log("~p:~p Calling ssh:connect(~p, ~p, ~p)",[?MODULE,?LINE,Host, Port, Options]),
-    {ok, ConnectionRef} = ssh:connect(Host, Port, Options),
+    R = ssh:connect(Host, Port, Options),
+    ct:log("~p:~p ssh:connect(~p, ~p, ~p)~n -> ~p",[?MODULE,?LINE,Host, Port, Options, R]),
+    {ok, ConnectionRef} = R,
     ConnectionRef.
 
 %%%----------------------------------------------------------------
