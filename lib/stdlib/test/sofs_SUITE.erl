@@ -1783,7 +1783,7 @@ multiple_relative_product(Conf) when is_list(Conf) ->
     ok.
 
 digraph(Conf) when is_list(Conf) ->
-    T0 = ets:all(),
+    T0 = lists:sort(ets:all()),
     E = empty_set(),
     R = relation([{a,b},{b,c},{c,d},{d,a}]),
     F = relation_to_family(R),
@@ -1833,7 +1833,7 @@ digraph(Conf) when is_list(Conf) ->
         true -> ok
     end,
 
-    true = T0 == ets:all(),
+    true = T0 == lists:sort(ets:all()),
     ok.
 
 digraph_fail(ExitReason, Fail) ->

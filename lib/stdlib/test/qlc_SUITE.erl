@@ -1240,6 +1240,17 @@ string_to_handle(Config) when is_list(Config) ->
     {'EXIT', {no_lookup_to_carry_out, _}} =
         (catch qlc:e(qlc:string_to_handle(Q, {lookup,true}, Bs2))),
     ets:delete(Ets),
+
+    %% References can be scanned and parsed.
+    E2 = ets:new(test, [bag]),
+    Ref = make_ref(),
+    true = ets:insert(E2, [{Ref,Ref}]),
+    S2 = "[{Val1} || {Ref1, Val1} <- ets:table("++io_lib:write(E2)++"),"
+         "Ref1 =:= Ref].",
+    Bs = erl_eval:add_binding('Ref', Ref, erl_eval:new_bindings()),
+    [{Ref}] = qlc:e(qlc:string_to_handle(S2, [], Bs)),
+    ets:delete(E2),
+
     ok.
 
 %% table
@@ -4321,7 +4332,18 @@ ets(Config) when is_list(Config) ->
            R = qlc:e(Q),
            ets:delete(E),
            [] = R">>]
-       end
+       end,
+
+       <<"E2 = ets:new(test, [bag]),
+          Ref = make_ref(),
+          true = ets:insert(E2, [{Ref,Ref}]),
+          Q2 = qlc:q([{Val1} ||
+                         {Ref1, Val1} <- ets:table(E2),
+                         Ref1 =:= Ref]),
+          S = qlc:info(Q2),
+          true = is_list(S),
+          [{Ref}] = qlc:e(Q2),
+          ets:delete(E2)">>
 
        ],
     
@@ -7071,7 +7093,7 @@ otp_12946(Config) when is_list(Config) ->
 
 %% Examples from qlc(3).
 manpage(Config) when is_list(Config) ->
-
+    dets:start(),
     ok = compile_gb_table(Config),
 
     Ts = [
@@ -7138,11 +7160,14 @@ manpage(Config) when is_list(Config) ->
               \"               [{X,Z}|{W,Y}] <- V2\n\"
               \"          ])\n\"
               \"end\",
-          Info =
+          Info1 =
              re:replace(qlc:info(Q), 
-                        \"table\\\\(-*[0-9]*\",
+                        \"table\\\\(#Ref<[\\.0-9]*>\",
                         \"table(_\", [{return,list},global]),
-          L = Info,
+          F = fun(C) -> C =/= $\n andalso C =/= $\s end,
+          Info = lists:filter(F, Info1),
+          L1 = lists:filter(F, L),
+          L1 = Info,
           ets:delete(E1),
           ets:delete(E2)">>,
 
@@ -7445,10 +7470,10 @@ etsc(F, Opts, Objs) ->
     V.
 
 join_info(H) ->
-    {qlc, S, Options} = strip_qlc_call(H),
+    {{qlc, S, Options}, Bs} = strip_qlc_call2(H),
     %% "Hide" the call to qlc_pt from the test in run_test().
     LoadedPT = code:is_loaded(qlc_pt),
-    QH = qlc:string_to_handle(S, Options),
+    QH = qlc:string_to_handle(S, Options, Bs),
     _ = [unload_pt() || false <- [LoadedPT]], % doesn't take long...
     case {join_info_count(H), join_info_count(QH)} of
         {N, N} -> 
@@ -7458,30 +7483,34 @@ join_info(H) ->
     end.
 
 strip_qlc_call(H) ->
+    {Expr, _Bs} = strip_qlc_call2(H),
+    Expr.
+
+strip_qlc_call2(H) ->
     S = qlc:info(H, {flat, false}),
-    {ok, Tokens, _EndLine} = erl_scan:string(S++"."),
-    {ok, [Expr]} = erl_parse:parse_exprs(Tokens),
-    case Expr of
-        {call,_,{remote,_,{atom,_,qlc},{atom,_,q}},[LC]} ->
-            {qlc, lists:flatten([erl_pp:expr(LC), "."]), []};
-        {call,_,{remote,_,{atom,_,qlc},{atom,_,q}},[LC, Opts]} ->
-            {qlc, lists:flatten([erl_pp:expr(LC), "."]), 
-             erl_parse:normalise(Opts)};
-        {call,_,{remote,_,{atom,_,ets},{atom,_,match_spec_run}},_} ->
-            {match_spec, Expr};
-        {call,_,{remote,_,{atom,_,M},{atom,_,table}},_} ->
-            {table, M, Expr};
-        _ -> 
-            []
-    end.
+    {ok, Tokens, _EndLine} = erl_scan:string(S++".", 1, [text]),
+    {ok, [Expr], Bs} = lib:extended_parse_exprs(Tokens),
+    {case Expr of
+         {call,_,{remote,_,{atom,_,qlc},{atom,_,q}},[LC]} ->
+             {qlc, lists:flatten([erl_pp:expr(LC), "."]), []};
+         {call,_,{remote,_,{atom,_,qlc},{atom,_,q}},[LC, Opts]} ->
+             {qlc, lists:flatten([erl_pp:expr(LC), "."]),
+              erl_parse:normalise(Opts)};
+         {call,_,{remote,_,{atom,_,ets},{atom,_,match_spec_run}},_} ->
+             {match_spec, Expr};
+         {call,_,{remote,_,{atom,_,M},{atom,_,table}},_} ->
+             {table, M, Expr};
+         _ ->
+             []
+     end, Bs}.
 
 -record(ji, {nmerge = 0, nlookup = 0, nnested_loop = 0, nkeysort = 0}).
 
 %% Counts join options and (all) calls to qlc:keysort().
 join_info_count(H) ->
     S = qlc:info(H, {flat, false}),    
-    {ok, Tokens, _EndLine} = erl_scan:string(S++"."),
-    {ok, [Expr]} = erl_parse:parse_exprs(Tokens),
+    {ok, Tokens, _EndLine} = erl_scan:string(S++".", 1, [text]),
+    {ok, [Expr], _Bs} = lib:extended_parse_exprs(Tokens),
     #ji{nmerge = Nmerge, nlookup = Nlookup, 
         nkeysort = NKeysort, nnested_loop = Nnested_loop} = 
         ji(Expr, #ji{}),
@@ -7524,8 +7553,8 @@ lookup_keys({list,Q,_}, L) ->
 lookup_keys({generate,_,Q}, L) ->
     lookup_keys(Q, L);
 lookup_keys({table,Chars}, L) when is_list(Chars) ->
-    {ok, Tokens, _} = erl_scan:string(lists:flatten(Chars++".")),
-    {ok, [Expr]} = erl_parse:parse_exprs(Tokens),
+    {ok, Tokens, _} = erl_scan:string(lists:flatten(Chars++"."), 1, [text]),
+    {ok, [Expr], _Bs} = lib:extended_parse_exprs(Tokens),
     case Expr of
         {call,_,_,[_fun,AKs]} ->
             case erl_parse:normalise(AKs) of
@@ -7842,7 +7871,7 @@ run_test(Config, Extra, {cres, Body, Opts, ExpectedCompileReturn}) ->
     {module, _} = code:load_abs(AbsFile, Mod),
 
     Ms0 = erlang:process_info(self(),messages),
-    Before = {{get(), ets:all(), Ms0}, pps()},
+    Before = {{get(), lists:sort(ets:all()), Ms0}, pps()},
 
     %% Prepare the check that the qlc module does not call qlc_pt.
     _ = [unload_pt() || {file, Name} <- [code:is_loaded(qlc_pt)], 
@@ -7874,7 +7903,7 @@ run_test(Config, Extra, Body) ->
 
 wait_for_expected(R, {Strict0,PPS0}=Before, SourceFile, Wait) ->
     Ms = erlang:process_info(self(),messages),
-    After = {_,PPS1} = {{get(), ets:all(), Ms}, pps()},
+    After = {_,PPS1} = {{get(), lists:sort(ets:all()), Ms}, pps()},
     case {R, After} of
         {ok, Before} ->
             ok;
