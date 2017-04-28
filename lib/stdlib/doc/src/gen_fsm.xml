@@ -29,7 +29,7 @@
     <rev></rev>
   </header>
   <module>gen_fsm</module>
-  <modulesummary>Deprecated and replaced by <seealso marker="gen_statem"><c>gen_statem</c></seealso> </modulesummary>
+  <modulesummary>Deprecated and replaced by gen_statem </modulesummary>
 
   <description>
     <p> Deprecated and replaced by  <seealso marker="gen_statem"><c>gen_statem</c></seealso> </p>
