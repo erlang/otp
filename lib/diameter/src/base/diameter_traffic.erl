@@ -1438,11 +1438,21 @@ make_retransmit_header(Hdr) ->
     Hdr#diameter_header{is_retransmitted = true}.
 
 %% fold_record/2
+%%
+%% Replace elements in the first record by those in the second that
+%% differ from undefined.
 
-fold_record(undefined, R) ->
-    R;
-fold_record(Rec, R) ->
-    diameter_lib:fold_tuple(2, Rec, R).
+fold_record(Rec0, undefined) ->
+    Rec0;
+fold_record(Rec0, Rec) ->
+    list_to_tuple(fold(tuple_to_list(Rec0), tuple_to_list(Rec))).
+
+fold([], []) ->
+    [];
+fold([H | T0], [undefined | T]) ->
+    [H | fold(T0, T)];
+fold([_ | T0], [H | T]) ->
+    [H | fold(T0, T)].
 
 %% send_R/6
 
