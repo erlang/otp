@@ -587,8 +587,12 @@ int main(int argc, char **argv)
     erts_snprintf(tmpStr, sizeof(tmpStr), "%s" DIRSEP "%s" BINARY_EXT, bindir, emu);
     emu = strsave(tmpStr);
 
-    add_Eargs(emu);		/* Will be argv[0] -- necessary! */
-
+    s = get_env("ESCRIPT_NAME");
+    if(s) {
+        add_Eargs(s);         /* argv[0] = scriptname*/
+    } else {
+        add_Eargs(progname);  /* argv[0] = erl or cerl */
+    }
     /*
      * Add the bindir to the path (unless it is there already).
      */
