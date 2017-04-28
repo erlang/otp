@@ -55,6 +55,7 @@
 #include "dtrace-wrapper.h"
 #include "erl_process.h"
 #include "erl_bif_unique.h"
+#include "erl_io_queue.h"
 #undef ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #define ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #include "erl_nfunc_sched.h"
@@ -3265,6 +3266,193 @@ int enif_compare_monitors(const ErlNifMonitor *monitor1,
 {
     return sys_memcmp((void *) monitor1, (void *) monitor2,
                       ERTS_REF_THING_SIZE*sizeof(Eterm));
+}
+
+ErlNifIOQueue *enif_ioq_create(ErlNifIOQueueOpts opts)
+{
+    ErlNifIOQueue *q;
+
+    if (opts != ERL_NIF_IOQ_NORMAL)
+        return NULL;
+
+    q = enif_alloc(sizeof(ErlNifIOQueue));
+    if (!q) return NULL;
+    erts_ioq_init(q, ERTS_ALC_T_NIF, 0);
+
+    return q;
+}
+
+void enif_ioq_destoy(ErlNifIOQueue *q)
+{
+    erts_ioq_clear(q);
+    enif_free(q);
+}
+
+#define ERL_NIF_IOVEC_FLAGS_STACK (1 << 0)
+
+/* If env == NULL, return value has to be free'd using
+ * enif_free_iovec(iov). We have to note if the iov is stack
+ * allocated or not in order to know if we have to free it or not.
+ * ErlNifIOVec stack;
+ * ErlNifIOVec *iov = NULL;
+ * if (!enif_inspect_iolist_as_iovec(term, &iov))
+ *   return badarg;
+ *
+ * if (q)
+ *   enif_ioq_enqv(q, iov, 0);
+ * else
+ *   enif_free_iovec(iov);
+ */
+int enif_inspect_iolist_as_iovec(ErlNifEnv *env, ERL_NIF_TERM term, ErlNifIOVec **iovp)
+{
+    int i, vsize, iov_offset, binv_offset, alloc_size;
+    Uint csize, pvsize, pcsize, total_size, blimit;
+    ErlNifIOVec *niov = *iovp;
+    ErtsIOVec *iov;
+    SysIOVec* ivp;
+    ErtsIOQBinary **bvp, *cbin = NULL;
+    ErlNifBinary nif_cbin;
+    char *ptr;
+
+    if (erts_ioq_iodata_vec_len(term, &vsize, &csize, &pvsize, &pcsize,
+                                &total_size, 64))
+        return 0;
+
+    if (niov && vsize < ERL_NIF_IOVEC_SIZE) {
+        /* Do NOT pack */
+        blimit = 0;
+
+        iov = (ErtsIOVec*)niov;
+        ivp = iov->nif.iov = niov->small_iov;
+        bvp = iov->common.binv = (ErtsIOQBinary**)niov->small_ref_bin;
+        niov->flags = ERL_NIF_IOVEC_FLAGS_STACK;
+
+    } else {
+        /* Do pack if we don't use the provided iov structure */
+        vsize = pvsize;
+        csize = pcsize;
+        blimit = 64;
+
+        iov_offset = ERTS_ALC_DATA_ALIGN_SIZE(sizeof(ErlNifIOVec));
+	binv_offset = iov_offset;
+	binv_offset += ERTS_ALC_DATA_ALIGN_SIZE(vsize*sizeof(SysIOVec));
+	alloc_size = binv_offset;
+	alloc_size += vsize*sizeof(Binary *);
+
+        if (env) {
+            ErlNifBinary bin;
+            if (!enif_alloc_binary(alloc_size, &bin))
+                return 0; /* out of memory */
+            ptr = (char*)bin.data;
+            enif_make_binary(env, &bin);
+        } else {
+            ptr = enif_alloc(alloc_size);
+        }
+
+        iov = (ErtsIOVec *) ptr;
+        ivp = iov->nif.iov = (SysIOVec *) (ptr + iov_offset);
+        bvp = iov->common.binv = (ErtsIOQBinary **) (ptr + binv_offset);
+        niov = &iov->nif;
+        niov->flags = 0;
+        *iovp = niov;
+    }
+
+    if (csize) {
+        if (!enif_alloc_binary(csize, &nif_cbin))
+            return 0; /* out of memory */
+        else
+            cbin = (ErtsIOQBinary*)nif_cbin.ref_bin;
+    }
+
+    iov->nif.iovcnt = erts_ioq_iodata_to_vec(term, ivp, bvp, cbin, blimit, 0);
+    iov->nif.size = total_size;
+
+    if (env) {
+        /* If we have an environment, we attach the allocated
+           data to that environment. The GC will take care of
+           releasing it later on. */
+        if (csize)
+            enif_make_binary(env, &nif_cbin);
+    } else {
+        /* Increment the refc of all the binaries */
+        for (i = 0; i < iov->nif.iovcnt; i++)
+            if (bvp[i]) erts_refc_inc(&bvp[i]->nif.refc, 1);
+        if (csize)
+            enif_release_binary(&nif_cbin);
+    }
+
+    return 1;
+}
+
+
+void enif_free_iovec(ErlNifIOVec *iov)
+{
+    int i;
+    /* Decrement the refc of all the binaries */
+    for (i = 0; i < iov->iovcnt; i++) {
+        Binary *bptr = ((Binary**)iov->ref_bins)[i];
+        /* bptr can be null if enq_binary was used */
+        if (bptr && erts_refc_dectest(&bptr->refc, 0) == 0) {
+            erts_bin_free(bptr);
+        }
+    }
+    if (iov->flags == 0)
+        enif_free(iov);
+}
+
+/* */
+int enif_ioq_enqv(ErlNifIOQueue *q, ErlNifIOVec *iov, size_t skip)
+{
+    return !erts_ioq_enqv(q, (ErtsIOVec*)iov, skip);
+}
+
+int enif_ioq_enq(ErlNifEnv *env, ErlNifIOQueue *q, ERL_NIF_TERM term, size_t skip)
+{
+    ErlNifIOVec vec;
+    ErlNifIOVec *iovec = &vec;
+    int res;
+
+    if (!enif_inspect_iolist_as_iovec(env, term, &iovec))
+        return 0;
+
+    res = enif_ioq_enqv(q, iovec, skip);
+
+    if (!env)
+        enif_free_iovec(iovec);
+
+    return res;
+}
+
+int enif_ioq_enq_binary(ErlNifIOQueue *q, ErlNifBinary *bin, size_t skip)
+{
+    ErlNifIOVec vec = {1, bin->size, NULL, NULL, ERL_NIF_IOVEC_FLAGS_STACK };
+    Binary *ref_bin = (Binary*)bin->ref_bin;
+    vec.iov = vec.small_iov;
+    vec.ref_bins = vec.small_ref_bin;
+    vec.iov[0].iov_base = bin->data;
+    vec.iov[0].iov_len = bin->size;
+    ((Binary**)(vec.ref_bins))[0] = ref_bin;
+
+    return enif_ioq_enqv(q, &vec, skip);
+}
+
+size_t enif_ioq_size(ErlNifIOQueue *q)
+{
+    return erts_ioq_size(q);
+}
+
+int enif_ioq_deq(ErlNifIOQueue *q, size_t elems, size_t *size)
+{
+    if (erts_ioq_deq(q, elems) == -1)
+        return 0;
+    if (size)
+        *size = erts_ioq_size(q);
+    return 1;
+}
+
+SysIOVec *enif_ioq_peek(ErlNifIOQueue *q, int *iovlen)
+{
+    return erts_ioq_peekq(q, iovlen);
 }
 
 /***************************************************************************

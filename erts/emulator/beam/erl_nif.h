@@ -50,6 +50,7 @@
 ** 2.9: 18.2 enif_getenv
 ** 2.10: Time API
 ** 2.11: 19.0 enif_snprintf 
+** 2.12: 20.0 add enif_queue
 */
 #define ERL_NIF_MAJOR_VERSION 2
 #define ERL_NIF_MINOR_VERSION 12
@@ -235,6 +236,28 @@ typedef enum {
 typedef enum {
     ERL_NIF_BIN2TERM_SAFE = 0x20000000
 } ErlNifBinaryToTerm;
+
+#define ERL_NIF_IOVEC_SIZE 16
+
+typedef struct erl_nif_io_vec {
+    int iovcnt;  /* length of vectors */
+    size_t size; /* total size in bytes */
+    SysIOVec *iov;
+
+    /* internals (avert your eyes) */
+    void **ref_bins; /* Binary[] */
+    int flags;
+
+    /* Used when stack allocating the io vec */
+    SysIOVec small_iov[ERL_NIF_IOVEC_SIZE];
+    void *small_ref_bin[ERL_NIF_IOVEC_SIZE];
+} ErlNifIOVec;
+
+typedef struct erts_io_queue ErlNifIOQueue;
+
+typedef enum {
+    ERL_NIF_IOQ_NORMAL = 1
+} ErlNifIOQueueOpts;
 
 /*
  * Return values from enif_thread_type(). Negative values

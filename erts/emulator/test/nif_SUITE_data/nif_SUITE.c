@@ -170,6 +170,12 @@ static ErlNifResourceTypeInit frenzy_rt_init = {
     frenzy_resource_down
 };
 
+static ErlNifResourceType* ioq_resource_type;
+static void ioq_resource_dtor(ErlNifEnv* env, void* obj);
+struct ioq_resource {
+    ErlNifIOQueue *q;
+};
+
 static int get_pointer(ErlNifEnv* env, ERL_NIF_TERM term, void** pp)
 {
     ErlNifBinary bin;
@@ -223,6 +229,9 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 						      &frenzy_rt_init,
 						      ERL_NIF_RT_CREATE, NULL);
 
+    ioq_resource_type = enif_open_resource_type(env,NULL,"ioq",
+                                                ioq_resource_dtor,
+                                                ERL_NIF_RT_CREATE, NULL);
     atom_false = enif_make_atom(env,"false");
     atom_true = enif_make_atom(env,"true");
     atom_self = enif_make_atom(env,"self");
@@ -2125,7 +2134,6 @@ static ERL_NIF_TERM format_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     return enif_make_binary(env,&obin);
 }
 
-
 static int get_fd(ErlNifEnv* env, ERL_NIF_TERM term, struct fd_resource** rsrc)
 {
     if (!enif_get_resource(env, term, fd_resource_type, (void**)rsrc)) {
@@ -2851,7 +2859,235 @@ static void frenzy_resource_down(ErlNifEnv* env, void* obj, ErlNifPid* pid,
     abort();
 }
 
+/*********** testing ioq ************/
 
+static void ioq_resource_dtor(ErlNifEnv* env, void* obj) {
+
+}
+
+#ifndef __WIN32__
+static int writeiolist(ErlNifEnv *env, ERL_NIF_TERM term, ErlNifIOQueue *q, int fd) {
+    ErlNifIOVec vec, *iovec = &vec;
+    SysIOVec *sysiovec;
+    int iovcnt, n;
+    size_t skipbytes = 0;
+    int myerrno;
+
+    if (enif_ioq_size(q) == 0) {
+        /* If I/O queue is empty we just inspect the iolist. */
+        if (!enif_inspect_iolist_as_iovec(env, term, &iovec))
+            return -2; /* invalid iolist */
+        sysiovec = iovec->iov;
+        iovcnt = iovec->iovcnt;
+    } else {
+        /* If I/O contains data we enqueue the iolist and then
+           peek the data to write out of the queue. */
+        if (!enif_ioq_enq(env, q, term, 0))
+            return -2; /* invalid iolist */
+        sysiovec = enif_ioq_peek(q, &iovcnt);
+    }
+
+    /* Attempt to write the data */
+    n = writev(fd, iovec->iov, iovec->iovcnt);
+    myerrno = errno;
+
+    if (enif_ioq_size(q) == 0) {
+        /* If the I/O queue was initially empty we enqueue any
+           remaining data into the queue for writing later. */
+        if (n >= 0) {
+            if (n < iovec->size)
+                enif_ioq_enqv(q, iovec, n);
+        }
+    } else {
+        /* Dequeue any data that was written from the queue. */
+        if (n > 0)
+            enif_ioq_deq(q, n, NULL);
+    }
+
+    /* return n, which is either number of bytes written or -1 if
+       some error happened */
+    errno = myerrno;
+    return n;
+}
+#endif
+
+static ERL_NIF_TERM ioq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    struct ioq_resource *ioq;
+    ERL_NIF_TERM ret;
+    if (enif_is_identical(argv[0], enif_make_atom(env, "create"))) {
+        ErlNifIOQueue *q = enif_ioq_create(ERL_NIF_IOQ_NORMAL);
+        ioq = (struct ioq_resource *)enif_alloc_resource(ioq_resource_type,
+                                                         sizeof(*ioq));
+        ioq->q = q;
+        ret = enif_make_resource(env, ioq);
+        enif_release_resource(ioq);
+        return ret;
+    } else if (enif_is_identical(argv[0], enif_make_atom(env, "inspect"))) {
+        ErlNifIOVec vec, *iovec = NULL;
+        int i, iovcnt;
+        ERL_NIF_TERM *elems;
+        ErlNifEnv *myenv = NULL;
+
+        if (enif_is_identical(argv[2], enif_make_atom(env, "use_stack")))
+            iovec = &vec;
+        if (enif_is_identical(argv[3], enif_make_atom(env, "use_env")))
+            myenv = env;
+        if (!enif_inspect_iolist_as_iovec(myenv, argv[1], &iovec))
+            return enif_make_badarg(env);
+
+        iovcnt = iovec->iovcnt;
+        elems = enif_alloc(sizeof(ERL_NIF_TERM) * iovcnt);
+
+        for (i = 0; i < iovcnt; i++) {
+            ErlNifBinary bin;
+            if (!enif_alloc_binary(iovec->iov[i].iov_len, &bin)) {
+                enif_free_iovec(iovec);
+                enif_free(elems);
+                return enif_make_badarg(env);
+            }
+            memcpy(bin.data, iovec->iov[i].iov_base, iovec->iov[i].iov_len);
+            elems[i] = enif_make_binary(env, &bin);
+        }
+        if (!myenv)
+            enif_free_iovec(iovec);
+        return enif_make_list_from_array(env, elems, iovcnt);
+    } else {
+        unsigned skip;
+        if (!enif_get_resource(env, argv[1], ioq_resource_type, (void**)&ioq)
+            || !ioq->q)
+            return enif_make_badarg(env);
+
+        if (enif_is_identical(argv[0], enif_make_atom(env, "example"))) {
+#ifndef __WIN32__
+            int fd[2], res = 0, cnt = 0;
+            char buff[255];
+            pipe(fd);
+            fcntl(fd[0], F_SETFL, fcntl(fd[0], F_GETFL) | O_NONBLOCK);
+            fcntl(fd[1], F_SETFL, fcntl(fd[1], F_GETFL) | O_NONBLOCK);
+
+            /* Write until pipe buffer is full */
+            do {
+                cnt += res;
+                res = writeiolist(env, argv[2], ioq->q, fd[1]);
+            } while (res > 0);
+
+            /* Put some more data into the I/O queue */
+            writeiolist(env, argv[2], ioq->q, fd[2]);
+
+            res = 0;
+            do {
+                cnt -= res;
+                res = read(fd[0], buff, sizeof(buff));
+            } while (res > 0);
+
+            /* Write remaining data */
+            res = 0;
+            do {
+                cnt += res;
+                res = writeiolist(env, enif_make_list(env, 0), ioq->q, fd[1]);
+            } while (res > 0);
+
+            /* Read what is left */
+            res = 0;
+            do {
+                cnt -= res;
+                res = read(fd[0], buff, sizeof(buff));
+            } while (res > 0);
+
+            close(fd[0]);
+            close(fd[1]);
+
+            /* Check that we read as much as we wrote */
+            if (cnt == 0 && enif_ioq_size(ioq->q) == 0)
+                return enif_make_atom(env, "true");
+            return enif_make_int(env, cnt);
+#else
+            return enif_make_atom(env, "true");
+#endif
+        }
+        if (enif_is_identical(argv[0], enif_make_atom(env, "destroy"))) {
+            enif_ioq_destoy(ioq->q);
+            ioq->q = NULL;
+            return enif_make_atom(env, "false");
+        } else if (enif_is_identical(argv[0], enif_make_atom(env, "enq"))) {
+            if (!enif_get_uint(env, argv[3], &skip))
+                return enif_make_badarg(env);
+
+            if (!enif_ioq_enq(env, ioq->q, argv[2], skip))
+                return enif_make_badarg(env);
+
+            return enif_make_atom(env, "true");
+        } else if (enif_is_identical(argv[0], enif_make_atom(env, "enqv"))) {
+            ErlNifIOVec vec, *iovec = &vec;
+            if (!enif_get_uint(env, argv[3], &skip) ||
+                !enif_inspect_iolist_as_iovec(env, argv[2], &iovec))
+                return enif_make_badarg(env);
+
+            if (!enif_ioq_enqv(ioq->q, iovec, skip))
+                return enif_make_badarg(env);
+
+            return enif_make_atom(env, "true");
+        } else if (enif_is_identical(argv[0], enif_make_atom(env, "enqb"))) {
+            ErlNifBinary bin;
+            if (!enif_get_uint(env, argv[3], &skip) ||
+                !enif_inspect_binary(env, argv[2], &bin))
+                return enif_make_badarg(env);
+
+            if (!enif_ioq_enq_binary(ioq->q, &bin, skip))
+                return enif_make_badarg(env);
+
+            return enif_make_atom(env, "true");
+        } else if (enif_is_identical(argv[0], enif_make_atom(env, "enqbraw"))) {
+            ErlNifBinary bin;
+            ErlNifBinary localbin;
+            if (!enif_get_uint(env, argv[3], &skip) ||
+                !enif_inspect_binary(env, argv[2], &bin) ||
+                !enif_alloc_binary(bin.size, &localbin))
+                return enif_make_badarg(env);
+
+            memcpy(localbin.data, bin.data, bin.size);
+            if (!enif_ioq_enq_binary(ioq->q, &localbin, skip))
+                return enif_make_badarg(env);
+
+            return enif_make_atom(env, "true");
+        } else if (enif_is_identical(argv[0], enif_make_atom(env, "peek"))) {
+            int iovlen, num, i, off = 0;
+            SysIOVec *iov = enif_ioq_peek(ioq->q, &iovlen);
+            ErlNifBinary bin;
+
+            if (!enif_get_int(env, argv[2], &num) || !enif_alloc_binary(num, &bin))
+                return enif_make_badarg(env);
+
+            for (i = 0; i < iovlen && num > 0; i++) {
+                int to_copy = num < iov[i].iov_len ? num : iov[i].iov_len;
+                memcpy(bin.data + off, iov[i].iov_base, to_copy);
+                num -= to_copy;
+                off += to_copy;
+            }
+
+            return enif_make_binary(env, &bin);
+        } else if (enif_is_identical(argv[0], enif_make_atom(env, "deq"))) {
+            int num;
+            size_t sz;
+            ErlNifUInt64 sz64;
+            if (!enif_get_int(env, argv[2], &num))
+                return enif_make_badarg(env);
+
+            if (!enif_ioq_deq(ioq->q, num, &sz))
+                return enif_make_badarg(env);
+
+            sz64 = sz;
+
+            return enif_make_uint64(env, sz64);
+        } else if (enif_is_identical(argv[0], enif_make_atom(env, "size"))) {
+            ErlNifUInt64 size = enif_ioq_size(ioq->q);
+            return enif_make_uint64(env, size);
+        }
+    }
+
+    return enif_make_badarg(env);
+}
 
 static ErlNifFunc nif_funcs[] =
 {
@@ -2942,7 +3178,11 @@ static ErlNifFunc nif_funcs[] =
     {"monitor_process_nif", 4, monitor_process_nif},
     {"demonitor_process_nif", 2, demonitor_process_nif},
     {"compare_monitors_nif", 2, compare_monitors_nif},
-    {"monitor_frenzy_nif", 4, monitor_frenzy_nif}
+    {"monitor_frenzy_nif", 4, monitor_frenzy_nif},
+    {"ioq_nif", 1, ioq},
+    {"ioq_nif", 2, ioq},
+    {"ioq_nif", 3, ioq},
+    {"ioq_nif", 4, ioq}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,NULL,upgrade,unload)

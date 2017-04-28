@@ -180,6 +180,21 @@ ERL_NIF_API_FUNC_DECL(ErlNifResourceType*,enif_open_resource_type_x,(ErlNifEnv*,
 ERL_NIF_API_FUNC_DECL(int, enif_monitor_process,(ErlNifEnv*,void* obj,const ErlNifPid*,ErlDrvMonitor *monitor));
 ERL_NIF_API_FUNC_DECL(int, enif_demonitor_process,(ErlNifEnv*,void* obj,const ErlDrvMonitor *monitor));
 ERL_NIF_API_FUNC_DECL(int, enif_compare_monitors,(const ErlNifMonitor*,const ErlNifMonitor*));
+ERL_NIF_API_FUNC_DECL(ErlNifIOQueue *,enif_ioq_create,(ErlNifIOQueueOpts opts));
+ERL_NIF_API_FUNC_DECL(void,enif_ioq_destoy,(ErlNifIOQueue *q));
+
+ERL_NIF_API_FUNC_DECL(int,enif_ioq_enq,(ErlNifEnv *env, ErlNifIOQueue *q, ERL_NIF_TERM term, size_t skip));
+ERL_NIF_API_FUNC_DECL(int,enif_ioq_enq_binary,(ErlNifIOQueue *q, ErlNifBinary *bin, size_t skip));
+ERL_NIF_API_FUNC_DECL(int,enif_ioq_enqv,(ErlNifIOQueue *q, ErlNifIOVec *iov, size_t skip));
+
+ERL_NIF_API_FUNC_DECL(size_t,enif_ioq_size,(ErlNifIOQueue *q));
+ERL_NIF_API_FUNC_DECL(int,enif_ioq_deq,(ErlNifIOQueue *q, size_t count, size_t *size));
+
+ERL_NIF_API_FUNC_DECL(SysIOVec*,enif_ioq_peek,(ErlNifIOQueue *q, int *iovlen));
+
+ERL_NIF_API_FUNC_DECL(int,enif_inspect_iolist_as_iovec,(ErlNifEnv *env, ERL_NIF_TERM term, ErlNifIOVec **iov));
+ERL_NIF_API_FUNC_DECL(void,enif_free_iovec,(ErlNifIOVec *iov));
+
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -342,6 +357,16 @@ ERL_NIF_API_FUNC_DECL(int, enif_compare_monitors,(const ErlNifMonitor*,const Erl
 #  define enif_monitor_process ERL_NIF_API_FUNC_MACRO(enif_monitor_process)
 #  define enif_demonitor_process ERL_NIF_API_FUNC_MACRO(enif_demonitor_process)
 #  define enif_compare_monitors ERL_NIF_API_FUNC_MACRO(enif_compare_monitors)
+#  define enif_ioq_create ERL_NIF_API_FUNC_MACRO(enif_ioq_create)
+#  define enif_ioq_destoy ERL_NIF_API_FUNC_MACRO(enif_ioq_destoy)
+#  define enif_ioq_enq ERL_NIF_API_FUNC_MACRO(enif_ioq_enq)
+#  define enif_ioq_enq_binary ERL_NIF_API_FUNC_MACRO(enif_ioq_enq_binary)
+#  define enif_ioq_enqv ERL_NIF_API_FUNC_MACRO(enif_ioq_enqv)
+#  define enif_ioq_size ERL_NIF_API_FUNC_MACRO(enif_ioq_size)
+#  define enif_ioq_deq ERL_NIF_API_FUNC_MACRO(enif_ioq_deq)
+#  define enif_ioq_peek ERL_NIF_API_FUNC_MACRO(enif_ioq_peek)
+#  define enif_inspect_iolist_as_iovec ERL_NIF_API_FUNC_MACRO(enif_inspect_iolist_as_iovec)
+#  define enif_free_iovec ERL_NIF_API_FUNC_MACRO(enif_free_iovec)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

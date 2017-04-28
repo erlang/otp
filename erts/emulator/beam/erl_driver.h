@@ -40,7 +40,6 @@
 #include "erl_drv_nif.h"
 
 #include <stdlib.h>
-#include <sys/types.h>	/* ssize_t */
 
 #if defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_)
 #ifndef STATIC_ERLANG_DRIVER
@@ -48,24 +47,6 @@
 #define ERL_DRIVER_TYPES_ONLY
 #define WIN32_DYNAMIC_ERL_DRIVER
 #endif
-/*
- * This structure can be cast to a WSABUF structure.
- */
-typedef struct _SysIOVec {
-    unsigned long iov_len;
-    char* iov_base;
-} SysIOVec;
-#else  /* Unix */
-#  ifdef HAVE_SYS_UIO_H
-#    include <sys/types.h>
-#    include <sys/uio.h>
-typedef struct iovec SysIOVec;
-#  else
-typedef struct {
-    char* iov_base;
-    size_t iov_len;
-} SysIOVec;
-#  endif
 #endif
 
 #ifndef EXTERN
