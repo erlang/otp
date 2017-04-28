@@ -78,8 +78,9 @@
 -type data() :: term().
 
 -type event_type() ::
-	{'call',From :: from()} | 'cast' |
-	'info' | 'timeout' | 'state_timeout' | 'internal'.
+	{'call',From :: from()} | 'cast' | 'info' |
+	'timeout' | {'timeout', Name :: term()} | 'state_timeout' |
+	'internal'.
 
 -type callback_mode_result() ::
 	callback_mode() | [callback_mode() | state_enter()].
@@ -88,7 +89,7 @@
 
 -type transition_option() ::
 	postpone() | hibernate() |
-	event_timeout() | state_timeout().
+	event_timeout() | generic_timeout() | state_timeout().
 -type postpone() ::
 	%% If 'true' postpone the current event
 	%% and retry it when the state changes (=/=)
@@ -97,13 +98,17 @@
 	%% If 'true' hibernate the server instead of going into receive
 	boolean().
 -type event_timeout() ::
-	%% Generate a ('timeout', EventContent, ...) event after Time
+	%% Generate a ('timeout', EventContent, ...) event
 	%% unless some other event is delivered
-	Time :: timeout().
+	Time :: timeout() | integer().
+-type generic_timeout() ::
+	%% Generate a ({'timeout',Name}, EventContent, ...) event
+	Time :: timeout() | integer().
 -type state_timeout() ::
-	%% Generate a ('state_timeout', EventContent, ...) event after Time
+	%% Generate a ('state_timeout', EventContent, ...) event
 	%% unless the state is changed
-	Time :: timeout().
+	Time :: timeout() | integer().
+-type timeout_option() :: {abs,Abs :: boolean()}.
 
 -type action() ::
 	%% During a state change:
@@ -137,8 +142,24 @@
 	(Timeout :: event_timeout()) | % {timeout,Timeout}
 	{'timeout', % Set the event_timeout option
 	 Time :: event_timeout(), EventContent :: term()} |
+	{'timeout', % Set the event_timeout option
+	 Time :: event_timeout(),
+	 EventContent :: term(),
+	 Options :: (timeout_option() | [timeout_option()])} |
+	%%
+	{{'timeout', Name :: term()}, % Set the generic_timeout option
+	 Time :: generic_timeout(), EventContent :: term()} |
+	{{'timeout', Name :: term()}, % Set the generic_timeout option
+	 Time :: generic_timeout(),
+	 EventContent :: term(),
+	 Options :: (timeout_option() | [timeout_option()])} |
+	%%
 	{'state_timeout', % Set the state_timeout option
 	 Time :: state_timeout(), EventContent :: term()} |
+	{'state_timeout', % Set the state_timeout option
+	 Time :: state_timeout(),
+	 EventContent :: term(),
+	 Options :: (timeout_option() | [timeout_option()])} |
 	%%
 	reply_action().
 -type reply_action() ::
@@ -287,8 +308,7 @@
       StatusOption :: 'normal' | 'terminate'.
 
 -optional_callbacks(
-   [init/1, % One may use enter_loop/5,6,7 instead
-    format_status/2, % Has got a default implementation
+   [format_status/2, % Has got a default implementation
     terminate/3, % Has got a default implementation
     code_change/4, % Only needed by advanced soft upgrade
     %%
@@ -303,37 +323,26 @@
 %% Type validation functions
 callback_mode(CallbackMode) ->
     case CallbackMode of
-	state_functions ->
-	    true;
-	handle_event_function ->
-	    true;
-	_ ->
-	    false
+	state_functions -> true;
+	handle_event_function -> true;
+	_ -> false
     end.
 %%
-from({Pid,_}) when is_pid(Pid) ->
-    true;
-from(_) ->
-    false.
+from({Pid,_}) when is_pid(Pid) -> true;
+from(_) -> false.
 %%
 event_type({call,From}) ->
     from(From);
 event_type(Type) ->
     case Type of
-	{call,From} ->
-	    from(From);
-	cast ->
-	    true;
-	info ->
-	    true;
-	timeout ->
-	    true;
-	state_timeout ->
-	    true;
-	internal ->
-	    true;
-	_ ->
-	    false
+	{call,From} -> from(From);
+	cast -> true;
+	info -> true;
+	timeout -> true;
+	state_timeout -> true;
+	internal -> true;
+	{timeout,_} -> true;
+	_ -> false
     end.
 
 
@@ -1313,7 +1322,7 @@ parse_enter_actions(Debug, S, State, Actions, Hibernate, TimeoutsR) ->
 
 parse_actions(Debug, S, State, Actions) ->
     Hibernate = false,
-    TimeoutsR = [{timeout,infinity,infinity}], %% Will cancel event timer
+    TimeoutsR = [infinity], %% Will cancel event timer
     Postpone = false,
     NextEventsR = [],
     parse_actions(
@@ -1379,11 +1388,27 @@ parse_actions(
 		     ?STACKTRACE()}
 	    end;
 	%%
-	{state_timeout,_,_} = Timeout ->
+	{{timeout,_},_,_} = Timeout ->
+	    parse_actions_timeout(
+	      Debug, S, State, Actions,
+	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
+	{{timeout,_},_,_,_} = Timeout ->
 	    parse_actions_timeout(
 	      Debug, S, State, Actions,
 	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
 	{timeout,_,_} = Timeout ->
+	    parse_actions_timeout(
+	      Debug, S, State, Actions,
+	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
+	{timeout,_,_,_} = Timeout ->
+	    parse_actions_timeout(
+	      Debug, S, State, Actions,
+	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
+	{state_timeout,_,_} = Timeout ->
+	    parse_actions_timeout(
+	      Debug, S, State, Actions,
+	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
+	{state_timeout,_,_,_} = Timeout ->
 	    parse_actions_timeout(
 	      Debug, S, State, Actions,
 	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
@@ -1396,26 +1421,64 @@ parse_actions(
 parse_actions_timeout(
   Debug, S, State, Actions,
   Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout) ->
-    Time =
-	case Timeout of
-	    {_,T,_} -> T;
-	    T -> T
-	end,
-    case validate_time(Time) of
-	true ->
-	    parse_actions(
-	      Debug, S, State, Actions,
-	      Hibernate, [Timeout|TimeoutsR],
-	      Postpone, NextEventsR);
-	false ->
-	    {error,
-	     {bad_action_from_state_function,Timeout},
-	     ?STACKTRACE()}
+    case Timeout of
+	{TimerType,Time,TimerMsg,TimerOpts} ->
+	    case validate_timer_args(Time, listify(TimerOpts)) of
+		true ->
+		    parse_actions(
+		      Debug, S, State, Actions,
+		      Hibernate, [Timeout|TimeoutsR],
+		      Postpone, NextEventsR);
+		false ->
+		    NewTimeout = {TimerType,Time,TimerMsg},
+		    parse_actions(
+		      Debug, S, State, Actions,
+		      Hibernate, [NewTimeout|TimeoutsR],
+		      Postpone, NextEventsR);
+		error ->
+		    {error,
+		     {bad_action_from_state_function,Timeout},
+		     ?STACKTRACE()}
+	    end;
+	{_,Time,_} ->
+	    case validate_timer_args(Time, []) of
+		false ->
+		    parse_actions(
+		      Debug, S, State, Actions,
+		      Hibernate, [Timeout|TimeoutsR],
+		      Postpone, NextEventsR);
+		error ->
+		    {error,
+		     {bad_action_from_state_function,Timeout},
+		     ?STACKTRACE()}
+	    end;
+	Time ->
+	    case validate_timer_args(Time, []) of
+		false ->
+		    parse_actions(
+		      Debug, S, State, Actions,
+		      Hibernate, [Timeout|TimeoutsR],
+		      Postpone, NextEventsR);
+		error ->
+		    {error,
+		     {bad_action_from_state_function,Timeout},
+		     ?STACKTRACE()}
+	    end
     end.
 
-validate_time(Time) when is_integer(Time), Time >= 0 -> true;
-validate_time(infinity) -> true;
-validate_time(_) -> false.
+validate_timer_args(Time, Opts) ->
+    validate_timer_args(Time, Opts, false).
+%%
+validate_timer_args(Time, [], true) when is_integer(Time) ->
+    true;
+validate_timer_args(Time, [], false) when is_integer(Time), Time >= 0 ->
+    false;
+validate_timer_args(infinity, [], Abs) ->
+    Abs;
+validate_timer_args(Time, [{abs,Abs}|Opts], _) when is_boolean(Abs) ->
+    validate_timer_args(Time, Opts, Abs);
+validate_timer_args(_, [_|_], _) ->
+    error.
 
 %% Stop and start timers as well as create timeout zero events
 %% and pending event timer
@@ -1431,22 +1494,39 @@ parse_timers(
   TimerRefs, TimerTypes, CancelTimers, [Timeout|TimeoutsR],
   Seen, TimeoutEvents) ->
     case Timeout of
+	{TimerType,Time,TimerMsg,TimerOpts} ->
+	    %% Absolute timer
+	    parse_timers(
+	      TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
+	      Seen, TimeoutEvents,
+	      TimerType, Time, TimerMsg, listify(TimerOpts));
+	%% Relative timers below
+	{TimerType,0,TimerMsg} ->
+	    parse_timers(
+	      TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
+	      Seen, TimeoutEvents,
+	      TimerType, zero, TimerMsg, []);
 	{TimerType,Time,TimerMsg} ->
 	    parse_timers(
-              TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
-              Seen, TimeoutEvents,
-              TimerType, Time, TimerMsg);
+	      TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
+	      Seen, TimeoutEvents,
+	      TimerType, Time, TimerMsg, []);
+	0 ->
+	    parse_timers(
+	      TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
+	      Seen, TimeoutEvents,
+	      timeout, zero, 0, []);
 	Time ->
 	    parse_timers(
-              TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
-              Seen, TimeoutEvents,
-              timeout, Time, Time)
+	      TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
+	      Seen, TimeoutEvents,
+	      timeout, Time, Time, [])
     end.
 
 parse_timers(
   TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
   Seen, TimeoutEvents,
-  TimerType, Time, TimerMsg) ->
+  TimerType, Time, TimerMsg, TimerOpts) ->
     case Seen of
 	#{TimerType := _} ->
 	    %% Type seen before - ignore
@@ -1465,7 +1545,7 @@ parse_timers(
 		    parse_timers(
 		      TimerRefs, NewTimerTypes, NewCancelTimers, TimeoutsR,
 		      NewSeen, TimeoutEvents);
-		0 ->
+		zero ->
 		    %% Cancel any running timer
 		    {NewTimerTypes,NewCancelTimers} =
 			cancel_timer_by_type(
@@ -1478,7 +1558,8 @@ parse_timers(
 		_ ->
 		    %% (Re)start the timer
 		    TimerRef =
-			erlang:start_timer(Time, self(), TimerMsg),
+			erlang:start_timer(
+			  Time, self(), TimerMsg, TimerOpts),
 		    case TimerTypes of
 			#{TimerType := OldTimerRef} ->
 			    %% Cancel the running timer
@@ -1492,6 +1573,8 @@ parse_timers(
 			      NewCancelTimers, TimeoutsR,
 			      NewSeen, TimeoutEvents);
 			#{} ->
+			    %% Insert the new timer into
+			    %% both TimerRefs and TimerTypes
 			    parse_timers(
 			      TimerRefs#{TimerRef => TimerType},
 			      TimerTypes#{TimerType => TimerRef},

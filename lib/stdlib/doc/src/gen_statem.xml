@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2016-2017</year>
+      <year>2016</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -67,13 +67,16 @@
       It has the same features and adds some really useful:
     </p>
     <list type="bulleted">
-      <item>State code is gathered.</item>
-      <item>The state can be any term.</item>
-      <item>Events can be postponed.</item>
-      <item>Events can be self-generated.</item>
-      <item>Automatic state enter code can be called.</item>
-      <item>A reply can be sent from a later state.</item>
-      <item>There can be multiple <c>sys</c> traceable replies.</item>
+      <item>Gathered state code.</item>
+      <item>Arbitrary term state.</item>
+      <item>Event postponing.</item>
+      <item>Self-generated events.</item>
+      <item>State time-out.</item>
+      <item>Multiple generic named time-outs.</item>
+      <item>Absolute time-out time.</item>
+      <item>Automatic state enter calls.</item>
+      <item>Reply from other state than the request.</item>
+      <item>Multiple <c>sys</c> traceable replies.</item>
     </list>
     <p>
       The callback model(s) for <c>gen_statem</c> differs from
@@ -148,7 +151,7 @@ erlang:'!'            -----> Module:StateName/3
       This gathers all code for a specific state
       in one function as the <c>gen_statem</c> engine
       branches depending on state name.
-      Notice the fact that there is a mandatory callback function
+      Note the fact that the callback function
       <seealso marker="#Module:terminate/3"><c>Module:terminate/3</c></seealso>
       makes the state name <c>terminate</c> unusable in this mode.
     </p>
@@ -533,10 +536,12 @@ handle_event(_, _, State, Data) ->
 	  originate from the corresponding API functions.
 	  For calls, the event contains whom to reply to.
 	  Type <c>info</c> originates from regular process messages sent
-	  to the <c>gen_statem</c>. Also, the state machine
-	  implementation can generate events of types
-	  <c>timeout</c>, <c>state_timeout</c>,
-	  and <c>internal</c> to itself.
+	  to the <c>gen_statem</c>. The state machine
+	  implementation can, in addition to the above,
+	  generate
+	  <seealso marker="#type-event_type"><c>events of types</c></seealso>
+	  <c>timeout</c>, <c>{timeout,<anno>Name</anno>}</c>,
+	  <c>state_timeout</c>, and <c>internal</c> to itself.
 	</p>
       </desc>
     </datatype>
@@ -703,13 +708,14 @@ handle_event(_, _, State, Data) ->
 	  </item>
 	  <item>
 	    <p>
-	      Timeout timers 
-              <seealso marker="#type-state_timeout"><c>state_timeout()</c></seealso>
+	      Time-out timers
+              <seealso marker="#type-event_timeout"><c>event_timeout()</c></seealso>,
+              <seealso marker="#type-generic_timeout"><c>generic_timeout()</c></seealso>
 	      and 
-              <seealso marker="#type-event_timeout"><c>event_timeout()</c></seealso>
+              <seealso marker="#type-state_timeout"><c>state_timeout()</c></seealso>
 	      are handled.  Time-outs with zero time are guaranteed to be
 	      delivered to the state machine before any external
-	      not yet received event so if there is such a timeout requested,
+	      not yet received event so if there is such a time-out requested,
 	      the corresponding time-out zero event is enqueued as
 	      the newest event.
 	    </p>
@@ -787,29 +793,75 @@ handle_event(_, _, State, Data) ->
       <name name="event_timeout"/>
       <desc>
 	<p>
-	  Generates an event of
+	  Starts a timer set by
+	  <seealso marker="#type-enter_action"><c>enter_action()</c></seealso>
+	  <c>timeout</c>.
+	  When the timer expires an event of
 	  <seealso marker="#type-event_type"><c>event_type()</c></seealso>
-	  <c>timeout</c>
-	  after this time (in milliseconds) unless another
-	  event arrives or has arrived
-	  in which case this time-out is cancelled.
+	  <c>timeout</c> will be generated.
+	  See
+	  <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer/4</c></seealso>
+	  for how <c>Time</c> and
+	  <seealso marker="#type-timeout_option"><c>Options</c></seealso>
+	  are interpreted.  Future <c>erlang:start_timer/4</c> <c>Options</c>
+	  will not necessarily be supported.
+	</p>
+	<p>
+	  Any event that arrives cancels this time-out.
 	  Note that a retried or inserted event counts as arrived.
 	  So does a state time-out zero event, if it was generated
-	  before this timer is requested.
+	  before this time-out is requested.
 	</p>
 	<p>
-	  If the value is <c>infinity</c>, no timer is started, as
-	  it never would trigger anyway.
+	  If <c>Time</c> is <c>infinity</c>,
+	  no timer is started, as it never would expire anyway.
 	</p>
 	<p>
-	  If the value is <c>0</c> no timer is actually started,
+	  If <c>Time</c> is relative and <c>0</c>
+	  no timer is actually started,
 	  instead the the time-out event is enqueued to ensure
 	  that it gets processed before any not yet
 	  received external event.
 	</p>
 	<p>
-	  Note that it is not possible or needed to cancel this time-out,
+	  Note that it is not possible nor needed to cancel this time-out,
 	  as it is cancelled automatically by any other event.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="generic_timeout"/>
+      <desc>
+	<p>
+	  Starts a timer set by
+	  <seealso marker="#type-enter_action"><c>enter_action()</c></seealso>
+	  <c>{timeout,Name}</c>.
+	  When the timer expires an event of
+	  <seealso marker="#type-event_type"><c>event_type()</c></seealso>
+	  <c>{timeout,Name}</c> will be generated.
+	  See
+	  <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer/4</c></seealso>
+	  for how <c>Time</c> and
+	  <seealso marker="#type-timeout_option"><c>Options</c></seealso>
+	  are interpreted.  Future <c>erlang:start_timer/4</c> <c>Options</c>
+	  will not necessarily be supported.
+	</p>
+	<p>
+	  If <c>Time</c> is <c>infinity</c>,
+	  no timer is started, as it never would expire anyway.
+	</p>
+	<p>
+	  If <c>Time</c> is relative and <c>0</c>
+	  no timer is actually started,
+	  instead the the time-out event is enqueued to ensure
+	  that it gets processed before any not yet
+	  received external event.
+	</p>
+	<p>
+	  Setting a timer with the same <c>Name</c> while it is running
+	  will restart it with the new time-out value.
+	  Therefore it is possible to cancel
+	  a specific time-out by setting it to <c>infinity</c>.
 	</p>
       </desc>
     </datatype>
@@ -817,19 +869,26 @@ handle_event(_, _, State, Data) ->
       <name name="state_timeout"/>
       <desc>
 	<p>
-	  Generates an event of
+	  Starts a timer set by
+	  <seealso marker="#type-enter_action"><c>enter_action()</c></seealso>
+	  <c>state_timeout</c>.
+	  When the timer expires an event of
 	  <seealso marker="#type-event_type"><c>event_type()</c></seealso>
-	  <c>state_timeout</c>
-	  after this time (in milliseconds) unless the <c>gen_statem</c>
-	  changes states (<c>NewState =/= OldState</c>)
-	  which case this time-out is cancelled.
+	  <c>state_timeout</c> will be generated.
+	  See
+	  <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer/4</c></seealso>
+	  for how <c>Time</c> and
+	  <seealso marker="#type-timeout_option"><c>Options</c></seealso>
+	  are interpreted.  Future <c>erlang:start_timer/4</c> <c>Options</c>
+	  will not necessarily be supported.
 	</p>
 	<p>
-	  If the value is <c>infinity</c>, no timer is started, as
-	  it never would trigger anyway.
+	  If <c>Time</c> is <c>infinity</c>,
+	  no timer is started, as it never would expire anyway.
 	</p>
 	<p>
-	  If the value is <c>0</c> no timer is actually started,
+	  If <c>Time</c> is relative and <c>0</c>
+	  no timer is actually started,
 	  instead the the time-out event is enqueued to ensure
 	  that it gets processed before any not yet
 	  received external event.
@@ -838,6 +897,20 @@ handle_event(_, _, State, Data) ->
 	  Setting this timer while it is running will restart it with
 	  the new time-out value.  Therefore it is possible to cancel
 	  this time-out by setting it to <c>infinity</c>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="timeout_option"/>
+      <desc>
+	<p>
+	  If <c>Abs</c> is <c>true</c> an absolute timer is started,
+	  and if it is <c>false</c> a relative, which is the default.
+	  See
+	  <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer/4</c></seealso>
+	  for details.
+	</p>
+	<p>
 	</p>
       </desc>
     </datatype>
@@ -955,7 +1028,21 @@ handle_event(_, _, State, Data) ->
 	      Sets the
 	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>
 	      <seealso marker="#type-event_timeout"><c>event_timeout()</c></seealso>
-	      to <c><anno>Time</anno></c> with <c><anno>EventContent</anno></c>.
+	      to <c><anno>Time</anno></c> with <c><anno>EventContent</anno></c>
+	      and time-out options
+	      <seealso marker="#type-timeout_option"><c><anno>Options</anno></c></seealso>.
+	    </p>
+	  </item>
+	  <tag><c>{timeout,<anno>Name</anno>}</c></tag>
+	  <item>
+	    <p>
+	      Sets the
+	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>
+	      <seealso marker="#type-generic_timeout"><c>generic_timeout()</c></seealso>
+	      to <c><anno>Time</anno></c> for <c><anno>Name</anno></c>
+	      with <c><anno>EventContent</anno></c>
+	      and time-out options
+	      <seealso marker="#type-timeout_option"><c><anno>Options</anno></c></seealso>.
 	    </p>
 	  </item>
 	  <tag><c>state_timeout</c></tag>
@@ -964,7 +1051,9 @@ handle_event(_, _, State, Data) ->
 	      Sets the
 	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>
 	      <seealso marker="#type-state_timeout"><c>state_timeout()</c></seealso>
-	      to <c><anno>Time</anno></c> with <c><anno>EventContent</anno></c>.
+	      to <c><anno>Time</anno></c> with <c><anno>EventContent</anno></c>
+	      and time-out options
+	      <seealso marker="#type-timeout_option"><c><anno>Options</anno></c></seealso>.
 	    </p>
 	  </item>
 	</taglist>
@@ -1236,7 +1325,7 @@ handle_event(_, _, State, Data) ->
 	    to avoid that the calling process dies when the call
 	    times out, you will have to be prepared to handle
 	    a late reply.
-	    So why not just allow the calling process to die?
+	    So why not just let the calling process die?
 	  </p>
 	</note>
 	<p>
@@ -1645,6 +1734,16 @@ handle_event(_, _, State, Data) ->
 	<v>Reason = term()</v>
       </type>
       <desc>
+        <note>
+          <p>
+	    This callback is optional, so callback modules need not export it.
+            If a release upgrade/downgrade with
+	    <c>Change={advanced,Extra}</c>
+	    specified in the <c>.appup</c> file is made
+	    when <c>code_change/4</c> is not implemented
+	    the process will crash with exit reason <c>undef</c>.
+	  </p>
+        </note>
         <p>
 	  This function is called by a <c>gen_statem</c> when it is to
 	  update its internal state during a release upgrade/downgrade,
@@ -1705,7 +1804,7 @@ handle_event(_, _, State, Data) ->
     <func>
       <name>Module:init(Args) -> Result(StateType)</name>
       <fsummary>
-	Optional function for initializing process and internal state.
+	Initializing process and internal state.
       </fsummary>
       <type>
         <v>Args = term()</v>
@@ -1721,7 +1820,7 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>
 	  or
 	  <seealso marker="#start/3"><c>start/3,4</c></seealso>,
-	  this optional function is called by the new process to initialize
+	  this function is called by the new process to initialize
 	  the implementation state and server data.
 	</p>
 	<p>
@@ -1730,13 +1829,16 @@ handle_event(_, _, State, Data) ->
 	</p>
         <note>
 	  <p>
-	    This callback is optional, so a callback module does not need
-	    to export it, but most do.  If this function is not exported,
-	    the <c>gen_statem</c> should be started through
+	    Note that if the <c>gen_statem</c> is started trough
 	    <seealso marker="proc_lib"><c>proc_lib</c></seealso>
 	    and
-	    <seealso marker="#enter_loop/4"><c>enter_loop/4-6</c></seealso>.
+	    <seealso marker="#enter_loop/4"><c>enter_loop/4-6</c></seealso>,
+	    this callback will never be called.
+	    Since this callback is not optional it can
+	    in that case be implemented as:
 	  </p>
+	  <pre>
+init(Args) -> erlang:error(not_implemented, [Args]).</pre>
         </note>
       </desc>
     </func>
