@@ -1261,27 +1261,36 @@ send_R(SvcName, AppOrAlias, Msg, CallOpts, Caller) ->
 %% make_options/1
 
 make_options(Options) ->
-    lists:foldl(fun mo/2, #options{}, Options).
+    make_opts(Options, false, [], none, 5000).
 
-mo({timeout, T}, Rec)
-  when is_integer(T), 0 =< T ->
-    Rec#options{timeout = T};
+%% Do our own recursion since this is faster than a lists:foldl/3
+%% setting elements in an #options{} accumulator.
 
-mo({filter, F}, #options{filter = none} = Rec) ->
-    Rec#options{filter = F};
-mo({filter, F}, #options{filter = {all, Fs}} = Rec) ->
-    Rec#options{filter = {all, [F | Fs]}};
-mo({filter, F}, #options{filter = F0} = Rec) ->
-    Rec#options{filter = {all, [F0, F]}};
+make_opts([], Detach, Extra, Filter, Tmo) ->
+    #options{detach = Detach,
+             extra = Extra,
+             filter = Filter,
+             timeout = Tmo};
 
-mo({extra, L}, #options{extra = X} = Rec)
+make_opts([{timeout, Tmo} | Rest], Detach, Extra, Filter, _)
+  when is_integer(Tmo), 0 =< Tmo ->
+    make_opts(Rest, Detach, Extra, Filter, Tmo);
+
+make_opts([{filter, F} | Rest], Detach, Extra, none, Tmo) ->
+    make_opts(Rest, Detach, Extra, F, Tmo);
+make_opts([{filter, F} | Rest], Detach, Extra, {all, Fs}, Tmo) ->
+    make_opts(Rest, Detach, Extra, {all, [F|Fs]}, Tmo);
+make_opts([{filter, F} | Rest], Detach, Extra, F0, Tmo) ->
+    make_opts(Rest, Detach, Extra, {all, [F0, F]}, Tmo);
+
+make_opts([{extra, L} | Rest], Detach, Extra, Filter, Tmo)
   when is_list(L) ->
-    Rec#options{extra = X ++ L};
+    make_opts(Rest, Detach, Extra ++ L, Filter, Tmo);
 
-mo(detach, Rec) ->
-    Rec#options{detach = true};
+make_opts([detach | Rest], _, Extra, Filter, Tmo) ->
+    make_opts(Rest, true, Extra, Filter, Tmo);
 
-mo(T, _) ->
+make_opts([T | _], _, _, _, _) ->
     ?ERROR({invalid_option, T}).
 
 %% ---------------------------------------------------------------------------
