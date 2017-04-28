@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 3.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Report unknown types properly. A bug was introduced
+	    in Erlang/OTP 19.3, where warnings about unknown types
+	    were simply discarded. </p>
+          <p>
+	    Own Id: OTP-14368</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

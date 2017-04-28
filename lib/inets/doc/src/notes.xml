@@ -33,7 +33,22 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.3.7</title>
+  <section><title>Inets 6.3.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added missing release note for inets-6.3.7</p>
+          <p>
+	    Own Id: OTP-14383</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
