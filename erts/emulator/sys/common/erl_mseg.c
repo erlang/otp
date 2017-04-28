@@ -83,12 +83,13 @@ static const int debruijn[32] = {
     31, 27, 13, 23, 21, 19, 16,  7, 26, 12, 18,  6, 11,  5, 10,  9
 };
 
-#define LOG2(X) (debruijn[((Uint32)(((X) & -(X)) * 0x077CB531U)) >> 27])
+#define LSB(X) (debruijn[((Uint32)(((X) & -(X)) * 0x077CB531U)) >> 27])
 
 #define CACHE_AREAS      (32 - MSEG_ALIGN_BITS)
 
 /* FIXME: segment sizes > 2 GB result in bogus negative indices */
-#define SIZE_TO_CACHE_AREA_IDX(S)   (LOG2((S)) - MSEG_ALIGN_BITS)
+/* NOTE: using LSB instead of proper log2 only works if S is a power of 2 */
+#define SIZE_TO_CACHE_AREA_IDX(S)   (LSB((S)) - MSEG_ALIGN_BITS)
 #define MAX_CACHE_SIZE   (30)
 
 #define MSEG_FLG_IS_2POW(X)    ((X) & ERTS_MSEG_FLG_2POW)
