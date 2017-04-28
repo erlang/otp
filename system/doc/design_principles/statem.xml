@@ -450,7 +450,7 @@ locked(
         [Digit] ->
 	    do_unlock(),
             {next_state, open, Data#{remaining := Code},
-             [{state_timeout,10000,lock}];
+			[{state_timeout,10000,lock}]};
         [Digit|Rest] -> % Incomplete
             {next_state, locked, Data#{remaining := Rest}};
         _Wrong ->
