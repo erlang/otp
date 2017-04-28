@@ -56,7 +56,10 @@
          nif_is_process_alive/1, nif_is_port_alive/1,
          nif_term_to_binary/1, nif_binary_to_term/1,
          nif_port_command/1,
-         nif_snprintf/1
+         nif_snprintf/1,
+         nif_internal_hash/1,
+         nif_internal_hash_salted/1,
+         nif_phash2/1
 	]).
 
 -export([many_args_100/100]).
@@ -90,7 +93,10 @@ all() ->
      nif_is_process_alive, nif_is_port_alive,
      nif_term_to_binary, nif_binary_to_term,
      nif_port_command,
-     nif_snprintf].
+     nif_snprintf,
+     nif_internal_hash,
+     nif_internal_hash_salted,
+     nif_phash2].
 
 groups() ->
     [{G, [], api_repeaters()} || G <- api_groups()]
@@ -2610,6 +2616,154 @@ nif_snprintf(Config) ->
     <<"{{hello,world,-33},",0>> = format_term_nif(20,{{hello,world, -33}, 3.14, self()}),
     ok.
 
+nif_internal_hash(Config) ->
+    ensure_lib_loaded(Config),
+    HashValueBitSize = nif_hash_result_bitsize(internal),
+    Terms = unique([random_term() || _ <- lists:seq(1, 5000)]),
+    HashValues = [hash_nif(internal, Term, 0) || Term <- Terms],
+    test_bit_distribution_fitness(HashValues, HashValueBitSize, 0.05).
+
+nif_internal_hash_salted(Config) ->
+    ensure_lib_loaded(Config),
+    test_salted_nif_hash(internal).
+
+nif_phash2(Config) ->
+    ensure_lib_loaded(Config),
+    HashValueBitSize = nif_hash_result_bitsize(phash2),
+    Terms = unique([random_term() || _ <- lists:seq(1, 5000)]),
+    HashValues =
+        lists:map(
+          fun (Term) ->
+                  HashValue = erlang:phash2(Term),
+                  Salt = random_uint32(), % phash2 should ignore salt
+                  NifHashValue = hash_nif(phash2, Term, Salt),
+                  (HashValue =:= NifHashValue
+                   orelse ct:fail("Expected: ~p\nActual:   ~p",
+                                  [HashValue, NifHashValue])),
+                  HashValue
+          end,
+          Terms),
+    test_bit_distribution_fitness(HashValues, HashValueBitSize, 0.05).
+
+test_salted_nif_hash(HashType) ->
+    HashValueBitSize = nif_hash_result_bitsize(HashType),
+    Terms = unique([random_term() || _ <- lists:seq(1, 5000)]),
+    Salts = unique([random_uint32() || _ <- lists:seq(1, 100)]),
+    {HashValuesPerSalt, HashValuesPerTerm} =
+        lists:mapfoldl(
+          fun (Salt, Acc) ->
+                  {HashValues, NewAcc} =
+                    lists:mapfoldl(
+                      fun (Term, AccB) ->
+                              HashValue = hash_nif(HashType, Term, Salt),
+                              NewAccB = dict:append(Term, HashValue, AccB),
+                              {HashValue, NewAccB}
+                      end,
+                      Acc,
+                      Terms),
+                  {{Salt, HashValues}, NewAcc}
+          end,
+          dict:new(),
+          Salts),
+
+    % Test per-salt hash distribution of different terms
+    lists:foreach(
+      fun ({_Salt, HashValues}) ->
+              test_bit_distribution_fitness(HashValues, HashValueBitSize, 0.05)
+      end,
+      HashValuesPerSalt),
+
+    % Test per-term hash distribution of different salts
+    dict:fold(
+      fun (_Term, HashValues, Acc) ->
+              % Be more tolerant of relative deviation,
+              % as there's fewer hash values here.
+              test_bit_distribution_fitness(HashValues, HashValueBitSize, 0.30),
+              Acc
+      end,
+      ok,
+      HashValuesPerTerm).
+
+test_bit_distribution_fitness(Integers, BitSize, MaxRelativeDeviation) ->
+    MaxInteger = (1 bsl BitSize) - 1,
+    OnesPerBit =
+        lists:foldl(
+          fun (Integer, Acc) when Integer >= 0, Integer =< MaxInteger ->
+                  lists:foldl(
+                    fun (BitIndex, AccB) ->
+                            BitValue = (Integer band (1 bsl BitIndex)) bsr BitIndex,
+                            orddict:update_counter(BitIndex, BitValue, AccB)
+                    end,
+                    Acc,
+                    lists:seq(0, BitSize - 1))
+          end,
+          orddict:new(),
+          Integers),
+
+    ExpectedNrOfOnes = length(Integers) div 2,
+    FailureText =
+        orddict:fold(
+          fun (BitIndex, NrOfOnes, Acc) ->
+                  RelativeDeviation = abs(NrOfOnes - ExpectedNrOfOnes) / length(Integers),
+                  case RelativeDeviation >= MaxRelativeDeviation of
+                      false -> Acc;
+                      true ->
+                          [Acc,
+                           io_lib:format(
+                             "Unreasonable deviation on number of set bits (i=~p): "
+                             "expected ~p, got ~p (relative dev. ~.3f)~n",
+                             [BitIndex, ExpectedNrOfOnes, NrOfOnes, RelativeDeviation])]
+                  end
+          end,
+          [],
+          OnesPerBit),
+
+    (FailureText =:= [] orelse ct:fail(FailureText)).
+
+nif_hash_result_bitsize(internal) -> 32;
+nif_hash_result_bitsize(phash2) -> 27.
+
+unique(List) ->
+    lists:usort(List).
+
+random_uint32() ->
+    rand:uniform(1 bsl 32) - 1.
+
+random_term() ->
+    case rand:uniform(6) of
+        1 -> rand:uniform(1 bsl 27) - 1; % small
+        2 -> (1 bsl 27) + rand:uniform(1 bsl 128); % big
+        3 -> random_sign() * (rand:uniform() * (1 bsl 53)); % float
+        4 -> random_binary();
+        5 -> random_pid();
+        6 ->
+            Length = rand:uniform(10),
+            List = [random_term() || _ <- lists:seq(1, Length)],
+            case rand:uniform(2) of
+                1 ->
+                   List;
+                2 ->
+                   list_to_tuple(List)
+            end
+    end.
+
+random_sign() ->
+    case rand:uniform(2) of
+        1 -> -1.0;
+        2 -> 1.0
+    end.
+
+random_binary() ->
+    list_to_binary(random_bytes(rand:uniform(32) - 1)).
+
+random_bytes(0) ->
+    [];
+random_bytes(N) when N > 0 ->
+    [rand:uniform(256) - 1 | random_bytes(N - 1)].
+
+random_pid() ->
+    Processes = erlang:processes(),
+    lists:nth(rand:uniform(length(Processes)), Processes).
 
 %% The NIFs:
 lib_version() -> undefined.
@@ -2621,6 +2775,7 @@ type_test() -> ?nif_stub.
 tuple_2_list(_) -> ?nif_stub.    
 is_identical(_,_) -> ?nif_stub.
 compare(_,_) -> ?nif_stub.
+hash_nif(_Type, _Term, _Salt) -> ?nif_stub.
 many_args_100(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
 clone_bin(_) -> ?nif_stub.
 make_sub_bin(_,_,_) -> ?nif_stub.

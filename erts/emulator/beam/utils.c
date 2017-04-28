@@ -1578,13 +1578,13 @@ do {  /* Lightweight mixing of constant (type info) */  \
 } while (0)
 
 Uint32
-make_internal_hash(Eterm term)
+make_internal_hash(Eterm term, Uint32 salt)
 {
     Uint32 hash;
 
     /* Optimization. Simple cases before declaration of estack. */
     if (primary_tag(term) == TAG_PRIMARY_IMMED1) {
-        hash = 0;
+        hash = salt;
     #if ERTS_SIZEOF_ETERM == 8
         UINT32_HASH_2((Uint32)term, (Uint32)(term >> 32), HCONST);
     #elif ERTS_SIZEOF_ETERM == 4
@@ -1598,7 +1598,7 @@ make_internal_hash(Eterm term)
     Eterm tmp;
     DECLARE_ESTACK(s);
 
-    hash = 0;
+    hash = salt;
     for (;;) {
 	switch (primary_tag(term)) {
 	case TAG_PRIMARY_LIST:
@@ -1874,7 +1874,7 @@ make_internal_hash(Eterm term)
 		goto pop_next;
 	    }
 	    default:
-		erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_hash2(0x%X)\n", term);
+		erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_internal_hash(0x%X, %lu)\n", term, salt);
 	    }
 	}
 	break;
@@ -1887,7 +1887,7 @@ make_internal_hash(Eterm term)
             goto pop_next;
 
 	default:
-	    erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_hash2(0x%X)\n", term);
+	    erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_internal_hash(0x%X, %lu)\n", term, salt);
 
 	pop_next:
 	    if (ESTACK_ISEMPTY(s)) {

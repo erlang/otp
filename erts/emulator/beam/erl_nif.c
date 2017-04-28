@@ -55,6 +55,7 @@
 #include "dtrace-wrapper.h"
 #include "erl_process.h"
 #include "erl_bif_unique.h"
+#include "erl_utils.h"
 #undef ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #define ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #include "erl_nfunc_sched.h"
@@ -1208,6 +1209,22 @@ int enif_compare(Eterm lhs, Eterm rhs)
     }
 
     return result;
+}
+
+ErlNifUInt64 enif_hash(ErlNifHash type, Eterm term, ErlNifUInt64 salt)
+{
+    switch (type) {
+        case ERL_NIF_INTERNAL_HASH:
+            return make_internal_hash(term, (Uint32) salt);
+        case ERL_NIF_PHASH2:
+            /* It appears that make_hash2 doesn't always react to seasoning
+             * as well as it should. Therefore, let's make it ignore the salt
+             * value and declare salted uses of phash2 as unsupported.
+             */
+            return make_hash2(term) & ((1 << 27) - 1);
+        default:
+            return 0;
+    }
 }
 
 int enif_get_tuple(ErlNifEnv* env, Eterm tpl, int* arity, const Eterm** array)

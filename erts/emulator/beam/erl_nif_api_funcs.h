@@ -180,6 +180,7 @@ ERL_NIF_API_FUNC_DECL(ErlNifResourceType*,enif_open_resource_type_x,(ErlNifEnv*,
 ERL_NIF_API_FUNC_DECL(int, enif_monitor_process,(ErlNifEnv*,void* obj,const ErlNifPid*,ErlDrvMonitor *monitor));
 ERL_NIF_API_FUNC_DECL(int, enif_demonitor_process,(ErlNifEnv*,void* obj,const ErlDrvMonitor *monitor));
 ERL_NIF_API_FUNC_DECL(int, enif_compare_monitors,(const ErlNifMonitor*,const ErlNifMonitor*));
+ERL_NIF_API_FUNC_DECL(ErlNifUInt64,enif_hash,(ErlNifHash type, ERL_NIF_TERM term, ErlNifUInt64 salt));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -342,6 +343,7 @@ ERL_NIF_API_FUNC_DECL(int, enif_compare_monitors,(const ErlNifMonitor*,const Erl
 #  define enif_monitor_process ERL_NIF_API_FUNC_MACRO(enif_monitor_process)
 #  define enif_demonitor_process ERL_NIF_API_FUNC_MACRO(enif_demonitor_process)
 #  define enif_compare_monitors ERL_NIF_API_FUNC_MACRO(enif_compare_monitors)
+#  define enif_hash ERL_NIF_API_FUNC_MACRO(enif_hash)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

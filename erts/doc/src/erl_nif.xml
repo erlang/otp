@@ -813,6 +813,29 @@ typedef enum {
           </item>
         </taglist>
       </item>
+      <tag><marker id="ErlNifHash"/><c>ErlNifHash</c></tag>
+      <item>
+        <p>An enumeration of the supported hash types that can be generated
+          using <seealso marker="#enif_hash"><c>enif_hash</c></seealso>.
+        </p>
+        <taglist>
+          <tag><c>ERL_NIF_INTERNAL_HASH</c></tag>
+          <item>
+            <p>Non-portable hash function that only guarantees the same hash
+              for the same term within one Erlang VM instance.</p>
+            <p>It takes 32-bit salt values and generates hashes within <c>0..2^32-1</c>.</p>
+          </item>
+          <tag><c>ERL_NIF_PHASH2</c></tag>
+          <item>
+            <p>Portable hash function that gives the same hash for the
+              same Erlang term regardless of machine architecture and ERTS version.</p>
+            <p><em>It ignores salt values</em> and generates hashes within <c>0..2^27-1</c>.</p>
+            <p>Slower than <c>ERL_NIF_INTERNAL_HASH.</c>
+              It corresponds to <seealso marker="erlang#phash2-1"><c>erlang:phash2/1</c></seealso>.
+            </p>
+          </item>
+        </taglist>
+      </item>
     </taglist>
   </section>
 
@@ -1383,6 +1406,19 @@ typedef enum {
           <c>enif_make_badarg</c></seealso> and
           <seealso marker="#enif_raise_exception">
           <c>enif_raise_exception</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>
+        <ret>ErlNifUInt64</ret>
+        <nametext>enif_hash(ErlNifHash type, ERL_NIF_TERM term, ErlNifUInt64 salt)</nametext>
+      </name>
+      <fsummary>Hash terms.</fsummary>
+      <desc>
+        <p>Hashes <c>term</c> according to the specified
+          <seealso marker="#ErlNifHash"><c>ErlNifHash</c></seealso> <c>type</c>.</p>
+        <p>Ranges of taken salt (if any) and returned value depend on the hash type.</p>
       </desc>
     </func>
 
