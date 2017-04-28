@@ -38,7 +38,6 @@
 -define(MAX_RND_PADDING_LEN, 15).
 
 -define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
--define(SUPPORTED_USER_KEYS, ['ssh-rsa','ssh-dss','ecdsa-sha2-nistp256','ecdsa-sha2-nistp384','ecdsa-sha2-nistp521']).
 
 -define(FALSE, 0).
 -define(TRUE,  1).
@@ -134,7 +133,7 @@
 	  role :: client | role(),
 	  peer :: undefined | 
                   {inet:hostname(),
-                   {inet:ip_adress(),inet:port_number()}},         %% string version of peer address 
+                   {inet:ip_address(),inet:port_number()}},         %% string version of peer address 
 
 	  c_vsn,        %% client version {Major,Minor}
 	  s_vsn,        %% server version {Major,Minor}
@@ -144,6 +143,9 @@
 
 	  c_keyinit,    %% binary payload of kexinit packet
 	  s_keyinit,    %% binary payload of kexinit packet
+
+          send_ext_info, %% May send ext-info to peer
+          recv_ext_info, %% Expect ext-info from peer
 
 	  algorithms,   %% #alg{}
 	  
@@ -198,6 +200,7 @@
 	  userauth_quiet_mode,              %  boolean()
 	  userauth_methods,                 %  list( string() )  eg ["keyboard-interactive", "password"]
 	  userauth_supported_methods,       %  string() eg "keyboard-interactive,password"
+          userauth_pubkeys,
 	  kb_tries_left = 0,                %  integer(), num tries left for "keyboard-interactive"
 	  userauth_preference,
 	  available_host_keys,
@@ -216,7 +219,9 @@
 	  compress,
 	  decompress,
 	  c_lng,
-	  s_lng
+	  s_lng,
+          send_ext_info,
+          recv_ext_info
 	 }).
 
 -record(ssh_key,

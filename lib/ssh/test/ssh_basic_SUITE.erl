@@ -651,6 +651,7 @@ exec_key_differs_fail(Config) when is_list(Config) ->
 
     IO = ssh_test_lib:start_io_server(),
     ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir},
+                                        {recv_ext_info, false},
 					{preferred_algorithms,[{public_key,['ssh-rsa']}]},
 					{pref_public_key_algs,['ssh-dss']}]),
     receive

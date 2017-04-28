@@ -215,6 +215,16 @@ encode(#ssh_msg_service_accept{
 	 }) ->
     <<?Ebyte(?SSH_MSG_SERVICE_ACCEPT), ?Estring_utf8(Service)>>;
 
+encode(#ssh_msg_ext_info{
+          nr_extensions = N,
+          data = Data
+         }) ->
+    lists:foldl(fun({ExtName,ExtVal}, Acc) ->
+                        <<Acc/binary, ?Estring(ExtName), ?Estring(ExtVal)>>
+                end,
+                <<?Ebyte(?SSH_MSG_EXT_INFO), ?Euint32(N)>>,
+                Data);
+
 encode(#ssh_msg_newkeys{}) ->
     <<?Ebyte(?SSH_MSG_NEWKEYS)>>;
 
@@ -435,6 +445,18 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_INFO_RESPONSE), ?UINT32(Num), Data/binary>>) ->
        num_responses = Num,
        data = Data};
 
+decode(<<?BYTE(?SSH_MSG_EXT_INFO), ?UINT32(N), BinData/binary>>) ->
+    Data = bin_foldr(
+             fun(Bin,Acc) when length(Acc) == N ->
+                     {Bin,Acc};
+                (<<?DEC_BIN(V0,__0), ?DEC_BIN(V1,__1), Rest/binary>>, Acc) -> 
+                     {Rest,[{binary_to_list(V0),binary_to_list(V1)}|Acc]}
+             end, [], BinData),
+    #ssh_msg_ext_info{
+       nr_extensions = N,
+       data = Data
+      };
+
 %%% Keyexchange messages
 decode(<<?BYTE(?SSH_MSG_KEXINIT), Cookie:128, Data/binary>>) ->
     decode_kex_init(Data, [Cookie, ssh_msg_kexinit], 10);
@@ -537,17 +559,28 @@ decode(<<?BYTE(?SSH_MSG_DEBUG), ?BYTE(Bool), ?DEC_BIN(Msg,__0), ?DEC_BIN(Lang,__
 %%% Helper functions
 %%%
 
+bin_foldr(Fun, Acc, Bin) ->
+    lists:reverse(bin_foldl(Fun, Acc, Bin)).
+
+bin_foldl(_, Acc, <<>>) -> Acc;
+bin_foldl(Fun, Acc0, Bin0) ->
+    {Bin,Acc} = Fun(Bin0,Acc0),
+    bin_foldl(Fun, Acc, Bin).
+
+%%%----------------------------------------------------------------
 decode_keyboard_interactive_prompts(<<>>, Acc) ->
     lists:reverse(Acc);
 decode_keyboard_interactive_prompts(<<?DEC_BIN(Prompt,__0), ?BYTE(Bool), Bin/binary>>,
 				    Acc) ->
     decode_keyboard_interactive_prompts(Bin, [{Prompt, erl_boolean(Bool)} | Acc]).
 
+%%%----------------------------------------------------------------
 erl_boolean(0) ->
     false;
 erl_boolean(1) ->
     true.
 
+%%%----------------------------------------------------------------
 decode_kex_init(<<?BYTE(Bool), ?UINT32(X)>>, Acc, 0) ->
     list_to_tuple(lists:reverse([X, erl_boolean(Bool) | Acc]));
 decode_kex_init(<<?BYTE(Bool)>>, Acc, 0) ->
@@ -569,11 +602,22 @@ decode_signature(<<?DEC_BIN(_Alg,__0), ?UINT32(_), Signature/binary>>) ->
     Signature.
 
 
-encode_signature(#'RSAPublicKey'{}, Signature) ->
-    <<?Ebinary(<<"ssh-rsa">>), ?Ebinary(Signature)>>;
-encode_signature({_, #'Dss-Parms'{}}, Signature) ->
+encode_signature({#'RSAPublicKey'{},Sign}, Signature) ->
+    SignName = list_to_binary(atom_to_list(Sign)),
+    <<?Ebinary(SignName), ?Ebinary(Signature)>>;
+encode_signature({{_, #'Dss-Parms'{}},_}, Signature) ->
     <<?Ebinary(<<"ssh-dss">>), ?Ebinary(Signature)>>;
-encode_signature({#'ECPoint'{}, {namedCurve,OID}}, Signature) ->
+encode_signature({{#'ECPoint'{}, {namedCurve,OID}},_}, Signature) ->
     CurveName = public_key:oid2ssh_curvename(OID),
     <<?Ebinary(<<"ecdsa-sha2-",CurveName/binary>>), ?Ebinary(Signature)>>.
+
+%% encode_signature(#'RSAPublicKey'{}, Signature) ->
+%%     SignName = <<"ssh-rsa">>,
+%%     <<?Ebinary(SignName), ?Ebinary(Signature)>>;
+%% encode_signature({_, #'Dss-Parms'{}}, Signature) ->
+%%     <<?Ebinary(<<"ssh-dss">>), ?Ebinary(Signature)>>;
+%% encode_signature({#'ECPoint'{}, {namedCurve,OID}}, Signature) ->
+%%     CurveName = public_key:oid2ssh_curvename(OID),
+%%     <<?Ebinary(<<"ecdsa-sha2-",CurveName/binary>>), ?Ebinary(Signature)>>.
+
 
