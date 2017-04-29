@@ -1,4 +1,4 @@
-;;; erlang.el --- Major modes for editing and running Erlang
+;;; erlang.el --- Major modes for editing and running Erlang -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2004  Free Software Foundation, Inc.
 ;; Author:   Anders Lindgren
