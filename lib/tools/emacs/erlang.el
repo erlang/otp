@@ -1019,26 +1019,15 @@ files written in other languages than Erlang.")
 If nil, the inferior shell replaces the window. This is the traditional
 behaviour.")
 
-(defconst inferior-erlang-use-cmm (boundp 'minor-mode-overriding-map-alist)
-  "Non-nil means use `compilation-minor-mode' in Erlang shell.")
-
 (defvar erlang-mode-map
   (let ((map (make-sparse-keymap)))
-    (unless (boundp 'indent-line-function)
-      (define-key map "\t"        'erlang-indent-command))
     (define-key map ";"       'erlang-electric-semicolon)
     (define-key map ","       'erlang-electric-comma)
     (define-key map "<"         'erlang-electric-lt)
     (define-key map ">"         'erlang-electric-gt)
     (define-key map "\C-m"      'erlang-electric-newline)
-    (if (not (boundp 'delete-key-deletes-forward))
-        (define-key map "\177" 'backward-delete-char-untabify)
-      (define-key map [(backspace)] 'backward-delete-char-untabify))
-    ;;(unless (boundp 'fill-paragraph-function)
+    (define-key map [(backspace)] 'backward-delete-char-untabify)
     (define-key map "\M-q"      'erlang-fill-paragraph)
-    (unless (boundp 'beginning-of-defun-function)
-      (define-key map "\M-\C-a"   'erlang-beginning-of-function)
-      (define-key map "\M-\C-e"   'erlang-end-of-function))
     (define-key map "\M-\t"     'erlang-complete-tag)
     (define-key map "\C-c\M-\t" 'tempo-complete-tag)
     (define-key map "\M-+"      'erlang-find-next-tag)
@@ -1057,8 +1046,6 @@ behaviour.")
     (define-key map "\C-c\C-y"  'erlang-clone-arguments)
     (define-key map "\C-c\C-a"  'erlang-align-arrows)
     (define-key map "\C-c\C-z"  'erlang-shell-display)
-    (unless inferior-erlang-use-cmm
-      (define-key map "\C-x`"    'erlang-next-error))
     map)
   "Keymap used in Erlang mode.")
 (defvar erlang-mode-abbrev-table nil
@@ -5211,14 +5198,6 @@ The following special commands are available:
     (setq erlang-shell-mode-map (copy-keymap comint-mode-map))
     (erlang-shell-mode-commands erlang-shell-mode-map))
   (use-local-map erlang-shell-mode-map)
-  (unless inferior-erlang-use-cmm
-    ;; This was originally not a marker, but it needs to be, at least
-    ;; in Emacs 21, and should be backwards-compatible.  Otherwise,
-    ;; would need to test whether compilation-parsing-end is a marker
-    ;; after requiring `compile'.
-    (set (make-local-variable 'compilation-parsing-end) (copy-marker 1))
-    (set (make-local-variable 'compilation-error-list) nil)
-    (set (make-local-variable 'compilation-old-error-list) nil))
   ;; Needed when compiling directly from the Erlang shell.
   (setq compilation-last-buffer (current-buffer))
   (setq comint-prompt-regexp "^[^>=]*> *")
@@ -5235,24 +5214,20 @@ The following special commands are available:
   (comint-read-input-ring t)
   (make-local-variable 'kill-buffer-hook)
   (add-hook 'kill-buffer-hook 'comint-write-input-ring)
-  ;; At least in Emacs 21, we need to be in `compilation-minor-mode'
-  ;; for `next-error' to work.  We can avoid it clobbering the shell
-  ;; keys thus.
-  (when inferior-erlang-use-cmm
-    (compilation-minor-mode 1)
-    (set (make-local-variable 'minor-mode-overriding-map-alist)
-         `((compilation-minor-mode
-            . ,(let ((map (make-sparse-keymap)))
-                 ;; It would be useful to put keymap properties on the
-                 ;; error lines so that we could use RET and mouse-2
-                 ;; on them directly.
-                 (when (boundp 'compilation-skip-threshold) ; new compile.el
-                   (define-key map [mouse-2] #'erlang-mouse-2-command)
-                   (define-key map "\C-m" #'erlang-RET-command))
-                 (if (boundp 'compilation-menu-map)
-                     (define-key map [menu-bar compilation]
-                       (cons "Errors" compilation-menu-map)))
-                 map)))))
+  (compilation-minor-mode 1)
+  (set (make-local-variable 'minor-mode-overriding-map-alist)
+       `((compilation-minor-mode
+          . ,(let ((map (make-sparse-keymap)))
+               ;; It would be useful to put keymap properties on the
+               ;; error lines so that we could use RET and mouse-2
+               ;; on them directly.
+               (when (boundp 'compilation-skip-threshold) ; new compile.el
+                 (define-key map [mouse-2] #'erlang-mouse-2-command)
+                 (define-key map "\C-m" #'erlang-RET-command))
+               (if (boundp 'compilation-menu-map)
+                   (define-key map [menu-bar compilation]
+                     (cons "Errors" compilation-menu-map)))
+               map))))
   (erlang-tags-init)
   (run-hooks 'erlang-shell-mode-hook))
 
@@ -5281,9 +5256,7 @@ Selects Comint or Compilation mode command as appropriate."
   (define-key map "\C-a"     'comint-bol) ; Normally the other way around.
   (define-key map "\C-c\C-a" 'beginning-of-line)
   (define-key map "\C-d"     nil)       ; Was `comint-delchar-or-maybe-eof'
-  (define-key map "\M-\C-m"  'compile-goto-error)
-  (unless inferior-erlang-use-cmm
-    (define-key map "\C-x`"    'erlang-next-error)))
+  (define-key map "\M-\C-m"  'compile-goto-error))
 
 ;;;
 ;;; Inferior Erlang -- Run an Erlang shell as a subprocess.
