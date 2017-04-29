@@ -5894,35 +5894,6 @@ Tab characters are counted by their visual width."
     (if (looking-at "[a-z0-9_]+")
         (match-string 0))))
 
-;; Aliases for backward compatibility with older versions of Erlang Mode.
-;;
-;; Unfortuantely, older versions of Emacs doesn't have `defalias' and
-;; `make-obsolete' so we have to define our own `obsolete' function.
-
-(defun erlang-obsolete (sym newdef)
-  "Make the obsolete function SYM refer to the defined function NEWDEF.
-
-Simplified version of a combination `defalias' and `make-obsolete',
-it assumes that NEWDEF is loaded."
-  (defalias sym (symbol-function newdef))
-  (make-obsolete sym newdef "long ago"))
-
-
-(erlang-obsolete 'calculate-erlang-indent 'erlang-calculate-indent)
-(erlang-obsolete 'calculate-erlang-stack-indent
-                 'erlang-calculate-stack-indent)
-(erlang-obsolete 'at-erlang-keyword 'erlang-at-keyword)
-(erlang-obsolete 'at-erlang-operator 'erlang-at-operator)
-(erlang-obsolete 'beginning-of-erlang-clause 'erlang-beginning-of-clause)
-(erlang-obsolete 'end-of-erlang-clause 'erlang-end-of-clause)
-(erlang-obsolete 'mark-erlang-clause 'erlang-mark-clause)
-(erlang-obsolete 'beginning-of-erlang-function 'erlang-beginning-of-function)
-(erlang-obsolete 'end-of-erlang-function 'erlang-end-of-function)
-(erlang-obsolete 'mark-erlang-function 'erlang-mark-function)
-(erlang-obsolete 'pass-over-erlang-clause 'erlang-pass-over-function)
-(erlang-obsolete 'name-of-erlang-function 'erlang-name-of-function)
-
-
 (defconst erlang-unload-hook
   (list (lambda ()
           (ad-unadvise 'Man-notify-when-ready)
