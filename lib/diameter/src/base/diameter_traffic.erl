@@ -54,6 +54,8 @@
 -define(RELAY, ?DIAMETER_DICT_RELAY).
 -define(BASE,  ?DIAMETER_DICT_COMMON).  %% Note: the RFC 3588 dictionary
 
+-define(DEFAULT(V, Def), if V == undefined -> Def; true -> V end).
+
 %% Table containing outgoing entries that live and die with
 %% peer_up/down. The name is historic, since the table used to contain
 %% information about outgoing requests for which an answer has yet to
@@ -1367,43 +1369,39 @@ make_prepare_packet(Mask, #diameter_packet{msg = [#diameter_header{} = Hdr
 make_prepare_packet(Mask, #diameter_packet{header = Hdr} = Pkt) ->
     Pkt#diameter_packet{header = make_prepare_header(Mask, Hdr)};
 
+make_prepare_packet(Mask, [#diameter_header{} = Hdr | Avps]) ->
+    #diameter_packet{msg = [make_prepare_header(Mask, Hdr) | Avps]};
+
 make_prepare_packet(Mask, Msg) ->
-    make_prepare_packet(Mask, #diameter_packet{msg = Msg}).
+    #diameter_packet{header = make_prepare_header(Mask, undefined),
+                     msg = Msg}.
 
 %% make_prepare_header/2
 
 make_prepare_header(Mask, undefined) ->
     Seq = diameter_session:sequence(Mask),
-    make_prepare_header(#diameter_header{end_to_end_id = Seq,
-                                         hop_by_hop_id = Seq});
+    #diameter_header{version = ?DIAMETER_VERSION,
+                     end_to_end_id = Seq,
+                     hop_by_hop_id = Seq};
 
-make_prepare_header(Mask, #diameter_header{end_to_end_id = undefined,
-                                           hop_by_hop_id = undefined}
-                          = H) ->
-    Seq = diameter_session:sequence(Mask),
-    make_prepare_header(H#diameter_header{end_to_end_id = Seq,
-                                          hop_by_hop_id = Seq});
+make_prepare_header(Mask, #diameter_header{version = V,
+                                           end_to_end_id = EI,
+                                           hop_by_hop_id = HI}
+                          = H)
+  when EI == undefined;
+       HI == undefined ->
+    Id = diameter_session:sequence(Mask),
+    H#diameter_header{version = ?DEFAULT(V, ?DIAMETER_VERSION),
+                      end_to_end_id = ?DEFAULT(EI, Id),
+                      hop_by_hop_id = ?DEFAULT(HI, Id)};
 
-make_prepare_header(Mask, #diameter_header{end_to_end_id = undefined} = H) ->
-    Seq = diameter_session:sequence(Mask),
-    make_prepare_header(H#diameter_header{end_to_end_id = Seq});
+make_prepare_header(_, #diameter_header{version = undefined} = H) ->
+    H#diameter_header{version = ?DIAMETER_VERSION};
 
-make_prepare_header(Mask, #diameter_header{hop_by_hop_id = undefined} = H) ->
-    Seq = diameter_session:sequence(Mask),
-    make_prepare_header(H#diameter_header{hop_by_hop_id = Seq});
+make_prepare_header(_, #diameter_header{} = H) ->
+    H;
 
-make_prepare_header(_, Hdr) ->
-    make_prepare_header(Hdr).
-
-%% make_prepare_header/1
-
-make_prepare_header(#diameter_header{version = undefined} = Hdr) ->
-    make_prepare_header(Hdr#diameter_header{version = ?DIAMETER_VERSION});
-
-make_prepare_header(#diameter_header{} = Hdr) ->
-    Hdr;
-
-make_prepare_header(T) ->
+make_prepare_header(_, T) ->
     ?ERROR({invalid_header, T}).
 
 %% make_request_packet/2
