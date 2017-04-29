@@ -783,31 +783,20 @@ eval_packet(Pkt, Fs) ->
 %% the errors field has been explicitly set. Unfortunately, the
 %% default value is the empty list rather than 'undefined' so use the
 %% atom 'false' for "set nothing". (This is historical and changing
-%% the default value would require modules including diameter.hrl to
-%% be recompiled.)
-make_answer_packet(#diameter_packet{errors = []}
-                   = Pkt,
-                   #diameter_packet{errors = [_|_] = Es}
-                   = ReqPkt) ->
-    make_answer_packet(Pkt#diameter_packet{errors = Es}, ReqPkt);
-
-%% A reply message clears the R and T flags and retains the P flag.
-%% The E flag will be set at encode. 6.2 of 3588 requires the same P
-%% flag on an answer as on the request. A #diameter_packet{} returned
-%% from a handle_request callback can circumvent this by setting its
-%% own header values.
+%% the default value would impact anyone expecting relying on the old
+%% default.)
 make_answer_packet(#diameter_packet{header = Hdr,
                                     msg = Msg,
                                     errors = Es,
                                     transport_data = TD},
-                   #diameter_packet{header = ReqHdr}) ->
-    Hdr0 = ReqHdr#diameter_header{version = ?DIAMETER_VERSION,
-                                  is_request = false,
-                                  is_error = undefined,
-                                  is_retransmitted = false},
-    #diameter_packet{header = fold_record(Hdr0, Hdr),
+                   #diameter_packet{header = Hdr0,
+                                    errors = Es0}) ->
+    #diameter_packet{header = make_answer_header(Hdr0, Hdr),
                      msg = Msg,
-                     errors = Es,
+                     errors = case Es0 of
+                                  [_|_] when [] == Es -> Es0;
+                                  _                   -> Es
+                              end,
                      transport_data = TD};
 
 %% Binaries and header/avp lists are sent as-is.
@@ -820,9 +809,28 @@ make_answer_packet([#diameter_header{} | _] = Msg,
     #diameter_packet{msg = Msg,
                      transport_data = TD};
 
-%% Otherwise, preserve transport_data.
-make_answer_packet(Msg, #diameter_packet{transport_data = TD} = Pkt) ->
-    make_answer_packet(#diameter_packet{msg = Msg, transport_data = TD}, Pkt).
+%% Otherwise, only reset the header.
+make_answer_packet(Msg, #diameter_packet{header = Hdr,
+                                         errors = Es,
+                                         transport_data = TD}) ->
+    #diameter_packet{header = make_answer_header(Hdr, undefined),
+                     msg = Msg,
+                     errors = Es,
+                     transport_data = TD}.
+
+%% make_answer_header/2
+
+%% A reply message clears the R and T flags and retains the P flag.
+%% The E flag will be set at encode. 6.2 of 3588 requires the same P
+%% flag on an answer as on the request. A #diameter_packet{} returned
+%% from a handle_request callback can circumvent this by setting its
+%% own header values.
+make_answer_header(ReqHdr, Hdr) ->
+    Hdr0 = ReqHdr#diameter_header{version = ?DIAMETER_VERSION,
+                                  is_request = false,
+                                  is_error = undefined,
+                                  is_retransmitted = false},
+    fold_record(Hdr0, Hdr).
 
 %% Reply as name and tuple list ...
 set([_|_] = Ans, Avps, _) ->
