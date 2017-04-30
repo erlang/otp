@@ -13,7 +13,8 @@
 <erlref>
 <header>
 <copyright>
-<year>2012</year><year>2016</year>
+<year>2012</year>
+<year>2017</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -53,17 +54,17 @@ communicated to &man_app; callbacks.
 Similarly, outgoing Diameter messages are encoded into binary() before
 being passed to the appropriate &man_transport; module for
 transmission.
-The functions in this module implement this encode/decode.</p>
+The functions documented here implement the default encode/decode.</p>
 
-<note>
+<warning>
 <p>
-Calls to this module are made by diameter itself as a consequence of
-configuration passed to &mod_start_service;.
-The encode/decode functions may also be useful for other purposes (eg.
-test) but the diameter user does not need to call them explicitly when
+The diameter user does not need to call functions here explicitly when
 sending and receiving messages using &mod_call; and the callback
-interface documented in &man_app;.</p>
-</note>
+interface documented in &man_app;: diameter itself provides encode/decode
+as a consequence of configuration passed to &mod_start_service;, and
+the results may differ from those returned by the functions documented
+here, depending on configuration.</p>
+</warning>
 
 <p>
 The &header; and &packet; records below

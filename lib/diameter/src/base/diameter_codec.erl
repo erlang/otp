@@ -20,10 +20,8 @@
 
 -module(diameter_codec).
 
--export([encode/2,
-         encode/3,
-         decode/3,
-         decode/4,
+-export([encode/2, encode/3,
+         decode/2, decode/3, decode/4,
          collect_avps/1,
          decode_header/1,
          sequence_numbers/1,
@@ -67,6 +65,10 @@
 %%% ---------------------------------------------------------------------------
 %%% # encode/2
 %%% ---------------------------------------------------------------------------
+
+%% The representative encode documented in diameter_codec(3). As of
+%% the options that affect encode (eg. ordered_encode), it's no longer
+%% *the* encode.
 
 encode(Mod, Msg) ->
     encode(Mod, #{ordered_encode => true}, Msg).
@@ -275,6 +277,20 @@ rec2msg(_, [Name|_])
 
 rec2msg(Mod, Rec) ->
     Mod:rec2msg(element(1, Rec)).
+
+%%% ---------------------------------------------------------------------------
+%%% # decode/2
+%%% ---------------------------------------------------------------------------
+
+%% The representative default decode documented in diameter_codec(3).
+%% As of the options that affect decode (eg. string_decode), it's no
+%% longer *the* decode.
+
+decode(Mod, Pkt) ->
+    Opts = #{string_decode => true,
+             strict_mbit => true,
+             rfc => 6733},
+    decode(Mod, Opts, Pkt).
 
 %%% ---------------------------------------------------------------------------
 %%% # decode/3
