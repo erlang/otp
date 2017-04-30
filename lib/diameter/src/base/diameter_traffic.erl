@@ -702,7 +702,7 @@ local(Msg, TPid, {MsgDict, AppDict, Dict0}, Fs, ReqPkt) ->
 %% select_error/3
 %%
 %% Extract the first appropriate RC or {RC, #diameter_avp{}}
-%% pair from an errors list.
+%% pair from an errors list, along with any leading #diameter_avp{}.
 %%
 %% RFC 6733:
 %%
@@ -721,23 +721,33 @@ local(Msg, TPid, {MsgDict, AppDict, Dict0}, Fs, ReqPkt) ->
 %% 3xxx can only be set in an answer setting the E-bit. RFC 6733 also
 %% allows 5xxx, RFC 3588 doesn't.
 
-select_error(E, [{RC, _} = T | Es], Dict0) ->
-    select(E, RC, T, Es, Dict0);
+select_error(E, Es, Dict0) ->
+    select(E, Es, Dict0, []).
 
-select_error(E, [RC | Es], Dict0) ->
-    select(E, RC, RC, Es, Dict0);
+%% select/4
 
-select_error(_, [] = No, _) ->
-    No.
+select(E, [{RC, _} = T | Es], Dict0, Avps) ->
+    select(E, RC, T, Es, Dict0, Avps);
 
-select(E, RC, T, _, Dict0)
+select(E, [#diameter_avp{} = A | Es], Dict0, Avps) ->
+    select(E, Es, Dict0, [A | Avps]);
+
+select(E, [RC | Es], Dict0, Avps) ->
+    select(E, RC, RC, Es, Dict0, Avps);
+
+select(_, [], _, Avps) ->
+    Avps.
+
+%% select/6
+
+select(E, RC, T, _, Dict0, Avps)
   when E, 3000 =< RC, RC < 4000;                 %% E-bit with 3xxx
        E, ?BASE /= Dict0, 5000 =< RC, RC < 6000; %% E-bit with 5xxx
        not E, RC < 3000 orelse 4000 =< RC ->     %% no E-bit
-    [T];
+    [T | Avps];
 
-select(E, _, _, Es, Dict0) -> 
-    select_error(E, Es, Dict0).
+select(E, _, _, Es, Dict0, Avps) ->
+    select(E, Es, Dict0, Avps).
 
 %% eval_packet/2
 
@@ -817,16 +827,26 @@ reset(Msg, _, Es, MsgDict, Dict0) ->
 
 %% reset/4
 %%
-%% Set Result-Code and/or Failed-AVP (maybe).
+%% Set Result-Code and/or Failed-AVP (maybe). Only RC and {RC, AVP}
+%% are the result of decode. AVP or {RC, [AVP]} can be set in an
+%% answer for encode, as a convenience for injecting additional AVPs
+%% into Failed-AVP; eg. 5001 = DIAMETER_AVP_UNSUPPORTED.
 
 reset(Msg, [], _) ->
     Msg;
 
-reset(Msg, [{RC, Avp}], Dict) ->
-    set(Msg, rc(Msg, RC, Dict) ++ failed_avp(Msg, [Avp], Dict), Dict);
+reset(Msg, [{RC, As} | Avps], Dict)
+  when is_list(As) ->
+    reset(Msg, [RC | As ++ Avps], Dict);
 
-reset(Msg, [RC], Dict) ->
-    set(Msg, rc(Msg, RC, Dict), Dict).
+reset(Msg, [{RC, Avp} | Avps], Dict) ->
+    reset(Msg, [RC, Avp | Avps], Dict);
+
+reset(Msg, [#diameter_avp{} | _] = Avps, Dict) ->
+    set(Msg, failed_avp(Msg, Avps, Dict), Dict);
+
+reset(Msg, [RC | Avps], Dict) ->
+    set(Msg, rc(Msg, RC, Dict) ++ failed_avp(Msg, Avps, Dict), Dict).
 
 %% set/3
 
@@ -856,6 +876,9 @@ rc(Rec, RC, Dict) ->
     rc([Dict:rec2msg(element(1, Rec))], RC, Dict).
 
 %% failed_avp/3
+
+failed_avp(_, [] = No, _) ->
+    No;
 
 failed_avp(Msg, [_|_] = Avps, Dict) ->
     [failed(Msg, [{'AVP', Avps}], Dict)].
