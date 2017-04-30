@@ -43,34 +43,38 @@
 %% # encode_avps/3
 %% ---------------------------------------------------------------------------
 
--spec encode_avps(parent_name(), parent_record() | avp_values(), term())
+-spec encode_avps(parent_name(), parent_record() | avp_values(), map())
    -> iolist()
     | no_return().
 
-encode_avps(Name, Vals, Opts)
-  when is_list(Vals) ->
-    encode_avps(Name, '#set-'(Vals, newrec(Name)), Opts);
-
-encode_avps(Name, Rec, Opts) ->
+encode_avps(Name, Vals, Opts) ->
     try
-        encode(Name, Rec, Opts)
+        encode(Name, Vals, Opts)
     catch
         throw: {?MODULE, Reason} ->
             diameter_lib:log({encode, error},
                              ?MODULE,
                              ?LINE,
-                             {Reason, Name, Rec}),
+                             {Reason, Name, Vals}),
             erlang:error(list_to_tuple(Reason ++ [Name]));
         error: Reason ->
             Stack = erlang:get_stacktrace(),
             diameter_lib:log({encode, failure},
                              ?MODULE,
                              ?LINE,
-                             {Reason, Name, Rec, Stack}),
+                             {Reason, Name, Vals, Stack}),
             erlang:error({encode_failure, Reason, Name, Stack})
     end.
 
 %% encode/3
+
+encode(Name, Vals, #{ordered_encode := false} = Opts)
+  when is_list(Vals) ->
+    lists:map(fun({F,V}) -> encode(Name, F, V, Opts) end, Vals);
+
+encode(Name, Vals, Opts)
+  when is_list(Vals) ->
+    encode(Name, '#set-'(Vals, newrec(Name)), Opts);
 
 encode(Name, Rec, Opts) ->
     [encode(Name, F, V, Opts) || {F,V} <- '#get-'(Rec)].
@@ -671,4 +675,4 @@ z(Name) ->
 %% ---------------------------------------------------------------------------
 
 empty(AvpName) ->
-    avp(encode, zero, AvpName, _Opts = []).
+    avp(encode, zero, AvpName, _Opts = #{}).

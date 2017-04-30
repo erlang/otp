@@ -103,6 +103,7 @@ make_recvdata([SvcName, PeerT, Apps, SvcOpts | _]) ->
                      sequence = Mask,
                      codec = maps:with([string_decode,
                                         strict_mbit,
+                                        ordered_encode,
                                         incoming_maxlen],
                                        SvcOpts)}}.
 
@@ -479,11 +480,12 @@ request_cb(T, App, _, _) ->
 
 %% send_A/4
 
-send_A({Caps, Pkt}, TPid, Dict0, _RecvData) ->  %% unsupported application
+send_A({Caps, Pkt}, TPid, Dict0, RecvData) ->  %% unsupported application
     #diameter_packet{errors = [RC|_]} = Pkt,
     send_A(answer_message(RC, Caps, Dict0, Pkt),
            TPid,
            {Dict0, Dict0},
+           RecvData,
            Pkt,
            [],
            []);
@@ -492,6 +494,7 @@ send_A({Caps, Pkt, App, {T, EvalPktFs, EvalFs}}, TPid, Dict0, RecvData) ->
     send_A(answer(T, Caps, Pkt, App, Dict0, RecvData),
            TPid,
            {App#diameter_app.dictionary, Dict0},
+           RecvData,
            Pkt,
            EvalPktFs,
            EvalFs);
@@ -499,10 +502,17 @@ send_A({Caps, Pkt, App, {T, EvalPktFs, EvalFs}}, TPid, Dict0, RecvData) ->
 send_A(_, _, _, _) ->
     ok.
 
-%% send_A/6
+%% send_A/7
 
-send_A(T, TPid, {AppDict, Dict0} = DictT0, ReqPkt, EvalPktFs, EvalFs) ->
-    {MsgDict, Pkt} = reply(T, TPid, DictT0, EvalPktFs, ReqPkt),
+send_A(T,
+       TPid,
+       {AppDict, Dict0}
+       = DictT0,
+       RecvData,
+       ReqPkt,
+       EvalPktFs,
+       EvalFs) ->
+    {MsgDict, Pkt} = reply(T, TPid, DictT0, RecvData, EvalPktFs, ReqPkt),
     incr(send, Pkt, TPid, AppDict),
     incr_rc(send, Pkt, TPid, {MsgDict, AppDict, Dict0}),  %% count outgoing
     send(TPid, Pkt, _Route = self()),
@@ -670,32 +680,43 @@ is_loop(Code, Vid, OH, Dict0, [_ | Avps])
 is_loop(Code, Vid, OH, Dict0, Avps) ->
     is_loop(Code, Vid, list_to_binary(OH), Dict0, Avps).
 
-%% reply/5
+%% reply/6
 
 %% Local answer ...
-reply({MsgDict, Ans}, TPid, {AppDict, Dict0}, Fs, ReqPkt) ->
-    local(Ans, TPid, {MsgDict, AppDict, Dict0}, Fs, ReqPkt);
+reply({MsgDict, Ans}, TPid, {AppDict, Dict0}, RecvData, Fs, ReqPkt) ->
+    local(Ans, TPid, {MsgDict, AppDict, Dict0}, RecvData, Fs, ReqPkt);
 
 %% ... or relayed.
-reply(#diameter_packet{} = Pkt, _TPid, {AppDict, Dict0}, Fs, _ReqPkt) ->
+reply(#diameter_packet{} = Pkt, _TPid, {AppDict, Dict0}, _, Fs, _ReqPkt) ->
     eval_packet(Pkt, Fs),
     {msg_dict(AppDict, Dict0, Pkt), Pkt}.
 
-%% local/5
+%% local/6
 %%
 %% Send a locally originating reply.
 
 %% Skip the setting of Result-Code and Failed-AVP's below. This is
 %% undocumented and shouldn't be relied on.
-local([Msg], TPid, DictT, Fs, ReqPkt)
+local([Msg], TPid, DictT, RecvData, Fs, ReqPkt)
   when is_list(Msg);
        is_tuple(Msg) ->
-    local(Msg, TPid, DictT, Fs, ReqPkt#diameter_packet{errors = []});
+    local(Msg,
+          TPid,
+          DictT,
+          RecvData,
+          Fs,
+          ReqPkt#diameter_packet{errors = []});
 
-local(Msg, TPid, {MsgDict, AppDict, Dict0}, Fs, ReqPkt) ->
+local(Msg,
+      TPid,
+      {MsgDict, AppDict, Dict0},
+      #recvdata{codec = Opts},
+      Fs,
+      ReqPkt) ->
     Pkt = encode({MsgDict, AppDict},
                  TPid,
                  make_answer_packet(Msg, ReqPkt, MsgDict, Dict0),
+                 Opts,
                  Fs),
     {MsgDict, Pkt}.
 
@@ -1344,7 +1365,11 @@ send_request({{TPid, _Caps} = TC, App}
     case prepare(cb(App, prepare_request, [Pkt, SvcName, TC]), []) of
         [Msg | Fs] ->
             ReqPkt = make_request_packet(Msg, Pkt),
-            EncPkt = encode(App#diameter_app.dictionary, TPid, ReqPkt, Fs),
+            EncPkt = encode(App#diameter_app.dictionary,
+                            TPid,
+                            ReqPkt,
+                            SvcOpts,
+                            Fs),
             T = send_R(ReqPkt, EncPkt, Transport, CallOpts, Caller, SvcName),
             Ans = recv_answer(SvcName, App, CallOpts, T),
             handle_answer(SvcName, SvcOpts, App, Ans);
@@ -1504,7 +1529,8 @@ send_R(ReqPkt,
 
 %% recv_answer/4
 
-recv_answer(SvcName, App, CallOpts, {TRef, MRef, #request{ref = Ref} = Req}) ->
+recv_answer(SvcName, App, CallOpts, {TRef, MRef, #request{ref = Ref}
+                                                 = Req}) ->
     %% Matching on TRef below ensures we ignore messages that pertain
     %% to a previous transport prior to failover. The answer message
     %% includes the pid of the transport on which it was received,
@@ -1611,11 +1637,32 @@ handle_error(Hdr, SvcName, discard) ->
 
 %% resend_request/4
 
-resend_request({{_, App} = Transport, _}, Req, CallOpts, SvcName) ->
-    try retransmit(Transport, Req, SvcName, CallOpts#options.timeout) of
-        T -> recv_answer(SvcName, App, CallOpts, T)
-    catch
-        ?FAILURE(Reason) -> {error, Req, Reason}
+resend_request({{{TPid, _Caps} = TC, App}, SvcOpts},
+               Req0,
+               #options{timeout = Timeout}
+               = CallOpts,
+               SvcName) ->
+    case
+        undefined == get(TPid)
+        andalso prepare_retransmit(TC, App, Req0, SvcName)
+    of
+        [ReqPkt | Fs] ->
+            AppDict = App#diameter_app.dictionary,
+            EncPkt = encode(AppDict, TPid, ReqPkt, SvcOpts, Fs),
+            Req = Req0#request{peer = TC,
+                               packet = ReqPkt},
+            ?LOG(retransmission, EncPkt#diameter_packet.header),
+            incr(TPid, {msg_id(EncPkt, AppDict), send, retransmission}),
+            {TRef, MRef} = zend_requezt(TPid, EncPkt, Req, SvcName, Timeout),
+            recv_answer(SvcName, App, CallOpts, {TRef, MRef, Req});
+        false ->
+            {error, Req0, timeout};
+        {discard, Reason} ->
+            {error, Req0, Reason};
+        discard ->
+            {error, Req0, discarded};
+        {error, T} ->
+            ?ERROR({invalid_return, T, prepare_retransmit, App})
     end;
 
 resend_request(_, Req, _, _) ->  %% no alternate peer
@@ -1651,29 +1698,29 @@ msg(#diameter_packet{msg = undefined, bin = Bin}) ->
 msg(#diameter_packet{msg = Msg}) ->
     Msg.
 
-%% encode/4
+%% encode/5
 
-encode(Dict, TPid, Pkt, Fs) ->
-    P = encode(Dict, TPid, Pkt),
+encode(Dict, TPid, Pkt, Opts, Fs) ->
+    P = encode(Dict, TPid, Opts, Pkt),
     eval_packet(P, Fs),
     P.
 
-%% encode/2
+%% encode/4
 
 %% Note that prepare_request can return a diameter_packet containing a
 %% header or transport_data. Even allow the returned record to contain
 %% an encoded binary. This isn't the usual case and doesn't properly
 %% support retransmission but is useful for test.
 
-encode(Dict, TPid, Pkt)
+encode(Dict, TPid, Opts, Pkt)
   when is_atom(Dict) ->
-    encode({Dict, Dict}, TPid, Pkt);
+    encode({Dict, Dict}, TPid, Opts, Pkt);
 
 %% A message to be encoded.
-encode(DictT, TPid, #diameter_packet{bin = undefined} = Pkt) ->
+encode(DictT, TPid, Opts, #diameter_packet{bin = undefined} = Pkt) ->
     {Dict, AppDict} = DictT,
     try
-        diameter_codec:encode(Dict, Pkt)
+        diameter_codec:encode(Dict, Opts, Pkt)
     catch
         exit: {diameter_codec, encode, T} = Reason ->
             incr_error(send, T, TPid, AppDict),
@@ -1681,7 +1728,7 @@ encode(DictT, TPid, #diameter_packet{bin = undefined} = Pkt) ->
     end;
 
 %% An encoded binary: just send.
-encode(_, _, #diameter_packet{} = Pkt) ->
+encode(_, _, _, #diameter_packet{} = Pkt) ->
     Pkt.
 
 %% zend_requezt/5
@@ -1752,69 +1799,20 @@ recv(TPid, Pid, TRef, {LocalTRef, MRef}) ->
 send(Pid, Pkt, Route) ->
     Pid ! {send, Pkt, Route}.
 
-%% retransmit/4
+%% prepare_retransmit/4
 
-retransmit({{TPid, _Caps} = TC, App}
-           = Transport,
-           #request{packet = ReqPkt}
-           = Req,
-           SvcName,
-           Timeout) ->
-    undefined == get(TPid)       %% Don't failover to a peer we've
-        orelse ?THROW(timeout),  %% already sent to.
+prepare_retransmit({_TPid, _Caps} = TC, App, Req, SvcName) ->
+    Pkt = make_retransmit_packet(Req#request.packet),
 
-    Pkt = make_retransmit_packet(ReqPkt),
+    case prepare(cb(App, prepare_retransmit, [Pkt, SvcName, TC]), []) of
+        [Msg | Fs] ->
+            [make_request_packet(Msg, Pkt) | Fs];
+        No ->
+            No
+    end.
 
-    retransmit(cb(App, prepare_retransmit, [Pkt, SvcName, TC]),
-               Transport,
-               Req#request{packet = Pkt},
-               SvcName,
-               Timeout,
-               []).
 %% When sending a binary, it's up to prepare_retransmit to modify it
 %% accordingly.
-
-retransmit({send, Msg},
-           Transport,
-           #request{packet = Pkt}
-           = Req,
-           SvcName,
-           Timeout,
-           Fs) ->
-    resend_request(make_request_packet(Msg, Pkt),
-                   Transport,
-                   Req,
-                   SvcName,
-                   Timeout,
-                   Fs);
-
-retransmit({discard, Reason}, _, _, _, _, _) ->
-    ?THROW(Reason);
-
-retransmit(discard, _, _, _, _, _) ->
-    ?THROW(discarded);
-
-retransmit({eval_packet, RC, F}, Transport, Req, SvcName, Timeout, Fs) ->
-    retransmit(RC, Transport, Req, SvcName, Timeout, [F|Fs]);
-
-retransmit(T, {_, App}, _, _, _, _) ->
-    ?ERROR({invalid_return, T, prepare_retransmit, App}).
-
-resend_request(ReqPkt,
-               {{TPid, _Caps} = TC, #diameter_app{dictionary = AppDict}},
-               Req0,
-               SvcName,
-               Tmo,
-               Fs) ->
-    EncPkt = encode(AppDict, TPid, ReqPkt, Fs),
-
-    Req = Req0#request{peer = TC,
-                       packet = ReqPkt},
-
-    ?LOG(retransmission, EncPkt#diameter_packet.header),
-    incr(TPid, {msg_id(EncPkt, AppDict), send, retransmission}),
-    {TRef, MRef} = zend_requezt(TPid, EncPkt, Req, SvcName, Tmo),
-    {TRef, MRef, Req}.
 
 %% peer_monitor/2
 

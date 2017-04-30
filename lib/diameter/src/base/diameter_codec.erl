@@ -21,6 +21,7 @@
 -module(diameter_codec).
 
 -export([encode/2,
+         encode/3,
          decode/3,
          decode/4,
          collect_avps/1,
@@ -67,13 +68,22 @@
 %%% # encode/2
 %%% ---------------------------------------------------------------------------
 
--spec encode(module(), Msg :: term())
+encode(Mod, Msg) ->
+    encode(Mod, #{ordered_encode => true}, Msg).
+
+%%% ---------------------------------------------------------------------------
+%%% # encode/3
+%%% ---------------------------------------------------------------------------
+
+-spec encode(module(),
+             map(),
+             Msg :: term())
    -> #diameter_packet{}
     | no_return().
 
-encode(Mod, #diameter_packet{} = Pkt) ->
+encode(Mod, Opts, #diameter_packet{} = Pkt) ->
     try
-        encode(Mod, _Opts = [], Pkt)
+        enc(Mod, Opts, Pkt)
     catch
         exit: {Reason, Stack, #diameter_header{} = H} = T ->
             %% Exit with a header in the reason to let the caller
@@ -86,18 +96,18 @@ encode(Mod, #diameter_packet{} = Pkt) ->
             exit({?MODULE, encode, T})
     end;
 
-encode(Mod, Msg) ->
+encode(Mod, Opts, Msg) ->
     Seq = diameter_session:sequence(),
     Hdr = #diameter_header{version = ?DIAMETER_VERSION,
                            end_to_end_id = Seq,
                            hop_by_hop_id = Seq},
-    encode(Mod, #diameter_packet{header = Hdr,
-                                 msg = Msg}).
+    encode(Mod, Opts, #diameter_packet{header = Hdr,
+                                       msg = Msg}).
 
-%% encode/3
+%% enc/3
 
-encode(_, Opts, #diameter_packet{msg = [#diameter_header{} = Hdr | As]}
-                = Pkt) ->
+enc(_, Opts, #diameter_packet{msg = [#diameter_header{} = Hdr | As]}
+             = Pkt) ->
     try encode_avps(reorder(As), Opts) of
         Avps ->
             Bin = list_to_binary(Avps),
@@ -126,7 +136,7 @@ encode(_, Opts, #diameter_packet{msg = [#diameter_header{} = Hdr | As]}
             exit({Reason, diameter_lib:get_stacktrace(), Hdr})
     end;
 
-encode(Mod, Opts, #diameter_packet{header = Hdr0, msg = Msg} = Pkt) ->
+enc(Mod, Opts, #diameter_packet{header = Hdr0, msg = Msg} = Pkt) ->
     MsgName = rec2msg(Mod, Msg),
     {Code, Flags, Aid} = msg_header(Mod, MsgName, Hdr0),
 

@@ -130,7 +130,8 @@
                        %% diameter:call/4.
          codec :: #{string_decode := boolean(),
                     strict_mbit := boolean(),
-                    rfc := 3588 | 6733},
+                    rfc := 3588 | 6733,
+                    ordered_encode := false},
          strict :: boolean(),
          ack = false :: boolean(),
          length_errors :: exit | handle | discard,
@@ -252,7 +253,11 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
            length_errors = LengthErr,
            strict = Strictness,
            incoming_maxlen = Maxlen,
-           codec = maps:with([string_decode, strict_mbit, rfc], SvcOpts)}.
+           codec = maps:with([string_decode,
+                              strict_mbit,
+                              rfc,
+                              ordered_encode],
+                             SvcOpts#{ordered_encode => false})}.
 %% The transport returns its local ip addresses so that different
 %% transports on the same service can use different local addresses.
 %% The local addresses are put into Host-IP-Address avps here when
@@ -592,7 +597,8 @@ send_CER(#state{state = {'Wait-Conn-Ack', Tmo},
                 mode = {connect, Remote},
                 service = #diameter_service{capabilities = LCaps},
                 transport = TPid,
-                dictionary = Dict}
+                dictionary = Dict,
+                codec = Opts}
          = S) ->
     OH = LCaps#diameter_caps.origin_host,
     req_send_CER(OH, Remote)
@@ -602,7 +608,7 @@ send_CER(#state{state = {'Wait-Conn-Ack', Tmo},
     #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
                                                hop_by_hop_id = Hid}}
         = Pkt
-        = encode(CER, Dict),
+        = encode(CER, Opts, Dict),
     incr(send, Pkt, Dict),
     send(TPid, Pkt),
     ?LOG(send, 'CER'),
@@ -631,15 +637,15 @@ build_CER(#state{service = #diameter_service{capabilities = LCaps},
     {ok, CER} = diameter_capx:build_CER(LCaps, Dict),
     CER.
 
-%% encode/2
+%% encode/3
 
-encode(Rec, Dict) ->
+encode(Rec, Opts, Dict) ->
     Seq = diameter_session:sequence({_,_} = getr(?SEQUENCE_KEY)),
     Hdr = #diameter_header{version = ?DIAMETER_VERSION,
                            end_to_end_id = Seq,
                            hop_by_hop_id = Seq},
-    diameter_codec:encode(Dict, #diameter_packet{header = Hdr,
-                                                 msg = Rec}).
+    diameter_codec:encode(Dict, Opts, #diameter_packet{header = Hdr,
+                                                       msg = Rec}).
 
 %% incoming/2
 
@@ -915,7 +921,10 @@ handle_request(Name,
 
 %% send_answer/3
 
-send_answer(Type, ReqPkt, #state{transport = TPid, dictionary = Dict} = S) ->
+send_answer(Type, ReqPkt, #state{transport = TPid,
+                                 dictionary = Dict,
+                                 codec = Opts}
+                          = S) ->
     incr_error(recv, ReqPkt, Dict),
 
     #diameter_packet{header = H,
@@ -934,7 +943,7 @@ send_answer(Type, ReqPkt, #state{transport = TPid, dictionary = Dict} = S) ->
                            msg = Msg,
                            transport_data = TD},
 
-    AnsPkt = diameter_codec:encode(Dict, Pkt),
+    AnsPkt = diameter_codec:encode(Dict, Opts, Pkt),
 
     incr(send, AnsPkt, Dict),
     incr_rc(send, AnsPkt, Dict),
@@ -1358,8 +1367,9 @@ dpr([], [Reason | _], S) ->
 
 -record(opts, {cause, timeout}).
 
-send_dpr(Reason, Opts, #state{dictionary = Dict,
-                              service = #diameter_service{capabilities = Caps}}
+send_dpr(Reason, DprOpts, #state{dictionary = Dict,
+                                 service = #diameter_service{capabilities = Caps},
+                                 codec = Opts}
                        = S) ->
     #opts{cause = Cause, timeout = Tmo}
         = lists:foldl(fun opt/2,
@@ -1368,7 +1378,7 @@ send_dpr(Reason, Opts, #state{dictionary = Dict,
                                         _         -> ?REBOOT
                                     end,
                             timeout = dpa_timeout()},
-                      Opts),
+                      DprOpts),
     #diameter_caps{origin_host = {OH, _},
                    origin_realm = {OR, _}}
         = Caps,
@@ -1376,6 +1386,7 @@ send_dpr(Reason, Opts, #state{dictionary = Dict,
     Pkt = encode(['DPR', {'Origin-Host', OH},
                          {'Origin-Realm', OR},
                          {'Disconnect-Cause', Cause}],
+                 Opts,
                  Dict),
     send_dpr(false, Pkt, Tmo, S).
 

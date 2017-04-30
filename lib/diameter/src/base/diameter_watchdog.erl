@@ -76,6 +76,7 @@
                     strict_mbit := boolean(),
                     failed_avp := false,
                     rfc := 3588 | 6733,
+                    ordered_encode := false,
                     incoming_maxlen := diameter:message_length()},
          shutdown = false :: boolean()}).
 
@@ -134,7 +135,12 @@ i({Ack, T, Pid, {Opts,
     putr(restart, {T, Opts, Svc, SvcOpts}),  %% save seeing it in trace
     putr(dwr, dwr(Caps)),                    %%
     Nodes = restrict_nodes(Restrict),
-    CodecKeys = [string_decode, strict_mbit, incoming_maxlen, spawn_opt, rfc],
+    CodecKeys = [string_decode,
+                 strict_mbit,
+                 incoming_maxlen,
+                 spawn_opt,
+                 rfc,
+                 ordered_encode],
 
     #watchdog{parent = Pid,
               transport = start(T, Opts, SvcOpts, Nodes, Dict0, Svc),
@@ -149,7 +155,8 @@ i({Ack, T, Pid, {Opts,
                                                suspect => 1,
                                                okay => 3},
                                       Opts)),
-              codec = maps:with(CodecKeys, SvcOpts#{string_decode := false})}.
+              codec = maps:with(CodecKeys, SvcOpts#{string_decode := false,
+                                                    ordered_encode => false})}.
 
 wait(Ref, Pid) ->
     receive
@@ -502,9 +509,9 @@ getr(Key) ->
 eraser(Key) ->
     erase({?MODULE, Key}).
 
-%% encode/3
+%% encode/4
 
-encode(dwr = M, Dict0, Mask) ->
+encode(dwr = M, Dict0, Opts, Mask) ->
     Msg = getr(M),
     Seq = diameter_session:sequence(Mask),
     Hdr = #diameter_header{version = ?DIAMETER_VERSION,
@@ -512,10 +519,10 @@ encode(dwr = M, Dict0, Mask) ->
                            hop_by_hop_id = Seq},
     Pkt = #diameter_packet{header = Hdr,
                            msg = Msg},
-    diameter_codec:encode(Dict0, Pkt);
+    diameter_codec:encode(Dict0, Opts, Pkt);
 
-encode(dwa, Dict0, #diameter_packet{header = H, transport_data = TD}
-                   = ReqPkt) ->
+encode(dwa, Dict0, Opts, #diameter_packet{header = H, transport_data = TD}
+                         = ReqPkt) ->
     AnsPkt = #diameter_packet{header
                               = H#diameter_header{is_request = false,
                                                   is_error = undefined,
@@ -523,7 +530,7 @@ encode(dwa, Dict0, #diameter_packet{header = H, transport_data = TD}
                               msg = dwa(ReqPkt),
                               transport_data = TD},
 
-    diameter_codec:encode(Dict0, AnsPkt).
+    diameter_codec:encode(Dict0, Opts, AnsPkt).
 
 %% okay/3
 
@@ -593,9 +600,10 @@ tw({M,F,A}) ->
 send_watchdog(#watchdog{pending = false,
                         transport = TPid,
                         dictionary = Dict0,
-                        config = #{sequence := Mask}}
+                        config = #{sequence := Mask},
+                        codec = Opts}
               = S) ->
-    #diameter_packet{bin = Bin} = EPkt = encode(dwr, Dict0, Mask),
+    #diameter_packet{bin = Bin} = EPkt = encode(dwr, Dict0, Opts, Mask),
     diameter_traffic:incr(send, EPkt, TPid, Dict0),
     send(TPid, {send, Bin}),
     ?LOG(send, 'DWR'),
@@ -628,7 +636,7 @@ rcv('DWR', Pkt, #watchdog{transport = TPid,
                      transport_data = T,
                      bin = Bin}
         = EPkt
-        = encode(dwa, Dict0, Pkt),
+        = encode(dwa, Dict0, Opts, Pkt),
     diameter_traffic:incr(send, EPkt, TPid, Dict0),
     diameter_traffic:incr_rc(send, EPkt, TPid, Dict0),
 
