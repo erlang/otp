@@ -988,16 +988,6 @@ typedef enum {
     ERTS_PORT_OP_DONE
 } ErtsPortOpResult;
 
-ErtsPortOpResult
-erts_schedule_proc2port_signal(Process *,
-			       Port *,
-			       Eterm,
-			       Eterm *,
-			       ErtsProc2PortSigData *,
-			       int,
-			       ErtsPortTaskHandle *,
-			       ErtsProc2PortSigCallback);
-
 int erts_deliver_port_exit(Port *, Eterm, Eterm, int, int);
 
 /*

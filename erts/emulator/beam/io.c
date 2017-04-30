@@ -1511,7 +1511,7 @@ port_sched_op_reply(Eterm to, Uint32 *ref_num, Eterm msg, Port* prt)
 }
 
 
-ErtsPortOpResult
+static ErtsPortOpResult
 erts_schedule_proc2port_signal(Process *c_p,
 			       Port *prt,
 			       Eterm caller,
