@@ -275,45 +275,40 @@ recv_request(Ack,
                        apps = Apps}
              = RecvData) ->
     Ack andalso (TPid ! {handler, self()}),
-    send_A(recv_R(diameter_service:find_incoming_app(PeerT, TPid, Id, Apps),
-                  TPid,
-                  Pkt,
-                  Dict0,
-                  RecvData),
-           TPid,
-           Dict0,
-           RecvData).
+    case diameter_service:find_incoming_app(PeerT, TPid, Id, Apps) of
+        {#diameter_app{id = Aid, dictionary = AppDict} = App, Caps} ->
+            incr(recv, Pkt, TPid, AppDict),
+            DecPkt = decode(Aid, AppDict, RecvData, Pkt),
+            incr_error(recv, DecPkt, TPid, AppDict),
+            send_A(recv_R(App, TPid, Dict0, Caps, RecvData, DecPkt),
+                   TPid,
+                   App,
+                   Dict0,
+                   RecvData,
+                   DecPkt,
+                   Caps);
+        #diameter_caps{} = Caps ->
+            %%   DIAMETER_APPLICATION_UNSUPPORTED   3007
+            %%      A request was sent for an application that is not
+            %%      supported.
+            RC = 3007,
+            Es = Pkt#diameter_packet.errors,
+            DecPkt = Pkt#diameter_packet{avps = collect_avps(Pkt),
+                                         errors = [RC | Es]},
+            send_answer(answer_message(RC, Dict0, Caps, DecPkt),
+                        TPid,
+                        Dict0,
+                        Dict0,
+                        Dict0,
+                        RecvData,
+                        DecPkt,
+                        [[]]);
+        false = No ->  %% transport has gone down
+            No
+    end.
 
-%% recv_R/5
-
-recv_R({#diameter_app{id = Id, dictionary = AppDict} = App, Caps},
-       TPid,
-       Pkt0,
-       Dict0,
-       #recvdata{codec = Opts}
-       = RecvData) ->
-    incr(recv, Pkt0, TPid, AppDict),
-    Pkt = errors(Id, diameter_codec:decode(Id, AppDict, Opts, Pkt0)),
-    incr_error(recv, Pkt, TPid, AppDict),
-    {Caps, Pkt, App, recv_R(App, TPid, Dict0, Caps, RecvData, Pkt)};
-%% Note that the decode is different depending on whether or not Id is
-%% ?APP_ID_RELAY.
-
-%%   DIAMETER_APPLICATION_UNSUPPORTED   3007
-%%      A request was sent for an application that is not supported.
-
-recv_R(#diameter_caps{}
-       = Caps,
-       _TPid,
-       #diameter_packet{errors = Es}
-       = Pkt,
-       _Dict0,
-       _RecvData) ->
-    {Caps, Pkt#diameter_packet{avps = collect_avps(Pkt),
-                               errors = [3007 | Es]}};
-
-recv_R(false = No, _, _, _, _) ->  %% transport has gone down
-    No.
+decode(Id, Dict, #recvdata{codec = Opts}, Pkt) ->
+    errors(Id, diameter_codec:decode(Id, Dict, Opts, Pkt)).
 
 collect_avps(Pkt) ->
     case diameter_codec:collect_avps(Pkt) of
@@ -322,6 +317,14 @@ collect_avps(Pkt) ->
         Avps ->
             Avps
     end.
+
+%% send_A/7
+
+send_A([T | Fs], TPid, App, Dict0, RecvData, DecPkt, Caps) ->
+    send_A(T, TPid, App, Dict0, RecvData, DecPkt, Caps, Fs);
+
+send_A(discard = No, _, _, _, _, _, _) ->
+    No.
 
 %% recv_R/6
 
@@ -332,9 +335,9 @@ recv_R(#diameter_app{options = [_, {request_errors, E} | _]},
        _Caps,
        _RecvData,
        #diameter_packet{errors = [RC|_]})  %% a detected 3xxx is hd
-  when E == answer, (Dict0 /= ?BASE orelse 3 == RC div 1000);
+  when E == answer, Dict0 /= ?BASE orelse 3 == RC div 1000;
        E == answer_3xxx, 3 == RC div 1000 ->
-    {{answer_message, rc(RC)}, [], []};
+    [{answer_message, rc(RC)}, []];
 
 %% ... or make a handle_request callback. Note that
 %% Pkt#diameter_packet.msg = undefined in the 3001 case.
@@ -426,24 +429,24 @@ errors(_, Pkt) ->
 %% command code in this case. It will also then ignore Dict and use
 %% the base encoder.
 request_cb({reply, _Ans} = T, _App, EvalPktFs, EvalFs) ->
-    {T, EvalPktFs, EvalFs};
+    [T, EvalPktFs | EvalFs];
 
 %% An 3xxx result code, for which the E-bit is set in the header.
 request_cb({protocol_error, RC}, _App, EvalPktFs, EvalFs)
   when 3 == RC div 1000 ->
-    {{answer_message, RC}, EvalPktFs, EvalFs};
+    [{answer_message, RC}, EvalPktFs | EvalFs];
 
 request_cb({answer_message, RC} = T, _App, EvalPktFs, EvalFs)
   when 3 == RC div 1000;
        5 == RC div 1000 ->
-    {T, EvalPktFs, EvalFs};
+    [T, EvalPktFs | EvalFs];
 
 %% RFC 3588 says we must reply 3001 to anything unrecognized or
 %% unsupported. 'noreply' is undocumented (and inappropriately named)
 %% backwards compatibility for this, protocol_error the documented
 %% alternative.
 request_cb(noreply, _App, EvalPktFs, EvalFs) ->
-    {{answer_message, 3001}, EvalPktFs, EvalFs};
+    [{answer_message, 3001}, EvalPktFs | EvalFs];
 
 %% Relay a request to another peer. This is equivalent to doing an
 %% explicit call/4 with the message in question except that (1) a loop
@@ -464,7 +467,7 @@ request_cb({A, Opts}, #diameter_app{id = Id}, EvalPktFs, EvalFs)
   when A == relay, Id == ?APP_ID_RELAY;
        A == proxy, Id /= ?APP_ID_RELAY;
        A == resend ->
-    {{call, Opts}, EvalPktFs, EvalFs};
+    [{call, Opts}, EvalPktFs | EvalFs];
 
 request_cb(discard = No, _, _, _) ->
     No;
@@ -478,80 +481,95 @@ request_cb({eval, RC, F}, App, EvalPktFs, Fs) ->
 request_cb(T, App, _, _) ->
     ?ERROR({invalid_return, T, handle_request, App}).
 
-%% send_A/4
+%% send_A/8
 
-send_A({Caps, Pkt}, TPid, Dict0, RecvData) ->  %% unsupported application
-    #diameter_packet{errors = [RC|_]} = Pkt,
-    send_A(answer_message(RC, Caps, Dict0, Pkt),
-           TPid,
-           {Dict0, Dict0},
-           RecvData,
-           Pkt,
-           [],
-           []);
+send_A({reply, Ans}, TPid, App, Dict0, RecvData, Pkt, _Caps, Fs) ->
+    AppDict = App#diameter_app.dictionary,
+    MsgDict = msg_dict(AppDict, Dict0, Ans),
+    send_answer(Ans,
+                TPid,
+                MsgDict,
+                AppDict,
+                Dict0,
+                RecvData,
+                Pkt,
+                Fs);
 
-send_A({Caps, Pkt, App, {T, EvalPktFs, EvalFs}}, TPid, Dict0, RecvData) ->
-    send_A(answer(T, Caps, Pkt, App, Dict0, RecvData),
-           TPid,
-           {App#diameter_app.dictionary, Dict0},
-           RecvData,
-           Pkt,
-           EvalPktFs,
-           EvalFs);
+send_A({call, Opts}, TPid, App, Dict0, RecvData, Pkt, Caps, Fs) ->
+    AppDict = App#diameter_app.dictionary,
+    case resend(Opts, Caps, Pkt, App, Dict0, RecvData) of
+        #diameter_packet{bin = Bin} = Ans -> %% answer: reset hop by hop id
+            #diameter_packet{header = #diameter_header{hop_by_hop_id = Id},
+                             transport_data = TD}
+                = Pkt,
+            Reset = diameter_codec:hop_by_hop_id(Id, Bin),
+            MsgDict = msg_dict(AppDict, Dict0, Ans),
+            send_answer(Ans#diameter_packet{bin = Reset,
+                                            transport_data = TD},
+                        TPid,
+                        MsgDict,
+                        AppDict,
+                        Dict0,
+                        Fs);
+        RC ->
+            send_answer(answer_message(RC, Dict0, Caps, Pkt),
+                        TPid,
+                        Dict0,
+                        AppDict,
+                        Dict0,
+                        RecvData,
+                        Pkt,
+                        Fs)
+    end;
 
-send_A(_, _, _, _) ->
-    ok.
+%% RFC 3588 only allows 3xxx errors in an answer-message. RFC 6733
+%% added the possibility of setting 5xxx.
 
-%% send_A/7
+send_A({answer_message, RC} = T, TPid, App, Dict0, RecvData, Pkt, Caps, Fs) ->
+    Dict0 /= ?BASE orelse 3 == RC div 1000
+        orelse ?ERROR({invalid_return, T, handle_request, App}),
+    send_answer(answer_message(RC, Dict0, Caps, Pkt),
+                TPid,
+                Dict0,
+                App#diameter_app.dictionary,
+                Dict0,
+                RecvData,
+                Pkt,
+                Fs).
 
-send_A(T,
-       TPid,
-       {AppDict, Dict0}
-       = DictT0,
-       RecvData,
-       ReqPkt,
-       EvalPktFs,
-       EvalFs) ->
-    {MsgDict, Pkt} = reply(T, TPid, DictT0, RecvData, EvalPktFs, ReqPkt),
+%% send_answer/8
+
+%% Skip the setting of Result-Code and Failed-AVP's below. This is
+%% undocumented and shouldn't be relied on.
+send_answer([Ans], TPid, MsgDict, AppDict, Dict0, RecvData, Pkt, Fs)
+  when [] == Pkt#diameter_packet.errors ->
+    send_answer(Ans, TPid, MsgDict, AppDict, Dict0, RecvData, Pkt, Fs);
+send_answer([Ans], TPid, MsgDict, AppDict, Dict0, RecvData, Pkt0, Fs) ->
+    Pkt = Pkt0#diameter_packet{errors = []},
+    send_answer(Ans, TPid, MsgDict, AppDict, Dict0, RecvData, Pkt, Fs);
+
+send_answer(Ans, TPid, MsgDict, AppDict, Dict0, RecvData, DecPkt, Fs) ->
+    Pkt = encode({MsgDict, AppDict},
+                 TPid,
+                 RecvData#recvdata.codec,
+                 make_answer_packet(Ans, DecPkt, MsgDict, Dict0)),
+    send_answer(Pkt, TPid, MsgDict, AppDict, Dict0, Fs).
+
+%% send_answer/6
+
+send_answer(Pkt, TPid, MsgDict, AppDict, Dict0, [EvalPktFs | EvalFs]) ->
+    eval_packet(Pkt, EvalPktFs),
     incr(send, Pkt, TPid, AppDict),
     incr_rc(send, Pkt, TPid, {MsgDict, AppDict, Dict0}),  %% count outgoing
     send(TPid, Pkt, _Route = self()),
     lists:foreach(fun diameter_lib:eval/1, EvalFs).
-
-%% answer/6
-
-answer({reply, Ans}, _Caps, _Pkt, App, Dict0, _RecvData) ->
-    {msg_dict(App#diameter_app.dictionary, Dict0, Ans), Ans};
-
-answer({call, Opts}, Caps, Pkt, App, Dict0, RecvData) ->
-    #diameter_caps{origin_host = {OH,_}}
-        = Caps,
-    #diameter_packet{avps = Avps}
-        = Pkt,
-    {Code, _Flags, Vid} = Dict0:avp_header('Route-Record'),
-    resend(is_loop(Code, Vid, OH, Dict0, Avps),
-           Opts,
-           Caps,
-           Pkt,
-           App,
-           Dict0,
-           RecvData);
-
-%% RFC 3588 only allows 3xxx errors in an answer-message. RFC 6733
-%% added the possibility of setting 5xxx.
-answer({answer_message, RC} = T, Caps, Pkt, App, Dict0, _RecvData)  ->
-    Dict0 /= ?BASE orelse 3 == RC div 1000
-        orelse ?ERROR({invalid_return, T, handle_request, App}),
-    answer_message(RC, Caps, Dict0, Pkt).
 
 %% msg_dict/3
 %%
 %% Return the dictionary defining the message grammar in question: the
 %% application dictionary or the common dictionary.
 
-msg_dict(AppDict, Dict0, [Msg])
-  when is_list(Msg);
-       is_tuple(Msg) ->
+msg_dict(AppDict, Dict0, [Msg]) ->
     msg_dict(AppDict, Dict0, Msg);
 
 msg_dict(AppDict, Dict0, Msg) ->
@@ -582,14 +600,10 @@ is_answer_message(Rec, Dict) ->
         error:_ -> false
     end.
 
-%% answer_message/4
+%% resend/6
 
-answer_message(RC,
-               #diameter_caps{origin_host  = {OH,_},
-                              origin_realm = {OR,_}},
-               Dict0,
-               Pkt) ->
-    {Dict0, answer_message(OH, OR, RC, Dict0, Pkt)}.
+resend(Opts, Caps, Pkt, App, Dict0, RecvData) ->
+    resend(is_loop(Dict0, Caps, Pkt), Opts, Caps, Pkt, App, Dict0, RecvData).
 
 %% resend/7
 
@@ -599,8 +613,8 @@ answer_message(RC,
 %%      if one is available, but the peer reporting the error has
 %%      identified a configuration problem.
 
-resend(true, _Opts, Caps, Pkt, _App, Dict0, _RecvData) ->
-    answer_message(3005, Caps, Dict0, Pkt);
+resend(true, _Opts, _Caps, _Pkt, _App, _Dict0, _RecvData) ->
+    3005;
 
 %% 6.1.8.  Relaying and Proxying Requests
 %%
@@ -610,11 +624,9 @@ resend(true, _Opts, Caps, Pkt, _App, Dict0, _RecvData) ->
 
 resend(false,
        Opts,
-       #diameter_caps{origin_host = {_,OH}}
-       = Caps,
+       #diameter_caps{origin_host = {_,OH}},
        #diameter_packet{header = Hdr0,
-                        avps = Avps}
-       = Pkt,
+                        avps = Avps},
        App,
        Dict0,
        #recvdata{service_name = SvcName,
@@ -623,7 +635,12 @@ resend(false,
     Seq = diameter_session:sequence(Mask),
     Hdr = Hdr0#diameter_header{hop_by_hop_id = Seq},
     Msg = [Hdr, Route | Avps],  %% reordered at encode
-    resend(send_request(SvcName, App, Msg, Opts), Caps, Dict0, Pkt).
+    case send_request(SvcName, App, Msg, Opts) of
+        #diameter_packet{} = Ans ->
+            Ans;
+        _ ->
+            3002  %% DIAMETER_UNABLE_TO_DELIVER.
+    end.
 %% The incoming request is relayed with the addition of a
 %% Route-Record. Note the requirement on the return from call/4 below,
 %% which places a requirement on the value returned by the
@@ -640,85 +657,33 @@ resend(false,
 %% RFC 6.3 says that a relay agent does not modify Origin-Host but
 %% says nothing about a proxy. Assume it should behave the same way.
 
-%% resend/4
-%%
-%% Relay a reply to a relayed request.
+%% is_loop/3
 
-%% Answer from the peer: reset the hop by hop identifier.
-resend(#diameter_packet{bin = B}
-       = Pkt,
-       _Caps,
-       _Dict0,
-       #diameter_packet{header = #diameter_header{hop_by_hop_id = Id},
-                        transport_data = TD}) ->
-    Pkt#diameter_packet{bin = diameter_codec:hop_by_hop_id(Id, B),
-                        transport_data = TD};
-%% TODO: counters
+is_loop(Dict0,
+        #diameter_caps{origin_host = {OH,_}},
+        #diameter_packet{avps = Avps}) ->
+    {Code, _Flags, Vid} = Dict0:avp_header('Route-Record'),
+    is_loop(Code, Vid, OH, Avps).
 
-%% Or not: DIAMETER_UNABLE_TO_DELIVER.
-resend(_, Caps, Dict0, Pkt) ->
-    answer_message(3002, Caps, Dict0, Pkt).
-
-%% is_loop/5
+%% is_loop/4
 %%
 %% Is there a Route-Record AVP with our Origin-Host?
 
-is_loop(Code,
-        Vid,
-        Bin,
-        _Dict0,
-        [#diameter_avp{code = Code, vendor_id = Vid, data = Bin} | _]) ->
+is_loop(Code, Vid, Bin, [#diameter_avp{code = Code,
+                                       vendor_id = Vid,
+                                       data = Bin}
+                         | _]) ->
     true;
 
-is_loop(_, _, _, _, []) ->
+is_loop(_, _, _, []) ->
     false;
 
-is_loop(Code, Vid, OH, Dict0, [_ | Avps])
+is_loop(Code, Vid, OH, [_ | Avps])
   when is_binary(OH) ->
-    is_loop(Code, Vid, OH, Dict0, Avps);
+    is_loop(Code, Vid, OH, Avps);
 
-is_loop(Code, Vid, OH, Dict0, Avps) ->
-    is_loop(Code, Vid, list_to_binary(OH), Dict0, Avps).
-
-%% reply/6
-
-%% Local answer ...
-reply({MsgDict, Ans}, TPid, {AppDict, Dict0}, RecvData, Fs, ReqPkt) ->
-    local(Ans, TPid, {MsgDict, AppDict, Dict0}, RecvData, Fs, ReqPkt);
-
-%% ... or relayed.
-reply(#diameter_packet{} = Pkt, _TPid, {AppDict, Dict0}, _, Fs, _ReqPkt) ->
-    eval_packet(Pkt, Fs),
-    {msg_dict(AppDict, Dict0, Pkt), Pkt}.
-
-%% local/6
-%%
-%% Send a locally originating reply.
-
-%% Skip the setting of Result-Code and Failed-AVP's below. This is
-%% undocumented and shouldn't be relied on.
-local([Msg], TPid, DictT, RecvData, Fs, ReqPkt)
-  when is_list(Msg);
-       is_tuple(Msg) ->
-    local(Msg,
-          TPid,
-          DictT,
-          RecvData,
-          Fs,
-          ReqPkt#diameter_packet{errors = []});
-
-local(Msg,
-      TPid,
-      {MsgDict, AppDict, Dict0},
-      #recvdata{codec = Opts},
-      Fs,
-      ReqPkt) ->
-    Pkt = encode({MsgDict, AppDict},
-                 TPid,
-                 make_answer_packet(Msg, ReqPkt, MsgDict, Dict0),
-                 Opts,
-                 Fs),
-    {MsgDict, Pkt}.
+is_loop(Code, Vid, OH, Avps) ->
+    is_loop(Code, Vid, list_to_binary(OH), Avps).
 
 %% select_error/3
 %%
@@ -999,10 +964,14 @@ failed(Rec, FailedAvp, Dict) ->
 %%    Error-Message AVP is not intended to be useful in real-time, and
 %%    SHOULD NOT be expected to be parsed by network entities.
 
-%% answer_message/5
+%% answer_message/4
 
-answer_message(OH, OR, RC, Dict0, #diameter_packet{avps = Avps,
-                                                   errors = Es}) ->
+answer_message(RC,
+               Dict0,
+               #diameter_caps{origin_host  = {OH,_},
+                              origin_realm = {OR,_}},
+               #diameter_packet{avps = Avps,
+                                errors = Es}) ->
     {Code, _, Vid} = Dict0:avp_header('Session-Id'),
     ['answer-message', {'Origin-Host', OH},
                        {'Origin-Realm', OR},
@@ -1367,9 +1336,9 @@ send_request({{TPid, _Caps} = TC, App}
             ReqPkt = make_request_packet(Msg, Pkt),
             EncPkt = encode(App#diameter_app.dictionary,
                             TPid,
-                            ReqPkt,
                             SvcOpts,
-                            Fs),
+                            ReqPkt),
+            eval_packet(EncPkt, Fs),
             T = send_R(ReqPkt, EncPkt, Transport, CallOpts, Caller, SvcName),
             Ans = recv_answer(SvcName, App, CallOpts, T),
             handle_answer(SvcName, SvcOpts, App, Ans);
@@ -1648,7 +1617,8 @@ resend_request({{{TPid, _Caps} = TC, App}, SvcOpts},
     of
         [ReqPkt | Fs] ->
             AppDict = App#diameter_app.dictionary,
-            EncPkt = encode(AppDict, TPid, ReqPkt, SvcOpts, Fs),
+            EncPkt = encode(AppDict, TPid, SvcOpts, ReqPkt),
+            eval_packet(EncPkt, Fs),
             Req = Req0#request{peer = TC,
                                packet = ReqPkt},
             ?LOG(retransmission, EncPkt#diameter_packet.header),
@@ -1697,13 +1667,6 @@ msg(#diameter_packet{msg = undefined, bin = Bin}) ->
     Bin;
 msg(#diameter_packet{msg = Msg}) ->
     Msg.
-
-%% encode/5
-
-encode(Dict, TPid, Pkt, Opts, Fs) ->
-    P = encode(Dict, TPid, Opts, Pkt),
-    eval_packet(P, Fs),
-    P.
 
 %% encode/4
 
