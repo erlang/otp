@@ -241,6 +241,14 @@
           <p>
 	    Own Id: OTP-13651</p>
         </item>
+
+	<item>
+	  <p>Correct handling of signature algorithm selection with
+	  regard to TLS version.</p>
+          <p>
+	    Own Id: OTP-13711</p>
+        </item>
+
       </list>
     </section>
 
