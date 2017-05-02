@@ -248,26 +248,26 @@ stacktrace(Conf) when is_list(Conf) ->
     {_,Mref} = spawn_monitor(fun() -> exit({Tag,erlang:get_stacktrace()}) end),
     {Tag,[]} = receive {'DOWN',Mref,_,_,Info} -> Info end,
     V = [make_ref()|self()],
-    {value2,{caught1,badarg,[{erlang,abs,[V],_}|_]=St1}} =
-    stacktrace_1({'abs',V}, error, {value,V}),
-    St1 = erase(stacktrace1),
-    St1 = erase(stacktrace2),
-    St1 = erlang:get_stacktrace(),
-    {caught2,{error,badarith},[{?MODULE,my_add,2,_}|_]=St2} =
-    stacktrace_1({'div',{1,0}}, error, {'add',{0,a}}),
-    [{?MODULE,my_div,2,_}|_] = erase(stacktrace1),
-    St2 = erase(stacktrace2),
-    St2 = erlang:get_stacktrace(),
+    {value2,{caught1,badarg,[{erlang,abs,[V],_}|_]}} =
+        stacktrace_1({'abs',V}, error, {value,V}),
+    [] = erase(stacktrace1),
+    [] = erase(stacktrace2),
+    [] = erlang:get_stacktrace(),
+    {caught2,{error,badarith},[{?MODULE,my_add,2,_}|_]} =
+        stacktrace_1({'div',{1,0}}, error, {'add',{0,a}}),
+    [] = erase(stacktrace1),
+    [] = erase(stacktrace2),
+    [] = erlang:get_stacktrace(),
     {caught2,{error,{try_clause,V}},[{?MODULE,stacktrace_1,3,_}|_]=St3} =
-    stacktrace_1({value,V}, error, {value,V}),
+        stacktrace_1({value,V}, error, {value,V}),
     St3 = erase(stacktrace1),
-    St3 = erase(stacktrace2),
-    St3 = erlang:get_stacktrace(),
-    {caught2,{throw,V},[{?MODULE,foo,1,_}|_]=St4} =
-    stacktrace_1({value,V}, error, {throw,V}),
+    [] = erase(stacktrace2),
+    [] = erlang:get_stacktrace(),
+    {caught2,{throw,V},[{?MODULE,foo,1,_}|_]} =
+        stacktrace_1({value,V}, error, {throw,V}),
     [{?MODULE,stacktrace_1,3,_}|_] = erase(stacktrace1),
-    St4 = erase(stacktrace2),
-    St4 = erlang:get_stacktrace(),
+    [] = erase(stacktrace2),
+    [] = erlang:get_stacktrace(),
 
     try
         stacktrace_2()
@@ -316,7 +316,7 @@ nested_stacktrace(Conf) when is_list(Conf) ->
     {caught1,
      [{?MODULE,my_add,2,_}|_],
      {caught2,[{erlang,abs,[V],_}|_]},
-     [{erlang,abs,[V],_}|_]} =
+     []} =
     nested_stacktrace_1({{'add',{V,x1}},error,badarith},
                         {{'abs',V},error,badarg}),
     ok.
@@ -353,7 +353,8 @@ raise(Conf) when is_list(Conf) ->
             A1 = erlang:get_stacktrace(),
             A1 = get(raise)
     end,
-    A = erlang:get_stacktrace(),
+    %% From OTP 20.0: The stack trace is only accessable inside 'catch' scope.
+    [] = erlang:get_stacktrace(),
     A = get(raise),
     [{?MODULE,my_div,2,_}|_] = A,
     %%
@@ -361,20 +362,26 @@ raise(Conf) when is_list(Conf) ->
     N = erlang:system_flag(backtrace_depth, N),
     B = odd_even(N, []),
     try even(N) 
-    catch error:function_clause -> ok
+    catch error:function_clause ->
+            B = erlang:get_stacktrace(),
+            ok
     end,
-    B = erlang:get_stacktrace(),
+    [] = erlang:get_stacktrace(),
     %%
     C0 = odd_even(N+1, []),
     C = lists:sublist(C0, N),
     try odd(N+1) 
-    catch error:function_clause -> ok
+    catch error:function_clause ->
+            C = erlang:get_stacktrace(),
+            ok
     end,
-    C = erlang:get_stacktrace(),
+    [] = erlang:get_stacktrace(),
     try erlang:raise(error, function_clause, C0)
-    catch error:function_clause -> ok
+    catch error:function_clause ->
+            C = erlang:get_stacktrace(),
+            ok
     end,
-    C = erlang:get_stacktrace(),
+    [] = erlang:get_stacktrace(),
     ok.
 
 odd_even(N, R) when is_integer(N), N > 1 ->

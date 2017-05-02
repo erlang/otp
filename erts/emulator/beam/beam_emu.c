@@ -1046,6 +1046,10 @@ do {                                            \
     if (!erts_new_bs_put_binary_all(ERL_BITS_ARGS_2((Src), (Unit)))) { goto badarg; }	\
  } while (0)
 
+#define KillStacktrace()                        \
+  do {                                          \
+    c_p->ftrace = NIL;                          \
+  } while (0)
 
 #define IsPort(Src, Fail) if (is_not_port(Src)) { Fail; }
 #define IsPid(Src, Fail) if (is_not_pid(Src)) { Fail; }

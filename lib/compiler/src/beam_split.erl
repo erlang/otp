@@ -52,6 +52,8 @@ split_block([{set,[R],As,{bif,N,{f,Lbl}=Fail}}|Is], Bl, Acc) when Lbl =/= 0 ->
     split_block(Is, [], [{bif,N,Fail,As,R}|make_block(Bl, Acc)]);
 split_block([{set,[R],As,{bif,raise,{f,_}=Fail}}|Is], Bl, Acc) ->
     split_block(Is, [], [{bif,raise,Fail,As,R}|make_block(Bl, Acc)]);
+split_block([{set,[R],[],{bif,kill_stacktrace=Op,{f,_}=Fail}}|Is], Bl, Acc) ->
+    split_block(Is, [], [{bif,Op,Fail,[],R}|make_block(Bl, Acc)]);
 split_block([{set,[R],As,{alloc,Live,{gc_bif,N,{f,Lbl}=Fail}}}|Is], Bl, Acc)
   when Lbl =/= 0 ->
     split_block(Is, [], [{gc_bif,N,Fail,Live,As,R}|make_block(Bl, Acc)]);

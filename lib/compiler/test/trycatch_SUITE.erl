@@ -26,7 +26,8 @@
 	 nested_of/1,nested_catch/1,nested_after/1,
 	 nested_horrid/1,last_call_optimization/1,bool/1,
 	 plain_catch_coverage/1,andalso_orelse/1,get_in_try/1,
-	 hockey/1,handle_info/1,catch_in_catch/1,grab_bag/1]).
+	 hockey/1,handle_info/1,catch_in_catch/1,grab_bag/1,
+         clear_ftrace/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -42,7 +43,7 @@ groups() ->
        after_oops,eclectic,rethrow,nested_of,nested_catch,
        nested_after,nested_horrid,last_call_optimization,
        bool,plain_catch_coverage,andalso_orelse,get_in_try,
-       hockey,handle_info,catch_in_catch,grab_bag]}].
+       hockey,handle_info,catch_in_catch,grab_bag,clear_ftrace]}].
 
 
 init_per_suite(Config) ->
@@ -849,7 +850,8 @@ last_call_optimization(Config) when is_list(Config) ->
     io:format("StkSize0 = ~p", [StkSize0]),
     io:format("StkSize  = ~p", [StkSize]),
     StkSize = StkSize0,
-    ok.
+
+    last_call_optimization_1().
 
 in_tail(E) ->
     try erlang:abs(E) of
@@ -866,6 +868,28 @@ do_tail(0) ->
     process_info(self(), stack_size);
 do_tail(N) ->
     in_tail(N-1).
+
+last_call_optimization_1() ->
+    {0,StkSize0} = count_even([], 0),
+    {25000,StkSize} = count_even(lists:seq(1, 50000), 0),
+    io:format("StkSize0 = ~p", [StkSize0]),
+    io:format("StkSize  = ~p", [StkSize]),
+    StkSize = StkSize0,
+    ok.
+
+count_even([N|Ns], Count) ->
+    try fail_if_even(N) of
+        _ ->
+            count_even(Ns, Count)
+    catch
+        error:_ ->
+            count_even(Ns, Count+1)
+    end;
+count_even([], Count) ->
+    StkSize = process_info(self(), stack_size),
+    {Count,StkSize}.
+
+fail_if_even(N) when N rem 2 =:= 1 -> ok.
 
 bool(Config) when is_list(Config) ->
     ok = do_bool(false, false),
@@ -1039,5 +1063,52 @@ grab_bag(_Config) ->
 
     ok.
 
+clear_ftrace(_Config) ->
+    pre_clear_ftrace(),
+
+    Min = minimize_heap(),
+    Seq = binary_to_list(<<0:10000/unit:8>>),
+    BlownUp = minimize_heap(),
+    Max = try
+              fc(Seq)
+          catch
+              error:_ ->
+                  minimize_heap()
+          end,
+    AfterTry = minimize_heap(),
+    io:format("Min:      ~p\n", [Min]),
+    io:format("BlownUp:  ~p\n", [BlownUp]),
+    io:format("Max:      ~p\n", [Max]),
+    io:format("AfterTry: ~p\n", [AfterTry]),
+    true = BlownUp =< Max,
+    Min = AfterTry,
+    ok.
+
+minimize_heap() ->
+    garbage_collect(),
+    garbage_collect(),
+    {_,HeapSize} = process_info(self(), total_heap_size),
+    garbage_collect(),
+    HeapSize.
+
+pre_clear_ftrace() ->
+    case erlang:get_stacktrace() of
+        [] ->
+            ok;
+        [_|_]=Stk ->
+            %% common_test has not been compiled with kill_stacktrace
+            %% instructions. Clear p->ftrace. (Only expected to happen
+            %% during development of OTP 20 before the primary bootstrap
+            %% has been updated.)
+            io:format("~p\n", [Stk]),
+            _ = try
+                    throw([])
+                catch
+                    [] ->
+                        ok
+                end
+    end.
+
+fc(ok) -> ok.
 
 id(I) -> I.

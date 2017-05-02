@@ -1158,6 +1158,13 @@ trans_fun([{put_map_exact,{f,Lbl},Map,Dst,_N,{list,Pairs}}|Instructions], Env) -
       end,
   [MapMove, TempMapMove, PutInstructions | trans_fun(Instructions, Env2)];
 %%--------------------------------------------------------------------
+%% Instructions added in Spring 2017 (20.0).
+%%--------------------------------------------------------------------
+trans_fun([kill_stacktrace|Instructions], Env) ->
+  %% XXX: Add instructions for killing the stacktrace.
+  trans_fun(Instructions,Env);
+
+%%--------------------------------------------------------------------
 %%--- ERROR HANDLING ---
 %%--------------------------------------------------------------------
 trans_fun([X|_], _) ->

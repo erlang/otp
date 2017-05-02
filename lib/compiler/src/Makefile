@@ -65,6 +65,7 @@ MODULES =  \
 	beam_reorder \
 	beam_record \
 	beam_split \
+	beam_stk \
 	beam_trim \
 	beam_type \
 	beam_utils \

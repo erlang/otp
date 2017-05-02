@@ -142,7 +142,8 @@
 	       wanted=true :: boolean(),	%Result wanted or not.
 	       opts     :: [compile:option()],	%Options.
 	       ws=[]    :: [warning()],		%Warnings.
-               file=[{file,""}]			%File.
+               file=[{file,""}],                %File.
+               has_catch = false :: boolean()   %There is at least one 'catch'.
 	      }).
 
 %% XXX: The following type declarations do not belong in this module
@@ -229,7 +230,7 @@ function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
 body(Cs0, Name, Arity, St0) ->
     Anno = lineno_anno(element(2, hd(Cs0)), St0),
     {Args,St1} = new_vars(Anno, Arity, St0),
-    case clauses(Cs0, St1) of
+    case top_clauses(Cs0, St1) of
 	{Cs1,[],St2} ->
 	    {Ps,St3} = new_vars(Arity, St2),    %Need new variables here
 	    Fc = function_clause(Ps, Anno, {Name,Arity}),
@@ -258,22 +259,30 @@ body(Cs0, Name, Arity, St0) ->
 %%  Convert clauses.  Trap bad pattern aliases and remove clause from
 %%  clause list.
 
-clauses([C0|Cs0],St0) ->
-    case clause(C0, St0) of
-	{noclause,_,St} -> clauses(Cs0,St);
+top_clauses(Cs, St) ->
+    clauses(Cs, true, St#core{has_catch=false}).
+
+clauses(Cs, St) ->
+    clauses(Cs, false, St).
+
+clauses([C0|Cs0], IsTopClause, St0) ->
+    case clause(C0, IsTopClause, St0) of
+	{noclause,_,St} ->
+            clauses(Cs0, IsTopClause, St);
 	{C,Eps1,St1} ->
-	    {Cs,Eps2,St2} = clauses(Cs0, St1),
+	    {Cs,Eps2,St2} = clauses(Cs0, IsTopClause, St1),
 	    {[C|Cs],Eps1++Eps2,St2}
     end;
-clauses([],St) -> {[],[],St}.
+clauses([], _IsTopClause, St) -> {[],[],St}.
 
-clause({clause,Lc,H0,G0,B0}, St0) ->
+clause({clause,Lc,H0,G0,B0}, IsTopClause, St0) ->
     try head(H0, St0) of
 	{H1,Eps,St1} ->
 	    {G1,St2} = guard(G0, St1),
 	    {B1,St3} = exprs(B0, St2),
             Anno = lineno_anno(Lc, St3),
-	    {#iclause{anno=#a{anno=Anno},pats=H1,guard=G1,body=B1},Eps,St3}
+            {B2,St4} = cleanup_catches(B1, IsTopClause, St3),
+	    {#iclause{anno=#a{anno=Anno},pats=H1,guard=G1,body=B2},Eps,St4}
     catch
 	throw:nomatch ->
 	    St = add_warning(Lc, nomatch, St0),
@@ -281,6 +290,24 @@ clause({clause,Lc,H0,G0,B0}, St0) ->
     end.
 
 clause_arity({clause,_,H0,_,_}) -> length(H0).
+
+cleanup_catches(B, true, #core{has_catch=true}=St) ->
+    case should_kill_stacktrace(St) of
+        false ->
+            {B,St};
+        true ->
+            do_cleanup_catches(B, St)
+    end;
+cleanup_catches(B, _, St) ->
+    {B,St}.
+
+do_cleanup_catches(B0, St0) ->
+    {Res,St1} = new_var(St0),
+    C = #iclause{anno=#a{},pats=[],guard=[#c_literal{val=true}],body=B0},
+    Fc = fail_clause([], [], #c_literal{val=cleanup_catches}),
+    Case = #icase{anno=#a{},args=[],clauses=[C],fc=Fc},
+    B = [#iset{anno=#a{},var=Res,arg=Case},try_cleanup(),Res],
+    {B,St1}.
 
 %% head([P], State) -> {[P],[Cexpr],State}.
 
@@ -668,7 +695,7 @@ expr({'try',L,Es,Cs,Ecs,As}, St0) ->
 expr({'catch',L,E0}, St0) ->
     {E1,Eps,St1} = expr(E0, St0),
     Lanno = lineno_anno(L, St1),
-    {#icatch{anno=#a{anno=Lanno},body=Eps ++ [E1]},[],St1};
+    {#icatch{anno=#a{anno=Lanno},body=Eps ++ [E1]},[],St1#core{has_catch=true}};
 expr({'fun',L,{function,F,A}}, St0) ->
     {Fname,St1} = new_fun_name(St0),
     Lanno = full_anno(L, St1),
@@ -918,7 +945,7 @@ is_valid_map_src(_)         -> false.
 
 try_exception(Ecs0, St0) ->
     %% Note that Tag is not needed for rethrow - it is already in Info.
-    {Evs,St1} = new_vars(3, St0), % Tag, Value, Info
+    {Evs,St1} = new_vars(3, St0),               % Tag, Value, Info
     {Ecs1,Ceps,St2} = clauses(Ecs0, St1),
     [_,Value,Info] = Evs,
     LA = case Ecs1 of
@@ -930,8 +957,17 @@ try_exception(Ecs0, St0) ->
 		  body=[#iprimop{anno=#a{},       %Must have an #a{}
 				 name=#c_literal{val=raise},
 				 args=[Info,Value]}]},
-    Hs = [#icase{anno=#a{anno=LA},args=[c_tuple(Evs)],clauses=Ecs1,fc=Ec}],
-    {Evs,Ceps++Hs,St2}.
+    {Res,St3} = new_var(St2),
+    Case = #icase{anno=#a{anno=LA},args=[c_tuple(Evs)],clauses=Ecs1,fc=Ec},
+    Hs = case should_kill_stacktrace(St0) of
+             true ->
+                 [#iset{anno=#a{anno=LA},var=Res,arg=Case},
+                  try_cleanup(),
+                  Res];
+             false ->
+                 [Case]
+         end,
+    {Evs,Ceps++Hs,St3}.
 
 try_after(As, St0) ->
     %% See above.
@@ -945,6 +981,11 @@ try_after(As, St0) ->
 		  body=B},
     Hs = [#icase{anno=#a{},args=[c_tuple(Evs)],clauses=[],fc=Ec}],
     {Evs,Hs,St1}.
+
+try_cleanup() ->
+    #iprimop{anno=#a{},       %Must have an #a{}
+             name=#c_literal{val=kill_stacktrace},
+             args=[]}.
 
 %% expr_bin([ArgExpr], St) -> {[Arg],[PreExpr],St}.
 %%  Flatten the arguments of a bin. Do this straight left to right!
@@ -2039,6 +2080,12 @@ annotate_cons(A, H, T, St) ->
         false ->
             ann_c_cons(A, H, T)
     end.
+
+should_kill_stacktrace(#core{opts=Opts}) ->
+    %% Killing the stacktrace has no effect on the semantics of the code.
+    %% Therefore there is no need to include the kill_stacktrace primop
+    %% when compiling for Dialyzer.
+    not (member(no_kill_stacktrace, Opts) orelse member(dialyzer, Opts)).
 
 ubody(B, St) -> uexpr(B, [], St).
 
