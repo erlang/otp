@@ -1,1 +1,1 @@
-{dialyzer_options, [{defines, [{'vsn', 4}]}, {warnings, [no_return]}]}.
+{dialyzer_options, [{defines, [{'vsn', 4}]}, {warnings, [unknown, no_return]}]}.
