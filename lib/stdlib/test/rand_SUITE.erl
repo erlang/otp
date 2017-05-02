@@ -411,7 +411,7 @@ crypto64_uniform_n(N, State0) ->
 
 %% Not a test but measures the time characteristics of the different algorithms
 measure(Config) ->
-    ct:timetrap({minutes,30}), %% valgrind needs a lot of time
+    ct:timetrap({minutes,60}), %% valgrind needs a lot of time
     case ct:get_timetrap_info() of
         {_,{_,1}} -> % No scaling
             do_measure(Config);
