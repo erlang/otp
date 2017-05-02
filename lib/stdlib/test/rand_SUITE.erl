@@ -54,7 +54,7 @@ all() ->
 groups() ->
     [{basic_stats, [parallel],
       [basic_stats_uniform_1, basic_stats_uniform_2,
-       basic_stats_standard_normal, basic_stats_normal]},
+       basic_stats_standard_normal]},
      {reference_jump, [parallel],
       [reference_jump_state, reference_jump_procdict]}].
 
