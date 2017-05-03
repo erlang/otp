@@ -866,18 +866,18 @@ list2cs(List, ExtTypes) when is_list(List) ->
     is_list(DetsOpts) orelse mnesia:abort({badarg, Name, {dets, DetsOpts}}),
     [CheckProp(Prop, BadDetsOpts) || Prop <- DetsOpts],
 
-    case lists:keymember(mnesia, 1, application:which_applications()) of
-        true ->
-            Keys = check_keys(Name, List),
-            check_duplicates(Name, Keys);
-        false ->
+    case whereis(mnesia_controller) of
+        undefined ->
             %% check_keys/2 cannot be executed when mnesia is not
             %% running, due to it not being possible to read what ext
             %% backends are loaded.
-            %%% this doesn't work - disabled for now:
-	    %%%Keys = check_keys(Name, List, record_info(fields, cstruct)),
-	    %%%check_duplicates(Name, Keys)
-            ignore
+            %% this doesn't work - disabled for now:
+            %%Keys = check_keys(Name, List, record_info(fields, cstruct)),
+            %%check_duplicates(Name, Keys)
+            ignore;
+        Pid when is_pid(Pid) ->
+            Keys = check_keys(Name, List),
+            check_duplicates(Name, Keys)
     end,
 
     Cs0 = #cstruct{name = Name,

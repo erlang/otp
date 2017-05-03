@@ -67,7 +67,6 @@ MODULES= \
 	mnesia_registry \
 	mnesia_schema\
 	mnesia_snmp_hook \
-	mnesia_snmp_sup \
 	mnesia_subscr \
 	mnesia_sup \
 	mnesia_sp  \
