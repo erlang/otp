@@ -2161,13 +2161,6 @@ begin_port_cleanup(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
 #endif
 }
 
-int
-erts_port_is_scheduled(Port *pp)
-{
-    erts_aint32_t flags = erts_smp_atomic32_read_acqb(&pp->sched.flags);
-    return (flags & (ERTS_PTS_FLG_IN_RUNQ|ERTS_PTS_FLG_EXEC)) != 0;
-}
-
 #ifdef ERTS_SMP
 
 void

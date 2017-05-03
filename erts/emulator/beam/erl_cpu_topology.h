@@ -85,22 +85,14 @@ void erts_sched_bind_atthrcreate_parent(int unbind);
 
 int erts_sched_bind_atfork_prepare(void);
 int erts_sched_bind_atfork_child(int unbind);
-char *erts_sched_bind_atvfork_child(int unbind);
 void erts_sched_bind_atfork_parent(int unbind);
 
 Eterm erts_fake_scheduler_bindings(Process *p, Eterm how);
 Eterm erts_debug_cpu_groups_map(Process *c_p, int groups);
 
-
 typedef void (*erts_cpu_groups_callback_t)(int,
 					   ErtsSchedulerData *,
 					   int,
 					   void *);
-
-void erts_add_cpu_groups(int groups,
-			 erts_cpu_groups_callback_t callback,
-			 void *arg);
-void erts_remove_cpu_groups(erts_cpu_groups_callback_t callback,
-			    void *arg);
 
 #endif

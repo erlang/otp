@@ -439,7 +439,7 @@ Eterm
 erts_gc_after_bif_call(Process* p, Eterm result, Eterm* regs, Uint arity)
 {
     return erts_gc_after_bif_call_lhf(p, ERTS_INVALID_HFRAG_PTR,
-				      result, regs, arity);
+                                      result, regs, arity);
 }
 
 static ERTS_INLINE void reset_active_writer(Process *p)

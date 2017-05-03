@@ -1606,7 +1606,6 @@ Uint64 erts_ensure_later_proc_interval(Uint64);
 Uint64 erts_step_proc_interval(void);
 
 ErtsProcList *erts_proclist_create(Process *);
-ErtsProcList *erts_proclist_copy(ErtsProcList *);
 void erts_proclist_destroy(ErtsProcList *);
 
 ERTS_GLB_INLINE int erts_proclist_same(ErtsProcList *, Process *);
@@ -2556,10 +2555,6 @@ ERTS_TIME2REDS_IMPL__(ErtsMonotonicTime start, ErtsMonotonicTime end)
 }
 #endif
 
-Process *erts_pid2proc_suspend(Process *,
-			       ErtsProcLocks,
-			       Eterm,
-			       ErtsProcLocks);
 #ifdef ERTS_SMP
 
 Process *erts_pid2proc_not_running(Process *,
@@ -2600,8 +2595,6 @@ extern int erts_disable_proc_not_running_opt;
 #endif
 
 void erts_smp_notify_inc_runq(ErtsRunQueue *runq);
-
-void erts_interupt_aux_thread_timed(ErtsMonotonicTime timeout_time);
 
 #ifdef ERTS_SMP
 void erts_sched_finish_poke(ErtsSchedulerSleepInfo *, erts_aint32_t);

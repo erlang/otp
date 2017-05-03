@@ -173,13 +173,6 @@ __decl_noreturn void erts_realloc_n_enomem(ErtsAlcType_t,void*,Uint)
 __decl_noreturn void erts_alc_fatal_error(int,int,ErtsAlcType_t,...)	
      __noreturn;
 
-/* --- DO *NOT* USE THESE DEPRECATED FUNCTIONS ---    Instead use:       */
-void *safe_alloc(Uint)               __deprecated; /* erts_alloc()       */
-void *safe_realloc(void *, Uint)     __deprecated; /* erts_realloc()     */
-void  sys_free(void *)               __deprecated; /* erts_free()        */
-void *sys_alloc(Uint )               __deprecated; /* erts_alloc_fnf()   */
-void *sys_realloc(void *, Uint)      __deprecated; /* erts_realloc_fnf() */
-
 #undef ERTS_HAVE_IS_IN_LITERAL_RANGE
 #if defined(ARCH_32) || defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
 #  define ERTS_HAVE_IS_IN_LITERAL_RANGE
