@@ -336,7 +336,7 @@ no_hmac(Config) when is_list(Config) ->
 cmac() ->
      [{doc, "Test all different cmac functions"}].
 cmac(Config) when is_list(Config) ->
-    Pairs = proplists:get_value(cmac, Config),
+    Pairs = lazy_eval(proplists:get_value(cmac, Config)),
     lists:foreach(fun cmac_check/1, Pairs),
     lists:foreach(fun cmac_check/1, cmac_iolistify(Pairs)).
 %%--------------------------------------------------------------------
@@ -356,7 +356,7 @@ block(Config) when is_list(Config) ->
 	    ok
     end,
 
-    Blocks = proplists:get_value(block, Config),
+    Blocks = lazy_eval(proplists:get_value(block, Config)),
     lists:foreach(fun block_cipher/1, Blocks),
     lists:foreach(fun block_cipher/1, block_iolistify(Blocks)),
     lists:foreach(fun block_cipher_increment/1, block_iolistify(Blocks)).
@@ -365,7 +365,7 @@ block(Config) when is_list(Config) ->
 no_block() ->
      [{doc, "Test disabled block ciphers"}].
 no_block(Config) when is_list(Config) ->
-    Blocks = proplists:get_value(block, Config),
+    Blocks = lazy_eval(proplists:get_value(block, Config)),
     Args = case Blocks of
 	       [{_Type, _Key, _PlainText} = A | _] ->
 		   tuple_to_list(A);
@@ -382,7 +382,7 @@ no_aead() ->
      [{doc, "Test disabled aead ciphers"}].
 no_aead(Config) when is_list(Config) ->
     [{Type, Key, PlainText, Nonce, AAD, CipherText, CipherTag} | _] =
-	proplists:get_value(aead, Config),
+	lazy_eval(proplists:get_value(aead, Config)),
     EncryptArgs = [Type, Key, Nonce, {AAD, PlainText}],
     DecryptArgs = [Type, Key, Nonce, {AAD, CipherText, CipherTag}],
     notsup(fun crypto:block_encrypt/4, EncryptArgs),
@@ -1205,24 +1205,24 @@ group_config(rc2_cbc, Config) ->
     Block = rc2_cbc(),
     [{block, Block} | Config];
 group_config(aes_cbc128 = Type, Config) ->
-    Block = aes_cbc128(Config),
-    Pairs = cmac_nist(Config, Type),
+    Block = fun() -> aes_cbc128(Config) end,
+    Pairs = fun() -> cmac_nist(Config, Type) end,
     [{block, Block}, {cmac, Pairs} | Config];
 group_config(aes_cbc256 = Type, Config) ->
-    Block = aes_cbc256(Config),
-    Pairs = cmac_nist(Config, Type),
+    Block = fun() -> aes_cbc256(Config) end,
+    Pairs = fun() -> cmac_nist(Config, Type) end,
     [{block, Block}, {cmac, Pairs} | Config];
 group_config(aes_ecb, Config) ->
-    Block = aes_ecb(Config),
-    [{block, Block} | Config];    
+    Block = fun() -> aes_ecb(Config) end,
+    [{block, Block} | Config];
 group_config(aes_ige256, Config) ->
     Block = aes_ige256(),
     [{block, Block} | Config];
 group_config(aes_cfb8, Config) ->
-    Block = aes_cfb8(Config),
+    Block = fun() -> aes_cfb8(Config) end,
     [{block, Block} | Config];
 group_config(aes_cfb128, Config) ->
-    Block = aes_cfb128(Config),
+    Block = fun() -> aes_cfb128(Config) end,
     [{block, Block} | Config];
 group_config(blowfish_cbc, Config) ->
     Block = blowfish_cbc(),
@@ -1243,7 +1243,7 @@ group_config(aes_ctr, Config) ->
     Stream = aes_ctr(),
     [{stream, Stream} | Config];
 group_config(aes_gcm, Config) ->
-    AEAD = aes_gcm(Config),
+    AEAD = fun() -> aes_gcm(Config) end,
     [{aead, AEAD} | Config];
 group_config(chacha20_poly1305, Config) ->
     AEAD = chacha20_poly1305(),
@@ -1335,9 +1335,10 @@ rfc_4634_sha512_digests() ->
 long_msg() ->
     fun() -> lists:duplicate(1000000, $a) end.
 
-%% Building huge terms (like long_msg/0) in init_per_group seems to cause
-%% test_server crash with 'no_answer_from_tc_supervisor' sometimes on some
-%% machines. Therefore lazy evaluation when test case has started.
+%% Passing huge terms (like long_msg/0) through config causes excessive memory
+%% consumption and long runtimes in the test server. This results in test_server
+%% crash with 'no_answer_from_tc_supervisor' sometimes on some machines.
+%% Therefore lazy evaluation when test case has started.
 lazy_eval(F) when is_function(F) -> F();
 lazy_eval(Lst)  when is_list(Lst) -> lists:map(fun lazy_eval/1, Lst);
 lazy_eval(Tpl) when is_tuple(Tpl) -> list_to_tuple(lists:map(fun lazy_eval/1, tuple_to_list(Tpl)));
@@ -2268,15 +2269,36 @@ int_to_bin_neg(X,Ds) ->
 datadir(Config) ->
     proplists:get_value(data_dir, Config).
 
+-define(KiB, 1024).
+-define(MiB, (1024 * 1024)).
+-define(GiB, (1024 * 1024 * 1024)).
+
+fmt_words(Words) ->
+    BSize = Words * erlang:system_info(wordsize),
+    if BSize < ?KiB ->
+            integer_to_list(BSize);
+       BSize < ?MiB ->
+            io_lib:format("~8.2fKiB (~8w)", [BSize / ?KiB, BSize]);
+       BSize < ?GiB ->
+            io_lib:format("~8.2fMiB (~8w)", [BSize / ?MiB, BSize]);
+       true ->
+            io_lib:format("~8.2fGiB (~8w)", [BSize / ?GiB, BSize])
+    end.
+
+log_rsp_size(Label, Term) ->
+    S = erts_debug:size(Term),
+    ct:pal("~s: ~w test(s), Memory used: ~s",
+           [Label, length(Term), fmt_words(S)]).
+
 read_rsp(Config, Type, Files) ->
-    lists:reverse(
-      lists:foldl(
-        fun(FileName, AccIn) ->
-                AccOut = read_rsp_file(filename:join(datadir(Config), FileName),
-                                       Type, AccIn),
-                erlang:garbage_collect(),
-                AccOut
-        end, [], Files)).
+    Tests =
+        lists:foldl(
+          fun(FileName, Acc) ->
+                  read_rsp_file(filename:join(datadir(Config), FileName),
+                                Type, Acc)
+          end, [], Files),
+    log_rsp_size(Type, Tests),
+    Tests.
 
 read_rsp_file(FileName, Type, Acc) ->
     {ok, Raw} = file:read_file(FileName),
