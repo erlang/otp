@@ -5696,6 +5696,18 @@ erts_is_module_native(BeamCodeHeader* code_hdr)
     return 0;
 }
 
+int
+erts_is_function_native(ErtsCodeInfo *ci)
+{
+#ifdef HIPE
+    ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IaaI));
+    return erts_codeinfo_to_code(ci)[0] == (BeamInstr) BeamOp(op_hipe_trap_call)
+	|| erts_codeinfo_to_code(ci)[0] == (BeamInstr) BeamOp(op_hipe_trap_call_closure);
+#else
+    return 0;
+#endif
+}
+
 /*
  * Builds a list of all functions including native addresses.
  *     [{Name,Arity,NativeAddress},...]
