@@ -340,7 +340,19 @@ process_record_remote_types(CServer) ->
                   {FieldsList, C3} =
                     lists:mapfoldl(FieldFun, C2, orddict:to_list(Fields)),
                   {{Key, {FileLine, orddict:from_list(FieldsList)}}, C3};
-                _Other -> {{Key, Value}, C2}
+                {type, Name, NArgs} ->
+                  %% Make sure warnings about unknown types are output
+                  %% also for types unused by specs.
+                  Site = {type, {Module, Name, NArgs}},
+                  L = erl_anno:new(0),
+                  Args = lists:duplicate(NArgs, {var, L, '_'}),
+                  UserType = {user_type, L, Name, Args},
+                  {_NewType, C3} =
+                    erl_types:t_from_form(UserType, ExpTypes, Site,
+                                          RecordTable, VarTable, C2),
+                  {{Key, Value}, C3};
+                {opaque, _Name, _NArgs} ->
+                  {{Key, Value}, C2}
               end
           end,
         Cache = erl_types:cache__new(),
@@ -378,7 +390,10 @@ process_opaque_types(AllModules, CServer, TempExpTypes) ->
                     erl_types:t_from_form(Form, TempExpTypes, Site,
                                           RecordTable, VarTable, C2),
                   {{Key, {F, Type}}, C3};
-                _Other -> {{Key, Value}, C2}
+                {type, _Name, _NArgs} ->
+                  {{Key, Value}, C2};
+                {record, _RecName} ->
+                  {{Key, Value}, C2}
               end
           end,
         C0 = erl_types:cache__new(),
