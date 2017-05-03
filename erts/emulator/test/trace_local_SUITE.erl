@@ -298,6 +298,7 @@ basic_test() ->
     setup([call]),
     NumMatches = erlang:trace_pattern({?MODULE,'_','_'},[],[local]),
     NumMatches = erlang:trace_pattern({?MODULE,'_','_'},[],[local]),
+    false = code:is_module_native(?MODULE), % got fooled by local trace
     erlang:trace_pattern({?MODULE,slave,'_'},false,[local]),
     [1,1,1,997] = apply_slave(?MODULE,exported_wrap,[1]),
     ?CT(?MODULE,exported_wrap,[1]),

@@ -5685,12 +5685,11 @@ erts_is_module_native(BeamCodeHeader* code_hdr)
     if (code_hdr != NULL) {
         num_functions = code_hdr->num_functions;
         for (i=0; i<num_functions; i++) {
-            BeamInstr* func_info = (BeamInstr *) code_hdr->functions[i];
-            Eterm name = (Eterm) func_info[3];
-            if (is_atom(name)) {
-                return func_info[1] != 0;
+            ErtsCodeInfo* ci = code_hdr->functions[i];
+            if (is_atom(ci->mfa.function)) {
+                return erts_is_function_native(ci);
             }
-            else ASSERT(is_nil(name)); /* ignore BIF stubs */
+            else ASSERT(is_nil(ci->mfa.function)); /* ignore BIF stubs */
         }
     }
     return 0;
