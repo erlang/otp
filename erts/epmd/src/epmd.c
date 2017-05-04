@@ -162,6 +162,7 @@ int main(int argc, char** argv)
 #endif
 
     g->addresses      = get_addresses();
+    g->allow_non_local= 0;
     g->port           = get_port_no();
     g->debug          = 0;
 
@@ -222,7 +223,10 @@ int main(int argc, char** argv)
 	      usage(g);
 	    g->addresses = argv[1];
 	    argv += 2; argc -= 2;
-	} else if (strcmp(argv[0], "-port") == 0) {
+	} else if (strcmp(argv[0], "-allow_non_local") == 0) {
+      g->allow_non_local = 1;
+      argv++; argc--;
+  } else if (strcmp(argv[0], "-port") == 0) {
 	    if ((argc == 1) ||
 		((g->port = atoi(argv[1])) == 0))
 	      usage(g);
@@ -420,6 +424,8 @@ static void usage(EpmdVars *g)
     fprintf(stderr, "    -address List\n");
     fprintf(stderr, "        Let epmd listen only on the comma-separated list of IP\n");
     fprintf(stderr, "        addresses (and on the loopback interface).\n");
+    fprintf(stderr, "    -allow_non_local\n");
+    fprintf(stderr, "        Allow non-local peers to interact as if they were local.\n");
     fprintf(stderr, "    -port No\n");
     fprintf(stderr, "        Let epmd listen to another port than default %d\n",
 	    EPMD_PORT_NO);

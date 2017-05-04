@@ -1066,6 +1066,12 @@ static int conn_open(EpmdVars *g,int fd)
       dbg_tty_printf(g,2,(s->local_peer) ? "Local peer connected" :
 		     "Non-local peer connected");
 
+      /* Pretend the connected peer is local */
+      if (g->allow_non_local && ! s->local_peer) {
+        dbg_tty_printf(g,2, "Allowing non-local peer interaction");
+        s->local_peer = EPMD_TRUE;
+      }
+
       s->want = 0;		/* Currently unknown */
       s->got  = 0;
       s->mod_time = current_time(g); /* Note activity */
