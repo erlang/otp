@@ -1734,6 +1734,7 @@ Arguments:
   utf      TRUE in UTF-8 / UTF-16 / UTF-32 mode
   atend    TRUE if called when the pattern is complete
   cd       the "compile data" structure
+  recurses    chain of recurse_check to catch mutual recursion
 
 Returns:   the fixed length,
              or -1 if there is no fixed length,
@@ -1743,10 +1744,11 @@ Returns:   the fixed length,
 */
 
 static int
-find_fixedlength(pcre_uchar *code, BOOL utf, BOOL atend, compile_data *cd)
+find_fixedlength(pcre_uchar *code, BOOL utf, BOOL atend, compile_data *cd,
+  recurse_check *recurses)
 {
 int length = -1;
-
+recurse_check this_recurse;
 register int branchlength = 0;
 register pcre_uchar *cc = code + 1 + LINK_SIZE;
 
@@ -1771,7 +1773,8 @@ for (;;)
     case OP_ONCE:
     case OP_ONCE_NC:
     case OP_COND:
-    d = find_fixedlength(cc + ((op == OP_CBRA)? IMM2_SIZE : 0), utf, atend, cd);
+    d = find_fixedlength(cc + ((op == OP_CBRA)? IMM2_SIZE : 0), utf, atend, cd,
+                         recurses);
     if (d < 0) return d;
     branchlength += d;
     do cc += GET(cc, 1); while (*cc == OP_ALT);
@@ -1805,7 +1808,15 @@ for (;;)
     cs = ce = (pcre_uchar *)cd->start_code + GET(cc, 1);  /* Start subpattern */
     do ce += GET(ce, 1); while (*ce == OP_ALT);           /* End subpattern */
     if (cc > cs && cc < ce) return -1;                    /* Recursion */
-    d = find_fixedlength(cs + IMM2_SIZE, utf, atend, cd);
+    else   /* Check for mutual recursion */
+      {
+      recurse_check *r = recurses;
+      for (r = recurses; r != NULL; r = r->prev) if (r->group == cs) break;
+      if (r != NULL) return -1;   /* Mutual recursion */
+      }
+    this_recurse.prev = recurses;
+    this_recurse.group = cs;
+    d = find_fixedlength(cs + IMM2_SIZE, utf, atend, cd, &this_recurse);
     if (d < 0) return d;
     branchlength += d;
     cc += 1 + LINK_SIZE;
@@ -1818,7 +1829,7 @@ for (;;)
     case OP_ASSERTBACK:
     case OP_ASSERTBACK_NOT:
     do cc += GET(cc, 1); while (*cc == OP_ALT);
-    cc += PRIV(OP_lengths)[*cc];
+    cc += 1 + LINK_SIZE;
     break;
 
     /* Skip over things that don't match chars */
@@ -1837,13 +1848,13 @@ for (;;)
     case OP_COMMIT:
     case OP_CREF:
     case OP_DEF:
+    case OP_NCREF:
+    case OP_NRREF:
     case OP_DOLL:
     case OP_DOLLM:
     case OP_EOD:
     case OP_EODN:
     case OP_FAIL:
-    case OP_NCREF:
-    case OP_NRREF:
     case OP_NOT_WORD_BOUNDARY:
     case OP_PRUNE:
     case OP_REVERSE:
@@ -1938,10 +1949,10 @@ for (;;)
 
     switch (*cc)
       {
-      case OP_CRPLUS:
-      case OP_CRMINPLUS:
       case OP_CRSTAR:
       case OP_CRMINSTAR:
+      case OP_CRPLUS:
+      case OP_CRMINPLUS:
       case OP_CRQUERY:
       case OP_CRMINQUERY:
       return -1;
@@ -7255,7 +7266,7 @@ for (;;)
       int fixed_length;
       *code = OP_END;
       fixed_length = find_fixedlength(last_branch,  (options & PCRE_UTF8) != 0,
-        FALSE, cd);
+                                      FALSE, cd, NULL);
       DPRINTF(("fixed length = %d\n", fixed_length));
       if (fixed_length == -3)
         {
@@ -8249,7 +8260,7 @@ OP_RECURSE that are not fixed length get a diagnosic with a useful offset. The
 exceptional ones forgo this. We scan the pattern to check that they are fixed
 length, and set their lengths. */
 
-if (cd->check_lookbehind)
+if (errorcode == 0 && cd->check_lookbehind)
   {
   pcre_uchar *cc = (pcre_uchar *)codestart;
 
@@ -8269,7 +8280,7 @@ if (cd->check_lookbehind)
       int end_op = *be;
       *be = OP_END;
       fixed_length = find_fixedlength(cc, (re->options & PCRE_UTF8) != 0, TRUE,
-        cd);
+                                      cd, NULL);
       *be = end_op;
       DPRINTF(("fixed length = %d\n", fixed_length));
       if (fixed_length < 0)
