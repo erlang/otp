@@ -139,7 +139,7 @@ spawn_link(Node, M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn_link(Node, ?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
--spec spawn_opt(Fun, SpawnOpts) -> pid() when
+-spec spawn_opt(Fun, SpawnOpts) -> pid() | {pid(), reference()} when
       Fun :: function(),
       SpawnOpts :: [spawn_option()].
 
@@ -149,7 +149,7 @@ spawn_opt(F, Opts) when is_function(F) ->
     check_for_monitor(Opts),
     erlang:spawn_opt(?MODULE, init_p, [Parent,Ancestors,F],Opts).
 
--spec spawn_opt(Node, Function, SpawnOpts) -> pid() when
+-spec spawn_opt(Node, Function, SpawnOpts) -> pid() | {pid(), reference()} when
       Node :: node(),
       Function :: function(),
       SpawnOpts :: [spawn_option()].
@@ -160,7 +160,8 @@ spawn_opt(Node, F, Opts) when is_function(F) ->
     check_for_monitor(Opts),
     erlang:spawn_opt(Node, ?MODULE, init_p, [Parent,Ancestors,F], Opts).
 
--spec spawn_opt(Module, Function, Args, SpawnOpts) -> pid() when
+-spec spawn_opt(Module, Function, Args, SpawnOpts) ->
+      pid() | {pid(), reference()} when
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
@@ -172,7 +173,8 @@ spawn_opt(M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
     check_for_monitor(Opts),
     erlang:spawn_opt(?MODULE, init_p, [Parent,Ancestors,M,F,A], Opts).
 
--spec spawn_opt(Node, Module, Function, Args, SpawnOpts) -> pid() when
+-spec spawn_opt(Node, Module, Function, Args, SpawnOpts) ->
+      pid() | {pid(), reference()} when
       Node :: node(),
       Module :: module(),
       Function :: atom(),
