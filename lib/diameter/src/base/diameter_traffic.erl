@@ -561,7 +561,7 @@ send_answer(Pkt, TPid, MsgDict, AppDict, Dict0, [EvalPktFs | EvalFs]) ->
     eval_packet(Pkt, EvalPktFs),
     incr(send, Pkt, TPid, AppDict),
     incr_rc(send, Pkt, TPid, {MsgDict, AppDict, Dict0}),  %% count outgoing
-    send(TPid, Pkt, _Route = self()),
+    send(TPid, z(Pkt), _Route = self()),
     lists:foreach(fun diameter_lib:eval/1, EvalFs).
 
 %% msg_dict/3
