@@ -29,13 +29,6 @@
 -export([call/2, call/3, return/2, do_within_time/2]).
 -export([log/3, start_log/1, cont_log/2, cont_log_no_timestamp/2, end_log/0]).
 
-%%----------------------------------------------------------------------
-%% Exported types
-%%----------------------------------------------------------------------
--export_type([server_id/0,
-	      target_name/0,
-	      key_or_name/0]).
-
 -ifdef(debug).
 -define(dbg,true).
 -else.
@@ -53,18 +46,6 @@
 		  conn_pid,
 		  cb_state,
 		  ct_util_server}).
-
-%%------------------------------------------------------------------
-%% Type declarations
-%%------------------------------------------------------------------
--type server_id() :: atom().
-%% A `ServerId' which exists in a configuration file.
--type target_name() :: atom().
-%% A name which is associated to a `server_id()' via a
-%% `require' statement or a call to {@link ct:require/2} in the
-%% test suite.
--type key_or_name() :: server_id() | target_name().
-
 
 %%%-----------------------------------------------------------------
 %%% @spec start(Address,InitData,CallbackMod,Opts) ->

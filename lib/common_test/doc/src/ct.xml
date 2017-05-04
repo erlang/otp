@@ -70,17 +70,69 @@
     <marker id="types"/>
     <taglist>
 
-      <tag><c>handle() = pid()</c></tag>
-        <item><marker id="type-handle"/>
-          <p>The identity (handle) of a connection.</p></item>
+      <tag>
+	<marker id="type-handle"/>
+	<c>handle() = pid()</c>
+      </tag>
+      <item>
+        <p>The identity (handle) of a connection.</p>
+      </item>
 
-      <tag><c>target_name() = atom()</c></tag>
-        <item><marker id="type-target_name"/>
-          <p>A name and association to configuration data introduced
-            through a require statement, or a call to
-            <seealso marker="#require-2"><c>ct:require/2</c></seealso>,
-            for example,
-            <c>ct:require(mynodename,{node,[telnet]})</c>.</p></item>
+      <tag>
+	<marker id="type-config_key"/>
+	<c>config_key() = atom()</c>
+      </tag>
+      <item>
+	<p>A configuration key which exists in a configuration file</p>
+      </item>
+
+      <tag>
+	<marker id="type-target_name"/><c>target_name() = atom()</c>
+      </tag>
+      <item>
+        <p>A name and association to configuration data introduced
+          through a require statement, or a call to
+          <seealso marker="#require-2"><c>ct:require/2</c></seealso>,
+          for example,
+          <c>ct:require(mynodename,{node,[telnet]})</c>.</p>
+      </item>
+
+      <tag>
+	<marker id="type-key_or_name"/>
+	<c>key_or_name() = config_key() | target_name()</c>
+      </tag>
+      <item/>
+
+      <tag>
+	<marker id="type-conn_log_options"/>
+	<c>conn_log_options() = [conn_log_option()]</c>
+      </tag>
+      <item>
+	<p>Options that can be given to the <c>cth_conn_log</c> hook,
+	  which is used for logging of NETCONF and Telnet
+	  connections. See
+	  <seealso marker="ct_netconfc#Logging">ct_netconfc</seealso>
+	  or <seealso marker="ct_telnet#Logging">ct_telnet</seealso>
+	  for description and examples of how to use this hook.</p>
+      </item>
+
+      <tag>
+	<marker id="type-conn_log_option"/>
+	<c>conn_log_option() = {log_type,conn_log_type()} | {hosts,[key_or_name()]}</c>
+      </tag>
+      <item/>
+
+      <tag>
+	<marker id="type-conn_log_type"/>
+	<c>conn_log_type() = raw | pretty | html | silent</c>
+      </tag>
+      <item/>
+
+      <tag>
+	<marker id="type-conn_log_mod"/>
+	<c>conn_log_mod() = ct_netconfc | ct_telnet</c>
+      </tag>
+      <item/>
 
     </taglist>
   </section>

@@ -23,24 +23,15 @@
 %% Description:
 %%    This file contains the Netconf client interface
 %%
-%% @author Support
+%% Netconf servers can be configured by adding the following statement
+%% to a configuration file:
 %%
-%% @doc Netconf client module.
+%% {server_id(),options()}.
 %%
-%% <p>The Netconf client is compliant with RFC4741 and RFC4742.</p>
+%% The server_id() or an associated ct:target_name() shall then be
+%% used in calls to open/2 connect/2.
 %%
-%% <p> For each server to test against, the following entry can be
-%% added to a configuration file:</p>
-%%
-%% <p>`{server_id(),options()}.'</p>
-%%
-%% <p> The `server_id()' or an associated `target_name()' (see
-%% {@link ct}) shall then be used in calls to {@link open/2}.</p>
-%%
-%% <p>If no configuration exists for a server, a session can still be
-%% opened by calling {@link open/2} with all necessary options given
-%% in the call. The first argument to {@link open/2} can then be any
-%% atom.</p>
+%% If no configuration exists for a server, use open/1 and connect/1.
 %%
 %% == Logging ==
 %%
@@ -49,102 +40,15 @@
 %% `ct_conn_log_h'. To use this error handler, add the `cth_conn_log'
 %% hook in your test suite, e.g.
 %%
-%% ```
 %% suite() ->
-%%    [{ct_hooks, [{cth_conn_log, [{conn_mod(),hook_options()}]}]}].
-%%'''
-%%
-%% The `conn_mod()' is the name of the common_test module implementing
-%% the connection protocol, e.g. `ct_netconfc'.
-%%
-%% The hook option `log_type' specifies the type of logging:
-%%
-%% <dl>
-%%   <dt>`raw'</dt>
-%%   <dd>The sent and received netconf data is logged to a separate
-%%   text file as is without any formatting. A link to the file is
-%%   added to the test case HTML log.</dd>
-%%
-%%   <dt>`pretty'</dt>
-%%   <dd>The sent and received netconf data is logged to a separate
-%%   text file with XML data nicely indented. A link to the file is
-%%   added to the test case HTML log.</dd>
-%%
-%%   <dt>`html (default)'</dt>
-%%   <dd>The sent and received netconf traffic is pretty printed
-%%   directly in the test case HTML log.</dd>
-%%
-%%   <dt>`silent'</dt>
-%%   <dd>Netconf traffic is not logged.</dd>
-%% </dl>
-%%
-%% By default, all netconf traffic is logged in one single log
-%% file. However, it is possible to have different connections logged
-%% in separate files. To do this, use the hook option `hosts' and
-%% list the names of the servers/connections that will be used in the
-%% suite. Note that the connections must be named for this to work,
-%% i.e. they must be opened with {@link open/2}.
-%%
-%% The `hosts' option has no effect if `log_type' is set to `html' or
-%% `silent'.
-%%
-%% The hook options can also be specified in a configuration file with
-%% the configuration variable `ct_conn_log':
-%%
-%% ```
-%% {ct_conn_log,[{conn_mod(),hook_options()}]}.
-%% '''
+%%     [{ct_hooks, [{cth_conn_log, [{ct:conn_log_mod(),ct:conn_log_options()}]}]}].
 %%
 %% For example:
 %%
-%% ```
-%% {ct_conn_log,[{ct_netconfc,[{log_type,pretty},
-%%                             {hosts,[key_or_name()]}]}]}
-%% '''
-%%
-%% <b>Note</b> that hook options specified in a configuration file
-%% will overwrite the hardcoded hook options in the test suite.
-%%
-%% === Logging example 1 ===
-%%
-%% The following `ct_hooks' statement will cause pretty printing of
-%% netconf traffic to separate logs for the connections named
-%% `nc_server1' and `nc_server2'. Any other connections will be logged
-%% to default netconf log.
-%%
-%% ```
 %% suite() ->
-%%    [{ct_hooks, [{cth_conn_log, [{ct_netconfc,[{log_type,pretty}},
-%%                                               {hosts,[nc_server1,nc_server2]}]}
-%%                                ]}]}].
-%%'''
-%%
-%% Connections must be opened like this:
-%%
-%% ```
-%% open(nc_server1,[...]),
-%% open(nc_server2,[...]).
-%% '''
-%%
-%% === Logging example 2 ===
-%%
-%% The following configuration file will cause raw logging of all
-%% netconf traffic into one single text file.
-%%
-%% ```
-%% {ct_conn_log,[{ct_netconfc,[{log_type,raw}]}]}.
-%% '''
-%%
-%% The `ct_hooks' statement must look like this:
-%%
-%% ```
-%% suite() ->
-%%    [{ct_hooks, [{cth_conn_log, []}]}].
-%% '''
-%%
-%% The same `ct_hooks' statement without the configuration file would
-%% cause HTML logging of all netconf connections into the test case
-%% HTML log.
+%%     [{ct_hooks,
+%%         [{cth_conn_log,[{ct_netconfc,[{log_type,pretty},
+%%                                       {hosts,[my_configured_server]}]}]}
 %%
 %% == Notifications ==
 %%
@@ -152,11 +56,9 @@
 %% Notifications, which defines a mechanism for an asynchronous
 %% message notification delivery service for the netconf protocol.
 %%
-%% Specific functions to support this are {@link
-%% create_subscription/6} and {@link get_event_streams/3}. (The
-%% functions also exist with other arities.)
+%% Specific functions to support this are create_subscription/6
+%% get_event_streams/3. (The functions also exist with other arities.)
 %%
-%% @end
 %%----------------------------------------------------------------------
 -module(ct_netconfc).
 
@@ -211,6 +113,7 @@
 	 create_subscription/4,
 	 create_subscription/5,
 	 create_subscription/6,
+	 get_event_streams/1,
 	 get_event_streams/2,
 	 get_event_streams/3,
 	 get_capabilities/1,
@@ -301,21 +204,18 @@
 %%----------------------------------------------------------------------
 %% Type declarations
 %%----------------------------------------------------------------------
--type client() :: handle() | ct_gen_conn:server_id() | ct_gen_conn:target_name().
+-type client() :: handle() | server_id() | ct:target_name().
 -opaque handle() :: pid().
-%% An opaque reference for a connection (netconf session). See {@link
-%% ct} for more information.
 
 -type options() :: [option()].
-%% Options used for setting up ssh connection to a netconf server.
-
 -type option() :: {ssh,host()} | {port,inet:port_number()} | {user,string()} |
 		  {password,string()} | {user_dir,string()} |
 		  {timeout,timeout()}.
+
 -type session_options() :: [session_option()].
 -type session_option() :: {timeout,timeout()}.
+
 -type host() :: inet:hostname() | inet:ip_address().
--type start_result() :: {ok,handle()} | {error,error_reason()}.
 
 -type notification() :: {notification, xml_attributes(), notification_content()}.
 -type notification_content() :: [event_time()|simple_xml()].
@@ -330,14 +230,13 @@
 %% See XML Schema for Event Notifications found in RFC5277 for further
 %% detail about the data format for the string values.
 
-%-type error_handler() :: module().
 -type error_reason() :: term().
+
+-type server_id() :: atom().
 
 -type simple_xml() :: {xml_tag(), xml_attributes(), xml_content()} |
 		      {xml_tag(), xml_content()} |
 		      xml_tag().
-%% <p>This type is further described in the documentation for the
-%% <tt>Xmerl</tt> application.</p>
 -type xml_tag() :: atom().
 -type xml_attributes() :: [{xml_attribute_tag(),xml_attribute_value()}].
 -type xml_attribute_tag() :: atom().
@@ -349,45 +248,26 @@
 -type xs_datetime() :: string().
 %% This date and time identifyer has the same format as the XML type
 %% dateTime and compliant to RFC3339. The format is
-%% ```[-]CCYY-MM-DDThh:mm:ss[.s][Z|(+|-)hh:mm]'''
+%% "[-]CCYY-MM-DDThh:mm:ss[.s][Z|(+|-)hh:mm]"
 
 %%----------------------------------------------------------------------
 %% External interface functions
 %%----------------------------------------------------------------------
 
 %%----------------------------------------------------------------------
+%% Open an SSH connection to a Netconf server
+%% If the server options are specified in a configuration file, use
+%% open/2.
 -spec connect(Options) -> Result when
       Options :: options(),
-      Result :: start_result().
-%% Open an SSH connection to a Netconf server.
-%%
-%% One or more netconf sessions can then be opened as SSH channels
-%% over this connection, see session/[1,2,3]
-%% ----------------------------------------------------------------------
+      Result :: {ok,handle()} | {error,error_reason()}.
 connect(Options) ->
     do_connect(Options, #options{type=connection},[]).
 
-%%----------------------------------------------------------------------
--spec connect(KeyOrName,Options) -> Result when
-      KeyOrName :: ct_gen_conn:key_or_name(),
-      Options :: options(),
-      Result :: start_result().
-%% Open an SSH connection to a named Netconf server.
-%%
-%% If `KeyOrName' is a configured `server_id()' or a
-%% `target_name()' associated with such an ID, then the options
-%% for this server will be fetched from the configuration file.
-%%
-%% The `ExtraOptions' argument will be added to the options found in
-%% the configuration file. If the same options are given, the values
-%% from the configuration file will overwrite `ExtraOptions'.
-%%
-%% If the server is not specified in a configuration file, use {@link
-%% connect/1} instead.
-%%
-%% One or more netconf sessions can then be opened as SSH channels over
-%% this connection, see session/[1,2,3]
-%% ----------------------------------------------------------------------
+-spec connect(KeyOrName,ExtraOptions) -> Result when
+      KeyOrName :: ct:key_or_name(),
+      ExtraOptions :: options(),
+      Result :: {ok,handle()} | {error,error_reason()}.
 connect(KeyOrName, ExtraOptions) ->
     SortedExtra = lists:keysort(1,ExtraOptions),
     SortedConfig = lists:keysort(1,ct:get_config(KeyOrName,[])),
@@ -406,10 +286,9 @@ do_connect(OptList,InitOptRec,NameOpt) ->
     end.
 
 %%----------------------------------------------------------------------
+%% Close the given SSH connection.
 -spec disconnect(Conn) -> ok | {error,error_reason()} when
       Conn :: handle().
-%% Close the given SSH connection.
-%%----------------------------------------------------------------------
 disconnect(Conn) ->
     case call(Conn,get_ssh_connection) of
         {ok,_} ->
@@ -419,42 +298,32 @@ disconnect(Conn) ->
     end.
 
 %%----------------------------------------------------------------------
--spec session(Conn) -> Result when
-      Conn :: handle(),
-      Result :: start_result().
 %% Open a netconf session as a channel on the given SSH connection,
 %% and exchange `hello' messages.
-%%----------------------------------------------------------------------
+-spec session(Conn) -> Result when
+      Conn :: handle(),
+      Result :: {ok,handle()} | {error,error_reason()}.
 session(Conn) ->
     do_session(Conn,[],#options{type=channel},[]).
 
-%%----------------------------------------------------------------------
 -spec session(Conn,Options) -> Result when
       Conn :: handle(),
       Options :: session_options(),
-      Result :: start_result();
+      Result :: {ok,handle()} | {error,error_reason()};
              (KeyOrName,Conn) -> Result when
-      KeyOrName :: ct_gen_conn:key_or_name(),
+      KeyOrName :: ct:key_or_name(),
       Conn :: handle(),
-      Result :: start_result().
-%% Open a netconf session as a channel on the given SSH connection,
-%% and exchange `hello' messages.
-%%----------------------------------------------------------------------
+      Result :: {ok,handle()} | {error,error_reason()}.
 session(Conn,Options) when is_list(Options) ->
     do_session(Conn,Options,#options{type=channel},[]);
 session(KeyOrName,Conn) ->
     do_session(Conn,[],#options{name=KeyOrName,type=channel},[{name,KeyOrName}]).
 
-
-%%----------------------------------------------------------------------
 -spec session(KeyOrName,Conn,Options) -> Result when
       Conn :: handle(),
       Options :: session_options(),
-      KeyOrName :: ct_gen_conn:key_or_name(),
-      Result :: start_result().
-%% Open a netconf session as a channel on the given SSH connection,
-%% and exchange `hello' messages.
-%%----------------------------------------------------------------------
+      KeyOrName :: ct:key_or_name(),
+      Result :: {ok,handle()} | {error,error_reason()}.
 session(KeyOrName,Conn,ExtraOptions) ->
     SortedExtra = lists:keysort(1,ExtraOptions),
     SortedConfig = lists:keysort(1,ct:get_config(KeyOrName,[])),
@@ -490,62 +359,19 @@ do_session(Conn,OptList,InitOptRec,NameOpt) ->
     end.
 
 %%----------------------------------------------------------------------
+%% Open a netconf session and exchange 'hello' messages.
+%% If the server options are specified in a configuration file, use
+%% open/2.
 -spec open(Options) -> Result when
       Options :: options(),
-      Result :: start_result().
-%% @doc Open a netconf session and exchange `hello' messages.
-%%
-%% If the server options are specified in a configuration file, or if
-%% a named client is needed for logging purposes (see {@section
-%% Logging}) use {@link open/2} instead.
-%%
-%% The opaque `handler()' reference which is returned from this
-%% function is required as client identifier when calling any other
-%% function in this module.
-%%
-%% The `timeout' option (milli seconds) is used when setting up
-%% the ssh connection and when waiting for the hello message from the
-%% server. It is not used for any other purposes during the lifetime
-%% of the connection.
-%%
-%% @end
-%%----------------------------------------------------------------------
+      Result :: {ok,handle()} | {error,error_reason()}.
 open(Options) ->
     open(Options,#options{type=connection_and_channel},[],true).
 
-%%----------------------------------------------------------------------
 -spec open(KeyOrName, ExtraOptions) -> Result when
-      KeyOrName :: ct_gen_conn:key_or_name(),
+      KeyOrName :: ct:key_or_name(),
       ExtraOptions :: options(),
-      Result :: start_result().
-%% @doc Open a named netconf session and exchange `hello' messages.
-%%
-%% If `KeyOrName' is a configured `server_id()' or a
-%% `target_name()' associated with such an ID, then the options
-%% for this server will be fetched from the configuration file.
-%
-%% The `ExtraOptions' argument will be added to the options found in
-%% the configuration file. If the same options are given, the values
-%% from the configuration file will overwrite `ExtraOptions'.
-%%
-%% If the server is not specified in a configuration file, use {@link
-%% open/1} instead.
-%%
-%% The opaque `handle()' reference which is returned from this
-%% function can be used as client identifier when calling any other
-%% function in this module. However, if `KeyOrName' is a
-%% `target_name()', i.e. if the server is named via a call to
-%% `ct:require/2' or a `require' statement in the test
-%% suite, then this name may be used instead of the `handle()'.
-%%
-%% The `timeout' option (milli seconds) is used when setting up
-%% the ssh connection and when waiting for the hello message from the
-%% server. It is not used for any other purposes during the lifetime
-%% of the connection.
-%%
-%% @see ct:require/2
-%% @end
-%%----------------------------------------------------------------------
+      Result :: {ok,handle()} | {error,error_reason()}.
 open(KeyOrName, ExtraOpts) ->
     open(KeyOrName, ExtraOpts, true).
 
@@ -579,296 +405,206 @@ open(OptList,InitOptRec,NameOpt,Hello) ->
 
 
 %%----------------------------------------------------------------------
+%% As open/1,2, except no 'hello' message is sent.
 -spec only_open(Options) -> Result when
       Options :: options(),
-      Result :: start_result().
-%% @doc Open a netconf session, but don't send `hello'.
-%%
-%% As {@link open/1} but does not send a `hello' message.
-%%
-%% @end
-%%----------------------------------------------------------------------
+      Result :: {ok,handle()} | {error,error_reason()}.
 only_open(Options) ->
     open(Options,#options{type=connection_and_channel},[],false).
 
-%%----------------------------------------------------------------------
 -spec only_open(KeyOrName,ExtraOptions) -> Result when
-      KeyOrName :: ct_gen_conn:key_or_name(),
+      KeyOrName :: ct:key_or_name(),
       ExtraOptions :: options(),
-      Result :: start_result().
-%% @doc Open a name netconf session, but don't send `hello'.
-%%
-%% As {@link open/2} but does not send a `hello' message.
-%%
-%% @end
-%%----------------------------------------------------------------------
+      Result :: {ok,handle()} | {error,error_reason()}.
 only_open(KeyOrName, ExtraOpts) ->
     open(KeyOrName, ExtraOpts, false).
 
 %%----------------------------------------------------------------------
-%% @spec hello(Client) -> Result
-%% @equiv hello(Client, [], infinity)
+%% Send a 'hello' message.
+-spec hello(Client) -> Result when
+      Client :: handle(),
+      Result :: ok | {error,error_reason()}.
 hello(Client) ->
     hello(Client,[],?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec hello(Client,Timeout) -> Result when
       Client :: handle(),
       Timeout :: timeout(),
       Result :: ok | {error,error_reason()}.
-%% @spec hello(Client, Timeout) -> Result
-%% @equiv hello(Client, [], Timeout)
 hello(Client,Timeout) ->
     hello(Client,[],Timeout).
 
-%%----------------------------------------------------------------------
 -spec hello(Client,Options,Timeout) -> Result when
       Client :: handle(),
       Options :: [{capability, [string()]}],
       Timeout :: timeout(),
       Result :: ok | {error,error_reason()}.
-%% @doc Exchange `hello' messages with the server.
-%%
-%% Adds optional capabilities and sends a `hello' message to the
-%% server and waits for the return.
-%% @end
-%%----------------------------------------------------------------------
 hello(Client,Options,Timeout) ->
     call(Client, {hello, Options, Timeout}).
 
 
 %%----------------------------------------------------------------------
-%% @spec get_session_id(Client) -> Result
-%% @equiv get_session_id(Client, infinity)
+%% Get the session id for the session specified by Client.
+-spec get_session_id(Client) -> Result when
+      Client :: client(),
+      Result :: pos_integer() | {error,error_reason()}.
 get_session_id(Client) ->
     get_session_id(Client, ?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec get_session_id(Client, Timeout) -> Result when
       Client :: client(),
       Timeout :: timeout(),
       Result :: pos_integer() | {error,error_reason()}.
-%% @doc Returns the session id associated with the given client.
-%%
-%% @end
-%%----------------------------------------------------------------------
 get_session_id(Client, Timeout) ->
     call(Client, get_session_id, Timeout).
 
 %%----------------------------------------------------------------------
-%% @spec get_capabilities(Client) -> Result
-%% @equiv get_capabilities(Client, infinity)
+%% Get the server side capabilities.
+-spec get_capabilities(Client) -> Result when
+      Client :: client(),
+      Result :: [string()] | {error,error_reason()}.
 get_capabilities(Client) ->
     get_capabilities(Client, ?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec get_capabilities(Client, Timeout) -> Result when
       Client :: client(),
       Timeout :: timeout(),
       Result :: [string()] | {error,error_reason()}.
-%% @doc Returns the server side capabilities
-%%
-%% The following capability identifiers, defined in RFC 4741, can be returned:
-%%
-%% <ul>
-%%   <li>`"urn:ietf:params:netconf:base:1.0"'</li>
-%%   <li>`"urn:ietf:params:netconf:capability:writable-running:1.0"'</li>
-%%   <li>`"urn:ietf:params:netconf:capability:candidate:1.0"'</li>
-%%   <li>`"urn:ietf:params:netconf:capability:confirmed-commit:1.0"'</li>
-%%   <li>`"urn:ietf:params:netconf:capability:rollback-on-error:1.0"'</li>
-%%   <li>`"urn:ietf:params:netconf:capability:startup:1.0"'</li>
-%%   <li>`"urn:ietf:params:netconf:capability:url:1.0"'</li>
-%%   <li>`"urn:ietf:params:netconf:capability:xpath:1.0"'</li>
-%% </ul>
-%%
-%% Note, additional identifiers may exist, e.g. server side namespace.
-%%
-%% @end
-%%----------------------------------------------------------------------
 get_capabilities(Client, Timeout) ->
     call(Client, get_capabilities, Timeout).
 
 %%----------------------------------------------------------------------
-%% @spec send(Client, SimpleXml) -> Result
-%% @equiv send(Client, SimpleXml, infinity)
+%% Send an XML document to the server.
+-spec send(Client, SimpleXml) -> Result when
+      Client :: client(),
+      SimpleXml :: simple_xml(),
+      Result :: simple_xml() | {error,error_reason()}.
 send(Client, SimpleXml) ->
     send(Client, SimpleXml, ?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec send(Client, SimpleXml, Timeout) -> Result when
       Client :: client(),
       SimpleXml :: simple_xml(),
       Timeout :: timeout(),
       Result :: simple_xml() | {error,error_reason()}.
-%% @doc Send an XML document to the server.
-%%
-%% The given XML document is sent as is to the server. This function
-%% can be used for sending XML documents that can not be expressed by
-%% other interface functions in this module.
 send(Client, SimpleXml, Timeout) ->
     call(Client,{send, Timeout, SimpleXml}).
 
 %%----------------------------------------------------------------------
-%% @spec send_rpc(Client, SimpleXml) -> Result
-%% @equiv send_rpc(Client, SimpleXml, infinity)
+%% Wrap the given XML document in a valid netconf 'rpc' request and
+%% send to the server.
+-spec send_rpc(Client, SimpleXml) -> Result when
+      Client :: client(),
+      SimpleXml :: simple_xml(),
+      Result :: [simple_xml()] | {error,error_reason()}.
 send_rpc(Client, SimpleXml) ->
     send_rpc(Client, SimpleXml, ?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec send_rpc(Client, SimpleXml, Timeout) -> Result when
       Client :: client(),
       SimpleXml :: simple_xml(),
       Timeout :: timeout(),
       Result :: [simple_xml()] | {error,error_reason()}.
-%% @doc Send a Netconf <code>rpc</code> request to the server.
-%%
-%% The given XML document is wrapped in a valid Netconf
-%% <code>rpc</code> request and sent to the server. The
-%% <code>message-id</code> and namespace attributes are added to the
-%% <code>rpc</code> element.
-%%
-%% This function can be used for sending <code>rpc</code> requests
-%% that can not be expressed by other interface functions in this
-%% module.
 send_rpc(Client, SimpleXml, Timeout) ->
     call(Client,{send_rpc, SimpleXml, Timeout}).
 
 %%----------------------------------------------------------------------
-%% @spec lock(Client, Target) -> Result
-%% @equiv lock(Client, Target, infinity)
+%% Send a 'lock' request.
+-spec lock(Client, Target) -> Result when
+      Client :: client(),
+      Target :: netconf_db(),
+      Result :: ok | {error,error_reason()}.
 lock(Client, Target) ->
     lock(Client, Target,?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec lock(Client, Target, Timeout) -> Result when
       Client :: client(),
       Target :: netconf_db(),
       Timeout :: timeout(),
       Result :: ok | {error,error_reason()}.
-%% @doc Unlock configuration target.
-%%
-%% Which target parameters that can be used depends on if
-%% `:candidate' and/or `:startup' are supported by the
-%% server. If successfull, the configuration system of the device is
-%% not available to other clients (Netconf, CORBA, SNMP etc). Locks
-%% are intended to be short-lived.
-%%
-%% The operations {@link kill_session/2} or {@link kill_session/3} can
-%% be used to force the release of a lock owned by another Netconf
-%% session. How this is achieved by the server side is implementation
-%% specific.
-%%
-%% @end
-%%----------------------------------------------------------------------
 lock(Client, Target, Timeout) ->
     call(Client,{send_rpc_op,lock,[Target],Timeout}).
 
 %%----------------------------------------------------------------------
-%% @spec unlock(Client, Target) -> Result
-%% @equiv unlock(Client, Target, infinity)
+%% Send a 'unlock' request.
+-spec unlock(Client, Target) -> Result when
+      Client :: client(),
+      Target :: netconf_db(),
+      Result :: ok | {error,error_reason()}.
 unlock(Client, Target) ->
     unlock(Client, Target,?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec unlock(Client, Target, Timeout) -> Result when
       Client :: client(),
       Target :: netconf_db(),
       Timeout :: timeout(),
       Result :: ok | {error,error_reason()}.
-%% @doc Unlock configuration target.
-%%
-%% If the client earlier has aquired a lock, via {@link lock/2} or
-%% {@link lock/3}, this operation release the associated lock.  To be
-%% able to access another target than `running', the server must
-%% support `:candidate' and/or `:startup'.
-%%
-%% @end
-%%----------------------------------------------------------------------
 unlock(Client, Target, Timeout) ->
     call(Client, {send_rpc_op, unlock, [Target], Timeout}).
 
 %%----------------------------------------------------------------------
-%% @spec get(Client, Filter) -> Result
-%% @equiv get(Client, Filter, infinity)
+%% Send a 'get' request.
+-spec get(Client, Filter) -> Result when
+      Client :: client(),
+      Filter :: simple_xml() | xpath(),
+      Result :: {ok,[simple_xml()]} | {error,error_reason()}.
 get(Client, Filter) ->
     get(Client, Filter, ?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec get(Client, Filter, Timeout) -> Result when
       Client :: client(),
       Filter :: simple_xml() | xpath(),
       Timeout :: timeout(),
       Result :: {ok,[simple_xml()]} | {error,error_reason()}.
-%% @doc Get data.
-%%
-%% This operation returns both configuration and state data from the
-%% server.
-%%
-%% Filter type `xpath' can only be used if the server supports
-%% `:xpath'.
-%%
-%% @end
-%%----------------------------------------------------------------------
 get(Client, Filter, Timeout) ->
     call(Client,{send_rpc_op, get, [Filter], Timeout}).
 
 %%----------------------------------------------------------------------
-%% @spec get_config(Client, Source, Filter) -> Result
-%% @equiv get_config(Client, Source, Filter, infinity)
+%% Send a 'get-config' request.
+-spec get_config(Client, Source, Filter) -> Result when
+      Client :: client(),
+      Source :: netconf_db(),
+      Filter :: simple_xml() | xpath(),
+      Result :: {ok,[simple_xml()]} | {error,error_reason()}.
 get_config(Client, Source, Filter) ->
     get_config(Client, Source, Filter, ?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec get_config(Client, Source, Filter, Timeout) -> Result when
       Client :: client(),
       Source :: netconf_db(),
       Filter :: simple_xml() | xpath(),
       Timeout :: timeout(),
       Result :: {ok,[simple_xml()]} | {error,error_reason()}.
-%% @doc Get configuration data.
-%%
-%% To be able to access another source than `running', the server
-%% must advertise `:candidate' and/or `:startup'.
-%%
-%% Filter type `xpath' can only be used if the server supports
-%% `:xpath'.
-%%
-%%
-%% @end
-%%----------------------------------------------------------------------
 get_config(Client, Source, Filter, Timeout) ->
     call(Client, {send_rpc_op, get_config, [Source, Filter], Timeout}).
 
 %%----------------------------------------------------------------------
-%% @spec edit_config(Client, Target, Config) -> Result
-%% @equiv edit_config(Client, Target, Config, [], infinity)
-edit_config(Client, Target, Config) ->
-    edit_config(Client, Target, Config, ?DEFAULT_TIMEOUT).
-
-%%----------------------------------------------------------------------
--spec edit_config(Client, Target, Config, OptParamsOrTimeout) -> Result when
+%% Send a 'edit-config' request.
+-spec edit_config(Client, Target, Config) -> Result when
       Client :: client(),
       Target :: netconf_db(),
       Config :: simple_xml(),
-      OptParamsOrTimeout :: [simple_xml()] | timeout(),
       Result :: ok | {error,error_reason()}.
-%% @doc
-%%
-%% If `OptParamsOrTimeout' is a timeout value, then this is
-%% equivalent to {@link edit_config/5. edit_config(Client, Target,
-%% Config, [], Timeout)}.
-%%
-%% If `OptParamsOrTimeout' is a list of simple XML, then this is
-%% equivalent to {@link edit_config/5. edit_config(Client, Target,
-%% Config, OptParams, infinity)}.
-%%
-%% @end
+edit_config(Client, Target, Config) ->
+    edit_config(Client, Target, Config, ?DEFAULT_TIMEOUT).
+
+-spec edit_config(Client, Target, Config, OptParams) -> Result when
+      Client :: client(),
+      Target :: netconf_db(),
+      Config :: simple_xml(),
+      OptParams :: [simple_xml()],
+      Result :: ok | {error,error_reason()};
+                 (Client, Target, Config, Timeout) -> Result when
+      Client :: client(),
+      Target :: netconf_db(),
+      Config :: simple_xml(),
+      Timeout :: timeout(),
+      Result :: ok | {error,error_reason()}.
 edit_config(Client, Target, Config, Timeout) when ?is_timeout(Timeout) ->
     edit_config(Client, Target, Config, [], Timeout);
 edit_config(Client, Target, Config, OptParams) when is_list(OptParams) ->
     edit_config(Client, Target, Config, OptParams, ?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec edit_config(Client, Target, Config, OptParams, Timeout) -> Result when
       Client :: client(),
       Target :: netconf_db(),
@@ -876,99 +612,79 @@ edit_config(Client, Target, Config, OptParams) when is_list(OptParams) ->
       OptParams :: [simple_xml()],
       Timeout :: timeout(),
       Result :: ok | {error,error_reason()}.
-%% @doc Edit configuration data.
-%%
-%% Per default only the running target is available, unless the server
-%% include `:candidate' or `:startup' in its list of
-%% capabilities.
-%%
-%% `OptParams' can be used for specifying optional parameters
-%% (`default-operation', `test-option' or `error-option') that will be
-%% added to the `edit-config' request. The value must be a list
-%% containing valid simple XML, for example
-%%
-%% ```
-%% [{'default-operation', ["none"]},
-%%  {'error-option', ["rollback-on-error"]}]
-%%'''
-%%
-%% @end
-%%----------------------------------------------------------------------
 edit_config(Client, Target, Config, OptParams, Timeout) ->
     call(Client, {send_rpc_op, edit_config, [Target,Config,OptParams], Timeout}).
 
 
 %%----------------------------------------------------------------------
-%% @spec delete_config(Client, Target) -> Result
-%% @equiv delete_config(Client, Target, infinity)
+%% Send a 'delete-config' request.
+-spec delete_config(Client, Target) -> Result when
+      Client :: client(),
+      Target :: startup | candidate,
+      Result :: ok | {error,error_reason()}.
 delete_config(Client, Target) ->
     delete_config(Client, Target, ?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec delete_config(Client, Target, Timeout) -> Result when
       Client :: client(),
       Target :: startup | candidate,
       Timeout :: timeout(),
       Result :: ok | {error,error_reason()}.
-%% @doc Delete configuration data.
-%%
-%% The running configuration cannot be deleted and `:candidate'
-%% or `:startup' must be advertised by the server.
-%%
-%% @end
-%%----------------------------------------------------------------------
 delete_config(Client, Target, Timeout) when Target == startup;
 					    Target == candidate ->
     call(Client,{send_rpc_op, delete_config, [Target], Timeout}).
 
 %%----------------------------------------------------------------------
-%% @spec copy_config(Client, Source, Target) -> Result
-%% @equiv copy_config(Client, Source, Target, infinity)
+%% Send a 'copy-config' request.
+-spec copy_config(Client, Target, Source) -> Result when
+      Client :: client(),
+      Target :: netconf_db(),
+      Source :: netconf_db(),
+      Result :: ok | {error,error_reason()}.
 copy_config(Client, Source, Target) ->
     copy_config(Client, Source, Target, ?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec copy_config(Client, Target, Source, Timeout) -> Result when
       Client :: client(),
       Target :: netconf_db(),
       Source :: netconf_db(),
       Timeout :: timeout(),
       Result :: ok | {error,error_reason()}.
-%% @doc Copy configuration data.
-%%
-%% Which source and target options that can be issued depends on the
-%% capabilities supported by the server. I.e. `:candidate' and/or
-%% `:startup' are required.
-%%
-%% @end
-%%----------------------------------------------------------------------
 copy_config(Client, Target, Source, Timeout) ->
     call(Client,{send_rpc_op, copy_config, [Target, Source], Timeout}).
 
 %%----------------------------------------------------------------------
-%% @spec action(Client, Action) -> Result
-%% @equiv action(Client, Action, infinity)
+%% Execute an action.
+-spec action(Client, Action) -> Result when
+      Client :: client(),
+      Action :: simple_xml(),
+      Result :: ok | {ok,[simple_xml()]} | {error,error_reason()}.
 action(Client,Action) ->
     action(Client,Action,?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec action(Client, Action, Timeout) -> Result when
       Client :: client(),
       Action :: simple_xml(),
       Timeout :: timeout(),
       Result :: ok | {ok,[simple_xml()]} | {error,error_reason()}.
-%% @doc Execute an action. If the return type is void, <c>ok</c> will
-%%      be returned instead of <c>{ok,[simple_xml()]}</c>.
-%%
-%% @end
-%%----------------------------------------------------------------------
 action(Client,Action,Timeout) ->
     call(Client,{send_rpc_op, action, [Action], Timeout}).
 
 %%----------------------------------------------------------------------
+%% Send a 'create-subscription' request
+%% See RFC5277, NETCONF Event Notifications
+-spec create_subscription(Client) -> Result when
+      Client :: client(),
+      Result :: ok | {error,error_reason()}.
 create_subscription(Client) ->
     create_subscription(Client,?DEFAULT_STREAM,?DEFAULT_TIMEOUT).
 
+-spec create_subscription(Client, Stream | Filter | Timeout) -> Result when
+      Client :: client(),
+      Stream :: stream_name(),
+      Filter :: simple_xml() | [simple_xml()],
+      Timeout :: timeout(),
+      Result :: ok | {error,error_reason()}.
 create_subscription(Client,Timeout)
   when ?is_timeout(Timeout) ->
     create_subscription(Client,?DEFAULT_STREAM,Timeout);
@@ -1024,6 +740,22 @@ create_subscription(Client,Stream,Filter,Timeout)
 		 [Stream,Filter,undefined,undefined],
 		 Timeout}).
 
+-spec create_subscription(Client, Stream, StartTime, StopTime, Timeout) ->
+				 Result when
+      Client :: client(),
+      Stream :: stream_name(),
+      StartTime :: xs_datetime(),
+      StopTime :: xs_datetime(),
+      Timeout :: timeout(),
+      Result :: ok | {error,error_reason()};
+                         (Client, Stream, Filter,StartTime, StopTime) ->
+				 Result when
+      Client :: client(),
+      Stream :: stream_name(),
+      Filter :: simple_xml() | [simple_xml()],
+      StartTime :: xs_datetime(),
+      StopTime :: xs_datetime(),
+      Result :: ok | {error,error_reason()}.
 create_subscription(Client,Stream,StartTime,StopTime,Timeout)
   when ?is_string(Stream) andalso
        ?is_string(StartTime) andalso
@@ -1039,7 +771,6 @@ create_subscription(Client,Stream,Filter,StartTime,StopTime)
        ?is_string(StopTime) ->
     create_subscription(Client,Stream,Filter,StartTime,StopTime,?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec create_subscription(Client, Stream, Filter,StartTime, StopTime, Timeout) ->
 				 Result when
       Client :: client(),
@@ -1049,168 +780,75 @@ create_subscription(Client,Stream,Filter,StartTime,StopTime)
       StopTime :: xs_datetime(),
       Timeout :: timeout(),
       Result :: ok | {error,error_reason()}.
-%% @doc Create a subscription for event notifications.
-%%
-%% This function sets up a subscription for netconf event
-%% notifications of the given stream type, matching the given
-%% filter. The calling process will receive notifications as messages
-%% of type `notification()'.
-%%
-%% <dl>
-%%   <dt>Stream:</dt>
-%%   <dd> An optional parameter that indicates which stream of events
-%%   is of interest.  If not present, events in the default NETCONF
-%%   stream will be sent.</dd>
-%%
-%%   <dt>Filter:</dt>
-%%   <dd>An optional parameter that indicates which subset of all
-%%   possible events is of interest.  The format of this parameter is
-%%   the same as that of the filter parameter in the NETCONF protocol
-%%   operations.  If not present, all events not precluded by other
-%%   parameters will be sent.</dd>
-%%
-%%   <dt>StartTime:</dt>
-%%   <dd>An optional parameter used to trigger the replay feature and
-%%   indicate that the replay should start at the time specified.  If
-%%   `StartTime' is not present, this is not a replay subscription.
-%%   It is not valid to specify start times that are later than the
-%%   current time.  If the `StartTime' specified is earlier than the
-%%   log can support, the replay will begin with the earliest
-%%   available notification.  This parameter is of type dateTime and
-%%   compliant to [RFC3339].  Implementations must support time
-%%   zones.</dd>
-%%
-%%   <dt>StopTime:</dt>
-%%   <dd>An optional parameter used with the optional replay feature
-%%   to indicate the newest notifications of interest.  If `StopTime'
-%%   is not present, the notifications will continue until the
-%%   subscription is terminated.  Must be used with and be later than
-%%   `StartTime'.  Values of `StopTime' in the future are valid.  This
-%%   parameter is of type dateTime and compliant to [RFC3339].
-%%   Implementations must support time zones.</dd>
-%% </dl>
-%%
-%% See RFC5277 for further details about the event notification
-%% mechanism.
-%%
-%% @end
-%%----------------------------------------------------------------------
 create_subscription(Client,Stream,Filter,StartTime,StopTime,Timeout) ->
     call(Client,{send_rpc_op,{create_subscription, self()},
 		 [Stream,Filter,StartTime,StopTime],
 		 Timeout}).
 
 %%----------------------------------------------------------------------
-%% @spec get_event_streams(Client, Timeout) -> Result
-%% @equiv get_event_streams(Client, [], Timeout)
+%% Send a request to get the given event streams
+%% See RFC5277, NETCONF Event Notifications
+-spec get_event_streams(Client)
+		       -> Result when
+      Client :: client(),
+      Result :: {ok,streams()} | {error,error_reason()}.
+get_event_streams(Client) ->
+    get_event_streams(Client,[],?DEFAULT_TIMEOUT).
+
+-spec get_event_streams(Client, Timeout)
+		       -> Result when
+      Client :: client(),
+      Timeout :: timeout(),
+      Result :: {ok,streams()} | {error,error_reason()};
+                       (Client, Streams) -> Result when
+      Client :: client(),
+      Streams :: [stream_name()],
+      Result :: {ok,streams()} | {error,error_reason()}.
 get_event_streams(Client,Timeout) when is_integer(Timeout); Timeout==infinity ->
     get_event_streams(Client,[],Timeout);
-
-%%----------------------------------------------------------------------
-%% @spec get_event_streams(Client, Streams) -> Result
-%% @equiv get_event_streams(Client, Streams, infinity)
 get_event_streams(Client,Streams) when is_list(Streams) ->
     get_event_streams(Client,Streams,?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec get_event_streams(Client, Streams, Timeout)
 		       -> Result when
       Client :: client(),
       Streams :: [stream_name()],
       Timeout :: timeout(),
       Result :: {ok,streams()} | {error,error_reason()}.
-%% @doc Send a request to get the given event streams.
-%%
-%% `Streams' is a list of stream names. The following filter will
-%% be sent to the netconf server in a `get' request:
-%%
-%% ```
-%% <netconf xmlns="urn:ietf:params:xml:ns:netmod:notification">
-%%   <streams>
-%%     <stream>
-%%       <name>StreamName1</name>
-%%     </stream>
-%%     <stream>
-%%       <name>StreamName2</name>
-%%     </stream>
-%%     ...
-%%   </streams>
-%% </netconf>
-%% '''
-%%
-%% If `Streams' is an empty list, ALL streams will be requested
-%% by sending the following filter:
-%%
-%% ```
-%% <netconf xmlns="urn:ietf:params:xml:ns:netmod:notification">
-%%   <streams/>
-%% </netconf>
-%% '''
-%%
-%% If more complex filtering is needed, a use {@link get/2} or {@link
-%% get/3} and specify the exact filter according to XML Schema for
-%% Event Notifications found in RFC5277.
-%%
-%% @end
-%%----------------------------------------------------------------------
 get_event_streams(Client,Streams,Timeout) ->
     call(Client,{get_event_streams,Streams,Timeout}).
 
 
 %%----------------------------------------------------------------------
-%% @spec close_session(Client) -> Result
-%% @equiv close_session(Client, infinity)
+%% Send a 'close-session' request
+-spec close_session(Client) -> Result when
+      Client :: client(),
+      Result :: ok | {error,error_reason()}.
 close_session(Client) ->
     close_session(Client, ?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec close_session(Client, Timeout) -> Result when
       Client :: client(),
       Timeout :: timeout(),
       Result :: ok | {error,error_reason()}.
-%% @doc Request graceful termination of the session associated with the client.
-%%
-%% When a netconf server receives a `close-session' request, it
-%% will gracefully close the session.  The server will release any
-%% locks and resources associated with the session and gracefully
-%% close any associated connections.  Any NETCONF requests received
-%% after a `close-session' request will be ignored.
-%%
-%% @end
-%%----------------------------------------------------------------------
 close_session(Client, Timeout) ->
     call(Client,{send_rpc_op, close_session, [], Timeout}, true).
 
 
 %%----------------------------------------------------------------------
-%% @spec kill_session(Client, SessionId) -> Result
-%% @equiv kill_session(Client, SessionId, infinity)
+%% Send a 'kill-session' request
+-spec kill_session(Client, SessionId) -> Result when
+      Client :: client(),
+      SessionId :: pos_integer(),
+      Result :: ok | {error,error_reason()}.
 kill_session(Client, SessionId) ->
     kill_session(Client, SessionId, ?DEFAULT_TIMEOUT).
 
-%%----------------------------------------------------------------------
 -spec kill_session(Client, SessionId, Timeout) -> Result when
       Client :: client(),
       SessionId :: pos_integer(),
       Timeout :: timeout(),
       Result :: ok | {error,error_reason()}.
-%% @doc Force termination of the session associated with the supplied
-%% session id.
-%%
-%% The server side shall abort any operations currently in process,
-%% release any locks and resources associated with the session, and
-%% close any associated connections.
-%%
-%% Only if the server is in the confirmed commit phase, the
-%% configuration will be restored to its state before entering the
-%% confirmed commit phase. Otherwise, no configuration roll back will
-%% be performed.
-%%
-%% If the given `SessionId' is equal to the current session id,
-%% an error will be returned.
-%%
-%% @end
-%% ----------------------------------------------------------------------
 kill_session(Client, SessionId, Timeout) ->
     call(Client,{send_rpc_op, kill_session, [SessionId], Timeout}).
 
@@ -1219,7 +857,6 @@ kill_session(Client, SessionId, Timeout) ->
 %% Callback functions
 %%----------------------------------------------------------------------
 
-%% @private
 init(_KeyOrName,{CM,{Host,Port}},Options) ->
     case ssh_channel(#connection{reference=CM,host=Host,port=Port},Options) of
         {ok,Connection} ->
@@ -1245,12 +882,10 @@ init(_KeyOrName,{_Host,_Port},Options) ->
     end.
 
 
-%% @private
 terminate(_, #state{connection=Connection}) ->
     ssh_close(Connection),
     ok.
 
-%% @private
 handle_msg({hello, Options, Timeout}, From,
 	   #state{connection=Connection,hello_status=HelloStatus} = State) ->
     case do_send(Connection, client_hello(Options)) of
@@ -1306,7 +941,6 @@ handle_msg({get_event_streams=Op,Streams,Timeout}, From, State) ->
     SimpleXml = encode_rpc_operation(get,[Filter]),
     do_send_rpc(Op, SimpleXml, Timeout, From, State).
 
-%% @private
 handle_msg({ssh_cm, CM, {data, Ch, _Type, Data}}, State) ->
     ssh_connection:adjust_window(CM,Ch,size(Data)),
     handle_data(Data, State);
@@ -1342,7 +976,6 @@ handle_msg({Ref,timeout},#state{pending=Pending} = State) ->
     %% the implementation before this patch
     {R,State#state{pending=Pending1, no_end_tag_buff= <<>>, buff= <<>>}}.
 
-%% @private
 %% Called by ct_util_server to close registered connections before terminate.
 close(Client) ->
     case get_handle(Client) of
@@ -1962,7 +1595,6 @@ log(#connection{reference=Ref,host=Host,port=Port,name=Name},Action,Data) ->
 
 
 %% Log callback - called from the error handler process
-%% @private
 format_data(How,Data) ->
     %% Assuming that the data is encoded as UTF-8.  If it is not, then
     %% the printout might be wrong, but the format function will not
