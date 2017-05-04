@@ -44,6 +44,13 @@
           <p>
 	    Own Id: OTP-13800</p>
         </item>
+	<item>
+          <p>
+	    A bug causing non-interpreted code to crash the debugger
+	    has been fixed.</p>
+          <p>
+	    Own Id: OTP-13756</p>
+        </item>
       </list>
     </section>
 
