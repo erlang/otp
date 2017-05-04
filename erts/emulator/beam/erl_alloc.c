@@ -385,6 +385,7 @@ set_default_temp_alloc_opts(struct au_init *ip)
     SET_DEFAULT_ALLOC_OPTS(ip);
     ip->enable			= AU_ALLOC_DEFAULT_ENABLE(1);
     ip->thr_spec		= 1;
+    ip->disable_allowed         = 0;
     ip->carrier_migration_allowed = 0;
     ip->atype			= AFIT;
     ip->init.util.name_prefix	= "temp_";
@@ -1492,8 +1493,7 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 	&init->ll_alloc,
 	&init->driver_alloc,
 	&init->fix_alloc,
-	&init->sl_alloc,
-	&init->temp_alloc
+	&init->sl_alloc
 	/* test_alloc not affected by +Mea??? or +Mu???  */
     };
     int aui_sz = (int) sizeof(aui)/sizeof(aui[0]);
