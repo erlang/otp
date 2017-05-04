@@ -603,7 +603,7 @@ install_crypto_key(Key) ->
 %% Miscellanous tests, mainly to get better coverage.
 debug_info(erlang_v1, Module, ok, _Opts) ->
     {ok, [Module]};
-debug_info(erlang_v1, Module, error, _Opts) ->
+debug_info(erlang_v1, _Module, error, _Opts) ->
     {error, unknown_format}.
 
 custom_debug_info(Config) when is_list(Config) ->
