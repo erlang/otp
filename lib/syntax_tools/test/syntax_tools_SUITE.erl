@@ -9,11 +9,11 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
 %% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 %% AB. All Rights Reserved.''
-%% 
+%%
 %%     $Id$
 %%
 -module(syntax_tools_SUITE).
@@ -21,22 +21,24 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
+     init_per_testcase/2, init_per_group/2,end_per_group/2]).
 
 %% Test cases
 -export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1,
 	t_abstract_type/1,t_erl_parse_type/1,t_epp_dodger/1,
-	t_comment_scan/1,t_igor/1,t_erl_tidy/1]).
+	t_comment_scan/1,t_igor/1,t_erl_tidy/1,
+    t_invalid_number_string_list/1,t_invalid_number_string_end_list/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [app_test,appup_test,smoke_test,revert,revert_map,
     t_abstract_type,t_erl_parse_type,t_epp_dodger,
-    t_comment_scan,t_igor,t_erl_tidy].
+    t_comment_scan,t_igor,t_erl_tidy,t_invalid_number_string_list,
+    t_invalid_number_string_end_list].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -46,6 +48,71 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
+    Config.
+
+init_per_testcase(t_invalid_number_string_list, Config) ->
+    [
+     {form1, {function,5,handle_event,2,
+              [{clause,5,
+                   [{var,5,'_'},{var,5,'_'}],
+                   [],
+                   [{cons,6,
+                        {tuple,6,[]},
+                        {cons,7,
+                            {nil,7},
+                            {cons,8,
+                                {cons,8,
+                                    {atom,8,asd},
+                                    {cons,8,{atom,8,asd},{nil,8}}},
+                                {nil,9}}}}]}]}},
+     {form2, {function,5,handle_event,2,
+              [{clause,5,
+                   [{var,5,'_'},{var,5,'_'}],
+                   [],
+                   [{cons,6,
+                        {tuple,6,[]},
+                        {cons,7,
+                            {nil,7},
+                            {cons,8,
+                                {cons,8,
+                                    {atom,8,asd},
+                                    {cons,8,{atom,8,asd},{nil,8}}},
+                                {nil,6}}}}]}]}},
+     {error, "invalid number string in the list"}
+     | Config
+    ];
+init_per_testcase(t_invalid_number_string_end_list, Config) ->
+    [
+     {form1, {function,5,handle_event,2,
+              [{clause,5,
+                [{var,5,'_'},{var,5,'_'}],
+                [],
+                [{cons,6,
+                  {tuple,6,[]},
+                  {cons,7,
+                   {nil,7},
+                   {cons,8,
+                    {cons,8,
+                     {atom,8,asd},
+                     {cons,8,{atom,8,asd},{nil,9}}},
+                    {nil,10}}}}]}]}},
+     {form2, {function,5,handle_event,2,
+              [{clause,5,
+                [{var,5,'_'},{var,5,'_'}],
+                [],
+                [{cons,6,
+                  {tuple,6,[]},
+                  {cons,6,
+                   {nil,7},
+                   {cons,6,
+                    {cons,8,
+                     {atom,8,asd},
+                     {cons,8,{atom,8,asd},{nil,9}}},
+                    {nil,10}}}}]}]}},
+     {error, "invalid number string in end of the list"}
+     | Config
+    ];
+init_per_testcase(_, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
@@ -87,7 +154,7 @@ print_error_markers(F, File) ->
 	_ ->
 	    ok
     end.
-    
+
 
 %% Read with erl_parse, wrap and revert with erl_syntax and check for equality.
 revert(Config) when is_list(Config) ->
@@ -212,6 +279,31 @@ t_comment_scan(Config) when is_list(Config) ->
     Filenames = test_files(),
     ok = test_comment_scan(Filenames,DataDir),
     ok.
+
+t_invalid_number_string_list(Config) ->
+    test_invalid_number_string(Config, list).
+
+t_invalid_number_string_end_list(Config) ->
+    test_invalid_number_string(Config, end_list).
+
+test_invalid_number_string(Config, Cause) ->
+    io:format("Case:~p~n", [Cause]),
+    Form1 = ?config(form1, Config),
+    Form2 = ?config(form2, Config),
+    Error = ?config(error, Config),
+
+
+    Fun2 = fun (El) -> io:format("~p~n", [erl_syntax:revert(El)]), El end,
+
+    Form3 = erl_syntax:revert(erl_syntax_lib:map(Fun2, Form1)),
+    io:format("Original1:~p~n", [Form1]),
+    io:format("Oroginal2:~p~n", [Form2]),
+    io:format("Result:~p~n", [Form3]),
+    if
+        Form1 =:= Form3 -> {test, success};
+        Form2 =:= Form3 -> {test, success};
+        true -> ct:fail(Error)
+    end.
 
 test_files(Config) ->
     DataDir = ?config(data_dir, Config),
