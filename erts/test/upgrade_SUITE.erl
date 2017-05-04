@@ -39,7 +39,7 @@
 %% - dialyzer requires hipe (in the .app file)
 %% - erl_interface, jinterface support no upgrade
 -define(appup_exclude, 
-	[dialyzer,hipe,erl_interface,jinterface,ose]).
+	[dialyzer,hipe,typer,erl_interface,jinterface,ose]).
 
 init_per_suite(Config) ->
     %% Check that a real release is running, not e.g. cerl
