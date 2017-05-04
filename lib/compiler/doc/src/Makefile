@@ -33,10 +33,20 @@ APPLICATION=compiler
 RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 
 # ----------------------------------------------------
+# Man page source directory (with .erl files)
+# ----------------------------------------------------
+SRC_DIR = $(ERL_TOP)/lib/compiler/src
+
+# ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
-XML_REF3_FILES = compile.xml
+GEN_XML_REF3_FILES = \
+	cerl.xml \
+	cerl_trees.xml
+XML_REF3_FILES = \
+	$(GEN_XML_REF3_FILES) \
+	compile.xml
 
 XML_PART_FILES = part_notes.xml part_notes_history.xml
 XML_CHAPTER_FILES = notes.xml notes_history.xml
@@ -83,6 +93,9 @@ pdf: $(TOP_PDF_FILE)
 html: gifs $(HTML_REF_MAN_FILE)
 
 man: $(MAN3_FILES)
+
+$(GEN_XML_REF3_FILES):
+	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript $(SRC_DIR)/$(@:%.xml=%.erl)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
