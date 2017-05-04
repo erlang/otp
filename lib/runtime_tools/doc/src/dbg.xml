@@ -117,8 +117,8 @@
           however. Calls to builtin match_spec functions of course is
           allowed:</p>
         <pre>
-4> <input>dbg:fun2ms(fun([M,N]) when N > X, is_atomm(M)  -> return_trace() end).</input>
-Error: fun containing local erlang function calls ('is_atomm' called in guard)\
+4> <input>dbg:fun2ms(fun([M,N]) when N > X, is_atom(M)  -> return_trace() end).</input>
+Error: fun containing local erlang function calls ('is_atom' called in guard)\
  cannot be translated into match_spec
 {error,transform_error}
 5> <input>dbg:fun2ms(fun([M,N]) when N > X, is_atom(M)  -> return_trace() end).</input>
