@@ -2363,6 +2363,8 @@ could_be_empty_branch(const pcre_uchar *code, const pcre_uchar *endcode,
   BOOL utf, compile_data *cd)
 {
 register pcre_uchar c;
+pcre_uchar tempcode = *code;
+
 for (code = first_significant_code(code + PRIV(OP_lengths)[*code], TRUE);
      code < endcode;
      code = first_significant_code(code + PRIV(OP_lengths)[c], TRUE))
@@ -2370,6 +2372,12 @@ for (code = first_significant_code(code + PRIV(OP_lengths)[*code], TRUE);
   const pcre_uchar *ccode;
 
   c = *code;
+
+  /* We check to see if this is a faulty recursion that could loop for ever,
+     and diagnose that case. */
+  if (tempcode == OP_ALT && c == OP_RECURSE) {
+      return TRUE;
+  }
 
   /* Skip over forward assertions; the other assertions are skipped by
   first_significant_code() with a TRUE final argument. */
@@ -2406,15 +2414,24 @@ for (code = first_significant_code(code + PRIV(OP_lengths)[*code], TRUE);
 
     /* Completed backwards reference */
 
-    do
-      {
-      if (could_be_empty_branch(scode, endcode, utf, cd))
-        {
-        empty_branch = TRUE;
-        break;
-        }
-      scode += GET(scode, 1);
-      }
+    do {
+        /* We have a nonsensical compiled branch which will cause a SEGV, so we
+           should return FALSE early.
+           ------------------------------------------------------------------
+           If this problem can be solved at an upstream function, removing this
+           should be "safe" (although without an upstream fix it can cause at
+           the very *least* crash an interpreter)
+           - zephyr pellerin <zv@nxvr.org>
+         */
+        if (c == OP_RECURSE && *scode == OP_CBRA)
+            return FALSE;
+        if (could_be_empty_branch(scode, endcode, utf, cd))
+            {
+                empty_branch = TRUE;
+                break;
+            }
+        scode += GET(scode, 1);
+    }
     while (*scode == OP_ALT);
 
     if (!empty_branch) return FALSE;  /* All branches are non-empty */
