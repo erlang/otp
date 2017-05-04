@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a livelock that could be caused by <c>wx:batch/1</c>.</p>
+          <p>
+	    Own Id: OTP-14289</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

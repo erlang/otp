@@ -35,6 +35,41 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Bug for <c>public_key:generate_key({namedCurve,OID})</c>
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-14258</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Modernized internal representation used for crl
+	    validation by use of maps.</p>
+          <p>
+	    Own Id: OTP-14111</p>
+        </item>
+        <item>
+          <p>
+	    Support EC key in pkix_sign/2</p>
+          <p>
+	    Own Id: OTP-14294</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.4</title>
 
     <section><title>Improvements and New Features</title>

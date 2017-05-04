@@ -33,6 +33,45 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Errors in the documentation for user HTML stylesheets
+	    have been corrected.</p>
+          <p>
+	    Own Id: OTP-14332 Aux Id: seq13299 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The <c>ct_slave</c> modules now handle nodenames in
+	    the same way as nodenames passed to <c>-sname</c>. That
+	    means <c>ct_slave:start('b@127.0.0.1').</c> will now
+	    work.</p>
+          <p>
+	    Own Id: OTP-13806</p>
+        </item>
+        <item>
+          <p>
+	    Added the new option, <c>keep_logs</c>. If setting the
+	    value for this option to an integer, N, common_test will
+	    remove all ct_run.* directories in the current log
+	    directory, except the N newest.</p>
+          <p>
+	    Own Id: OTP-14179</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.14</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

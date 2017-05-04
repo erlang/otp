@@ -31,6 +31,90 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug where gethostname would incorrectly fail with
+	    enametoolong on Linux.</p>
+          <p>
+	    Own Id: OTP-14310</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Since Unicode is now allowed in atoms an extra check is
+	    needed for node names, which are restricted to Latin-1.</p>
+          <p>
+	    Own Id: OTP-13805</p>
+        </item>
+        <item>
+	    <p>Replaced usage of deprecated symbolic <seealso
+	    marker="erts:erlang#type-time_unit"><c>time
+	    unit</c></seealso> representations.</p>
+          <p>
+	    Own Id: OTP-13831 Aux Id: OTP-13735 </p>
+        </item>
+        <item>
+	    <p><c>file:write_file(Name, Data, [raw])</c> would turn
+	    <c>Data</c> into a single binary before writing. This
+	    meant it could not take advantage of the <c>writev()</c>
+	    system call if it was given a list of binaries and told
+	    to write with <c>raw</c> mode.</p>
+          <p>
+	    Own Id: OTP-13909</p>
+        </item>
+        <item>
+	    <p>The performance of the <c>disk_log</c> has been
+	    somewhat improved in some corner cases (big items), and
+	    the documentation has been clarified. </p>
+          <p>
+	    Own Id: OTP-14057 Aux Id: PR-1245 </p>
+        </item>
+        <item>
+	    <p>Functions for detecting changed code has been added.
+	    <c>code:modified_modules/0</c> returns all currently
+	    loaded modules that have changed on disk.
+	    <c>code:module_status/1</c> returns the status for a
+	    module. In the shell and in <c>c</c> module, <c>mm/0</c>
+	    is short for <c>code:modified_modules/0</c>, and
+	    <c>lm/0</c> reloads all currently loaded modules that
+	    have changed on disk.</p>
+          <p>
+	    Own Id: OTP-14059</p>
+        </item>
+        <item>
+          <p>
+	    Introduce an event manager in Erlang to handle OS
+	    signals. A subset of OS signals may be subscribed to and
+	    those are described in the Kernel application.</p>
+          <p>
+	    Own Id: OTP-14186</p>
+        </item>
+        <item>
+	    <p> Sockets can now be bound to device (SO_BINDTODEVICE)
+	    on platforms where it is supported. </p> <p> This has
+	    been implemented e.g to support VRF-Lite under Linux; see
+	    <url
+	    href="https://www.kernel.org/doc/Documentation/networking/vrf.txt">
+	    VRF </url>, and GitHub pull request <url
+	    href="https://github.com/erlang/otp/pull/1326">#1326</url>.
+	    </p>
+          <p>
+	    Own Id: OTP-14357 Aux Id: PR-1326 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
