@@ -66,6 +66,7 @@
     <marker id="DATA_TYPES"></marker>
     <p>Type definitions that are used more than once in
       this module:</p>
+    <p><c>autoredirectoptions() = true | false | force</c></p>
     <p><c>boolean() = true | false</c></p>
     <p><c>string()</c> = list of ASCII characters</p>
     <p><c>request_id() = reference()</c></p>
@@ -284,7 +285,7 @@
                            {connect_timeout, timeout()} | 
                            {ssl,             ssloptions()} | 
                            {essl,            ssloptions()} | 
-                           {autoredirect,    boolean()} | 
+                           {autoredirect,    autoredirectoptions()} | 
                            {proxy_auth, {userstring(), passwordstring()}} | 
                            {version,         http_version()} | 
                            {relaxed,         boolean()} |
@@ -354,7 +355,8 @@
 	    of a 30X-result code.</p>
 	    <p>For some 30X-result codes, automatic redirect 
 	    is not allowed. In these cases the 30X-result is always
-	    returned.</p>
+        returned. If redirection is desired in such cases, it
+        can be explicitly enabled by setting autoredirect to <c>force</c>.</p>
 	    <p>Default is <c>true</c>.</p>
 	  </item>
 

@@ -696,7 +696,13 @@ http_options_default() ->
 		     (_) ->
 			  error
 		  end,
-    AutoRedirectPost =  boolfun(),
+    AutoRedirectPost =
+	fun(Value) when (Value =:= true) orelse (Value =:= false) orelse 
+                    (Value =:= force) ->
+		{ok, Value};
+	   (_) ->
+		error
+	end,
 
     SslPost = fun(Value) when is_list(Value) ->
 		      {ok, {?HTTP_DEFAULT_SSL_KIND, Value}};
