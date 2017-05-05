@@ -206,7 +206,6 @@ void erts_lcnt_thread_exit_handler(void);
 /* list operations (local)  */
 erts_lcnt_lock_list_t *erts_lcnt_list_init(void);
 
-void erts_lcnt_list_clear( erts_lcnt_lock_list_t *list);
 void erts_lcnt_list_insert(erts_lcnt_lock_list_t *list, erts_lcnt_lock_t *lock);
 void erts_lcnt_list_delete(erts_lcnt_lock_list_t *list, erts_lcnt_lock_t *lock);
 
