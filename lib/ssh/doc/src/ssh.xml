@@ -246,10 +246,12 @@
 	  <tag><c><![CDATA[{pref_public_key_algs, list()}]]></c></tag>
 	  <item>
             <p>List of user (client) public key algorithms to try to use.</p>
-	    <p>The default value is 
-	    <c><![CDATA[['ssh-rsa','ssh-dss','ecdsa-sha2-nistp256','ecdsa-sha2-nistp384','ecdsa-sha2-nistp521'] ]]></c>
+	    <p>The default value is the <c>public_key</c> entry in 
+	    <seealso marker="#default_algorithms/0">ssh:default_algorithms/0</seealso>.
 	    </p>
-	    <p>If there is no public key of a specified type available, the corresponding entry is ignored.</p>
+	    <p>If there is no public key of a specified type available, the corresponding entry is ignored.
+	    Note that the available set is dependent on the underlying cryptolib and current user's public keys.
+	    </p>
 	  </item>
 
 	  <tag><c><![CDATA[{preferred_algorithms, algs_list()}]]></c></tag>

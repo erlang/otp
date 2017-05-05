@@ -430,12 +430,9 @@ default(client) ->
            },
 
       {pref_public_key_algs, def} =>
-          #{default => 
-                ssh_transport:supported_algorithms(public_key),
-            chk => 
-                fun check_pref_public_key_algs/1,
-            class =>
-                ssh
+          #{default => ssh_transport:default_algorithms(public_key),
+            chk => fun check_pref_public_key_algs/1,
+            class => user_options
            },
 
       {dh_gex_limits, def} =>
@@ -817,16 +814,23 @@ valid_hash(X,  _) -> error_in_check(X, "Expect atom or list in fingerprint spec"
 
 %%%----------------------------------------------------------------
 check_preferred_algorithms(Algs) ->
+    [error_in_check(K,"Bad preferred_algorithms key")
+     || {K,_} <- Algs,
+        not lists:keymember(K,1,ssh:default_algorithms())],
+
     try alg_duplicates(Algs, [], [])
     of
 	[] ->
 	    {true,
-	     [try ssh_transport:supported_algorithms(Key)
-	      of
-		  DefAlgs -> handle_pref_alg(Key,Vals,DefAlgs)
-	      catch
-		  _:_ -> error_in_check(Key,"Bad preferred_algorithms key")
-	      end  || {Key,Vals} <- Algs]
+	     [case proplists:get_value(Key, Algs) of
+                  undefined ->
+                      {Key,DefAlgs};
+                  Vals ->
+                      handle_pref_alg(Key,Vals,SupAlgs)
+              end
+	      || {{Key,DefAlgs}, {Key,SupAlgs}} <- lists:zip(ssh:default_algorithms(),
+                                                             ssh_transport:supported_algorithms())
+             ]
 	    };
 
 	Dups ->
