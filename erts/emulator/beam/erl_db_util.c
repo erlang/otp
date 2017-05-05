@@ -2006,7 +2006,8 @@ restart:
     do_catch = 0;
     fail_label = -1;
     build_proc = psp;
-    esdp->current_process = psp;
+    if (esdp)
+        esdp->current_process = psp;
 
 #ifdef DEBUG
     ASSERT(variables == mpsp->u.variables);
@@ -2675,7 +2676,8 @@ restart:
 	    do_catch = 1;
 	    if (in_flags & ERTS_PAM_COPY_RESULT) {
 		build_proc = c_p;
-		esdp->current_process = c_p;
+                if (esdp)
+                    esdp->current_process = c_p;
 	    }
 	    break;
 	case matchHalt:
