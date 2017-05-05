@@ -95,6 +95,8 @@
 #define ERTS_LCNT_LO_READ       (((Uint16) 1) << 6)
 #define ERTS_LCNT_LO_WRITE      (((Uint16) 1) << 7)
 
+#define ERTS_LCNT_LT_DISABLE    (((Uint16) 1) << 8)
+
 #define ERTS_LCNT_LO_READ_WRITE ( ERTS_LCNT_LO_READ  \
                                 | ERTS_LCNT_LO_WRITE )
 

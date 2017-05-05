@@ -260,10 +260,12 @@ static ERTS_INLINE void port_init_instr(Port *prt
     if (!prt->drv_ptr->lock) {
 	char *lock_str = "port_lock";
 #ifdef ERTS_ENABLE_LOCK_COUNT
-        if (!(erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK))
-            lock_str = NULL;
+	Uint16 opt = ((erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK)
+			    ? 0 : ERTS_LCNT_LT_DISABLE);
+#else
+	Uint16 opt = 0;
 #endif
-	erts_mtx_init_locked_x(prt->lock, lock_str, id);
+	erts_mtx_init_locked_x_opt(prt->lock, lock_str, id, opt);
     }
 #endif
     erts_port_task_init_sched(&prt->sched, id);

@@ -358,8 +358,11 @@ void erts_lcnt_init_lock(erts_lcnt_lock_t *lock, char *name, Uint16 flag ) {
 
 void erts_lcnt_init_lock_x(erts_lcnt_lock_t *lock, char *name, Uint16 flag, Eterm id) {
     int i;
-    if (name == NULL) { ERTS_LCNT_CLEAR_FLAG(lock); return; }
-    lcnt_lock();
+
+    if (flag & ERTS_LCNT_LT_DISABLE) {
+        ERTS_LCNT_CLEAR_FLAG(lock);
+        return;
+    }
 
     lock->next = NULL;
     lock->prev = NULL;
@@ -379,6 +382,7 @@ void erts_lcnt_init_lock_x(erts_lcnt_lock_t *lock, char *name, Uint16 flag, Eter
         lcnt_clear_stats(&lock->stats[i]);
     }
 
+    lcnt_lock();
     erts_lcnt_list_insert(erts_lcnt_data->current_locks, lock);
     lcnt_unlock();
 }
