@@ -31,33 +31,6 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
-<section><title>Parsetools 2.1.5</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-          <p>
-	    Minor documentation fixes</p>
-          <p>
-	    Own Id: OTP-14276 Aux Id: PR-1357 </p>
-        </item>
-      </list>
-    </section>
-
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-	    <p> Miscellaneous updates due to atoms containing
-	    arbitrary Unicode characters. </p>
-          <p>
-	    Own Id: OTP-14285</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Parsetools 2.1.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
