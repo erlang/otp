@@ -1495,17 +1495,37 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       <fsummary>Match and replace objects atomically in an ETS table</fsummary>
       <desc>
         <p>Matches the objects in the table <c><anno>Tab</anno></c> using a
-          <seealso marker="#match_spec">match specification</seealso>. If
-          an object is matched, the existing object is replaced with
-          the match specification result, which <em>must</em> retain
-          the original key or the operation will fail with <c>badarg</c>.</p>
+          <seealso marker="#match_spec">match specification</seealso>. For each
+          matched object, the existing object is replaced with
+          the match specification result.</p>
+	<p>The match-and-replace operation for each individual object is guaranteed to be
+	  <seealso marker="#concurrency">atomic and isolated</seealso>. The
+	  <c>select_replace</c> table iteration as a whole, like all other select functions,
+	  does not give such guarantees.</p>
+	<p>The match specifiction must be guaranteed to <em>retain the key</em>
+	  of any matched object. If not, <c>select_replace</c> will fail with <c>badarg</c>
+	  without updating any objects.</p>
         <p>For the moment, due to performance and semantic constraints,
           tables of type <c>bag</c> are not yet supported.</p>
         <p>The function returns the total number of replaced objects.</p>
-        <note>
-          <p>The match/replacement operation atomicity scope is limited
-            to each individual object.</p>
-        </note>
+        <p><em>Example</em></p>
+	<p>For all 2-tuples with a list in second position, add atom <c>'marker'</c> first in the list:</p>
+	<pre>
+1> <input>T = ets:new(x,[]), ets:insert(T, {key, [1, 2, 3]}).</input>
+true
+2> <input>MS = ets:fun2ms(fun({K, L}) when is_list(L) -> {K, [marker | L]} end).</input>
+[{{'$1','$2'},[{is_list,'$2'}],[{{'$1',[marker|'$2']}}]}]
+3> <input>ets:select_replace(T, MS).</input>
+1
+4> <input>ets:tab2list(T).</input>
+[{key,[marker,1,2,3]}]
+	</pre>
+	<p>A generic single object compare-and-swap operation:</p>
+        <pre>
+[Old] = ets:lookup(T, Key),
+New = update_object(Old),
+Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
+	</pre>
       </desc>
     </func>
 
