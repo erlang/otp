@@ -5099,7 +5099,7 @@ Erlang compilation package.")
   "Command to execute to go to the next error.
 
 Change this variable to use your favorite Erlang compilation
-package.  Not used in Emacs 21.")
+package.")
 
 
 ;;;###autoload
