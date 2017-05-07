@@ -5158,6 +5158,12 @@ future, a new shell on an already running host will be started."
 (defvar erlang-shell-buffer-name "*erlang*"
   "The name of the Erlang link shell buffer.")
 
+(defcustom erlang-shell-prompt-read-only t
+  "If non-nil, the prompt will be read-only.
+
+Also see the description of `ielm-prompt-read-only'."
+  :type 'boolean)
+
 (defvar erlang-shell-mode-map nil
   "Keymap used by Erlang shells.")
 
@@ -5201,6 +5207,8 @@ The following special commands are available:
   ;; Needed when compiling directly from the Erlang shell.
   (setq compilation-last-buffer (current-buffer))
   (setq comint-prompt-regexp "^[^>=]*> *")
+  (make-local-variable 'comint-prompt-read-only)
+  (setq comint-prompt-read-only erlang-shell-prompt-read-only)
   (setq comint-eol-on-send t)
   (setq comint-input-ignoredups t)
   (setq comint-scroll-show-maximum-output t)
