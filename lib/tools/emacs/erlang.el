@@ -5162,7 +5162,8 @@ future, a new shell on an already running host will be started."
   "If non-nil, the prompt will be read-only.
 
 Also see the description of `ielm-prompt-read-only'."
-  :type 'boolean)
+  :type 'boolean
+  :package-version '(erlang . "2.8.0"))
 
 (defvar erlang-shell-mode-map nil
   "Keymap used by Erlang shells.")
