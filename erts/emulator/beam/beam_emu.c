@@ -1814,6 +1814,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      c_p->catches--;
      make_blank(yb(Arg(0)));
      if (is_non_value(r(0))) {
+         c_p->fvalue = NIL;
 	 if (x(1) == am_throw) {
 	     r(0) = x(2);
 	 } else {
@@ -1843,6 +1844,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      c_p->catches--;
      make_blank(yb(Arg(0)));
      if (is_non_value(r(0))) {
+         c_p->fvalue = NIL;
 	 r(0) = x(1);
 	 x(1) = x(2);
 	 x(2) = x(3);
