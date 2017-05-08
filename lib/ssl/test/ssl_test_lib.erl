@@ -1403,6 +1403,8 @@ supports_ssl_tls_version(Version) ->
 
 do_supports_ssl_tls_version(Port) ->
     receive 
+        {Port, {data, "u"}} -> 
+	    false;
 	{Port, {data, "unknown option"  ++ _}} -> 
 	    false;
 	{Port, {data, Data}} ->
