@@ -123,7 +123,7 @@ init([]) ->
              restart => permanent,
              shutdown => 2000,
              type => worker,
-             modeules => [file, file_server, file_io_server, prim_file]},
+             modules => [file, file_server, file_io_server, prim_file]},
 
     StdError = #{id => standard_error,
                  start => {standard_error, start_link, []},
