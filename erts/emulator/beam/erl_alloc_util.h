@@ -195,10 +195,6 @@ extern UWord erts_literal_vspace_map[];
 # define ERTS_VSPACE_WORD_BITS (sizeof(UWord)*8)
 #endif
 
-void* erts_alcu_mseg_alloc(Allctr_t*, Uint *size_p, Uint flags);
-void* erts_alcu_mseg_realloc(Allctr_t*, void *seg, Uint old_size, Uint *new_size_p);
-void  erts_alcu_mseg_dealloc(Allctr_t*, void *seg, Uint size, Uint flags);
-
 #if HAVE_ERTS_MSEG
 # if defined(ARCH_32)
 void* erts_alcu_literal_32_mseg_alloc(Allctr_t*, Uint *size_p, Uint flags);
@@ -218,9 +214,6 @@ void  erts_alcu_exec_mseg_dealloc(Allctr_t*, void *seg, Uint size, Uint flags);
 # endif
 #endif /* HAVE_ERTS_MSEG */
 
-void* erts_alcu_sys_alloc(Allctr_t*, Uint *size_p, int superalign);
-void* erts_alcu_sys_realloc(Allctr_t*, void *ptr, Uint *size_p, Uint old_size, int superalign);
-void  erts_alcu_sys_dealloc(Allctr_t*, void *ptr, Uint size, int superalign);
 #ifdef ARCH_32
 void* erts_alcu_literal_32_sys_alloc(Allctr_t*, Uint *size_p, int superalign);
 void* erts_alcu_literal_32_sys_realloc(Allctr_t*, void *ptr, Uint *size_p, Uint old_size, int superalign);

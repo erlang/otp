@@ -821,7 +821,7 @@ static void clear_literal_range(void* start, Uint size)
 
 #if HAVE_ERTS_MSEG
 
-void*
+static void*
 erts_alcu_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
 {
     void *res;
@@ -832,7 +832,7 @@ erts_alcu_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
     return res;
 }
 
-void*
+static void*
 erts_alcu_mseg_realloc(Allctr_t *allctr, void *seg,
                        Uint old_size, Uint *new_size_p)
 {
@@ -845,7 +845,7 @@ erts_alcu_mseg_realloc(Allctr_t *allctr, void *seg,
     return res;
 }
 
-void
+static void
 erts_alcu_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size, Uint flags)
 {
     erts_mseg_dealloc_opt(allctr->alloc_no, seg, (UWord) size, flags, &allctr->mseg_opt);
@@ -996,7 +996,7 @@ erts_alcu_exec_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size, Uint flags)
 
 #endif /* HAVE_ERTS_MSEG */
 
-void*
+static void*
 erts_alcu_sys_alloc(Allctr_t *allctr, Uint* size_p, int superalign)
 {
     void *res;
@@ -1013,7 +1013,7 @@ erts_alcu_sys_alloc(Allctr_t *allctr, Uint* size_p, int superalign)
     return res;
 }
 
-void*
+static void*
 erts_alcu_sys_realloc(Allctr_t *allctr, void *ptr, Uint *size_p, Uint old_size, int superalign)
 {
     void *res;
@@ -1035,7 +1035,7 @@ erts_alcu_sys_realloc(Allctr_t *allctr, void *ptr, Uint *size_p, Uint old_size, 
     return res;
 }
 
-void
+static void
 erts_alcu_sys_dealloc(Allctr_t *allctr, void *ptr, Uint size, int superalign)
 {
 #if ERTS_SA_MB_CARRIERS && ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
