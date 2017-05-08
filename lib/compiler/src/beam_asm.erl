@@ -194,7 +194,7 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, SourceFile, Opts,
 
     Chunks = case member(slim, Opts) of
 		 true ->
-		     [Essentials,AttrChunk,CheckedChunks];
+		     [Essentials,AttrChunk];
 		 false ->
 		     [Essentials,LocChunk,AttrChunk,
 		      CompileChunk,CheckedChunks,LineChunk]
