@@ -211,7 +211,7 @@ erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
 
 	    ci = code_hdr->functions[fi];
 	    ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IaaI));
-	    if (erts_is_native_break(ci)) {
+	    if (erts_is_function_native(ci)) {
 		continue;
 	    }
 	    if (is_nil(ci->mfa.module)) { /* Ignore BIF stub */
@@ -277,7 +277,7 @@ erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
 		continue;
 	    }
 	    ASSERT(*pc == (BeamInstr) BeamOp(op_i_generic_breakpoint));
-	} else if (erts_is_native_break(erts_code_to_codeinfo(ep->addressv[code_ix]))) {
+	} else if (erts_is_function_native(erts_code_to_codeinfo(ep->addressv[code_ix]))) {
 	    continue;
 	}
 
@@ -611,7 +611,7 @@ erts_clear_module_break(Module *modp) {
     n = (Uint)(UWord) code_hdr->num_functions;
     for (i = 0; i < n; ++i) {
 	ErtsCodeInfo *ci = code_hdr->functions[i];
-	if (erts_is_native_break(ci))
+	if (erts_is_function_native(ci))
 	    continue;
 	clear_function_break(ci, ERTS_BPF_ALL);
     }
@@ -620,7 +620,7 @@ erts_clear_module_break(Module *modp) {
 
     for (i = 0; i < n; ++i) {
 	ErtsCodeInfo *ci = code_hdr->functions[i];
-	if (erts_is_native_break(ci))
+	if (erts_is_function_native(ci))
 	    continue;
 	uninstall_breakpoint(ci);
 	consolidate_bp_data(modp, ci, 1);
@@ -1212,17 +1212,6 @@ erts_is_mtrace_break(ErtsCodeInfo *ci, Binary **match_spec_ret,
     return 0;
 }
 
-int
-erts_is_native_break(ErtsCodeInfo *ci) {
-#ifdef HIPE
-    ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IaaI));
-    return erts_codeinfo_to_code(ci)[0] == (BeamInstr) BeamOp(op_hipe_trap_call)
-	|| erts_codeinfo_to_code(ci)[0] == (BeamInstr) BeamOp(op_hipe_trap_call_closure);
-#else
-    return 0;
-#endif
-}
-
 int 
 erts_is_count_break(ErtsCodeInfo *ci, Uint *count_ret)
 {
@@ -1731,7 +1720,7 @@ check_break(ErtsCodeInfo *ci, Uint break_flags)
     GenericBp* g = ci->u.gen_bp;
 
     ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IaaI));
-    if (erts_is_native_break(ci)) {
+    if (erts_is_function_native(ci)) {
 	return 0;
     }
     if (g) {
