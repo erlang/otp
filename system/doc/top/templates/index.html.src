@@ -141,10 +141,11 @@ verification, comment support including paragraph filling, skeletons,
 tags support and more. See the <a href="#tools#/index.html">
 Tools</a> application for details.  
 <p>
-There are also Erlang plugins for
+There are also Erlang plugins for other code editors
+<a href="http://github.com/vim-erlang">Vim (vim-erlang)</a> ,
+<a href="http://atom.io/packages/language-erlang"> Atom </a> ,
 <a href="http://erlide.org/index.html">Eclipse (ErlIDE)</a> and
-<a href="http://ignatov.github.io/intellij-erlang/">IntelliJ IDEA</a>
-if you prefer a more graphical environment, which are both under active development.
+<a href="http://ignatov.github.io/intellij-erlang/">IntelliJ IDEA</a>.
 <li>When developing with Erlang/OTP you usually test your programs
 from the interactive shell (see <a href="getting_started/users_guide.html">
 Getting Started With Erlang</a>) where you can call individual
