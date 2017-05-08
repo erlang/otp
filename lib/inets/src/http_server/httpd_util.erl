@@ -333,7 +333,9 @@ rfc1123_date(LocalTime) ->
     {{YYYY,MM,DD},{Hour,Min,Sec}} = 
 	case calendar:local_time_to_universal_time_dst(LocalTime) of
 	    [Gmt]   -> Gmt;
-	    [_,Gmt] -> Gmt
+	    [_,Gmt] -> Gmt;
+        % Should not happen, but handle the empty list to prevent an error.
+        [] -> LocalTime
 	end,
     DayNumber = calendar:day_of_the_week({YYYY,MM,DD}),
     lists:flatten(

@@ -42,7 +42,8 @@ all() ->
      escaped_url_in_error_body,
      script_timeout,
      slowdose,
-     keep_alive_timeout
+     keep_alive_timeout,
+     invalid_rfc1123_date
     ].
 
 groups() -> 
@@ -381,6 +382,16 @@ slowdose(Config) when is_list(Config) ->
     after 6000 ->
 	    {error, closed} = gen_tcp:send(Socket, "Hey")
     end.
+
+%%-------------------------------------------------------------------------
+
+invalid_rfc1123_date() ->
+    [{doc, "Test that a non-DST date is handled correcly"}].
+invalid_rfc1123_date(Config) when is_list(Config) ->
+    Rfc1123FormattedDate = "Sun, 26 Mar 2017 01:00:00 GMT",
+    NonDSTDateTime = {{2017, 03, 26},{1, 0, 0}},
+    Rfc1123FormattedDate =:= httpd_util:rfc1123_date(NonDSTDateTime).
+
 
 %%-------------------------------------------------------------------------
 %% Internal functions
