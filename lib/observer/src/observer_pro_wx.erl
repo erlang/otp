@@ -67,12 +67,14 @@
 
 -record(holder, {parent,
 		 info,
-		 etop,
+                 next=[],
 		 sort=#sort{},
 		 accum=[],
+                 next_accum=[],
 		 attrs,
 		 node,
-		 backend_pid
+		 backend_pid,
+                 old_backend=false
 		}).
 
 -record(state, {parent,
@@ -226,7 +228,7 @@ handle_info({holder_updated, Count}, State0=#state{grid=Grid}) ->
 
     wxListCtrl:setItemCount(Grid, Count),
     Count > 0 andalso wxListCtrl:refreshItems(Grid, 0, Count-1),
-
+    observer_wx:set_status(io_lib:format("Number of Processes: ~w", [Count])),
     {noreply, State};
 
 handle_info(refresh_interval, #state{holder=Holder}=State) ->
@@ -459,13 +461,13 @@ rm_selected(_, [], [], AccIds, AccPids) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%TABLE HOLDER%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_table_holder(Parent, Accum0, Attrs) ->
-    Backend = spawn_link(node(), observer_backend,etop_collect,[self()]),
+    process_flag(trap_exit, true),
+    Backend = spawn_link(node(), observer_backend, procs_info, [self()]),
     Accum = case Accum0 of
                 true -> true;
                 false -> []
             end,
     table_holder(#holder{parent=Parent,
-			 etop=#etop_info{},
 			 info=array:new(),
 			 node=node(),
 			 backend_pid=Backend,
@@ -474,7 +476,7 @@ init_table_holder(Parent, Accum0, Attrs) ->
 			}).
 
 table_holder(#holder{info=Info, attrs=Attrs,
-		     node=Node, backend_pid=Backend}=S0) ->
+		     node=Node, backend_pid=Backend, old_backend=Old}=S0) ->
     receive
 	{get_row, From, Row, Col} ->
 	    get_row(From, Row, Col, Info),
@@ -482,14 +484,25 @@ table_holder(#holder{info=Info, attrs=Attrs,
 	{get_attr, From, Row} ->
 	    get_attr(From, Row, Attrs),
 	    table_holder(S0);
+        {procs_info, Backend, Procs} ->
+	    State = handle_update(Procs, S0),
+	    table_holder(State);
+        {'EXIT', Backend, normal} when Old =:= false ->
+            S1 = update_complete(S0),
+            table_holder(S1#holder{backend_pid=undefined});
 	{Backend, EtopInfo=#etop_info{}} ->
-	    State = handle_update(EtopInfo, S0),
+	    State = handle_update_old(EtopInfo, S0),
 	    table_holder(State#holder{backend_pid=undefined});
 	refresh when is_pid(Backend)->
 	    table_holder(S0); %% Already updating
 	refresh ->
-	    Pid = spawn_link(Node,observer_backend,etop_collect,[self()]),
-	    table_holder(S0#holder{backend_pid=Pid});
+            Pid = case Old of
+                      true ->
+                          spawn_link(Node, observer_backend, etop_collect, [self()]);
+                      false ->
+                          spawn_link(Node, observer_backend, procs_info, [self()])
+                  end,
+            table_holder(S0#holder{backend_pid=Pid});
 	{change_sort, Col} ->
 	    State = change_sort(Col, S0),
 	    table_holder(State);
@@ -502,7 +515,6 @@ table_holder(#holder{info=Info, attrs=Attrs,
 	{get_name_or_pid, From, Indices} ->
 	    get_name_or_pid(From, Indices, Info),
 	    table_holder(S0);
-
 	{get_node, From} ->
 	    From ! {self(), Node},
 	    table_holder(S0);
@@ -511,36 +523,50 @@ table_holder(#holder{info=Info, attrs=Attrs,
 		true ->
 		    table_holder(S0);
 		false ->
-		    self() ! refresh,
-		    table_holder(S0#holder{node=NewNode})
-	    end;
+                    _ = rpc:call(NewNode, code, ensure_loaded, [observer_backend]),
+                    case rpc:call(NewNode, erlang, function_exported,
+                                  [observer_backend,procs_info, 1]) of
+                        true ->
+                            self() ! refresh,
+                            table_holder(S0#holder{node=NewNode, old_backend=false});
+                        false ->
+                            self() ! refresh,
+                            table_holder(S0#holder{node=NewNode, old_backend=true});
+                        _ ->
+                            table_holder(S0)
+                    end
+            end;
 	{accum, Bool} ->
 	    table_holder(change_accum(Bool,S0));
 	{get_accum, From} ->
 	    From ! {self(), S0#holder.accum == true},
 	    table_holder(S0);
 	{dump, Fd} ->
-	    EtopInfo = (S0#holder.etop)#etop_info{procinfo=array:to_list(Info)},
-            %% The empty #etop_info{} below is a dummy previous info
-            %% value. It is used by etop to calculate the scheduler
-            %% utilization since last update. When dumping to file,
-            %% there is no previous measurement to use, so we just add
-            %% a dummy here, and the value shown will be since the
-            %% tool was started.
-	    etop_txt:do_update(Fd, EtopInfo, #etop_info{}, #opts{node=Node}),
-	    file:close(Fd),
-	    table_holder(S0);
+            Collector = spawn_link(Node, observer_backend, etop_collect,[self()]),
+            receive
+                {Collector, EtopInfo=#etop_info{}} ->
+                    etop_txt:do_update(Fd, EtopInfo, #etop_info{}, #opts{node=Node}),
+                    file:close(Fd),
+                    table_holder(S0);
+                {'EXIT', Collector, _} ->
+                    table_holder(S0)
+            end;
 	stop ->
 	    ok;
-	What ->
-	    io:format("Table holder got ~p~n",[What]),
+        {'EXIT', Backend, normal} ->
+            table_holder(S0);
+        {'EXIT', Backend, _Reason} ->
+            %% Node crashed will be noticed soon..
+            table_holder(S0#holder{backend_pid=undefined});
+	_What ->
+            %% io:format("~p: Table holder got ~p~n",[?MODULE, _What]),
 	    table_holder(S0)
     end.
 
 change_sort(Col, S0=#holder{parent=Parent, info=Data, sort=Sort0}) ->
     {Sort, ProcInfo}=sort(Col, Sort0, Data),
     Parent ! {holder_updated, array:size(Data)},
-    S0#holder{info=ProcInfo, sort=Sort}.
+    S0#holder{info=array:from_list(ProcInfo), sort=Sort}.
 
 change_accum(true, S0) ->
     S0#holder{accum=true};
@@ -548,23 +574,44 @@ change_accum(false, S0=#holder{info=Info}) ->
     self() ! refresh,
     S0#holder{accum=lists:sort(array:to_list(Info))}.
 
-handle_update(EI=#etop_info{procinfo=ProcInfo0},
-	      S0=#holder{parent=Parent, sort=Sort=#sort{sort_key=KeyField}}) ->
-    {ProcInfo1, S1} = accum(ProcInfo0, S0),
+handle_update_old(#etop_info{procinfo=ProcInfo0},
+                  S0=#holder{parent=Parent, sort=Sort=#sort{sort_key=KeyField}}) ->
+    {ProcInfo1, Accum} = accum(ProcInfo0, S0),
     {_SO, ProcInfo} = sort(KeyField, Sort#sort{sort_key=undefined}, ProcInfo1),
-    Parent ! {holder_updated, array:size(ProcInfo)},
-    S1#holder{info=ProcInfo, etop=EI#etop_info{procinfo=[]}}.
+    Info = array:from_list(ProcInfo),
+    Parent ! {holder_updated, array:size(Info)},
+    S0#holder{info=Info, accum=Accum}.
 
-accum(ProcInfo, State=#holder{accum=true}) ->
-    {ProcInfo, State};
-accum(ProcInfo0, State=#holder{accum=Previous}) ->
+handle_update(ProcInfo0, S0=#holder{next=Next, sort=#sort{sort_key=KeyField}}) ->
+    {ProcInfo1, Accum} = accum(ProcInfo0, S0),
+    ProcInfo = lists:keysort(col_to_element(KeyField), ProcInfo1),
+    Merged = lists:keymerge(col_to_element(KeyField), ProcInfo, Next),
+    case Accum of
+        true ->  S0#holder{next=Merged};
+        _List -> S0#holder{next=Merged, next_accum=Accum}
+    end.
+
+update_complete(#holder{parent=Parent, sort=#sort{sort_incr=Incr},
+                        next=ProcInfo, accum=Accum, next_accum=NextAccum}=S0) ->
+    Info = case Incr of
+               true -> array:from_list(ProcInfo);
+               false -> array:from_list(lists:reverse(ProcInfo))
+           end,
+    Parent ! {holder_updated, array:size(Info)},
+    S0#holder{info=Info, accum= Accum =:= true orelse NextAccum,
+              next=[], next_accum=[]}.
+
+accum(ProcInfo, #holder{accum=true}) ->
+    {ProcInfo, true};
+accum(ProcInfo0, #holder{accum=Previous, next_accum=Next}) ->
+    Accum = [{Pid, Reds} || #etop_proc_info{pid=Pid, reds=Reds} <- ProcInfo0],
     ProcInfo = lists:sort(ProcInfo0),
-    {accum2(ProcInfo,Previous,[]), State#holder{accum=ProcInfo}}.
+    {accum2(ProcInfo,Previous,[]), lists:merge(lists:sort(Accum), Next)}.
 
-accum2([PI=#etop_proc_info{pid=Pid, reds=Reds, runtime=RT}|PIs],
-       [#etop_proc_info{pid=Pid, reds=OldReds, runtime=OldRT}|Old], Acc) ->
-    accum2(PIs, Old, [PI#etop_proc_info{reds=Reds-OldReds, runtime=RT-OldRT}|Acc]);
-accum2(PIs=[#etop_proc_info{pid=Pid}|_], [#etop_proc_info{pid=OldPid}|Old], Acc)
+accum2([PI=#etop_proc_info{pid=Pid, reds=Reds}|PIs],
+       [{Pid, OldReds}|Old], Acc) ->
+    accum2(PIs, Old, [PI#etop_proc_info{reds=Reds-OldReds}|Acc]);
+accum2(PIs=[#etop_proc_info{pid=Pid}|_], [{OldPid,_}|Old], Acc)
   when Pid > OldPid ->
     accum2(PIs, Old, Acc);
 accum2([PI|PIs], Old, Acc) ->
@@ -575,14 +622,11 @@ sort(Col, Opt, Table)
   when not is_list(Table) ->
     sort(Col,Opt,array:to_list(Table));
 sort(Col, Opt=#sort{sort_key=Col, sort_incr=Bool}, Table) ->
-    {Opt#sort{sort_incr=not Bool},
-     array:from_list(lists:reverse(Table))};
+    {Opt#sort{sort_incr=not Bool},lists:reverse(Table)};
 sort(Col, S=#sort{sort_incr=true}, Table) ->
-    {S#sort{sort_key=Col},
-     array:from_list(lists:keysort(col_to_element(Col), Table))};
+    {S#sort{sort_key=Col}, lists:keysort(col_to_element(Col), Table)};
 sort(Col, S=#sort{sort_incr=false}, Table) ->
-    {S#sort{sort_key=Col},
-     array:from_list(lists:reverse(lists:keysort(col_to_element(Col), Table)))}.
+    {S#sort{sort_key=Col}, lists:reverse(lists:keysort(col_to_element(Col), Table))}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
