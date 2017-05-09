@@ -293,12 +293,6 @@ default(server) ->
             class => user_options
            },
 
-      {auth_methods, def} =>
-          #{default => ?SUPPORTED_AUTH_METHODS,
-            chk => fun check_string/1,
-            class => user_options
-           },
-
       {auth_method_kb_interactive_data, def} =>
           #{default => undefined, % Default value can be constructed when User is known
             chk => fun({S1,S2,S3,B}) ->
@@ -583,6 +577,12 @@ default(common) ->
            },
 
 %%%%% Undocumented
+      {auth_methods, def} =>
+          #{default => ?SUPPORTED_AUTH_METHODS,
+            chk => fun check_string/1,
+            class => user_options
+           },
+
        {transport, def} =>
            #{default => ?DEFAULT_TRANSPORT,
              chk => fun({A,B,C}) ->
