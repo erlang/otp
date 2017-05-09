@@ -76,7 +76,8 @@ This is the short story though, for the experienced and impatient:
 
     *   Install Visual Studio 15.0 (2017)
 
-    *   Install Microsofts Windows SDK 8.1 
+    *   Install Microsofts Windows SDK 10 (Optional, if you don't installed it
+        when installing Visual Studio 2017 )
 
     *   Get and install Sun's JDK 1.6.0 or later
 
@@ -343,9 +344,9 @@ tools:
         https://www.visualstudio.com/
 
 *   Microsofts Windows SDK version 10.0.15063.0 (corresponding to VC++ 15.0 and
-    Visual Studio 2017). You'll find it here:
+    Visual Studio 2017). (Optional, if you don't installed it when installing Visual Studio 2017 ), You'll find it here:
     
-    URL: <https://msdn.microsoft.com/en-us/windows/desktop/bg162891.aspx>
+    URL: <https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk>
 
 *   To help setup the environment, there is a bat file, 
     `%PROGRAMFILES%\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars32.bat`,
