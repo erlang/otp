@@ -4706,9 +4706,9 @@ for a tag on the form `module:tag'."
 
 (if (fboundp 'advice-add)
     ;; Emacs 24.4+
-    (require 'etags)
+    ((require 'etags)
     (advice-add 'etags-tags-completion-table :around
-                #'erlang-etags-tags-completion-table-advice)
+                #'erlang-etags-tags-completion-table-advice))
   ;; Emacs 23.1-24.3
   (defadvice etags-tags-completion-table (around
                                           erlang-replace-tags-table
