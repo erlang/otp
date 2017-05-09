@@ -609,7 +609,7 @@ struct digest_type_t {
     }md;
 };
 
-struct digest_type_t digest_types[] =
+static struct digest_type_t digest_types[] =
 {
     {{"md4"}, {&EVP_md4}},
     {{"md5"}, {&EVP_md5}},
@@ -666,7 +666,7 @@ struct cipher_type_t {
 #define COND_NO_DES_PTR(Ptr) (Ptr)
 #endif
 
-struct cipher_type_t cipher_types[] =
+static struct cipher_type_t cipher_types[] =
 {
     {{"rc2_cbc"},
 #ifndef OPENSSL_NO_RC2
