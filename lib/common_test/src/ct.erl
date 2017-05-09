@@ -89,6 +89,36 @@
 -export([get_target_name/1]).
 -export([parse_table/1, listenv/1]).
 
+%%----------------------------------------------------------------------
+%% Exported types
+%%----------------------------------------------------------------------
+%% For ct_gen_conn
+-export_type([config_key/0,
+	      target_name/0,
+	      key_or_name/0]).
+
+%% For cth_conn_log
+-export_type([conn_log_options/0,
+	      conn_log_type/0,
+	      conn_log_mod/0]).
+
+%%------------------------------------------------------------------
+%% Type declarations
+%% ------------------------------------------------------------------
+-type config_key() :: atom(). % Config key which exists in a config file
+-type target_name() :: atom().% Name associated to a config_key() though 'require'
+-type key_or_name() :: config_key() | target_name().
+
+%% Types used when logging connections with the 'cth_conn_log' hook
+-type conn_log_options() :: [conn_log_option()].
+-type conn_log_option() :: {log_type,conn_log_type()} |
+                           {hosts,[key_or_name()]}.
+-type conn_log_type() :: raw | pretty | html | silent.
+-type conn_log_mod() :: ct_netconfc | ct_telnet.
+%%----------------------------------------------------------------------
+
+
+
 %%%-----------------------------------------------------------------
 %%% @spec install(Opts) -> ok | {error,Reason}
 %%%    Opts = [Opt]

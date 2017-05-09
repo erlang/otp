@@ -62,7 +62,7 @@ stop_node(Case) ->
 
 
 init_per_suite(Config) ->
-    (catch code:load_file(crypto)),
+    code:ensure_loaded(crypto),
     case {ssh:start(),code:is_loaded(crypto)} of
 	{Ok,{file,_}} when Ok==ok; Ok=={error,{already_started,ssh}} ->
 	    ct:log("SSH started locally",[]),

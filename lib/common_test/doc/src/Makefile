@@ -106,11 +106,17 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
+SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
+
+TOP_SPECS_FILE = specs.xml
+
 # ----------------------------------------------------
 # FLAGS 
 # ----------------------------------------------------
 XML_FLAGS += 
 DVIPS_FLAGS += 
+SPECS_FLAGS = -I../../include -I../../../snmp/include \
+	-I../../../kernel/include
 
 # ----------------------------------------------------
 # Targets
@@ -119,7 +125,7 @@ DVIPS_FLAGS +=
 $(HTMLDIR)/%.gif: %.gif
 	$(INSTALL_DATA) $< $@
 
-docs: pdf html man
+docs: man pdf html
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
@@ -140,6 +146,7 @@ clean clean_docs:
 	rm -f $(MAN3DIR)/*
 	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
+	rm -f $(SPECDIR)/*
 	rm -f errs core *~ 
 
 # ----------------------------------------------------

@@ -24,11 +24,11 @@
 %%
 %% suite() ->
 %%    [{ct_hooks, [{cth_conn_log,
-%%                  [{ct_netconfc:conn_mod(),ct_netconfc:hook_options()}]}]}].
+%%                  [{conn_mod(),hook_options()}]}]}].
 %%
 %% or specified in a configuration file:
 %%
-%% {ct_conn_log,[{ct_netconfc:conn_mod(),ct_netconfc:hook_options()}]}.
+%% {ct_conn_log,[{conn_mod(),hook_options()}]}.
 %%
 %% The conn_mod() is the common test module implementing the protocol,
 %% e.g. ct_netconfc, ct_telnet, etc. This module must log by calling
@@ -58,28 +58,17 @@
 	 post_end_per_testcase/5]).
 
 %%----------------------------------------------------------------------
-%% Exported types
-%%----------------------------------------------------------------------
--export_type([hook_options/0,
-	      log_type/0,
-	      conn_mod/0]).
-
-%%----------------------------------------------------------------------
 %% Type declarations
 %%----------------------------------------------------------------------
--type hook_options() :: [hook_option()].
-%% Options that can be given to `cth_conn_log' in the `ct_hook' statement.
--type hook_option() :: {log_type,log_type()} |
-		       {hosts,[ct_gen_conn:key_or_name()]}.
--type log_type() :: raw | pretty | html | silent.
--type conn_mod() :: ct_netconfc | ct_telnet.
+-type hook_options() :: ct:conn_log_options().
+-type log_type() :: ct:conn_log_type().
+-type conn_mod() :: ct:conn_log_mod().
 %%----------------------------------------------------------------------
 
 -spec init(Id, HookOpts) -> Result when
       Id :: term(),
       HookOpts :: hook_options(),
-      Result :: {ok,[{conn_mod(),
-		      {log_type(),[ct_gen_conn:key_or_name()]}}]}.
+      Result :: {ok,[{conn_mod(),{log_type(),[ct:key_or_name()]}}]}.
 init(_Id, HookOpts) ->
     ConfOpts = ct:get_config(ct_conn_log,[]),
     {ok,merge_log_info(ConfOpts,HookOpts)}.
