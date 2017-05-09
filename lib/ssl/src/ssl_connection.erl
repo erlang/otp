@@ -501,13 +501,7 @@ certify(internal, #certificate{} = Cert,
 	       crl_db = CRLDbInfo,
 	       ssl_options = Opts} = State, Connection) ->
     case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef, 
-			       Opts#ssl_options.depth,
-			       Opts#ssl_options.verify,
-			       Opts#ssl_options.verify_fun,
-			       Opts#ssl_options.partial_chain,
-			       Opts#ssl_options.crl_check,
-			       CRLDbInfo,		       
-			       Role) of
+			       Opts, CRLDbInfo, Role) of
         {PeerCert, PublicKeyInfo} ->
 	    handle_peer_cert(Role, PeerCert, PublicKeyInfo,
 			     State#state{client_certificate_requested = false}, Connection);

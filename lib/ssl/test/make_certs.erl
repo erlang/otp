@@ -385,6 +385,7 @@ req_cnf(Root, C) ->
      "subjectAltName	= email:copy\n"].
 
 ca_cnf(Root, C = #config{issuing_distribution_point = true}) ->
+    Hostname = net_adm:localhost(),		    
     ["# Purpose: Configuration for CAs.\n"
      "\n"
      "ROOTDIR	       = " ++ Root ++ "\n"
@@ -434,7 +435,7 @@ ca_cnf(Root, C = #config{issuing_distribution_point = true}) ->
      "keyUsage 		= nonRepudiation, digitalSignature, keyEncipherment\n"
      "subjectKeyIdentifier = hash\n"
      "authorityKeyIdentifier = keyid,issuer:always\n"
-     "subjectAltName	= email:copy\n"
+     "subjectAltName	= DNS.1:" ++ Hostname ++ "\n"
      "issuerAltName	= issuer:copy\n"
      "crlDistributionPoints=@crl_section\n"
 
@@ -449,7 +450,7 @@ ca_cnf(Root, C = #config{issuing_distribution_point = true}) ->
      "keyUsage 		= digitalSignature\n"
      "subjectKeyIdentifier = hash\n"
      "authorityKeyIdentifier = keyid,issuer:always\n"
-     "subjectAltName	= email:copy\n"
+     "subjectAltName	= DNS.1:" ++ Hostname ++ "\n"
      "issuerAltName	= issuer:copy\n"
      "\n"
 
@@ -458,12 +459,13 @@ ca_cnf(Root, C = #config{issuing_distribution_point = true}) ->
      "keyUsage 		= cRLSign, keyCertSign\n"
      "subjectKeyIdentifier = hash\n"
      "authorityKeyIdentifier = keyid:always,issuer:always\n"
-     "subjectAltName	= email:copy\n"
+     "subjectAltName	= DNS.1:" ++ Hostname ++ "\n"
      "issuerAltName	= issuer:copy\n"
      "crlDistributionPoints=@crl_section\n"
     ];
 
 ca_cnf(Root, C = #config{issuing_distribution_point = false}) ->
+  Hostname = net_adm:localhost(),	     
     ["# Purpose: Configuration for CAs.\n"
      "\n"
      "ROOTDIR	          = " ++ Root ++ "\n"
@@ -513,7 +515,7 @@ ca_cnf(Root, C = #config{issuing_distribution_point = false}) ->
      "keyUsage 		= nonRepudiation, digitalSignature, keyEncipherment\n"
      "subjectKeyIdentifier = hash\n"
      "authorityKeyIdentifier = keyid,issuer:always\n"
-     "subjectAltName	= email:copy\n"
+     "subjectAltName	= DNS.1:" ++ Hostname ++ "\n"
      "issuerAltName	= issuer:copy\n"
      %"crlDistributionPoints=@crl_section\n"
 
@@ -528,7 +530,7 @@ ca_cnf(Root, C = #config{issuing_distribution_point = false}) ->
      "keyUsage 		= digitalSignature\n"
      "subjectKeyIdentifier = hash\n"
      "authorityKeyIdentifier = keyid,issuer:always\n"
-     "subjectAltName	= email:copy\n"
+     "subjectAltName	= DNS.1:" ++ Hostname ++ "\n"
      "issuerAltName	= issuer:copy\n"
      "\n"
 

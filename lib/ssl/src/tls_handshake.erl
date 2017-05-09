@@ -56,7 +56,7 @@ client_hello(Host, Port, ConnectionStates,
     Version = tls_record:highest_protocol_version(Versions),
     #{security_parameters := SecParams} = ssl_record:pending_connection_state(ConnectionStates, read),
     AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),     
-    Extensions = ssl_handshake:client_hello_extensions(Host, Version, 
+    Extensions = ssl_handshake:client_hello_extensions(Version, 
 						       AvailableCipherSuites,
 						       SslOpts, ConnectionStates, Renegotiation),
     CipherSuites = 

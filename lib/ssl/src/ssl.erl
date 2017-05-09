@@ -112,7 +112,7 @@ connect(Host, Port, Options) ->
 
 connect(Host, Port, Options, Timeout) when (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     try
-	{ok, Config} = handle_options(Options, client),
+	{ok, Config} = handle_options(Options, client, Host),
 	case Config#config.connection_cb of
 	    tls_connection ->
 		tls_socket:connect(Host,Port,Config,Timeout);
@@ -632,8 +632,12 @@ do_listen(Port,  #config{transport_info = {Transport, _, _, _}} = Config, dtls_c
 %% Handle extra ssl options given to ssl_accept
 -spec handle_options([any()], #ssl_options{}) -> #ssl_options{}
       ;             ([any()], client | server) -> {ok, #config{}}.
+handle_options(Opts, Role) ->
+    handle_options(Opts, Role, undefined).   
+
+
 handle_options(Opts0, #ssl_options{protocol = Protocol, cacerts = CaCerts0,
-				   cacertfile = CaCertFile0} = InheritedSslOpts) ->
+				   cacertfile = CaCertFile0} = InheritedSslOpts, _) ->
     RecordCB = record_cb(Protocol),
     CaCerts = handle_option(cacerts, Opts0, CaCerts0),
     {Verify, FailIfNoPeerCert, CaCertDefault, VerifyFun, PartialChainHanlder,
@@ -666,7 +670,7 @@ handle_options(Opts0, #ssl_options{protocol = Protocol, cacerts = CaCerts0,
     end;
 
 %% Handle all options in listen and connect
-handle_options(Opts0, Role) ->
+handle_options(Opts0, Role, Host) ->
     Opts = proplists:expand([{binary, [{mode, binary}]},
 			     {list, [{mode, list}]}], Opts0),
     assert_proplist(Opts),
@@ -738,7 +742,9 @@ handle_options(Opts0, Role) ->
 			make_next_protocol_selector(
 			  handle_option(client_preferred_next_protocols, Opts, undefined)),
 		    log_alert = handle_option(log_alert, Opts, true),
-		    server_name_indication = handle_option(server_name_indication, Opts, undefined),
+		    server_name_indication = handle_option(server_name_indication, Opts, 
+                                                           default_option_role(client,
+                                                                               server_name_indication_default(Host), Role)),
 		    sni_hosts = handle_option(sni_hosts, Opts, []),
 		    sni_fun = handle_option(sni_fun, Opts, undefined),
 		    honor_cipher_order = handle_option(honor_cipher_order, Opts, 
@@ -982,12 +988,20 @@ validate_option(next_protocols_advertised = Opt, Value) when is_list(Value) ->
 
 validate_option(next_protocols_advertised, undefined) ->
     undefined;
-validate_option(server_name_indication, Value) when is_list(Value) ->
+validate_option(server_name_indication = Opt, Value) when is_list(Value) ->
+    %% RFC 6066, Section 3: Currently, the only server names supported are
+    %% DNS hostnames
+     case inet_parse:domain(Value) of
+        false -> 
+           throw({error, {options, {{Opt, Value}}}});
+        true -> 
+            Value
+     end;
+validate_option(server_name_indication, undefined = Value) ->
     Value;
 validate_option(server_name_indication, disable) ->
-    disable;
-validate_option(server_name_indication, undefined) ->
     undefined;
+
 validate_option(sni_hosts, []) ->
     [];
 validate_option(sni_hosts, [{Hostname, SSLOptions} | Tail]) when is_list(Hostname) ->
@@ -1445,3 +1459,8 @@ include_security_info([Item | Items]) ->
         false  ->
             include_security_info(Items)
     end.
+
+server_name_indication_default(Host) when is_list(Host) ->
+    Host;
+server_name_indication_default(_) ->
+    undefined.

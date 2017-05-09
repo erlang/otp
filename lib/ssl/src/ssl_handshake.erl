@@ -50,7 +50,7 @@
 	 finished/5,  next_protocol/1]).
 
 %% Handle handshake messages
--export([certify/10, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
+-export([certify/6, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
 	 master_secret/4, server_key_exchange_hash/2, verify_connection/6,
 	 init_handshake_history/0, update_handshake_history/3, verify_server_key/5
 	]).
@@ -68,7 +68,7 @@
 	 select_session/11, supported_ecc/1, available_signature_algs/4]).
 
 %% Extensions handling
--export([client_hello_extensions/6,
+-export([client_hello_extensions/5,
 	 handle_client_hello_extensions/9, %% Returns server hello extensions
 	 handle_server_hello_extensions/9, select_curve/2, select_curve/3
 	]).
@@ -119,7 +119,7 @@ server_hello(SessionId, Version, ConnectionStates, Extensions) ->
 server_hello_done() ->
     #server_hello_done{}.
 
-client_hello_extensions(Host, Version, CipherSuites, 
+client_hello_extensions(Version, CipherSuites, 
 			#ssl_options{signature_algs = SupportedHashSigns,
 				     eccs = SupportedECCs} = SslOpts, ConnectionStates, Renegotiation) ->
     {EcPointFormats, EllipticCurves} =
@@ -142,7 +142,7 @@ client_hello_extensions(Host, Version, CipherSuites,
        next_protocol_negotiation =
 	   encode_client_protocol_negotiation(SslOpts#ssl_options.next_protocol_selector,
 					      Renegotiation),
-       sni = sni(Host, SslOpts#ssl_options.server_name_indication)}.
+       sni = sni(SslOpts#ssl_options.server_name_indication)}.
 
 %%--------------------------------------------------------------------
 -spec certificate(der_cert(), db_handle(), certdb_ref(), client | server) -> #certificate{} | #alert{}.
@@ -388,24 +388,26 @@ verify_signature(_, Hash, {HashAlgo, _SignAlg}, Signature,
 
 
 %%--------------------------------------------------------------------
--spec certify(#certificate{}, db_handle(), certdb_ref(), integer() | nolimit,
-	      verify_peer | verify_none, {fun(), term}, fun(), term(), term(),
+-spec certify(#certificate{}, db_handle(), certdb_ref(), #ssl_options{}, term(),
 	      client | server) ->  {der_cert(), public_key_info()} | #alert{}.
 %%
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
 certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
-	MaxPathLen, _Verify, ValidationFunAndState0, PartialChain, CRLCheck, CRLDbHandle, Role) ->
+        Opts, CRLDbHandle, Role) ->    
+
     [PeerCert | _] = ASN1Certs,       
     try
 	{TrustedCert, CertPath}  =
-	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef, PartialChain),
-        ValidationFunAndState = validation_fun_and_state(ValidationFunAndState0, Role, 
+	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef,  
+                                                  Opts#ssl_options.partial_chain),
+        ValidationFunAndState = validation_fun_and_state(Opts#ssl_options.verify_fun, Role, 
                                                          CertDbHandle, CertDbRef,  
-                                                         CRLCheck, CRLDbHandle, CertPath),
+                                                         Opts#ssl_options.server_name_indication,
+                                                         Opts#ssl_options.crl_check, CRLDbHandle, CertPath),
 	case public_key:pkix_path_validation(TrustedCert,
 					     CertPath,
-					     [{max_path_length, MaxPathLen},
+					     [{max_path_length,  Opts#ssl_options.depth},
 					      {verify_fun, ValidationFunAndState}]) of
 	    {ok, {PublicKeyInfo,_}} ->
 		{PeerCert, PublicKeyInfo};
@@ -1522,25 +1524,16 @@ select_shared_curve([Curve | Rest], Curves) ->
 	    select_shared_curve(Rest, Curves)
     end.
 
-%% RFC 6066, Section 3: Currently, the only server names supported are
-%% DNS hostnames
-sni(_, disable) ->
+sni(undefined) ->
     undefined;
-sni(Host, undefined) ->
-    sni1(Host);
-sni(_Host, SNIOption) ->
-    sni1(SNIOption).
+sni(Hostname) ->
+    #sni{hostname = Hostname}.
 
-sni1(Hostname) ->
-    case inet_parse:domain(Hostname) of
-        false -> undefined;
-        true -> #sni{hostname = Hostname}
-    end.
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef, 
-                         CRLCheck, CRLDbHandle, CertPath) ->
+                         ServerNameIndication, CRLCheck, CRLDbHandle, CertPath) ->
     {fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
 	     case ssl_certificate:validate(OtpCert,
 					   Extension,
@@ -1557,9 +1550,9 @@ validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef,
 	(OtpCert, VerifyResult, {SslState, UserState}) ->
 	     apply_user_fun(Fun, OtpCert, VerifyResult, UserState,
 			    SslState, CertPath)
-     end, {{Role, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle}, UserState0}};
+     end, {{Role, CertDbHandle, CertDbRef, ServerNameIndication, CRLCheck, CRLDbHandle}, UserState0}};
 validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef, 
-                         CRLCheck, CRLDbHandle, CertPath) ->
+                         ServerNameIndication, CRLCheck, CRLDbHandle, CertPath) ->
     {fun(OtpCert, {extension, _} = Extension, SslState) ->
 	     ssl_certificate:validate(OtpCert,
 				      Extension,
@@ -1568,8 +1561,10 @@ validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef,
                                                (VerifyResult == valid_peer) -> 
 	     case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, 
                             CRLDbHandle, VerifyResult, CertPath) of
-		 valid ->
-		     {VerifyResult, SslState};
+		 valid ->                     
+                     ssl_certificate:validate(OtpCert,
+                                              VerifyResult,
+                                              SslState);
 		 Reason ->
 		     {fail, Reason}
 	     end;
@@ -1577,10 +1572,10 @@ validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef,
 	     ssl_certificate:validate(OtpCert,
 				      VerifyResult,
 				      SslState)
-     end, {Role, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle}}.
+     end, {Role, CertDbHandle, CertDbRef, ServerNameIndication, CRLCheck, CRLDbHandle}}.
 
 apply_user_fun(Fun, OtpCert, VerifyResult, UserState0, 
-	       {_, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle} = SslState, CertPath) when
+	       {_, CertDbHandle, CertDbRef, _, CRLCheck, CRLDbHandle} = SslState, CertPath) when
       (VerifyResult == valid) or (VerifyResult == valid_peer) ->
     case Fun(OtpCert, VerifyResult, UserState0) of
 	{Valid, UserState} when (Valid == valid) or (Valid == valid_peer) ->
