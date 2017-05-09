@@ -31,7 +31,7 @@
 	 file_1/1, forms_2/1, module_mismatch/1, big_file/1, outdir/1,
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, kernel_listing/1, encrypted_abstr/1,
-	 strict_record/1, utf8_atoms/1, extra_chunks/1,
+	 strict_record/1, utf8_atoms/1, utf8_functions/1, extra_chunks/1,
 	 cover/1, env/1, core/1,
 	 core_roundtrip/1, asm/1, optimized_guards/1,
 	 sys_pre_attributes/1, dialyzer/1,
@@ -49,7 +49,7 @@ all() ->
     [app_test, appup_test, file_1, forms_2, module_mismatch, big_file, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, kernel_listing, encrypted_abstr,
-     strict_record, utf8_atoms, extra_chunks,
+     strict_record, utf8_atoms, utf8_functions, extra_chunks,
      cover, env, core, core_roundtrip, asm, optimized_guards,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
      env_compiler_options, custom_debug_info].
@@ -726,6 +726,23 @@ utf8_atoms(Config) when is_list(Config) ->
 
     NoUtf8AtomForms = [{attribute,Anno,module,no_utf8_atom}|Forms],
     error = compile:forms(NoUtf8AtomForms, [binary, r19]).
+
+utf8_functions(Config) when is_list(Config) ->
+    Anno = erl_anno:new(1),
+    Atom = binary_to_atom(<<"こんにちは"/utf8>>, utf8),
+    Forms = [{attribute,Anno,compile,[export_all]},
+	     {function,Anno,Atom,0,[{clause,Anno,[],[],[{atom,Anno,world}]}]}],
+
+    Utf8FunctionForms = [{attribute,Anno,module,utf8_function}|Forms],
+    {ok,utf8_function,Utf8FunctionBin} =
+	compile:forms(Utf8FunctionForms, [binary]),
+    {ok,{utf8_function,[{atoms,_}]}} =
+	beam_lib:chunks(Utf8FunctionBin, [atoms]),
+    code:load_binary(utf8_function, "compile_SUITE", Utf8FunctionBin),
+    world = utf8_function:Atom(),
+
+    NoUtf8FunctionForms = [{attribute,Anno,module,no_utf8_function}|Forms],
+    error = compile:forms(NoUtf8FunctionForms, [binary, r19]).
 
 extra_chunks(Config) when is_list(Config) ->
     Anno = erl_anno:new(1),

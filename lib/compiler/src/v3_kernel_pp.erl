@@ -145,7 +145,7 @@ format_1(#k_local{name=N,arity=A}, Ctxt) ->
     "local " ++ format_fa_pair({N,A}, Ctxt);
 format_1(#k_remote{mod=M,name=N,arity=A}, _Ctxt) ->
     %% This is for our internal translator.
-    io_lib:format("remote ~s:~s/~w", [format(M),format(N),A]);
+    io_lib:format("remote ~ts:~ts/~w", [format(M),format(N),A]);
 format_1(#k_internal{name=N,arity=A}, Ctxt) ->
     "internal " ++ format_fa_pair({N,A}, Ctxt);
 format_1(#k_seq{arg=A,body=B}, Ctxt) ->
