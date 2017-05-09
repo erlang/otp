@@ -1394,6 +1394,18 @@ portable_open_port(Exe, Args) ->
     open_port({spawn_executable, AbsPath}, 
 	      [{args, Args}, stderr_to_stdout]). 
 
+supports_ssl_tls_version(sslv2 = Version) ->
+    case os:cmd("openssl version") of
+	"OpenSSL 1" ++ _ -> 
+	    false;
+	_ ->
+            VersionFlag = version_flag(Version),
+            Exe = "openssl",
+            Args = ["s_client", VersionFlag],
+            Port = ssl_test_lib:portable_open_port(Exe, Args),
+            do_supports_ssl_tls_version(Port)
+    end;
+
 supports_ssl_tls_version(Version) ->
     VersionFlag = version_flag(Version),
     Exe = "openssl",
