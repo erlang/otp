@@ -243,6 +243,12 @@ t_erl_tidy(Config) when is_list(Config) ->
     ok = erl_tidy:file(File, [{stdout, true}]),
     ok.
 
+t_erl_tidy(Config) when is_list(Config) ->
+    DataDir   = ?config(data_dir, Config),
+    File  = filename:join(DataDir,"erl_tidy_tilde.erl"),
+    ok = erl_tidy:file(File, [{stdout, true}]),
+    ok.
+
 test_comment_scan([],_) -> ok;
 test_comment_scan([File|Files],DataDir) ->
     Filename  = filename:join(DataDir,File),
