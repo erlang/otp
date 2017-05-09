@@ -74,15 +74,15 @@ This is the short story though, for the experienced and impatient:
     *   Get and install complete Cygwin (latest), complete MinGW with MSYS or 
         complete MSYS2
 
-    *   Install Visual Studio 12.0 (2013)
+    *   Install Visual Studio 15.0 (2017)
 
     *   Install Microsofts Windows SDK 8.1 
 
     *   Get and install Sun's JDK 1.6.0 or later
 
-    *   Get and install NSIS 2.01 or later (up to 2.46 tried and working)
+    *   Get and install NSIS 2.01 or later (up to 2.51 tried and working)
 
-    *   Get, build and install OpenSSL 0.9.8r or later (up to 1.0.2d
+    *   Get, build and install OpenSSL 0.9.8r or later (up to 1.0.2k
         tried & working) with static libs.
 
     *   Get the Erlang source distribution (from
@@ -122,7 +122,7 @@ Frequently Asked Questions
     needed to build Erlang are free-ware/open source, but not the C
     compiler. The Windows SDK is however enough to build Erlang, you
     do not need to buy Visual C++, just download the SDK (SDK version
-    8.1 == Visual studio 2013).
+    10.0.15063.0 (Creator Update) == Visual studio 2017).
 
 *   Q: Why haven't you got rid of VC++ then, you \*\*\*\*\*\*?
 
@@ -233,9 +233,9 @@ Frequently Asked Questions
     for new Cygwin/MSYS/MSYS2-related bugs as soon as you encounter
     them. Also please do submit bug reports to the appropriate Cygwin, MSYS
     and/or MSYS2 developers. The GCC we used for %OTP-REL% was version
-    4.8.1 (MinGW 32bit) and 4.8.5 (MSYS2 64bit). We used  VC++ 12.0 
-    (i.e. Visual studio 2013), Sun's JDK 1.6.0\_45 (32bit) and Sun's
-    JDK 1.7.0\_1 (64bit), NSIS 2.46, and Win32 OpenSSL 1.0.2d. Please
+    4.8.1 (MinGW 32bit) and 4.8.5 (MSYS2 64bit). We used  VC++ 15.0
+    (i.e. Visual studio 2017), Sun's JDK 1.6.0\_45 (32bit) and Sun's
+    JDK 1.7.0\_1 (64bit), NSIS 2.46, and Win32 OpenSSL 1.0.2k. Please
     read the next section for details on what you need.
 
 *   Q: Can you help me setup X in Cygwin/MSYS/MSYS2?
@@ -337,18 +337,18 @@ tools:
         pacman -S mingw32/mingw-w64-i686-gcc
         pacman -S mingw-w64-i686-editrights
 
-*   Visual Studio 2013 (Visual Studio 12.0). Download and run the web 
+*   Visual Studio 2017 (Visual Studio 15.0). Download and run the web
     installer from: 
 
         https://www.visualstudio.com/
 
-*   Microsofts Windows SDK version 8.1 (corresponding to VC++ 12.0 and
-    Visual Studio 2013). You'll find it here:
+*   Microsofts Windows SDK version 10.0.15063.0 (corresponding to VC++ 15.0 and
+    Visual Studio 2017). You'll find it here:
     
     URL: <https://msdn.microsoft.com/en-us/windows/desktop/bg162891.aspx>
 
 *   To help setup the environment, there is a bat file, 
-    `%PROGRAMFILES%\Mirosoft Visual Studio 12.0\VC\vcvarsall.bat`, 
+    `%PROGRAMFILES%\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars32.bat`,
     that set's the appropriate
     environment for a Windows command prompt. This is not appropriate
     for bash, so you'll need to convert it to bash-style environments
@@ -364,7 +364,7 @@ tools:
         # nsis
         NSIS_BIN=$PRG_FLS/NSIS
         # java
-        JAVA_BIN=$PROGRAMFILES/Java/jdk1.7.0_02/bin
+        JAVA_BIN=$PROGRAMFILES/Java/jdk1.8.0_131/bin
 
         ##
         ## MS SDK
@@ -372,14 +372,20 @@ tools:
 
         CYGWIN=nowinsymlinks 
 
-        VISUAL_STUDIO_ROOT=$PRG_FLS/Microsoft\ Visual\ Studio\ 12.0
-        WIN_VISUAL_STUDIO_ROOT="C:\\Program Files\\Microsoft Visual Studio 12.0"
-        SDK=$PRG_FLS/Windows\ Kits/8.1
-        WIN_SDK="C:\\Program Files\\Windows Kits\\8.1"
+        # Visual Studio
+        VISUAL_STUDIO_ROOT=$PRG_FLS32/Microsoft\ Visual\ Studio/2017
+        WIN_VISUAL_STUDIO_ROOT="C:\\Program Files (x86)\\Microsoft Visual Studio\\2017"
+
+        # SDK
+        SDK=$PRG_FLS32/Windows\ Kits/10
+        WIN_SDK="C:\\Program Files (x86)\\Windows Kits\\10"
+        MICROSOFT_SDK="C:\\Program Files (x86)\\Microsoft SDKs\\Windows Kits\\10"
+        NET_FRAMEWORK="C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319"
+        NETFX_SDK="C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.6.1"
 
         PATH="$NSIS_BIN:\
-        $VISUAL_STUDIO_ROOT/VC/bin:\
-        $VISUAL_STUDIO_ROOT/VC/vcpackages:\
+        $VISUAL_STUDIO_ROOT/Enterprise/VC/Tools/MSVC/14.10.25017/bin/Hostx86/x86:\
+        $VISUAL_STUDIO_ROOT/Enterprise/Common7/IDE/VC/VCPackages:\
         $VISUAL_STUDIO_ROOT/Common7/IDE:\
         $VISUAL_STUDIO_ROOT/Common7/Tools:\
         $SDK/bin/x86
@@ -388,12 +394,31 @@ tools:
         /cygdrive/c/WINDOWS/system32/Wbem:\
         $JAVA_BIN"
 
-        LIBPATH="$WIN_VISUAL_STUDIO_ROOT\\VC\\lib"
+        ## Microsoft SDK libs
+        LIBPATH=$WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\ATLMFC\\lib\\x86:\
+        $WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\lib\\x86:\
+        $WIN_SDK\\UnionMetadata\\10.0.15063.0:\
+        $WIN_SDK\\References\\10.0.15063.0:\
+        $WIN_SDK\\Lib\\10.0.15063.0\\um\\x86:\
+        $WIN_SDK\\Lib\\10.0.15063.0\\ucrt\\x86:\
+        $NET_FRAMEWORK
 
-        LIB="$WIN_VISUAL_STUDIO_ROOT\\VC\\lib\\;$WIN_SDK\\lib\\winv6.3\\um\\x86"
+        LIB="$WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\ATLMFC\\lib\\x86;\
+        $WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\lib\\x86;\
+        $WIN_SDK\\UnionMetadata\\10.0.15063.0;\
+        $WIN_SDK\\References\\10.0.15063.0;\
+        $WIN_SDK\\Lib\\10.0.15063.0\\um\\x86;\
+        $WIN_SDK\\Lib\\10.0.15063.0\\ucrt\\x86;\
+        $NET_FRAMEWORK"
 
-        INCLUDE="$WIN_VISUAL_STUDIO_ROOT\\VC\\include\\;$WIN_SDK\\include\\shared\\;\
-        $WIN_SDK\\include\\um;$WIN_SDK\\include\\winrt\\;$WIN_SDK\\include\\um\\gl"
+
+        INCLUDE="$WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\ATLMFC\\include;\
+        $WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\include;\
+        $NETFX_SDK\\include\\um;\
+        $WIN_SDK\\include\\10.0.15063.0\\ucrt;\
+        $WIN_SDK\\include\\10.0.15063.0\\shared;\
+        $WIN_SDK\\include\\10.0.15063.0\\um;\
+        $WIN_SDK\\include\\10.0.15063.0\\winrt""
 
         export CYGWIN PATH LIBPATH LIB INCLUDE
 
@@ -408,8 +433,8 @@ tools:
 
 
         PATH="$NSIS_BIN:\
-        $VISUAL_STUDIO_ROOT/VC/bin:\
-        $VISUAL_STUDIO_ROOT/VC/vcpackages:\
+        $VISUAL_STUDIO_ROOT/Enterprise/VC/Tools/MSVC/14.10.25017/bin/Hostx86/x86:\
+        $VISUAL_STUDIO_ROOT/Enterprise/Common7/IDE/VC/VCPackages:\
         $VISUAL_STUDIO_ROOT/Common7/IDE:\
         $VISUAL_STUDIO_ROOT/Common7/Tools:\
         $SDK/bin/x86:/usr/local/bin:\
@@ -474,42 +499,65 @@ tools:
         obe_otp_64_gcc_vsn_map="
             .*=>default
         "
-        # Program Files 
-        PRG_FLS=$C_DRV/Program\ Files
+        # Program Files
+        PRG_FLS64=$C_DRV/Program\ Files
+        PRG_FLS32=$C_DRV/Program\ Files\ \(x86\)
 
         # Visual Studio
-        VISUAL_STUDIO_ROOT=$PRG_FLS/Microsoft\ Visual\ Studio\ 12.0
-        WIN_VISUAL_STUDIO_ROOT="C:\\Program Files\\Microsoft Visual Studio 12.0"
+        VISUAL_STUDIO_ROOT=$PRG_FLS32/Microsoft\ Visual\ Studio/2017
+        WIN_VISUAL_STUDIO_ROOT="C:\\Program Files (x86)\\Microsoft Visual Studio\\2017"
 
         # SDK
-        SDK=$PRG_FLS/Windows\ Kits/8.1
-        WIN_SDK="C:\\Program Files\\Windows Kits\\8.1"
+        SDK=$PRG_FLS32/Windows\ Kits/10
+        WIN_SDK="C:\\Program Files (x86)\\Windows Kits\\10"
+        MICROSOFT_SDK="C:\\Program Files (x86)\\Microsoft SDKs\\Windows Kits\\10"
+        NET_FRAMEWORK="C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319"
+        NETFX_SDK="C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.6.1"
 
         # NSIS
-        NSIS_BIN=$PROGRAMFILES/NSIS
+        NSIS_BIN=$PRG_FLS32/NSIS
 
-        # Java 
-        JAVA_BIN=$PROGRAMFILES/Java/jdk1.7.0_02/bin
+        # Java
+        FOP_BIN=/cygdrive/c/Users/Username/Documents/Tools/fop-2.1
+        JAVA_BIN=$PRG_FLS32/Java/jdk1.8.0_131/bin
+        CMAKE_BIN=/cygdrive/c/Users/Username/Documents/Tools/cmake-3.8.0-win32-x86/bin
 
         ## The PATH variable should be Cygwin'ish
-        VCPATH=
-        $VISUAL_STUDIO_ROOT/VC/bin:\
-        $VISUAL_STUDIO_ROOT/VC/vcpackages:\
+        VCPATH=\
+        $VISUAL_STUDIO_ROOT/Enterprise/VC/Tools/MSVC/14.10.25017/bin/Hostx86/x86:\
+        $VISUAL_STUDIO_ROOT/Enterprise/Common7/IDE/VC/VCPackages:\
         $VISUAL_STUDIO_ROOT/Common7/IDE:\
         $VISUAL_STUDIO_ROOT/Common7/Tools:\
         $SDK/bin/x86
 
         ## Microsoft SDK libs
-        LIBPATH=$WIN_VISUAL_STUDIO_ROOT\\VC\\lib
+        LIBPATH=$WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\ATLMFC\\lib\\x86:\
+        $WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\lib\\x86:\
+        $WIN_SDK\\UnionMetadata\\10.0.15063.0:\
+        $WIN_SDK\\References\\10.0.15063.0:\
+        $WIN_SDK\\Lib\\10.0.15063.0\\um\\x86:\
+        $WIN_SDK\\Lib\\10.0.15063.0\\ucrt\\x86:\
+        $NET_FRAMEWORK
 
-        LIB=$WIN_VISUAL_STUDIO_ROOT\\VC\\lib\\;$WIN_KITS\\lib\\winv6.3\\um\\x86
+        LIB="$WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\ATLMFC\\lib\\x86;\
+        $WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\lib\\x86;\
+        $WIN_SDK\\UnionMetadata\\10.0.15063.0;\
+        $WIN_SDK\\References\\10.0.15063.0;\
+        $WIN_SDK\\Lib\\10.0.15063.0\\um\\x86;\
+        $WIN_SDK\\Lib\\10.0.15063.0\\ucrt\\x86;\
+        $NET_FRAMEWORK"
 
-        INCLUDE=$WIN_VISUAL_STUDIO_ROOT\\VC\\include\\;\
-        $WIN_KITS\\include\\shared\\;$WIN_KITS\\include\\um;\
-        $WIN_KITS\\include\\winrt\\;$WIN_KITS\\include\\um\\gl
+
+        INCLUDE="$WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\ATLMFC\\include;\
+        $WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\include;\
+        $NETFX_SDK\\include\\um;\
+        $WIN_SDK\\include\\10.0.15063.0\\ucrt;\
+        $WIN_SDK\\include\\10.0.15063.0\\shared;\
+        $WIN_SDK\\include\\10.0.15063.0\\um;\
+        $WIN_SDK\\include\\10.0.15063.0\\winrt"
 
         # Put nsis, c compiler and java in path
-        export PATH=$VCPATH:$PATH:$JAVA_BIN:$NSIS_BIN
+        export PATH=$VCPATH:$PATH:$JAVA_BIN:$NSIS_BIN:$FOP_BIN:$CMAKE_BIN
 
         # Make sure LIB and INCLUDE is available for others
         export LIBPATH LIB INCLUDE
@@ -524,42 +572,66 @@ tools:
         PRG_FLS32=$C_DRV/Program\ Files\ \(x86\)
 
         # Visual Studio
-        VISUAL_STUDIO_ROOT=$PRG_FLS32/Microsoft\ Visual\ Studio\ 12.0
-        WIN_VISUAL_STUDIO_ROOT="C:\\Program Files (x86)\\Microsoft Visual Studio 12.0"
+        VISUAL_STUDIO_ROOT=$PRG_FLS32/Microsoft\ Visual\ Studio/2017
+        WIN_VISUAL_STUDIO_ROOT="C:\\Program Files (x86)\\Microsoft Visual Studio\\2017"
 
         # SDK
-        SDK=$PRG_FLS32/Windows\ Kits/8.1
-        WIN_SDK="C:\\Program Files (x86)\\Windows Kits\\8.1"
+        SDK=$PRG_FLS32/Windows\ Kits/10
+        WIN_SDK="C:\\Program Files (x86)\\Windows Kits\\10"
+        MICROSOFT_SDK="C:\\Program Files (x86)\\Microsoft SDKs\\Windows Kits\\10"
+        NET_FRAMEWORK="C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319"
+        NETFX_SDK="C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.6.1"
 
         # NSIS
-        NSIS_BIN=$PROGRAMFILES/NSIS
-        # Java 
-        JAVA_BIN=$PROGRAMFILES/Java/jdk1.7.0_02/bin
+        NSIS_BIN=$PRG_FLS32/NSIS
+
+        # Java
+        FOP_BIN=/cygdrive/c/Users/Username/Documents/Tools/fop-2.1
+        JAVA_BIN=$PRG_FLS32/Java/jdk1.8.0_131/bin
+        CMAKE_BIN=/cygdrive/c/Users/Username/Documents/Tools/cmake-3.8.0-win32-x86/bin
 
         ## The PATH variable should be Cygwin'ish
-        VCPATH=
-        $VISUAL_STUDIO_ROOT/VC/bin/amd64:\
-        $VISUAL_STUDIO_ROOT/VC/vcpackages:\
+        VCPATH=\
+        $VISUAL_STUDIO_ROOT/Enterprise/VC/Tools/MSVC/14.10.25017/bin/HostX64/x64:\
+        $VISUAL_STUDIO_ROOT/Enterprise/Common7/IDE/VC/VCPackages:\
         $VISUAL_STUDIO_ROOT/Common7/IDE:\
         $VISUAL_STUDIO_ROOT/Common7/Tools:\
-        $SDK/bin/x86
+        $SDK/bin/x64
 
         ## Microsoft SDK libs
-        LIBPATH=$WIN_VISUAL_STUDIO_ROOT\\VC\\lib\\amd64
+        LIBPATH=$WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\ATLMFC\\lib\\x64:\
+        $WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\lib\\x64:\
+        $WIN_SDK\\UnionMetadata\\10.0.15063.0:\
+        $WIN_SDK\\References\\10.0.15063.0:\
+        $WIN_SDK\\Lib\\10.0.15063.0\\um\\x64:\
+        $WIN_SDK\\Lib\\10.0.15063.0\\ucrt\\x64:\
+        $NET_FRAMEWORK
 
-        LIB=$WIN_VISUAL_STUDIO_ROOT\\VC\\lib\\amd64\\;\
-        $WIN_KITS\\lib\\winv6.3\\um\\x64
+        LIB="$WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\ATLMFC\\lib\\x64;\
+        $WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\lib\\x64;\
+        $WIN_SDK\\UnionMetadata\\10.0.15063.0;\
+        $WIN_SDK\\References\\10.0.15063.0;\
+        $WIN_SDK\\Lib\\10.0.15063.0\\um\\x64;\
+        $WIN_SDK\\Lib\\10.0.15063.0\\ucrt\\x64;\
+        $NET_FRAMEWORK"
 
-        INCLUDE=$WIN_VISUAL_STUDIO_ROOT\\VC\\include\\;\
-        $WIN_KITS\\include\\shared\\;$WIN_KITS\\include\\um;\
-        $WIN_KITS\\include\\winrt\\;$WIN_KITS\\include\\um\\gl
+
+        INCLUDE="$WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\ATLMFC\\include;\
+        $WIN_VISUAL_STUDIO_ROOT\\Enterprise\\VC\\Tools\\MSVC\\14.10.25017\\include;\
+        $NETFX_SDK\\include\\um;\
+        $WIN_SDK\\include\\10.0.15063.0\\ucrt;\
+        $WIN_SDK\\include\\10.0.15063.0\\shared;\
+        $WIN_SDK\\include\\10.0.15063.0\\um;\
+        $WIN_SDK\\include\\10.0.15063.0\\winrt"
 
         # Put nsis, c compiler and java in path
-        export PATH=$VCPATH:$PATH:$JAVA_BIN:$NSIS_BIN
+        export PATH=$VCPATH:$PATH:$JAVA_BIN:$NSIS_BIN:$FOP_BIN:$CMAKE_BIN
 
         # Make sure LIB and INCLUDE is available for others
         export LIBPATH LIB INCLUDE
 
+    If you are using Visual Studio 2017 Professional or Community edition,
+    make sure change the corresponding enterprise path to your edition's path.
 
     Make sure to set the PATH so that NSIS and Microsoft SDK is found 
     before the MSYS/Cygwin tools and that Java is last in the PATH.
@@ -580,7 +652,7 @@ tools:
 
     Add javac *LAST* to your path environment in bash, in my case this means:
 
-        `PATH="$PATH:/cygdrive/c/Program Files/Java/jdk1.7.0_02/bin"`
+        `PATH="$PATH:/cygdrive/c/Program Files/Java/jdk1.8.0_131/bin"`
 
     No `CLASSPATH` or anything is needed. Type `javac` in the bash prompt
     and you should get a list of available Java options. Make sure, e.g by
@@ -610,9 +682,13 @@ tools:
 
     URL: <http://openssl.org/community/binaries.html>
 
-    We would recommend using 1.0.2d. 
+    We would recommend using 1.0.2k.
 
 *   Building with wxWidgets. Download wxWidgets-3.0.2 or higher.
+
+    Recommended user's made patch for Visual Studio 2015 and above :
+
+    URL : <https://forums.wxwidgets.org/viewtopic.php?t=40491>
 
     Install or unpack it to the pgm folder:
     Cygwin: 
