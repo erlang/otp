@@ -1673,6 +1673,96 @@
 
 </section>
 
+<section><title>Erts 7.3.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug has been fixed where if erlang was started +B on a
+	    unix platform it would be killed by a SIGUSR2 signal when
+	    creating a crash dump.</p>
+          <p>
+	    Own Id: OTP-13425 Aux Id: ERL-94 </p>
+        </item>
+        <item>
+          <p>
+	    Calls to <c>erl_drv_send_term()</c> or
+	    <c>erl_drv_output_term()</c> from a non-scheduler thread
+	    while the corresponding port was invalid caused the
+	    emulator to enter an inconsistent state which eventually
+	    caused an emulator crash.</p>
+          <p>
+	    Own Id: OTP-13866</p>
+        </item>
+        <item>
+	    <p>Driver and NIF operations accessing processes or ports
+	    could cause an emulator crash when used from
+	    non-scheduler threads. Those operations are:</p> <list>
+	    <item><c>erl_drv_send_term()</c></item>
+	    <item><c>driver_send_term()</c></item>
+	    <item><c>erl_drv_output_term()</c></item>
+	    <item><c>driver_output_term()</c></item>
+	    <item><c>enif_send()</c></item>
+	    <item><c>enif_port_command()</c></item> </list>
+          <p>
+	    Own Id: OTP-13869</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>binary_to_term</c> for binaries created by
+	    <c>term_to_binary </c> with option <c>compressed</c>. The
+	    bug can cause <c>badarg</c> exception for a valid binary
+	    when Erlang VM is linked against a <c>zlib</c> library of
+	    version 1.2.9 or newer. Bug exists since OTP 17.0.</p>
+          <p>
+	    Own Id: OTP-14159 Aux Id: ERL-340 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 7.3.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a race that could cause a lost wakeup of a process
+	    that timed out in a <c>receive ... after</c>. This bug
+	    was introduced in ERTS version 7.0.</p>
+          <p>
+	    Own Id: OTP-13798 Aux Id: OTP-11997 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed segfault after writing an erl crash dump.</p>
+          <p>
+	    Own Id: OTP-13799</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 7.3.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix scheduler deadlock bug in <c>ets:update_counter/4</c>
+	    when key is not found and inserting the default object
+	    causes the table to grow.</p>
+          <p>
+	    Own Id: OTP-13731 Aux Id: ERL-188 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 7.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -1918,6 +2008,31 @@
 	    reintroduced.</p>
           <p>
 	    Own Id: OTP-13365 Aux Id: OTP-9892 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 7.2.1.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Introduced new statistics functionality in order to
+	    more efficiently retrieve information about run able and
+	    active processes and ports. For more information see:</p>
+	    <list> <item><seealso
+	    marker="erlang#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seealso></item>
+	    <item><seealso
+	    marker="erlang#statistics_run_queue_lengths"><c>statistics(run_queue_lengths)</c></seealso></item>
+	    <item><seealso
+	    marker="erlang#statistics_total_active_tasks"><c>statistics(total_active_tasks)</c></seealso></item>
+	    <item><seealso
+	    marker="erlang#statistics_active_tasks"><c>statistics(active_tasks)</c></seealso></item>
+	    </list>
+          <p>
+	    Own Id: OTP-13201</p>
         </item>
       </list>
     </section>
