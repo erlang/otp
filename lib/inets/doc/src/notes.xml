@@ -383,6 +383,21 @@
 
 </section>
 
+  <section><title>Inets 6.1.1.1</title>
+  
+   <section><title>Fixed Bugs and Malfunctions</title>
+     <list>
+       <item>
+         <p>
+         Mend ipv6_host_with_brackets option in httpc</p>
+         <p>
+         Own Id: OTP-13417</p>
+       </item>
+     </list>
+   </section>
+  
+  </section>
+  
 <section><title>Inets 6.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
