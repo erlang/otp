@@ -1125,12 +1125,11 @@ error:
  * Returns true if 'b' is guaranteed to always construct
  * the same term as 'a' has matched.
  */
-static int db_match_eq_body(Eterm a, Eterm b)
+static int db_match_eq_body(Eterm a, Eterm b, int const_mode)
 {
     DECLARE_ESTACK(s);
     Uint arity;
     Eterm *ap, *bp;
-    int const_mode = 0;
     const Eterm CONST_MODE_OFF = THE_NON_VALUE;
 
     while (1) {
@@ -1224,6 +1223,7 @@ int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body)
     Eterm single_body_subterm;
     Eterm single_body_subterm_key;
     Eterm* single_body_subterm_key_tpl;
+    int const_mode;
 
     if (!is_list(body)) {
         return 0;
@@ -1244,28 +1244,43 @@ int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body)
         return 0;
     }
 
-    single_body_term_tpl = tuple_val(single_body_term);
-    if (arityval(*single_body_term_tpl) != 1) {
-        // not the 1-element tuple we're expecting
-        return 0;
-    }
-
     match_key = db_getkey(keypos, match);
     if (!is_value(match_key)) {
         // can't get key out of match
         return 0;
     }
 
-    single_body_subterm = single_body_term_tpl[1];
+    single_body_term_tpl = tuple_val(single_body_term);
+    if (single_body_term_tpl[0] == make_arityval(2) &&
+        single_body_term_tpl[1] == am_const) {
+        /* {const, {"ets-tuple constant"}} */
+        single_body_subterm = single_body_term_tpl[2];
+        const_mode = 1;
+    }
+    else if (*single_body_term_tpl == make_arityval(1)) {
+        /* {{"ets-tuple construction"}} */
+        single_body_subterm = single_body_term_tpl[1];
+        const_mode = 0;
+    }
+    else {
+        /* not a tuple construction */
+        return 0;
+    }
+
     single_body_subterm_key = db_getkey(keypos, single_body_subterm);
     if (!is_value(single_body_subterm_key)) {
         // can't get key out of single body subterm
         return 0;
     }
 
-    if (db_match_eq_body(match_key, single_body_subterm_key)) {
+    if (db_match_eq_body(match_key, single_body_subterm_key, const_mode)) {
         /* tuple with same key is returned */
         return 1;
+    }
+
+    if (const_mode) {
+        /* constant key did not match */
+        return 0;
     }
 
     if (!is_tuple(single_body_subterm_key)) {
@@ -1274,12 +1289,8 @@ int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body)
     }
 
     single_body_subterm_key_tpl = tuple_val(single_body_subterm_key);
-    if (arityval(*single_body_subterm_key_tpl) != 3) {
-        /* can't possibly be an element instruction */
-        return 0;
-    }
-
-    if (single_body_subterm_key_tpl[1] == am_element &&
+    if (single_body_subterm_key_tpl[0] == make_arityval(3) &&
+        single_body_subterm_key_tpl[1] == am_element &&
         single_body_subterm_key_tpl[3] == am_DollarUnderscore &&
         single_body_subterm_key_tpl[2] == make_small(keypos))
     {

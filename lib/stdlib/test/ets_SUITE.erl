@@ -1349,6 +1349,26 @@ t_select_replace(Config) when is_list(Config) ->
                    NeqPairs(X,Y)) || X <- Terms, Y <- Terms],
 
 
+    %% Wrap entire tuple with 'const'
+    [[begin
+          Old = {Key, 1, 2},
+          ets:insert(T2, Old),
+          1 = ets:select_replace(T2, [{Old, [], [{const, New}]}]),
+          [New] = ets:lookup(T2, Key),
+          ets:delete(T2, Key)
+      end || New <- [{Key, 1, 2}, {Key, 3, 4}, {Key, 1}, {Key, 1, 2, 3}, {Key}]
+     ]
+     || Key <- [{1, tuple}, {nested, {tuple, {a,b}}} | Terms]],
+
+    %% 'const' wrap does not work with maps or variables in keys
+    [[begin
+          Old = {Key, 1, 2},
+          {'EXIT',{badarg,_}} = (catch ets:select_replace(T2, [{Old, [], [{const, New}]}]))
+      end || New <- [{Key, 1, 2}, {Key, 3, 4}, {Key, 1}, {Key, 1, 2, 3}, {Key}]
+     ]
+     || Key <- [#{a => 1}, {nested, #{a => 1}}, '$1']],
+
+
     ets:delete(T2),
 
     verify_etsmem(EtsMem).
