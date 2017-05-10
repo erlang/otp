@@ -2205,7 +2205,9 @@ setelement(_Index, _Tuple1, _Value) ->
 spawn_opt(_Tuple) ->
    erlang:nif_error(undefined).
 
--spec statistics(context_switches) -> {ContextSwitches,0} when
+-spec statistics(active_tasks) -> [ActiveTasks] when
+      ActiveTasks :: non_neg_integer();
+		(context_switches) -> {ContextSwitches,0} when
       ContextSwitches :: non_neg_integer();
                 (exact_reductions) -> {Total_Exact_Reductions,
                                        Exact_Reductions_Since_Last_Call} when
@@ -2222,6 +2224,8 @@ spawn_opt(_Tuple) ->
       Total_Reductions :: non_neg_integer(),
       Reductions_Since_Last_Call :: non_neg_integer();
                 (run_queue) -> non_neg_integer();
+                (run_queue_lengths) -> [RunQueueLenght] when
+      RunQueueLenght :: non_neg_integer();
                 (runtime) -> {Total_Run_Time, Time_Since_Last_Call} when
       Total_Run_Time :: non_neg_integer(),
       Time_Since_Last_Call :: non_neg_integer();
@@ -2229,6 +2233,10 @@ spawn_opt(_Tuple) ->
       SchedulerId :: pos_integer(),
       ActiveTime  :: non_neg_integer(),
       TotalTime   :: non_neg_integer();
+		(total_active_tasks) -> ActiveTasks when
+      ActiveTasks :: non_neg_integer();
+                (total_run_queue_lengths) -> TotalRunQueueLenghts when
+      TotalRunQueueLenghts :: non_neg_integer();
                 (wall_clock) -> {Total_Wallclock_Time,
                                  Wallclock_Time_Since_Last_Call} when
       Total_Wallclock_Time :: non_neg_integer(),

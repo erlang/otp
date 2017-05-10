@@ -32,7 +32,7 @@
 	 run_queue_one/1,
 	 scheduler_wall_time/1,
 	 reductions/1, reductions_big/1, garbage_collection/1, io/1,
-	 badarg/1]).
+	 badarg/1, run_queues_lengths_active_tasks/1]).
 
 %% Internal exports.
 
@@ -54,7 +54,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [{group, wall_clock}, {group, runtime}, reductions,
      reductions_big, {group, run_queue}, scheduler_wall_time,
-     garbage_collection, io, badarg].
+     garbage_collection, io, badarg,
+     run_queues_lengths_active_tasks].
 
 groups() -> 
     [{wall_clock, [],
@@ -409,3 +410,63 @@ badarg(Config) when is_list(Config) ->
     ?line case catch statistics(bad_atom) of
 	      {'EXIT', {badarg, _}} -> ok
 	  end.
+
+tok_loop() ->
+    tok_loop().
+
+run_queues_lengths_active_tasks(Config) ->
+    TokLoops = lists:map(fun (_) ->
+				 spawn_opt(fun () ->
+						   tok_loop()
+					   end,
+					   [link, {priority, low}])
+			 end,
+			 lists:seq(1,10)),
+
+    TRQLs0 = statistics(total_run_queue_lengths),
+    TATs0 = statistics(total_active_tasks),
+    true = is_integer(TRQLs0),
+    true = is_integer(TATs0),
+    true = TRQLs0 >= 0,
+    true = TATs0 >= 11,
+
+    NoScheds = erlang:system_info(schedulers),
+    RQLs0 = statistics(run_queue_lengths),
+    ATs0 = statistics(active_tasks),
+    NoScheds = length(RQLs0),
+    NoScheds = length(ATs0),
+    true = lists:sum(RQLs0) >= 0,
+    true = lists:sum(ATs0) >= 11,
+
+    SO = erlang:system_flag(schedulers_online, 1),
+
+    %% Give newly suspended schedulers some time to
+    %% migrate away work from their run queues...
+    receive after 1000 -> ok end,
+
+    TRQLs1 = statistics(total_run_queue_lengths),
+    TATs1 = statistics(total_active_tasks),
+    true = TRQLs1 >= 10,
+    true = TATs1 >= 11,
+    NoScheds = erlang:system_info(schedulers),
+
+    RQLs1 = statistics(run_queue_lengths),
+    ATs1 = statistics(active_tasks),
+    NoScheds = length(RQLs1),
+    NoScheds = length(ATs1),
+    TRQLs2 = lists:sum(RQLs1),
+    TATs2 = lists:sum(ATs1),
+    true = TRQLs2 >= 10,
+    true = TATs2 >= 11,
+    [TRQLs2|_] = RQLs1,
+    [TATs2|_] = ATs1,
+
+    erlang:system_flag(schedulers_online, SO),
+
+    lists:foreach(fun (P) ->
+			  unlink(P),
+			  exit(P, bang)
+		  end,
+		  TokLoops),
+
+    ok.

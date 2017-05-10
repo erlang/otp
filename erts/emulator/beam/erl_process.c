@@ -3149,7 +3149,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	    }
 
 #ifndef ERTS_SMP
-	    if (rq->len != 0 || rq->misc.start)
+	    if (erts_smp_atomic32_read_dirty(&rq->len) != 0 || rq->misc.start)
 		goto sys_woken;
 #else
 	    flgs = erts_smp_atomic32_read_acqb(&ssi->flags);
@@ -3248,7 +3248,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	}
 
 #ifndef ERTS_SMP
-	if (rq->len == 0 && !rq->misc.start)
+	if (erts_smp_atomic32_read_dirty(&rq->len) == 0 && !rq->misc.start)
 	    goto sys_aux_work;
     sys_woken:
 #else
@@ -4965,7 +4965,7 @@ erts_fprintf(stderr, "--------------------------------\n");
 	rq->out_of_work_count = 0;
 	(void) ERTS_RUNQ_FLGS_READ_BSET(rq, ERTS_RUNQ_FLGS_MIGRATION_INFO, flags);
 
-	rq->max_len = rq->len;
+	rq->max_len = erts_smp_atomic32_read_dirty(&rq->len);
 	for (pix = 0; pix < ERTS_NO_PRIO_LEVELS; pix++) {
 	    ErtsRunQueueInfo *rqi;
 	    rqi = (pix == ERTS_PORT_PRIO_LEVEL
@@ -5123,7 +5123,7 @@ wakeup_other_check(ErtsRunQueue *rq, Uint32 flags)
 {
     int wo_reds = rq->wakeup_other_reds;
     if (wo_reds) {
-	int left_len = rq->len - 1;
+	int left_len = erts_smp_atomic32_read_dirty(&rq->len) - 1;
 	if (left_len < 1) {
 	    int wo_reduce = wo_reds << wakeup_other.dec_shift;
 	    wo_reduce &= wakeup_other.dec_mask;
@@ -5196,7 +5196,7 @@ wakeup_other_check_legacy(ErtsRunQueue *rq, Uint32 flags)
 {
     int wo_reds = rq->wakeup_other_reds;
     if (wo_reds) {
-	erts_aint32_t len = rq->len;
+	erts_aint32_t len = erts_smp_atomic32_read_dirty(&rq->len);
 	if (len < 2) {
 	    rq->wakeup_other -= ERTS_WAKEUP_OTHER_DEC_LEGACY*wo_reds;
 	    if (rq->wakeup_other < 0)
@@ -5292,7 +5292,7 @@ runq_supervisor(void *unused)
 	    ErtsRunQueue *rq = ERTS_RUNQ_IX(ix);
 	    if (ERTS_RUNQ_FLGS_GET(rq) & ERTS_RUNQ_FLG_NONEMPTY) {
 		erts_smp_runq_lock(rq);
-		if (rq->len != 0)
+		if (erts_smp_atomic32_read_dirty(&rq->len) != 0)
 		    wake_scheduler_on_empty_runq(rq); /* forced wakeup... */
 		erts_smp_runq_unlock(rq);
 	    }
@@ -5642,7 +5642,7 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online
 	}
 	rq->out_of_work_count = 0;
 	rq->max_len = 0;
-	rq->len = 0;
+	erts_smp_atomic32_set_nob(&rq->len, 0);
 	rq->wakeup_other = 0;
 	rq->wakeup_other_reds = 0;
 	rq->halt_in_progress = 0;
@@ -7939,6 +7939,9 @@ sched_thread_func(void *vesdp)
 
     erts_sched_init_time_sup(esdp);
 
+    (void) ERTS_RUNQ_FLGS_SET_NOB(esdp->run_queue,
+				  ERTS_RUNQ_FLG_EXEC);
+
 #ifdef ERTS_SMP
     tse = erts_tse_fetch();
     erts_tse_prepare_timed(tse);
@@ -8947,24 +8950,39 @@ resume_process_1(BIF_ALIST_1)
 }
 
 Uint
-erts_run_queues_len(Uint *qlen)
+erts_run_queues_len(Uint *qlen, int atomic_queues_read, int incl_active_sched)
 {
     int i = 0;
     Uint len = 0;
-    ERTS_ATOMIC_FOREACH_RUNQ(rq,
-    {
-	Sint pqlen = 0;
-	int pix;
-	for (pix = 0; pix < ERTS_NO_PROC_PRIO_LEVELS; pix++)
-	    pqlen += RUNQ_READ_LEN(&rq->procs.prio_info[pix].len);
+    if (atomic_queues_read)
+	ERTS_ATOMIC_FOREACH_RUNQ(rq,
+	 {
+	     Sint rq_len = (Sint) erts_smp_atomic32_read_dirty(&rq->len);
+	     ASSERT(rq_len >= 0);
+	     if (incl_active_sched
+		 && (ERTS_RUNQ_FLGS_GET_NOB(rq) & ERTS_RUNQ_FLG_EXEC)) {
+		 rq_len++;
+	     }
+	     if (qlen)
+		 qlen[i++] = rq_len;
+	     len += (Uint) rq_len;
+	 }
+	    );
+    else {
+	for (i = 0; i < erts_no_run_queues; i++) {
+	    ErtsRunQueue *rq = ERTS_RUNQ_IX(i);
+	    Sint rq_len = (Sint) erts_smp_atomic32_read_nob(&rq->len);
+	    ASSERT(rq_len >= 0);
+	     if (incl_active_sched
+		 && (ERTS_RUNQ_FLGS_GET_NOB(rq) & ERTS_RUNQ_FLG_EXEC)) {
+		 rq_len++;
+	     }
+	    if (qlen)
+		qlen[i] = rq_len;
+	    len += (Uint) rq_len;
+	}
 
-	if (pqlen < 0)
-	    pqlen = 0;
- 	if (qlen)
-	    qlen[i++] = pqlen;
-	len += pqlen;
     }
-	);
     return len;
 }
 
@@ -9391,8 +9409,10 @@ Process *schedule(Process *p, int calls)
 
 	if (flags & (ERTS_RUNQ_FLG_CHK_CPU_BIND|ERTS_RUNQ_FLG_SUSPENDED)) {
 	    if (flags & ERTS_RUNQ_FLG_SUSPENDED) {
+		(void) ERTS_RUNQ_FLGS_UNSET_NOB(rq, ERTS_RUNQ_FLG_EXEC);
 		suspend_scheduler(esdp);
-		flags = ERTS_RUNQ_FLGS_GET_NOB(rq);
+		flags = ERTS_RUNQ_FLGS_SET_NOB(rq, ERTS_RUNQ_FLG_EXEC);
+		flags |= ERTS_RUNQ_FLG_EXEC;
 	    }
 	    if (flags & ERTS_RUNQ_FLG_CHK_CPU_BIND) {
 		flags = ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_CHK_CPU_BIND);
@@ -9483,7 +9503,10 @@ Process *schedule(Process *p, int calls)
 	    }
 #endif
 
+	    (void) ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_EXEC);
 	    scheduler_wait(&fcalls, esdp, rq);
+	    flags = ERTS_RUNQ_FLGS_SET_NOB(rq, ERTS_RUNQ_FLG_EXEC);
+	    flags |= ERTS_RUNQ_FLG_EXEC;
 
 #ifdef ERTS_SMP
 	    non_empty_runq(rq);
