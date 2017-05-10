@@ -629,6 +629,15 @@ monitor_process_a(Config) ->
 monitor_process_b(Config) ->
     ensure_lib_loaded(Config),
 
+    monitor_process_b_do(false),
+    case erlang:system_info(threads) of
+        true ->  monitor_process_b_do(true);
+        false -> ok
+    end,
+    ok.
+
+
+monitor_process_b_do(FromThread) ->
     Pid = spawn_link(fun() ->
                              receive
                                  return -> ok
@@ -637,7 +646,10 @@ monitor_process_b(Config) ->
     R_ptr = alloc_monitor_resource_nif(),
     {0,_} = monitor_process_nif(R_ptr, Pid, true, self()),
     [R_ptr] = monitored_by(Pid),
-    ok = release_resource(R_ptr),
+    case FromThread of
+        false -> ok = release_resource(R_ptr);
+        true -> ok = release_resource_from_thread(R_ptr)
+    end,
     [] = flush(),
     {R_ptr, _, 1} = last_resource_dtor_call(),
     [] = monitored_by(Pid),
@@ -2789,6 +2801,7 @@ alloc_resource(_,_) -> ?nif_stub.
 make_resource(_) -> ?nif_stub.
 get_resource(_,_) -> ?nif_stub.
 release_resource(_) -> ?nif_stub.
+release_resource_from_thread(_) -> ?nif_stub.
 last_resource_dtor_call() -> ?nif_stub.
 make_new_resource(_,_) -> ?nif_stub.
 check_is(_,_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.

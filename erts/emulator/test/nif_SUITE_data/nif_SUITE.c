@@ -972,6 +972,30 @@ static ERL_NIF_TERM release_resource(ErlNifEnv* env, int argc, const ERL_NIF_TER
     return enif_make_atom(env,"ok");
 }
 
+static void* threaded_release_resource(void* resource)
+{
+    enif_release_resource(resource);
+}
+
+static ERL_NIF_TERM release_resource_from_thread(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    void* resource;
+    ErlNifTid tid;
+    int err;
+
+    if (!get_pointer(env, argv[0], &resource)) {
+        return enif_make_badarg(env);
+    }
+    if (enif_thread_create("nif_SUITE:release_resource_from_thread", &tid,
+                           threaded_release_resource, resource, NULL) != 0) {
+        return enif_make_badarg(env);
+    }
+    err = enif_thread_join(tid, NULL);
+    assert(err == 0);
+    return atom_ok;
+}
+
+
 /*
  * argv[0] an atom
  * argv[1] a binary
@@ -2903,6 +2927,7 @@ static ErlNifFunc nif_funcs[] =
     {"make_resource", 1, make_resource},
     {"get_resource", 2, get_resource},
     {"release_resource", 1, release_resource},
+    {"release_resource_from_thread", 1, release_resource_from_thread},
     {"last_resource_dtor_call", 0, last_resource_dtor_call},
     {"make_new_resource", 2, make_new_resource},
     {"check_is", 11, check_is},
