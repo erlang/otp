@@ -576,13 +576,13 @@ default(common) ->
             class => user_options
            },
 
-%%%%% Undocumented
       {auth_methods, def} =>
           #{default => ?SUPPORTED_AUTH_METHODS,
             chk => fun check_string/1,
             class => user_options
            },
 
+%%%%% Undocumented
        {transport, def} =>
            #{default => ?DEFAULT_TRANSPORT,
              chk => fun({A,B,C}) ->
