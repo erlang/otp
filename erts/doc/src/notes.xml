@@ -31,6 +31,30 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 7.2.1.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Introduced new statistics functionality in order to
+	    more efficiently retrieve information about run able and
+	    active processes and ports. For more information see:</p>
+	    <list> <item><seealso
+	    marker="erlang#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seealso></item>
+	    <item><seealso
+	    marker="erlang#statistics_run_queue_lengths"><c>statistics(run_queue_lengths)</c></seealso></item>
+	    <item><seealso
+	    marker="erlang#statistics_total_active_tasks"><c>statistics(total_active_tasks)</c></seealso></item>
+	    <item><seealso
+	    marker="erlang#statistics_active_tasks"><c>statistics(active_tasks)</c></seealso></item>
+	    </list>
+          <p>
+	    Own Id: OTP-13201</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Erts 7.2.1</title>
 
