@@ -45,6 +45,8 @@
 
 -export([unique_timestamp/0]).
 
+-export([rm_dir/1]).
+
 -include_lib("kernel/include/file.hrl").
 
 %%%-----------------------------------------------------------------
