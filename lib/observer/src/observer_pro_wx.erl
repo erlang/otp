@@ -584,8 +584,9 @@ handle_update_old(#etop_info{procinfo=ProcInfo0},
 
 handle_update(ProcInfo0, S0=#holder{next=Next, sort=#sort{sort_key=KeyField}}) ->
     {ProcInfo1, Accum} = accum(ProcInfo0, S0),
-    ProcInfo = lists:keysort(col_to_element(KeyField), ProcInfo1),
-    Merged = lists:keymerge(col_to_element(KeyField), ProcInfo, Next),
+    Sort = sort_fun(KeyField, true),
+    Merge = merge_fun(KeyField),
+    Merged = Merge(Sort(ProcInfo1), Next),
     case Accum of
         true ->  S0#holder{next=Merged};
         _List -> S0#holder{next=Merged, next_accum=Accum}
@@ -623,10 +624,51 @@ sort(Col, Opt, Table)
     sort(Col,Opt,array:to_list(Table));
 sort(Col, Opt=#sort{sort_key=Col, sort_incr=Bool}, Table) ->
     {Opt#sort{sort_incr=not Bool},lists:reverse(Table)};
-sort(Col, S=#sort{sort_incr=true}, Table) ->
-    {S#sort{sort_key=Col}, lists:keysort(col_to_element(Col), Table)};
-sort(Col, S=#sort{sort_incr=false}, Table) ->
-    {S#sort{sort_key=Col}, lists:reverse(lists:keysort(col_to_element(Col), Table))}.
+sort(Col, S=#sort{sort_incr=Incr}, Table) ->
+    Sort = sort_fun(Col, Incr),
+    {S#sort{sort_key=Col}, Sort(Table)}.
+
+sort_fun(?COL_NAME, true) ->
+    fun(Table) -> lists:sort(fun sort_name/2, Table) end;
+sort_fun(?COL_NAME, false) ->
+    fun(Table) -> lists:sort(fun sort_name_rev/2, Table) end;
+sort_fun(Col, true) ->
+    N = col_to_element(Col),
+    fun(Table) -> lists:keysort(N, Table) end;
+sort_fun(Col, false) ->
+    N = col_to_element(Col),
+    fun(Table) -> lists:reverse(lists:keysort(N, Table)) end.
+
+merge_fun(?COL_NAME) ->
+    fun(A,B) -> lists:merge(fun sort_name/2, A, B) end;
+merge_fun(Col) ->
+    KeyField = col_to_element(Col),
+    fun(A,B) -> lists:keymerge(KeyField, A, B) end.
+
+
+sort_name(#etop_proc_info{name={_,_,_}=A}, #etop_proc_info{name={_,_,_}=B}) ->
+    A =< B;
+sort_name(#etop_proc_info{name=A}, #etop_proc_info{name=B})
+  when is_atom(A), is_atom(B) ->
+    A =< B;
+sort_name(#etop_proc_info{name=Reg}, #etop_proc_info{name={M,_F,_A}})
+  when is_atom(Reg) ->
+    Reg < M;
+sort_name(#etop_proc_info{name={M,_,_}}, #etop_proc_info{name=Reg})
+  when is_atom(Reg) ->
+    M < Reg.
+
+sort_name_rev(#etop_proc_info{name={_,_,_}=A}, #etop_proc_info{name={_,_,_}=B}) ->
+    A >= B;
+sort_name_rev(#etop_proc_info{name=A}, #etop_proc_info{name=B})
+  when is_atom(A), is_atom(B) ->
+    A >= B;
+sort_name_rev(#etop_proc_info{name=Reg}, #etop_proc_info{name={M,_F,_A}})
+  when is_atom(Reg) ->
+    Reg >= M;
+sort_name_rev(#etop_proc_info{name={M,_,_}}, #etop_proc_info{name=Reg})
+  when is_atom(Reg) ->
+    M >= Reg.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
