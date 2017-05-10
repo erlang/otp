@@ -199,7 +199,7 @@ int erts_dio_sched_thread_suggested_stack_size = -1;
 ErtsLcPSDLocks erts_psd_required_locks[ERTS_PSD_SIZE];
 #endif
 
-static struct {
+static struct ErtsSchedBusyWait_ {
     int aux_work;
     int tse;
     int sys_schedule;
@@ -214,19 +214,19 @@ static ErtsAuxWorkData *aux_thread_aux_work_data;
 #define ERTS_SCHDLR_SSPND_CHNG_ONLN		(((erts_aint32_t) 1) << 2)
 #define ERTS_SCHDLR_SSPND_CHNG_DCPU_ONLN	(((erts_aint32_t) 1) << 3)
 
-typedef struct {
+typedef struct ErtsMultiSchedulingBlock_ {
     int ongoing;
     ErtsProcList *blckrs;
     ErtsProcList *chngq;
 } ErtsMultiSchedulingBlock;
 
-typedef struct {
+typedef struct ErtsSchedTypeCounters_ {
     Uint32 normal;
     Uint32 dirty_cpu;
     Uint32 dirty_io;
 } ErtsSchedTypeCounters;
 
-static struct {
+static struct ErtsSchedSuspend_ {
     erts_mtx_t mtx;
     ErtsSchedTypeCounters online;
     ErtsSchedTypeCounters curr_online;
@@ -1136,13 +1136,11 @@ dirty_sched_wall_time_change(ErtsSchedulerData *esdp, int working)
     mod++;
     erts_atomic32_set_nob(&esdp->sched_wall_time.u.mod, mod);
 
-#if 0
     if (!working) {
-        ERTS_MSACC_SET_STATE_M_X(ERTS_MSACC_STATE_BUSY_WAIT);
+        ERTS_MSACC_SET_STATE_X(ERTS_MSACC_STATE_BUSY_WAIT);
     } else {
-        ERTS_MSACC_SET_STATE_M_X(ERTS_MSACC_STATE_OTHER);
+        ERTS_MSACC_SET_STATE_X(ERTS_MSACC_STATE_OTHER);
     }
-#endif
 }
 
 
