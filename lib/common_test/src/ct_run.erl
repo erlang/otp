@@ -436,13 +436,17 @@ script_start2(Opts = #opts{vts = undefined,
 	    Specs1 = get_start_opt(join_specs, [Specs], Specs, Args),
 	    %% using testspec as input for test
 	    Relaxed = get_start_opt(allow_user_terms, true, false, Args),
-	    case catch ct_testspec:collect_tests_from_file(Specs1, Relaxed) of
-		{E,Reason} when E == error ; E == 'EXIT' ->
+	    try ct_testspec:collect_tests_from_file(Specs1, Relaxed) of
+                TestSpecData ->
+		    execute_all_specs(TestSpecData, Opts, Args, [])
+            catch
+                throw:{error,Reason} ->
 		    StackTrace = erlang:get_stacktrace(),
 		    {error,{invalid_testspec,{Reason,StackTrace}}};
-		TestSpecData ->
-		    execute_all_specs(TestSpecData, Opts, Args, [])
-	    end;
+                _:Reason ->
+		    StackTrace = erlang:get_stacktrace(),
+		    {error,{invalid_testspec,{Reason,StackTrace}}}
+            end;
 	[] ->
 	    {error,no_testspec_specified};
 	_ ->	    % no testspec used
@@ -1198,12 +1202,16 @@ run_spec_file(Relaxed,
 	     end,
     AbsSpecs = lists:map(fun(SF) -> ?abs(SF) end, Specs1),
     AbsSpecs1 = get_start_opt(join_specs, [AbsSpecs], AbsSpecs, StartOpts),
-    case catch ct_testspec:collect_tests_from_file(AbsSpecs1, Relaxed) of
-	{Error,CTReason} when Error == error ; Error == 'EXIT' ->
-	    StackTrace = erlang:get_stacktrace(),
-	    exit({error,{invalid_testspec,{CTReason,StackTrace}}});
+    try ct_testspec:collect_tests_from_file(AbsSpecs1, Relaxed) of
 	TestSpecData ->
 	    run_all_specs(TestSpecData, Opts, StartOpts, [])
+    catch
+	throw:{error,CTReason} ->
+	    StackTrace = erlang:get_stacktrace(),
+	    exit({error,{invalid_testspec,{CTReason,StackTrace}}});
+	_:CTReason ->
+	    StackTrace = erlang:get_stacktrace(),
+	    exit({error,{invalid_testspec,{CTReason,StackTrace}}})
     end.
 
 run_all_specs([], _, _, TotResult) ->
