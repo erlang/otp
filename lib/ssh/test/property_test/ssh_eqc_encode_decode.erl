@@ -284,7 +284,17 @@ fix_asym(#ssh_msg_global_request{name=N} = M) -> M#ssh_msg_global_request{name =
 fix_asym(#ssh_msg_debug{message=D,language=L} = M) -> M#ssh_msg_debug{message = binary_to_list(D),
 								      language = binary_to_list(L)};
 fix_asym(#ssh_msg_kexinit{cookie=C} = M) -> M#ssh_msg_kexinit{cookie = <<C:128>>};
+
+fix_asym(#ssh_msg_kexdh_reply{public_host_key = Key} = M) -> M#ssh_msg_kexdh_reply{public_host_key = key_sigalg(Key)};
+fix_asym(#ssh_msg_kex_dh_gex_reply{public_host_key = Key} = M) -> M#ssh_msg_kex_dh_gex_reply{public_host_key = key_sigalg(Key)};
+fix_asym(#ssh_msg_kex_ecdh_reply{public_host_key = Key} = M) -> M#ssh_msg_kex_ecdh_reply{public_host_key = key_sigalg(Key)};
+
 fix_asym(M) -> M.
+
+%%% Keys now contains an sig-algorithm name
+key_sigalg(#'RSAPublicKey'{} = Key) -> {Key,'ssh-rsa'};
+key_sigalg({_, #'Dss-Parms'{}} = Key) -> {Key,'ssh-dss'};
+key_sigalg({#'ECPoint'{}, {namedCurve,OID}} = Key) -> {Key,"ecdsa-sha2-256"}.
 
 %%% Message codes 30 and 31 are overloaded depending on kex family so arrange the decoder
 %%% input as the test object does
