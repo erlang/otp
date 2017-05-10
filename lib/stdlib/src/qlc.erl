@@ -1392,8 +1392,10 @@ next_loop(Pid, L, N) when N =/= 0 ->
         {caught, throw, Error, [?THROWN_ERROR | _]} ->
             Error;
         {caught, Class, Reason, Stacktrace} ->
-            _ = (catch erlang:error(foo)),
-            erlang:raise(Class, Reason, Stacktrace ++ erlang:get_stacktrace());
+            CurrentStacktrace = try erlang:error(foo)
+                                catch error:_ -> erlang:get_stacktrace()
+                                end,
+            erlang:raise(Class, Reason, Stacktrace ++ CurrentStacktrace);
         error ->
             erlang:error({qlc_cursor_pid_no_longer_exists, Pid})
     end;
