@@ -99,7 +99,7 @@ start(Name, Args, TimeOut)
 				true ->  " -name " ++ Name;
 				false -> " -sname " ++ Name
 			    end,
-		  Cookie = " -setcookie " ++ atom_to_list(auth:get_cookie()),
+		  Cookie = " -setcookie " ++ auth:get_cookie(),
 		  Pa = " -pa " ++ filename:dirname(code:which(?MODULE)),
 		  ThisNode = node(),
 		  NodeStarted

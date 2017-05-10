@@ -38,7 +38,7 @@
 
 -define(COOKIE_ETS_PROTECTION, protected). 
 
--type cookie() :: atom().
+-type cookie() :: string().
 -record(state, {
 	  our_cookie    :: cookie(),  %% Our own cookie
 	  other_cookies :: ets:tab()  %% The send-cookies of other nodes
@@ -97,16 +97,16 @@ node_cookie(Node, Cookie) ->
 
 %%--"New" interface-----------------------------------------------------
 
--spec get_cookie() -> 'nocookie' | cookie().
+-spec get_cookie() -> cookie().
 
 get_cookie() ->
     get_cookie(node()).
 
--spec get_cookie(Node :: node()) -> 'nocookie' | cookie().
+-spec get_cookie(Node :: node()) -> cookie().
 
 get_cookie(_Node) when node() =:= nonode@nohost ->
-    nocookie;
-get_cookie(Node) ->
+    "nocookie";
+get_cookie(Node) when is_atom(Node) ->
     gen_server:call(auth, {get_cookie, Node}).
 
 -spec set_cookie(Cookie :: cookie()) -> 'true'.
@@ -118,7 +118,7 @@ set_cookie(Cookie) ->
 
 set_cookie(_Node, _Cookie) when node() =:= nonode@nohost ->
     erlang:error(distribution_not_started);
-set_cookie(Node, Cookie) ->
+set_cookie(Node, Cookie) when is_atom(Node), is_list(Cookie) ->
     gen_server:call(auth, {set_cookie, Node, Cookie}).
 
 -spec sync_cookie() -> any().
@@ -148,7 +148,7 @@ init([]) ->
                | {'set_cookie', node(), term()}.
 
 -spec handle_call(calls(), {pid(), term()}, state()) ->
-        {'reply', 'hello' | 'true' | 'nocookie' | cookie(), state()}.
+        {'reply', 'hello' | 'true' | cookie(), state()}.
 
 handle_call({get_cookie, Node}, {_From,_Tag}, State) when Node =:= node() ->
     {reply, State#state.our_cookie, State};
@@ -272,8 +272,7 @@ init_cookie() ->
     case init:get_argument(nocookie) of
 	error ->
 	    case init:get_argument(setcookie) of
-		{ok, [[C0]]} ->
-		    C = list_to_atom(C0),
+		{ok, [[C]]} ->
 		    #state{our_cookie = C,
 			   other_cookies = ets:new(cookies,
 						   [?COOKIE_ETS_PROTECTION])};
@@ -285,14 +284,14 @@ init_cookie() ->
 			    %% Is this really this serious?
 			    erlang:error(Error);
 			{ok, Co}  ->
-			    #state{our_cookie = list_to_atom(Co),
+			    #state{our_cookie = Co,
 				   other_cookies = ets:new(
 						     cookies,
 						     [?COOKIE_ETS_PROTECTION])}
 		    end
 	    end;
 	_Other ->
-	    #state{our_cookie = nocookie,
+	    #state{our_cookie = "nocookie",
 		   other_cookies = ets:new(cookies, [?COOKIE_ETS_PROTECTION])}
     end.
 
