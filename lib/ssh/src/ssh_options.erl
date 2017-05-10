@@ -578,7 +578,16 @@ default(common) ->
 
       {auth_methods, def} =>
           #{default => ?SUPPORTED_AUTH_METHODS,
-            chk => fun check_string/1,
+            chk => fun(As) ->
+                           try
+                               Sup = string:tokens(?SUPPORTED_AUTH_METHODS, ","),
+                               New = string:tokens(As, ","),
+                               [] == [X || X <- New,
+                                           not lists:member(X,Sup)]
+                           catch
+                               _:_ -> false
+                           end
+                   end,
             class => user_options
            },
 
