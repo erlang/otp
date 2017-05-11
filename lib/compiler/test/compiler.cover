@@ -1,5 +1,5 @@
 {incl_app,compiler,details}.
 
 %% -*- erlang -*-
-{excl_mods,compiler,[core_scan,core_parse,sys_pre_expand]}.
+{excl_mods,compiler,[core_scan,core_parse]}.
 
