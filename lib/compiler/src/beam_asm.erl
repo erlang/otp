@@ -349,6 +349,8 @@ make_op({'%',_}, Dict) ->
 make_op({line,Location}, Dict0) ->
     {Index,Dict} = beam_dict:line(Location, Dict0),
     encode_op(line, [Index], Dict);
+make_op({bif, kill_stacktrace=I, {f,_}, [], _Dest}, Dict) ->
+    encode_op(I, [], Dict);
 make_op({bif, Bif, {f,_}, [], Dest}, Dict) ->
     %% BIFs without arguments cannot fail.
     encode_op(bif0, [{extfunc, erlang, Bif, 0}, Dest], Dict);

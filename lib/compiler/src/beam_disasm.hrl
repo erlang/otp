@@ -27,7 +27,8 @@
 %%      PROPER TYPES FOR THE SET OF BEAM INSTRUCTIONS.
 %%
 -type beam_instr() :: 'bs_init_writable' | 'fclearerror' | 'if_end'
-                    | 'remove_message' | 'return' | 'send' | 'timeout'
+                    | 'kill_stacktrace' | 'remove_message'
+                    | 'return' | 'send' | 'timeout'
                     | tuple().  %% XXX: Very underspecified - FIX THIS
 
 %%-----------------------------------------------------------------------

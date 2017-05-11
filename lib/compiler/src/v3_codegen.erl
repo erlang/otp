@@ -1348,9 +1348,14 @@ internal_cg(bs_init_writable=I, As, Rs, Le, Vdb, Bef, St) ->
     {Sis,Int} = cg_setup_call(As, Bef, Le#l.i, Vdb),
     Reg = load_vars(Rs, clear_regs(Int#sr.reg)),
     {Sis++[I],clear_dead(Int#sr{reg=Reg}, Le#l.i, Vdb),St};
-internal_cg(raise, As, Rs, Le, Vdb, Bef, St) ->
+internal_cg(raise=I, As, Rs, Le, Vdb, Bef, St) ->
     %% raise can be treated like a guard BIF.
-    bif_cg(raise, As, Rs, Le, Vdb, Bef, St).
+    bif_cg(I, As, Rs, Le, Vdb, Bef, St);
+internal_cg(kill_stacktrace=I0, As, Rs, Le, Vdb, Bef, St0) ->
+    %% kill_stacktrace can be treated like a guard BIF.
+    {Is0,Aft,St} = bif_cg(I0, As, Rs, Le, Vdb, Bef, St0),
+    Is = [I || I <- Is0, I =/= {line,[]}],
+    {Is,Aft,St}.
 
 %% bif_cg(Bif, [Arg], [Ret], Le, Vdb, StackReg, State) ->
 %%      {[Ainstr],StackReg,State}.

@@ -148,6 +148,10 @@ forward([{test,is_eq_exact,_,[Dst,Src]}=I,{move,Src,Dst}|Is], D, Lc, Acc) ->
     forward([I|Is], D, Lc, Acc);
 forward([{test,is_nil,_,[Dst]}=I,{move,nil,Dst}|Is], D, Lc, Acc) ->
     forward([I|Is], D, Lc, Acc);
+forward([{test,is_nil,_,[Dst]}=I,
+         {bif,kill_stacktrace,_,_,_}=KillStk,
+         {move,nil,Dst}|Is], D, Lc, Acc) ->
+    forward([I,KillStk|Is], D, Lc, Acc);
 forward([{test,_,_,_}=I|Is]=Is0, D, Lc, Acc) ->
     %% Help the second, backward pass to by inserting labels after
     %% relational operators so that they can be skipped if they are
@@ -378,8 +382,8 @@ backward([{test,Op,{f,To0},Live,Ops0,Dst}|Is], D, Acc) ->
 	 end,
     I = {test,Op,{f,To},Live,Ops0,Dst},
     backward(Is, D, [I|Acc]);
-backward([{kill,_}=I|Is], D, [{line,_},Exit|_]=Acc) ->
-    case beam_jump:is_exit_instruction(Exit) of
+backward([{kill,_}=I|Is], D, Acc) ->
+    case are_yregs_killed(Acc) of
 	false -> backward(Is, D, [I|Acc]);
 	true -> backward(Is, D, Acc)
     end;
@@ -394,6 +398,15 @@ backward([{bif,'or',{f,To0},[Dst,{atom,false}],Dst}=I|Is], D,
 backward([I|Is], D, Acc) ->
     backward(Is, D, [I|Acc]);
 backward([], _D, Acc) -> Acc.
+
+are_yregs_killed([{line,_}|Is]) ->
+    are_yregs_killed(Is);
+are_yregs_killed([{call,_,_},{deallocate,_}|_]) ->
+    true;
+are_yregs_killed([{call_ext,_,_},{deallocate,_}|_]) ->
+    true;
+are_yregs_killed([I|_]) ->
+    beam_jump:is_exit_instruction(I).
 
 equal_ops([{field_flags,FlA0}|T0], [{field_flags,FlB0}|T1]) ->
     FlA = lists:keydelete(anno, 1, FlA0),

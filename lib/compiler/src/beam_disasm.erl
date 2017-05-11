@@ -1165,6 +1165,12 @@ resolve_inst({get_map_elements,Args0},_,_,_) ->
     {get_map_elements,FLbl,Src,{list,List}};
 
 %%
+%% 20.0
+%%
+resolve_inst({kill_stacktrace=I,[]},_,_,_) ->
+    I;
+
+%%
 %% Catches instructions that are not yet handled.
 %%
 resolve_inst(X,_,_,_) -> ?exit({resolve_inst,X}).

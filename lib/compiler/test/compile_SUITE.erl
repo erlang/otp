@@ -35,7 +35,8 @@
 	 cover/1, env/1, core/1,
 	 core_roundtrip/1, asm/1, optimized_guards/1,
 	 sys_pre_attributes/1, dialyzer/1,
-	 warnings/1, pre_load_check/1, env_compiler_options/1
+	 warnings/1, pre_load_check/1, env_compiler_options/1,
+         bc_options/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -52,7 +53,7 @@ all() ->
      strict_record, utf8_atoms, utf8_functions, extra_chunks,
      cover, env, core, core_roundtrip, asm, optimized_guards,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
-     env_compiler_options, custom_debug_info].
+     env_compiler_options, custom_debug_info, bc_options].
 
 groups() -> 
     [].
@@ -1363,6 +1364,47 @@ env_compiler_options(_Config) ->
         Expected = compile:env_compiler_options()
     end,
     lists:foreach(F, Cases).
+
+%% Test options for compatibility with previous major versions of OTP.
+
+bc_options(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+
+    101 = highest_opcode(DataDir, small_float, [no_line_info]),
+
+    103 = highest_opcode(DataDir, big, [no_record_opt,no_kill_stacktrace,no_line_info,no_stack_trimming]),
+
+    125 = highest_opcode(DataDir, small_float, [no_line_info,no_float_opt]),
+
+    132 = highest_opcode(DataDir, small, [no_record_opt,no_kill_stacktrace,no_float_opt,no_line_info]),
+
+    136 = highest_opcode(DataDir, big, [no_record_opt,no_kill_stacktrace,no_line_info]),
+
+    153 = highest_opcode(DataDir, big, [no_record_opt,no_kill_stacktrace]),
+    153 = highest_opcode(DataDir, big, [r16]),
+    153 = highest_opcode(DataDir, big, [r17]),
+    153 = highest_opcode(DataDir, big, [r18]),
+    153 = highest_opcode(DataDir, big, [r19]),
+    153 = highest_opcode(DataDir, small_float, [r16]),
+    153 = highest_opcode(DataDir, small_float, [r20]),
+
+    158 = highest_opcode(DataDir, small_maps, [r17]),
+    158 = highest_opcode(DataDir, small_maps, [r18]),
+    158 = highest_opcode(DataDir, small_maps, [r19]),
+    158 = highest_opcode(DataDir, small_maps, [r20]),
+
+    159 = highest_opcode(DataDir, big, [no_kill_stacktrace]),
+
+    160 = highest_opcode(DataDir, big, [r20]),
+
+    ok.
+
+highest_opcode(DataDir, Mod, Opt) ->
+    Src = filename:join(DataDir, atom_to_list(Mod)++".erl"),
+    {ok,Mod,Beam} = compile:file(Src, [binary|Opt]),
+    {ok,{Mod,[{"Code",Code}]}} = beam_lib:chunks(Beam, ["Code"]),
+    <<16:32,0:32,HighestOpcode:32,_/binary>> = Code,
+    HighestOpcode.
 
 %%%
 %%% Utilities.

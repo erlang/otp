@@ -214,13 +214,15 @@ expand_opt(report, Os) ->
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
 expand_opt(r16, Os) ->
-    [no_record_opt,no_utf8_atoms|Os];
+    [no_record_opt,no_utf8_atoms,no_kill_stacktrace|Os];
 expand_opt(r17, Os) ->
-    [no_record_opt,no_utf8_atoms|Os];
+    [no_record_opt,no_utf8_atoms,no_kill_stacktrace|Os];
 expand_opt(r18, Os) ->
-    [no_record_opt,no_utf8_atoms|Os];
+    [no_record_opt,no_utf8_atoms,no_kill_stacktrace|Os];
 expand_opt(r19, Os) ->
-    [no_record_opt,no_utf8_atoms|Os];
+    [no_record_opt,no_utf8_atoms,no_kill_stacktrace|Os];
+expand_opt(r20, Os) ->
+    Os;
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(no_float_opt, Os) ->
@@ -722,6 +724,8 @@ asm_passes() ->
     [{delay,
       [{pass,beam_a},
        {iff,da,{listing,"a"}},
+       {pass,beam_stk},
+       {iff,dstk,{listing,"stk"}},
        {unless,no_postopt,
 	[{unless,no_reorder,{pass,beam_reorder}},
 	 {iff,dre,{listing,"reorder"}},
@@ -1859,6 +1863,7 @@ pre_load() ->
          beam_record,
 	 beam_reorder,
 	 beam_split,
+	 beam_stk,
 	 beam_trim,
 	 beam_type,
 	 beam_utils,

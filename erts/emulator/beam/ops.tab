@@ -263,6 +263,9 @@ raise Trace Value => move Trace x=3 | move Value x=1 | move x=3 x=2 | i_raise
 
 i_raise
 
+kill_stacktrace
+%macro: kill_stacktrace KillStacktrace
+
 # Internal now, but could be useful to make known to the compiler.
 badarg j
 system_limit j
