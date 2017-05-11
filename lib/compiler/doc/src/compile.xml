@@ -600,9 +600,9 @@ module.beam: module.erl \
 	    to be deprecated.</p>
           </item>
 
-	  <tag><c>warn_obsolete_guard</c></tag>
+	  <tag><c>nowarn_obsolete_guard</c></tag>
           <item>
-            <p>Emits warnings for calls to old type testing BIFs, 
+            <p>Turns off warnings for calls to old type testing BIFs, 
 	    such as <c>pid/1</c> and <c>list/1</c>. See the
 	    <seealso marker="doc/reference_manual:expressions#guards">Erlang Reference Manual</seealso>
 	      for a complete list of type testing BIFs and their old
