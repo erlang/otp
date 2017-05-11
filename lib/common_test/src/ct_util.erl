@@ -201,14 +201,7 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
 	ok ->
 	    Parent ! {self(),started};
 	{fail,CTHReason} ->
-	    ErrorInfo = if is_atom(CTHReason) ->
-				io_lib:format("{~p,~p}",
-					      [CTHReason,
-					       erlang:get_stacktrace()]);
-			   true ->
-				CTHReason
-			end,
-	    ct_logs:tc_print('Suite Callback',ErrorInfo,[]),
+	    ct_logs:tc_print('Suite Callback',CTHReason,[]),
 	    self() ! {{stop,{self(),{user_error,CTHReason}}},
 		      {Parent,make_ref()}}
     catch
