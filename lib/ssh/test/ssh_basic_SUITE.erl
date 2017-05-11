@@ -612,7 +612,7 @@ exec_key_differs(Config, UserPKAlgs) ->
 	    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 						       {user_dir, SystemUserDir},
 						       {preferred_algorithms,
-							[{public_key,['ssh-rsa']}]}]),
+							[{public_key,['ssh-rsa'|UserPKAlgs]}]}]),
 	    ct:sleep(500),
 
 	    IO = ssh_test_lib:start_io_server(),
