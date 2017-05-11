@@ -95,6 +95,8 @@
 #define ERTS_LCNT_LO_READ       (((Uint16) 1) << 6)
 #define ERTS_LCNT_LO_WRITE      (((Uint16) 1) << 7)
 
+#define ERTS_LCNT_LT_DISABLE    (((Uint16) 1) << 8)
+
 #define ERTS_LCNT_LO_READ_WRITE ( ERTS_LCNT_LO_READ  \
                                 | ERTS_LCNT_LO_WRITE )
 
@@ -204,7 +206,6 @@ void erts_lcnt_thread_exit_handler(void);
 /* list operations (local)  */
 erts_lcnt_lock_list_t *erts_lcnt_list_init(void);
 
-void erts_lcnt_list_clear( erts_lcnt_lock_list_t *list);
 void erts_lcnt_list_insert(erts_lcnt_lock_list_t *list, erts_lcnt_lock_t *lock);
 void erts_lcnt_list_delete(erts_lcnt_lock_list_t *list, erts_lcnt_lock_t *lock);
 

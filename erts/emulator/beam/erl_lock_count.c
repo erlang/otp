@@ -299,22 +299,16 @@ erts_lcnt_lock_list_t *erts_lcnt_list_init(void) {
     return list;
 }
 
-/* only do this on the list with the deleted locks! */
-void erts_lcnt_list_clear(erts_lcnt_lock_list_t *list) {
-    erts_lcnt_lock_t *lock = NULL,
-                     *next = NULL;
+static void lcnt_list_free(erts_lcnt_lock_t *head) {
+    erts_lcnt_lock_t *lock, *next;
 
-    lock = list->head;
+    lock = head;
 
     while(lock != NULL) {
         next = lock->next;
         free(lock);
         lock = next;
     }
-
-    list->head = NULL;
-    list->tail = NULL;
-    list->n    = 0;
 }
 
 void erts_lcnt_list_insert(erts_lcnt_lock_list_t *list, erts_lcnt_lock_t *lock) {
@@ -358,8 +352,11 @@ void erts_lcnt_init_lock(erts_lcnt_lock_t *lock, char *name, Uint16 flag ) {
 
 void erts_lcnt_init_lock_x(erts_lcnt_lock_t *lock, char *name, Uint16 flag, Eterm id) {
     int i;
-    if (name == NULL) { ERTS_LCNT_CLEAR_FLAG(lock); return; }
-    lcnt_lock();
+
+    if (flag & ERTS_LCNT_LT_DISABLE) {
+        ERTS_LCNT_CLEAR_FLAG(lock);
+        return;
+    }
 
     lock->next = NULL;
     lock->prev = NULL;
@@ -379,6 +376,7 @@ void erts_lcnt_init_lock_x(erts_lcnt_lock_t *lock, char *name, Uint16 flag, Eter
         lcnt_clear_stats(&lock->stats[i]);
     }
 
+    lcnt_lock();
     erts_lcnt_list_insert(erts_lcnt_data->current_locks, lock);
     lcnt_unlock();
 }
@@ -675,12 +673,17 @@ void erts_lcnt_clear_counters(void) {
         lock->n_stats = 1;
     }
 
-    /* empty deleted locks in lock list */
-    erts_lcnt_list_clear(erts_lcnt_data->deleted_locks);
+    lock = erts_lcnt_data->deleted_locks->head;
+    erts_lcnt_data->deleted_locks->head = NULL;
+    erts_lcnt_data->deleted_locks->tail = NULL;
+    erts_lcnt_data->deleted_locks->n = 0;
 
     lcnt_time(&timer_start);
 
     lcnt_unlock();
+
+    /* free deleted locks */
+    lcnt_list_free(lock);
 }
 
 erts_lcnt_data_t *erts_lcnt_get_data(void) {
