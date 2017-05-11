@@ -764,7 +764,8 @@ handle_options(Opts0, Role, Host) ->
 		    crl_check = handle_option(crl_check, Opts, false),
 		    crl_cache = handle_option(crl_cache, Opts, {ssl_crl_cache, {internal, []}}),
 		    v2_hello_compatible = handle_option(v2_hello_compatible, Opts, false),
-                    max_handshake_size = handle_option(max_handshake_size, Opts, ?DEFAULT_MAX_HANDSHAKE_SIZE)
+		    max_handshake_size = handle_option(max_handshake_size, Opts, ?DEFAULT_MAX_HANDSHAKE_SIZE),
+		    client_cert_verify_fun = handle_option(client_cert_verify_fun, Opts, undefined)
 		   },
 
     CbInfo  = proplists:get_value(cb_info, Opts, default_cb_info(Protocol)),
@@ -780,7 +781,7 @@ handle_options(Opts0, Role, Host) ->
 		  client_preferred_next_protocols, log_alert,
 		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
 		  fallback, signature_algs, eccs, honor_ecc_order, beast_mitigation, v2_hello_compatible,
-                  max_handshake_size],
+		  max_handshake_size, client_cert_verify_fun],
 
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
@@ -1038,6 +1039,15 @@ validate_option(v2_hello_compatible, Value) when is_boolean(Value)  ->
     Value;
 validate_option(max_handshake_size, Value) when is_integer(Value)  andalso Value =< ?MAX_UNIT24 ->
     Value;
+validate_option(client_cert_verify_fun = Opt, Value) when is_function(Value) ->
+    case erlang:fun_info(Value, arity) of
+        {arity, 2} ->
+            Value;
+        _ ->
+            throw({error, {options, {Opt, Value}}})
+    end;
+validate_option(client_cert_verify_fun, undefined) ->
+    undefined;
 validate_option(protocol, Value = tls) ->
     Value;
 validate_option(protocol, Value = dtls) ->

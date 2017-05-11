@@ -143,7 +143,8 @@
 	  eccs,
 	  honor_ecc_order            :: boolean(),
 	  v2_hello_compatible        :: boolean(),
-          max_handshake_size         :: integer()
+	  max_handshake_size         :: integer(),
+	  client_cert_verify_fun   :: fun()
          }).
 
 -record(socket_options,

@@ -1640,6 +1640,8 @@ digitally_signed(Version, Hashes, HashAlgo, PrivateKey) ->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, bad_key(PrivateKey)))
     end.
 
+do_digitally_signed(_Version, Hash, HashAlgo, Key) when is_function(Key) ->
+    Key(Hash, HashAlgo);
 do_digitally_signed({3, Minor}, Hash, HashAlgo, Key) when Minor >= 3 ->
     public_key:sign({digest, Hash}, HashAlgo, Key);
 do_digitally_signed(_Version, Hash, HashAlgo, #'DSAPrivateKey'{} = Key) ->
