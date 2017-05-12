@@ -177,8 +177,8 @@ ERL_NIF_API_FUNC_DECL(int,enif_thread_type,(void));
 ERL_NIF_API_FUNC_DECL(int,enif_snprintf,(char * buffer, size_t size, const char *format, ...));
 ERL_NIF_API_FUNC_DECL(int,enif_select,(ErlNifEnv* env, ErlNifEvent e, enum ErlNifSelectFlags flags, void* obj, const ErlNifPid* pid, ERL_NIF_TERM ref));
 ERL_NIF_API_FUNC_DECL(ErlNifResourceType*,enif_open_resource_type_x,(ErlNifEnv*, const char* name_str, const ErlNifResourceTypeInit*, ErlNifResourceFlags flags, ErlNifResourceFlags* tried));
-ERL_NIF_API_FUNC_DECL(int, enif_monitor_process,(ErlNifEnv*,void* obj,const ErlNifPid*,ErlDrvMonitor *monitor));
-ERL_NIF_API_FUNC_DECL(int, enif_demonitor_process,(ErlNifEnv*,void* obj,const ErlDrvMonitor *monitor));
+ERL_NIF_API_FUNC_DECL(int, enif_monitor_process,(ErlNifEnv*,void* obj,const ErlNifPid*,ErlNifMonitor *monitor));
+ERL_NIF_API_FUNC_DECL(int, enif_demonitor_process,(ErlNifEnv*,void* obj,const ErlNifMonitor *monitor));
 ERL_NIF_API_FUNC_DECL(int, enif_compare_monitors,(const ErlNifMonitor*,const ErlNifMonitor*));
 ERL_NIF_API_FUNC_DECL(ErlNifUInt64,enif_hash,(ErlNifHash type, ERL_NIF_TERM term, ErlNifUInt64 salt));
 
