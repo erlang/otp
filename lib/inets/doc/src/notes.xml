@@ -33,7 +33,23 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.3.8</title>
+  <section><title>Inets 6.3.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The close of a chunked file reception crashed in a
+	    certain timing sequence.</p>
+          <p>
+	    Own Id: OTP-14391 Aux Id: seq13306 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.8</title>
 
     <section><title>Improvements and New Features</title>
       <list>
