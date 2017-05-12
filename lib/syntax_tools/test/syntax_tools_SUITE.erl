@@ -25,14 +25,14 @@
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
--export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1,
+-export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1,revert_optional_callbacks/1,
 	t_abstract_type/1,t_erl_parse_type/1,t_epp_dodger/1,
 	t_comment_scan/1,t_igor/1,t_erl_tidy/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [app_test,appup_test,smoke_test,revert,revert_map,
+all() ->
+    [app_test,appup_test,smoke_test,revert,revert_map,revert_optional_callbacks,
     t_abstract_type,t_erl_parse_type,t_epp_dodger,
     t_comment_scan,t_igor,t_erl_tidy].
 
@@ -123,7 +123,20 @@ revert_map(Config) when is_list(Config) ->
 			     {map_field_assoc,{atom,17,name},{var,18,'Value'}}}]),
     ?t:timetrap_cancel(Dog).
 
-
+%% Testing bug fix for reverting optional_callbacks
+revert_optional_callbacks(Config) when is_list(Config) ->
+    Dog = ?t:timetrap(?t:minutes(1)),
+    [{attribute,3,optional_callbacks,[{b,0}]}] =
+        erl_syntax:revert_forms([{tree,attribute,
+                                  {attr,3,[],none},
+                                  {attribute,
+                                   {atom,3,optional_callbacks},
+                                   [{cons,3,
+                                     {tree,arity_qualifier,
+                                      {attr,3,[],none},
+                                      {arity_qualifier,{atom,0,b},{integer,0,0}}},
+                                     {nil,3}}]}}]),
+    ?t:timetrap_cancel(Dog).
 
 %% api tests
 

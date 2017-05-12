@@ -3347,13 +3347,13 @@ revert_attribute_1(module, [M, List], Pos, Node) ->
 	    {attribute, Pos, module, {A, Vs}};
 	error -> Node
     end;
-revert_attribute_1(export, [List], Pos, Node) ->
+revert_attribute_1(N, [List], Pos, Node) when N =:= export; N =:= optional_callbacks ->
     case is_list_skeleton(List) of
 	true ->
 	    case is_proper_list(List) of
 		true ->
 		    Fs = fold_function_names(list_elements(List)),
-		    {attribute, Pos, export, Fs};
+		    {attribute, Pos, N, Fs};
 		false ->
 		    Node
 	    end;
