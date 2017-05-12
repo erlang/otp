@@ -68,7 +68,7 @@ include $(LIBPATH)/stdlib/vsn.mk
 
 ##############################################################################
 
-debug opt script: rel $(INSTALL_SCRIPTS) $(RELEASES_SRC)
+debug opt lcnt script: rel $(INSTALL_SCRIPTS) $(RELEASES_SRC)
 
 rel:	$(REL_SCRIPTS)
 

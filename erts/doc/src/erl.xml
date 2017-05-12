@@ -239,6 +239,13 @@
       <item>
         <p>Useful for debugging. Prints the arguments sent to the emulator.</p>
       </item>
+      <tag><c><![CDATA[-emu_type Type]]></c></tag>
+      <item>
+        <p>Start an emulator of a different type. For example, to start
+	the lock-counter emualator, use <c>-emu_type lcnt</c>. (The emulator
+	must already be built. Use the <c>configure</c> option
+	<c>--enable-lock-counter</c> to build the lock-counter emulator.)</p>
+      </item>
       <tag><c><![CDATA[-env Variable Value]]></c></tag>
       <item>
         <p>Sets the host OS environment variable <c><![CDATA[Variable]]></c> to
