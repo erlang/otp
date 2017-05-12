@@ -144,7 +144,7 @@
 	  honor_ecc_order            :: boolean(),
 	  v2_hello_compatible        :: boolean(),
 	  max_handshake_size         :: integer(),
-	  client_cert_verify_fun   :: fun()
+	  client_cert_verify_fun   :: fun() | 'undefined'
          }).
 
 -record(socket_options,
