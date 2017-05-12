@@ -32,7 +32,7 @@
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, kernel_listing/1, encrypted_abstr/1,
 	 strict_record/1, utf8_atoms/1, utf8_functions/1, extra_chunks/1,
-	 cover/1, env/1, core/1,
+	 cover/1, env/1, core_pp/1,
 	 core_roundtrip/1, asm/1, optimized_guards/1,
 	 sys_pre_attributes/1, dialyzer/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
@@ -51,7 +51,7 @@ all() ->
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, kernel_listing, encrypted_abstr,
      strict_record, utf8_atoms, utf8_functions, extra_chunks,
-     cover, env, core, core_roundtrip, asm, optimized_guards,
+     cover, env, core_pp, core_roundtrip, asm, optimized_guards,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
      env_compiler_options, custom_debug_info, bc_options].
 
@@ -795,9 +795,9 @@ env_1(Simple, Target) ->
 %% Test pretty-printing in Core Erlang format and then try to
 %% compile the generated Core Erlang files.
 
-core(Config) when is_list(Config) ->
+core_pp(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    Outdir = filename:join(PrivDir, "core"),
+    Outdir = filename:join(PrivDir, atom_to_list(?FUNCTION_NAME)),
     ok = file:make_dir(Outdir),
 
     TestBeams = get_unique_beam_files(),
@@ -805,11 +805,11 @@ core(Config) when is_list(Config) ->
 				    {raw_abstract_v1,Abstr}}]}} = 
 			     beam_lib:chunks(Beam, [abstract_code]),
 			 {Mod,Abstr} end || Beam <- TestBeams],
-    test_lib:p_run(fun(F) -> do_core(F, Outdir) end, Abstr).
+    test_lib:p_run(fun(F) -> do_core_pp(F, Outdir) end, Abstr).
     
-do_core({M,A}, Outdir) ->
+do_core_pp({M,A}, Outdir) ->
     try
-	do_core_1(M, A, Outdir)
+	do_core_pp_1(M, A, Outdir)
     catch
 	throw:{error,Error} ->
 	    io:format("*** compilation failure '~p' for module ~s\n",
@@ -821,7 +821,7 @@ do_core({M,A}, Outdir) ->
 	    error
     end.
 
-do_core_1(M, A, Outdir) ->
+do_core_pp_1(M, A, Outdir) ->
     {ok,M,Core0} = compile:forms(A, [to_core]),
     CoreFile = filename:join(Outdir, atom_to_list(M)++".core"),
     CorePP = core_pp:format(Core0),
