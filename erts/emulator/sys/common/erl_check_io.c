@@ -156,15 +156,36 @@ struct removed_fd {
 
 };
 
+struct drv_ev_state_shared {
+    /* The layout of this struct must be independent of kp/nkp compilation */
+
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-static int max_fds = -1;
+    int max_fds;
 #endif
 
 #define DRV_EV_STATE_LOCK_CNT 128
-static union {
-    erts_mtx_t lck;
-    byte _cache_line_alignment[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_mtx_t))];
-}drv_ev_state_locks[DRV_EV_STATE_LOCK_CNT];
+    union {
+        erts_mtx_t lck;
+        byte _cache_line_alignment[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_mtx_t))];
+    }locks[DRV_EV_STATE_LOCK_CNT];
+
+#ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
+    erts_atomic_t len;
+    ErtsDrvEventState *v;
+    erts_mtx_t grow_lock; /* prevent lock-hogging of racing growers */
+#else
+    SafeHash tab;
+    int num_prealloc;
+    ErtsDrvEventState *prealloc_first;
+    erts_spinlock_t prealloc_lock;
+#endif
+};
+
+#ifndef ERTS_KERNEL_POLL_VERSION
+struct drv_ev_state_shared drv_ev_state;
+#else
+extern struct drv_ev_state_shared drv_ev_state;
+#endif
 
 static ERTS_INLINE erts_mtx_t* fd_mtx(ErtsSysFdType fd)
 {
@@ -172,26 +193,16 @@ static ERTS_INLINE erts_mtx_t* fd_mtx(ErtsSysFdType fd)
 # ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
     hash ^= (hash >> 9);
 # endif
-    return &drv_ev_state_locks[hash % DRV_EV_STATE_LOCK_CNT].lck;
+    return &drv_ev_state.locks[hash % DRV_EV_STATE_LOCK_CNT].lck;
 }
 
-#ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-
-static erts_atomic_t drv_ev_state_len;
-static ErtsDrvEventState *drv_ev_state;
-static erts_mtx_t drv_ev_state_grow_lock; /* prevent lock-hogging of racing growers */
-
-#else
-static SafeHash drv_ev_state_tab;
-static int num_state_prealloc;
-static ErtsDrvEventState *state_prealloc_first;
-erts_spinlock_t state_prealloc_lock;
+#ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
 
 static ERTS_INLINE ErtsDrvEventState *hash_get_drv_ev_state(ErtsSysFdType fd)
 {
     ErtsDrvEventState tmpl;
     tmpl.fd = fd;
-    return  (ErtsDrvEventState *) safe_hash_get(&drv_ev_state_tab, (void *) &tmpl);
+    return  (ErtsDrvEventState *) safe_hash_get(&drv_ev_state.tab, (void *) &tmpl);
 }
 
 static ERTS_INLINE ErtsDrvEventState* hash_new_drv_ev_state(ErtsSysFdType fd)
@@ -205,13 +216,13 @@ static ERTS_INLINE ErtsDrvEventState* hash_new_drv_ev_state(ErtsSysFdType fd)
     tmpl.remove_cnt = 0;
     tmpl.type = ERTS_EV_TYPE_NONE;
     tmpl.flags = 0;
-    return  (ErtsDrvEventState *) safe_hash_put(&drv_ev_state_tab, (void *) &tmpl);
+    return  (ErtsDrvEventState *) safe_hash_put(&drv_ev_state.tab, (void *) &tmpl);
 }
 
 static ERTS_INLINE void hash_erase_drv_ev_state(ErtsDrvEventState *state)
 {
     ASSERT(state->remove_cnt == 0);
-    safe_hash_erase(&drv_ev_state_tab, (void *) state);
+    safe_hash_erase(&drv_ev_state.tab, (void *) state);
 }
 
 #endif /* !ERTS_SYS_CONTINOUS_FD_NUMBERS */
@@ -356,7 +367,7 @@ forget_removed(struct pollset_info* psi)
 	fd = fdlp->fd;
 	mtx = fd_mtx(fd);
 	erts_mtx_lock(mtx);
-	state = &drv_ev_state[(int) fd];
+	state = &drv_ev_state.v[(int) fd];
 #else
 	state = fdlp->state;
 	fd = state->fd;
@@ -426,40 +437,40 @@ grow_drv_ev_state(int min_ix)
     int old_len;
     int new_len;
 
-    erts_mtx_lock(&drv_ev_state_grow_lock);
-    old_len = erts_atomic_read_nob(&drv_ev_state_len);
+    erts_mtx_lock(&drv_ev_state.grow_lock);
+    old_len = erts_atomic_read_nob(&drv_ev_state.len);
     if (min_ix >= old_len) {
         new_len = erts_poll_new_table_len(old_len, min_ix + 1);
-        if (new_len > max_fds)
-            new_len = max_fds;
+        if (new_len > drv_ev_state.max_fds)
+            new_len = drv_ev_state.max_fds;
 
 	for (i=0; i<DRV_EV_STATE_LOCK_CNT; i++) { /* lock all fd's */
-	    erts_mtx_lock(&drv_ev_state_locks[i].lck);
+	    erts_mtx_lock(&drv_ev_state.locks[i].lck);
 	}
-	drv_ev_state = (drv_ev_state
+	drv_ev_state.v = (drv_ev_state.v
 			? erts_realloc(ERTS_ALC_T_DRV_EV_STATE,
-				       drv_ev_state,
+				       drv_ev_state.v,
 				       sizeof(ErtsDrvEventState)*new_len)
 			: erts_alloc(ERTS_ALC_T_DRV_EV_STATE,
 				     sizeof(ErtsDrvEventState)*new_len));
 	for (i = old_len; i < new_len; i++) {
-	    drv_ev_state[i].fd = (ErtsSysFdType) i;
-	    drv_ev_state[i].driver.select = NULL;
-	    drv_ev_state[i].driver.stop.drv_ptr = NULL;
-            drv_ev_state[i].driver.nif = NULL;
-	    drv_ev_state[i].events = 0;
-	    drv_ev_state[i].remove_cnt = 0;
-	    drv_ev_state[i].type = ERTS_EV_TYPE_NONE;
-	    drv_ev_state[i].flags = 0;
+	    drv_ev_state.v[i].fd = (ErtsSysFdType) i;
+	    drv_ev_state.v[i].driver.select = NULL;
+	    drv_ev_state.v[i].driver.stop.drv_ptr = NULL;
+            drv_ev_state.v[i].driver.nif = NULL;
+	    drv_ev_state.v[i].events = 0;
+	    drv_ev_state.v[i].remove_cnt = 0;
+	    drv_ev_state.v[i].type = ERTS_EV_TYPE_NONE;
+	    drv_ev_state.v[i].flags = 0;
 	}
-	erts_atomic_set_nob(&drv_ev_state_len, new_len);
+	erts_atomic_set_nob(&drv_ev_state.len, new_len);
 	for (i=0; i<DRV_EV_STATE_LOCK_CNT; i++) {
-	    erts_mtx_unlock(&drv_ev_state_locks[i].lck);
+	    erts_mtx_unlock(&drv_ev_state.locks[i].lck);
 	}
     }
     /*else already grown by racing thread */
 
-    erts_mtx_unlock(&drv_ev_state_grow_lock);
+    erts_mtx_unlock(&drv_ev_state.grow_lock);
 }
 #endif /* ERTS_SYS_CONTINOUS_FD_NUMBERS */
 
@@ -623,7 +634,7 @@ check_cleanup_active_fd(ErtsSysFdType fd,
     erts_mtx_lock(mtx);
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    state = &drv_ev_state[(int) fd];
+    state = &drv_ev_state.v[(int) fd];
 #else
     state = hash_get_drv_ev_state(fd); /* may be NULL! */
     if (state)
@@ -867,11 +878,11 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
     ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    if ((unsigned)fd >= (unsigned)erts_atomic_read_nob(&drv_ev_state_len)) {
+    if ((unsigned)fd >= (unsigned)erts_atomic_read_nob(&drv_ev_state.len)) {
 	if (fd < 0) {
 	    return -1;    
 	}
-	if (fd >= max_fds) {
+	if (fd >= drv_ev_state.max_fds) {
 	    drv_select_large_fd_error(ix, fd, mode, on);
 	    return -1;
 	}
@@ -882,7 +893,7 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
     erts_mtx_lock(fd_mtx(fd));
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    state = &drv_ev_state[(int) fd];
+    state = &drv_ev_state.v[(int) fd];
 #else
     state = hash_get_drv_ev_state(fd); /* may be NULL! */
 #endif
@@ -1096,11 +1107,11 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
     ASSERT(!(resource->monitors && resource->monitors->is_dying));
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    if ((unsigned)fd >= (unsigned)erts_atomic_read_nob(&drv_ev_state_len)) {
+    if ((unsigned)fd >= (unsigned)erts_atomic_read_nob(&drv_ev_state.len)) {
 	if (fd < 0) {
 	    return INT_MIN | ERL_NIF_SELECT_INVALID_EVENT;
 	}
-	if (fd >= max_fds) {
+	if (fd >= drv_ev_state.max_fds) {
 	    nif_select_large_fd_error(fd, mode, resource, ref);
             return INT_MIN | ERL_NIF_SELECT_INVALID_EVENT;
 	}
@@ -1111,7 +1122,7 @@ ERTS_CIO_EXPORT(enif_select)(ErlNifEnv* env,
     erts_mtx_lock(fd_mtx(fd));
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    state = &drv_ev_state[(int) fd];
+    state = &drv_ev_state.v[(int) fd];
 #else
     state = hash_get_drv_ev_state(fd); /* may be NULL! */
 #endif
@@ -1500,7 +1511,7 @@ large_fd_error_common(erts_dsprintf_buf_t *dsbufp, ErtsSysFdType fd)
 {
     erts_dsprintf(dsbufp,
 		  "fd=%d is larger than the largest allowed fd=%d\n",
-		  (int) fd, max_fds - 1);
+		  (int) fd, drv_ev_state.max_fds - 1);
 }
 
 static void
@@ -1828,7 +1839,7 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 	erts_mtx_lock(fd_mtx(fd));
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-	state = &drv_ev_state[ (int) fd];
+	state = &drv_ev_state.v[ (int) fd];
 #else
 	state = hash_get_drv_ev_state(fd);
 	if (!state) {
@@ -2058,16 +2069,16 @@ static int drv_ev_state_cmp(void *des1, void *des2)
 static void *drv_ev_state_alloc(void *des_tmpl)
 {
     ErtsDrvEventState *evstate;
-    erts_spin_lock(&state_prealloc_lock);
-    if (state_prealloc_first == NULL) {
-	erts_spin_unlock(&state_prealloc_lock);
+    erts_spin_lock(&drv_ev_state.prealloc_lock);
+    if (drv_ev_state.prealloc_first == NULL) {
+	erts_spin_unlock(&drv_ev_state.prealloc_lock);
 	evstate = (ErtsDrvEventState *) 
 	    erts_alloc(ERTS_ALC_T_DRV_EV_STATE, sizeof(ErtsDrvEventState));
     } else {
-	evstate = state_prealloc_first;
-	state_prealloc_first = (ErtsDrvEventState *) evstate->hb.next;
-	--num_state_prealloc;
-	erts_spin_unlock(&state_prealloc_lock);
+	evstate = drv_ev_state.prealloc_first;
+	drv_ev_state.prealloc_first = (ErtsDrvEventState *) evstate->hb.next;
+	--drv_ev_state.num_prealloc;
+	erts_spin_unlock(&drv_ev_state.prealloc_lock);
     }
     /* XXX: Already valid data if prealloced, could ignore template! */
     *evstate = *((ErtsDrvEventState *) des_tmpl);
@@ -2077,11 +2088,11 @@ static void *drv_ev_state_alloc(void *des_tmpl)
 
 static void drv_ev_state_free(void *des)
 {
-    erts_spin_lock(&state_prealloc_lock);
-    ((ErtsDrvEventState *) des)->hb.next = &state_prealloc_first->hb;
-    state_prealloc_first = (ErtsDrvEventState *) des;
-    ++num_state_prealloc;
-    erts_spin_unlock(&state_prealloc_lock);
+    erts_spin_lock(&drv_ev_state.prealloc_lock);
+    ((ErtsDrvEventState *) des)->hb.next = &drv_ev_state.prealloc_first->hb;
+    drv_ev_state.prealloc_first = (ErtsDrvEventState *) des;
+    ++drv_ev_state.num_prealloc;
+    erts_spin_unlock(&drv_ev_state.prealloc_lock);
 }
 #endif
 
@@ -2158,17 +2169,17 @@ ERTS_CIO_EXPORT(erts_init_check_io)(void)
     init_removed_fd_alloc();
     erts_atomic_init_nob(&pollset.removed_list,  (erts_aint_t)NULL);
     {
-        int i;
-        for (i=0; i<DRV_EV_STATE_LOCK_CNT; i++) {
-            erts_mtx_init(&drv_ev_state_locks[i].lck, "drv_ev_state", make_small(i),
+	int i;
+	for (i=0; i<DRV_EV_STATE_LOCK_CNT; i++) {
+            erts_mtx_init(&drv_ev_state.locks[i].lck, "drv_ev_state", make_small(i),
                 ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
-        }
+	}
     }
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    max_fds = ERTS_CIO_POLL_MAX_FDS();
-    erts_atomic_init_nob(&drv_ev_state_len, 0);
-    drv_ev_state = NULL;
-    erts_mtx_init(&drv_ev_state_grow_lock, "drv_ev_state_grow", NIL,
+    drv_ev_state.max_fds = ERTS_CIO_POLL_MAX_FDS();
+    erts_atomic_init_nob(&drv_ev_state.len, 0);
+    drv_ev_state.v = NULL;
+    erts_mtx_init(&drv_ev_state.grow_lock, "drv_ev_state_grow", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
 #else
     {
@@ -2177,12 +2188,11 @@ ERTS_CIO_EXPORT(erts_init_check_io)(void)
 	hf.cmp = &drv_ev_state_cmp;
 	hf.alloc = &drv_ev_state_alloc;
 	hf.free = &drv_ev_state_free;
-	num_state_prealloc = 0;
-	state_prealloc_first = NULL;
-	erts_spinlock_init(&state_prealloc_lock,"state_prealloc", NIL,
-        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
-
-	safe_hash_init(ERTS_ALC_T_DRV_EV_STATE, &drv_ev_state_tab, "drv_ev_state_tab",
+	drv_ev_state.num_prealloc = 0;
+	drv_ev_state.prealloc_first = NULL;
+	erts_spinlock_init(&drv_ev_state.prealloc_lock, "state_prealloc", NIL,
+                               ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
+	safe_hash_init(ERTS_ALC_T_DRV_EV_STATE, &drv_ev_state.tab, "drv_ev_state_tab",
             ERTS_LOCK_FLAGS_CATEGORY_IO, DRV_EV_STATE_HTAB_SIZE, hf);
     }
 #endif
@@ -2192,7 +2202,7 @@ int
 ERTS_CIO_EXPORT(erts_check_io_max_files)(void)
 {
 #ifdef  ERTS_SYS_CONTINOUS_FD_NUMBERS
-    return max_fds;
+    return drv_ev_state.max_fds;
 #else
     return ERTS_POLL_EXPORT(erts_poll_max_fds)();
 #endif
@@ -2206,17 +2216,17 @@ ERTS_CIO_EXPORT(erts_check_io_size)(void)
     ERTS_CIO_POLL_INFO(pollset.ps, &pi);
     res = pi.memory_size;
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    res += sizeof(ErtsDrvEventState) * erts_atomic_read_nob(&drv_ev_state_len);
+    res += sizeof(ErtsDrvEventState) * erts_atomic_read_nob(&drv_ev_state.len);
 #else
-    res += safe_hash_table_sz(&drv_ev_state_tab);
+    res += safe_hash_table_sz(&drv_ev_state.tab);
     {
 	SafeHashInfo hi;
-	safe_hash_get_info(&hi, &drv_ev_state_tab);
+	safe_hash_get_info(&hi, &drv_ev_state.tab);
 	res += hi.objs * sizeof(ErtsDrvEventState);
     }
-    erts_spin_lock(&state_prealloc_lock);
-    res += num_state_prealloc * sizeof(ErtsDrvEventState);
-    erts_spin_unlock(&state_prealloc_lock);
+    erts_spin_lock(&drv_ev_state.prealloc_lock);
+    res += drv_ev_state.num_prealloc * sizeof(ErtsDrvEventState);
+    erts_spin_unlock(&drv_ev_state.prealloc_lock);
 #endif
     return res;
 }
@@ -2248,17 +2258,17 @@ ERTS_CIO_EXPORT(erts_check_io_info)(void *proc)
 
     memory_size = pi.memory_size;
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    memory_size += sizeof(ErtsDrvEventState) * erts_atomic_read_nob(&drv_ev_state_len);
+    memory_size += sizeof(ErtsDrvEventState) * erts_atomic_read_nob(&drv_ev_state.len);
 #else
-    memory_size += safe_hash_table_sz(&drv_ev_state_tab);
+    memory_size += safe_hash_table_sz(&drv_ev_state.tab);
     {
 	SafeHashInfo hi;
-	safe_hash_get_info(&hi, &drv_ev_state_tab);
+	safe_hash_get_info(&hi, &drv_ev_state.tab);
 	memory_size += hi.objs * sizeof(ErtsDrvEventState);
     }
-    erts_spin_lock(&state_prealloc_lock);
-    memory_size += num_state_prealloc * sizeof(ErtsDrvEventState);
-    erts_spin_unlock(&state_prealloc_lock);
+    erts_spin_lock(&drv_ev_state.prealloc_lock);
+    memory_size += drv_ev_state.num_prealloc * sizeof(ErtsDrvEventState);
+    erts_spin_unlock(&drv_ev_state.prealloc_lock);
 #endif
 
     hpp = NULL;
@@ -2632,8 +2642,8 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(ErtsCheckIoDebugInfo *ciodip)
     erts_thr_progress_block(); /* stop the world to avoid messy locking */
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    counters.epep = erts_alloc(ERTS_ALC_T_TMP, sizeof(ErtsPollEvents)*max_fds);
-    ERTS_POLL_EXPORT(erts_poll_get_selected_events)(pollset.ps, counters.epep, max_fds);
+    counters.epep = erts_alloc(ERTS_ALC_T_TMP, sizeof(ErtsPollEvents)*drv_ev_state.max_fds);
+    ERTS_POLL_EXPORT(erts_poll_get_selected_events)(pollset.ps, counters.epep, drv_ev_state.max_fds);
     counters.internal_fds = 0;
 #endif
     counters.used_fds = 0;
@@ -2642,16 +2652,16 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(ErtsCheckIoDebugInfo *ciodip)
     counters.no_enif_select_structs = 0;
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    len = erts_atomic_read_nob(&drv_ev_state_len);
+    len = erts_atomic_read_nob(&drv_ev_state.len);
     for (fd = 0; fd < len; fd++) {
-	doit_erts_check_io_debug((void *) &drv_ev_state[fd], (void *) &counters);
+	doit_erts_check_io_debug((void *) &drv_ev_state.v[fd], (void *) &counters);
     }
-    for ( ; fd < max_fds; fd++) {
+    for ( ; fd < drv_ev_state.max_fds; fd++) {
 	null_des.fd = fd;
 	doit_erts_check_io_debug((void *) &null_des, (void *) &counters);
     }
 #else
-    safe_hash_for_each(&drv_ev_state_tab, &doit_erts_check_io_debug, (void *) &counters);
+    safe_hash_for_each(&drv_ev_state.tab, &doit_erts_check_io_debug, (void *) &counters);
 #endif
 
     erts_thr_progress_unblock();
@@ -2679,7 +2689,7 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(ErtsCheckIoDebugInfo *ciodip)
 #ifdef ERTS_ENABLE_LOCK_COUNT
 void ERTS_CIO_EXPORT(erts_lcnt_update_cio_locks)(int enable) {
 #ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    erts_lcnt_enable_hash_lock_count(&drv_ev_state_tab, ERTS_LOCK_FLAGS_CATEGORY_IO, enable);
+    erts_lcnt_enable_hash_lock_count(&drv_ev_state.tab, ERTS_LOCK_FLAGS_CATEGORY_IO, enable);
 #else
     (void)enable;
 #endif
