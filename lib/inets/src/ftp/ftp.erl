@@ -100,6 +100,12 @@
 	  ftp_extension = ?FTP_EXT_DEFAULT
 	 }).
 
+-record(recv_chunk_closing, {
+          dconn_closed = false,
+          pos_compl_received = false,
+          client_called_us = false
+         }).
+
 
 -type shortage_reason()  :: 'etnospc' | 'epnospc'.
 -type restriction_reason() :: 'epath' | 'efnamena' | 'elogin' | 'enotbinary'.
@@ -1343,6 +1349,25 @@ handle_call({_,{recv_chunk_start, RemoteFile}}, From, #state{chunk = false}
 handle_call({_, recv_chunk}, _, #state{chunk = false} = State) ->
     {reply, {error, "ftp:recv_chunk_start/2 not called"}, State}; 
 
+handle_call({_, recv_chunk}, _From, #state{chunk = true,
+                                           caller = #recv_chunk_closing{dconn_closed       = true,
+                                                                        pos_compl_received = true
+                                                                       }
+                                          } = State0) ->
+    %% The ftp:recv_chunk call was the last event we waited for, finnish and clean up
+    ?DBG("recv_chunk_closing ftp:recv_chunk, last event",[]),
+    activate_ctrl_connection(State0),
+    {reply, ok, State0#state{caller = undefined,
+                             chunk = false,
+                             client = undefined}};
+    
+handle_call({_, recv_chunk}, From, #state{chunk = true,
+                                          caller = #recv_chunk_closing{} = R
+                                         } = State) ->
+    %% Waiting for more, don't care what
+    ?DBG("recv_chunk_closing ftp:recv_chunk, get more",[]),
+    {noreply, State#state{client = From, caller = R#recv_chunk_closing{client_called_us=true}}};
+
 handle_call({_, recv_chunk}, From, #state{chunk = true} = State0) ->
     State = activate_data_connection(State0),
     {noreply, State#state{client = From, caller = recv_chunk}};
@@ -1480,19 +1505,24 @@ handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
     file_close(Fd),
     progress_report({transfer_size, 0}, State),
     activate_ctrl_connection(State),
+    ?DBG("Data channel close",[]),
     {noreply, State#state{dsock = undefined, data = <<>>}};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
+                                  client = Client,
 				  caller = recv_chunk} = State)
   when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
+    ?DBG("Data channel close recv_chunk",[]),
     activate_ctrl_connection(State),
-    {noreply, State#state{dsock = undefined, data = <<>>, 
-                          caller = recv_chunk_closed
+    {noreply, State#state{dsock = undefined,
+                          caller = #recv_chunk_closing{dconn_closed     =  true,
+                                                       client_called_us =  Client =/= undefined}
                          }};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, caller = recv_bin, 
 					 data = Data} = State)
   when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
+    ?DBG("Data channel close",[]),
     activate_ctrl_connection(State),
     {noreply, State#state{dsock = undefined, data = <<>>, 
 			  caller = {recv_bin, Data}}};
@@ -1500,6 +1530,7 @@ handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, caller = recv_bin,
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, data = Data,
 					 caller = {handle_dir_result, Dir}} 
 	    = State) when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
+    ?DBG("Data channel close",[]),
     activate_ctrl_connection(State),
     {noreply, State#state{dsock = undefined, 
 			  caller = {handle_dir_result, Dir, Data},
@@ -2047,13 +2078,27 @@ handle_ctrl_result({pos_prel, _}, #state{client = From,
 
 %%--------------------------------------------------------------------------
 %% File handling - chunk_transfer complete
+
 handle_ctrl_result({pos_compl, _}, #state{client = From,
-                                          caller = recv_chunk_closed}
-		   = State0) ->
+                                          caller = #recv_chunk_closing{dconn_closed       = true,
+                                                                       client_called_us   = true,
+                                                                       pos_compl_received = false
+                                                                      }}
+		   = State0) when From =/= undefined ->
+    %% The pos_compl was the last event we waited for, finnish and clean up
+    ?DBG("recv_chunk_closing pos_compl, last event",[]),
     gen_server:reply(From, ok),
+    activate_ctrl_connection(State0),
     {noreply, State0#state{caller = undefined,
                            chunk = false,
                            client = undefined}};
+
+handle_ctrl_result({pos_compl, _}, #state{caller = #recv_chunk_closing{}=R}
+		   = State0) ->
+    %% Waiting for more, don't care what
+    ?DBG("recv_chunk_closing pos_compl, wait more",[]),
+    {noreply, State0#state{caller = R#recv_chunk_closing{pos_compl_received=true}}};
+
 
 %%--------------------------------------------------------------------------
 %% File handling - recv_file
