@@ -94,7 +94,8 @@ groups() ->
 			  ]},
      {ext_info, [], [no_ext_info_s1,
                      no_ext_info_s2,
-                     ext_info_s
+                     ext_info_s,
+                     ext_info_c
                     ]}
     ].
 
@@ -696,6 +697,65 @@ ext_info_s(Config) ->
           ],
           AfterKexState),
     ssh:stop_daemon(Pid).
+
+%%%--------------------------------------------------------------------
+%%% The client sends the extension
+ext_info_c(Config) ->    
+    {User,_Pwd} = server_user_password(Config),
+
+    %% Create a listening socket as server socket:
+    {ok,InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+
+    Parent = self(),
+    %% Start a process handling one connection on the server side:
+    Pid =
+        spawn_link(
+          fun() ->
+                  Result =
+                      ssh_trpt_test_lib:exec(
+                        [{set_options, [print_ops, print_messages]},
+                         {accept, [{system_dir, system_dir(Config)},
+                                   {user_dir, user_dir(Config)},
+                                   {recv_ext_info, true}
+                                  ]},
+                         receive_hello,
+                         {send, hello},
+                         
+                         {send, ssh_msg_kexinit},
+                         {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                         
+                         {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+                         {send, ssh_msg_kexdh_reply},
+
+                         {send, #ssh_msg_newkeys{}},
+                         {match,  #ssh_msg_newkeys{_='_'}, receive_msg},
+
+                         {match, #ssh_msg_ext_info{_='_'}, receive_msg},
+
+                         close_socket,
+                         print_state
+                        ],
+                        InitialState),
+                  Parent ! {result,self(),Result}
+          end),
+
+    %% connect to it with a regular Erlang SSH client
+    %% (expect error due to the close_socket in daemon):
+    {error,_} = std_connect(HostPort, Config, 
+                            [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                    {cipher,?DEFAULT_CIPHERS}
+                                                   ]},
+                             {tstflg, [{ext_info_client,true}]},
+                             {send_ext_info, true}
+                            ]
+                           ),
+    
+    %% Check that the daemon got expected result:
+    receive
+        {result, Pid, {ok,_}} -> ok;
+        {result, Pid, Error} -> ct:fail("Error: ~p",[Error])
+    end.
 
 %%%================================================================
 %%%==== Internal functions ========================================
