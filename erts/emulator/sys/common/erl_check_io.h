@@ -30,37 +30,28 @@
 #include "sys.h"
 #include "erl_sys_driver.h"
 
+struct pollset_info;
+
 Uint erts_check_io_size(void);
 Eterm erts_check_io_info(void *);
+void erts_io_notify_port_task_executed(ErtsPortTaskHandle *pthp);
+void erts_check_io_async_sig_interrupt(struct pollset_info *psi);
 int erts_check_io_max_files(void);
-void erts_check_io_interrupt(int);
-void erts_check_io_interrupt_timed(int, ErtsMonotonicTime);
 void erts_check_io(int);
 void erts_init_check_io(void);
 #ifdef ERTS_ENABLE_LOCK_COUNT
 void erts_lcnt_update_cio_locks(int enable);
 #endif
 
-extern erts_atomic_t erts_check_io_time;
+void erts_check_io_interrupt(struct pollset_info*, int);
+void erts_check_io_interrupt_timed(struct pollset_info*, int, ErtsMonotonicTime);
+struct pollset_info* erts_get_pollset(int sched_num);
 
 typedef struct {
     ErtsPortTaskHandle task;
     erts_atomic_t executed_time;
+    struct pollset_info *pollset;
 } ErtsIoTask;
-
-ERTS_GLB_INLINE void erts_io_notify_port_task_executed(ErtsPortTaskHandle *pthp);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE void
-erts_io_notify_port_task_executed(ErtsPortTaskHandle *pthp)
-{
-    ErtsIoTask *itp = (ErtsIoTask *) (((char *) pthp) - offsetof(ErtsIoTask, task));
-    erts_aint_t ci_time = erts_atomic_read_acqb(&erts_check_io_time);
-    erts_atomic_set_relb(&itp->executed_time, ci_time);
-}
-
-#endif
 
 #endif /*  ERL_CHECK_IO_H__ */
 
@@ -80,7 +71,7 @@ erts_io_notify_port_task_executed(ErtsPortTaskHandle *pthp)
  */
 #  define ERTS_CIO_DEFER_ACTIVE_EVENTS 1
 #else
-#  define ERTS_CIO_DEFER_ACTIVE_EVENTS 0
+#  define ERTS_CIO_DEFER_ACTIVE_EVENTS 1
 #endif
 
 typedef struct {

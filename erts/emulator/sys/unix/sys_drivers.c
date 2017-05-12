@@ -1723,8 +1723,6 @@ static ErlDrvData forker_start(ErlDrvPort port_num, char* name,
 
     SET_NONBLOCKING(forker_fd);
 
-    driver_select(port_num, forker_fd, ERL_DRV_READ|ERL_DRV_USE, 1);
-
     return (ErlDrvData)port_num;
 }
 
@@ -1821,9 +1819,18 @@ static void forker_ready_output(ErlDrvData e, ErlDrvEvent fd)
 static ErlDrvSSizeT forker_control(ErlDrvData e, unsigned int cmd, char *buf,
                                    ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen)
 {
+    static int first_call = 1;
     ErtsSysForkerProto *proto = (ErtsSysForkerProto *)buf;
     ErlDrvPort port_num = (ErlDrvPort)e;
     int res;
+
+    if (first_call) {
+        /*
+         * Do driver_select here when schedulers and their pollsets have started.
+         */
+        driver_select(port_num, forker_fd, ERL_DRV_READ|ERL_DRV_USE, 1);
+        first_call = 0;
+    }
 
     driver_enq(port_num, buf, len);
     if (driver_sizeq(port_num) > sizeof(*proto)) {

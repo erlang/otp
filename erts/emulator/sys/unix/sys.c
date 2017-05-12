@@ -499,6 +499,7 @@ static void signal_notify_requested(Eterm type) {
 static ERTS_INLINE void
 break_requested(void)
 {
+    int i;
   /*
    * just set a flag - checked for and handled by
    * scheduler threads erts_check_io() (not signal handler).
@@ -510,7 +511,10 @@ break_requested(void)
       erts_exit(ERTS_INTR_EXIT, "");
 
   ERTS_SET_BREAK_REQUESTED;
-  erts_check_io_interrupt(1);
+  for (i=0; i < erts_no_schedulers; i++) {
+       /* Make sure we don't sleep in poll */
+      erts_check_io_interrupt(ERTS_SCHEDULER_IX(i)->pollset, 1);
+  }
 }
 
 static RETSIGTYPE request_break(int signum)

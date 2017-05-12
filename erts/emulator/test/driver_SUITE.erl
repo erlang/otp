@@ -83,6 +83,8 @@
 
 -export([bin_prefix/2]).
 
+-export([get_check_io_total/1]).   % for z_SUITE.erl
+
 -include_lib("common_test/include/ct.hrl").
 
 
@@ -783,7 +785,7 @@ io_ready_exit(Config) when is_list(Config) ->
 
 use_fallback_pollset(Config) when is_list(Config) ->
     FlbkFun = fun () ->
-                      ChkIoDuring = erlang:system_info(check_io),
+                      ChkIoDuring = get_check_io_total(erlang:system_info(check_io)),
                       case lists:keysearch(fallback_poll_set_size,
                                            1,
                                            ChkIoDuring) of
@@ -939,7 +941,7 @@ chkio_test({erts_poll_info, Before},
         "ok" ->
             chk_chkio_port(Port),
             Fun(),
-            During = erlang:system_info(check_io),
+            During = get_check_io_total(erlang:system_info(check_io)),
             erlang:display(During),
             0 = element(1, erts_debug:get_internal_state(check_io_debug)),
             io:format("During test: ~p~n", [During]),
@@ -992,14 +994,14 @@ verify_chkio_state(Before, After) ->
     ok.
 
 get_stable_check_io_info() ->
-    ChkIo = erlang:system_info(check_io),
-    PendUpdNo = case lists:keysearch(pending_updates, 1, ChkIo) of
-                    {value, {pending_updates, PendNo}} ->
-                        PendNo;
+    ChkIo = get_check_io_total(erlang:system_info(check_io)),
+    PendUpdNo = case lists:keyfind(pending_updates, 1, ChkIo) of
+                    {pending_updates, Value} ->
+                        Value;
                     false ->
                         0
                 end,
-    {value, {active_fds, ActFds}} = lists:keysearch(active_fds, 1, ChkIo),
+    {active_fds, ActFds} = lists:keyfind(active_fds, 1, ChkIo),
     case {PendUpdNo, ActFds} of
         {0, 0} ->
             ChkIo;
@@ -1007,6 +1009,46 @@ get_stable_check_io_info() ->
             receive after 10 -> ok end,
             get_stable_check_io_info()
     end.
+
+%% Merge return from erlang:system_info(check_io)
+%% as if it was one big pollset.
+get_check_io_total(ChkIo) ->
+    lists:foldl(fun(Pollset, Acc) ->
+                        lists:zipwith(fun(A, B) ->
+                                              add_pollset_infos(A,B)
+                                      end,
+                                      Pollset, Acc)
+                end,
+                hd(ChkIo),
+                tl(ChkIo)).
+
+add_pollset_infos({Tag, A}=TA , {Tag, B}=TB) ->
+    case tag_type(Tag) of
+        sum ->
+            {Tag, A + B};
+        const ->
+            case A of
+                B -> TA;
+                _ ->
+                    ct:fail("Unexpected diff in pollsets ~p != ~p",
+                            [TA,TB])
+            end
+    end.
+
+tag_type(name) -> const;
+tag_type(primary) -> const;
+tag_type(fallback) -> const;
+tag_type(kernel_poll) -> const;
+tag_type(memory_size) -> sum;
+tag_type(total_poll_set_size) -> sum;
+tag_type(fallback_poll_set_size) -> sum;
+tag_type(lazy_updates) -> const;
+tag_type(pending_updates) -> sum;
+tag_type(batch_updates) -> const;
+tag_type(concurrent_updates) -> const;
+tag_type(max_fds) -> const;
+tag_type(active_fds) -> sum.
+
 
 %% Missed port lock when stealing control of fd from a
 %% driver that didn't use the same lock. The lock checker

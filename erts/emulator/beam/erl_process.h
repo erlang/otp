@@ -364,6 +364,7 @@ typedef struct {
 } ErtsSchedulerSleepList;
 
 struct ErtsSchedulerSleepInfo_ {
+    struct ErtsSchedulerData_ *esdp;
     ErtsSchedulerSleepInfo *next;
     ErtsSchedulerSleepInfo *prev;
     erts_atomic32_t flags;
@@ -631,6 +632,8 @@ struct ErtsSchedulerData_ {
     void *match_pseudo_process; /* erl_db_util.c:db_prog_match() */
     Process *free_process;
     ErtsThrPrgrData thr_progress_data;
+    struct pollset_info* pollset;
+    int function_calls;
     ErtsSchedulerSleepInfo *ssi;
     Process *current_process;
     ErtsSchedType type;

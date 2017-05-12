@@ -225,6 +225,7 @@ typedef struct {
     long no_avoided_interrupts;
     long no_interrupt_timed;
 #endif
+    int active_fds;
 } ErtsPollInfo;
 
 void		ERTS_POLL_EXPORT(erts_poll_interrupt)(ErtsPollSet,

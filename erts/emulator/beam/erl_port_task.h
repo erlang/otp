@@ -61,11 +61,6 @@ typedef enum {
     ERTS_PORT_TASK_PROC_SIG
 } ErtsPortTaskType;
 
-#ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
-/* NOTE: Do not access any of the exported variables directly */
-extern erts_atomic_t erts_port_task_outstanding_io_tasks;
-#endif
-
 #define ERTS_PTS_FLG_IN_RUNQ			(((erts_aint32_t) 1) <<  0)
 #define ERTS_PTS_FLG_EXEC			(((erts_aint32_t) 1) <<  1)
 #define ERTS_PTS_FLG_HAVE_TASKS			(((erts_aint32_t) 1) <<  2)
@@ -138,10 +133,6 @@ ERTS_GLB_INLINE void erts_port_task_sched_lock(ErtsPortTaskSched *ptsp);
 ERTS_GLB_INLINE void erts_port_task_sched_unlock(ErtsPortTaskSched *ptsp);
 ERTS_GLB_INLINE int erts_port_task_sched_lock_is_locked(ErtsPortTaskSched *ptsp);
 ERTS_GLB_INLINE void erts_port_task_sched_enter_exiting_state(ErtsPortTaskSched *ptsp);
-
-#ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
-ERTS_GLB_INLINE int erts_port_task_have_outstanding_io_tasks(void);
-#endif
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -220,21 +211,10 @@ erts_port_task_sched_enter_exiting_state(ErtsPortTaskSched *ptsp)
     erts_atomic32_read_bor_nob(&ptsp->flags, ERTS_PTS_FLG_EXITING);
 }
 
-#ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
-
-ERTS_GLB_INLINE int
-erts_port_task_have_outstanding_io_tasks(void)
-{
-    return (erts_atomic_read_acqb(&erts_port_task_outstanding_io_tasks)
-	    != 0);
-}
-
-#endif /* ERTS_INCLUDE_SCHEDULER_INTERNALS */
-
 #endif
 
 #ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
-int erts_port_task_execute(ErtsRunQueue *, Port **);
+void erts_port_task_execute(ErtsRunQueue *, Port **);
 void erts_port_task_init(void);
 #endif
 
