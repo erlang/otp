@@ -135,7 +135,9 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                types = dict:new()               %Type definitions
                    :: dict:dict(ta(), #typeinfo{}),
                exp_types=gb_sets:empty()        %Exported types
-                   :: gb_sets:set(ta())
+                   :: gb_sets:set(ta()),
+               remotes = dict:new()             %Referenced modules
+                   :: dict:dict(module(), term())
               }).
 
 -type lint_state() :: #lint{}.
@@ -202,6 +204,10 @@ format_error({unused_import,{{F,A},M}}) ->
     io_lib:format("import ~w:~w/~w is unused", [M,F,A]);
 format_error({undefined_function,{F,A}}) ->
     io_lib:format("function ~w/~w undefined", [F,A]);
+format_error({undefined_remote_function,{M,F,A}}) ->
+    io_lib:format("function ~w:~w/~w undefined", [M,F,A]);
+format_error({bad_object_file,M}) ->
+    io_lib:format("module ~w object file missing or unreadable", [M]);
 format_error({redefine_function,{F,A}}) ->
     io_lib:format("function ~w/~w already defined", [F,A]);
 format_error({define_import,{F,A}}) ->
@@ -545,6 +551,10 @@ start(File, Opts) ->
 	 {unused_function,
 	  bool_option(warn_unused_function, nowarn_unused_function,
 		      true, Opts)},
+	 {undefined_remote_function,
+	  bool_option(warn_undefined_remote_function,
+                      nowarn_undefined_remote_function,
+		      false, Opts)},
 	 {bif_clash,
 	  bool_option(warn_bif_clash, nowarn_bif_clash,
 		      true, Opts)},
@@ -3656,8 +3666,70 @@ has_wildcard_field([]) -> false.
 
 check_remote_function(Line, M, F, As, St0) ->
     St1 = deprecated_function(Line, M, F, As, St0),
-    St2 = check_qlc_hrl(Line, M, F, As, St1),
-    format_function(Line, M, F, As, St2).
+    St2 = case is_warn_enabled(undefined_remote_function, St1) of
+              true ->
+                  remote_function(Line, M, F, As, St1);
+              false ->
+                  St1
+          end,
+    St3 = check_qlc_hrl(Line, M, F, As, St2),
+    format_function(Line, M, F, As, St3).
+
+remote_function(Line, M, F, As, St0) ->
+    A = length(As),
+    {St1, Info} = get_remote_module_info(Line, M, St0),
+    case lists:keyfind(exports, 1, Info) of
+        {exports, Xs} ->
+            case lists:member({F,A}, Xs) of
+                true ->
+                    St1;
+                false ->
+                    add_warning(Line, {undefined_remote_function,{M,F,A}},
+                                St1)
+            end;
+        _ ->
+            St1
+    end.
+
+%% read and cache information from other beam files
+get_remote_module_info(Line, M, #lint{remotes=R}=St) ->
+    case dict:find(M, R) of
+        {ok, Info} ->
+            {St, Info};  %% cached
+        error ->
+            case read_chunks(M) of
+                error ->
+                    %% this warning will only happen once per module
+                    St1 = add_warning(Line, {bad_object_file,M}, St),
+                    {St1#lint{remotes = dict:store(M, [], R)}, []};
+                Info ->
+                    {St#lint{remotes = dict:store(M, Info, R)}, Info}
+            end
+    end.
+
+%% returns empty list if file not found, error if existing but unreadable
+read_chunks(M) ->
+    case code:which(M) of
+        Path when is_list(Path) ->
+            read_chunks(M, Path);
+	preloaded ->
+            case code:get_object_code(M) of
+                {M,Bin,_File} ->
+                    read_chunks(M, Bin);
+                _ ->
+                    error
+            end;
+        _Other ->
+            []  %% TODO: optional strict checking returning error here?
+    end.
+
+read_chunks(M, Beam) ->
+    case beam_lib:chunks(Beam, [exports], [allow_missing_chunks]) of
+        {ok,{M,Chunks}} ->
+            Chunks;
+        _ ->
+            error
+    end.
 
 %% check_qlc_hrl(Line, ModName, FuncName, [Arg], State) -> State
 %%  Add warning if qlc:q/1,2 has been called but qlc.hrl has not

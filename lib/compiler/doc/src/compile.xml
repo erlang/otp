@@ -569,6 +569,14 @@ module.beam: module.erl \
               or a list of such tuples.</p>
           </item>
 
+	  <tag><c>warn_undefined_remote_function</c></tag>
+          <item>
+	    <p>Emits warnings for remote calls to functions that do not
+	    exist in the module being called. A warning is only generated if
+	    the object file for the called module can be found in the code
+	    path, and the module does not export such a function.</p>
+          </item>
+
 	  <tag><c>nowarn_deprecated_function</c></tag>
           <item>
             <p>Turns off warnings for calls to deprecated functions. Default 
