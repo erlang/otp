@@ -108,8 +108,6 @@ type_sig -> fun_type 'when' type_guards   : {type, ?anno('$1'), bounded_fun,
 type_guards -> type_guard                 : ['$1'].
 type_guards -> type_guard ',' type_guards : ['$1'|'$3'].
 
-type_guard -> atom '(' top_types ')'      : {type, ?anno('$1'), constraint,
-                                             ['$1', '$3']}.
 type_guard -> var '::' top_type           : build_def('$1', '$3').
 
 top_types -> top_type                     : ['$1'].
@@ -1041,13 +1039,13 @@ build_typed_attribute({atom,Aa,Attr},_) ->
     end.
 
 build_type_spec({Kind,Aa}, {SpecFun, TypeSpecs})
-  when (Kind =:= spec) or (Kind =:= callback) ->
+  when Kind =:= spec ; Kind =:= callback ->
     NewSpecFun =
 	case SpecFun of
 	    {atom, _, Fun} ->
 		{Fun, find_arity_from_specs(TypeSpecs)};
-	    {{atom,_, Mod}, {atom,_, Fun}} ->
-		{Mod,Fun,find_arity_from_specs(TypeSpecs)}
+	    {{atom, _, Mod}, {atom, _, Fun}} ->
+		{Mod, Fun, find_arity_from_specs(TypeSpecs)}
         end,
     {attribute,Aa,Kind,{NewSpecFun, TypeSpecs}}.
 
