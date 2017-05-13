@@ -968,6 +968,12 @@
               <c>read_write</c>.
               </p>
           </item>
+          <tag><c>{quiet, Boolean}</c></tag>
+          <item>
+              <p>Specifies if messages will be sent to
+                <c>error_logger</c> on recoverable errors with
+                the log files. Defaults to <c>true</c>.</p>
+          </item>
         </taglist>
         <p><c>open/1</c> returns <c>{ok, <anno>Log</anno>}</c> if the
           log file is successfully opened. If the file is

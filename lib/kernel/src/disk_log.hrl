@@ -76,6 +76,7 @@
                           | {notify, boolean()}
                           | {head, Head :: dlog_head_opt()}
                           | {head_func, MFA :: {atom(), atom(), list()}}
+                          | {quiet, boolean()}
                           | {mode, Mode :: dlog_mode()}.
 -type dlog_options()     :: [dlog_option()].
 -type dlog_repair()      :: 'truncate' | boolean().
@@ -102,6 +103,7 @@
 	      head = none,
 	      mode = read_write   :: dlog_mode(),
 	      notify = false      :: boolean(),
+	      quiet = false       :: boolean(),
 	      options = []        :: dlog_options()}).
 
 -record(cache,                %% Cache for logged terms (per file descriptor).
