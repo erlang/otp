@@ -28,7 +28,7 @@
 -export([set_env/3, set_env/4, unset_env/2, unset_env/3]).
 -export([get_env/1, get_env/2, get_env/3, get_all_env/0, get_all_env/1]).
 -export([get_key/1, get_key/2, get_all_key/0, get_all_key/1]).
--export([get_application/0, get_application/1, info/0]).
+-export([get_application/0, get_application/1, info/0, info/1]).
 -export([start_type/0]).
 
 -export_type([start_type/0]).
@@ -278,6 +278,12 @@ loaded_applications() ->
 
 info() -> 
     application_controller:info().
+
+-spec info(Timeout) -> term() when
+      Timeout :: timeout().
+
+info(Timeout) ->
+    application_controller:info(Timeout).
 
 -spec set_env(Application, Par, Val) -> 'ok' when
       Application :: atom(),
