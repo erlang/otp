@@ -2011,7 +2011,8 @@ hibernate_after(connection = StateName,
 hibernate_after(StateName, State, Actions) ->
     {next_state, StateName, State, Actions}.
  
-terminate_alert(normal, Version, ConnectionStates, Connection)  ->
+terminate_alert(Reason, Version, ConnectionStates, Connection) when Reason == normal;
+									 Reason == downgrade ->
     Connection:encode_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
 		     Version, ConnectionStates);
 terminate_alert({Reason, _}, Version, ConnectionStates, Connection) when Reason == close;
