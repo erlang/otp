@@ -428,14 +428,6 @@ main(int argc, char** argv)
     argv[argc] = NULL;
 #endif
 
-    emulator = env = get_env("ESCRIPT_EMULATOR");
-    if (emulator == NULL) {
-	emulator = get_default_emulator(argv[0]);
-    }
-
-    if (strlen(emulator) >= PMAX)
-        error("Value of environment variable ESCRIPT_EMULATOR is too large");
-
     /*
      * Allocate the argv vector to be used for arguments to Erlang.
      * Arrange for starting to pushing information in the middle of
@@ -446,20 +438,9 @@ main(int argc, char** argv)
     eargv_base = (char **) emalloc(eargv_size*sizeof(char*));
     eargv = eargv_base;
     eargc = 0;
-    push_words(emulator);
     eargc_base = eargc;
     eargv = eargv + eargv_size/2;
     eargc = 0;
-
-    free_env_val(env);
-
-    /*
-     * Push initial arguments.
-     */
-
-    PUSH("+B");
-    PUSH2("-boot", "start_clean");
-    PUSH("-noshell");
 
     /* Determine basename of the executable */
     for (basename = argv[0]+strlen(argv[0]);
@@ -509,6 +490,27 @@ main(int argc, char** argv)
 		      absname);
 	efree(absname);
     }
+
+    /* Determine path to emulator */
+    emulator = env = get_env("ESCRIPT_EMULATOR");
+
+    if (emulator == NULL) {
+	emulator = get_default_emulator(scriptname);
+    }
+
+    if (strlen(emulator) >= PMAX)
+        error("Value of environment variable ESCRIPT_EMULATOR is too large");
+
+    /*
+     * Push initial arguments.
+     */
+
+    push_words(emulator);
+    free_env_val(env);
+
+    PUSH("+B");
+    PUSH2("-boot", "start_clean");
+    PUSH("-noshell");
 
     /*
      * Read options from the %%! row in the script and add them as args
