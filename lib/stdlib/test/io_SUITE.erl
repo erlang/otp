@@ -1259,17 +1259,7 @@ s10(S) ->
     rat_multiply({1,1}, {A*F + B, F}).
 
 pow10(X) ->
-    int_pow(10, X).
-
-int_pow(X, 0) when is_integer(X) ->
-    1;
-int_pow(X, N) when is_integer(X), is_integer(N), N > 0 ->
-    int_pow(X, N, 1).
-
-int_pow(X, N, R) when N < 2 ->
-    R * X;
-int_pow(X, N, R) ->
-    int_pow(X * X, N bsr 1, case N band 1 of 1 -> R * X; 0 -> R end).
+    math:int_pow(10, X).
 
 dec(F) when is_float(F) ->
     <<S:1, BE:11, M:52>> = <<F:64/float>>,

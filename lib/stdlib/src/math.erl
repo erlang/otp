@@ -19,7 +19,7 @@
 %%
 -module(math).
 
--export([pi/0]).
+-export([pi/0, int_pow/2]).
 
 %%% BIFs
 
@@ -156,3 +156,19 @@ tanh(_) ->
 -spec pi() -> float().
 
 pi() -> 3.1415926535897932.
+
+-spec int_pow(X, N) -> integer() when
+      X :: integer(),
+      N :: integer().
+
+int_pow(X, 0) when is_integer(X) ->
+    1;
+int_pow(X, N) when is_integer(X), is_integer(N), N > 0 ->
+    int_pow(X, N, 1).
+
+%% TAOCP Volume 2, section 4.6.3
+%% Right-to-left binary method
+int_pow(X, N, R) when N < 2 ->
+    R * X;
+int_pow(X, N, R) ->
+    int_pow(X * X, N bsr 1, case N band 1 of 1 -> R * X; 0 -> R end).

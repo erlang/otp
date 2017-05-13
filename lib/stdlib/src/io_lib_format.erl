@@ -508,10 +508,10 @@ scale(R, S, MPlus, MMinus, LowOk, HighOk, Float) ->
     %% table for int_pow(10, N) where we do not.
     if
         Est >= 0 ->
-            fixup(R, S * int_pow(10, Est), MPlus, MMinus, Est,
+            fixup(R, S * math:int_pow(10, Est), MPlus, MMinus, Est,
                   LowOk, HighOk);
         true ->
-            Scale = int_pow(10, -Est),
+            Scale = math:int_pow(10, -Est),
             fixup(R * Scale, S, MPlus * Scale, MMinus * Scale, Est,
                   LowOk, HighOk)
     end.
@@ -595,16 +595,6 @@ int_ceil(X) when is_float(X) ->
         Pos when Pos > 0 -> T + 1;
         _ -> T
     end.
-
-int_pow(X, 0) when is_integer(X) ->
-    1;
-int_pow(X, N) when is_integer(X), is_integer(N), N > 0 ->
-    int_pow(X, N, 1).
-
-int_pow(X, N, R) when N < 2 ->
-    R * X;
-int_pow(X, N, R) ->
-    int_pow(X * X, N bsr 1, case N band 1 of 1 -> R * X; 0 -> R end).
 
 log2floor(Int) when is_integer(Int), Int > 0 ->
     log2floor(Int, 0).
