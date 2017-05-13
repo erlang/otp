@@ -170,8 +170,16 @@ parse_uri_rest(Scheme, DefaultPort, "//" ++ URIPart, Opts) ->
         split_uri(URIPart, "[/?#]", {URIPart, ""}, 1, 0),
     {RawPath, QueryFragment} =
         split_uri(PathQueryFragment, "[?#]", {PathQueryFragment, ""}, 1, 0),
-    {Query, Fragment} =
+    {QueryPart, Fragment} =
         split_uri(QueryFragment, "#", {QueryFragment, ""}, 1, 0),
+    Query =
+        case lists:keyfind(parse_query, 1, Opts) of
+            {parse_query, true} ->
+                <<"?", QueryPartBin/binary>> = list_to_binary(QueryPart),
+                parse_query(QueryPartBin);
+            _ ->
+                QueryPart
+        end,
     {UserInfo, HostPort} = split_uri(Authority, "@", {"", Authority}, 1, 1),
     {Host, Port}         = parse_host_port(Scheme, DefaultPort, HostPort, Opts),
     Path                 = path(RawPath),
@@ -181,6 +189,20 @@ parse_uri_rest(Scheme, DefaultPort, "//" ++ URIPart, Opts) ->
         _ ->
             {ok, {Scheme, UserInfo, Host, Port, Path, Query}}
     end.
+
+
+parse_query(<<>>) ->
+    [];
+parse_query(QueryBin) ->
+    Fun = fun(QueryPair) ->
+                  case binary:split(QueryPair, [<<"=">>]) of
+                      [Key, Value] ->
+                          {binary_to_list(Key), binary_to_list(Value)};
+                      [Key] ->
+                          {binary_to_list(Key), ""}
+                  end
+          end,
+    lists:map(Fun, binary:split(QueryBin, [<<"&">>], [global])).
 
 
 %% In this version of the function, we no longer need 

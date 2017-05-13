@@ -106,7 +106,14 @@ scheme(Config) when is_list(Config) ->
 
 queries(Config) when is_list(Config) ->
     {ok, {http,[],"localhost",8888,"/foobar.html","?foo=bar&foobar=42"}} =
-	http_uri:parse("http://localhost:8888/foobar.html?foo=bar&foobar=42").
+	http_uri:parse("http://localhost:8888/foobar.html?foo=bar&foobar=42"),
+    {ok, {http,[],"localhost",8888,"/foobar.html",[]}} =
+	http_uri:parse("http://localhost:8888/foobar.html?",[{parse_query,true}]),
+    {ok, {http,[],"localhost",8888,"/foobar.html",[{"foo", ""}]}} =
+	http_uri:parse("http://localhost:8888/foobar.html?foo",[{parse_query,true}]),
+    {ok, {http,[],"localhost",8888,"/foobar.html",[{"foo", "bar"},{"foobar", "42"}]}} =
+	http_uri:parse("http://localhost:8888/foobar.html?foo=bar&foobar=42",
+                       [{parse_query,true}]).
 
 fragments(Config) when is_list(Config) ->
     {ok, {http,[],"localhost",80,"/",""}} =
