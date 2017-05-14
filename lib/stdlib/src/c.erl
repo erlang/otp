@@ -767,7 +767,7 @@ print_exports(X) when length(X) > 16 ->
     split_print_exports(X);
 print_exports([]) -> ok;
 print_exports([{F, A} |Tail]) ->
-    format("         ~w/~w~n",[F, A]),
+    format("         ~tw/~w~n",[F, A]),
     print_exports(Tail).
 
 split_print_exports(L) ->
