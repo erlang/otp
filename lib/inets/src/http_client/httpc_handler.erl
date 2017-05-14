@@ -1224,7 +1224,7 @@ close_socket(#session{socket = Socket, socket_type = SocketType}) ->
     http_transport:close(SocketType, Socket).
 
 activate_request_timeout(
-  #state{request = #request{timer = undefined} = Request} = State) ->
+  #state{request = #request{timer = OldRef} = Request} = State) ->
     Timeout = (Request#request.settings)#http_options.timeout,
     case Timeout of
 	infinity ->
@@ -1232,17 +1232,21 @@ activate_request_timeout(
 	_ ->
 	    ReqId = Request#request.id, 
 	    Msg       = {timeout, ReqId}, 
+	    case OldRef of
+		undefined ->
+		    ok;
+		_ ->
+		    %% Timer is already running! This is the case for a redirect or retry
+		    %% We need to restart the timer because the handler pid has changed
+		    cancel_timer(OldRef, Msg)
+	    end,
 	    Ref       = erlang:send_after(Timeout, self(), Msg), 
 	    Request2  = Request#request{timer = Ref}, 
 	    ReqTimers = [{Request#request.id, Ref} |
 			 (State#state.timers)#timers.request_timers],
 	    Timers    = #timers{request_timers = ReqTimers}, 
 	    State#state{request = Request2, timers = Timers}
-    end;
-
-%% Timer is already running! This is the case for a redirect or retry
-activate_request_timeout(State) ->
-    State.
+    end.
 
 activate_queue_timeout(infinity, State) ->
     State;
