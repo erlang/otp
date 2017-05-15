@@ -260,8 +260,9 @@ sshc_simple_exec_os_cmd(Config) ->
 
 %%--------------------------------------------------------------------
 %% Connect to the ssh server of the OS
-sshd_simple_exec(_Config) ->
+sshd_simple_exec(Config) ->
     ConnectionRef = ssh_test_lib:connect(22, [{silently_accept_hosts, true},
+                                              proplists:get_value(pref_algs,Config),
 					      {user_interaction, false}]),
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
