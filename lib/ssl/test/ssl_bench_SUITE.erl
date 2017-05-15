@@ -410,13 +410,19 @@ ssl_opts(connect_der) ->
     [{verify, verify_peer} | ssl_opts("client_der")];
 ssl_opts(Role) ->
     CertData = cert_data(Role),
-    [{active, false},
-     {depth, 2},
-     {reuseaddr, true},
-     {mode,binary},
-     {nodelay, true},
-     {ciphers, [{dhe_rsa,aes_256_cbc,sha}]}
-    |CertData].
+    Opts = [{active, false},
+            {depth, 2},
+            {reuseaddr, true},
+            {mode,binary},
+            {nodelay, true},
+            {ciphers, [{dhe_rsa,aes_256_cbc,sha}]}
+            |CertData],
+    case Role of
+        "client" ++ _ ->
+            [{server_name_indication, disable} | Opts];
+        "server" ++ _ ->
+            Opts
+    end.
 
 cert_data(Der) when Der =:= "server_der"; Der =:= "client_der" ->
     [Role,_] = string:tokens(Der, "_"),
