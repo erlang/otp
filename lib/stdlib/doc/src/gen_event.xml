@@ -358,7 +358,7 @@ gen_event:stop             ----->  Module:terminate/2
         <v>&nbsp;Name = atom()</v>
         <v>&nbsp;GlobalName = ViaName = term()</v>
         <v>Options = [Option]</v>
-        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {spawn_opt,SOpts}</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {hibernate_after,HibernateAfterTimeout} | {spawn_opt,SOpts}</v>
         <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
         <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
         <v>&nbsp;&nbsp;SOpts = [term()]</v>
@@ -385,7 +385,7 @@ gen_event:stop             ----->  Module:terminate/2
         <v>&nbsp;Name = atom()</v>
         <v>&nbsp;GlobalName = ViaName = term()</v>
         <v>Options = [Option]</v>
-        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {spawn_opt,SOpts}</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {hibernate_after,HibernateAfterTimeout} | {spawn_opt,SOpts}</v>
         <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
         <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
         <v>&nbsp;&nbsp;SOpts = [term()]</v>
@@ -418,6 +418,12 @@ gen_event:stop             ----->  Module:terminate/2
               as the corresponding functions in
               <seealso marker="kernel:global"><c>global</c></seealso>.
               Thus, <c>{via,global,GlobalName}</c> is a valid reference.</p>
+          </item>
+          <item>
+            <p>If option <c>{hibernate_after,HibernateAfterTimeout}</c> is present, the <c>gen_event</c>
+              process awaits any message for <c>HibernateAfterTimeout</c> milliseconds and
+              if no message is received, the process goes into hibernation automatically
+              (by calling <seealso marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>).</p>
           </item>
         </list>
         <p>If the event manager is successfully created, the function
