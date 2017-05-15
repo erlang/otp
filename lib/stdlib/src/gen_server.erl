@@ -107,8 +107,6 @@
 %% Internal exports
 -export([init_it/6]).
 
--import(error_logger, [format/2]).
-
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
@@ -864,11 +862,12 @@ error_info(Reason, Name, From, Msg, State, Debug) ->
 		Reason
 	end,    
     {ClientFmt, ClientArgs} = client_stacktrace(From),
-    format("** Generic server ~p terminating \n"
-           "** Last message in was ~p~n"
-           "** When Server state == ~p~n"
-           "** Reason for termination == ~n** ~p~n" ++ ClientFmt,
-	   [Name, Msg, State, Reason1] ++ ClientArgs),
+    LimitedState = error_logger:limit_term(State),
+    error_logger:format("** Generic server ~p terminating \n"
+                        "** Last message in was ~p~n"
+                        "** When Server state == ~p~n"
+                        "** Reason for termination == ~n** ~p~n" ++ ClientFmt,
+                        [Name, Msg, LimitedState, Reason1] ++ ClientArgs),
     sys:print_log(Debug),
     ok.
 client_stacktrace(undefined) ->
