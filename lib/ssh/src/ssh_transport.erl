@@ -92,10 +92,7 @@ default_algorithms(cipher) ->
 default_algorithms(mac) ->
     supported_algorithms(mac, same(['AEAD_AES_128_GCM',
 				    'AEAD_AES_256_GCM']));
-default_algorithms(public_key) ->
-    supported_algorithms(public_key, ['rsa-sha2-256',
-                                      'rsa-sha2-384',
-                                      'rsa-sha2-512']);
+
 default_algorithms(Alg) ->
     supported_algorithms(Alg, []).
 
@@ -122,10 +119,9 @@ supported_algorithms(public_key) ->
        {'ecdsa-sha2-nistp384',  [{public_keys,ecdsa}, {hashs,sha384}, {ec_curve,secp384r1}]},
        {'ecdsa-sha2-nistp521',  [{public_keys,ecdsa}, {hashs,sha512}, {ec_curve,secp521r1}]},
        {'ecdsa-sha2-nistp256',  [{public_keys,ecdsa}, {hashs,sha256}, {ec_curve,secp256r1}]},
-       {'rsa-sha2-256',         [{public_keys,rsa},   {hashs,sha256}                      ]},
-       {'rsa-sha2-384',         [{public_keys,rsa},   {hashs,sha384}                      ]},
-       {'rsa-sha2-512',         [{public_keys,rsa},   {hashs,sha512}                      ]},
        {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]},
+       {'rsa-sha2-256',         [{public_keys,rsa},   {hashs,sha256}                      ]},
+       {'rsa-sha2-512',         [{public_keys,rsa},   {hashs,sha512}                      ]},
        {'ssh-dss',              [{public_keys,dss},   {hashs,sha}                         ]} % Gone in OpenSSH 7.3.p1
       ]);
  
