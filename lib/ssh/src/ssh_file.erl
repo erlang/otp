@@ -75,10 +75,7 @@ host_key(Algorithm, Opts) ->
     Password = proplists:get_value(identity_pass_phrase(Algorithm), Opts, ignore),
     case decode(File, Password) of
 	{ok,Key} ->
-	    case ssh_transport:valid_key_sha_alg(Key,Algorithm) of
-                true -> {ok,Key};
-                false -> {error,bad_keytype_in_file}
-	    end;
+            check_key_type(Key, Algorithm);
 	{error,DecodeError} ->
             {error,DecodeError}
     end.
@@ -104,10 +101,20 @@ is_host_key(Key, PeerName, Algorithm, Opts) ->
 user_key(Algorithm, Opts) ->
     File = file_name(user, identity_key_filename(Algorithm), Opts),
     Password = proplists:get_value(identity_pass_phrase(Algorithm), Opts, ignore),
-    decode(File, Password).
+    case decode(File, Password) of
+        {ok, Key} ->
+            check_key_type(Key, Algorithm);
+        Error ->
+            Error
+    end.
 
 
 %% Internal functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+check_key_type(Key, Algorithm) ->
+    case ssh_transport:valid_key_sha_alg(Key,Algorithm) of
+        true -> {ok,Key};
+        false -> {error,bad_keytype_in_file}
+    end.
 
 file_base_name('ssh-rsa'            ) -> "ssh_host_rsa_key";
 file_base_name('rsa-sha2-256'       ) -> "ssh_host_rsa_key";
