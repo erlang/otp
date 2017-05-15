@@ -35,10 +35,10 @@
 %%%  Internal application API
 %%%=========================================================================
 to_upper(Str) ->
-    string:to_upper(Str).
+    string:uppercase(Str).
 
 to_lower(Str) ->
-    string:to_lower(Str).
+    string:lowercase(Str).
 
 %% Example: Mon, 09-Dec-2002 13:46:00 GMT
 convert_netscapecookie_date([_D,_A,_Y, $,, $ ,
