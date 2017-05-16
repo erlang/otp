@@ -59,11 +59,13 @@ all_versions_groups ()->
 key_cert_combinations() ->
     [client_ecdh_rsa_server_ecdh_rsa,
      client_ecdhe_rsa_server_ecdh_rsa,
+     client_ecdh_ecdsa_server_ecdh_ecdsa,
+     client_ecdhe_ecdsa_server_ecdh_ecdsa,
      client_ecdh_rsa_server_ecdhe_rsa,
      client_ecdhe_rsa_server_ecdhe_rsa,
      client_ecdhe_ecdsa_server_ecdhe_rsa,
-     client_ecdhe_ecdsa_server_ecdhe_ecdsa,
-     client_ecdh_rsa_server_ecdhe_ecdsa
+     client_ecdh_rsa_server_ecdhe_ecdsa,
+     client_ecdhe_ecdsa_server_ecdhe_ecdsa
     ].
 
 misc()->
@@ -180,7 +182,7 @@ client_ecdh_rsa_server_ecdh_rsa(Config) when is_list(Config) ->
 
 client_ecdhe_rsa_server_ecdh_rsa(Config)  when is_list(Config) ->
     {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains(ecdhe_rsa, ecdh_rsa, Config),
-    basic_test(COpts, SOpts, Config).
+    basic_test(COpts, [{ciphers, [{ecdh_rsa, aes_128_cbc, sha}]} | SOpts], Config).
    
 %% ECDHE_RSA    
 client_ecdh_rsa_server_ecdhe_rsa(Config)  when is_list(Config) ->
@@ -196,12 +198,20 @@ client_ecdhe_ecdsa_server_ecdhe_rsa(Config)  when is_list(Config) ->
     basic_test(COpts, SOpts, Config).
    
 %% ECDHE_ECDSA
+client_ecdh_rsa_server_ecdhe_ecdsa(Config)  when is_list(Config) ->
+    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains(ecdh_rsa, ecdhe_ecdsa, Config), 
+    basic_test(COpts, SOpts, Config).
 client_ecdhe_ecdsa_server_ecdhe_ecdsa(Config)  when is_list(Config) ->
     {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains(ecdhe_ecdsa, ecdhe_ecdsa, Config),
     basic_test(COpts, SOpts, Config).
 
-client_ecdh_rsa_server_ecdhe_ecdsa(Config)  when is_list(Config) ->
-    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains(ecdh_rsa, ecdhe_ecdsa, Config),    
+%% ECDH_ECDSA
+client_ecdh_ecdsa_server_ecdh_ecdsa(Config)  when is_list(Config) ->
+    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains(ecdh_ecdsa, ecdh_ecdsa, Config),
+    basic_test(COpts, SOpts, Config).
+
+client_ecdhe_ecdsa_server_ecdh_ecdsa(Config)  when is_list(Config) ->
+    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains(ecdhe_ecdsa, ecdh_ecdsa, Config),
     basic_test(COpts, SOpts, Config).
 
 client_ecdsa_server_ecdsa_with_raw_key(Config)  when is_list(Config) ->
