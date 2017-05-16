@@ -92,6 +92,14 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
               :: dict:dict(ta(), line())
          }).
 
+
+%% Are we outside or inside a catch or try/catch?
+-type catch_scope() :: 'none'
+                     | 'after_old_catch'
+                     | 'after_try'
+                     | 'wrong_part_of_try'
+                     | 'try_catch'.
+
 %% Define the lint state record.
 %% 'called' and 'exports' contain {Line, {Function, Arity}},
 %% the other function collections contain {Function, Arity}.
@@ -135,7 +143,9 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                types = dict:new()               %Type definitions
                    :: dict:dict(ta(), #typeinfo{}),
                exp_types=gb_sets:empty()        %Exported types
-                   :: gb_sets:set(ta())
+                   :: gb_sets:set(ta()),
+               catch_scope = none               %Inside/outside try or catch
+                   :: catch_scope()
               }).
 
 -type lint_state() :: #lint{}.
@@ -223,7 +233,15 @@ format_error({redefine_old_bif_import,{F,A}}) ->
 format_error({redefine_bif_import,{F,A}}) ->
     io_lib:format("import directive overrides auto-imported BIF ~w/~w~n"
 		  " - use \"-compile({no_auto_import,[~w/~w]}).\" to resolve name clash", [F,A,F,A]);
-
+format_error({get_stacktrace,wrong_part_of_try}) ->
+    "erlang:get_stacktrace/0 used in the wrong part of 'try' expression. "
+        "(Use it in the block between 'catch' and 'end'.)";
+format_error({get_stacktrace,after_old_catch}) ->
+    "erlang:get_stacktrace/0 used following an old-style 'catch' "
+        "may stop working in a future release. (Use it inside 'try'.)";
+format_error({get_stacktrace,after_try}) ->
+    "erlang:get_stacktrace/0 used following a 'try' expression "
+        "may stop working in a future release. (Use it inside 'try'.)";
 format_error({deprecated, MFA, ReplacementMFA, Rel}) ->
     io_lib:format("~s is deprecated and will be removed in ~s; use ~s",
 		  [format_mfa(MFA), Rel, format_mfa(ReplacementMFA)]);
@@ -568,7 +586,10 @@ start(File, Opts) ->
 		      false, Opts)},
 	 {missing_spec_all,
 	  bool_option(warn_missing_spec_all, nowarn_missing_spec_all,
-		      false, Opts)}
+		      false, Opts)},
+         {get_stacktrace,
+          bool_option(warn_get_stacktrace, nowarn_get_stacktrace,
+                      true, Opts)}
 	],
     Enabled1 = [Category || {Category,true} <- Enabled0],
     Enabled = ordsets:from_list(Enabled1),
@@ -1405,8 +1426,9 @@ call_function(Line, F, A, #lint{usage=Usage0,called=Cd,func=Func,file=File}=St) 
 %% function(Line, Name, Arity, Clauses, State) -> State.
 
 function(Line, Name, Arity, Cs, St0) ->
-    St1 = define_function(Line, Name, Arity, St0#lint{func={Name,Arity}}),
-    clauses(Cs, St1).
+    St1 = St0#lint{func={Name,Arity},catch_scope=none},
+    St2 = define_function(Line, Name, Arity, St1),
+    clauses(Cs, St2).
 
 -spec define_function(line(), atom(), arity(), lint_state()) -> lint_state().
 
@@ -2338,22 +2360,24 @@ expr({call,Line,F,As}, Vt, St0) ->
 expr({'try',Line,Es,Scs,Ccs,As}, Vt, St0) ->
     %% Currently, we don't allow any exports because later
     %% passes cannot handle exports in combination with 'after'.
-    {Evt0,St1} = exprs(Es, Vt, St0),
+    {Evt0,St1} = exprs(Es, Vt, St0#lint{catch_scope=wrong_part_of_try}),
     TryLine = {'try',Line},
     Uvt = vtunsafe(TryLine, Evt0, Vt),
     Evt1 = vtupdate(Uvt, Evt0),
-    {Sccs,St2} = icrt_clauses(Scs++Ccs, TryLine, vtupdate(Evt1, Vt), St1),
+    {Sccs,St2} = try_clauses(Scs, Ccs, TryLine,
+                             vtupdate(Evt1, Vt), St1),
     Rvt0 = Sccs,
     Rvt1 = vtupdate(vtunsafe(TryLine, Rvt0, Vt), Rvt0),
     Evt2 = vtmerge(Evt1, Rvt1),
     {Avt0,St} = exprs(As, vtupdate(Evt2, Vt), St2),
     Avt1 = vtupdate(vtunsafe(TryLine, Avt0, Vt), Avt0),
     Avt = vtmerge(Evt2, Avt1),
-    {Avt,St};
+    {Avt,St#lint{catch_scope=after_try}};
 expr({'catch',Line,E}, Vt, St0) ->
     %% No new variables added, flag new variables as unsafe.
     {Evt,St} = expr(E, Vt, St0),
-    {vtupdate(vtunsafe({'catch',Line}, Evt, Vt), Evt),St};
+    {vtupdate(vtunsafe({'catch',Line}, Evt, Vt), Evt),
+     St#lint{catch_scope=after_old_catch}};
 expr({match,_Line,P,E}, Vt, St0) ->
     {Evt,St1} = expr(E, Vt, St0),
     {Pvt,Bvt,St2} = pattern(P, vtupdate(Evt, Vt), St1),
@@ -3173,6 +3197,17 @@ is_module_dialyzer_option(Option) ->
                   error_handling,race_conditions,no_missing_calls,
                   specdiffs,overspecs,underspecs,unknown]).
 
+%% try_catch_clauses(Scs, Ccs, In, ImportVarTable, State) ->
+%%      {UpdVt,State}.
+
+try_clauses(Scs, Ccs, In, Vt, St0) ->
+    {Csvt0,St1} = icrt_clauses(Scs, Vt, St0),
+    St2 = St1#lint{catch_scope=try_catch},
+    {Csvt1,St3} = icrt_clauses(Ccs, Vt, St2),
+    Csvt = Csvt0 ++ Csvt1,
+    UpdVt = icrt_export(Csvt, Vt, In, St3),
+    {UpdVt,St3}.
+
 %% icrt_clauses(Clauses, In, ImportVarTable, State) ->
 %%      {UpdVt,State}.
 
@@ -3657,7 +3692,8 @@ has_wildcard_field([]) -> false.
 check_remote_function(Line, M, F, As, St0) ->
     St1 = deprecated_function(Line, M, F, As, St0),
     St2 = check_qlc_hrl(Line, M, F, As, St1),
-    format_function(Line, M, F, As, St2).
+    St3 = check_get_stacktrace(Line, M, F, As, St2),
+    format_function(Line, M, F, As, St3).
 
 %% check_qlc_hrl(Line, ModName, FuncName, [Arg], State) -> State
 %%  Add warning if qlc:q/1,2 has been called but qlc.hrl has not
@@ -3705,6 +3741,23 @@ deprecated_function(Line, M, F, As, St) ->
         no ->
 	    St
     end.
+
+check_get_stacktrace(Line, erlang, get_stacktrace, [], St) ->
+    case St of
+        #lint{catch_scope=none} ->
+            St;
+        #lint{catch_scope=try_catch} ->
+            St;
+        #lint{catch_scope=Scope} ->
+            case is_warn_enabled(get_stacktrace, St) of
+                false ->
+                    St;
+                true ->
+                    add_warning(Line, {get_stacktrace,Scope}, St)
+            end
+    end;
+check_get_stacktrace(_, _, _, _, St) ->
+    St.
 
 -dialyzer({no_match, deprecated_type/5}).
 
