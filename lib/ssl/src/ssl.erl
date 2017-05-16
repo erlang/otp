@@ -455,7 +455,16 @@ setopts(#sslsocket{pid = Pid}, Options0) when is_pid(Pid), is_list(Options0)  ->
 	_:_ ->
 	    {error, {options, {not_a_proplist, Options0}}}
     end;
-
+setopts(#sslsocket{pid = {{udp, _}, #config{transport_info = {Transport,_,_,_}}}} = ListenSocket, Options) when is_list(Options) ->
+    try dtls_socket:setopts(Transport, ListenSocket, Options) of
+	ok ->
+	    ok;
+	{error, InetError} ->
+	    {error, {options, {socket_options, Options, InetError}}}
+    catch
+	_:Error ->
+	    {error, {options, {socket_options, Options, Error}}}
+    end;
 setopts(#sslsocket{pid = {_, #config{transport_info = {Transport,_,_,_}}}} = ListenSocket, Options) when is_list(Options) ->
     try tls_socket:setopts(Transport, ListenSocket, Options) of
 	ok ->

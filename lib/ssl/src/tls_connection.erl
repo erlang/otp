@@ -60,7 +60,7 @@
 
 %% Data handling
 -export([passive_receive/2, next_record_if_active/1, handle_common_event/4, send/3,
-        socket/5]).
+        socket/5, setopts/3, getopts/3]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -195,6 +195,10 @@ callback_mode() ->
 socket(Pid,  Transport, Socket, Connection, Tracker) ->
     tls_socket:socket(Pid, Transport, Socket, Connection, Tracker).
 
+setopts(Transport, Socket, Other) ->
+    tls_socket:setopts(Transport, Socket, Other).
+getopts(Transport, Socket, Tag) ->
+    tls_socket:getopts(Transport, Socket, Tag).
 
 %%--------------------------------------------------------------------
 %% State functions

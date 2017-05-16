@@ -905,14 +905,14 @@ handle_call({new_user, User}, From, StateName,
 handle_call({get_opts, OptTags}, From, _,
 		  #state{socket = Socket,
 			 transport_cb = Transport,
-			 socket_options = SockOpts}, _) ->
-    OptsReply = get_socket_opts(Transport, Socket, OptTags, SockOpts, []),
+			 socket_options = SockOpts}, Connection) ->
+    OptsReply = get_socket_opts(Connection, Transport, Socket, OptTags, SockOpts, []),
     {keep_state_and_data, [{reply, From, OptsReply}]};
 handle_call({set_opts, Opts0}, From, StateName, 
 	    #state{socket_options = Opts1, 
 			 socket = Socket,
-			 transport_cb = Transport} = State0, _) ->
-    {Reply, Opts} = set_socket_opts(Transport, Socket, Opts0, Opts1, []),
+			 transport_cb = Transport} = State0, Connection) ->
+    {Reply, Opts} = set_socket_opts(Connection, Transport, Socket, Opts0, Opts1, []),
     State = State0#state{socket_options = Opts},
     handle_active_option(Opts#socket_options.active, StateName, From, Reply, State);
     
@@ -1910,42 +1910,39 @@ call(FsmPid, Event) ->
 	    {error, closed}
     end.
 
-get_socket_opts(_,_,[], _, Acc) ->
+get_socket_opts(_, _,_,[], _, Acc) ->
     {ok, Acc};
-get_socket_opts(Transport, Socket, [mode | Tags], SockOpts, Acc) ->
-    get_socket_opts(Transport, Socket, Tags, SockOpts, 
+get_socket_opts(Connection, Transport, Socket, [mode | Tags], SockOpts, Acc) ->
+    get_socket_opts(Connection, Transport, Socket, Tags, SockOpts, 
 		    [{mode, SockOpts#socket_options.mode} | Acc]);
-get_socket_opts(Transport, Socket, [packet | Tags], SockOpts, Acc) ->
+get_socket_opts(Connection, Transport, Socket, [packet | Tags], SockOpts, Acc) ->
     case SockOpts#socket_options.packet of
 	{Type, headers} ->
-	    get_socket_opts(Transport, Socket, Tags, SockOpts, [{packet, Type} | Acc]);
+	    get_socket_opts(Connection, Transport, Socket, Tags, SockOpts, [{packet, Type} | Acc]);
 	Type ->
-	    get_socket_opts(Transport, Socket, Tags, SockOpts, [{packet, Type} | Acc])
+	    get_socket_opts(Connection, Transport, Socket, Tags, SockOpts, [{packet, Type} | Acc])
     end;
-get_socket_opts(Transport, Socket, [header | Tags], SockOpts, Acc) ->
-    get_socket_opts(Transport, Socket, Tags, SockOpts, 
+get_socket_opts(Connection, Transport, Socket, [header | Tags], SockOpts, Acc) ->
+    get_socket_opts(Connection, Transport, Socket, Tags, SockOpts, 
 		    [{header, SockOpts#socket_options.header} | Acc]);
-get_socket_opts(Transport, Socket, [active | Tags], SockOpts, Acc) ->
-    get_socket_opts(Transport, Socket, Tags, SockOpts, 
+get_socket_opts(Connection, Transport, Socket, [active | Tags], SockOpts, Acc) ->
+    get_socket_opts(Connection, Transport, Socket, Tags, SockOpts, 
 		    [{active, SockOpts#socket_options.active} | Acc]);
-get_socket_opts(Transport, Socket, [Tag | Tags], SockOpts, Acc) ->
-    try tls_socket:getopts(Transport, Socket, [Tag]) of
-	{ok, [Opt]} ->
-	    get_socket_opts(Transport, Socket, Tags, SockOpts, [Opt | Acc]);
-	{error, Error} ->
-	    {error, {options, {socket_options, Tag, Error}}}
-    catch
-	%% So that inet behavior does not crash our process
-	_:Error -> {error, {options, {socket_options, Tag, Error}}}
+get_socket_opts(Connection, Transport, Socket, [Tag | Tags], SockOpts, Acc) ->
+    case Connection:getopts(Transport, Socket, [Tag]) of
+        {ok, [Opt]} ->
+            get_socket_opts(Connection, Transport, Socket, Tags, SockOpts, [Opt | Acc]);
+        {error, Reason} ->
+            {error, {options, {socket_options, Tag, Reason}}}
     end;
-get_socket_opts(_, _,Opts, _,_) ->
+get_socket_opts(_,_, _,Opts, _,_) ->
     {error, {options, {socket_options, Opts, function_clause}}}.
 
-set_socket_opts(_,_, [], SockOpts, []) ->
+set_socket_opts(_,_,_, [], SockOpts, []) ->
     {ok, SockOpts};
-set_socket_opts(Transport, Socket, [], SockOpts, Other) ->
+set_socket_opts(ConnectionCb, Transport, Socket, [], SockOpts, Other) ->
     %% Set non emulated options 
-    try tls_socket:setopts(Transport, Socket, Other) of
+    try ConnectionCb:setopts(Transport, Socket, Other) of
 	ok ->
 	    {ok, SockOpts};
 	{error, InetError} ->
@@ -1956,13 +1953,13 @@ set_socket_opts(Transport, Socket, [], SockOpts, Other) ->
 	    {{error, {options, {socket_options, Other, Error}}}, SockOpts}
     end;
 
-set_socket_opts(Transport,Socket, [{mode, Mode}| Opts], SockOpts, Other) 
+set_socket_opts(ConnectionCb, Transport,Socket, [{mode, Mode}| Opts], SockOpts, Other) 
   when Mode == list; Mode == binary ->
-    set_socket_opts(Transport, Socket, Opts, 
+    set_socket_opts(ConnectionCb, Transport, Socket, Opts, 
 		    SockOpts#socket_options{mode = Mode}, Other);
-set_socket_opts(_, _, [{mode, _} = Opt| _], SockOpts, _) ->
+set_socket_opts(_, _, _, [{mode, _} = Opt| _], SockOpts, _) ->
     {{error, {options, {socket_options, Opt}}}, SockOpts};
-set_socket_opts(Transport,Socket, [{packet, Packet}| Opts], SockOpts, Other) 
+set_socket_opts(ConnectionCb, Transport,Socket, [{packet, Packet}| Opts], SockOpts, Other) 
   when Packet == raw;
        Packet == 0;
        Packet == 1;
@@ -1978,26 +1975,26 @@ set_socket_opts(Transport,Socket, [{packet, Packet}| Opts], SockOpts, Other)
        Packet == httph;
        Packet == http_bin;
        Packet == httph_bin ->
-    set_socket_opts(Transport, Socket, Opts, 
+    set_socket_opts(ConnectionCb, Transport, Socket, Opts, 
 		    SockOpts#socket_options{packet = Packet}, Other);
-set_socket_opts(_, _, [{packet, _} = Opt| _], SockOpts, _) ->
+set_socket_opts(_, _, _, [{packet, _} = Opt| _], SockOpts, _) ->
     {{error, {options, {socket_options, Opt}}}, SockOpts};
-set_socket_opts(Transport, Socket, [{header, Header}| Opts], SockOpts, Other) 
+set_socket_opts(ConnectionCb, Transport, Socket, [{header, Header}| Opts], SockOpts, Other) 
   when is_integer(Header) ->
-    set_socket_opts(Transport, Socket, Opts, 
+    set_socket_opts(ConnectionCb, Transport, Socket, Opts, 
 		    SockOpts#socket_options{header = Header}, Other);
-set_socket_opts(_, _, [{header, _} = Opt| _], SockOpts, _) ->
+set_socket_opts(_, _, _, [{header, _} = Opt| _], SockOpts, _) ->
     {{error,{options, {socket_options, Opt}}}, SockOpts};
-set_socket_opts(Transport, Socket, [{active, Active}| Opts], SockOpts, Other) 
+set_socket_opts(ConnectionCb, Transport, Socket, [{active, Active}| Opts], SockOpts, Other) 
   when Active == once;
        Active == true;
        Active == false ->
-    set_socket_opts(Transport, Socket, Opts, 
+    set_socket_opts(ConnectionCb, Transport, Socket, Opts, 
 		    SockOpts#socket_options{active = Active}, Other);
-set_socket_opts(_, _, [{active, _} = Opt| _], SockOpts, _) ->
+set_socket_opts(_,_, _, [{active, _} = Opt| _], SockOpts, _) ->
     {{error, {options, {socket_options, Opt}} }, SockOpts};
-set_socket_opts(Transport, Socket, [Opt | Opts], SockOpts, Other) ->
-    set_socket_opts(Transport, Socket, Opts, SockOpts, [Opt | Other]).
+set_socket_opts(ConnectionCb, Transport, Socket, [Opt | Opts], SockOpts, Other) ->
+    set_socket_opts(ConnectionCb, Transport, Socket, Opts, SockOpts, [Opt | Other]).
 
 start_or_recv_cancel_timer(infinity, _RecvFrom) ->
     undefined;

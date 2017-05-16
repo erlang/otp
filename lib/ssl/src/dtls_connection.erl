@@ -53,7 +53,7 @@
 %% Data handling
 
 -export([encode_data/3, passive_receive/2,  next_record_if_active/1, handle_common_event/4,
-	 send/3, socket/5]).
+	 send/3, socket/5, setopts/3, getopts/3]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -202,6 +202,11 @@ select_sni_extension(_) ->
 
 socket(Pid,  Transport, Socket, Connection, _) ->
     dtls_socket:socket(Pid, Transport, Socket, Connection).
+
+setopts(Transport, Socket, Other) ->
+    dtls_socket:setopts(Transport, Socket, Other).
+getopts(Transport, Socket, Tag) ->
+    dtls_socket:getopts(Transport, Socket, Tag).
 
 %%====================================================================
 %% tls_connection_sup API
