@@ -309,30 +309,6 @@ void erl_error(char *fmt, va_list args)
 
 static int early_init(int *argc, char **argv);
 
-void
-erts_short_init(void)
-{
-    
-    int ncpu;
-    int time_correction;
-    ErtsTimeWarpMode time_warp_mode;
-
-    set_default_time_adj(&time_correction,
-			 &time_warp_mode);
-    ncpu = early_init(NULL, NULL);
-    erl_init(ncpu,
-	     ERTS_DEFAULT_MAX_PROCESSES,
-	     0,
-	     ERTS_DEFAULT_MAX_PORTS,
-	     0,
-	     0,
-	     time_correction,
-	     time_warp_mode,
-	     ERTS_NODE_TAB_DELAY_GC_DEFAULT,
-	     ERTS_DB_SPNCNT_NORMAL);
-    erts_initialized = 1;
-}
-
 static void
 erl_init(int ncpu,
 	 int proc_tab_sz,

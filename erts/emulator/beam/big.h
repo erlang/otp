@@ -118,9 +118,7 @@ Eterm big_minus(Eterm, Eterm, Eterm*);
 Eterm big_times(Eterm, Eterm, Eterm*);
 Eterm big_div(Eterm, Eterm, Eterm*);
 Eterm big_rem(Eterm, Eterm, Eterm*);
-Eterm big_neg(Eterm, Eterm*);
 
-Eterm big_minus_small(Eterm, Uint, Eterm*);
 Eterm big_plus_small(Eterm, Uint, Eterm*);
 Eterm big_times_small(Eterm, Uint, Eterm*);
 

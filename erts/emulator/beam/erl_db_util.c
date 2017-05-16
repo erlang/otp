@@ -1301,11 +1301,6 @@ int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body)
     return 0;
 }
 
-/* This is used when tracing */
-Eterm erts_match_set_lint(Process *p, Eterm matchexpr) {
-    return db_match_set_lint(p, matchexpr, DCOMP_TRACE);
-}
-
 Eterm db_match_set_lint(Process *p, Eterm matchexpr, Uint flags) 
 {
     Eterm l;
