@@ -1968,6 +1968,7 @@ set_socket_opts(Transport,Socket, [{packet, Packet}| Opts], SockOpts, Other)
        Packet == 1;
        Packet == 2;
        Packet == 4;
+       Packet == variable_length;
        Packet == asn1;
        Packet == cdr;
        Packet == sunrm;
@@ -2205,6 +2206,7 @@ encode_packet(Data, #socket_options{packet=Packet}) ->
 	1 -> encode_size_packet(Data, 8,  (1 bsl 8) - 1);
 	2 -> encode_size_packet(Data, 16, (1 bsl 16) - 1);
 	4 -> encode_size_packet(Data, 32, (1 bsl 32) - 1);
+    variable_length -> encode_variable_length_packet(Data);
 	_ -> Data
     end.
 
@@ -2214,6 +2216,33 @@ encode_size_packet(Bin, Size, Max) ->
 	true  -> throw({error, {badarg, {packet_to_large, Len, Max}}});
 	false -> <<Len:Size, Bin/binary>>
     end.
+
+encode_variable_length_packet(Bin) ->
+    EncodedSize = encode_variable_length_size(byte_size(Bin)),
+    <<EncodedSize/binary, Bin/binary>>.
+
+encode_variable_length_size(Size) when Size < 1 bsl 7 ->
+    <<0:1, Size:7>>;
+encode_variable_length_size(Size) when Size < 1 bsl 14 ->
+    <<1:1, (Size bsr 7):7,
+      0:1, Size:7>>;
+encode_variable_length_size(Size) when Size < 1 bsl 21 ->
+    <<1:1, (Size bsr 14):7,
+      1:1, (Size bsr 7):7,
+      0:1, Size:7>>;
+encode_variable_length_size(Size) when Size < 1 bsl 28 ->
+    <<1:1, (Size bsr 21):7,
+      1:1, (Size bsr 14):7,
+      1:1, (Size bsr 7):7,
+      0:1, Size:7>>;
+encode_variable_length_size(Size) when Size < 1 bsl 32 ->
+    <<1:1, 0:3, (Size bsr 28):4,
+      1:1, (Size bsr 21):7,
+      1:1, (Size bsr 14):7,
+      1:1, (Size bsr 7):7,
+      0:1, Size:7>>;
+encode_variable_length_size(Size) ->
+    throw({error, {badarg, {packet_too_large, Size, (1 bsl 32) - 1}}}).
 
 time_to_renegotiate(_Data, 
 		    #{current_write := #{sequence_number := Num}}, 
