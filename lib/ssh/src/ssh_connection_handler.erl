@@ -434,11 +434,7 @@ init_ssh_record(Role, Socket, Opts) ->
 
 init_ssh_record(Role, _Socket, PeerAddr, Opts) ->
     KeyCb = ?GET_OPT(key_cb, Opts),
-    AuthMethods =
-        case Role of
-            server -> ?GET_OPT(auth_methods, Opts);
-            client -> undefined
-        end,
+    AuthMethods = ?GET_OPT(auth_methods, Opts),
     S0 = #ssh{role = Role,
 	      key_cb = KeyCb,
 	      opts = Opts,

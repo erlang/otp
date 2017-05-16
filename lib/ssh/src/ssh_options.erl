@@ -293,12 +293,6 @@ default(server) ->
             class => user_options
            },
 
-      {auth_methods, def} =>
-          #{default => ?SUPPORTED_AUTH_METHODS,
-            chk => fun check_string/1,
-            class => user_options
-           },
-
       {auth_method_kb_interactive_data, def} =>
           #{default => undefined, % Default value can be constructed when User is known
             chk => fun({S1,S2,S3,B}) ->
@@ -579,6 +573,21 @@ default(common) ->
       {rekey_limit, def} =>                     % FIXME: Why not common?
           #{default => 1024000000,
             chk => fun check_non_neg_integer/1,
+            class => user_options
+           },
+
+      {auth_methods, def} =>
+          #{default => ?SUPPORTED_AUTH_METHODS,
+            chk => fun(As) ->
+                           try
+                               Sup = string:tokens(?SUPPORTED_AUTH_METHODS, ","),
+                               New = string:tokens(As, ","),
+                               [] == [X || X <- New,
+                                           not lists:member(X,Sup)]
+                           catch
+                               _:_ -> false
+                           end
+                   end,
             class => user_options
            },
 

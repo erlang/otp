@@ -1173,13 +1173,10 @@ login_bad_pwd_no_retry3(Config) ->
     login_bad_pwd_no_retry(Config, "password,publickey,keyboard-interactive").
 
 login_bad_pwd_no_retry4(Config) ->
-    login_bad_pwd_no_retry(Config, "password,other,keyboard-interactive").
+    login_bad_pwd_no_retry(Config, "password,keyboard-interactive").
 
 login_bad_pwd_no_retry5(Config) ->
-    login_bad_pwd_no_retry(Config, "password,other,keyboard-interactive,password,password").
-
-
-
+    login_bad_pwd_no_retry(Config, "password,keyboard-interactive,password,password").
 
 
 login_bad_pwd_no_retry(Config, AuthMethods) ->
