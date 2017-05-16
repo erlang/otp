@@ -856,7 +856,8 @@ handle_call({close, {Pid, Timeout}}, From, StateName, State0, Connection) when i
     %% When downgrading an TLS connection to a transport connection
     %% we must recive the close alert from the peer before releasing the 
     %% transport socket.
-    {next_state, downgrade, State#state{terminated = true}, [{timeout, Timeout, downgrade}]};
+    Alert =  ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
+    {next_state, downgrade, State#state{terminated = true}, [{next_event, internal, Alert}]};
 handle_call({close, _} = Close, From, StateName, State, Connection) ->
     %% Run terminate before returning so that the reuseaddr
     %% inet-option works properly
