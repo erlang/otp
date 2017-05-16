@@ -134,26 +134,8 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
   Files = ordsets:from_list(Analysis#analysis.files),
   {Callgraph, TmpCServer0} = compile_and_store(Files, State),
   %% Remote type postprocessing
-  NewCServer =
-    try
-      TmpCServer1 = dialyzer_utils:merge_types(TmpCServer0, Plt),
-      NewExpTypes = dialyzer_codeserver:get_temp_exported_types(TmpCServer0),
-      OldExpTypes0 = dialyzer_plt:get_exported_types(Plt),
-      RemMods =
-        [case Analysis#analysis.start_from of
-           byte_code -> list_to_atom(filename:basename(F, ".beam"));
-           src_code -> list_to_atom(filename:basename(F, ".erl"))
-         end || F <- Files],
-      OldExpTypes1 = dialyzer_utils:sets_filter(RemMods, OldExpTypes0),
-      MergedExpTypes = sets:union(NewExpTypes, OldExpTypes1),
-      TmpCServer2 =
-        dialyzer_codeserver:finalize_exported_types(MergedExpTypes, TmpCServer1),
-      erlang:garbage_collect(), % reduce heap size
-      ?timing(State#analysis_state.timing_server, "remote",
-              contracts_and_records(TmpCServer2, Parent))
-    catch
-      throw:{error, _ErrorMsg} = Error -> exit(Error)
-    end,
+  Args = {Plt, Analysis, Parent},
+  NewCServer = remote_type_postprocessing(TmpCServer0, Args),
   dump_callgraph(Callgraph, State, Analysis),
   %% Remove all old versions of the files being analyzed
   AllNodes = dialyzer_callgraph:all_nodes(Callgraph),
@@ -181,15 +163,53 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
   Plt4 = dialyzer_plt:delete_list(Plt3, NonExportsList),
   send_analysis_done(Parent, Plt4, DocPlt).
 
-contracts_and_records(CodeServer, Parent) ->
-  Fun = contrs_and_recs(CodeServer, Parent),
+remote_type_postprocessing(TmpCServer, Args) ->
+  Fun = fun() ->
+            exit(remote_type_postproc(TmpCServer, Args))
+        end,
   {Pid, Ref} = erlang:spawn_monitor(Fun),
-  dialyzer_codeserver:give_away(CodeServer, Pid),
+  dialyzer_codeserver:give_away(TmpCServer, Pid),
   Pid ! {self(), go},
   receive {'DOWN', Ref, process, Pid, Return} ->
       skip_ets_transfer(Pid),
-      Return
+      case Return of
+        {error, _ErrorMsg} = Error -> exit(Error);
+        _ -> Return
+      end
   end.
+
+remote_type_postproc(TmpCServer0, Args) ->
+  {Plt, Analysis, Parent} = Args,
+  fun() ->
+      Caller = receive {Pid, go} -> Pid end,
+      TmpCServer1 = dialyzer_utils:merge_types(TmpCServer0, Plt),
+      NewExpTypes = dialyzer_codeserver:get_temp_exported_types(TmpCServer0),
+      OldExpTypes0 = dialyzer_plt:get_exported_types(Plt),
+      #analysis{start_from = StartFrom,
+                timing_server = TimingServer} = Analysis,
+      Files = ordsets:from_list(Analysis#analysis.files),
+      RemMods =
+        [case StartFrom of
+           byte_code -> list_to_atom(filename:basename(F, ".beam"));
+           src_code -> list_to_atom(filename:basename(F, ".erl"))
+         end || F <- Files],
+      OldExpTypes1 = dialyzer_utils:sets_filter(RemMods, OldExpTypes0),
+      MergedExpTypes = sets:union(NewExpTypes, OldExpTypes1),
+      TmpCServer2 =
+        dialyzer_codeserver:finalize_exported_types(MergedExpTypes,
+                                                    TmpCServer1),
+      TmpServer4 =
+        ?timing
+           (TimingServer, "remote",
+            begin
+              TmpCServer3 =
+                dialyzer_utils:process_record_remote_types(TmpCServer2),
+              dialyzer_contracts:process_contract_remote_types(TmpCServer3)
+          end),
+      rcv_and_send_ext_types(Caller, Parent),
+      dialyzer_codeserver:give_away(TmpServer4, Caller),
+      TmpServer4
+  end().
 
 skip_ets_transfer(Pid) ->
   receive
@@ -197,20 +217,6 @@ skip_ets_transfer(Pid) ->
       skip_ets_transfer(Pid)
   after 0 ->
       ok
-  end.
-
--spec contrs_and_recs(dialyzer_codeserver:codeserver(), pid()) ->
-                         fun(() -> no_return()).
-
-contrs_and_recs(TmpCServer2, Parent) ->
-  fun() ->
-      Caller = receive {Pid, go} -> Pid end,
-      TmpCServer3 = dialyzer_utils:process_record_remote_types(TmpCServer2),
-      TmpServer4 =
-        dialyzer_contracts:process_contract_remote_types(TmpCServer3),
-      dialyzer_codeserver:give_away(TmpServer4, Caller),
-      rcv_and_send_ext_types(Caller, Parent),
-      exit(TmpServer4)
   end.
 
 move_data(CServer, Plt) ->
