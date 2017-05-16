@@ -724,9 +724,21 @@ kex_ext_info(Role, Opts) ->
     end.
     
 ext_info_message(#ssh{role=client,
-                      send_ext_info=true} = Ssh0) ->
-    %% FIXME: no extensions implemented
-    {ok, "", Ssh0};
+                      send_ext_info=true,
+                      opts=Opts} = Ssh0) ->
+    %% Since no extension sent by the client is implemented, we add a fake one
+    %% to be able to test the framework.
+    %% Remove this when there is one and update ssh_protocol_SUITE whare it is used.
+    case proplists:get_value(ext_info_client, ?GET_OPT(tstflg,Opts)) of
+        true ->
+            Msg = #ssh_msg_ext_info{nr_extensions = 1,
+                                    data = [{"test@erlang.org", "Testing,PleaseIgnore"}]
+                                   },
+            {SshPacket, Ssh} = ssh_packet(Msg, Ssh0),
+            {ok, SshPacket, Ssh};
+        _ ->
+            {ok, "", Ssh0}
+    end;
 
 ext_info_message(#ssh{role=server,
                       send_ext_info=true} = Ssh0) ->
