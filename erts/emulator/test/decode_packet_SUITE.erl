@@ -62,7 +62,7 @@ basic(Config) when is_list(Config) ->
     {more, undefined} = decode_pkt(2,<<0>>),
     {more, undefined} = decode_pkt(4,<<0,0,0>>),
 
-    Types = [1,2,4,asn1,sunrm,cdr,fcgi,tpkt,ssl_tls],
+    Types = [1,2,4,variable_length,asn1,sunrm,cdr,fcgi,tpkt,ssl_tls],
 
     %% Run tests for different header types and bit offsets.
 
@@ -131,6 +131,41 @@ pack(2,Bin) ->
 pack(4,Bin) ->
     Psz = byte_size(Bin),
     {<<Psz:32,Bin/binary>>, Bin};
+pack(variable_length,Bin) when byte_size(Bin) < 1 bsl 7 ->
+    % 7 bits / 1 byte
+    Psz = byte_size(Bin),
+    {<<0:1, Psz:7,
+       Bin/binary>>, Bin};
+pack(variable_length,Bin) when byte_size(Bin) < 1 bsl 14 ->
+    % 14 bits / 2 bytes
+    Psz = byte_size(Bin),
+    {<<1:1, (Psz bsr 7):7,
+       0:1, Psz:7,
+       Bin/binary>>, Bin};
+pack(variable_length,Bin) when byte_size(Bin) < 1 bsl 21 ->
+    % 21 bits / 3 bytes
+    Psz = byte_size(Bin),
+    {<<1:1, (Psz bsr 14):7,
+       1:1, (Psz bsr 7):7,
+       0:1, Psz:7,
+       Bin/binary>>, Bin};
+pack(variable_length,Bin) when byte_size(Bin) < 1 bsl 28 ->
+    % 28 bits / 4 bytes
+    Psz = byte_size(Bin),
+    {<<1:1, (Psz bsr 21):7,
+       1:1, (Psz bsr 14):7,
+       1:1, (Psz bsr 7):7,
+       0:1, Psz:7,
+       Bin/binary>>, Bin};
+pack(variable_length,Bin) when byte_size(Bin) < 1 bsl 32 ->
+    % 32 bits / 5 bytes
+    Psz = byte_size(Bin),
+    {<<1:1, (Psz bsr 28):7,
+       1:1, (Psz bsr 21):7,
+       1:1, (Psz bsr 14):7,
+       1:1, (Psz bsr 7):7,
+       0:1, Psz:7,
+       Bin/binary>>, Bin};
 pack(asn1,Bin) ->
     Ident = case rand:uniform(3) of
                 1 -> <<17>>;
@@ -227,7 +262,7 @@ packet_size(Config) when is_list(Config) ->
                         ok
                 end
         end,
-    lists:foreach(F, [{T,D} || T<-[1,2,4,asn1,sunrm,cdr,fcgi,tpkt,ssl_tls],
+    lists:foreach(F, [{T,D} || T<-[1,2,4,variable_length,asn1,sunrm,cdr,fcgi,tpkt,ssl_tls],
                                D<-lists:seq(0, byte_size(Packet)*2)]),
 
     %% Test OTP-8102, "negative" 4-byte sizes.
