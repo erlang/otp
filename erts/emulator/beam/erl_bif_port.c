@@ -1397,6 +1397,7 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     case am_http_bin: type = TCP_PB_HTTP_BIN; break;
     case am_httph_bin: type = TCP_PB_HTTPH_BIN; break;
     case am_ssl_tls: type = TCP_PB_SSL_TLS; break;
+    case am_variable_length: type = TCP_PB_VARINT; break;
     default:
         BIF_ERROR(BIF_P, BADARG);
     }

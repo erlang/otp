@@ -199,6 +199,7 @@
 -define(TCP_PB_SSL_TLS, 12).
 -define(TCP_PB_HTTP_BIN,13).
 -define(TCP_PB_HTTPH_BIN,14).
+-define(TCP_PB_VARINT,  15).
 
 
 %% getstat, INET_REQ_GETSTAT

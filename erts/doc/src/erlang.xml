@@ -971,6 +971,15 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
               the order of the bytes is big-endian. The header
               is stripped off when the packet is returned.</p>
           </item>
+          <tag><c>variable_length</c></tag>
+          <item>
+            <p>Packets consist of a header specifying the number of
+              bytes in the packet using variable-length quantity encoding.
+              The length of the header ranges between one and five bytes;
+              the order of the bytes is big-endian. The header
+              is stripped off then the packet is returned</p>
+            <p>The 5-byte header is limited to 4 GiB.</p>
+          </item>
           <tag><c>line</c></tag>
           <item>
             <p>A packet is a line-terminated by a delimiter byte,

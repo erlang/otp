@@ -260,6 +260,8 @@ int packet_get_length(enum PacketParseType htype,
                       int*     statep)       /* Protocol specific state */
 {
     unsigned hlen, plen;
+    ssize_t varint_hlen;
+    Uint32 varint_plen;
 
     switch (htype) {
     case TCP_PB_RAW:
@@ -481,6 +483,16 @@ int packet_get_length(enum PacketParseType htype,
         }
         goto remain;
     
+    case TCP_PB_VARINT:
+        /* TCP_PB_VARINT:   [L4,L3,L2,L1,L0 | Data]
+         * where the MSB of each byte is used to signal whether another one follows
+         */
+        varint_hlen = decode_varint32(ptr, n, &varint_plen);
+        if (varint_hlen < 0) goto more;
+        hlen = varint_hlen;
+        plen = varint_plen;
+        goto remain;
+
     default:
         DEBUGF((" => case error\r\n"));
         return -1;
@@ -865,3 +877,107 @@ int packet_parse_ssl(const char* buf, int len,
     }
 }
 
+/* Variable length integer utility functions (used by TCP_PB_VARINT) */
+
+ssize_t varint32_size(const char* ptr, size_t len) {
+    if (len > 0 && !(((unsigned char*)ptr)[0] & 0x80)) {
+        /* 7 bits */
+        return 1;
+    } else if (len > 1 && !(((unsigned char*)ptr)[1] & 0x80)) {
+        /* 14 bits */
+        return 2;
+    } else if (len > 2 && !(((unsigned char*)ptr)[2] & 0x80)) {
+        /* 21 bits */
+        return 3;
+    } else if (len > 3 && !(((unsigned char*)ptr)[3] & 0x80)) {
+        /* 28 bits */
+        return 4;
+    } else if (len > 4) {
+        /* 32 bits */
+        return 5;
+    } else {
+        /* Not enough data */
+        return -1;
+    }
+}
+
+ssize_t decode_varint32(const char* ptr, size_t len, Uint32* value) {
+    ssize_t value_len = varint32_size(ptr, len);
+    switch (value_len) {
+        case -1:
+            /* Not enough data */
+            break;
+        case 1:
+            /* 7 bits */
+            *value = ((unsigned char*)ptr)[0] & 0x7F;
+            break;
+        case 2:
+            /* 14 bits */
+            *value = (((((unsigned char*)ptr)[0] & 0x7F) << 7) | \
+                      ((((unsigned char*)ptr)[1] & 0x7F)));
+            break;
+        case 3:
+            /* 21 bits */
+            *value = (((((unsigned char*)ptr)[0] & 0x7F) << 14) | \
+                      ((((unsigned char*)ptr)[1] & 0x7F) << 7)  | \
+                      ((((unsigned char*)ptr)[2] & 0x7F)));
+            break;
+        case 4:
+            /* 28 bits */
+            *value = (((((unsigned char*)ptr)[0] & 0x7F) << 21) | \
+                      ((((unsigned char*)ptr)[1] & 0x7F) << 14) | \
+                      ((((unsigned char*)ptr)[2] & 0x7F) << 7)  | \
+                      ((((unsigned char*)ptr)[3] & 0x7F)));
+            break;
+        case 5:
+            /* 32 bits */
+            *value = (((((unsigned char*)ptr)[0] & 0x0F) << 28) | \
+                      ((((unsigned char*)ptr)[1] & 0x7F) << 21) | \
+                      ((((unsigned char*)ptr)[2] & 0x7F) << 14) | \
+                      ((((unsigned char*)ptr)[3] & 0x7F) << 7)  | \
+                      ((((unsigned char*)ptr)[4] & 0x7F)));
+            break;
+        default:
+            erts_exit(ERTS_ERROR_EXIT, "unexpected varint32 size: %zd\n", value_len);
+    }
+    return value_len;
+}
+
+ssize_t encode_varint32(Uint32 value, char* ptr, size_t len) {
+    if (value < (1 << 7)) {
+        /* 7 bits */
+        if (len < 1) return -1;
+        ptr[0] = (char) value;
+        return 1;
+    } else if (value < (1 << 14)) {
+        /* 14 bits */
+        if (len < 2) return -1;
+        ptr[0] = (char) (0x80 | ((value >> 7)  & 0x7F));
+        ptr[1] = (char) (value & 0x7F);
+        return 2;
+    } else if (value < (1 << 21)) {
+        /* 21 bits */
+        if (len < 3) return -1;
+        ptr[0] = (char) (0x80 | ((value >> 14) & 0x7F));
+        ptr[1] = (char) (0x80 | ((value >> 7)  & 0x7F));
+        ptr[2] = (char) (value & 0x7F);
+        return 3;
+    } else if (value < (1 << 28)) {
+        /* 28 bits */
+        if (len < 4) return -1;
+        ptr[0] = (char) (0x80 | ((value >> 21) & 0x7F));
+        ptr[1] = (char) (0x80 | ((value >> 14) & 0x7F));
+        ptr[2] = (char) (0x80 | ((value >> 7)  & 0x7F));
+        ptr[3] = (char) (value & 0x7F);
+        return 4;
+    } else {
+        /* 32 bits */
+        if (len < 5) return -1;
+        ptr[0] = (char) (0x80 | ((value >> 28) & 0x0F));
+        ptr[1] = (char) (0x80 | ((value >> 21) & 0x7F));
+        ptr[2] = (char) (0x80 | ((value >> 14) & 0x7F));
+        ptr[3] = (char) (0x80 | ((value >> 7)  & 0x7F));
+        ptr[4] = (char) (value & 0x7F);
+        return 5;
+    }
+}

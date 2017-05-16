@@ -690,6 +690,7 @@ atom unloaded_only
 atom unload_cancelled
 atom value
 atom values
+atom variable_length
 atom version
 atom visible
 atom wait

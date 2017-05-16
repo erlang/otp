@@ -44,7 +44,8 @@ enum PacketParseType {
     TCP_PB_HTTPH    = 11,
     TCP_PB_SSL_TLS  = 12,
     TCP_PB_HTTP_BIN = 13,
-    TCP_PB_HTTPH_BIN = 14
+    TCP_PB_HTTPH_BIN = 14,
+    TCP_PB_VARINT   = 15
 };
 
 typedef struct http_atom {
@@ -142,17 +143,28 @@ struct fcgi_head {
 int packet_parse_http(const char*, int, int*, PacketCallbacks*, void*);
 int packet_parse_ssl(const char*, int, PacketCallbacks*, void*);
 
+/* Variable length integer utility functions (used by TCP_PB_VARINT) */
+ssize_t varint32_size(const char*, size_t);
+ssize_t decode_varint32(const char*, size_t, Uint32*);
+ssize_t encode_varint32(Uint32, char*, size_t);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE
 void packet_get_body(enum PacketParseType htype, const char** bufp, int* lenp)
 {
+    ssize_t varint_hlen;
     switch (htype) {
     case TCP_PB_1:  *bufp += 1; *lenp -= 1; break;
     case TCP_PB_2:  *bufp += 2; *lenp -= 2; break;
     case TCP_PB_4:  *bufp += 4; *lenp -= 4; break;
     case TCP_PB_FCGI:
 	*lenp -= ((struct fcgi_head*)*bufp)->paddingLength;
+        break;
+    case TCP_PB_VARINT:
+        varint_hlen = varint32_size(*bufp, *lenp);
+        ASSERT(varint_hlen >= 1);
+        *bufp += varint_hlen;
+        *lenp -= varint_hlen;
         break;
     default:
         ;/* Return other packets "as is" */
