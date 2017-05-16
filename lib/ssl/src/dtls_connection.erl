@@ -696,7 +696,6 @@ next_record(#state{protocol_buffers =
         false ->
             decode_cipher_text(State#state{connection_states = ConnectionStates}) ;
         true ->
-            ct:pal("Replay detect", []),            
             %% Ignore replayed record
             next_record(State#state{protocol_buffers =
                                         Buffers#protocol_buffers{dtls_cipher_texts = Rest},
