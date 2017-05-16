@@ -753,28 +753,30 @@ next_event(connection = StateName, no_record,
 	    {State, MoreActions} = send_handshake_flight(State1, Epoch),
 	    {next_state, StateName, State, Actions ++ MoreActions};
 	{#ssl_tls{epoch = _Epoch,
-		  version = _Version}, State} ->
+		  version = _Version}, State1} ->
 	    %% TODO maybe buffer later epoch
-	    {next_state, StateName, State, Actions};
+            {Record, State} = next_record(State1),
+            next_event(StateName, Record, State, Actions); 
 	{#alert{} = Alert, State} ->
 	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
     end;
 next_event(StateName, Record, 
-	   #state{connection_states = #{current_read := #{epoch := CurrentEpoch}}} = State, Actions) ->
+	   #state{connection_states = #{current_read := #{epoch := CurrentEpoch}}} = State0, Actions) ->
     case Record of
 	no_record ->
-	    {next_state, StateName, State, Actions};
+	    {next_state, StateName, State0, Actions};
 	#ssl_tls{epoch = CurrentEpoch,
 		  version = Version} = Record ->
 	    {next_state, StateName, 
-	     dtls_version(StateName, Version, State), 
+	     dtls_version(StateName, Version, State0), 
 	     [{next_event, internal, {protocol_record, Record}} | Actions]};
 	#ssl_tls{epoch = _Epoch,
 		 version = _Version} = _Record ->
 	    %% TODO maybe buffer later epoch
-	    {next_state, StateName, State, Actions};
+            {Record, State} = next_record(State0),
+            next_event(StateName, Record, State, Actions); 
 	#alert{} = Alert ->
-	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
+	    {next_state, StateName, State0, [{next_event, internal, Alert} | Actions]}
     end.
 
 decode_cipher_text(#state{protocol_buffers = #protocol_buffers{dtls_cipher_texts = [ CT | Rest]} = Buffers,
