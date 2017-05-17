@@ -38,7 +38,7 @@
     <modulesummary>A runtime system Lock Profiling tool.</modulesummary>
     <description>
 	<p>The <c>lcnt</c> module is used to profile the internal ethread locks in the
-	    Erlang Runtime System. With <c>lcnt</c> enabled, Internal counters in the
+	    Erlang Runtime System. With <c>lcnt</c> enabled, internal counters in the
 	    runtime system are updated each time a lock is taken. The counters stores
 	    information about the number of acquisition tries and the number of collisions
 	    that has occurred during the acquisition tries. The counters also record the
@@ -47,17 +47,17 @@
 	<p>
 	    The data produced by the lock counters will give an estimate on how well
 	    the runtime system will behave from a parallelizable view point for the
-	    scenarios tested. This tool was mainly developed to help erlang runtime
+	    scenarios tested. This tool was mainly developed to help Erlang runtime
 	    developers iron out potential and generic bottlenecks.
 	</p>
 	<p>Locks in the emulator are named after what type of resource they protect and where
 	    in the emulator they are initialized, those are lock 'classes'. Most of those
 	    locks are also instantiated several times, and given unique identifiers, to increase
 	    locking granularity. Typically an instantiated lock protects a disjunct set of
-	    the resource, i.e ets-tables, processes or ports. In other cases it protects a
-	    specific range of a resource, e.g. <c>pix_lock</c> which protects index to process
+	    the resource, for example ets tables, processes or ports. In other cases it protects a
+	    specific range of a resource, for example <c>pix_lock</c> which protects index to process
 	    mappings, and is given a unique number within the class. A unique lock in <c>lcnt</c>
-	    is referenced by a name (class) and an identifier, <c>{Name, Id}</c>.
+	    is referenced by a name (class) and an identifier: <c>{Name, Id}</c>.
 	</p>
 	<p>Some locks in the system are static and protects global resources, for example
 	    <c>bif_timers</c> and the <c>run_queue</c> locks. Other locks are dynamic and not
