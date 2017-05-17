@@ -32,6 +32,8 @@
 
   <section>
     <title>Introduction</title>
+    <p>The complete specification for the bit syntax appears in the
+    <seealso marker="doc/reference_manual:expressions#bit_syntax">Reference Manual</seealso>.</p>
     <p>In Erlang, a Bin is used for constructing binaries and matching
       binary patterns. A Bin is written with the following syntax:</p>
     <code type="none"><![CDATA[
@@ -165,8 +167,9 @@ end.]]></code>
       separated by hyphens.</p>
     <taglist>
       <tag>Type</tag>
-      <item>The type can be <c>integer</c>, <c>float</c>, or
-      <c>binary</c>.</item>
+      <item>The most commonly used types are <c>integer</c>, <c>float</c>, and <c>binary</c>.
+      See <seealso marker="doc/reference_manual:expressions#bit_syntax">Bit Syntax Expressions in the Reference Manual</seealso> for a complete description.
+</item>
       <tag>Signedness</tag>
       <item>The signedness specification can be either <c>signed</c>
        or <c>unsigned</c>. Notice that signedness only matters for
