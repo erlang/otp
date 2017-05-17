@@ -23,7 +23,7 @@
 -export([vsn/0]).
 
 %% observer stuff
--export([sys_info/0, get_port_list/0,
+-export([sys_info/0, get_port_list/0, procs_info/1,
 	 get_table/3, get_table_list/2, fetch_stats/2]).
 
 %% etop stuff
@@ -293,6 +293,23 @@ fetch_stats_loop(Parent, Time) ->
 			   try erlang:memory() catch _:_ -> [] end},
 	    fetch_stats_loop(Parent, Time)
     end.
+
+%%
+%% Chunk sending process info to etop/observer
+%%
+procs_info(Collector) ->
+    All = processes(),
+    Send = fun Send (Pids) ->
+                   try lists:split(10000, Pids) of
+                       {First, Rest} ->
+                           Collector ! {procs_info, self(), etop_collect(First, [])},
+                           Send(Rest)
+                   catch _:_ ->
+                           Collector ! {procs_info, self(), etop_collect(Pids, [])}
+                   end
+           end,
+    Send(All).
+
 %%
 %% etop backend
 %%
