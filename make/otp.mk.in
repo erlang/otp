@@ -49,6 +49,7 @@ DEFAULT_TARGETS =  opt debug release release_docs clean docs
 
 DEFAULT_FLAVOR=@DEFAULT_FLAVOR@
 FLAVORS=@FLAVORS@
+TYPES=@TYPES@
 
 # Slash separated list of return values from $(origin VAR)
 # that are untrusted - set default in this file instead.

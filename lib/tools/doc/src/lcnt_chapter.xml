@@ -48,29 +48,19 @@
     </p>
     <section>
 	<title> Enabling lock-counting </title>
-	<p>For investigation of locks in the emulator we use an internal tool called <c>lcnt</c> (short for lock-count). The VM needs to be compiled with this option enabled. To enable this, use:</p>
+	<p>For investigation of locks in the emulator we use an internal tool called <c>lcnt</c> (short for lock-count). The VM needs to be compiled with this option enabled.
+	To compile a lock-counting VM along with a normal VM, use:</p>
 
 	<pre>
 cd $ERL_TOP
-./configure --enable-lock-counter
-	</pre>
-
-	<p>
-	    Another way to enable this alongside a normal VM is to compile it at emulator directory level, much like a debug build. To compile it this way do the following,
-	</p>
+./configure --enable-lock-counter</pre>
+	<p>Start the lock-counting VM like this:</p>
 	<pre>
-cd $ERL_TOP/erts/emulator
-make lcnt FLAVOR=smp
-	</pre>
-	<p> and then starting Erlang with,</p>
+$ERL_TOP/bin/erl -emu_type lcnt</pre>
+	<p>To verify that lock counting is enabled check that <c>[lock-counting]</c> appears in the status text when the VM is started.</p>
 	<pre>
-$ERL_TOP/bin/cerl -lcnt
-	</pre>
-	<p>To verify that you lock-counting enabled check that <c>[lock-counting]</c> appears in the status text when the VM is started.</p>
-	<pre>
-Erlang R13B03 (erts-5.7.4) [source] [64-bit] [smp:8:8] [rq:8] [async-threads:0] [hipe]
- [kernel-poll:false] [lock-counting]
-	</pre>
+Erlang/OTP 20 [erts-9.0] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:10] [hipe]
+ [kernel-poll:false] [lock-counting]</pre>
     </section>
     <section>
 	<title>Getting started</title>
