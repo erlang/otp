@@ -859,7 +859,7 @@ error_info(Reason, Name, From, Msg, State, Debug) ->
 			end
 		end;
 	    _ ->
-		Reason
+		error_logger:limit_term(Reason)
 	end,    
     {ClientFmt, ClientArgs} = client_stacktrace(From),
     LimitedState = error_logger:limit_term(State),

@@ -551,24 +551,17 @@ get_messages(Pid) ->
     {messages, error_logger:limit_term(Messages)}.
 
 get_process_messages(Pid) ->
-    case get_depth() of
-        unlimited ->
+    Depth = error_logger:get_format_depth(),
+    case Pid =/= self() orelse Depth =:= unlimited of
+        true ->
             {messages, Messages} = get_process_info(Pid, messages),
             Messages;
-        Depth ->
+        false ->
             %% If there are more messages than Depth, garbage
             %% collection can sometimes be avoided by collecting just
-            %% enough messages for the output. It is assumed the
+            %% enough messages for the crash report. It is assumed the
             %% process is about to die anyway.
             receive_messages(Depth)
-    end.
-
-get_depth() ->
-    case application:get_env(kernel, error_logger_format_depth) of
-	{ok, Depth} when is_integer(Depth) ->
-	    max(10, Depth);
-	undefined ->
-	    unlimited
     end.
 
 receive_messages(0) -> [];
@@ -643,7 +636,8 @@ make_neighbour_report(Pid) ->
    get_process_info(Pid, status),
    get_process_info(Pid, heap_size),
    get_process_info(Pid, stack_size),
-   get_process_info(Pid, reductions)
+   get_process_info(Pid, reductions),
+   get_process_info(Pid, current_stacktrace)
   ].
  
 get_initial_call(Pid) ->

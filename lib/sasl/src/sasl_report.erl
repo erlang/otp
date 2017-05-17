@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -68,12 +68,12 @@ write_report2(IO, Fd, Head, progress, Report) ->
     Format = format_key_val(Report),
     write_report_action(IO, Fd, Head, "~s", [Format]);
 write_report2(IO, Fd, Head, crash_report, Report) ->
-    Depth = get_depth(),
+    Depth = error_logger:get_format_depth(),
     Format = proc_lib:format(Report, latin1, Depth),
     write_report_action(IO, Fd, Head, "~s", [Format]).
 
 supervisor_format(Args0) ->
-    case get_depth() of
+    case error_logger:get_format_depth() of
 	unlimited ->
 	    {"     Supervisor: ~p~n"
 	     "     Context:    ~p~n"
@@ -101,14 +101,6 @@ format_key_val([{Tag,Data}|Rep]) ->
     io_lib:format("    ~16w: ~p~n",[Tag,Data]) ++ format_key_val(Rep);
 format_key_val(_) ->
     [].
-
-get_depth() ->
-    case application:get_env(kernel, error_logger_format_depth) of
-	{ok, Depth} when is_integer(Depth) ->
-	    max(10, Depth);
-	undefined ->
-	    unlimited
-    end.
 
 sup_get(Tag, Report) ->
     case lists:keysearch(Tag, 1, Report) of
