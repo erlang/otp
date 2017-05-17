@@ -42,7 +42,7 @@
 	completed its access to the resource and unlocked it. The <c>lcnt</c> tool measures these lock conflicts.
     </p>
     <p>
-	Locks has an inherent cost in execution time and memory space. It takes time initialize, destroy, aquiring or releasing locks. To decrease lock contention it
+	Locks have an inherent cost in execution time and memory space. It takes time initialize, destroy, aquiring or releasing locks. To decrease lock contention it
 	some times necessary to use finer grained locking strategies. This will usually also increase the locking overhead and hence there is a tradeoff
 	between lock contention and overhead. In general, lock contention increases with the number of threads running concurrently. The <c>lcnt</c> tool does not measure locking overhead.
     </p>
@@ -77,7 +77,7 @@ Erlang R13B03 (erts-5.7.4) [source] [64-bit] [smp:8:8] [rq:8] [async-threads:0] 
 	<p>Once you have a lock counting enabled VM the module <c>lcnt</c> can be used. The module is intended to be used from the current running nodes shell. To access remote nodes use <c>lcnt:clear(Node)</c> and <c>lcnt:collect(Node)</c>. </p>
 
 	<p>All locks are continuously monitored and its statistics updated. Use <c>lcnt:clear/0</c> to initially clear all counters before running any specific tests. This command will also reset the duration timer internally.</p>
-	<p>To retrieve lock statistics information use, <c>lcnt:collect/0,1</c>. The collect operation will start a <c>lcnt</c> server if it not already started. All collected data will be built into an erlang term and uploaded to the server and a duration time will also be uploaded. This duration is the time between <c>lcnt:clear/0,1</c> and <c>lcnt:collect/0,1</c>.</p>
+	<p>To retrieve lock statistics information, use <c>lcnt:collect/0,1</c>. The collect operation will start a <c>lcnt</c> server if it not already started. All collected data will be built into an Erlang term and uploaded to the server and a duration time will also be uploaded. This duration is the time between <c>lcnt:clear/0,1</c> and <c>lcnt:collect/0,1</c>.</p>
 
 	<p>Once the data is collected to the server it can be filtered, sorted and printed in many different ways.</p>
 	<p>See the <seealso marker="lcnt">reference manual</seealso> for a description of each function.</p>
