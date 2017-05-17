@@ -37,6 +37,7 @@
 -export([get_wrap_size/1]).
 -export([is_head/1]).
 -export([position/3, truncate_at/3, fwrite/4, fclose/2]).
+-export([set_quiet/1, is_quiet/0]).
 
 -compile({inline,[{scan_f2,7}]}).
 
@@ -500,7 +501,10 @@ lh(H, _F) -> % cannot happen
 
 repair(In, File) ->
     FSz = file_size(File),
-    error_logger:info_msg("disk_log: repairing ~tp ...\n", [File]),
+    case is_quiet() of
+        true -> ok;
+        _ -> error_logger:info_msg("disk_log: repairing ~tp ...\n", [File])
+    end,
     Tmp = add_ext(File, "TMP"),
     {ok, {_Alloc, Out, {0, _}, _FileSize}} = new_int_file(Tmp, none),
     scan_f_read(<<>>, In, Out, File, FSz, Tmp, ?MAX_CHUNK_SIZE, 0, 0).
@@ -769,8 +773,11 @@ mf_int_chunk(Handle, {FileNo, Pos}, Bin, N) ->
     NFileNo = inc(FileNo, Handle#handle.maxF),
     case catch int_open(FName, true, read_only, any) of
 	{error, _Reason} ->
-	   error_logger:info_msg("disk_log: chunk error. File ~tp missing.\n\n",
-				 [FName]),
+	    case is_quiet() of
+		true -> ok;
+		_ -> error_logger:info_msg("disk_log: chunk error. File ~tp missing.\n\n",
+					   [FName])
+	    end,
 	    mf_int_chunk(Handle, {NFileNo, 0}, [], N);
 	{ok, {_Alloc, FdC, _HeadSize, _FileSize}} ->
 	    case chunk(FdC, FName, Pos, Bin, N) of
@@ -797,9 +804,12 @@ mf_int_chunk_read_only(Handle, {FileNo, Pos}, Bin, N) ->
     NFileNo = inc(FileNo, Handle#handle.maxF),
     case catch int_open(FName, true, read_only, any) of
 	{error, _Reason} ->
-	   error_logger:info_msg("disk_log: chunk error. File ~tp missing.\n\n",
-				 [FName]),
-	   mf_int_chunk_read_only(Handle, {NFileNo, 0}, [], N);
+	    case is_quiet() of
+		true -> ok;
+		_ -> error_logger:info_msg("disk_log: chunk error. File ~tp missing.\n\n",
+					   [FName])
+	    end,
+	    mf_int_chunk_read_only(Handle, {NFileNo, 0}, [], N);
 	{ok, {_Alloc, FdC, _HeadSize, _FileSize}} ->
 	    case do_chunk_read_only(FdC, FName, Pos, Bin, N) of
 		{NewFdC, eof} ->
@@ -1548,6 +1558,12 @@ fclose(#cache{fd = Fd, c = C}, FileName) ->
     %% The cache is empty if the file was opened in read_only mode.
     _ = write_cache_close(Fd, FileName, C),
     file:close(Fd).
+
+set_quiet(Bool) ->
+    put(quiet, Bool).
+
+is_quiet() ->
+    get(quiet) =:= true.
 
 %% -> {Reply, #cache{}}; Reply = ok | Error
 write_cache(Fd, _FileName, []) ->

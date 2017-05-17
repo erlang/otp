@@ -2493,6 +2493,7 @@ error_repair(Conf) when is_list(Conf) ->
     del(File, No),
     ok = file:del_dir(Dir),
 
+    error_logger:add_report_handler(?MODULE, self()),
     %% repair a file
     P1 = pps(),
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
@@ -2509,6 +2510,8 @@ error_repair(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     true = (P1 == pps()),
     del(File, No),
+    receive {info_msg, _, "disk_log: repairing" ++ _, _} -> ok
+    after 1000 -> ct:fail(failed) end,
 
     %% yet another repair
     P2 = pps(),
@@ -2525,6 +2528,8 @@ error_repair(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     true = (P2 == pps()),
     del(File, No),
+    receive {info_msg, _, "disk_log: repairing" ++ _, _} -> ok
+    after 1000 -> ct:fail(failed) end,
 
     %% Repair, large term
     Big = term_to_binary(lists:duplicate(66000,$a)),
@@ -2540,6 +2545,8 @@ error_repair(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     Got = Big,
     del(File, No),
+    receive {info_msg, _, "disk_log: repairing" ++ _, _} -> ok
+    after 1000 -> ct:fail(failed) end,
 
     %% A term a little smaller than a chunk, then big terms.
     BigSmall = mk_bytes(1024*64-8-12),
@@ -2560,6 +2567,8 @@ error_repair(Conf) when is_list(Conf) ->
                        {type, halt}, {format, internal}]),
     ok = disk_log:close(n),
     file:delete(File),
+    receive {info_msg, _, "disk_log: repairing" ++ _, _} -> ok
+    after 1000 -> ct:fail(failed) end,
 
     %% The header is recovered.
     {ok,n} =
@@ -2573,12 +2582,13 @@ error_repair(Conf) when is_list(Conf) ->
     crash(File, 30),
     {repaired,n,{recovered,3},{badbytes,15}} =
         disk_log:open([{name, n}, {file, File}, {type, halt},
-		       {format, internal},{repair,true},
+		       {format, internal},{repair,true}, {quiet, true},
 		       {head_func, {?MODULE, head_fun, [{ok,"head"}]}}]),
     ["head",'of',terms] = get_all_terms(n),
     ok = disk_log:close(n),
-
+    error_logger:delete_report_handler(?MODULE),
     file:delete(File),
+    {messages, []} = process_info(self(), messages),
 
     ok.
 
@@ -5006,6 +5016,9 @@ init(Tester) ->
     
 handle_event({error_report, _GL, {Pid, crash_report, Report}}, Tester) ->
     Tester ! {crash_report, Pid, Report},
+    {ok, Tester};
+handle_event({info_msg, _GL, {Pid, F,A}}, Tester) ->
+    Tester ! {info_msg, Pid, F, A},
     {ok, Tester};
 handle_event(_Event, State) ->
     {ok, State}.

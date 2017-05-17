@@ -638,6 +638,8 @@ check_arg([{mode, read_only}|Tail], Res) ->
     check_arg(Tail, Res#arg{mode = read_only});
 check_arg([{mode, read_write}|Tail], Res) ->
     check_arg(Tail, Res#arg{mode = read_write});
+check_arg([{quiet, Boolean}|Tail], Res) when is_boolean(Boolean) ->
+    check_arg(Tail, Res#arg{quiet = Boolean});
 check_arg(Arg, _) ->
     {error, {badarg, Arg}}.
 
@@ -1276,7 +1278,8 @@ compare_arg(_Attr, _Val, _A) ->
 do_open(A) ->
     #arg{type = Type, format = Format, name = Name, head = Head0,
          file = FName, repair = Repair, size = Size, mode = Mode,
-         version = V} = A,
+         quiet = Quiet, version = V} = A,
+    disk_log_1:set_quiet(Quiet),
     Head = mk_head(Head0, Format),
     case do_open2(Type, Format, Name, FName, Repair, Size, Mode, Head, V) of
         {ok, Ret, Extra, FormatType, NoItems} ->
