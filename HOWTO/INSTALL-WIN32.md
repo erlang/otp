@@ -612,7 +612,7 @@ tools:
 
     We would recommend using 1.0.2d. 
 
-*   Building with wxWidgets. Download wxWidgets-3.0.2 or higher.
+*   Building with wxWidgets. Download wxWidgets-3.0.3 or higher.
 
     Install or unpack it to the pgm folder:
     Cygwin: 
@@ -622,19 +622,19 @@ tools:
     MSYS2:
         `DRIVE:/PATH/msys<32/64>/opt/local/pgm`
 
-    If the `wxUSE_POSTSCRIPT` isn't enabled in  `<path\to\pgm>\wxMSW-3.0.2\include\wx\msw\setup.h`,
+    If the `wxUSE_POSTSCRIPT` isn't enabled in  `<path\to\pgm>\wxMSW-3.0.3\include\wx\msw\setup.h`,
     enable it.
 
     build: From a command prompt with the VC tools available (See the
     instructions for OpenSSL build above for help on starting the
     proper command prompt in RELEASE mode):
 	   
-        C:\...\> cd <path\to\pgm>\wxMSW-3.0.2\build\msw
+        C:\...\> cd <path\to\pgm>\wxMSW-3.0.3\build\msw
         C:\...\> nmake BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
     
     Or - if building a 64bit version:
 
-        C:\...\> cd <path\to\pgm>\wxMSW-3.0.2\build\msw
+        C:\...\> cd <path\to\pgm>\wxMSW-3.0.3\build\msw
         C:\...\> nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
     	   
 *   Get the Erlang source distribution (from <http://www.erlang.org/download.html>).
