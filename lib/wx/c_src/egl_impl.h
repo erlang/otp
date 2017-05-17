@@ -112,9 +112,15 @@ typedef long int int32_t;
 typedef long long int int64_t;
 typedef unsigned long long int uint64_t;
 #elif defined(WIN32) && defined(_MSC_VER)
+#if _MSC_VER == 1900 || _MSC_VER == 1910
+typedef int int32_t;
+typedef __int64 int64_t;
+typedef unsigned __int64 uint64_t;
+#elif _MSC_VER < 1900
 typedef long int int32_t;
 typedef __int64 int64_t;
 typedef unsigned __int64 uint64_t;
+#endif
 #elif defined(WIN32) && defined(__GNUC__)
 #include <stdint.h>
 #else
