@@ -3978,7 +3978,11 @@ otp_14323(Config) ->
                     {13,erl_lint,{undefined_function,{a,1}}},
                     {14,erl_lint,{bad_dialyzer_attribute,
                                   {nowarn_function,{a,-1}}}}],
-            []}}],
+            []}},
+          {otp_14323_2,
+           <<"-type t(_) :: atom().">>,
+           [],
+           {errors,[{1,erl_parse,"bad type variable"}],[]}}],
     [] = run(Config, Ts),
     ok.
 
