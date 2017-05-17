@@ -396,7 +396,7 @@ msb_swt_hog(false) ->
     count(1000000),
     msb_swt_hog(false).
 
-msb_scheduler_wall_time(Config) ->
+msb_scheduler_wall_time(_Config) ->
     erlang:system_flag(scheduler_wall_time, true),
     Dirty = erlang:system_info(dirty_cpu_schedulers) /= 0,
     Hogs = lists:map(fun (_) ->
@@ -493,7 +493,7 @@ badarg(Config) when is_list(Config) ->
 tok_loop() ->
     tok_loop().
 
-run_queues_lengths_active_tasks(Config) ->
+run_queues_lengths_active_tasks(_Config) ->
     TokLoops = lists:map(fun (_) ->
                                  spawn_opt(fun () ->
                                                    tok_loop()

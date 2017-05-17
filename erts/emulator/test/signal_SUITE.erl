@@ -53,7 +53,7 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     available_internal_state(true),
     [{testcase, Func}|Config].
 
-end_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, _Config) ->
     ok.
 
 init_per_suite(Config) ->
