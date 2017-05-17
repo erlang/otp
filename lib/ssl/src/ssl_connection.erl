@@ -1030,7 +1030,7 @@ terminate(Reason, connection, #state{negotiated_version = Version,
 				     connection_states = ConnectionStates0, 
 				     ssl_options = #ssl_options{padding_check = Check},
 				     transport_cb = Transport, socket = Socket
-				    } = State) ->
+				    } = State) when Reason =/= downgrade ->
     handle_trusted_certs_db(State),
     {BinAlert, ConnectionStates} = terminate_alert(Reason, Version, ConnectionStates0, Connection),
     Connection:send(Transport, Socket, BinAlert),
