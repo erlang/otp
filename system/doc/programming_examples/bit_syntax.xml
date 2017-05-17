@@ -47,7 +47,7 @@ Bin = <<E1, E2, ... En>>]]></code>
 <<E1, E2, ... En>> = Bin ]]></code>
     <p>Here, <c>Bin</c> is bound and the elements are bound or
       unbound, as in any match.</p>
-    <p>Since Erlang R12B, a Bin does not need to consist of a whole number of bytes.</p>
+    <p>A Bin does not need to consist of a whole number of bytes.</p>
 
     <p>A <em>bitstring</em> is a sequence of zero or more bits, where
     the number of bits does not need to be divisible by 8. If the number
@@ -184,7 +184,7 @@ end.]]></code>
       <item>The unit size is given as <c>unit:IntegerLiteral</c>.
        The allowed range is 1-256. It is multiplied by
        the <c>Size</c> specifier to give the effective size of
-       the segment. Since Erlang R12B, the unit size specifies the alignment
+       the segment. The unit size specifies the alignment
        for binary segments without size.</item>
     </taglist>
     <p><em>Example:</em></p>
@@ -322,21 +322,15 @@ foo(<<A:8,Rest/bitstring>>) ->]]></code>
 
   <section>
     <title>Appending to a Binary</title>
-    <p>Since Erlang R12B, the following function for creating a binary out of
-    a list of triples of integers is efficient:</p>
+    <p>Appending to a binary in an efficient way can be done as follows:</p>
     <code type="none"><![CDATA[
 triples_to_bin(T) ->
     triples_to_bin(T, <<>>).
 
 triples_to_bin([{X,Y,Z} | T], Acc) ->
-    triples_to_bin(T, <<Acc/binary,X:32,Y:32,Z:32>>);   % inefficient before R12B
+    triples_to_bin(T, <<Acc/binary,X:32,Y:32,Z:32>>);
 triples_to_bin([], Acc) -> 
     Acc.]]></code>
-    <p>In previous releases, this function was highly inefficient, because
-    the binary constructed so far (<c>Acc</c>) was copied in each recursion step.
-    That is no longer the case. For more information, see
-    <seealso marker="doc/efficiency_guide:introduction">
-    Efficiency Guide</seealso>.</p>
   </section>
 </chapter>
 
