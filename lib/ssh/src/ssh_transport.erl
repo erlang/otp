@@ -737,9 +737,11 @@ ext_info_message(#ssh{role=client,
     end;
 
 ext_info_message(#ssh{role=server,
-                      send_ext_info=true} = Ssh0) ->
+                      send_ext_info=true,
+                      opts = Opts} = Ssh0) ->
     AlgsList = lists:map(fun erlang:atom_to_list/1,
-                         ssh_transport:default_algorithms(public_key)),
+                         proplists:get_value(public_key,
+                                             ?GET_OPT(preferred_algorithms, Opts))),
     Msg = #ssh_msg_ext_info{nr_extensions = 1,
                             data = [{"server-sig-algs", string:join(AlgsList,",")}]
                            },

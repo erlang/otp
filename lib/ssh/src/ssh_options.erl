@@ -392,6 +392,12 @@ default(server) ->
             class => user_options
            },
 
+      {preferred_algorithms, def} =>
+          #{default => ssh:default_algorithms(),
+            chk => fun check_preferred_algorithms/1,
+            class => user_options
+           },
+
 %%%%% Undocumented
       {infofun, def} =>
           #{default => fun(_,_,_) -> void end,
@@ -430,12 +436,24 @@ default(client) ->
            },
 
       {pref_public_key_algs, def} =>
-          #{default => 
-                ssh_transport:supported_algorithms(public_key),
-            chk => 
-                fun check_pref_public_key_algs/1,
-            class =>
-                ssh
+          #{default => ssh_transport:default_algorithms(public_key) -- ['rsa-sha2-256',
+                                                                        'rsa-sha2-512'],
+            chk => fun check_pref_public_key_algs/1,
+            class => user_options
+           },
+
+      {preferred_algorithms, def} =>
+          #{default => [{K,Vs} || {K,Vs0} <- ssh:default_algorithms(),
+                                  Vs <- [case K of
+                                             public_key -> 
+                                                 Vs0 -- ['rsa-sha2-256',
+                                                         'rsa-sha2-512'];
+                                             _ ->
+                                                 Vs0
+                                         end]
+                       ],
+            chk => fun check_preferred_algorithms/1,
+            class => user_options
            },
 
       {dh_gex_limits, def} =>
@@ -500,12 +518,6 @@ default(common) ->
        {user_dir, def} =>
            #{default => false, % FIXME: TBD ~/.ssh at time of call when user is known
              chk => fun(V) -> check_string(V) andalso check_dir(V) end,
-             class => user_options
-            },
-
-       {preferred_algorithms, def} =>
-           #{default => ssh:default_algorithms(),
-             chk => fun check_preferred_algorithms/1,
              class => user_options
             },
 
@@ -817,16 +829,23 @@ valid_hash(X,  _) -> error_in_check(X, "Expect atom or list in fingerprint spec"
 
 %%%----------------------------------------------------------------
 check_preferred_algorithms(Algs) ->
+    [error_in_check(K,"Bad preferred_algorithms key")
+     || {K,_} <- Algs,
+        not lists:keymember(K,1,ssh:default_algorithms())],
+
     try alg_duplicates(Algs, [], [])
     of
 	[] ->
 	    {true,
-	     [try ssh_transport:supported_algorithms(Key)
-	      of
-		  DefAlgs -> handle_pref_alg(Key,Vals,DefAlgs)
-	      catch
-		  _:_ -> error_in_check(Key,"Bad preferred_algorithms key")
-	      end  || {Key,Vals} <- Algs]
+	     [case proplists:get_value(Key, Algs) of
+                  undefined ->
+                      {Key,DefAlgs};
+                  Vals ->
+                      handle_pref_alg(Key,Vals,SupAlgs)
+              end
+	      || {{Key,DefAlgs}, {Key,SupAlgs}} <- lists:zip(ssh:default_algorithms(),
+                                                             ssh_transport:supported_algorithms())
+             ]
 	    };
 
 	Dups ->
