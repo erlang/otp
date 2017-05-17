@@ -68,7 +68,8 @@
  	 send_and_receive/3, send_and_receive/4, send_and_receive/5,
 	 send_and_receive/6,
  	 exec/2, exec/3, exec/4,
- 	 subsystem/3, subsystem/4]).
+         subsystem/3, subsystem/4,
+         shell/2, shell/3]).
 
 %% STFP Functions
 -export([sftp_connect/1, 
@@ -94,6 +95,7 @@
 
 -record(state, {ssh_ref, conn_type, target}).
 
+-type handle() :: pid().
 
 %%%-----------------------------------------------------------------
 %%%------------------------ SSH COMMANDS ---------------------------
@@ -488,6 +490,22 @@ subsystem(SSH, ChannelId, Subsystem) ->
 %%% @doc Sends a request to execute a predefined subsystem.
 subsystem(SSH, ChannelId, Subsystem, Timeout) ->
     call(SSH, {subsystem,ChannelId,Subsystem,Timeout}).
+
+
+-spec shell(SSH, ChannelId) -> Result when
+      SSH :: handle() | ct:target_name(),
+      ChannelId :: ssh:ssh_channel_id(),
+      Result :: ok | {error,term()}.
+shell(SSH, ChannelId) ->
+    shell(SSH, ChannelId, ?DEFAULT_TIMEOUT).
+
+-spec shell(SSH, ChannelId, Timeout) -> Result when
+      SSH :: handle() | ct:target_name(),
+      ChannelId :: ssh:ssh_channel_id(),
+      Timeout :: timeout(),
+      Result :: ok | {error,term()}.
+shell(SSH, ChannelId, Timeout) ->
+    call(SSH, {shell,ChannelId,Timeout}).
 
 
 %%%-----------------------------------------------------------------
@@ -1065,6 +1083,14 @@ handle_msg({subsystem,Chn,Subsystem,TO}, State) ->
 	    "SSH Ref: ~p, Chn: ~p, Subsys: ~p, Timeout: ~p", 
 	    [SSHRef,Chn,Subsystem,TO]),
     Result = ssh_connection:subsystem(SSHRef, Chn, Subsystem, TO),
+    {Result,State};
+
+handle_msg({shell,Chn,TO}, State) ->
+    #state{ssh_ref=SSHRef, target=Target} = State,
+    try_log(heading(shell,Target),
+	    "SSH Ref: ~p, Chn: ~p, Timeout: ~p",
+            [SSHRef,Chn,TO]),
+    Result = ssh_connection:shell(SSHRef, Chn),
     {Result,State};
 
 %% --- SFTP Commands ---
