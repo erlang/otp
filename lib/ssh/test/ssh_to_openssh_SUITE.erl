@@ -107,6 +107,9 @@ init_per_testcase(erlang_server_openssh_client_public_key_rsa, Config) ->
     chk_key(sshc, 'ssh-rsa', ".ssh/id_rsa", Config);
 init_per_testcase(erlang_client_openssh_server_publickey_dsa, Config) ->
     chk_key(sshd, 'ssh-dss', ".ssh/id_dsa", Config);
+init_per_testcase(erlang_client_openssh_server_publickey_rsa, Config) ->
+    chk_key(sshd, 'ssh-rsa', ".ssh/id_rsa", Config);
+
 init_per_testcase(erlang_server_openssh_client_renegotiate, Config) ->
     case os:type() of
 	{unix,_} -> ssh:start(), Config;
@@ -322,65 +325,44 @@ erlang_client_openssh_server_setenv(Config) when is_list(Config) ->
 %% setenv not meaningfull on erlang ssh daemon!
 
 %%--------------------------------------------------------------------
-erlang_client_openssh_server_publickey_rsa() ->
-    [{doc, "Validate using rsa publickey."}].
-erlang_client_openssh_server_publickey_rsa(Config) when is_list(Config) ->
-    {ok,[[Home]]} = init:get_argument(home),
-    KeyFile =  filename:join(Home, ".ssh/id_rsa"),
-    case file:read_file(KeyFile) of
-	{ok, Pem} ->
-	    case public_key:pem_decode(Pem) of
-		[{_,_, not_encrypted}] ->
-		    ConnectionRef =
-			ssh_test_lib:connect(?SSH_DEFAULT_PORT,
-					     [{pref_public_key_algs, ['ssh-rsa','ssh-dss']},
-					      {user_interaction, false},
-					      silently_accept_hosts]),
-		    {ok, Channel} =
-			ssh_connection:session_channel(ConnectionRef, infinity),
-		    ok = ssh_connection:close(ConnectionRef, Channel),
-		    ok = ssh:close(ConnectionRef);
-		_ ->
-		    {skip, {error, "Has pass phrase can not be used by automated test case"}} 
-	    end;
-	_ ->
-	    {skip, "no ~/.ssh/id_rsa"}  
-    end.
-	
+erlang_client_openssh_server_publickey_rsa(Config) ->
+    erlang_client_openssh_server_publickey_X(Config, 'ssh-rsa').
+    
+erlang_client_openssh_server_publickey_dsa(Config) ->
+    erlang_client_openssh_server_publickey_X(Config, 'ssh-dss').
 
-%%--------------------------------------------------------------------
-erlang_client_openssh_server_publickey_dsa() ->
-    [{doc, "Validate using dsa publickey."}].
-erlang_client_openssh_server_publickey_dsa(Config) when is_list(Config) ->
+
+erlang_client_openssh_server_publickey_X(Config, Alg) ->
     ConnectionRef =
-	ssh_test_lib:connect(?SSH_DEFAULT_PORT,
-			     [{pref_public_key_algs, ['ssh-dss','ssh-rsa']},
-			      {user_interaction, false},
-			      silently_accept_hosts]),
+        ssh_test_lib:connect(?SSH_DEFAULT_PORT,
+                             [{pref_public_key_algs, [Alg]},
+                              {user_interaction, false},
+                              {auth_methods, "publickey"},
+                              silently_accept_hosts]),
     {ok, Channel} =
-	ssh_connection:session_channel(ConnectionRef, infinity),
+        ssh_connection:session_channel(ConnectionRef, infinity),
     ok = ssh_connection:close(ConnectionRef, Channel),
     ok = ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
 erlang_server_openssh_client_public_key_dsa() ->
-    [{timetrap, {seconds,(?TIMEOUT div 1000)+10}},
-     {doc, "Validate using dsa publickey."}].
+    [{timetrap, {seconds,(?TIMEOUT div 1000)+10}}].
 erlang_server_openssh_client_public_key_dsa(Config) when is_list(Config) ->
-    erlang_server_openssh_client_public_key_X(Config, ssh_dsa).
+    erlang_server_openssh_client_public_key_X(Config, 'ssh-dss').
 
-erlang_server_openssh_client_public_key_rsa() ->
-    [{timetrap, {seconds,(?TIMEOUT div 1000)+10}},
-     {doc, "Validate using rsa publickey."}].
+erlang_server_openssh_client_public_key_rsa() -> 
+    [{timetrap, {seconds,(?TIMEOUT div 1000)+10}}].
 erlang_server_openssh_client_public_key_rsa(Config) when is_list(Config) ->
-    erlang_server_openssh_client_public_key_X(Config, ssh_rsa).
+    erlang_server_openssh_client_public_key_X(Config, 'ssh-rsa').
 
 
-erlang_server_openssh_client_public_key_X(Config, _PubKeyAlg) ->
+erlang_server_openssh_client_public_key_X(Config, Alg) ->
     SystemDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                             {preferred_algorithms,[{public_key, [Alg]}]},
+                                             {auth_methods, "publickey"},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
 
@@ -401,7 +383,7 @@ erlang_server_openssh_client_renegotiate(Config) ->
     KnownHosts = filename:join(PrivDir, "known_hosts"),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-                                              {failfun, fun ssh_test_lib:failfun/2}]),
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
 
     RenegLimitK = 3,
