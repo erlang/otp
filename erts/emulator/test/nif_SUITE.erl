@@ -488,7 +488,7 @@ select(Config) when is_list(Config) ->
     %% Wait for read
     eagain = read_nif(R, 3),
     0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref),
-    [] = flush(),
+    [] = flush(0),
     ok = write_nif(W, <<"hej">>),
     [{select, R, Ref, ready_input}] = flush(),
     0 = select_nif(R,?ERL_NIF_SELECT_READ,R,self(),Ref2),
@@ -505,7 +505,7 @@ select(Config) when is_list(Config) ->
     %% Wait for write
     Written = write_full(W, $a),
     0 = select_nif(W,?ERL_NIF_SELECT_WRITE,W,self(),Ref),
-    [] = flush(),
+    [] = flush(0),
     Written = read_nif(R,byte_size(Written)),
     [{select, W, Ref, ready_output}] = flush(),
 
@@ -515,7 +515,7 @@ select(Config) when is_list(Config) ->
     [{fd_resource_stop, W_ptr, _}] = flush(),
     {1, {W_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(W),
-    [] = flush(),
+    [] = flush(0),
     0 = select_nif(R,?ERL_NIF_SELECT_READ,R,self(),Ref),
     [{select, R, Ref, ready_input}] = flush(),
     eof = read_nif(R,1),
@@ -540,7 +540,7 @@ select_2(Config) ->
     0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref1),
     0 = select_nif(R,?ERL_NIF_SELECT_READ,R,self(),Ref2),
 
-    [] = flush(),
+    [] = flush(0),
     ok = write_nif(W, <<"hej">>),
     [{select, R, Ref2, ready_input}] = flush(),
     <<"hej">> = read_nif(R, 3),
@@ -551,7 +551,7 @@ select_2(Config) ->
     Papa = self(),
     spawn_link(fun() ->
                        0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref1),
-                       [] = flush(),
+                       [] = flush(0),
                        Papa ! sync,
                        [{select, R, Ref1, ready_input}] = flush(),
                        <<"hej">> = read_nif(R, 3),
@@ -560,7 +560,7 @@ select_2(Config) ->
     sync = receive_any(),
     ok = write_nif(W, <<"hej">>),
     done = receive_any(),
-    [] = flush(),
+    [] = flush(0),
 
     check_stop_ret(select_nif(R,?ERL_NIF_SELECT_STOP,R,null,Ref1)),
     [{fd_resource_stop, R_ptr, _}] = flush(),
@@ -650,7 +650,7 @@ monitor_process_b_do(FromThread) ->
         false -> ok = release_resource(R_ptr);
         true -> ok = release_resource_from_thread(R_ptr)
     end,
-    [] = flush(),
+    [] = flush(0),
     {R_ptr, _, 1} = last_resource_dtor_call(),
     [] = monitored_by(Pid),
     Pid ! return,
@@ -672,7 +672,7 @@ monitor_process_c(Config) ->
                              exit
                      end),
     [{Pid, done, R_ptr, Mon1},
-     {monitor_resource_down, R_ptr, Pid, Mon2}] = flush(),
+     {monitor_resource_down, R_ptr, Pid, Mon2}] = flush(2),
     compare_monitors_nif(Mon1, Mon2),
     {R_ptr, _, 1} = last_resource_dtor_call(),
     ok.
@@ -720,7 +720,7 @@ demonitor_process(Config) ->
     1 = demonitor_process_nif(R_ptr, MonBin2),
 
     ok = release_resource(R_ptr),
-    [] = flush(),
+    [] = flush(0),
     {R_ptr, _, 1} = last_resource_dtor_call(),
     [] = monitored_by(Pid),
     Pid ! return,
@@ -2319,10 +2319,16 @@ receive_any(Timeout) ->
     after Timeout -> timeout end.
 
 flush() ->
-    flush(10).
-flush(Timeout) ->
+    flush(1).
+
+flush(0) ->
+    flush(0, 10);  % don't waste too much time waiting for nothing
+flush(N) ->
+    flush(N, 1000).
+
+flush(N, Timeout) ->
     receive M ->
-            [M | flush(Timeout)]
+            [M | flush(N-1)]
     after Timeout ->
             []
     end.
