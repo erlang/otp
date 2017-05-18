@@ -2810,10 +2810,10 @@ define etp-run-queue-info-internal
   else
     if ($sched_type == 1)
       printf "\n--- Dirty CPU Run Queue ---\n"
-      set $runq = &erts_aligned_run_queues[-1].runq
+      set $runq = &erts_aligned_run_queues[erts_no_run_queues].runq
     else
       printf "\n--- Dirty I/O Run Queue ---\n"
-      set $runq = &erts_aligned_run_queues[-2].runq
+      set $runq = &erts_aligned_run_queues[erts_no_run_queues+1].runq
     end
   end
   printf "  Length: total=%d", *((Uint32 *) &($runq->len))

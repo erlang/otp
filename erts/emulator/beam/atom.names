@@ -76,6 +76,7 @@ atom ac
 atom accessor
 atom active
 atom active_tasks
+atom active_tasks_all
 atom alive
 atom all
 atom all_but_first
@@ -567,6 +568,7 @@ atom return_to
 atom return_trace
 atom run_queue
 atom run_queue_lengths
+atom run_queue_lengths_all
 atom runnable
 atom runnable_ports
 atom runnable_procs
@@ -656,8 +658,10 @@ atom Times='*'
 atom timestamp
 atom total
 atom total_active_tasks
+atom total_active_tasks_all
 atom total_heap_size
 atom total_run_queue_lengths
+atom total_run_queue_lengths_all
 atom tpkt
 atom trace trace_ts traced
 atom trace_control_word

@@ -502,20 +502,37 @@ run_queues_lengths_active_tasks(Config) ->
                          end,
                          lists:seq(1,10)),
 
+                   
+
     TRQLs0 = statistics(total_run_queue_lengths),
+    TRQLAs0 = statistics(total_run_queue_lengths_all),
     TATs0 = statistics(total_active_tasks),
+    TATAs0 = statistics(total_active_tasks_all),
     true = is_integer(TRQLs0),
     true = is_integer(TATs0),
     true = TRQLs0 >= 0,
+    true = TRQLAs0 >= 0,
     true = TATs0 >= 11,
+    true = TATAs0 >= 11,
 
     NoScheds = erlang:system_info(schedulers),
+    {DefRqs,
+     AllRqs} = case erlang:system_info(dirty_cpu_schedulers) of
+                   0 -> {NoScheds, NoScheds};
+                   _ -> {NoScheds+1, NoScheds+2}
+               end,
     RQLs0 = statistics(run_queue_lengths),
+    RQLAs0 = statistics(run_queue_lengths_all),
     ATs0 = statistics(active_tasks),
-    NoScheds = length(RQLs0),
-    NoScheds = length(ATs0),
+    ATAs0 = statistics(active_tasks_all),
+    DefRqs = length(RQLs0),
+    AllRqs = length(RQLAs0),
+    DefRqs = length(ATs0),
+    AllRqs = length(ATAs0),
     true = lists:sum(RQLs0) >= 0,
+    true = lists:sum(RQLAs0) >= 0,
     true = lists:sum(ATs0) >= 11,
+    true = lists:sum(ATAs0) >= 11,
 
     SO = erlang:system_flag(schedulers_online, 1),
 
@@ -531,8 +548,8 @@ run_queues_lengths_active_tasks(Config) ->
 
     RQLs1 = statistics(run_queue_lengths),
     ATs1 = statistics(active_tasks),
-    NoScheds = length(RQLs1),
-    NoScheds = length(ATs1),
+    DefRqs = length(RQLs1),
+    DefRqs = length(ATs1),
     TRQLs2 = lists:sum(RQLs1),
     TATs2 = lists:sum(ATs1),
     true = TRQLs2 >= 10,
