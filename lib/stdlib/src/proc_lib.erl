@@ -264,12 +264,12 @@ exit_p(Class, Reason, Stacktrace) ->
     case get('$initial_call') of
 	{M,F,A} when is_atom(M), is_atom(F), is_integer(A) ->
 	    MFA = {M,F,make_dummy_args(A, [])},
-	    crash_report(Class, Reason, MFA),
+	    crash_report(Class, Reason, MFA, Stacktrace),
 	    erlang:raise(exit, exit_reason(Class, Reason, Stacktrace), Stacktrace);
 	_ ->
 	    %% The process dictionary has been cleared or
 	    %% possibly modified.
-	    crash_report(Class, Reason, []),
+	    crash_report(Class, Reason, [], Stacktrace),
 	    erlang:raise(exit, exit_reason(Class, Reason, Stacktrace), Stacktrace)
     end.
 
@@ -499,24 +499,25 @@ trans_init(M, F, A) when is_atom(M), is_atom(F) ->
 %% Generate a crash report.
 %% -----------------------------------------------------
 
-crash_report(exit, normal, _)       -> ok;
-crash_report(exit, shutdown, _)     -> ok;
-crash_report(exit, {shutdown,_}, _) -> ok;
-crash_report(Class, Reason, StartF) ->
-    OwnReport = my_info(Class, Reason, StartF),
+crash_report(exit, normal, _, _)       -> ok;
+crash_report(exit, shutdown, _, _)     -> ok;
+crash_report(exit, {shutdown,_}, _, _) -> ok;
+crash_report(Class, Reason, StartF, Stacktrace) ->
+    OwnReport = my_info(Class, Reason, StartF, Stacktrace),
     LinkReport = linked_info(self()),
     Rep = [OwnReport,LinkReport],
     error_logger:error_report(crash_report, Rep).
 
-my_info(Class, Reason, []) ->
-    my_info_1(Class, Reason);
-my_info(Class, Reason, StartF) ->
-    [{initial_call, StartF}|my_info_1(Class, Reason)].
+my_info(Class, Reason, [], Stacktrace) ->
+    my_info_1(Class, Reason, Stacktrace);
+my_info(Class, Reason, StartF, Stacktrace) ->
+    [{initial_call, StartF}|
+     my_info_1(Class, Reason, Stacktrace)].
 
-my_info_1(Class, Reason) ->
+my_info_1(Class, Reason, Stacktrace) ->
     [{pid, self()},
      get_process_info(self(), registered_name),         
-     {error_info, {Class,Reason,erlang:get_stacktrace()}}, 
+     {error_info, {Class,Reason,Stacktrace}},
      get_ancestors(self()),        
      get_process_info(self(), messages),
      get_process_info(self(), links),

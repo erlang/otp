@@ -284,8 +284,9 @@ start(EscriptOptions) ->
             io:format("escript: ~s\n", [Str]),
             my_halt(127);
         _:Reason ->
+            Stk = erlang:get_stacktrace(),
             io:format("escript: Internal error: ~p\n", [Reason]),
-            io:format("~p\n", [erlang:get_stacktrace()]),
+            io:format("~p\n", [Stk]),
             my_halt(127)
     end.
 
