@@ -1089,9 +1089,6 @@ static void init_algorithms_types(ErlNifEnv* env)
 #ifndef OPENSSL_NO_RC4
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"rc4");
 #endif
-#if defined(HAVE_GCM)
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_gcm");
-#endif
 #if defined(HAVE_CHACHA20_POLY1305)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"chacha20_poly1305");
 #endif
