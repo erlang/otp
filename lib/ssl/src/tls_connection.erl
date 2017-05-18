@@ -429,6 +429,7 @@ handle_info({CloseTag, Socket}, StateName,
             %% Fixes non-delivery of final TLS record in {active, once}.
             %% Basically allows the application the opportunity to set {active, once} again
             %% and then receive the final message.
+            self() ! {CloseTag, Socket},
             next_event(StateName, no_record, State)
     end;
 handle_info(Msg, StateName, State) ->

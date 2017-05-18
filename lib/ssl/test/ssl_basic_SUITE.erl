@@ -240,6 +240,7 @@ error_handling_tests()->
 error_handling_tests_tls()->
     [controller_dies,
      tls_client_closes_socket,
+     tls_closed_in_active_once,
      tls_tcp_error_propagation_in_active_mode,
      tls_tcp_connect,
      tls_tcp_connect_big,
@@ -430,6 +431,7 @@ init_per_testcase(prf, Config) ->
 
 init_per_testcase(TestCase, Config) when TestCase == tls_ssl_accept_timeout;
 					 TestCase == tls_client_closes_socket;
+					 TestCase == tls_closed_in_active_once;
 					 TestCase == tls_downgrade ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 15}),
@@ -959,6 +961,48 @@ tls_client_closes_socket(Config) when is_list(Config) ->
     _Client = spawn_link(Connect),
 
     ssl_test_lib:check_result(Server, {error,closed}).
+
+%%--------------------------------------------------------------------
+tls_closed_in_active_once() ->
+    [{doc, "Test that ssl_closed is delivered in active once with non-empty buffer, check ERL-420."}].
+
+tls_closed_in_active_once(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    {_ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    TcpOpts = [binary, {reuseaddr, true}],
+    Port = ssl_test_lib:inet_port(node()),
+    Server = fun() ->
+		     {ok, Listen} = gen_tcp:listen(Port, TcpOpts),
+		     {ok, TcpServerSocket} = gen_tcp:accept(Listen),
+		     {ok, ServerSocket} = ssl:ssl_accept(TcpServerSocket, ServerOpts),
+		     lists:foreach(
+		       fun(_) ->
+			       ssl:send(ServerSocket, "some random message\r\n")
+		       end, lists:seq(1, 20)),
+		     %% Close TCP instead of SSL socket to trigger the bug:
+		     gen_tcp:close(TcpServerSocket),
+		     gen_tcp:close(Listen)
+	     end,
+    spawn_link(Server),
+    {ok, Socket} = ssl:connect(Hostname, Port, [{active, false} | ClientOpts]),
+    Result = tls_closed_in_active_once_loop(Socket),
+    ssl:close(Socket),
+    case Result of
+	ok -> ok;
+	_ -> ct:fail(Result)
+    end.
+
+tls_closed_in_active_once_loop(Socket) ->
+    ssl:setopts(Socket, [{active, once}]),
+    receive
+	{ssl, Socket, _} ->
+	    tls_closed_in_active_once_loop(Socket);
+	{ssl_closed, Socket} ->
+	    ok
+    after 5000 ->
+	      no_ssl_closed_received
+    end.
 
 %%--------------------------------------------------------------------
 connect_dist() ->
