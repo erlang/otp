@@ -750,7 +750,13 @@ next_event(connection = StateName, no_record,
 	{#ssl_tls{epoch = Epoch,
 		  type = ?HANDSHAKE,
 		  version = _Version}, State1} = _Record when Epoch == CurrentEpoch-1 ->
-	    {State, MoreActions} = send_handshake_flight(State1, Epoch),
+	    {State, MoreActions} = send_handshake_flight(State1, CurrentEpoch),
+	    {next_state, StateName, State, Actions ++ MoreActions};
+        %% From FLIGHT perspective CHANGE_CIPHER_SPEC is treated as a handshake
+        {#ssl_tls{epoch = Epoch,
+		  type = ?CHANGE_CIPHER_SPEC,
+		  version = _Version}, State1} = _Record when Epoch == CurrentEpoch-1 ->
+	    {State, MoreActions} = send_handshake_flight(State1, CurrentEpoch),
 	    {next_state, StateName, State, Actions ++ MoreActions};
 	{#ssl_tls{epoch = _Epoch,
 		  version = _Version}, State1} ->
@@ -759,6 +765,25 @@ next_event(connection = StateName, no_record,
             next_event(StateName, Record, State, Actions); 
 	{#alert{} = Alert, State} ->
 	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
+    end;
+next_event(connection = StateName, Record,
+	   #state{connection_states = #{current_read := #{epoch := CurrentEpoch}}} = State0, Actions) ->
+    case Record of
+	#ssl_tls{epoch = CurrentEpoch} ->
+	    {next_state, StateName, State0, [{next_event, internal, {protocol_record, Record}} | Actions]};
+	#ssl_tls{epoch = Epoch,
+                 type = ?HANDSHAKE,
+                 version = _Version} when Epoch == CurrentEpoch-1 ->
+	    {State, MoreActions} = send_handshake_flight(State0, CurrentEpoch),
+	    {next_state, StateName, State, Actions ++ MoreActions};
+        %% From FLIGHT perspective CHANGE_CIPHER_SPEC is treated as a handshake
+        #ssl_tls{epoch = Epoch,
+                 type = ?CHANGE_CIPHER_SPEC,
+                 version = _Version} when Epoch == CurrentEpoch-1 ->
+	    {State, MoreActions} = send_handshake_flight(State0, CurrentEpoch),
+	    {next_state, StateName, State, Actions ++ MoreActions};
+        _ -> 
+            next_event(StateName, no_record, State0, Actions) 
     end;
 next_event(StateName, Record, 
 	   #state{connection_states = #{current_read := #{epoch := CurrentEpoch}}} = State0, Actions) ->
