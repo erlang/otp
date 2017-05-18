@@ -91,8 +91,9 @@ my @op_to_name;
 
 my @obsolete;
 
-my %macro;
-my %macro_flags;
+# Instructions implemented in C.
+my %c_code;                     # C code block, location, arguments.
+my %c_code_used;                # Used or not.
 
 my %hot_code;
 my %cold_code;
@@ -259,8 +260,25 @@ if ($wordsize == 64) {
 # Parse the input files.
 #
 
+my $in_c_code = '';
+my $c_code_block;
+my $c_code_loc;
+my @c_args;
+
 while (<>) {
     my($op_num);
+    if ($in_c_code) {
+        if (/^\}/) {
+            $c_code_block =~ s/^    //mg;
+            chomp $c_code_block;
+            $c_code{$in_c_code} =
+                [$c_code_block,$c_code_loc,@c_args];
+            $in_c_code = '';
+        } else {
+            $c_code_block .= $_;
+        }
+        next;
+    }
     chomp;
     if (s/\\$//) {
 	$_ .= <>;
@@ -268,6 +286,7 @@ while (<>) {
     }
     next if /^\s*$/;
     next if /^\#/;
+    next if m@^//@;
 
     #
     # Handle %if.
@@ -325,23 +344,6 @@ while (<>) {
 	$hot = 0;
 	next;
     }
-    
-    #
-    # Handle macro definitions.
-    #
-    if (/^\%macro:(.*)/) {
-	my($op, $macro, @flags) = split(' ', $1);
-	defined($macro) and $macro =~ /^-/ and
-	    error("A macro must not start with a hyphen");
-	foreach (@flags) {
-	    /^-/ or error("Flags for macros should start with a hyphen");
-	}
-	error("Macro for '$op' is already defined")
-	    if defined $macro{$op};
-	$macro{$op} = $macro;
-	$macro_flags{$op} = join('', @flags);
-	next;
-    }
 
     #
     # Handle transformations.
@@ -349,6 +351,22 @@ while (<>) {
     if (/=>/) {
 	parse_transformation($_);
 	next;
+    }
+
+    #
+    # Handle C code blocks.
+    #
+    if (/^(\w+)\(([^\)]*)\)\s*{/) {
+        my $name = $1;
+        $in_c_code = $name;
+        $c_code_block = '';
+        @c_args = parse_c_args($2);
+        $c_code_loc = "$ARGV($.)";
+        if (defined $c_code{$name}) {
+            my $where = $c_code{$name}->[1];
+            error("$name: already defined at $where");
+        }
+        next;
     }
 
     #
@@ -447,6 +465,18 @@ $num_file_opcodes = @gen_opname;
 #
 
 &$target();
+
+#
+# Ensure that all C code implementations have been used.
+#
+{
+    my(@unused) = grep(!$c_code_used{$_}, keys %c_code);
+    foreach my $unused (@unused) {
+        my(undef,$where) = @{$c_code{$unused}};
+        warn "$where: $unused is unused\n";
+    }
+    die "\n" if @unused;
+}
 
 #
 # Produce output needed by the emulator/loader.
@@ -893,6 +923,18 @@ sub save_specific_ops {
     }
 }
 
+sub parse_c_args {
+    local($_) = @_;
+    my @res;
+
+    while (s/^(\w[\w\d]*)\s*//) {
+        push @res, $1;
+        s/^,\s*// or last;
+    }
+    $_ eq '' or error("garbage in argument list: $_");
+    @res;
+}
+
 sub error {
     my(@message) = @_;
     my($where) = $. ? "$ARGV($.): " : "";
@@ -940,51 +982,20 @@ sub comment {
 
 sub basic_generator {
     my($name, $hot, @args) = @_;
-    my($size) = 0;
-    my($macro) = '';
-    my($flags) = '';
-    my(@f);
-    my(@f_types);
-    my($fail_type);
-    my($prefix) = '';
-    my($tmp_arg_num) = 1;
-    my($pack_spec) = '';
-    my($var_decls) = '';
-    my($i);
-    my($no_prefetch) = 0;
-
-    # The following argument types should be included as macro arguments.
-    my(%incl_arg) = ('c' => 1,
-		     'i' => 1,
-		     'a' => 1,
-		     'A' => 1,
-		     'N' => 1,
-		     'U' => 1,
-		     'I' => 1,
-		     't' => 1,
-		     'P' => 1,
-		     'Q' => 1,
-		     );
-
-    # Pick up the macro to use and its flags (if any).
-
-    $macro = $macro{$name} if defined $macro{$name};
-    $flags = $macro_flags{$name} if defined $macro_flags{$name};
+    my $size = 0;
+    my $flags = '';
+    my @f;
+    my $prefix = '';
+    my $tmp_arg_num = 1;
+    my $pack_spec = '';
+    my $var_decls = '';
 
     #
-    # Add any arguments to be included as macro arguments (for instance,
-    # 'p' is usually not an argument, except for calls).
+    # Pack arguments for hot code with an implementation.
     #
 
-    while ($flags =~ /-arg_(\w)/g) {
-	$incl_arg{$1} = 1;
-    };
-
-    #
-    # Pack arguments if requested.
-    #
-
-    if ($flags =~ /-pack/ && $hot) {
+    my $c_code = $c_code{$name};
+    if ($hot and defined $c_code) {
         ($prefix, $pack_spec, @args) = do_pack(@args);
     }
 
@@ -997,40 +1008,41 @@ sub basic_generator {
 	my($this_size) = $arg_size{$_};
       SWITCH:
 	{
-	    /^pack:(\d):(.*)/ and do { push(@f, $2);
-				       push(@f_types, 'packed');
-				       $this_size = $1;
-				       last SWITCH;
-				   };
-	    /r/    and do { push(@f, "r(0)"); push(@f_types, $_); last SWITCH };
-	    /[xy]/ and do { push(@f, "$_" . "b(Arg($size))");
-			     push(@f_types, $_);
-			     last SWITCH;
-			};
-	    /n/    and do { push(@f, "NIL"); push(@f_types, $_); last SWITCH };
-	    /s/    and do { my($tmp) = "targ$tmp_arg_num";
-			    $var_decls .= "Eterm $tmp; ";
-			    $tmp_arg_num++;
-			    push(@f, $tmp);
-			    push(@f_types, $_);
-			    $prefix .= "GetR($size, $tmp);\n";
-			    last SWITCH; };
-	    /d/    and do { $var_decls .= "Eterm dst; Eterm* dst_ptr; ";
-			    push(@f, "*dst_ptr");
-			    push(@f_types, $_);
-			    $prefix .= "dst = Arg($size);\n";
-			    $prefix .= "dst_ptr = REG_TARGET_PTR(dst);\n";
-			    last SWITCH;
-			};
-	    defined($incl_arg{$_})
-		and do { push(@f, "Arg($size)");
-			 push(@f_types, $_);
-			 last SWITCH;
-		     };
-
-	    /[fp]/ and do { $fail_type = $_; last SWITCH };
-
-	    /[eLIFEbASjPowlq]/ and do { last SWITCH; };
+	    /^pack:(\d):(.*)/ and do {
+                push(@f, $2);
+                $this_size = $1;
+                last SWITCH;
+            };
+	    /r/ and do {
+                push(@f, "r(0)");
+                last SWITCH;
+            };
+	    /[lxy]/ and do {
+                push(@f, $_ . "b(Arg($size))");
+                last SWITCH;
+            };
+	    /n/ and do {
+                push(@f, "NIL");
+                last SWITCH;
+            };
+	    /s/ and do {
+                my($tmp) = "targ$tmp_arg_num";
+                $var_decls .= "Eterm $tmp;\n";
+                $tmp_arg_num++;
+                push(@f, $tmp);
+                $prefix .= "GetR($size, $tmp);\n";
+                last SWITCH;
+            };
+	    /d/ and do {
+                $var_decls .= "Eterm dst = Arg($size);\n" .
+                    "Eterm* dst_ptr = REG_TARGET_PTR(dst);\n";
+                push(@f, "*dst_ptr");
+                last SWITCH;
+            };
+            defined $arg_size{$_} and do {
+                push(@f, "Arg($size)");
+                last SWITCH;
+            };
 
 	    die "$name: The generator can't handle $_, at";
 	}
@@ -1038,77 +1050,156 @@ sub basic_generator {
     }
 
     #
-    # Add a fail action macro if requested.
+    # If the implementation is in beam_emu.c, there is nothing
+    # more to do.
     #
-
-    $flags =~ /-fail_action/ and do {
-	$no_prefetch = 1;
-	if (!defined $fail_type) {
-	    my($i);
-	    for ($i = 0; $i < @f_types; $i++) {
-		local($_) = $f_types[$i];
-		/[rxycians]/ and do { push(@f, "Badmatch($f[$i])"); next };
-	    }
-	} elsif ($fail_type eq 'f') {
-	    push(@f, "ClauseFail()");
-	} else {
-	    my($i);
-	    for ($i = 0; $i < @f_types; $i++) {
-		local($_) = $f_types[$i];
-		/[rxycians]/ and do { push(@f, "Badmatch($f[$i])"); next };
-	    }
-	}
-    };
-
-    #
-    # Add a size argument if requested.
-    #
-
-    $flags =~ /-size/ and do {
-	push(@f, $size);
-    };
-
-    # Generate the macro if requested.
-    my($code);
-    if (defined $macro{$name}) {
-	my($macro_code) = "$prefix$macro(" . join(', ', @f) . ");";
-	$var_decls .= "BeamInstr tmp_packed1;"
-	    if $macro_code =~ /tmp_packed1/;
-	$var_decls .= "BeamInstr tmp_packed2;"
-	    if $macro_code =~ /tmp_packed2/;
-	if ($flags =~ /-nonext/) {
-	    $code = join("\n",
-			 "{ $var_decls",
-			 $macro_code,
-			 "}");
-	} elsif ($flags =~ /-goto:(\S*)/) {
-	    my $goto = $1;
-	    $code = join("\n",
-			 "{ $var_decls",
-			 $macro_code,
-			 "I += $size + 1;",
-			 "goto $goto;",
-			 "}");
-	} elsif ($no_prefetch) {
-	    $code = join("\n",
-			 "{ $var_decls",
-			 $macro_code,
-			 "Next($size);",
-			 "}", "");
-	} else {
-	    $code = join("\n",
-			 "{ $var_decls",
-			 "BeamInstr* next;",
-			 "PreFetch($size, next);",
-			 "$macro_code",
-			 "NextPF($size, next);",
-			 "}", "");
-	}
+    unless (defined $c_code) {
+        return ($size+1, undef, '');
     }
 
-    # Return the size and code for the macro (if any).
-    $size++;
-    ($size, $code, $pack_spec);
+    #
+    # Generate main body of the implementation.
+    #
+    my $macro_code;
+    if (defined $c_code) {
+        my($c_code,$where,@c_args) = @{$c_code};
+        my %bindings;
+        $c_code_used{$name} = 1;
+
+        if (@f != @c_args) {
+            error("$where: defining '$name' with ", scalar(@c_args),
+                  " arguments instead of expected ", scalar(@f), " arguments");
+        }
+
+        for (my $i = 0; $i < @f; $i++) {
+            my $var = $c_args[$i];
+            $bindings{$var} = $f[$i];
+        }
+        $bindings{'NEXT_INSTRUCTION'} = "I+" . ($size + 1);
+        $c_code = eval { expand_all($c_code, \%bindings) };
+        unless (defined $c_code) {
+            warn $@;
+            error("... from the body of $name at $where");
+        }
+        my(@comments) = $c_code =~ m@//[|]\s*(.*)@g;
+        $flags = "@comments";
+        $macro_code = "$prefix$c_code";
+    }
+
+    #
+    # Generate code for transferring to the next instruction.
+    #
+    my $dispatch_next;
+    my $offset = $size + 1;
+
+    if ($flags =~ /-no_next/) {
+        $dispatch_next = "";
+    } elsif ($flags =~ /-no_prefetch/) {
+        $dispatch_next = "\nI += $offset;\n" .
+            "ASSERT(VALID_INSTR(*I));\n" .
+            "Goto(*I);";
+    } else {
+        $var_decls .= "BeamInstr* _nextpf = " .
+            "(BeamInstr *) I[$offset];\n";
+        $dispatch_next = "\nI += $offset;\n" .
+            "ASSERT(VALID_INSTR(_nextpf));\n" .
+            "Goto(_nextpf);";
+    }
+
+    #
+    # Assemble the complete code for the instruction.
+    #
+    my $code = join("\n",
+                    "{",
+                    "$var_decls$macro_code$dispatch_next",
+                    "}", "");
+    ($size+1, $code, $pack_spec);
+}
+
+sub expand_all {
+    my($code,$bindings_ref) = @_;
+    my %bindings = %{$bindings_ref};
+
+    # Expand all $Var occurrences.
+    $code =~ s/[\$](\w[\w\d]*)(?!\()/defined $bindings{$1} ? $bindings{$1} : "\$$1"/ge;
+
+    # Find calls to macros, $name(...), and expand them.
+    my $res = "";
+    while ($code =~ /[\$](\w[\w\d]*)\(/) {
+        my $macro_name = $1;
+        my $keep = substr($code, 0, $-[0]);
+        my $after = substr($code, $+[0]);
+
+        # Keep the special, pre-defined bindings.
+        my %new_bindings;
+        foreach my $key (qw(NEXT_INSTRUCTION)) {
+            $new_bindings{$key} = $bindings{$key};
+        }
+
+        my $body;
+        ($body,$code) = expand_macro($macro_name, $after, \%new_bindings);
+        $res .= "$keep$body";
+    }
+
+    $res . $code;
+}
+
+sub expand_macro {
+    my($name,$rest,$bindings_ref) = @_;
+
+    my $c_code = $c_code{$name};
+    defined $c_code or
+        error("calling undefined macro '$name'...");
+    $c_code_used{$name} = 1;
+    my ($body,$where,@vars) = @{$c_code};
+
+    # Separate the arguments into @args;
+    my @args;
+    my $level = 1;
+    my %inc = ('(' => 1, ')' => -1,
+               '[' => 1, ']' => -1,
+               '{' => 1, '}' => -1);
+    my $arg = undef;
+    while ($rest =~ /([,\(\[\{\}\]\)]|([^,\(\[\{\}\]\)]*))/g) {
+        my $token = $1;
+        my $inc = $inc{$token} || 0;
+        $level += $inc;
+        if ($level == 0) {
+            $rest = substr($rest, pos($rest));
+            push @args, $arg if defined $arg;
+            last;
+        }
+        if ($token eq ',') {
+            if ($level == 1) {
+                push @args, $arg;
+                $arg = "";
+            }
+            next;
+        }
+        $arg .= $token;
+    }
+
+    # Trim leading whitespace from each argument.
+    foreach my $arg (@args) {
+        $arg =~ s/^\s*//;
+    }
+
+    # Now combine bindings from the parameter names and arguments.
+    my %bindings = %{$bindings_ref};
+    if (@vars != @args) {
+        error("calling $name with ", scalar(@args),
+              " arguments instead of expected ", scalar(@vars), " arguments...");
+    }
+    for (my $i = 0; $i < @vars; $i++) {
+        $bindings{$vars[$i]} = $args[$i];
+    }
+
+    $body = eval { expand_all($body, \%bindings) };
+    unless (defined $body) {
+        warn $@;
+        die "... from the body of $name at $where\n";
+    }
+    ("do {\n$body\n} while (0)",$rest);
 }
 
 sub do_pack {
@@ -1201,7 +1292,7 @@ sub do_pack {
 	    $did_some_packing = 1;
 
 	    if ($ap == 0) {
-		$pack_prefix .= "tmp_packed$tmpnum = Arg($size);\n";
+		$pack_prefix .= "Eterm tmp_packed$tmpnum = Arg($size);\n";
 		$up .= "p";
 		$down = "P$down";
 		$this_size = 1;

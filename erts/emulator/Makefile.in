@@ -31,7 +31,7 @@ USE_VM_PROBES=@USE_VM_PROBES@
 LIBS = @LIBS@
 Z_LIB=@Z_LIB@
 NO_INLINE_FUNCTIONS=false
-OPCODE_TABLES = $(ERL_TOP)/lib/compiler/src/genop.tab beam/ops.tab
+OPCODE_TABLES = $(ERL_TOP)/lib/compiler/src/genop.tab beam/ops.tab beam/instrs.tab beam/bs_instrs.tab
 
 DEBUG_CFLAGS = @DEBUG_CFLAGS@
 CONFIGURE_CFLAGS = @CFLAGS@

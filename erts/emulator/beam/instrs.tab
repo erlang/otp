@@ -1,0 +1,594 @@
+// -*- c -*-
+//
+// %CopyrightBegin%
+//
+// Copyright Ericsson AB 2017. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// %CopyrightEnd%
+//
+
+// Macros only used to generate instructions.
+
+FAIL(Fail) {
+    //| -no_prefetch
+    SET_I((BeamInstr *) $Fail);
+    Goto(*I);
+}
+
+JUMP(Fail) {
+    //| -no_next
+    SET_I((BeamInstr *) $Fail);
+    Goto(*I);
+}
+
+GC_TEST(Ns, Nh, Live) {
+    unsigned need = $Nh + $Ns;
+    if (E - HTOP < need) {
+       SWAPOUT;
+       PROCESS_MAIN_CHK_LOCKS(c_p);
+       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, $Live, FCALLS);
+       ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+       PROCESS_MAIN_CHK_LOCKS(c_p);
+       SWAPIN;
+    }
+    HEAP_SPACE_VERIFIED($Nh);
+}
+
+// Make sure that there are NeedStack + NeedHeap + 1 words available
+// on the combined heap/stack segment, then allocates NeedHeap + 1
+// words on the stack and saves CP.
+AH(NeedStack, NeedHeap, Live) {
+    unsigned needed = $NeedStack + 1;
+    $GC_TEST(needed, $NeedHeap, $Live);
+    E -= needed;
+    SAVE_CP(E);
+}
+
+// Start of instruction listings
+
+// Call instructions
+
+DO_CALL(CallDest, NextInstr) {
+    //| -no_next
+    SET_CP(c_p, $NextInstr);
+    SET_I((BeamInstr *) $CallDest);
+    DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
+    Dispatch();
+}
+
+i_call(CallDest) {
+    $DO_CALL($CallDest, $NEXT_INSTRUCTION);
+}
+
+move_call(Src, CallDest) {
+    x(0) = $Src;
+    $DO_CALL($CallDest, $NEXT_INSTRUCTION);
+}
+
+i_call_last(CallDest, Deallocate) {
+    //| -no_next
+    RESTORE_CP(E);
+    E = ADD_BYTE_OFFSET(E, ($Deallocate));
+    SET_I((BeamInstr *) $CallDest);
+    DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
+    Dispatch();
+}
+
+move_call_last(Src, CallDest, Deallocate) {
+    x(0) = $Src;
+    $i_call_last($CallDest, $Deallocate);
+}
+
+i_call_only(CallDest) {
+    //| -no_next
+    SET_I((BeamInstr *) $CallDest);
+    DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
+    Dispatch();
+}
+
+move_call_only(Src, CallDest) {
+    x(0) = $Src;
+    $i_call_only($CallDest);
+}
+
+// Other instructions
+
+allocate(NeedStack, Live) {
+    $AH($NeedStack, 0, $Live);
+}
+
+allocate_heap(NeedStack, NeedHeap, Live) {
+    $AH($NeedStack, $NeedHeap, $Live);
+}
+
+allocate_init(NeedStack, Live, Y) {
+    $AH($NeedStack, 0, $Live);
+    make_blank($Y);
+}
+
+allocate_zero(NeedStack, Live) {
+    Eterm* ptr;
+    int i = $NeedStack;
+    $AH(i, 0, $Live);
+    for (ptr = E + i; ptr > E; ptr--) {
+	 make_blank(*ptr);
+    }
+}
+
+allocate_heap_zero(NeedStack, NeedHeap, Live) {
+    Eterm* ptr;
+    int i = $NeedStack;
+    $AH(i, $NeedHeap, $Live);
+    for (ptr = E + i; ptr > E; ptr--) {
+        make_blank(*ptr);
+    }
+}
+
+// This instruction is probably never used (because it is combined with a
+// a return). However, a future compiler might for some reason emit a
+// deallocate not followed by a return, and that should work.
+
+deallocate(Deallocate) {
+    //| -no_prefetch
+    RESTORE_CP(E);
+    E = ADD_BYTE_OFFSET(E, $Deallocate);
+}
+
+deallocate_return(Deallocate) {
+    //| -no_next
+    int words_to_pop = $Deallocate;
+    SET_I((BeamInstr *) cp_val(*E));
+    E = ADD_BYTE_OFFSET(E, words_to_pop);
+    CHECK_TERM(x(0));
+    DispatchReturn;
+}
+
+get_list(Src, Hd, Tl) {
+    Eterm* tmp_ptr = list_val($Src);
+    Eterm hd, tl;
+    hd = CAR(tmp_ptr);
+    tl = CDR(tmp_ptr);
+    $Hd = hd;
+    $Tl = tl;
+}
+
+i_get(Src, Dst) {
+    $Dst = erts_pd_hash_get(c_p, $Src);
+}
+
+i_get_hash(Src, Hash, Dst) {
+    $Dst = erts_pd_hash_get_with_hx(c_p, $Hash, $Src);
+}
+
+i_get_tuple_element(Src, Element, Dst) {
+    Eterm* src = ADD_BYTE_OFFSET(tuple_val($Src), $Element);
+    $Dst = *src;
+}
+
+i_get_tuple_element2(Src, Element, Dst) {
+    Eterm* src;
+    Eterm* dst;
+    Eterm E1, E2;
+    src = ADD_BYTE_OFFSET(tuple_val($Src), $Element);
+    dst = &($Dst);
+    E1 = src[0];
+    E2 = src[1];
+    dst[0] = E1;
+    dst[1] = E2;
+}
+
+i_get_tuple_element2y(Src, Element, D1, D2) {
+    Eterm* src;
+    Eterm E1, E2;
+    src = ADD_BYTE_OFFSET(tuple_val($Src), $Element);
+    E1 = src[0];
+    E2 = src[1];
+    $D1 = E1;
+    $D2 = E2;
+}
+
+i_get_tuple_element3(Src, Element, Dst) {
+    Eterm* src;
+    Eterm* dst;
+    Eterm E1, E2, E3;
+    src = ADD_BYTE_OFFSET(tuple_val($Src), $Element);
+    dst = &($Dst);
+    E1 = src[0];
+    E2 = src[1];
+    E3 = src[2];
+    dst[0] = E1;
+    dst[1] = E2;
+    dst[2] = E3;
+}
+
+init(Y) {
+    make_blank($Y);
+}
+
+init2(Y1, Y2) {
+    make_blank($Y1);
+    make_blank($Y2);
+}
+
+init3(Y1, Y2, Y3) {
+    make_blank($Y1);
+    make_blank($Y2);
+    make_blank($Y3);
+}
+
+i_make_fun(FunP, NumFree) {
+    HEAVY_SWAPOUT;
+    x(0) = new_fun(c_p, reg, (ErlFunEntry *) $FunP, $NumFree);
+    HEAVY_SWAPIN;
+}
+
+i_trim(Words) {
+    Uint cp = E[0];
+    E += $Words;
+    E[0] = cp;
+}
+
+move(Src, Dst) {
+    $Dst = $Src;
+}
+
+move3(S1, D1, S2, D2, S3, D3) {
+    $D1 = $S1;
+    $D2 = $S2;
+    $D3 = $S3;
+}
+
+move_deallocate_return(Src, Deallocate) {
+    //| -no_next
+    x(0) = $Src;
+    $deallocate_return($Deallocate);
+}
+
+move_dup(Src, D1, D2) {
+    $D1 = $D2 = $Src;
+}
+
+move2_par(S1, D1, S2, D2) {
+    Eterm V1, V2;
+    V1 = $S1;
+    V2 = $S2;
+    $D1 = V1;
+    $D2 = V2;
+}
+
+move_shift(Src, SD, D) {
+    Eterm V;
+    V = $Src;
+    $D = $SD;
+    $SD = V;
+}
+
+move_window3(S1, S2, S3, D) {
+    Eterm xt0, xt1, xt2;
+    Eterm* y = &$D;
+    xt0  = $S1;
+    xt1  = $S2;
+    xt2  = $S3;
+    y[0] = xt0;
+    y[1] = xt1;
+    y[2] = xt2;
+}
+
+move_window4(S1, S2, S3, S4, D) {
+    Eterm xt0, xt1, xt2, xt3;
+    Eterm* y = &$D;
+    xt0  = $S1;
+    xt1  = $S2;
+    xt2  = $S3;
+    xt3  = $S4;
+    y[0] = xt0;
+    y[1] = xt1;
+    y[2] = xt2;
+    y[3] = xt3;
+}
+
+move_window5(S1, S2, S3, S4, S5, D) {
+    Eterm xt0, xt1, xt2, xt3, xt4;
+    Eterm *y = &$D;
+    xt0  = $S1;
+    xt1  = $S2;
+    xt2  = $S3;
+    xt3  = $S4;
+    xt4  = $S5;
+    y[0] = xt0;
+    y[1] = xt1;
+    y[2] = xt2;
+    y[3] = xt3;
+    y[4] = xt4;
+}
+
+move_return(Src) {
+    //| -no_next
+    x(0) = $Src;
+    SET_I(c_p->cp);
+    c_p->cp = 0;
+    DispatchReturn;
+}
+
+move_x1(Src) {
+    x(1) = $Src;
+}
+
+move_x2(Src) {
+    x(2) = $Src;
+}
+
+node(Dst) {
+    $Dst = erts_this_node->sysname;
+}
+
+put_list(Hd, Tl, Dst) {
+    HTOP[0] = $Hd;
+    HTOP[1] = $Tl;
+    $Dst = make_list(HTOP);
+    HTOP += 2;
+}
+
+i_put_tuple(Dst, Arity) {
+    //| -no_next
+    $Dst = make_tuple(HTOP);
+    pt_arity = $Arity;
+    I = $NEXT_INSTRUCTION;
+    goto do_put_tuple;
+}
+
+self(Dst) {
+    $Dst = c_p->common.id;
+}
+
+set_tuple_element(Element, Tuple, Offset) {
+    Eterm* p;
+
+    ASSERT(is_tuple($Tuple));
+    p = (Eterm *) ((unsigned char *) tuple_val($Tuple) + $Offset);
+    *p = $Element;
+}
+
+swap(R1, R2) {
+    Eterm V = $R1;
+    $R1 = $R2;
+    $R2 = V;
+}
+
+swap_temp(R1, R2, Tmp) {
+    Eterm V = $R1;
+    $R1 = $R2;
+    $R2 = $Tmp = V;
+}
+
+test_heap(Nh, Live) {
+    $GC_TEST(0, $Nh, $Live);
+}
+
+test_heap_1_put_list(Nh, Reg) {
+    $test_heap($Nh, 1);
+    $put_list($Reg, x(0), x(0));
+}
+
+is_integer_allocate(Fail, Src, NeedStack, Live) {
+    //| -no_prefetch
+    $is_integer($Fail, $Src);
+    $AH($NeedStack, 0, $Live);
+}
+
+is_nonempty_list(Fail, Src) {
+    //| -no_prefetch
+    if (is_not_list($Src)) {
+        $FAIL($Fail);
+    }
+}
+
+is_nonempty_list_test_heap(Fail, Need, Live) {
+    //| -no_prefetch
+    $is_nonempty_list($Fail, x(0));
+    $test_heap($Need, $Live);
+}
+
+is_nonempty_list_allocate(Fail, Src, Need, Live) {
+    //| -no_prefetch
+    $is_nonempty_list($Fail, $Src);
+    $AH($Need, 0, $Live);
+}
+
+is_nonempty_list_get_list(Fail, Src, Hd, Tl) {
+    //| -no_prefetch
+    $is_nonempty_list($Fail, $Src);
+    $get_list($Src, $Hd, $Tl);
+}
+
+move_jump(Fail, Src) {
+    x(0) = $Src;
+    $JUMP($Fail);
+}
+
+//
+// Test instructions.
+//
+
+is_atom(Fail, Src) {
+    if (is_not_atom($Src)) {
+        $FAIL($Fail);
+    }
+}
+
+is_boolean(Fail, Src) {
+    if (($Src) != am_true && ($Src) != am_false) {
+        $FAIL($Fail);
+    }
+}
+
+is_binary(Fail, Src) {
+    if (is_not_binary($Src) || binary_bitsize($Src) != 0) {
+        $FAIL($Fail);
+    }
+}
+
+is_bitstring(Fail, Src) {
+  if (is_not_binary($Src)) {
+        $FAIL($Fail);
+    }
+}
+
+is_float(Fail, Src) {
+    if (is_not_float($Src)) {
+        $FAIL($Fail);
+    }
+}
+
+is_function(Fail, Src) {
+    if ( !(is_any_fun($Src)) ) {
+        $FAIL($Fail);
+    }
+}
+
+is_function2(Fail, Fun, Arity) {
+    if (erl_is_function(c_p, $Fun, $Arity) != am_true ) {
+        $FAIL($Fail);
+    }
+}
+
+is_integer(Fail, Src) {
+    if (is_not_integer($Src)) {
+        $FAIL($Fail);
+    }
+}
+
+is_list(Fail, Src) {
+    if (is_not_list($Src) && is_not_nil($Src)) {
+        $FAIL($Fail);
+    }
+}
+
+is_map(Fail, Src) {
+    if (is_not_map($Src)) {
+        $FAIL($Fail);
+    }
+}
+
+is_nil(Fail, Src) {
+    if (is_not_nil($Src)) {
+        $FAIL($Fail);
+    }
+}
+
+is_number(Fail, Src) {
+    if (is_not_integer($Src) && is_not_float($Src)) {
+        $FAIL($Fail);
+    }
+}
+
+is_pid(Fail, Src) {
+    if (is_not_pid($Src)) {
+        $FAIL($Fail);
+    }
+}
+
+is_port(Fail, Src) {
+    if (is_not_port($Src)) {
+        $FAIL($Fail);
+    }
+}
+
+is_reference(Fail, Src) {
+    if (is_not_ref($Src)) {
+        $FAIL($Fail);
+    }
+}
+
+is_tagged_tuple(Fail, Src, Arityval, Tag) {
+    if (!(BEAM_IS_TUPLE($Src) &&
+          (tuple_val($Src))[0] == $Arityval &&
+          (tuple_val($Src))[1] == $Tag)) {
+        $FAIL($Fail);
+    }
+}
+
+is_tuple(Fail, Src) {
+    if (is_not_tuple($Src)) {
+        $FAIL($Fail);
+    }
+}
+
+is_tuple_of_arity(Fail, Src, Arityval) {
+    if (!(BEAM_IS_TUPLE($Src) && *tuple_val($Src) == $Arityval)) {
+        $FAIL($Fail);
+    }
+}
+
+test_arity(Fail, Pointer, Arity) {
+    if (*tuple_val($Pointer) != $Arity) {
+        $FAIL($Fail);
+    }
+}
+i_is_eq_exact_immed(Fail, X, Y) {
+    if ($X != $Y) {
+        $FAIL($Fail);
+    }
+}
+
+i_is_ne_exact_immed(Fail, X, Y) {
+    if ($X == $Y) {
+        $FAIL($Fail);
+    }
+}
+
+is_eq_exact(Fail, X, Y) {
+    if (!EQ($X, $Y)) {
+        $FAIL($Fail);
+    }
+}
+
+is_ne_exact(Fail, X, Y) {
+    if (EQ($X, $Y)) {
+        $FAIL($Fail);
+    }
+}
+
+is_eq(Fail, X, Y) {
+    CMP_EQ_ACTION($X, $Y, $FAIL($Fail));
+}
+
+is_ne(Fail, X, Y) {
+    CMP_NE_ACTION($X, $Y, $FAIL($Fail));
+}
+
+is_lt(Fail, X, Y) {
+    CMP_LT_ACTION($X, $Y, $FAIL($Fail));
+}
+
+is_ge(Fail, X, Y) {
+    CMP_GE_ACTION($X, $Y, $FAIL($Fail));
+}
+
+i_get_map_element(Fail, Src, Key, Dst) {
+    Eterm res = get_map_element($Src, $Key);
+    if (is_non_value(res)) {
+        $FAIL($Fail);
+    }
+    $Dst = res;
+}
+
+i_get_map_element_hash(Fail, Src, Key, Hx, Dst) {
+     Eterm res = get_map_element_hash($Src, $Key, $Hx);
+     if (is_non_value(res)) {
+        $FAIL($Fail);
+     }
+     $Dst = res;
+}

@@ -1,0 +1,179 @@
+// -*- c -*-
+//
+// %CopyrightBegin%
+//
+// Copyright Ericsson AB 2017. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// %CopyrightEnd%
+//
+
+i_bs_get_binary_all2(Fail, Ms, Live, Unit, Dst) {
+    ErlBinMatchBuffer *_mb;
+    Eterm _result;
+    TestHeap(ERL_SUB_BIN_SIZE, $Live);
+    _mb = ms_matchbuffer($Ms);
+    if (((_mb->size - _mb->offset) % $Unit) == 0) {
+      LIGHT_SWAPOUT;
+      _result = erts_bs_get_binary_all_2(c_p, _mb);
+      LIGHT_SWAPIN;
+      HEAP_SPACE_VERIFIED(0);
+      ASSERT(is_value(_result));
+      $Dst = _result;
+    } else {
+	HEAP_SPACE_VERIFIED(0);
+	$FAIL($Fail);
+    }
+}
+
+i_bs_get_binary2(Fail, Ms, Live, Sz, Flags, Dst) {
+    ErlBinMatchBuffer *_mb;
+    Eterm _result;
+    Uint _size;
+    BsGetFieldSize($Sz, (($Flags) >> 3), $FAIL($Fail), _size);
+    TestHeap(ERL_SUB_BIN_SIZE, $Live);
+    _mb = ms_matchbuffer($Ms);
+    LIGHT_SWAPOUT;
+    _result = erts_bs_get_binary_2(c_p, _size, $Flags, _mb);
+    LIGHT_SWAPIN;
+    HEAP_SPACE_VERIFIED(0);
+    if (is_non_value(_result)) {
+        $FAIL($Fail);
+    } else {
+        $Dst = _result;
+    }
+}
+
+i_bs_get_binary_imm2(Fail, Ms, Live, Sz, Flags, Dst) {
+    ErlBinMatchBuffer *_mb;
+    Eterm _result;
+    TestHeap(heap_bin_size(ERL_ONHEAP_BIN_LIMIT), $Live);
+    _mb = ms_matchbuffer($Ms);
+    LIGHT_SWAPOUT;
+    _result = erts_bs_get_binary_2(c_p, $Sz, $Flags, _mb);
+    LIGHT_SWAPIN;
+    HEAP_SPACE_VERIFIED(0);
+    if (is_non_value(_result)) {
+        $FAIL($Fail);
+    } else {
+        $Dst = _result;
+    }
+}
+
+i_bs_get_float2(Fail, Ms, Live, Sz, Flags, Dst) {
+    ErlBinMatchBuffer *_mb;
+    Eterm _result;
+    Sint _size;
+
+    if (!is_small($Sz) || (_size = unsigned_val($Sz)) > 64) {
+        $FAIL($Fail);
+    }
+    _size *= (($Flags) >> 3);
+    TestHeap(FLOAT_SIZE_OBJECT, $Live);
+    _mb = ms_matchbuffer($Ms);
+    LIGHT_SWAPOUT;
+    _result = erts_bs_get_float_2(c_p, _size, ($Flags), _mb);
+    LIGHT_SWAPIN;
+    HEAP_SPACE_VERIFIED(0);
+    if (is_non_value(_result)) {
+        $FAIL($Fail);
+    } else {
+        $Dst = _result;
+    }
+}
+
+i_bs_skip_bits2(Fail, Ms, Bits, Unit) {
+    ErlBinMatchBuffer *_mb;
+    size_t new_offset;
+    Uint _size;
+
+    _mb = ms_matchbuffer($Ms);
+    BsGetFieldSize($Bits, $Unit, $FAIL($Fail), _size);
+    new_offset = _mb->offset + _size;
+    if (new_offset <= _mb->size) {
+        _mb->offset = new_offset;
+    } else {
+        $FAIL($Fail);
+    }
+}
+
+i_bs_skip_bits_all2(Fail, Ms, Unit) {
+    ErlBinMatchBuffer *_mb;
+    _mb = ms_matchbuffer($Ms);
+    if (((_mb->size - _mb->offset) % $Unit) == 0) {
+        _mb->offset = _mb->size;
+    } else {
+        $FAIL($Fail);
+    }
+}
+
+i_bs_skip_bits_imm2(Fail, Ms, Bits) {
+    ErlBinMatchBuffer *_mb;
+    size_t new_offset;
+    _mb = ms_matchbuffer($Ms);
+    new_offset = _mb->offset + ($Bits);
+    if (new_offset <= _mb->size) {
+        _mb->offset = new_offset;
+    } else {
+        $FAIL($Fail);
+    }
+}
+
+i_new_bs_put_binary(Fail, Sz, Flags, Src) {
+    Sint _size;
+    BsGetUncheckedFieldSize($Sz, (($Flags) >> 3), goto badarg, _size);
+    if (!erts_new_bs_put_binary(ERL_BITS_ARGS_2(($Src), _size))) {
+        goto badarg;
+    }
+}
+
+i_new_bs_put_binary_all(Fail, Src, Unit) {
+    if (!erts_new_bs_put_binary_all(ERL_BITS_ARGS_2(($Src), ($Unit)))) {
+        goto badarg;
+    }
+}
+
+i_new_bs_put_binary_imm(Fail, Sz, Src) {
+    if (!erts_new_bs_put_binary(ERL_BITS_ARGS_2(($Src), ($Sz)))) {
+        goto badarg;
+    }
+}
+
+i_new_bs_put_float(Fail, Sz, Flags, Src) {
+    Sint _size;
+    BsGetUncheckedFieldSize($Sz, (($Flags) >> 3), goto badarg, _size);
+    if (!erts_new_bs_put_float(c_p, ($Src), _size, ($Flags))) {
+        goto badarg;
+    }
+}
+
+i_new_bs_put_float_imm(Fail, Sz, Flags, Src) {
+    if (!erts_new_bs_put_float(c_p, ($Src), ($Sz), ($Flags))) {
+        goto badarg;
+    }
+}
+
+i_new_bs_put_integer(Fail, Sz, Flags, Src) {
+   Sint _size;
+   BsGetUncheckedFieldSize($Sz, (($Flags) >> 3), goto badarg, _size);
+   if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3(($Src), _size, ($Flags)))) {
+       goto badarg;
+   }
+}
+
+i_new_bs_put_integer_imm(Fail, Sz, Flags, Src) {
+    if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3(($Src), ($Sz), ($Flags)))) {
+        goto badarg;
+    }
+}

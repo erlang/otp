@@ -296,78 +296,15 @@ void** beam_ops;
      PROCESS_MAIN_CHK_LOCKS((P));					\
      ERTS_UNREQ_PROC_MAIN_LOCK((P))
 
-#define db(N) (N)
 #define tb(N) (N)
 #define xb(N) (*(Eterm *) (((unsigned char *)reg) + (N)))
 #define yb(N) (*(Eterm *) (((unsigned char *)E) + (N)))
-#define fb(N) (*(double *) (((unsigned char *)&(freg[0].fd)) + (N)))
+#define lb(N) (*(double *) (((unsigned char *)&(freg[0].fd)) + (N)))
 #define Qb(N) (N)
 #define Ib(N) (N)
 #define x(N) reg[N]
 #define y(N) E[N]
 #define r(N) x(N)
-
-/*
- * Makes sure that there are StackNeed + HeapNeed + 1 words available
- * on the combined heap/stack segment, then allocates StackNeed + 1
- * words on the stack and saves CP.
- *
- * M is number of live registers to preserve during garbage collection
- */
-
-#define AH(StackNeed, HeapNeed, M) \
-  do { \
-     int needed; \
-     needed = (StackNeed) + 1; \
-     if (E - HTOP < (needed + (HeapNeed))) { \
-           SWAPOUT; \
-           PROCESS_MAIN_CHK_LOCKS(c_p); \
-           FCALLS -= erts_garbage_collect_nobump(c_p, needed + (HeapNeed), \
-						 reg, (M), FCALLS);	\
-           ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p); \
-           PROCESS_MAIN_CHK_LOCKS(c_p); \
-           SWAPIN; \
-     } \
-     E -= needed; \
-     SAVE_CP(E); \
-  } while (0)
-
-#define Allocate(Ns, Live) AH(Ns, 0, Live)
-
-#define AllocateZero(Ns, Live)             \
- do { Eterm* ptr;                          \
-      int i = (Ns);                        \
-      AH(i, 0, Live);                      \
-      for (ptr = E + i; ptr > E; ptr--) {  \
-	 make_blank(*ptr);                 \
-     }                                     \
-  } while (0)
-
-#define AllocateHeap(Ns, Nh, Live) AH(Ns, Nh, Live)
-
-#define AllocateHeapZero(Ns, Nh, Live)     \
- do { Eterm* ptr;                          \
-      int i = (Ns);                        \
-      AH(i, Nh, Live);                     \
-      for (ptr = E + i; ptr > E; ptr--) {  \
-	 make_blank(*ptr);                 \
-     }                                     \
-  } while (0)
-
-#define AllocateInit(Ns, Live, Y) \
-  do { AH(Ns, 0, Live); make_blank(Y); } while (0)
-
-/*
- * Like the AH macro, but allocates no additional heap space.
- */
-
-#define A(StackNeed, M) AH(StackNeed, 0, M)
-
-#define D(N)             \
-     RESTORE_CP(E);      \
-     E += (N) + 1;
-
-
 
 #define TestBinVHeap(VNh, Nh, Live)                             		\
   do {                                                          		\
@@ -425,32 +362,6 @@ void** beam_ops;
     }									\
     HEAP_SPACE_VERIFIED(need);                                      \
   } while (0)
-
-#define TestHeapPutList(Need, Reg)		\
-  do {						\
-     TestHeap((Need), 1);			\
-     PutList(Reg, r(0), r(0));                  \
-     CHECK_TERM(r(0));				\
-  } while (0)
-
-#define Init(N) make_blank(yb(N))
-
-#define Init2(Y1, Y2) do { make_blank(Y1); make_blank(Y2); } while (0)
-#define Init3(Y1, Y2, Y3) \
-   do { make_blank(Y1); make_blank(Y2); make_blank(Y3); } while (0)
-
-#define MakeFun(FunP, NumFree)					\
-  do {								\
-     HEAVY_SWAPOUT;						\
-     r(0) = new_fun(c_p, reg, (ErlFunEntry *) FunP, NumFree);	\
-     HEAVY_SWAPIN;						\
-  } while (0)
-
-#define PutTuple(Dst, Arity)			\
- do {						\
-   Dst = make_tuple(HTOP);			\
-   pt_arity = (Arity);				\
- } while (0)
 
 /*
  * Check that we haven't used the reductions and jump to function pointed to by
@@ -518,9 +429,6 @@ void** beam_ops;
 #  define Dispatchfun() DispatchMacroFun()
 #endif
 
-#define Self(R) R = c_p->common.id
-#define Node(R) R = erts_this_node->sysname
-
 #define Arg(N)       I[(N)+1]
 #define Next(N)                \
     I += (N) + 1;              \
@@ -556,90 +464,6 @@ void** beam_ops;
      GetR((N)+1, Dst2);            \
    } while (0)
 
-#define PutList(H, T, Dst)                      \
-  do {                                          \
-   HTOP[0] = (H); HTOP[1] = (T);                \
-   Dst = make_list(HTOP);                       \
-   HTOP += 2;                                   \
-  } while (0)
-
-#define Swap(R1, R2)				\
-  do {						\
-    Eterm V = R1;				\
-    R1 = R2;					\
-    R2 = V;					\
-  } while (0)
-
-#define SwapTemp(R1, R2, Tmp)			\
-  do {						\
-    Eterm V = R1;				\
-    R1 = R2;					\
-    R2 = Tmp = V;				\
-  } while (0)
-
-#define Move(Src, Dst) Dst = (Src)
-
-#define Move2Par(S1, D1, S2, D2)		\
-  do {						\
-      Eterm V1, V2;				\
-      V1 = (S1); V2 = (S2); D1 = V1; D2 = V2;	\
-  } while (0)
-
-#define MoveShift(Src, SD, D)			\
-  do {						\
-    Eterm V;					\
-    V = Src; D = SD; SD = V;			\
-  } while (0)
-
-#define MoveDup(Src, D1, D2)			\
-  do {						\
-    D1 = D2 = (Src);				\
-  } while (0)
-
-#define Move3(S1, D1, S2, D2, S3, D3) D1 = (S1); D2 = (S2); D3 = (S3)
-
-#define MoveWindow3(S1, S2, S3, D)		\
-  do {						\
-      Eterm xt0, xt1, xt2;			\
-      Eterm *y = &D;				\
-      xt0  = S1;				\
-      xt1  = S2;				\
-      xt2  = S3;				\
-      y[0] = xt0;				\
-      y[1] = xt1;				\
-      y[2] = xt2;				\
- } while (0)
-
-#define MoveWindow4(S1, S2, S3, S4, D)		\
-  do {						\
-      Eterm xt0, xt1, xt2, xt3;			\
-      Eterm *y = &D;				\
-      xt0  = S1;				\
-      xt1  = S2;				\
-      xt2  = S3;				\
-      xt3  = S4;				\
-      y[0] = xt0;				\
-      y[1] = xt1;				\
-      y[2] = xt2;				\
-      y[3] = xt3;				\
- } while (0)
-
-#define MoveWindow5(S1, S2, S3, S4, S5, D)	\
-  do {						\
-      Eterm xt0, xt1, xt2, xt3, xt4;		\
-      Eterm *y = &D;				\
-      xt0  = S1;				\
-      xt1  = S2;				\
-      xt2  = S3;				\
-      xt3  = S4;				\
-      xt4  = S5;				\
-      y[0] = xt0;				\
-      y[1] = xt1;				\
-      y[2] = xt2;				\
-      y[3] = xt3;				\
-      y[4] = xt4;				\
- } while (0)
-
 #define DispatchReturn                          \
 do {                                            \
     if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
@@ -653,224 +477,13 @@ do {                                            \
     }						\
 } while (0)
 
-#define MoveReturn(Src)				\
-    x(0) = (Src);				\
-    I = c_p->cp;				\
-    ASSERT(VALID_INSTR(*c_p->cp));		\
-    c_p->cp = 0;				\
-    CHECK_TERM(r(0));				\
-    DispatchReturn
-
-#define DeallocateReturn(Deallocate)       \
-  do {                                     \
-    int words_to_pop = (Deallocate);       \
-    SET_I((BeamInstr *) cp_val(*E));       \
-    E = ADD_BYTE_OFFSET(E, words_to_pop);  \
-    CHECK_TERM(r(0));                      \
-    DispatchReturn;                        \
-  } while (0)
-
-#define MoveDeallocateReturn(Src, Deallocate)	\
-    x(0) = (Src);				\
-    DeallocateReturn(Deallocate)
-
-#define MoveCall(Src, CallDest, Size)		\
-    x(0) = (Src);				\
-    SET_CP(c_p, I+Size+1);			\
-    SET_I((BeamInstr *) CallDest);		\
-    Dispatch();
-
-#define MoveCallLast(Src, CallDest, Deallocate)	\
-    x(0) = (Src);				\
-    RESTORE_CP(E);				\
-    E = ADD_BYTE_OFFSET(E, (Deallocate));	\
-    SET_I((BeamInstr *) CallDest);		\
-    Dispatch();
-
-#define MoveCallOnly(Src, CallDest)		\
-    x(0) = (Src);				\
-    SET_I((BeamInstr *) CallDest);		\
-    Dispatch();
-
-#define MoveJump(Src)				\
-     r(0) = (Src);				\
-     SET_I((BeamInstr *) Arg(0));		\
-     Goto(*I);
-
-#define GetList(Src, H, T)			\
-  do {						\
-    Eterm* tmp_ptr = list_val(Src);		\
-    Eterm hd, tl;				\
-    hd = CAR(tmp_ptr);				\
-    tl = CDR(tmp_ptr);				\
-    H = hd; T = tl;				\
-  } while (0)
-
-#define GetTupleElement(Src, Element, Dest)		\
-  do {							\
-    Eterm* src;						\
-    src = ADD_BYTE_OFFSET(tuple_val(Src), (Element));	\
-    (Dest) = *src;					\
-  } while (0)
-
-#define GetTupleElement2(Src, Element, Dest)		\
-  do {							\
-    Eterm* src;						\
-    Eterm* dst;						\
-    Eterm E1, E2;					\
-    src = ADD_BYTE_OFFSET(tuple_val(Src), (Element));	\
-    dst = &(Dest);					\
-    E1 = src[0];					\
-    E2 = src[1];					\
-    dst[0] = E1;					\
-    dst[1] = E2;					\
-  } while (0)
-
-#define GetTupleElement2Y(Src, Element, D1, D2)		\
-  do {							\
-    Eterm* src;						\
-    Eterm E1, E2;					\
-    src = ADD_BYTE_OFFSET(tuple_val(Src), (Element));	\
-    E1 = src[0];					\
-    E2 = src[1];					\
-    D1 = E1;						\
-    D2 = E2;						\
-  } while (0)
-
-#define GetTupleElement3(Src, Element, Dest)		\
-  do {							\
-    Eterm* src;						\
-    Eterm* dst;						\
-    Eterm E1, E2, E3;					\
-    src = ADD_BYTE_OFFSET(tuple_val(Src), (Element));	\
-    dst = &(Dest);					\
-    E1 = src[0];					\
-    E2 = src[1];					\
-    E3 = src[2];					\
-    dst[0] = E1;					\
-    dst[1] = E2;					\
-    dst[2] = E3;					\
-  } while (0)
-
-#define EqualImmed(X, Y, Action) if (X != Y) { Action; }
-#define NotEqualImmed(X, Y, Action) if (X == Y) { Action; }
-#define EqualExact(X, Y, Action) if (!EQ(X,Y)) { Action; }
-#define NotEqualExact(X, Y, Action) if (EQ(X,Y)) { Action; }
-#define Equal(X, Y, Action) CMP_EQ_ACTION(X,Y,Action)
-#define NotEqual(X, Y, Action) CMP_NE_ACTION(X,Y,Action)
-#define IsLessThan(X, Y, Action) CMP_LT_ACTION(X,Y,Action)
-#define IsGreaterEqual(X, Y, Action) CMP_GE_ACTION(X,Y,Action)
-
-#define IsFloat(Src, Fail) if (is_not_float(Src)) { Fail; }
-
-#define IsInteger(Src, Fail) if (is_not_integer(Src)) { Fail; }
-
-#define IsNumber(X, Fail) if (is_not_integer(X) && is_not_float(X)) { Fail; }
-
-#define IsAtom(Src, Fail) if (is_not_atom(Src)) { Fail; }
-
-#define IsIntegerAllocate(Src, Need, Alive, Fail)  \
-    if (is_not_integer(Src)) { Fail; }             \
-    A(Need, Alive)
-
-#define IsNil(Src, Fail) if (is_not_nil(Src)) { Fail; }
-
-#define IsList(Src, Fail) if (is_not_list(Src) && is_not_nil(Src)) { Fail; }
-
-#define IsNonemptyList(Src, Fail) if (is_not_list(Src)) { Fail; }
-
-#define IsNonemptyListAllocate(Src, Need, Alive, Fail)  \
-    if (is_not_list(Src)) { Fail; }                     \
-    A(Need, Alive)
-
-#define IsNonemptyListTestHeap(Need, Alive, Fail)  \
-    if (is_not_list(x(0))) { Fail; }			\
-    TestHeap(Need, Alive)
-
-#define IsNonemptyListGetList(Src, H, T, Fail)	\
-    if (is_not_list(Src)) {			\
-         Fail;					\
-    } else {					\
-       Eterm* tmp_ptr = list_val(Src);		\
-       Eterm hd, tl;				\
-       hd = CAR(tmp_ptr);			\
-       tl = CDR(tmp_ptr);			\
-       H = hd; T = tl;				\
-    }
-
-#define IsTuple(X, Action) if (is_not_tuple(X)) Action
-
-#define IsArity(Pointer, Arity, Fail)		\
-    if (*tuple_val(Pointer) != (Arity)) {	\
-        Fail;					\
-    }
-
-#define IsMap(Src, Fail) if (!is_map(Src)) { Fail; }
-
-#define GetMapElement(Src, Key, Dst, Fail)	\
-  do {						\
-     Eterm _res = get_map_element(Src, Key);	\
-     if (is_non_value(_res)) {			\
-        Fail;					\
-     }						\
-     Dst = _res;				\
-  } while (0)
-
-#define GetMapElementHash(Src, Key, Hx, Dst, Fail)	\
-  do {							\
-     Eterm _res = get_map_element_hash(Src, Key, Hx);	\
-     if (is_non_value(_res)) {				\
-        Fail;						\
-     }							\
-     Dst = _res;					\
-  } while (0)
-
-#define IsFunction(X, Action)			\
-  do {						\
-     if ( !(is_any_fun(X)) ) {			\
-          Action;				\
-     }						\
-  } while (0)
-
-#define IsFunction2(F, A, Action)			\
-  do {							\
-     if (erl_is_function(c_p, F, A) != am_true ) {	\
-          Action;					\
-     }							\
-  } while (0)
-
 #ifdef DEBUG
-#define IsTupleOfArity(Src, Arityval, Fail)			\
-  do {								\
-    if (!(is_tuple(Src) && *tuple_val(Src) == Arityval)) {	\
-        Fail;							\
-    }								\
-  } while (0)
+/* Better static type testing by the C compiler */
+#  define BEAM_IS_TUPLE(Src) is_tuple(Src)
 #else
-#define IsTupleOfArity(Src, Arityval, Fail)			\
-  do {								\
-    if (!(is_boxed(Src) && *tuple_val(Src) == Arityval)) {	\
-        Fail;							\
-    }								\
-  } while (0)
+/* Better performance */
+# define BEAM_IS_TUPLE(Src) is_boxed(Src)
 #endif
-
-#define IsTaggedTuple(Src,Arityval,Tag,Fail) \
-  do {                                       \
-    if (!(is_tuple(Src) &&                   \
-         (tuple_val(Src))[0] == Arityval &&  \
-         (tuple_val(Src))[1] == Tag)) {      \
-        Fail;                                \
-    }                                        \
-  } while (0)
-
-#define IsBoolean(X, Fail) if ((X) != am_true && (X) != am_false) { Fail; }
-
-#define IsBinary(Src, Fail) \
- if (is_not_binary(Src) || binary_bitsize(Src) != 0) { Fail; }
-
-#define IsBitstring(Src, Fail) \
-  if (is_not_binary(Src)) { Fail; }
 
 #if defined(ARCH_64)
 #define BsSafeMul(A, B, Fail, Target)		\
@@ -916,145 +529,6 @@ do {                                            \
       Target = _uint_size * Unit;				\
    } while (0)
 
-#define BsGetFloat2(Ms, Live, Sz, Flags, Dst, Fail)                     \
- do {									\
-   ErlBinMatchBuffer *_mb;						\
-   Eterm _result; Sint _size;						\
-   if (!is_small(Sz) || (_size = unsigned_val(Sz)) > 64) { Fail; }	\
-   _size *= ((Flags) >> 3);						\
-   TestHeap(FLOAT_SIZE_OBJECT, Live);					\
-   _mb = ms_matchbuffer(Ms);						\
-   LIGHT_SWAPOUT;							\
-   _result = erts_bs_get_float_2(c_p, _size, (Flags), _mb);		\
-   LIGHT_SWAPIN;							\
-   HEAP_SPACE_VERIFIED(0);                                              \
-   if (is_non_value(_result)) { Fail; }					\
-   else { Dst = _result; }                                              \
- } while (0)
-
-#define BsGetBinaryImm_2(Ms, Live, Sz, Flags, Dst, Fail)	\
-  do {								\
-    ErlBinMatchBuffer *_mb;					\
-    Eterm _result;						\
-    TestHeap(heap_bin_size(ERL_ONHEAP_BIN_LIMIT), Live);	\
-    _mb = ms_matchbuffer(Ms);					\
-    LIGHT_SWAPOUT;						\
-    _result = erts_bs_get_binary_2(c_p, (Sz), (Flags), _mb);	\
-    LIGHT_SWAPIN;						\
-    HEAP_SPACE_VERIFIED(0);                                     \
-    if (is_non_value(_result)) { Fail; }			\
-    else { Dst = _result; }                                     \
-  } while (0)
-
-#define BsGetBinary_2(Ms, Live, Sz, Flags, Dst, Fail)           \
-  do {								\
-    ErlBinMatchBuffer *_mb;					\
-    Eterm _result; Uint _size;					\
-    BsGetFieldSize(Sz, ((Flags) >> 3), Fail, _size);		\
-    TestHeap(ERL_SUB_BIN_SIZE, Live);				\
-    _mb = ms_matchbuffer(Ms);					\
-    LIGHT_SWAPOUT;						\
-    _result = erts_bs_get_binary_2(c_p, _size, (Flags), _mb);	\
-    LIGHT_SWAPIN;						\
-    HEAP_SPACE_VERIFIED(0);                                     \
-    if (is_non_value(_result)) { Fail; }			\
-    else { Dst = _result; }                                     \
-  } while (0)
-
-#define BsGetBinaryAll_2(Ms, Live, Unit, Dst, Fail)	\
-  do {                                                  \
-    ErlBinMatchBuffer *_mb;                             \
-    Eterm _result;                                      \
-    TestHeap(ERL_SUB_BIN_SIZE, Live);                   \
-    _mb = ms_matchbuffer(Ms);                           \
-    if (((_mb->size - _mb->offset) % Unit) == 0) {      \
-      LIGHT_SWAPOUT;                                    \
-      _result = erts_bs_get_binary_all_2(c_p, _mb);     \
-      LIGHT_SWAPIN;                                     \
-      HEAP_SPACE_VERIFIED(0);                           \
-      ASSERT(is_value(_result));                        \
-      Dst = _result;					\
-    } else {                                            \
-	HEAP_SPACE_VERIFIED(0);                         \
-	Fail; }                                         \
- } while (0)
-
-#define BsSkipBits2(Ms, Bits, Unit, Fail)			\
- do {								\
-   ErlBinMatchBuffer *_mb;					\
-   size_t new_offset;						\
-   Uint _size;							\
-    _mb = ms_matchbuffer(Ms);					\
-   BsGetFieldSize(Bits, Unit, Fail, _size);			\
-   new_offset = _mb->offset + _size;				\
-   if (new_offset <= _mb->size) { _mb->offset = new_offset; }	\
-   else { Fail; }						\
- } while (0)
-
-#define BsSkipBitsAll2(Ms, Unit, Fail)		\
- do {						\
-    ErlBinMatchBuffer *_mb;			\
-   _mb = ms_matchbuffer(Ms);			\
-   if (((_mb->size - _mb->offset) % Unit) == 0) {_mb->offset = _mb->size; } \
-   else { Fail; }					\
- } while (0)
-
-#define BsSkipBitsImm2(Ms, Bits, Fail)				\
- do {								\
-   ErlBinMatchBuffer *_mb;					\
-   size_t new_offset;						\
-   _mb = ms_matchbuffer(Ms);					\
-   new_offset = _mb->offset + (Bits);				\
-   if (new_offset <= _mb->size) { _mb->offset = new_offset; }	\
-   else { Fail; }						\
- } while (0)
-
-#define NewBsPutIntegerImm(Sz, Flags, Src)					\
- do {									\
-    if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3((Src), (Sz), (Flags)))) { goto badarg; }	\
- } while (0)
-
-#define NewBsPutInteger(Sz, Flags, Src)						\
- do {										\
-    Sint _size;									\
-    BsGetUncheckedFieldSize(Sz, ((Flags) >> 3), goto badarg, _size);		\
-    if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3((Src), _size, (Flags))))	\
-       { goto badarg; }								\
- } while (0)
-
-#define NewBsPutFloatImm(Sz, Flags, Src)					\
- do {									\
-    if (!erts_new_bs_put_float(c_p, (Src), (Sz), (Flags))) { goto badarg; }	\
- } while (0)
-
-#define NewBsPutFloat(Sz, Flags, Src)						\
- do {										\
-    Sint _size;									\
-    BsGetUncheckedFieldSize(Sz, ((Flags) >> 3), goto badarg, _size);		\
-    if (!erts_new_bs_put_float(c_p, (Src), _size, (Flags))) { goto badarg; }	\
- } while (0)
-
-#define NewBsPutBinary(Sz, Flags, Src)							\
- do {											\
-    Sint _size;										\
-    BsGetUncheckedFieldSize(Sz, ((Flags) >> 3), goto badarg, _size);			\
-    if (!erts_new_bs_put_binary(ERL_BITS_ARGS_2((Src), _size))) { goto badarg; }	\
- } while (0)
-
-#define NewBsPutBinaryImm(Sz, Src)				        \
- do {							        \
-    if (!erts_new_bs_put_binary(ERL_BITS_ARGS_2((Src), (Sz)))) { goto badarg; }	\
- } while (0)
-
-#define NewBsPutBinaryAll(Src, Unit)							\
- do {											\
-    if (!erts_new_bs_put_binary_all(ERL_BITS_ARGS_2((Src), (Unit)))) { goto badarg; }	\
- } while (0)
-
-
-#define IsPort(Src, Fail) if (is_not_port(Src)) { Fail; }
-#define IsPid(Src, Fail) if (is_not_pid(Src)) { Fail; }
-#define IsRef(Src, Fail) if (is_not_ref(Src)) { Fail; }
 
 /*
  * process_main() is already huge, so we want to avoid inlining
@@ -1603,40 +1077,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	Next(3);
     }
 
- OpCase(i_move_call_only_fc): {
-     r(0) = Arg(1);
- }
- /* FALL THROUGH */
- OpCase(i_call_only_f): {
-     SET_I((BeamInstr *) Arg(0));
-     DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
-     Dispatch();
- }
-
- OpCase(i_move_call_last_fPc): {
-     r(0) = Arg(2);
- }
- /* FALL THROUGH */
- OpCase(i_call_last_fP): {
-     RESTORE_CP(E);
-     E = ADD_BYTE_OFFSET(E, Arg(1));
-     SET_I((BeamInstr *) Arg(0));
-     DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
-     Dispatch();
- }
-
- OpCase(i_move_call_cf): {
-     r(0) = Arg(0);
-     I++;
- }
- /* FALL THROUGH */
- OpCase(i_call_f): {
-     SET_CP(c_p, I+2);
-     SET_I((BeamInstr *) Arg(0));
-     DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
-     Dispatch();
- }
-
  OpCase(i_move_call_ext_last_ePc): {
      r(0) = Arg(2);
  }
@@ -1670,37 +1110,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
  OpCase(i_call_ext_only_e):
     DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, Arg(0));
     Dispatchx();
-
- OpCase(init_y): {
-     BeamInstr *next;
-
-     PreFetch(1, next);
-     make_blank(yb(Arg(0)));
-     NextPF(1, next);
- }
-
- OpCase(i_trim_I): {
-     BeamInstr *next;
-     Uint words;
-     Uint cp;
-
-     words = Arg(0);
-     cp = E[0];
-     PreFetch(1, next);
-     E += words;
-     E[0] = cp;
-     NextPF(1, next);
- }
-
- OpCase(move_x1_c): {
-	x(1) = Arg(0);
-	Next(1);
-    }
-
- OpCase(move_x2_c): {
-	x(2) = Arg(0);
-	Next(1);
-    }
 
  OpCase(return): {
     SET_I(c_p->cp);
@@ -3457,21 +2866,6 @@ do {						\
      goto do_schedule1;
  }
 
- OpCase(set_tuple_element_sdP): {
-     Eterm element;
-     Eterm tuple;
-     BeamInstr *next;
-     Eterm* p;
-     
-     PreFetch(3, next);
-     GetArg1(0, element);
-     tuple = REG_TARGET(Arg(1));
-     ASSERT(is_tuple(tuple));
-     p = (Eterm *) ((unsigned char *) tuple_val(tuple) + Arg(2));
-     *p = element;
-     NextPF(3, next);
- }
-
  OpCase(normal_exit): {
      SWAPOUT;
      c_p->freason = EXC_NORMAL;
@@ -3705,26 +3099,6 @@ do {						\
 	    I = handle_error(c_p, c_p->cp, reg, c_p->current);
 	    goto post_error_handling;
 	}
-    }
-
- OpCase(i_get_sd):
-    {
-	Eterm arg;
-	Eterm result;
-
-	GetArg1(0, arg);
-	result = erts_pd_hash_get(c_p, arg);
-	StoreBifResult(1, result);
-    }
-
- OpCase(i_get_hash_cId):
-    {
-	Eterm arg;
-	Eterm result;
-
-	GetArg1(0, arg);
-	result = erts_pd_hash_get_with_hx(c_p, Arg(1), arg);
-	StoreBifResult(2, result);
     }
 
     {
@@ -4729,20 +4103,6 @@ do {						\
 
 #include "beam_cold.h"
 
-
- /*
-  * This instruction is probably never used (because it is combined with a
-  * a return). However, a future compiler might for some reason emit a
-  * deallocate not followed by a return, and that should work.
-  */
- OpCase(deallocate_I): {
-     BeamInstr *next;
-
-     PreFetch(1, next);
-     D(Arg(0));
-     NextPF(1, next);
- }
-
     /*
      * Trace and debugging support.
      */
@@ -4847,9 +4207,9 @@ do {						\
      targ1 = REG_TARGET(Arg(0));
      PreFetch(2, next);
      if (is_small(targ1)) {
-	 fb(fr) = (double) signed_val(targ1);
+	 lb(fr) = (double) signed_val(targ1);
      } else if (is_big(targ1)) {
-	 if (big_to_double(targ1, &fb(fr)) < 0) {
+	 if (big_to_double(targ1, &lb(fr)) < 0) {
 	     goto fbadarith;
 	 }
      } else if (is_float(targ1)) {
@@ -4893,8 +4253,8 @@ do {						\
 
      PreFetch(3, next);
      ERTS_NO_FPE_CHECK_INIT(c_p);
-     fb(Arg(2)) = fb(Arg(0)) + fb(Arg(1));
-     ERTS_NO_FPE_ERROR(c_p, fb(Arg(2)), goto fbadarith);
+     lb(Arg(2)) = lb(Arg(0)) + lb(Arg(1));
+     ERTS_NO_FPE_ERROR(c_p, lb(Arg(2)), goto fbadarith);
      NextPF(3, next);
  }
  OpCase(i_fsub_lll): {
@@ -4902,8 +4262,8 @@ do {						\
 
      PreFetch(3, next);
      ERTS_NO_FPE_CHECK_INIT(c_p);
-     fb(Arg(2)) = fb(Arg(0)) - fb(Arg(1));
-     ERTS_NO_FPE_ERROR(c_p, fb(Arg(2)), goto fbadarith);
+     lb(Arg(2)) = lb(Arg(0)) - lb(Arg(1));
+     ERTS_NO_FPE_ERROR(c_p, lb(Arg(2)), goto fbadarith);
      NextPF(3, next);
  }
  OpCase(i_fmul_lll): {
@@ -4911,8 +4271,8 @@ do {						\
 
      PreFetch(3, next);
      ERTS_NO_FPE_CHECK_INIT(c_p);
-     fb(Arg(2)) = fb(Arg(0)) * fb(Arg(1));
-     ERTS_NO_FPE_ERROR(c_p, fb(Arg(2)), goto fbadarith);
+     lb(Arg(2)) = lb(Arg(0)) * lb(Arg(1));
+     ERTS_NO_FPE_ERROR(c_p, lb(Arg(2)), goto fbadarith);
      NextPF(3, next);
  }
  OpCase(i_fdiv_lll): {
@@ -4920,8 +4280,8 @@ do {						\
 
      PreFetch(3, next);
      ERTS_NO_FPE_CHECK_INIT(c_p);
-     fb(Arg(2)) = fb(Arg(0)) / fb(Arg(1));
-     ERTS_NO_FPE_ERROR(c_p, fb(Arg(2)), goto fbadarith);
+     lb(Arg(2)) = lb(Arg(0)) / lb(Arg(1));
+     ERTS_NO_FPE_ERROR(c_p, lb(Arg(2)), goto fbadarith);
      NextPF(3, next);
  }
  OpCase(i_fnegate_ll): {
@@ -4929,8 +4289,8 @@ do {						\
 
      PreFetch(2, next);
      ERTS_NO_FPE_CHECK_INIT(c_p);
-     fb(Arg(1)) = -fb(Arg(0));
-     ERTS_NO_FPE_ERROR(c_p, fb(Arg(1)), goto fbadarith);
+     lb(Arg(1)) = -lb(Arg(0));
+     ERTS_NO_FPE_ERROR(c_p, lb(Arg(1)), goto fbadarith);
      NextPF(2, next);
 
  fbadarith:
