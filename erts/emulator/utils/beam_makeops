@@ -332,9 +332,9 @@ while (<>) {
     if (/^\%macro:(.*)/) {
 	my($op, $macro, @flags) = split(' ', $1);
 	defined($macro) and $macro =~ /^-/ and
-	    &error("A macro must not start with a hyphen");
+	    error("A macro must not start with a hyphen");
 	foreach (@flags) {
-	    /^-/ or &error("Flags for macros should start with a hyphen");
+	    /^-/ or error("Flags for macros should start with a hyphen");
 	}
 	error("Macro for '$op' is already defined")
 	    if defined $macro{$op};
@@ -347,7 +347,7 @@ while (<>) {
     # Handle transformations.
     #
     if (/=>/) {
-	&parse_transformation($_);
+	parse_transformation($_);
 	next;
     }
 
@@ -357,8 +357,8 @@ while (<>) {
     $op_num = undef;
     if (s/^(\d+):\s*//) {
 	$op_num = $1;
-	$op_num != 0 or &error("Opcode 0 invalid");
-	&error("Opcode $op_num already defined")
+	$op_num != 0 or error("Opcode 0 invalid");
+	error("Opcode $op_num already defined")
 	    if defined $gen_opname[$op_num];
     }
 
@@ -369,11 +369,11 @@ while (<>) {
 	my($obsolete) = $1;
 	my($name) = $2;
 	my($arity) = $3;
-	$name =~ /^[a-z]/ or &error("Opname must start with a lowercase letter");
+	$name =~ /^[a-z]/ or error("Opname must start with a lowercase letter");
 	defined $gen_arity{$name} and $gen_arity{$name} != $arity and
-	    &error("Opname $name already defined with arity $gen_arity{$name}");
+	    error("Opname $name already defined with arity $gen_arity{$name}");
 	defined $unnumbered{$name,$arity} and
-	    &error("Opname $name already defined with arity $gen_arity{$name}");
+	    error("Opname $name already defined with arity $gen_arity{$name}");
 	
 	if (defined $op_num) {	# Numbered generic operation
 	    $gen_opname[$op_num] = $name;
@@ -395,16 +395,16 @@ while (<>) {
     #    Name Arg1 Arg2...
     #
     my($name, @args) = split;
-    &error("too many operands")
+    error("too many operands")
 	if @args > $max_spec_operands;
-    &syntax_check($name, @args);
+    syntax_check($name, @args);
     my $arity = @args;
     if (defined $gen_opnum{$name,$arity} and $obsolete[$gen_opnum{$name,$arity}]) {
 	error("specific instructions may not be specified for obsolete instructions");
     }
     push(@{$specific_op{"$name/$arity"}}, [$name, $hot, @args]);
     if (defined $op_num) {
-	&error("specific instructions must not be numbered");
+	error("specific instructions must not be numbered");
     } elsif (!defined($gen_arity{$name}) && !defined($unnumbered{$name,$arity})) {
 	#
 	# Create an unumbered generic instruction too.
@@ -446,7 +446,7 @@ $num_file_opcodes = @gen_opname;
 # Produce output for the chosen target.
 #
 
-&$target;
+&$target();
 
 #
 # Produce output needed by the emulator/loader.
@@ -462,7 +462,7 @@ sub emulator_output {
     #
     $name = "$outdir/beam_opcodes.c";
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
-    &comment('C');
+    comment('C');
     print "#ifdef HAVE_CONFIG_H\n";
     print "#  include \"config.h\"\n";
     print "#endif\n\n";
@@ -525,7 +525,7 @@ sub emulator_output {
 	    # Call a generator to calculate size and generate macros
 	    # for the emulator.
 	    #
-	    my($size, $code, $pack) = &basic_generator($name, $hot, @args);
+	    my($size, $code, $pack) = basic_generator($name, $hot, @args);
 
 	    #
 	    # Save the generated $code for later.
@@ -587,7 +587,7 @@ sub emulator_output {
     # Generate transformations.
     #
 
-    &tr_gen(@transformations);
+    tr_gen(@transformations);
 
     #
     # Print the generic instruction table.
@@ -602,7 +602,7 @@ sub emulator_output {
 	my($arity) = $gen_arity[$i];
 	printf "/* %3d */  ", $i;
 	if (!defined $name) {
-	    &init_item("", 0, 0, 0, -1);
+	    init_item("", 0, 0, 0, -1);
 	} else {
 	    my($key) = "$name/$arity";
 	    my($tr) = defined $gen_transform_offset{$key} ?
@@ -614,7 +614,7 @@ sub emulator_output {
 		$is_transformed{$name,$arity} or
 		error("instruction $key has no specific instruction");
 	    $spec_op = -1 unless defined $spec_op;
-	    &init_item($name, $arity, $spec_op, $num_specific, $tr);
+	    init_item($name, $arity, $spec_op, $num_specific, $tr);
 	}
     }
     print "};\n";
@@ -624,7 +624,7 @@ sub emulator_output {
     #
     $name = "$outdir/beam_opcodes.h";
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
-    &comment('C');
+    comment('C');
     print "#ifndef __OPCODES_H__\n";
     print "#define __OPCODES_H__\n\n";
 
@@ -662,14 +662,14 @@ sub emulator_output {
     my $letter;
     my $tag_num = 0;
 
-    &comment('C', "The following operand types for generic instructions",
+    comment('C', "The following operand types for generic instructions",
 	     "occur in beam files.");
     foreach $letter (split('', $compiler_types)) {
 	print "#define TAG_$letter $tag_num\n";
 	$tag_num++;
     }
     print "\n";
-    &comment('C', "The following operand types are only used in the loader.");
+    comment('C', "The following operand types are only used in the loader.");
     foreach $letter (split('', $loader_types)) {
 	print "#define TAG_$letter $tag_num\n";
 	$tag_num++;
@@ -736,26 +736,26 @@ sub emulator_output {
 
     $name = "$outdir/beam_tr_funcs.h";
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
-    &comment('C');
-    &tr_gen_call(@call_table);
+    comment('C');
+    tr_gen_call(@call_table);
 
     $name = "$outdir/beam_pred_funcs.h";
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
-    &comment('C');
-    &tr_gen_call(@pred_table);
+    comment('C');
+    tr_gen_call(@pred_table);
 
     #
     # Implementation of operations for emulator.
     #
     $name = "$outdir/beam_hot.h";
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
-    &comment('C');
-    &print_code(\%hot_code);
+    comment('C');
+    print_code(\%hot_code);
 
     $name = "$outdir/beam_cold.h";
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
-    &comment('C');
-    &print_code(\%cold_code);
+    comment('C');
+    print_code(\%cold_code);
 
 }
 
@@ -818,7 +818,7 @@ sub compiler_output {
 
     open(STDOUT, ">$outdir/$name") || die "Failed to open $name for writing: $!\n";
     print "-module($module).\n";
-    &comment('erlang');
+    comment('erlang');
 
     print "-export([format_number/0]).\n";
     print "-export([opcode/2,opname/1]).\n";
@@ -830,7 +830,7 @@ sub compiler_output {
     for ($i = 0; $i < @gen_opname; $i++) {
 	next unless defined $gen_opname[$i];
 	print "%%" if $obsolete[$i];
-	print "opcode(", &quote($gen_opname[$i]), ", $gen_arity[$i]) -> $i;\n";
+	print "opcode(", quote($gen_opname[$i]), ", $gen_arity[$i]) -> $i;\n";
     }
     print "opcode(Name, Arity) -> erlang:error(badarg, [Name,Arity]).\n\n";
 
@@ -838,7 +838,7 @@ sub compiler_output {
     for ($i = 0; $i < @gen_opname; $i++) {
 	next unless defined $gen_opname[$i];
 	print "opname($i) -> {",
-	&quote($gen_opname[$i]), ",$gen_arity[$i]};\n";
+	quote($gen_opname[$i]), ",$gen_arity[$i]};\n";
     }
     print "opname(Number) -> erlang:error(badarg, [Number]).\n";
 
@@ -847,7 +847,7 @@ sub compiler_output {
     #
     my($hrl_name) = "$outdir/${module}.hrl";
     open(STDOUT, ">$hrl_name") || die "Failed to open $hrl_name for writing: $!\n";
-    &comment('erlang');
+    comment('erlang');
 
     for ($i = 0; $i < @tag_type && $i < 8; $i++) {
 	print "-define(tag_$tag_type[$i], $i).\n";
@@ -863,10 +863,10 @@ sub syntax_check {
     my($name, @args) = @_;
     my($i);
 
-    &error("Bad opcode name '$name'")
+    error("Bad opcode name '$name'")
 	unless $name =~ /^[a-z][\w\d_]*$/;
     for ($i = 0; $i < @args; $i++) {
-	&error("Argument " . ($i+1) . ": invalid type '$args[$i]'")
+	error("Argument " . ($i+1) . ": invalid type '$args[$i]'")
 	    unless defined $arg_size{$args[$i]};
     }
 }
@@ -963,7 +963,7 @@ sub basic_generator {
     #
 
     if ($flags =~ /-pack/ && $hot) {
-        ($prefix, $pack_spec, @args) = &do_pack(@args);
+        ($prefix, $pack_spec, @args) = do_pack(@args);
     }
 
     #
@@ -1186,7 +1186,7 @@ sub do_pack {
 	    }
 
 	    $down = "$instr[$ap]$down";
-	    my($unpack) = &make_unpack($tmpnum, $shift[$ap], $mask[$ap]);
+	    my($unpack) = make_unpack($tmpnum, $shift[$ap], $mask[$ap]);
 	    $args[$i] = "pack:$this_size:$reg" . "b($unpack)";
 
 	    if (++$ap == $args_per_word) {
@@ -1250,7 +1250,7 @@ sub parse_transformation {
     foreach (@from) {
 	if (/^(\w+)\((.*?)\)/) {
 	    my($name, $arglist) = ($1, $2);
-	    $_ = (&compile_transform_function($name, split(/\s*,\s*/, $arglist)));
+	    $_ = (compile_transform_function($name, split(/\s*,\s*/, $arglist)));
 	} else {
 	    (@op) = split;
 	    ($rest_var,$_) = compile_transform(1, $rest_var, @op);
@@ -1266,7 +1266,7 @@ sub parse_transformation {
     my @to;
     if ($to =~ /^(\w+)\((.*?)\)/) {
 	my($name, $arglist) = ($1, $2);
-	@to = (&compile_transform_function($name, split(/\s*,\s*/, $arglist)));
+	@to = (compile_transform_function($name, split(/\s*,\s*/, $arglist)));
     } else {
 	@to = split(/\s*\|\s*/, $to);
 	foreach (@to) {
@@ -1288,7 +1288,7 @@ sub compile_transform {
     my $arity = 0;
 
     foreach (@ops) {
-	my(@list) = &tr_parse_op($src, $_);
+	my(@list) = tr_parse_op($src, $_);
 	if ($list[1] eq '*') {
 	    $rest_var = $list[0];
 	} elsif (defined $rest_var and $list[0] eq $rest_var) {
@@ -1325,7 +1325,7 @@ sub tr_parse_op {
     if (/^([A-Z]\w*)(.*)/) {
 	$var = $1;
 	$_ = $2;
-	&error("garbage after variable")
+	error("garbage after variable")
 	    unless /^=(.*)/ or /^(\s*)$/;
 	$_ = $1;
     }
@@ -1336,7 +1336,7 @@ sub tr_parse_op {
 	$type = $1;
 	$_ = $2;
 	foreach (split('', $type)) {
-	    &error("bad type in $op")
+	    error("bad type in $op")
 		unless defined $type_bit{$_} or $type eq '*';
 	    $_ eq 'r' and
 		error("$op: 'r' is not allowed in transformations")
@@ -1383,7 +1383,7 @@ sub tr_parse_op {
 
     # Nothing more is allowed after the command.
 
-    &error("garbage '$_' after operand: $op")
+    error("garbage '$_' after operand: $op")
 	unless /^\s*$/;
 
     # Test that destination has no conditions.
@@ -1510,7 +1510,7 @@ sub tr_gen_from {
 	# Check that $name/$arity refers to a valid generic instruction.
 	#
 
-	&error($where, "invalid generic op $name/$arity")
+	error($where, "invalid generic op $name/$arity")
 	    unless defined $gen_opnum{$name,$arity};
 	$opnum = $gen_opnum{$name,$arity};
 
@@ -1538,11 +1538,11 @@ sub tr_gen_from {
 			$type_mask |= $type_bit{$_};
 		    }
 		    if ($cond ne 'is_eq') {
-			push(@code, &make_op($types, 'is_type', $type_mask));
+			push(@code, make_op($types, 'is_type', $type_mask));
 		    } else {
 			$cond = '';
-			push(@code, &make_op("$types== $val", 'is_type_eq',
-					     $type_mask, $val));
+			push(@code, make_op("$types== $val", 'is_type_eq',
+                                            $type_mask, $val));
 		    }
 		}
 	    }
@@ -1551,12 +1551,12 @@ sub tr_gen_from {
 		my($m, $f, $a) = split(/:/, $val);
 		$ignored_var = '';
 		$may_fail = 1;
-		push(@code, &make_op('', "$cond", "am_$m",
+		push(@code, make_op('', "$cond", "am_$m",
 				     "am_$f", $a));
 	    } elsif ($cond ne '') {
 		$ignored_var = '';
 		$may_fail = 1;
-		push(@code, &make_op('', "$cond", $val));
+		push(@code, make_op('', "$cond", $val));
 	    }
 
 	    if ($var ne '') {
@@ -1582,7 +1582,7 @@ sub tr_gen_from {
 		    $var_type{$var} = 'scalar';
 		    $var{$var} = $var_num;
 		    $var_num++;
-		    push(@code, &make_op($var, 'set_var', $var{$var}));
+		    push(@code, make_op($var, 'set_var', $var{$var}));
 		}
 	    }
 	    if (is_instr($code[$#code], 'set_var')) {
@@ -1591,7 +1591,7 @@ sub tr_gen_from {
 		my $var = $ref->[1][1];
 		push(@code, make_op($comment, 'set_var_next_arg', $var));
 	    } else {
-		push(@code, &make_op($ignored_var, 'next_arg'));
+		push(@code, make_op($ignored_var, 'next_arg'));
 	    }
 	}
 
@@ -1636,7 +1636,7 @@ sub tr_gen_to {
 	    my(@args);
 
 	    foreach $var (@ops) {
-		&error($where, "variable '$var' unbound")
+		error($where, "variable '$var' unbound")
 		    unless defined $var{$var};
 		if ($var_type{$var} eq 'scalar') {
 		    push(@args, "var[$var{$var}]");
@@ -1659,7 +1659,7 @@ sub tr_gen_to {
 	#
 
 	my($key) = "$name/$arity";
-	&error($where, "invalid generic op $name/$arity")
+	error($where, "invalid generic op $name/$arity")
 	    unless defined $gen_opnum{$name,$arity};
 	my $opnum = $gen_opnum{$name,$arity};
 
@@ -1674,15 +1674,15 @@ sub tr_gen_to {
 	    if ($type eq '*') {
 		push(@code, make_op($var, 'store_rest_args'));
 	    } elsif ($var ne '') {
-		&error($where, "variable '$var' unbound")
+		error($where, "variable '$var' unbound")
 		    unless defined $var{$var};
 		my $op = make_op($var, 'store_var_next_arg', $var{$var});
 		op_slot_usage($op, $var{$var});
 		push(@code, $op);
 	    } elsif ($type ne '') {
-		push(@code, &make_op('', 'store_type', "TAG_$type"));
+		push(@code, make_op('', 'store_type', "TAG_$type"));
 		if ($type_val) {
-		    push(@code, &make_op('', 'store_val', $type_val));
+		    push(@code, make_op('', 'store_val', $type_val));
 		}
 		push(@code, make_op('', 'next_arg'));
 	    }
