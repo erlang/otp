@@ -379,6 +379,16 @@
           <c><![CDATA[Host]]></c> is the fully qualified host name of the
           current host. For short names, use flag <c><![CDATA[-sname]]></c>
           instead.</p>
+        <warning>
+          <p>
+            Starting a distributed node without also specifying
+            <seealso marker="#proto_dist"><c>-proto_dist inet_tls</c></seealso>
+            will expose the node to attacks that may give the attacker
+            complete access to the node and in extension the cluster.
+            When using un-secure distributed nodes, make sure that the
+            network is configured to keep potential attackers out.
+          </p>
+        </warning>
       </item>
       <tag><c><![CDATA[-noinput]]></c></tag>
       <item>
@@ -428,12 +438,17 @@
       </item>
       <tag><c><![CDATA[-proto_dist Proto]]></c></tag>
       <item>
+        <marker id="proto_dist"/>
         <p>Specifies a protocol for Erlang distribution:</p>
         <taglist>
           <tag><c>inet_tcp</c></tag>
           <item>TCP over IPv4 (the default)</item>
           <tag><c>inet_tls</c></tag>
-          <item>Distribution over TLS/SSL</item>
+          <item>Distribution over TLS/SSL, See the
+            <seealso marker="ssl:ssl_distribution">
+              Using SSL for Erlang Distribution</seealso> User's Guide
+              for details on how to setup a secure distributed node.
+          </item>
           <tag><c>inet6_tcp</c></tag>
           <item>TCP over IPv6</item>
         </taglist>
@@ -497,6 +512,16 @@
           exist between nodes running with flag <c><![CDATA[-sname]]></c>
           and those running with flag <c><![CDATA[-name]]></c>, as node
           names must be unique in distributed Erlang systems.</p>
+        <warning>
+          <p>
+            Starting a distributed node without also specifying
+            <seealso marker="#proto_dist"><c>-proto_dist inet_tls</c></seealso>
+            will expose the node to attacks that may give the attacker
+            complete access to the node and in extension the cluster.
+            When using un-secure distributed nodes, make sure that the
+            network is configured to keep potential attackers out.
+          </p>
+        </warning>
       </item>
       <tag><marker id="start_epmd"/><c>-start_epmd true | false</c></tag>
       <item>
