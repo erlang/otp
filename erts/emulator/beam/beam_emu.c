@@ -158,7 +158,9 @@ do {                                     \
 /*
  * Register target (X or Y register).
  */
-#define REG_TARGET(Target) (*(((Target) & 1) ? &yb(Target-1) : &xb(Target)))
+
+#define REG_TARGET_PTR(Target) (((Target) & 1) ? &yb(Target-1) : &xb(Target))
+#define REG_TARGET(Target) (*REG_TARGET_PTR(Target))
 
 /*
  * Store a result into a register given a destination descriptor.
@@ -171,8 +173,6 @@ do {                                     \
     CHECK_TERM(Result);				\
     REG_TARGET(stb_reg) = (Result);		\
   } while (0)
-
-#define StoreSimpleDest(Src, Dest) Dest = (Src)
 
 /*
  * Store a result into a register and execute the next instruction.
@@ -420,7 +420,7 @@ void** beam_ops;
 #define TestHeapPutList(Need, Reg)		\
   do {						\
      TestHeap((Need), 1);			\
-     PutList(Reg, r(0), r(0), StoreSimpleDest);	\
+     PutList(Reg, r(0), r(0));                  \
      CHECK_TERM(r(0));				\
   } while (0)
 
@@ -547,11 +547,11 @@ void** beam_ops;
      GetR((N)+1, Dst2);            \
    } while (0)
 
-#define PutList(H, T, Dst, Store)  \
-  do {                             \
-   HTOP[0] = (H); HTOP[1] = (T);   \
-   Store(make_list(HTOP), Dst);    \
-   HTOP += 2;                      \
+#define PutList(H, T, Dst)                      \
+  do {                                          \
+   HTOP[0] = (H); HTOP[1] = (T);                \
+   Dst = make_list(HTOP);                       \
+   HTOP += 2;                                   \
   } while (0)
 
 #define Swap(R1, R2)				\
@@ -568,11 +568,7 @@ void** beam_ops;
     R2 = Tmp = V;				\
   } while (0)
 
-#define Move(Src, Dst, Store)      \
-   do {                            \
-       Eterm term = (Src);         \
-       Store(term, Dst);           \
-   } while (0)
+#define Move(Src, Dst) Dst = (Src)
 
 #define Move2Par(S1, D1, S2, D2)		\
   do {						\
@@ -911,7 +907,7 @@ do {                                            \
       Target = _uint_size * Unit;				\
    } while (0)
 
-#define BsGetFloat2(Ms, Live, Sz, Flags, Dst, Store, Fail)		\
+#define BsGetFloat2(Ms, Live, Sz, Flags, Dst, Fail)                     \
  do {									\
    ErlBinMatchBuffer *_mb;						\
    Eterm _result; Sint _size;						\
@@ -922,12 +918,12 @@ do {                                            \
    LIGHT_SWAPOUT;							\
    _result = erts_bs_get_float_2(c_p, _size, (Flags), _mb);		\
    LIGHT_SWAPIN;							\
-   HEAP_SPACE_VERIFIED(0);                                          \
+   HEAP_SPACE_VERIFIED(0);                                              \
    if (is_non_value(_result)) { Fail; }					\
-   else { Store(_result, Dst); }					\
+   else { Dst = _result; }                                              \
  } while (0)
 
-#define BsGetBinaryImm_2(Ms, Live, Sz, Flags, Dst, Store, Fail)	\
+#define BsGetBinaryImm_2(Ms, Live, Sz, Flags, Dst, Fail)	\
   do {								\
     ErlBinMatchBuffer *_mb;					\
     Eterm _result;						\
@@ -936,12 +932,12 @@ do {                                            \
     LIGHT_SWAPOUT;						\
     _result = erts_bs_get_binary_2(c_p, (Sz), (Flags), _mb);	\
     LIGHT_SWAPIN;						\
-    HEAP_SPACE_VERIFIED(0);                                 \
+    HEAP_SPACE_VERIFIED(0);                                     \
     if (is_non_value(_result)) { Fail; }			\
-    else { Store(_result, Dst); }				\
+    else { Dst = _result; }                                     \
   } while (0)
 
-#define BsGetBinary_2(Ms, Live, Sz, Flags, Dst, Store, Fail)	\
+#define BsGetBinary_2(Ms, Live, Sz, Flags, Dst, Fail)           \
   do {								\
     ErlBinMatchBuffer *_mb;					\
     Eterm _result; Uint _size;					\
@@ -951,27 +947,27 @@ do {                                            \
     LIGHT_SWAPOUT;						\
     _result = erts_bs_get_binary_2(c_p, _size, (Flags), _mb);	\
     LIGHT_SWAPIN;						\
-    HEAP_SPACE_VERIFIED(0);                                 \
+    HEAP_SPACE_VERIFIED(0);                                     \
     if (is_non_value(_result)) { Fail; }			\
-    else { Store(_result, Dst); }				\
+    else { Dst = _result; }                                     \
   } while (0)
 
-#define BsGetBinaryAll_2(Ms, Live, Unit, Dst, Store, Fail)	\
-  do {								\
-    ErlBinMatchBuffer *_mb;					\
-    Eterm _result;						\
-    TestHeap(ERL_SUB_BIN_SIZE, Live);				\
-    _mb = ms_matchbuffer(Ms);					\
-    if (((_mb->size - _mb->offset) % Unit) == 0) {		\
-      LIGHT_SWAPOUT;						\
-      _result = erts_bs_get_binary_all_2(c_p, _mb);		\
-      LIGHT_SWAPIN;						\
-      HEAP_SPACE_VERIFIED(0);                               \
-      ASSERT(is_value(_result));				\
-      Store(_result, Dst);					\
-    } else {                                                    \
-	HEAP_SPACE_VERIFIED(0);                             \
-	Fail; }						        \
+#define BsGetBinaryAll_2(Ms, Live, Unit, Dst, Fail)	\
+  do {                                                  \
+    ErlBinMatchBuffer *_mb;                             \
+    Eterm _result;                                      \
+    TestHeap(ERL_SUB_BIN_SIZE, Live);                   \
+    _mb = ms_matchbuffer(Ms);                           \
+    if (((_mb->size - _mb->offset) % Unit) == 0) {      \
+      LIGHT_SWAPOUT;                                    \
+      _result = erts_bs_get_binary_all_2(c_p, _mb);     \
+      LIGHT_SWAPIN;                                     \
+      HEAP_SPACE_VERIFIED(0);                           \
+      ASSERT(is_value(_result));                        \
+      Dst = _result;					\
+    } else {                                            \
+	HEAP_SPACE_VERIFIED(0);                         \
+	Fail; }                                         \
  } while (0)
 
 #define BsSkipBits2(Ms, Bits, Unit, Fail)			\

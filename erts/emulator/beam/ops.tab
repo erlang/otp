@@ -409,7 +409,7 @@ move3 x x x x x x
 move S=n D=y => init D
 move S=c D=y => move S x | move x D
 
-%macro:move Move -pack -gen_dest
+%macro:move Move -pack
 move x x
 move x y
 move y x
@@ -538,7 +538,7 @@ i_put_tuple y I
 #
 put_list Const=c n Dst => move Const x | put_list x n Dst
 
-%macro:put_list PutList -pack -gen_dest
+%macro:put_list PutList -pack
 
 put_list x n x
 put_list y n x
@@ -1209,9 +1209,9 @@ i_bs_get_integer_32 x f I d
 bs_get_binary2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-%macro: i_bs_get_binary_imm2 BsGetBinaryImm_2 -fail_action -gen_dest
-%macro: i_bs_get_binary2 BsGetBinary_2 -fail_action -gen_dest
-%macro: i_bs_get_binary_all2 BsGetBinaryAll_2 -fail_action -gen_dest
+%macro: i_bs_get_binary_imm2 BsGetBinaryImm_2 -fail_action
+%macro: i_bs_get_binary2 BsGetBinary_2 -fail_action
+%macro: i_bs_get_binary_all2 BsGetBinaryAll_2 -fail_action
 
 i_bs_get_binary_imm2 f x I I I d
 i_bs_get_binary2 f x I s I d
@@ -1224,7 +1224,7 @@ bs_get_float2 Fail=f Ms=x Live=u Sz=s Unit=u Flags=u Dst=d => \
 
 bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
 
-%macro: i_bs_get_float2 BsGetFloat2 -fail_action -gen_dest
+%macro: i_bs_get_float2 BsGetFloat2 -fail_action
 i_bs_get_float2 f x I s I d
 
 # Miscellanous

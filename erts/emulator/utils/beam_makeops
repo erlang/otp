@@ -928,7 +928,6 @@ sub basic_generator {
     my($tmp_arg_num) = 1;
     my($pack_spec) = '';
     my($var_decls) = '';
-    my($gen_dest_arg) = 'StoreSimpleDest';
     my($i);
     my($no_prefetch) = 0;
 
@@ -994,11 +993,11 @@ sub basic_generator {
 			    push(@f_types, $_);
 			    $prefix .= "GetR($size, $tmp);\n";
 			    last SWITCH; };
-	    /d/    and do { $var_decls .= "Eterm dst; ";
-			    push(@f, "dst");
+	    /d/    and do { $var_decls .= "Eterm dst; Eterm* dst_ptr; ";
+			    push(@f, "*dst_ptr");
 			    push(@f_types, $_);
 			    $prefix .= "dst = Arg($size);\n";
-			    $gen_dest_arg = 'StoreResult';
+			    $prefix .= "dst_ptr = REG_TARGET_PTR(dst);\n";
 			    last SWITCH;
 			};
 	    defined($incl_arg{$_})
@@ -1014,14 +1013,6 @@ sub basic_generator {
 	    die "$name: The generator can't handle $_, at";
 	}
 	$size += $this_size;
-    }
-
-    #
-    # If requested, pass a pointer to the destination register.
-    # The destination must be the last operand.
-    #
-    if ($flags =~ /-gen_dest/) {
-	push(@f, $gen_dest_arg);
     }
 
     #
