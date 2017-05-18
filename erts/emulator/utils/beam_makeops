@@ -402,7 +402,7 @@ while (<>) {
     if (defined $gen_opnum{$name,$arity} and $obsolete[$gen_opnum{$name,$arity}]) {
 	error("specific instructions may not be specified for obsolete instructions");
     }
-    push(@{$specific_op{"$name/$arity"}}, [$name, $hot, @args]);
+    save_specific_ops($name, $arity, $hot, @args);
     if (defined $op_num) {
 	error("specific instructions must not be numbered");
     } elsif (!defined($gen_arity{$name}) && !defined($unnumbered{$name,$arity})) {
@@ -866,8 +866,30 @@ sub syntax_check {
     error("Bad opcode name '$name'")
 	unless $name =~ /^[a-z][\w\d_]*$/;
     for ($i = 0; $i < @args; $i++) {
-	error("Argument " . ($i+1) . ": invalid type '$args[$i]'")
-	    unless defined $arg_size{$args[$i]};
+        foreach my $type (split(//, $args[$i])) {
+            error("Argument " . ($i+1) . ": invalid type '$type'")
+                unless defined $arg_size{$type};
+        }
+    }
+}
+
+sub save_specific_ops {
+    my($name,$arity,$hot,@args) = @_;
+    my(@res) = ("");
+
+    foreach my $arg (@args) {
+        my @new_res = ();
+        foreach my $type (split(//, $arg)) {
+            foreach my $args (@res) {
+                push @new_res, "$args$type";
+            }
+        }
+        @res = @new_res;
+    }
+    my $key = "$name/$arity";
+    foreach my $args (@res) {
+        @args = split //, $args;
+        push @{$specific_op{$key}}, [$name,$hot,@args];
     }
 }
 
