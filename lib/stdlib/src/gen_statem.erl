@@ -1722,6 +1722,8 @@ error_info(
 		end;
 	    _ -> {Reason,Stacktrace}
 	end,
+    [LimitedP, LimitedFmtData, LimitedFixedReason] =
+        [error_logger:limit_term(D) || D <- [P, FmtData, FixedReason]],
     CBMode =
 	 case StateEnter of
 	     true ->
@@ -1755,8 +1757,8 @@ error_info(
 	   [] -> [];
 	   [Event|_] -> [Event]
        end] ++
-	  [FmtData,
-	   Class,FixedReason,
+	  [LimitedFmtData,
+	   Class,LimitedFixedReason,
 	   CBMode] ++
 	  case Q of
 	      [_|[_|_] = Events] -> [Events];
@@ -1764,7 +1766,7 @@ error_info(
 	  end ++
 	  case P of
 	      [] -> [];
-	      _ -> [P]
+	      _ -> [LimitedP]
 	  end ++
 	  case FixedStacktrace of
 	      [] -> [];
