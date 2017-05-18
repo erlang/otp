@@ -64,7 +64,7 @@
 %% Description: Parse file containing an XML document.
 %%----------------------------------------------------------------------
 file(Name,Options) ->
-    case file:open(Name, [raw, read,binary])  of
+    case file:open(Name, [raw, read_ahead, read,binary])  of
         {error, Reason} ->
             {error,{Name, file:format_error(Reason)}};
         {ok, FD} ->
@@ -120,21 +120,22 @@ stream(Xml, Options, InputType) when is_binary(Xml), is_list(Options) ->
 		    normal ->
 			parse
 		end,
-	    case detect_charset(Xml, State) of
-		{error, Reason} -> {fatal_error, 
-				    {
-				      State#xmerl_sax_parser_state.current_location,
-				      State#xmerl_sax_parser_state.entity, 
-				      1
-				     },
-				    Reason, 
-				    [], 
-				    State#xmerl_sax_parser_state.event_state};
-		{Xml1, State1} ->
-		    parse_binary(Xml1, 
-				 State1#xmerl_sax_parser_state{input_type = InputType},
-				 ParseFunction)
-	    end
+                try 
+                    {Xml1, State1} = detect_charset(Xml, State),
+                     parse_binary(Xml1,
+                                  State1#xmerl_sax_parser_state{input_type = InputType},
+                                  ParseFunction)
+                catch
+                    throw:{fatal_error, {State2, Reason}} ->
+                      {fatal_error, 
+                       {
+                         State2#xmerl_sax_parser_state.current_location,
+                         State2#xmerl_sax_parser_state.entity, 
+                         1
+                        },
+                       Reason, [], 
+                       State2#xmerl_sax_parser_state.event_state}
+              end
     end.
 
 %%----------------------------------------------------------------------
@@ -156,8 +157,8 @@ parse_binary(Xml, #xmerl_sax_parser_state{encoding={utf16,big}}=State, F) ->
     xmerl_sax_parser_utf16be:F(Xml, State);
 parse_binary(Xml, #xmerl_sax_parser_state{encoding=latin1}=State, F) ->
     xmerl_sax_parser_latin1:F(Xml, State);
-parse_binary(_, #xmerl_sax_parser_state{encoding=Enc}, _) -> 
-    {error, lists:flatten(io_lib:format("Charcter set ~p not supported", [Enc]))}.
+parse_binary(_, #xmerl_sax_parser_state{encoding=Enc}, State) -> 
+    ?fatal_error(State, lists:flatten(io_lib:format("Charcter set ~p not supported", [Enc]))).
 
 %%----------------------------------------------------------------------
 %% Function: initial_state/0
@@ -211,8 +212,7 @@ parse_options([{entity, Entity} |Options], State) ->
 parse_options([skip_external_dtd |Options], State) ->
     parse_options(Options, State#xmerl_sax_parser_state{skip_external_dtd = true});
 parse_options([O |_], _State) ->
-     {error, 
-	    lists:flatten(io_lib:format("Option: ~p not supported", [O]))}.
+     {error, lists:flatten(io_lib:format("Option: ~p not supported", [O]))}.
 
 
 check_encoding_option(E) when E==utf8; E=={utf16,little}; E=={utf16,big};
@@ -230,16 +230,10 @@ check_encoding_option(E) ->
 %% Output:  {utf8|utf16le|utf16be|iso8859, Xml, State}
 %% Description: Detects which character set is used in a binary stream.
 %%----------------------------------------------------------------------
-detect_charset(<<>>, #xmerl_sax_parser_state{continuation_fun = undefined} = _) ->
-    {error, "Can't detect character encoding due to no indata"};
-detect_charset(<<>>, #xmerl_sax_parser_state{continuation_fun = CFun, 
-				      continuation_state = CState} = State) ->
-    case CFun(CState) of
-	{<<>>,  _} ->
-	    {error, "Can't detect character encoding due to lack of indata"};
-	{NewBytes, NewContState} ->
-	    detect_charset(NewBytes, State#xmerl_sax_parser_state{continuation_state = NewContState})
-    end;
+detect_charset(<<>>, #xmerl_sax_parser_state{continuation_fun = undefined} = State) ->
+    ?fatal_error(State, "Can't detect character encoding due to lack of indata"); 
+detect_charset(<<>>, State) ->
+    cf(<<>>, State, fun detect_charset/2);
 detect_charset(Bytes, State) ->
     case unicode:bom_to_encoding(Bytes) of
 	{latin1, 0} ->
@@ -249,25 +243,47 @@ detect_charset(Bytes, State) ->
 	    {RealBytes, State#xmerl_sax_parser_state{encoding=Enc}}
     end.
 
+detect_charset_1(<<16#00>> = Xml, State) ->
+    cf(Xml, State, fun detect_charset_1/2);
+detect_charset_1(<<16#00, 16#3C>> = Xml, State) ->
+    cf(Xml, State, fun detect_charset_1/2);
+detect_charset_1(<<16#00, 16#3C, 16#00>> = Xml, State) ->
+    cf(Xml, State, fun detect_charset_1/2);
 detect_charset_1(<<16#00, 16#3C, 16#00, 16#3F, _/binary>> = Xml, State) ->
     {Xml, State#xmerl_sax_parser_state{encoding={utf16, big}}};
+detect_charset_1(<<16#3C>> = Xml, State) ->
+    cf(Xml, State, fun detect_charset_1/2);
+detect_charset_1(<<16#3C, 16#00>> = Xml, State) ->
+    cf(Xml, State, fun detect_charset_1/2);
+detect_charset_1(<<16#3C, 16#00, 16#3F>> = Xml, State) ->
+    cf(Xml, State, fun detect_charset_1/2);
 detect_charset_1(<<16#3C, 16#00, 16#3F, 16#00, _/binary>> = Xml, State) ->
     {Xml, State#xmerl_sax_parser_state{encoding={utf16, little}}};
-detect_charset_1(<<16#3C, 16#3F, 16#78, 16#6D, 16#6C, Xml2/binary>> = Xml, State) ->
-    case parse_xml_directive(Xml2) of
+detect_charset_1(<<16#3C>> = Xml, State) ->
+    cf(Xml, State, fun detect_charset_1/2);
+detect_charset_1(<<16#3C, 16#3F>> = Xml, State) ->
+    cf(Xml, State, fun detect_charset_1/2);
+detect_charset_1(<<16#3C, 16#3F, 16#78>> = Xml, State) ->
+    cf(Xml, State, fun detect_charset_1/2);
+detect_charset_1(<<16#3C, 16#3F, 16#78, 16#6D>> = Xml, State) ->
+    cf(Xml, State, fun detect_charset_1/2);
+detect_charset_1(<<16#3C, 16#3F, 16#78, 16#6D, 16#6C, Xml2/binary>>, State) ->
+    {Xml3, State1} = read_until_end_of_xml_directive(Xml2, State),
+    case parse_xml_directive(Xml3) of
 	{error, Reason} ->
-	    {error, Reason};
+	    ?fatal_error(State, Reason);
 	AttrList ->
 	    case lists:keysearch("encoding", 1, AttrList) of
 		{value, {_, E}} ->
 		    case convert_encoding(E) of
 			{error, Reason} ->
-			    {error, Reason};
+			    ?fatal_error(State, Reason);
 			Enc ->
-			    {Xml, State#xmerl_sax_parser_state{encoding=Enc}}
+			    {<<16#3C, 16#3F, 16#78, 16#6D, 16#6C, Xml3/binary>>, 
+                             State1#xmerl_sax_parser_state{encoding=Enc}}
 		    end;
 		_ ->
-		    {Xml, State}
+		    {<<16#3C, 16#3F, 16#78, 16#6D, 16#6C, Xml3/binary>>, State1}
 	    end
     end;
 detect_charset_1(Xml, State) ->
@@ -377,7 +393,7 @@ parse_value_1(<<C, Rest/binary>>, Stop, Acc) ->
     parse_value_1(Rest, Stop, [C |Acc]).
 
 %%======================================================================
-%%Default functions
+%% Default functions
 %%======================================================================
 %%----------------------------------------------------------------------
 %% Function: default_event_cb(Event, LineNo, State) -> Result
@@ -393,7 +409,7 @@ default_event_cb(_Event, _LineNo, State) ->
 %%----------------------------------------------------------------------
 %% Function: default_continuation_cb(IoDevice) -> Result
 %%          IoDevice = iodevice()
-%% Output:  Result = {[char()], State}
+%% Output:  Result = {binary(), IoDevice}
 %% Description: Default continuation callback reading blocks.
 %%----------------------------------------------------------------------
 default_continuation_cb(IoDevice) ->
@@ -402,4 +418,83 @@ default_continuation_cb(IoDevice) ->
 	    {<<>>, IoDevice};
 	{ok, FileBin} ->
 	    {FileBin, IoDevice}
+    end.
+
+%%----------------------------------------------------------------------
+%% Function: read_until_end_of_xml_directive(Rest, State) -> Result
+%%          Rest = binary()
+%% Output:  Result = {binary(), State}
+%% Description: Reads a utf8 or latin1 until it finds '?>'
+%%----------------------------------------------------------------------
+read_until_end_of_xml_directive(Rest, State) ->
+    case binary:match(Rest, <<"?>">>) of
+        nomatch ->
+            case cf(Rest, State) of
+                {<<>>, _} ->
+                    ?fatal_error(State, "Can't detect character encoding due to lack of indata"); 
+                {NewBytes, NewState} ->
+                    read_until_end_of_xml_directive(NewBytes, NewState)
+            end;
+        _ ->
+            {Rest, State}
+    end.
+
+
+%%----------------------------------------------------------------------
+%% Function  : cf(Rest, State) -> Result
+%% Parameters: Rest = binary()
+%%             State = #xmerl_sax_parser_state{}
+%%             NextCall = fun()
+%% Result    : {Rest, State}
+%% Description: Function that uses provided fun to read another chunk from
+%%              input stream and calls the fun in NextCall.
+%%----------------------------------------------------------------------
+cf(_Rest, #xmerl_sax_parser_state{continuation_fun = undefined} = State) ->
+    ?fatal_error(State, "Continuation function undefined"); 
+cf(Rest, #xmerl_sax_parser_state{continuation_fun = CFun, continuation_state = CState} = State) ->
+    Result = 
+	try
+	    CFun(CState)
+	catch
+	    throw:ErrorTerm ->
+		?fatal_error(State, ErrorTerm);
+            exit:Reason ->
+		?fatal_error(State, {'EXIT', Reason})
+	end,
+    case Result of
+	{<<>>, _} ->
+	    ?fatal_error(State, "Can't detect character encoding due to lack of indata"); 
+	{NewBytes, NewContState} ->
+            {<<Rest/binary, NewBytes/binary>>,  
+             State#xmerl_sax_parser_state{continuation_state = NewContState}}
+    end.
+
+%%----------------------------------------------------------------------
+%% Function  : cf(Rest, State, NextCall) -> Result
+%% Parameters: Rest = binary()
+%%             State = #xmerl_sax_parser_state{}
+%%             NextCall = fun()
+%% Result    : {Rest, State}
+%% Description: Function that uses provided fun to read another chunk from
+%%              input stream and calls the fun in NextCall.
+%%----------------------------------------------------------------------
+cf(_Rest, #xmerl_sax_parser_state{continuation_fun = undefined} = State, _) ->
+    ?fatal_error(State, "Continuation function undefined"); 
+cf(Rest, #xmerl_sax_parser_state{continuation_fun = CFun, continuation_state = CState} = State, 
+   NextCall) ->
+    Result = 
+	try
+	    CFun(CState)
+	catch
+	    throw:ErrorTerm ->
+		?fatal_error(State, ErrorTerm);
+            exit:Reason ->
+		?fatal_error(State, {'EXIT', Reason})
+	end,
+    case Result of
+	{<<>>, _} ->
+	    ?fatal_error(State, "Can't detect character encoding due to lack of indata"); 
+	{NewBytes, NewContState} ->
+	    NextCall(<<Rest/binary, NewBytes/binary>>,  
+		     State#xmerl_sax_parser_state{continuation_state = NewContState})
     end.
