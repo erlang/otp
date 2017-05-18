@@ -78,13 +78,19 @@ typedef struct erts_proc_lock_t_ {
     ErtsProcLocks flags;
 #endif
     erts_tse_t *queue[ERTS_PROC_LOCK_MAX_BIT+1];
-#ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_lock_t lcnt_main;
-    erts_lcnt_lock_t lcnt_link;
-    erts_lcnt_lock_t lcnt_msgq;
-    erts_lcnt_lock_t lcnt_btm;
-    erts_lcnt_lock_t lcnt_status;
-    erts_lcnt_lock_t lcnt_trace;
+#if defined(ERTS_ENABLE_LOCK_COUNT) && !ERTS_PROC_LOCK_RAW_MUTEX_IMPL
+    /* Each erts_mtx_t has its own lock counter ^ */
+
+    #define ERTS_LCNT_PROCLOCK_IDX_MAIN 0
+    #define ERTS_LCNT_PROCLOCK_IDX_LINK 1
+    #define ERTS_LCNT_PROCLOCK_IDX_MSGQ 2
+    #define ERTS_LCNT_PROCLOCK_IDX_BTM 3
+    #define ERTS_LCNT_PROCLOCK_IDX_STATUS 4
+    #define ERTS_LCNT_PROCLOCK_IDX_TRACE 5
+
+    #define ERTS_LCNT_PROCLOCK_COUNT 6
+
+    erts_lcnt_ref_t lcnt_carrier;
 #endif
 #elif ERTS_PROC_LOCK_RAW_MUTEX_IMPL
     erts_mtx_t main;
@@ -245,14 +251,169 @@ typedef struct erts_proc_lock_t_ {
 
 void erts_lcnt_proc_lock_init(Process *p);
 void erts_lcnt_proc_lock_destroy(Process *p);
+
+ERTS_GLB_INLINE
 void erts_lcnt_proc_lock(erts_proc_lock_t *lock, ErtsProcLocks locks);
+ERTS_GLB_INLINE
 void erts_lcnt_proc_lock_post_x(erts_proc_lock_t *lock, ErtsProcLocks locks, char *file, unsigned int line);
-void erts_lcnt_proc_lock_unaquire(erts_proc_lock_t *lock, ErtsProcLocks locks);
+ERTS_GLB_INLINE
+void erts_lcnt_proc_lock_unacquire(erts_proc_lock_t *lock, ErtsProcLocks locks);
+ERTS_GLB_INLINE
 void erts_lcnt_proc_unlock(erts_proc_lock_t *lock, ErtsProcLocks locks);
+ERTS_GLB_INLINE
 void erts_lcnt_proc_trylock(erts_proc_lock_t *lock, ErtsProcLocks locks, int res);
 
 void erts_lcnt_enable_proc_lock_count(int enable);
 
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE
+void erts_lcnt_proc_lock(erts_proc_lock_t *lock, ErtsProcLocks locks) {
+    erts_lcnt_lock_info_carrier_t *carrier;
+    int handle;
+
+    if(erts_lcnt_open_ref(&lock->lcnt_carrier, &handle, &carrier)) {
+        if (locks & ERTS_PROC_LOCK_MAIN) {
+            erts_lcnt_lock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MAIN);
+        }
+        if (locks & ERTS_PROC_LOCK_LINK) {
+            erts_lcnt_lock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_LINK);
+        }
+        if (locks & ERTS_PROC_LOCK_MSGQ) {
+            erts_lcnt_lock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MSGQ);
+        }
+        if (locks & ERTS_PROC_LOCK_BTM) {
+            erts_lcnt_lock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_BTM);
+        }
+        if (locks & ERTS_PROC_LOCK_STATUS) {
+            erts_lcnt_lock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_STATUS);
+        }
+        if (locks & ERTS_PROC_LOCK_TRACE) {
+            erts_lcnt_lock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_TRACE);
+        }
+
+        erts_lcnt_close_ref(handle, carrier);
+    }
+}
+
+ERTS_GLB_INLINE
+void erts_lcnt_proc_lock_post_x(erts_proc_lock_t *lock, ErtsProcLocks locks,
+                                char *file, unsigned int line) {
+    erts_lcnt_lock_info_carrier_t *carrier;
+    int handle;
+
+    if(erts_lcnt_open_ref(&lock->lcnt_carrier, &handle, &carrier)) {
+        if (locks & ERTS_PROC_LOCK_MAIN) {
+            erts_lcnt_lock_post_x_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MAIN, file, line);
+        }
+        if (locks & ERTS_PROC_LOCK_LINK) {
+            erts_lcnt_lock_post_x_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_LINK, file, line);
+        }
+        if (locks & ERTS_PROC_LOCK_MSGQ) {
+            erts_lcnt_lock_post_x_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MSGQ, file, line);
+        }
+        if (locks & ERTS_PROC_LOCK_BTM) {
+            erts_lcnt_lock_post_x_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_BTM, file, line);
+        }
+        if (locks & ERTS_PROC_LOCK_STATUS) {
+            erts_lcnt_lock_post_x_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_STATUS, file, line);
+        }
+        if (locks & ERTS_PROC_LOCK_TRACE) {
+            erts_lcnt_lock_post_x_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_TRACE, file, line);
+        }
+
+        erts_lcnt_close_ref(handle, carrier);
+    }
+}
+
+ERTS_GLB_INLINE
+void erts_lcnt_proc_lock_unacquire(erts_proc_lock_t *lock, ErtsProcLocks locks) {
+    erts_lcnt_lock_info_carrier_t *carrier;
+    int handle;
+
+    if(erts_lcnt_open_ref(&lock->lcnt_carrier, &handle, &carrier)) {
+        if (locks & ERTS_PROC_LOCK_MAIN) {
+            erts_lcnt_lock_unacquire_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MAIN);
+        }
+        if (locks & ERTS_PROC_LOCK_LINK) {
+            erts_lcnt_lock_unacquire_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_LINK);
+        }
+        if (locks & ERTS_PROC_LOCK_MSGQ) {
+            erts_lcnt_lock_unacquire_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MSGQ);
+        }
+        if (locks & ERTS_PROC_LOCK_BTM) {
+            erts_lcnt_lock_unacquire_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_BTM);
+        }
+        if (locks & ERTS_PROC_LOCK_STATUS) {
+            erts_lcnt_lock_unacquire_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_STATUS);
+        }
+        if (locks & ERTS_PROC_LOCK_TRACE) {
+            erts_lcnt_lock_unacquire_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_TRACE);
+        }
+
+        erts_lcnt_close_ref(handle, carrier);
+    }
+}
+
+ERTS_GLB_INLINE
+void erts_lcnt_proc_unlock(erts_proc_lock_t *lock, ErtsProcLocks locks) {
+    erts_lcnt_lock_info_carrier_t *carrier;
+    int handle;
+
+    if(erts_lcnt_open_ref(&lock->lcnt_carrier, &handle, &carrier)) {
+        if (locks & ERTS_PROC_LOCK_MAIN) {
+            erts_lcnt_unlock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MAIN);
+        }
+        if (locks & ERTS_PROC_LOCK_LINK) {
+            erts_lcnt_unlock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_LINK);
+        }
+        if (locks & ERTS_PROC_LOCK_MSGQ) {
+            erts_lcnt_unlock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MSGQ);
+        }
+        if (locks & ERTS_PROC_LOCK_BTM) {
+            erts_lcnt_unlock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_BTM);
+        }
+        if (locks & ERTS_PROC_LOCK_STATUS) {
+            erts_lcnt_unlock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_STATUS);
+        }
+        if (locks & ERTS_PROC_LOCK_TRACE) {
+            erts_lcnt_unlock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_TRACE);
+        }
+
+        erts_lcnt_close_ref(handle, carrier);
+    }
+}
+
+ERTS_GLB_INLINE
+void erts_lcnt_proc_trylock(erts_proc_lock_t *lock, ErtsProcLocks locks, int res) {
+    erts_lcnt_lock_info_carrier_t *carrier;
+    int handle;
+
+    if(erts_lcnt_open_ref(&lock->lcnt_carrier, &handle, &carrier)) {
+        if (locks & ERTS_PROC_LOCK_MAIN) {
+            erts_lcnt_trylock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MAIN, res);
+        }
+        if (locks & ERTS_PROC_LOCK_LINK) {
+            erts_lcnt_trylock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_LINK, res);
+        }
+        if (locks & ERTS_PROC_LOCK_MSGQ) {
+            erts_lcnt_trylock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MSGQ, res);
+        }
+        if (locks & ERTS_PROC_LOCK_BTM) {
+            erts_lcnt_trylock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_BTM, res);
+        }
+        if (locks & ERTS_PROC_LOCK_STATUS) {
+            erts_lcnt_trylock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_STATUS, res);
+        }
+        if (locks & ERTS_PROC_LOCK_TRACE) {
+            erts_lcnt_trylock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_TRACE, res);
+        }
+
+        erts_lcnt_close_ref(handle, carrier);
+    }
+} /* reversed logic */
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 #endif /* ERTS_ENABLE_LOCK_COUNT*/
 
 

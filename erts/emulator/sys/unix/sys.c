@@ -438,14 +438,18 @@ erts_sys_pre_init(void)
     /* After creation in parent */
     eid.thread_create_parent_func = thr_create_cleanup,
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_pre_thr_init();
+#endif
+
     erts_thr_init(&eid);
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_post_thr_init();
+#endif
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_init();
-#endif
-
-#ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_init();
 #endif
 
 #endif /* USE_THREADS */

@@ -368,6 +368,13 @@ type	SSB		SHORT_LIVED	PROCESSES	ssb
 
 +endif
 
++if lcnt
+
+type    LCNT_CARRIER   STANDARD    SYSTEM  lcnt_lock_info_carrier
+type    LCNT_VECTOR SHORT_LIVED SYSTEM lcnt_lock_info_vector
+
++endif
+
 type	DEBUG	        SHORT_LIVED	SYSTEM          debugging
 
 type	DDLL_PROCESS	STANDARD	SYSTEM		ddll_processes

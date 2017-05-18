@@ -4430,48 +4430,108 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 }
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
+
+typedef struct lcnt_lock_info_vector_ {
+    erts_lcnt_lock_info_t **elements;
+    size_t size;
+} lcnt_lock_info_vector_t;
+
+static lcnt_lock_info_vector_t lcnt_build_lock_info_vector(erts_lcnt_lock_info_list_t *list) {
+    erts_lcnt_lock_info_t *iterator;
+    lcnt_lock_info_vector_t result;
+    size_t allocated_entries;
+
+    allocated_entries = 64;
+    result.size = 0;
+
+    result.elements = erts_alloc(ERTS_ALC_T_LCNT_VECTOR,
+        allocated_entries * sizeof(erts_lcnt_lock_info_t*));
+
+    iterator = NULL;
+    while(erts_lcnt_iterate_list(list, &iterator)) {
+        erts_lcnt_retain_lock_info(iterator);
+
+        result.elements[result.size++] = iterator;
+
+        if(result.size >= allocated_entries) {
+            allocated_entries *= 2;
+
+            result.elements = erts_realloc(ERTS_ALC_T_LCNT_VECTOR, result.elements,
+                allocated_entries * sizeof(erts_lcnt_lock_info_t*));
+        }
+    }
+
+    return result;
+}
+
+static void lcnt_destroy_lock_info_vector(lcnt_lock_info_vector_t *vector) {
+    size_t i;
+
+    for(i = 0; i < vector->size; i++) {
+        erts_lcnt_release_lock_info(vector->elements[i]);
+    }
+
+    erts_free(ERTS_ALC_T_LCNT_VECTOR, vector->elements);
+}
+
+/* The size of an integer is not guaranteed to be constant since we're walking
+ * over live data, and may cross over into bignum territory between size calc
+ * and the actual build. This takes care of that through always assuming the
+ * worst, but needs to be fixed up with HRelease once the final term has been
+ * built. */
+static ERTS_INLINE Eterm bld_unstable_uint64(Uint **hpp, Uint *szp, Uint64 ui) {
+    Eterm res = THE_NON_VALUE;
+
+    if(szp) {
+        *szp += ERTS_UINT64_HEAP_SIZE(~((Uint64) 0));
+    }
+
+    if(hpp) {
+        if (IS_USMALL(0, ui)) {
+            res = make_small(ui);
+        } else {
+            res = erts_uint64_to_big(ui, hpp);
+        }
+    }
+
+    return res;
+}
+
 static Eterm lcnt_build_lock_stats_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_stats_t *stats, Eterm res) {
-    Uint tries = 0, colls = 0;
-    unsigned long timer_s = 0, timer_ns = 0, timer_n = 0;
-    unsigned int  line = 0;
     unsigned int  i;
-    
+    const char *file;
+
     Eterm af, uil;
     Eterm uit, uic;
     Eterm uits, uitns, uitn;
     Eterm tt, tstat, tloc, t;
     Eterm thist, vhist[ERTS_LCNT_HISTOGRAM_SLOT_SIZE];
-	
+
     /* term:
-     * [{{file, line}, {tries, colls, {seconds, nanoseconds, n_blocks}},
-     *   { .. histogram .. }]
-     */
+        * [{{file, line}, {tries, colls, {seconds, nanoseconds, n_blocks}},
+        *   { .. histogram .. }]
+        */
 
-    tries = (Uint) ethr_atomic_read(&stats->tries);
-    colls = (Uint) ethr_atomic_read(&stats->colls);
-   
-    line     = stats->line; 
-    timer_s  = stats->timer.s;
-    timer_ns = stats->timer.ns;
-    timer_n  = stats->timer_n;
-   
-    af    = erts_atom_put((byte *)stats->file, strlen(stats->file), ERTS_ATOM_ENC_LATIN1, 1);
-    uil   = erts_bld_uint( hpp, szp, line);
+    file = stats->file ? stats->file : "undefined";
+
+    af    = erts_atom_put((byte *)file, strlen(file), ERTS_ATOM_ENC_LATIN1, 1);
+    uil   = erts_bld_uint( hpp, szp, stats->line);
     tloc  = erts_bld_tuple(hpp, szp, 2, af, uil);
-    
-    uit   = erts_bld_uint( hpp, szp, tries);
-    uic   = erts_bld_uint( hpp, szp, colls);
 
-    uits  = erts_bld_uint( hpp, szp, timer_s);
-    uitns = erts_bld_uint( hpp, szp, timer_ns);
-    uitn  = erts_bld_uint( hpp, szp, timer_n);
+    uit   = bld_unstable_uint64(hpp, szp, (Uint)ethr_atomic_read(&stats->attempts));
+    uic   = bld_unstable_uint64(hpp, szp, (Uint)ethr_atomic_read(&stats->collisions));
+
+    uits  = bld_unstable_uint64(hpp, szp, stats->total_time_waited.s);
+    uitns = bld_unstable_uint64(hpp, szp, stats->total_time_waited.ns);
+    uitn  = bld_unstable_uint64(hpp, szp, stats->times_waited);
     tt    = erts_bld_tuple(hpp, szp, 3, uits, uitns, uitn);
 
     tstat = erts_bld_tuple(hpp, szp, 3, uit, uic, tt);
 
     for(i = 0; i < ERTS_LCNT_HISTOGRAM_SLOT_SIZE; i++) {
-	vhist[i] = erts_bld_uint(hpp, szp, stats->hist.ns[i]);
+        vhist[i] = bld_unstable_uint64(hpp, szp, stats->wait_time_histogram.ns[i]);
     }
+
     thist  = erts_bld_tuplev(hpp, szp, ERTS_LCNT_HISTOGRAM_SLOT_SIZE, vhist);
 
     t   = erts_bld_tuple(hpp, szp, 3, tloc, tstat, thist);
@@ -4480,150 +4540,165 @@ static Eterm lcnt_build_lock_stats_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_s
     return res;
 }
 
-static Eterm lcnt_build_lock_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_t *lock, Eterm res) {
+static Eterm lcnt_pretty_print_lock_id(erts_lcnt_lock_info_t *info) {
+    Eterm id = info->id;
+
+    if(info->flag & ERTS_LCNT_LT_ALLOC) {
+        /* Use allocator type names as id's for allocator locks. This blatantly
+         * assumes that all locks in this category are identified by their
+         * allocator number. */
+        const char *ltype = (const char*)ERTS_ALC_A2AD(signed_val(info->id));
+        id = erts_atom_put((byte*)ltype, strlen(ltype), ERTS_ATOM_ENC_LATIN1, 1);
+    } else if(info->flag & ERTS_LCNT_LT_PROCLOCK) {
+        /* Use registered names as id's for process locks if available. Thread
+         * progress is delayed since we may be running on a dirty scheduler. */
+        ErtsThrPrgrDelayHandle delay_handle;
+        Process *process;
+
+        delay_handle = erts_thr_progress_unmanaged_delay();
+
+        process = erts_proc_lookup(info->id);
+        if (process && process->common.u.alive.reg) {
+            id = process->common.u.alive.reg->name;
+        }
+
+        erts_thr_progress_unmanaged_continue(delay_handle);
+    }
+
+    return id;
+}
+
+static Eterm lcnt_build_lock_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_info_t *info, Eterm res) {
     Eterm name, type, id, stats = NIL, t;
-    Process *proc = NULL;
-    char *ltype;
+    const char *ltype;
     int i;
     
     /* term:
      * [{name, id, type, stats()}] 
      */
-	
-    ASSERT(lock->name);
+
+    ASSERT(info->name);
     
-    ltype = erts_lcnt_lock_type(lock->flag);
+    ltype = erts_lcnt_lock_type(info->flag);
     
     ASSERT(ltype);
     
-    type  = erts_atom_put((byte *)ltype, strlen(ltype), ERTS_ATOM_ENC_LATIN1, 1);
-    name  = erts_atom_put((byte *)lock->name, strlen(lock->name), ERTS_ATOM_ENC_LATIN1, 1);
+    type  = erts_atom_put((byte*)ltype, strlen(ltype), ERTS_ATOM_ENC_LATIN1, 1);
+    name  = erts_atom_put((byte*)info->name, strlen(info->name), ERTS_ATOM_ENC_LATIN1, 1);
 
-    if (lock->flag & ERTS_LCNT_LT_ALLOC) {
-	/* use allocator types names as id's for allocator locks */
-	ltype = (char *) ERTS_ALC_A2AD(signed_val(lock->id));
-	id    = erts_atom_put((byte *)ltype, strlen(ltype), ERTS_ATOM_ENC_LATIN1, 1);
-    } else if (lock->flag & ERTS_LCNT_LT_PROCLOCK) {
-	/* use registered names as id's for process locks if available */
-	proc  = erts_proc_lookup(lock->id);
-	if (proc && proc->common.u.alive.reg) {
-	    id = proc->common.u.alive.reg->name;
-	} else {
-	    /* otherwise use process id */
-	    id = lock->id;
-	}
+    /* Only attempt to resolve ids when actually emitting the term. This ought
+     * to be safe since all immediates are the same size. */
+    if(hpp != NULL) {
+        id = lcnt_pretty_print_lock_id(info);
     } else {
-	id = lock->id;
+        id = NIL;
     }
 
-    for (i = 0; i < lock->n_stats; i++) {
-	stats = lcnt_build_lock_stats_term(hpp, szp, &(lock->stats[i]), stats);
+    /* info->location_count is ignored since it can be changed at any time. */
+    for(i = 0; i < ERTS_LCNT_MAX_LOCK_LOCATIONS; i++) {
+        stats = lcnt_build_lock_stats_term(hpp, szp, &(info->location_stats[i]), stats);
     }
 
     t   = erts_bld_tuple(hpp, szp, 4, name, id, type, stats);
-    res = erts_bld_cons( hpp, szp, t, res);
+    res = erts_bld_cons(hpp, szp, t, res);
 
     return res;
 }
 
-static Eterm lcnt_build_result_term(Eterm **hpp, Uint *szp, erts_lcnt_data_t *data, Eterm res) {
+static Eterm lcnt_build_result_term(Eterm **hpp, Uint *szp, erts_lcnt_time_t *duration,
+                                    lcnt_lock_info_vector_t *current_locks,
+                                    lcnt_lock_info_vector_t *deleted_locks, Eterm res) {
     Eterm dts, dtns, tdt, adur, tdur, aloc, lloc = NIL, tloc;
-    erts_lcnt_lock_t *lock = NULL;
+
+    size_t i;
+
     char *str_duration = "duration";
     char *str_locks    = "locks";
-    
+
     /* term:
      * [{'duration', {seconds, nanoseconds}}, {'locks', locks()}]
      */
-   
+
     /* duration tuple */ 
-    dts  = erts_bld_uint( hpp, szp, data->duration.s);
-    dtns = erts_bld_uint( hpp, szp, data->duration.ns);
+    dts  = bld_unstable_uint64(hpp, szp, duration->s);
+    dtns = bld_unstable_uint64(hpp, szp, duration->ns);
     tdt  = erts_bld_tuple(hpp, szp, 2, dts, dtns);
-    
+
     adur = erts_atom_put((byte *)str_duration, strlen(str_duration), ERTS_ATOM_ENC_LATIN1, 1);
     tdur = erts_bld_tuple(hpp, szp, 2, adur, tdt);
    
     /* lock tuple */
     
     aloc = erts_atom_put((byte *)str_locks, strlen(str_locks), ERTS_ATOM_ENC_LATIN1, 1);
-    	
-    for (lock = data->current_locks->head; lock != NULL ; lock = lock->next ) {
-	lloc = lcnt_build_lock_term(hpp, szp, lock, lloc);
+
+    for(i = 0; i < current_locks->size; i++) {
+        lloc = lcnt_build_lock_term(hpp, szp, current_locks->elements[i], lloc);
     }
-    
-    for (lock = data->deleted_locks->head; lock != NULL ; lock = lock->next ) {
-	lloc = lcnt_build_lock_term(hpp, szp, lock, lloc);
+
+    for(i = 0; i < deleted_locks->size; i++) {
+        lloc = lcnt_build_lock_term(hpp, szp, deleted_locks->elements[i], lloc);
     }
-    
+
     tloc = erts_bld_tuple(hpp, szp, 2, aloc, lloc);
-    
-    res  = erts_bld_cons( hpp, szp, tloc, res);          
-    res  = erts_bld_cons( hpp, szp, tdur, res);          
+
+    res  = erts_bld_cons(hpp, szp, tloc, res);
+    res  = erts_bld_cons(hpp, szp, tdur, res);
 
     return res;
-}    
+}
+
 #endif
 
 BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
 {
-#ifdef ERTS_ENABLE_LOCK_COUNT
-    Eterm res = NIL;
-#endif
+#ifndef ERTS_ENABLE_LOCK_COUNT
+    if (BIF_ARG_1 == am_enabled) {
+        BIF_RET(am_false);
+    }
 
+    BIF_ERROR(BIF_P, BADARG);
+#else
 
     if (BIF_ARG_1 == am_enabled) {
-#ifdef ERTS_ENABLE_LOCK_COUNT
-	BIF_RET(am_true);
-#else
-	BIF_RET(am_false);
-#endif
-    }
-#ifdef ERTS_ENABLE_LOCK_COUNT
+       BIF_RET(am_true);
+    } else if (BIF_ARG_1 == am_info) {
+        lcnt_lock_info_vector_t current_locks, deleted_locks;
+        erts_lcnt_data_t data;
 
-    else if (BIF_ARG_1 == am_info) {
-	erts_lcnt_data_t *data; 
-	Uint hsize = 0;
-	Uint *szp;
-    	Eterm* hp;
+        Eterm *term_heap_start, *term_heap_end;
+        Uint term_heap_size = 0;
+        Eterm result;
 
-	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erts_smp_thr_progress_block();
+        data = erts_lcnt_get_data();
 
-	erts_lcnt_set_rt_opt(ERTS_LCNT_OPT_SUSPEND);
-	data = erts_lcnt_get_data();
+        current_locks = lcnt_build_lock_info_vector(data.current_locks);
+        deleted_locks = lcnt_build_lock_info_vector(data.deleted_locks);
 
-	/* calculate size */
+        lcnt_build_result_term(NULL, &term_heap_size, &data.duration,
+            &current_locks, &deleted_locks, NIL);
 
-	szp = &hsize;
-	lcnt_build_result_term(NULL, szp, data, NIL);
+        term_heap_start = HAlloc(BIF_P, term_heap_size);
+        term_heap_end = term_heap_start;
 
-	/* alloc and build */
+        result = lcnt_build_result_term(&term_heap_end, NULL,
+            &data.duration, &current_locks, &deleted_locks, NIL);
 
-	hp = HAlloc(BIF_P, hsize);
+        HRelease(BIF_P, term_heap_start + term_heap_size, term_heap_end);
 
-	res = lcnt_build_result_term(&hp, NULL, data, res);
-	
-	erts_lcnt_clear_rt_opt(ERTS_LCNT_OPT_SUSPEND);
+        lcnt_destroy_lock_info_vector(&current_locks);
+        lcnt_destroy_lock_info_vector(&deleted_locks);
 
-	erts_smp_thr_progress_unblock();
-	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	
-	BIF_RET(res);
+        BIF_RET(result);
     } else if (BIF_ARG_1 == am_clear) {
-	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erts_smp_thr_progress_block();
+        erts_lcnt_clear_counters();
 
-	erts_lcnt_clear_counters();
-
-	erts_smp_thr_progress_unblock();
-	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-
-	BIF_RET(am_ok);
+        BIF_RET(am_ok);
     } else if (is_tuple(BIF_ARG_1)) {
         Eterm* ptr = tuple_val(BIF_ARG_1);
 
         if ((arityval(ptr[0]) == 2) && (ptr[2] == am_false || ptr[2] == am_true)) {
+           Eterm res;
+
             int lock_opt = 0, enable = (ptr[2] == am_true) ? 1 : 0;
             if (ERTS_IS_ATOM_STR("copy_save", ptr[1])) {
                 lock_opt = ERTS_LCNT_OPT_COPYSAVE;
@@ -4631,35 +4706,41 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
                 lock_opt = ERTS_LCNT_OPT_PROCLOCK;
             } else if (ERTS_IS_ATOM_STR("port_locks", ptr[1])) {
                 lock_opt = ERTS_LCNT_OPT_PORTLOCK;
-            } else if (ERTS_IS_ATOM_STR("suspend", ptr[1])) {
-                lock_opt = ERTS_LCNT_OPT_SUSPEND;
             } else if (ERTS_IS_ATOM_STR("location", ptr[1])) {
                 lock_opt = ERTS_LCNT_OPT_LOCATION;
             } else {
                 BIF_ERROR(BIF_P, BADARG);
             }
 
+            if (enable) {
+                res = erts_lcnt_set_rt_opt(lock_opt) ? am_true : am_false;
+            } else {
+                res = erts_lcnt_clear_rt_opt(lock_opt) ? am_true : am_false;
+            }
+
+#ifdef ERTS_SMP
+            /* FIXME: make this non-blocking. */
             erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
             erts_smp_thr_progress_block();
+#endif
 
-            if (enable) res = erts_lcnt_set_rt_opt(lock_opt) ? am_true : am_false;
-            else res = erts_lcnt_clear_rt_opt(lock_opt) ? am_true : am_false;
-            
-#ifdef ERTS_SMP
             if (res != ptr[2] && lock_opt == ERTS_LCNT_OPT_PORTLOCK) {
                 erts_lcnt_enable_io_lock_count(enable);
             } else if (res != ptr[2] && lock_opt == ERTS_LCNT_OPT_PROCLOCK) {
                 erts_lcnt_enable_proc_lock_count(enable);
             }
-#endif
-            erts_smp_thr_progress_unblock();
+
+#ifdef ERTS_SMP
             erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+            erts_smp_thr_progress_unblock();
+#endif
+
             BIF_RET(res);
         }
-    } 
+    }
 
-#endif 
     BIF_ERROR(BIF_P, BADARG);
+#endif
 }
 
 static void os_info_init(void)

@@ -116,6 +116,7 @@ ifeq ($(TYPE),lcnt)
 PURIFY =
 TYPEMARKER = .lcnt
 TYPE_FLAGS = @CFLAGS@ -DERTS_ENABLE_LOCK_COUNT
+ENABLE_ALLOC_TYPE_VARS += lcnt
 else
 
 ifeq ($(TYPE),frmptr)

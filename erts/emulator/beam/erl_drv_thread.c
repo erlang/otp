@@ -55,7 +55,7 @@ fatal_error(int err, char *func)
 struct ErlDrvMutex_ {
     ethr_mutex mtx;
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_lock_t lcnt;
+    erts_lcnt_ref_t lcnt;
 #endif
     char *name;
 };
@@ -68,7 +68,7 @@ struct ErlDrvCond_ {
 struct ErlDrvRWLock_ {
     ethr_rwmutex rwmtx;
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_lock_t lcnt;
+    erts_lcnt_ref_t lcnt;
 #endif
     char *name;
 };
@@ -176,7 +176,8 @@ erl_drv_mutex_create(char *name)
 	    dmtx->name = no_name;
 	}
 #ifdef ERTS_ENABLE_LOCK_COUNT
-        erts_lcnt_init_lock(&dmtx->lcnt, dmtx->name, ERTS_LCNT_LT_MUTEX);
+    erts_lcnt_init_ref(&dmtx->lcnt);
+    erts_lcnt_install_new_lock_info(&dmtx->lcnt, dmtx->name, ERTS_LCNT_LT_MUTEX);
 #endif
     }
     return dmtx;
@@ -191,7 +192,7 @@ erl_drv_mutex_destroy(ErlDrvMutex *dmtx)
 #ifdef USE_THREADS
     int res;
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_destroy_lock(&dmtx->lcnt);
+    erts_lcnt_uninstall(&dmtx->lcnt);
 #endif
     res = dmtx ? ethr_mutex_destroy(&dmtx->mtx) : EINVAL;
     if (res != 0)
@@ -368,7 +369,8 @@ erl_drv_rwlock_create(char *name)
 	    drwlck->name = no_name;
 	}
 #ifdef ERTS_ENABLE_LOCK_COUNT
-        erts_lcnt_init_lock(&drwlck->lcnt, drwlck->name, ERTS_LCNT_LT_RWMUTEX);
+    erts_lcnt_init_ref(&drwlck->lcnt);
+    erts_lcnt_install_new_lock_info(&drwlck->lcnt, drwlck->name, ERTS_LCNT_LT_RWMUTEX);
 #endif
     }
     return drwlck;
@@ -383,7 +385,7 @@ erl_drv_rwlock_destroy(ErlDrvRWLock *drwlck)
 #ifdef USE_THREADS
     int res;
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_destroy_lock(&drwlck->lcnt);
+    erts_lcnt_uninstall(&drwlck->lcnt);
 #endif
     res = drwlck ? ethr_rwmutex_destroy(&drwlck->rwmtx) : EINVAL;
     if (res != 0)

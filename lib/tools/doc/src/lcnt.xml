@@ -109,14 +109,6 @@
 		    statistics. If the server held any lock statistics data before the collect then
 		    that data is lost.
 		</p>
-		<note>
-		    <p>
-			When collection occurs the runtime system transitions to a single thread,
-			blocking all other threads. No other tasks will be scheduled during this
-			operation. Depending on the size of the data this might take a long time
-			(several seconds) and cause timeouts in the system.
-		    </p>
-		</note>
 	    </desc>
 	</func>
 

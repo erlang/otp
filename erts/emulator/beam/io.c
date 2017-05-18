@@ -3461,39 +3461,34 @@ void erts_init_io(int port_tab_size,
 static ERTS_INLINE void lcnt_enable_drv_lock_count(erts_driver_t *dp, int enable)
 {
     if (dp->lock) {
-	if (enable)
-	    erts_lcnt_init_lock_x(&dp->lock->lcnt,
-				  "driver_lock",
-				  ERTS_LCNT_LT_MUTEX,
-				  erts_atom_put((byte*)dp->name,
-						sys_strlen(dp->name),
-						ERTS_ATOM_ENC_LATIN1,
-						1));
-
-	else
-	    erts_lcnt_destroy_lock(&dp->lock->lcnt);
-
-    }
+	if (enable) {
+			Eterm name_as_atom = erts_atom_put((byte*)dp->name, sys_strlen(dp->name),
+											   ERTS_ATOM_ENC_LATIN1, 1);
+			erts_lcnt_install_new_lock_info_x(&dp->lock->lcnt,
+				"driver_lock", ERTS_LCNT_LT_MUTEX, name_as_atom);
+		} else {
+			erts_lcnt_uninstall(&dp->lock->lcnt);
+		}
+	}
 }
 
 static ERTS_INLINE void lcnt_enable_port_lock_count(Port *prt, int enable)
 {
     erts_aint32_t state = erts_atomic32_read_nob(&prt->state);
-    if (!enable) {
-	erts_lcnt_destroy_lock(&prt->sched.mtx.lcnt);
-	if (state & ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK)
-	    erts_lcnt_destroy_lock(&prt->lock->lcnt);
-    }
-    else {
-	erts_lcnt_init_lock_x(&prt->sched.mtx.lcnt,
-			      "port_sched_lock",
-			      ERTS_LCNT_LT_MUTEX,
-			      prt->common.id);
-	if (state & ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK)
-	    erts_lcnt_init_lock_x(&prt->lock->lcnt,
-				  "port_lock",
-				  ERTS_LCNT_LT_MUTEX,
-				  prt->common.id);
+
+    if(enable) {
+		erts_lcnt_install_new_lock_info_x(&prt->sched.mtx.lcnt,
+			"port_sched_lock", ERTS_LCNT_LT_MUTEX,prt->common.id);
+
+		if (state & ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK) {
+			erts_lcnt_install_new_lock_info_x(&prt->lock->lcnt,
+				"port_lock", ERTS_LCNT_LT_MUTEX, prt->common.id);
+		}
+    } else {
+		erts_lcnt_uninstall(&prt->sched.mtx.lcnt);
+		if (state & ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK) {
+			erts_lcnt_uninstall(&prt->lock->lcnt);
+		}
     }
 }
 
@@ -3701,7 +3696,7 @@ deliver_result(Port *prt, Eterm sender, Eterm pid, Eterm res)
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
     ASSERT(!prt || prt->common.id == sender);
-#ifdef ERTS_SMP
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
     ASSERT(!prt || erts_lc_is_port_locked(prt));
 #endif
 

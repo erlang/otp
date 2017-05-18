@@ -944,7 +944,7 @@ erts_pid2proc_opt(Process *c_p,
 			erts_proc_inc_refc(proc);
 
 #if ERTS_PROC_LOCK_OWN_IMPL && defined(ERTS_ENABLE_LOCK_COUNT)
-		    erts_lcnt_proc_lock_unaquire(&proc->lock, lcnt_locks);
+		    erts_lcnt_proc_lock_unacquire(&proc->lock, lcnt_locks);
 #endif
 
 		    managed = dhndl == ERTS_THR_PRGR_DHANDLE_MANAGED;
@@ -1127,114 +1127,52 @@ erts_proc_lock_fin(Process *p)
 void erts_lcnt_enable_proc_lock_count(int enable) {
     int ix, max = erts_ptab_max(&erts_proc);
     Process *proc = NULL;
-    for (ix = 0; ix < max; ++ix) {
-	if ((proc = erts_pix2proc(ix)) != NULL)
+    for(ix = 0; ix < max; ++ix) {
+        if((proc = erts_pix2proc(ix)) != NULL) {
             lcnt_enable_proc_lock_count(proc, enable);
+        }
     } /* for all processes */
 }
 
 void erts_lcnt_proc_lock_init(Process *p) {
-    if (!(erts_lcnt_rt_options & ERTS_LCNT_OPT_PROCLOCK)) {
-        erts_lcnt_init_lock_empty(&(p->lock.lcnt_main));
-        erts_lcnt_init_lock_empty(&(p->lock.lcnt_link));
-        erts_lcnt_init_lock_empty(&(p->lock.lcnt_msgq));
-        erts_lcnt_init_lock_empty(&(p->lock.lcnt_btm));
-        erts_lcnt_init_lock_empty(&(p->lock.lcnt_status));
-        erts_lcnt_init_lock_empty(&(p->lock.lcnt_trace));
-    } else { /* now the common case */
-        Eterm pid = (p->common.id != ERTS_INVALID_PID) ? p->common.id : NIL;
-        erts_lcnt_init_lock_x(&(p->lock.lcnt_main),  "proc_main",  ERTS_LCNT_LT_PROCLOCK, pid);
-        erts_lcnt_init_lock_x(&(p->lock.lcnt_link),  "proc_link",  ERTS_LCNT_LT_PROCLOCK, pid);
-        erts_lcnt_init_lock_x(&(p->lock.lcnt_msgq),  "proc_msgq",  ERTS_LCNT_LT_PROCLOCK, pid);
-        erts_lcnt_init_lock_x(&(p->lock.lcnt_btm),   "proc_btm",   ERTS_LCNT_LT_PROCLOCK, pid);
-        erts_lcnt_init_lock_x(&(p->lock.lcnt_status),"proc_status",ERTS_LCNT_LT_PROCLOCK, pid);
-        erts_lcnt_init_lock_x(&(p->lock.lcnt_trace), "proc_trace", ERTS_LCNT_LT_PROCLOCK, pid);
-    } /* the lock names should really be aligned to four characters */
+    erts_lcnt_init_ref(&p->lock.lcnt_carrier);
+
+    if (erts_lcnt_rt_options & ERTS_LCNT_OPT_PROCLOCK) {
+        lcnt_enable_proc_lock_count(p, 1);
+    }
 } /* logic reversed */
 
 void erts_lcnt_proc_lock_destroy(Process *p) {
-    erts_lcnt_destroy_lock(&(p->lock.lcnt_main));
-    erts_lcnt_destroy_lock(&(p->lock.lcnt_link));
-    erts_lcnt_destroy_lock(&(p->lock.lcnt_msgq));
-    erts_lcnt_destroy_lock(&(p->lock.lcnt_btm));
-    erts_lcnt_destroy_lock(&(p->lock.lcnt_status));
-    erts_lcnt_destroy_lock(&(p->lock.lcnt_trace));
+    erts_lcnt_uninstall(&p->lock.lcnt_carrier);
 }
 
 static void lcnt_enable_proc_lock_count(Process *proc, int enable) {
     if (enable) {
-        if (!ERTS_LCNT_LOCK_TYPE(&(proc->lock.lcnt_main))) {
-            erts_lcnt_proc_lock_init(proc);
-        }
-    }
-    else {
-        if (ERTS_LCNT_LOCK_TYPE(&(proc->lock.lcnt_main))) {
-            erts_lcnt_proc_lock_destroy(proc);
-        }
+        erts_lcnt_lock_info_carrier_t *carrier;
+        Eterm pid;
+
+        carrier = erts_lcnt_create_lock_info_carrier(ERTS_LCNT_PROCLOCK_COUNT);
+        pid = (proc->common.id != ERTS_INVALID_PID) ? proc->common.id : NIL;
+
+        erts_lcnt_init_lock_info_x_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MAIN,
+            "proc_main", ERTS_LCNT_LT_PROCLOCK, pid);
+        erts_lcnt_init_lock_info_x_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_LINK,
+            "proc_link", ERTS_LCNT_LT_PROCLOCK, pid);
+        erts_lcnt_init_lock_info_x_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MSGQ,
+            "proc_msgq", ERTS_LCNT_LT_PROCLOCK, pid);
+        erts_lcnt_init_lock_info_x_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_BTM,
+            "proc_btm", ERTS_LCNT_LT_PROCLOCK, pid);
+        erts_lcnt_init_lock_info_x_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_STATUS,
+            "proc_status",ERTS_LCNT_LT_PROCLOCK, pid);
+        erts_lcnt_init_lock_info_x_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_TRACE,
+            "proc_trace", ERTS_LCNT_LT_PROCLOCK, pid);
+
+        erts_lcnt_install(&proc->lock.lcnt_carrier, carrier);
+    } else {
+        erts_lcnt_proc_lock_destroy(proc);
     }
 }
 
-void erts_lcnt_proc_lock(erts_proc_lock_t *lock, ErtsProcLocks locks) {
-    if (!(erts_lcnt_rt_options & ERTS_LCNT_OPT_PROCLOCK)) return;
-    if (locks & ERTS_PROC_LOCK_MAIN) { erts_lcnt_lock(&(lock->lcnt_main)); }
-    if (locks & ERTS_PROC_LOCK_LINK) { erts_lcnt_lock(&(lock->lcnt_link)); }
-    if (locks & ERTS_PROC_LOCK_MSGQ) { erts_lcnt_lock(&(lock->lcnt_msgq)); }
-    if (locks & ERTS_PROC_LOCK_BTM) { erts_lcnt_lock(&(lock->lcnt_btm)); }
-    if (locks & ERTS_PROC_LOCK_STATUS) { erts_lcnt_lock(&(lock->lcnt_status)); }
-    if (locks & ERTS_PROC_LOCK_TRACE) { erts_lcnt_lock(&(lock->lcnt_trace)); }
-}
-
-void erts_lcnt_proc_lock_post_x(erts_proc_lock_t *lock, ErtsProcLocks locks,
-                                char *file, unsigned int line) {
-    if (!(erts_lcnt_rt_options & ERTS_LCNT_OPT_PROCLOCK)) return;
-    if (locks & ERTS_PROC_LOCK_MAIN) {
-	erts_lcnt_lock_post_x(&(lock->lcnt_main), file, line);
-    }
-    if (locks & ERTS_PROC_LOCK_LINK) {
-	erts_lcnt_lock_post_x(&(lock->lcnt_link), file, line);
-    }
-    if (locks & ERTS_PROC_LOCK_MSGQ) {
-        erts_lcnt_lock_post_x(&(lock->lcnt_msgq), file, line);
-    }
-    if (locks & ERTS_PROC_LOCK_BTM) {
-        erts_lcnt_lock_post_x(&(lock->lcnt_btm), file, line);
-    }
-    if (locks & ERTS_PROC_LOCK_STATUS) {
-	erts_lcnt_lock_post_x(&(lock->lcnt_status), file, line);
-    }
-    if (locks & ERTS_PROC_LOCK_TRACE) {
-        erts_lcnt_lock_post_x(&(lock->lcnt_trace), file, line);
-    }
-}
-
-void erts_lcnt_proc_lock_unaquire(erts_proc_lock_t *lock, ErtsProcLocks locks) {
-    if (!(erts_lcnt_rt_options & ERTS_LCNT_OPT_PROCLOCK)) return;
-    if (locks & ERTS_PROC_LOCK_MAIN) { erts_lcnt_lock_unaquire(&(lock->lcnt_main)); }
-    if (locks & ERTS_PROC_LOCK_LINK) { erts_lcnt_lock_unaquire(&(lock->lcnt_link)); }
-    if (locks & ERTS_PROC_LOCK_MSGQ) { erts_lcnt_lock_unaquire(&(lock->lcnt_msgq)); }
-    if (locks & ERTS_PROC_LOCK_BTM) { erts_lcnt_lock_unaquire(&(lock->lcnt_btm)); }
-    if (locks & ERTS_PROC_LOCK_STATUS) { erts_lcnt_lock_unaquire(&(lock->lcnt_status)); }
-    if (locks & ERTS_PROC_LOCK_TRACE) { erts_lcnt_lock_unaquire(&(lock->lcnt_trace)); }
-}
-
-void erts_lcnt_proc_unlock(erts_proc_lock_t *lock, ErtsProcLocks locks) {
-    if (!(erts_lcnt_rt_options & ERTS_LCNT_OPT_PROCLOCK)) return;
-    if (locks & ERTS_PROC_LOCK_MAIN) { erts_lcnt_unlock(&(lock->lcnt_main)); }
-    if (locks & ERTS_PROC_LOCK_LINK) { erts_lcnt_unlock(&(lock->lcnt_link)); }
-    if (locks & ERTS_PROC_LOCK_MSGQ) { erts_lcnt_unlock(&(lock->lcnt_msgq)); }
-    if (locks & ERTS_PROC_LOCK_BTM) { erts_lcnt_unlock(&(lock->lcnt_btm)); }
-    if (locks & ERTS_PROC_LOCK_STATUS) { erts_lcnt_unlock(&(lock->lcnt_status)); }
-    if (locks & ERTS_PROC_LOCK_TRACE) { erts_lcnt_unlock(&(lock->lcnt_trace)); }
-}
-void erts_lcnt_proc_trylock(erts_proc_lock_t *lock, ErtsProcLocks locks, int res) {
-    if (!(erts_lcnt_rt_options & ERTS_LCNT_OPT_PROCLOCK)) return;
-    if (locks & ERTS_PROC_LOCK_MAIN) { erts_lcnt_trylock(&(lock->lcnt_main), res); }
-    if (locks & ERTS_PROC_LOCK_LINK) { erts_lcnt_trylock(&(lock->lcnt_link), res); }
-    if (locks & ERTS_PROC_LOCK_MSGQ) { erts_lcnt_trylock(&(lock->lcnt_msgq), res); }
-    if (locks & ERTS_PROC_LOCK_BTM) { erts_lcnt_trylock(&(lock->lcnt_btm), res); }
-    if (locks & ERTS_PROC_LOCK_STATUS) { erts_lcnt_trylock(&(lock->lcnt_status), res); }
-    if (locks & ERTS_PROC_LOCK_TRACE) { erts_lcnt_trylock(&(lock->lcnt_trace), res); }
-} /* reversed logic */
 #endif /* ERTS_ENABLE_LOCK_COUNT */
 
 

@@ -307,7 +307,7 @@ typedef struct {
     erts_lc_lock_t lc;
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_lock_t lcnt;
+    erts_lcnt_ref_t lcnt;
 #endif
 
 } erts_mtx_t;
@@ -320,7 +320,7 @@ typedef struct {
     erts_lc_lock_t lc;
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_lock_t lcnt;
+    erts_lcnt_ref_t lcnt;
 #endif
 } erts_rwmtx_t;
 
@@ -365,7 +365,7 @@ typedef struct {
     erts_lc_lock_t lc;
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_lock_t lcnt;
+    erts_lcnt_ref_t lcnt;
 #endif
 } erts_spinlock_t;
 
@@ -376,7 +376,7 @@ typedef struct {
     erts_lc_lock_t lc;
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_lock_t lcnt;
+    erts_lcnt_ref_t lcnt;
 #endif
 } erts_rwlock_t;
 
@@ -2169,7 +2169,8 @@ erts_mtx_init_x(erts_mtx_t *mtx, char *name, Eterm extra)
     erts_lc_init_lock_x(&mtx->lc, name, ERTS_LC_FLG_LT_MUTEX, extra);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_init_lock_x(&mtx->lcnt, name, ERTS_LCNT_LT_MUTEX, extra);
+    erts_lcnt_init_ref(&mtx->lcnt);
+    erts_lcnt_install_new_lock_info_x(&mtx->lcnt, name, ERTS_LCNT_LT_MUTEX, extra);
 #endif
 #endif
 }
@@ -2185,7 +2186,10 @@ erts_mtx_init_x_opt(erts_mtx_t *mtx, char *name, Eterm extra, Uint16 opt)
     erts_lc_init_lock_x(&mtx->lc, name, ERTS_LC_FLG_LT_MUTEX, extra);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_init_lock_x(&mtx->lcnt, name, ERTS_LCNT_LT_MUTEX | opt, extra);
+    erts_lcnt_init_ref(&mtx->lcnt);
+    if(!(opt & ERTS_LCNT_LT_DISABLE)) { // Incorrect, but preserves the old interface.
+        erts_lcnt_install_new_lock_info_x(&mtx->lcnt, name, ERTS_LCNT_LT_MUTEX | opt, extra);
+    }
 #endif
 #endif
 }
@@ -2202,7 +2206,10 @@ erts_mtx_init_locked_x_opt(erts_mtx_t *mtx, char *name, Eterm extra, Uint16 opt)
     erts_lc_init_lock_x(&mtx->lc, name, ERTS_LC_FLG_LT_MUTEX, extra);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_init_lock_x(&mtx->lcnt, name, ERTS_LCNT_LT_MUTEX | opt, extra);
+    erts_lcnt_init_ref(&mtx->lcnt);
+    if(!(opt & ERTS_LCNT_LT_DISABLE)) { // Incorrect, but preserves the old interface.
+        erts_lcnt_install_new_lock_info_x(&mtx->lcnt, name, ERTS_LCNT_LT_MUTEX, extra);
+    }
 #endif
     ethr_mutex_lock(&mtx->mtx);
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -2225,7 +2232,8 @@ erts_mtx_init(erts_mtx_t *mtx, char *name)
     erts_lc_init_lock(&mtx->lc, name, ERTS_LC_FLG_LT_MUTEX);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_init_lock(&mtx->lcnt, name, ERTS_LCNT_LT_MUTEX);
+    erts_lcnt_init_ref(&mtx->lcnt);
+    erts_lcnt_install_new_lock_info(&mtx->lcnt, name, ERTS_LCNT_LT_MUTEX);
 #endif
 #endif
 }
@@ -2241,7 +2249,8 @@ erts_mtx_init_locked(erts_mtx_t *mtx, char *name)
     erts_lc_init_lock(&mtx->lc, name, ERTS_LC_FLG_LT_MUTEX);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_init_lock(&mtx->lcnt, name, ERTS_LCNT_LT_MUTEX);
+    erts_lcnt_init_ref(&mtx->lcnt);
+    erts_lcnt_install_new_lock_info(&mtx->lcnt, name, ERTS_LCNT_LT_MUTEX);
 #endif
     ethr_mutex_lock(&mtx->mtx);
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -2262,7 +2271,7 @@ erts_mtx_destroy(erts_mtx_t *mtx)
     erts_lc_destroy_lock(&mtx->lc);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_destroy_lock(&mtx->lcnt);
+    erts_lcnt_uninstall(&mtx->lcnt);
 #endif
     res = ethr_mutex_destroy(&mtx->mtx);
     if (res != 0) {
@@ -2481,10 +2490,11 @@ erts_rwmtx_init_opt_x(erts_rwmtx_t *rwmtx,
     erts_lc_init_lock_x(&rwmtx->lc, name, ERTS_LC_FLG_LT_RWMUTEX, extra);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_init_ref(&rwmtx->lcnt);
     if (name && name[0] == '\0')
-      erts_lcnt_init_lock_x(&rwmtx->lcnt, NULL, ERTS_LCNT_LT_RWMUTEX, extra);
+        erts_lcnt_install_new_lock_info_x(&rwmtx->lcnt, NULL, ERTS_LCNT_LT_RWMUTEX, extra);
     else
-      erts_lcnt_init_lock_x(&rwmtx->lcnt, name, ERTS_LCNT_LT_RWMUTEX, extra);
+        erts_lcnt_install_new_lock_info_x(&rwmtx->lcnt, name, ERTS_LCNT_LT_RWMUTEX, extra);
 #endif
 #endif
 }
@@ -2510,7 +2520,8 @@ erts_rwmtx_init_opt(erts_rwmtx_t *rwmtx,
     erts_lc_init_lock(&rwmtx->lc, name, ERTS_LC_FLG_LT_RWMUTEX);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_init_lock(&rwmtx->lcnt, name, ERTS_LCNT_LT_RWMUTEX);
+    erts_lcnt_init_ref(&rwmtx->lcnt);
+    erts_lcnt_install_new_lock_info(&rwmtx->lcnt, name, ERTS_LCNT_LT_RWMUTEX);
 #endif
 #endif
 }
@@ -2530,7 +2541,7 @@ erts_rwmtx_destroy(erts_rwmtx_t *rwmtx)
     erts_lc_destroy_lock(&rwmtx->lc);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_destroy_lock(&rwmtx->lcnt);
+    erts_lcnt_uninstall(&rwmtx->lcnt);
 #endif
     res = ethr_rwmutex_destroy(&rwmtx->rwmtx);
     if (res != 0) {
@@ -3085,7 +3096,8 @@ erts_spinlock_init_x(erts_spinlock_t *lock, char *name, Eterm extra)
     erts_lc_init_lock_x(&lock->lc, name, ERTS_LC_FLG_LT_SPINLOCK, extra);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_init_lock_x(&lock->lcnt, name, ERTS_LCNT_LT_SPINLOCK, extra);
+    erts_lcnt_init_ref(&lock->lcnt);
+    erts_lcnt_install_new_lock_info_x(&lock->lcnt, name, ERTS_LCNT_LT_SPINLOCK, extra);
 #endif
 #else
     (void)lock;
@@ -3104,7 +3116,8 @@ erts_spinlock_init_x_opt(erts_spinlock_t *lock, char *name, Eterm extra,
     erts_lc_init_lock_x(&lock->lc, name, ERTS_LC_FLG_LT_SPINLOCK, extra);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_init_lock_x(&lock->lcnt, name, ERTS_LCNT_LT_SPINLOCK|opt, extra);
+    erts_lcnt_init_ref(&lock->lcnt);
+    erts_lcnt_install_new_lock_info_x(&lock->lcnt, name, ERTS_LCNT_LT_SPINLOCK | opt, extra);
 #endif
 #else
     (void)lock;
@@ -3123,7 +3136,8 @@ erts_spinlock_init(erts_spinlock_t *lock, char *name)
     erts_lc_init_lock(&lock->lc, name, ERTS_LC_FLG_LT_SPINLOCK);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_init_lock(&lock->lcnt, name, ERTS_LCNT_LT_SPINLOCK);
+    erts_lcnt_init_ref(&lock->lcnt);
+    erts_lcnt_install_new_lock_info(&lock->lcnt, name, ERTS_LCNT_LT_SPINLOCK);
 #endif
 #else
     (void)lock;
@@ -3139,7 +3153,7 @@ erts_spinlock_destroy(erts_spinlock_t *lock)
     erts_lc_destroy_lock(&lock->lc);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_destroy_lock(&lock->lcnt);
+    erts_lcnt_uninstall(&lock->lcnt);
 #endif
     res = ethr_spinlock_destroy(&lock->slck);
     if (res != 0) {
@@ -3228,7 +3242,8 @@ erts_rwlock_init_x(erts_rwlock_t *lock, char *name, Eterm extra)
     erts_lc_init_lock_x(&lock->lc, name, ERTS_LC_FLG_LT_RWSPINLOCK, extra);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_init_lock_x(&lock->lcnt, name, ERTS_LCNT_LT_RWSPINLOCK, extra);
+    erts_lcnt_init_ref(&lock->lcnt);
+    erts_lcnt_install_new_lock_info_x(&lock->lcnt, name, ERTS_LCNT_LT_RWSPINLOCK, extra);
 #endif
 #else
     (void)lock;
@@ -3246,7 +3261,8 @@ erts_rwlock_init(erts_rwlock_t *lock, char *name)
     erts_lc_init_lock(&lock->lc, name, ERTS_LC_FLG_LT_RWSPINLOCK);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_init_lock(&lock->lcnt, name, ERTS_LCNT_LT_RWSPINLOCK);
+    erts_lcnt_init_ref(&lock->lcnt);
+    erts_lcnt_install_new_lock_info(&lock->lcnt, name, ERTS_LCNT_LT_RWSPINLOCK);
 #endif
 #else
     (void)lock;
@@ -3262,7 +3278,7 @@ erts_rwlock_destroy(erts_rwlock_t *lock)
     erts_lc_destroy_lock(&lock->lc);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_destroy_lock(&lock->lcnt);
+    erts_lcnt_uninstall(&lock->lcnt);
 #endif
     res = ethr_rwlock_destroy(&lock->rwlck);
     if (res != 0) {
