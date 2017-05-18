@@ -173,13 +173,13 @@ fill_info([{Str,Attrib,Key}|Rest], Data) when is_atom(Key); is_function(Key) ->
 	Value -> [{Str,Attrib,Value} | fill_info(Rest, Data)]
     end;
 fill_info([{Str, {Format, Key}}|Rest], Data)
-  when is_atom(Key); is_function(Key), is_atom(Format) ->
+  when is_atom(Key); is_function(Key) ->
     case get_value(Key, Data) of
 	undefined -> [undefined | fill_info(Rest, Data)];
 	Value -> [{Str, {Format, Value}} | fill_info(Rest, Data)]
     end;
 fill_info([{Str, Attrib, {Format, Key}}|Rest], Data)
-  when is_atom(Key); is_function(Key), is_atom(Format) ->
+  when is_atom(Key); is_function(Key) ->
     case get_value(Key, Data) of
 	undefined -> [undefined | fill_info(Rest, Data)];
 	Value -> [{Str, Attrib, {Format, Value}} | fill_info(Rest, Data)]
@@ -252,6 +252,8 @@ to_str({bytes, B}) ->
 	KB >  0 -> integer_to_list(KB) ++ " kB";
 	true -> integer_to_list(B) ++ " B"
     end;
+to_str({{words,WSz}, Sz}) ->
+    to_str({bytes, WSz*Sz});
 to_str({time_ms, MS}) ->
     S = MS div 1000,
     Min = S div 60,
