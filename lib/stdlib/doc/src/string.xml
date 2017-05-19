@@ -311,7 +311,9 @@ true</pre>
       <desc>
         <p>
 	  Returns the first codepoint in <c><anno>String</anno></c>
-	  and the rest of <c><anno>String</anno></c> in the tail.
+	  and the rest of <c><anno>String</anno></c> in the tail. Returns
+	  an empty list if <c><anno>String</anno></c> is empty or an
+	  <c>{error, String}</c> tuple if the next byte is invalid.
 	</p>
 	<p><em>Example:</em></p>
 	<pre>
@@ -326,7 +328,9 @@ true</pre>
       <desc>
         <p>
 	  Returns the first grapheme cluster in <c><anno>String</anno></c>
-	  and the rest of <c><anno>String</anno></c> in the tail.
+	  and the rest of <c><anno>String</anno></c> in the tail. Returns
+	  an empty list if <c><anno>String</anno></c> is empty or an
+	  <c>{error, String}</c> tuple if the next byte is invalid.
 	</p>
 	<p><em>Example:</em></p>
 	<pre>

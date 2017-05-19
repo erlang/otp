@@ -582,6 +582,8 @@ cd_gc(_) ->
     [$e,778] = string:next_codepoint([$e,778]),
     [$e|<<204,138>>] = string:next_codepoint(<<$e,778/utf8>>),
     [778|_] = string:next_codepoint(tl(string:next_codepoint(<<$e,778/utf8>>))),
+    [0|<<128,1>>] = string:next_codepoint(<<0,128,1>>),
+    {error,<<128,1>>} = string:next_codepoint(<<128,1>>),
 
     [] = string:next_grapheme(""),
     [] = string:next_grapheme(<<>>),
@@ -589,6 +591,8 @@ cd_gc(_) ->
     "abcd" = string:next_grapheme("abcd"),
     [[$e,778]] = string:next_grapheme([$e,778]),
     [[$e,778]] = string:next_grapheme(<<$e,778/utf8>>),
+    [0|<<128,1>>] = string:next_grapheme(<<0,128,1>>),
+    {error,<<128,1>>} = string:next_grapheme(<<128,1>>),
 
     ok.
 
