@@ -70,8 +70,7 @@ keep_logs(Config) ->
     Opts = [{suite,Suite},{label,keep_logs} | Opts0],
 
     LogDir=?config(logdir,Opts),
-    KeepLogsDir = filename:join(LogDir,unique_name("keep_logs-")),
-    ok = file:make_dir(KeepLogsDir),
+    KeepLogsDir = create_dir(filename:join(LogDir,"keep_logs-")),
     Opts1 = lists:keyreplace(logdir,1,Opts,{logdir,KeepLogsDir}),
     ct:log("New LogDir = ~s", [KeepLogsDir]),
 
@@ -121,7 +120,11 @@ keep_logs(Config) ->
     9 = length(L10),
     0 = ct_test_support:run_ct_script_start([{keep_logs,10}|Opts1], Config),
     L11 = filelib:wildcard(WC),
-    10 = length(L11).
+    10 = length(L11),
+
+    {ok,Content} = file:list_dir(KeepLogsDir),
+    ct:log("Deleting dir: ~p~nContent: ~p~n",[KeepLogsDir,Content]),
+    ct_test_support:rm_dir(KeepLogsDir).
 
 %% Test the keep_logs option togwther with the refresh_logs option
 refresh_logs(Config) ->
@@ -129,8 +132,7 @@ refresh_logs(Config) ->
     Suite = filename:join(DataDir, "keep_logs_SUITE"),
     Opts0 = ct_test_support:get_opts(Config),
     LogDir=?config(logdir,Opts0),
-    KeepLogsDir = filename:join(LogDir,unique_name("refresh_logs-")),
-    ok = file:make_dir(KeepLogsDir),
+    KeepLogsDir = create_dir(filename:join(LogDir,"refresh_logs-")),
     Opts1 = lists:keyreplace(logdir,1,Opts0,{logdir,KeepLogsDir}),
     ct:log("New LogDir = ~s", [KeepLogsDir]),
 
@@ -178,9 +180,20 @@ refresh_logs(Config) ->
     L10 = filelib:wildcard(WC),
     4 = length(L10),
 
-    ok.
+    {ok,Content} = file:list_dir(KeepLogsDir),
+    ct:log("Deleting dir: ~p~nContent: ~p~n",[KeepLogsDir,Content]),
+    ct_test_support:rm_dir(KeepLogsDir).
+
 %%%-----------------------------------------------------------------
 %%% Internal
-unique_name(Prefix) ->
+create_dir(Prefix) ->
     I = erlang:unique_integer([positive]),
-    Prefix ++ integer_to_list(I).
+    Dir = Prefix ++ integer_to_list(I),
+    case filelib:is_dir(Dir) of
+        true ->
+            %% Try again
+            create_dir(Prefix);
+        false ->
+            ok = file:make_dir(Dir),
+            Dir
+    end.
