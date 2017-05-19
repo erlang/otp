@@ -74,7 +74,7 @@ config(priv_dir,_) ->
 init_per_testcase(_Case, Config) ->
     Config.
 
-end_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, _Config) ->
     shutdown(),
     ok.
 

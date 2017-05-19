@@ -97,7 +97,7 @@ init_per_testcase(_Case, Config) ->
     wait_deallocations(),
     Config.
 
-end_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, _Config) ->
     ok.
 
 wait_deallocations() ->
