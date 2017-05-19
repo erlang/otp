@@ -447,7 +447,8 @@ info() ->
 init([]) ->
     process_flag(trap_exit, true),
     _ = ets:new(global_locks, [set, named_table, protected]),
-    _ = ets:new(global_names, [set, named_table, protected]),
+    _ = ets:new(global_names, [set, named_table, protected,
+                               {read_concurrency, true}]),
     _ = ets:new(global_names_ext, [set, named_table, protected]),
 
     _ = ets:new(global_pid_names, [bag, named_table, protected]),
