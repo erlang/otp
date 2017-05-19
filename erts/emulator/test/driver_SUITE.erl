@@ -127,7 +127,7 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     0 = element(1, erts_debug:get_internal_state(check_io_debug)),
     [{testcase, Case}|Config].
 
-end_per_testcase(Case, Config) ->
+end_per_testcase(Case, _Config) ->
     erlang:display({end_per_testcase, Case}),
     0 = element(1, erts_debug:get_internal_state(check_io_debug)),
     ok.

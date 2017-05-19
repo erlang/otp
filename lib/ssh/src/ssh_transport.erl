@@ -92,10 +92,7 @@ default_algorithms(cipher) ->
 default_algorithms(mac) ->
     supported_algorithms(mac, same(['AEAD_AES_128_GCM',
 				    'AEAD_AES_256_GCM']));
-default_algorithms(public_key) ->
-    supported_algorithms(public_key, ['rsa-sha2-256',
-                                      'rsa-sha2-384',
-                                      'rsa-sha2-512']);
+
 default_algorithms(Alg) ->
     supported_algorithms(Alg, []).
 
@@ -122,10 +119,9 @@ supported_algorithms(public_key) ->
        {'ecdsa-sha2-nistp384',  [{public_keys,ecdsa}, {hashs,sha384}, {ec_curve,secp384r1}]},
        {'ecdsa-sha2-nistp521',  [{public_keys,ecdsa}, {hashs,sha512}, {ec_curve,secp521r1}]},
        {'ecdsa-sha2-nistp256',  [{public_keys,ecdsa}, {hashs,sha256}, {ec_curve,secp256r1}]},
-       {'rsa-sha2-256',         [{public_keys,rsa},   {hashs,sha256}                      ]},
-       {'rsa-sha2-384',         [{public_keys,rsa},   {hashs,sha384}                      ]},
-       {'rsa-sha2-512',         [{public_keys,rsa},   {hashs,sha512}                      ]},
        {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]},
+       {'rsa-sha2-256',         [{public_keys,rsa},   {hashs,sha256}                      ]},
+       {'rsa-sha2-512',         [{public_keys,rsa},   {hashs,sha512}                      ]},
        {'ssh-dss',              [{public_keys,dss},   {hashs,sha}                         ]} % Gone in OpenSSH 7.3.p1
       ]);
  
@@ -724,14 +720,28 @@ kex_ext_info(Role, Opts) ->
     end.
     
 ext_info_message(#ssh{role=client,
-                      send_ext_info=true} = Ssh0) ->
-    %% FIXME: no extensions implemented
-    {ok, "", Ssh0};
+                      send_ext_info=true,
+                      opts=Opts} = Ssh0) ->
+    %% Since no extension sent by the client is implemented, we add a fake one
+    %% to be able to test the framework.
+    %% Remove this when there is one and update ssh_protocol_SUITE whare it is used.
+    case proplists:get_value(ext_info_client, ?GET_OPT(tstflg,Opts)) of
+        true ->
+            Msg = #ssh_msg_ext_info{nr_extensions = 1,
+                                    data = [{"test@erlang.org", "Testing,PleaseIgnore"}]
+                                   },
+            {SshPacket, Ssh} = ssh_packet(Msg, Ssh0),
+            {ok, SshPacket, Ssh};
+        _ ->
+            {ok, "", Ssh0}
+    end;
 
 ext_info_message(#ssh{role=server,
-                      send_ext_info=true} = Ssh0) ->
+                      send_ext_info=true,
+                      opts = Opts} = Ssh0) ->
     AlgsList = lists:map(fun erlang:atom_to_list/1,
-                         ssh_transport:default_algorithms(public_key)),
+                         proplists:get_value(public_key,
+                                             ?GET_OPT(preferred_algorithms, Opts))),
     Msg = #ssh_msg_ext_info{nr_extensions = 1,
                             data = [{"server-sig-algs", string:join(AlgsList,",")}]
                            },

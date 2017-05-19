@@ -59,7 +59,8 @@ all() ->
      {group,service_requests},
      {group,authentication},
      {group,packet_size_error},
-     {group,field_size_error}
+     {group,field_size_error},
+     {group,ext_info}
     ].
 
 groups() ->
@@ -90,7 +91,12 @@ groups() ->
 			     bad_service_name_then_correct
 			    ]},
      {authentication, [], [client_handles_keyboard_interactive_0_pwds
-			  ]}
+			  ]},
+     {ext_info, [], [no_ext_info_s1,
+                     no_ext_info_s2,
+                     ext_info_s,
+                     ext_info_c
+                    ]}
     ].
 
 
@@ -644,7 +650,113 @@ client_info_line(_Config) ->
 	    ok
     end.
 	
+%%%--------------------------------------------------------------------
+%%% The server does not send the extension because
+%%% the client does not tell the server to send it
+no_ext_info_s1(Config) ->
+    %% Start the dameon
+    Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,true},
+                                              {system_dir, system_dir(Config)}]),
+    {ok,AfterKexState} = connect_and_kex([{server,Server}|Config]),
+    {ok,_} = 
+        ssh_trpt_test_lib:exec(
+          [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
+	   {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg}
+          ], AfterKexState),
+    ssh:stop_daemon(Pid).
+
+%%%--------------------------------------------------------------------
+%%% The server does not send the extension because
+%%% the server is not configured to send it
+no_ext_info_s2(Config) ->    
+    %% Start the dameon
+    Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,false},
+                                              {system_dir, system_dir(Config)}]),
+    {ok,AfterKexState} = connect_and_kex([{extra_options,[{recv_ext_info,true}]},
+                                          {server,Server}
+                                          | Config]),
+    {ok,_} =
+        ssh_trpt_test_lib:exec(
+          [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
+	   {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg}
+          ], AfterKexState),
+    ssh:stop_daemon(Pid).
+
+%%%--------------------------------------------------------------------
+%%% The server sends the extension
+ext_info_s(Config) ->    
+    %% Start the dameon
+    Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,true},
+                                              {system_dir, system_dir(Config)}]),
+    {ok,AfterKexState} = connect_and_kex([{extra_options,[{recv_ext_info,true}]},
+                                          {server,Server}
+                                          | Config]),
+    {ok,_} =
+        ssh_trpt_test_lib:exec(
+          [{match, #ssh_msg_ext_info{_='_'}, receive_msg}
+          ],
+          AfterKexState),
+    ssh:stop_daemon(Pid).
+
+%%%--------------------------------------------------------------------
+%%% The client sends the extension
+ext_info_c(Config) ->    
+    {User,_Pwd} = server_user_password(Config),
+
+    %% Create a listening socket as server socket:
+    {ok,InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+
+    Parent = self(),
+    %% Start a process handling one connection on the server side:
+    Pid =
+        spawn_link(
+          fun() ->
+                  Result =
+                      ssh_trpt_test_lib:exec(
+                        [{set_options, [print_ops, print_messages]},
+                         {accept, [{system_dir, system_dir(Config)},
+                                   {user_dir, user_dir(Config)},
+                                   {recv_ext_info, true}
+                                  ]},
+                         receive_hello,
+                         {send, hello},
+                         
+                         {send, ssh_msg_kexinit},
+                         {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                         
+                         {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+                         {send, ssh_msg_kexdh_reply},
+
+                         {send, #ssh_msg_newkeys{}},
+                         {match,  #ssh_msg_newkeys{_='_'}, receive_msg},
+
+                         {match, #ssh_msg_ext_info{_='_'}, receive_msg},
+
+                         close_socket,
+                         print_state
+                        ],
+                        InitialState),
+                  Parent ! {result,self(),Result}
+          end),
+
+    %% connect to it with a regular Erlang SSH client
+    %% (expect error due to the close_socket in daemon):
+    {error,_} = std_connect(HostPort, Config, 
+                            [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                    {cipher,?DEFAULT_CIPHERS}
+                                                   ]},
+                             {tstflg, [{ext_info_client,true}]},
+                             {send_ext_info, true}
+                            ]
+                           ),
     
+    %% Check that the daemon got expected result:
+    receive
+        {result, Pid, {ok,_}} -> ok;
+        {result, Pid, Error} -> ct:fail("Error: ~p",[Error])
+    end.
+
 %%%================================================================
 %%%==== Internal functions ========================================
 %%%================================================================
@@ -751,10 +863,12 @@ connect_and_kex(Config, InitialState) ->
 	[{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
                                 {cipher,?DEFAULT_CIPHERS}
                                ]},
-	 {silently_accept_hosts, true},
+         {silently_accept_hosts, true},
          {recv_ext_info, false},
 	 {user_dir, user_dir(Config)},
-	 {user_interaction, false}]},
+	 {user_interaction, false}
+         | proplists:get_value(extra_options,Config,[])
+        ]},
        receive_hello,
        {send, hello},
        {send, ssh_msg_kexinit},

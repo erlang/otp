@@ -229,27 +229,6 @@ multi_proc_purge(Config) when is_list(Config) ->
 		   Pid9, Pid10, Pid11, Pid12, Pid13, Pid14, Pid15, Pid16]),
     ok.
 
-body(F, Fakes) ->
-    receive
-        jog ->
-            40 = F(3),
-            erlang:garbage_collect(),
-            body(F, Fakes);
-        drop_funs ->
-            dropped_body()
-    end.
-
-dropped_body() ->
-    receive
-        X -> exit(X)
-    end.
-
-gc() ->
-    erlang:garbage_collect(),
-    gc1().
-gc1() -> ok.
-
-
 %% Test the erlang:check_old_code/1 BIF.
 t_check_old_code(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),

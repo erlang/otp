@@ -344,7 +344,7 @@
           <tag><c><![CDATA[ssl]]></c></tag>
           <item>
             <p>This is the <c>SSL/TLS</c> connectin configuration option.</p>
-            <p>Defaults to <c>[]</c>. See <seealso marker="ssl:ssl">ssl:connect/[2, 3,4]</seealso>  for availble options.</p>
+            <p>Defaults to <c>[]</c>. See <seealso marker="ssl:ssl">ssl:connect/[2,3,4]</seealso>  for available options.</p>
 	  </item>
 
           <tag><c><![CDATA[autoredirect]]></c></tag>

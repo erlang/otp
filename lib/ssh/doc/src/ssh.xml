@@ -246,10 +246,12 @@
 	  <tag><c><![CDATA[{pref_public_key_algs, list()}]]></c></tag>
 	  <item>
             <p>List of user (client) public key algorithms to try to use.</p>
-	    <p>The default value is 
-	    <c><![CDATA[['ssh-rsa','ssh-dss','ecdsa-sha2-nistp256','ecdsa-sha2-nistp384','ecdsa-sha2-nistp521'] ]]></c>
+	    <p>The default value is the <c>public_key</c> entry in 
+	    <seealso marker="#default_algorithms/0">ssh:default_algorithms/0</seealso>.
 	    </p>
-	    <p>If there is no public key of a specified type available, the corresponding entry is ignored.</p>
+	    <p>If there is no public key of a specified type available, the corresponding entry is ignored.
+	    Note that the available set is dependent on the underlying cryptolib and current user's public keys.
+	    </p>
 	  </item>
 
 	  <tag><c><![CDATA[{preferred_algorithms, algs_list()}]]></c></tag>
@@ -293,6 +295,15 @@
 	    connection. For <c>gen_tcp</c> the time is in milli-seconds and the default value is
 	    <c>infinity</c>.</p>
 	  </item>
+
+	  <tag><c><![CDATA[{auth_methods, string()}]]></c></tag>
+	  <item>
+	    <p>Comma-separated string that determines which
+	    authentication methods that the client shall support and
+	    in which order they are tried. Defaults to
+	    <c><![CDATA["publickey,keyboard-interactive,password"]]></c></p>
+          </item>
+
 	  <tag><c><![CDATA[{user, string()}]]></c></tag>
           <item>
 	    <p>Provides a username. If this option is not given, <c>ssh</c>
@@ -300,6 +311,7 @@
 	    <c><![CDATA[USER]]></c> on UNIX,
 	    <c><![CDATA[USERNAME]]></c> on Windows).</p>
           </item>
+
 	  <tag><c><![CDATA[{password, string()}]]></c></tag>
           <item>
 	    <p>Provides a password for password authentication.
@@ -307,6 +319,7 @@
 	    password, if the password authentication method is
 	    attempted.</p>
           </item>
+
 	  <tag><c><![CDATA[{key_cb, key_cb()}]]></c></tag>
 	  <item>
 	    <p>Module implementing the behaviour <seealso
@@ -316,6 +329,7 @@
 	    module via the options passed to it under the key 'key_cb_private'.
 	    </p>
 	  </item>
+
 	  <tag><c><![CDATA[{quiet_mode, atom() = boolean()}]]></c></tag>
 	  <item>
 	    <p>If <c>true</c>, the client does not print anything on authorization.</p>
@@ -466,6 +480,7 @@
 	    authentication methods that the server is to support and
 	    in what order they are tried. Defaults to
 	    <c><![CDATA["publickey,keyboard-interactive,password"]]></c></p>
+	    <p>Note that the client is free to use any order and to exclude methods.</p>
           </item>
 
 	  <tag><c><![CDATA[{auth_method_kb_interactive_data, PromptTexts}]]></c>

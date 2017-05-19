@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -160,6 +160,19 @@ ok</pre>
         <p>It is recommended that <c><anno>Report</anno></c> follows the same
           structure as for
 	<seealso marker="#error_report/1"><c>error_report/1</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="get_format_depth" arity="0"/>
+      <fsummary>Get the value of the Kernel application variable
+                <c>error_logger_format_depth</c>.</fsummary>
+      <desc>
+	<p>Returns <c>max(10, Depth)</c>, where <c>Depth</c> is the
+	value of
+	<seealso marker="kernel:kernel_app#error_logger_format_depth">
+	error_logger_format_depth</seealso>
+	in the Kernel application, if Depth is an integer. Otherwise,
+	<c>unlimited</c> is returned.</p>
       </desc>
     </func>
     <func>

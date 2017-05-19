@@ -538,6 +538,8 @@ BEAM_FORMAT_NUMBER=0
 157: has_map_fields/3
 158: get_map_elements/3
 
+# OTP 20
+
 ## @spec is_tagged_tuple Lbl Reg N Atom
 ## @doc Test the type of Reg and jumps to Lbl if it is not a tuple.
 ##      Test the arity of Reg and jumps to Lbl if it is not N.

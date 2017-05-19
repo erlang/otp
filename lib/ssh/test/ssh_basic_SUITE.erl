@@ -612,7 +612,7 @@ exec_key_differs(Config, UserPKAlgs) ->
 	    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 						       {user_dir, SystemUserDir},
 						       {preferred_algorithms,
-							[{public_key,['ssh-rsa']}]}]),
+							[{public_key,['ssh-rsa'|UserPKAlgs]}]}]),
 	    ct:sleep(500),
 
 	    IO = ssh_test_lib:start_io_server(),
@@ -1173,13 +1173,10 @@ login_bad_pwd_no_retry3(Config) ->
     login_bad_pwd_no_retry(Config, "password,publickey,keyboard-interactive").
 
 login_bad_pwd_no_retry4(Config) ->
-    login_bad_pwd_no_retry(Config, "password,other,keyboard-interactive").
+    login_bad_pwd_no_retry(Config, "password,keyboard-interactive").
 
 login_bad_pwd_no_retry5(Config) ->
-    login_bad_pwd_no_retry(Config, "password,other,keyboard-interactive,password,password").
-
-
-
+    login_bad_pwd_no_retry(Config, "password,keyboard-interactive,password,password").
 
 
 login_bad_pwd_no_retry(Config, AuthMethods) ->

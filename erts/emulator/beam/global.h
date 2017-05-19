@@ -1132,7 +1132,6 @@ extern erts_tid_t erts_main_thread;
 #endif
 extern int erts_compat_rel;
 extern int erts_use_sender_punish;
-void erts_short_init(void);
 void erl_start(int, char**);
 void erts_usage(void);
 Eterm erts_preloaded(Process* p);
@@ -1439,7 +1438,6 @@ do {								\
 #define MatchSetGetSource(MPSP) erts_match_set_get_source(MPSP)
 
 extern Binary *erts_match_set_compile(Process *p, Eterm matchexpr, Eterm MFA);
-Eterm erts_match_set_lint(Process *p, Eterm matchexpr); 
 extern void erts_match_set_release_result(Process* p);
 ERTS_GLB_INLINE void erts_match_set_release_result_trace(Process* p, Eterm);
 

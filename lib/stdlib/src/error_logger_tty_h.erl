@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@
 %% This one is used when we takeover from the simple error_logger.
 init({[], {error_logger, Buf}}) ->
     User = set_group_leader(),
-    Depth = get_depth(),
+    Depth = error_logger:get_format_depth(),
     State = #st{user=User,prev_handler=error_logger,depth=Depth},
     write_events(State, Buf),
     {ok, State};
@@ -56,17 +56,9 @@ init({[], {error_logger_tty_h, PrevHandler}}) ->
 %% This one is used when we are started directly.
 init([]) ->
     User = set_group_leader(),
-    Depth = get_depth(),
+    Depth = error_logger:get_format_depth(),
     {ok, #st{user=User,prev_handler=[],depth=Depth}}.
 
-get_depth() ->
-    case application:get_env(kernel, error_logger_format_depth) of
-	{ok, Depth} when is_integer(Depth) ->
-	    max(10, Depth);
-	undefined ->
-	    unlimited
-    end.
-    
 handle_event({_Type, GL, _Msg}, State) when node(GL) =/= node() ->
     {ok, State};
 handle_event(Event, State) ->

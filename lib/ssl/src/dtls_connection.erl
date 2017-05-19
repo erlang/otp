@@ -53,7 +53,7 @@
 %% Data handling
 
 -export([encode_data/3, passive_receive/2,  next_record_if_active/1, handle_common_event/4,
-	 send/3, socket/5]).
+	 send/3, socket/5, setopts/3, getopts/3]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -202,6 +202,11 @@ select_sni_extension(_) ->
 
 socket(Pid,  Transport, Socket, Connection, _) ->
     dtls_socket:socket(Pid, Transport, Socket, Connection).
+
+setopts(Transport, Socket, Other) ->
+    dtls_socket:setopts(Transport, Socket, Other).
+getopts(Transport, Socket, Tag) ->
+    dtls_socket:getopts(Transport, Socket, Tag).
 
 %%====================================================================
 %% tls_connection_sup API
@@ -688,16 +693,18 @@ next_record(#state{unprocessed_handshake_events = N} = State) when N > 0 ->
     {no_record, State#state{unprocessed_handshake_events = N-1}};
 					 
 next_record(#state{protocol_buffers =
-		       #protocol_buffers{dtls_cipher_texts = [CT | Rest]}
+		       #protocol_buffers{dtls_cipher_texts = [#ssl_tls{epoch = Epoch} = CT | Rest]}
 		   = Buffers,
-		   connection_states = ConnStates0} = State) ->
-    case dtls_record:decode_cipher_text(CT, ConnStates0) of
-	{Plain, ConnStates} ->		      
-	    {Plain, State#state{protocol_buffers =
-				    Buffers#protocol_buffers{dtls_cipher_texts = Rest},
-				connection_states = ConnStates}};
-	#alert{} = Alert ->
-	    {Alert, State}
+		   connection_states = ConnectionStates} = State) ->
+    CurrentRead = dtls_record:get_connection_state_by_epoch(Epoch, ConnectionStates, read),
+    case dtls_record:replay_detect(CT, CurrentRead) of
+        false ->
+            decode_cipher_text(State#state{connection_states = ConnectionStates}) ;
+        true ->
+            %% Ignore replayed record
+            next_record(State#state{protocol_buffers =
+                                        Buffers#protocol_buffers{dtls_cipher_texts = Rest},
+                                    connection_states = ConnectionStates})
     end;
 next_record(#state{role = server,
 		   socket = {Listener, {Client, _}},
@@ -768,6 +775,17 @@ next_event(StateName, Record,
 	    {next_state, StateName, State, Actions};
 	#alert{} = Alert ->
 	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
+    end.
+
+decode_cipher_text(#state{protocol_buffers = #protocol_buffers{dtls_cipher_texts = [ CT | Rest]} = Buffers,
+                          connection_states = ConnStates0} = State) ->
+    case dtls_record:decode_cipher_text(CT, ConnStates0) of
+	{Plain, ConnStates} ->		      
+	    {Plain, State#state{protocol_buffers =
+				    Buffers#protocol_buffers{dtls_cipher_texts = Rest},
+				connection_states = ConnStates}};
+	#alert{} = Alert ->
+	    {Alert, State}
     end.
 
 dtls_version(hello, Version, #state{role = server} = State) ->

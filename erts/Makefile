@@ -40,8 +40,8 @@ all: $(FLAVORS)
 docs:
 	$(V_at)( cd doc/src && $(MAKE) $@ )
 
-.PHONY: debug opt clean
-debug opt clean:
+.PHONY: debug opt lcnt clean
+debug opt lcnt clean:
 	$(V_at)for d in emulator $(ERTSDIRS); do \
 		if test -d $$d; then \
 			( cd $$d && $(MAKE) $@ FLAVOR=$(FLAVOR) ) || exit $$? ; \
@@ -56,7 +56,9 @@ debug opt clean:
 
 .PHONY: $(FLAVORS)
 $(FLAVORS):
-	$(V_at)( $(MAKE) opt FLAVOR=$@ )
+	$(V_at)for type in $(TYPES); do \
+		( $(MAKE) $$type FLAVOR=$@ ); \
+	done
 
 # Make erl script and erlc in $(ERL_TOP)/bin which runs the compiled version
 # Note that erlc is not a script and requires extra handling on cygwin.
@@ -128,7 +130,9 @@ makefiles:
 .PHONY: release
 release:
 	$(V_at)for f in $(FLAVORS); do \
-		( cd emulator && $(MAKE) release FLAVOR=$$f ) \
+		for t in $(TYPES); do \
+		  ( cd emulator && $(MAKE) release FLAVOR=$$f TYPE=$$t ) \
+		done \
 	done
 	$(V_at)for d in $(ERTSDIRS) $(XINSTDIRS); do \
 		if test -d $$d; then \

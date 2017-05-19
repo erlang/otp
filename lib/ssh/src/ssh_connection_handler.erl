@@ -434,11 +434,7 @@ init_ssh_record(Role, Socket, Opts) ->
 
 init_ssh_record(Role, _Socket, PeerAddr, Opts) ->
     KeyCb = ?GET_OPT(key_cb, Opts),
-    AuthMethods =
-        case Role of
-            server -> ?GET_OPT(auth_methods, Opts);
-            client -> undefined
-        end,
+    AuthMethods = ?GET_OPT(auth_methods, Opts),
     S0 = #ssh{role = Role,
 	      key_cb = KeyCb,
 	      opts = Opts,
@@ -1705,15 +1701,18 @@ handle_ssh_msg_ext_info(#ssh_msg_ext_info{data=Data}, D0) ->
     lists:foldl(fun ext_info/2, D0, Data).
 
 
-ext_info({"server-sig-algs",SigAlgs}, D0 = #data{ssh_params=#ssh{role=client}=Ssh0}) ->
+ext_info({"server-sig-algs",SigAlgs}, D0 = #data{ssh_params=#ssh{role=client,
+                                                                 userauth_pubkeys=ClientSigAlgs}=Ssh0}) ->
     %% Make strings to eliminate risk of beeing bombed with odd strings that fills the atom table:
     SupportedAlgs = lists:map(fun erlang:atom_to_list/1, ssh_transport:supported_algorithms(public_key)),
-    Ssh = Ssh0#ssh{userauth_pubkeys = 
-                       [list_to_atom(SigAlg) || SigAlg <- string:tokens(SigAlgs,","),
-                                                %% length of SigAlg is implicitly checked by member:
-                                                lists:member(SigAlg, SupportedAlgs)
-                       ]},
-    D0#data{ssh_params = Ssh};
+    ServerSigAlgs = [list_to_atom(SigAlg) || SigAlg <- string:tokens(SigAlgs,","),
+                                             %% length of SigAlg is implicitly checked by the comparison
+                                             %% in member/2:
+                                             lists:member(SigAlg, SupportedAlgs)
+                    ],
+    CommonAlgs = [Alg || Alg <- ServerSigAlgs,
+                         lists:member(Alg, ClientSigAlgs)],
+    D0#data{ssh_params = Ssh0#ssh{userauth_pubkeys = CommonAlgs} };
 
 ext_info(_, D0) ->
     %% Not implemented

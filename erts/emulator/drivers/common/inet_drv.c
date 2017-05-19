@@ -604,18 +604,6 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 
 #endif
 
-#if defined(HAVE_SYS_UN_H)
-
-/* Check that some character in the buffer != '\0' */
-static int is_nonzero(const char *s, size_t n)
-{
-    size_t i;
-    for (i = 0;  i < n;  i++) if (s[i] != '\0') return !0;
-    return 0;
-}
-
-#endif
-
 #ifdef VALGRIND
 #  include <valgrind/memcheck.h>   
 #else
@@ -4025,13 +4013,30 @@ static char* inet_set_address(int family, inet_address* dst,
         int n;
         if (*len == 0) return str_einval;
 	n = *((unsigned char*)(*src)); /* Length field */
-	if ((*len < 1+n) || (sizeof(dst->sal.sun_path) < n+1)) {
+	if (*len < 1+n) return str_einval;
+	if (n +
+#ifdef __linux__
+            /* Make sure the address gets zero terminated
+             * except when the first byte is \0 because then it is
+             * sort of zero terminated although the zero termination
+             * comes before the address...
+             * This fix handles Linux's nonportable
+             * abstract socket address extension.
+             */
+            ((*len) > 1 && (*src)[1] == '\0' ? 0 : 1)
+#else
+            1
+#endif
+            > sizeof(dst->sal.sun_path)) {
 	    return str_einval;
 	}
 	sys_memzero((char*)dst, sizeof(struct sockaddr_un));
 	dst->sal.sun_family = family;
 	sys_memcpy(dst->sal.sun_path, (*src)+1, n);
 	*len = offsetof(struct sockaddr_un, sun_path) + n;
+#ifndef NO_SA_LEN
+        dst->sal.sun_len = *len;
+#endif
 	*src += 1 + n;
 	return NULL;
     }
@@ -4176,15 +4181,16 @@ static int inet_get_address(char* dst, inet_address* src, unsigned int* len)
         if (*len < offsetof(struct sockaddr_un, sun_path)) return -1;
         n = *len - offsetof(struct sockaddr_un, sun_path);
         if (255 < n) return -1;
-	/* Portability fix: Assume that the address is a zero terminated
-	 * string, except when the first byte is \0 i.e the
-	 * string length is 0.  Then use the reported length instead.
-	 * This fix handles Linux's abstract socket address
-	 * nonportable extension.
-	 */
         m = my_strnlen(src->sal.sun_path, n);
-	if ((m == 0) && is_nonzero(src->sal.sun_path, n))
-	    m = n;
+#ifdef __linux__
+	/* Assume that the address is a zero terminated string,
+         * except when the first byte is \0 i.e the string length is 0,
+         * then use the reported length instead.
+	 * This fix handles Linux's nonportable
+         * abstract socket address extension.
+	 */
+	if (m == 0)  m = n;
+#endif
         dst[0] = INET_AF_LOCAL;
         dst[1] = (char) ((unsigned char) m);
         sys_memcpy(dst+2, src->sal.sun_path, m);
@@ -4241,15 +4247,16 @@ inet_address_to_erlang(char *dst, inet_address **src, SOCKLEN_T sz) {
 	if (sz < offsetof(struct sockaddr_un, sun_path)) return -1;
 	n = sz - offsetof(struct sockaddr_un, sun_path);
 	if (255 < n) return -1;
-	/* Portability fix: Assume that the address is a zero terminated
-	 * string, except when the first byte is \0 i.e the
-	 * string length is 0.  Then use the reported length instead.
-	 * This fix handles Linux's abstract socket address
-	 * nonportable extension.
-	 */
         m = my_strnlen((*src)->sal.sun_path, n);
-	if ((m == 0) && is_nonzero((*src)->sal.sun_path, n))
-	    m = n;
+#ifdef __linux__
+	/* Assume that the address is a zero terminated string,
+         * except when the first byte is \0 i.e the string length is 0,
+         * Then use the reported length instead.
+	 * This fix handles Linux's nonportable
+         * abstract socket address extension.
+	 */
+	if (m == 0)  m = n;
+#endif
 	if (dst) {
 	    dst[0] = INET_AF_LOCAL;
 	    dst[1] = (char) ((unsigned char) m);
@@ -8680,6 +8687,7 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	else {
 	    ptr = &peer;
             sz = sizeof(peer);
+            sys_memzero((char *) &peer, sz);
 	    if (IS_SOCKET_ERROR
 		(sock_peer
 		 (desc->s, (struct sockaddr*)ptr, &sz)))
@@ -10830,10 +10838,11 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 
 #ifndef SO_ERROR
 	{
-	    int sz = sizeof(desc->inet.remote);
-	    int code = sock_peer(desc->inet.s,
-				 (struct sockaddr*) &desc->inet.remote, &sz);
-
+	    int sz, code;
+            sz = sizeof(desc->inet.remote);
+            sys_memzero((char *) &desc->inet.remote, sz);
+	    code = sock_peer(desc->inet.s,
+                             (struct sockaddr*) &desc->inet.remote, &sz);
 	    if (IS_SOCKET_ERROR(code)) {
 		desc->inet.state = INET_STATE_OPEN;  /* restore state */
 		ret =  async_error(INETP(desc), sock_errno());

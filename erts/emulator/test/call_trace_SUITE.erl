@@ -60,7 +60,7 @@ all() ->
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Config.
 
-end_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, _Config) ->
     %% Reloading the module will clear all trace patterns, and
     %% in a debug-compiled emulator run assertions of the counters
     %% for the number of traced exported functions in this module.

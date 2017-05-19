@@ -1538,12 +1538,6 @@ proclist_destroy(ErtsProcList *plp)
 }
 
 ErtsProcList *
-erts_proclist_copy(ErtsProcList *plp)
-{
-    return proclist_copy(plp);
-}
-
-ErtsProcList *
 erts_proclist_create(Process *p)
 {
     return proclist_create(p);
@@ -3274,13 +3268,6 @@ thr_prgr_fin_wait(void *vssi)
 }
 
 static void init_aux_work_data(ErtsAuxWorkData *awdp, ErtsSchedulerData *esdp, char *dawwp);
-
-void
-erts_interupt_aux_thread_timed(ErtsMonotonicTime timeout_time)
-{
-    /* TODO only poke when needed (based on timeout_time) */
-    erts_sched_poke(ERTS_SCHED_SLEEP_INFO_IX(-1));
-}
 
 static void *
 aux_thread(void *unused)
@@ -9316,17 +9303,6 @@ erts_pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
 }
 
 /*
- * Like erts_pid2proc_not_running(), but hands over the process
- * in a suspended state unless (c_p is looked up).
- */
-Process *
-erts_pid2proc_suspend(Process *c_p, ErtsProcLocks c_p_locks,
-		      Eterm pid, ErtsProcLocks pid_locks)
-{
-    return pid2proc_not_running(c_p, c_p_locks, pid, pid_locks, 1);
-}
-
-/*
  * erts_pid2proc_nropt() is normally the same as
  * erts_pid2proc_not_running(). However it is only
  * to be used when 'not running' is a pure optimization,
@@ -9442,21 +9418,6 @@ handle_pend_bif_async_suspend(Process *suspendee,
 	}
 	erts_smp_proc_unlock(suspender, ERTS_PROC_LOCK_LINK);
     }
-}
-
-#else
-
-/*
- * Non-smp version of erts_pid2proc_suspend().
- */
-Process *
-erts_pid2proc_suspend(Process *c_p, ErtsProcLocks c_p_locks,
-		      Eterm pid, ErtsProcLocks pid_locks)
-{
-    Process *rp = erts_pid2proc(c_p, c_p_locks, pid, pid_locks);
-    if (rp)
-	erts_suspend(rp, pid_locks, NULL);
-    return rp;
 }
 
 #endif /* ERTS_SMP */

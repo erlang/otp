@@ -500,8 +500,12 @@ setup_ecdsa_auth_keys(_Size, Dir, UserDir) ->
 setup_auth_keys(Keys, Dir) ->
     AuthKeys = public_key:ssh_encode(Keys, auth_keys),
     AuthKeysFile = filename:join(Dir, "authorized_keys"),
-    file:write_file(AuthKeysFile, AuthKeys).
+    ok = file:write_file(AuthKeysFile, AuthKeys),
+    AuthKeys.
 
+write_auth_keys(Keys, Dir) ->
+    AuthKeysFile = filename:join(Dir, "authorized_keys"),
+    file:write_file(AuthKeysFile, Keys).
 
 del_dirs(Dir) ->
     case file:list_dir(Dir) of

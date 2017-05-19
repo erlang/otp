@@ -3512,28 +3512,6 @@ void erts_allctr_wrapper_pre_unlock(void)
 }
 
 
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
- * Deprecated functions                                                    *
- *                                                                         *
- * These functions are still defined since "non-OTP linked in drivers" may *
- * contain (illegal) calls to them.                                        *
-\*                                                                         */
-
-/* --- DO *NOT* USE THESE FUNCTIONS --- */
-
-void *sys_alloc(Uint sz)
-{ return erts_alloc_fnf(ERTS_ALC_T_UNDEF, sz); }
-void *sys_realloc(void *ptr, Uint sz)
-{ return erts_realloc_fnf(ERTS_ALC_T_UNDEF, ptr, sz); }
-void sys_free(void *ptr)
-{ erts_free(ERTS_ALC_T_UNDEF, ptr); }
-void *safe_alloc(Uint sz)
-{ return erts_alloc(ERTS_ALC_T_UNDEF, sz); }
-void *safe_realloc(void *ptr, Uint sz)
-{ return erts_realloc(ERTS_ALC_T_UNDEF, ptr, sz); }
-
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * NOTE: erts_alc_test() is only supposed to be used for testing.            *
  *                                                                           *

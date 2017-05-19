@@ -827,17 +827,6 @@ erts_sched_bind_atfork_child(int unbind)
     return 0;
 }
 
-char *
-erts_sched_bind_atvfork_child(int unbind)
-{
-    if (unbind) {
-	ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&cpuinfo_rwmtx)
-			   || erts_lc_rwmtx_is_rwlocked(&cpuinfo_rwmtx));
-	return erts_get_unbind_from_cpu_str(cpuinfo);
-    }
-    return "false";
-}
-
 void
 erts_sched_bind_atfork_parent(int unbind)
 {

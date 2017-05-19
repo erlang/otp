@@ -1002,6 +1002,7 @@ else
 fi
 
 FLAVORS=
+TYPES=opt
 ERTS_BUILD_SMP_EMU=$enable_smp_support
 AC_MSG_CHECKING(whether an emulator with smp support should be built)
 case $ERTS_BUILD_SMP_EMU in
@@ -1210,6 +1211,7 @@ esac
 
 AC_SUBST(ERTS_BUILD_PLAIN_EMU)
 AC_SUBST(FLAVORS)
+AC_SUBST(TYPES)
 
 case "$ERTS_BUILD_PLAIN_EMU-$ERTS_BUILD_SMP_EMU" in
      no-no)
@@ -1365,7 +1367,7 @@ else
 	AC_MSG_CHECKING(whether lock counters should be enabled)
 	AC_MSG_RESULT($enable_lock_count)
 	if test "x$enable_lock_count" != "xno"; then
-	    EMU_THR_DEFS="$EMU_THR_DEFS -DERTS_ENABLE_LOCK_COUNT"
+	    TYPES="$TYPES lcnt"
 	fi
 
 	case $host_os in

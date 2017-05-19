@@ -267,7 +267,6 @@ int erts_port_task_schedule(Eterm,
 			    ErtsPortTaskType,
 			    ...);
 void erts_port_task_free_port(Port *);
-int erts_port_is_scheduled(Port *);
 ErtsProc2PortSigData *erts_port_task_alloc_p2p_sig_data(void);
 ErtsProc2PortSigData *erts_port_task_alloc_p2p_sig_data_extra(size_t extra, void **extra_ptr);
 void erts_port_task_free_p2p_sig_data(ErtsProc2PortSigData *sigdp);

@@ -31,6 +31,8 @@
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2]).
 
+-export([get_format_depth/0, limit_term/1]).
+
 -define(buffer_size, 10).
 
 %%-----------------------------------------------------------------
@@ -518,3 +520,21 @@ string_p1([H|T]) when is_list(H) ->
     end;
 string_p1([]) -> true;
 string_p1(_) ->  false.
+
+-spec limit_term(term()) -> term().
+
+limit_term(Term) ->
+    case get_format_depth() of
+        unlimited -> Term;
+        D -> io_lib:limit_term(Term, D)
+    end.
+
+-spec get_format_depth() -> 'unlimited' | pos_integer().
+
+get_format_depth() ->
+    case application:get_env(kernel, error_logger_format_depth) of
+	{ok, Depth} when is_integer(Depth) ->
+	    max(10, Depth);
+	undefined ->
+	    unlimited
+    end.

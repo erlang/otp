@@ -143,7 +143,8 @@ setup(#state{frame = Frame} = State) ->
     wxFrame:setTitle(Frame, atom_to_list(node())),
     wxStatusBar:setStatusText(StatusBar, atom_to_list(node())),
 
-    wxNotebook:connect(Notebook, command_notebook_page_changed, [{skip, true}]),
+    wxNotebook:connect(Notebook, command_notebook_page_changed,
+                       [{skip, true}, {id, ?ID_NOTEBOOK}]),
     wxFrame:connect(Frame, close_window, []),
     wxMenu:connect(Frame, command_menu_selected),
     wxFrame:show(Frame),
@@ -230,12 +231,13 @@ setup(#state{frame = Frame} = State) ->
 
 %%Callbacks
 handle_event(#wx{event=#wxNotebook{type=command_notebook_page_changed, nSel=Next}},
-	     #state{active_tab=Previous, node=Node, panels=Panels} = State) ->
+	     #state{active_tab=Previous, node=Node, panels=Panels, status_bar=SB} = State) ->
     {_, Obj, _} = lists:nth(Next+1, Panels),
     case wx_object:get_pid(Obj) of
 	Previous ->
             {noreply, State};
 	Pid ->
+            wxStatusBar:setStatusText(SB, ""),
 	    Previous ! not_active,
 	    Pid ! {active, Node},
 	    {noreply, State#state{active_tab=Pid}}

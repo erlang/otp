@@ -733,7 +733,7 @@ set_on_first_spawn(Config) when is_list(Config) ->
 
 %% Tests trace(Pid, How, [set_on_link]).
 
-set_on_link(Config) ->
+set_on_link(_Config) ->
     Listener = fun_spawn(fun process/0),
 
     %% Create and trace a process with the set_on_link flag.
@@ -756,7 +756,7 @@ set_on_link(Config) ->
 
 %% Tests trace(Pid, How, [set_on_first_spawn]).
 
-set_on_first_link(Config) ->
+set_on_first_link(_Config) ->
     ct:timetrap({seconds, 10}),
     Listener = fun_spawn(fun process/0),
 

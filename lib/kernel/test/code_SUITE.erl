@@ -107,13 +107,18 @@ init_per_testcase(big_boot_embedded, Config) ->
 	_Else ->
 	    {skip, "Needs crypto!"}
     end;
-init_per_testcase(on_load_embedded, Config) ->
+init_per_testcase(on_load_embedded, Config0) ->
     LibRoot = code:lib_dir(),
     LinkName = filename:join(LibRoot, "on_load_app-1.0"),
-    [{link_name,LinkName}|Config];
+    Config = [{link_name,LinkName}|Config0],
+    init_per_testcase(Config);
 init_per_testcase(_Func, Config) ->
+    init_per_testcase(Config).
+
+init_per_testcase(Config) ->
     P = code:get_path(),
     [{code_path, P}|Config].
+
 
 end_per_testcase(module_status, Config) ->
     code:purge(?TESTMOD),

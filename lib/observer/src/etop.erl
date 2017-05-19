@@ -180,10 +180,16 @@ stop(Opts) ->
     end,
     unregister(etop_server).
     
-update(#opts{store=Store,node=Node,tracing=Tracing}=Opts) ->
+update(#opts{store=Store,node=Node,tracing=Tracing,intv=Interval}=Opts) ->
     Pid = spawn_link(Node,observer_backend,etop_collect,[self()]),
     Info = receive {Pid,I} -> I 
-	   after 1000 -> exit(connection_lost)
+	   after Interval ->
+                   %% Took more than the update interval to fetch
+                   %% data. Either the connection is lost or the
+                   %% fetching took too long...
+                   io:format("Timeout when waiting for process info from "
+                             "node ~p; exiting~n", [Node]),
+                   exit(timeout)
 	   end,
     #etop_info{procinfo=ProcInfo} = Info,
     ProcInfo1 = 

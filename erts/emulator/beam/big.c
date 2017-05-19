@@ -2266,21 +2266,6 @@ Eterm big_minus(Eterm x, Eterm y, Eterm *r)
 }
 
 /*
-** Subtract a digit from big number
-*/
-Eterm big_minus_small(Eterm x, Eterm y, Eterm *r)
-{
-    Eterm* xp = big_val(x);
-
-    if (BIG_SIGN(xp))
-	return big_norm(r, D_add(BIG_V(xp),BIG_SIZE(xp), (ErtsDigit) y, BIG_V(r)), 
-			(short) BIG_SIGN(xp));
-    else
-	return big_norm(r, D_sub(BIG_V(xp),BIG_SIZE(xp), (ErtsDigit) y, BIG_V(r)), 
-			(short) BIG_SIGN(xp));
-}
-
-/*
 ** Multiply smallnums
 */
 
@@ -2410,16 +2395,6 @@ Eterm big_rem(Eterm x, Eterm y, Eterm *r)
 	dsize_t rsz = I_rem(BIG_V(xp), xsz, BIG_V(yp), ysz, BIG_V(r));
 	return big_norm(r, rsz, sign);
     }
-}
-
-Eterm big_neg(Eterm x, Eterm *r)
-{
-    Eterm* xp = big_val(x);
-    dsize_t xsz = BIG_SIZE(xp);
-    short xsgn = BIG_SIGN(xp);
-    
-    MOVE_DIGITS(BIG_V(r), BIG_V(xp), xsz);
-    return big_norm(r, xsz, (short) !xsgn);
 }
 
 Eterm big_band(Eterm x, Eterm y, Eterm *r)

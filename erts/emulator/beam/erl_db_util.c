@@ -1301,11 +1301,6 @@ int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body)
     return 0;
 }
 
-/* This is used when tracing */
-Eterm erts_match_set_lint(Process *p, Eterm matchexpr) {
-    return db_match_set_lint(p, matchexpr, DCOMP_TRACE);
-}
-
 Eterm db_match_set_lint(Process *p, Eterm matchexpr, Uint flags) 
 {
     Eterm l;
@@ -2017,7 +2012,8 @@ restart:
     do_catch = 0;
     fail_label = -1;
     build_proc = psp;
-    esdp->current_process = psp;
+    if (esdp)
+        esdp->current_process = psp;
 
 #ifdef DEBUG
     ASSERT(variables == mpsp->u.variables);
@@ -2686,7 +2682,8 @@ restart:
 	    do_catch = 1;
 	    if (in_flags & ERTS_PAM_COPY_RESULT) {
 		build_proc = c_p;
-		esdp->current_process = c_p;
+                if (esdp)
+                    esdp->current_process = c_p;
 	    }
 	    break;
 	case matchHalt:
