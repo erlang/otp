@@ -31,7 +31,7 @@
          otp_10836/1, io_lib_width_too_small/1,
          io_with_huge_message_queue/1, format_string/1,
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
-         otp_14285/1]).
+         otp_14285/1, limit_term/1]).
 
 -export([pretty/2]).
 
@@ -63,7 +63,7 @@ all() ->
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
-     otp_14285].
+     otp_14285, limit_term].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -2373,3 +2373,58 @@ otp_14285(_Config) ->
 latin1_fmt(Fmt, Args) ->
     L = fmt(Fmt, Args),
     true = lists:all(fun is_latin1/1, L).
+
+limit_term(_Config) ->
+    {_, 2} = limt([a,b,c], 2),
+    {_, 2} = limt([a,b,c], 3),
+    {_, 2} = limt([a,b|c], 2),
+    {_, 2} = limt([a,b|c], 3),
+    {_, 2} = limt({a,b,c,[d,e]}, 2),
+    {_, 2} = limt({a,b,c,[d,e]}, 3),
+    {_, 2} = limt({a,b,c,[d,e]}, 4),
+    {_, 1} = limt(<<"foo">>, 18),
+    ok = blimt(<<"123456789012345678901234567890">>),
+    {_, 1} = limt(<<7:3>>, 2),
+    {_, 1} = limt(<<7:21>>, 2),
+    {_, 1} = limt([], 2),
+    {_, 1} = limt({}, 2),
+    {_, 1} = limt(#{}, 2),
+    {_, 1} = limt(#{[] => {}}, 2),
+    {_, 1} = limt(#{[] => {}}, 3),
+    T = #{[] => {},[a] => [b]},
+    {_, 1} = limt(T, 2),
+    {_, 1} = limt(T, 3),
+    {_, 1} = limt(T, 4),
+    ok.
+
+blimt(Binary) ->
+    blimt(Binary, byte_size(Binary)).
+
+blimt(_B, 1) -> ok;
+blimt(B, D) ->
+    {_, 1} = limt(B, D),
+    blimt(B, D - 1).
+
+limt(Term, Depth) when is_integer(Depth) ->
+    T1 = io_lib:limit_term(Term, Depth),
+    S = form(Term, Depth),
+    S1 = form(T1, Depth),
+    OK1 = S1 =:= S,
+
+    T2 = io_lib:limit_term(Term, Depth+1),
+    S2 = form(T2, Depth),
+    OK2 = S2 =:= S,
+
+    T3 = io_lib:limit_term(Term, Depth-1),
+    S3 = form(T3, Depth),
+    OK3 = S3 =/= S,
+
+    R = case {OK1, OK2, OK3} of
+            {true, true, true} -> 2;
+            {true, true, false} -> 1;
+            _ -> 0
+        end,
+    {{S, S1, S2}, R}.
+
+form(Term, Depth) ->
+    lists:flatten(io_lib:format("~W", [Term, Depth])).
