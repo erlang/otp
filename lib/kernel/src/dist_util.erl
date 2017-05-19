@@ -381,8 +381,8 @@ connection(#hs_data{other_node = Node,
     end.
 
 %% Generate a message digest from Challenge number and Cookie	
-gen_digest(Challenge, Cookie) when is_integer(Challenge), is_atom(Cookie) ->
-    erlang:md5([atom_to_list(Cookie)|integer_to_list(Challenge)]).
+gen_digest(Challenge, Cookie) when is_integer(Challenge), is_list(Cookie) ->
+    erlang:md5([Cookie|integer_to_list(Challenge)]).
 
 %% ---------------------------------------------------------------
 %% Challenge code
@@ -407,7 +407,7 @@ gen_challenge() ->
 %%    
 get_cookies(Node) ->
     case auth:get_cookie(Node) of
-	X when is_atom(X) ->
+	X when is_list(X) ->
 	    {X,X}
 %	{Y,Z} when is_atom(Y), is_atom(Z) ->
 %	    {Y,Z};
@@ -623,8 +623,8 @@ recv_challenge_reply(#hs_data{socket = Socket,
 	    ?trace("recv_reply: challenge=~w digest=~p\n",
 		   [ChallengeB,SumB]),
 	    ?trace("sum = ~p\n", [SumA]),
-	    case list_to_binary(SumB) of
-		SumA ->
+	    case secure_compare(SumA, list_to_binary(SumB)) of
+		true ->
 		    ChallengeB;
 		_ ->
 		    error_msg("** Connection attempt from "
@@ -643,8 +643,8 @@ recv_challenge_ack(#hs_data{socket = Socket, f_recv = FRecv,
 	    SumA = gen_digest(ChallengeB, CookieA),
 	    ?trace("recv_ack: digest=~p\n", [SumB]),
 	    ?trace("sum = ~p\n", [SumA]),
-	    case list_to_binary(SumB) of
-		SumA ->
+	    case secure_compare(SumA, list_to_binary(SumB)) of
+		true ->
 		    ok;
 		_ ->
 		    error_msg("** Connection attempt to "
@@ -695,8 +695,14 @@ send_status(#hs_data{socket = Socket, other_node = Node,
 	_ -> 
 	    true
     end.
-    
-    
+
+%% Constant time comparison between two binaries of the same size.
+secure_compare(B1, B2) ->
+    secure_compare(B1, B2, 0) =:= 0.
+secure_compare(<<H1, T1/binary>>, <<H2, T2/binary>>, Acc) ->
+    secure_compare(T1, T2, Acc bor (H1 bxor H2));
+secure_compare(<<>>, <<>>, Acc) ->
+    Acc.
 
 %%
 %% Send a TICK to the other side.

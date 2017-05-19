@@ -3321,7 +3321,7 @@ delay_trap(Result, Timeout) -> receive after Timeout -> Result end.
 set_cookie(Node, C) when Node =/= nonode@nohost, erlang:is_atom(Node) ->
     case erlang:is_atom(C) of
 	true ->
-	    auth:set_cookie(Node, C);
+	    auth:set_cookie(Node, erlang:atom_to_list(C));
 	false ->
 	    erlang:error(badarg)
     end.
@@ -3329,7 +3329,7 @@ set_cookie(Node, C) when Node =/= nonode@nohost, erlang:is_atom(Node) ->
 -spec erlang:get_cookie() -> Cookie | nocookie when
       Cookie :: atom().
 get_cookie() ->
-    auth:get_cookie().
+    erlang:list_to_atom(auth:get_cookie()).
 
 -spec integer_to_list(Integer, Base) -> string() when
       Integer :: integer(),
