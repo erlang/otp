@@ -108,11 +108,13 @@
 -define(DICT, dict:dict).
 -define(SETS, sets).
 -define(SET, sets:set).
+-define(MAPS, maps).
+-define(MAP, maps:map).
 
 -record(state, {name,
 		strategy               :: strategy() | 'undefined',
 		children = []          :: [child_rec()],
-                dynamics               :: {'dict', ?DICT(pid(), list())}
+                dynamics               :: {'map', #{pid() => list()}}
                                         | {'set', ?SET(pid())}
                                         | 'undefined',
 		intensity              :: non_neg_integer() | 'undefined',
@@ -507,7 +509,7 @@ handle_call(which_children, _From, #state{children = [#child{restart_type = RTyp
 		State) when ?is_simple(State) ->
     Reply = lists:map(fun({?restarting(_),_}) -> {undefined,restarting,CT,Mods};
 			 ({Pid, _}) -> {undefined, Pid, CT, Mods} end,
-		      ?DICTS:to_list(dynamics_db(RType, State#state.dynamics))),
+		      ?MAPS:to_list(dynamics_db(RType, State#state.dynamics))),
     {reply, Reply, State};
 
 handle_call(which_children, _From, State) ->
@@ -539,7 +541,7 @@ handle_call(count_children, _From,  #state{dynamic_restarts = Restarts,
 					   children = [#child{restart_type = RType,
 							      child_type = CT}]} = State)
   when ?is_simple(State) ->
-    Sz = ?DICTS:size(dynamics_db(RType, State#state.dynamics)),
+    Sz = ?MAPS:size(dynamics_db(RType, State#state.dynamics)),
     Active = Sz - Restarts,
     Reply = case CT of
 		supervisor -> [{specs, 1}, {active, Active},
@@ -818,20 +820,20 @@ restart(simple_one_for_one, Child, State0) ->
 		_ ->
 		    State0
 	    end,
-    Dynamics = ?DICTS:erase(OldPid, dynamics_db(Child#child.restart_type,
+    Dynamics = ?MAPS:remove(OldPid, dynamics_db(Child#child.restart_type,
 					       State#state.dynamics)),
     case do_start_child_i(M, F, A) of
 	{ok, Pid} ->
-            DynamicsDb = {dict, ?DICTS:store(Pid, A, Dynamics)},
+            DynamicsDb = {map, ?MAPS:put(Pid, A, Dynamics)},
 	    NState = State#state{dynamics = DynamicsDb},
 	    {ok, NState};
 	{ok, Pid, _Extra} ->
-            DynamicsDb = {dict, ?DICTS:store(Pid, A, Dynamics)},
+            DynamicsDb = {map, ?MAPS:put(Pid, A, Dynamics)},
 	    NState = State#state{dynamics = DynamicsDb},
 	    {ok, NState};
 	{error, Error} ->
 	    NRestarts = State#state.dynamic_restarts + 1,
-            DynamicsDb = {dict, ?DICTS:store(restarting(OldPid), A, Dynamics)},
+            DynamicsDb = {map, ?MAPS:put(restarting(OldPid), A, Dynamics)},
 	    NState = State#state{dynamic_restarts = NRestarts,
 				 dynamics = DynamicsDb},
 	    report_error(start_error, Error, Child, State#state.name),
@@ -1000,7 +1002,7 @@ monitor_child(Pid) ->
 %%-----------------------------------------------------------------
 %% Func: terminate_dynamic_children/3
 %% Args: Child    = child_rec()
-%%       Dynamics = ?DICT() | ?SET()
+%%       Dynamics = ?MAP() | ?SET()
 %%       SupName  = {local, atom()} | {global, atom()} | {pid(),Mod}
 %% Returns: ok
 %%
@@ -1043,7 +1045,7 @@ monitor_dynamic_children(#child{restart_type=temporary}, Dynamics) ->
                        end
                end, {?SETS:new(), ?DICTS:new()}, Dynamics);
 monitor_dynamic_children(#child{restart_type=RType}, Dynamics) ->
-    ?DICTS:fold(fun(P, _, {Pids, EStack}) when is_pid(P) ->
+    ?MAPS:fold(fun(P, _, {Pids, EStack}) when is_pid(P) ->
                        case monitor_child(P) of
                            ok ->
                                {?SETS:add_element(P, Pids), EStack};
@@ -1124,19 +1126,19 @@ save_dynamic_child(temporary, Pid, _, #state{dynamics = Dynamics} = State) ->
     State#state{dynamics = {set, ?SETS:add_element(Pid, DynamicsDb)}};
 save_dynamic_child(RestartType, Pid, Args, #state{dynamics = Dynamics} = State) ->
     DynamicsDb = dynamics_db(RestartType, Dynamics),
-    State#state{dynamics = {dict, ?DICTS:store(Pid, Args, DynamicsDb)}}.
+    State#state{dynamics = {map, ?MAPS:put(Pid, Args, DynamicsDb)}}.
 
 dynamics_db(temporary, undefined) ->
     ?SETS:new();
 dynamics_db(_, undefined) ->
-    ?DICTS:new();
+    ?MAPS:new();
 dynamics_db(_, {_Tag, DynamicsDb}) ->
     DynamicsDb.
 
 dynamic_child_args(_Pid, temporary, _DynamicsDb) ->
     {ok, undefined};
-dynamic_child_args(Pid, _RT, {dict, DynamicsDb}) ->
-    ?DICTS:find(Pid, DynamicsDb);
+dynamic_child_args(Pid, _RT, {map, DynamicsDb}) ->
+    ?MAPS:find(Pid, DynamicsDb);
 dynamic_child_args(_Pid, _RT, undefined) ->
     error.
 
@@ -1144,8 +1146,8 @@ state_del_child(#child{pid = Pid, restart_type = temporary}, State) when ?is_sim
     NDynamics = ?SETS:del_element(Pid, dynamics_db(temporary, State#state.dynamics)),
     State#state{dynamics = {set, NDynamics}};
 state_del_child(#child{pid = Pid, restart_type = RType}, State) when ?is_simple(State) ->
-    NDynamics = ?DICTS:erase(Pid, dynamics_db(RType, State#state.dynamics)),
-    State#state{dynamics = {dict, NDynamics}};
+    NDynamics = ?MAPS:remove(Pid, dynamics_db(RType, State#state.dynamics)),
+    State#state{dynamics = {map, NDynamics}};
 state_del_child(Child, State) ->
     NChildren = del_child(Child#child.name, State#state.children),
     State#state{children = NChildren}.
@@ -1202,8 +1204,8 @@ get_dynamic_child(Pid, #state{children=[Child], dynamics=Dynamics}) ->
 	    end
     end.
 
-is_dynamic_pid(Pid, {dict, Dynamics}) ->
-    ?DICTS:is_key(Pid, Dynamics);
+is_dynamic_pid(Pid, {map, Dynamics}) ->
+    ?MAPS:is_key(Pid, Dynamics);
 is_dynamic_pid(Pid, {set, Dynamics}) ->
     ?SETS:is_element(Pid, Dynamics);
 is_dynamic_pid(_Pid, undefined) ->
