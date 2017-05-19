@@ -714,6 +714,7 @@ typedef struct {
 typedef struct {
     ErlNifResourceDtor* dtor;
     ErlNifResourceStop* stop;
+    ErlNifResourceDown* down;
 } ErlNifResourceTypeInit;</code>
         <p>Initialization structure read by <seealso marker="#enif_open_resource_type_x">
 	enif_open_resource_type_x</seealso>.</p>
@@ -1395,13 +1396,12 @@ typedef enum {
         <p>Returns <c>true</c> if a pending exception is associated with the
           environment <c>env</c>. If <c>reason</c> is a <c>NULL</c> pointer,
           ignore it. Otherwise, if a pending exception associated with
-          <c>env</c> exists, set <c>ERL_NIF_TERM</c> to which <c>reason</c>
-          points to the value of the exception's term. For example, if
-          <seealso marker="#enif_make_badarg">
+          <c>env</c> exists, set <c>*reason</c> to the value of the exception
+	  term. For example, if <seealso marker="#enif_make_badarg">
           <c>enif_make_badarg</c></seealso> is called to set a pending
           <c>badarg</c> exception, a later call to
           <c>enif_has_pending_exception(env, &amp;reason)</c> sets
-          <c>reason</c> to the atom <c>badarg</c>, then return <c>true</c>.</p>
+          <c>*reason</c> to the atom <c>badarg</c>, then return <c>true</c>.</p>
         <p>See also <seealso marker="#enif_make_badarg">
           <c>enif_make_badarg</c></seealso> and
           <seealso marker="#enif_raise_exception">
@@ -2384,20 +2384,23 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           called in the two callbacks
           <seealso marker="#load"><c>load</c></seealso> and
           <seealso marker="#upgrade"><c>upgrade</c></seealso>.</p>
+	<p>See also <seealso marker="#enif_open_resource_type_x">
+	  <c>enif_open_resource_type_x</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
       <name><ret>ErlNifResourceType *</ret>
         <nametext>enif_open_resource_type_x(ErlNifEnv* env, const char* name,
-	ErlNifResourceTypeInit* init,
+	const ErlNifResourceTypeInit* init,
         ErlNifResourceFlags flags, ErlNifResourceFlags* tried)</nametext>
       </name>
       <fsummary>Create or takeover a resource type.</fsummary>
       <desc>
 	<p>Same as <seealso marker="#enif_open_resource_type"><c>enif_open_resource_type</c></seealso>
-	  except is also accept a <c>stop</c> callback for resource types that are
-	  used together with <seealso marker="#enif_select"><c>enif_select</c></seealso>.</p>
+	  except it accepts additional callback functions for resource types that are
+	  used together with <seealso marker="#enif_select"><c>enif_select</c></seealso>
+	  and <seealso marker="#enif_monitor_process"><c>enif_monitor_process</c></seealso>.</p>
 	<p>Argument <c>init</c> is a pointer to an
 	  <seealso marker="#ErlNifResourceTypeInit"><c>ErlNifResourceTypeInit</c></seealso>
 	  structure that contains the function pointers for destructor, down and stop callbacks
@@ -2695,6 +2698,21 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	  the event object. This safe way of closing event objects must be used
 	  even if all notifications have been received and no further calls to
 	  <c>enif_select</c> have been made.</p>
+	<p>The first call to <c>enif_select</c> for a specific OS <c>event</c> will establish
+	  a relation between the event object and the containing resource. All subsequent calls
+	  for an <c>event</c> must pass its containing resource as argument
+	  <c>obj</c>. The relation is dissolved when <c>enif_select</c> has
+	  been called with <c>mode</c> as <c>ERL_NIF_SELECT_STOP</c> and the
+	  corresponding <c>stop</c> callback has returned. A resource can contain
+	  several event objects but one event object can only be contained within
+	  one resource. A resource will not be destructed until all its contained relations
+	  have been dissolved.</p>
+        <note>
+	  <p>Use <seealso marker="#enif_monitor_process"><c>enif_monitor_process</c></seealso>
+	  together with <c>enif_select</c> to detect failing Erlang
+	  processes and prevent them from causing permanent leakage of resources
+	  and their contained OS event objects.</p>
+	</note>
 	<p>Returns a non-negative value on success where the following bits can be set:</p>
         <taglist>
           <tag><c>ERL_NIF_SELECT_STOP_CALLED</c></tag>
