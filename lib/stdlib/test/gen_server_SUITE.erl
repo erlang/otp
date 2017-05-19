@@ -404,7 +404,7 @@ crash(Config) when is_list(Config) ->
     end,
     receive
 	{error_report,_,{Pid4,crash_report,[List4|_]}} ->
-	    {exit,crashed,_} = proplists:get_value(error_info, List4),
+	    {exit,crashed,[{?MODULE, handle_call, 3, _}|_]} = proplists:get_value(error_info, List4),
 	    Pid4 = proplists:get_value(pid, List4);
 	Other4 ->
 	    io:format("Unexpected: ~p", [Other4]),
