@@ -58,7 +58,8 @@ dbg_ssh_messages() ->
     dbg:tp(ssh_message,decode,1, x),
     dbg:tpl(ssh_transport,select_algorithm,4, x),
     dbg:tp(ssh_transport,hello_version_msg,1, x),
-    dbg:tp(ssh_transport,handle_hello_version,1, x).
+    dbg:tp(ssh_transport,handle_hello_version,1, x),
+    dbg:tpl(ssh_connection_handler,ext_info,2, x).
    
 %%%----------------------------------------------------------------
 stop() ->
@@ -89,6 +90,28 @@ msg_formater({trace_ts,Pid,call,{ssh_transport,handle_hello_version,[Hello]},TS}
     fmt("~n~s ~p RECV HELLO~n  ~p~n", [ts(TS),Pid,lists:flatten(Hello)], D);
 msg_formater({trace_ts,_Pid,return_from,{ssh_transport,handle_hello_version,1},_,_TS}, D) -> 
     D;
+
+msg_formater({trace_ts,Pid,call,{ssh_connection_handler,ext_info,[{"server-sig-algs",_SigAlgs},State]},TS}, D) ->
+    try lists:keyfind(ssh, 1, tuple_to_list(State)) of
+        false ->
+            D;
+        #ssh{userauth_pubkeys = PKs} ->
+            fmt("~n~s ~p Client suggests ~p~n", [ts(TS),Pid,PKs], D)
+    catch
+        _:_ ->
+            D
+    end;
+
+msg_formater({trace_ts,Pid,return_from,{ssh_connection_handler,ext_info,2},State,TS}, D) ->
+    try lists:keyfind(ssh, 1, tuple_to_list(State)) of
+        false ->
+            D;
+        #ssh{userauth_pubkeys = PKs} ->
+            fmt("~n~s ~p Client will try public keys ~p~n", [ts(TS),Pid,PKs], D)
+    catch
+        _:_ ->
+            D
+    end;
 
 msg_formater({trace_ts,Pid,send,{tcp,Sock,Bytes},Pid,TS}, D) ->
     fmt("~n~s ~p TCP SEND on ~p~n ~p~n", [ts(TS),Pid,Sock, shrink_bin(Bytes)], D);
