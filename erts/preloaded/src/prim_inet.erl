@@ -1365,6 +1365,7 @@ type_opt_1(packet) ->
 	   {1, ?TCP_PB_1},
 	   {2, ?TCP_PB_2},
 	   {4, ?TCP_PB_4},
+       {variable_length, ?TCP_PB_VARINT},
 	   {raw,?TCP_PB_RAW},
 	   {sunrm, ?TCP_PB_RM},
 	   {asn1, ?TCP_PB_ASN1},

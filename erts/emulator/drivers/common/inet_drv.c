@@ -10592,11 +10592,12 @@ static int tcp_shutdown_error(tcp_descriptor* desc, int err)
 static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
 {
     ErlDrvSizeT sz;
-    char buf[4];
+    char buf[5];
     ErlDrvSizeT h_len;
     ssize_t n;
     ErlDrvPort ix = desc->inet.port;
     ErlDrvSizeT len = ev->size;
+    ssize_t varint_h_len;
 
      switch(desc->inet.htype) {
      case TCP_PB_1:
@@ -10610,6 +10611,11 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
      case TCP_PB_4:
          put_int32(len, buf);
          h_len = 4;
+         break;
+     case TCP_PB_VARINT:
+         varint_h_len = encode_varint32(len, buf, sizeof(buf));
+         ASSERT(varint_h_len >= 1);
+         h_len = varint_h_len;
          break;
      default:
          if (len == 0)
@@ -10692,11 +10698,12 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
 static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
 {
     int sz;
-    char buf[4];
+    char buf[5];
     int h_len;
     int n;
     ErlDrvPort ix = desc->inet.port;
     SysIOVec iov[2];
+    ssize_t varint_h_len;
 
     switch(desc->inet.htype) {
     case TCP_PB_1: 
@@ -10711,6 +10718,11 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
 	put_int32(len, buf);
 	h_len = 4; 
 	break;
+    case TCP_PB_VARINT:
+        varint_h_len = encode_varint32(len, buf, sizeof(buf));
+        ASSERT(varint_h_len >= 1);
+        h_len = varint_h_len;
+        break;
     default:
 	if (len == 0)
 	    return 0;
