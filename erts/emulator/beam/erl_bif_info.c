@@ -3450,9 +3450,15 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	if (is_non_value(res))
 	    BIF_RET(am_undefined);
 	BIF_TRAP1(gather_sched_wall_time_res_trap, BIF_P, res);
-    } else if (BIF_ARG_1 == am_total_active_tasks
-	       || BIF_ARG_1 == am_total_run_queue_lengths) {
-	Uint no = erts_run_queues_len(NULL, 0, BIF_ARG_1 == am_total_active_tasks);
+    } else if ((BIF_ARG_1 == am_total_active_tasks)
+	       | (BIF_ARG_1 == am_total_run_queue_lengths)
+               | (BIF_ARG_1 == am_total_active_tasks_all)
+	       | (BIF_ARG_1 == am_total_run_queue_lengths_all)) {
+	Uint no = erts_run_queues_len(NULL, 0,
+                                      ((BIF_ARG_1 == am_total_active_tasks)
+                                       | (BIF_ARG_1 == am_total_active_tasks_all)),
+                                      ((BIF_ARG_1 == am_total_active_tasks_all)
+                                       | (BIF_ARG_1 == am_total_run_queue_lengths_all)));
 	if (IS_USMALL(0, no))
 	    res = make_small(no);
 	else {
@@ -3460,13 +3466,21 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	    res = uint_to_big(no, hp);
 	}
 	BIF_RET(res);
-    } else if (BIF_ARG_1 == am_active_tasks
-	       || BIF_ARG_1 == am_run_queue_lengths) {
+    } else if ((BIF_ARG_1 == am_active_tasks)
+           | (BIF_ARG_1 == am_run_queue_lengths)
+           | (BIF_ARG_1 == am_active_tasks_all)
+           | (BIF_ARG_1 == am_run_queue_lengths_all)) {
 	Eterm res, *hp, **hpp;
 	Uint sz, *szp;
-	int no_qs = erts_no_run_queues;
+        int incl_dirty_io = ((BIF_ARG_1 == am_active_tasks_all)
+                             | (BIF_ARG_1 == am_run_queue_lengths_all));
+        int no_qs = (erts_no_run_queues + ERTS_NUM_DIRTY_CPU_RUNQS +
+                     (incl_dirty_io ? ERTS_NUM_DIRTY_IO_RUNQS : 0));
 	Uint *qszs = erts_alloc(ERTS_ALC_T_TMP,sizeof(Uint)*no_qs*2);
-	(void) erts_run_queues_len(qszs, 0, BIF_ARG_1 == am_active_tasks);
+        (void) erts_run_queues_len(qszs, 0,
+                                   ((BIF_ARG_1 == am_active_tasks)
+                                    | (BIF_ARG_1 == am_active_tasks_all)),
+                                   incl_dirty_io);
 	sz = 0;
 	szp = &sz;
 	hpp = NULL;
@@ -3539,7 +3553,7 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	res = TUPLE2(hp, b1, b2);
 	BIF_RET(res);
     } else if (BIF_ARG_1 ==  am_run_queue) {
-	res = erts_run_queues_len(NULL, 1, 0);
+	res = erts_run_queues_len(NULL, 1, 0, 0);
 	BIF_RET(make_small(res));
     } else if (BIF_ARG_1 == am_wall_clock) {
 	UWord w1, w2;
@@ -3557,9 +3571,9 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
     else if (ERTS_IS_ATOM_STR("run_queues", BIF_ARG_1)) {
 	Eterm res, *hp, **hpp;
 	Uint sz, *szp;
-	int no_qs = erts_no_run_queues;
+	int no_qs = erts_no_run_queues + ERTS_NUM_DIRTY_RUNQS;
 	Uint *qszs = erts_alloc(ERTS_ALC_T_TMP,sizeof(Uint)*no_qs*2);
-	(void) erts_run_queues_len(qszs, 0, 0);
+	(void) erts_run_queues_len(qszs, 0, 0, 1);
 	sz = 0;
 	szp = &sz;
 	hpp = NULL;

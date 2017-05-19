@@ -1541,24 +1541,29 @@ extern int erts_system_profile_ts_type;
     } while (0)
 
 #if defined(ERTS_DIRTY_SCHEDULERS) && defined(ERTS_SMP)
-#define ERTS_NUM_DIRTY_RUNQS 2
+#define ERTS_NUM_DIRTY_CPU_RUNQS 1
+#define ERTS_NUM_DIRTY_IO_RUNQS 1
 #else
-#define ERTS_NUM_DIRTY_RUNQS 0
+#define ERTS_NUM_DIRTY_CPU_RUNQS 0
+#define ERTS_NUM_DIRTY_IO_RUNQS 0
 #endif
 
+#define ERTS_NUM_DIRTY_RUNQS (ERTS_NUM_DIRTY_CPU_RUNQS+ERTS_NUM_DIRTY_IO_RUNQS)
+
 #define ERTS_RUNQ_IX(IX)						\
-  (ASSERT(0 <= (IX) && (IX) < erts_no_run_queues),			\
+  (ASSERT(0 <= (IX) && (IX) < erts_no_run_queues+ERTS_NUM_DIRTY_RUNQS), \
    &erts_aligned_run_queues[(IX)].runq)
 #ifdef ERTS_DIRTY_SCHEDULERS
 #define ERTS_RUNQ_IX_IS_DIRTY(IX)					\
-  (-(ERTS_NUM_DIRTY_RUNQS) <= (IX) && (IX) < 0)
+  (ASSERT(0 <= (IX) && (IX) < erts_no_run_queues+ERTS_NUM_DIRTY_RUNQS), \
+   (erts_no_run_queues <= (IX)))
 #define ERTS_DIRTY_RUNQ_IX(IX)						\
   (ASSERT(ERTS_RUNQ_IX_IS_DIRTY(IX)),					\
    &erts_aligned_run_queues[(IX)].runq)
-#define ERTS_DIRTY_CPU_RUNQ (&erts_aligned_run_queues[-1].runq)
-#define ERTS_DIRTY_IO_RUNQ  (&erts_aligned_run_queues[-2].runq)
-#define ERTS_RUNQ_IS_DIRTY_CPU_RUNQ(RQ) ((RQ)->ix == -1)
-#define ERTS_RUNQ_IS_DIRTY_IO_RUNQ(RQ) ((RQ)->ix == -2)
+#define ERTS_DIRTY_CPU_RUNQ (&erts_aligned_run_queues[erts_no_run_queues].runq)
+#define ERTS_DIRTY_IO_RUNQ  (&erts_aligned_run_queues[erts_no_run_queues+1].runq)
+#define ERTS_RUNQ_IS_DIRTY_CPU_RUNQ(RQ) ((RQ) == ERTS_DIRTY_CPU_RUNQ)
+#define ERTS_RUNQ_IS_DIRTY_IO_RUNQ(RQ) ((RQ) == ERTS_DIRTY_IO_RUNQ)
 #else
 #define ERTS_RUNQ_IX_IS_DIRTY(IX) 0
 #endif
@@ -1836,7 +1841,7 @@ Uint erts_active_schedulers(void);
 void erts_init_process(int, int, int);
 Eterm erts_process_state2status(erts_aint32_t);
 Eterm erts_process_status(Process *, Eterm);
-Uint erts_run_queues_len(Uint *, int, int);
+Uint erts_run_queues_len(Uint *, int, int, int);
 void erts_add_to_runq(Process *);
 Eterm erts_bound_schedulers_term(Process *c_p);
 Eterm erts_get_cpu_topology_term(Process *c_p, Eterm which);
