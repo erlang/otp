@@ -885,7 +885,6 @@ void erts_replace_intr(void) {
 void init_break_handler(void)
 {
    sys_signal(SIGINT,  request_break);
-   sys_signal(SIGHUP,  generic_signal_handler);
 #ifndef ETHR_UNUSABLE_SIGUSRX
    sys_signal(SIGUSR1, generic_signal_handler);
 #endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
