@@ -19,91 +19,7 @@
 // %CopyrightEnd%
 //
 
-// Macros only used to generate instructions.
-
-FAIL(Fail) {
-    //| -no_prefetch
-    SET_I((BeamInstr *) $Fail);
-    Goto(*I);
-}
-
-JUMP(Fail) {
-    //| -no_next
-    SET_I((BeamInstr *) $Fail);
-    Goto(*I);
-}
-
-GC_TEST(Ns, Nh, Live) {
-    unsigned need = $Nh + $Ns;
-    if (E - HTOP < need) {
-       SWAPOUT;
-       PROCESS_MAIN_CHK_LOCKS(c_p);
-       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, $Live, FCALLS);
-       ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-       PROCESS_MAIN_CHK_LOCKS(c_p);
-       SWAPIN;
-    }
-    HEAP_SPACE_VERIFIED($Nh);
-}
-
-// Make sure that there are NeedStack + NeedHeap + 1 words available
-// on the combined heap/stack segment, then allocates NeedHeap + 1
-// words on the stack and saves CP.
-AH(NeedStack, NeedHeap, Live) {
-    unsigned needed = $NeedStack + 1;
-    $GC_TEST(needed, $NeedHeap, $Live);
-    E -= needed;
-    SAVE_CP(E);
-}
-
-// Start of instruction listings
-
-// Call instructions
-
-DO_CALL(CallDest, NextInstr) {
-    //| -no_next
-    SET_CP(c_p, $NextInstr);
-    SET_I((BeamInstr *) $CallDest);
-    DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
-    Dispatch();
-}
-
-i_call(CallDest) {
-    $DO_CALL($CallDest, $NEXT_INSTRUCTION);
-}
-
-move_call(Src, CallDest) {
-    x(0) = $Src;
-    $DO_CALL($CallDest, $NEXT_INSTRUCTION);
-}
-
-i_call_last(CallDest, Deallocate) {
-    //| -no_next
-    RESTORE_CP(E);
-    E = ADD_BYTE_OFFSET(E, ($Deallocate));
-    SET_I((BeamInstr *) $CallDest);
-    DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
-    Dispatch();
-}
-
-move_call_last(Src, CallDest, Deallocate) {
-    x(0) = $Src;
-    $i_call_last($CallDest, $Deallocate);
-}
-
-i_call_only(CallDest) {
-    //| -no_next
-    SET_I((BeamInstr *) $CallDest);
-    DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
-    Dispatch();
-}
-
-move_call_only(Src, CallDest) {
-    x(0) = $Src;
-    $i_call_only($CallDest);
-}
-
-// Other instructions
+// Stack manipulation instructions
 
 allocate(NeedStack, Live) {
     $AH($NeedStack, 0, $Live);
@@ -142,7 +58,7 @@ allocate_heap_zero(NeedStack, NeedHeap, Live) {
 
 deallocate(Deallocate) {
     //| -no_prefetch
-    RESTORE_CP(E);
+    SET_CP(c_p, (BeamInstr *) cp_val(*E));
     E = ADD_BYTE_OFFSET(E, $Deallocate);
 }
 
@@ -152,6 +68,241 @@ deallocate_return(Deallocate) {
     SET_I((BeamInstr *) cp_val(*E));
     E = ADD_BYTE_OFFSET(E, words_to_pop);
     CHECK_TERM(x(0));
+    DispatchReturn;
+}
+
+move_deallocate_return(Src, Deallocate) {
+    x(0) = $Src;
+    $deallocate_return($Deallocate);
+}
+
+// Call instructions
+
+DISPATCH(CallDest) {
+    //| -no_next
+    SET_I((BeamInstr *) $CallDest);
+    DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
+    Dispatch();
+}
+
+i_call(CallDest) {
+    SET_CP(c_p, $NEXT_INSTRUCTION);
+    $DISPATCH($CallDest);
+}
+
+move_call(Src, CallDest) {
+    x(0) = $Src;
+    SET_CP(c_p, $NEXT_INSTRUCTION);
+    $DISPATCH($CallDest);
+}
+
+i_call_last(CallDest, Deallocate) {
+    $deallocate($Deallocate);
+    $DISPATCH($CallDest);
+}
+
+move_call_last(Src, CallDest, Deallocate) {
+    x(0) = $Src;
+    $i_call_last($CallDest, $Deallocate);
+}
+
+i_call_only(CallDest) {
+    $DISPATCH($CallDest);
+}
+
+i_move_call_only(CallDest, Src) {
+    x(0) = $Src;
+    $i_call_only($CallDest);
+}
+
+move_call_only(Src, CallDest) {
+    $i_move_call_only($CallDest, $Src);
+}
+
+DISPATCHX(Dest) {
+    //| -no_next
+    DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, $Dest);
+    // Dispatchx assumes the Export* is in Arg(0)
+    I = (&$Dest) - 1;
+    Dispatchx();
+}
+
+i_call_ext(Dest) {
+    SET_CP(c_p, $NEXT_INSTRUCTION);
+    $DISPATCHX($Dest);
+}
+
+i_move_call_ext(Src, Dest) {
+    x(0) = $Src;
+    $i_call_ext($Dest);
+}
+
+i_call_ext_only(Dest) {
+    $DISPATCHX($Dest);
+}
+
+i_move_call_ext_only(Dest, Src) {
+    x(0) = $Src;
+    $i_call_ext_only($Dest);
+}
+
+i_call_ext_last(Dest, Deallocate) {
+    $deallocate($Deallocate);
+    $DISPATCHX($Dest);
+}
+
+i_move_call_ext_last(Dest, StackOffset, Src) {
+    x(0) = $Src;
+    $i_call_ext_last($Dest, $StackOffset);
+}
+
+APPLY(I, Deallocate) {
+    //| -no_next
+    HEAVY_SWAPOUT;
+    next = apply(c_p, r(0), x(1), x(2), reg, $I, $Deallocate);
+    HEAVY_SWAPIN;
+}
+
+HANDLE_APPLY_ERROR() {
+    I = handle_error(c_p, I, reg, &bif_export[BIF_apply_3]->info.mfa);
+    goto post_error_handling;
+}
+
+i_apply() {
+    BeamInstr *next;
+    $APPLY(NULL, 0);
+    if (next != NULL) {
+        $i_call(next);
+    }
+    $HANDLE_APPLY_ERROR();
+}
+
+i_apply_last(Deallocate) {
+    BeamInstr *next;
+    $APPLY(I, $Deallocate);
+    if (next != NULL) {
+        $i_call_last(next, $Deallocate);
+    }
+    $HANDLE_APPLY_ERROR();
+}
+
+i_apply_only() {
+    BeamInstr *next;
+    $APPLY(I, 0);
+    if (next != NULL) {
+        $i_call_only(next);
+    }
+    $HANDLE_APPLY_ERROR();
+}
+
+FIXED_APPLY(Arity, I, Deallocate) {
+    //| -no_next
+    HEAVY_SWAPOUT;
+    next = fixed_apply(c_p, reg, $Arity, $I, $Deallocate);
+    HEAVY_SWAPIN;
+}
+
+apply(Arity) {
+    BeamInstr *next;
+    $FIXED_APPLY($Arity, NULL, 0);
+    if (next != NULL) {
+        $i_call(next);
+    }
+    $HANDLE_APPLY_ERROR();
+}
+
+apply_last(Arity, Deallocate) {
+    BeamInstr *next;
+    $FIXED_APPLY($Arity, I, $Deallocate);
+    if (next != NULL) {
+        $i_call_last(next, $Deallocate);
+    }
+    $HANDLE_APPLY_ERROR();
+}
+
+APPLY_FUN() {
+    HEAVY_SWAPOUT;
+    next = apply_fun(c_p, r(0), x(1), reg);
+    HEAVY_SWAPIN;
+}
+
+HANDLE_APPLY_FUN_ERROR() {
+     goto find_func_info;
+}
+
+DISPATCH_FUN(I) {
+    SET_I($I);
+    Dispatchfun();
+}
+
+i_apply_fun() {
+    BeamInstr *next;
+    $APPLY_FUN();
+    if (next != NULL) {
+        SET_CP(c_p, $NEXT_INSTRUCTION);
+        $DISPATCH_FUN(next);
+    }
+    $HANDLE_APPLY_FUN_ERROR();
+}
+
+i_apply_fun_last(Deallocate) {
+    BeamInstr *next;
+    $APPLY_FUN();
+    if (next != NULL) {
+        $deallocate($Deallocate);
+        $DISPATCH_FUN(next);
+    }
+    $HANDLE_APPLY_FUN_ERROR();
+}
+
+i_apply_fun_only() {
+    BeamInstr *next;
+    $APPLY_FUN();
+    if (next != NULL) {
+        $DISPATCH_FUN(next);
+    }
+    $HANDLE_APPLY_FUN_ERROR();
+}
+
+CALL_FUN(Fun) {
+    //| -no_next
+    HEAVY_SWAPOUT;
+    next = call_fun(c_p, $Fun, reg, THE_NON_VALUE);
+    HEAVY_SWAPIN;
+}
+
+i_call_fun(Fun) {
+    BeamInstr *next;
+    $CALL_FUN($Fun);
+    if (next != NULL) {
+        SET_CP(c_p, $NEXT_INSTRUCTION);
+        $DISPATCH_FUN(next);
+    }
+    $HANDLE_APPLY_FUN_ERROR();
+}
+
+i_call_fun_last(Fun, Deallocate) {
+    BeamInstr *next;
+    $CALL_FUN($Fun);
+    if (next != NULL) {
+        $deallocate($Deallocate);
+        $DISPATCH_FUN(next);
+    }
+    $HANDLE_APPLY_FUN_ERROR();
+}
+
+return() {
+    SET_I(c_p->cp);
+    DTRACE_RETURN_FROM_PC(c_p);
+
+    /*
+     * We must clear the CP to make sure that a stale value do not
+     * create a false module dependcy preventing code upgrading.
+     * It also means that we can use the CP in stack backtraces.
+     */
+    c_p->cp = 0;
+    CHECK_TERM(r(0));
+    HEAP_SPACE_VERIFIED(0);
     DispatchReturn;
 }
 
@@ -213,6 +364,56 @@ i_get_tuple_element3(Src, Element, Dst) {
     dst[2] = E3;
 }
 
+i_element := element_group.fetch.execute;
+
+
+element_group.head() {
+    Eterm element_index;
+    Eterm element_tuple;
+}
+
+element_group.fetch(Src) {
+    element_tuple = $Src;
+}
+
+element_group.execute(Fail, Index, Dst) {
+    element_index = $Index;
+    if (is_small(element_index) && is_tuple(element_tuple)) {
+        Eterm* tp = tuple_val(element_tuple);
+
+        if ((signed_val(element_index) >= 1) &&
+            (signed_val(element_index) <= arityval(*tp))) {
+            $Dst = tp[signed_val(element_index)];
+            $NEXT0();
+        }
+    }
+    c_p->freason = BADARG;
+    $BIF_ERROR_ARITY_2($Fail, BIF_element_2, element_index, element_tuple);
+}
+
+i_fast_element := fast_element_group.fetch.execute;
+
+fast_element_group.head() {
+    Eterm fast_element_tuple;
+}
+
+fast_element_group.fetch(Src) {
+    fast_element_tuple = $Src;
+}
+
+fast_element_group.execute(Fail, Index, Dst) {
+    if (is_tuple(fast_element_tuple)) {
+        Eterm* tp = tuple_val(fast_element_tuple);
+        Eterm pos = $Index;	/* Untagged integer >= 1 */
+        if (pos <= arityval(*tp)) {
+            $Dst = tp[pos];
+            $NEXT0();
+	}
+    }
+    c_p->freason = BADARG;
+    $BIF_ERROR_ARITY_2($Fail, BIF_element_2, make_small($Index), fast_element_tuple);
+}
+
 init(Y) {
     make_blank($Y);
 }
@@ -248,12 +449,6 @@ move3(S1, D1, S2, D2, S3, D3) {
     $D1 = $S1;
     $D2 = $S2;
     $D3 = $S3;
-}
-
-move_deallocate_return(Src, Deallocate) {
-    //| -no_next
-    x(0) = $Src;
-    $deallocate_return($Deallocate);
 }
 
 move_dup(Src, D1, D2) {
@@ -341,12 +536,35 @@ put_list(Hd, Tl, Dst) {
     HTOP += 2;
 }
 
-i_put_tuple(Dst, Arity) {
-    //| -no_next
+i_put_tuple := i_put_tuple.make.fill;
+
+i_put_tuple.make(Dst) {
     $Dst = make_tuple(HTOP);
-    pt_arity = $Arity;
+}
+
+i_put_tuple.fill(Arity) {
+    Eterm* hp = HTOP;
+    Eterm arity = $Arity;
+
+    //| -no_next
+    *hp++ = make_arityval(arity);
     I = $NEXT_INSTRUCTION;
-    goto do_put_tuple;
+    do {
+        Eterm term = *I++;
+        switch (loader_tag(term)) {
+        case LOADER_X_REG:
+            *hp++ = x(loader_x_reg_index(term));
+            break;
+        case LOADER_Y_REG:
+            *hp++ = y(loader_y_reg_index(term));
+            break;
+        default:
+            *hp++ = term;
+            break;
+        }
+    } while (--arity != 0);
+    HTOP = hp;
+    Goto(*I);
 }
 
 self(Dst) {
@@ -413,9 +631,13 @@ is_nonempty_list_get_list(Fail, Src, Hd, Tl) {
     $get_list($Src, $Hd, $Tl);
 }
 
+jump(Fail) {
+    $JUMP($Fail);
+}
+
 move_jump(Fail, Src) {
     x(0) = $Src;
-    $JUMP($Fail);
+    $jump($Fail);
 }
 
 //
@@ -537,6 +759,7 @@ test_arity(Fail, Pointer, Arity) {
         $FAIL($Fail);
     }
 }
+
 i_is_eq_exact_immed(Fail, X, Y) {
     if ($X != $Y) {
         $FAIL($Fail);
@@ -555,8 +778,20 @@ is_eq_exact(Fail, X, Y) {
     }
 }
 
+i_is_eq_exact_literal(Fail, Src, Literal) {
+    if (!eq($Src, $Literal)) {
+        $FAIL($Fail);
+    }
+}
+
 is_ne_exact(Fail, X, Y) {
     if (EQ($X, $Y)) {
+        $FAIL($Fail);
+    }
+}
+
+i_is_ne_exact_literal(Fail, Src, Literal) {
+    if (eq($Src, $Literal)) {
         $FAIL($Fail);
     }
 }
@@ -577,18 +812,98 @@ is_ge(Fail, X, Y) {
     CMP_GE_ACTION($X, $Y, $FAIL($Fail));
 }
 
-i_get_map_element(Fail, Src, Key, Dst) {
-    Eterm res = get_map_element($Src, $Key);
-    if (is_non_value(res)) {
-        $FAIL($Fail);
-    }
-    $Dst = res;
+badarg(Fail) {
+    $BADARG($Fail);
 }
 
-i_get_map_element_hash(Fail, Src, Key, Hx, Dst) {
-     Eterm res = get_map_element_hash($Src, $Key, $Hx);
-     if (is_non_value(res)) {
-        $FAIL($Fail);
-     }
-     $Dst = res;
+badmatch(Src) {
+    c_p->fvalue = $Src;
+    c_p->freason = BADMATCH;
+    goto find_func_info;
 }
+
+case_end(Src) {
+    c_p->fvalue = $Src;
+    c_p->freason = EXC_CASE_CLAUSE;
+    goto find_func_info;
+}
+
+if_end() {
+    c_p->freason = EXC_IF_CLAUSE;
+    goto find_func_info;
+    //| -no_next;
+}
+
+system_limit(Fail) {
+    $SYSTEM_LIMIT($Fail);
+    //| -no_next;
+}
+
+catch(Y, Fail) {
+    c_p->catches++;
+    $Y = $Fail;
+}
+
+catch_end(Y) {
+    c_p->catches--;
+    make_blank($Y);
+    if (is_non_value(r(0))) {
+        c_p->fvalue = NIL;
+        if (x(1) == am_throw) {
+            r(0) = x(2);
+        } else {
+            if (x(1) == am_error) {
+                SWAPOUT;
+                x(2) = add_stacktrace(c_p, x(2), x(3));
+                SWAPIN;
+            }
+            /* only x(2) is included in the rootset here */
+            if (E - HTOP < 3) {
+                SWAPOUT;
+                PROCESS_MAIN_CHK_LOCKS(c_p);
+                FCALLS -= erts_garbage_collect_nobump(c_p, 3, reg+2, 1, FCALLS);
+                ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+                PROCESS_MAIN_CHK_LOCKS(c_p);
+                SWAPIN;
+            }
+            r(0) = TUPLE2(HTOP, am_EXIT, x(2));
+            HTOP += 3;
+        }
+    }
+    CHECK_TERM(r(0));
+}
+
+try_end(Y) {
+    c_p->catches--;
+    make_blank($Y);
+    if (is_non_value(r(0))) {
+        c_p->fvalue = NIL;
+        r(0) = x(1);
+        x(1) = x(2);
+        x(2) = x(3);
+    }
+}
+
+try_case_end(Src) {
+    c_p->fvalue = $Src;
+    c_p->freason = EXC_TRY_CLAUSE;
+    goto find_func_info;
+    //| -no_next;
+}
+
+i_raise() {
+    Eterm raise_trace = x(2);
+    Eterm raise_value = x(1);
+    struct StackTrace *s;
+
+    c_p->fvalue = raise_value;
+    c_p->ftrace = raise_trace;
+    s = get_trace_from_exc(raise_trace);
+    if (s == NULL) {
+        c_p->freason = EXC_ERROR;
+    } else {
+        c_p->freason = PRIMARY_EXCEPTION(s->freason);
+    }
+    goto find_func_info;
+}
+

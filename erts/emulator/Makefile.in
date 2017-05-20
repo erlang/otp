@@ -28,10 +28,22 @@ HIPE_ENABLED=@HIPE_ENABLED@
 DTRACE_ENABLED=@DTRACE_ENABLED@
 DTRACE_ENABLED_2STEP=@DTRACE_ENABLED_2STEP@
 USE_VM_PROBES=@USE_VM_PROBES@
+FPE=@FPE@
 LIBS = @LIBS@
 Z_LIB=@Z_LIB@
 NO_INLINE_FUNCTIONS=false
-OPCODE_TABLES = $(ERL_TOP)/lib/compiler/src/genop.tab beam/ops.tab beam/instrs.tab beam/bs_instrs.tab
+OPCODE_TABLES = $(ERL_TOP)/lib/compiler/src/genop.tab \
+beam/ops.tab \
+beam/macros.tab \
+beam/instrs.tab \
+beam/arith_instrs.tab \
+beam/bif_instrs.tab \
+beam/bs_instrs.tab \
+beam/float_instrs.tab \
+beam/map_instrs.tab \
+beam/msg_instrs.tab \
+beam/select_instrs.tab \
+beam/trace_instrs.tab
 
 DEBUG_CFLAGS = @DEBUG_CFLAGS@
 CONFIGURE_CFLAGS = @CFLAGS@
@@ -529,11 +541,12 @@ DTRACE_HEADERS =
 endif
 
 ifdef HIPE_ENABLED
-OPCODE_TABLES += hipe/hipe_ops.tab
+OPCODE_TABLES += hipe/hipe_ops.tab hipe/hipe_instrs.tab
 endif
 
 $(TTF_DIR)/beam_cold.h \
 $(TTF_DIR)/beam_hot.h \
+$(TTF_DIR)/beam_instrs.h \
 $(TTF_DIR)/beam_opcodes.c \
 $(TTF_DIR)/beam_opcodes.h \
 $(TTF_DIR)/beam_pred_funcs.h \
@@ -544,6 +557,7 @@ $(TTF_DIR)/OPCODES-GENERATED: $(OPCODE_TABLES) utils/beam_makeops
 		-wordsize @EXTERNAL_WORD_SIZE@ \
 		-outdir $(TTF_DIR) \
 		-DUSE_VM_PROBES=$(if $(USE_VM_PROBES),1,0) \
+		-DNO_FPE_SIGNALS=$(if $filter(unreliable,$(FPE)),1,0) \
 		-emulator $(OPCODE_TABLES) && echo $? >$(TTF_DIR)/OPCODES-GENERATED
 GENERATE += $(TTF_DIR)/OPCODES-GENERATED
 

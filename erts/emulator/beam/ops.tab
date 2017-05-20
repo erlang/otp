@@ -378,13 +378,15 @@ move r y
 
 loop_rec Fail x==0 | smp_mark_target_label(Fail) => i_loop_rec Fail
 
-label L | wait_timeout Fail Src | smp_already_locked(L) => label L | i_wait_timeout_locked Fail Src
-wait_timeout Fail Src => i_wait_timeout Fail Src
-i_wait_timeout Fail Src=aiq => gen_literal_timeout(Fail, Src)
-i_wait_timeout_locked Fail Src=aiq => gen_literal_timeout_locked(Fail, Src)
+label L | wait_timeout Fail Src | smp_already_locked(L) => \
+    label L | wait_timeout_locked Src Fail
+wait_timeout Fail Src => wait_timeout_unlocked Src Fail
+
+wait_timeout_unlocked Fail Src=aiq => gen_literal_timeout(Fail, Src)
+wait_timeout_locked Fail Src=aiq => gen_literal_timeout_locked(Fail, Src)
 
 label L | wait Fail | smp_already_locked(L) => label L | wait_locked Fail
-wait Fail | smp() => wait_unlocked Fail
+wait Fail => wait_unlocked Fail
 
 label L | timeout | smp_already_locked(L) => label L | timeout_locked
 
@@ -393,13 +395,14 @@ timeout
 timeout_locked
 i_loop_rec f
 loop_rec_end f
-wait f
 wait_locked f
 wait_unlocked f
-i_wait_timeout f I
-i_wait_timeout f s
-i_wait_timeout_locked f I
-i_wait_timeout_locked f s
+
+wait_timeout_unlocked_int I f
+wait_timeout_unlocked s f
+wait_timeout_locked_int I f
+wait_timeout_locked s f
+
 i_wait_error
 i_wait_error_locked
 
@@ -967,10 +970,9 @@ node x
 node y
 %hot
 
-i_fast_element j x I d
-i_fast_element j y I d
+i_fast_element xy j I d
 
-i_element j xy s d
+i_element xy j s d
 
 bif1 f b s d
 bif1_body b s d
@@ -1060,7 +1062,10 @@ i_bs_get_integer_imm x I I f I x
 i_bs_get_integer f I I s s x
 i_bs_get_integer_8 x f x
 i_bs_get_integer_16 x f x
-i_bs_get_integer_32 x f I x
+
+%if ARCH_64
+i_bs_get_integer_32 x f x
+%endif
 
 # Fetching binaries from binaries.
 bs_get_binary2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
@@ -1134,12 +1139,8 @@ i_bs_validate_unicode_retract j s s
 
 bs_init2 Fail Sz Words Regs Flags Dst | binary_too_big(Sz) => system_limit Fail
 
-bs_init2 Fail Sz=u Words=u==0 Regs Flags Dst | should_gen_heap_bin(Sz) => \
-	i_bs_init_heap_bin Sz Regs Dst
 bs_init2 Fail Sz=u Words=u==0 Regs Flags Dst => i_bs_init Sz Regs Dst
 
-bs_init2 Fail Sz=u Words Regs Flags Dst | should_gen_heap_bin(Sz) => \
-	i_bs_init_heap_bin_heap Sz Words Regs Dst
 bs_init2 Fail Sz=u Words Regs Flags Dst => \
    i_bs_init_heap Sz Words Regs Dst
 
@@ -1153,10 +1154,8 @@ i_bs_init_fail xy j I x
 i_bs_init_fail_heap s I j I x
 
 i_bs_init I I x
-i_bs_init_heap_bin I I x
 
 i_bs_init_heap I I I x
-i_bs_init_heap_bin_heap I I I x
 
 
 bs_init_bits Fail Sz=o Words Regs Flags Dst => system_limit Fail
@@ -1254,8 +1253,6 @@ i_new_bs_put_binary_all j s I
 
 bs_put_string I I
 
-%hot
-
 #
 # New floating point instructions (R8).
 #
@@ -1268,9 +1265,11 @@ fnegate p FR1 FR2 => i_fnegate FR1 FR2
 
 fconv Arg=iqan Dst=l => move Arg x | fconv x Dst
 
-fmove q l
-fmove d l
-fmove l d
+fmove Arg=l Dst=d => fstore Arg Dst
+fmove Arg=dq Dst=l => fload Arg Dst
+
+fstore l d
+fload dq l
 
 fconv d l
 
@@ -1282,10 +1281,15 @@ i_fnegate l l
 
 fclearerror | no_fpe_signals() =>
 fcheckerror p | no_fpe_signals() =>
+
+%unless NO_FPE_SIGNALS
 fcheckerror p => i_fcheckerror
 
 i_fcheckerror
 fclearerror
+%endif
+
+%hot
 
 #
 # New apply instructions in R10B.
@@ -1385,9 +1389,9 @@ gen_minus p Live Reg=d Int=i Dst | negation_is_small(Int) => \
 # GCing arithmetic instructions.
 #
 
-gen_plus Fail Live S1 S2 Dst => i_plus Fail Live S1 S2 Dst
+gen_plus Fail Live S1 S2 Dst => i_plus S1 S2 Fail Live Dst
 
-gen_minus Fail Live S1 S2 Dst => i_minus Fail Live S1 S2 Dst
+gen_minus Fail Live S1 S2 Dst => i_minus S1 S2 Fail Live Dst
 
 gc_bif2 Fail Live u$bif:erlang:stimes/2 S1 S2 Dst => \
   i_times Fail Live S1 S2 Dst
@@ -1398,15 +1402,15 @@ gc_bif2 Fail Live u$bif:erlang:intdiv/2 S1 S2 Dst => \
   i_int_div Fail Live S1 S2 Dst
 
 gc_bif2 Fail Live u$bif:erlang:rem/2 S1 S2 Dst => \
-  i_rem Fail Live S1 S2 Dst
+  i_rem S1 S2 Fail Live Dst
 
 gc_bif2 Fail Live u$bif:erlang:bsl/2 S1 S2 Dst => \
-  i_bsl Fail Live S1 S2 Dst
+  i_bsl S1 S2 Fail Live Dst
 gc_bif2 Fail Live u$bif:erlang:bsr/2 S1 S2 Dst => \
-  i_bsr Fail Live S1 S2 Dst
+  i_bsr S1 S2 Fail Live Dst
 
 gc_bif2 Fail Live u$bif:erlang:band/2 S1 S2 Dst => \
-  i_band Fail Live S1 S2 Dst
+  i_band S1 S2 Fail Live Dst
 
 gc_bif2 Fail Live u$bif:erlang:bor/2 S1 S2 Dst => \
   i_bor Fail Live S1 S2 Dst
@@ -1418,25 +1422,25 @@ gc_bif1 Fail I u$bif:erlang:bnot/1 Src Dst=d => i_int_bnot Fail Src I Dst
 
 i_increment rxy I I d
 
-i_plus j I x xy d
-i_plus j I s s d
+i_plus x xy j I d
+i_plus s s  j I d
 
-i_minus j I x x d
-i_minus j I s s d
+i_minus x x j I d
+i_minus s s j I d
 
 i_times j I s s d
 
 i_m_div j I s s d
 i_int_div j I s s d
 
-i_rem j I x x d
-i_rem j I s s d
+i_rem x x j I d
+i_rem s s j I d
 
-i_bsl j I s s d
-i_bsr j I s s d
+i_bsl s s j I d
+i_bsr s s j I d
 
-i_band j I x c d
-i_band j I s s d
+i_band x c j I d
+i_band s s j I d
 
 i_bor j I s s d
 i_bxor j I s s d
