@@ -59,10 +59,9 @@ function_1(Is0) ->
 	[{label,Lbl},{line,Loc},{func_info,_,_,Arity}|_] ->
 	    St = #st{lbl=Lbl,loc=Loc,arity=Arity},
 	    translate(Is0, St, []);
-	[{label,_}|_] ->
-	    %% No line numbers. The source must be a .S file.
-	    %% There is no need to do anything.
-	    Is0
+        [{label,Lbl},{func_info,_,_,Arity}|_] ->
+            St = #st{lbl=Lbl,loc=nil,arity=Arity},
+            translate(Is0, St, [])
     end.
 
 translate([{call_ext,Ar,{extfunc,erlang,error,Ar}}=I|Is], St, Acc) ->
@@ -72,22 +71,32 @@ translate([I|Is], St, Acc) ->
 translate([], _, Acc) ->
     reverse(Acc).
 
-translate_1(Ar, I, Is, St, [{line,_}=Line|Acc1]=Acc0) ->
+translate_1(Ar, I, Is, St, Acc0) ->
+    {Loc,LineIs,Acc1} = take_line(Acc0),
     case dig_out(Ar, Acc1) of
 	no ->
 	    translate(Is, St, [I|Acc0]);
 	{yes,{function_clause,Arity},Acc2} ->
-	    case {Line,St} of
-		{{line,Loc},#st{lbl=Fi,loc=Loc,arity=Arity}} ->
-		    Instr = {jump,{f,Fi}},
-		    translate(Is, St, [Instr|Acc2]);
-		{_,_} ->
-		    %% This must be "error(function_clause, Args)" in
-		    %% the Erlang source code or a fun. Don't translate.
-		    translate(Is, St, [I|Acc0])
+            case St of
+                #st{lbl=Fi,loc=Loc,arity=Arity} ->
+                    Instr = {jump,{f,Fi}},
+                    translate(Is, St, [Instr|LineIs]++Acc2);
+                _ ->
+                    %% The arities or locations differ, this must be
+                    %% "error(function_clause, Args)" in the Erlang source
+                    %% code or a fun. Don't translate.
+                    translate(Is, St, [I|Acc0])
 	    end;
 	{yes,Instr,Acc2} ->
-	    translate(Is, St, [Instr,Line|Acc2])
+            translate(Is, St, [Instr|LineIs]++Acc2)
+    end.
+
+take_line([{line,Loc}=Line|Is]) ->
+    {Loc,[Line],Is};
+take_line(Is) ->
+    case lists:dropwhile(fun ({line,_}) -> false; (_) -> true end, Is) of
+        [] -> {nil,[],Is};
+        [{line,Loc}|_] -> {Loc,[],Is}
     end.
 
 dig_out(Ar, [{kill,_}|Is]) ->
@@ -149,6 +158,9 @@ dig_out_block_fc([{set,[],[],{alloc,Live,_}}|Bl]) ->
 	yes ->
 	    {yes,{function_clause,Live}}
     end;
+dig_out_block_fc([{set,[{x,1}],[nil],move},
+                  {set,[{x,0}],[{atom,function_clause}],move}|_]) ->
+    {yes,{function_clause,0}};
 dig_out_block_fc(_) -> no.
 
 dig_out_fc([{set,[Dst],[{x,Reg},Dst0],put_list}|Is], Reg, Dst0) ->
