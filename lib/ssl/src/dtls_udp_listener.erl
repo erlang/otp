@@ -121,6 +121,18 @@ handle_info({udp, Socket, IP, InPortNo, _} = Msg, #state{listner = Socket} = Sta
     next_datagram(Socket),
     {noreply, State};
 
+%% UDP socket does not have a connection and should not receive an econnreset
+%% This does however happens on on some windows versions. Just ignoring it
+%% appears to make things work as expected! 
+handle_info({udp_error, Socket, econnreset = Error}, #state{listner = Socket} = State) ->
+    Report = io_lib:format("Ignore SSL UDP Listener: Socket error: ~p ~n", [Error]),
+    error_logger:info_report(Report),
+    {noreply, State};
+handle_info({udp_error, Socket, Error}, #state{listner = Socket} = State) ->
+    Report = io_lib:format("SSL UDP Listener shutdown: Socket error: ~p ~n", [Error]),
+    error_logger:info_report(Report),
+    {noreply, State#state{close=true}};
+
 handle_info({'DOWN', _, process, Pid, _}, #state{clients = Clients,
 						 dtls_processes = Processes0,
                                                  close = ListenClosed} = State) ->
