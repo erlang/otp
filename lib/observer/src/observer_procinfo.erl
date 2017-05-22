@@ -198,10 +198,11 @@ code_change(_, _, State) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 init_process_page(Panel, Pid) ->
-    Fields0 = process_info_fields(Pid),
+    WSz = observer_wx:try_rpc(node(Pid), erlang, system_info,[wordsize]),
+    Fields0 = process_info_fields(Pid, WSz),
     {FPanel, _, UpFields} = observer_lib:display_info(Panel, Fields0),
     {FPanel, fun() ->
-		     Fields = process_info_fields(Pid),
+		     Fields = process_info_fields(Pid, WSz),
 		     observer_lib:update_info(UpFields, Fields)
 	     end}.
 
@@ -359,7 +360,7 @@ create_menus(MenuBar) ->
 	     {"View", [#create_menu{id=?REFRESH, text="Refresh\tCtrl-R"}]}],
     observer_lib:create_menus(Menus, MenuBar, new_window).
 
-process_info_fields(Pid) ->
+process_info_fields(Pid, WSz) ->
     Struct = [{"Overview",
 	       [{"Initial Call",     initial_call},
 		{"Current Function", current_function},
@@ -383,10 +384,10 @@ process_info_fields(Pid) ->
 		{"Monitored by",     {click, monitored_by}}]},
 	      {"Memory and Garbage Collection", right,
 	       [{"Memory",           {bytes, memory}},
-		{"Stack and Heaps",  {bytes, total_heap_size}},
-		{"Heap Size",        {bytes, heap_size}},
-		{"Stack Size",       {bytes, stack_size}},
-		{"GC Min Heap Size", {bytes, get_gc_info(min_heap_size)}},
+		{"Stack and Heaps",  {{words,WSz}, total_heap_size}},
+		{"Heap Size",        {{words,WSz}, heap_size}},
+		{"Stack Size",       {{words,WSz}, stack_size}},
+		{"GC Min Heap Size", {{words,WSz}, get_gc_info(min_heap_size)}},
 		{"GC FullSweep After", get_gc_info(fullsweep_after)}
 	       ]}],
     case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, item_list()]) of
