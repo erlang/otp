@@ -433,7 +433,7 @@ main(int argc, char** argv)
     char* emulator;
     char* env;
     char* basename;
-    char* absname;
+    char* def_emu_lookup_path;
     char scriptname[PMAX];
     char** last_opt;
     char** first_opt;
@@ -480,6 +480,7 @@ main(int argc, char** argv)
 #else
     if (strcmp(basename, "escript") == 0) {
 #endif
+        def_emu_lookup_path = argv[0];
 	/*
 	 * Locate all options before the script name.
 	 */
@@ -498,27 +499,24 @@ main(int argc, char** argv)
 	argc--;
 	argv++;
     } else {
+        char *absname = find_prog(argv[0]);
 #ifdef __WIN32__
-	int len;
-#endif
-	absname = find_prog(argv[0]);
-#ifdef __WIN32__
-	len = strlen(absname);
+	int len = strlen(absname);
 	if (len >= 4 && _stricmp(absname+len-4, ".exe") == 0) {
 	    absname[len-4] = '\0';
 	}
 #endif
-
 	erts_snprintf(scriptname, sizeof(scriptname), "%s.escript",
 		      absname);
-	efree(absname);
+        efree(absname);
+        def_emu_lookup_path = scriptname;
     }
 
     /* Determine path to emulator */
     emulator = env = get_env("ESCRIPT_EMULATOR");
 
     if (emulator == NULL) {
-	emulator = get_default_emulator(scriptname);
+	emulator = get_default_emulator(def_emu_lookup_path);
     }
 
     if (strlen(emulator) >= PMAX)
