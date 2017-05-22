@@ -1,3 +1,4 @@
+# -*- gdb-script -*-
 #
 # %CopyrightBegin%
 # 
@@ -2153,12 +2154,21 @@ define etp-processes
     printf "No processes, since system isn't initialized!\n"
   else
     set $proc_ix = 0
-    while $proc_ix < erts_proc.r.o.max
-      set $proc = (Process *) *((UWord *) &erts_proc.r.o.tab[$proc_ix])
-      if ($proc != ((Process *) 0) && $proc != &erts_invalid_process)
+    set $proc_max_ix = erts_proc.r.o.max
+    set $proc_tab = erts_proc.r.o.tab
+    set $invalid_proc = &erts_invalid_process
+    set $proc_decentile = $proc_max_ix / 10
+    set $proc_printile = $proc_decentile
+    while $proc_ix < $proc_max_ix
+      set $proc = (Process *) *((UWord *) ($proc_tab + $proc_ix))
+      if ($proc != ((Process *) 0) && $proc != $invalid_proc)
         printf "---\n"
         printf "  Pix: %d\n", $proc_ix
         etp-process-info $proc
+      end
+      if $proc_ix == $proc_printile
+        printf "--- %d%% (%d / %d) searched\n", $proc_printile / $proc_decentile * 10, $proc_ix, $proc_max_ix
+        set $proc_printile += $proc_decentile
       end
       set $proc_ix++
     end
@@ -2479,21 +2489,29 @@ document etp-port-info
 %---------------------------------------------------------------------------
 end
 
-
 define etp-ports
   if (!erts_initialized)
     printf "No ports, since system isn't initialized!\n"
   else
     set $port_ix = 0
-    while $port_ix < erts_port.r.o.max
-      set $port = (Port *) *((UWord *) &erts_port.r.o.tab[$port_ix])
-      if ($port != ((Port *) 0) && $port != &erts_invalid_port)
+    set $port_max_ix = erts_port.r.o.max
+    set $port_tab = erts_port.r.o.tab
+    set $invalid_port = &erts_invalid_port
+    set $port_decentile = $port_max_ix / 10
+    set $port_printile = $port_decentile
+    while $port_ix < $port_max_ix
+      set $port = (Port *) *((UWord *) ($port_tab + $port_ix))
+      if ($port != ((Port *) 0) && $port != $invalid_port)
         if (*(((Uint32 *) &(((Port *) $port)->state))) & 0x100) == 0
           # I.e, not free
           printf "---\n"
           printf "  Pix: %d\n", $port_ix
           etp-port-info $port
         end
+      end
+      if $port_ix == $port_printile
+        printf "--- %d%% (%d / %d) searched\n", $port_printile / $port_decentile * 10, $port_ix, $port_max_ix
+        set $port_printile += $port_decentile
       end
       set $port_ix++
     end
