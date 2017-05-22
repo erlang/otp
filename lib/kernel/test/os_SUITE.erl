@@ -319,31 +319,38 @@ perf_counter_api(_Config) ->
     true = is_integer(os:perf_counter()),
     true = os:perf_counter() > 0,
 
-    T1 = os:perf_counter(),
+    Conv = fun(T1, T2) ->
+                   erlang:convert_time_unit(T2 - T1, perf_counter, nanosecond)
+           end,
+
+    do_perf_counter_test([], Conv, 120000000, 80000000),
+    do_perf_counter_test([1000], fun(T1, T2) -> T2 - T1 end, 120, 80).
+
+do_perf_counter_test(CntArgs, Conv, Upper, Lower) ->
+    %% We run the test multiple times to try to get a somewhat
+    %% stable value... what does this test? That the
+    %% calculate_perf_counter_unit in sys_time.c works somewhat ok.
+    do_perf_counter_test(CntArgs, Conv, Upper, Lower, 10).
+
+do_perf_counter_test(CntArgs, _Conv, Upper, Lower, 0) ->
+    ct:fail("perf_counter_test ~p ~p ~p",[CntArgs, Upper, Lower]);
+do_perf_counter_test(CntArgs, Conv, Upper, Lower, Iters) ->
+
+    T1 = apply(os, perf_counter, CntArgs),
     timer:sleep(100),
-    T2 = os:perf_counter(),
-    TsDiff = erlang:convert_time_unit(T2 - T1, perf_counter, nanosecond),
-    ct:pal("T1: ~p~n"
+    T2 = apply(os, perf_counter, CntArgs),
+    TsDiff = Conv(T1, T2),
+    ct:log("T1: ~p~n"
            "T2: ~p~n"
            "TsDiff: ~p~n",
            [T1,T2,TsDiff]),
 
-    %% We allow a 15% diff
-    true = TsDiff < 115000000,
-    true = TsDiff > 85000000,
-
-    T1Ms = os:perf_counter(1000),
-    timer:sleep(100),
-    T2Ms = os:perf_counter(1000),
-    MsDiff = T2Ms - T1Ms,
-    ct:pal("T1Ms: ~p~n"
-           "T2Ms: ~p~n"
-           "MsDiff: ~p~n",
-           [T1Ms,T2Ms,MsDiff]),
-
-    %% We allow a 15% diff
-    true = MsDiff < 115,
-    true = MsDiff > 85.
+    if
+        TsDiff < Upper, TsDiff > Lower ->
+            ok;
+        true ->
+            do_perf_counter_test(CntArgs, Conv, Upper, Lower, Iters-1)
+    end.
 
 %% Util functions
 
