@@ -611,13 +611,3 @@ encode_signature({{#'ECPoint'{}, {namedCurve,OID}},_}, Signature) ->
     CurveName = public_key:oid2ssh_curvename(OID),
     <<?Ebinary(<<"ecdsa-sha2-",CurveName/binary>>), ?Ebinary(Signature)>>.
 
-%% encode_signature(#'RSAPublicKey'{}, Signature) ->
-%%     SignName = <<"ssh-rsa">>,
-%%     <<?Ebinary(SignName), ?Ebinary(Signature)>>;
-%% encode_signature({_, #'Dss-Parms'{}}, Signature) ->
-%%     <<?Ebinary(<<"ssh-dss">>), ?Ebinary(Signature)>>;
-%% encode_signature({#'ECPoint'{}, {namedCurve,OID}}, Signature) ->
-%%     CurveName = public_key:oid2ssh_curvename(OID),
-%%     <<?Ebinary(<<"ecdsa-sha2-",CurveName/binary>>), ?Ebinary(Signature)>>.
-
-
