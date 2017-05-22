@@ -1052,6 +1052,9 @@ build_typed_attribute({atom,Aa,record},
 build_typed_attribute({atom,Aa,Attr},
                       {type_def, {call,_,{atom,_,TypeName},Args}, Type})
   when Attr =:= 'type' ; Attr =:= 'opaque' ->
+    lists:foreach(fun({var, A, '_'}) -> ret_err(A, "bad type variable");
+                     (_)             -> ok
+                  end, Args),
     case lists:all(fun({var, _, _}) -> true;
                       (_)           -> false
                    end, Args) of
