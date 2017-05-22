@@ -346,7 +346,7 @@ renegotiate_data(ConnectionHandler) ->
 						 | undefined,
 	  last_size_rekey           = 0         :: non_neg_integer(),
 	  event_queue               = []        :: list(),
-	  opts                                  :: ssh_options:options(),
+%	  opts                                  :: ssh_options:options(),
 	  inet_initial_recbuf_size              :: pos_integer()
 						 | undefined
 	 }).
@@ -398,8 +398,7 @@ init([Role,Socket,Opts]) ->
                        transport_protocol = Protocol,
                        transport_cb = Callback,
                        transport_close_tag = CloseTag,
-                       ssh_params = init_ssh_record(Role, Socket, PeerAddr, Opts),
-                       opts = Opts
+                       ssh_params = init_ssh_record(Role, Socket, PeerAddr, Opts)
               },
             D = case Role of
                     client ->
@@ -1012,7 +1011,7 @@ handle_event(cast, renegotiate, _, _) ->
 handle_event(cast, data_size, {connected,Role}, D) ->
     {ok, [{send_oct,Sent0}]} = inet:getstat(D#data.socket, [send_oct]),
     Sent = Sent0 - D#data.last_size_rekey,
-    MaxSent = ?GET_OPT(rekey_limit, D#data.opts),
+    MaxSent = ?GET_OPT(rekey_limit, (D#data.ssh_params)#ssh.opts),
     timer:apply_after(?REKEY_DATA_TIMOUT, gen_statem, cast, [self(), data_size]),
     case Sent >= MaxSent of
 	true ->
@@ -1867,7 +1866,7 @@ get_repl(X, Acc) ->
     exit({get_repl,X,Acc}).
 
 %%%----------------------------------------------------------------
--define(CALL_FUN(Key,D), catch (?GET_OPT(Key, D#data.opts)) ).
+-define(CALL_FUN(Key,D), catch (?GET_OPT(Key, (D#data.ssh_params)#ssh.opts)) ).
 
 disconnect_fun({disconnect,Msg}, D) -> ?CALL_FUN(disconnectfun,D)(Msg);
 disconnect_fun(Reason, D)           -> ?CALL_FUN(disconnectfun,D)(Reason).
@@ -1917,7 +1916,7 @@ retry_fun(User, Reason, #data{ssh_params = #ssh{opts = Opts,
 %%% channels open for a while.
 
 cache_init_idle_timer(D) ->
-    case ?GET_OPT(idle_time, D#data.opts) of
+    case ?GET_OPT(idle_time, (D#data.ssh_params)#ssh.opts) of
 	infinity ->
 	    D#data{idle_timer_value = infinity,
 		   idle_timer_ref = infinity	% A flag used later...
