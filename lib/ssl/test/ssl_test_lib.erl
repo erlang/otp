@@ -498,12 +498,12 @@ make_rsa_cert_chains(ChainConf, Config, Suffix) ->
      [{reuseaddr, true}, {verify, verify_peer} | ServerConf]
     }.
 
-make_ec_cert_chains(ClientChainType, ServerChainType, Config) ->
+make_ec_cert_chains(ChainConf, ClientChainType, ServerChainType, Config) ->
     CryptoSupport = crypto:supports(),
     KeyGenSpec = key_gen_info(ClientChainType, ServerChainType),
     ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), atom_to_list(ClientChainType)]),
     ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), atom_to_list(ServerChainType)]),
-    GenCertData = x509_test:gen_test_certs([{digest, appropriate_sha(CryptoSupport)} | KeyGenSpec]),
+    GenCertData = x509_test:gen_test_certs([{digest, appropriate_sha(CryptoSupport)} | KeyGenSpec] ++ ChainConf),
     [{server_config, ServerConf}, 
      {client_config, ClientConf}] = 
         x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
@@ -1009,6 +1009,12 @@ openssl_ecdh_rsa_suites() ->
     lists:filter(fun(Str) -> string_regex_filter(Str, "ECDH-RSA")
 		 end, Ciphers).
 
+openssl_filter(FilterStr) ->
+    Ciphers = string:tokens(os:cmd("openssl ciphers"), ":"),
+    lists:filter(fun(Str) -> string_regex_filter(Str, FilterStr)
+		 end, Ciphers).
+
+
 string_regex_filter(Str, Search) when is_list(Str) ->
     case re:run(Str, Search, []) of
 	nomatch ->
@@ -1173,6 +1179,21 @@ sufficient_crypto_support(Group) when Group == ciphers_ec;     %% From ssl_basic
     proplists:get_bool(ecdh, proplists:get_value(public_keys, CryptoSupport));
 sufficient_crypto_support(_) ->
     true.
+
+check_key_exchange_send_active(Socket, false) ->
+    send_recv_result_active(Socket);
+check_key_exchange_send_active(Socket, KeyEx) ->
+    {ok, [{cipher_suite, Suite}]} = ssl:connection_information(Socket, [cipher_suite]),
+    true = check_key_exchange(Suite, KeyEx), 
+    send_recv_result_active(Socket).
+
+check_key_exchange({KeyEx,_, _}, KeyEx) ->
+    true;
+check_key_exchange({KeyEx,_,_,_}, KeyEx) ->
+    true;
+check_key_exchange(KeyEx1, KeyEx2) ->
+    ct:pal("Negotiated ~p  Expected ~p", [KeyEx1, KeyEx2]),
+    false.
 
 send_recv_result_active(Socket) ->
     ssl:send(Socket, "Hello world"),

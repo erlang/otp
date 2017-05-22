@@ -2295,6 +2295,8 @@ is_acceptable_hash_sign({_, dsa} = Algos, dsa, _, srp_dss, SupportedHashSigns) -
     is_acceptable_hash_sign(Algos, SupportedHashSigns); 
 is_acceptable_hash_sign({_, ecdsa} = Algos, ecdsa, _, dhe_ecdsa, SupportedHashSigns) ->
     is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, ecdsa} = Algos, ecdsa, ecdsa, ecdh_ecdsa, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
 is_acceptable_hash_sign({_, ecdsa} = Algos, ecdsa, ecdsa, ecdhe_ecdsa, SupportedHashSigns) ->
     is_acceptable_hash_sign(Algos, SupportedHashSigns); 
 is_acceptable_hash_sign(_, _, _, KeyExAlgo, _) when 
