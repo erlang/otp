@@ -776,14 +776,18 @@ extract_public_key(#'ECPrivateKey'{parameters = {namedCurve,OID},
     {#'ECPoint'{point=Q}, {namedCurve,OID}}.
 
 
-verify_host_key(#ssh{algorithms=Alg}=SSH, PublicKey, Digest, Signature) ->
-    case verify(Digest, sha(Alg#alg.hkey), Signature, PublicKey) of
-	false ->
-	    {error, bad_signature};
-	true ->
-	    known_host_key(SSH, PublicKey, public_algo(PublicKey))
+verify_host_key(#ssh{algorithms=Alg}=SSH, PublicKey, Digest, {AlgStr,Signature}) ->
+    case atom_to_list(Alg#alg.hkey) of
+        AlgStr ->
+            case verify(Digest, sha(Alg#alg.hkey), Signature, PublicKey) of
+                false ->
+                    {error, bad_signature};
+                true ->
+                    known_host_key(SSH, PublicKey, public_algo(PublicKey))
+            end;
+        _ ->
+            {error, bad_signature_name}
     end.
-
 
 
 accepted_host(Ssh, PeerName, Public, Opts) ->

@@ -408,10 +408,11 @@ comma_list_encode([Option | Rest], Acc) ->
     comma_list_encode(Rest, Acc ++ "," ++ Option).
 
 
-%% An experimental fix adding the signature algorithm name as the last element in a tuple...
-
 ssh2_pubkey_encode(#'RSAPublicKey'{modulus = N, publicExponent = E}) ->
     ssh2_pubkey_encode({#'RSAPublicKey'{modulus = N, publicExponent = E}, 'ssh-rsa'});
+
+ssh2_pubkey_encode({Key, 'rsa-sha2-256'}) -> ssh2_pubkey_encode({Key, 'ssh-rsa'});
+ssh2_pubkey_encode({Key, 'rsa-sha2-512'}) -> ssh2_pubkey_encode({Key, 'ssh-rsa'});
 ssh2_pubkey_encode({#'RSAPublicKey'{modulus = N, publicExponent = E}, SignAlg}) ->
     SignAlgName = list_to_binary(atom_to_list(SignAlg)),
     StrLen = size(SignAlgName),
@@ -448,16 +449,12 @@ ssh2_pubkey_encode(Key={#'ECPoint'{point = Q}, {namedCurve,OID}}) ->
 ssh2_pubkey_decode(Bin = <<?UINT32(Len), Type:Len/binary, _/binary>>) ->
     ssh2_pubkey_decode(Type, Bin).
 
-%% An experimental fix with the Signature Algorithm Name
-ssh2_pubkey_decode(SignAlgName,
+ssh2_pubkey_decode(<<"rsa-sha2-256">>, Bin) -> ssh2_pubkey_decode(<<"ssh-rsa">>, Bin);
+ssh2_pubkey_decode(<<"rsa-sha2-512">>, Bin) -> ssh2_pubkey_decode(<<"ssh-rsa">>, Bin);
+ssh2_pubkey_decode(<<"ssh-rsa">>,
 		   <<?UINT32(Len),   _:Len/binary,
 		     ?UINT32(SizeE), E:SizeE/binary,
-		     ?UINT32(SizeN), N:SizeN/binary>>)
-  when SignAlgName == <<"ssh-rsa">> ;
-       SignAlgName == <<"rsa-sha2-256">> ;
-       SignAlgName == <<"rsa-sha2-384">> ;
-       SignAlgName == <<"rsa-sha2-512">> 
-       ->
+		     ?UINT32(SizeN), N:SizeN/binary>>) ->
     #'RSAPublicKey'{modulus = erlint(SizeN, N),
 		    publicExponent = erlint(SizeE, E)};
 
@@ -471,6 +468,7 @@ ssh2_pubkey_decode(<<"ssh-dss">>,
      #'Dss-Parms'{p = erlint(SizeP, P),
 		  q = erlint(SizeQ, Q),
 		  g = erlint(SizeG, G)}};
+
 ssh2_pubkey_decode(<<"ecdsa-sha2-",Id/binary>>,
 		   <<?UINT32(Len), ECDSA_SHA2_etc:Len/binary,
 		     ?UINT32(SizeId), Id:SizeId/binary,

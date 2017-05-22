@@ -1712,7 +1712,12 @@ ext_info({"server-sig-algs",SigAlgs}, D0 = #data{ssh_params=#ssh{role=client,
                     ],
     CommonAlgs = [Alg || Alg <- ServerSigAlgs,
                          lists:member(Alg, ClientSigAlgs)],
-    D0#data{ssh_params = Ssh0#ssh{userauth_pubkeys = CommonAlgs} };
+    SelectedAlgs =
+        case CommonAlgs of
+            [] -> ClientSigAlgs; % server-sig-algs value is just an advice
+            _ -> CommonAlgs
+        end,
+    D0#data{ssh_params = Ssh0#ssh{userauth_pubkeys = SelectedAlgs} };
 
 ext_info(_, D0) ->
     %% Not implemented

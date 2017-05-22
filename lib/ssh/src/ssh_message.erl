@@ -598,8 +598,8 @@ decode_kex_init(<<?DEC_BIN(Data,__0), Rest/binary>>, Acc, N) ->
 %%% Signature decode/encode
 %%%
 
-decode_signature(<<?DEC_BIN(_Alg,__0), ?UINT32(_), Signature/binary>>) ->
-    Signature.
+decode_signature(<<?DEC_BIN(Alg,__0), ?UINT32(_), Signature/binary>>) ->
+    {binary_to_list(Alg), Signature}.
 
 
 encode_signature({#'RSAPublicKey'{},Sign}, Signature) ->
