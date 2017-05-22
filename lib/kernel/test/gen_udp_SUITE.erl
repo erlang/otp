@@ -717,9 +717,9 @@ implicit_inet6(Config) when is_list(Config) ->
 
 implicit_inet6(Host, Addr) ->
     Active = {active,false},
-    case gen_udp:open(0, [inet6,Active]) of
+    Loopback = {0,0,0,0,0,0,0,1},
+    case gen_udp:open(0, [inet6,Active,{ip, Loopback}]) of
 	{ok,S1} ->
-	    Loopback = {0,0,0,0,0,0,0,1},
 	    io:format("~s ~p~n", ["::1",Loopback]),
 	    implicit_inet6(S1, Active, Loopback),
 	    ok = gen_udp:close(S1),
