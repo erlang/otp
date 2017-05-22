@@ -1,6 +1,6 @@
 
 NIF_LIBS = dirty_nif_SUITE@dll@
 
-all: $(NIF_LIBS)
+all: $(NIF_LIBS) echo_drv@dll@
 
 @SHLIB_RULES@

@@ -34,7 +34,8 @@
 	 dirty_scheduler_exit/1, dirty_call_while_terminated/1,
 	 dirty_heap_access/1, dirty_process_info/1,
 	 dirty_process_register/1, dirty_process_trace/1,
-	 code_purge/1, dirty_nif_send_traced/1]).
+	 code_purge/1, dirty_nif_send_traced/1,
+	 nif_whereis/1, nif_whereis_parallel/1, nif_whereis_proxy/1]).
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
@@ -51,7 +52,9 @@ all() ->
      dirty_process_register,
      dirty_process_trace,
      code_purge,
-     dirty_nif_send_traced].
+     dirty_nif_send_traced,
+     nif_whereis,
+     nif_whereis_parallel].
 
 init_per_suite(Config) ->
     case erlang:system_info(dirty_cpu_schedulers) of
@@ -531,6 +534,137 @@ mcall(Node, Funs) ->
                       end
               end, Refs).
 
+%% Test enif_whereis_...
+%% These tests are mostly identical to their counterparts in nif_SUITE.erl,
+%% with just name and count changes in the first few lines.
+
+nif_whereis(Config) when is_list(Config) ->
+    erl_ddll:try_load(?config(data_dir, Config), echo_drv, []),
+
+    RegName = dirty_nif_whereis_test_thing,
+    undefined = erlang:whereis(RegName),
+    false = whereis_term(pid, RegName),
+
+    Mgr = self(),
+    Ref = make_ref(),
+    ProcMsg = {Ref, ?LINE},
+    PortMsg = ?MODULE_STRING " whereis hello\n",
+
+    {Pid, Mon} = spawn_monitor(?MODULE, nif_whereis_proxy, [Ref]),
+    true = register(RegName, Pid),
+    Pid = erlang:whereis(RegName),
+    Pid = whereis_term(pid, RegName),
+    false = whereis_term(port, RegName),
+    false = whereis_term(pid, [RegName]),
+
+    ok = whereis_send(pid, RegName, {forward, Mgr, ProcMsg}),
+    ok = receive ProcMsg -> ok end,
+
+    Pid ! {Ref, quit},
+    ok = receive {'DOWN', Mon, process, Pid, normal} -> ok end,
+    undefined = erlang:whereis(RegName),
+    false = whereis_term(pid, RegName),
+
+    Port = open_port({spawn, echo_drv}, [eof]),
+    true = register(RegName, Port),
+    Port = erlang:whereis(RegName),
+    Port = whereis_term(port, RegName),
+    false = whereis_term(pid, RegName),
+    false = whereis_term(port, [RegName]),
+
+    ok = whereis_send(port, RegName, PortMsg),
+    ok = receive {Port, {data, PortMsg}} -> ok end,
+
+    port_close(Port),
+    undefined = erlang:whereis(RegName),
+    false = whereis_term(port, RegName),
+    ok.
+
+nif_whereis_parallel(Config) when is_list(Config) ->
+
+    %% try to be at least a little asymetric
+    NProcs = trunc(3.5 * erlang:system_info(schedulers)),
+    NSeq = lists:seq(1, NProcs),
+    Names = [list_to_atom("dirty_nif_whereis_proc_" ++ integer_to_list(N))
+            || N <- NSeq],
+    Mgr = self(),
+    Ref = make_ref(),
+
+    NotReg = fun(Name) ->
+        erlang:whereis(Name) == undefined
+    end,
+    PidReg = fun({Name, Pid, _Mon}) ->
+        erlang:whereis(Name) == Pid andalso whereis_term(pid, Name) == Pid
+    end,
+    RecvDown = fun({_Name, Pid, Mon}) ->
+        receive {'DOWN', Mon, process, Pid, normal} -> true
+        after   1500 -> false end
+    end,
+    RecvNum = fun(N) ->
+        receive {N, Ref} -> true
+        after   1500 -> false end
+    end,
+
+    true = lists:all(NotReg, Names),
+
+    %% {Name, Pid, Mon}
+    Procs = lists:map(
+        fun(N) ->
+            Name = lists:nth(N, Names),
+            Prev = lists:nth((if N == 1 -> NProcs; true -> (N - 1) end), Names),
+            Next = lists:nth((if N == NProcs -> 1; true -> (N + 1) end), Names),
+            {Pid, Mon} = spawn_monitor(
+                ?MODULE, nif_whereis_proxy, [{N, Ref, Mgr, [Prev, Next]}]),
+            true = register(Name, Pid),
+            {Name, Pid, Mon}
+        end, NSeq),
+
+    true = lists:all(PidReg, Procs),
+
+    %% tell them all to 'fire' as fast as we can
+    [P ! {Ref, send_proc} || {_, P, _} <- Procs],
+
+    %% each gets forwarded through two processes
+    true = lists:all(RecvNum, NSeq),
+    true = lists:all(RecvNum, NSeq),
+
+    %% tell them all to 'quit' by name
+    [N ! {Ref, quit} || {N, _, _} <- Procs],
+    true = lists:all(RecvDown, Procs),
+    true = lists:all(NotReg, Names),
+    ok.
+
+%% exported to be spawned by MFA by whereis tests
+nif_whereis_proxy({N, Ref, Mgr, Targets} = Args) ->
+    receive
+        {forward, To, Data} ->
+            To ! Data,
+            nif_whereis_proxy(Args);
+        {Ref, quit} ->
+            ok;
+        {Ref, send_port} ->
+            Msg = ?MODULE_STRING " whereis " ++ integer_to_list(N) ++ "\n",
+            lists:foreach(
+                fun(T) ->
+                    ok = whereis_send(port, T, Msg)
+                end, Targets),
+            nif_whereis_proxy(Args);
+        {Ref, send_proc} ->
+            lists:foreach(
+                fun(T) ->
+                    ok = whereis_send(pid, T, {forward, Mgr, {N, Ref}})
+                end, Targets),
+            nif_whereis_proxy(Args)
+    end;
+nif_whereis_proxy(Ref) ->
+    receive
+        {forward, To, Data} ->
+            To ! Data,
+            nif_whereis_proxy(Ref);
+        {Ref, quit} ->
+            ok
+    end.
+
 %% The NIFs:
 lib_loaded() -> false.
 call_dirty_nif(_,_,_) -> ?nif_stub.
@@ -542,6 +676,8 @@ dirty_call_while_terminated_nif(_) -> ?nif_stub.
 dirty_sleeper() -> ?nif_stub.
 dirty_sleeper(_) -> ?nif_stub.
 dirty_heap_access_nif(_) -> ?nif_stub.
+whereis_term(_Type,_Name) -> ?nif_stub.
+whereis_send(_Type,_Name,_Msg) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

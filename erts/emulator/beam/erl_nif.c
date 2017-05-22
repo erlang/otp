@@ -879,6 +879,64 @@ enif_port_command(ErlNifEnv *env, const ErlNifPort* to_port,
     return res;
 }
 
+/*
+ *  env must be the caller's environment in a scheduler or NULL in a
+ *      non-scheduler thread.
+ *  name must be an atom - anything else will just waste time.
+ */
+static Eterm call_whereis(ErlNifEnv *env, Eterm name)
+{
+    Process *c_p;
+    Eterm res;
+    int scheduler;
+    int unlock;
+
+    execution_state(env, &c_p, &scheduler);
+    ASSERT((c_p && scheduler) || (!c_p && !scheduler));
+
+    unlock = 0;
+    if (scheduler < 0) {
+        /* dirty scheduler */
+        if (ERTS_PROC_IS_EXITING(c_p))
+            return 0;
+
+        if (env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC) {
+            erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+            unlock = 1;
+        }
+    }
+    res = erts_whereis_name_to_id(c_p, name);
+
+    if (unlock)
+        erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+
+    return res;
+}
+
+int enif_whereis_pid(ErlNifEnv *env, ERL_NIF_TERM name, ErlNifPid *pid)
+{
+    Eterm res;
+
+    if (is_not_atom(name))
+        return 0;
+
+    res = call_whereis(env, name);
+    /* enif_get_local_ functions check the type */
+    return enif_get_local_pid(env, res, pid);
+}
+
+int enif_whereis_port(ErlNifEnv *env, ERL_NIF_TERM name, ErlNifPort *port)
+{
+    Eterm res;
+
+    if (is_not_atom(name))
+        return 0;
+
+    res = call_whereis(env, name);
+    /* enif_get_local_ functions check the type */
+    return enif_get_local_port(env, res, port);
+}
+
 ERL_NIF_TERM enif_make_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)
 {
     Uint sz;

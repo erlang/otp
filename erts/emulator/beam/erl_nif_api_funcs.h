@@ -181,6 +181,8 @@ ERL_NIF_API_FUNC_DECL(int, enif_monitor_process,(ErlNifEnv*,void* obj,const ErlN
 ERL_NIF_API_FUNC_DECL(int, enif_demonitor_process,(ErlNifEnv*,void* obj,const ErlNifMonitor *monitor));
 ERL_NIF_API_FUNC_DECL(int, enif_compare_monitors,(const ErlNifMonitor*,const ErlNifMonitor*));
 ERL_NIF_API_FUNC_DECL(ErlNifUInt64,enif_hash,(ErlNifHash type, ERL_NIF_TERM term, ErlNifUInt64 salt));
+ERL_NIF_API_FUNC_DECL(int, enif_whereis_pid, (ErlNifEnv *env, ERL_NIF_TERM name, ErlNifPid *pid));
+ERL_NIF_API_FUNC_DECL(int, enif_whereis_port, (ErlNifEnv *env, ERL_NIF_TERM name, ErlNifPort *port));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -344,6 +346,8 @@ ERL_NIF_API_FUNC_DECL(ErlNifUInt64,enif_hash,(ErlNifHash type, ERL_NIF_TERM term
 #  define enif_demonitor_process ERL_NIF_API_FUNC_MACRO(enif_demonitor_process)
 #  define enif_compare_monitors ERL_NIF_API_FUNC_MACRO(enif_compare_monitors)
 #  define enif_hash ERL_NIF_API_FUNC_MACRO(enif_hash)
+#  define enif_whereis_pid ERL_NIF_API_FUNC_MACRO(enif_whereis_pid)
+#  define enif_whereis_port ERL_NIF_API_FUNC_MACRO(enif_whereis_port)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

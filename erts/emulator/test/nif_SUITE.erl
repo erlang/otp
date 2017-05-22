@@ -59,7 +59,9 @@
          nif_snprintf/1,
          nif_internal_hash/1,
          nif_internal_hash_salted/1,
-         nif_phash2/1
+         nif_phash2/1,
+         nif_whereis/1, nif_whereis_parallel/1,
+         nif_whereis_threaded/1, nif_whereis_proxy/1
 	]).
 
 -export([many_args_100/100]).
@@ -96,7 +98,8 @@ all() ->
      nif_snprintf,
      nif_internal_hash,
      nif_internal_hash_salted,
-     nif_phash2].
+     nif_phash2,
+     nif_whereis, nif_whereis_parallel, nif_whereis_threaded].
 
 groups() ->
     [{G, [], api_repeaters()} || G <- api_groups()]
@@ -133,6 +136,11 @@ init_per_testcase(hipe, Config) ->
     case erlang:system_info(hipe_architecture) of
 	undefined -> {skip, "HiPE is disabled"};
 	_ -> Config
+    end;
+init_per_testcase(nif_whereis_threaded, Config) ->
+    case erlang:system_info(threads) of
+        true -> Config;
+        false -> {skip, "No thread support"}
     end;
 init_per_testcase(select, Config) ->
     case os:type() of
@@ -2765,6 +2773,161 @@ random_pid() ->
     Processes = erlang:processes(),
     lists:nth(rand:uniform(length(Processes)), Processes).
 
+%% Test enif_whereis_...
+
+nif_whereis(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+
+    RegName = nif_whereis_test_thing,
+    undefined = erlang:whereis(RegName),
+    false = whereis_term(pid, RegName),
+
+    Mgr = self(),
+    Ref = make_ref(),
+    ProcMsg = {Ref, ?LINE},
+    PortMsg = ?MODULE_STRING " whereis hello\n",
+
+    {Pid, Mon} = spawn_monitor(?MODULE, nif_whereis_proxy, [Ref]),
+    true = register(RegName, Pid),
+    Pid = erlang:whereis(RegName),
+    Pid = whereis_term(pid, RegName),
+    false = whereis_term(port, RegName),
+    false = whereis_term(pid, [RegName]),
+
+    ok = whereis_send(pid, RegName, {forward, Mgr, ProcMsg}),
+    ok = receive ProcMsg -> ok end,
+
+    Pid ! {Ref, quit},
+    ok = receive {'DOWN', Mon, process, Pid, normal} -> ok end,
+    undefined = erlang:whereis(RegName),
+    false = whereis_term(pid, RegName),
+
+    Port = open_port({spawn, echo_drv}, [eof]),
+    true = register(RegName, Port),
+    Port = erlang:whereis(RegName),
+    Port = whereis_term(port, RegName),
+    false = whereis_term(pid, RegName),
+    false = whereis_term(port, [RegName]),
+
+    ok = whereis_send(port, RegName, PortMsg),
+    ok = receive {Port, {data, PortMsg}} -> ok end,
+
+    port_close(Port),
+    undefined = erlang:whereis(RegName),
+    false = whereis_term(port, RegName),
+    ok.
+
+nif_whereis_parallel(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+
+    %% try to be at least a little asymetric
+    NProcs = trunc(3.7 * erlang:system_info(schedulers)),
+    NSeq = lists:seq(1, NProcs),
+    Names = [list_to_atom("nif_whereis_proc_" ++ integer_to_list(N))
+            || N <- NSeq],
+    Mgr = self(),
+    Ref = make_ref(),
+
+    NotReg = fun(Name) ->
+        erlang:whereis(Name) == undefined
+    end,
+    PidReg = fun({Name, Pid, _Mon}) ->
+        erlang:whereis(Name) == Pid andalso whereis_term(pid, Name) == Pid
+    end,
+    RecvDown = fun({_Name, Pid, Mon}) ->
+        receive {'DOWN', Mon, process, Pid, normal} -> true
+        after   1500 -> false end
+    end,
+    RecvNum = fun(N) ->
+        receive {N, Ref} -> true
+        after   1500 -> false end
+    end,
+
+    true = lists:all(NotReg, Names),
+
+    %% {Name, Pid, Mon}
+    Procs = lists:map(
+        fun(N) ->
+            Name = lists:nth(N, Names),
+            Prev = lists:nth((if N == 1 -> NProcs; true -> (N - 1) end), Names),
+            Next = lists:nth((if N == NProcs -> 1; true -> (N + 1) end), Names),
+            {Pid, Mon} = spawn_monitor(
+                ?MODULE, nif_whereis_proxy, [{N, Ref, Mgr, [Prev, Next]}]),
+            true = register(Name, Pid),
+            {Name, Pid, Mon}
+        end, NSeq),
+
+    true = lists:all(PidReg, Procs),
+
+    %% tell them all to 'fire' as fast as we can
+    [P ! {Ref, send_proc} || {_, P, _} <- Procs],
+
+    %% each gets forwarded through two processes
+    true = lists:all(RecvNum, NSeq),
+    true = lists:all(RecvNum, NSeq),
+
+    %% tell them all to 'quit' by name
+    [N ! {Ref, quit} || {N, _, _} <- Procs],
+    true = lists:all(RecvDown, Procs),
+    true = lists:all(NotReg, Names),
+    ok.
+
+nif_whereis_threaded(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+
+    RegName = nif_whereis_test_threaded,
+    undefined = erlang:whereis(RegName),
+
+    Ref = make_ref(),
+    {Pid, Mon} = spawn_monitor(?MODULE, nif_whereis_proxy, [Ref]),
+    true = register(RegName, Pid),
+
+    {ok, ProcThr} = whereis_thd_lookup(pid, RegName),
+    {ok, Pid} = whereis_thd_result(ProcThr),
+
+    Pid ! {Ref, quit},
+    ok = receive {'DOWN', Mon, process, Pid, normal} -> ok end,
+
+    Port = open_port({spawn, echo_drv}, [eof]),
+    true = register(RegName, Port),
+
+    {ok, PortThr} = whereis_thd_lookup(port, RegName),
+    {ok, Port} = whereis_thd_result(PortThr),
+
+    port_close(Port),
+    ok.
+
+%% exported to be spawned by MFA by whereis tests
+nif_whereis_proxy({N, Ref, Mgr, Targets} = Args) ->
+    receive
+        {forward, To, Data} ->
+            To ! Data,
+            nif_whereis_proxy(Args);
+        {Ref, quit} ->
+            ok;
+        {Ref, send_port} ->
+            Msg = ?MODULE_STRING " whereis " ++ integer_to_list(N) ++ "\n",
+            lists:foreach(
+                fun(T) ->
+                    ok = whereis_send(port, T, Msg)
+                end, Targets),
+            nif_whereis_proxy(Args);
+        {Ref, send_proc} ->
+            lists:foreach(
+                fun(T) ->
+                    ok = whereis_send(pid, T, {forward, Mgr, {N, Ref}})
+                end, Targets),
+            nif_whereis_proxy(Args)
+    end;
+nif_whereis_proxy(Ref) ->
+    receive
+        {forward, To, Data} ->
+            To ! Data,
+            nif_whereis_proxy(Ref);
+        {Ref, quit} ->
+            ok
+    end.
+
 %% The NIFs:
 lib_version() -> undefined.
 call_history() -> ?nif_stub.
@@ -2838,6 +3001,12 @@ monitor_process_nif(_,_,_,_) -> ?nif_stub.
 demonitor_process_nif(_,_) -> ?nif_stub.
 compare_monitors_nif(_,_) -> ?nif_stub.
 monitor_frenzy_nif(_,_,_,_) -> ?nif_stub.
+
+%% whereis
+whereis_send(_Type,_Name,_Msg) -> ?nif_stub.
+whereis_term(_Type,_Name) -> ?nif_stub.
+whereis_thd_lookup(_Type,_Name) -> ?nif_stub.
+whereis_thd_result(_Thd) -> ?nif_stub.
 
 %% maps
 is_map_nif(_) -> ?nif_stub.

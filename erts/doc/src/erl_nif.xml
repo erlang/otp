@@ -3002,6 +3002,63 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
           <c>erl_drv_tsd_set</c></seealso>.</p>
       </desc>
     </func>
+
+    <func>
+      <name><ret>int</ret>
+        <nametext>enif_whereis_pid(ErlNifEnv *env,
+          ERL_NIF_TERM name, ErlNifPid *pid)</nametext></name>
+      <fsummary>Looks up a process by its registered name.</fsummary>
+      <desc>
+        <p>Looks up a process by its registered name.</p>
+        <taglist>
+          <tag><c>env</c></tag>
+          <item>The environment of the calling process. Must be <c>NULL</c>
+            only if calling from a created thread.</item>
+          <tag><c>name</c></tag>
+          <item>The name of a registered process, as an atom.</item>
+          <tag><c>*pid</c></tag>
+          <item>The <seealso marker="#ErlNifPid"><c>ErlNifPid</c></seealso>
+            in which the resolved process id is stored.</item>
+        </taglist>
+        <p>On success, sets <c>*pid</c> to the local process registered with
+          <c>name</c> and returns <c>true</c>. If <c>name</c> is not a
+          registered process, or is not an atom, <c>false</c> is returned and
+          <c>*pid</c> is unchanged.</p>
+        <p>Works as <seealso marker="erlang#whereis-1">
+          <c>erlang:whereis/1</c></seealso>, but restricted to processes. See
+          <seealso marker="#enif_whereis_port"><c>enif_whereis_port</c></seealso>
+          to resolve registered ports.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+        <nametext>enif_whereis_port(ErlNifEnv *env,
+          ERL_NIF_TERM name, ErlNifPort *port)</nametext></name>
+      <fsummary>Looks up a port by its registered name.</fsummary>
+      <desc>
+        <p>Looks up a port by its registered name.</p>
+        <taglist>
+          <tag><c>env</c></tag>
+          <item>The environment of the calling process. Must be <c>NULL</c>
+            only if calling from a created thread.</item>
+          <tag><c>name</c></tag>
+          <item>The name of a registered port, as an atom.</item>
+          <tag><c>*port</c></tag>
+          <item>The <seealso marker="#ErlNifPort"><c>ErlNifPort</c></seealso>
+            in which the resolved port id is stored.</item>
+        </taglist>
+        <p>On success, sets <c>*port</c> to the port registered with
+          <c>name</c> and returns <c>true</c>. If <c>name</c> is not a
+          registered port, or is not an atom, <c>false</c> is returned and
+          <c>*port</c> is unchanged.</p>
+        <p>Works as <seealso marker="erlang#whereis-1">
+          <c>erlang:whereis/1</c></seealso>, but restricted to ports. See
+          <seealso marker="#enif_whereis_pid"><c>enif_whereis_pid</c></seealso>
+          to resolve registered processes.</p>
+      </desc>
+    </func>
+
   </funcs>
 
   <section>
