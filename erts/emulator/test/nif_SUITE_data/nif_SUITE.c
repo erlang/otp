@@ -2561,6 +2561,7 @@ static ERL_NIF_TERM monitor_frenzy_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
     static unsigned long spawn_cnt = 0;
     static unsigned long kill_cnt = 0;
     static unsigned long proc_histogram[FRENZY_PROCS_MAX];
+    static int initialized = 0;
 
     static const unsigned int primes[] = {7, 13, 17, 19};
 
@@ -2580,7 +2581,7 @@ static ERL_NIF_TERM monitor_frenzy_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 
     if (enif_is_atom(env, Op)) {
         if (Op == atom_init) {
-            if (procs_lock || !enif_get_uint(env, Rnd, &frenzy_rand_bits_max))
+            if (initialized || !enif_get_uint(env, Rnd, &frenzy_rand_bits_max))
                 return enif_make_badarg(env);
 
             procs_lock = enif_mutex_create("nif_SUITE:monitor_frenzy.procs");
@@ -2607,6 +2608,7 @@ static ERL_NIF_TERM monitor_frenzy_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 
             spawn_cnt = 1;
             kill_cnt = 0;
+            initialized = 1;
             return enif_make_uint(env, 0);  /* SelfPix */
         }
         else if (Op == atom_stats) {
@@ -2637,7 +2639,7 @@ static ERL_NIF_TERM monitor_frenzy_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
                                              enif_make_ulong(env, res_dtor_cnt)));
 
         }
-        else if (Op == atom_stop && procs_lock) {  /* stop all */
+        else if (Op == atom_stop && initialized) {  /* stop all */
 
             /* Release all resources */
             for (rix = 0; rix < FRENZY_RESOURCES_MAX; rix++) {
