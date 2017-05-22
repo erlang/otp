@@ -346,7 +346,7 @@ ok
     <p>
       To compare styles, here follows the same example using
       <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
-      <c>state_functions</c>, or rather the code to replace
+      <c>handle_event_function</c>, or rather the code to replace
       after function <c>init/1</c> of the <c>pushbutton.erl</c>
       example file above:
     </p>

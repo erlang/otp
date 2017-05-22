@@ -1582,10 +1582,12 @@ format_status(Opt, [_PDict,State,Data]) ->
       for example, a complex state term like a tuple.
     </p>
     <p>
-      One reason to use this is when you have
-      a state item that affects the event handling,
-      in particular in combination with postponing events.
-      We complicate the previous example
+      One reason to use this is when you have a state item
+      that when changed should cancel the
+      <seealso marker="#State Time-Outs">state time-out</seealso>,
+      or one that affects the event handling
+      in combination with postponing events.
+      We will complicate the previous example
       by introducing a configurable lock button
       (this is the state item in question),
       which in the <c>open</c> state immediately locks the door,
