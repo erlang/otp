@@ -58,6 +58,7 @@
   </section>
 
   <section>
+      <marker id="erl_signal_server"/>
       <title>OS Signal Event Handler</title>
       <p>Asynchronous OS signals may be subscribed to via the Kernel applications event manager
           (see <seealso marker="doc/design_principles:des_princ">OTP Design Principles</seealso> and

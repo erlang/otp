@@ -174,8 +174,9 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
 
               <tag><c>handle</c></tag>
               <item>
-                  This signal will notify <c>erl_signal_server</c> when it is received by
-                  the Erlang runtime system.
+                  This signal will notify
+                  <seealso marker="kernel_app#erl_signal_server"><c>erl_signal_server</c></seealso>
+                  when it is received by the Erlang runtime system.
               </item>
           </taglist>
       </desc>
