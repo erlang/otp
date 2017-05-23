@@ -171,7 +171,6 @@ init_per_testcase(_, {public_key,Alg}, Config) ->
     Opts = pubkey_opts(Config),
     case {ssh_file:user_key(Alg,Opts), ssh_file:host_key(Alg,Opts)} of
         {{ok,_}, {ok,_}} ->
-            ssh_dbg:ct_auth(),
             start_pubkey_daemon([proplists:get_value(pref_algs,Config)],
                                 [{extra_daemon,true}|Config]);
         {{ok,_}, _} ->
@@ -193,7 +192,6 @@ init_per_testcase(_, _, Config) ->
 
 
 end_per_testcase(_TC, Config) ->
-    catch ssh_dbg:stop(),
     case proplists:get_value(extra_daemon, Config, false) of
         true ->
             case proplists:get_value(srvr_pid,Config) of
@@ -304,9 +302,19 @@ sshc_simple_exec_os_cmd(Config) ->
 %%--------------------------------------------------------------------
 %% Connect to the ssh server of the OS
 sshd_simple_exec(Config) ->
+    case ?config(tc_group_path,Config) of
+        [[{name,public_key}]] -> ssh_dbg:ct_auth();
+        _ -> ok
+    end,
+    ClientPubKeyOpts =
+        case proplists:get_value(tag_alg,Config) of
+            {public_key,Alg} -> [{pref_public_key_algs,[Alg]}];
+            _ -> []
+        end,
     ConnectionRef = ssh_test_lib:connect(22, [{silently_accept_hosts, true},
                                               proplists:get_value(pref_algs,Config),
-					      {user_interaction, false}]),
+					      {user_interaction, false}
+                                              | ClientPubKeyOpts]),
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
 				  "echo testing", infinity),
@@ -320,6 +328,7 @@ sshd_simple_exec(Config) ->
 	    ssh_test_lib:receive_exec_result(Data0,
 					     ConnectionRef, ChannelId0);
 	Other0 ->
+            catch ssh_dbg:stop(),
 	    ct:fail(Other0)
     end,
     
@@ -336,8 +345,10 @@ sshd_simple_exec(Config) ->
 	    ssh_test_lib:receive_exec_result(Data1,
 					     ConnectionRef, ChannelId1);
 	Other1 ->
+            catch ssh_dbg:stop(),
 	    ct:fail(Other1)
     end,
+    catch ssh_dbg:stop(),
     ssh:close(ConnectionRef).
 
 
