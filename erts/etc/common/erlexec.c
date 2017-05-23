@@ -555,7 +555,7 @@ int main(int argc, char **argv)
     if(s) {
         add_Eargs(s);         /* argv[0] = scriptname*/
     } else {
-        add_Eargs(progname);  /* argv[0] = erl or cerl */
+        add_Eargs(emu);       /* argv[0] = erl or cerl */
     }
     /*
      * Add the bindir to the path (unless it is there already).
