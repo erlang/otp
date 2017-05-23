@@ -22,9 +22,10 @@
 
 -module(ssh_dbg).
 
--export([messages/0,
-	 messages/1,
-	 messages/2,
+-export([messages/0, messages/1, messages/2,
+         ct_messages/0,
+	 auth/0,     auth/1,     auth/2,
+         ct_auth/0,
 	 stop/0
 	]).
 
@@ -43,75 +44,167 @@
 messages() ->
     messages(fun(String,_D) -> io:format(String) end).
 
+ct_messages() ->
+    messages(fun(String,_D) -> ct:log(String,[]) end).
+
 messages(Write) when is_function(Write,2) ->
     messages(Write, fun(X) -> X end).
 
 messages(Write, MangleArg) when is_function(Write,2),
 				is_function(MangleArg,1) ->
-    catch dbg:start(),
-    setup_tracer(Write, MangleArg),
-    dbg:p(new,[c,timestamp]),
-    dbg_ssh_messages().
+    cond_start(msg, Write, MangleArg),
+    dbg_ssh_messages(),
+    dbg_ssh_auth().
+
+
+auth() ->
+    auth(fun(String,_D) -> io:format(String) end).
+
+ct_auth() ->
+    auth(fun(String,_D) -> ct:log(String,[]) end).
+
+auth(Write) when is_function(Write,2) ->
+    auth(Write, fun(X) -> X end).
+
+auth(Write, MangleArg) when is_function(Write,2),
+				is_function(MangleArg,1) ->
+    cond_start(auth, Write, MangleArg),
+    dbg_ssh_auth().
+
 
 dbg_ssh_messages() ->
     dbg:tp(ssh_message,encode,1, x),
     dbg:tp(ssh_message,decode,1, x),
     dbg:tpl(ssh_transport,select_algorithm,4, x),
     dbg:tp(ssh_transport,hello_version_msg,1, x),
-    dbg:tp(ssh_transport,handle_hello_version,1, x).
+    dbg:tp(ssh_transport,handle_hello_version,1, x),
+    dbg:tpl(ssh_connection_handler,ext_info,2, x).
+   
+dbg_ssh_auth() ->
+    dbg:tp(ssh_transport,hello_version_msg,1, x),
+    dbg:tp(ssh_transport,handle_hello_version,1, x),
+    dbg:tp(ssh_message,encode,1, x),
+    dbg:tpl(ssh_transport,select_algorithm,4, x),
+    dbg:tpl(ssh_connection_handler,ext_info,2, x),
+    lists:foreach(fun(F) -> dbg:tp(ssh_auth, F, x) end,
+                  [publickey_msg, password_msg, keyboard_interactive_msg]).
    
 %%%----------------------------------------------------------------
 stop() ->
     dbg:stop().
 
 %%%================================================================
-msg_formater({trace_ts,Pid,call,{ssh_message,encode,[Msg]},TS}, D) ->
+cond_start(Type, Write, MangleArg) ->
+    try
+        dbg:start(),
+        setup_tracer(Type, Write, MangleArg),
+        dbg:p(new,[c,timestamp])
+    catch
+        _:_ -> ok
+    end.
+
+
+msg_formater(msg, {trace_ts,Pid,call,{ssh_message,encode,[Msg]},TS}, D) ->
     fmt("~n~s SEND ~p ~s~n", [ts(TS),Pid,wr_record(shrink_bin(Msg))], D);
-msg_formater({trace_ts,_Pid,return_from,{ssh_message,encode,1},_Res,_TS}, D) -> 
+msg_formater(msg, {trace_ts,_Pid,return_from,{ssh_message,encode,1},_Res,_TS}, D) -> 
     D;
 	
-msg_formater({trace_ts,_Pid,call,{ssh_message,decode,_},_TS}, D) ->
+msg_formater(msg, {trace_ts,_Pid,call,{ssh_message,decode,_},_TS}, D) ->
     D;
-msg_formater({trace_ts,Pid,return_from,{ssh_message,decode,1},Msg,TS}, D) -> 
+msg_formater(msg, {trace_ts,Pid,return_from,{ssh_message,decode,1},Msg,TS}, D) -> 
     fmt("~n~s ~p RECV ~s~n", [ts(TS),Pid,wr_record(shrink_bin(Msg))], D);
+
+msg_formater(auth, {trace_ts,Pid,return_from,{ssh_message,decode,1},#ssh_msg_userauth_failure{authentications=As},TS}, D) -> 
+    fmt("~n~s ~p Client login FAILURE. Try ~s~n", [ts(TS),Pid,As], D);
 	
-msg_formater({trace_ts,_Pid,call,{ssh_transport,select_algorithm,_},_TS}, D) ->
+msg_formater(auth, {trace_ts,Pid,return_from,{ssh_message,decode,1},#ssh_msg_userauth_success{},TS}, D) -> 
+    fmt("~n~s ~p Client login SUCCESS~n", [ts(TS),Pid], D);
+
+	
+msg_formater(_, {trace_ts,_Pid,call,{ssh_transport,select_algorithm,_},_TS}, D) ->
     D;
-msg_formater({trace_ts,Pid,return_from,{ssh_transport,select_algorithm,_},{ok,Alg},TS}, D) ->
+msg_formater(_, {trace_ts,Pid,return_from,{ssh_transport,select_algorithm,_},{ok,Alg},TS}, D) ->
     fmt("~n~s ~p ALGORITHMS~n~s~n", [ts(TS),Pid, wr_record(Alg)], D);
 
-msg_formater({trace_ts,_Pid,call,{ssh_transport,hello_version_msg,_},_TS}, D) ->
+msg_formater(_, {trace_ts,_Pid,call,{ssh_transport,hello_version_msg,_},_TS}, D) ->
     D;
-msg_formater({trace_ts,Pid,return_from,{ssh_transport,hello_version_msg,1},Hello,TS}, D) -> 
+msg_formater(_, {trace_ts,Pid,return_from,{ssh_transport,hello_version_msg,1},Hello,TS}, D) -> 
     fmt("~n~s ~p TCP SEND HELLO~n  ~p~n", [ts(TS),Pid,lists:flatten(Hello)], D);
 
-msg_formater({trace_ts,Pid,call,{ssh_transport,handle_hello_version,[Hello]},TS}, D) ->
+msg_formater(_, {trace_ts,Pid,call,{ssh_transport,handle_hello_version,[Hello]},TS}, D) ->
     fmt("~n~s ~p RECV HELLO~n  ~p~n", [ts(TS),Pid,lists:flatten(Hello)], D);
-msg_formater({trace_ts,_Pid,return_from,{ssh_transport,handle_hello_version,1},_,_TS}, D) -> 
+msg_formater(_, {trace_ts,_Pid,return_from,{ssh_transport,handle_hello_version,1},_,_TS}, D) -> 
     D;
 
-msg_formater({trace_ts,Pid,send,{tcp,Sock,Bytes},Pid,TS}, D) ->
+msg_formater(_, {trace_ts,Pid,call,{ssh_connection_handler,ext_info,[{"server-sig-algs",_SigAlgs},State]},TS}, D) ->
+    try lists:keyfind(ssh, 1, tuple_to_list(State)) of
+        false ->
+            D;
+        #ssh{userauth_pubkeys = PKs} ->
+            fmt("~n~s ~p Client got suggestion to use user public key sig-algs~n  ~p~n", [ts(TS),Pid,PKs], D)
+    catch
+        _:_ ->
+            D
+    end;
+
+msg_formater(_, {trace_ts,Pid,return_from,{ssh_connection_handler,ext_info,2},State,TS}, D) ->
+    try lists:keyfind(ssh, 1, tuple_to_list(State)) of
+        false ->
+            D;
+        #ssh{userauth_pubkeys = PKs} ->
+            fmt("~n~s ~p Client will try user public key sig-algs~n  ~p~n", [ts(TS),Pid,PKs], D)
+    catch
+        _:_ ->
+            D
+    end;
+
+msg_formater(_, {trace_ts,Pid,call,{ssh_auth,publickey_msg,[[SigAlg,#ssh{user=User}]]},TS}, D) ->
+     fmt("~n~s ~p Client will try to login user ~p with public key algorithm ~p~n", [ts(TS),Pid,User,SigAlg], D);
+msg_formater(_, {trace_ts,Pid,return_from,{ssh_auth,publickey_msg,1},{not_ok,#ssh{user=User}},TS}, D) ->
+     fmt("~s ~p User ~p can't login with that kind of public key~n", [ts(TS),Pid,User], D);
+
+msg_formater(_, {trace_ts,Pid,call,{ssh_auth,password_msg,[[#ssh{user=User}]]},TS}, D) ->
+     fmt("~n~s ~p Client will try to login user ~p with password~n", [ts(TS),Pid,User], D);
+msg_formater(_, {trace_ts,Pid,return_from,{ssh_auth,password_msg,1},{not_ok,#ssh{user=User}},TS}, D) ->
+     fmt("~s ~p User ~p can't login with password~n", [ts(TS),Pid,User], D);
+
+msg_formater(_, {trace_ts,Pid,call,{ssh_auth,keyboard_interactive_msg,[[#ssh{user=User}]]},TS}, D) ->
+     fmt("~n~s ~p Client will try to login user ~p with password~n", [ts(TS),Pid,User], D);
+msg_formater(_, {trace_ts,Pid,return_from,{ssh_auth,keyboard_interactive_msg,1},{not_ok,#ssh{user=User}},TS}, D) ->
+     fmt("~s ~p User ~p can't login with keyboard_interactive password~n", [ts(TS),Pid,User], D);
+
+msg_formater(msg, {trace_ts,Pid,send,{tcp,Sock,Bytes},Pid,TS}, D) ->
     fmt("~n~s ~p TCP SEND on ~p~n ~p~n", [ts(TS),Pid,Sock, shrink_bin(Bytes)], D);
 
-msg_formater({trace_ts,Pid,send,{tcp,Sock,Bytes},Dest,TS}, D) ->
+msg_formater(msg, {trace_ts,Pid,send,{tcp,Sock,Bytes},Dest,TS}, D) ->
     fmt("~n~s ~p TCP SEND from ~p TO ~p~n ~p~n", [ts(TS),Pid,Sock,Dest, shrink_bin(Bytes)], D);
 
-msg_formater({trace_ts,Pid,send,ErlangMsg,Dest,TS}, D) ->
+msg_formater(msg, {trace_ts,Pid,send,ErlangMsg,Dest,TS}, D) ->
     fmt("~n~s ~p ERL MSG SEND TO ~p~n ~p~n", [ts(TS),Pid,Dest, shrink_bin(ErlangMsg)], D);
 
 
-msg_formater({trace_ts,Pid,'receive',{tcp,Sock,Bytes},TS}, D) ->
+msg_formater(msg, {trace_ts,Pid,'receive',{tcp,Sock,Bytes},TS}, D) ->
     fmt("~n~s ~p TCP RECEIVE on ~p~n ~p~n", [ts(TS),Pid,Sock,shrink_bin(Bytes)], D);
 
-msg_formater({trace_ts,Pid,'receive',ErlangMsg,TS}, D) ->
+msg_formater(msg, {trace_ts,Pid,'receive',ErlangMsg,TS}, D) ->
     fmt("~n~s ~p ERL MSG RECEIVE~n ~p~n", [ts(TS),Pid,shrink_bin(ErlangMsg)], D);
 
 
-msg_formater(M, D) ->
-    fmt("~nDBG ~n~p~n", [shrink_bin(M)], D).
+%% msg_formater(_, {trace_ts,_Pid,return_from,MFA,_Ret,_TS}=M, D) ->
+%%     case lists:member(MFA, [{ssh_auth,keyboard_interactive_msg,1},
+%%                             {ssh_auth,password_msg,1},
+%%                             {ssh_auth,publickey_msg,1}]) of
+%%         true ->
+%%             D;
+%%         false ->
+%%             fmt("~nDBG ~n~p~n", [shrink_bin(M)], D)
+%%     end;
 
-%% msg_formater(_, D) -> 
-%%     D.
+%% msg_formater(_, M, D) ->
+%%     fmt("~nDBG ~n~p~n", [shrink_bin(M)], D).
+
+msg_formater(_, _, D) -> 
+     D.
 
 
 fmt(Fmt, Args,  D=#data{writer=Write,acc=Acc}) ->
@@ -123,9 +216,9 @@ ts({_,_,Usec}=Now) ->
 ts(_) ->
     "-".
 %%%----------------------------------------------------------------
-setup_tracer(Write, MangleArg) ->
+setup_tracer(Type, Write, MangleArg) ->
     Handler = fun(Arg, D) ->
-		      msg_formater(MangleArg(Arg), D)
+		      msg_formater(Type, MangleArg(Arg), D)
 	      end,
     InitialData = #data{writer = Write},
     {ok,_} = dbg:tracer(process, {Handler, InitialData}),

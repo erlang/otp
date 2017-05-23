@@ -171,6 +171,7 @@ init_per_testcase(_, {public_key,Alg}, Config) ->
     Opts = pubkey_opts(Config),
     case {ssh_file:user_key(Alg,Opts), ssh_file:host_key(Alg,Opts)} of
         {{ok,_}, {ok,_}} ->
+            ssh_dbg:ct_auth(),
             start_pubkey_daemon([proplists:get_value(pref_algs,Config)],
                                 [{extra_daemon,true}|Config]);
         {{ok,_}, _} ->
@@ -192,6 +193,7 @@ init_per_testcase(_, _, Config) ->
 
 
 end_per_testcase(_TC, Config) ->
+    catch ssh_dbg:stop(),
     case proplists:get_value(extra_daemon, Config, false) of
         true ->
             case proplists:get_value(srvr_pid,Config) of
