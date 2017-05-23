@@ -302,9 +302,9 @@ t_implicit_inet6(Config) when is_list(Config) ->
     end.
 
 t_implicit_inet6(Host, Addr) ->
-    case gen_tcp:listen(0, [inet6]) of
+    Loopback = {0,0,0,0,0,0,0,1},
+    case gen_tcp:listen(0, [inet6, {ip,Loopback}]) of
 	{ok,S1} ->
-	    Loopback = {0,0,0,0,0,0,0,1},
 	    io:format("~s ~p~n", ["::1",Loopback]),
 	    implicit_inet6(S1, Loopback),
 	    ok = gen_tcp:close(S1),
@@ -524,10 +524,10 @@ local_handshake(S, SAddr, C, CAddr) ->
 
 t_accept_inet6_tclass(Config) when is_list(Config) ->
     TClassOpt = {tclass,8#56 bsl 2}, % Expedited forwarding
-    case gen_tcp:listen(0, [inet6,TClassOpt]) of
+    Loopback = {0,0,0,0,0,0,0,1},
+    case gen_tcp:listen(0, [inet6, {ip, Loopback}, TClassOpt]) of
 	{ok,L} ->
 	    LPort = ok(inet:port(L)),
-	    Loopback = {0,0,0,0,0,0,0,1},
 	    Sa = ok(gen_tcp:connect(Loopback, LPort, [])),
 	    Sb = ok(gen_tcp:accept(L)),
 	    [TClassOpt] = ok(inet:getopts(Sb, [tclass])),
