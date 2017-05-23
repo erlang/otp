@@ -91,9 +91,13 @@ my @op_to_name;
 
 my @obsolete;
 
-# Instructions implemented in C.
+# Instructions and micro instructions implemented in C.
 my %c_code;                     # C code block, location, arguments.
 my %c_code_used;                # Used or not.
+
+# Definitions for instructions combined from micro instructions.
+my %combined_instrs;
+my %combined_code;           # Combined micro instructions.
 
 my %hot_code;
 my %cold_code;
@@ -102,6 +106,7 @@ my @unnumbered_generic;
 my %unnumbered;
 
 my %is_transformed;
+
 
 #
 # Pre-processor.
@@ -265,15 +270,21 @@ my $c_code_block;
 my $c_code_loc;
 my @c_args;
 
+sub save_c_code {
+    my($name,$block,$loc,@args) = @_;
+
+}
+
 while (<>) {
     my($op_num);
     if ($in_c_code) {
         if (/^\}/) {
-            $c_code_block =~ s/^    //mg;
-            chomp $c_code_block;
-            $c_code{$in_c_code} =
-                [$c_code_block,$c_code_loc,@c_args];
+            my $name = $in_c_code;
+            my $block = $c_code_block;
             $in_c_code = '';
+            $block =~ s/^    //mg;
+            chomp $block;
+            $c_code{$name} = [$block,$c_code_loc,@c_args];
         } else {
             $c_code_block .= $_;
         }
@@ -356,7 +367,7 @@ while (<>) {
     #
     # Handle C code blocks.
     #
-    if (/^(\w+)\(([^\)]*)\)\s*{/) {
+    if (/^(\w[\w.]*)\(([^\)]*)\)\s*{/) {
         my $name = $1;
         $in_c_code = $name;
         $c_code_block = '';
@@ -366,6 +377,15 @@ while (<>) {
             my $where = $c_code{$name}->[1];
             error("$name: already defined at $where");
         }
+        next;
+    }
+
+    #
+    # Handle definition of instructions in terms of
+    # micro instructions.
+    #
+    if (/^(\w+)\s*:=\s*([\w.]+)\s*;\s*$/) {
+        $combined_instrs{$1} = ["$ARGV($.)","beam_instrs.h",$2];
         next;
     }
 
@@ -516,6 +536,11 @@ sub emulator_output {
     print "\n";
 
     #
+    # Combine micro instruction into instruction blocks.
+    #
+    combine_micro_instructions();
+
+    #
     # Generate code for specific ops.
     #
     my($spec_opnum) = 0;
@@ -555,7 +580,8 @@ sub emulator_output {
 	    # Call a generator to calculate size and generate macros
 	    # for the emulator.
 	    #
-	    my($size, $code, $pack) = basic_generator($name, $hot, @args);
+	    my($size, $code, $pack) =
+                basic_generator($name, $hot, '', 0, undef, @args);
 
 	    #
 	    # Save the generated $code for later.
@@ -787,6 +813,12 @@ sub emulator_output {
     comment('C');
     print_code(\%cold_code);
 
+    foreach my $key (keys %combined_code) {
+        my $name = "$outdir/$key";
+        open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
+        comment('C');
+        print @{$combined_code{$key}};
+    }
 }
 
 sub init_item {
@@ -976,12 +1008,192 @@ sub comment {
 }
 
 #
+# Combine micro instruction into instruction blocks.
+#
+sub combine_micro_instructions {
+    my %groups;
+    my %group_file;
+
+    # Sanity check, normalize micro instructions.
+    foreach my $instr (keys %combined_instrs) {
+        my $ref = $combined_instrs{$instr};
+        my($def_loc,$outfile,$def) = @$ref;
+        my($group,@subs) = split /[.]/, $def;
+        my $arity = 0;
+        @subs = map { "$group.$_" } @subs;
+        foreach my $s (@subs) {
+            my $code = $c_code{$s};
+            defined $code or
+                error("$def_loc: no definition of $s");
+            $c_code_used{$s} = 1;
+            my(undef,undef,@c_args) = @{$code};
+            $arity += scalar(@c_args);
+        }
+        push @{$groups{$group}}, [$instr,$arity,@subs];
+        $group_file{$group} = $outfile;
+    }
+
+    # Now generate code for each group.
+    foreach my $group (sort keys %groups) {
+        my $code = combine_instruction_group($group, @{$groups{$group}});
+        my $outfile = $group_file{$group};
+        push @{$combined_code{$outfile}}, $code;
+    }
+}
+
+sub combine_instruction_group {
+    my($group,@in_instrs) = @_;
+    my $gcode = '';             # Code for the entire group.
+
+    # Get code for the head of the group (if any).
+    my $head_name = "$group.head";
+    $c_code_used{$head_name} = 1;
+    my $head_code_ref = $c_code{$head_name};
+    if (defined $head_code_ref) {
+        my($head_code,$where,@c_args) = @{$head_code_ref};
+        @c_args and error("$where: no arguments allowed for " .
+                          "head function '$head_name()'");
+        $gcode = $head_code . "\n";
+    }
+
+    # Variables.
+    my %offsets;
+    my @instrs;
+    my %num_references;
+    my $group_size = 0;
+
+    # Do basic error checking. Associate operands of instructions
+    # with the correct micro instructions. Calculate offsets for micro
+    # instructions.
+    foreach my $ref_instr (@in_instrs) {
+        my($specific,$arity,@subs) = @$ref_instr;
+        my $specific_key = "$specific/$arity";
+        my $specific_op_ref = $specific_op{$specific_key};
+        error("no $specific_key instruction")
+            unless defined $specific_op_ref;
+        foreach my $specific_op (@$specific_op_ref) {
+            my($name, $hot, @args) = @{$specific_op};
+            my $offset = 0;
+            my @rest = @args;
+            my @new_subs;
+            my $opcase = $specific;
+            $opcase .= "_" . join '', @args if @args;
+            foreach my $s (@subs) {
+                my $code = $c_code{$s};
+                my(undef,undef,@c_args) = @{$code};
+                my @first;
+                foreach (0..$#c_args) {
+                    push @first, shift @rest;
+                }
+                my($size,undef) = basic_generator($s, 0, '', 0, undef, @first);
+                $offsets{$s} = $offset
+                    unless defined $offsets{$s} and $offsets{$s} >= $offset;
+                $offset += $size - 1;
+                my $label = micro_label($s);
+                $num_references{$label} = 0;
+                push @new_subs, [$opcase,$label,$s,$size-1,@first];
+                $opcase = '';
+            }
+            $group_size = $offset if $group_size < $offset;
+            push @instrs, [$specific_key,@new_subs];
+        }
+    }
+
+    # Link the sub instructions for each instructions to each
+    # other.
+    my @all_instrs;
+    foreach my $instr (@instrs) {
+        my($specific_key,@subs) = @{$instr};
+        for (my $i = 0; $i < @subs; $i++) {
+            my($opcase,$label,$s,$size,@args) = @{$subs[$i]};
+            my $next = '';
+            (undef,$next) = @{$subs[$i+1]} if $i < $#subs;
+            $num_references{$next}++ if $next;
+            my $instr_info = "$opcase:$label:$next:$s:$size:@args";
+            push @all_instrs, [$label,$offsets{$s},$instr_info];
+        }
+    }
+
+    my %order_to_instrs;
+    my %label_to_offset;
+    my %order_to_offset;
+    foreach my $instr (@all_instrs) {
+        my($label,$offset,$instr_info) = @$instr;
+        my $sort_key = sprintf("%02d.%02d", $offset, $num_references{$label});
+        push @{$order_to_instrs{$sort_key}}, $instr_info;
+        $label_to_offset{$label} = $offset;
+        $order_to_offset{$sort_key} = $offset;
+    }
+
+    my(@slots) = sort {$a <=> $b} keys %order_to_instrs;
+
+    # Now generate the code for the entire group.
+    my $offset = 0;
+    for(my $i = 0; $i < @slots; $i++) {
+        my $key = $slots[$i];
+
+        # Sort micro-instructions with OpCase before other micro-instructions.
+        my(@instrs) = @{$order_to_instrs{$key}};
+        my $order_func = sub {
+            my $a_key = ($a =~ /^:/) ? "1$a" : "0$a";
+            my $b_key = ($b =~ /^:/) ? "1$b" : "0$b";
+            $a_key cmp $b_key;
+        };
+        @instrs = sort $order_func @instrs;
+
+        my %seen;
+        foreach my $instr (@instrs) {
+            my($opcase,$label,$next,$s,$size,$args) = split ":", $instr;
+            my(@first) = split " ", $args;
+
+            my $seen_key = "$label:$next:" . scalar(@first);
+            next if $opcase eq '' and $seen{$seen_key};
+            $seen{$seen_key} = 1;
+
+            if ($opcase ne '') {
+                $gcode .= "OpCase($opcase):\n";
+            }
+            if ($num_references{$label}) {
+                $gcode .= "$label:\n";
+            }
+
+            my $flags = '';
+            my $transfer_to_next = '';
+            my $dec = 0;
+
+            unless ($i == $#slots) {
+                $flags = "-no_next";
+                my $next_offset = $label_to_offset{$next};
+                $dec = $next_offset - ($offset + $size);
+                $transfer_to_next = "I -= $dec;\n" if $dec;
+                $transfer_to_next .= "goto $next;\n\n";
+            }
+
+            my(undef,$gen_code) =
+                basic_generator($s, 0, $flags, $offset,
+                                $group_size-$offset-$dec, @first);
+            $gcode .= $gen_code . $transfer_to_next;
+        }
+        $offset = $order_to_offset{$slots[$i+1]} if $i < $#slots;
+    }
+
+    "{\n$gcode\n}\n\n";
+}
+
+sub micro_label {
+    my $label = shift;
+    $label =~ s/[.]/__/g;
+    $label;
+}
+
+
+#
 # Basic implementation of instruction in emulator loop
 # (assuming no packing).
 #
 
 sub basic_generator {
-    my($name, $hot, @args) = @_;
+    my($name,$hot,$extra_comments,$offset,$group_size,@args) = @_;
     my $size = 0;
     my $flags = '';
     my @f;
@@ -994,8 +1206,8 @@ sub basic_generator {
     # Pack arguments for hot code with an implementation.
     #
 
-    my $c_code = $c_code{$name};
-    if ($hot and defined $c_code) {
+    my $c_code_ref = $c_code{$name};
+    if ($hot and defined $c_code_ref) {
         ($prefix, $pack_spec, @args) = do_pack(@args);
     }
 
@@ -1004,6 +1216,8 @@ sub basic_generator {
     # the macro.
     #
 
+    my $need_block = 0;
+    my $arg_offset = $offset;
     foreach (@args) {
 	my($this_size) = $arg_size{$_};
       SWITCH:
@@ -1018,7 +1232,7 @@ sub basic_generator {
                 last SWITCH;
             };
 	    /[lxy]/ and do {
-                push(@f, $_ . "b(Arg($size))");
+                push(@f, $_ . "b(Arg($arg_offset))");
                 last SWITCH;
             };
 	    /n/ and do {
@@ -1030,78 +1244,79 @@ sub basic_generator {
                 $var_decls .= "Eterm $tmp;\n";
                 $tmp_arg_num++;
                 push(@f, $tmp);
-                $prefix .= "GetR($size, $tmp);\n";
+                $prefix .= "GetR($arg_offset, $tmp);\n";
+                $need_block = 1;
                 last SWITCH;
             };
 	    /d/ and do {
-                $var_decls .= "Eterm dst = Arg($size);\n" .
+                $var_decls .= "Eterm dst = Arg($arg_offset);\n" .
                     "Eterm* dst_ptr = REG_TARGET_PTR(dst);\n";
                 push(@f, "*dst_ptr");
                 last SWITCH;
             };
             defined $arg_size{$_} and do {
-                push(@f, "Arg($size)");
+                push(@f, "Arg($arg_offset)");
                 last SWITCH;
             };
 
 	    die "$name: The generator can't handle $_, at";
 	}
 	$size += $this_size;
+        $arg_offset += $this_size;
     }
 
     #
     # If the implementation is in beam_emu.c, there is nothing
     # more to do.
     #
-    unless (defined $c_code) {
+    unless (defined $c_code_ref) {
         return ($size+1, undef, '');
     }
+
+    $group_size = $size unless defined $group_size;
 
     #
     # Generate main body of the implementation.
     #
-    my $macro_code;
-    if (defined $c_code) {
-        my($c_code,$where,@c_args) = @{$c_code};
-        my %bindings;
-        $c_code_used{$name} = 1;
+    my($c_code,$where,@c_args) = @{$c_code_ref};
+    my %bindings;
+    $c_code_used{$name} = 1;
 
-        if (@f != @c_args) {
-            error("$where: defining '$name' with ", scalar(@c_args),
-                  " arguments instead of expected ", scalar(@f), " arguments");
-        }
-
-        for (my $i = 0; $i < @f; $i++) {
-            my $var = $c_args[$i];
-            $bindings{$var} = $f[$i];
-        }
-        $bindings{'NEXT_INSTRUCTION'} = "I+" . ($size + 1);
-        $c_code = eval { expand_all($c_code, \%bindings) };
-        unless (defined $c_code) {
-            warn $@;
-            error("... from the body of $name at $where");
-        }
-        my(@comments) = $c_code =~ m@//[|]\s*(.*)@g;
-        $flags = "@comments";
-        $macro_code = "$prefix$c_code";
+    if (@f != @c_args) {
+        error("$where: defining '$name' with ", scalar(@c_args),
+              " arguments instead of expected ", scalar(@f), " arguments");
     }
+
+    for (my $i = 0; $i < @f; $i++) {
+        my $var = $c_args[$i];
+        $bindings{$var} = $f[$i];
+    }
+    $bindings{'NEXT_INSTRUCTION'} = "I+" . ($group_size+$offset+1);
+    $c_code = eval { expand_all($c_code, \%bindings) };
+    unless (defined $c_code) {
+        warn $@;
+        error("... from the body of $name at $where");
+    }
+    my(@comments) = $c_code =~ m@//[|]\s*(.*)@g;
+    $c_code =~ s@//[|]\s*(.*)\n?@@g;
+    $flags = "@comments $extra_comments";
 
     #
     # Generate code for transferring to the next instruction.
     #
     my $dispatch_next;
-    my $offset = $size + 1;
+    my $instr_offset = $group_size + $offset + 1;
 
     if ($flags =~ /-no_next/) {
         $dispatch_next = "";
     } elsif ($flags =~ /-no_prefetch/) {
-        $dispatch_next = "\nI += $offset;\n" .
+        $dispatch_next = "\nI += $instr_offset;\n" .
             "ASSERT(VALID_INSTR(*I));\n" .
             "Goto(*I);";
     } else {
         $var_decls .= "BeamInstr* _nextpf = " .
-            "(BeamInstr *) I[$offset];\n";
-        $dispatch_next = "\nI += $offset;\n" .
+            "(BeamInstr *) I[$instr_offset];\n";
+        $dispatch_next = "\nI += $instr_offset;\n" .
             "ASSERT(VALID_INSTR(_nextpf));\n" .
             "Goto(_nextpf);";
     }
@@ -1109,9 +1324,15 @@ sub basic_generator {
     #
     # Assemble the complete code for the instruction.
     #
+    my $body = "$c_code$dispatch_next";
+    if ($need_block) {
+        $body = "$prefix\{\n$body\n}";
+    } else {
+        $body = "$prefix$body";
+    }
     my $code = join("\n",
                     "{",
-                    "$var_decls$macro_code$dispatch_next",
+                    "$var_decls$body",
                     "}", "");
     ($size+1, $code, $pack_spec);
 }
