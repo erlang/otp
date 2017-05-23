@@ -75,8 +75,8 @@ Address          ip_address()
 -------          ------------
 ::1             {0,0,0,0,0,0,0,1}
 ::192.168.42.2  {0,0,0,0,0,0,(192 bsl 8) bor 168,(42 bsl 8) bor 2}
-FFFF::192.168.42.2
-                {16#FFFF,0,0,0,0,0,(192 bsl 8) bor 168,(42 bsl 8) bor 2}
+::FFFF:192.168.42.2
+                {0,0,0,0,0,16#FFFF,(192 bsl 8) bor 168,(42 bsl 8) bor 2}
 3ffe:b80:1f8d:2:204:acff:fe17:bf38
                 {16#3ffe,16#b80,16#1f8d,16#2,16#204,16#acff,16#fe17,16#bf38}
 fe80::204:acff:fe17:bf38
@@ -87,8 +87,8 @@ fe80::204:acff:fe17:bf38
     <pre>
 1> <input>inet:parse_address("192.168.42.2").</input>
 {ok,{192,168,42,2}}
-2> <input>inet:parse_address("FFFF::192.168.42.2").</input>
-{ok,{65535,0,0,0,0,0,49320,10754}}</pre>
+2> <input>inet:parse_address("::FFFF:192.168.42.2").</input>
+{ok,{0,0,0,0,0,65535,49320,10754}}</pre>
   </description>
 
   <datatypes>
