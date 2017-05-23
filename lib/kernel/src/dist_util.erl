@@ -572,11 +572,24 @@ recv_name(#hs_data{socket = Socket, f_recv = Recv}) ->
 	    ?shutdown(no_node)
     end.
 
-get_name([$n,VersionA, VersionB, Flag1, Flag2, Flag3, Flag4 | OtherNode]) ->
-    {?u32(Flag1, Flag2, Flag3, Flag4), list_to_atom(OtherNode), 
-     ?u16(VersionA,VersionB)};
+get_name([$n,VersionA, VersionB, Flag1, Flag2, Flag3, Flag4 | OtherNode] = Data) ->
+    case is_valid_name(OtherNode) of
+        true ->
+            {?u32(Flag1, Flag2, Flag3, Flag4), list_to_atom(OtherNode), 
+             ?u16(VersionA,VersionB)};
+        false ->
+            ?shutdown(Data)
+    end;
 get_name(Data) ->
     ?shutdown(Data).
+
+is_valid_name(OtherNodeName) ->
+    case string:lexemes(OtherNodeName,"@") of
+        [_OtherNodeName,_OtherNodeHost] ->
+            true;
+        _else ->
+            false
+    end.
 
 publish_type(Flags) ->
     case Flags band ?DFLAG_PUBLISHED of
