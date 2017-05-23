@@ -2637,9 +2637,9 @@ nif_snprintf(Config) ->
 nif_internal_hash(Config) ->
     ensure_lib_loaded(Config),
     HashValueBitSize = nif_hash_result_bitsize(internal),
-    Terms = unique([random_term() || _ <- lists:seq(1, 5000)]),
+    Terms = unique([random_term() || _ <- lists:seq(1, 500)]),
     HashValues = [hash_nif(internal, Term, 0) || Term <- Terms],
-    test_bit_distribution_fitness(HashValues, HashValueBitSize, 0.05).
+    test_bit_distribution_fitness(HashValues, HashValueBitSize).
 
 nif_internal_hash_salted(Config) ->
     ensure_lib_loaded(Config),
@@ -2648,7 +2648,7 @@ nif_internal_hash_salted(Config) ->
 nif_phash2(Config) ->
     ensure_lib_loaded(Config),
     HashValueBitSize = nif_hash_result_bitsize(phash2),
-    Terms = unique([random_term() || _ <- lists:seq(1, 5000)]),
+    Terms = unique([random_term() || _ <- lists:seq(1, 500)]),
     HashValues =
         lists:map(
           fun (Term) ->
@@ -2661,12 +2661,12 @@ nif_phash2(Config) ->
                   HashValue
           end,
           Terms),
-    test_bit_distribution_fitness(HashValues, HashValueBitSize, 0.05).
+    test_bit_distribution_fitness(HashValues, HashValueBitSize).
 
 test_salted_nif_hash(HashType) ->
     HashValueBitSize = nif_hash_result_bitsize(HashType),
-    Terms = unique([random_term() || _ <- lists:seq(1, 5000)]),
-    Salts = unique([random_uint32() || _ <- lists:seq(1, 100)]),
+    Terms = unique([random_term() || _ <- lists:seq(1, 500)]),
+    Salts = unique([random_uint32() || _ <- lists:seq(1, 50)]),
     {HashValuesPerSalt, HashValuesPerTerm} =
         lists:mapfoldl(
           fun (Salt, Acc) ->
@@ -2687,22 +2687,20 @@ test_salted_nif_hash(HashType) ->
     % Test per-salt hash distribution of different terms
     lists:foreach(
       fun ({_Salt, HashValues}) ->
-              test_bit_distribution_fitness(HashValues, HashValueBitSize, 0.05)
+              test_bit_distribution_fitness(HashValues, HashValueBitSize)
       end,
       HashValuesPerSalt),
 
     % Test per-term hash distribution of different salts
     dict:fold(
       fun (_Term, HashValues, Acc) ->
-              % Be more tolerant of relative deviation,
-              % as there's fewer hash values here.
-              test_bit_distribution_fitness(HashValues, HashValueBitSize, 0.30),
+              test_bit_distribution_fitness(HashValues, HashValueBitSize),
               Acc
       end,
       ok,
       HashValuesPerTerm).
 
-test_bit_distribution_fitness(Integers, BitSize, MaxRelativeDeviation) ->
+test_bit_distribution_fitness(Integers, BitSize) ->
     MaxInteger = (1 bsl BitSize) - 1,
     OnesPerBit =
         lists:foldl(
@@ -2718,19 +2716,29 @@ test_bit_distribution_fitness(Integers, BitSize, MaxRelativeDeviation) ->
           orddict:new(),
           Integers),
 
-    ExpectedNrOfOnes = length(Integers) div 2,
+    N = length(Integers),
+    ExpectedNrOfOnes = N div 2,
+    %% ExpectedNrOfOnes should have a binomial distribution
+    %% with a standard deviation as:
+    ExpectedStdDev = math:sqrt(N) / 2,
+    %% which can be approximated as a normal distribution
+    %% where we allow a deviation of 6 std.devs
+    %% for a fail probability of 0.000000002:
+    MaxStdDevs = 6,
+
     FailureText =
         orddict:fold(
           fun (BitIndex, NrOfOnes, Acc) ->
-                  RelativeDeviation = abs(NrOfOnes - ExpectedNrOfOnes) / length(Integers),
-                  case RelativeDeviation >= MaxRelativeDeviation of
-                      false -> Acc;
+                  Deviation = abs(NrOfOnes - ExpectedNrOfOnes) / ExpectedStdDev,
+                  case Deviation >= MaxStdDevs of
+                      false ->
+                          Acc;
                       true ->
                           [Acc,
                            io_lib:format(
                              "Unreasonable deviation on number of set bits (i=~p): "
-                             "expected ~p, got ~p (relative dev. ~.3f)~n",
-                             [BitIndex, ExpectedNrOfOnes, NrOfOnes, RelativeDeviation])]
+                             "expected ~p, got ~p (# std.dev ~.3f > ~p)~n",
+                             [BitIndex, ExpectedNrOfOnes, NrOfOnes, Deviation, MaxStdDevs])]
                   end
           end,
           [],
