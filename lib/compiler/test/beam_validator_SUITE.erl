@@ -446,7 +446,7 @@ do_bin_opt(Mod, Asm) ->
 do_bin_opt(Transform, Mod, Asm0) ->
     Asm = Transform(Asm0),
     case compile:forms(Asm, [from_asm,no_postopt,return]) of
-	{ok,[],Code,_Warnings} when is_binary(Code) ->
+	{ok,Mod,Code,_Warnings} when is_binary(Code) ->
 	    ok;
 	{error,Errors0,_} ->
 	    %% beam_validator must return errors, not simply crash,

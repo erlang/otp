@@ -467,8 +467,10 @@ mpf(Ms) ->
 passes(Type, Opts) ->
     {Ext,Passes0} = passes_1(Opts),
     Passes1 = case Type of
-		  file -> Passes0;
-		  forms -> tl(Passes0)
+		  file ->
+                      Passes0;
+		  forms ->
+                      fix_first_pass(Passes0)
 	      end,
     Passes = select_passes(Passes1, Opts),
 
@@ -504,6 +506,22 @@ pass(from_asm) ->
 pass(from_beam) ->
     {".beam",[?pass(read_beam_file)|binary_passes()]};
 pass(_) -> none.
+
+%% For compilation from forms, replace the first pass with a pass
+%% that retrieves the module name. The module name is needed for
+%% proper diagnostics and for compilation to native code.
+
+fix_first_pass([{parse_core,_}|Passes]) ->
+    [?pass(get_module_name_from_core)|Passes];
+fix_first_pass([{beam_consult_asm,_}|Passes]) ->
+    [?pass(get_module_name_from_asm)|Passes];
+fix_first_pass([{read_beam_file,_}|Passes]) ->
+    [?pass(get_module_name_from_beam)|Passes];
+fix_first_pass([_|Passes]) ->
+    %% When compiling from abstract code, the module name
+    %% will be set after running the v3_core pass.
+    Passes.
+
 
 %% select_passes([Command], Opts) -> [{Name,Function}]
 %%  Interpret the lists of commands to return a pure list of passes.
@@ -836,6 +854,12 @@ beam_consult_asm(_Code, St) ->
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
 
+get_module_name_from_asm({Mod,_,_,_,_}=Asm, St) ->
+    {ok,Asm,St#compile{module=Mod}};
+get_module_name_from_asm(Asm, St) ->
+    %% Invalid Beam assembly code. Let it crash in a later pass.
+    {ok,Asm,St}.
+
 read_beam_file(_Code, St) ->
     case file:read_file(St#compile.ifile) of
 	{ok,Beam} ->
@@ -851,6 +875,16 @@ read_beam_file(_Code, St) ->
 	{error,E} ->
 	    Es = [{St#compile.ifile,[{none,?MODULE,{open,E}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
+    end.
+
+get_module_name_from_beam(Beam, St) ->
+    case beam_lib:info(Beam) of
+        {error,beam_lib,Error} ->
+	    Es = [{"((forms))",[{none,beam_lib,Error}]}],
+            {error,St#compile{errors=St#compile.errors ++ Es}};
+        Info ->
+            {module,Mod} = keyfind(module, 1, Info),
+            {ok,Beam,St#compile{module=Mod}}
     end.
 
 no_native_compilation(BeamFile, #compile{options=Opts0}) ->
@@ -938,6 +972,16 @@ parse_core(_Code, St) ->
 	{error,E} ->
 	    Es = [{St#compile.ifile,[{none,compile,{open,E}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
+    end.
+
+get_module_name_from_core(Core, St) ->
+    try
+        Mod = cerl:concrete(cerl:module_name(Core)),
+        {ok,Core,St#compile{module=Mod}}
+    catch
+        _:_ ->
+            %% Invalid Core Erlang code. Let it crash in a later pass.
+            {ok,Core,St}
     end.
 
 compile_options([{attribute,_L,compile,C}|Fs]) when is_list(C) ->

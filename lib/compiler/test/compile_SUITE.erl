@@ -163,6 +163,24 @@ forms_2(Config) when is_list(Config) ->
 	    ok
     end,
 
+    {ok,simple,Core} = compile:forms(SimpleCode, [to_core0,binary]),
+    forms_compile_and_load(Core, [from_core]),
+    forms_compile_and_load(Core, [from_core,native]),
+
+    {ok,simple,Asm} = compile:forms(SimpleCode, [to_asm,binary]),
+    forms_compile_and_load(Asm, [from_asm]),
+    forms_compile_and_load(Asm, [from_asm,native]),
+
+    {ok,simple,Beam} = compile:forms(SimpleCode, []),
+    forms_compile_and_load(Beam, [from_beam]),
+    forms_compile_and_load(Beam, [from_beam,native]),
+
+    %% Cover the error handling code.
+    error = compile:forms(bad_core, [from_core,report]),
+    error = compile:forms(bad_asm, [from_asm,report]),
+    error = compile:forms(<<"bad_beam">>, [from_beam,report]),
+    error = compile:forms(<<"bad_beam">>, [from_beam,native,report]),
+
     ok.
 
 
@@ -180,6 +198,14 @@ forms_load_code(Mod, Src, Bin) ->
 
     SourceOption.
 
+forms_compile_and_load(Code, Opts) ->
+    Mod = simple,
+    {ok,Mod,Bin} = compile:forms(Code, Opts),
+    {module,Mod} = code:load_binary(Mod, "ignore", Bin),
+    _ = Mod:module_info(),
+    true = code:delete(simple),
+    false = code:purge(simple),
+    ok.
 
 module_mismatch(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
@@ -835,7 +861,7 @@ do_core_pp_1(M, A, Outdir) ->
     ok = file:delete(CoreFile),
 
     %% Compile as usual (including optimizations).
-    compile_forms(Core, [clint,from_core,binary]),
+    compile_forms(M, Core, [clint,from_core,binary]),
 
     %% Don't optimize to test that we are not dependent
     %% on the Core Erlang optmimization passes.
@@ -844,13 +870,13 @@ do_core_pp_1(M, A, Outdir) ->
     %% records; if sys_core_fold was run it would fix
     %% that; if sys_core_fold was not run v3_kernel would
     %% crash.)
-    compile_forms(Core, [clint,from_core,no_copt,binary]),
+    compile_forms(M, Core, [clint,from_core,no_copt,binary]),
 
     ok.
 
-compile_forms(Forms, Opts) ->
+compile_forms(Mod, Forms, Opts) ->
     case compile:forms(Forms, [report_errors|Opts]) of
-	{ok,[],_} ->  ok;
+	{ok,Mod,_} ->  ok;
 	Other -> throw({error,Other})
     end.
 
