@@ -486,12 +486,14 @@ find(String, SearchPattern, trailing) ->
 
 %% Fetch first codepoint and return rest in tail
 -spec next_grapheme(String::unicode:chardata()) ->
-                           maybe_improper_list(grapheme_cluster(),unicode:chardata()).
+                           maybe_improper_list(grapheme_cluster(),unicode:chardata()) |
+                           {error,unicode:chardata()}.
 next_grapheme(CD) -> unicode_util:gc(CD).
 
 %% Fetch first grapheme cluster and return rest in tail
 -spec next_codepoint(String::unicode:chardata()) ->
-                            maybe_improper_list(char(),unicode:chardata()).
+                            maybe_improper_list(char(),unicode:chardata()) |
+                            {error,unicode:chardata()}.
 next_codepoint(CD) -> unicode_util:cp(CD).
 
 %% Internals
@@ -508,7 +510,7 @@ equal_1(A0,B0) ->
     case {unicode_util:cp(A0), unicode_util:cp(B0)} of
         {[CP|A],[CP|B]} -> equal_1(A,B);
         {[], []} -> true;
-        _ -> false
+        {L1,L2} when is_list(L1), is_list(L2) -> false
     end.
 
 equal_nocase(A, A) -> true;
@@ -517,7 +519,7 @@ equal_nocase(A0, B0) ->
           unicode_util:cp(unicode_util:casefold(B0))} of
         {[CP|A],[CP|B]} -> equal_nocase(A,B);
         {[], []} -> true;
-        _ -> false
+        {L1,L2} when is_list(L1), is_list(L2) -> false
     end.
 
 equal_norm(A, A, _Norm) -> true;
@@ -526,7 +528,7 @@ equal_norm(A0, B0, Norm) ->
           unicode_util:cp(unicode_util:Norm(B0))} of
         {[CP|A],[CP|B]} -> equal_norm(A,B, Norm);
         {[], []} -> true;
-        _ -> false
+        {L1,L2} when is_list(L1), is_list(L2) -> false
     end.
 
 equal_norm_nocase(A, A, _Norm) -> true;
@@ -535,7 +537,7 @@ equal_norm_nocase(A0, B0, Norm) ->
           unicode_util:cp(unicode_util:casefold(unicode_util:Norm(B0)))} of
         {[CP|A],[CP|B]} -> equal_norm_nocase(A,B, Norm);
         {[], []} -> true;
-        _ -> false
+        {L1,L2} when is_list(L1), is_list(L2) -> false
     end.
 
 reverse_1(CD, Acc) ->

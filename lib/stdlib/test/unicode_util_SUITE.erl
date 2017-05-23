@@ -97,6 +97,8 @@ cp(_) ->
     "hejsan" = fetch(<<"hejsan">>, Get),
     "hejsan" = fetch(["hej",<<"san">>], Get),
     "hejsan" = fetch(["hej"|<<"san">>], Get),
+    {error, <<128>>} = Get(<<128>>),
+    {error, [<<128>>, 0]} = Get([<<128>>, 0]),
     ok.
 
 gc(Config) ->
@@ -106,6 +108,8 @@ gc(Config) ->
     "hejsan" = fetch(<<"hejsan">>, Get),
     "hejsan" = fetch(["hej",<<"san">>], Get),
     "hejsan" = fetch(["hej"|<<"san">>], Get),
+    {error, <<128>>} = Get(<<128>>),
+    {error, [<<128>>, 0]} = Get([<<128>>, 0]),
 
     0 = fold(fun verify_gc/3, 0, DataDir ++ "/GraphemeBreakTest.txt"),
     ok.
