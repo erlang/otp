@@ -526,7 +526,7 @@ main(int argc, char** argv)
      * Push initial arguments.
      */
 
-    push_words(emulator);
+    PUSH(emulator);
     free_env_val(env);
 
     PUSH("+B");
