@@ -3383,14 +3383,6 @@ at the end."
 
 ;;; Information retrieval functions.
 
-(defun erlang-buffer-substring (beg end)
-  "Like `buffer-substring-no-properties'.
-Although, this function works on all versions of Emacs."
-  (if (fboundp 'buffer-substring-no-properties)
-      (funcall (symbol-function 'buffer-substring-no-properties) beg end)
-    (buffer-substring beg end)))
-
-
 (defun erlang-get-module ()
   "Return the name of the module as specified by `-module'.
 
@@ -3408,7 +3400,7 @@ Return nil if file contains no `-module' attribute."
                            "\\)?\\)\\s *)\\s *\\."))
                  (point-max) t)
                 (erlang-remove-quotes
-                 (erlang-buffer-substring (match-beginning 1)
+                 (buffer-substring-no-properties (match-beginning 1)
                                           (match-end 1)))
               nil)
           (store-match-data md))))))
@@ -3462,10 +3454,10 @@ corresponds to the order of the parsed Erlang list."
                    (setq res (cons
                               (cons
                                (erlang-remove-quotes
-                                (erlang-buffer-substring
+                                (buffer-substring-no-properties
                                  (match-beginning 1) (match-end 1)))
                                (string-to-number
-                                (erlang-buffer-substring
+                                (buffer-substring-no-properties
                                  (match-beginning
                                   (+ 1 erlang-atom-regexp-matches))
                                  (match-end
@@ -3512,7 +3504,7 @@ function and arity as cdr part."
               (erlang-skip-blank)
               (if (looking-at erlang-atom-regexp)
                   (let ((module (erlang-remove-quotes
-                                 (erlang-buffer-substring
+                                 (buffer-substring-no-properties
                                   (match-beginning 0)
                                   (match-end 0)))))
                     (goto-char (match-end 0))
@@ -3545,7 +3537,7 @@ Normally used in conjunction with `erlang-beginning-of-clause', e.g.:
   (let ((n (if arg 0 1)))
     (and (looking-at (eval-when-compile
                        (concat "^" erlang-atom-regexp "\\s *(")))
-         (erlang-buffer-substring (match-beginning n) (match-end n)))))
+         (buffer-substring-no-properties (match-beginning n) (match-end n)))))
 
 
 (defun erlang-get-function-arrow ()
@@ -3559,7 +3551,7 @@ Normally used in conjunction with `erlang-beginning-of-clause', e.g.:
   (and
    (save-excursion
      (re-search-forward "->" (point-max) t)
-     (erlang-buffer-substring (- (point) 2) (+ (point) 1)))))
+     (buffer-substring-no-properties (- (point) 2) (+ (point) 1)))))
 
 (defun erlang-get-function-arity ()
   "Return the number of arguments of function at point, or nil."
@@ -3625,7 +3617,7 @@ The return value is a string of the form \"foo/1\"."
           (let ((start (match-end 0)))
             (goto-char (- start 1))
             (forward-sexp)
-            (erlang-buffer-substring start (- (point) 1)))
+            (buffer-substring-no-properties start (- (point) 1)))
         (error nil)))))
 
 
@@ -3688,10 +3680,10 @@ of arguments could be found, otherwise nil."
 (defun erlang-get-qualified-function-id-at-point ()
   (let ((kind 'qualified-function)
         (module (erlang-remove-quotes
-                 (erlang-buffer-substring
+                 (buffer-substring-no-properties
                   (match-beginning 1) (match-end 1))))
         (name (erlang-remove-quotes
-               (erlang-buffer-substring
+               (buffer-substring-no-properties
                 (match-beginning (1+ erlang-atom-regexp-matches))
                 (match-end (1+ erlang-atom-regexp-matches)))))
         (arity (progn
@@ -3703,14 +3695,14 @@ of arguments could be found, otherwise nil."
   (let ((kind 'module)
         (module nil)
         (name (erlang-remove-quotes
-               (erlang-buffer-substring (match-beginning 1)
+               (buffer-substring-no-properties (match-beginning 1)
                                         (match-end 1))))
         (arity nil))
     (list kind module name arity)))
 
 (defun erlang-get-some-other-id-at-point ()
   (let ((name (erlang-remove-quotes
-               (erlang-buffer-substring
+               (buffer-substring-no-properties
                 (match-beginning 0) (match-end 0))))
         (imports (erlang-get-import))
         kind module arity)
