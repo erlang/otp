@@ -228,7 +228,7 @@
 -export([t_is_identifier/1]).
 -endif.
 
--export_type([erl_type/0, opaques/0, type_table/0, mod_records/0,
+-export_type([erl_type/0, opaques/0, type_table/0,
               var_table/0, cache/0]).
 
 %%-define(DEBUG, true).
@@ -377,7 +377,6 @@
                          erl_type()}.
 -type type_table() :: #{record_key() | type_key() =>
                         record_value() | type_value()}.
--type mod_records() :: dict:dict(module(), type_table()).
 
 -opaque var_table() :: #{atom() => erl_type()}.
 
@@ -4455,11 +4454,11 @@ mod_name(Mod, Name) ->
 -type cache_key() :: {module(), atom(), expand_depth(),
                       [erl_type()], type_names()}.
 -type mod_type_table() :: ets:tid().
+-type mod_records() :: dict:dict(module(), type_table()).
 -record(cache,
         {
           types = maps:new() :: #{cache_key() => {erl_type(), expand_limit()}},
-          mod_recs = {mrecs, dict:new()} :: 'undefined'
-                                          | {'mrecs', mod_records()}
+          mod_recs = {mrecs, dict:new()} :: {'mrecs', mod_records()}
         }).
 
 -opaque cache() :: #cache{}.
@@ -5339,21 +5338,17 @@ is_erl_type(_) -> false.
                              'error' | {type_table(), cache()}.
 
 lookup_module_types(Module, CodeTable, Cache) ->
-  #cache{mod_recs = ModRecs} = Cache,
-  case ModRecs of
-    undefined -> error;
-    {mrecs, MRecs} ->
-      case dict:find(Module, MRecs) of
-        {ok, R} ->
-          {R, Cache};
-        error ->
-          try ets:lookup_element(CodeTable, Module, 2) of
-            R ->
-              NewMRecs = dict:store(Module, R, MRecs),
-              {R, Cache#cache{mod_recs = {mrecs, NewMRecs}}}
-          catch
-            _:_ -> error
-          end
+  #cache{mod_recs = {mrecs, MRecs}} = Cache,
+  case dict:find(Module, MRecs) of
+    {ok, R} ->
+      {R, Cache};
+    error ->
+      try ets:lookup_element(CodeTable, Module, 2) of
+        R ->
+          NewMRecs = dict:store(Module, R, MRecs),
+          {R, Cache#cache{mod_recs = {mrecs, NewMRecs}}}
+      catch
+        _:_ -> error
       end
   end.
 
