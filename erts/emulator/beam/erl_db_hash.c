@@ -684,7 +684,7 @@ int db_create_hash(Process *p, DbTable *tbl)
 							      sizeof(DbTableHashFineLocks));	    	    
 	for (i=0; i<DB_HASH_LOCK_CNT; ++i) {
 	    erts_smp_rwmtx_init_opt_x(&tb->locks->lck_vec[i].lck, &rwmtx_opt,
-				      "db_hash_slot", make_small(i));
+				      "db_hash_slot", tb->common.the_name);
 	}
 	/* This important property is needed to guarantee that the buckets
     	 * involved in a grow/shrink operation it protected by the same lock:
