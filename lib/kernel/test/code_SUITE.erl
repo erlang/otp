@@ -1791,6 +1791,19 @@ do_normalized_paths([]) ->
 
 %% Test that module_status/1 behaves as expected
 module_status(_Config) ->
+    case test_server:is_cover() of
+        true ->
+            module_status();
+        false ->
+            %% Make sure that we terminate the cover server.
+            try
+                module_status()
+            after
+                cover:stop()
+            end
+    end.
+
+module_status() ->
     %% basics
     not_loaded = code:module_status(fubar),     % nonexisting
     {file, preloaded} = code:is_loaded(erlang),
