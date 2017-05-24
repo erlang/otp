@@ -40,7 +40,8 @@ all() ->
     [
      one_document,
      two_documents,
-     one_document_and_junk
+     one_document_and_junk,
+     end_of_stream
     ].
 
 %%----------------------------------------------------------------------
@@ -62,6 +63,9 @@ end_per_testcase(_Func, _Config) ->
 %%----------------------------------------------------------------------
 %% Tests
 %%----------------------------------------------------------------------
+
+%%----------------------------------------------------------------------
+%% Send One doc over stream
 one_document(Config) ->
     Port = 11111,
 
@@ -107,6 +111,8 @@ one_document(Config) ->
     end,
     ok.
     
+%%----------------------------------------------------------------------
+%% Send Two doc over stream
 two_documents(Config) ->
     Port = 11111,
 
@@ -152,6 +158,8 @@ two_documents(Config) ->
     end,
     ok.
     
+%%----------------------------------------------------------------------
+%% Send one doc and then junk on stream
 one_document_and_junk(Config) ->
     Port = 11111,
 
@@ -195,6 +203,13 @@ one_document_and_junk(Config) ->
        after 10000 ->
                ct:fail("Timeout")
     end,
+    ok.
+
+%%----------------------------------------------------------------------
+%% Test of continuation when end of stream
+end_of_stream(Config) ->
+    Stream = <<"<?xml version=\"1.0\" encoding=\"utf-8\"?><a>hej</a>">>,
+    {ok, undefined, <<>>} = xmerl_sax_parser:stream(Stream, []),
     ok.
     
 %%----------------------------------------------------------------------
