@@ -344,6 +344,8 @@ lc_loc(N, NodeInfo) ->
         [{N, #{inside_lc := true}}] ->
             true;
         [{N, _}] ->
+            false;
+        [{N}] ->
             false
     end.
 
