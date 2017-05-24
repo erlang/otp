@@ -95,7 +95,7 @@
               <xsl:value-of select="$elem/@name"/>
             </xsl:when>
             <xsl:otherwise>
-              <xsl:value-of select="$elem"/>
+              <xsl:value-of select="substring-before($elem, '(')"/>
             </xsl:otherwise>
 	  </xsl:choose>
 	</xsl:otherwise>
