@@ -335,7 +335,7 @@ base(B) when is_integer(B) ->
 term(T, none, _Adj, none, _Pad) -> T;
 term(T, none, Adj, P, Pad) -> term(T, P, Adj, P, Pad);
 term(T, F, Adj, P0, Pad) ->
-    L = lists:flatlength(T),
+    L = string:length(T),
     P = erlang:min(L, case P0 of none -> F; _ -> min(P0, F) end),
     if
 	L > P ->
@@ -675,11 +675,11 @@ cdata_to_chars(B) when is_binary(B) ->
 
 string(S, none, _Adj, none, _Pad) -> S;
 string(S, F, Adj, none, Pad) ->
-    string_field(S, F, Adj, lists:flatlength(S), Pad);
+    string_field(S, F, Adj, string:length(S), Pad);
 string(S, none, _Adj, P, Pad) ->
-    string_field(S, P, left, lists:flatlength(S), Pad);
+    string_field(S, P, left, string:length(S), Pad);
 string(S, F, Adj, P, Pad) when F >= P ->
-    N = lists:flatlength(S),
+    N = string:length(S),
     if F > P ->
 	    if N > P ->
 		    adjust(flat_trunc(S, P), chars(Pad, F-P), Adj);
@@ -749,18 +749,7 @@ adjust(Data, Pad, right) -> [Pad|Data].
 %% Flatten and truncate a deep list to at most N elements.
 
 flat_trunc(List, N) when is_integer(N), N >= 0 ->
-    flat_trunc(List, N, [], []).
-
-flat_trunc(L, 0, _, R) when is_list(L) ->
-    lists:reverse(R);
-flat_trunc([H|T], N, S, R) when is_list(H) ->
-    flat_trunc(H, N, [T|S], R);
-flat_trunc([H|T], N, S, R) ->
-    flat_trunc(T, N-1, S, [H|R]);
-flat_trunc([], N, [H|S], R) ->
-    flat_trunc(H, N, S, R);
-flat_trunc([], _, [], R) ->
-    lists:reverse(R).
+    string:slice(List, 0, N).
 
 %% A deep version of string:chars/2,3
 

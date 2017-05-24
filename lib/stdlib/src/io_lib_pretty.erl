@@ -473,7 +473,7 @@ print_length(<<_/bitstring>>=Bin, D, _RF, Enc, Str) ->
 print_length(Term, _D, _RF, _Enc, _Str) ->
     S = io_lib:write(Term),
     %% S can contain unicode, so iolist_size(S) cannot be used here
-    {S, lists:flatlength(S)}.
+    {S, string:length(S)}.
 
 print_length_map(_Map, 1, _RF, _Enc, _Str) ->
     {"#{...}", 6};
