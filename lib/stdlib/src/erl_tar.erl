@@ -772,7 +772,7 @@ join_split_ustar_path([Part|Rest], {ok, Name, Acc}) ->
 
 datetime_to_posix(DateTime) ->
     Epoch = calendar:datetime_to_gregorian_seconds(?EPOCH),
-    Secs = calendar:datetime_to_gregorian_seconds(DateTime),
+    Secs = calendar:datetime_to_gregorian_seconds(erlang:localtime_to_universaltime(DateTime)),
     case Secs - Epoch of
         N when N < 0 -> 0;
         N -> N
