@@ -108,6 +108,7 @@ only_simulated() ->
      tolerate_missing_CR,
      userinfo,
      bad_response,
+     timeout_redirect,
      internal_server_error,
      invalid_http,
      invalid_chunk_size,
@@ -783,6 +784,14 @@ bad_response(Config) when is_list(Config) ->
     {error, Reason} = httpc:request(URL1),
 
     ct:print("Wrong Statusline: ~p~n", [Reason]).
+%%-------------------------------------------------------------------------
+
+timeout_redirect() ->
+    [{doc, "Test that timeout works for redirects, check ERL-420."}].
+timeout_redirect(Config) when is_list(Config) ->
+    URL = url(group_name(Config), "/redirect_to_missing_crlf.html", Config),
+    {error, timeout} = httpc:request(get, {URL, []}, [{timeout, 400}], []).
+
 %%-------------------------------------------------------------------------
 
 internal_server_error(doc) ->
@@ -1914,6 +1923,16 @@ handle_uri(_,"/missing_crlf.html",_,_,_,_) ->
     "HTTP/1.1 200 ok" ++
 	"Content-Length:32\r\n" ++
 	"<HTML><BODY>foobar</BODY></HTML>";
+
+handle_uri(_,"/redirect_to_missing_crlf.html",Port,_,Socket,_) ->
+    NewUri = url_start(Socket) ++
+	integer_to_list(Port) ++ "/missing_crlf.html",
+    Body = "<HTML><BODY><a href=" ++ NewUri ++
+	">New place</a></BODY></HTML>",
+    "HTTP/1.1 303 See Other \r\n" ++
+	"Location:" ++ NewUri ++  "\r\n" ++
+	"Content-Length:" ++ integer_to_list(length(Body))
+	++ "\r\n\r\n" ++ Body;
 
 handle_uri(_,"/wrong_statusline.html",_,_,_,_) ->
     "ok 200 HTTP/1.1\r\n\r\n" ++
