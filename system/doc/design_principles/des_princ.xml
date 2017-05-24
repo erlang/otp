@@ -234,17 +234,6 @@ free(Ch, {Alloc, Free} = Channels) ->
       <item><p><seealso marker="sup_princ">supervisor</seealso></p>
       <p>For implementing a supervisor in a supervision tree</p></item>
       </list>
-    <p>The compiler understands the module attribute
-      <c>-behaviour(Behaviour)</c> and issues warnings about
-      missing callback functions, for example:</p>
-    <code type="none">
--module(chs3).
--behaviour(gen_server).
-...
-
-3> c(chs3).
-./chs3.erl:10: Warning: undefined call-back function handle_call/3
-{ok,chs3}</code>
   </section>
 
   <section>
