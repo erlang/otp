@@ -268,24 +268,30 @@ minor_major_gc_option_async(_Config) ->
     erlang:trace(P4, true, [garbage_collection]),
     ?assertEqual(async,
                  erlang:garbage_collect(P4, [{type, minor}, {async, Ref}])),
+    receive
+        {garbage_collect, Ref, true} ->
+            ok
+    after 10000 ->
+            ct:pal("Did not receive an async GC notification", []),
+            ?assert(false)
+    end,
     expect_trace_messages(P4, [gc_minor_start, gc_minor_end]),
     erlang:trace(P4, false, [garbage_collection]),
-    receive {garbage_collect, Ref, true} -> ok;
-        Other4 -> ct:pal("Unexpected message: ~p~n"
-                         ++ "while waiting for async gc result", [Other4])
-    after 2000 -> ?assert(false)
-    end,
     erlang:exit(P4, kill).
 
-%% Given a list of atoms, trace tags - receives messages and checks if they are
-%% trace events, and if the tag matches. Else will crash failing the test.
-expect_trace_messages(_Pid, []) -> ok;
+%% Ensures that trace messages with the provided tags have all been received.
+%% The test fails if there's any unmatched messages left in the mailbox after
+%% all tags have been matched.
+expect_trace_messages(_Pid, []) ->
+    receive
+        Anything ->
+            ct:pal("Unexpected message: ~p", [Anything]),
+            ?assert(false)
+    after 0 ->
+        ok
+    end;
 expect_trace_messages(Pid, [Tag | TraceTags]) ->
     receive
-        {trace, Pid, Tag, _Data} -> ok;
-        AnythingElse ->
-            ct:pal("Unexpected message: ~p~nWhile expected {trace, _, ~p, _}",
-                   [AnythingElse, Tag]),
-            ?assert(false)
+        {trace, Pid, Tag, _Data} -> ok
     end,
     expect_trace_messages(Pid, TraceTags).
