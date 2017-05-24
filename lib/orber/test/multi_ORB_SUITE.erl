@@ -135,12 +135,11 @@ cases() ->
      setup_multi_connection_timeout_api,
      setup_multi_connection_timeout_attempts_api,
      setup_multi_connection_timeout_random_api,
-     ssl_1_multi_orber_api,
      ssl_1_multi_orber_generation_3_api,
-     ssl_2_multi_orber_api,
      ssl_2_multi_orber_generation_3_api,
-     ssl_reconfigure_api,
      ssl_reconfigure_generation_3_api].
+
+% ssl_1_multi_orber_api,ssl_2_multi_orber_api,ssl_reconfigure_api,
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
