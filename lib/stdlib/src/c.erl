@@ -144,7 +144,7 @@ c(SrcFile, NewOpts, Filter, BeamFile, Info) ->
     F = fun (Opt) -> not is_outdir_opt(Opt) andalso Filter(Opt) end,
     Options = (NewOpts ++ [{outdir,filename:dirname(BeamFile)}]
                ++ lists:filter(F, old_options(Info))),
-    format("Recompiling ~s\n", [SrcFile]),
+    format("Recompiling ~ts\n", [SrcFile]),
     safe_recompile(SrcFile, Options, BeamFile).
 
 old_options(Info) ->
@@ -548,7 +548,7 @@ mfa_string(Fun) when is_function(Fun) ->
     {arity,A} = erlang:fun_info(Fun, arity),
     mfa_string({M,F,A});
 mfa_string({M,F,A}) ->
-    io_lib:format("~w:~w/~w", [M,F,A]);
+    io_lib:format("~w:~tw/~w", [M,F,A]);
 mfa_string(X) ->
     w(X).
 
@@ -572,7 +572,7 @@ display_info(Pid) ->
 		    w(Reds), w(LM)),
 	    iformat(case fetch(registered_name, Info) of
 			0 -> "";
-			X -> w(X)
+			X -> io_lib:format("~tw", [X])
 		    end,
 		    mfa_string(Curr),
 		    w(SS),
@@ -594,7 +594,7 @@ initial_call(Info)  ->
     end.
 
 iformat(A1, A2, A3, A4, A5) ->
-    format("~-21s ~-33s ~8s ~8s ~4s~n", [A1,A2,A3,A4,A5]).
+    format("~-21ts ~-33ts ~8s ~8s ~4s~n", [A1,A2,A3,A4,A5]).
 
 all_procs() ->
     case is_alive() of
@@ -767,7 +767,7 @@ print_exports(X) when length(X) > 16 ->
     split_print_exports(X);
 print_exports([]) -> ok;
 print_exports([{F, A} |Tail]) ->
-    format("         ~w/~w~n",[F, A]),
+    format("         ~tw/~w~n",[F, A]),
     print_exports(Tail).
 
 split_print_exports(L) ->
@@ -779,11 +779,11 @@ split_print_exports(L) ->
 
 split_print_exports([], [{F, A}|T]) ->
     Str = " ",
-    format("~-30s~w/~w~n", [Str, F, A]),
+    format("~-30ts~tw/~w~n", [Str, F, A]),
     split_print_exports([], T);
 split_print_exports([{F1, A1}|T1], [{F2, A2} | T2]) ->
-    Str = flatten(io_lib:format("~w/~w", [F1, A1])),
-    format("~-30s~w/~w~n", [Str, F2, A2]),
+    Str = flatten(io_lib:format("~tw/~w", [F1, A1])),
+    format("~-30ts~tw/~w~n", [Str, F2, A2]),
     split_print_exports(T1, T2);
 split_print_exports([], []) -> ok.
 
@@ -883,22 +883,22 @@ procline(Name, Info, Pid) ->
     Call = initial_call(Info),
     Reds  = fetch(reductions, Info),
     LM = length(fetch(messages, Info)),
-    procformat(io_lib:format("~w",[Name]),
+    procformat(io_lib:format("~tw",[Name]),
 	       io_lib:format("~w",[Pid]),
-	       io_lib:format("~s",[mfa_string(Call)]),
+	       io_lib:format("~ts",[mfa_string(Call)]),
 	       integer_to_list(Reds), integer_to_list(LM)).
 
 procformat(Name, Pid, Call, Reds, LM) ->
-    format("~-21s ~-12s ~-25s ~12s ~4s~n", [Name,Pid,Call,Reds,LM]).
+    format("~-21ts ~-12s ~-25ts ~12s ~4s~n", [Name,Pid,Call,Reds,LM]).
 
 portline(Name, Info, Id) ->
     Cmd = fetch(name, Info),
-    portformat(io_lib:format("~w",[Name]), 
+    portformat(io_lib:format("~tw",[Name]),
 	       erlang:port_to_list(Id),
 	       Cmd).
 
 portformat(Name, Id, Cmd) ->
-    format("~-21s ~-15s ~-40s~n", [Name,Id,Cmd]).
+    format("~-21ts ~-15s ~-40ts~n", [Name,Id,Cmd]).
 
 %% pwd()
 %% cd(Directory)
