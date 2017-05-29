@@ -11331,7 +11331,9 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
     erts_aint32_t state = in_state;
     int max_reds = in_reds;
     int reds = 0;
-    int qmask = 0;
+    int qmask = 1;          /* Set to 1 to force looping as long as there
+                             * are dirty tasks.
+                             */
 
     ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) == ERTS_PROC_LOCK_MAIN);
 
