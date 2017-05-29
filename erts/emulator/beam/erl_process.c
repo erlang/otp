@@ -13937,6 +13937,16 @@ erts_continue_exit_process(Process *p)
 	    goto yield;
     }
 
+#ifdef DEBUG
+    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+    ASSERT(p->sys_task_qs == NULL);
+    ASSERT(ERTS_PROC_GET_DELAYED_GC_TASK_QS(p) == NULL);
+#ifdef ERTS_DIRTY_SCHEDULERS
+    ASSERT(p->dirty_sys_tasks == NULL);
+#endif
+    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+#endif
+
     if (p->flags & F_USING_DDLL) {
 	erts_ddll_proc_dead(p, ERTS_PROC_LOCK_MAIN);
 	p->flags &= ~F_USING_DDLL;
