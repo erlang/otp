@@ -1456,12 +1456,12 @@ erts_sys_main_thread(void)
     erts_thread_disable_fpe();
 #ifdef __DARWIN__
     initialize_darwin_main_thread_pipes();
-#endif
+#else
     /* Become signal receiver thread... */
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_set_thread_name("signal_receiver");
 #endif
-
+#endif
     smp_sig_notify(0); /* Notify initialized */
 
     /* Wait for a signal to arrive... */
