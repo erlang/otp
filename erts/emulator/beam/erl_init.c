@@ -431,7 +431,7 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
 }
 
 static Eterm
-erl_system_process_otp(Eterm parent_pid, char* modname)
+erl_system_process_otp(Eterm parent_pid, char* modname, int off_heap_msgq)
 {
     Eterm start_mod;
     Process* parent;
@@ -447,6 +447,8 @@ erl_system_process_otp(Eterm parent_pid, char* modname)
     parent = erts_pid2proc(NULL, 0, parent_pid, ERTS_PROC_LOCK_MAIN);
 
     so.flags = erts_default_spo_flags|SPO_SYSTEM_PROC;
+    if (off_heap_msgq)
+        so.flags |= SPO_OFF_HEAP_MSGQ;
     res = erl_create_process(parent, start_mod, am_start, NIL, &so);
     erts_smp_proc_unlock(parent, ERTS_PROC_LOCK_MAIN);
     return res;
@@ -2326,14 +2328,14 @@ erl_start(int argc, char **argv)
 	 */
 	Eterm pid;
 
-	pid = erl_system_process_otp(otp_ring0_pid, "erts_code_purger");
+	pid = erl_system_process_otp(otp_ring0_pid, "erts_code_purger", !0);
 	erts_code_purger
 	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
 						    internal_pid_index(pid));
 	ASSERT(erts_code_purger && erts_code_purger->common.id == pid);
 	erts_proc_inc_refc(erts_code_purger); 
 
-	pid = erl_system_process_otp(otp_ring0_pid, "erts_literal_area_collector");
+	pid = erl_system_process_otp(otp_ring0_pid, "erts_literal_area_collector", !0);
 	erts_literal_area_collector
 	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
 						    internal_pid_index(pid));
@@ -2342,7 +2344,7 @@ erl_start(int argc, char **argv)
 	erts_proc_inc_refc(erts_literal_area_collector);
 
 #ifdef ERTS_DIRTY_SCHEDULERS
-	pid = erl_system_process_otp(otp_ring0_pid, "erts_dirty_process_code_checker");
+	pid = erl_system_process_otp(otp_ring0_pid, "erts_dirty_process_code_checker", !0);
 	erts_dirty_process_code_checker
 	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
 						    internal_pid_index(pid));
