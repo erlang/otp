@@ -230,7 +230,7 @@ legal(Name) ->
     end.
 
 illegal(Name) ->
-    case test_node(Name) of
+    case test_node(Name, true) of
         not_started ->
             ok;
         started ->
@@ -238,12 +238,20 @@ illegal(Name) ->
     end.
 
 test_node(Name) ->
+    test_node(Name, false).
+test_node(Name, Illigal) ->
     ProgName = atom_to_list(lib:progname()),
     Command = ProgName ++ " -noinput " ++ long_or_short() ++ Name ++
-               " -eval \"net_adm:ping('" ++ atom_to_list(node()) ++ "')\"",
+        " -eval \"net_adm:ping('" ++ atom_to_list(node()) ++ "')\"" ++
+        case Illigal of
+            true ->
+                " -eval \"timer:sleep(10000),init:stop().\"";
+            false ->
+                ""
+        end,
     net_kernel:monitor_nodes(true),
     BinCommand = unicode:characters_to_binary(Command, utf8),
-    open_port({spawn, BinCommand}, [stream]),
+    Prt = open_port({spawn, BinCommand}, [stream]),
     Node = list_to_atom(Name),
     receive
         {nodeup, Node} ->
