@@ -1553,32 +1553,27 @@
       <item>
         <p><em>Unix systems</em>: This variable gives the number of seconds
           that the emulator is allowed to spend writing a crash dump. When the
-          given number of seconds have elapsed, the emulator is terminated by a
-          <c>SIGALRM</c> signal.</p>
-        <p>If the variable is <em>not</em> set or set to <c>0</c> seconds
-          (<c><![CDATA[ERL_CRASH_DUMP_SECONDS=0]]></c>), the runtime system does
-          not even attempt to write the crash dump file. It only terminates.</p>
-        <p>If the variable is set to negative value, such as
-          <c><![CDATA[ERL_CRASH_DUMP_SECONDS=-1]]></c>, the runtime system
-          waits indefinitely for the crash dump file to be written.</p>
-        <p>This variable is used with <seealso marker="kernel:heart">
-          <c>heart(3)</c></seealso> if <c>heart</c> is running:</p>
+          given number of seconds have elapsed, the emulator is terminated.</p>
         <taglist>
           <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=0]]></c></tag>
-          <item>Suppresses the writing a crash dump file entirely, thus
-            rebooting the runtime system immediately. This is the same as not
-            setting the environment variable.
+	  <item>If the variable is set to <c>0</c> seconds, the runtime system does
+            not even attempt to write the crash dump file. It only terminates.
+	    This is the default if option <c>-heart</c> is passed to <c>erl</c>
+	    and <c>ERL_CRASH_DUMP_SECONDS</c> is not set.
+	  </item>
+          <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=S]]></c></tag>
+          <item>If the variable is set to a positive value <c>S</c>,
+	    wait for <c>S</c> seconds to complete the crash dump file and
+            then terminates the runtime system with a <c>SIGALRM</c> signal.
           </item>
           <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=-1]]></c></tag>
-          <item>Setting the environment variable to a negative value causes the
-            termination of the runtime system to wait until the crash dump file
-            has been completly written.
-          </item>
-          <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=S]]></c></tag>
-          <item>Waits for <c>S</c> seconds to complete the crash dump file and
-            then terminates the runtime system.
+          <item>A negative value causes the termination of the runtime system
+	    to wait indefinitely until the crash dump file has been completly
+	    written. This is the default if option <c>-heart</c> is <em>not</em>
+	    passed to <c>erl</c> and <c>ERL_CRASH_DUMP_SECONDS</c> is not set.
           </item>
         </taglist>
+        <p>See also <seealso marker="kernel:heart"><c>heart(3)</c></seealso>.</p>
       </item>
       <tag><c><![CDATA[ERL_CRASH_DUMP_BYTES]]></c></tag>
       <item>
