@@ -537,6 +537,8 @@ huge_binary(Config) when is_list(Config) ->
     ct:timetrap({seconds, 60}),
     16777216 = size(<<0:(id(1 bsl 26)),(-1):(id(1 bsl 26))>>),
     garbage_collect(),
+    FreeMem = free_mem(),
+    io:format("Free memory (Mb): ~p\n", [FreeMem]),
     {Shift,Return} = case free_mem() of
 			 undefined ->
 			     %% This test has to be inlined inside the case to
@@ -552,10 +554,14 @@ huge_binary(Config) when is_list(Config) ->
 			     garbage_collect(),
 			     id(<<0:((1 bsl 31)-1)>>),
 			     {31,"Limit huge binaries to 256 Mb"};
-			 _ ->
+			 Mb when Mb > 200 ->
 			     garbage_collect(),
 			     id(<<0:((1 bsl 30)-1)>>),
-			     {30,"Limit huge binary to 128 Mb"}
+			     {30,"Limit huge binary to 128 Mb"};
+			 _ ->
+			     garbage_collect(),
+			     id(<<0:((1 bsl 29)-1)>>),
+                             {29,"Limit huge binary to 64 Mb"}
 		     end,
     garbage_collect(),
     id(<<0:((1 bsl Shift)-1)>>),
@@ -567,13 +573,14 @@ huge_binary(Config) when is_list(Config) ->
 	Comment -> {comment, Comment}
     end.
 
+%% Return the amount of free memory in Mb.
 free_mem() ->
     {ok,Apps} = application:ensure_all_started(os_mon),
     Mem = memsup:get_system_memory_data(),
     [ok = application:stop(App)||App <- Apps],
     case proplists:get_value(free_memory,Mem) of
         undefined -> undefined;
-        Val -> Val div 1024
+        Val -> Val div (1024*1024)
     end.
 
 system_limit(Config) when is_list(Config) ->
