@@ -2447,6 +2447,12 @@ typedef struct compile_data {
   pcre_uchar nl[4];                 /* Newline string when fixed length */
 } compile_data;
 
+/* Structure for mutual recursion detection. */
+typedef struct recurse_check {
+    struct recurse_check *prev;
+    const pcre_uchar *group;
+} recurse_check;
+
 /* Structure for maintaining a chain of pointers to the currently incomplete
 branches, for testing for left recursion while compiling. */
 
