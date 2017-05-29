@@ -1845,7 +1845,7 @@ static ERL_NIF_TERM aes_cfb_128_crypt_nif(ErlNifEnv* env, int argc, const ERL_NI
     AES_cfb128_encrypt((unsigned char *) text.data,
                        enif_make_new_binary(env, text.size, &ret),
                        text.size, &aes_key, ivec_clone, &new_ivlen,
-                       (argv[3] != atom_true));
+                       (argv[3] == atom_true));
     CONSUME_REDS(env,text);
     return ret;
 }
