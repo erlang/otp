@@ -66,7 +66,7 @@
          otp_11851/1,otp_11879/1,otp_13230/1,
          record_errors/1, otp_11879_cont/1,
          non_latin1_module/1, otp_14323/1,
-         get_stacktrace/1]).
+         get_stacktrace/1, otp_14285/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -87,7 +87,7 @@ all() ->
      maps, maps_type, maps_parallel_match,
      otp_11851, otp_11879, otp_13230,
      record_errors, otp_11879_cont, non_latin1_module, otp_14323,
-     get_stacktrace].
+     get_stacktrace, otp_14285].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -3922,10 +3922,72 @@ otp_11879_cont(Config) ->
 
 %% OTP-14285: We currently don't support non-latin1 module names.
 
-non_latin1_module(_Config) ->
+non_latin1_module(Config) ->
     do_non_latin1_module('юникод'),
     do_non_latin1_module(list_to_atom([256,$a,$b,$c])),
     do_non_latin1_module(list_to_atom([$a,$b,256,$c])),
+
+    "module names with non-latin1 characters are not supported" =
+        format_error(non_latin1_module_unsupported),
+    BadCallback =
+        {bad_callback,{'кирилли́ческий атом','кирилли́ческий атом',0}},
+    "explicit module not allowed for callback "
+    "'кирилли́ческий атом':'кирилли́ческий атом'/0" =
+        format_error(BadCallback),
+    UndefBehav = {undefined_behaviour,'кирилли́ческий атом'},
+    "behaviour 'кирилли́ческий атом' undefined" =
+        format_error(UndefBehav),
+    BadDepr = {bad_nowarn_deprecated_function,
+               {'кирилли́ческий атом','кирилли́ческий атом',18}},
+    "'кирилли́ческий атом':'кирилли́ческий атом'/18 is not a deprecated "
+    "function" = format_error(BadDepr),
+    Ts = [{non_latin1_module,
+           <<"
+            %% Report uses of module names with non-Latin-1 characters.
+
+            -import('кирилли́ческий атом', []).
+            -behaviour('кирилли́ческий атом').
+            -behavior('кирилли́ческий атом').
+
+            -callback 'кирилли́ческий атом':'кирилли́ческий атом'() -> a.
+
+            -compile([{nowarn_deprecated_function,
+                       [{'кирилли́ческий атом','кирилли́ческий атом',18}]}]).
+
+            %% erl_lint:gexpr/3 is not extended to check module name here:
+            t1() when 'кирилли́ческий атом':'кирилли́ческий атом'(1) ->
+                b.
+
+            t2() ->
+                'кирилли́ческий атом':'кирилли́ческий атом'().
+
+            -spec 'кирилли́ческий атом':'кирилли́ческий атом'() -> atom().
+
+            -spec 'кирилли́ческий атом'(integer()) ->
+              'кирилли́ческий атом':'кирилли́ческий атом'().
+
+            'кирилли́ческий атом'(1) ->
+                'кирилли́ческий атом':f(),
+                F = f,
+                'кирилли́ческий атом':F()."/utf8>>,
+           [],
+           {error,
+            [{4,erl_lint,non_latin1_module_unsupported},
+             {5,erl_lint,non_latin1_module_unsupported},
+             {6,erl_lint,non_latin1_module_unsupported},
+             {8,erl_lint,non_latin1_module_unsupported},
+             {8,erl_lint,BadCallback},
+             {10,erl_lint,non_latin1_module_unsupported},
+             {14,erl_lint,illegal_guard_expr},
+             {18,erl_lint,non_latin1_module_unsupported},
+             {20,erl_lint,non_latin1_module_unsupported},
+             {23,erl_lint,non_latin1_module_unsupported},
+             {26,erl_lint,non_latin1_module_unsupported},
+             {28,erl_lint,non_latin1_module_unsupported}],
+            [{5,erl_lint,UndefBehav},
+             {6,erl_lint,UndefBehav},
+             {10,erl_lint,BadDepr}]}}],
+    run(Config, Ts),
     ok.
 
 do_non_latin1_module(Mod) ->
@@ -4042,6 +4104,53 @@ get_stacktrace(Config) ->
     run(Config, Ts),
     ok.
 
+%% Unicode atoms.
+otp_14285(Config) ->
+    %% A small sample of all the errors and warnings in module erl_lint.
+    E1 = {redefine_function,{'кирилли́ческий атом',0}},
+    E2 = {attribute,'кирилли́ческий атом'},
+    E3 = {undefined_record,'кирилли́ческий атом'},
+    E4 = {undefined_bittype,'кирилли́ческий атом'},
+    "function 'кирилли́ческий атом'/0 already defined" = format_error(E1),
+    "attribute 'кирилли́ческий атом' after function definitions" =
+        format_error(E2),
+    "record 'кирилли́ческий атом' undefined" = format_error(E3),
+    "bit type 'кирилли́ческий атом' undefined" = format_error(E4),
+    Ts = [{otp_14285_1,
+           <<"'кирилли́ческий атом'() -> a.
+              'кирилли́ческий атом'() -> a.
+             "/utf8>>,
+           [],
+           {errors,
+            [{2,erl_lint,E1}],
+            []}},
+         {otp_14285_2,
+           <<"'кирилли́ческий атом'() -> a.
+              -'кирилли́ческий атом'(a).
+             "/utf8>>,
+           [],
+           {errors,
+            [{2,erl_lint,E2}],
+            []}},
+         {otp_14285_3,
+           <<"'кирилли́ческий атом'() -> #'кирилли́ческий атом'{}.
+             "/utf8>>,
+           [],
+           {errors,
+            [{1,erl_lint,E3}],
+            []}},
+         {otp_14285_4,
+           <<"t() -> <<34/'кирилли́ческий атом'>>.
+             "/utf8>>,
+           [],
+           {errors,
+            [{1,erl_lint,E4}],
+            []}}],
+    run(Config, Ts),
+    ok.
+
+format_error(E) ->
+    lists:flatten(erl_lint:format_error(E)).
 
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->
