@@ -176,7 +176,7 @@ check_extract(Name, #read_opts{files=Files}) ->
 -type tar_entry() :: {filename(),
                       typeflag(),
                       non_neg_integer(),
-                      calendar:datetime(),
+                      tar_time(),
                       mode(),
                       uid(),
                       gid()}.
@@ -274,8 +274,13 @@ mode_to_string(Mode, [_|T], Acc) ->
 mode_to_string(_, [], Acc) ->
     Acc.
 
-%% Converts a datetime tuple to a readable string
-time_to_string({{Y, Mon, Day}, {H, Min, _}}) ->
+%% Converts a tar_time() (POSIX time) to a readable string
+time_to_string(Secs0) ->
+    Epoch = calendar:datetime_to_gregorian_seconds(?EPOCH),
+    Secs = Epoch + Secs0,
+    DateTime0 = calendar:gregorian_seconds_to_datetime(Secs),
+    DateTime = calendar:universal_time_to_local_time(DateTime0),
+    {{Y, Mon, Day}, {H, Min, _}} = DateTime,
     io_lib:format("~s ~2w ~s:~s ~w", [month(Mon), Day, two_d(H), two_d(Min), Y]).
 
 two_d(N) ->
@@ -452,7 +457,8 @@ add(Reader, NameOrBin, NameInArchive, Options)
 
 do_add(#reader{access=write}=Reader, Name, NameInArchive, Options)
   when is_list(NameInArchive), is_list(Options) ->
-    Opts = #add_opts{read_info=fun(F) -> file:read_link_info(F) end},
+    RF = fun(F) -> file:read_link_info(F, [{time, posix}]) end,
+    Opts = #add_opts{read_info=RF},
     add1(Reader, Name, NameInArchive, add_opts(Options, Opts));
 do_add(#reader{access=read},_,_,_) ->
     {error, eacces};
@@ -460,7 +466,8 @@ do_add(Reader,_,_,_) ->
     {error, {badarg, Reader}}.
 
 add_opts([dereference|T], Opts) ->
-    add_opts(T, Opts#add_opts{read_info=fun(F) -> file:read_file_info(F) end});
+    RF = fun(F) -> file:read_file_info(F, [{time, posix}]) end,
+    add_opts(T, Opts#add_opts{read_info=RF});
 add_opts([verbose|T], Opts) ->
     add_opts(T, Opts#add_opts{verbose=true});
 add_opts([{chunks,N}|T], Opts) ->
@@ -503,7 +510,7 @@ add1(#reader{}=Reader, Name, NameInArchive, #add_opts{read_info=ReadInfo}=Opts)
     end;
 add1(Reader, Bin, NameInArchive, Opts) when is_binary(Bin) ->
     add_verbose(Opts, "a ~ts~n", [NameInArchive]),
-    Now = calendar:now_to_local_time(erlang:timestamp()),
+    Now = os:system_time(seconds),
     Header = #tar_header{
                 name = NameInArchive,
                 size = byte_size(Bin),
@@ -612,7 +619,7 @@ build_header(#tar_header{}=Header, Opts) ->
        devmajor=Devmaj,
        devminor=Devmin
       } = Header,
-    Mtime = datetime_to_posix(Header#tar_header.mtime),
+    Mtime = Header#tar_header.mtime,
 
     Block0 = ?ZERO_BLOCK,
     {Block1, Pax0} = write_string(Block0, ?V7_NAME, ?V7_NAME_LEN, Name, ?PAX_PATH, #{}),
@@ -769,14 +776,6 @@ join_split_ustar_path([Part|Rest], {ok, Name, nil}) ->
     join_split_ustar_path(Rest, {ok, Name, Part});
 join_split_ustar_path([Part|Rest], {ok, Name, Acc}) ->
     join_split_ustar_path(Rest, {ok, Name, <<Acc/binary,$/,Part/binary>>}).
-
-datetime_to_posix(DateTime) ->
-    Epoch = calendar:datetime_to_gregorian_seconds(?EPOCH),
-    Secs = calendar:datetime_to_gregorian_seconds(DateTime),
-    case Secs - Epoch of
-        N when N < 0 -> 0;
-        N -> N
-    end.
 
 write_octal(Block, Pos, Size, X) ->
     Octal = zero_pad(format_octal(X), Size-1),
@@ -984,7 +983,7 @@ do_get_format(#header_v7{}=V7, Bin)
 
 unpack_format(Format, #header_v7{}=V7, Bin, Reader)
   when is_binary(Bin), byte_size(Bin) =:= ?BLOCK_SIZE ->
-    Mtime = posix_to_erlang_time(parse_numeric(V7#header_v7.mtime)),
+    Mtime = parse_numeric(V7#header_v7.mtime),
     Header0 = #tar_header{
                  name=parse_string(V7#header_v7.name),
                  mode=parse_numeric(V7#header_v7.mode),
@@ -1051,9 +1050,9 @@ unpack_modern(Format, #header_v7{}=V7, Bin, #tar_header{}=Header0)
                             Star = to_star(V7, Bin),
                             Prefix0 = parse_string(Star#header_star.prefix),
                             Atime0 = Star#header_star.atime,
-                            Atime = posix_to_erlang_time(parse_numeric(Atime0)),
+                            Atime = parse_numeric(Atime0),
                             Ctime0 = Star#header_star.ctime,
-                            Ctime = posix_to_erlang_time(parse_numeric(Ctime0)),
+                            Ctime = parse_numeric(Ctime0),
                             {Prefix0, H1#tar_header{
                                         atime=Atime,
                                         ctime=Ctime
@@ -1313,11 +1312,6 @@ is_header_only_type(?TYPE_LINK)    -> true;
 is_header_only_type(?TYPE_DIR)     -> true;
 is_header_only_type(_) -> false.
 
-posix_to_erlang_time(Sec) ->
-    OneMillion = 1000000,
-    Time = calendar:now_to_datetime({Sec div OneMillion, Sec rem OneMillion, 0}),
-    erlang:universaltime_to_localtime(Time).
-
 foldl_read(#reader{access=read}=Reader, Fun, Accu, #read_opts{}=Opts)
   when is_function(Fun,4) ->
     case foldl_read0(Reader, Fun, Accu, Opts) of
@@ -1423,7 +1417,7 @@ do_merge_pax(Header, [_Ignore|Rest]) ->
     do_merge_pax(Header, Rest).
 
 %% Returns the time since UNIX epoch as a datetime
--spec parse_pax_time(binary()) -> calendar:datetime().
+-spec parse_pax_time(binary()) -> tar_time().
 parse_pax_time(Bin) when is_binary(Bin) ->
     TotalNano = case binary:split(Bin, [<<$.>>]) of
                     [SecondsStr, NanoStr0] ->
@@ -1450,8 +1444,7 @@ parse_pax_time(Bin) when is_binary(Bin) ->
     Micro = TotalNano div 1000,
     Mega = Micro div 1000000000000,
     Secs = Micro div 1000000 - (Mega*1000000),
-    Micro2 = Micro rem 1000000,
-    calendar:now_to_datetime({Mega, Secs, Micro2}).
+    Secs.
 
 %% Given a regular file reader, reads the whole file and
 %% parses all extended attributes it contains.
@@ -1671,7 +1664,7 @@ set_extracted_file_info(Name, #tar_header{typeflag = ?TYPE_BLOCK}=Header) ->
     set_device_info(Name, Header);
 set_extracted_file_info(Name, #tar_header{mtime=Mtime,mode=Mode}) ->
     Info = #file_info{mode=Mode, mtime=Mtime},
-    file:write_file_info(Name, Info).
+    file:write_file_info(Name, Info, [{time, posix}]).
 
 set_device_info(Name, #tar_header{}=Header) ->
     Mtime = Header#tar_header.mtime,

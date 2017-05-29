@@ -27,7 +27,8 @@
 	 extract_from_binary_compressed/1, extract_filtered/1,
 	 extract_from_open_file/1, symlinks/1, open_add_close/1, cooked_compressed/1,
 	 memory/1,unicode/1,read_other_implementations/1,
-         sparse/1, init/1, leading_slash/1, dotdot/1]).
+         sparse/1, init/1, leading_slash/1, dotdot/1,
+         roundtrip_metadata/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -41,7 +42,7 @@ all() ->
      extract_filtered,
      symlinks, open_add_close, cooked_compressed, memory, unicode,
      read_other_implementations,
-     sparse,init,leading_slash,dotdot].
+     sparse,init,leading_slash,dotdot,roundtrip_metadata].
 
 groups() -> 
     [].
@@ -952,6 +953,42 @@ dotdot(Config) ->
     io:format("~s\n", [erl_tar:format_error(Error)]),
 
     ok.
+
+roundtrip_metadata(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Dir = filename:join(PrivDir, ?FUNCTION_NAME),
+    ok = file:make_dir(Dir),
+
+    do_roundtrip_metadata(Dir, "name-does-not-matter"),
+    ok.
+
+do_roundtrip_metadata(Dir, File) ->
+    Tar = filename:join(Dir, atom_to_list(?FUNCTION_NAME)++".tar"),
+    BeamFile = code:which(compile),
+    {ok,Fd} = erl_tar:open(Tar, [write]),
+    ok = erl_tar:add(Fd, BeamFile, File, []),
+    ok = erl_tar:close(Fd),
+
+    ok = erl_tar:extract(Tar, [{cwd,Dir}]),
+
+    %% Make sure that size and modification times are the same
+    %% on all platforms.
+    {ok,OrigInfo} = file:read_file_info(BeamFile),
+    ExtractedFile = filename:join(Dir, File),
+    {ok,ExtractedInfo} = file:read_file_info(ExtractedFile),
+    #file_info{size=Size,mtime=Mtime,type=regular} = OrigInfo,
+    #file_info{size=Size,mtime=Mtime,type=regular} = ExtractedInfo,
+
+    %% On Unix platforms more fields are expected to be the same.
+    case os:type() of
+        {unix,_} ->
+            #file_info{access=Access,mode=Mode} = OrigInfo,
+            #file_info{access=Access,mode=Mode} = ExtractedInfo,
+            ok;
+        _ ->
+            ok
+    end.
+
 
 %% Delete the given list of files.
 delete_files([]) -> ok;
