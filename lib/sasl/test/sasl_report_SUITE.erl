@@ -79,7 +79,7 @@ do_gen_server_crash(Config) ->
     error_logger:logfile(close),
 
     check_file(KernelLog, 70000, 150000),
-    check_file(SaslLog, 50000, 100000),
+    check_file(SaslLog, 100000, 150000),
 
     ok.
 
