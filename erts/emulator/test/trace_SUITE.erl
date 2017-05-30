@@ -184,10 +184,10 @@ receive_trace(Config) when is_list(Config) ->
     {'EXIT', Intruder, {badarg, _}} = receive_first(),
 
     %% Untrace the process; we should not receive anything.
-    ?line 1 = erlang:trace(Receiver, false, ['receive']),
-    ?line Receiver ! {hello, there},
-    ?line Receiver ! any_garbage,
-    ?line receive_nothing(),
+    1 = erlang:trace(Receiver, false, ['receive']),
+    Receiver ! {hello, there},
+    Receiver ! any_garbage,
+    receive_nothing(),
 
     %% Verify restrictions in matchspec for 'receive'
     F3 = fun (Pat) -> {'EXIT', {badarg,_}} = (catch erlang:trace_pattern('receive', Pat, [])) end,
