@@ -27,7 +27,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {seconds, 10}}].
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     [case_in_case, case_in_after, catch_in_catch,

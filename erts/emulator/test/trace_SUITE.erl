@@ -46,7 +46,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {seconds, 5}}].
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     [cpu_timestamp, receive_trace, link_receive_call_correlation,

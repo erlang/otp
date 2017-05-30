@@ -37,7 +37,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {seconds, 30}}].
+     {timetrap, {minutes, 2}}].
 
 all() ->
     [call_trace, return_trace, send, receive_trace,

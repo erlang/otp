@@ -43,7 +43,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {seconds, 30}}].
+     {timetrap, {minutes, 2}}].
 
 all() ->
     Common = [errors, on_load],

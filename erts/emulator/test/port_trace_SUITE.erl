@@ -52,7 +52,7 @@
 -define(ECHO_DRV_REMOTE_SEND_TERM, 15).
 
 suite() -> [{ct_hooks,[ts_install_cth]},
-            {timetrap, {seconds, 30}}].
+            {timetrap, {minutes, 2}}].
 
 all() ->
     [port_specs, ports, open_close,
