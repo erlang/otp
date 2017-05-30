@@ -3235,27 +3235,16 @@ void erl_sys_init(void)
 	SetStdHandle(STD_ERROR_HANDLE, GetStdHandle(STD_OUTPUT_HANDLE));
     }
     erts_sys_init_float();
-    erts_init_check_io();
 
     /* Suppress windows error message popups */
     SetErrorMode(SetErrorMode(0) |
 		 SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX); 
 }
+void erts_poll_late_init(void);
 
 void
 erl_sys_late_init(void)
 {
     /* do nothing */
-}
-
-/*
- * Called from schedule() when it runs out of runnable processes,
- * or when Erlang code has performed INPUT_REDUCTIONS reduction
- * steps. runnable == 0 iff there are no runnable Erlang processes.
- */
-void
-erl_sys_schedule(int runnable)
-{
-    erts_check_io(!runnable);
-    ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());
+    erts_poll_late_init();
 }

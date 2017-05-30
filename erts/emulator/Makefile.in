@@ -251,7 +251,7 @@ endif
 HIPEBEAMLDFLAGS=$($(ARCH)BEAMLDFLAGS)
 endif
 
-ERTS_ENABLE_KERNEL_POLL=@ERTS_ENABLE_KERNEL_POLL@
+ERTS_BUILD_FALLBACK_POLL=@ERTS_BUILD_FALLBACK_POLL@
 
 #
 #
@@ -928,17 +928,15 @@ $(STATIC_NIF_LIBS) $(STATIC_DRIVER_LIBS):
 	echo "=== Leaving lib after making static libs"
 endif
 
-ifeq ($(ERTS_ENABLE_KERNEL_POLL),yes)
+ifeq ($(ERTS_BUILD_FALLBACK_POLL),yes)
 OS_OBJS += 	$(OBJDIR)/erl_poll.kp.o \
-		$(OBJDIR)/erl_check_io.kp.o \
-		$(OBJDIR)/erl_poll.nkp.o \
-		$(OBJDIR)/erl_check_io.nkp.o
+		$(OBJDIR)/erl_poll.nkp.o
 else
-OS_OBJS +=	$(OBJDIR)/erl_poll.o \
-		$(OBJDIR)/erl_check_io.o
+OS_OBJS +=	$(OBJDIR)/erl_poll.o
 endif
 
-OS_OBJS +=	$(OBJDIR)/erl_mseg.o \
+OS_OBJS +=	$(OBJDIR)/erl_check_io.o \
+		$(OBJDIR)/erl_mseg.o \
 		$(OBJDIR)/erl_mmap.o \
 		$(OBJDIR)/erl_$(ERLANG_OSTYPE)_sys_ddll.o \
 		$(OBJDIR)/erl_mtrace_sys_wrap.o \
@@ -1112,7 +1110,7 @@ else
 SED_PREFIX=
 endif
 
-ifeq ($(ERTS_ENABLE_KERNEL_POLL),yes)
+ifeq ($(ERTS_BUILD_FALLBACK_POLL),yes)
 SED_SUFFIX=;$(SED_REPL_POLL);$(SED_REPL_CHK_IO)
 else
 SED_SUFFIX=

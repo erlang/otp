@@ -2316,40 +2316,46 @@ end
 define etp-port-sched-flags-int
 # Args: int
 #
-  if ($arg0 & 0x1)
+  if ($arg0 & (1 << 0))
     printf " in-run-queue"
   end
-  if ($arg0 & 0x2)
+  if ($arg0 & (1 << 1))
     printf " executing"
   end
-  if ($arg0 & 0x4)
+  if ($arg0 & (1 << 2))
     printf " have-tasks"
   end
-  if ($arg0 & 0x8)
+  if ($arg0 & (1 << 3))
     printf " exited"
   end
-  if ($arg0 & 0x10)
+  if ($arg0 & (1 << 4))
     printf " busy-port"
   end
-  if ($arg0 & 0x20)
+  if ($arg0 & (1 << 5))
     printf " busy-port-q"
   end
-  if ($arg0 & 0x40)
+  if ($arg0 & (1 << 6))
     printf " chk-unset-busy-port-q"
   end
-  if ($arg0 & 0x80)
+  if ($arg0 & (1 << 7))
     printf " have-busy-tasks"
   end
-  if ($arg0 & 0x100)
+  if ($arg0 & (1 << 8))
     printf " have-nosuspend-tasks"
   end
-  if ($arg0 & 0x200)
+  if ($arg0 & (1 << 9))
     printf " parallelism"
   end
-  if ($arg0 & 0x400)
+  if ($arg0 & (1 << 10))
     printf " force-sched"
   end
-  if ($arg0 & 0xfffff800)
+  if ($arg0 & (1 << 11))
+    printf " exiting"
+  end
+  if ($arg0 & (1 << 12))
+    printf " exec-imm"
+  end
+  if ($arg0 & 0xffffc000)
     printf " GARBAGE"
   end
   printf "\n"
@@ -2848,6 +2854,14 @@ define etp-run-queue-info-internal
   set $rq_flags = *((Uint32 *) &($runq->flags))
   etp-rq-flags-int $rq_flags
   printf "  Pointer: (ErtsRunQueue *) %p\n", $runq
+end
+
+define etp-fds
+  if $_exitsignal == -1
+    call erts_check_io_debug(0)
+  else
+    printf "Not yet implemented for core files"
+  end
 end
 
 define etp-disasm-1
@@ -4312,6 +4326,10 @@ document etp-init
 %     $ROOTDIR/erts/etc/unix/etp-commands
 % Also, erl and erlc must be in the path.
 %---------------------------------------------------------------------------
+end
+
+define hook-run
+  set $_exitsignal = -1
 end
 
 etp-init

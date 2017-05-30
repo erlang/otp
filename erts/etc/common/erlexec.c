@@ -810,6 +810,28 @@ int main(int argc, char **argv)
 		      add_Eargs(argv[i+1]);
 		      i++;
 		      break;
+		  case 'I':
+                      if (argv[i][2] == 'O' && (argv[i][3] == 't' || argv[i][3] == 'p')) {
+                          if (argv[i][4] != '\0')
+                              goto the_default;
+                          argv[i][0] = '-';
+                          add_Eargs(argv[i]);
+                          add_Eargs(argv[i+1]);
+                          i++;
+                          break;
+                      }
+                      if (argv[i][2] == 'O' && argv[i][3] == 'P' &&
+                          (argv[i][4] == 't' || argv[i][4] == 'p')) {
+                          if (argv[i][5] != '\0')
+                              goto the_default;
+                          argv[i][0] = '-';
+                          add_Eargs(argv[i]);
+                          add_Eargs(argv[i+1]);
+                          i++;
+                          break;
+                      }
+                      usage(argv[i]);
+                      break;
 		  case 'S':
 		      if (argv[i][2] == 'P') {
 			  if (argv[i][3] != '\0')

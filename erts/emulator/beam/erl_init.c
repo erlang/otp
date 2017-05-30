@@ -49,6 +49,7 @@
 #include "erl_bif_unique.h"
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
+#include "erl_check_io.h"
 
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_mode_switch_init() */
@@ -76,8 +77,10 @@ const char etp_otp_release[] = ERLANG_OTP_RELEASE;
 const char etp_compile_date[] = ERLANG_COMPILE_DATE;
 const char etp_arch[] = ERLANG_ARCHITECTURE;
 #ifdef ERTS_ENABLE_KERNEL_POLL
+const int erts_use_kernel_poll = 1;
 const int etp_kernel_poll_support = 1;
 #else
+const int erts_use_kernel_poll = 0;
 const int etp_kernel_poll_support = 0;
 #endif
 #if defined(ARCH_64)
@@ -203,16 +206,16 @@ int erts_no_line_info = 0;	/* -L: Don't load line information */
  */
 
 ErtsModifiedTimings erts_modified_timings[] = {
-    /* 0 */	{make_small(0), CONTEXT_REDS, INPUT_REDUCTIONS},
-    /* 1 */	{make_small(0), (3*CONTEXT_REDS)/4, 2*INPUT_REDUCTIONS},
-    /* 2 */	{make_small(0), CONTEXT_REDS/2, INPUT_REDUCTIONS/2},
-    /* 3 */	{make_small(0), (7*CONTEXT_REDS)/8, 3*INPUT_REDUCTIONS},
-    /* 4 */	{make_small(0), CONTEXT_REDS/3, 3*INPUT_REDUCTIONS},
-    /* 5 */	{make_small(0), (10*CONTEXT_REDS)/11, INPUT_REDUCTIONS/2},
-    /* 6 */	{make_small(1), CONTEXT_REDS/4, 2*INPUT_REDUCTIONS},
-    /* 7 */	{make_small(1), (5*CONTEXT_REDS)/7, INPUT_REDUCTIONS/3},
-    /* 8 */	{make_small(10), CONTEXT_REDS/5, 3*INPUT_REDUCTIONS},
-    /* 9 */	{make_small(10), (6*CONTEXT_REDS)/7, INPUT_REDUCTIONS/4}
+    /* 0 */	{make_small(0), CONTEXT_REDS},
+    /* 1 */	{make_small(0), (3*CONTEXT_REDS)/4},
+    /* 2 */	{make_small(0), CONTEXT_REDS/2},
+    /* 3 */	{make_small(0), (7*CONTEXT_REDS)/8},
+    /* 4 */	{make_small(0), CONTEXT_REDS/3},
+    /* 5 */	{make_small(0), (10*CONTEXT_REDS)/11},
+    /* 6 */	{make_small(1), CONTEXT_REDS/4},
+    /* 7 */	{make_small(1), (5*CONTEXT_REDS)/7},
+    /* 8 */	{make_small(10), CONTEXT_REDS/5},
+    /* 9 */	{make_small(10), (6*CONTEXT_REDS)/7}
 };
 
 #define ERTS_MODIFIED_TIMING_LEVELS \
@@ -310,8 +313,9 @@ erl_init(int ncpu,
     erts_init_sys_common_misc();
     erts_init_process(ncpu, proc_tab_sz, legacy_proc_tab);
     erts_init_scheduling(no_schedulers,
-			 no_schedulers_online
-			 , no_dirty_cpu_schedulers,
+			 no_schedulers_online,
+                         erts_no_poll_threads,
+			 no_dirty_cpu_schedulers,
 			 no_dirty_cpu_schedulers_online,
 			 no_dirty_io_schedulers
 			 );
@@ -558,9 +562,19 @@ void erts_usage(void)
     erts_fprintf(stderr, "-hmqd  val     set default message queue data flag for processes,\n");
     erts_fprintf(stderr, "               valid values are: off_heap | on_heap\n");
 
+    erts_fprintf(stderr, "-IOp number    set number of pollsets to be used to poll for I/O,\n");
+    erts_fprintf(stderr, "               This value has to be equal or smaller than the\n");
+    erts_fprintf(stderr, "               number of poll threads. If the current platform\n");
+    erts_fprintf(stderr, "               does not support concurrent update of pollsets\n");
+    erts_fprintf(stderr, "               this value is ignored.\n");
+    erts_fprintf(stderr, "-IOt number    set number of threads to be used to poll for I/O\n");
+    erts_fprintf(stderr, "-IOPp number   set number of pollsets as a percentage of the\n");
+    erts_fprintf(stderr, "               number of poll threads.");
+    erts_fprintf(stderr, "-IOPt number   set number of threads to be used to poll for I/O\n");
+    erts_fprintf(stderr, "               as a percentage of the number of schedulers.");
+
     /*    erts_fprintf(stderr, "-i module  set the boot module (default init)\n"); */
 
-    erts_fprintf(stderr, "-K boolean     enable or disable kernel poll\n");
     erts_fprintf(stderr, "-n[s|a|d]      Control behavior of signals to ports\n");
     erts_fprintf(stderr, "               Note that this flag is deprecated!\n");
     erts_fprintf(stderr, "-M<X> <Y>      memory allocator switches,\n");
@@ -727,7 +741,6 @@ early_init(int *argc, char **argv) /*
     char envbuf[21]; /* enough for any 64-bit integer */
     size_t envbufsz;
 
-
     erts_save_emu_args(*argc, argv);
 
     erts_sched_compact_load = 1;
@@ -839,6 +852,7 @@ early_init(int *argc, char **argv) /*
 		    }
 		    break;
 		}
+
 		case 'S' :
 		    if (argv[i][2] == 'P') {
 			int ptot, ponln;
@@ -1100,6 +1114,9 @@ early_init(int *argc, char **argv) /*
     erts_alloc_init(argc, argv, &alloc_opts); /* Handles (and removes)
 						 -M flags. */
     /* Require allocators */
+
+    erts_init_check_io(argc, argv);
+
     /*
      * Thread progress management:
      *
@@ -1107,13 +1124,14 @@ early_init(int *argc, char **argv) /*
      * ** Scheduler threads (see erl_process.c)
      * ** Aux thread (see erl_process.c)
      * ** Sys message dispatcher thread (see erl_trace.c)
+     * ** IO Poll threads (see erl_check_io.c)
      *
      * * Unmanaged threads that need to register:
      * ** Async threads (see erl_async.c)
      * ** Dirty scheduler threads
      */
     erts_thr_progress_init(no_schedulers,
-			   no_schedulers+2,
+			   no_schedulers+2+erts_no_poll_threads,
 			   erts_async_max_threads +
 			   erts_no_dirty_cpu_schedulers +
 			   erts_no_dirty_io_schedulers
@@ -1560,16 +1578,6 @@ erl_start(int argc, char **argv)
 	  else			          /* +B */
 	    have_break_handler = 0;
 	  break;
-
-	case 'K':
-	    /* If kernel poll support is present,
-	       erl_sys_args() will remove the K parameter
-	       and value */
-	    get_arg(argv[i]+2, argv[i+1], &i);
-	    erts_fprintf(stderr,
-		       "kernel-poll not supported; \"K\" parameter ignored\n",
-		       arg);
-	    break;
 
 	case 'n':
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);

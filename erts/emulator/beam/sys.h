@@ -992,10 +992,6 @@ erts_refc_read(erts_refc_t *refcp, erts_aint_t min_val)
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-#ifdef ERTS_ENABLE_KERNEL_POLL
-extern int erts_use_kernel_poll;
-#endif
-
 #define sys_memcpy(s1,s2,n)  memcpy(s1,s2,n)
 #define sys_memmove(s1,s2,n) memmove(s1,s2,n)
 #define sys_memcmp(s1,s2,n)  memcmp(s1,s2,n)

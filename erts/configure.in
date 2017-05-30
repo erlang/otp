@@ -3545,6 +3545,7 @@ fi
 #
 AC_MSG_CHECKING(whether kernel poll support should be enabled)
 ERTS_ENABLE_KERNEL_POLL=no
+ERTS_BUILD_FALLBACK_POLL=no
 case $enable_kernel_poll-$have_kernel_poll in
     no-*)
 	AC_MSG_RESULT(no; disabled by user);;
@@ -3555,11 +3556,16 @@ case $enable_kernel_poll-$have_kernel_poll in
     *)
 	case $have_kernel_poll in
 	    epoll)
-		AC_DEFINE(HAVE_SYS_EPOLL_H, 1, [Define if you have the <sys/epoll.h> header file.]);;
+		AC_DEFINE(HAVE_SYS_EPOLL_H, 1, [Define if you have the <sys/epoll.h> header file.])
+                ERTS_BUILD_FALLBACK_POLL=yes
+                ;;
 	    /dev/poll)
-		AC_DEFINE(HAVE_SYS_DEVPOLL_H, 1, [Define if you have <sys/devpoll.h> header file.]);;
+		AC_DEFINE(HAVE_SYS_DEVPOLL_H, 1, [Define if you have <sys/devpoll.h> header file.])
+                ;;
 	    kqueue)
-		AC_DEFINE(HAVE_SYS_EVENT_H, 1, [Define if you have <sys/event.h> header file.]);;
+		AC_DEFINE(HAVE_SYS_EVENT_H, 1, [Define if you have <sys/event.h> header file.])
+                ERTS_BUILD_FALLBACK_POLL=yes
+                ;;
 	    *)
 		AC_MSG_ERROR(configure.in need to be updated);;
 	esac
@@ -3567,7 +3573,7 @@ case $enable_kernel_poll-$have_kernel_poll in
 	AC_DEFINE(ERTS_ENABLE_KERNEL_POLL, 1, [Define if you have kernel poll and want to use it])
 	AC_MSG_RESULT([yes; $have_kernel_poll]);;
 esac
-AC_SUBST(ERTS_ENABLE_KERNEL_POLL)
+AC_SUBST(ERTS_BUILD_FALLBACK_POLL)
 
 AC_MSG_CHECKING([whether putenv() stores a copy of the key-value pair])
 AC_TRY_RUN([

@@ -499,22 +499,16 @@ static void signal_notify_requested(Eterm type) {
 static ERTS_INLINE void
 break_requested(void)
 {
-    int i;
   /*
    * just set a flag - checked for and handled by
    * scheduler threads erts_check_io() (not signal handler).
    */
-#ifdef DEBUG			
-  fprintf(stderr,"break!\n");
-#endif
   if (ERTS_BREAK_REQUESTED)
       erts_exit(ERTS_INTR_EXIT, "");
 
   ERTS_SET_BREAK_REQUESTED;
-  for (i=0; i < erts_no_schedulers; i++) {
-       /* Make sure we don't sleep in poll */
-      erts_check_io_interrupt(ERTS_SCHEDULER_IX(i)->pollset, 1);
-  }
+  /* Wake aux thread to get handle break */
+  erts_aux_thread_poke();
 }
 
 static RETSIGTYPE request_break(int signum)
@@ -1079,20 +1073,6 @@ erl_debug(char* fmt, ...)
 
 #endif /* DEBUG */
 
-/*
- * Called from schedule() when it runs out of runnable processes,
- * or when Erlang code has performed INPUT_REDUCTIONS reduction
- * steps. runnable == 0 iff there are no runnable Erlang processes.
- */
-void
-erl_sys_schedule(int runnable)
-{
-    erts_check_io(!runnable);
-    ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());
-}
-
-
-
 static erts_tid_t sig_dispatcher_tid;
 
 static void
@@ -1281,103 +1261,18 @@ erts_sys_main_thread(void)
 }
 
 
-#ifdef ERTS_ENABLE_KERNEL_POLL /* get_value() is currently only used when
-				  kernel-poll is enabled */
-
-/* Get arg marks argument as handled by
-   putting NULL in argv */
-static char *
-get_value(char* rest, char** argv, int* ip)
-{
-    char *param = argv[*ip]+1;
-    argv[*ip] = NULL;
-    if (*rest == '\0') {
-	char *next = argv[*ip + 1];
-	if (next[0] == '-'
-	    && next[1] == '-'
-	    &&  next[2] == '\0') {
-	    erts_fprintf(stderr, "bad \"%s\" value: \n", param);
-	    erts_usage();
-	}
-	(*ip)++;
-	argv[*ip] = NULL;
-	return next;
-    }
-    return rest;
-}
-
-int erts_use_kernel_poll = 0;
-
-#endif /* ERTS_ENABLE_KERNEL_POLL */
-
 void
 erl_sys_args(int* argc, char** argv)
 {
-    int i, j;
 
     erts_rwmtx_init(&environ_rwmtx, "environ", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
-    i = 1;
-
     ASSERT(argc && argv);
 
-    while (i < *argc) {
-	if(argv[i][0] == '-') {
-	    switch (argv[i][1]) {
-#ifdef ERTS_ENABLE_KERNEL_POLL
-	    case 'K': {
-		char *arg = get_value(argv[i] + 2, argv, &i);
-		if (strcmp("true", arg) == 0) {
-		    erts_use_kernel_poll = 1;
-		}
-		else if (strcmp("false", arg) == 0) {
-		    erts_use_kernel_poll = 0;
-		}
-		else {
-		    erts_fprintf(stderr, "bad \"K\" value: %s\n", arg);
-		    erts_usage();
-		}
-		break;
-	    }
-#endif
-	    case '-':
-		goto done_parsing;
-	    default:
-		break;
-	    }
-	}
-	i++;
-    }
-
- done_parsing:
-
-#ifdef ERTS_ENABLE_KERNEL_POLL
-    if (erts_use_kernel_poll) {
-	char no_kp[10];
-	size_t no_kp_sz = sizeof(no_kp);
-	int res = erts_sys_getenv_raw("ERL_NO_KERNEL_POLL", no_kp, &no_kp_sz);
-	if (res > 0
-	    || (res == 0
-		&& sys_strcmp("false", no_kp) != 0
-		&& sys_strcmp("FALSE", no_kp) != 0)) {
-	    erts_use_kernel_poll = 0;
-	}
-    }
-#endif
-
-    erts_init_check_io();
     max_files = erts_check_io_max_files();
-
 
     init_smp_sig_notify();
     init_smp_sig_suspend();
 
-    /* Handled arguments have been marked with NULL. Slide arguments
-       not handled towards the beginning of argv. */
-    for (i = 0, j = 0; i < *argc; i++) {
-	if (argv[i])
-	    argv[j++] = argv[i];
-    }
-    *argc = j;
 }

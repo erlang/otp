@@ -369,6 +369,7 @@ struct ErtsSchedulerSleepInfo_ {
     ErtsSchedulerSleepInfo *prev;
     erts_atomic32_t flags;
     erts_tse_t *event;
+    struct erts_poll_thread *psi;
     erts_atomic32_t aux_work;
 };
 
@@ -632,8 +633,6 @@ struct ErtsSchedulerData_ {
     void *match_pseudo_process; /* erl_db_util.c:db_prog_match() */
     Process *free_process;
     ErtsThrPrgrData thr_progress_data;
-    struct pollset_info* pollset;
-    int function_calls;
     ErtsSchedulerSleepInfo *ssi;
     Process *current_process;
     ErtsSchedType type;
@@ -1534,9 +1533,7 @@ extern int erts_system_profile_ts_type;
 void erts_pre_init_process(void);
 void erts_late_init_process(void);
 void erts_early_init_scheduling(int);
-void erts_init_scheduling(int, int
-			  , int, int, int
-			  );
+void erts_init_scheduling(int, int, int, int, int, int);
 void erts_execute_dirty_system_task(Process *c_p);
 int erts_set_gc_state(Process *c_p, int enable);
 Eterm erts_sched_wall_time_request(Process *c_p, int set, int enable,
@@ -2473,6 +2470,7 @@ void erts_notify_inc_runq(ErtsRunQueue *runq);
 
 void erts_sched_finish_poke(ErtsSchedulerSleepInfo *, erts_aint32_t);
 ERTS_GLB_INLINE void erts_sched_poke(ErtsSchedulerSleepInfo *ssi);
+void erts_aux_thread_poke(void);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 

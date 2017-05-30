@@ -1101,7 +1101,6 @@ void erts_save_stacktrace(Process* p, struct StackTrace* s, int depth);
 typedef struct {
     Eterm delay_time;
     int context_reds;
-    int input_reds;
 } ErtsModifiedTimings;
 
 extern Export *erts_delay_trap;

@@ -136,7 +136,7 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 all() -> %% Keep a_test first and z_test last...
-    [a_test, outputv_errors, outputv_echo, queue_echo, {group, timer},
+    [a_test, outputv_errors, outputv_echo, queue_echo, %{group, timer},
      driver_unloaded, io_ready_exit, use_fallback_pollset,
      bad_fd_in_pollset, fd_change,
      steal_control, otp_6602, driver_system_info_base_ver,
@@ -785,12 +785,9 @@ io_ready_exit(Config) when is_list(Config) ->
 
 use_fallback_pollset(Config) when is_list(Config) ->
     FlbkFun = fun () ->
-                      ChkIoDuring = get_check_io_total(erlang:system_info(check_io)),
-                      case lists:keysearch(fallback_poll_set_size,
-                                           1,
-                                           ChkIoDuring) of
-                          {value,
-                           {fallback_poll_set_size, N}} when N > 0 ->
+                      {Flbk, _} = get_fallback(erlang:system_info(check_io)),
+                      case lists:keysearch(total_poll_set_size, 1, Flbk) of
+                          {value, {total_poll_set_size, N}} when N > 0 ->
                               ok;
                           Error ->
                               ct:fail({failed_to_use_fallback, Error})
@@ -1013,14 +1010,15 @@ get_stable_check_io_info() ->
 %% Merge return from erlang:system_info(check_io)
 %% as if it was one big pollset.
 get_check_io_total(ChkIo) ->
-    lists:foldl(fun(Pollset, Acc) ->
-                        lists:zipwith(fun(A, B) ->
-                                              add_pollset_infos(A,B)
-                                      end,
-                                      Pollset, Acc)
-                end,
-                hd(ChkIo),
-                tl(ChkIo)).
+    {Fallback, Rest} = get_fallback(ChkIo),
+    add_fallback_infos(Fallback,
+      lists:foldl(fun(Pollset, Acc) ->
+                          lists:zipwith(fun(A, B) ->
+                                                add_pollset_infos(A,B)
+                                        end,
+                                        Pollset, Acc)
+                  end,
+                  hd(Rest), tl(Rest))).
 
 add_pollset_infos({Tag, A}=TA , {Tag, B}=TB) ->
     case tag_type(Tag) of
@@ -1035,13 +1033,32 @@ add_pollset_infos({Tag, A}=TA , {Tag, B}=TB) ->
             end
     end.
 
+get_fallback([MaybeFallback | ChkIo] = AllChkIo) ->
+    case proplists:get_value(fallback, MaybeFallback) of
+        true ->
+            {MaybeFallback, ChkIo};
+        false ->
+            {undefined, AllChkIo}
+    end.
+
+add_fallback_infos(undefined, Acc) ->
+    Acc;
+add_fallback_infos(Flbk, Acc) ->
+    lists:zipwith(fun({Tag, A}=TA, {Tag, B}=TB) ->
+                          case tag_type(Tag) of
+                              sum -> {Tag, A + B};
+                              const when Tag =:= fallback -> TA;
+                              const -> TB
+                          end
+                  end,
+                  Flbk, Acc).
+
 tag_type(name) -> const;
 tag_type(primary) -> const;
 tag_type(fallback) -> const;
 tag_type(kernel_poll) -> const;
 tag_type(memory_size) -> sum;
 tag_type(total_poll_set_size) -> sum;
-tag_type(fallback_poll_set_size) -> sum;
 tag_type(lazy_updates) -> const;
 tag_type(pending_updates) -> sum;
 tag_type(batch_updates) -> const;

@@ -511,6 +511,9 @@ chkio_drv_ready_input(ErlDrvData drv_data, ErlDrvEvent event)
 	    driver_failure_atom(cddp->port, "input_fd_not_found");
 	break;
     }
+    case CHKIO_FD_CHANGE:
+        /* This may be triggered when an fd is closed while being selected on. */
+        break;
     case CHKIO_STEAL:
 	break;
     case CHKIO_STEAL_AUX:

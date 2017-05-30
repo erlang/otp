@@ -582,12 +582,10 @@ static ERTS_INLINE void
 reset_executed_io_task_handle(ErtsPortTask *ptp)
 {
     if (ptp->u.alive.handle) {
-	ErtsIoTask *itp = ErtsContainerStruct(ptp->u.alive.handle, ErtsIoTask, task);
-
 	ASSERT(ptp == handle2task(ptp->u.alive.handle));
-	erts_io_notify_port_task_executed(ptp->u.alive.handle);
-	reset_port_task_handle(ptp->u.alive.handle);
-	erts_check_io_interrupt(itp->pollset, 1);
+        /* The port task handle is reset inside task_executed */
+	erts_io_notify_port_task_executed(ptp->type, ptp->u.alive.handle,
+                                          reset_port_task_handle);
     }
 }
 

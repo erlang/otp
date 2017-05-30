@@ -98,9 +98,6 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #ifdef HIPE
 				     " [hipe]"
 #endif	
-#ifdef ERTS_ENABLE_KERNEL_POLL
-				     " [kernel-poll:%s]"
-#endif	
 #ifdef ET_DEBUG
 #if ET_DEBUG
 				     " [type-assertions]"
@@ -372,9 +369,6 @@ erts_print_system_version(fmtfn_t to, void *arg, Process *c_p)
 		      , total, online
 		      , dirty_cpu, dirty_cpu_onln, dirty_io
 		      , erts_async_max_threads
-#ifdef ERTS_ENABLE_KERNEL_POLL
-		      , erts_use_kernel_poll ? "true" : "false"
-#endif
 	);
 }
 
@@ -2696,7 +2690,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(make_small(CONTEXT_REDS));
     } else if (ERTS_IS_ATOM_STR("kernel_poll", BIF_ARG_1)) {
 #ifdef ERTS_ENABLE_KERNEL_POLL
-	BIF_RET(erts_use_kernel_poll ? am_true : am_false);
+	BIF_RET(am_true);
 #else
 	BIF_RET(am_false);
 #endif    
