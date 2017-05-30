@@ -714,7 +714,13 @@ ntoa({0,0,0,0,0,0,0,1}) -> "::1";
 ntoa({0,0,0,0,0,0,A,B}) -> "::" ++ dig_to_dec(A) ++ "." ++ dig_to_dec(B);
 %% IPV4 non ipv6 host address
 ntoa({0,0,0,0,0,16#ffff,A,B}) -> 
-    "::FFFF:" ++ dig_to_dec(A) ++ "." ++ dig_to_dec(B);
+    "::ffff:" ++ dig_to_dec(A) ++ "." ++ dig_to_dec(B);
+%% RFC 2765 IPv4-translated address
+ntoa({0,0,0,0,16#ffff,0,A,B}) ->
+    "::ffff:0:" ++ dig_to_dec(A) ++ "." ++ dig_to_dec(B);
+%% RFC 6052 Well-known Prefix address
+ntoa({16#64,16#ff9b,0,0,0,0,A,B}) ->
+    "64:ff9b::" ++ dig_to_dec(A) ++ "." ++ dig_to_dec(B);
 ntoa({_,_,_,_,_,_,_,_}=T) ->
     %% Find longest sequence of zeros, at least 2, to replace with "::"
     ntoa(tuple_to_list(T), []);
@@ -780,9 +786,19 @@ dig_to_dec(X) ->
     integer_to_list((X bsr 8) band 16#ff) ++ "." ++
 	integer_to_list(X band 16#ff).
 
-%% Convert a integer to hex string
-dig_to_hex(X) ->
-    erlang:integer_to_list(X, 16).
+%% Convert a integer to hex string (lowercase)
+dig_to_hex(0) -> "0";
+dig_to_hex(X) when is_integer(X), 0 < X ->
+    dig_to_hex(X, "").
+%%
+dig_to_hex(0, Acc) -> Acc;
+dig_to_hex(X, Acc) ->
+    dig_to_hex(
+      X bsr 4,
+      [case X band 15 of
+           D when D < 10 -> D + $0;
+           D -> D - 10 + $a
+       end|Acc]).
 
 %%
 %% Count number of '.' in a name
