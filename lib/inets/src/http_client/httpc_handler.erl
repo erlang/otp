@@ -1175,17 +1175,20 @@ handle_empty_queue(Session, ProfileName, TimeOut, State) ->
     %% If a pipline | keep_alive session has been idle for some time is not
     %% closed by the server, the client may want to close it.
     NewState = activate_queue_timeout(TimeOut, State),
-    update_session(ProfileName, Session, #session.queue_length, 0),
-    %% Note mfa will be initialized when a new request
-    %% arrives.
-    {noreply,
-     NewState#state{request     = undefined,
-		    mfa         = undefined,
-		    status_line = undefined,
-		    headers     = undefined,
-		    body        = undefined
-			   }
-    }.
+    case update_session(ProfileName, Session, #session.queue_length, 0) of
+        {stop, Reason} ->
+            {stop, {shutdown, Reason}, State};  
+        _ ->
+            %% Note mfa will be initialized when a new request
+            %% arrives.
+            {noreply,
+             NewState#state{request     = undefined,
+                            mfa         = undefined,
+                            status_line = undefined,
+                            headers     = undefined,
+                            body        = undefined
+			   }}
+    end.
 
 receive_response(Request, Session, Data, State) ->
     NewState = init_wait_for_response_state(Request, State),
@@ -1677,7 +1680,7 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
 	    Session2 = erlang:setelement(Pos, Session, Value),
 	    insert_session(Session2, ProfileName);
 	error:badarg ->
-	    exit(normal); %% Manager has been shutdown
+	    {stop, normal};
 	T:E -> 
 	    %% Unexpected this must be an error!  
             Stacktrace = erlang:get_stacktrace(),
@@ -1697,14 +1700,14 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
                                     Session, 
                                     (catch httpc_manager:lookup_session(SessionId, ProfileName)),
                                     T, E]),
-            exit({failed_updating_session, 
-                  [{profile,    ProfileName}, 
-                   {session_id, SessionId}, 
-                   {pos,        Pos}, 
-                   {value,      Value}, 
-                   {etype,      T}, 
-                   {error,      E}, 
-                   {stacktrace, Stacktrace}]})
+            {stop, {failed_updating_session, 
+                    [{profile,    ProfileName}, 
+                     {session_id, SessionId}, 
+                     {pos,        Pos}, 
+                     {value,      Value}, 
+                     {etype,      T}, 
+                     {error,      E}, 
+                     {stacktrace, Stacktrace}]}}
     end.
 
 
