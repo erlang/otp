@@ -165,15 +165,7 @@ bulk_send_bigbig(Config) when is_list(Config) ->
                              [Rate1,Rate2,MonitorCount1,
                               MonitorCount2,Ratio]),
     Comment = lists:flatten(Comment0),
-    if
-        %% A somewhat arbitrary ratio, but hopefully one that will
-        %% accommodate a wide range of CPU speeds.
-        Ratio > 8.0 ->
-            {comment,Comment};
-        true ->
-            io:put_chars(Comment),
-            ct:fail(ratio_too_low)
-    end.
+    {comment,Comment}.
 
 bulk_sendsend2(Terms, BinSize, BusyBufSize) ->
     ct:timetrap({seconds, 30}),
