@@ -469,18 +469,18 @@ gui_loop(#gui_state{backend_pid = BackendPid, doc_plt = DocPlt,
       Msg = io_lib:format("The following functions are called "
 			  "but type information about them is not available.\n"
 			  "The analysis might get more precise by including "
-			  "the modules containing these functions:\n\n\t~p\n", 
+			  "the modules containing these functions:\n\n\t~tp\n",
 			  [ExtCalls]),
       free_editor(State,"Analysis Done",  Msg),
       gui_loop(State);
     {BackendPid, ext_types, ExtTypes} ->
-      Map = fun({M,F,A}) -> io_lib:format("~p:~p/~p",[M,F,A]) end,
+      Map = fun({M,F,A}) -> io_lib:format("~tp:~tp/~p",[M,F,A]) end,
       ExtTypeString = string:join(lists:map(Map, ExtTypes), "\n"),
       Msg = io_lib:format("The following remote types are being used "
 			  "but information about them is not available.\n"
 			  "The analysis might get more precise by including "
 			  "the modules containing these types and making sure "
-			  "that they are exported:\n~s\n", [ExtTypeString]),
+			  "that they are exported:\n~ts\n", [ExtTypeString]),
       free_editor(State, "Analysis done", Msg),
       gui_loop(State);
     {BackendPid, log, LogMsg} ->
@@ -508,7 +508,7 @@ gui_loop(#gui_state{backend_pid = BackendPid, doc_plt = DocPlt,
       config_gui_stop(State),
       gui_loop(State);
     {'EXIT', BackendPid, Reason} when Reason =/= 'normal' ->
-      free_editor(State, ?DIALYZER_ERROR_TITLE, io_lib:format("~p", [Reason])),
+      free_editor(State, ?DIALYZER_ERROR_TITLE, io_lib:format("~tp", [Reason])),
       config_gui_stop(State),
       gui_loop(State)
   end.
@@ -926,7 +926,7 @@ include_dialog(#gui_state{gui = Wx, frame = Frame, options = Options}) ->
   wxButton:connect(DeleteAllButton, command_button_clicked),
   wxButton:connect(Ok, command_button_clicked),
   wxButton:connect(Cancel, command_button_clicked),
-  Dirs = [io_lib:format("~s", [X]) || X <- Options#options.include_dirs],
+  Dirs = [io_lib:format("~ts", [X]) || X <- Options#options.include_dirs],
   wxListBox:set(Box, Dirs),
   Layout = wxBoxSizer:new(?wxVERTICAL),
   Buttons = wxBoxSizer:new(?wxHORIZONTAL),
@@ -1118,13 +1118,13 @@ handle_help(State, Title, Txt) ->
   case file:open(FileName, [read]) of
     {error, Reason} ->
       error_sms(State, 
-		io_lib:format("Could not find doc/~s file!\n\n ~p", 
+		io_lib:format("Could not find doc/~ts file!\n\n ~tp",
 			      [Txt, Reason]));
     {ok, _Handle} ->
       case file:read_file(FileName) of
 	{error, Reason} ->
 	  error_sms(State, 
-		    io_lib:format("Could not read doc/~s file!\n\n ~p", 
+		    io_lib:format("Could not read doc/~ts file!\n\n ~tp",
 				  [Txt, Reason]));
 	{ok, Binary} ->
 	  Contents = binary_to_list(Binary),
@@ -1223,7 +1223,7 @@ update_explanation(#gui_state{explanation_box = Box}, Explanation) ->
   wxTextCtrl:appendText(Box, ExplString).
 
 format_explanation({function_return, {M, F, A}, NewList}) ->
-  io_lib:format("The function ~p: ~p/~p returns ~p\n",
+  io_lib:format("The function ~w:~tw/~w returns ~ts\n",
 		[M, F, A, erl_types:t_to_string(NewList)]);
 format_explanation(Explanation) ->
   io_lib:format("~p\n", [Explanation]).
