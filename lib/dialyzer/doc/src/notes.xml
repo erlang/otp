@@ -32,6 +32,69 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The check of bad type variables in type declarations
+	    was mistakingly removed in Erlang/OTP 18, and is now
+	    re-introduced. </p>
+          <p>
+	    Own Id: OTP-14423 Aux Id: OTP-14323 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Analyzing modules with binary construction with huge
+	    strings is now much faster. The compiler also compiles
+	    such modules slightly faster.</p>
+          <p>
+	    Own Id: OTP-14125 Aux Id: ERL-308 </p>
+        </item>
+        <item>
+	    <p> The peak memory consumption is reduced. </p>
+          <p>
+	    Own Id: OTP-14127</p>
+        </item>
+        <item>
+	    <p>TypEr has been removed as separate application and is
+	    now a part of the Dialyzer application. Documentation for
+	    TypEr has been added in the Dialyzer application.</p>
+          <p>
+	    Own Id: OTP-14336</p>
+        </item>
+        <item>
+	    <p>The format of debug information that is stored in BEAM
+	    files (when <c>debug_info</c> is used) has been changed.
+	    The purpose of the change is to better support other
+	    BEAM-based languages such as Elixir or LFE.</p>
+	    <p>All tools included in OTP (dialyzer, debugger, cover,
+	    and so on) will handle both the new format and the
+	    previous format. Tools that retrieve the debug
+	    information using <c>beam_lib:chunk(Beam,
+	    [abstract_code])</c> will continue to work with both the
+	    new and old format. Tools that call
+	    <c>beam_lib:chunk(Beam, ["Abst"])</c> will not work with
+	    the new format.</p>
+	    <p>For more information, see the description of
+	    <c>debug_info</c> in the documentation for
+	    <c>beam_lib</c> and the description of the
+	    <c>{debug_info,{Backend,Data}}</c> option in the
+	    documentation for <c>compile</c>.</p>
+          <p>
+	    Own Id: OTP-14369 Aux Id: PR-1367 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 3.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

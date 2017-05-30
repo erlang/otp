@@ -33,7 +33,49 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.3.9</title>
+  <section><title>Inets 6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Typos have been fixed.</p>
+          <p>
+	    Own Id: OTP-14387</p>
+        </item>
+        <item>
+          <p>
+	    httpd_util:rfc1123_date/1 gracefully handle invalid DST
+	    dates by returning the original time in the expected
+	    rfc1123 format.</p>
+          <p>
+	    Own Id: OTP-14394</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add unicode binary support to http_uri functions</p>
+          <p>
+	    Own Id: OTP-14404</p>
+        </item>
+        <item>
+          <p>
+	    httpc - Change timeout handling so the redirects casuse a
+	    new timer to be set. This means that a simple redirected
+	    request could return after 2*timeout milliseconds.</p>
+          <p>
+	    Own Id: OTP-14429</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

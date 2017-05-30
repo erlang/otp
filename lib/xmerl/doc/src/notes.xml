@@ -32,6 +32,25 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.3.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improves accumulator fun in xmerl_scan so that only one
+	    #xmlText record is returned for strings which have
+	    character references.</p>
+          <p>
+	    (Thanks to Jimmy Zöger)</p>
+          <p>
+	    Own Id: OTP-14377 Aux Id: PR-1369 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.3.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
