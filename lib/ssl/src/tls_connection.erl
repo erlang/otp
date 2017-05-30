@@ -429,7 +429,6 @@ handle_info({CloseTag, Socket}, StateName,
             %% Fixes non-delivery of final TLS record in {active, once}.
             %% Basically allows the application the opportunity to set {active, once} again
             %% and then receive the final message.
-            self() ! {CloseTag, Socket},
             next_event(StateName, no_record, State)
     end;
 handle_info(Msg, StateName, State) ->
@@ -601,8 +600,12 @@ next_record(#state{protocol_buffers =
 next_record(#state{protocol_buffers = #protocol_buffers{tls_packets = [], tls_cipher_texts = []},
 		   socket = Socket,
 		   transport_cb = Transport} = State) ->
-    tls_socket:setopts(Transport, Socket, [{active,once}]),
-    {no_record, State};
+    case tls_socket:setopts(Transport, Socket, [{active,once}]) of
+	ok ->
+	    {no_record, State};
+	_ ->
+	    {socket_closed, State}
+    end;
 next_record(State) ->
     {no_record, State}.
 
@@ -627,10 +630,15 @@ passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName) ->
 next_event(StateName, Record, State) ->
     next_event(StateName, Record, State, []).
 
+next_event(StateName, socket_closed, State, _) ->
+    ssl_connection:handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
+    {stop, {shutdown, transport_closed}, State};
 next_event(connection = StateName, no_record, State0, Actions) ->
     case next_record_if_active(State0) of
 	{no_record, State} ->
 	    ssl_connection:hibernate_after(StateName, State, Actions);
+	{socket_closed, State} ->
+	    next_event(StateName, socket_closed, State, Actions);
 	{#ssl_tls{} = Record, State} ->
 	    {next_state, StateName, State, [{next_event, internal, {protocol_record, Record}} | Actions]};
 	{#alert{} = Alert, State} ->
