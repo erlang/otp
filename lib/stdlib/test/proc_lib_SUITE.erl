@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 crash/1, stacktrace/1, sync_start_nolink/1, sync_start_link/1,
-         spawn_opt/1, sp1/0, sp2/0, sp3/1, sp4/2, sp5/1,
+         spawn_opt/1, sp1/0, sp2/0, sp3/1, sp4/2, sp5/1, '\x{447}'/0,
 	 hibernate/1, stop/1, t_format/1]).
 -export([ otp_6345/1, init_dont_hang/1]).
 
@@ -138,6 +138,14 @@ crash(Config) when is_list(Config) ->
 	    {ancestors,[]},
 	    {error_info,{exit,abnormal,{stacktrace}}}],
     analyse_crash(Pid5, Exp5, []),
+
+    %% Unicode atom
+    Pid6 = proc_lib:spawn(?MODULE, '\x{447}', []),
+    Pid6 ! die,
+    Exp6 = [{initial_call,{?MODULE,'\x{447}',[]}},
+	    {ancestors,[self()]},
+	    {error_info,{exit,die,{stacktrace}}}],
+    analyse_crash(Pid6, Exp6, []),
 
     error_logger:delete_report_handler(?MODULE),
     ok.
@@ -303,6 +311,12 @@ sp4(Parent, Tester) ->
 	go_on -> ok
     end,
     proc_lib:init_ack(Parent, self()).
+
+'\x{447}'() ->
+    receive
+	die -> exit(die);
+	_ -> sp1()
+    end.
 
 hibernate(Config) when is_list(Config) ->
     Ref = make_ref(),
