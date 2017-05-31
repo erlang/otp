@@ -636,12 +636,12 @@ user_term_multiline(Parent, Title, Default) ->
 
 parse_string(Str) ->
     try
-	Tokens = case erl_scan:string(Str) of
+	Tokens = case erl_scan:string(Str, 1, [text]) of
 		     {ok, Ts, _} -> Ts;
 		     {error, {_SLine, SMod, SError}, _} ->
 			 throw(io_lib:format("~s", [SMod:format_error(SError)]))
 		 end,
-	case erl_parse:parse_term(Tokens) of
+	case lib:extended_parse_term(Tokens) of
 	    {error, {_PLine, PMod, PError}} ->
 		throw(io_lib:format("~s", [PMod:format_error(PError)]));
 	    Res -> Res
