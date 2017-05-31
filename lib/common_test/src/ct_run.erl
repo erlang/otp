@@ -121,13 +121,13 @@ script_start() ->
 		%% used for purpose of testing the run_test interface
 		io:format(user, "~n-------------------- START ARGS "
 			  "--------------------~n", []),
-		io:format(user, "--- Init args:~n~p~n", [FlagFilter(Init)]),
-		io:format(user, "--- CT args:~n~p~n", [FlagFilter(CtArgs)]),
+		io:format(user, "--- Init args:~n~tp~n", [FlagFilter(Init)]),
+		io:format(user, "--- CT args:~n~tp~n", [FlagFilter(CtArgs)]),
 		EnvArgs = opts2args(EnvStartOpts),
-		io:format(user, "--- Env opts -> args:~n~p~n   =>~n~p~n",
+		io:format(user, "--- Env opts -> args:~n~tp~n   =>~n~tp~n",
 			  [EnvStartOpts,EnvArgs]),
 		Merged = merge_arguments(CtArgs ++ EnvArgs),
-		io:format(user, "--- Merged args:~n~p~n", [FlagFilter(Merged)]),
+		io:format(user, "--- Merged args:~n~tp~n", [FlagFilter(Merged)]),
 		io:format(user, "-----------------------------------"
 			  "-----------------~n~n", []),
 		Merged;
@@ -160,18 +160,18 @@ script_start(Args) ->
 		{'EXIT',Pid,Reason} ->
 		    case Reason of
 			{user_error,What} ->
-			    io:format("\nTest run failed!\nReason: ~p\n\n\n",
+			    io:format("\nTest run failed!\nReason: ~tp\n\n\n",
                                       [What]),
 			    finish(Tracing, ?EXIT_STATUS_TEST_RUN_FAILED, Args);
 			_ ->
 			    io:format("Test run crashed! "
                                       "This could be an internal error "
 				      "- please report!\n\n"
-				      "~p\n\n\n", [Reason]),
+				      "~tp\n\n\n", [Reason]),
 			    finish(Tracing, ?EXIT_STATUS_TEST_RUN_FAILED, Args)
 		    end;
 		{Pid,{error,Reason}} ->
-		    io:format("\nTest run failed! Reason:\n~p\n\n\n",[Reason]),
+		    io:format("\nTest run failed! Reason:\n~tp\n\n\n",[Reason]),
 		    finish(Tracing, ?EXIT_STATUS_TEST_RUN_FAILED, Args);
 		{Pid,Result} ->
 		    io:nl(),
@@ -219,7 +219,7 @@ analyze_test_result([], _) ->
 analyze_test_result(interactive_mode, _) ->
     interactive_mode;
 analyze_test_result(Unknown, _) ->
-    io:format("\nTest run failed! Reason:\n~p\n\n\n",[Unknown]),
+    io:format("\nTest run failed! Reason:\n~tp\n\n\n",[Unknown]),
     ?EXIT_STATUS_TEST_RUN_FAILED.
 
 finish(Tracing, ExitStatus, Args) ->
@@ -760,7 +760,7 @@ script_start4(#opts{label = Label, profile = Profile,
     if Config == [] ->
 	    ok;
        true ->
-	    io:format("\nInstalling: ~p\n\n", [Config])
+	    io:format("\nInstalling: ~tp\n\n", [Config])
     end,
     case install([{config,Config},{event_handler,EvHandlers},
 		  {ct_hooks, CTHooks},
@@ -909,9 +909,9 @@ install(Opts, LogDir) ->
     case whereis(ct_util_server) of
 	undefined ->
 	    VarFile = variables_file_name(LogDir),
-	    case file:open(VarFile, [write]) of
+	    case file:open(VarFile, [write, {encoding,utf8}]) of
 		{ok,Fd} ->
-		    _ = [io:format(Fd, "~p.\n", [Opt]) || Opt <- ConfOpts],
+		    _ = [io:format(Fd, "~tp.\n", [Opt]) || Opt <- ConfOpts],
 		    ok = file:close(Fd);
 		{error,Reason} ->
 		    io:format("CT failed to install configuration data. Please "
@@ -1828,10 +1828,10 @@ compile_and_run(Tests, Skip, Opts, Args) ->
 	    case lists:member(all, Conns) of
 		true ->
 		    Conns1 = ct_util:override_silence_all_connections(),
-		    ct_logs:log("Silent connections", "~p", [Conns1]);
+		    ct_logs:log("Silent connections", "~tp", [Conns1]);
 		false ->
 		    ct_util:override_silence_connections(Conns),
-		    ct_logs:log("Silent connections", "~p", [Conns])
+		    ct_logs:log("Silent connections", "~tp", [Conns])
 	    end
     end,
     log_ts_names(Opts#opts.testspec_files),
@@ -1924,7 +1924,7 @@ possibly_spawn(true, Tests, Skip, Opts) ->
 		TestRunPid = spawn_link(TestRun),
 		receive
 		    {'EXIT',TestRunPid,{ok,TestResult}} ->
-			io:format(user, "~nCommon Test returned ~p~n~n",
+			io:format(user, "~nCommon Test returned ~tp~n~n",
 				  [TestResult]);
 		    {'EXIT',TestRunPid,Error} ->
 			exit(Error)				
@@ -1943,7 +1943,7 @@ auto_compile(TestSuites) ->
 	case application:get_env(common_test, include) of
 	    {ok,UserInclDirs} when length(UserInclDirs) > 0 ->
 		io:format("Including the following directories:~n"),
-		[begin io:format("~p~n",[UserInclDir]), {i,UserInclDir} end ||
+		[begin io:format("~tp~n",[UserInclDir]), {i,UserInclDir} end ||
 		 UserInclDir <- UserInclDirs];
 	    _ ->
 		[]
@@ -2284,7 +2284,7 @@ do_run_test(Tests, Skip, Opts0) ->
 	    NoOfSuites = length(Suites1),
 	    ct_util:warn_duplicates(Suites1),
 	    {ok,Cwd} = file:get_cwd(),
-	    io:format("~nCWD set to: ~p~n", [Cwd]),
+	    io:format("~nCWD set to: ~tp~n", [Cwd]),
 	    if NoOfCases == unknown ->
 		    io:format("~nTEST INFO: ~w test(s), ~w suite(s)~n~n",
 			      [NoOfTests,NoOfSuites]),
@@ -2354,7 +2354,7 @@ do_run_test(Tests, Skip, Opts0) ->
 	    case ct_util:get_testdata(severe_error) of
 		undefined -> ok;
 		SevereError ->
-		    ct_logs:log("SEVERE ERROR", "~p\n", [SevereError]),
+		    ct_logs:log("SEVERE ERROR", "~tp\n", [SevereError]),
 		    exit(SevereError)
 	    end,
 
@@ -2425,7 +2425,7 @@ start_cover(Opts=#opts{coverspec=CovData,cover_stop=CovStop},LogDir) ->
     if (CovNodes /= []) and (CovNodes /= undefined) ->
 	    ct_logs:log("COVER INFO",
 			"Nodes included in cover "
-			"session: ~w",
+			"session: ~tw",
 			[CovNodes]),
 	    cover:start(CovNodes);
        true ->
@@ -2439,7 +2439,7 @@ start_cover(Opts=#opts{coverspec=CovData,cover_stop=CovStop},LogDir) ->
 		  {error,Reason} ->
 		      ct_logs:log("COVER INFO",
 				  "Importing cover data from: ~ts fails! "
-				  "Reason: ~p", [Imp,Reason])
+				  "Reason: ~tp", [Imp,Reason])
 	      end
       end, CovImport),
     {TsCoverInfo,Opts}.
@@ -2773,7 +2773,7 @@ run_make(Targets, TestDir0, Mod, UserInclude) ->
 		{up_to_date,_} ->
 		    ok;
 		{'EXIT',Reason} ->
-		    io:format("{error,{make_crashed,~p}\n", [Reason]),
+		    io:format("{error,{make_crashed,~tp}\n", [Reason]),
 		    {error,{make_crashed,TestDir,Reason}};
 		{error,ModInfo} ->
 		    io:format("{error,make_failed}\n", []),
@@ -2782,7 +2782,7 @@ run_make(Targets, TestDir0, Mod, UserInclude) ->
 		    {error,{make_failed,Bad}}
 	    end;
 	{error,_} ->
-	    io:format("{error,{invalid_directory,~p}}\n", [TestDir0]),
+	    io:format("{error,{invalid_directory,~tp}}\n", [TestDir0]),
 	    {error,{invalid_directory,TestDir0}}
     end.
 
@@ -2832,7 +2832,7 @@ maybe_interpret2(Suite, Cases, StepOpts) ->
 	       _ -> ok
 	   catch
 	       _:_Error ->
-		   io:format(user, "Invalid breakpoint: ~w:~w/1~n",
+		   io:format(user, "Invalid breakpoint: ~w:~tw/1~n",
 			     [Suite,Case])
 	   end
  	 end || Case <- Cases, is_atom(Case)],
@@ -2963,7 +2963,7 @@ ct_hooks_args2opts([],Acc) ->
 
 parse_cth_args(String) ->
     try
-	true = io_lib:printable_list(String),
+	true = io_lib:printable_unicode_list(String),
 	{ok,Toks,_} = erl_scan:string(String++"."),
 	{ok, Args} = erl_parse:parse_term(Toks),
 	Args
@@ -3042,7 +3042,7 @@ rel_to_abs(CtArgs) ->
 	 _ = if Dir /= Abs ->
 		 _ = code:del_path(Dir),
 		 _ = code:del_path(Abs),		 
-		 io:format(user, "Converting ~p to ~p and re-inserting "
+		 io:format(user, "Converting ~tp to ~tp and re-inserting "
 			   "with add_pathz/1~n",
 			   [Dir, Abs]);
 	    true ->
@@ -3056,7 +3056,7 @@ rel_to_abs(CtArgs) ->
 	 _ = if Dir /= Abs ->
 		 _ = code:del_path(Dir),
 		 _ = code:del_path(Abs),		 
-		 io:format(user, "Converting ~p to ~p and re-inserting "
+		 io:format(user, "Converting ~tp to ~tp and re-inserting "
 			   "with add_patha/1~n",
 			   [Dir, Abs]);
 	    true ->
@@ -3126,7 +3126,7 @@ opts2args(EnvStartOpts) ->
 		     ({group,G}) when is_atom(G) ->
 			  [{group,[atom_to_list(G)]}];
 		     ({group,Gs}) when is_list(Gs) ->
-			  LOfGStrs = [lists:flatten(io_lib:format("~w",[G])) ||
+			  LOfGStrs = [lists:flatten(io_lib:format("~tw",[G])) ||
 					 G <- Gs],
 			  [{group,LOfGStrs}];
 		     ({testcase,Case}) when is_atom(Case) ->
@@ -3178,10 +3178,10 @@ opts2args(EnvStartOpts) ->
 		     ({event_handler,EHs}) when is_list(EHs) ->
 			  [{event_handler,[atom_to_list(EH) || EH <- EHs]}];
 		     ({event_handler,{EH,Arg}}) when is_atom(EH) ->
-			  ArgStr = lists:flatten(io_lib:format("~p", [Arg])),
+			  ArgStr = lists:flatten(io_lib:format("~tp", [Arg])),
 			  [{event_handler_init,[atom_to_list(EH),ArgStr]}];
 		     ({event_handler,{EHs,Arg}}) when is_list(EHs) ->
-			  ArgStr = lists:flatten(io_lib:format("~p", [Arg])),
+			  ArgStr = lists:flatten(io_lib:format("~tp", [Arg])),
 			  Strs = lists:flatmap(fun(EH) ->
 						       [atom_to_list(EH),
 							ArgStr,"and"]
@@ -3212,25 +3212,25 @@ opts2args(EnvStartOpts) ->
 		     ({ct_hooks,[]}) ->
 			  [];
 		     ({ct_hooks,CTHs}) when is_list(CTHs) ->
-			  io:format(user,"ct_hooks: ~p",[CTHs]),
+			  io:format(user,"ct_hooks: ~tp",[CTHs]),
 			  Strs = lists:flatmap(
 				   fun({CTH,Arg,Prio}) ->
 					   [atom_to_list(CTH),
 					    lists:flatten(
-					      io_lib:format("~p",[Arg])),
+					      io_lib:format("~tp",[Arg])),
 					    lists:flatten(
-					      io_lib:format("~p",[Prio])),
+					      io_lib:format("~tp",[Prio])),
 					    "and"];
 				       ({CTH,Arg}) ->
 					   [atom_to_list(CTH),
 					    lists:flatten(
-					      io_lib:format("~p",[Arg])),
+					      io_lib:format("~tp",[Arg])),
 					    "and"];
 				      (CTH) when is_atom(CTH) ->
 					   [atom_to_list(CTH),"and"]
 				   end,CTHs),
 			  [_LastAnd|StrsR] = lists:reverse(Strs),
-			  io:format(user,"return: ~p",[lists:reverse(StrsR)]),
+			  io:format(user,"return: ~tp",[lists:reverse(StrsR)]),
 			  [{ct_hooks,lists:reverse(StrsR)}];
 		     ({Opt,As=[A|_]}) when is_atom(A) ->
 			  [{Opt,[atom_to_list(Atom) || Atom <- As]}];
@@ -3312,7 +3312,7 @@ start_trace(Args) ->
 			ok ->
 			    true;
 			{_,Error} ->
-			    io:format("Warning! Tracing not started. Reason: ~p~n~n",
+			    io:format("Warning! Tracing not started. Reason: ~tp~n~n",
 				      [Error]),
 			    false
 		    end;

@@ -116,7 +116,7 @@ pre_init_per_testcase(_Suite,TestCase,Config,CthState) ->
 			      "<table borders=1>"
 			      "<b>" ++ ConnModStr ++ " logs:</b>\n" ++
 			      [io_lib:format(
-				 "<tr><td>~p</td><td><a href=\"~ts\">~ts</a>"
+				 "<tr><td>~tp</td><td><a href=\"~ts\">~ts</a>"
 				 "</td></tr>",
 				 [S,ct_logs:uri(L),filename:basename(L)])
 			       || {S,L} <- Ls] ++

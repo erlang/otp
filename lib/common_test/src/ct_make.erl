@@ -96,7 +96,7 @@ read_emakefile(Emakefile,Opts) ->
 	    Mods = [filename:rootname(F) ||  F <- filelib:wildcard("*.erl")],
 	    [{Mods, Opts}];
 	{error,Other} ->
-	    io:format("make: Trouble reading 'Emakefile':~n~p~n",[Other]),
+	    io:format("make: Trouble reading 'Emakefile':~n~tp~n",[Other]),
 	    error
     end.
 
@@ -151,7 +151,7 @@ get_opts_from_emakefile(Mods,Emakefile,Opts) ->
 	{error,enoent} ->
 	    [{Mods, Opts}];
 	{error,Other} ->
-	    io:format("make: Trouble reading 'Emakefile':~n~p~n",[Other]),
+	    io:format("make: Trouble reading 'Emakefile':~n~tp~n",[Other]),
 	    error
     end.
 

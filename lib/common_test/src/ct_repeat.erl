@@ -43,7 +43,7 @@ loop_test(If,Args) when is_list(Args) ->
 	no_loop ->
 	    false;
 	E = {error,_} ->
-	    io:format("Common Test error: ~p\n\n",[E]),
+	    io:format("Common Test error: ~tp\n\n",[E]),
 	    ok = file:set_cwd(Cwd),
 	    E;
 	{repeat,N} ->
@@ -89,18 +89,18 @@ loop(If,Type,N,Data0,Data1,Args,TPid,AccResult) ->
 	{'EXIT',Pid,Reason} ->
 	    case Reason of
 		{user_error,What} ->
-		    io:format("\nTest run failed!\nReason: ~p\n\n\n", [What]),
+		    io:format("\nTest run failed!\nReason: ~tp\n\n\n", [What]),
 		    cancel(TPid),
 		    {error,What};			
 		_ ->
 		    io:format("Test run crashed! This could be an internal error "
 			      "- please report!\n\n"
-			      "~p\n\n\n",[Reason]),
+			      "~tp\n\n\n",[Reason]),
 		    cancel(TPid),
 		    {error,Reason}
 	    end;
 	{Pid,{error,Reason}} ->
-	    io:format("\nTest run failed!\nReason: ~p\n\n\n",[Reason]),
+	    io:format("\nTest run failed!\nReason: ~tp\n\n\n",[Reason]),
 	    cancel(TPid),
 	    {error,Reason};
 	{Pid,Result} ->

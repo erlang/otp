@@ -250,7 +250,7 @@ loop(State) ->
 	{'EXIT',Pid,Reason} ->
 	    case State#state.test_runner of
 		Pid ->
-		    io:format("Test run error: ~p\n",[Reason]),
+		    io:format("Test run error: ~tp\n",[Reason]),
 		    loop(State);
 		_ ->
 		    loop(State)
@@ -551,7 +551,7 @@ case_select(Dir,Suite,Case,N) ->
 	    true = code:add_pathz(Dir),
 	    case catch apply(Suite,all,[]) of
 		{'EXIT',Reason} ->
-		    io:format("\n~p\n",[Reason]),
+		    io:format("\n~tp\n",[Reason]),
 		    red(["COULD NOT READ TESTCASES!!",br(),
 			 "See erlang shell for info"]);
 		{skip,_Reason} ->

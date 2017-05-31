@@ -71,7 +71,7 @@ init(_) ->
 %%
 handle_event(#event{name=Name,node=Node,data=Data},State) ->
     print("~n=== ~w ===~n", [?MODULE]),
-    print("~w on ~w: ~p~n", [Name,Node,Data]),
+    print("~tw on ~w: ~tp~n", [Name,Node,Data]),
     {ok,State}.
 
 %%--------------------------------------------------------------------

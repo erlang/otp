@@ -143,7 +143,7 @@ on_tc_fail(_Suite,_TC, Res, State) ->
     TC = hd(TCs),
     NewTC = TC#testcase{
 	      result =
-		  {fail,lists:flatten(io_lib:format("~p",[Res]))} },
+		  {fail,lists:flatten(io_lib:format("~tp",[Res]))} },
     State#state{ test_cases = [NewTC | tl(TCs)]}.
 
 on_tc_skip(Suite,{ConfigFunc,_GrName}, Res, State) ->
@@ -164,7 +164,7 @@ do_tc_skip(Res, State) ->
     TC = hd(TCs),
     NewTC = TC#testcase{
 	      result =
-		  {skipped,lists:flatten(io_lib:format("~p",[Res]))} },
+		  {skipped,lists:flatten(io_lib:format("~tp",[Res]))} },
     State#state{ test_cases = [NewTC | tl(TCs)]}.
 
 init_tc(State, Config) when is_list(Config) == false ->

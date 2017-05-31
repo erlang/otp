@@ -207,7 +207,7 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
     catch
 	_:CTHReason ->
 	    ErrorInfo = if is_atom(CTHReason) ->
-				io_lib:format("{~p,~p}",
+				io_lib:format("{~tp,~tp}",
 					      [CTHReason,
 					       erlang:get_stacktrace()]);
 			   true ->
@@ -490,7 +490,7 @@ loop(Mode,TestData,StartDir) ->
 					 ?MAX_IMPORTANCE,
 					 "CT Error Notification",
 					 "Connection process died: "
-					 "Pid: ~w, Address: ~p, "
+					 "Pid: ~w, Address: ~tp, "
 					 "Callback: ~w\n"
 					 "Reason: ~ts\n\n",
 					 [Pid,A,CB,ErrorHtml]),
@@ -501,7 +501,7 @@ loop(Mode,TestData,StartDir) ->
 		_ ->
 		    %% Let process crash in case of error, this shouldn't happen!
 		    io:format("\n\nct_util_server got EXIT "
-			      "from ~w: ~p\n\n", [Pid,Reason]),
+			      "from ~w: ~tp\n\n", [Pid,Reason]),
 		    ok = file:set_cwd(StartDir),
 		    exit(Reason)
 	    end
@@ -977,12 +977,12 @@ get_profile_data(Profile, Key, StartDir) ->
 	end,
     case Result of
 	{error,enoent} when Profile /= default ->
-	    io:format(?def_gl, "~nERROR! Missing profile file ~p~n", [File]),
+	    io:format(?def_gl, "~nERROR! Missing profile file ~tp~n", [File]),
 	    undefined;
 	{error,enoent} when Profile == default ->
 	    undefined;
 	{error,Reason} ->
-	    io:format(?def_gl,"~nERROR! Error in profile file ~p: ~p~n",
+	    io:format(?def_gl,"~nERROR! Error in profile file ~tp: ~tp~n",
 		      [WhichFile,Reason]),
 	    undefined;
 	{ok,Data} ->
@@ -993,7 +993,7 @@ get_profile_data(Profile, Key, StartDir) ->
 			    Data;
 			_ ->
 			    io:format(?def_gl,
-				      "~nERROR! Invalid profile data in ~p~n",
+				      "~nERROR! Invalid profile data in ~tp~n",
 				      [WhichFile]),
 			    []
 		    end,

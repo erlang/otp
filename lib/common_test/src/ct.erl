@@ -917,13 +917,13 @@ comment(Comment) when is_list(Comment) ->
     Formatted =
 	case (catch io_lib:format("~ts",[Comment])) of
 	    {'EXIT',_} ->  % it's a list not a string
-		io_lib:format("~p",[Comment]);
+		io_lib:format("~tp",[Comment]);
 	    String ->
 		String
 	end,
     send_html_comment(lists:flatten(Formatted));
 comment(Comment) ->
-    Formatted = io_lib:format("~p",[Comment]),
+    Formatted = io_lib:format("~tp",[Comment]),
     send_html_comment(lists:flatten(Formatted)).
 
 %%%-----------------------------------------------------------------

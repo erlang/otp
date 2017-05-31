@@ -171,8 +171,8 @@ reload_config(KeyOrName) ->
 
 process_default_configs(Opts) ->
     lists:flatmap(fun({config,[_|_] = FileOrFiles}) ->
-			  case {io_lib:printable_list(FileOrFiles),
-				io_lib:printable_list(hd(FileOrFiles))} of
+			  case {io_lib:printable_unicode_list(FileOrFiles),
+				io_lib:printable_unicode_list(hd(FileOrFiles))} of
 			      {false,true} ->
 				  FileOrFiles;
 			      {true,false} ->

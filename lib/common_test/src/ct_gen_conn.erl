@@ -247,7 +247,7 @@ do_start(Opts) ->
 	    Error;
 	{'DOWN',MRef,process,_,Reason} ->
 	    log("ct_gen_conn:start",
-		"Connection process died: ~p\n",
+		"Connection process died: ~tp\n",
 		[Reason]),
 	    {error,{connection_process_died,Reason}}
     end.
@@ -327,7 +327,7 @@ loop(Opts) ->
 	    case Opts#gen_opts.reconnect of
 		true ->
 		    log("Connection down!\nOpening new!",
-			"Reason: ~p\nAddress: ~p\n",
+			"Reason: ~tp\nAddress: ~tp\n",
 			[Reason,Opts#gen_opts.address]),
 		    case reconnect(Opts) of
 			{ok, NewPid, NewState} ->
@@ -338,12 +338,12 @@ loop(Opts) ->
 			Error ->
 			    ct_util:unregister_connection(self()),
 			    log("Reconnect failed. Giving up!",
-				"Reason: ~p\n",
+				"Reason: ~tp\n",
 				[Error])
 		    end;
 		false ->
 		    ct_util:unregister_connection(self()),
-		    log("Connection closed!","Reason: ~p\n",[Reason])
+		    log("Connection closed!","Reason: ~tp\n",[Reason])
 	    end;
 	{'EXIT',Pid,Reason} ->
 	    case Opts#gen_opts.ct_util_server of

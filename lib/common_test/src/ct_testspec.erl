@@ -344,7 +344,7 @@ create_spec_tree([Spec|Specs],TS,JoinWithNext,Known) ->
 		     create_spec_tree(Specs,TS,JoinWithNext,Known)};	
 		{error,Reason} ->
 		    ReasonStr =
-			lists:flatten(io_lib:format("~s",
+			lists:flatten(io_lib:format("~ts",
 						    [file:format_error(Reason)])),
 		    throw({error,{SpecAbsName,ReasonStr}})
 	    end
@@ -1101,7 +1101,7 @@ check_term(Term) when is_tuple(Term) ->
 				true ->
 				    io:format("~nSuspicious term, "
 					      "please check:~n"
-					      "~p~n", [Term]),
+					      "~tp~n", [Term]),
 				    invalid;
 				false ->
 				    invalid

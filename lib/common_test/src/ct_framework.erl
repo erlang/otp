@@ -312,7 +312,7 @@ add_defaults(Mod,Func, GroupPath) ->
 	    end;
 	{'EXIT',Reason} ->
 	    ErrStr = io_lib:format("~n*** ERROR *** "
-				   "~w:suite/0 failed: ~p~n",
+				   "~w:suite/0 failed: ~tp~n",
 				   [Suite,Reason]),
 	    io:format(ErrStr, []),
 	    io:format(?def_gl, ErrStr, []),
@@ -335,7 +335,7 @@ add_defaults(Mod,Func, GroupPath) ->
 		false ->
 		    ErrStr = io_lib:format("~n*** ERROR *** "
 					   "Invalid return value from "
-					   "~w:suite/0: ~p~n",
+					   "~w:suite/0: ~tp~n",
 					   [Suite,SuiteInfo]),
 		    io:format(ErrStr, []),
 		    io:format(?def_gl, ErrStr, []),
@@ -344,7 +344,7 @@ add_defaults(Mod,Func, GroupPath) ->
 	SuiteInfo ->
 	    ErrStr = io_lib:format("~n*** ERROR *** "
 				   "Invalid return value from "
-				   "~w:suite/0: ~p~n", [Suite,SuiteInfo]),
+				   "~w:suite/0: ~tp~n", [Suite,SuiteInfo]),
 	    io:format(ErrStr, []),
 	    io:format(?def_gl, ErrStr, []),
 	    {suite0_failed,bad_return_value}
@@ -371,7 +371,7 @@ add_defaults1(Mod,Func, GroupPath, SuiteInfo) ->
 	{value,{error,BadGr0Val,GrName}} ->
 	    Gr0ErrStr = io_lib:format("~n*** ERROR *** "
 				      "Invalid return value from "
-				      "~w:group(~w): ~p~n",
+				      "~w:group(~tw): ~tp~n",
 				      [Mod,GrName,BadGr0Val]),
 	    io:format(Gr0ErrStr, []),
 	    io:format(?def_gl, Gr0ErrStr, []),
@@ -393,7 +393,7 @@ add_defaults1(Mod,Func, GroupPath, SuiteInfo) ->
 		{error,BadTC0Val} ->
 		    TC0ErrStr = io_lib:format("~n*** ERROR *** "
 					      "Invalid return value from "
-					      "~w:~w/0: ~p~n",
+					      "~w:~tw/0: ~tp~n",
 					      [Mod,Func,BadTC0Val]),
 		    io:format(TC0ErrStr, []),
 		    io:format(?def_gl, TC0ErrStr, []),
@@ -921,7 +921,7 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 	      end,
     ErrorStr = case ErrorSpec of
 		 {badmatch,Descr} ->
-		     Descr1 = lists:flatten(io_lib:format("~P",[Descr,10])),
+		     Descr1 = lists:flatten(io_lib:format("~tP",[Descr,10])),
 		     if length(Descr1) > 50 ->
 			     Descr2 = string:substr(Descr1,1,50),
 			     io_lib:format("{badmatch,~ts...}",[Descr2]);
@@ -931,15 +931,15 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 		 {test_case_failed,Reason} ->
 		     case (catch io_lib:format("{test_case_failed,~ts}", [Reason])) of
 			 {'EXIT',_} ->
-			     io_lib:format("{test_case_failed,~p}", [Reason]);
+			     io_lib:format("{test_case_failed,~tp}", [Reason]);
 			 Result -> Result
 		     end;
 		 {'EXIT',_Reason} = EXIT ->
-		     io_lib:format("~P", [EXIT,5]);
+		     io_lib:format("~tP", [EXIT,5]);
 		 {Spec,_Reason} when is_atom(Spec) ->
-		     io_lib:format("~w", [Spec]);
+		     io_lib:format("~tw", [Spec]);
 		 Other ->
-		     io_lib:format("~P", [Other,5])
+		     io_lib:format("~tP", [Other,5])
 	     end,
     ErrorHtml =
 	"<font color=\"brown\">" ++ ct_logs:escape_chars(ErrorStr) ++ "</font>",
@@ -996,16 +996,16 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 	%% if a function specified by all/0 does not exist, we
 	%% pick up undef here
 	[{LastMod,LastFunc}|_] when ErrorStr == "undef" ->
-	    PrintError("~w:~w could not be executed~nReason: ~ts",
+	    PrintError("~w:~tw could not be executed~nReason: ~ts",
 		     [LastMod,LastFunc,ErrorStr]);
 
 	[{LastMod,LastFunc}|_] ->
-	    PrintError("~w:~w failed~nReason: ~ts", [LastMod,LastFunc,ErrorStr]);
+	    PrintError("~w:~tw failed~nReason: ~ts", [LastMod,LastFunc,ErrorStr]);
 	    
 	[{LastMod,LastFunc,LastLine}|_] ->
 	    %% print error to console, we are only
 	    %% interested in the last executed expression
-	    PrintError("~w:~w failed on line ~w~nReason: ~ts",
+	    PrintError("~w:~tw failed on line ~w~nReason: ~ts",
 		     [LastMod,LastFunc,LastLine,ErrorStr]),
 	    
 	    case ct_util:read_suite_data({seq,Mod,Func}) of
@@ -1178,7 +1178,7 @@ get_all(Mod, ConfTests) ->
 	    case ct_util:get_testdata({error_in_suite,Mod}) of
 		undefined ->
 		    ErrStr = io_lib:format("~n*** ERROR *** "
-					   "~w:all/0 failed: ~p~n",
+					   "~w:all/0 failed: ~tp~n",
 					   [Mod,ExitReason]),
 		    io:format(?def_gl, ErrStr, []),
 		    %% save the error info so it doesn't get printed twice
@@ -1294,8 +1294,8 @@ save_seq(Mod,Seq,SeqTCs,All) ->
 check_private(Seq,TCs,All) ->    
     Bad = lists:filter(fun(TC) -> lists:member(TC,All) end, TCs),
     if Bad /= [] ->
-	    Reason = io_lib:format("regular test cases not allowed in sequence ~p: "
-				   "~p",[Seq,Bad]),
+	    Reason = io_lib:format("regular test cases not allowed in sequence ~tp: "
+				   "~tp",[Seq,Bad]),
 	    throw({error,list_to_atom(lists:flatten(Reason))});
        true ->
 	    ok
@@ -1312,7 +1312,7 @@ check_multiple(Mod,Seq,TCs) ->
 		       end,TCs),
     if Bad /= [] ->
 	    Reason = io_lib:format("test cases found in multiple sequences: "
-				   "~p",[Bad]),
+				   "~tp",[Bad]),
 	    throw({error,list_to_atom(lists:flatten(Reason))});
        true ->
 	    ok
@@ -1340,15 +1340,15 @@ end_per_suite(_Config) ->
 %% if the group config functions are missing in the suite,
 %% use these instead
 init_per_group(GroupName, Config) ->
-    ct:comment(io_lib:format("start of ~p", [GroupName])),
-    ct_logs:log("TEST INFO", "init_per_group/2 for ~w missing "
+    ct:comment(io_lib:format("start of ~tp", [GroupName])),
+    ct_logs:log("TEST INFO", "init_per_group/2 for ~tw missing "
 		"in suite, using default.",
 		[GroupName]),
     Config.
 
 end_per_group(GroupName, _) ->
-    ct:comment(io_lib:format("end of ~p", [GroupName])),
-    ct_logs:log("TEST INFO", "end_per_group/2 for ~w missing "
+    ct:comment(io_lib:format("end of ~tp", [GroupName])),
+    ct_logs:log("TEST INFO", "end_per_group/2 for ~tw missing "
 		"in suite, using default.",
 		[GroupName]),
     ok.

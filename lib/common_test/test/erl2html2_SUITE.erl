@@ -163,9 +163,9 @@ convert_module(Mod,InclDirs,Config) ->
     PrivDir = ?config(priv_dir,Config),
     Src = filename:join(DataDir,Mod++".erl"),
     Dst = filename:join(PrivDir,Mod++".erl.html"),
-    io:format("<a href=\"~s\">~s</a>\n",[Src,filename:basename(Src)]),
+    io:format("<a href=\"~ts\">~s</a>\n",[Src,filename:basename(Src)]),
     ok = erl2html2:convert(Src, Dst, InclDirs, "<html><body>"),
-    io:format("<a href=\"~s\">~s</a>\n",[Dst,filename:basename(Dst)]),
+    io:format("<a href=\"~ts\">~s</a>\n",[Dst,filename:basename(Dst)]),
     {Src,Dst}.
 
 %% Check that there are the same number of lines in each file, and

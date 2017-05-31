@@ -172,10 +172,10 @@ testspec_dynamic(Config) when is_list(Config) ->
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
 make_spec(DataDir, ConfigDir, Filename, Suites, Config)->
-    {ok, Fd} = file:open(filename:join(ConfigDir, Filename), [write]),
-    ok = file:write(Fd,
-		    io_lib:format("{suites, \"~sconfig/test/\", ~p}.~n", [DataDir, Suites])),
-    lists:foreach(fun(C)-> ok=file:write(Fd, io_lib:format("~p.~n", [C])) end, Config),
+    {ok, Fd} = file:open(filename:join(ConfigDir, Filename),
+                         [write, {encoding,utf8}]),
+    ok = io:format(Fd,"{suites, \"~tsconfig/test/\", ~p}.~n", [DataDir, Suites]),
+    lists:foreach(fun(C)-> ok=io:format(Fd, "~tp.~n", [C]) end, Config),
     ok = file:close(Fd).
 
 run_test(Name, Config, CTConfig, SuiteNames)->

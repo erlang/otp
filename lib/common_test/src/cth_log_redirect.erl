@@ -250,26 +250,26 @@ format_header(#eh_state{curr_suite = Suite,
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = undefined,
 			curr_func = TcOrConf}) ->
-    io_lib:format("System report during ~w:~w/1",
+    io_lib:format("System report during ~w:~tw/1",
 		  [Suite,TcOrConf]);
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = Group,
 			curr_func = Conf}) when Conf == init_per_group;
 						Conf == end_per_group ->
-    io_lib:format("System report during ~w:~w/2 for ~w",
+    io_lib:format("System report during ~w:~w/2 for ~tw",
 		  [Suite,Conf,Group]);
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = Group,
 			parallel_tcs = true}) ->
-    io_lib:format("System report during ~w in ~w",
+    io_lib:format("System report during ~tw in ~w",
 		  [Group,Suite]);
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = Group,
 			curr_func = TC}) ->
-    io_lib:format("System report during ~w:~w/1 in ~w",
+    io_lib:format("System report during ~w:~tw/1 in ~tw",
 		  [Suite,TC,Group]).
 
 code_change(_OldVsn, State, _Extra) ->

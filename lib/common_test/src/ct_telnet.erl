@@ -251,7 +251,7 @@ open(KeyOrName,ConnType,TargetMod) ->
 open(KeyOrName,ConnType,TargetMod,Extra) ->
     case ct:get_config({KeyOrName,ConnType}) of
 	undefined ->
-	    log(undefined,open,"Failed: ~p",[{not_available,KeyOrName}]),
+	    log(undefined,open,"Failed: ~tp",[{not_available,KeyOrName}]),
 	    {error,{not_available,KeyOrName,ConnType}};
 	Addr ->
 	    Addr1 =
@@ -273,7 +273,7 @@ open(KeyOrName,ConnType,TargetMod,Extra) ->
 			end;
 		    Bool -> Bool
 		end,
-	    log(undefined,open,"Connecting to ~p(~p)",
+	    log(undefined,open,"Connecting to ~tp(~tp)",
 		[KeyOrName,Addr1]),
 	    Reconnect =
 		case ct:get_config({telnet_settings,reconnection_attempts}) of
@@ -672,7 +672,7 @@ set_telnet_defaults([{tcp_nodelay,NoDelay}|Ss],S) ->
     set_telnet_defaults(Ss,S#state{tcp_nodelay=NoDelay});
 set_telnet_defaults([Unknown|Ss],S) ->
     force_log(S,error,
-	      "Bad element in telnet_settings: ~p",[Unknown]),
+	      "Bad element in telnet_settings: ~tp",[Unknown]),
     set_telnet_defaults(Ss,S);
 set_telnet_defaults([],S) ->
     S.
@@ -680,7 +680,7 @@ set_telnet_defaults([],S) ->
 %% @hidden
 handle_msg({cmd,Cmd,Opts},State) ->
     start_gen_log(heading(cmd,State#state.name)),
-    log(State,cmd,"Cmd: ~p",[Cmd]),
+    log(State,cmd,"Cmd: ~tp",[Cmd]),
 
     %% whatever is in the buffer from previous operations
     %% will be ignored as we go ahead with this telnet cmd
@@ -715,7 +715,7 @@ handle_msg({cmd,Cmd,Opts},State) ->
 	case teln_cmd(State#state.teln_pid, Cmd, State#state.prx,
 		      Newline, TO) of
 	    {ok,Data,_PromptType,Rest} ->
-		log(State,recv,"Return: ~p",[{ok,Data}]),
+		log(State,recv,"Return: ~tp",[{ok,Data}]),
 		{{ok,Data},Rest,true};
 	    Error ->
 		Retry = {retry,{Error,
@@ -723,14 +723,14 @@ handle_msg({cmd,Cmd,Opts},State) ->
 				 State#state.type},
 				State#state.teln_pid,
 				{cmd,Cmd,Opts}}},
-		log(State,recv,"Return: ~p",[Error]),
+		log(State,recv,"Return: ~tp",[Error]),
 		{Retry,[],false}
 	end,
     end_gen_log(),
     {Return,State#state{buffer=NewBuffer,prompt=Prompt}};
 handle_msg({send,Cmd,Opts},State) ->
     start_gen_log(heading(send,State#state.name)),
-    log(State,send,"Sending: ~p",[Cmd]),
+    log(State,send,"Sending: ~tp",[Cmd]),
     
     debug_cont_gen_log("Throwing Buffer:",[]),
     debug_log_lines(State#state.buffer),
@@ -762,12 +762,12 @@ handle_msg(get_data,State) ->
     log(State,cmd,"Reading data...",[]),
     {ok,Data,Buffer} = teln_get_all_data(State,State#state.buffer,[],[],
 					 State#state.poll_limit),
-    log(State,recv,"Return: ~p",[{ok,Data}]),
+    log(State,recv,"Return: ~tp",[{ok,Data}]),
     end_gen_log(),
     {{ok,Data},State#state{buffer=Buffer}};
 handle_msg({expect,Pattern,Opts},State) ->
     start_gen_log(heading(expect,State#state.name)),
-    log(State,expect,"Expect: ~p\nOpts = ~p\n",[Pattern,Opts]),
+    log(State,expect,"Expect: ~tp\nOpts = ~tp\n",[Pattern,Opts]),
     {Return,NewBuffer,Prompt} = 
 	case teln_expect(State#state.name,
 			 State#state.teln_pid,
@@ -779,15 +779,15 @@ handle_msg({expect,Pattern,Opts},State) ->
 		P = check_if_prompt_was_reached(Data,[]),
 		{{ok,Data},Rest,P};
 	    {ok,Data,HaltReason,Rest} ->
-		force_log(State,expect,"HaltReason: ~p",[HaltReason]),
+		force_log(State,expect,"HaltReason: ~tp",[HaltReason]),
 		P = check_if_prompt_was_reached(Data,HaltReason),
 		{{ok,Data,HaltReason},Rest,P};
 	    {error,Reason,Rest} ->
-		force_log(State,expect,"Expect failed\n~p",[{error,Reason}]),
+		force_log(State,expect,"Expect failed\n~tp",[{error,Reason}]),
 		P = check_if_prompt_was_reached([],Reason),
 		{{error,Reason},Rest,P};
 	    {error,Reason} ->
-		force_log(State,expect,"Expect failed\n~p",[{error,Reason}]),
+		force_log(State,expect,"Expect failed\n~tp",[{error,Reason}]),
 		P = check_if_prompt_was_reached([],Reason),
 		{{error,Reason},[],P}
 	end,
@@ -896,7 +896,7 @@ check_if_prompt_was_reached(_,_) ->
 heading(Action,undefined) ->
     io_lib:format("~w ~w",[?MODULE,Action]);
 heading(Action,Name) ->
-    io_lib:format("~w ~w for ~p",[?MODULE,Action,Name]).
+    io_lib:format("~w ~w for ~tp",[?MODULE,Action,Name]).
 
 force_log(State,Action,String,Args) ->
     log(State,Action,String,Args,true).
@@ -1294,7 +1294,7 @@ get_data1(Pid) ->
 
 %% one_expect: split data chunk at prompts
 one_expect(Name,Pid,Data,Pattern,EO) when EO#eo.prompt_check==false ->
-%    io:format("Raw Data ~p Pattern ~p EO ~p ",[Data,Pattern,EO]),
+%    io:format("Raw Data ~tp Pattern ~tp EO ~tp ",[Data,Pattern,EO]),
     one_expect1(Name,Pid,Data,Pattern,[],EO#eo{found_prompt=false});
 one_expect(Name,Pid,Data,Pattern,EO) ->
     case match_prompt(Data,EO#eo.prx) of
