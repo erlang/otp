@@ -13932,7 +13932,11 @@ erts_continue_exit_process(Process *p)
 
     erts_set_gc_state(p, 1);
     state = erts_smp_atomic32_read_acqb(&p->state);
-    if (state & ERTS_PSFLG_ACTIVE_SYS) {
+    if (state & ERTS_PSFLG_ACTIVE_SYS
+#ifdef ERTS_DIRTY_SCHEDULERS
+        || p->dirty_sys_tasks
+#endif
+        ) {
 	if (cleanup_sys_tasks(p, state, CONTEXT_REDS) >= CONTEXT_REDS/2)
 	    goto yield;
     }
