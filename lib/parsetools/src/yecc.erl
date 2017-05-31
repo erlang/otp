@@ -2597,18 +2597,18 @@ format_symbol(Symbol) ->
     String = concat([Symbol]),
     case erl_scan:string(String) of
         {ok, [{atom, _, _}], _} ->
-            io_lib:fwrite(<<"~w">>, [Symbol]);
+            io_lib:fwrite(<<"~tw">>, [Symbol]);
         {ok, [{Word, _}], _} when Word =/= ':', Word =/= '->' ->
             case erl_scan:reserved_word(Word) of
                 true ->
                     String;
                 false ->
-                    io_lib:fwrite(<<"~w">>, [Symbol])
+                    io_lib:fwrite(<<"~tw">>, [Symbol])
             end;
         {ok, [{var, _, _}], _} ->
             String;
         _ -> 
-            io_lib:fwrite(<<"~w">>, [Symbol])
+            io_lib:fwrite(<<"~tw">>, [Symbol])
     end.
 
 inverse(L) ->
