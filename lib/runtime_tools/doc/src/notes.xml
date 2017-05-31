@@ -32,41 +32,6 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
-<section><title>Runtime_Tools 1.12</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-          <p>
-	    Add compile option <c>-compile(no_native)</c> in modules
-	    with <c>on_load</c> directive which is not yet supported
-	    by HiPE.</p>
-          <p>
-	    Own Id: OTP-14316 Aux Id: PR-1390 </p>
-        </item>
-      </list>
-    </section>
-
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-	    <p> Sockets can now be bound to device (SO_BINDTODEVICE)
-	    on platforms where it is supported. </p> <p> This has
-	    been implemented e.g to support VRF-Lite under Linux; see
-	    <url
-	    href="https://www.kernel.org/doc/Documentation/networking/vrf.txt">
-	    VRF </url>, and GitHub pull request <url
-	    href="https://github.com/erlang/otp/pull/1326">#1326</url>.
-	    </p>
-          <p>
-	    Own Id: OTP-14357 Aux Id: PR-1326 </p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Runtime_Tools 1.11.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
