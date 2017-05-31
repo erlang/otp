@@ -1888,7 +1888,7 @@ info_format(Tab, Size, Mem, Media) ->
     StrT = mnesia_lib:pad_name(atom_to_list(Tab), 15, []),
     StrS = mnesia_lib:pad_name(integer_to_list(Size), 8, []),
     StrM = mnesia_lib:pad_name(integer_to_list(Mem), 8, []),
-    io:format("~s: with ~s records occupying ~s ~s~n",
+    io:format("~ts: with ~s records occupying ~s ~s~n",
 	      [StrT, StrS, StrM, Media]).
 
 %% Handle early arrived messages
