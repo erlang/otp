@@ -203,95 +203,90 @@ long_receive() ->
     end.
 
 minor_major_gc_option_self(_Config) ->
-    Endless = fun Endless() ->
-                receive
-                    {gc, Type} -> erlang:garbage_collect(self(), [{type, Type}])
-                    after 100 -> ok end,
-                Endless()
-              end,
+    %% Try as major, the test process will self-trigger GC
+    check_gc_tracing_around(
+        fun(Pid, Ref) ->
+            Pid ! {gc, Ref, major}
+        end, [gc_major_start, gc_major_end]),
 
-    %% Try as major, a test process will self-trigger GC
-    P1 = spawn(Endless),
-    erlang:garbage_collect(P1, []),
-    erlang:trace(P1, true, [garbage_collection]),
-    P1 ! {gc, major},
-    expect_trace_messages(P1, [gc_major_start, gc_major_end]),
-    erlang:trace(P1, false, [garbage_collection]),
-    erlang:exit(P1, kill),
-
-    %% Try as minor, a test process will self-trigger GC
-    P2 = spawn(Endless),
-    erlang:garbage_collect(P2, []),
-    erlang:trace(P2, true, [garbage_collection]),
-    P2 ! {gc, minor},
-    expect_trace_messages(P2, [gc_minor_start, gc_minor_end]),
-    erlang:trace(P2, false, [garbage_collection]),
-    erlang:exit(P2, kill).
+    %% Try as minor, the test process will self-trigger GC
+    check_gc_tracing_around(
+        fun(Pid, Ref) ->
+            Pid ! {gc, Ref, minor}
+        end, [gc_minor_start, gc_minor_end]).
 
 minor_major_gc_option_async(_Config) ->
-    Endless = fun Endless() ->
-                  receive after 100 -> ok end,
-                  Endless()
-              end,
-
-    %% Try with default option, must be major gc
-    P1 = spawn(Endless),
-    erlang:garbage_collect(P1, []),
-    erlang:trace(P1, true, [garbage_collection]),
-    erlang:garbage_collect(P1, []),
-    expect_trace_messages(P1, [gc_major_start, gc_major_end]),
-    erlang:trace(P1, false, [garbage_collection]),
-    erlang:exit(P1, kill),
+    %% Try with default option, must be major GC
+    check_gc_tracing_around(
+        fun(Pid, _Ref) ->
+            erlang:garbage_collect(Pid, [])
+        end, [gc_major_start, gc_major_end]),
 
     %% Try with the 'major' type
-    P2 = spawn(Endless),
-    erlang:garbage_collect(P2, []),
-    erlang:trace(P2, true, [garbage_collection]),
-    erlang:garbage_collect(P2, [{type, major}]),
-    expect_trace_messages(P2, [gc_major_start, gc_major_end]),
-    erlang:trace(P2, false, [garbage_collection]),
-    erlang:exit(P2, kill),
+    check_gc_tracing_around(
+        fun(Pid, _Ref) ->
+            erlang:garbage_collect(Pid, [{type, major}])
+        end, [gc_major_start, gc_major_end]),
 
     %% Try with 'minor' option, once
-    P3 = spawn(Endless),
-    erlang:garbage_collect(P3, []),
-    erlang:trace(P3, true, [garbage_collection]),
-    erlang:garbage_collect(P3, [{type, minor}]),
-    expect_trace_messages(P3, [gc_minor_start, gc_minor_end]),
-    erlang:trace(P3, false, [garbage_collection]),
-    erlang:exit(P3, kill),
+    check_gc_tracing_around(
+        fun(Pid, _Ref) ->
+            erlang:garbage_collect(Pid, [{type, minor}])
+        end, [gc_minor_start, gc_minor_end]),
 
     %% Try with 'minor' option, once, async
-    P4 = spawn(Endless),
-    Ref = erlang:make_ref(),
-    erlang:garbage_collect(P4, []),
-    erlang:trace(P4, true, [garbage_collection]),
-    ?assertEqual(async,
-                 erlang:garbage_collect(P4, [{type, minor}, {async, Ref}])),
-    receive
-        {garbage_collect, Ref, true} ->
-            ok
-    after 10000 ->
-            ct:pal("Did not receive an async GC notification", []),
-            ?assert(false)
-    end,
-    expect_trace_messages(P4, [gc_minor_start, gc_minor_end]),
-    erlang:trace(P4, false, [garbage_collection]),
-    erlang:exit(P4, kill).
+    check_gc_tracing_around(
+        fun(Pid, Ref) ->
+            ?assertEqual(async,
+                erlang:garbage_collect(Pid, [{type, minor}, {async, Ref}])),
 
-%% Ensures that trace messages with the provided tags have all been received.
-%% The test fails if there's any unmatched messages left in the mailbox after
-%% all tags have been matched.
+            receive
+                {garbage_collect, Ref, true} ->
+                    ok
+            after 10000 ->
+                ct:fail("Did not receive a completion notification on async GC")
+            end
+        end, [gc_minor_start, gc_minor_end]).
+
+%% Traces garbage collection around the given operation, and fails the test if
+%% it results in any unexpected messages or if the expected trace tags are not
+%% received.
+check_gc_tracing_around(Fun, ExpectedTraceTags) ->
+    Ref = erlang:make_ref(),
+    Pid = spawn(
+        fun Endless() ->
+            receive
+                {gc, Ref, Type} ->
+                    erlang:garbage_collect(self(), [{type, Type}])
+            after 100 ->
+                ok
+            end,
+            Endless()
+        end),
+    erlang:garbage_collect(Pid, []),
+    erlang:trace(Pid, true, [garbage_collection]),
+    Fun(Pid, Ref),
+    expect_trace_messages(Pid, ExpectedTraceTags),
+    erlang:trace(Pid, false, [garbage_collection]),
+    erlang:exit(Pid, kill),
+    check_no_unexpected_messages().
+
+%% Ensures that trace messages with the provided tags have all been received
+%% within a reasonable timeframe.
 expect_trace_messages(_Pid, []) ->
-    receive
-        Anything ->
-            ct:pal("Unexpected message: ~p", [Anything]),
-            ?assert(false)
-    after 0 ->
-        ok
-    end;
+    ok;
 expect_trace_messages(Pid, [Tag | TraceTags]) ->
     receive
-        {trace, Pid, Tag, _Data} -> ok
-    end,
-    expect_trace_messages(Pid, TraceTags).
+        {trace, Pid, Tag, _Data} ->
+            expect_trace_messages(Pid, TraceTags)
+    after 4000 ->
+        ct:fail("Didn't receive tag ~p within 4000ms", [Tag])
+    end.
+
+check_no_unexpected_messages() ->
+    receive
+        Anything ->
+            ct:fail("Unexpected message: ~p", [Anything])
+    after 0 ->
+        ok
+    end.
