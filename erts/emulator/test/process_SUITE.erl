@@ -2074,6 +2074,7 @@ max_heap_size_test(Option, Size, Kill, ErrorLogger) ->
     end,
     if ErrorLogger ->
             receive
+                %% There must be at least one error message.
                 {error, _, {emulator, _, [Pid|_]}} ->
                     ok
             end;
@@ -2086,22 +2087,33 @@ max_heap_size_test(Option, Size, Kill, ErrorLogger) ->
                 {'DOWN', Ref, process, Pid, die} ->
                     ok
             end,
-            flush();
+            %% If the process was not killed, the limit may have
+            %% been reached more than once and there may be
+            %% more {error, ...} messages left.
+            receive_error_messages(Pid);
        true ->
             ok
     end,
+
+    %% Make sure that there are no unexpected messages.
+    receive_unexpected().
+
+receive_error_messages(Pid) ->
     receive
-        M ->
-            ct:fail({unexpected_message, M})
-    after 10 ->
+        {error, _, {emulator, _, [Pid|_]}} ->
+            receive_error_messages(Pid)
+    after 1000 ->
             ok
     end.
 
-flush() ->
+receive_unexpected() ->
     receive
-        _M ->
-            flush()
-    after 1000 ->
+        {info_report, _, _} ->
+            %% May be an alarm message from os_mon. Ignore.
+            receive_unexpected();
+        M ->
+            ct:fail({unexpected_message, M})
+    after 10 ->
             ok
     end.
 
