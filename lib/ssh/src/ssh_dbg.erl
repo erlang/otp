@@ -22,10 +22,8 @@
 
 -module(ssh_dbg).
 
--export([messages/0, messages/1, messages/2,
-         ct_messages/0,
-	 auth/0,     auth/1,     auth/2,
-         ct_auth/0,
+-export([messages/0, messages/1, messages/2, messages/3,
+	 auth/0,     auth/1,     auth/2,     auth/3,
 	 stop/0
 	]).
 
@@ -37,50 +35,52 @@
 -include("ssh_connect.hrl").
 -include("ssh_auth.hrl").
 
--record(data, {
-	  writer,
-	  acc = []}).
 %%%================================================================
-messages() ->
-    messages(fun(String,_D) -> io:format(String) end).
+messages() -> start(msg).
+messages(F) -> start(msg,F).
+messages(F,X) -> start(msg,F,X).
+messages(F,M,I) -> start(msg,F,M,I).
 
-ct_messages() ->
-    messages(fun(String,_D) -> ct:log(String,[]) end).
+auth() -> start(auth).
+auth(F) -> start(auth,F).
+auth(F,X) -> start(auth,F,X).
+auth(F,M,I) -> start(auth,F,M,I).
 
-messages(Write) when is_function(Write,2) ->
-    messages(Write, fun(X) -> X end).
+stop() -> dbg:stop().
 
-messages(Write, MangleArg) when is_function(Write,2),
-				is_function(MangleArg,1) ->
-    cond_start(msg, Write, MangleArg),
-    dbg_ssh_messages(),
-    dbg_ssh_auth().
+%%%----------------------------------------------------------------
+start(Type) -> start(Type, fun io:format/2).
 
+start(Type, F) when is_function(F,2) -> start(Type, fmt_fun(F));
+start(Type, F) when is_function(F,3) -> start(Type, F, id_fun()).
 
-auth() ->
-    auth(fun(String,_D) -> io:format(String) end).
+start(Type, WriteFun, MangleArgFun) when is_function(WriteFun, 3),
+                                         is_function(MangleArgFun, 1) ->
+    start(Type, WriteFun, MangleArgFun, []);
+start(Type, WriteFun, InitValue) ->
+    start(Type, WriteFun, id_fun(), InitValue).
 
-ct_auth() ->
-    auth(fun(String,_D) -> ct:log(String,[]) end).
+start(Type, WriteFun, MangleArgFun, InitValue) when is_function(WriteFun, 3),
+                                                    is_function(MangleArgFun, 1) ->
+    cond_start(Type, WriteFun, MangleArgFun, InitValue),
+    dbg_ssh(Type).
 
-auth(Write) when is_function(Write,2) ->
-    auth(Write, fun(X) -> X end).
+%%%----------------------------------------------------------------
+fmt_fun(F) -> fun(Fmt,Args,Data) -> F(Fmt,Args), Data end.
 
-auth(Write, MangleArg) when is_function(Write,2),
-				is_function(MangleArg,1) ->
-    cond_start(auth, Write, MangleArg),
-    dbg_ssh_auth().
+id_fun() ->  fun(X) -> X end.
 
-
-dbg_ssh_messages() ->
+%%%----------------------------------------------------------------
+dbg_ssh(msg) ->
+    dbg_ssh(auth),
     dbg:tp(ssh_message,encode,1, x),
     dbg:tp(ssh_message,decode,1, x),
     dbg:tpl(ssh_transport,select_algorithm,4, x),
     dbg:tp(ssh_transport,hello_version_msg,1, x),
     dbg:tp(ssh_transport,handle_hello_version,1, x),
-    dbg:tpl(ssh_connection_handler,ext_info,2, x).
+    dbg:tpl(ssh_connection_handler,ext_info,2, x);
    
-dbg_ssh_auth() ->
+dbg_ssh(auth) ->
     dbg:tp(ssh_transport,hello_version_msg,1, x),
     dbg:tp(ssh_transport,handle_hello_version,1, x),
     dbg:tp(ssh_message,encode,1, x),
@@ -89,15 +89,11 @@ dbg_ssh_auth() ->
     lists:foreach(fun(F) -> dbg:tp(ssh_auth, F, x) end,
                   [publickey_msg, password_msg, keyboard_interactive_msg]).
    
-%%%----------------------------------------------------------------
-stop() ->
-    dbg:stop().
-
 %%%================================================================
-cond_start(Type, Write, MangleArg) ->
+cond_start(Type, WriteFun, MangleArgFun, Init) ->
     try
         dbg:start(),
-        setup_tracer(Type, Write, MangleArg),
+        setup_tracer(Type, WriteFun, MangleArgFun, Init),
         dbg:p(new,[c,timestamp])
     catch
         _:_ -> ok
@@ -207,21 +203,25 @@ msg_formater(msg, {trace_ts,Pid,'receive',ErlangMsg,TS}, D) ->
 msg_formater(_, _, D) -> 
      D.
 
+%%%----------------------------------------------------------------
+-record(data, {writer,
+               acc}).
 
-fmt(Fmt, Args,  D=#data{writer=Write,acc=Acc}) ->
-    D#data{acc = Write(io_lib:format(Fmt, Args), Acc)}.
+fmt(Fmt, Args,  D=#data{writer=Write, acc=Acc}) ->
+    D#data{acc = Write(Fmt,Args,Acc)}.
 
 ts({_,_,Usec}=Now) ->
     {_Date,{HH,MM,SS}} = calendar:now_to_local_time(Now),
     io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.6.0w",[HH,MM,SS,Usec]);
 ts(_) ->
     "-".
-%%%----------------------------------------------------------------
-setup_tracer(Type, Write, MangleArg) ->
+
+setup_tracer(Type, WriteFun, MangleArgFun, Init) ->
     Handler = fun(Arg, D) ->
-		      msg_formater(Type, MangleArg(Arg), D)
+		      msg_formater(Type, MangleArgFun(Arg), D)
 	      end,
-    InitialData = #data{writer = Write},
+    InitialData = #data{writer = WriteFun,
+                        acc = Init},
     {ok,_} = dbg:tracer(process, {Handler, InitialData}),
     ok.
 
