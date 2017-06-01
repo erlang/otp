@@ -134,6 +134,11 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
 
 end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+    %% Restore max_heap_size to default value.
+    erlang:system_flag(max_heap_size,
+                       #{size => 0,
+                         kill => true,
+                         error_logger => true}),
     ok.
 
 fun_spawn(Fun) ->
