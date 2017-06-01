@@ -674,7 +674,11 @@ check_pref_public_key_algs(V) ->
     PKs = ssh_transport:supported_algorithms(public_key),
     CHK = fun(A, Ack) ->
                   case lists:member(A, PKs) of
-                      true ->  [A|Ack];
+                      true -> 
+                          case lists:member(A,Ack) of
+                              false -> [A|Ack];
+                              true -> Ack       % Remove duplicates
+                          end;
                       false -> error_in_check(A, "Not supported public key")
                   end
           end,

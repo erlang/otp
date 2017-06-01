@@ -453,16 +453,20 @@ init_ssh_record(Role, _Socket, PeerAddr, Opts) ->
                            PeerName0 when is_list(PeerName0) ->
                                PeerName0
                        end,
-	    S0#ssh{c_vsn = Vsn,
-		   c_version = Version,
-		   io_cb = case ?GET_OPT(user_interaction, Opts) of
-			       true ->  ssh_io;
-			       false -> ssh_no_io
-			   end,
-                   userauth_pubkeys = ?GET_OPT(pref_public_key_algs, Opts),
-		   userauth_quiet_mode = ?GET_OPT(quiet_mode, Opts),
-		   peer = {PeerName, PeerAddr}
-		  };
+            S1 =
+                S0#ssh{c_vsn = Vsn,
+                       c_version = Version,
+                       io_cb = case ?GET_OPT(user_interaction, Opts) of
+                                   true ->  ssh_io;
+                                   false -> ssh_no_io
+                               end,
+                       userauth_quiet_mode = ?GET_OPT(quiet_mode, Opts),
+                       peer = {PeerName, PeerAddr}
+                      },
+            S1#ssh{userauth_pubkeys = [K || K <- ?GET_OPT(pref_public_key_algs, Opts),
+                                            is_usable_user_pubkey(K, S1)
+                                      ]
+                  };
 
 	server ->
 	    S0#ssh{s_vsn = Vsn,
@@ -1700,27 +1704,57 @@ handle_ssh_msg_ext_info(#ssh_msg_ext_info{data=Data}, D0) ->
     lists:foldl(fun ext_info/2, D0, Data).
 
 
-ext_info({"server-sig-algs",SigAlgs}, D0 = #data{ssh_params=#ssh{role=client,
-                                                                 userauth_pubkeys=ClientSigAlgs}=Ssh0}) ->
-    %% Make strings to eliminate risk of beeing bombed with odd strings that fills the atom table:
-    SupportedAlgs = lists:map(fun erlang:atom_to_list/1, ssh_transport:supported_algorithms(public_key)),
-    ServerSigAlgs = [list_to_atom(SigAlg) || SigAlg <- string:tokens(SigAlgs,","),
-                                             %% length of SigAlg is implicitly checked by the comparison
-                                             %% in member/2:
-                                             lists:member(SigAlg, SupportedAlgs)
-                    ],
-    CommonAlgs = [Alg || Alg <- ServerSigAlgs,
-                         lists:member(Alg, ClientSigAlgs)],
-    SelectedAlgs =
-        case CommonAlgs of
-            [] -> ClientSigAlgs; % server-sig-algs value is just an advice
-            _ -> CommonAlgs
-        end,
-    D0#data{ssh_params = Ssh0#ssh{userauth_pubkeys = SelectedAlgs} };
+ext_info({"server-sig-algs",SigAlgsStr},
+         D0 = #data{ssh_params=#ssh{role=client,
+                                    userauth_pubkeys=ClientSigAlgs}=Ssh0}) ->
+    %% ClientSigAlgs are the pub_key algortithms that:
+    %%  1) is usable, that is, the user has such a public key and
+    %%  2) is either the default list or set by the caller
+    %%     with the client option 'pref_public_key_algs'
+    %%
+    %% The list is already checked for duplicates.
+
+    SigAlgs = [A || Astr <- string:tokens(SigAlgsStr, ","),
+                    A <- try [list_to_existing_atom(Astr)]
+                              %% list_to_existing_atom will fail for unknown algorithms
+                         catch _:_ -> []
+                         end],
+
+    CommonAlgs = [A || A <- SigAlgs,
+                       lists:member(A, ClientSigAlgs)],
+
+    %% Re-arrange the client supported public-key algorithms so that the server
+    %% preferred ones are tried first.
+    %% Trying algorithms not mentioned by the server is ok, since the server can't know
+    %% if the client supports 'server-sig-algs' or not.
+
+    D0#data{
+      ssh_params =
+          Ssh0#ssh{
+            userauth_pubkeys =
+                CommonAlgs ++ (ClientSigAlgs -- CommonAlgs)
+           }};
+
+    %% If there are algorithms common to the client and the server, use them.
+    %% Otherwise try with ones that the client supports.  The server-sig-alg
+    %% list is a suggestion, not an order.
+    %% case CommonAlgs of
+    %%     [_|_] ->
+    %%         D0#data{ssh_params = Ssh0#ssh{userauth_pubkeys = CommonAlgs}};
+    %%     [] ->
+    %%         D0
+    %% end;
 
 ext_info(_, D0) ->
     %% Not implemented
     D0.
+
+%%%----------------------------------------------------------------
+is_usable_user_pubkey(A, Ssh) ->
+    case ssh_auth:get_public_key(A, Ssh) of
+        {ok,_} -> true;
+        _ -> false
+    end.
 
 %%%----------------------------------------------------------------
 handle_request(ChannelPid, ChannelId, Type, Data, WantReply, From, D) ->

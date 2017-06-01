@@ -136,12 +136,13 @@ msg_formater(_, {trace_ts,Pid,call,{ssh_transport,handle_hello_version,[Hello]},
 msg_formater(_, {trace_ts,_Pid,return_from,{ssh_transport,handle_hello_version,1},_,_TS}, D) -> 
     D;
 
-msg_formater(_, {trace_ts,Pid,call,{ssh_connection_handler,ext_info,[{"server-sig-algs",_SigAlgs},State]},TS}, D) ->
+msg_formater(_, {trace_ts,Pid,call,{ssh_connection_handler,ext_info,[{"server-sig-algs",SigAlgs},State]},TS}, D) ->
     try lists:keyfind(ssh, 1, tuple_to_list(State)) of
         false ->
             D;
         #ssh{userauth_pubkeys = PKs} ->
-            fmt("~n~s ~p Client got suggestion to use user public key sig-algs~n  ~p~n", [ts(TS),Pid,PKs], D)
+            fmt("~n~s ~p Client got suggestion to use user public key sig-algs~n    ~p~n  and can use~n    ~p~n",
+                [ts(TS),Pid,string:tokens(SigAlgs,","),PKs], D)
     catch
         _:_ ->
             D

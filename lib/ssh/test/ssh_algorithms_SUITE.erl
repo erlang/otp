@@ -131,9 +131,14 @@ init_per_group(public_key=Tag, Alg, Config) ->
     ct:log("Init tests for public_key ~p",[Alg]),
     PrefAlgs = {preferred_algorithms,[{Tag,[Alg]}]},
     %% Daemon started later in init_per_testcase
-    [{pref_algs,PrefAlgs},
-     {tag_alg,{Tag,Alg}}
-     | Config];
+    try
+        setup_pubkey(Alg,
+                 [{pref_algs,PrefAlgs},
+                  {tag_alg,{Tag,Alg}}
+                  | Config])
+    catch
+        _:_ -> {skip, io_lib:format("Unsupported: ~p",[Alg])}
+    end;
 
 init_per_group(Tag, Alg, Config) ->
     PA =
@@ -167,18 +172,24 @@ init_per_testcase(TC, Config) ->
     init_per_testcase(TC, proplists:get_value(tag_alg,Config), Config).
 
 
-init_per_testcase(_, {public_key,Alg}, Config) ->
-    Opts = pubkey_opts(Config),
+init_per_testcase(TC, {public_key,Alg}, Config) ->
+    ExtraOpts = case TC of
+                    simple_connect ->
+                        [{user_dir, proplists:get_value(priv_dir,Config)}];
+                    _ ->
+                        []
+                end,
+    Opts = pubkey_opts(Config) ++ ExtraOpts,
     case {ssh_file:user_key(Alg,Opts), ssh_file:host_key(Alg,Opts)} of
         {{ok,_}, {ok,_}} ->
-            ssh_dbg:ct_auth(),
-            start_pubkey_daemon([proplists:get_value(pref_algs,Config)],
+            start_pubkey_daemon([proplists:get_value(pref_algs,Config)
+                                | ExtraOpts],
                                 [{extra_daemon,true}|Config]);
-        {{ok,_}, _} ->
-            {skip, "No host key"};
+        {{ok,_}, {error,Err}} ->
+            {skip, io_lib:format("No host key: ~p",[Err])};
         
-        {_, {ok,_}} ->
-            {skip, "No user key"};
+        {{error,Err}, {ok,_}} ->
+            {skip, io_lib:format("No user key: ~p",[Err])};
         
         _ ->
             {skip, "Neither host nor user key"}
@@ -193,7 +204,6 @@ init_per_testcase(_, _, Config) ->
 
 
 end_per_testcase(_TC, Config) ->
-    catch ssh_dbg:stop(),
     case proplists:get_value(extra_daemon, Config, false) of
         true ->
             case proplists:get_value(srvr_pid,Config) of
@@ -221,6 +231,19 @@ simple_sftp(Config) ->
 simple_exec(Config) ->
     {Host,Port} = proplists:get_value(srvr_addr, Config),
     ssh_test_lib:std_simple_exec(Host, Port, Config).
+
+%%--------------------------------------------------------------------
+%% A simple exec call
+simple_connect(Config) ->
+    {Host,Port} = proplists:get_value(srvr_addr, Config),
+    Opts =
+        case proplists:get_value(tag_alg, Config) of
+            {public_key,Alg} -> [{pref_public_key_algs,[Alg]}];
+            _ -> []
+        end,
+    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, Opts),
+    ct:log("~p:~p connected! ~p",[?MODULE,?LINE,ConnectionRef]),
+    ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
 %% Testing if no group matches
@@ -304,9 +327,15 @@ sshc_simple_exec_os_cmd(Config) ->
 %%--------------------------------------------------------------------
 %% Connect to the ssh server of the OS
 sshd_simple_exec(Config) ->
+    ClientPubKeyOpts =
+        case proplists:get_value(tag_alg,Config) of
+            {public_key,Alg} -> [{pref_public_key_algs,[Alg]}];
+            _ -> []
+        end,
     ConnectionRef = ssh_test_lib:connect(22, [{silently_accept_hosts, true},
                                               proplists:get_value(pref_algs,Config),
-					      {user_interaction, false}]),
+					      {user_interaction, false}
+                                              | ClientPubKeyOpts]),
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
 				  "echo testing", infinity),
@@ -363,8 +392,8 @@ split(Alg) -> ssh_test_lib:to_atoms(string:tokens(atom_to_list(Alg), " + ")).
 
 specific_test_cases(Tag, Alg, SshcAlgos, SshdAlgos, TypeSSH) -> 
     case Tag of
-        public_key -> [];
-        _ -> [simple_exec, simple_sftp]
+        public_key -> [simple_connect];
+        _ -> [simple_connect, simple_exec, simple_sftp]
     end 
     ++ case supports(Tag, Alg, SshcAlgos) of
            true when TypeSSH == openSSH ->
@@ -439,8 +468,24 @@ setup_pubkey(Config) ->
     Keys =
         [ssh_test_lib:setup_dsa(DataDir, UserDir),
          ssh_test_lib:setup_rsa(DataDir, UserDir),
-         ssh_test_lib:setup_ecdsa("256", DataDir, UserDir)],
+         ssh_test_lib:setup_ecdsa("256", DataDir, UserDir)
+        ],
     ssh_test_lib:write_auth_keys(Keys, UserDir), % 'authorized_keys' shall contain ALL pub keys
+    Config.
+
+setup_pubkey(Alg, Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+    ct:log("Setup keys for ~p",[Alg]),
+    case Alg of
+        'ssh-dss' -> ssh_test_lib:setup_dsa(DataDir, UserDir);
+        'ssh-rsa' -> ssh_test_lib:setup_rsa(DataDir, UserDir);
+        'rsa-sha2-256' -> ssh_test_lib:setup_rsa(DataDir, UserDir);
+        'rsa-sha2-512' -> ssh_test_lib:setup_rsa(DataDir, UserDir);
+        'ecdsa-sha2-nistp256' -> ssh_test_lib:setup_ecdsa("256", DataDir, UserDir);
+        'ecdsa-sha2-nistp384' -> ssh_test_lib:setup_ecdsa("384", DataDir, UserDir);
+        'ecdsa-sha2-nistp521' -> ssh_test_lib:setup_ecdsa("521", DataDir, UserDir)
+    end,
     Config.
 
 
