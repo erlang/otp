@@ -117,7 +117,6 @@ MODULES= \
 	tracer_SUITE \
 	tracer_test \
 	scheduler_SUITE \
-	old_scheduler_SUITE \
 	port_trace_SUITE \
 	unique_SUITE \
 	z_SUITE \
