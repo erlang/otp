@@ -358,9 +358,40 @@ constant_pools(Config) when is_list(Config) ->
     erlang:purge_module(literals),
     OldHeap ! done,
     receive
-        {'EXIT',OldHeap,{A,B,C,[1,2,3|_]=Seq}} when length(Seq) =:= 16 ->
-            ok
-    end.
+	{'EXIT',OldHeap,{A,B,C,[1,2,3|_]=Seq}} when length(Seq) =:= 16 ->
+	    ok
+    end,
+
+    {module,literals} = erlang:load_module(literals, Code),
+    %% Have a hibernated process that references the literals
+    %% in the 'literals' module.
+    {Hib, Mon} = spawn_monitor(fun() -> hibernated(Self) end),
+    receive go -> ok end,
+    [{heap_size,OldHeapSz},
+     {total_heap_size,OldTotHeapSz}] = process_info(Hib, [heap_size,
+							  total_heap_size]),
+    OldHeapSz = OldTotHeapSz,
+    io:format("OldHeapSz=~p OldTotHeapSz=~p~n", [OldHeapSz, OldTotHeapSz]),
+    true = erlang:delete_module(literals),
+    false = erlang:check_process_code(Hib, literals),
+    erlang:check_process_code(self(), literals),
+    erlang:purge_module(literals),
+    receive after 1000 -> ok end,
+    [{heap_size,HeapSz},
+     {total_heap_size,TotHeapSz}] = process_info(Hib, [heap_size,
+						       total_heap_size]),
+    io:format("HeapSz=~p TotHeapSz=~p~n", [HeapSz, TotHeapSz]),
+    Hib ! hej,
+    receive
+	{'DOWN', Mon, process, Hib, Reason} ->
+	    {undef, [{no_module,
+		      no_function,
+		      [{A,B,C,[1,2,3|_]=Seq}], _}]} = Reason,
+	    16 = length(Seq)
+    end,
+    HeapSz = TotHeapSz, %% Ensure restored to hibernated state...
+    true = HeapSz > OldHeapSz,
+    ok.
 
 no_old_heap(Parent) ->
     A = literals:a(),
@@ -382,6 +413,13 @@ old_heap(Parent) ->
         done ->
             exit(Res)
     end.
+
+hibernated(Parent) ->
+    A = literals:a(),
+    B = literals:b(),
+    Res = {A,B,literals:huge_bignum(),lists:seq(1, 16)},
+    Parent ! go,
+    erlang:hibernate(no_module, no_function, [Res]).
 
 create_old_heap() ->
     case process_info(self(), [heap_size,total_heap_size]) of
