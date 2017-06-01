@@ -3306,6 +3306,7 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 	if (--i <= 0) {
 	    /* Move sentinel to continue next search from here */
 	    relink_edl_before(dl, &allctr->cpool.pooled_list);
+            INC_CC(allctr->cpool.stat.fail_pooled);
 	    return NULL;
 	}
     }
@@ -3356,8 +3357,10 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 	    relink_edl_before(dl, &allctr->cpool.traitor_list);
 	    if (i > 0)
 		break;
-	    else
+	    else {
+                INC_CC(allctr->cpool.stat.fail_traitor);
 		return NULL;
+            }
 	}
     }
 
@@ -3421,8 +3424,10 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 		return crr;
 	    }
 	}
-	if (--i <= 0)
+	if (--i <= 0) {
+            INC_CC(allctr->cpool.stat.fail_shared);
 	    return NULL;
+        }
     }
 
 check_dc_list:
@@ -3445,9 +3450,14 @@ check_dc_list:
 	    return crr;
 	}
 	crr = crr->prev;
-	if (--i <= 0)
+	if (--i <= 0) {
+            INC_CC(allctr->cpool.stat.fail_pend_dealloc);
 	    return NULL;
+        }
     }
+
+    if (i != ERTS_ALC_CPOOL_MAX_FETCH_INSPECT)
+        INC_CC(allctr->cpool.stat.fail);
 
     return NULL;
 }
@@ -3801,6 +3811,7 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 	crr = cpool_fetch(allctr, blk_sz);
 	if (crr) {
 	    STAT_MBC_CPOOL_FETCH(allctr, crr);
+            INC_CC(allctr->cpool.stat.fetch);
 	    link_carrier(&allctr->mbc_list, crr);
 	    (*allctr->add_mbc)(allctr, crr);
 	    blk = (*allctr->get_free_block)(allctr, blk_sz, NULL, 0);
@@ -4252,6 +4263,12 @@ static struct {
     Eterm mbcs;
 #ifdef ERTS_SMP
     Eterm mbcs_pool;
+    Eterm fetch;
+    Eterm fail_pooled;
+    Eterm fail_traitor;
+    Eterm fail_shared;
+    Eterm fail_pend_dealloc;
+    Eterm fail;
 #endif
     Eterm sbcs;
 
@@ -4342,6 +4359,12 @@ init_atoms(Allctr_t *allctr)
 	AM_INIT(mbcs);
 #ifdef ERTS_SMP
 	AM_INIT(mbcs_pool);
+	AM_INIT(fetch);
+        AM_INIT(fail_pooled);
+        AM_INIT(fail_traitor);
+        AM_INIT(fail_shared);
+        AM_INIT(fail_pend_dealloc);
+        AM_INIT(fail);
 #endif
 	AM_INIT(sbcs);
 
@@ -4627,6 +4650,32 @@ info_cpool(Allctr_t *allctr,
 
     if (hpp || szp) {
 	res = NIL;
+
+        add_3tup(hpp, szp, &res, am.fail_pooled,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.fail_pooled)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.fail_pooled)));
+
+        add_3tup(hpp, szp, &res, am.fail_traitor,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.fail_traitor)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.fail_traitor)));
+
+        add_3tup(hpp, szp, &res, am.fail_shared,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.fail_shared)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.fail_shared)));
+
+        add_3tup(hpp, szp, &res, am.fail_pend_dealloc,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.fail_pend_dealloc)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.fail_pend_dealloc)));
+
+        add_3tup(hpp, szp, &res, am.fail,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.fail)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.fail)));
+
+        add_3tup(hpp, szp, &res, am.fetch,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.fetch)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.fetch)));
+
+
 	add_2tup(hpp, szp, &res,
 		 am.carriers_size,
 		 bld_unstable_uint(hpp, szp, csz));
@@ -4641,6 +4690,9 @@ info_cpool(Allctr_t *allctr,
 	    add_2tup(hpp, szp, &res,
 		     am.blocks,
 		     bld_unstable_uint(hpp, szp, nob));
+        add_3tup(hpp, szp, &res, am.fetch,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.fetch)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.fetch)));
     }
 
     return res;

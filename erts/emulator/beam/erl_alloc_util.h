@@ -574,6 +574,12 @@ struct Allctr_t_ {
 	    erts_atomic_t	no_blocks;
 	    erts_atomic_t	carriers_size;
 	    erts_atomic_t	no_carriers;
+            CallCounter_t       fail_pooled;
+            CallCounter_t       fail_traitor;
+            CallCounter_t       fail_shared;
+            CallCounter_t       fail_pend_dealloc;
+            CallCounter_t       fail;
+            CallCounter_t       fetch;
 	} stat;
     } cpool;
 #endif
