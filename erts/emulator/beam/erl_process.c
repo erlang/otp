@@ -11220,8 +11220,9 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 		reds--;
 	    }
 	    else {
-		if (!minor_gc
-		    || (!major_gc && type == ERTS_PSTT_GC_MAJOR)) {
+		if ((!minor_gc
+                     || (!major_gc && type == ERTS_PSTT_GC_MAJOR))
+                    && !(c_p->flags & F_HIBERNATED)) {
                     if (type == ERTS_PSTT_GC_MAJOR) {
                         FLAGS(c_p) |= F_NEED_FULLSWEEP;
                     }

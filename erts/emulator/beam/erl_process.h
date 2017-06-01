@@ -1422,6 +1422,7 @@ extern int erts_system_profile_ts_type;
 #define F_DIRTY_GC_HIBERNATE (1 << 22) /* Dirty GC hibernate scheduled */
 #define F_DIRTY_MAJOR_GC     (1 << 23) /* Dirty major GC scheduled */
 #define F_DIRTY_MINOR_GC     (1 << 24) /* Dirty minor GC scheduled */
+#define F_HIBERNATED         (1 << 25) /* Hibernated */
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent
