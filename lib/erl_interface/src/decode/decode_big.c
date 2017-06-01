@@ -56,6 +56,9 @@ int ei_decode_big(const char *buf, int *index, erlang_big *b) {
 		dt[i] |= ((unsigned short) s[(i*2)+1]) << 8;
 	    }
 	}
+	if (digit_bytes & 1)
+	  // mask out the high byte if the input is an odd number of digits
+	  dt[i-1] &= 0xff;
     } else {
 	s++; /* skip sign byte */
     }
