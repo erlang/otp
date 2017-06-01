@@ -822,9 +822,6 @@ void erts_replace_intr(void) {
 void init_break_handler(void)
 {
    sys_signal(SIGINT, request_break);
-#ifndef ETHR_UNUSABLE_SIGUSRX
-   sys_signal(SIGUSR1, user_signal1);
-#endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
    sys_signal(SIGQUIT, do_quit);
 }
 
@@ -838,6 +835,9 @@ void sys_init_suspend_handler(void)
 void
 erts_sys_unix_later_init(void)
 {
+#ifndef ETHR_UNUSABLE_SIGUSRX
+   sys_signal(SIGUSR1, user_signal1);
+#endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
     sys_signal(SIGTERM, request_stop);
 }
 
