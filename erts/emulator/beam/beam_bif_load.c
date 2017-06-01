@@ -808,6 +808,10 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 		if (done_gc) {
 		    return am_true;
 		} else {
+		    if (rp->flags & F_HIBERNATED) {
+			/* GC wont help; everything on heap is live... */
+			return am_true;
+		    }
 		    if (!allow_gc)
 			return am_aborted;
 		    /*
@@ -870,6 +874,8 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 	if (done_gc) {
 	    return am_true;
 	} else {
+	    int hibernated = !!(rp->flags & F_HIBERNATED);
+	    int gc_cost;
 	    Eterm* literals;
 	    Uint lit_size;
 	    struct erl_off_heap_header* oh;
@@ -886,13 +892,18 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 	    rp->ftrace = NIL;
 	    done_gc = 1;
 	    FLAGS(rp) |= F_NEED_FULLSWEEP;
-	    *redsp += erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
+	    gc_cost = erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
+	    *redsp += gc_cost;
 	    literals = (Eterm *) modp->old.code[MI_LITERALS_START];
 	    lit_size = (Eterm *) modp->old.code[MI_LITERALS_END] - literals;
 	    oh = (struct erl_off_heap_header *)
 		modp->old.code[MI_LITERALS_OFF_HEAP];
 	    *redsp += lit_size / 10; /* Need, better value... */
 	    erts_garbage_collect_literals(rp, literals, lit_size, oh);
+	    if (hibernated) {
+		erts_garbage_collect_hibernate(rp);
+		*redsp += gc_cost;
+	    }
 	}
     }
     return am_false;
