@@ -1735,16 +1735,6 @@ ext_info({"server-sig-algs",SigAlgsStr},
                 CommonAlgs ++ (ClientSigAlgs -- CommonAlgs)
            }};
 
-    %% If there are algorithms common to the client and the server, use them.
-    %% Otherwise try with ones that the client supports.  The server-sig-alg
-    %% list is a suggestion, not an order.
-    %% case CommonAlgs of
-    %%     [_|_] ->
-    %%         D0#data{ssh_params = Ssh0#ssh{userauth_pubkeys = CommonAlgs}};
-    %%     [] ->
-    %%         D0
-    %% end;
-
 ext_info(_, D0) ->
     %% Not implemented
     D0.
