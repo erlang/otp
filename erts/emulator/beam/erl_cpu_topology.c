@@ -2243,45 +2243,6 @@ add_cpu_groups(int groups,
     return cgm;
 }
 
-static void
-remove_cpu_groups(erts_cpu_groups_callback_t callback, void *arg)
-{
-    erts_cpu_groups_map_t *prev_cgm, *cgm;
-    erts_cpu_groups_callback_list_t *prev_cgcl, *cgcl;
-
-    ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&cpuinfo_rwmtx));
-
-    no_cpu_groups_callbacks--;
-
-    prev_cgm = NULL;
-    for (cgm = cpu_groups_maps; cgm; cgm = cgm->next) {
-	prev_cgcl = NULL;
-	for (cgcl = cgm->callback_list; cgcl; cgcl = cgcl->next) {
-	    if (cgcl->callback == callback && cgcl->arg == arg) {
-		if (prev_cgcl)
-		    prev_cgcl->next = cgcl->next;
-		else
-		    cgm->callback_list = cgcl->next;
-		erts_free(ERTS_ALC_T_CPU_GRPS_MAP, cgcl);
-		if (!cgm->callback_list) {
-		    if (prev_cgm)
-			prev_cgm->next = cgm->next;
-		    else
-			cpu_groups_maps = cgm->next;
-		    if (cgm->array)
-			erts_free(ERTS_ALC_T_CPU_GRPS_MAP, cgm->array);
-		    erts_free(ERTS_ALC_T_CPU_GRPS_MAP, cgm);
-		}
-		return;
-	    }
-	    prev_cgcl = cgcl;
-	}
-	prev_cgm = cgm;
-    }
-
-    erts_exit(ERTS_ABORT_EXIT, "Cpu groups not found\n");
-}
-
 static int
 cpu_groups_lookup(erts_cpu_groups_map_t *map,
 		  ErtsSchedulerData *esdp)
@@ -2320,22 +2281,4 @@ update_cpu_groups_maps(void)
 
     for (cgm = cpu_groups_maps; cgm; cgm = cgm->next)
 	make_cpu_groups_map(cgm, 0);
-}
-
-void
-erts_add_cpu_groups(int groups,
-		    erts_cpu_groups_callback_t callback,
-		    void *arg)
-{
-    erts_smp_rwmtx_rwlock(&cpuinfo_rwmtx);
-    add_cpu_groups(groups, callback, arg);
-    erts_smp_rwmtx_rwunlock(&cpuinfo_rwmtx);
-}
-
-void erts_remove_cpu_groups(erts_cpu_groups_callback_t callback,
-			    void *arg)
-{
-    erts_smp_rwmtx_rwlock(&cpuinfo_rwmtx);
-    remove_cpu_groups(callback, arg);
-    erts_smp_rwmtx_rwunlock(&cpuinfo_rwmtx);
 }
