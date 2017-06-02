@@ -129,8 +129,9 @@ build_dom(endDocument,
 	    State#xmerl_sax_simple_dom_state{dom=[Decl, {Tag, Attributes, 
 						   lists:reverse(Content)}]};
 	_ ->
-	    ?dbg("~p\n", [D]),
-	    ?error("we're not at end the document when endDocument event is encountered.")
+            %% endDocument is also sent by the parser when a fault occur to tell 
+            %% the event receiver that no more input will be sent
+	    State
     end;
 
 %% Element
