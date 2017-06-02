@@ -838,6 +838,11 @@ void sys_init_suspend_handler(void)
 void
 erts_sys_unix_later_init(void)
 {
+    char env[4];
+    size_t envsz = sizeof(env);
+    if (erts_sys_getenv_raw("ERL_ZZ_SIGTERM_KILL", env, &envsz) == 0)
+        if (envsz == 4 && sys_strncmp("true",env,4) == 0)
+            return;
     sys_signal(SIGTERM, request_stop);
 }
 
