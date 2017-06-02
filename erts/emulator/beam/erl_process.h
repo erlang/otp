@@ -1394,6 +1394,7 @@ extern int erts_system_profile_ts_type;
 #define F_HAVE_BLCKD_NMSCHED (1 << 18) /* Process has blocked normal multi-scheduling */
 #define F_HIPE_MODE          (1 << 19)
 #define F_DELAYED_DEL_PROC   (1 << 20) /* Delay delete process (dirty proc exit case) */
+#define F_HIBERNATED         (1 << 21) /* Hibernated */
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent

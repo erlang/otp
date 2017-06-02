@@ -1043,23 +1043,32 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
 
     return am_ok;
 
-literal_gc:
+literal_gc: {
+	int hibernated = !!(c_p->flags & F_HIBERNATED);
+	int gc_cost;
 
-    if (!gc_allowed)
-	return am_need_gc;
+	if (!gc_allowed)
+	    return am_need_gc;
 
-    if (c_p->flags & F_DISABLE_GC)
-	return THE_NON_VALUE;
+	if (c_p->flags & F_DISABLE_GC)
+	    return THE_NON_VALUE;
 
-    FLAGS(c_p) |= F_NEED_FULLSWEEP;
+	FLAGS(c_p) |= F_NEED_FULLSWEEP;
 
-    *redsp += erts_garbage_collect_nobump(c_p, 0, c_p->arg_reg, c_p->arity, fcalls);
+	gc_cost = erts_garbage_collect_nobump(c_p, 0, c_p->arg_reg, c_p->arity, fcalls);
+	*redsp += gc_cost;
 
-    erts_garbage_collect_literals(c_p, (Eterm *) literals, lit_bsize, oh);
+	erts_garbage_collect_literals(c_p, (Eterm *) literals, lit_bsize, oh);
 
-    *redsp += lit_bsize / 64; /* Need, better value... */
+	*redsp += lit_bsize / 64; /* Need, better value... */
 
-    return am_ok;
+	if (hibernated) {
+	    erts_garbage_collect_hibernate(c_p);
+	    *redsp += gc_cost;
+	}
+
+	return am_ok;
+    }
 }
 
 static Eterm
@@ -1141,6 +1150,8 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
     Eterm* sp;
     int done_gc = 0;
     int need_gc = 0;
+    int hibernated = !!(rp->flags & F_HIBERNATED);
+    int gc_cost = 0;
     ErtsMessage *msgp;
     ErlHeapFragment *hfrag;
 
@@ -1269,8 +1280,13 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
     while (1) {
 
 	/* Check heap, stack etc... */
-	if (check_mod_funs(rp, &rp->off_heap, mod_start, mod_size))
+	if (check_mod_funs(rp, &rp->off_heap, mod_start, mod_size)) {
+	    if (hibernated) {
+		/* GC wont help; everything on heap is live... */
+		return am_true;
+	    }
 	    goto try_gc;
+	}
 	if (any_heap_ref_ptrs(&rp->fvalue, &rp->fvalue+1, literals, lit_bsize)) {
 	    rp->freason = EXC_NULL;
 	    rp->fvalue = NIL;
@@ -1355,7 +1371,9 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
 
 	if (need_gc & ERTS_ORDINARY_GC__) {
 	    FLAGS(rp) |= F_NEED_FULLSWEEP;
-	    *redsp += erts_garbage_collect_nobump(rp, 0, rp->arg_reg, rp->arity, fcalls);
+	    gc_cost = erts_garbage_collect_nobump(rp, 0, rp->arg_reg, rp->arity, fcalls);
+	    ASSERT(!hibernated || (need_gc & ERTS_LITERAL_GC__));
+	    *redsp += gc_cost;
 	    done_gc |= ERTS_ORDINARY_GC__;
 	}
 	if (need_gc & ERTS_LITERAL_GC__) {
@@ -1364,6 +1382,10 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
 	    *redsp += lit_bsize / 64; /* Need, better value... */
 	    erts_garbage_collect_literals(rp, (Eterm*)literals, lit_bsize, oh);
 	    done_gc |= ERTS_LITERAL_GC__;
+	    if (hibernated) {
+		erts_garbage_collect_hibernate(rp);
+		*redsp += gc_cost;
+	    }
 	}
 	need_gc = 0;
     }
