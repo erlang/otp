@@ -2047,8 +2047,6 @@ ebif_bang_2(BIF_ALIST_2)
 #define SEND_YIELD_CONTINUE     (-8)
 
 
-Sint do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext*);
-
 static Sint remote_send(Process *p, DistEntry *dep,
 			Eterm to, Eterm full_to, Eterm msg,
 			ErtsSendContext* ctx)
@@ -2102,8 +2100,8 @@ static Sint remote_send(Process *p, DistEntry *dep,
     return res;
 }
 
-Sint
-do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
+static Sint
+do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext *ctx)
 {
     Eterm portid;
     Port *pt;

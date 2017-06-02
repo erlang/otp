@@ -1636,7 +1636,7 @@ erts_bs_get_unaligned_uint32(ErlBinMatchBuffer* mb)
     return LSB[0] | (LSB[1]<<8) | (LSB[2]<<16) | (LSB[3]<<24);
 }
 
-void
+static void
 erts_align_utf8_bytes(ErlBinMatchBuffer* mb, byte* buf)
 {
     Uint bits = mb->size - mb->offset;
