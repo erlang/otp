@@ -149,6 +149,8 @@ endif
 
 LIBS += $(TYPE_LIBS)
 
+ORIG_LIBS:= $(LIBS)
+
 comma:=,
 space:=
 space+=
@@ -965,7 +967,7 @@ $(OBJDIR)/%.o: hipe/%.c
 	$(V_CC) $(subst O2,O3, $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
 $(BINDIR)/hipe_mkliterals$(TF_MARKER):	$(OBJDIR)/hipe_mkliterals.o
-	$(ld_verbose)$(CC) $(LDFLAGS) -o $@ $< $(TYPE_LIBS)
+	$(ld_verbose)$(CC) $(LDFLAGS) -o $@ $< $(ORIG_LIBS)
 
 $(OBJDIR)/hipe_mkliterals.o:	$(HIPE_ASM) $(TTF_DIR)/erl_alloc_types.h $(DTRACE_HEADERS) \
 	$(TTF_DIR)/OPCODES-GENERATED $(TTF_DIR)/TABLES-GENERATED
