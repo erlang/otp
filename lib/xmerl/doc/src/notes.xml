@@ -32,6 +32,27 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.3.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> A couple of bugs are fixed in the sax parser
+	    (xmerl_sax_parser). </p> <list> <item>The continuation
+	    function was not called correctly when the XML directive
+	    was fragmented. </item> <item>When the event callback
+	    modules (xmerl_sax_old_dom and xmerl_sax_simple) got an
+	    endDocument event at certain conditions the parser
+	    crashed.</item> <item>Replaced internal ets table with
+	    map to avoid table leakage.</item> </list>
+          <p>
+	    Own Id: OTP-14430</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.3.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
