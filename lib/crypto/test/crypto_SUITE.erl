@@ -1166,7 +1166,7 @@ group_config(rsa = Type, Config) ->
                   rsa_oaep(),
                   no_padding()
                  ],
-    Generate = [{rsa, 2048, 17}, {rsa, 3072, 65537}],
+    Generate = [{rsa, 1024, 3},  {rsa, 2048, 17},  {rsa, 3072, 65537}],
     [{sign_verify, SignVerify}, {pub_priv_encrypt, PubPrivEnc}, {generate, Generate} | Config];
 group_config(dss = Type, Config) ->
     Msg = dss_plain(),
