@@ -64,37 +64,41 @@
 %% Description: Parsing XML from input stream.
 %%----------------------------------------------------------------------
 parse(Xml, State) ->
-    RefTable = ets:new(xmerl_sax_entity_refs, [private]),
+    RefTable = maps:new(),
 
-    State1 =  event_callback(startDocument, State),
-
-    case catch parse_document(Xml, State1#xmerl_sax_parser_state{ref_table=RefTable}) of
-	{ok, Rest, State2} ->
-	    State3 =  event_callback(endDocument, State2),
-	    ets:delete(RefTable),
-            case check_if_rest_ok(State3#xmerl_sax_parser_state.input_type, Rest) of
-                true ->
-                    {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
-                false ->
-                    format_error(fatal_error, State3, "Input found after legal document")
-            end;
-	{fatal_error, {State2, Reason}} ->
-	    State3 =  event_callback(endDocument, State2),
-	    ets:delete(RefTable),
-	    format_error(fatal_error, State3, Reason);
-	{event_receiver_error, State2, {Tag, Reason}} -> 
-	    State3 =  event_callback(endDocument, State2),
-	    ets:delete(RefTable),
-	    format_error(Tag, State3, Reason);
-	{endDocument, Rest, State2} ->
-	    State3 =  event_callback(endDocument, State2),
-	    ets:delete(RefTable),
-	    {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
-	Other ->
-	    _State2 = event_callback(endDocument, State1),
-	    ets:delete(RefTable),
-	    {fatal_error, Other}
+    try 
+        State1 =  event_callback(startDocument, State),
+        Result = parse_document(Xml, State1#xmerl_sax_parser_state{ref_table=RefTable}),
+        handle_end_document(Result)
+    catch
+        throw:Exception ->
+            handle_end_document(Exception);
+        _:OtherError ->
+            handle_end_document({other, OtherError, State})
     end.
+
+    % case catch parse_document(Xml, State1#xmerl_sax_parser_state{ref_table=RefTable}) of
+    %     {ok, Rest, State2} ->
+    %         State3 =  event_callback(endDocument, State2),
+    %         case check_if_rest_ok(State3#xmerl_sax_parser_state.input_type, Rest) of
+    %             true ->
+    %                 {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
+    %             false ->
+    %                 format_error(fatal_error, State3, "Input found after legal document")
+    %         end;
+    %     {fatal_error, {State2, Reason}} ->
+    %         State3 =  event_callback(endDocument, State2),
+    %         format_error(fatal_error, State3, Reason);
+    %     {event_receiver_error, State2, {Tag, Reason}} -> 
+    %         State3 =  event_callback(endDocument, State2),
+    %         format_error(Tag, State3, Reason);
+    %     {endDocument, Rest, State2} ->
+    %         State3 =  event_callback(endDocument, State2),
+    %         {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
+    %     Other ->
+    %         _State2 = event_callback(endDocument, State1),
+    %         {fatal_error, Other}
+    % end.
 
 %%----------------------------------------------------------------------
 %% Function: parse_dtd(Xml, State) -> Result
@@ -105,36 +109,118 @@ parse(Xml, State) ->
 %% Description: Parsing XML DTD from input stream.
 %%----------------------------------------------------------------------
 parse_dtd(Xml, State) ->
-    RefTable = ets:new(xmerl_sax_entity_refs, [private]),
+    RefTable = maps:new(),
 
-    State1 =  event_callback(startDocument, State),
-
-    case catch parse_external_entity_1(Xml, State1#xmerl_sax_parser_state{ref_table=RefTable}) of
-	{fatal_error, {State2, Reason}} ->
-	    State3 =  event_callback(endDocument, State2),
-	    ets:delete(RefTable),
-	    format_error(fatal_error, State3, Reason);
-	{event_receiver_error, State2, {Tag, Reason}} -> 
-	    State3 =  event_callback(endDocument, State2),
-	    format_error(Tag, State3, Reason);
-	{Rest, State2} when is_record(State2, xmerl_sax_parser_state) ->
-	    State3 =  event_callback(endDocument, State2),
-	    ets:delete(RefTable),
-            {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
-	{endDocument, Rest, State2} when is_record(State2, xmerl_sax_parser_state) ->
-	    State3 =  event_callback(endDocument, State2),
-	    ets:delete(RefTable),
-	    {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
-	Other ->
-	    _State2 = event_callback(endDocument, State1),
-	    ets:delete(RefTable),
-	    {fatal_error, Other}
+    try
+        State1 =  event_callback(startDocument, State),
+        Result = parse_external_entity_1(Xml, State1#xmerl_sax_parser_state{ref_table=RefTable}),
+        handle_end_document(Result)
+    catch
+        throw:Exception ->
+              handle_end_document(Exception);
+        _:OtherError ->
+             handle_end_document({other, OtherError, State})
     end.
+
+
+    % case catch parse_external_entity_1(Xml, State1#xmerl_sax_parser_state{ref_table=RefTable}) of
+    %     {fatal_error, {State2, Reason}} ->
+    %         State3 =  event_callback(endDocument, State2),
+    %         format_error(fatal_error, State3, Reason);
+    %     {event_receiver_error, State2, {Tag, Reason}} -> 
+    %         State3 =  event_callback(endDocument, State2),
+    %         format_error(Tag, State3, Reason);
+    %     {Rest, State2} when is_record(State2, xmerl_sax_parser_state) ->
+    %         State3 =  event_callback(endDocument, State2),
+    %         {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
+    %     {endDocument, Rest, State2} when is_record(State2, xmerl_sax_parser_state) ->
+    %         State3 =  event_callback(endDocument, State2),
+    %         {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
+    %     Other ->
+    %         _State2 = event_callback(endDocument, State1),
+    %         {fatal_error, Other}
+    % end.
 
 
 %%======================================================================
 %% Internal functions
 %%======================================================================
+
+%%----------------------------------------------------------------------
+%% Function: handle_end_document(ParserResult) -> Result
+%% Input:    ParseResult = term()
+%% Output:   Result = {ok, Rest, EventState} |
+%%           EventState = term()
+%% Description: Ends the parsing and formats output
+%%----------------------------------------------------------------------
+handle_end_document({ok, Rest, State}) -> 
+    %%ok case from parse
+    try 
+        State1 = event_callback(endDocument, State),
+        case check_if_rest_ok(State1#xmerl_sax_parser_state.input_type, Rest) of
+            true ->
+                {ok, State1#xmerl_sax_parser_state.event_state, Rest}; 
+            false ->
+                format_error(fatal_error, State1, "Input found after legal document")
+        end
+     catch
+         throw:{event_receiver_error, State2, {Tag, Reason}} ->
+              format_error(Tag, State2, Reason); 
+          _:Other ->
+              {fatal_error, Other}
+     end;
+handle_end_document({endDocument, Rest, State}) ->  
+    %% ok case from parse and parse_dtd
+    try
+        State1 = event_callback(endDocument, State),
+        {ok, State1#xmerl_sax_parser_state.event_state, Rest}
+    catch 
+        throw:{event_receiver_error, State2, {Tag, Reason}} ->
+              format_error(Tag, State2, Reason); 
+          _:Other ->
+              {fatal_error, Other}
+     end;
+handle_end_document({fatal_error, {State, Reason}}) ->
+    try
+        State1 = event_callback(endDocument, State),
+        format_error(fatal_error, State1, Reason)
+    catch 
+        throw:{event_receiver_error, State2, {Tag, Reason}} ->
+              format_error(Tag, State2, Reason); 
+          _:Other ->
+              {fatal_error, Other}
+     end;
+handle_end_document({event_receiver_error, State, {Tag, Reason}}) ->
+    try
+        State1 =  event_callback(endDocument, State),
+        format_error(Tag, State1, Reason)
+    catch 
+        throw:{event_receiver_error, State2, {Tag, Reason}} ->
+              format_error(Tag, State2, Reason); 
+          _:Other ->
+              {fatal_error, Other}
+     end;
+handle_end_document({Rest, State}) when is_record(State, xmerl_sax_parser_state) -> 
+    %%ok case from parse_dtd
+    try
+        State1 =  event_callback(endDocument, State),
+        {ok, State1#xmerl_sax_parser_state.event_state, Rest}
+    catch 
+        throw:{event_receiver_error, State2, {Tag, Reason}} ->
+              format_error(Tag, State2, Reason); 
+          _:Other ->
+              {fatal_error, Other}
+     end;
+handle_end_document({other, Error, State}) ->
+    try
+        _State1 = event_callback(endDocument, State),
+        {fatal_error, Error}
+    catch 
+        throw:{event_receiver_error, State2, {Tag, Reason}} ->
+              format_error(Tag, State2, Reason); 
+          _:Other ->
+              {fatal_error, Other}
+     end.
 
 %%----------------------------------------------------------------------
 %% Function: parse_document(Rest, State) -> Result
@@ -438,6 +524,7 @@ check_if_rest_ok(stream, _) ->
     true;
 check_if_rest_ok(_, _) ->
     false.
+
 
 %%----------------------------------------------------------------------
 %% Function: parse_pi_1(Rest, State) -> Result
@@ -883,11 +970,11 @@ send_end_prefix_mapping_event([{Prefix, _Uri} |Ns], State) ->
 parse_eq(?STRING_EMPTY, State) ->
     cf(?STRING_EMPTY, State, fun parse_eq/2);
 parse_eq(?STRING_REST("=", Rest), State) ->
-	{Rest, State};
+    {Rest, State};
 parse_eq(?STRING_UNBOUND_REST(C, _) = Bytes, State) when ?is_whitespace(C) ->	
-	{_WS, Rest, State1} = 
-		whitespace(Bytes, State, []),
-	parse_eq(Rest, State1);
+    {_WS, Rest, State1} = 
+        whitespace(Bytes, State, []),
+    parse_eq(Rest, State1);
 parse_eq(Bytes, State) ->	
     unicode_incomplete_check([Bytes, State, fun parse_eq/2], 
 			     "expecting = or whitespace"). 
@@ -905,11 +992,11 @@ parse_eq(Bytes, State) ->
 parse_att_value(?STRING_EMPTY, State) ->
     cf(?STRING_EMPTY, State, fun parse_att_value/2);
 parse_att_value(?STRING_UNBOUND_REST(C, Rest), State)  when C == $'; C == $"  ->	
-	parse_att_value(Rest, State, C, []);
+    parse_att_value(Rest, State, C, []);
 parse_att_value(?STRING_UNBOUND_REST(C, _) = Bytes, State) when ?is_whitespace(C) ->	
-	{_WS, Rest, State1} = 
-		whitespace(Bytes, State, []),
-	parse_att_value(Rest, State1);
+    {_WS, Rest, State1} = 
+        whitespace(Bytes, State, []),
+    parse_att_value(Rest, State1);
 parse_att_value(Bytes, State) ->
     unicode_incomplete_check([Bytes, State, fun parse_att_value/2], 
 			     "\', \" or whitespace expected"). 
@@ -1360,17 +1447,20 @@ parse_pe_reference_1(Bytes, State, Name) ->
 
 
 %%----------------------------------------------------------------------
-%% Function: insert_reference(Reference, State) -> Result
-%% Parameters: Reference = string()
+%% Function: insert_reference(Name, Ref, State) -> Result
+%% Parameters: Name = string()
+%%             Ref = {Type, Value}
+%%             Type = atom()
+%%             Value = term()
 %%             State = #xmerl_sax_parser_state{}
 %% Result    :
 %%----------------------------------------------------------------------
-insert_reference({Name, Type, Value}, Table) ->
-    case ets:lookup(Table, Name) of
-	[{Name, _, _}] ->
-	    ok;
+insert_reference(Name, Value, #xmerl_sax_parser_state{ref_table = Map} = State) ->
+    case maps:find(Name, Map) of
+        error ->
+            State#xmerl_sax_parser_state{ref_table = maps:put(Name, Value, Map)};
 	_ ->
-	    ets:insert(Table, {Name, Type, Value})
+	    State
     end.
 	    
 
@@ -1391,8 +1481,8 @@ look_up_reference("apos", _, _) ->
 look_up_reference("quot", _, _) ->
     {internal_general, "quot", "\""};
 look_up_reference(Name, HaveToExist, State) ->
-    case ets:lookup(State#xmerl_sax_parser_state.ref_table, Name) of
-	[{Name, Type, Value}] ->
+    case maps:find(Name, State#xmerl_sax_parser_state.ref_table) of
+	{ok, {Type, Value}} ->
 	    {Type, Name, Value};
 	_ ->
 	    case HaveToExist of
@@ -1474,7 +1564,7 @@ parse_system_litteral(?STRING_EMPTY, State, Stop, Acc) ->
 parse_system_litteral(?STRING_UNBOUND_REST(Stop, Rest), State, Stop, Acc) ->
     {lists:reverse(Acc), Rest, State};
 parse_system_litteral(?STRING_UNBOUND_REST(C, Rest), State, Stop, Acc) ->
-   parse_system_litteral(Rest, State, Stop, [C |Acc]);
+    parse_system_litteral(Rest, State, Stop, [C |Acc]);
 parse_system_litteral(Bytes, State, Stop, Acc) ->
     unicode_incomplete_check([Bytes, State, Stop, Acc, fun parse_system_litteral/4], 
 			     undefined).
@@ -1646,9 +1736,11 @@ parse_external_entity(State, _PubId, SysId) ->
 					  end_tags = []},
     
     
-    EventState = handle_external_entity(ExtRef, State1),
+    {EventState, RefTable} = handle_external_entity(ExtRef, State1),
 
-    NewState =  event_callback({endEntity, SysId}, SaveState#xmerl_sax_parser_state{event_state=EventState}),
+    NewState =  event_callback({endEntity, SysId}, 
+                               SaveState#xmerl_sax_parser_state{event_state=EventState,
+                                                                ref_table=RefTable}),
     NewState#xmerl_sax_parser_state{file_type=normal}.
 
 
@@ -1675,7 +1767,8 @@ handle_external_entity({file, FileToOpen}, State) ->
 								     entity=filename:basename(FileToOpen),
 								     input_type=file}),
 	    ok = file:close(FD),
-	    EntityState#xmerl_sax_parser_state.event_state
+	    {EntityState#xmerl_sax_parser_state.event_state, 
+             EntityState#xmerl_sax_parser_state.ref_table}
     end;
 handle_external_entity({http, Url}, State) ->
 
@@ -1695,7 +1788,9 @@ handle_external_entity({http, Url}, State) ->
 									 input_type=file}),
 		ok = file:close(FD),
 		ok = file:delete(TmpFile),
-		EntityState#xmerl_sax_parser_state.event_state
+		{EntityState#xmerl_sax_parser_state.event_state, 
+                 EntityState#xmerl_sax_parser_state.ref_table}
+                 
 	end
     catch
 	throw:{error, Error} -> 	    
@@ -1716,7 +1811,7 @@ handle_external_entity({Tag, _Url}, State) ->
 parse_external_entity_1(?STRING_EMPTY, #xmerl_sax_parser_state{file_type=Type} = State) ->
     case catch cf(?STRING_EMPTY, State, fun parse_external_entity_1/2) of
 	{Rest, State1} when is_record(State1, xmerl_sax_parser_state) ->
-	    {Rest, State};
+	    {Rest, State1};
 	{fatal_error, {State1, "No more bytes"}} when Type == dtd; Type == entity ->
 	    {?STRING_EMPTY, State1};
 	Other ->
@@ -2442,24 +2537,24 @@ parse_entity_def(?STRING_EMPTY, State, Name) ->
     cf(?STRING_EMPTY, State, Name, fun parse_entity_def/3);
 parse_entity_def(?STRING_UNBOUND_REST(C, Rest), State, Name) when C == $'; C == $" ->
     {Value, Rest1, State1} = parse_entity_value(Rest, State, C, []),
-    insert_reference({Name, internal_general, Value}, State1#xmerl_sax_parser_state.ref_table),
-    State2 =  event_callback({internalEntityDecl, Name, Value}, State1),
-    {_WS, Rest2, State3} = whitespace(Rest1, State2, []),
-    parse_def_end(Rest2, State3);
+    State2 = insert_reference(Name, {internal_general, Value}, State1),
+    State3 =  event_callback({internalEntityDecl, Name, Value}, State2),
+    {_WS, Rest2, State4} = whitespace(Rest1, State3, []),
+    parse_def_end(Rest2, State4);
 parse_entity_def(?STRING_UNBOUND_REST(C, _) = Rest, State, Name) when C == $S; C == $P  ->
     {PubId, SysId, Rest1, State1} = parse_external_id(Rest, State, false),
     {Ndata, Rest2, State2} = parse_ndata(Rest1, State1),
     case Ndata of
 	undefined ->
-	    insert_reference({Name, external_general, {PubId, SysId}},
-			     State2#xmerl_sax_parser_state.ref_table),
-	    State3 =  event_callback({externalEntityDecl, Name, PubId, SysId}, State2),
-	    {Rest2, State3};
+	    State3 = insert_reference(Name, {external_general, {PubId, SysId}},
+                                      State2),
+	    State4 =  event_callback({externalEntityDecl, Name, PubId, SysId}, State3),
+	    {Rest2, State4};
 	_ ->
-	    insert_reference({Name, unparsed, {PubId, SysId, Ndata}}, 
-			     State2#xmerl_sax_parser_state.ref_table),
-	    State3 =  event_callback({unparsedEntityDecl, Name, PubId, SysId, Ndata}, State2),
-	    {Rest2, State3}
+	    State3 = insert_reference(Name, {unparsed, {PubId, SysId, Ndata}}, 
+                                      State2),
+	    State4 =  event_callback({unparsedEntityDecl, Name, PubId, SysId, Ndata}, State3),
+	    {Rest2, State4}
     end;    
 parse_entity_def(Bytes, State, Name) ->
     unicode_incomplete_check([Bytes, State, Name, fun parse_entity_def/3], 
@@ -2636,19 +2731,19 @@ parse_pe_def(?STRING_EMPTY, State, Name) ->
 parse_pe_def(?STRING_UNBOUND_REST(C, Rest), State, Name) when C == $'; C == $" ->
     {Value, Rest1, State1} = parse_entity_value(Rest, State, C, []), 
     Name1 = "%" ++ Name,
-    insert_reference({Name1, internal_parameter, Value},
-                     State1#xmerl_sax_parser_state.ref_table),
-    State2 =  event_callback({internalEntityDecl, Name1, Value}, State1),
-    {_WS, Rest2, State3} = whitespace(Rest1, State2, []),
-    parse_def_end(Rest2, State3);
+    State2 = insert_reference(Name1, {internal_parameter, Value},
+                              State1),
+    State3 =  event_callback({internalEntityDecl, Name1, Value}, State2),
+    {_WS, Rest2, State4} = whitespace(Rest1, State3, []),
+    parse_def_end(Rest2, State4);
 parse_pe_def(?STRING_UNBOUND_REST(C, _) = Bytes, State, Name) when C == $S; C == $P  ->
     {PubId, SysId, Rest1, State1} = parse_external_id(Bytes, State, false),
     Name1 = "%" ++ Name,
-    insert_reference({Name1, external_parameter, {PubId, SysId}}, 
-		     State1#xmerl_sax_parser_state.ref_table),
-    State2 =  event_callback({externalEntityDecl, Name1, PubId, SysId}, State1),
-    {_WS, Rest2, State3} = whitespace(Rest1, State2, []),
-    parse_def_end(Rest2, State3);
+    State2 = insert_reference(Name1, {external_parameter, {PubId, SysId}}, 
+                              State1),
+    State3 =  event_callback({externalEntityDecl, Name1, PubId, SysId}, State2),
+    {_WS, Rest2, State4} = whitespace(Rest1, State3, []),
+    parse_def_end(Rest2, State4);
 parse_pe_def(Bytes, State, Name) ->
     unicode_incomplete_check([Bytes, State, Name, fun parse_pe_def/3], 
 			     "\", \', SYSTEM or PUBLIC expected").
