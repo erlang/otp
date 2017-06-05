@@ -773,14 +773,16 @@ next_event(connection = StateName, no_record,
 	{#ssl_tls{epoch = Epoch,
 		  type = ?HANDSHAKE,
 		  version = _Version}, State1} = _Record when Epoch == CurrentEpoch-1 ->
-	    {State, MoreActions} = send_handshake_flight(State1, CurrentEpoch),
-	    {next_state, StateName, State, Actions ++ MoreActions};
+	    {State2, MoreActions} = send_handshake_flight(State1, CurrentEpoch),
+            {NextRecord, State} = next_record(State2),
+            next_event(StateName, NextRecord, State, Actions ++ MoreActions);
         %% From FLIGHT perspective CHANGE_CIPHER_SPEC is treated as a handshake
         {#ssl_tls{epoch = Epoch,
 		  type = ?CHANGE_CIPHER_SPEC,
 		  version = _Version}, State1} = _Record when Epoch == CurrentEpoch-1 ->
-	    {State, MoreActions} = send_handshake_flight(State1, CurrentEpoch),
-	    {next_state, StateName, State, Actions ++ MoreActions};
+	    {State2, MoreActions} = send_handshake_flight(State1, CurrentEpoch),
+	    {NextRecord, State} = next_record(State2),
+            next_event(StateName, NextRecord, State, Actions ++ MoreActions);
 	{#ssl_tls{epoch = _Epoch,
 		  version = _Version}, State1} ->
 	    %% TODO maybe buffer later epoch
@@ -797,14 +799,16 @@ next_event(connection = StateName, Record,
 	#ssl_tls{epoch = Epoch,
                  type = ?HANDSHAKE,
                  version = _Version} when Epoch == CurrentEpoch-1 ->
-	    {State, MoreActions} = send_handshake_flight(State0, CurrentEpoch),
-	    {next_state, StateName, State, Actions ++ MoreActions};
+	    {State1, MoreActions} = send_handshake_flight(State0, CurrentEpoch),
+            {NextRecord, State} = next_record(State1),
+            next_event(StateName, NextRecord, State, Actions ++ MoreActions);
         %% From FLIGHT perspective CHANGE_CIPHER_SPEC is treated as a handshake
         #ssl_tls{epoch = Epoch,
                  type = ?CHANGE_CIPHER_SPEC,
                  version = _Version} when Epoch == CurrentEpoch-1 ->
-	    {State, MoreActions} = send_handshake_flight(State0, CurrentEpoch),
-	    {next_state, StateName, State, Actions ++ MoreActions};
+	    {State1, MoreActions} = send_handshake_flight(State0, CurrentEpoch),
+            {NextRecord, State} = next_record(State1),
+            next_event(StateName, NextRecord, State, Actions ++ MoreActions); 
         _ -> 
             next_event(StateName, no_record, State0, Actions) 
     end;
