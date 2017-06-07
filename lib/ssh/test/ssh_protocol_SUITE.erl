@@ -466,7 +466,7 @@ bad_long_service_name(Config) ->
 
 bad_very_long_service_name(Config) -> 
     bad_service_name(Config,
-		     lists:duplicate(4*?SSH_MAX_PACKET_SIZE, $a)).
+		     lists:duplicate(?SSH_MAX_PACKET_SIZE+5, $a)).
 
 empty_service_name(Config) ->
     bad_service_name(Config, "").
