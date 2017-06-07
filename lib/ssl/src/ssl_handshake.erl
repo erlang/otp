@@ -2152,13 +2152,9 @@ select_compression(_CompressionMetodes) ->
 
 available_signature_algs(undefined, _, _)  ->
     undefined;
-available_signature_algs(SupportedHashSigns, {Major, Minor}, AllVersions) when Major >= 3 andalso Minor >= 3 ->
-    case tls_record:lowest_protocol_version(AllVersions) of
-	{3, 3} ->
-	    #hash_sign_algos{hash_sign_algos = SupportedHashSigns};
-	_ ->
-	    undefined
-    end;	
+available_signature_algs(SupportedHashSigns, {Major, Minor}, _AllVersions)
+  when Major >= 3 andalso Minor >= 3 ->
+    #hash_sign_algos{hash_sign_algos = SupportedHashSigns};
 available_signature_algs(_, _, _) ->
     undefined.
 
