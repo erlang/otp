@@ -281,12 +281,12 @@ start(EscriptOptions) ->
         end
     catch
         throw:Str ->
-            io:format("escript: ~s\n", [Str]),
+            io:format("escript: ~ts\n", [Str]),
             my_halt(127);
         _:Reason ->
             Stk = erlang:get_stacktrace(),
-            io:format("escript: Internal error: ~p\n", [Reason]),
-            io:format("~p\n", [Stk]),
+            io:format("escript: Internal error: ~tp\n", [Reason]),
+            io:format("~tp\n", [Stk]),
             my_halt(127)
     end.
 
