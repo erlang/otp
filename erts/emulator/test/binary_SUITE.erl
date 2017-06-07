@@ -1358,17 +1358,19 @@ do_trapping(N, Bif, ArgFun) ->
     io:format("N=~p: Do ~p ~s gc.\n", [N, Bif, case N rem 2 of 0 -> "with"; 1 -> "without" end]),
     Pid = spawn(?MODULE,trapping_loop,[Bif, ArgFun, 1000, self()]),
     receive ok -> ok end,
-    receive after 100 -> ok end,
     Ref = make_ref(),
     case N rem 2 of
-	0 -> erlang:garbage_collect(Pid, [{async,Ref}]),
-	     receive after 100 -> ok end;
+	0 ->
+            erlang:garbage_collect(Pid, [{async,Ref}]),
+            receive after 1 -> ok end;
 	1 -> void
     end,
-    exit(Pid,kill),
+    exit(Pid, kill),
     case N rem 2 of
-	0 -> receive {garbage_collect, Ref, _} -> ok end;
-	1 -> void
+	0 ->
+            receive {garbage_collect, Ref, _} -> ok end;
+	1 ->
+            void
     end,
     receive after 1 -> ok end,
     do_trapping(N-1, Bif, ArgFun).
