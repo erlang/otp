@@ -764,7 +764,7 @@ do_major_collection:
 	esdp->gc_info.reclaimed += reclaimed_now;
     }
     
-    FLAGS(p) &= ~F_FORCE_GC;
+    FLAGS(p) &= ~(F_FORCE_GC|F_HIBERNATED);
     p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
 
     ERTS_MSACC_POP_STATE_M();
@@ -928,6 +928,8 @@ erts_garbage_collect_hibernate(Process* p)
      */
 
     ErtsGcQuickSanityCheck(p);
+
+    p->flags |= F_HIBERNATED;
 
     erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 
@@ -1158,6 +1160,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     /*
      * Restore status.
      */
+    p->flags &= ~F_HIBERNATED;
     erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 }
 
