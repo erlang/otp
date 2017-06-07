@@ -10386,6 +10386,9 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
 	set_busy_port(desc->inet.port, 0);
     }
 
+    tcp_clear_output(desc);
+    tcp_clear_input(desc);
+
     /*
      * We used to handle "expected errors" differently from unexpected ones.
      * Now we handle all errors in the same way (unless the show_econnreset
@@ -10408,8 +10411,6 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
 	else
 	    desc_close(INETP(desc));
     } else {
-	tcp_clear_output(desc);
-	tcp_clear_input(desc);
 	tcp_close_check(desc);
 	erl_inet_close(INETP(desc));
 
