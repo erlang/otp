@@ -110,6 +110,8 @@ validate("PATCH", Uri, "HTTP/1." ++ _N) ->
     validate_uri(Uri);
 validate("TRACE", Uri, "HTTP/1." ++ N) when hd(N) >= $1 ->
     validate_uri(Uri);
+validate("OPTIONS", Uri, "HTTP/1." ++ N) when hd(N) >= $1 ->
+    validate_uri(Uri);
 validate(Method, Uri, Version) ->
     case validate_version(Version) of
 	true ->
