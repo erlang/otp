@@ -552,8 +552,6 @@ parse_address(Config) when is_list(Config) ->
                   tl(V4Reversable),
               {P,Q} <-
                   [{[0,0,0,0,0,16#ffff],"::ffff:"},
-                   {[0,0,0,0,16#ffff,0],"::ffff:0:"},
-                   {[16#64,16#ff9b,0,0,0,0],"64:ff9b::"},
                    {[0,0,0,0,0,0],"::"}]]],
     V4Sloppy =
 	[{{10,1,16#98,16#76},"10.0x019876"},
