@@ -263,7 +263,7 @@ format_error(Term) ->
 
 %% Length of these fields.
 
--define(th_name_len, 100).
+-define(th_name_len, 256).
 -define(th_mode_len, 8).
 -define(th_uid_len, 8).
 -define(th_gid_len, 8).
