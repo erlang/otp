@@ -589,7 +589,7 @@ print_error({error, Mod, Error}) ->
     S = apply(Mod, format_error, [Error]),
     io:format(S, []);
 print_error(Other) ->
-    io:format("Error: ~p~n", [Other]).
+    io:format("Error: ~tp~n", [Other]).
 
 format_error({file_problem, {File, What}}) ->
     io_lib:format("Could not ~w file ~ts~n", [get_reason(What), File]);
@@ -606,7 +606,7 @@ format_error({warnings_treated_as_errors, Warnings}) ->
     io_lib:format("Warnings being treated as errors:~n~ts",
                   [[format_warning("",W) || W <- Warnings]]);
 format_error(Error) ->
-    io_lib:format("~p~n", [Error]).
+    io_lib:format("~tp~n", [Error]).
 
 
 print_warnings(Ws) when is_list(Ws) ->
@@ -621,12 +621,12 @@ format_warning(W) ->
     format_warning("*WARNING* ", W).
 
 format_warning(Prefix, {erts_vsn_changed, {Rel1, Rel2}}) ->
-    io_lib:format("~tsThe ERTS version changed between ~p and ~p~n",
+    io_lib:format("~tsThe ERTS version changed between ~tp and ~tp~n",
 		  [Prefix, Rel1, Rel2]);
 format_warning(Prefix, pre_R15_emulator_upgrade) ->
     io_lib:format("~tsUpgrade from an OTP version earlier than R15. New code should be compiled with the old emulator.~n",[Prefix]);
 format_warning(Prefix, What) ->
-    io_lib:format("~ts~p~n",[Prefix, What]).
+    io_lib:format("~ts~tp~n",[Prefix, What]).
 
 
 get_reason({error, {open, _, _}}) -> open;
