@@ -322,6 +322,10 @@ io_request({put_chars_sync, Class, Cs, Reply}, Buf, Tty, Group) ->
     Group ! {reply, Reply},
     io_request({put_chars, Class, Cs}, Buf, Tty, Group);
 
+%% New in 19
+io_request({halt, Status}, _Buf, _Tty, _Group) ->
+    erlang:halt(Status);
+
 io_request(_R, Buf, _Tty, _Group) ->
     {[], Buf}.
 
