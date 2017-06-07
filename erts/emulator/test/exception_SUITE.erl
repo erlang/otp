@@ -33,7 +33,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {seconds, 10}}].
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     [badmatch, pending_errors, nil_arith, stacktrace,

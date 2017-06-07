@@ -42,7 +42,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {seconds, 30}}].
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     case test_server:is_native(match_spec_SUITE) of
