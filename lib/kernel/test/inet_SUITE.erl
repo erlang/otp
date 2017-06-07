@@ -544,6 +544,7 @@ parse_address(Config) when is_list(Config) ->
 	 {{16#c11,16#c22,16#5c33,0,0,0,0,0},
 	  "c11:c22:5c33::"},
 	 {{0,0,0,0,0,65535,258,65534},"::ffff:1.2.255.254"},
+         {{16#fe80,12345,0,0,0,0,0,16#12},"fe80::12%012345"},
 	 {{16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff},
 	  "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"}
          |[{list_to_tuple(P++[(D1 bsl 8) bor D2,(D3 bsl 8) bor D4]),
@@ -576,7 +577,8 @@ parse_address(Config) when is_list(Config) ->
 	 {{0,0,0,0},"0.00.0.0"},
 	 {{0,0,0,0},"0.0.000000000000.0"}],
     V6Sloppy =
-        [{{16#a,16#b,16#c,16#0,16#0,16#d,16#e,16#f},"A:B:C::d:e:f"}]
+        [{{16#a,16#b,16#c,16#0,16#0,16#d,16#e,16#f},"A:B:C::d:e:f"},
+         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%XXXXXXX"}]
         ++
         [{{P,0,0,0,0,D2,(D1 bsl 8) bor D2,(D3 bsl 8) bor D4},
           Q++erlang:integer_to_list(D2, 16)++":"++S}
