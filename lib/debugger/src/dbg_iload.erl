@@ -216,7 +216,7 @@ pattern({op,_,'-',{float,Anno,I}}) ->
 pattern({op,_,'+',{float,Anno,I}}) ->
     {value,ln(Anno),I};
 pattern({bin,Anno,Grp}) ->
-    Grp1 = pattern_list(Grp),
+    Grp1 = pattern_list(bin_expand_strings(Grp)),
     {bin,ln(Anno),Grp1};
 pattern({bin_element,Anno,Expr,Size,Type}) ->
     Expr1 = pattern(Expr),
@@ -297,7 +297,7 @@ gexpr({map,Anno,E0,Fs0}) ->
     Fs1 = map_fields(Fs0, fun gexpr/1),
     {map,ln(Anno),E1,Fs1};
 gexpr({bin,Anno,Flds0}) ->
-    Flds = gexpr_list(Flds0),
+    Flds = gexpr_list(bin_expand_strings(Flds0)),
     {bin,ln(Anno),Flds};
 gexpr({bin_element,Anno,Expr0,Size0,Type}) ->
     Expr = gexpr(Expr0),
@@ -506,7 +506,7 @@ expr({op,Anno,Op,L0,R0}, _Lc) ->
     R1 = expr(R0, false),		  %They see the same variables
     {op,ln(Anno),Op,[L1,R1]};
 expr({bin,Anno,Grp}, _Lc) ->
-    Grp1 = expr_list(Grp),
+    Grp1 = expr_list(bin_expand_strings(Grp)),
     {bin,ln(Anno),Grp1};
 expr({bin_element,Anno,Expr,Size,Type}, _Lc) ->
     Expr1 = expr(Expr, false),
@@ -518,6 +518,19 @@ expr(Other, _Lc) ->
 consify([A|As]) -> 
     {cons,0,A,consify(As)};
 consify([]) -> {value,0,[]}.
+
+%% The debugger converts both strings "abc" and lists [67, 68, 69]
+%% into {value, Line, [67, 68, 69]}, making it impossible to later
+%% distingish one or the other inside binaries when evaluating. To
+%% avoid <<[67, 68, 69]>> from evaluating, we convert strings into
+%% chars to avoid the ambiguity.
+bin_expand_strings(Es) ->
+    lists:foldr(fun ({bin_element,Line,{string,_,S},Sz,Ts}, Es1) ->
+		  lists:foldr(fun (C, Es2) ->
+				[{bin_element,Line,{char,Line,C},Sz,Ts}|Es2]
+			end, Es1, S);
+	      (E, Es1) -> [E|Es1]
+	  end, [], Es).
 
 %% -type expr_list([Expression]) -> [Expression].
 %%  These expressions are processed "in parallel" for purposes of variable

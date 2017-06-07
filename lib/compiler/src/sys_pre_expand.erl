@@ -520,9 +520,8 @@ new_fun_name(#expand{func=F,arity=A,fcount=I}=St, FName) ->
 
 %% pattern_bin([Element], State) -> {[Element],[Variable],[UsedVar],State}.
 
-pattern_bin(Es0, St) ->
-    Es1 = bin_expand_strings(Es0),
-    foldr(fun (E, Acc) -> pattern_element(E, Acc) end, {[],St}, Es1).
+pattern_bin(Es, St) ->
+    foldr(fun (E, Acc) -> pattern_element(E, Acc) end, {[],St}, Es).
 
 pattern_element({bin_element,Line,Expr0,Size0,Type0}, {Es,St0}) ->
     {Expr1,St1} = pattern(Expr0, St0),
@@ -558,9 +557,8 @@ coerce_to_float(E, _) -> E.
     
 %% expr_bin([Element], State) -> {[Element],State}.
 
-expr_bin(Es0, St) ->
-    Es1 = bin_expand_strings(Es0),
-    foldr(fun (E, Acc) -> bin_element(E, Acc) end, {[],St}, Es1).
+expr_bin(Es, St) ->
+    foldr(fun (E, Acc) -> bin_element(E, Acc) end, {[],St}, Es).
 
 bin_element({bin_element,Line,Expr,Size,Type}, {Es,St0}) ->
     {Expr1,St1} = expr(Expr, St0),
@@ -569,14 +567,6 @@ bin_element({bin_element,Line,Expr,Size,Type}, {Es,St0}) ->
                           end,
     {Size2,Type1} = make_bit_type(Line, Size1, Type),
     {[{bin_element,Line,Expr1,Size2,Type1}|Es],St2}.
-
-bin_expand_strings(Es) ->
-    foldr(fun ({bin_element,Line,{string,_,S},Sz,Ts}, Es1) ->
-                  foldr(fun (C, Es2) ->
-                                [{bin_element,Line,{char,Line,C},Sz,Ts}|Es2]
-                        end, Es1, S);
-              (E, Es1) -> [E|Es1]
-          end, [], Es).
 
 %% new_var_name(State) -> {VarName,State}.
 
