@@ -115,7 +115,7 @@ send_handshake_flight(#state{socket = Socket,
     {Encoded, ConnectionStates} =
 	encode_handshake_flight(lists:reverse(Flight), Version, 1400, Epoch, ConnectionStates0),
     send(Transport, Socket, Encoded),
-    start_flight(State0#state{connection_states = ConnectionStates});
+    {State0#state{connection_states = ConnectionStates}, []};
 
 send_handshake_flight(#state{socket = Socket,
 			     transport_cb = Transport,
@@ -129,7 +129,7 @@ send_handshake_flight(#state{socket = Socket,
     {EncChangeCipher, ConnectionStates} = encode_change_cipher(ChangeCipher, Version, Epoch, ConnectionStates1),
 
     send(Transport, Socket, [HsBefore, EncChangeCipher]),
-    start_flight(State0#state{connection_states = ConnectionStates});
+    {State0#state{connection_states = ConnectionStates}, []};
 
 send_handshake_flight(#state{socket = Socket,
 			     transport_cb = Transport,
@@ -145,7 +145,7 @@ send_handshake_flight(#state{socket = Socket,
     {HsAfter, ConnectionStates} =
 	encode_handshake_flight(lists:reverse(Flight1), Version, 1400, Epoch, ConnectionStates2),
     send(Transport, Socket, [HsBefore, EncChangeCipher, HsAfter]),
-    start_flight(State0#state{connection_states = ConnectionStates});
+    {State0#state{connection_states = ConnectionStates}, []};
 
 send_handshake_flight(#state{socket = Socket,
 			     transport_cb = Transport,
@@ -159,7 +159,7 @@ send_handshake_flight(#state{socket = Socket,
     {HsAfter, ConnectionStates} =
 	encode_handshake_flight(lists:reverse(Flight1), Version, 1400, Epoch, ConnectionStates1),
     send(Transport, Socket, [EncChangeCipher, HsAfter]),
-    start_flight(State0#state{connection_states = ConnectionStates}).
+    {State0#state{connection_states = ConnectionStates}, []}.
 
 queue_change_cipher(ChangeCipher, #state{flight_buffer = Flight,
 					 connection_states = ConnectionStates0} = State) -> 
@@ -235,12 +235,14 @@ init([Role, Host, Port, Socket, Options,  User, CbInfo]) ->
     end.
 
 callback_mode() ->
-    state_functions.
+    [state_functions, state_enter].
 
 %%--------------------------------------------------------------------
 %% State functions 
 %%--------------------------------------------------------------------
 
+init(enter, _, State) ->
+    {keep_state, State};     
 init({call, From}, {start, Timeout}, 
      #state{host = Host, port = Port, role = client,
 	    ssl_options = SslOpts,
@@ -282,6 +284,8 @@ init({call, _} = Type, Event, #state{role = server} = State) ->
 init(Type, Event, State) ->
     ssl_connection:init(Type, Event, State, ?MODULE).
  
+error(enter, _, State) ->
+    {keep_state, State};     
 error({call, From}, {start, _Timeout}, {Error, State}) ->
     {stop_and_reply, normal, {reply, From, {error, Error}}, State};
 error({call, From}, Msg, State) ->
@@ -295,6 +299,11 @@ error(_, _, _) ->
 	    #state{}) ->
 		   gen_statem:state_function_result().
 %%--------------------------------------------------------------------
+hello(enter, _, #state{role = server} = State) ->
+    {keep_state, State};     
+hello(enter, _, #state{role = client} = State0) ->
+    {State, Actions} = handle_flight_timer(State0),
+    {keep_state, State, Actions}; 
 hello(internal, #client_hello{cookie = <<>>,
 			      client_version = Version} = Hello, #state{role = server,
 									transport_cb = Transport,
@@ -374,6 +383,9 @@ hello(state_timeout, Event, State) ->
 hello(Type, Event, State) ->
     ssl_connection:hello(Type, Event, State, ?MODULE).
 
+abbreviated(enter, _, State0) ->
+    {State, Actions} = handle_flight_timer(State0),
+    {keep_state, State, Actions}; 
 abbreviated(info, Event, State) ->
     handle_info(Event, abbreviated, State);
 abbreviated(internal = Type, 
@@ -391,6 +403,9 @@ abbreviated(state_timeout, Event, State) ->
 abbreviated(Type, Event, State) ->
     ssl_connection:abbreviated(Type, Event, State, ?MODULE).
 
+certify(enter, _, State0) ->
+    {State, Actions} = handle_flight_timer(State0),
+    {keep_state, State, Actions}; 
 certify(info, Event, State) ->
     handle_info(Event, certify, State);
 certify(internal = Type, #server_hello_done{} = Event, State) ->
@@ -400,6 +415,9 @@ certify(state_timeout, Event, State) ->
 certify(Type, Event, State) ->
     ssl_connection:certify(Type, Event, State, ?MODULE).
 
+cipher(enter, _, State0) ->
+    {State, Actions} = handle_flight_timer(State0),
+    {keep_state, State, Actions}; 
 cipher(info, Event, State) ->
     handle_info(Event, cipher, State);
 cipher(internal = Type, #change_cipher_spec{type = <<1>>} = Event,  
@@ -417,6 +435,8 @@ cipher(state_timeout, Event, State) ->
 cipher(Type, Event, State) ->
      ssl_connection:cipher(Type, Event, State, ?MODULE).
 
+connection(enter, _, State) ->
+    {keep_state, State};     
 connection(info, Event, State) ->
     handle_info(Event, connection, State);
 connection(internal, #hello_request{}, #state{host = Host, port = Port,
@@ -449,6 +469,9 @@ connection(internal, #client_hello{}, #state{role = server, allow_renegotiate = 
 connection(Type, Event, State) ->
      ssl_connection:connection(Type, Event, State, ?MODULE).
 
+%%TODO does this make sense for DTLS ?
+downgrade(enter, _, State) ->
+    {keep_state, State};
 downgrade(Type, Event, State) ->
      ssl_connection:downgrade(Type, Event, State, ?MODULE).
 
@@ -750,14 +773,16 @@ next_event(connection = StateName, no_record,
 	{#ssl_tls{epoch = Epoch,
 		  type = ?HANDSHAKE,
 		  version = _Version}, State1} = _Record when Epoch == CurrentEpoch-1 ->
-	    {State, MoreActions} = send_handshake_flight(State1, CurrentEpoch),
-	    {next_state, StateName, State, Actions ++ MoreActions};
+	    {State2, MoreActions} = send_handshake_flight(State1, CurrentEpoch),
+            {NextRecord, State} = next_record(State2),
+            next_event(StateName, NextRecord, State, Actions ++ MoreActions);
         %% From FLIGHT perspective CHANGE_CIPHER_SPEC is treated as a handshake
         {#ssl_tls{epoch = Epoch,
 		  type = ?CHANGE_CIPHER_SPEC,
 		  version = _Version}, State1} = _Record when Epoch == CurrentEpoch-1 ->
-	    {State, MoreActions} = send_handshake_flight(State1, CurrentEpoch),
-	    {next_state, StateName, State, Actions ++ MoreActions};
+	    {State2, MoreActions} = send_handshake_flight(State1, CurrentEpoch),
+	    {NextRecord, State} = next_record(State2),
+            next_event(StateName, NextRecord, State, Actions ++ MoreActions);
 	{#ssl_tls{epoch = _Epoch,
 		  version = _Version}, State1} ->
 	    %% TODO maybe buffer later epoch
@@ -774,14 +799,16 @@ next_event(connection = StateName, Record,
 	#ssl_tls{epoch = Epoch,
                  type = ?HANDSHAKE,
                  version = _Version} when Epoch == CurrentEpoch-1 ->
-	    {State, MoreActions} = send_handshake_flight(State0, CurrentEpoch),
-	    {next_state, StateName, State, Actions ++ MoreActions};
+	    {State1, MoreActions} = send_handshake_flight(State0, CurrentEpoch),
+            {NextRecord, State} = next_record(State1),
+            next_event(StateName, NextRecord, State, Actions ++ MoreActions);
         %% From FLIGHT perspective CHANGE_CIPHER_SPEC is treated as a handshake
         #ssl_tls{epoch = Epoch,
                  type = ?CHANGE_CIPHER_SPEC,
                  version = _Version} when Epoch == CurrentEpoch-1 ->
-	    {State, MoreActions} = send_handshake_flight(State0, CurrentEpoch),
-	    {next_state, StateName, State, Actions ++ MoreActions};
+	    {State1, MoreActions} = send_handshake_flight(State0, CurrentEpoch),
+            {NextRecord, State} = next_record(State1),
+            next_event(StateName, NextRecord, State, Actions ++ MoreActions); 
         _ -> 
             next_event(StateName, no_record, State0, Actions) 
     end;
@@ -841,13 +868,13 @@ next_flight(Flight) ->
 	    change_cipher_spec => undefined,
 	    handshakes_after_change_cipher_spec => []}.
 	
-start_flight(#state{transport_cb = gen_udp,
-		    flight_state = {retransmit, Timeout}} = State) ->
+handle_flight_timer(#state{transport_cb = gen_udp,
+                          flight_state = {retransmit, Timeout}} = State) ->
     start_retransmision_timer(Timeout, State);
-start_flight(#state{transport_cb = gen_udp,
+handle_flight_timer(#state{transport_cb = gen_udp,
 		    flight_state = connection} = State) ->
     {State, []};
-start_flight(State) ->
+handle_flight_timer(State) ->
     %% No retransmision needed i.e DTLS over SCTP
     {State#state{flight_state = reliable}, []}.
 
