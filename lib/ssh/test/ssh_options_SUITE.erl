@@ -555,14 +555,14 @@ connectfun_disconnectfun_server(Config) ->
 		{disconnect,Ref,R} ->
 		    ct:log("Disconnect result: ~p",[R]),
 		    ssh:stop_daemon(Pid)
-	    after 5000 ->
+	    after 10000 ->
 		    receive
 			X -> ct:log("received ~p",[X])
 		    after 0 -> ok
 		    end,
 		    {fail, "No disconnectfun action"}
 	    end
-    after 5000 ->
+    after 10000 ->
 	    receive
 		X -> ct:log("received ~p",[X])
 	    after 0 -> ok
