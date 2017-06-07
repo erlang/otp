@@ -617,6 +617,7 @@ fi
 case $chk_arch_ in
     sun4u)	ARCH=ultrasparc;;
     sparc64)	ARCH=sparc64;;
+    sparc)	ARCH=ultrasparc;;
     sun4v)	ARCH=ultrasparc;;
     i86pc)	ARCH=x86;;
     i386)	ARCH=x86;;
@@ -628,9 +629,11 @@ case $chk_arch_ in
     macppc)	ARCH=ppc;;
     powerpc)	ARCH=ppc;;
     ppc)	ARCH=ppc;;
+    powerpc64)	ARCH=ppc64;;
     ppc64)	ARCH=ppc64;;
     ppc64le)	ARCH=ppc64le;;
     "Power Macintosh")	ARCH=ppc;;
+    arm)	ARCH=arm;;
     armv5b)	ARCH=arm;;
     armv5teb)	ARCH=arm;;
     armv5tel)	ARCH=arm;;
@@ -2887,8 +2890,80 @@ if test X${enable_hipe} != Xno; then
     fi
 fi
 
+dnl if cross-compiling, check for working RUN to be able to build hipe
+if test "$cross_compiling" = "yes" && test X${enable_hipe} != Xno; then
+    AC_TRY_LINK([#include <stdio.h>],[printf("ok");],[
+        dnl In here the linked binary exists as ./conftest$ac_exeext
+        run_test_binary="./conftest$ac_exeext"
+        if test "X$RUN" = X; then
+            AC_MSG_CHECKING([if we can run cross-compiled binaries as-is])
+            if test X$($run_test_binary 2>&AS_MESSAGE_LOG_FD) = Xok; then
+                can_run_binaries_as_is=yes
+            else
+                can_run_binaries_as_is=no
+            fi
+            AC_MSG_RESULT([$can_run_binaries_as_is])
+        fi
+        if test "X$RUN" = X -a "$can_run_binaries_as_is" = "yes"; then
+            can_run_binaries=yes # We're done
+        else
+            if test "X$RUN" = X; then
+                AC_CHECK_PROGS(RUN, [qemu-$ARCH qemu-$host_cpu $host-run $host_cpu-run $host_cpu-elf-run])
+            fi
+            if test "X$RUN" != X; then
+                AC_MSG_CHECKING([if we can run cross-compiled binaries with "$RUN"])
+                if test X$($RUN $run_test_binary 2>&AS_MESSAGE_LOG_FD) = Xok; then
+                    can_run_binaries=yes
+                else
+                    can_run_binaries=no
+                fi
+                AC_MSG_RESULT([$can_run_binaries])
+                run_library_prefix=none
+                if test "$can_run_binaries" = "no" && echo $RUN | grep -q qemu; then
+                    if test "X$erl_xcomp_sysroot" = "X"; then
+                        run_library_prefix_sysroot_candidates=
+                    else
+                        run_library_prefix_sysroot_candidates="$erl_xcomp_sysroot $erl_xcomp_sysroot/usr"
+                    fi
+                    for dir in $run_library_prefix_sysroot_candidates \
+                                   "/usr/${host_cpu}-${host_os}/" \
+                                   "/usr/$host_alias/" \
+                                   "/usr/$host/"
+                    do
+                        if ! test -d "$dir"; then
+                            continue
+                        fi
+                        run_candidate="$RUN -L $dir"
+                        AC_MSG_CHECKING([if we can run cross-compiled binaries with "$run_candidate"])
+                        if test X$($run_candidate $run_test_binary 2>&AS_MESSAGE_LOG_FD) = Xok; then
+                            can_run_binaries=yes
+                        else
+                            can_run_binaries=no
+                        fi
+                        AC_MSG_RESULT([$can_run_binaries])
+                        if test "$can_run_binaries" = "yes"; then
+                            RUN=$run_candidate
+                            break
+                        fi
+                    done
+                fi
+            else
+                can_run_binaries=no
+            fi
+        fi
+    ], [AC_MSG_ERROR([Failed to link a trivial program])])
+    if test "$can_run_binaries" != "yes"; then
+        if test X${enable_hipe} = Xyes; then
+            AC_MSG_ERROR([HiPE cannot be cross-compiled without a way to run binaries])
+        else
+            enable_hipe=no
+            AC_MSG_WARN([Disable HiPE due to cross-compilation without RUN])
+        fi
+    fi
+fi
+
 dnl check to auto-enable hipe here...
-if test "$cross_compiling" != "yes" && test X${enable_hipe} != Xno; then
+if test X${enable_hipe} != Xno; then
   if test -z "$M4"; then
 	enable_hipe=no
    	AC_MSG_NOTICE([HiPE disabled as no valid m4 is found in PATH])
@@ -3545,8 +3620,16 @@ AC_SUBST(HIPE_ENABLED)
 # Check if Erlang libraries should be compiled to native code.
 #
 NATIVE_LIBS_ENABLED=
-if test X${enable_native_libs} = Xyes -a X${HIPE_ENABLED} = Xyes; then
-  NATIVE_LIBS_ENABLED=yes
+if test X${enable_native_libs} = Xyes; then
+  if test X${HIPE_ENABLED} = Xyes; then
+    if test "$cross_compiling" != "yes"; then
+      NATIVE_LIBS_ENABLED=yes
+    else
+      AC_MSG_WARN([--enable-native-libs is not implemented for cross-compilation, ignoring])
+    fi
+  else
+    AC_MSG_WARN([Can't build native libs without HiPE, ignoring --enable-native-libs])
+  fi
 fi
 AC_SUBST(NATIVE_LIBS_ENABLED)
 

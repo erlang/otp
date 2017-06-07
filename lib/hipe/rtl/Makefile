@@ -137,7 +137,7 @@ HIPE_MKLITERALS=$(ERL_TOP)/bin/$(TARGET)/hipe_mkliterals$(TYPE_STR)$(FLAVOR_STR)
 
 
 hipe_literals.hrl: $(HIPE_MKLITERALS)
-	$(gen_verbose)$(HIPE_MKLITERALS) $(MKLIT_FLAGS) -e > hipe_literals.hrl
+	$(gen_verbose)$(RUN) $(HIPE_MKLITERALS) $(MKLIT_FLAGS) -e > hipe_literals.hrl
 
 # Need to generate hipe.hrl from one and only one target in one and only
 # one makefile; otherwise, clearmake will force rebuilds of hipe over and

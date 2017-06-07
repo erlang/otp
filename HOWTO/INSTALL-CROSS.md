@@ -415,6 +415,11 @@ All variables in this section can also be used when native compiling.
     on Linux systems for finding out if we have an NPTL thread library or
     not.
 
+*   `RUN' - Tool that can execute binaries for the target system, such as qemu
+    user mode, or, for example, a script that uploads the binary to a target
+    machine, runs it there, and pipes back the output. Only needed to
+    cross-compile a HiPE-enabled VM.
+
 ### Cross System Root Locations ###
 
 *   `erl_xcomp_sysroot` - The absolute path to the system root of the cross
