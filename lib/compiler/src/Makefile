@@ -83,6 +83,7 @@ MODULES =  \
 	core_scan \
 	erl_bifs \
 	rec_env \
+	sys_core_bsm \
 	sys_core_dsetel \
 	sys_core_fold \
 	sys_core_fold_lists \

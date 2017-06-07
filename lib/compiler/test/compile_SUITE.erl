@@ -371,6 +371,7 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     do_listing(Simple, TargetDir, dinline, ".inline"),
     do_listing(Simple, TargetDir, dcore, ".core"),
     do_listing(Simple, TargetDir, dcopt, ".copt"),
+    do_listing(Simple, TargetDir, dcbsm, ".core_bsm"),
     do_listing(Simple, TargetDir, dsetel, ".dsetel"),
     do_listing(Simple, TargetDir, dkern, ".kernel"),
     do_listing(Simple, TargetDir, dlife, ".life"),

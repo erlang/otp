@@ -39,7 +39,7 @@
 	 match_string_opt/1,select_on_integer/1,
 	 map_and_binary/1,unsafe_branch_caching/1,
 	 bad_literals/1,good_literals/1,constant_propagation/1,
-	 parse_xml/1]).
+	 parse_xml/1,get_payload/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -70,7 +70,8 @@ groups() ->
        no_partition,calling_a_binary,binary_in_map,
        match_string_opt,select_on_integer,
        map_and_binary,unsafe_branch_caching,
-       bad_literals,good_literals,constant_propagation,parse_xml]}].
+       bad_literals,good_literals,constant_propagation,parse_xml,
+       get_payload]}].
 
 
 init_per_suite(Config) ->
@@ -1508,6 +1509,20 @@ do_parse_xml(<<"<?xml"/utf8,Rest/binary>> = Bytes) ->
 is_next_char_whitespace(<<C/utf8,_/binary>>) ->
     C =:= $\s.
 
+-record(ext_header,
+        {this_hdr = 17,
+         ext_hdr_opts}).
+
+get_payload(Config) ->
+    <<3445:48>> = do_get_payload(#ext_header{ext_hdr_opts = <<3445:48>>}),
+    {'EXIT',_} = (catch do_get_payload(#ext_header{})),
+    ok.
+
+do_get_payload(ExtHdr) ->
+    _ = ExtHdr#ext_header.this_hdr,
+    ExtHdrOptions = ExtHdr#ext_header.ext_hdr_opts,
+    <<_:13,_:35>> = ExtHdr#ext_header.ext_hdr_opts,
+    ExtHdrOptions.
 
 check(F, R) ->
     R = F().
