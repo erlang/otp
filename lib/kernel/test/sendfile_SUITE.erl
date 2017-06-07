@@ -100,13 +100,13 @@ init_per_testcase(TC,Config) when TC == t_sendfile_recvduring;
     %% Check if sendfile is supported on this platform
     case catch sendfile_send(Send) of
 	ok ->
-	    Config;
+	    init_per_testcase(t_sendfile, Config);
 	Error ->
 	    ct:log("Error: ~p",[Error]),
 	    {skip,"Not supported"}
     end;
 init_per_testcase(_Tc,Config) ->
-    Config.
+    Config ++ [{sendfile_opts,[{use_threads,false}]}].
 
 
 t_sendfile_small(Config) when is_list(Config) ->
