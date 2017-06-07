@@ -1238,22 +1238,22 @@ read_file_records(File, Opts) ->
     end.
 
 %% This is how the debugger searches for source files. See int.erl.
-try_source(Beam, CB) ->
-    Os = case lists:keyfind(options, 1, binary_to_term(CB)) of
-             false -> [];
-             {_, Os0} -> Os0
-	 end,
+try_source(Beam, RawCB) ->
+    EbinDir = filename:dirname(Beam),
+    CB = binary_to_term(RawCB),
+    Os = proplists:get_value(options,CB, []),
     Src0 = filename:rootname(Beam) ++ ".erl",
-    case is_file(Src0) of
-	true -> parse_file(Src0, Os);
-	false ->
-	    EbinDir = filename:dirname(Beam),
-	    Src = filename:join([filename:dirname(EbinDir), "src",
-				 filename:basename(Src0)]),
-	    case is_file(Src) of
-		true -> parse_file(Src, Os);
-		false -> {error, nofile}
-	    end
+    Src1 = filename:join([filename:dirname(EbinDir), "src",
+                          filename:basename(Src0)]),
+    Src2 = proplists:get_value(source, CB, []),
+    try_sources([Src0,Src1,Src2], Os).
+
+try_sources([], _) ->
+    {error, nofile};
+try_sources([Src|Rest], Os) ->
+    case is_file(Src) of
+        true -> parse_file(Src, Os);
+        false -> try_sources(Rest, Os)
     end.
 
 is_file(Name) ->
