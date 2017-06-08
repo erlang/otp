@@ -10476,7 +10476,8 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 		reds--;
 	    }
 	    else {
-		if (!garbage_collected) {
+		if (!garbage_collected
+		    && !(c_p->flags & F_HIBERNATED)) {
 		    FLAGS(c_p) |= F_NEED_FULLSWEEP;
 		    reds -= scheduler_gc_proc(c_p, reds);
 		    garbage_collected = 1;
