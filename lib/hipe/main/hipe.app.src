@@ -171,6 +171,7 @@
 	     hipe_rtl_to_sparc,
 	     hipe_rtl_to_x86,
 	     hipe_rtl_varmap,
+	     hipe_segment_trees,
 	     hipe_sdi,
 	     hipe_sparc,
 	     hipe_sparc_assemble,

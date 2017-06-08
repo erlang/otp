@@ -622,26 +622,31 @@ find_temps([I|Insns], S0) ->
 find_temps([], S) ->
   S.
 
+-compile({inline, [tset_empty/0, tset_size/1, tset_insert/2,
+		   tset_filter/2, tset_to_list/1]}).
+
 tset_empty() ->
-  gb_sets:new().
+  #{}.
 
 tset_size(S) ->
-  gb_sets:size(S).
+  map_size(S).
 
 tset_insert(S, T) ->
-  gb_sets:add_element(T, S).
+  S#{T => []}.
 
-tset_add_list(S, Ts) ->
-  gb_sets:union(S, gb_sets:from_list(Ts)).
+tset_add_list(S, []) -> S;
+tset_add_list(S, [T|Ts]) ->
+  tset_add_list(S#{T => []}, Ts).
 
-tset_del_list(S, Ts) ->
-  gb_sets:subtract(S, gb_sets:from_list(Ts)).
+tset_del_list(S, []) -> S;
+tset_del_list(S, [T|Ts]) ->
+  tset_del_list(maps:remove(T,S), Ts).
 
 tset_filter(S, F) ->
-  gb_sets:filter(F, S).
+  maps:filter(fun(K, _V) -> F(K) end, S).
 
 tset_to_list(S) ->
-  gb_sets:to_list(S).
+  maps:keys(S).
 
 %%%
 %%% Compute minimum permissible frame size, ignoring spilled temps.
