@@ -1211,7 +1211,7 @@ static struct erl_drv_entry sctp_inet_driver_entry =
     ERL_DRV_EXTENDED_MARKER,
     ERL_DRV_EXTENDED_MAJOR_VERSION,
     ERL_DRV_EXTENDED_MINOR_VERSION,
-    ERL_DRV_FLAG_USE_PORT_LOCKING,
+    ERL_DRV_FLAG_USE_PORT_LOCKING|ERL_DRV_FLAG_SOFT_BUSY,
     NULL,
     NULL, /* process_exit */
     inet_stop_select,
