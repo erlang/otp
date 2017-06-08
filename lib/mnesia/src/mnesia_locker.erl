@@ -111,6 +111,20 @@ l_request(Node, X, Store) ->
     {?MODULE, Node} ! {self(), X},
     l_req_rec(Node, Store).
 
+l_req_rec_mon(Node, Store, MRef) ->
+    ?ets_insert(Store, {nodes, Node}),
+    receive
+	{?MODULE, Node, Reply} ->
+	    erlang:demonitor(MRef, [flush]),
+	    Reply;
+	{mnesia_down, Node} ->
+	    erlang:demonitor(MRef, [flush]),
+	    {not_granted, {node_not_running, Node}};
+	{'DOWN', MRef, _, _, _} ->
+	    %% Node not running
+	    {not_granted, {node_not_running, Node}}
+    end.
+
 l_req_rec(Node, Store) ->
     ?ets_insert(Store, {nodes, Node}),
     receive
@@ -1100,8 +1114,11 @@ rlock_get_reply(_Node, _Store, _Oid, {not_granted, Reason}) ->
 
 rlock_get_reply(_Node, Store, Oid, {switch, N2, Req}) ->
     ?ets_insert(Store, {nodes, N2}),
+    %% We are not sure, that N2 is alive, so monitor it to prevent
+    %% waiting indefinitely
+    MRef = monitor(process, {?MODULE, N2}),
     {?MODULE, N2} ! Req,
-    rlock_get_reply(N2, Store, Oid, l_req_rec(N2, Store)).
+    rlock_get_reply(N2, Store, Oid, l_req_rec_mon(N2, Store, MRef)).
 
 rlock_table(Tid, Store, Tab) ->
     rlock(Tid, Store, {Tab, ?ALL}).
