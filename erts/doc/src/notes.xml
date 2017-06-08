@@ -31,7 +31,6 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
-
 <section><title>Erts 8.3.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -556,6 +555,22 @@
 	    generated file will be truncated.</p>
           <p>
 	    Own Id: OTP-14046</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 8.1.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A code purge operation could under certain circumstances
+	    expand the size of hibernated processes.</p>
+          <p>
+	    Own Id: OTP-14444 Aux Id: ERIERL-24 </p>
         </item>
       </list>
     </section>
