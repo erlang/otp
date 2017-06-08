@@ -1068,10 +1068,10 @@ return_ok:
 literal_gc:
 
     if (!gc_allowed)
-	return am_need_gc;
+        return am_need_gc;
 
     if (c_p->flags & F_DISABLE_GC)
-	return THE_NON_VALUE;
+        return THE_NON_VALUE;
 
     *redsp += erts_garbage_collect_literals(c_p, (Eterm *) literals, lit_bsize,
 					    oh, fcalls);

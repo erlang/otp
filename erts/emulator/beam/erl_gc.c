@@ -834,7 +834,7 @@ do_major_collection:
 	esdp->gc_info.reclaimed += reclaimed_now;
     }
     
-    FLAGS(p) &= ~F_FORCE_GC;
+    FLAGS(p) &= ~(F_FORCE_GC|F_HIBERNATED);
     p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
 
     ERTS_MSACC_POP_STATE_M();
@@ -891,8 +891,8 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
  * Place all living data on a the new heap; deallocate any old heap.
  * Meant to be used by hibernate/3.
  */
-void
-erts_garbage_collect_hibernate(Process* p)
+static int
+garbage_collect_hibernate(Process* p, int check_long_gc)
 {
     Uint heap_size;
     Eterm* heap;
@@ -909,13 +909,13 @@ erts_garbage_collect_hibernate(Process* p)
 #ifdef ERTS_DIRTY_SCHEDULERS
     if (ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(p)))
         p->flags &= ~(F_DIRTY_GC_HIBERNATE|F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC);
-    else {
+    else if (check_long_gc) {
 	Uint flags = p->flags;
 	p->flags |= F_NEED_FULLSWEEP;
 	check_for_possibly_long_gc(p, (p->htop - p->heap) + p->mbuf_sz);
 	if (p->flags & (F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC)) {
 	    p->flags = flags|F_DIRTY_GC_HIBERNATE;
-	    return;
+	    return 1;
 	}
 	p->flags = flags;
     }
@@ -1012,12 +1012,20 @@ erts_garbage_collect_hibernate(Process* p)
 
     ErtsGcQuickSanityCheck(p);
 
+    p->flags |= F_HIBERNATED;
+
     erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 
     reds = gc_cost(actual_size, actual_size);
-    BUMP_REDS(p, reds);
+    return reds;
 }
 
+void
+erts_garbage_collect_hibernate(Process* p)
+{
+    int reds = garbage_collect_hibernate(p, 1);
+    BUMP_REDS(p, reds);
+}
 
 /*
  * HiPE native code stack scanning procedures:
@@ -1090,6 +1098,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     Uint ygen_usage = 0;
     struct erl_off_heap_header** prev = NULL;
     Sint64 reds;
+    int hibernated = !!(p->flags & F_HIBERNATED);
 
     if (p->flags & (F_DISABLE_GC|F_DELAY_GC))
 	ERTS_INTERNAL_ERROR("GC disabled");
@@ -1104,10 +1113,13 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     if (ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(p)))
 	p->flags &= ~F_DIRTY_CLA;
     else {
+        Uint size = byte_lit_size/sizeof(Uint);
 	ygen_usage = young_gen_usage(p);
-	check_for_possibly_long_gc(p,
-				   (byte_lit_size/sizeof(Uint)
-				    + 2*ygen_usage));
+        if (hibernated)
+            size = size*2 + 3*ygen_usage;
+        else
+            size = size + 2*ygen_usage;
+	check_for_possibly_long_gc(p, size);
 	if (p->flags & F_DIRTY_MAJOR_GC) {
 	    p->flags |= F_DIRTY_CLA;
 	    return 10;
@@ -1274,6 +1286,12 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 
     reds += (Sint64) gc_cost((p->htop - p->heap) + byte_lit_size/sizeof(Uint), 0);
+
+    if (hibernated) {
+        /* Restore the process into hibernated state... */
+        reds += garbage_collect_hibernate(p, 0);
+    }
+
     if (reds > INT_MAX)
 	return INT_MAX;
     return (int) reds;
