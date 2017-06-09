@@ -126,6 +126,12 @@ ok</pre>
 	  <seealso marker="#error_report/1"><c>error_report/1</c></seealso>
 	  instead.</p>
         </warning>
+        <warning>
+          <p>If the Unicode translation modifier (<c>t</c>) is used in
+            the format string, all error handlers must ensure that the
+            formatted output is correctly encoded for the I/O
+            device.</p>
+        </warning>
       </desc>
     </func>
     <func>
@@ -197,6 +203,12 @@ ok</pre>
             the standard event handler, meaning no further events are
             logged. When in doubt, use <c>info_report/1</c> instead.</p>
         </warning>
+        <warning>
+          <p>If the Unicode translation modifier (<c>t</c>) is used in
+            the format string, all error handlers must ensure that the
+            formatted output is correctly encoded for the I/O
+            device.</p>
+        </warning>
       </desc>
     </func>
     <func>
@@ -262,7 +274,7 @@ ok</pre>
               successful, or <c>{error, allready_have_logfile}</c> if
               logging to file is already enabled, or an error tuple if
               another error occurred (for example, if <c><anno>Filename</anno></c>
-              cannot be opened).</p>
+              cannot be opened). The file is opened with encoding UTF-8.</p>
           </item>
           <tag><c>close</c></tag>
           <item>
@@ -344,6 +356,12 @@ ok</pre>
           <p>If called with bad arguments, this function can crash
             the standard event handler, meaning no further events are
             logged. When in doubt, use <c>warning_report/1</c> instead.</p>
+        </warning>
+        <warning>
+          <p>If the Unicode translation modifier (<c>t</c>) is used in
+            the format string, all error handlers must ensure that the
+            formatted output is correctly encoded for the I/O
+            device.</p>
         </warning>
       </desc>
     </func>
