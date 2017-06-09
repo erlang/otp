@@ -1097,12 +1097,12 @@ build_compat_constraint({atom, _, is_subtype}, [{var, _, _}=LHS, Type]) ->
 build_compat_constraint({atom, _, is_subtype}, [LHS, _Type]) ->
     ret_err(?anno(LHS), "bad type variable");
 build_compat_constraint({atom, A, Atom}, _Types) ->
-    ret_err(A, io_lib:format("unsupported constraint ~w", [Atom])).
+    ret_err(A, io_lib:format("unsupported constraint ~tw", [Atom])).
 
 build_constraint({atom, _, is_subtype}, [{var, _, _}=LHS, Type]) ->
     build_constraint(LHS, Type);
 build_constraint({atom, A, Atom}, _Foo) ->
-    ret_err(A, io_lib:format("unsupported constraint ~w", [Atom]));
+    ret_err(A, io_lib:format("unsupported constraint ~tw", [Atom]));
 build_constraint({var, A, '_'}, _Types) ->
     ret_err(A, "bad type variable");
 build_constraint(LHS, Type) ->
@@ -1220,7 +1220,7 @@ attribute_farity_map(Args) ->
 -spec error_bad_decl(erl_anno:anno(), attributes()) -> no_return().
 
 error_bad_decl(Anno, S) ->
-    ret_err(Anno, io_lib:format("bad ~w declaration", [S])).
+    ret_err(Anno, io_lib:format("bad ~tw declaration", [S])).
 
 farity_list({cons,_Ac,{op,_Ao,'/',{atom,_Aa,A},{integer,_Ai,I}},Tail}) ->
     [{A,I}|farity_list(Tail)];
