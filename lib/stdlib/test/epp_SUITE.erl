@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
          otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1,
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
          otp_11728/1, encoding/1, extends/1,  function_macro/1,
-	 test_error/1, test_warning/1]).
+	 test_error/1, test_warning/1, otp_14285/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -68,7 +68,8 @@ all() ->
      not_circular, skip_header, otp_6277, otp_7702, otp_8130,
      overload_mac, otp_8388, otp_8470, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
-     encoding, extends, function_macro, test_error, test_warning].
+     encoding, extends, function_macro, test_error, test_warning,
+     otp_14285].
 
 groups() -> 
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -677,7 +678,7 @@ otp_8130(Config) when is_list(Config) ->
           {otp_8130_c6,
            <<"-define(M3(), A).\n"
              "t() -> A = 1, ?3.14159}.\n">>,
-           {errors,[{{2,16},epp,{call,"?3.14159"}}],[]}},
+           {errors,[{{2,16},epp,{call,[$?,"3.14159"]}}],[]}},
 
           {otp_8130_c7,
            <<"\nt() -> ?A.\n">>,
@@ -1382,6 +1383,26 @@ do_otp_10820(File, C, PC) ->
      {attribute,2,module,any},
      {eof,2}] = unopaque_forms(Forms),
     true = test_server:stop_node(Node),
+    ok.
+
+%% OTP_14285: Unicode atoms.
+otp_14285(Config) when is_list(Config) ->
+    %% This is just a sample of errors.
+    Cs = [{otp_8562,
+           <<"-export([f/0]).
+              -define('a\x{400}b', 'a\x{400}d').
+              f() ->
+                  ?'a\x{400}b'.
+              g() ->
+                  ?\"a\x{400}b\".
+              h() ->
+                  ?'a\x{400}no'().
+              "/utf8>>,
+           {errors,[{6,epp,{call,[63,[91,["97",44,"1024",44,"98"],93]]}},
+                    {8,epp,{undefined,'a\x{400}no',0}}],
+            []}}
+         ],
+    [] = compile(Config, Cs),
     ok.
 
 %% OTP-11728. Bugfix circular macro.
