@@ -218,7 +218,7 @@ handle_open_error({invalid_header, Term}) ->
          [Term]);
 handle_open_error({file_error, FileName, Reason}) ->
     show('$#erlang-history-file-error',
-         "Error handling File ~s. Reason: ~p~n"
+         "Error handling File ~ts. Reason: ~p~n"
          "History logging will be disabled.~n",
          [FileName, Reason]);
 handle_open_error(Err) ->
@@ -309,7 +309,7 @@ show_rename_warning() ->
 
 show_invalid_file_warning(FileName) ->
     show('$#erlang-history-invalid-file',
-         "Shell history expects to be able to use the file ~s "
+         "Shell history expects to be able to use the file ~ts "
          "which currently exists and is not a file usable for "
          "history logging purposes. History logging will be "
          "disabled.~n", [FileName]).
