@@ -52,6 +52,15 @@ static ErlNifMutex* dbg_trace_lock;
 #define DBG_TRACE4(FMT, A, B, C, D)
 #endif
 
+/*
+ * Hack to get around this function missing from the NIF API.
+ * TODO: Add this function/macro in the appropriate place, probably with
+ *       enif_make_pid() in erl_nif_api_funcs.h
+ */
+#ifndef enif_make_port
+#define enif_make_port(ENV, PORT) ((void)(ENV),(const ERL_NIF_TERM)((PORT)->port_id))
+#endif
+
 static int static_cntA; /* zero by default */
 static int static_cntB = NIF_SUITE_LIB_VER * 100;
 
@@ -76,6 +85,11 @@ static ERL_NIF_TERM atom_stats;
 static ERL_NIF_TERM atom_done;
 static ERL_NIF_TERM atom_stop;
 static ERL_NIF_TERM atom_null;
+static ERL_NIF_TERM atom_pid;
+static ERL_NIF_TERM atom_port;
+static ERL_NIF_TERM atom_send;
+static ERL_NIF_TERM atom_lookup;
+static ERL_NIF_TERM atom_badarg;
 
 typedef struct
 {
@@ -170,6 +184,9 @@ static ErlNifResourceTypeInit frenzy_rt_init = {
     frenzy_resource_down
 };
 
+static ErlNifResourceType* whereis_resource_type;
+static void whereis_thread_resource_dtor(ErlNifEnv* env, void* obj);
+
 static int get_pointer(ErlNifEnv* env, ERL_NIF_TERM term, void** pp)
 {
     ErlNifBinary bin;
@@ -223,6 +240,9 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 						      &frenzy_rt_init,
 						      ERL_NIF_RT_CREATE, NULL);
 
+    whereis_resource_type = enif_open_resource_type(env, NULL, "nif_SUITE.whereis",
+                            whereis_thread_resource_dtor, ERL_NIF_RT_CREATE, NULL);
+
     atom_false = enif_make_atom(env,"false");
     atom_true = enif_make_atom(env,"true");
     atom_self = enif_make_atom(env,"self");
@@ -244,6 +264,11 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_done = enif_make_atom(env,"done");
     atom_stop = enif_make_atom(env,"stop");
     atom_null = enif_make_atom(env,"null");
+    atom_pid = enif_make_atom(env, "pid");
+    atom_port = enif_make_atom(env, "port");
+    atom_send = enif_make_atom(env, "send");
+    atom_lookup = enif_make_atom(env, "lookup");
+    atom_badarg = enif_make_atom(env, "badarg");
 
     *priv_data = data;
     return 0;
@@ -1159,6 +1184,237 @@ static void fill(void* dst, unsigned bytes, int seed)
 	*ptr++ = seed;
 	seed += 7;
     }
+}
+
+/* enif_whereis_... tests */
+
+enum {
+    /* results */
+    WHEREIS_SUCCESS,
+    WHEREIS_ERROR_TYPE,
+    WHEREIS_ERROR_LOOKUP,
+    WHEREIS_ERROR_SEND,
+    /* types */
+    WHEREIS_LOOKUP_PID,     /* enif_whereis_pid() */
+    WHEREIS_LOOKUP_PORT     /* enif_whereis_port() */
+};
+
+typedef union {
+    ErlNifPid   pid;
+    ErlNifPort  port;
+} whereis_term_data_t;
+
+/* single use, no cross-thread access/serialization */
+typedef struct {
+    ErlNifEnv* env;
+    ERL_NIF_TERM name;
+    whereis_term_data_t res;
+    ErlNifTid tid;
+    int type;
+} whereis_thread_resource_t;
+
+static whereis_thread_resource_t* whereis_thread_resource_create(void)
+{
+    whereis_thread_resource_t* rp = (whereis_thread_resource_t*)
+        enif_alloc_resource(whereis_resource_type, sizeof(*rp));
+    memset(rp, 0, sizeof(*rp));
+    rp->env = enif_alloc_env();
+
+    return rp;
+}
+
+static void whereis_thread_resource_dtor(ErlNifEnv* env, void* obj)
+{
+    whereis_thread_resource_t* rp = (whereis_thread_resource_t*) obj;
+    enif_free_env(rp->env);
+}
+
+static int whereis_type(ERL_NIF_TERM type)
+{
+    if (enif_is_identical(type, atom_pid))
+        return WHEREIS_LOOKUP_PID;
+
+    if (enif_is_identical(type, atom_port))
+        return WHEREIS_LOOKUP_PORT;
+
+    return WHEREIS_ERROR_TYPE;
+}
+
+static int whereis_lookup_internal(
+    ErlNifEnv* env, int type, ERL_NIF_TERM name, whereis_term_data_t* out)
+{
+    if (type == WHEREIS_LOOKUP_PID)
+        return enif_whereis_pid(env, name, & out->pid)
+            ? WHEREIS_SUCCESS : WHEREIS_ERROR_LOOKUP;
+
+    if (type == WHEREIS_LOOKUP_PORT)
+        return enif_whereis_port(env, name, & out->port)
+            ? WHEREIS_SUCCESS : WHEREIS_ERROR_LOOKUP;
+
+    return WHEREIS_ERROR_TYPE;
+}
+
+static int whereis_send_internal(
+    ErlNifEnv* env, int type, whereis_term_data_t* to, ERL_NIF_TERM msg)
+{
+    if (type == WHEREIS_LOOKUP_PID)
+        return enif_send(env, & to->pid, NULL, msg)
+            ? WHEREIS_SUCCESS : WHEREIS_ERROR_SEND;
+
+    if (type == WHEREIS_LOOKUP_PORT)
+        return enif_port_command(env, & to->port, NULL, msg)
+            ? WHEREIS_SUCCESS : WHEREIS_ERROR_SEND;
+
+    return WHEREIS_ERROR_TYPE;
+}
+
+static int whereis_resolved_term(
+    ErlNifEnv* env, int type, whereis_term_data_t* res, ERL_NIF_TERM* out)
+{
+    switch (type) {
+        case WHEREIS_LOOKUP_PID:
+            *out = enif_make_pid(env, & res->pid);
+            break;
+        case WHEREIS_LOOKUP_PORT:
+            *out = enif_make_port(env, & res->port);
+            break;
+        default:
+            return WHEREIS_ERROR_TYPE;
+    }
+    return WHEREIS_SUCCESS;
+}
+
+static ERL_NIF_TERM whereis_result_term(ErlNifEnv* env, int result)
+{
+    ERL_NIF_TERM err;
+    switch (result)
+    {
+        case WHEREIS_SUCCESS:
+            return atom_ok;
+        case WHEREIS_ERROR_LOOKUP:
+            err = atom_lookup;
+            break;
+        case WHEREIS_ERROR_SEND:
+            err = atom_send;
+            break;
+        case WHEREIS_ERROR_TYPE:
+            err = atom_badarg;
+            break;
+        default:
+            err = enif_make_int(env, -result);
+            break;
+    }
+    return enif_make_tuple2(env, atom_error, err);
+}
+
+static void* whereis_lookup_thread(void* arg)
+{
+    whereis_thread_resource_t* rp = (whereis_thread_resource_t*) arg;
+    int rc;
+
+    /* enif_whereis_xxx should work with allocated or null env */
+    rc = whereis_lookup_internal(
+        ((rp->type == WHEREIS_LOOKUP_PID) ? NULL : rp->env),
+        rp->type, rp->name, & rp->res);
+
+    return (((char*) NULL) + rc);
+}
+
+/* whereis_term(Type, Name) -> pid() | port() | false */
+static ERL_NIF_TERM
+whereis_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    whereis_term_data_t res;
+    ERL_NIF_TERM ret;
+    int type, rc;
+
+    if (argc != 2)  /* allow non-atom name for testing */
+        return enif_make_badarg(env);
+
+    if ((type = whereis_type(argv[0])) == WHEREIS_ERROR_TYPE)
+        return enif_make_badarg(env);
+
+    rc = whereis_lookup_internal(env, type, argv[1], & res);
+    if (rc == WHEREIS_SUCCESS) {
+        rc = whereis_resolved_term(env, type, & res, & ret);
+    }
+    return (rc == WHEREIS_SUCCESS) ? ret : atom_false;
+}
+
+/* whereis_send(Type, Name, Message) -> ok | {error, Reason} */
+static ERL_NIF_TERM
+whereis_send(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    whereis_term_data_t to;
+    int type, rc;
+
+    if (argc != 3 || !enif_is_atom(env, argv[1]))
+        return enif_make_badarg(env);
+
+    if ((type = whereis_type(argv[0])) == WHEREIS_ERROR_TYPE)
+        return enif_make_badarg(env);
+
+    rc = whereis_lookup_internal(env, type, argv[1], & to);
+    if (rc == WHEREIS_SUCCESS)
+        rc = whereis_send_internal(env, type, & to, argv[2]);
+
+    return whereis_result_term(env, rc);
+}
+
+/* whereis_thd_lookup(Type, Name) -> {ok, Resource} | {error, SysErrno} */
+static ERL_NIF_TERM
+whereis_thd_lookup(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    whereis_thread_resource_t* rp;
+    int type, rc;
+
+    if (argc != 2 || !enif_is_atom(env, argv[1]))
+        return enif_make_badarg(env);
+
+    if ((type = whereis_type(argv[0])) == WHEREIS_ERROR_TYPE)
+        return enif_make_badarg(env);
+
+    rp = whereis_thread_resource_create();
+    rp->type = type;
+    rp->name = enif_make_copy(rp->env, argv[1]);
+
+    rc = enif_thread_create(
+        "nif_SUITE:whereis_thd", & rp->tid, whereis_lookup_thread, rp, NULL);
+
+    if (rc == 0) {
+        return enif_make_tuple2(env, atom_ok, enif_make_resource(env, rp));
+    }
+    else {
+        enif_release_resource(rp);
+        return enif_make_tuple2(env, atom_error, enif_make_int(env, rc));
+    }
+}
+
+/* whereis_thd_result(Resource) -> {ok, pid() | port()} | {error, ErrNum} */
+static ERL_NIF_TERM
+whereis_thd_result(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    whereis_thread_resource_t* rp;
+    ERL_NIF_TERM ret;
+    char* thdret; /* so we can keep compilers happy converting to int */
+    int rc;
+
+    if (argc != 1
+    || !enif_get_resource(env, argv[0], whereis_resource_type, (void**) & rp))
+        return enif_make_badarg(env);
+
+    if ((rc = enif_thread_join(rp->tid, (void**) & thdret)) != 0)
+        return enif_make_tuple2(env, atom_error, enif_make_int(env, rc));
+    
+    rc = (int)(thdret - ((char*) NULL));
+    if (rc == WHEREIS_SUCCESS) {
+        rc = whereis_resolved_term(env, rp->type, & rp->res, & ret);
+    }
+    ret = (rc == WHEREIS_SUCCESS)
+        ? enif_make_tuple2(env, atom_ok, ret) : whereis_result_term(env, rc);
+    
+    enif_release_resource(rp);
+    return ret;
 }
 
 #define MAKE_TERM_REUSE_LEN 16
@@ -2995,7 +3251,11 @@ static ErlNifFunc nif_funcs[] =
     {"monitor_process_nif", 4, monitor_process_nif},
     {"demonitor_process_nif", 2, demonitor_process_nif},
     {"compare_monitors_nif", 2, compare_monitors_nif},
-    {"monitor_frenzy_nif", 4, monitor_frenzy_nif}
+    {"monitor_frenzy_nif", 4, monitor_frenzy_nif},
+    {"whereis_send", 3, whereis_send},
+    {"whereis_term", 2, whereis_term},
+    {"whereis_thd_lookup", 2, whereis_thd_lookup},
+    {"whereis_thd_result", 1, whereis_thd_result}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,NULL,upgrade,unload)
