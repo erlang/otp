@@ -181,7 +181,7 @@ parse_generic_option("P", T, #options{specific=Spec}=Opts) ->
 parse_generic_option("S", T, #options{specific=Spec}=Opts) ->
     compile1(T, Opts#options{specific=['S'|Spec]});
 parse_generic_option(Option, _T, _Opts) ->
-    io:format(?STDERR, "Unknown option: -~s\n", [Option]),
+    io:format(?STDERR, "Unknown option: -~ts\n", [Option]),
     usage().
 
 parse_dep_option("", T) ->
@@ -202,7 +202,7 @@ parse_dep_option("T"++Opt, T0) ->
     {Target,T} = get_option("MT", Opt, T0),
     {[{makedep_target,Target}],T};
 parse_dep_option(Opt, _T) ->
-    io:format(?STDERR, "Unknown option: -M~s\n", [Opt]),
+    io:format(?STDERR, "Unknown option: -M~ts\n", [Opt]),
     usage().
 
 usage() ->
