@@ -81,7 +81,7 @@ check_runtime_config(accumulate,A) when A=:=true; A=:=false -> ok;
 check_runtime_config(_Key,_Value) -> error.
 
 dump(File) ->
-    case file:open(File,[write]) of
+    case file:open(File,[write,{encoding,utf8}]) of
 	{ok,Fd} -> etop_server ! {dump,Fd};
 	Error -> Error
     end.
@@ -161,7 +161,7 @@ data_handler(Reader, Opts) ->
 	{'EXIT', EPid, Reason} when EPid == Opts#opts.out_proc ->
 	    case Reason of
 		normal -> ok;
-		_ -> io:format("Output server crashed: ~p~n",[Reason])
+		_ -> io:format("Output server crashed: ~tp~n",[Reason])
 	    end,
 	    stop(Opts),
 	    out_proc_stopped;

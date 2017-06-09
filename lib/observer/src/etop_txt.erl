@@ -29,8 +29,6 @@
 
 -import(etop,[loadinfo/2,meminfo/2]).
 
--define(PROCFORM,"~-15w~-20s~8w~8w~8w~8w ~-20s~n").
-
 stop(Pid) -> Pid ! stop.
 
 init(Config) ->
@@ -50,6 +48,7 @@ do_update(Prev,Config) ->
     do_update(standard_io,Info,Prev,Config).
 
 do_update(Fd,Info,Prev,Config) ->
+    Encoding = encoding(Fd),
     {Cpu,NProcs,RQ,Clock} = loadinfo(Info,Prev),
     io:nl(Fd),
     writedoubleline(Fd),
@@ -73,7 +72,7 @@ do_update(Fd,Info,Prev,Config) ->
     io:nl(Fd),
     writepinfo_header(Fd),
     writesingleline(Fd),
-    writepinfo(Fd,Info#etop_info.procinfo),
+    writepinfo(Fd,Info#etop_info.procinfo,Encoding),
     writedoubleline(Fd),
     io:nl(Fd),
     Info.
@@ -93,19 +92,37 @@ writepinfo(Fd,[#etop_proc_info{pid=Pid,
 			       runtime=Time,
 			       cf=MFA,
 			       mq=MQ}
-	       |T]) ->
-    io:fwrite(Fd,?PROCFORM,[Pid,to_list(Name),Time,Reds,Mem,MQ,formatmfa(MFA)]), 
-    writepinfo(Fd,T);
-writepinfo(_Fd,[]) ->
+	       |T],
+           Encoding) ->
+    io:fwrite(Fd,proc_format(Encoding),
+              [Pid,to_list(Name,Encoding),Time,Reds,Mem,MQ,
+               formatmfa(MFA,Encoding)]),
+    writepinfo(Fd,T,Encoding);
+writepinfo(_Fd,[],_) ->
     ok.
 
 
-formatmfa({M, F, A}) ->
+formatmfa({M, F, A},latin1) ->
     io_lib:format("~w:~w/~w",[M, F, A]);
-formatmfa(Other) ->
+formatmfa({M, F, A},_) ->
+    io_lib:format("~w:~tw/~w",[M, F, A]);
+formatmfa(Other,_) ->
     %% E.g. when running hipe - the current_function for some
     %% processes will be 'undefined'
     io_lib:format("~w",[Other]).
 
-to_list(Name) when is_atom(Name) -> atom_to_list(Name);
-to_list({_M,_F,_A}=MFA) -> formatmfa(MFA).
+to_list(Name,_) when is_atom(Name) -> atom_to_list(Name);
+to_list({_M,_F,_A}=MFA,Encoding) -> formatmfa(MFA,Encoding).
+
+encoding(Device) ->
+    case io:getopts(Device) of
+        List when is_list(List) ->
+            proplists:get_value(encoding,List,latin1);
+        _ ->
+            latin1
+    end.
+
+proc_format(latin1) ->
+    "~-15w~-20s~8w~8w~8w~8w ~-20s~n";
+proc_format(_) ->
+    "~-15w~-20ts~8w~8w~8w~8w ~-20ts~n".
