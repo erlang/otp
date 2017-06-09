@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
             case ms_transform:transform_from_shell(
                    ?MODULE,Clauses,ImportList) of
                 {error,[{_,[{_,_,Code}|_]}|_],_} ->
-                    io:format("Error: ~s~n",
+                    io:format("Error: ~ts~n",
                               [ms_transform:format_error(Code)]),
                     {error,transform_error};
                 Else ->
