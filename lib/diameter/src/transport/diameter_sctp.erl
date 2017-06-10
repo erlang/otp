@@ -108,7 +108,7 @@
 -record(listener,
         {ref       :: reference(),
          socket    :: gen_sctp:sctp_socket(),
-         service = false :: false | pid(), %% service process
+         service   :: pid(), %% service process
          pending = {0, queue:new()},
          accept    :: [match()]}).
 %% Field pending implements two queues: the first of transport-to-be
@@ -142,11 +142,11 @@
 start(T, Svc, Opts)
   when is_list(Opts) ->
     #diameter_service{capabilities = Caps,
-                      pid = SPid}
+                      pid = Pid}
         = Svc,
     diameter_sctp_sup:start(),  %% start supervisors on demand
     Addrs = Caps#diameter_caps.host_ip_address,
-    s(T, Addrs, SPid, lists:map(fun ip/1, Opts)).
+    s(T, Addrs, Pid, lists:map(fun ip/1, Opts)).
 
 ip({ifaddr, A}) ->
     {ip, A};
@@ -157,9 +157,9 @@ ip(T) ->
 %% when there is not yet an association to assign it, or at comm_up on
 %% a new association in which case the call retrieves a transport from
 %% the pending queue.
-s({accept, Ref} = A, Addrs, SPid, Opts) ->
-    {ok, LPid, LAs} = listener(Ref, {Opts, Addrs}),
-    try gen_server:call(LPid, {A, self(), SPid}, infinity) of
+s({accept, Ref} = A, Addrs, SvcPid, Opts) ->
+    {ok, LPid, LAs} = listener(Ref, {Opts, SvcPid, Addrs}),
+    try gen_server:call(LPid, {A, self()}, infinity) of
         {ok, TPid} ->
             {ok, TPid, LAs};
         No ->
@@ -172,7 +172,7 @@ s({accept, Ref} = A, Addrs, SPid, Opts) ->
 %% gen_sctp in order to be able to accept a new association only
 %% *after* an accepting transport has been spawned.
 
-s({connect = C, Ref}, Addrs, _SPid, Opts) ->
+s({connect = C, Ref}, Addrs, _SvcPid, Opts) ->
     diameter_sctp_sup:start_child({C, self(), Opts, Addrs, Ref}).
 
 %% start_link/1
@@ -233,7 +233,8 @@ i(#monitor{transport = TPid} = S) ->
     S;
 
 %% A process owning a listening socket.
-i({listen, Ref, {Opts, Addrs}}) ->
+i({listen, Ref, {Opts, SvcPid, Addrs}}) ->
+    monitor(process, SvcPid),
     [_] = diameter_config:subscribe(Ref, transport), %% assert existence
     {[Matches], Rest} = proplists:split(Opts, [accept]),
     {LAs, Sock} = AS = open(Addrs, Rest, ?DEFAULT_PORT),
@@ -241,6 +242,7 @@ i({listen, Ref, {Opts, Addrs}}) ->
     true = diameter_reg:add_new({?MODULE, listener, {Ref, AS}}),
     proc_lib:init_ack({ok, self(), LAs}),
     #listener{ref = Ref,
+              service = SvcPid,
               socket = Sock,
               accept = [[M] || {accept, M} <- Matches]};
 
@@ -389,14 +391,6 @@ type(T) ->
 handle_call({{accept, Ref}, Pid}, _, #listener{ref = Ref} = S) ->
     {TPid, NewS} = accept(Ref, Pid, S),
     {reply, {ok, TPid}, NewS};
-
-handle_call({{accept, _} = T, Pid, SPid}, From, #listener{service = P} = S) ->
-    handle_call({T, Pid}, From, if not is_pid(P), is_pid(SPid) ->
-                                        monitor(process, SPid),
-                                        S#listener{service = SPid};
-                                   true ->
-                                        S
-                                end);
 
 %% Transport is telling us of parent death.
 handle_call({stop, _Pid} = Reason, _From, #monitor{} = S) ->

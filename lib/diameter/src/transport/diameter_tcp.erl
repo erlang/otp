@@ -142,13 +142,13 @@
 
 start({T, Ref}, Svc, Opts) ->
     #diameter_service{capabilities = Caps,
-                      pid = SPid}
+                      pid = SvcPid}
         = Svc,
 
     diameter_tcp_sup:start(),  %% start tcp supervisors on demand
     {Mod, Rest} = split(Opts),
     Addrs = Caps#diameter_caps.host_ip_address,
-    Arg = {T, Ref, Mod, self(), Rest, Addrs, SPid},
+    Arg = {T, Ref, Mod, self(), Rest, Addrs, SvcPid},
     diameter_tcp_sup:start_child(Arg).
 
 split([{module, M} | Opts]) ->
@@ -202,7 +202,7 @@ init(T) ->
 %% i/1
 
 %% A transport process.
-i({T, Ref, Mod, Pid, Opts, Addrs, SPid})
+i({T, Ref, Mod, Pid, Opts, Addrs, SvcPid})
   when T == accept;
        T == connect ->
     monitor(process, Pid),
@@ -218,7 +218,7 @@ i({T, Ref, Mod, Pid, Opts, Addrs, SPid})
                               ?DEFAULT_FRAGMENT_TIMEOUT),
     ?IS_TIMEOUT(Tmo) orelse ?ERROR({fragment_timer, Tmo}),
     {ok, MPid} = diameter_tcp_sup:start_child(#monitor{parent = Pid}),
-    Sock = init(T, Ref, Mod, Pid, SslOpts, Rest, Addrs, SPid),
+    Sock = init(T, Ref, Mod, Pid, SslOpts, Rest, Addrs, SvcPid),
     M = if SslOpts -> ssl; true -> Mod end,
     monitor(process, MPid),
     MPid ! {start, self(), Sock, M}, %% prepare monitor for sending
@@ -275,19 +275,19 @@ ssl_opts(T) ->
 %% init/8
 
 %% Establish a TLS connection before capabilities exchange ...
-init(Type, Ref, Mod, Pid, true, Opts, Addrs, SPid) ->
-    init(Type, Ref, ssl, Pid, [{cb_info, ?TCP_CB(Mod)} | Opts], Addrs, SPid);
+init(Type, Ref, Mod, Pid, true, Opts, Addrs, SvcPid) ->
+    init(Type, Ref, ssl, Pid, [{cb_info, ?TCP_CB(Mod)} | Opts], Addrs, SvcPid);
 
 %% ... or not.
-init(Type, Ref, Mod, Pid, _, Opts, Addrs, SPid) ->
-    init(Type, Ref, Mod, Pid, Opts, Addrs, SPid).
+init(Type, Ref, Mod, Pid, _, Opts, Addrs, SvcPid) ->
+    init(Type, Ref, Mod, Pid, Opts, Addrs, SvcPid).
 
 %% init/7
 
-init(accept = T, Ref, Mod, Pid, Opts, Addrs, SPid) ->
+init(accept = T, Ref, Mod, Pid, Opts, Addrs, SvcPid) ->
     {[Matches], Rest} = proplists:split(Opts, [accept]),
     {ok, LPid, {LAddr, LSock}} = listener(Ref, {Mod, Rest, Addrs}),
-    ok = gen_server:call(LPid, {accept, SPid}, infinity),
+    ok = gen_server:call(LPid, {accept, SvcPid}, infinity),
     proc_lib:init_ack({ok, self(), [LAddr]}),
     Sock = ok(accept(Mod, LSock)),
     ok = accept_peer(Mod, Sock, accept(Matches)),
@@ -295,7 +295,7 @@ init(accept = T, Ref, Mod, Pid, Opts, Addrs, SPid) ->
     diameter_peer:up(Pid),
     Sock;
 
-init(connect = T, Ref, Mod, Pid, Opts, Addrs, _SPid) ->
+init(connect = T, Ref, Mod, Pid, Opts, Addrs, _SvcPid) ->
     {[LA, RA, RP], Rest} = proplists:split(Opts, [ip, raddr, rport]),
     LAddrOpt = get_addr(LA, Addrs),
     RAddr = get_addr(RA),
@@ -447,10 +447,10 @@ portnr(Sock) ->
 %% # handle_call/3
 %% ---------------------------------------------------------------------------
 
-handle_call({accept, SPid}, _From, #listener{service = P} = S) ->
-    {reply, ok, if not is_pid(P), is_pid(SPid) ->
-                        monitor(process, SPid),
-                        S#listener{service = SPid};
+handle_call({accept, SvcPid}, _From, #listener{service = P} = S) ->
+    {reply, ok, if not is_pid(P), is_pid(SvcPid) ->
+                        monitor(process, SvcPid),
+                        S#listener{service = SvcPid};
                    true ->
                         S
                 end};
