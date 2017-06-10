@@ -108,7 +108,7 @@
          handle_error/6,
          handle_request/3]).
 
-%% diameter_tcp callbacks
+%% diameter_{tcp,sctp} callbacks
 -export([message/3]).
 
 -include("diameter.hrl").
@@ -158,7 +158,7 @@
 %% Send from a dedicated process?
 -define(SENDERS, [true, false]).
 
-%% Message callbacks from diameter_tcp?
+%% Message callbacks from diameter_{tcp,sctp}?
 -define(CALLBACKS, [true, false]).
 
 -record(group,
@@ -465,9 +465,8 @@ add_transports(Config) ->
         = group(Config), 
     LRef = ?util:listen(SN,
                         [T,
-                         {sender, SS}
-                         | [{message_cb, {?MODULE, message, [4]}}
-                            || ST andalso T == tcp]],
+                         {sender, SS},
+                         {message_cb, ST andalso {?MODULE, message, [4]}}],
                         [{capabilities_cb, fun capx/2},
                          {pool_size, 8},
                          {spawn_opt, [{min_heap_size, 8096}]},
@@ -1509,6 +1508,9 @@ request(#diameter_base_RAR{}, _Caps) ->
 %%
 %% Limit the number of messages received. More can be received if read
 %% in the same packet.
+
+message(Dir, #diameter_packet{bin = Bin}, N) ->
+    message(Dir, Bin, N);
 
 %% incoming request
 message(recv, <<_:32, 1, _/bits>> = Bin, N) ->
