@@ -427,6 +427,16 @@ eccs_filter_supported(Curves) ->
 %%--------------------------------------------------------------------
 getopts(#sslsocket{pid = Pid}, OptionTags) when is_pid(Pid), is_list(OptionTags) ->
     ssl_connection:get_opts(Pid, OptionTags);
+getopts(#sslsocket{pid = {udp, #config{transport_info = {Transport,_,_,_}}}} = ListenSocket, OptionTags) when is_list(OptionTags) ->
+    try dtls_socket:getopts(Transport, ListenSocket, OptionTags) of
+        {ok, _} = Result ->
+            Result;
+	{error, InetError} ->
+	    {error, {options, {socket_options, OptionTags, InetError}}}
+    catch
+	_:Error ->
+	    {error, {options, {socket_options, OptionTags, Error}}}
+    end;
 getopts(#sslsocket{pid = {_,  #config{transport_info = {Transport,_,_,_}}}} = ListenSocket,
 	OptionTags) when is_list(OptionTags) ->
     try tls_socket:getopts(Transport, ListenSocket, OptionTags) of
@@ -455,7 +465,7 @@ setopts(#sslsocket{pid = Pid}, Options0) when is_pid(Pid), is_list(Options0)  ->
 	_:_ ->
 	    {error, {options, {not_a_proplist, Options0}}}
     end;
-setopts(#sslsocket{pid = {{udp, _}, #config{transport_info = {Transport,_,_,_}}}} = ListenSocket, Options) when is_list(Options) ->
+setopts(#sslsocket{pid = {udp, #config{transport_info = {Transport,_,_,_}}}} = ListenSocket, Options) when is_list(Options) ->
     try dtls_socket:setopts(Transport, ListenSocket, Options) of
 	ok ->
 	    ok;
