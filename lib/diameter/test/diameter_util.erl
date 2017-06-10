@@ -309,16 +309,22 @@ listen(SvcName, Prot, Opts) ->
 connect(Client, Prot, LRef) ->
     connect(Client, Prot, LRef, []).
 
-connect(Client, Prot, LRef, Opts) ->
+connect(Client, ProtOpts, LRef, Opts) ->
+    Prot = head(ProtOpts),
     [PortNr] = lport(Prot, LRef),
     Client = diameter:service_info(Client, name),  %% assert
     true = diameter:subscribe(Client),
-    Ref = add_transport(Client, {connect, opts(Prot, PortNr) ++ Opts}),
+    Ref = add_transport(Client, {connect, opts(ProtOpts, PortNr) ++ Opts}),
     true = transport(Client, Ref),                 %% assert
 
     diameter_lib:for_n(fun(_) -> ok = up(Client, Ref, Prot, PortNr) end,
                        proplists:get_value(pool_size, Opts, 1)),
     Ref.
+
+head([T|_]) ->
+    T;
+head(T) ->
+    T.
 
 up(Client, Ref, Prot, PortNr) ->
     receive
@@ -362,11 +368,14 @@ tmod(sctp) ->
 tmod(any) ->
     [diameter_sctp, diameter_tcp].
 
-opts(Prot, T) ->
-    tmo(T, lists:append([[{transport_module, M}, {transport_config, C}]
+opts([Prot | Opts], T) ->
+    tmo(T, lists:append([[{transport_module, M}, {transport_config, C ++ Opts}]
                          || M <- tmod(Prot),
                             C <- [buf(M,T) ++ [{ip, addr(M)}, {port, 0}]
-                                           ++ remote(M,T)]])).
+                                           ++ remote(M,T)]]));
+
+opts(Prot, T) ->
+    opts([Prot], T).
 
 tmo(listen, Opts) ->
     Opts;

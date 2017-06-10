@@ -152,16 +152,21 @@
 %% Which transport protocol to use.
 -define(TRANSPORTS, [tcp, sctp]).
 
+%% Send from a dedicated process?
+-define(SENDERS, [true, false]).
+
 -record(group,
         {transport,
          client_service,
          client_encoding,
          client_dict0,
          client_strings,
+         client_sender,
          server_service,
          server_encoding,
          server_container,
-         server_strings}).
+         server_strings,
+         server_sender}).
 
 %% Not really what we should be setting unless the message is sent in
 %% the common application but diameter doesn't care.
@@ -250,7 +255,7 @@ all() ->
 groups() ->
     [{P, [P], Ts} || Ts <- [tc()], P <- [shuffle, parallel]]
         ++
-        [{?util:name([T,R,D,A,C,SD,CD]),
+        [{?util:name([T,R,D,A,C,SD,SS,CD,CS]),
           [],
           [{group, if SD orelse CD -> shuffle; true -> parallel end}]}
          || T <- ?TRANSPORTS,
@@ -259,15 +264,20 @@ groups() ->
             A <- ?ENCODINGS,
             C <- ?CONTAINERS,
             SD <- ?STRING_DECODES,
-            CD <- ?STRING_DECODES]
+            SS <- ?SENDERS,
+            CD <- ?STRING_DECODES,
+            CS <- ?SENDERS]
         ++
-        [{T, [], [{group, ?util:name([T,R,D,A,C,SD,CD])}
+        [{T, [], [{group, ?util:name([T,R,D,A,C,SD,SS,CD,CS])}
                   || R <- ?ENCODINGS,
                      D <- ?RFCS,
                      A <- ?ENCODINGS,
                      C <- ?CONTAINERS,
                      SD <- ?STRING_DECODES,
-                     CD <- ?STRING_DECODES]}
+                     SS <- ?SENDERS,
+                     CD <- ?STRING_DECODES,
+                     CS <- ?SENDERS,
+                     SS orelse CS]}  %% avoid deadlock
          || T <- ?TRANSPORTS]
         ++
         [{traffic, [], [{group, T} || T <- ?TRANSPORTS]}].
@@ -298,16 +308,18 @@ init_per_group(sctp = Name, Config) ->
 
 init_per_group(Name, Config) ->
     case ?util:name(Name) of
-        [T,R,D,A,C,SD,CD] ->
+        [T,R,D,A,C,SD,SS,CD,CS] ->
             G = #group{transport = T,
                        client_service = [$C|?util:unique_string()],
                        client_encoding = R,
                        client_dict0 = dict0(D),
                        client_strings = CD,
+                       client_sender = CS,
                        server_service = [$S|?util:unique_string()],
                        server_encoding = A,
                        server_container = C,
-                       server_strings = SD},
+                       server_strings = SD,
+                       server_sender = SS},
             [{group, G} | Config];
         _ ->
             Config
@@ -417,16 +429,18 @@ start_services(Config) ->
 add_transports(Config) ->
     #group{transport = T,
            client_service = CN,
-           server_service = SN}
+           client_sender = CS,
+           server_service = SN,
+           server_sender = SS}
         = group(Config), 
     LRef = ?util:listen(SN,
-                        T,
+                        [T, {sender, SS}],
                         [{capabilities_cb, fun capx/2},
                          {pool_size, 8},
                          {spawn_opt, [{min_heap_size, 8096}]},
                          {applications, apps(rfc3588)}]),
     Cs = [?util:connect(CN,
-                        T,
+                        [T, {sender, CS}],
                         LRef,
                         [{id, Id},
                          {capabilities, [{'Origin-State-Id', origin(Id)}]},
