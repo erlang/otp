@@ -173,18 +173,7 @@ recvl([{MRef, F} | L], Ref, Fun, Acc) ->
 %% Sort a list into random order.
 
 scramble(L) ->
-    foldl(fun(true, _, S, false) -> S end,
-          false,
-          [[fun s/1, L]]).
-
-s(L) ->
-    s([], L).
-
-s(Acc, []) ->
-    Acc;
-s(Acc, L) ->
-    {H, [T|Rest]} = lists:split(rand:uniform(length(L)) - 1, L),
-    s([T|Acc], H ++ Rest).
+    [X || {_,X} <- lists:sort([{rand:uniform(), T} || T <- L])].
 
 %% ---------------------------------------------------------------------------
 %% unique_string/0

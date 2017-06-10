@@ -341,7 +341,11 @@ init_per_group(Name, Config) ->
                        server_strings = SD,
                        server_sender = SS,
                        server_throttle = ST},
-            [{group, G} | Config];
+            %% Limit the number of testcase, since the number of
+            %% groups is large.
+            All = ?util:scramble(tc()),
+            TCs = lists:sublist(All, rand:uniform(32)),
+            [{group, G}, {runlist, TCs} | Config];
         _ ->
             Config
     end.
@@ -359,12 +363,16 @@ end_per_group(_, _) ->
 
 %% Skip testcases that can reasonably fail under SCTP.
 init_per_testcase(Name, Config) ->
+    TCs = proplists:get_value(runlist, Config, []),
+    Run = [] == TCs orelse lists:member(Name, TCs),
     case [G || #group{transport = sctp} = G
                    <- [proplists:get_value(group, Config)]]
     of
         [_] when Name == send_maxlen;
                  Name == send_long ->
             {skip, sctp};
+        _ when not Run ->
+            {skip, random};
         _ ->
             [{testcase, Name} | Config]
     end.
