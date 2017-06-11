@@ -39,7 +39,7 @@
 -export([dict/0]).  %% fake dictionary module
 
 %% dictionary callbacks for flatten2/1
--export(['A1'/3, 'Unsigned32'/3]).
+-export(['A1'/4, 'Unsigned32'/4]).
 
 -define(base, "base_rfc3588.dia").
 -define(util, diameter_util).
@@ -552,13 +552,13 @@ flatten2(_Config) ->
                         T <- [encode, decode],
                         M <- [M2, M3],
                         Ref <- [make_ref()],
-                        RC <- [M:avp(T, Ref, A, [])],
+                        RC <- [M:avp(T, Ref, A, #{})],
                         RC /= {T, Ref}].
 
-'A1'(T, 'Unsigned32', Ref) ->
+'A1'(T, 'Unsigned32', Ref, _Opts) ->
     {T, Ref}.
 
-'Unsigned32'(T, 'A3', Ref) ->
+'Unsigned32'(T, 'A3', Ref, _Opts) ->
     {T, Ref}.
 
 load_forms(Forms) ->

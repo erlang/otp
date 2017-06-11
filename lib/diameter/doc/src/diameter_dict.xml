@@ -16,7 +16,8 @@
 <header>
 
 <copyright>
-<year>2011</year><year>2016</year>
+<year>2011</year>
+<year>2017</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -307,11 +308,11 @@ The P flag has been deprecated by &the_rfc;.</p>
 <p>
 Specifies AVPs for which module Mod provides encode/decode functions.
 The section contents consists of AVP names.
-For each such name, <c>Mod:Name(encode|decode, Type, Data)</c> is
+For each such name, <c>Mod:Name(encode|decode, Type, Data, Opts)</c> is
 expected to provide encode/decode for values of the AVP, where Name is
 the name of the AVP, Type is it's type as declared in the
-<c>@avp_types</c> section of the dictionary and Data is the value to
-encode/decode.</p>
+<c>@avp_types</c> section of the dictionary, Data is the value to
+encode/decode, and Opts is a term that is passed through encode/decode.</p>
 
 <p>
 Example:</p>
@@ -328,8 +329,8 @@ Framed-IP-Address
 <item>
 <p>
 Like <c>@custom_types</c> but requires the specified module to export
-<c>Mod:Type(encode|decode, Name, Data)</c> rather than
-<c>Mod:Name(encode|decode, Type, Data)</c>.</p>
+<c>Mod:Type(encode|decode, Name, Data, Opts)</c> rather than
+<c>Mod:Name(encode|decode, Type, Data, Opts)</c>.</p>
 
 <p>
 Example:</p>

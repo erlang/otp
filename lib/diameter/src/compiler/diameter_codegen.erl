@@ -568,11 +568,12 @@ cs_custom_avp({Mod, Key, Avps}, Dict) ->
 
 c_custom_avp(Mod, Key, AvpName, Type) ->
     {F,A} = custom(Key, AvpName, Type),
-    {?clause, [?VAR('T'), ?VAR('Data'), ?Atom(AvpName), ?VAR('_')],
+    {?clause, [?VAR('T'), ?VAR('Data'), ?Atom(AvpName), ?VAR('Opts')],
      [],
      [?APPLY(?A(Mod), ?A(F), [?VAR('T'),
                               ?Atom(A),
-                              ?VAR('Data')])]}.
+                              ?VAR('Data'),
+                              ?VAR('Opts')])]}.
 
 custom(custom_types, AvpName, Type) ->
     {AvpName, Type};
