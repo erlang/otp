@@ -152,6 +152,7 @@ erl_forms(Mod, ParseD) ->
                                     {vendor_name, 0},
                                     {decode_avps, 3}, %% in diameter_gen.hrl
                                     {encode_avps, 3}, %%
+                                    {grouped_avp, 4}, %%
                                     {msg_name, 2},
                                     {msg_header, 1},
                                     {rec2msg, 1},
@@ -162,9 +163,8 @@ erl_forms(Mod, ParseD) ->
                                     {avp_arity, 2},
                                     {avp_header, 1},
                                     {avp, 4},
-                                    {grouped_avp, 4},
                                     {enumerated_avp, 3},
-                                    {empty_value, 1},
+                                    {empty_value, 2},
                                     {dict, 0}]},
               %% diameter.hrl is included for #diameter_avp
               {?attribute, include_lib, "diameter/include/diameter.hrl"},
@@ -557,10 +557,11 @@ imported_avp(Mod, {AvpName, _, _, _}, _) ->
 c_imported_avp(Mod, AvpName) ->
     {?clause, [?VAR('T'), ?VAR('Data'), ?Atom(AvpName), ?VAR('Opts')],
      [],
-     [?APPLY(Mod, avp, [?VAR('T'),
-                        ?VAR('Data'),
-                        ?Atom(AvpName),
-                        ?VAR('Opts')])]}.
+     [?CALL(avp, [?VAR('T'),
+                  ?VAR('Data'),
+                  ?Atom(AvpName),
+                  ?VAR('Opts'),
+                  ?ATOM(Mod)])]}.
 
 cs_custom_avp({Mod, Key, Avps}, Dict) ->
     lists:map(fun(N) -> c_custom_avp(Mod, Key, N, orddict:fetch(N, Dict)) end,
@@ -720,7 +721,7 @@ v(false, _, _, _) ->
 %%% ------------------------------------------------------------------------
 
 f_empty_value(ParseD) ->
-    {?function, empty_value, 1, empty_value(ParseD)}.
+    {?function, empty_value, 2, empty_value(ParseD)}.
 
 empty_value(ParseD) ->
     Imported = lists:flatmap(fun avps/1, get_value(import_enums, ParseD)),
@@ -730,15 +731,17 @@ empty_value(ParseD) ->
                   not lists:keymember(N, 1, Imported)]
         ++ Imported,
     lists:map(fun c_empty_value/1, Groups ++ Enums)
-        ++ [{?clause, [?VAR('Name')], [], [?CALL(empty, [?VAR('Name')])]}].
+        ++ [{?clause, [?VAR('Name'), ?VAR('Opts')],
+             [],
+             [?CALL(empty, [?VAR('Name'), ?VAR('Opts')])]}].
 
 c_empty_value({Name, _, _, _}) ->
-    {?clause, [?Atom(Name)],
+    {?clause, [?Atom(Name), ?VAR('Opts')],
      [],
-     [?CALL(empty_group, [?Atom(Name)])]};
+     [?CALL(empty_group, [?Atom(Name), ?VAR('Opts')])]};
 
 c_empty_value({Name, _}) ->
-    {?clause, [?Atom(Name)],
+    {?clause, [?Atom(Name), ?VAR('_')],
      [],
      [?TERM(<<0:32>>)]}.
 

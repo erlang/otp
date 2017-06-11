@@ -171,7 +171,7 @@ gen(M, avp_types, {Name, Code, Type, _Flags}) ->
     V = undefined /= VendorId,
     V = 0 /= Flags band 2#10000000,
     {Name, Type} = M:avp_name(Code, VendorId),
-    B = M:empty_value(Name),
+    B = M:empty_value(Name, #{module => M}),
     B = z(B),
     [] = avp_decode(M, Type, Name);
 
@@ -215,7 +215,8 @@ avp(Mod, encode = X, V, Name, _) ->
     iolist_to_binary(Mod:avp(X, V, Name, opts(Mod))).
 
 opts(Mod) ->
-    (opts())#{dictionary => Mod}.
+    (opts())#{module => Mod,
+              dictionary => Mod}.
 
 opts() ->
     #{string_decode => true,

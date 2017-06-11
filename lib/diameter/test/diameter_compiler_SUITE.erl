@@ -552,7 +552,7 @@ flatten2(_Config) ->
                         T <- [encode, decode],
                         M <- [M2, M3],
                         Ref <- [make_ref()],
-                        RC <- [M:avp(T, Ref, A, #{})],
+                        RC <- [M:avp(T, Ref, A, #{module => M})],
                         RC /= {T, Ref}].
 
 'A1'(T, 'Unsigned32', Ref, _Opts) ->
