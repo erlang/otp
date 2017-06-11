@@ -277,7 +277,7 @@ start_link() ->
 
 start_link(T) ->
     proc_lib:start_link(?MODULE, init, [T], infinity, []).
-    
+
 state() ->
     call(state).
 
