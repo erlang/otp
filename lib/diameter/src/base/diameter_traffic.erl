@@ -695,31 +695,14 @@ local([Msg], TPid, DictT, Fs, ReqPkt)
 local(Msg, TPid, {MsgDict, AppDict, Dict0}, Fs, ReqPkt) ->
     Pkt = encode({MsgDict, AppDict},
                  TPid,
-                 reset(make_answer_packet(Msg, ReqPkt), MsgDict, Dict0),
+                 make_answer_packet(Msg, ReqPkt, MsgDict, Dict0),
                  Fs),
     {MsgDict, Pkt}.
-
-%% reset/3
-
-%% Header/avps list: send as is.
-reset(#diameter_packet{msg = [#diameter_header{} | _]} = Pkt, _, _) ->
-    Pkt;
-
-%% No errors to set or errors explicitly ignored.
-reset(#diameter_packet{errors = Es} = Pkt, _, _)
-  when Es == [];
-       Es == false ->
-    Pkt;
-
-%% Otherwise possibly set Result-Code and/or Failed-AVP.
-reset(#diameter_packet{msg = Msg, errors = Es} = Pkt, Dict, Dict0) ->
-    {RC, Failed} = select_error(Msg, Es, Dict0),
-    Pkt#diameter_packet{msg = reset(Msg, Dict, RC, Failed)}.
 
 %% select_error/3
 %%
 %% Extract the first appropriate RC or {RC, #diameter_avp{}}
-%% pair from an errors list, and accumulate all #diameter_avp{}.
+%% pair from an errors list.
 %%
 %% RFC 6733:
 %%
@@ -734,50 +717,34 @@ reset(#diameter_packet{msg = Msg, errors = Es} = Pkt, Dict, Dict0) ->
 %%   indicated by the Result-Code AVP.  For practical purposes, this
 %%   Failed-AVP would typically refer to the first AVP processing error
 %%   that a Diameter node encounters.
+%%
+%% 3xxx can only be set in an answer setting the E-bit. RFC 6733 also
+%% allows 5xxx, RFC 3588 doesn't.
 
-select_error(Msg, Es, Dict0) ->
-    {RC, Avps} = lists:foldl(fun(T,A) -> select(T, A, Dict0) end,
-                             {is_answer_message(Msg, Dict0), []},
-                             Es),
-    {RC, lists:reverse(Avps)}.
+select_error(E, [{RC, _} = T | Es], Dict0) ->
+    select(E, RC, T, Es, Dict0);
 
-%% Only integer() and {integer(), #diameter_avp{}} are the result of
-%% decode. #diameter_avp{} can only be set in a reply for encode.
+select_error(E, [RC | Es], Dict0) ->
+    select(E, RC, RC, Es, Dict0);
 
-select(#diameter_avp{} = A, {RC, As}, _) ->
-    {RC, [A|As]};
+select_error(_, [] = No, _) ->
+    No.
 
-select(_, {RC, _} = Acc, _)
-  when is_integer(RC) ->
-    Acc;
+select(E, RC, T, _, Dict0)
+  when E, 3000 =< RC, RC < 4000;                 %% E-bit with 3xxx
+       E, ?BASE /= Dict0, 5000 =< RC, RC < 6000; %% E-bit with 5xxx
+       not E, RC < 3000 orelse 4000 =< RC ->     %% no E-bit
+    [T];
 
-select({RC, #diameter_avp{} = A}, {IsAns, As} = Acc, Dict0)
-  when is_integer(RC) ->
-    case is_result(RC, IsAns, Dict0) of
-        true  -> {RC, [A|As]};
-        false -> Acc
-    end;
-
-select(RC, {IsAns, As} = Acc, Dict0)
-  when is_boolean(IsAns), is_integer(RC) ->
-    case is_result(RC, IsAns, Dict0) of
-        true  -> {RC, As};
-        false -> Acc
-    end.
-
-%% reset/4
-
-reset(Msg, Dict, RC, Avps) ->
-    FailedAVP = failed_avp(Msg, Avps, Dict),
-    ResultCode = rc(Msg, RC, Dict),
-    set(set(Msg, FailedAVP, Dict), ResultCode, Dict).
+select(E, _, _, Es, Dict0) -> 
+    select_error(E, Es, Dict0).
 
 %% eval_packet/2
 
 eval_packet(Pkt, Fs) ->
     lists:foreach(fun(F) -> diameter_lib:eval([F,Pkt]) end, Fs).
 
-%% make_answer_packet/2
+%% make_answer_packet/4
 
 %% Use decode errors to set Result-Code and/or Failed-AVP unless the
 %% the errors field has been explicitly set. Unfortunately, the
@@ -785,37 +752,39 @@ eval_packet(Pkt, Fs) ->
 %% atom 'false' for "set nothing". (This is historical and changing
 %% the default value would impact anyone expecting relying on the old
 %% default.)
+
 make_answer_packet(#diameter_packet{header = Hdr,
                                     msg = Msg,
                                     errors = Es,
                                     transport_data = TD},
                    #diameter_packet{header = Hdr0,
-                                    errors = Es0}) ->
+                                    errors = Es0},
+                   MsgDict,
+                   Dict0) ->
     #diameter_packet{header = make_answer_header(Hdr0, Hdr),
-                     msg = Msg,
-                     errors = case Es0 of
-                                  [_|_] when [] == Es -> Es0;
-                                  _                   -> Es
-                              end,
+                     msg = reset(Msg, Es0, Es, MsgDict, Dict0),
                      transport_data = TD};
 
 %% Binaries and header/avp lists are sent as-is.
-make_answer_packet(Bin, #diameter_packet{transport_data = TD})
+make_answer_packet(Bin, #diameter_packet{transport_data = TD}, _, _)
   when is_binary(Bin) ->
     #diameter_packet{bin = Bin,
                      transport_data = TD};
 make_answer_packet([#diameter_header{} | _] = Msg,
-                   #diameter_packet{transport_data = TD}) ->
+                   #diameter_packet{transport_data = TD},
+                   _,
+                   _) ->
     #diameter_packet{msg = Msg,
                      transport_data = TD};
 
-%% Otherwise, only reset the header.
-make_answer_packet(Msg, #diameter_packet{header = Hdr,
-                                         errors = Es,
-                                         transport_data = TD}) ->
+make_answer_packet(Msg,
+                   #diameter_packet{header = Hdr,
+                                    errors = Es,
+                                    transport_data = TD},
+                   MsgDict,
+                   Dict0) ->
     #diameter_packet{header = make_answer_header(Hdr, undefined),
-                     msg = Msg,
-                     errors = Es,
+                     msg = reset(Msg, [], Es, MsgDict, Dict0),
                      transport_data = TD}.
 
 %% make_answer_header/2
@@ -832,6 +801,35 @@ make_answer_header(ReqHdr, Hdr) ->
                                   is_retransmitted = false},
     fold_record(Hdr0, Hdr).
 
+%% reset/5
+
+reset(Msg, [_|_] = Es0, [] = Es, MsgDict, Dict0) ->
+    reset(Msg, Es, Es0, MsgDict, Dict0);
+
+reset(Msg, _, Es, _, _)
+  when Es == false;
+       Es == [] ->
+    Msg;
+
+reset(Msg, _, Es, MsgDict, Dict0) ->
+    E = is_answer_message(Msg, Dict0),
+    reset(Msg, select_error(E, Es, Dict0), choose(E, Dict0, MsgDict)).
+
+%% reset/4
+%%
+%% Set Result-Code and/or Failed-AVP (maybe).
+
+reset(Msg, [], _) ->
+    Msg;
+
+reset(Msg, [{RC, Avp}], Dict) ->
+    set(Msg, rc(Msg, RC, Dict) ++ failed_avp(Msg, [Avp], Dict), Dict);
+
+reset(Msg, [RC], Dict) ->
+    set(Msg, rc(Msg, RC, Dict), Dict).
+
+%% set/3
+
 %% Reply as name and tuple list ...
 set([_|_] = Ans, Avps, _) ->
     Ans ++ Avps;  %% Values nearer tail take precedence.
@@ -844,11 +842,7 @@ set(Rec, Avps, Dict) ->
 %%
 %% Turn the result code into a list if its optional and only set it if
 %% the arity is 1 or {0,1}. In other cases (which probably shouldn't
-%% exist in practise) we can't know what's appropriate.
-
-rc(_, B, _)
-  when is_boolean(B) ->
-    [];
+%% exist in practice) we can't know what's appropriate.
 
 rc([MsgName | _], RC, Dict) ->
     K = 'Result-Code',
@@ -863,11 +857,8 @@ rc(Rec, RC, Dict) ->
 
 %% failed_avp/3
 
-failed_avp(_, [] = No, _) ->
-    No;
-
-failed_avp(Rec, Avps, Dict) ->
-    [failed(Rec, [{'AVP', Avps}], Dict)].
+failed_avp(Msg, [_|_] = Avps, Dict) ->
+    [failed(Msg, [{'AVP', Avps}], Dict)].
 
 %% Reply as name and tuple list ...
 failed([MsgName | Values], FailedAvp, Dict) ->
