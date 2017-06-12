@@ -718,8 +718,10 @@ core_passes() ->
      | kernel_passes()].
 
 kernel_passes() ->
-    %% Destructive setelement/3 optimization and core lint.
-    [{pass,sys_core_dsetel},
+    %% Optimizations that must be done after all other optimizations.
+    [{pass,sys_core_bsm},
+     {iff,dcbsm,{listing,"core_bsm"}},
+     {pass,sys_core_dsetel},
      {iff,dsetel,{listing,"dsetel"}},
 
      {iff,clint,?pass(core_lint_module)},
@@ -1919,6 +1921,7 @@ pre_load() ->
 	 erl_lint,
 	 erl_parse,
 	 erl_scan,
+	 sys_core_bsm,
 	 sys_core_dsetel,
 	 sys_core_fold,
 	 v3_codegen,
