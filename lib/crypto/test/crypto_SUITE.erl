@@ -809,8 +809,15 @@ do_generate({ecdh = Type, Curve, Priv, Pub}) ->
 	    ct:fail({{crypto, generate_key, [Type, Priv, Curve]}, {expected, Pub}, {got, Other}})
     end;
 do_generate({rsa = Type, Mod, Exp}) ->
-    {Pub,Priv} = crypto:generate_key(Type, {Mod,Exp}),
-    do_sign_verify({rsa, sha256, Pub, Priv, rsa_plain()}).
+    case crypto:info_fips() of
+        enabled when Mod < 3072 ->
+            ct:log("SKIP do_generate ~p FIPS=~p, Mod=~p  Exp=~p", [Type, enabled, Mod, Exp]),
+            {skip, "FIPS violation"};
+        FIPS ->
+            ct:log("do_generate ~p FIPS=~p, Mod=~p  Exp=~p", [Type, FIPS, Mod, Exp]),
+            {Pub,Priv} = crypto:generate_key(Type, {Mod,Exp}),
+            do_sign_verify({rsa, sha256, Pub, Priv, rsa_plain()})
+    end.
 
 notsup(Fun, Args) ->
     Result =
@@ -1159,7 +1166,7 @@ group_config(rsa = Type, Config) ->
                   rsa_oaep(),
                   no_padding()
                  ],
-    Generate = [{rsa, 2048, 17}, {rsa, 3072, 65537}],
+    Generate = [{rsa, 1024, 3},  {rsa, 2048, 17},  {rsa, 3072, 65537}],
     [{sign_verify, SignVerify}, {pub_priv_encrypt, PubPrivEnc}, {generate, Generate} | Config];
 group_config(dss = Type, Config) ->
     Msg = dss_plain(),
