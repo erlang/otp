@@ -163,15 +163,14 @@
 
 -record(group,
         {transport,
+         strings,
          client_service,
          client_encoding,
          client_dict0,
-         client_strings,
          client_sender,
          server_service,
          server_encoding,
          server_container,
-         server_strings,
          server_sender,
          server_throttle}).
 
@@ -262,29 +261,27 @@ all() ->
 groups() ->
     [{P, [P], Ts} || Ts <- [tc(tc())], P <- [shuffle, parallel]]
         ++
-        [{?util:name([T,R,D,A,C,SD,SS,ST,CD,CS]),
+        [{?util:name([T,R,D,A,C,S,SS,ST,CS]),
           [],
-          [{group, if SD orelse CD -> shuffle; true -> parallel end}]}
+          [{group, if S -> shuffle; not S -> parallel end}]}
          || T <- ?TRANSPORTS,
             R <- ?ENCODINGS,
             D <- ?RFCS,
             A <- ?ENCODINGS,
             C <- ?CONTAINERS,
-            SD <- ?STRING_DECODES,
+            S <- ?STRING_DECODES,
             SS <- ?SENDERS,
             ST <- ?CALLBACKS,
-            CD <- ?STRING_DECODES,
             CS <- ?SENDERS]
         ++
-        [{T, [], groups([[T,R,D,A,C,SD,SS,ST,CD,CS]
+        [{T, [], groups([[T,R,D,A,C,S,SS,ST,CS]
                          || R <- ?ENCODINGS,
                             D <- ?RFCS,
                             A <- ?ENCODINGS,
                             C <- ?CONTAINERS,
-                            SD <- ?STRING_DECODES,
+                            S <- ?STRING_DECODES,
                             SS <- ?SENDERS,
                             ST <- ?CALLBACKS,
-                            CD <- ?STRING_DECODES,
                             CS <- ?SENDERS,
                             SS orelse CS])}  %% avoid deadlock
          || T <- ?TRANSPORTS]
@@ -292,7 +289,7 @@ groups() ->
         [{traffic, [], [{group, T} || T <- ?TRANSPORTS]}].
 
 %groups(_) ->  %% debug
-%    Name = [sctp,record,rfc6733,record,pkt,false,false,false,false,false],
+%    Name = [sctp,record,rfc6733,record,pkt,false,false,false,false],
 %    [{group, ?util:name(Name)}];
 groups(Names) ->
     [{group, ?util:name(L)} || L <- Names].
@@ -328,17 +325,16 @@ init_per_group(sctp = Name, Config) ->
 
 init_per_group(Name, Config) ->
     case ?util:name(Name) of
-        [T,R,D,A,C,SD,SS,ST,CD,CS] ->
+        [T,R,D,A,C,S,SS,ST,CS] ->
             G = #group{transport = T,
+                       strings = S,
                        client_service = [$C|?util:unique_string()],
                        client_encoding = R,
                        client_dict0 = dict0(D),
-                       client_strings = CD,
                        client_sender = CS,
                        server_service = [$S|?util:unique_string()],
                        server_encoding = A,
                        server_container = C,
-                       server_strings = SD,
                        server_sender = SS,
                        server_throttle = ST},
             %% Limit the number of testcase, since the number of
@@ -446,14 +442,13 @@ start(_Config) ->
     ok = diameter:start().
 
 start_services(Config) ->
-    #group{client_service = CN,
-           client_strings = CD,
-           server_service = SN,
-           server_strings = SD}
+    #group{strings = S,
+           client_service = CN,
+           server_service = SN}
         = group(Config),
-    ok = diameter:start_service(SN, ?SERVICE(SN, SD)),
+    ok = diameter:start_service(SN, ?SERVICE(SN, S)),
     ok = diameter:start_service(CN, [{sequence, ?CLIENT_MASK}
-                                     | ?SERVICE(CN, CD)]).
+                                     | ?SERVICE(CN, S)]).
 
 add_transports(Config) ->
     #group{transport = T,
@@ -951,7 +946,7 @@ group(Config) ->
     #group{} = proplists:get_value(group, Config).
 
 string(V, Config) ->
-    #group{client_strings = B} = group(Config),
+    #group{strings = B} = group(Config),
     decode(V,B).
 
 decode(S, true)
