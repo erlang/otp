@@ -233,17 +233,13 @@ close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_, _, _}
     Transport:close(ListenSocket).
 
 %%--------------------------------------------------------------------
--spec  close(#sslsocket{}, timeout() | {pid(), integer()}) -> term().
+-spec  close(#sslsocket{}, timeout() | {pid(), timeout()}) -> term().
 %%
 %% Description: Close an ssl connection
 %%--------------------------------------------------------------------
-close(#sslsocket{pid = TLSPid},
-      {Pid, Timeout} = DownGrade) when is_pid(TLSPid),
-				       is_pid(Pid),
-				       (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
+close(#sslsocket{pid = TLSPid}, {Pid, _Timeout} = DownGrade) when is_pid(TLSPid), is_pid(Pid) ->
     ssl_connection:close(TLSPid, {close, DownGrade});
-close(#sslsocket{pid = TLSPid}, Timeout) when is_pid(TLSPid),
-					      (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
+close(#sslsocket{pid = TLSPid}, Timeout) when is_pid(TLSPid) ->
     ssl_connection:close(TLSPid, {close, Timeout});
 close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_, _, _}}}}, _) ->
     Transport:close(ListenSocket).
@@ -270,8 +266,7 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport, _, _, _}
 %%--------------------------------------------------------------------
 recv(Socket, Length) ->
     recv(Socket, Length, infinity).
-recv(#sslsocket{pid = Pid}, Length, Timeout) when is_pid(Pid),
-						  (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
+recv(#sslsocket{pid = Pid}, Length, Timeout) when is_pid(Pid) ->
     ssl_connection:recv(Pid, Length, Timeout);
 recv(#sslsocket{pid = {udp,_}}, _, _) ->
     {error,enotconn};

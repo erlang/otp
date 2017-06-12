@@ -856,7 +856,8 @@ handle_call({close, {Pid, Timeout}}, From, StateName, State0, Connection) when i
     %% When downgrading an TLS connection to a transport connection
     %% we must recive the close alert from the peer before releasing the 
     %% transport socket.
-    {next_state, downgrade, State#state{terminated = true}, [{timeout, Timeout, downgrade}]};
+    Alert =  ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
+    {next_state, downgrade, State#state{terminated = true}, [{next_event, internal, Alert}]};
 handle_call({close, _} = Close, From, StateName, State, Connection) ->
     %% Run terminate before returning so that the reuseaddr
     %% inet-option works properly
@@ -1029,7 +1030,7 @@ terminate(Reason, connection, #state{negotiated_version = Version,
 				     connection_states = ConnectionStates0, 
 				     ssl_options = #ssl_options{padding_check = Check},
 				     transport_cb = Transport, socket = Socket
-				    } = State) ->
+				    } = State) when Reason =/= downgrade ->
     handle_trusted_certs_db(State),
     {BinAlert, ConnectionStates} = terminate_alert(Reason, Version, ConnectionStates0, Connection),
     Connection:send(Transport, Socket, BinAlert),
@@ -2008,7 +2009,8 @@ hibernate_after(connection = StateName,
 hibernate_after(StateName, State, Actions) ->
     {next_state, StateName, State, Actions}.
  
-terminate_alert(normal, Version, ConnectionStates, Connection)  ->
+terminate_alert(Reason, Version, ConnectionStates, Connection) when Reason == normal;
+									 Reason == downgrade ->
     Connection:encode_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
 		     Version, ConnectionStates);
 terminate_alert({Reason, _}, Version, ConnectionStates, Connection) when Reason == close;
