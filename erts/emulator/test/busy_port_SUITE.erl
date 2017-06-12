@@ -135,7 +135,7 @@ message_order(Config) when is_list(Config) ->
     ok.
 
 send_to_busy_1(Parent) ->
-    {Owner, Slave} = get_slave(),
+    {_Owner, Slave} = get_slave(),
     (catch port_command(Slave, "set_me_busy")),
     (catch port_command(Slave, "hello")),
     (catch port_command(Slave, "hello again")),
@@ -344,7 +344,7 @@ multiple_writers(Config) when is_list(Config) ->
     ok.
 
 quick_writer() ->
-    {Owner, Port} = get_slave(),
+    {_Owner, Port} = get_slave(),
     (catch port_command(Port, "port to busy")),
     (catch port_command(Port, "lock me")),
     ok.
