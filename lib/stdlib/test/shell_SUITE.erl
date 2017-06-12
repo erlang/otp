@@ -376,6 +376,9 @@ records(Config) when is_list(Config) ->
     [[state]] = scan(RR4),
 
     Test = filename:join(proplists:get_value(priv_dir, Config), "test.erl"),
+    BeamDir = filename:join(proplists:get_value(priv_dir, Config), "beam"),
+    BeamFile = filename:join(BeamDir, "test"),
+    ok = file:make_dir(BeamDir),
     Contents = <<"-module(test).
                   -record(state, {bin :: binary(),
                                   reply = no,
@@ -387,8 +390,10 @@ records(Config) when is_list(Config) ->
 
                   -ifdef(test2).
                   -record(test2, {g}).
-                  -endif.">>,
+                  -endif.
+                 ">>,
     ok = file:write_file(Test, Contents),
+    {ok, test} = compile:file(Test, [{outdir, BeamDir}]),
 
     RR5 = "rr(\"" ++ Test ++ "\", '_', {d,test1}), rl([test1,test2]).",
     A1 = erl_anno:new(1),
@@ -404,7 +409,11 @@ records(Config) when is_list(Config) ->
     Dir = filename:join(proplists:get_value(priv_dir, Config), "*.erl"),
     RR8 = "rp(rr(\"" ++ Dir ++ "\")).",
     [_,ok] = scan(RR8),
+
+    {module, test} = code:load_abs(BeamFile),
+    [[state]] = scan(<<"rr(test).">>),
     file:delete(Test),
+    file:delete(BeamFile++".beam"),
 
     RR1000 = "begin rr(" ++ MS ++ ") end.",
     [_] = scan(RR1000),
