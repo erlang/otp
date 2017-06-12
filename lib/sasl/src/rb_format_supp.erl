@@ -94,13 +94,15 @@ print(Date, Report, Device) ->
 					       [{header, Header}]),
 		    io:format(Device, Format, Args);
 		{Type, _GL, TypeReport} ->
-		    io:format(Device, "~nInfo type <~w> ~s~n",
+                    Modifier = misc_supp:modifier(Device),
+		    io:format(Device, "~nInfo type <~"++Modifier++"w> ~s~n",
 			      [Type, Date]),
-		    io:format(Device, "~p", [TypeReport]);
+		    io:format(Device, "~"++Modifier++"p", [TypeReport]);
 		_ -> 
+                    Modifier = misc_supp:modifier(Device),
 		    io:format("~nPrinting info of unknown type... ~s~n",
 			      [Date]),
-		    io:format(Device, "~p", [Report])
+		    io:format(Device, "~"++Modifier++"p", [Report])
 %	    end
     end.
 
