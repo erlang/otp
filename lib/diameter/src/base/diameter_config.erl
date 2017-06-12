@@ -610,6 +610,9 @@ opt({watchdog_timer, Tmo}) ->
 opt({watchdog_config, L}) ->
     is_list(L) andalso lists:all(fun wdopt/1, L);
 
+opt({spawn_opt, {M,F,A}})
+  when is_atom(M), is_atom(F), is_list(A) ->
+    true;
 opt({spawn_opt = K, Opts}) ->
     if is_list(Opts) ->
             {value, {K, spawn_opts(Opts)}};
@@ -738,6 +741,10 @@ make_opts(Opts, Defs) ->
 opt(incoming_maxlen, N)
   when 0 =< N, N < 1 bsl 24 ->
     N;
+
+opt(spawn_opt, {M,F,A} = T)
+  when is_atom(M), is_atom(F), is_list(A) ->
+    T;
 
 opt(spawn_opt, L)
   when is_list(L) ->

@@ -212,8 +212,9 @@ incr_rc(Dir, Pkt, TPid, Dict0) ->
 %% ---------------------------------------------------------------------------
 
 -spec receive_message(pid(), Route, #diameter_packet{}, module(), RecvData)
-   -> pid()
-    | boolean()
+   -> pid()     %% request handler
+    | boolean() %% answer, known request or not
+    | discard   %% request discarded by MFA
  when Route :: {Handler, RequestRef, Seqs}
              | Ack,
       RecvData :: {[SpawnOpt], #recvdata{}},
@@ -230,9 +231,10 @@ receive_message(TPid, Route, Pkt, Dict0, RecvData) ->
 %% recv/6
 
 %% Incoming request ...
-recv(true, Ack, TPid, Pkt, Dict0, RecvData)
+recv(true, Ack, TPid, Pkt, Dict0, T)
   when is_boolean(Ack) ->
-    spawn_request(Ack, TPid, Pkt, Dict0, RecvData);
+    {Opts, RecvData} = T,
+    spawn_request(Ack, TPid, Pkt, Dict0, RecvData, Opts);
 
 %% ... answer to known request ...
 recv(false, {Pid, Ref, TPid}, _, Pkt, Dict0, _) ->
@@ -254,17 +256,45 @@ recv(false, false, TPid, Pkt, _, _) ->
     incr(TPid, {{unknown, 0}, recv, discarded}),
     false.
 
-%% spawn_request/5
+%% spawn_request/6
 
-spawn_request(Ack, TPid, Pkt, Dict0, {Opts, RecvData}) ->
+%% An MFA should return a pid() or the atom 'discard'. The latter
+%% results in an acknowledgment back to the transport process when
+%% appropriate, to ensure that send/recv callbacks can count
+%% outstanding requests. Acknowledgement is implicit if the
+%% handler process dies (in a handle_request callback for example).
+spawn_request(Ack, TPid, Pkt, Dict0, RecvData, {M,F,A}) ->
+    ReqF = fun() ->
+                   ack(Ack, TPid, recv_request(Ack, TPid, Pkt, Dict0, RecvData))
+           end,
+    ack(Ack, TPid, apply(M, F, [ReqF | A]));
+
+%% A spawned process acks implicitly when it dies, so there's no need
+%% to handle 'discard'.
+spawn_request(Ack, TPid, Pkt, Dict0, RecvData, Opts) ->
     spawn_opt(fun() ->
                       recv_request(Ack, TPid, Pkt, Dict0, RecvData)
               end,
               Opts).
 
+%% ack/3
+
+ack(Ack, TPid, RC) ->
+    RC == discard andalso Ack andalso (TPid ! {send, false}),
+    RC.
+
 %% ---------------------------------------------------------------------------
 %% recv_request/5
 %% ---------------------------------------------------------------------------
+
+-spec recv_request(Ack :: boolean(),
+                   TPid :: pid(),
+                   #diameter_packet{},
+                   Dict0 :: module(),
+                   #recvdata{})
+   -> ok        %% answer was sent
+    | discard   %% or not
+    | false.    %% no transport
 
 recv_request(Ack,
              TPid,

@@ -114,7 +114,7 @@
                       incoming_maxlen := diameter:message_length(),
                       strict_mbit := boolean(),
                       string_decode := boolean(),
-                      spawn_opt := list()}}).
+                      spawn_opt := list() | {module(), atom(), list()}}}).
 
 %% Record representing an RFC 3539 watchdog process implemented by
 %% diameter_watchdog.
