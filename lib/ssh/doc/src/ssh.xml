@@ -320,6 +320,29 @@
 	    attempted.</p>
           </item>
 
+	  <!--tag><c><![CDATA[{send_ext_info, boolean()}]]></c></tag>
+          <item>
+	    <p>Send a list of extensions to the server if the server has asked for it.  See 
+	    <url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-ext-info">Draft-ietf-curdle-ssh-ext-info (work in progress)</url> for details.
+	    </p>
+	    <p>Currently the client do not react on any extensions.
+	    </p>
+	    <p>Default value is <c>true</c>.
+	    </p>
+          </item-->
+
+	  <tag><c><![CDATA[{recv_ext_info, boolean()}]]></c></tag>
+          <item>
+	    <p>Tell the server that the client accepts extension negotiation.  See 
+	    <url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-ext-info">Draft-ietf-curdle-ssh-ext-info (work in progress)</url> for details.
+	    </p>
+	    <p>Currently implemented extension is <c>server-sig-algs</c> which is the list of the server's preferred
+	    user's public key algorithms.
+	    </p>
+	    <p>Default value is <c>true</c>.
+	    </p>
+          </item>
+
 	  <tag><c><![CDATA[{key_cb, key_cb()}]]></c></tag>
 	  <item>
 	    <p>Module implementing the behaviour <seealso
@@ -684,6 +707,27 @@
 	    <p>The value <c>random</c> will cause a random string to be created at each connection attempt.  This is to make it a bit more difficult for a malicious peer to find the ssh software brand and version.
 	    </p>
 	  </item>
+
+	  <tag><c><![CDATA[{send_ext_info, boolean()}]]></c></tag>
+          <item>
+	    <p>Send a list of extensions to the client if the client has asked for it. See 
+	    <url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-ext-info">Draft-ietf-curdle-ssh-ext-info (work in progress)</url> for details.
+	    </p>
+	    <p>Currently implemented extension is sending <c>server-sig-algs</c> which is the list of the server's preferred
+	    user's public key algorithms.
+	    </p>
+	    <p>Default value is <c>true</c>.
+	    </p>
+          </item>
+
+	  <!--tag><c><![CDATA[{recv_ext_info, boolean()}]]></c></tag>
+          <item>
+	    <p>Tell the client that the server accepts extension negotiation.  See 
+	    <url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-ext-info">Draft-ietf-curdle-ssh-ext-info (work in progress)</url> for details.
+	    </p>
+	    <p>Default value is <c>true</c>.
+	    </p>
+          </item-->
 
 	  <tag><c><![CDATA[{key_cb, key_cb()}]]></c></tag>
 	  <item>
