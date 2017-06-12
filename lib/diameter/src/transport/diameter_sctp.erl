@@ -104,7 +104,7 @@
          os = 0   :: uint(),               %% next output stream
          packet = true :: boolean()        %% legacy transport_data?
                         | raw,
-         message_cb   :: false | diameter:evaluable(),
+         message_cb = false :: false | diameter:evaluable(),
          send = false :: pid() | boolean()}).      %% sending process
 
 %% Monitor process state.
