@@ -92,7 +92,6 @@
          send_multiple_filters_2/1,
          send_multiple_filters_3/1,
          send_anything/1,
-         outstanding/1,
          remove_transports/1,
          empty/1,
          stop_services/1,
@@ -256,7 +255,7 @@ suite() ->
     [{timetrap, {seconds, 10}}].
 
 all() ->
-    [start, result_codes, {group, traffic}, outstanding, empty, stop].
+    [start, result_codes, {group, traffic}, empty, stop].
 
 groups() ->
     [{P, [P], Ts} || Ts <- [tc(tc())], P <- [shuffle, parallel]]
@@ -485,11 +484,6 @@ add_transports(Config) ->
 apps(D0) ->
     D = dict0(D0),
     [acct(D), D].
-
-%% Ensure there are no outstanding requests in request table.
-outstanding(_Config) ->
-    [] = [T || T <- ets:tab2list(diameter_request),
-               is_atom(element(1,T))].
 
 remove_transports(Config) ->
     #group{client_service = CN,
