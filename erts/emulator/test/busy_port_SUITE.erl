@@ -20,7 +20,7 @@
 
 -module(busy_port_SUITE).
 
--export([all/0, suite/0, end_per_testcase/2,
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2,
 	 io_to_busy/1, message_order/1, send_3/1, 
 	 system_monitor/1, no_trap_exit/1,
 	 no_trap_exit_unlinked/1, trap_exit/1, multiple_writers/1,
@@ -45,6 +45,11 @@ all() ->
      scheduling_delay_busy,scheduling_delay_busy_nosuspend,
      scheduling_busy_link].
 
+init_per_testcase(_Case, Config) when is_list(Config) ->
+    Killer = spawn(fun() -> killer_loop([]) end),
+    register(killer_process, Killer),
+    Config.
+
 end_per_testcase(_Case, Config) when is_list(Config) ->
     case whereis(busy_drv_server) of
 	undefined ->
@@ -58,7 +63,37 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 		    ok
 	    end
     end,
+    kill_processes(),
     Config.
+
+kill_processes() ->
+    killer_process ! {get_pids,self()},
+    receive
+        {pids_to_kill,Pids} -> ok
+    end,
+    _ = [begin
+             case erlang:is_process_alive(P) of
+                 true ->
+                     io:format("Killing ~p\n", [P]);
+                 false ->
+                     ok
+             end,
+             unlink(P),
+             exit(P, kill)
+         end || P <- Pids],
+    ok.
+
+killer_loop(Pids) ->
+    receive
+        {add_pid,Pid} ->
+            killer_loop([Pid|Pids]);
+        {get_pids,To} ->
+            To ! {pids_to_kill,Pids}
+    end.
+
+kill_me(Pid) ->
+    killer_process ! {add_pid,Pid},
+    Pid.
 
 %% Tests I/O operations to a busy port, to make sure a suspended send
 %% operation is correctly restarted.  This used to crash Beam.
@@ -713,6 +748,7 @@ run_scenario([],Vars) ->
 
 run_command(_M,spawn,{Args,Opts}) ->
     Pid = spawn_opt(fun() -> apply(?MODULE,process_init,Args) end,[link|Opts]),
+    kill_me(Pid),
     pal("spawn(~p): ~p",[Args,Pid]),
     Pid;
 run_command(M,spawn,Args) ->
@@ -808,7 +844,9 @@ fun_spawn(Fun) ->
     fun_spawn(Fun, []).
 
 fun_spawn(Fun, Args) ->
-    spawn_link(erlang, apply, [Fun, Args]).
+    Pid = spawn_link(erlang, apply, [Fun, Args]),
+    kill_me(Pid),
+    Pid.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% These routines provide a port which will become busy when the
