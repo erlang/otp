@@ -523,9 +523,10 @@ getr(Key) ->
 %% Transition monitor state.
 
 %% Outgoing message.
-m(Bin, S)
-  when is_binary(Bin) ->
-    send(Bin, S),
+m(Msg, S)
+  when is_record(Msg, diameter_packet);
+       is_binary(Msg) ->
+    send(Msg, S),
     S;
 
 %% Transport has established a connection. Stop monitoring on the
@@ -632,9 +633,10 @@ transition({diameter, {send, Msg}}, #transport{} = S) ->
     message(send, Msg, S);
 
 %% Monitor has sent an outgoing message.
-transition(Bin, S)
-  when is_binary(Bin) ->
-    message(ack, Bin, S);
+transition(Msg, S)
+  when is_record(Msg, diameter_packet);
+       is_binary(Msg) ->
+    message(ack, Msg, S);
 
 %% Deferred actions from a message_cb.
 transition({actions, Dir, Acts}, S) ->
@@ -856,21 +858,24 @@ connect(Mod, Host, Port, Opts) ->
 
 %% send/2
 
-send(Bin, #monitor{socket = Sock, module = M, transport = TPid, ack = B}) ->
-    send1(M, Sock, Bin),
-    B andalso (TPid ! Bin);
+send(Msg, #monitor{socket = Sock, module = M, transport = TPid, ack = B}) ->
+    send1(M, Sock, Msg),
+    B andalso (TPid ! Msg);
 
-send(Bin, #transport{socket = Sock, module = M, send = false} = S) ->
-    send1(M, Sock, Bin),
-    message(ack, Bin, S);
+send(Msg, #transport{socket = Sock, module = M, send = false} = S) ->
+    send1(M, Sock, Msg),
+    message(ack, Msg, S);
 
 %% Send from the monitor process to avoid deadlock if both the
 %% receiver and the peer were to block in send.
-send(Bin, #transport{send = Pid} = S) ->
-    Pid ! Bin,
+send(Msg, #transport{send = Pid} = S) ->
+    Pid ! Msg,
     S.
 
 %% send1/3
+
+send1(Mod, Sock, #diameter_packet{bin = Bin}) ->
+    send1(Mod, Sock, Bin);
 
 send1(Mod, Sock, Bin) ->
     case send(Mod, Sock, Bin) of
@@ -953,17 +958,20 @@ getstat(M, Sock) ->
 %% request. Ignoring possible extra arguments, calls are of the
 %% following form.
 %%
-%% cb(recv, Bin)          Pass a received message into diameter?
-%% cb(send, Bin)          Send a message?
-%% cb(ack,  Bin)          Acknowledgement of a completed send.
+%% cb(recv, Msg)          Receive a message into diameter?
+%% cb(send, Msg)          Send a message on the socket?
+%% cb(ack,  Msg)          Acknowledgement of a completed send.
 %% cb(ack,  false)        Acknowledgement of a discarded request.
 %%
-%% Callbacks return a list of the following form.
+%% Msg will be binary() in a recv callback, but can be a
+%% diameter_packet record in a send/ack callback if a recv/send
+%% callback returns a record. Callbacks return a list of the following
+%% form.
 %%
-%%   [boolean() | send | recv | binary()]
+%%   [boolean() | send | recv | binary() | #diameter_packet{}]
 %%
 %% The atoms are meaningless by themselves, but say whether subsequent
-%% binaries are to be sent or received. A boolean says whether or not
+%% messages are to be sent or received. A boolean says whether or not
 %% to continue reading on the socket. Messages can be received even
 %% after false is returned if these arrived in the same packet. A
 %% leading recv or send is implicit on the corresponding callbacks. A
@@ -979,11 +987,8 @@ message(send, false = M, S) ->
 message(ack, _, #transport{message_cb = false} = S) ->
     S;
 
-message(Dir, #diameter_packet{bin = Bin}, S) ->
-    message(Dir, Bin, S);
-
-message(Dir, Bin, #transport{message_cb = CB} = S) ->
-    recv(<<>>, actions(cb(CB, Dir, Bin), Dir, S)).
+message(Dir, Msg, #transport{message_cb = CB} = S) ->
+    recv(<<>>, actions(cb(CB, Dir, Msg), Dir, S)).
 
 %% actions/3
 
@@ -999,13 +1004,15 @@ actions([Dir | As], _, S)
        Dir == recv ->
     actions(As, Dir, S);
 
-actions([Bin | As], send = Dir, #transport{} = S)
-  when is_binary(Bin) ->
-    actions(As, Dir, send(Bin, S));
+actions([Msg | As], send = Dir, S)
+  when is_binary(Msg);
+       is_record(Msg, diameter_packet) ->
+    actions(As, Dir, send(Msg, S));
 
-actions([Bin | As], recv = Dir, #transport{parent = Pid} = S)
-  when is_binary(Bin) ->
-    diameter_peer:recv(Pid, Bin),
+actions([Msg | As], recv = Dir, #transport{parent = Pid} = S)
+  when is_binary(Msg);
+       is_record(Msg, diameter_packet) ->
+    diameter_peer:recv(Pid, Msg),
     actions(As, Dir, S);
 
 actions([{defer, Tmo, Acts} | As], Dir, S) ->
@@ -1017,8 +1024,8 @@ actions(CB, _, S) ->
 
 %% cb/3
 
-cb(false, _, Bin) ->
-    [Bin];
+cb(false, _, Msg) ->
+    [Msg];
 
 cb(CB, Dir, Msg) ->
     diameter_lib:eval([CB, Dir, Msg]).
