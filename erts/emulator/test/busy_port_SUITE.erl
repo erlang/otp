@@ -24,14 +24,15 @@
 	 io_to_busy/1, message_order/1, send_3/1, 
 	 system_monitor/1, no_trap_exit/1,
 	 no_trap_exit_unlinked/1, trap_exit/1, multiple_writers/1,
-	 hard_busy_driver/1, soft_busy_driver/1]).
-
--compile(export_all).
+	 hard_busy_driver/1, soft_busy_driver/1,
+         scheduling_delay_busy/1,
+         scheduling_delay_busy_nosuspend/1,
+         scheduling_busy_link/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 %% Internal exports.
--export([init/2]).
+-export([init/2,process_init/2,ack/2,call/2,cast/2]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
