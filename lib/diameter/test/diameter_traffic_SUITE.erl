@@ -457,7 +457,7 @@ add_transports(Config) ->
            server_service = SN,
            server_sender = SS,
            server_throttle = ST}
-        = group(Config), 
+        = group(Config),
     LRef = ?util:listen(SN,
                         [T,
                          {sender, SS},
