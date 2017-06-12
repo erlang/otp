@@ -56,10 +56,8 @@
 -define(RECV(Pat, Ret), receive Pat -> Ret end).
 -define(RECV(Pat), ?RECV(Pat, diameter_lib:now())).
 
-%% Address to open sockets on.
--define(ADDR(Prot), if sctp == Prot -> diameter_util:ip4();
-                       true         -> {127,0,0,1}
-                    end).
+%% Sockets are opened on the loopback address.
+-define(ADDR, {127,0,0,1}).
 
 %% diameter_tcp doesn't use anything but host_ip_address, and that
 %% only is a local address isn't configured as at transport start.
@@ -351,14 +349,13 @@ rand_bytes(N) ->
 %% start_connect/3
 
 start_connect(Prot, PortNr, Ref) ->
-    Addr = ?ADDR(Prot),
-    {ok, TPid, [_]} = start_connect(Prot,
-                                    {connect, Ref},
-                                    ?SVC([]),
-                                    [{raddr, Addr},
-                                     {rport, PortNr},
-                                     {ip, Addr},
-                                     {port, 0}]),
+    {ok, TPid, [?ADDR]} = start_connect(Prot,
+                                        {connect, Ref},
+                                        ?SVC([]),
+                                        [{raddr, ?ADDR},
+                                         {rport, PortNr},
+                                         {ip, ?ADDR},
+                                         {port, 0}]),
     ?RECV(?TMSG({TPid, connected, _})),
     TPid.
 
@@ -371,9 +368,9 @@ start_connect(tcp, T, Svc, Opts) ->
 
 start_accept(Prot, Ref) ->
     {Mod, Opts} = tmod(Prot),
-    {ok, TPid, [_]} = Mod:start({accept, Ref},
-                                ?SVC([?ADDR(Prot)]),
-                                [{port, 0} | Opts]),
+    {ok, TPid, [?ADDR]} = Mod:start({accept, Ref},
+                                    ?SVC([?ADDR]),
+                                    [{port, 0} | Opts]),
     ?RECV(?TMSG({TPid, connected})),
     TPid.
 
@@ -387,20 +384,19 @@ tmod(tcp) ->
 %% gen_connect/2
 
 gen_connect(sctp = P, PortNr) ->
-    Addr = ?ADDR(P),
-    {ok, Sock} = Ok = gen_sctp:open([{ip, Addr}, {port, 0} | ?SCTP_OPTS]),
-    ok = gen_sctp:connect_init(Sock, Addr, PortNr, []),
+    {ok, Sock} = Ok = gen_sctp:open([{ip, ?ADDR}, {port, 0} | ?SCTP_OPTS]),
+    ok = gen_sctp:connect_init(Sock, ?ADDR, PortNr, []),
     Ok = gen_accept(P, Sock);
-gen_connect(tcp = P, PortNr) ->
-    gen_tcp:connect(?ADDR(P), PortNr, ?TCP_OPTS).
+gen_connect(tcp, PortNr) ->
+    gen_tcp:connect(?ADDR, PortNr, ?TCP_OPTS).
 
 %% gen_listen/1
 
-gen_listen(sctp = P) ->
-    {ok, Sock} = gen_sctp:open([{ip, ?ADDR(P)}, {port, 0} | ?SCTP_OPTS]),
+gen_listen(sctp) ->
+    {ok, Sock} = gen_sctp:open([{ip, ?ADDR}, {port, 0} | ?SCTP_OPTS]),
     {gen_sctp:listen(Sock, true), Sock};
-gen_listen(tcp = P) ->
-    gen_tcp:listen(0, [{ip, ?ADDR(P)} | ?TCP_OPTS]).
+gen_listen(tcp) ->
+    gen_tcp:listen(0, [{ip, ?ADDR} | ?TCP_OPTS]).
 
 %% gen_accept/2
 

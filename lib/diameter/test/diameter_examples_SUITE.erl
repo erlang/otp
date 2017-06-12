@@ -70,8 +70,6 @@
 %% Transport protocols over which the example Diameter nodes are run.
 -define(PROTS, [tcp, sctp]).
 
--define(ADDR, diameter_util:ip4()).
-
 %% ===========================================================================
 
 suite() ->
@@ -348,7 +346,7 @@ top(Dir, LibDir) ->
 start({server, Prot}) ->
     ok = diameter:start(),
     ok = server:start(),
-    {ok, Ref} = server:listen({Prot, ?ADDR, 3868}),
+    {ok, Ref} = server:listen(Prot),
     [_] = ?util:lport(Prot, Ref),
     ok;
 
@@ -356,7 +354,7 @@ start({client = Svc, Prot}) ->
     ok = diameter:start(),
     true = diameter:subscribe(Svc),
     ok = client:start(),
-    {ok, Ref} = client:connect({Prot, ?ADDR, ?ADDR, 3868}),
+    {ok, Ref} = client:connect(Prot),
     receive #diameter_event{info = {up, Ref, _, _, _}} -> ok end;
 
 start(Config) ->
