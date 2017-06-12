@@ -79,30 +79,31 @@ socket(Pid, Transport, Socket, ConnectionCb) ->
     #sslsocket{pid = Pid, 
 	       %% "The name "fd" is keept for backwards compatibility
 	       fd = {Transport, Socket, ConnectionCb}}.
-%% Vad göra med emulerade
-setopts(gen_udp, #sslsocket{pid = {Socket, _}}, Options) ->
-    {SockOpts, _} = tls_socket:split_options(Options),
-    inet:setopts(Socket, SockOpts);
-setopts(_, #sslsocket{pid = {ListenSocket, #config{transport_info = {Transport,_,_,_}}}}, Options) ->
-    {SockOpts, _} = tls_socket:split_options(Options),
-    Transport:setopts(ListenSocket, SockOpts);
+setopts(_, #sslsocket{pid = {udp, #config{udp_handler = {ListenPid, _}}}}, Options) ->
+    SplitOpts = tls_socket:split_options(Options),
+    dtls_udp_listener:set_sock_opts(ListenPid, SplitOpts);
 %%% Following clauses will not be called for emulated options, they are  handled in the connection process
 setopts(gen_udp, Socket, Options) ->
     inet:setopts(Socket, Options);
 setopts(Transport, Socket, Options) ->
     Transport:setopts(Socket, Options).
 
+getopts(_, #sslsocket{pid = {udp, #config{udp_handler = {ListenPid, _}}}}, Options) ->
+    SplitOpts = tls_socket:split_options(Options),
+    dtls_udp_listener:get_sock_opts(ListenPid, SplitOpts);
 getopts(gen_udp,  #sslsocket{pid = {Socket, #config{emulated = EmOpts}}}, Options) ->
     {SockOptNames, EmulatedOptNames} = tls_socket:split_options(Options),
     EmulatedOpts = get_emulated_opts(EmOpts, EmulatedOptNames),
     SocketOpts = tls_socket:get_socket_opts(Socket, SockOptNames, inet),
     {ok, EmulatedOpts ++ SocketOpts}; 
-getopts(Transport,  #sslsocket{pid = {ListenSocket, #config{emulated = EmOpts}}}, Options) ->
+getopts(_Transport,  #sslsocket{pid = {Socket, #config{emulated = EmOpts}}}, Options) ->
     {SockOptNames, EmulatedOptNames} = tls_socket:split_options(Options),
     EmulatedOpts = get_emulated_opts(EmOpts, EmulatedOptNames),
-    SocketOpts = tls_socket:get_socket_opts(ListenSocket, SockOptNames, Transport),
+    SocketOpts = tls_socket:get_socket_opts(Socket, SockOptNames, inet),
     {ok, EmulatedOpts ++ SocketOpts}; 
 %%% Following clauses will not be called for emulated options, they are  handled in the connection process
+getopts(gen_udp, {_,{{_, _},Socket}}, Options) ->
+    inet:getopts(Socket, Options);
 getopts(gen_udp, {_,Socket}, Options) ->
     inet:getopts(Socket, Options);
 getopts(Transport, Socket, Options) ->

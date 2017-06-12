@@ -119,7 +119,6 @@ options_tests() ->
     [der_input,
      ssl_options_not_proplist,
      raw_ssl_option,
-     socket_options,
      invalid_inet_get_option,
      invalid_inet_get_option_not_list,
      invalid_inet_get_option_improper_list,
@@ -163,7 +162,8 @@ api_tests() ->
      ssl_recv_timeout,
      server_name_indication_option,
      accept_pool,
-     prf
+     prf,
+     socket_options
     ].
 
 api_tests_tls() ->
@@ -178,6 +178,7 @@ api_tests_tls() ->
      tls_shutdown_error,
      peername,
      sockname,
+     tls_socket_options,
      new_options_in_accept
     ].
 
@@ -1286,10 +1287,10 @@ cipher_suites_mix(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 %%--------------------------------------------------------------------
-socket_options() ->
+tls_socket_options() ->
     [{doc,"Test API function getopts/2 and setopts/2"}].
 
-socket_options(Config) when is_list(Config) -> 
+tls_socket_options(Config) when is_list(Config) -> 
     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -1297,6 +1298,60 @@ socket_options(Config) when is_list(Config) ->
 		      {active, true}],    
     %% Shall be the reverse order of Values! 
     Options = [active, header, packet, mode],
+    
+    NewValues = [{mode, binary}, {active, once}],
+    %% Shall be the reverse order of NewValues! 
+    NewOptions = [active, mode],
+    
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+			   {mfa, {?MODULE, tls_socket_options_result, 
+				  [Options, Values, NewOptions, NewValues]}},
+			   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+			   {from, self()}, 
+			   {mfa, {?MODULE, tls_socket_options_result, 
+				  [Options, Values, NewOptions, NewValues]}},
+			   {options, ClientOpts}]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    
+    {ok, Listen} = ssl:listen(0, ServerOpts),
+    {ok,[{mode,list}]} = ssl:getopts(Listen, [mode]),
+    ok = ssl:setopts(Listen, [{mode, binary}]),
+    {ok,[{mode, binary}]} = ssl:getopts(Listen, [mode]),
+    {ok,[{recbuf, _}]} = ssl:getopts(Listen, [recbuf]),
+    ssl:close(Listen).
+
+tls_socket_options_result(Socket, Options, DefaultValues, NewOptions, NewValues) ->
+    %% Test get/set emulated opts
+    {ok, DefaultValues} = ssl:getopts(Socket, Options), 
+    ssl:setopts(Socket, NewValues),
+    {ok, NewValues} = ssl:getopts(Socket, NewOptions),
+    %% Test get/set inet opts
+    {ok,[{nodelay,false}]} = ssl:getopts(Socket, [nodelay]),  
+    ssl:setopts(Socket, [{nodelay, true}]),
+    {ok,[{nodelay, true}]} = ssl:getopts(Socket, [nodelay]),
+    {ok, All} = ssl:getopts(Socket, []),
+    ct:log("All opts ~p~n", [All]),
+    ok.
+
+
+%%--------------------------------------------------------------------
+socket_options() ->
+    [{doc,"Test API function getopts/2 and setopts/2"}].
+
+socket_options(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Values = [{mode, list}, {active, true}],    
+    %% Shall be the reverse order of Values! 
+    Options = [active, mode],
     
     NewValues = [{mode, binary}, {active, once}],
     %% Shall be the reverse order of NewValues! 
@@ -1326,15 +1381,14 @@ socket_options(Config) when is_list(Config) ->
     {ok,[{recbuf, _}]} = ssl:getopts(Listen, [recbuf]),
     ssl:close(Listen).
 
+
 socket_options_result(Socket, Options, DefaultValues, NewOptions, NewValues) ->
     %% Test get/set emulated opts
     {ok, DefaultValues} = ssl:getopts(Socket, Options), 
     ssl:setopts(Socket, NewValues),
     {ok, NewValues} = ssl:getopts(Socket, NewOptions),
     %% Test get/set inet opts
-    {ok,[{nodelay,false}]} = ssl:getopts(Socket, [nodelay]),  
-    ssl:setopts(Socket, [{nodelay, true}]),
-    {ok,[{nodelay, true}]} = ssl:getopts(Socket, [nodelay]),
+    {ok,[{reuseaddr, _}]} = ssl:getopts(Socket, [reuseaddr]),  
     {ok, All} = ssl:getopts(Socket, []),
     ct:log("All opts ~p~n", [All]),
     ok.

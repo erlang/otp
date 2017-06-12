@@ -23,9 +23,11 @@
 
 -behaviour(gen_server).
 
+-include("ssl_internal.hrl").
+
 %% API
 -export([start_link/4, active_once/3, accept/2, sockname/1, close/1,
-        get_all_opts/1]).
+        get_all_opts/1, get_sock_opts/2, set_sock_opts/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -61,8 +63,12 @@ sockname(UDPConnection) ->
     call(UDPConnection, sockname).
 close(UDPConnection) ->
     call(UDPConnection, close).
+get_sock_opts(UDPConnection, SplitSockOpts) ->
+    call(UDPConnection,  {get_sock_opts, SplitSockOpts}).
 get_all_opts(UDPConnection) ->
     call(UDPConnection, get_all_opts).
+set_sock_opts(UDPConnection, Opts) ->
+     call(UDPConnection, {set_sock_opts, Opts}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -108,9 +114,21 @@ handle_call(close, _, #state{dtls_processes = Processes,
                           end, queue:to_list(Accepters)),
             {reply, ok,  State#state{close = true, accepters = queue:new()}}
     end;
+handle_call({get_sock_opts, {SocketOptNames, EmOptNames}}, _, #state{listner = Socket,
+                                                               emulated_options = EmOpts} = State) ->
+    case get_socket_opts(Socket, SocketOptNames) of
+        {ok, Opts} ->
+            {reply, {ok, emulated_opts_list(EmOpts, EmOptNames, []) ++ Opts}, State};
+        {error, Reason} ->
+            {reply,  {error, Reason}, State}
+    end;
 handle_call(get_all_opts, _, #state{dtls_options = DTLSOptions,
                                     emulated_options = EmOpts} = State) ->
-    {reply, {ok, EmOpts, DTLSOptions}, State}.
+    {reply, {ok, EmOpts, DTLSOptions}, State};
+handle_call({set_sock_opts, {SocketOpts, NewEmOpts}}, _, #state{listner = Socket, emulated_options = EmOpts0} = State) ->
+    set_socket_opts(Socket, SocketOpts),
+    EmOpts = do_set_emulated_opts(NewEmOpts, EmOpts0),
+    {reply, ok, State#state{emulated_options = EmOpts}}.
 
 handle_cast({active_once, Client, Pid}, State0) ->
     State = handle_active_once(Client, Pid, State0),
@@ -259,3 +277,28 @@ call(Server, Msg) ->
         exit:{{shutdown, _},_} ->
             {error, closed}
     end.
+
+set_socket_opts(_, []) ->
+    ok;
+set_socket_opts(Socket, SocketOpts) ->
+    inet:setopts(Socket, SocketOpts).
+
+get_socket_opts(_, []) ->
+     {ok, []};
+get_socket_opts(Socket, SocketOpts) ->
+    inet:getopts(Socket, SocketOpts).
+
+do_set_emulated_opts([], Opts) ->
+    Opts;
+do_set_emulated_opts([{mode, Value} | Rest], Opts) ->
+    do_set_emulated_opts(Rest,  Opts#socket_options{mode = Value}); 
+do_set_emulated_opts([{active, Value} | Rest], Opts) ->
+    do_set_emulated_opts(Rest,  Opts#socket_options{active = Value}).
+
+emulated_opts_list(_,[], Acc) ->
+    Acc;
+emulated_opts_list( Opts, [mode | Rest], Acc) ->
+    emulated_opts_list(Opts, Rest, [{mode, Opts#socket_options.mode} | Acc]); 
+emulated_opts_list(Opts, [active | Rest], Acc) ->
+    emulated_opts_list(Opts, Rest, [{active, Opts#socket_options.active} | Acc]).
+
