@@ -287,7 +287,7 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
                     dict:new(), Files),
       check_for_duplicate_modules(ModDict);
     false ->
-      Msg = io_lib:format("Could not scan the following file(s):~n~s",
+      Msg = io_lib:format("Could not scan the following file(s):~n~ts",
       			  [[Reason || {_Filename, Reason} <- Failed]]),
       exit({error, Msg})
   end,
@@ -683,12 +683,13 @@ dump_callgraph(CallGraph, _State, #analysis{callgraph_file = File}, ".ps") ->
   Args = "-Gratio=compress -Gsize=\"100,100\"",
   dialyzer_callgraph:to_ps(CallGraph, File, Args);
 dump_callgraph(CallGraph, State, #analysis{callgraph_file = File}, _Ext) ->
+  %% TODO: write the graph, not the ETS table identifiers.
   case file:open(File, [write]) of
     {ok, Fd} ->
       io:format(Fd, "~p", [CallGraph]),
       ok = file:close(Fd);
     {error, Reason} ->
-      Msg = io_lib:format("Could not open output file ~p, Reason: ~p\n",
+      Msg = io_lib:format("Could not open output file ~tp, Reason: ~p\n",
 			  [File, Reason]),
       send_log(State#analysis_state.parent, Msg)
   end.

@@ -191,19 +191,19 @@ analyze_loop(State) ->
       {ArgTypes, IsCalled} = state__get_args_and_status(Fun, NewState1),
       case not IsCalled of
 	true ->
-	  ?debug("Not handling (not called) ~w: ~s\n",
+	  ?debug("Not handling (not called) ~w: ~ts\n",
 		 [NewState1#state.curr_fun,
 		  t_to_string(t_product(ArgTypes))]),
 	  analyze_loop(NewState1);
 	false ->
 	  case state__fun_env(Fun, NewState1) of
 	    none ->
-	      ?debug("Not handling (no env) ~w: ~s\n",
+	      ?debug("Not handling (no env) ~w: ~ts\n",
 		     [NewState1#state.curr_fun,
 		      t_to_string(t_product(ArgTypes))]),
 	      analyze_loop(NewState1);
 	    Map ->
-	      ?debug("Handling fun ~p: ~s\n",
+	      ?debug("Handling fun ~p: ~ts\n",
 		     [NewState1#state.curr_fun,
 		      t_to_string(state__fun_type(Fun, NewState1))]),
 	      Vars = cerl:fun_vars(Fun),
@@ -222,7 +222,7 @@ analyze_loop(State) ->
                 end,
 	      {NewState4, _Map2, BodyType} =
 		traverse(Body, Map1, NewState3),
-	      ?debug("Done analyzing: ~w:~s\n",
+	      ?debug("Done analyzing: ~w:~ts\n",
 		     [NewState1#state.curr_fun,
 		      t_to_string(t_fun(ArgTypes, BodyType))]),
               NewState5 =
@@ -232,7 +232,7 @@ analyze_loop(State) ->
                 end,
               NewState6 =
                 state__update_fun_entry(Fun, ArgTypes, BodyType, NewState5),
-              ?debug("done adding stuff for ~w\n",
+              ?debug("done adding stuff for ~tw\n",
                      [state__lookup_name(get_label(Fun), State)]),
               analyze_loop(NewState6)
 	  end
@@ -487,23 +487,23 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
     end,
 
   ?debug("--------------------------------------------------------\n", []),
-  ?debug("Fun: ~p\n", [state__lookup_name(Fun, State)]),
+  ?debug("Fun: ~tp\n", [state__lookup_name(Fun, State)]),
   ?debug("Module ~p\n", [State#state.module]),
-  ?debug("CArgs ~s\n", [erl_types:t_to_string(t_product(CArgs))]),
-  ?debug("ArgTypes ~s\n", [erl_types:t_to_string(t_product(ArgTypes))]),
-  ?debug("BifArgs ~p\n", [erl_types:t_to_string(t_product(BifArgs))]),
+  ?debug("CArgs ~ts\n", [erl_types:t_to_string(t_product(CArgs))]),
+  ?debug("ArgTypes ~ts\n", [erl_types:t_to_string(t_product(ArgTypes))]),
+  ?debug("BifArgs ~tp\n", [erl_types:t_to_string(t_product(BifArgs))]),
 
   NewArgsSig = t_inf_lists(SigArgs, ArgTypes, Opaques),
-  ?debug("SigArgs ~s\n", [erl_types:t_to_string(t_product(SigArgs))]),
-  ?debug("NewArgsSig: ~s\n", [erl_types:t_to_string(t_product(NewArgsSig))]),
+  ?debug("SigArgs ~ts\n", [erl_types:t_to_string(t_product(SigArgs))]),
+  ?debug("NewArgsSig: ~ts\n", [erl_types:t_to_string(t_product(NewArgsSig))]),
   NewArgsContract = t_inf_lists(CArgs, ArgTypes, Opaques),
-  ?debug("NewArgsContract: ~s\n",
+  ?debug("NewArgsContract: ~ts\n",
 	 [erl_types:t_to_string(t_product(NewArgsContract))]),
   NewArgsBif = t_inf_lists(BifArgs, ArgTypes, Opaques),
-  ?debug("NewArgsBif: ~s\n", [erl_types:t_to_string(t_product(NewArgsBif))]),
+  ?debug("NewArgsBif: ~ts\n", [erl_types:t_to_string(t_product(NewArgsBif))]),
   NewArgTypes0 = t_inf_lists(NewArgsSig, NewArgsContract),
   NewArgTypes = t_inf_lists(NewArgTypes0, NewArgsBif, Opaques),
-  ?debug("NewArgTypes ~s\n", [erl_types:t_to_string(t_product(NewArgTypes))]),
+  ?debug("NewArgTypes ~ts\n", [erl_types:t_to_string(t_product(NewArgTypes))]),
   ?debug("\n", []),
 
   BifRet = BifRange(NewArgTypes),
@@ -511,12 +511,12 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
   RetWithoutContr = t_inf(SigRange, BifRet),
   RetWithoutLocal = t_inf(ContrRet, RetWithoutContr),
 
-  ?debug("RetWithoutContr: ~s\n",[erl_types:t_to_string(RetWithoutContr)]),
-  ?debug("RetWithoutLocal: ~s\n", [erl_types:t_to_string(RetWithoutLocal)]),
-  ?debug("BifRet: ~s\n", [erl_types:t_to_string(BifRange(NewArgTypes))]),
-  ?debug("SigRange: ~s\n", [erl_types:t_to_string(SigRange)]),
-  ?debug("ContrRet: ~s\n", [erl_types:t_to_string(ContrRet)]),
-  ?debug("LocalRet: ~s\n", [erl_types:t_to_string(LocalRet)]),
+  ?debug("RetWithoutContr: ~ts\n",[erl_types:t_to_string(RetWithoutContr)]),
+  ?debug("RetWithoutLocal: ~ts\n", [erl_types:t_to_string(RetWithoutLocal)]),
+  ?debug("BifRet: ~ts\n", [erl_types:t_to_string(BifRange(NewArgTypes))]),
+  ?debug("SigRange: ~ts\n", [erl_types:t_to_string(SigRange)]),
+  ?debug("ContrRet: ~ts\n", [erl_types:t_to_string(ContrRet)]),
+  ?debug("LocalRet: ~ts\n", [erl_types:t_to_string(LocalRet)]),
 
   State1 =
     case is_race_analysis_enabled(State) of
@@ -596,7 +596,7 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
       false -> t_inf(RetWithoutLocal, LocalRet)
     end,
   NewAccRet = t_sup(AccRet, TotalRet),
-  ?debug("NewAccRet: ~s\n", [t_to_string(NewAccRet)]),
+  ?debug("NewAccRet: ~ts\n", [t_to_string(NewAccRet)]),
   {NewWarnings, State4} = state__remove_added_warnings(State, State3),
   {HowMany, OldWarnings} = Warns,
   NewWarns =
@@ -1335,7 +1335,7 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
     end,
   case BindRes of
     {error, ErrorType, NewPats, Type, OpaqueTerm} ->
-      ?debug("Failed binding pattern: ~s\nto ~s\n",
+      ?debug("Failed binding pattern: ~ts\nto ~ts\n",
 	     [cerl_prettypr:format(C), format_type(ArgType0, State1)]),
       case state__warning_mode(State1) of
         false ->
@@ -1451,7 +1451,7 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
 	end,
       case bind_guard(Guard, Map3, State1) of
 	{error, Reason} ->
-	  ?debug("Failed guard: ~s\n",
+	  ?debug("Failed guard: ~ts\n",
 		 [cerl_prettypr:format(C, [{hook, cerl_typean:pp_hook()}])]),
 	  PatString = format_patterns(Pats),
 	  DefaultMsg =
@@ -1532,7 +1532,7 @@ bind_pat_vars_reverse(Pats, Types, Acc, Map, State) ->
   end.
 
 bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
-  ?debug("Binding pat: ~w to ~s\n", [cerl:type(Pat), format_type(Type, State)]
+  ?debug("Binding pat: ~tw to ~ts\n", [cerl:type(Pat), format_type(Type, State)]
 ),
   Opaques = State#state.opaques,
   {NewMap, TypeOut} =
@@ -1830,7 +1830,7 @@ bind_guard(Guard, Map, State) ->
   end.
 
 bind_guard(Guard, Map, Env, Eval, State) ->
-  ?debug("Handling ~w guard: ~s\n",
+  ?debug("Handling ~tw guard: ~ts\n",
 	 [Eval, cerl_prettypr:format(Guard, [{noann, true}])]),
   case cerl:type(Guard) of
     binary ->
@@ -2009,7 +2009,7 @@ handle_guard_type_test(Guard, F, Map, Env, Eval, State) ->
       ?debug("Type test: ~w failed\n", [F]),
       signal_guard_fail(Eval, Guard, [ArgType], State);
     {ok, NewArgType, Ret} ->
-      ?debug("Type test: ~w succeeded, NewType: ~s, Ret: ~s\n",
+      ?debug("Type test: ~w succeeded, NewType: ~ts, Ret: ~ts\n",
 	     [F, t_to_string(NewArgType), t_to_string(Ret)]),
       {enter_type(Arg, NewArgType, Map1), Ret}
   end.
@@ -2295,8 +2295,8 @@ handle_guard_eqeq(Guard, Map, Env, Eval, State) ->
 bind_eqeq_guard(Guard, Arg1, Arg2, Map, Env, Eval, State) ->
   {Map1, Type1} = bind_guard(Arg1, Map, Env, dont_know, State),
   {Map2, Type2} = bind_guard(Arg2, Map1, Env, dont_know, State),
-  ?debug("Types are:~s =:= ~s\n", [t_to_string(Type1),
-				   t_to_string(Type2)]),
+  ?debug("Types are:~ts =:= ~ts\n", [t_to_string(Type1),
+                                     t_to_string(Type2)]),
   Opaques = State#state.opaques,
   Inf = t_inf(Type1, Type2, Opaques),
   case t_is_none(Inf) of
@@ -2840,7 +2840,7 @@ enter_type(Key, Val, MS) ->
 	      ?debug("Binding ~p to ~p\n", [KeyLabel, NewKey]),
 	      enter_type(NewKey, Val, MS);
 	    error ->
-	      ?debug("Entering ~p :: ~s\n", [KeyLabel, t_to_string(Val)]),
+	      ?debug("Entering ~p :: ~ts\n", [KeyLabel, t_to_string(Val)]),
 	      case maps:find(KeyLabel, Map) of
 		{ok, Value} ->
                   case erl_types:t_is_equal(Val, Value) of
@@ -2940,7 +2940,7 @@ debug_pp_map(#map{map = Map}=MapRec) ->
   Keys = maps:keys(Map),
   io:format("Map:\n", []),
   lists:foreach(fun (Key) ->
-		    io:format("\t~w :: ~s\n",
+		    io:format("\t~w :: ~ts\n",
 			      [Key, t_to_string(lookup_type(Key, MapRec))])
 		end, Keys),
   ok.
@@ -3095,7 +3095,7 @@ state__add_warning(#state{warnings = Warnings, warning_mode = true} = State,
                      abs(get_line(Ann)),
                      State#state.curr_fun},
       Warn = {Tag, WarningInfo, Msg},
-      ?debug("MSG ~s\n", [dialyzer:format_warning(Warn)]),
+      ?debug("MSG ~ts\n", [dialyzer:format_warning(Warn)]),
       State#state{warnings = [Warn|Warnings]};
     false ->
       case is_compiler_generated(Ann) of
@@ -3107,7 +3107,7 @@ state__add_warning(#state{warnings = Warnings, warning_mode = true} = State,
           Warn = {Tag, WarningInfo, Msg},
           case Tag of
             ?WARN_CONTRACT_RANGE -> ok;
-            _ -> ?debug("MSG ~s\n", [dialyzer:format_warning(Warn)])
+            _ -> ?debug("MSG ~ts\n", [dialyzer:format_warning(Warn)])
           end,
           State#state{warnings = [Warn|Warnings]}
       end
@@ -3351,14 +3351,14 @@ state__update_fun_entry(Tree, ArgTypes, Out0,
   SameOut = t_is_equal(OldOut, Out),
   if
     SameArgs, SameOut ->
-      ?debug("Fixpoint for ~w: ~s\n",
+      ?debug("Fixpoint for ~tw: ~ts\n",
 	     [state__lookup_name(Fun, State),
 	      t_to_string(t_fun(ArgTypes, Out))]),
       State;
     true ->
       %% Can only happen in self-recursive functions.
       NewEntry = {OldArgTypes, Out},
-      ?debug("New Entry for ~w: ~s\n",
+      ?debug("New Entry for ~tw: ~ts\n",
 	     [state__lookup_name(Fun, State),
 	      t_to_string(t_fun(OldArgTypes, Out))]),
       NewFunTab = dict:store(Fun, NewEntry, FunTab),
@@ -3380,7 +3380,7 @@ state__add_work_from_fun(Tree, #state{callgraph = Callgraph,
 		       || MFA <- MFAList],
 	  %% Must filter the result for results in this module.
 	  FilteredList = [L || {ok, L} <- LabelList, dict:is_key(L, TreeMap)],
-	  ?debug("~w: Will try to add:~w\n",
+	  ?debug("~tw: Will try to add:~tw\n",
 		 [state__lookup_name(Label, State), MFAList]),
 	  lists:foldl(fun(L, AccState) ->
 			  state__add_work(L, AccState)
@@ -3427,7 +3427,7 @@ state__fun_info(Fun, #state{callgraph = CG, fun_tab = FunTab, plt = PLT}) ->
       {not_handled, {_Args, Ret}} -> Ret;
       {_Args, Ret} -> Ret
     end,
-  ?debug("LocalRet: ~s\n", [t_to_string(LocalRet)]),
+  ?debug("LocalRet: ~ts\n", [t_to_string(LocalRet)]),
   {Fun, Sig, Contract, LocalRet}.
 
 forward_args(Fun, ArgTypes, #state{work = Work, fun_tab = FunTab} = State) ->
@@ -3445,7 +3445,7 @@ forward_args(Fun, ArgTypes, #state{work = Work, fun_tab = FunTab} = State) ->
       NewArgTypes = [t_sup(X, Y) ||
                       {X, Y} <- lists:zip(ArgTypes, OldArgTypes)],
       NewWork = add_work(Fun, Work),
-      ?debug("~w: forwarding args ~s\n",
+      ?debug("~tw: forwarding args ~ts\n",
 	     [state__lookup_name(Fun, State),
 	      t_to_string(t_product(NewArgTypes))]),
       NewFunTab = dict:store(Fun, {NewArgTypes, OldOut}, FunTab),

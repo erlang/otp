@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -91,12 +91,12 @@ format_error(?ERR_GUARDMATCH) ->
     "fun with guard matching ('=' in guard) is illegal as match_spec as well";
 format_error({?ERR_GUARDLOCALCALL, Name, Arithy}) ->	    
     lists:flatten(io_lib:format("fun containing the local function call "
-				"'~w/~w' (called in guard) "
+				"'~tw/~w' (called in guard) "
 				"cannot be translated into match_spec",
 				[Name, Arithy]));
 format_error({?ERR_GUARDREMOTECALL, Module, Name, Arithy}) ->	    
     lists:flatten(io_lib:format("fun containing the remote function call "
-				"'~w:~w/~w' (called in guard) "
+				"'~w:~tw/~w' (called in guard) "
 				"cannot be translated into match_spec",
 				[Module,Name,Arithy]));
 format_error({?ERR_GUARDELEMENT, Str}) ->
@@ -117,12 +117,12 @@ format_error(?ERR_BODYMATCH) ->
     "fun with body matching ('=' in body) is illegal as match_spec";
 format_error({?ERR_BODYLOCALCALL, Name, Arithy}) ->	    
     lists:flatten(io_lib:format("fun containing the local function "
-				"call '~w/~w' (called in body) "
+				"call '~tw/~w' (called in body) "
 				"cannot be translated into match_spec",
 				[Name,Arithy]));
 format_error({?ERR_BODYREMOTECALL, Module, Name, Arithy}) ->	    
     lists:flatten(io_lib:format("fun containing the remote function call "
-				"'~w:~w/~w' (called in body) "
+				"'~w:~tw/~w' (called in body) "
 				"cannot be translated into match_spec",
 				[Module,Name,Arithy]));
 format_error({?ERR_BODYELEMENT, Str}) ->
@@ -147,15 +147,15 @@ format_error({?ERR_UNBOUND_VARIABLE, Str}) ->
 		    "into match_spec", [Str]));
 format_error({?ERR_HEADBADREC,Name}) ->	    
     lists:flatten(
-      io_lib:format("fun head contains unknown record type ~w",[Name]));
+      io_lib:format("fun head contains unknown record type ~tw",[Name]));
 format_error({?ERR_HEADBADFIELD,RName,FName}) ->	    
     lists:flatten(
-      io_lib:format("fun head contains reference to unknown field ~w in "
-		    "record type ~w",[FName, RName]));
+      io_lib:format("fun head contains reference to unknown field ~tw in "
+		    "record type ~tw",[FName, RName]));
 format_error({?ERR_HEADMULTIFIELD,RName,FName}) ->	    
     lists:flatten(
-      io_lib:format("fun head contains already defined field ~w in "
-		    "record type ~w",[FName, RName]));
+      io_lib:format("fun head contains already defined field ~tw in "
+		    "record type ~tw",[FName, RName]));
 format_error({?ERR_HEADDOLLARATOM,Atom}) ->	    
     lists:flatten(
       io_lib:format("fun head contains atom ~w, which conflics with reserved "
@@ -166,28 +166,28 @@ format_error({?ERR_HEADBINMATCH,Atom}) ->
 		    "which cannot be translated into match_spec", [Atom]));
 format_error({?ERR_GUARDBADREC,Name}) ->	    
     lists:flatten(
-      io_lib:format("fun guard contains unknown record type ~w",[Name]));
+      io_lib:format("fun guard contains unknown record type ~tw",[Name]));
 format_error({?ERR_GUARDBADFIELD,RName,FName}) ->	    
     lists:flatten(
-      io_lib:format("fun guard contains reference to unknown field ~w in "
-		    "record type ~w",[FName, RName]));
+      io_lib:format("fun guard contains reference to unknown field ~tw in "
+		    "record type ~tw",[FName, RName]));
 format_error({?ERR_GUARDMULTIFIELD,RName,FName}) ->	    
     lists:flatten(
-      io_lib:format("fun guard contains already defined field ~w in "
-		    "record type ~w",[FName, RName]));
+      io_lib:format("fun guard contains already defined field ~tw in "
+		    "record type ~tw",[FName, RName]));
 format_error({?ERR_BODYBADREC,Name}) ->	    
     lists:flatten(
-      io_lib:format("fun body contains unknown record type ~w",[Name]));
+      io_lib:format("fun body contains unknown record type ~tw",[Name]));
 format_error({?ERR_BODYBADFIELD,RName,FName}) ->	    
     lists:flatten(
-      io_lib:format("fun body contains reference to unknown field ~w in "
-		    "record type ~w",[FName, RName]));
+      io_lib:format("fun body contains reference to unknown field ~tw in "
+		    "record type ~tw",[FName, RName]));
 format_error({?ERR_BODYMULTIFIELD,RName,FName}) ->	    
     lists:flatten(
-      io_lib:format("fun body contains already defined field ~w in "
-		    "record type ~w",[FName, RName]));
+      io_lib:format("fun body contains already defined field ~tw in "
+		    "record type ~tw",[FName, RName]));
 format_error(Else) ->
-    lists:flatten(io_lib:format("Unknown error code ~w",[Else])).
+    lists:flatten(io_lib:format("Unknown error code ~tw",[Else])).
 
 %%
 %% Called when translating in shell
@@ -723,7 +723,7 @@ tg(T,B) when is_tuple(T), tuple_size(T) >= 2 ->
     throw({error,Line,{?ERR_GENELEMENT+B#tgd.eb,
 		       translate_language_element(Element)}}); 
 tg(Other,B) ->
-    Element = io_lib:format("unknown element ~w", [Other]),
+    Element = io_lib:format("unknown element ~tw", [Other]),
     throw({error,unknown,{?ERR_GENELEMENT+B#tgd.eb,Element}}).
 
 transform_head([V],OuterBound) ->

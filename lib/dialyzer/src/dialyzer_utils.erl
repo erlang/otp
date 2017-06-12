@@ -56,15 +56,15 @@ print_types1([], _) ->
   ok;
 print_types1([{type, _Name, _NArgs} = Key|T], RecDict) ->
   {ok, {{_Mod, _FileLine, _Form, _Args}, Type}} = dict:find(Key, RecDict),
-  io:format("\n~w: ~w\n", [Key, Type]),
+  io:format("\n~tw: ~tw\n", [Key, Type]),
   print_types1(T, RecDict);
 print_types1([{opaque, _Name, _NArgs} = Key|T], RecDict) ->
   {ok, {{_Mod, _FileLine, _Form, _Args}, Type}} = dict:find(Key, RecDict),
-  io:format("\n~w: ~w\n", [Key, Type]),
+  io:format("\n~tw: ~tw\n", [Key, Type]),
   print_types1(T, RecDict);
 print_types1([{record, _Name} = Key|T], RecDict) ->
   {ok, {_FileLine, [{_Arity, _Fields} = AF]}} = dict:find(Key, RecDict),
-  io:format("~w: ~w\n\n", [Key, AF]),
+  io:format("~tw: ~tw\n\n", [Key, AF]),
   print_types1(T, RecDict).
 -define(debug(D_), print_types(D_)).
 -else.
@@ -268,7 +268,7 @@ add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, FN,
   Arity = length(ArgForms),
   case erl_types:type_is_defined(TypeOrOpaque, Name, Arity, RecDict) of
     true ->
-      Msg = flat_format("Type ~s/~w already defined\n", [Name, Arity]),
+      Msg = flat_format("Type ~ts/~w already defined\n", [Name, Arity]),
       throw({error, Msg});
     false ->
       try erl_types:t_var_names(ArgForms) of
@@ -278,7 +278,7 @@ add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, FN,
                     erl_types:t_any()}, RecDict)
       catch
         _:_ ->
-	  throw({error, flat_format("Type declaration for ~w does not "
+	  throw({error, flat_format("Type declaration for ~tw does not "
 				    "have variables as parameters", [Name])})
       end
   end.
@@ -433,7 +433,7 @@ msg_with_position(Fun, FileLine) ->
     throw:{error, Msg} ->
       {File, Line} = FileLine,
       BaseName = filename:basename(File),
-      NewMsg = io_lib:format("~s:~p: ~s", [BaseName, Line, Msg]),
+      NewMsg = io_lib:format("~ts:~p: ~ts", [BaseName, Line, Msg]),
       throw({error, NewMsg})
   end.
 
@@ -526,13 +526,13 @@ get_spec_info([{Contract, Ln, [{Id, TypeSpec}]}|Left],
 		    RecordsMap, ModName, OptCb, File);
     {ok, {{OtherFile, L}, _D}} ->
       {Mod, Fun, Arity} = MFA,
-      Msg = flat_format("  Contract/callback for function ~w:~w/~w "
-			"already defined in ~s:~w\n",
+      Msg = flat_format("  Contract/callback for function ~w:~tw/~w "
+			"already defined in ~ts:~w\n",
 			[Mod, Fun, Arity, OtherFile, L]),
       throw({error, Msg})
   catch
     throw:{error, Error} ->
-      {error, flat_format("  Error while parsing contract in line ~w: ~s\n",
+      {error, flat_format("  Error while parsing contract in line ~w: ~ts\n",
 			  [Ln, Error])}
   end;
 get_spec_info([{file, _, [{IncludeFile, _}]}|Left],
@@ -635,7 +635,7 @@ get_options1([{Args, L, File}|Left], Warnings) ->
       get_options1(Left, NewWarnings)
   catch
     throw:{dialyzer_options_error, Msg} ->
-      Msg1 = flat_format("  ~s:~w: ~s", [File, L, Msg]),
+      Msg1 = flat_format("  ~ts:~w: ~ts", [File, L, Msg]),
       throw({error, Msg1})
   end;
 get_options1([], Warnings) ->
@@ -714,7 +714,7 @@ src_compiler_opts() ->
 
 format_errors([{Mod, Errors}|Left]) ->
   FormatedError =
-    [io_lib:format("~s:~w: ~s\n", [Mod, Line, M:format_error(Desc)])
+    [io_lib:format("~ts:~w: ~ts\n", [Mod, Line, M:format_error(Desc)])
      || {Line, M, Desc} <- Errors],
   [lists:flatten(FormatedError) | format_errors(Left)];
 format_errors([]) ->
@@ -759,14 +759,14 @@ check_fa_list1([{Args, L, File}|Left], Tag, Funcs) ->
   case lists:dropwhile(fun({_, T}) -> is_fa(T) end, TermsL) of
     [] -> ok;
     [{_, Bad}|_] ->
-      Msg1 = flat_format("  Bad function ~w in line ~s:~w",
+      Msg1 = flat_format("  Bad function ~tw in line ~ts:~w",
                          [Bad, File, L]),
       throw({error, Msg1})
   end,
   case lists:dropwhile(fun({_, FA}) -> is_known(FA, Funcs) end, TermsL) of
     [] -> ok;
     [{_, {F, A}}|_] ->
-      Msg2 = flat_format("  Unknown function ~w/~w in line ~s:~w",
+      Msg2 = flat_format("  Unknown function ~tw/~w in line ~ts:~w",
                          [F, A, File, L]),
       throw({error, Msg2})
   end,

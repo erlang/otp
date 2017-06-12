@@ -2680,7 +2680,7 @@ prompt_err(B) ->
     S = string:strip(S2, both, $"),
     string:strip(S, right, $.).
 
-%% OTP-10302. Unicode.
+%% OTP-10302. Unicode. Also OTP-14285, Unicode atoms.
 otp_10302(Config) when is_list(Config) ->
     {ok,Node} = start_node(shell_suite_helper_2,
 			   "-pa "++proplists:get_value(priv_dir,Config)++
@@ -2818,6 +2818,22 @@ otp_10302(Config) when is_list(Config) ->
     "                    erl_eval:'-inside-an-interpreted-fun-'(65,\"\x{441}\")"
     " .\n" = t({Node,Test13}),
 
+    %% Unicode atoms.
+    Test14 = <<"'\\x{447}\\x{435}'().">>,
+    "** exception error: undefined shell command '\\x{447}\\x{435}'/0.\n" =
+        t(Test14),
+    Test15 = <<"io:setopts([{encoding,utf8}]).
+                '\\x{447}\\x{435}'().">>,
+    "ok.\n** exception error: undefined shell command '\x{447}\x{435}'/0.\n" =
+        t({Node,Test15}),
+    Test16 = <<"shell_SUITE:'\\x{447}\\x{435}'().">>,
+    "** exception error: undefined function "
+   "shell_SUITE:'\\x{447}\\x{435}'/0.\n" = t(Test16),
+    Test17 = <<"io:setopts([{encoding,utf8}]).
+                shell_SUITE:'\\x{447}\\x{435}'().">>,
+    "ok.\n** exception error: undefined function "
+    "shell_SUITE:'\x{447}\x{435}'/0.\n" =
+        t({Node,Test17}),
     test_server:stop_node(Node),
     ok.
 

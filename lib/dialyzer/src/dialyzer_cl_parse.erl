@@ -37,11 +37,12 @@ start() ->
   init(),
   Args = init:get_plain_arguments(),
   try
-    cl(Args)
+    Ret = cl(Args),
+    Ret
   catch
     throw:{dialyzer_cl_parse_error, Msg} -> {error, Msg};
     _:R ->
-      Msg = io_lib:format("~p\n~p\n", [R, erlang:get_stacktrace()]),
+      Msg = io_lib:format("~tp\n~tp\n", [R, erlang:get_stacktrace()]),
       {error, lists:flatten(Msg)}
   end.
 

@@ -1,2 +1,2 @@
 
-gen_server_missing_callbacks.erl:3: Undefined callback function handle_cast/2 (behaviour 'gen_server')
+gen_server_missing_callbacks.erl:3: Undefined callback function handle_cast/2 (behaviour gen_server)

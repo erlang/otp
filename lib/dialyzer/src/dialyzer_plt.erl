@@ -253,7 +253,7 @@ from_file(FileName, ReturnInfo) ->
     {ok, Rec} ->
       case check_version(Rec) of
 	error ->
-	  Msg = io_lib:format("Old PLT file ~s\n", [FileName]),
+	  Msg = io_lib:format("Old PLT file ~ts\n", [FileName]),
 	  plt_error(Msg);
 	ok ->
           Types = [{Mod, maps:from_list(dict:to_list(Types))} ||
@@ -272,7 +272,7 @@ from_file(FileName, ReturnInfo) ->
 	  end
       end;
     {error, Reason} ->
-      Msg = io_lib:format("Could not read PLT file ~s: ~p\n",
+      Msg = io_lib:format("Could not read PLT file ~ts: ~p\n",
 			  [FileName, Reason]),
       plt_error(Msg)
   end.
@@ -356,7 +356,7 @@ merge_plts_or_report_conflicts(PltFiles, Plts) ->
       ConfFiles = find_duplicates(IncFiles),
       Msg = io_lib:format("Could not merge PLTs since they are not disjoint\n"
                           "The following files are included in more than one "
-                          "PLTs:\n~p\n", [ConfFiles]),
+                          "PLTs:\n~tp\n", [ConfFiles]),
       plt_error(Msg)
   end.
 
@@ -391,7 +391,7 @@ to_file(FileName,
   case file:write_file(FileName, Bin) of
     ok -> ok;
     {error, Reason} ->
-      Msg = io_lib:format("Could not write PLT file ~s: ~w\n",
+      Msg = io_lib:format("Could not write PLT file ~ts: ~w\n",
 			  [FileName, Reason]),
       throw({dialyzer_error, Msg})
   end.
@@ -467,7 +467,7 @@ compute_md5_from_files(Files) ->
 compute_md5_from_file(File) ->
   case filelib:is_regular(File) of
     false ->
-      Msg = io_lib:format("Not a regular file: ~s\n", [File]),
+      Msg = io_lib:format("Not a regular file: ~ts\n", [File]),
       throw({dialyzer_error, Msg});
     true ->
       case dialyzer_utils:get_core_from_beam(File) of
@@ -635,7 +635,7 @@ get_specs(#plt{info = Info}, M, F, A) when is_atom(M), is_atom(F) ->
   end.
 
 create_specs([{{M, F, _A}, {Ret, Args}}|Left], M) ->
-  [io_lib:format("-spec ~w(~s) -> ~s\n",
+  [io_lib:format("-spec ~tw(~ts) -> ~ts\n",
 		 [F, expand_args(Args), erl_types:t_to_string(Ret)])
    | create_specs(Left, M)];
 create_specs(List = [{{M, _F, _A}, {_Ret, _Args}}| _], _M) ->
@@ -802,7 +802,7 @@ pp_non_returning() ->
   io:format("=                Loops                  =\n"),
   io:format("=========================================\n\n"),
   lists:foreach(fun({{M, F, _}, Type}) ->
-		    io:format("~w:~w~s.\n",
+		    io:format("~w:~tw~ts.\n",
 			      [M, F, dialyzer_utils:format_sig(Type)])
 		end, lists:sort(Unit)),
   io:format("\n"),
@@ -824,7 +824,7 @@ pp_mod(Mod) when is_atom(Mod) ->
       lists:foreach(fun({{_, F, _}, Ret, Args}) ->
 			T = erl_types:t_fun(Args, Ret),
 			S = dialyzer_utils:format_sig(T),
-			io:format("-spec ~w~s.\n", [F, S])
+			io:format("-spec ~tw~ts.\n", [F, S])
 		    end, lists:sort(List));
     none ->
       io:format("dialyzer: Found no module named '~s' in the PLT\n", [Mod])

@@ -293,7 +293,7 @@ check_extraneous_1(Contract, SuccType) ->
   CRng = erl_types:t_fun_range(Contract),
   CRngs = erl_types:t_elements(CRng),
   STRng = erl_types:t_fun_range(SuccType),
-  ?debug("CR = ~p\nSR = ~p\n", [CRngs, STRng]),
+  ?debug("CR = ~tp\nSR = ~tp\n", [CRngs, STRng]),
   case [CR || CR <- CRngs,
               erl_types:t_is_none(erl_types:t_inf(CR, STRng))] of
     [] ->
@@ -360,7 +360,7 @@ process_contract({Contract, Constraints}, CallTypes0) ->
   CallTypesFun = erl_types:t_fun(CallTypes0, erl_types:t_any()),
   ContArgsFun = erl_types:t_fun(erl_types:t_fun_args(Contract),
 				erl_types:t_any()),
-  ?debug("Instance: Contract:  ~s\n          Arguments: ~s\n",
+  ?debug("Instance: Contract:  ~ts\n          Arguments: ~ts\n",
 	 [erl_types:t_to_string(ContArgsFun),
 	  erl_types:t_to_string(CallTypesFun)]),
   case solve_constraints(ContArgsFun, CallTypesFun, Constraints) of
@@ -427,7 +427,7 @@ insert_constraints([{subtype, Type1, Type2}|Left], Map) ->
     false ->
       %% A lot of things should change to add supertypes
       throw({error, io_lib:format("First argument of is_subtype constraint "
-				  "must be a type variable: ~p\n", [Type1])})
+				  "must be a type variable: ~tp\n", [Type1])})
   end;
 insert_constraints([], Map) -> Map.
 
@@ -439,9 +439,9 @@ insert_constraints([], Map) -> Map.
         contracts().
 
 store_tmp_contract(MFA, FileLine, {TypeSpec, Xtra}, SpecMap, RecordsDict) ->
-  %% io:format("contract from form: ~p\n", [TypeSpec]),
+  %% io:format("contract from form: ~tp\n", [TypeSpec]),
   TmpContract = contract_from_form(TypeSpec, MFA, RecordsDict, FileLine),
-  %% io:format("contract: ~p\n", [TmpContract]),
+  %% io:format("contract: ~tp\n", [TmpContract]),
   maps:put(MFA, {FileLine, TmpContract, Xtra}, SpecMap).
 
 contract_from_form(Forms, MFA, RecDict, FileLine) ->
@@ -458,8 +458,8 @@ contract_from_form([{type, _, 'fun', [_, _]} = Form | Left], MFA, RecDict,
 	  catch
 	    throw:{error, Msg} ->
 	      {File, Line} = FileLine,
-	      NewMsg = io_lib:format("~s:~p: ~s", [filename:basename(File),
-                                                   Line, Msg]),
+	      NewMsg = io_lib:format("~ts:~p: ~ts", [filename:basename(File),
+                                                     Line, Msg]),
 	      throw({error, NewMsg})
 	  end,
         NewTypeNoVars = erl_types:subst_all_vars_to_any(NewType),
@@ -514,7 +514,7 @@ initialize_constraints([Constr|Rest], MFA, RecDict, ExpTypes, RecordTable,
     {type, _, constraint, [{atom,_,Name}, List]} ->
       N = length(List),
       throw({error,
-	     io_lib:format("Unsupported type guard ~w/~w\n", [Name, N])})
+	     io_lib:format("Unsupported type guard ~tw/~w\n", [Name, N])})
   end.
 
 constraints_fixpoint(Constrs, MFA, RecDict, ExpTypes, RecordTable, Cache) ->
@@ -686,7 +686,7 @@ get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract, _Xtra}}|Left],
     {value, {Ret, Args}} ->
       Sig = erl_types:t_fun(Args, Ret),
       {M, _F, _A} = MFA,
-      %% io:format("MFA ~p~n", [MFA]),
+      %% io:format("MFA ~tp~n", [MFA]),
       Opaques = FindOpaques(M),
       {File, Line} = FileLine,
       WarningInfo = {File, Line, MFA},

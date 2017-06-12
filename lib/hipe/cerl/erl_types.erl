@@ -4249,8 +4249,8 @@ t_to_string(?opaque(Set), RecDict) ->
                   <- set_to_list(Set)],
 	      " | ");
 t_to_string(?matchstate(Pres, Slots), RecDict) ->
-  flat_format("ms(~s,~s)", [t_to_string(Pres, RecDict),
-                            t_to_string(Slots,RecDict)]);
+  flat_format("ms(~ts,~ts)", [t_to_string(Pres, RecDict),
+                              t_to_string(Slots,RecDict)]);
 t_to_string(?nil, _RecDict) ->
   "[]";
 t_to_string(?nonempty_list(Contents, Termination), RecDict) ->
@@ -4428,10 +4428,10 @@ opaque_type(Mod, Name, Args, _S, RecDict) ->
 
 opaque_name(Mod, Name, Extra) ->
   S = mod_name(Mod, Name),
-  flat_format("~s(~s)", [S, Extra]).
+  flat_format("~ts(~ts)", [S, Extra]).
 
 mod_name(Mod, Name) ->
-  flat_format("~w:~w", [Mod, Name]).
+  flat_format("~w:~tw", [Mod, Name]).
 
 %%=============================================================================
 %% 
@@ -4800,7 +4800,7 @@ type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames, S, D, L, C) ->
           {NewType, L3, C4}
       end;
     error ->
-      Msg = io_lib:format("Unable to find type ~w/~w\n",
+      Msg = io_lib:format("Unable to find type ~tw/~w\n",
                           [Name, ArgsLen]),
       throw({error, Msg})
   end.
@@ -4872,7 +4872,7 @@ remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict, RemType, TypeNames,
           {NewType, L3, C4}
       end;
     error ->
-      Msg = io_lib:format("Unable to find remote type ~w:~w()\n",
+      Msg = io_lib:format("Unable to find remote type ~w:~tw()\n",
                           [RemMod, Name]),
       throw({error, Msg})
   end.
@@ -4917,7 +4917,7 @@ record_from_form({atom, _, Name}, ModFields, S, D0, L0, C) ->
                     case GetModRec of
                       {error, FieldName} ->
                         throw({error,
-                               io_lib:format("Illegal declaration of #~w{~w}\n",
+                               io_lib:format("Illegal declaration of #~tw{~tw}\n",
                                              [Name, FieldName])});
                       {ok, NewFields} ->
                         S2 = S1#from_form{vtab = var_table__new()},
@@ -4931,7 +4931,7 @@ record_from_form({atom, _, Name}, ModFields, S, D0, L0, C) ->
                 end,
           recur_limit(Fun, D0, L0, RecordType, TypeNames);
         error ->
-          throw({error, io_lib:format("Unknown record #~w{}\n", [Name])})
+          throw({error, io_lib:format("Unknown record #~tw{}\n", [Name])})
       end;
     false ->
        {t_any(), L0, C}
@@ -5105,8 +5105,8 @@ check_record({atom, _, Name}, ModFields, S, C) ->
   {ok, DeclFields} = lookup_record(Name, R),
   case check_fields(Name, ModFields, DeclFields, S, C1) of
     {error, FieldName} ->
-       throw({error, io_lib:format("Illegal declaration of #~w{~w}\n",
-                                   [Name, FieldName])});
+      throw({error, io_lib:format("Illegal declaration of #~tw{~tw}\n",
+                                  [Name, FieldName])});
     C2 -> C2
   end.
 
@@ -5199,10 +5199,10 @@ t_form_to_string({op, _L, _Op, _Arg1, _Arg2} = Op) ->
 t_form_to_string({ann_type, _L, [Var, Type]}) ->
   t_form_to_string(Var) ++ "::" ++ t_form_to_string(Type);
 t_form_to_string({paren_type, _L, [Type]}) ->
-  flat_format("(~s)", [t_form_to_string(Type)]);
+  flat_format("(~ts)", [t_form_to_string(Type)]);
 t_form_to_string({remote_type, _L, [{atom, _, Mod}, {atom, _, Name}, Args]}) ->
   ArgString = "(" ++ string:join(t_form_to_string_list(Args), ",") ++ ")",
-  flat_format("~w:~w", [Mod, Name]) ++ ArgString;
+  flat_format("~w:~tw", [Mod, Name]) ++ ArgString;
 t_form_to_string({type, _L, arity, []}) -> "arity()";
 t_form_to_string({type, _L, binary, []}) -> "binary()";
 t_form_to_string({type, _L, binary, [Base, Unit]} = Type) ->
@@ -5252,12 +5252,12 @@ t_form_to_string({type, _L, range, [From, To]} = Type) ->
     _ -> flat_format("Badly formed type ~w",[Type])
   end;
 t_form_to_string({type, _L, record, [{atom, _, Name}]}) ->
-  flat_format("#~w{}", [Name]);
+  flat_format("#~tw{}", [Name]);
 t_form_to_string({type, _L, record, [{atom, _, Name}|Fields]}) ->
   FieldString = string:join(t_form_to_string_list(Fields), ","),
-  flat_format("#~w{~s}", [Name, FieldString]);
+  flat_format("#~tw{~ts}", [Name, FieldString]);
 t_form_to_string({type, _L, field_type, [{atom, _, Name}, Type]}) ->
-  flat_format("~w::~s", [Name, t_form_to_string(Type)]);
+  flat_format("~tw::~ts", [Name, t_form_to_string(Type)]);
 t_form_to_string({type, _L, term, []}) -> "term()";
 t_form_to_string({type, _L, timeout, []}) -> "timeout()";
 t_form_to_string({type, _L, tuple, any}) -> "tuple()";
@@ -5281,7 +5281,7 @@ t_form_to_string({type, _L, Name, []} = T) ->
   catch throw:{error, _} -> atom_to_string(Name) ++ "()"
   end;
 t_form_to_string({user_type, _L, Name, List}) ->
-  flat_format("~w(~s)",
+  flat_format("~tw(~ts)",
               [Name, string:join(t_form_to_string_list(List), ",")]);
 t_form_to_string({type, L, Name, List}) ->
   %% Compatibility: modules compiled before Erlang/OTP 18.0.
@@ -5298,7 +5298,7 @@ t_form_to_string_list([], Acc) ->
 -spec atom_to_string(atom()) -> string().
 
 atom_to_string(Atom) ->
-  flat_format("~w", [Atom]).
+  flat_format("~tw", [Atom]).
 
 %%=============================================================================
 %% 
@@ -5551,7 +5551,7 @@ set_size(Set) ->
 set_to_string(Set) ->
   L = [case is_atom(X) of
 	 true -> io_lib:write_string(atom_to_list(X), $'); % stupid emacs '
-	 false -> flat_format("~w", [X])
+	 false -> flat_format("~tw", [X])
        end || X <- set_to_list(Set)],
   string:join(L, " | ").
 

@@ -260,8 +260,8 @@ refine_one_module(M, {CodeServer, Callgraph, Plt, _Solvers}) ->
   FindOpaques = find_opaques_fun(Records),
   DecoratedFunTypes =
     decorate_succ_typings(Contracts, Callgraph, NewFunTypes, FindOpaques),
-  %% ?debug("NewFunTypes       ~p\n   ~n", [dict:to_list(NewFunTypes)]),
-  %% ?debug("refine DecoratedFunTypes ~p\n   ~n", [dict:to_list(DecoratedFunTypes)]),
+  %% ?debug("NewFunTypes       ~tp\n   ~n", [dict:to_list(NewFunTypes)]),
+  %% ?debug("refine DecoratedFunTypes ~tp\n   ~n", [dict:to_list(DecoratedFunTypes)]),
   debug_pp_functions("Refine", NewFunTypes, DecoratedFunTypes, Callgraph),
 
   case reached_fixpoint(FunTypes, DecoratedFunTypes) of
@@ -314,7 +314,7 @@ compare_types_1([{X, Type1}|Left1], [{X, Type2}|Left2], Strict, NotFixpoint) ->
   case Res of
     true -> compare_types_1(Left1, Left2, Strict, NotFixpoint);
     false -> 
-      ?debug("Failed fixpoint for ~w: ~s =/= ~s\n",
+      ?debug("Failed fixpoint for ~w: ~ts =/= ~ts\n",
 	     [X, erl_types:t_to_string(Type1), erl_types:t_to_string(Type2)]),
       compare_types_1(Left1, Left2, Strict, [{X, Type2}|NotFixpoint])
   end;
@@ -371,8 +371,8 @@ find_succ_types_for_scc(SCC0, {Codeserver, Callgraph, Plt, Solvers}) ->
   PltContracts =
     dialyzer_contracts:check_contracts(Contracts3, Callgraph,
                                        DecoratedFunTypes, FindOpaques),
-  %% ?debug("FilteredFunTypes ~p\n   ~n", [dict:to_list(FilteredFunTypes)]),
-  %% ?debug("SCC DecoratedFunTypes ~p\n   ~n", [dict:to_list(DecoratedFunTypes)]),
+  %% ?debug("FilteredFunTypes ~tp\n   ~n", [dict:to_list(FilteredFunTypes)]),
+  %% ?debug("SCC DecoratedFunTypes ~tp\n   ~n", [dict:to_list(DecoratedFunTypes)]),
   debug_pp_functions("SCC", FilteredFunTypes, DecoratedFunTypes, Callgraph),
   ContractFixpoint =
     lists:all(fun({MFA, _C}) ->
@@ -388,7 +388,7 @@ find_succ_types_for_scc(SCC0, {Codeserver, Callgraph, Plt, Solvers}) ->
 	reached_fixpoint_strict(PropTypes, DecoratedFunTypes)) of
     true -> [];
     false ->
-      ?debug("Not fixpoint for: ~w\n", [AllFuns]),
+      ?debug("Not fixpoint for: ~tw\n", [AllFuns]),
       [Fun || {Fun, _Arity} <- AllFuns]
   end.
 
@@ -476,11 +476,11 @@ format_succ_types([], _Callgraph, Acc) ->
 -ifdef(DEBUG).
 debug_pp_succ_typings(SuccTypes) ->
   ?debug("Succ typings:\n", []),
-  [?debug("  ~w :: ~s\n", 
+  [?debug("  ~tw :: ~ts\n",
 	  [MFA, erl_types:t_to_string(erl_types:t_fun(ArgT, RetT))])
    || {MFA, {RetT, ArgT}} <- SuccTypes],
   ?debug("Contracts:\n", []),
-  [?debug("  ~w :: ~s\n", 
+  [?debug("  ~tw :: ~ts\n",
 	  [MFA, erl_types:t_to_string(erl_types:t_fun(ArgT, RetFun(ArgT)))])
    || {MFA, {contract, RetFun, ArgT}} <- SuccTypes],
   ?debug("\n", []),
@@ -492,12 +492,12 @@ debug_pp_functions(Header, FunTypes, DecoratedFunTypes, Callgraph) ->
   DTypes = lists:keysort(1, dict:to_list(DecoratedFunTypes)),
   Fun = fun({{Label, Type},{Label, DecoratedType}}) ->
             Name = lookup_name(Label, Callgraph),
-            ?debug("~w (~w): ~s\n",
+            ?debug("~tw (~w): ~ts\n",
                    [Name, Label, erl_types:t_to_string(Type)]),
             case erl_types:t_is_equal(Type, DecoratedType) of
               true -> ok;
               false ->
-                ?debug("  With opaque types: ~s\n",
+                ?debug("  With opaque types: ~ts\n",
                        [erl_types:t_to_string(DecoratedType)])
             end
         end,

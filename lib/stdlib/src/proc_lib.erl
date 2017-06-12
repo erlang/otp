@@ -805,15 +805,20 @@ format_exception(Class, Reason, StackTrace, {Enc,_}=Extra) ->
     [EI, lib:format_exception(1+length(EI), Class, Reason, 
                               StackTrace, StackFun, PF, Enc), "\n"].
 
-format_mfa(Indent, {M,F,Args}=StartF, Extra) ->
+format_mfa(Indent, {M,F,Args}=StartF, {Enc,_}=Extra) ->
     try
 	A = length(Args),
-	[Indent,"initial call: ",atom_to_list(M),$:,atom_to_list(F),$/,
+	[Indent,"initial call: ",atom_to_list(M),$:,to_string(F, Enc),$/,
 	 integer_to_list(A),"\n"]
     catch
 	error:_ ->
 	    format_tag(Indent, initial_call, StartF, Extra)
     end.
+
+to_string(A, latin1) ->
+    io_lib:write_atom_as_latin1(A);
+to_string(A, _) ->
+    io_lib:write_atom(A).
 
 pp_fun({Enc,Depth}) ->
     {Letter,Tl} = case Depth of

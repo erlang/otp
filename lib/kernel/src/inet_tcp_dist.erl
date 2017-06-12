@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -390,14 +390,14 @@ splitnode(Driver, Node, LongOrShortNames) ->
                             error_msg("** System running to use "
                                       "fully qualified "
                                       "hostnames **~n"
-                                      "** Hostname ~s is illegal **~n",
+                                      "** Hostname ~ts is illegal **~n",
                                       [Host]),
                             ?shutdown(Node)
                     end;
 		L when length(L) > 1, LongOrShortNames =:= shortnames ->
 		    error_msg("** System NOT running to use fully qualified "
 			      "hostnames **~n"
-			      "** Hostname ~s is illegal **~n",
+			      "** Hostname ~ts is illegal **~n",
 			      [Host]),
 		    ?shutdown(Node);
 		_ ->

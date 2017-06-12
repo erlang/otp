@@ -112,7 +112,7 @@ adapt_get_warnings(Opts = #options{analysis_type = Mode,
 -spec bad_option(string(), term()) -> no_return().
 
 bad_option(String, Term) ->
-  Msg = io_lib:format("~s: ~P", [String, Term, 25]),
+  Msg = io_lib:format("~ts: ~tP", [String, Term, 25]),
   throw({dialyzer_options_error, lists:flatten(Msg)}).
 
 build_options([{OptName, undefined}|Rest], Options) when is_atom(OptName) ->
