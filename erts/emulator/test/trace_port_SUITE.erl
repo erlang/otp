@@ -190,7 +190,7 @@ receive_trace(Config) when is_list(Config) ->
 receive_trace_non_scheduler(Config) when is_list(Config) ->
     start_tracer(Config),
     S = self(),
-    Receiver = spawn(
+    Receiver = spawn_link(
                  fun() ->
                          receive
                              go ->
