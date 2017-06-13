@@ -16,7 +16,7 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-{"7.0",
+{"7.0.4",
  [{<<".*">>,[{restart_application, compiler}]}],
  [{<<".*">>,[{restart_application, compiler}]}]
 }.
