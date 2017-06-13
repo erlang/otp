@@ -1429,7 +1429,7 @@ supports_ssl_tls_version(sslv2 = Version) ->
             Exe = "openssl",
             Args = ["s_client", VersionFlag],
             Port = ssl_test_lib:portable_open_port(Exe, Args),
-            do_supports_ssl_tls_version(Port)
+            do_supports_ssl_tls_version(Port, "")
     end;
 
 supports_ssl_tls_version(Version) ->
@@ -1437,23 +1437,26 @@ supports_ssl_tls_version(Version) ->
     Exe = "openssl",
     Args = ["s_client", VersionFlag],
     Port = ssl_test_lib:portable_open_port(Exe, Args),
-    do_supports_ssl_tls_version(Port).
+    do_supports_ssl_tls_version(Port, "").
 
-do_supports_ssl_tls_version(Port) ->
+do_supports_ssl_tls_version(Port, Acc) ->
     receive 
-        {Port, {data, "u"}} -> 
-	    false;
-	{Port, {data, "unknown option"  ++ _}} -> 
-	    false;
-	{Port, {data, Data}} ->
-	    case lists:member("error", string:tokens(Data, ":")) of
-		true ->
-		    false;
-		false ->
-		    do_supports_ssl_tls_version(Port)
-	    end
+        {Port, {data, Data}} -> 
+            case Acc ++ Data of
+                "unknown option"  ++ _ ->
+                    false;
+                Error when length(Error) >= 11 ->
+                    case lists:member("error", string:tokens(Data, ":")) of
+                        true ->
+                            false;
+                        false ->
+                            do_supports_ssl_tls_version(Port, Error)
+                    end;
+                _ ->
+                    do_supports_ssl_tls_version(Port, Acc ++ Data)
+            end
     after 1000 ->
-	    true
+            true                        
     end.
 
 ssl_options(Option, Config) when is_atom(Option) ->
