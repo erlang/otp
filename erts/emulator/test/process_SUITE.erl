@@ -677,7 +677,7 @@ chk_pi_order([{Arg, _}| Values], [Arg|Args]) ->
     chk_pi_order(Values, Args).
 
 process_info_2_list(Config) when is_list(Config) ->
-    Proc = spawn(fun () -> receive after infinity -> ok end end),
+    Proc = spawn_link(fun () -> receive after infinity -> ok end end),
     register(process_SUITE_process_info_2_list1, self()),
     register(process_SUITE_process_info_2_list2, Proc),
     erts_debug:set_internal_state(available_internal_state,true),
