@@ -311,7 +311,13 @@ hello(internal, #client_hello{cookie = <<>>,
                                                                         protocol_specific = #{current_cookie_secret := Secret}} = State0) ->
     {ok, {IP, Port}} = dtls_socket:peername(Transport, Socket),
     Cookie = dtls_handshake:cookie(Secret, IP, Port, Hello),
-    VerifyRequest = dtls_handshake:hello_verify_request(Cookie, Version),
+    %% FROM RFC 6347 regarding HelloVerifyRequest message:
+    %% The server_version field has the same syntax as in TLS.  However, in
+    %% order to avoid the requirement to do version negotiation in the
+    %% initial handshake, DTLS 1.2 server implementations SHOULD use DTLS
+    %% version 1.0 regardless of the version of TLS that is expected to be
+    %% negotiated.
+    VerifyRequest = dtls_handshake:hello_verify_request(Cookie, ?HELLO_VERIFY_REQUEST_VERSION),
     State1 = prepare_flight(State0#state{negotiated_version = Version}),
     {State2, Actions} = send_handshake(VerifyRequest, State1),
     {Record, State} = next_record(State2),

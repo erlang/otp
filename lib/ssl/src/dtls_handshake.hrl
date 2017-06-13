@@ -29,6 +29,7 @@
 -include("ssl_handshake.hrl"). %% Common TLS and DTLS records and Constantes
 
 -define(HELLO_VERIFY_REQUEST, 3).
+-define(HELLO_VERIFY_REQUEST_VERSION, {254, 255}).
 
 -record(client_hello, {
 	  client_version,
