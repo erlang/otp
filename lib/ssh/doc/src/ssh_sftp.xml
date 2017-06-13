@@ -558,8 +558,14 @@
 	<taglist>
           <tag><c><![CDATA[{timeout, timeout()}]]></c></tag>
 	  <item>
-	    <p>The time-out is passed to the <c>ssh_channel</c> start function,
-	    and defaults to <c>infinity</c>.</p>
+	    <p>There are two ways to set a timeout for the underlying ssh connection:</p>
+	    <list>
+	      <item>If the connection timeout option <c>connect_timeout</c> is set, that value
+	      is used also for the negotiation timeout and this option (<c>timeout</c>) is ignored.</item>
+	      <item>Otherwise, this option (<c>timeout</c>) is used as the negotiation timeout
+	      only and there is no connection timeout set</item>
+	    </list>
+	    <p>The value defaults to <c>infinity</c>.</p>
 	  </item>
 	  <tag>
 	    <c><![CDATA[{sftp_vsn, integer()}]]></c>
