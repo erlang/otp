@@ -813,7 +813,7 @@ RUN_OBJS = \
 	$(OBJDIR)/erl_bif_binary.o      $(OBJDIR)/erl_ao_firstfit_alloc.o \
 	$(OBJDIR)/erl_thr_queue.o	$(OBJDIR)/erl_sched_spec_pre_alloc.o \
 	$(OBJDIR)/erl_ptab.o		$(OBJDIR)/erl_map.o \
-	$(OBJDIR)/erl_msacc.o
+	$(OBJDIR)/erl_msacc.o		$(OBJDIR)/erl_lock_flags.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 NIF_OBJS = $(OBJDIR)/erl_tracer_nif.o
