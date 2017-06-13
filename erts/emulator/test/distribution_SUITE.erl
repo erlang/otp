@@ -2255,52 +2255,6 @@ string_to_utf8_list([CP|CPs]) when is_integer(CP),
      16#80 bor (16#3F band CP)
      | string_to_utf8_list(CPs)].
 
-utf8_list_to_string([]) ->
-    [];
-utf8_list_to_string([B|Bs]) when is_integer(B),
-                                 0 =< B,
-                                 B =< 16#7F ->
-    [B | utf8_list_to_string(Bs)];
-utf8_list_to_string([B0, B1 | Bs]) when is_integer(B0),
-                                        16#C0 =< B0,
-                                        B0 =< 16#DF,
-                                        is_integer(B1),
-                                        16#80 =< B1,
-                                        B1 =< 16#BF ->
-    [(((B0 band 16#1F) bsl 6)
-      bor (B1 band 16#3F))
-     | utf8_list_to_string(Bs)];
-utf8_list_to_string([B0, B1, B2 | Bs]) when is_integer(B0),
-                                            16#E0 =< B0,
-                                            B0 =< 16#EF,
-                                            is_integer(B1),
-                                            16#80 =< B1,
-                                            B1 =< 16#BF,
-                                            is_integer(B2),
-                                            16#80 =< B2,
-                                            B2 =< 16#BF ->
-    [(((B0 band 16#F) bsl 12)
-      bor ((B1 band 16#3F) bsl 6)
-      bor (B2 band 16#3F))
-     | utf8_list_to_string(Bs)];
-utf8_list_to_string([B0, B1, B2, B3 | Bs]) when is_integer(B0),
-                                                16#F0 =< B0,
-                                                B0 =< 16#F7,
-                                                is_integer(B1),
-                                                16#80 =< B1,
-                                                B1 =< 16#BF,
-                                                is_integer(B2),
-                                                16#80 =< B2,
-                                                B2 =< 16#BF,
-                                                is_integer(B3),
-                                                16#80 =< B3,
-                                                B3 =< 16#BF ->
-    [(((B0 band 16#7) bsl 18)
-      bor ((B1 band 16#3F) bsl 12)
-      bor ((B2 band 16#3F) bsl 6)
-      bor (B3 band 16#3F))
-     | utf8_list_to_string(Bs)].
-
 mk_pid({NodeName, Creation}, Number, Serial) when is_atom(NodeName) ->
     <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
     mk_pid({NodeNameExt, Creation}, Number, Serial);

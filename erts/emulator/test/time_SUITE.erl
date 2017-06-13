@@ -993,9 +993,6 @@ bad_dates() ->
      {{1996, 4, 30}, {12, 0, -1}},		% Sec
      {{1996, 4, 30}, {12, 0, 60}}].
 
-start_node(Config) ->
-    start_node(Config, "").
-
 start_node(Config, Args) ->
     TestCase = proplists:get_value(testcase, Config),
     PA = filename:dirname(code:which(?MODULE)),

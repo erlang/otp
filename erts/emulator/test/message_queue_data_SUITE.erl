@@ -192,8 +192,6 @@ total_heap_size(_Config) ->
 %%
 %%
 
-start_node(Config) ->
-    start_node(Config, []).
 start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = list_to_atom(atom_to_list(?MODULE)

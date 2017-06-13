@@ -34,9 +34,6 @@ suite() ->
 all() -> 
     [call_with_huge_message_queue, receive_in_between].
 
-groups() -> 
-    [].
-
 call_with_huge_message_queue(Config) when is_list(Config) ->
     Pid = spawn_link(fun echo_loop/0),
     _WarmUpTime = time_calls(Pid),

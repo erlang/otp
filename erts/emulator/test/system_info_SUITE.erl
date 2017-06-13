@@ -363,11 +363,6 @@ mem_workers_call(MWs, Fun, Args) ->
                       end
               end, MWs).
 
-mem_workers_cast(MWs, Fun, Args) ->
-    lists:foreach(fun (MW) ->
-			  MW ! {cast, self(), Fun, Args}
-		  end, MWs).
-
 spawn_mem_workers() ->
     spawn_mem_workers(erlang:system_info(schedulers_online)).
 

@@ -543,9 +543,6 @@ test_dirty_process_access(Start, Test, Finish) ->
 	 end,
     ok = Finish(BifPid).
 
-receive_any() ->
-    receive M -> M end.
-
 start_node(Config) ->
     start_node(Config, "").
 

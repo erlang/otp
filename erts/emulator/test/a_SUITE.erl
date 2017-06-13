@@ -99,15 +99,5 @@ pollset_size(Config) when is_list(Config) ->
 %% Internal functions...
 %%
 
-display_check_io(ChkIo) ->
-    catch erlang:display('--- CHECK IO INFO ---'),
-    catch erlang:display(ChkIo),
-    catch erts_debug:set_internal_state(available_internal_state, true),
-    NoOfErrorFds = (catch element(1, erts_debug:get_internal_state(check_io_debug))),
-    catch erlang:display({'NoOfErrorFds', NoOfErrorFds}),
-    catch erts_debug:set_internal_state(available_internal_state, false),
-    catch erlang:display('--- CHECK IO INFO ---'),
-    ok.
-
 get_check_io_info() ->
     z_SUITE:get_check_io_info().

@@ -349,15 +349,6 @@ huge_data(N) ->
     P = huge_data(N div 2),
     [16#1234566,P|P].
 
-expect() ->
-    receive
-        Other ->
-            ok = io:format("Unexpected; got ~p", [Other]),
-            ct:fail({unexpected, Other})
-    after 200 ->
-              ok
-    end.
-
 expect({trace_ts,E1,E2,info,ts}=Message) ->
     receive
         {trace_ts,E1,E2,_Info,_Ts}=MessageTs ->

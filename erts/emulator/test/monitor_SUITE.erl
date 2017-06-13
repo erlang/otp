@@ -974,9 +974,6 @@ generate(_Fun, 0) ->
 generate(Fun, N) ->
     [Fun() | generate(Fun, N-1)].
 
-start_node(Config) ->
-    start_node(Config, "").
-
 start_node(Config, Args) ->
     TestCase = proplists:get_value(testcase, Config),
     PA = filename:dirname(code:which(?MODULE)),

@@ -302,13 +302,6 @@ smaller_valid_uniqint(Int, UinqintInfo) ->
             smaller_valid_uniqint(Cand, UinqintInfo)
     end.
 
-int32_to_bigendian_list(Int) ->
-    0 = Int bsr 32,
-    [(Int bsr 24) band 16#ff,
-     (Int bsr 16) band 16#ff,
-     (Int bsr 8) band 16#ff,
-     Int band 16#ff].
-
 mk_uniqint(Int, #uniqint_info {min_int = MinInt,
                                sched_bits = SchedBits} = _UinqintInfo) ->
     Int1 = Int - MinInt,
