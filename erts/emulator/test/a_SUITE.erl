@@ -29,25 +29,55 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,
-	 long_timers/1, pollset_size/1]).
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
+	 leaked_processes/1, long_timers/1, pollset_size/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [long_timers, pollset_size].
+all() ->
+    [leaked_processes, long_timers, pollset_size].
+
+%% Start some system servers now to avoid having them
+%% reported as leaks.
+
+init_per_suite(Config) when is_list(Config) ->
+    %% Ensure inet_gethost_native port program started, in order to
+    %% allow other suites to use it...
+    inet_gethost_native:gethostbyname("localhost"),
+
+    %% Start the timer server.
+    timer:start(),
+
+    Config.
+
+end_per_suite(Config) when is_list(Config) ->
+    Config.
+
+leaked_processes(Config) when is_list(Config) ->
+    Parent = self(),
+    Go = make_ref(),
+    spawn(fun () ->
+                  Name = leaked_processes__process_holder,
+                  true = register(Name, self()),
+                  Ps = processes(),
+                  Parent ! Go,
+                  receive
+                      {get_initial_processes, Pid} ->
+                          Pid ! {initial_processes, Ps}
+                  end
+          end),
+    receive Go -> ok end,
+    {comment, "Testcase started! This test will run in parallel with the "
+     "erts testsuite and ends in the z_SUITE:leaked_processes/1 testcase."}.
 
 long_timers(Config) when is_list(Config) ->
     Dir = proplists:get_value(data_dir, Config),
     long_timers_test:start(Dir),
     {comment, "Testcase started! This test will run in parallel with the "
-              "erts testsuite and ends in the z_SUITE:long_timers testcase."}.
+     "erts testsuite and ends in the z_SUITE:long_timers/1 testcase."}.
 
 pollset_size(Config) when is_list(Config) ->
-    %% Ensure inet_gethost_native port program started, in order to
-    %% allow other suites to use it...
-    inet_gethost_native:gethostbyname("localhost"),
     Parent = self(),
     Go = make_ref(),
     spawn(fun () ->
@@ -63,7 +93,7 @@ pollset_size(Config) when is_list(Config) ->
           end),
     receive Go -> ok end,
     {comment, "Testcase started! This test will run in parallel with the "
-              "erts testsuite and ends in the z_SUITE:pollset_size testcase."}.
+     "erts testsuite and ends in the z_SUITE:pollset_size/1 testcase."}.
 
 %%
 %% Internal functions...

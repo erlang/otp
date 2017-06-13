@@ -36,7 +36,8 @@
 
 -export([schedulers_alive/1, node_container_refc_check/1,
 	 long_timers/1, pollset_size/1,
-	 check_io_debug/1, get_check_io_info/0]).
+	 check_io_debug/1, get_check_io_info/0,
+         leaked_processes/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -44,7 +45,10 @@ suite() ->
 
 all() -> 
     [schedulers_alive, node_container_refc_check,
-     long_timers, pollset_size, check_io_debug].
+     long_timers, pollset_size, check_io_debug,
+     %% Make sure that the leaked_processes/1 is always
+     %% run last.
+     leaked_processes].
 
 %%%
 %%% The test cases -------------------------------------------------------------
@@ -285,6 +289,31 @@ has_gethost([P|T]) ->
 has_gethost([]) ->
     false.
 
+leaked_processes(Config) when is_list(Config) ->
+    %% Replace the defualt timetrap with a timetrap with
+    %% known pid.
+    test_server:timetrap_cancel(),
+    Dog = test_server:timetrap(test_server:minutes(5)),
+
+    Name = leaked_processes__process_holder,
+    Name ! {get_initial_processes, self()},
+    receive
+        {initial_processes, Initial0} -> ok
+    end,
+    Initial = ordsets:from_list(Initial0),
+
+    KnownPids = ordsets:from_list([self(),Dog]),
+    Now0 = ordsets:from_list(processes()),
+    Now = ordsets:subtract(Now0, KnownPids),
+    Leaked = ordsets:subtract(Now, Initial),
+
+    _ = [begin
+             Info = process_info(P) ++ process_info(P, [current_stacktrace]),
+             io:format("~p: ~p\n", [P,Info])
+         end || P <- Leaked],
+    Comment = lists:flatten(io_lib:format("~p process(es)",
+                                          [length(Leaked)])),
+    {comment, Comment}.
 
 %%
 %% Internal functions...
