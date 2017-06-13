@@ -1458,8 +1458,19 @@ sub_add_scope(Vs, #sub{s=Scope0}=Sub) ->
     Sub#sub{s=Scope}.
 
 sub_subst_scope(#sub{v=S0,s=Scope}=Sub) ->
-    S = [{-1,#c_var{name=Sv}} || Sv <- cerl_sets:to_list(Scope)]++S0,
-    Sub#sub{v=S}.
+    Initial = case S0 of
+                  [{NegInt,_}|_] when is_integer(NegInt), NegInt < 0 ->
+                      NegInt - 1;
+                  _ ->
+                      -1
+              end,
+    S = sub_subst_scope_1(cerl_sets:to_list(Scope), Initial, S0),
+    Sub#sub{v=orddict:from_list(S)}.
+
+%% The keys in an orddict must be unique. Make them so!
+sub_subst_scope_1([H|T], Key, Acc) ->
+    sub_subst_scope_1(T, Key-1, [{Key,#c_var{name=H}}|Acc]);
+sub_subst_scope_1([], _, Acc) -> Acc.
 
 sub_is_val(#c_var{name=V}, #sub{v=S,s=Scope}) ->
     %% When the bottleneck in sub_del_var/2 was eliminated, this
