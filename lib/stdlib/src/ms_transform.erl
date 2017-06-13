@@ -501,10 +501,20 @@ tg0(Line,[H|T],B) ->
 
 tg({match,Line,_,_},B) -> 
     throw({error,Line,?ERR_GENMATCH+B#tgd.eb});
-tg({op, Line, Operator, O1, O2}, B) ->
-    {tuple, Line, [{atom, Line, Operator}, tg(O1,B), tg(O2,B)]};
-tg({op, Line, Operator, O1}, B) ->
-    {tuple, Line, [{atom, Line, Operator}, tg(O1,B)]};
+tg({op, Line, Operator, O1, O2}=Expr, B) ->
+    case erl_eval:partial_eval(Expr) of
+        Expr ->
+            {tuple, Line, [{atom, Line, Operator}, tg(O1, B), tg(O2, B)]};
+        Value ->
+            Value
+    end;
+tg({op, Line, Operator, O1}=Expr, B) ->
+    case erl_eval:partial_eval(Expr) of
+        Expr ->
+            {tuple, Line, [{atom, Line, Operator}, tg(O1, B)]};
+        Value ->
+            Value
+    end;
 tg({call, _Line, {atom, Line2, bindings},[]},_B) ->
     	    {atom, Line2, '$*'};
 tg({call, _Line, {atom, Line2, object},[]},_B) ->

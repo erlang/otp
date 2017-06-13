@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@
 -export([warnings/1]).
 -export([no_warnings/1]).
 -export([eep37/1]).
+-export([otp_14454/1]).
 
 init_per_testcase(_Func, Config) ->
     Config.
@@ -59,7 +60,7 @@ all() ->
      record_index, multipass, bitsyntax, record_defaults,
      andalso_orelse, float_1_function, action_function,
      warnings, no_warnings, top_match, old_guards, autoimported,
-     semicolon, eep37].
+     semicolon, eep37, otp_14454].
 
 groups() -> 
     [].
@@ -770,6 +771,16 @@ eep37(Config) when is_list(Config) ->
                           "    end,\n"
                           "F()">>).
 
+
+otp_14454(Config) when is_list(Config) ->
+    setup(Config),
+    [{'$1',[],[{'band','$1',136}]}] =
+        compile_and_run(
+          <<"ets:fun2ms(fun(A) -> A band ( -(-17) bsl 3) end)">>),
+    [{'$1',[],[{'band','$1',136}]}] =
+        compile_and_run(
+          <<"ets:fun2ms(fun(A) -> A band ( erlang:'bsl'(-(-17), 3)) end)">>),
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
