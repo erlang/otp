@@ -175,7 +175,7 @@ had_high_cpu_util(StartTime,
     ActTo = TargetTo + TimeoutDiff,
     hcpu(ActTo, TargetTo, UtilData).
 
-hcpu(_ActTo, _TargetTo, [{UT, 0} | _] = UD) ->
+hcpu(_ActTo, _TargetTo, [{_UT, 0} | _]) ->
     missing; %% Util is the integer zero when not supported...
 %% UT2 =:= UT1
 hcpu(ActTo, TargetTo, [{UT, _}, {UT, _} | _] = UD) ->
