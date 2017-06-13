@@ -718,7 +718,7 @@ next_record(#state{unprocessed_handshake_events = N} = State) when N > 0 ->
 next_record(#state{protocol_buffers =
 		       #protocol_buffers{dtls_cipher_texts = [#ssl_tls{epoch = Epoch} = CT | Rest]}
 		   = Buffers,
-		   connection_states = ConnectionStates} = State) ->
+		   connection_states = #{current_read := #{epoch := Epoch}} = ConnectionStates} = State) ->
     CurrentRead = dtls_record:get_connection_state_by_epoch(Epoch, ConnectionStates, read),
     case dtls_record:replay_detect(CT, CurrentRead) of
         false ->
@@ -729,6 +729,23 @@ next_record(#state{protocol_buffers =
                                         Buffers#protocol_buffers{dtls_cipher_texts = Rest},
                                     connection_states = ConnectionStates})
     end;
+next_record(#state{protocol_buffers =
+		       #protocol_buffers{dtls_cipher_texts = [#ssl_tls{epoch = Epoch} | Rest]}
+		   = Buffers,
+		   connection_states = #{current_read := #{epoch := CurrentEpoch}} = ConnectionStates} = State) 
+  when Epoch > CurrentEpoch ->
+    %% TODO Buffer later Epoch message, drop it for now
+    next_record(State#state{protocol_buffers =
+                                Buffers#protocol_buffers{dtls_cipher_texts = Rest},
+                            connection_states = ConnectionStates});
+next_record(#state{protocol_buffers =
+		       #protocol_buffers{dtls_cipher_texts = [ _ | Rest]}
+		   = Buffers,
+		   connection_states = ConnectionStates} = State) ->
+    %% Drop old epoch message
+    next_record(State#state{protocol_buffers =
+                                Buffers#protocol_buffers{dtls_cipher_texts = Rest},
+                            connection_states = ConnectionStates});
 next_record(#state{role = server,
 		   socket = {Listener, {Client, _}},
 		   transport_cb = gen_udp} = State) -> 
