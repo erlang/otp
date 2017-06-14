@@ -35,7 +35,8 @@
          end_per_testcase/2]).
 
 %% testcases
--export([start/1,
+-export([rfc4005/1,
+         start/1,
          start_services/1,
          add_transports/1,
          result_codes/1,
@@ -125,7 +126,7 @@
 -define(L, atom_to_list).
 
 %% Don't use is_record/2 since dictionary hrl's aren't included.
-%% (Since they define conflicting reqcords with the same names.)
+%% (Since they define conflicting records with the same names.)
 -define(is_record(Rec, Name), (Name == element(1, Rec))).
 
 -define(ADDR, {127,0,0,1}).
@@ -144,8 +145,8 @@
 %% How to send answers, in a diameter_packet or not.
 -define(CONTAINERS, [pkt, msg]).
 
-%% Which common dictionary to use in the clients.
--define(RFCS, [rfc3588, rfc6733]).
+%% Which dictionary to use in the clients.
+-define(RFCS, [rfc3588, rfc6733, rfc4005]).
 
 %% Whether to decode stringish Diameter types to strings, or leave
 %% them as binary.
@@ -165,7 +166,7 @@
          strings,
          client_service,
          client_encoding,
-         client_dict0,
+         client_dict,
          client_sender,
          server_service,
          server_encoding,
@@ -198,8 +199,8 @@
          {'Host-IP-Address', [?ADDR]},
          {'Vendor-Id', 12345},
          {'Product-Name', "OTP/diameter"},
-         {'Auth-Application-Id', [?DIAMETER_APP_ID_COMMON]},
-         {'Acct-Application-Id', [?DIAMETER_APP_ID_ACCOUNTING]},
+         {'Auth-Application-Id', [0]},  %% common messages
+         {'Acct-Application-Id', [3]},  %% base accounting
          {restrict_connections, false},
          {string_decode, Decode},
          {incoming_maxlen, 1 bsl 21}
@@ -209,7 +210,9 @@
             || D <- [diameter_gen_base_rfc3588,
                      diameter_gen_base_accounting,
                      diameter_gen_base_rfc6733,
-                     diameter_gen_acct_rfc6733]]]).
+                     diameter_gen_acct_rfc6733,
+                     nas4005],
+               D /= nas4005 orelse have_nas()]]).
 
 -define(SUCCESS,
         ?'DIAMETER_BASE_RESULT-CODE_SUCCESS').
@@ -254,7 +257,7 @@ suite() ->
     [{timetrap, {seconds, 10}}].
 
 all() ->
-    [start, result_codes, {group, traffic}, empty, stop].
+    [rfc4005, start, result_codes, {group, traffic}, empty, stop].
 
 groups() ->
     [{P, [P], Ts} || Ts <- [tc(tc())], P <- [shuffle, parallel]]
@@ -300,9 +303,11 @@ tc(L) ->
 %% --------------------
 
 init_per_suite(Config) ->
-    [{sctp, ?util:have_sctp()} | Config].
+    [{rfc4005, compile_and_load()}, {sctp, ?util:have_sctp()} | Config].
 
 end_per_suite(_Config) ->
+    code:delete(nas4005),
+    code:purge(nas4005),
     ok.
 
 %% --------------------
@@ -322,13 +327,16 @@ init_per_group(sctp = Name, Config) ->
     end;
 
 init_per_group(Name, Config) ->
+    Nas = proplists:get_value(rfc4005, Config, false),
     case ?util:name(Name) of
+        [_,_,D,_,_,_, _, _, _] when D == rfc4005, true /= Nas ->
+            {skip, rfc4005};
         [T,R,D,A,C,S,SS,ST,CS] ->
             G = #group{transport = T,
                        strings = S,
                        client_service = [$C|?util:unique_string()],
                        client_encoding = R,
-                       client_dict0 = dict0(D),
+                       client_dict = appdict(D),
                        client_sender = CS,
                        server_service = [$S|?util:unique_string()],
                        server_encoding = A,
@@ -463,26 +471,45 @@ add_transports(Config) ->
                          | [{packet, hd(?util:scramble([false, raw]))}
                             || T == sctp andalso CS]],
                         [{capabilities_cb, fun capx/2},
-                         {pool_size, 8},
-                         {applications, apps(rfc3588)}]
+                         {pool_size, 8}
+                         | server_apps()]
                         ++ [{spawn_opt, {erlang, spawn, []}} || CS]),
     Cs = [?util:connect(CN,
                         [T, {sender, CS}],
                         LRef,
-                        [{id, Id},
-                         {capabilities, [{'Origin-State-Id', origin(Id)}]},
-                         {applications, apps(D)}])
+                        [{id, Id}
+                         | client_apps(D, [{'Origin-State-Id', origin(Id)}])])
           || A <- ?ENCODINGS,
              C <- ?CONTAINERS,
              D <- ?RFCS,
+             D /= rfc4005 orelse have_nas(),
              Id <- [{A,C}]],
     %% The server uses the client's Origin-State-Id to decide how to
     %% answer.
     ?util:write_priv(Config, "transport", [LRef | Cs]).
 
-apps(D0) ->
-    D = dict0(D0),
-    [acct(D), D].
+server_apps() ->
+    B = have_nas(),
+    [{applications, [diameter_gen_base_rfc3588,
+                     diameter_gen_base_accounting]
+                    ++ [nas4005 || B]},
+     {capabilities, [{'Auth-Application-Id', [0] ++ [1 || B]}, %% common, NAS
+                     {'Acct-Application-Id', [3]}]}].          %% accounting
+
+client_apps(D, Caps) ->
+    if D == rfc4005 ->
+            [{applications, [nas4005]},
+             {capabilities, [{'Auth-Application-Id', [1]},     %% NAS
+                             {'Acct-Application-Id', []}
+                             | Caps]}];
+       true ->
+            D0 = dict0(D),
+            [{applications, [acct(D0), D0]},
+             {capabilities, Caps}]
+    end.
+
+have_nas() ->
+    false /= code:is_loaded(nas4005).
 
 remove_transports(Config) ->
     #group{client_service = CN,
@@ -514,6 +541,11 @@ capx(_, #diameter_caps{origin_host = {OH,DH}}) ->
     ok.
 
 %% ===========================================================================
+
+%% Fail only this testcase if the RFC 4005 dictionary hasn't been
+%% successfully compiled and loaded.
+rfc4005(Config) ->
+    true = proplists:get_value(rfc4005, Config).
 
 %% Ensure that result codes have the expected values.
 result_codes(_Config) ->
@@ -615,12 +647,10 @@ send_unknown_short(Config, M, RC) ->
                                          data = <<17>>}]}],
     ['ASA', {'Session-Id', _}, {'Result-Code', RC} | Avps]
         = call(Config, Req),
-    [#'diameter_base_Failed-AVP'{'AVP' = As}]
-        = proplists:get_value('Failed-AVP', Avps),
-    [#diameter_avp{code = 999,
-                   is_mandatory = M,
-                   data = <<17, _/binary>>}]  %% extra bits from padding
-        = As.
+    [[#diameter_avp{code = 999,
+                    is_mandatory = M,
+                    data = <<17, _/binary>>}]] %% extra bits from padding
+        = failed_avps(Avps, Config).
 
 %% Ditto but set the M flag.
 send_unknown_mandatory(Config) ->
@@ -629,12 +659,10 @@ send_unknown_mandatory(Config) ->
                                          data = <<17>>}]}],
     ['ASA', {'Session-Id', _}, {'Result-Code', ?AVP_UNSUPPORTED} | Avps]
         = call(Config, Req),
-    [#'diameter_base_Failed-AVP'{'AVP' = As}]
-        = proplists:get_value('Failed-AVP', Avps),
-    [#diameter_avp{code = 999,
-                   is_mandatory = true,
-                   data = <<17>>}]
-        = As.
+    [[#diameter_avp{code = 999,
+                    is_mandatory = true,
+                    data = <<17>>}]]
+        = failed_avps(Avps, Config).
 
 %% Ditto, and point the AVP length past the end of the message. Expect
 %% 5014 instead of 5001.
@@ -649,13 +677,11 @@ send_unexpected_mandatory_decode(Config) ->
                                          data = <<12:32>>}]}],
     ['ASA', {'Session-Id', _}, {'Result-Code', ?AVP_UNSUPPORTED} | Avps]
         = call(Config, Req),
-    [#'diameter_base_Failed-AVP'{'AVP' = As}]
-        = proplists:get_value('Failed-AVP', Avps),
-    [#diameter_avp{code = 27,
-                   is_mandatory = true,
-                   value = 12,
-                   data = <<12:32>>}]
-        = As.
+    [[#diameter_avp{code = 27,
+                    is_mandatory = true,
+                    value = 12,
+                    data = <<12:32>>}]]
+        = failed_avps(Avps, Config).
 
 %% Send an containing a faulty Grouped AVP (empty Proxy-Host in
 %% Proxy-Info) and expect that only the faulty AVP is sent in
@@ -667,13 +693,9 @@ send_grouped_error(Config) ->
                                    {'Proxy-State', ""}]]}],
     ['ASA', {'Session-Id', _}, {'Result-Code', ?INVALID_AVP_LENGTH} | Avps]
         = call(Config, Req),
-    [#'diameter_base_Failed-AVP'{'AVP' = As}]
-        = proplists:get_value('Failed-AVP', Avps),
-    [#diameter_avp{name = 'Proxy-Info',
-                   value = #'diameter_base_Proxy-Info'
-                            {'Proxy-Host' = Empty,
-                             'Proxy-State' = undefined}}]
-        = As,
+    [[#diameter_avp{name = 'Proxy-Info', value = V}]]
+        = failed_avps(Avps, Config),
+    {Empty, undefined, []} = proxy_info(V, Config),
     <<0>> = iolist_to_binary(Empty).
 
 %% Send an STR that the server ignores.
@@ -729,10 +751,10 @@ send_invalid_avp_length(Config) ->
             {'User-Name', _},
             {'Class', _},
             {'Error-Message', _},
-            {'Error-Reporting-Host', _},
-            {'Failed-AVP', [#'diameter_base_Failed-AVP'{'AVP' = [_]}]}
-          | _]
-        = call(Config, Req).
+            {'Error-Reporting-Host', _}
+          | Avps]
+        = call(Config, Req),
+    [[_]] = failed_avps(Avps, Config).
 
 %% Send a request containing 5xxx errors that the server rejects with
 %% 3xxx.
@@ -935,6 +957,29 @@ send_anything(Config) ->
 
 %% ===========================================================================
 
+failed_avps(Avps, Config) ->
+    #group{client_dict = D} = proplists:get_value(group, Config),
+    [failed_avp(D, T) || T <- proplists:get_value('Failed-AVP', Avps)].
+
+failed_avp(nas4005, {'nas_Failed-AVP', As}) ->
+    As;
+failed_avp(_, #'diameter_base_Failed-AVP'{'AVP' = As}) ->
+    As.
+
+proxy_info(Rec, Config) ->
+    #group{client_dict = D} = proplists:get_value(group, Config),
+    if D == nas4005 ->
+            {'nas_Proxy-Info', H, S, As}
+                = Rec,
+            {H,S,As};
+       true ->
+            #'diameter_base_Proxy-Info'{'Proxy-Host' = H,
+                                        'Proxy-State' = S,
+                                        'AVP' = As}
+                = Rec,
+            {H,S,As}
+    end.
+
 group(Config) ->
     #group{} = proplists:get_value(group, Config).
 
@@ -956,7 +1001,7 @@ call(Config, Req, Opts) ->
     Name = proplists:get_value(testcase, Config),
     #group{client_service = CN,
            client_encoding = ReqEncoding,
-           client_dict0 = Dict0}
+           client_dict = Dict0}
         = Group
         = group(Config),
     diameter:call(CN,
@@ -996,9 +1041,21 @@ msg([H|T], record, Dict) ->
 msg(Msg, _, _) ->
     Msg.
 
+appdict(rfc4005) ->
+    nas4005;
+appdict(D) ->
+    dict0(D).
+
 dict0(D) ->
     ?A("diameter_gen_base_" ++ ?L(D)).
 
+dict(Msg, nas4005 = D) ->
+    if 'answer-message' == hd(Msg);
+       ?is_record(Msg, 'diameter_base_answer-message') ->
+            diameter_gen_base_rfc3588;
+       true ->
+            D
+    end;
 dict(Msg, Dict0)
   when 'ACR' == hd(Msg);
        'ACA' == hd(Msg);
@@ -1016,7 +1073,7 @@ acct(diameter_gen_base_rfc6733) ->
 %% Set only values that aren't already.
 set(_, [H|T], Vs) ->
     [H | Vs ++ T];
-set(#group{client_dict0 = Dict0} = _Group, Rec, Vs) ->
+set(#group{client_dict = Dict0} = _Group, Rec, Vs) ->
     Dict = dict(Rec, Dict0),
     lists:foldl(fun({F,_} = FV, A) ->
                         set(Dict, Dict:'#get-'(F, A), FV, A)
@@ -1086,7 +1143,7 @@ log(#diameter_packet{bin = Bin} = P, T)
 
 %% prepare/4
 
-prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
+prepare(Pkt, Caps, N, #group{client_dict = Dict0} = Group)
   when N == send_unknown_short_mandatory;
        N == send_unknown_short ->
     Req = prepare(Pkt, Caps, Group),
@@ -1106,7 +1163,7 @@ prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
     <<H:Offset/binary, Len:24, T/binary>> = Bin,
     E#diameter_packet{bin = <<H/binary, (Len+9):24, T/binary>>};
 
-prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
+prepare(Pkt, Caps, N, #group{client_dict = Dict0} = Group)
   when N == send_long_avp_length;
        N == send_short_avp_length;
        N == send_zero_avp_length ->
@@ -1132,7 +1189,7 @@ prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
                               T/binary,
                               Hdr/binary, AL:24, Data/binary>>};
 
-prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
+prepare(Pkt, Caps, N, #group{client_dict = Dict0} = Group)
   when N == send_invalid_avp_length;
        N == send_invalid_reject ->
     Req = prepare(Pkt, Caps, Group),
@@ -1147,7 +1204,7 @@ prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
     <<V, L:24, H/binary>> = H0,  %% assert
     E#diameter_packet{bin = <<V, (L+4):24, H/binary, 16:24, 0:32, T/binary>>};
 
-prepare(Pkt, Caps, send_unexpected_mandatory, #group{client_dict0 = Dict0}
+prepare(Pkt, Caps, send_unexpected_mandatory, #group{client_dict = Dict0}
                                               = Group) ->
     Req = prepare(Pkt, Caps, Group),
     #diameter_packet{bin = <<V, Len:24, T/binary>>}
@@ -1157,7 +1214,7 @@ prepare(Pkt, Caps, send_unexpected_mandatory, #group{client_dict0 = Dict0}
     Avp = <<Code:32, Flags, 8:24>>,
     E#diameter_packet{bin = <<V, (Len+8):24, T/binary, Avp/binary>>};
 
-prepare(Pkt, Caps, send_grouped_error, #group{client_dict0 = Dict0}
+prepare(Pkt, Caps, send_grouped_error, #group{client_dict = Dict0}
                                               = Group) ->
     Req = prepare(Pkt, Caps, Group),
     #diameter_packet{bin = Bin}
@@ -1189,14 +1246,14 @@ prepare(Pkt, Caps, send_grouped_error, #group{client_dict0 = Dict0}
                               Payload/binary,
                               T/binary>>};
 
-prepare(Pkt, Caps, send_unsupported, #group{client_dict0 = Dict0} = Group) ->
+prepare(Pkt, Caps, send_unsupported, #group{client_dict = Dict0} = Group) ->
     Req = prepare(Pkt, Caps, Group),
     #diameter_packet{bin = <<H:5/binary, _CmdCode:3/binary, T/binary>>}
         = E
         = diameter_codec:encode(Dict0, Pkt#diameter_packet{msg = Req}),
     E#diameter_packet{bin = <<H/binary, 42:24, T/binary>>};
 
-prepare(Pkt, Caps, send_unsupported_app, #group{client_dict0 = Dict0}
+prepare(Pkt, Caps, send_unsupported_app, #group{client_dict = Dict0}
                                          = Group) ->
     Req = prepare(Pkt, Caps, Group),
     #diameter_packet{bin = <<H:8/binary, _ApplId:4/binary, T/binary>>}
@@ -1225,6 +1282,7 @@ prepare(Pkt, Caps, _Name, Group) ->
 
 prepare(#diameter_packet{msg = Req}, Caps, Group)
   when ?is_record(Req, diameter_base_accounting_ACR);
+       ?is_record(Req, nas_ACR);
        'ACR' == hd(Req) ->
     #diameter_caps{origin_host  = {OH, _},
                    origin_realm = {OR, DR}}
@@ -1237,6 +1295,7 @@ prepare(#diameter_packet{msg = Req}, Caps, Group)
 
 prepare(#diameter_packet{msg = Req}, Caps, Group)
   when ?is_record(Req, diameter_base_ASR);
+       ?is_record(Req, nas_ASR);
        'ASR' == hd(Req) ->
     #diameter_caps{origin_host  = {OH, DH},
                    origin_realm = {OR, DR}}
@@ -1250,6 +1309,7 @@ prepare(#diameter_packet{msg = Req}, Caps, Group)
 
 prepare(#diameter_packet{msg = Req}, Caps, Group)
   when ?is_record(Req, diameter_base_STR);
+       ?is_record(Req, nas_STR);
        'STR' == hd(Req) ->
     #diameter_caps{origin_host  = {OH, _},
                    origin_realm = {OR, DR}}
@@ -1262,6 +1322,7 @@ prepare(#diameter_packet{msg = Req}, Caps, Group)
 
 prepare(#diameter_packet{msg = Req}, Caps, Group)
   when ?is_record(Req, diameter_base_RAR);
+       ?is_record(Req, nas_RAR);
        'RAR' == hd(Req) ->
     #diameter_caps{origin_host  = {OH, DH},
                    origin_realm = {OR, DR}}
@@ -1287,7 +1348,7 @@ handle_answer(Pkt, Req, [$C|_], Peer, {send_detach = Name, Group}, _, X) ->
     {Pid, Ref} = X,
     Pid ! {Ref, answer(Pkt, Req, Peer, Name, Group)}.
 
-answer(Pkt, Req, _Peer, Name, #group{client_dict0 = Dict0}) ->
+answer(Pkt, Req, _Peer, Name, #group{client_dict = Dict0}) ->
     #diameter_packet{header = H, msg = Ans, errors = Es} = Pkt,
     ApplId = app(Req, Name, Dict0),
     #diameter_header{application_id = ApplId} = H,  %% assert
@@ -1343,19 +1404,67 @@ handle_request(#diameter_packet{header = H, msg = M, avps = As},
     V = EI bsr B,  %% assert
     V = HI bsr B,  %%
     #diameter_caps{origin_state_id = {_,[Id]}} = Caps,
-    answer(origin(Id), request(M, [H|As], Caps)).
+    wrap(origin(Id), H, request(nas_to_base(M, H), [H|As], Caps)).
 
-answer(T, {Tag, Action, Post}) ->
-    {Tag, answer(T, Action), Post};
-answer(_, {reply, [#diameter_header{} | _]} = T) ->
+wrap(T, H, {Tag, Action, Post}) ->
+    {Tag, wrap(T, H, Action), Post};
+wrap(_, _, {reply, [#diameter_header{} | _]} = T) ->
     T;
-answer({A,C}, {reply, Ans}) ->
-    answer(C, {reply, msg(Ans, A, diameter_gen_base_rfc3588)});
-answer(pkt, {reply, Ans})
+wrap({A,C}, H, {reply, Ans}) ->
+    Msg = msg(Ans, A, diameter_gen_base_rfc3588),
+    wrap(C, H, {reply, base_to_nas(Msg, H)});
+wrap(pkt, _, {reply, Ans})
   when not is_record(Ans, diameter_packet) ->
     {reply, #diameter_packet{msg = Ans}};
-answer(_, T) ->
+wrap(_, _, T) ->
     T.
+
+%% nas_to_base/1
+%%
+%% Map an RFC 4005 message to RFC 3588, to return the same answer in
+%% both cases.
+
+nas_to_base(Rec, #diameter_header{application_id = 1}) ->
+    [R | Values] = nas4005:'#get-'(Rec),
+    "nas_" ++ Name = ?L(R),
+    {D, RN} = case Name of
+                  "ACR" ->
+                      {diameter_gen_base_accounting,
+                       diameter_base_accounting_ACR};
+                  _ ->
+                      {diameter_gen_base_rfc3588,
+                       ?A("diameter_base_" ++ Name)}
+              end,
+    Fs = D:'#info-'(RN),
+    D:'#new-'([RN | [T || {F,_} = T <- Values, lists:member(F, Fs)]]);
+
+nas_to_base(Rec, _) ->
+    Rec.
+
+%% base_to_nas/2
+
+base_to_nas(#diameter_packet{msg = Msg} = Pkt, H) ->
+    Pkt#diameter_packet{msg = base_to_nas(Msg, H)};
+
+base_to_nas(Rec, #diameter_header{application_id = 1})
+  when is_tuple(Rec), not ?is_record(Rec, 'diameter_base_answer-message') ->
+    D = case element(1, Rec) of
+            diameter_base_accounting_ACA ->
+                diameter_gen_base_accounting;
+            _ ->
+                diameter_gen_base_rfc3588
+        end,
+    [R | Values] = D:'#get-'(Rec),
+    "diameter_base_" ++ N = ?L(R),
+    Name = ?A("nas_" ++ if N == "accounting_ACA" ->
+                                "ACA";
+                           true ->
+                                N
+                        end),
+    nas4005:'#new-'([Name | Values]);
+
+base_to_nas(Msg, _) ->
+    Msg.
 
 %% request/3
 
@@ -1523,3 +1632,29 @@ message(ack, <<_:32, 1, _/bits>>, _) ->
 %% sent answer or discarded request
 message(ack, _, N) ->
     [0 =< N, fun ?MODULE:message/3, N+1].
+
+%% ------------------------------------------------------------------------
+
+compile_and_load() ->
+    try
+        Path = hd([P || H <- [[here(), ".."], [code:lib_dir(diameter)]],
+                        P <- [filename:join(H ++ ["examples",
+                                                  "dict",
+                                                  "rfc4005_nas.dia"])],
+                        {ok, _} <- [file:read_file_info(P)]]),
+        {ok, [Forms]}
+            = diameter_make:codec(Path, [return,
+                                      forms,
+                                   {name, "nas4005"},
+                                {prefix, "nas"},
+                             {inherits, "common/diameter_gen_base_rfc3588"}]),
+        {ok, nas4005, Bin, []} = compile:forms(Forms, [debug_info, return]),
+        {module, nas4005} = code:load_binary(nas4005, "nas4005", Bin),
+        true
+    catch
+        E:R ->
+            {E, R, erlang:get_stacktrace()}
+    end.
+
+here() ->
+    filename:dirname(code:which(?MODULE)).
