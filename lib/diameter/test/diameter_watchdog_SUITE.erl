@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,13 +44,8 @@
 -export([peer_up/3,
          peer_down/3]).
 
-%% gen_tcp-ish interface
--export([listen/2,
-         accept/1,
-         connect/3,
-         send/2,
-         setopts/2,
-         close/1]).
+%% diameter_tcp message_cb
+-export([message/3]).
 
 -include("diameter.hrl").
 -include("diameter_ct.hrl").
@@ -161,9 +156,9 @@ reopen(Type, Test, Ref, Wd, N, M) ->
     reopen(Type, Test, SvcName, TRef, Wd, N, M).
 
 cfg(Type, Type, Wd) ->
-    {Wd, [], []};
+    {Wd, [], false};
 cfg(_Type, _Test, _Wd) ->
-    {?WD(?PEER_WD), [{okay, 0}], [{module, ?MODULE}]}.
+    {?WD(?PEER_WD), [{okay, 0}], true}.
 
 %% reopen/7
 
@@ -346,7 +341,7 @@ recv_reopen(listen, Ref) ->
 %% reg/3
 %%
 %% Lookup the pid of the transport process and publish a term for
-%% send/2 to lookup.
+%% message/3 to lookup.
 reg(TRef, SvcName, T) ->
     TPid = tpid(TRef, diameter:service_info(SvcName, transport)),
     true = diameter_reg:add_new({?MODULE, TPid, T}).
@@ -394,7 +389,7 @@ suspect(_) ->
 suspect(Type, Fake, Ref, N)
   when is_reference(Ref) ->
     {SvcName, TRef}
-        = start(Type, Ref, {?WD(10000), [{suspect, N}], mod(Fake)}),
+        = start(Type, Ref, {?WD(10000), [{suspect, N}], Fake}),
     {initial, okay} = ?WD_EVENT(TRef),
     suspect(TRef, Fake, SvcName, N);
 
@@ -436,11 +431,6 @@ abuse([F|A], Test) ->
 abuse(F, Test) ->
     abuse([F], Test).
 
-mod(true) ->
-    [{module, ?MODULE}];
-mod(false) ->
-    [].
-
 %% ===========================================================================
 %% # okay/1
 %% ===========================================================================
@@ -456,7 +446,7 @@ okay(Type, Fake, Ref, N)
     {SvcName, TRef}
         = start(Type, Ref, {?WD(10000),
                             [{okay, choose(Fake, 0, N)}],
-                            mod(Fake)}),
+                            Fake}),
     {initial, okay} = ?WD_EVENT(TRef),
     okay(TRef,
          Fake,
@@ -515,11 +505,16 @@ start(Type, Ref, T) ->
     true = diameter_reg:add_new({Type, Ref, Name}),
     {Name, TRef}.
 
-opts(Type, Ref, {Timer, Config, Mod}) ->
+opts(Type, Ref, {Timer, Config, Fake})
+  when is_boolean(Fake) ->
     [{transport_module, diameter_tcp},
-     {transport_config, Mod ++ [{ip, ?ADDR}, {port, 0}] ++ cfg(Type, Ref)},
+     {transport_config, mod(Fake) ++ [{ip, ?ADDR}, {port, 0}]
+                                  ++ cfg(Type, Ref)},
      {watchdog_timer, Timer},
      {watchdog_config, Config}].
+
+mod(B) ->
+    [{message_cb, [fun message/3, capx]} || B].
 
 cfg(listen, _) ->
     [];
@@ -531,37 +526,29 @@ cfg(connect, Ref) ->
 
 %% ===========================================================================
 
-listen(PortNr, Opts) ->
-    gen_tcp:listen(PortNr, Opts).
+%% message/3
 
-accept(LSock) ->
-    gen_tcp:accept(LSock).
+message(send, Bin, X) ->
+    send(Bin, X);
 
-connect(Addr, Port, Opts) ->
-    gen_tcp:connect(Addr, Port, Opts).
+message(recv, Bin, _) ->
+    [Bin];
 
-setopts(Sock, Opts) ->
-    inet:setopts(Sock, Opts).
+message(_, _, _) ->
+    [].
 
-send(Sock, Bin) ->
-    send(getr(config), Sock, Bin).
-
-close(Sock) ->
-    gen_tcp:close(Sock).
-
-%% send/3
+%% send/2
 
 %% First outgoing message from a new transport process is CER/CEA.
 %% Remaining outgoing messages are either DWR or DWA.
-send(undefined, Sock, Bin) ->
-    <<_:32, _:8, 257:24, _/binary>> = Bin,
-    putr(config, init),
-    gen_tcp:send(Sock, Bin);
+send(Bin, capx) ->
+    <<_:32, _:8, 257:24, _/binary>> = Bin,  %% assert on CER/CEA
+    [Bin, fun message/3, init];
 
 %% Outgoing DWR: fake reception of DWA. Use the fact that AVP values
 %% are ignored. This is to ensure that the peer's watchdog state
 %% transitions are only induced by responses to messages it sends.
-send(_, Sock, <<_:32, 1:1, _:7, 280:24, _:32, EId:32, HId:32, _/binary>>) ->
+send(<<_:32, 1:1, _:7, 280:24, _:32, EId:32, HId:32, _/binary>>, _) ->
     Pkt = #diameter_packet{header = #diameter_header{version = 1,
                                                      end_to_end_id = EId,
                                                      hop_by_hop_id = HId},
@@ -569,47 +556,36 @@ send(_, Sock, <<_:32, 1:1, _:7, 280:24, _:32, EId:32, HId:32, _/binary>>) ->
                                          {'Origin-Host', "XXX"},
                                          {'Origin-Realm', ?REALM}]},
     #diameter_packet{bin = Bin} = diameter_codec:encode(?BASE, Pkt),
-    self() ! {tcp, Sock, Bin},
-    ok;
+    [recv, Bin];
 
 %% First outgoing DWA.
-send(init, Sock, Bin) ->
+send(Bin, init) ->
     [{{?MODULE, _, T}, _}] = diameter_reg:wait({?MODULE, self(), '_'}),
-    putr(config, T),
-    send(Sock, Bin);
+    send(Bin, T);
 
 %% First transport process.
-send({SvcName, {_,_,_} = T}, Sock, Bin) ->
+send(Bin, {SvcName, {_,_,_} = T}) ->
     [{'Origin-Host', _} = OH, {'Origin-Realm', _} = OR | _]
         = ?SERVICE(SvcName),
     putr(origin, [OH, OR]),
-    putr(config, T),
-    send(Sock, Bin);
+    send(Bin, T);
 
 %% Discard DWA, failback after another timeout in the peer.
-send({Wd, 0 = No, Msg}, Sock, Bin) ->
+send(Bin, {Wd, 0 = No, Msg}) ->
     Origin = getr(origin),
-    spawn(fun() -> failback(?ONE_WD(Wd), Msg, Sock, Bin, Origin) end),
-    putr(config, No),
-    ok;
+    [{defer, ?ONE_WD(Wd), [msg(Msg, Bin, Origin)]}, fun message/3, No];
 
 %% Send DWA while we're in the mood (aka 0 < N).
-send({Wd, N, Msg}, Sock, Bin) ->
-    putr(config, {Wd, N-1, Msg}),
-    gen_tcp:send(Sock, Bin);
+send(Bin, {Wd, N, Msg}) ->
+    [Bin, fun message/3, {Wd, N-1, Msg}];
 
 %% Discard DWA.
-send(0, _Sock, _Bin) ->
-    ok;
+send(_Bin, 0 = No) ->
+    [fun message/3, No];
 
 %% Send DWA.
-send(N, Sock, <<_:32, 0:1, _:7, 280:24, _/binary>> = Bin) ->
-    putr(config, N-1),
-    gen_tcp:send(Sock, Bin).
-
-failback(Tmo, Msg, Sock, Bin, Origin) ->
-    timer:sleep(Tmo),
-    ok = gen_tcp:send(Sock, msg(Msg, Bin, Origin)).
+send(<<_:32, 0:1, _:7, 280:24, _/binary>> = DWA, N) ->
+    [DWA, fun message/3, N-1].
 
 %% msg/2
 

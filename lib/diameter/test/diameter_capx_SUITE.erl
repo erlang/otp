@@ -433,7 +433,7 @@ server_reject(Config, F, RC) ->
             ?fail({LRef, OH})
     end.
 
-%% cliient_closed/4
+%% client_closed/4
 
 client_closed(Config, Host, F, RC) ->
     true = diameter:subscribe(?CLIENT),
