@@ -304,9 +304,29 @@ lookup_temp_mod_records(Mod, #codeserver{temp_records = TempRecDict}) ->
 
 finalize_records(#codeserver{temp_records = TmpRecords,
                              records = Records} = CS) ->
-  true = ets:delete(Records),
-  ets:rename(TmpRecords, dialyzer_codeserver_records),
-  CS#codeserver{temp_records = clean, records = TmpRecords}.
+  %% The annotations of the abstract code are reset as they are no
+  %% longer needed, which makes the ETS table compression better.
+  A0 = erl_anno:new(0),
+  AFun = fun(_) -> A0 end,
+  FFun = fun({F, Abs, Type}) ->
+               NewAbs = erl_parse:map_anno(AFun, Abs),
+               {F, NewAbs, Type}
+         end,
+  ArFun = fun({Arity, Fields}) -> {Arity, lists:map(FFun, Fields)} end,
+  List = dialyzer_utils:ets_tab2list(TmpRecords),
+  true = ets:delete(TmpRecords),
+  Fun = fun({Mod, Map}) ->
+            MFun =
+              fun({record, _}, {FileLine, ArityFields}) ->
+                    {FileLine, lists:map(ArFun, ArityFields)};
+                 (_, {{M, FileLine, Abs, Args}, Type}) ->
+                    {{M, FileLine, erl_parse:map_anno(AFun, Abs), Args}, Type}
+              end,
+            {Mod, maps:map(MFun, Map)}
+        end,
+  NewList = lists:map(Fun, List),
+  true = ets:insert(Records, NewList),
+  CS#codeserver{temp_records = clean}.
 
 -spec lookup_mod_contracts(atom(), codeserver()) -> contracts().
 
@@ -355,7 +375,7 @@ store_temp_contracts(Mod, SpecMap, CallbackMap,
 		     #codeserver{temp_contracts = Cn,
 				 temp_callbacks = Cb} = CS)
   when is_atom(Mod) ->
-  %% Make sure Mod is stored even if there are not callbacks or
+  %% Make sure Mod is stored even if there are no callbacks or
   %% contracts.
   CS1 = CS#codeserver{temp_contracts = ets_map_store(Mod, SpecMap, Cn)},
   CS1#codeserver{temp_callbacks = ets_map_store(Mod, CallbackMap, Cb)}.

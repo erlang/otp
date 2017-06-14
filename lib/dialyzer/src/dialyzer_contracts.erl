@@ -18,7 +18,7 @@
 	 check_contracts/4,
 	 contracts_without_fun/3,
 	 contract_to_string/1,
-	 get_invalid_contract_warnings/4,
+	 get_invalid_contract_warnings/3,
 	 get_contract_args/1,
 	 get_contract_return/1,
 	 get_contract_return/2,
@@ -173,22 +173,20 @@ process_contract_remote_types(CodeServer) ->
   lists:foreach(ModuleFun, Mods),
   dialyzer_codeserver:finalize_contracts(CodeServer).
 
--type opaques_fun() :: fun((module()) -> [erl_types:erl_type()]).
+-type fun_types() :: orddict:orddict(label(), erl_types:type_table()).
 
--type fun_types() :: dict:dict(label(), erl_types:type_table()).
-
--spec check_contracts(orddict:orddict(mfa(), file_contract()),
+-spec check_contracts(orddict:orddict(mfa(), #contract{}),
 		      dialyzer_callgraph:callgraph(), fun_types(),
-                      opaques_fun()) -> plt_contracts().
+                      erl_types:opaques()) -> plt_contracts().
 
-check_contracts(Contracts, Callgraph, FunTypes, FindOpaques) ->
+check_contracts(Contracts, Callgraph, FunTypes, ModOpaques) ->
   FoldFun =
-    fun(Label, Type, NewContracts) ->
+    fun({Label, Type}, NewContracts) ->
 	case dialyzer_callgraph:lookup_name(Label, Callgraph) of
 	  {ok, {M,F,A} = MFA} ->
 	    case orddict:find(MFA, Contracts) of
-	      {ok, {_FileLine, Contract, _Xtra}} ->
-                Opaques = FindOpaques(M),
+	      {ok, Contract} ->
+                {M, Opaques} = lists:keyfind(M, 1, ModOpaques),
 		case check_contract(Contract, Type, Opaques) of
 		  ok ->
 		    case erl_bif_types:is_known(M, F, A) of
@@ -206,13 +204,16 @@ check_contracts(Contracts, Callgraph, FunTypes, FindOpaques) ->
 	  error -> NewContracts
 	end
     end,
-  orddict:from_list(dict:fold(FoldFun, [], FunTypes)).
+  orddict:from_list(lists:foldl(FoldFun, [], orddict:to_list(FunTypes))).
 
 %% Checks all components of a contract
 -spec check_contract(#contract{}, erl_types:erl_type()) -> 'ok' | {'error', term()}.
 
 check_contract(Contract, SuccType) ->
   check_contract(Contract, SuccType, 'universe').
+
+-spec check_contract(#contract{}, erl_types:erl_type(), erl_types:opaques()) ->
+                        'ok' | {'error', term()}.
 
 check_contract(#contract{contracts = Contracts}, SuccType, Opaques) ->
   try
@@ -662,32 +663,37 @@ general_domain([], AccSig) ->
 
 -spec get_invalid_contract_warnings([module()],
                                     dialyzer_codeserver:codeserver(),
-                                    dialyzer_plt:plt(),
-                                    opaques_fun()) -> [raw_warning()].
+                                    dialyzer_plt:plt()) -> [raw_warning()].
 
-get_invalid_contract_warnings(Modules, CodeServer, Plt, FindOpaques) ->
-  get_invalid_contract_warnings_modules(Modules, CodeServer, Plt, FindOpaques, []).
+get_invalid_contract_warnings(Modules, CodeServer, Plt) ->
+  get_invalid_contract_warnings_modules(Modules, CodeServer, Plt, []).
 
-get_invalid_contract_warnings_modules([Mod|Mods], CodeServer, Plt, FindOpaques, Acc) ->
+get_invalid_contract_warnings_modules([Mod|Mods], CodeServer, Plt, Acc) ->
   Contracts1 = dialyzer_codeserver:lookup_mod_contracts(Mod, CodeServer),
-  Contracts2 = maps:to_list(Contracts1),
-  Records = dialyzer_codeserver:lookup_mod_records(Mod, CodeServer),
-  NewAcc = get_invalid_contract_warnings_funs(Contracts2, Plt, Records, FindOpaques, Acc),
-  get_invalid_contract_warnings_modules(Mods, CodeServer, Plt, FindOpaques, NewAcc);
-get_invalid_contract_warnings_modules([], _CodeServer, _Plt, _FindOpaques, Acc) ->
+  NewAcc =
+    case maps:size(Contracts1) =:= 0 of
+      true -> Acc;
+      false ->
+        Contracts2 = maps:to_list(Contracts1),
+        Records = dialyzer_codeserver:lookup_mod_records(Mod, CodeServer),
+        Opaques = erl_types:t_opaque_from_records(Records),
+        get_invalid_contract_warnings_funs(Contracts2, Plt, Records,
+                                           Opaques, Acc)
+    end,
+  get_invalid_contract_warnings_modules(Mods, CodeServer, Plt, NewAcc);
+get_invalid_contract_warnings_modules([], _CodeServer, _Plt, Acc) ->
   Acc.
 
 get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract, _Xtra}}|Left],
-				   Plt, RecDict, FindOpaques, Acc) ->
+				   Plt, RecDict, Opaques, Acc) ->
   case dialyzer_plt:lookup(Plt, MFA) of
     none ->
       %% This must be a contract for a non-available function. Just accept it.
-      get_invalid_contract_warnings_funs(Left, Plt, RecDict, FindOpaques, Acc);
+      get_invalid_contract_warnings_funs(Left, Plt, RecDict, Opaques, Acc);
     {value, {Ret, Args}} ->
       Sig = erl_types:t_fun(Args, Ret),
       {M, _F, _A} = MFA,
       %% io:format("MFA ~tp~n", [MFA]),
-      Opaques = FindOpaques(M),
       {File, Line} = FileLine,
       WarningInfo = {File, Line, MFA},
       NewAcc =
@@ -741,9 +747,9 @@ get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract, _Xtra}}|Left],
 				     RecDict, Acc)
 	    end
 	end,
-      get_invalid_contract_warnings_funs(Left, Plt, RecDict, FindOpaques, NewAcc)
+      get_invalid_contract_warnings_funs(Left, Plt, RecDict, Opaques, NewAcc)
   end;
-get_invalid_contract_warnings_funs([], _Plt, _RecDict, _FindOpaques, Acc) ->
+get_invalid_contract_warnings_funs([], _Plt, _RecDict, _Opaques, Acc) ->
   Acc.
 
 invalid_contract_warning({M, F, A}, WarningInfo, SuccType, RecDict) ->

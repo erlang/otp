@@ -39,6 +39,8 @@
          sets_filter/2,
 	 src_compiler_opts/0,
 	 refold_pattern/1,
+         ets_tab2list/1,
+         ets_move/2,
 	 parallelism/0,
          family/1
 	]).
@@ -340,7 +342,19 @@ process_record_remote_types(CServer) ->
                   {FieldsList, C3} =
                     lists:mapfoldl(FieldFun, C2, orddict:to_list(Fields)),
                   {{Key, {FileLine, orddict:from_list(FieldsList)}}, C3};
-                _Other -> {{Key, Value}, C2}
+                {type, Name, NArgs} ->
+                  %% Make sure warnings about unknown types are output
+                  %% also for types unused by specs.
+                  Site = {type, {Module, Name, NArgs}},
+                  L = erl_anno:new(0),
+                  Args = lists:duplicate(NArgs, {var, L, '_'}),
+                  UserType = {user_type, L, Name, Args},
+                  {_NewType, C3} =
+                    erl_types:t_from_form(UserType, ExpTypes, Site,
+                                          RecordTable, VarTable, C2),
+                  {{Key, Value}, C3};
+                {opaque, _Name, _NArgs} ->
+                  {{Key, Value}, C2}
               end
           end,
         Cache = erl_types:cache__new(),
@@ -378,7 +392,10 @@ process_opaque_types(AllModules, CServer, TempExpTypes) ->
                     erl_types:t_from_form(Form, TempExpTypes, Site,
                                           RecordTable, VarTable, C2),
                   {{Key, {F, Type}}, C3};
-                _Other -> {{Key, Value}, C2}
+                {type, _Name, _NArgs} ->
+                  {{Key, Value}, C2};
+                {record, _RecName} ->
+                  {{Key, Value}, C2}
               end
           end,
         C0 = erl_types:cache__new(),
@@ -973,6 +990,35 @@ label(Tree) ->
       cerl:set_ann(Tree, [{label, Label}]).
 
 %%------------------------------------------------------------------------------
+
+-spec ets_tab2list(ets:tid()) -> list().
+
+%% Deletes the contents of the table. Use:
+%%  ets_tab2list(T), ets:delete(T)
+%% instead of:
+%%  ets:tab2list(T), ets:delete(T)
+%% to save some memory at the expense of somewhat longer execution time.
+ets_tab2list(T) ->
+  F = fun(Vs, A) -> Vs ++ A end,
+  ets_take(ets:first(T), T, F, []).
+
+-spec ets_move(From :: ets:tid(), To :: ets:tid()) -> 'ok'.
+
+ets_move(T1, T2) ->
+  F = fun(Es, A) -> true = ets:insert(T2, Es), A end,
+  [] = ets_take(ets:first(T1), T1, F, []),
+  ok.
+
+ets_take('$end_of_table', T, F, A) ->
+  case ets:first(T) of % no safe_fixtable()...
+    '$end_of_table' -> A;
+    Key -> ets_take(Key, T, F, A)
+  end;
+ets_take(Key, T, F, A) ->
+  Vs = ets:lookup(T, Key),
+  Key1 = ets:next(T, Key),
+  true = ets:delete(T, Key),
+  ets_take(Key1, T, F, F(Vs, A)).
 
 -spec parallelism() -> integer().
 

@@ -96,10 +96,12 @@
 
 -type typesig_funmap() :: #{type_var() => type_var()}.
 
--type prop_types() :: dict:dict(label(), erl_types:erl_type()).
+-type prop_types() :: orddict:orddict(label(), erl_types:erl_type()).
+-type dict_prop_types() :: dict:dict(label(), erl_types:erl_type()).
 
 -record(state, {callgraph                :: dialyzer_callgraph:callgraph()
                                           | 'undefined',
+                cserver                  :: dialyzer_codeserver:codeserver(),
 		cs          = []         :: [constr()],
 		cmap        = maps:new() :: #{type_var() => constr()},
 		fun_map     = maps:new() :: typesig_funmap(),
@@ -112,8 +114,8 @@
 		self_rec                 :: 'false' | erl_types:erl_type(),
 		plt                      :: dialyzer_plt:plt()
                                           | 'undefined',
-		prop_types  = dict:new() :: prop_types(),
-		records     = maps:new() :: types(),
+		prop_types  = dict:new() :: dict_prop_types(),
+                mod_records = []         :: [{module(), types()}],
 		scc         = []         :: ordsets:ordset(type_var()),
 		mfas                     :: [mfa()],
                 solvers     = []         :: [solver()]
@@ -138,9 +140,11 @@
 -ifdef(DEBUG).
 -define(debug(__String, __Args), io:format(__String, __Args)).
 -define(mk_fun_var(Fun, Vars), mk_fun_var(?LINE, Fun, Vars)).
+-define(pp_map(S, M), pp_map(S, M)).
 -else.
 -define(debug(__String, __Args), ok).
 -define(mk_fun_var(Fun, Vars), mk_fun_var(Fun, Vars)).
+-define(pp_map(S, M), ok).
 -endif.
 
 %% ============================================================================
@@ -177,15 +181,13 @@ analyze_scc(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers0) ->
   State1 = new_state(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes,
                      Solvers),
   DefSet = add_def_list(maps:values(State1#state.name_map), sets:new()),
-  ModRecs = [{M, dialyzer_codeserver:lookup_mod_records(M, CServer)} ||
-              M <- lists:usort([M || {M, _, _} <- SCC])],
-  State2 = traverse_scc(SCC, CServer, DefSet, ModRecs, State1),
+  State2 = traverse_scc(SCC, CServer, DefSet, State1),
   State3 = state__finalize(State2),
   Funs = state__scc(State3),
   pp_constrs_scc(Funs, State3),
   constraints_to_dot_scc(Funs, State3),
   T = solve(Funs, State3),
-  dict:from_list(maps:to_list(T)).
+  orddict:from_list(maps:to_list(T)).
 
 solvers([]) -> [v2];
 solvers(Solvers) -> Solvers.
@@ -196,15 +198,14 @@ solvers(Solvers) -> Solvers.
 %%
 %% ============================================================================
 
-traverse_scc([{M,_,_}=MFA|Left], Codeserver, DefSet, ModRecs, AccState) ->
+traverse_scc([{M,_,_}=MFA|Left], Codeserver, DefSet, AccState) ->
+  TmpState1 = state__set_module(AccState, M),
   Def = dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
-  {M, Rec} = lists:keyfind(M, 1, ModRecs),
-  TmpState1 = state__set_rec_dict(AccState, Rec),
   DummyLetrec = cerl:c_letrec([Def], cerl:c_atom(foo)),
   TmpState2 = state__new_constraint_context(TmpState1),
   {NewAccState, _} = traverse(DummyLetrec, DefSet, TmpState2),
-  traverse_scc(Left, Codeserver, DefSet, ModRecs, NewAccState);
-traverse_scc([], _Codeserver, _DefSet, _ModRecs, AccState) ->
+  traverse_scc(Left, Codeserver, DefSet, NewAccState);
+traverse_scc([], _Codeserver, _DefSet, AccState) ->
   AccState.
 
 traverse(Tree, DefinedVars, State) ->
@@ -470,12 +471,11 @@ traverse(Tree, DefinedVars, State) ->
 	    true ->
               %% Check if a record is constructed.
               Arity = length(Fields),
-              Records = State2#state.records,
-              case lookup_record(Records, cerl:atom_val(Tag), Arity) of
-                error -> {State2, TupleType};
-                {ok, RecType} ->
-                  State3 = state__store_conj(TupleType, sub, RecType, State2),
-                  {State3, TupleType}
+              case lookup_record(State2, cerl:atom_val(Tag), Arity) of
+                {error, State3} -> {State3, TupleType};
+                {ok, RecType, State3} ->
+                  State4 = state__store_conj(TupleType, sub, RecType, State3),
+                  {State4, TupleType}
               end;
 	    false -> {State2, TupleType}
           end;
@@ -1440,7 +1440,6 @@ get_bif_constr({erlang, is_record, 2}, Dst, [Var, Tag] = Args, _State) ->
 			   mk_constraint(Var, sub, ArgV)]);
 get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
   %% TODO: Revise this to make it precise for Tag and Arity.
-  Records = State#state.records,
   ArgFun =
     fun(Map) ->
 	case t_is_any_atom(true, lookup_type(Dst, Map)) of
@@ -1457,10 +1456,10 @@ get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
 			GenRecord = t_tuple([TagType|AnyElems]),
 			case t_atom_vals(TagType) of
 			  [TagVal] ->
-			    case lookup_record(Records, TagVal, ArityVal - 1) of
-			      {ok, Type} ->
+			    case lookup_record(State, TagVal, ArityVal - 1) of
+			      {ok, Type, _NewState} ->
                                 Type;
-			      error -> GenRecord
+			      {error, _NewState} -> GenRecord
 			    end;
 			  _ -> GenRecord
 			end;
@@ -1917,8 +1916,8 @@ check_solutions([{S1,Map1,_Time1}|Maps], Fun, S, Map) ->
       check_solutions(Maps, Fun, S1, Map1);
     false ->
       ?debug("Constraint solvers do not agree on ~w\n", [Fun]),
-      pp_map(atom_to_list(S), Map),
-      pp_map(atom_to_list(S1), Map1),
+      ?pp_map(atom_to_list(S), Map),
+      ?pp_map(atom_to_list(S1), Map1),
       io:format("A bug was found. Please report it, and use the option "
                 "`--solver v1' until the bug has been fixed.\n"),
       throw(error)
@@ -1967,7 +1966,7 @@ v2_solve(#constraint_ref{id = Id}, Map, V2State) ->
 
 v2_solve_reference(Id, Map, V2State0) ->
   ?debug("Checking ref to fun: ~tw\n", [debug_lookup_name(Id)]),
-  pp_map("Map", Map),
+  ?pp_map("Map", Map),
   pp_constr_data("solve_ref", V2State0),
   Map1 = restore_local_map(V2State0, Id, Map),
   State = V2State0#v2_state.state,
@@ -2023,7 +2022,7 @@ v2_solve_self_recursive(Cs, Map, Id, RecType0, V2State0) ->
 	  Error
       end;
     {ok, NewMap, V2State, U} ->
-      pp_map("recursive finished", NewMap),
+      ?pp_map("recursive finished", NewMap),
       NewRecType = unsafe_lookup_type(Id, NewMap),
       case is_equal(NewRecType, RecType0) of
 	true ->
@@ -2041,7 +2040,7 @@ enter_var_type(Var, Type, Map0) ->
 v2_solve_disjunct(Disj, Map, V2State0) ->
   #constraint_list{type = disj, id = _Id, list = Cs, masks = Masks} = Disj,
   ?debug("disjunct Id=~w~n", [_Id]),
-  pp_map("Map", Map),
+  ?pp_map("Map", Map),
   pp_constr_data("disjunct", V2State0),
   case get_flags(V2State0, Disj) of
     {V2State1, failed_list} -> {error, V2State1}; % cannot happen
@@ -2069,7 +2068,7 @@ v2_solve_disjunct(Disj, Map, V2State0) ->
                 U1 = [V || V <- U0,
                            var_occurs_everywhere(V, Masks, NotFailed)],
                 NewMap = join_maps(U1, MapL, Map),
-                pp_map("NewMap", NewMap),
+                ?pp_map("NewMap", NewMap),
                 U = updated_vars_only(U1, Map, NewMap),
                 ?debug("disjunct finished _Id=~w\n", [_Id]),
                 {ok, NewMap, V2State, U}
@@ -2092,7 +2091,7 @@ v2_solve_disj([I|Is], [C|Cs], I, Map0, V2State0, UL, MapL, Eval, Uneval,
     {ok, Map, V2State1, U} ->
       ?debug("disj I=~w U=~w~n", [I, U]),
       V2State = save_local_map(V2State1, Id, U, Map),
-      pp_map("DMap", Map),
+      ?pp_map("DMap", Map),
       v2_solve_disj(Is, Cs, I+1, Map0, V2State, [U|UL], [Map|MapL],
                     [I|Eval], Uneval, Failed0)
   end;
@@ -2118,9 +2117,9 @@ save_local_map(#v2_state{constr_data = ConData}=V2State, Id, U, Map) ->
     end,
   ?debug("save local map Id=~w:\n", [Id]),
   Part = lists:ukeymerge(1, lists:keysort(1, Part0), Part1),
-  pp_map("New Part", maps:from_list(Part0)),
-  pp_map("Old Part", maps:from_list(Part1)),
-  pp_map(" => Part", maps:from_list(Part)),
+  ?pp_map("New Part", maps:from_list(Part0)),
+  ?pp_map("Old Part", maps:from_list(Part1)),
+  ?pp_map(" => Part", maps:from_list(Part)),
   V2State#v2_state{constr_data = maps:put(Id, {Part,[]}, ConData)}.
 
 restore_local_map(#v2_state{constr_data = ConData}, Id, Map0) ->
@@ -2131,10 +2130,10 @@ restore_local_map(#v2_state{constr_data = ConData}, Id, Map0) ->
     {ok, {Part0,U}} ->
       Part = [KV || {K,_V} = KV <- Part0, not lists:member(K, U)],
       ?debug("restore local map Id=~w U=~w\n", [Id, U]),
-      pp_map("Part", maps:from_list(Part)),
-      pp_map("Map0", Map0),
+      ?pp_map("Part", maps:from_list(Part)),
+      ?pp_map("Map0", Map0),
       Map = lists:foldl(fun({K,V}, D) -> maps:put(K, V, D) end, Map0, Part),
-      pp_map("Map", Map),
+      ?pp_map("Map", Map),
       Map
   end.
 
@@ -2290,7 +2289,7 @@ pp_constr_data(_Tag, #v2_state{constr_data = D}) ->
          case _PartU of
            {_Part, _U} ->
              io:format("Id: ~w Vars: ~w\n", [_Id, _U]),
-             [pp_map("Part", maps:from_list(_Part)) || _Part =/= []];
+             [?pp_map("Part", maps:from_list(_Part)) || _Part =/= []];
            failed ->
              io:format("Id: ~w failed list\n", [_Id])
          end
@@ -2390,7 +2389,7 @@ solve_self_recursive(Cs, Map, MapDict, Id, RecType0, State) ->
   ?debug("OldRecType ~ts\n", [format_type(RecType0)]),
   RecType = t_limit(RecType0, ?TYPE_LIMIT),
   Map1 = enter_type(RecVar, RecType, erase_type(t_var_name(Id), Map)),
-  pp_map("Map1", Map1),
+  ?pp_map("Map1", Map1),
   case solve_ref_or_list(Cs, Map1, MapDict, State) of
     {error, _} = Error ->
       case t_is_none(RecType0) of
@@ -2403,7 +2402,7 @@ solve_self_recursive(Cs, Map, MapDict, Id, RecType0, State) ->
 	  Error
       end;
     {ok, NewMapDict, NewMap} ->
-      pp_map("NewMap", NewMap),
+      ?pp_map("NewMap", NewMap),
       NewRecType = unsafe_lookup_type(Id, NewMap),
       case is_equal(NewRecType, RecType0) of
 	true ->
@@ -2702,18 +2701,13 @@ is_same(Key, Map1, Map2) ->
 is_equal(Type1, Type2) ->
   t_is_equal(Type1, Type2).
 
-pp_map(_S, _Map) ->
-  ?debug("\t~s: ~tp\n",
-            [_S, [{X, lists:flatten(format_type(Y))} ||
-                  {X, Y} <- lists:keysort(1, maps:to_list(_Map))]]).
-
 %% ============================================================================
 %%
 %%  The State.
 %%
 %% ============================================================================
 
-new_state(MFAs, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers) ->
+new_state(MFAs, NextLabel, CallGraph, CServer, Plt, PropTypes0, Solvers) ->
   List_SCC =
     [begin
        {Var, Label} = dialyzer_codeserver:lookup_mfa_var_label(MFA, CServer),
@@ -2731,12 +2725,14 @@ new_state(MFAs, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers) ->
 	end;
       _Many -> false
     end,
+  PropTypes = dict:from_list(PropTypes0),
   #state{callgraph = CallGraph, name_map = NameMap, next_label = NextLabel,
 	 prop_types = PropTypes, plt = Plt, scc = ordsets:from_list(SCC),
-	 mfas = MFAs, self_rec = SelfRec, solvers = Solvers}.
+	 mfas = MFAs, self_rec = SelfRec, solvers = Solvers,
+         cserver = CServer}.
 
-state__set_rec_dict(State, RecDict) ->
-  State#state{records = RecDict}.
+state__set_module(State, Module) ->
+  State#state{module = Module}.
 
 state__set_in_match(State, Bool) ->
   State#state{in_match = Bool}.
@@ -2974,6 +2970,11 @@ constraint_opnd_is_any(Type) -> t_is_any(Type).
 mk_fun_var(Line, Fun, Types) ->
   Deps = [t_var_name(Var) || Var <- t_collect_vars(t_product(Types))],
   #fun_var{'fun' = Fun, deps = ordsets:from_list(Deps), origin = Line}.
+
+pp_map(S, Map) ->
+  ?debug("\t~s: ~p\n",
+            [S, [{X, lists:flatten(format_type(Y))} ||
+                  {X, Y} <- lists:keysort(1, maps:to_list(Map))]]).
 
 -else.
 
@@ -3348,15 +3349,25 @@ fold_literal_maybe_match(Tree0, State) ->
     true -> dialyzer_utils:refold_pattern(Tree1)
   end.
 
-lookup_record(Records, Tag, Arity) ->
-  case erl_types:lookup_record(Tag, Arity, Records) of
+lookup_record(State, Tag, Arity) ->
+  #state{module = M, mod_records = ModRecs, cserver = CServer} = State,
+  {State1, Rec} =
+    case lists:keyfind(M, 1, ModRecs) of
+      {M, Rec0} ->
+        {State, Rec0};
+      false ->
+        Rec0 = dialyzer_codeserver:lookup_mod_records(M, CServer),
+        NewModRecs = [{M, Rec0}|ModRecs],
+        {State#state{mod_records = NewModRecs}, Rec0}
+    end,
+  case erl_types:lookup_record(Tag, Arity, Rec) of
     {ok, Fields} ->
       RecType =
         t_tuple([t_from_term(Tag)|
                  [FieldType || {_FieldName, _Abstr, FieldType} <- Fields]]),
-      {ok, RecType};
+      {ok, RecType, State1};
     error ->
-      error
+      {error, State1}
   end.
 
 is_literal_record(Tree) ->

@@ -778,7 +778,6 @@ to_ps(#callgraph{} = CG, File, Args) ->
   ok.
 
 condensation(G) ->
-  erlang:garbage_collect(), % reduce heap size
   {Pid, Ref} = erlang:spawn_monitor(do_condensation(G, self())),
   receive {'DOWN', Ref, process, Pid, Result} ->
       {SCCInts, OutETS, InETS, MapsETS} = Result,

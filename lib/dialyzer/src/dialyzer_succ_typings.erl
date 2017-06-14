@@ -97,14 +97,13 @@ init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
 				   TimingServer, Solvers, Parent) ->
   {SCCs, Callgraph1} =
     ?timing(TimingServer, "order", dialyzer_callgraph:finalize(Callgraph)),
-  State = #st{callgraph = Callgraph1, plt = dialyzer_plt:get_mini_plt(Plt),
+  State = #st{callgraph = Callgraph1, plt = Plt,
 	      codeserver = Codeserver, parent = Parent,
 	      timing_server = TimingServer, solvers = Solvers},
   get_refined_success_typings(SCCs, State).
 
 get_refined_success_typings(SCCs, #st{callgraph = Callgraph,
 				      timing_server = TimingServer} = State) ->
-  erlang:garbage_collect(),
   case find_succ_typings(SCCs, State) of
     {fixpoint, State1} -> State1;
     {not_fixpoint, NotFixpoint1, State1} ->
@@ -139,18 +138,15 @@ get_warnings(Callgraph, Plt, DocPlt, Codeserver,
     init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
 				       TimingServer, Solvers, Parent),
   Mods = dialyzer_callgraph:modules(InitState#st.callgraph),
-  MiniPlt = InitState#st.plt,
-  FindOpaques = lookup_and_find_opaques_fun(Codeserver),
+  Plt = InitState#st.plt,
   CWarns =
-    dialyzer_contracts:get_invalid_contract_warnings(Mods, Codeserver,
-                                                     MiniPlt, FindOpaques),
-  MiniDocPlt = dialyzer_plt:get_mini_plt(DocPlt),
+    dialyzer_contracts:get_invalid_contract_warnings(Mods, Codeserver, Plt),
   ModWarns =
     ?timing(TimingServer, "warning",
-	    get_warnings_from_modules(Mods, InitState, MiniDocPlt)),
+	    get_warnings_from_modules(Mods, InitState, DocPlt)),
   {postprocess_warnings(CWarns ++ ModWarns, Codeserver),
-   MiniPlt,
-   dialyzer_plt:restore_full_plt(MiniDocPlt)}.
+   Plt,
+   DocPlt}.
 
 get_warnings_from_modules(Mods, State, DocPlt) ->
   #st{callgraph = Callgraph, codeserver = Codeserver,
@@ -162,13 +158,13 @@ get_warnings_from_modules(Mods, State, DocPlt) ->
 
 collect_warnings(M, {Codeserver, Callgraph, Plt, DocPlt}) ->
   ModCode = dialyzer_codeserver:lookup_mod_code(M, Codeserver),
-  Records = dialyzer_codeserver:lookup_mod_records(M, Codeserver),
   Contracts = dialyzer_codeserver:lookup_mod_contracts(M, Codeserver),
   AllFuns = collect_fun_info([ModCode]),
   %% Check if there are contracts for functions that do not exist
   Warnings1 =
     dialyzer_contracts:contracts_without_fun(Contracts, AllFuns, Callgraph),
   Attrs = cerl:module_attrs(ModCode),
+  Records = dialyzer_codeserver:lookup_mod_records(M, Codeserver),
   {Warnings2, FunTypes} =
     dialyzer_dataflow:get_warnings(ModCode, Plt, Callgraph, Codeserver,
 				   Records),
@@ -251,24 +247,22 @@ lookup_names(Labels, {_Codeserver, Callgraph, _Plt, _Solvers}) ->
 refine_one_module(M, {CodeServer, Callgraph, Plt, _Solvers}) ->
   ModCode = dialyzer_codeserver:lookup_mod_code(M, CodeServer),
   AllFuns = collect_fun_info([ModCode]),
-  Records = dialyzer_codeserver:lookup_mod_records(M, CodeServer),
   FunTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
+  Records = dialyzer_codeserver:lookup_mod_records(M, CodeServer),
   NewFunTypes =
     dialyzer_dataflow:get_fun_types(ModCode, Plt, Callgraph, CodeServer, Records),
-  Contracts1 = dialyzer_codeserver:lookup_mod_contracts(M, CodeServer),
-  Contracts = orddict:from_list(maps:to_list(Contracts1)),
-  FindOpaques = find_opaques_fun(Records),
-  DecoratedFunTypes =
-    decorate_succ_typings(Contracts, Callgraph, NewFunTypes, FindOpaques),
-  %% ?debug("NewFunTypes       ~tp\n   ~n", [dict:to_list(NewFunTypes)]),
-  %% ?debug("refine DecoratedFunTypes ~tp\n   ~n", [dict:to_list(DecoratedFunTypes)]),
+  {FunMFAContracts, ModOpaques} =
+    prepare_decoration(NewFunTypes, Callgraph, CodeServer),
+  DecoratedFunTypes = decorate_succ_typings(FunMFAContracts, ModOpaques),
+  %% ?Debug("NewFunTypes       ~tp\n   ~n", [NewFunTypes]),
+  %% ?debug("refine DecoratedFunTypes ~tp\n   ~n", [DecoratedFunTypes]),
   debug_pp_functions("Refine", NewFunTypes, DecoratedFunTypes, Callgraph),
 
   case reached_fixpoint(FunTypes, DecoratedFunTypes) of
     true -> [];
     {false, NotFixpoint} ->
       ?debug("Not fixpoint\n", []),
-      Plt = insert_into_plt(dict:from_list(NotFixpoint), Callgraph, Plt),
+      Plt = insert_into_plt(orddict:from_list(NotFixpoint), Callgraph, Plt),
       [FunLbl || {FunLbl,_Type} <- NotFixpoint]
   end.
 
@@ -282,22 +276,20 @@ reached_fixpoint_strict(OldTypes, NewTypes) ->
   end.
 
 reached_fixpoint(OldTypes0, NewTypes0, Strict) ->
-  MapFun = fun(_Key, Type) ->
+  MapFun = fun({Key, Type}) ->
 	       case is_failed_or_not_called_fun(Type) of
-		 true -> failed_fun;
-		 false -> erl_types:t_limit(Type, ?TYPE_LIMIT)
+		 true -> {Key, failed_fun};
+		 false -> {Key, erl_types:t_limit(Type, ?TYPE_LIMIT)}
 	       end
 	   end,
-  OldTypes = dict:map(MapFun, OldTypes0),
-  NewTypes = dict:map(MapFun, NewTypes0),
+  OldTypes = lists:map(MapFun, orddict:to_list(OldTypes0)),
+  NewTypes = lists:map(MapFun, orddict:to_list(NewTypes0)),
   compare_types(OldTypes, NewTypes, Strict).
 
 is_failed_or_not_called_fun(Type) ->
   erl_types:any_none([erl_types:t_fun_range(Type)|erl_types:t_fun_args(Type)]).
 
-compare_types(Dict1, Dict2, Strict) ->  
-  List1 = lists:keysort(1, dict:to_list(Dict1)),
-  List2 = lists:keysort(1, dict:to_list(Dict2)),
+compare_types(List1, List2, Strict) ->
   compare_types_1(List1, List2, Strict, []).
 
 compare_types_1([{X, _Type1}|Left1], [{X, failed_fun}|Left2], 
@@ -344,10 +336,6 @@ find_succ_typings(SCCs, #st{codeserver = Codeserver, callgraph = Callgraph,
 
 find_succ_types_for_scc(SCC0, {Codeserver, Callgraph, Plt, Solvers}) ->
   SCC = [MFA || {_, _, _} = MFA <- SCC0],
-  Contracts1 = [{MFA, dialyzer_codeserver:lookup_mfa_contract(MFA, Codeserver)}
-		|| MFA <- SCC],
-  Contracts2 = [{MFA, Contract} || {MFA, {ok, Contract}} <- Contracts1],
-  Contracts3 = orddict:from_list(Contracts2),
   Label = dialyzer_codeserver:get_next_core_label(Codeserver),
   AllFuns = lists:append(
               [begin
@@ -355,7 +343,6 @@ find_succ_types_for_scc(SCC0, {Codeserver, Callgraph, Plt, Solvers}) ->
                    dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
                  collect_fun_info([Fun])
                end || MFA <- SCC]),
-  erlang:garbage_collect(),
   PropTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
   %% Assume that the PLT contains the current propagated types
   FunTypes = dialyzer_typesig:analyze_scc(SCC, Label, Callgraph,
@@ -363,27 +350,28 @@ find_succ_types_for_scc(SCC0, {Codeserver, Callgraph, Plt, Solvers}) ->
                                           Solvers),
   AllFunSet = sets:from_list([X || {X, _} <- AllFuns]),
   FilteredFunTypes =
-    dict:filter(fun(X, _) -> sets:is_element(X, AllFunSet) end, FunTypes),
-  FindOpaques = lookup_and_find_opaques_fun(Codeserver),
-  DecoratedFunTypes =
-    decorate_succ_typings(Contracts3, Callgraph, FilteredFunTypes, FindOpaques),
+    orddict:filter(fun(F, _T) -> sets:is_element(F, AllFunSet)
+                   end, FunTypes),
+  {FunMFAContracts, ModOpaques} =
+    prepare_decoration(FilteredFunTypes, Callgraph, Codeserver),
+  DecoratedFunTypes = decorate_succ_typings(FunMFAContracts, ModOpaques),
   %% Check contracts
+  Contracts = orddict:from_list([{MFA, Contract} ||
+                                  {_, {MFA, Contract}} <- FunMFAContracts]),
   PltContracts =
-    dialyzer_contracts:check_contracts(Contracts3, Callgraph,
-                                       DecoratedFunTypes, FindOpaques),
-  %% ?debug("FilteredFunTypes ~tp\n   ~n", [dict:to_list(FilteredFunTypes)]),
-  %% ?debug("SCC DecoratedFunTypes ~tp\n   ~n", [dict:to_list(DecoratedFunTypes)]),
+    dialyzer_contracts:check_contracts(Contracts, Callgraph,
+                                       DecoratedFunTypes,
+                                       ModOpaques),
+  %% ?debug("FilteredFunTypes ~tp\n   ~n", [FilteredFunTypes]),
+  %% ?debug("SCC DecoratedFunTypes ~tp\n   ~n", [DecoratedFunTypes]),
   debug_pp_functions("SCC", FilteredFunTypes, DecoratedFunTypes, Callgraph),
-  ContractFixpoint =
-    lists:all(fun({MFA, _C}) ->
-		  %% Check the non-deleted PLT
-		  case dialyzer_plt:lookup_contract(Plt, MFA) of
-		    none -> false;
-		    {value, _} -> true
-		  end
-	      end, PltContracts),
+  NewPltContracts = [MC ||
+                      {MFA, _C}=MC <- PltContracts,
+                      %% Check the non-deleted PLT
+                      not dialyzer_plt:is_contract(Plt, MFA)],
+  ContractFixpoint = NewPltContracts =:= [],
   Plt = insert_into_plt(DecoratedFunTypes, Callgraph, Plt),
-  Plt = dialyzer_plt:insert_contract_list(Plt, PltContracts),
+  Plt = dialyzer_plt:insert_contract_list(Plt, NewPltContracts),
   case (ContractFixpoint andalso 
 	reached_fixpoint_strict(PropTypes, DecoratedFunTypes)) of
     true -> [];
@@ -392,42 +380,49 @@ find_succ_types_for_scc(SCC0, {Codeserver, Callgraph, Plt, Solvers}) ->
       [Fun || {Fun, _Arity} <- AllFuns]
   end.
 
-decorate_succ_typings(Contracts, Callgraph, FunTypes, FindOpaques) ->
-  F = fun(Label, Type) ->
+prepare_decoration(FunTypes, Callgraph, Codeserver) ->
+  F = fun({Label, _Type}=LabelType, Acc) ->
           case dialyzer_callgraph:lookup_name(Label, Callgraph) of
             {ok, MFA} ->
-              case orddict:find(MFA, Contracts) of
+              case dialyzer_codeserver:lookup_mfa_contract(MFA, Codeserver) of
                 {ok, {_FileLine, Contract, _Xtra}} ->
-                  Args = dialyzer_contracts:get_contract_args(Contract),
-                  Ret = dialyzer_contracts:get_contract_return(Contract),
-                  C = erl_types:t_fun(Args, Ret),
-                  {M, _, _} = MFA,
-                  Opaques = FindOpaques(M),
-                  erl_types:t_decorate_with_opaque(Type, C, Opaques);
-                error -> Type
+                  [{LabelType, {MFA, Contract}}|Acc];
+                error -> [{LabelType, no}|Acc]
               end;
-            error -> Type
+            error -> [{LabelType, no}|Acc]
           end
       end,
-  dict:map(F, FunTypes).
+  Contracts = lists:foldl(F, [], orddict:to_list(FunTypes)),
+  ModOpaques =
+    [{M, lookup_opaques(M, Codeserver)} ||
+      M <- lists:usort([M || {_LabelType, {{M, _, _}, _Con}} <- Contracts])],
+  {Contracts, orddict:from_list(ModOpaques)}.
 
-lookup_and_find_opaques_fun(Codeserver) ->
-  fun(Module) ->
-      Records = dialyzer_codeserver:lookup_mod_records(Module, Codeserver),
-      (find_opaques_fun(Records))(Module)
-  end.
+decorate_succ_typings(FunTypesContracts, ModOpaques) ->
+  F = fun({{Label, Type}, {{M, _, _}, Contract}}) ->
+          Args = dialyzer_contracts:get_contract_args(Contract),
+          Ret = dialyzer_contracts:get_contract_return(Contract),
+          C = erl_types:t_fun(Args, Ret),
+          {M, Opaques} = lists:keyfind(M, 1, ModOpaques),
+          R = erl_types:t_decorate_with_opaque(Type, C, Opaques),
+          {Label, R};
+         ({LabelType, no}) ->
+          LabelType
+      end,
+  orddict:from_list(lists:map(F, FunTypesContracts)).
 
-find_opaques_fun(Records) ->
-  fun(_Module) -> erl_types:t_opaque_from_records(Records) end.
+lookup_opaques(Module, Codeserver) ->
+  Records = dialyzer_codeserver:lookup_mod_records(Module, Codeserver),
+  erl_types:t_opaque_from_records(Records).
 
 get_fun_types_from_plt(FunList, Callgraph, Plt) ->
-  get_fun_types_from_plt(FunList, Callgraph, Plt, dict:new()).
+  get_fun_types_from_plt(FunList, Callgraph, Plt, []).
 
 get_fun_types_from_plt([{FunLabel, Arity}|Left], Callgraph, Plt, Map) ->
   Type = lookup_fun_type(FunLabel, Arity, Callgraph, Plt),
-  get_fun_types_from_plt(Left, Callgraph, Plt, dict:store(FunLabel, Type, Map));
+  get_fun_types_from_plt(Left, Callgraph, Plt, [{FunLabel, Type}|Map]);
 get_fun_types_from_plt([], _Callgraph, _Plt, Map) ->
-  Map.
+  orddict:from_list(Map).
 
 collect_fun_info(Trees) ->
   collect_fun_info(Trees, []).
@@ -463,7 +458,7 @@ insert_into_plt(SuccTypes0, Callgraph, Plt) ->
   dialyzer_plt:insert_list(Plt, SuccTypes).
 
 format_succ_types(SuccTypes, Callgraph) ->
-  format_succ_types(dict:to_list(SuccTypes), Callgraph, []).
+  format_succ_types(SuccTypes, Callgraph, []).
 
 format_succ_types([{Label, Type0}|Left], Callgraph, Acc) ->
   Type = erl_types:t_limit(Type0, ?TYPE_LIMIT+1),
@@ -486,10 +481,8 @@ debug_pp_succ_typings(SuccTypes) ->
   ?debug("\n", []),
   ok.
 
-debug_pp_functions(Header, FunTypes, DecoratedFunTypes, Callgraph) ->
+debug_pp_functions(Header, FTypes, DTypes, Callgraph) ->
   ?debug("FunTypes (~s)\n", [Header]),
-  FTypes = lists:keysort(1, dict:to_list(FunTypes)),
-  DTypes = lists:keysort(1, dict:to_list(DecoratedFunTypes)),
   Fun = fun({{Label, Type},{Label, DecoratedType}}) ->
             Name = lookup_name(Label, Callgraph),
             ?debug("~tw (~w): ~ts\n",

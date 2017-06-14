@@ -228,7 +228,7 @@
 -export([t_is_identifier/1]).
 -endif.
 
--export_type([erl_type/0, opaques/0, type_table/0, mod_records/0,
+-export_type([erl_type/0, opaques/0, type_table/0,
               var_table/0, cache/0]).
 
 %%-define(DEBUG, true).
@@ -366,15 +366,17 @@
 
 -type opaques() :: [erl_type()] | 'universe'.
 
+-type file_line()    :: {file:name(), erl_anno:line()}.
 -type record_key()   :: {'record', atom()}.
 -type type_key()     :: {'type' | 'opaque', mfa()}.
--type record_value() :: [{atom(), erl_parse:abstract_expr(), erl_type()}].
--type type_value()   :: {{module(), {file:name(), erl_anno:line()},
+-type field()        :: {atom(), erl_parse:abstract_expr(), erl_type()}.
+-type record_value() :: {file_line(),
+                         [{RecordSize :: non_neg_integer(), [field()]}]}.
+-type type_value()   :: {{module(), file_line(),
                           erl_parse:abstract_type(), ArgNames :: [atom()]},
                          erl_type()}.
 -type type_table() :: #{record_key() | type_key() =>
                         record_value() | type_value()}.
--type mod_records() :: dict:dict(module(), type_table()).
 
 -opaque var_table() :: #{atom() => erl_type()}.
 
@@ -528,7 +530,9 @@ list_contains_opaque(List, Opaques) ->
                                 'error' | {'ok', erl_type(), erl_type()}.
 
 t_find_opaque_mismatch(T1, T2, Opaques) ->
-  catch t_find_opaque_mismatch(T1, T2, T2, Opaques).
+  try t_find_opaque_mismatch(T1, T2, T2, Opaques)
+  catch throw:error -> error
+  end.
 
 t_find_opaque_mismatch(?any, _Type, _TopType, _Opaques) -> error;
 t_find_opaque_mismatch(?none, _Type, _TopType, _Opaques) -> throw(error);
@@ -580,8 +584,9 @@ t_find_opaque_mismatch_ordlists(L1, L2, TopType, Opaques) ->
   t_find_opaque_mismatch_list(List).
 
 t_find_opaque_mismatch_lists(L1, L2, _TopType, Opaques) ->
-  List = [catch t_find_opaque_mismatch(T1, T2, T2, Opaques) ||
-           T1 <- L1, T2 <- L2],
+  List = [try t_find_opaque_mismatch(T1, T2, T2, Opaques)
+          catch throw:error -> error
+          end || T1 <- L1, T2 <- L2],
   t_find_opaque_mismatch_list(List).
 
 t_find_opaque_mismatch_list([]) -> throw(error);
@@ -611,7 +616,9 @@ t_find_unknown_opaque(T1, T2, Opaques) ->
 %% is assumed to be taken from the contract.
 
 t_decorate_with_opaque(T1, T2, Opaques) ->
-  case t_is_equal(T1, T2) orelse not t_contains_opaque(T2) of
+  case
+    Opaques =:= [] orelse t_is_equal(T1, T2) orelse not t_contains_opaque(T2)
+  of
     true -> T1;
     false ->
       T = t_inf(T1, T2),
@@ -4447,11 +4454,11 @@ mod_name(Mod, Name) ->
 -type cache_key() :: {module(), atom(), expand_depth(),
                       [erl_type()], type_names()}.
 -type mod_type_table() :: ets:tid().
+-type mod_records() :: dict:dict(module(), type_table()).
 -record(cache,
         {
           types = maps:new() :: #{cache_key() => {erl_type(), expand_limit()}},
-          mod_recs = {mrecs, dict:new()} :: 'undefined'
-                                          | {'mrecs', mod_records()}
+          mod_recs = {mrecs, dict:new()} :: {'mrecs', mod_records()}
         }).
 
 -opaque cache() :: #cache{}.
@@ -5331,21 +5338,17 @@ is_erl_type(_) -> false.
                              'error' | {type_table(), cache()}.
 
 lookup_module_types(Module, CodeTable, Cache) ->
-  #cache{mod_recs = ModRecs} = Cache,
-  case ModRecs of
-    undefined -> error;
-    {mrecs, MRecs} ->
-      case dict:find(Module, MRecs) of
-        {ok, R} ->
-          {R, Cache};
-        error ->
-          try ets:lookup_element(CodeTable, Module, 2) of
-            R ->
-              NewMRecs = dict:store(Module, R, MRecs),
-              {R, Cache#cache{mod_recs = {mrecs, NewMRecs}}}
-          catch
-            _:_ -> error
-          end
+  #cache{mod_recs = {mrecs, MRecs}} = Cache,
+  case dict:find(Module, MRecs) of
+    {ok, R} ->
+      {R, Cache};
+    error ->
+      try ets:lookup_element(CodeTable, Module, 2) of
+        R ->
+          NewMRecs = dict:store(Module, R, MRecs),
+          {R, Cache#cache{mod_recs = {mrecs, NewMRecs}}}
+      catch
+        _:_ -> error
       end
   end.
 
