@@ -125,7 +125,7 @@ test_ei_decode_encode(Config) when is_list(Config) ->
 % We read two packets for each test, the ei_decode_encode and ei_x_decode_encode  version....
 
 send_rec(P, Term) when is_port(P) ->
-    P ! {self(), {command, term_to_binary(Term)}},
+    P ! {self(), {command, term_to_binary(Term, [{minor_version, 2}])}},
     {_B,Term} = get_buf_and_term(P).
 
 
