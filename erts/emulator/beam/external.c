@@ -1131,6 +1131,7 @@ BIF_RETTYPE term_to_binary_2(BIF_ALIST_2)
 		    break;
 		case 1: /* Current default... */
 		    flags = TERM_TO_BINARY_DFLAGS;
+                    break;
                 case 2:
                     flags = TERM_TO_BINARY_DFLAGS | DFLAG_UTF8_ATOMS;
 		    break;
