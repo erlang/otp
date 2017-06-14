@@ -8860,18 +8860,36 @@ hello
         <p>Option <c>{minor_version, <anno>Version</anno>}</c>
           can be used to control some
           encoding details. This option was introduced in Erlang/OTP R11B-4.
-          The valid values for <c><anno>Version</anno></c> are
-          <c>0</c> and <c>1</c>.</p>
-        <p>As from Erlang/OTP 17.0, <c>{minor_version, 1}</c> is the default. It
-          forces any floats in the term to be encoded in a more
-          space-efficient and exact way (namely in the 64-bit IEEE format,
-          rather than converted to a textual representation).</p>
-        <p>As from Erlang/OTP R11B-4, <c>binary_to_term/1</c> can decode this
-          representation.</p>
-        <p><c>{minor_version, 0}</c> means that floats are encoded
-          using a textual representation. This option is useful to
-          ensure that releases before Erlang/OTP R11B-4 can decode resulting
-          binary.</p>
+          The valid values for <c><anno>Version</anno></c> are:</p>
+	  <taglist>
+	    <tag><c>0</c></tag>
+	    <item>
+              <p>Floats are encoded using a textual representation.
+	      This option is useful to ensure that releases before Erlang/OTP
+	      R11B-4 can decode resulting binary.</p>
+	      <p>This version encode atoms that can be represented by a
+	      latin1 string using latin1 encoding while only atoms that
+	      cannot be represented by latin1 are encoded using utf8.</p>
+	    </item>
+	    <tag><c>1</c></tag>
+	    <item>
+              <p>This is as of Erlang/OTP 17.0 the default. It forces any floats
+	      in the term to be encoded in a more space-efficient and exact way
+	      (namely in the 64-bit IEEE format, rather than converted to a
+	      textual representation). As from Erlang/OTP R11B-4,
+	      <c>binary_to_term/1</c> can decode this representation.</p>
+	      <p>This version encode atoms that can be represented by a
+	      latin1 string using latin1 encoding while only atoms that
+	      cannot be represented by latin1 are encoded using utf8.</p>
+	    </item>
+	    <tag><c>2</c></tag>
+	    <item>
+              <p>Drops usage of the latin1 atom encoding and unconditionally
+	      use utf8 encoding for all atoms. This will be changed to the
+	      default in a future major release of Erlang/OTP. Erlang/OTP
+	      systems as of R16B can decode this representation.</p>
+	    </item>
+	  </taglist>
         <p>See also <seealso marker="#binary_to_term/1">
           <c>binary_to_term/1</c></seealso>.</p>
       </desc>

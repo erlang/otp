@@ -1129,8 +1129,10 @@ BIF_RETTYPE term_to_binary_2(BIF_ALIST_2)
 		case 0:
 		    flags = TERM_TO_BINARY_DFLAGS & ~DFLAG_NEW_FLOATS;
 		    break;
-		case 1:
+		case 1: /* Current default... */
 		    flags = TERM_TO_BINARY_DFLAGS;
+                case 2:
+                    flags = TERM_TO_BINARY_DFLAGS | DFLAG_UTF8_ATOMS;
 		    break;
 		default:
 		    goto error;
