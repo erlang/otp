@@ -869,7 +869,7 @@ pkix_verify_hostname(Cert = #'OTPCertificate'{tbsCertificate = TbsCert}, Referen
 		false ->
 		    %% Try to extract DNS-IDs from URIs etc
 		    DNS_ReferenceIDs =
-			[{dns_is,X} || X <- verify_hostname_fqnds(ReferenceIDs, FqdnFun)],
+			[{dns_id,X} || X <- verify_hostname_fqnds(ReferenceIDs, FqdnFun)],
 		    verify_hostname_match_loop(DNS_ReferenceIDs, PresentedIDs,
 					       MatchFun, FailCB, Cert);
 		true ->
