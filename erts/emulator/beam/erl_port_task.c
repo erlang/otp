@@ -1624,8 +1624,9 @@ abort_nosuspend:
 
     ASSERT(ns_pthlp);
     erts_free(ERTS_ALC_T_PT_HNDL_LIST, ns_pthlp);
-    if (ptp)
-	port_task_free(ptp);
+
+    ASSERT(ptp);
+    port_task_free(ptp);
 
     return 0;
 
@@ -1636,14 +1637,14 @@ fail:
 	erts_port_dec_refc(pp);
 #endif
 
-    abort_signal_task(pp, ERTS_PROC2PORT_SIG_ABORT,
-                      ptp->type, &ptp->u.alive.td, 0);
+    if (ptp) {
+        abort_signal_task(pp, ERTS_PROC2PORT_SIG_ABORT,
+                          ptp->type, &ptp->u.alive.td, 0);
+	port_task_free(ptp);
+    }
 
     if (ns_pthlp)
 	erts_free(ERTS_ALC_T_PT_HNDL_LIST, ns_pthlp);
-
-    if (ptp)
-	port_task_free(ptp);
 
     return -1;
 }
