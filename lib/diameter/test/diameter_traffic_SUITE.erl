@@ -202,8 +202,7 @@
          {'Acct-Application-Id', [?DIAMETER_APP_ID_ACCOUNTING]},
          {restrict_connections, false},
          {string_decode, Decode},
-         {incoming_maxlen, 1 bsl 21},
-         {spawn_opt, [{min_heap_size, 5000}]}
+         {incoming_maxlen, 1 bsl 21}
          | [{application, [{dictionary, D},
                            {module, ?MODULE},
                            {answer_errors, callback}]}
@@ -465,8 +464,8 @@ add_transports(Config) ->
                             || T == sctp andalso CS]],
                         [{capabilities_cb, fun capx/2},
                          {pool_size, 8},
-                         {spawn_opt, [{min_heap_size, 8096}]},
-                         {applications, apps(rfc3588)}]),
+                         {applications, apps(rfc3588)}]
+                        ++ [{spawn_opt, {erlang, spawn, []}} || CS]),
     Cs = [?util:connect(CN,
                         [T, {sender, CS}],
                         LRef,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,6 +94,9 @@ recv_CER(CER, Svc, Dict) ->
 recv_CEA(CEA, Svc, Dict) ->
     try_it([fun rCEA/3, CEA, Svc, Dict]).
 
+-spec make_caps(#diameter_caps{}, [{atom(), term()}])
+   -> tried(#diameter_caps{}).
+
 make_caps(Caps, Opts) ->
     try_it([fun mk_caps/2, Caps, Opts]).
 
@@ -110,31 +113,20 @@ try_it([Fun | Args]) ->
 %% mk_caps/2
 
 mk_caps(Caps0, Opts) ->
-    {Caps, _} = lists:foldl(fun set_cap/2,
-                            {Caps0, #diameter_caps{_ = false}},
-                            Opts),
-    Caps.
+    Fields = diameter_gen_base_rfc3588:'#info-'(diameter_base_CER, fields),
+    Defs = lists:zip(Fields, tl(tuple_to_list(Caps0))),
+    Unset = maps:from_list([{F, true} || F <- lists:droplast(Fields)]), %% no 'AVP'
+    {Caps, _} = lists:foldl(fun set_cap/2, {Defs, Unset}, Opts),
+    #diameter_caps{} = list_to_tuple([diameter_caps | [V || {_,V} <- Caps]]).
 
--define(SC(K,F),
-        set_cap({K, Val}, {Caps, #diameter_caps{F = false} = C}) ->
-            {Caps#diameter_caps{F = cap(K, copy(Val))},
-             C#diameter_caps{F = true}}).
-
-?SC('Origin-Host',         origin_host);
-?SC('Origin-Realm',        origin_realm);
-?SC('Host-IP-Address',     host_ip_address);
-?SC('Vendor-Id',           vendor_id);
-?SC('Product-Name',        product_name);
-?SC('Origin-State-Id',     origin_state_id);
-?SC('Supported-Vendor-Id', supported_vendor_id);
-?SC('Auth-Application-Id', auth_application_id);
-?SC('Inband-Security-Id',  inband_security_id);
-?SC('Acct-Application-Id', acct_application_id);
-?SC('Vendor-Specific-Application-Id', vendor_specific_application_id);
-?SC('Firmware-Revision',   firmware_revision);
-
-set_cap({Key, _}, _) ->
-    ?THROW({duplicate, Key}).
+set_cap({F,V}, {Caps, Unset}) ->
+    case Unset of
+        #{F := true} ->
+            {lists:keyreplace(F, 1, Caps, {F, cap(F, copy(V))}),
+             maps:remove(F, Unset)};
+        _ ->
+            ?THROW({duplicate, F})
+    end.
 
 cap(K, V)
   when K == 'Origin-Host';
@@ -349,7 +341,7 @@ cs(LS, RS) ->
 cea_from_cer(CER, Dict) ->
     RecName = Dict:msg2rec('CEA'),
     [_ | Values] = Dict:'#get-'(CER),
-    Dict:'#set-'(Values, Dict:'#new-'(RecName)).
+    Dict:'#new-'([RecName | Values]).
 
 %% rCEA/3
 

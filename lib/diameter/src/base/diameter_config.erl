@@ -535,12 +535,12 @@ stop(SvcName) ->
 %% restrict applications so that that there's one while the service
 %% has many.
 
-add(SvcName, Type, Opts) ->
+add(SvcName, Type, Opts0) ->
     %% Ensure acceptable transport options. This won't catch all
     %% possible errors (faulty callbacks for example) but it catches
     %% many. diameter_service:merge_service/2 depends on usable
     %% capabilities for example.
-    ok = transport_opts(Opts),
+    Opts = transport_opts(Opts0),
 
     Ref = make_ref(),
     true = diameter_reg:add_new(?TRANSPORT_KEY(Ref)),
@@ -560,7 +560,17 @@ add(SvcName, Type, Opts) ->
     end.
 
 transport_opts(Opts) ->
-    lists:foreach(fun(T) -> opt(T) orelse ?THROW({invalid, T}) end, Opts).
+    lists:map(fun topt/1, Opts).
+
+topt(T) ->
+    case opt(T) of
+        {value, X} ->
+            X;
+        true ->
+            T;
+        false ->
+            ?THROW({invalid, T})
+    end.
 
 opt({transport_module, M}) ->
     is_atom(M);
@@ -600,8 +610,15 @@ opt({watchdog_timer, Tmo}) ->
 opt({watchdog_config, L}) ->
     is_list(L) andalso lists:all(fun wdopt/1, L);
 
-opt({spawn_opt, Opts}) ->
-    is_list(Opts);
+opt({spawn_opt, {M,F,A}})
+  when is_atom(M), is_atom(F), is_list(A) ->
+    true;
+opt({spawn_opt = K, Opts}) ->
+    if is_list(Opts) ->
+            {value, {K, spawn_opts(Opts)}};
+       true ->
+            false
+    end;
 
 opt({pool_size, N}) ->
     is_integer(N) andalso 0 < N;
@@ -676,7 +693,7 @@ stop_transport(SvcName, Refs) ->
 
 make_config(SvcName, Opts) ->
     AppOpts = [T || {application, _} = T <- Opts],
-    Apps = init_apps(AppOpts),
+    Apps = [init_app(T) || T <- AppOpts],
 
     [] == Apps andalso ?THROW(no_apps),
 
@@ -725,9 +742,13 @@ opt(incoming_maxlen, N)
   when 0 =< N, N < 1 bsl 24 ->
     N;
 
+opt(spawn_opt, {M,F,A} = T)
+  when is_atom(M), is_atom(F), is_list(A) ->
+    T;
+
 opt(spawn_opt, L)
   when is_list(L) ->
-    L;
+    spawn_opts(L);
 
 opt(K, false = B)
   when K == share_peers;
@@ -789,6 +810,9 @@ opt(sequence = K, F) ->
 opt(K, _) ->
     ?THROW({value, K}).
 
+spawn_opts(L) ->
+    [T || T <- L, T /= link, T /= monitor].
+
 sequence({H,N} = T)
   when 0 =< N, N =< 32, 0 =< H, 0 == H bsr (32-N) ->
     T;
@@ -822,10 +846,7 @@ encode_CER(Opts) ->
             ?THROW(Reason)
     end.
 
-init_apps(Opts) ->
-    lists:foldl(fun app_acc/2, [], lists:reverse(Opts)).
-
-app_acc({application, Opts} = T, Acc) ->
+init_app({application, Opts} = T) ->
     is_list(Opts) orelse ?THROW(T),
 
     [Dict, Mod] = get_opt([dictionary, module], Opts),
@@ -834,15 +855,14 @@ app_acc({application, Opts} = T, Acc) ->
     M = get_opt(call_mutates_state, Opts, false, [true]),
     A = get_opt(answer_errors, Opts, discard, [callback, report]),
     P = get_opt(request_errors, Opts, answer_3xxx, [answer, callback]),
-    [#diameter_app{alias = Alias,
-                   dictionary = Dict,
-                   id = cb(Dict, id),
-                   module = init_mod(Mod),
-                   init_state = ModS,
-                   mutable = M,
-                   options = [{answer_errors, A},
-                              {request_errors, P}]}
-     | Acc].
+    #diameter_app{alias = Alias,
+                  dictionary = Dict,
+                  id = cb(Dict, id),
+                  module = init_mod(Mod),
+                  init_state = ModS,
+                  mutable = M,
+                  options = [{answer_errors, A},
+                             {request_errors, P}]}.
 
 init_mod(#diameter_callback{} = R) ->
     init_mod([diameter_callback, R]);
