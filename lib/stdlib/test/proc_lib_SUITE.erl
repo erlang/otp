@@ -552,17 +552,30 @@ t_format(_Config) ->
 
 t_format() ->
     error_logger:add_report_handler(?MODULE, self()),
-    Pid = proc_lib:spawn(fun t_format_looper/0),
+    Pid = proc_lib:spawn(fun '\x{aaa}t_format_looper'/0),
     HugeData = gb_sets:from_list(lists:seq(1, 100)),
-    Pid ! {die,HugeData},
+    SomeData1 = list_to_atom([246]),
+    SomeData2 = list_to_atom([1024]),
+    Pid ! {SomeData1,SomeData2},
+    Pid ! {die,{HugeData,SomeData1,SomeData2}},
     Report = receive
 		 {crash_report, Pid, Report0} -> Report0
 	     end,
-    Usz = do_test_format(Report, unlimited),
-    Tsz = do_test_format(Report, 20),
+    Usz = do_test_format(Report, latin1, unlimited),
+    Tsz = do_test_format(Report, latin1, 20),
 
     if
 	Tsz >= Usz ->
+	    ct:fail(failed);
+	true ->
+	    ok
+    end,
+
+    UszU = do_test_format(Report, unicode, unlimited),
+    TszU = do_test_format(Report, unicode, 20),
+
+    if
+	TszU >= UszU ->
 	    ct:fail(failed);
 	true ->
 	    ok
@@ -597,15 +610,19 @@ do_test_format(Report, Encoding, Depth) ->
     io:format("*** Depth = ~p, Encoding = ~p", [Depth, Encoding]),
     S0 = proc_lib:format(Report, Encoding, Depth),
     S = lists:flatten(S0),
-    io:put_chars(S),
+    case Encoding of
+        latin1 -> io:format("~s\n", [S]);
+        _ -> io:format("~ts\n", [S])
+    end,
     length(S).
 
-t_format_looper() ->
+'\x{aaa}t_format_looper'() ->
     receive
 	{die,Data} ->
 	    exit(Data);
-	_ ->
-	    t_format_looper()
+	M ->
+            put(M, M),
+	    '\x{aaa}t_format_looper'()
     end.
 
 %%-----------------------------------------------------------------
