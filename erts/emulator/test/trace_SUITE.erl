@@ -24,7 +24,8 @@
 %%% Tests the trace BIF.
 %%%
 
--export([all/0, suite/0, link_receive_call_correlation/0,
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2,
+         link_receive_call_correlation/0,
          receive_trace/1, link_receive_call_correlation/1, self_send/1,
 	 timeout_trace/1, send_trace/1,
 	 procs_trace/1, dist_procs_trace/1, procs_new_trace/1,
@@ -62,6 +63,14 @@ all() ->
      system_monitor_long_schedule,
      system_monitor_large_heap_2, bad_flag, trace_delivered].
 
+init_per_testcase(_Case, Config) ->
+    [{receiver,spawn(fun receiver/0)}|Config].
+
+end_per_testcase(_Case, Config) ->
+    Receiver = proplists:get_value(receiver, Config),
+    unlink(Receiver),
+    exit(Receiver, die),
+    ok.
 
 %% No longer testing anything, just reporting whether cpu_timestamp
 %% is enabled or not.
@@ -83,7 +92,7 @@ cpu_timestamp(Config) when is_list(Config) ->
 %% Tests that trace(Pid, How, ['receive']) works.
 
 receive_trace(Config) when is_list(Config) ->
-    Receiver = fun_spawn(fun receiver/0),
+    Receiver = proplists:get_value(receiver, Config),
 
     %% Trace the process; make sure that we receive the trace messages.
     1 = erlang:trace(Receiver, true, ['receive']),
@@ -353,7 +362,7 @@ timeout_trace(Config) when is_list(Config) ->
 send_trace(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Sender = fun_spawn(fun sender/0),
-    Receiver = fun_spawn(fun receiver/0),
+    Receiver = proplists:get_value(receiver, Config),
 
     %% Check that a message sent to another process is traced.
     1 = erlang:trace(Sender, true, [send]),
@@ -1604,7 +1613,8 @@ suspend_waiting(Config) when is_list(Config) ->
 
 %% Test that erlang:trace(new, true, ...) is cleared when tracer dies.
 new_clear(Config) when is_list(Config) ->
-    Tracer = spawn(fun receiver/0),
+    Tracer = proplists:get_value(receiver, Config),
+
     0 = erlang:trace(new, true, [send, {tracer, Tracer}]),
     {flags, [send]} = erlang:trace_info(new, flags),
     {tracer, Tracer} = erlang:trace_info(new, tracer),
@@ -1623,7 +1633,7 @@ new_clear(Config) when is_list(Config) ->
 existing_clear(Config) when is_list(Config) ->
     Self = self(),
 
-    Tracer = fun_spawn(fun receiver/0),
+    Tracer = proplists:get_value(receiver, Config),
     N = erlang:trace(existing, true, [send, {tracer, Tracer}]),
     {flags, [send]} = erlang:trace_info(Self, flags),
     {tracer, Tracer} = erlang:trace_info(Self, tracer),
@@ -1639,27 +1649,30 @@ existing_clear(Config) when is_list(Config) ->
 %% Test that erlang:trace/3 can be called on processes where the
 %% tracer has died. OTP-13928
 tracer_die(Config) when is_list(Config) ->
-    Proc = spawn(fun receiver/0),
+    Proc = spawn_link(fun receiver/0),
 
-    Tracer = spawn(fun receiver/0),
+    Tracer = spawn_link(fun receiver/0),
     timer:sleep(1),
     N = erlang:trace(existing, true, [send, {tracer, Tracer}]),
     {flags, [send]} = erlang:trace_info(Proc, flags),
     {tracer, Tracer} = erlang:trace_info(Proc, tracer),
+    unlink(Tracer),
     exit(Tracer, die),
 
-    Tracer2 = spawn(fun receiver/0),
+    Tracer2 = spawn_link(fun receiver/0),
     timer:sleep(1),
     N = erlang:trace(existing, true, [send, {tracer, Tracer2}]),
     {flags, [send]} = erlang:trace_info(Proc, flags),
     {tracer, Tracer2} = erlang:trace_info(Proc, tracer),
+    unlink(Tracer2),
     exit(Tracer2, die),
 
-    Tracer3 = spawn(fun receiver/0),
+    Tracer3 = spawn_link(fun receiver/0),
     timer:sleep(1),
     1 = erlang:trace(Proc, true, [send, {tracer, Tracer3}]),
     {flags, [send]} = erlang:trace_info(Proc, flags),
     {tracer, Tracer3} = erlang:trace_info(Proc, tracer),
+    unlink(Tracer3),
     exit(Tracer3, die),
 
     ok.

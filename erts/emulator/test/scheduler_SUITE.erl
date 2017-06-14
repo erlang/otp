@@ -799,7 +799,7 @@ update_cpu_info(Config) when is_list(Config) ->
 		      unchanged -> ok;
 		      changed -> ok
 		  end;
-	      {Avail, _} ->
+	      {_Avail, _} ->
 		  try
 		      adjust_schedulers_online(),
 		      case erlang:system_info(schedulers_online) of
@@ -848,7 +848,7 @@ update_cpu_info(Config) when is_list(Config) ->
 bits_in_mask(Mask) ->
     bits_in_mask(Mask, 0, 0).
 
-bits_in_mask(0, Shift, N) ->
+bits_in_mask(0, _Shift, N) ->
     N;
 bits_in_mask(Mask, Shift, N) ->
     case Mask band (1 bsl Shift) of
@@ -1143,7 +1143,6 @@ dirty_scheduler_threads(Config) when is_list(Config) ->
     end.
 
 dirty_scheduler_threads_test(Config) ->
-    SmpSupport = erlang:system_info(smp_support),
     {Sched, SchedOnln, _} = get_dsstate(Config, ""),
     {HalfSched, HalfSchedOnln} = {lists:max([1,Sched div 2]),
                                   lists:max([1,SchedOnln div 2])},

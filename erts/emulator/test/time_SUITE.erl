@@ -300,7 +300,7 @@ os_system_time_offset() ->
 had_time_warp(Secs) ->
     had_time_warp(os_system_time_offset(), Secs).
 
-had_time_warp(OrigOffs, 0) ->
+had_time_warp(_OrigOffs, 0) ->
     false;
 had_time_warp(OrigOffs, N) ->
     receive after 1000 -> ok end,
@@ -992,9 +992,6 @@ bad_dates() ->
 
      {{1996, 4, 30}, {12, 0, -1}},		% Sec
      {{1996, 4, 30}, {12, 0, 60}}].
-
-start_node(Config) ->
-    start_node(Config, "").
 
 start_node(Config, Args) ->
     TestCase = proplists:get_value(testcase, Config),

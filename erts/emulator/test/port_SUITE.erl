@@ -1042,7 +1042,7 @@ pipe_limit_env_do(Bytes, Cmd, CmdSize) ->
 
 %% environ format: KEY=VALUE\0
 env_of_bytes(Bytes) when Bytes > 3 ->
-    Env = [{"X",lists:duplicate(Bytes-3, $x)}];
+    [{"X",lists:duplicate(Bytes-3, $x)}];
 env_of_bytes(_) -> [].
 
 %% White box assumption about payload written to pipe

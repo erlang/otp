@@ -22,7 +22,7 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 integers/1,coverage/1,booleans/1,setelement/1,cons/1,
-	 tuple/1,record_float/1,binary_float/1]).
+	 tuple/1,record_float/1,binary_float/1,float_compare/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -39,7 +39,8 @@ groups() ->
        cons,
        tuple,
        record_float,
-       binary_float
+       binary_float,
+       float_compare
       ]}].
 
 init_per_suite(Config) ->
@@ -150,6 +151,26 @@ binary_float(_Config) ->
 
 binary_negate_float(<<Float/float>>) ->
     <<-Float/float>>.
+
+float_compare(_Config) ->
+    false = do_float_compare(-42.0),
+    false = do_float_compare(-42),
+    false = do_float_compare(0),
+    false = do_float_compare(0.0),
+    true = do_float_compare(42),
+    true = do_float_compare(42.0),
+    ok.
+
+do_float_compare(X) ->
+    %% ERL-433: Used to fail before OTP 20. Was accidentally fixed
+    %% in OTP 20. Add a test case to ensure it stays fixed.
+
+    Y = X + 1.0,
+    case X > 0 of
+        T when (T =:= nil) or (T =:= false) -> T;
+        _T -> Y > 0
+    end.
+
 
 id(I) ->
     I.

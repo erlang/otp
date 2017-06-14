@@ -80,7 +80,7 @@ trace_nif_meta(Config) when is_list(Config) ->
                           {?MODULE,nif, ["Arg1"]}}),
     ok.
 do_trace_nif(Flags) ->
-    Pid = spawn(?MODULE, nif_process, []),
+    Pid = spawn_link(?MODULE, nif_process, []),
     1 = erlang:trace(Pid, true, [call]),
     erlang:trace_pattern({?MODULE,nif,'_'}, [], Flags),
     Pid ! {apply_nif, nif, []},
@@ -123,6 +123,8 @@ do_trace_nif(Flags) ->
 
     1 = erlang:trace(Pid, false, [call]),
     erlang:trace_pattern({?MODULE,nif,'_'}, false, Flags),
+
+    unlink(Pid),
     exit(Pid, die),
     ok.
 
@@ -137,7 +139,7 @@ trace_nif_timestamp_local(Config) when is_list(Config) ->
     do_trace_nif_timestamp([local]).
 
 do_trace_nif_timestamp(Flags) ->
-    Pid=spawn(?MODULE, nif_process, []),
+    Pid = spawn_link(?MODULE, nif_process, []),
     1 = erlang:trace(Pid, true, [call,timestamp]),
     erlang:trace_pattern({?MODULE,nif,'_'}, [], Flags),
 
@@ -170,6 +172,7 @@ do_trace_nif_timestamp(Flags) ->
     1 = erlang:trace(Pid, false, [call]),
     erlang:trace_pattern({erlang,'_','_'}, false, Flags),
 
+    unlink(Pid),
     exit(Pid, die),
     ok.
 
@@ -177,7 +180,7 @@ do_trace_nif_timestamp(Flags) ->
 trace_nif_return(Config) when is_list(Config) ->
     load_nif(Config),
 
-    Pid=spawn(?MODULE, nif_process, []),
+    Pid = spawn_link(?MODULE, nif_process, []),
     1 = erlang:trace(Pid, true, [call,timestamp,return_to]),
     erlang:trace_pattern({?MODULE,nif,'_'}, [{'_',[],[{return_trace}]}], 
                          [local]),

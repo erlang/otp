@@ -542,8 +542,10 @@ has_runnable_event(TsType, Events) ->
 	    end
         end, Events).
 
-has_profiler_pid_event([], _) -> false;
-has_profiler_pid_event([{profile, Pid, _Activity, _MFA, _TS}|Events], Pid) -> true;
+has_profiler_pid_event([], _) ->
+    false;
+has_profiler_pid_event([{profile, Pid, _Activity, _MFA, _TS}|_Events], Pid) ->
+    true;
 has_profiler_pid_event([_|Events], Pid) ->
     has_profiler_pid_event(Events, Pid).
 

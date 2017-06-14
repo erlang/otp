@@ -1750,12 +1750,6 @@ thread_mseg_alloc_cache_clean(Config) when is_list(Config) ->
             ok
     end.
 
-mseg_alloc_cci(MsegAllocInfo) ->
-    {value,{options, OL}}
-    = lists:keysearch(options, 1, MsegAllocInfo),
-    {value,{cci,CCI}} = lists:keysearch(cci,1,OL),
-    CCI.
-
 mseg_alloc_ccc() ->
     mseg_alloc_ccc(mseg_inst_info(0)).
 
