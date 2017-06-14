@@ -92,12 +92,10 @@ init_per_group(tcp = N, Config) ->
     [{group, N} | Config];
 
 init_per_group(sctp = N, Config) ->
-    case gen_sctp:open() of
-        {ok, Sock} ->
-            gen_sctp:close(Sock),
+    case ?util:have_sctp() of
+        true ->
             [{group, N} | Config];
-        {error, E} when E == eprotonosupport;
-                        E == esocktnosupport -> %% fail on any other reason
+        false->
             {skip, no_sctp}
     end.
 
