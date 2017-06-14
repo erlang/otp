@@ -64,7 +64,8 @@
 
 %% Record diameter:call/4 options are parsed into.
 -record(options,
-        {filter = none  :: diameter:peer_filter(),
+        {peers = []     :: [diameter:peer_ref()],
+         filter = none  :: diameter:peer_filter(),
          extra = []     :: list(),
          timeout = 5000 :: 0..16#FFFFFFFF,  %% for outgoing requests
          detach = false :: boolean()}).
@@ -1305,36 +1306,41 @@ send_R(SvcName, AppOrAlias, Msg, CallOpts, Caller) ->
 %% make_options/1
 
 make_options(Options) ->
-    make_opts(Options, false, [], none, 5000).
+    make_opts(Options, [], false, [], none, 5000).
 
 %% Do our own recursion since this is faster than a lists:foldl/3
 %% setting elements in an #options{} accumulator.
 
-make_opts([], Detach, Extra, Filter, Tmo) ->
-    #options{detach = Detach,
+make_opts([], Peers, Detach, Extra, Filter, Tmo) ->
+    #options{peers = lists:reverse(Peers),
+             detach = Detach,
              extra = Extra,
              filter = Filter,
              timeout = Tmo};
 
-make_opts([{timeout, Tmo} | Rest], Detach, Extra, Filter, _)
+make_opts([{timeout, Tmo} | Rest], Peers, Detach, Extra, Filter, _)
   when is_integer(Tmo), 0 =< Tmo ->
-    make_opts(Rest, Detach, Extra, Filter, Tmo);
+    make_opts(Rest, Peers, Detach, Extra, Filter, Tmo);
 
-make_opts([{filter, F} | Rest], Detach, Extra, none, Tmo) ->
-    make_opts(Rest, Detach, Extra, F, Tmo);
-make_opts([{filter, F} | Rest], Detach, Extra, {all, Fs}, Tmo) ->
-    make_opts(Rest, Detach, Extra, {all, [F|Fs]}, Tmo);
-make_opts([{filter, F} | Rest], Detach, Extra, F0, Tmo) ->
-    make_opts(Rest, Detach, Extra, {all, [F0, F]}, Tmo);
+make_opts([{filter, F} | Rest], Peers, Detach, Extra, none, Tmo) ->
+    make_opts(Rest, Peers, Detach, Extra, F, Tmo);
+make_opts([{filter, F} | Rest], Peers, Detach, Extra, {all, Fs}, Tmo) ->
+    make_opts(Rest, Peers, Detach, Extra, {all, [F|Fs]}, Tmo);
+make_opts([{filter, F} | Rest], Peers, Detach, Extra, F0, Tmo) ->
+    make_opts(Rest, Peers, Detach, Extra, {all, [F0, F]}, Tmo);
 
-make_opts([{extra, L} | Rest], Detach, Extra, Filter, Tmo)
+make_opts([{extra, L} | Rest], Peers, Detach, Extra, Filter, Tmo)
   when is_list(L) ->
-    make_opts(Rest, Detach, Extra ++ L, Filter, Tmo);
+    make_opts(Rest, Peers, Detach, Extra ++ L, Filter, Tmo);
 
-make_opts([detach | Rest], _, Extra, Filter, Tmo) ->
-    make_opts(Rest, true, Extra, Filter, Tmo);
+make_opts([detach | Rest], Peers, _, Extra, Filter, Tmo) ->
+    make_opts(Rest, Peers, true, Extra, Filter, Tmo);
 
-make_opts([T | _], _, _, _, _) ->
+make_opts([{peer, TPid} | Rest], Peers, Detach, Extra, Filter, Tmo)
+  when is_pid(TPid) ->
+    make_opts(Rest, [TPid | Peers], Detach, Extra, Filter, Tmo);
+
+make_opts([T | _], _, _, _, _, _) ->
     ?ERROR({invalid_option, T}).
 
 %% ---------------------------------------------------------------------------
@@ -1684,8 +1690,8 @@ pick_peer(_, _, undefined, _) ->
 pick_peer(SvcName,
           AppOrAlias,
           Msg,
-          #options{filter = Filter, extra = Xtra}) ->
-    X = {fun(D) -> get_destination(D, Msg) end, Filter, Xtra},
+          #options{peers = TPids, filter = Filter, extra = Xtra}) ->
+    X = {fun(D) -> get_destination(D, Msg) end, Filter, Xtra, TPids},
     case diameter_service:pick_peer(SvcName, AppOrAlias, X) of
         false ->
             {error, no_connection};

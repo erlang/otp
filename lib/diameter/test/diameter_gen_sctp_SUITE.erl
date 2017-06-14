@@ -393,7 +393,7 @@ stat(T4, <<?MAGIC, Bin/binary>>) ->
 mark(Bin, T) ->
     Info = term_to_binary([diameter_lib:now() | T]),
     <<Info/binary, Bin/binary>>.
-    
+
 %% unmark/1
 
 unmark(Bin) ->

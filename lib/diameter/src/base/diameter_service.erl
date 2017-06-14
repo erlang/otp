@@ -282,7 +282,8 @@ whois(SvcName) ->
                   | {alias, diameter:app_alias()},
       Opts :: {fun((Dict :: module()) -> [term()]),
                diameter:peer_filter(),
-               Xtra :: list()},
+               Xtra :: list(),
+               [diameter:peer_ref()]},
       TPid :: pid(),
       Caps :: #diameter_caps{},
       App  :: #diameter_app{},
@@ -310,10 +311,10 @@ pick(#state{options = SvcOpts}
      = S,
      #diameter_app{module = ModX, dictionary = Dict}
      = App0,
-     {DestF, Filter, Xtra}) ->
+     {DestF, Filter, Xtra, TPids}) ->
     App = App0#diameter_app{module = ModX ++ Xtra},
     [_,_] = RealmAndHost = diameter_lib:eval([DestF, Dict]),
-    case pick_peer(App, RealmAndHost, Filter, S) of
+    case pick_peer(App, RealmAndHost, [Filter | TPids], S) of
         {_TPid, _Caps} = TC ->
             {{TC, App}, SvcOpts};
         false = No ->
@@ -1522,8 +1523,14 @@ pick_peer(Local,
 
 %% peers/4
 
-peers(Alias, RH, Filter, T) ->
-    filter(Alias, RH, Filter, T, true).
+%% No peer options pointing at specific peers: search for them.
+peers(Alias, RH, [Filter], T) ->
+    filter(Alias, RH, Filter, T, true);
+
+%% Or just lookup.
+peers(_Alias, RH, [Filter | TPids], {PeerT, _AppT, _IdentT}) ->
+    {Ts, _} = filter(caps(PeerT, TPids), RH, Filter),
+    Ts.
 
 %% filter/5
 %%

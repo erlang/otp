@@ -406,4 +406,5 @@ call(SvcName, App, Message) ->
    :: {extra, list()}
     | {filter, peer_filter()}
     | {timeout, 'Unsigned32'()}
+    | {peer, peer_ref()}
     | detach.
