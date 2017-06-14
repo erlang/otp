@@ -11768,9 +11768,11 @@ flush_dirty_trace_messages(void *vpid)
     erts_free(ERTS_ALC_T_DIRTY_SL, vpid);
 #endif
 
-    proc = erts_proc_lookup(pid);
-    if (proc)
-	(void) erts_flush_trace_messages(proc, 0);
+    proc = erts_pid2proc_opt(NULL, 0, pid, ERTS_PROC_LOCK_MAIN, 0);
+    if (proc) {
+	(void) erts_flush_trace_messages(proc, ERTS_PROC_LOCK_MAIN);
+        erts_smp_proc_unlock(proc, ERTS_PROC_LOCK_MAIN);
+    }
 }
 
 #endif /* ERTS_DIRTY_SCHEDULERS */
@@ -14102,19 +14104,17 @@ erts_continue_exit_process(Process *p)
 								 have none here */
     }
 
+    erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
+    ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
+
 #ifdef ERTS_SMP
-    erts_flush_trace_messages(p, 0);
+    erts_flush_trace_messages(p, ERTS_PROC_LOCK_MAIN);
 #endif
 
     ERTS_TRACER_CLEAR(&ERTS_TRACER(p));
 
     if (!delay_del_proc)
 	delete_process(p);
-
-#ifdef ERTS_SMP
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
-    ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
-#endif
 
     return;
 
