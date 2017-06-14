@@ -1289,10 +1289,8 @@ reply_sched_wall_time(void *vswtrp)
     ErlOffHeap *ohp = NULL;
     ErtsMessage *mp = NULL;
 
-    ASSERT(esdp);
-#ifdef ERTS_DIRTY_SCHEDULERS
-    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
-#endif
+    ASSERT(esdp && !ERTS_SCHEDULER_IS_DIRTY(esdp));
+
     if (swtrp->set) {
 	if (!swtrp->enable && esdp->sched_wall_time.enabled) {
 	    esdp->sched_wall_time.u.need = erts_sched_balance_util;
@@ -1458,11 +1456,10 @@ erts_sched_wall_time_request(Process *c_p, int set, int enable,
     ErtsSchedWallTimeReq *swtrp;
     Eterm *hp;
 
+    ASSERT(esdp && !ERTS_SCHEDULER_IS_DIRTY(esdp));
+
     if (!set && !esdp->sched_wall_time.enabled)
 	return THE_NON_VALUE;
-#ifdef ERTS_DIRTY_SCHEDULERS
-    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
-#endif
 
     swtrp = swtreq_alloc();
     ref = erts_make_ref(c_p);
@@ -1509,10 +1506,7 @@ reply_system_check(void *vscrp)
     ErlOffHeap *ohp = NULL;
     ErtsMessage *mp = NULL;
 
-    ASSERT(esdp);
-#ifdef ERTS_DIRTY_SCHEDULERS
-    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
-#endif
+    ASSERT(esdp && !ERTS_SCHEDULER_IS_DIRTY(esdp));
 
     sz = ERTS_REF_THING_SIZE;
     mp = erts_alloc_message_heap(rp, &rp_locks, sz, &hp, &ohp);
@@ -1778,9 +1772,9 @@ static ERTS_INLINE void
 haw_thr_prgr_current_check_progress(ErtsAuxWorkData *awdp)
 {
     ErtsThrPrgrVal current = awdp->current_thr_prgr;
-#ifdef ERTS_DIRTY_SCHEDULERS
+
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
-#endif
+
     if (current != ERTS_THR_PRGR_INVALID
 	&& !erts_thr_progress_equal(current, erts_thr_progress_current())) {
 	/*
@@ -1797,9 +1791,7 @@ handle_delayed_aux_work_wakeup(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, in
 {
     int jix, max_jix;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
-#endif
 
     ASSERT(awdp->delayed_wakeup.next != ERTS_DELAYED_WAKEUP_INFINITY);
 
@@ -1956,9 +1948,8 @@ handle_misc_aux_work_thr_prgr(ErtsAuxWorkData *awdp,
 			      erts_aint32_t aux_work,
 			      int waiting)
 {
-#ifdef ERTS_DIRTY_SCHEDULERS
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
-#endif
+
     if (!erts_thr_progress_has_reached_this(haw_thr_prgr_current(awdp),
 					    awdp->misc.thr_prgr))
 	return aux_work & ~ERTS_SSI_AUX_WORK_MISC_THR_PRGR;
@@ -2011,9 +2002,9 @@ erts_schedule_multi_misc_aux_work(int ignore_self,
 
     if (ignore_self) {
 	ErtsSchedulerData *esdp = erts_get_scheduler_data();
-#ifdef ERTS_DIRTY_SCHEDULERS
+
 	ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
-#endif
+
 	if (esdp)
 	    self = (int) esdp->no;
     }
@@ -2043,9 +2034,9 @@ handle_async_ready(ErtsAuxWorkData *awdp,
 		   int waiting)
 {
     ErtsSchedulerSleepInfo *ssi = awdp->ssi;
-#ifdef ERTS_DIRTY_SCHEDULERS
+
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
-#endif
+
     unset_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_ASYNC_READY);
     if (erts_check_async_ready(awdp->async_ready.queue)) {
 	if (set_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_ASYNC_READY)
@@ -2070,9 +2061,8 @@ handle_async_ready_clean(ErtsAuxWorkData *awdp,
 {
     void *thr_prgr_p;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
-#endif
+
 #ifdef ERTS_SMP
     if (awdp->async_ready.need_thr_prgr
 	&& !erts_thr_progress_has_reached_this(haw_thr_prgr_current(awdp),
@@ -2110,9 +2100,8 @@ handle_fix_alloc(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
     ErtsSchedulerSleepInfo *ssi = awdp->ssi;
     erts_aint32_t res;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
-#endif
+
     unset_aux_work_flags(ssi, (ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM
 			       | ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC));
     aux_work &= ~(ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM
@@ -2160,9 +2149,9 @@ handle_delayed_dealloc(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waitin
     ErtsThrPrgrVal wakeup = ERTS_THR_PRGR_INVALID;
     int more_work = 0;
     ERTS_MSACC_PUSH_STATE_M_X();
-#ifdef ERTS_DIRTY_SCHEDULERS
+
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
-#endif
+
     unset_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_DD);
     ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_ALLOC);
     erts_alloc_scheduler_handle_delayed_dealloc((void *) awdp->esdp,
@@ -2199,9 +2188,8 @@ handle_delayed_dealloc_thr_prgr(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, i
     ErtsThrPrgrVal wakeup = ERTS_THR_PRGR_INVALID;
     ErtsThrPrgrVal current = haw_thr_prgr_current(awdp);
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
-#endif
+
     if (!erts_thr_progress_has_reached_this(current, awdp->dd.thr_prgr))
 	return aux_work & ~ERTS_SSI_AUX_WORK_DD_THR_PRGR;
 
@@ -2258,9 +2246,8 @@ handle_canceled_timers(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waitin
     ErtsThrPrgrVal wakeup = ERTS_THR_PRGR_INVALID;
     int more_work = 0;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
-#endif
+
     unset_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_CNCLD_TMRS);
     erts_handle_canceled_timers((void *) awdp->esdp,
 				&need_thr_progress,
@@ -2294,9 +2281,8 @@ handle_canceled_timers_thr_prgr(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, i
     ErtsThrPrgrVal wakeup = ERTS_THR_PRGR_INVALID;
     ErtsThrPrgrVal current = haw_thr_prgr_current(awdp);
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
-#endif
+
     if (!erts_thr_progress_has_reached_this(current, awdp->cncld_tmrs.thr_prgr))
 	return aux_work & ~ERTS_SSI_AUX_WORK_CNCLD_TMRS_THR_PRGR;
 
@@ -2339,9 +2325,8 @@ handle_thr_prgr_later_op(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int wait
     int lops;
     ErtsThrPrgrVal current = haw_thr_prgr_current(awdp);
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
-#endif
+
     for (lops = 0; lops < ERTS_MAX_THR_PRGR_LATER_OPS; lops++) {
 	ErtsThrPrgrLaterOp *lop = awdp->later_op.first;
 
@@ -2424,9 +2409,7 @@ handle_debug_wait_completed(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int w
     ErtsSchedulerSleepInfo *ssi = awdp->ssi;
     erts_aint32_t saved_aux_work, flags;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
-#endif
 
     flags = awdp->debug.wait_completed.flags;
 
@@ -3008,9 +2991,9 @@ static ERTS_INLINE void
 sched_active_sys(Uint no, ErtsRunQueue *rq)
 {
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
-#ifdef ERTS_DIRTY_SCHEDULERS
+
     ASSERT(!ERTS_RUNQ_IX_IS_DIRTY(rq->ix));
-#endif
+
     ASSERT(rq->waiting < 0);
     rq->waiting *= -1;
     rq->waiting--;
@@ -3075,9 +3058,9 @@ static ERTS_INLINE void
 sched_change_waiting_sys_to_waiting(Uint no, ErtsRunQueue *rq)
 {
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
-#ifdef ERTS_DIRTY_SCHEDULERS
+
     ASSERT(!ERTS_RUNQ_IX_IS_DIRTY(rq->ix));
-#endif
+
     ASSERT(rq->waiting < 0);
     rq->waiting *= -1;
 }
@@ -3586,9 +3569,8 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	erts_smp_atomic32_set_relb(&function_calls, 0);
 	*fcalls = 0;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 	ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
-#endif
+
 	sched_waiting_sys(esdp->no, rq);
 
 	erts_smp_runq_unlock(rq);
