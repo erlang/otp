@@ -194,8 +194,6 @@ format_error({bad_nowarn_bif_clash,{F,A}}) ->
 format_error(disallowed_nowarn_bif_clash) ->
     io_lib:format("compile directive nowarn_bif_clash is no longer allowed,~n"
 		  " - use explicit module names or -compile({no_auto_import, [F/A]})", []);
-format_error({bad_nowarn_deprecated_function,{M,F,A}}) ->
-    io_lib:format("~tw:~tw/~w is not a deprecated function", [M,F,A]);
 format_error({bad_on_load,Term}) ->
     io_lib:format("badly formed on_load attribute: ~tw", [Term]);
 format_error(multiple_on_loads) ->
@@ -856,14 +854,11 @@ not_deprecated(Forms, St0) ->
                 {nowarn_deprecated_function, MFAs0} <- lists:flatten([Args]),
                 MFA <- lists:flatten([MFAs0])],
     Nowarn = [MFA || {MFA,_L} <- MFAsL],
-    Bad = [MFAL || {{M,F,A},_L}=MFAL <- MFAsL,
-                   otp_internal:obsolete(M, F, A) =:= no],
-    St1 = func_line_warning(bad_nowarn_deprecated_function, Bad, St0),
     ML = [{M,L} || {{M,_F,_A},L} <- MFAsL, is_atom(M)],
-    St3 = foldl(fun ({M,L}, St2) ->
+    St1 = foldl(fun ({M,L}, St2) ->
                         check_module_name(M, L, St2)
-                end, St1, ML),
-    St3#lint{not_deprecated = ordsets:from_list(Nowarn)}.
+                end, St0, ML),
+    St1#lint{not_deprecated = ordsets:from_list(Nowarn)}.
 
 %% The nowarn_bif_clash directive is not only deprecated, it's actually an error from R14A
 disallowed_compile_flags(Forms, St0) ->
