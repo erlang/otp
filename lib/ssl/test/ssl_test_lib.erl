@@ -1421,6 +1421,9 @@ supports_ssl_tls_version(sslv2 = Version) ->
     case os:cmd("openssl version") of
 	"OpenSSL 1" ++ _ -> 
 	    false;
+        %% Appears to be broken
+        "OpenSSL 0.9.8.o" ++ _ -> 
+            false;
 	_ ->
             VersionFlag = version_flag(Version),
             Exe = "openssl",
