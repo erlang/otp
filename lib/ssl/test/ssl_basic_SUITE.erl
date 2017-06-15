@@ -360,6 +360,8 @@ init_per_testcase(TestCase, Config) when TestCase == psk_cipher_suites;
 					 TestCase == psk_with_hint_cipher_suites;
 					 TestCase == ciphers_rsa_signed_certs;
 					 TestCase == ciphers_rsa_signed_certs_openssl_names;
+                                         TestCase == ciphers_ecdh_rsa_signed_certs_openssl_names;
+                                         TestCase == ciphers_ecdh_rsa_signed_certs;                           
 					 TestCase == ciphers_dsa_signed_certs;
 					 TestCase == ciphers_dsa_signed_certs_openssl_names;
 					 TestCase == anonymous_cipher_suites;
