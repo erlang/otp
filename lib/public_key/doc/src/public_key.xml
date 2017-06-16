@@ -621,8 +621,8 @@ fun(OtpCert :: #'OTPCertificate'{},
        <v>OTPCertificate =  #'OTPCertificate'{}</v>
        <v>DPAndCRLs  = [{DP::#'DistributionPoint'{}, {DerCRL::der_encoded(), CRL::#'CertificateList'{}}}] </v>
        <v>Options = proplists:proplist()</v>
-       <v>CRLStatus() =  valid | {bad_cert, revocation_status_undetermined} |
-       {bad_cert, {revoked, crl_reason()}}</v>
+       <v>CRLStatus() =  valid | {bad_cert, revocation_status_undetermined} |  {bad_cert, {revocation_status_undetermined,
+       {bad_crls, Details::term()}}} | {bad_cert, {revoked, crl_reason()}}</v>
      </type>
      <desc>
       <p>Performs CRL validation. It is intended to be called from
@@ -650,7 +650,7 @@ fun(OtpCert :: #'OTPCertificate'{},
 	<tag>{issuer_fun, fun()}</tag>
 	<item>
 	  <p>The fun has the following type specification:</p>
-
+	  
 	  <code>
 fun(#'DistributionPoint'{}, #'CertificateList'{},
     {rdnSequence,[#'AttributeTypeAndValue'{}]}, term()) ->
@@ -660,7 +660,15 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
 	  that has signed the CRL. 
 	  </p>
 	  <code> fun(DP, CRL, Issuer, UserState) -> {ok, RootCert, CertChain}</code>
-	</item>	
+	</item>
+
+	<tag>{undetermined_details, boolean()}</tag>
+	<item>
+	  <p>Defaults to false. When revocation status can not be
+	  determined, and this option is set to true, details of why no
+	  CRLs where accepted are included in the return value.</p>
+	</item>
+
       </taglist>
     </desc>
    </func>

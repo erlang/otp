@@ -1611,8 +1611,11 @@ path_validation_alert({bad_cert, unknown_critical_extension}) ->
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE);
 path_validation_alert({bad_cert, {revoked, _}}) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_REVOKED);
-path_validation_alert({bad_cert, revocation_status_undetermined}) ->
-    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
+%%path_validation_alert({bad_cert, revocation_status_undetermined}) ->
+%%   ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
+path_validation_alert({bad_cert, {revocation_status_undetermined, Details}}) ->
+    Alert = ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE),
+    Alert#alert{reason = Details};
 path_validation_alert({bad_cert, selfsigned_peer}) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
 path_validation_alert({bad_cert, unknown_ca}) ->
@@ -2189,7 +2192,8 @@ crl_check(OtpCert, Check, CertDbHandle, CertDbRef, {Callback, CRLDbHandle}, _, C
 				     ssl_crl:trusted_cert_and_path(CRL, Issuer, {CertPath,
                                                                                  DBInfo})
 			     end, {CertDbHandle, CertDbRef}}}, 
-	       {update_crl, fun(DP, CRL) -> Callback:fresh_crl(DP, CRL) end}
+	       {update_crl, fun(DP, CRL) -> Callback:fresh_crl(DP, CRL) end},
+               {undetermined_details, true}
 	      ],
     case dps_and_crls(OtpCert, Callback, CRLDbHandle, ext) of
 	no_dps ->
@@ -2199,7 +2203,7 @@ crl_check(OtpCert, Check, CertDbHandle, CertDbRef, {Callback, CRLDbHandle}, _, C
 	DpsAndCRLs ->  %% This DP list may be empty if relevant CRLs existed 
 	    %% but could not be retrived, will result in {bad_cert, revocation_status_undetermined}
 	    case public_key:pkix_crls_validate(OtpCert, DpsAndCRLs, Options) of
-		{bad_cert, revocation_status_undetermined} ->
+		{bad_cert, {revocation_status_undetermined, _}} ->
 		    crl_check_same_issuer(OtpCert, Check, dps_and_crls(OtpCert, Callback, 
 								       CRLDbHandle, same_issuer), Options);
 		Other ->
@@ -2209,7 +2213,7 @@ crl_check(OtpCert, Check, CertDbHandle, CertDbRef, {Callback, CRLDbHandle}, _, C
 
 crl_check_same_issuer(OtpCert, best_effort, Dps, Options) ->		
     case public_key:pkix_crls_validate(OtpCert, Dps, Options) of 
-	{bad_cert, revocation_status_undetermined}  ->
+	{bad_cert, {revocation_status_undetermined, _}}   ->
 	    valid;
 	Other ->
 	    Other
