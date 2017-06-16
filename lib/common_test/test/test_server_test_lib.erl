@@ -81,7 +81,7 @@ prepare_tester_node(Node,Config) ->
     [true = rpc:call(Node, code, add_patha, [D]) || D <- PathDirs],
     io:format("Dirs added to code path (on ~w):~n",
 	      [Node]),
-    [io:format("~s~n", [D]) || D <- PathDirs],
+    [io:format("~ts~n", [D]) || D <- PathDirs],
 
     true = rpc:call(Node, os, putenv,
 		    ["TEST_SERVER_FRAMEWORK", "undefined"]),

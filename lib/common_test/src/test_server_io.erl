@@ -359,7 +359,7 @@ handle_info(kill_group_leaders, #st{gls=Gls,stopping=From,
 		      end, St#st{phase=idle,pending_ops=[]}, Ops),
     {noreply,St1};
 handle_info(Other, St) ->
-    io:format("Ignoring: ~p\n", [Other]),
+    io:format("Ignoring: ~tp\n", [Other]),
     {noreply,St}.
 
 terminate(_, _) ->
@@ -395,7 +395,7 @@ do_output(Tag, Str, Phase, #st{fds=Fds}=St) ->
 	none when Phase /= started ->
 	    buffer;
 	none ->
-	    S = io_lib:format("\n*** ERROR: ~w, line ~w: No known '~p' log file\n",
+	    S = io_lib:format("\n*** ERROR: ~w, line ~w: No known '~tp' log file\n",
 			      [?MODULE,?LINE,Tag]),
 	    do_output(stdout, [S,Str], Phase, St);
 	{value,Fd} ->
@@ -407,7 +407,7 @@ do_output(Tag, Str, Phase, #st{fds=Fds}=St) ->
 		end
 	    catch _:Error ->
 		    S = io_lib:format("\n*** ERROR: ~w, line ~w: Error writing to "
-				      "log file '~p': ~p\n",
+				      "log file '~tp': ~tp\n",
 				      [?MODULE,?LINE,Tag,Error]),
 		    do_output(stdout, [S,Str], Phase, St)
 	    end

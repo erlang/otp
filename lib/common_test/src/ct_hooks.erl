@@ -235,7 +235,7 @@ call([{Hook, call_id, NextFun} | Rest], Config, Meta, Hooks) ->
 	call(resort(NewRest,NewHooks,Meta), Config, Meta, NewHooks)
     catch Error:Reason ->
 	    Trace = erlang:get_stacktrace(),
-	    ct_logs:log("Suite Hook","Failed to start a CTH: ~p:~p",
+	    ct_logs:log("Suite Hook","Failed to start a CTH: ~tp:~tp",
 			[Error,{Reason,Trace}]),
 	    call([], {fail,"Failed to start CTH"
 		      ", see the CT Log for details"}, Meta, Hooks)
@@ -424,11 +424,11 @@ catch_apply(M,F,A) ->
         erlang:apply(M,F,A)
     catch _:Reason ->
             Trace = erlang:get_stacktrace(),
-            ct_logs:log("Suite Hook","Call to CTH failed: ~w:~p",
+            ct_logs:log("Suite Hook","Call to CTH failed: ~w:~tp",
                             [error,{Reason,Trace}]),
             throw({error_in_cth_call,
                    lists:flatten(
-                     io_lib:format("~w:~w/~w CTH call failed",
+                     io_lib:format("~w:~tw/~w CTH call failed",
                                    [M,F,length(A)]))})
     end.
 

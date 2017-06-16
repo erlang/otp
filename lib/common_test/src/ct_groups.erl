@@ -210,7 +210,7 @@ find(Mod, _GrNames, _TCs, [BadTerm | _Gs], Known, _Defs, _FindAll) ->
 		    "group "++atom_to_list(lists:last(Known))++
 			" in "++atom_to_list(Mod)++":groups/0"
 	    end,		 
-    Term = io_lib:format("~p", [BadTerm]),
+    Term = io_lib:format("~tp", [BadTerm]),
     E = "Bad term "++lists:flatten(Term)++" in "++Where,
     throw({error,list_to_atom(E)});
 
@@ -447,7 +447,7 @@ make_conf(Mod, Name, Props, TestSpec) ->
 	    {false,false} ->
 		ct_logs:log("TEST INFO", "init_per_group/2 and "
 			    "end_per_group/2 missing for group "
-			    "~w in ~w, using default.",
+			    "~tw in ~w, using default.",
 			    [Name,Mod]),
 		{{ct_framework,init_per_group},
 		 {ct_framework,end_per_group},

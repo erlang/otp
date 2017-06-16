@@ -42,7 +42,7 @@ unmake(Config) when is_list(Config) ->
 
 make(Make, Dir, Makefile) ->
     {RunFile, RunCmd, Script} = run_make_script(os:type(), Make, Dir, Makefile),
-    case file:write_file(RunFile, Script) of
+    case file:write_file(RunFile, unicode:characters_to_binary(Script)) of
 	ok ->
 	    Log = filename:join(Dir, "make.log"),
 	    file:delete(Log),

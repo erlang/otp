@@ -151,7 +151,7 @@ init(RecvPids) ->
 %%--------------------------------------------------------------------
 handle_event(Event,State=#state{receivers=RecvPids}) ->
     print("~n=== ~w ===~n", [?MODULE]),
-    print("~w: ~w~n", [Event#event.name,Event#event.data]),
+    print("~tw: ~tw~n", [Event#event.name,Event#event.data]),
     lists:foreach(fun(Recv) -> report_event(Recv,Event) end, RecvPids),
     {ok,State}.
 

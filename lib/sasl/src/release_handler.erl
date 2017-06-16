@@ -640,8 +640,8 @@ handle_call({install_release, Vsn, ErrorAction, Opts}, From, S) ->
 	    {noreply, NS};
 	{'EXIT', Reason} ->
 	    io:format("release_handler:"
-		      "install_release(Vsn=~p Opts=~p) failed, "
-		      "Reason=~p~n", [Vsn, Opts, Reason]),
+		      "install_release(Vsn=~tp Opts=~tp) failed, "
+		      "Reason=~tp~n", [Vsn, Opts, Reason]),
 	    gen_server:reply(From, {error, Reason}),
 	    case ErrorAction of
 		restart ->
@@ -1124,7 +1124,7 @@ new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters) ->
 	    {ok,[FC]} ->
 		FC;
 	    {error,Error1} ->
-		io:format("Warning: ~w can not read ~p: ~p~n",
+		io:format("Warning: ~w can not read ~tp: ~tp~n",
 			  [?MODULE,FromFile,Error1]),
 		[]
 	end,
@@ -1134,7 +1134,7 @@ new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters) ->
 	    {ok,[ToConfig]} ->
 		[lists:keyfind(App,1,ToConfig) || App <- [kernel,stdlib,sasl]];
 	    {error,Error2} ->
-		io:format("Warning: ~w can not read ~p: ~p~n",
+		io:format("Warning: ~w can not read ~tp: ~tp~n",
 			  [?MODULE,ToFile,Error2]),
 		[false,false,false]
 	end,
@@ -1807,7 +1807,7 @@ check_opt_file(FileName, Type, Masters) ->
 	ok ->
 	    true;
 	_Error ->
-	    io:format("Warning: ~p missing (optional)~n", [FileName]),
+	    io:format("Warning: ~tp missing (optional)~n", [FileName]),
 	    false
     end.
 

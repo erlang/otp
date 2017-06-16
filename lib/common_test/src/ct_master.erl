@@ -434,7 +434,7 @@ init_master1(Parent,NodeOptsList,InitOptions,LogDirs) ->
 init_master2(Parent,NodeOptsList,LogDirs) ->
     process_flag(trap_exit,true),
     Cookie = erlang:get_cookie(),
-    log(all,"Cookie","~w",[Cookie]),
+    log(all,"Cookie","~tw",[Cookie]),
     log(all,"Starting Tests",
 	"Tests starting on: ~p",[[N || {N,_} <- NodeOptsList]]),
     SpawnAndMon = 
@@ -454,7 +454,7 @@ master_loop(#state{node_ctrl_pids=[],
 		   results=Finished}) ->
     Str =
 	lists:map(fun({Node,Result}) ->
-			  io_lib:format("~-40.40.*ts~p\n",
+			  io_lib:format("~-40.40.*ts~tp\n",
 					[$_,atom_to_list(Node),Result])
 		  end,lists:reverse(Finished)),
     log(all,"TEST RESULTS",Str,[]),
@@ -488,7 +488,7 @@ master_loop(State=#state{node_ctrl_pids=NodeCtrlPids,
 					Bad
 				end,
 			    log(all,"Test Info",
-				"Test on node ~w failed! Reason: ~p",
+				"Test on node ~w failed! Reason: ~tp",
 				[Node,Error]),
 			    {Locks1,Blocked1} = 
 				update_queue(exit,Node,Locks,Blocked),
@@ -501,7 +501,7 @@ master_loop(State=#state{node_ctrl_pids=NodeCtrlPids,
 		undefined ->
 		    %% ignore (but report) exit from master_logger etc
 		    log(all,"Test Info",
-			"Warning! Process ~w has terminated. Reason: ~p",
+			"Warning! Process ~w has terminated. Reason: ~tp",
 			[Pid,Reason]),
 			master_loop(State)
 	    end;
@@ -584,7 +584,7 @@ update_queue(take,Node,From,Lock={Op,Resource},Locks,Blocked) ->
     %% Blocked: [{{Operation,Resource},Node,WaitingPid},...]
     case lists:keysearch(Lock,1,Locks) of
 	{value,{_Lock,Owner}} ->		% other node has lock
-	    log(html,"Lock Info","Node ~w blocked on ~w by ~w. Resource: ~p",
+	    log(html,"Lock Info","Node ~w blocked on ~w by ~w. Resource: ~tp",
 		[Node,Op,Owner,Resource]),
 	    Blocked1 = Blocked ++ [{Lock,Node,From}],
 	    {Locks,Blocked1};
@@ -599,7 +599,7 @@ update_queue(release,Node,_From,Lock={Op,Resource},Locks,Blocked) ->
     case lists:keysearch(Lock,1,Blocked) of
 	{value,E={Lock,SomeNode,WaitingPid}} ->
 	    Blocked1 = lists:delete(E,Blocked),
-	    log(html,"Lock Info","Node ~w proceeds with ~w. Resource: ~p",
+	    log(html,"Lock Info","Node ~w proceeds with ~w. Resource: ~tp",
 		[SomeNode,Op,Resource]),
 	    reply(ok,WaitingPid),		% waiting process may start
 	    {Locks1,Blocked1};
@@ -678,7 +678,7 @@ refresh_logs([D|Dirs],Refreshed) ->
 refresh_logs([],Refreshed) ->
     Str =
 	lists:map(fun({D,Result}) ->
-			  io_lib:format("Refreshing logs in ~p... ~p",
+			  io_lib:format("Refreshing logs in ~tp... ~tp",
 					[D,Result])
 		  end,Refreshed),
     log(all,"Info",Str,[]).
@@ -712,7 +712,7 @@ init_node_ctrl(MasterPid,Cookie,Opts) ->
     {ok, _} = start_ct_event(),
     ct_event:add_handler([{master,MasterPid}]),
 
-    %% log("Running test with options: ~p~n", [Opts]),
+    %% log("Running test with options: ~tp~n", [Opts]),
     Result = case (catch ct:run_test(Opts)) of
 		 ok -> finished_ok;
 		 Other -> Other
@@ -828,7 +828,7 @@ start_nodes(InitOptions)->
 				  "with callback ~w~n", [NodeName,Callback]);
 		    {error, Reason, _NodeName} ->
 			io:format("Failed to start node ~w with callback ~w! "
-				  "Reason: ~p~n", [NodeName, Callback, Reason])
+				  "Reason: ~tp~n", [NodeName, Callback, Reason])
 		end;
 	    {true, true}->
 		io:format("WARNING: Node ~w is alive but has node_start "
@@ -857,10 +857,10 @@ eval_on_nodes(InitOptions)->
 evaluate(Node, [{M,F,A}|MFAs])->
     case rpc:call(Node, M, F, A) of
         {badrpc,Reason}->
-	    io:format("WARNING: Failed to call ~w:~w/~w on node ~w "
-		      "due to ~p~n", [M,F,length(A),Node,Reason]);
+	    io:format("WARNING: Failed to call ~w:~tw/~w on node ~w "
+		      "due to ~tp~n", [M,F,length(A),Node,Reason]);
 	Result->
-	    io:format("Called ~w:~w/~w on node ~w, result: ~p~n",
+	    io:format("Called ~w:~tw/~w on node ~w, result: ~tp~n",
 		      [M,F,length(A),Node,Result])
     end,
     evaluate(Node, MFAs);

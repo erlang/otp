@@ -445,7 +445,7 @@ init_upgrade_test(Level) ->
 	end,
     case OldRel of
 	false ->
-	    ct:log("Release ~p is not available."
+	    ct:log("Release ~tp is not available."
 		   " Upgrade on '~p' level can not be tested.",
 		   [FromVsn,Level]),
 	    undefined;
@@ -522,8 +522,8 @@ upgrade(Apps,Level,Callback,CreateDir,InstallDir,Config) ->
 		    {ToVsn,ToRel,ToAppsVsns} =
 			upgrade_system(Apps, FromRel, CreateDir,
 				       InstallDir, Data),
-		    ct:log("Upgrade from: OTP-~ts, ~p",[FromVsn, FromAppsVsns]),
-		    ct:log("Upgrade to: OTP-~ts, ~p",[ToVsn, ToAppsVsns]),
+		    ct:log("Upgrade from: OTP-~ts, ~tp",[FromVsn, FromAppsVsns]),
+		    ct:log("Upgrade to: OTP-~ts, ~tp",[ToVsn, ToAppsVsns]),
 		    do_upgrade(Callback, FromVsn, FromAppsVsns, ToRel,
 			       ToAppsVsns, InstallDir)
 	    end
@@ -727,9 +727,9 @@ do_upgrade({Cb,InitState},FromVsn,FromAppsVsns,ToRel,ToAppsVsns,InstallDir) ->
 do_callback(Node,Mod,Func,Args) ->
     Dir = filename:dirname(code:which(Mod)),
     _ = rpc:call(Node,code,add_path,[Dir]),
-    ct:log("Calling ~p:~p/1",[Mod,Func]),
+    ct:log("Calling ~p:~tp/1",[Mod,Func]),
     R = rpc:call(Node,Mod,Func,Args),
-    ct:log("~p:~p/~w returned: ~p",[Mod,Func,length(Args),R]),
+    ct:log("~p:~tp/~w returned: ~tp",[Mod,Func,length(Args),R]),
     case R of
 	{badrpc,Error} ->
 	    throw({fail,{test_upgrade_callback,Mod,Func,Args,Error}});
@@ -860,10 +860,7 @@ copy_file(Src, Dest, Opts) ->
     end.
 
 write_file(FName, Conts) ->
-    Enc = file:native_name_encoding(),
-    {ok, Fd} = file:open(FName, [write]),
-    ok = file:write(Fd, unicode:characters_to_binary(Conts,Enc,Enc)),
-    ok = file:close(Fd).
+    file:write_file(FName, unicode:characters_to_binary(Conts)).
 
 %% Substitute all occurrences of %Var% for Val in the given scripts
 subst_src_scripts(Scripts, SrcDir, DestDir, Vars, Opts) ->
@@ -879,7 +876,7 @@ subst_src_script(Script, SrcDir, DestDir, Vars, Opts) ->
 
 subst_file(Src, Dest, Vars, Opts) ->
     {ok, Bin} = file:read_file(Src),
-    Conts = binary_to_list(Bin),
+    Conts = unicode:characters_to_list(Bin),
     NConts = subst(Conts, Vars),
     write_file(Dest, NConts),
     case lists:member(preserve, Opts) of
@@ -891,7 +888,7 @@ subst_file(Src, Dest, Vars, Opts) ->
     end.
 
 subst(Str, [{Var,Val}|Vars]) ->
-    subst(re:replace(Str,"%"++Var++"%",Val,[{return,list}]),Vars);
+    subst(re:replace(Str,"%"++Var++"%",Val,[{return,list},unicode]),Vars);
 subst(Str, []) ->
     Str.
 

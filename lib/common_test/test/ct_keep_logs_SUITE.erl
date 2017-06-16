@@ -72,7 +72,7 @@ keep_logs(Config) ->
     LogDir=?config(logdir,Opts),
     KeepLogsDir = create_dir(filename:join(LogDir,"keep_logs-")),
     Opts1 = lists:keyreplace(logdir,1,Opts,{logdir,KeepLogsDir}),
-    ct:log("New LogDir = ~s", [KeepLogsDir]),
+    ct:log("New LogDir = ~ts", [KeepLogsDir]),
 
     %% Create 6 ct_run.* log directories
     [ok = ct_test_support:run(Opts1, Config) || _ <- lists:seq(1,3)],
@@ -134,7 +134,7 @@ refresh_logs(Config) ->
     LogDir=?config(logdir,Opts0),
     KeepLogsDir = create_dir(filename:join(LogDir,"refresh_logs-")),
     Opts1 = lists:keyreplace(logdir,1,Opts0,{logdir,KeepLogsDir}),
-    ct:log("New LogDir = ~s", [KeepLogsDir]),
+    ct:log("New LogDir = ~ts", [KeepLogsDir]),
 
     %% Create 6 ct_run.* log directories
     SuiteOpts = [{suite,Suite},{label,refresh_logs} | Opts1],

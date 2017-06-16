@@ -136,7 +136,7 @@ unix_autoconf(XConf) ->
 	true ->
 	    OSXEnv = macosx_cflags(),
 	    UnQuotedEnv = assign_vars(unquote(Env++OSXEnv)),
-	    io:format("Running ~s~nEnv: ~p~n",
+	    io:format("Running ~ts~nEnv: ~p~n",
 		      [lists:flatten(Configure ++ Args),UnQuotedEnv]),
 	    Port = open_port({spawn, lists:flatten(["\"",Configure,"\"",Args])},
 			     [stream, eof, {env,UnQuotedEnv}]),

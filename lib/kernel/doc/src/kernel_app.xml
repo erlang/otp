@@ -186,7 +186,7 @@
           <tag><c>{file, FileName}</c></tag>
           <item><p>Installs the standard event handler, which prints error
            reports to file <c>FileName</c>, where <c>FileName</c>
-           is a string.</p></item>
+           is a string. The file is opened with encoding UTF-8.</p></item>
           <tag><c>false</c></tag>
           <item>
             <p>No standard event handler is installed, but

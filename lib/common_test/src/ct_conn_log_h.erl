@@ -186,7 +186,7 @@ format_head(ConnMod,_,Time,Text) ->
     io_lib:format("~n~ts",[Head]).
 
 format_title(raw,#conn_log{client=Client}=Info) ->
-    io_lib:format("Client ~w ~s ~ts",[Client,actionstr(Info),serverstr(Info)]);
+    io_lib:format("Client ~tw ~s ~ts",[Client,actionstr(Info),serverstr(Info)]);
 format_title(_,Info) ->
     Title = pad_char_end(?WIDTH,pretty_title(Info),$=),
     io_lib:format("~n~ts", [Title]).
@@ -197,9 +197,9 @@ format_data(ConnMod,LogType,Data) ->
     ConnMod:format_data(LogType,Data).
 
 format_error(raw,Report) ->
-    io_lib:format("~n~p~n",[Report]);
+    io_lib:format("~n~tp~n",[Report]);
 format_error(pretty,Report) ->
-    [io_lib:format("~n    ~p: ~p",[K,V]) || {K,V} <- Report].
+    [io_lib:format("~n    ~tp: ~tp",[K,V]) || {K,V} <- Report].
 
 
 %%%-----------------------------------------------------------------
@@ -230,7 +230,7 @@ pretty_head({{{Y,Mo,D},{H,Mi,S}},MicroS},ConnMod,Text0) ->
 		   micro2milli(MicroS)]).
 
 pretty_title(#conn_log{client=Client}=Info) ->
-    io_lib:format("= Client ~w ~s ~ts ",
+    io_lib:format("= Client ~tw ~s ~ts ",
 		  [Client,actionstr(Info),serverstr(Info)]).
 
 actionstr(#conn_log{action=send}) -> "----->";
@@ -245,11 +245,11 @@ actionstr(_) -> "<---->".
 serverstr(#conn_log{name=undefined,address={undefined,_}}) ->
     io_lib:format("server",[]);
 serverstr(#conn_log{name=undefined,address=Address}) ->
-    io_lib:format("~p",[Address]);
+    io_lib:format("~tp",[Address]);
 serverstr(#conn_log{name=Alias,address={undefined,_}}) ->
-    io_lib:format("~w",[Alias]);
+    io_lib:format("~tw",[Alias]);
 serverstr(#conn_log{name=Alias,address=Address}) ->
-    io_lib:format("~w(~p)",[Alias,Address]).
+    io_lib:format("~tw(~tp)",[Alias,Address]).
 
 month(1) -> "Jan";
 month(2) -> "Feb";

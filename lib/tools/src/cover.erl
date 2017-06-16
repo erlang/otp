@@ -2414,8 +2414,8 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 	{ok, InFd} ->
 	    case file:open(OutFile, [write,raw,delayed_write]) of
 		{ok, OutFd} ->
+                    Enc = encoding(ErlFile),
 		    if HTML -> 
-                           Encoding = encoding(ErlFile),
                            Header =
                                ["<!DOCTYPE HTML PUBLIC "
                                 "\"-//W3C//DTD HTML 3.2 Final//EN\">\n"
@@ -2423,13 +2423,14 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
                                 "<head>\n"
                                 "<meta http-equiv=\"Content-Type\""
                                 " content=\"text/html; charset=",
-                                Encoding,"\"/>\n"
+                                html_encoding(Enc),"\"/>\n"
                                 "<title>",OutFile,"</title>\n"
                                 "</head>"
                                 "<body style='background-color: white;"
                                 " color: black'>\n"
                                 "<pre>\n"],
-                           ok = file:write(OutFd,Header);
+                            H1Bin = unicode:characters_to_binary(Header,Enc,Enc),
+                            ok = file:write(OutFd,H1Bin);
 		       true -> ok
 		    end,
 		    
@@ -2443,12 +2444,15 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
                                       string:right(integer_to_list(H),  2, $0),
                                       string:right(integer_to_list(Mi), 2, $0),
                                       string:right(integer_to_list(S),  2, $0)]),
-                    ok = file:write(OutFd,
-                               ["File generated from ",ErlFile," by COVER ",
+
+                    H2Bin = unicode:characters_to_binary(
+                              ["File generated from ",ErlFile," by COVER ",
                                 Timestamp,"\n\n"
                                 "**************************************"
                                 "**************************************"
-                                "\n\n"]),
+                                "\n\n"],
+                              Enc, Enc),
+                    ok = file:write(OutFd, H2Bin),
 
 		    Pattern = {#bump{module=Module,line='$1',_='_'},'$2'},
 		    MS = [{Pattern,[{is_integer,'$1'},{'>','$1',0}],[{{'$1','$2'}}]}],
@@ -2752,16 +2756,22 @@ pmap_collect(Mons,Acc) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% Read encoding from source file
+%%% Decide which encoding to use when analyzing to file.
+%%% The target file contains the file path, so if either the file name
+%%% encoding or the encoding of the source file is utf8, then we need
+%%% to use utf8.
 encoding(File) ->
-    Encoding =
-       case epp:read_encoding(File) of
-           none ->
-               epp:default_encoding();
-           E ->
-               E
-       end,
-    html_encoding(Encoding).
+    case file:native_name_encoding() of
+        latin1 ->
+            case epp:read_encoding(File) of
+                none ->
+                    epp:default_encoding();
+                E ->
+                    E
+            end;
+        utf8 ->
+            utf8
+    end.
 
 html_encoding(latin1) ->
     "iso-8859-1";

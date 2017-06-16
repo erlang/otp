@@ -47,8 +47,8 @@
 init_per_suite(Config) ->
     DataDir = ?config(data_dir, Config),
     EvH = filename:join(DataDir,"simple_evh.erl"),
-    ct:pal("Compiling ~s: ~p", [EvH,compile:file(EvH,[{outdir,DataDir},
-						      debug_info])]),
+    ct:pal("Compiling ~ts: ~p", [EvH,compile:file(EvH,[{outdir,DataDir},
+                                                       debug_info])]),
     ct_test_support:init_per_suite([{path_dirs,[DataDir]} | Config]).
 
 end_per_suite(Config) ->

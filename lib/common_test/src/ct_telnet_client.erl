@@ -120,7 +120,7 @@ get_data(Pid) ->
 init(Parent, Server, Port, Timeout, KeepAlive, NoDelay, ConnName) ->
     case gen_tcp:connect(Server, Port, [list,{packet,0},{nodelay,NoDelay}], Timeout) of
 	{ok,Sock} ->
-	    dbg("~p connected to: ~p (port: ~w, keep_alive: ~w)\n",
+	    dbg("~tp connected to: ~tp (port: ~w, keep_alive: ~w)\n",
 		[ConnName,Server,Port,KeepAlive]),
 	    send([?IAC,?DO,?SUPPRESS_GO_AHEAD], Sock, ConnName),	      
 	    Parent ! {open,self()},

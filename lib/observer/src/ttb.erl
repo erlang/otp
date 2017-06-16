@@ -391,16 +391,16 @@ run_config(ConfigFile,N) ->
     
 print_func(M,F,A) ->
     Args = arg_list(A,[]),
-    io:format("~w:~w(~s) ->~n",[M,F,Args]).
+    io:format("~w:~tw(~ts) ->~n",[M,F,Args]).
 print_result(R) ->
-    io:format("~p~n~n",[R]).
+    io:format("~tp~n~n",[R]).
 
 arg_list([],[]) ->
     "";
 arg_list([A1],Acc) ->
-    Acc++io_lib:format("~w",[A1]);
+    Acc++io_lib:format("~tw",[A1]);
 arg_list([A1|A],Acc) ->
-    arg_list(A,Acc++io_lib:format("~w,",[A1])).
+    arg_list(A,Acc++io_lib:format("~tw,",[A1])).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1117,7 +1117,7 @@ get_fd(Out) ->
 	    Out;
 	_file ->
 	    file:delete(Out),
-	    case file:open(Out,[append]) of
+	    case file:open(Out,[append,{encoding,utf8}]) of
 		{ok,Fd} -> Fd;
 		Error -> exit(Error)
 	    end
