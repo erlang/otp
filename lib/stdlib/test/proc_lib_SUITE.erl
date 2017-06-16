@@ -28,7 +28,7 @@
 	 init_per_group/2,end_per_group/2, 
 	 crash/1, stacktrace/1, sync_start_nolink/1, sync_start_link/1,
          spawn_opt/1, sp1/0, sp2/0, sp3/1, sp4/2, sp5/1, '\x{447}'/0,
-	 hibernate/1, stop/1, t_format/1]).
+	 hibernate/1, stop/1, t_format/1, t_format_arbitrary/1]).
 -export([ otp_6345/1, init_dont_hang/1]).
 
 -export([hib_loop/1, awaken/1]).
@@ -51,7 +51,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [crash, stacktrace, {group, sync_start}, spawn_opt, hibernate,
-     {group, tickets}, stop, t_format].
+     {group, tickets}, stop, t_format, t_format_arbitrary].
 
 groups() -> 
     [{tickets, [], [otp_6345, init_dont_hang]},
@@ -561,6 +561,19 @@ t_format() ->
     end,
 
     ok.
+
+t_format_arbitrary(_Config) ->
+    error_logger:tty(false),
+    try
+    t_format_arbitrary()
+    after
+    error_logger:tty(true)
+    end,
+    ok.
+
+t_format_arbitrary() ->
+    do_test_format([fake_report, []], unlimited),
+    do_test_format([fake_report, []], 20).
 
 do_test_format(Report, Depth) ->
     io:format("*** Depth = ~p", [Depth]),
