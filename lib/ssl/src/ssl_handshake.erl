@@ -415,9 +415,11 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
 		path_validation_alert(Reason)
 	end
     catch
-	error:_ ->
+	error:{badmatch,{asn1, Asn1Reason}} ->
 	    %% ASN-1 decode of certificate somehow failed
-            ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, failed_to_decode_certificate)
+            ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, {failed_to_decode_certificate, Asn1Reason});
+        error:OtherReason ->
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {unexpected_error, OtherReason})
     end.
 
 %%--------------------------------------------------------------------
