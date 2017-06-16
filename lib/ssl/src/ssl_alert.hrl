@@ -118,6 +118,7 @@
 	  level,
 	  description,
           where = {?FILE, ?LINE},
+          role,
           reason
 	 }).
 -endif. % -ifdef(ssl_alert).

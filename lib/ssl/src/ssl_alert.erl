@@ -57,16 +57,16 @@ decode(Bin) ->
 reason_code(#alert{description = ?CLOSE_NOTIFY}, _) ->
     closed;
 reason_code(#alert{description = Description}, _) ->
-    {tls_alert, description_txt(Description)}.
+    {tls_alert, string:to_lower(description_txt(Description))}.
 
 %%--------------------------------------------------------------------
 -spec alert_txt(#alert{}) -> string().
 %%
 %% Description: Returns the error string for given alert.
 %%--------------------------------------------------------------------
-alert_txt(#alert{level = Level, description = Description, where = {Mod,Line}, reason = undefined}) ->
-    Mod ++ ":" ++ integer_to_list(Line) ++ ":" ++ 
-        level_txt(Level) ++" "++ description_txt(Description);
+alert_txt(#alert{level = Level, description = Description, where = {Mod,Line}, reason = undefined, role = Role}) ->
+    "at " ++ Mod ++ ":" ++ integer_to_list(Line) ++ " " ++ string:to_upper(atom_to_list(Role)) ++ " ALERT: " ++
+        level_txt(Level) ++ description_txt(Description);
 alert_txt(#alert{reason = Reason} = Alert) ->
     BaseTxt = alert_txt(Alert#alert{reason = undefined}),
     FormatDepth = 9, % Some limit on printed representation of an error
@@ -93,73 +93,73 @@ decode(<<>>, Acc, _) ->
     lists:reverse(Acc, []).
 
 level_txt(?WARNING) ->
-    "Warning:";
+    "Warning - ";
 level_txt(?FATAL) ->
-    "Fatal error:".
+    "Fatal - ".
 
 description_txt(?CLOSE_NOTIFY) ->
-    "close notify";
+    "Close Notify";
 description_txt(?UNEXPECTED_MESSAGE) ->
-    "unexpected message";
+    "Unexpected Message";
 description_txt(?BAD_RECORD_MAC) ->
-    "bad record mac";
+    "Bad Record MAC";
 description_txt(?DECRYPTION_FAILED) ->
-    "decryption failed";
+    "Decryption Failed";
 description_txt(?RECORD_OVERFLOW) ->
-    "record overflow";
+    "Record Overflow";
 description_txt(?DECOMPRESSION_FAILURE) ->
-    "decompression failure";
+    "Decompression Failure";
 description_txt(?HANDSHAKE_FAILURE) ->
-    "handshake failure";
+    "Handshake Failure";
 description_txt(?NO_CERTIFICATE_RESERVED) ->
-    "No certificate reserved";
+    "No Certificate Reserved";
 description_txt(?BAD_CERTIFICATE) ->
-    "bad certificate";
+    "Bad Certificate";
 description_txt(?UNSUPPORTED_CERTIFICATE) ->
-    "unsupported certificate";
+    "Unsupported Certificate";
 description_txt(?CERTIFICATE_REVOKED) ->
-    "certificate revoked";
+    "Certificate Revoked";
 description_txt(?CERTIFICATE_EXPIRED) ->
-    "certificate expired";
+    "Certificate Expired";
 description_txt(?CERTIFICATE_UNKNOWN) ->
-    "certificate unknown";
+    "Certificate Unknown";
 description_txt(?ILLEGAL_PARAMETER) ->
-    "illegal parameter";
+    "Illegal Parameter";
 description_txt(?UNKNOWN_CA) ->
-    "unknown ca";
+    "Unknown CA";
 description_txt(?ACCESS_DENIED) ->
-    "access denied";
+    "Access Denied";
 description_txt(?DECODE_ERROR) ->
-    "decode error";
+    "Decode Error";
 description_txt(?DECRYPT_ERROR) ->
-    "decrypt error";
+    "Decrypt Error";
 description_txt(?EXPORT_RESTRICTION) ->
-    "export restriction";
+    "Export Restriction";
 description_txt(?PROTOCOL_VERSION) ->
-    "protocol version";
+    "Protocol Version";
 description_txt(?INSUFFICIENT_SECURITY) ->
-    "insufficient security";
+    "Insufficient Security";
 description_txt(?INTERNAL_ERROR) ->
-    "internal error";
+    "Internal Error";
 description_txt(?USER_CANCELED) ->
-    "user canceled";
+    "User Canceled";
 description_txt(?NO_RENEGOTIATION) ->
-    "no renegotiation";
+    "No Renegotiation";
 description_txt(?UNSUPPORTED_EXTENSION) ->
-    "unsupported extension";
+    "Unsupported Extension";
 description_txt(?CERTIFICATE_UNOBTAINABLE) ->
-    "certificate unobtainable";
+    "Certificate Unobtainable";
 description_txt(?UNRECOGNISED_NAME) ->
-    "unrecognised name";
+    "Unrecognised Name";
 description_txt(?BAD_CERTIFICATE_STATUS_RESPONSE) ->
-    "bad certificate status response";
+    "Bad Certificate Status Response";
 description_txt(?BAD_CERTIFICATE_HASH_VALUE) ->
-    "bad certificate hash value";
+    "Bad Certificate Hash Value";
 description_txt(?UNKNOWN_PSK_IDENTITY) ->
-    "unknown psk identity";
+    "Unknown Psk Identity";
 description_txt(?INAPPROPRIATE_FALLBACK) ->
-    "inappropriate fallback";
+    "Inappropriate Fallback";
 description_txt(?NO_APPLICATION_PROTOCOL) ->
-    "no application protocol";
+    "No application protocol";
 description_txt(Enum) ->
     lists:flatten(io_lib:format("unsupported/unknown alert: ~p", [Enum])).
