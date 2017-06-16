@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -187,7 +187,7 @@
       <desc>
         <p>Calls <c><anno>Fun</anno>(<anno>Elem</anno>)</c> on successive
           elements <c>Elem</c> of <c><anno>List1</anno></c>.
-          <c><anno>Fun</anno>/2</c> must return either a Boolean or a tuple
+          <c><anno>Fun</anno>/1</c> must return either a Boolean or a tuple
           <c>{true, <anno>Value</anno>}</c>. The function returns the list of
           elements for which <c><anno>Fun</anno></c> returns a new value, where
           a value of <c>true</c> is synonymous with
