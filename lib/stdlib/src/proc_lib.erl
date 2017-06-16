@@ -784,6 +784,8 @@ format_link_report([], _, _) ->
 
 format_report(Rep, Indent, Extra) when is_list(Rep) ->
     format_rep(Rep, Indent, Extra);
+format_report(Rep, Indent, {Enc,unlimited}) ->
+    io_lib:format("~s~"++modifier(Enc)++"p~n", [Indent, Rep]);
 format_report(Rep, Indent, {Enc,Depth}) ->
     io_lib:format("~s~"++modifier(Enc)++"P~n", [Indent, Rep, Depth]).
 
