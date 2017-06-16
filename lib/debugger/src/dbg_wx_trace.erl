@@ -345,11 +345,12 @@ gui_cmd('Back Trace', State) ->
     P = p(State),
     lists:foreach(
       fun({Le, {Mod,Func,Args}}) ->
-	      Str = io_lib:format("~p > ~p:~p"++P++"~n",
-				  [Le, Mod, Func, Args]),
+	      Str = io_lib:format("~p > ~w:~tw~ts\n",
+				  [Le, Mod, Func, format_args(Args, P)]),
 	      dbg_wx_trace_win:trace_output(State#state.win,Str);
 	 ({Le, {Fun,Args}}) ->
-	      Str = io_lib:format("~p > ~p"++P++"~n", [Le, Fun, Args]),
+	      Str = io_lib:format("~p > ~p~ts~n",
+                                  [Le, Fun, format_args(Args, P)]),
 	      dbg_wx_trace_win:trace_output(State#state.win,Str);
 	 (_) -> ignore
       end,
@@ -538,6 +539,18 @@ add_break(WI, Coords, Type, Mod, undefined) ->
 add_break(WI, Coords, Type, Mod, Line) ->
     Win = dbg_wx_trace_win:get_window(WI),
     dbg_wx_break:start(Win, Coords, Type, Mod, Line).
+
+format_args(As, P) when is_list(As) ->
+    [$(,format_args1(As, P),$)];
+format_args(A, P) ->
+    [$/,io_lib:format(P, [A])].
+
+format_args1([A], P) ->
+    [io_lib:format(P, [A])];
+format_args1([A|As], P) ->
+    [io_lib:format(P, [A]),$,|format_args1(As, P)];
+format_args1([], _) ->
+    [].
 
 %%--Commands from the interpreter-------------------------------------
 
