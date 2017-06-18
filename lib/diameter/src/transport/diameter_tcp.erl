@@ -640,7 +640,7 @@ transition(Msg, S)
 
 %% Deferred actions from a message_cb.
 transition({actions, Dir, Acts}, S) ->
-    actions(Acts, Dir, S);
+    setopts(actions(Acts, Dir, S));
 
 %% Request to close the transport connection.
 transition({diameter, {close, Pid}}, #transport{parent = Pid,
