@@ -113,8 +113,8 @@ dist_table_alloc(void *dep_tmpl)
     dep->monitors			= NULL;
 
     erts_smp_mtx_init_x(&dep->qlock, "dist_entry_out_queue", chnl_nr);
-    dep->qflgs				= 0;
-    dep->qsize				= 0;
+    erts_smp_atomic32_init_nob(&dep->qflgs, 0);
+    erts_smp_atomic_init_nob(&dep->qsize, 0);
     dep->out_queue.first		= NULL;
     dep->out_queue.last			= NULL;
     dep->suspended			= NULL;

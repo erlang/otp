@@ -161,13 +161,10 @@ erts_dsig_prepare(ErtsDSigData *dsdp,
 	goto fail;
     }
     if (no_suspend) {
-	failure = ERTS_DSIG_PREP_CONNECTED;
-	erts_smp_mtx_lock(&dep->qlock);
-	if (dep->qflgs & ERTS_DE_QFLG_BUSY)
+        if (erts_smp_atomic32_read_acqb(&dep->qflgs) & ERTS_DE_QFLG_BUSY) {
 	    failure = ERTS_DSIG_PREP_WOULD_SUSPEND;
-	erts_smp_mtx_unlock(&dep->qlock);
-	if (failure == ERTS_DSIG_PREP_WOULD_SUSPEND)
 	    goto fail;
+        }
     }
     dsdp->proc = proc;
     dsdp->dep = dep;

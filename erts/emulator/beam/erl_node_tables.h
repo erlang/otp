@@ -133,8 +133,8 @@ typedef struct dist_entry_ {
     ErtsMonitor *monitors;      /* Monitor tree */
 
     erts_smp_mtx_t qlock;       /* Protects qflgs and out_queue */
-    Uint32 qflgs;
-    Sint qsize;
+    erts_smp_atomic32_t qflgs;
+    erts_smp_atomic_t qsize;
     ErtsDistOutputQueue out_queue;
     struct ErtsProcList_ *suspended;
 
