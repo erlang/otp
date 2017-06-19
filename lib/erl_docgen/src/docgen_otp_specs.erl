@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -406,7 +406,7 @@ t_var(E) ->
     [get_attrval(name, E)].
 
 t_atom(E) ->
-    [get_attrval(value, E)].
+    [io_lib:write(list_to_atom(get_attrval(value, E)))].
 
 t_integer(E) ->
     [get_attrval(value, E)].
@@ -578,7 +578,7 @@ ot_var(E) ->
     {var,0,list_to_atom(get_attrval(name, E))}.
 
 ot_atom(E) ->
-    {ok, [{atom,A,Name}], _} = erl_scan:string(get_attrval(value, E), 0),
+    {ok, [{atom,A,Name}], _} = erl_scan:string(lists:flatten(t_atom(E)), 0),
     {atom,erl_anno:line(A),Name}.
 
 ot_integer(E) ->
