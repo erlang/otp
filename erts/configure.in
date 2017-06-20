@@ -1659,9 +1659,13 @@ if test "x$enable_sctp" != "xno" ; then
 	])
 fi
 
+AC_SUBST(LIBSCTP)
 if test "x$enable_sctp" != "xno" ; then
     AC_CHECK_HEADER(usrsctp.h,
-        [AC_DEFINE(HAVE_USRSCTP, [1],
+        [LIBSCTP=libusrsctp.dylib
+	AC_DEFINE(HAVE_SCTP_H, [1],
+	    [Define to 1 if you have the SCTP support])
+	AC_DEFINE(HAVE_USRSCTP, [1],
             [Define to 1 if you have the <usrsctp.h> header file])],
 	[],
 	[#if HAVE_SYS_SOCKET_H
