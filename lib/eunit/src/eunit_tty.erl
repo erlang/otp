@@ -235,7 +235,7 @@ print_test_error({skipped, Reason}, _) ->
 format_skipped({module_not_found, M}) ->
     io_lib:fwrite("missing module: ~w", [M]);
 format_skipped({no_such_function, {M,F,A}}) ->
-    io_lib:fwrite("no such function: ~w:~w/~w", [M,F,A]).
+    io_lib:fwrite("no such function: ~w:~tw/~w", [M,F,A]).
 
 print_test_cancel(Reason) ->
     fwrite(format_cancel(Reason)).
