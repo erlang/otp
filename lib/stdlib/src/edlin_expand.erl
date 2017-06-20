@@ -23,7 +23,7 @@
 
 -export([expand/1, format_matches/1]).
 
--import(lists, [reverse/1, nthtail/2, prefix/2]).
+-import(lists, [reverse/1, prefix/2]).
 
 %% expand(CurrentBefore) ->
 %%	{yes, Expansion, Matches} | {no, Matches}
@@ -75,15 +75,15 @@ to_atom(Str) ->
     end.
 
 match(Prefix, Alts, Extra0) ->
-    Len = length(Prefix),
+    Len = string:length(Prefix),
     Matches = lists:sort(
 		[{S, A} || {H, A} <- Alts,
-			   prefix(Prefix, S=hd(io_lib:fwrite("~w",[H])))]),
+			   prefix(Prefix, S=flat_write(H))]),
     case longest_common_head([N || {N, _} <- Matches]) of
  	{partial, []} ->
  	    {no, [], Matches}; % format_matches(Matches)};
  	{partial, Str} ->
- 	    case nthtail(Len, Str) of
+            case string:slice(Str, Len) of
  		[] ->
 		    {yes, [], Matches}; % format_matches(Matches)};
  		Remain ->
@@ -94,10 +94,13 @@ match(Prefix, Alts, Extra0) ->
 			{"(",[{Str,0}]} -> "()";
 			{_,_} -> Extra0
 		    end,
-	    {yes, nthtail(Len, Str) ++ Extra, []};
+	    {yes, string:slice(Str, Len) ++ Extra, []};
  	no ->
  	    {no, [], []}
     end.
+
+flat_write(T) ->
+    lists:flatten(io_lib:fwrite("~tw",[T])).
 
 %% Return the list of names L in multiple columns.
 format_matches(L) ->
@@ -105,7 +108,7 @@ format_matches(L) ->
     S = case Dots of
             true ->
                 {_, Prefix} = longest_common_head(vals(L)),
-                PrefixLen = length(Prefix),
+                PrefixLen = string:length(Prefix),
                 case PrefixLen =< 3 of
                     true -> S1; % Do not replace the prefix with "...".
                     false ->
@@ -128,7 +131,7 @@ format_col([A|T], Width, Len, Acc0, LL, Dots) ->
     {H0, R} = format_val(A),
     Hmax = LL - length(R),
     {H, NewDots} =
-        case length(H0) > Hmax of
+        case string:length(H0) > Hmax of
             true -> {io_lib:format("~-*ts", [Hmax - 3, H0]) ++ "...", true};
             false -> {H0, Dots}
         end,
@@ -149,12 +152,12 @@ format_val(H) ->
 field_width(L, LL) -> field_width(L, 0, LL).
 
 field_width([{H,_}|T], W, LL) ->
-    case length(H) of
+    case string:length(H) of
         L when L > W -> field_width(T, L, LL);
         _ -> field_width(T, W, LL)
     end;
 field_width([H|T], W, LL) ->
-    case length(H) of
+    case string:length(H) of
         L when L > W -> field_width(T, L, LL);
         _ -> field_width(T, W, LL)
     end;
@@ -169,10 +172,11 @@ vals([S|L]) -> [S|vals(L)].
 
 leading_dots([], _Len) -> [];
 leading_dots([{H, I}|L], Len) ->
-    [{"..." ++ nthtail(Len, H), I}|leading_dots(L, Len)];
+    [{"..." ++ string:slice(H, Len), I}|leading_dots(L, Len)];
 leading_dots([H|L], Len) ->
-    ["..." ++ nthtail(Len, H)|leading_dots(L, Len)].
+    ["..." ++ string:slice(H, Len)|leading_dots(L, Len)].
 
+%% Strings are handled naively, but it should be OK here.
 longest_common_head([]) ->
     no;
 longest_common_head(LL) ->
