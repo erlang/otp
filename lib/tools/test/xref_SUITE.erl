@@ -50,7 +50,8 @@
 
 -export([analyze/1, basic/1, md/1, q/1, variables/1, unused_locals/1]).
 
--export([format_error/1, otp_7423/1, otp_7831/1, otp_10192/1, otp_13708/1]).
+-export([format_error/1, otp_7423/1, otp_7831/1, otp_10192/1, otp_13708/1,
+         otp_14464/1]).
 
 -import(lists, [append/2, flatten/1, keysearch/3, member/2, sort/1, usort/1]).
 
@@ -81,8 +82,10 @@ groups() ->
        update, deprecated, trycatch, fun_mfa,
        fun_mfa_r14, fun_mfa_vars, qlc]},
      {analyses, [],
+
       [analyze, basic, md, q, variables, unused_locals]},
-     {misc, [], [format_error, otp_7423, otp_7831, otp_10192, otp_13708]}].
+     {misc, [], [format_error, otp_7423, otp_7831, otp_10192, otp_13708,
+                 otp_14464]}].
 
 
 init_per_suite(Conf) when is_list(Conf) ->
@@ -2396,7 +2399,6 @@ otp_10192(Conf) when is_list(Conf) ->
     xref:stop(s),
     ok.
 
-%% OTP-10192. Allow filenames with character codes greater than 126.
 otp_13708(Conf) when is_list(Conf) ->
     {ok, _} = start(s),
     ok = xref:set_default(s, [{verbose, true}]),
@@ -2408,6 +2410,36 @@ otp_13708(Conf) when is_list(Conf) ->
     {ok, _} = start(s),
     ok = xref:set_library_path(s, [Dir], [{verbose, true}]),
     xref:stop(s).
+
+%% OTP-14464. Unicode atoms.
+otp_14464(Conf) when is_list(Conf) ->
+    Dir = ?copydir,
+
+    File1 = fname(Dir, "a.erl"),
+    MFile1 = fname(Dir, "a"),
+    Beam1 = fname(Dir, "a.beam"),
+    Test1 = "-module(a).
+             -export([ärlig/0, 'кlирилли́ческий атомB'/0]).
+
+              ärlig() ->
+                  'кlирилли́ческий атомB'.
+
+              'кlирилли́ческий атомB'() ->
+                  foo.
+             ",
+    ok = file:write_file(File1, unicode:characters_to_binary(Test1)),
+    {ok, a} = compile:file(File1, [debug_info,{outdir,Dir}]),
+
+    {ok, _} = xref:start(s),
+    {ok, a} = xref:add_module(s, MFile1),
+
+    {ok, [{a,ärlig,0}]} = xref:q(s, 'a:"ärlig"/0'),
+    {ok, [{a,'кlирилли́ческий атомB',0}]} =
+        xref:q(s, 'a:"кlирилли́ческий атомB"/0'),
+
+    xref:stop(s),
+    ok = file:delete(File1),
+    ok = file:delete(Beam1).
 
 %%%
 %%% Utilities
