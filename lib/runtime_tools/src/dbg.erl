@@ -268,7 +268,7 @@ wtp(FileName) ->
 	{error, Reason} ->
 	    {error, Reason};
 	{ok, File} ->
-            io:put_chars(File, "%% coding: utf8\n"),
+            io:format(File, "%% ~s\n", [epp:encoding_to_string(utf8)]),
 	    pt_doforall(fun ({_, Val}, _) when is_list(Val) ->
 				io:format(File, "~tp.~n", [Val]);
 			    ({_, _}, _) ->
