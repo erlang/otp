@@ -78,6 +78,14 @@ end_per_group(_GroupName, Config) ->
 %% synchronous, and we want to test that the crash report is ok.
 %%-----------------------------------------------------------------
 crash(Config) when is_list(Config) ->
+    ok = application:unset_env(kernel, error_logger_format_depth),
+    crash_1(Config),
+    ok = application:set_env(kernel, error_logger_format_depth, 30),
+    crash_1(Config),
+    ok = application:unset_env(kernel, error_logger_format_depth),
+    ok.
+
+crash_1(_Config) ->
     error_logger:add_report_handler(?MODULE, self()),
 
     %% Make sure that we don't get a crash report if a process
@@ -565,19 +573,29 @@ t_format() ->
 t_format_arbitrary(_Config) ->
     error_logger:tty(false),
     try
-    t_format_arbitrary()
+        t_format_arbitrary()
     after
-    error_logger:tty(true)
+        error_logger:tty(true)
     end,
     ok.
 
 t_format_arbitrary() ->
+    A = list_to_atom([1024]),
+    do_test_format([fake_report, A], unlimited),
+    do_test_format([fake_report, A], 20),
+
+    do_test_format([fake_report, foo], unlimited),
+    do_test_format([fake_report, foo], 20),
     do_test_format([fake_report, []], unlimited),
     do_test_format([fake_report, []], 20).
 
 do_test_format(Report, Depth) ->
-    io:format("*** Depth = ~p", [Depth]),
-    S0 = proc_lib:format(Report, latin1, Depth),
+    do_test_format(Report, latin1, Depth),
+    do_test_format(Report, unicode, Depth).
+
+do_test_format(Report, Encoding, Depth) ->
+    io:format("*** Depth = ~p, Encoding = ~p", [Depth, Encoding]),
+    S0 = proc_lib:format(Report, Encoding, Depth),
     S = lists:flatten(S0),
     io:put_chars(S),
     length(S).
@@ -597,7 +615,7 @@ init(Tester) ->
     {ok, Tester}.
 
 handle_event({error_report, _GL, {Pid, crash_report, Report}}, Tester) ->
-    io:format("~s\n", [proc_lib:format(Report)]),
+    io:format("~ts\n", [proc_lib:format(Report)]),
     Tester ! {crash_report, Pid, Report},
     {ok, Tester};
 handle_event(_Event, State) ->
