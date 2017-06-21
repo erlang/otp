@@ -32,6 +32,63 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>etop</c> had a hardcoded timeout value of 1 second
+	    when waiting for data from a remote node. When this
+	    expired, which could happen for instance if there were
+	    very many processes on the remote node, etop would exit
+	    with reason <c>connection_lost</c>. To overcome this
+	    problem, the timeout is now changed to be the same as the
+	    update interval, which is configurable.</p>
+          <p>
+	    Own Id: OTP-14393</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Show dirty-scheduler threads in performance monitor graph
+	    and add a column with maximum allocated memory in the
+	    Memory Allocators table.</p>
+          <p>
+	    Own Id: OTP-14137</p>
+        </item>
+        <item>
+          <p>
+	    Keep table and port selection after refresh of tables.
+	    Store settings before shutdown and restore when starting
+	    application.</p>
+          <p>
+	    Own Id: OTP-14270</p>
+        </item>
+        <item>
+	    <p> Miscellaneous updates due to atoms containing
+	    arbitrary Unicode characters. </p>
+          <p>
+	    Own Id: OTP-14285</p>
+        </item>
+        <item>
+          <p>
+	    When observing a node older than OTP-19.0, a pop-up will
+	    be displayed when trying to access port information.
+	    Earlier, observer would crash in this situation.</p>
+          <p>
+	    Own Id: OTP-14345 Aux Id: ERL-399 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

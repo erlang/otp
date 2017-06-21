@@ -38,7 +38,23 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
-  <section><title>Reltool 0.7.3</title>
+  <section><title>Reltool 0.7.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The User's Guide examples are updated after removal
+	    of support for Dets files created with Erlang/OTP R7 and
+	    earlier. </p>
+          <p>
+	    Own Id: OTP-14422 Aux Id: OTP-13830 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.7.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

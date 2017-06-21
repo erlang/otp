@@ -31,6 +31,134 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    LibreSSL can now be used by the modernized crypto app.</p>
+          <p>
+	    Own Id: OTP-14247</p>
+        </item>
+        <item>
+          <p>
+	    Add compile option <c>-compile(no_native)</c> in modules
+	    with <c>on_load</c> directive which is not yet supported
+	    by HiPE.</p>
+          <p>
+	    Own Id: OTP-14316 Aux Id: PR-1390 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a bug in aes cfb128 function introduced by the bug
+	    fix in GitHub pull request <url
+	    href="https://github.com/erlang/otp/pull/1393">#1393</url>.</p>
+          <p>
+	    Own Id: OTP-14435 Aux Id: PR-1462, PR-1393, OTP-14313 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add basic support for CMAC</p>
+          <p>
+	    Own Id: OTP-13779 Aux Id: ERL-82 PR-1138 </p>
+        </item>
+        <item>
+          <p>
+	    Removed functions deprecated in crypto-3.0 first released
+	    in OTP-R16B01</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13873</p>
+        </item>
+        <item>
+          <p>
+	    The <c>crypto</c> application now supports OpenSSL 1.1.</p>
+          <p>
+	    Own Id: OTP-13900</p>
+        </item>
+        <item>
+          <p>
+	    Allow Erlang/OTP to use OpenSSL in FIPS-140 mode, in
+	    order to satisfy specific security requirements (mostly
+	    by different parts of the US federal government). </p>
+          <p>
+	    See the new crypto users guide "FIPS mode" chapter about
+	    building and using the FIPS support which is disabled by
+	    default.</p>
+          <p>
+	    (Thanks to dszoboszlay and legoscia)</p>
+          <p>
+	    Own Id: OTP-13921 Aux Id: PR-1180 </p>
+        </item>
+        <item>
+          <p>
+	    Crypto chacha20-poly1305 as in RFC 7539 enabled for
+	    OpenSSL >= 1.1.</p>
+          <p>
+	    Thanks to mururu.</p>
+          <p>
+	    Own Id: OTP-14092 Aux Id: PR-1291 </p>
+        </item>
+        <item>
+          <p>
+	    RSA key generation added to <c>crypto:generate_key/2</c>.
+	    Thanks to wiml.</p>
+          <p>
+	    An interface is also added to
+	    <c>public_key:generate_key/1</c>.</p>
+          <p>
+	    Own Id: OTP-14140 Aux Id: ERL-165, PR-1299 </p>
+        </item>
+        <item>
+          <p>
+	    Raised minimum requirement for OpenSSL version to
+	    OpenSSL-0.9.8.c although we recommend a much higher
+	    version, that is a version that is still maintained
+	    officially by the OpenSSL project. Note that using such
+	    an old version may restrict the crypto algorithms
+	    supported.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14171</p>
+        </item>
+        <item>
+          <p>
+	    Deprecate crypto:rand_uniform/2 as it is not
+	    cryptographically strong</p>
+          <p>
+	    Own Id: OTP-14274</p>
+        </item>
+        <item>
+          <p>
+	    The Crypto application now supports generation of
+	    cryptographically strong random numbers (floats &lt; 1.0
+	    and integer arbitrary ranges) as a plugin to the 'rand'
+	    module.</p>
+          <p>
+	    Own Id: OTP-14317 Aux Id: PR-1372 </p>
+        </item>
+        <item>
+          <p>
+	    This replaces the hard coded test values for AES, CMAC
+	    and GCM ciphers with the full validation set from NIST's
+	    CAVP program.</p>
+          <p>
+	    Own Id: OTP-14436 Aux Id: PR-1396 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 3.7.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

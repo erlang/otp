@@ -34,7 +34,24 @@
   </header>
 
 
-  <section><title>SNMP 5.2.5</title>
+  <section><title>SNMP 5.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Internal code change: Calls to <c>catch</c> followed
+	    by a call to <c>erlang:get_stacktrace/0</c> has been
+	    rewritten to use <c>try</c> instead of <c>catch</c> to
+	    make the code future-proof.</p>
+          <p>
+	    Own Id: OTP-14400</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.2.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

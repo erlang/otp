@@ -32,6 +32,28 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>To support stable builds, <c>edoc</c> no longer
+	    includes time stamps in the footer for generated
+	    files.</p>
+          <p>
+	    Own Id: OTP-14277</p>
+        </item>
+        <item>
+	    <p> Miscellaneous updates due to atoms containing
+	    arbitrary Unicode characters. </p>
+          <p>
+	    Own Id: OTP-14285</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.8.1</title>
 
     <section><title>Improvements and New Features</title>
