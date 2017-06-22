@@ -60,6 +60,8 @@ gen_server:abcast     -----> Module:handle_cast/2
 
 -                     -----> Module:handle_info/2
 
+-                     -----> Module:handle_continue/2
+
 -                     -----> Module:terminate/2
 
 -                     -----> Module:code_change/3</pre>
@@ -88,6 +90,13 @@ gen_server:abcast     -----> Module:handle_cast/2
       implies at least two garbage collections (when hibernating and
       shortly after waking up) and is not something you want to do
       between each call to a busy server.</p>
+
+    <p>If the <c>gen_server</c> process needs to perform an action
+      immediately after initialization or to break the execution of a
+      callback into multiple steps, it can return <c>{continue,Continue}</c>
+      in place of the time-out or hibernation value, which will immediately
+      invoke the <c>handle_continue/2</c> callback.</p>
+
   </description>
 
   <funcs>
@@ -610,12 +619,15 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>State = term()</v>
         <v>Result = {reply,Reply,NewState} | {reply,Reply,NewState,Timeout}</v> 
         <v>&nbsp;&nbsp;| {reply,Reply,NewState,hibernate}</v>
+        <v>&nbsp;&nbsp;| {reply,Reply,NewState,{continue,Continue}}</v>
         <v>&nbsp;&nbsp;| {noreply,NewState} | {noreply,NewState,Timeout}</v> 
         <v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,{continue,Continue}}</v>
         <v>&nbsp;&nbsp;| {stop,Reason,Reply,NewState} | {stop,Reason,NewState}</v>
         <v>&nbsp;Reply = term()</v>
         <v>&nbsp;NewState = term()</v>
         <v>&nbsp;Timeout = int()>=0 | infinity</v>
+        <v>&nbsp;Continue = term()</v>
         <v>&nbsp;Reason = term()</v>
       </type>
       <desc>
@@ -673,9 +685,11 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>State = term()</v>
         <v>Result = {noreply,NewState} | {noreply,NewState,Timeout}</v>
         <v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,{continue,Continue}}</v>
         <v>&nbsp;&nbsp;| {stop,Reason,NewState}</v>
         <v>&nbsp;NewState = term()</v>
         <v>&nbsp;Timeout = int()>=0 | infinity</v>
+        <v>&nbsp;Continue = term()</v>
         <v>&nbsp;Reason = term()</v>
       </type>
       <desc>
@@ -690,6 +704,41 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
+      <name>Module:handle_continue(Continue, State) -> Result</name>
+      <fsummary>Handle a continue instruction.</fsummary>
+      <type>
+        <v>Continue = term()</v>
+        <v>State = term()</v>
+        <v>Result = {noreply,NewState} | {noreply,NewState,Timeout}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,{continue,Continue}}</v>
+        <v>&nbsp;&nbsp;| {stop,Reason,NewState}</v>
+        <v>&nbsp;NewState = term()</v>
+        <v>&nbsp;Timeout = int()>=0 | infinity</v>
+        <v>&nbsp;Continue = term()</v>
+        <v>&nbsp;Reason = normal | term()</v>
+      </type>
+      <desc>
+        <note>
+          <p>This callback is optional, so callback modules need to
+            export it only if they return <c>{continue,Continue}</c>
+            from another callback. If continue is used and the callback
+            is not implemented, the process will exit with <c>undef</c>
+            error.</p>
+        </note>
+        <p>This function is called by a <c>gen_server</c> process whenever
+          a previous callback returns <c>{continue, Continue}</c>.
+          <c>handle_continue/2</c> is invoked immediately after the previous
+          callback, which makes it useful for performing work after
+          initialization or for splitting the work in a callback in
+          multiple steps, updating the process state along the way.</p>
+        <p>For a description of the other arguments and possible return values,
+          see <seealso marker="#Module:handle_call/3">
+          <c>Module:handle_call/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name>Module:handle_info(Info, State) -> Result</name>
       <fsummary>Handle an incoming message.</fsummary>
       <type>
@@ -697,6 +746,7 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>State = term()</v>
         <v>Result = {noreply,NewState} | {noreply,NewState,Timeout}</v>
         <v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,{continue,Continue}}</v>
         <v>&nbsp;&nbsp;| {stop,Reason,NewState}</v>
         <v>&nbsp;NewState = term()</v>
         <v>&nbsp;Timeout = int()>=0 | infinity</v>
@@ -726,7 +776,7 @@ gen_server:abcast     -----> Module:handle_cast/2
       <type>
         <v>Args = term()</v>
         <v>Result =  {ok,State} | {ok,State,Timeout} | {ok,State,hibernate}</v>
-        <v>&nbsp;| {stop,Reason} | ignore</v>
+        <v>&nbsp;| {ok,State,{continue,Continue}} | {stop,Reason} | ignore</v>
         <v>&nbsp;State = term()</v>
         <v>&nbsp;Timeout = int()>=0 | infinity</v>
         <v>&nbsp;Reason = term()</v>
