@@ -274,7 +274,8 @@ erts_init_gc(void)
     }
 
 #ifdef ERTS_DIRTY_SCHEDULERS
-    erts_smp_mtx_init(&dirty_gc.mtx, "dirty_gc_info");
+    erts_smp_mtx_init(&dirty_gc.mtx, "dirty_gc_info", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     init_gc_info(&dirty_gc.info);
 #endif
 

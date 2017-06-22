@@ -26,19 +26,26 @@
 
 #include "sys.h"
 
+#include "global.h"
+
 #include "erl_lock_count.h"
 #include "erl_thr_progress.h"
 
+#include "erl_node_tables.h"
+#include "erl_alloc_util.h"
+#include "erl_check_io.h"
+#include "erl_poll.h"
+#include "erl_db.h"
+
 #define LCNT_MAX_CARRIER_ENTRIES 255
-
-/* - Exported global - */
-
-Uint16 erts_lcnt_rt_options = ERTS_LCNT_OPT_PROCLOCK | ERTS_LCNT_OPT_LOCATION;
 
 /* - Locals that are shared with the header implementation - */
 
-int lcnt_initialization_completed__ = 0;
+#ifdef DEBUG
+int lcnt_initialization_completed__;
+#endif
 
+erts_lock_flags_t lcnt_category_mask__;
 ethr_tsd_key lcnt_thr_data_key__;
 
 const int lcnt_log2_tab64__[64] = {
@@ -53,10 +60,24 @@ const int lcnt_log2_tab64__[64] = {
 
 /* - Local variables - */
 
+typedef struct lcnt_static_lock_ref_ {
+    erts_lcnt_ref_t *reference;
+
+    erts_lock_flags_t flags;
+    const char *name;
+    Eterm id;
+
+    struct lcnt_static_lock_ref_ *next;
+} lcnt_static_lock_ref_t;
+
+static ethr_atomic_t lcnt_static_lock_registry;
+
 static erts_lcnt_lock_info_list_t lcnt_current_lock_list;
 static erts_lcnt_lock_info_list_t lcnt_deleted_lock_list;
 
 static erts_lcnt_time_t lcnt_timer_start;
+
+static int lcnt_preserve_info;
 
 /* local functions */
 
@@ -96,37 +117,6 @@ static lcnt_thread_data_t__ *lcnt_thread_data_alloc(void) {
 
     return eltd;
 }
-
-/* debug */
-
-#if 0
-static char* lock_opt(Uint16 flag) {
-    if ((flag & ERTS_LCNT_LO_WRITE) && (flag & ERTS_LCNT_LO_READ)) return "rw";
-    if  (flag & ERTS_LCNT_LO_READ )                                return "r ";
-    if  (flag & ERTS_LCNT_LO_WRITE)                                return " w";
-    return "--";
-}
-
-static void print_lock_x(erts_lcnt_lock_info_t *info, Uint16 flag, char *action) {
-    ethr_sint_t w_state, r_state;
-    char *type;
-
-    if (strcmp(info->name, "run_queue") != 0) return;
-    type = erts_lcnt_lock_type(info->flag);
-    r_state = ethr_atomic_read(&info->r_state);
-    w_state = ethr_atomic_read(&info->w_state);
-
-    if (info->flag & flag) {
-        erts_fprintf(stderr,"%10s [%24s] [r/w state %4ld/%4ld] %2s id %T\r\n",
-                action,
-                info->name,
-                r_state,
-                w_state,
-                type,
-                info->id);
-    }
-}
-#endif
 
 /* - List operations -
  *
@@ -271,12 +261,7 @@ void lcnt_thr_progress_unmanaged_continue__(int handle) {
     return erts_thr_progress_unmanaged_continue(handle);
 }
 
-static void lcnt_deallocate_carrier_malloc(erts_lcnt_lock_info_carrier_t *carrier) {
-    ASSERT(ethr_atomic_read(&carrier->ref_count) == 0);
-    free(carrier);
-}
-
-static void lcnt_deallocate_carrier_erts(erts_lcnt_lock_info_carrier_t *carrier) {
+void lcnt_deallocate_carrier__(erts_lcnt_lock_info_carrier_t *carrier) {
     ASSERT(ethr_atomic_read(&carrier->ref_count) == 0);
     erts_free(ERTS_ALC_T_LCNT_CARRIER, (void*)carrier);
 }
@@ -323,7 +308,7 @@ static void lcnt_info_deallocate(erts_lcnt_lock_info_t *info) {
 static void lcnt_info_dispose(erts_lcnt_lock_info_t *info) {
     ASSERT(ethr_atomic_read(&info->ref_count) == 0);
 
-    if(erts_lcnt_rt_options & ERTS_LCNT_OPT_COPYSAVE) {
+    if(lcnt_preserve_info) {
         ethr_atomic_set(&info->ref_count, 1);
 
         /* Move straight to deallocation the next time around. */
@@ -336,10 +321,6 @@ static void lcnt_info_dispose(erts_lcnt_lock_info_t *info) {
 }
 
 static void lcnt_lock_info_init_helper(erts_lcnt_lock_info_t *info) {
-#ifdef DEBUG
-    ethr_atomic_init(&info->flowstate, 0);
-#endif
-
     ethr_atomic_init(&info->ref_count, 1);
     ethr_atomic32_init(&info->lock, 0);
 
@@ -356,21 +337,15 @@ erts_lcnt_lock_info_carrier_t *erts_lcnt_create_lock_info_carrier(int entry_coun
     size_t carrier_size, i;
 
     ASSERT(entry_count > 0 && entry_count <= LCNT_MAX_CARRIER_ENTRIES);
+    ASSERT(lcnt_initialization_completed__);
 
     carrier_size = sizeof(erts_lcnt_lock_info_carrier_t) +
                    sizeof(erts_lcnt_lock_info_t) * entry_count;
 
-    if(lcnt_initialization_completed__) {
-        result = (erts_lcnt_lock_info_carrier_t*)erts_alloc(ERTS_ALC_T_LCNT_CARRIER, carrier_size);
-        result->deallocate = &lcnt_deallocate_carrier_erts;
-    } else {
-        result = (erts_lcnt_lock_info_carrier_t*)malloc(carrier_size);
-        result->deallocate = &lcnt_deallocate_carrier_malloc;
-    }
+    result = (erts_lcnt_lock_info_carrier_t*)erts_alloc(ERTS_ALC_T_LCNT_CARRIER, carrier_size);
+    result->entry_count = entry_count;
 
     ethr_atomic_init(&result->ref_count, entry_count);
-
-    result->entry_count = entry_count;
 
     for(i = 0; i < entry_count; i++) {
         erts_lcnt_lock_info_t *info = &result->entries[i];
@@ -386,6 +361,24 @@ erts_lcnt_lock_info_carrier_t *erts_lcnt_create_lock_info_carrier(int entry_coun
 void erts_lcnt_install(erts_lcnt_ref_t *ref, erts_lcnt_lock_info_carrier_t *carrier) {
     ethr_sint_t swapped_carrier;
 
+#ifdef DEBUG
+    int i;
+
+    /* Verify that all locks share the same categories/static property; all
+     * other flags are fair game. */
+    for(i = 1; i < carrier->entry_count; i++) {
+        const erts_lock_flags_t SIGNIFICANT_DIFF_MASK =
+            ERTS_LOCK_FLAGS_MASK_CATEGORY | ERTS_LOCK_FLAGS_PROPERTY_STATIC;
+
+        erts_lcnt_lock_info_t *previous, *current;
+
+        previous = &carrier->entries[i - 1];
+        current = &carrier->entries[i];
+
+        ASSERT(!((previous->flags ^ current->flags) & SIGNIFICANT_DIFF_MASK));
+    }
+#endif
+
     swapped_carrier = ethr_atomic_cmpxchg_mb(ref, (ethr_sint_t)carrier, (ethr_sint_t)NULL);
 
     if(swapped_carrier != (ethr_sint_t)NULL) {
@@ -394,7 +387,7 @@ void erts_lcnt_install(erts_lcnt_ref_t *ref, erts_lcnt_lock_info_carrier_t *carr
         ethr_atomic_set(&carrier->ref_count, 0);
 #endif
 
-        carrier->deallocate(carrier);
+        lcnt_deallocate_carrier__(carrier);
     } else {
         lcnt_insert_list_carrier(&lcnt_current_lock_list, carrier);
     }
@@ -411,6 +404,61 @@ void erts_lcnt_uninstall(erts_lcnt_ref_t *ref) {
     }
 }
 
+/* - Static lock registry -
+ *
+ * Since static locks can be trusted to never disappear, we can track them
+ * pretty cheaply and won't need to bother writing an "erts_lcnt_update_xx"
+ * variant. */
+
+static void lcnt_init_static_lock_registry(void) {
+    ethr_atomic_init(&lcnt_static_lock_registry, (ethr_sint_t)NULL);
+}
+
+static void lcnt_update_static_locks(void) {
+    lcnt_static_lock_ref_t *iterator =
+        (lcnt_static_lock_ref_t*)ethr_atomic_read(&lcnt_static_lock_registry);
+
+    while(iterator != NULL) {
+        if(!erts_lcnt_check_enabled(iterator->flags)) {
+            erts_lcnt_uninstall(iterator->reference);
+        } else if(!erts_lcnt_check_ref_installed(iterator->reference)) {
+            erts_lcnt_lock_info_carrier_t *carrier = erts_lcnt_create_lock_info_carrier(1);
+
+            erts_lcnt_init_lock_info_idx(carrier, 0, iterator->name, iterator->id, iterator->flags);
+
+            erts_lcnt_install(iterator->reference, carrier);
+        }
+
+        iterator = iterator->next;
+    }
+}
+
+void lcnt_register_static_lock__(erts_lcnt_ref_t *reference, const char *name, Eterm id,
+                                 erts_lock_flags_t flags) {
+    lcnt_static_lock_ref_t *lock = malloc(sizeof(lcnt_static_lock_ref_t));
+    int retry_insertion;
+
+    ASSERT(flags & ERTS_LOCK_FLAGS_PROPERTY_STATIC);
+
+    lock->reference = reference;
+    lock->flags = flags;
+    lock->name = name;
+    lock->id = id;
+
+    do {
+        ethr_sint_t swapped_head;
+
+        lock->next = (lcnt_static_lock_ref_t*)ethr_atomic_read(&lcnt_static_lock_registry);
+
+        swapped_head = ethr_atomic_cmpxchg_acqb(
+            &lcnt_static_lock_registry,
+            (ethr_sint_t)lock,
+            (ethr_sint_t)lock->next);
+
+        retry_insertion = (swapped_head != (ethr_sint_t)lock->next);
+    } while(retry_insertion);
+}
+
 /* - Initialization - */
 
 void erts_lcnt_pre_thr_init() {
@@ -422,6 +470,8 @@ void erts_lcnt_pre_thr_init() {
 
     lcnt_init_list(&lcnt_current_lock_list);
     lcnt_init_list(&lcnt_deleted_lock_list);
+
+    lcnt_init_static_lock_registry();
 }
 
 void erts_lcnt_post_thr_init() {
@@ -438,8 +488,16 @@ void erts_lcnt_late_init() {
     erts_lcnt_clear_counters();
     erts_thr_install_exit_handler(erts_lcnt_thread_exit_handler);
 
+#ifdef DEBUG
     /* It's safe to use erts_alloc and thread progress past this point. */
     lcnt_initialization_completed__ = 1;
+#endif
+}
+
+void erts_lcnt_post_startup(void) {
+    /* Default to capturing everything to match the behavior of the old lock
+     * counter build. */
+    erts_lcnt_set_category_mask(ERTS_LOCK_FLAGS_MASK_CATEGORY);
 }
 
 void erts_lcnt_thread_setup() {
@@ -492,18 +550,74 @@ void erts_lcnt_release_lock_info(erts_lcnt_lock_info_t *info) {
     }
 }
 
-Uint16 erts_lcnt_set_rt_opt(Uint16 opt) {
-    Uint16 prev;
-    prev = (erts_lcnt_rt_options & opt);
-    erts_lcnt_rt_options |= opt;
-    return prev;
+erts_lock_flags_t erts_lcnt_get_category_mask() {
+    return lcnt_category_mask__;
 }
 
-Uint16 erts_lcnt_clear_rt_opt(Uint16 opt) {
-    Uint16 prev;
-    prev = (erts_lcnt_rt_options & opt);
-    erts_lcnt_rt_options &= ~opt;
-    return prev;
+#ifdef ERTS_ENABLE_KERNEL_POLL
+/* erl_poll/erl_check_io only exports one of these variants at a time, and we
+ * may need to use either one depending on emulator startup flags. */
+void erts_lcnt_update_pollset_locks_nkp(int);
+void erts_lcnt_update_pollset_locks_kp(int);
+
+void erts_lcnt_update_cio_locks_nkp(int);
+void erts_lcnt_update_cio_locks_kp(int);
+#endif
+
+void erts_lcnt_set_category_mask(erts_lock_flags_t mask) {
+    erts_lock_flags_t changed_categories;
+
+    ASSERT(!(mask & ~ERTS_LOCK_FLAGS_MASK_CATEGORY));
+    ASSERT(lcnt_initialization_completed__);
+
+    changed_categories = (lcnt_category_mask__ ^ mask);
+    lcnt_category_mask__ = mask;
+
+    if(changed_categories) {
+        lcnt_update_static_locks();
+    }
+
+    if(changed_categories & ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION) {
+        erts_lcnt_update_distribution_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
+    }
+
+    if(changed_categories & ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR) {
+        erts_lcnt_update_allocator_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR);
+    }
+
+    if(changed_categories & ERTS_LOCK_FLAGS_CATEGORY_PROCESS) {
+        erts_lcnt_update_process_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_PROCESS);
+    }
+
+    if(changed_categories & ERTS_LOCK_FLAGS_CATEGORY_IO) {
+#ifdef ERTS_ENABLE_KERNEL_POLL
+        if(erts_use_kernel_poll) {
+            erts_lcnt_update_pollset_locks_kp(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
+            erts_lcnt_update_cio_locks_kp(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
+        } else {
+            erts_lcnt_update_pollset_locks_nkp(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
+            erts_lcnt_update_cio_locks_nkp(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
+        }
+#else
+        erts_lcnt_update_pollset_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
+        erts_lcnt_update_cio_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
+#endif
+
+        erts_lcnt_update_driver_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
+        erts_lcnt_update_port_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
+    }
+
+    if(changed_categories & ERTS_LOCK_FLAGS_CATEGORY_DB) {
+        erts_lcnt_update_db_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_DB);
+    }
+}
+
+void erts_lcnt_set_preserve_info(int enable) {
+    lcnt_preserve_info = enable;
+}
+
+int erts_lcnt_get_preserve_info() {
+    return lcnt_preserve_info;
 }
 
 void erts_lcnt_clear_counters(void) {
@@ -536,17 +650,6 @@ erts_lcnt_data_t erts_lcnt_get_data(void) {
     lcnt_time_diff__(&result.duration, &timer_stop, &result.timer_start);
 
     return result;
-}
-
-const char *erts_lcnt_lock_type(Uint16 type) {
-    switch(type & ERTS_LCNT_LT_ALL) {
-        case ERTS_LCNT_LT_SPINLOCK:   return "spinlock";
-        case ERTS_LCNT_LT_RWSPINLOCK: return "rw_spinlock";
-        case ERTS_LCNT_LT_MUTEX:      return "mutex";
-        case ERTS_LCNT_LT_RWMUTEX:    return "rw_mutex";
-        case ERTS_LCNT_LT_PROCLOCK:   return "proclock";
-        default:                      return "";
-    }
 }
 
 int erts_lcnt_iterate_list(erts_lcnt_lock_info_list_t *list, erts_lcnt_lock_info_t **iterator) {

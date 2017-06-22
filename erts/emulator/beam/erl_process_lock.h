@@ -263,7 +263,8 @@ void erts_lcnt_proc_unlock(erts_proc_lock_t *lock, ErtsProcLocks locks);
 ERTS_GLB_INLINE
 void erts_lcnt_proc_trylock(erts_proc_lock_t *lock, ErtsProcLocks locks, int res);
 
-void erts_lcnt_enable_proc_lock_count(int enable);
+void erts_lcnt_enable_proc_lock_count(Process *proc, int enable);
+void erts_lcnt_update_process_locks(int enable);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 

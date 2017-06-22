@@ -43,17 +43,7 @@
  *
  * Each instance of a lock is the unique lock, i.e. set and id in that set.
  * For each lock there is a set of statistics with where and what impact
- * the lock aqusition had.
- *
- * Runtime options:
- * - location, reserved and not used.
- * - proclock, disable proclock counting. Used when performance might be an
- *   issue. Accessible from erts_debug:lock_counters({process_locks, bool()}).
- *   Default: off.
- * - copysave, enable saving of destroyed locks (and thereby its statistics).
- *   If memory constraints is an issue this need to be disabled.
- *   Accessible from erts_debug:lock_counters({copy_save, bool()}).
- *   Default: off.
+ * the lock acquisition had.
  */
 
 #ifndef ERTS_LOCK_COUNT_H__
@@ -67,11 +57,12 @@
 
 #include "sys.h"
 #include "ethread.h"
+
 #include "erl_term.h"
+#include "erl_lock_flags.h"
 
-#define ERTS_LCNT_MAX_LOCK_LOCATIONS  (10)
+#define ERTS_LCNT_MAX_LOCK_LOCATIONS  (5)
 
-/* histogram */
 #define ERTS_LCNT_HISTOGRAM_MAX_NS    (((unsigned long)1LL << 28) - 1)
 #if 0 || defined(ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT)
 #define ERTS_LCNT_HISTOGRAM_SLOT_SIZE (30)
@@ -80,34 +71,6 @@
 #define ERTS_LCNT_HISTOGRAM_SLOT_SIZE (20)
 #define ERTS_LCNT_HISTOGRAM_RSHIFT    (10)
 #endif
-
-#define ERTS_LCNT_LT_SPINLOCK   (((Uint16) 1) << 0)
-#define ERTS_LCNT_LT_RWSPINLOCK (((Uint16) 1) << 1)
-#define ERTS_LCNT_LT_MUTEX      (((Uint16) 1) << 2)
-#define ERTS_LCNT_LT_RWMUTEX    (((Uint16) 1) << 3)
-#define ERTS_LCNT_LT_PROCLOCK   (((Uint16) 1) << 4)
-#define ERTS_LCNT_LT_ALLOC      (((Uint16) 1) << 5)
-
-#define ERTS_LCNT_LO_READ       (((Uint16) 1) << 6)
-#define ERTS_LCNT_LO_WRITE      (((Uint16) 1) << 7)
-
-#define ERTS_LCNT_LT_DISABLE    (((Uint16) 1) << 8)
-
-#define ERTS_LCNT_LO_READ_WRITE ( ERTS_LCNT_LO_READ  \
-                                | ERTS_LCNT_LO_WRITE )
-
-#define ERTS_LCNT_LT_ALL        ( ERTS_LCNT_LT_SPINLOCK   \
-                                | ERTS_LCNT_LT_RWSPINLOCK \
-                                | ERTS_LCNT_LT_MUTEX      \
-                                | ERTS_LCNT_LT_RWMUTEX    \
-                                | ERTS_LCNT_LT_PROCLOCK   )
-
-/* Runtime options */
-
-#define ERTS_LCNT_OPT_LOCATION (((Uint16) 1) << 1)
-#define ERTS_LCNT_OPT_PROCLOCK (((Uint16) 1) << 2)
-#define ERTS_LCNT_OPT_PORTLOCK (((Uint16) 1) << 3)
-#define ERTS_LCNT_OPT_COPYSAVE (((Uint16) 1) << 4)
 
 typedef struct {
     unsigned long s;
@@ -139,9 +102,10 @@ typedef struct {
 } erts_lcnt_lock_stats_t;
 
 typedef struct lcnt_lock_info_t_ {
-    const char *name; /**< Lock name */
-    Uint16 flag;      /**< Lock type */
-    Eterm id;         /**< Id if possible, must be an immediate */
+    erts_lock_flags_t flags;
+    const char *name;
+    /** @brief Id if possible, must be an immediate */
+    Eterm id;
 
     /* The first entry is reserved as a fallback for when location information
      * is missing, and when the lock is used in more than (MAX_LOCK_LOCATIONS
@@ -157,15 +121,6 @@ typedef struct lcnt_lock_info_t_ {
     ethr_atomic_t w_state;
     /** @brief Read state. 0 = not taken, > 0 -> writes will wait */
     ethr_atomic_t r_state;
-
-#ifdef LCNT_DEBUG_LOCK_FLOW
-    /** @brief Tracks lock/unlock operations. This will explode if the lock is
-     * held at the time lock counting is installed.
-     *
-     * Avoid enabling existing locks at runtime while running in this
-     * configuration. */
-    ethr_atomic_t flowstate;
-#endif
 
     struct lcnt_lock_info_t_ *prev;
     struct lcnt_lock_info_t_ *next;
@@ -200,7 +155,10 @@ typedef ethr_atomic_t erts_lcnt_ref_t;
 
 /* -- Globals -------------------------------------------------------------- */
 
-extern Uint16 erts_lcnt_rt_options;
+/** @brief Checks whether counting is enabled for any of the given
+ * categories. */
+#define erts_lcnt_check_enabled(flags) \
+    (lcnt_category_mask__ & flags)
 
 /* -- Lock operations ------------------------------------------------------
  *
@@ -259,12 +217,6 @@ void erts_lcnt_trylock_opt(erts_lcnt_ref_t *ref, int result, Uint16 option);
  *
  * Refer to \c erts_lcnt_lock for example usage. */
 
-ERTS_GLB_FORCE_INLINE
-int erts_lcnt_open_ref(erts_lcnt_ref_t *ref, int *handle, erts_lcnt_lock_info_carrier_t **result);
-
-ERTS_GLB_FORCE_INLINE
-void erts_lcnt_close_ref(int handle, erts_lcnt_lock_info_carrier_t *carrier);
-
 ERTS_GLB_INLINE
 void erts_lcnt_lock_idx(erts_lcnt_lock_info_carrier_t *carrier, int index);
 ERTS_GLB_INLINE
@@ -290,22 +242,43 @@ void erts_lcnt_trylock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index
 
 /* -- Reference operations ------------------------------------------------- */
 
-erts_lcnt_lock_info_carrier_t *erts_lcnt_create_lock_info_carrier(int count);
+/** @brief Registers a lock counter reference; this must be called prior to
+ * using any other functions in this module. */
+ERTS_GLB_INLINE
+void erts_lcnt_init_ref(erts_lcnt_ref_t *ref);
 
-/** @brief Fills in the name and lock type of the given index. */
-#define erts_lcnt_init_lock_info_idx(carrier, index, name, flag) \
-    erts_lcnt_init_lock_info_x_idx(carrier, index, name, flag, NIL)
-
-/** @copydoc erts_lcnt_install_new_lock_info
+/** @brief As \c erts_lcnt_init_ref, but also enables lock counting right
+ * away if appropriate to reduce noise.
  * @param id An immediate erlang term with whatever extra data you want to
  * identify this lock with. */
 ERTS_GLB_INLINE
-void erts_lcnt_init_lock_info_x_idx(erts_lcnt_lock_info_carrier_t *carrier, int index,
-    const char *name, Uint16 flag, Eterm id);
+void erts_lcnt_init_ref_x(erts_lcnt_ref_t *ref, const char *name,
+    Eterm id, erts_lock_flags_t flags);
 
-/** @brief Initializes a lock counter reference; this must be called prior to
- * using any other functions in this module. */
-#define erts_lcnt_init_ref(ref) ethr_atomic_init(ref, (ethr_sint_t)NULL);
+/** @brief Checks whether counting is enabled on the given reference. */
+ERTS_GLB_FORCE_INLINE
+int erts_lcnt_check_ref_installed(erts_lcnt_ref_t *ref);
+
+/** @brief Convenience macro to re/enable counting on an already initialized
+ * reference. Don't forget to specify the lock type in \c flags! */
+#define erts_lcnt_install_new_lock_info(ref, name, id, flags) \
+    if(!erts_lcnt_check_ref_installed(ref)) { \
+        erts_lcnt_lock_info_carrier_t *__carrier; \
+        __carrier = erts_lcnt_create_lock_info_carrier(1);\
+        erts_lcnt_init_lock_info_idx(__carrier, 0, name, id, flags); \
+        erts_lcnt_install(ref, __carrier);\
+    } while(0)
+
+erts_lcnt_lock_info_carrier_t *erts_lcnt_create_lock_info_carrier(int count);
+
+/* @brief Initializes the lock info at the given index.
+ * @param id An immediate erlang term with whatever extra data you want to
+ * identify this lock with.
+ * @param flags The flags the lock itself was initialized with. Keep in mind
+ * that all locks in a carrier must share the same category/static property. */
+ERTS_GLB_INLINE
+void erts_lcnt_init_lock_info_idx(erts_lcnt_lock_info_carrier_t *carrier, int index,
+    const char *name, Eterm id, erts_lock_flags_t flags);
 
 /** @brief Atomically installs the given lock counters. Nops (and releases the
  * provided carrier) if something was already installed. */
@@ -315,27 +288,22 @@ void erts_lcnt_install(erts_lcnt_ref_t *ref, erts_lcnt_lock_info_carrier_t *carr
  * nothing was installed. */
 void erts_lcnt_uninstall(erts_lcnt_ref_t *ref);
 
-/** @brief Convenience macro to install a single lock counter of the given
- * name and type. */
-#define erts_lcnt_install_new_lock_info(reference, name, flag) \
-    erts_lcnt_install_new_lock_info_x(reference, name, flag, NIL)
+ERTS_GLB_FORCE_INLINE
+int erts_lcnt_open_ref(erts_lcnt_ref_t *ref, int *handle, erts_lcnt_lock_info_carrier_t **result);
 
-/** @copydoc erts_lcnt_install_new_lock_info
- * @param id An immediate erlang term with whatever extra data you want to
- * identify this lock with. */
-#define erts_lcnt_install_new_lock_info_x(reference, name, flag, id) \
-    do { \
-        erts_lcnt_lock_info_carrier_t *__carrier; \
-        __carrier = erts_lcnt_create_lock_info_carrier(1); \
-        erts_lcnt_init_lock_info_x_idx(__carrier, 0, name, flag, id); \
-        erts_lcnt_install(reference, __carrier); \
-    } while(0)
+ERTS_GLB_FORCE_INLINE
+void erts_lcnt_close_ref(int handle, erts_lcnt_lock_info_carrier_t *carrier);
 
 /* -- Module initialization ------------------------------------------------ */
 
 void erts_lcnt_pre_thr_init(void);
 void erts_lcnt_post_thr_init(void);
 void erts_lcnt_late_init(void);
+
+/* @brief Called after everything in the system has been initialized, including
+ * the schedulers. This is mainly a backwards compatibility shim for matching
+ * the old lcnt behavior where all lock counting was enabled by default. */
+void erts_lcnt_post_startup(void);
 
 void erts_lcnt_thread_setup(void);
 void erts_lcnt_thread_exit_handler(void);
@@ -357,7 +325,7 @@ void erts_lcnt_thread_exit_handler(void);
 int erts_lcnt_iterate_list(erts_lcnt_lock_info_list_t *list, erts_lcnt_lock_info_t **iterator);
 
 /** @brief Clears the counter state of all locks, and releases all locks
- * preserved through ERTS_LCNT_OPT_COPYSAVE (if any). */
+ * preserved through erts_lcnt_set_preserve_info (if any). */
 void erts_lcnt_clear_counters(void);
 
 /** @brief Retrieves the global lock counter state.
@@ -369,10 +337,24 @@ erts_lcnt_data_t erts_lcnt_get_data(void);
 void erts_lcnt_retain_lock_info(erts_lcnt_lock_info_t *info);
 void erts_lcnt_release_lock_info(erts_lcnt_lock_info_t *info);
 
-Uint16 erts_lcnt_set_rt_opt(Uint16 opt);
-Uint16 erts_lcnt_clear_rt_opt(Uint16 opt);
+/** @brief Sets whether to preserve the info of destroyed/uninstalled locks.
+ *
+ * This option makes no distinction whether the lock was destroyed or if lock
+ * counting was simply disabled, so erts_lcnt_set_category_mask must not be
+ * used while this option is active. */
+void erts_lcnt_set_preserve_info(int enable);
 
-const char *erts_lcnt_lock_type(Uint16 type);
+int erts_lcnt_get_preserve_info(void);
+
+/** @brief Updates the category mask, enabling or disabling counting on the
+ * affected locks as necessary.
+ *
+ * This is not guaranteed to find all existing locks; only those that are
+ * flagged as static locks and those reachable through other means can be
+ * altered. */
+void erts_lcnt_set_category_mask(erts_lock_flags_t mask);
+
+erts_lock_flags_t erts_lcnt_get_category_mask(void);
 
 /* -- Inline implementation ------------------------------------------------ */
 
@@ -390,8 +372,6 @@ typedef struct { Uint64 _[4]; } LcntThrPrgrLaterOp;
 struct lcnt_lock_info_carrier_ {
     ethr_atomic_t ref_count;
 
-    void (*deallocate)(struct lcnt_lock_info_carrier_ *);
-
     LcntThrPrgrLaterOp release_entries;
 
     unsigned char entry_count;
@@ -404,14 +384,19 @@ typedef struct {
     int lock_in_conflict;   /* bool */
 } lcnt_thread_data_t__;
 
-extern ethr_tsd_key lcnt_thr_data_key__;
-
-/** @brief Some operations (eg erts_alloc or erts_thr_progress_unmanaged_delay)
- * are unsafe in the early stages of initialization, so we're using this flag
- * to know when we can move over to normal operation. */
-extern int lcnt_initialization_completed__;
-
 extern const int lcnt_log2_tab64__[];
+
+extern ethr_tsd_key lcnt_thr_data_key__;
+extern erts_lock_flags_t lcnt_category_mask__;
+
+#ifdef DEBUG
+extern int lcnt_initialization_completed__;
+#endif
+
+void lcnt_register_static_lock__(erts_lcnt_ref_t *reference, const char *name, Eterm id,
+    erts_lock_flags_t flags);
+
+void lcnt_deallocate_carrier__(erts_lcnt_lock_info_carrier_t *carrier);
 
 ERTS_GLB_INLINE
 int lcnt_log2__(Uint64 v);
@@ -557,29 +542,27 @@ void lcnt_dec_lock_state__(ethr_atomic_t *l_state) {
 
 ERTS_GLB_INLINE
 erts_lcnt_lock_stats_t *lcnt_get_lock_stats__(erts_lcnt_lock_info_t *info, char *file, unsigned int line) {
+    unsigned int i;
+
     ASSERT(info->location_count >= 1 && info->location_count <= ERTS_LCNT_MAX_LOCK_LOCATIONS);
 
-    if(erts_lcnt_rt_options & ERTS_LCNT_OPT_LOCATION) {
-        unsigned int i;
+    for(i = 0; i < info->location_count; i++) {
+        erts_lcnt_lock_stats_t *stats = &info->location_stats[i];
 
-        for(i = 0; i < info->location_count; i++) {
-            erts_lcnt_lock_stats_t *stats = &info->location_stats[i];
-
-            if(stats->file == file && stats->line == line) {
-                return stats;
-            }
-        }
-
-        if(info->location_count < ERTS_LCNT_MAX_LOCK_LOCATIONS) {
-            erts_lcnt_lock_stats_t *stats = &info->location_stats[info->location_count];
-
-            stats->file = file;
-            stats->line = line;
-
-            info->location_count++;
-
+        if(stats->file == file && stats->line == line) {
             return stats;
         }
+    }
+
+    if(info->location_count < ERTS_LCNT_MAX_LOCK_LOCATIONS) {
+        erts_lcnt_lock_stats_t *stats = &info->location_stats[info->location_count];
+
+        stats->file = file;
+        stats->line = line;
+
+        info->location_count++;
+
+        return stats;
     }
 
     return &info->location_stats[0];
@@ -596,9 +579,11 @@ lcnt_thread_data_t__ *lcnt_get_thread_data__(void) {
 
 ERTS_GLB_FORCE_INLINE
 int erts_lcnt_open_ref(erts_lcnt_ref_t *ref, int *handle, erts_lcnt_lock_info_carrier_t **result) {
-    if(!*ethr_atomic_addr(ref) || !lcnt_initialization_completed__) {
+    if(ERTS_LIKELY(!erts_lcnt_check_ref_installed(ref))) {
         return 0;
     }
+
+    ASSERT(lcnt_initialization_completed__);
 
     (*handle) = lcnt_thr_progress_unmanaged_delay__();
     (*result) = (erts_lcnt_lock_info_carrier_t*)ethr_atomic_read(ref);
@@ -622,6 +607,30 @@ void erts_lcnt_close_ref(int handle, erts_lcnt_lock_info_carrier_t *carrier) {
     if(handle != LCNT_THR_PRGR_DHANDLE_MANAGED) {
         lcnt_release_carrier__(carrier);
     }
+}
+
+ERTS_GLB_INLINE
+void erts_lcnt_init_ref(erts_lcnt_ref_t *ref) {
+    ethr_atomic_init(ref, (ethr_sint_t)NULL);
+}
+
+ERTS_GLB_INLINE
+void erts_lcnt_init_ref_x(erts_lcnt_ref_t *ref, const char *name,
+                          Eterm id, erts_lock_flags_t flags) {
+    erts_lcnt_init_ref(ref);
+
+    if(flags & ERTS_LOCK_FLAGS_PROPERTY_STATIC) {
+        lcnt_register_static_lock__(ref, name, id, flags);
+    }
+
+    if(erts_lcnt_check_enabled(flags)) {
+        erts_lcnt_install_new_lock_info(ref, name, id, flags);
+    }
+}
+
+ERTS_GLB_FORCE_INLINE
+int erts_lcnt_check_ref_installed(erts_lcnt_ref_t *ref) {
+    return (!!*ethr_atomic_addr(ref));
 }
 
 ERTS_GLB_FORCE_INLINE
@@ -734,7 +743,7 @@ void erts_lcnt_trylock_opt(erts_lcnt_ref_t *ref, int result, Uint16 option) {
 
 ERTS_GLB_INLINE
 void erts_lcnt_lock_idx(erts_lcnt_lock_info_carrier_t *carrier, int index) {
-    erts_lcnt_lock_opt_idx(carrier, index, ERTS_LCNT_LO_WRITE);
+    erts_lcnt_lock_opt_idx(carrier, index, ERTS_LOCK_OPTION_WRITE);
 }
 
 ERTS_GLB_INLINE
@@ -745,9 +754,9 @@ void erts_lcnt_lock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, U
 
     ASSERT(index < carrier->entry_count);
 
-    ASSERT((option & ERTS_LCNT_LO_READ) || (option & ERTS_LCNT_LO_WRITE));
+    ASSERT((option & ERTS_LOCK_OPTION_READ) || (option & ERTS_LOCK_OPTION_WRITE));
 
-    if(option & ERTS_LCNT_LO_WRITE) {
+    if(option & ERTS_LOCK_OPTION_WRITE) {
         ethr_sint_t w_state, r_state;
 
         w_state = ethr_atomic_inc_read(&info->w_state) - 1;
@@ -762,7 +771,8 @@ void erts_lcnt_lock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, U
         eltd->lock_in_conflict = (w_state > 0);
     }
 
-    if(option & ERTS_LCNT_LO_READ) {
+    if(option & ERTS_LOCK_OPTION_READ) {
+        ASSERT(info->flags & ERTS_LOCK_FLAGS_PROPERTY_READ_WRITE);
         ethr_atomic_inc(&info->r_state);
     }
 
@@ -792,12 +802,6 @@ void erts_lcnt_lock_post_x_idx(erts_lcnt_lock_info_carrier_t *carrier, int index
 
     ASSERT(index < carrier->entry_count);
 
-#ifdef LCNT_DEBUG_LOCK_FLOW
-    if(!(info->flag & (ERTS_LCNT_LT_RWMUTEX | ERTS_LCNT_LT_RWSPINLOCK))) {
-        ASSERT(ethr_atomic_inc_read(&info->flowstate) == 1);
-    }
-#endif
-
     /* If the lock was in conflict, update the time spent waiting. */
     stats = lcnt_get_lock_stats__(info, file, line);
     if(eltd->timer_set) {
@@ -819,15 +823,9 @@ void erts_lcnt_lock_post_x_idx(erts_lcnt_lock_info_carrier_t *carrier, int index
 
 ERTS_GLB_INLINE
 void erts_lcnt_unlock_idx(erts_lcnt_lock_info_carrier_t *carrier, int index) {
-#ifdef LCNT_DEBUG_LOCK_FLOW
-    erts_lcnt_lock_info_t *info = &carrier->entries[index];
-
-    ASSERT(ethr_atomic_dec_read(&info->flowstate) == 0);
-#endif
-
     ASSERT(index < carrier->entry_count);
 
-    erts_lcnt_unlock_opt_idx(carrier, index, ERTS_LCNT_LO_WRITE);
+    erts_lcnt_unlock_opt_idx(carrier, index, ERTS_LOCK_OPTION_WRITE);
 }
 
 ERTS_GLB_INLINE
@@ -836,13 +834,14 @@ void erts_lcnt_unlock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index,
 
     ASSERT(index < carrier->entry_count);
 
-    ASSERT((option & ERTS_LCNT_LO_READ) || (option & ERTS_LCNT_LO_WRITE));
+    ASSERT((option & ERTS_LOCK_OPTION_READ) || (option & ERTS_LOCK_OPTION_WRITE));
 
-    if(option & ERTS_LCNT_LO_WRITE) {
+    if(option & ERTS_LOCK_OPTION_WRITE) {
         lcnt_dec_lock_state__(&info->w_state);
     }
 
-    if(option & ERTS_LCNT_LO_READ) {
+    if(option & ERTS_LOCK_OPTION_READ) {
+        ASSERT(info->flags & ERTS_LOCK_FLAGS_PROPERTY_READ_WRITE);
         lcnt_dec_lock_state__(&info->r_state);
     }
 }
@@ -858,15 +857,9 @@ void erts_lcnt_lock_unacquire_idx(erts_lcnt_lock_info_carrier_t *carrier, int in
 
 ERTS_GLB_INLINE
 void erts_lcnt_trylock_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, int result) {
-#ifdef LCNT_DEBUG_LOCK_FLOW
-    erts_lcnt_lock_info_t *info = &carrier->entries[index];
-
-    ASSERT(result == EBUSY || ethr_atomic_inc_read(&info->flowstate) == 1);
-#endif
-
     ASSERT(index < carrier->entry_count);
 
-    erts_lcnt_trylock_opt_idx(carrier, index, result, ERTS_LCNT_LO_WRITE);
+    erts_lcnt_trylock_opt_idx(carrier, index, result, ERTS_LOCK_OPTION_WRITE);
 }
 
 ERTS_GLB_INLINE
@@ -875,14 +868,15 @@ void erts_lcnt_trylock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index
 
     ASSERT(index < carrier->entry_count);
 
-    ASSERT((option & ERTS_LCNT_LO_READ) || (option & ERTS_LCNT_LO_WRITE));
+    ASSERT((option & ERTS_LOCK_OPTION_READ) || (option & ERTS_LOCK_OPTION_WRITE));
 
     if(result != EBUSY) {
-        if(option & ERTS_LCNT_LO_WRITE) {
+        if(option & ERTS_LOCK_OPTION_WRITE) {
             ethr_atomic_inc(&info->w_state);
         }
 
-        if(option & ERTS_LCNT_LO_READ) {
+        if(option & ERTS_LOCK_OPTION_READ) {
+            ASSERT(info->flags & ERTS_LOCK_FLAGS_PROPERTY_READ_WRITE);
             ethr_atomic_inc(&info->r_state);
         }
 
@@ -894,13 +888,16 @@ void erts_lcnt_trylock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index
 }
 
 ERTS_GLB_INLINE
-void erts_lcnt_init_lock_info_x_idx(erts_lcnt_lock_info_carrier_t *carrier, int index,
-                                    const char *name, Uint16 flag, Eterm id) {
+void erts_lcnt_init_lock_info_idx(erts_lcnt_lock_info_carrier_t *carrier, int index,
+                                  const char *name, Eterm id, erts_lock_flags_t flags) {
     erts_lcnt_lock_info_t *info = &carrier->entries[index];
 
     ASSERT(is_immed(id));
 
-    info->flag = flag;
+    ASSERT(flags & ERTS_LOCK_FLAGS_MASK_TYPE);
+    ASSERT(flags & ERTS_LOCK_FLAGS_MASK_CATEGORY);
+
+    info->flags = flags;
     info->name = name;
     info->id = id;
 }
@@ -921,7 +918,7 @@ void lcnt_release_carrier__(erts_lcnt_lock_info_carrier_t *carrier) {
     ASSERT(count >= 0);
 
     if(count == 0) {
-        carrier->deallocate(carrier);
+        lcnt_deallocate_carrier__(carrier);
     }
 }
 

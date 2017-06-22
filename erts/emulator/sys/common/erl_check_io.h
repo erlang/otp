@@ -59,6 +59,11 @@ void erts_init_check_io_nkp(void);
 int erts_check_io_debug_kp(ErtsCheckIoDebugInfo *);
 int erts_check_io_debug_nkp(ErtsCheckIoDebugInfo *);
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+void erts_lcnt_update_cio_locks_kp(int enable);
+void erts_lcnt_update_cio_locks_nkp(int enable);
+#endif
+
 #else /* !ERTS_ENABLE_KERNEL_POLL */
 
 Uint erts_check_io_size(void);
@@ -71,6 +76,10 @@ void erts_check_io_interrupt(int);
 void erts_check_io_interrupt_timed(int, ErtsMonotonicTime);
 void erts_check_io(int);
 void erts_init_check_io(void);
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
+void erts_lcnt_update_cio_locks(int enable);
+#endif
 
 #endif
 

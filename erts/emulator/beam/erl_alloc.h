@@ -344,7 +344,8 @@ ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT,				\
 #define ERTS_SMP_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
 static erts_smp_spinlock_t NAME##_lck;					\
 ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT,				\
-		      erts_smp_spinlock_init(&NAME##_lck, #NAME "_alloc_lock"),\
+		      erts_smp_spinlock_init(&NAME##_lck, #NAME "_alloc_lock", NIL, \
+		          ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR),\
 		      erts_smp_spin_lock(&NAME##_lck),			\
 		      erts_smp_spin_unlock(&NAME##_lck))
 
@@ -358,7 +359,8 @@ ERTS_SMP_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)
 #define ERTS_TS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
 static erts_mtx_t NAME##_lck;						\
 ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT,				\
-		      erts_mtx_init(NAME##_lck, #NAME "_alloc_lock"),	\
+		      erts_mtx_init(NAME##_lck, #NAME "_alloc_lock", NIL, \
+		          ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR),\
 		      erts_mtx_lock(&NAME##_lck),			\
 		      erts_mtx_unlock(&NAME##_lck))
 
@@ -371,7 +373,8 @@ ERTS_PRE_ALLOC_IMPL(NAME, TYPE, PASZ, (void) 0, (void) 0, (void) 0)
 #define ERTS_TS_PALLOC_IMPL(NAME, TYPE, PASZ)				\
 static erts_spinlock_t NAME##_lck;					\
 ERTS_PRE_ALLOC_IMPL(NAME, TYPE, PASZ,					\
-		    erts_spinlock_init(&NAME##_lck, #NAME "_alloc_lock"),\
+		    erts_spinlock_init(&NAME##_lck, #NAME "_alloc_lock", NIL, \
+		          ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR),\
 		    erts_spin_lock(&NAME##_lck),			\
 		    erts_spin_unlock(&NAME##_lck))
 

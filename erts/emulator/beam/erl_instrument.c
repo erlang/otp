@@ -1200,7 +1200,8 @@ erts_instr_init(int stat, int map_stat)
 
     stats = erts_alloc(ERTS_ALC_T_INSTR_INFO, sizeof(struct stats_));
 
-    erts_mtx_init(&instr_mutex, "instr");
+    erts_mtx_init(&instr_mutex, "instr", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
 
     mem_anchor = NULL;
 
@@ -1223,7 +1224,8 @@ erts_instr_init(int stat, int map_stat)
 
     if (map_stat) {
 
-	erts_mtx_init(&instr_x_mutex, "instr_x");
+	erts_mtx_init(&instr_x_mutex, "instr_x", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
 
 	erts_instr_memory_map = 1;
 	erts_instr_stat = 1;

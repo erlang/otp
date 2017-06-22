@@ -954,8 +954,10 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 
     ASSERT(ERTS_MONOTONIC_TIME_MIN < ERTS_MONOTONIC_TIME_MAX);
 
-    erts_smp_mtx_init(&erts_timeofday_mtx, "timeofday");
-    erts_smp_mtx_init(&erts_get_time_mtx, "get_time");
+    erts_smp_mtx_init(&erts_timeofday_mtx, "timeofday", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
+    erts_smp_mtx_init(&erts_get_time_mtx, "get_time", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
     time_sup.r.o.correction = time_correction;
     time_sup.r.o.warp_mode = time_warp_mode;
@@ -1120,8 +1122,9 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 	rwmtx_opts.type = ERTS_SMP_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
 	rwmtx_opts.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
-	erts_smp_rwmtx_init_opt(&time_sup.inf.c.parmon.rwmtx,
-				&rwmtx_opts, "get_corrected_time");
+        erts_smp_rwmtx_init_opt(&time_sup.inf.c.parmon.rwmtx, &rwmtx_opts,
+            "get_corrected_time", NIL,
+            ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
 	cdatap = &time_sup.inf.c.parmon.cdata;
     

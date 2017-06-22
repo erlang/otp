@@ -128,14 +128,14 @@ ERTS_GLB_INLINE int erts_smp_equal_tids(erts_smp_tid_t x, erts_smp_tid_t y);
 #define ERTS_SMP_HAVE_REC_MTX_INIT 1
 ERTS_GLB_INLINE void erts_smp_rec_mtx_init(erts_smp_mtx_t *mtx);
 #endif
-ERTS_GLB_INLINE void erts_smp_mtx_init_x(erts_smp_mtx_t *mtx,
-					 char *name,
-					 Eterm extra);
-ERTS_GLB_INLINE void erts_smp_mtx_init_locked_x(erts_smp_mtx_t *mtx,
-						char *name,
-						Eterm extra);
-ERTS_GLB_INLINE void erts_smp_mtx_init(erts_smp_mtx_t *mtx, char *name);
-ERTS_GLB_INLINE void erts_smp_mtx_init_locked(erts_smp_mtx_t *mtx, char *name);
+ERTS_GLB_INLINE void erts_smp_mtx_init(erts_smp_mtx_t *mtx,
+                                       char *name,
+                                       Eterm extra,
+                                       erts_lock_flags_t flags);
+ERTS_GLB_INLINE void erts_smp_mtx_init_locked(erts_smp_mtx_t *mtx,
+                                               char *name,
+                                               Eterm extra,
+                                               erts_lock_flags_t flags);
 ERTS_GLB_INLINE void erts_smp_mtx_destroy(erts_smp_mtx_t *mtx);
 #ifdef ERTS_ENABLE_LOCK_POSITION
 ERTS_GLB_INLINE int erts_smp_mtx_trylock_x(erts_smp_mtx_t *mtx, char *file, unsigned int line);
@@ -153,18 +153,15 @@ ERTS_GLB_INLINE void erts_smp_cnd_wait(erts_smp_cnd_t *cnd,
 ERTS_GLB_INLINE void erts_smp_cnd_signal(erts_smp_cnd_t *cnd);
 ERTS_GLB_INLINE void erts_smp_cnd_broadcast(erts_smp_cnd_t *cnd);
 ERTS_GLB_INLINE void erts_smp_rwmtx_set_reader_group(int no);
-ERTS_GLB_INLINE void erts_smp_rwmtx_init_opt_x(erts_smp_rwmtx_t *rwmtx,
-					       erts_smp_rwmtx_opt_t *opt,
-					       char *name,
-					       Eterm extra);
-ERTS_GLB_INLINE void erts_smp_rwmtx_init_x(erts_smp_rwmtx_t *rwmtx,
-					   char *name,
-					   Eterm extra);
 ERTS_GLB_INLINE void erts_smp_rwmtx_init_opt(erts_smp_rwmtx_t *rwmtx,
-					     erts_smp_rwmtx_opt_t *opt,
-					     char *name);
+                                             erts_smp_rwmtx_opt_t *opt,
+                                             char *name,
+                                             Eterm extra,
+                                             erts_lock_flags_t flags);
 ERTS_GLB_INLINE void erts_smp_rwmtx_init(erts_smp_rwmtx_t *rwmtx,
-					 char *name);
+                                         char *name,
+                                         Eterm extra,
+                                         erts_lock_flags_t flags);
 ERTS_GLB_INLINE void erts_smp_rwmtx_destroy(erts_smp_rwmtx_t *rwmtx);
 #ifdef ERTS_ENABLE_LOCK_POSITION
 ERTS_GLB_INLINE int erts_smp_rwmtx_tryrlock_x(erts_smp_rwmtx_t *rwmtx, char *file, unsigned int line);
@@ -181,11 +178,10 @@ ERTS_GLB_INLINE void erts_smp_rwmtx_runlock(erts_smp_rwmtx_t *rwmtx);
 ERTS_GLB_INLINE void erts_smp_rwmtx_rwunlock(erts_smp_rwmtx_t *rwmtx);
 ERTS_GLB_INLINE int erts_smp_lc_rwmtx_is_rlocked(erts_smp_rwmtx_t *mtx);
 ERTS_GLB_INLINE int erts_smp_lc_rwmtx_is_rwlocked(erts_smp_rwmtx_t *mtx);
-ERTS_GLB_INLINE void erts_smp_spinlock_init_x(erts_smp_spinlock_t *lock,
-					      char *name,
-					      Eterm extra);
 ERTS_GLB_INLINE void erts_smp_spinlock_init(erts_smp_spinlock_t *lock,
-					    char *name);
+                                            char *name,
+                                            Eterm extra,
+                                            erts_lock_flags_t flags);
 ERTS_GLB_INLINE void erts_smp_spinlock_destroy(erts_smp_spinlock_t *lock);
 ERTS_GLB_INLINE void erts_smp_spin_unlock(erts_smp_spinlock_t *lock);
 #ifdef ERTS_ENABLE_LOCK_POSITION
@@ -194,11 +190,10 @@ ERTS_GLB_INLINE void erts_smp_spin_lock_x(erts_smp_spinlock_t *lock, char *file,
 ERTS_GLB_INLINE void erts_smp_spin_lock(erts_smp_spinlock_t *lock);
 #endif
 ERTS_GLB_INLINE int erts_smp_lc_spinlock_is_locked(erts_smp_spinlock_t *lock);
-ERTS_GLB_INLINE void erts_smp_rwlock_init_x(erts_smp_rwlock_t *lock,
-					    char *name,
-					    Eterm extra);
 ERTS_GLB_INLINE void erts_smp_rwlock_init(erts_smp_rwlock_t *lock,
-					  char *name);
+                                          char *name,
+                                          Eterm extra,
+                                          erts_lock_flags_t flags);
 ERTS_GLB_INLINE void erts_smp_rwlock_destroy(erts_smp_rwlock_t *lock);
 ERTS_GLB_INLINE void erts_smp_read_unlock(erts_smp_rwlock_t *lock);
 #ifdef ERTS_ENABLE_LOCK_POSITION
@@ -1062,34 +1057,18 @@ erts_smp_rec_mtx_init(erts_smp_mtx_t *mtx)
 #endif
 
 ERTS_GLB_INLINE void
-erts_smp_mtx_init_x(erts_smp_mtx_t *mtx, char *name, Eterm extra)
+erts_smp_mtx_init(erts_smp_mtx_t *mtx, char *name, Eterm extra, erts_lock_flags_t flags)
 {
 #ifdef ERTS_SMP
-    erts_mtx_init_x(mtx, name, extra);
+    erts_mtx_init(mtx, name, extra, flags);
 #endif
 }
 
 ERTS_GLB_INLINE void
-erts_smp_mtx_init_locked_x(erts_smp_mtx_t *mtx, char *name, Eterm extra)
+erts_smp_mtx_init_locked(erts_smp_mtx_t *mtx, char *name, Eterm extra, erts_lock_flags_t flags)
 {
 #ifdef ERTS_SMP
-    erts_mtx_init_locked_x_opt(mtx, name, extra, 0);
-#endif
-}
-
-ERTS_GLB_INLINE void
-erts_smp_mtx_init(erts_smp_mtx_t *mtx, char *name)
-{
-#ifdef ERTS_SMP
-    erts_mtx_init(mtx, name);
-#endif
-}
-
-ERTS_GLB_INLINE void
-erts_smp_mtx_init_locked(erts_smp_mtx_t *mtx, char *name)
-{
-#ifdef ERTS_SMP
-    erts_mtx_init_locked(mtx, name);
+    erts_mtx_init_locked(mtx, name, extra, flags);
 #endif
 }
 
@@ -1211,39 +1190,25 @@ erts_smp_rwmtx_set_reader_group(int no)
 }
 
 ERTS_GLB_INLINE void
-erts_smp_rwmtx_init_opt_x(erts_smp_rwmtx_t *rwmtx,
-			  erts_smp_rwmtx_opt_t *opt,
-			  char *name,
-			  Eterm extra)
+erts_smp_rwmtx_init(erts_smp_rwmtx_t *rwmtx,
+                    char *name,
+                    Eterm extra,
+                    erts_lock_flags_t flags)
 {
 #ifdef ERTS_SMP
-    erts_rwmtx_init_opt_x(rwmtx, opt, name, extra);
-#endif
-}
-
-ERTS_GLB_INLINE void
-erts_smp_rwmtx_init_x(erts_smp_rwmtx_t *rwmtx, char *name, Eterm extra)
-{
-#ifdef ERTS_SMP
-    erts_rwmtx_init_x(rwmtx, name, extra);
+    erts_smp_rwmtx_init_opt(rwmtx, NULL, name, extra, flags);
 #endif
 }
 
 ERTS_GLB_INLINE void
 erts_smp_rwmtx_init_opt(erts_smp_rwmtx_t *rwmtx,
-			erts_smp_rwmtx_opt_t *opt,
-			char *name)
+                        erts_smp_rwmtx_opt_t *opt,
+                        char *name,
+                        Eterm extra,
+                        erts_lock_flags_t flags)
 {
 #ifdef ERTS_SMP
-    erts_rwmtx_init_opt(rwmtx, opt, name);
-#endif
-}
-
-ERTS_GLB_INLINE void
-erts_smp_rwmtx_init(erts_smp_rwmtx_t *rwmtx, char *name)
-{
-#ifdef ERTS_SMP
-    erts_rwmtx_init(rwmtx, name);
+    erts_rwmtx_init_opt(rwmtx, opt, name, extra, flags);
 #endif
 }
 
@@ -1379,20 +1344,10 @@ erts_smp_lc_rwmtx_is_rwlocked(erts_smp_rwmtx_t *mtx)
 }
 
 ERTS_GLB_INLINE void
-erts_smp_spinlock_init_x(erts_smp_spinlock_t *lock, char *name, Eterm extra)
+erts_smp_spinlock_init(erts_smp_spinlock_t *lock, char *name, Eterm extra, erts_lock_flags_t flags)
 {
 #ifdef ERTS_SMP
-    erts_spinlock_init_x(lock, name, extra);
-#else
-    (void)lock;
-#endif
-}
-
-ERTS_GLB_INLINE void
-erts_smp_spinlock_init(erts_smp_spinlock_t *lock, char *name)
-{
-#ifdef ERTS_SMP
-    erts_spinlock_init(lock, name);
+    erts_spinlock_init(lock, name, extra, flags);
 #else
     (void)lock;
 #endif
@@ -1445,20 +1400,10 @@ erts_smp_lc_spinlock_is_locked(erts_smp_spinlock_t *lock)
 }
 
 ERTS_GLB_INLINE void
-erts_smp_rwlock_init_x(erts_smp_rwlock_t *lock, char *name, Eterm extra)
+erts_smp_rwlock_init(erts_smp_rwlock_t *lock, char *name, Eterm extra, erts_lock_flags_t flags)
 {
 #ifdef ERTS_SMP
-    erts_rwlock_init_x(lock, name, extra);
-#else
-    (void)lock;
-#endif
-}
-
-ERTS_GLB_INLINE void
-erts_smp_rwlock_init(erts_smp_rwlock_t *lock, char *name)
-{
-#ifdef ERTS_SMP
-    erts_rwlock_init(lock, name);
+    erts_rwlock_init(lock, name, extra, flags);
 #else
     (void)lock;
 #endif

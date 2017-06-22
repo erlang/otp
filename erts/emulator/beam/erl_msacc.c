@@ -76,7 +76,8 @@ void erts_msacc_early_init(void) {
 #ifndef ERTS_MSACC_ALWAYS_ON
     erts_msacc_enabled = 0;
 #endif
-    erts_rwmtx_init(&msacc_mutex,"msacc_list_mutex");
+    erts_rwmtx_init(&msacc_mutex, "msacc_list_mutex", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
 #ifdef USE_THREADS
     erts_tsd_key_create(&erts_msacc_key,"erts_msacc_key");
 #else
@@ -109,7 +110,8 @@ void erts_msacc_init_thread(char *type, int id, int managed) {
 #ifdef USE_THREADS
     erts_rwmtx_rwlock(&msacc_mutex);
     if (!managed) {
-        erts_mtx_init(&msacc->mtx,"msacc_unmanaged_mutex");
+        erts_mtx_init(&msacc->mtx, "msacc_unmanaged_mutex", NIL,
+            ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
         msacc->next = msacc_unmanaged;
         msacc_unmanaged = msacc;
         msacc_unmanaged_count++;

@@ -371,7 +371,7 @@ type	SSB		SHORT_LIVED	PROCESSES	ssb
 +if lcnt
 
 type    LCNT_CARRIER   STANDARD    SYSTEM  lcnt_lock_info_carrier
-type    LCNT_VECTOR SHORT_LIVED SYSTEM lcnt_lock_info_vector
+type    LCNT_VECTOR SHORT_LIVED SYSTEM lcnt_sample_vector
 
 +endif
 

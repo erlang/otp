@@ -2564,24 +2564,22 @@ ERTS_CIO_EXPORT(erts_init_check_io)(void)
 #ifdef ERTS_SMP
     init_removed_fd_alloc();
     pollset.removed_list = NULL;
-    erts_smp_spinlock_init(&pollset.removed_list_lock,
-			   "pollset_rm_list");
+    erts_smp_spinlock_init(&pollset.removed_list_lock, "pollset_rm_list", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
     {
-	int i;
-	for (i=0; i<DRV_EV_STATE_LOCK_CNT; i++) {
-#ifdef ERTS_ENABLE_LOCK_COUNT
-	    erts_smp_mtx_init_x(&drv_ev_state_locks[i].lck, "drv_ev_state", make_small(i));
-#else
-	    erts_smp_mtx_init(&drv_ev_state_locks[i].lck, "drv_ev_state");
-#endif
-	}
+        int i;
+        for (i=0; i<DRV_EV_STATE_LOCK_CNT; i++) {
+            erts_smp_mtx_init(&drv_ev_state_locks[i].lck, "drv_ev_state", make_small(i),
+                ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
+        }
     }
 #endif
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     max_fds = ERTS_CIO_POLL_MAX_FDS();
     erts_smp_atomic_init_nob(&drv_ev_state_len, 0);
     drv_ev_state = NULL;
-    erts_smp_mtx_init(&drv_ev_state_grow_lock, "drv_ev_state_grow");
+    erts_smp_mtx_init(&drv_ev_state_grow_lock, "drv_ev_state_grow", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
 #else
     {
 	SafeHashFunctions hf;
@@ -2591,10 +2589,11 @@ ERTS_CIO_EXPORT(erts_init_check_io)(void)
 	hf.free = &drv_ev_state_free;
 	num_state_prealloc = 0;
 	state_prealloc_first = NULL;
-	erts_smp_spinlock_init(&state_prealloc_lock,"state_prealloc");
+	erts_smp_spinlock_init(&state_prealloc_lock,"state_prealloc", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
 
-	safe_hash_init(ERTS_ALC_T_DRV_EV_STATE, &drv_ev_state_tab, "drv_ev_state_tab", 
-		       DRV_EV_STATE_HTAB_SIZE, hf);
+	safe_hash_init(ERTS_ALC_T_DRV_EV_STATE, &drv_ev_state_tab, "drv_ev_state_tab",
+            ERTS_LOCK_FLAGS_CATEGORY_IO, DRV_EV_STATE_HTAB_SIZE, hf);
     }
 #endif
 }
@@ -3130,3 +3129,12 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(ErtsCheckIoDebugInfo *ciodip)
     return counters.num_errors;
 }
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+void ERTS_CIO_EXPORT(erts_lcnt_update_cio_locks)(int enable) {
+#ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
+    erts_lcnt_enable_hash_lock_count(&drv_ev_state_tab, ERTS_LOCK_FLAGS_CATEGORY_IO, enable);
+#else
+    (void)enable;
+#endif
+}
+#endif /* ERTS_ENABLE_LOCK_COUNT */

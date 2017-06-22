@@ -336,7 +336,7 @@ static void fatal_error_async_signal_safe(char *error_str);
 
 static int max_fds = -1;
 static ErtsPollSet pollsets;
-static erts_smp_spinlock_t pollsets_lock;
+static erts_smp_mtx_t pollsets_lock;
 
 #if ERTS_POLL_USE_POLL
 
@@ -2583,7 +2583,8 @@ ERTS_POLL_EXPORT(erts_poll_max_fds)(void)
 void
 ERTS_POLL_EXPORT(erts_poll_init)(void)
 {
-    erts_smp_spinlock_init(&pollsets_lock, "pollsets_lock");
+    erts_smp_mtx_init(&pollsets_lock, "pollsets_lock", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
     pollsets = NULL;
 
     errno = 0;
@@ -2689,7 +2690,7 @@ ERTS_POLL_EXPORT(erts_poll_create_pollset)(void)
 #endif
 #ifdef ERTS_SMP
     erts_atomic32_init_nob(&ps->polled, 0);
-    erts_smp_mtx_init(&ps->mtx, "pollset");
+    erts_smp_mtx_init(&ps->mtx, "pollset", NIL, ERTS_LOCK_FLAGS_CATEGORY_IO);
 #endif
 #if defined(USE_THREADS) || ERTS_POLL_ASYNC_INTERRUPT_SUPPORT
     erts_atomic32_init_nob(&ps->wakeup_state, (erts_aint32_t) 0);
@@ -2731,10 +2732,10 @@ ERTS_POLL_EXPORT(erts_poll_create_pollset)(void)
 #endif
     erts_smp_atomic_set_nob(&ps->no_of_user_fds, 0); /* Don't count wakeup pipe and fallback fd */
 
-    erts_smp_spin_lock(&pollsets_lock);
+    erts_smp_mtx_lock(&pollsets_lock);
     ps->next = pollsets;
     pollsets = ps;
-    erts_smp_spin_unlock(&pollsets_lock);
+    erts_smp_mtx_unlock(&pollsets_lock);
 
     return ps;
 }
@@ -2795,7 +2796,7 @@ ERTS_POLL_EXPORT(erts_poll_destroy_pollset)(ErtsPollSet ps)
         close(ps->timer_fd);
 #endif
 
-    erts_smp_spin_lock(&pollsets_lock);
+    erts_smp_mtx_lock(&pollsets_lock);
     if (ps == pollsets)
 	pollsets = pollsets->next;
     else {
@@ -2805,7 +2806,7 @@ ERTS_POLL_EXPORT(erts_poll_destroy_pollset)(ErtsPollSet ps)
 	ASSERT(ps == prev_ps->next);
 	prev_ps->next = ps->next;
     }
-    erts_smp_spin_unlock(&pollsets_lock);
+    erts_smp_mtx_unlock(&pollsets_lock);
 
     erts_free(ERTS_ALC_T_POLLSET, (void *) ps);
 }
@@ -3147,4 +3148,27 @@ print_misc_debug_info(void)
 #endif
 }
     
+#endif
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
+static void erts_lcnt_enable_pollset_lock_count(ErtsPollSet pollset, int enable) {
+    if(enable) {
+        erts_lcnt_install_new_lock_info(&pollset->mtx.lcnt, "pollset_rm", NIL,
+            ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_IO);
+    } else {
+        erts_lcnt_uninstall(&pollset->mtx.lcnt);
+    }
+}
+
+void ERTS_POLL_EXPORT(erts_lcnt_update_pollset_locks)(int enable) {
+    ErtsPollSet iterator;
+
+    erts_smp_mtx_lock(&pollsets_lock);
+
+    for(iterator = pollsets; iterator != NULL; iterator = iterator->next) {
+        erts_lcnt_enable_pollset_lock_count(iterator, enable);
+    }
+
+    erts_smp_mtx_unlock(&pollsets_lock);
+}
 #endif

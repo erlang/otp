@@ -1706,7 +1706,8 @@ erts_init_cpu_topology(void)
 {
     int ix;
 
-    erts_smp_rwmtx_init(&cpuinfo_rwmtx, "cpu_info");
+    erts_smp_rwmtx_init(&cpuinfo_rwmtx, "cpu_info", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     erts_smp_rwmtx_rwlock(&cpuinfo_rwmtx);
 
     scheduler2cpu_map = erts_alloc(ERTS_ALC_T_CPUDATA,

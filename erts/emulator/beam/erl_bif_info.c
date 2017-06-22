@@ -4431,44 +4431,56 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 
-typedef struct lcnt_lock_info_vector_ {
-    erts_lcnt_lock_info_t **elements;
-    size_t size;
-} lcnt_lock_info_vector_t;
+typedef struct {
+    /* info->location_count may increase between size calculation and term
+     * building, so we cap it at the value sampled in lcnt_build_result_vector.
+     *
+     * Shrinking is safe though. */
+    int max_location_count;
+    erts_lcnt_lock_info_t *info;
+} lcnt_sample_t;
 
-static lcnt_lock_info_vector_t lcnt_build_lock_info_vector(erts_lcnt_lock_info_list_t *list) {
+typedef struct lcnt_sample_vector_ {
+    lcnt_sample_t *elements;
+    size_t size;
+} lcnt_sample_vector_t;
+
+static lcnt_sample_vector_t lcnt_build_sample_vector(erts_lcnt_lock_info_list_t *list) {
     erts_lcnt_lock_info_t *iterator;
-    lcnt_lock_info_vector_t result;
+    lcnt_sample_vector_t result;
     size_t allocated_entries;
 
     allocated_entries = 64;
     result.size = 0;
 
     result.elements = erts_alloc(ERTS_ALC_T_LCNT_VECTOR,
-        allocated_entries * sizeof(erts_lcnt_lock_info_t*));
+        allocated_entries * sizeof(lcnt_sample_t));
 
     iterator = NULL;
     while(erts_lcnt_iterate_list(list, &iterator)) {
         erts_lcnt_retain_lock_info(iterator);
 
-        result.elements[result.size++] = iterator;
+        result.elements[result.size].max_location_count = iterator->location_count;
+        result.elements[result.size].info = iterator;
+
+        result.size++;
 
         if(result.size >= allocated_entries) {
             allocated_entries *= 2;
 
             result.elements = erts_realloc(ERTS_ALC_T_LCNT_VECTOR, result.elements,
-                allocated_entries * sizeof(erts_lcnt_lock_info_t*));
+                allocated_entries * sizeof(lcnt_sample_t));
         }
     }
 
     return result;
 }
 
-static void lcnt_destroy_lock_info_vector(lcnt_lock_info_vector_t *vector) {
+static void lcnt_destroy_sample_vector(lcnt_sample_vector_t *vector) {
     size_t i;
 
     for(i = 0; i < vector->size; i++) {
-        erts_lcnt_release_lock_info(vector->elements[i]);
+        erts_lcnt_release_lock_info(vector->elements[i].info);
     }
 
     erts_free(ERTS_ALC_T_LCNT_VECTOR, vector->elements);
@@ -4508,9 +4520,9 @@ static Eterm lcnt_build_lock_stats_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_s
     Eterm thist, vhist[ERTS_LCNT_HISTOGRAM_SLOT_SIZE];
 
     /* term:
-        * [{{file, line}, {tries, colls, {seconds, nanoseconds, n_blocks}},
-        *   { .. histogram .. }]
-        */
+     *  [{{file, line},
+         {tries, colls, {seconds, nanoseconds, n_blocks}},
+     *   { .. histogram .. }] */
 
     file = stats->file ? stats->file : "undefined";
 
@@ -4543,13 +4555,7 @@ static Eterm lcnt_build_lock_stats_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_s
 static Eterm lcnt_pretty_print_lock_id(erts_lcnt_lock_info_t *info) {
     Eterm id = info->id;
 
-    if(info->flag & ERTS_LCNT_LT_ALLOC) {
-        /* Use allocator type names as id's for allocator locks. This blatantly
-         * assumes that all locks in this category are identified by their
-         * allocator number. */
-        const char *ltype = (const char*)ERTS_ALC_A2AD(signed_val(info->id));
-        id = erts_atom_put((byte*)ltype, strlen(ltype), ERTS_ATOM_ENC_LATIN1, 1);
-    } else if(info->flag & ERTS_LCNT_LT_PROCLOCK) {
+    if((info->flags & ERTS_LOCK_FLAGS_MASK_TYPE) == ERTS_LOCK_TYPE_PROCLOCK) {
         /* Use registered names as id's for process locks if available. Thread
          * progress is delayed since we may be running on a dirty scheduler. */
         ErtsThrPrgrDelayHandle delay_handle;
@@ -4563,27 +4569,30 @@ static Eterm lcnt_pretty_print_lock_id(erts_lcnt_lock_info_t *info) {
         }
 
         erts_thr_progress_unmanaged_continue(delay_handle);
+    } else if(info->flags & ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR) {
+        if(is_small(id) && !sys_strcmp(info->name, "alcu_allocator")) {
+            const char *name = (const char*)ERTS_ALC_A2AD(signed_val(id));
+            id = erts_atom_put((byte*)name, strlen(name), ERTS_ATOM_ENC_LATIN1, 1);
+        }
     }
 
     return id;
 }
 
-static Eterm lcnt_build_lock_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_info_t *info, Eterm res) {
+static Eterm lcnt_build_lock_term(Eterm **hpp, Uint *szp, lcnt_sample_t *sample, Eterm res) {
+    erts_lcnt_lock_info_t *info = sample->info;
+
     Eterm name, type, id, stats = NIL, t;
-    const char *ltype;
+    const char *lock_desc;
     int i;
-    
-    /* term:
-     * [{name, id, type, stats()}] 
-     */
+
+    /* term: [{name, id, type, stats()}] */
 
     ASSERT(info->name);
     
-    ltype = erts_lcnt_lock_type(info->flag);
-    
-    ASSERT(ltype);
-    
-    type  = erts_atom_put((byte*)ltype, strlen(ltype), ERTS_ATOM_ENC_LATIN1, 1);
+    lock_desc = erts_lock_flags_get_type_name(info->flags);
+
+    type  = erts_atom_put((byte*)lock_desc, strlen(lock_desc), ERTS_ATOM_ENC_LATIN1, 1);
     name  = erts_atom_put((byte*)info->name, strlen(info->name), ERTS_ATOM_ENC_LATIN1, 1);
 
     /* Only attempt to resolve ids when actually emitting the term. This ought
@@ -4594,8 +4603,7 @@ static Eterm lcnt_build_lock_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_info_t 
         id = NIL;
     }
 
-    /* info->location_count is ignored since it can be changed at any time. */
-    for(i = 0; i < ERTS_LCNT_MAX_LOCK_LOCATIONS; i++) {
+    for(i = 0; i < MIN(info->location_count, sample->max_location_count); i++) {
         stats = lcnt_build_lock_stats_term(hpp, szp, &(info->location_stats[i]), stats);
     }
 
@@ -4606,18 +4614,15 @@ static Eterm lcnt_build_lock_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_info_t 
 }
 
 static Eterm lcnt_build_result_term(Eterm **hpp, Uint *szp, erts_lcnt_time_t *duration,
-                                    lcnt_lock_info_vector_t *current_locks,
-                                    lcnt_lock_info_vector_t *deleted_locks, Eterm res) {
-    Eterm dts, dtns, tdt, adur, tdur, aloc, lloc = NIL, tloc;
+                                    lcnt_sample_vector_t *current_locks,
+                                    lcnt_sample_vector_t *deleted_locks, Eterm res) {
+    const char *str_duration = "duration";
+    const char *str_locks = "locks";
 
+    Eterm dts, dtns, tdt, adur, tdur, aloc, lloc = NIL, tloc;
     size_t i;
 
-    char *str_duration = "duration";
-    char *str_locks    = "locks";
-
-    /* term:
-     * [{'duration', {seconds, nanoseconds}}, {'locks', locks()}]
-     */
+    /* term: [{'duration', {seconds, nanoseconds}}, {'locks', locks()}] */
 
     /* duration tuple */ 
     dts  = bld_unstable_uint64(hpp, szp, duration->s);
@@ -4628,15 +4633,14 @@ static Eterm lcnt_build_result_term(Eterm **hpp, Uint *szp, erts_lcnt_time_t *du
     tdur = erts_bld_tuple(hpp, szp, 2, adur, tdt);
    
     /* lock tuple */
-    
     aloc = erts_atom_put((byte *)str_locks, strlen(str_locks), ERTS_ATOM_ENC_LATIN1, 1);
 
     for(i = 0; i < current_locks->size; i++) {
-        lloc = lcnt_build_lock_term(hpp, szp, current_locks->elements[i], lloc);
+        lloc = lcnt_build_lock_term(hpp, szp, &current_locks->elements[i], lloc);
     }
 
     for(i = 0; i < deleted_locks->size; i++) {
-        lloc = lcnt_build_lock_term(hpp, szp, deleted_locks->elements[i], lloc);
+        lloc = lcnt_build_lock_term(hpp, szp, &deleted_locks->elements[i], lloc);
     }
 
     tloc = erts_bld_tuple(hpp, szp, 2, aloc, lloc);
@@ -4645,6 +4649,26 @@ static Eterm lcnt_build_result_term(Eterm **hpp, Uint *szp, erts_lcnt_time_t *du
     res  = erts_bld_cons(hpp, szp, tdur, res);
 
     return res;
+}
+
+static erts_lock_flags_t lcnt_atom_to_lock_category(Eterm atom) {
+    if(ERTS_IS_ATOM_STR("generic", atom)) {
+        return ERTS_LOCK_FLAGS_CATEGORY_GENERIC;
+    } else if(ERTS_IS_ATOM_STR("allocator", atom)) {
+        return ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR;
+    } else if(ERTS_IS_ATOM_STR("scheduler", atom)) {
+        return ERTS_LOCK_FLAGS_CATEGORY_SCHEDULER;
+    } else if(ERTS_IS_ATOM_STR("process", atom)) {
+        return ERTS_LOCK_FLAGS_CATEGORY_PROCESS;
+    } else if(ERTS_IS_ATOM_STR("db", atom)) {
+        return ERTS_LOCK_FLAGS_CATEGORY_DB;
+    } else if(ERTS_IS_ATOM_STR("io", atom)) {
+        return ERTS_LOCK_FLAGS_CATEGORY_IO;
+    } else if(ERTS_IS_ATOM_STR("debug", atom)) {
+        return ERTS_LOCK_FLAGS_CATEGORY_DEBUG;
+    }
+
+    return 0;
 }
 
 #endif
@@ -4662,7 +4686,7 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
     if (BIF_ARG_1 == am_enabled) {
        BIF_RET(am_true);
     } else if (BIF_ARG_1 == am_info) {
-        lcnt_lock_info_vector_t current_locks, deleted_locks;
+        lcnt_sample_vector_t current_locks, deleted_locks;
         erts_lcnt_data_t data;
 
         Eterm *term_heap_start, *term_heap_end;
@@ -4671,8 +4695,8 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
 
         data = erts_lcnt_get_data();
 
-        current_locks = lcnt_build_lock_info_vector(data.current_locks);
-        deleted_locks = lcnt_build_lock_info_vector(data.deleted_locks);
+        current_locks = lcnt_build_sample_vector(data.current_locks);
+        deleted_locks = lcnt_build_sample_vector(data.deleted_locks);
 
         lcnt_build_result_term(NULL, &term_heap_size, &data.duration,
             &current_locks, &deleted_locks, NIL);
@@ -4685,8 +4709,8 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
 
         HRelease(BIF_P, term_heap_start + term_heap_size, term_heap_end);
 
-        lcnt_destroy_lock_info_vector(&current_locks);
-        lcnt_destroy_lock_info_vector(&deleted_locks);
+        lcnt_destroy_sample_vector(&current_locks);
+        lcnt_destroy_sample_vector(&deleted_locks);
 
         BIF_RET(result);
     } else if (BIF_ARG_1 == am_clear) {
@@ -4696,46 +4720,39 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
     } else if (is_tuple(BIF_ARG_1)) {
         Eterm* ptr = tuple_val(BIF_ARG_1);
 
-        if ((arityval(ptr[0]) == 2) && (ptr[2] == am_false || ptr[2] == am_true)) {
-           Eterm res;
+        if(arityval(ptr[0]) != 2) {
+            BIF_ERROR(BIF_P, BADARG);
+        } else if(ERTS_IS_ATOM_STR("mask", ptr[1])) {
+            erts_lock_flags_t category_mask = 0;
+            Eterm categories = ptr[2];
 
-            int lock_opt = 0, enable = (ptr[2] == am_true) ? 1 : 0;
-            if (ERTS_IS_ATOM_STR("copy_save", ptr[1])) {
-                lock_opt = ERTS_LCNT_OPT_COPYSAVE;
-            } else if (ERTS_IS_ATOM_STR("process_locks", ptr[1])) {
-                lock_opt = ERTS_LCNT_OPT_PROCLOCK;
-            } else if (ERTS_IS_ATOM_STR("port_locks", ptr[1])) {
-                lock_opt = ERTS_LCNT_OPT_PORTLOCK;
-            } else if (ERTS_IS_ATOM_STR("location", ptr[1])) {
-                lock_opt = ERTS_LCNT_OPT_LOCATION;
-            } else {
+            if(!(is_list(categories) || is_nil(categories))) {
                 BIF_ERROR(BIF_P, BADARG);
             }
 
-            if (enable) {
-                res = erts_lcnt_set_rt_opt(lock_opt) ? am_true : am_false;
-            } else {
-                res = erts_lcnt_clear_rt_opt(lock_opt) ? am_true : am_false;
+            while(is_list(categories)) {
+                Eterm *cell = list_val(categories);
+                erts_lock_flags_t category;
+
+                category = lcnt_atom_to_lock_category(CAR(cell));
+
+                if(!category) {
+                    /* Return {error, bad_category, Category}? Or leave that to
+                     * the lcnt module? */
+                    BIF_ERROR(BIF_P, BADARG);
+                }
+
+                category_mask |= category;
+                categories = CDR(cell);
             }
 
-#ifdef ERTS_SMP
-            /* FIXME: make this non-blocking. */
-            erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-            erts_smp_thr_progress_block();
-#endif
+            erts_lcnt_set_category_mask(category_mask);
 
-            if (res != ptr[2] && lock_opt == ERTS_LCNT_OPT_PORTLOCK) {
-                erts_lcnt_enable_io_lock_count(enable);
-            } else if (res != ptr[2] && lock_opt == ERTS_LCNT_OPT_PROCLOCK) {
-                erts_lcnt_enable_proc_lock_count(enable);
-            }
+            BIF_RET(am_ok);
+        } else if(ERTS_IS_ATOM_STR("copy_save", ptr[1]) &&
+            (ptr[2] == am_true || ptr[2] == am_false)) {
 
-#ifdef ERTS_SMP
-            erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-            erts_smp_thr_progress_unblock();
-#endif
-
-            BIF_RET(res);
+            erts_lcnt_set_preserve_info(ptr[2] == am_true);
         }
     }
 

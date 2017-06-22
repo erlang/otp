@@ -155,7 +155,8 @@ int safe_hash_table_sz(SafeHash *h)
 ** Init a pre allocated or static hash structure
 ** and allocate buckets. NOT SAFE
 */
-SafeHash* safe_hash_init(ErtsAlcType_t type, SafeHash* h, char* name, int size, SafeHashFunctions fun)
+SafeHash* safe_hash_init(ErtsAlcType_t type, SafeHash* h, char* name, erts_lock_flags_t flags,
+    int size, SafeHashFunctions fun)
 {
     int i, bytes;
 
@@ -170,7 +171,8 @@ SafeHash* safe_hash_init(ErtsAlcType_t type, SafeHash* h, char* name, int size, 
     erts_smp_atomic_init_nob(&h->is_rehashing, 0);
     erts_smp_atomic_init_nob(&h->nitems, 0);
     for (i=0; i<SAFE_HASH_LOCK_CNT; i++) {
-	erts_smp_mtx_init(&h->lock_vec[i].mtx,"safe_hash");
+        erts_smp_mtx_init(&h->lock_vec[i].mtx, "safe_hash", NIL,
+            flags);
     }
     return h;
 }
@@ -272,6 +274,23 @@ void safe_hash_for_each(SafeHash* h, void (*func)(void *, void *), void *func_ar
 	}
     }
 }
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
+void erts_lcnt_enable_hash_lock_count(SafeHash *h, erts_lock_flags_t flags, int enable) {
+    int i;
+
+    for(i = 0; i < SAFE_HASH_LOCK_CNT; i++) {
+        erts_smp_mtx_t *lock = &h->lock_vec[i].mtx;
+
+        if(enable) {
+            erts_lcnt_install_new_lock_info(&lock->lcnt, "safe_hash", NIL,
+                ERTS_LOCK_TYPE_MUTEX | flags);
+        } else {
+            erts_lcnt_uninstall(&lock->lcnt);
+        }
+    }
+}
+#endif /* ERTS_ENABLE_LOCK_COUNT */
 
 #endif /* !ERTS_SYS_CONTINOUS_FD_NUMBERS */
 

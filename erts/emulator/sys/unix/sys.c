@@ -1550,7 +1550,8 @@ erl_sys_args(int* argc, char** argv)
 {
     int i, j;
 
-    erts_smp_rwmtx_init(&environ_rwmtx, "environ");
+    erts_smp_rwmtx_init(&environ_rwmtx, "environ", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
     i = 1;
 

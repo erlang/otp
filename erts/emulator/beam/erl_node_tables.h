@@ -195,6 +195,10 @@ int erts_lc_is_de_rwlocked(DistEntry *);
 int erts_lc_is_de_rlocked(DistEntry *);
 #endif
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+void erts_lcnt_update_distribution_locks(int enable);
+#endif
+
 ERTS_GLB_INLINE void erts_deref_dist_entry(DistEntry *dep);
 ERTS_GLB_INLINE void erts_deref_node_entry(ErlNode *np);
 ERTS_GLB_INLINE void erts_smp_de_rlock(DistEntry *dep);

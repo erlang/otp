@@ -300,8 +300,8 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
     module = GetModuleHandle(kernel_dll_name);
     if (!module) {
     get_tick_count:
-	erts_smp_mtx_init(&internal_state.w.f.mtime_mtx,
-			  "os_monotonic_time");
+        erts_smp_mtx_init(&internal_state.w.f.mtime_mtx, "os_monotonic_time", NIL,
+            ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 	internal_state.w.f.wrap = 0;
 	internal_state.w.f.last_tick_count = 0;
 

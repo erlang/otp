@@ -258,14 +258,7 @@ static ERTS_INLINE void port_init_instr(Port *prt
 #ifdef ERTS_SMP
     ASSERT(prt->drv_ptr && prt->lock);
     if (!prt->drv_ptr->lock) {
-	char *lock_str = "port_lock";
-#ifdef ERTS_ENABLE_LOCK_COUNT
-	Uint16 opt = ((erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK)
-			    ? 0 : ERTS_LCNT_LT_DISABLE);
-#else
-	Uint16 opt = 0;
-#endif
-	erts_mtx_init_locked_x_opt(prt->lock, lock_str, id, opt);
+        erts_mtx_init_locked(prt->lock, "port_lock", id, ERTS_LOCK_FLAGS_CATEGORY_IO);
     }
 #endif
     erts_port_task_init_sched(&prt->sched, id);
@@ -3419,9 +3412,8 @@ void erts_init_io(int port_tab_size,
     else if (port_tab_size < ERTS_MIN_PORTS)
 	port_tab_size = ERTS_MIN_PORTS;
 
-    erts_smp_rwmtx_init_opt(&erts_driver_list_lock,
-			    &drv_list_rwmtx_opts,
-			    "driver_list");
+    erts_smp_rwmtx_init_opt(&erts_driver_list_lock, &drv_list_rwmtx_opts, "driver_list", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
     driver_list = NULL;
     erts_smp_tsd_key_create(&driver_list_lock_status_key,
 			    "erts_driver_list_lock_status_key");
@@ -3458,62 +3450,94 @@ void erts_init_io(int port_tab_size,
 }
 
 #if defined(ERTS_ENABLE_LOCK_COUNT) && defined(ERTS_SMP)
-static ERTS_INLINE void lcnt_enable_drv_lock_count(erts_driver_t *dp, int enable)
+static void lcnt_enable_driver_lock_count(erts_driver_t *dp, int enable)
 {
     if (dp->lock) {
-	if (enable) {
-			Eterm name_as_atom = erts_atom_put((byte*)dp->name, sys_strlen(dp->name),
-											   ERTS_ATOM_ENC_LATIN1, 1);
-			erts_lcnt_install_new_lock_info_x(&dp->lock->lcnt,
-				"driver_lock", ERTS_LCNT_LT_MUTEX, name_as_atom);
-		} else {
-			erts_lcnt_uninstall(&dp->lock->lcnt);
-		}
-	}
+        if (enable) {
+            Eterm name_as_atom = erts_atom_put((byte*)dp->name, sys_strlen(dp->name),
+                                                ERTS_ATOM_ENC_LATIN1, 1);
+
+            erts_lcnt_install_new_lock_info(&dp->lock->lcnt, "driver_lock", name_as_atom,
+                ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_IO);
+        } else {
+            erts_lcnt_uninstall(&dp->lock->lcnt);
+        }
+    }
 }
 
-static ERTS_INLINE void lcnt_enable_port_lock_count(Port *prt, int enable)
+static void lcnt_enable_port_lock_count(Port *prt, int enable)
 {
     erts_aint32_t state = erts_atomic32_read_nob(&prt->state);
 
     if(enable) {
-		erts_lcnt_install_new_lock_info_x(&prt->sched.mtx.lcnt,
-			"port_sched_lock", ERTS_LCNT_LT_MUTEX,prt->common.id);
+        ErlDrvPDL pdl = prt->port_data_lock;
 
-		if (state & ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK) {
-			erts_lcnt_install_new_lock_info_x(&prt->lock->lcnt,
-				"port_lock", ERTS_LCNT_LT_MUTEX, prt->common.id);
-		}
+        erts_lcnt_install_new_lock_info(&prt->sched.mtx.lcnt, "port_sched_lock",
+            prt->common.id, ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_IO);
+
+        if(pdl) {
+            erts_lcnt_install_new_lock_info(&pdl->mtx.lcnt, "port_data_lock",
+                prt->common.id, ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_IO);
+        }
+
+        if(state & ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK) {
+            erts_lcnt_install_new_lock_info(&prt->lock->lcnt, "port_lock",
+                prt->common.id, ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_IO);
+        }
     } else {
-		erts_lcnt_uninstall(&prt->sched.mtx.lcnt);
-		if (state & ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK) {
-			erts_lcnt_uninstall(&prt->lock->lcnt);
-		}
+        erts_lcnt_uninstall(&prt->sched.mtx.lcnt);
+
+        if(prt->port_data_lock) {
+            erts_lcnt_uninstall(&prt->port_data_lock->mtx.lcnt);
+        }
+
+        if(state & ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK) {
+            erts_lcnt_uninstall(&prt->lock->lcnt);
+        }
     }
 }
 
-void erts_lcnt_enable_io_lock_count(int enable) {
-    erts_driver_t *dp;
-    int ix, max = erts_ptab_max(&erts_port);
-    Port *prt;
+void erts_lcnt_update_driver_locks(int enable) {
+    erts_driver_t *driver;
 
-    for (ix = 0; ix < max; ix++) {
-	if ((prt = erts_pix2port(ix)) != NULL) {
-	    lcnt_enable_port_lock_count(prt, enable);
-        }
-    } /* for all ports */
-
-    lcnt_enable_drv_lock_count(&vanilla_driver, enable);
-    lcnt_enable_drv_lock_count(&spawn_driver, enable);
+    lcnt_enable_driver_lock_count(&vanilla_driver, enable);
+    lcnt_enable_driver_lock_count(&spawn_driver, enable);
 #ifndef __WIN32__
-    lcnt_enable_drv_lock_count(&forker_driver, enable);
+    lcnt_enable_driver_lock_count(&forker_driver, enable);
 #endif
-    lcnt_enable_drv_lock_count(&fd_driver, enable);
-    /* enable lock counting in all drivers */
-    for (dp = driver_list; dp; dp = dp->next) {
-	lcnt_enable_drv_lock_count(dp, enable);
+    lcnt_enable_driver_lock_count(&fd_driver, enable);
+
+    erts_rwmtx_rlock(&erts_driver_list_lock);
+
+    for (driver = driver_list; driver; driver = driver->next) {
+        lcnt_enable_driver_lock_count(driver, enable);
     }
-} /* enable/disable lock counting of ports */
+
+    erts_rwmtx_runlock(&erts_driver_list_lock);
+}
+
+void erts_lcnt_update_port_locks(int enable) {
+    int i, max;
+
+    max = erts_ptab_max(&erts_port);
+
+    for(i = 0; i < max; i++) {
+        int delay_handle;
+        Port *port;
+
+        delay_handle = erts_thr_progress_unmanaged_delay();
+        port = erts_pix2port(i);
+
+        if(port != NULL) {
+            lcnt_enable_port_lock_count(port, enable);
+        }
+
+        if(delay_handle != ERTS_THR_PRGR_DHANDLE_MANAGED) {
+            erts_thr_progress_unmanaged_continue(delay_handle);
+        }
+    }
+}
+
 #endif /* defined(ERTS_ENABLE_LOCK_COUNT) && defined(ERTS_SMP) */
 /*
  * Buffering of data when using line oriented I/O on ports
@@ -7088,7 +7112,7 @@ driver_pdl_create(ErlDrvPort dp)
 	return NULL;
     pdl = erts_alloc(ERTS_ALC_T_PORT_DATA_LOCK,
 		     sizeof(struct erl_drv_port_data_lock));
-    erts_mtx_init_x(&pdl->mtx, "port_data_lock", pp->common.id);
+    erts_mtx_init(&pdl->mtx, "port_data_lock", pp->common.id, ERTS_LOCK_FLAGS_CATEGORY_IO);
     pdl_init_refc(pdl);
     erts_port_inc_refc(pp);
     pdl->prt = pp;
@@ -8255,22 +8279,16 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
     drv->flags = de->driver_flags;
     drv->handle = handle;
 #ifdef ERTS_SMP
-    if (drv->flags & ERL_DRV_FLAG_USE_PORT_LOCKING)
-	drv->lock = NULL;
-    else {
-	drv->lock = erts_alloc(ERTS_ALC_T_DRIVER_LOCK,
-			       sizeof(erts_mtx_t));
-	erts_mtx_init_x(drv->lock,
-			"driver_lock",
-#if defined(ERTS_ENABLE_LOCK_CHECK) || defined(ERTS_ENABLE_LOCK_COUNT)
-                        erts_atom_put((byte *) drv->name,
-				       sys_strlen(drv->name),
-                                       ERTS_ATOM_ENC_LATIN1,
-                                       1)
-#else
-			NIL
-#endif
-	    );
+    if (drv->flags & ERL_DRV_FLAG_USE_PORT_LOCKING) {
+        drv->lock = NULL;
+    } else {
+        Eterm driver_id = erts_atom_put((byte *) drv->name,
+                                        sys_strlen(drv->name),
+                                        ERTS_ATOM_ENC_LATIN1, 1);
+
+        drv->lock = erts_alloc(ERTS_ALC_T_DRIVER_LOCK, sizeof(erts_mtx_t));
+
+        erts_mtx_init(drv->lock, "driver_lock", driver_id, ERTS_LOCK_FLAGS_CATEGORY_IO);
     }
 #endif
     drv->entry = de;

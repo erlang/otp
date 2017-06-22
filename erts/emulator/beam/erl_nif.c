@@ -2398,7 +2398,8 @@ void* enif_alloc_resource(ErlNifResourceType* type, size_t data_sz)
     erts_refc_inc(&resource->type->refc, 2);
     if (type->down) {
         resource->monitors = (ErtsResourceMonitors*) (resource->data + monitors_offs);
-        erts_smp_mtx_init(&resource->monitors->lock, "resource_monitors");
+        erts_smp_mtx_init(&resource->monitors->lock, "resource_monitors", NIL,
+            ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
         resource->monitors->root = NULL;
         resource->monitors->pending_failed_fire = 0;
         resource->monitors->is_dying = 0;

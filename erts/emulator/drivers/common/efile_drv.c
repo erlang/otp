@@ -742,7 +742,8 @@ file_init(void)
     efile_init();
 
 #ifdef  USE_VM_PROBES
-    erts_mtx_init(&dt_driver_mutex, "efile_drv dtrace mutex");
+    erts_mtx_init(&dt_driver_mutex, "efile_drv dtrace mutex", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
     pthread_key_create(&dt_driver_key, NULL);
 #endif  /* USE_VM_PROBES */
 
