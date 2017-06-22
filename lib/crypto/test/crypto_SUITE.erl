@@ -198,7 +198,7 @@ init_per_suite(Config) ->
 		    %% This is NOT how you want to do seeding, it is just here
 		    %% to make the tests pass. Check your OS manual for how you
 		    %% really want to seed.
-		    {H,M,L} = erlang:now(),
+		    {H,M,L} = erlang:timestamp(),
 		    Bin = <<H:24,M:20,L:20>>,
 		    crypto:rand_seed(<< <<Bin/binary>> || _ <- lists:seq(1,16) >>),
 		    Config

@@ -9,11 +9,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # The Initial Developer of the Original Code is Ericsson Utvecklings AB.
 # Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 # AB. All Rights Reserved.''
-# 
+#
 #     $Id$
 #
 include $(ERL_TOP)/make/target.mk
@@ -39,12 +39,12 @@ XML_REF3_FILES = crypto.xml
 XML_REF6_FILES = crypto_app.xml
 
 XML_PART_FILES = release_notes.xml usersguide.xml
-XML_CHAPTER_FILES = notes.xml licenses.xml fips.xml
+XML_CHAPTER_FILES = notes.xml licenses.xml fips.xml engine_load.xml
 
 BOOK_FILES = book.xml
 
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES)  $(XML_REF6_FILES) \
-            $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
+            $(XML_PART_FILES) $(XML_CHAPTER_FILES)
 
 GIF_FILES =
 
@@ -63,16 +63,15 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
+XML_FLAGS +=
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 $(HTMLDIR)/%.gif: %.gif
 	$(INSTALL_DATA) $< $@
-
 
 docs: pdf html man
 
@@ -86,7 +85,7 @@ man: $(MAN3_FILES) $(MAN6_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
-debug opt valgrind: 
+debug opt valgrind:
 
 clean clean_docs clean_tex:
 	rm -rf $(HTMLDIR)/*
@@ -97,7 +96,7 @@ clean clean_docs clean_tex:
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs
@@ -114,4 +113,3 @@ release_docs_spec: docs
 
 
 release_spec:
-

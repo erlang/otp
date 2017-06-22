@@ -44,10 +44,18 @@
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see
 -export([ec_curve/1, ec_curves/0]).
 -export([rand_seed/1]).
+%% Engine
+-export([
+         engine_get_all_methods/0,
+         engine_load/3,
+         engine_load/4,
+         engine_unload/1,
+         engine_list/0
+        ]).
+
 
 %% Private. For tests.
--export([packed_openssl_version/4]).
-
+-export([packed_openssl_version/4, engine_methods_convert_to_bitmask/2, get_test_engine/0]).
 
 -deprecated({rand_uniform, 2, next_major_release}).
 
@@ -568,10 +576,143 @@ compute_key(ecdh, Others, My, Curve) ->
 			 nif_curve_params(Curve),
 			 ensure_int_as_bin(My)).
 
+%%======================================================================
+%% Engine functions
+%%======================================================================
+%%----------------------------------------------------------------------
+%% Function: engine_get_all_methods/0
+%%----------------------------------------------------------------------
+-type engine_method_type() :: engine_method_rsa | engine_method_dsa | engine_method_dh |
+                              engine_method_rand | engine_method_ecdh | engine_method_ecdsa |
+                              engine_method_ciphers | engine_method_digests | engine_method_store |
+                              engine_method_pkey_meths | engine_method_pkey_asn1_meths | 
+                              engine_method_ec.
+
+-spec engine_get_all_methods() ->
+    [engine_method_type()].
+engine_get_all_methods() ->
+     notsup_to_error(engine_get_all_methods_nif()).
+
+%%----------------------------------------------------------------------
+%% Function: engine_load/3
+%%----------------------------------------------------------------------
+-spec engine_load(EngineId::unicode:chardata(),
+                  PreCmds::[{unicode:chardata(), unicode:chardata()}],
+                  PostCmds::[{unicode:chardata(), unicode:chardata()}]) ->
+    {ok, Engine::term()} | {error, Reason::term()}.
+engine_load(EngineId, PreCmds, PostCmds) when is_list(PreCmds), is_list(PostCmds) ->
+    engine_load(EngineId, PreCmds, PostCmds, engine_get_all_methods()).
+
+%%----------------------------------------------------------------------
+%% Function: engine_load/4
+%%----------------------------------------------------------------------
+-spec engine_load(EngineId::unicode:chardata(),
+                  PreCmds::[{unicode:chardata(), unicode:chardata()}],
+                  PostCmds::[{unicode:chardata(), unicode:chardata()}],
+                  EngineMethods::[engine_method_type()]) ->
+    {ok, Engine::term()} | {error, Reason::term()}.
+engine_load(EngineId, PreCmds, PostCmds, EngineMethods) when is_list(PreCmds),
+                                                             is_list(PostCmds) ->
+    try
+        ok = notsup_to_error(engine_load_dynamic_nif()),
+        case notsup_to_error(engine_by_id_nif(ensure_bin_chardata(EngineId))) of
+            {ok, Engine} ->
+                ok = engine_load_1(Engine, PreCmds, PostCmds, EngineMethods),
+                {ok, Engine};
+            {error, Error1} ->
+                {error, Error1}
+        end
+    catch
+       throw:Error2 ->
+          Error2
+    end.
+
+engine_load_1(Engine, PreCmds, PostCmds, EngineMethods) ->
+    try
+        ok = engine_nif_wrapper(engine_ctrl_cmd_strings_nif(Engine, ensure_bin_cmds(PreCmds))),
+        ok = engine_nif_wrapper(engine_add_nif(Engine)),
+        ok = engine_nif_wrapper(engine_init_nif(Engine)),
+        engine_load_2(Engine, PostCmds, EngineMethods),
+        ok
+    catch
+       throw:Error ->
+          %% The engine couldn't initialise, release the structural reference
+          ok = engine_free_nif(Engine),
+          throw(Error)
+    end.
+
+engine_load_2(Engine, PostCmds, EngineMethods) ->
+    try
+        ok = engine_nif_wrapper(engine_ctrl_cmd_strings_nif(Engine, ensure_bin_cmds(PostCmds))),
+        [ok = engine_nif_wrapper(engine_register_nif(Engine, engine_method_atom_to_int(Method))) ||
+            Method <- EngineMethods],
+        ok
+    catch
+       throw:Error ->
+          %% The engine registration failed, release the functional reference
+          ok = engine_finish_nif(Engine),
+          throw(Error)
+    end.
+
+%%----------------------------------------------------------------------
+%% Function: engine_unload/1
+%%----------------------------------------------------------------------
+-spec engine_unload(Engine::term()) ->
+    ok | {error, Reason::term()}.
+engine_unload(Engine) ->
+    engine_unload(Engine, engine_get_all_methods()).
+
+-spec engine_unload(Engine::term(), EngineMethods::[engine_method_type()]) ->
+    ok | {error, Reason::term()}.
+engine_unload(Engine, EngineMethods) ->
+    try
+        [ok = engine_nif_wrapper(engine_unregister_nif(Engine, engine_method_atom_to_int(Method))) ||
+            Method <- EngineMethods],
+        ok = engine_nif_wrapper(engine_remove_nif(Engine)),
+        %% Release the functional reference from engine_init_nif
+        ok = engine_nif_wrapper(engine_finish_nif(Engine)),
+        %% Release the structural reference from engine_by_id_nif
+        ok = engine_nif_wrapper(engine_free_nif(Engine))
+    catch
+       throw:Error ->
+          Error
+    end.
+
+%%----------------------------------------------------------------------
+%% Function: engine_list/0
+%%----------------------------------------------------------------------
+-spec engine_list() ->
+    [EngineId::binary()].
+engine_list() ->
+    case notsup_to_error(engine_get_first_nif()) of
+        {ok, <<>>} ->
+            [];
+        {ok, Engine} ->
+            case notsup_to_error(engine_get_id_nif(Engine)) of
+                {ok, <<>>} ->
+                    engine_list(Engine, []);
+                {ok, EngineId} ->
+                    engine_list(Engine, [EngineId])
+            end
+    end.
+
+engine_list(Engine0, IdList) ->
+    case notsup_to_error(engine_get_next_nif(Engine0)) of
+        {ok, <<>>} ->
+            lists:reverse(IdList);
+        {ok, Engine1} ->
+            case notsup_to_error(engine_get_id_nif(Engine1)) of
+                {ok, <<>>} ->
+                    engine_list(Engine1, IdList);
+                {ok, EngineId} ->
+                    engine_list(Engine1, [EngineId |IdList])
+            end
+    end.
+
+
 %%--------------------------------------------------------------------
 %%% On load
 %%--------------------------------------------------------------------
-
 on_load() ->
     LibBaseName = "crypto",
     PrivDir = code:priv_dir(crypto),
@@ -631,12 +772,12 @@ path2bin(Path) when is_list(Path) ->
     end.
 
 %%--------------------------------------------------------------------
-%%% Internal functions 
+%%% Internal functions
 %%--------------------------------------------------------------------
 max_bytes() ->
     ?MAX_BYTES_TO_NIF.
 
-notsup_to_error(notsup) ->
+notsup_to_error(notsup) -> 
     erlang:error(notsup);
 notsup_to_error(Other) ->
     Other.
@@ -760,7 +901,7 @@ do_stream_decrypt({rc4, State0}, Data) ->
 
 
 %%
-%% AES - in counter mode (CTR) with state maintained for multi-call streaming 
+%% AES - in counter mode (CTR) with state maintained for multi-call streaming
 %%
 -type ctr_state() :: { iodata(), binary(), binary(), integer() } | binary().
 
@@ -769,11 +910,11 @@ do_stream_decrypt({rc4, State0}, Data) ->
 				 { ctr_state(), binary() }.
 -spec aes_ctr_stream_decrypt(ctr_state(), binary()) ->
 				 { ctr_state(), binary() }.
- 
+
 aes_ctr_stream_init(_Key, _IVec) -> ?nif_stub.
 aes_ctr_stream_encrypt(_State, _Data) -> ?nif_stub.
 aes_ctr_stream_decrypt(_State, _Cipher) -> ?nif_stub.
-     
+
 %%
 %% RC4 - symmetric stream cipher
 %%
@@ -858,22 +999,22 @@ pkey_verify_nif(_Algorithm, _Type, _Data, _Signature, _Key, _Options) -> ?nif_st
 rsa_generate_key_nif(_Bits, _Exp) -> ?nif_stub.
 
 %% DH Diffie-Hellman functions
-%% 
+%%
 
 %% Generate (and check) Parameters is not documented because they are implemented
 %% for testing (and offline parameter generation) only.
-%% From the openssl doc: 
+%% From the openssl doc:
 %%  DH_generate_parameters() may run for several hours before finding a suitable prime.
-%% Thus dh_generate_parameters may in this implementation block 
+%% Thus dh_generate_parameters may in this implementation block
 %% the emulator for several hours.
 %%
-%% usage: dh_generate_parameters(1024, 2 or 5) -> 
+%% usage: dh_generate_parameters(1024, 2 or 5) ->
 %%    [Prime=mpint(), SharedGenerator=mpint()]
 dh_generate_parameters(PrimeLen, Generator) ->
     case dh_generate_parameters_nif(PrimeLen, Generator) of
 	error -> erlang:error(generation_failed, [PrimeLen,Generator]);
 	Ret -> Ret
-    end.  
+    end.
 
 dh_generate_parameters_nif(_PrimeLen, _Generator) -> ?nif_stub.
 
@@ -985,7 +1126,7 @@ pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_
 %% MP representaion  (SSH2)
 mpint(X) when X < 0 -> mpint_neg(X);
 mpint(X) -> mpint_pos(X).
- 
+
 -define(UINT32(X),   X:32/unsigned-big-integer).
 
 
@@ -993,7 +1134,7 @@ mpint_neg(X) ->
     Bin = int_to_bin_neg(X, []),
     Sz = byte_size(Bin),
     <<?UINT32(Sz), Bin/binary>>.
-    
+
 mpint_pos(X) ->
     Bin = int_to_bin_pos(X, []),
     <<MSB,_/binary>> = Bin,
@@ -1015,7 +1156,6 @@ erlint(<<MPIntSize:32/integer,MPIntValue/binary>>) ->
 %%
 mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.
 
-
 %%%----------------------------------------------------------------
 %% 9470495 == V(0,9,8,zh).
 %% 268435615 == V(1,0,0,i).
@@ -1026,3 +1166,92 @@ packed_openssl_version(MAJ, MIN, FIX, P0) ->
     P1 = atom_to_list(P0),
     P = lists:sum([C-$a||C<-P1]),
     ((((((((MAJ bsl 8) bor MIN) bsl 8 ) bor FIX) bsl 8) bor (P+1)) bsl 4) bor 16#f).
+
+%%--------------------------------------------------------------------
+%% Engine nifs
+engine_by_id_nif(_EngineId) -> ?nif_stub.
+engine_init_nif(_Engine) -> ?nif_stub.
+engine_finish_nif(_Engine) -> ?nif_stub.
+engine_free_nif(_Engine) -> ?nif_stub.
+engine_load_dynamic_nif() -> ?nif_stub.
+engine_ctrl_cmd_strings_nif(_Engine, _Cmds) -> ?nif_stub.
+engine_add_nif(_Engine)  -> ?nif_stub.
+engine_remove_nif(_Engine)  -> ?nif_stub.
+engine_register_nif(_Engine, _EngineMethod) -> ?nif_stub.
+engine_unregister_nif(_Engine, _EngineMethod) -> ?nif_stub.
+engine_get_first_nif() -> ?nif_stub.
+engine_get_next_nif(_Engine) -> ?nif_stub.
+engine_get_id_nif(_Engine) -> ?nif_stub.
+engine_get_all_methods_nif() -> ?nif_stub.
+
+%%--------------------------------------------------------------------
+%% Engine internals
+engine_nif_wrapper(ok) ->
+    ok;
+engine_nif_wrapper(notsup) ->
+    erlang:error(notsup);
+engine_nif_wrapper({error, Error}) ->
+    throw({error, Error}).
+
+ensure_bin_chardata(CharData) when is_binary(CharData) ->
+    CharData;
+ensure_bin_chardata(CharData) ->
+    unicode:characters_to_binary(CharData).
+
+ensure_bin_cmds(CMDs) ->
+    ensure_bin_cmds(CMDs, []).
+
+ensure_bin_cmds([], Acc) ->
+    lists:reverse(Acc);
+ensure_bin_cmds([{Key, Value} |CMDs], Acc) ->
+    ensure_bin_cmds(CMDs, [{ensure_bin_chardata(Key), ensure_bin_chardata(Value)} | Acc]);
+ensure_bin_cmds([Key | CMDs], Acc) ->
+    ensure_bin_cmds(CMDs, [{ensure_bin_chardata(Key), <<"">>} | Acc]).
+
+engine_methods_convert_to_bitmask([], BitMask) ->
+    BitMask;
+engine_methods_convert_to_bitmask(engine_method_all, _BitMask) ->
+    16#FFFF;
+engine_methods_convert_to_bitmask(engine_method_none, _BitMask) ->
+    16#0000;
+engine_methods_convert_to_bitmask([M |Ms], BitMask) ->
+    engine_methods_convert_to_bitmask(Ms, BitMask bor engine_method_atom_to_int(M)).
+
+engine_method_atom_to_int(engine_method_rsa) -> 16#0001;
+engine_method_atom_to_int(engine_method_dsa) -> 16#0002;
+engine_method_atom_to_int(engine_method_dh) -> 16#0004;
+engine_method_atom_to_int(engine_method_rand) -> 16#0008;
+engine_method_atom_to_int(engine_method_ecdh) -> 16#0010;
+engine_method_atom_to_int(engine_method_ecdsa) -> 16#0020;
+engine_method_atom_to_int(engine_method_ciphers) -> 16#0040;
+engine_method_atom_to_int(engine_method_digests) -> 16#0080;
+engine_method_atom_to_int(engine_method_store) -> 16#0100;
+engine_method_atom_to_int(engine_method_pkey_meths) -> 16#0200;
+engine_method_atom_to_int(engine_method_pkey_asn1_meths) -> 16#0400;
+engine_method_atom_to_int(engine_method_ec) -> 16#0800;
+engine_method_atom_to_int(X) ->
+    erlang:error(badarg, [X]).
+
+get_test_engine() ->
+    Type = erlang:system_info(system_architecture),
+    LibDir = filename:join([code:priv_dir(crypto), "lib"]),
+    ArchDir = filename:join([LibDir, Type]),
+    case filelib:is_dir(ArchDir) of        
+	true  -> check_otp_test_engine(ArchDir);
+	false -> check_otp_test_engine(LibDir)
+    end.
+
+check_otp_test_engine(LibDir) ->
+    case filelib:wildcard("otp_test_engine*", LibDir) of
+        [] ->
+            {error, notexist};
+        [LibName] ->
+            LibPath = filename:join(LibDir,LibName),
+            case filelib:is_file(LibPath) of
+                true ->
+                    {ok, unicode:characters_to_binary(LibPath)};
+                false ->
+                    {error, notexist}
+            end
+    end.
+            
