@@ -542,11 +542,11 @@ put_route(Pid) ->
     MRef = monitor(process, Pid),
     put(Pid, MRef).
 
-%% get_route/2
+%% get_route/3
 
-%% incoming answer
-get_route(_, #diameter_packet{header = #diameter_header{is_request = false}}
-             = Pkt) ->
+%% Incoming answer.
+get_route(_, _, #diameter_packet{header = #diameter_header{is_request = false}}
+                = Pkt) ->
     Seqs = diameter_codec:sequence_numbers(Pkt),
     case erase(Seqs) of
         {Pid, Ref, MRef} ->
@@ -557,8 +557,14 @@ get_route(_, #diameter_packet{header = #diameter_header{is_request = false}}
             false
     end;
 
-%% incoming request
-get_route(Ack, _) ->
+%% Requests answered here ...
+get_route(_, N, _)
+  when N == 'CER';
+       N == 'DPR' ->
+    false;
+
+%% ... or not.
+get_route(Ack, _, _) ->
     Ack.
 
 %% erase_route/1
@@ -650,7 +656,7 @@ encode(Rec, Opts, Dict) ->
 %% incoming/2
 
 incoming({recv = T, Name, Pkt}, #state{parent = Pid, ack = Ack} = S) ->
-    Pid ! {T, self(), get_route(Ack, Pkt), Name, Pkt},
+    Pid ! {T, self(), get_route(Ack, Name, Pkt), Name, Pkt},
     rcv(Name, Pkt, S);
 
 incoming(#diameter_header{is_request = R}, #state{transport = TPid,
