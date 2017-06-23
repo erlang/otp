@@ -640,6 +640,7 @@ case $chk_arch_ in
     armv7l)	ARCH=arm;;
     armv7hl)	ARCH=arm;;
     tile)	ARCH=tile;;
+    e2k)       ARCH=e2k;;
     *)	 	ARCH=noarch;;
 esac
 
