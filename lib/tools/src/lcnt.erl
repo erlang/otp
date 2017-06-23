@@ -34,8 +34,11 @@
 -export([start/0,
          stop/0]).
 
-%% erts_debug:lock_counters api
--export([rt_collect/0,
+%% erts_debug:lcnt_xxx api
+-export([rt_mask/0,
+         rt_mask/1,
+         rt_mask/2,
+         rt_collect/0,
          rt_collect/1,
          rt_clear/0,
          rt_clear/1,
@@ -134,27 +137,61 @@ start_internal() ->
 
 %% -------------------------------------------------------------------- %%
 %%
-%% API erts_debug:lock_counters
+%% API erts_debug:lcnt_xxx
 %%
 %% -------------------------------------------------------------------- %%
 
-rt_collect() ->
-    erts_debug:lock_counters(info).
+rt_mask(Node, Categories) when is_atom(Node), is_list(Categories) ->
+    rpc:call(Node, lcnt, rt_mask, [Categories]).
+
+rt_mask(Node) when is_atom(Node) ->
+    rpc:call(Node, lcnt, rt_mask, []);
+
+rt_mask(Categories) when is_list(Categories) ->
+    case erts_debug:lcnt_control(copy_save) of
+        false ->
+            erts_debug:lcnt_control(mask, Categories);
+        true ->
+            {error, copy_save_enabled}
+    end.
+
+rt_mask() ->
+    erts_debug:lcnt_control(mask).
 
 rt_collect(Node) ->
-    rpc:call(Node, erts_debug, lock_counters, [info]).
-
-rt_clear() ->
-    erts_debug:lock_counters(clear).
+    rpc:call(Node, lcnt, rt_collect, []).
+rt_collect() ->
+    erts_debug:lcnt_collect().
 
 rt_clear(Node) ->
-    rpc:call(Node, erts_debug, lock_counters, [clear]).
+    rpc:call(Node, lcnt, rt_clear, []).
+rt_clear() ->
+    erts_debug:lcnt_clear().
 
-rt_opt({Type, Opt}) ->
-    erts_debug:lock_counters({Type, Opt}).
+rt_opt(Node, Arg) ->
+    rpc:call(Node, lcnt, rt_opt, [Arg]).
 
-rt_opt(Node, {Type, Opt}) ->
-    rpc:call(Node, erts_debug, lock_counters, [{Type, Opt}]).
+%% Compatibility shims for the "process/port_locks" options mentioned in the
+%% manual.
+rt_opt({process_locks, Enable}) ->
+    toggle_category(process, Enable);
+rt_opt({port_locks, Enable}) ->
+    toggle_category(io, Enable);
+
+rt_opt({Type, NewVal}) ->
+    PreviousVal = erts_debug:lcnt_control(Type),
+    erts_debug:lcnt_control(Type, NewVal),
+    PreviousVal.
+
+toggle_category(Category, true) ->
+    PreviousMask = erts_debug:lcnt_control(mask),
+    erts_debug:lcnt_control(mask, [Category | PreviousMask]),
+    lists:member(Category, PreviousMask);
+
+toggle_category(Category, false) ->
+    PreviousMask = erts_debug:lcnt_control(mask),
+    erts_debug:lcnt_control(mask, lists:delete(Category, PreviousMask)),
+    lists:member(Category, PreviousMask).
 
 %% -------------------------------------------------------------------- %%
 %%
@@ -192,13 +229,9 @@ call(Msg) -> gen_server:call(?MODULE, Msg, infinity).
 %% -------------------------------------------------------------------- %%
 
 apply(M,F,As) when is_atom(M), is_atom(F), is_list(As) ->
-    ok = start_internal(),
-    Opt = lcnt:rt_opt({copy_save, true}),
-    lcnt:clear(),
-    Res = erlang:apply(M,F,As),
-    lcnt:collect(),
-    lcnt:rt_opt({copy_save, Opt}),
-    Res.
+    apply(fun() ->
+        erlang:apply(M,F,As)
+    end).
 
 apply(Fun) when is_function(Fun) ->
     lcnt:apply(Fun, []).
@@ -209,7 +242,9 @@ apply(Fun, As) when is_function(Fun) ->
     lcnt:clear(),
     Res = erlang:apply(Fun, As),
     lcnt:collect(),
-    lcnt:rt_opt({copy_save, Opt}),
+    %% _ is bound to silence a dialyzer warning; it used to fail silently and
+    %% we don't want to change the error semantics.
+    _ = lcnt:rt_opt({copy_save, Opt}),
     Res.
 
 all_conflicts() -> all_conflicts(time).

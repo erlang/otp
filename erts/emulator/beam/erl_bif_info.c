@@ -4651,113 +4651,168 @@ static Eterm lcnt_build_result_term(Eterm **hpp, Uint *szp, erts_lcnt_time_t *du
     return res;
 }
 
+static struct {
+    const char *name;
+    erts_lock_flags_t flag;
+} lcnt_category_map[] = {
+        {"allocator", ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR},
+        {"db", ERTS_LOCK_FLAGS_CATEGORY_DB},
+        {"debug", ERTS_LOCK_FLAGS_CATEGORY_DEBUG},
+        {"distribution", ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION},
+        {"generic", ERTS_LOCK_FLAGS_CATEGORY_GENERIC},
+        {"io", ERTS_LOCK_FLAGS_CATEGORY_IO},
+        {"process", ERTS_LOCK_FLAGS_CATEGORY_PROCESS},
+        {"scheduler", ERTS_LOCK_FLAGS_CATEGORY_SCHEDULER},
+        {NULL, 0}
+    };
+
 static erts_lock_flags_t lcnt_atom_to_lock_category(Eterm atom) {
-    if(ERTS_IS_ATOM_STR("generic", atom)) {
-        return ERTS_LOCK_FLAGS_CATEGORY_GENERIC;
-    } else if(ERTS_IS_ATOM_STR("allocator", atom)) {
-        return ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR;
-    } else if(ERTS_IS_ATOM_STR("scheduler", atom)) {
-        return ERTS_LOCK_FLAGS_CATEGORY_SCHEDULER;
-    } else if(ERTS_IS_ATOM_STR("process", atom)) {
-        return ERTS_LOCK_FLAGS_CATEGORY_PROCESS;
-    } else if(ERTS_IS_ATOM_STR("db", atom)) {
-        return ERTS_LOCK_FLAGS_CATEGORY_DB;
-    } else if(ERTS_IS_ATOM_STR("io", atom)) {
-        return ERTS_LOCK_FLAGS_CATEGORY_IO;
-    } else if(ERTS_IS_ATOM_STR("debug", atom)) {
-        return ERTS_LOCK_FLAGS_CATEGORY_DEBUG;
+    int i = 0;
+
+    for(i = 0; lcnt_category_map[i].name != NULL; i++) {
+        if(erts_is_atom_str(lcnt_category_map[i].name, atom, 0)) {
+            return lcnt_category_map[i].flag;
+        }
     }
 
     return 0;
 }
 
-#endif
+static Eterm lcnt_build_category_list(Eterm **hpp, Uint *szp, erts_lock_flags_t mask) {
+    Eterm res;
+    int i;
 
-BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
-{
-#ifndef ERTS_ENABLE_LOCK_COUNT
-    if (BIF_ARG_1 == am_enabled) {
-        BIF_RET(am_false);
-    }
+    res = NIL;
 
-    BIF_ERROR(BIF_P, BADARG);
-#else
+    for(i = 0; lcnt_category_map[i].name != NULL; i++) {
+        if(mask & lcnt_category_map[i].flag) {
+            Eterm category = erts_atom_put((byte*)lcnt_category_map[i].name,
+                                           strlen(lcnt_category_map[i].name),
+                                           ERTS_ATOM_ENC_UTF8, 0);
 
-    if (BIF_ARG_1 == am_enabled) {
-       BIF_RET(am_true);
-    } else if (BIF_ARG_1 == am_info) {
-        lcnt_sample_vector_t current_locks, deleted_locks;
-        erts_lcnt_data_t data;
-
-        Eterm *term_heap_start, *term_heap_end;
-        Uint term_heap_size = 0;
-        Eterm result;
-
-        data = erts_lcnt_get_data();
-
-        current_locks = lcnt_build_sample_vector(data.current_locks);
-        deleted_locks = lcnt_build_sample_vector(data.deleted_locks);
-
-        lcnt_build_result_term(NULL, &term_heap_size, &data.duration,
-            &current_locks, &deleted_locks, NIL);
-
-        term_heap_start = HAlloc(BIF_P, term_heap_size);
-        term_heap_end = term_heap_start;
-
-        result = lcnt_build_result_term(&term_heap_end, NULL,
-            &data.duration, &current_locks, &deleted_locks, NIL);
-
-        HRelease(BIF_P, term_heap_start + term_heap_size, term_heap_end);
-
-        lcnt_destroy_sample_vector(&current_locks);
-        lcnt_destroy_sample_vector(&deleted_locks);
-
-        BIF_RET(result);
-    } else if (BIF_ARG_1 == am_clear) {
-        erts_lcnt_clear_counters();
-
-        BIF_RET(am_ok);
-    } else if (is_tuple(BIF_ARG_1)) {
-        Eterm* ptr = tuple_val(BIF_ARG_1);
-
-        if(arityval(ptr[0]) != 2) {
-            BIF_ERROR(BIF_P, BADARG);
-        } else if(ERTS_IS_ATOM_STR("mask", ptr[1])) {
-            erts_lock_flags_t category_mask = 0;
-            Eterm categories = ptr[2];
-
-            if(!(is_list(categories) || is_nil(categories))) {
-                BIF_ERROR(BIF_P, BADARG);
-            }
-
-            while(is_list(categories)) {
-                Eterm *cell = list_val(categories);
-                erts_lock_flags_t category;
-
-                category = lcnt_atom_to_lock_category(CAR(cell));
-
-                if(!category) {
-                    /* Return {error, bad_category, Category}? Or leave that to
-                     * the lcnt module? */
-                    BIF_ERROR(BIF_P, BADARG);
-                }
-
-                category_mask |= category;
-                categories = CDR(cell);
-            }
-
-            erts_lcnt_set_category_mask(category_mask);
-
-            BIF_RET(am_ok);
-        } else if(ERTS_IS_ATOM_STR("copy_save", ptr[1]) &&
-            (ptr[2] == am_true || ptr[2] == am_false)) {
-
-            erts_lcnt_set_preserve_info(ptr[2] == am_true);
+            res = erts_bld_cons(hpp, szp, category, res);
         }
     }
 
-    BIF_ERROR(BIF_P, BADARG);
+    return res;
+}
+
 #endif
+
+BIF_RETTYPE erts_debug_lcnt_clear_0(BIF_ALIST_0)
+{
+#ifndef ERTS_ENABLE_LOCK_COUNT
+    BIF_RET(am_error);
+#else
+    erts_lcnt_clear_counters();
+
+    BIF_RET(am_ok);
+#endif
+}
+
+BIF_RETTYPE erts_debug_lcnt_collect_0(BIF_ALIST_0)
+{
+#ifndef ERTS_ENABLE_LOCK_COUNT
+    BIF_RET(am_error);
+#else
+    lcnt_sample_vector_t current_locks, deleted_locks;
+    erts_lcnt_data_t data;
+
+    Eterm *term_heap_start, *term_heap_end;
+    Uint term_heap_size = 0;
+    Eterm result;
+
+    data = erts_lcnt_get_data();
+
+    current_locks = lcnt_build_sample_vector(data.current_locks);
+    deleted_locks = lcnt_build_sample_vector(data.deleted_locks);
+
+    lcnt_build_result_term(NULL, &term_heap_size, &data.duration,
+        &current_locks, &deleted_locks, NIL);
+
+    term_heap_start = HAlloc(BIF_P, term_heap_size);
+    term_heap_end = term_heap_start;
+
+    result = lcnt_build_result_term(&term_heap_end, NULL,
+        &data.duration, &current_locks, &deleted_locks, NIL);
+
+    HRelease(BIF_P, term_heap_start + term_heap_size, term_heap_end);
+
+    lcnt_destroy_sample_vector(&current_locks);
+    lcnt_destroy_sample_vector(&deleted_locks);
+
+    BIF_RET(result);
+#endif
+}
+
+BIF_RETTYPE erts_debug_lcnt_control_1(BIF_ALIST_1)
+{
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    if(ERTS_IS_ATOM_STR("mask", BIF_ARG_1)) {
+        erts_lock_flags_t mask;
+        Eterm *term_heap_block;
+        Uint term_heap_size;
+
+        mask = erts_lcnt_get_category_mask();
+        term_heap_size = 0;
+
+        lcnt_build_category_list(NULL, &term_heap_size, mask);
+
+        term_heap_block = HAlloc(BIF_P, term_heap_size);
+
+        BIF_RET(lcnt_build_category_list(&term_heap_block, NULL, mask));
+    } else if(ERTS_IS_ATOM_STR("copy_save", BIF_ARG_1)) {
+        if(erts_lcnt_get_preserve_info()) {
+            BIF_RET(am_true);
+        }
+
+        BIF_RET(am_false);
+    }
+#endif
+    BIF_ERROR(BIF_P, BADARG);
+}
+
+BIF_RETTYPE erts_debug_lcnt_control_2(BIF_ALIST_2)
+{
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    if(ERTS_IS_ATOM_STR("mask", BIF_ARG_1)) {
+        erts_lock_flags_t category_mask = 0;
+        Eterm categories = BIF_ARG_2;
+
+        if(!(is_list(categories) || is_nil(categories))) {
+            BIF_ERROR(BIF_P, BADARG);
+        }
+
+        while(is_list(categories)) {
+            Eterm *cell = list_val(categories);
+            erts_lock_flags_t category;
+
+            category = lcnt_atom_to_lock_category(CAR(cell));
+
+            if(!category) {
+                Eterm *hp = HAlloc(BIF_P, 4);
+
+                BIF_RET(TUPLE3(hp, am_error, am_badarg, CAR(cell)));
+            }
+
+            category_mask |= category;
+            categories = CDR(cell);
+        }
+
+        erts_lcnt_set_category_mask(category_mask);
+
+        BIF_RET(am_ok);
+    } else if(BIF_ARG_2 == am_true || BIF_ARG_2 == am_false) {
+        int enabled = (BIF_ARG_2 == am_true);
+
+        if(ERTS_IS_ATOM_STR("copy_save", BIF_ARG_1)) {
+            erts_lcnt_set_preserve_info(enabled);
+
+            BIF_RET(am_ok);
+        }
+    }
+#endif
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 static void os_info_init(void)
