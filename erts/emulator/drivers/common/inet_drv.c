@@ -4320,6 +4320,12 @@ static void desc_close(inet_descriptor* desc)
 	desc->event = INVALID_EVENT; /* closed by stop_select callback */
 	desc->s = INVALID_SOCKET;
 	desc->event_mask = 0;
+
+	/* mark as disconnected in case when socket is left lingering due to
+	 * {exit_on_close, false} option in gen_tcp socket creation. Next
+	 * write to socket should produce {error, enotconn} and send a
+	 * message {tcp_error,#Port<>,econnreset} */
+	desc->state &= ~INET_STATE_CONNECTED;
     }
 }
 
