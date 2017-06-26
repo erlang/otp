@@ -780,7 +780,9 @@ format_link_report([Link|Reps], Indent, Extra) ->
     [Indent,"neighbour:\n",format_report(Rep, LinkIndent, Extra)|
      format_link_report(Reps, Indent, Extra)];
 format_link_report([], _, _) ->
-    [].
+    [];
+format_link_report(Rep, Indent, Extra) ->
+    format_report(Rep, Indent, Extra).
 
 format_report(Rep, Indent, Extra) when is_list(Rep) ->
     format_rep(Rep, Indent, Extra);
