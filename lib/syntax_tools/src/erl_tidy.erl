@@ -301,6 +301,8 @@ file(Name, Opts) ->
         {Child, ok} ->
             ok;
         {Child, {error, Reason}} ->
+            exit(Reason);
+        {'EXIT', Child, Reason} ->
             exit(Reason)
     end.
 

@@ -239,6 +239,12 @@ t_erl_tidy(Config) when is_list(Config) ->
     DataDir   = ?config(data_dir, Config),
     File  = filename:join(DataDir,"erl_tidy_tilde.erl"),
     ok = erl_tidy:file(File, [{stdout, true}]),
+
+    %% OTP-14471.
+    Old = process_flag(trap_exit, true),
+    NonExisting  = filename:join(DataDir,"non_existing_file.erl"),
+    {'EXIT',{error,{0,file,enoent}}} = (catch erl_tidy:file(NonExisting)),
+    true = process_flag(trap_exit, Old),
     ok.
 
 test_comment_scan([],_) -> ok;
