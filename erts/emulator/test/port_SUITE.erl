@@ -86,6 +86,7 @@
     cd_relative/1,
     close_deaf_port/1,
     count_fds/1,
+    dropped_commands/1,
     dying_port/1,
     env/1,
     eof/1,
@@ -547,6 +548,45 @@ make_dying_port(Config) when is_list(Config) ->
     PortTest = port_test(Config),
     Command = lists:concat([PortTest, " -h0 -d -q"]),
     open_port({spawn, Command}, [stream]).
+
+%% Test that dropped port_commands work correctly.
+%% This used to cause a segfault.
+%%
+%% This testcase creates a port and then lets many processes
+%% do parallel commands to it. After a while it closes the
+%% port and we are trying to catch the race when doing a
+%% command while the port is closing.
+dropped_commands(Config) ->
+    %% Test with output callback
+    dropped_commands(Config, false, {self(), {command, "1"}}),
+    %% Test with outputv callback
+    dropped_commands(Config, true, {self(), {command, "1"}}).
+
+dropped_commands(Config, Outputv, Cmd) ->
+    Path = proplists:get_value(data_dir, Config),
+    os:putenv("ECHO_DRV_USE_OUTPUTV", atom_to_list(Outputv)),
+    ok = load_driver(Path, "echo_drv"),
+    [dropped_commands_test(Cmd) || _ <- lists:seq(1, 100)],
+    timer:sleep(100),
+    erl_ddll:unload_driver("echo_drv"),
+    ok.
+
+dropped_commands_test(Cmd) ->
+    Port = erlang:open_port({spawn_driver, "echo_drv"}, [{parallelism, true}]),
+    spawn_monitor(
+      fun() ->
+              [spawn_link(fun() -> spin(Port, Cmd) end) || _ <- lists:seq(1,8)],
+              timer:sleep(5),
+              port_close(Port),
+              timer:sleep(5),
+              exit(nok)
+      end),
+    receive _M -> timer:sleep(5) end.
+
+spin(P, Cmd) ->
+    P ! Cmd,
+    spin(P, Cmd).
+
 
 %% Tests that port program with complete path (but without any
 %% .exe extension) can be started, even if there is a file with

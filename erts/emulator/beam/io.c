@@ -1968,7 +1968,6 @@ int
 erts_port_output_async(Port *prt, Eterm from, Eterm list)
 {
 
-    ErtsPortOpResult res;
     ErtsProc2PortSigData *sigdp;
     erts_driver_t *drv = prt->drv_ptr;
     size_t size;
@@ -2102,26 +2101,18 @@ erts_port_output_async(Port *prt, Eterm from, Eterm list)
 	sigdp->u.output.size = size;
 	port_sig_callback = port_sig_output;
     }
-    sigdp->flags = 0;
     ns_pthp = NULL;
     task_flags = 0;
 
-    res = erts_schedule_proc2port_signal(NULL,
-					 prt,
-					 ERTS_INVALID_PID,
-					 NULL,
-					 sigdp,
-					 task_flags,
-					 ns_pthp,
-					 port_sig_callback);
+    erts_schedule_proc2port_signal(NULL,
+                                   prt,
+                                   ERTS_INVALID_PID,
+                                   NULL,
+                                   sigdp,
+                                   task_flags,
+                                   ns_pthp,
+                                   port_sig_callback);
 
-    if (res != ERTS_PORT_OP_SCHEDULED) {
-	if (drv->outputv)
-	    cleanup_scheduled_outputv(evp, cbin);
-	else
-	    cleanup_scheduled_output(buf);
-	return 1;
-    }
     return 1;
 
 bad_value:
@@ -2554,10 +2545,6 @@ erts_port_output(Process *c_p,
 					 port_sig_callback);
 
     if (res != ERTS_PORT_OP_SCHEDULED) {
-	if (drv->outputv)
-	    cleanup_scheduled_outputv(evp, cbin);
-	else
-	    cleanup_scheduled_output(buf);
 	return res;
     }
 
@@ -2736,21 +2723,14 @@ erts_port_exit(Process *c_p,
 					   &bp->off_heap);
     }
 
-    res = erts_schedule_proc2port_signal(c_p,
-					 prt,
-					 c_p ? c_p->common.id : from,
-					 refp,
-					 sigdp,
-					 0,
-					 NULL,
-					 port_sig_exit);
-
-    if (res == ERTS_PORT_OP_DROPPED) {
-	if (bp)
-	    free_message_buffer(bp);
-    }
-
-    return res;
+    return erts_schedule_proc2port_signal(c_p,
+                                          prt,
+                                          c_p ? c_p->common.id : from,
+                                          refp,
+                                          sigdp,
+                                          0,
+                                          NULL,
+                                          port_sig_exit);
 }
 
 static ErtsPortOpResult
@@ -4932,10 +4912,9 @@ erts_port_control(Process* c_p,
 					 0,
 					 NULL,
 					 port_sig_control);
-    if (res != ERTS_PORT_OP_SCHEDULED) {
-	cleanup_scheduled_control(binp, bufp);
+    if (res != ERTS_PORT_OP_SCHEDULED)
 	return ERTS_PORT_OP_BADARG;
-    }
+
     return res;
 }
 
@@ -5225,10 +5204,9 @@ erts_port_call(Process* c_p,
 					 0,
 					 NULL,
 					 port_sig_call);
-    if (res != ERTS_PORT_OP_SCHEDULED) {
-	cleanup_scheduled_call(bufp);
+    if (res != ERTS_PORT_OP_SCHEDULED)
 	return ERTS_PORT_OP_BADARG;
-    }
+
     return res;
 }
 
