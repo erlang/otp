@@ -126,8 +126,10 @@ typedef struct {
     void *extra;
 } ErtsAllocatorFunctions_t;
 
-extern ErtsAllocatorFunctions_t erts_allctrs[ERTS_ALC_A_MAX+1];
-extern ErtsAllocatorInfo_t erts_allctrs_info[ERTS_ALC_A_MAX+1];
+extern ErtsAllocatorFunctions_t
+    ERTS_WRITE_UNLIKELY(erts_allctrs[ERTS_ALC_A_MAX+1]);
+extern ErtsAllocatorInfo_t
+    ERTS_WRITE_UNLIKELY(erts_allctrs_info[ERTS_ALC_A_MAX+1]);
 
 typedef struct {
     int enabled;
