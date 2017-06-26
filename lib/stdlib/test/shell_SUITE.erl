@@ -31,7 +31,7 @@
 	 progex_lc/1, progex_funs/1,
 	 otp_5990/1, otp_6166/1, otp_6554/1,
 	 otp_7184/1, otp_7232/1, otp_8393/1, otp_10302/1, otp_13719/1,
-         otp_14285/1, otp_14296/1]).
+         otp_14285/1, otp_14296/1, typed_records/1]).
 
 -export([ start_restricted_from_shell/1, 
 	  start_restricted_on_command_line/1,restricted_local/1]).
@@ -74,10 +74,10 @@ suite() ->
      {timetrap,{minutes,10}}].
 
 all() -> 
-    [forget, records, known_bugs, otp_5226, otp_5327,
+    [forget, known_bugs, otp_5226, otp_5327,
      otp_5435, otp_5195, otp_5915, otp_5916, {group, bits},
      {group, refman}, {group, progex}, {group, tickets},
-     {group, restricted}].
+     {group, restricted}, {group, records}].
 
 groups() -> 
     [{restricted, [],
@@ -86,6 +86,8 @@ groups() ->
      {bits, [],
       [bs_match_misc_SUITE, bs_match_tail_SUITE,
        bs_match_bin_SUITE, bs_construct_SUITE]},
+     {records, [],
+      [records, typed_records]},
      {refman, [], [refman_bit_syntax]},
      {progex, [],
       [progex_bit_syntax, progex_records, progex_lc,
@@ -484,6 +486,48 @@ records(Config) when is_list(Config) ->
 
     [ok,ok,ok] = scan(<<"rf('_'), rp(rp(rl(rf(rf(rf(rl())))))).">>),
 
+    ok.
+
+%% Test of typed record support.
+typed_records(Config) when is_list(Config) ->
+    Test = filename:join(proplists:get_value(priv_dir, Config), "test.hrl"),
+    Contents = <<"-module(test).
+                  -record(r0,{f :: any()}).
+                  -record(r1,{f1 :: #r1{} | undefined, f2 :: #r0{} | atom()}).
+                  -record(r2,{f :: #r2{} | undefined}).
+                 ">>,
+    ok = file:write_file(Test, Contents),
+
+    RR1 = "rr(\"" ++ Test ++ "\"),
+          #r1{} = (#r1{f1=#r1{f1=undefined, f2=x}, f2 = #r0{}})#r1.f1,
+          ok.",
+    RR2 = "rr(\"" ++ Test ++ "\"),
+          #r0{} = (#r1{f1=#r1{f1=undefined, f2=x}, f2 = #r0{}})#r1.f2,
+          ok. ",
+    RR3 = "rr(\"" ++ Test ++ "\"),
+          #r1{f2=#r0{}} = (#r1{f1=#r1{f1=undefined, f2=#r0{}}, f2 = x})#r1.f1,
+          ok.",
+    RR4 = "rr(\"" ++ Test ++ "\"),
+          (#r1{f2 = #r0{}})#r1{f2 = x},
+          ok. ",
+    RR5 = "rr(\"" ++ Test ++ "\"),
+          (#r1{f2 = #r0{}})#r1{f1 = #r1{}},
+          ok. ",
+    RR6 = "rr(\"" ++ Test ++ "\"),
+           (#r2{f=#r2{f=undefined}})#r2.f,
+          ok.",
+    RR7 = "rr(\"" ++ Test ++ "\"),
+           #r2{} = (#r2{f=#r2{f=undefined}})#r2.f,
+          ok.",
+    [ok] = scan(RR1),
+    [ok] = scan(RR2),
+    [ok] = scan(RR3),
+    [ok] = scan(RR4),
+    [ok] = scan(RR5),
+    [ok] = scan(RR6),
+    [ok] = scan(RR7),
+
+    file:delete(Test),
     ok.
 
 %% Known bugs.

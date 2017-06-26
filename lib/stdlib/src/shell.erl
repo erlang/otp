@@ -727,7 +727,7 @@ result_will_be_saved() ->
 used_record_defs(E, RT) ->
     %% Be careful to return a list where used records come before
     %% records that use them. The linter wants them ordered that way.
-    UR = case used_records(E, [], RT) of
+    UR = case used_records(E, [], RT, []) of
              [] -> 
                  [];
              L0 ->
@@ -737,13 +737,19 @@ used_record_defs(E, RT) ->
          end,
     record_defs(RT, UR).
 
-used_records(E, U0, RT) ->
+used_records(E, U0, RT, Skip) ->
     case used_records(E) of
         {name,Name,E1} ->
-            U = used_records(ets:lookup(RT, Name), [Name | U0], RT),
-            used_records(E1, U, RT);
+            U = case lists:member(Name, Skip) of
+                    true ->
+                        U0;
+                    false ->
+                        R = ets:lookup(RT, Name),
+                        used_records(R, [Name | U0], RT, [Name | Skip])
+                end,
+            used_records(E1, U, RT, Skip);
         {expr,[E1 | Es]} ->
-            used_records(Es, used_records(E1, U0, RT), RT);
+            used_records(Es, used_records(E1, U0, RT, Skip), RT, Skip);
         _ ->
             U0
     end.
