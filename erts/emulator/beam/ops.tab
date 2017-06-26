@@ -1174,9 +1174,9 @@ bs_get_binary2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
 %macro: i_bs_get_binary2 BsGetBinary_2 -fail_action
 %macro: i_bs_get_binary_all2 BsGetBinaryAll_2 -fail_action
 
-i_bs_get_binary_imm2 f x I I I d
-i_bs_get_binary2 f x I s I d
-i_bs_get_binary_all2 f x I I d
+i_bs_get_binary_imm2 f x I I I x
+i_bs_get_binary2 f x I s I x
+i_bs_get_binary_all2 f x I I x
 i_bs_get_binary_all_reuse x f I
 
 # Fetching float from binaries.
@@ -1186,7 +1186,7 @@ bs_get_float2 Fail=f Ms=x Live=u Sz=s Unit=u Flags=u Dst=d => \
 bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
 
 %macro: i_bs_get_float2 BsGetFloat2 -fail_action
-i_bs_get_float2 f x I s I d
+i_bs_get_float2 f x I s I x
 
 # Miscellanous
 
