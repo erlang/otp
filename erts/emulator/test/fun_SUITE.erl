@@ -22,6 +22,7 @@
 
 -export([all/0, suite/0,
 	 bad_apply/1,bad_fun_call/1,badarity/1,ext_badarity/1,
+         bad_arglist/1,
 	 equality/1,ordering/1,
 	 fun_to_port/1,t_phash/1,t_phash2/1,md5/1,
 	 refc/1,refc_ets/1,refc_dist/1,
@@ -39,6 +40,7 @@ suite() ->
 
 all() ->
     [bad_apply, bad_fun_call, badarity, ext_badarity,
+     bad_arglist,
      equality, ordering, fun_to_port, t_phash,
      t_phash2, md5, refc, refc_ets, refc_dist,
      const_propagation, t_arity, t_is_function2, t_fun_info,
@@ -106,6 +108,18 @@ bad_call_fc(Fun) ->
 	    ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]),
 	    ct:fail({bad_result,Other})
     end.
+
+% Test erlang:apply with non-proper arg-list
+bad_arglist(Config) when is_list(Config) ->
+    Fun = fun(A,B) -> A+B end,
+    {'EXIT', {badarg,_}} = (catch apply(Fun, 17)),
+    {'EXIT', {badarg,_}} = (catch apply(Fun, [17|18])),
+    {'EXIT', {badarg,_}} = (catch apply(Fun, [17,18|19])),
+    {'EXIT', {badarg,_}} = (catch apply(lists,seq, 17)),
+    {'EXIT', {badarg,_}} = (catch apply(lists,seq, [17|18])),
+    {'EXIT', {badarg,_}} = (catch apply(lists,seq, [17,18|19])),
+    ok.
+
 
 %% Call and apply valid funs with wrong number of arguments.
 
