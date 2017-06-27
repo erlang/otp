@@ -2439,11 +2439,11 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
                    Timestamp =
                        io_lib:format("~p-~s-~s at ~s:~s:~s",
                                      [Y,
-                                      string:right(integer_to_list(Mo), 2, $0),
-                                      string:right(integer_to_list(D),  2, $0),
-                                      string:right(integer_to_list(H),  2, $0),
-                                      string:right(integer_to_list(Mi), 2, $0),
-                                      string:right(integer_to_list(S),  2, $0)]),
+                                      string:pad(integer_to_list(Mo), 2, leading, $0),
+                                      string:pad(integer_to_list(D),  2, leading, $0),
+                                      string:pad(integer_to_list(H),  2, leading, $0),
+                                      string:pad(integer_to_list(Mi), 2, leading, $0),
+                                      string:pad(integer_to_list(S),  2, leading, $0)]),
 
                     H2Bin = unicode:characters_to_binary(
                               ["File generated from ",ErlFile," by COVER ",
@@ -2493,12 +2493,12 @@ print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
                     if N=:=0, HTML=:=true ->
                            LineNoNL = Line -- "\n",
                            Str = "     0",
-                           %%Str = string:right("0", 6, 32),
+                           %%Str = string:pad("0", 6, leading, $\s),
                            RedLine = ["<font color=red>",Str,fill1(),
                                       LineNoNL,"</font>\n"],
                            ok = file:write(OutFd, RedLine);
                        N < 1000000 ->
-                           Str = string:right(integer_to_list(N), 6, 32),
+                           Str = string:pad(integer_to_list(N), 6, leading, $\s),
                            ok = file:write(OutFd, [Str,fill1(),Line]);
                        N < 10000000 ->
                            Str = integer_to_list(N),
