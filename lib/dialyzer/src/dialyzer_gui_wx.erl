@@ -475,7 +475,7 @@ gui_loop(#gui_state{backend_pid = BackendPid, doc_plt = DocPlt,
       gui_loop(State);
     {BackendPid, ext_types, ExtTypes} ->
       Map = fun({M,F,A}) -> io_lib:format("~tp:~tp/~p",[M,F,A]) end,
-      ExtTypeString = string:join(lists:map(Map, ExtTypes), "\n"),
+      ExtTypeString = lists:join("\n", lists:map(Map, ExtTypes)),
       Msg = io_lib:format("The following remote types are being used "
 			  "but information about them is not available.\n"
 			  "The analysis might get more precise by including "
@@ -638,7 +638,7 @@ output_sms(#gui_state{frame = Frame}, Title, Message, Type) ->
 
 free_editor(#gui_state{gui = Wx, frame = Frame}, Title, Contents0) ->
   Contents = lists:flatten(Contents0),
-  Tokens = string:tokens(Contents, "\n"),
+  Tokens = string:lexemes(Contents, "\n"),
   NofLines = length(Tokens),
   LongestLine = lists:max([length(X) || X <- Tokens]),
   Height0 = NofLines * 25 + 80,

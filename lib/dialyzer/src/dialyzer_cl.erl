@@ -672,7 +672,7 @@ failed_anal_msg(Reason, LogCache) ->
 %%
 format_log_cache(LogCache) ->
   Str = lists:append(lists:reverse(LogCache)),
-  string:join(string:tokens(Str, "\n"), "\n  ").
+  lists:join("\n  ", string:lexemes(Str, "\n")).
 
 -spec store_warnings(#cl_state{}, [raw_warning()]) -> #cl_state{}.
 
