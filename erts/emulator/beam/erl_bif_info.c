@@ -3544,24 +3544,32 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	res = TUPLE2(hp, b1, b2); 
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_runtime) {
-	UWord u1, u2, dummy;
+	ErtsMonotonicTime u1, u2;
 	Eterm b1, b2;
-	elapsed_time_both(&u1,&dummy,&u2,&dummy);
-	b1 = erts_make_integer(u1,BIF_P);
-	b2 = erts_make_integer(u2,BIF_P);
-	hp = HAlloc(BIF_P,3);
+        Uint hsz;
+	elapsed_time_both(&u1, NULL, &u2, NULL);
+        hsz = 3; /* 2-tuple */
+        (void) erts_bld_monotonic_time(NULL, &hsz, u1);
+        (void) erts_bld_monotonic_time(NULL, &hsz, u2);
+	hp = HAlloc(BIF_P, hsz);
+        b1 = erts_bld_monotonic_time(&hp, NULL, u1);
+        b2 = erts_bld_monotonic_time(&hp, NULL, u2);
 	res = TUPLE2(hp, b1, b2);
 	BIF_RET(res);
     } else if (BIF_ARG_1 ==  am_run_queue) {
 	res = erts_run_queues_len(NULL, 1, 0, 0);
 	BIF_RET(make_small(res));
     } else if (BIF_ARG_1 == am_wall_clock) {
-	UWord w1, w2;
+	ErtsMonotonicTime w1, w2;
 	Eterm b1, b2;
+        Uint hsz;
 	wall_clock_elapsed_time_both(&w1, &w2);
-	b1 = erts_make_integer((Uint) w1,BIF_P);
-	b2 = erts_make_integer((Uint) w2,BIF_P);
-	hp = HAlloc(BIF_P,3);
+        hsz = 3; /* 2-tuple */
+        (void) erts_bld_monotonic_time(NULL, &hsz, w1);
+        (void) erts_bld_monotonic_time(NULL, &hsz, w2);
+	hp = HAlloc(BIF_P, hsz);
+        b1 = erts_bld_monotonic_time(&hp, NULL, w1);
+        b2 = erts_bld_monotonic_time(&hp, NULL, w2);
 	res = TUPLE2(hp, b1, b2);
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_io) {

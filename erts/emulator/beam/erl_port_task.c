@@ -852,10 +852,11 @@ schedule_port_task_handle_list_free(ErtsPortTaskHandleList *pthlp)
 }
 
 static ERTS_INLINE void
-abort_nosuspend_task(Port *pp,
-		     ErtsPortTaskType type,
-		     ErtsPortTaskTypeData *tdp,
-		     int bpq_data)
+abort_signal_task(Port *pp,
+                  int abort_type,
+                  ErtsPortTaskType type,
+                  ErtsPortTaskTypeData *tdp,
+                  int bpq_data)
 {
 
     ASSERT(type == ERTS_PORT_TASK_PROC_SIG);
@@ -863,16 +864,26 @@ abort_nosuspend_task(Port *pp,
     if (!bpq_data)
 	tdp->psig.callback(NULL,
 			   ERTS_PORT_SFLG_INVALID,
-			   ERTS_PROC2PORT_SIG_ABORT_NOSUSPEND,
+			   abort_type,
 			   &tdp->psig.data);
     else {
 	ErlDrvSizeT size = erts_proc2port_sig_command_data_size(&tdp->psig.data);
 	tdp->psig.callback(NULL,
 			   ERTS_PORT_SFLG_INVALID,
-			   ERTS_PROC2PORT_SIG_ABORT_NOSUSPEND,
+			   abort_type,
 			   &tdp->psig.data);
 	aborted_proc2port_data(pp, size);
     }
+}
+
+
+static ERTS_INLINE void
+abort_nosuspend_task(Port *pp,
+		     ErtsPortTaskType type,
+		     ErtsPortTaskTypeData *tdp,
+		     int bpq_data)
+{
+    abort_signal_task(pp, ERTS_PROC2PORT_SIG_ABORT_NOSUSPEND, type, tdp, bpq_data);
 }
 
 static ErtsPortTaskHandleList *
@@ -1613,8 +1624,9 @@ abort_nosuspend:
 
     ASSERT(ns_pthlp);
     erts_free(ERTS_ALC_T_PT_HNDL_LIST, ns_pthlp);
-    if (ptp)
-	port_task_free(ptp);
+
+    ASSERT(ptp);
+    port_task_free(ptp);
 
     return 0;
 
@@ -1625,11 +1637,14 @@ fail:
 	erts_port_dec_refc(pp);
 #endif
 
+    if (ptp) {
+        abort_signal_task(pp, ERTS_PROC2PORT_SIG_ABORT,
+                          ptp->type, &ptp->u.alive.td, 0);
+	port_task_free(ptp);
+    }
+
     if (ns_pthlp)
 	erts_free(ERTS_ALC_T_PT_HNDL_LIST, ns_pthlp);
-
-    if (ptp)
-	port_task_free(ptp);
 
     return -1;
 }
