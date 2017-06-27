@@ -1310,6 +1310,8 @@ check_sane_openssl_version(Version) ->
 		    false;
 		{'dtlsv1.2', "OpenSSL 0" ++ _} ->
 		    false;
+                {'sslv3', "OpenSSL 1.0.2" ++ _} ->
+                    false;
 		{_, _} ->
 		    true
 	    end;
@@ -1419,6 +1421,9 @@ supports_ssl_tls_version(sslv2 = Version) ->
     case os:cmd("openssl version") of
 	"OpenSSL 1" ++ _ -> 
 	    false;
+        %% Appears to be broken
+        "OpenSSL 0.9.8.o" ++ _ -> 
+            false;
 	_ ->
             VersionFlag = version_flag(Version),
             Exe = "openssl",
