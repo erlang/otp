@@ -246,6 +246,14 @@ while (@ARGV && $ARGV[0] =~ /^-(.*)/) {
     die "$0: Bad option: -$_\n";
 }
 
+if ($wordsize == 32) {
+    $defs{'ARCH_32'} = 1;
+    $defs{'ARCH_64'} = 0;
+} elsif ($wordsize == 64) {
+    $defs{'ARCH_32'} = 0;
+    $defs{'ARCH_64'} = 1;
+}
+
 #
 # Initialize number of arguments per packed word.
 #
