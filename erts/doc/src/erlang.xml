@@ -6483,6 +6483,9 @@ lists:map(
         <p>This is the sum of the runtime for all threads
           in the Erlang runtime system and can therefore be greater
           than the wall clock time.</p>
+          <warning><p>This value might wrap due to limitations in the
+          underlying functionality provided by the operating system
+          that is used.</p></warning>
         <p>Example:</p>
         <pre>
 > <input>statistics(runtime).</input>

@@ -32,7 +32,6 @@
   <p>This document describes the changes made to the ERTS application.</p>
 
 <section><title>Erts 9.0</title>
-
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
@@ -625,6 +624,42 @@
 	    marker="erl_nif#enif_whereis_port"><c>enif_whereis_port()</c></seealso>.</p>
           <p>
 	    Own Id: OTP-14453 Aux Id: PR-1400 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 8.3.5.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug in gen_tcp:send where it never returned when
+	    repeatedly called on a remotely closed TCP socket.</p>
+          <p>
+	    Own Id: OTP-13939 Aux Id: ERL-193 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed segfault that could happen during cleanup of
+	    aborted erlang:port_command/3 calls. A port_command is
+	    aborted if the port is closed at the same time as the
+	    port_command was issued. This bug was introduced in
+	    erts-8.0.</p>
+          <p>
+	    Own Id: OTP-14481</p>
+        </item>
+        <item>
+          <p>
+	    Fixed implementation of <c>statistics(wall_clock)</c> and
+	    <c>statistics(runtime)</c> so that values do not
+	    unnecessarily wrap due to the emulator. Note that the
+	    values returned by <c>statistics(runtime)</c> may still
+	    wrap due to limitations in the underlying functionality
+	    provided by the operating system.</p>
+          <p>
+	    Own Id: OTP-14484</p>
         </item>
       </list>
     </section>
