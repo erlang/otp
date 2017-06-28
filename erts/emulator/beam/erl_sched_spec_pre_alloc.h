@@ -59,6 +59,11 @@ typedef struct {
     char *start;
     char *end;
     int chunks_mem_size;
+    int nthreads;
+
+    /* Used only by thread variant: */
+    erts_tsd_key_t tsd_key;
+    erts_atomic_t id_generator;
 } erts_sspa_data_t;
 
 typedef union erts_sspa_blk_t_ erts_sspa_blk_t;
@@ -140,7 +145,9 @@ check_local_list(erts_sspa_chunk_header_t *chdr)
 #endif
 
 erts_sspa_data_t *erts_sspa_create(size_t blk_sz,
-				   int pa_size);
+				   int pa_size,
+                                   int nthreads,
+                                   const char* name);
 void erts_sspa_remote_free(erts_sspa_chunk_header_t *chdr,
 			   erts_sspa_blk_t *blk,
 			   int cinit);
@@ -158,7 +165,7 @@ ERTS_GLB_INLINE int erts_sspa_free(erts_sspa_data_t *data, int cix, char *blk);
 ERTS_GLB_INLINE erts_sspa_chunk_t *
 erts_sspa_cix2chunk(erts_sspa_data_t *data, int cix)
 {
-    ASSERT(0 <= cix && cix < erts_no_schedulers);
+    ASSERT(0 <= cix && cix < data->nthreads);
     return (erts_sspa_chunk_t *) (data->start + cix*data->chunks_mem_size);
 }
 
@@ -171,7 +178,7 @@ erts_sspa_ptr2cix(erts_sspa_data_t *data, void *ptr)
 	return -1;
     diff = ((char *) ptr) - data->start;
     cix = (int) diff / data->chunks_mem_size;
-    ASSERT(0 <= cix && cix < erts_no_schedulers);
+    ASSERT(0 <= cix && cix < data->nthreads);
     return cix;
 }
 

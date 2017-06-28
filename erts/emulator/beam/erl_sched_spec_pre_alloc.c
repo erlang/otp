@@ -37,7 +37,7 @@
 #include "erl_thr_progress.h"
 
 erts_sspa_data_t *
-erts_sspa_create(size_t blk_sz, int pa_size)
+erts_sspa_create(size_t blk_sz, int pa_size, int nthreads, const char* name)
 {
     erts_sspa_data_t *data;
     size_t tot_size;
@@ -48,22 +48,30 @@ erts_sspa_create(size_t blk_sz, int pa_size)
     int no_blocks = pa_size;
     int no_blocks_per_chunk;
 
-    if (erts_no_schedulers == 1)
+    if (!name) { /* schedulers only variant */
+        ASSERT(!nthreads);
+        nthreads = erts_no_schedulers;
+    }
+    else {
+        ASSERT(nthreads > 0);
+    }
+
+    if (nthreads == 1)
 	no_blocks_per_chunk = no_blocks;
     else {
 	int extra = (no_blocks - 1)/4 + 1;
 	if (extra == 0)
 	    extra = 1;
 	no_blocks_per_chunk = no_blocks;
-	no_blocks_per_chunk += extra*erts_no_schedulers;
-	no_blocks_per_chunk /= erts_no_schedulers;
+	no_blocks_per_chunk += extra * nthreads;
+	no_blocks_per_chunk /= nthreads;
     }
-    no_blocks = no_blocks_per_chunk * erts_no_schedulers;
+    no_blocks = no_blocks_per_chunk * nthreads;
     chunk_mem_size = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_sspa_chunk_header_t));
     chunk_mem_size += blk_sz * no_blocks_per_chunk;
     chunk_mem_size = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(chunk_mem_size);
     tot_size = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_sspa_data_t));
-    tot_size += chunk_mem_size*erts_no_schedulers;
+    tot_size += chunk_mem_size * nthreads;
 
     p = erts_alloc_permanent_cache_aligned(ERTS_ALC_T_PRE_ALLOC_DATA, tot_size);
     data = (erts_sspa_data_t *) p;
@@ -72,10 +80,16 @@ erts_sspa_create(size_t blk_sz, int pa_size)
 
     data->chunks_mem_size = chunk_mem_size;
     data->start = chunk_start;
-    data->end = chunk_start + chunk_mem_size*erts_no_schedulers;
+    data->end = chunk_start + chunk_mem_size * nthreads;
+    data->nthreads = nthreads;
+
+    if (name) { /* thread variant */
+        erts_tsd_key_create(&data->tsd_key, (char*)name);
+        erts_atomic_init_nob(&data->id_generator, 0);
+    }
 
     /* Initialize all chunks */
-    for (cix = 0; cix < erts_no_schedulers; cix++) {
+    for (cix = 0; cix < nthreads; cix++) {
 	erts_sspa_chunk_t *chnk = erts_sspa_cix2chunk(data, cix);
 	erts_sspa_chunk_header_t *chdr = &chnk->aligned.header;
 	erts_sspa_blk_t *blk;
