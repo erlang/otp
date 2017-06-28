@@ -420,7 +420,7 @@ upgrade_app(App, NewDir) ->
 %%          located in the ebin dir of the _current_ version
 %%-----------------------------------------------------------------
 downgrade_app(App, OldDir) ->
-    case string:tokens(filename:basename(OldDir), "-") of
+    case string:lexemes(filename:basename(OldDir), "-") of
 	[_AppS, OldVsn] ->
 	    downgrade_app(App, OldVsn, OldDir);
 	_ ->
@@ -1173,8 +1173,8 @@ new_emulator_rm_tmp_release(_,_,_,_,Releases,_) ->
 
 %% Rename the tempoarary service (for erts ugprade) to the real ToVsn
 rename_tmp_service(EVsn,TmpVsn,NewVsn) ->
-    FromName = hd(string:tokens(atom_to_list(node()),"@")) ++ "_" ++ TmpVsn,
-    ToName = hd(string:tokens(atom_to_list(node()),"@")) ++ "_" ++ NewVsn,
+    FromName = hd(string:lexemes(atom_to_list(node()),"@")) ++ "_" ++ TmpVsn,
+    ToName = hd(string:lexemes(atom_to_list(node()),"@")) ++ "_" ++ NewVsn,
     case erlsrv:get_service(EVsn,ToName) of
 	{error, _Error} ->
 	    ok;
@@ -1206,9 +1206,9 @@ rename_service(EVsn,FromName,ToName) ->
 %%% in which case we try to rename the old service to the new name and try
 %%% to update heart's view of what service we are really running.
 do_make_services_permanent(PermanentVsn,Vsn, PermanentEVsn, EVsn) ->
-    PermName = hd(string:tokens(atom_to_list(node()),"@")) 
+    PermName = hd(string:lexemes(atom_to_list(node()),"@"))
 	++ "_" ++ PermanentVsn,
-    Name = hd(string:tokens(atom_to_list(node()),"@")) 
+    Name = hd(string:lexemes(atom_to_list(node()),"@"))
 	++ "_" ++ Vsn,
     case erlsrv:get_service(EVsn,Name) of
 	{error, _Error} ->
@@ -1295,7 +1295,7 @@ do_make_permanent(#state{releases = Releases,
 
 
 do_back_service(OldVersion, CurrentVersion,OldEVsn,CurrentEVsn) ->
-    NN = hd(string:tokens(atom_to_list(node()),"@")),
+    NN = hd(string:lexemes(atom_to_list(node()),"@")),
     OldName = NN ++ "_" ++ OldVersion,
     CurrentName = NN ++ "_" ++ CurrentVersion,
     UpdData = case erlsrv:get_service(CurrentEVsn,CurrentName) of
@@ -1384,7 +1384,7 @@ do_remove_service(Vsn) ->
     %% Very unconditionally remove the service.
     %% Note that the service could already have been removed when
     %% making another release permanent.
-    ServiceName = hd(string:tokens(atom_to_list(node()),"@")) 
+    ServiceName = hd(string:lexemes(atom_to_list(node()),"@"))
 	++ "_" ++ Vsn,
     case erlsrv:get_service(ServiceName) of
 	{error, _Error} ->
@@ -1669,9 +1669,9 @@ flush() ->
 prepare_restart_nt(#release{erts_vsn = EVsn, vsn = Vsn},
 		   #release{erts_vsn = PermEVsn, vsn = PermVsn},
 		   DataFileName) ->
-    CurrentServiceName = hd(string:tokens(atom_to_list(node()),"@")) 
+    CurrentServiceName = hd(string:lexemes(atom_to_list(node()),"@"))
 	++ "_" ++ PermVsn,
-    FutureServiceName = hd(string:tokens(atom_to_list(node()),"@")) 
+    FutureServiceName = hd(string:lexemes(atom_to_list(node()),"@"))
 	++ "_" ++ Vsn,
     CurrentService = case erlsrv:get_service(PermEVsn,CurrentServiceName) of
 			 {error, _} = Error1 ->
