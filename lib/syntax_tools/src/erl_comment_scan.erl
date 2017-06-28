@@ -208,7 +208,7 @@ scan_comment([], Cs1, L, Col, M, Ack) ->
 seen_comment(Cs, Cs1, L, Col, M, Ack) ->
     %% Compute indentation and strip trailing spaces
     N = Col - M,
-    Text = lists:reverse(string:strip(Cs1, left)),
+    Text = lists:reverse(string:trim(Cs1, leading)),
     Ack1 = [{L, Col + 1, N, Text} | Ack],
     scan_lines(Cs, L + 1, 0, 0, Ack1).
 
