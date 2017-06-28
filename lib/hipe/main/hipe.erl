@@ -1616,11 +1616,11 @@ llvm_support_available() ->
 get_llvm_version() ->
   OptStr = os:cmd("opt -version"),
   SubStr = "LLVM version ", N = length(SubStr),
-  case string:str(OptStr, SubStr) of
-     0 -> % No opt available
+  case string:find(OptStr, SubStr) of
+     nomatch -> % No opt available
        {0, 0};
      S ->
-       case string:tokens(string:sub_string(OptStr, S + N), ".") of
+       case string:lexemes(string:slice(S, N), ".") of
 	 [MajorS, MinorS | _] ->
 	   case {string:to_integer(MajorS), string:to_integer(MinorS)} of
 	     {{Major, ""}, {Minor, _}}
