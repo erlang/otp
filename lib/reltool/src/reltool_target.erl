@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1448,7 +1448,7 @@ do_install(RelName, TargetDir) ->
     RelDir = filename:join([TargetDir2, "releases"]),
     DataFile = filename:join([RelDir, "start_erl.data"]),
     Bin = reltool_utils:read_file(DataFile),
-    case string:tokens(binary_to_list(Bin), " \n") of
+    case string:lexemes(binary_to_list(Bin), " \n") of
         [ErlVsn, RelVsn | _] ->
             ErtsBinDir = filename:join([TargetDir2, "erts-" ++ ErlVsn, "bin"]),
             BinDir = filename:join([TargetDir2, "bin"]),

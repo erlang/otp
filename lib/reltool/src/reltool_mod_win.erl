@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -667,7 +667,7 @@ goto_function(S, Editor) ->
 	    wxStyledTextCtrl:setSelection(Editor, Left2, Right2),
 	    Text = wxStyledTextCtrl:getSelectedText(Editor),
 	    S2 = add_pos_to_history(S, CurrentPos),
-	    do_goto_function(S2, string:tokens(Text, ":"));
+	    do_goto_function(S2, string:lexemes(Text, ":"));
 	_ ->
 	    %% No function call
 	    wxStyledTextCtrl:hideSelection(Editor, false),

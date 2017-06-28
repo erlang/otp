@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ root_dir() ->
     code:root_dir().
 
 erl_libs() ->
-    string:tokens(os:getenv("ERL_LIBS", ""), ":;").
+    string:lexemes(os:getenv("ERL_LIBS", ""), ":;").
 
 lib_dirs(Dir) ->
     case erl_prim_loader:list_dir(Dir) of
@@ -286,7 +286,7 @@ split_app_dir(Dir) ->
     {Name, Vsn} = split_app_name(Base),
     Vsn2 =
 	try
-	    [list_to_integer(N) || N <- string:tokens(Vsn, ".")]
+	    [list_to_integer(N) || N <- string:lexemes(Vsn, ".")]
 	catch
 	    _:_ ->
 		Vsn
