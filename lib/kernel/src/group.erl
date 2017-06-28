@@ -793,9 +793,9 @@ search_up_stack(Stack, Substr) ->
     case up_stack(Stack) of
 	{none,NewStack} -> {none,NewStack};
 	{L, NewStack} ->
-	    case string:str(L, Substr) of
-		0 -> search_up_stack(NewStack, Substr);
-		_ -> {string:strip(L,right,$\n), NewStack}
+            case string:find(L, Substr) of
+                nomatch -> search_up_stack(NewStack, Substr);
+                _ -> {string:trim(L, trailing, "$\n"), NewStack}
 	    end
     end.
 
@@ -803,9 +803,9 @@ search_down_stack(Stack, Substr) ->
     case down_stack(Stack) of
 	{none,NewStack} -> {none,NewStack};
 	{L, NewStack} ->
-	    case string:str(L, Substr) of
-		0 -> search_down_stack(NewStack, Substr);
-		_ -> {string:strip(L,right,$\n), NewStack}
+	    case string:find(L, Substr) of
+		nomatch -> search_down_stack(NewStack, Substr);
+		_ -> {string:trim(L, trailing, "$\n"), NewStack}
 	    end
     end.
 
