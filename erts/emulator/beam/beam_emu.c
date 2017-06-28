@@ -3768,33 +3768,33 @@ do {						\
      Uint alloc;
      Uint num_bytes;
 
-     OpCase(i_bs_init_bits_heap_IIId): {
+     OpCase(i_bs_init_bits_heap_IIIx): {
 	 num_bits = Arg(0);
 	 alloc = Arg(1);
 	 I++;
 	 goto do_bs_init_bits_known;
      }
      
-     OpCase(i_bs_init_bits_IId): {
+     OpCase(i_bs_init_bits_IIx): {
 	 num_bits = Arg(0);
 	 alloc = 0;
 	 goto do_bs_init_bits_known;
      }
 
-     OpCase(i_bs_init_bits_fail_heap_sIjId): {
+     OpCase(i_bs_init_bits_fail_heap_sIjIx): {
 	 GetArg1(0, num_bits_term);
 	 alloc = Arg(1);
 	 I += 2;
 	 goto do_bs_init_bits;
      }
 
-     OpCase(i_bs_init_bits_fail_yjId): {
+     OpCase(i_bs_init_bits_fail_yjIx): {
 	 num_bits_term = yb(Arg(0));
 	 I++;
 	 alloc = 0;
 	 goto do_bs_init_bits;
      }
-     OpCase(i_bs_init_bits_fail_xjId): {
+     OpCase(i_bs_init_bits_fail_xjIx): {
 	 num_bits_term = xb(Arg(0));
 	 I++;
 	 alloc = 0;
@@ -3873,7 +3873,8 @@ do {						\
 	     new_binary = make_binary(sb);
 	 }
 	 HEAP_SPACE_VERIFIED(0);
-	 StoreBifResult(2, new_binary);
+         xb(Arg(2)) = new_binary;
+         Next(3);
      } else {
 	 Binary* bptr;
 	 ProcBin* pb;
@@ -3908,21 +3909,21 @@ do {						\
  {
      Eterm BsOp1, BsOp2;
 
-     OpCase(i_bs_init_fail_heap_sIjId): {
+     OpCase(i_bs_init_fail_heap_sIjIx): {
 	 GetArg1(0, BsOp1);
 	 BsOp2 = Arg(1);
 	 I += 2;
 	 goto do_bs_init;
      }
 
-     OpCase(i_bs_init_fail_yjId): {
+     OpCase(i_bs_init_fail_yjIx): {
 	 BsOp1 = yb(Arg(0));
 	 BsOp2 = 0;
 	 I++;
 	 goto do_bs_init;
      }
 
-     OpCase(i_bs_init_fail_xjId): {
+     OpCase(i_bs_init_fail_xjIx): {
 	 BsOp1 = xb(Arg(0));
 	 BsOp2 = 0;
 	 I++;
@@ -3954,14 +3955,14 @@ do {						\
 	 }
 
 
-     OpCase(i_bs_init_heap_IIId): {
+     OpCase(i_bs_init_heap_IIIx): {
 	 BsOp1 = Arg(0);
 	 BsOp2 = Arg(1);
 	 I++;
 	 goto do_proc_bin_alloc;
      }
 
-     OpCase(i_bs_init_IId): {
+     OpCase(i_bs_init_IIx): {
 	 BsOp1 = Arg(0);
 	 BsOp2 = 0;
      }
@@ -3996,17 +3997,18 @@ do {						\
 	 
 	 OH_OVERHEAD(&(MSO(c_p)), BsOp1 / sizeof(Eterm));
 
-	 StoreBifResult(2, make_binary(pb));
+	 xb(Arg(2)) = make_binary(pb);
+         Next(3);
      }
 
-     OpCase(i_bs_init_heap_bin_heap_IIId): {
+     OpCase(i_bs_init_heap_bin_heap_IIIx): {
 	 BsOp1 = Arg(0);
 	 BsOp2 = Arg(1);
 	 I++;
 	 goto do_heap_bin_alloc;
      }
 
-     OpCase(i_bs_init_heap_bin_IId): {
+     OpCase(i_bs_init_heap_bin_IIx): {
 	 BsOp1 = Arg(0);
 	 BsOp2 = 0;
      }
@@ -4026,11 +4028,12 @@ do {						\
 	     hb->size = BsOp1;
 	     erts_current_bin = (byte *) hb->data;
 	     BsOp1 = make_binary(hb);
-	     StoreBifResult(2, BsOp1);
+             xb(Arg(2)) = BsOp1;
+             Next(3);
 	 }
  }
 
- OpCase(bs_add_jssId): {
+ OpCase(bs_add_jssIx): {
      Eterm Op1, Op2;
      Uint Unit = Arg(3);
 
@@ -4060,7 +4063,8 @@ do {						\
 		 Op1 = erts_make_integer(Op1, c_p);
 		 HTOP = HEAP_TOP(c_p);
 	     }
-	     StoreBifResult(4, Op1);
+             xb(Arg(4)) = Op1;
+             Next(5);
 	 }
 	 goto badarg;
      } else {
@@ -4129,7 +4133,7 @@ do {						\
   * Operands: Fail ExtraHeap Live Unit Size Dst
   */
 
- OpCase(i_bs_append_jIIIsd): {
+ OpCase(i_bs_append_jIIIsx): {
      Uint live = Arg(2);
      Uint res;
      Eterm Size;
@@ -4143,13 +4147,14 @@ do {						\
 	 /* c_p->freason is already set (may be either BADARG or SYSTEM_LIMIT). */
 	 goto lb_Cl_error;
      }
-     StoreBifResult(5, res);
+     xb(Arg(5)) = res;
+     Next(6);
  }
 
  /*
   * Operands: Fail Size Src Unit Dst
   */
- OpCase(i_bs_private_append_jIssd): {
+ OpCase(i_bs_private_append_jIssx): {
      Eterm res;
      Eterm Size, Src;
 
@@ -4159,7 +4164,8 @@ do {						\
 	 /* c_p->freason is already set (may be either BADARG or SYSTEM_LIMIT). */
 	 goto lb_Cl_error;
      }
-     StoreBifResult(4, res);
+     xb(Arg(4)) = res;
+     Next(5);
  }
 
  OpCase(bs_init_writable): {
@@ -4176,7 +4182,7 @@ do {						\
   * can get away with that because we KNOW that bs_put_utf8 will do
   * full error checking.
   */
- OpCase(i_bs_utf8_size_sd): {
+ OpCase(i_bs_utf8_size_sx): {
      Eterm arg;
      Eterm result;
 
@@ -4190,7 +4196,8 @@ do {						\
      } else {
 	 result = make_small(4);
      }
-     StoreBifResult(1, result);
+     xb(Arg(1)) = result;
+     Next(2);
  }
 
  OpCase(i_bs_put_utf8_js): {
@@ -4211,7 +4218,7 @@ do {						\
   * full error checking.
   */
 
- OpCase(i_bs_utf16_size_sd): {
+ OpCase(i_bs_utf16_size_sx): {
      Eterm arg;
      Eterm result = make_small(2);
 
@@ -4219,7 +4226,8 @@ do {						\
      if (arg >= make_small(0x10000UL)) {
 	 result = make_small(4);
      }
-     StoreBifResult(1, result);
+     xb(Arg(1)) = result;
+     Next(2);
  }
 
  OpCase(bs_put_utf16_jIs): {
@@ -4313,7 +4321,7 @@ do {						\
 		 *HTOP = HEADER_BIN_MATCHSTATE(slots);
 		 HTOP += wordsneeded;
 		 HEAP_SPACE_VERIFIED(0);
-		 StoreResult(make_matchstate(dst), Arg(3));
+                 xb(Arg(3)) = make_matchstate(dst);
 	     }
 	 } else if (is_binary_header(header)) {
 	     Eterm result;
@@ -4330,19 +4338,19 @@ do {						\
 	     if (is_non_value(result)) {
 		 ClauseFail();
 	     } else {
-		 StoreResult(result, Arg(3));
+                 xb(Arg(3)) = result;
 	     }
 	 } else {
 	     ClauseFail();
 	 }
 	 NextPF(4, next);
 
-     OpCase(i_bs_start_match2_xfIId): {
+     OpCase(i_bs_start_match2_xfIIx): {
 	 context = xb(Arg(0));
 	 I++;
 	 goto do_start_match;
      }
-     OpCase(i_bs_start_match2_yfIId): {
+     OpCase(i_bs_start_match2_yfIIx): {
 	 context = yb(Arg(0));
 	 I++;
 	 goto do_start_match;
@@ -4397,7 +4405,7 @@ do {						\
  {
      Eterm bs_get_integer8_context;
 
- OpCase(i_bs_get_integer_8_xfd): {
+ OpCase(i_bs_get_integer_8_xfx): {
 	 ErlBinMatchBuffer *_mb;
 	 Eterm _result;
 	 bs_get_integer8_context = xb(Arg(0));
@@ -4412,14 +4420,15 @@ do {						\
 	     _result = make_small(_mb->base[BYTE_OFFSET(_mb->offset)]);
 	     _mb->offset += 8;
 	 }
-	 StoreBifResult(1, _result);
+         xb(Arg(1)) = _result;
+         Next(2);
      }
  }
 
  {
      Eterm bs_get_integer_16_context;
 
- OpCase(i_bs_get_integer_16_xfd):
+ OpCase(i_bs_get_integer_16_xfx):
      bs_get_integer_16_context = xb(Arg(0));
      I++;
 
@@ -4436,14 +4445,15 @@ do {						\
 	     _result = make_small(get_int16(_mb->base+BYTE_OFFSET(_mb->offset)));
 	     _mb->offset += 16;
 	 }
-	 StoreBifResult(1, _result);
+         xb(Arg(1)) = _result;
+         Next(2);
      }
  }
 
  {
      Eterm bs_get_integer_32_context;
 
- OpCase(i_bs_get_integer_32_xfId):
+ OpCase(i_bs_get_integer_32_xfIx):
      bs_get_integer_32_context = xb(Arg(0));
      I++;
 
@@ -4471,7 +4481,8 @@ do {						\
 	     HEAP_SPACE_VERIFIED(0);
 	 }
 #endif
-	 StoreBifResult(2, _result);
+         xb(Arg(2)) = _result;
+         Next(3);
      }
  }
 
@@ -4479,7 +4490,7 @@ do {						\
      Eterm Ms, Sz;
 
      /* Operands: x(Reg) Size Live Fail Flags Dst */
- OpCase(i_bs_get_integer_imm_xIIfId): {
+ OpCase(i_bs_get_integer_imm_xIIfIx): {
 	 Uint wordsneeded;
 	 Ms = xb(Arg(0));
 	 Sz = Arg(1);
@@ -4491,7 +4502,7 @@ do {						\
      }
 
      /* Operands: x(Reg) Size Fail Flags Dst */
- OpCase(i_bs_get_integer_small_imm_xIfId): {
+ OpCase(i_bs_get_integer_small_imm_xIfIx): {
 	 Ms = xb(Arg(0));
 	 Sz = Arg(1);
 	 I += 2;
@@ -4516,14 +4527,15 @@ do {						\
 	 if (is_non_value(result)) {
 	     ClauseFail();
 	 }
-	 StoreBifResult(2, result);
+         xb(Arg(2)) = result;
+         Next(3);
      }
  }
 
  /*
   * Operands: Fail Live FlagsAndUnit Ms Sz Dst
   */
- OpCase(i_bs_get_integer_fIIssd): {
+ OpCase(i_bs_get_integer_fIIssx): {
      Uint flags;
      Uint size;
      Eterm Ms;
@@ -4558,14 +4570,15 @@ do {						\
      if (is_non_value(result)) {
 	 ClauseFail();
      }
-     StoreBifResult(5, result);
+     xb(Arg(5)) = result;
+     Next(6);
  }
 
  {
      Eterm get_utf8_context;
 
      /* Operands: MatchContext Fail Dst */
- OpCase(i_bs_get_utf8_xfd): {
+ OpCase(i_bs_get_utf8_xfx): {
 	 get_utf8_context = xb(Arg(0));
 	 I++;
      }
@@ -4580,7 +4593,8 @@ do {						\
 	 if (is_non_value(result)) {
 	     ClauseFail();
 	 }
-	 StoreBifResult(1, result);
+         xb(Arg(1)) = result;
+         Next(2);
      }
  }
 
@@ -4588,7 +4602,7 @@ do {						\
      Eterm get_utf16_context;
 
      /* Operands: MatchContext Fail Flags Dst */
-     OpCase(i_bs_get_utf16_xfId): {
+     OpCase(i_bs_get_utf16_xfIx): {
 	 get_utf16_context = xb(Arg(0));
 	 I++;
      }
@@ -4603,7 +4617,8 @@ do {						\
 	 if (is_non_value(result)) {
 	     ClauseFail();
 	 }
-	 StoreBifResult(2, result);
+         xb(Arg(2)) = result;
+         Next(3);
      }
  }
 

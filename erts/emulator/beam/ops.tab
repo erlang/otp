@@ -160,26 +160,19 @@ is_tuple Fail=f S | select_tuple_arity S=d Fail=f Size=u Rest=* => \
 select_tuple_arity S=d Fail=f Size=u Rest=* => \
   gen_select_tuple_arity(S, Fail, Size, Rest)
 
-i_select_val_bins x f I
-i_select_val_bins y f I
+i_select_val_bins xy f I
 
-i_select_val_lins x f I
-i_select_val_lins y f I
+i_select_val_lins xy f I
 
-i_select_val2 x f c c f f
-i_select_val2 y f c c f f
+i_select_val2 xy f c c f f
 
-i_select_tuple_arity x f I
-i_select_tuple_arity y f I
+i_select_tuple_arity xy f I
 
-i_select_tuple_arity2 x f A A f f
-i_select_tuple_arity2 y f A A f f
+i_select_tuple_arity2 xy f A A f f
 
-i_jump_on_val_zero x f I
-i_jump_on_val_zero y f I
+i_jump_on_val_zero xy f I
 
-i_jump_on_val x f I I
-i_jump_on_val y f I I
+i_jump_on_val xy f I I
 
 %macro: get_list GetList -pack
 get_list xy xy xy
@@ -448,19 +441,14 @@ is_ne_exact Lbl R=xy C=ian => i_is_ne_exact_immed Lbl R C
 is_ne_exact Lbl R=xy C=q => i_is_ne_exact_literal Lbl R C
 
 %macro: i_is_eq_exact_immed EqualImmed -fail_action
-i_is_eq_exact_immed f r c
-i_is_eq_exact_immed f x c
-i_is_eq_exact_immed f y c
 
-i_is_eq_exact_literal f x c
-i_is_eq_exact_literal f y c
+i_is_eq_exact_immed f rxy c
+i_is_eq_exact_literal f xy c
 
 %macro: i_is_ne_exact_immed NotEqualImmed -fail_action
-i_is_ne_exact_immed f x c
-i_is_ne_exact_immed f y c
+i_is_ne_exact_immed f xy c
 
-i_is_ne_exact_literal f x c
-i_is_ne_exact_literal f y c
+i_is_ne_exact_literal f xy c
 
 is_eq_exact Lbl Y=y X=x => is_eq_exact Lbl X Y
 %macro: is_eq_exact EqualExact -fail_action -pack
@@ -508,8 +496,7 @@ i_put_tuple Dst Arity Puts=* | put S => \
 i_put_tuple/2
 
 %macro:i_put_tuple PutTuple -pack -goto:do_put_tuple
-i_put_tuple x I
-i_put_tuple y I
+i_put_tuple xy I
 
 #
 # The instruction "put_list Const [] Dst" were generated in rare
@@ -578,17 +565,12 @@ return_trace
 move S x==0 | return => move_return S
 
 %macro: move_return MoveReturn -nonext
-move_return x
-move_return c
-move_return n
+move_return xcn
 
 move S x==0 | deallocate D | return => move_deallocate_return S D
 
 %macro: move_deallocate_return MoveDeallocateReturn -pack -nonext
-move_deallocate_return x Q
-move_deallocate_return y Q
-move_deallocate_return c Q
-move_deallocate_return n Q
+move_deallocate_return xycn Q
 
 deallocate D | return => deallocate_return D
 
@@ -1142,7 +1124,7 @@ func_info M F A => i_func_info u M F A
 %cold
 bs_start_match2 Fail=f ica X Y D => jump Fail
 bs_start_match2 Fail Bin X Y D => i_bs_start_match2 Bin Fail X Y D
-i_bs_start_match2 xy f I I d
+i_bs_start_match2 xy f I I x
 
 bs_save2 Reg Index => gen_bs_save(Reg, Index)
 i_bs_save2 x I
@@ -1159,12 +1141,12 @@ i_bs_match_string x f I I
 bs_get_integer2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_integer2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-i_bs_get_integer_small_imm x I f I d
-i_bs_get_integer_imm x I I f I d
-i_bs_get_integer f I I s s d
-i_bs_get_integer_8 x f d
-i_bs_get_integer_16 x f d
-i_bs_get_integer_32 x f I d
+i_bs_get_integer_small_imm x I f I x
+i_bs_get_integer_imm x I I f I x
+i_bs_get_integer f I I s s x
+i_bs_get_integer_8 x f x
+i_bs_get_integer_16 x f x
+i_bs_get_integer_32 x f I x
 
 # Fetching binaries from binaries.
 bs_get_binary2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
@@ -1222,14 +1204,14 @@ bs_context_to_binary x
 # Utf8/utf16/utf32 support. (R12B-5)
 #
 bs_get_utf8 Fail=f Ms=x u u Dst=d => i_bs_get_utf8 Ms Fail Dst
-i_bs_get_utf8 x f d
+i_bs_get_utf8 x f x
 
 bs_skip_utf8 Fail=f Ms=x u u => i_bs_get_utf8 Ms Fail x
 
 bs_get_utf16 Fail=f Ms=x u Flags=u Dst=d => i_bs_get_utf16 Ms Fail Flags Dst
 bs_skip_utf16 Fail=f Ms=x u Flags=u => i_bs_get_utf16 Ms Fail Flags x
 
-i_bs_get_utf16 x f I d
+i_bs_get_utf16 x f I x
 
 bs_get_utf32 Fail=f Ms=x Live=u Flags=u Dst=d => \
 	bs_get_integer2 Fail Ms Live i=32 u=1 Flags Dst | \
@@ -1262,15 +1244,15 @@ bs_init2 Fail Sz Words=u==0 Regs Flags Dst => \
 bs_init2 Fail Sz Words Regs Flags Dst => \
   i_bs_init_fail_heap Sz Words Fail Regs Dst
 
-i_bs_init_fail xy j I d
+i_bs_init_fail xy j I x
 
-i_bs_init_fail_heap s I j I d
+i_bs_init_fail_heap s I j I x
 
-i_bs_init I I d
-i_bs_init_heap_bin I I d
+i_bs_init I I x
+i_bs_init_heap_bin I I x
 
-i_bs_init_heap I I I d
-i_bs_init_heap_bin_heap I I I d
+i_bs_init_heap I I I x
+i_bs_init_heap_bin_heap I I I x
 
 
 bs_init_bits Fail Sz=o Words Regs Flags Dst => system_limit Fail
@@ -1283,16 +1265,16 @@ bs_init_bits Fail Sz Words=u==0 Regs Flags Dst => \
 bs_init_bits Fail Sz Words Regs Flags Dst => \
   i_bs_init_bits_fail_heap Sz Words Fail Regs Dst
 
-i_bs_init_bits_fail xy j I d
+i_bs_init_bits_fail xy j I x
 
-i_bs_init_bits_fail_heap s I j I d
+i_bs_init_bits_fail_heap s I j I x
 
-i_bs_init_bits I I d
-i_bs_init_bits_heap I I I d
+i_bs_init_bits I I x
+i_bs_init_bits_heap I I I x
 
 bs_add Fail S1=i==0 S2 Unit=u==1 D => move S2 D
 
-bs_add j s s I d
+bs_add j s s I x
 
 bs_append Fail Size Extra Live Unit Bin Flags Dst => \
   move Bin x | i_bs_append Fail Extra Live Unit Size Dst
@@ -1302,8 +1284,8 @@ bs_private_append Fail Size Unit Bin Flags Dst => \
 
 bs_init_writable
 
-i_bs_append j I I I s d
-i_bs_private_append j I s s d
+i_bs_append j I I I s x
+i_bs_private_append j I s s x
 
 #
 # Storing integers into binaries.
@@ -1324,11 +1306,11 @@ i_new_bs_put_integer_imm j I I s
 
 bs_utf8_size j Src=s Dst=d => i_bs_utf8_size Src Dst
 
-i_bs_utf8_size s d
+i_bs_utf8_size s x
 
 bs_utf16_size j Src=s Dst=d => i_bs_utf16_size Src Dst
 
-i_bs_utf16_size s d
+i_bs_utf16_size s x
 
 bs_put_utf8 Fail u Src=s => i_bs_put_utf8 Fail Src
 
