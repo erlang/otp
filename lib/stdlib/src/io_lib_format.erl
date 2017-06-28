@@ -380,7 +380,7 @@ float_e(_Fl, {Ds,E}, P) ->
 	{Fs,false} -> [Fs|float_exp(E-1)]
     end.
 
-%% float_man([Digit], Icount, Dcount) -> {[Chars],CarryFlag}.
+%% float_man([Digit], Icount, Dcount) -> {[Char],CarryFlag}.
 %%  Generate the characters in the mantissa from the digits with Icount
 %%  characters before the '.' and Dcount decimals. Handle carry and let
 %%  caller decide what to do at top.
@@ -395,7 +395,7 @@ float_man([D|Ds], I, Dc) ->
 	{Cs,false} -> {[D|Cs],false}
     end;
 float_man([], I, Dc) ->				%Pad with 0's
-    {string:chars($0, I, [$.|string:chars($0, Dc)]),false}.
+    {lists:duplicate(I, $0) ++ [$.|lists:duplicate(Dc, $0)],false}.
 
 float_man([D|_], 0) when D >= $5 -> {[],true};
 float_man([_|_], 0) -> {[],false};
@@ -405,7 +405,7 @@ float_man([D|Ds], Dc) ->
 	{Cs,true} -> {[D+1|Cs],false}; 
 	{Cs,false} -> {[D|Cs],false}
     end;
-float_man([], Dc) -> {string:chars($0, Dc),false}.	%Pad with 0's
+float_man([], Dc) -> {lists:duplicate(Dc, $0),false}.	%Pad with 0's
 
 %% float_exp(Exponent) -> [Char].
 %%  Generate the exponent of a floating point number. Always include sign.
@@ -429,7 +429,7 @@ fwrite_f(Fl, F, Adj, P, Pad) when P >= 1 ->
 float_f(Fl, Fd, P) when Fl < 0.0 ->
     [$-|float_f(-Fl, Fd, P)];
 float_f(Fl, {Ds,E}, P) when E =< 0 ->
-    float_f(Fl, {string:chars($0, -E+1, Ds),1}, P);	%Prepend enough 0's
+    float_f(Fl, {lists:duplicate(-E+1, $0)++Ds,1}, P);	%Prepend enough 0's
 float_f(_Fl, {Ds,E}, P) ->
     case float_man(Ds, E, P) of
 	{Fs,true} -> "1" ++ Fs;			%Handle carry
@@ -751,7 +751,7 @@ adjust(Data, Pad, right) -> [Pad|Data].
 flat_trunc(List, N) when is_integer(N), N >= 0 ->
     string:slice(List, 0, N).
 
-%% A deep version of string:chars/2,3
+%% A deep version of lists:duplicate/2
 
 chars(_C, 0) ->
     [];

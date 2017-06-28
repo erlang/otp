@@ -237,12 +237,19 @@ lform({attribute,Line,Name,Arg}, Opts) ->
 lform({function,Line,Name,Arity,Clauses}, Opts) ->
     lfunction({function,Line,Name,Arity,Clauses}, Opts);
 %% These are specials to make it easier for the compiler.
-lform({error,E}, _Opts) ->
-    leaf(format("~p\n", [{error,E}]));
-lform({warning,W}, _Opts) ->
-    leaf(format("~p\n", [{warning,W}]));
+lform({error,_}=E, Opts) ->
+    message(E, Opts);
+lform({warning,_}=W, Opts) ->
+    message(W, Opts);
 lform({eof,_Line}, _Opts) ->
     $\n.
+
+message(M, #options{encoding = Encoding}) ->
+    F = case Encoding of
+            latin1 -> "~p\n";
+            unicode -> "~tp\n"
+        end,
+    leaf(format(F, [M])).
 
 lattribute({attribute,_Line,type,Type}, Opts) ->
     [typeattr(type, Type, Opts),leaf(".\n")];
@@ -904,7 +911,7 @@ maybe_paren(_P, _Prec, Expr) ->
     Expr.
 
 leaf(S) ->
-    {leaf,chars_size(S),S}.
+    {leaf,string:length(S),S}.
 
 %%% Do the formatting. Currently nothing fancy. Could probably have
 %%% done it in one single pass.
@@ -964,7 +971,7 @@ f({seq,Before,After,Sep,LItems}, I0, ST, WT, PP) ->
     Sizes = BSizeL ++ SizeL,
     NSepChars = if
                     is_list(Sep), Sep =/= [] ->
-                        erlang:max(0, length(CharsL)-1);
+                        erlang:max(0, length(CharsL)-1); % not string:length
                     true ->
                         0
                 end,
@@ -1120,7 +1127,7 @@ incr(I, Incr) ->
     I+Incr.
 
 indentation(E, I) when I < 0 ->
-    chars_size(E);
+    string:length(E);
 indentation(E, I0) ->
     I = io_lib_format:indentation(E, I0),
     case has_nl(E) of
@@ -1157,19 +1164,19 @@ write_a_string(S, I, PP) ->
 write_a_string([], _N, _Len, _PP) ->
     [];
 write_a_string(S, N, Len, PP) ->
-    SS = string:sub_string(S, 1, N),
+    SS = string:slice(S, 0, N),
     Sl = write_string(SS, PP),
-    case (chars_size(Sl) > Len) and (N > ?MIN_SUBSTRING) of
+    case (string:length(Sl) > Len) and (N > ?MIN_SUBSTRING) of
         true ->
             write_a_string(S, N-1, Len, PP);
         false ->
             [flat_leaf(Sl) |
-             write_a_string(lists:nthtail(length(SS), S), Len, Len, PP)]
+             write_a_string(string:slice(S, string:length(SS)), Len, Len, PP)]
     end.
 
 flat_leaf(S) ->
     L = lists:flatten(S),
-    {leaf,length(L),L}.
+    {leaf,string:length(L),L}.
 
 write_value(V, PP) ->
     (PP#pp.value_fun)(V).
@@ -1189,15 +1196,6 @@ write_char(C, PP) ->
 
 a0() ->
     erl_anno:new(0).
-
-chars_size([C | Es]) when is_integer(C) ->
-    1 + chars_size(Es);
-chars_size([E | Es]) ->
-    chars_size(E) + chars_size(Es);
-chars_size([]) ->
-    0;
-chars_size(B) when is_binary(B) ->
-    byte_size(B).
 
 -define(N_SPACES, 30).
 

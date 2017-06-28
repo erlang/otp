@@ -3910,10 +3910,9 @@ check_format_string(Fmt) ->
     extract_sequences(Fmt, []).
 
 extract_sequences(Fmt, Need0) ->
-    case string:chr(Fmt, $~) of
-        0 -> {ok,lists:reverse(Need0)};         %That's it
-        Pos ->
-            Fmt1 = string:substr(Fmt, Pos+1),   %Skip ~
+    case string:find(Fmt, [$~]) of
+        nomatch -> {ok,lists:reverse(Need0)};         %That's it
+        [$~|Fmt1] ->
             case extract_sequence(1, Fmt1, Need0) of
                 {ok,Need1,Rest} -> extract_sequences(Rest, Need1);
                 Error -> Error

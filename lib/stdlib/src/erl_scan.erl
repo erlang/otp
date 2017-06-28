@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -752,7 +752,7 @@ scan_string(Cs, St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
         {char_error,Ncs,Error,Nline,Ncol,EndCol} ->
             scan_error(Error, Nline, Ncol, Nline, EndCol, Ncs);
         {error,Nline,Ncol,Nwcs,Ncs} ->
-            Estr = string:substr(Nwcs, 1, 16), % Expanded escape chars.
+            Estr = string:slice(Nwcs, 0, 16), % Expanded escape chars.
             scan_error({string,$\",Estr}, Line0, Col0, Nline, Ncol, Ncs); %"
         {Ncs,Nline,Ncol,Nstr,Nwcs} ->
             Anno = anno(Line0, Col0, St, Nstr),
@@ -767,7 +767,7 @@ scan_qatom(Cs, St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
         {char_error,Ncs,Error,Nline,Ncol,EndCol} ->
             scan_error(Error, Nline, Ncol, Nline, EndCol, Ncs);
         {error,Nline,Ncol,Nwcs,Ncs} ->
-            Estr = string:substr(Nwcs, 1, 16), % Expanded escape chars.
+            Estr = string:slice(Nwcs, 0, 16), % Expanded escape chars.
             scan_error({string,$\',Estr}, Line0, Col0, Nline, Ncol, Ncs); %'
         {Ncs,Nline,Ncol,Nstr,Nwcs} ->
             case catch list_to_atom(Nwcs) of

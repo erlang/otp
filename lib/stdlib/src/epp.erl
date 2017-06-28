@@ -479,7 +479,7 @@ com_enc(_B, _Fun, _N, L, Ps) ->
     com_enc_end([L | Ps]).
 
 com_enc_end(Ps0) ->
-    Ps = lists:reverse([lists:reverse(string:to_lower(P)) || P <- Ps0]),
+    Ps = lists:reverse([lists:reverse(lowercase(P)) || P <- Ps0]),
     com_encoding(Ps).
 
 com_encoding(["latin","1"|_]) ->
@@ -488,6 +488,9 @@ com_encoding(["utf","8"|_]) ->
     utf8;
 com_encoding(_) ->
     throw(no). % Don't try any further
+
+lowercase(S) ->
+    unicode:characters_to_list(string:lowercase(S)).
 
 normalize_typed_record_fields([]) ->
     {typed, []};

@@ -224,8 +224,8 @@ return_sections(S, Bin) ->
 normalize_section(Name, undefined) ->
     {Name, undefined};
 normalize_section(shebang, "#!" ++ Chars) ->
-    Chopped = string:strip(Chars, right, $\n),
-    Stripped = string:strip(Chopped, both),
+    Chopped = string:trim(Chars, trailing, "$\n"),
+    Stripped = string:trim(Chopped, both),
     if
 	Stripped =:= ?SHEBANG ->
 	    {shebang, default};
@@ -233,8 +233,8 @@ normalize_section(shebang, "#!" ++ Chars) ->
 	    {shebang, Stripped}
     end;
 normalize_section(comment, Chars) ->
-    Chopped = string:strip(Chars, right, $\n),
-    Stripped = string:strip(string:strip(Chopped, left, $%), both),
+    Chopped = string:trim(Chars, trailing, "$\n"),
+    Stripped = string:trim(string:trim(Chopped, leading, "$%"), both),
     if
 	Stripped =:= ?COMMENT ->
 	    {comment, default};
@@ -242,8 +242,8 @@ normalize_section(comment, Chars) ->
 	    {comment, Stripped}
     end;
 normalize_section(emu_args, "%%!" ++ Chars) ->
-    Chopped = string:strip(Chars, right, $\n),
-    Stripped = string:strip(Chopped, both),
+    Chopped = string:trim(Chars, trailing, "$\n"),
+    Stripped = string:trim(Chopped, both),
     {emu_args, Stripped};
 normalize_section(Name, Chars) ->
     {Name, Chars}.

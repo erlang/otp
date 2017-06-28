@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -320,7 +320,7 @@ mk_cmd(Host, Name, Args, Waiter, Prog0) ->
 %% emulator and flags as the test node. The return from lib:progname()
 %% could then typically be '/<full_path_to>/cerl -gcov').
 quote_progname(Progname) ->
-    do_quote_progname(string:tokens(to_list(Progname)," ")).
+    do_quote_progname(string:lexemes(to_list(Progname)," ")).
 
 do_quote_progname([Prog]) ->
     "\""++Prog++"\"";
