@@ -3129,6 +3129,7 @@ aux_thread(void *unused)
     }
 #endif
 
+    erts_port_task_pre_alloc_init_thread();
     ssi->event = erts_tse_fetch();
 
     erts_msacc_init_thread("aux", 1, 1);
@@ -3184,9 +3185,6 @@ aux_thread(void *unused)
     }
     return NULL;
 }
-
-static void suspend_scheduler(ErtsSchedulerData *esdp);
-
 
 static void
 scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
@@ -8341,6 +8339,7 @@ sched_thread_func(void *vesdp)
     Uint no = esdp->no;
     erts_tse_t *tse;
 
+    erts_port_task_pre_alloc_init_thread();
     erts_sched_init_time_sup(esdp);
 
     if (no == 1)

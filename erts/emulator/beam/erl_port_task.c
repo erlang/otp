@@ -147,10 +147,10 @@ static void begin_port_cleanup(Port *pp,
 			       ErtsPortTask **execq,
 			       int *processing_busy_q_p);
 
-ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(port_task,
-				 ErtsPortTask,
-				 1000,
-				 ERTS_ALC_T_PORT_TASK)
+ERTS_THR_PREF_QUICK_ALLOC_IMPL(port_task,
+                               ErtsPortTask,
+                               1000,
+                               ERTS_ALC_T_PORT_TASK)
 
 ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(busy_caller_table,
 				 ErtsPortTaskBusyCallerTable,
@@ -2096,6 +2096,7 @@ erts_dequeue_port(ErtsRunQueue *rq)
 void
 erts_port_task_init(void)
 {
-    init_port_task_alloc();
+    init_port_task_alloc(erts_no_schedulers + erts_no_poll_threads
+                         + 1); /* aux_thread */
     init_busy_caller_table_alloc();
 }

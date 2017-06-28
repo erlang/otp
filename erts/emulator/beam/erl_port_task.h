@@ -218,6 +218,9 @@ void erts_port_task_execute(ErtsRunQueue *, Port **);
 void erts_port_task_init(void);
 #endif
 
+/* generated for 'port_task' quick allocator */
+void erts_port_task_pre_alloc_init_thread(void);
+
 void erts_port_task_tmp_handle_detach(ErtsPortTaskHandle *);
 int erts_port_task_abort(ErtsPortTaskHandle *);
 
