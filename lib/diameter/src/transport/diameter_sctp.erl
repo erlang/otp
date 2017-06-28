@@ -112,7 +112,7 @@
         {transport :: pid(),
          ack = false :: boolean(),
          socket :: gen_sctp:sctp_socket(),
-         assoc_id :: gen_sctp:assoc_id()}).  %% next output stream
+         assoc_id :: gen_sctp:assoc_id()}).
 
 %% Listener process state.
 -record(listener,
