@@ -73,6 +73,7 @@ MODULES= \
 	hipe_SUITE \
 	list_bif_SUITE \
 	lttng_SUITE \
+	lcnt_SUITE \
 	map_SUITE \
 	match_spec_SUITE \
 	module_info_SUITE \
