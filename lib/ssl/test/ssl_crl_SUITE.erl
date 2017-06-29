@@ -155,9 +155,15 @@ init_per_testcase(Case, Config0) ->
 	    DataDir = proplists:get_value(data_dir, Config), 
 	    CertDir = filename:join(proplists:get_value(priv_dir, Config0), idp_crl),
 	    {CertOpts, Config} = init_certs(CertDir, idp_crl, Config),
-	    {ok, _} =  make_certs:all(DataDir, CertDir, CertOpts),
-	    ct:timetrap({seconds, 6}),
-	    [{cert_dir, CertDir} | Config];
+	    case make_certs:all(DataDir, CertDir, CertOpts) of
+                {ok, _} ->
+                    ct:timetrap({seconds, 6}),
+                    [{cert_dir, CertDir} | Config];
+                _ ->
+                    end_per_testcase(Case, Config0),
+                    ssl_test_lib:clean_start(),
+                    {skip, "Unable to create IDP crls"}
+            end;
 	false ->
 	    end_per_testcase(Case, Config0),
 	    ssl_test_lib:clean_start(),
