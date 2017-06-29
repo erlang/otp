@@ -388,22 +388,27 @@ init_per_testcase(reuse_session, Config) ->
 
 init_per_testcase(rizzo, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:timetrap({seconds, 40}),
+    ct:timetrap({seconds, 60}),
+    Config;
+
+init_per_testcase(no_rizzo_rc4, Config) ->
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
+    ct:timetrap({seconds, 60}),
     Config;
 
 init_per_testcase(rizzo_one_n_minus_one, Config) ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
-    ct:timetrap({seconds, 40}),
+    ct:timetrap({seconds, 60}),
     rizzo_add_mitigation_option(one_n_minus_one, Config);
 
 init_per_testcase(rizzo_zero_n, Config) ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
-    ct:timetrap({seconds, 40}),
+    ct:timetrap({seconds, 60}),
     rizzo_add_mitigation_option(zero_n, Config);
 
 init_per_testcase(rizzo_disabled, Config) ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
-    ct:timetrap({seconds, 40}),
+    ct:timetrap({seconds, 60}),
     rizzo_add_mitigation_option(disabled, Config);
 
 init_per_testcase(prf, Config) ->
