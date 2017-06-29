@@ -1294,6 +1294,8 @@ check_sane_openssl_version(Version) ->
     case supports_ssl_tls_version(Version) of 
 	true ->
 	    case {Version, os:cmd("openssl version")} of
+                {'sslv3', "OpenSSL 1.0.2" ++ _} ->
+                    false;
 		{_, "OpenSSL 1.0.2" ++ _} ->
 		    true;
 		{_, "OpenSSL 1.0.1" ++ _} ->
@@ -1310,8 +1312,6 @@ check_sane_openssl_version(Version) ->
 		    false;
 		{'dtlsv1.2', "OpenSSL 0" ++ _} ->
 		    false;
-                {'sslv3', "OpenSSL 1.0.2" ++ _} ->
-                    false;
 		{_, _} ->
 		    true
 	    end;
