@@ -65,7 +65,7 @@ main(_) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 parse_unicode_data(Line0, Acc) ->
-    Line = string:strip(Line0, right, $\n),
+    Line = string:chomp(Line0),
     [CodePoint,Name,_Cat,Class,_BiDi,Decomp,
      _N1,_N2,_N3,_BDMirror,_Uni1,_Iso|Case] = tokens(Line, ";"),
     {Dec,Comp} = case to_decomp(Decomp) of
@@ -78,14 +78,14 @@ parse_unicode_data(Line0, Acc) ->
      |Acc].
 
 to_class(String) ->
-    list_to_integer(string:strip(String, both)).
+    list_to_integer(string:trim(String, both)).
 
 to_decomp("") -> [];
 to_decomp("<" ++ Str) ->
-    [Tag,Rest]  = string:tokens(Str, ">"),
+    [Tag,Rest]  = string:lexemes(Str, ">"),
     {list_to_atom(Tag), to_decomp(Rest)};
 to_decomp(CodePoints) ->
-    CPL = string:tokens(CodePoints, " "),
+    CPL = string:lexemes(CodePoints, " "),
     [hex_to_int(CP) || CP <- CPL].
 
 to_case(["","",""]) -> [];
@@ -105,20 +105,20 @@ parse_special_casing(Line, Table) ->
     array:set(CP, Entry#cp{cs=Case}, Table).
 
 to_scase([Lower,Title,Upper|_]) ->
-    {unlist([hex_to_int(CP) || CP <- string:strip(string:tokens(Upper, " "), both)]),
-     unlist([hex_to_int(CP) || CP <- string:strip(string:tokens(Lower, " "), both)]),
-     unlist([hex_to_int(CP) || CP <- string:strip(string:tokens(Title, " "), both)]),
+    {unlist([hex_to_int(CP) || CP <- string:lexemes(Upper, " ")]),
+     unlist([hex_to_int(CP) || CP <- string:lexemes(Lower, " ")]),
+     unlist([hex_to_int(CP) || CP <- string:lexemes(Title, " ")]),
      []}.
 
 parse_case_folding(Line, Table) ->
     [CodePoint, Class0, CaseStr |_Comments] = tokens(Line, ";"),
-    Class = string:strip(Class0, both),
+    Class = string:trim(Class0, both),
     if Class =:= "T" -> Table; %% Do not support localization yet
        Class =:= "S" -> Table; %% Ignore simple
        true ->
             CP = hex_to_int(CodePoint),
             Case = unlist([hex_to_int(CPC) ||
-                              CPC <- string:strip(string:tokens(CaseStr, " "), both)]),
+                              CPC <- string:lexemes(CaseStr, " ")]),
             #cp{cs={U,L,T,_}} = Entry = array:get(CP, Table),
             array:set(CP, Entry#cp{cs={U,L,T,Case}}, Table)
     end.
@@ -869,10 +869,10 @@ optimize_ranges_1(Rs) ->
 
 hex_to_int([]) -> [];
 hex_to_int(HexStr) ->
-    list_to_integer(string:strip(HexStr, both), 16).
+    list_to_integer(string:trim(HexStr, both), 16).
 
 to_atom(Str) ->
-    list_to_atom(string:to_lower(string:strip(Str, both))).
+    list_to_atom(string:lowercase(string:trim(Str, both))).
 
 foldl(Fun, Acc, Fd) ->
     Get = fun() -> file:read_line(Fd) end,
@@ -892,7 +892,7 @@ foldl_1(Fun, Acc, Get) ->
 
 
 
-%% Differs from string:tokens, it returns empty string as token between two delimiters
+%% Differs from string:lexemes, it returns empty string as token between two delimiters
 tokens(S, [C]) ->
     tokens(lists:reverse(S), C, []).
 
