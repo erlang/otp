@@ -6844,7 +6844,7 @@ apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
     }
 
     if (is_not_nil(tmp)) {	/* Must be well-formed list */
-	p->freason = EXC_UNDEF;
+	p->freason = EXC_BADARG;
 	return NULL;
     }
     reg[arity] = fun;
