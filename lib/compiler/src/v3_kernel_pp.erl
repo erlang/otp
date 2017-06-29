@@ -491,7 +491,7 @@ indent(Ctxt) -> indent(Ctxt#ctxt.indent, Ctxt).
 indent(N, _Ctxt) when N =< 0 -> "";
 indent(N, Ctxt) ->
     T = Ctxt#ctxt.tab_width,
-    string:chars($\t, N div T, string:chars($\s, N rem T)).
+    lists:duplicate(N div T, $\t) ++ lists:duplicate(N rem T, $\s).
 
 nl_indent(Ctxt) -> [$\n|indent(Ctxt)].
 
@@ -508,7 +508,7 @@ unindent([$\t|T], N, Ctxt, C) ->
     if N >= Tab ->
 	    unindent(T, N - Tab, Ctxt, C);
        true ->
-	    unindent([string:chars($\s, Tab - N)|T], 0, Ctxt, C)
+            unindent([lists:duplicate(Tab - N, $\s)|T], 0, Ctxt, C)
     end;
 unindent([L|T], N, Ctxt, C) when is_list(L) ->
     unindent(L, N, Ctxt, [T|C]);

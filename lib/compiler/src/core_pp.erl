@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -464,7 +464,7 @@ indent(#ctxt{indent=N}) ->
 	N =< 0 ->
 	    "";
 	true ->
-	    string:chars($\t, N div ?TAB_WIDTH, spaces(N rem ?TAB_WIDTH))
+           lists:duplicate(N div ?TAB_WIDTH, $\t) ++ spaces(N rem ?TAB_WIDTH)
     end.
 
 nl_indent(Ctxt) -> [$\n|indent(Ctxt)].
