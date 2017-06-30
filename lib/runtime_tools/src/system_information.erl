@@ -590,12 +590,12 @@ vsnstr2vsn(VsnStr) ->
     list_to_tuple(lists:map(fun (Part) ->
 				    list_to_integer(Part)
 			    end,
-			    string:tokens(VsnStr, "."))).
+			    string:lexemes(VsnStr, "."))).
 
 rtdepstrs2rtdeps([]) ->
     [];
 rtdepstrs2rtdeps([RTDep | RTDeps]) ->
-    [AppStr, VsnStr] = string:tokens(RTDep, "-"),
+    [AppStr, VsnStr] = string:lexemes(RTDep, "-"),
     [{list_to_atom(AppStr), vsnstr2vsn(VsnStr)} | rtdepstrs2rtdeps(RTDeps)].
 
 build_app_table([], AppTab) ->
