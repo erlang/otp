@@ -56,7 +56,7 @@ init([Pid, ParentFrame, Parent]) ->
 	Table = ets:new(observer_expand,[set,public]),
 	Title=case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, registered_name]) of
 		  [] -> io_lib:format("~p",[Pid]);
-		  {registered_name, Registered} -> io_lib:format("~p (~p)",[Registered, Pid]);
+		  {registered_name, Registered} -> io_lib:format("~tp (~p)",[Registered, Pid]);
 		  undefined -> throw(process_undefined)
 	      end,
 	Frame=wxFrame:new(ParentFrame, ?wxID_ANY, [atom_to_list(node(Pid)), $:, Title],
@@ -171,7 +171,7 @@ handle_info({get_debug_info, From}, State = #state{notebook=Notebook}) ->
     From ! {procinfo_debug, Notebook},
     {noreply, State};
 handle_info(_Info, State) ->
-    %% io:format("~p: ~p, Handle info: ~p~n", [?MODULE, ?LINE, Info]),
+    %% io:format("~p: ~p, Handle info: ~tp~n", [?MODULE, ?LINE, Info]),
     {noreply, State}.
 
 handle_call(Call, From, _State) ->
@@ -263,7 +263,7 @@ init_stack_page(Parent, Pid) ->
 					      wxListCtrl:setItem(LCtrl, Row, 0, observer_lib:to_str({M,F,A})),
 					      FileLine = case Info of
 							     [{file,File},{line,Line}] ->
-								 io_lib:format("~s:~w", [File,Line]);
+								 io_lib:format("~ts:~w", [File,Line]);
 							     _ ->
 								 []
 							 end,
@@ -487,5 +487,5 @@ io_request({put_chars, Encoding, Module, Function, Args}, State) ->
 	    {error, {error, Function}, State}
     end;
 io_request(_Req, State) ->
-    %% io:format("~p: Unknown req: ~p ~n",[?LINE, _Req]),
+    %% io:format("~p: Unknown req: ~tp ~n",[?LINE, _Req]),
     {ok, {error, request}, State}.

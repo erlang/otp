@@ -42,7 +42,7 @@ get_info(_) ->
     {Info,TW}.
 
 format({Bin,q}) when is_binary(Bin) ->
-    [$'|binary_to_list(Bin)];
+    [$'|lists:flatten(io_lib:format("~ts",[Bin]))];
 format({Bin,nq}) when is_binary(Bin) ->
     lists:flatten(io_lib:format("~ts",[Bin]));
 format(D) ->

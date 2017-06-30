@@ -133,7 +133,7 @@ handle_event(Event, _State) ->
     error({unhandled_event, Event}).
 
 handle_info(_Info, State) ->
-    %% io:format("~p: ~p, Handle info: ~p~n", [?MODULE, ?LINE, _Info]),
+    %% io:format("~p: ~p, Handle info: ~tp~n", [?MODULE, ?LINE, _Info]),
     {noreply, State}.
 
 handle_call(Call, From, _State) ->
