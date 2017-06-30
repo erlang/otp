@@ -1286,56 +1286,62 @@ erts_finalize_time_offset(void)
 /* info functions */
 
 void 
-elapsed_time_both(UWord *ms_user, UWord *ms_sys, 
-		  UWord *ms_user_diff, UWord *ms_sys_diff)
+elapsed_time_both(ErtsMonotonicTime *ms_user, ErtsMonotonicTime *ms_sys, 
+		  ErtsMonotonicTime *ms_user_diff, ErtsMonotonicTime *ms_sys_diff)
 {
-    UWord prev_total_user, prev_total_sys;
-    UWord total_user, total_sys;
+    ErtsMonotonicTime prev_total_user, prev_total_sys;
+    ErtsMonotonicTime total_user, total_sys;
     SysTimes now;
 
     sys_times(&now);
-    total_user = (now.tms_utime * 1000) / SYS_CLK_TCK;
-    total_sys = (now.tms_stime * 1000) / SYS_CLK_TCK;
+    total_user = (ErtsMonotonicTime) ((now.tms_utime * 1000) / SYS_CLK_TCK);
+    total_sys = (ErtsMonotonicTime) ((now.tms_stime * 1000) / SYS_CLK_TCK);
 
     if (ms_user != NULL)
 	*ms_user = total_user;
     if (ms_sys != NULL)
 	*ms_sys = total_sys;
 
-    erts_smp_mtx_lock(&erts_timeofday_mtx);
+    if (ms_user_diff || ms_sys_diff) {
+        erts_smp_mtx_lock(&erts_timeofday_mtx);
     
-    prev_total_user = (t_start.tms_utime * 1000) / SYS_CLK_TCK;
-    prev_total_sys = (t_start.tms_stime * 1000) / SYS_CLK_TCK;
-    t_start = now;
+        prev_total_user = (ErtsMonotonicTime) ((t_start.tms_utime * 1000) / SYS_CLK_TCK);
+        prev_total_sys = (ErtsMonotonicTime) ((t_start.tms_stime * 1000) / SYS_CLK_TCK);
+        t_start = now;
     
-    erts_smp_mtx_unlock(&erts_timeofday_mtx);
+        erts_smp_mtx_unlock(&erts_timeofday_mtx);
 
-    if (ms_user_diff != NULL)
-	*ms_user_diff = total_user - prev_total_user;
+        if (ms_user_diff != NULL)
+            *ms_user_diff = total_user - prev_total_user;
 	  
-    if (ms_sys_diff != NULL)
-	*ms_sys_diff = total_sys - prev_total_sys;
+        if (ms_sys_diff != NULL)
+            *ms_sys_diff = total_sys - prev_total_sys;
+    }
 }
 
 
 /* wall clock routines */
 
 void 
-wall_clock_elapsed_time_both(UWord *ms_total, UWord *ms_diff)
+wall_clock_elapsed_time_both(ErtsMonotonicTime *ms_total, ErtsMonotonicTime *ms_diff)
 {
     ErtsMonotonicTime now, elapsed;
-
-    erts_smp_mtx_lock(&erts_timeofday_mtx);
 
     now = time_sup.r.o.get_time();
     update_last_mtime(NULL, now);
 
     elapsed = ERTS_MONOTONIC_TO_MSEC(now);
-    *ms_total = (UWord) elapsed;
-    *ms_diff = (UWord) (elapsed - prev_wall_clock_elapsed);
-    prev_wall_clock_elapsed = elapsed;
 
-    erts_smp_mtx_unlock(&erts_timeofday_mtx);
+    *ms_total = elapsed;
+
+    if (ms_diff) {
+        erts_smp_mtx_lock(&erts_timeofday_mtx);
+
+        *ms_diff = elapsed - prev_wall_clock_elapsed;
+        prev_wall_clock_elapsed = elapsed;
+
+        erts_smp_mtx_unlock(&erts_timeofday_mtx);
+    }
 }
 
 /* get current time */
