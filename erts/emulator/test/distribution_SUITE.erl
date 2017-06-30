@@ -418,18 +418,20 @@ make_busy(Node, Time) when is_integer(Time) ->
     Own = 500,
     freeze_node(Node, Time+Own),
     Data = make_busy_data(),
+    DCtrl = dctrl(Node),
     %% first make port busy
     Pid = spawn_link(fun () ->
                              forever(fun () ->
-                                             dport_reg_send(Node,
-                                                            '__noone__',
-                                                            Data)
+                                             dctrl_dop_reg_send(Node,
+                                                                '__noone__',
+                                                                Data)
                                      end)
                      end),
     receive after Own -> ok end,
     until(fun () ->
-                  case process_info(Pid, status) of
-                      {status, suspended} -> true;
+                  case {DCtrl, process_info(Pid, status)} of
+                      {DPrt, {status, suspended}} when is_port(DPrt) -> true;
+                      {DPid, {status, waiting}} when is_pid(DPid) -> true;
                       _ -> false
                   end
           end),
@@ -1703,37 +1705,38 @@ bad_dist_ext_check_msgs([M|Ms]) ->
             bad_dist_ext_check_msgs(Ms)
     end.
 
+ensure_dctrl(Node) ->
+    case dctrl(Node) of
+        undefined ->
+            pong = net_adm:ping(Node),
+            dctrl(Node);
+        DCtrl ->
+            DCtrl
+    end.
 
-dport_reg_send(Node, Name, Msg) ->
-    DPrt = case dport(Node) of
-               undefined ->
-                   pong = net_adm:ping(Node),
-                   dport(Node);
-               Prt ->
-                   Prt
-           end,
-    port_command(DPrt, [dmsg_hdr(),
-                        dmsg_ext({?DOP_REG_SEND,
-                                  self(),
-                                  ?COOKIE,
-                                  Name}),
-                        dmsg_ext(Msg)]).
+dctrl_send(DPrt, Data) when is_port(DPrt) ->
+    port_command(DPrt, Data);
+dctrl_send(DPid, Data) when is_pid(DPid) ->
+    Ref = make_ref(),
+    DPid ! {send, self(), Ref, Data},
+    receive {Ref, Res} -> Res end.
 
+dctrl_dop_reg_send(Node, Name, Msg) ->
+    dctrl_send(ensure_dctrl(Node),
+               [dmsg_hdr(),
+                dmsg_ext({?DOP_REG_SEND,
+                          self(),
+                          ?COOKIE,
+                          Name}),
+                dmsg_ext(Msg)]).
 
-dport_send(To, Msg) ->
+dctrl_dop_send(To, Msg) ->
     Node = node(To),
-    DPrt = case dport(Node) of
-               undefined ->
-                   pong = net_adm:ping(Node),
-                   dport(Node);
-               Prt ->
-                   Prt
-           end,
-    port_command(DPrt, [dmsg_hdr(),
-                        dmsg_ext({?DOP_SEND,
-                                  ?COOKIE,
-                                  To}),
-                        dmsg_ext(Msg)]).
+    dctrl_send(ensure_dctrl(Node),
+               [dmsg_hdr(),
+                dmsg_ext({?DOP_SEND, ?COOKIE, To}),
+                dmsg_ext(Msg)]).
+
 send_bad_structure(Offender,Victim,Bad,WhereToPutSelf) ->
     send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,[]).
 send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,PayLoad) ->
@@ -1743,7 +1746,7 @@ send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,PayLoad) ->
           fun () ->
                   Node = node(Victim),
                   pong = net_adm:ping(Node),
-                  DPrt = dport(Node),
+                  DCtrl = dctrl(Node),
                   Bad1 = case WhereToPutSelf of
                              0 ->
                                  Bad;
@@ -1756,7 +1759,7 @@ send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,PayLoad) ->
                       [] -> [];
                       _Other -> [dmsg_ext(PayLoad)]
                   end,
-                  port_command(DPrt, DData),
+                  dctrl_send(DCtrl, DData),
                   Parent ! {DData,Done}
           end),
     receive
@@ -1784,11 +1787,11 @@ send_bad_msgs(BadNode, To, Repeat) when is_atom(BadNode),
                fun () ->
                        Node = node(To),
                        pong = net_adm:ping(Node),
-                       DPrt = dport(Node),
+                       DCtrl = dctrl(Node),
                        DData = [dmsg_hdr(),
                                 dmsg_ext({?DOP_SEND, ?COOKIE, To}),
                                 dmsg_bad_atom_cache_ref()],
-                       repeat(fun () -> port_command(DPrt, DData) end, Repeat),
+		       repeat(fun () -> dctrl_send(DCtrl, DData) end, Repeat),
                        Parent ! Done
                end),
     receive Done -> ok end.
@@ -1810,11 +1813,12 @@ send_bad_ctl(BadNode, ToNode) when is_atom(BadNode), is_atom(ToNode) ->
                                        replace}),
                        CtlBeginSize = size(Ctl) - size(Replace),
                        <<CtlBegin:CtlBeginSize/binary, Replace/binary>> = Ctl,
-                       port_command(dport(ToNode),
-                                    [dmsg_fake_hdr2(),
-                                     CtlBegin,
-                                     dmsg_bad_atom_cache_ref(),
-                                     dmsg_ext({a, message})]),
+                       DCtrl = dctrl(ToNode),
+                       Data = [dmsg_fake_hdr2(),
+                               CtlBegin,
+                               dmsg_bad_atom_cache_ref(),
+                               dmsg_ext({a, message})],
+                       dctrl_send(DCtrl, Data),
                        Parent ! Done
                end),
     receive Done -> ok end.
@@ -1827,17 +1831,17 @@ send_bad_dhdr(BadNode, ToNode) when is_atom(BadNode), is_atom(ToNode) ->
     spawn_link(BadNode,
                fun () ->
                        pong = net_adm:ping(ToNode),
-                       port_command(dport(ToNode), dmsg_bad_hdr()),
+                       dctrl_send(dctrl(ToNode), dmsg_bad_hdr()),
                        Parent ! Done
                end),
     receive Done -> ok end.
 
-dport(Node) when is_atom(Node) ->
+dctrl(Node) when is_atom(Node) ->
     case catch erts_debug:get_internal_state(available_internal_state) of
         true -> true;
         _ -> erts_debug:set_internal_state(available_internal_state, true)
     end,
-    erts_debug:get_internal_state({dist_port, Node}).
+    erts_debug:get_internal_state({dist_ctrl, Node}).
 
 dmsg_hdr() ->
     [131, % Version Magic
@@ -1979,7 +1983,7 @@ freeze_node(Node, MS) ->
                fun () ->
                        erts_debug:set_internal_state(available_internal_state,
                                                      true),
-                       dport_send(Freezer, DoingIt),
+                       dctrl_dop_send(Freezer, DoingIt),
                        receive after Own -> ok end,
                        erts_debug:set_internal_state(block, MS+Own)
                end),

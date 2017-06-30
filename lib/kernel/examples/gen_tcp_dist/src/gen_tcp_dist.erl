@@ -736,6 +736,15 @@ dist_cntrlr_output_loop(DHandle, Socket) ->
             end,
             dist_cntrlr_output_loop(DHandle, Socket);
 
+        {send, From, Ref, Data} ->
+            %% This is for testing only!
+            %%
+            %% Needed by some OTP distribution
+            %% test suites...
+            sock_send(Socket, Data),
+            From ! {Ref, ok},
+            dist_cntrlr_output_loop(DHandle, Socket);
+
         _ ->
             %% Drop garbage message...
             dist_cntrlr_output_loop(DHandle, Socket)

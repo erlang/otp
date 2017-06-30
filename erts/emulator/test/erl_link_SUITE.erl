@@ -533,7 +533,7 @@ freeze_node(Node, MS) ->
                fun () ->
                        erts_debug:set_internal_state(available_internal_state,
                                                      true),
-                       dport_send(Freezer, DoingIt),
+                       dctrl_dop_send(Freezer, DoingIt),
                        receive after Own -> ok end,
                        erts_debug:set_internal_state(block, MS+Own)
                end),
@@ -544,20 +544,22 @@ make_busy(Node, Time) when is_integer(Time) ->
     Own = 500,
     freeze_node(Node, Time+Own), 
     Data = busy_data(),
+    DCtrl = dctrl(Node),
     %% first make port busy
     Pid = spawn_link(fun () ->
                              forever(fun () ->
-                                             dport_reg_send(Node,
-                                                            '__noone__',
-                                                            Data)
+                                             dctrl_dop_reg_send(Node,
+                                                                '__noone__',
+                                                                Data)
                                      end)
                      end),
     receive after Own -> ok end,
     wait_until(fun () ->
-                       case process_info(Pid, status) of
-                           {status, suspended} -> true;
-                           _ -> false
-                       end
+                  case {DCtrl, process_info(Pid, status)} of
+                      {DPrt, {status, suspended}} when is_port(DPrt) -> true;
+                      {DPid, {status, waiting}} when is_pid(DPid) -> true;
+                      _ -> false
+                  end
                end),
     %% then dist entry
     make_busy(Node, [nosuspend], Data),
@@ -1048,42 +1050,45 @@ stop_node(Node) ->
 -define(DOP_DEMONITOR_P,	20).
 -define(DOP_MONITOR_P_EXIT,	21).
 
-dport_send(To, Msg) ->
-    Node = node(To),
-    DPrt = case dport(Node) of
-               undefined ->
-                   pong = net_adm:ping(Node),
-                   dport(Node);
-               Prt ->
-                   Prt
-           end,
-    port_command(DPrt, [dmsg_hdr(),
-                        dmsg_ext({?DOP_SEND,
-                                  ?COOKIE,
-                                  To}),
-                        dmsg_ext(Msg)]).
+ensure_dctrl(Node) ->
+    case dctrl(Node) of
+        undefined ->
+            pong = net_adm:ping(Node),
+            dctrl(Node);
+        DCtrl ->
+            DCtrl
+    end.
 
-dport_reg_send(Node, Name, Msg) ->
-    DPrt = case dport(Node) of
-               undefined ->
-                   pong = net_adm:ping(Node),
-                   dport(Node);
-               Prt ->
-                   Prt
-           end,
-    port_command(DPrt, [dmsg_hdr(),
-                        dmsg_ext({?DOP_REG_SEND,
-                                  self(),
-                                  ?COOKIE,
-                                  Name}),
-                        dmsg_ext(Msg)]).
+dctrl_send(DPrt, Data) when is_port(DPrt) ->
+    port_command(DPrt, Data);
+dctrl_send(DPid, Data) when is_pid(DPid) ->
+    Ref = make_ref(),
+    DPid ! {send, self(), Ref, Data},
+    receive {Ref, Res} -> Res end.
 
-dport(Node) when is_atom(Node) ->
+dctrl_dop_send(To, Msg) ->
+    dctrl_send(ensure_dctrl(node(To)),
+               [dmsg_hdr(),
+                dmsg_ext({?DOP_SEND,
+                          ?COOKIE,
+                          To}),
+                dmsg_ext(Msg)]).
+
+dctrl_dop_reg_send(Node, Name, Msg) ->
+    dctrl_send(ensure_dctrl(Node),
+               [dmsg_hdr(),
+                dmsg_ext({?DOP_REG_SEND,
+                          self(),
+                          ?COOKIE,
+                          Name}),
+                dmsg_ext(Msg)]).
+
+dctrl(Node) when is_atom(Node) ->
     case catch erts_debug:get_internal_state(available_internal_state) of
         true -> true;
         _ -> erts_debug:set_internal_state(available_internal_state, true)
     end,
-    erts_debug:get_internal_state({dist_port, Node}).
+    erts_debug:get_internal_state({dist_ctrl, Node}).
 
 dmsg_hdr() ->
     [131, % Version Magic
