@@ -1368,9 +1368,9 @@ rm_leading_slash(Tail)      -> Tail.
 parse_attributes([$?|Tail]) ->
     case split_string(Tail,$?) of
         {[],Attributes} ->
-	    {[],{attributes,string:tokens(Attributes,",")}};
+	    {[],{attributes,string:lexemes(Attributes,",")}};
         {Attributes,Rest} ->
-            {Rest,{attributes,string:tokens(Attributes,",")}}
+            {Rest,{attributes,string:lexemes(Attributes,",")}}
     end.
 
 parse_hostport(Str) ->
