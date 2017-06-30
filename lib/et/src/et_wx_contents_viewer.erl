@@ -659,7 +659,7 @@ pad_string(Int, MinLen, Char, Dir) when is_integer(Int) ->
 pad_string(Atom, MinLen, Char, Dir) when is_atom(Atom) ->
     pad_string(atom_to_list(Atom), MinLen, Char, Dir);
 pad_string(String, MinLen, Char, Dir) when is_integer(MinLen), MinLen >= 0 ->
-    Len = length(String),
+    Len = string:length(String),
     case {Len >= MinLen, Dir} of
         {true, _} ->
             String;

@@ -2077,7 +2077,7 @@ name_to_string(Name) ->
 pad_string(Atom, MinLen) when is_atom(Atom) ->
     pad_string(atom_to_list(Atom), MinLen);
 pad_string(String, MinLen) when is_integer(MinLen), MinLen >= 0 ->
-    Len = length(String),
+    Len = string:length(String),
     case Len >= MinLen of
         true ->
             String;
