@@ -217,6 +217,8 @@ atom discard
 atom display_items
 atom dist
 atom dist_cmd
+atom dist_ctrl_put_data
+atom dist_data
 atom Div='/'
 atom div
 atom dlink

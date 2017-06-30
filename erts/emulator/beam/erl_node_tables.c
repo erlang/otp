@@ -102,6 +102,7 @@ dist_table_alloc(void *dep_tmpl)
     erts_smp_rwmtx_init_opt_x(&dep->rwmtx, &rwmtx_opt, "dist_entry", chnl_nr);
     dep->sysname			= sysname;
     dep->cid				= NIL;
+    erts_smp_atomic_init_nob(&dep->input_handler, (erts_aint_t) NIL);
     dep->connection_id			= 0;
     dep->status				= 0;
     dep->flags				= 0;
@@ -115,10 +116,14 @@ dist_table_alloc(void *dep_tmpl)
     erts_smp_mtx_init_x(&dep->qlock, "dist_entry_out_queue", chnl_nr);
     erts_smp_atomic32_init_nob(&dep->qflgs, 0);
     erts_smp_atomic_init_nob(&dep->qsize, 0);
+    erts_smp_atomic64_init_nob(&dep->in, 0);
+    erts_smp_atomic64_init_nob(&dep->out, 0);
     dep->out_queue.first		= NULL;
     dep->out_queue.last			= NULL;
     dep->suspended			= NULL;
 
+    dep->tmp_out_queue.first    	= NULL;
+    dep->tmp_out_queue.last     	= NULL;
     dep->finalized_out_queue.first	= NULL;
     dep->finalized_out_queue.last	= NULL;
 
@@ -383,7 +388,7 @@ erts_set_dist_entry_not_connected(DistEntry *dep)
     erts_smp_rwmtx_rwlock(&erts_dist_table_rwmtx);
 
     ASSERT(dep != erts_this_dist_entry);
-    ASSERT(is_internal_port(dep->cid));
+    ASSERT(is_internal_port(dep->cid) || is_internal_pid(dep->cid));
 
     if(dep->flags & DFLAG_PUBLISHED) {
 	if(dep->prev) {
@@ -438,7 +443,7 @@ erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
 
     ASSERT(dep != erts_this_dist_entry);
     ASSERT(is_nil(dep->cid));
-    ASSERT(is_internal_port(cid));
+    ASSERT(is_internal_port(cid) || is_internal_pid(cid));
 
     if(dep->prev) {
 	ASSERT(is_in_de_list(dep, erts_not_connected_dist_entries));
@@ -458,10 +463,19 @@ erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
     dep->status |= ERTS_DE_SFLG_CONNECTED;
     dep->flags = flags;
     dep->cid = cid;
+    erts_smp_atomic_set_nob(&dep->input_handler,
+                            (erts_aint_t) cid);
+
     dep->connection_id++;
     dep->connection_id &= ERTS_DIST_EXT_CON_ID_MASK;
     dep->prev = NULL;
 
+    erts_smp_atomic64_set_nob(&dep->in, 0);
+    erts_smp_atomic64_set_nob(&dep->out, 0);
+    erts_smp_atomic32_set_nob(&dep->qflgs,
+                              (is_internal_port(cid)
+                               ? ERTS_DE_QFLG_PORT_CTRL
+                               : ERTS_DE_QFLG_PROC_CTRL));
     if(flags & DFLAG_PUBLISHED) {
 	dep->next = erts_visible_dist_entries;
 	if(erts_visible_dist_entries) {
@@ -1397,6 +1411,14 @@ setup_reference_table(void)
 		insert_links(ERTS_P_LINKS(proc), proc->common.id);
 	    if (ERTS_P_MONITORS(proc))
 		insert_monitors(ERTS_P_MONITORS(proc), proc->common.id);
+            {
+                DistEntry *dep = ERTS_PROC_GET_DIST_ENTRY(proc);
+                if (dep)
+                    insert_dist_entry(dep,
+                                      CTRL_REF,
+                                      proc->common.id,
+                                      0);
+            }
 	}
     }
     

@@ -3938,12 +3938,12 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 			       DFLAG_BIT_BINARIES);
 		BIF_RET(erts_term_to_binary(BIF_P, tp[2], 0, dflags));
 	    }
-	    else if (ERTS_IS_ATOM_STR("dist_port", tp[1])) {
+	    else if (ERTS_IS_ATOM_STR("dist_ctrl", tp[1])) {
 		Eterm res = am_undefined;
 		DistEntry *dep = erts_sysname_to_connected_dist_entry(tp[2]);
 		if (dep) {
 		    erts_smp_de_rlock(dep);
-		    if (is_internal_port(dep->cid))
+		    if (is_internal_port(dep->cid) || is_internal_pid(dep->cid))
 			res = dep->cid;
 		    erts_smp_de_runlock(dep);
 		    erts_deref_dist_entry(dep);

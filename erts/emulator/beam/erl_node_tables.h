@@ -61,11 +61,17 @@
 #define ERTS_DE_SFLGS_ALL			(ERTS_DE_SFLG_CONNECTED \
 						 | ERTS_DE_SFLG_EXITING)
 
-#define ERTS_DE_QFLG_BUSY			(((Uint32) 1) <<  0)
-#define ERTS_DE_QFLG_EXIT			(((Uint32) 1) <<  1)
+#define ERTS_DE_QFLG_BUSY			(((erts_aint32_t) 1) <<  0)
+#define ERTS_DE_QFLG_EXIT			(((erts_aint32_t) 1) <<  1)
+#define ERTS_DE_QFLG_REQ_INFO			(((erts_aint32_t) 1) <<  2)
+#define ERTS_DE_QFLG_PORT_CTRL                  (((erts_aint32_t) 1) <<  3)
+#define ERTS_DE_QFLG_PROC_CTRL                  (((erts_aint32_t) 1) <<  4)
 
 #define ERTS_DE_QFLGS_ALL			(ERTS_DE_QFLG_BUSY \
-						 | ERTS_DE_QFLG_EXIT)
+						 | ERTS_DE_QFLG_EXIT \
+                                                 | ERTS_DE_QFLG_REQ_INFO \
+                                                 | ERTS_DE_QFLG_PORT_CTRL \
+                                                 | ERTS_DE_QFLG_PROC_CTRL)
 
 #if defined(ARCH_64)
 #define ERTS_DIST_OUTPUT_BUF_DBG_PATTERN ((Uint) 0xf713f713f713f713UL)
@@ -112,6 +118,7 @@ typedef struct dist_entry_ {
     erts_smp_rwmtx_t rwmtx;     /* Protects all fields below until lck_mtx. */
     Eterm sysname;		/* name@host atom for efficiency */
     Uint32 creation;		/* creation of connected node */
+    erts_smp_atomic_t input_handler; /* Input handler */
     Eterm cid;			/* connection handler (pid or port), NIL == free */
     Uint32 connection_id;	/* Connection id incremented on connect */
     Uint32 status;		/* Slot status, like exiting reserved etc */
@@ -135,9 +142,12 @@ typedef struct dist_entry_ {
     erts_smp_mtx_t qlock;       /* Protects qflgs and out_queue */
     erts_smp_atomic32_t qflgs;
     erts_smp_atomic_t qsize;
+    erts_smp_atomic64_t in;
+    erts_smp_atomic64_t out;
     ErtsDistOutputQueue out_queue;
     struct ErtsProcList_ *suspended;
 
+    ErtsDistOutputQueue tmp_out_queue;
     ErtsDistOutputQueue finalized_out_queue;
     erts_smp_atomic_t dist_cmd_scheduled;
     ErtsPortTaskHandle dist_cmd;

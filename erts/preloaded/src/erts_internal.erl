@@ -61,6 +61,8 @@
 
 -export([trace/3, trace_pattern/3]).
 
+-export([dist_ctrl_put_data/2]).
+
 %% Auto import name clash
 -export([check_process_code/1]).
 
@@ -461,3 +463,38 @@ trace(_PidSpec, _How, _FlagList) ->
       FlagList :: [ ].
 trace_pattern(_MFA, _MatchSpec, _FlagList) ->
     erlang:nif_error(undefined).
+
+-spec dist_ctrl_put_data(DHandle, Data) -> 'ok' when
+      DHandle :: erlang:dist_handle(),
+      Data :: iolist().
+
+dist_ctrl_put_data(DHandle, IoList) ->
+    %%
+    %% Helper for erlang:dist_ctrl_put_data/2
+    %%
+    %% erlang:dist_ctrl_put_data/2 traps to
+    %% this function if second argument is
+    %% a list...
+    %%
+    try
+        Binary = erlang:iolist_to_binary(IoList),
+        %% Restart erlang:dist_ctrl_put_data/2
+        %% with the iolist converted to a binary...
+        erlang:dist_ctrl_put_data(DHandle, Binary)
+    catch
+        Class : Reason ->
+            %% Throw exception as if thrown from
+            %% erlang:dist_ctrl_put_data/2 ...
+            RootST = try erlang:error(Reason)
+                     catch
+                         error:Reason ->
+                             case erlang:get_stacktrace() of
+                                 [] -> [];
+                                 ST -> tl(ST)
+                             end
+                     end,
+	    StackTrace = [{erlang, dist_ctrl_put_data,
+                           [DHandle, IoList], []}
+                          | RootST],
+	    erlang:raise(Class, Reason, StackTrace)
+    end.

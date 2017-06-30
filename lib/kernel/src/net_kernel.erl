@@ -423,8 +423,8 @@ handle_call({connect, Type, Node}, From, State) ->
 		{ok, SetupPid} ->
 		    Owners = [{SetupPid, Node} | State#state.conn_owners],
 		    {noreply,State#state{conn_owners=Owners}};
-		_  ->
-		    ?connect_failure(Node, {setup_call, failed}),
+		_Error  ->
+		    ?connect_failure(Node, {setup_call, failed, _Error}),
 		    async_reply({reply, false, State}, From)
 	    end
     end;

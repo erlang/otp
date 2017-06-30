@@ -181,6 +181,14 @@
 	</taglist>
       </desc>
     </datatype>
+
+    <datatype>
+      <name name="dist_handle"></name>
+      <desc>
+        <p>An opaque handle identifing a distribution channel.</p>
+      </desc>
+    </datatype>
+
   </datatypes>
 
   <funcs>
@@ -1211,6 +1219,152 @@ end</code>
         <warning>
           <p>This BIF is intended for debugging only.</p>
         </warning>
+      </desc>
+    </func>
+
+    <func>
+      <name name="dist_ctrl_get_data" arity="1"/>
+      <fsummary>Get distribution channel data to pass to another node.</fsummary>
+      <desc>
+        <p>
+	  Get distribution channel data from the local node that is
+	  to be passed to the remote node. The distribution channel
+	  is identified by <c><anno>DHandle</anno></c>. If no data
+	  is available, the atom <c>none</c> is returned. One
+	  can request to be informed by a message when more
+	  data is available by calling
+	  <seealso marker="erlang#dist_ctrl_get_data_notification/1"><c>erlang:dist_ctrl_get_data_notification(DHandle)</c></seealso>.
+	</p>
+	<note><p>
+	  The data retreived from this function needs to be delivered
+	  as is to the node on the other end in the exact same order,
+	  with no loss of data what so ever, as retrived from this
+	  function.
+	</p></note>
+	<note><p>
+	  Only the process registered as distribution
+	  controller for the distribution channel identified by
+	  <c><anno>DHandle</anno></c> is allowed to call this
+	  function.
+	</p></note>
+	<p>
+	  This function is used when implementing an alternative
+	  distribution carrier using processes as distribution
+	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  via the callback
+	  <seealso marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seealso>.
+	  More information about this can be found in the documentation of
+	  <seealso marker="erts:alt_dist#distribution_module">ERTS
+	  User's Guide ➜ How to implement an Alternative Carrier
+	  for the Erlang Distribution ➜ Distribution Module</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="dist_ctrl_get_data_notification" arity="1"/>
+      <fsummary>Request notification about available outgoing distribution channel data.</fsummary>
+      <desc>
+        <p>
+	  Request notification when more data is available to
+	  fetch using
+	  <seealso marker="erlang#dist_ctrl_get_data/1"><c>erlang:dist_ctrl_get_data(DHandle)</c></seealso>
+	  for the distribution channel identified by
+	  <c><anno>DHandle</anno></c>. When more data is present,
+	  the caller will be sent the message <c>dist_data</c>.
+	  Once a <c>dist_data</c> messages has been sent, no
+	  more <c>dist_data</c> messages will be sent until
+	  the <c>dist_ctrl_get_data_notification/1</c> function has been called
+	  again.
+	</p>
+	<note><p>
+	  Only the process registered as distribution
+	  controller for the distribution channel identified by
+	  <c><anno>DHandle</anno></c> is allowed to call this
+	  function.
+	</p></note>
+	<p>
+	  This function is used when implementing an alternative
+	  distribution carrier using processes as distribution
+	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  via the callback
+	  <seealso marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seealso>.
+	  More information about this can be found in the documentation of
+	  <seealso marker="erts:alt_dist#distribution_module">ERTS
+	  User's Guide ➜ How to implement an Alternative Carrier
+	  for the Erlang Distribution ➜ Distribution Module</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="dist_ctrl_input_handler" arity="2"/>
+      <fsummary>Register distribution channel input handler process.</fsummary>
+      <desc>
+        <p>
+	  Register an alternate input handler process for the
+	  distribution channel identified by <c><anno>DHandle</anno></c>.
+	  Once this function has been called, <c><anno>InputHandler</anno></c>
+	  is the only process allowed to call
+	  <seealso marker="erlang#dist_ctrl_put_data/2"><c>erlang:dist_ctrl_put_data(DHandle, Data)</c></seealso>
+	  with the <c><anno>DHandle</anno></c> identifing this distribution
+	  channel.
+	</p>
+	<note><p>
+	  Only the process registered as distribution
+	  controller for the distribution channel identified by
+	  <c><anno>DHandle</anno></c> is allowed to call this
+	  function.
+	</p></note>
+	<p>
+	  This function is used when implementing an alternative
+	  distribution carrier using processes as distribution
+	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  via the callback
+	  <seealso marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seealso>.
+	  More information about this can be found in the documentation of
+	  <seealso marker="erts:alt_dist#distribution_module">ERTS
+	  User's Guide ➜ How to implement an Alternative Carrier
+	  for the Erlang Distribution ➜ Distribution Module</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="dist_ctrl_put_data" arity="2"/>
+      <fsummary>Pass data into the VM from a distribution channel.</fsummary>
+      <desc>
+        <p>
+	  Deliver distribution channel data from a remote node to the
+	  local node.
+	</p>
+	<note><p>
+	  The data passed to the VM using this function needs to be
+	  passed in the exact same order, and with no loss of data
+	  what so ever, as sent from the node on the other end.
+	</p></note>
+	<note><p>
+	  Only the process registered as distribution
+	  controller for the distribution channel identified by
+	  <c><anno>DHandle</anno></c> is allowed to call this
+	  function unless an alternate input handler process
+	  has been registered using
+	  <seealso marker="erlang#dist_ctrl_input_handler/2"><c>erlang:dist_ctrl_input_handler(DHandle, InputHandler)</c></seealso>.
+	  If an alternate input handler has been registered, only
+	  the registered input handler process is allowed to call
+	  this function.
+	</p></note>
+	<p>
+	  This function is used when implementing an alternative
+	  distribution carrier using processes as distribution
+	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  via the callback
+	  <seealso marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seealso>.
+	  More information about this can be found in the documentation of
+	  <seealso marker="erts:alt_dist#distribution_module">ERTS
+	  User's Guide ➜ How to implement an Alternative Carrier
+	  for the Erlang Distribution ➜ Distribution Module</seealso>.
+	</p>
       </desc>
     </func>
 

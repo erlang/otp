@@ -336,15 +336,11 @@ handshake_we_started(#hs_data{request_type=ReqType,
 handshake_we_started(OldHsData) when element(1,OldHsData) =:= hs_data ->
     handshake_we_started(convert_old_hsdata(OldHsData)).
 
-convert_old_hsdata({hs_data, KP, ON, TN, S, T, TF, A, OV, OF, OS, FS, FR,
-		    FS_PRE, FS_POST, FG, FA, MFT, MFG, RT}) ->
-    #hs_data{
-       kernel_pid = KP, other_node = ON, this_node = TN, socket = S, timer = T,
-       this_flags = TF, allowed = A, other_version = OV, other_flags = OF,
-       other_started = OS, f_send = FS, f_recv = FR, f_setopts_pre_nodeup = FS_PRE,
-       f_setopts_post_nodeup = FS_POST, f_getll = FG, f_address = FA,
-       mf_tick = MFT, mf_getstat = MFG, request_type = RT}.
-
+convert_old_hsdata(OldHsData) ->
+    OHSDL = tuple_to_list(OldHsData),
+    NoMissing = tuple_size(#hs_data{}) - tuple_size(OldHsData),
+    true = NoMissing > 0,
+    list_to_tuple(OHSDL ++ lists:duplicate(NoMissing, undefined)).
 
 %% --------------------------------------------------------------
 %% The connection has been established.
@@ -359,15 +355,20 @@ connection(#hs_data{other_node = Node,
     PType = publish_type(HSData#hs_data.other_flags), 
     case FPreNodeup(Socket) of
 	ok -> 
-	    do_setnode(HSData), % Succeeds or exits the process.
+	    DHandle = do_setnode(HSData), % Succeeds or exits the process.
 	    Address = FAddress(Socket,Node),
 	    mark_nodeup(HSData,Address),
 	    case FPostNodeup(Socket) of
 		ok ->
+                    case HSData#hs_data.f_handshake_complete of
+                        undefined -> ok;
+                        HsComplete -> HsComplete(Socket, Node, DHandle)
+                    end,
 		    con_loop({HSData#hs_data.kernel_pid,
 			      Node,
 			      Socket,
 			      PType,
+                              DHandle,
 			      HSData#hs_data.mf_tick,
 			      HSData#hs_data.mf_getstat,
 			      HSData#hs_data.mf_setopts,
@@ -425,18 +426,16 @@ do_setnode(#hs_data{other_node = Node, socket = Socket,
 		   [Node, Port, {publish_type(Flags), 
 				 '(', Flags, ')', 
 				 Version}]),
-	    case (catch 
-		  erlang:setnode(Node, Port, 
-				 {Flags, Version, '', ''})) of
-		{'EXIT', {system_limit, _}} ->
+            try
+                erlang:setnode(Node, Port, {Flags, Version, '', ''})
+            catch
+                error:system_limit ->
 		    error_msg("** Distribution system limit reached, "
 			      "no table space left for node ~w ** ~n",
 			      [Node]),
 		    ?shutdown(Node);
-		{'EXIT', Other} ->
-		    exit(Other);
-		_Else ->
-		    ok
+                error:Other ->
+                    exit({Other, erlang:get_stacktrace()})
 	    end;
 	_ ->
 	    error_msg("** Distribution connection error, "
@@ -468,7 +467,13 @@ mark_nodeup(#hs_data{kernel_pid = Kernel,
 	    ?shutdown(Node)
     end.
 
-con_loop({Kernel, Node, Socket, Type, MFTick, MFGetstat, MFSetOpts, MFGetOpts}=ConData,
+getstat(DHandle, _Socket, undefined) ->
+    erlang:dist_get_stat(DHandle);
+getstat(_DHandle, Socket, MFGetstat) ->
+    MFGetstat(Socket).
+
+con_loop({Kernel, Node, Socket, Type, DHandle, MFTick, MFGetstat,
+          MFSetOpts, MFGetOpts}=ConData,
 	 Tick) ->
     receive
 	{tcp_closed, Socket} ->
@@ -476,7 +481,7 @@ con_loop({Kernel, Node, Socket, Type, MFTick, MFGetstat, MFSetOpts, MFGetOpts}=C
 	{Kernel, disconnect} ->
 	    ?shutdown2(Node, disconnected);
 	{Kernel, aux_tick} ->
-	    case MFGetstat(Socket) of
+	    case getstat(DHandle, Socket, MFGetstat) of
 		{ok, _, _, PendWrite} ->
 		    send_tick(Socket, PendWrite, MFTick);
 		_ ->
@@ -484,7 +489,7 @@ con_loop({Kernel, Node, Socket, Type, MFTick, MFGetstat, MFSetOpts, MFGetOpts}=C
 	    end,
 	    con_loop(ConData, Tick);
 	{Kernel, tick} ->
-	    case send_tick(Socket, Tick, Type, 
+	    case send_tick(DHandle, Socket, Tick, Type, 
 			   MFTick, MFGetstat) of
 		{ok, NewTick} ->
 		    con_loop(ConData, NewTick);
@@ -497,7 +502,7 @@ con_loop({Kernel, Node, Socket, Type, MFTick, MFGetstat, MFSetOpts, MFGetOpts}=C
 		    ?shutdown2(Node, send_net_tick_failed)
 	    end;
 	{From, get_status} ->
-	    case MFGetstat(Socket) of
+	    case getstat(DHandle, Socket, MFGetstat) of
 		{ok, Read, Write, _} ->
 		    From ! {self(), get_status, {ok, Read, Write}},
 		    con_loop(ConData, Tick);
@@ -735,14 +740,14 @@ send_status(#hs_data{socket = Socket, other_node = Node,
 %% we haven't read anything as a hidden node only ticks when it receives 
 %% a TICK !! 
 	
-send_tick(Socket, Tick, Type, MFTick, MFGetstat) ->
+send_tick(DHandle, Socket, Tick, Type, MFTick, MFGetstat) ->
     #tick{tick = T0,
 	  read = Read,
 	  write = Write,
 	  ticked = Ticked} = Tick,
     T = T0 + 1,
     T1 = T rem 4,
-    case MFGetstat(Socket) of
+    case getstat(DHandle, Socket, MFGetstat) of
 	{ok, Read, _, _} when  Ticked =:= T ->
 	    {error, not_responding};
 	{ok, Read, W, Pend} when Type =:= hidden ->
@@ -771,11 +776,10 @@ send_tick(Socket, Tick, Type, MFTick, MFGetstat) ->
 	    Error
     end.
 
-send_tick(Socket, 0, MFTick) ->
-    MFTick(Socket);
-send_tick(_, _Pend, _) ->
-    %% Dont send tick if pending write.
-    ok.
+send_tick(_, Pend, _) when Pend /= false, Pend /= 0 ->
+    ok; %% Dont send tick if pending write.
+send_tick(Socket, _Pend, MFTick) ->
+    MFTick(Socket).
 
 %% ------------------------------------------------------------
 %% Connection setup timeout timer.

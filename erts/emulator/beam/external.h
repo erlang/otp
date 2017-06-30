@@ -185,8 +185,13 @@ ERTS_GLB_INLINE void *erts_dist_ext_trailer(ErtsDistExternal *);
 ErtsDistExternal *erts_make_dist_ext_copy(ErtsDistExternal *, Uint);
 void *erts_dist_ext_trailer(ErtsDistExternal *);
 void erts_destroy_dist_ext_copy(ErtsDistExternal *);
+
+#define ERTS_PREP_DIST_EXT_FAILED       (-1)
+#define ERTS_PREP_DIST_EXT_SUCCESS      (0)
+#define ERTS_PREP_DIST_EXT_CLOSED       (1)
+
 int erts_prepare_dist_ext(ErtsDistExternal *, byte *, Uint,
-			  DistEntry *, ErtsAtomCache *);
+			  DistEntry *, ErtsAtomCache *, Uint32 *);
 Sint erts_decode_dist_ext_size(ErtsDistExternal *);
 Eterm erts_decode_dist_ext(ErtsHeapFactory* factory, ErtsDistExternal *);
 

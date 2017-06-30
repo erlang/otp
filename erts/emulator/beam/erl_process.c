@@ -796,6 +796,11 @@ erts_pre_init_process(void)
         = ERTS_PSD_ETS_FIXED_TABLES_GET_LOCKS;
     erts_psd_required_locks[ERTS_PSD_ETS_FIXED_TABLES].set_locks
         = ERTS_PSD_ETS_FIXED_TABLES_SET_LOCKS;
+
+    erts_psd_required_locks[ERTS_PSD_DIST_ENTRY].get_locks
+        = ERTS_PSD_DIST_ENTRY_GET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_DIST_ENTRY].set_locks
+        = ERTS_PSD_DIST_ENTRY_SET_LOCKS;
 #endif
 }
 
@@ -13857,7 +13862,7 @@ erts_continue_exit_process(Process *p)
     ErtsMonitor *mon;
     ErtsProcLocks curr_locks = ERTS_PROC_LOCK_MAIN;
     Eterm reason = p->fvalue;
-    DistEntry *dep;
+    DistEntry *dep = NULL;
     erts_aint32_t state;
     int delay_del_proc = 0;
 
@@ -14064,13 +14069,16 @@ erts_continue_exit_process(Process *p)
 	if (refc_inced && !(n & ERTS_PSFLG_IN_RUNQ))
 	    erts_proc_dec_refc(p);
     }
-    
-    dep = (p->flags & F_DISTRIBUTION) ? erts_this_dist_entry : NULL;
+
+    dep = ((p->flags & F_DISTRIBUTION)
+           ? ERTS_PROC_SET_DIST_ENTRY(p, NULL)
+           : NULL);
 
     erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
 
     if (dep) {
-	erts_do_net_exits(dep, reason);
+        erts_do_net_exits(dep, (reason == am_kill) ? am_killed : reason);
+        erts_deref_dist_entry(dep);
     }
 
     /*
