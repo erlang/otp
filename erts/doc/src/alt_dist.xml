@@ -64,6 +64,11 @@
 	etc in this example). That is, depending on what you want
 	to do you perhaps do not need to implement a driver at all
 	and can then skip the driver related sections below.
+	The <c>gen_tcp_dist</c> example described in the
+	<seealso marker="#distribution_module">Distribution
+	Module</seealso> section utilize distribution controller
+	processes and can be worth having a look at if you want to
+	use distribution controller processes.
       </p></note>
 
     <section>
@@ -180,6 +185,15 @@
       controller terminates. The distribution controller should not
       ignore exit signals. It is allowed to trap exits, but it should
       then voluntarily terminate when an exit signal is received.
+    </p>
+    <p>
+      An example implementation of a distribution module can be found
+      in
+      <url href="gen_tcp_dist.erl">$ERL_TOP/lib/kernel/examples/gen_tcp_dist/src/gen_tcp_dist.erl</url>.
+      It implements the distribution over TCP/IP using the <c>gen_tcp</c>
+      API with distribution controllers implemented by processes. This
+      instead of using port distribution controllers as the ordinary TCP/IP
+      distribution uses.
     </p>
 
     <section>
