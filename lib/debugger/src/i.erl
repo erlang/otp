@@ -30,7 +30,7 @@
 -import(lists, [sort/1,foreach/2]).
 
 iv() ->
-    Vsn = string:substr(filename:basename(code:lib_dir(debugger)), 10),
+    Vsn = string:slice(filename:basename(code:lib_dir(debugger)), 9),
     list_to_atom(Vsn).
 
 %% -------------------------------------------
