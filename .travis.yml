@@ -28,8 +28,18 @@ matrix:
         - docker
       script:
         - ./scripts/build-docker-otp 32 sh -c "scripts/build-otp && ./otp_build tests && scripts/run-smoke-tests && bin/dialyzer --build_plt --apps erts kernel stdlib"
-      after_success:
-      after_script:
+    - env: Linux64Dialyzer
+      os: linux
+      script:
+        - ./scripts/build-otp
+        - ./scripts/run-dialyzer
+    - env: Linux64SmokeTest
+      os: linux
+      script:
+        - ./scripts/build-otp
+        - ./otp_build tests
+        - make release_docs
+        - ./scripts/run-smoke-tests
 
 before_script:
   - set -e
@@ -37,13 +47,3 @@ before_script:
   - export PATH=$ERL_TOP/bin:$PATH
   - export ERL_LIBS=''
   - export MAKEFLAGS=-j4
-
-script:
-  - ./scripts/build-otp
-
-after_success:
-  - ./scripts/run-dialyzer
-  - ./otp_build tests && make release_docs
-
-after_script:
-  - ./scripts/run-smoke-tests
