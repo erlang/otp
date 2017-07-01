@@ -1080,6 +1080,7 @@ static BeamInstr* apply_fun(Process* p, Eterm fun,
 static Eterm new_fun(Process* p, Eterm* reg,
 		     ErlFunEntry* fe, int num_free) NOINLINE;
 static Eterm new_map(Process* p, Eterm* reg, BeamInstr* I) NOINLINE;
+static Eterm new_small_map_lit(Process* p, Eterm* reg, Uint* n_exp, BeamInstr* I) NOINLINE;
 static Eterm update_map_assoc(Process* p, Eterm* reg,
 			      Eterm map, BeamInstr* I) NOINLINE;
 static Eterm update_map_exact(Process* p, Eterm* reg,
@@ -2459,6 +2460,17 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      HEAVY_SWAPIN;
      StoreResult(res, Arg(0));
      Next(3+Arg(2));
+ }
+
+ OpCase(i_new_small_map_lit_dIq): {
+     Eterm res;
+     Uint n;
+
+     HEAVY_SWAPOUT;
+     res = new_small_map_lit(c_p, reg, &n, I-1);
+     HEAVY_SWAPIN;
+     StoreResult(res, Arg(0));
+     Next(3+n);
  }
 
 #define PUT_TERM_REG(term, desc)		\
@@ -7031,6 +7043,44 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
 	GET_TERM(*ptr++, *mhp++);
     }
     p->htop = mhp;
+    return make_flatmap(mp);
+}
+
+static Eterm
+new_small_map_lit(Process* p, Eterm* reg, Uint* n_exp, BeamInstr* I)
+{
+    Eterm* keys = tuple_val(Arg(3));
+    Uint n = arityval(*keys);
+    Uint need = n + 1 /* hdr */ + 1 /*size*/ + 1 /* ptr */ + 1 /* arity */;
+    Uint i;
+    BeamInstr *ptr;
+    flatmap_t *mp;
+    Eterm *mhp;
+    Eterm *E;
+
+    *n_exp = n;
+    ptr = &Arg(4);
+
+    ASSERT(n <= MAP_SMALL_MAP_LIMIT);
+
+    if (HeapWordsLeft(p) < need) {
+        erts_garbage_collect(p, need, reg, Arg(2));
+    }
+
+    mhp = p->htop;
+    E   = p->stop;
+
+    mp = (flatmap_t *)mhp; mhp += MAP_HEADER_FLATMAP_SZ;
+    mp->thing_word = MAP_HEADER_FLATMAP;
+    mp->size = n;
+    mp->keys = Arg(3);
+
+    for (i = 0; i < n; i++) {
+        GET_TERM(*ptr++, *mhp++);
+    }
+
+    p->htop = mhp;
+
     return make_flatmap(mp);
 }
 
