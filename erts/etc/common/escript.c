@@ -74,7 +74,6 @@ static void error(char* format, ...);
 static void* emalloc(size_t size);
 static void efree(void *p);
 static char* strsave(char* string);
-static void push_words(char* src);
 static int run_erlang(char* name, char** argv);
 static char* get_default_emulator(char* progname);
 #ifdef __WIN32__
@@ -583,26 +582,6 @@ main(int argc, char** argv)
     return run_erlang(eargv[0], eargv);
 }
 
-static void
-push_words(char* src)
-{
-    char sbuf[PMAX];
-    char* dst;
-
-    dst = sbuf;
-    while ((*dst++ = *src++) != '\0') {
-	if (isspace((int)*src)) {
-	    *dst = '\0';
-	    PUSH(strsave(sbuf));
-	    dst = sbuf;
-	    do {
-		src++;
-	    } while (isspace((int)*src));
-	}
-    }
-    if (sbuf[0])
-	PUSH(strsave(sbuf));
-}
 #ifdef __WIN32__
 wchar_t *make_commandline(char **argv)
 {
