@@ -6354,7 +6354,7 @@ BeamInstr *I, Uint stack_offset)
 {
     int arity;
     Export* ep;
-    Eterm tmp, this;
+    Eterm tmp;
 
     /*
      * Check the arguments which should be of the form apply(Module,
@@ -6377,20 +6377,8 @@ BeamInstr *I, Uint stack_offset)
 
     while (1) {
 	Eterm m, f, a;
-	/* The module argument may be either an atom or an abstract module
-	 * (currently implemented using tuples, but this might change).
-	 */
-	this = THE_NON_VALUE;
-	if (is_not_atom(module)) {
-	    Eterm* tp;
 
-	    if (is_not_tuple(module)) goto error;
-	    tp = tuple_val(module);
-	    if (arityval(tp[0]) < 1) goto error;
-	    this = module;
-	    module = tp[1];
-	    if (is_not_atom(module)) goto error;
-	}
+	if (is_not_atom(module)) goto error;
 
 	if (module != am_erlang || function != am_apply)
 	    break;
@@ -6425,9 +6413,7 @@ BeamInstr *I, Uint stack_offset)
     }
     /*
      * Walk down the 3rd parameter of apply (the argument list) and copy
-     * the parameters to the x registers (reg[]). If the module argument
-     * was an abstract module, add 1 to the function arity and put the
-     * module argument in the n+1st x register as a THIS reference.
+     * the parameters to the x registers (reg[]).
      */
 
     tmp = args;
@@ -6443,9 +6429,6 @@ BeamInstr *I, Uint stack_offset)
     }
     if (is_not_nil(tmp)) {	/* Must be well-formed list */
 	goto error;
-    }
-    if (this != THE_NON_VALUE) {
-        reg[arity++] = this;
     }
 
     /*
@@ -6485,18 +6468,7 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
 	return 0;
     }
 
-    /* The module argument may be either an atom or an abstract module
-     * (currently implemented using tuples, but this might change).
-     */
-    if (is_not_atom(module)) {
-	Eterm* tp;
-        if (is_not_tuple(module)) goto error;
-        tp = tuple_val(module);
-        if (arityval(tp[0]) < 1) goto error;
-        module = tp[1];
-        if (is_not_atom(module)) goto error;
-        ++arity;
-    }
+    if (is_not_atom(module)) goto error;
 
     /* Handle apply of apply/3... */
     if (module == am_erlang && function == am_apply && arity == 3)

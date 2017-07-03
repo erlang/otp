@@ -32,7 +32,7 @@
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, kernel_listing/1, encrypted_abstr/1,
 	 strict_record/1, utf8_atoms/1, utf8_functions/1, extra_chunks/1,
-	 cover/1, env/1, core_pp/1,
+	 cover/1, env/1, core_pp/1, tuple_calls/1,
 	 core_roundtrip/1, asm/1, optimized_guards/1,
 	 sys_pre_attributes/1, dialyzer/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
@@ -49,7 +49,7 @@ all() ->
     test_lib:recompile(?MODULE),
     [app_test, appup_test, file_1, forms_2, module_mismatch, big_file, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
-     other_output, kernel_listing, encrypted_abstr,
+     other_output, kernel_listing, encrypted_abstr, tuple_calls,
      strict_record, utf8_atoms, utf8_functions, extra_chunks,
      cover, env, core_pp, core_roundtrip, asm, optimized_guards,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
@@ -780,6 +780,37 @@ extra_chunks(Config) when is_list(Config) ->
 	compile:forms(Forms, [binary, {extra_chunks, [{<<"ExCh">>, <<"Contents">>}]}]),
     {ok,{extra_chunks,[{"ExCh",<<"Contents">>}]}} =
 	beam_lib:chunks(ExtraChunksBinary, ["ExCh"]).
+
+tuple_calls(Config) when is_list(Config) ->
+    Anno = erl_anno:new(1),
+    Forms = [{attribute,Anno,export,[{size,1},{store,1}]},
+	     {function,Anno,size,1,
+	      [{clause,Anno,[{var,[],mod}],[],
+	       [{call,[],{remote,[],{var,[],mod},{atom,[],size}},[]}]}]},
+	     {function,Anno,store,1,
+	      [{clause,Anno,[{var,[],mod}],[],
+	       [{call,[],{remote,[],{var,[],mod},{atom,[],store}},[{atom,[],key},{atom,[],value}]}]}]}],
+
+    TupleCallsFalse = [{attribute,Anno,module,tuple_calls_false}|Forms],
+    {ok,_,TupleCallsFalseBinary} = compile:forms(TupleCallsFalse, [binary]),
+    code:load_binary(tuple_calls_false, "compile_SUITE.erl", TupleCallsFalseBinary),
+    {'EXIT',{badarg,_}} = (catch tuple_calls_false:store(dict())),
+    {'EXIT',{badarg,_}} = (catch tuple_calls_false:size(dict())),
+    {'EXIT',{badarg,_}} = (catch tuple_calls_false:size(empty_tuple())),
+
+    TupleCallsTrue = [{attribute,Anno,module,tuple_calls_true}|Forms],
+    {ok,_,TupleCallsTrueBinary} = compile:forms(TupleCallsTrue, [binary,tuple_calls]),
+    code:load_binary(tuple_calls_true, "compile_SUITE.erl", TupleCallsTrueBinary),
+    Dict = tuple_calls_true:store(dict()),
+    1 = tuple_calls_true:size(Dict),
+    {'EXIT',{badarg,_}} = (catch tuple_calls_true:size(empty_tuple())),
+
+    ok.
+
+dict() ->
+    dict:new().
+empty_tuple() ->
+    {}.
 
 env(Config) when is_list(Config) ->
     {Simple,Target} = get_files(Config, simple, env),

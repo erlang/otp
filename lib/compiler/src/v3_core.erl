@@ -2505,8 +2505,46 @@ cexpr(#ifun{anno=#a{us=Us0}=A0,name={named,Name},fc=#iclause{pats=Ps}}=Fun0,
     end;
 cexpr(#iapply{anno=A,op=Op,args=Args}, _As, St) ->
     {#c_apply{anno=A#a.anno,op=Op,args=Args},[],A#a.us,St};
-cexpr(#icall{anno=A,module=Mod,name=Name,args=Args}, _As, St) ->
-    {#c_call{anno=A#a.anno,module=Mod,name=Name,args=Args},[],A#a.us,St};
+cexpr(#icall{anno=A,module=Mod,name=Name,args=Args}, _As, St0) ->
+    Anno = A#a.anno,
+    case (not cerl:is_c_atom(Mod)) andalso member(tuple_calls, St0#core.opts) of
+	true ->
+	    GenAnno = [compiler_generated|Anno],
+
+	    %% Generate the clause that matches on the tuple
+	    {TupleVar,St1} = new_var(GenAnno, St0),
+	    {TupleSizeVar, St2} = new_var(GenAnno, St1),
+	    {TupleModVar, St3} = new_var(GenAnno, St2),
+	    {TupleArgsVar, St4} = new_var(GenAnno, St3),
+	    TryVar = cerl:c_var('Try'),
+
+	    TupleGuardExpr =
+		cerl:c_let([TupleSizeVar],
+			   c_call_erl(tuple_size, [TupleVar]),
+			   c_call_erl('>', [TupleSizeVar, cerl:c_int(0)])),
+
+	    TupleGuard =
+		cerl:c_try(TupleGuardExpr, [TryVar], TryVar,
+			   [cerl:c_var('T'),cerl:c_var('R')], cerl:c_atom(false)),
+
+	    TupleApply =
+		cerl:c_let([TupleModVar],
+			   c_call_erl(element, [cerl:c_int(1),TupleVar]),
+			   cerl:c_let([TupleArgsVar],
+				      cerl:make_list(Args ++ [TupleVar]),
+				      c_call_erl(apply, [TupleModVar,Name,TupleArgsVar]))),
+
+	    TupleClause = cerl:ann_c_clause(GenAnno, [TupleVar], TupleGuard, TupleApply),
+
+	    %% Generate the fallback clause
+	    {OtherVar,St5} = new_var(GenAnno, St4),
+	    OtherApply = cerl:ann_c_call(GenAnno, OtherVar, Name, Args),
+	    OtherClause = cerl:ann_c_clause(GenAnno, [OtherVar], OtherApply),
+
+	    {cerl:ann_c_case(GenAnno, Mod, [TupleClause,OtherClause]),[],A#a.us,St5};
+	false ->
+	    {#c_call{anno=Anno,module=Mod,name=Name,args=Args},[],A#a.us,St0}
+    end;
 cexpr(#iprimop{anno=A,name=Name,args=Args}, _As, St) ->
     {#c_primop{anno=A#a.anno,name=Name,args=Args},[],A#a.us,St};
 cexpr(#iprotect{anno=A,body=Es}, _As, St0) ->
@@ -2535,6 +2573,9 @@ cfun(#ifun{anno=A,id=Id,vars=Args,clauses=Lcs,fc=Lfc}, _As, St0) ->
                          arg=set_anno(core_lib:make_values(Args), Anno),
                          clauses=Ccs ++ [Cfc]}},
      [],A#a.us,St2}.
+
+c_call_erl(Fun, Args) ->
+    cerl:c_call(cerl:c_atom(erlang), cerl:c_atom(Fun), Args).
 
 %% lit_vars(Literal) -> [Var].
 
