@@ -29,7 +29,7 @@
          msg_name/2,
          msg_id/1]).
 
-%% Towards generated encoders (from diameter_gen.hrl).
+%% towards diameter_gen
 -export([pack_data/2,
          pack_avp/2]).
 
