@@ -22,6 +22,11 @@
 
 -module(crypto).
 
+-export([rsa_sign_nif/3,
+         dss_sign_nif/3,
+         ecdsa_sign_nif/4]).
+
+
 -export([start/0, stop/0, info_lib/0, info_fips/0, supports/0, enable_fips_mode/1,
          version/0, bytes_to_integer/1]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
@@ -401,24 +406,18 @@ verify(rsa, Type, {digest, Digest}, Signature, Key) ->
 verify(ecdsa, Type, {digest, Digest}, Signature, [Key, Curve]) ->
     notsup_to_error(
       ecdsa_verify_nif(Type, Digest, Signature, nif_curve_params(Curve), ensure_int_as_bin(Key))).
-sign(dss, none, Data, Key) when is_binary(Data) ->
-    sign(dss, sha, {digest, Data}, Key);
-sign(Alg, Type, Data, Key) when is_binary(Data) ->
-    sign(Alg, Type, {digest, hash(Type, Data)}, Key);
-sign(rsa, Type, {digest, Digest}, Key) ->
-    case rsa_sign_nif(Type, Digest, map_ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [rsa, Type, {digest, Digest}, Key]);
-	Sign -> Sign
-    end;
-sign(dss, Type, {digest, Digest}, Key) ->
-    case dss_sign_nif(Type, Digest, map_ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [dss, Type, {digest, Digest}, Key]);
-	Sign -> Sign
-    end;
-sign(ecdsa, Type, {digest, Digest}, [Key, Curve]) ->
-    case ecdsa_sign_nif(Type, Digest, nif_curve_params(Curve), ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [ecdsa, Type, {digest, Digest}, [Key, Curve]]);
-	Sign -> Sign
+
+sign(Algorithm, Type, Data, Key) ->
+    sign(Algorithm, Type, Data, Key, []).
+
+%% Backwards compatible
+sign(Algorithm = dss, none, Digest, Key, Options) ->
+    sign(Algorithm, sha, {digest, Digest}, Key, Options);
+sign(Algorithm, Type, Data, Key, Options) ->
+    case pkey_sign_nif(Algorithm, Type, Data, format_pkey(Algorithm, Key), Options) of
+	error -> erlang:error(badkey, [Algorithm, Type, Data, Key, Options]);
+	notsup -> erlang:error(notsup);
+	Signature -> Signature
     end.
 
 -spec public_encrypt(rsa, binary(), [binary()], rsa_padding()) ->
@@ -839,6 +838,7 @@ srp_value_B_nif(_Multiplier, _Verifier, _Generator, _Exponent, _Prime) -> ?nif_s
 
 
 %% Digital signatures  --------------------------------------------------------------------
+pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
 rsa_sign_nif(_Type,_Digest,_Key) -> ?nif_stub.
 dss_sign_nif(_Type,_Digest,_Key) -> ?nif_stub.
 ecdsa_sign_nif(_Type, _Digest, _Curve, _Key) -> ?nif_stub.
@@ -961,6 +961,15 @@ ensure_int_as_bin(Int) when is_integer(Int) ->
     int_to_bin(Int);
 ensure_int_as_bin(Bin) ->
     Bin.
+
+format_pkey(rsa, Key) ->
+    map_ensure_int_as_bin(Key);
+format_pkey(ecdsa, [Key, Curve]) ->
+    {nif_curve_params(Curve), ensure_int_as_bin(Key)};
+format_pkey(dss, Key) ->
+    map_ensure_int_as_bin(Key);
+format_pkey(_, Key) ->
+    Key.
 
 %%--------------------------------------------------------------------
 %%
