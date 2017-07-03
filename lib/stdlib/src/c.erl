@@ -255,7 +255,7 @@ safe_recompile(File, Options, BeamFile) ->
 compile_and_load(File, Opts0) when is_list(Opts0) ->
     Opts = [report_errors, report_warnings
             | ensure_from(filename:extension(File),
-                          ensure_outdir(filename:dirname(File), Opts0))],
+                          ensure_outdir(".", Opts0))],
     case compile:file(File, Opts) of
 	{ok,Mod} ->				%Listing file.
 	    purge_and_load(Mod, File, Opts);
