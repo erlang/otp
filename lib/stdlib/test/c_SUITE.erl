@@ -21,7 +21,9 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 -export([c_1/1, c_2/1, c_3/1, c_4/1, nc_1/1, nc_2/1, nc_3/1, nc_4/1,
-	 ls/1, memory/1]).
+	 c_default_outdir_1/1, c_default_outdir_2/1,
+         nc_default_outdir_1/1, nc_default_outdir_2/1,
+         ls/1, memory/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -30,7 +32,10 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [c_1, c_2, c_3, c_4, nc_1, nc_2, nc_3, nc_4, ls, memory].
+    [c_1, c_2, c_3, c_4, nc_1, nc_2, nc_3, nc_4,
+     c_default_outdir_1, c_default_outdir_2,
+     nc_default_outdir_1, nc_default_outdir_2,
+     ls, memory].
 
 groups() -> 
     [].
@@ -123,6 +128,50 @@ nc_4(Config) when is_list(Config) ->
     file:set_cwd(W),
     Result = nc(R,[{outdir,W}]),
     {ok, m} = Result.
+
+c_default_outdir_1(Config) ->
+    R = filename:join(proplists:get_value(data_dir, Config), "m.erl"),
+    W = proplists:get_value(priv_dir, Config),
+    file:set_cwd(W),
+    Obj = "m" ++ code:objfile_extension(),
+    _ = file:delete(Obj),
+    false = filelib:is_file(Obj),
+    Result = c:c(R),
+    {ok, m} = Result,
+    true = filelib:is_file(Obj).
+
+c_default_outdir_2(Config) ->
+    R = filename:join(proplists:get_value(data_dir, Config), "m"),
+    W = proplists:get_value(priv_dir, Config),
+    file:set_cwd(W),
+    Obj = "m" ++ code:objfile_extension(),
+    _ = file:delete(Obj),
+    false = filelib:is_file(Obj),
+    Result = c:c(R),
+    {ok, m} = Result,
+    true = filelib:is_file(Obj).
+
+nc_default_outdir_1(Config) ->
+    R = filename:join(proplists:get_value(data_dir, Config), "m.erl"),
+    W = proplists:get_value(priv_dir, Config),
+    file:set_cwd(W),
+    Obj = "m" ++ code:objfile_extension(),
+    _ = file:delete(Obj),
+    false = filelib:is_file(Obj),
+    Result = c:nc(R),
+    {ok, m} = Result,
+    true = filelib:is_file(Obj).
+
+nc_default_outdir_2(Config) ->
+    R = filename:join(proplists:get_value(data_dir, Config), "m"),
+    W = proplists:get_value(priv_dir, Config),
+    file:set_cwd(W),
+    Obj = "m" ++ code:objfile_extension(),
+    _ = file:delete(Obj),
+    false = filelib:is_file(Obj),
+    Result = c:nc(R),
+    {ok, m} = Result,
+    true = filelib:is_file(Obj).
 
 ls(Config) when is_list(Config) ->
     Directory = proplists:get_value(data_dir, Config),

@@ -36,7 +36,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [make_all, make_files, recompile_on_changed_include,
+    [make_all, make_files, load, netload, recompile_on_changed_include,
      emake_opts, {group, otp_6057}].
 
 groups() -> 
@@ -55,6 +55,21 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     otp_6057_end(Config).
 
+init_per_testcase(_,Config) ->
+    Config.
+
+end_per_testcase(netload,_Config) ->
+    %% Stop slave - in case of failure
+    Nodes = nodes(),
+    case [N || N <- Nodes,
+               "make_SUITE_netload" == hd(string:lexemes(atom_to_list(N),"@"))] of
+        [Node] ->
+            ct_slave:stop(Node);
+        _ ->
+            ok
+    end;
+end_per_testcase(_,_Config) ->
+    ok.
 
 test_files() -> ["test1", "test2", "test3", "test4"].
 
@@ -79,6 +94,32 @@ make_files(Config) when is_list(Config) ->
     error = make:files([test1,test7]), % non existing file
     up_to_date = make:files([test1,test2],[debug_info]), % with option
 
+    file:set_cwd(Current),
+    ensure_no_messages(),
+    ok.
+
+load(Config) ->
+    Current = prepare_data_dir(Config),
+    code:purge(test1),
+    code:delete(test1),
+    false = code:is_loaded(test1),
+    up_to_date = make:files([test1], [load]),
+    {file,_} = code:is_loaded(test1),
+    file:set_cwd(Current),
+    ensure_no_messages(),
+    ok.
+
+netload(Config) ->
+    Current = prepare_data_dir(Config),
+    code:purge(test1),
+    code:delete(test1),
+    false = code:is_loaded(test1),
+    {ok,Node} = ct_slave:start(make_SUITE_netload),
+    up_to_date = make:files([test1], [netload]),
+    timer:sleep(1000), % async, so give some time
+    {file,F} = code:is_loaded(test1),
+    {file,F} = rpc:call(Node,code,is_loaded,[test1]),
+    ct_slave:stop(Node),
     file:set_cwd(Current),
     ensure_no_messages(),
     ok.
