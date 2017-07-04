@@ -63,6 +63,17 @@
           <p>
 	    Own Id: OTP-14484</p>
         </item>
+        <item>
+	  <p>
+	    Fix performance bug in pre-allocators that could cause
+	    them to permanently fall back on normal more expensive memory
+	    allocation. Pre-allocators are used for quick allocation
+	    of short lived meta data used by messages and other
+	    scheduled tasks. Bug exists since OTP_R15B02.
+	    [this release note was missing in erts-9.0.1]</p>
+	  <p>
+	    Own Id: OTP-14491</p>
+	</item>
       </list>
     </section>
 
