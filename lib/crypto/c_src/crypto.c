@@ -433,12 +433,11 @@ static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NI
 static ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM dss_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM do_exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_set_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM pkey_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_public_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_private_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -451,7 +450,6 @@ static ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 static ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM ecdsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -504,12 +502,11 @@ static ErlNifFunc nif_funcs[] = {
     {"strong_rand_range_nif", 1, strong_rand_range_nif},
     {"rand_uniform_nif", 2, rand_uniform_nif},
     {"mod_exp_nif", 4, mod_exp_nif},
-    {"dss_verify_nif", 4, dss_verify_nif},
-    {"rsa_verify_nif", 4, rsa_verify_nif},
     {"do_exor", 2, do_exor},
     {"rc4_set_key", 1, rc4_set_key},
     {"rc4_encrypt_with_state", 2, rc4_encrypt_with_state},
     {"pkey_sign_nif", 5, pkey_sign_nif},
+    {"pkey_verify_nif", 6, pkey_verify_nif},
     {"rsa_public_crypt", 4, rsa_public_crypt},
     {"rsa_private_crypt", 4, rsa_private_crypt},
     {"rsa_generate_key_nif", 2, rsa_generate_key_nif},
@@ -522,7 +519,6 @@ static ErlNifFunc nif_funcs[] = {
     {"srp_host_secret_nif", 5, srp_host_secret_nif},
 
     {"ec_key_generate", 2, ec_key_generate},
-    {"ecdsa_verify_nif", 5, ecdsa_verify_nif},
     {"ecdh_compute_key_nif", 3, ecdh_compute_key_nif},
 
     {"rand_seed_nif", 1, rand_seed_nif},
@@ -2659,64 +2655,6 @@ static int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
     return 1;
 }
 
-
-static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type, Digest, Signature, Key=[E,N]) */
-    ErlNifBinary         digest_bin, sign_bin;
-    int                  i;
-    RSA                  *rsa;
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
-    EVP_PKEY             *pkey;
-    EVP_PKEY_CTX         *ctx;
-#endif
-    const EVP_MD         *md;
-    const ERL_NIF_TERM   type = argv[0];
-    struct digest_type_t *digp = NULL;
-
-    digp = get_digest_type(type);
-    if (!digp) {
-	return enif_make_badarg(env);
-    }
-    md = digp->md.p;
-    if (!md) {
-	return atom_notsup;
-    }
-
-    if (!enif_inspect_binary(env, argv[1], &digest_bin)
-        || digest_bin.size != EVP_MD_size(md)
-        || !enif_inspect_binary(env, argv[2], &sign_bin))
-        {
-            return enif_make_badarg(env);
-        }
-
-    rsa = RSA_new();
-    if (!get_rsa_public_key(env, argv[3], rsa)) {
-	RSA_free(rsa);
-	return enif_make_badarg(env);
-    }
-    
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
-    pkey = EVP_PKEY_new();
-    EVP_PKEY_set1_RSA(pkey, rsa);
-
-    ctx = EVP_PKEY_CTX_new(pkey, NULL);
-    EVP_PKEY_verify_init(ctx);
-    EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING);
-    EVP_PKEY_CTX_set_signature_md(ctx, md);
-
-    i = EVP_PKEY_verify(ctx, sign_bin.data, sign_bin.size,
-                        digest_bin.data, digest_bin.size);
-    EVP_PKEY_CTX_free(ctx);
-    EVP_PKEY_free(pkey);
-#else
-    i = RSA_verify(md->type, digest_bin.data, EVP_MD_size(md),
-		   sign_bin.data, sign_bin.size, rsa);
-#endif
-
-    RSA_free(rsa);
-    return(i > 0) ? atom_true : atom_false;
-}
-
 static int get_dss_private_key(ErlNifEnv* env, ERL_NIF_TERM key, DSA *dsa)
 {
     /* key=[P,Q,G,KEY] */
@@ -2779,67 +2717,6 @@ static int get_dss_public_key(ErlNifEnv* env, ERL_NIF_TERM key, DSA *dsa)
     DSA_set0_key(dsa, dsa_y, NULL);
     return 1;
 }
-
-static ERL_NIF_TERM dss_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (sha, Digest, Signature,Key=[P, Q, G, Y]) */
-    ErlNifBinary digest_bin, sign_bin;
-    int i;
-    DSA *dsa;
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
-    EVP_PKEY             *pkey;
-    EVP_PKEY_CTX         *ctx;
-#endif
-    const EVP_MD         *md;
-    const ERL_NIF_TERM   type = argv[0];
-    struct digest_type_t *digp = NULL;
-
-    digp = get_digest_type(type);
-    if (!digp) {
-	return enif_make_badarg(env);
-    }
-    md = digp->md.p;
-    if (!md) {
-	return atom_notsup;
-    }
-
-    if (argv[0] != atom_sha) {
-        return atom_notsup;
-    }
-
-    if (!enif_inspect_binary(env, argv[1], &digest_bin)
-        || digest_bin.size != EVP_MD_size(md)
-        || !enif_inspect_binary(env, argv[2], &sign_bin))
-        {
-            return enif_make_badarg(env);
-        }
-
-    dsa = DSA_new();
-    if (!get_dss_public_key(env, argv[3], dsa)) {
-        DSA_free(dsa);
-        return enif_make_badarg(env);
-    }
-
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
-    pkey = EVP_PKEY_new();
-    EVP_PKEY_set1_DSA(pkey, dsa);
-
-    ctx = EVP_PKEY_CTX_new(pkey, NULL);
-    EVP_PKEY_verify_init(ctx);
-    EVP_PKEY_CTX_set_signature_md(ctx, md);
-
-    i = EVP_PKEY_verify(ctx, sign_bin.data, sign_bin.size,
-                        digest_bin.data, digest_bin.size);
-    EVP_PKEY_CTX_free(ctx);
-    EVP_PKEY_free(pkey);
-#else
-    i = DSA_verify(0, digest_bin.data, SHA_DIGEST_LENGTH,
-		   sign_bin.data, sign_bin.size, dsa);
-#endif
-
-    DSA_free(dsa);
-    return(i > 0) ? atom_true : atom_false;
-}
-
 
 static int rsa_pad(ERL_NIF_TERM term, int* padding)
 {
@@ -3790,64 +3667,6 @@ badarg:
 #endif
 }
 
-static ERL_NIF_TERM ecdsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type, Digest, Signature, Curve, Key) */
-#if defined(HAVE_EC)
-    ErlNifBinary digest_bin, sign_bin;
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
-    EVP_PKEY             *pkey;
-    EVP_PKEY_CTX         *ctx;
-#else
-#endif
-    int i;
-    EC_KEY* key = NULL;
-    const ERL_NIF_TERM type = argv[0];
-    struct digest_type_t *digp = NULL;
-    const EVP_MD         *md;
-
-    digp = get_digest_type(type);
-    if (!digp) {
-	return enif_make_badarg(env);
-    }
-    md = digp->md.p;
-    if (!md) {
-	return atom_notsup;
-    }
-
-    if (!enif_inspect_binary(env, argv[1], &digest_bin)
-        || digest_bin.size != EVP_MD_size(md)
-        || !enif_inspect_binary(env, argv[2], &sign_bin)
-	|| !get_ec_key(env, argv[3], atom_undefined, argv[4], &key)) {
-        if (key)
-            EC_KEY_free(key);
-        return make_badarg_maybe(env);
-    }
-
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
-    pkey = EVP_PKEY_new();
-    EVP_PKEY_set1_EC_KEY(pkey, key);
-
-    ctx = EVP_PKEY_CTX_new(pkey, NULL);
-    EVP_PKEY_verify_init(ctx);
-    EVP_PKEY_CTX_set_signature_md(ctx, md);
-
-    i = EVP_PKEY_verify(ctx, sign_bin.data, sign_bin.size,
-                        digest_bin.data, digest_bin.size);
-    EVP_PKEY_CTX_free(ctx);
-    EVP_PKEY_free(pkey);
-#else
-   i = ECDSA_verify(EVP_MD_type(md), digest_bin.data, EVP_MD_size(md),
-                    sign_bin.data, sign_bin.size, key);
-#endif
-   
-   EC_KEY_free(key);
-   return (i==1 ? atom_true : atom_false);
-
-#else
-    return atom_notsup;
-#endif
-}
-
 /*
   (_OthersPublicKey, _MyPrivateKey)
   (_OthersPublicKey, _MyEC_Point)
@@ -4216,14 +4035,14 @@ printf("\r\n");
        len = EVP_MD_size(md);
        ERL_VALGRIND_ASSERT_MEM_DEFINED(digest_bin.data, len);
        i = RSA_sign(md->type, tbs, len, sig_bin.data, &siglen, rsa);
-
+       RSA_free(rsa);
     } else if (argv[0] == atom_dss) {
        DSA *dsa = EVP_PKEY_get1_DSA(pkey);
        enif_alloc_binary(DSA_size(dsa), &sig_bin);
        len = EVP_MD_size(md);
        ERL_VALGRIND_ASSERT_MEM_DEFINED(digest_bin.data, len);
        i = DSA_sign(md->type, tbs, len, sig_bin.data, &siglen, dsa);
-
+       DSA_free(dsa);
     } else if (argv[0] == atom_ecdsa) {
 #if defined(HAVE_EC)
        EC_KEY *ec = EVP_PKEY_get1_EC_KEY(pkey);
@@ -4231,6 +4050,7 @@ printf("\r\n");
        len = EVP_MD_size(md);
        ERL_VALGRIND_ASSERT_MEM_DEFINED(digest_bin.data, len);
        i = ECDSA_sign(md->type, tbs, len, sig_bin.data, &siglen, ec);
+       EC_KEY_free(ec);
 #else
         return atom_notsup;
 #endif
@@ -4259,6 +4079,171 @@ printf("\r\n");
     EVP_PKEY_free(pkey);
     return enif_make_badarg(env);
 }
+
+
+static int get_pkey_verify_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM key,
+			       EVP_PKEY **pkey)
+{
+    if (algorithm == atom_rsa) {
+	RSA *rsa = RSA_new();
+
+	if (!get_rsa_public_key(env, key, rsa)) {
+	    RSA_free(rsa);
+	    return PKEY_BADARG;
+	}
+
+	*pkey = EVP_PKEY_new();
+	if (!EVP_PKEY_assign_RSA(*pkey, rsa)) {
+	    EVP_PKEY_free(*pkey);
+	    RSA_free(rsa);
+	    return PKEY_BADARG;
+	}
+    } else if (algorithm == atom_ecdsa) {
+#if defined(HAVE_EC)
+	EC_KEY *ec = NULL;
+	const ERL_NIF_TERM *tpl_terms;
+	int tpl_arity;
+
+	if (enif_get_tuple(env, key, &tpl_arity, &tpl_terms) && tpl_arity == 2
+	    && enif_is_tuple(env, tpl_terms[0]) && enif_is_binary(env, tpl_terms[1])
+	    && get_ec_key(env, tpl_terms[0], atom_undefined, tpl_terms[1], &ec)) {
+
+	    *pkey = EVP_PKEY_new();
+	    if (!EVP_PKEY_assign_EC_KEY(*pkey, ec)) {
+		EVP_PKEY_free(*pkey);
+		EC_KEY_free(ec);
+		return PKEY_BADARG;
+	    }
+	} else {
+	    return PKEY_BADARG;
+	}
+#else
+	return PKEY_NOTSUP;
+#endif
+    } else if (algorithm == atom_dss) {
+	DSA *dsa = DSA_new();
+
+	if (!get_dss_public_key(env, key, dsa)) {
+	    DSA_free(dsa);
+	    return PKEY_BADARG;
+	}
+
+	*pkey = EVP_PKEY_new();
+	if (!EVP_PKEY_assign_DSA(*pkey, dsa)) {
+	    EVP_PKEY_free(*pkey);
+	    DSA_free(dsa);
+	    return PKEY_BADARG;
+	}
+    } else {
+	return PKEY_BADARG;
+    }
+
+    return PKEY_OK;
+}
+
+static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{/* (Algorithm, Type, Data|{digest,Digest}, Signature, Key, Options) */
+    int i;
+    const EVP_MD *md = NULL;
+    unsigned char md_value[EVP_MAX_MD_SIZE];
+    EVP_PKEY *pkey;
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+    EVP_PKEY_CTX *ctx;
+#else
+#endif
+    PKeySignOptions sig_opt;
+    ErlNifBinary sig_bin; /* signature */
+    unsigned char *tbs; /* data to be signed */
+    size_t tbslen;
+
+    if (!enif_inspect_binary(env, argv[3], &sig_bin)) {
+	return enif_make_badarg(env);
+    }
+
+    i = get_pkey_sign_digest(env, argv[0], argv[1], argv[2], md_value, &md, &tbs, &tbslen);
+    if (i != PKEY_OK) {
+	if (i == PKEY_NOTSUP)
+	    return atom_notsup;
+	else
+	    return enif_make_badarg(env);
+    }
+
+    i = get_pkey_sign_options(env, argv[0], argv[5], md, &sig_opt);
+    if (i != PKEY_OK) {
+	if (i == PKEY_NOTSUP)
+	    return atom_notsup;
+	else
+	    return enif_make_badarg(env);
+    }
+
+    if (get_pkey_verify_key(env, argv[0], argv[4], &pkey) != PKEY_OK) {
+	return enif_make_badarg(env);
+    }
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+/* printf("EVP interface\r\n"); 
+ */
+    ctx = EVP_PKEY_CTX_new(pkey, NULL);
+    if (!ctx) goto badarg;
+    if (EVP_PKEY_verify_init(ctx) <= 0) goto badarg;
+    if (md != NULL && EVP_PKEY_CTX_set_signature_md(ctx, md) <= 0) goto badarg;
+
+    if (argv[0] == atom_rsa) {
+	if (EVP_PKEY_CTX_set_rsa_padding(ctx, sig_opt.rsa_padding) <= 0) goto badarg;
+	if (sig_opt.rsa_padding == RSA_PKCS1_PSS_PADDING) {
+	    if (sig_opt.rsa_mgf1_md != NULL
+		&& EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, sig_opt.rsa_mgf1_md) <= 0) goto badarg;
+	    if (sig_opt.rsa_pss_saltlen > -2
+		&& EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, sig_opt.rsa_pss_saltlen) <= 0)
+		goto badarg;
+	}
+    }
+
+    if (md != NULL) {
+	ERL_VALGRIND_ASSERT_MEM_DEFINED(tbs, EVP_MD_size(md));
+    }
+    i = EVP_PKEY_verify(ctx, sig_bin.data, sig_bin.size, tbs, tbslen);
+
+    EVP_PKEY_CTX_free(ctx);
+#else
+/*printf("Old interface\r\n");
+*/
+    if (argv[0] == atom_rsa) {
+        RSA *rsa = EVP_PKEY_get1_RSA(pkey);
+        i = RSA_verify(md->type, tbs, tbslen, sig_bin.data, sig_bin.size, rsa);
+        RSA_free(rsa);
+    } else if (argv[0] == atom_dss) {
+        DSA *dsa = EVP_PKEY_get1_DSA(pkey);
+        i = DSA_verify(0, tbs, tbslen, sig_bin.data, sig_bin.size, dsa);
+        DSA_free(dsa);
+    } else if (argv[0] == atom_ecdsa) {
+#if defined(HAVE_EC)
+        EC_KEY *ec = EVP_PKEY_get1_EC_KEY(pkey);
+        i = ECDSA_verify(EVP_MD_type(md), tbs, tbslen, sig_bin.data, sig_bin.size, ec);
+        EC_KEY_free(ec);
+#else
+        return atom_notsup;
+#endif
+    } else {
+	goto badarg;
+    }
+#endif
+
+    EVP_PKEY_free(pkey);
+    if (i == 1) {
+	return atom_true;
+    } else {
+	return atom_false;
+    }
+
+ badarg:
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+    EVP_PKEY_CTX_free(ctx);
+#endif
+    EVP_PKEY_free(pkey);
+    return enif_make_badarg(env);
+}
+
 
 /*================================================================*/
 

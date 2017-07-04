@@ -22,11 +22,6 @@
 
 -module(crypto).
 
--export([rsa_sign_nif/3,
-         dss_sign_nif/3,
-         ecdsa_sign_nif/4]).
-
-
 -export([start/0, stop/0, info_lib/0, info_fips/0, supports/0, enable_fips_mode/1,
          version/0, bytes_to_integer/1]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
@@ -394,18 +389,19 @@ mod_pow(Base, Exponent, Prime) ->
 	<<0>> -> error;
 	R -> R
     end.
-verify(dss, none, Data, Signature, Key) when is_binary(Data) ->
-    verify(dss, sha, {digest, Data}, Signature, Key);
-verify(Alg, Type, Data, Signature, Key) when is_binary(Data) ->
-    verify(Alg, Type,  {digest, hash(Type, Data)}, Signature, Key);
-verify(dss, Type, {digest, Digest}, Signature, Key) ->
-    dss_verify_nif(Type, Digest, Signature, map_ensure_int_as_bin(Key));
-verify(rsa, Type, {digest, Digest}, Signature, Key) ->
-    notsup_to_error(
-      rsa_verify_nif(Type, Digest, Signature, map_ensure_int_as_bin(Key)));
-verify(ecdsa, Type, {digest, Digest}, Signature, [Key, Curve]) ->
-    notsup_to_error(
-      ecdsa_verify_nif(Type, Digest, Signature, nif_curve_params(Curve), ensure_int_as_bin(Key))).
+
+verify(Algorithm, Type, Data, Signature, Key) ->
+    verify(Algorithm, Type, Data, Signature, Key, []).
+
+%% Backwards compatible
+verify(Algorithm = dss, none, Digest, Signature, Key, Options) ->
+    verify(Algorithm, sha, {digest, Digest}, Signature, Key, Options);
+verify(Algorithm, Type, Data, Signature, Key, Options) ->
+    case pkey_verify_nif(Algorithm, Type, Data, Signature, format_pkey(Algorithm, Key), Options) of
+	notsup -> erlang:error(notsup);
+	Boolean -> Boolean
+    end.
+
 
 sign(Algorithm, Type, Data, Key) ->
     sign(Algorithm, Type, Data, Key, []).
@@ -838,14 +834,9 @@ srp_value_B_nif(_Multiplier, _Verifier, _Generator, _Exponent, _Prime) -> ?nif_s
 
 
 %% Digital signatures  --------------------------------------------------------------------
-pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
-rsa_sign_nif(_Type,_Digest,_Key) -> ?nif_stub.
-dss_sign_nif(_Type,_Digest,_Key) -> ?nif_stub.
-ecdsa_sign_nif(_Type, _Digest, _Curve, _Key) -> ?nif_stub.
 
-dss_verify_nif(_Type, _Digest, _Signature, _Key) -> ?nif_stub.
-rsa_verify_nif(_Type, _Digest, _Signature, _Key) -> ?nif_stub.
-ecdsa_verify_nif(_Type, _Digest, _Signature, _Curve, _Key) -> ?nif_stub.
+pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
+pkey_verify_nif(_Algorithm, _Type, _Data, _Signature, _Key, _Options) -> ?nif_stub.
 
 %% Public Keys  --------------------------------------------------------------------
 %% RSA Rivest-Shamir-Adleman functions
