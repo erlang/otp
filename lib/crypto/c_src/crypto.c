@@ -110,6 +110,10 @@
 #endif
 
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+# define HAS_EVP_PKEY_CTX
+#endif
+
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
 #include <openssl/modes.h>
@@ -3963,7 +3967,7 @@ static ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
     const EVP_MD *md = NULL;
     unsigned char md_value[EVP_MAX_MD_SIZE];
     EVP_PKEY *pkey;
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+#ifdef HAS_EVP_PKEY_CTX
     EVP_PKEY_CTX *ctx;
     size_t siglen;
 #else
@@ -3998,7 +4002,7 @@ printf("\r\n");
 	return enif_make_badarg(env);
     }
 
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+#ifdef HAS_EVP_PKEY_CTX
 /* printf("EVP interface\r\n"); 
  */
     ctx = EVP_PKEY_CTX_new(pkey, NULL);
@@ -4073,7 +4077,7 @@ printf("\r\n");
     }
 
  badarg:
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+#ifdef HAS_EVP_PKEY_CTX
     EVP_PKEY_CTX_free(ctx);
 #endif
     EVP_PKEY_free(pkey);
@@ -4147,7 +4151,7 @@ static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM
     const EVP_MD *md = NULL;
     unsigned char md_value[EVP_MAX_MD_SIZE];
     EVP_PKEY *pkey;
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+#ifdef HAS_EVP_PKEY_CTX
     EVP_PKEY_CTX *ctx;
 #else
 #endif
@@ -4180,7 +4184,7 @@ static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 	return enif_make_badarg(env);
     }
 
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+#ifdef HAS_EVP_PKEY_CTX
 /* printf("EVP interface\r\n"); 
  */
     ctx = EVP_PKEY_CTX_new(pkey, NULL);
@@ -4237,7 +4241,7 @@ static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM
     }
 
  badarg:
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+#ifdef HAS_EVP_PKEY_CTX
     EVP_PKEY_CTX_free(ctx);
 #endif
     EVP_PKEY_free(pkey);
