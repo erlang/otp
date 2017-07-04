@@ -31,6 +31,26 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.10.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    In OTP-20.0, the behavior of c, make, and ct_make was
+	    changed so that in some cases the beam files by default
+	    would be written to the directory where the source files
+	    were found. This is now changed back to the old behavior
+	    so beam files are by default written to current
+	    directory.</p>
+          <p>
+	    Own Id: OTP-14489 Aux Id: ERL-438 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

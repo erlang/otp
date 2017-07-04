@@ -384,7 +384,7 @@ to_float(String) ->
     end.
 
 to_number(String, Number, Rest, List, _Tail) when is_binary(String) ->
-    BSz = length(List)-length(Rest),
+    BSz = erlang:length(List)-erlang:length(Rest),
     <<_:BSz/binary, Cont/binary>> = String,
     {Number, Cont};
 to_number(_, Number, Rest, _, Tail) ->
@@ -1344,7 +1344,7 @@ bin_search_str(Bin0, Start, Cont, [CP|_]=SearchCPs) ->
       String :: string(),
       Length :: non_neg_integer().
 
-len(S) -> length(S).
+len(S) -> erlang:length(S).
 
 %% equal(String1, String2)
 %%  Test if 2 strings are equal.
@@ -1689,7 +1689,7 @@ left(String, Len) when is_integer(Len) -> left(String, Len, $\s).
       Character :: char().
 
 left(String, Len, Char) when is_integer(Char) ->
-    Slen = length(String),
+    Slen = erlang:length(String),
     if
 	Slen > Len -> substr(String, 1, Len);
 	Slen < Len -> l_pad(String, Len-Slen, Char);
@@ -1714,7 +1714,7 @@ right(String, Len) when is_integer(Len) -> right(String, Len, $\s).
       Character :: char().
 
 right(String, Len, Char) when is_integer(Char) ->
-    Slen = length(String),
+    Slen = erlang:length(String),
     if
 	Slen > Len -> substr(String, Slen-Len+1);
 	Slen < Len -> r_pad(String, Len-Slen, Char);
@@ -1741,7 +1741,7 @@ centre(String, Len) when is_integer(Len) -> centre(String, Len, $\s).
 centre(String, 0, Char) when is_list(String), is_integer(Char) ->
     [];                       % Strange cases to centre string
 centre(String, Len, Char) when is_integer(Char) ->
-    Slen = length(String),
+    Slen = erlang:length(String),
     if
 	Slen > Len -> substr(String, (Slen-Len) div 2 + 1, Len);
 	Slen < Len ->
