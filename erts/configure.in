@@ -3855,7 +3855,7 @@ case $host_os in
 	darwin*)
 		# Mach-O linker: a shared lib and a loadable
 		# object file is not the same thing.
-		DED_LDFLAGS="-bundle -flat_namespace -undefined suppress"
+		DED_LDFLAGS="-bundle -bundle_loader ${ERL_TOP}/bin/$host/beam.smp"
 		case $ARCH in
 			amd64)
 				DED_LDFLAGS="-m64 $DED_LDFLAGS"
