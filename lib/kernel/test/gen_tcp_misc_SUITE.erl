@@ -50,9 +50,8 @@
 	 killing_acceptor/1,killing_multi_acceptors/1,killing_multi_acceptors2/1,
 	 several_accepts_in_one_go/1, accept_system_limit/1,
 	 active_once_closed/1, send_timeout/1, send_timeout_active/1,
-	 otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1,
-	 wrapping_oct/0, wrapping_oct/1,
-         otp_9389/1, otp_13939/1]).
+         otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1,
+         wrapping_oct/0, wrapping_oct/1, otp_9389/1, otp_13939/1]).
 
 %% Internal exports.
 -export([sender/3, not_owner/1, passive_sockets_server/2, priority_server/1, 
