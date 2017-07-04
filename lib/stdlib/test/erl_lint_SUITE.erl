@@ -66,7 +66,7 @@
          otp_11851/1,otp_11879/1,otp_13230/1,
          record_errors/1, otp_11879_cont/1,
          non_latin1_module/1, otp_14323/1,
-         get_stacktrace/1, otp_14285/1]).
+         get_stacktrace/1, otp_14285/1, otp_14378/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -87,7 +87,7 @@ all() ->
      maps, maps_type, maps_parallel_match,
      otp_11851, otp_11879, otp_13230,
      record_errors, otp_11879_cont, non_latin1_module, otp_14323,
-     get_stacktrace, otp_14285].
+     get_stacktrace, otp_14285, otp_14378].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -2054,12 +2054,10 @@ otp_5362(Config) when is_list(Config) ->
                   spawn(A).
            ">>,
            {[nowarn_unused_function]},
-           {error,[{3,erl_lint,disallowed_nowarn_bif_clash},
-		   {4,erl_lint,disallowed_nowarn_bif_clash},
-		   {4,erl_lint,{bad_nowarn_bif_clash,{spawn,2}}}],
-            [{5,erl_lint,{bad_nowarn_deprecated_function,{3,now,-1}}},
-             {5,erl_lint,{bad_nowarn_deprecated_function,{erlang,now,-1}}},
-             {5,erl_lint,{bad_nowarn_deprecated_function,{{a,b,c},now,-1}}}]}
+           {errors,[{3,erl_lint,disallowed_nowarn_bif_clash},
+                    {4,erl_lint,disallowed_nowarn_bif_clash},
+                    {4,erl_lint,{bad_nowarn_bif_clash,{spawn,2}}}],
+            []}
            },
 
           {otp_5362_8,
@@ -3937,10 +3935,6 @@ non_latin1_module(Config) ->
     UndefBehav = {undefined_behaviour,'кирилли́ческий атом'},
     "behaviour 'кирилли́ческий атом' undefined" =
         format_error(UndefBehav),
-    BadDepr = {bad_nowarn_deprecated_function,
-               {'кирилли́ческий атом','кирилли́ческий атом',18}},
-    "'кирилли́ческий атом':'кирилли́ческий атом'/18 is not a deprecated "
-    "function" = format_error(BadDepr),
     Ts = [{non_latin1_module,
            <<"
             %% Report uses of module names with non-Latin-1 characters.
@@ -3950,9 +3944,6 @@ non_latin1_module(Config) ->
             -behavior('кирилли́ческий атом').
 
             -callback 'кирилли́ческий атом':'кирилли́ческий атом'() -> a.
-
-            -compile([{nowarn_deprecated_function,
-                       [{'кирилли́ческий атом','кирилли́ческий атом',18}]}]).
 
             %% erl_lint:gexpr/3 is not extended to check module name here:
             t1() when 'кирилли́ческий атом':'кирилли́ческий атом'(1) ->
@@ -3977,16 +3968,14 @@ non_latin1_module(Config) ->
              {6,erl_lint,non_latin1_module_unsupported},
              {8,erl_lint,non_latin1_module_unsupported},
              {8,erl_lint,BadCallback},
-             {10,erl_lint,non_latin1_module_unsupported},
-             {14,erl_lint,illegal_guard_expr},
-             {18,erl_lint,non_latin1_module_unsupported},
+             {11,erl_lint,illegal_guard_expr},
+             {15,erl_lint,non_latin1_module_unsupported},
+             {17,erl_lint,non_latin1_module_unsupported},
              {20,erl_lint,non_latin1_module_unsupported},
              {23,erl_lint,non_latin1_module_unsupported},
-             {26,erl_lint,non_latin1_module_unsupported},
-             {28,erl_lint,non_latin1_module_unsupported}],
+             {25,erl_lint,non_latin1_module_unsupported}],
             [{5,erl_lint,UndefBehav},
-             {6,erl_lint,UndefBehav},
-             {10,erl_lint,BadDepr}]}}],
+             {6,erl_lint,UndefBehav}]}}],
     run(Config, Ts),
     ok.
 
@@ -3999,6 +3988,22 @@ do_non_latin1_module(Mod) ->
     {error,_,[]} = compile:forms(Forms, [return]),
     ok.
 
+
+otp_14378(Config) ->
+    Ts = [
+          {otp_14378_1,
+           <<"-export([t/0]).
+              -compile({nowarn_deprecated_function,{erlang,now,1}}).
+              t() ->
+                 erlang:now().">>,
+           [],
+           {warnings,[{4,erl_lint,
+                       {deprecated,{erlang,now,0},
+                        "Deprecated BIF. See the \"Time and Time Correction"
+                        " in Erlang\" chapter of the ERTS User's Guide"
+                        " for more information."}}]}}],
+    [] = run(Config, Ts),
+    ok.
 
 %% OTP-14323: Check the dialyzer attribute.
 otp_14323(Config) ->
