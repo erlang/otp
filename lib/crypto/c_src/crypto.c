@@ -3871,11 +3871,15 @@ static int get_pkey_sign_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF
 		} else if (tpl_terms[0] == atom_rsa_padding) {
 		    if (tpl_terms[1] == atom_rsa_pkcs1_padding) {
 			opt->rsa_padding = RSA_PKCS1_PADDING;
-		    /* } else if (tpl_terms[1] == atom_rsa_pkcs1_pss_padding) { */
-		    /*     opt->rsa_padding = RSA_PKCS1_PSS_PADDING; */
-		    /*     if (opt->rsa_mgf1_md == NULL) { */
-		    /*         opt->rsa_mgf1_md = md; */
-		    /*     } */
+                    } else if (tpl_terms[1] == atom_rsa_pkcs1_pss_padding) {
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+                        opt->rsa_padding = RSA_PKCS1_PSS_PADDING;
+                        if (opt->rsa_mgf1_md == NULL) {
+                            opt->rsa_mgf1_md = md;
+                        }
+#else
+                        return PKEY_NOTSUP;
+#endif
 		    } else if (tpl_terms[1] == atom_rsa_x931_padding) {
 			opt->rsa_padding = RSA_X931_PADDING;
 		    } else if (tpl_terms[1] == atom_rsa_no_padding) {
@@ -4013,8 +4017,15 @@ printf("\r\n");
     if (argv[0] == atom_rsa) {
 	if (EVP_PKEY_CTX_set_rsa_padding(ctx, sig_opt.rsa_padding) <= 0) goto badarg;
 	if (sig_opt.rsa_padding == RSA_PKCS1_PSS_PADDING) {
-	    if (sig_opt.rsa_mgf1_md != NULL
-		&& EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, sig_opt.rsa_mgf1_md) <= 0) goto badarg;
+            if (sig_opt.rsa_mgf1_md != NULL) {
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,1)
+		if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, sig_opt.rsa_mgf1_md) <= 0) goto badarg;
+#else
+                EVP_PKEY_CTX_free(ctx);
+                EVP_PKEY_free(pkey);
+                return atom_notsup;
+#endif
+            }
 	    if (sig_opt.rsa_pss_saltlen > -2
 		&& EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, sig_opt.rsa_pss_saltlen) <= 0)
 		goto badarg;
@@ -4056,7 +4067,8 @@ printf("\r\n");
        i = ECDSA_sign(md->type, tbs, len, sig_bin.data, &siglen, ec);
        EC_KEY_free(ec);
 #else
-        return atom_notsup;
+       EVP_PKEY_free(pkey);
+       return atom_notsup;
 #endif
     } else {
 	goto badarg;
@@ -4195,8 +4207,15 @@ static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM
     if (argv[0] == atom_rsa) {
 	if (EVP_PKEY_CTX_set_rsa_padding(ctx, sig_opt.rsa_padding) <= 0) goto badarg;
 	if (sig_opt.rsa_padding == RSA_PKCS1_PSS_PADDING) {
-	    if (sig_opt.rsa_mgf1_md != NULL
-		&& EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, sig_opt.rsa_mgf1_md) <= 0) goto badarg;
+            if (sig_opt.rsa_mgf1_md != NULL) {
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,1)
+		if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, sig_opt.rsa_mgf1_md) <= 0) goto badarg;
+#else
+                EVP_PKEY_CTX_free(ctx);
+                EVP_PKEY_free(pkey);
+                return atom_notsup;
+#endif
+            }
 	    if (sig_opt.rsa_pss_saltlen > -2
 		&& EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, sig_opt.rsa_pss_saltlen) <= 0)
 		goto badarg;
@@ -4226,6 +4245,7 @@ static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM
         i = ECDSA_verify(EVP_MD_type(md), tbs, tbslen, sig_bin.data, sig_bin.size, ec);
         EC_KEY_free(ec);
 #else
+        EVP_PKEY_free(pkey);
         return atom_notsup;
 #endif
     } else {
