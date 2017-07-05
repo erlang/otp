@@ -1287,7 +1287,7 @@ int erts_utf8_to_latin1(byte* dest, const byte* source, int slen);
 
 void bin_write(fmtfn_t, void*, byte*, size_t);
 Sint intlist_to_buf(Eterm, char*, Sint); /* most callers pass plain char*'s */
-Sint erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len);
+int erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len, Sint* written);
 
 struct Sint_buf {
 #if defined(ARCH_64)

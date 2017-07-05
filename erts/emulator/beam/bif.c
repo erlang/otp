@@ -3021,17 +3021,17 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
 {
     Eterm res;
     byte *buf = (byte *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_SZ_LIMIT);
-    Sint i = erts_unicode_list_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS);
-
+    Sint written;
+    int i = erts_unicode_list_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS,
+                                     &written);
     if (i < 0) {
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
-	i = erts_list_length(BIF_ARG_1);
-	if (i > MAX_ATOM_CHARACTERS) {
+	if (i == -2) {
 	    BIF_ERROR(BIF_P, SYSTEM_LIMIT);
 	}
 	BIF_ERROR(BIF_P, BADARG);
     }
-    res = erts_atom_put(buf, i, ERTS_ATOM_ENC_UTF8, 1);
+    res = erts_atom_put(buf, written, ERTS_ATOM_ENC_UTF8, 1);
     ASSERT(is_atom(res));
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
     BIF_RET(res);
@@ -3042,8 +3042,9 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
 BIF_RETTYPE list_to_existing_atom_1(BIF_ALIST_1)
 {
     byte *buf = (byte *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_SZ_LIMIT);
-    Sint i = erts_unicode_list_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS);
-
+    Sint written;
+    int i = erts_unicode_list_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS,
+                                     &written);
     if (i < 0) {
     error:
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
@@ -3051,7 +3052,7 @@ BIF_RETTYPE list_to_existing_atom_1(BIF_ALIST_1)
     } else {
 	Eterm a;
 	
-	if (erts_atom_get((char *) buf, i, &a, ERTS_ATOM_ENC_UTF8)) {
+	if (erts_atom_get((char *) buf, written, &a, ERTS_ATOM_ENC_UTF8)) {
 	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	    BIF_RET(a);
 	} else {
