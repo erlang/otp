@@ -104,7 +104,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"db_tab",				"address"		},
     {	"proc_status",				"pid"			},
     {	"proc_trace",				"pid"			},
-    {   "ports_snapshot",                       NULL                    },
     {	"db_tab_fix",				"address"		},
     {	"db_hash_slot",				"address"		},
     {	"node_table",				NULL			},
@@ -161,6 +160,9 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"mtrace_op",				NULL			},
     {	"instr_x",				NULL			},
     {	"instr",				NULL			},
+#ifdef ERTS_SMP
+    {	"pollsets_lock",			NULL			},
+#endif
     {	"alcu_allocator",			"index"			},
     {	"mseg",					NULL			},
 #ifdef ERTS_SMP
@@ -173,7 +175,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"get_time",				NULL			},
     {	"get_corrected_time",			NULL			},
     {	"breakpoints",				NULL			},
-    {	"pollsets_lock",			NULL			},
     {	"pix_lock",				"address"		},
     {	"run_queues_lists",			NULL			},
     {	"sched_stat",				NULL			},

@@ -3223,7 +3223,8 @@ static ErtsNodesMonitor *nodes_monitors_end;
 static void
 init_nodes_monitors(void)
 {
-    erts_smp_mtx_init(&nodes_monitors_mtx, "nodes_monitors");
+    erts_smp_mtx_init(&nodes_monitors_mtx, "nodes_monitors", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
     nodes_monitors = NULL;
     nodes_monitors_end = NULL;
 }

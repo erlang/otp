@@ -3819,7 +3819,8 @@ hdbg_init(void)
     hdbg_mblks[ERL_ALC_HDBG_MAX_MBLK-1].next = NULL;
     free_hdbg_mblks = &hdbg_mblks[0];
     used_hdbg_mblks = NULL;
-    erts_mtx_init(&hdbg_mblk_mtx, "erts_alloc_hard_debug");
+    erts_mtx_init(&hdbg_mblk_mtx, "erts_alloc_hard_debug", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR);
 }
 
 static void *check_memory_fence(void *ptr,

@@ -575,9 +575,7 @@ delete_owned_table(Process *p, DbTable *tb)
     table_dec_refc(tb, 1);
 }
 
-
-static ERTS_INLINE void db_init_lock(DbTable* tb, int use_frequent_read_lock,
-				     char *rwname, char* fixname)
+static ERTS_INLINE void db_init_lock(DbTable* tb, int use_frequent_read_lock)
 {
 #ifdef ERTS_SMP
     erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
@@ -587,9 +585,10 @@ static ERTS_INLINE void db_init_lock(DbTable* tb, int use_frequent_read_lock,
 	rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
 #endif
 #ifdef ERTS_SMP
-    erts_smp_rwmtx_init_opt_x(&tb->common.rwlock, &rwmtx_opt,
-			      rwname, tb->common.the_name);
-    erts_smp_mtx_init_x(&tb->common.fixlock, fixname, tb->common.the_name);
+    erts_smp_rwmtx_init_opt(&tb->common.rwlock, &rwmtx_opt, "db_tab",
+        tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
+    erts_smp_mtx_init(&tb->common.fixlock, "db_tab_fix",
+        tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
     tb->common.is_thread_safe = !(tb->common.status & DB_FINE_LOCKED);
 #endif
 }
@@ -1753,8 +1752,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     /* Note, 'type' is *read only* from now on... */
 #endif
     erts_smp_refc_init(&tb->common.fix_count, 0);
-    db_init_lock(tb, status & (DB_FINE_LOCKED|DB_FREQ_READ),
-		 "db_tab", "db_tab_fix");
+    db_init_lock(tb, status & (DB_FINE_LOCKED|DB_FREQ_READ));
     tb->common.keypos = keypos;
     tb->common.owner = BIF_P->common.id;
     set_heir(BIF_P, tb, heir, heir_data);
@@ -3391,8 +3389,9 @@ void init_db(ErtsDbSpinCount db_spin_count)
 	rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
 
     for (i=0; i<META_NAME_TAB_LOCK_CNT; i++) {
-	erts_smp_rwmtx_init_opt_x(&meta_name_tab_rwlocks[i].lck, &rwmtx_opt,
-				  "meta_name_tab", make_small(i));
+        erts_smp_rwmtx_init_opt(&meta_name_tab_rwlocks[i].lck, &rwmtx_opt,
+            "meta_name_tab", make_small(i),
+            ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DB);
     }
 #endif
 
@@ -4334,3 +4333,47 @@ erts_ets_colliding_names(Process* p, Eterm name, Uint cnt)
     return list;
 }
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+
+void erts_lcnt_enable_db_lock_count(DbTable *tb, int enable) {
+    if(enable) {
+        erts_lcnt_install_new_lock_info(&tb->common.rwlock.lcnt, "db_tab",
+            tb->common.the_name, ERTS_LOCK_TYPE_RWMUTEX | ERTS_LOCK_FLAGS_CATEGORY_DB);
+        erts_lcnt_install_new_lock_info(&tb->common.fixlock.lcnt, "db_tab_fix",
+            tb->common.the_name, ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_DB);
+    } else {
+        erts_lcnt_uninstall(&tb->common.rwlock.lcnt);
+        erts_lcnt_uninstall(&tb->common.fixlock.lcnt);
+    }
+
+    if(IS_HASH_TABLE(tb->common.status)) {
+        erts_lcnt_enable_db_hash_lock_count(&tb->hash, enable);
+    }
+}
+
+static void lcnt_update_db_locks_per_sched(void *enable) {
+    ErtsSchedulerData *esdp;
+    DbTable *head;
+
+    esdp = erts_get_scheduler_data();
+    head = esdp->ets_tables.clist;
+
+    if(head) {
+        DbTable *iterator = head;
+
+        do {
+            if(is_table_alive(iterator)) {
+                erts_lcnt_enable_db_lock_count(iterator, !!enable);
+            }
+
+            iterator = iterator->common.all.next;
+        } while (iterator != head);
+    }
+}
+
+void erts_lcnt_update_db_locks(int enable) {
+    erts_schedule_multi_misc_aux_work(0, erts_no_schedulers,
+        &lcnt_update_db_locks_per_sched, (void*)(UWord)enable);
+}
+
+#endif /* ERTS_ENABLE_LOCK_COUNT */

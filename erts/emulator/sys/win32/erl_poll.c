@@ -142,7 +142,8 @@ static erts_mtx_t save_ops_mtx;
 
 static void poll_debug_init(void)
 {
-    erts_mtx_init(&save_ops_mtx, "save_ops_lock");
+    erts_mtx_init(&save_ops_mtx, "save_ops_lock", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
 }
 
 void poll_debug_set_active_fd(ErtsSysFdType fd)
@@ -677,7 +678,7 @@ static void new_waiter(ErtsPollSet ps)
     w->active_events = 1;
     w->highwater = 1;
     w->total_events = 1;
-    erts_mtx_init(&w->mtx, "pollwaiter");
+    erts_mtx_init(&w->mtx, "pollwaiter", NIL, ERTS_LOCK_FLAGS_CATEGORY_IO);
 
 
     /*
@@ -1359,7 +1360,7 @@ ErtsPollSet erts_poll_create_pollset(void)
 
     erts_atomic32_init_nob(&ps->wakeup_state, ERTS_POLL_NOT_WOKEN);
 #ifdef ERTS_SMP
-    erts_smp_mtx_init(&ps->mtx, "pollset");
+    erts_smp_mtx_init(&ps->mtx, "pollset", NIL, ERTS_LOCK_FLAGS_CATEGORY_IO);
 #endif
     init_timeout_time(ps);
 
@@ -1411,7 +1412,8 @@ void  erts_poll_init(void)
     HARDTRACEF(("In erts_poll_init"));
     erts_sys_break_event = CreateManualEvent(FALSE);
 
-    erts_mtx_init(&break_waiter_lock,"break_waiter_lock");
+    erts_mtx_init(&break_waiter_lock, "break_waiter_lock", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
     break_happened_event = CreateManualEvent(FALSE);
     erts_atomic32_init_nob(&break_waiter_state, 0); 
 

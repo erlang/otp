@@ -182,7 +182,8 @@ init_export_table(void)
     HashFunctions f;
     int i;
 
-    erts_smp_mtx_init(&export_staging_lock, "export_tab");
+    erts_smp_mtx_init(&export_staging_lock, "export_tab", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     erts_smp_atomic_init_nob(&total_entries_bytes, 0);
 
     f.hash = (H_FUN) export_hash;

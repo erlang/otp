@@ -442,7 +442,8 @@ init_atom_table(void)
     erts_smp_atomic_init_nob(&atom_put_ops, 0);
 #endif
 
-    erts_smp_rwmtx_init_opt(&atom_table_lock, &rwmtx_opt, "atom_tab");
+    erts_smp_rwmtx_init_opt(&atom_table_lock, &rwmtx_opt, "atom_tab", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
     f.hash = (H_FUN) atom_hash;
     f.cmp  = (HCMP_FUN) atom_cmp;

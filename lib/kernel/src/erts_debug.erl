@@ -33,10 +33,10 @@
 
 -export([breakpoint/2, disassemble/1, display/1, dist_ext_to_term/2,
          dump_monitors/1, dump_links/1, flat_size/1,
-         get_internal_state/1, instructions/0, lock_counters/1,
+         get_internal_state/1, instructions/0,
          map_info/1, same/2, set_internal_state/2,
-         size_shared/1, copy_shared/1, dirty_cpu/2, dirty_io/2,
-	 dirty/3]).
+         size_shared/1, copy_shared/1, dirty_cpu/2, dirty_io/2, dirty/3,
+         lcnt_control/1, lcnt_control/2, lcnt_collect/0, lcnt_clear/0]).
 
 -spec breakpoint(MFA, Flag) -> non_neg_integer() when
       MFA :: {Module :: module(),
@@ -142,12 +142,31 @@ ic(F) when is_function(F) ->
     io:format("Total: ~w~n",[lists:sum([C||{_I,C}<-Is])]),
     R.
 
--spec lock_counters(info) -> term();
-                      (clear) -> ok;
-                      ({copy_save, boolean()}) -> boolean();
-                      ({process_locks, boolean()}) -> boolean().
+-spec lcnt_control
+    (copy_save, boolean()) -> ok;
+    (mask, list(atom())) -> ok.
 
-lock_counters(_) ->
+lcnt_control(_Option, _Value) ->
+    erlang:nif_error(undef).
+
+-spec lcnt_control
+    (copy_save) -> boolean();
+    (mask) -> list(atom()).
+
+lcnt_control(_Option) ->
+    erlang:nif_error(undef).
+
+-type lcnt_lock_info() :: {atom(), term(), atom(), term()}.
+
+-spec lcnt_collect() ->
+    list({duration, {non_neg_integer(), non_neg_integer()}} |
+         {locks, list(lcnt_lock_info())}).
+
+lcnt_collect() ->
+    erlang:nif_error(undef).
+
+-spec lcnt_clear() -> ok.
+lcnt_clear() ->
     erlang:nif_error(undef).
 
 -spec same(Term1, Term2) -> boolean() when

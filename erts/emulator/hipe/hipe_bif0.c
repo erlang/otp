@@ -1129,7 +1129,8 @@ struct hipe_ref {
 
 static inline void hipe_mfa_info_table_init_lock(void)
 {
-    erts_smp_rwmtx_init(&hipe_mfa_info_table.lock, "hipe_mfait_lock");
+    erts_smp_rwmtx_init(&hipe_mfa_info_table.lock, "hipe_mfait_lock", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 }
 
 static inline void hipe_mfa_info_table_rlock(void)

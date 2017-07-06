@@ -37,7 +37,8 @@ static erts_smp_rwmtx_t environ_rwmtx;
 void
 erts_sys_env_init(void)
 {
-    erts_smp_rwmtx_init(&environ_rwmtx, "environ");
+    erts_smp_rwmtx_init(&environ_rwmtx, "environ", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 }
 
 int

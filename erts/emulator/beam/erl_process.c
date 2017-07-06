@@ -841,7 +841,9 @@ erts_late_init_process(void)
 {
     int ix;
 
-    erts_smp_spinlock_init(&erts_sched_stat.lock, "sched_stat");
+    erts_smp_spinlock_init(&erts_sched_stat.lock, "sched_stat", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_SCHEDULER);
+
     for (ix = 0; ix < ERTS_NO_PRIO_LEVELS; ix++) {
 	Eterm atom;
 	char *atom_str;
@@ -2010,12 +2012,13 @@ erts_schedule_multi_misc_aux_work(int ignore_self,
     int id, self = 0;
 
     if (ignore_self) {
-	ErtsSchedulerData *esdp = erts_get_scheduler_data();
-#ifdef ERTS_DIRTY_SCHEDULERS
-	ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
-#endif
-	if (esdp)
-	    self = (int) esdp->no;
+        ErtsSchedulerData *esdp = erts_get_scheduler_data();
+
+        /* ignore_self is meaningless on dirty schedulers since aux work can
+         * only run on normal schedulers, and their ids do not translate. */
+        if(esdp && !ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+            self = (int)esdp->no;
+        }
     }
 
     ASSERT(0 < max_sched && max_sched <= erts_no_schedulers);
@@ -6232,13 +6235,17 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online
 	 * id if the esdp->no <-> ix+1 mapping change.
 	 */
 
-	erts_smp_mtx_init_x(&rq->mtx, "run_queue", make_small(ix + 1));
+	erts_smp_mtx_init(&rq->mtx, "run_queue", make_small(ix + 1),
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_SCHEDULER);
 	erts_smp_cnd_init(&rq->cnd);
 
 #ifdef ERTS_DIRTY_SCHEDULERS
 #ifdef ERTS_SMP
-	if (ERTS_RUNQ_IX_IS_DIRTY(ix))
-	    erts_smp_spinlock_init(&rq->sleepers.lock, "dirty_run_queue_sleep_list");
+        if (ERTS_RUNQ_IX_IS_DIRTY(ix)) {
+            erts_smp_spinlock_init(&rq->sleepers.lock, "dirty_run_queue_sleep_list",
+                make_small(ix + 1),
+                ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_SCHEDULER);
+        }
 	rq->sleepers.list = NULL;
 #endif
 #endif
@@ -6431,7 +6438,8 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online
 
     init_no_runqs(no_schedulers_online, no_schedulers_online);
     balance_info.last_active_runqs = no_schedulers;
-    erts_smp_mtx_init(&balance_info.update_mtx, "migration_info_update");
+    erts_smp_mtx_init(&balance_info.update_mtx, "migration_info_update", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_SCHEDULER);
     balance_info.forced_check_balance = 0;
     balance_info.halftime = 1;
     balance_info.full_reds_history_index = 0;
@@ -7493,7 +7501,8 @@ sched_set_suspended_sleeptype(ErtsSchedulerSleepInfo *ssi)
 static void
 init_scheduler_suspend(void)
 {
-    erts_smp_mtx_init(&schdlr_sspnd.mtx, "schdlr_sspnd");
+    erts_smp_mtx_init(&schdlr_sspnd.mtx, "schdlr_sspnd", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_SCHEDULER);
     schdlr_sspnd.online.normal = 1;
     schdlr_sspnd.curr_online.normal = 1;
     schdlr_sspnd.active.normal = 1;

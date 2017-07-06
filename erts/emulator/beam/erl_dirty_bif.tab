@@ -46,6 +46,11 @@
 dirty-cpu erts_debug:dirty_cpu/2
 dirty-io erts_debug:dirty_io/2
 
+# lcnt_control/1 doesn't need to be dirty.
+dirty-cpu erts_debug:lcnt_control/2
+dirty-cpu erts_debug:lcnt_collect/0
+dirty-cpu erts_debug:lcnt_clear/0
+
 # --- TEST of Dirty BIF functionality ---
 #  Functions below will execute on dirty schedulers when emulator has
 #  been configured for testing dirty schedulers. This is used for test

@@ -120,7 +120,8 @@ void init_module_table(void)
     }
 
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-	erts_smp_rwmtx_init_x(&the_old_code_rwlocks[i], "old_code", make_small(i));
+        erts_smp_rwmtx_init(&the_old_code_rwlocks[i], "old_code", make_small(i),
+            ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     }
     erts_smp_atomic_init_nob(&tot_module_bytes, 0);
 }

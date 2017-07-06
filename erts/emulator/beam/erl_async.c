@@ -194,7 +194,8 @@ erts_init_async(void)
 	ptr += ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsAsyncData));
 
 	async->init.data.no_initialized = 0;
-	erts_mtx_init(&async->init.data.mtx, "async_init_mtx");
+        erts_mtx_init(&async->init.data.mtx, "async_init_mtx", NIL,
+            ERTS_LOCK_FLAGS_CATEGORY_SCHEDULER);
 	erts_cnd_init(&async->init.data.cnd);
 	erts_atomic_init_nob(&async->init.data.id, 0);
 
@@ -213,7 +214,8 @@ erts_init_async(void)
 	for (i = 1; i <= erts_no_schedulers; i++) {
 	    ErtsAsyncReadyQ *arq = async_ready_q(i);
 #if ERTS_USE_ASYNC_READY_ENQ_MTX
-	    erts_mtx_init(&arq->x.data.enq_mtx, "async_enq_mtx");
+            erts_mtx_init(&arq->x.data.enq_mtx, "async_enq_mtx", make_small(i),
+                ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_SCHEDULER);
 #endif
 	    erts_thr_q_finalize_dequeue_state_init(&arq->fin_deq);
 	    qinit.arg = (void *) (SWord) i;

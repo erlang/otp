@@ -165,7 +165,8 @@ erts_bp_init(void) {
     erts_smp_atomic32_init_nob(&erts_active_bp_index, 0);
     erts_smp_atomic32_init_nob(&erts_staging_bp_index, 1);
 #ifdef ERTS_DIRTY_SCHEDULERS
-    erts_smp_mtx_init(&erts_dirty_bp_ix_mtx, "dirty_break_point_index");
+    erts_smp_mtx_init(&erts_dirty_bp_ix_mtx, "dirty_break_point_index", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
 #endif
 }
 

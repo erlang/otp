@@ -129,6 +129,11 @@ extern erts_smp_atomic_t erts_ets_misc_mem_size;
 Eterm erts_ets_colliding_names(Process*, Eterm name, Uint cnt);
 Uint erts_db_get_max_tabs(void);
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+void erts_lcnt_enable_db_lock_count(DbTable *tb, int enable);
+void erts_lcnt_update_db_locks(int enable);
+#endif
+
 #endif /* ERL_DB_H__ */
 
 #if defined(ERTS_WANT_DB_INTERNAL__) && !defined(ERTS_HAVE_DB_INTERNAL__)

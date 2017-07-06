@@ -372,7 +372,8 @@ erts_ptab_init_table(ErtsPTab *ptab,
     rwmtx_opts.type = ERTS_SMP_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
     rwmtx_opts.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
-    erts_smp_rwmtx_init_opt(&ptab->list.data.rwmtx, &rwmtx_opts, name);
+    erts_smp_rwmtx_init_opt(&ptab->list.data.rwmtx, &rwmtx_opts, name, NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     erts_smp_atomic32_init_nob(&ptab->vola.tile.count, 0);
     last_data_init_nob(ptab, ~((Uint64) 0));
 

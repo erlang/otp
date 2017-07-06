@@ -220,6 +220,10 @@ void* erts_alcu_literal_32_sys_realloc(Allctr_t*, void *ptr, Uint *size_p, Uint 
 void  erts_alcu_literal_32_sys_dealloc(Allctr_t*, void *ptr, Uint size, int superalign);
 #endif
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+void erts_lcnt_update_allocator_locks(int enable);
+#endif
+
 #endif /* !ERL_ALLOC_UTIL__ */
 
 #if defined(GET_ERL_ALLOC_UTIL_IMPL) && !defined(ERL_ALLOC_UTIL_IMPL__)
@@ -672,7 +676,6 @@ void erts_alcu_assert_failed(char* expr, char* file, int line, char *func);
 #ifdef DEBUG
 int is_sbc_blk(Block_t*);
 #endif
-
 
 #endif /* #if defined(GET_ERL_ALLOC_UTIL_IMPL)
 	      && !defined(ERL_ALLOC_UTIL_IMPL__) */
