@@ -6135,16 +6135,8 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     if (init->ts) {
 	allctr->thread_safe = 1;
 
-#ifdef ERTS_ENABLE_LOCK_COUNT
-	erts_mtx_init_x_opt(&allctr->mutex,
-			    "alcu_allocator",
-			    make_small(allctr->alloc_no),
-			    ERTS_LCNT_LT_ALLOC);
-#else
-	erts_mtx_init_x(&allctr->mutex,
-			"alcu_allocator",
-			make_small(allctr->alloc_no));
-#endif /*ERTS_ENABLE_LOCK_COUNT*/
+        erts_mtx_init(&allctr->mutex, "alcu_allocator", make_small(allctr->alloc_no),
+            ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR);
 
 #ifdef DEBUG
 	allctr->debug.saved_tid = 0;
@@ -6324,7 +6316,8 @@ erts_alcu_init(AlcUInit_t *init)
     carrier_alignment = sizeof(Unit_t);
 #endif
 
-    erts_mtx_init(&init_atoms_mtx, "alcu_init_atoms");
+    erts_mtx_init(&init_atoms_mtx, "alcu_init_atoms", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR);
 
     atoms_initialized = 0;
     initialized = 1;
@@ -6592,3 +6585,45 @@ check_blk_carrier(Allctr_t *allctr, Block_t *iblk)
 
 #endif /* ERTS_ALLOC_UTIL_HARD_DEBUG */
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+
+static void lcnt_enable_allocator_lock_count(Allctr_t *allocator, int enable) {
+    if(!allocator->thread_safe) {
+        return;
+    }
+
+    if(enable) {
+        erts_lcnt_install_new_lock_info(&allocator->mutex.lcnt,
+            "alcu_allocator", make_small(allocator->alloc_no),
+            ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR);
+    } else {
+        erts_lcnt_uninstall(&allocator->mutex.lcnt);
+    }
+}
+
+static void lcnt_update_thread_spec_locks(ErtsAllocatorThrSpec_t *tspec, int enable) {
+    if(tspec->enabled) {
+        int i;
+
+        for(i = 0; i < tspec->size; i++) {
+            lcnt_enable_allocator_lock_count(tspec->allctr[i], enable);
+        }
+    }
+}
+
+void erts_lcnt_update_allocator_locks(int enable) {
+    int i;
+
+    for(i = ERTS_ALC_A_MIN; i < ERTS_ALC_A_MAX; i++) {
+        ErtsAllocatorInfo_t *ai = &erts_allctrs_info[i];
+
+        if(ai->enabled && ai->alloc_util) {
+            if(ai->thr_spec) {
+                lcnt_update_thread_spec_locks((ErtsAllocatorThrSpec_t*)ai->extra, enable);
+            } else {
+                lcnt_enable_allocator_lock_count((Allctr_t*)ai->extra, enable);
+            }
+        }
+    }
+}
+#endif /* ERTS_ENABLE_LOCK_COUNT */

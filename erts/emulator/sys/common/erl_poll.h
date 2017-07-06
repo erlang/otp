@@ -260,4 +260,8 @@ void		ERTS_POLL_EXPORT(erts_poll_get_selected_events)(ErtsPollSet,
 
 int erts_poll_new_table_len(int old_len, int need_len);
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+void ERTS_POLL_EXPORT(erts_lcnt_update_pollset_locks)(int enable);
+#endif
+
 #endif /* #ifndef ERL_POLL_H__ */

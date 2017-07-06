@@ -2212,9 +2212,11 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init, int executable)
 	erts_exit(1, "erts_mmap: Failed to open /dev/zero\n");
 #endif
 
-    erts_smp_mtx_init(&mm->mtx, "erts_mmap");
+    erts_smp_mtx_init(&mm->mtx, "erts_mmap", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     if (is_first_call) {
-        erts_mtx_init(&am.init_mutex, "mmap_init_atoms");
+        erts_mtx_init(&am.init_mutex, "mmap_init_atoms", NIL,
+            ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     }
 
 #ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
@@ -2816,7 +2818,8 @@ static void hard_dbg_mseg_init(void)
 {
     ErtsFreeSegDesc_fake* p;
 
-    erts_mtx_init(&hard_dbg_mseg_mtx, "hard_dbg_mseg");
+    erts_mtx_init(&hard_dbg_mseg_mtx, "hard_dbg_mseg", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
     hard_dbg_mseg_tree.root = NULL;
     hard_dbg_mseg_tree.order = ADDR_ORDER;
 

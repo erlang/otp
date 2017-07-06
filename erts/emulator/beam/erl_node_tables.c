@@ -85,21 +85,20 @@ dist_table_cmp(void *dep1, void *dep2)
 static void*
 dist_table_alloc(void *dep_tmpl)
 {
-    Eterm chnl_nr;
     Eterm sysname;
     DistEntry *dep;
     erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
     rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
 
     sysname = ((DistEntry *) dep_tmpl)->sysname;
-    chnl_nr = make_small((Uint) atom_val(sysname));
     dep = (DistEntry *) erts_alloc(ERTS_ALC_T_DIST_ENTRY, sizeof(DistEntry));
 
     dist_entries++;
 
     dep->prev				= NULL;
     erts_smp_refc_init(&dep->refc, -1);
-    erts_smp_rwmtx_init_opt_x(&dep->rwmtx, &rwmtx_opt, "dist_entry", chnl_nr);
+    erts_smp_rwmtx_init_opt(&dep->rwmtx, &rwmtx_opt, "dist_entry", sysname,
+        ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
     dep->sysname			= sysname;
     dep->cid				= NIL;
     dep->connection_id			= 0;
@@ -107,12 +106,14 @@ dist_table_alloc(void *dep_tmpl)
     dep->flags				= 0;
     dep->version			= 0;
 
-    erts_smp_mtx_init_x(&dep->lnk_mtx, "dist_entry_links", chnl_nr);
+    erts_smp_mtx_init(&dep->lnk_mtx, "dist_entry_links", sysname,
+        ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
     dep->node_links			= NULL;
     dep->nlinks				= NULL;
     dep->monitors			= NULL;
 
-    erts_smp_mtx_init_x(&dep->qlock, "dist_entry_out_queue", chnl_nr);
+    erts_smp_mtx_init(&dep->qlock, "dist_entry_out_queue", sysname,
+        ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
     dep->qflgs				= 0;
     dep->qsize				= 0;
     dep->out_queue.first		= NULL;
@@ -760,8 +761,10 @@ void erts_init_node_tables(int dd_sec)
     rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
     rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
-    erts_smp_rwmtx_init_opt(&erts_node_table_rwmtx, &rwmtx_opt, "node_table");
-    erts_smp_rwmtx_init_opt(&erts_dist_table_rwmtx, &rwmtx_opt, "dist_table");
+    erts_smp_rwmtx_init_opt(&erts_node_table_rwmtx, &rwmtx_opt, "node_table", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
+    erts_smp_rwmtx_init_opt(&erts_dist_table_rwmtx, &rwmtx_opt, "dist_table", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
 
     f.hash       = (H_FUN)		dist_table_hash;
     f.cmp        = (HCMP_FUN)		dist_table_cmp;
@@ -816,6 +819,33 @@ int erts_lc_is_de_rlocked(DistEntry *dep)
     return erts_smp_lc_rwmtx_is_rlocked(&dep->rwmtx);
 }
 #endif
+#endif
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
+
+static void erts_lcnt_enable_dist_lock_count(void *dep_raw, void *enable) {
+    DistEntry *dep = (DistEntry*)dep_raw;
+
+    if(enable) {
+        erts_lcnt_install_new_lock_info(&dep->rwmtx.lcnt, "dist_entry", dep->sysname, 
+            ERTS_LOCK_TYPE_RWMUTEX | ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
+        erts_lcnt_install_new_lock_info(&dep->lnk_mtx.lcnt, "dist_entry_links", dep->sysname,
+            ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
+        erts_lcnt_install_new_lock_info(&dep->qlock.lcnt, "dist_entry_out_queue", dep->sysname,
+            ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
+    } else {
+        erts_lcnt_uninstall(&dep->rwmtx.lcnt);
+        erts_lcnt_uninstall(&dep->lnk_mtx.lcnt);
+        erts_lcnt_uninstall(&dep->qlock.lcnt);
+    }
+}
+
+void erts_lcnt_update_distribution_locks(int enable) {
+    erts_smp_rwmtx_rlock(&erts_dist_table_rwmtx);
+    hash_foreach(&erts_dist_table, erts_lcnt_enable_dist_lock_count,
+        (void*)(UWord)enable);
+    erts_smp_rwmtx_runlock(&erts_dist_table_rwmtx);
+}
 #endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\

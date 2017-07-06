@@ -304,8 +304,8 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	    erts_sys_time_data__.r.o.os_times =
 		clock_gettime_times_verified;
 #endif
-	    erts_smp_mtx_init(&internal_state.w.f.mtx,
-			      "os_monotonic_time");
+            erts_smp_mtx_init(&internal_state.w.f.mtx, "os_monotonic_time", NIL,
+                ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
 	    internal_state.w.f.last_delivered
 		= clock_gettime_monotonic();
 	    init_resp->os_monotonic_time_info.locked_use = 1;

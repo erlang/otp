@@ -97,7 +97,8 @@ init_purge_state(void)
 {
     purge_state.module = THE_NON_VALUE;
 
-    erts_smp_mtx_init(&purge_state.mtx, "purge_state");
+    erts_smp_mtx_init(&purge_state.mtx, "purge_state", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
     purge_state.pending_purge_lambda =
 	erts_export_put(am_erts_code_purger, am_pending_purge_lambda, 3);
@@ -118,7 +119,9 @@ init_purge_state(void)
 void
 erts_beam_bif_load_init(void)
 {
-    erts_smp_mtx_init(&release_literal_areas.mtx, "release_literal_areas");
+    erts_smp_mtx_init(&release_literal_areas.mtx, "release_literal_areas", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
+
     release_literal_areas.first = NULL;
     release_literal_areas.last = NULL;
     erts_smp_atomic_init_nob(&erts_copy_literal_area__,

@@ -336,7 +336,8 @@ void erts_init_trace(void) {
     rwmtx_opts.type = ERTS_SMP_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
     rwmtx_opts.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
-    erts_smp_rwmtx_init_opt(&sys_trace_rwmtx, &rwmtx_opts, "sys_tracers");
+    erts_smp_rwmtx_init_opt(&sys_trace_rwmtx, &rwmtx_opts, "sys_tracers", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
 
 #ifdef HAVE_ERTS_NOW_CPU
     erts_cpu_timestamp = 0;
@@ -2625,7 +2626,8 @@ init_sys_msg_dispatcher(void)
     sys_message_queue = NULL;
     sys_message_queue_end = NULL;
     erts_smp_cnd_init(&smq_cnd);
-    erts_smp_mtx_init(&smq_mtx, "sys_msg_q");
+    erts_smp_mtx_init(&smq_mtx, "sys_msg_q", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
     erts_smp_thr_create(&sys_msg_dispatcher_tid,
 			sys_msg_dispatcher_func,
 			NULL,
@@ -3185,7 +3187,9 @@ static void init_tracer_nif()
     erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
     rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
     rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
-    erts_smp_rwmtx_init_opt(&tracer_mtx, &rwmtx_opt, "tracer_mtx");
+
+    erts_smp_rwmtx_init_opt(&tracer_mtx, &rwmtx_opt, "tracer_mtx", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
 
     erts_tracer_nif_clear();
 

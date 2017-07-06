@@ -1420,7 +1420,8 @@ erts_mseg_init(ErtsMsegInit_t *init)
 
     atoms_initialized = 0;
 
-    erts_mtx_init(&init_atoms_mutex, "mseg_init_atoms");
+    erts_mtx_init(&init_atoms_mutex, "mseg_init_atoms", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
 #ifdef ERTS_HAVE_EXEC_MMAPPER
     /* Initialize erts_exec_mapper *FIRST*, to increase probability
@@ -1449,7 +1450,8 @@ erts_mseg_init(ErtsMsegInit_t *init)
 	    ma->is_thread_safe = 0;
 	else {
 	    ma->is_thread_safe = 1;
-	    erts_mtx_init(&ma->mtx, "mseg");
+            erts_mtx_init(&ma->mtx, "mseg", make_small(i),
+                ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR);
 	}
 
 	ma->is_cache_check_scheduled = 0;

@@ -675,8 +675,8 @@ int db_create_hash(Process *p, DbTable *tbl)
 							      (DbTable *) tb,
 							      sizeof(DbTableHashFineLocks));	    	    
 	for (i=0; i<DB_HASH_LOCK_CNT; ++i) {
-	    erts_smp_rwmtx_init_opt_x(&tb->locks->lck_vec[i].lck, &rwmtx_opt,
-				      "db_hash_slot", tb->common.the_name);
+            erts_smp_rwmtx_init_opt(&tb->locks->lck_vec[i].lck, &rwmtx_opt,
+                "db_hash_slot", tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
 	}
 	/* This important property is needed to guarantee the two buckets
     	 * involved in a grow/shrink operation it protected by the same lock:
@@ -3206,3 +3206,23 @@ Eterm erts_ets_hash_sizeof_ext_segtab(void)
     return make_small(((SIZEOF_EXT_SEGTAB(0)-1) / sizeof(UWord)) + 1);
 }
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+void erts_lcnt_enable_db_hash_lock_count(DbTableHash *tb, int enable) {
+    int i;
+
+    if(tb->locks == NULL) {
+        return;
+    }
+
+    for(i = 0; i < DB_HASH_LOCK_CNT; i++) {
+        erts_lcnt_ref_t *ref = &tb->locks->lck_vec[i].lck.lcnt;
+
+        if(enable) {
+            erts_lcnt_install_new_lock_info(ref, "db_hash_slot", tb->common.the_name,
+                ERTS_LOCK_TYPE_RWMUTEX | ERTS_LOCK_FLAGS_CATEGORY_DB);
+        } else {
+            erts_lcnt_uninstall(ref);
+        }
+    }
+}
+#endif /* ERTS_ENABLE_LOCK_COUNT */

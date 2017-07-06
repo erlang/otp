@@ -392,7 +392,8 @@ init_magic_ref_tables(void)
     erts_snprintf(&tblp->name[0], sizeof(tblp->name),
 		  "magic_ref_table_0");
     hash_init(0, &tblp->hash, &tblp->name[0], 1, hash_funcs);
-    erts_rwmtx_init(&tblp->rwmtx, "magic_ref_table");
+    erts_rwmtx_init(&tblp->rwmtx, "magic_ref_table", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
     hash_funcs.hash = nsched_mreft_hash;
     hash_funcs.cmp = nsched_mreft_cmp;
@@ -402,7 +403,8 @@ init_magic_ref_tables(void)
 	erts_snprintf(&tblp->name[0], sizeof(tblp->name),
 		      "magic_ref_table_%d", i);
 	hash_init(0, &tblp->hash, &tblp->name[0], 1, hash_funcs);
-	erts_rwmtx_init(&tblp->rwmtx, "magic_ref_table");
+	erts_rwmtx_init(&tblp->rwmtx, "magic_ref_table", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     }
 }
 

@@ -1183,7 +1183,8 @@ void erts_ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon);
 Eterm erts_driver_monitor_to_ref(Eterm* hp, const ErlDrvMonitor *mon);
 
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_COUNT)
-void erts_lcnt_enable_io_lock_count(int enable);
+void erts_lcnt_update_driver_locks(int enable);
+void erts_lcnt_update_port_locks(int enable);
 #endif
 
 /* driver_tab.c */

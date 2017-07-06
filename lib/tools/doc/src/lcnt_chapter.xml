@@ -29,7 +29,7 @@
 	<approved>nobody</approved>
 	<checked>no</checked>
 	<date>2009-11-26</date>
-	<rev>PA1</rev>
+	<rev>PA2</rev>
 	<file>lcnt_chapter.xml</file>
     </header>
     <p>
@@ -97,8 +97,11 @@ ok
 ok
 </pre>
 <p>
-    Another way to to profile a specific function is to use <c>lcnt:apply/3</c> or <c>lcnt:apply/1</c> which does <c>lcnt:clear/0</c> before the function and <c>lcnt:collect/0</c> after its invocation.
-    It also sets <c>copy_save</c> to <c>true</c> for the duration of the function call
+    Another way to to profile a specific function is to use <c>lcnt:apply/3</c> or <c>lcnt:apply/1</c>
+    which does <c>lcnt:clear/0</c> before the function and <c>lcnt:collect/0</c> after its invocation.
+    This method should only be used in micro-benchmarks since it sets <c>copy_save</c> to <c>true</c>
+    for the duration of the function call, which may cause the emulator to run out of memory if
+    attempted under load.
 </p>
 <pre>
 Erlang R13B03 (erts-5.7.4) [source] [smp:8:8] [rq:8] [async-threads:0] [hipe]

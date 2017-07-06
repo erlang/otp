@@ -583,8 +583,10 @@ void erts_mtrace_init(char *receiver, char *nodename)
 	byte ip_addr[4];
 	Uint16 port;
 
-	erts_mtx_init(&mtrace_buf_mutex, "mtrace_buf");
-	erts_mtx_init(&mtrace_op_mutex, "mtrace_op");
+        erts_mtx_init(&mtrace_buf_mutex, "mtrace_buf", NIL,
+            ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
+        erts_mtx_init(&mtrace_op_mutex, "mtrace_op", NIL,
+            ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
 
 	socket_desc = erts_sock_open();
 	if (socket_desc == ERTS_SOCK_INVALID_SOCKET) {

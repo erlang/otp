@@ -62,9 +62,6 @@ static erts_smp_atomic32_t msacc;
 static Export *await_sched_wall_time_mod_trap;
 static erts_smp_atomic32_t sched_wall_time;
 
-static erts_smp_mtx_t ports_snapshot_mtx;
-erts_smp_atomic_t erts_dead_ports_ptr; /* To store dying ports during snapshot */
-
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
 /*
@@ -5138,9 +5135,6 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
 
 void erts_init_bif(void)
 {
-    erts_smp_mtx_init(&ports_snapshot_mtx, "ports_snapshot");
-    erts_smp_atomic_init_nob(&erts_dead_ports_ptr, (erts_aint_t) NULL);
-
     /*
      * bif_return_trap/2 is a hidden BIF that bifs that need to
      * yield the calling process traps to.

@@ -151,10 +151,9 @@ t_swap_keys_file([File|Files]) ->
 
 %% Simple smoke test of actual lock-counting, if running on
 %% a run-time with lock-counting enabled.
-
 smoke_lcnt(Config) ->
-    case erlang:system_info(build_type) of
-        lcnt ->
+    case catch erlang:system_info(lock_counting) of
+        true ->
             do_smoke_lcnt(Config);
         _ ->
             {skip,"Lock counting is not enabled"}

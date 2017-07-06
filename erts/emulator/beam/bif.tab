@@ -437,7 +437,10 @@ bif erts_debug:dump_links/1
 #
 # Lock counter bif's
 #
-bif erts_debug:lock_counters/1
+bif erts_debug:lcnt_control/2
+bif erts_debug:lcnt_control/1
+bif erts_debug:lcnt_collect/0
+bif erts_debug:lcnt_clear/0
 
 #
 # New Bifs in R8.

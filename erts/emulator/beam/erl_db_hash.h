@@ -103,4 +103,8 @@ typedef struct {
 void db_calc_stats_hash(DbTableHash* tb, DbHashStats*);
 Eterm erts_ets_hash_sizeof_ext_segtab(void);
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+void erts_lcnt_enable_db_hash_lock_count(DbTableHash *tb, int enable);
+#endif
+
 #endif /* _DB_HASH_H */

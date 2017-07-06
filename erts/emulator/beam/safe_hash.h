@@ -28,6 +28,7 @@
 
 #include "sys.h"
 #include "erl_alloc.h"
+#include "erl_lock_flags.h"
 
 typedef unsigned long SafeHashValue;
 
@@ -85,7 +86,7 @@ typedef struct
     /* A: Lockless atomics */
 } SafeHash;
 
-SafeHash* safe_hash_init(ErtsAlcType_t, SafeHash*, char*, int, SafeHashFunctions);
+SafeHash* safe_hash_init(ErtsAlcType_t, SafeHash*, char*, erts_lock_flags_t, int, SafeHashFunctions);
 
 void  safe_hash_get_info(SafeHashInfo*, SafeHash*);
 int   safe_hash_table_sz(SafeHash *);
@@ -95,6 +96,10 @@ void* safe_hash_put(SafeHash*, void*);
 void* safe_hash_erase(SafeHash*, void*);
 
 void  safe_hash_for_each(SafeHash*, void (*func)(void *, void *), void *);
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
+void erts_lcnt_enable_hash_lock_count(SafeHash*, erts_lock_flags_t, int);
+#endif
 
 #endif /* __SAFE_HASH_H__ */
 

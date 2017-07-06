@@ -321,13 +321,23 @@ tmp_thr_prgr_data(ErtsSchedulerData *esdp)
     ErtsThrPrgrData *tpd = perhaps_thr_prgr_data(esdp);
 
     if (!tpd) {
-	/*
-	 * We only allocate the part up to the wakeup_request field
-	 * which is the first field only used by registered threads
-	 */
-	tpd = erts_alloc(ERTS_ALC_T_T_THR_PRGR_DATA,
-			 offsetof(ErtsThrPrgrData, wakeup_request));
-	init_tmp_thr_prgr_data(tpd);
+        /*
+         * We only allocate the part up to the wakeup_request field which is
+         * the first field only used by registered threads
+         */
+        size_t alloc_size = offsetof(ErtsThrPrgrData, wakeup_request);
+
+        /* We may land here as a result of unmanaged_delay being called from
+         * the lock counting module, which in turn might be called from within
+         * the allocator, so we use plain malloc to avoid deadlocks. */
+        tpd =
+#ifdef ERTS_ENABLE_LOCK_COUNT
+            malloc(alloc_size);
+#else
+            erts_alloc(ERTS_ALC_T_T_THR_PRGR_DATA, alloc_size);
+#endif
+
+        init_tmp_thr_prgr_data(tpd);
     }
 
     return tpd;
@@ -337,8 +347,13 @@ static ERTS_INLINE void
 return_tmp_thr_prgr_data(ErtsThrPrgrData *tpd)
 {
     if (tpd->is_temporary) {
-	erts_tsd_set(erts_thr_prgr_data_key__, NULL);
-	erts_free(ERTS_ALC_T_T_THR_PRGR_DATA, tpd);
+        erts_tsd_set(erts_thr_prgr_data_key__, NULL);
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
+        free(tpd);
+#else
+        erts_free(ERTS_ALC_T_T_THR_PRGR_DATA, tpd);
+#endif
     }
 }
 

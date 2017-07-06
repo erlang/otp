@@ -2357,8 +2357,12 @@ erl_start(int argc, char **argv)
 
 #ifdef ERTS_SMP
     erts_start_schedulers();
-    /* Let system specific code decide what to do with the main thread... */
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_post_startup();
+#endif
+
+    /* Let system specific code decide what to do with the main thread... */
     erts_sys_main_thread(); /* May or may not return! */
 #else
     {
@@ -2373,6 +2377,11 @@ erl_start(int argc, char **argv)
 	erts_sched_init_time_sup(esdp);
         erts_ets_sched_spec_data_init(esdp);
         erts_aux_work_timeout_late_init(esdp);
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
+        erts_lcnt_post_startup();
+#endif
+
 	process_main(esdp->x_reg_array, esdp->f_reg_array);
     }
 #endif

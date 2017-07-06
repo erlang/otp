@@ -42,6 +42,7 @@
 #include "dist.h"
 #include "erl_printf.h"
 #include "erl_threads.h"
+#include "erl_lock_count.h"
 #include "erl_smp.h"
 #include "erl_time.h"
 #include "erl_thr_progress.h"
