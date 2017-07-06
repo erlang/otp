@@ -825,7 +825,7 @@ sub emulator_output {
         my $name = "$outdir/$key";
         open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
         comment('C');
-        print @{$combined_code{$key}};
+        print_indented_code(@{$combined_code{$key}});
     }
 }
 
@@ -865,17 +865,40 @@ sub print_code {
 	    $code .= "OpCase($label):\n";
 	    $sort_key = $label;
 	}
-	foreach (split("\n", $key)) {
-	    $code .= "    $_\n";
-	}
-	$code .= "\n";
+        $code .= "$key\n";
 	$sorted{$sort_key} = $code;
     }
 
     foreach (sort keys %sorted) {
-	print $sorted{$_};
+	print_indented_code($sorted{$_});
     }
 }
+
+sub print_indented_code {
+    my(@code) = @_;
+
+    foreach my $chunk (@code) {
+        my $indent = 0;
+        foreach (split "\n", $chunk) {
+            s/^\s*//;
+            if (/\}/) {
+                $indent -= 2;
+            }
+            if ($_ eq '') {
+                print "\n";
+            } elsif (/^#/) {
+                print $_, "\n";
+            } else {
+                print ' ' x $indent, $_, "\n";
+            }
+            if (/\{/) {
+                $indent += 2;
+            }
+        }
+        print "\n";
+    }
+}
+
 
 #
 # Produce output needed by the compiler back-end (assembler).
