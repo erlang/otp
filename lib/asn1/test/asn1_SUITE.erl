@@ -1198,14 +1198,14 @@ testComment(Config) ->
 
 testName2Number(Config) ->
     N2NOptions0 = [{n2n,Type} ||
-                     Type <- ['CauseMisc', 'CauseProtocol',
-                              'CauseRadioNetwork',
-                              'CauseTransport','CauseNas']],
+                     Type <- ['Cause-Misc', 'CauseProtocol']],
     N2NOptions = [?NO_MAPS_MODULE|N2NOptions0],
-    asn1_test_lib:compile("S1AP-IEs", Config, N2NOptions),
+    asn1_test_lib:compile("EnumN2N", Config, N2NOptions),
 
-    0 = 'S1AP-IEs':name2num_CauseMisc('control-processing-overload'),
-    'unknown-PLMN' = 'S1AP-IEs':num2name_CauseMisc(5),
+    0 = 'EnumN2N':'name2num_Cause-Misc'('control-processing-overload'),
+    'unknown-PLMN' = 'EnumN2N':'num2name_Cause-Misc'(5),
+    4 = 'EnumN2N':name2num_CauseProtocol('semantic-error'),
+    'transfer-syntax-error' = 'EnumN2N':num2name_CauseProtocol(0),
 
     %% OTP-10144
     %% Test that n2n option generates name2num and num2name functions supporting

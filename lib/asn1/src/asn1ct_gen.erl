@@ -145,27 +145,37 @@ pgen_n2nconversion(_Erules,#typedef{name=TypeName,typespec=#type{def={'ENUMERATE
 pgen_n2nconversion(_Erules,_) ->
     true.
 
-pgen_name2numfunc(_TypeName,[], _) ->
-    true;
-pgen_name2numfunc(TypeName,[{Atom,Number}], extension_marker) ->
-    emit(["name2num_",TypeName,"(",{asis,Atom},") ->",Number,";",nl]),
-    emit(["name2num_",TypeName,"({asn1_enum, Num}) -> Num.",nl,nl]);
-pgen_name2numfunc(TypeName,[{Atom,Number}], _) ->
-    emit(["name2num_",TypeName,"(",{asis,Atom},") ->",Number,".",nl,nl]);
-pgen_name2numfunc(TypeName,[{Atom,Number}|NNRest], EM) ->
-    emit(["name2num_",TypeName,"(",{asis,Atom},") ->",Number,";",nl]),
-    pgen_name2numfunc(TypeName,NNRest, EM).
+pgen_name2numfunc(TypeNameAsAtom,Mapping,Ext) when is_atom(TypeNameAsAtom) ->
+    FuncName = list_to_atom("name2num_"++atom_to_list(TypeNameAsAtom)),
+    pgen_name2numfunc1(FuncName,Mapping,Ext).
 
-pgen_num2namefunc(_TypeName,[], _) ->
+pgen_name2numfunc1(_FuncName,[], _) ->
     true;
-pgen_num2namefunc(TypeName,[{Atom,Number}], extension_marker) ->
-    emit(["num2name_",TypeName,"(",Number,") ->",{asis,Atom},";",nl]),
-    emit(["num2name_",TypeName,"(ExtensionNum) -> {asn1_enum, ExtensionNum}.",nl,nl]);
-pgen_num2namefunc(TypeName,[{Atom,Number}], _) ->
-    emit(["num2name_",TypeName,"(",Number,") ->",{asis,Atom},".",nl,nl]);
-pgen_num2namefunc(TypeName,[{Atom,Number}|NNRest], EM) ->
-    emit(["num2name_",TypeName,"(",Number,") ->",{asis,Atom},";",nl]),
-    pgen_num2namefunc(TypeName,NNRest, EM).
+pgen_name2numfunc1(FuncName,[{Atom,Number}], extension_marker) ->
+    emit([{asis,FuncName},"(",{asis,Atom},") ->",Number,";",nl]),
+    emit([{asis,FuncName},"({asn1_enum, Num}) -> Num.",nl,nl]);
+pgen_name2numfunc1(FuncName,[{Atom,Number}], _) ->
+    emit([{asis,FuncName},"(",{asis,Atom},") ->",Number,".",nl,nl]);
+pgen_name2numfunc1(FuncName,[{Atom,Number}|NNRest], EM) ->
+    emit([{asis,FuncName},"(",{asis,Atom},") ->",Number,";",nl]),
+    pgen_name2numfunc1(FuncName,NNRest, EM).
+
+pgen_num2namefunc(TypeNameAsAtom,Mapping,Ext) when is_atom(TypeNameAsAtom) ->
+    FuncName = list_to_atom("num2name_"++atom_to_list(TypeNameAsAtom)),
+    pgen_num2namefunc1(FuncName,Mapping,Ext).
+
+pgen_num2namefunc1(_FuncName,[], _) ->
+    true;
+pgen_num2namefunc1(FuncName,[{Atom,Number}], extension_marker) ->
+    emit([{asis,FuncName},"(",Number,") ->",{asis,Atom},";",nl]),
+    emit([{asis,FuncName},"(ExtensionNum) -> {asn1_enum, ExtensionNum}.",nl,nl]);
+pgen_num2namefunc1(FuncName,[{Atom,Number}], _) ->
+    emit([{asis,FuncName},"(",Number,") ->",{asis,Atom},".",nl,nl]);
+pgen_num2namefunc1(FuncName,[{Atom,Number}|NNRest], EM) ->
+    emit([{asis,FuncName},"(",Number,") ->",{asis,Atom},";",nl]),
+    pgen_num2namefunc1(FuncName,NNRest, EM).
+
+    
 
 pgen_objects(_,_,_,[]) ->
     true;
