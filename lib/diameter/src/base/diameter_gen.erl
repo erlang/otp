@@ -178,14 +178,17 @@ enc_AVP(_Name, {_Dict, _AvpName, _Data} = T, Opts, _) ->
    -> {parent_record(), [avp()], Failed}
  when Failed :: [{5000..5999, #diameter_avp{}}].
 
-decode_avps(Name, Recs, #{module := Mod} = Opts) ->
+decode_avps(Name, Recs, #{module := Mod, record_decode := Fmt} = Opts) ->
     {Avps, {Rec, AM, Failed}}
         = mapfoldl(fun(T,A) -> decode(Name, Opts, Mod, T, A) end,
-                   {newrec(Mod, Name, Opts), #{}, []},
+                   {newrec(Mod, Name, Fmt), #{}, []},
                    Recs),
     %% AM counts the number of top-level AVPs, which missing/4 then
     %% uses when adding 5005 errors.
-    {Rec, Avps, Failed ++ missing(Name, Opts, Mod, AM)}.
+    Arities = Mod:avp_arity(Name),
+    {reformat(Rec, Arities, Fmt),
+     Avps,
+     Failed ++ missing(Arities, Opts, Mod, AM)}.
 
 %% Append 5005 errors so that errors are reported in the order
 %% encountered. Failed-AVP should typically contain the first
@@ -216,10 +219,10 @@ mapfoldl(_, Acc, [], List) ->
 %%      Vendor-Id if applicable.  The value field of the missing AVP
 %%      should be of correct minimum length and contain zeros.
 
-missing(Name, Opts, Mod, AM) ->
+missing(Arities, Opts, Mod, AM) ->
     lists:foldl(fun(T,A) -> missing(T, AM, Opts, Mod, A) end,
                 [],
-                Mod:avp_arity(Name)).
+                Arities).
 
 %% missing/5
 
@@ -631,7 +634,7 @@ too_many(FieldName, M, Map) ->
 
 %% set/5
 
-set(_, _, _, _, undefined = No) ->
+set(_, _, _, _, false = No) ->
     No;
 
 set(1, F, Value, _, Map)
@@ -743,19 +746,27 @@ empty(Name, #{module := Mod} = Opts) ->
 
 %% newrec/3
 
-newrec(_, _, #{record_decode := false}) ->
-    undefined;
+newrec(_, _, false = No) ->
+    No;
 
-newrec(_, Name, #{record_decode := map}) ->
-    #{':name' => Name};
+newrec(Mod, Name, true) ->
+    newrec(Mod, Name);
 
-newrec(Mod, Name, _) ->
-    newrec(Mod, Name).
+newrec(_, Name, _) ->
+    #{':name' => Name}.
 
 %% newrec/2
 
 newrec(Mod, Name) ->
     Mod:'#new-'(Mod:name2rec(Name)).
+
+%% reformat/3
+
+reformat(Map, Arities, list) ->
+    [{F,V} || {F,_} <- Arities, #{F := V} <- [Map]];
+
+reformat(Rec, _, _) ->
+    Rec.
 
 %% def/1
 

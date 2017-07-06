@@ -769,7 +769,9 @@ opt(K, true = B)
        K == string_decode ->
     B;
 
-opt(record_decode, map = T) ->
+opt(record_decode, T)
+  when T == list;
+       T == map ->
     T;
 
 opt(restrict_connections, T)

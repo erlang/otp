@@ -338,7 +338,7 @@ call(SvcName, App, Message) ->
     | {restrict_connections, restriction()}
     | {sequence, sequence() | evaluable()}
     | {share_peers, remotes()}
-    | {record_decode, boolean() | map}
+    | {record_decode, boolean() | list | map}
     | {string_decode, boolean()}
     | {strict_mbit, boolean()}
     | {incoming_maxlen, message_length()}

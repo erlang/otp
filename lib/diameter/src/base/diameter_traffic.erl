@@ -76,7 +76,7 @@
          service_name :: diameter:service_name(),
          apps         :: [#diameter_app{}],
          sequence     :: diameter:sequence(),
-         codec        :: #{record_decode := boolean() | map,
+         codec        :: #{record_decode := boolean() | map | list,
                            string_decode := boolean(),
                            strict_mbit := boolean(),
                            incoming_maxlen := diameter:message_length()}}).

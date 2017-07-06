@@ -970,7 +970,8 @@ occur in the message in question.</p>
 </item>
 
 <tag>
-<marker id="record_decode"/><c>{record_decode, boolean() | map}</c></tag>
+<marker id="record_decode"/>
+<c>{record_decode, boolean() | list | map}</c></tag>
 <item>
 <p>
 Whether or not to decode message and grouped AVPs to records in the

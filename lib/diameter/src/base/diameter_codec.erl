@@ -379,9 +379,15 @@ decode_avps(MsgName, Mod, AppMod, Opts, Pkt, Avps) ->  %% ... or not
                                         Opts#{dictionary => AppMod,
                                               failed_avp => false}),
     ?LOGC([] /= Errors, decode_errors, Pkt#diameter_packet.header),
-    Pkt#diameter_packet{msg = Rec,
+    Pkt#diameter_packet{msg = reformat(MsgName, Rec, Opts),
                         errors = Errors,
                         avps = As}.
+
+reformat(MsgName, Avps, #{decode_format := list}) ->
+    [MsgName | Avps];
+
+reformat(_, Msg, _) ->
+    Msg.
 
 %%% ---------------------------------------------------------------------------
 %%% # decode_header/1
