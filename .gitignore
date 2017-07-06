@@ -251,6 +251,10 @@ JAVADOC-GENERATED
 /lib/compiler/test/*_post_opt_SUITE.erl
 /lib/compiler/test/*_inline_SUITE.erl
 
+# crypto
+/lib/crypto/test/crypto_SUITE_data/*.rsp
+/lib/crypto/test/crypto_SUITE_data/aesval.html
+
 # debugger
 
 /lib/debugger/doc/html/images/*.jpg
