@@ -264,7 +264,7 @@ handle_call({change, How}, _From, State) ->
     {reply, Reply, State};
 
 handle_call(Msg, _From, State) ->
-    error("~p got unexpected call: ~p~n", [?MODULE, Msg]),
+    error("~p got unexpected call: ~tp~n", [?MODULE, Msg]),
     {noreply, State}.
 
 %%----------------------------------------------------------------------
@@ -274,7 +274,7 @@ handle_call(Msg, _From, State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%----------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    error("~p got unexpected cast: ~p~n", [?MODULE, Msg]),
+    error("~p got unexpected cast: ~tp~n", [?MODULE, Msg]),
     {noreply, State}.
 
 %%----------------------------------------------------------------------
@@ -292,7 +292,7 @@ handle_info({'EXIT', Pid, _Reason}, State) ->
     {noreply, State};
 
 handle_info(Msg, State) ->
-    error("~p got unexpected info: ~p~n", [?MODULE, Msg]),
+    error("~p got unexpected info: ~tp~n", [?MODULE, Msg]),
     {noreply, State}.
 
 %%----------------------------------------------------------------------

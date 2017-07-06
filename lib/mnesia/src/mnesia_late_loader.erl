@@ -87,13 +87,13 @@ loop(State) ->
 	    loop(State);
 
 	{system, From, Msg} ->
-	    mnesia_lib:dbg_out("~p got {system, ~p, ~p}~n",
+	    mnesia_lib:dbg_out("~p got {system, ~p, ~tp}~n",
 			       [?SERVER_NAME, From, Msg]),
 	    Parent = State#state.supervisor,
 	    sys:handle_system_msg(Msg, From, Parent, ?MODULE, [], State);
 	    
 	Msg ->
-	    mnesia_lib:error("~p got unexpected message: ~p~n",
+	    mnesia_lib:error("~p got unexpected message: ~tp~n",
 			     [?SERVER_NAME, Msg]),
 	    loop(State)
     end.

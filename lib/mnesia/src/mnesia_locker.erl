@@ -245,7 +245,7 @@ loop(State) ->
 	    do_stop();
 
 	{system, From, Msg} ->
-	    verbose("~p got {system, ~p, ~p}~n", [?MODULE, From, Msg]),
+	    verbose("~p got {system, ~p, ~tp}~n", [?MODULE, From, Msg]),
 	    Parent = State#state.supervisor,
 	    sys:handle_system_msg(Msg, From, Parent, ?MODULE, [], State);
 
@@ -254,7 +254,7 @@ loop(State) ->
 	    loop(State);
 
 	Msg ->
-	    error("~p got unexpected message: ~p~n", [?MODULE, Msg]),
+	    error("~p got unexpected message: ~tp~n", [?MODULE, Msg]),
 	    loop(State)
     end.
 

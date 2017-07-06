@@ -467,7 +467,7 @@ pr_other(Var) ->
 	    no -> {node_not_running, node()};
 	    _ -> {no_exists, Var}
 	end,
-    verbose("~p (~p) val(mnesia_gvar, ~w) -> ~p ~p ~n",
+    verbose("~p (~tp) val(mnesia_gvar, ~tw) -> ~p ~tp ~n",
 	    [self(), process_info(self(), registered_name),
 	     Var, Why, erlang:get_stacktrace()]),
     mnesia:abort(Why).
@@ -654,7 +654,7 @@ coredump() ->
 coredump(CrashInfo) ->
     Core = mkcore(CrashInfo),
     Out = core_file(),
-    important("Writing Mnesia core to file: ~p...~p~n", [Out, CrashInfo]),
+    important("Writing Mnesia core to file: ~tp...~tp~n", [Out, CrashInfo]),
     _ = file:write_file(Out, Core),
     Out.
 
@@ -844,7 +844,7 @@ vcore() ->
     case file:list_dir(Cwd) of
 	{ok, Files}->
 	    CoreFiles = lists:sort(lists:zf(Filter, Files)),
-	    show("Mnesia core files: ~p~n", [CoreFiles]),
+	    show("Mnesia core files: ~tp~n", [CoreFiles]),
 	    vcore(lists:last(CoreFiles));
 	Error ->
 	    Error
@@ -853,17 +853,17 @@ vcore() ->
 vcore(Bin) when is_binary(Bin) ->
     Core = binary_to_term(Bin),
     Fun = fun({Item, Info}) ->
-		  show("***** ~p *****~n", [Item]),
+		  show("***** ~tp *****~n", [Item]),
 		  case catch vcore_elem({Item, Info}) of
 		      {'EXIT', Reason} ->
-			  show("{'EXIT', ~p}~n", [Reason]);
+			  show("{'EXIT', ~tp}~n", [Reason]);
 		      _ -> ok
 		  end
 	  end,
     lists:foreach(Fun, Core);
     
 vcore(File) ->
-    show("~n***** Mnesia core: ~p *****~n", [File]),
+    show("~n***** Mnesia core: ~tp *****~n", [File]),
     case file:read_file(File) of
 	{ok, Bin} ->
 	    vcore(Bin);
@@ -879,7 +879,7 @@ vcore_elem({schema_file, {ok, B}}) ->
 
 vcore_elem({logfile, {ok, BinList}}) ->
     Fun = fun({F, Info}) ->
-		  show("----- logfile: ~p -----~n", [F]),
+		  show("----- logfile: ~tp -----~n", [F]),
 		  case Info of
 		      {ok, B} ->
 			  Fname = "/tmp/mnesia_vcore_elem.TMP",
@@ -887,7 +887,7 @@ vcore_elem({logfile, {ok, BinList}}) ->
 			  mnesia_log:view(Fname),
 			  file:delete(Fname);
 		      _ ->
-			  show("~p~n", [Info])
+			  show("~tp~n", [Info])
 		  end
 	  end,
     lists:foreach(Fun, BinList);
@@ -895,12 +895,12 @@ vcore_elem({logfile, {ok, BinList}}) ->
 vcore_elem({crashinfo, {Format, Args}}) ->
     show(Format, Args);
 vcore_elem({gvar, L}) ->
-    show("~p~n", [lists:sort(L)]);
+    show("~tp~n", [lists:sort(L)]);
 vcore_elem({transactions, Info}) ->
     mnesia_tm:display_info(user, Info);
 
 vcore_elem({_Item, Info}) ->
-    show("~p~n", [Info]).
+    show("~tp~n", [Info]).
 
 fix_error(X) ->
     set(last_error, X), %% for debugabililty
@@ -1018,7 +1018,7 @@ report_system_event({'EXIT', Reason}, Event) ->
             end;
 
 	Error ->
-	    Msg = "Mnesia(~p): Cannot report event ~p: ~p (~p)~n",
+	    Msg = "Mnesia(~tp): Cannot report event ~tp: ~tp (~tp)~n",
 	    error_logger:format(Msg, [node(), Event, Reason, Error])
     end,
     ok;

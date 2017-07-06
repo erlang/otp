@@ -420,7 +420,7 @@ make_ram_index(Tab, Storage, [Pos | Tail]) ->
 
 add_ram_index(Tab, Storage, {Pos, _Pref}) ->
     Type = ordered,
-    verbose("Creating index for ~w ~p ~p~n", [Tab, Pos, Type]),
+    verbose("Creating index for ~tw ~p ~p~n", [Tab, Pos, Type]),
     SetOrBag = val({Tab, setorbag}),
     IxValsF = index_vals_f(Storage, Tab, Pos),
     IxFun = fun(Val, Key) -> {{Val, Key}} end,
