@@ -139,8 +139,11 @@
 %% Sequence mask for End-to-End and Hop-by-Hop identifiers.
 -define(CLIENT_MASK, {1,26}).  %% 1 in top 6 bits
 
-%% How to construct messages, as record, list, or map.
+%% How to construct outgoing messages.
 -define(ENCODINGS, [list, record, map]).
+
+%% How to set record_decode.
+-define(DECODINGS, [true, false, map, list]).
 
 %% How to send answers, in a diameter_packet or not.
 -define(CONTAINERS, [pkt, msg]).
@@ -169,6 +172,7 @@
          client_dict,
          client_sender,
          server_service,
+         server_decoding,
          server_encoding,
          server_container,
          server_sender,
@@ -264,25 +268,27 @@ all() ->
 groups() ->
     [{P, [P], Ts} || Ts <- [tc(tc())], P <- [shuffle, parallel]]
         ++
-        [{?util:name([T,R,D,A,C,S,SS,ST,CS]),
+        [{?util:name([T,CE,D,SE,SD,SC,S,SS,ST,CS]),
           [],
           [{group, if S -> shuffle; not S -> parallel end}]}
-         || T <- ?TRANSPORTS,
-            R <- ?ENCODINGS,
-            D <- ?RFCS,
-            A <- ?ENCODINGS,
-            C <- ?CONTAINERS,
-            S <- ?STRING_DECODES,
+         || T  <- ?TRANSPORTS,
+            CE <- ?ENCODINGS,
+            D  <- ?RFCS,
+            SE <- ?ENCODINGS,
+            SD <- ?DECODINGS,
+            SC <- ?CONTAINERS,
+            S  <- ?STRING_DECODES,
             SS <- ?SENDERS,
             ST <- ?CALLBACKS,
             CS <- ?SENDERS]
         ++
-        [{T, [], groups([[T,R,D,A,C,S,SS,ST,CS]
-                         || R <- ?ENCODINGS,
-                            D <- ?RFCS,
-                            A <- ?ENCODINGS,
-                            C <- ?CONTAINERS,
-                            S <- ?STRING_DECODES,
+        [{T, [], groups([[T,CE,D,SE,SD,SC,S,SS,ST,CS]
+                         || CE <- ?ENCODINGS,
+                            D  <- ?RFCS,
+                            SE <- ?ENCODINGS,
+                            SD <- ?DECODINGS,
+                            SC <- ?CONTAINERS,
+                            S  <- ?STRING_DECODES,
                             SS <- ?SENDERS,
                             ST <- ?CALLBACKS,
                             CS <- ?SENDERS,
@@ -292,7 +298,7 @@ groups() ->
         [{traffic, [], [{group, T} || T <- ?TRANSPORTS]}].
 
 %groups(_) ->  %% debug
-%    Name = [sctp,record,rfc6733,record,pkt,false,false,false,false],
+%    Name = [tcp,record,rfc6733,record,map,pkt,false,false,false,false],
 %    [{group, ?util:name(Name)}];
 groups(Names) ->
     [{group, ?util:name(L)} || L <- Names].
@@ -331,18 +337,19 @@ init_per_group(sctp = Name, Config) ->
 init_per_group(Name, Config) ->
     Nas = proplists:get_value(rfc4005, Config, false),
     case ?util:name(Name) of
-        [_,_,D,_,_,_, _, _, _] when D == rfc4005, true /= Nas ->
+        [_,_,D,_,_,_,_,_,_,_] when D == rfc4005, true /= Nas ->
             {skip, rfc4005};
-        [T,R,D,A,C,S,SS,ST,CS] ->
+        [T,CE,D,SE,SD,SC,S,SS,ST,CS] ->
             G = #group{transport = T,
                        strings = S,
                        client_service = [$C|?util:unique_string()],
-                       client_encoding = R,
+                       client_encoding = CE,
                        client_dict = appdict(D),
                        client_sender = CS,
                        server_service = [$S|?util:unique_string()],
-                       server_encoding = A,
-                       server_container = C,
+                       server_decoding = SD,
+                       server_encoding = SE,
+                       server_container = SC,
                        server_sender = SS,
                        server_throttle = ST},
             %% Limit the number of testcase, since the number of
@@ -452,9 +459,11 @@ start(_Config) ->
 start_services(Config) ->
     #group{strings = S,
            client_service = CN,
-           server_service = SN}
+           server_service = SN,
+           server_decoding = SD}
         = group(Config),
-    ok = diameter:start_service(SN, ?SERVICE(SN, S)),
+    ok = diameter:start_service(SN, [{record_decode, SD}
+                                     | ?SERVICE(SN, S)]),
     ok = diameter:start_service(CN, [{sequence, ?CLIENT_MASK}
                                      | ?SERVICE(CN, S)]).
 
@@ -480,12 +489,13 @@ add_transports(Config) ->
                         [T, {sender, CS}],
                         LRef,
                         [{id, Id}
-                         | client_apps(D, [{'Origin-State-Id', origin(Id)}])])
-          || A <- ?ENCODINGS,
+                         | client_apps(R, [{'Origin-State-Id', origin(Id)}])])
+          || D <- ?DECODINGS,
+             E <- ?ENCODINGS,
              C <- ?CONTAINERS,
-             D <- ?RFCS,
-             D /= rfc4005 orelse have_nas(),
-             Id <- [{A,C}]],
+             R <- ?RFCS,
+             R /= rfc4005 orelse have_nas(),
+             Id <- [{D,E,C}]],
     %% The server uses the client's Origin-State-Id to decide how to
     %% answer.
     ?util:write_priv(Config, "transport", [LRef | Cs]).
@@ -772,10 +782,6 @@ send_invalid_avp_length(Config) ->
       'Result-Code' := ?INVALID_AVP_LENGTH,
       'Origin-Host' := _,
       'Origin-Realm' := _,
-      'User-Name' := _,
-      'Class' := _,
-      'Error-Message' := _,
-      'Error-Reporting-Host' := _,
       'Failed-AVP' := Avps}
         = call(Config, Req),
     [[_]] = failed_avps(Avps, Config).
@@ -1050,21 +1056,30 @@ call(Config, Req, Opts) ->
                   msg(Req, ReqEncoding, Dict0),
                   [{extra, [{Name, Group}, diameter_lib:now()]} | Opts]).
 
-origin({A,C}) ->
-    2*codec(A) + container(C);
+origin({D,E,C}) ->
+    8*decode(D) + 2*encode(E) + container(C);
 
 origin(N) ->
-    {codec(N div 2), container(N rem 2)}.
+    {decode(N bsr 3), encode((N bsr 1) rem 4), container(N rem 2)}.
 
 %% Map atoms. The atoms are part of (constructed) group names, so it's
 %% good that they're readable.
 
-codec(record) -> 0;
-codec(list)   -> 1;
-codec(map)    -> 2;
-codec(0) -> record;
-codec(1) -> list;
-codec(2) -> map.
+decode(true)   -> 0;  %% record
+decode(list)   -> 1;
+decode(map)    -> 2;
+decode(false)  -> 3;
+decode(0) -> true;
+decode(1) -> list;
+decode(2) -> map;
+decode(3) -> false.
+
+encode(record) -> 0;
+encode(list)   -> 1;
+encode(map)    -> 2;
+encode(0) -> record;
+encode(1) -> list;
+encode(2) -> map.
 
 container(pkt) -> 0;
 container(msg) -> 1;
@@ -1090,6 +1105,46 @@ msg([H|T], map, _) ->
 
 msg(Msg, _, _) ->
     Msg.
+
+to_map(map, #diameter_packet{msg = Msg})
+  when is_map(Msg) ->
+    Msg;
+
+to_map(list, #diameter_packet{msg = [MsgName | Avps]}) ->
+    maps:put(':name', MsgName, maps:from_list(Avps));
+
+to_map(true, #diameter_packet{header = H, msg = Rec}) ->
+    rec_to_map(Rec, dict(H));
+
+%% No record decode: do it ourselves.
+to_map(false, #diameter_packet{header = H,
+                               msg = false,
+                               bin = Bin}) ->
+    Opts = #{record_decode => map,
+             string_decode => false,
+             strict_mbit => true,
+             rfc => 6733},
+    #diameter_packet{msg = Msg}
+        = diameter_codec:decode(dict(H), Opts, Bin),
+    Msg.
+
+dict(#diameter_header{application_id = Id,
+                      cmd_code = Code}) ->
+    if Id == 1 ->
+            nas4005;
+       Code == 271 ->
+            diameter_gen_base_accounting;
+       true ->
+            diameter_gen_base_rfc3588
+    end.
+
+rec_to_map(Rec, Dict) ->
+    [R | Vs] = Dict:'#get-'(Rec),
+    maps:put(':name',
+             Dict:rec2msg(R),
+             maps:from_list([T || {_,V} = T <- Vs,
+                                  V /= undefined,
+                                  V /= []])).
 
 appdict(rfc4005) ->
     nas4005;
@@ -1177,10 +1232,11 @@ pick_peer(Peers, _, [$C|_], _State, {send_detach, Group}, _, {_,_}) ->
     find(Group, Peers).
 
 find(#group{client_service = CN,
-            server_encoding = A,
+            server_decoding = D,
+            server_encoding = E,
             server_container = C},
      [_|_] = Peers) ->
-    Id = {A,C},
+    Id = {D,E,C},
     [P] = [P || P <- Peers, id(Id, P, CN)],
     {ok, P}.
 
@@ -1441,12 +1497,7 @@ answer(Pkt, Req, _Peer, Name, #group{client_dict = Dict0}) ->
     ApplId = app(Req, Name, Dict0),
     #diameter_header{application_id = ApplId} = H,  %% assert
     Dict = dict(Ans, Dict0),
-    [R | Vs] = Dict:'#get-'(answer(Ans, Es, Name)),
-    maps:put(':name',
-             Dict:rec2msg(R),
-             maps:from_list([T || {_,V} = T <- Vs,
-                                  V /= undefined,
-                                  V /= []])).
+    rec_to_map(answer(Ans, Es, Name), Dict).
 
 %% Missing Result-Code and inappropriate Experimental-Result-Code.
 answer(Rec, Es, send_experimental_result) ->
@@ -1486,7 +1537,8 @@ handle_error(Reason, _Req, [$C|_], _Peer, _, _Time) ->
 %% Note that diameter will set Result-Code and Failed-AVPs if
 %% #diameter_packet.errors is non-null.
 
-handle_request(#diameter_packet{header = H, msg = M, avps = As},
+handle_request(#diameter_packet{header = H, avps = As}
+               = Pkt,
                _,
                {_Ref, Caps}) ->
     #diameter_header{end_to_end_id = EI,
@@ -1496,42 +1548,21 @@ handle_request(#diameter_packet{header = H, msg = M, avps = As},
     V = EI bsr B,  %% assert
     V = HI bsr B,  %%
     #diameter_caps{origin_state_id = {_,[Id]}} = Caps,
-    wrap(origin(Id), H, request(nas_to_base(M, H), [H|As], Caps)).
+    {D,_,_} = T = origin(Id),
+    wrap(T, H, request(to_map(D, Pkt), [H|As], Caps)).
 
-wrap(T, H, {Tag, Action, Post}) ->
-    {Tag, wrap(T, H, Action), Post};
+wrap(Id, H, {Tag, Action, Post}) ->
+    {Tag, wrap(Id, H, Action), Post};
 wrap(_, _, {reply, [#diameter_header{} | _]} = T) ->
     T;
-wrap({A,C}, H, {reply, Ans}) ->
-    Msg = msg(Ans, A, diameter_gen_base_rfc3588),
+wrap({_,E,C}, H, {reply, Ans}) ->
+    Msg = msg(Ans, E, diameter_gen_base_rfc3588),
     wrap(C, H, {reply, base_to_nas(Msg, H)});
 wrap(pkt, _, {reply, Ans})
   when not is_record(Ans, diameter_packet) ->
     {reply, #diameter_packet{msg = Ans}};
 wrap(_, _, T) ->
     T.
-
-%% nas_to_base/1
-%%
-%% Map an RFC 4005 message to RFC 3588, to return the same answer in
-%% both cases.
-
-nas_to_base(Rec, #diameter_header{application_id = 1}) ->
-    [R | Values] = nas4005:'#get-'(Rec),
-    "nas_" ++ Name = ?L(R),
-    {D, RN} = case Name of
-                  "ACR" ->
-                      {diameter_gen_base_accounting,
-                       diameter_base_accounting_ACR};
-                  _ ->
-                      {diameter_gen_base_rfc3588,
-                       ?A("diameter_base_" ++ Name)}
-              end,
-    Fs = D:'#info-'(RN),
-    D:'#new-'([RN | [T || {F,_} = T <- Values, lists:member(F, Fs)]]);
-
-nas_to_base(Rec, _) ->
-    Rec.
 
 %% base_to_nas/2
 
@@ -1561,7 +1592,8 @@ base_to_nas(Msg, _) ->
 %% request/3
 
 %% send_experimental_result
-request(#diameter_base_accounting_ACR{'Accounting-Record-Number' = 5},
+request(#{':name' := 'ACR',
+          'Accounting-Record-Number' := 5},
         [Hdr | Avps],
         #diameter_caps{origin_host = {OH, _},
                        origin_realm = {OR, _}}) ->
@@ -1594,14 +1626,16 @@ request(Msg, _Avps, Caps) ->
 %% request/2
 
 %% send_nok
-request(#diameter_base_accounting_ACR{'Accounting-Record-Number' = 0},
+request(#{':name' := 'ACR',
+          'Accounting-Record-Number' := 0},
         _) ->
     {eval_packet, {protocol_error, ?INVALID_AVP_BITS}, [fun log/2, invalid]};
 
 %% send_bad_answer
-request(#diameter_base_accounting_ACR{'Session-Id' = SId,
-                                      'Accounting-Record-Type' = RT,
-                                      'Accounting-Record-Number' = 2 = RN},
+request(#{':name' := 'ACR',
+          'Session-Id' := SId,
+          'Accounting-Record-Type' := RT,
+          'Accounting-Record-Number' := 2 = RN},
         #diameter_caps{origin_host = {OH, _},
                        origin_realm = {OR, _}}) ->
     Ans = ['ACA', {'Result-Code', ?SUCCESS},
@@ -1615,9 +1649,10 @@ request(#diameter_base_accounting_ACR{'Session-Id' = SId,
                              msg = Ans}};
 
 %% send_eval
-request(#diameter_base_accounting_ACR{'Session-Id' = SId,
-                                      'Accounting-Record-Type' = RT,
-                                      'Accounting-Record-Number' = 3 = RN},
+request(#{':name' := 'ACR',
+          'Session-Id' := SId,
+          'Accounting-Record-Type' := RT,
+          'Accounting-Record-Number' := 3 = RN},
         #diameter_caps{origin_host = {OH, _},
                        origin_realm = {OR, _}}) ->
     Ans = ['ACA', {'Result-Code', ?SUCCESS},
@@ -1629,9 +1664,10 @@ request(#diameter_base_accounting_ACR{'Session-Id' = SId,
     {eval, {reply, Ans}, {erlang, now, []}};
 
 %% send_ok
-request(#diameter_base_accounting_ACR{'Session-Id' = SId,
-                                      'Accounting-Record-Type' = RT,
-                                      'Accounting-Record-Number' = 1 = RN},
+request(#{':name' := 'ACR',
+          'Session-Id' := SId,
+          'Accounting-Record-Type' := RT,
+          'Accounting-Record-Number' := 1 = RN},
         #diameter_caps{origin_host = {OH, _},
                        origin_realm = {OR, _}}) ->
     {reply, ['ACA', {'Result-Code', ?SUCCESS},
@@ -1642,7 +1678,8 @@ request(#diameter_base_accounting_ACR{'Session-Id' = SId,
                     {'Accounting-Record-Number', RN}]};
 
 %% send_protocol_error
-request(#diameter_base_accounting_ACR{'Accounting-Record-Number' = 4},
+request(#{':name' := 'ACR',
+          'Accounting-Record-Number' := 4},
         #diameter_caps{origin_host = {OH, _},
                        origin_realm = {OR, _}}) ->
     Ans = ['answer-message', {'Result-Code', ?TOO_BUSY},
@@ -1650,40 +1687,46 @@ request(#diameter_base_accounting_ACR{'Accounting-Record-Number' = 4},
                              {'Origin-Realm', OR}],
     {reply, Ans};
 
-request(#diameter_base_ASR{'Session-Id' = SId,
-                           'AVP' = Avps},
+request(#{':name' := 'ASR',
+          'Session-Id' := SId}
+        = Req,
         #diameter_caps{origin_host = {OH, _},
                        origin_realm = {OR, _}}) ->
     {reply, ['ASA', {'Result-Code', ?SUCCESS},
                     {'Session-Id', SId},
                     {'Origin-Host', OH},
                     {'Origin-Realm', OR},
-                    {'AVP', Avps}]};
+                    {'AVP', maps:get('AVP', Req, [])}]};
 
 %% send_invalid_reject
-request(#diameter_base_STR{'Termination-Cause' = ?USER_MOVED},
+request(#{':name' := 'STR',
+          'Termination-Cause' := ?USER_MOVED},
         _Caps) ->
     {protocol_error, ?TOO_BUSY};
 
 %% send_noreply
-request(#diameter_base_STR{'Termination-Cause' = T},
+request(#{':name' := 'STR',
+          'Termination-Cause' := T},
         _Caps)
   when T /= ?LOGOUT ->
     discard;
 
 %% send_destination_5
-request(#diameter_base_STR{'Destination-Realm' = R},
+request(#{':name' := 'STR',
+          'Destination-Realm' := R},
         #diameter_caps{origin_realm = {OR, _}})
   when R /= undefined, R /= OR ->
     {protocol_error, ?REALM_NOT_SERVED};
 
 %% send_destination_6
-request(#diameter_base_STR{'Destination-Host' = [H]},
+request(#{':name' := 'STR',
+          'Destination-Host' := [H]},
         #diameter_caps{origin_host = {OH, _}})
   when H /= OH ->
     {protocol_error, ?UNABLE_TO_DELIVER};
 
-request(#diameter_base_STR{'Session-Id' = SId},
+request(#{':name' := 'STR',
+          'Session-Id' := SId},
         #diameter_caps{origin_host  = {OH, _},
                        origin_realm = {OR, _}}) ->
     {reply, ['STA', {'Result-Code', ?SUCCESS},
@@ -1692,7 +1735,7 @@ request(#diameter_base_STR{'Session-Id' = SId},
                     {'Origin-Realm', OR}]};
 
 %% send_error/send_timeout
-request(#diameter_base_RAR{}, _Caps) ->
+request(#{':name' := 'RAR'}, _Caps) ->
     receive after 2000 -> {protocol_error, ?TOO_BUSY} end.
 
 %% message/3
