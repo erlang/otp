@@ -769,6 +769,9 @@ opt(K, true = B)
        K == string_decode ->
     B;
 
+opt(record_decode, map = T) ->
+    T;
+
 opt(restrict_connections, T)
   when T == node;
        T == nodes ->

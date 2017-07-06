@@ -275,6 +275,9 @@ rec2msg(_, [Name|_])
   when is_atom(Name) ->
     Name;
 
+rec2msg(_, #{':name' := Name}) ->
+    Name;
+
 rec2msg(Mod, Rec) ->
     Mod:rec2msg(element(1, Rec)).
 

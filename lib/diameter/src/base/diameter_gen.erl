@@ -50,7 +50,9 @@
 %% # encode_avps/3
 %% ---------------------------------------------------------------------------
 
--spec encode_avps(parent_name(), parent_record() | avp_values(), map())
+-spec encode_avps(parent_name(),
+                  parent_record() | avp_values() | map(),
+                  map())
    -> iolist()
     | no_return().
 
@@ -82,6 +84,11 @@ encode(Name, Vals, #{ordered_encode := false} = Opts, Mod)
 encode(Name, Vals, Opts, Mod)
   when is_list(Vals) ->
     encode(Name, Mod:'#set-'(Vals, newrec(Mod, Name)), Opts, Mod);
+
+encode(Name, Map, Opts, Mod)
+  when is_map(Map) ->
+    [enc(Name, F, A, V, Opts, Mod) || {F,A} <- Mod:avp_arity(Name),
+                                      V <- [maps:get(F, Map, def(A))]];
 
 encode(Name, Rec, Opts, Mod) ->
     [encode(Name, F, V, Opts, Mod) || {F,V} <- Mod:'#get-'(Rec)].
@@ -627,6 +634,14 @@ too_many(FieldName, M, Map) ->
 set(_, _, _, _, undefined = No) ->
     No;
 
+set(1, F, Value, _, Map)
+  when is_map(Map) ->
+    maps:put(F, Value, Map);
+
+set(_, F, V, _, Map)
+  when is_map(Map) ->
+    maps:update_with(F, fun(Vs) -> [V|Vs] end, [V], Map);
+
 set(1, F, Value, Mod, Rec) ->
     Mod:'#set-'({F, Value}, Rec);
 
@@ -731,6 +746,9 @@ empty(Name, #{module := Mod} = Opts) ->
 newrec(_, _, #{record_decode := false}) ->
     undefined;
 
+newrec(_, Name, #{record_decode := map}) ->
+    #{':name' => Name};
+
 newrec(Mod, Name, _) ->
     newrec(Mod, Name).
 
@@ -738,3 +756,11 @@ newrec(Mod, Name, _) ->
 
 newrec(Mod, Name) ->
     Mod:'#new-'(Mod:name2rec(Name)).
+
+%% def/1
+
+def(1) ->
+    undefined;
+
+def(_) ->
+    [].

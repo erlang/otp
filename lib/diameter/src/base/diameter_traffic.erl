@@ -76,7 +76,7 @@
          service_name :: diameter:service_name(),
          apps         :: [#diameter_app{}],
          sequence     :: diameter:sequence(),
-         codec        :: #{record_decode := boolean(),
+         codec        :: #{record_decode := boolean() | map,
                            string_decode := boolean(),
                            strict_mbit := boolean(),
                            incoming_maxlen := diameter:message_length()}}).
@@ -625,6 +625,12 @@ is_answer_message([#diameter_header{is_request = R, is_error = E} | _], _) ->
 is_answer_message([Name | _], _) ->
     Name == 'answer-message';
 
+%% Message sent as a map.
+is_answer_message(Map, _)
+  when is_map(Map) ->
+    #{':name' := Name} = Map,
+    Name == 'answer-message';
+
 %% Message sent as a record.
 is_answer_message(Rec, Dict) ->
     try
@@ -873,6 +879,11 @@ reset(Msg, [RC | Avps], Dict) ->
 set([_|_] = Ans, Avps, _) ->
     Ans ++ Avps;  %% Values nearer tail take precedence.
 
+%% ... a map ...
+set(Ans, Avps, _)
+  when is_map(Ans) ->
+    maps:merge(Ans, maps:from_list(Avps));
+
 %% ... or record.
 set(Rec, Avps, Dict) ->
     Dict:'#set-'(Avps, Rec).
@@ -891,6 +902,9 @@ rc([MsgName | _], RC, Dict) ->
         _     -> []
     end;
 
+rc(#{':name' := Name}, RC, Dict) ->
+    rc([Name], RC, Dict);
+
 rc(Rec, RC, Dict) ->
     rc([Dict:rec2msg(element(1, Rec))], RC, Dict).
 
@@ -902,33 +916,49 @@ failed_avp(_, [] = No, _) ->
 failed_avp(Msg, [_|_] = Avps, Dict) ->
     [failed(Msg, [{'AVP', Avps}], Dict)].
 
-%% Reply as name and tuple list ...
-failed([MsgName | Values], FailedAvp, Dict) ->
-    RecName = Dict:msg2rec(MsgName),
-    try
-        Dict:'#info-'(RecName, {index, 'Failed-AVP'}),
-        {'Failed-AVP', [FailedAvp]}
-    catch
-        error: _ ->
-            Avps = proplists:get_value('AVP', Values, []),
-            A = #diameter_avp{name = 'Failed-AVP',
-                              value = FailedAvp},
-            {'AVP', [A|Avps]}
-    end;
+%% failed/3
 
-%% ... or record.
-failed(Rec, FailedAvp, Dict) ->
+failed(Msg, FailedAvp, Dict) ->
+    RecName = msg2rec(Msg, Dict),
     try
-        RecName = element(1, Rec),
-        Dict:'#info-'(RecName, {index, 'Failed-AVP'}),
+        Dict:'#info-'(RecName, {index, 'Failed-AVP'}), %% assert existence
         {'Failed-AVP', [FailedAvp]}
     catch
         error: _ ->
-            Avps = Dict:'#get-'('AVP', Rec),
+            Avps = values(Msg, 'AVP', Dict),
             A = #diameter_avp{name = 'Failed-AVP',
                               value = FailedAvp},
             {'AVP', [A|Avps]}
     end.
+
+%% msg2rec/2
+
+%% Message as name/values list ...
+msg2rec([MsgName | _], Dict) ->
+    Dict:msg2rec(MsgName);
+
+%% ... map ...
+msg2rec(#{':name' := MsgName}, Dict) ->
+    Dict:msg2rec(MsgName);
+
+%% ... or record.
+msg2rec(Rec, _) ->
+    element(1, Rec).
+
+%% values/2
+
+%% Message as name/values list ...
+values([_ | Avps], F, _) ->
+    proplists:get_value(F, Avps, []);
+
+%% ... map ...
+values(Msg, F, _)
+  when is_map(Msg) ->
+    maps:get(F, Msg, []);
+
+%% ... or record.
+values(Rec, F, Dict) ->
+    Dict:'#get-'(F, Rec).
 
 %% 3.  Diameter Header
 %%
@@ -1861,7 +1891,7 @@ str(T) ->
 get_avp(?RELAY, Name, Msg) ->
     get_avp(?BASE, Name, Msg);
 
-%% Message as a header/avps list.
+%% Message is a header/avps list.
 get_avp(Dict, Name, [#diameter_header{} | Avps]) ->
     try
         {Code, _, VId} = Dict:avp_header(Name),
@@ -1874,7 +1904,7 @@ get_avp(Dict, Name, [#diameter_header{} | Avps]) ->
             undefined
     end;
 
-%% Outgoing message as a name/values list.
+%% Message as name/values list ...
 get_avp(_, Name, [_MsgName | Avps]) ->
     case lists:keyfind(Name, 1, Avps) of
         {_, V} ->
@@ -1883,7 +1913,17 @@ get_avp(_, Name, [_MsgName | Avps]) ->
             undefined
     end;
 
-%% Message is typically a record but not necessarily.
+%% ... map ...
+get_avp(_, Name, Map)
+  when is_map(Map) ->
+    case maps:find(Name, Map) of
+        {ok, V} ->
+            #diameter_avp{name = Name, value = V};
+        error ->
+            undefined
+    end;
+
+%% ... or record (but not necessarily).
 get_avp(Dict, Name, Rec) ->
     try
         #diameter_avp{name = Name, value = Dict:'#get-'(Name, Rec)}
@@ -1913,7 +1953,8 @@ ungroup(Avp) ->
 
 avp_decode(Dict, Name, #diameter_avp{value = undefined,
                                      data = Bin}
-                       = Avp) ->
+                       = Avp)
+  when is_binary(Bin) ->
     try Dict:avp(decode, Bin, Name, decode_opts(Dict)) of
         V ->
             Avp#diameter_avp{value = V}

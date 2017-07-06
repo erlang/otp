@@ -230,7 +230,7 @@ header.</p>
 </item>
 
 <tag>
-<marker id="message"/><c>message() = record() | list()</c></tag>
+<marker id="message"/><c>message() = record() | list() | map()</c></tag>
 <item>
 <p>
 The representation of a Diameter message as passed to
@@ -240,7 +240,12 @@ a message as defined in a dictionary file is encoded as a record with
 one field for each component AVP.
 Equivalently, a message can also be encoded as a list whose head is
 the atom-valued message name (as specified in the relevant dictionary
-file) and whose tail is a list of <c>{AvpName, AvpValue}</c> pairs.</p>
+file) and whose tail is a list of <c>{AvpName, AvpValues}</c> pairs,
+or as a map with values keyed on AVP names and the message name in key
+<c>:name</c>.
+The format at decode is determined by &mod_service_opt;
+<c>record_decode</c>.
+Any of the formats is accepted at encode.</p>
 
 <p>
 Another list-valued representation allows a message to be specified
