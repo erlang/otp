@@ -706,27 +706,8 @@ t_fun(Es) ->
 		 [") -> "] ++ t_utype(get_elem(type, Es))).
 
 t_abstype(Es) ->
-%    ([t_name(get_elem(qualifiedName, Es)), "("]
-%     ++ seq(fun t_type_elem/1, get_elem(type, Es), [")"])).
-    case split_at_colon(t_name(get_elem(erlangName, Es)),[]) of
-	{Mod,Type} -> 
-	    [Type, "("] ++ 
-		seq(fun t_utype_elem/1, get_elem(type, Es), [")"]) ++ 
-		[" (see module ", Mod, ")"];
-	Type ->
-	    [Type, "("] ++ 
-		seq(fun t_utype_elem/1, get_elem(type, Es), [")"])
-    end.
-
-%% Split at one colon, but not at two (or more)
-split_at_colon([$:,$:|_]=Rest,Acc) ->
-    lists:reverse(Acc)++Rest;
-split_at_colon([$:|Type],Acc) ->
-    {lists:reverse(Acc),Type};
-split_at_colon([Char|Rest],Acc) ->
-    split_at_colon(Rest,[Char|Acc]);
-split_at_colon([],Acc) ->
-    lists:reverse(Acc).
+    [t_name(get_elem(erlangName, Es)), "("] ++
+        seq(fun t_utype_elem/1, get_elem(type, Es), [")"]).
 
 % t_par(Es) ->
 %     T = t_type(get_content(type, Es)),
