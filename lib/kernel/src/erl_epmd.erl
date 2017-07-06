@@ -79,7 +79,13 @@ port_please(Node, EpmdAddr, Timeout) ->
 
 
 port_please1(Node,HostName, Timeout) ->
-  case inet:gethostbyname(HostName, inet, Timeout) of
+  Family = case inet_db:res_option(inet6) of
+             true ->
+               inet6;
+             false ->
+               inet
+           end,
+  case inet:gethostbyname(HostName, Family, Timeout) of
     {ok,{hostent, _Name, _ , _Af, _Size, [EpmdAddr | _]}} ->
       get_port(Node, EpmdAddr, Timeout);
     Else ->
