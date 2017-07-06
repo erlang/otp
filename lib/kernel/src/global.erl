@@ -262,7 +262,7 @@ check_dupname(Name, Pid) ->
                 {ok, allow} ->
                     true;
                 _ ->
-                    S = "global: ~w registered under several names: ~w\n",
+                    S = "global: ~w registered under several names: ~tw\n",
                     Names = [Name | [Name1 || {_Pid, Name1} <- PidNames]],
                     error_logger:error_msg(S, [Pid, Names]),
                     false
@@ -659,7 +659,7 @@ handle_call(stop, _From, S) ->
 handle_call(Request, From, S) ->
     error_logger:warning_msg("The global_name_server "
                              "received an unexpected message:\n"
-                             "handle_call(~p, ~p, _)\n", 
+                             "handle_call(~tp, ~tp, _)\n",
                              [Request, From]),
     {noreply, S}.
 
@@ -828,7 +828,7 @@ handle_cast({async_del_lock, _ResourceId, _Pid}, S) ->
 handle_cast(Request, S) ->
     error_logger:warning_msg("The global_name_server "
                              "received an unexpected message:\n"
-                             "handle_cast(~p, _)\n", [Request]),
+                             "handle_cast(~tp, _)\n", [Request]),
     {noreply, S}.
 
 %%========================================================================
@@ -955,7 +955,7 @@ handle_info({'DOWN', MonitorRef, process, _Pid, _Info}, S0) ->
 handle_info(Message, S) ->
     error_logger:warning_msg("The global_name_server "
                              "received an unexpected message:\n"
-                             "handle_info(~p, _)\n", [Message]),
+                             "handle_info(~tp, _)\n", [Message]),
     {noreply, S}.
 
 
@@ -1949,13 +1949,13 @@ exchange_names([{Name, Pid, Method} | Tail], Node, Ops, Res) ->
 		    exchange_names(Tail, Node, [Op | Ops], [Op | Res]);
 		{badrpc, Badrpc} ->
 		    error_logger:info_msg("global: badrpc ~w received when "
-					  "conflicting name ~w was found\n",
+					  "conflicting name ~tw was found\n",
 					  [Badrpc, Name]),
 		    Op = {insert, {Name, Pid, Method}},
 		    exchange_names(Tail, Node, [Op | Ops], Res);
 		Else ->
 		    error_logger:info_msg("global: Resolve method ~w for "
-					  "conflicting name ~w returned ~w\n",
+					  "conflicting name ~tw returned ~tw\n",
 					  [Method, Name, Else]),
 		    Op = {delete, Name},
 		    exchange_names(Tail, Node, [Op | Ops], [Op | Res])
@@ -1984,7 +1984,7 @@ minmax(P1,P2) ->
       Pid2 :: pid().
 random_exit_name(Name, Pid, Pid2) ->
     {Min, Max} = minmax(Pid, Pid2),
-    error_logger:info_msg("global: Name conflict terminating ~w\n",
+    error_logger:info_msg("global: Name conflict terminating ~tw\n",
 			  [{Name, Max}]),
     exit(Max, kill),
     Min.
@@ -2200,7 +2200,7 @@ unexpected_message({'EXIT', _Pid, _Reason}, _What) ->
     ok;
 unexpected_message(Message, What) -> 
     error_logger:warning_msg("The global_name_server ~w process "
-                             "received an unexpected message:\n~p\n", 
+                             "received an unexpected message:\n~tp\n",
                              [What, Message]).
 
 %%% Utilities
