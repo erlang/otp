@@ -183,14 +183,16 @@
 
 %% A common match when receiving answers in a client.
 -define(answer_message(SessionId, ResultCode),
-        ['answer-message',
-         {'Session-Id', SessionId},
-         {'Origin-Host', _},
-         {'Origin-Realm', _},
-         {'Result-Code', ResultCode}
-         | _]).
+        #{':name' := 'answer-message',
+          'Session-Id' := SessionId,
+          'Origin-Host' := _,
+          'Origin-Realm' := _,
+          'Result-Code' := ResultCode}).
 -define(answer_message(ResultCode),
-        ?answer_message(_, ResultCode)).
+        #{':name' := 'answer-message',
+          'Origin-Host' := _,
+          'Origin-Realm' := _,
+          'Result-Code' := ResultCode}).
 
 %% Config for diameter:start_service/2.
 -define(SERVICE(Name, Decode),
@@ -567,7 +569,9 @@ send_ok(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 1}],
 
-    ['ACA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
+    #{':name' := 'ACA',
+      'Result-Code' := ?SUCCESS,
+      'Session-Id' := _}
         = call(Config, Req).
 
 %% Send an accounting ACR that the server answers badly to.
@@ -583,7 +587,9 @@ send_eval(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 3}],
 
-    ['ACA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
+    #{':name' := 'ACA',
+      'Result-Code' := ?SUCCESS,
+      'Session-Id' := _}
         = call(Config, Req).
 
 %% Send an accounting ACR that the server tries to answer with an
@@ -609,7 +615,8 @@ send_protocol_error(Config) ->
 send_experimental_result(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 5}],
-    ['ACA', {'Session-Id', _} | _]
+    #{':name' := 'ACA',
+      'Session-Id' := _}
         = call(Config, Req).
 
 %% Send an ASR with an arbitrary non-mandatory AVP and expect success
@@ -617,11 +624,12 @@ send_experimental_result(Config) ->
 send_arbitrary(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{name = 'Product-Name',
                                          value = "XXX"}]}],
-    ['ASA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | Avps]
+    #{':name' := 'ASA',
+      'Session-Id' := _,
+      'Result-Code' := ?SUCCESS,
+      'AVP' := [#diameter_avp{name = 'Product-Name',
+                              value = V}]}
         = call(Config, Req),
-    {'AVP', [#diameter_avp{name = 'Product-Name',
-                           value = V}]}
-        = lists:last(Avps),
     "XXX" = string(V, Config).
 
 %% Send an unknown AVP (to some client) and check that it comes back.
@@ -629,12 +637,13 @@ send_unknown(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 999,
                                          is_mandatory = false,
                                          data = <<17>>}]}],
-    ['ASA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | Avps]
-        = call(Config, Req),
-    {'AVP', [#diameter_avp{code = 999,
-                           is_mandatory = false,
-                           data = <<17>>}]}
-        = lists:last(Avps).
+    #{':name' := 'ASA',
+      'Session-Id' := _,
+      'Result-Code' := ?SUCCESS,
+      'AVP' := [#diameter_avp{code = 999,
+                              is_mandatory = false,
+                              data = <<17>>}]}
+        = call(Config, Req).
 
 %% Ditto, and point the AVP length past the end of the message. Expect
 %% 5014.
@@ -645,7 +654,10 @@ send_unknown_short(Config, M, RC) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 999,
                                          is_mandatory = M,
                                          data = <<17>>}]}],
-    ['ASA', {'Session-Id', _}, {'Result-Code', RC} | Avps]
+    #{':name' := 'ASA',
+      'Session-Id' := _,
+      'Result-Code' := RC,
+      'Failed-AVP' := Avps}
         = call(Config, Req),
     [[#diameter_avp{code = 999,
                     is_mandatory = M,
@@ -657,7 +669,10 @@ send_unknown_mandatory(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 999,
                                          is_mandatory = true,
                                          data = <<17>>}]}],
-    ['ASA', {'Session-Id', _}, {'Result-Code', ?AVP_UNSUPPORTED} | Avps]
+    #{':name' := 'ASA',
+      'Session-Id' := _,
+      'Result-Code' := ?AVP_UNSUPPORTED,
+      'Failed-AVP' := Avps}
         = call(Config, Req),
     [[#diameter_avp{code = 999,
                     is_mandatory = true,
@@ -675,7 +690,10 @@ send_unexpected_mandatory_decode(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 27,  %% Session-Timeout
                                          is_mandatory = true,
                                          data = <<12:32>>}]}],
-    ['ASA', {'Session-Id', _}, {'Result-Code', ?AVP_UNSUPPORTED} | Avps]
+    #{':name' := 'ASA',
+      'Session-Id' := _,
+      'Result-Code' := ?AVP_UNSUPPORTED,
+      'Failed-AVP' := Avps}
         = call(Config, Req),
     [[#diameter_avp{code = 27,
                     is_mandatory = true,
@@ -691,7 +709,10 @@ send_unexpected_mandatory_decode(Config) ->
 send_grouped_error(Config) ->
     Req = ['ASR', {'Proxy-Info', [[{'Proxy-Host', "abcd"},
                                    {'Proxy-State', ""}]]}],
-    ['ASA', {'Session-Id', _}, {'Result-Code', ?INVALID_AVP_LENGTH} | Avps]
+    #{':name' := 'ASA',
+      'Session-Id' := _,
+      'Result-Code' := ?INVALID_AVP_LENGTH,
+      'Failed-AVP' := Avps}
         = call(Config, Req),
     [[#diameter_avp{name = 'Proxy-Info', value = V}]]
         = failed_avps(Avps, Config),
@@ -724,7 +745,9 @@ send_error_bit(Config) ->
 %% Send a bad version and check that we get 5011.
 send_unsupported_version(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
-    ['STA', {'Session-Id', _}, {'Result-Code', ?UNSUPPORTED_VERSION} | _]
+    #{':name' := 'STA',
+      'Session-Id' := _,
+      'Result-Code' := ?UNSUPPORTED_VERSION}
         = call(Config, Req).
 
 %% Send a request containing an AVP length > data size.
@@ -744,15 +767,16 @@ send_zero_avp_length(Config) ->
 send_invalid_avp_length(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
 
-    ['STA', {'Session-Id', _},
-            {'Result-Code', ?INVALID_AVP_LENGTH},
-            {'Origin-Host', _},
-            {'Origin-Realm', _},
-            {'User-Name', _},
-            {'Class', _},
-            {'Error-Message', _},
-            {'Error-Reporting-Host', _}
-          | Avps]
+    #{':name' := 'STA',
+      'Session-Id' := _,
+      'Result-Code' := ?INVALID_AVP_LENGTH,
+      'Origin-Host' := _,
+      'Origin-Realm' := _,
+      'User-Name' := _,
+      'Class' := _,
+      'Error-Message' := _,
+      'Error-Reporting-Host' := _,
+      'Failed-AVP' := Avps}
         = call(Config, Req),
     [[_]] = failed_avps(Avps, Config).
 
@@ -769,14 +793,18 @@ send_invalid_reject(Config) ->
 send_unexpected_mandatory(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
 
-    ['STA', {'Session-Id', _}, {'Result-Code', ?AVP_UNSUPPORTED} | _]
+    #{':name' := 'STA',
+      'Session-Id' := _,
+      'Result-Code' := ?AVP_UNSUPPORTED}
         = call(Config, Req).
 
 %% Send something long that will be fragmented by TCP.
 send_long(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
                   {'User-Name', [binary:copy(<<$X>>, 1 bsl 20)]}],
-    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
+    #{':name' := 'STA',
+      'Session-Id' := _,
+      'Result-Code' := ?SUCCESS}
         = call(Config, Req).
 
 %% Send something longer than the configure incoming_maxlen.
@@ -819,7 +847,9 @@ send_any_2(Config) ->
 send_all_1(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
     Realm = lists:foldr(fun(C,A) -> [C,A] end, [], ?REALM),
-    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
+    #{':name' := 'STA',
+      'Session-Id' := _,
+      'Result-Code' := ?SUCCESS}
         = call(Config, Req, [{filter, {all, [{host, any},
                                              {realm, Realm}]}}]).
 send_all_2(Config) ->
@@ -848,9 +878,10 @@ send_detach(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
     Ref = make_ref(),
     ok = call(Config, Req, [{extra, [{self(), Ref}]}, detach]),
-    Ans = receive {Ref, T} -> T end,
-    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
-        = Ans.
+    #{':name' := 'STA',
+      'Session-Id' := _,
+      'Result-Code' := ?SUCCESS}
+        = receive {Ref, T} -> T end.
 
 %% Send a request which can't be encoded and expect {error, encode}.
 send_encode_error(Config) ->
@@ -862,11 +893,15 @@ send_destination_1(Config) ->
         = group(Config),
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
                   {'Destination-Host', [?HOST(SN, ?REALM)]}],
-    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
+    #{':name' := 'STA',
+      'Session-Id' := _,
+      'Result-Code' := ?SUCCESS}
         = call(Config, Req, [{filter, {all, [host, realm]}}]).
 send_destination_2(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
-    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
+    #{':name' := 'STA',
+      'Session-Id' := _,
+      'Result-Code' := ?SUCCESS}
         = call(Config, Req, [{filter, {all, [host, realm]}}]).
 
 %% Send with filtering on and expect failure when specifying an
@@ -930,7 +965,9 @@ send_bad_filter(Config, F) ->
 %% Specify multiple filter options and expect them be conjunctive.
 send_multiple_filters_1(Config) ->
     Fun = fun(#diameter_caps{}) -> true end,
-    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
+    #{':name' := 'STA',
+      'Session-Id' := _,
+      'Result-Code' := ?SUCCESS}
         = send_multiple_filters(Config, [host, {eval, Fun}]).
 send_multiple_filters_2(Config) ->
     E = {erlang, is_tuple, []},
@@ -941,7 +978,9 @@ send_multiple_filters_3(Config) ->
     E2 = {erlang, is_tuple, []},
     E3 = {erlang, is_record, [diameter_caps]},
     E4 = [{erlang, is_record, []}, diameter_caps],
-    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
+    #{':name' := 'STA',
+      'Session-Id' := _,
+      'Result-Code' := ?SUCCESS}
         = send_multiple_filters(Config, [{eval, E} || E <- [E1,E2,E3,E4]]).
 
 send_multiple_filters(Config, Fs) ->
@@ -952,14 +991,16 @@ send_multiple_filters(Config, Fs) ->
 %% only the return value from the prepare_request callback being
 %% significant.
 send_anything(Config) ->
-    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
+    #{':name' := 'STA',
+      'Session-Id' := _,
+      'Result-Code' := ?SUCCESS}
         = call(Config, anything).
 
 %% ===========================================================================
 
 failed_avps(Avps, Config) ->
     #group{client_dict = D} = proplists:get_value(group, Config),
-    [failed_avp(D, T) || T <- proplists:get_value('Failed-AVP', Avps)].
+    [failed_avp(D, T) || T <- Avps].
 
 failed_avp(nas4005, {'nas_Failed-AVP', As}) ->
     As;
@@ -1374,7 +1415,12 @@ name(#{} = Map) ->
     {map, maps:get(':name', Map)};
 
 name(Rec) ->
-    {record, element(1, Rec)}.
+    try
+        {record, element(1, Rec)}
+    catch
+        error: badarg ->
+            false
+    end.
 
 %% prepare_retransmit/5
 
@@ -1396,7 +1442,11 @@ answer(Pkt, Req, _Peer, Name, #group{client_dict = Dict0}) ->
     #diameter_header{application_id = ApplId} = H,  %% assert
     Dict = dict(Ans, Dict0),
     [R | Vs] = Dict:'#get-'(answer(Ans, Es, Name)),
-    [Dict:rec2msg(R) | Vs].
+    maps:put(':name',
+             Dict:rec2msg(R),
+             maps:from_list([T || {_,V} = T <- Vs,
+                                  V /= undefined,
+                                  V /= []])).
 
 %% Missing Result-Code and inappropriate Experimental-Result-Code.
 answer(Rec, Es, send_experimental_result) ->
