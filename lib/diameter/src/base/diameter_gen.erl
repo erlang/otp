@@ -174,7 +174,7 @@ enc_AVP(_Name, {_Dict, _AvpName, _Data} = T, Opts, _) ->
 decode_avps(Name, Recs, #{module := Mod} = Opts) ->
     {Avps, {Rec, AM, Failed}}
         = mapfoldl(fun(T,A) -> decode(Name, Opts, Mod, T, A) end,
-                   {newrec(Mod, Name), #{}, []},
+                   {newrec(Mod, Name, Opts), #{}, []},
                    Recs),
     %% AM counts the number of top-level AVPs, which missing/4 then
     %% uses when adding 5005 errors.
@@ -624,6 +624,9 @@ too_many(FieldName, M, Map) ->
 
 %% set/5
 
+set(_, _, _, _, undefined = No) ->
+    No;
+
 set(1, F, Value, Mod, Rec) ->
     Mod:'#set-'({F, Value}, Rec);
 
@@ -722,6 +725,16 @@ empty(Name, #{module := Mod} = Opts) ->
     Mod:avp(encode, zero, Name, Opts).
 
 %% ------------------------------------------------------------------------------
+
+%% newrec/3
+
+newrec(_, _, #{record_decode := false}) ->
+    undefined;
+
+newrec(Mod, Name, _) ->
+    newrec(Mod, Name).
+
+%% newrec/2
 
 newrec(Mod, Name) ->
     Mod:'#new-'(Mod:name2rec(Name)).

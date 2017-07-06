@@ -970,6 +970,29 @@ occur in the message in question.</p>
 </item>
 
 <tag>
+<marker id="record_decode"/><c>{record_decode, boolean()}</c></tag>
+<item>
+<p>
+Whether or not to decode message and grouped AVPs to records in the
+<c>msg</c> field of diameter_packet records and <c>value</c> field of
+diameter_avp records respectively.
+If <c>false</c> then the fields are set to the same value.</p>
+
+<p>
+Defaults to <c>true</c>.</p>
+
+<note>
+<p>
+Disabling the record is useful for applications in which the records
+aren't used/needed.
+AVP values are available in the <c>avps</c> field of
+diameter_packet records regardless of whether or not there is a record
+decode.</p>
+</note>
+
+</item>
+
+<tag>
 <marker id="string_decode"/><c>{string_decode, boolean()}</c></tag>
 <item>
 <p>

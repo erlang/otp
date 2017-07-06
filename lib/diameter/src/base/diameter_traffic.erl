@@ -76,7 +76,8 @@
          service_name :: diameter:service_name(),
          apps         :: [#diameter_app{}],
          sequence     :: diameter:sequence(),
-         codec        :: #{string_decode := boolean(),
+         codec        :: #{record_decode := boolean(),
+                           string_decode := boolean(),
                            strict_mbit := boolean(),
                            incoming_maxlen := diameter:message_length()}}).
 %% Note that incoming_maxlen is currently handled in diameter_peer_fsm,
@@ -102,7 +103,8 @@ make_recvdata([SvcName, PeerT, Apps, SvcOpts | _]) ->
                      peerT = PeerT,
                      apps = Apps,
                      sequence = Mask,
-                     codec = maps:with([string_decode,
+                     codec = maps:with([record_decode,
+                                        string_decode,
                                         strict_mbit,
                                         ordered_encode,
                                         incoming_maxlen],
@@ -1933,7 +1935,8 @@ choose(false, _, X) -> X.
 
 %% Decode options sufficient for AVP extraction.
 decode_opts(Dict) ->
-    #{string_decode => false,
+    #{record_decode => true,
+      string_decode => false,
       strict_mbit => false,
       failed_avp => false,
       dictionary => Dict}.
