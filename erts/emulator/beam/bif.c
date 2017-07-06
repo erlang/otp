@@ -3971,9 +3971,6 @@ BIF_RETTYPE display_nl_0(BIF_ALIST_0)
 /**********************************************************************/
 
 
-#define HALT_MSG_SIZE	200
-static char halt_msg[HALT_MSG_SIZE+1];
-
 /* stop the system with exit code and flags */
 BIF_RETTYPE halt_2(BIF_ALIST_2)
 {
@@ -4024,15 +4021,16 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 	erts_exit(ERTS_ABORT_EXIT, "");
     }
     else if (is_string(BIF_ARG_1) || BIF_ARG_1 == NIL) {
-	Sint i;
+#       define HALT_MSG_SIZE 200
+        static byte halt_msg[4*HALT_MSG_SIZE+1];
+        Sint written;
 
-        if ((i = intlist_to_buf(BIF_ARG_1, halt_msg, HALT_MSG_SIZE)) == -1) {
+        if (erts_unicode_list_to_buf(BIF_ARG_1, halt_msg, HALT_MSG_SIZE,
+                                     &written) == -1 ) {
             goto error;
         }
-        if (i == -2) /* truncated string */
-            i = HALT_MSG_SIZE;
-        ASSERT(i >= 0 && i <= HALT_MSG_SIZE);
-	halt_msg[i] = '\0';
+        ASSERT(written >= 0 && written < sizeof(halt_msg));
+	halt_msg[written] = '\0';
 	VERBOSE(DEBUG_SYSTEM,
 		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
