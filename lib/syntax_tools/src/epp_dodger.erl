@@ -866,10 +866,10 @@ tokens_to_string([]) ->
 format_error(macro_args) ->
     errormsg("macro call missing end parenthesis");
 format_error({unknown, Reason}) ->
-    errormsg(io_lib:format("unknown error: ~P", [Reason, 15])).
+    errormsg(io_lib:format("unknown error: ~tP", [Reason, 15])).
 
 errormsg(String) ->
-    io_lib:format("~s: ~s", [?MODULE, String]).
+    io_lib:format("~s: ~ts", [?MODULE, String]).
 
 
 %% =====================================================================

@@ -805,7 +805,7 @@ keep_form(Form, Used, Opts) ->
                     {F, A} = N,
                     File = proplists:get_value(file, Opts, ""),
                     report({File, erl_syntax:get_pos(Form),
-                            "removing unused function `~w/~w'."},
+                            "removing unused function `~tw/~w'."},
                            [F, A], Opts),
                     false;
                 true ->
@@ -870,8 +870,8 @@ update_attribute(F, Imports, Opts) ->
                 Names ->
                     File = proplists:get_value(file, Opts, ""),
                     report({File, erl_syntax:get_pos(F),
-			    "removing unused imports:~s"},
-			   [[io_lib:fwrite("\n\t`~w:~w/~w'", [M, N, A])
+			    "removing unused imports:~ts"},
+			   [[io_lib:fwrite("\n\t`~w:~tw/~w'", [M, N, A])
 			     || {N, A} <- Names]], Opts)
             end,
             Is = [make_fname(N) || N <- Ns1],
@@ -1166,7 +1166,7 @@ visit_import_application({N, A} = Name, F, As, Tree, Env, St0) ->
     case Expand of
         true ->
             report({Env#env.file, erl_syntax:get_pos(F),
-		    "expanding call to imported function `~w:~w/~w'."},
+		    "expanding call to imported function `~w:~tw/~w'."},
 		   [M, N, A], Env#env.verbosity),
             F1 = erl_syntax:module_qualifier(erl_syntax:atom(M),
                                              erl_syntax:atom(N)),
@@ -1220,7 +1220,7 @@ visit_spawn_call({N, A}, F, Ps, [A1, A2, A3] = As, Tree,
     case erl_syntax:is_proper_list(A3) of
         true ->
             report({Env#env.file, erl_syntax:get_pos(F),
-		    "changing use of `~w/~w' to `~w/~w' with a fun."},
+		    "changing use of `~tw/~w' to `~tw/~w' with a fun."},
 		   [N, A, N, 1 + length(Ps)], Env#env.verbosity),
             F1 = case erl_syntax:is_atom(A1, Env#env.module) of
                      true ->
@@ -1404,8 +1404,8 @@ visit_remote_application({M, N, A} = Name, F, As, Tree, Env, St) ->
             case rename_remote_call(Name, St) of
                 {M1, N1} ->
                     report({Env#env.file, erl_syntax:get_pos(F),
-			    "updating obsolete call to `~w:~w/~w' "
-			    "to use `~w:~w/~w' instead."},
+			    "updating obsolete call to `~w:~tw/~w' "
+			    "to use `~w:~tw/~w' instead."},
 			   [M, N, A, M1, N1, A], Env#env.verbosity),
                     M2 = erl_syntax:atom(M1),
                     N2 = erl_syntax:atom(N1),
@@ -1820,7 +1820,7 @@ filename([]) ->
 filename(N) when is_atom(N) ->
     atom_to_list(N);
 filename(N) ->
-    report_error("bad filename: `~P'.", [N, 25]),
+    report_error("bad filename: `~tP'.", [N, 25]),
     exit(error).
 
 get_env(Tree) ->
@@ -1911,11 +1911,11 @@ format({warning, D}, Vs) ->
 format({recommend, D}, Vs) ->
     ["recommendation: ", format(D, Vs)];
 format({"", L, D}, Vs) when is_integer(L), L > 0 ->
-    [io_lib:fwrite("~w: ", [L]), format(D, Vs)];
+    [io_lib:fwrite("~tw: ", [L]), format(D, Vs)];
 format({"", _L, D}, Vs) ->
     format(D, Vs);
 format({F, L, D}, Vs) when is_integer(L), L > 0 ->
-    [io_lib:fwrite("~ts:~w: ", [filename(F), L]), format(D, Vs)];
+    [io_lib:fwrite("~ts:~tw: ", [filename(F), L]), format(D, Vs)];
 format({F, _L, D}, Vs) ->
     [io_lib:fwrite("~ts: ", [filename(F)]), format(D, Vs)];
 format(S, Vs) when is_list(S) ->

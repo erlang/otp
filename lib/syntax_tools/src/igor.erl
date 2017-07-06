@@ -834,7 +834,7 @@ merge_sources_1(Name, Modules, Trees, Opts) ->
 		       dict:from_list(Rs);
 		   false ->
 		       report_error("bad value for `redirect' option: "
-				    "~P.",
+				    "~tP.",
 				    [Rs, 10]),
 		       exit(error)
 	       end,
@@ -1069,7 +1069,7 @@ filter_forms_2(Forms, Env) ->
 		    comment -> kill;
 		    _ ->
 			report_error("invalid value for option "
-				     "`file_attributes': ~w.",
+				     "`file_attributes': ~tw.",
 				     [FileAttrsOpt]),
 			exit(error)
 		end,
@@ -1180,7 +1180,7 @@ merge_namespaces(Modules, Env) ->
 	[] ->
 	    ok;
 	Fs ->
-	    report_warning("interface functions renamed:\n\t~p.", [Fs])
+	    report_warning("interface functions renamed:\n\t~tp.", [Fs])
     end,
     {M4, Acc2} = merge_namespaces_1(M2, Acc1),
     Ms = M3 ++ M4,
@@ -1778,7 +1778,7 @@ transform_function(T, Env, St) ->
     {maybe_modified(V, T1, 2, Text, Env), St1}.
 
 renaming_note(Name) ->
-    [lists:flatten(io_lib:fwrite("renamed function to `~w'",
+    [lists:flatten(io_lib:fwrite("renamed function to `~tw'",
 				 [Name]))].
 
 rename_atom(Node, Atom) ->
@@ -2488,7 +2488,7 @@ rename(Files, Renamings, Opts) ->
 	       true ->
 		   dict:from_list(Renamings);
 	       false ->
-		   report_error("bad module renaming: ~P.",
+		   report_error("bad module renaming: ~tP.",
 				[Renamings, 10]),
 		   exit(error)
 	   end,
@@ -2672,7 +2672,7 @@ error_text(D, Name) ->
     end.
 
 error_text_1(D, Name) ->
-    io_lib:fwrite("error: `~w', ~P.", [Name, D, 15]).
+    io_lib:fwrite("error: `~w', ~tP.", [Name, D, 15]).
 
 check_records(Rs, Name) ->
     case duplicates([N || {N, _} <- Rs]) of
@@ -2680,7 +2680,7 @@ check_records(Rs, Name) ->
 	    ok;
 	Ns ->
 	    report_error("in module `~w': "
-			 "multiply defined records: ~p.",
+			 "multiply defined records: ~tp.",
 			 [Name, Ns]),
 	    exit(error)
     end.
@@ -2694,7 +2694,7 @@ expand_imports(Is, Name) ->
 	    ordsets:from_list(As);
 	Ns ->
 	    report_error("in module `~w': "
-			 "multiply imported functions: ~p.",
+			 "multiply imported functions: ~tp.",
 			 [Name, Ns]),
 	    exit(error)
     end.
@@ -2968,7 +2968,7 @@ filename([]) ->
 filename(N) when is_atom(N) ->
     atom_to_list(N);
 filename(N) ->
-    report_error("bad filename: `~P'.", [N, 25]),
+    report_error("bad filename: `~tP'.", [N, 25]),
     exit(error).
 
 duplicates(Xs) ->
@@ -3031,7 +3031,7 @@ split_lines_1(Cs, Cs1, Ls) ->
 %% Reporting
 
 warning_unsafe_call(Name, Module, Target) ->
-    report_warning("call to `~w' in module `~w' "
+    report_warning("call to `~tw' in module `~w' "
 		   "possibly unsafe in `~s'.", [Name, Module, Target]).
 
 warning_apply_2(Module, Target) ->

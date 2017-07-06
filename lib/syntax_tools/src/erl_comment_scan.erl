@@ -309,7 +309,7 @@ filename([C|T]) when is_integer(C), C > 0 ->
 filename([]) ->
     [];
 filename(N) ->
-    report_error("bad filename: `~P'.", [N, 25]),
+    report_error("bad filename: `~tP'.", [N, 25]),
     exit(error).
 
 error_read_file(Name) ->
