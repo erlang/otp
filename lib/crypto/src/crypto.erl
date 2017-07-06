@@ -25,7 +25,7 @@
 -export([start/0, stop/0, info_lib/0, info_fips/0, supports/0, enable_fips_mode/1,
          version/0, bytes_to_integer/1]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
--export([sign/4, verify/5]).
+-export([sign/4, sign/5, verify/5, verify/6]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([cmac/3, cmac/4]).
@@ -44,6 +44,10 @@
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see
 -export([ec_curve/1, ec_curves/0]).
 -export([rand_seed/1]).
+
+%% Private. For tests.
+-export([packed_openssl_version/4]).
+
 
 -deprecated({rand_uniform, 2, next_major_release}).
 
@@ -1004,3 +1008,14 @@ erlint(<<MPIntSize:32/integer,MPIntValue/binary>>) ->
 %%
 mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.
 
+
+%%%----------------------------------------------------------------
+%% 9470495 == V(0,9,8,zh).
+%% 268435615 == V(1,0,0,i).
+%% 268439663 == V(1,0,1,f).
+
+packed_openssl_version(MAJ, MIN, FIX, P0) ->
+    %% crypto.c
+    P1 = atom_to_list(P0),
+    P = lists:sum([C-$a||C<-P1]),
+    ((((((((MAJ bsl 8) bor MIN) bsl 8 ) bor FIX) bsl 8) bor (P+1)) bsl 4) bor 16#f).

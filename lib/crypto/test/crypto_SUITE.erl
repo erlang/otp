@@ -751,15 +751,57 @@ do_sign_verify({Type, Hash, Public, Private, Msg}) ->
     Signature = crypto:sign(Type, Hash, Msg, Private),
     case crypto:verify(Type, Hash, Msg, Signature, Public) of
 	true ->
+            ct:log("OK crypto:sign(~p, ~p, ..., ..., ...)", [Type,Hash]),
 	    negative_verify(Type, Hash, Msg, <<10,20>>, Public);
 	false ->
+            ct:log("ERROR crypto:sign(~p, ~p, ..., ..., ...)", [Type,Hash]),
 	    ct:fail({{crypto, verify, [Type, Hash, Msg, Signature, Public]}})
-    end. 
+    end;
+do_sign_verify({Type, Hash, Public, Private, Msg, Options}) ->
+    LibVer =
+        case crypto:info_lib() of
+            [{<<"OpenSSL">>,Ver,<<"OpenSSL",_/binary>>}] -> Ver;
+            _ -> infinity
+        end,
+    Pad = proplists:get_value(rsa_padding, Options),
+    NotSupLow = lists:member(Pad, [rsa_pkcs1_pss_padding]),
+    try
+        crypto:sign(Type, Hash, Msg, Private, Options)
+    of
+        Signature ->
+            case crypto:verify(Type, Hash, Msg, Signature, Public, Options) of
+                true ->
+                    ct:log("OK crypto:sign(~p, ~p, ..., ..., ..., ~p)", [Type,Hash,Options]),
+                    negative_verify(Type, Hash, Msg, <<10,20>>, Public, Options);
+                false ->
+                    ct:log("ERROR crypto:sign(~p, ~p, ..., ..., ..., ~p)", [Type,Hash,Options]),
+                    ct:fail({{crypto, verify, [Type, Hash, Msg, Signature, Public, Options]}})
+            end
+    catch
+        error:notsup when NotSupLow == true,
+                          is_integer(LibVer),
+                          LibVer < 16#10001000 ->
+            %% Thoose opts where introduced in 1.0.1
+            ct:log("notsup but OK in old cryptolib crypto:sign(~p, ~p, ..., ..., ..., ~p)",
+                   [Type,Hash,Options]),
+            true;
+        C:E ->
+            ct:log("~p:~p  crypto:sign(~p, ~p, ..., ..., ..., ~p)", [C,E,Type,Hash,Options]),
+            ct:fail({{crypto, sign_verify, [LibVer, Type, Hash, Msg, Public, Options]}})
+    end.
 
 negative_verify(Type, Hash, Msg, Signature, Public) ->
     case crypto:verify(Type, Hash, Msg, Signature, Public) of
 	true ->
 	    ct:fail({{crypto, verify, [Type, Hash, Msg, Signature, Public]}, should_fail});
+	false ->
+	    ok
+    end.
+
+negative_verify(Type, Hash, Msg, Signature, Public, Options) ->
+    case crypto:verify(Type, Hash, Msg, Signature, Public, Options) of
+	true ->
+	    ct:fail({{crypto, verify, [Type, Hash, Msg, Signature, Public, Options]}, should_fail});
 	false ->
 	    ok
     end.
@@ -1268,18 +1310,38 @@ group_config(_, Config) ->
     Config.
 
 sign_verify_tests(Type, Msg, Public, Private, PublicS, PrivateS) ->
-    sign_verify_tests(Type, [md5, sha, sha224, sha256], Msg, Public, Private) ++
-	sign_verify_tests(Type, [sha384, sha512], Msg, PublicS, PrivateS).
+    gen_sign_verify_tests(Type, [md5, ripemd160, sha, sha224, sha256], Msg, Public, Private,
+			  [undefined,
+			   [{rsa_padding, rsa_pkcs1_pss_padding}],
+			   [{rsa_padding, rsa_pkcs1_pss_padding}, {rsa_pss_saltlen, 0}],
+			   [{rsa_padding, rsa_x931_padding}]
+			  ]) ++
+	gen_sign_verify_tests(Type, [sha384, sha512], Msg, PublicS, PrivateS,
+			      [undefined,
+			       [{rsa_padding, rsa_pkcs1_pss_padding}],
+			       [{rsa_padding, rsa_pkcs1_pss_padding}, {rsa_pss_saltlen, 0}],
+			       [{rsa_padding, rsa_x931_padding}]
+			      ]).
 
-sign_verify_tests(Type, Hashs, Msg, Public, Private) ->
-    lists:foldl(fun(Hash, Acc) -> 
-			case is_supported(Hash) of
-			    true ->
-				[{Type, Hash,  Public, Private, Msg}|Acc];
-			    false ->
-			      Acc
-			end
-		end, [], Hashs).
+gen_sign_verify_tests(Type, Hashs, Msg, Public, Private, Opts) ->
+    lists:foldr(fun(Hash, Acc0) ->
+	case is_supported(Hash) of
+	    true ->
+		lists:foldr(fun
+		    (undefined, Acc1) ->
+			[{Type, Hash, Public, Private, Msg} | Acc1];
+		    ([{rsa_padding, rsa_x931_padding} | _], Acc1)
+			    when Hash =:= md5
+			    orelse Hash =:= ripemd160
+			    orelse Hash =:= sha224 ->
+			Acc1;
+		    (Opt, Acc1) ->
+			[{Type, Hash, Public, Private, Msg, Opt} | Acc1]
+		end, Acc0, Opts);
+	    false ->
+		Acc0
+	end
+    end, [], Hashs).
 
 rfc_1321_msgs() ->
     [<<"">>, 
@@ -2300,7 +2362,7 @@ fmt_words(Words) ->
 
 log_rsp_size(Label, Term) ->
     S = erts_debug:size(Term),
-    ct:pal("~s: ~w test(s), Memory used: ~s",
+    ct:log("~s: ~w test(s), Memory used: ~s",
            [Label, length(Term), fmt_words(S)]).
 
 read_rsp(Config, Type, Files) ->
