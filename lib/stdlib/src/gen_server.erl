@@ -621,7 +621,7 @@ try_dispatch(Mod, Func, Msg, State) ->
             case erlang:function_exported(Mod, handle_info, 2) of
                 false ->
                     error_logger:warning_msg("** Undefined handle_info in ~p~n"
-                                             "** Unhandled message: ~p~n",
+                                             "** Unhandled message: ~tp~n",
                                              [Mod, Msg]),
                     {ok, {noreply, State}};
                 true ->
@@ -882,9 +882,9 @@ error_info(Reason, Name, From, Msg, State, Debug) ->
     {ClientFmt, ClientArgs} = client_stacktrace(From),
     LimitedState = error_logger:limit_term(State),
     error_logger:format("** Generic server ~p terminating \n"
-                        "** Last message in was ~p~n"
-                        "** When Server state == ~p~n"
-                        "** Reason for termination == ~n** ~p~n" ++ ClientFmt,
+                        "** Last message in was ~tp~n"
+                        "** When Server state == ~tp~n"
+                        "** Reason for termination == ~n** ~tp~n" ++ ClientFmt,
                         [Name, Msg, LimitedState, Reason1] ++ ClientArgs),
     sys:print_log(Debug),
     ok.
@@ -898,11 +898,11 @@ client_stacktrace(From) when is_pid(From), node(From) =:= node() ->
             {"** Client ~p is dead~n", [From]};
         [{current_stacktrace, Stacktrace}, {registered_name, []}]  ->
             {"** Client ~p stacktrace~n"
-             "** ~p~n",
+             "** ~tp~n",
              [From, Stacktrace]};
         [{current_stacktrace, Stacktrace}, {registered_name, Name}]  ->
             {"** Client ~p stacktrace~n"
-             "** ~p~n",
+             "** ~tp~n",
              [Name, Stacktrace]}
     end;
 client_stacktrace(From) when is_pid(From) ->

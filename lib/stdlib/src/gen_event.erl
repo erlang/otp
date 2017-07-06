@@ -441,15 +441,15 @@ system_replace_state(StateFun, [ServerName, MSL, HibernateAfterTimeout, Hib]) ->
 print_event(Dev, {in, Msg}, Name) ->
     case Msg of
 	{notify, Event} ->
-	    io:format(Dev, "*DBG* ~p got event ~p~n", [Name, Event]);
+	    io:format(Dev, "*DBG* ~tp got event ~tp~n", [Name, Event]);
 	{_,_,{call, Handler, Query}} ->
-	    io:format(Dev, "*DBG* ~p(~p) got call ~p~n",
+	    io:format(Dev, "*DBG* ~tp(~tp) got call ~tp~n",
 		      [Name, Handler, Query]);
 	_ ->
-	    io:format(Dev, "*DBG* ~p got ~p~n", [Name, Msg])
+	    io:format(Dev, "*DBG* ~tp got ~tp~n", [Name, Msg])
     end;
 print_event(Dev, Dbg, Name) ->
-    io:format(Dev, "*DBG* ~p : ~p~n", [Name, Dbg]).
+    io:format(Dev, "*DBG* ~tp : ~tp~n", [Name, Dbg]).
 
 
 %% server_add_handler(Handler, Args, MSL) -> {Ret, MSL'}.
@@ -582,8 +582,8 @@ server_update(Handler1, Func, Event, SName) ->
 			 remove, SName, normal),
 	    no;
         {'EXIT', {undef, [{Mod1, handle_info, [_,_], _}|_]}} ->
-            error_logger:warning_msg("** Undefined handle_info in ~p~n"
-                                     "** Unhandled message: ~p~n", [Mod1, Event]),
+            error_logger:warning_msg("** Undefined handle_info in ~tp~n"
+                                     "** Unhandled message: ~tp~n", [Mod1, Event]),
            {ok, Handler1};
 	Other ->
 	    do_terminate(Mod1, Handler1, {error, Other}, State,
@@ -767,10 +767,10 @@ report_error(Handler, Reason, State, LastIn, SName) ->
 		       State
 	       end,
     error_msg("** gen_event handler ~p crashed.~n"
-	      "** Was installed in ~p~n"
-	      "** Last event was: ~p~n"
-	      "** When handler state == ~p~n"
-	      "** Reason == ~p~n",
+	      "** Was installed in ~tp~n"
+	      "** Last event was: ~tp~n"
+	      "** When handler state == ~tp~n"
+	      "** Reason == ~tp~n",
 	      [handler(Handler),SName,LastIn,FmtState,Reason1]).
 
 handler(Handler) when not Handler#handler.id ->

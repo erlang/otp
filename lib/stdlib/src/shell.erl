@@ -1459,7 +1459,7 @@ check_env(V) ->
         {ok, Val} ->
             Txt = io_lib:fwrite
                     ("Invalid value of STDLIB configuration parameter"
-                     "~w: ~tp\n", [V, Val]),
+                     "~tw: ~tp\n", [V, Val]),
 	    error_logger:info_report(lists:flatten(Txt))
     end.
 	    

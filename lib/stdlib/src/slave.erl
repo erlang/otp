@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ start_pseudo(_,_,_) -> ok.  %% It's already there
       Pid :: pid().
 
 relay({badrpc,Reason}) ->
-    error_msg(" ** exiting relay server ~w :~w  **~n", [self(),Reason]),
+    error_msg(" ** exiting relay server ~w :~tw  **~n", [self(),Reason]),
     exit(Reason);
 relay(undefined) ->
     error_msg(" ** exiting relay server ~w  **~n", [self()]),

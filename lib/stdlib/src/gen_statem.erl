@@ -1732,25 +1732,25 @@ error_info(
 		 CallbackMode
 	 end,
     error_logger:format(
-      "** State machine ~p terminating~n" ++
+      "** State machine ~tp terminating~n" ++
 	  case Q of
 	      [] -> "";
-	      _ -> "** Last event = ~p~n"
+	      _ -> "** Last event = ~tp~n"
 	  end ++
-	  "** When server state  = ~p~n" ++
-	  "** Reason for termination = ~w:~p~n" ++
+	  "** When server state  = ~tp~n" ++
+	  "** Reason for termination = ~w:~tp~n" ++
 	  "** Callback mode = ~p~n" ++
 	  case Q of
-	      [_,_|_] -> "** Queued = ~p~n";
+	      [_,_|_] -> "** Queued = ~tp~n";
 	      _ -> ""
 	  end ++
 	  case P of
 	      [] -> "";
-	      _ -> "** Postponed = ~p~n"
+	      _ -> "** Postponed = ~tp~n"
 	  end ++
 	  case FixedStacktrace of
 	      [] -> "";
-	      _ -> "** Stacktrace =~n**  ~p~n"
+	      _ -> "** Stacktrace =~n**  ~tp~n"
 	  end,
       [Name |
        case Q of
