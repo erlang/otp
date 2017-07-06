@@ -71,7 +71,7 @@ init_per_testcase(_TestCase, Config) ->
 %% @spec end_per_testcase(TestCase, Config0) ->
 %%               void() | {save_config,Config1} | {fail,Reason}
 end_per_testcase(test_server_unicode, _Config) ->
-    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    [_,Host] = string:lexemes(atom_to_list(node()), "@"),
     N1 = list_to_atom("test_server_tester_latin1" ++ "@" ++ Host),
     N2 = list_to_atom("test_server_tester_utf8" ++ "@" ++ Host),
     test_server:stop_node(N1),
@@ -347,7 +347,7 @@ generate_and_run_unicode_test(Config0,Encoding) ->
     RunDir = get_latest_run_dir(LogDir),
     true = filelib:is_dir(RunDir),
 
-    LowerModStr = string:to_lower(ModStr),
+    LowerModStr = string:lowercase(ModStr),
     SuiteHtml = translate_filename(LowerModStr++".src.html",Encoding),
     true = filelib:is_regular(filename:join(RunDir,SuiteHtml)),
 
@@ -362,7 +362,7 @@ generate_and_run_unicode_test(Config0,Encoding) ->
 %% remote file system on master - i.e. they will use same file name
 %% mode as the master.
 start_node(Config,Name,Args) ->
-    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    [_,Host] = string:lexemes(atom_to_list(node()), "@"),
     ct:log("Trying to start ~w@~s~n",[Name,Host]),
     case test_server:start_node(Name, peer, [{args,Args}]) of
 	{error,Reason} ->

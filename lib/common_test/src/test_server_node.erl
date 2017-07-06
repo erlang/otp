@@ -315,9 +315,11 @@ start_node_peer(SlaveName, OptList, From, TI) ->
     Prog0 = start_node_get_option_value(erl, OptList, default),
     Prog = quote_progname(pick_erl_program(Prog0)),
     Args = 
-	case string:str(SuppliedArgs,"-setcookie") of
-	    0 -> "-setcookie " ++ TI#target_info.cookie ++ " " ++ SuppliedArgs;
-	    _ -> SuppliedArgs
+	case string:find(SuppliedArgs,"-setcookie") of
+	    nomatch ->
+                "-setcookie " ++ TI#target_info.cookie ++ " " ++ SuppliedArgs;
+	    _ ->
+                SuppliedArgs
 	end,
     Cmd = lists:concat([Prog,
 			" -detached ",
@@ -612,7 +614,7 @@ pick_erl_program(L) ->
 %% emulator and flags as the test node. The return from lib:progname()
 %% could then typically be '/<full_path_to>/cerl -gcov').
 quote_progname(Progname) ->
-    do_quote_progname(string:tokens(Progname," ")).
+    do_quote_progname(string:lexemes(Progname," ")).
 
 do_quote_progname([Prog]) ->
     "\""++Prog++"\"";

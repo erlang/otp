@@ -126,12 +126,12 @@ default(Config) ->
 
 auto_per_tc(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    ["log_private",_] = string:tokens(filename:basename(PrivDir), "."),
+    ["log_private",_] = string:lexemes(filename:basename(PrivDir), "."),
     {ok,_} = file:list_dir(PrivDir).
 
 manual_per_tc(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    ["log_private",_] = string:tokens(filename:basename(PrivDir), "."),
+    ["log_private",_] = string:lexemes(filename:basename(PrivDir), "."),
     {error,_} = file:list_dir(PrivDir),
     ok = ct:make_priv_dir(),
     {ok,_} = file:list_dir(PrivDir).

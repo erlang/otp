@@ -213,8 +213,8 @@ reformat_events(Events, EH) ->
 skip_dynamic() ->
     case os:getenv("TS_EXTRA_PLATFORM_LABEL") of
 	TSExtraPlatformLabel when is_list(TSExtraPlatformLabel) ->
-	    case string:str(TSExtraPlatformLabel,"TimeWarpingOS") of
-		0 -> false;
+	    case string:find(TSExtraPlatformLabel,"TimeWarpingOS") of
+		nomatch -> false;
 		_ -> true
 	    end;
 	_ ->

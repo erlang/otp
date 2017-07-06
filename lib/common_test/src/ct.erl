@@ -1029,7 +1029,7 @@ make_and_load(Dir, Suite) ->
     EnvInclude =
 	case os:getenv("CT_INCLUDE_PATH") of
 	    false -> [];
-	    CtInclPath -> string:tokens(CtInclPath, [$:,$ ,$,])
+	    CtInclPath -> string:lexemes(CtInclPath, [$:,$ ,$,])
 	end,
     StartInclude =
 	case init:get_argument(include) of

@@ -257,7 +257,7 @@ cth_log(Config) when is_list(Config) ->
     lists:foreach(
       fun(UnexpIoLog) ->
 	      {ok,Bin} = file:read_file(UnexpIoLog),
-	      Ts = string:tokens(binary_to_list(Bin),[$\n]),
+	      Ts = string:lexemes(binary_to_list(Bin),[$\n]),
 	      Matches = lists:foldl(fun([$=,$E,$R,$R,$O,$R|_],  N) ->
 					    N+1;
 				       ([$L,$o,$g,$g,$e,$r|_],  N) ->

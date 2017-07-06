@@ -115,7 +115,7 @@ get_vars(_, _, _, _) ->
 config_flags() ->
     case os:getenv("CONFIG_FLAGS") of
 	false -> [];
-	CF -> string:tokens(CF, " \t\n")
+	CF -> string:lexemes(CF, " \t\n")
     end.
 
 unix_autoconf(XConf) ->
@@ -127,7 +127,7 @@ unix_autoconf(XConf) ->
     Threads = [" --enable-shlib-thread-safety" ||
 		  erlang:system_info(threads) /= false],
     Debug = [" --enable-debug-mode" ||
-		string:str(erlang:system_info(system_version),"debug") > 0],
+		string:find(erlang:system_info(system_version),"debug") =/= nomatch],
     MXX_Build = [Y || Y <- config_flags(),
 		      Y == "--enable-m64-build"
 			  orelse Y == "--enable-m32-build"],
@@ -159,10 +159,8 @@ assign_vars([]) ->
 assign_vars([{VAR,FlagsStr} | VARs]) ->
     [{VAR,assign_vars(FlagsStr)} | assign_vars(VARs)];
 assign_vars(FlagsStr) ->
-    Flags = [assign_all_vars(Str,[]) || Str <- string:tokens(FlagsStr, [$ ])],
-    string:strip(lists:flatten(lists:map(fun(Flag) ->
-						 Flag ++ " "
-					 end, Flags)), right).
+    Flags = [assign_all_vars(Str,[]) || Str <- string:lexemes(FlagsStr, [$\s])],
+    lists:flatten(lists:join(" ", Flags)).
 
 assign_all_vars([$$ | Rest], FlagSoFar) ->
     {VarName,Rest1} = get_var_name(Rest, []),
@@ -292,7 +290,7 @@ add_vars(Vars0, Opts0) ->
 get_testcase_callback() ->
     case os:getenv("TS_TESTCASE_CALLBACK") of
 	ModFunc when is_list(ModFunc), ModFunc /= "" ->
-	    case string:tokens(ModFunc, " ") of
+	    case string:lexemes(ModFunc, " ") of
 		[_Mod,_Func] -> ModFunc;
 		_ -> ""
 	    end;
@@ -434,8 +432,8 @@ bind_type() ->
 					
 
 debug() ->
-    case string:str(erlang:system_info(system_version), "debug") of
-	0 -> "";
+    case string:find(erlang:system_info(system_version), "debug") of
+	nomatch -> "";
 	_ -> "/Debug"
     end.
 

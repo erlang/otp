@@ -1464,13 +1464,14 @@ get_suites([], Mods) ->
     lists:reverse(Mods).
 
 add_mod(Mod, Mods) ->
-    case string:rstr(atom_to_list(Mod), "_SUITE") of
-	0 -> false;
-	_ ->					% test suite
+    case lists:reverse(atom_to_list(Mod)) of
+        "ETIUS_" ++ _ -> % test suite
 	     case lists:member(Mod, Mods) of
 		 true ->  false;
 		 false -> true
-	     end
+	     end;
+        _ ->
+            false
     end.
 
 
@@ -2610,7 +2611,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 				NumStr ->
 				    %% Ex: "123 456 789" or "123,456,789" -> {123,456,789}
 				    list_to_tuple([list_to_integer(NS) ||
-						   NS <- string:tokens(NumStr, [$ ,$:,$,])])
+						   NS <- string:lexemes(NumStr, [$ ,$:,$,])])
 			    end,
 			{shuffle_cases(Ref, Cs0, UseSeed),{shuffle,UseSeed}}
 		end;
@@ -3978,11 +3979,12 @@ progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 			       true -> "~w"
 			    end, [Time]),
     ReasonStr = escape_chars(reason_to_string(Reason1)),
-    ReasonStr1 = lists:flatten([string:strip(S,left) ||
-				S <- string:tokens(ReasonStr,[$\n])]),
+    ReasonStr1 = lists:flatten([string:trim(S,leading,"\s") ||
+				S <- string:lexemes(ReasonStr,[$\n])]),
+    ReasonLength = string:length(ReasonStr1),
     ReasonStr2 =
-	if length(ReasonStr1) > 80 ->
-		string:substr(ReasonStr1, 1, 77) ++ "...";
+	if ReasonLength > 80 ->
+		string:slice(ReasonStr1, 0, 77) ++ "...";
 	   true ->
 		ReasonStr1
 	end,
@@ -4066,11 +4068,12 @@ progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
 			       true -> "~w"
 			    end, [Time]),
     ErrorReason = escape_chars(lists:flatten(io_lib:format("~tp", [Reason]))),
-    ErrorReason1 = lists:flatten([string:strip(S,left) ||
-				  S <- string:tokens(ErrorReason,[$\n])]),
+    ErrorReason1 = lists:flatten([string:trim(S,leading,"\s") ||
+				  S <- string:lexemes(ErrorReason,[$\n])]),
+    ErrorReasonLength = string:length(ErrorReason1),
     ErrorReason2 =
-	if length(ErrorReason1) > 63 ->
-		string:substr(ErrorReason1, 1, 60) ++ "...";
+	if ErrorReasonLength > 63 ->
+		string:slice(ErrorReason1, 0, 60) ++ "...";
 	   true ->
 		ErrorReason1
 	end,

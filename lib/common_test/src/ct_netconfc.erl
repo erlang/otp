@@ -1467,7 +1467,7 @@ decode_data(Other) ->
     {error,{unexpected_rpc_reply,Other}}.
 
 get_qualified_name(Tag) ->
-    case string:tokens(atom_to_list(Tag),":") of
+    case string:lexemes(atom_to_list(Tag),":") of
 	[TagStr] -> {[],TagStr};
 	[PrefixStr,TagStr] -> {PrefixStr,TagStr}
     end.

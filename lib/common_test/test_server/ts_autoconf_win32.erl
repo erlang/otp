@@ -228,7 +228,7 @@ make(Vars) ->
     end.
 
 find_make(MakeCmd, Vars) ->
-    [Make|_] = string:tokens(MakeCmd, " \t"),
+    [Make|_] = string:lexemes(MakeCmd, " \t"),
     case os:find_executable(Make) of
 	false ->
 	    {no, Vars};
@@ -248,9 +248,9 @@ javac(Vars) ->
     end.
 
 is_debug_build() ->
-    case catch string:str(erlang:system_info(system_version), "debug") of
-	Int when is_integer(Int), Int > 0 ->
-	    true;
-	_ ->
-	    false
+    case catch string:find(erlang:system_info(system_version), "debug") of
+        nomatch ->
+            false;
+	_Else ->
+	    true
     end.
