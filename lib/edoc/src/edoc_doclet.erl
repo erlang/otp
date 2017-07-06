@@ -198,7 +198,7 @@ source({M, Name, Path}, Dir, Suffix, Env, Set, Private, Hidden,
 		    {Set, Error}
 	    end;
 	R ->
-	    report("skipping source file '~ts': ~P.", [File, R, 15]),
+	    report("skipping source file '~ts': ~tP.", [File, R, 15]),
 	    {Set, true}
     end.
 
