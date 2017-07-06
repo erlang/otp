@@ -100,7 +100,7 @@ do_tracer(Clients,PI,Traci) ->
 				 {ok, H} = inet:gethostname(),
 				 H;
 			     _ ->
-				 [_,H] = string:tokens(atom_to_list(N),"@"),
+				 [_,H] = string:lexemes(atom_to_list(N),"@"),
 				 H
 			 end,
 		  case catch dbg:tracer(N,port,dbg:trace_port(ip,IpPortSpec)) of
@@ -944,7 +944,7 @@ receive_files(Dir,Sock,Fd) ->
     end.    
 
 host(Node) ->
-    [_name,Host] = string:tokens(atom_to_list(Node),"@"),
+    [_name,Host] = string:lexemes(atom_to_list(Node),"@"),
     Host.
 
 
@@ -1033,7 +1033,7 @@ collect_files(Dirs) ->
     lists:map(fun(Dir) ->
                       MetaFiles = filelib:wildcard(filename:join(Dir,"*.ti")),
                       lists:map(fun(M) ->
-                                        Sub = string:left(M,length(M)-3),
+                                        Sub = filename:rootname(M,".ti"),
                                         case filelib:is_file(Sub) of
                                             true -> Sub;
                                             false -> Sub++".*.wrp"

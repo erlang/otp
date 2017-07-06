@@ -474,7 +474,7 @@ create_box(Parent, Data) ->
 				 link_entry(Panel,Value);
 			     _ ->
 				 Value = to_str(Value0),
-                                 case string:sub_word(lists:sublist(Value, 80),1,$\n) of
+                                 case string:nth_lexeme(lists:sublist(Value, 80),1, [$\n]) of
                                      Value ->
                                          %% Short string, no newlines - show all
 					 wxStaticText:new(Panel, ?wxID_ANY, Value);

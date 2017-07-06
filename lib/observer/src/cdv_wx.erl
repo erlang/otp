@@ -130,8 +130,9 @@ init(File0) ->
 	{ok,File} ->
 	    %% Set window title
 	    T1 = "Crashdump Viewer: ",
+            FileLength = string:length(File),
 	    Title =
-		if length(File) > 70 ->
+		if FileLength > 70 ->
 			T1 ++ filename:basename(File);
 		   true ->
 			T1 ++ File
@@ -419,8 +420,9 @@ load_dump(Frame,FileName) ->
 	ok    ->
 	    %% Set window title
 	    T1 = "Crashdump Viewer: ",
+            FileLength = string:length(FileName),
 	    Title =
-		if length(FileName) > 70 ->
+		if FileLength > 70 ->
 			T1 ++ filename:basename(FileName);
 		   true ->
 			T1 ++ FileName

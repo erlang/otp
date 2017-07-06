@@ -732,7 +732,7 @@ get_nodes() ->
     {Nodes, lists:reverse(Menues)}.
 
 epmd_nodes(Names) ->
-    [_, Host] = string:tokens(atom_to_list(node()),"@"),
+    [_, Host] = string:lexemes(atom_to_list(node()),"@"),
     [list_to_atom(Name ++ [$@|Host]) || {Name, _} <- Names].
 
 update_node_list(State = #state{menubar=MenuBar}) ->

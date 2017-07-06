@@ -454,7 +454,8 @@ local_pid_str(Pid) ->
 
 global_pid_node_pref(Pid) ->
     %% Global PID node prefix : X of <X.Y.Z>
-    string:strip(string:sub_word(pid_to_list(Pid),1,$.),left,$<).
+    [NodePrefix|_] = string:lexemes(pid_to_list(Pid),"<."),
+    NodePrefix.
 
 io_get_data(Pid) ->
     Pid ! {self(), get_data_and_close},

@@ -283,24 +283,24 @@ href_proc_port("['#CDVPort'"++T,Acc,LTB) ->
     %% Port written by crashdump_viewer:parse_term(...)
     {Port0,Rest} = split($],T),
     PortStr=
-	case string:tokens(Port0,",.|") of
+	case string:lexemes(Port0,",.|") of
 	    [X,Y] ->
 		Port = "#Port&lt;"++X++"."++Y++"&gt;",
 		href(Port,Port);
 	Ns ->
-		"#Port&lt;" ++ string:join(Ns,".") ++"...&gt;"
+		"#Port&lt;" ++ lists:join($.,Ns) ++"...&gt;"
     end,
     href_proc_port(Rest,[PortStr|Acc],LTB);
 href_proc_port("['#CDVPid'"++T,Acc,LTB) ->
     %% Pid written by crashdump_viewer:parse_term(...)
     {Pid0,Rest} = split($],T),
     PidStr =
-	case string:tokens(Pid0,",.|") of
+	case string:lexemes(Pid0,",.|") of
 	    [X,Y,Z] ->
 		Pid = "&lt;"++X++"."++Y++"."++Z++"&gt;",
 		href(Pid,Pid);
 	    Ns ->
-		"&lt;" ++ string:join(Ns,".") ++ "...&gt;"
+		"&lt;" ++ lists:join($.,Ns) ++ "...&gt;"
 	end,
     href_proc_port(Rest,[PidStr|Acc],LTB);
 href_proc_port("'#CDVIncompleteHeap'"++T,Acc,LTB)->
@@ -337,7 +337,7 @@ href_proc_port([],Acc,_) ->
 href_proc_bin(From, T, Acc, LTB) ->
     {OffsetSizePos,Rest} = split($],T),
     BinStr =
-	case string:tokens(OffsetSizePos,",.| \n") of
+	case string:lexemes(OffsetSizePos,",.| \n") of
 	    [Offset,SizeStr,Pos] when From =:= cdv ->
 		Id = {list_to_integer(Offset),10,list_to_integer(Pos)},
 		{ok,PreviewBin} = crashdump_viewer:expand_binary(Id),
