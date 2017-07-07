@@ -1143,8 +1143,9 @@ new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters) ->
     Config2 = replace_config(stdlib,Config1,Stdlib),
     Config3 = replace_config(sasl,Config2,Sasl),
 
-    ConfigStr = io_lib:format("~p.~n",[Config3]),
-    write_file(TmpFile,ConfigStr,Masters).
+    ConfigStr = io_lib:format("%% ~s~n~tp.~n",
+                              [epp:encoding_to_string(utf8),Config3]),
+    write_file(TmpFile,unicode:characters_to_binary(ConfigStr),Masters).
 
 %% Take the configuration for application App from the new config and
 %% insert in the old config.
@@ -1874,9 +1875,10 @@ write_releases_1(Dir, NewReleases, Masters) ->
     write_releases_m(Dir, NewReleases, Masters).
 
 do_write_release(Dir, RELEASES, NewReleases) ->
-    case file:open(filename:join(Dir, RELEASES), [write]) of
+    case file:open(filename:join(Dir, RELEASES), [write,{encoding,utf8}]) of
 	{ok, Fd} ->
-	    ok = io:format(Fd, "~p.~n", [NewReleases]),
+	    ok = io:format(Fd, "%% ~s~n~tp.~n",
+                           [epp:encoding_to_string(utf8),NewReleases]),
 	    ok = file:close(Fd);
 	{error, Reason} ->
 	    {error, Reason}

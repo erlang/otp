@@ -119,7 +119,7 @@
                           | {archive, base_file(), [archive_opt()], [target_spec()]}
                           | {copy_file, base_file()}
                           | {copy_file, base_file(), top_file()}
-                          | {write_file, base_file(), iolist()}
+                          | {write_file, base_file(), binary()}
                           | {strip_beam_file, base_file()}.
 -type target_dir()       :: dir().
 -type incl_defaults()    :: boolean().

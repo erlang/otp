@@ -526,7 +526,7 @@ loop(S, G) ->
 	    exit(Reason);
 
         Other ->
-            error_logger:format("~w~w got unexpected message:\n\t~p\n",
+            error_logger:format("~w~w got unexpected message:\n\t~tp\n",
                                 [?MODULE, self(), Other]),
             loop(S, G)
     end.

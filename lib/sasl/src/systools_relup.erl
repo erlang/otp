@@ -535,9 +535,9 @@ to_list(X) when is_list(X) -> X.
 write_relup_file(Relup, Opts) ->
     Filename = filename:join(filename:absname(get_opt(outdir,Opts)),
                              "relup"),
-    case file:open(Filename, [write]) of
+    case file:open(Filename, [write,{encoding,utf8}]) of
         {ok, Fd} ->
-            io:format(Fd, "~p.~n", [Relup]),
+            io:format(Fd, "%% ~s~n~tp.~n", [epp:encoding_to_string(utf8),Relup]),
             case file:close(Fd) of
                 ok -> ok;
                 {error,Reason} ->
