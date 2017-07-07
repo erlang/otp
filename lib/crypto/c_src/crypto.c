@@ -1010,6 +1010,8 @@ static int algo_pubkey_cnt, algo_pubkey_fips_cnt;
 static ERL_NIF_TERM algo_pubkey[7]; /* increase when extending the list */
 static int algo_cipher_cnt, algo_cipher_fips_cnt;
 static ERL_NIF_TERM algo_cipher[24]; /* increase when extending the list */
+static int algo_mac_cnt, algo_mac_fips_cnt;
+static ERL_NIF_TERM algo_mac[2]; /* increase when extending the list */
 
 static void init_algorithms_types(ErlNifEnv* env)
 {
@@ -1093,9 +1095,19 @@ static void init_algorithms_types(ErlNifEnv* env)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"chacha20_poly1305");
 #endif
 
+    // Validated algorithms first
+    algo_mac_cnt = 0;
+    algo_mac[algo_mac_cnt++] = enif_make_atom(env,"hmac");
+#ifdef HAVE_CMAC
+    algo_mac[algo_mac_cnt++] = enif_make_atom(env,"cmac");
+#endif
+    // Non-validated algorithms follow
+    algo_mac_fips_cnt = algo_mac_cnt;
+
     ASSERT(algo_hash_cnt <= sizeof(algo_hash)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_pubkey_cnt <= sizeof(algo_pubkey)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_cipher_cnt <= sizeof(algo_cipher)/sizeof(ERL_NIF_TERM));
+    ASSERT(algo_mac_cnt <= sizeof(algo_mac)/sizeof(ERL_NIF_TERM));
 }
 
 static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -1105,15 +1117,19 @@ static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     int hash_cnt   = fips_mode ? algo_hash_fips_cnt   : algo_hash_cnt;
     int pubkey_cnt = fips_mode ? algo_pubkey_fips_cnt : algo_pubkey_cnt;
     int cipher_cnt = fips_mode ? algo_cipher_fips_cnt : algo_cipher_cnt;
+    int mac_cnt    = fips_mode ? algo_mac_fips_cnt    : algo_mac_cnt;
 #else
     int hash_cnt   = algo_hash_cnt;
     int pubkey_cnt = algo_pubkey_cnt;
     int cipher_cnt = algo_cipher_cnt;
+    int mac_cnt    = algo_mac_cnt;
 #endif
-    return enif_make_tuple3(env,
+    return enif_make_tuple4(env,
 			    enif_make_list_from_array(env, algo_hash,   hash_cnt),
 			    enif_make_list_from_array(env, algo_pubkey, pubkey_cnt),
-			    enif_make_list_from_array(env, algo_cipher, cipher_cnt));
+			    enif_make_list_from_array(env, algo_cipher, cipher_cnt),
+			    enif_make_list_from_array(env, algo_mac,    mac_cnt)
+                            );
 }
 
 static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
