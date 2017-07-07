@@ -472,6 +472,8 @@ add_transports(Config) ->
            client_service = CN,
            client_sender = CS,
            server_service = SN,
+           server_encoding = SE,
+           server_container = SC,
            server_sender = SS,
            server_throttle = ST}
         = group(Config),
@@ -490,12 +492,10 @@ add_transports(Config) ->
                         LRef,
                         [{id, Id}
                          | client_apps(R, [{'Origin-State-Id', origin(Id)}])])
-          || D <- ?DECODINGS,
-             E <- ?ENCODINGS,
-             C <- ?CONTAINERS,
+          || D <- ?DECODINGS,  %% for multiple candidate peers
              R <- ?RFCS,
              R /= rfc4005 orelse have_nas(),
-             Id <- [{D,E,C}]],
+             Id <- [{D,SE,SC}]],
     %% The server uses the client's Origin-State-Id to decide how to
     %% answer.
     ?util:write_priv(Config, "transport", [LRef | Cs]).
