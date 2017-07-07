@@ -22,6 +22,7 @@ MODULES= \
 	bs_construct_SUITE \
 	bs_match_SUITE \
 	bs_utf_SUITE \
+	core_alias_SUITE \
 	core_fold_SUITE \
 	compile_SUITE \
 	compilation_SUITE \

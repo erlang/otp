@@ -83,6 +83,7 @@ MODULES =  \
 	core_scan \
 	erl_bifs \
 	rec_env \
+	sys_core_alias \
 	sys_core_bsm \
 	sys_core_dsetel \
 	sys_core_fold \
@@ -194,6 +195,7 @@ $(EBIN)/core_lib.beam: core_parse.hrl
 $(EBIN)/core_lint.beam: core_parse.hrl
 $(EBIN)/core_parse.beam: core_parse.hrl $(EGEN)/core_parse.erl
 $(EBIN)/core_pp.beam: core_parse.hrl
+$(EBIN)/sys_core_alias.beam: core_parse.hrl
 $(EBIN)/sys_core_dsetel.beam: core_parse.hrl
 $(EBIN)/sys_core_fold.beam: core_parse.hrl
 $(EBIN)/sys_core_fold_lists.beam: core_parse.hrl
