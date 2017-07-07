@@ -1225,6 +1225,8 @@ group_config(dss = Type, Config) ->
         case crypto:info_lib() of
             [{<<"OpenSSL">>,LibVer,_}] when is_integer(LibVer), LibVer > 16#10001000 ->
                 [sha, sha224, sha256, sha384, sha512];
+            [{<<"OpenSSL">>,LibVer,_}] when is_integer(LibVer), LibVer > 16#10000000 ->
+                [sha, sha224, sha256];
             _Else ->
                 [sha]
         end,
@@ -1236,7 +1238,11 @@ group_config(dss = Type, Config) ->
 group_config(ecdsa = Type, Config) ->
     {Private, Public} = ec_key_named(),
     Msg = ec_msg(),
-    SignVerify = [{Type, sha, Public, Private, Msg}],
+    SupportedHashs = proplists:get_value(hashs, crypto:supports(), []),
+    DssHashs = [sha, sha224, sha256, sha384, sha512],
+    SignVerify = [{Type, Hash, Public, Private, Msg} 
+                  || Hash <- DssHashs,
+                     lists:member(Hash, SupportedHashs)],
     [{sign_verify, SignVerify} | Config];
 group_config(srp, Config) ->
     GenerateCompute = [srp3(), srp6(), srp6a(), srp6a_smaller_prime()],
