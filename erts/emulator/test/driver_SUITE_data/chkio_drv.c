@@ -308,10 +308,13 @@ static void free_smp_select(ChkioSmpSelect* pip, ErlDrvPort port)
 	abort();
     }
     case Selected:
-	driver_select(port, (ErlDrvEvent)(ErlDrvSInt)pip->read_fd, DO_READ, 0);
-	/*fall through*/ 
     case Opened:
-	close(pip->read_fd);
+        TRACEF(("%T: Close pipe [%d->%d]\n", driver_mk_port(port), pip->write_fd,
+                pip->read_fd));
+        if (pip->wasSelected)
+            driver_select(port, (ErlDrvEvent)(ErlDrvSInt)pip->read_fd, DO_READ|ERL_DRV_USE, 0);
+        else
+            close(pip->read_fd);
 	close(pip->write_fd);
 	pip->state = Closed;
 	break;
@@ -987,7 +990,7 @@ chkio_drv_control(ErlDrvData drv_data,
 		}
 		TRACEF(("%T: Created pipe [%d->%d]\n", cddp->id, fds[1], fds[0]));
 		pip->read_fd = fds[0];
-		pip->write_fd = fds[1];	       
+		pip->write_fd = fds[1];
 		pip->state = Opened;
 		pip->wasSelected = 0;
 		pip->next_write = pip->next_read = rand_r(&pip->rand_state) % 1024;
@@ -997,7 +1000,8 @@ chkio_drv_control(ErlDrvData drv_data,
 	    }/*fall through*/
 	    case Opened: {
 		if (op & 1) {
-		    TRACEF(("%T: Write %d to opened pipe [%d->%d]\n", cddp->id, pip->next_write, pip->write_fd, pip->read_fd));
+		    TRACEF(("%T: Write %d to opened pipe [%d->%d]\n", cddp->id,
+                            pip->next_write, pip->write_fd, pip->read_fd));
 		    if (write(pip->write_fd, &pip->next_write, sizeof(int)) != sizeof(int)) {
 			fprintf(stderr, "Failed to write to pipe fd=%d, errno=%d\n", pip->write_fd, errno);
 			abort();
@@ -1006,8 +1010,12 @@ chkio_drv_control(ErlDrvData drv_data,
 		}
 		op >>= 1;
 		if (pip->wasSelected && (op & 1)) {
-		    TRACEF(("%T: Close pipe [%d->%d]\n", cddp->id, pip->write_fd, pip->read_fd));
-		    if (close(pip->read_fd) || close(pip->write_fd)) {
+		    TRACEF(("%T: Close pipe [%d->%d]\n", cddp->id, pip->write_fd,
+                            pip->read_fd));
+                    drv_use_singleton.fd_stop_select = -2; /* disable stop_select asserts */
+		    if (driver_select(cddp->port, (ErlDrvEvent)(ErlDrvSInt)pip->read_fd,
+                                      DO_READ|ERL_DRV_USE, 0)
+                        || close(pip->write_fd)) {
 			fprintf(stderr, "Failed to close pipe, errno=%d\n", errno);
 			abort();
 		    }
@@ -1015,8 +1023,10 @@ chkio_drv_control(ErlDrvData drv_data,
 		    break;
 		}
 		else {
-		    TRACEF(("%T: Select on pipe [%d->%d]\n", cddp->id, pip->write_fd, pip->read_fd));
-		    if (driver_select(cddp->port, (ErlDrvEvent)(ErlDrvSInt)pip->read_fd, DO_READ, 1)) {
+		    TRACEF(("%T: Select on pipe [%d->%d]\n", cddp->id,
+                            pip->write_fd, pip->read_fd));
+		    if (driver_select(cddp->port, (ErlDrvEvent)(ErlDrvSInt)pip->read_fd,
+                                      DO_READ|ERL_DRV_USE, 1)) {
 			fprintf(stderr, "driver_select failed for fd=%d\n", pip->read_fd);
 			abort();
 		    }
@@ -1024,13 +1034,13 @@ chkio_drv_control(ErlDrvData drv_data,
 		    pip->wasSelected = 1;
 		    op >>= 1;
 		    if (pip->next_write != pip->next_read) { /* pipe not empty */
-			if (op & 1) {  
+			if (op & 1) {
 			    pip->state = Waiting; /* Wait for reader */
 			    break;
 			}
 			op >>= 1;
 		    }
-		}  
+		}
 	    }/*fall through*/
 	    case Selected:
 		if (op & 1) {
@@ -1059,7 +1069,7 @@ chkio_drv_control(ErlDrvData drv_data,
 			fprintf(stderr, "Failed to write to pipe fd=%d, errno=%d\n", pip->write_fd, errno);
 			abort();
 		    }
-		    pip->next_write++;		    
+		    pip->next_write++;
 		}
 		break;
 	    case Waiting:
@@ -1313,7 +1323,12 @@ static void chkio_drv_stop_select(ErlDrvEvent e, void* null)
     if (!(drv_use_singleton.fd_stop_select < 0)) {
 	assert_print("fd_stop_select<0", __LINE__); abort(); 
     }
-    drv_use_singleton.fd_stop_select = (int)(long)e;
+    /* fd_stop_select counting is disabled if this is set to -2 */
+    if (drv_use_singleton.fd_stop_select == -2) {
+        TRACEF(("closing %d\n", (int)(long)e));
+        close((int)(long)e);
+    } else
+        drv_use_singleton.fd_stop_select = (int)(long)e;
     /* Can't call chkio_drv_use directly here. That could even be recursive.
      * Next timeout will detect it instead.
      */
