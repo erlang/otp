@@ -105,8 +105,8 @@ do(Info) ->
 		    Code = proplists:get_value(code,Head,unknown),
 		    transfer_log(Info, "-", AuthUser, Date, Code, Size),
 		    {proceed, Info#mod.data};
-		{_StatusCode, Response} ->
-		    transfer_log(Info,"-",AuthUser,Date,200,
+		{StatusCode, Response} ->
+		    transfer_log(Info, "-", AuthUser, Date, StatusCode,
 				 httpd_util:flatlength(Response)),
 		    {proceed,Info#mod.data};
 		undefined ->
