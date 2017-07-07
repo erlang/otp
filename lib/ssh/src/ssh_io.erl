@@ -31,8 +31,8 @@ read_line(Prompt, Opts) ->
     format("~s", [listify(Prompt)]),
     ?GET_INTERNAL_OPT(user_pid, Opts) ! {self(), question},
     receive
-	Answer when is_list(Answer) ->
-	    Answer
+	Answer when is_list(Answer) or is_binary(Answer) ->
+	    unicode:characters_to_list(Answer)
     end.
 
 yes_no(Prompt, Opts) ->
@@ -44,7 +44,7 @@ yes_no(Prompt, Opts) ->
 	y -> yes;
 	n -> no;
 
-	Answer when is_list(Answer) ->
+	Answer when is_list(Answer) or is_binary(Answer) ->
 	    case trim(Answer) of
 		"y" -> yes;
 		"n" -> no;
@@ -60,7 +60,7 @@ read_password(Prompt, Opts) ->
     format("~s", [listify(Prompt)]),
     ?GET_INTERNAL_OPT(user_pid, Opts) ! {self(), user_password},
     receive
-	Answer when is_list(Answer) ->
+	Answer when is_list(Answer) or is_binary(Answer) ->
 	     case trim(Answer) of
 		 "" ->
 		     read_password(Prompt, Opts);
