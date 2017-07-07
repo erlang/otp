@@ -2505,7 +2505,7 @@ erts_rwmtx_tryrlock(erts_rwmtx_t *rwmtx)
 #endif
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_trylock_opt(&rwmtx->lcnt, res, ERTS_LOCK_OPTION_READ);
+    erts_lcnt_trylock_opt(&rwmtx->lcnt, res, ERTS_LOCK_OPTIONS_READ);
 #endif
     
     return res;
@@ -2530,7 +2530,7 @@ erts_rwmtx_rlock(erts_rwmtx_t *rwmtx)
 #endif
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_lock_opt(&rwmtx->lcnt, ERTS_LOCK_OPTION_READ);
+    erts_lcnt_lock_opt(&rwmtx->lcnt, ERTS_LOCK_OPTIONS_READ);
 #endif
     ethr_rwmutex_rlock(&rwmtx->rwmtx);
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -2547,7 +2547,7 @@ erts_rwmtx_runlock(erts_rwmtx_t *rwmtx)
     erts_lc_unlock_flg(&rwmtx->lc, ERTS_LC_FLG_LO_READ);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_unlock_opt(&rwmtx->lcnt, ERTS_LOCK_OPTION_READ);
+    erts_lcnt_unlock_opt(&rwmtx->lcnt, ERTS_LOCK_OPTIONS_READ);
 #endif
     ethr_rwmutex_runlock(&rwmtx->rwmtx);
 #endif
@@ -2580,7 +2580,7 @@ erts_rwmtx_tryrwlock(erts_rwmtx_t *rwmtx)
 #endif
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_trylock_opt(&rwmtx->lcnt, res, ERTS_LOCK_OPTION_RDWR);
+    erts_lcnt_trylock_opt(&rwmtx->lcnt, res, ERTS_LOCK_OPTIONS_RDWR);
 #endif
     
     return res;
@@ -2605,7 +2605,7 @@ erts_rwmtx_rwlock(erts_rwmtx_t *rwmtx)
 #endif
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_lock_opt(&rwmtx->lcnt, ERTS_LOCK_OPTION_RDWR);
+    erts_lcnt_lock_opt(&rwmtx->lcnt, ERTS_LOCK_OPTIONS_RDWR);
 #endif
     ethr_rwmutex_rwlock(&rwmtx->rwmtx);
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -2622,7 +2622,7 @@ erts_rwmtx_rwunlock(erts_rwmtx_t *rwmtx)
     erts_lc_unlock_flg(&rwmtx->lc, ERTS_LC_FLG_LO_READ_WRITE);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_unlock_opt(&rwmtx->lcnt, ERTS_LOCK_OPTION_RDWR);
+    erts_lcnt_unlock_opt(&rwmtx->lcnt, ERTS_LOCK_OPTIONS_RDWR);
 #endif
     ethr_rwmutex_rwunlock(&rwmtx->rwmtx);
 #endif
@@ -3181,7 +3181,7 @@ erts_read_unlock(erts_rwlock_t *lock)
     erts_lc_unlock_flg(&lock->lc, ERTS_LC_FLG_LO_READ);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_unlock_opt(&lock->lcnt, ERTS_LOCK_OPTION_READ);
+    erts_lcnt_unlock_opt(&lock->lcnt, ERTS_LOCK_OPTIONS_READ);
 #endif
     ethr_read_unlock(&lock->rwlck);
 #else
@@ -3205,7 +3205,7 @@ erts_read_lock(erts_rwlock_t *lock)
 #endif
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_lock_opt(&lock->lcnt, ERTS_LOCK_OPTION_READ);
+    erts_lcnt_lock_opt(&lock->lcnt, ERTS_LOCK_OPTIONS_READ);
 #endif
     ethr_read_lock(&lock->rwlck);
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -3224,7 +3224,7 @@ erts_write_unlock(erts_rwlock_t *lock)
     erts_lc_unlock_flg(&lock->lc, ERTS_LC_FLG_LO_READ_WRITE);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_unlock_opt(&lock->lcnt, ERTS_LOCK_OPTION_RDWR);
+    erts_lcnt_unlock_opt(&lock->lcnt, ERTS_LOCK_OPTIONS_RDWR);
 #endif
     ethr_write_unlock(&lock->rwlck);
 #else
@@ -3248,7 +3248,7 @@ erts_write_lock(erts_rwlock_t *lock)
 #endif
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_lock_opt(&lock->lcnt, ERTS_LOCK_OPTION_RDWR);
+    erts_lcnt_lock_opt(&lock->lcnt, ERTS_LOCK_OPTIONS_RDWR);
 #endif
     ethr_write_lock(&lock->rwlck);
 #ifdef ERTS_ENABLE_LOCK_COUNT

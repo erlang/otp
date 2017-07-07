@@ -414,7 +414,7 @@ erl_drv_rwlock_tryrlock(ErlDrvRWLock *drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_tryrlock()");
     res = ethr_rwmutex_tryrlock(&drwlck->rwmtx);
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_trylock_opt(&drwlck->lcnt, res, ERTS_LOCK_OPTION_READ);
+    erts_lcnt_trylock_opt(&drwlck->lcnt, res, ERTS_LOCK_OPTIONS_READ);
 #endif
     return res;
 #else
@@ -429,7 +429,7 @@ erl_drv_rwlock_rlock(ErlDrvRWLock *drwlck)
     if (!drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_rlock()");
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_lock_opt(&drwlck->lcnt, ERTS_LOCK_OPTION_READ);
+    erts_lcnt_lock_opt(&drwlck->lcnt, ERTS_LOCK_OPTIONS_READ);
 #endif
     ethr_rwmutex_rlock(&drwlck->rwmtx);
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -445,7 +445,7 @@ erl_drv_rwlock_runlock(ErlDrvRWLock *drwlck)
     if (!drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_runlock()");
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_unlock_opt(&drwlck->lcnt, ERTS_LOCK_OPTION_READ);
+    erts_lcnt_unlock_opt(&drwlck->lcnt, ERTS_LOCK_OPTIONS_READ);
 #endif
     ethr_rwmutex_runlock(&drwlck->rwmtx);
 #endif
@@ -460,7 +460,7 @@ erl_drv_rwlock_tryrwlock(ErlDrvRWLock *drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_tryrwlock()");
     res = ethr_rwmutex_tryrwlock(&drwlck->rwmtx);
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_trylock_opt(&drwlck->lcnt, res, ERTS_LOCK_OPTION_RDWR);
+    erts_lcnt_trylock_opt(&drwlck->lcnt, res, ERTS_LOCK_OPTIONS_RDWR);
 #endif
     return res;
 #else
@@ -475,7 +475,7 @@ erl_drv_rwlock_rwlock(ErlDrvRWLock *drwlck)
     if (!drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_rwlock()");
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_lock_opt(&drwlck->lcnt, ERTS_LOCK_OPTION_RDWR);
+    erts_lcnt_lock_opt(&drwlck->lcnt, ERTS_LOCK_OPTIONS_RDWR);
 #endif
     ethr_rwmutex_rwlock(&drwlck->rwmtx);
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -491,7 +491,7 @@ erl_drv_rwlock_rwunlock(ErlDrvRWLock *drwlck)
     if (!drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_rwunlock()");
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    erts_lcnt_unlock_opt(&drwlck->lcnt, ERTS_LOCK_OPTION_RDWR);
+    erts_lcnt_unlock_opt(&drwlck->lcnt, ERTS_LOCK_OPTIONS_RDWR);
 #endif
     ethr_rwmutex_rwunlock(&drwlck->rwmtx);
 #endif
