@@ -139,8 +139,8 @@
 %% Sequence mask for End-to-End and Hop-by-Hop identifiers.
 -define(CLIENT_MASK, {1,26}).  %% 1 in top 6 bits
 
-%% How to construct messages, as record or list.
--define(ENCODINGS, [list, record]).
+%% How to construct messages, as record, list, or map.
+-define(ENCODINGS, [list, record, map]).
 
 %% How to send answers, in a diameter_packet or not.
 -define(CONTAINERS, [pkt, msg]).
@@ -1013,15 +1013,17 @@ origin({A,C}) ->
     2*codec(A) + container(C);
 
 origin(N) ->
-    {codec(N band 2), container(N rem 2)}.
+    {codec(N div 2), container(N rem 2)}.
 
-%% Map booleans, but the readable atoms are part of (constructed)
-%% group names, so it's good that they're readable.
+%% Map atoms. The atoms are part of (constructed) group names, so it's
+%% good that they're readable.
 
 codec(record) -> 0;
 codec(list)   -> 1;
+codec(map)    -> 2;
 codec(0) -> record;
-codec(_) -> list.
+codec(1) -> list;
+codec(2) -> map.
 
 container(pkt) -> 0;
 container(msg) -> 1;
@@ -1032,12 +1034,19 @@ msg([H|_] = Msg, record = E, diameter_gen_base_rfc3588)
   when H == 'ACR';
        H == 'ACA' ->
     msg(Msg, E, diameter_gen_base_accounting);
+
 msg([H|_] = Msg, record = E, diameter_gen_base_rfc6733)
   when H == 'ACR';
        H == 'ACA' ->
     msg(Msg, E, diameter_gen_acct_rfc6733);
+
 msg([H|T], record, Dict) ->
     Dict:'#new-'(Dict:msg2rec(H), T);
+
+msg([H|T], map, _) ->
+    Map = maps:from_list(T),
+    Map#{':name' => H};
+
 msg(Msg, _, _) ->
     Msg.
 
@@ -1049,20 +1058,26 @@ appdict(D) ->
 dict0(D) ->
     ?A("diameter_gen_base_" ++ ?L(D)).
 
-dict(Msg, nas4005 = D) ->
-    if 'answer-message' == hd(Msg);
-       ?is_record(Msg, 'diameter_base_answer-message') ->
+dict(Msg, Dict) ->
+    d(name(Msg), Dict).
+
+d(N, nas4005 = D) ->
+    if N == {list, 'answer-message'};
+       N == {map, 'answer-message'};
+       N == {record, 'diameter_base_answer-message'} ->
             diameter_gen_base_rfc3588;
        true ->
             D
     end;
-dict(Msg, Dict0)
-  when 'ACR' == hd(Msg);
-       'ACA' == hd(Msg);
-       ?is_record(Msg, diameter_base_accounting_ACR);
-       ?is_record(Msg, diameter_base_accounting_ACA) ->
+d(N, Dict0)
+  when N == {list, 'ACR'};
+       N == {list, 'ACA'};
+       N == {map, 'ACR'};
+       N == {map, 'ACA'};
+       N == {record, diameter_base_accounting_ACR};
+       N == {record, diameter_base_accounting_ACA} ->
     acct(Dict0);
-dict(_, Dict0) ->
+d(_, Dict0) ->
     Dict0.
 
 acct(diameter_gen_base_rfc3588) ->
@@ -1071,21 +1086,28 @@ acct(diameter_gen_base_rfc6733) ->
     diameter_gen_acct_rfc6733.
 
 %% Set only values that aren't already.
+
 set(_, [H|T], Vs) ->
     [H | Vs ++ T];
+
+set(_, Map, Vs)
+  when is_map(Map) ->
+    maps:merge(maps:from_list(Vs), Map);
+
 set(#group{client_dict = Dict0} = _Group, Rec, Vs) ->
     Dict = dict(Rec, Dict0),
     lists:foldl(fun({F,_} = FV, A) ->
-                        set(Dict, Dict:'#get-'(F, A), FV, A)
+                        reset(Dict, Dict:'#get-'(F, A), FV, A)
                 end,
                 Rec,
                 Vs).
 
-set(Dict, E, FV, Rec)
+reset(Dict, E, FV, Rec)
   when E == undefined;
        E == [] ->
     Dict:'#set-'(FV, Rec);
-set(_, _, _, Rec) ->
+
+reset(_, _, _, Rec) ->
     Rec.
 
 %% ===========================================================================
@@ -1280,10 +1302,16 @@ prepare(Pkt, Caps, _Name, Group) ->
 
 %% prepare/3
 
-prepare(#diameter_packet{msg = Req}, Caps, Group)
-  when ?is_record(Req, diameter_base_accounting_ACR);
-       ?is_record(Req, nas_ACR);
-       'ACR' == hd(Req) ->
+prepare(#diameter_packet{msg = Req} = Pkt, Caps, Group) ->
+    set(name(Req), Pkt, Caps, Group).
+
+%% set/4
+
+set(N, #diameter_packet{msg = Req}, Caps, Group)
+  when N == {record, diameter_base_accounting_ACR};
+       N == {record, nas_ACR};
+       N == {map, 'ACR'};
+       N == {list, 'ACR'} ->
     #diameter_caps{origin_host  = {OH, _},
                    origin_realm = {OR, DR}}
         = Caps,
@@ -1293,10 +1321,11 @@ prepare(#diameter_packet{msg = Req}, Caps, Group)
                      {'Origin-Realm', OR},
                      {'Destination-Realm', DR}]);
 
-prepare(#diameter_packet{msg = Req}, Caps, Group)
-  when ?is_record(Req, diameter_base_ASR);
-       ?is_record(Req, nas_ASR);
-       'ASR' == hd(Req) ->
+set(N, #diameter_packet{msg = Req}, Caps, Group)
+  when N == {record, diameter_base_ASR};
+       N == {record, nas_ASR};
+       N == {map, 'ASR'};
+       N == {list, 'ASR'} ->
     #diameter_caps{origin_host  = {OH, DH},
                    origin_realm = {OR, DR}}
         = Caps,
@@ -1307,10 +1336,11 @@ prepare(#diameter_packet{msg = Req}, Caps, Group)
                      {'Destination-Realm', DR},
                      {'Auth-Application-Id', ?APP_ID}]);
 
-prepare(#diameter_packet{msg = Req}, Caps, Group)
-  when ?is_record(Req, diameter_base_STR);
-       ?is_record(Req, nas_STR);
-       'STR' == hd(Req) ->
+set(N, #diameter_packet{msg = Req}, Caps, Group)
+  when N == {record, diameter_base_STR};
+       N == {record, nas_STR};
+       N == {map, 'STR'};
+       N == {list, 'STR'} ->
     #diameter_caps{origin_host  = {OH, _},
                    origin_realm = {OR, DR}}
         = Caps,
@@ -1320,10 +1350,11 @@ prepare(#diameter_packet{msg = Req}, Caps, Group)
                      {'Destination-Realm', DR},
                      {'Auth-Application-Id', ?APP_ID}]);
 
-prepare(#diameter_packet{msg = Req}, Caps, Group)
-  when ?is_record(Req, diameter_base_RAR);
-       ?is_record(Req, nas_RAR);
-       'RAR' == hd(Req) ->
+set(N, #diameter_packet{msg = Req}, Caps, Group)
+  when N == {record, diameter_base_RAR};
+       N == {record, nas_RAR};
+       N == {map, 'RAR'};
+       N == {list, 'RAR'} ->
     #diameter_caps{origin_host  = {OH, DH},
                    origin_realm = {OR, DR}}
         = Caps,
@@ -1333,6 +1364,17 @@ prepare(#diameter_packet{msg = Req}, Caps, Group)
                      {'Destination-Host',  DH},
                      {'Destination-Realm', DR},
                      {'Auth-Application-Id', ?APP_ID}]).
+
+%% name/1
+
+name([H|_]) ->
+    {list, H};
+
+name(#{} = Map) ->
+    {map, maps:get(':name', Map)};
+
+name(Rec) ->
+    {record, element(1, Rec)}.
 
 %% prepare_retransmit/5
 
