@@ -1220,7 +1220,17 @@ group_config(dss = Type, Config) ->
     Msg = dss_plain(),
     Public = dss_params() ++ [dss_public()], 
     Private = dss_params() ++ [dss_private()], 
-    SignVerify = [{Type, sha, Public, Private, Msg}],
+    SupportedHashs = proplists:get_value(hashs, crypto:supports(), []),
+    DssHashs = 
+        case crypto:info_lib() of
+            [{<<"OpenSSL">>,LibVer,_}] when is_integer(LibVer), LibVer > 16#10001000 ->
+                [sha, sha224, sha256, sha384, sha512];
+            _Else ->
+                [sha]
+        end,
+    SignVerify = [{Type, Hash, Public, Private, Msg} 
+                  || Hash <- DssHashs,
+                     lists:member(Hash, SupportedHashs)],
     [{sign_verify, SignVerify} | Config];
 
 group_config(ecdsa = Type, Config) ->
