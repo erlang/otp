@@ -165,6 +165,7 @@
      <code> cipher_algorithms() = aes_cbc | aes_cfb8 | aes_cfb128 | aes_ctr | aes_gcm |
      aes_ige256 | blowfish_cbc | blowfish_cfb64 | chacha20_poly1305 | des_cbc | des_cfb |
      des3_cbc | des3_cfb | des_ede3 | rc2_cbc | rc4 </code>
+     <code> mac_algorithms() =   hmac | cmac</code>
      <code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh | ec_gf2m</code>
      <p>Note that ec_gf2m is not strictly a public key algorithm, but a restriction on what curves are supported
      with ecdsa and ecdh.
@@ -835,7 +836,8 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
       <type>
       <v> AlgorithmList =  [{hashs, [hash_algorithms()]},
                             {ciphers, [cipher_algorithms()]},
-			    {public_keys, [public_key_algorithms()]}
+			    {public_keys, [public_key_algorithms()]},
+			    {macs, [mac_algorithms()]}]
       </v>
       </type>
       <desc>
