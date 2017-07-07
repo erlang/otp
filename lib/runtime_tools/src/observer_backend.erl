@@ -63,9 +63,7 @@ sys_info() ->
 			  end,
 
     {{_,Input},{_,Output}} = erlang:statistics(io),
-    [{process_count, erlang:system_info(process_count)},
-     {process_limit, erlang:system_info(process_limit)},
-     {uptime, element(1, erlang:statistics(wall_clock))},
+    [{uptime, element(1, erlang:statistics(wall_clock))},
      {run_queue, erlang:statistics(run_queue)},
      {io_input, Input},
      {io_output,  Output},
@@ -86,7 +84,17 @@ sys_info() ->
      {thread_pool_size, erlang:system_info(thread_pool_size)},
      {wordsize_internal, erlang:system_info({wordsize, internal})},
      {wordsize_external, erlang:system_info({wordsize, external})},
-     {alloc_info, alloc_info()}
+     {alloc_info, alloc_info()},
+     {process_count, erlang:system_info(process_count)},
+     {atom_limit,  erlang:system_info(atom_limit)},
+     {atom_count, erlang:system_info(atom_count)},
+     {process_limit, erlang:system_info(process_limit)},
+     {process_count, erlang:system_info(process_count)},
+     {port_limit, erlang:system_info(port_limit)},
+     {port_count, erlang:system_info(port_count)},
+     {ets_limit,  erlang:system_info(ets_limit)},
+     {ets_count, length(ets:all())},
+     {dist_buf_busy_limit, erlang:system_info(dist_buf_busy_limit)}
      | MemInfo].
 
 alloc_info() ->
