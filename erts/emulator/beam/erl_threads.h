@@ -2180,7 +2180,7 @@ erts_mtx_init(erts_mtx_t *mtx, char *name, Eterm extra, erts_lock_flags_t flags)
 #endif
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_lc_init_lock_x(&mtx->lc, name, ERTS_LC_FLG_LT_MUTEX, extra);
+    erts_lc_init_lock_x(&mtx->lc, name, flags, extra);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_init_ref_x(&mtx->lcnt, name, extra, flags);
@@ -2313,7 +2313,8 @@ erts_lc_mtx_is_locked(erts_mtx_t *mtx)
 #if defined(USE_THREADS) && defined(ERTS_ENABLE_LOCK_CHECK)
     int res;
     erts_lc_lock_t lc = mtx->lc;
-    lc.flags = 0;
+    lc.flags = ERTS_LOCK_FLAGS_TYPE_MUTEX;
+    lc.taken_options = 0;
     erts_lc_have_locks(&res, &lc, 1);
     return res;
 #else
@@ -2413,7 +2414,7 @@ erts_rwmtx_set_reader_group(int no)
 #ifdef USE_THREADS
     int res;
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_lc_check_no_locked_of_type(ERTS_LC_FLG_LT_RWMUTEX);
+    erts_lc_check_no_locked_of_type(ERTS_LOCK_TYPE_RWMUTEX);
 #endif
     res = ethr_rwmutex_set_reader_group(no);
     if (res != 0)
@@ -2436,7 +2437,7 @@ erts_rwmtx_init_opt(erts_rwmtx_t *rwmtx, erts_rwmtx_opt_t *opt,
 #endif
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_lc_init_lock_x(&rwmtx->lc, name, ERTS_LC_FLG_LT_RWMUTEX, extra);
+    erts_lc_init_lock_x(&rwmtx->lc, name, flags, extra);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_init_ref_x(&rwmtx->lcnt, name, extra, flags);
@@ -2490,7 +2491,7 @@ erts_rwmtx_tryrlock(erts_rwmtx_t *rwmtx)
     int res;
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    if (erts_lc_trylock_force_busy_flg(&rwmtx->lc, ERTS_LC_FLG_LO_READ))
+    if (erts_lc_trylock_force_busy_flg(&rwmtx->lc, ERTS_LOCK_OPTIONS_READ))
 	return EBUSY; /* Make sure caller can handle the situation without
 			 causing a lock order violation */
 #endif
@@ -2499,9 +2500,9 @@ erts_rwmtx_tryrlock(erts_rwmtx_t *rwmtx)
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
 #ifdef ERTS_ENABLE_LOCK_POSITION
-    erts_lc_trylock_flg_x(res == 0, &rwmtx->lc, ERTS_LC_FLG_LO_READ,file,line);
+    erts_lc_trylock_flg_x(res == 0, &rwmtx->lc, ERTS_LOCK_OPTIONS_READ,file,line);
 #else
-    erts_lc_trylock_flg(res == 0, &rwmtx->lc, ERTS_LC_FLG_LO_READ);
+    erts_lc_trylock_flg(res == 0, &rwmtx->lc, ERTS_LOCK_OPTIONS_READ);
 #endif
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -2524,9 +2525,9 @@ erts_rwmtx_rlock(erts_rwmtx_t *rwmtx)
 #ifdef USE_THREADS
 #ifdef ERTS_ENABLE_LOCK_CHECK
 #ifdef ERTS_ENABLE_LOCK_POSITION
-    erts_lc_lock_flg_x(&rwmtx->lc, ERTS_LC_FLG_LO_READ,file,line);
+    erts_lc_lock_flg_x(&rwmtx->lc, ERTS_LOCK_OPTIONS_READ,file,line);
 #else
-    erts_lc_lock_flg(&rwmtx->lc, ERTS_LC_FLG_LO_READ);
+    erts_lc_lock_flg(&rwmtx->lc, ERTS_LOCK_OPTIONS_READ);
 #endif
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -2544,7 +2545,7 @@ erts_rwmtx_runlock(erts_rwmtx_t *rwmtx)
 {
 #ifdef USE_THREADS
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_lc_unlock_flg(&rwmtx->lc, ERTS_LC_FLG_LO_READ);
+    erts_lc_unlock_flg(&rwmtx->lc, ERTS_LOCK_OPTIONS_READ);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_unlock_opt(&rwmtx->lcnt, ERTS_LOCK_OPTIONS_READ);
@@ -2565,7 +2566,7 @@ erts_rwmtx_tryrwlock(erts_rwmtx_t *rwmtx)
     int res;
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    if (erts_lc_trylock_force_busy_flg(&rwmtx->lc, ERTS_LC_FLG_LO_READ_WRITE))
+    if (erts_lc_trylock_force_busy_flg(&rwmtx->lc, ERTS_LOCK_OPTIONS_RDWR))
 	return EBUSY; /* Make sure caller can handle the situation without
 			 causing a lock order violation */
 #endif
@@ -2574,9 +2575,9 @@ erts_rwmtx_tryrwlock(erts_rwmtx_t *rwmtx)
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
 #ifdef ERTS_ENABLE_LOCK_POSITION
-    erts_lc_trylock_flg_x(res == 0, &rwmtx->lc, ERTS_LC_FLG_LO_READ_WRITE,file,line);
+    erts_lc_trylock_flg_x(res == 0, &rwmtx->lc, ERTS_LOCK_OPTIONS_RDWR,file,line);
 #else
-    erts_lc_trylock_flg(res == 0, &rwmtx->lc, ERTS_LC_FLG_LO_READ_WRITE);
+    erts_lc_trylock_flg(res == 0, &rwmtx->lc, ERTS_LOCK_OPTIONS_RDWR);
 #endif
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -2599,9 +2600,9 @@ erts_rwmtx_rwlock(erts_rwmtx_t *rwmtx)
 #ifdef USE_THREADS
 #ifdef ERTS_ENABLE_LOCK_CHECK
 #ifdef ERTS_ENABLE_LOCK_POSITION
-    erts_lc_lock_flg_x(&rwmtx->lc, ERTS_LC_FLG_LO_READ_WRITE,file,line);
+    erts_lc_lock_flg_x(&rwmtx->lc, ERTS_LOCK_OPTIONS_RDWR,file,line);
 #else
-    erts_lc_lock_flg(&rwmtx->lc, ERTS_LC_FLG_LO_READ_WRITE);
+    erts_lc_lock_flg(&rwmtx->lc, ERTS_LOCK_OPTIONS_RDWR);
 #endif
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -2619,7 +2620,7 @@ erts_rwmtx_rwunlock(erts_rwmtx_t *rwmtx)
 {
 #ifdef USE_THREADS
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_lc_unlock_flg(&rwmtx->lc, ERTS_LC_FLG_LO_READ_WRITE);
+    erts_lc_unlock_flg(&rwmtx->lc, ERTS_LOCK_OPTIONS_RDWR);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_unlock_opt(&rwmtx->lcnt, ERTS_LOCK_OPTIONS_RDWR);
@@ -2660,7 +2661,8 @@ erts_lc_rwmtx_is_rlocked(erts_rwmtx_t *mtx)
 #if defined(USE_THREADS) && defined(ERTS_ENABLE_LOCK_CHECK)
     int res;
     erts_lc_lock_t lc = mtx->lc;
-    lc.flags = ERTS_LC_FLG_LO_READ;
+    lc.flags = ERTS_LOCK_TYPE_RWMUTEX;
+    lc.taken_options = ERTS_LOCK_OPTIONS_READ;
     erts_lc_have_locks(&res, &lc, 1);
     return res;
 #else
@@ -2674,7 +2676,8 @@ erts_lc_rwmtx_is_rwlocked(erts_rwmtx_t *mtx)
 #if defined(USE_THREADS) && defined(ERTS_ENABLE_LOCK_CHECK)
     int res;
     erts_lc_lock_t lc = mtx->lc;
-    lc.flags = ERTS_LC_FLG_LO_READ|ERTS_LC_FLG_LO_WRITE;
+    lc.flags = ERTS_LOCK_TYPE_RWMUTEX;
+    lc.taken_options = ERTS_LOCK_OPTIONS_RDWR;
     erts_lc_have_locks(&res, &lc, 1);
     return res;
 #else
@@ -3021,7 +3024,7 @@ erts_spinlock_init(erts_spinlock_t *lock, char *name, Eterm extra, erts_lock_fla
 #endif
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_lc_init_lock_x(&lock->lc, name, ERTS_LC_FLG_LT_SPINLOCK, extra);
+    erts_lc_init_lock_x(&lock->lc, name, flags, extra);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_init_ref_x(&lock->lcnt, name, extra, flags);
@@ -3109,7 +3112,8 @@ erts_lc_spinlock_is_locked(erts_spinlock_t *lock)
 #if defined(USE_THREADS) && defined(ERTS_ENABLE_LOCK_CHECK)
     int res;
     erts_lc_lock_t lc = lock->lc;
-    lc.flags = 0;
+    lc.flags = ERTS_LOCK_TYPE_SPINLOCK;
+    lc.taken_options = 0;
     erts_lc_have_locks(&res, &lc, 1);
     return res;
 #else
@@ -3134,7 +3138,7 @@ erts_rwlock_init(erts_rwlock_t *lock, char *name, Eterm extra, erts_lock_flags_t
 #endif
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_lc_init_lock_x(&lock->lc, name, ERTS_LC_FLG_LT_RWSPINLOCK, extra);
+    erts_lc_init_lock_x(&lock->lc, name, flags, extra);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_init_ref_x(&lock->lcnt, name, extra, flags);
@@ -3178,7 +3182,7 @@ erts_read_unlock(erts_rwlock_t *lock)
 {
 #ifdef USE_THREADS
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_lc_unlock_flg(&lock->lc, ERTS_LC_FLG_LO_READ);
+    erts_lc_unlock_flg(&lock->lc, ERTS_LOCK_OPTIONS_READ);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_unlock_opt(&lock->lcnt, ERTS_LOCK_OPTIONS_READ);
@@ -3199,9 +3203,9 @@ erts_read_lock(erts_rwlock_t *lock)
 #ifdef USE_THREADS
 #ifdef ERTS_ENABLE_LOCK_CHECK
 #ifdef ERTS_ENABLE_LOCK_POSITION
-    erts_lc_lock_flg_x(&lock->lc, ERTS_LC_FLG_LO_READ,file,line);
+    erts_lc_lock_flg_x(&lock->lc, ERTS_LOCK_OPTIONS_READ,file,line);
 #else
-    erts_lc_lock_flg(&lock->lc, ERTS_LC_FLG_LO_READ);
+    erts_lc_lock_flg(&lock->lc, ERTS_LOCK_OPTIONS_READ);
 #endif
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -3221,7 +3225,7 @@ erts_write_unlock(erts_rwlock_t *lock)
 {
 #ifdef USE_THREADS
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_lc_unlock_flg(&lock->lc, ERTS_LC_FLG_LO_READ_WRITE);
+    erts_lc_unlock_flg(&lock->lc, ERTS_LOCK_OPTIONS_RDWR);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_unlock_opt(&lock->lcnt, ERTS_LOCK_OPTIONS_RDWR);
@@ -3242,9 +3246,9 @@ erts_write_lock(erts_rwlock_t *lock)
 #ifdef USE_THREADS
 #ifdef ERTS_ENABLE_LOCK_CHECK
 #ifdef ERTS_ENABLE_LOCK_POSITION
-    erts_lc_lock_flg_x(&lock->lc, ERTS_LC_FLG_LO_READ_WRITE,file,line);
+    erts_lc_lock_flg_x(&lock->lc, ERTS_LOCK_OPTIONS_RDWR,file,line);
 #else
-    erts_lc_lock_flg(&lock->lc, ERTS_LC_FLG_LO_READ_WRITE);
+    erts_lc_lock_flg(&lock->lc, ERTS_LOCK_OPTIONS_RDWR);
 #endif
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -3265,7 +3269,8 @@ erts_lc_rwlock_is_rlocked(erts_rwlock_t *lock)
 #if defined(USE_THREADS) && defined(ERTS_ENABLE_LOCK_CHECK)
     int res;
     erts_lc_lock_t lc = lock->lc;
-    lc.flags = ERTS_LC_FLG_LO_READ;
+    lc.flags = ERTS_LOCK_TYPE_RWSPINLOCK;
+    lc.taken_options = ERTS_LOCK_OPTIONS_READ;
     erts_lc_have_locks(&res, &lc, 1);
     return res;
 #else
@@ -3279,7 +3284,8 @@ erts_lc_rwlock_is_rwlocked(erts_rwlock_t *lock)
 #if defined(USE_THREADS) && defined(ERTS_ENABLE_LOCK_CHECK)
     int res;
     erts_lc_lock_t lc = lock->lc;
-    lc.flags = ERTS_LC_FLG_LO_READ|ERTS_LC_FLG_LO_WRITE;
+    lc.flags = ERTS_LOCK_TYPE_RWSPINLOCK;
+    lc.taken_options = ERTS_LOCK_OPTIONS_RDWR;
     erts_lc_have_locks(&res, &lc, 1);
     return res;
 #else
