@@ -66,7 +66,7 @@ cases() ->
      supervisor_which_children_timeout,
      release_handler_which_releases, install_release_syntax_check,
      upgrade_supervisor, upgrade_supervisor_fail, otp_9864,
-     otp_10463_upgrade_script_regexp, no_dot_erlang].
+     otp_10463_upgrade_script_regexp, no_dot_erlang, unicode_upgrade].
 
 groups() ->
     [{release,[],
@@ -1875,6 +1875,86 @@ no_dot_erlang(Conf) ->
 	ok
     end.
 
+%%%-----------------------------------------------------------------
+%%% Test unicode handling. Make sure that release name, application
+%%% description, and application environment variables may contain
+%%% unicode characters.
+unicode_upgrade(Conf) ->
+    %% Set some paths
+    DataDir = ?config(data_dir, Conf),
+    PrivDir = priv_dir(Conf),
+    Dir = filename:join(PrivDir,"unicode"),
+    LibDir0 = filename:join(DataDir, "unicode"),
+    LibDir =
+        case {file:native_name_encoding(),os:type()} of
+            {utf8,{Os,_}} when Os =/= win32 ->
+                LD = filename:join(DataDir,"unicode_αβ"),
+                file:make_symlink("unicode",LD),
+                LD;
+            _ ->
+                LibDir0
+        end,
+
+    %% Create the releases
+    RelName = "unicode_rel_αβ",
+    Rel1 = create_and_install_fake_first_release(Dir,{RelName,"1"},
+						 [{u,"1.0",LibDir}]),
+    Rel2 = create_fake_upgrade_release(Dir,
+				       {RelName,"2"},
+				       [{u,"1.1",LibDir}],
+				       {[Rel1],[Rel1],[LibDir]}),
+    Rel1Dir = filename:dirname(Rel1),
+    Rel2Dir = filename:dirname(Rel2),
+
+    %% Start a slave node
+    {ok, Node} = t_start_node(unicode_upgrade, Rel1,
+                              filename:join(Rel1Dir,"sys.config"), "+pc unicode"),
+
+    %% Check
+    Dir1 = filename:join([LibDir, "u-1.0"]),
+    Dir1 = rpc:call(Node, code, lib_dir, [u]),
+    UBeam1 = filename:join([Dir1,"ebin","u.beam"]),
+    UBeam1 = rpc:call(Node,code,which,[u]),
+    {RelName,"1"} = rpc:call(Node,init,script_id,[]),
+    {Env,state} = rpc:call(Node,u,u,[]),
+    'val_αβ' = proplists:get_value('key_αβ',Env),
+    [{RelName,"1",_,permanent}|_] =
+        rpc:call(Node,release_handler,which_releases,[]),
+    {ok,ReleasesDir} = rpc:call(Node,application,get_env,[sasl,releases_dir]),
+    {ok,[[{release,RelName,"1",_,_,permanent}|_]]} =
+        file:consult(filename:join(ReleasesDir,"RELEASES")),
+
+    %% Install second release
+    {ok, RelVsn2} =
+	rpc:call(Node, release_handler, set_unpacked,
+		 [Rel2++".rel", [{u,"1.1",LibDir}]]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "relup")]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "start.boot")]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
+
+    {ok, _RelVsn1, []} =
+	rpc:call(Node, release_handler, install_release, [RelVsn2]),
+
+    %% And check
+    Dir2 = filename:join([LibDir, "u-1.1"]),
+    Dir2 = rpc:call(Node, code, lib_dir, [u]),
+    UBeam2 = filename:join([Dir2,"ebin","u.beam"]),
+    {file,UBeam2} = rpc:call(Node,code,is_loaded,[u]),
+    {RelName,"1"} = rpc:call(Node,init,script_id,[]),
+    {Env,{state,'αβ'}} = rpc:call(Node,u,u,[]),
+    [{RelName,"2",_,current}|_] =
+        rpc:call(Node,release_handler,which_releases,[]),
+    {ok,ReleasesDir2} = rpc:call(Node,application,get_env,[sasl,releases_dir]),
+    {ok,<<"%% coding: utf-8\n[{release,\"unicode_rel_αβ\",\"2\""/utf8,_/binary>>}=
+        file:read_file(filename:join(ReleasesDir2,"RELEASES")),
+    ok.
+
+unicode_upgrade(cleanup,_Conf) ->
+    stop_node(node_name(unicode_upgrade)).
+
 
 %%%=================================================================
 %%% Misceleaneous functions
@@ -2002,6 +2082,8 @@ are_names_reg_gg(Node, Names, N) ->
 
 
 t_start_node(Name, Boot, SysConfig) ->
+    t_start_node(Name, Boot, SysConfig, "").
+t_start_node(Name, Boot, SysConfig, ArgStr) ->
     Args = 
 	case Boot of
 	    [] -> [];
@@ -2010,8 +2092,9 @@ t_start_node(Name, Boot, SysConfig) ->
 	case SysConfig of
 	    [] -> [];
 	    _ -> " -config " ++ SysConfig
-	end,
-    test_server:start_node(Name, slave, [{args, Args}]).
+	end ++
+        " " ++ ArgStr,
+    test_server:start_node(Name, peer, [{args, Args}]).
 
 stop_node(Node) ->
     ?t:stop_node(Node).
@@ -2460,7 +2543,9 @@ create_rel_file(RelFile,RelName,RelVsn,Erts,ExtraApps) ->
 
 %% Insert a term in a file, which can be read with file:consult/1.
 write_term_file(File,Term) ->
-    ok = file:write_file(File,io_lib:format("~p.~n",[Term])).
+    Str = io_lib:format("%% ~s~n~tp.~n",[epp:encoding_to_string(utf8),Term]),
+    Bin = unicode:characters_to_binary(Str),
+    ok = file:write_file(File,Bin).
     
 
 %% Check that global group info is correct - try again for a maximum of 5 sec
@@ -2719,8 +2804,8 @@ cover_fun(Node,Func) ->
 %% and possibly other applications if they are listed in AppDirs =
 %% [{App,Vsn,LibDir}]
 create_and_install_fake_first_release(Dir,AppDirs) ->
-    %% Create the first release
-    {RelName,RelVsn} = init:script_id(),
+    create_and_install_fake_first_release(Dir,init:script_id(),AppDirs).
+create_and_install_fake_first_release(Dir,{RelName,RelVsn},AppDirs) ->
     {Rel,_} = create_fake_release(Dir,RelName,RelVsn,AppDirs),
     ReleasesDir = filename:join(Dir, "releases"),
     RelDir = filename:dirname(Rel),
@@ -2744,9 +2829,11 @@ create_and_install_fake_first_release(Dir,AppDirs) ->
 %% be upgraded to from the release created by
 %% create_and_install_fake_first_release/2. Unpack first by calls to
 %% release_handler:set_unpacked and release_handler:install_file.
-create_fake_upgrade_release(Dir,RelVsn,AppDirs,{UpFrom,DownTo,ExtraLibs}) ->
-    %% Create a new release
+create_fake_upgrade_release(Dir,RelVsn,AppDirs,UpgrInstr) when not is_tuple(RelVsn) ->
     {RelName,_} = init:script_id(),
+    create_fake_upgrade_release(Dir,{RelName,RelVsn},AppDirs,UpgrInstr);
+create_fake_upgrade_release(Dir,{RelName,RelVsn},AppDirs,{UpFrom,DownTo,ExtraLibs}) ->
+    %% Create a new release
     {Rel,Paths} = create_fake_release(Dir,RelName,RelVsn,AppDirs),
     RelDir = filename:dirname(Rel),
 

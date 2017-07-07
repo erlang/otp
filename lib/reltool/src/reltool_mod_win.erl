@@ -171,7 +171,7 @@ loop(#state{xref_pid = Xref, common = C, mod = Mod} = S) ->
 		    S2 = handle_event(S, Wx),
 		    ?MODULE:loop(S2);
 		_ ->
-		    error_logger:format("~w~w got unexpected message:\n\t~p\n",
+		    error_logger:format("~w~w got unexpected message:\n\t~tp\n",
 					[?MODULE, self(), Msg]),
 		    ?MODULE:loop(S)
 	    end
@@ -487,7 +487,7 @@ handle_event(#state{xref_pid = Xref} = S, Wx) ->
 	    S;
 	_ ->
             error_logger:format("~w~w got unexpected mod event from "
-				"wx:\n\t~p\n",
+				"wx:\n\t~tp\n",
                                 [?MODULE, self(), Wx]),
             S
     end.
@@ -667,7 +667,7 @@ goto_function(S, Editor) ->
 	    wxStyledTextCtrl:setSelection(Editor, Left2, Right2),
 	    Text = wxStyledTextCtrl:getSelectedText(Editor),
 	    S2 = add_pos_to_history(S, CurrentPos),
-	    do_goto_function(S2, string:tokens(Text, ":"));
+	    do_goto_function(S2, string:lexemes(Text, ":"));
 	_ ->
 	    %% No function call
 	    wxStyledTextCtrl:hideSelection(Editor, false),

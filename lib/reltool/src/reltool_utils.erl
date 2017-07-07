@@ -55,7 +55,7 @@ root_dir() ->
     code:root_dir().
 
 erl_libs() ->
-    string:tokens(os:getenv("ERL_LIBS", ""), ":;").
+    string:lexemes(os:getenv("ERL_LIBS", ""), ":;").
 
 lib_dirs(Dir) ->
     case erl_prim_loader:list_dir(Dir) of
@@ -286,7 +286,7 @@ split_app_dir(Dir) ->
     {Name, Vsn} = split_app_name(Base),
     Vsn2 =
 	try
-	    [list_to_integer(N) || N <- string:tokens(Vsn, ".")]
+	    [list_to_integer(N) || N <- string:lexemes(Vsn, ".")]
 	catch
 	    _:_ ->
 		Vsn
@@ -427,7 +427,7 @@ scroll_size(ObjRef) ->
 safe_keysearch(Key, Pos, List, Mod, Line) ->
     case lists:keysearch(Key, Pos, List) of
         false ->
-            io:format("~w(~w): lists:keysearch(~p, ~w, ~p) -> false\n",
+            io:format("~w(~w): lists:keysearch(~tp, ~w, ~tp) -> false\n",
                       [Mod, Line, Key, Pos, List]),
             erlang:error({Mod, Line, lists, keysearch, [Key, Pos, List]});
         {value, Val} ->
@@ -498,8 +498,8 @@ read_file(File) ->
             throw_error("read file ~ts: ~ts", [File, Text])
     end.
 
-write_file(File, IoList) ->
-    case file:write_file(File, IoList) of
+write_file(File, Bin) ->
+    case file:write_file(File, Bin) of
         ok ->
 	    ok;
         {error, Reason} ->
@@ -601,7 +601,7 @@ do_decode_regexps(Key, [Regexp | Regexps], Acc) ->
 			      Regexps,
 			      [#regexp{source = Regexp, compiled = MP} | Acc]);
         _ ->
-            Text = lists:flatten(io_lib:format("~p", [{Key, Regexp}])),
+            Text = lists:flatten(io_lib:format("~tp", [{Key, Regexp}])),
             throw({error, "Illegal option: " ++ Text})
     end;
 do_decode_regexps(_Key, [], Acc) ->
