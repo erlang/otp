@@ -25,7 +25,7 @@
 -export([start/0, stop/0, info_lib/0, info_fips/0, supports/0, enable_fips_mode/1,
          version/0, bytes_to_integer/1]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
--export([sign/4, verify/5]).
+-export([sign/4, sign/5, verify/5, verify/6]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([cmac/3, cmac/4]).
@@ -44,6 +44,10 @@
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see
 -export([ec_curve/1, ec_curves/0]).
 -export([rand_seed/1]).
+
+%% Private. For tests.
+-export([packed_openssl_version/4]).
+
 
 -deprecated({rand_uniform, 2, next_major_release}).
 
@@ -389,36 +393,31 @@ mod_pow(Base, Exponent, Prime) ->
 	<<0>> -> error;
 	R -> R
     end.
-verify(dss, none, Data, Signature, Key) when is_binary(Data) ->
-    verify(dss, sha, {digest, Data}, Signature, Key);
-verify(Alg, Type, Data, Signature, Key) when is_binary(Data) ->
-    verify(Alg, Type,  {digest, hash(Type, Data)}, Signature, Key);
-verify(dss, Type, {digest, Digest}, Signature, Key) ->
-    dss_verify_nif(Type, Digest, Signature, map_ensure_int_as_bin(Key));
-verify(rsa, Type, {digest, Digest}, Signature, Key) ->
-    notsup_to_error(
-      rsa_verify_nif(Type, Digest, Signature, map_ensure_int_as_bin(Key)));
-verify(ecdsa, Type, {digest, Digest}, Signature, [Key, Curve]) ->
-    notsup_to_error(
-      ecdsa_verify_nif(Type, Digest, Signature, nif_curve_params(Curve), ensure_int_as_bin(Key))).
-sign(dss, none, Data, Key) when is_binary(Data) ->
-    sign(dss, sha, {digest, Data}, Key);
-sign(Alg, Type, Data, Key) when is_binary(Data) ->
-    sign(Alg, Type, {digest, hash(Type, Data)}, Key);
-sign(rsa, Type, {digest, Digest}, Key) ->
-    case rsa_sign_nif(Type, Digest, map_ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [rsa, Type, {digest, Digest}, Key]);
-	Sign -> Sign
-    end;
-sign(dss, Type, {digest, Digest}, Key) ->
-    case dss_sign_nif(Type, Digest, map_ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [dss, Type, {digest, Digest}, Key]);
-	Sign -> Sign
-    end;
-sign(ecdsa, Type, {digest, Digest}, [Key, Curve]) ->
-    case ecdsa_sign_nif(Type, Digest, nif_curve_params(Curve), ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [ecdsa, Type, {digest, Digest}, [Key, Curve]]);
-	Sign -> Sign
+
+verify(Algorithm, Type, Data, Signature, Key) ->
+    verify(Algorithm, Type, Data, Signature, Key, []).
+
+%% Backwards compatible
+verify(Algorithm = dss, none, Digest, Signature, Key, Options) ->
+    verify(Algorithm, sha, {digest, Digest}, Signature, Key, Options);
+verify(Algorithm, Type, Data, Signature, Key, Options) ->
+    case pkey_verify_nif(Algorithm, Type, Data, Signature, format_pkey(Algorithm, Key), Options) of
+	notsup -> erlang:error(notsup);
+	Boolean -> Boolean
+    end.
+
+
+sign(Algorithm, Type, Data, Key) ->
+    sign(Algorithm, Type, Data, Key, []).
+
+%% Backwards compatible
+sign(Algorithm = dss, none, Digest, Key, Options) ->
+    sign(Algorithm, sha, {digest, Digest}, Key, Options);
+sign(Algorithm, Type, Data, Key, Options) ->
+    case pkey_sign_nif(Algorithm, Type, Data, format_pkey(Algorithm, Key), Options) of
+	error -> erlang:error(badkey, [Algorithm, Type, Data, Key, Options]);
+	notsup -> erlang:error(notsup);
+	Signature -> Signature
     end.
 
 -spec public_encrypt(rsa, binary(), [binary()], rsa_padding()) ->
@@ -839,13 +838,9 @@ srp_value_B_nif(_Multiplier, _Verifier, _Generator, _Exponent, _Prime) -> ?nif_s
 
 
 %% Digital signatures  --------------------------------------------------------------------
-rsa_sign_nif(_Type,_Digest,_Key) -> ?nif_stub.
-dss_sign_nif(_Type,_Digest,_Key) -> ?nif_stub.
-ecdsa_sign_nif(_Type, _Digest, _Curve, _Key) -> ?nif_stub.
 
-dss_verify_nif(_Type, _Digest, _Signature, _Key) -> ?nif_stub.
-rsa_verify_nif(_Type, _Digest, _Signature, _Key) -> ?nif_stub.
-ecdsa_verify_nif(_Type, _Digest, _Signature, _Curve, _Key) -> ?nif_stub.
+pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
+pkey_verify_nif(_Algorithm, _Type, _Data, _Signature, _Key, _Options) -> ?nif_stub.
 
 %% Public Keys  --------------------------------------------------------------------
 %% RSA Rivest-Shamir-Adleman functions
@@ -962,6 +957,15 @@ ensure_int_as_bin(Int) when is_integer(Int) ->
 ensure_int_as_bin(Bin) ->
     Bin.
 
+format_pkey(rsa, Key) ->
+    map_ensure_int_as_bin(Key);
+format_pkey(ecdsa, [Key, Curve]) ->
+    {nif_curve_params(Curve), ensure_int_as_bin(Key)};
+format_pkey(dss, Key) ->
+    map_ensure_int_as_bin(Key);
+format_pkey(_, Key) ->
+    Key.
+
 %%--------------------------------------------------------------------
 %%
 -type rsa_padding() :: 'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding' | 'rsa_no_padding'.
@@ -1004,3 +1008,14 @@ erlint(<<MPIntSize:32/integer,MPIntValue/binary>>) ->
 %%
 mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.
 
+
+%%%----------------------------------------------------------------
+%% 9470495 == V(0,9,8,zh).
+%% 268435615 == V(1,0,0,i).
+%% 268439663 == V(1,0,1,f).
+
+packed_openssl_version(MAJ, MIN, FIX, P0) ->
+    %% crypto.c
+    P1 = atom_to_list(P0),
+    P = lists:sum([C-$a||C<-P1]),
+    ((((((((MAJ bsl 8) bor MIN) bsl 8 ) bor FIX) bsl 8) bor (P+1)) bsl 4) bor 16#f).
