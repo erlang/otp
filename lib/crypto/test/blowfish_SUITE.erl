@@ -47,6 +47,11 @@
 init_per_suite(Config) ->
     case catch crypto:start() of
 	ok ->
+            catch ct:comment("~s",[element(3,hd(crypto:info_lib()))]),
+            catch ct:log("crypto:info_lib() -> ~p~n"
+                         "crypto:supports() -> ~p~n"
+                         "crypto:version()  -> ~p~n"
+                        ,[crypto:info_lib(), crypto:supports(), crypto:version()]),
 	    Config;
 	_Else ->
 	    {skip,"Could not start crypto!"}
