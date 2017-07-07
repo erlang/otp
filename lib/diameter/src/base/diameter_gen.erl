@@ -178,7 +178,7 @@ enc_AVP(_Name, {_Dict, _AvpName, _Data} = T, Opts, _) ->
    -> {parent_record(), [avp()], Failed}
  when Failed :: [{5000..5999, #diameter_avp{}}].
 
-decode_avps(Name, Recs, #{module := Mod, record_decode := Fmt} = Opts) ->
+decode_avps(Name, Recs, #{module := Mod, decode_format := Fmt} = Opts) ->
     {Avps, {Rec, AM, Failed}}
         = mapfoldl(fun(T,A) -> decode(Name, Opts, Mod, T, A) end,
                    {newrec(Mod, Name, Fmt), #{}, []},
@@ -749,7 +749,7 @@ empty(Name, #{module := Mod} = Opts) ->
 newrec(_, _, false = No) ->
     No;
 
-newrec(Mod, Name, true) ->
+newrec(Mod, Name, record) ->
     newrec(Mod, Name);
 
 newrec(_, Name, _) ->

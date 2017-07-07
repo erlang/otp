@@ -713,7 +713,7 @@ make_config(SvcName, Opts) ->
                          {nodes, restrict_connections},
                          {16#FFFFFF, incoming_maxlen},
                          {true, strict_mbit},
-                         {true, record_decode},
+                         {record, decode_format},
                          {true, string_decode},
                          {[], spawn_opt}]),
 
@@ -757,7 +757,7 @@ opt(K, false = B)
        K == monitor;
        K == restrict_connections;
        K == strict_mbit;
-       K == record_decode;
+       K == decode_format;
        K == string_decode ->
     B;
 
@@ -765,12 +765,12 @@ opt(K, true = B)
   when K == share_peers;
        K == use_shared_peers;
        K == strict_mbit;
-       K == record_decode;
        K == string_decode ->
     B;
 
-opt(record_decode, T)
-  when T == list;
+opt(decode_format, T)
+  when T == record;
+       T == list;
        T == map ->
     T;
 

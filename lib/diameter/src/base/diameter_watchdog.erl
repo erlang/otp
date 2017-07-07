@@ -72,7 +72,7 @@
                      restrict := boolean(),
                      suspect := non_neg_integer(), %% OKAY -> SUSPECT
                      okay := non_neg_integer()},   %% REOPEN -> OKAY
-         codec :: #{record_decode := false,
+         codec :: #{decode_format := false,
                     string_decode := false,
                     strict_mbit := boolean(),
                     failed_avp := false,
@@ -136,7 +136,7 @@ i({Ack, T, Pid, {Opts,
     putr(restart, {T, Opts, Svc, SvcOpts}),  %% save seeing it in trace
     putr(dwr, dwr(Caps)),                    %%
     Nodes = restrict_nodes(Restrict),
-    CodecKeys = [record_decode,
+    CodecKeys = [decode_format,
                  string_decode,
                  strict_mbit,
                  incoming_maxlen,
@@ -157,7 +157,7 @@ i({Ack, T, Pid, {Opts,
                                                suspect => 1,
                                                okay => 3},
                                       Opts)),
-              codec = maps:with(CodecKeys, SvcOpts#{record_decode := false,
+              codec = maps:with(CodecKeys, SvcOpts#{decode_format := false,
                                                     string_decode := false,
                                                     ordered_encode => false})}.
 

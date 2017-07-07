@@ -142,8 +142,8 @@
 %% How to construct outgoing messages.
 -define(ENCODINGS, [list, record, map]).
 
-%% How to set record_decode.
--define(DECODINGS, [true, false, map, list]).
+%% How to decode incoming messages.
+-define(DECODINGS, [record, false, map, list]).
 
 %% How to send answers, in a diameter_packet or not.
 -define(CONTAINERS, [pkt, msg]).
@@ -462,7 +462,7 @@ start_services(Config) ->
            server_service = SN,
            server_decoding = SD}
         = group(Config),
-    ok = diameter:start_service(SN, [{record_decode, SD}
+    ok = diameter:start_service(SN, [{decode_format, SD}
                                      | ?SERVICE(SN, S)]),
     ok = diameter:start_service(CN, [{sequence, ?CLIENT_MASK}
                                      | ?SERVICE(CN, S)]).
@@ -1065,11 +1065,11 @@ origin(N) ->
 %% Map atoms. The atoms are part of (constructed) group names, so it's
 %% good that they're readable.
 
-decode(true)   -> 0;  %% record
+decode(record) -> 0;
 decode(list)   -> 1;
 decode(map)    -> 2;
 decode(false)  -> 3;
-decode(0) -> true;
+decode(0) -> record;
 decode(1) -> list;
 decode(2) -> map;
 decode(3) -> false.
@@ -1113,14 +1113,14 @@ to_map(map, #diameter_packet{msg = Msg})
 to_map(list, #diameter_packet{msg = [MsgName | Avps]}) ->
     maps:put(':name', MsgName, maps:from_list(Avps));
 
-to_map(true, #diameter_packet{header = H, msg = Rec}) ->
+to_map(record, #diameter_packet{header = H, msg = Rec}) ->
     rec_to_map(Rec, dict(H));
 
 %% No record decode: do it ourselves.
 to_map(false, #diameter_packet{header = H,
                                msg = false,
                                bin = Bin}) ->
-    Opts = #{record_decode => map,
+    Opts = #{decode_format => map,
              string_decode => false,
              strict_mbit => true,
              rfc => 6733},

@@ -244,7 +244,7 @@ file) and whose tail is a list of <c>{AvpName, AvpValues}</c> pairs,
 or as a map with values keyed on AVP names and the message name in key
 <c>:name</c>.
 The format at decode is determined by &mod_service_opt;
-<c>record_decode</c>.
+<c>decode_format</c>.
 Any of the formats is accepted at encode.</p>
 
 <p>

@@ -128,7 +128,7 @@
                        %% outgoing DPR; boolean says whether or not
                        %% the request was sent explicitly with
                        %% diameter:call/4.
-         codec :: #{record_decode := true,
+         codec :: #{decode_format := record,
                     string_decode := boolean(),
                     strict_mbit := boolean(),
                     rfc := 3588 | 6733,
@@ -254,13 +254,13 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
            length_errors = LengthErr,
            strict = Strictness,
            incoming_maxlen = Maxlen,
-           codec = maps:with([record_decode,
+           codec = maps:with([decode_format,
                               string_decode,
                               strict_mbit,
                               rfc,
                               ordered_encode],
                              SvcOpts#{ordered_encode => false,
-                                      record_decode => true})}.
+                                      decode_format => record})}.
 %% The transport returns its local ip addresses so that different
 %% transports on the same service can use different local addresses.
 %% The local addresses are put into Host-IP-Address avps here when

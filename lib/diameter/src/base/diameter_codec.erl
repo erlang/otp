@@ -290,7 +290,7 @@ rec2msg(Mod, Rec) ->
 %% longer *the* decode.
 
 decode(Mod, Pkt) ->
-    Opts = #{record_decode => true,
+    Opts = #{decode_format => record,
              string_decode => true,
              strict_mbit => true,
              rfc => 6733},
