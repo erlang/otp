@@ -327,9 +327,9 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 #endif
 
 #if SIZEOF_VOID_P == SIZEOF_LONG
-typedef unsigned long Eterm;
-typedef unsigned long Uint;
-typedef long          Sint;
+typedef unsigned long Eterm erts_align_attribute(sizeof(long));
+typedef unsigned long Uint  erts_align_attribute(sizeof(long));
+typedef long          Sint  erts_align_attribute(sizeof(long));
 #define SWORD_CONSTANT(Const) Const##L
 #define UWORD_CONSTANT(Const) Const##UL
 #define ERTS_UWORD_MAX ULONG_MAX
@@ -337,9 +337,9 @@ typedef long          Sint;
 #define ERTS_SIZEOF_ETERM SIZEOF_LONG
 #define ErtsStrToSint strtol
 #elif SIZEOF_VOID_P == SIZEOF_INT
-typedef unsigned int Eterm;
-typedef unsigned int Uint;
-typedef int          Sint;
+typedef unsigned int Eterm erts_align_attribute(sizeof(int));
+typedef unsigned int Uint  erts_align_attribute(sizeof(int));
+typedef int          Sint  erts_align_attribute(sizeof(int));
 #define SWORD_CONSTANT(Const) Const
 #define UWORD_CONSTANT(Const) Const##U
 #define ERTS_UWORD_MAX UINT_MAX
@@ -347,9 +347,9 @@ typedef int          Sint;
 #define ERTS_SIZEOF_ETERM SIZEOF_INT
 #define ErtsStrToSint strtol
 #elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
-typedef unsigned long long Eterm;
-typedef unsigned long long Uint;
-typedef long long          Sint;
+typedef unsigned long long Eterm erts_align_attribute(sizeof(long long));
+typedef unsigned long long Uint  erts_align_attribute(sizeof(long long));
+typedef long long          Sint  erts_align_attribute(sizeof(long long));
 #define SWORD_CONSTANT(Const) Const##LL
 #define UWORD_CONSTANT(Const) Const##ULL
 #define ERTS_UWORD_MAX ULLONG_MAX
