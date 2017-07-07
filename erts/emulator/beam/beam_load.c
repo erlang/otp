@@ -537,6 +537,7 @@ static int get_tag_and_value(LoaderState* stp, Uint len_code,
 static int new_label(LoaderState* stp);
 static void new_literal_patch(LoaderState* stp, int pos);
 static void new_string_patch(LoaderState* stp, int pos);
+static int find_literal(LoaderState* stp, Eterm needle, Uint *idx);
 static Uint new_literal(LoaderState* stp, Eterm** hpp, Uint heap_size);
 static int genopargcompare(GenOpArg* a, GenOpArg* b);
 static Eterm get_module_info(Process* p, ErtsCodeIndex code_ix,
@@ -4222,6 +4223,92 @@ literal_is_map(LoaderState* stp, GenOpArg Lit)
 }
 
 /*
+ * Predicate to test whether all of the given new small map keys are literals
+ */
+static int
+is_small_map_literal_keys(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
+{
+    if (Size.val > MAP_SMALL_MAP_LIMIT) {
+        return 0;
+    }
+
+    /*
+     * Operations with non-literals have always only one key.
+     */
+    if (Size.val != 2) {
+        return 1;
+    }
+
+    switch (Rest[0].type) {
+    case TAG_a:
+    case TAG_i:
+    case TAG_n:
+    case TAG_q:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+static GenOp*
+gen_new_small_map_lit(LoaderState* stp, GenOpArg Dst, GenOpArg Live,
+                      GenOpArg Size, GenOpArg* Rest)
+{
+    unsigned size = Size.val;
+    Uint lit;
+    unsigned i;
+    GenOp* op;
+    GenOpArg* dst;
+    Eterm* hp;
+    Eterm* tmp;
+    Eterm* thp;
+    Eterm keys;
+
+    NEW_GENOP(stp, op);
+    GENOP_ARITY(op, 3 + size/2);
+    op->next = NULL;
+    op->op = genop_i_new_small_map_lit_3;
+
+    tmp = thp = erts_alloc(ERTS_ALC_T_LOADER_TMP, (1 + size/2) * sizeof(*tmp));
+    keys = make_tuple(thp);
+    *thp++ = make_arityval(size/2);
+
+    dst = op->a+3;
+
+    for (i = 0; i < size; i += 2) {
+        switch (Rest[i].type) {
+        case TAG_a:
+            *thp++ = Rest[i].val;
+            ASSERT(is_atom(Rest[i].val));
+            break;
+        case TAG_i:
+            *thp++ = make_small(Rest[i].val);
+            break;
+        case TAG_n:
+            *thp++ = NIL;
+            break;
+        case TAG_q:
+            *thp++ = stp->literals[Rest[i].val].term;
+            break;
+        }
+        *dst++ = Rest[i + 1];
+    }
+
+    if (!find_literal(stp, keys, &lit)) {
+        lit = new_literal(stp, &hp, 1 + size/2);
+        sys_memcpy(hp, tmp, (1 + size/2) * sizeof(*tmp));
+    }
+    erts_free(ERTS_ALC_T_LOADER_TMP, tmp);
+
+    op->a[0] = Dst;
+    op->a[1] = Live;
+    op->a[2].type = TAG_q;
+    op->a[2].val = lit;
+
+    return op;
+}
+
+/*
  * Predicate to test whether the given literal is an empty map.
  */
 
@@ -5507,6 +5594,24 @@ new_literal(LoaderState* stp, Eterm** hpp, Uint heap_size)
     lit->term = make_boxed(lit->heap_frags->mem);
     *hpp = lit->heap_frags->mem;
     return stp->num_literals++;
+}
+
+static int
+find_literal(LoaderState* stp, Eterm needle, Uint *idx)
+{
+    int i;
+
+    /*
+     * The search is done backwards since the most recent literals
+     * allocated by the loader itself will be placed at the end
+     */
+    for (i = stp->num_literals - 1; i >= 0; i--) {
+        if (EQ(needle, stp->literals[i].term)) {
+            *idx = (Uint) i;
+            return 1;
+        }
+    }
+    return 0;
 }
 
 Eterm

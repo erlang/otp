@@ -718,6 +718,27 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
+    case op_i_new_small_map_lit_dIq:
+        {
+            Eterm *tp = tuple_val(unpacked[-1]);
+            int n = arityval(*tp);
+
+            while (n > 0) {
+                switch (loader_tag(ap[0])) {
+                case LOADER_X_REG:
+                    erts_print(to, to_arg, " x(%d)", loader_x_reg_index(ap[0]));
+                    break;
+                case LOADER_Y_REG:
+		    erts_print(to, to_arg, " x(%d)", loader_y_reg_index(ap[0]));
+		    break;
+                default:
+		    erts_print(to, to_arg, " %T", (Eterm) ap[0]);
+		    break;
+                }
+                ap++, size++, n--;
+            }
+        }
+        break;
     case op_i_get_map_elements_fsI:
 	{
 	    int n = unpacked[-1];
