@@ -186,7 +186,7 @@ decode_avps(Name, Recs, #{module := Mod, decode_format := Fmt} = Opts) ->
     %% AM counts the number of top-level AVPs, which missing/4 then
     %% uses when adding 5005 errors.
     Arities = Mod:avp_arity(Name),
-    {reformat(Rec, Arities, Fmt),
+    {reformat(Rec, Arities, Mod, Fmt),
      Avps,
      Failed ++ missing(Arities, Opts, Mod, AM)}.
 
@@ -760,12 +760,17 @@ newrec(_, Name, _) ->
 newrec(Mod, Name) ->
     Mod:'#new-'(Mod:name2rec(Name)).
 
-%% reformat/3
+%% reformat/4
 
-reformat(Map, Arities, list) ->
+reformat(Map, Arities, _Mod, list) ->
     [{F,V} || {F,_} <- Arities, #{F := V} <- [Map]];
 
-reformat(Rec, _, _) ->
+reformat(Map, Arities, Mod, record_from_map) ->
+    #{':name' := Name} = Map,
+    RecName = Mod:name2rec(Name),
+    list_to_tuple([RecName | [maps:get(F, Map, def(A)) || {F,A} <- Arities]]);
+
+reformat(Rec, _, _, _) ->
     Rec.
 
 %% def/1

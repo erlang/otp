@@ -771,7 +771,8 @@ opt(K, true = B)
 opt(decode_format, T)
   when T == record;
        T == list;
-       T == map ->
+       T == map;
+       T == record_from_map ->
     T;
 
 opt(restrict_connections, T)

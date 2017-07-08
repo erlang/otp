@@ -332,7 +332,11 @@ call(SvcName, App, Message) ->
    :: 0..16#FFFFFF.
 
 -type decode_format()
-   :: record | list | map | false.
+   :: record
+    | list
+    | map
+    | false
+    | record_from_map.
 
 %% Options passed to start_service/2
 
