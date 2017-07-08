@@ -104,7 +104,8 @@ enc(_, AvpName, 1, undefined, _, _) ->
     ?THROW([mandatory_avp_missing, AvpName]);
 
 enc(Name, AvpName, 1, Value, Opts, Mod) ->
-    enc(Name, AvpName, [Value], Opts, Mod);
+    H = avp_header(AvpName, Mod),
+    enc1(Name, AvpName, H, Value, Opts, Mod);
 
 enc(_, _, {0,_}, [], _, _) ->
     [];
@@ -113,31 +114,47 @@ enc(_, AvpName, _, T, _, _)
   when not is_list(T) ->
     ?THROW([repeated_avp_as_non_list, AvpName, T]);
 
-enc(_, AvpName, {Min, _}, L, _, _)
-  when length(L) < Min ->
-    ?THROW([repeated_avp_insufficient_arity, AvpName, Min, L]);
+enc(Name, AvpName, {Min, Max}, Values, Opts, Mod) ->
+    H = avp_header(AvpName, Mod),
+    enc(Name, AvpName, H, Min, 0, Max, Values, Opts, Mod).
 
-enc(_, AvpName, {_, Max}, L, _, _)
-  when Max < length(L) ->
-    ?THROW([repeated_avp_excessive_arity, AvpName, Max, L]);
+%% enc/9
 
-enc(Name, AvpName, _, Values, Opts, Mod) ->
-    enc(Name, AvpName, Values, Opts, Mod).
+enc(_, AvpName, _, Min, N, _, [], _, _)
+  when N < Min ->
+    ?THROW([repeated_avp_insufficient_arity, AvpName, Min, N]);
 
-%% enc/5
+enc(_, _, _, _, _, _, [], _, _) ->
+    [];
 
-enc(Name, 'AVP', Values, Opts, Mod) ->
-    [enc_AVP(Name, A, Opts, Mod) || A <- Values];
+enc(_, AvpName, _, _, N, Max, _, _, _)
+  when Max =< N ->
+    ?THROW([repeated_avp_excessive_arity, AvpName, Max]);
 
-enc(_, AvpName, Values, Opts, Mod) ->
-    enc(AvpName, Values, Opts, Mod).
+enc(Name, AvpName, H, Min, N, Max, [V|Vs], Opts, Mod) ->
+    [enc1(Name, AvpName, H, V, Opts, Mod)
+     | enc(Name, AvpName, H, Min, N+1, Max, Vs, Opts, Mod)].
 
-%% enc/4
+%% avp_header/2
 
-enc(AvpName, Values, Opts, Mod) ->
-    H = Mod:avp_header(AvpName),
-    [diameter_codec:pack_data(H, Mod:avp(encode, V, AvpName, Opts))
-     || V <- Values].
+avp_header('AVP', _) ->
+    false;
+
+avp_header(AvpName, Mod) ->
+    {_,_,_} = Mod:avp_header(AvpName).
+
+%% enc1/6
+
+enc1(Name, 'AVP', false, Value, Opts, Mod) ->
+    enc_AVP(Name, Value, Opts, Mod);
+
+enc1(_, AvpName, Hdr, Value, Opts, Mod) ->
+    enc1(AvpName, Hdr, Value, Opts, Mod).
+
+%% enc1/5
+
+enc1(AvpName, {_,_,_} = Hdr, Value, Opts, Mod) ->
+    diameter_codec:pack_data(Hdr, Mod:avp(encode, Value, AvpName, Opts)).
 
 %% enc_AVP/4
 
@@ -160,15 +177,20 @@ enc_AVP(_, #diameter_avp{name = N, value = V}, _, _)
 enc_AVP(Name, #diameter_avp{name = AvpName, value = Data}, Opts, Mod) ->
     0 == Mod:avp_arity(Name, AvpName)
         orelse ?THROW([known_avp_as_AVP, Name, AvpName, Data]),
-    enc(AvpName, [Data], Opts, Mod);
+    enc(AvpName, Data, Opts, Mod);
 
 %% The backdoor ...
 enc_AVP(_, {AvpName, Value}, Opts, Mod) ->
-    enc(AvpName, [Value], Opts, Mod);
+    enc(AvpName, Value, Opts, Mod);
 
 %% ... and the side door.
 enc_AVP(_Name, {_Dict, _AvpName, _Data} = T, Opts, _) ->
     diameter_codec:pack_avp(#diameter_avp{data = T}, Opts).
+
+%% enc/4
+
+enc(AvpName, Value, Opts, Mod) ->
+    enc1(AvpName, Mod:avp_header(AvpName), Value, Opts, Mod).
 
 %% ---------------------------------------------------------------------------
 %% # decode_avps/3
