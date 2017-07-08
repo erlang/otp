@@ -167,13 +167,12 @@
 -record(group,
         {transport,
          strings,
+         encoding,
          client_service,
-         client_encoding,
          client_dict,
          client_sender,
          server_service,
          server_decoding,
-         server_encoding,
          server_container,
          server_sender,
          server_throttle}).
@@ -268,13 +267,12 @@ all() ->
 groups() ->
     [{P, [P], Ts} || Ts <- [tc(tc())], P <- [shuffle, parallel]]
         ++
-        [{?util:name([T,CE,D,SE,SD,SC,S,SS,ST,CS]),
+        [{?util:name([T,E,D,SD,SC,S,SS,ST,CS]),
           [],
           [{group, if S -> shuffle; not S -> parallel end}]}
          || T  <- ?TRANSPORTS,
-            CE <- ?ENCODINGS,
+            E  <- ?ENCODINGS,
             D  <- ?RFCS,
-            SE <- ?ENCODINGS,
             SD <- ?DECODINGS,
             SC <- ?CONTAINERS,
             S  <- ?STRING_DECODES,
@@ -282,10 +280,9 @@ groups() ->
             ST <- ?CALLBACKS,
             CS <- ?SENDERS]
         ++
-        [{T, [], groups([[T,CE,D,SE,SD,SC,S,SS,ST,CS]
-                         || CE <- ?ENCODINGS,
+        [{T, [], groups([[T,E,D,SD,SC,S,SS,ST,CS]
+                         || E  <- ?ENCODINGS,
                             D  <- ?RFCS,
-                            SE <- ?ENCODINGS,
                             SD <- ?DECODINGS,
                             SC <- ?CONTAINERS,
                             S  <- ?STRING_DECODES,
@@ -298,7 +295,7 @@ groups() ->
         [{traffic, [], [{group, T} || T <- ?TRANSPORTS]}].
 
 %groups(_) ->  %% debug
-%    Name = [tcp,record,rfc6733,record,map,pkt,false,false,false,false],
+%    Name = [tcp,record,rfc6733,map,pkt,false,false,false,false],
 %    [{group, ?util:name(Name)}];
 groups(Names) ->
     [{group, ?util:name(L)} || L <- Names].
@@ -337,18 +334,17 @@ init_per_group(sctp = Name, Config) ->
 init_per_group(Name, Config) ->
     Nas = proplists:get_value(rfc4005, Config, false),
     case ?util:name(Name) of
-        [_,_,D,_,_,_,_,_,_,_] when D == rfc4005, true /= Nas ->
+        [_,_,D,_,_,_,_,_,_] when D == rfc4005, true /= Nas ->
             {skip, rfc4005};
-        [T,CE,D,SE,SD,SC,S,SS,ST,CS] ->
+        [T,E,D,SD,SC,S,SS,ST,CS] ->
             G = #group{transport = T,
                        strings = S,
+                       encoding = E,
                        client_service = [$C|?util:unique_string()],
-                       client_encoding = CE,
                        client_dict = appdict(D),
                        client_sender = CS,
                        server_service = [$S|?util:unique_string()],
                        server_decoding = SD,
-                       server_encoding = SE,
                        server_container = SC,
                        server_sender = SS,
                        server_throttle = ST},
@@ -469,10 +465,10 @@ start_services(Config) ->
 
 add_transports(Config) ->
     #group{transport = T,
+           encoding = E,
            client_service = CN,
            client_sender = CS,
            server_service = SN,
-           server_encoding = SE,
            server_container = SC,
            server_sender = SS,
            server_throttle = ST}
@@ -495,7 +491,7 @@ add_transports(Config) ->
           || D <- ?DECODINGS,  %% for multiple candidate peers
              R <- ?RFCS,
              R /= rfc4005 orelse have_nas(),
-             Id <- [{D,SE,SC}]],
+             Id <- [{D,E,SC}]],
     %% The server uses the client's Origin-State-Id to decide how to
     %% answer.
     ?util:write_priv(Config, "transport", [LRef | Cs]).
@@ -1046,14 +1042,14 @@ call(Config, Req) ->
 
 call(Config, Req, Opts) ->
     Name = proplists:get_value(testcase, Config),
-    #group{client_service = CN,
-           client_encoding = ReqEncoding,
+    #group{encoding = Enc,
+           client_service = CN,
            client_dict = Dict0}
         = Group
         = group(Config),
     diameter:call(CN,
                   dict(Req, Dict0),
-                  msg(Req, ReqEncoding, Dict0),
+                  msg(Req, Enc, Dict0),
                   [{extra, [{Name, Group}, diameter_lib:now()]} | Opts]).
 
 origin({D,E,C}) ->
@@ -1231,9 +1227,9 @@ pick_peer(_Peers, _, [$C|_], _State, {send_nopeer, _}, _, ?EXTRA) ->
 pick_peer(Peers, _, [$C|_], _State, {send_detach, Group}, _, {_,_}) ->
     find(Group, Peers).
 
-find(#group{client_service = CN,
+find(#group{encoding = E,
+            client_service = CN,
             server_decoding = D,
-            server_encoding = E,
             server_container = C},
      [_|_] = Peers) ->
     Id = {D,E,C},
