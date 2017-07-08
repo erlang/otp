@@ -263,25 +263,25 @@ all() ->
 groups() ->
     [{P, [P], Ts} || Ts <- [tc(tc())], P <- [shuffle, parallel]]
         ++
-        [{?util:name([T,E,D,SD,S,SS,ST,CS]),
+        [{?util:name([T,R,E,D,S,ST,SS,CS]),
           [],
           [{group, if S -> shuffle; not S -> parallel end}]}
          || T  <- ?TRANSPORTS,
+            R  <- ?RFCS,
             E  <- ?ENCODINGS,
-            D  <- ?RFCS,
-            SD <- ?DECODINGS,
+            D  <- ?DECODINGS,
             S  <- ?STRING_DECODES,
-            SS <- ?SENDERS,
             ST <- ?CALLBACKS,
+            SS <- ?SENDERS,
             CS <- ?SENDERS]
         ++
-        [{T, [], groups([[T,E,D,SD,S,SS,ST,CS]
-                         || E  <- ?ENCODINGS,
-                            D  <- ?RFCS,
-                            SD <- ?DECODINGS,
+        [{T, [], groups([[T,R,E,D,S,ST,SS,CS]
+                         || R  <- ?RFCS,
+                            E  <- ?ENCODINGS,
+                            D  <- ?DECODINGS,
                             S  <- ?STRING_DECODES,
-                            SS <- ?SENDERS,
                             ST <- ?CALLBACKS,
+                            SS <- ?SENDERS,
                             CS <- ?SENDERS,
                             SS orelse CS])}  %% avoid deadlock
          || T <- ?TRANSPORTS]
@@ -289,7 +289,7 @@ groups() ->
         [{traffic, [], [{group, T} || T <- ?TRANSPORTS]}].
 
 %groups(_) ->  %% debug
-%    Name = [tcp,record,rfc6733,map,false,false,false,false],
+%    Name = [tcp,rfc6733,record,map,false,false,false,false],
 %    [{group, ?util:name(Name)}];
 groups(Names) ->
     [{group, ?util:name(L)} || L <- Names].
@@ -328,17 +328,17 @@ init_per_group(sctp = Name, Config) ->
 init_per_group(Name, Config) ->
     Nas = proplists:get_value(rfc4005, Config, false),
     case ?util:name(Name) of
-        [_,_,D,_,_,_,_,_] when D == rfc4005, true /= Nas ->
+        [_,R,_,_,_,_,_,_] when R == rfc4005, true /= Nas ->
             {skip, rfc4005};
-        [T,E,D,SD,S,SS,ST,CS] ->
+        [T,R,E,D,S,ST,SS,CS] ->
             G = #group{transport = T,
                        strings = S,
                        encoding = E,
                        client_service = [$C|?util:unique_string()],
-                       client_dict = appdict(D),
+                       client_dict = appdict(R),
                        client_sender = CS,
                        server_service = [$S|?util:unique_string()],
-                       server_decoding = SD,
+                       server_decoding = D,
                        server_sender = SS,
                        server_throttle = ST},
             %% Limit the number of testcase, since the number of
