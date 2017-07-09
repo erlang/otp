@@ -120,6 +120,11 @@
 
 %% ===========================================================================
 
+%% Positive number of testcases from which to select (randomly) from
+%% tc(), the list of testcases to run, or [] to run all. The random
+%% selection is to limit the time it takes for the suite to run.
+-define(LIMIT, length(tc())).
+
 -define(util, diameter_util).
 
 -define(A, list_to_atom).
@@ -258,44 +263,40 @@ suite() ->
 all() ->
     [rfc4005, start, result_codes, {group, traffic}, empty, stop].
 
+%% Redefine this to run one or more groups for debugging purposes.
+-define(GROUPS, []).
+%-define(GROUPS, [[tcp,rfc6733,record,map,false,false,false,false]]).
+
 groups() ->
-    [{P, [P], Ts} || Ts <- [tc(tc())], P <- [shuffle, parallel]]
+    Names = names(),
+    [{P, [P], Ts} || Ts <- [tc()], P <- [shuffle, parallel]]
         ++
-        [{?util:name([T,R,E,D,S,ST,SS,CS]),
-          [],
-          [{group, if S -> shuffle; not S -> parallel end}]}
-         || T  <- ?TRANSPORTS,
-            R  <- ?RFCS,
-            E  <- ?ENCODINGS,
-            D  <- ?DECODINGS,
-            S  <- ?STRING_DECODES,
-            ST <- ?CALLBACKS,
-            SS <- ?SENDERS,
-            CS <- ?SENDERS]
+        [{?util:name(N), [], [{group, if S -> shuffle; not S -> parallel end}]}
+         || [_,_,_,_,S|_] = N <- Names]
         ++
-        [{T, [], groups([[T,R,E,D,S,ST,SS,CS]
-                         || R  <- ?RFCS,
-                            E  <- ?ENCODINGS,
-                            D  <- ?DECODINGS,
-                            S  <- ?STRING_DECODES,
-                            ST <- ?CALLBACKS,
-                            SS <- ?SENDERS,
-                            CS <- ?SENDERS,
-                            SS orelse CS])}  %% avoid deadlock
+        [{T, [], [{group, ?util:name(N)} || N <- names(Names, ?GROUPS),
+                                            T == hd(N)]}
          || T <- ?TRANSPORTS]
         ++
         [{traffic, [], [{group, T} || T <- ?TRANSPORTS]}].
 
-%groups(_) ->  %% debug
-%    Name = [tcp,rfc6733,record,map,false,false,false,false],
-%    [{group, ?util:name(Name)}];
-groups(Names) ->
-    [{group, ?util:name(L)} || L <- Names].
+names() ->
+    [[T,R,E,D,S,ST,SS,CS] || T  <- ?TRANSPORTS,
+                             R  <- ?RFCS,
+                             E  <- ?ENCODINGS,
+                             D  <- ?DECODINGS,
+                             S  <- ?STRING_DECODES,
+                             ST <- ?CALLBACKS,
+                             SS <- ?SENDERS,
+                             CS <- ?SENDERS].
 
-%tc([N|_]) ->  %% debug
-%    [N];
-tc(L) ->
-    L.
+names(Names, []) ->
+    [N || N <- Names,
+          [CS,SS|_] <- [lists:reverse(N)],
+          SS orelse CS];  %% avoid deadlock
+
+names(_, Names) ->
+    Names.
 
 %% --------------------
 
@@ -339,11 +340,7 @@ init_per_group(Name, Config) ->
                        server_decoding = D,
                        server_sender = SS,
                        server_throttle = ST},
-            %% Limit the number of testcase, since the number of
-            %% groups is large.
-            All = ?util:scramble(tc()),
-            TCs = lists:sublist(All, rand:uniform(32)),
-            [{group, G}, {runlist, TCs} | Config];
+            [{group, G}, {runlist, select()} | Config];
         _ ->
             Config
     end.
@@ -356,6 +353,13 @@ end_per_group(Name, Config)
 
 end_per_group(_, _) ->
     ok.
+
+select() ->
+    try rand:uniform(?LIMIT) of
+        N -> lists:sublist(?util:scramble(tc()), max(N,5))
+    catch
+        error:_ -> ?LIMIT
+    end.
 
 %% --------------------
 
