@@ -753,6 +753,14 @@ valfun_4({get_map_elements,{f,Fail},Src,{list,List}}, Vst) ->
 valfun_4(_, _) ->
     error(unknown_instruction).
 
+%% get_map_elements that extracts to only one register will either succeed
+%% or fail and leave the target register unaffected. With more keys, it can
+%% fail partially and pollute some of the targets.
+verify_get_map(Fail, Src, [Key,Val], Vst0) ->
+    assert_type(map, Src, Vst0),
+    assert_term(Key, Vst0),
+    Vst1 = branch_state(Fail, Vst0),
+    set_type_reg(term, Val, Vst1);
 verify_get_map(Fail, Src, List, Vst0) ->
     assert_type(map, Src, Vst0),
     Vst1 = foldl(fun(D, Vsti) ->

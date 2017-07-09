@@ -61,6 +61,13 @@ blockify(Is) ->
 blockify([{loop_rec,{f,Fail},{x,0}},{loop_rec_end,_Lbl},{label,Fail}|Is], Acc) ->
     %% Useless instruction sequence.
     blockify(Is, Acc);
+blockify([{get_map_elements,F,S,{list,Gets}}|Is0], Acc) ->
+    %% A get_map_elements instruction is only safe at the beginning of
+    %% a block because of the failure label.
+    {Ss,Ds} = beam_utils:split_even(Gets),
+    I = {set,Ds,[S|Ss],{get_map_elements,F}},
+    {Block,Is} = collect_block(Is0, [I]),
+    blockify(Is, [{block,Block}|Acc]);
 blockify([I|Is0]=IsAll, Acc) ->
     case collect(I) of
 	error -> blockify(Is0, [I|Acc]);
@@ -216,10 +223,11 @@ move_allocates_1([], Acc) -> Acc.
 
 alloc_may_pass({set,_,_,{alloc,_,_}}) -> false;
 alloc_may_pass({set,_,_,{set_tuple_element,_}}) -> false;
+alloc_may_pass({set,_,_,{get_map_elements,_}}) -> false;
 alloc_may_pass({set,_,_,put_list}) -> false;
 alloc_may_pass({set,_,_,put}) -> false;
 alloc_may_pass({set,_,_,_}) -> true.
-    
+
 %% opt([Instruction]) -> [Instruction]
 %%  Optimize the instruction stream inside a basic block.
 
@@ -230,50 +238,83 @@ opt([{set,_,_,{line,_}}=Line1,
      {set,[D2],[{integer,Idx2},Reg],{bif,element,{f,0}}}=I2|Is])
   when Idx1 < Idx2, D1 =/= D2, D1 =/= Reg, D2 =/= Reg ->
     opt([Line2,I2,Line1,I1|Is]);
+opt([{set,[_,_|_]=Ds0,[Src|Ss],{get_map_elements,_}=Op}|Is0]) ->
+    %% with more than one key, get_map_elements may fail partially and pollute
+    %% the target registers. In that case we want to protect the source for
+    %% when we jump to the Fail label.
+    {Ds,Is} = opt_moves(Ds0, Is0, [Src]),
+    [{set,Ds,[Src|Ss],Op}|opt(Is)];
 opt([{set,Ds0,Ss,Op}|Is0]) ->
-    {Ds,Is} = opt_moves(Ds0, Is0),
+    {Ds,Is} = opt_moves(Ds0, Is0, []),
     [{set,Ds,Ss,Op}|opt(Is)];
 opt([{'%live',_,_}=I|Is]) ->
     [I|opt(Is)];
 opt([]) -> [].
 
-%% opt_moves([Dest], [Instruction]) -> {[Dest],[Instruction]}
+%% opt_moves([Dest], [Instruction], [Protected]) -> {[Dest],[Instruction]}
 %%  For each Dest, does the optimization described in opt_move/2.
 
-opt_moves([], Is0) -> {[],Is0};
-opt_moves([D0]=Ds, Is0) ->
-    case opt_move(D0, Is0) of
+opt_moves([], Is0, _Ps) -> {[],Is0};
+opt_moves([D0]=Ds, Is0, Ps) ->
+    case opt_move(D0, Is0, Ps) of
 	not_possible -> {Ds,Is0};
 	{D1,Is} -> {[D1],Is}
     end;
-opt_moves([X0,Y0], Is0) ->
-    {X,Is2} = case opt_move(X0, Is0) of
+opt_moves([X0,Y0|Rest], Is0, Ps) ->
+    {X,Is2} = case opt_move(X0, Is0, Ps) of
 		  not_possible -> {X0,Is0};
 		  {Y0,_} -> {X0,Is0};
 		  {_X1,_Is1} = XIs1 -> XIs1
 	      end,
-    case opt_move(Y0, Is2) of
-	not_possible -> {[X,Y0],Is2};
-	{X,_} -> {[X,Y0],Is2};
-	{Y,Is} -> {[X,Y],Is}
+    {Y,Is} = case opt_move(Y0, Is2, Ps) of
+                   not_possible -> {Y0,Is2};
+                   {X,_} -> {Y0,Is2};
+                   {Y1,Is1} -> {Y1,Is1}
+               end,
+    case Rest of
+        [] -> {[X,Y],Is};
+        _ -> opt_moves(Rest, Is, Ps, [Y,X])
     end.
 
-%% opt_move(Dest, [Instruction]) -> {UpdatedDest,[Instruction]} | not_possible
+opt_moves([X0|Xs], Is0, Ps, Ys) ->
+    case opt_move(X0, Is0, Ps) of
+        not_possible ->
+            opt_moves(Xs, Is0, Ps, [X0|Ys]);
+        {X,Is} ->
+            case member(X, Xs) orelse member(X, Ys) of
+                true ->
+                    %% The new registry is either already used or we already
+                    %% optimised another one to that value. Keep it the same.
+                    opt_moves(Xs, Is0, Ps, [X0|Ys]);
+                false ->
+                    opt_moves(Xs, Is, Ps, [X|Ys])
+            end
+    end;
+opt_moves([], Is, _Ps, Ys) ->
+    {reverse(Ys), Is}.
+
+%% opt_move(Dest, [Instruction], [Protected])
+%%     -> {UpdatedDest,[Instruction]} | not_possible
 %%  If there is a {move,Dest,FinalDest} instruction
 %%  in the instruction stream, remove the move instruction
 %%  and let FinalDest be the destination.
 
-opt_move(Dest, Is) ->
-    opt_move_1(Dest, Is, []).
+opt_move(Dest, Is, Ps) ->
+    opt_move_1(Dest, Is, Ps, []).
 
-opt_move_1(R, [{set,[D],[R],move}|Is0], Acc) ->
+opt_move_1(R, [{set,[D],[R],move}|Is0], Ps, Acc) ->
     %% Provided that the source register is killed by instructions
     %% that follow, the optimization is safe.
-    case eliminate_use_of_from_reg(Is0, R, D, []) of
-	{yes,Is} -> opt_move_rev(D, Acc, Is);
-	no -> not_possible
+    case member(D, Ps) of
+        true ->
+            not_possible;
+        false ->
+            case eliminate_use_of_from_reg(Is0, R, D, []) of
+                {yes,Is} -> opt_move_rev(D, Acc, Is);
+                no -> not_possible
+            end
     end;
-opt_move_1(_R, [{set,_,_,{alloc,_,_}}|_], _) ->
+opt_move_1(_R, [{set,_,_,{alloc,_,_}}|_], _Ps, _) ->
     %% The optimization is either not possible or not safe.
     %%
     %% If R is an X register killed by allocation, the optimization is
@@ -285,14 +326,14 @@ opt_move_1(_R, [{set,_,_,{alloc,_,_}}|_], _) ->
     %% because the new target register is an X register that cannot
     %% safely pass the alloc instruction.
     not_possible;
-opt_move_1(R, [{set,_,_,_}=I|Is], Acc) ->
+opt_move_1(R, [{set,_,_,_}=I|Is], Ps, Acc) ->
     %% If the source register is either killed or used by this
     %% instruction, the optimimization is not possible.
     case is_killed_or_used(R, I) of
 	true -> not_possible;
-	false -> opt_move_1(R, Is, [I|Acc])
+	false -> opt_move_1(R, Is, Ps, [I|Acc])
     end;
-opt_move_1(_, _, _) ->
+opt_move_1(_, _, _, _) ->
     not_possible.
 
 %% opt_tuple_element([Instruction]) -> [Instruction]
