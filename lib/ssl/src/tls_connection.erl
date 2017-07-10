@@ -56,7 +56,7 @@
 	 reinit_handshake_data/1,  select_sni_extension/1]).
 
 %% Alert and close handling
--export([send_alert/2, close/5]).
+-export([send_alert/2, close/5, protocol_name/0]).
 
 %% Data handling
 -export([passive_receive/2, next_record_if_active/1, handle_common_event/4, send/3,
@@ -164,6 +164,8 @@ encode_data(Data, Version, ConnectionStates0)->
 encode_alert(#alert{} = Alert, Version, ConnectionStates) ->
     tls_record:encode_alert_record(Alert, Version, ConnectionStates).
 
+protocol_name() ->
+    "TLS".
 %%====================================================================
 %% tls_connection_sup API
 %%====================================================================
@@ -719,7 +721,7 @@ close(downgrade, _,_,_,_) ->
 %% Other
 close(_, Socket, Transport, _,_) -> 
     Transport:close(Socket).
-	       
+
 convert_state(#state{ssl_options = Options} = State, up, "5.3.5", "5.3.6") ->
     State#state{ssl_options = convert_options_partial_chain(Options, up)};
 convert_state(#state{ssl_options = Options} = State, down, "5.3.6", "5.3.5") ->

@@ -48,7 +48,7 @@
 	 select_sni_extension/1]).
 
 %% Alert and close handling
--export([encode_alert/3,send_alert/2, close/5]).
+-export([encode_alert/3,send_alert/2, close/5, protocol_name/0]).
 
 %% Data handling
 
@@ -208,6 +208,9 @@ setopts(Transport, Socket, Other) ->
 getopts(Transport, Socket, Tag) ->
     dtls_socket:getopts(Transport, Socket, Tag).
 
+protocol_name() ->
+    "DTLS".
+        
 %%====================================================================
 %% tls_connection_sup API
 %%====================================================================
