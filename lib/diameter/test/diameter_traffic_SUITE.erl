@@ -123,7 +123,7 @@
 %% Positive number of testcases from which to select (randomly) from
 %% tc(), the list of testcases to run, or [] to run all. The random
 %% selection is to limit the time it takes for the suite to run.
--define(LIMIT, length(tc())).
+-define(LIMIT, 42).
 
 -define(util, diameter_util).
 
@@ -148,7 +148,7 @@
 -define(ENCODINGS, [list, record, map]).
 
 %% How to decode incoming messages.
--define(DECODINGS, [record, false, map, list]).
+-define(DECODINGS, [record, false, map, list, record_from_map]).
 
 %% Which dictionary to use in the clients.
 -define(RFCS, [rfc3588, rfc6733, rfc4005]).
@@ -1036,10 +1036,12 @@ decode(record) -> 0;
 decode(list)   -> 1;
 decode(map)    -> 2;
 decode(false)  -> 3;
+decode(record_from_map) -> 4;
 decode(0) -> record;
 decode(1) -> list;
 decode(2) -> map;
-decode(3) -> false.
+decode(3) -> false;
+decode(4) -> record_from_map.
 
 encode(record) -> 0;
 encode(list)   -> 1;
@@ -1078,7 +1080,9 @@ to_map(#diameter_packet{msg = [MsgName | Avps]},
     [MsgName | maps:from_list(Avps)];
 
 to_map(#diameter_packet{header = H, msg = Rec},
-       #group{server_decoding = record}) ->
+       #group{server_decoding = D})
+  when D == record;
+       D == record_from_map ->
     rec_to_map(Rec, dict(H));
 
 %% No record decode: do it ourselves.
