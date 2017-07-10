@@ -127,6 +127,10 @@ enc(_, AvpName, _, Min, N, _, [], _, _)
 enc(_, _, _, _, _, _, [], _, _) ->
     [];
 
+enc(Name, AvpName, H, Min, N, '*', Vs, Opts, Mod)
+  when Min =< N ->
+    [enc1(Name, AvpName, H, V, Opts, Mod) || V <- Vs];
+
 enc(_, AvpName, _, _, N, Max, _, _, _)
   when Max =< N ->
     ?THROW([repeated_avp_excessive_arity, AvpName, Max]);
