@@ -247,14 +247,14 @@ ticktime_res(A)      when is_atom(A)             -> A.
 
 %% Called though BIF's
 
-connect(Node) ->               do_connect(Node, normal, false).
+connect(Node) ->               auto_connect(Node, normal, false).
 %%% Long timeout if blocked (== barred), only affects nodes with
 %%% {dist_auto_connect, once} set.
-passive_cnct(Node) ->              do_connect(Node, normal, true).
+passive_cnct(Node) ->          auto_connect(Node, normal, true).
 disconnect(Node) ->            request({disconnect, Node}).
 
 %% connect but not seen
-hidden_connect(Node) ->        do_connect(Node, hidden, false).
+hidden_connect(Node) ->        auto_connect(Node, hidden, false).
 
 %% Should this node publish itself on Node?
 publish_on_node(Node) when is_atom(Node) ->
@@ -272,67 +272,35 @@ connect_node(Node) when is_atom(Node) ->
 hidden_connect_node(Node) when is_atom(Node) ->
     request({connect, hidden, Node}).
 
-do_connect(Node, Type, WaitForBarred) -> %% Type = normal | hidden
-    case catch ets:lookup(sys_dist, Node) of
-	{'EXIT', _} ->
-	    ?connect_failure(Node,{table_missing, sys_dist}),
-	    false;
-	[#barred_connection{}] ->
-	    case WaitForBarred of
-		false ->
-		    false;
-		true ->
-		    Pid = spawn(?MODULE,passive_connect_monitor,[self(),Node]),
-		    receive
-			{Pid, true} ->
-			    %%io:format("Net Kernel: barred connection (~p) "
-			    %%          "connected from other end.~n",[Node]),
-			    true;
-			{Pid, false} ->
-			    ?connect_failure(Node,{barred_connection,
-						   ets:lookup(sys_dist, Node)}),
-			    %%io:format("Net Kernel: barred connection (~p) "
-			    %%      "- failure.~n",[Node]),
-			    false
-		    end
-	    end;
-	Else ->
-	    case application:get_env(kernel, dist_auto_connect) of
-		{ok, never} ->
-		    ?connect_failure(Node,{dist_auto_connect,never}),
-		    false;
-		% This might happen due to connection close
-		% not beeing propagated to user space yet.
-		% Save the day by just not connecting...
-		{ok, once} when Else =/= [],
-				(hd(Else))#connection.state =:= up ->
-		    ?connect_failure(Node,{barred_connection,
-				ets:lookup(sys_dist, Node)}),
-		    false;
-		_ ->
-		    request({connect, Type, Node})
-	    end
+auto_connect(Node, Type, WaitForBarred) -> %% Type = normal | hidden
+    case request({auto_connect, Type, Node, WaitForBarred}) of
+        ignored -> false;
+        Other -> Other
     end.
 
-passive_connect_monitor(Parent, Node) ->
+passive_connect_monitor(From, Node) ->
     ok = monitor_nodes(true,[{node_type,all}]),
-    case lists:member(Node,nodes([connected])) of
-	true ->
-	    ok = monitor_nodes(false,[{node_type,all}]),
-	    Parent ! {self(),true};
-	_ ->
-	    Ref = make_ref(),
-	    Tref = erlang:send_after(connecttime(),self(),Ref),
-	    receive
-		Ref ->
-		    ok = monitor_nodes(false,[{node_type,all}]),
-		    Parent ! {self(), false};
-		{nodeup,Node,_} ->
-		    ok = monitor_nodes(false,[{node_type,all}]),
-		    _ = erlang:cancel_timer(Tref),
-		    Parent ! {self(),true}
-	    end
-    end.
+    Reply = case lists:member(Node,nodes([connected])) of
+                true ->
+                    io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]),
+                    true;
+                _ ->
+                    receive
+                        {nodeup,Node,_} ->
+                            io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]),
+                            true
+                    after connecttime() ->
+                            io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]),
+                            false
+                    end
+            end,
+    ok = monitor_nodes(false,[{node_type,all}]),
+    io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]),
+    {Pid, Tag} = From,
+    io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]),
+    erlang:send(Pid, {Tag, Reply}),
+    io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]).
+
 
 %% If the net_kernel isn't running we ignore all requests to the
 %% kernel, thus basically accepting them :-)
@@ -394,40 +362,78 @@ init({Name, LongOrShortNames, TickT, CleanHalt}) ->
     end.
 
 
+handle_connect([Conn], _, _, From, State) when Conn#connection.state =:= up ->
+    async_reply({reply, true, State}, From);
+handle_connect([Conn], _, _, From, State) when Conn#connection.state =:= pending;
+                                               Conn#connection.state =:= up_pending ->
+    Waiting = Conn#connection.waiting,
+    ets:insert(sys_dist, Conn#connection{waiting = [From|Waiting]}),
+    {noreply, State};
+handle_connect(_, Type, Node, From , State) ->
+    case setup(Node,Type,From,State) of
+        {ok, SetupPid} ->
+            Owners = [{SetupPid, Node} | State#state.conn_owners],
+            {noreply,State#state{conn_owners=Owners}};
+        _Error  ->
+            ?connect_failure(Node, {setup_call, failed, _Error}),
+            async_reply({reply, false, State}, From)
+    end.
+
 %% ------------------------------------------------------------
 %% handle_call.
 %% ------------------------------------------------------------
 
 %%
-%% Set up a connection to Node.
+%% Auto-connect to Node.
 %% The response is delayed until the connection is up and
 %% running.
 %%
-handle_call({connect, _, Node}, From, State) when Node =:= node() ->
+handle_call({auto_connect, _, Node, _}, From, State) when Node =:= node() ->
+    async_reply({reply, true, State}, From);
+handle_call({auto_connect, Type, Node, WaitForBarred}, From, State) ->
+    verbose({auto_connect, Type, Node, WaitForBarred}, 1, State),
+
+    ConnLookup = ets:lookup(sys_dist, Node),
+
+    case ConnLookup of
+        [#barred_connection{}] ->
+            case WaitForBarred of
+                false ->
+                    async_reply({reply, false, State}, From);
+                true ->
+                    spawn(?MODULE,passive_connect_monitor,[From,Node]),
+                    {noreply, State}
+            end;
+
+        _ ->
+            case application:get_env(kernel, dist_auto_connect) of
+                {ok, never} ->
+                    ?connect_failure(Node,{dist_auto_connect,never}),
+                    async_reply({reply, false, State}, From);
+
+                %% This might happen due to connection close
+                %% not beeing propagated to user space yet.
+                %% Save the day by just not connecting...
+                {ok, once} when ConnLookup =/= [],
+                                (hd(ConnLookup))#connection.state =:= up ->
+                    ?connect_failure(Node,{barred_connection,
+                                           ets:lookup(sys_dist, Node)}),
+                    async_reply({reply, false, State}, From);
+                _ ->
+                    handle_connect(ConnLookup, Type, Node, From, State)
+            end
+    end;
+
+%%
+%% Explicit connect
+%% The response is delayed until the connection is up and running.
+%%
+handle_call({connect, _, Node, _, _}, From, State) when Node =:= node() ->
     async_reply({reply, true, State}, From);
 handle_call({connect, Type, Node}, From, State) ->
     verbose({connect, Type, Node}, 1, State),
-    case ets:lookup(sys_dist, Node) of
-	[Conn] when Conn#connection.state =:= up ->
-	    async_reply({reply, true, State}, From);
-	[Conn] when Conn#connection.state =:= pending ->
-	    Waiting = Conn#connection.waiting,
-	    ets:insert(sys_dist, Conn#connection{waiting = [From|Waiting]}),
-	    {noreply, State};
-	[Conn] when Conn#connection.state =:= up_pending ->
-	    Waiting = Conn#connection.waiting,
-	    ets:insert(sys_dist, Conn#connection{waiting = [From|Waiting]}),
-	    {noreply, State};
-	_ ->
-	    case setup(Node,Type,From,State) of
-		{ok, SetupPid} ->
-		    Owners = [{SetupPid, Node} | State#state.conn_owners],
-		    {noreply,State#state{conn_owners=Owners}};
-		_Error  ->
-		    ?connect_failure(Node, {setup_call, failed, _Error}),
-		    async_reply({reply, false, State}, From)
-	    end
-    end;
+    ConnLookup = ets:lookup(sys_dist, Node),
+    handle_connect(ConnLookup, Type, Node, From, State);
 
 %%
 %% Close the connection to Node.
