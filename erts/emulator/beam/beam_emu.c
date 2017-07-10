@@ -204,6 +204,21 @@ do {                                     \
 
 #define ISCATCHEND(instr) ((Eterm *) *(instr) == OpCode(catch_end_y))
 
+#define BIF_ERROR_ARITY_1(Op1, BIF)				\
+  if (Arg(0) != 0) goto jump_f;					\
+  reg[0] = Op1;							\
+  SWAPOUT;							\
+  I = handle_error(c_p, I, reg, &bif_export[BIF]->info.mfa);	\
+  goto post_error_handling
+
+#define BIF_ERROR_ARITY_2(Op1, Op2, BIF)			\
+  if (Arg(0) != 0) goto jump_f;					\
+  reg[0] = Op1;							\
+  reg[1] = Op2;							\
+  SWAPOUT;							\
+  I = handle_error(c_p, I, reg, &bif_export[BIF]->info.mfa);	\
+  goto post_error_handling
+
 /*
  * Special Beam instructions.
  */
@@ -1486,7 +1501,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	    goto find_func_info;
 	}
 
-#define DO_OUTLINED_ARITH_2(name, Op1, Op2)	\
+#define DO_OUTLINED_ARITH_2(name, Op1, Op2, BIF)\
  do {						\
      Eterm result;				\
      Uint live = Arg(1);			\
@@ -1500,7 +1515,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      if (is_value(result)) {			\
 	 StoreBifResult(4, result);		\
      }						\
-     goto lb_Cl_error;				\
+     BIF_ERROR_ARITY_2(reg[live], reg[live+1], BIF);\
  } while (0)
 
  {
@@ -1530,7 +1545,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
              StoreBifResult(4, result);
 	 }
      }
-     DO_OUTLINED_ARITH_2(mixed_plus, PlusOp1, PlusOp2);
+     DO_OUTLINED_ARITH_2(mixed_plus, PlusOp1, PlusOp2, BIF_splus_2);
  }
 
  {
@@ -1555,7 +1570,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
              StoreBifResult(4, result);
 	 }
      }
-     DO_OUTLINED_ARITH_2(mixed_minus, MinusOp1, MinusOp2);
+     DO_OUTLINED_ARITH_2(mixed_minus, MinusOp1, MinusOp2, BIF_sminus_2);
  }
 
     {
@@ -1771,8 +1786,9 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 		StoreBifResult(3, result);
 	    }
 	}
+	c_p->freason = BADARG;
+	BIF_ERROR_ARITY_2(element_index, element_tuple, BIF_element_2);
     }
- /* Fall through */
 
  OpCase(badarg_j):
  badarg:
@@ -1799,7 +1815,8 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 		StoreBifResult(3, result);
 	    }
 	}
-     goto badarg;
+	c_p->freason = BADARG;
+	BIF_ERROR_ARITY_2(make_small(Arg(2)), fast_element_tuple, BIF_element_2);
  }
 
  OpCase(catch_yf):
@@ -2941,14 +2958,14 @@ do {						\
  {
      Eterm Op1, Op2;
      GetArg2(2, Op1, Op2);
-     DO_OUTLINED_ARITH_2(mixed_times, Op1, Op2);
+     DO_OUTLINED_ARITH_2(mixed_times, Op1, Op2, BIF_stimes_2);
  }
 
  OpCase(i_m_div_jIssd):
  {
      Eterm Op1, Op2;
      GetArg2(2, Op1, Op2);
-     DO_OUTLINED_ARITH_2(mixed_div, Op1, Op2);
+     DO_OUTLINED_ARITH_2(mixed_div, Op1, Op2, BIF_div_2);
  }
 
  OpCase(i_int_div_jIssd):
@@ -2957,7 +2974,8 @@ do {						\
 
      GetArg2(2, Op1, Op2);
      if (Op2 == SMALL_ZERO) {
-	 goto badarith;
+	 c_p->freason = BADARITH;
+	 BIF_ERROR_ARITY_2(Op1, Op2, BIF_intdiv_2);
      } else if (is_both_small(Op1, Op2)) {
 	 Sint ires = signed_val(Op1) / signed_val(Op2);
 	 if (MY_IS_SSMALL(ires)) {
@@ -2965,7 +2983,7 @@ do {						\
 	     StoreBifResult(4, result);
 	 }
      }
-     DO_OUTLINED_ARITH_2(int_div, Op1, Op2);
+     DO_OUTLINED_ARITH_2(int_div, Op1, Op2, BIF_intdiv_2);
  }
 
  {
@@ -2982,12 +3000,13 @@ do {						\
 
  do_rem:
      if (RemOp2 == SMALL_ZERO) {
-         goto badarith;
+	 c_p->freason = BADARITH;
+	 BIF_ERROR_ARITY_2(RemOp1, RemOp2, BIF_rem_2);
      } else if (is_both_small(RemOp1, RemOp2)) {
          Eterm result = make_small(signed_val(RemOp1) % signed_val(RemOp2));
          StoreBifResult(4, result);
      } else {
-	 DO_OUTLINED_ARITH_2(int_rem, RemOp1, RemOp2);
+	 DO_OUTLINED_ARITH_2(int_rem, RemOp1, RemOp2, BIF_rem_2);
      }
  }
 
@@ -3011,7 +3030,7 @@ do {						\
          Eterm result = BandOp1 & BandOp2;
          StoreBifResult(4, result);
      }
-     DO_OUTLINED_ARITH_2(band, BandOp1, BandOp2);
+     DO_OUTLINED_ARITH_2(band, BandOp1, BandOp2, BIF_band_2);
  }
 
  /*
@@ -3044,7 +3063,7 @@ do {						\
 	 Eterm result = Op1 | Op2;
 	 StoreBifResult(4, result);
      }
-     DO_OUTLINED_ARITH_2(bor, Op1, Op2);
+     DO_OUTLINED_ARITH_2(bor, Op1, Op2, BIF_bor_2);
  }
 
  OpCase(i_bxor_jIssd):
@@ -3062,7 +3081,7 @@ do {						\
 	 Eterm result = (Op1 ^ Op2) | make_small(0);
 	 StoreBifResult(4, result);
      }
-     DO_OUTLINED_ARITH_2(bxor, Op1, Op2);
+     DO_OUTLINED_ARITH_2(bxor, Op1, Op2, BIF_bxor_2);
  }
 
  {
@@ -3093,8 +3112,9 @@ do {						\
 	     Op2 = make_small(bignum_header_is_neg(*big_val(Op2)) ?
 				   MAX_SMALL : MIN_SMALL);
 	     goto do_bsl;
-	}
-     goto badarith;
+	 }
+	 c_p->freason = BADARITH;
+	 BIF_ERROR_ARITY_2(Op1, Op2, BIF_bsr_2);
      
      OpCase(i_bsl_jIssd):
          GetArg2(2, Op1, Op2);
@@ -3194,10 +3214,8 @@ do {						\
 	     }
 	     /* Fall through if the left argument is not an integer. */
 	 }
-     /*
-      * One or more non-integer arguments.
-      */
-     goto badarith;
+	 c_p->freason = BADARITH;
+	 BIF_ERROR_ARITY_2(Op1, Op2, BIF_bsl_2);
  }
 
  OpCase(i_int_bnot_jsId):
@@ -3215,15 +3233,11 @@ do {						\
 	 HEAVY_SWAPIN;
 	 ERTS_HOLE_CHECK(c_p);
 	 if (is_nil(bnot_val)) {
-	     goto lb_Cl_error;
+	     BIF_ERROR_ARITY_1(reg[live], BIF_bnot_1);
 	 }
      }
      StoreBifResult(3, bnot_val);
  }
-
- badarith:
-    c_p->freason = BADARITH;
-    goto lb_Cl_error;
 
  OpCase(i_apply): {
      BeamInstr *next;

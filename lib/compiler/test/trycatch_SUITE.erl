@@ -324,11 +324,11 @@ eclectic(Conf) when is_list(Conf) ->
     {{error,{exit,V},{'EXIT',V}},V} =
 	eclectic_1({foo,{error,{exit,V}}}, error, {value,V}),
     {{value,{value,V},V},
-	   {'EXIT',{badarith,[{?MODULE,my_add,2,_}|_]}}} =
+	   {'EXIT',{badarith,[{erlang,'+',[0,a],_},{?MODULE,my_add,2,_}|_]}}} =
 	eclectic_1({foo,{value,{value,V}}}, undefined, {'add',{0,a}}),
     {{'EXIT',V},V} =
 	eclectic_1({catch_foo,{exit,V}}, undefined, {throw,V}),
-    {{error,{'div',{1,0}},{'EXIT',{badarith,[{?MODULE,my_div,2,_}|_]}}},
+    {{error,{'div',{1,0}},{'EXIT',{badarith,[{erlang,'div',[1,0],_},{?MODULE,my_div,2,_}|_]}}},
 	   {'EXIT',V}} =
 	eclectic_1({foo,{error,{'div',{1,0}}}}, error, {exit,V}),
     {{{error,V},{'EXIT',{V,[{?MODULE,foo,1,_}|_]}}},
@@ -345,7 +345,7 @@ eclectic(Conf) when is_list(Conf) ->
 	eclectic_2({error,{value,V}}, throw, {error,V}),
     {{caught,{'EXIT',{badarg,[{erlang,abs,[V],_}|_]}}},V} =
 	eclectic_2({value,{'abs',V}}, undefined, {value,V}),
-    {{caught,{'EXIT',{badarith,[{?MODULE,my_add,2,_}|_]}}},V} =
+    {{caught,{'EXIT',{badarith,[{erlang,'+',[0,a],_},{?MODULE,my_add,2,_}|_]}}},V} =
 	eclectic_2({exit,{'add',{0,a}}}, exit, {value,V}),
     {{caught,{'EXIT',V}},undefined} =
 	eclectic_2({value,{error,V}}, undefined, {exit,V}),

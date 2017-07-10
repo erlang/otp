@@ -21,7 +21,7 @@
 -module(exception_SUITE).
 
 -export([all/0, suite/0,
-         badmatch/1, pending_errors/1, nil_arith/1,
+         badmatch/1, pending_errors/1, nil_arith/1, top_of_stacktrace/1,
          stacktrace/1, nested_stacktrace/1, raise/1, gunilla/1, per/1,
          exception_with_heap_frag/1, line_numbers/1]).
 
@@ -36,8 +36,8 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 all() -> 
-    [badmatch, pending_errors, nil_arith, stacktrace,
-     nested_stacktrace, raise, gunilla, per,
+    [badmatch, pending_errors, nil_arith, top_of_stacktrace,
+     stacktrace, nested_stacktrace, raise, gunilla, per,
      exception_with_heap_frag, line_numbers].
 
 -define(try_match(E),
@@ -241,7 +241,54 @@ ba_bnot(A) ->
     io:format("bnot ~p", [A]),
     {'EXIT', {badarith, _}} = (catch bnot A).
 
+%% Test that BIFs are added to the top of the stacktrace.
 
+top_of_stacktrace(Conf) when is_list(Conf) ->
+    %% Arithmetic operators
+    {'EXIT', {badarith, [{erlang, '+', [1, ok], _} | _]}} = (catch my_add(1, ok)),
+    {'EXIT', {badarith, [{erlang, '-', [1, ok], _} | _]}} = (catch my_minus(1, ok)),
+    {'EXIT', {badarith, [{erlang, '*', [1, ok], _} | _]}} = (catch my_times(1, ok)),
+    {'EXIT', {badarith, [{erlang, 'div', [1, ok], _} | _]}} = (catch my_div(1, ok)),
+    {'EXIT', {badarith, [{erlang, 'div', [1, 0], _} | _]}} = (catch my_div(1, 0)),
+    {'EXIT', {badarith, [{erlang, 'rem', [1, ok], _} | _]}} = (catch my_rem(1, ok)),
+    {'EXIT', {badarith, [{erlang, 'rem', [1, 0], _} | _]}} = (catch my_rem(1, 0)),
+
+    %% Bit operators
+    {'EXIT', {badarith, [{erlang, 'band', [1, ok], _} | _]}} = (catch my_band(1, ok)),
+    {'EXIT', {badarith, [{erlang, 'bor', [1, ok], _} | _]}} = (catch my_bor(1, ok)),
+    {'EXIT', {badarith, [{erlang, 'bsl', [1, ok], _} | _]}} = (catch my_bsl(1, ok)),
+    {'EXIT', {badarith, [{erlang, 'bsr', [1, ok], _} | _]}} = (catch my_bsr(1, ok)),
+    {'EXIT', {badarith, [{erlang, 'bxor', [1, ok], _} | _]}} = (catch my_bxor(1, ok)),
+    {'EXIT', {badarith, [{erlang, 'bnot', [ok], _} | _]}} = (catch my_bnot(ok)),
+
+    %% Tuples
+    {'EXIT', {badarg, [{erlang, element, [1, ok], _} | _]}} = (catch my_element(1, ok)),
+    {'EXIT', {badarg, [{erlang, element, [ok, {}], _} | _]}} = (catch my_element(ok, {})),
+    {'EXIT', {badarg, [{erlang, element, [1, {}], _} | _]}} = (catch my_element(1, {})),
+    {'EXIT', {badarg, [{erlang, element, [1, {}], _} | _]}} = (catch element(1, erlang:make_tuple(0, ok))),
+
+    %% System limits
+    Maxbig = maxbig(),
+    MinusMaxbig = -Maxbig,
+    {'EXIT', {system_limit, [{erlang, '+', [Maxbig, 1], _} | _]}} = (catch my_add(Maxbig, 1)),
+    {'EXIT', {system_limit, [{erlang, '+', [Maxbig, 1], _} | _]}} = (catch my_add(maxbig_gc(), 1)),
+    {'EXIT', {system_limit, [{erlang, '-', [MinusMaxbig, 1], _} | _]}} = (catch my_minus(-Maxbig, 1)),
+    {'EXIT', {system_limit, [{erlang, '-', [MinusMaxbig, 1], _} | _]}} = (catch my_minus(-maxbig_gc(), 1)),
+    {'EXIT', {system_limit, [{erlang, '*', [Maxbig, 2], _} | _]}} = (catch my_times(Maxbig, 2)),
+    {'EXIT', {system_limit, [{erlang, '*', [Maxbig, 2], _} | _]}} = (catch my_times(maxbig_gc(), 2)),
+    {'EXIT', {system_limit, [{erlang, 'bnot', [Maxbig], _} | _]}} = (catch my_bnot(Maxbig)),
+    {'EXIT', {system_limit, [{erlang, 'bnot', [Maxbig], _} | _]}} = (catch my_bnot(maxbig_gc())),
+    ok.
+
+maxbig() ->
+    %% We assume that the maximum arity is (1 bsl 19) - 1.
+    Ws = erlang:system_info(wordsize),
+    (((1 bsl ((16777184 * (Ws div 4))-1)) - 1) bsl 1) + 1.
+
+maxbig_gc() ->
+    Maxbig = maxbig(),
+    erlang:garbage_collect(),
+    Maxbig.
 
 stacktrace(Conf) when is_list(Conf) ->
     Tag = make_ref(),
@@ -253,9 +300,9 @@ stacktrace(Conf) when is_list(Conf) ->
     St1 = erase(stacktrace1),
     St1 = erase(stacktrace2),
     St1 = erlang:get_stacktrace(),
-    {caught2,{error,badarith},[{?MODULE,my_add,2,_}|_]=St2} =
+    {caught2,{error,badarith},[{erlang,'+',[0,a],_},{?MODULE,my_add,2,_}|_]=St2} =
     stacktrace_1({'div',{1,0}}, error, {'add',{0,a}}),
-    [{?MODULE,my_div,2,_}|_] = erase(stacktrace1),
+    [{erlang,'div',[1,0],_},{?MODULE,my_div,2,_}|_] = erase(stacktrace1),
     St2 = erase(stacktrace2),
     St2 = erlang:get_stacktrace(),
     {caught2,{error,{try_clause,V}},[{?MODULE,stacktrace_1,3,_}|_]=St3} =
@@ -308,13 +355,13 @@ nested_stacktrace(Conf) when is_list(Conf) ->
     nested_stacktrace_1({{value,{V,x1}},void,{V,x1}},
                         {void,void,void}),
     {caught1,
-     [{?MODULE,my_add,2,_}|_],
+     [{erlang,'+',[V,x1],_},{?MODULE,my_add,2,_}|_],
      value2,
-     [{?MODULE,my_add,2,_}|_]} =
+     [{erlang,'+',[V,x1],_},{?MODULE,my_add,2,_}|_]} =
     nested_stacktrace_1({{'add',{V,x1}},error,badarith},
                         {{value,{V,x2}},void,{V,x2}}),
     {caught1,
-     [{?MODULE,my_add,2,_}|_],
+     [{erlang,'+',[V,x1],_},{?MODULE,my_add,2,_}|_],
      {caught2,[{erlang,abs,[V],_}|_]},
      [{erlang,abs,[V],_}|_]} =
     nested_stacktrace_1({{'add',{V,x1}},error,badarith},
@@ -355,7 +402,7 @@ raise(Conf) when is_list(Conf) ->
     end,
     A = erlang:get_stacktrace(),
     A = get(raise),
-    [{?MODULE,my_div,2,_}|_] = A,
+    [{erlang,'div',[1, 0], _},{?MODULE,my_div,2,_}|_] = A,
     %%
     N = 8, % Must be even
     N = erlang:system_flag(backtrace_depth, N),
@@ -404,11 +451,20 @@ foo({raise,{Class,Reason,Stacktrace}}) ->
     erlang:raise(Class, Reason, Stacktrace).
 %%foo(function_clause) -> % must not be defined!
 
-my_div(A, B) ->
-    A div B.
+my_add(A, B) -> A + B.
+my_minus(A, B) -> A - B.
+my_times(A, B) -> A * B.
+my_div(A, B) -> A div B.
+my_rem(A, B) -> A rem B.
 
-my_add(A, B) ->
-    A + B.
+my_band(A, B) -> A band B.
+my_bor(A, B) -> A bor B.
+my_bsl(A, B) -> A bsl B.
+my_bsr(A, B) -> A bsr B.
+my_bxor(A, B) -> A bxor B.
+my_bnot(A) -> bnot A.
+
+my_element(A, B) -> element(A, B).
 
 my_abs(X) -> abs(X).
 
