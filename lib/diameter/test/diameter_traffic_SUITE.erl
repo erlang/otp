@@ -145,9 +145,6 @@
 %% How to decode incoming messages.
 -define(DECODINGS, [record, false, map, list]).
 
-%% How to send answers, in a diameter_packet or not.
--define(CONTAINERS, [pkt, msg]).
-
 %% Which dictionary to use in the clients.
 -define(RFCS, [rfc3588, rfc6733, rfc4005]).
 
@@ -173,7 +170,6 @@
          client_sender,
          server_service,
          server_decoding,
-         server_container,
          server_sender,
          server_throttle}).
 
@@ -267,24 +263,22 @@ all() ->
 groups() ->
     [{P, [P], Ts} || Ts <- [tc(tc())], P <- [shuffle, parallel]]
         ++
-        [{?util:name([T,E,D,SD,SC,S,SS,ST,CS]),
+        [{?util:name([T,E,D,SD,S,SS,ST,CS]),
           [],
           [{group, if S -> shuffle; not S -> parallel end}]}
          || T  <- ?TRANSPORTS,
             E  <- ?ENCODINGS,
             D  <- ?RFCS,
             SD <- ?DECODINGS,
-            SC <- ?CONTAINERS,
             S  <- ?STRING_DECODES,
             SS <- ?SENDERS,
             ST <- ?CALLBACKS,
             CS <- ?SENDERS]
         ++
-        [{T, [], groups([[T,E,D,SD,SC,S,SS,ST,CS]
+        [{T, [], groups([[T,E,D,SD,S,SS,ST,CS]
                          || E  <- ?ENCODINGS,
                             D  <- ?RFCS,
                             SD <- ?DECODINGS,
-                            SC <- ?CONTAINERS,
                             S  <- ?STRING_DECODES,
                             SS <- ?SENDERS,
                             ST <- ?CALLBACKS,
@@ -295,7 +289,7 @@ groups() ->
         [{traffic, [], [{group, T} || T <- ?TRANSPORTS]}].
 
 %groups(_) ->  %% debug
-%    Name = [tcp,record,rfc6733,map,pkt,false,false,false,false],
+%    Name = [tcp,record,rfc6733,map,false,false,false,false],
 %    [{group, ?util:name(Name)}];
 groups(Names) ->
     [{group, ?util:name(L)} || L <- Names].
@@ -334,9 +328,9 @@ init_per_group(sctp = Name, Config) ->
 init_per_group(Name, Config) ->
     Nas = proplists:get_value(rfc4005, Config, false),
     case ?util:name(Name) of
-        [_,_,D,_,_,_,_,_,_] when D == rfc4005, true /= Nas ->
+        [_,_,D,_,_,_,_,_] when D == rfc4005, true /= Nas ->
             {skip, rfc4005};
-        [T,E,D,SD,SC,S,SS,ST,CS] ->
+        [T,E,D,SD,S,SS,ST,CS] ->
             G = #group{transport = T,
                        strings = S,
                        encoding = E,
@@ -345,7 +339,6 @@ init_per_group(Name, Config) ->
                        client_sender = CS,
                        server_service = [$S|?util:unique_string()],
                        server_decoding = SD,
-                       server_container = SC,
                        server_sender = SS,
                        server_throttle = ST},
             %% Limit the number of testcase, since the number of
@@ -469,7 +462,6 @@ add_transports(Config) ->
            client_service = CN,
            client_sender = CS,
            server_service = SN,
-           server_container = SC,
            server_sender = SS,
            server_throttle = ST}
         = group(Config),
@@ -491,7 +483,7 @@ add_transports(Config) ->
           || D <- ?DECODINGS,  %% for multiple candidate peers
              R <- ?RFCS,
              R /= rfc4005 orelse have_nas(),
-             Id <- [{D,E,SC}]],
+             Id <- [{D,E}]],
     %% The server uses the client's Origin-State-Id to decide how to
     %% answer.
     ?util:write_priv(Config, "transport", [LRef | Cs]).
@@ -1052,11 +1044,11 @@ call(Config, Req, Opts) ->
                   msg(Req, Enc, Dict0),
                   [{extra, [{Name, Group}, diameter_lib:now()]} | Opts]).
 
-origin({D,E,C}) ->
-    8*decode(D) + 2*encode(E) + container(C);
+origin({D,E}) ->
+    4*decode(D) + encode(E);
 
 origin(N) ->
-    {decode(N bsr 3), encode((N bsr 1) rem 4), container(N rem 2)}.
+    {decode(N bsr 2), encode(N rem 4)}.
 
 %% Map atoms. The atoms are part of (constructed) group names, so it's
 %% good that they're readable.
@@ -1076,11 +1068,6 @@ encode(map)    -> 2;
 encode(0) -> record;
 encode(1) -> list;
 encode(2) -> map.
-
-container(pkt) -> 0;
-container(msg) -> 1;
-container(0) -> pkt;
-container(_) -> msg.
 
 msg([H|_] = Msg, record = E, diameter_gen_base_rfc3588)
   when H == 'ACR';
@@ -1229,10 +1216,9 @@ pick_peer(Peers, _, [$C|_], _State, {send_detach, Group}, _, {_,_}) ->
 
 find(#group{encoding = E,
             client_service = CN,
-            server_decoding = D,
-            server_container = C},
+            server_decoding = D},
      [_|_] = Peers) ->
-    Id = {D,E,C},
+    Id = {D,E},
     [P] = [P || P <- Peers, id(Id, P, CN)],
     {ok, P}.
 
@@ -1544,21 +1530,32 @@ handle_request(#diameter_packet{header = H, avps = As}
     V = EI bsr B,  %% assert
     V = HI bsr B,  %%
     #diameter_caps{origin_state_id = {_,[Id]}} = Caps,
-    {D,_,_} = T = origin(Id),
+    {D,_} = T = origin(Id),
     wrap(T, H, request(to_map(D, Pkt), [H|As], Caps)).
 
 wrap(Id, H, {Tag, Action, Post}) ->
     {Tag, wrap(Id, H, Action), Post};
+
 wrap(_, _, {reply, [#diameter_header{} | _]} = T) ->
     T;
-wrap({_,E,C}, H, {reply, Ans}) ->
-    Msg = msg(Ans, E, diameter_gen_base_rfc3588),
-    wrap(C, H, {reply, base_to_nas(Msg, H)});
-wrap(pkt, _, {reply, Ans})
-  when not is_record(Ans, diameter_packet) ->
-    {reply, #diameter_packet{msg = Ans}};
+
+wrap({_,E}, H, {reply, Ans}) ->
+    Msg = base_to_nas(msg(Ans, E, diameter_gen_base_rfc3588), H),
+    {reply, wrap(Msg)};
+
 wrap(_, _, T) ->
     T.
+
+%% Randomly wrap the answer in a diameter_packet.
+
+wrap(#diameter_packet{} = Pkt) ->
+    Pkt;
+
+wrap(Msg) ->
+    case rand:uniform(2) of
+        1 -> #diameter_packet{msg = Msg};
+        2 -> Msg
+    end.
 
 %% base_to_nas/2
 
