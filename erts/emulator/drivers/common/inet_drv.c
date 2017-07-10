@@ -9516,6 +9516,7 @@ static void tcp_inet_timeout(ErlDrvData e)
 	    set_busy_port(desc->inet.port, 0);
 	    inet_reply_error_am(INETP(desc), am_timeout);
 	    if (desc->send_timeout_close) {
+                tcp_clear_output(desc);
 		erl_inet_close(INETP(desc));
 	    }
 	}
