@@ -993,7 +993,6 @@ Eterm erts_debug_dump_monitors_1(BIF_ALIST_1)
 	    erts_dump_monitors(dep->monitors,0);
 	    erts_smp_de_links_unlock(dep);
 	    erts_printf("Monitors dumped-------------------------\n");
-	    erts_deref_dist_entry(dep);
 	    BIF_RET(am_true);
 	} else {
 	    BIF_ERROR(p,BADARG);
@@ -1038,7 +1037,6 @@ Eterm erts_debug_dump_links_1(BIF_ALIST_1)
 		erts_dump_links(dep->nlinks,0);
 		erts_smp_de_links_unlock(dep);
 		erts_printf("Links dumped----------------------------\n");
-		erts_deref_dist_entry(dep);
 		BIF_RET(am_true);
 	    } else {
 		BIF_ERROR(p,BADARG);

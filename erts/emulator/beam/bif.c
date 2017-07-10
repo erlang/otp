@@ -475,7 +475,6 @@ BIF_RETTYPE demonitor(Process *c_p, Eterm ref, Eterm *multip)
    ErtsMonitor  *mon = NULL;  /* The monitor entry to delete */
    Eterm        to = NIL;     /* Monitor link traget */
    DistEntry    *dep = NULL;  /* Target's distribution entry */
-   int          deref_de = 0;
    BIF_RETTYPE  res = am_false;
    int          unlock_link = 1;
 
@@ -505,8 +504,6 @@ BIF_RETTYPE demonitor(Process *c_p, Eterm ref, Eterm *multip)
            ASSERT(is_node_name_atom(to));
            dep = erts_sysname_to_connected_dist_entry(to);
            ASSERT(dep != erts_this_dist_entry);
-           if (dep)
-               deref_de = 1;
        } else if (is_port(to)) {
            if (port_dist_entry(to) != erts_this_dist_entry) {
                goto badarg;
@@ -524,11 +521,6 @@ BIF_RETTYPE demonitor(Process *c_p, Eterm ref, Eterm *multip)
            unlock_link = 0;
        }
        else { /* Local monitor */
-           if (deref_de) {
-               deref_de = 0;
-               erts_deref_dist_entry(dep);
-           }
-           dep = NULL;
            demonitor_local_process(c_p, ref, to, &res);
        }
        break;
@@ -542,11 +534,6 @@ done:
 
    if (unlock_link)
        erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_LINK);
-
-   if (deref_de) {
-       ASSERT(dep);
-       erts_deref_dist_entry(dep);
-   }
 
    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
    BIF_RET(res);
@@ -882,7 +869,6 @@ BIF_RETTYPE monitor_2(BIF_ALIST_2)
     Eterm target = BIF_ARG_2;
     BIF_RETTYPE ret;
     DistEntry  *dep = NULL; 
-    int deref_de = 0;
 
     /* Only process monitors are implemented */
     switch (BIF_ARG_1) {
@@ -942,20 +928,13 @@ local_port:
 	}
 	dep = erts_sysname_to_connected_dist_entry(remote_node);
 	if (dep == erts_this_dist_entry) {
-	    deref_de = 1;
             ret = local_name_monitor(BIF_P, BIF_ARG_1, name);
 	} else {
-	    if (dep)
-		deref_de = 1;
 	    ret = remote_monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, dep, name, 1);
 	}
     } else {
 badarg:
 	ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
-    }
-    if (deref_de) {
-	deref_de = 0;
-	erts_deref_dist_entry(dep);
     }
 
     return ret;
@@ -2257,7 +2236,6 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext *ctx)
 
 	if (dep == erts_this_dist_entry) {
 	    Eterm id;
-	    erts_deref_dist_entry(dep);
 	    if (IS_TRACED_FL(p, F_TRACE_SEND))
 		trace_send(p, to, msg);
 	    if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
@@ -2280,11 +2258,9 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext *ctx)
 	}
 
 	ret = remote_send(p, dep, tp[1], to, msg, ctx);
-	if (ret != SEND_YIELD_CONTINUE) {
-	    if (dep) {
-		erts_deref_dist_entry(dep);
-	    }
-	} else {
+	if (ret == SEND_YIELD_CONTINUE) {
+            if (dep)
+                erts_ref_dist_entry(dep);
 	    ctx->dep_to_deref = dep;
 	}
 	return ret;
@@ -4220,7 +4196,6 @@ BIF_RETTYPE list_to_pid_1(BIF_ALIST_1)
 	goto bad;
 
     if(dep == erts_this_dist_entry) {
-	erts_deref_dist_entry(dep);
 	BIF_RET(make_internal_pid(make_pid_data(c, b)));
     }
     else {
@@ -4240,13 +4215,10 @@ BIF_RETTYPE list_to_pid_1(BIF_ALIST_1)
       etp->data.ui[0] = make_pid_data(c, b);
 
       MSO(BIF_P).first = (struct erl_off_heap_header*) etp;
-      erts_deref_dist_entry(dep);
       BIF_RET(make_external_pid(etp));
     }
 
  bad:
-    if (dep)
-	erts_deref_dist_entry(dep);
     if (buf)
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
     BIF_ERROR(BIF_P, BADARG);
@@ -4291,7 +4263,6 @@ BIF_RETTYPE list_to_port_1(BIF_ALIST_1)
 	goto bad;
 
     if(dep == erts_this_dist_entry) {
-	erts_deref_dist_entry(dep);
 	BIF_RET(make_internal_port(p));
     }
     else {
@@ -4311,13 +4282,10 @@ BIF_RETTYPE list_to_port_1(BIF_ALIST_1)
       etp->data.ui[0] = p;
 
       MSO(BIF_P).first = (struct erl_off_heap_header*) etp;
-      erts_deref_dist_entry(dep);
       BIF_RET(make_external_port(etp));
     }
 
  bad:
-    if (dep)
-	erts_deref_dist_entry(dep);
     BIF_ERROR(BIF_P, BADARG);
 }
 
@@ -4437,12 +4405,9 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
       res = make_external_ref(etp);
     }
 
-    erts_deref_dist_entry(dep);
     BIF_RET(res);
 
  bad:
-    if (dep)
-	erts_deref_dist_entry(dep);
     BIF_ERROR(BIF_P, BADARG);
 }
 

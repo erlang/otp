@@ -48,6 +48,9 @@
 #define ERTS_PORT_TASK_ONLY_BASIC_TYPES__
 #include "erl_port_task.h"
 #undef ERTS_PORT_TASK_ONLY_BASIC_TYPES__
+#define ERTS_BINARY_TYPES_ONLY__
+#include "erl_binary.h"
+#undef ERTS_BINARY_TYPES_ONLY__
 
 #define ERTS_NODE_TAB_DELAY_GC_DEFAULT (60)
 #define ERTS_NODE_TAB_DELAY_GC_MAX (100*1000*1000)
@@ -113,7 +116,6 @@ typedef struct dist_entry_ {
     HashBucket hash_bucket;     /* Hash bucket */
     struct dist_entry_ *next;	/* Next entry in dist_table (not sorted) */
     struct dist_entry_ *prev;	/* Previous entry in dist_table (not sorted) */
-    erts_smp_refc_t refc;		/* Reference count */
 
     erts_smp_rwmtx_t rwmtx;     /* Protects all fields below until lck_mtx. */
     Eterm sysname;		/* name@host atom for efficiency */
@@ -155,6 +157,8 @@ typedef struct dist_entry_ {
     Uint (*send)(Port *prt, ErtsDistOutputBuf *obuf);
 
     struct cache* cache;	/* The atom cache */
+
+    ErtsThrPrgrLaterOp later_op;
 } DistEntry;
 
 typedef struct erl_node_ {
@@ -204,8 +208,12 @@ Eterm erts_get_node_and_dist_references(struct process *);
 int erts_lc_is_de_rwlocked(DistEntry *);
 int erts_lc_is_de_rlocked(DistEntry *);
 #endif
+int erts_dist_entry_destructor(Binary *bin);
+DistEntry *erts_dhandle_to_dist_entry(Eterm dhandle);
+Eterm erts_make_dhandle(Process *c_p, DistEntry *dep);
+void erts_ref_dist_entry(DistEntry *dep);
+void erts_deref_dist_entry(DistEntry *dep);
 
-ERTS_GLB_INLINE void erts_deref_dist_entry(DistEntry *dep);
 ERTS_GLB_INLINE void erts_deref_node_entry(ErlNode *np);
 ERTS_GLB_INLINE void erts_smp_de_rlock(DistEntry *dep);
 ERTS_GLB_INLINE void erts_smp_de_runlock(DistEntry *dep);
@@ -215,14 +223,6 @@ ERTS_GLB_INLINE void erts_smp_de_links_lock(DistEntry *dep);
 ERTS_GLB_INLINE void erts_smp_de_links_unlock(DistEntry *dep);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE void
-erts_deref_dist_entry(DistEntry *dep)
-{
-    ASSERT(dep);
-    if (erts_smp_refc_dectest(&dep->refc, 0) == 0)
-	erts_schedule_delete_dist_entry(dep);
-}
 
 ERTS_GLB_INLINE void
 erts_deref_node_entry(ErlNode *np)

@@ -13508,7 +13508,6 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		    }
 		    erts_destroy_monitor(rmon);
 		}
-		erts_deref_dist_entry(dep);
 	    }
 	} else {
             ASSERT(is_pid(mon->u.pid) || is_port(mon->u.pid));
@@ -13748,7 +13747,6 @@ static void doit_exit_link(ErtsLink *lnk, void *vpcontext)
 	    erts_smp_de_links_unlock(dep);
 	    if (rlnk)
 		erts_destroy_link(rlnk);
-	    erts_deref_dist_entry(dep);
 	}
 	break;
 	
@@ -14492,3 +14490,24 @@ erts_dbg_check_halloc_lock(Process *p)
     return 0;
 }
 #endif
+
+void
+erts_debug_later_op_foreach(void (*callback)(void*),
+                            void (*func)(void *, ErtsThrPrgrVal, void *),
+                            void *arg)
+{
+    int six;
+    if (!erts_smp_thr_progress_is_blocking())
+	ERTS_INTERNAL_ERROR("Not blocking thread progress");
+
+    for (six = 0; six < erts_no_schedulers; six++) {
+        ErtsSchedulerData *esdp = &erts_aligned_scheduler_data[six].esd;
+	ErtsThrPrgrLaterOp *lop = esdp->aux_work_data.later_op.first;
+
+        while (lop) {
+            if (lop->func == callback)
+                func(arg, lop->later, lop->data);
+            lop = lop->next;
+        }
+    }
+}

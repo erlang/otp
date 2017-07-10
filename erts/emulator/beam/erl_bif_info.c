@@ -3830,7 +3830,6 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 			subres = make_link_list(BIF_P, dep->nlinks, NIL);
 			subres = make_link_list(BIF_P, dep->node_links, subres);
 			erts_smp_de_links_unlock(dep);
-			erts_deref_dist_entry(dep);
 			BIF_RET(subres);
 		    } else {
 			BIF_RET(am_undefined);
@@ -3861,7 +3860,6 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 			erts_smp_de_links_lock(dep);
 			ml = make_monitor_list(BIF_P, dep->monitors);
 			erts_smp_de_links_unlock(dep);
-			erts_deref_dist_entry(dep);
 			BIF_RET(ml);
 		    } else {
 			BIF_RET(am_undefined);
@@ -3876,7 +3874,6 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 		else {
 		    Uint cno = dist_entry_channel_no(dep);
 		    res = make_small(cno);
-		    erts_deref_dist_entry(dep);
 		}
 		BIF_RET(res);
 	    }
@@ -3946,7 +3943,6 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 		    if (is_internal_port(dep->cid) || is_internal_pid(dep->cid))
 			res = dep->cid;
 		    erts_smp_de_runlock(dep);
-		    erts_deref_dist_entry(dep);
 		}
 		BIF_RET(res);
 	    }
@@ -4359,7 +4355,6 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		con_id = dep->connection_id;
 		erts_smp_de_runlock(dep);
 		erts_kill_dist_connection(dep, con_id);
-		erts_deref_dist_entry(dep);
 		BIF_RET(am_true);
 	    }
 	}

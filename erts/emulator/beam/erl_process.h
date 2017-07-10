@@ -725,6 +725,11 @@ extern ErtsSchedulerData *erts_scheduler_data;
 int erts_smp_lc_runq_is_locked(ErtsRunQueue *);
 #endif
 
+void
+erts_debug_later_op_foreach(void (*callback)(void*),
+                            void (*func)(void *, ErtsThrPrgrVal, void *),
+                            void *arg);
+
 #ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
 
 #ifdef ERTS_SMP

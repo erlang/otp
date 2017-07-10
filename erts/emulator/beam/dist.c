@@ -2200,9 +2200,6 @@ erts_dist_command(Port *prt, int reds_limit)
 
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
 
-    erts_smp_refc_inc(&dep->refc, 1); /* Otherwise dist_entry might be
-				     removed if port command fails */
-
     erts_smp_atomic_set_mb(&dep->dist_cmd_scheduled, 0);
 
     erts_smp_de_rlock(dep);
@@ -2213,7 +2210,6 @@ erts_dist_command(Port *prt, int reds_limit)
 
     if (status & ERTS_DE_SFLG_EXITING) {
 	erts_deliver_port_exit(prt, prt->common.id, am_killed, 0, 1);
-	erts_deref_dist_entry(dep);
 	return reds + ERTS_PORT_REDS_DIST_CMD_EXIT;
     }
 
@@ -2426,8 +2422,6 @@ erts_dist_command(Port *prt, int reds_limit)
     if (reds > INT_MAX/2)
 	reds = INT_MAX/2;
 
-    erts_deref_dist_entry(dep);
-
     return reds;
 
  preempted:
@@ -2594,7 +2588,7 @@ dist_ctrl_get_data_notification_1(BIF_ALIST_1)
     if (!dep)
         BIF_ERROR(BIF_P, EXC_NOTSUP);
 
-    if (dep->sysname != BIF_ARG_1)
+    if (erts_dhandle_to_dist_entry(BIF_ARG_1) != dep)
         BIF_ERROR(BIF_P, BADARG);
 
     /*
@@ -2655,7 +2649,7 @@ dist_ctrl_put_data_2(BIF_ALIST_2)
     else
         BIF_ERROR(BIF_P, BADARG);
 
-    dep = erts_find_dist_entry(BIF_ARG_1);
+    dep = erts_dhandle_to_dist_entry(BIF_ARG_1);
     if (!dep)
         BIF_ERROR(BIF_P, BADARG);
 
@@ -2699,12 +2693,10 @@ dist_get_stat_1(BIF_ALIST_1)
     Sint64 read, write, pend;
     Eterm res, *hp, **hpp;
     Uint sz, *szp;
-    DistEntry *dep = erts_find_dist_entry(BIF_ARG_1);
+    DistEntry *dep = erts_dhandle_to_dist_entry(BIF_ARG_1);
 
     if (!dep)
         BIF_ERROR(BIF_P, BADARG);
-
-    ASSERT(dep->sysname == BIF_ARG_1);
 
     erts_smp_de_rlock(dep);
 
@@ -2713,8 +2705,6 @@ dist_get_stat_1(BIF_ALIST_1)
     pend = (Sint64) erts_smp_atomic_read_nob(&dep->qsize);
 
     erts_smp_de_runlock(dep);
-
-    erts_deref_dist_entry(dep);
 
     sz = 0;
     szp = &sz;
@@ -2744,7 +2734,7 @@ dist_ctrl_input_handler_2(BIF_ALIST_2)
     if (!dep)
         BIF_ERROR(BIF_P, EXC_NOTSUP);
 
-    if (dep->sysname != BIF_ARG_1)
+    if (erts_dhandle_to_dist_entry(BIF_ARG_1) != dep)
         BIF_ERROR(BIF_P, BADARG);
 
     if (is_not_internal_pid(BIF_ARG_2))
@@ -2769,7 +2759,7 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
     if (!dep)
         BIF_ERROR(BIF_P, EXC_NOTSUP);
 
-    if (dep->sysname != BIF_ARG_1)
+    if (erts_dhandle_to_dist_entry(BIF_ARG_1) != dep)
         BIF_ERROR(BIF_P, BADARG);
 
     erts_smp_de_rlock(dep);
@@ -3010,9 +3000,6 @@ info_dist_entry(fmtfn_t to, void *arg, DistEntry *dep, int visible, int connecte
   }
 
   erts_print(to, arg, "Name: %T", dep->sysname);
-#ifdef DEBUG
-  erts_print(to, arg, " (refc=%d)", erts_smp_refc_read(&dep->refc, 0));
-#endif
   erts_print(to, arg, "\n");
   if (!connected && is_nil(dep->cid)) {
     if (dep->nlinks) {
@@ -3170,7 +3157,7 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
      * so we *need* to use the new one after erts_set_this_node()
      * is called.
      */
-    erts_smp_refc_inc(&erts_this_dist_entry->refc, 1);
+    erts_ref_dist_entry(erts_this_dist_entry);
     ERTS_PROC_SET_DIST_ENTRY(net_kernel, erts_this_dist_entry);
 
     BIF_RET(am_true);
@@ -3205,9 +3192,6 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
     ErtsProcLocks proc_unlock = 0;
     Process *proc;
     Port *pp = NULL;
-
-    /* Prepare for success */
-    ERTS_BIF_PREP_RET(ret, BIF_ARG_1);
 
     /*
      * Check and pick out arguments
@@ -3371,6 +3355,9 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
     erts_set_dist_entry_connected(dep, BIF_ARG_2, flags);
 
     erts_smp_de_rwunlock(dep);
+
+    ERTS_BIF_PREP_RET(ret, erts_make_dhandle(BIF_P, dep));
+
     dep = NULL; /* inc of refc transferred to port (dist_entry field) */
 
     inc_no_nodes();
@@ -3699,7 +3686,6 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_LINK);
 
  done:
-    erts_deref_dist_entry(dep);
     BIF_RET(am_true);
 }
 

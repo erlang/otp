@@ -616,7 +616,7 @@ erts_make_dist_ext_copy(ErtsDistExternal *edep, Uint xsize)
     sys_memcpy((void *) ep, (void *) edep, dist_ext_sz);
     ep += dist_ext_sz;
     if (new_edep->dep)
-	erts_smp_refc_inc(&new_edep->dep->refc, 1);
+        erts_ref_dist_entry(new_edep->dep);
     new_edep->extp = ep;
     new_edep->ext_endp = ep + ext_sz;
     new_edep->heap_size = -1;
