@@ -70,7 +70,8 @@
 	  reasons_mask,
 	  cert_status,
 	  interim_reasons_mask,
-	  valid_ext
+	  valid_ext,
+          details
 	 }).
 
 -record('ECPoint', {

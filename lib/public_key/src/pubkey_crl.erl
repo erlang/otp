@@ -58,7 +58,8 @@ validate(OtpCert, OtherDPCRLs, DP, {DerCRL, CRL}, {DerDeltaCRL, DeltaCRL},
 init_revokation_state() ->
     #revoke_state{reasons_mask = sets:new(),
 		  interim_reasons_mask = sets:new(),
-		  cert_status = unrevoked}.
+		  cert_status = unrevoked,
+                  details = []}.
 
 fresh_crl(_, {undefined, undefined}, _) ->
     %% Typically happens when there is no delta CRL that covers a CRL
@@ -152,9 +153,10 @@ verify_crl(OtpCert, DP, CRL, DerCRL, DeltaCRL, DerDeltaCRL, OtherDPCRLs,
 					       RevokedState,
 					       CRL, DerCRL, DeltaCRL, DerDeltaCRL,
 					       IssuerFun, TrustedOtpCert, Path, OtherDPCRLs, IDP);
-		_ ->
-		    {invalid, State0#revoke_state{valid_ext = ValidExt}}
-	    end;
+	        _ ->
+                    Details = RevokedState#revoke_state.details,
+		    {invalid, RevokedState#revoke_state{valid_ext = ValidExt, details = [{{bad_crl, no_issuer_cert_chain}, CRL} | Details]}}
+            end;
 	{error, issuer_not_found} ->
 	    case Fun(DP, CRL, issuer_not_found, AdditionalArgs) of
 		{ok, TrustedOtpCert, Path} ->
@@ -163,13 +165,16 @@ verify_crl(OtpCert, DP, CRL, DerCRL, DeltaCRL, DerDeltaCRL, OtherDPCRLs,
 					       DerDeltaCRL, IssuerFun,
 					       TrustedOtpCert, Path, OtherDPCRLs, IDP);
 		_ ->
-		    {invalid, {skip, State0}}
-	    end
+                    Details = State0#revoke_state.details,
+		    {invalid, {skip, State0#revoke_state{details = [{{bad_crl, no_issuer_cert_chain}, CRL} | Details] }}}
+            end
     catch
-	throw:{bad_crl, invalid_issuer} ->
-	    {invalid, {skip, State0}};
-	throw:_ ->
-	    {invalid, State0#revoke_state{valid_ext = ValidExt}}
+	throw:{bad_crl, invalid_issuer} = Reason ->
+            Details = RevokedState#revoke_state.details,
+	    {invalid, {skip, RevokedState#revoke_state{details = [{Reason, CRL} | Details]}}};
+	throw:Reason ->
+            Details = RevokedState#revoke_state.details,
+	    {invalid, RevokedState#revoke_state{details =  [{Reason, CRL} | Details]}}
     end.
 
 verify_mask_and_signatures(Revoked, DeltaRevoked, RevokedState, CRL, DerCRL, DeltaCRL, DerDeltaCRL,
@@ -183,10 +188,12 @@ verify_mask_and_signatures(Revoked, DeltaRevoked, RevokedState, CRL, DerCRL, Del
 				     TrustedOtpCert, Path, IssuerFun, OtherDPCRLs, IDP),
 	{valid, Revoked, DeltaRevoked, RevokedState#revoke_state{reasons_mask = ReasonsMask}, IDP}
     catch
-	throw:_ ->
-	    {invalid, RevokedState};
+	throw:Reason ->
+            Details = RevokedState#revoke_state.details,
+	    {invalid, RevokedState#revoke_state{details =  [{Reason, CRL} | Details]}};
 	error:{badmatch, _} ->
-	    {invalid, RevokedState}
+            Details = RevokedState#revoke_state.details,
+	    {invalid, RevokedState#revoke_state{details = [{{bad_crl, invalid_signature}, CRL} | Details]}}
     end.
 
 
@@ -356,7 +363,7 @@ verify_scope(#'OTPCertificate'{tbsCertificate = TBSCert}, #'DistributionPoint'{c
     verify_scope(DPName, IDPName, Names, TBSCert, IDP).
 
 verify_scope(asn1_NOVALUE, _, asn1_NOVALUE, _, _) ->
-    throw({bad_crl, scope_error1});
+    throw({bad_crl, scope_error});
 verify_scope(asn1_NOVALUE, IDPName, DPIssuerNames, TBSCert, IDP) ->
     verify_dp_name(IDPName, DPIssuerNames),
     verify_dp_bools(TBSCert, IDP);
