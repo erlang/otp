@@ -264,7 +264,7 @@ renegotiation(ConnectionPid) ->
 
 %%--------------------------------------------------------------------
 -spec prf(pid(), binary() | 'master_secret', binary(),
-	  binary() | ssl:prf_random(), non_neg_integer()) ->
+	  [binary() | ssl:prf_random()], non_neg_integer()) ->
 		 {ok, binary()} | {error, reason()} | {'EXIT', term()}.
 %%
 %% Description: use a ssl sessions TLS PRF to generate key material
