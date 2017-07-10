@@ -64,6 +64,7 @@
          send_invalid_reject/1,
          send_unexpected_mandatory_decode/1,
          send_unexpected_mandatory/1,
+         send_too_many/1,
          send_long/1,
          send_maxlen/1,
          send_nopeer/1,
@@ -234,6 +235,8 @@
         ?'DIAMETER_BASE_RESULT-CODE_AVP_UNSUPPORTED').
 -define(UNSUPPORTED_VERSION,
         ?'DIAMETER_BASE_RESULT-CODE_UNSUPPORTED_VERSION').
+-define(TOO_MANY,
+        ?'DIAMETER_BASE_RESULT-CODE_AVP_OCCURS_TOO_MANY_TIMES').
 -define(REALM_NOT_SERVED,
         ?'DIAMETER_BASE_RESULT-CODE_REALM_NOT_SERVED').
 -define(UNABLE_TO_DELIVER,
@@ -411,6 +414,7 @@ tc() ->
      send_invalid_reject,
      send_unexpected_mandatory_decode,
      send_unexpected_mandatory,
+     send_too_many,
      send_long,
      send_maxlen,
      send_nopeer,
@@ -549,7 +553,9 @@ rfc4005(Config) ->
 
 %% Ensure that result codes have the expected values.
 result_codes(_Config) ->
-    {2001, 3001, 3002, 3003, 3004, 3007, 3008, 3009, 5001, 5011, 5014}
+    {2001,
+     3001, 3002, 3003, 3004, 3007, 3008, 3009,
+     5001, 5009, 5011, 5014}
         = {?SUCCESS,
            ?COMMAND_UNSUPPORTED,
            ?UNABLE_TO_DELIVER,
@@ -559,6 +565,7 @@ result_codes(_Config) ->
            ?INVALID_HDR_BITS,
            ?INVALID_AVP_BITS,
            ?AVP_UNSUPPORTED,
+           ?TOO_MANY,
            ?UNSUPPORTED_VERSION,
            ?INVALID_AVP_LENGTH}.
 
@@ -689,6 +696,18 @@ send_unexpected_mandatory_decode(Config) ->
                     is_mandatory = true,
                     value = 12,
                     data = <<12:32>>}]]
+        = failed_avps(Avps, Config).
+
+%% Try to two Auth-Application-Id in ASR expect 5009.
+send_too_many(Config) ->
+    Req = ['ASR'],
+
+    ['ASA' | #{'Session-Id' := _,
+               'Result-Code' := ?TOO_MANY,
+               'Failed-AVP' := Avps}]
+        = call(Config, Req),
+    [[#diameter_avp{name = 'Auth-Application-Id',
+                    value = 42}]]
         = failed_avps(Avps, Config).
 
 %% Send an containing a faulty Grouped AVP (empty Proxy-Host in
@@ -1249,6 +1268,25 @@ prepare(Pkt, Caps, N, #group{client_dict = Dict0} = Group)
     Offset = L - length(Padding) - 4,
     <<H:Offset/binary, Len:24, T/binary>> = Bin,
     E#diameter_packet{bin = <<H/binary, (Len+9):24, T/binary>>};
+
+prepare(Pkt, Caps, N, #group{client_dict = Dict0} = Group)
+  when N == send_too_many ->
+    Req = prepare(Pkt, Caps, Group),
+
+    #diameter_packet{header = #diameter_header{length = L},
+                     bin = B}
+        = E
+        = diameter_codec:encode(Dict0,
+                                Pkt#diameter_packet{msg = Req}),
+    M = L - 4 - 12,
+    <<1, L:24,
+      T:M/binary,
+      A:8/binary, D:4/binary>>
+        = B,
+    E#diameter_packet{bin = <<1, (L+12):24,
+                              T/binary,
+                              A/binary, D/binary,
+                              A/binary, 42:32>>};
 
 prepare(Pkt, Caps, N, #group{client_dict = Dict0} = Group)
   when N == send_long_avp_length;
