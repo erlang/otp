@@ -73,6 +73,7 @@ all() ->
      {group, http_reload},
      {group, https_reload},
      {group, http_mime_types},
+     {group, http_logging},
      mime_types_format
     ].
 
@@ -96,6 +97,7 @@ groups() ->
      {https_htaccess, [], [{group, htaccess}]},
      {http_security, [], [{group, security}]},
      {https_security, [], [{group, security}]},
+     {http_logging, [], [{group, logging}]},
      {http_reload, [], [{group, reload}]},
      {https_reload, [], [{group, reload}]},
      {http_mime_types, [], [alias_1_1, alias_1_0, alias_0_9]},
@@ -119,6 +121,8 @@ groups() ->
 			   ]},
      {htaccess, [], [htaccess_1_1, htaccess_1_0, htaccess_0_9]},
      {security, [], [security_1_1, security_1_0]}, %% Skip 0.9 as causes timing issus in test code
+     {logging, [], [disk_log_internal, disk_log_exists,
+             disk_log_bad_size, disk_log_bad_file]},
      {http_1_1, [],
       [host, chunked, expect, cgi, cgi_chunked_encoding_test,
        trace, range, if_modified_since, mod_esi_chunk_timeout,
@@ -254,6 +258,11 @@ init_per_group(auth_api_dets, Config) ->
 init_per_group(auth_api_mnesia, Config) ->
     start_mnesia(proplists:get_value(node, Config)),
     [{auth_prefix, "mnesia_"} | Config];
+init_per_group(http_logging, Config) ->
+    Config1 = [{http_version, "HTTP/1.1"} | Config],
+    ServerRoot = proplists:get_value(server_root, Config1),
+    Path = ServerRoot ++ "/httpd_log_transfer",
+    [{transfer_log, Path} | Config1];
 init_per_group(_, Config) ->
     Config.
 
@@ -310,9 +319,59 @@ init_per_testcase(range, Config) ->
     create_range_data(DocRoot),
     dbg(range, Config, init);
 
+init_per_testcase(disk_log_internal, Config0) ->
+    ok = start_apps(http_logging),
+    Config1 = init_httpd(http_logging, [{type, ip_comm} | Config0]),
+    ct:timetrap({seconds, 20}),
+    dbg(disk_log_internal, Config1, init);
+
+init_per_testcase(disk_log_exists, Config0) ->
+    ServerRoot = proplists:get_value(server_root, Config0),
+    Filename = ServerRoot ++ "/httpd_log_transfer",
+    {ok, Log} = disk_log:open([{name, Filename}, {file, Filename},
+            {repair, truncate}, {format, internal},
+            {type, wrap}, {size, {1048576, 5}}]),
+    ok = disk_log:log(Log, {bogus, node(), self()}),
+    ok = disk_log:close(Log),
+    ok = start_apps(http_logging),
+    Config1 = init_httpd(http_logging, [{type, ip_comm} | Config0]),
+    ct:timetrap({seconds, 20}),
+    dbg(disk_log_internal, Config1, init);
+
+init_per_testcase(disk_log_bad_size, Config0) ->
+    ServerRoot = proplists:get_value(server_root, Config0),
+    Filename = ServerRoot ++ "/httpd_log_transfer",
+    {ok, Log} = disk_log:open([{name, Filename}, {file, Filename},
+            {repair, truncate}, {format, internal},
+            {type, wrap}, {size, {1048576, 5}}]),
+    ok = disk_log:log(Log, {bogus, node(), self()}),
+    ok = disk_log:close(Log),
+    ok = file:delete(Filename ++ ".siz"),
+    ok = start_apps(http_logging),
+    Config1 = init_httpd(http_logging, [{type, ip_comm} | Config0]),
+    ct:timetrap({seconds, 20}),
+    dbg(disk_log_internal, Config1, init);
+
+init_per_testcase(disk_log_bad_file, Config0) ->
+    ServerRoot = proplists:get_value(server_root, Config0),
+    Filename = ServerRoot ++ "/httpd_log_transfer",
+    ok = file:write_file(Filename ++ ".1", <<>>),
+    ok = start_apps(http_logging),
+    Config1 = init_httpd(http_logging, [{type, ip_comm} | Config0]),
+    ct:timetrap({seconds, 20}),
+    dbg(disk_log_internal, Config1, init);
+
 init_per_testcase(Case, Config) ->
     ct:timetrap({seconds, 20}),
     dbg(Case, Config, init).
+
+end_per_testcase(Case, Config) when
+        Case == disk_log_internal;
+        Case == disk_log_exists;
+        Case == disk_log_bad_size;
+        Case == disk_log_bad_file ->
+    inets:stop(),
+    dbg(Case, Config, 'end');
 
 end_per_testcase(Case, Config) ->
     dbg(Case, Config, 'end').
@@ -1257,6 +1316,63 @@ security(Config) ->
     true = unblock_user(Node, "two", Port, OpenDir).
 
 %%-------------------------------------------------------------------------
+
+disk_log_internal() ->
+    ["Test mod_disk_log"].
+
+disk_log_internal(Config) ->
+    Version = proplists:get_value(http_version, Config),
+    Request = "GET /" ++ integer_to_list(rand:uniform(1000000)) ++ " ",
+    ok = http_status(Request, Config, [{statuscode, 404}]),
+    Log = proplists:get_value(transfer_log, Config),
+    Match = list_to_binary(Request ++ Version),
+    disk_log_internal1(Log, Match, disk_log:chunk(Log, start)).
+disk_log_internal1(_, _, eof) ->
+    ct:fail(eof);
+disk_log_internal1(Log, Match, {Cont, [H | T]}) ->
+    case binary:match(H, Match) of
+        nomatch ->
+            disk_log_internal1(Log, Match, {Cont, T});
+        _ ->
+            ok
+    end;
+disk_log_internal1(Log, Match, {Cont, []}) ->
+    disk_log_internal1(Log, Match, disk_log:chunk(Log, Cont)).
+
+disk_log_exists() ->
+    ["Test mod_disk_log with existing logs"].
+
+disk_log_exists(Config) ->
+    Log = proplists:get_value(transfer_log, Config),
+    Self = self(),
+    Node = node(),
+    Log = proplists:get_value(transfer_log, Config),
+    {_, [{bogus, Node, Self} | _]} = disk_log:chunk(Log, start).
+
+disk_log_bad_size() ->
+    ["Test mod_disk_log with existing log, missing .siz"].
+
+disk_log_bad_size(Config) ->
+    Log = proplists:get_value(transfer_log, Config),
+    Self = self(),
+    Node = node(),
+    Log = proplists:get_value(transfer_log, Config),
+    {_, [{bogus, Node, Self} | _]} = disk_log:chunk(Log, start).
+
+disk_log_bad_file() ->
+    ["Test mod_disk_log with bad file"].
+
+disk_log_bad_file(Config) ->
+    Log = proplists:get_value(transfer_log, Config),
+    Version = proplists:get_value(http_version, Config),
+    Request = "GET /" ++ integer_to_list(rand:uniform(1000000)) ++ " ",
+    ok = http_status(Request, Config, [{statuscode, 404}]),
+    Log = proplists:get_value(transfer_log, Config),
+    Match = list_to_binary(Request ++ Version),
+    {_, [H | _]} = disk_log:chunk(Log, start),
+    {_, _} = binary:match(H, Match).
+
+%%-------------------------------------------------------------------------
 non_disturbing_reconfiger_dies(Config) when is_list(Config) -> 
     do_reconfiger_dies([{http_version, "HTTP/1.1"} | Config], non_disturbing).
 disturbing_reconfiger_dies(Config) when is_list(Config) -> 
@@ -1567,6 +1683,7 @@ start_apps(Group) when  Group == http_basic;
 			Group == http_auth_api_mnesia;			
 			Group == http_htaccess;
 			Group == http_security;
+			Group == http_logging;
 			Group == http_reload;
                         Group == http_mime_types->
     inets_test_lib:start_apps([inets]).
@@ -1662,6 +1779,8 @@ server_config(http_security, Config) ->
 server_config(https_security, Config) ->
     ServerRoot = proplists:get_value(server_root, Config),
     tl(auth_conf(ServerRoot)) ++ security_conf(ServerRoot) ++ server_config(https, Config);
+server_config(http_logging, Config) ->
+    log_conf() ++ server_config(http, Config);
 server_config(http_mime_types, Config0) ->
     Config1 = basic_conf() ++  server_config(http, Config0),
     ServerRoot = proplists:get_value(server_root, Config0),
@@ -1863,6 +1982,16 @@ mod_security_conf(SecFile, Dir) ->
      {path, Dir} %% This is should not be needed, but is atm, awful design! 
     ].
     
+log_conf() ->
+    [{modules, [mod_alias, mod_dir, mod_get, mod_head, mod_disk_log]},
+     {transfer_disk_log, "httpd_log_transfer"},
+     {security_disk_log, "httpd_log_security"},
+     {error_disk_log, "httpd_log_error"},
+     {transfer_disk_log_size, {1048576, 5}},
+     {error_disk_log_size, {1048576, 5}},
+     {error_disk_log_size, {1048576, 5}},
+     {security_disk_log_size, {1048576, 5}},
+     {disk_log_format, internal}].
 
 http_status(Request, Config, Expected) ->
     Version = proplists:get_value(http_version, Config),
