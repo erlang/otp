@@ -1256,6 +1256,8 @@ static int tcp_shutdown_error(tcp_descriptor* desc, int err);
 static int tcp_inet_output(tcp_descriptor* desc, HANDLE event);
 static int tcp_inet_input(tcp_descriptor* desc, HANDLE event);
 
+static void tcp_desc_close(tcp_descriptor*);
+
 #ifdef HAVE_UDP
 typedef struct {
     inet_descriptor inet;   /* common data structure (DON'T MOVE) */
@@ -9138,14 +9140,29 @@ static void tcp_inet_stop(ErlDrvData e)
     tcp_descriptor* desc = (tcp_descriptor*)e;
     DEBUGF(("tcp_inet_stop(%ld) {s=%d\r\n", 
 	    (long)desc->inet.port, desc->inet.s));
+
     tcp_close_check(desc);
-    /* free input buffer & output buffer */
-    if (desc->i_buf != NULL)
-	release_buffer(desc->i_buf);
-    desc->i_buf = NULL; /* net_mess2 may call this function recursively when 
-			   faulty messages arrive on dist ports*/
+    tcp_clear_input(desc);
+
     DEBUGF(("tcp_inet_stop(%ld) }\r\n", (long)desc->inet.port));
     inet_stop(INETP(desc));
+}
+
+/* Closes a tcp descriptor without leaving things hanging; the VM keeps trying
+ * to flush IO queues as long as it contains anything even after the port has
+ * been closed from the erlang side, which is desired behavior (Think escripts
+ * writing to files) but pretty hopeless if the underlying fd has been set to
+ * INVALID_SOCKET through desc_close.
+ *
+ * This function should be used in place of desc_close/erl_inet_close in all
+ * TCP-related operations. Note that this only closes the desc cleanly; it
+ * will be freed through tcp_inet_stop later on. */
+static void tcp_desc_close(tcp_descriptor* desc)
+{
+    tcp_clear_input(desc);
+    tcp_clear_output(desc);
+
+    erl_inet_close(INETP(desc));
 }
 
 /* TCP requests from Erlang */
@@ -9392,7 +9409,7 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
     case INET_REQ_CLOSE:
 	DEBUGF(("tcp_inet_ctl(%ld): CLOSE\r\n", (long)desc->inet.port)); 
 	tcp_close_check(desc);
-	erl_inet_close(INETP(desc));
+	tcp_desc_close(desc);
 	return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 
 
@@ -9516,8 +9533,7 @@ static void tcp_inet_timeout(ErlDrvData e)
 	    set_busy_port(desc->inet.port, 0);
 	    inet_reply_error_am(INETP(desc), am_timeout);
 	    if (desc->send_timeout_close) {
-                tcp_clear_output(desc);
-		erl_inet_close(INETP(desc));
+		tcp_desc_close(desc);
 	    }
 	}
 	else {
@@ -9531,7 +9547,7 @@ static void tcp_inet_timeout(ErlDrvData e)
     else if ((state & INET_STATE_CONNECTING) == INET_STATE_CONNECTING) {
 	/* assume connect timeout */
 	/* close the socket since it's not usable (see man pages) */
-	erl_inet_close(INETP(desc));
+	tcp_desc_close(desc);
 	async_error_am(INETP(desc), am_timeout);
     }
     else if ((state & INET_STATE_ACCEPTING) == INET_STATE_ACCEPTING) {
@@ -9694,8 +9710,7 @@ static int tcp_recv_closed(tcp_descriptor* desc)
 	/* passive mode do not terminate port ! */
 	tcp_clear_input(desc);
 	if (desc->inet.exitf) {
-	    tcp_clear_output(desc);
-	    desc_close(INETP(desc));
+	    tcp_desc_close(desc);
 	} else {
 	    desc_close_read(INETP(desc));
 	}
@@ -9738,7 +9753,7 @@ static int tcp_recv_error(tcp_descriptor* desc, int err)
 	    driver_cancel_timer(desc->inet.port);
 	    tcp_clear_input(desc);
 	    if (desc->inet.exitf) {
-		desc_close(INETP(desc));
+		tcp_desc_close(desc);
 	    } else {
 		desc_close_read(INETP(desc));
 	    }
@@ -10387,9 +10402,6 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
 	set_busy_port(desc->inet.port, 0);
     }
 
-    tcp_clear_output(desc);
-    tcp_clear_input(desc);
-
     /*
      * We used to handle "expected errors" differently from unexpected ones.
      * Now we handle all errors in the same way (unless the show_econnreset
@@ -10410,10 +10422,10 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
 	if (desc->inet.exitf)
 	    driver_exit(desc->inet.port, 0);
 	else
-	    desc_close(INETP(desc));
+	    tcp_desc_close(desc);
     } else {
 	tcp_close_check(desc);
-	erl_inet_close(INETP(desc));
+	tcp_desc_close(desc);
 
 	if (desc->inet.caller) {
 	    if (show_econnreset)
