@@ -66,7 +66,7 @@
         <p>Jump function: equivalent to 2^64 calls</p>
 	<p>
 	  This is a corrected version of the previous default algorithm,
-	  that now has been superseeded by Xoroshiro116+ (<c>exrop</c>).
+	  that now has been superseded by Xoroshiro116+ (<c>exrop</c>).
 	  Since there is no native 58 bit rotate instruction this
 	  algorithm executes a little (say &lt; 15%) faster than <c>exrop</c>.
 	  See the 
