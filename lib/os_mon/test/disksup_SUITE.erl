@@ -30,7 +30,7 @@
 -export([port/1]).
 -export([terminate/1, unavailable/1, restart/1]).
 -export([otp_5910/1]).
--export([posix_only/1]).
+-export([posix_only/1, parse_df_output_posix/1, parse_df_output_susv3/1]).
 
 init_per_suite(Config) when is_list(Config) ->
     ok = application:start(os_mon),
@@ -59,7 +59,8 @@ suite() ->
 
 all() -> 
     Bugs = [otp_5910],
-    Always = [api, config, alarm, port, posix_only, unavailable] ++ Bugs,
+    Always = [api, config, alarm, port, posix_only, unavailable,
+              parse_df_output_posix, parse_df_output_susv3] ++ Bugs,
     case test_server:os_type() of
 	{unix, _OSname} -> Always;
 	{win32, _OSname} -> Always;
@@ -413,3 +414,36 @@ get_disk_data([{"none",0,0}=E]) -> [E];
 get_disk_data([{_,_,0}|Es]) -> get_disk_data(Es);
 get_disk_data([E|Es]) -> [E|get_disk_data(Es)];
 get_disk_data([]) -> [].
+
+%% @doc Test various expected inputs to 'df' command output (Linux/POSIX)
+parse_df_output_posix(Config) when is_list(Config) ->
+    PosixHdr = "Filesystem     1K-blocks     Used Available Use% Mounted on\n",
+    {error, _} = disksup:parse_df(PosixHdr, posix),
+    {error, _} = disksup:parse_df("", posix),
+    {error, _} = disksup:parse_df("\n\n", posix),
+
+    %% Have a simple example with no funny spaces in mount path
+    Posix1 = "tmpfs             498048     7288    490760   2% /run\n",
+    {ok, {498048, 2, "/run"}, ""} = disksup:parse_df(Posix1, posix),
+
+    %% Have a mount path with some spaces in it
+    Posix2 = "tmpfs             498048     7288    490760   2% /spaces 1 2\n",
+    {ok, {498048, 2, "/spaces 1 2"}, ""} = disksup:parse_df(Posix2, posix).
+
+%% @doc Test various expected inputs to 'df' command output (Darwin/SUSv3)
+parse_df_output_susv3(Config) when is_list(Config) ->
+    DarwinHdr = "Filesystem 1024-blocks      Used Available Capacity " ++
+                "iused      ifree %iused  Mounted on",
+    {error, _} = disksup:parse_df(DarwinHdr, susv3),
+    {error, _} = disksup:parse_df("", susv3),
+    {error, _} = disksup:parse_df("\n\n", susv3),
+
+    %% Have a simple example with no funny spaces in mount path
+    Darwin1 = "/dev/disk1   243949060 157002380  86690680    65% 2029724 " ++
+              "4292937555    0%   /\n",
+    {ok, {243949060, 65, "/"}, ""} = disksup:parse_df(Darwin1, susv3),
+
+    %% Have a mount path with some spaces in it
+    Darwin2 = "/dev/disk1   243949060 157002380  86690680    65% 2029724 " ++
+              "4292937555    0%   /spaces 1 2\n",
+    {ok, {243949060, 65, "/spaces 1 2"}, ""} = disksup:parse_df(Darwin2, susv3).
