@@ -2886,11 +2886,15 @@ nif_whereis_parallel(Config) when is_list(Config) ->
     true = lists:all(PidReg, Procs),
 
     %% tell them all to 'fire' as fast as we can
-    [P ! {Ref, send_proc} || {_, P, _} <- Procs],
+    repeat(10, fun(_) ->
+                       [P ! {Ref, send_proc} || {_, P, _} <- Procs]
+               end, void),
 
     %% each gets forwarded through two processes
-    true = lists:all(RecvNum, NSeq),
-    true = lists:all(RecvNum, NSeq),
+    repeat(10, fun(_) ->
+                       true = lists:all(RecvNum, NSeq),
+                       true = lists:all(RecvNum, NSeq)
+               end, void),
 
     %% tell them all to 'quit' by name
     [N ! {Ref, quit} || {N, _, _} <- Procs],
