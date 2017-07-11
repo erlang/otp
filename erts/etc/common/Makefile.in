@@ -70,10 +70,12 @@ endif
 ifeq ($(TARGET),win32)
 ifeq ($(TYPE),debug)
 CFLAGS = $(subst -O2,-g,@CFLAGS@ @DEFS@ $(TYPE_FLAGS) @WFLAGS@ -I$(SYSDIR) \
-		-I$(EMUDIR) $(ERTS_INCL) -DOTP_SYSTEM_VERSION=\"$(SYSTEM_VSN)\")
+            -I$(EMUDIR) -I$(COMSYSDIR) $(ERTS_INCL) \
+            -DOTP_SYSTEM_VERSION=\"$(SYSTEM_VSN)\")
 LDFLAGS += -g
 endif
 endif
+
 BINDIR    = $(ERL_TOP)/bin/$(TARGET)
 OBJDIR    = $(ERL_TOP)/erts/obj$(TYPEMARKER)/$(TARGET)
 EMUDIR    = $(ERL_TOP)/erts/emulator/beam
