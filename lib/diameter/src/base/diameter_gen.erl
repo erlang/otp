@@ -46,6 +46,9 @@
 -type grouped_avp() :: nonempty_improper_list(#diameter_avp{}, [avp()]).
 -type avp() :: non_grouped_avp() | grouped_avp().
 
+%% The arbitrary arity returned from dictionary avp_arity functions.
+-define(ANY, {0, '*'}).
+
 %% ---------------------------------------------------------------------------
 %% # encode_avps/3
 %% ---------------------------------------------------------------------------
@@ -88,17 +91,25 @@ encode(Name, Vals, Opts, Mod)
 encode(Name, Map, Opts, Mod)
   when is_map(Map) ->
     [enc(Name, F, A, V, Opts, Mod) || {F,A} <- Mod:avp_arity(Name),
-                                      V <- [maps:get(F, Map, def(A))]];
+                                      V <- [maps:get(F, Map, undefined)]];
 
 encode(Name, Rec, Opts, Mod) ->
     [encode(Name, F, V, Opts, Mod) || {F,V} <- Mod:'#get-'(Rec)].
 
 %% encode/5
 
+encode(Name, AvpName, Values, #{strict_arities := T} = Opts, Mod)
+  when T /= encode ->
+    enc(Name, AvpName, ?ANY, Values, Opts, Mod);
+
 encode(Name, AvpName, Values, Opts, Mod) ->
     enc(Name, AvpName, Mod:avp_arity(Name, AvpName), Values, Opts, Mod).
 
 %% enc/6
+
+enc(Name, AvpName, Arity, Values, #{strict_arities := T} = Opts, Mod)
+  when T /= encode, Arity /= ?ANY ->
+    enc(Name, AvpName, ?ANY, Values, Opts, Mod);
 
 enc(_, AvpName, 1, undefined, _, _) ->
     ?THROW([mandatory_avp_missing, AvpName]);
@@ -108,6 +119,9 @@ enc(Name, AvpName, 1, Value, Opts, Mod) ->
     enc1(Name, AvpName, H, Value, Opts, Mod);
 
 enc(_, _, {0,_}, [], _, _) ->
+    [];
+
+enc(_, _, _, undefined, _, _) ->
     [];
 
 enc(_, AvpName, _, T, _, _)
@@ -120,16 +134,20 @@ enc(Name, AvpName, {Min, Max}, Values, Opts, Mod) ->
 
 %% enc/9
 
+enc(Name, AvpName, H, Min, N, '*', Vs, Opts, Mod)
+  when Min =< N ->
+    [enc1(Name, AvpName, H, V, Opts, Mod) || V <- Vs];
+
+enc(Name, AvpName, H, _, _, _, Vs, #{strict_arities := T} = Opts, Mod)
+  when T /= encode ->
+    [enc1(Name, AvpName, H, V, Opts, Mod) || V <- Vs];
+
 enc(_, AvpName, _, Min, N, _, [], _, _)
   when N < Min ->
     ?THROW([repeated_avp_insufficient_arity, AvpName, Min, N]);
 
 enc(_, _, _, _, _, _, [], _, _) ->
     [];
-
-enc(Name, AvpName, H, Min, N, '*', Vs, Opts, Mod)
-  when Min =< N ->
-    [enc1(Name, AvpName, H, V, Opts, Mod) || V <- Vs];
 
 enc(_, AvpName, _, _, N, Max, _, _, _)
   when Max =< N ->
@@ -207,12 +225,12 @@ enc(AvpName, Value, Opts, Mod) ->
 decode_avps(Name, Recs, #{module := Mod, decode_format := Fmt} = Opts) ->
     {Avps, {Rec, AM, Failed}}
         = mapfoldl(fun(T,A) -> decode(Name, Opts, Mod, T, A) end,
-                   {newrec(Mod, Name, Fmt), #{}, []},
+                   {newrec(Fmt, Mod, Name, Opts), #{}, []},
                    Recs),
     %% AM counts the number of top-level AVPs, which arities/5 then
     %% uses when adding 500[59] errors.
     Arities = Mod:avp_arity(Name),
-    {reformat(Name, Rec, Arities, Mod, Fmt),
+    {reformat(Name, Rec, Arities, Mod, Opts, Fmt),
      Avps,
      Failed ++ arities(Arities, Opts, Mod, AM, Avps)}.
 
@@ -249,6 +267,12 @@ mapfoldl(_, Acc, [], List) ->
 %%      AVP MUST be included and contain a copy of the first instance of
 %%      the offending AVP that exceeded the maximum number of occurrences
 
+%% arities/5
+
+arities(_, #{strict_arities := T}, _, _, _)
+  when T /= decode ->
+    [];
+
 arities(Arities, Opts, Mod, AM, Avps) ->
     [Count, Map | More]
         = lists:foldl(fun({N,T}, A) -> more(N, T, Opts, Mod, AM, A) end,
@@ -258,7 +282,7 @@ arities(Arities, Opts, Mod, AM, Avps) ->
 
 %% more/6
 
-more(_Name, {0, '*'}, _Opts, _Mod, _AM, Acc) ->
+more(_Name, ?ANY, _Opts, _Mod, _AM, Acc) ->
     Acc;
 
 more(Name, {Mn, Mx}, Opts, Mod, AM, Acc) ->
@@ -331,16 +355,21 @@ empty_avp(Name, Opts, Mod) ->
 
 %% decode/5
 
-decode(Name,
-       Opts,
-       Mod,
-       #diameter_avp{code = Code, vendor_id = Vid}
-       = Avp,
-       {Rec, AM, Failed}) ->
-    T = Mod:avp_name(Code, Vid),
-    F = field(T),
-    A = Mod:avp_arity(Name, F),
-    decode(Name, Opts, Mod, T, A, Avp, {Rec, incr(field(F, A), AM), Failed}).
+decode(Name, Opts, Mod, Avp, Acc) ->
+    #diameter_avp{code = Code, vendor_id = Vid}
+        = Avp,
+    N = Mod:avp_name(Code, Vid),
+    case Opts of
+        #{strict_arities := T} when T /= decode ->
+            decode(Name, Opts, Mod, N, ?ANY, Avp, Acc);
+        _ ->
+            {Rec, AM, Failed} = Acc,
+            F = field(N),
+            A = Mod:avp_arity(Name, F),
+            decode(Name, Opts, Mod, N, A, Avp, {Rec,
+                                                incr(field(F, A), AM),
+                                                Failed})
+    end.
 
 %% field/1
 
@@ -565,6 +594,10 @@ set_failed(_, Opts) ->
 %% Don't know this AVP: see if it can be packed in an 'AVP' field
 %% undecoded. Note that the type field is 'undefined' in this case.
 
+decode_AVP(Name, Avp, #{strict_arities := T} = Opts, Mod, Acc)
+  when T /= decode ->
+    decode_AVP(Name, ?ANY, Avp, Opts, Mod, Acc);
+
 decode_AVP(Name, Avp, Opts, Mod, Acc) ->
     decode_AVP(Name, Mod:avp_arity(Name, 'AVP'), Avp, Opts, Mod, Acc).
 
@@ -600,6 +633,10 @@ pack_avp(_, Arity, #diameter_avp{name = AvpName} = Avp, _Opts, Mod, Acc) ->
     pack(Arity, AvpName, Avp, Mod, Acc).
 
 %% pack_AVP/5
+
+pack_AVP(Name, Avp, #{strict_arities := T} = Opts, Mod, Acc)
+  when T /= decode ->
+    pack_AVP(Name, ?ANY, Avp, Opts, Mod, Acc);
 
 pack_AVP(Name, Avp, Opts, Mod, Acc) ->
     pack_AVP(Name, Mod:avp_arity(Name, 'AVP'), Avp, Opts, Mod, Acc).
@@ -652,10 +689,17 @@ pack_AVP(Name, Arity, Avp, Opts, Mod, Acc) ->
 %% unrecognized mandatory AVP's and (2) the RFC 3588 grammar failed to
 %% allow for Failed-AVP in an answer-message.
 
+pack_AVP(_, #{strict_arities := T}, _, _)
+  when T /= decode ->
+    true;
+
+pack_AVP(_, _, 0, _) ->
+    false;
+
 pack_AVP(Name,
          #{strict_mbit := Strict,
            failed_avp := Failed},
-         Arity,
+         _,
          #diameter_avp{is_mandatory = M,
                        name = AvpName}) ->
 
@@ -665,12 +709,11 @@ pack_AVP(Name,
     %% possible, and failing because a mandatory AVP couldn't be
     %% packed into a dedicated field defeats that point.
 
-    0 < Arity andalso (Failed == true
-                       orelse Name == 'Failed-AVP'
-                       orelse (Name == 'answer-message'
-                               andalso AvpName == 'Failed-AVP')
-                       orelse not M
-                       orelse not Strict).
+    Failed == true
+        orelse Name == 'Failed-AVP'
+        orelse (Name == 'answer-message' andalso AvpName == 'Failed-AVP')
+        orelse not M
+        orelse not Strict.
 
 %% pack/5
 
@@ -789,15 +832,21 @@ empty(Name, #{module := Mod} = Opts) ->
 
 %% ------------------------------------------------------------------------------
 
-%% newrec/3
+%% newrec/4
 
-newrec(_, _, false = No) ->
+newrec(false = No, _, _, _) ->
     No;
 
-newrec(Mod, Name, record) ->
+newrec(record, Mod, Name, #{strict_arities := T})
+  when T /= decode ->
+    RecName = Mod:name2rec(Name),
+    Sz = Mod:'#info-'(RecName, size),
+    erlang:make_tuple(Sz, [], [{1, RecName}]);
+
+newrec(record, Mod, Name, _) ->
     newrec(Mod, Name);
 
-newrec(_, _, _) ->
+newrec(_, _, _, _) ->
     #{}.
 
 %% newrec/2
@@ -805,22 +854,24 @@ newrec(_, _, _) ->
 newrec(Mod, Name) ->
     Mod:'#new-'(Mod:name2rec(Name)).
 
-%% reformat/4
+%% reformat/5
 
-reformat(_, Map, Arities, _Mod, list) ->
+reformat(_, Map, Arities, _Mod, _Opts, list) ->
     [{F,V} || {F,_} <- Arities, #{F := V} <- [Map]];
 
-reformat(Name, Map, Arities, Mod, record_from_map) ->
+reformat(Name, Map, Arities, Mod, Opts, record_from_map) ->
+    SA = maps:get(strict_arities, Opts, decode),
     RecName = Mod:name2rec(Name),
-    list_to_tuple([RecName | [maps:get(F, Map, def(A)) || {F,A} <- Arities]]);
+    list_to_tuple([RecName | [maps:get(F, Map, def(A, SA))
+                              || {F,A} <- Arities]]);
 
-reformat(_, Rec, _, _, _) ->
+reformat(_, Rec, _, _, _, _) ->
     Rec.
 
-%% def/1
+%% def/2
 
-def(1) ->
+def(1, decode) ->
     undefined;
 
-def(_) ->
+def(_, _) ->
     [].

@@ -48,6 +48,7 @@
 
 -export_type([evaluable/0,
               decode_format/0,
+              strict_arities/0,
               restriction/0,
               message_length/0,
               remotes/0,
@@ -338,6 +339,11 @@ call(SvcName, App, Message) ->
     | false
     | record_from_map.
 
+-type strict_arities()
+   :: false
+    | encode
+    | decode.
+
 %% Options passed to start_service/2
 
 -type service_opt()
@@ -348,6 +354,7 @@ call(SvcName, App, Message) ->
     | {share_peers, remotes()}
     | {decode_format, decode_format()}
     | {string_decode, boolean()}
+    | {strict_arities, true | strict_arities()}
     | {strict_mbit, boolean()}
     | {incoming_maxlen, message_length()}
     | {use_shared_peers, remotes()}

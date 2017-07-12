@@ -78,6 +78,7 @@
          sequence     :: diameter:sequence(),
          codec        :: #{decode_format := diameter:decode_format(),
                            string_decode := boolean(),
+                           strict_arities => diameter:strict_arities(),
                            strict_mbit := boolean(),
                            incoming_maxlen := diameter:message_length()}}).
 %% Note that incoming_maxlen is currently handled in diameter_peer_fsm,
@@ -105,6 +106,7 @@ make_recvdata([SvcName, PeerT, Apps, SvcOpts | _]) ->
                      sequence = Mask,
                      codec = maps:with([decode_format,
                                         string_decode,
+                                        strict_arities,
                                         strict_mbit,
                                         ordered_encode,
                                         incoming_maxlen],
