@@ -125,7 +125,7 @@
 %% Positive number of testcases from which to select (randomly) from
 %% tc(), the list of testcases to run, or [] to run all. The random
 %% selection is to limit the time it takes for the suite to run.
--define(LIMIT, 42).
+-define(LIMIT, #{tcp => 42, sctp => 5}).
 
 -define(util, diameter_util).
 
@@ -269,12 +269,15 @@ all() ->
 -define(GROUPS, []).
 %-define(GROUPS, [[tcp,rfc6733,record,map,false,false,false,false]]).
 
+%% Issues with gen_sctp sporadically cause huge numbers of failed
+%% testcases when running testcases in parallel.
 groups() ->
     Names = names(),
     [{P, [P], Ts} || Ts <- [tc()], P <- [shuffle, parallel]]
         ++
-        [{?util:name(N), [], [{group, if S -> shuffle; not S -> parallel end}]}
-         || [_,_,_,_,S|_] = N <- Names]
+        [{?util:name(N), [], [{group, if T == sctp; S -> shuffle;
+                                         true         -> parallel end}]}
+         || [T,_,_,_,S|_] = N <- Names]
         ++
         [{T, [], [{group, ?util:name(N)} || N <- names(Names, ?GROUPS),
                                             T == hd(N)]}
@@ -348,7 +351,7 @@ init_per_group(Name, Config) ->
                        server_decoding = D,
                        server_sender = SS,
                        server_throttle = ST},
-            [{group, G}, {runlist, select()} | Config];
+            [{group, G}, {runlist, select(T)} | Config];
         _ ->
             Config
     end.
@@ -362,9 +365,10 @@ end_per_group(Name, Config)
 end_per_group(_, _) ->
     ok.
 
-select() ->
-    try rand:uniform(?LIMIT) of
-        N -> lists:sublist(?util:scramble(tc()), max(N,5))
+select(T) ->
+    try maps:get(T, ?LIMIT) of
+        N ->
+            lists:sublist(?util:scramble(tc()), max(5, rand:uniform(N)))
     catch
         error:_ -> ?LIMIT
     end.
