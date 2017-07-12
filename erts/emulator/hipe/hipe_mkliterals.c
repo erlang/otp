@@ -507,7 +507,7 @@ static const struct rts_param rts_params[] = {
 #endif
     },
     { 48, "P_BIF_CALLEE",
-#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
 	1, offsetof(struct process, hipe.bif_callee)
 #endif
     },

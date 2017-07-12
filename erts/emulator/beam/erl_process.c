@@ -82,7 +82,11 @@
 #define ERTS_FAKE_SCHED_BIND_PRINT_SORTED_CPU_DATA
 #endif
 
+#if defined(DEBUG) && 0
+#define HARDDEBUG
+#else
 #undef HARDDEBUG
+#endif
 
 #ifdef HARDDEBUG
 #define HARDDEBUG_RUNQS
@@ -656,7 +660,7 @@ dbg_chk_aux_work_val(erts_aint32_t value)
 static void do_handle_pending_exiters(ErtsProcList *);
 static void wake_scheduler(ErtsRunQueue *rq);
 
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
 int
 erts_smp_lc_runq_is_locked(ErtsRunQueue *runq)
 {
@@ -9241,25 +9245,6 @@ suspend_process_2(BIF_ALIST_2)
 
     smon = erts_add_or_lookup_suspend_monitor(&BIF_P->suspend_monitors,
 					      BIF_ARG_1);
-#ifndef ERTS_SMP /* no ERTS_SMP */
-
-    /* This is really a piece of cake without SMP support... */
-    if (!smon->active) {
-	erts_smp_atomic32_read_bor_nob(&suspendee->state, ERTS_PSFLG_SUSPENDED);
-	suspend_process(BIF_P, suspendee);
-	smon->active++;
-	res = am_true;
-    }
-    else if (unless_suspending)
-	res = am_false;
-    else if (smon->active == INT_MAX)
-	goto system_limit;
-    else {
-	smon->active++;
-	res = am_true;
-    }
-
-#else /* ERTS_SMP */
 
     /* ... but a little trickier with SMP support ... */
 
@@ -9377,7 +9362,6 @@ suspend_process_2(BIF_ALIST_2)
 	/* --- Synchronous suspend end ------------------------------------- */
     }
 
-#endif /* ERTS_SMP */
 #ifdef DEBUG
     {
 	erts_aint32_t state = erts_smp_atomic32_read_acqb(&suspendee->state);
@@ -14039,7 +14023,7 @@ void erts_halt(int code)
     }
 }
 
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
 int
 erts_dbg_check_halloc_lock(Process *p)
 {

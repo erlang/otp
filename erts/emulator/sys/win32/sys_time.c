@@ -187,8 +187,6 @@ os_monotonic_time_gtc32(void)
 {
     ErtsMonotonicTime mtime;
     Uint32 ticks = (Uint32) GetTickCount();
-    ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
-				      ticks);
     mtime = ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
 					  ticks);
     mtime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
@@ -205,8 +203,6 @@ os_times_gtc32(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
     ticks = (Uint32) GetTickCount();
     GetSystemTime(&st);
 
-    ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
-				      ticks);
     mtime = ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
 					  ticks);
     mtime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
@@ -265,8 +261,6 @@ sys_hrtime_gtc32(void)
 {
     ErtsSysHrTime time;
     Uint32 ticks = (Uint32) GetTickCount();
-    ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
-				      tick_count);
     time = (ErtsSysHrTime) ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
 							 ticks);
     time *= (ErtsSysHrTime) (1000 * 1000);

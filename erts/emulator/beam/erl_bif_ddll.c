@@ -50,9 +50,6 @@
 #include "dtrace-wrapper.h"
 #include "lttng-wrapper.h"
 
-#define DDLL_SMP 1
-
-
 /*
  * Local types
  */

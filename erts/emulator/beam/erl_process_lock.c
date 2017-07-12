@@ -1108,7 +1108,7 @@ erts_proc_lock_fin(Process *p)
     erts_mtx_destroy(&p->lock.status);
     erts_mtx_destroy(&p->lock.trace);
 #endif
-#if defined(ERTS_ENABLE_LOCK_COUNT) && defined(ERTS_SMP)
+#if defined(ERTS_ENABLE_LOCK_COUNT)
     erts_lcnt_proc_lock_destroy(p);
 #endif
 }

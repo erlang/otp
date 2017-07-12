@@ -84,9 +84,6 @@ typedef struct erl_bin_match_struct{
 #define ms_matchbuffer(_Ms) &(((ErlBinMatchState*) boxed_val(_Ms))->mb)
 
 
-#define ERL_BITS_REENTRANT
-
-
 /*
  * Reentrant API with the state passed as a parameter.
  * (Except when the current Process* already is a parameter.)

@@ -115,7 +115,7 @@ typedef struct {
     ErtsAlgndAsyncReadyQ *ready_queue;
 } ErtsAsyncData;
 
-#if defined(USE_THREADS) && defined(USE_VM_PROBES)
+#if defined(USE_VM_PROBES)
 
 /*
  * Some compilers, e.g. GCC 4.2.1 and -O3, will optimize away DTrace
@@ -503,7 +503,6 @@ erts_exit_flush_async(void)
     for (i = 0; i < erts_async_max_threads; i++)
 	erts_thr_join(async->queue[i].aq.thr_id, NULL);
 }
-
 
 int erts_check_async_ready(void *varq)
 {

@@ -43,7 +43,11 @@
  */
 #define ERTS_PORT_CALLBACK_VREDS (CONTEXT_REDS/20)
 
+#if defined(DEBUG) && 0
+#define ERTS_HARD_DEBUG_TASK_QUEUES
+#else
 #undef ERTS_HARD_DEBUG_TASK_QUEUES
+#endif
 
 #ifdef ERTS_HARD_DEBUG_TASK_QUEUES
 static void chk_task_queues(Port *pp, ErtsPortTask *execq, int processing_busy_queue);

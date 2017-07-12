@@ -132,7 +132,7 @@ static OSVERSIONINFO int_os_version;	/* Version information for Win32. */
     Disabled the use of CancelIoEx as its been seen to cause problem with some
     drivers. Not sure what to blame; faulty drivers or some form of invalid use.
 */
-#if defined(ERTS_SMP) && defined(USE_CANCELIOEX)
+#if defined(USE_CANCELIOEX)
 static BOOL (WINAPI *fpCancelIoEx)(HANDLE,LPOVERLAPPED);
 #endif
 
@@ -1165,7 +1165,7 @@ static int
 spawn_init(void)
 {
     int i;
-#if defined(ERTS_SMP) && defined(USE_CANCELIOEX)
+#if defined(USE_CANCELIOEX)
     HMODULE module = GetModuleHandle("kernel32");
     fpCancelIoEx = (BOOL (WINAPI *)(HANDLE,LPOVERLAPPED))
 	((module != NULL) ? GetProcAddress(module,"CancelIoEx") : NULL);

@@ -63,7 +63,7 @@ void (*erts_printf_unblock_fpe)(int) = NULL;
 #undef FWRITE
 #undef PUTC_ON_SMALL_WRITES
 
-#if defined(USE_THREADS) && defined(HAVE_FLOCKFILE)
+#if defined(HAVE_FLOCKFILE)
 #	define FLOCKFILE(FP)	flockfile(FP)
 #	define FUNLOCKFILE(FP)	funlockfile(FP)
 #	ifdef HAVE_PUTC_UNLOCKED
@@ -73,8 +73,7 @@ void (*erts_printf_unblock_fpe)(int) = NULL;
 #	ifdef HAVE_FWRITE_UNLOCKED
 #		define FWRITE	fwrite_unlocked
 #	endif
-#endif
-#if !defined(FLOCKFILE) || !defined(FUNLOCKFILE)
+#else
 #	define FLOCKFILE(FP)
 #	define FUNLOCKFILE(FP)
 #endif

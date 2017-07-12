@@ -88,7 +88,7 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     " [64-bit]"
 #endif
 				     " [smp:%beu:%beu]"
-#if defined(ERTS_DIRTY_SCHEDULERS) && defined(ERTS_SMP)
+#if defined(ERTS_DIRTY_SCHEDULERS)
 				     " [ds:%beu:%beu:%beu]"
 #endif
 #if defined(ERTS_DIRTY_SCHEDULERS_TEST)
@@ -2445,7 +2445,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 #endif
 
 	BIF_RET(res);
-#endif /* #ifndef ERTS_SMP */
+#endif /* #ifndef ERTS_OPCODE_COUNTER_SUPPORT */
     } else if (BIF_ARG_1 == am_wordsize) {
 	return make_small(sizeof(Eterm));
     } else if (BIF_ARG_1 == am_endian) {

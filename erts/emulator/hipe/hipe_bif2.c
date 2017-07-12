@@ -153,7 +153,7 @@ BIF_RETTYPE hipe_bifs_modeswitch_debug_off_0(BIF_ALIST_0)
     BIF_RET(am_true);
 }
 
-#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
 
 BIF_RETTYPE hipe_debug_bif_wrapper(NBIF_ALIST_1);
 
@@ -174,7 +174,7 @@ BIF_RETTYPE hipe_debug_bif_wrapper(NBIF_ALIST_1)
     return res;
 }
 
-#endif /* ERTS_ENABLE_LOCK_CHECK && ERTS_SMP */
+#endif /* ERTS_ENABLE_LOCK_CHECK*/
 
 
 BIF_RETTYPE hipe_bifs_debug_native_called_2(BIF_ALIST_2)

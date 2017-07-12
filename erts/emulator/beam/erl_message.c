@@ -39,7 +39,11 @@ ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(message_ref,
 				 ERL_MESSAGE_BUF_SZ,
 				 ERTS_ALC_T_MSG_REF)
 
+#if defined(DEBUG) && 0
+#define HARD_DEBUG
+#else
 #undef HARD_DEBUG
+#endif
 
 void
 init_message(void)

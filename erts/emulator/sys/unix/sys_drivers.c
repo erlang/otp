@@ -84,8 +84,6 @@ static Eterm forker_port;
 #define MAXIOV 16
 #endif
 
-#  define FDBLOCK 1
-
 /* Used by the fd driver iff the fd could not be set to non-blocking */
 typedef struct ErtsSysBlocking_ {
     ErlDrvPDL pdl;
@@ -423,7 +421,7 @@ create_driver_data(ErlDrvPort port_num,
             data += sizeof(*driver_data->ofd);
             init_fd_data(driver_data->ofd, ofd);
         }
-        if (is_blocking && FDBLOCK)
+        if (is_blocking)
             if (!set_blocking_data(driver_data)) {
                 erts_free(ERTS_ALC_T_DRV_TAB, driver_data);
                 return NULL;
@@ -1171,19 +1169,19 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
     ev->iov[0].iov_len = pb;
     ev->size += pb;
 
-    if (dd->blocking && FDBLOCK)
+    if (dd->blocking)
         driver_pdl_lock(dd->blocking->pdl);
 
     if ((sz = driver_sizeq(ix)) > 0) {
 	driver_enqv(ix, ev, 0);
 
-        if (dd->blocking && FDBLOCK)
+        if (dd->blocking)
             driver_pdl_unlock(dd->blocking->pdl);
 
 	if (sz + ev->size >= (1 << 13))
 	    set_busy_port(ix, 1);
     }
-    else if (!dd->blocking || !FDBLOCK) {
+    else if (!dd->blocking) {
         /* We try to write directly if the fd in non-blocking */
 	int vsize = ev->vsize > MAX_VSIZE ? MAX_VSIZE : ev->vsize;
 
@@ -1281,7 +1279,7 @@ static int port_inp_failure(ErtsSysDriverData *dd, int res)
         clear_fd_data(dd->ifd);
     }
 
-    if (dd->blocking && FDBLOCK) {
+    if (dd->blocking) {
         driver_pdl_lock(dd->blocking->pdl);
         if (driver_sizeq(dd->port_num) > 0) {
             driver_pdl_unlock(dd->blocking->pdl);

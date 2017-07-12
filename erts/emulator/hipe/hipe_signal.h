@@ -27,13 +27,9 @@
 
 #if defined(__i386__) || defined(__x86_64__)
 extern void hipe_signal_init(void);
-#else
-static __inline__ void hipe_signal_init(void) { }
-#endif
-
-#if defined(ERTS_SMP) && (defined(__i386__) || defined(__x86_64__))
 extern void hipe_thread_signal_init(void);
 #else
+static __inline__ void hipe_signal_init(void) { }
 static __inline__ void hipe_thread_signal_init(void) { }
 #endif
 

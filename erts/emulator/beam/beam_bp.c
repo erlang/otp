@@ -46,7 +46,7 @@
 #define ReAlloc(P, SIZ)		erts_realloc(ERTS_ALC_T_BPD, (P), (SZ))
 #define Free(P)			erts_free(ERTS_ALC_T_BPD, (P))
 
-#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
 #  define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
       if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,\
 					 __FILE__, __LINE__)

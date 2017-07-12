@@ -709,7 +709,7 @@ erl_drv_thread_join(ErlDrvTid tid, void **respp)
     return res;
 }
 
-#if defined(__DARWIN__) && defined(USE_THREADS) && defined(ERTS_SMP)
+#if defined(__DARWIN__)
 extern int erts_darwin_main_thread_pipe[2];
 extern int erts_darwin_main_thread_result_pipe[2];
 

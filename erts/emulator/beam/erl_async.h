@@ -27,15 +27,6 @@ extern int erts_async_max_threads;
 #define ERTS_ASYNC_THREAD_MAX_STACK_SIZE 8192	/* Kilo words */
 extern int erts_async_thread_suggested_stack_size;
 
-
-/*
- * With smp support we can choose to have, or not to
- * have an async ready queue.
- */
-#define ERTS_USE_ASYNC_READY_Q 1
-
-
-
 int erts_check_async_ready(void *);
 int erts_async_ready_clean(void *, void *);
 void *erts_get_async_ready_queue(Uint sched_id);

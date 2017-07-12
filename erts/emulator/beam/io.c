@@ -3380,7 +3380,7 @@ void erts_init_io(int port_tab_size,
     erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
 }
 
-#if defined(ERTS_ENABLE_LOCK_COUNT) && defined(ERTS_SMP)
+#if defined(ERTS_ENABLE_LOCK_COUNT)
 static void lcnt_enable_driver_lock_count(erts_driver_t *dp, int enable)
 {
     if (dp->lock) {
@@ -3469,7 +3469,8 @@ void erts_lcnt_update_port_locks(int enable) {
     }
 }
 
-#endif /* defined(ERTS_ENABLE_LOCK_COUNT) && defined(ERTS_SMP) */
+#endif /* defined(ERTS_ENABLE_LOCK_COUNT) */
+
 /*
  * Buffering of data when using line oriented I/O on ports
  */
@@ -3651,9 +3652,7 @@ deliver_result(Port *prt, Eterm sender, Eterm pid, Eterm res)
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
     ASSERT(!prt || prt->common.id == sender);
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
-    ASSERT(!prt || erts_lc_is_port_locked(prt));
-#endif
+    ERTS_LC_ASSERT(!prt || erts_lc_is_port_locked(prt));
 
     ASSERT(is_internal_port(sender) && is_internal_pid(pid));
 
@@ -7604,7 +7603,7 @@ int driver_monitor_process(ErlDrvPort drvport,
 {
     Port *prt;
     int ret;
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsSchedulerData *sched = erts_get_scheduler_data();
 #endif
 
@@ -7662,7 +7661,7 @@ int driver_demonitor_process(ErlDrvPort drvport,
 {
     Port *prt;
     int ret;
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsSchedulerData *sched = erts_get_scheduler_data();
 #endif
 
@@ -7703,7 +7702,7 @@ ErlDrvTermData driver_get_monitored_process(ErlDrvPort drvport,
 {
     Port *prt;
     ErlDrvTermData ret;
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsSchedulerData *sched = erts_get_scheduler_data();
 #endif
 
@@ -8066,12 +8065,8 @@ driver_system_info(ErlDrvSysInfo *sip, size_t si_size)
 	sip->driver_minor_version = ERL_DRV_EXTENDED_MINOR_VERSION;
 	sip->erts_version = ERLANG_VERSION;
 	sip->otp_release = ERLANG_OTP_RELEASE;
-	sip->thread_support = 
-	    1
-	    ;
-	sip->smp_support = 
-	    1
-	    ;
+	sip->thread_support = 1;
+	sip->smp_support = 1;
 
     }
 

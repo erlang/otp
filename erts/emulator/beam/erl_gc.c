@@ -60,6 +60,9 @@
 #  define ERTS_GC_ASSERT(B) ((void) 1)
 #endif
 
+#if defined(DEBUG) && 0
+#  define HARDDEBUG 1
+#endif
 
 /*
  * Returns number of elements in an array.

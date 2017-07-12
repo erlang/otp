@@ -247,7 +247,7 @@ typedef struct erts_proc_lock_t_ {
 #define erts_smp_proc_lock(P,L) erts_smp_proc_lock_x(P,L,__FILE__,__LINE__)
 #endif
 
-#if defined(ERTS_SMP) && defined (ERTS_ENABLE_LOCK_COUNT)
+#if defined (ERTS_ENABLE_LOCK_COUNT)
 
 void erts_lcnt_proc_lock_init(Process *p);
 void erts_lcnt_proc_lock_destroy(Process *p);
@@ -421,7 +421,7 @@ void erts_lcnt_proc_trylock(erts_proc_lock_t *lock, ErtsProcLocks locks, int res
 
 /* --- Process lock checking ----------------------------------------------- */
 
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
 #define ERTS_SMP_CHK_NO_PROC_LOCKS \
   erts_proc_lc_chk_no_proc_locks(__FILE__, __LINE__)
 #define ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(P) \
@@ -969,7 +969,7 @@ erts_smp_proc_lock_x(Process *p, ErtsProcLocks locks, char *file, unsigned int l
 erts_smp_proc_lock(Process *p, ErtsProcLocks locks)
 #endif 
 {
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_POSITION)
+#if defined(ERTS_ENABLE_LOCK_POSITION)
     erts_smp_proc_lock_x__(p,
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
 			 NULL,
@@ -985,7 +985,7 @@ erts_smp_proc_lock(Process *p, ErtsProcLocks locks)
 			 ERTS_PID2PIXLOCK(p->common.id),
 #endif /*ERTS_PROC_LOCK_ATOMIC_IMPL*/
 			 locks);
-#endif /*ERTS_SMP*/
+#endif /*ERTS_ENABLE_LOCK_POSITION*/
 }
 
 ERTS_GLB_INLINE void

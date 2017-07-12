@@ -3244,7 +3244,7 @@ reply_alloc_info(void *vair)
 	    case ERTS_ALC_INFO_A_DISABLED_EXEC:
 		break;
 	    case ERTS_ALC_INFO_A_MSEG_ALLOC:
-#if HAVE_ERTS_MSEG && defined(ERTS_SMP)
+#if HAVE_ERTS_MSEG
 		alloc_atom = erts_bld_atom(hpp, szp, "mseg_alloc");
 		ainfo = erts_mseg_info(sched_id, NULL, NULL,
                                        hpp != NULL, air->only_sz, hpp, szp);

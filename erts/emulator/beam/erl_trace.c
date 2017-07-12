@@ -2703,7 +2703,7 @@ send_to_tracer_nif(Process *c_p, ErtsPTabElementCommon *t_p,
                    Eterm t_p_id, ErtsTracerNif *tnif, enum ErtsTracerOpt topt,
                    Eterm tag, Eterm msg, Eterm extra, Eterm pam_result)
 {
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
     if (c_p) {
         /* We have to hold the main lock of the currently executing process */
         erts_proc_lc_chk_have_proc_locks(c_p, ERTS_PROC_LOCK_MAIN);
@@ -2756,7 +2756,7 @@ is_tracer_enabled(Process* c_p, ErtsProcLocks c_p_locks,
                   enum ErtsTracerOpt topt, Eterm tag) {
     Eterm nif_result;
 
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
     if (c_p)
         ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) == c_p_locks
                            || erts_thr_progress_is_blocking());
@@ -2841,7 +2841,7 @@ int erts_is_tracer_proc_enabled_send(Process* c_p, ErtsProcLocks c_p_locks,
 
 void erts_tracer_replace(ErtsPTabElementCommon *t_p, const ErtsTracer tracer)
 {
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
     if (is_internal_pid(t_p->id) && !erts_thr_progress_is_blocking()) {
         erts_proc_lc_chk_have_proc_locks((Process*)t_p, ERTS_PROC_LOCKS_ALL);
     } else if (is_internal_port(t_p->id)) {

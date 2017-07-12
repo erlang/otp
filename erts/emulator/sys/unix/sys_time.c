@@ -878,8 +878,6 @@ ErtsMonotonicTime
 erts_os_monotonic_time(void)
 {
     Uint32 ticks = get_tick_count();
-    ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
-				      ticks);
     return ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
 					 ticks) << internal_state.r.o.times_shift;
 }

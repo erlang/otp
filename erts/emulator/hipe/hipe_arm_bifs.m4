@@ -29,7 +29,7 @@ include(`hipe/hipe_arm_asm.m4')
 	.p2align 2
 	.arm
 
-`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+`#if defined(ERTS_ENABLE_LOCK_CHECK)
 #  define CALL_BIF(F)	ldr r14, =nbif_impl_##F; str r14, [r0, #P_BIF_CALLEE]; bl hipe_debug_bif_wrapper
 #else
 #  define CALL_BIF(F)	bl	nbif_impl_##F

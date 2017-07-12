@@ -96,9 +96,6 @@ typedef enum {
 
 #define ERTS_BIF_TIMER_SHORT_TIME 5000
 
-#  define ERTS_HLT_SMP_MEMBAR_LoadLoad_LoadStore \
-    ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore)
-
 /* Bit 0 to 9 contains scheduler id (see mask below) */
 #define ERTS_TMR_ROFLG_HLT		(((Uint32) 1) << 10)
 #define ERTS_TMR_ROFLG_BIF_TMR		(((Uint32) 1) << 11)
@@ -958,7 +955,7 @@ static ERTS_INLINE void
 tw_timer_dec_refc(ErtsTWTimer *tmr)
 {
     if (erts_smp_atomic32_dec_read_relb(&tmr->head.refc) == 0) {
-	ERTS_HLT_SMP_MEMBAR_LoadLoad_LoadStore;
+        ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
 	schedule_tw_timer_destroy(tmr);
     }
 }
@@ -1168,7 +1165,7 @@ static ERTS_INLINE void
 hl_timer_dec_refc(ErtsHLTimer *tmr, Uint32 roflgs)
 {
     if (erts_smp_atomic32_dec_read_relb(&tmr->head.refc) == 0) {
-	ERTS_HLT_SMP_MEMBAR_LoadLoad_LoadStore;
+        ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
 	schedule_hl_timer_destroy(tmr, roflgs);
     }
 }
@@ -1185,7 +1182,7 @@ static void handle_canceled_queue(ErtsSchedulerData *esdp,
 static ERTS_INLINE void
 check_canceled_queue(ErtsSchedulerData *esdp, ErtsHLTimerService *srv)
 {
-#if defined(ERTS_SMP) && ERTS_TMR_CHECK_CANCEL_ON_CREATE
+#if ERTS_TMR_CHECK_CANCEL_ON_CREATE
     ErtsHLTCncldTmrQ *cq = &srv->canceled_queue;
     if (cq->head.first != cq->head.unref_end)
 	handle_canceled_queue(esdp, cq, 1,
@@ -1778,7 +1775,7 @@ cq_check_incoming(ErtsSchedulerData *esdp, ErtsHLTCncldTmrQ *cq)
 	cq->head.next.thr_progress_reached = 1;
 	/* Move unreferenced end pointer forward... */
 
-	ERTS_HLT_SMP_MEMBAR_LoadLoad_LoadStore;
+        ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
 
 	cq->head.unref_end = cq->head.next.unref_end;
 

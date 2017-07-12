@@ -39,7 +39,7 @@ define(HANDLE_GOT_MBUF,`
 3:	call nbif_$1_gc_after_bif	/* `HANDLE_GOT_MBUF' */
 	jmp 2b')
 
-`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+`#if defined(ERTS_ENABLE_LOCK_CHECK)
 #  define CALL_BIF(F) \
 		movq CSYM(nbif_impl_##F)@GOTPCREL(%rip), %r11; \
 		movq %r11, P_BIF_CALLEE(P); \

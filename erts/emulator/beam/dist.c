@@ -3547,7 +3547,7 @@ remove_nodes_monitors(Process *c_p, Uint32 opts, int all)
 void
 erts_delete_nodes_monitors(Process *c_p, ErtsProcLocks locks)
 {
-#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
     if (c_p) {
 	ErtsProcLocks might_unlock = locks & ~ERTS_PROC_LOCK_MAIN;
 	if (might_unlock)

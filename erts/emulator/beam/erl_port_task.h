@@ -201,7 +201,7 @@ erts_port_task_sched_unlock(ErtsPortTaskSched *ptsp)
 ERTS_GLB_INLINE int
 erts_port_task_sched_lock_is_locked(ErtsPortTaskSched *ptsp)
 {
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
     return erts_lc_mtx_is_locked(&ptsp->mtx);
 #else
     return 0;

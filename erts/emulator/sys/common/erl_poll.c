@@ -144,19 +144,10 @@ int ERTS_SELECT(int nfds, ERTS_fd_set *readfds, ERTS_fd_set *writefds,
 
 #define ERTS_POLL_USE_BATCH_UPDATE_POLLSET (ERTS_POLL_USE_DEVPOLL \
 					    || ERTS_POLL_USE_KQUEUE)
-#define ERTS_POLL_USE_UPDATE_REQUESTS_QUEUE \
-   (defined(ERTS_SMP) || ERTS_POLL_USE_KERNEL_POLL || ERTS_POLL_USE_POLL)
 
-#define ERTS_POLL_USE_CONCURRENT_UPDATE \
-   (defined(ERTS_SMP) && ERTS_POLL_USE_EPOLL)
+#define ERTS_POLL_USE_CONCURRENT_UPDATE ERTS_POLL_USE_EPOLL
 
 #define ERTS_POLL_COALESCE_KP_RES (ERTS_POLL_USE_KQUEUE || ERTS_POLL_USE_EPOLL)
-
-#  define ERTS_POLL_ASYNC_INTERRUPT_SUPPORT 0
-
-#define ERTS_POLL_USE_WAKEUP_PIPE \
-   (ERTS_POLL_ASYNC_INTERRUPT_SUPPORT || defined(USE_THREADS))
-
 
 #define ERTS_POLLSET_LOCK(PS) \
   erts_smp_mtx_lock(&(PS)->mtx)
@@ -1818,7 +1809,7 @@ save_poll_result(ErtsPollSet ps, ErtsPollResFd pr[], int max_res,
 
 #if ERTS_POLL_USE_POLL	/* --- poll -------------------------------- */
 	int res = 0;
-#if ERTS_POLL_USE_WAKEUP_PIPE && !ERTS_POLL_USE_FALLBACK 
+#if !ERTS_POLL_USE_FALLBACK
 	int wake_fd = ps->wake_fds[0];
 #endif
 	int i, first_ix, end_ix;
@@ -1869,7 +1860,7 @@ save_poll_result(ErtsPollSet ps, ErtsPollResFd pr[], int max_res,
 
 #elif ERTS_POLL_USE_SELECT	/* --- select ------------------------------ */
 	int res = 0;
-#if ERTS_POLL_USE_WAKEUP_PIPE && !ERTS_POLL_USE_FALLBACK 
+#if !ERTS_POLL_USE_FALLBACK
 	int wake_fd = ps->wake_fds[0];
 #endif
 	int fd, first_fd, end_fd;

@@ -361,7 +361,7 @@ void erts_port_free(Port *);
 void erts_fire_port_monitor(Port *prt, Eterm ref);
 int erts_port_handle_xports(Port *);
 
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
 int erts_lc_is_port_locked(Port *);
 #endif
 

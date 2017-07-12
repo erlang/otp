@@ -190,7 +190,7 @@ void erts_init_node_tables(int);
 void erts_node_table_info(fmtfn_t, void *);
 void erts_print_node_info(fmtfn_t, void *, Eterm, int*, int*);
 Eterm erts_get_node_and_dist_references(struct process *);
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
 int erts_lc_is_de_rwlocked(DistEntry *);
 int erts_lc_is_de_rlocked(DistEntry *);
 #endif

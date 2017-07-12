@@ -694,7 +694,7 @@ extern ErtsAlignedSchedulerData *erts_aligned_dirty_io_scheduler_data;
 #endif
 
 
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
 int erts_smp_lc_runq_is_locked(ErtsRunQueue *);
 #endif
 
@@ -1506,7 +1506,7 @@ extern int erts_system_profile_ts_type;
 	}						\
     } while (0)
 
-#if defined(ERTS_DIRTY_SCHEDULERS) && defined(ERTS_SMP)
+#if defined(ERTS_DIRTY_SCHEDULERS)
 #define ERTS_NUM_DIRTY_CPU_RUNQS 1
 #define ERTS_NUM_DIRTY_IO_RUNQS 1
 #else
@@ -1763,7 +1763,7 @@ void erts_schedule_ets_free_fixation(Eterm pid, struct db_fixation*);
 void erts_schedule_flush_trace_messages(Process *proc, int force_on_proc);
 int erts_flush_trace_messages(Process *c_p, ErtsProcLocks locks);
 
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
 int erts_dbg_check_halloc_lock(Process *p);
 #endif
 void
@@ -1931,7 +1931,7 @@ erts_schedule_dirty_sys_execution(Process *c_p)
 
 #endif
 
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
 
 #define ERTS_PROCESS_LOCK_ONLY_LOCK_CHECK_PROTO__
 #include "erl_process_lock.h"
@@ -1961,7 +1961,7 @@ ERTS_GLB_INLINE void *
 erts_psd_get(Process *p, int ix)
 {
     ErtsPSD *psd;
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsProcLocks locks = erts_proc_lc_my_proc_locks(p);
     if (ERTS_LC_PSD_ANY_LOCK == erts_psd_required_locks[ix].get_locks)
 	ERTS_SMP_LC_ASSERT(locks || erts_thr_progress_is_blocking());
@@ -1984,7 +1984,7 @@ ERTS_GLB_INLINE void *
 erts_psd_set(Process *p, int ix, void *data)
 {
     ErtsPSD *psd;
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsProcLocks locks = erts_proc_lc_my_proc_locks(p);
     erts_aint32_t state = state = erts_smp_atomic32_read_nob(&p->state);
     if (!(state & ERTS_PSFLG_FREE)) {
@@ -2491,7 +2491,7 @@ extern int erts_disable_proc_not_running_opt;
 
 /* Minimum NUMBER of processes for a small system to start */
 #define ERTS_MIN_PROCESSES		1024
-#if defined(ERTS_SMP) && ERTS_MIN_PROCESSES < ERTS_NO_OF_PIX_LOCKS
+#if ERTS_MIN_PROCESSES < ERTS_NO_OF_PIX_LOCKS
 #undef ERTS_MIN_PROCESSES
 #define ERTS_MIN_PROCESSES		ERTS_NO_OF_PIX_LOCKS
 #endif

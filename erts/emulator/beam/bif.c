@@ -4729,7 +4729,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 		      ref,
 		      old ? am_true : am_false);
 	}
-#if defined(ERTS_SMP) && defined(ERTS_DIRTY_SCHEDULERS)
+#if defined(ERTS_DIRTY_SCHEDULERS)
     } else if (BIF_ARG_1 == am_dirty_cpu_schedulers_online) {
 	Sint old_no;
 	if (!is_small(BIF_ARG_2))
@@ -4987,7 +4987,7 @@ static ERTS_INLINE int
 skip_current_msgq(Process *c_p)
 {
     int res;
-#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
     erts_proc_lc_chk_only_proc_main(c_p);
 #endif
 

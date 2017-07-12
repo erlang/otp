@@ -30,7 +30,6 @@ typedef struct {
     int check_interval;
 } ErtsOsMonotonicTimeExtendState;
 
-#  define ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(S, RT) ((void) 1)
 #  define ERTS_EXTEND_OS_MONOTONIC_TIME(S, RT)				\
     ((((ErtsMonotonicTime)						\
        erts_atomic32_read_nob(&((S)->extend[((int) ((RT) >> 31)) & 1]))) \

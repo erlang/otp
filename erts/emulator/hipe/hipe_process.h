@@ -49,7 +49,7 @@ struct hipe_process_state {
 #ifdef NO_FPE_SIGNALS
     double float_result;        /* to be checked for inf/NaN by hipe_emulate_fpe */ 
 #endif
-#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
     void (*bif_callee)(void);   /* When calling BIF's via debug wrapper */
 #endif
 #ifdef DEBUG

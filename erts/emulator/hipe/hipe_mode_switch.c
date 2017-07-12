@@ -36,7 +36,7 @@
 #include "hipe_stack.h"
 #include "hipe_bif0.h"	/* hipe_mfa_info_table_init() */
 
-#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
 #    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
         if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,	\
 					   __FILE__, __LINE__)
@@ -633,6 +633,28 @@ static unsigned hipe_next_nstack_size(unsigned size)
     return size ? size * 2 : HIPE_INITIAL_NSTACK_SIZE;
 }
 
+#if 0 && defined(HIPE_NSTACK_GROWS_UP)
+void hipe_inc_nstack(Process *p)
+{
+    Eterm *old_nstack = p->hipe.nstack;
+    unsigned old_size = p->hipe.nstend - old_nstack;
+    unsigned new_size = hipe_next_nstack_size(old_size);
+    Eterm *new_nstack = erts_realloc(ERTS_ALC_T_HIPE,
+				     (char *) old_nstack,
+				     new_size*sizeof(Eterm));
+    p->hipe.nstend = new_nstack + new_size;
+    if (new_nstack != old_nstack) {
+	p->hipe.nsp = new_nstack + (p->hipe.nsp - old_nstack);
+	p->hipe.nstack = new_nstack;
+	if (p->hipe.nstgraylim)
+	    p->hipe.nstgraylim =
+		new_nstack + (p->hipe.nstgraylim - old_nstack);
+	if (p->hipe.nstblacklim)
+	    p->hipe.nstblacklim =
+		new_nstack + (p->hipe.nstblacklim - old_nstack);
+    }
+}
+#endif
 
 #if defined(HIPE_NSTACK_GROWS_DOWN)
 void hipe_inc_nstack(Process *p)

@@ -2450,9 +2450,6 @@ extern char end;
 #elif defined(HAVE__END_SYMBOL)
 extern char _end;
 #endif
-#ifndef USE_THREADS
-#undef ETHR_PTHREADS
-#endif
 
 #ifdef ETHR_PTHREADS
 #  ifdef ETHR_HAVE_PTHREAD_H
@@ -2684,10 +2681,6 @@ extern char end;
 extern char _end;
 #else
 #  error no 'end' nor '_end'
-#endif
-
-#ifndef USE_THREADS
-#undef ETHR_PTHREADS
 #endif
 
 #ifdef ETHR_PTHREADS
@@ -4981,7 +4974,7 @@ AH_BOTTOM([
 # endif
 #endif
 
-#if defined(DEBUG) && defined(USE_THREADS) && !defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(DEBUG) && !defined(ERTS_ENABLE_LOCK_CHECK)
 #define ERTS_ENABLE_LOCK_CHECK 1
 #endif
 ])
