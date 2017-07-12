@@ -25,13 +25,14 @@
 %%-define(CHECK(Exp,Got), Exp = Got).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0, groups/0,
          init_per_group/2, end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload_error/1, upgrade/1, heap_frag/1,
          t_on_load/1,
-         select/1,
+         select/1, select_steal/1,
          monitor_process_a/1,
          monitor_process_b/1,
          monitor_process_c/1,
@@ -42,9 +43,9 @@
 	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1,
 	 maps/1,
 	 api_macros/1,
-	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1, 
+	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1,
 	 resource_takeover/1,
-	 threading/1, send/1, send2/1, send3/1, send_threaded/1, neg/1, 
+	 threading/1, send/1, send2/1, send3/1, send_threaded/1, neg/1,
 	 is_checks/1,
 	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1,
 	 otp_9828/1,
@@ -79,7 +80,7 @@ all() ->
     [{group, G} || G <- api_groups()]
         ++
     [reload_error, heap_frag, types, many_args,
-     select,
+     select, select_steal,
      {group, monitor},
      monitor_frenzy,
      hipe,
@@ -144,7 +145,8 @@ init_per_testcase(nif_whereis_threaded, Config) ->
         true -> Config;
         false -> {skip, "No thread support"}
     end;
-init_per_testcase(select, Config) ->
+init_per_testcase(Select, Config) when Select =:= select;
+                                       Select =:= select_steal ->
     case os:type() of
         {win32,_} ->
             {skip, "Test not yet implemented for windows"};
@@ -152,6 +154,9 @@ init_per_testcase(select, Config) ->
             Config
     end;
 init_per_testcase(_Case, Config) ->
+    %% Clear any resource dtor data before test starts in case another tc
+    %% left it in a bad state
+    catch last_resource_dtor_call(),
     Config.
 
 end_per_testcase(t_on_load, _Config) ->
@@ -590,7 +595,71 @@ select_3(_Config) ->
     {_,_,2} = last_resource_dtor_call(),
     ok.
 
-check_stop_ret(?ERL_NIF_SELECT_STOP_CALLED) -> ok;    
+%% @doc The stealing child process for the select_steal test. Duplicates given
+%% W/RFds and runs select on them to steal
+select_steal_child_process(Parent, RFd) ->
+    %% Duplicate the resource with the same FD
+    {R2Fd, _R2Ptr} = dupe_resource_nif(RFd),
+    Ref2 = make_ref(),
+
+    %% Try to select from the child pid (steal from parent)
+    ?assertEqual(0, select_nif(R2Fd, ?ERL_NIF_SELECT_READ, R2Fd, null, Ref2)),
+    ?assertEqual([], flush(0)),
+    ?assertEqual(eagain, read_nif(R2Fd, 1)),
+
+    %% Check that now events arrive to this temporary process
+    Parent ! {self(), stage1}, % signal parent to send the <<"stolen1">>
+
+    %% Receive <<"stolen1">> via enif_select
+    ?assertEqual(0, select_nif(R2Fd, ?ERL_NIF_SELECT_READ, R2Fd, null, Ref2)),
+    ?assertMatch([{select, R2Fd, Ref2, ready_input}], flush()),
+    ?assertEqual(<<"stolen1">>, read_nif(R2Fd, 7)),
+
+    clear_select_nif(R2Fd),
+
+    % do not do this here - stop_selecting(R2Fd, R2Rsrc, Ref2),
+    Parent ! {self(), done}.
+
+%% @doc Similar to select/1 test, make a double ended pipe. Then try to steal
+%% the socket, see what happens.
+select_steal(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+
+    Ref = make_ref(),
+    {{RFd, RPtr}, {WFd, WPtr}} = pipe_nif(),
+
+    %% Bind the socket to current pid in enif_select
+    ?assertEqual(0, select_nif(RFd, ?ERL_NIF_SELECT_READ, RFd, null, Ref)),
+    ?assertEqual([], flush(0)),
+
+    %% Spawn a process and do some stealing
+    Parent = self(),
+    Pid = spawn_link(fun() -> select_steal_child_process(Parent, RFd) end),
+
+    %% Signal from the child to send the first message
+    {Pid, stage1} = receive_any(),
+    ?assertEqual(ok, write_nif(WFd, <<"stolen1">>)),
+
+    ?assertMatch([{Pid, done}], flush(1)),  % synchronize with the child
+
+    %% Try to select from the parent pid (steal back)
+    ?assertEqual(0, select_nif(RFd, ?ERL_NIF_SELECT_READ, RFd, Pid, Ref)),
+
+    %% Ensure that no data is hanging and close.
+    %% Rfd is stolen at this point.
+    check_stop_ret(select_nif(WFd, ?ERL_NIF_SELECT_STOP, WFd, null, Ref)),
+    ?assertMatch([{fd_resource_stop, WPtr, _}], flush()),
+    {1, {WPtr, 1}} = last_fd_stop_call(),
+
+    check_stop_ret(select_nif(RFd, ?ERL_NIF_SELECT_STOP, RFd, null, Ref)),
+    ?assertMatch([{fd_resource_stop, RPtr, _}], flush()),
+    {1, {RPtr, 1}} = last_fd_stop_call(),
+
+    ?assert(is_closed_nif(WFd)),
+
+    ok.
+
+check_stop_ret(?ERL_NIF_SELECT_STOP_CALLED) -> ok;
 check_stop_ret(?ERL_NIF_SELECT_STOP_SCHEDULED) -> ok.
 
 write_full(W, C) ->
@@ -3193,10 +3262,12 @@ binary_to_term_nif(_, _, _) -> ?nif_stub.
 port_command_nif(_, _) -> ?nif_stub.
 format_term_nif(_,_) -> ?nif_stub.
 select_nif(_,_,_,_,_) -> ?nif_stub.
+dupe_resource_nif(_) -> ?nif_stub.
 pipe_nif() -> ?nif_stub.
 write_nif(_,_) -> ?nif_stub.
 read_nif(_,_) -> ?nif_stub.
 is_closed_nif(_) -> ?nif_stub.
+clear_select_nif(_) -> ?nif_stub.
 last_fd_stop_call() -> ?nif_stub.
 alloc_monitor_resource_nif() -> ?nif_stub.
 monitor_process_nif(_,_,_,_) -> ?nif_stub.

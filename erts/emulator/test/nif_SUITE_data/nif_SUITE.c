@@ -2448,6 +2448,13 @@ static int get_fd(ErlNifEnv* env, ERL_NIF_TERM term, struct fd_resource** rsrc)
     return 1;
 }
 
+/* Returns: badarg
+ *    Or an enif_select result, which is a combination of bits:
+ *    ERL_NIF_SELECT_STOP_CALLED = 1
+ *    ERL_NIF_SELECT_STOP_SCHEDULED = 2
+ *    ERL_NIF_SELECT_INVALID_EVENT = 4
+ *    ERL_NIF_SELECT_FAILED = 8
+ */
 static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     struct fd_resource* fdr;
@@ -2479,6 +2486,9 @@ static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 }
 
 #ifndef __WIN32__
+/*
+ * Create a read-write pipe with two fds (to read and to write)
+ */
 static ERL_NIF_TERM pipe_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     struct fd_resource* read_rsrc;
@@ -2512,6 +2522,30 @@ static ERL_NIF_TERM pipe_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     return enif_make_tuple2(env,
                enif_make_tuple2(env, read_fd, make_pointer(env, read_rsrc)),
                enif_make_tuple2(env, write_fd, make_pointer(env, write_rsrc)));
+}
+
+/*
+ * Create (dupe) of a resource with the same fd, to test stealing
+ */
+static ERL_NIF_TERM dupe_resource_nif(ErlNifEnv* env, int argc,
+                                      const ERL_NIF_TERM argv[]) {
+    struct fd_resource* orig_rsrc;
+
+    if (!get_fd(env, argv[0], &orig_rsrc)) {
+        return enif_make_badarg(env);
+    } else {
+        struct fd_resource* new_rsrc;
+        ERL_NIF_TERM new_fd;
+
+        new_rsrc = enif_alloc_resource(fd_resource_type,
+                                       sizeof(struct fd_resource));
+        new_rsrc->fd = orig_rsrc->fd;
+        new_rsrc->was_selected = 0;
+        new_fd = enif_make_resource(env, new_rsrc);
+        enif_release_resource(new_rsrc);
+
+        return enif_make_tuple2(env, new_fd, make_pointer(env, new_rsrc));
+    }
 }
 
 static ERL_NIF_TERM write_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -2589,6 +2623,20 @@ static ERL_NIF_TERM is_closed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
     return fdr->fd < 0 ? atom_true : atom_false;
 }
+
+static ERL_NIF_TERM clear_select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    struct fd_resource* fdr = NULL;
+
+    if (!get_fd(env, argv[0], &fdr))
+        return enif_make_badarg(env);
+
+    fdr->fd = -1;
+    fdr->was_selected = 0;
+
+    return atom_ok;
+}
+
 #endif /* !__WIN32__ */
 
 
@@ -3476,8 +3524,10 @@ static ErlNifFunc nif_funcs[] =
 #ifndef __WIN32__
     {"pipe_nif", 0, pipe_nif},
     {"write_nif", 2, write_nif},
+    {"dupe_resource_nif", 1, dupe_resource_nif},
     {"read_nif", 2, read_nif},
     {"is_closed_nif", 1, is_closed_nif},
+    {"clear_select_nif", 1, clear_select_nif},
 #endif
     {"last_fd_stop_call", 0, last_fd_stop_call},
     {"alloc_monitor_resource_nif", 0, alloc_monitor_resource_nif},
